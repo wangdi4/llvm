@@ -91,6 +91,11 @@ def NoImplicitFloat : EnumAttr<"noimplicitfloat">;
 /// inline=never.
 def NoInline : EnumAttr<"noinline">;
 
+// if INTEL_CUSTOMIZATION
+def InlineHintRecursive : EnumAttr<"inlinehint_recursive">;
+def AlwaysInlineRecursive : EnumAttr<"alwaysinline_recursive">;
+// endif INTEL_CUSTOMIZATION
+
 /// Function is called early and/or often, so lazy binding isn't worthwhile.
 def NonLazyBind : EnumAttr<"nonlazybind">;
 
@@ -136,6 +141,9 @@ def SExt : EnumAttr<"signext">;
 /// Alignment of stack for function (3 bits)  stored as log2 of alignment with
 /// +1 bias 0 means unaligned (different from alignstack=(1)).
 def StackAlignment : EnumAttr<"alignstack">;
+
+/// Function can be speculated.
+def Speculatable : EnumAttr<"speculatable">;
 
 /// Stack protection.
 def StackProtect : EnumAttr<"ssp">;

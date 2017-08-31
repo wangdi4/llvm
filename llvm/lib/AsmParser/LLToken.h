@@ -155,6 +155,7 @@ enum Kind {
   kw_hhvm_ccc,
   kw_cxx_fast_tlscc,
   kw_amdgpu_vs,
+  kw_amdgpu_hs,
   kw_amdgpu_gs,
   kw_amdgpu_ps,
   kw_amdgpu_cs,
@@ -187,6 +188,8 @@ enum Kind {
   kw_noduplicate,
   kw_noimplicitfloat,
   kw_noinline,
+  kw_inlinehint_recursive, // INTEL
+  kw_alwaysinline_recursive, // INTEL
   kw_norecurse,
   kw_nonlazybind,
   kw_nonnull,
@@ -200,6 +203,7 @@ enum Kind {
   kw_returned,
   kw_returns_twice,
   kw_signext,
+  kw_speculatable,
   kw_ssp,
   kw_sspreq,
   kw_sspstrong,

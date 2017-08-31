@@ -80,7 +80,7 @@ public:
       return;
     }
     if (Ty.isVector()) {
-      OS << "LLT::vector(" << Ty.getNumElements() << ", " << Ty.getSizeInBits()
+      OS << "LLT::vector(" << Ty.getNumElements() << ", " << Ty.getScalarSizeInBits()
          << ")";
       return;
     }
@@ -199,21 +199,19 @@ public:
   void emitCxxCapturedInsnList(raw_ostream &OS);
   void emitCxxCaptureStmts(raw_ostream &OS, StringRef Expr);
 
-  void emit(raw_ostream &OS,
-            std::map<Record *, SubtargetFeatureInfo, LessRecordByID>
-                SubtargetFeatures);
+void emit(raw_ostream &OS, SubtargetFeatureInfoMap SubtargetFeatures);
 
-  /// Compare the priority of this object and B.
-  ///
-  /// Returns true if this object is more important than B.
-  bool isHigherPriorityThan(const RuleMatcher &B) const;
+/// Compare the priority of this object and B.
+///
+/// Returns true if this object is more important than B.
+bool isHigherPriorityThan(const RuleMatcher &B) const;
 
-  /// Report the maximum number of temporary operands needed by the rule
-  /// matcher.
-  unsigned countRendererFns() const;
+/// Report the maximum number of temporary operands needed by the rule
+/// matcher.
+unsigned countRendererFns() const;
 
-  // FIXME: Remove this as soon as possible
-  InstructionMatcher &insnmatcher_front() const { return *Matchers.front(); }
+// FIXME: Remove this as soon as possible
+InstructionMatcher &insnmatcher_front() const { return *Matchers.front(); }
 };
 
 template <class PredicateTy> class PredicateListMatcher {
@@ -777,6 +775,8 @@ public:
   void emitCxxCaptureStmts(raw_ostream &OS, RuleMatcher &Rule,
                            StringRef OperandExpr) const override {
     OS << "if (!" << OperandExpr + ".isReg())\n"
+       << "  return false;\n"
+       << "if (TRI.isPhysicalRegister(" << OperandExpr + ".getReg()))\n"
        << "  return false;\n";
     std::string InsnVarName = Rule.defineInsnVar(
         OS, *InsnMatcher,
@@ -856,7 +856,9 @@ public:
   }
 
   void emitCxxRenderStmts(raw_ostream &OS, RuleMatcher &Rule) const override {
-    OS << "    MIB.addReg(" << RegisterDef->getValueAsString("Namespace")
+    OS << "    MIB.addReg(" << (RegisterDef->getValue("Namespace")
+                                    ? RegisterDef->getValueAsString("Namespace")
+                                    : "")
        << "::" << RegisterDef->getName() << ");\n";
   }
 };
@@ -951,6 +953,9 @@ private:
 
   /// True if the instruction can be built solely by mutating the opcode.
   bool canMutate() const {
+    if (OperandRenderers.size() != Matched.getNumOperands())
+      return false;
+
     for (const auto &Renderer : enumerate(OperandRenderers)) {
       if (const auto *Copy = dyn_cast<CopyRenderer>(&*Renderer.value())) {
         const OperandMatcher &OM = Matched.getOperand(Copy->getSymbolicName());
@@ -986,12 +991,16 @@ public:
            << ");\n";
 
         for (auto Def : I->ImplicitDefs) {
-          auto Namespace = Def->getValueAsString("Namespace");
+          auto Namespace = Def->getValue("Namespace")
+                               ? Def->getValueAsString("Namespace")
+                               : "";
           OS << "    MIB.addDef(" << Namespace << "::" << Def->getName()
              << ", RegState::Implicit);\n";
         }
         for (auto Use : I->ImplicitUses) {
-          auto Namespace = Use->getValueAsString("Namespace");
+          auto Namespace = Use->getValue("Namespace")
+                               ? Use->getValueAsString("Namespace")
+                               : "";
           OS << "    MIB.addUse(" << Namespace << "::" << Use->getName()
              << ", RegState::Implicit);\n";
         }
@@ -1072,8 +1081,7 @@ void RuleMatcher::emitCxxCaptureStmts(raw_ostream &OS, StringRef Expr) {
 }
 
 void RuleMatcher::emit(raw_ostream &OS,
-                       std::map<Record *, SubtargetFeatureInfo, LessRecordByID>
-                           SubtargetFeatures) {
+                       SubtargetFeatureInfoMap SubtargetFeatures) {
   if (Matchers.empty())
     llvm_unreachable("Unexpected empty matcher!");
 
@@ -1218,7 +1226,7 @@ private:
   DenseMap<const Record *, const Record *> ComplexPatternEquivs;
 
   // Map of predicates to their subtarget features.
-  std::map<Record *, SubtargetFeatureInfo, LessRecordByID> SubtargetFeatures;
+  SubtargetFeatureInfoMap SubtargetFeatures;
 
   void gatherNodeEquivs();
   const CodeGenInstruction *findNodeEquiv(Record *N) const;
@@ -1236,6 +1244,8 @@ private:
   Error importExplicitUseRenderer(BuildMIAction &DstMIBuilder,
                                   TreePatternNode *DstChild,
                                   const InstructionMatcher &InsnMatcher) const;
+  Error importDefaultOperandRenderers(BuildMIAction &DstMIBuilder,
+                                      DagInit *DefaultOps) const;
   Error
   importImplicitDefRenderers(BuildMIAction &DstMIBuilder,
                              const std::vector<Record *> &ImplicitDefs) const;
@@ -1503,59 +1513,23 @@ Expected<BuildMIAction &> GlobalISelEmitter::createAndImportInstructionRenderer(
     DstMIBuilder.addRenderer<CopyRenderer>(InsnMatcher, DstIOperand.Name);
   }
 
-  // Figure out which operands need defaults inserted. Operands that subclass
-  // OperandWithDefaultOps are considered from left to right until we have
-  // enough operands to render the instruction.
-  SmallSet<unsigned, 2> DefaultOperands;
-  unsigned DstINumUses = DstI.Operands.size() - DstI.Operands.NumDefs;
-  unsigned NumDefaultOperands = 0;
-  for (unsigned I = 0; I < DstINumUses &&
-                       DstINumUses > Dst->getNumChildren() + NumDefaultOperands;
-       ++I) {
-    const auto &DstIOperand = DstI.Operands[DstI.Operands.NumDefs + I];
-    if (DstIOperand.Rec->isSubClassOf("OperandWithDefaultOps")) {
-      DefaultOperands.insert(I);
-      NumDefaultOperands +=
-          DstIOperand.Rec->getValueAsDag("DefaultOps")->getNumArgs();
-    }
-  }
-  if (DstINumUses > Dst->getNumChildren() + DefaultOperands.size())
-    return failedImport("Insufficient operands supplied and default ops "
-                        "couldn't make up the shortfall");
-  if (DstINumUses < Dst->getNumChildren() + DefaultOperands.size())
-    return failedImport("Too many operands supplied");
-
   // Render the explicit uses.
   unsigned Child = 0;
+  unsigned DstINumUses = DstI.Operands.size() - DstI.Operands.NumDefs;
+  unsigned NumDefaultOps = 0;
   for (unsigned I = 0; I != DstINumUses; ++I) {
-    // If we need to insert default ops here, then do so.
-    if (DefaultOperands.count(I)) {
-      const auto &DstIOperand = DstI.Operands[DstI.Operands.NumDefs + I];
+    const auto &DstIOperand = DstI.Operands[DstI.Operands.NumDefs + I];
 
+    // If the operand has default values, introduce them now.
+    // FIXME: Until we have a decent test case that dictates we should do
+    // otherwise, we're going to assume that operands with default values cannot
+    // be specified in the patterns. Therefore, adding them will not cause us to
+    // end up with too many rendered operands.
+    if (DstIOperand.Rec->isSubClassOf("OperandWithDefaultOps")) {
       DagInit *DefaultOps = DstIOperand.Rec->getValueAsDag("DefaultOps");
-      for (const auto *DefaultOp : DefaultOps->args()) {
-        // Look through ValueType operators.
-        if (const DagInit *DefaultDagOp = dyn_cast<DagInit>(DefaultOp)) {
-          if (const DefInit *DefaultDagOperator =
-                  dyn_cast<DefInit>(DefaultDagOp->getOperator())) {
-            if (DefaultDagOperator->getDef()->isSubClassOf("ValueType"))
-              DefaultOp = DefaultDagOp->getArg(0);
-          }
-        }
-
-        if (const DefInit *DefaultDefOp = dyn_cast<DefInit>(DefaultOp)) {
-          DstMIBuilder.addRenderer<AddRegisterRenderer>(DefaultDefOp->getDef());
-          continue;
-        }
-
-        if (const IntInit *DefaultIntOp = dyn_cast<IntInit>(DefaultOp)) {
-          DstMIBuilder.addRenderer<ImmRenderer>(DefaultIntOp->getValue());
-          continue;
-        }
-
-        return failedImport("Could not add default op");
-      }
-
+      if (auto Error = importDefaultOperandRenderers(DstMIBuilder, DefaultOps))
+        return std::move(Error);
+      ++NumDefaultOps;
       continue;
     }
 
@@ -1565,7 +1539,42 @@ Expected<BuildMIAction &> GlobalISelEmitter::createAndImportInstructionRenderer(
     ++Child;
   }
 
+  if (NumDefaultOps + Dst->getNumChildren() != DstINumUses)
+    return failedImport("Expected " + llvm::to_string(DstINumUses) +
+                        " used operands but found " +
+                        llvm::to_string(Dst->getNumChildren()) +
+                        " explicit ones and " + llvm::to_string(NumDefaultOps) +
+                        " default ones");
+
   return DstMIBuilder;
+}
+
+Error GlobalISelEmitter::importDefaultOperandRenderers(
+    BuildMIAction &DstMIBuilder, DagInit *DefaultOps) const {
+  for (const auto *DefaultOp : DefaultOps->args()) {
+    // Look through ValueType operators.
+    if (const DagInit *DefaultDagOp = dyn_cast<DagInit>(DefaultOp)) {
+      if (const DefInit *DefaultDagOperator =
+              dyn_cast<DefInit>(DefaultDagOp->getOperator())) {
+        if (DefaultDagOperator->getDef()->isSubClassOf("ValueType"))
+          DefaultOp = DefaultDagOp->getArg(0);
+      }
+    }
+
+    if (const DefInit *DefaultDefOp = dyn_cast<DefInit>(DefaultOp)) {
+      DstMIBuilder.addRenderer<AddRegisterRenderer>(DefaultDefOp->getDef());
+      continue;
+    }
+
+    if (const IntInit *DefaultIntOp = dyn_cast<IntInit>(DefaultOp)) {
+      DstMIBuilder.addRenderer<ImmRenderer>(DefaultIntOp->getValue());
+      continue;
+    }
+
+    return failedImport("Could not add default op");
+  }
+
+  return Error::success();
 }
 
 Error GlobalISelEmitter::importImplicitDefRenderers(
@@ -1712,14 +1721,36 @@ void GlobalISelEmitter::run(raw_ostream &OS) {
   OS << "#ifdef GET_GLOBALISEL_IMPL\n";
   SubtargetFeatureInfo::emitSubtargetFeatureBitEnumeration(SubtargetFeatures,
                                                            OS);
+
+  // Separate subtarget features by how often they must be recomputed.
+  SubtargetFeatureInfoMap ModuleFeatures;
+  std::copy_if(SubtargetFeatures.begin(), SubtargetFeatures.end(),
+               std::inserter(ModuleFeatures, ModuleFeatures.end()),
+               [](const SubtargetFeatureInfoMap::value_type &X) {
+                 return !X.second.mustRecomputePerFunction();
+               });
+  SubtargetFeatureInfoMap FunctionFeatures;
+  std::copy_if(SubtargetFeatures.begin(), SubtargetFeatures.end(),
+               std::inserter(FunctionFeatures, FunctionFeatures.end()),
+               [](const SubtargetFeatureInfoMap::value_type &X) {
+                 return X.second.mustRecomputePerFunction();
+               });
+
   SubtargetFeatureInfo::emitComputeAvailableFeatures(
-      Target.getName(), "InstructionSelector", "computeAvailableFeatures",
-      SubtargetFeatures, OS);
+      Target.getName(), "InstructionSelector", "computeAvailableModuleFeatures",
+      ModuleFeatures, OS);
+  SubtargetFeatureInfo::emitComputeAvailableFeatures(
+      Target.getName(), "InstructionSelector",
+      "computeAvailableFunctionFeatures", FunctionFeatures, OS,
+      "const MachineFunction *MF");
 
   OS << "bool " << Target.getName()
      << "InstructionSelector::selectImpl(MachineInstr &I) const {\n"
      << "  MachineFunction &MF = *I.getParent()->getParent();\n"
-     << "  const MachineRegisterInfo &MRI = MF.getRegInfo();\n";
+     << "  const MachineRegisterInfo &MRI = MF.getRegInfo();\n"
+     << "  // FIXME: This should be computed on a per-function basis rather than per-insn.\n"
+     << "  AvailableFunctionFeatures = computeAvailableFunctionFeatures(&STI, &MF);\n"
+     << "  const PredicateBitset AvailableFeatures = getAvailableFeatures();\n";
 
   for (auto &Rule : Rules) {
     Rule.emit(OS, SubtargetFeatures);
@@ -1729,6 +1760,26 @@ void GlobalISelEmitter::run(raw_ostream &OS) {
   OS << "  return false;\n"
      << "}\n"
      << "#endif // ifdef GET_GLOBALISEL_IMPL\n";
+
+  OS << "#ifdef GET_GLOBALISEL_PREDICATES_DECL\n"
+     << "PredicateBitset AvailableModuleFeatures;\n"
+     << "mutable PredicateBitset AvailableFunctionFeatures;\n"
+     << "PredicateBitset getAvailableFeatures() const {\n"
+     << "  return AvailableModuleFeatures | AvailableFunctionFeatures;\n"
+     << "}\n"
+     << "PredicateBitset\n"
+     << "computeAvailableModuleFeatures(const " << Target.getName()
+     << "Subtarget *Subtarget) const;\n"
+     << "PredicateBitset\n"
+     << "computeAvailableFunctionFeatures(const " << Target.getName()
+     << "Subtarget *Subtarget,\n"
+     << "                                 const MachineFunction *MF) const;\n"
+     << "#endif // ifdef GET_GLOBALISEL_PREDICATES_DECL\n";
+
+  OS << "#ifdef GET_GLOBALISEL_PREDICATES_INIT\n"
+     << "AvailableModuleFeatures(computeAvailableModuleFeatures(&STI)),\n"
+     << "AvailableFunctionFeatures()\n"
+     << "#endif // ifdef GET_GLOBALISEL_PREDICATES_INIT\n";
 }
 
 void GlobalISelEmitter::declareSubtargetFeature(Record *Predicate) {

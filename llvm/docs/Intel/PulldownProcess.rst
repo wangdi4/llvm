@@ -176,13 +176,22 @@ using xmain trunk as a reference. The results are sent via email to the
 pulldown coordinator, who can work with the development teams to analyze and
 fix any problems.
 
+If you want to check on the status of in-progress ``xmain-web`` testing, you
+can use the ``amt`` tool on Windows and search for jobs with owner ``omirochn``
+that are testing ``xmain-web``.
+
 Selecting a Revision of ``xmain-web`` to Stabilize
 --------------------------------------------------
-This section is under construction.
-
 The pulldown coordinator can decide which revision of ``xmain-web`` is a good
-candidate for stabilization and promotion. The process for making this decision
-and syncing the ``xmain-cand`` branch with that revision is under discussion.
+candidate for stabilization and promotion based on the results from regular
+alloy testing. Once a revision is selected, the ``xmain-cand`` branch is
+updated to that revision using the following process.
+
+   .. code-block:: bash
+
+     $ ics mk xmain-web-ws xmain-web head -git
+     <copy the heads.txt attachment from the alloy results to $ICS_WSDIR>
+     $ sh update-xmain-cand.sh
 
 Stabilizing and Promoting ``xmain-cand``
 ----------------------------------------
