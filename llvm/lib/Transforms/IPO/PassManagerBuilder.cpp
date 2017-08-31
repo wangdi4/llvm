@@ -1134,7 +1134,9 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
   if (!RunLoopOptFrameworkOnly) {
     if (OptLevel > 2) {
       PM.add(createHIRLoopConcatenationPass());
+      PM.add(createHIRSymbolicTripCountCompleteUnrollPass());
     }
+    
     // TODO: refine cost model for individual transformations for code size.
     if (SizeLevel == 0) {
       // If VPO is disabled, we don't have to insert ParVec directives.
