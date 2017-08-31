@@ -15,7 +15,8 @@ define i8 @v8i16(<8 x i16> %a, <8 x i16> %b) {
 ; AVX512-LABEL: v8i16:
 ; AVX512:       ## BB#0:
 ; AVX512-NEXT:    vpcmpgtw %xmm1, %xmm0, %k0
-; AVX512-NEXT:    kmovb %k0, %eax
+; AVX512-NEXT:    kmovd %k0, %eax
+; AVX512-NEXT:    ## kill: %AL<def> %AL<kill> %EAX<kill>
 ; AVX512-NEXT:    retq
   %x = icmp sgt <8 x i16> %a, %b
   %res = bitcast <8 x i1> %x to i8
@@ -71,7 +72,8 @@ define i16 @v16i8(<16 x i8> %a, <16 x i8> %b) {
 ; AVX512-LABEL: v16i8:
 ; AVX512:       ## BB#0:
 ; AVX512-NEXT:    vpcmpgtb %xmm1, %xmm0, %k0
-; AVX512-NEXT:    kmovw %k0, %eax
+; AVX512-NEXT:    kmovd %k0, %eax
+; AVX512-NEXT:    ## kill: %AX<def> %AX<kill> %EAX<kill>
 ; AVX512-NEXT:    retq
   %x = icmp sgt <16 x i8> %a, %b
   %res = bitcast <16 x i1> %x to i16
