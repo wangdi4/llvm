@@ -10,16 +10,31 @@
 #ifndef liblldb_SourceManager_h_
 #define liblldb_SourceManager_h_
 
-// C Includes
-// C++ Includes
+#include "lldb/Utility/FileSpec.h"
+#include "lldb/lldb-defines.h" // for DISALLOW_COPY_AND_ASSIGN
+#include "lldb/lldb-forward.h" // for DebuggerSP, DebuggerWP, DataBufferSP
+
+#include "llvm/Support/Chrono.h"
+
+#include <cstdint> // for uint32_t, UINT32_MAX
 #include <map>
 #include <memory>
+#include <stddef.h> // for size_t
+#include <string>   // for string
 #include <vector>
 
-// Other libraries and framework includes
-// Project includes
-#include "lldb/Host/FileSpec.h"
-#include "lldb/lldb-private.h"
+namespace lldb_private {
+class RegularExpression;
+}
+namespace lldb_private {
+class Stream;
+}
+namespace lldb_private {
+class SymbolContextList;
+}
+namespace lldb_private {
+class Target;
+}
 
 namespace lldb_private {
 
@@ -32,12 +47,14 @@ public:
 
   public:
     File(const FileSpec &file_spec, Target *target);
-    ~File();
+    File(const FileSpec &file_spec, lldb::DebuggerSP debugger_sp);
+    ~File() = default;
 
     void UpdateIfNeeded();
 
-    size_t DisplaySourceLines(uint32_t line, uint32_t context_before,
-                              uint32_t context_after, Stream *s);
+    size_t DisplaySourceLines(uint32_t line, uint32_t column,
+                              uint32_t context_before, uint32_t context_after,
+                              Stream *s);
     void FindLinesMatchingRegex(RegularExpression &regex, uint32_t start_line,
                                 uint32_t end_line,
                                 std::vector<uint32_t> &match_lines);
@@ -68,14 +85,20 @@ public:
     FileSpec m_file_spec; // The actually file spec being used (if the target
                           // has source mappings, this might be different from
                           // m_file_spec_orig)
-    TimeValue m_mod_time; // Keep the modification time that this file data is
-                          // valid for
-    uint32_t m_source_map_mod_id; // If the target uses path remappings, be sure
-                                  // to clear our notion of a source file if the
-                                  // path modification ID changes
+
+    // Keep the modification time that this file data is valid for
+    llvm::sys::TimePoint<> m_mod_time;
+
+    // If the target uses path remappings, be sure to clear our notion of a
+    // source file if the path modification ID changes
+    uint32_t m_source_map_mod_id = 0;
     lldb::DataBufferSP m_data_sp;
     typedef std::vector<uint32_t> LineOffsets;
     LineOffsets m_offsets;
+    lldb::DebuggerWP m_debugger_wp;
+
+  private:
+    void CommonInitializer(const FileSpec &file_spec, Target *target);
   };
 #endif // SWIG
 
@@ -114,14 +137,16 @@ public:
 
   FileSP GetLastFile() { return m_last_file_sp; }
 
-  size_t DisplaySourceLinesWithLineNumbers(
-      const FileSpec &file, uint32_t line, uint32_t context_before,
-      uint32_t context_after, const char *current_line_cstr, Stream *s,
-      const SymbolContextList *bp_locs = nullptr);
+  size_t
+  DisplaySourceLinesWithLineNumbers(const FileSpec &file, uint32_t line,
+                                    uint32_t column, uint32_t context_before,
+                                    uint32_t context_after,
+                                    const char *current_line_cstr, Stream *s,
+                                    const SymbolContextList *bp_locs = nullptr);
 
   // This variant uses the last file we visited.
   size_t DisplaySourceLinesWithLineNumbersUsingLastFile(
-      uint32_t start_line, uint32_t count, uint32_t curr_line,
+      uint32_t start_line, uint32_t count, uint32_t curr_line, uint32_t column,
       const char *current_line_cstr, Stream *s,
       const SymbolContextList *bp_locs = nullptr);
 

@@ -20,7 +20,6 @@
 
 #include "test_macros.h"
 #include "test_iterators.h"
-#include "test_throw.h"
 
 struct Counted {
   static int count;
@@ -42,7 +41,7 @@ struct ThrowsCounted {
   explicit ThrowsCounted() {
       ++constructed;
       if (throw_after > 0 && --throw_after == 0) {
-          test_throw<int>();
+          TEST_THROW(1);
       }
       ++count;
   }
@@ -82,7 +81,7 @@ void test_counted()
     It e = std::uninitialized_value_construct_n(It(p), 1);
     assert(e == It(p+1));
     assert(Counted::count == 1);
-    assert(Counted::constructed = 1);
+    assert(Counted::constructed == 1);
     e = std::uninitialized_value_construct_n(It(p+1), 4);
     assert(e == It(p+N));
     assert(Counted::count == 5);

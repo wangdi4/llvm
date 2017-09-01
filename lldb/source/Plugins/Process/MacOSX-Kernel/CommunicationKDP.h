@@ -22,7 +22,6 @@
 #include "lldb/Core/Listener.h"
 #include "lldb/Core/StreamBuffer.h"
 #include "lldb/Host/Predicate.h"
-#include "lldb/Host/TimeValue.h"
 #include "lldb/lldb-private.h"
 
 class CommunicationKDP : public lldb_private::Communication {
@@ -110,15 +109,13 @@ public:
   // get used, and if it doesn't this should be moved to the
   // CommunicationKDPClient.
   //------------------------------------------------------------------
-  uint32_t SetPacketTimeout(uint32_t packet_timeout) {
-    const uint32_t old_packet_timeout = m_packet_timeout;
+  std::chrono::seconds SetPacketTimeout(std::chrono::seconds packet_timeout) {
+    const auto old_packet_timeout = m_packet_timeout;
     m_packet_timeout = packet_timeout;
     return old_packet_timeout;
   }
 
-  uint32_t GetPacketTimeoutInMicroSeconds() const {
-    return m_packet_timeout * lldb_private::TimeValue::MicroSecPerSec;
-  }
+  std::chrono::seconds GetPacketTimeout() const { return m_packet_timeout; }
 
   //------------------------------------------------------------------
   // Public Request Packets
@@ -131,22 +128,24 @@ public:
   bool SendRequestDisconnect();
 
   uint32_t SendRequestReadMemory(lldb::addr_t addr, void *dst,
-                                 uint32_t dst_size, lldb_private::Error &error);
+                                 uint32_t dst_size,
+                                 lldb_private::Status &error);
 
   uint32_t SendRequestWriteMemory(lldb::addr_t addr, const void *src,
-                                  uint32_t src_len, lldb_private::Error &error);
+                                  uint32_t src_len,
+                                  lldb_private::Status &error);
 
   bool SendRawRequest(uint8_t command_byte, const void *src, uint32_t src_len,
                       lldb_private::DataExtractor &reply,
-                      lldb_private::Error &error);
+                      lldb_private::Status &error);
 
   uint32_t SendRequestReadRegisters(uint32_t cpu, uint32_t flavor, void *dst,
                                     uint32_t dst_size,
-                                    lldb_private::Error &error);
+                                    lldb_private::Status &error);
 
   uint32_t SendRequestWriteRegisters(uint32_t cpu, uint32_t flavor,
                                      const void *src, uint32_t src_size,
-                                     lldb_private::Error &error);
+                                     lldb_private::Status &error);
 
   const char *GetKernelVersion();
 
@@ -239,7 +238,7 @@ protected:
   //------------------------------------------------------------------
   uint32_t m_addr_byte_size;
   lldb::ByteOrder m_byte_order;
-  uint32_t m_packet_timeout;
+  std::chrono::seconds m_packet_timeout;
   std::recursive_mutex m_sequence_mutex; // Restrict access to sending/receiving
                                          // packets to a single thread at a time
   lldb_private::Predicate<bool> m_is_running;

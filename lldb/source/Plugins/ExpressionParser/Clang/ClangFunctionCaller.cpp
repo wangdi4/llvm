@@ -1,4 +1,4 @@
-//===-- ClangFunctionCallerCaller.cpp ---------------------------*- C++ -*-===//
+//===-- ClangFunctionCaller.cpp ---------------------------------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -26,8 +26,6 @@
 #include "llvm/IR/Module.h"
 
 // Project includes
-#include "lldb/Core/DataExtractor.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/State.h"
 #include "lldb/Core/ValueObject.h"
@@ -44,6 +42,8 @@
 #include "lldb/Target/Thread.h"
 #include "lldb/Target/ThreadPlan.h"
 #include "lldb/Target/ThreadPlanCallFunction.h"
+#include "lldb/Utility/DataExtractor.h"
+#include "lldb/Utility/Log.h"
 
 using namespace lldb_private;
 
@@ -203,8 +203,8 @@ ClangFunctionCaller::CompileFunction(lldb::ThreadSP thread_to_use_sp,
 
     num_errors = m_parser->Parse(diagnostic_manager);
   } else {
-    diagnostic_manager.PutCString(eDiagnosticSeverityError,
-                                  "no process - unable to inject function");
+    diagnostic_manager.PutString(eDiagnosticSeverityError,
+                                 "no process - unable to inject function");
     num_errors = 1;
   }
 

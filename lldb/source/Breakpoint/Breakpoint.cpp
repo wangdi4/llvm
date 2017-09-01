@@ -19,18 +19,19 @@
 #include "lldb/Breakpoint/BreakpointResolver.h"
 #include "lldb/Breakpoint/BreakpointResolverFileLine.h"
 #include "lldb/Core/Address.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/ModuleList.h"
 #include "lldb/Core/SearchFilter.h"
 #include "lldb/Core/Section.h"
-#include "lldb/Core/Stream.h"
-#include "lldb/Core/StreamString.h"
 #include "lldb/Symbol/CompileUnit.h"
 #include "lldb/Symbol/Function.h"
+#include "lldb/Symbol/Symbol.h"
 #include "lldb/Symbol/SymbolContext.h"
 #include "lldb/Target/Target.h"
 #include "lldb/Target/ThreadSpec.h"
+#include "lldb/Utility/Log.h"
+#include "lldb/Utility/Stream.h"
+#include "lldb/Utility/StreamString.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -40,6 +41,9 @@ const ConstString &Breakpoint::GetEventIdentifier() {
   static ConstString g_identifier("event-identifier.breakpoint.changed");
   return g_identifier;
 }
+
+const char *Breakpoint::g_option_names[static_cast<uint32_t>(
+    Breakpoint::OptionNames::LastOptionName)]{"Names", "Hardware"};
 
 //----------------------------------------------------------------------
 // Breakpoint constructor
@@ -81,6 +85,19 @@ StructuredData::ObjectSP Breakpoint::SerializeToStructuredData() {
   StructuredData::DictionarySP breakpoint_contents_sp(
       new StructuredData::Dictionary());
 
+  if (!m_name_list.empty()) {
+    StructuredData::ArraySP names_array_sp(new StructuredData::Array());
+    for (auto name : m_name_list) {
+      names_array_sp->AddItem(
+          StructuredData::StringSP(new StructuredData::String(name)));
+    }
+    breakpoint_contents_sp->AddItem(Breakpoint::GetKey(OptionNames::Names),
+                                    names_array_sp);
+  }
+
+  breakpoint_contents_sp->AddBooleanItem(
+      Breakpoint::GetKey(OptionNames::Hardware), m_hardware);
+
   StructuredData::ObjectSP resolver_dict_sp(
       m_resolver_sp->SerializeToStructuredData());
   if (!resolver_dict_sp)
@@ -110,7 +127,7 @@ StructuredData::ObjectSP Breakpoint::SerializeToStructuredData() {
 }
 
 lldb::BreakpointSP Breakpoint::CreateFromStructuredData(
-    Target &target, StructuredData::ObjectSP &object_data, Error &error) {
+    Target &target, StructuredData::ObjectSP &object_data, Status &error) {
   BreakpointSP result_sp;
 
   StructuredData::Dictionary *breakpoint_dict = object_data->GetAsDictionary();
@@ -129,7 +146,7 @@ lldb::BreakpointSP Breakpoint::CreateFromStructuredData(
     return result_sp;
   }
 
-  Error create_error;
+  Status create_error;
   BreakpointResolverSP resolver_sp =
       BreakpointResolver::CreateFromStructuredData(*resolver_dict,
                                                    create_error);
@@ -163,8 +180,8 @@ lldb::BreakpointSP Breakpoint::CreateFromStructuredData(
   success = breakpoint_dict->GetValueForKeyAsDictionary(
       BreakpointOptions::GetSerializationKey(), options_dict);
   if (success) {
-    options_up = BreakpointOptions::CreateFromStructuredData(*options_dict,
-                                                             create_error);
+    options_up = BreakpointOptions::CreateFromStructuredData(
+        target, *options_dict, create_error);
     if (create_error.Fail()) {
       error.SetErrorStringWithFormat(
           "Error creating breakpoint options from data: %s.",
@@ -172,12 +189,67 @@ lldb::BreakpointSP Breakpoint::CreateFromStructuredData(
       return result_sp;
     }
   }
+
+  bool hardware = false;
+  success = breakpoint_dict->GetValueForKeyAsBoolean(
+      Breakpoint::GetKey(OptionNames::Hardware), hardware);
+
   result_sp =
-      target.CreateBreakpoint(filter_sp, resolver_sp, false, false, true);
+      target.CreateBreakpoint(filter_sp, resolver_sp, false, hardware, true);
+
   if (result_sp && options_up) {
     result_sp->m_options_up = std::move(options_up);
   }
+
+  StructuredData::Array *names_array;
+  success = breakpoint_dict->GetValueForKeyAsArray(
+      Breakpoint::GetKey(OptionNames::Names), names_array);
+  if (success && names_array) {
+    size_t num_names = names_array->GetSize();
+    for (size_t i = 0; i < num_names; i++) {
+      llvm::StringRef name;
+      Status error;
+      success = names_array->GetItemAtIndexAsString(i, name);
+      result_sp->AddName(name, error);
+    }
+  }
+
   return result_sp;
+}
+
+bool Breakpoint::SerializedBreakpointMatchesNames(
+    StructuredData::ObjectSP &bkpt_object_sp, std::vector<std::string> &names) {
+  if (!bkpt_object_sp)
+    return false;
+
+  StructuredData::Dictionary *bkpt_dict = bkpt_object_sp->GetAsDictionary();
+  if (!bkpt_dict)
+    return false;
+
+  if (names.empty())
+    return true;
+
+  StructuredData::Array *names_array;
+
+  bool success =
+      bkpt_dict->GetValueForKeyAsArray(GetKey(OptionNames::Names), names_array);
+  // If there are no names, it can't match these names;
+  if (!success)
+    return false;
+
+  size_t num_names = names_array->GetSize();
+  std::vector<std::string>::iterator begin = names.begin();
+  std::vector<std::string>::iterator end = names.end();
+
+  for (size_t i = 0; i < num_names; i++) {
+    llvm::StringRef name;
+    if (names_array->GetItemAtIndexAsString(i, name)) {
+      if (std::find(begin, end, name) != end) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 const lldb::TargetSP Breakpoint::GetTargetSP() {
@@ -761,10 +833,10 @@ size_t Breakpoint::GetNumResolvedLocations() const {
 
 size_t Breakpoint::GetNumLocations() const { return m_locations.GetSize(); }
 
-bool Breakpoint::AddName(const char *new_name, Error &error) {
-  if (!new_name)
+bool Breakpoint::AddName(llvm::StringRef new_name, Status &error) {
+  if (new_name.empty())
     return false;
-  if (!BreakpointID::StringIsBreakpointName(llvm::StringRef(new_name), error)) {
+  if (!BreakpointID::StringIsBreakpointName(new_name, error)) {
     error.SetErrorStringWithFormat("input name \"%s\" not a breakpoint name.",
                                    new_name);
     return false;
@@ -925,8 +997,9 @@ bool Breakpoint::BreakpointPrecondition::EvaluatePrecondition(
 void Breakpoint::BreakpointPrecondition::GetDescription(
     Stream &stream, lldb::DescriptionLevel level) {}
 
-Error Breakpoint::BreakpointPrecondition::ConfigurePrecondition(Args &options) {
-  Error error;
+Status
+Breakpoint::BreakpointPrecondition::ConfigurePrecondition(Args &options) {
+  Status error;
   error.SetErrorString("Base breakpoint precondition has no options.");
   return error;
 }

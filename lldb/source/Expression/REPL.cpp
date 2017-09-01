@@ -42,7 +42,7 @@ REPL::REPL(LLVMCastKind kind, Target &target) : m_target(target), m_kind(kind) {
 
 REPL::~REPL() = default;
 
-lldb::REPLSP REPL::Create(Error &err, lldb::LanguageType language,
+lldb::REPLSP REPL::Create(Status &err, lldb::LanguageType language,
                           Debugger *debugger, Target *target,
                           const char *repl_options) {
   uint32_t idx = 0;
@@ -81,11 +81,11 @@ lldb::IOHandlerSP REPL::GetIOHandler() {
     m_io_handler_sp.reset(
         new IOHandlerEditline(debugger, IOHandler::Type::REPL,
                               "lldb-repl", // Name of input reader for history
-                              "> ",        // prompt
-                              ". ",        // Continuation prompt
-                              true,        // Multi-line
-                              true,        // The REPL prompt is always colored
-                              1,           // Line number
+                              llvm::StringRef("> "), // prompt
+                              llvm::StringRef(". "), // Continuation prompt
+                              true,                  // Multi-line
+                              true, // The REPL prompt is always colored
+                              1,    // Line number
                               *this));
 
     // Don't exit if CTRL+C is pressed
@@ -296,9 +296,9 @@ void REPL::IOHandlerInputComplete(IOHandler &io_handler, std::string &code) {
       expr_options.SetPoundLine(m_repl_source_path.c_str(),
                                 m_code.GetSize() + 1);
       if (m_command_options.timeout > 0)
-        expr_options.SetTimeoutUsec(m_command_options.timeout);
+        expr_options.SetTimeout(std::chrono::microseconds(m_command_options.timeout));
       else
-        expr_options.SetTimeoutUsec(0);
+        expr_options.SetTimeout(llvm::None);
 
       expr_options.SetLanguage(GetLanguage());
 
@@ -309,7 +309,7 @@ void REPL::IOHandlerInputComplete(IOHandler &io_handler, std::string &code) {
 
       const char *expr_prefix = nullptr;
       lldb::ValueObjectSP result_valobj_sp;
-      Error error;
+      Status error;
       lldb::ModuleSP jit_module_sp;
       lldb::ExpressionResults execution_results =
           UserExpression::Evaluate(exe_ctx, expr_options, code.c_str(),
@@ -433,7 +433,7 @@ void REPL::IOHandlerInputComplete(IOHandler &io_handler, std::string &code) {
 
             // Now set the default file and line to the REPL source file
             m_target.GetSourceManager().SetDefaultFileAndLine(
-                FileSpec(m_repl_source_path.c_str(), false), new_default_line);
+                FileSpec(m_repl_source_path, false), new_default_line);
           }
           static_cast<IOHandlerEditline &>(io_handler)
               .SetBaseLineNumber(m_code.GetSize() + 1);
@@ -518,8 +518,8 @@ bool QuitCommandOverrideCallback(void *baton, const char **argv) {
   return false;
 }
 
-Error REPL::RunLoop() {
-  Error error;
+Status REPL::RunLoop() {
+  Status error;
 
   error = DoInitialization();
   m_repl_source_path = GetSourcePath();
@@ -552,7 +552,7 @@ Error REPL::RunLoop() {
     // dedicated REPL mode...
     m_dedicated_repl_mode = true;
     debugger.StartIOHandlerThread();
-    std::string command_name_str("quit");
+    llvm::StringRef command_name_str("quit");
     CommandObject *cmd_obj =
         debugger.GetCommandInterpreter().GetCommandObjectForCommand(
             command_name_str);

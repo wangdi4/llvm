@@ -7,17 +7,17 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "DynamicLoaderDarwin.h"
+
 #include "lldb/Breakpoint/StoppointCallbackContext.h"
-#include "lldb/Core/DataBuffer.h"
-#include "lldb/Core/DataBufferHeap.h"
 #include "lldb/Core/Debugger.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/ModuleSpec.h"
 #include "lldb/Core/PluginManager.h"
 #include "lldb/Core/Section.h"
 #include "lldb/Core/State.h"
 #include "lldb/Expression/DiagnosticManager.h"
+#include "lldb/Host/FileSystem.h"
 #include "lldb/Symbol/ClangASTContext.h"
 #include "lldb/Symbol/Function.h"
 #include "lldb/Symbol/ObjectFile.h"
@@ -29,8 +29,9 @@
 #include "lldb/Target/Thread.h"
 #include "lldb/Target/ThreadPlanCallFunction.h"
 #include "lldb/Target/ThreadPlanRunToAddress.h"
-
-#include "DynamicLoaderDarwin.h"
+#include "lldb/Utility/DataBuffer.h"
+#include "lldb/Utility/DataBufferHeap.h"
+#include "lldb/Utility/Log.h"
 
 //#define ENABLE_DEBUG_PRINTF // COMMENT THIS LINE OUT PRIOR TO CHECKIN
 #ifdef ENABLE_DEBUG_PRINTF
@@ -114,7 +115,7 @@ ModuleSP DynamicLoaderDarwin::FindTargetModuleForImageInfo(
     // No UUID, we must rely upon the cached module modification
     // time and the modification time of the file on disk
     if (module_sp->GetModificationTime() !=
-        module_sp->GetFileSpec().GetModificationTime())
+        FileSystem::GetModificationTime(module_sp->GetFileSpec()))
       module_sp.reset();
   }
 
@@ -377,8 +378,7 @@ bool DynamicLoaderDarwin::JSONImageInformationIntoImageInfo(
     image_infos[i].mod_date =
         image->GetValueForKey("mod_date")->GetAsInteger()->GetValue();
     image_infos[i].file_spec.SetFile(
-        image->GetValueForKey("pathname")->GetAsString()->GetValue().c_str(),
-        false);
+        image->GetValueForKey("pathname")->GetAsString()->GetValue(), false);
 
     StructuredData::Dictionary *mh =
         image->GetValueForKey("mach_header")->GetAsDictionary();
@@ -440,8 +440,8 @@ bool DynamicLoaderDarwin::JSONImageInformationIntoImageInfo(
       Segment segment;
       StructuredData::Dictionary *seg =
           segments->GetItemAtIndex(j)->GetAsDictionary();
-      segment.name = ConstString(
-          seg->GetValueForKey("name")->GetAsString()->GetValue().c_str());
+      segment.name =
+          ConstString(seg->GetValueForKey("name")->GetAsString()->GetValue());
       segment.vmaddr =
           seg->GetValueForKey("vmaddr")->GetAsInteger()->GetValue();
       segment.vmsize =
@@ -478,8 +478,8 @@ bool DynamicLoaderDarwin::JSONImageInformationIntoImageInfo(
       image_infos[i].segments.push_back(segment);
     }
 
-    image_infos[i].uuid.SetFromCString(
-        image->GetValueForKey("uuid")->GetAsString()->GetValue().c_str());
+    image_infos[i].uuid.SetFromStringRef(
+        image->GetValueForKey("uuid")->GetAsString()->GetValue());
 
     // All sections listed in the dyld image info structure will all
     // either be fixed up already, or they will all be off by a single
@@ -541,6 +541,10 @@ void DynamicLoaderDarwin::UpdateSpecialBinariesFromNewImageInfos(
             image_infos[i].os_type != llvm::Triple::WatchOS) {
           dyld_idx = i;
         }
+      }
+      else {
+        // catch-all for any other environment -- trust that dyld is actually dyld
+        dyld_idx = i;
       }
     } else if (image_infos[i].header.filetype == llvm::MachO::MH_EXECUTE) {
       exe_idx = i;
@@ -958,7 +962,7 @@ DynamicLoaderDarwin::GetStepThroughTrampolinePlan(Thread &thread,
       for (Address address : addresses) {
         Symbol *symbol = address.CalculateSymbolContextSymbol();
         if (symbol && symbol->IsIndirect()) {
-          Error error;
+          Status error;
           Address symbol_address = symbol->GetAddress();
           addr_t resolved_addr = thread.GetProcess()->ResolveIndirectFunction(
               &symbol_address, error);
@@ -999,7 +1003,7 @@ size_t DynamicLoaderDarwin::FindEquivalentSymbols(
   equivalent_regex_buf.append(trampoline_name.GetCString());
   equivalent_regex_buf.append(resolver_name_regex);
 
-  RegularExpression equivalent_name_regex(equivalent_regex_buf.c_str());
+  RegularExpression equivalent_name_regex(equivalent_regex_buf);
   const bool append = true;
   images.FindSymbolsMatchingRegExAndType(equivalent_name_regex, eSymbolTypeCode,
                                          equivalent_symbols, append);
@@ -1058,7 +1062,7 @@ DynamicLoaderDarwin::GetThreadLocalData(const lldb::ModuleSP module_sp,
 
   lldb_private::Address tls_addr;
   if (module_sp->ResolveFileAddress(tls_file_addr, tls_addr)) {
-    Error error;
+    Status error;
     const size_t tsl_data_size = addr_size * 3;
     Target &target = m_process->GetTarget();
     if (target.ReadMemory(tls_addr, false, buf, tsl_data_size, error) ==
@@ -1137,7 +1141,7 @@ bool DynamicLoaderDarwin::UseDYLDSPI(Process *process) {
 
     // macOS 10.12 and newer
     if (os_type == llvm::Triple::MacOSX &&
-        (major >= 10 || (major == 10 && minor >= 12))) {
+        (major > 10 || (major == 10 && minor >= 12))) {
       use_new_spi_interface = true;
     }
 
@@ -1156,11 +1160,6 @@ bool DynamicLoaderDarwin::UseDYLDSPI(Process *process) {
       use_new_spi_interface = true;
     }
   }
-
-  // FIXME: Temporarily force the use of the old DynamicLoader plugin until all
-  // the different use cases have been tested & the updated SPIs are available
-  // everywhere.
-  use_new_spi_interface = false;
 
   if (log) {
     if (use_new_spi_interface)

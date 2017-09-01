@@ -217,3 +217,47 @@ C<bool, F(0)> c;
 // CHECK-MESSAGES: :[[@LINE-1]]:11: warning: use nullptr
 // CHECK-FIXES: C<bool, F(nullptr)> c;
 #undef F
+
+// Test default argument expression.
+struct D {
+  explicit D(void *t, int *c = NULL) {}
+  // CHECK-MESSAGES: :[[@LINE-1]]:32: warning: use nullptr
+  // CHECK-FIXES: explicit D(void *t, int *c = nullptr) {}
+};
+
+void test_default_argument() {
+  D(nullptr);
+}
+
+// Test on two neighbour CXXDefaultArgExprs nodes.
+typedef unsigned long long uint64;
+struct ZZ {
+  explicit ZZ(uint64, const uint64* = NULL) {}
+// CHECK-MESSAGES: :[[@LINE-1]]:39: warning: use nullptr
+// CHECK-FIXES: explicit ZZ(uint64, const uint64* = nullptr) {}
+  operator bool()  { return true; }
+};
+
+uint64 Hash(uint64 seed = 0) { return 0; }
+
+void f() {
+  bool a;
+  a = ZZ(Hash());
+}
+
+// Test on ignoring substituted template types.
+template<typename T>
+class TemplateClass {
+ public:
+  explicit TemplateClass(int a, T default_value = 0) {}
+
+  void h(T *default_value = 0) {}
+
+  void f(int* p = 0) {}
+// CHECK-MESSAGES: :[[@LINE-1]]:19: warning: use nullptr
+// CHECK-FIXES: void f(int* p = nullptr) {}
+};
+
+void IgnoreSubstTemplateType() {
+  TemplateClass<int*> a(1);
+}

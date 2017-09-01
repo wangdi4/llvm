@@ -12,8 +12,12 @@
 
 #include "OutputStyle.h"
 
-#include "llvm/DebugInfo/CodeView/TypeDumper.h"
+#include "llvm/ADT/Optional.h"
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/DebugInfo/CodeView/TypeDatabase.h"
 #include "llvm/Support/ScopedPrinter.h"
+
+#include <string>
 
 namespace llvm {
 class BitVector;
@@ -25,14 +29,16 @@ public:
   Error dump() override;
 
 private:
-  void discoverStreamPurposes();
+  Error buildTypeDatabase(uint32_t SN);
 
   Error dumpFileHeaders();
   Error dumpStreamSummary();
   Error dumpFreePageMap();
   Error dumpBlockRanges();
+  Error dumpGlobalsStream();
   Error dumpStreamBytes();
   Error dumpStreamBlocks();
+  Error dumpStringTable();
   Error dumpInfoStream();
   Error dumpTpiStream(uint32_t StreamIdx);
   Error dumpDbiStream();
@@ -48,8 +54,9 @@ private:
 
   PDBFile &File;
   ScopedPrinter P;
-  codeview::CVTypeDumper Dumper;
-  std::vector<std::string> StreamPurposes;
+  Optional<codeview::TypeDatabase> TypeDB;
+  Optional<codeview::TypeDatabase> ItemDB;
+  SmallVector<std::string, 32> StreamPurposes;
 };
 }
 }

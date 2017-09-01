@@ -26,8 +26,8 @@
 #include "lldb/Breakpoint/Stoppoint.h"
 #include "lldb/Core/Event.h"
 #include "lldb/Core/SearchFilter.h"
-#include "lldb/Core/StringList.h"
 #include "lldb/Core/StructuredData.h"
+#include "lldb/Utility/StringList.h"
 
 namespace lldb_private {
 
@@ -107,6 +107,17 @@ public:
   //------------------------------------------------------------------
   typedef enum { Exact, Regexp, Glob } MatchType;
 
+private:
+  enum class OptionNames : uint32_t { Names = 0, Hardware, LastOptionName };
+
+  static const char
+      *g_option_names[static_cast<uint32_t>(OptionNames::LastOptionName)];
+
+  static const char *GetKey(OptionNames enum_value) {
+    return g_option_names[static_cast<uint32_t>(enum_value)];
+  }
+
+public:
   class BreakpointEventData : public EventData {
   public:
     BreakpointEventData(lldb::BreakpointEventType sub_type,
@@ -158,7 +169,7 @@ public:
 
     virtual bool EvaluatePrecondition(StoppointCallbackContext &context);
 
-    virtual Error ConfigurePrecondition(Args &options);
+    virtual Status ConfigurePrecondition(Args &options);
 
     virtual void GetDescription(Stream &stream, lldb::DescriptionLevel level);
   };
@@ -167,7 +178,11 @@ public:
 
   // Saving & restoring breakpoints:
   static lldb::BreakpointSP CreateFromStructuredData(
-      Target &target, StructuredData::ObjectSP &data_object_sp, Error &error);
+      Target &target, StructuredData::ObjectSP &data_object_sp, Status &error);
+
+  static bool
+  SerializedBreakpointMatchesNames(StructuredData::ObjectSP &bkpt_object_sp,
+                                   std::vector<std::string> &names);
 
   virtual StructuredData::ObjectSP SerializeToStructuredData();
 
@@ -598,7 +613,7 @@ public:
 
   lldb::SearchFilterSP GetSearchFilter() { return m_filter_sp; }
 
-  bool AddName(const char *new_name, Error &error);
+  bool AddName(llvm::StringRef new_name, Status &error);
 
   void RemoveName(const char *name_to_remove) {
     if (name_to_remove)

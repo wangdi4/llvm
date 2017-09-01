@@ -8,7 +8,6 @@
 //===----------------------------------------------------------------------===//
 #include "clang/AST/Type.h"
 
-#include "lldb/Core/Log.h"
 #include "lldb/Core/MappedHash.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/PluginManager.h"
@@ -21,6 +20,7 @@
 #include "lldb/Symbol/TypeList.h"
 #include "lldb/Target/ObjCLanguageRuntime.h"
 #include "lldb/Target/Target.h"
+#include "lldb/Utility/Log.h"
 
 #include "llvm/ADT/StringRef.h"
 
@@ -250,7 +250,7 @@ ObjCLanguageRuntime::GetClassDescriptor(ValueObject &valobj) {
 
       Process *process = exe_ctx.GetProcessPtr();
       if (process) {
-        Error error;
+        Status error;
         ObjCISA isa = process->ReadPointerFromMemory(isa_pointer, error);
         if (isa != LLDB_INVALID_ADDRESS)
           objc_class_sp = GetClassDescriptorFromISA(isa);
@@ -377,9 +377,9 @@ bool ObjCLanguageRuntime::ObjCExceptionPrecondition::EvaluatePrecondition(
 void ObjCLanguageRuntime::ObjCExceptionPrecondition::GetDescription(
     Stream &stream, lldb::DescriptionLevel level) {}
 
-Error ObjCLanguageRuntime::ObjCExceptionPrecondition::ConfigurePrecondition(
+Status ObjCLanguageRuntime::ObjCExceptionPrecondition::ConfigurePrecondition(
     Args &args) {
-  Error error;
+  Status error;
   if (args.GetArgumentCount() > 0)
     error.SetErrorString(
         "The ObjC Exception breakpoint doesn't support extra options.");

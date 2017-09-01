@@ -89,6 +89,7 @@ template <> struct MappingTraits<ClangTidyOptions> {
     IO.mapOptional("WarningsAsErrors", Options.WarningsAsErrors);
     IO.mapOptional("HeaderFilterRegex", Options.HeaderFilterRegex);
     IO.mapOptional("AnalyzeTemporaryDtors", Options.AnalyzeTemporaryDtors);
+    IO.mapOptional("FormatStyle", Options.FormatStyle);
     IO.mapOptional("User", Options.User);
     IO.mapOptional("CheckOptions", NOpts->Options);
     IO.mapOptional("ExtraArgs", Options.ExtraArgs);
@@ -109,6 +110,7 @@ ClangTidyOptions ClangTidyOptions::getDefaults() {
   Options.HeaderFilterRegex = "";
   Options.SystemHeaders = false;
   Options.AnalyzeTemporaryDtors = false;
+  Options.FormatStyle = "none";
   Options.User = llvm::None;
   for (ClangTidyModuleRegistry::iterator I = ClangTidyModuleRegistry::begin(),
                                          E = ClangTidyModuleRegistry::end();
@@ -148,6 +150,7 @@ ClangTidyOptions::mergeWith(const ClangTidyOptions &Other) const {
   overrideValue(Result.HeaderFilterRegex, Other.HeaderFilterRegex);
   overrideValue(Result.SystemHeaders, Other.SystemHeaders);
   overrideValue(Result.AnalyzeTemporaryDtors, Other.AnalyzeTemporaryDtors);
+  overrideValue(Result.FormatStyle, Other.FormatStyle);
   overrideValue(Result.User, Other.User);
   mergeVectors(Result.ExtraArgs, Other.ExtraArgs);
   mergeVectors(Result.ExtraArgsBefore, Other.ExtraArgsBefore);
@@ -215,8 +218,7 @@ FileOptionsProvider::FileOptionsProvider(
     const ClangTidyOptions &OverrideOptions,
     const FileOptionsProvider::ConfigFileHandlers &ConfigHandlers)
     : DefaultOptionsProvider(GlobalOptions, DefaultOptions),
-      OverrideOptions(OverrideOptions), ConfigHandlers(ConfigHandlers) {
-}
+      OverrideOptions(OverrideOptions), ConfigHandlers(ConfigHandlers) {}
 
 // FIXME: This method has some common logic with clang::format::getStyle().
 // Consider pulling out common bits to a findParentFileWithName function or

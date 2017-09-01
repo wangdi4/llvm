@@ -3,6 +3,10 @@
 // RUN: env SANITIZER_STATS_PATH=%t.stats %t
 // RUN: sanstats %t.stats | FileCheck %s
 
+// CFI-icall is not implemented in thinlto mode => ".cfi" suffixes are missing
+// in sanstats output.
+// XFAIL: thinlto
+
 struct ABase {};
 
 struct A : ABase {
@@ -16,24 +20,24 @@ extern "C" void nvcall(A *a);
 #ifdef SHARED_LIB
 
 extern "C" __attribute__((noinline)) void vcall(A *a) {
-  // CHECK: stats.cpp:[[@LINE+1]] vcall cfi-vcall 37
+  // CHECK: stats.cpp:[[@LINE+1]] vcall.cfi cfi-vcall 37
   a->vf();
 }
 
 extern "C" __attribute__((noinline)) void nvcall(A *a) {
-  // CHECK: stats.cpp:[[@LINE+1]] nvcall cfi-nvcall 51
+  // CHECK: stats.cpp:[[@LINE+1]] nvcall.cfi cfi-nvcall 51
   a->nvf();
 }
 
 #else
 
 extern "C" __attribute__((noinline)) A *dcast(A *a) {
-  // CHECK: stats.cpp:[[@LINE+1]] dcast cfi-derived-cast 24
+  // CHECK: stats.cpp:[[@LINE+1]] dcast.cfi cfi-derived-cast 24
   return (A *)(ABase *)a;
 }
 
 extern "C" __attribute__((noinline)) A *ucast(A *a) {
-  // CHECK: stats.cpp:[[@LINE+1]] ucast cfi-unrelated-cast 81
+  // CHECK: stats.cpp:[[@LINE+1]] ucast.cfi cfi-unrelated-cast 81
   return (A *)(char *)a;
 }
 

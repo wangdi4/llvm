@@ -12,8 +12,8 @@
 
 // LLDB headers
 #include "lldb/Core/ArchSpec.h"
-#include "lldb/Host/FileSpec.h"
 #include "lldb/Interpreter/Args.h"
+#include "lldb/Utility/FileSpec.h"
 
 namespace lldb_private {
 //----------------------------------------------------------------------
@@ -73,9 +73,9 @@ public:
 
   const Args &GetArguments() const { return m_arguments; }
 
-  const char *GetArg0() const;
+  llvm::StringRef GetArg0() const;
 
-  void SetArg0(const char *arg);
+  void SetArg0(llvm::StringRef arg);
 
   void SetArguments(const Args &args, bool first_arg_is_executable);
 

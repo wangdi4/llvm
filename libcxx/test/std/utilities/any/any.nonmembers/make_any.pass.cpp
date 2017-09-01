@@ -9,6 +9,13 @@
 
 // UNSUPPORTED: c++98, c++03, c++11, c++14
 
+// XFAIL: with_system_cxx_lib=macosx10.12
+// XFAIL: with_system_cxx_lib=macosx10.11
+// XFAIL: with_system_cxx_lib=macosx10.10
+// XFAIL: with_system_cxx_lib=macosx10.9
+// XFAIL: with_system_cxx_lib=macosx10.7
+// XFAIL: with_system_cxx_lib=macosx10.8
+
 // <any>
 
 // template <class T, class ...Args> any make_any(Args&&...);
@@ -99,7 +106,7 @@ static_assert(IsSmallObject<SmallThrows>::value, "");
 struct LargeThrows {
   LargeThrows(int) { throw 42; }
   LargeThrows(std::initializer_list<int>, int) { throw 42; }
-  int data[10];
+  int data[sizeof(std::any)];
 };
 static_assert(!IsSmallObject<LargeThrows>::value, "");
 

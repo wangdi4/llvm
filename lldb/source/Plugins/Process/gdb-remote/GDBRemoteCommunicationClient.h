@@ -41,7 +41,7 @@ public:
   // After connecting, send the handshake to the server to make sure
   // we are communicating with it.
   //------------------------------------------------------------------
-  bool HandshakeWithServer(Error *error_ptr);
+  bool HandshakeWithServer(Status *error_ptr);
 
   // For packets which specify a range of output to be returned,
   // return all of the output via a series of request packets of the form
@@ -230,21 +230,21 @@ public:
 
   bool DeallocateMemory(lldb::addr_t addr);
 
-  Error Detach(bool keep_stopped);
+  Status Detach(bool keep_stopped);
 
-  Error GetMemoryRegionInfo(lldb::addr_t addr, MemoryRegionInfo &range_info);
+  Status GetMemoryRegionInfo(lldb::addr_t addr, MemoryRegionInfo &range_info);
 
-  Error GetWatchpointSupportInfo(uint32_t &num);
+  Status GetWatchpointSupportInfo(uint32_t &num);
 
-  Error GetWatchpointSupportInfo(uint32_t &num, bool &after,
-                                 const ArchSpec &arch);
+  Status GetWatchpointSupportInfo(uint32_t &num, bool &after,
+                                  const ArchSpec &arch);
 
-  Error GetWatchpointsTriggerAfterInstruction(bool &after,
-                                              const ArchSpec &arch);
+  Status GetWatchpointsTriggerAfterInstruction(bool &after,
+                                               const ArchSpec &arch);
 
   const ArchSpec &GetHostArchitecture();
 
-  uint32_t GetHostDefaultPacketTimeout();
+  std::chrono::seconds GetHostDefaultPacketTimeout();
 
   const ArchSpec &GetProcessArchitecture();
 
@@ -323,7 +323,8 @@ public:
   bool SetNonStopMode(const bool enable);
 
   void TestPacketSpeed(const uint32_t num_packets, uint32_t max_send,
-                       uint32_t max_recv, bool json, Stream &strm);
+                       uint32_t max_recv, uint64_t recv_amount, bool json,
+                       Stream &strm);
 
   // This packet is for testing the speed of the interface only. Both
   // the client and server need to support it, but this allows us to
@@ -346,6 +347,8 @@ public:
 
   bool GetEchoSupported();
 
+  bool GetQPassSignalsSupported();
+
   bool GetAugmentedLibrariesSVR4ReadSupported();
 
   bool GetQXferFeaturesReadSupported();
@@ -362,33 +365,33 @@ public:
                              bool &sequence_mutex_unavailable);
 
   lldb::user_id_t OpenFile(const FileSpec &file_spec, uint32_t flags,
-                           mode_t mode, Error &error);
+                           mode_t mode, Status &error);
 
-  bool CloseFile(lldb::user_id_t fd, Error &error);
+  bool CloseFile(lldb::user_id_t fd, Status &error);
 
   lldb::user_id_t GetFileSize(const FileSpec &file_spec);
 
-  Error GetFilePermissions(const FileSpec &file_spec,
-                           uint32_t &file_permissions);
+  Status GetFilePermissions(const FileSpec &file_spec,
+                            uint32_t &file_permissions);
 
-  Error SetFilePermissions(const FileSpec &file_spec,
-                           uint32_t file_permissions);
+  Status SetFilePermissions(const FileSpec &file_spec,
+                            uint32_t file_permissions);
 
   uint64_t ReadFile(lldb::user_id_t fd, uint64_t offset, void *dst,
-                    uint64_t dst_len, Error &error);
+                    uint64_t dst_len, Status &error);
 
   uint64_t WriteFile(lldb::user_id_t fd, uint64_t offset, const void *src,
-                     uint64_t src_len, Error &error);
+                     uint64_t src_len, Status &error);
 
-  Error CreateSymlink(const FileSpec &src, const FileSpec &dst);
+  Status CreateSymlink(const FileSpec &src, const FileSpec &dst);
 
-  Error Unlink(const FileSpec &file_spec);
+  Status Unlink(const FileSpec &file_spec);
 
-  Error MakeDirectory(const FileSpec &file_spec, uint32_t mode);
+  Status MakeDirectory(const FileSpec &file_spec, uint32_t mode);
 
   bool GetFileExists(const FileSpec &file_spec);
 
-  Error RunShellCommand(
+  Status RunShellCommand(
       const char *command,         // Shouldn't be nullptr
       const FileSpec &working_dir, // Pass empty FileSpec to use the current
                                    // working directory
@@ -445,9 +448,12 @@ public:
 
   bool ReadExtFeature(const lldb_private::ConstString object,
                       const lldb_private::ConstString annex, std::string &out,
-                      lldb_private::Error &err);
+                      lldb_private::Status &err);
 
   void ServeSymbolLookups(lldb_private::Process *process);
+
+  // Sends QPassSignals packet to the server with given signals to ignore.
+  Status SendSignalsToIgnore(llvm::ArrayRef<int32_t> signals);
 
   //------------------------------------------------------------------
   /// Return the feature set supported by the gdb-remote server.
@@ -489,7 +495,7 @@ public:
   ///
   /// @see \b Process::ConfigureStructuredData(...) for details.
   //------------------------------------------------------------------
-  Error
+  Status
   ConfigureRemoteStructuredData(const ConstString &type_name,
                                 const StructuredData::ObjectSP &config_sp);
 
@@ -526,6 +532,7 @@ protected:
   LazyBool m_supports_jThreadExtendedInfo;
   LazyBool m_supports_jLoadedDynamicLibrariesInfos;
   LazyBool m_supports_jGetSharedCacheInfo;
+  LazyBool m_supports_QPassSignals;
 
   bool m_supports_qProcessInfoPID : 1, m_supports_qfProcessInfo : 1,
       m_supports_qUserName : 1, m_supports_qGroupName : 1,
@@ -556,7 +563,7 @@ protected:
                                  // qGDBServerVersion is not supported
   uint32_t m_gdb_server_version; // from reply to qGDBServerVersion, zero if
                                  // qGDBServerVersion is not supported
-  uint32_t m_default_packet_timeout;
+  std::chrono::seconds m_default_packet_timeout;
   uint64_t m_max_packet_size;        // as returned by qSupported
   std::string m_qSupported_response; // the complete response to qSupported
 

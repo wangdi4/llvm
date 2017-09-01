@@ -32,9 +32,7 @@ public:
         MachineFunctionProperties::Property::NoVRegs);
   }
 
-  const char *getPassName() const override {
-    return "optimise barriers pass";
-  }
+  StringRef getPassName() const override { return "optimise barriers pass"; }
 };
 char ARMOptimizeBarriersPass::ID = 0;
 }
@@ -90,13 +88,15 @@ bool ARMOptimizeBarriersPass::runOnMachineFunction(MachineFunction &MF) {
       }
     }
   }
+  bool Changed = false;
   // Remove the tagged DMB
   for (auto MI : ToRemove) {
     MI->eraseFromParent();
     ++NumDMBsRemoved;
+    Changed = true;
   }
 
-  return NumDMBsRemoved > 0;
+  return Changed;
 }
 
 /// createARMOptimizeBarriersPass - Returns an instance of the remove double

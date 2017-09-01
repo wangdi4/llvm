@@ -39,7 +39,7 @@ SourceLocation forwardSkipWhitespaceAndComments(SourceLocation Loc,
                                                 const ASTContext *Context) {
   assert(Loc.isValid());
   for (;;) {
-    while (isWhitespace(*FullSourceLoc(Loc, SM).getCharacterData()))
+    while (isWhitespace(*SM.getCharacterData(Loc)))
       Loc = Loc.getLocWithOffset(1);
 
     tok::TokenKind TokKind = getTokenKind(Loc, SM, Context);
@@ -61,7 +61,7 @@ SourceLocation findEndLocation(SourceLocation LastTokenLoc,
   bool SkipEndWhitespaceAndComments = true;
   tok::TokenKind TokKind = getTokenKind(Loc, SM, Context);
   if (TokKind == tok::NUM_TOKENS || TokKind == tok::semi ||
-      TokKind == tok::r_brace) {
+      TokKind == tok::r_brace || isStringLiteral(TokKind)) {
     // If we are at ";" or "}", we found the last token. We could use as well
     // `if (isa<NullStmt>(S))`, but it wouldn't work for nested statements.
     SkipEndWhitespaceAndComments = false;
@@ -69,7 +69,6 @@ SourceLocation findEndLocation(SourceLocation LastTokenLoc,
 
   Loc = Lexer::getLocForEndOfToken(Loc, 0, SM, Context->getLangOpts());
   // Loc points past the last token before end or after ';'.
-
   if (SkipEndWhitespaceAndComments) {
     Loc = forwardSkipWhitespaceAndComments(Loc, SM, Context);
     tok::TokenKind TokKind = getTokenKind(Loc, SM, Context);
@@ -79,10 +78,11 @@ SourceLocation findEndLocation(SourceLocation LastTokenLoc,
 
   for (;;) {
     assert(Loc.isValid());
-    while (isHorizontalWhitespace(*FullSourceLoc(Loc, SM).getCharacterData()))
+    while (isHorizontalWhitespace(*SM.getCharacterData(Loc))) {
       Loc = Loc.getLocWithOffset(1);
+    }
 
-    if (isVerticalWhitespace(*FullSourceLoc(Loc, SM).getCharacterData())) {
+    if (isVerticalWhitespace(*SM.getCharacterData(Loc))) {
       // EOL, insert brace before.
       break;
     }
@@ -117,8 +117,8 @@ BracesAroundStatementsCheck::BracesAroundStatementsCheck(
       // Always add braces by default.
       ShortStatementLines(Options.get("ShortStatementLines", 0U)) {}
 
-void
-BracesAroundStatementsCheck::storeOptions(ClangTidyOptions::OptionMap &Opts) {
+void BracesAroundStatementsCheck::storeOptions(
+    ClangTidyOptions::OptionMap &Opts) {
   Options.store(Opts, "ShortStatementLines", ShortStatementLines);
 }
 
@@ -130,8 +130,8 @@ void BracesAroundStatementsCheck::registerMatchers(MatchFinder *Finder) {
   Finder->addMatcher(cxxForRangeStmt().bind("for-range"), this);
 }
 
-void
-BracesAroundStatementsCheck::check(const MatchFinder::MatchResult &Result) {
+void BracesAroundStatementsCheck::check(
+    const MatchFinder::MatchResult &Result) {
   const SourceManager &SM = *Result.SourceManager;
   const ASTContext *Context = Result.Context;
 
@@ -159,7 +159,7 @@ BracesAroundStatementsCheck::check(const MatchFinder::MatchResult &Result) {
       ForceBracesStmts.insert(Else);
     if (Else && !isa<IfStmt>(Else)) {
       // Omit 'else if' statements here, they will be handled directly.
-      checkStmt(Result, Else, S->getElseLoc(), SourceLocation());
+      checkStmt(Result, Else, S->getElseLoc());
     }
   } else {
     llvm_unreachable("Invalid match");

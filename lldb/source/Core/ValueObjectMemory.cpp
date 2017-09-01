@@ -9,45 +9,45 @@
 
 #include "lldb/Core/ValueObjectMemory.h"
 
-// C Includes
-// C++ Includes
-// Other libraries and framework includes
-// Project includes
-#include "lldb/Core/Module.h"
+#include "lldb/Core/ArchSpec.h" // for ArchSpec
+#include "lldb/Core/Scalar.h"   // for Scalar, operator!=
 #include "lldb/Core/Value.h"
 #include "lldb/Core/ValueObject.h"
-#include "lldb/Core/ValueObjectList.h"
-
-#include "lldb/Symbol/ObjectFile.h"
-#include "lldb/Symbol/SymbolContext.h"
 #include "lldb/Symbol/Type.h"
-#include "lldb/Symbol/Variable.h"
-
 #include "lldb/Target/ExecutionContext.h"
-#include "lldb/Target/Process.h"
-#include "lldb/Target/RegisterContext.h"
 #include "lldb/Target/Target.h"
-#include "lldb/Target/Thread.h"
+#include "lldb/Utility/DataExtractor.h" // for DataExtractor
+#include "lldb/Utility/Status.h"        // for Status
+#include "lldb/lldb-types.h"            // for addr_t
+#include "llvm/Support/ErrorHandling.h" // for llvm_unreachable
+
+#include <assert.h> // for assert
+#include <memory>   // for shared_ptr
+
+namespace lldb_private {
+class ExecutionContextScope;
+}
 
 using namespace lldb;
 using namespace lldb_private;
 
 ValueObjectSP ValueObjectMemory::Create(ExecutionContextScope *exe_scope,
-                                        const char *name,
+                                        llvm::StringRef name,
                                         const Address &address,
                                         lldb::TypeSP &type_sp) {
   return (new ValueObjectMemory(exe_scope, name, address, type_sp))->GetSP();
 }
 
 ValueObjectSP ValueObjectMemory::Create(ExecutionContextScope *exe_scope,
-                                        const char *name,
+                                        llvm::StringRef name,
                                         const Address &address,
                                         const CompilerType &ast_type) {
   return (new ValueObjectMemory(exe_scope, name, address, ast_type))->GetSP();
 }
 
 ValueObjectMemory::ValueObjectMemory(ExecutionContextScope *exe_scope,
-                                     const char *name, const Address &address,
+                                     llvm::StringRef name,
+                                     const Address &address,
                                      lldb::TypeSP &type_sp)
     : ValueObject(exe_scope), m_address(address), m_type_sp(type_sp),
       m_compiler_type() {
@@ -73,7 +73,8 @@ ValueObjectMemory::ValueObjectMemory(ExecutionContextScope *exe_scope,
 }
 
 ValueObjectMemory::ValueObjectMemory(ExecutionContextScope *exe_scope,
-                                     const char *name, const Address &address,
+                                     llvm::StringRef name,
+                                     const Address &address,
                                      const CompilerType &ast_type)
     : ValueObject(exe_scope), m_address(address), m_type_sp(),
       m_compiler_type(ast_type) {
@@ -163,8 +164,7 @@ bool ValueObjectMemory::UpdateValue() {
 
     switch (value_type) {
     default:
-      assert(!"Unhandled expression result value kind...");
-      break;
+      llvm_unreachable("Unhandled expression result value kind...");
 
     case Value::eValueTypeScalar:
       // The variable value is in the Scalar value inside the m_value.

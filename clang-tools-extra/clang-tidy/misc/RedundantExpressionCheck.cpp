@@ -12,7 +12,20 @@
 #include "../utils/OptionsUtils.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
+#include "clang/Basic/LLVM.h"
+#include "clang/Basic/SourceLocation.h"
+#include "clang/Basic/SourceManager.h"
 #include "clang/Lex/Lexer.h"
+#include "llvm/ADT/APInt.h"
+#include "llvm/ADT/APSInt.h"
+#include "llvm/ADT/FoldingSet.h"
+#include "llvm/Support/Casting.h"
+#include <algorithm>
+#include <cassert>
+#include <cstdint>
+#include <set>
+#include <string>
+#include <vector>
 
 using namespace clang::ast_matchers;
 using namespace clang::tidy::matchers;
@@ -171,7 +184,7 @@ static bool areExclusiveRanges(BinaryOperatorKind OpcodeLHS,
   }
 
   // Handle cases where the constants are different.
-  if ((OpcodeLHS == BO_EQ || OpcodeLHS == BO_LE || OpcodeLHS == BO_LE) &&
+  if ((OpcodeLHS == BO_EQ || OpcodeLHS == BO_LT || OpcodeLHS == BO_LE) &&
       (OpcodeRHS == BO_EQ || OpcodeRHS == BO_GT || OpcodeRHS == BO_GE))
     return true;
 
@@ -224,6 +237,11 @@ static bool rangesFullyCoverDomain(BinaryOperatorKind OpcodeLHS,
   // Handle cases where the constants are different: x > 4 || x <= 7.
   if ((OpcodeLHS == BO_GT || OpcodeLHS == BO_GE) &&
       (OpcodeRHS == BO_LT || OpcodeRHS == BO_LE))
+    return true;
+
+  // Handle cases where constants are different but both ops are !=, like:
+  // x != 5 || x != 10
+  if (OpcodeLHS == BO_NE && OpcodeRHS == BO_NE)
     return true;
 
   return false;
@@ -401,7 +419,7 @@ retrieveRelationalIntegerConstantExpr(const MatchFinder::MatchResult &Result,
     // Operand received with implicit comparator (cast).
     Opcode = BO_NE;
     OperandExpr = Cast;
-    Value = APSInt(32, 0);
+    Value = APSInt(32, false);
   } else {
     return false;
   }

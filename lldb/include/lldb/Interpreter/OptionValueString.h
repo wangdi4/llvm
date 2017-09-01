@@ -16,14 +16,15 @@
 
 // Other libraries and framework includes
 // Project includes
-#include "lldb/Core/Flags.h"
+#include "lldb/Utility/Flags.h"
+
 #include "lldb/Interpreter/OptionValue.h"
 
 namespace lldb_private {
 
 class OptionValueString : public OptionValue {
 public:
-  typedef Error (*ValidatorCallback)(const char *string, void *baton);
+  typedef Status (*ValidatorCallback)(const char *string, void *baton);
 
   enum Options { eOptionEncodeCharacterEscapeSequences = (1u << 0) };
 
@@ -84,9 +85,12 @@ public:
   void DumpValue(const ExecutionContext *exe_ctx, Stream &strm,
                  uint32_t dump_mask) override;
 
-  Error
+  Status
   SetValueFromString(llvm::StringRef value,
                      VarSetOperationType op = eVarSetOperationAssign) override;
+  Status
+  SetValueFromString(const char *,
+                     VarSetOperationType = eVarSetOperationAssign) = delete;
 
   bool Clear() override {
     m_current_value = m_default_value;
@@ -105,17 +109,20 @@ public:
   const Flags &GetOptions() const { return m_options; }
 
   const char *operator=(const char *value) {
-    SetCurrentValue(value);
+    SetCurrentValue(llvm::StringRef::withNullAsEmpty(value));
     return m_current_value.c_str();
   }
 
   const char *GetCurrentValue() const { return m_current_value.c_str(); }
+  llvm::StringRef GetCurrentValueAsRef() const { return m_current_value; }
 
   const char *GetDefaultValue() const { return m_default_value.c_str(); }
+  llvm::StringRef GetDefaultValueAsRef() const { return m_default_value; }
 
-  Error SetCurrentValue(const char *value);
+  Status SetCurrentValue(const char *) = delete;
+  Status SetCurrentValue(llvm::StringRef value);
 
-  Error AppendToCurrentValue(const char *value);
+  Status AppendToCurrentValue(const char *value);
 
   void SetDefaultValue(const char *value) {
     if (value && value[0])

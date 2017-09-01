@@ -8,14 +8,18 @@
 //===----------------------------------------------------------------------===//
 #include "lldb/Core/Timer.h"
 
+#include "lldb/Host/Host.h"
+#include "lldb/Utility/Stream.h"
+#include "lldb/lldb-types.h" // for thread_key_t
+
 #include <algorithm>
 #include <map>
 #include <mutex>
+#include <utility> // for pair
 #include <vector>
 
-#include "lldb/Core/Stream.h"
-#include "lldb/Host/Host.h"
-
+#include <assert.h> // for assert
+#include <stdarg.h> // for va_end, va_list, va_start
 #include <stdio.h>
 
 using namespace lldb_private;
@@ -23,37 +27,15 @@ using namespace lldb_private;
 #define TIMER_INDENT_AMOUNT 2
 
 namespace {
-typedef std::map<const char *, uint64_t> TimerCategoryMap;
-
-struct TimerStack {
-  TimerStack() : m_depth(0) {}
-
-  uint32_t m_depth;
-  std::vector<Timer *> m_stack;
-};
+typedef std::vector<Timer *> TimerStack;
+static std::atomic<Timer::Category *> g_categories;
 } // end of anonymous namespace
 
 std::atomic<bool> Timer::g_quiet(true);
 std::atomic<unsigned> Timer::g_display_depth(0);
 static std::mutex &GetFileMutex() {
-  static std::mutex *g_file_mutex_ptr = nullptr;
-  static std::once_flag g_once_flag;
-  std::call_once(g_once_flag, []() {
-    // leaked on purpose to ensure this mutex works after main thread has run
-    // global C++ destructor chain
-    g_file_mutex_ptr = new std::mutex();
-  });
+  static std::mutex *g_file_mutex_ptr = new std::mutex();
   return *g_file_mutex_ptr;
-}
-
-static std::mutex &GetCategoryMutex() {
-  static std::mutex g_category_mutex;
-  return g_category_mutex;
-}
-
-static TimerCategoryMap &GetCategoryMap() {
-  static TimerCategoryMap g_category_map;
-  return g_category_map;
 }
 
 static void ThreadSpecificCleanup(void *p) {
@@ -72,114 +54,65 @@ static TimerStack *GetTimerStackForCurrentThread() {
   return (TimerStack *)timer_stack;
 }
 
+Timer::Category::Category(const char *cat) : m_name(cat) {
+  m_nanos.store(0, std::memory_order_release);
+  Category *expected = g_categories;
+  do {
+    m_next = expected;
+  } while (!g_categories.compare_exchange_weak(expected, this));
+}
+
 void Timer::SetQuiet(bool value) { g_quiet = value; }
 
-Timer::Timer(const char *category, const char *format, ...)
-    : m_category(category), m_total_start(), m_timer_start(), m_total_ticks(0),
-      m_timer_ticks(0) {
+Timer::Timer(Timer::Category &category, const char *format, ...)
+    : m_category(category), m_total_start(std::chrono::steady_clock::now()) {
   TimerStack *stack = GetTimerStackForCurrentThread();
   if (!stack)
     return;
 
-  if (stack->m_depth++ < g_display_depth) {
-    if (g_quiet == false) {
-      std::lock_guard<std::mutex> lock(GetFileMutex());
+  stack->push_back(this);
+  if (g_quiet && stack->size() <= g_display_depth) {
+    std::lock_guard<std::mutex> lock(GetFileMutex());
 
-      // Indent
-      ::fprintf(stdout, "%*s", stack->m_depth * TIMER_INDENT_AMOUNT, "");
-      // Print formatted string
-      va_list args;
-      va_start(args, format);
-      ::vfprintf(stdout, format, args);
-      va_end(args);
+    // Indent
+    ::fprintf(stdout, "%*s", int(stack->size() - 1) * TIMER_INDENT_AMOUNT, "");
+    // Print formatted string
+    va_list args;
+    va_start(args, format);
+    ::vfprintf(stdout, format, args);
+    va_end(args);
 
-      // Newline
-      ::fprintf(stdout, "\n");
-    }
-    TimeValue start_time(TimeValue::Now());
-    m_total_start = start_time;
-    m_timer_start = start_time;
-
-    if (!stack->m_stack.empty())
-      stack->m_stack.back()->ChildStarted(start_time);
-    stack->m_stack.push_back(this);
+    // Newline
+    ::fprintf(stdout, "\n");
   }
 }
 
 Timer::~Timer() {
+  using namespace std::chrono;
+
   TimerStack *stack = GetTimerStackForCurrentThread();
   if (!stack)
     return;
 
-  if (m_total_start.IsValid()) {
-    TimeValue stop_time = TimeValue::Now();
-    if (m_total_start.IsValid()) {
-      m_total_ticks += (stop_time - m_total_start);
-      m_total_start.Clear();
-    }
-    if (m_timer_start.IsValid()) {
-      m_timer_ticks += (stop_time - m_timer_start);
-      m_timer_start.Clear();
-    }
+  auto stop_time = steady_clock::now();
+  auto total_dur = stop_time - m_total_start;
+  auto timer_dur = total_dur - m_child_duration;
 
-    assert(stack->m_stack.back() == this);
-    stack->m_stack.pop_back();
-    if (stack->m_stack.empty() == false)
-      stack->m_stack.back()->ChildStopped(stop_time);
-
-    const uint64_t total_nsec_uint = GetTotalElapsedNanoSeconds();
-    const uint64_t timer_nsec_uint = GetTimerElapsedNanoSeconds();
-    const double total_nsec = total_nsec_uint;
-    const double timer_nsec = timer_nsec_uint;
-
-    if (g_quiet == false) {
-      std::lock_guard<std::mutex> lock(GetFileMutex());
-      ::fprintf(stdout, "%*s%.9f sec (%.9f sec)\n",
-                (stack->m_depth - 1) * TIMER_INDENT_AMOUNT, "",
-                total_nsec / 1000000000.0, timer_nsec / 1000000000.0);
-    }
-
-    // Keep total results for each category so we can dump results.
-    std::lock_guard<std::mutex> guard(GetCategoryMutex());
-    TimerCategoryMap &category_map = GetCategoryMap();
-    category_map[m_category] += timer_nsec_uint;
+  if (g_quiet && stack->size() <= g_display_depth) {
+    std::lock_guard<std::mutex> lock(GetFileMutex());
+    ::fprintf(stdout, "%*s%.9f sec (%.9f sec)\n",
+              int(stack->size() - 1) * TIMER_INDENT_AMOUNT, "",
+              duration<double>(total_dur).count(),
+              duration<double>(timer_dur).count());
   }
-  if (stack->m_depth > 0)
-    --stack->m_depth;
-}
 
-uint64_t Timer::GetTotalElapsedNanoSeconds() {
-  uint64_t total_ticks = m_total_ticks;
+  assert(stack->back() == this);
+  stack->pop_back();
+  if (!stack->empty())
+    stack->back()->ChildDuration(total_dur);
 
-  // If we are currently running, we need to add the current
-  // elapsed time of the running timer...
-  if (m_total_start.IsValid())
-    total_ticks += (TimeValue::Now() - m_total_start);
-
-  return total_ticks;
-}
-
-uint64_t Timer::GetTimerElapsedNanoSeconds() {
-  uint64_t timer_ticks = m_timer_ticks;
-
-  // If we are currently running, we need to add the current
-  // elapsed time of the running timer...
-  if (m_timer_start.IsValid())
-    timer_ticks += (TimeValue::Now() - m_timer_start);
-
-  return timer_ticks;
-}
-
-void Timer::ChildStarted(const TimeValue &start_time) {
-  if (m_timer_start.IsValid()) {
-    m_timer_ticks += (start_time - m_timer_start);
-    m_timer_start.Clear();
-  }
-}
-
-void Timer::ChildStopped(const TimeValue &stop_time) {
-  if (!m_timer_start.IsValid())
-    m_timer_start = stop_time;
+  // Keep total results for each category so we can dump results.
+  m_category.m_nanos += std::chrono::nanoseconds(timer_dur).count();
 }
 
 void Timer::SetDisplayDepth(uint32_t depth) { g_display_depth = depth; }
@@ -187,33 +120,32 @@ void Timer::SetDisplayDepth(uint32_t depth) { g_display_depth = depth; }
 /* binary function predicate:
  * - returns whether a person is less than another person
  */
-static bool
-CategoryMapIteratorSortCriterion(const TimerCategoryMap::const_iterator &lhs,
-                                 const TimerCategoryMap::const_iterator &rhs) {
-  return lhs->second > rhs->second;
+
+typedef std::pair<const char *, uint64_t> TimerEntry;
+
+static bool CategoryMapIteratorSortCriterion(const TimerEntry &lhs,
+                                             const TimerEntry &rhs) {
+  return lhs.second > rhs.second;
 }
 
 void Timer::ResetCategoryTimes() {
-  std::lock_guard<std::mutex> guard(GetCategoryMutex());
-  TimerCategoryMap &category_map = GetCategoryMap();
-  category_map.clear();
+  for (Category *i = g_categories; i; i = i->m_next)
+    i->m_nanos.store(0, std::memory_order_release);
 }
 
 void Timer::DumpCategoryTimes(Stream *s) {
-  std::lock_guard<std::mutex> guard(GetCategoryMutex());
-  TimerCategoryMap &category_map = GetCategoryMap();
-  std::vector<TimerCategoryMap::const_iterator> sorted_iterators;
-  TimerCategoryMap::const_iterator pos, end = category_map.end();
-  for (pos = category_map.begin(); pos != end; ++pos) {
-    sorted_iterators.push_back(pos);
+  std::vector<TimerEntry> sorted;
+  for (Category *i = g_categories; i; i = i->m_next) {
+    uint64_t nanos = i->m_nanos.load(std::memory_order_acquire);
+    if (nanos)
+      sorted.push_back(std::make_pair(i->m_name, nanos));
   }
-  std::sort(sorted_iterators.begin(), sorted_iterators.end(),
-            CategoryMapIteratorSortCriterion);
+  if (sorted.empty())
+    return; // Later code will break without any elements.
 
-  const size_t count = sorted_iterators.size();
-  for (size_t i = 0; i < count; ++i) {
-    const double timer_nsec = sorted_iterators[i]->second;
-    s->Printf("%.9f sec for %s\n", timer_nsec / 1000000000.0,
-              sorted_iterators[i]->first);
-  }
+  // Sort by time
+  std::sort(sorted.begin(), sorted.end(), CategoryMapIteratorSortCriterion);
+
+  for (const auto &timer : sorted)
+    s->Printf("%.9f sec for %s\n", timer.second / 1000000000., timer.first);
 }

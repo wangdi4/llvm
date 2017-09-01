@@ -15,8 +15,10 @@
 
 // Other libraries and framework includes
 // Project includes
-#include "lldb/Core/Stream.h"
 #include "lldb/Host/PosixApi.h"
+#include "lldb/Utility/Stream.h"
+
+#include "llvm/ADT/SmallString.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -66,8 +68,9 @@ void ProcessInfo::SetExecutableFile(const FileSpec &exe_file,
   if (exe_file) {
     m_executable = exe_file;
     if (add_exe_file_as_first_arg) {
-      char filename[PATH_MAX];
-      if (exe_file.GetPath(filename, sizeof(filename)))
+      llvm::SmallString<PATH_MAX> filename;
+      exe_file.GetPath(filename);
+      if (!filename.empty())
         m_arguments.InsertArgumentAtIndex(0, filename);
     }
   } else {
@@ -75,15 +78,12 @@ void ProcessInfo::SetExecutableFile(const FileSpec &exe_file,
   }
 }
 
-const char *ProcessInfo::GetArg0() const {
-  return (m_arg0.empty() ? nullptr : m_arg0.c_str());
+llvm::StringRef ProcessInfo::GetArg0() const {
+  return m_arg0;
 }
 
-void ProcessInfo::SetArg0(const char *arg) {
-  if (arg && arg[0])
-    m_arg0 = arg;
-  else
-    m_arg0.clear();
+void ProcessInfo::SetArg0(llvm::StringRef arg) {
+  m_arg0 = arg;
 }
 
 void ProcessInfo::SetArguments(char const **argv,

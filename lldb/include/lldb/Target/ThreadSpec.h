@@ -43,13 +43,21 @@ public:
 
   const ThreadSpec &operator=(const ThreadSpec &rhs);
 
+  static std::unique_ptr<ThreadSpec>
+  CreateFromStructuredData(const StructuredData::Dictionary &data_dict,
+                           Status &error);
+
+  StructuredData::ObjectSP SerializeToStructuredData();
+
+  static const char *GetSerializationKey() { return "ThreadSpec"; }
+
   void SetIndex(uint32_t index) { m_index = index; }
 
   void SetTID(lldb::tid_t tid) { m_tid = tid; }
 
-  void SetName(const char *name) { m_name = name; }
+  void SetName(llvm::StringRef name) { m_name = name; }
 
-  void SetQueueName(const char *queue_name) { m_queue_name = queue_name; }
+  void SetQueueName(llvm::StringRef queue_name) { m_queue_name = queue_name; }
 
   uint32_t GetIndex() const { return m_index; }
 
@@ -106,6 +114,19 @@ public:
   void GetDescription(Stream *s, lldb::DescriptionLevel level) const;
 
 private:
+  enum class OptionNames {
+    ThreadIndex = 0,
+    ThreadID,
+    ThreadName,
+    QueueName,
+    LastOptionName
+  };
+  static const char *g_option_names[(size_t)OptionNames::LastOptionName];
+
+  static const char *GetKey(OptionNames enum_value) {
+    return g_option_names[(size_t) enum_value];
+  }
+
   uint32_t m_index;
   lldb::tid_t m_tid;
   std::string m_name;

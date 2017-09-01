@@ -127,7 +127,15 @@ TEST(AddressSanitizer, StrNLenOOBTest) {
 }
 #endif  // SANITIZER_TEST_HAS_STRNLEN
 
-TEST(AddressSanitizer, StrDupOOBTest) {
+// This test fails with the WinASan dynamic runtime because we fail to intercept
+// strdup.
+#if defined(_MSC_VER) && defined(_DLL)
+#define MAYBE_StrDupOOBTest DISABLED_StrDupOOBTest
+#else
+#define MAYBE_StrDupOOBTest StrDupOOBTest
+#endif
+
+TEST(AddressSanitizer, MAYBE_StrDupOOBTest) {
   size_t size = Ident(42);
   char *str = MallocAndMemsetString(size);
   char *new_str;
@@ -145,6 +153,27 @@ TEST(AddressSanitizer, StrDupOOBTest) {
   EXPECT_DEATH(Ident(strdup(str)), RightOOBReadMessage(0));
   free(str);
 }
+
+#if SANITIZER_TEST_HAS_STRNDUP
+TEST(AddressSanitizer, MAYBE_StrNDupOOBTest) {
+  size_t size = Ident(42);
+  char *str = MallocAndMemsetString(size);
+  char *new_str;
+  // Normal strndup calls.
+  str[size - 1] = '\0';
+  new_str = strndup(str, size - 13);
+  free(new_str);
+  new_str = strndup(str + size - 1, 13);
+  free(new_str);
+  // Argument points to not allocated memory.
+  EXPECT_DEATH(Ident(strndup(str - 1, 13)), LeftOOBReadMessage(1));
+  EXPECT_DEATH(Ident(strndup(str + size, 13)), RightOOBReadMessage(0));
+  // Overwrite the terminating '\0' and hit unallocated memory.
+  str[size - 1] = 'z';
+  EXPECT_DEATH(Ident(strndup(str, size + 13)), RightOOBReadMessage(0));
+  free(str);
+}
+#endif // SANITIZER_TEST_HAS_STRNDUP
 
 TEST(AddressSanitizer, StrCpyOOBTest) {
   size_t to_size = Ident(30);

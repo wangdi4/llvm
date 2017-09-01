@@ -13,7 +13,7 @@
 // C++ Includes
 // Other libraries and framework includes
 // Project includes
-#include "lldb/Core/Stream.h"
+#include "lldb/Utility/Stream.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -26,17 +26,15 @@ void OptionValueRegex::DumpValue(const ExecutionContext *exe_ctx, Stream &strm,
     if (dump_mask & eDumpOptionType)
       strm.PutCString(" = ");
     if (m_regex.IsValid()) {
-      const char *regex_text = m_regex.GetText();
-      if (regex_text && regex_text[0])
-        strm.Printf("%s", regex_text);
-    } else {
+      llvm::StringRef regex_text = m_regex.GetText();
+      strm.Printf("%s", regex_text.str().c_str());
     }
   }
 }
 
-Error OptionValueRegex::SetValueFromString(llvm::StringRef value,
-                                           VarSetOperationType op) {
-  Error error;
+Status OptionValueRegex::SetValueFromString(llvm::StringRef value,
+                                            VarSetOperationType op) {
+  Status error;
   switch (op) {
   case eVarSetOperationInvalid:
   case eVarSetOperationInsertBefore:
@@ -53,7 +51,7 @@ Error OptionValueRegex::SetValueFromString(llvm::StringRef value,
 
   case eVarSetOperationReplace:
   case eVarSetOperationAssign:
-    if (m_regex.Compile(value.str().c_str())) {
+    if (m_regex.Compile(value)) {
       m_value_was_set = true;
       NotifyValueChanged();
     } else {
@@ -70,5 +68,5 @@ Error OptionValueRegex::SetValueFromString(llvm::StringRef value,
 }
 
 lldb::OptionValueSP OptionValueRegex::DeepCopy() const {
-  return OptionValueSP(new OptionValueRegex(m_regex.GetText()));
+  return OptionValueSP(new OptionValueRegex(m_regex.GetText().str().c_str()));
 }

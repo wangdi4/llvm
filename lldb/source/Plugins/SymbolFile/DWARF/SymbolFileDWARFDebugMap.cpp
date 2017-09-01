@@ -19,8 +19,9 @@
 #include "lldb/Core/ModuleList.h"
 #include "lldb/Core/PluginManager.h"
 #include "lldb/Core/RangeMap.h"
-#include "lldb/Core/RegularExpression.h"
 #include "lldb/Core/Section.h"
+#include "lldb/Host/FileSystem.h"
+#include "lldb/Utility/RegularExpression.h"
 
 //#define DEBUG_OSO_DMAP // DO NOT CHECKIN WITH THIS NOT COMMENTED OUT
 #if defined(DEBUG_OSO_DMAP)
@@ -34,6 +35,7 @@
 #include "lldb/Symbol/SymbolVendor.h"
 #include "lldb/Symbol/TypeMap.h"
 #include "lldb/Symbol/VariableList.h"
+#include "llvm/Support/ScopedPrinter.h"
 
 #include "LogChannelDWARF.h"
 #include "SymbolFileDWARF.h"
@@ -174,9 +176,8 @@ public:
   DebugMapModule(const ModuleSP &exe_module_sp, uint32_t cu_idx,
                  const FileSpec &file_spec, const ArchSpec &arch,
                  const ConstString *object_name, off_t object_offset,
-                 const TimeValue *object_mod_time_ptr)
-      : Module(file_spec, arch, object_name, object_offset,
-               object_mod_time_ptr),
+                 const llvm::sys::TimePoint<> object_mod_time)
+      : Module(file_spec, arch, object_name, object_offset, object_mod_time),
         m_exe_module_wp(exe_module_sp), m_cu_idx(cu_idx) {}
 
   ~DebugMapModule() override = default;
@@ -354,9 +355,8 @@ void SymbolFileDWARFDebugMap::InitOSO() {
           m_compile_unit_infos[i].so_file.SetFile(
               so_symbol->GetName().AsCString(), false);
           m_compile_unit_infos[i].oso_path = oso_symbol->GetName();
-          TimeValue oso_mod_time;
-          oso_mod_time.OffsetWithSeconds(oso_symbol->GetIntegerValue(0));
-          m_compile_unit_infos[i].oso_mod_time = oso_mod_time;
+          m_compile_unit_infos[i].oso_mod_time =
+              llvm::sys::toTimePoint(oso_symbol->GetIntegerValue(0));
           uint32_t sibling_idx = so_symbol->GetSiblingIndex();
           // The sibling index can't be less that or equal to the current index
           // "i"
@@ -424,15 +424,14 @@ Module *SymbolFileDWARFDebugMap::GetModuleByCompUnitInfo(
       FileSpec oso_file(oso_path, false);
       ConstString oso_object;
       if (oso_file.Exists()) {
-        TimeValue oso_mod_time(oso_file.GetModificationTime());
+        auto oso_mod_time = FileSystem::GetModificationTime(oso_file);
         if (oso_mod_time != comp_unit_info->oso_mod_time) {
           obj_file->GetModule()->ReportError(
               "debug map object file '%s' has changed (actual time is "
-              "0x%" PRIx64 ", debug map time is 0x%" PRIx64
+              "%s, debug map time is %s"
               ") since this executable was linked, file will be ignored",
-              oso_file.GetPath().c_str(),
-              oso_mod_time.GetAsSecondsSinceJan1_1970(),
-              comp_unit_info->oso_mod_time.GetAsSecondsSinceJan1_1970());
+              oso_file.GetPath().c_str(), llvm::to_string(oso_mod_time).c_str(),
+              llvm::to_string(comp_unit_info->oso_mod_time).c_str());
           return NULL;
         }
 
@@ -463,7 +462,8 @@ Module *SymbolFileDWARFDebugMap::GetModuleByCompUnitInfo(
       comp_unit_info->oso_sp->module_sp.reset(new DebugMapModule(
           obj_file->GetModule(), GetCompUnitInfoIndex(comp_unit_info), oso_file,
           oso_arch, oso_object ? &oso_object : NULL, 0,
-          oso_object ? &comp_unit_info->oso_mod_time : NULL));
+          oso_object ? comp_unit_info->oso_mod_time
+                     : llvm::sys::TimePoint<>()));
     }
   }
   if (comp_unit_info->oso_sp)
@@ -991,7 +991,8 @@ uint32_t SymbolFileDWARFDebugMap::FindFunctions(
     const ConstString &name, const CompilerDeclContext *parent_decl_ctx,
     uint32_t name_type_mask, bool include_inlines, bool append,
     SymbolContextList &sc_list) {
-  Timer scoped_timer(LLVM_PRETTY_FUNCTION,
+  static Timer::Category func_cat(LLVM_PRETTY_FUNCTION);
+  Timer scoped_timer(func_cat,
                      "SymbolFileDWARFDebugMap::FindFunctions (name = %s)",
                      name.GetCString());
 
@@ -1018,9 +1019,10 @@ uint32_t SymbolFileDWARFDebugMap::FindFunctions(const RegularExpression &regex,
                                                 bool include_inlines,
                                                 bool append,
                                                 SymbolContextList &sc_list) {
-  Timer scoped_timer(LLVM_PRETTY_FUNCTION,
+  static Timer::Category func_cat(LLVM_PRETTY_FUNCTION);
+  Timer scoped_timer(func_cat,
                      "SymbolFileDWARFDebugMap::FindFunctions (regex = '%s')",
-                     regex.GetText());
+                     regex.GetText().str().c_str());
 
   uint32_t initial_size = 0;
   if (append)
@@ -1044,7 +1046,8 @@ uint32_t SymbolFileDWARFDebugMap::FindFunctions(const RegularExpression &regex,
 size_t SymbolFileDWARFDebugMap::GetTypes(SymbolContextScope *sc_scope,
                                          uint32_t type_mask,
                                          TypeList &type_list) {
-  Timer scoped_timer(LLVM_PRETTY_FUNCTION,
+  static Timer::Category func_cat(LLVM_PRETTY_FUNCTION);
+  Timer scoped_timer(func_cat,
                      "SymbolFileDWARFDebugMap::GetTypes (type_mask = 0x%8.8x)",
                      type_mask);
 
@@ -1253,8 +1256,7 @@ SymbolFileDWARFDebugMap::GetCompileUnit(SymbolFileDWARF *oso_dwarf) {
       }
     }
   }
-  assert(!"this shouldn't happen");
-  return lldb::CompUnitSP();
+  llvm_unreachable("this shouldn't happen");
 }
 
 SymbolFileDWARFDebugMap::CompileUnitInfo *

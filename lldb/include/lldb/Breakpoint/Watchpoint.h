@@ -19,9 +19,9 @@
 // Project includes
 #include "lldb/Breakpoint/StoppointLocation.h"
 #include "lldb/Breakpoint/WatchpointOptions.h"
-#include "lldb/Core/UserID.h"
 #include "lldb/Symbol/CompilerType.h"
 #include "lldb/Target/Target.h"
+#include "lldb/Utility/UserID.h"
 #include "lldb/lldb-private.h"
 
 namespace lldb_private {
@@ -71,6 +71,10 @@ public:
 
   bool IsEnabled() const;
 
+  // This doesn't really enable/disable the watchpoint.  
+  // It is currently just for use in the Process plugin's
+  // {Enable,Disable}Watchpoint, which should be used instead.
+  
   void SetEnabled(bool enabled, bool notify = true);
 
   bool IsHardware() const override;
@@ -96,7 +100,7 @@ public:
   void DumpSnapshots(Stream *s, const char *prefix = nullptr) const;
   void DumpWithLevel(Stream *s, lldb::DescriptionLevel description_level) const;
   Target &GetTarget() { return m_target; }
-  const Error &GetError() { return m_error; }
+  const Status &GetError() { return m_error; }
 
   //------------------------------------------------------------------
   /// Returns the WatchpointOptions structure set for this watchpoint.
@@ -209,8 +213,8 @@ private:
   lldb::ValueObjectSP m_old_value_sp;
   lldb::ValueObjectSP m_new_value_sp;
   CompilerType m_type;
-  Error m_error; // An error object describing errors associated with this
-                 // watchpoint.
+  Status m_error; // An error object describing errors associated with this
+                  // watchpoint.
   WatchpointOptions
       m_options; // Settable watchpoint options, which is a delegate to handle
                  // the callback machinery.

@@ -10,12 +10,23 @@
 #ifndef liblldb_Connection_h_
 #define liblldb_Connection_h_
 
-// C Includes
-// C++ Includes
+#include "lldb/lldb-defines.h"      // for DISALLOW_COPY_AND_ASSIGN
+#include "lldb/lldb-enumerations.h" // for ConnectionStatus
+#include "lldb/lldb-forward.h"      // for IOObjectSP
+
+#include "llvm/ADT/StringRef.h" // for StringRef
+
+#include <ratio> // for micro
 #include <string>
-// Other libraries and framework includes
-// Project includes
-#include "lldb/lldb-private.h"
+
+#include <stddef.h> // for size_t
+
+namespace lldb_private {
+class Status;
+}
+namespace lldb_private {
+template <typename Ratio> class Timeout;
+}
 
 namespace lldb_private {
 
@@ -64,9 +75,10 @@ public:
   ///     internal error object should be filled in with an
   ///     appropriate value based on the result of this function.
   ///
-  /// @see Error& Communication::GetError ();
+  /// @see Status& Communication::GetError ();
   //------------------------------------------------------------------
-  virtual lldb::ConnectionStatus Connect(const char *url, Error *error_ptr) = 0;
+  virtual lldb::ConnectionStatus Connect(llvm::StringRef url,
+                                         Status *error_ptr) = 0;
 
   //------------------------------------------------------------------
   /// Disconnect the communications connection if one is currently
@@ -82,9 +94,9 @@ public:
   ///     internal error object should be filled in with an
   ///     appropriate value based on the result of this function.
   ///
-  /// @see Error& Communication::GetError ();
+  /// @see Status& Communication::GetError ();
   //------------------------------------------------------------------
-  virtual lldb::ConnectionStatus Disconnect(Error *error_ptr) = 0;
+  virtual lldb::ConnectionStatus Disconnect(Status *error_ptr) = 0;
 
   //------------------------------------------------------------------
   /// Check if the connection is valid.
@@ -106,7 +118,7 @@ public:
   ///     The number of bytes to attempt to read, and also the max
   ///     number of bytes that can be placed into \a dst.
   ///
-  /// @param[in] timeout_usec
+  /// @param[in] timeout
   ///     The number of microseconds to wait for the data.
   ///
   /// @param[out] status
@@ -123,8 +135,9 @@ public:
   ///
   /// @see size_t Communication::Read (void *, size_t, uint32_t);
   //------------------------------------------------------------------
-  virtual size_t Read(void *dst, size_t dst_len, uint32_t timeout_usec,
-                      lldb::ConnectionStatus &status, Error *error_ptr) = 0;
+  virtual size_t Read(void *dst, size_t dst_len,
+                      const Timeout<std::micro> &timeout,
+                      lldb::ConnectionStatus &status, Status *error_ptr) = 0;
 
   //------------------------------------------------------------------
   /// The actual write function that attempts to write to the
@@ -149,7 +162,7 @@ public:
   ///     The number of bytes actually Written.
   //------------------------------------------------------------------
   virtual size_t Write(const void *dst, size_t dst_len,
-                       lldb::ConnectionStatus &status, Error *error_ptr) = 0;
+                       lldb::ConnectionStatus &status, Status *error_ptr) = 0;
 
   //------------------------------------------------------------------
   /// Returns a URI that describes this connection object

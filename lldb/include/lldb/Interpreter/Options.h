@@ -21,6 +21,8 @@
 #include "lldb/lldb-defines.h"
 #include "lldb/lldb-private.h"
 
+#include "llvm/ADT/ArrayRef.h"
+
 namespace lldb_private {
 
 static inline bool isprint8(int ch) {
@@ -36,7 +38,7 @@ static inline bool isprint8(int ch) {
 /// Options is designed to be subclassed to contain all needed
 /// options for a given command. The options can be parsed by calling:
 /// \code
-///     Error Args::ParseOptions (Options &);
+///     Status Args::ParseOptions (Options &);
 /// \endcode
 ///
 /// The options are specified using the format defined for the libc
@@ -60,11 +62,11 @@ static inline bool isprint8(int ch) {
 ///             return g_options;
 ///         }
 ///
-///         virtual Error
+///         virtual Status
 ///         SetOptionValue (uint32_t option_idx, int option_val, const char
 ///         *option_arg)
 ///         {
-///             Error error;
+///             Status error;
 ///             switch (option_val)
 ///             {
 ///             case 'g': debug = true; break;
@@ -158,7 +160,9 @@ public:
   // The following two pure virtual functions must be defined by every
   // class that inherits from this class.
 
-  virtual const OptionDefinition *GetDefinitions() { return nullptr; }
+  virtual llvm::ArrayRef<OptionDefinition> GetDefinitions() {
+    return llvm::ArrayRef<OptionDefinition>();
+  }
 
   // Call this prior to parsing any options. This call will call the
   // subclass OptionParsingStarting() and will avoid the need for all
@@ -167,7 +171,7 @@ public:
   // prone and subclasses shouldn't have to do it.
   void NotifyOptionParsingStarting(ExecutionContext *execution_context);
 
-  Error NotifyOptionParsingFinished(ExecutionContext *execution_context);
+  Status NotifyOptionParsingFinished(ExecutionContext *execution_context);
 
   //------------------------------------------------------------------
   /// Set the value of an option.
@@ -188,9 +192,8 @@ public:
   /// @see Args::ParseOptions (Options&)
   /// @see man getopt_long_only
   //------------------------------------------------------------------
-  // TODO: Make this function take a StringRef.
-  virtual Error SetOptionValue(uint32_t option_idx, const char *option_arg,
-                               ExecutionContext *execution_context) = 0;
+  virtual Status SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
+                                ExecutionContext *execution_context) = 0;
 
   //------------------------------------------------------------------
   /// Handles the generic bits of figuring out whether we are in an
@@ -321,10 +324,10 @@ protected:
   // all option settings to default values.
   virtual void OptionParsingStarting(ExecutionContext *execution_context) = 0;
 
-  virtual Error OptionParsingFinished(ExecutionContext *execution_context) {
+  virtual Status OptionParsingFinished(ExecutionContext *execution_context) {
     // If subclasses need to know when the options are done being parsed
     // they can implement this function to do extra checking
-    Error error;
+    Status error;
     return error;
   }
 };
@@ -335,19 +338,18 @@ public:
 
   virtual ~OptionGroup() = default;
 
-  virtual uint32_t GetNumDefinitions() = 0;
+  virtual llvm::ArrayRef<OptionDefinition> GetDefinitions() = 0;
 
-  virtual const OptionDefinition *GetDefinitions() = 0;
-
-  virtual Error SetOptionValue(uint32_t option_idx, const char *option_value,
-                               ExecutionContext *execution_context) = 0;
+  virtual Status SetOptionValue(uint32_t option_idx,
+                                llvm::StringRef option_value,
+                                ExecutionContext *execution_context) = 0;
 
   virtual void OptionParsingStarting(ExecutionContext *execution_context) = 0;
 
-  virtual Error OptionParsingFinished(ExecutionContext *execution_context) {
+  virtual Status OptionParsingFinished(ExecutionContext *execution_context) {
     // If subclasses need to know when the options are done being parsed
     // they can implement this function to do extra checking
-    Error error;
+    Status error;
     return error;
   }
 };
@@ -399,16 +401,16 @@ public:
 
   bool DidFinalize() { return m_did_finalize; }
 
-  Error SetOptionValue(uint32_t option_idx, const char *option_arg,
-                       ExecutionContext *execution_context) override;
+  Status SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
+                        ExecutionContext *execution_context) override;
 
   void OptionParsingStarting(ExecutionContext *execution_context) override;
 
-  Error OptionParsingFinished(ExecutionContext *execution_context) override;
+  Status OptionParsingFinished(ExecutionContext *execution_context) override;
 
-  const OptionDefinition *GetDefinitions() override {
+  llvm::ArrayRef<OptionDefinition> GetDefinitions() override {
     assert(m_did_finalize);
-    return &m_option_defs[0];
+    return m_option_defs;
   }
 
   const OptionGroup *GetGroupWithOption(char short_opt);

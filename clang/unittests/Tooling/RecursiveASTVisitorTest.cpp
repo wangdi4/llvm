@@ -52,6 +52,14 @@ TEST(RecursiveASTVisitor, TraverseLambdaBodyCanBeOverridden) {
   EXPECT_TRUE(Visitor.allBodiesHaveBeenTraversed());
 }
 
+TEST(RecursiveASTVisitor, VisitsAttributedLambdaExpr) {
+  LambdaExprVisitor Visitor;
+  Visitor.ExpectMatch("", 1, 12);
+  EXPECT_TRUE(Visitor.runOver(
+      "void f() { [] () __attribute__ (( fastcall )) { return; }(); }",
+      LambdaExprVisitor::Lang_CXX14));
+}
+
 // Matches the (optional) capture-default of a lambda-introducer.
 class LambdaDefaultCaptureVisitor
   : public ExpectedLocationVisitor<LambdaDefaultCaptureVisitor> {
@@ -133,23 +141,21 @@ TEST(RecursiveASTVisitor, AttributesAreVisited) {
     "};\n"));
 }
 
-// Check to ensure that VarDecls are visited.
-class VarDeclVisitor : public ExpectedLocationVisitor<VarDeclVisitor> {
+// Check to ensure that implicit default argument expressions are visited.
+class IntegerLiteralVisitor
+    : public ExpectedLocationVisitor<IntegerLiteralVisitor> {
 public:
-  bool VisitVarDecl(VarDecl *VD) {
-    Match(VD->getNameAsString(), VD->getLocStart());
+  bool VisitIntegerLiteral(const IntegerLiteral *IL) {
+    Match("literal", IL->getLocation());
     return true;
   }
 };
 
-TEST(RecursiveASTVisitor, ArrayInitializersAreVisited) {
-  VarDeclVisitor Visitor;
-  Visitor.ExpectMatch("__i0", 1, 8);
-  EXPECT_TRUE(
-      Visitor.runOver("struct MyClass {\n"
-                      "  int c[1];\n"
-                      "  static MyClass Create() { return MyClass(); }\n"
-                      "};\n"));
+TEST(RecursiveASTVisitor, DefaultArgumentsAreVisited) {
+  IntegerLiteralVisitor Visitor;
+  Visitor.ExpectMatch("literal", 1, 15, 2);
+  EXPECT_TRUE(Visitor.runOver("int f(int i = 1);\n"
+                              "static int k = f();\n"));
 }
 
 } // end anonymous namespace

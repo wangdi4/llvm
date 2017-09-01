@@ -38,7 +38,8 @@ public:
   // string isn't a uint64_t value or any other error occurs, return an
   // empty lldb::OptionValueSP and fill error in with the correct stuff.
   //---------------------------------------------------------------------
-  static lldb::OptionValueSP Create(const char *value_cstr, Error &error);
+  static lldb::OptionValueSP Create(const char *, Status &) = delete;
+  static lldb::OptionValueSP Create(llvm::StringRef value_str, Status &error);
   //---------------------------------------------------------------------
   // Virtual subclass pure virtual overrides
   //---------------------------------------------------------------------
@@ -48,9 +49,12 @@ public:
   void DumpValue(const ExecutionContext *exe_ctx, Stream &strm,
                  uint32_t dump_mask) override;
 
-  Error
+  Status
   SetValueFromString(llvm::StringRef value,
                      VarSetOperationType op = eVarSetOperationAssign) override;
+  Status
+  SetValueFromString(const char *,
+                     VarSetOperationType = eVarSetOperationAssign) = delete;
 
   bool Clear() override {
     m_current_value = m_default_value;

@@ -1,4 +1,4 @@
-//===-- RegisterContextCorePOSIX_powerpc.h ----------------------*- C++ -*-===//
+//===-- RegisterContextPOSIXCore_powerpc.h ----------------------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -15,7 +15,7 @@
 // Other libraries and framework includes
 // Project includes
 #include "Plugins/Process/Utility/RegisterContextPOSIX_powerpc.h"
-#include "lldb/Core/DataExtractor.h"
+#include "lldb/Utility/DataExtractor.h"
 
 class RegisterContextCorePOSIX_powerpc : public RegisterContextPOSIX_powerpc {
 public:

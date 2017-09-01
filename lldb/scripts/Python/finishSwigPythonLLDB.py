@@ -383,7 +383,7 @@ def make_symlink(
     bMakeFileCalled = "-m" in vDictArgs
     eOSType = utilsOsType.determine_os_type()
     if not bMakeFileCalled:
-        return (bOk, strErrMsg)
+        strBuildDir = os.path.join("..", "..", "..")
     else:
         # Resolve vstrSrcFile path relatively the build directory
         if eOSType == utilsOsType.EnumOsType.Windows:
@@ -394,7 +394,7 @@ def make_symlink(
             # On a UNIX style platform the vstrFrameworkPythonDir looks like:
             # llvm/build/lib/python2.7/site-packages/lldb
             strBuildDir = os.path.join("..", "..", "..", "..")
-        strSrc = os.path.normcase(os.path.join(strBuildDir, vstrSrcFile))
+    strSrc = os.path.normcase(os.path.join(strBuildDir, vstrSrcFile))
 
     return make_symlink_native(vDictArgs, strSrc, strTarget)
 
@@ -434,7 +434,7 @@ def make_symlink_liblldb(
 
     bMakeFileCalled = "-m" in vDictArgs
     if not bMakeFileCalled:
-        strSrc = os.path.join(vstrLldbLibDir, "LLDB")
+        strSrc = "LLDB"
     else:
         strLibFileExtn = ""
         if eOSType == utilsOsType.EnumOsType.Windows:
@@ -445,39 +445,6 @@ def make_symlink_liblldb(
             else:
                 strLibFileExtn = ".so"
             strSrc = os.path.join(vstrLldbLibDir, "liblldb" + strLibFileExtn)
-
-    bOk, strErrMsg = make_symlink(
-        vDictArgs, vstrFrameworkPythonDir, strSrc, strTarget)
-
-    return (bOk, strErrMsg)
-
-#++---------------------------------------------------------------------------
-# Details:  Make the symbolic link to the darwin-debug.
-# Args:     vDictArgs               - (R) Program input parameters.
-#           vstrFrameworkPythonDir  - (R) Python framework directory.
-#           vstrDarwinDebugFileName - (R) File name for darwin-debug.
-# Returns:  Bool - True = function success, False = failure.
-#           Str - Error description on task failure.
-# Throws:   None.
-#--
-
-
-def make_symlink_darwin_debug(
-        vDictArgs,
-        vstrFrameworkPythonDir,
-        vstrDarwinDebugFileName):
-    dbg = utilsDebug.CDebugFnVerbose(
-        "Python script make_symlink_darwin_debug()")
-    bOk = True
-    strErrMsg = ""
-    strTarget = vstrDarwinDebugFileName
-    strSrc = ""
-
-    bMakeFileCalled = "-m" in vDictArgs
-    if not bMakeFileCalled:
-        return (bOk, strErrMsg)
-    else:
-        strSrc = os.path.join("bin", "lldb-launcher")
 
     bOk, strErrMsg = make_symlink(
         vDictArgs, vstrFrameworkPythonDir, strSrc, strTarget)
@@ -549,13 +516,6 @@ def create_symlinks(vDictArgs, vstrFrameworkPythonDir, vstrLldbLibDir):
                                               vstrFrameworkPythonDir,
                                               strLibLldbFileName,
                                               vstrLldbLibDir)
-
-    # Make symlink for darwin-debug on Darwin
-    strDarwinDebugFileName = "darwin-debug"
-    if bOk and eOSType == utilsOsType.EnumOsType.Darwin:
-        bOk, strErrMsg = make_symlink_darwin_debug(vDictArgs,
-                                                   vstrFrameworkPythonDir,
-                                                   strDarwinDebugFileName)
 
     # Make symlink for lldb-argdumper
     strArgdumperFileName = "lldb-argdumper"
@@ -724,7 +684,7 @@ def get_framework_python_dir_other_platforms(vDictArgs):
         # We are being built by XCode, so all the lldb Python files can go
         # into the LLDB.framework/Resources/Python subdirectory.
         strWkDir = vDictArgs["--targetDir"]
-        strWkDir += os.path.join(strWkDir, "LLDB.framework")
+        strWkDir = os.path.join(strWkDir, "LLDB.framework")
         if os.path.exists(strWkDir):
             if bDbg:
                 print((strMsgFoundLldbFrameWkDir % strWkDir))
@@ -861,7 +821,9 @@ def main(vDictArgs):
         bOk, strMsg = create_symlinks(
             vDictArgs, strFrameworkPythonDir, strLldbLibDir)
 
-    if bOk:
+    bUseSystemSix = "--useSystemSix" in vDictArgs
+
+    if not bUseSystemSix and bOk:
         bOk, strMsg = copy_six(vDictArgs, strFrameworkPythonDir)
 
     if bOk:

@@ -17,32 +17,51 @@
 // Project includes
 #include "NSDictionary.h"
 
-#include "lldb/Core/DataBufferHeap.h"
-#include "lldb/Core/Error.h"
-#include "lldb/Core/Stream.h"
 #include "lldb/Core/ValueObject.h"
 #include "lldb/Core/ValueObjectConstResult.h"
 #include "lldb/DataFormatters/FormattersHelpers.h"
-#include "lldb/Host/Endian.h"
 #include "lldb/Symbol/ClangASTContext.h"
 #include "lldb/Target/Language.h"
 #include "lldb/Target/ObjCLanguageRuntime.h"
 #include "lldb/Target/StackFrame.h"
 #include "lldb/Target/Target.h"
+#include "lldb/Utility/DataBufferHeap.h"
+#include "lldb/Utility/Endian.h"
+#include "lldb/Utility/Status.h"
+#include "lldb/Utility/Stream.h"
 
 using namespace lldb;
 using namespace lldb_private;
 using namespace lldb_private::formatters;
 
-std::map<ConstString, CXXFunctionSummaryFormat::Callback> &
+NSDictionary_Additionals::AdditionalFormatterMatching::Prefix::Prefix(
+    ConstString p)
+    : m_prefix(p) {}
+
+bool NSDictionary_Additionals::AdditionalFormatterMatching::Prefix::Match(
+    ConstString class_name) {
+  return class_name.GetStringRef().startswith(m_prefix.GetStringRef());
+}
+
+NSDictionary_Additionals::AdditionalFormatterMatching::Full::Full(ConstString n)
+    : m_name(n) {}
+
+bool NSDictionary_Additionals::AdditionalFormatterMatching::Full::Match(
+    ConstString class_name) {
+  return (class_name == m_name);
+}
+
+NSDictionary_Additionals::AdditionalFormatters<
+    CXXFunctionSummaryFormat::Callback> &
 NSDictionary_Additionals::GetAdditionalSummaries() {
-  static std::map<ConstString, CXXFunctionSummaryFormat::Callback> g_map;
+  static AdditionalFormatters<CXXFunctionSummaryFormat::Callback> g_map;
   return g_map;
 }
 
-std::map<ConstString, CXXSyntheticChildren::CreateFrontEndCallback> &
+NSDictionary_Additionals::AdditionalFormatters<
+    CXXSyntheticChildren::CreateFrontEndCallback> &
 NSDictionary_Additionals::GetAdditionalSynthetics() {
-  static std::map<ConstString, CXXSyntheticChildren::CreateFrontEndCallback>
+  static AdditionalFormatters<CXXSyntheticChildren::CreateFrontEndCallback>
       g_map;
   return g_map;
 }
@@ -237,14 +256,14 @@ bool lldb_private::formatters::NSDictionarySummaryProvider(
     return false;
 
   if (class_name == g_DictionaryI) {
-    Error error;
+    Status error;
     value = process_sp->ReadUnsignedIntegerFromMemory(valobj_addr + ptr_size,
                                                       ptr_size, 0, error);
     if (error.Fail())
       return false;
     value &= (is_64bit ? ~0xFC00000000000000UL : ~0xFC000000U);
   } else if (class_name == g_DictionaryM) {
-    Error error;
+    Status error;
     value = process_sp->ReadUnsignedIntegerFromMemory(valobj_addr + ptr_size,
                                                       ptr_size, 0, error);
     if (error.Fail())
@@ -255,7 +274,7 @@ bool lldb_private::formatters::NSDictionarySummaryProvider(
   }
   /*else if (!strcmp(class_name,"__NSCFDictionary"))
    {
-   Error error;
+   Status error;
    value = process_sp->ReadUnsignedIntegerFromMemory(valobj_addr + (is_64bit ?
    20 : 12), 4, 0, error);
    if (error.Fail())
@@ -265,11 +284,11 @@ bool lldb_private::formatters::NSDictionarySummaryProvider(
    }*/
   else {
     auto &map(NSDictionary_Additionals::GetAdditionalSummaries());
-    auto iter = map.find(class_name), end = map.end();
-    if (iter != end)
-      return iter->second(valobj, stream, options);
-    else
-      return false;
+    for (auto &candidate : map) {
+      if (candidate.first && candidate.first->Match(class_name))
+        return candidate.second(valobj, stream, options);
+    }
+    return false;
   }
 
   std::string prefix, suffix;
@@ -302,7 +321,7 @@ lldb_private::formatters::NSDictionarySyntheticFrontEndCreator(
   Flags flags(valobj_type.GetTypeInfo());
 
   if (flags.IsClear(eTypeIsPointer)) {
-    Error error;
+    Status error;
     valobj_sp = valobj_sp->AddressOf(error);
     if (error.Fail() || !valobj_sp)
       return nullptr;
@@ -331,9 +350,10 @@ lldb_private::formatters::NSDictionarySyntheticFrontEndCreator(
     return (new NSDictionary1SyntheticFrontEnd(valobj_sp));
   } else {
     auto &map(NSDictionary_Additionals::GetAdditionalSynthetics());
-    auto iter = map.find(class_name), end = map.end();
-    if (iter != end)
-      return iter->second(synth, valobj_sp);
+    for (auto &candidate : map) {
+      if (candidate.first && candidate.first->Match((class_name)))
+        return candidate.second(synth, valobj_sp);
+    }
   }
 
   return nullptr;
@@ -380,7 +400,7 @@ bool lldb_private::formatters::NSDictionaryISyntheticFrontEnd::Update() {
   if (!valobj_sp)
     return false;
   m_exe_ctx_ref = valobj_sp->GetExecutionContextRef();
-  Error error;
+  Status error;
   error.Clear();
   lldb::ProcessSP process_sp(valobj_sp->GetProcessSP());
   if (!process_sp)
@@ -429,7 +449,7 @@ lldb_private::formatters::NSDictionaryISyntheticFrontEnd::GetChildAtIndex(
       ProcessSP process_sp = m_exe_ctx_ref.GetProcessSP();
       if (!process_sp)
         return lldb::ValueObjectSP();
-      Error error;
+      Status error;
       key_at_idx = process_sp->ReadPointerFromMemory(key_at_idx, error);
       if (error.Fail())
         return lldb::ValueObjectSP();
@@ -479,7 +499,7 @@ lldb_private::formatters::NSDictionaryISyntheticFrontEnd::GetChildAtIndex(
     StreamString idx_name;
     idx_name.Printf("[%" PRIu64 "]", (uint64_t)idx);
     DataExtractor data(buffer_sp, m_order, m_ptr_size);
-    dict_item.valobj_sp = CreateValueObjectFromData(idx_name.GetData(), data,
+    dict_item.valobj_sp = CreateValueObjectFromData(idx_name.GetString(), data,
                                                     m_exe_ctx_ref, m_pair_type);
   }
   return dict_item.valobj_sp;
@@ -533,7 +553,7 @@ lldb_private::formatters::NSDictionary1SyntheticFrontEnd::GetChildAtIndex(
       m_backend.GetValueAsUnsigned(LLDB_INVALID_ADDRESS) + ptr_size;
   lldb::addr_t value_ptr = key_ptr + ptr_size;
 
-  Error error;
+  Status error;
 
   lldb::addr_t value_at_idx = process_sp->ReadPointerFromMemory(key_ptr, error);
   if (error.Fail())
@@ -553,8 +573,8 @@ lldb_private::formatters::NSDictionary1SyntheticFrontEnd::GetChildAtIndex(
     *(data_ptr + 1) = value_at_idx;
   } else {
     uint32_t *data_ptr = (uint32_t *)buffer_sp->GetBytes();
-    *data_ptr = key_ptr;
-    *(data_ptr + 1) = value_ptr;
+    *data_ptr = key_at_idx;
+    *(data_ptr + 1) = value_at_idx;
   }
 
   DataExtractor data(buffer_sp, process_sp->GetByteOrder(), ptr_size);
@@ -605,7 +625,7 @@ bool lldb_private::formatters::NSDictionaryMSyntheticFrontEnd::Update() {
   if (!valobj_sp)
     return false;
   m_exe_ctx_ref = valobj_sp->GetExecutionContextRef();
-  Error error;
+  Status error;
   error.Clear();
   lldb::ProcessSP process_sp(valobj_sp->GetProcessSP());
   if (!process_sp)
@@ -659,7 +679,7 @@ lldb_private::formatters::NSDictionaryMSyntheticFrontEnd::GetChildAtIndex(
       ProcessSP process_sp = m_exe_ctx_ref.GetProcessSP();
       if (!process_sp)
         return lldb::ValueObjectSP();
-      Error error;
+      Status error;
       key_at_idx = process_sp->ReadPointerFromMemory(key_at_idx, error);
       if (error.Fail())
         return lldb::ValueObjectSP();
@@ -709,7 +729,7 @@ lldb_private::formatters::NSDictionaryMSyntheticFrontEnd::GetChildAtIndex(
     StreamString idx_name;
     idx_name.Printf("[%" PRIu64 "]", (uint64_t)idx);
     DataExtractor data(buffer_sp, m_order, m_ptr_size);
-    dict_item.valobj_sp = CreateValueObjectFromData(idx_name.GetData(), data,
+    dict_item.valobj_sp = CreateValueObjectFromData(idx_name.GetString(), data,
                                                     m_exe_ctx_ref, m_pair_type);
   }
   return dict_item.valobj_sp;

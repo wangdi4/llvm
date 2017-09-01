@@ -17,10 +17,9 @@
 
 #include "lldb/Breakpoint/StoppointCallbackContext.h"
 #include "lldb/Core/Debugger.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/PluginManager.h"
-#include "lldb/Core/RegularExpression.h"
+#include "lldb/Host/OptionParser.h"
 #include "lldb/Interpreter/CommandInterpreter.h"
 #include "lldb/Interpreter/CommandObjectMultiword.h"
 #include "lldb/Interpreter/CommandReturnObject.h"
@@ -30,6 +29,8 @@
 #include "lldb/Target/Process.h"
 #include "lldb/Target/Target.h"
 #include "lldb/Target/ThreadPlanCallOnFunctionExit.h"
+#include "lldb/Utility/Log.h"
+#include "lldb/Utility/RegularExpression.h"
 
 #define DARWIN_LOG_TYPE_VALUE "DarwinLog"
 
@@ -157,7 +158,7 @@ public:
         nullptr, idx, g_properties[idx].default_uint_value != 0);
   }
 
-  const char *GetAutoEnableOptions() const {
+  llvm::StringRef GetAutoEnableOptions() const {
     const uint32_t idx = ePropertyAutoEnableOptions;
     return m_collection_sp->GetPropertyAtIndexAsString(
         nullptr, idx, g_properties[idx].default_cstr_value);
@@ -208,7 +209,7 @@ public:
 
   using OperationCreationFunc =
       std::function<FilterRuleSP(bool accept, size_t attribute_index,
-                                 const std::string &op_arg, Error &error)>;
+                                 const std::string &op_arg, Status &error)>;
 
   static void RegisterOperation(const ConstString &operation,
                                 const OperationCreationFunc &creation_func) {
@@ -217,7 +218,7 @@ public:
 
   static FilterRuleSP CreateRule(bool match_accepts, size_t attribute,
                                  const ConstString &operation,
-                                 const std::string &op_arg, Error &error) {
+                                 const std::string &op_arg, Status &error) {
     // Find the creation func for this type of filter rule.
     auto map = GetCreationFuncMap();
     auto find_it = map.find(operation);
@@ -303,7 +304,8 @@ protected:
 
 private:
   static FilterRuleSP CreateOperation(bool accept, size_t attribute_index,
-                                      const std::string &op_arg, Error &error) {
+                                      const std::string &op_arg,
+                                      Status &error) {
     // We treat the op_arg as a regex.  Validate it.
     if (op_arg.empty()) {
       error.SetErrorString("regex filter type requires a regex "
@@ -312,7 +314,7 @@ private:
     }
 
     // Instantiate the regex so we can report any errors.
-    auto regex = RegularExpression(op_arg.c_str());
+    auto regex = RegularExpression(op_arg);
     if (!regex.IsValid()) {
       char error_text[256];
       error_text[0] = '\0';
@@ -357,7 +359,8 @@ protected:
 
 private:
   static FilterRuleSP CreateOperation(bool accept, size_t attribute_index,
-                                      const std::string &op_arg, Error &error) {
+                                      const std::string &op_arg,
+                                      Status &error) {
     if (op_arg.empty()) {
       error.SetErrorString("exact match filter type requires an "
                            "argument containing the text that must "
@@ -398,285 +401,8 @@ static void RegisterFilterOperations() {
 /// It is valid to run the enable command when logging is already enabled.
 /// This resets the logging with whatever settings are currently set.
 // -------------------------------------------------------------------------
-class EnableOptions : public Options {
-public:
-  EnableOptions()
-      : Options(), m_include_debug_level(false), m_include_info_level(false),
-        m_include_any_process(false),
-        m_filter_fall_through_accepts(DEFAULT_FILTER_FALLTHROUGH_ACCEPTS),
-        m_echo_to_stderr(false), m_display_timestamp_relative(false),
-        m_display_subsystem(false), m_display_category(false),
-        m_display_activity_chain(false), m_broadcast_events(true),
-        m_live_stream(true), m_filter_rules() {}
 
-  void OptionParsingStarting(ExecutionContext *execution_context) override {
-    m_include_debug_level = false;
-    m_include_info_level = false;
-    m_include_any_process = false;
-    m_filter_fall_through_accepts = DEFAULT_FILTER_FALLTHROUGH_ACCEPTS;
-    m_echo_to_stderr = false;
-    m_display_timestamp_relative = false;
-    m_display_subsystem = false;
-    m_display_category = false;
-    m_display_activity_chain = false;
-    m_broadcast_events = true;
-    m_live_stream = true;
-    m_filter_rules.clear();
-  }
-
-  Error SetOptionValue(uint32_t option_idx, const char *option_arg,
-                       ExecutionContext *execution_context) override {
-    Error error;
-
-    const int short_option = m_getopt_table[option_idx].val;
-    switch (short_option) {
-    case 'a':
-      m_include_any_process = true;
-      break;
-
-    case 'A':
-      m_display_timestamp_relative = true;
-      m_display_category = true;
-      m_display_subsystem = true;
-      m_display_activity_chain = true;
-      break;
-
-    case 'b':
-      m_broadcast_events = Args::StringToBoolean(option_arg, true, nullptr);
-      break;
-
-    case 'c':
-      m_display_category = true;
-      break;
-
-    case 'C':
-      m_display_activity_chain = true;
-      break;
-
-    case 'd':
-      m_include_debug_level = true;
-      break;
-
-    case 'e':
-      m_echo_to_stderr = Args::StringToBoolean(option_arg, false, nullptr);
-      break;
-
-    case 'f':
-      return ParseFilterRule(option_arg);
-
-    case 'i':
-      m_include_info_level = true;
-      break;
-
-    case 'l':
-      m_live_stream = Args::StringToBoolean(option_arg, false, nullptr);
-      break;
-
-    case 'n':
-      m_filter_fall_through_accepts =
-          Args::StringToBoolean(option_arg, true, nullptr);
-      break;
-
-    case 'r':
-      m_display_timestamp_relative = true;
-      break;
-
-    case 's':
-      m_display_subsystem = true;
-      break;
-
-    default:
-      error.SetErrorStringWithFormat("unsupported option '%c'", short_option);
-    }
-    return error;
-  }
-
-  const OptionDefinition *GetDefinitions() override {
-    return g_enable_option_table;
-  }
-
-  StructuredData::DictionarySP BuildConfigurationData(bool enabled) {
-    StructuredData::DictionarySP config_sp(new StructuredData::Dictionary());
-
-    // Set the basic enabled state.
-    config_sp->AddBooleanItem("enabled", enabled);
-
-    // If we're disabled, there's nothing more to add.
-    if (!enabled)
-      return config_sp;
-
-    // Handle source stream flags.
-    auto source_flags_sp =
-        StructuredData::DictionarySP(new StructuredData::Dictionary());
-    config_sp->AddItem("source-flags", source_flags_sp);
-
-    source_flags_sp->AddBooleanItem("any-process", m_include_any_process);
-    source_flags_sp->AddBooleanItem("debug-level", m_include_debug_level);
-    // The debug-level flag, if set, implies info-level.
-    source_flags_sp->AddBooleanItem("info-level", m_include_info_level ||
-                                                      m_include_debug_level);
-    source_flags_sp->AddBooleanItem("live-stream", m_live_stream);
-
-    // Specify default filter rule (the fall-through)
-    config_sp->AddBooleanItem("filter-fall-through-accepts",
-                              m_filter_fall_through_accepts);
-
-    // Handle filter rules
-    if (!m_filter_rules.empty()) {
-      auto json_filter_rules_sp =
-          StructuredData::ArraySP(new StructuredData::Array);
-      config_sp->AddItem("filter-rules", json_filter_rules_sp);
-      for (auto &rule_sp : m_filter_rules) {
-        if (!rule_sp)
-          continue;
-        json_filter_rules_sp->AddItem(rule_sp->Serialize());
-      }
-    }
-    return config_sp;
-  }
-
-  bool GetIncludeDebugLevel() const { return m_include_debug_level; }
-
-  bool GetIncludeInfoLevel() const {
-    // Specifying debug level implies info level.
-    return m_include_info_level || m_include_debug_level;
-  }
-
-  const FilterRules &GetFilterRules() const { return m_filter_rules; }
-
-  bool GetFallthroughAccepts() const { return m_filter_fall_through_accepts; }
-
-  bool GetEchoToStdErr() const { return m_echo_to_stderr; }
-
-  bool GetDisplayTimestampRelative() const {
-    return m_display_timestamp_relative;
-  }
-
-  bool GetDisplaySubsystem() const { return m_display_subsystem; }
-  bool GetDisplayCategory() const { return m_display_category; }
-  bool GetDisplayActivityChain() const { return m_display_activity_chain; }
-
-  bool GetDisplayAnyHeaderFields() const {
-    return m_display_timestamp_relative || m_display_activity_chain ||
-           m_display_subsystem || m_display_category;
-  }
-
-  bool GetBroadcastEvents() const { return m_broadcast_events; }
-
-private:
-  Error ParseFilterRule(const char *rule_text_cstr) {
-    Error error;
-
-    if (!rule_text_cstr || !rule_text_cstr[0]) {
-      error.SetErrorString("invalid rule_text");
-      return error;
-    }
-
-    // filter spec format:
-    //
-    // {action} {attribute} {op}
-    //
-    // {action} :=
-    //   accept |
-    //   reject
-    //
-    // {attribute} :=
-    //   category       |
-    //   subsystem      |
-    //   activity       |
-    //   activity-chain |
-    //   message        |
-    //   format
-    //
-    // {op} :=
-    //   match {exact-match-text} |
-    //   regex {search-regex}
-
-    const std::string rule_text(rule_text_cstr);
-
-    // Parse action.
-    auto action_end_pos = rule_text.find(" ");
-    if (action_end_pos == std::string::npos) {
-      error.SetErrorStringWithFormat("could not parse filter rule "
-                                     "action from \"%s\"",
-                                     rule_text_cstr);
-      return error;
-    }
-    auto action = rule_text.substr(0, action_end_pos);
-    bool accept;
-    if (action == "accept")
-      accept = true;
-    else if (action == "reject")
-      accept = false;
-    else {
-      error.SetErrorString("filter action must be \"accept\" or "
-                           "\"deny\"");
-      return error;
-    }
-
-    // parse attribute
-    auto attribute_end_pos = rule_text.find(" ", action_end_pos + 1);
-    if (attribute_end_pos == std::string::npos) {
-      error.SetErrorStringWithFormat("could not parse filter rule "
-                                     "attribute from \"%s\"",
-                                     rule_text_cstr);
-      return error;
-    }
-    auto attribute = rule_text.substr(action_end_pos + 1,
-                                      attribute_end_pos - (action_end_pos + 1));
-    auto attribute_index = MatchAttributeIndex(attribute);
-    if (attribute_index < 0) {
-      error.SetErrorStringWithFormat("filter rule attribute unknown: "
-                                     "%s",
-                                     attribute.c_str());
-      return error;
-    }
-
-    // parse operation
-    auto operation_end_pos = rule_text.find(" ", attribute_end_pos + 1);
-    auto operation = rule_text.substr(
-        attribute_end_pos + 1, operation_end_pos - (attribute_end_pos + 1));
-
-    // add filter spec
-    auto rule_sp =
-        FilterRule::CreateRule(accept, attribute_index, ConstString(operation),
-                               rule_text.substr(operation_end_pos + 1), error);
-
-    if (rule_sp && error.Success())
-      m_filter_rules.push_back(rule_sp);
-
-    return error;
-  }
-
-  int MatchAttributeIndex(const std::string &attribute_name) {
-    auto attribute_count =
-        sizeof(s_filter_attributes) / sizeof(s_filter_attributes[0]);
-    for (size_t i = 0; i < attribute_count; ++i) {
-      if (attribute_name == s_filter_attributes[i])
-        return static_cast<int>(i);
-    }
-
-    // We didn't match anything.
-    return -1;
-  }
-
-  static OptionDefinition g_enable_option_table[];
-
-  bool m_include_debug_level;
-  bool m_include_info_level;
-  bool m_include_any_process;
-  bool m_filter_fall_through_accepts;
-  bool m_echo_to_stderr;
-  bool m_display_timestamp_relative;
-  bool m_display_subsystem;
-  bool m_display_category;
-  bool m_display_activity_chain;
-  bool m_broadcast_events;
-  bool m_live_stream;
-  FilterRules m_filter_rules;
-};
-
-OptionDefinition EnableOptions::g_enable_option_table[] = {
+static OptionDefinition g_enable_option_table[] = {
     // Source stream include/exclude options (the first-level filter).
     // This one should be made as small as possible as everything that
     // goes through here must be processed by the process monitor.
@@ -772,10 +498,278 @@ OptionDefinition EnableOptions::g_enable_option_table[] = {
      "{parent-activity}:{activity}[:...]."},
     {LLDB_OPT_SET_ALL, false, "all-fields", 'A', OptionParser::eNoArgument,
      nullptr, nullptr, 0, eArgTypeNone,
-     "Shortcut to specify that all header fields should be displayed."},
+     "Shortcut to specify that all header fields should be displayed."}};
 
-    // Tail sentinel entry
-    {0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr}};
+class EnableOptions : public Options {
+public:
+  EnableOptions()
+      : Options(), m_include_debug_level(false), m_include_info_level(false),
+        m_include_any_process(false),
+        m_filter_fall_through_accepts(DEFAULT_FILTER_FALLTHROUGH_ACCEPTS),
+        m_echo_to_stderr(false), m_display_timestamp_relative(false),
+        m_display_subsystem(false), m_display_category(false),
+        m_display_activity_chain(false), m_broadcast_events(true),
+        m_live_stream(true), m_filter_rules() {}
+
+  void OptionParsingStarting(ExecutionContext *execution_context) override {
+    m_include_debug_level = false;
+    m_include_info_level = false;
+    m_include_any_process = false;
+    m_filter_fall_through_accepts = DEFAULT_FILTER_FALLTHROUGH_ACCEPTS;
+    m_echo_to_stderr = false;
+    m_display_timestamp_relative = false;
+    m_display_subsystem = false;
+    m_display_category = false;
+    m_display_activity_chain = false;
+    m_broadcast_events = true;
+    m_live_stream = true;
+    m_filter_rules.clear();
+  }
+
+  Status SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
+                        ExecutionContext *execution_context) override {
+    Status error;
+
+    const int short_option = m_getopt_table[option_idx].val;
+    switch (short_option) {
+    case 'a':
+      m_include_any_process = true;
+      break;
+
+    case 'A':
+      m_display_timestamp_relative = true;
+      m_display_category = true;
+      m_display_subsystem = true;
+      m_display_activity_chain = true;
+      break;
+
+    case 'b':
+      m_broadcast_events = Args::StringToBoolean(option_arg, true, nullptr);
+      break;
+
+    case 'c':
+      m_display_category = true;
+      break;
+
+    case 'C':
+      m_display_activity_chain = true;
+      break;
+
+    case 'd':
+      m_include_debug_level = true;
+      break;
+
+    case 'e':
+      m_echo_to_stderr = Args::StringToBoolean(option_arg, false, nullptr);
+      break;
+
+    case 'f':
+      return ParseFilterRule(option_arg);
+
+    case 'i':
+      m_include_info_level = true;
+      break;
+
+    case 'l':
+      m_live_stream = Args::StringToBoolean(option_arg, false, nullptr);
+      break;
+
+    case 'n':
+      m_filter_fall_through_accepts =
+          Args::StringToBoolean(option_arg, true, nullptr);
+      break;
+
+    case 'r':
+      m_display_timestamp_relative = true;
+      break;
+
+    case 's':
+      m_display_subsystem = true;
+      break;
+
+    default:
+      error.SetErrorStringWithFormat("unsupported option '%c'", short_option);
+    }
+    return error;
+  }
+
+  llvm::ArrayRef<OptionDefinition> GetDefinitions() override {
+    return llvm::makeArrayRef(g_enable_option_table);
+  }
+
+  StructuredData::DictionarySP BuildConfigurationData(bool enabled) {
+    StructuredData::DictionarySP config_sp(new StructuredData::Dictionary());
+
+    // Set the basic enabled state.
+    config_sp->AddBooleanItem("enabled", enabled);
+
+    // If we're disabled, there's nothing more to add.
+    if (!enabled)
+      return config_sp;
+
+    // Handle source stream flags.
+    auto source_flags_sp =
+        StructuredData::DictionarySP(new StructuredData::Dictionary());
+    config_sp->AddItem("source-flags", source_flags_sp);
+
+    source_flags_sp->AddBooleanItem("any-process", m_include_any_process);
+    source_flags_sp->AddBooleanItem("debug-level", m_include_debug_level);
+    // The debug-level flag, if set, implies info-level.
+    source_flags_sp->AddBooleanItem("info-level", m_include_info_level ||
+                                                      m_include_debug_level);
+    source_flags_sp->AddBooleanItem("live-stream", m_live_stream);
+
+    // Specify default filter rule (the fall-through)
+    config_sp->AddBooleanItem("filter-fall-through-accepts",
+                              m_filter_fall_through_accepts);
+
+    // Handle filter rules
+    if (!m_filter_rules.empty()) {
+      auto json_filter_rules_sp =
+          StructuredData::ArraySP(new StructuredData::Array);
+      config_sp->AddItem("filter-rules", json_filter_rules_sp);
+      for (auto &rule_sp : m_filter_rules) {
+        if (!rule_sp)
+          continue;
+        json_filter_rules_sp->AddItem(rule_sp->Serialize());
+      }
+    }
+    return config_sp;
+  }
+
+  bool GetIncludeDebugLevel() const { return m_include_debug_level; }
+
+  bool GetIncludeInfoLevel() const {
+    // Specifying debug level implies info level.
+    return m_include_info_level || m_include_debug_level;
+  }
+
+  const FilterRules &GetFilterRules() const { return m_filter_rules; }
+
+  bool GetFallthroughAccepts() const { return m_filter_fall_through_accepts; }
+
+  bool GetEchoToStdErr() const { return m_echo_to_stderr; }
+
+  bool GetDisplayTimestampRelative() const {
+    return m_display_timestamp_relative;
+  }
+
+  bool GetDisplaySubsystem() const { return m_display_subsystem; }
+  bool GetDisplayCategory() const { return m_display_category; }
+  bool GetDisplayActivityChain() const { return m_display_activity_chain; }
+
+  bool GetDisplayAnyHeaderFields() const {
+    return m_display_timestamp_relative || m_display_activity_chain ||
+           m_display_subsystem || m_display_category;
+  }
+
+  bool GetBroadcastEvents() const { return m_broadcast_events; }
+
+private:
+  Status ParseFilterRule(llvm::StringRef rule_text) {
+    Status error;
+
+    if (rule_text.empty()) {
+      error.SetErrorString("invalid rule_text");
+      return error;
+    }
+
+    // filter spec format:
+    //
+    // {action} {attribute} {op}
+    //
+    // {action} :=
+    //   accept |
+    //   reject
+    //
+    // {attribute} :=
+    //   category       |
+    //   subsystem      |
+    //   activity       |
+    //   activity-chain |
+    //   message        |
+    //   format
+    //
+    // {op} :=
+    //   match {exact-match-text} |
+    //   regex {search-regex}
+
+    // Parse action.
+    auto action_end_pos = rule_text.find(" ");
+    if (action_end_pos == std::string::npos) {
+      error.SetErrorStringWithFormat("could not parse filter rule "
+                                     "action from \"%s\"",
+                                     rule_text.str().c_str());
+      return error;
+    }
+    auto action = rule_text.substr(0, action_end_pos);
+    bool accept;
+    if (action == "accept")
+      accept = true;
+    else if (action == "reject")
+      accept = false;
+    else {
+      error.SetErrorString("filter action must be \"accept\" or \"deny\"");
+      return error;
+    }
+
+    // parse attribute
+    auto attribute_end_pos = rule_text.find(" ", action_end_pos + 1);
+    if (attribute_end_pos == std::string::npos) {
+      error.SetErrorStringWithFormat("could not parse filter rule "
+                                     "attribute from \"%s\"",
+                                     rule_text.str().c_str());
+      return error;
+    }
+    auto attribute = rule_text.substr(action_end_pos + 1,
+                                      attribute_end_pos - (action_end_pos + 1));
+    auto attribute_index = MatchAttributeIndex(attribute);
+    if (attribute_index < 0) {
+      error.SetErrorStringWithFormat("filter rule attribute unknown: "
+                                     "%s",
+                                     attribute.str().c_str());
+      return error;
+    }
+
+    // parse operation
+    auto operation_end_pos = rule_text.find(" ", attribute_end_pos + 1);
+    auto operation = rule_text.substr(
+        attribute_end_pos + 1, operation_end_pos - (attribute_end_pos + 1));
+
+    // add filter spec
+    auto rule_sp =
+        FilterRule::CreateRule(accept, attribute_index, ConstString(operation),
+                               rule_text.substr(operation_end_pos + 1), error);
+
+    if (rule_sp && error.Success())
+      m_filter_rules.push_back(rule_sp);
+
+    return error;
+  }
+
+  int MatchAttributeIndex(llvm::StringRef attribute_name) const {
+    for (const auto &Item : llvm::enumerate(s_filter_attributes)) {
+      if (attribute_name == Item.value())
+        return Item.index();
+    }
+
+    // We didn't match anything.
+    return -1;
+  }
+
+  bool m_include_debug_level;
+  bool m_include_info_level;
+  bool m_include_any_process;
+  bool m_filter_fall_through_accepts;
+  bool m_echo_to_stderr;
+  bool m_display_timestamp_relative;
+  bool m_display_subsystem;
+  bool m_display_category;
+  bool m_display_activity_chain;
+  bool m_broadcast_events;
+  bool m_live_stream;
+  FilterRules m_filter_rules;
+};
 
 class EnableCommand : public CommandObjectParsed {
 public:
@@ -805,7 +799,7 @@ protected:
                   " the property and relaunch the target binary to have"
                   " these messages excluded.",
                   source_name, source_name);
-    result.AppendWarning(stream.GetString().c_str());
+    result.AppendWarning(stream.GetString());
   }
 
   bool DoExecute(Args &command, CommandReturnObject &result) override {
@@ -907,7 +901,7 @@ protected:
     // Send configuration to the feature by way of the process.
     // Construct the options we will use.
     auto config_sp = m_options_sp->BuildConfigurationData(m_enable);
-    const Error error =
+    const Status error =
         process_sp->ConfigureStructuredData(GetDarwinLogTypeName(), config_sp);
 
     // Report results.
@@ -1048,7 +1042,7 @@ public:
   }
 };
 
-EnableOptionsSP ParseAutoEnableOptions(Error &error, Debugger &debugger) {
+EnableOptionsSP ParseAutoEnableOptions(Status &error, Debugger &debugger) {
   // We are abusing the options data model here so that we can parse
   // options without requiring the Debugger instance.
 
@@ -1090,7 +1084,7 @@ EnableOptionsSP ParseAutoEnableOptions(Error &error, Debugger &debugger) {
   // ParseOptions calls getopt_long_only, which always skips the zero'th item in
   // the array and starts at position 1,
   // so we need to push a dummy value into position zero.
-  args.Unshift("dummy_string");
+  args.Unshift(llvm::StringRef("dummy_string"));
   bool require_validation = false;
   error = args.ParseOptions(*options_sp.get(), &exe_ctx, PlatformSP(),
                             require_validation);
@@ -1109,14 +1103,14 @@ bool RunEnableCommand(CommandInterpreter &interpreter) {
 
   command_stream << "plugin structured-data darwin-log enable";
   auto enable_options = GetGlobalProperties()->GetAutoEnableOptions();
-  if (enable_options && (strlen(enable_options) > 0)) {
+  if (!enable_options.empty()) {
     command_stream << ' ';
     command_stream << enable_options;
   }
 
   // Run the command.
   CommandReturnObject return_object;
-  interpreter.HandleCommand(command_stream.GetString().c_str(), eLazyBoolNo,
+  interpreter.HandleCommand(command_stream.GetData(), eLazyBoolNo,
                             return_object);
   return return_object.Succeeded();
 }
@@ -1182,7 +1176,7 @@ void StructuredDataDarwinLog::HandleArrivalOfStructuredData(
     else
       json_stream.PutCString("<null>");
     log->Printf("StructuredDataDarwinLog::%s() called with json: %s",
-                __FUNCTION__, json_stream.GetString().c_str());
+                __FUNCTION__, json_stream.GetData());
   }
 
   // Ignore empty structured data.
@@ -1220,7 +1214,7 @@ void StructuredDataDarwinLog::HandleArrivalOfStructuredData(
   // to inspect, including showing backtraces.
 }
 
-static void SetErrorWithJSON(Error &error, const char *message,
+static void SetErrorWithJSON(Status &error, const char *message,
                              StructuredData::Object &object) {
   if (!message) {
     error.SetErrorString("Internal error: message not set.");
@@ -1231,13 +1225,12 @@ static void SetErrorWithJSON(Error &error, const char *message,
   object.Dump(object_stream);
   object_stream.Flush();
 
-  error.SetErrorStringWithFormat("%s: %s", message,
-                                 object_stream.GetString().c_str());
+  error.SetErrorStringWithFormat("%s: %s", message, object_stream.GetData());
 }
 
-Error StructuredDataDarwinLog::GetDescription(
+Status StructuredDataDarwinLog::GetDescription(
     const StructuredData::ObjectSP &object_sp, lldb_private::Stream &stream) {
-  Error error;
+  Status error;
 
   if (!object_sp) {
     error.SetErrorString("No structured data.");
@@ -1415,6 +1408,20 @@ void StructuredDataDarwinLog::ModulesDidLoad(Process &process,
   EnableNow();
 }
 
+// -----------------------------------------------------------------------------
+// public destructor
+// -----------------------------------------------------------------------------
+
+StructuredDataDarwinLog::~StructuredDataDarwinLog() {
+  if (m_breakpoint_id != LLDB_INVALID_BREAK_ID) {
+    ProcessSP process_sp(GetProcess());
+    if (process_sp) {
+      process_sp->GetTarget().RemoveBreakpointByID(m_breakpoint_id);
+      m_breakpoint_id = LLDB_INVALID_BREAK_ID;
+    }
+  }
+}
+
 #pragma mark -
 #pragma mark Private instance methods
 
@@ -1425,7 +1432,8 @@ void StructuredDataDarwinLog::ModulesDidLoad(Process &process,
 StructuredDataDarwinLog::StructuredDataDarwinLog(const ProcessWP &process_wp)
     : StructuredDataPlugin(process_wp), m_recorded_first_timestamp(false),
       m_first_timestamp_seen(0), m_is_enabled(false),
-      m_added_breakpoint_mutex(), m_added_breakpoint() {}
+      m_added_breakpoint_mutex(), m_added_breakpoint(),
+      m_breakpoint_id(LLDB_INVALID_BREAK_ID) {}
 
 // -----------------------------------------------------------------------------
 // Private static methods
@@ -1450,7 +1458,7 @@ void StructuredDataDarwinLog::DebuggerInitialize(Debugger &debugger) {
 
   // Get parent command.
   auto &interpreter = debugger.GetCommandInterpreter();
-  std::string parent_command_text = "plugin structured-data";
+  llvm::StringRef parent_command_text = "plugin structured-data";
   auto parent_command =
       interpreter.GetCommandObjectForCommand(parent_command_text);
   if (!parent_command) {
@@ -1477,9 +1485,9 @@ void StructuredDataDarwinLog::DebuggerInitialize(Debugger &debugger) {
   }
 }
 
-Error StructuredDataDarwinLog::FilterLaunchInfo(ProcessLaunchInfo &launch_info,
-                                                Target *target) {
-  Error error;
+Status StructuredDataDarwinLog::FilterLaunchInfo(ProcessLaunchInfo &launch_info,
+                                                 Target *target) {
+  Status error;
 
   // If we're not debugging this launched process, there's nothing for us
   // to do here.
@@ -1546,14 +1554,15 @@ Error StructuredDataDarwinLog::FilterLaunchInfo(ProcessLaunchInfo &launch_info,
     // Here we need to strip out any OS_ACTIVITY_DT_MODE setting to prevent
     // echoing of os_log()/NSLog() to stderr in the target program.
     size_t argument_index;
-    if (env_vars.ContainsEnvironmentVariable("OS_ACTIVITY_DT_MODE",
-                                             &argument_index))
+    if (env_vars.ContainsEnvironmentVariable(
+            llvm::StringRef("OS_ACTIVITY_DT_MODE"), &argument_index))
       env_vars.DeleteArgumentAtIndex(argument_index);
 
     // We will also set the env var that tells any downstream launcher
     // from adding OS_ACTIVITY_DT_MODE.
-    env_vars.AddOrReplaceEnvironmentVariable("IDE_DISABLED_OS_ACTIVITY_DT_MODE",
-                                             "1");
+    env_vars.AddOrReplaceEnvironmentVariable(
+        llvm::StringRef("IDE_DISABLED_OS_ACTIVITY_DT_MODE"),
+        llvm::StringRef("1"));
   }
 
   // Set the OS_ACTIVITY_MODE env var appropriately to enable/disable
@@ -1564,12 +1573,11 @@ Error StructuredDataDarwinLog::FilterLaunchInfo(ProcessLaunchInfo &launch_info,
   else if (options_sp->GetIncludeInfoLevel())
     env_var_value = "info";
   else
-    env_var_value = "";
+    env_var_value = "default";
 
   if (env_var_value) {
-    const char *env_var_name = "OS_ACTIVITY_MODE";
     launch_info.GetEnvironmentEntries().AddOrReplaceEnvironmentVariable(
-        env_var_name, env_var_value);
+        llvm::StringRef("OS_ACTIVITY_MODE"), llvm::StringRef(env_var_value));
   }
 
   return error;
@@ -1744,6 +1752,7 @@ void StructuredDataDarwinLog::AddInitCompletionHook(Process &process) {
 
   // Set our callback.
   breakpoint_sp->SetCallback(InitCompletionHookCallback, nullptr);
+  m_breakpoint_id = breakpoint_sp->GetID();
   if (log)
     log->Printf("StructuredDataDarwinLog::%s() breakpoint set in module %s,"
                 "function %s (process uid %u)",
@@ -1808,7 +1817,7 @@ StructuredDataDarwinLog::DumpHeader(Stream &output_stream,
   }
 
   if (options_sp->GetDisplayActivityChain()) {
-    std::string activity_chain;
+    llvm::StringRef activity_chain;
     if (event.GetValueForKeyAsString("activity-chain", activity_chain) &&
         !activity_chain.empty()) {
       if (header_count > 0)
@@ -1821,7 +1830,7 @@ StructuredDataDarwinLog::DumpHeader(Stream &output_stream,
       // Display the activity chain, from parent-most to child-most
       // activity, separated by a colon (:).
       stream.PutCString("activity-chain=");
-      stream.PutCString(activity_chain.c_str());
+      stream.PutCString(activity_chain);
 #else
       if (GetGlobalProperties()->GetDisplayActivityChain()) {
         // Display the activity chain, from parent-most to child-most
@@ -1847,34 +1856,33 @@ StructuredDataDarwinLog::DumpHeader(Stream &output_stream,
   }
 
   if (options_sp->GetDisplaySubsystem()) {
-    std::string subsystem;
+    llvm::StringRef subsystem;
     if (event.GetValueForKeyAsString("subsystem", subsystem) &&
         !subsystem.empty()) {
       if (header_count > 0)
         stream.PutChar(',');
       stream.PutCString("subsystem=");
-      stream.PutCString(subsystem.c_str());
+      stream.PutCString(subsystem);
       ++header_count;
     }
   }
 
   if (options_sp->GetDisplayCategory()) {
-    std::string category;
+    llvm::StringRef category;
     if (event.GetValueForKeyAsString("category", category) &&
         !category.empty()) {
       if (header_count > 0)
         stream.PutChar(',');
       stream.PutCString("category=");
-      stream.PutCString(category.c_str());
+      stream.PutCString(category);
       ++header_count;
     }
   }
   stream.PutCString("] ");
 
-  auto &result = stream.GetString();
-  output_stream.PutCString(result.c_str());
+  output_stream.PutCString(stream.GetString());
 
-  return result.size();
+  return stream.GetSize();
 }
 
 size_t StructuredDataDarwinLog::HandleDisplayOfEvent(
@@ -1893,16 +1901,16 @@ size_t StructuredDataDarwinLog::HandleDisplayOfEvent(
   size_t total_bytes = 0;
 
   // Grab the message content.
-  std::string message;
+  llvm::StringRef message;
   if (!event.GetValueForKeyAsString("message", message))
     return true;
 
   // Display the log entry.
-  const auto len = message.length();
+  const auto len = message.size();
 
   total_bytes += DumpHeader(stream, event);
 
-  stream.Write(message.c_str(), len);
+  stream.Write(message.data(), len);
   total_bytes += len;
 
   // Add an end of line.
@@ -1985,7 +1993,7 @@ void StructuredDataDarwinLog::EnableNow() {
 
   // We can run it directly.
   // Send configuration to the feature by way of the process.
-  const Error error =
+  const Status error =
       process_sp->ConfigureStructuredData(GetDarwinLogTypeName(), config_sp);
 
   // Report results.

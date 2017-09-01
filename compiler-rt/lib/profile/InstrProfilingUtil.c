@@ -29,6 +29,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+#if defined(__linux__)
+#include <signal.h>
+#include <sys/prctl.h>
+#endif
+
 COMPILER_RT_VISIBILITY
 void __llvm_profile_recursive_mkdir(char *path) {
   int i;
@@ -66,7 +71,19 @@ void *lprofPtrFetchAdd(void **Mem, long ByteIncr) {
 
 #endif
 
-#ifdef COMPILER_RT_HAS_UNAME
+#ifdef _MSC_VER
+COMPILER_RT_VISIBILITY int lprofGetHostName(char *Name, int Len) {
+  WCHAR Buffer[COMPILER_RT_MAX_HOSTLEN];
+  DWORD BufferSize = sizeof(Buffer);
+  BOOL Result =
+      GetComputerNameExW(ComputerNameDnsFullyQualified, Buffer, &BufferSize);
+  if (!Result)
+    return -1;
+  if (WideCharToMultiByte(CP_UTF8, 0, Buffer, -1, Name, Len, NULL, NULL) == 0)
+    return -1;
+  return 0;
+}
+#elif defined(COMPILER_RT_HAS_UNAME)
 COMPILER_RT_VISIBILITY int lprofGetHostName(char *Name, int Len) {
   struct utsname N;
   int R;
@@ -206,4 +223,22 @@ COMPILER_RT_VISIBILITY const char *lprofFindLastDirSeparator(const char *Path) {
   Sep = strrchr(Path, DIR_SEPARATOR_2);
 #endif
   return Sep;
+}
+
+COMPILER_RT_VISIBILITY int lprofSuspendSigKill() {
+#if defined(__linux__)
+  int PDeachSig = 0;
+  /* Temporarily suspend getting SIGKILL upon exit of the parent process. */
+  if (prctl(PR_GET_PDEATHSIG, &PDeachSig) == 0 && PDeachSig == SIGKILL)
+    prctl(PR_SET_PDEATHSIG, 0);
+  return (PDeachSig == SIGKILL);
+#else
+  return 0;
+#endif
+}
+
+COMPILER_RT_VISIBILITY void lprofRestoreSigKill() {
+#if defined(__linux__)
+  prctl(PR_SET_PDEATHSIG, SIGKILL);
+#endif
 }

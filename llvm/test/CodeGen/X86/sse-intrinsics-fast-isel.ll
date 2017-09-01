@@ -813,7 +813,7 @@ define i32 @test_MM_GET_EXCEPTION_MASK() nounwind {
 ; X32-LABEL: test_MM_GET_EXCEPTION_MASK:
 ; X32:       # BB#0:
 ; X32-NEXT:    pushl %eax
-; X32-NEXT:    leal (%esp), %eax
+; X32-NEXT:    movl %esp, %eax
 ; X32-NEXT:    stmxcsr (%eax)
 ; X32-NEXT:    movl (%esp), %eax
 ; X32-NEXT:    andl $8064, %eax # imm = 0x1F80
@@ -840,7 +840,7 @@ define i32 @test_MM_GET_EXCEPTION_STATE() nounwind {
 ; X32-LABEL: test_MM_GET_EXCEPTION_STATE:
 ; X32:       # BB#0:
 ; X32-NEXT:    pushl %eax
-; X32-NEXT:    leal (%esp), %eax
+; X32-NEXT:    movl %esp, %eax
 ; X32-NEXT:    stmxcsr (%eax)
 ; X32-NEXT:    movl (%esp), %eax
 ; X32-NEXT:    andl $63, %eax
@@ -866,7 +866,7 @@ define i32 @test_MM_GET_FLUSH_ZERO_MODE() nounwind {
 ; X32-LABEL: test_MM_GET_FLUSH_ZERO_MODE:
 ; X32:       # BB#0:
 ; X32-NEXT:    pushl %eax
-; X32-NEXT:    leal (%esp), %eax
+; X32-NEXT:    movl %esp, %eax
 ; X32-NEXT:    stmxcsr (%eax)
 ; X32-NEXT:    movl (%esp), %eax
 ; X32-NEXT:    andl $32768, %eax # imm = 0x8000
@@ -892,7 +892,7 @@ define i32 @test_MM_GET_ROUNDING_MODE() nounwind {
 ; X32-LABEL: test_MM_GET_ROUNDING_MODE:
 ; X32:       # BB#0:
 ; X32-NEXT:    pushl %eax
-; X32-NEXT:    leal (%esp), %eax
+; X32-NEXT:    movl %esp, %eax
 ; X32-NEXT:    stmxcsr (%eax)
 ; X32-NEXT:    movl (%esp), %eax
 ; X32-NEXT:    andl $24576, %eax # imm = 0x6000
@@ -918,7 +918,7 @@ define i32 @test_mm_getcsr() nounwind {
 ; X32-LABEL: test_mm_getcsr:
 ; X32:       # BB#0:
 ; X32-NEXT:    pushl %eax
-; X32-NEXT:    leal (%esp), %eax
+; X32-NEXT:    movl %esp, %eax
 ; X32-NEXT:    stmxcsr (%eax)
 ; X32-NEXT:    movl (%esp), %eax
 ; X32-NEXT:    popl %ecx
@@ -1427,7 +1427,7 @@ define void @test_MM_SET_EXCEPTION_MASK(i32 %a0) nounwind {
 ; X32:       # BB#0:
 ; X32-NEXT:    pushl %eax
 ; X32-NEXT:    movl {{[0-9]+}}(%esp), %eax
-; X32-NEXT:    leal (%esp), %ecx
+; X32-NEXT:    movl %esp, %ecx
 ; X32-NEXT:    stmxcsr (%ecx)
 ; X32-NEXT:    movl (%esp), %edx
 ; X32-NEXT:    andl $-8065, %edx # imm = 0xE07F
@@ -1464,7 +1464,7 @@ define void @test_MM_SET_EXCEPTION_STATE(i32 %a0) nounwind {
 ; X32:       # BB#0:
 ; X32-NEXT:    pushl %eax
 ; X32-NEXT:    movl {{[0-9]+}}(%esp), %eax
-; X32-NEXT:    leal (%esp), %ecx
+; X32-NEXT:    movl %esp, %ecx
 ; X32-NEXT:    stmxcsr (%ecx)
 ; X32-NEXT:    movl (%esp), %edx
 ; X32-NEXT:    andl $-64, %edx
@@ -1500,7 +1500,7 @@ define void @test_MM_SET_FLUSH_ZERO_MODE(i32 %a0) nounwind {
 ; X32:       # BB#0:
 ; X32-NEXT:    pushl %eax
 ; X32-NEXT:    movl {{[0-9]+}}(%esp), %eax
-; X32-NEXT:    leal (%esp), %ecx
+; X32-NEXT:    movl %esp, %ecx
 ; X32-NEXT:    stmxcsr (%ecx)
 ; X32-NEXT:    movl (%esp), %edx
 ; X32-NEXT:    andl $-32769, %edx # imm = 0xFFFF7FFF
@@ -1537,9 +1537,9 @@ define <4 x float> @test_mm_set_ps(float %a0, float %a1, float %a2, float %a3) n
 ; X32-NEXT:    movss {{.*#+}} xmm0 = mem[0],zero,zero,zero
 ; X32-NEXT:    movss {{.*#+}} xmm1 = mem[0],zero,zero,zero
 ; X32-NEXT:    movss {{.*#+}} xmm2 = mem[0],zero,zero,zero
-; X32-NEXT:    movss {{.*#+}} xmm3 = mem[0],zero,zero,zero
-; X32-NEXT:    unpcklps {{.*#+}} xmm1 = xmm1[0],xmm3[0],xmm1[1],xmm3[1]
 ; X32-NEXT:    unpcklps {{.*#+}} xmm0 = xmm0[0],xmm2[0],xmm0[1],xmm2[1]
+; X32-NEXT:    movss {{.*#+}} xmm2 = mem[0],zero,zero,zero
+; X32-NEXT:    unpcklps {{.*#+}} xmm1 = xmm1[0],xmm2[0],xmm1[1],xmm2[1]
 ; X32-NEXT:    unpcklps {{.*#+}} xmm0 = xmm0[0],xmm1[0],xmm0[1],xmm1[1]
 ; X32-NEXT:    retl
 ;
@@ -1580,7 +1580,7 @@ define void @test_MM_SET_ROUNDING_MODE(i32 %a0) nounwind {
 ; X32:       # BB#0:
 ; X32-NEXT:    pushl %eax
 ; X32-NEXT:    movl {{[0-9]+}}(%esp), %eax
-; X32-NEXT:    leal (%esp), %ecx
+; X32-NEXT:    movl %esp, %ecx
 ; X32-NEXT:    stmxcsr (%ecx)
 ; X32-NEXT:    movl (%esp), %edx
 ; X32-NEXT:    andl $-24577, %edx # imm = 0x9FFF
@@ -1653,12 +1653,8 @@ define <4 x float> @test_mm_set1_ps(float %a0) nounwind {
 define void @test_mm_setcsr(i32 %a0) nounwind {
 ; X32-LABEL: test_mm_setcsr:
 ; X32:       # BB#0:
-; X32-NEXT:    pushl %eax
-; X32-NEXT:    movl {{[0-9]+}}(%esp), %eax
-; X32-NEXT:    leal (%esp), %ecx
-; X32-NEXT:    movl %eax, (%esp)
-; X32-NEXT:    ldmxcsr (%ecx)
-; X32-NEXT:    popl %eax
+; X32-NEXT:    leal {{[0-9]+}}(%esp), %eax
+; X32-NEXT:    ldmxcsr (%eax)
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_setcsr:
@@ -1677,13 +1673,13 @@ define void @test_mm_setcsr(i32 %a0) nounwind {
 define <4 x float> @test_mm_setr_ps(float %a0, float %a1, float %a2, float %a3) nounwind {
 ; X32-LABEL: test_mm_setr_ps:
 ; X32:       # BB#0:
+; X32-NEXT:    movss {{.*#+}} xmm0 = mem[0],zero,zero,zero
 ; X32-NEXT:    movss {{.*#+}} xmm1 = mem[0],zero,zero,zero
 ; X32-NEXT:    movss {{.*#+}} xmm2 = mem[0],zero,zero,zero
-; X32-NEXT:    movss {{.*#+}} xmm3 = mem[0],zero,zero,zero
+; X32-NEXT:    unpcklps {{.*#+}} xmm2 = xmm2[0],xmm0[0],xmm2[1],xmm0[1]
 ; X32-NEXT:    movss {{.*#+}} xmm0 = mem[0],zero,zero,zero
-; X32-NEXT:    unpcklps {{.*#+}} xmm3 = xmm3[0],xmm1[0],xmm3[1],xmm1[1]
+; X32-NEXT:    unpcklps {{.*#+}} xmm0 = xmm0[0],xmm1[0],xmm0[1],xmm1[1]
 ; X32-NEXT:    unpcklps {{.*#+}} xmm0 = xmm0[0],xmm2[0],xmm0[1],xmm2[1]
-; X32-NEXT:    unpcklps {{.*#+}} xmm0 = xmm0[0],xmm3[0],xmm0[1],xmm3[1]
 ; X32-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_setr_ps:

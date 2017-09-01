@@ -1,15 +1,15 @@
-//===-- RegisterContextPOSIXProcessMonitor_powerpc.h ------------*- C++ -*-===//
+//===-- RegisterContextPOSIXProcessMonitor_powerpc.cpp ----------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-//===---------------------------------------------------------------------===//
+//===----------------------------------------------------------------------===//
 
-#include "lldb/Core/DataBufferHeap.h"
 #include "lldb/Core/RegisterValue.h"
 #include "lldb/Target/Thread.h"
+#include "lldb/Utility/DataBufferHeap.h"
 
 #include "ProcessFreeBSD.h"
 #include "ProcessMonitor.h"
@@ -88,7 +88,7 @@ bool RegisterContextPOSIXProcessMonitor_powerpc::WriteRegister(
 
     // Read the full register.
     if (ReadRegister(full_reg_info, full_value)) {
-      Error error;
+      Status error;
       ByteOrder byte_order = GetByteOrder();
       uint8_t dst[RegisterValue::kMaxRegisterByteSize];
 

@@ -13,16 +13,16 @@
 // C++ Includes
 // Other libraries and framework includes
 // Project includes
+#include "lldb/Host/OptionParser.h"
 #include "lldb/Interpreter/CommandInterpreter.h"
 #include "lldb/Target/Platform.h"
-#include "lldb/Utility/Utils.h"
 
 using namespace lldb;
 using namespace lldb_private;
 
 PlatformSP OptionGroupPlatform::CreatePlatformWithOptions(
     CommandInterpreter &interpreter, const ArchSpec &arch, bool make_selected,
-    Error &error, ArchSpec &platform_arch) const {
+    Status &error, ArchSpec &platform_arch) const {
   PlatformSP platform_sp;
 
   if (!m_platform_name.empty()) {
@@ -85,27 +85,22 @@ static OptionDefinition g_option_table[] = {
                                             "that contains a root of all "
                                             "remote system files."}};
 
-const OptionDefinition *OptionGroupPlatform::GetDefinitions() {
+llvm::ArrayRef<OptionDefinition> OptionGroupPlatform::GetDefinitions() {
+  llvm::ArrayRef<OptionDefinition> result(g_option_table);
   if (m_include_platform_option)
-    return g_option_table;
-  return g_option_table + 1;
+    return result;
+  return result.drop_front();
 }
 
-uint32_t OptionGroupPlatform::GetNumDefinitions() {
-  if (m_include_platform_option)
-    return llvm::array_lengthof(g_option_table);
-  return llvm::array_lengthof(g_option_table) - 1;
-}
-
-Error OptionGroupPlatform::SetOptionValue(uint32_t option_idx,
-                                          const char *option_arg,
-                                          ExecutionContext *execution_context) {
-  Error error;
+Status
+OptionGroupPlatform::SetOptionValue(uint32_t option_idx,
+                                    llvm::StringRef option_arg,
+                                    ExecutionContext *execution_context) {
+  Status error;
   if (!m_include_platform_option)
     ++option_idx;
 
   const int short_option = g_option_table[option_idx].short_option;
-  llvm::StringRef option_strref(option_arg ? option_arg : "");
 
   switch (short_option) {
   case 'p':
@@ -113,17 +108,18 @@ Error OptionGroupPlatform::SetOptionValue(uint32_t option_idx,
     break;
 
   case 'v':
-    if (!Args::StringToVersion(option_strref, m_os_version_major,
+    if (!Args::StringToVersion(option_arg, m_os_version_major,
                                m_os_version_minor, m_os_version_update))
-      error.SetErrorStringWithFormat("invalid version string '%s'", option_arg);
+      error.SetErrorStringWithFormat("invalid version string '%s'",
+                                     option_arg.str().c_str());
     break;
 
   case 'b':
-    m_sdk_build.SetCString(option_arg);
+    m_sdk_build.SetString(option_arg);
     break;
 
   case 'S':
-    m_sdk_sysroot.SetCString(option_arg);
+    m_sdk_sysroot.SetString(option_arg);
     break;
 
   default:

@@ -9,6 +9,13 @@
 
 // UNSUPPORTED: c++98, c++03, c++11, c++14
 
+// XFAIL: with_system_cxx_lib=macosx10.12
+// XFAIL: with_system_cxx_lib=macosx10.11
+// XFAIL: with_system_cxx_lib=macosx10.10
+// XFAIL: with_system_cxx_lib=macosx10.9
+// XFAIL: with_system_cxx_lib=macosx10.7
+// XFAIL: with_system_cxx_lib=macosx10.8
+
 // <any>
 
 // any& operator=(any const &);
@@ -153,7 +160,7 @@ void test_copy_assign_throws()
 
         assert(Tp::count == 1);
         assertEmpty<Tp>(lhs);
-        assertContains<Tp>(rhs);
+        assertContains<Tp>(rhs, 1);
     }
     {
         any lhs((small(2)));
@@ -166,7 +173,7 @@ void test_copy_assign_throws()
         assert(small::count == 1);
         assert(Tp::count == 1);
         assertContains<small>(lhs, 2);
-        assertContains<Tp>(rhs);
+        assertContains<Tp>(rhs, 1);
     }
     {
         any lhs((large(2)));
@@ -179,7 +186,7 @@ void test_copy_assign_throws()
         assert(large::count == 1);
         assert(Tp::count == 1);
         assertContains<large>(lhs, 2);
-        assertContains<Tp>(rhs);
+        assertContains<Tp>(rhs, 1);
     }
 #endif
 }

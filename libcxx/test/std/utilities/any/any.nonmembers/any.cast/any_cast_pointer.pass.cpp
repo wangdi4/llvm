@@ -9,6 +9,13 @@
 
 // UNSUPPORTED: c++98, c++03, c++11, c++14
 
+// XFAIL: with_system_cxx_lib=macosx10.12
+// XFAIL: with_system_cxx_lib=macosx10.11
+// XFAIL: with_system_cxx_lib=macosx10.10
+// XFAIL: with_system_cxx_lib=macosx10.9
+// XFAIL: with_system_cxx_lib=macosx10.7
+// XFAIL: with_system_cxx_lib=macosx10.8
+
 // <any>
 
 // template <class ValueType>
@@ -147,6 +154,18 @@ void test_cast_non_copyable_type()
     assert(std::any_cast<NoCopy>(&ca) == nullptr);
 }
 
+void test_fn() {}
+
+void test_cast_function_pointer() {
+    using T = void(*)();
+    std::any a(test_fn);
+    // An any can never store a function type, but we should at least be able
+    // to ask.
+    assert(std::any_cast<void()>(&a) == nullptr);
+    T fn_ptr = std::any_cast<T>(a);
+    assert(fn_ptr == test_fn);
+}
+
 int main() {
     test_cast_is_noexcept();
     test_cast_return_type();
@@ -155,4 +174,5 @@ int main() {
     test_cast<small>();
     test_cast<large>();
     test_cast_non_copyable_type();
+    test_cast_function_pointer();
 }

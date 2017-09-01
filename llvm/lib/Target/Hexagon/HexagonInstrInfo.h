@@ -16,9 +16,14 @@
 
 #include "HexagonRegisterInfo.h"
 #include "MCTargetDesc/HexagonBaseInfo.h"
+#include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineBranchProbabilityInfo.h"
-#include "llvm/Target/TargetFrameLowering.h"
+#include "llvm/CodeGen/MachineValueType.h"
 #include "llvm/Target/TargetInstrInfo.h"
+#include <cstdint>
+#include <vector>
 
 #define GET_INSTRINFO_HEADER
 #include "HexagonGenInstrInfo.inc"
@@ -29,8 +34,9 @@ struct EVT;
 class HexagonSubtarget;
 
 class HexagonInstrInfo : public HexagonGenInstrInfo {
-  virtual void anchor();
   const HexagonRegisterInfo RI;
+
+  virtual void anchor();
 
 public:
   explicit HexagonInstrInfo(HexagonSubtarget &ST);
@@ -229,7 +235,7 @@ public:
   /// Return true if the specified instruction can be predicated.
   /// By default, this returns true for every instruction with a
   /// PredicateOperand.
-  bool isPredicable(MachineInstr &MI) const override;
+  bool isPredicable(const MachineInstr &MI) const override;
 
   /// Test if the given instruction should be considered a scheduling boundary.
   /// This primarily includes labels and terminators.
@@ -260,7 +266,7 @@ public:
   /// PredCost.
   unsigned getInstrLatency(const InstrItineraryData *ItinData,
                            const MachineInstr &MI,
-                           unsigned *PredCost = 0) const override;
+                           unsigned *PredCost = nullptr) const override;
 
   /// Create machine specific model for scheduling.
   DFAPacketizer *
@@ -281,6 +287,19 @@ public:
 
   /// If the instruction is an increment of a constant value, return the amount.
   bool getIncrementValue(const MachineInstr &MI, int &Value) const override;
+
+  /// getOperandLatency - Compute and return the use operand latency of a given
+  /// pair of def and use.
+  /// In most cases, the static scheduling itinerary was enough to determine the
+  /// operand latency. But it may not be possible for instructions with variable
+  /// number of defs / uses.
+  ///
+  /// This is a raw interface to the itinerary that may be directly overriden by
+  /// a target. Use computeOperandLatency to get the best estimate of latency.
+  int getOperandLatency(const InstrItineraryData *ItinData,
+                        const MachineInstr &DefMI, unsigned DefIdx,
+                        const MachineInstr &UseMI,
+                        unsigned UseIdx) const override;
 
   bool isTailCall(const MachineInstr &MI) const override;
 
@@ -350,7 +369,7 @@ public:
   bool isTC4x(const MachineInstr &MI) const;
   bool isToBeScheduledASAP(const MachineInstr &MI1,
                            const MachineInstr &MI2) const;
-  bool isV60VectorInstruction(const MachineInstr &MI) const;
+  bool isHVXVec(const MachineInstr &MI) const;
   bool isValidAutoIncImm(const EVT VT, const int Offset) const;
   bool isValidOffset(unsigned Opcode, int Offset, bool Extend = true) const;
   bool isVecAcc(const MachineInstr &MI) const;
@@ -378,7 +397,6 @@ public:
   bool PredOpcodeHasJMP_c(unsigned Opcode) const;
   bool predOpcodeHasNot(ArrayRef<MachineOperand> Cond) const;
 
-
   short getAbsoluteForm(const MachineInstr &MI) const;
   unsigned getAddrMode(const MachineInstr &MI) const;
   unsigned getBaseAndOffset(const MachineInstr &MI, int &Offset,
@@ -394,12 +412,13 @@ public:
                              const MachineInstr &GB) const;
   int getCondOpcode(int Opc, bool sense) const;
   int getDotCurOp(const MachineInstr &MI) const;
+  int getNonDotCurOp(const MachineInstr &MI) const;
   int getDotNewOp(const MachineInstr &MI) const;
   int getDotNewPredJumpOp(const MachineInstr &MI,
                           const MachineBranchProbabilityInfo *MBPI) const;
   int getDotNewPredOp(const MachineInstr &MI,
                       const MachineBranchProbabilityInfo *MBPI) const;
-  int getDotOldOp(const int opc) const;
+  int getDotOldOp(const MachineInstr &MI) const;
   HexagonII::SubInstructionGroup getDuplexCandidateGroup(const MachineInstr &MI)
                                                          const;
   short getEquivalentHWInstr(const MachineInstr &MI) const;
@@ -419,14 +438,11 @@ public:
   unsigned getSize(const MachineInstr &MI) const;
   uint64_t getType(const MachineInstr &MI) const;
   unsigned getUnits(const MachineInstr &MI) const;
-  unsigned getValidSubTargets(const unsigned Opcode) const;
-
 
   /// getInstrTimingClassLatency - Compute the instruction latency of a given
   /// instruction using Timing Class information, if available.
   unsigned nonDbgBBSize(const MachineBasicBlock *BB) const;
   unsigned nonDbgBundleSize(MachineBasicBlock::const_iterator BundleHead) const;
-
 
   void immediateExtend(MachineInstr &MI) const;
   bool invertAndChangeJumpTarget(MachineInstr &MI,
@@ -438,6 +454,6 @@ public:
   short xformRegToImmOffset(const MachineInstr &MI) const;
 };
 
-}
+} // end namespace llvm
 
-#endif
+#endif // LLVM_LIB_TARGET_HEXAGON_HEXAGONINSTRINFO_H

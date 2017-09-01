@@ -111,8 +111,8 @@ public:
   ///     If not eResultTypeAny, the type to use for the expression
   ///     result.
   //------------------------------------------------------------------
-  ClangUserExpression(ExecutionContextScope &exe_scope, const char *expr,
-                      const char *expr_prefix, lldb::LanguageType language,
+  ClangUserExpression(ExecutionContextScope &exe_scope, llvm::StringRef expr,
+                      llvm::StringRef prefix, lldb::LanguageType language,
                       ResultType desired_type,
                       const EvaluateExpressionOptions &options);
 
@@ -168,7 +168,7 @@ private:
   //------------------------------------------------------------------
 
   void ScanContext(ExecutionContext &exe_ctx,
-                   lldb_private::Error &err) override;
+                   lldb_private::Status &err) override;
 
   bool AddArguments(ExecutionContext &exe_ctx, std::vector<lldb::addr_t> &args,
                     lldb::addr_t struct_address,

@@ -9,6 +9,13 @@
 
 // UNSUPPORTED: c++98, c++03, c++11, c++14
 
+// XFAIL: with_system_cxx_lib=macosx10.12
+// XFAIL: with_system_cxx_lib=macosx10.11
+// XFAIL: with_system_cxx_lib=macosx10.10
+// XFAIL: with_system_cxx_lib=macosx10.9
+// XFAIL: with_system_cxx_lib=macosx10.7
+// XFAIL: with_system_cxx_lib=macosx10.8
+
 // <any>
 
 // any(any const &);
@@ -71,7 +78,7 @@ void test_copy()
         assert(Type::copied == 1);
         assert(Type::count == 2);
         assertContains<Type>(a, 42);
-        assertContains<Type>(a, 42);
+        assertContains<Type>(a2, 42);
 
         // Modify a and check that a2 is unchanged
         modifyValue<Type>(a, -1);

@@ -27,7 +27,7 @@ namespace rename {
 
 // NamedDeclFindingASTVisitor recursively visits each AST node to find the
 // symbol underneath the cursor.
-// FIXME: move to seperate .h/.cc file if this gets too large.
+// FIXME: move to separate .h/.cc file if this gets too large.
 namespace {
 class NamedDeclFindingASTVisitor
     : public clang::RecursiveASTVisitor<NamedDeclFindingASTVisitor> {
@@ -135,7 +135,8 @@ private:
         return true;
     } else {
       // Fully qualified name is used to find the declaration.
-      if (Name != Decl->getQualifiedNameAsString())
+      if (Name != Decl->getQualifiedNameAsString() &&
+          Name != "::" + Decl->getQualifiedNameAsString())
         return true;
     }
     Result = Decl;
@@ -168,15 +169,18 @@ private:
 
 const NamedDecl *getNamedDeclAt(const ASTContext &Context,
                                 const SourceLocation Point) {
-  StringRef SearchFile = Context.getSourceManager().getFilename(Point);
+  const SourceManager &SM = Context.getSourceManager();
   NamedDeclFindingASTVisitor Visitor(Point, Context);
 
-  // We only want to search the decls that exist in the same file as the point.
+  // Try to be clever about pruning down the number of top-level declarations we
+  // see. If both start and end is either before or after the point we're
+  // looking for the point cannot be inside of this decl. Don't even look at it.
   for (auto *CurrDecl : Context.getTranslationUnitDecl()->decls()) {
-    const SourceLocation FileLoc = CurrDecl->getLocStart();
-    StringRef FileName = Context.getSourceManager().getFilename(FileLoc);
-    // FIXME: Add test.
-    if (FileName == SearchFile)
+    SourceLocation StartLoc = CurrDecl->getLocStart();
+    SourceLocation EndLoc = CurrDecl->getLocEnd();
+    if (StartLoc.isValid() && EndLoc.isValid() &&
+        SM.isBeforeInTranslationUnit(StartLoc, Point) !=
+            SM.isBeforeInTranslationUnit(EndLoc, Point))
       Visitor.TraverseDecl(CurrDecl);
   }
 

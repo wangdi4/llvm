@@ -51,8 +51,8 @@ public:
     std::shared_ptr<llvm::legacy::PassManager> LatePasses;
   };
 
-  LLVMUserExpression(ExecutionContextScope &exe_scope, const char *expr,
-                     const char *expr_prefix, lldb::LanguageType language,
+  LLVMUserExpression(ExecutionContextScope &exe_scope, llvm::StringRef expr,
+                     llvm::StringRef prefix, lldb::LanguageType language,
                      ResultType desired_type,
                      const EvaluateExpressionOptions &options);
   ~LLVMUserExpression() override;
@@ -81,7 +81,7 @@ protected:
             lldb::ExpressionVariableSP &result) override;
 
   virtual void ScanContext(ExecutionContext &exe_ctx,
-                           lldb_private::Error &err) = 0;
+                           lldb_private::Status &err) = 0;
 
   bool PrepareToExecuteJITExpression(DiagnosticManager &diagnostic_manager,
                                      ExecutionContext &exe_ctx,

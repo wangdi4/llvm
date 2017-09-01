@@ -190,8 +190,8 @@ class CommandLineCompletionTestCase(TestBase):
     @skipIfFreeBSD  # timing out on the FreeBSD buildbot
     @no_debug_info_test
     def test_settings_set_th(self):
-        """Test that 'settings set th' completes to 'settings set thread-format'."""
-        self.complete_from_to('settings set th', 'settings set thread-format')
+        """Test that 'settings set thread-f' completes to 'settings set thread-format'."""
+        self.complete_from_to('settings set thread-f', 'settings set thread-format')
 
     @expectedFailureAll(hostoslist=["windows"], bugnumber="llvm.org/pr24679")
     @skipIfFreeBSD  # timing out on the FreeBSD buildbot
@@ -204,9 +204,9 @@ class CommandLineCompletionTestCase(TestBase):
     @skipIfFreeBSD  # timing out on the FreeBSD buildbot
     @no_debug_info_test
     def test_settings_clear_th(self):
-        """Test that 'settings clear th' completes to 'settings clear thread-format'."""
+        """Test that 'settings clear thread-f' completes to 'settings clear thread-format'."""
         self.complete_from_to(
-            'settings clear th',
+            'settings clear thread-f',
             'settings clear thread-format')
 
     @expectedFailureAll(hostoslist=["windows"], bugnumber="llvm.org/pr24679")
@@ -300,7 +300,7 @@ class CommandLineCompletionTestCase(TestBase):
     @expectedFailureAll(hostoslist=["windows"], bugnumber="llvm.org/pr24679")
     @expectedFailureAll(
         oslist=lldbplatform.darwin_all,
-        bugnumber="llvm.org/pr25485")
+        bugnumber="llvm.org/pr25485,<rdar://problem/28573448>")
     def test_symbol_name(self):
         self.build()
         self.complete_from_to('''file a.out

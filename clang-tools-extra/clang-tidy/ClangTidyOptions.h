@@ -75,6 +75,20 @@ struct ClangTidyOptions {
   /// \brief Turns on temporary destructor-based analysis.
   llvm::Optional<bool> AnalyzeTemporaryDtors;
 
+  /// \brief Format code around applied fixes with clang-format using this
+  /// style.
+  ///
+  /// Can be one of:
+  ///   * 'none' - don't format code around applied fixes;
+  ///   * 'llvm', 'google', 'mozilla' or other predefined clang-format style
+  ///     names;
+  ///   * 'file' - use the .clang-format file in the closest parent directory of
+  ///     each source file;
+  ///   * '{inline-formatting-style-in-yaml-format}'.
+  ///
+  /// See clang-format documentation for more about configuring format style.
+  llvm::Optional<std::string> FormatStyle;
+
   /// \brief Specifies the name or e-mail of the user running clang-tidy.
   ///
   /// This option is used, for example, to place the correct user name in TODO()
@@ -173,7 +187,8 @@ public:
   // \brief A pair of configuration file base name and a function parsing
   // configuration from text in the corresponding format.
   typedef std::pair<std::string, std::function<llvm::ErrorOr<ClangTidyOptions>(
-                                     llvm::StringRef)>> ConfigFileHandler;
+                                     llvm::StringRef)>>
+      ConfigFileHandler;
 
   /// \brief Configuration file handlers listed in the order of priority.
   ///

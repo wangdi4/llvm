@@ -29,7 +29,7 @@
 #endif
 
 #ifndef TSAN_CONTAINS_UBSAN
-# if CAN_SANITIZE_UB && !defined(SANITIZER_GO)
+# if CAN_SANITIZE_UB && !SANITIZER_GO
 #  define TSAN_CONTAINS_UBSAN 1
 # else
 #  define TSAN_CONTAINS_UBSAN 0
@@ -38,19 +38,9 @@
 
 namespace __tsan {
 
-#ifdef SANITIZER_GO
-const bool kGoMode = true;
-const bool kCppMode = false;
-const char *const kTsanOptionsEnv = "GORACE";
-#else
-const bool kGoMode = false;
-const bool kCppMode = true;
-const char *const kTsanOptionsEnv = "TSAN_OPTIONS";
-#endif
-
 const int kTidBits = 13;
 const unsigned kMaxTid = 1 << kTidBits;
-#ifndef SANITIZER_GO
+#if !SANITIZER_GO
 const unsigned kMaxTidInClock = kMaxTid * 2;  // This includes msb 'freed' bit.
 #else
 const unsigned kMaxTidInClock = kMaxTid;  // Go does not track freed memory.
@@ -159,12 +149,22 @@ class RegionAlloc;
 
 // Descriptor of user's memory block.
 struct MBlock {
-  u64  siz;
+  u64  siz : 48;
+  u64  tag : 16;
   u32  stk;
   u16  tid;
 };
 
 COMPILER_CHECK(sizeof(MBlock) == 16);
+
+enum ExternalTag : uptr {
+  kExternalTagNone = 0,
+  kExternalTagSwiftModifyingAccess = 1,
+  kExternalTagFirstUserAvailable = 2,
+  kExternalTagMax = 1024,
+  // Don't set kExternalTagMax over 65,536, since MBlock only stores tags
+  // as 16-bit values, see tsan_defs.h.
+};
 
 }  // namespace __tsan
 

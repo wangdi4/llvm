@@ -1,14 +1,14 @@
 # RUN: llc -march=amdgcn -run-pass detect-dead-lanes -o - %s | FileCheck %s
 --- |
-  define void @test0() { ret void }
-  define void @test1() { ret void }
-  define void @test2() { ret void }
-  define void @test3() { ret void }
-  define void @test4() { ret void }
-  define void @test5() { ret void }
-  define void @loop0() { ret void }
-  define void @loop1() { ret void }
-  define void @loop2() { ret void }
+  define amdgpu_kernel void @test0() { ret void }
+  define amdgpu_kernel void @test1() { ret void }
+  define amdgpu_kernel void @test2() { ret void }
+  define amdgpu_kernel void @test3() { ret void }
+  define amdgpu_kernel void @test4() { ret void }
+  define amdgpu_kernel void @test5() { ret void }
+  define amdgpu_kernel void @loop0() { ret void }
+  define amdgpu_kernel void @loop1() { ret void }
+  define amdgpu_kernel void @loop2() { ret void }
 ...
 ---
 # Combined use/def transfer check, the basics.
@@ -27,9 +27,9 @@
 # CHECK: S_NOP 0, implicit undef %5.sub0
 name: test0
 registers:
-  - { id: 0, class: sreg_32 }
-  - { id: 1, class: sreg_32 }
-  - { id: 2, class: sreg_32 }
+  - { id: 0, class: sreg_32_xm0 }
+  - { id: 1, class: sreg_32_xm0 }
+  - { id: 2, class: sreg_32_xm0 }
   - { id: 3, class: sreg_128 }
   - { id: 4, class: sreg_64 }
   - { id: 5, class: sreg_64 }
@@ -87,13 +87,13 @@ registers:
   - { id: 0, class: sreg_128 }
   - { id: 1, class: sreg_128 }
   - { id: 2, class: sreg_64 }
-  - { id: 3, class: sreg_32 }
+  - { id: 3, class: sreg_32_xm0 }
   - { id: 4, class: sreg_128 }
   - { id: 5, class: sreg_64 }
-  - { id: 6, class: sreg_32 }
-  - { id: 7, class: sreg_32 }
+  - { id: 6, class: sreg_32_xm0 }
+  - { id: 7, class: sreg_32_xm0 }
   - { id: 8, class: sreg_64 }
-  - { id: 9, class: sreg_32 }
+  - { id: 9, class: sreg_32_xm0 }
   - { id: 10, class: sreg_128 }
 body: |
   bb.0:
@@ -162,12 +162,12 @@ body: |
 
 name: test2
 registers:
-  - { id: 0, class: sreg_32 }
-  - { id: 1, class: sreg_32 }
+  - { id: 0, class: sreg_32_xm0 }
+  - { id: 1, class: sreg_32_xm0 }
   - { id: 2, class: sreg_64 }
   - { id: 3, class: sreg_128 }
-  - { id: 4, class: sreg_32 }
-  - { id: 5, class: sreg_32 }
+  - { id: 4, class: sreg_32_xm0 }
+  - { id: 5, class: sreg_32_xm0 }
   - { id: 6, class: sreg_64 }
   - { id: 7, class: sreg_128 }
   - { id: 8, class: sreg_64 }
@@ -260,7 +260,7 @@ body: |
 name: test5
 tracksRegLiveness: true
 registers:
-  - { id: 0, class: sreg_32 }
+  - { id: 0, class: sreg_32_xm0 }
   - { id: 1, class: sreg_64 }
 body: |
   bb.0:
@@ -286,15 +286,14 @@ body: |
 name: loop0
 tracksRegLiveness: true
 registers:
-  - { id: 0, class: sreg_32 }
-  - { id: 1, class: sreg_32 }
-  - { id: 2, class: sreg_32 }
+  - { id: 0, class: sreg_32_xm0 }
+  - { id: 1, class: sreg_32_xm0 }
+  - { id: 2, class: sreg_32_xm0 }
   - { id: 3, class: sreg_128 }
   - { id: 4, class: sreg_128 }
   - { id: 5, class: sreg_128 }
 body: |
   bb.0:
-    successors: %bb.1
     S_NOP 0, implicit-def %0
     S_NOP 0, implicit-def %1
     S_NOP 0, implicit-def %2
@@ -302,7 +301,6 @@ body: |
     S_BRANCH %bb.1
 
   bb.1:
-    successors: %bb.1, %bb.2
     %4 = PHI %3, %bb.0, %5, %bb.1
 
     ; let's swiffle some lanes around for fun...
@@ -339,16 +337,15 @@ body: |
 name: loop1
 tracksRegLiveness: true
 registers:
-  - { id: 0, class: sreg_32 }
-  - { id: 1, class: sreg_32 }
-  - { id: 2, class: sreg_32 }
-  - { id: 3, class: sreg_32 }
+  - { id: 0, class: sreg_32_xm0 }
+  - { id: 1, class: sreg_32_xm0 }
+  - { id: 2, class: sreg_32_xm0 }
+  - { id: 3, class: sreg_32_xm0 }
   - { id: 4, class: sreg_128 }
   - { id: 5, class: sreg_128 }
   - { id: 6, class: sreg_128 }
 body: |
   bb.0:
-    successors: %bb.1
     S_NOP 0, implicit-def %0
     S_NOP 0, implicit-def %1
     S_NOP 0, implicit-def dead %2
@@ -357,7 +354,6 @@ body: |
     S_BRANCH %bb.1
 
   bb.1:
-    successors: %bb.1, %bb.2
     %5 = PHI %4, %bb.0, %6, %bb.1
 
     ; rotate lanes, but skip sub2 lane...
@@ -390,19 +386,17 @@ body: |
 name: loop2
 tracksRegLiveness: true
 registers:
-  - { id: 0, class: sreg_32 }
+  - { id: 0, class: sreg_32_xm0 }
   - { id: 1, class: sreg_128 }
   - { id: 2, class: sreg_128 }
   - { id: 3, class: sreg_128 }
 body: |
   bb.0:
-    successors: %bb.1
     S_NOP 0, implicit-def %0
     %1 = REG_SEQUENCE %0, %subreg.sub0
     S_BRANCH %bb.1
 
   bb.1:
-    successors: %bb.1, %bb.2
     %2 = PHI %1, %bb.0, %3, %bb.1
 
     ; rotate subreg lanes, skipping sub1

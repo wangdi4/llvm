@@ -10,26 +10,27 @@
 #ifndef liblldb_IOHandler_h_
 #define liblldb_IOHandler_h_
 
-// C Includes
-#include <string.h>
+#include "lldb/Core/ValueObjectList.h"
+#include "lldb/Host/Predicate.h"
+#include "lldb/Utility/ConstString.h"
+#include "lldb/Utility/Flags.h"
+#include "lldb/Utility/Stream.h"
+#include "lldb/Utility/StringList.h"
+#include "lldb/lldb-defines.h"  // for DISALLOW_COPY_AND_ASSIGN
+#include "lldb/lldb-forward.h"  // for IOHandlerSP, StreamFileSP
+#include "llvm/ADT/StringRef.h" // for StringRef
 
-// C++ Includes
 #include <memory>
 #include <mutex>
 #include <string>
 #include <vector>
 
-// Other libraries and framework includes
-// Project includes
-#include "lldb/Core/ConstString.h"
-#include "lldb/Core/Error.h"
-#include "lldb/Core/Flags.h"
-#include "lldb/Core/Stream.h"
-#include "lldb/Core/StringList.h"
-#include "lldb/Core/ValueObjectList.h"
-#include "lldb/Host/Predicate.h"
-#include "lldb/lldb-enumerations.h"
-#include "lldb/lldb-public.h"
+#include <stdint.h> // for uint32_t
+#include <stdio.h>  // for FILE
+
+namespace lldb_private {
+class Debugger;
+}
 
 namespace curses {
 class Application;
@@ -97,10 +98,11 @@ public:
     return nullptr;
   }
 
-  virtual bool SetPrompt(const char *prompt) {
+  virtual bool SetPrompt(llvm::StringRef prompt) {
     // Prompt support isn't mandatory
     return false;
   }
+  bool SetPrompt(const char *) = delete;
 
   virtual ConstString GetControlSequence(char ch) { return ConstString(); }
 
@@ -341,7 +343,7 @@ class IOHandlerEditline : public IOHandler {
 public:
   IOHandlerEditline(Debugger &debugger, IOHandler::Type type,
                     const char *editline_name, // Used for saving history files
-                    const char *prompt, const char *continuation_prompt,
+                    llvm::StringRef prompt, llvm::StringRef continuation_prompt,
                     bool multi_line, bool color_prompts,
                     uint32_t line_number_start, // If non-zero show line numbers
                                                 // starting at
@@ -353,12 +355,21 @@ public:
                     const lldb::StreamFileSP &output_sp,
                     const lldb::StreamFileSP &error_sp, uint32_t flags,
                     const char *editline_name, // Used for saving history files
-                    const char *prompt, const char *continuation_prompt,
+                    llvm::StringRef prompt, llvm::StringRef continuation_prompt,
                     bool multi_line, bool color_prompts,
                     uint32_t line_number_start, // If non-zero show line numbers
                                                 // starting at
                                                 // 'line_number_start'
                     IOHandlerDelegate &delegate);
+
+  IOHandlerEditline(Debugger &, IOHandler::Type, const char *, const char *,
+                    const char *, bool, bool, uint32_t,
+                    IOHandlerDelegate &) = delete;
+
+  IOHandlerEditline(Debugger &, IOHandler::Type, const lldb::StreamFileSP &,
+                    const lldb::StreamFileSP &, const lldb::StreamFileSP &,
+                    uint32_t, const char *, const char *, const char *, bool,
+                    bool, uint32_t, IOHandlerDelegate &) = delete;
 
   ~IOHandlerEditline() override;
 
@@ -388,11 +399,13 @@ public:
 
   const char *GetPrompt() override;
 
-  bool SetPrompt(const char *prompt) override;
+  bool SetPrompt(llvm::StringRef prompt) override;
+  bool SetPrompt(const char *prompt) = delete;
 
   const char *GetContinuationPrompt();
 
-  void SetContinuationPrompt(const char *prompt);
+  void SetContinuationPrompt(llvm::StringRef prompt);
+  void SetContinuationPrompt(const char *) = delete;
 
   bool GetLine(std::string &line, bool &interrupted);
 
@@ -446,7 +459,7 @@ protected:
 // to see how.
 class IOHandlerConfirm : public IOHandlerDelegate, public IOHandlerEditline {
 public:
-  IOHandlerConfirm(Debugger &debugger, const char *prompt,
+  IOHandlerConfirm(Debugger &debugger, llvm::StringRef prompt,
                    bool default_response);
 
   ~IOHandlerConfirm() override;

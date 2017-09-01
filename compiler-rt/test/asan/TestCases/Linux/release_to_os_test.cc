@@ -2,8 +2,8 @@
 //
 
 // RUN: %clangxx_asan -std=c++11 %s -o %t
-// RUN: %env_asan_opts=allocator_release_to_os=1 %run %t 2>&1 | FileCheck %s --check-prefix=RELEASE
-// RUN: %env_asan_opts=allocator_release_to_os=0 %run %t 2>&1 | FileCheck %s --check-prefix=NO_RELEASE
+// RUN: %env_asan_opts=allocator_release_to_os_interval_ms=0 %run %t 2>&1 | FileCheck %s --check-prefix=RELEASE
+// RUN: %env_asan_opts=allocator_release_to_os_interval_ms=-1 %run %t 2>&1 | FileCheck %s --check-prefix=NO_RELEASE
 //
 // REQUIRES: x86_64-target-arch
 #include <stdlib.h>
@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <stdint.h>
 #include <assert.h>
+#include <random>
 
 #include <sanitizer/asan_interface.h>
 
@@ -19,9 +20,10 @@ void MallocReleaseStress() {
   const size_t kAllocSize = 100;
   const size_t kNumIter = 100;
   uintptr_t *chunks[kNumChunks] = {0};
+  std::mt19937 r;
 
   for (size_t iter = 0; iter < kNumIter; iter++) {
-    std::random_shuffle(chunks, chunks + kNumChunks);
+    std::shuffle(chunks, chunks + kNumChunks, r);
     size_t to_replace = rand() % kNumChunks;
     for (size_t i = 0; i < kNumChunks; i++) {
       if (chunks[i])

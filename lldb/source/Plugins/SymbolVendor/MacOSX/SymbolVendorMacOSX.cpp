@@ -15,12 +15,12 @@
 #include "lldb/Core/ModuleSpec.h"
 #include "lldb/Core/PluginManager.h"
 #include "lldb/Core/Section.h"
-#include "lldb/Core/StreamString.h"
 #include "lldb/Core/Timer.h"
 #include "lldb/Host/Host.h"
 #include "lldb/Host/Symbols.h"
 #include "lldb/Host/XML.h"
 #include "lldb/Symbol/ObjectFile.h"
+#include "lldb/Utility/StreamString.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -113,7 +113,8 @@ SymbolVendorMacOSX::CreateInstance(const lldb::ModuleSP &module_sp,
   if (obj_name != obj_file_macho)
     return NULL;
 
-  Timer scoped_timer(LLVM_PRETTY_FUNCTION,
+  static Timer::Category func_cat(LLVM_PRETTY_FUNCTION);
+  Timer scoped_timer(func_cat,
                      "SymbolVendorMacOSX::CreateInstance (module = %s)",
                      module_sp->GetFileSpec().GetPath().c_str());
   SymbolVendorMacOSX *symbol_vendor = new SymbolVendorMacOSX(module_sp);
@@ -122,8 +123,10 @@ SymbolVendorMacOSX::CreateInstance(const lldb::ModuleSP &module_sp,
     path[0] = '\0';
 
     // Try and locate the dSYM file on Mac OS X
+    static Timer::Category func_cat2(
+        "SymbolVendorMacOSX::CreateInstance() locate dSYM");
     Timer scoped_timer2(
-        "SymbolVendorMacOSX::CreateInstance () locate dSYM",
+        func_cat2,
         "SymbolVendorMacOSX::CreateInstance (module = %s) locate dSYM",
         module_sp->GetFileSpec().GetPath().c_str());
 
@@ -209,8 +212,7 @@ SymbolVendorMacOSX::CreateInstance(const lldb::ModuleSP &module_sp,
                         // DBGSourcePath
                         // values were incorrect.  If we have a newer style
                         // DBGSourcePathRemapping, there will be a DBGVersion
-                        // key in the plist
-                        // (we don't care about the value at this point).
+                        // key in the plist with version 2 or higher.
                         //
                         // If this is an old style DBGSourcePathRemapping,
                         // ignore the
@@ -221,7 +223,17 @@ SymbolVendorMacOSX::CreateInstance(const lldb::ModuleSP &module_sp,
                         std::string original_DBGSourcePath_value =
                             DBGSourcePath;
                         if (plist_sp->GetAsDictionary()->HasKey("DBGVersion")) {
-                          new_style_source_remapping_dictionary = true;
+                          std::string version_string =
+                              plist_sp->GetAsDictionary()
+                                  ->GetValueForKey("DBGVersion")
+                                  ->GetStringValue("");
+                          if (!version_string.empty() &&
+                              isdigit(version_string[0])) {
+                            int version_number = atoi(version_string.c_str());
+                            if (version_number > 1) {
+                              new_style_source_remapping_dictionary = true;
+                            }
+                          }
                         }
 
                         StructuredData::Dictionary *remappings_dict =

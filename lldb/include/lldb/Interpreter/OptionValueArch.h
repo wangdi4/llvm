@@ -46,9 +46,12 @@ public:
   void DumpValue(const ExecutionContext *exe_ctx, Stream &strm,
                  uint32_t dump_mask) override;
 
-  Error
+  Status
   SetValueFromString(llvm::StringRef value,
                      VarSetOperationType op = eVarSetOperationAssign) override;
+  Status
+  SetValueFromString(const char *,
+                     VarSetOperationType = eVarSetOperationAssign) = delete;
 
   bool Clear() override {
     m_current_value = m_default_value;
@@ -58,7 +61,7 @@ public:
 
   lldb::OptionValueSP DeepCopy() const override;
 
-  size_t AutoComplete(CommandInterpreter &interpreter, const char *s,
+  size_t AutoComplete(CommandInterpreter &interpreter, llvm::StringRef s,
                       int match_start_point, int max_return_elements,
                       bool &word_complete, StringList &matches) override;
 

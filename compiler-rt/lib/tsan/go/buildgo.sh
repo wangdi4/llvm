@@ -5,6 +5,7 @@ set -e
 SRCS="
 	tsan_go.cc
 	../rtl/tsan_clock.cc
+	../rtl/tsan_external.cc
 	../rtl/tsan_flags.cc
 	../rtl/tsan_interface_atomic.cc
 	../rtl/tsan_md5.cc
@@ -113,7 +114,7 @@ for F in $SRCS; do
 	cat $F >> $DIR/gotsan.cc
 done
 
-FLAGS=" -I../rtl -I../.. -I../../sanitizer_common -I../../../include -std=c++11 -m64 -Wall -fno-exceptions -fno-rtti -DSANITIZER_GO -DSANITIZER_DEADLOCK_DETECTOR_VERSION=2 $OSCFLAGS"
+FLAGS=" -I../rtl -I../.. -I../../sanitizer_common -I../../../include -std=c++11 -m64 -Wall -fno-exceptions -fno-rtti -DSANITIZER_GO=1 -DSANITIZER_DEADLOCK_DETECTOR_VERSION=2 $OSCFLAGS"
 if [ "$DEBUG" = "" ]; then
 	FLAGS="$FLAGS -DSANITIZER_DEBUG=0 -O3 -msse3 -fomit-frame-pointer"
 else

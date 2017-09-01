@@ -14,15 +14,15 @@
 // C++ Includes
 // Other libraries and framework includes
 // Project includes
-#include "lldb/Core/RegularExpression.h"
 #include "lldb/Interpreter/OptionValue.h"
+#include "lldb/Utility/RegularExpression.h"
 
 namespace lldb_private {
 
 class OptionValueRegex : public OptionValue {
 public:
   OptionValueRegex(const char *value = nullptr)
-      : OptionValue(), m_regex(value) {}
+      : OptionValue(), m_regex(llvm::StringRef::withNullAsEmpty(value)) {}
 
   ~OptionValueRegex() override = default;
 
@@ -35,9 +35,12 @@ public:
   void DumpValue(const ExecutionContext *exe_ctx, Stream &strm,
                  uint32_t dump_mask) override;
 
-  Error
+  Status
   SetValueFromString(llvm::StringRef value,
                      VarSetOperationType op = eVarSetOperationAssign) override;
+  Status
+  SetValueFromString(const char *,
+                     VarSetOperationType = eVarSetOperationAssign) = delete;
 
   bool Clear() override {
     m_regex.Clear();
@@ -56,7 +59,7 @@ public:
 
   void SetCurrentValue(const char *value) {
     if (value && value[0])
-      m_regex.Compile(value);
+      m_regex.Compile(llvm::StringRef(value));
     else
       m_regex.Clear();
   }

@@ -74,7 +74,9 @@ bool HexagonCallMutation::shouldTFRICallBind(const HexagonInstrInfo &HII,
     return false;
 
   // TypeXTYPE are 64 bit operations.
-  if (HII.getType(*Inst2.getInstr()) == HexagonII::TypeXTYPE)
+  unsigned Type = HII.getType(*Inst2.getInstr());
+  if (Type == HexagonII::TypeS_2op || Type == HexagonII::TypeS_3op ||
+    Type == HexagonII::TypeALU64 || Type == HexagonII::TypeM)
     return true;
   return false;
 }
@@ -742,7 +744,7 @@ int ConvergingVLIWScheduler::SchedulingCost(ReadyQueue &Q, SUnit *SU,
 
   // Give less preference to an instruction that will cause a stall with
   // an instruction in the previous packet.
-  if (QII.isV60VectorInstruction(Instr)) {
+  if (QII.isHVXVec(Instr)) {
     // Check for stalls in the previous packet.
     if (Q.getID() == TopQID) {
       for (auto J : Top.ResourceModel->OldPacket)
