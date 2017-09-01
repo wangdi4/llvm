@@ -222,7 +222,7 @@ InterpreterPluggable::RETCODE InterpreterPluggable::runWithPlugins()
                 }
                 Instruction *CIM = CallInst::Create(pre_method, args, "");
                 visit(CIM);//call
-                delete CIM;//cleanup. no-one is referencing to this instruction
+                CIM->dropAllReferences();//cleanup. no-one is referencing to this instruction
             }
             else//proceed to built-in execution
             {

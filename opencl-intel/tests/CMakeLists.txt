@@ -4,6 +4,9 @@
 # the conformance subdirectory has been added.
 include_directories( BEFORE ${OCL_GLOBAL_INCLUDE} )
 
+# define INTEL_CUSTOMIZATION xmain macro
+add_definitions( -DINTEL_CUSTOMIZATION )
+
 # some tests have to use deprecated OpenCL API functions.
 if (WIN32)
     add_definitions(

@@ -410,15 +410,13 @@ namespace intel {
     // targets cannot be inlined together.
     const char *TargetAttrs[] = {"target-cpu", "target-features"};
 
-    AttributeSet IgnoreAttrs;
+    AttrBuilder IgnoreAttrs;
     for (auto A : TargetAttrs) {
-      IgnoreAttrs = IgnoreAttrs.addAttribute(
-          M.getContext(), AttributeSet::FunctionIndex, A);
-
+      IgnoreAttrs.addAttribute(A);
     }
 
     for (auto &F : M) {
-      F.removeAttributes(AttributeSet::FunctionIndex, IgnoreAttrs);
+      F.removeAttributes(AttributeList::FunctionIndex, IgnoreAttrs);
     }
 
     return true;

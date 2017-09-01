@@ -312,9 +312,8 @@ int WeightedInstCounter::getPreferredVectorizationWidth(Function &F, DenseMap<Lo
   // operations for i16, reading and writing from these buffers becomes
   // expensive.
 
-  for (Function::ArgumentListType::iterator argIt = F.getArgumentList().begin(),
-       argEnd = F.getArgumentList().end(); argIt != argEnd; ++argIt) {
-    Type* argType = argIt->getType();
+  for (const auto &Arg : F) {
+    Type* argType = Arg.getType();
 
     // Is this a pointer type?
     PointerType* PtrArgType = dyn_cast<PointerType>(argType);
@@ -330,7 +329,7 @@ int WeightedInstCounter::getPreferredVectorizationWidth(Function &F, DenseMap<Lo
       continue;
 
     // Last thing to check - that this buffer is not trivially dead.
-    if (argIt->hasNUsesOrMore(1))
+    if (Arg.hasNUsesOrMore(1))
       return 4;
   }
 

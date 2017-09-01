@@ -1909,7 +1909,7 @@ bool PacketizeFunction::obtainNewCallArgs(CallInst *CI, const Function *LibFunc,
       V_ASSERT(ptrTy && "bad signature");
       if (!ptrTy) return false;
       Type *elTy = ptrTy->getElementType();
-      AllocaInst *AI = new AllocaInst(elTy, "", loc);
+      AllocaInst *AI = new AllocaInst(elTy, m_pDL->getAllocaAddrSpace(), "", loc);
       newArgs.push_back(AI);
     }
   }
@@ -2675,7 +2675,8 @@ void PacketizeFunction::packetizeInstruction(AllocaInst *AI) {
     Type* allocaType = VectorizerUtils::convertSoaAllocaType(AI->getAllocatedType(), m_packetWidth);
     unsigned int alignment = AI->getAlignment() * m_packetWidth;
 
-    AllocaInst* newAlloca = new AllocaInst(allocaType, 0, alignment, "PackedAlloca", AI);
+    AllocaInst* newAlloca = new AllocaInst(
+      allocaType, m_pDL->getAllocaAddrSpace(), 0, alignment, "PackedAlloca", AI);
 
     Instruction *duplicateInsts[MAX_PACKET_WIDTH];
     // Set the new SOA-alloca instruction as scalar multi instructions

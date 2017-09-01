@@ -571,8 +571,8 @@ void FuncResolver::resolveFunc(CallInst* caller) {
     func, ArrayRef<Value*>(params), "", caller);
   //Update new call instruction with calling convention and attributes
   pcall->setCallingConv(caller->getCallingConv());
-  AttributeSet as;
-  AttributeSet callAttr = caller->getAttributes();
+  AttributeList as;
+  auto callAttr = caller->getAttributes();
   for (unsigned int i=0; i < caller->getNumArgOperands(); ++i) {
     //Parameter attributes starts with index 1-NumOfParams
     unsigned int idx = i+1;
@@ -580,9 +580,9 @@ void FuncResolver::resolveFunc(CallInst* caller) {
     as.addAttributes(func->getContext(), 1 + idx, callAttr.getParamAttributes(idx));
   }
   //set function attributes of pcall
-  as.addAttributes(func->getContext(), AttributeSet::FunctionIndex, callAttr.getFnAttributes());
+  as.addAttributes(func->getContext(), AttributeList::FunctionIndex, callAttr.getFnAttributes());
   //set return value attributes of pcall
-  as.addAttributes(func->getContext(), AttributeSet::ReturnIndex, callAttr.getRetAttributes());
+  as.addAttributes(func->getContext(), AttributeList::ReturnIndex, callAttr.getRetAttributes());
   pcall->setAttributes(as);
   VectorizerUtils::SetDebugLocBy(pcall, caller);
   caller->replaceAllUsesWith(pcall);
@@ -631,6 +631,7 @@ void FuncResolver::resolveFakeExtract(CallInst* caller) {
 
 void FuncResolver::resolveRetByVectorBuiltin(CallInst* caller) {
   Function* currFunc = caller->getParent()->getParent();
+  const auto AllocaAddrSpace = currFunc->getParent()->getDataLayout().getAllocaAddrSpace();
 
   Function *origFunc = caller->getCalledFunction();
   std::string fakeFuncName = origFunc->getName().str();
@@ -659,7 +660,7 @@ void FuncResolver::resolveRetByVectorBuiltin(CallInst* caller) {
   PointerType *ptrTy = dyn_cast<PointerType>(LibFuncTy->getParamType(1));
   V_ASSERT(ptrTy && "bad signature");
   Type *elTy = ptrTy->getElementType();
-  AllocaInst *AI = new AllocaInst(elTy, "ret2", loc);
+  AllocaInst *AI = new AllocaInst(elTy, AllocaAddrSpace, "ret2", loc);
   newArgs.push_back(AI);
 
   //Create new function call

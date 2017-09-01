@@ -61,7 +61,7 @@ bool ScalarizeFunction::scanFunctionCall(CallInst *CI, funcRootsVect &rootVals)
   // Vector function was found in hash. Now find the function prototype of the scalar function
   std::string strScalarFuncName = foundFunction->getVersion(0);
   FunctionType * scalarFuncType;
-  AttributeSet funcAttrDummy;
+  AttributeList funcAttrDummy;
   if(!getScalarizedFunctionType(strScalarFuncName, scalarFuncType, funcAttrDummy)) {
     V_ASSERT(false && "Functions hash mismatch with runtime module!");
     // In release mode - fail scalarizing function call "gracefully"

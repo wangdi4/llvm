@@ -60,12 +60,11 @@ namespace intel{
   // ReturnAfterFirst is true, sets the NoAlias attribute to the first argument
   // in V without this attribute, otherwise sets all arguments in V with the
   // attribute. 'NoAlias' is passed in for efficiency.
-  static void setNoAlias(SmallVectorImpl<Argument *> &V,
-                         const AttributeSet &NoAlias, bool ReturnAfterFirst) {
+  static void setNoAlias(SmallVectorImpl<Argument *> &V, bool ReturnAfterFirst) {
     for (SmallVectorImpl<Argument *>::iterator AI = V.begin(), AE = V.end();
          AI != AE; ++AI) {
       if (!(*AI)->hasNoAliasAttr()) {
-        (*AI)->addAttr(NoAlias);
+        (*AI)->addAttr(Attribute::NoAlias);
         if (ReturnAfterFirst)
           return;
       }
@@ -117,11 +116,10 @@ namespace intel{
         NumArgsNoAlias[AS]++;
     }
     // Modify the arguments
-    AttributeSet NoAlias = AttributeSet::get(F.getContext(), 0, Attribute::NoAlias);
     bool Changed = false;
     for (unsigned AS = 0; AS < LastStaticAddrSpace + 1; ++AS) {
       if (Args[AS].size() && Args[AS].size() - 1 == NumArgsNoAlias[AS]) {
-        setNoAlias(Args[AS], NoAlias, true);
+        setNoAlias(Args[AS], true);
         Changed = true;
       }
     }
@@ -131,7 +129,7 @@ namespace intel{
     // If kernel function and is not called by any other functions, can set all
     // local args to NoAlias
     if (isKernel && !isFunctionMayBeCalled(F)) {
-      setNoAlias(Args[Local], NoAlias, false);
+      setNoAlias(Args[Local], false);
       Changed = true;
     }
     return Changed;
@@ -181,7 +179,7 @@ namespace intel{
       Function* pFunc = &*I;
       if (oclSyncFunctions.count(pFunc) || oclSyncBuiltins.count(pFunc)) {
         pFunc->setAttributes(pFunc->getAttributes().addAttribute(
-          pFunc->getContext(), AttributeSet::FunctionIndex, Attribute::NoDuplicate));
+          pFunc->getContext(), AttributeList::FunctionIndex, Attribute::NoDuplicate));
         Changed = true;
       }
     }

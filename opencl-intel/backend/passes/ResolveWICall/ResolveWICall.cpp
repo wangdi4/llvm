@@ -349,7 +349,8 @@ namespace intel {
       buf_arr_type = ArrayType::get(int8_type, total_arg_size);
     }
     // TODO: add comment
-    AllocaInst *buf_alloca_inst = new AllocaInst(buf_arr_type, "temp_arg_buf",
+    AllocaInst *buf_alloca_inst = new AllocaInst(buf_arr_type,
+      DL.getAllocaAddrSpace(),"temp_arg_buf",
       &*pCall->getParent()->getParent()->getEntryBlock().begin());
 
     // Generate instructions to store the operands into the argument buffer
@@ -559,10 +560,14 @@ namespace intel {
       // get number of local buffers
       const unsigned numLocalBuffers = pCall->getNumArgOperands() - LocalMemArgsOffs;
 
+      
+      const DataLayout &DL = m_pModule->getDataLayout();
+      
       // array with local mem sizes
       ArrayType *localbuf_arr_type = ArrayType::get(getLocalMemBufType(), numLocalBuffers);
       // issue alloca for array
-      AllocaInst *localbuf_alloca_inst = new AllocaInst(localbuf_arr_type, "localmem_arg_buf",
+      AllocaInst *localbuf_alloca_inst = new AllocaInst(localbuf_arr_type, 
+        DL.getAllocaAddrSpace(), "localmem_arg_buf",
         &*pCall->getParent()->getParent()->getEntryBlock().begin());
       // parse argument with local buf sizes
       // fill in array with local buf sizes

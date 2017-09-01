@@ -280,7 +280,7 @@ namespace intel {
       m_barrierFunc =
         createFunctionDeclaration(CompilationUtils::mangledBarrier(), pResult, funcTyArgs);
       m_barrierFunc->setAttributes(m_barrierFunc->getAttributes().addAttribute(
-        m_barrierFunc->getContext(), AttributeSet::FunctionIndex, Attribute::NoDuplicate));
+        m_barrierFunc->getContext(), AttributeList::FunctionIndex, Attribute::NoDuplicate));
     }
     if ( !m_localMemFenceValue ) {
       //LocalMemFenceValue is not initialized yet
@@ -534,8 +534,6 @@ namespace intel {
       /*Linkage=*/GlobalValue::ExternalLinkage,
       /*Name=*/name, m_pModule); //(external, no body)
     pNewFunc->setCallingConv(CallingConv::C);
-    AttributeSet barrier_Func_PAL;
-    pNewFunc->setAttributes(barrier_Func_PAL);
 
     assert( pNewFunc && "Failed to create new function declaration" );
 
@@ -543,10 +541,10 @@ namespace intel {
   }
 
   void BarrierUtils::SetFunctionAttributeReadNone(Function* pFunc) {
-    AttributeSet func_factorial_PAL;
     AttrBuilder attBuilder;
     attBuilder.addAttribute(Attribute::NoUnwind).addAttribute(Attribute::ReadNone) /* .addAttribute(Attribute::UWTable) */;
-    func_factorial_PAL = AttributeSet::get(pFunc->getContext(), ~0, attBuilder);
+    auto func_factorial_PAL =
+      AttributeList::get(pFunc->getContext(), AttributeList::FunctionIndex, attBuilder);
     pFunc->setAttributes(func_factorial_PAL);
   }
 } // namespace intel

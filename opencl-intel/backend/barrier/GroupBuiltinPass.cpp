@@ -247,6 +247,7 @@ namespace intel {
 
     m_pModule = &M;
     m_pLLVMContext = &M.getContext();
+    auto DL = M.getDataLayout();
     unsigned pointerSizeInBits = M.getDataLayout().getPointerSizeInBits(0);
     assert((32 == pointerSizeInBits  || 64 == pointerSizeInBits) &&
            "Unsupported pointer size");
@@ -303,7 +304,8 @@ namespace intel {
       Type *pRetType = pWgCallInst->getType();
 
       // 1. Add alloca for the accumulated result at the function start...
-      AllocaInst *pResult = new AllocaInst(pRetType, "AllocaWGResult", pFirstInstr);
+      AllocaInst *pResult = new AllocaInst(
+        pRetType, DL.getAllocaAddrSpace(), "AllocaWGResult", pFirstInstr);
 
       // 2. ... and initialize the result according to function name and argument type
       Value *pInitValue = getInitializationValue(pCallee);

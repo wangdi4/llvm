@@ -233,11 +233,10 @@ void SubGroupAdaptation::defineSubGroupBroadcast(Function *pFunc) {
   CallInst *local_size_1 =
       getWICall(entry, "lsz1", CompilationUtils::mangledGetLocalSize(), 1);
 
-  Function::ArgumentListType::iterator firstArg =
-      pFunc->getArgumentList().begin();
-  Function::ArgumentListType::iterator secondArg =
-      ++(pFunc->getArgumentList().begin());
+  assert((pFunc->arg_size() > 1) && "Expect at least 2 args!");
+  auto firstArg = pFunc->arg_begin();
   params.push_back(&*firstArg);
+  auto secondArg = ++firstArg;
 
   // For 1-dim workgroup - return get_local_id(0)
   // <3-dimensional Linear-ID> % get local_size(0)

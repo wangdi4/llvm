@@ -48,6 +48,7 @@ bool CLStreamSampler::runOnLoop(Loop *L, LPPassManager &LPM) {
   m_header = m_curLoop->getHeader();
   m_context = &m_header->getContext();
   m_M = m_header->getParent()->getParent();
+  m_DL = &m_M->getDataLayout();
   m_DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   m_WIAnalysis = &getAnalysis<LoopWIAnalysis>();
   m_preHeader = m_curLoop->getLoopPreheader();
@@ -604,8 +605,9 @@ void CLStreamSampler::generateAllocasForStream(unsigned width,
   Instruction *loc =
       m_header->getParent()->getEntryBlock().getFirstNonPHI();
   for (unsigned i = 0; i < 4; ++i) {
-    AllocaInst *AI = new AllocaInst(arrTy, nullptr, FLOAT_X_WIDTH__ALIGNMENT,
-                                    "stream.read.alloca", loc);
+    AllocaInst *AI = new AllocaInst(
+      arrTy, m_DL->getAllocaAddrSpace(), nullptr, FLOAT_X_WIDTH__ALIGNMENT,
+      "stream.read.alloca", loc);
     Instruction *ptr =
         GetElementPtrInst::CreateInBounds(AI, indicesArr, "ptr", loc);
     if (width != 4) {
@@ -659,7 +661,8 @@ Value *CLStreamSampler::calcFirstIterValIfPossible(Instruction *I) {
     if (m_firstIterVal.count(opInst)) {
       clone->setOperand(j, m_firstIterVal[opInst]);
     } else {
-      delete clone;
+      clone->eraseFromParent();
+      clone->dropAllReferences();
       return nullptr;
     }
   }

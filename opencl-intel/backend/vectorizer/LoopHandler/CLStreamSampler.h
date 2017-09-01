@@ -80,7 +80,10 @@ private:
   /// @brief current module.
   Module *m_M;
 
-   /// @breif pre header of the current loop.
+  /// @brief DataLayout
+  const DataLayout* m_DL;
+
+  /// @breif pre header of the current loop.
   BasicBlock *m_preHeader;
 
   /// @brief latch of the current loop.

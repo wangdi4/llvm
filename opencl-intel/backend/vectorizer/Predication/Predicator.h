@@ -14,6 +14,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "OclTune.h"
 
 #include "llvm/Pass.h"
+#include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/GlobalVariable.h"
@@ -511,6 +512,8 @@ private:
   DominatorTree* m_DT;
   // Loop info pointer
   LoopInfo* m_LI;
+  // Parent Module DataLayout
+  const DataLayout* m_DL;
 
   /// blocks that the heuristic decides it is a good idea
   /// to test their mask for allones.

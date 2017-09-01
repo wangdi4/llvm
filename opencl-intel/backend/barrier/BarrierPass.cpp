@@ -35,7 +35,8 @@ namespace intel {
   OCL_INITIALIZE_PASS_END(Barrier, "B-Barrier", "Barrier Pass - Handle special values & replace barrier/fiber with internal loop over WIs", false, true)
 
 
-  Barrier::Barrier(bool isNativeDebug) : ModulePass(ID), m_isNativeDBG(isNativeDebug) {
+  Barrier::Barrier(bool isNativeDebug) :
+      ModulePass(ID), m_DL(nullptr), m_isNativeDBG(isNativeDebug) {
     initializeBarrierPass(*llvm::PassRegistry::getPassRegistry());
   }
 
@@ -43,6 +44,8 @@ namespace intel {
     //Get Analysis data
     m_pDataPerBarrier = &getAnalysis<DataPerBarrier>();
     m_pDataPerValue = &getAnalysis<DataPerValue>();
+
+    m_DL = &M.getDataLayout();
 
     //Initialize barrier utils class with current module
     m_util.init(&M);
@@ -227,8 +230,9 @@ namespace intel {
     typedef std::map<Function *, Function *> F2FMap;
     F2FMap OldF2PatchedF;
     // Setup stuff needed for adding another argument to patched functions
+    SmallVector<Attribute, 1> NoAlias(1, Attribute::get(M.getContext(), Attribute::NoAlias));
     SmallVector<AttributeSet, 1> NewAttrs(
-        1, AttributeSet::get(*m_pContext, 0, Attribute::NoAlias));
+        1, AttributeSet::get(*m_pContext, NoAlias));
     // Patch the functions
     for (std::set<Function *>::iterator I = FuncsToPatch.begin(),
                                         E = FuncsToPatch.end();
@@ -474,7 +478,8 @@ namespace intel {
         pNextInst = pNextInst->getParent()->getFirstNonPHI();
       }
       //Create alloca of value type at begining of function
-      AllocaInst *pAllocaInst = new AllocaInst(pInst->getType(), pInst->getName(), pInsertBefore);
+      AllocaInst *pAllocaInst = new AllocaInst(
+        pInst->getType(), m_DL->getAllocaAddrSpace(), pInst->getName(), pInsertBefore);
       //Add Store instruction after the value instruction
       StoreInst* pStoreInst = new StoreInst(pInst, pAllocaInst, pNextInst);
       pStoreInst->setDebugLoc(pInst->getDebugLoc());
@@ -756,20 +761,24 @@ namespace intel {
   void Barrier::createBarrierKeyValues(Function* pFunc, bool hasNoInternalCalls) {
     SBarrierKeyValues* pBarrierKeyValues = &m_pBarrierKeyValuesPerFunction[pFunc];
 
+    const auto AllocaAddrSpace = m_DL->getAllocaAddrSpace();
+
     pBarrierKeyValues->m_TheFunction = pFunc;
     unsigned NumDims = computeNumDim(pFunc);
     pBarrierKeyValues->m_NumDims = NumDims;
     Instruction* pInsertBefore = &*pFunc->getEntryBlock().begin();
     //Add currBarrier alloca
-    pBarrierKeyValues->m_pCurrBarrierId = new AllocaInst(Type::getInt32Ty(*m_pContext),
+    pBarrierKeyValues->m_pCurrBarrierId = new AllocaInst(
+      Type::getInt32Ty(*m_pContext), AllocaAddrSpace,
       "pCurrBarrier", pInsertBefore);
 
     //Will hold the index in special buffer and will be increased by stride size
-    pBarrierKeyValues->m_pCurrSBIndex = new AllocaInst(m_sizeTType, "pCurrSBIndex", pInsertBefore);
+    pBarrierKeyValues->m_pCurrSBIndex = new AllocaInst(
+      m_sizeTType, AllocaAddrSpace, "pCurrSBIndex", pInsertBefore);
 
     //get_local_id()
     pBarrierKeyValues->m_pLocalIdValues = new AllocaInst(
-        m_LocalIdAllocTy->getElementType(), "pLocalIds", pInsertBefore);
+        m_LocalIdAllocTy->getElementType(), AllocaAddrSpace, "pLocalIds", pInsertBefore);
     //get_special_buffer()
     pBarrierKeyValues->m_pSpecialBufferValue = m_util.createGetSpecialBuffer(pInsertBefore);
 

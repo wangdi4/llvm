@@ -135,7 +135,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     Instruction* pInst = &*it;
     pInst->removeFromParent();
-    delete pInst;
+    pInst->dropAllReferences();
 
     if ( pBB->end() == prev ) {
       return pBB->begin();
@@ -150,14 +150,14 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       Argument **ppRunTimeHandle) {
 
       assert( pFunc && "Function cannot be null" );
-      assert( pFunc->getArgumentList().size() >= ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS && "implicit args was not added!" );
+      assert( pFunc->arg_size() >= ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS && "implicit args was not added!" );
 
       // Iterating over explicit arguments
       Function::arg_iterator DestI = pFunc->arg_begin();
 
       // Go over the explicit arguments
       for ( unsigned int  i = 0;
-        i < pFunc->getArgumentList().size() - ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS; ++i ) {
+        i < pFunc->arg_size() - ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS; ++i ) {
           ++DestI;
       }
 
@@ -282,7 +282,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     }
     auto kmd = KernelMetadataAPI(pOriginalFunc);
 
-    size_t argsCount = pFunc->getArgumentList().size() - ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS;
+    size_t argsCount = pFunc->arg_size() - ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS;
 
     unsigned int localMemCount = 0;
     unsigned int current_offset = 0;
@@ -587,8 +587,9 @@ Function *CompilationUtils::AddMoreArgsToFunc(
   for (unsigned I = 0, E = NewNames.size(); I < E; ++I, ++NewI) {
     Argument *A = &*NewI;
     A->setName(NewNames[I]);
-    if (!NewAttrs.empty() && !NewAttrs[I].isEmpty())
-      A->addAttr(NewAttrs[I]);
+    if (!NewAttrs.empty())
+      for (auto Attr : NewAttrs[I])
+        A->addAttr(Attr);
   }
   // Since we have now created the new function, splice the body of the old
   // function right into the new function, leaving the old body of the function empty.
@@ -605,7 +606,7 @@ Function *CompilationUtils::AddMoreArgsToFunc(
   // Loop over the argument list, transferring uses of the old arguments over to
   // the new arguments.
   for (Function::arg_iterator I = F->arg_begin(), E = F->arg_end(),
-                              NI = NewF->arg_begin(), NE = NewF->arg_end();
+                              NI = NewF->arg_begin();
        I != E; ++I, ++NI) {
     // Replace the users to the new version.
     I->replaceAllUsesWith(&*NI);

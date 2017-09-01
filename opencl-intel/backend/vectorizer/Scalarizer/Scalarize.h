@@ -164,7 +164,7 @@ private:
   ///@param funcType - [output] place to return function type
   ///@param funcAttr - [output] place to return function attribute
   ///@return true if succeeded and false otherwise.
-  bool getScalarizedFunctionType(std::string &strScalarFuncName, FunctionType*& funcType, AttributeSet& funcAttr);
+  bool getScalarizedFunctionType(std::string &strScalarFuncName, FunctionType*& funcType, AttributeList& funcAttr);
 
   /// @brief Pointer to current function's context
   LLVMContext *m_moduleContext;

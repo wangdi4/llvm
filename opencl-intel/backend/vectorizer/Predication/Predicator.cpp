@@ -118,9 +118,8 @@ Predicator::Predicator() :
 }
 
 bool Predicator::doFunctionArgumentsContainLocalMem(Function* F) {
-  for (Function::ArgumentListType::iterator it = F->getArgumentList().begin(),
-    e = F->getArgumentList().end(); it!= e; ++it) {
-    if (PointerType* ptrType = dyn_cast<PointerType>(it->getType())) {
+  for (const auto& Arg : F->args()) {
+    if (PointerType* ptrType = dyn_cast<PointerType>(Arg.getType())) {
       if (ptrType->getAddressSpace() == Intel::OpenCL::DeviceBackend::Utils::OCLAddressSpace::Local) {
         return true;
       }
@@ -850,8 +849,8 @@ Instruction* Predicator::predicateInstruction(Instruction *inst, Value* pred) {
       CallInst::Create(func, ArrayRef<Value*>(params), "", call);
     //Update new call instruction with calling convention and attributes
     pcall->setCallingConv(call->getCallingConv());
-    AttributeSet as;
-    AttributeSet callAttr = call->getAttributes();
+    AttributeList as;
+    auto callAttr = call->getAttributes();
     for (unsigned int i=0; i < call->getNumArgOperands(); ++i) {
       //Parameter attributes starts with index 1-NumOfParams
       unsigned int idx = i+1;
@@ -859,9 +858,9 @@ Instruction* Predicator::predicateInstruction(Instruction *inst, Value* pred) {
       as.addAttributes(func->getContext(), 1 + idx, callAttr.getParamAttributes(idx));
     }
     //set function attributes of pcall
-    as.addAttributes(func->getContext(), AttributeSet::FunctionIndex, callAttr.getFnAttributes());
+    as.addAttributes(func->getContext(), AttributeList::FunctionIndex, callAttr.getFnAttributes());
     //set return value attributes of pcall
-    as.addAttributes(func->getContext(), AttributeSet::ReturnIndex, callAttr.getRetAttributes());
+    as.addAttributes(func->getContext(), AttributeList::ReturnIndex, callAttr.getRetAttributes());
     pcall->setAttributes(as);
     replaceInstructionByPredicatedOne(call, pcall);
     return pcall;
@@ -891,6 +890,7 @@ void Predicator::selectOutsideUsedInstructions(Instruction* inst) {
 
   Value* prev_ptr = new AllocaInst(
     inst->getType(),            // type
+    m_DL->getAllocaAddrSpace(), // alloca address space
     inst->getName() + "_prev",  // name
     &*inst->getParent()->getParent()->getEntryBlock().begin()); // where
 
@@ -1037,6 +1037,7 @@ void Predicator::maskDummyEntry(BasicBlock *BB) {
   /// Save this as the mask value for this BB
   m_inMask[BB] = new AllocaInst(
     IntegerType::get(BB->getParent()->getContext(), 1),   // type
+    m_DL->getAllocaAddrSpace(),                           // stack addrspace
     BB->getName() + "_in_mask",                           // name
     &*BB->getParent()->getEntryBlock().begin());          // where
 }
@@ -1177,6 +1178,7 @@ void Predicator::maskOutgoing_loopexit(BasicBlock *BB) {
   /// Handles the out mask for the edge inside the loop.
   Value* local_edge_mask_p = new AllocaInst(
     IntegerType::get(BB->getParent()->getContext(), 1),
+    m_DL->getAllocaAddrSpace(),
     BB->getName() + "_to_" + BBlocal->getName()+"_mask",
     &*BB->getParent()->getEntryBlock().begin());
   BinaryOperator* localOutMask = BinaryOperator::Create(Instruction::And,
@@ -1208,6 +1210,7 @@ void Predicator::maskOutgoing_loopexit(BasicBlock *BB) {
     // preheader) and on each iteration we or the mask with the exit condition.
     Value *exit_edge_mask_p = new AllocaInst(
       IntegerType::get(BB->getParent()->getContext(), 1),
+      m_DL->getAllocaAddrSpace(),
       BB->getName() + "_to_" + BBexit->getName()+"_mask",
       &*BB->getParent()->getEntryBlock().begin());
     // Zero the exit edge mask before entering the loop.
@@ -1289,11 +1292,13 @@ void Predicator::maskOutgoing_fork(BasicBlock *BB) {
   /// We negate using XOR 1
   Value* mtrue  = new AllocaInst(
     IntegerType::get(BB->getParent()->getContext(), 1),
+    m_DL->getAllocaAddrSpace(),
     BB->getName() + "_to_" + BBsucc0->getName()+"_mask",
     &*BB->getParent()->getEntryBlock().begin());
 
   Value* mfalse = new AllocaInst(
     IntegerType::get(BB->getParent()->getContext(), 1),
+    m_DL->getAllocaAddrSpace(),
     BB->getName() + "_to_" + BBsucc1->getName()+"_mask",
     &*BB->getParent()->getEntryBlock().begin());
 
@@ -1951,6 +1956,7 @@ void Predicator::predicateFunction(Function *F) {
   m_DT = DT; // save the dominator tree.
   LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   m_LI = LI;
+  m_DL = &F->getParent()->getDataLayout();
   m_hasLocalMemoryArgs = doFunctionArgumentsContainLocalMem(F);
   V_ASSERT(LI && "Unable to get loop analysis");
   OCLBranchProbability *OBP = &getAnalysis<OCLBranchProbability>();

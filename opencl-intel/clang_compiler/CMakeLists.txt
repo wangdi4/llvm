@@ -12,6 +12,9 @@ endif()
 set(LLVM_PATH ${LLVM_PATH_FE})
 find_package(LLVM REQUIRED)
 
+# define INTEL_CUSTOMIZATION xmain macro
+add_definitions( -DINTEL_CUSTOMIZATION )
+
 # set that name of the main output file as a target name
 set( TARGET_NAME clang_compiler${BUILD_PLATFORM} )
 

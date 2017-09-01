@@ -494,6 +494,8 @@ static bool replaceReadChannel(Function &F, Function &ReadPipe,
                                Module &M,
                                ValueToValueMap ChannelToPipeMap,
                                bool NonBlocking = false) {
+  auto DL = M.getDataLayout();
+
   bool Changed = false;
 
   SmallVector<User *, 32> ReadChannelUsers(F.user_begin(), F.user_end());
@@ -526,7 +528,8 @@ static bool replaceReadChannel(Function &F, Function &ReadPipe,
       if (!Alloca) {
         Instruction *InsertBefore =
           &*(TargetFn->getEntryBlock().getFirstInsertionPt());
-        Alloca = new AllocaInst(DstTy, "read.dst", InsertBefore);
+        Alloca = new AllocaInst(
+          DstTy, DL.getAllocaAddrSpace(), "read.dst", InsertBefore);
       }
 
       DstPtr = Alloca;
@@ -597,6 +600,8 @@ static bool replaceWriteChannel(Function &F, Function &WritePipe,
                                 Module &M,
                                 ValueToValueMap ChannelToPipeMap,
                                 bool NonBlocking = false) {
+  auto DL = M.getDataLayout();
+
   bool Changed = false;
 
   SmallVector<User *, 32> WriteChannelUsers(F.user_begin(), F.user_end());
@@ -632,7 +637,8 @@ static bool replaceWriteChannel(Function &F, Function &WritePipe,
       if (!SrcPtr) {
         Instruction *InsertBefore =
           &*(TargetFn->getEntryBlock().getFirstInsertionPt());
-        SrcPtr = new AllocaInst(SrcType, "write.src", InsertBefore);
+        SrcPtr = new AllocaInst(
+          SrcType, DL.getAllocaAddrSpace(), "write.src", InsertBefore);
       }
       new StoreInst(Val, SrcPtr, ChannelCall);
     }

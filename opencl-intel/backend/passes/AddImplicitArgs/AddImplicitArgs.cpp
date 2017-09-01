@@ -131,7 +131,9 @@ namespace intel{
     // Calculate pointer to the local memory buffer. Do this before pFunc is deleted.
     unsigned int directLocalSize =
         (unsigned int)m_localBuffersAnalysis->getDirectLocalsSize(pFunc);
-    AttributeSet NoAlias = AttributeSet::get(*m_pLLVMContext, 0, Attribute::NoAlias);
+    AttrBuilder B;
+    B.addAttribute(Attribute::NoAlias);
+    AttributeSet NoAlias = AttributeSet::get(*m_pLLVMContext, B);
     AttributeSet NoAttr;
     // For each implicit arg, setup its type, name and attributes
     for (unsigned i=0; i < ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS; ++i) {

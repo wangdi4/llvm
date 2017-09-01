@@ -444,7 +444,7 @@ bool PacketizeFunction::resolveDeferredInstructions()
       // Replace dummy value with proper value
       dummyEntry->vectorValue->replaceAllUsesWith(resolvedVal);
       // Deleted and not "erased from parent" - because dummy was never insert to function!
-      delete dummyEntry->vectorValue;
+      dummyEntry->vectorValue->dropAllReferences();
     }
 
     // check (in the dummy values) if multi scalar values are required
@@ -460,7 +460,7 @@ bool PacketizeFunction::resolveDeferredInstructions()
       {
         dummyEntry->multiScalarValues[i]->replaceAllUsesWith(resolvedVals[i]);
         // Deleted and not "erased from parent" - because dummy was never insert to function!
-        delete dummyEntry->multiScalarValues[i];
+        dummyEntry->multiScalarValues[i]->dropAllReferences();
       }
     }
   }

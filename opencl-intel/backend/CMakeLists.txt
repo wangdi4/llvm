@@ -9,6 +9,9 @@ set(LLVM_PATH ${LLVM_PATH_BE})
 find_package(LLVM REQUIRED)
 message( STATUS "Backend LLVM_INCLUDE_DIRS: ${LLVM_INCLUDE_DIRS}" )
 
+# define INTEL_CUSTOMIZATION xmain macro
+add_definitions( -DINTEL_CUSTOMIZATION )
+
 if( ANDROID )
     set( BACKEND_BUILD_TESTS            OFF  CACHE STRING "")
     set( BACKEND_BUILD_VERIFICATION_LIB OFF  CACHE STRING "")

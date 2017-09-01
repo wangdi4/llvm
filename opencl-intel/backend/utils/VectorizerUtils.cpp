@@ -475,7 +475,7 @@ Instruction *VectorizerUtils::convertValToPointer(Value *orig, Type *targetType,
   if (!targetPointerType) return nullptr;
   Type *sourceType = orig->getType();
   assert(targetPointerType->getElementType() == sourceType && "pointer must be of orig type");
-  AllocaInst *ptr = new AllocaInst(sourceType, "allocated_val" , insertPoint);
+  AllocaInst *ptr = new AllocaInst(sourceType, 0, "allocated_val" , insertPoint);
   new StoreInst(orig, ptr, insertPoint);
   return ptr;
 }

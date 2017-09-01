@@ -721,7 +721,7 @@ void ScalarizeFunction::scalarizeInstruction(CallInst *CI)
   std::string strScalarFuncName = foundFunction->getVersion(0);
   const char *scalarFuncName = strScalarFuncName.c_str();
   FunctionType * funcType;
-  AttributeSet funcAttr;
+  AttributeList funcAttr;
   if(!getScalarizedFunctionType(strScalarFuncName, funcType, funcAttr)) {
     V_ASSERT(false && "function hash error");
     // In release mode - fail scalarizing function call "gracefully"
@@ -873,7 +873,8 @@ void ScalarizeFunction::scalarizeInstruction(AllocaInst *AI) {
     // Generate new (scalar) instructions
     Value *newScalarizedInsts[MAX_INPUT_VECTOR_WIDTH];
     for (unsigned dup = 0; dup < numElements; dup++) {
-      newScalarizedInsts[dup] = new AllocaInst(allocaType, 0, alignment, AI->getName(), AI);
+      newScalarizedInsts[dup] = new AllocaInst(
+        allocaType, m_pDL->getAllocaAddrSpace(), 0, alignment, AI->getName(), AI);
     }
 
     // Add new value/s to SCM
@@ -1350,7 +1351,7 @@ Value *ScalarizeFunction::obtainAssembledVector(Value *vectorVal, Instruction *l
   return assembledVector;
 }
 
-bool ScalarizeFunction::getScalarizedFunctionType(std::string &strScalarFuncName, FunctionType*& funcType, AttributeSet& funcAttr) {
+bool ScalarizeFunction::getScalarizedFunctionType(std::string &strScalarFuncName, FunctionType*& funcType, AttributeList& funcAttr) {
 
   if (Mangler::isRetByVectorBuiltin(strScalarFuncName)) {
     reflection::FunctionDescriptor fdesc = ::demangle(strScalarFuncName.c_str());
@@ -1518,7 +1519,7 @@ void ScalarizeFunction::resolveDeferredInstructions()
       V_ASSERT(dummyInst && "Dummy values are all instructions!");
       dummyInst->replaceAllUsesWith(currentInstEntry->scalarValues[i]);
       // Erase dummy instruction (don't use eraseFromParent as the dummy is not in the function)
-      delete dummyInst;
+      dummyInst->dropAllReferences();
     }
   }
   // clear DRL
