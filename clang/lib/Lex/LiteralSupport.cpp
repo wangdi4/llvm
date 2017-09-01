@@ -1177,10 +1177,22 @@ CharLiteralParser::CharLiteralParser(const char *begin, const char *end,
         } else {
           HadError = true;
         }
-      } else if (PP.getLangOpts().IntelCompat){ // INTEL
       } else {
         for (; tmp_out_start < buffer_begin; ++tmp_out_start) {
-          if (*tmp_out_start > largest_character_for_kind) {
+#if INTEL_CUSTOMIZATION
+          // CMPLRS-3239: For GCC Compat sake, promote literals with unsupported
+          // characters to wide chars
+          if (*tmp_out_start > largest_character_for_kind &&
+              PP.getLangOpts().IntelCompat &&
+              !PP.getLangOpts().MSVCCompat &&
+              *tmp_out_start <= 0xFFFFFFFFu >>
+                  (32 - PP.getTargetInfo().getWCharWidth())) {
+            Kind = tok::wide_char_constant;
+            largest_character_for_kind =
+                0xFFFFFFFFu >> (32 - PP.getTargetInfo().getWCharWidth());
+          } else
+#endif // INTEL_CUSTOMIZATION
+              if (*tmp_out_start > largest_character_for_kind) {
             HadError = true;
             PP.Diag(Loc, diag::err_character_too_large);
           }
@@ -1196,7 +1208,19 @@ CharLiteralParser::CharLiteralParser(const char *begin, const char *end,
                             FullSourceLoc(Loc, PP.getSourceManager()),
                             &PP.getDiagnostics(), PP.getLangOpts(), true)) {
         HadError = true;
-      } else if (PP.getLangOpts().IntelCompat){ // INTEL
+
+#if INTEL_CUSTOMIZATION
+        // CMPLRS-3239: For GCC Compat sake, promote literals with unsupported
+        // characters to wide chars
+      } else if (*buffer_begin > largest_character_for_kind &&
+                 PP.getLangOpts().IntelCompat &&
+                 !PP.getLangOpts().MSVCCompat &&
+                 *buffer_begin <= 0xFFFFFFFFu >>
+                     (32 - PP.getTargetInfo().getWCharWidth())) {
+        Kind = tok::wide_char_constant;
+        largest_character_for_kind =
+            0xFFFFFFFFu >> (32 - PP.getTargetInfo().getWCharWidth());
+#endif // INTEL_CUSTOMIZATION
       } else if (*buffer_begin > largest_character_for_kind) {
         HadError = true;
         PP.Diag(Loc, diag::err_character_too_large);

@@ -22,11 +22,6 @@ set(LLVM_LINK_COMPONENTS
   TransformUtils
   )
 
-if( INTEL_CUSTOMIZATION )
-  add_subdirectory(intel)
-  set(LIBS clangCodeGenIntel)
-endif()
-
 # In a standard Clang+LLVM build, we need to generate intrinsics before
 # building codegen. In a standalone build, LLVM is already built and we don't
 # need this dependency. Furthermore, LLVM doesn't export it so we can't have
@@ -80,6 +75,7 @@ add_clang_library(clangCodeGen
   CodeGenPGO.cpp
   CodeGenTBAA.cpp
   CodeGenTypes.cpp
+  ConstantInitBuilder.cpp
   CoverageMappingGen.cpp
   ItaniumCXXABI.cpp
   MacroPPCallbacks.cpp
@@ -90,6 +86,14 @@ add_clang_library(clangCodeGen
   SwiftCallingConv.cpp
   TargetInfo.cpp
   VarBypassDetector.cpp
+# INTEL_CUSTOMIZATION
+  intel/CGCilkPlusRuntime.cpp
+  intel/CGElementalFunction.cpp
+  intel/CGBuiltin_getBuiltinIntelLibFunction.cpp
+  intel/CGIntelEmit.cpp
+  intel/CGIntelStmt.cpp
+  intel/CGIntelStmtOpenMP.cpp
+# end INTEL_CUSTOMIZATION
 
   DEPENDS
   ${codegen_deps}
@@ -101,5 +105,4 @@ add_clang_library(clangCodeGen
   clangBasic
   clangFrontend
   clangLex
-  ${LIBS}
   )

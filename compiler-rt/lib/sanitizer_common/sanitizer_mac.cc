@@ -102,12 +102,12 @@ extern "C" int __munmap(void *, size_t) SANITIZER_WEAK_ATTRIBUTE;
 uptr internal_mmap(void *addr, size_t length, int prot, int flags,
                    int fd, u64 offset) {
   if (fd == -1) fd = VM_MAKE_TAG(VM_MEMORY_ANALYSIS_TOOL);
-  if (__mmap) return (uptr)__mmap(addr, length, prot, flags, fd, offset);
+  if (&__mmap) return (uptr)__mmap(addr, length, prot, flags, fd, offset);
   return (uptr)mmap(addr, length, prot, flags, fd, offset);
 }
 
 uptr internal_munmap(void *addr, uptr length) {
-  if (__munmap) return __munmap(addr, length);
+  if (&__munmap) return __munmap(addr, length);
   return munmap(addr, length);
 }
 
@@ -198,7 +198,7 @@ uptr internal_sigprocmask(int how, __sanitizer_sigset_t *set,
 extern "C" pid_t __fork(void) SANITIZER_WEAK_ATTRIBUTE;
 
 int internal_fork() {
-  if (__fork)
+  if (&__fork)
     return __fork();
   return fork();
 }
@@ -252,9 +252,8 @@ bool FileExists(const char *filename) {
   return S_ISREG(st.st_mode);
 }
 
-uptr GetTid() {
-  // FIXME: This can potentially get truncated on 32-bit, where uptr is 4 bytes.
-  uint64_t tid;
+tid_t GetTid() {
+  tid_t tid;
   pthread_threadid_np(nullptr, &tid);
   return tid;
 }
@@ -395,16 +394,22 @@ void ListOfModules::init() {
 }
 
 bool IsHandledDeadlySignal(int signum) {
+  // Handling fatal signals on watchOS and tvOS devices is disallowed.
   if ((SANITIZER_WATCHOS || SANITIZER_TVOS) && !(SANITIZER_IOSSIM))
-    // Handling fatal signals on watchOS and tvOS devices is disallowed.
     return false;
-  if (common_flags()->handle_abort && signum == SIGABRT)
-    return true;
-  if (common_flags()->handle_sigill && signum == SIGILL)
-    return true;
-  if (common_flags()->handle_sigfpe && signum == SIGFPE)
-    return true;
-  return (signum == SIGSEGV || signum == SIGBUS) && common_flags()->handle_segv;
+  switch (signum) {
+    case SIGABRT:
+      return common_flags()->handle_abort;
+    case SIGILL:
+      return common_flags()->handle_sigill;
+    case SIGFPE:
+      return common_flags()->handle_sigfpe;
+    case SIGSEGV:
+      return common_flags()->handle_segv;
+    case SIGBUS:
+      return common_flags()->handle_sigbus;
+  }
+  return false;
 }
 
 MacosVersion cached_macos_version = MACOS_VERSION_UNINITIALIZED;
@@ -884,6 +889,10 @@ void PrintModuleMap() {
            ModuleArchToString(modules[i].arch()), uuid_str);
   }
   Printf("End of module map.\n");
+}
+
+void CheckNoDeepBind(const char *filename, int flag) {
+  // Do nothing.
 }
 
 }  // namespace __sanitizer

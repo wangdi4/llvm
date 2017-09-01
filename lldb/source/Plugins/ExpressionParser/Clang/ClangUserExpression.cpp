@@ -26,7 +26,6 @@
 #include "ClangPersistentVariables.h"
 
 #include "lldb/Core/Debugger.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/StreamFile.h"
 #include "lldb/Core/ValueObjectConstResult.h"
@@ -50,6 +49,7 @@
 #include "lldb/Target/ThreadPlan.h"
 #include "lldb/Target/ThreadPlanCallUserExpression.h"
 #include "lldb/Utility/ConstString.h"
+#include "lldb/Utility/Log.h"
 #include "lldb/Utility/StreamString.h"
 
 #include "clang/AST/DeclCXX.h"
@@ -83,7 +83,7 @@ ClangUserExpression::ClangUserExpression(
 
 ClangUserExpression::~ClangUserExpression() {}
 
-void ClangUserExpression::ScanContext(ExecutionContext &exe_ctx, Error &err) {
+void ClangUserExpression::ScanContext(ExecutionContext &exe_ctx, Status &err) {
   Log *log(lldb_private::GetLogIfAllCategoriesSet(LIBLLDB_LOG_EXPRESSIONS));
 
   if (log)
@@ -315,7 +315,7 @@ bool ClangUserExpression::Parse(DiagnosticManager &diagnostic_manager,
                                 bool generate_debug_info) {
   Log *log(lldb_private::GetLogIfAllCategoriesSet(LIBLLDB_LOG_EXPRESSIONS));
 
-  Error err;
+  Status err;
 
   InstallContext(exe_ctx);
 
@@ -501,7 +501,7 @@ bool ClangUserExpression::Parse(DiagnosticManager &diagnostic_manager,
   //
 
   {
-    Error jit_error = parser.PrepareForExecution(
+    Status jit_error = parser.PrepareForExecution(
         m_jit_start_addr, m_jit_end_addr, m_execution_unit_sp, exe_ctx,
         m_can_interpret, execution_policy);
 
@@ -517,7 +517,7 @@ bool ClangUserExpression::Parse(DiagnosticManager &diagnostic_manager,
   }
 
   if (exe_ctx.GetProcessPtr() && execution_policy == eExecutionPolicyTopLevel) {
-    Error static_init_error =
+    Status static_init_error =
         parser.RunStaticInitializers(m_execution_unit_sp, exe_ctx);
 
     if (!static_init_error.Success()) {
@@ -603,13 +603,13 @@ bool ClangUserExpression::AddArguments(ExecutionContext &exe_ctx,
       return false;
     }
 
-    Error object_ptr_error;
+    Status object_ptr_error;
 
     object_ptr = GetObjectPointer(frame_sp, object_name, object_ptr_error);
 
     if (!object_ptr_error.Success()) {
       exe_ctx.GetTargetRef().GetDebugger().GetAsyncOutputStream()->Printf(
-          "warning: `%s' is not accessible (subsituting 0)\n",
+          "warning: `%s' is not accessible (substituting 0)\n",
           object_name.AsCString());
       object_ptr = 0;
     }

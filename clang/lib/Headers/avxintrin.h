@@ -1466,12 +1466,13 @@ _mm256_blendv_ps(__m256 __a, __m256 __b, __m256 __c)
 /// \brief Computes two dot products in parallel, using the lower and upper
 ///    halves of two [8 x float] vectors as input to the two computations, and
 ///    returning the two dot products in the lower and upper halves of the
-///    [8 x float] result. The immediate integer operand controls which input
-///    elements will contribute to the dot product, and where the final results
-///    are returned. In general, for each dot product, the four corresponding
-///    elements of the input vectors are multiplied; the first two and second
-///    two products are summed, then the two sums are added to form the final
-///    result.
+///    [8 x float] result.
+///
+///    The immediate integer operand controls which input elements will
+///    contribute to the dot product, and where the final results are returned.
+///    In general, for each dot product, the four corresponding elements of the
+///    input vectors are multiplied; the first two and second two products are
+///    summed, then the two sums are added to form the final result.
 ///
 /// \headerfile <x86intrin.h>
 ///
@@ -1505,15 +1506,16 @@ _mm256_blendv_ps(__m256 __a, __m256 __b, __m256 __c)
 
 /* Vector shuffle */
 /// \brief Selects 8 float values from the 256-bit operands of [8 x float], as
-///    specified by the immediate value operand. The four selected elements in
-///    each operand are copied to the destination according to the bits
-///    specified in the immediate operand. The selected elements from the first
-///    256-bit operand are copied to bits [63:0] and bits [191:128] of the
-///    destination, and the selected elements from the second 256-bit operand
-///    are copied to bits [127:64] and bits [255:192] of the destination. For
-///    example, if bits [7:0] of the immediate operand contain a value of 0xFF,
-///    the 256-bit destination vector would contain the following values: b[7],
-///    b[7], a[7], a[7], b[3], b[3], a[3], a[3].
+///    specified by the immediate value operand.
+///
+///    The four selected elements in each operand are copied to the destination
+///    according to the bits specified in the immediate operand. The selected
+///    elements from the first 256-bit operand are copied to bits [63:0] and
+///    bits [191:128] of the destination, and the selected elements from the
+///    second 256-bit operand are copied to bits [127:64] and bits [255:192] of
+///    the destination. For example, if bits [7:0] of the immediate operand
+///    contain a value of 0xFF, the 256-bit destination vector would contain the
+///    following values: b[7], b[7], a[7], a[7], b[3], b[3], a[3], a[3].
 ///
 /// \headerfile <x86intrin.h>
 ///
@@ -1565,13 +1567,14 @@ _mm256_blendv_ps(__m256 __a, __m256 __b, __m256 __c)
                                   12 + (((mask) >> 6) & 0x3)); })
 
 /// \brief Selects four double-precision values from the 256-bit operands of
-///    [4 x double], as specified by the immediate value operand. The selected
-///    elements from the first 256-bit operand are copied to bits [63:0] and
-///    bits [191:128] in the destination, and the selected elements from the
-///    second 256-bit operand are copied to bits [127:64] and bits [255:192] in
-///    the destination. For example, if bits [3:0] of the immediate operand
-///    contain a value of 0xF, the 256-bit destination vector would contain the
-///    following values: b[3], a[3], b[1], a[1].
+///    [4 x double], as specified by the immediate value operand.
+///
+///    The selected elements from the first 256-bit operand are copied to bits
+///    [63:0] and bits [191:128] in the destination, and the selected elements
+///    from the second 256-bit operand are copied to bits [127:64] and bits
+///    [255:192] in the destination. For example, if bits [3:0] of the immediate
+///    operand contain a value of 0xF, the 256-bit destination vector would
+///    contain the following values: b[3], a[3], b[1], a[1].
 ///
 /// \headerfile <x86intrin.h>
 ///
@@ -1621,9 +1624,9 @@ _mm256_blendv_ps(__m256 __a, __m256 __b, __m256 __c)
 #define _CMP_NEQ_UQ   0x04 /* Not-equal (unordered, non-signaling)  */
 #define _CMP_NLT_US   0x05 /* Not-less-than (unordered, signaling)  */
 #define _CMP_NLE_US   0x06 /* Not-less-than-or-equal (unordered, signaling)  */
-#define _CMP_ORD_Q    0x07 /* Ordered (nonsignaling)   */
+#define _CMP_ORD_Q    0x07 /* Ordered (non-signaling)   */
 #define _CMP_EQ_UQ    0x08 /* Equal (unordered, non-signaling)  */
-#define _CMP_NGE_US   0x09 /* Not-greater-than-or-equal (unord, signaling)  */
+#define _CMP_NGE_US   0x09 /* Not-greater-than-or-equal (unordered, signaling)  */
 #define _CMP_NGT_US   0x0a /* Not-greater-than (unordered, signaling)  */
 #define _CMP_FALSE_OQ 0x0b /* False (ordered, non-signaling)  */
 #define _CMP_NEQ_OQ   0x0c /* Not-equal (ordered, non-signaling)  */
@@ -1636,10 +1639,10 @@ _mm256_blendv_ps(__m256 __a, __m256 __b, __m256 __c)
 #define _CMP_UNORD_S  0x13 /* Unordered (signaling)  */
 #define _CMP_NEQ_US   0x14 /* Not-equal (unordered, signaling)  */
 #define _CMP_NLT_UQ   0x15 /* Not-less-than (unordered, non-signaling)  */
-#define _CMP_NLE_UQ   0x16 /* Not-less-than-or-equal (unord, non-signaling)  */
+#define _CMP_NLE_UQ   0x16 /* Not-less-than-or-equal (unordered, non-signaling)  */
 #define _CMP_ORD_S    0x17 /* Ordered (signaling)  */
 #define _CMP_EQ_US    0x18 /* Equal (unordered, signaling)  */
-#define _CMP_NGE_UQ   0x19 /* Not-greater-than-or-equal (unord, non-sign)  */
+#define _CMP_NGE_UQ   0x19 /* Not-greater-than-or-equal (unordered, non-signaling)  */
 #define _CMP_NGT_UQ   0x1a /* Not-greater-than (unordered, non-signaling)  */
 #define _CMP_FALSE_OS 0x1b /* False (ordered, signaling)  */
 #define _CMP_NEQ_OS   0x1c /* Not-equal (ordered, signaling)  */
@@ -1649,9 +1652,11 @@ _mm256_blendv_ps(__m256 __a, __m256 __b, __m256 __c)
 
 /// \brief Compares each of the corresponding double-precision values of two
 ///    128-bit vectors of [2 x double], using the operation specified by the
-///    immediate integer operand. Returns a [2 x double] vector consisting of
-///    two doubles corresponding to the two comparison results: zero if the
-///    comparison is false, and all 1's if the comparison is true.
+///    immediate integer operand.
+///
+///    Returns a [2 x double] vector consisting of two doubles corresponding to
+///    the two comparison results: zero if the comparison is false, and all 1's
+///    if the comparison is true.
 ///
 /// \headerfile <x86intrin.h>
 ///
@@ -1668,17 +1673,38 @@ _mm256_blendv_ps(__m256 __a, __m256 __b, __m256 __c)
 /// \param c
 ///    An immediate integer operand, with bits [4:0] specifying which comparison
 ///    operation to use: \n
-///    00h, 08h, 10h, 18h: Equal \n
-///    01h, 09h, 11h, 19h: Less than \n
-///    02h, 0Ah, 12h, 1Ah: Less than or equal / Greater than or equal
-///                        (swapped operands) \n
-///    03h, 0Bh, 13h, 1Bh: Unordered \n
-///    04h, 0Ch, 14h, 1Ch: Not equal \n
-///    05h, 0Dh, 15h, 1Dh: Not less than / Not greater than
-///                        (swapped operands) \n
-///    06h, 0Eh, 16h, 1Eh: Not less than or equal / Not greater than or equal
-///                        (swapped operands) \n
-///    07h, 0Fh, 17h, 1Fh: Ordered
+///    0x00 : Equal (ordered, non-signaling)
+///    0x01 : Less-than (ordered, signaling)
+///    0x02 : Less-than-or-equal (ordered, signaling)
+///    0x03 : Unordered (non-signaling)
+///    0x04 : Not-equal (unordered, non-signaling)
+///    0x05 : Not-less-than (unordered, signaling)
+///    0x06 : Not-less-than-or-equal (unordered, signaling)
+///    0x07 : Ordered (non-signaling)
+///    0x08 : Equal (unordered, non-signaling)
+///    0x09 : Not-greater-than-or-equal (unordered, signaling)
+///    0x0a : Not-greater-than (unordered, signaling)
+///    0x0b : False (ordered, non-signaling)
+///    0x0c : Not-equal (ordered, non-signaling)
+///    0x0d : Greater-than-or-equal (ordered, signaling)
+///    0x0e : Greater-than (ordered, signaling)
+///    0x0f : True (unordered, non-signaling)
+///    0x10 : Equal (ordered, signaling)
+///    0x11 : Less-than (ordered, non-signaling)
+///    0x12 : Less-than-or-equal (ordered, non-signaling)
+///    0x13 : Unordered (signaling)
+///    0x14 : Not-equal (unordered, signaling)
+///    0x15 : Not-less-than (unordered, non-signaling)
+///    0x16 : Not-less-than-or-equal (unordered, non-signaling)
+///    0x17 : Ordered (signaling)
+///    0x18 : Equal (unordered, signaling)
+///    0x19 : Not-greater-than-or-equal (unordered, non-signaling)
+///    0x1a : Not-greater-than (unordered, non-signaling)
+///    0x1b : False (ordered, signaling)
+///    0x1c : Not-equal (ordered, signaling)
+///    0x1d : Greater-than-or-equal (ordered, non-signaling)
+///    0x1e : Greater-than (ordered, non-signaling)
+///    0x1f : True (unordered, signaling)
 /// \returns A 128-bit vector of [2 x double] containing the comparison results.
 #define _mm_cmp_pd(a, b, c) __extension__ ({ \
   (__m128d)__builtin_ia32_cmppd((__v2df)(__m128d)(a), \
@@ -1686,9 +1712,11 @@ _mm256_blendv_ps(__m256 __a, __m256 __b, __m256 __c)
 
 /// \brief Compares each of the corresponding values of two 128-bit vectors of
 ///    [4 x float], using the operation specified by the immediate integer
-///    operand. Returns a [4 x float] vector consisting of four floats
-///    corresponding to the four comparison results: zero if the comparison is
-///    false, and all 1's if the comparison is true.
+///    operand.
+///
+///    Returns a [4 x float] vector consisting of four floats corresponding to
+///    the four comparison results: zero if the comparison is false, and all 1's
+///    if the comparison is true.
 ///
 /// \headerfile <x86intrin.h>
 ///
@@ -1705,17 +1733,38 @@ _mm256_blendv_ps(__m256 __a, __m256 __b, __m256 __c)
 /// \param c
 ///    An immediate integer operand, with bits [4:0] specifying which comparison
 ///    operation to use: \n
-///    00h, 08h, 10h, 18h: Equal \n
-///    01h, 09h, 11h, 19h: Less than \n
-///    02h, 0Ah, 12h, 1Ah: Less than or equal / Greater than or equal
-///                        (swapped operands) \n
-///    03h, 0Bh, 13h, 1Bh: Unordered \n
-///    04h, 0Ch, 14h, 1Ch: Not equal \n
-///    05h, 0Dh, 15h, 1Dh: Not less than / Not greater than
-///                        (swapped operands) \n
-///    06h, 0Eh, 16h, 1Eh: Not less than or equal / Not greater than or equal
-///                        (swapped operands) \n
-///    07h, 0Fh, 17h, 1Fh: Ordered
+///    0x00 : Equal (ordered, non-signaling)
+///    0x01 : Less-than (ordered, signaling)
+///    0x02 : Less-than-or-equal (ordered, signaling)
+///    0x03 : Unordered (non-signaling)
+///    0x04 : Not-equal (unordered, non-signaling)
+///    0x05 : Not-less-than (unordered, signaling)
+///    0x06 : Not-less-than-or-equal (unordered, signaling)
+///    0x07 : Ordered (non-signaling)
+///    0x08 : Equal (unordered, non-signaling)
+///    0x09 : Not-greater-than-or-equal (unordered, signaling)
+///    0x0a : Not-greater-than (unordered, signaling)
+///    0x0b : False (ordered, non-signaling)
+///    0x0c : Not-equal (ordered, non-signaling)
+///    0x0d : Greater-than-or-equal (ordered, signaling)
+///    0x0e : Greater-than (ordered, signaling)
+///    0x0f : True (unordered, non-signaling)
+///    0x10 : Equal (ordered, signaling)
+///    0x11 : Less-than (ordered, non-signaling)
+///    0x12 : Less-than-or-equal (ordered, non-signaling)
+///    0x13 : Unordered (signaling)
+///    0x14 : Not-equal (unordered, signaling)
+///    0x15 : Not-less-than (unordered, non-signaling)
+///    0x16 : Not-less-than-or-equal (unordered, non-signaling)
+///    0x17 : Ordered (signaling)
+///    0x18 : Equal (unordered, signaling)
+///    0x19 : Not-greater-than-or-equal (unordered, non-signaling)
+///    0x1a : Not-greater-than (unordered, non-signaling)
+///    0x1b : False (ordered, signaling)
+///    0x1c : Not-equal (ordered, signaling)
+///    0x1d : Greater-than-or-equal (ordered, non-signaling)
+///    0x1e : Greater-than (ordered, non-signaling)
+///    0x1f : True (unordered, signaling)
 /// \returns A 128-bit vector of [4 x float] containing the comparison results.
 #define _mm_cmp_ps(a, b, c) __extension__ ({ \
   (__m128)__builtin_ia32_cmpps((__v4sf)(__m128)(a), \
@@ -1723,9 +1772,11 @@ _mm256_blendv_ps(__m256 __a, __m256 __b, __m256 __c)
 
 /// \brief Compares each of the corresponding double-precision values of two
 ///    256-bit vectors of [4 x double], using the operation specified by the
-///    immediate integer operand. Returns a [4 x double] vector consisting of
-///    four doubles corresponding to the four comparison results: zero if the
-///    comparison is false, and all 1's if the comparison is true.
+///    immediate integer operand.
+///
+///    Returns a [4 x double] vector consisting of four doubles corresponding to
+///    the four comparison results: zero if the comparison is false, and all 1's
+///    if the comparison is true.
 ///
 /// \headerfile <x86intrin.h>
 ///
@@ -1742,17 +1793,38 @@ _mm256_blendv_ps(__m256 __a, __m256 __b, __m256 __c)
 /// \param c
 ///    An immediate integer operand, with bits [4:0] specifying which comparison
 ///    operation to use: \n
-///    00h, 08h, 10h, 18h: Equal \n
-///    01h, 09h, 11h, 19h: Less than \n
-///    02h, 0Ah, 12h, 1Ah: Less than or equal / Greater than or equal
-///                        (swapped operands) \n
-///    03h, 0Bh, 13h, 1Bh: Unordered \n
-///    04h, 0Ch, 14h, 1Ch: Not equal \n
-///    05h, 0Dh, 15h, 1Dh: Not less than / Not greater than
-///                        (swapped operands) \n
-///    06h, 0Eh, 16h, 1Eh: Not less than or equal / Not greater than or equal
-///                        (swapped operands) \n
-///    07h, 0Fh, 17h, 1Fh: Ordered
+///    0x00 : Equal (ordered, non-signaling)
+///    0x01 : Less-than (ordered, signaling)
+///    0x02 : Less-than-or-equal (ordered, signaling)
+///    0x03 : Unordered (non-signaling)
+///    0x04 : Not-equal (unordered, non-signaling)
+///    0x05 : Not-less-than (unordered, signaling)
+///    0x06 : Not-less-than-or-equal (unordered, signaling)
+///    0x07 : Ordered (non-signaling)
+///    0x08 : Equal (unordered, non-signaling)
+///    0x09 : Not-greater-than-or-equal (unordered, signaling)
+///    0x0a : Not-greater-than (unordered, signaling)
+///    0x0b : False (ordered, non-signaling)
+///    0x0c : Not-equal (ordered, non-signaling)
+///    0x0d : Greater-than-or-equal (ordered, signaling)
+///    0x0e : Greater-than (ordered, signaling)
+///    0x0f : True (unordered, non-signaling)
+///    0x10 : Equal (ordered, signaling)
+///    0x11 : Less-than (ordered, non-signaling)
+///    0x12 : Less-than-or-equal (ordered, non-signaling)
+///    0x13 : Unordered (signaling)
+///    0x14 : Not-equal (unordered, signaling)
+///    0x15 : Not-less-than (unordered, non-signaling)
+///    0x16 : Not-less-than-or-equal (unordered, non-signaling)
+///    0x17 : Ordered (signaling)
+///    0x18 : Equal (unordered, signaling)
+///    0x19 : Not-greater-than-or-equal (unordered, non-signaling)
+///    0x1a : Not-greater-than (unordered, non-signaling)
+///    0x1b : False (ordered, signaling)
+///    0x1c : Not-equal (ordered, signaling)
+///    0x1d : Greater-than-or-equal (ordered, non-signaling)
+///    0x1e : Greater-than (ordered, non-signaling)
+///    0x1f : True (unordered, signaling)
 /// \returns A 256-bit vector of [4 x double] containing the comparison results.
 #define _mm256_cmp_pd(a, b, c) __extension__ ({ \
   (__m256d)__builtin_ia32_cmppd256((__v4df)(__m256d)(a), \
@@ -1760,9 +1832,11 @@ _mm256_blendv_ps(__m256 __a, __m256 __b, __m256 __c)
 
 /// \brief Compares each of the corresponding values of two 256-bit vectors of
 ///    [8 x float], using the operation specified by the immediate integer
-///    operand. Returns a [8 x float] vector consisting of eight floats
-///    corresponding to the eight comparison results: zero if the comparison is
-///    false, and all 1's if the comparison is true.
+///    operand.
+///
+///    Returns a [8 x float] vector consisting of eight floats corresponding to
+///    the eight comparison results: zero if the comparison is false, and all
+///    1's if the comparison is true.
 ///
 /// \headerfile <x86intrin.h>
 ///
@@ -1779,17 +1853,38 @@ _mm256_blendv_ps(__m256 __a, __m256 __b, __m256 __c)
 /// \param c
 ///    An immediate integer operand, with bits [4:0] specifying which comparison
 ///    operation to use: \n
-///    00h, 08h, 10h, 18h: Equal \n
-///    01h, 09h, 11h, 19h: Less than \n
-///    02h, 0Ah, 12h, 1Ah: Less than or equal / Greater than or equal
-///                        (swapped operands) \n
-///    03h, 0Bh, 13h, 1Bh: Unordered \n
-///    04h, 0Ch, 14h, 1Ch: Not equal \n
-///    05h, 0Dh, 15h, 1Dh: Not less than / Not greater than
-///                        (swapped operands) \n
-///    06h, 0Eh, 16h, 1Eh: Not less than or equal / Not greater than or equal
-///                        (swapped operands) \n
-///    07h, 0Fh, 17h, 1Fh: Ordered
+///    0x00 : Equal (ordered, non-signaling)
+///    0x01 : Less-than (ordered, signaling)
+///    0x02 : Less-than-or-equal (ordered, signaling)
+///    0x03 : Unordered (non-signaling)
+///    0x04 : Not-equal (unordered, non-signaling)
+///    0x05 : Not-less-than (unordered, signaling)
+///    0x06 : Not-less-than-or-equal (unordered, signaling)
+///    0x07 : Ordered (non-signaling)
+///    0x08 : Equal (unordered, non-signaling)
+///    0x09 : Not-greater-than-or-equal (unordered, signaling)
+///    0x0a : Not-greater-than (unordered, signaling)
+///    0x0b : False (ordered, non-signaling)
+///    0x0c : Not-equal (ordered, non-signaling)
+///    0x0d : Greater-than-or-equal (ordered, signaling)
+///    0x0e : Greater-than (ordered, signaling)
+///    0x0f : True (unordered, non-signaling)
+///    0x10 : Equal (ordered, signaling)
+///    0x11 : Less-than (ordered, non-signaling)
+///    0x12 : Less-than-or-equal (ordered, non-signaling)
+///    0x13 : Unordered (signaling)
+///    0x14 : Not-equal (unordered, signaling)
+///    0x15 : Not-less-than (unordered, non-signaling)
+///    0x16 : Not-less-than-or-equal (unordered, non-signaling)
+///    0x17 : Ordered (signaling)
+///    0x18 : Equal (unordered, signaling)
+///    0x19 : Not-greater-than-or-equal (unordered, non-signaling)
+///    0x1a : Not-greater-than (unordered, non-signaling)
+///    0x1b : False (ordered, signaling)
+///    0x1c : Not-equal (ordered, signaling)
+///    0x1d : Greater-than-or-equal (ordered, non-signaling)
+///    0x1e : Greater-than (ordered, non-signaling)
+///    0x1f : True (unordered, signaling)
 /// \returns A 256-bit vector of [8 x float] containing the comparison results.
 #define _mm256_cmp_ps(a, b, c) __extension__ ({ \
   (__m256)__builtin_ia32_cmpps256((__v8sf)(__m256)(a), \
@@ -1797,8 +1892,10 @@ _mm256_blendv_ps(__m256 __a, __m256 __b, __m256 __c)
 
 /// \brief Compares each of the corresponding scalar double-precision values of
 ///    two 128-bit vectors of [2 x double], using the operation specified by the
-///    immediate integer operand. If the result is true, all 64 bits of the
-///    destination vector are set; otherwise they are cleared.
+///    immediate integer operand.
+///
+///    If the result is true, all 64 bits of the destination vector are set;
+///    otherwise they are cleared.
 ///
 /// \headerfile <x86intrin.h>
 ///
@@ -1815,17 +1912,38 @@ _mm256_blendv_ps(__m256 __a, __m256 __b, __m256 __c)
 /// \param c
 ///    An immediate integer operand, with bits [4:0] specifying which comparison
 ///    operation to use: \n
-///    00h, 08h, 10h, 18h: Equal \n
-///    01h, 09h, 11h, 19h: Less than \n
-///    02h, 0Ah, 12h, 1Ah: Less than or equal / Greater than or equal
-///                        (swapped operands) \n
-///    03h, 0Bh, 13h, 1Bh: Unordered \n
-///    04h, 0Ch, 14h, 1Ch: Not equal \n
-///    05h, 0Dh, 15h, 1Dh: Not less than / Not greater than
-///                        (swapped operands) \n
-///    06h, 0Eh, 16h, 1Eh: Not less than or equal / Not greater than or equal
-///                        (swapped operands) \n
-///    07h, 0Fh, 17h, 1Fh: Ordered
+///    0x00 : Equal (ordered, non-signaling)
+///    0x01 : Less-than (ordered, signaling)
+///    0x02 : Less-than-or-equal (ordered, signaling)
+///    0x03 : Unordered (non-signaling)
+///    0x04 : Not-equal (unordered, non-signaling)
+///    0x05 : Not-less-than (unordered, signaling)
+///    0x06 : Not-less-than-or-equal (unordered, signaling)
+///    0x07 : Ordered (non-signaling)
+///    0x08 : Equal (unordered, non-signaling)
+///    0x09 : Not-greater-than-or-equal (unordered, signaling)
+///    0x0a : Not-greater-than (unordered, signaling)
+///    0x0b : False (ordered, non-signaling)
+///    0x0c : Not-equal (ordered, non-signaling)
+///    0x0d : Greater-than-or-equal (ordered, signaling)
+///    0x0e : Greater-than (ordered, signaling)
+///    0x0f : True (unordered, non-signaling)
+///    0x10 : Equal (ordered, signaling)
+///    0x11 : Less-than (ordered, non-signaling)
+///    0x12 : Less-than-or-equal (ordered, non-signaling)
+///    0x13 : Unordered (signaling)
+///    0x14 : Not-equal (unordered, signaling)
+///    0x15 : Not-less-than (unordered, non-signaling)
+///    0x16 : Not-less-than-or-equal (unordered, non-signaling)
+///    0x17 : Ordered (signaling)
+///    0x18 : Equal (unordered, signaling)
+///    0x19 : Not-greater-than-or-equal (unordered, non-signaling)
+///    0x1a : Not-greater-than (unordered, non-signaling)
+///    0x1b : False (ordered, signaling)
+///    0x1c : Not-equal (ordered, signaling)
+///    0x1d : Greater-than-or-equal (ordered, non-signaling)
+///    0x1e : Greater-than (ordered, non-signaling)
+///    0x1f : True (unordered, signaling)
 /// \returns A 128-bit vector of [2 x double] containing the comparison results.
 #define _mm_cmp_sd(a, b, c) __extension__ ({ \
   (__m128d)__builtin_ia32_cmpsd((__v2df)(__m128d)(a), \
@@ -1833,8 +1951,10 @@ _mm256_blendv_ps(__m256 __a, __m256 __b, __m256 __c)
 
 /// \brief Compares each of the corresponding scalar values of two 128-bit
 ///    vectors of [4 x float], using the operation specified by the immediate
-///    integer operand. If the result is true, all 32 bits of the destination
-///    vector are set; otherwise they are cleared.
+///    integer operand.
+///
+///    If the result is true, all 32 bits of the destination vector are set;
+///    otherwise they are cleared.
 ///
 /// \headerfile <x86intrin.h>
 ///
@@ -1851,17 +1971,38 @@ _mm256_blendv_ps(__m256 __a, __m256 __b, __m256 __c)
 /// \param c
 ///    An immediate integer operand, with bits [4:0] specifying which comparison
 ///    operation to use: \n
-///    00h, 08h, 10h, 18h: Equal \n
-///    01h, 09h, 11h, 19h: Less than \n
-///    02h, 0Ah, 12h, 1Ah: Less than or equal / Greater than or equal
-///                        (swapped operands) \n
-///    03h, 0Bh, 13h, 1Bh: Unordered \n
-///    04h, 0Ch, 14h, 1Ch: Not equal \n
-///    05h, 0Dh, 15h, 1Dh: Not less than / Not greater than
-///                        (swapped operands) \n
-///    06h, 0Eh, 16h, 1Eh: Not less than or equal / Not greater than or equal
-///                        (swapped operands) \n
-///    07h, 0Fh, 17h, 1Fh: Ordered
+///    0x00 : Equal (ordered, non-signaling)
+///    0x01 : Less-than (ordered, signaling)
+///    0x02 : Less-than-or-equal (ordered, signaling)
+///    0x03 : Unordered (non-signaling)
+///    0x04 : Not-equal (unordered, non-signaling)
+///    0x05 : Not-less-than (unordered, signaling)
+///    0x06 : Not-less-than-or-equal (unordered, signaling)
+///    0x07 : Ordered (non-signaling)
+///    0x08 : Equal (unordered, non-signaling)
+///    0x09 : Not-greater-than-or-equal (unordered, signaling)
+///    0x0a : Not-greater-than (unordered, signaling)
+///    0x0b : False (ordered, non-signaling)
+///    0x0c : Not-equal (ordered, non-signaling)
+///    0x0d : Greater-than-or-equal (ordered, signaling)
+///    0x0e : Greater-than (ordered, signaling)
+///    0x0f : True (unordered, non-signaling)
+///    0x10 : Equal (ordered, signaling)
+///    0x11 : Less-than (ordered, non-signaling)
+///    0x12 : Less-than-or-equal (ordered, non-signaling)
+///    0x13 : Unordered (signaling)
+///    0x14 : Not-equal (unordered, signaling)
+///    0x15 : Not-less-than (unordered, non-signaling)
+///    0x16 : Not-less-than-or-equal (unordered, non-signaling)
+///    0x17 : Ordered (signaling)
+///    0x18 : Equal (unordered, signaling)
+///    0x19 : Not-greater-than-or-equal (unordered, non-signaling)
+///    0x1a : Not-greater-than (unordered, non-signaling)
+///    0x1b : False (ordered, signaling)
+///    0x1c : Not-equal (ordered, signaling)
+///    0x1d : Greater-than-or-equal (ordered, non-signaling)
+///    0x1e : Greater-than (ordered, non-signaling)
+///    0x1f : True (unordered, signaling)
 /// \returns A 128-bit vector of [4 x float] containing the comparison results.
 #define _mm_cmp_ss(a, b, c) __extension__ ({ \
   (__m128)__builtin_ia32_cmpss((__v4sf)(__m128)(a), \
@@ -2418,7 +2559,9 @@ _mm256_unpacklo_ps(__m256 __a, __m256 __b)
 /// \brief Given two 128-bit floating-point vectors of [2 x double], perform an
 ///    element-by-element comparison of the double-precision element in the
 ///    first source vector and the corresponding element in the second source
-///    vector. The EFLAGS register is updated as follows: \n
+///    vector.
+///
+///    The EFLAGS register is updated as follows: \n
 ///    If there is at least one pair of double-precision elements where the
 ///    sign-bits of both elements are 1, the ZF flag is set to 0. Otherwise the
 ///    ZF flag is set to 1. \n
@@ -2445,7 +2588,9 @@ _mm_testz_pd(__m128d __a, __m128d __b)
 /// \brief Given two 128-bit floating-point vectors of [2 x double], perform an
 ///    element-by-element comparison of the double-precision element in the
 ///    first source vector and the corresponding element in the second source
-///    vector. The EFLAGS register is updated as follows: \n
+///    vector.
+///
+///    The EFLAGS register is updated as follows: \n
 ///    If there is at least one pair of double-precision elements where the
 ///    sign-bits of both elements are 1, the ZF flag is set to 0. Otherwise the
 ///    ZF flag is set to 1. \n
@@ -2472,7 +2617,9 @@ _mm_testc_pd(__m128d __a, __m128d __b)
 /// \brief Given two 128-bit floating-point vectors of [2 x double], perform an
 ///    element-by-element comparison of the double-precision element in the
 ///    first source vector and the corresponding element in the second source
-///    vector. The EFLAGS register is updated as follows: \n
+///    vector.
+///
+///    The EFLAGS register is updated as follows: \n
 ///    If there is at least one pair of double-precision elements where the
 ///    sign-bits of both elements are 1, the ZF flag is set to 0. Otherwise the
 ///    ZF flag is set to 1. \n
@@ -2500,7 +2647,9 @@ _mm_testnzc_pd(__m128d __a, __m128d __b)
 /// \brief Given two 128-bit floating-point vectors of [4 x float], perform an
 ///    element-by-element comparison of the single-precision element in the
 ///    first source vector and the corresponding element in the second source
-///    vector. The EFLAGS register is updated as follows: \n
+///    vector.
+///
+///    The EFLAGS register is updated as follows: \n
 ///    If there is at least one pair of single-precision elements where the
 ///    sign-bits of both elements are 1, the ZF flag is set to 0. Otherwise the
 ///    ZF flag is set to 1. \n
@@ -2527,7 +2676,9 @@ _mm_testz_ps(__m128 __a, __m128 __b)
 /// \brief Given two 128-bit floating-point vectors of [4 x float], perform an
 ///    element-by-element comparison of the single-precision element in the
 ///    first source vector and the corresponding element in the second source
-///    vector. The EFLAGS register is updated as follows: \n
+///    vector.
+///
+///    The EFLAGS register is updated as follows: \n
 ///    If there is at least one pair of single-precision elements where the
 ///    sign-bits of both elements are 1, the ZF flag is set to 0. Otherwise the
 ///    ZF flag is set to 1. \n
@@ -2554,7 +2705,9 @@ _mm_testc_ps(__m128 __a, __m128 __b)
 /// \brief Given two 128-bit floating-point vectors of [4 x float], perform an
 ///    element-by-element comparison of the single-precision element in the
 ///    first source vector and the corresponding element in the second source
-///    vector. The EFLAGS register is updated as follows: \n
+///    vector.
+///
+///    The EFLAGS register is updated as follows: \n
 ///    If there is at least one pair of single-precision elements where the
 ///    sign-bits of both elements are 1, the ZF flag is set to 0. Otherwise the
 ///    ZF flag is set to 1. \n
@@ -2582,7 +2735,9 @@ _mm_testnzc_ps(__m128 __a, __m128 __b)
 /// \brief Given two 256-bit floating-point vectors of [4 x double], perform an
 ///    element-by-element comparison of the double-precision elements in the
 ///    first source vector and the corresponding elements in the second source
-///    vector. The EFLAGS register is updated as follows: \n
+///    vector.
+///
+///    The EFLAGS register is updated as follows: \n
 ///    If there is at least one pair of double-precision elements where the
 ///    sign-bits of both elements are 1, the ZF flag is set to 0. Otherwise the
 ///    ZF flag is set to 1. \n
@@ -2609,7 +2764,9 @@ _mm256_testz_pd(__m256d __a, __m256d __b)
 /// \brief Given two 256-bit floating-point vectors of [4 x double], perform an
 ///    element-by-element comparison of the double-precision elements in the
 ///    first source vector and the corresponding elements in the second source
-///    vector. The EFLAGS register is updated as follows: \n
+///    vector.
+///
+///    The EFLAGS register is updated as follows: \n
 ///    If there is at least one pair of double-precision elements where the
 ///    sign-bits of both elements are 1, the ZF flag is set to 0. Otherwise the
 ///    ZF flag is set to 1. \n
@@ -2636,7 +2793,9 @@ _mm256_testc_pd(__m256d __a, __m256d __b)
 /// \brief Given two 256-bit floating-point vectors of [4 x double], perform an
 ///    element-by-element comparison of the double-precision elements in the
 ///    first source vector and the corresponding elements in the second source
-///    vector. The EFLAGS register is updated as follows: \n
+///    vector.
+///
+///    The EFLAGS register is updated as follows: \n
 ///    If there is at least one pair of double-precision elements where the
 ///    sign-bits of both elements are 1, the ZF flag is set to 0. Otherwise the
 ///    ZF flag is set to 1. \n
@@ -2664,7 +2823,9 @@ _mm256_testnzc_pd(__m256d __a, __m256d __b)
 /// \brief Given two 256-bit floating-point vectors of [8 x float], perform an
 ///    element-by-element comparison of the single-precision element in the
 ///    first source vector and the corresponding element in the second source
-///    vector. The EFLAGS register is updated as follows: \n
+///    vector.
+///
+///    The EFLAGS register is updated as follows: \n
 ///    If there is at least one pair of single-precision elements where the
 ///    sign-bits of both elements are 1, the ZF flag is set to 0. Otherwise the
 ///    ZF flag is set to 1. \n
@@ -2691,7 +2852,9 @@ _mm256_testz_ps(__m256 __a, __m256 __b)
 /// \brief Given two 256-bit floating-point vectors of [8 x float], perform an
 ///    element-by-element comparison of the single-precision element in the
 ///    first source vector and the corresponding element in the second source
-///    vector. The EFLAGS register is updated as follows: \n
+///    vector.
+///
+///    The EFLAGS register is updated as follows: \n
 ///    If there is at least one pair of single-precision elements where the
 ///    sign-bits of both elements are 1, the ZF flag is set to 0. Otherwise the
 ///    ZF flag is set to 1. \n
@@ -2718,7 +2881,9 @@ _mm256_testc_ps(__m256 __a, __m256 __b)
 /// \brief Given two 256-bit floating-point vectors of [8 x float], perform an
 ///    element-by-element comparison of the single-precision elements in the
 ///    first source vector and the corresponding elements in the second source
-///    vector. The EFLAGS register is updated as follows: \n
+///    vector.
+///
+///    The EFLAGS register is updated as follows: \n
 ///    If there is at least one pair of single-precision elements where the
 ///    sign-bits of both elements are 1, the ZF flag is set to 0. Otherwise the
 ///    ZF flag is set to 1. \n
@@ -2744,7 +2909,9 @@ _mm256_testnzc_ps(__m256 __a, __m256 __b)
 }
 
 /// \brief Given two 256-bit integer vectors, perform a bit-by-bit comparison
-///    of the two source vectors and update the EFLAGS register as follows: \n
+///    of the two source vectors.
+///
+///    The EFLAGS register is updated as follows: \n
 ///    If there is at least one pair of bits where both bits are 1, the ZF flag
 ///    is set to 0. Otherwise the ZF flag is set to 1. \n
 ///    If there is at least one pair of bits where the bit from the first source
@@ -2768,7 +2935,9 @@ _mm256_testz_si256(__m256i __a, __m256i __b)
 }
 
 /// \brief Given two 256-bit integer vectors, perform a bit-by-bit comparison
-///    of the two source vectors and update the EFLAGS register as follows: \n
+///    of the two source vectors.
+///
+///    The EFLAGS register is updated as follows: \n
 ///    If there is at least one pair of bits where both bits are 1, the ZF flag
 ///    is set to 0. Otherwise the ZF flag is set to 1. \n
 ///    If there is at least one pair of bits where the bit from the first source
@@ -2792,7 +2961,9 @@ _mm256_testc_si256(__m256i __a, __m256i __b)
 }
 
 /// \brief Given two 256-bit integer vectors, perform a bit-by-bit comparison
-///    of the two source vectors and update the EFLAGS register as follows: \n
+///    of the two source vectors.
+///
+///    The EFLAGS register is updated as follows: \n
 ///    If there is at least one pair of bits where both bits are 1, the ZF flag
 ///    is set to 0. Otherwise the ZF flag is set to 1. \n
 ///    If there is at least one pair of bits where the bit from the first source
@@ -4348,9 +4519,10 @@ _mm256_castsi256_si128(__m256i __a)
 }
 
 /// \brief Constructs a 256-bit floating-point vector of [4 x double] from a
-///    128-bit floating-point vector of [2 x double]. The lower 128 bits
-///    contain the value of the source vector. The contents of the upper 128
-///    bits are undefined.
+///    128-bit floating-point vector of [2 x double].
+///
+///    The lower 128 bits contain the value of the source vector. The contents
+///    of the upper 128 bits are undefined.
 ///
 /// \headerfile <x86intrin.h>
 ///
@@ -4368,9 +4540,10 @@ _mm256_castpd128_pd256(__m128d __a)
 }
 
 /// \brief Constructs a 256-bit floating-point vector of [8 x float] from a
-///    128-bit floating-point vector of [4 x float]. The lower 128 bits contain
-///    the value of the source vector. The contents of the upper 128 bits are
-///    undefined.
+///    128-bit floating-point vector of [4 x float].
+///
+///    The lower 128 bits contain the value of the source vector. The contents
+///    of the upper 128 bits are undefined.
 ///
 /// \headerfile <x86intrin.h>
 ///
@@ -4388,6 +4561,7 @@ _mm256_castps128_ps256(__m128 __a)
 }
 
 /// \brief Constructs a 256-bit integer vector from a 128-bit integer vector.
+///
 ///    The lower 128 bits contain the value of the source vector. The contents
 ///    of the upper 128 bits are undefined.
 ///
@@ -4405,6 +4579,61 @@ _mm256_castsi128_si256(__m128i __a)
   return __builtin_shufflevector((__v2di)__a, (__v2di)__a, 0, 1, -1, -1);
 }
 
+/// \brief Constructs a 256-bit floating-point vector of [4 x double] from a
+///    128-bit floating-point vector of [2 x double]. The lower 128 bits
+///    contain the value of the source vector. The upper 128 bits are set
+///    to zero.
+///
+/// \headerfile <x86intrin.h>
+///
+/// This intrinsic has no corresponding instruction.
+///
+/// \param __a
+///    A 128-bit vector of [2 x double].
+/// \returns A 256-bit floating-point vector of [4 x double]. The lower 128 bits
+///    contain the value of the parameter. The upper 128 bits are set to zero.
+static __inline __m256d __DEFAULT_FN_ATTRS
+_mm256_zextpd128_pd256(__m128d __a)
+{
+  return __builtin_shufflevector((__v2df)__a, (__v2df)_mm_setzero_pd(), 0, 1, 2, 3);
+}
+
+/// \brief Constructs a 256-bit floating-point vector of [8 x float] from a
+///    128-bit floating-point vector of [4 x float]. The lower 128 bits contain
+///    the value of the source vector. The upper 128 bits are set to zero.
+///
+/// \headerfile <x86intrin.h>
+///
+/// This intrinsic has no corresponding instruction.
+///
+/// \param __a
+///    A 128-bit vector of [4 x float].
+/// \returns A 256-bit floating-point vector of [8 x float]. The lower 128 bits
+///    contain the value of the parameter. The upper 128 bits are set to zero.
+static __inline __m256 __DEFAULT_FN_ATTRS
+_mm256_zextps128_ps256(__m128 __a)
+{
+  return __builtin_shufflevector((__v4sf)__a, (__v4sf)_mm_setzero_ps(), 0, 1, 2, 3, 4, 5, 6, 7);
+}
+
+/// \brief Constructs a 256-bit integer vector from a 128-bit integer vector.
+///    The lower 128 bits contain the value of the source vector. The upper
+///    128 bits are set to zero.
+///
+/// \headerfile <x86intrin.h>
+///
+/// This intrinsic has no corresponding instruction.
+///
+/// \param __a
+///    A 128-bit integer vector.
+/// \returns A 256-bit integer vector. The lower 128 bits contain the value of
+///    the parameter. The upper 128 bits are set to zero.
+static __inline __m256i __DEFAULT_FN_ATTRS
+_mm256_zextsi128_si256(__m128i __a)
+{
+  return __builtin_shufflevector((__v2di)__a, (__v2di)_mm_setzero_si128(), 0, 1, 2, 3);
+}
+
 /*
    Vector insert.
    We use macros rather than inlines because we only want to accept
@@ -4413,8 +4642,10 @@ _mm256_castsi128_si256(__m128i __a)
 /// \brief Constructs a new 256-bit vector of [8 x float] by first duplicating
 ///    a 256-bit vector of [8 x float] given in the first parameter, and then
 ///    replacing either the upper or the lower 128 bits with the contents of a
-///    128-bit vector of [4 x float] in the second parameter. The immediate
-///    integer parameter determines between the upper or the lower 128 bits.
+///    128-bit vector of [4 x float] in the second parameter.
+///
+///    The immediate integer parameter determines between the upper or the lower
+///    128 bits.
 ///
 /// \headerfile <x86intrin.h>
 ///
@@ -4458,8 +4689,10 @@ _mm256_castsi128_si256(__m128i __a)
 /// \brief Constructs a new 256-bit vector of [4 x double] by first duplicating
 ///    a 256-bit vector of [4 x double] given in the first parameter, and then
 ///    replacing either the upper or the lower 128 bits with the contents of a
-///    128-bit vector of [2 x double] in the second parameter. The immediate
-///    integer parameter determines between the upper or the lower 128 bits.
+///    128-bit vector of [2 x double] in the second parameter.
+///
+///    The immediate integer parameter determines between the upper or the lower
+///    128 bits.
 ///
 /// \headerfile <x86intrin.h>
 ///
@@ -4499,8 +4732,10 @@ _mm256_castsi128_si256(__m128i __a)
 /// \brief Constructs a new 256-bit integer vector by first duplicating a
 ///    256-bit integer vector given in the first parameter, and then replacing
 ///    either the upper or the lower 128 bits with the contents of a 128-bit
-///    integer vector in the second parameter. The immediate integer parameter
-///    determines between the upper or the lower 128 bits.
+///    integer vector in the second parameter.
+///
+///    The immediate integer parameter determines between the upper or the lower
+///    128 bits.
 ///
 /// \headerfile <x86intrin.h>
 ///

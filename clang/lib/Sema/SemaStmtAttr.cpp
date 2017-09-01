@@ -53,6 +53,31 @@ static Attr *handleFallThroughAttr(Sema &S, Stmt *St, const AttributeList &A,
   return ::new (S.Context) auto(Attr);
 }
 
+static Attr *handleSuppressAttr(Sema &S, Stmt *St, const AttributeList &A,
+                                SourceRange Range) {
+  if (A.getNumArgs() < 1) {
+    S.Diag(A.getLoc(), diag::err_attribute_too_few_arguments)
+        << A.getName() << 1;
+    return nullptr;
+  }
+
+  std::vector<StringRef> DiagnosticIdentifiers;
+  for (unsigned I = 0, E = A.getNumArgs(); I != E; ++I) {
+    StringRef RuleName;
+
+    if (!S.checkStringLiteralArgumentAttr(A, I, RuleName, nullptr))
+      return nullptr;
+
+    // FIXME: Warn if the rule name is unknown. This is tricky because only
+    // clang-tidy knows about available rules.
+    DiagnosticIdentifiers.push_back(RuleName);
+  }
+
+  return ::new (S.Context) SuppressAttr(
+      A.getRange(), S.Context, DiagnosticIdentifiers.data(),
+      DiagnosticIdentifiers.size(), A.getAttributeSpellingListIndex());
+}
+
 static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const AttributeList &A,
                                 SourceRange) {
   IdentifierLoc *PragmaNameLoc = A.getArgAsIdent(0);
@@ -159,6 +184,30 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const AttributeList &A,
   return LoopHintAttr::CreateImplicit(S.Context, Spelling, Option, State,
                                       ValueExpr, A.getRange());
 }
+
+#if INTEL_CUSTOMIZATION
+static Attr *handleIntelInlineAttr(Sema &S, Stmt *St, const AttributeList &A,
+                                   SourceRange) {
+  IdentifierLoc *OptionLoc = A.getArgAsIdent(1);
+  IntelInlineAttr::OptionType Option;
+  if (OptionLoc) {
+    if (OptionLoc->Ident->getName() != "recursive") {
+      S.Diag(OptionLoc->Loc, diag::err_recursive_attribute_expected);
+      return nullptr;
+    }
+    else {
+      Option = IntelInlineAttr::Recursive;
+    }
+  }
+  else {
+    Option = IntelInlineAttr::NotRecursive;
+  }
+  return IntelInlineAttr::CreateImplicit(
+      S.Context,
+      static_cast<IntelInlineAttr::Spelling>(A.getAttributeSpellingListIndex()),
+      Option, A.getRange());
+}
+#endif // INTEL_CUSTOMIZATION
 
 static void
 CheckForIncompatibleAttributes(Sema &S,
@@ -294,12 +343,18 @@ static Attr *ProcessStmtAttribute(Sema &S, Stmt *St, const AttributeList &A,
            diag::warn_unhandled_ms_attribute_ignored :
            diag::warn_unknown_attribute_ignored) << A.getName();
     return nullptr;
+#if INTEL_CUSTOMIZATION
+  case AttributeList::AT_IntelInline:
+    return handleIntelInlineAttr(S, St, A, Range);
+#endif // INTEL_CUSTOMIZATION
   case AttributeList::AT_FallThrough:
     return handleFallThroughAttr(S, St, A, Range);
   case AttributeList::AT_LoopHint:
     return handleLoopHintAttr(S, St, A, Range);
   case AttributeList::AT_OpenCLUnrollHint:
     return handleOpenCLUnrollHint(S, St, A, Range);
+  case AttributeList::AT_Suppress:
+    return handleSuppressAttr(S, St, A, Range);
   default:
     // if we're here, then we parsed a known attribute, but didn't recognize
     // it as a statement attribute => it is declaration attribute

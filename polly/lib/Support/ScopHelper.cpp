@@ -477,7 +477,6 @@ bool polly::isIgnoredIntrinsic(const Value *V) {
     case llvm::Intrinsic::annotation:
     case llvm::Intrinsic::donothing:
     case llvm::Intrinsic::assume:
-    case llvm::Intrinsic::expect:
     // Some debug info intrisics are supported/ignored.
     case llvm::Intrinsic::dbg_value:
     case llvm::Intrinsic::dbg_declare:
@@ -560,18 +559,4 @@ polly::getIndexExpressionsFromGEP(GetElementPtrInst *GEP, ScalarEvolution &SE) {
   }
 
   return std::make_tuple(Subscripts, Sizes);
-}
-
-llvm::Loop *polly::getFirstNonBoxedLoopFor(llvm::Loop *L, llvm::LoopInfo &LI,
-                                           const BoxedLoopsSetTy &BoxedLoops) {
-  while (BoxedLoops.count(L))
-    L = L->getParentLoop();
-  return L;
-}
-
-llvm::Loop *polly::getFirstNonBoxedLoopFor(llvm::BasicBlock *BB,
-                                           llvm::LoopInfo &LI,
-                                           const BoxedLoopsSetTy &BoxedLoops) {
-  Loop *L = LI.getLoopFor(BB);
-  return getFirstNonBoxedLoopFor(L, LI, BoxedLoops);
 }

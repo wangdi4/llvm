@@ -82,6 +82,7 @@ INTERCEPT_LIBRARY_FUNCTION(strpbrk);
 INTERCEPT_LIBRARY_FUNCTION(strrchr);
 INTERCEPT_LIBRARY_FUNCTION(strspn);
 INTERCEPT_LIBRARY_FUNCTION(strstr);
+INTERCEPT_LIBRARY_FUNCTION(strtok);
 INTERCEPT_LIBRARY_FUNCTION(strtol);
 INTERCEPT_LIBRARY_FUNCTION(wcslen);
 
@@ -100,6 +101,7 @@ INTERCEPTOR(int, _except_handler4, void *a, void *b, void *c, void *d) {
 // Window specific functions not included in asan_interface.inc.
 INTERCEPT_WRAP_W_V(__asan_should_detect_stack_use_after_return)
 INTERCEPT_WRAP_W_V(__asan_get_shadow_memory_dynamic_address)
+INTERCEPT_WRAP_W_W(__asan_unhandled_exception_filter)
 
 using namespace __sanitizer;
 

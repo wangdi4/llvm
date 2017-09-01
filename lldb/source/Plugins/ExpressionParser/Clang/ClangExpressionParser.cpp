@@ -67,13 +67,10 @@
 #include "IRForTarget.h"
 
 #include "lldb/Core/ArchSpec.h"
-#include "lldb/Core/DataBufferHeap.h"
 #include "lldb/Core/Debugger.h"
 #include "lldb/Core/Disassembler.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/StreamFile.h"
-#include "lldb/Core/StringList.h"
 #include "lldb/Expression/IRDynamicChecks.h"
 #include "lldb/Expression/IRExecutionUnit.h"
 #include "lldb/Expression/IRInterpreter.h"
@@ -87,9 +84,12 @@
 #include "lldb/Target/Process.h"
 #include "lldb/Target/Target.h"
 #include "lldb/Target/ThreadPlanCallFunction.h"
+#include "lldb/Utility/DataBufferHeap.h"
 #include "lldb/Utility/LLDBAssert.h"
+#include "lldb/Utility/Log.h"
 #include "lldb/Utility/Stream.h"
 #include "lldb/Utility/StreamString.h"
+#include "lldb/Utility/StringList.h"
 
 using namespace clang;
 using namespace llvm;
@@ -756,7 +756,7 @@ static bool FindFunctionInModule(ConstString &mangled_name,
   return false;
 }
 
-lldb_private::Error ClangExpressionParser::PrepareForExecution(
+lldb_private::Status ClangExpressionParser::PrepareForExecution(
     lldb::addr_t &func_addr, lldb::addr_t &func_end,
     lldb::IRExecutionUnitSP &execution_unit_sp, ExecutionContext &exe_ctx,
     bool &can_interpret, ExecutionPolicy execution_policy) {
@@ -764,7 +764,7 @@ lldb_private::Error ClangExpressionParser::PrepareForExecution(
   func_end = LLDB_INVALID_ADDRESS;
   Log *log(lldb_private::GetLogIfAllCategoriesSet(LIBLLDB_LOG_EXPRESSIONS));
 
-  lldb_private::Error err;
+  lldb_private::Status err;
 
   std::unique_ptr<llvm::Module> llvm_module_ap(
       m_code_generator->ReleaseModule());
@@ -857,7 +857,7 @@ lldb_private::Error ClangExpressionParser::PrepareForExecution(
 
     if (execution_policy != eExecutionPolicyAlways &&
         execution_policy != eExecutionPolicyTopLevel) {
-      lldb_private::Error interpret_error;
+      lldb_private::Status interpret_error;
 
       bool interpret_function_calls =
           !process ? false : process->CanInterpretFunctionCalls();
@@ -941,9 +941,9 @@ lldb_private::Error ClangExpressionParser::PrepareForExecution(
   return err;
 }
 
-lldb_private::Error ClangExpressionParser::RunStaticInitializers(
+lldb_private::Status ClangExpressionParser::RunStaticInitializers(
     lldb::IRExecutionUnitSP &execution_unit_sp, ExecutionContext &exe_ctx) {
-  lldb_private::Error err;
+  lldb_private::Status err;
 
   lldbassert(execution_unit_sp.get());
   lldbassert(exe_ctx.HasThreadScope());

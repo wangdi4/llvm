@@ -58,6 +58,8 @@ public:
   // Returns the CPU type this file was compiled to.
   virtual MachineTypes getMachineType() { return IMAGE_FILE_MACHINE_UNKNOWN; }
 
+  MemoryBufferRef MB;
+
   // An archive file name if this file is created from an archive.
   StringRef ParentName;
 
@@ -67,7 +69,6 @@ public:
 protected:
   InputFile(Kind K, MemoryBufferRef M) : MB(M), FileKind(K) {}
 
-  MemoryBufferRef MB;
   std::string Directives;
 
 private:
@@ -129,7 +130,6 @@ private:
   SymbolBody *createUndefined(COFFSymbolRef Sym);
 
   std::unique_ptr<COFFObjectFile> COFFObj;
-  llvm::BumpPtrAllocator Alloc;
   const coff_section *SXData = nullptr;
 
   // List of all chunks defined by this file. This includes both section
@@ -161,20 +161,16 @@ private:
 // for details about the format.
 class ImportFile : public InputFile {
 public:
-  explicit ImportFile(MemoryBufferRef M)
-      : InputFile(ImportKind, M), StringAlloc(StringAllocAux) {}
+  explicit ImportFile(MemoryBufferRef M) : InputFile(ImportKind, M) {}
   static bool classof(const InputFile *F) { return F->kind() == ImportKind; }
 
   DefinedImportData *ImpSym = nullptr;
+  DefinedImportData *ConstSym = nullptr;
   DefinedImportThunk *ThunkSym = nullptr;
   std::string DLLName;
 
 private:
   void parse() override;
-
-  llvm::BumpPtrAllocator Alloc;
-  llvm::BumpPtrAllocator StringAllocAux;
-  llvm::StringSaver StringAlloc;
 
 public:
   StringRef ExternalName;
@@ -195,7 +191,6 @@ private:
   void parse() override;
 
   std::vector<SymbolBody *> SymbolBodies;
-  llvm::BumpPtrAllocator Alloc;
 };
 } // namespace coff
 

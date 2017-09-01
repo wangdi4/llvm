@@ -31,9 +31,6 @@ if(CLANG_TOOLS_TEST_USE_VG)
 endif()
 
 set(CLANG_TOOLS_TEST_DEPS
-  # Base line deps.
-  FileCheck count not
-
   # clang-tidy tests require it.
   clang-headers
 
@@ -57,6 +54,16 @@ set(CLANG_TOOLS_TEST_DEPS
   # Unit tests
   ExtraToolsUnitTests
   )
+
+set(llvm_utils
+  FileCheck count not
+  )
+
+foreach(t ${llvm_utils})
+  if(TARGET ${t})
+    list(APPEND CLANG_TOOLS_TEST_DEPS ${t})
+  endif()
+endforeach()
 
 add_lit_testsuite(check-clang-tools "Running the Clang extra tools' regression tests"
   ${CMAKE_CURRENT_BINARY_DIR}

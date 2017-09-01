@@ -61,6 +61,24 @@ def FeatureFlatAddressSpace : SubtargetFeature<"flat-address-space",
   "Support flat address space"
 >;
 
+def FeatureFlatInstOffsets : SubtargetFeature<"flat-inst-offsets",
+  "FlatInstOffsets",
+  "true",
+  "Flat instructions have immediate offset addressing mode"
+>;
+
+def FeatureFlatGlobalInsts : SubtargetFeature<"flat-global-insts",
+  "FlatGlobalInsts",
+  "true",
+  "Have global_* flat memory instructions"
+>;
+
+def FeatureFlatScratchInsts : SubtargetFeature<"flat-scratch-insts",
+  "FlatScratchInsts",
+  "true",
+  "Have scratch_* flat memory instructions"
+>;
+
 def FeatureUnalignedBufferAccess : SubtargetFeature<"unaligned-buffer-access",
   "UnalignedBufferAccess",
   "true",
@@ -77,6 +95,12 @@ def FeatureUnalignedScratchAccess : SubtargetFeature<"unaligned-scratch-access",
   "UnalignedScratchAccess",
   "true",
   "Support unaligned scratch loads and stores"
+>;
+
+def FeatureApertureRegs : SubtargetFeature<"aperture-regs",
+  "HasApertureRegs",
+  "true",
+  "Has Memory Aperture Base and Size Registers"
 >;
 
 // XNACK is disabled if SH_MEM_CONFIG.ADDRESS_MODE = GPUVM on chips that support
@@ -160,6 +184,12 @@ def FeatureCIInsts : SubtargetFeature<"ci-insts",
   "Additional intstructions for CI+"
 >;
 
+def FeatureGFX9Insts : SubtargetFeature<"gfx9-insts",
+  "GFX9Insts",
+  "true",
+  "Additional intstructions for GFX9+"
+>;
+
 def FeatureSMemRealTime : SubtargetFeature<"s-memrealtime",
   "HasSMemRealTime",
   "true",
@@ -176,6 +206,12 @@ def Feature16BitInsts : SubtargetFeature<"16-bit-insts",
   "Has16BitInsts",
   "true",
   "Has i16/f16 instructions"
+>;
+
+def FeatureVOP3P : SubtargetFeature<"vop3p",
+  "HasVOP3PInsts",
+  "true",
+  "Has VOP3P packed instructions"
 >;
 
 def FeatureMovrel : SubtargetFeature<"movrel",
@@ -243,6 +279,12 @@ def FeatureFP16Denormals : SubtargetFeature<"fp16-denormals",
   "true",
   "Enable half precision denormal handling",
   [FeatureFP64FP16Denormals]
+>;
+
+def FeatureDX10Clamp : SubtargetFeature<"dx10-clamp",
+  "DX10Clamp",
+  "true",
+  "clamp modifier clamps NaNs to 0.0"
 >;
 
 def FeatureFPExceptions : SubtargetFeature<"fp-exceptions",
@@ -377,6 +419,17 @@ def FeatureVolcanicIslands : SubtargetFeatureGeneration<"VOLCANIC_ISLANDS",
   ]
 >;
 
+def FeatureGFX9 : SubtargetFeatureGeneration<"GFX9",
+  [FeatureFP64, FeatureLocalMemorySize65536,
+   FeatureWavefrontSize64, FeatureFlatAddressSpace, FeatureGCN,
+   FeatureGCN3Encoding, FeatureCIInsts, Feature16BitInsts,
+   FeatureSMemRealTime, FeatureScalarStores, FeatureInv2PiInlineImm,
+   FeatureApertureRegs, FeatureGFX9Insts, FeatureVOP3P, FeatureVGPRIndexMode,
+   FeatureFastFMAF32, FeatureSDWA, FeatureDPP,
+   FeatureFlatInstOffsets, FeatureFlatGlobalInsts, FeatureFlatScratchInsts
+  ]
+>;
+
 class SubtargetFeatureISAVersion <int Major, int Minor, int Stepping,
                                   list<SubtargetFeature> Implies>
                                  : SubtargetFeature <
@@ -429,6 +482,9 @@ def FeatureISAVersion8_1_0 : SubtargetFeatureISAVersion <8,1,0,
    FeatureLDSBankCount16,
    FeatureXNACK]>;
 
+def FeatureISAVersion9_0_0 : SubtargetFeatureISAVersion <9,0,0,[]>;
+def FeatureISAVersion9_0_1 : SubtargetFeatureISAVersion <9,0,1,[]>;
+
 //===----------------------------------------------------------------------===//
 // Debugger related subtarget features.
 //===----------------------------------------------------------------------===//
@@ -478,10 +534,12 @@ def AMDGPUAsmVariants {
   int VOP3_ID = 1;
   string SDWA = "SDWA";
   int SDWA_ID = 2;
+  string SDWA9 = "SDWA9";
+  int SDWA9_ID = 3;
   string DPP = "DPP";
-  int DPP_ID = 3;
+  int DPP_ID = 4;
   string Disable = "Disable";
-  int Disable_ID = 4;
+  int Disable_ID = 5;
 }
 
 def DefaultAMDGPUAsmParserVariant : AsmParserVariant {
@@ -499,6 +557,12 @@ def SDWAAsmParserVariant : AsmParserVariant {
   let Name = AMDGPUAsmVariants.SDWA;
 }
 
+def SDWA9AsmParserVariant : AsmParserVariant {
+  let Variant = AMDGPUAsmVariants.SDWA9_ID;
+  let Name = AMDGPUAsmVariants.SDWA9;
+}
+
+
 def DPPAsmParserVariant : AsmParserVariant {
   let Variant = AMDGPUAsmVariants.DPP_ID;
   let Name = AMDGPUAsmVariants.DPP;
@@ -511,6 +575,7 @@ def AMDGPU : Target {
   let AssemblyParserVariants = [DefaultAMDGPUAsmParserVariant,
                                 VOP3AsmParserVariant,
                                 SDWAAsmParserVariant,
+                                SDWA9AsmParserVariant,
                                 DPPAsmParserVariant];
   let AssemblyWriters = [AMDGPUAsmWriter];
 }
@@ -534,17 +599,27 @@ def isVI : Predicate <
   "Subtarget->getGeneration() >= AMDGPUSubtarget::VOLCANIC_ISLANDS">,
   AssemblerPredicate<"FeatureGCN3Encoding">;
 
+def isGFX9 : Predicate <
+  "Subtarget->getGeneration() >= AMDGPUSubtarget::GFX9">,
+  AssemblerPredicate<"FeatureGFX9Insts">;
+
+// TODO: Either the name to be changed or we simply use IsCI!
 def isCIVI : Predicate <
-  "Subtarget->getGeneration() == AMDGPUSubtarget::SEA_ISLANDS || "
-  "Subtarget->getGeneration() == AMDGPUSubtarget::VOLCANIC_ISLANDS"
->, AssemblerPredicate<"FeatureCIInsts">;
+  "Subtarget->getGeneration() >= AMDGPUSubtarget::SEA_ISLANDS">,
+  AssemblerPredicate<"FeatureCIInsts">;
 
 def HasFlatAddressSpace : Predicate<"Subtarget->hasFlatAddressSpace()">;
 
-def Has16BitInsts : Predicate<"Subtarget->has16BitInsts()">;
+def Has16BitInsts : Predicate<"Subtarget->has16BitInsts()">,
+  AssemblerPredicate<"Feature16BitInsts">;
+def HasVOP3PInsts : Predicate<"Subtarget->hasVOP3PInsts()">,
+  AssemblerPredicate<"FeatureVOP3P">;
 
 def HasSDWA : Predicate<"Subtarget->hasSDWA()">,
-  AssemblerPredicate<"FeatureSDWA">;
+  AssemblerPredicate<"FeatureSDWA,FeatureVolcanicIslands">;
+
+def HasSDWA9 : Predicate<"Subtarget->hasSDWA()">,
+  AssemblerPredicate<"FeatureSDWA,FeatureGFX9">;
 
 def HasDPP : Predicate<"Subtarget->hasDPP()">,
   AssemblerPredicate<"FeatureDPP">;

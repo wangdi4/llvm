@@ -164,7 +164,7 @@ class CodeGenTypes {
 
   llvm::SmallSet<const Type *, 8> RecordsWithOpaqueMemberPointers;
 
-  unsigned ClangCallConvToLLVMCallConv(ASTContext &C, CallingConv CC); // INTEL
+  unsigned ClangCallConvToLLVMCallConv(CallingConv CC);
 
 public:
   CodeGenTypes(CodeGenModule &cgm);
@@ -303,11 +303,14 @@ public:
   const CGFunctionInfo &arrangeCXXConstructorCall(const CallArgList &Args,
                                                   const CXXConstructorDecl *D,
                                                   CXXCtorType CtorKind,
-                                                  unsigned ExtraArgs);
+                                                  unsigned ExtraPrefixArgs,
+                                                  unsigned ExtraSuffixArgs,
+                                                  bool PassProtoArgs = true);
 
   const CGFunctionInfo &arrangeCXXMethodCall(const CallArgList &args,
                                              const FunctionProtoType *type,
-                                             RequiredArgs required);
+                                             RequiredArgs required,
+                                             unsigned numPrefixArgs);
   const CGFunctionInfo &arrangeMSMemberPointerThunk(const CXXMethodDecl *MD);
   const CGFunctionInfo &arrangeMSCtorClosure(const CXXConstructorDecl *CD,
                                                  CXXCtorType CT);

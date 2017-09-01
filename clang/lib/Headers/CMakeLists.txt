@@ -86,6 +86,7 @@ set(orig_files
   inttypes.h
   iso646.h
   limits.h
+  lwpintrin.h
   module.modulemap
   mm3dnow.h  
   opencl-c.h
@@ -162,7 +163,7 @@ if (MSVC)
     list(APPEND install_headers ${install_file})
   endforeach( f )
 else()
-  set(install_headers out_files)
+  set(install_headers ${out_files})
 endif()
 
 install(

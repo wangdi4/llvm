@@ -1,4 +1,4 @@
-// RUN: %clang -std=c++11 -fno-exceptions -Xclang -fintel-compatibility -fcilkplus -emit-llvm -O0 -c -S %s -o %t
+// RUN: %clang -std=c++11 -fno-exceptions -Xclang -fintel-compatibility -Xclang -fcilkplus -emit-llvm -O0 -c -S %s -o %t
 // RUN: FileCheck --input-file=%t %s
 // REQUIRES: cilkplus
 

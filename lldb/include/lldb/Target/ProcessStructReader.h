@@ -13,11 +13,11 @@
 #include "lldb/lldb-defines.h"
 #include "lldb/lldb-types.h"
 
-#include "lldb/Core/DataExtractor.h"
 #include "lldb/Symbol/CompilerType.h"
 #include "lldb/Target/Process.h"
 #include "lldb/Utility/ConstString.h"
-#include "lldb/Utility/Error.h"
+#include "lldb/Utility/DataExtractor.h"
+#include "lldb/Utility/Status.h"
 
 #include <initializer_list>
 #include <map>
@@ -68,7 +68,7 @@ public:
     }
     size_t total_size = struct_type.GetByteSize(nullptr);
     lldb::DataBufferSP buffer_sp(new DataBufferHeap(total_size, 0));
-    Error error;
+    Status error;
     process->ReadMemoryFromInferior(base_addr, buffer_sp->GetBytes(),
                                     total_size, error);
     if (error.Fail())

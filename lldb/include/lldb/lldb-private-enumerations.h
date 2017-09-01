@@ -116,19 +116,6 @@ typedef enum LazyBool {
 } LazyBool;
 
 //------------------------------------------------------------------
-/// Name matching
-//------------------------------------------------------------------
-typedef enum NameMatchType {
-  eNameMatchIgnore,
-  eNameMatchEquals,
-  eNameMatchContains,
-  eNameMatchStartsWith,
-  eNameMatchEndsWith,
-  eNameMatchRegularExpression
-
-} NameMatchType;
-
-//------------------------------------------------------------------
 /// Instruction types
 //------------------------------------------------------------------
 typedef enum InstructionType {
@@ -218,9 +205,10 @@ typedef enum MemoryModuleLoadLevel {
 enum class LineStatus {
   Success, // The line that was just edited if good and should be added to the
            // lines
-  Error, // There is an error with the current line and it needs to be re-edited
-         // before it can be accepted
-  Done   // Lines are complete
+  Status,  // There is an error with the current line and it needs to be
+           // re-edited
+           // before it can be accepted
+  Done     // Lines are complete
 };
 
 //----------------------------------------------------------------------

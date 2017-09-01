@@ -142,6 +142,10 @@ class Parser : public CodeCompletionHandler {
   /// \brief Identifier for "replacement".
   IdentifierInfo *Ident_replacement;
 
+  /// Identifiers used by the 'external_source_symbol' attribute.
+  IdentifierInfo *Ident_language, *Ident_defined_in,
+      *Ident_generated_declaration;
+
   /// C++0x contextual keywords.
   mutable IdentifierInfo *Ident_final;
   mutable IdentifierInfo *Ident_GNU_final;
@@ -179,6 +183,8 @@ class Parser : public CodeCompletionHandler {
   std::unique_ptr<PragmaHandler> LoopHintHandler;
   std::unique_ptr<PragmaHandler> UnrollHintHandler;
   std::unique_ptr<PragmaHandler> NoUnrollHintHandler;
+  std::unique_ptr<PragmaHandler> FPHandler;
+  std::unique_ptr<PragmaHandler> AttributePragmaHandler;
 #if INTEL_SPECIFIC_CILKPLUS
   std::unique_ptr<PragmaHandler> CilkGrainsizeHandler;
   std::unique_ptr<PragmaHandler> SIMDHandler;
@@ -207,16 +213,6 @@ class Parser : public CodeCompletionHandler {
 
   clang::StmtResult HandlePragmaDistribute();
   void HandlePragmaDistributeDecl();
-
-  // Pragma inline
-  std::unique_ptr<PragmaHandler> InlineHandler;
-  // Pragma forceinline
-  std::unique_ptr<PragmaHandler> ForceInlineHandler;
-  // Pragma noinline
-  std::unique_ptr<PragmaHandler> NoInlineHandler;
-
-  clang::StmtResult HandlePragmaInline();
-  void HandlePragmaInlineDecl();
 
   // Pragma loop_count
   std::unique_ptr<PragmaHandler> LoopCountHandler;
@@ -488,8 +484,9 @@ public:
   }
 
   /// ConsumeToken - Consume the current 'peek token' and lex the next one.
-  /// This does not work with special tokens: string literals, code completion
-  /// and balanced tokens must be handled using the specific consume methods.
+  /// This does not work with special tokens: string literals, code completion,
+  /// annotation tokens and balanced tokens must be handled using the specific
+  /// consume methods.
   /// Returns the location of the consumed token.
   SourceLocation ConsumeToken() {
     assert(!isTokenSpecial() &&
@@ -550,7 +547,7 @@ private:
   /// isTokenSpecial - True if this token requires special consumption methods.
   bool isTokenSpecial() const {
     return isTokenStringLiteral() || isTokenParen() || isTokenBracket() ||
-           isTokenBrace() || Tok.is(tok::code_completion);
+           isTokenBrace() || Tok.is(tok::code_completion) || Tok.isAnnotation();
   }
 
   /// \brief Returns true if the current token is '=' or is a type of '='.
@@ -581,7 +578,17 @@ private:
     if (Tok.is(tok::code_completion))
       return ConsumeCodeCompletionTok ? ConsumeCodeCompletionToken()
                                       : handleUnexpectedCodeCompletionToken();
+    if (Tok.isAnnotation())
+      return ConsumeAnnotationToken();
     return ConsumeToken();
+  }
+
+  SourceLocation ConsumeAnnotationToken() {
+    assert(Tok.isAnnotation() && "wrong consume method");
+    SourceLocation Loc = Tok.getLocation();
+    PrevTokLocation = Tok.getAnnotationEndLoc();
+    PP.Lex(Tok);
+    return Loc;
   }
 
   /// ConsumeParen - This consume method keeps the paren count up-to-date.
@@ -735,6 +742,10 @@ private:
   void HandlePragmaFPContract();
 
   /// \brief Handle the annotation token produced for
+  /// #pragma clang fp ...
+  void HandlePragmaFP();
+
+  /// \brief Handle the annotation token produced for
   /// #pragma OPENCL EXTENSION...
   void HandlePragmaOpenCLExtension();
 
@@ -759,10 +770,21 @@ private:
   /// for-statement
   /// {code}
   StmtResult ParseSIMDDirective();
+  /// \brief Dispatch function to parse a SIMD clause.
+  bool ParseSIMDClauses(Sema &S, SourceLocation BeginLoc,
+                        SmallVectorImpl<Attr *> &AttrList);
+  /// \brief helper function to cleanup for Pragma SIMD.
+  void FinishPragmaSIMD(SourceLocation BeginLoc);
 #endif // INTEL_CUSTOMIZATION
   /// \brief Handle the annotation token produced for
   /// #pragma clang loop and #pragma unroll.
   bool HandlePragmaLoopHint(LoopHint &Hint);
+
+  bool ParsePragmaAttributeSubjectMatchRuleSet(
+      attr::ParsedSubjectMatchRuleSet &SubjectMatchRules,
+      SourceLocation &AnyLoc, SourceLocation &LastMatchRuleEndLoc);
+
+  void HandlePragmaAttribute();
 
   /// GetLookAheadToken - This peeks ahead N tokens and returns that token
   /// without consuming any tokens.  LookAhead(0) returns 'Tok', LookAhead(1)
@@ -998,6 +1020,14 @@ private:
 
   /// \brief Consume any extra semi-colons until the end of the line.
   void ConsumeExtraSemi(ExtraSemiKind Kind, unsigned TST = TST_unspecified);
+
+  /// Return false if the next token is an identifier. An 'expected identifier'
+  /// error is emitted otherwise.
+  ///
+  /// The parser tries to recover from the error by checking if the next token
+  /// is a C++ keyword when parsing Objective-C++. Return false if the recovery
+  /// was successful.
+  bool expectIdentifier();
 
 public:
   //===--------------------------------------------------------------------===//
@@ -1476,7 +1506,29 @@ private:
 #if INTEL_CUSTOMIZATION
   // CQ#371799 - let #pragma unroll precede non-loop statements.
   /// Save #pragma unroll as pending to be applied once any loop occurs.
-  ParsedAttributesWithRange PendingPragmaUnroll;
+public:
+  void pushPendingPragmaUnroll() {
+    PendingPragmaUnroll.push_back(new ParsedAttributesWithRange(AttrFactory));
+  }
+  void popPendingPragmaUnroll() {
+    auto *Pending = PendingPragmaUnroll.back();
+    delete Pending;
+    PendingPragmaUnroll.pop_back();
+  }
+  ParsedAttributesWithRange *getPendingUnrollAttr() {
+    return PendingPragmaUnroll.back();
+  }
+  class PendingPragmaUnrollRAII {
+    Parser &P;
+
+  public:
+    PendingPragmaUnrollRAII(Parser &P) : P(P) { P.pushPendingPragmaUnroll(); }
+    ~PendingPragmaUnrollRAII() { P.popPendingPragmaUnroll(); }
+  };
+
+private:
+  SmallVector<ParsedAttributesWithRange *, 4> PendingPragmaUnroll;
+  PendingPragmaUnrollRAII PendingPragmaUnrollRAIIObject;
 #endif // INTEL_CUSTOMIZATION
 
   DeclGroupPtrTy ParseExternalDeclaration(ParsedAttributesWithRange &attrs,
@@ -1638,6 +1690,7 @@ public:
   };
 
   ExprResult ParseExpression(TypeCastState isTypeCast = NotTypeCast);
+  ExprResult ParseConstantExpressionInExprEvalContext(TypeCastState isTypeCast);
   ExprResult ParseConstantExpression(TypeCastState isTypeCast = NotTypeCast);
   ExprResult ParseConstraintExpression();
   // Expr that doesn't include commas.
@@ -1658,10 +1711,12 @@ private:
   ExprResult ParseCastExpression(bool isUnaryExpression,
                                  bool isAddressOfOperand,
                                  bool &NotCastExpr,
-                                 TypeCastState isTypeCast);
+                                 TypeCastState isTypeCast,
+                                 bool isVectorLiteral = false);
   ExprResult ParseCastExpression(bool isUnaryExpression,
                                  bool isAddressOfOperand = false,
-                                 TypeCastState isTypeCast = NotTypeCast);
+                                 TypeCastState isTypeCast = NotTypeCast,
+                                 bool isVectorLiteral = false);
 
   /// Returns true if the next token cannot start an expression.
   bool isNotExpressionStart();
@@ -1674,6 +1729,8 @@ private:
             K == tok::period || K == tok::arrow ||
             K == tok::plusplus || K == tok::minusminus);
   }
+
+  bool diagnoseUnknownTemplateId(ExprResult TemplateName, SourceLocation Less);
 
   ExprResult ParsePostfixExpressionSuffix(ExprResult LHS);
   ExprResult ParseUnaryExprOrTypeTraitExpression();
@@ -1762,7 +1819,8 @@ public:   //***INTEL
                                       bool EnteringContext,
                                       bool *MayBePseudoDestructor = nullptr,
                                       bool IsTypename = false,
-                                      IdentifierInfo **LastII = nullptr);
+                                      IdentifierInfo **LastII = nullptr,
+                                      bool OnlyNamespace = false);
 private:  //***INTEL
 
   //===--------------------------------------------------------------------===//
@@ -1924,7 +1982,7 @@ private:  //***INTEL
 
   StmtResult ParseStatement(SourceLocation *TrailingElseLoc = nullptr,
                             bool AllowOpenMPStandalone = false);
-  enum AllowedContsructsKind {
+  enum AllowedConstructsKind {
     /// \brief Allow any declarations, statements, OpenMP directives.
     ACK_Any,
     /// \brief Allow only statements and non-standalone OpenMP directives.
@@ -1933,11 +1991,11 @@ private:  //***INTEL
     ACK_StatementsOpenMPAnyExecutable
   };
   StmtResult
-  ParseStatementOrDeclaration(StmtVector &Stmts, AllowedContsructsKind Allowed,
+  ParseStatementOrDeclaration(StmtVector &Stmts, AllowedConstructsKind Allowed,
                               SourceLocation *TrailingElseLoc = nullptr);
   StmtResult ParseStatementOrDeclarationAfterAttributes(
                                          StmtVector &Stmts,
-                                         AllowedContsructsKind Allowed,
+                                         AllowedConstructsKind Allowed,
                                          SourceLocation *TrailingElseLoc,
                                          ParsedAttributesWithRange &Attrs);
   StmtResult ParseExprStatement();
@@ -1966,13 +2024,28 @@ private:  //***INTEL
   StmtResult ParseAsmStatement(bool &msAsm);
   StmtResult ParseMicrosoftAsmStatement(SourceLocation AsmLoc);
   StmtResult ParsePragmaLoopHint(StmtVector &Stmts,
-                                 AllowedContsructsKind Allowed,
+                                 AllowedConstructsKind Allowed,
                                  SourceLocation *TrailingElseLoc,
                                  ParsedAttributesWithRange &Attrs);
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
   /// \brief Check Intel-pragma statements
   void CheckIntelStmt(StmtVector& Stmts);
 #endif // INTEL_SPECIFIC_IL0_BACKEND
+#if INTEL_CUSTOMIZATION
+  // Pragma inline
+  std::unique_ptr<PragmaHandler> InlineHandler;
+  // Pragma forceinline
+  std::unique_ptr<PragmaHandler> ForceInlineHandler;
+  // Pragma noinline
+  std::unique_ptr<PragmaHandler> NoInlineHandler;
+  bool HandlePragmaIntelInline(SourceRange &Range,
+                               IdentifierLoc* &KindLoc,
+                               IdentifierLoc* &OptionsLoc);
+  StmtResult ParsePragmaInline(StmtVector &Stmts,
+                               AllowedConstructsKind Allowed,
+                               SourceLocation *TrailingElseLoc,
+                               ParsedAttributesWithRange &Attrs);
+#endif // INTEL_CUSTOMIZATION
 #if INTEL_SPECIFIC_CILKPLUS
   StmtResult ParseCilkForStmt();
   /// \brief Parse the Cilk grainsize pragma followed by a Cilk for statement.
@@ -2450,6 +2523,12 @@ private:
                              Declarator *D);
   IdentifierLoc *ParseIdentifierLoc();
 
+  unsigned
+  ParseClangAttributeArgs(IdentifierInfo *AttrName, SourceLocation AttrNameLoc,
+                          ParsedAttributes &Attrs, SourceLocation *EndLoc,
+                          IdentifierInfo *ScopeName, SourceLocation ScopeLoc,
+                          AttributeList::Syntax Syntax);
+
   void MaybeParseCXX11Attributes(Declarator &D) {
     if (getLangOpts().CPlusPlus11 && isCXX11AttributeSpecifier()) {
       ParsedAttributesWithRange attrs(AttrFactory);
@@ -2538,6 +2617,14 @@ private:
 
   Optional<AvailabilitySpec> ParseAvailabilitySpec();
   ExprResult ParseAvailabilityCheckExpr(SourceLocation StartLoc);
+
+  void ParseExternalSourceSymbolAttribute(IdentifierInfo &ExternalSourceSymbol,
+                                          SourceLocation Loc,
+                                          ParsedAttributes &Attrs,
+                                          SourceLocation *EndLoc,
+                                          IdentifierInfo *ScopeName,
+                                          SourceLocation ScopeLoc,
+                                          AttributeList::Syntax Syntax);
 
   void ParseObjCBridgeRelatedAttribute(IdentifierInfo &ObjCBridgeRelated,
                                        SourceLocation ObjCBridgeRelatedLoc,
@@ -2839,7 +2926,7 @@ private:
   /// executable directives are allowed.
   ///
   StmtResult
-  ParseOpenMPDeclarativeOrExecutableDirective(AllowedContsructsKind Allowed);
+  ParseOpenMPDeclarativeOrExecutableDirective(AllowedConstructsKind Allowed);
   /// \brief Parses clause of kind \a CKind for directive of a kind \a Kind.
   ///
   /// \param DKind Kind of current directive.
@@ -2952,10 +3039,7 @@ private:
   bool ParseGreaterThanInTemplateList(SourceLocation &RAngleLoc,
                                       bool ConsumeLastToken,
                                       bool ObjCGenericList);
-  bool ParseTemplateIdAfterTemplateName(TemplateTy Template,
-                                        SourceLocation TemplateNameLoc,
-                                        const CXXScopeSpec &SS,
-                                        bool ConsumeLastToken,
+  bool ParseTemplateIdAfterTemplateName(bool ConsumeLastToken,
                                         SourceLocation &LAngleLoc,
                                         TemplateArgList &TemplateArgs,
                                         SourceLocation &RAngleLoc);

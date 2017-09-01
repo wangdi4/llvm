@@ -87,11 +87,12 @@ namespace clang {
   /// \brief Structure that packs information about the type specifiers that
   /// were written in a particular type specifier sequence.
   struct WrittenBuiltinSpecs {
-    /*DeclSpec::TST*/ unsigned Type  : 5;
+    static_assert(TST_error < 1 << 6, "Type bitfield not wide enough for TST");
+    /*DeclSpec::TST*/ unsigned Type  : 6;
     /*DeclSpec::TSS*/ unsigned Sign  : 2;
     /*DeclSpec::TSW*/ unsigned Width : 2;
     unsigned ModeAttr : 1;
-  };  
+  };
 
   /// \brief A C++ access specifier (public, private, protected), plus the
   /// special value "none" which means different things in different contexts.
@@ -233,13 +234,6 @@ namespace clang {
   };
 
   /// \brief CallingConv - Specifies the calling convention that a function uses.
-#if INTEL_CUSTOMIZATION
-  /// Currently calling convention field of Type::ExtInfo class has size 4 bits.
-  /// All these bits are used already and there is no place for a new Intel
-  /// regcall calling convention. For that reason CC_X86RegCall has the same
-  /// value as CC_OpenCLKernel supposing that CC_OpenCLKernel calling convention
-  /// won't be used in Intel xmain compiler for C/C++.
-#endif // INTEL_CUSTOMIZATION
   enum CallingConv {
     CC_C,           // __attribute__((cdecl))
     CC_X86StdCall,  // __attribute__((stdcall))
@@ -271,7 +265,7 @@ namespace clang {
     case CC_X86Pascal:
     case CC_X86VectorCall:
     case CC_SpirFunction:
-    case CC_OpenCLKernel: 
+    case CC_OpenCLKernel:
     case CC_Swift:
       return false;
     default:

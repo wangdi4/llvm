@@ -1,10 +1,5 @@
 set(LLVM_LINK_COMPONENTS support)
 
-if( INTEL_CUSTOMIZATION )
-  add_subdirectory(intel)
-  set(LIBS clangASTIntel)
-endif()
-
 add_clang_library(clangAST
   APValue.cpp
   ASTConsumer.cpp
@@ -12,6 +7,7 @@ add_clang_library(clangAST
   ASTDiagnostic.cpp
   ASTDumper.cpp
   ASTImporter.cpp
+  ASTStructuralEquivalence.cpp
   ASTTypeTraits.cpp
   AttrImpl.cpp
   CXXInheritance.cpp
@@ -36,6 +32,7 @@ add_clang_library(clangAST
   ExprConstant.cpp
   ExprCXX.cpp
   ExprObjC.cpp
+  ExternalASTMerger.cpp
   ExternalASTSource.cpp
   InheritViz.cpp
   ItaniumCXXABI.cpp
@@ -45,6 +42,7 @@ add_clang_library(clangAST
   MicrosoftMangle.cpp
   NestedNameSpecifier.cpp
   NSAPI.cpp
+  ODRHash.cpp
   OpenMPClause.cpp
   ParentMap.cpp
   RawCommentList.cpp
@@ -66,9 +64,13 @@ add_clang_library(clangAST
   TypePrinter.cpp
   VTableBuilder.cpp
   VTTBuilder.cpp
+# INTEL_CUSTOMIZATION
+  intel/DeclIntel.cpp
+  intel/ExprIntel.cpp
+  intel/StmtIntel.cpp
+# end INTEL_CUSTOMIZATION
 
   LINK_LIBS
   clangBasic
   clangLex
-  ${LIBS}
   )

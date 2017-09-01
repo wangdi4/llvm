@@ -15,7 +15,7 @@
 #if INTEL_SPECIFIC_CILKPLUS
 #include "clang/Basic/intel/StmtIntel.h"
 #include "clang/Parse/Parser.h"
-#include "RAIIObjectsForParser.h"
+#include "clang/Parse/RAIIObjectsForParser.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/Basic/Attributes.h"
 #include "clang/Basic/Diagnostic.h"
@@ -31,7 +31,7 @@ using namespace clang;
 
 StmtResult Parser::ParsePragmaCilkGrainsize() {
   assert(getLangOpts().CilkPlus && "Cilk Plus extension not enabled");
-  SourceLocation HashLoc = ConsumeToken(); // Eat 'annot_pragma_cilk_grainsize_begin'.
+  SourceLocation HashLoc = ConsumeAnnotationToken(); // Eat 'annot_pragma_cilk_grainsize_begin'.
 
   ExprResult E = ParseExpression();
   if (E.isInvalid()) {
@@ -43,7 +43,7 @@ StmtResult Parser::ParsePragmaCilkGrainsize() {
     Diag(Tok, diag::warn_pragma_extra_tokens_at_eol) << "cilk";
     SkipUntil(tok::annot_pragma_cilk_grainsize_end);
   } else
-    ConsumeToken(); // Eat 'annot_pragma_cilk_grainsize_end'.
+    ConsumeAnnotationToken(); // Eat 'annot_pragma_cilk_grainsize_end'.
 
   // Parse the following statement.
   StmtResult FollowingStmt(ParseStatement());

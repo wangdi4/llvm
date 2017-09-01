@@ -24,9 +24,9 @@
 # endif // defined(BSD)
 #endif // defined(__unix__) || (defined(__APPLE__) && defined(__MACH__))
 
-#if defined(__unix__) || (defined(__APPLE__) && defined(__MACH__)) || defined(__CloudABI__)
+#if defined(__unix__) || (defined(__APPLE__) && defined(__MACH__)) || defined(__CloudABI__) || defined(__Fuchsia__)
 # include <unistd.h>
-#endif // defined(__unix__) || (defined(__APPLE__) && defined(__MACH__)) || defined(__CloudABI__)
+#endif // defined(__unix__) || (defined(__APPLE__) && defined(__MACH__)) || defined(__CloudABI__) || defined(__Fuchsia__)
 
 #if defined(__NetBSD__)
 #pragma weak pthread_create // Do not create libpthread dependency
@@ -99,7 +99,7 @@ thread::hardware_concurrency() _NOEXCEPT
 #else  // defined(CTL_HW) && defined(HW_NCPU)
     // TODO: grovel through /proc or check cpuid on x86 and similar
     // instructions on other architectures.
-#   if defined(_LIBCPP_MSVC)
+#   if defined(_LIBCPP_WARNING)
         _LIBCPP_WARNING("hardware_concurrency not yet implemented")
 #   else
 #       warning hardware_concurrency not yet implemented

@@ -170,7 +170,7 @@ void CodeGenFunction::EmitStmt(const Stmt *S) {
     EmitCoroutineBody(cast<CoroutineBodyStmt>(*S));
     break;
   case Stmt::CoreturnStmtClass:
-    CGM.ErrorUnsupported(S, "coroutine");
+    EmitCoreturnStmt(cast<CoreturnStmt>(*S));
     break;
   case Stmt::CapturedStmtClass: {
     const CapturedStmt *CS = cast<CapturedStmt>(S);
@@ -600,7 +600,54 @@ void CodeGenFunction::EmitLabelStmt(const LabelStmt &S) {
   EmitStmt(S.getSubStmt());
 }
 
+#if INTEL_CUSTOMIZATION
+CodeGenFunction::IntelPragmaInlineState::IntelPragmaInlineState(
+    CodeGenFunction &CGF, ArrayRef<const Attr *> Attrs) : CGF(CGF) {
+  auto AttrItr = std::find_if(std::begin(Attrs),
+                              std::end(Attrs),
+                              [](const Attr * A)
+                              { return A->getKind() == attr::IntelInline; });
+  if (AttrItr != std::end(Attrs)) {
+    CurrentAttr = cast<IntelInlineAttr>(*AttrItr);
+    PreviousState = CGF.CurrentPragmaInlineState;
+    CGF.CurrentPragmaInlineState = this;
+  } else {
+    CurrentAttr = nullptr;
+    PreviousState = nullptr;
+    CGF.CurrentPragmaInlineState = nullptr;
+  }
+}
+
+CodeGenFunction::IntelPragmaInlineState::~IntelPragmaInlineState() {
+  CGF.CurrentPragmaInlineState = PreviousState;
+}
+
+llvm::Attribute::AttrKind
+CodeGenFunction::IntelPragmaInlineState::getPragmaInlineAttribute() {
+  bool Recursive = (CurrentAttr->getOption() == IntelInlineAttr::Recursive);
+  switch (CurrentAttr->getSemanticSpelling()) {
+    case IntelInlineAttr::Pragma_inline:
+      if (Recursive)
+        return llvm::Attribute::InlineHintRecursive;
+      else
+        return llvm::Attribute::InlineHint;
+    case IntelInlineAttr::Pragma_forceinline:
+      if (Recursive)
+        return llvm::Attribute::AlwaysInlineRecursive;
+      else
+        return llvm::Attribute::AlwaysInline;
+    case IntelInlineAttr::Pragma_noinline:
+      return llvm::Attribute::NoInline;
+  }
+  llvm_unreachable("unhandled attribute");
+}
+#endif // INTEL_CUSTOMIZATION
+
 void CodeGenFunction::EmitAttributedStmt(const AttributedStmt &S) {
+#if INTEL_CUSTOMIZATION
+  IntelPragmaInlineState PS(*this, S.getAttrs());
+#endif // INTEL_CUSTOMIZATION
+
   const Stmt *SubStmt = S.getSubStmt();
   switch (SubStmt->getStmtClass()) {
   case Stmt::DoStmtClass:
@@ -1267,7 +1314,7 @@ void CodeGenFunction::EmitCaseStmtRange(const CaseStmt &S) {
       if (Rem)
         Rem--;
       SwitchInsn->addCase(Builder.getInt(LHS), CaseDest);
-      LHS++;
+      ++LHS;
     }
     return;
   }
@@ -2249,16 +2296,16 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
     llvm::InlineAsm::get(FTy, AsmString, Constraints, HasSideEffect,
                          /* IsAlignStack */ false, AsmDialect);
   llvm::CallInst *Result = Builder.CreateCall(IA, Args);
-  Result->addAttribute(llvm::AttributeSet::FunctionIndex,
+  Result->addAttribute(llvm::AttributeList::FunctionIndex,
                        llvm::Attribute::NoUnwind);
 
   // Attach readnone and readonly attributes.
   if (!HasSideEffect) {
     if (ReadNone)
-      Result->addAttribute(llvm::AttributeSet::FunctionIndex,
+      Result->addAttribute(llvm::AttributeList::FunctionIndex,
                            llvm::Attribute::ReadNone);
     else if (ReadOnly)
-      Result->addAttribute(llvm::AttributeSet::FunctionIndex,
+      Result->addAttribute(llvm::AttributeList::FunctionIndex,
                            llvm::Attribute::ReadOnly);
   }
 
@@ -2279,7 +2326,7 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
     // Conservatively, mark all inline asm blocks in CUDA as convergent
     // (meaning, they may call an intrinsically convergent op, such as bar.sync,
     // and so can't have certain optimizations applied around them).
-    Result->addAttribute(llvm::AttributeSet::FunctionIndex,
+    Result->addAttribute(llvm::AttributeList::FunctionIndex,
                          llvm::Attribute::Convergent);
   }
 

@@ -1,4 +1,4 @@
-#include "RAIIObjectsForParser.h"
+#include "clang/Parse/RAIIObjectsForParser.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/Basic/TargetInfo.h"
 #include "clang/Lex/Preprocessor.h"
@@ -110,6 +110,109 @@ void PragmaCilkGrainsizeHandler::HandlePragma(Preprocessor &PP,
   PP.EnterTokenStream(ArrayRef<Token> (Toks, Size + 2), /*DisableMacroExpansion=*/true);
 }
 #endif // INTEL_SPECIFIC_CILKPLUS
+// #pragma inline [recursive]
+// #pragma forceinline [recursive]
+// #pragma noinline
+
+namespace {
+struct PragmaInlineInfo {
+  Token PragmaName;
+  Token Option;
+};
+} // end anonymous namespace
+
+bool Parser::HandlePragmaIntelInline(SourceRange &Range,
+                                     IdentifierLoc* &KindLoc,
+                                     IdentifierLoc* &OptionsLoc) {
+  assert(Tok.is(tok::annot_pragma_inline));
+  PragmaInlineInfo *Info =
+      static_cast<PragmaInlineInfo *>(Tok.getAnnotationValue());
+
+  IdentifierInfo *PragmaNameInfo = Info->PragmaName.getIdentifierInfo();
+  KindLoc = IdentifierLoc::create(Actions.Context,
+      Info->PragmaName.getLocation(), PragmaNameInfo);
+
+  if (Info->Option.isNot(tok::eod)) {
+    IdentifierInfo *OptionInfo = Info->Option.getIdentifierInfo();
+    OptionsLoc = IdentifierLoc::create(Actions.Context,
+        Info->Option.getLocation(), OptionInfo);
+    Range = SourceRange(Info->PragmaName.getLocation(),
+                        Info->Option.getLocation());
+  } else {
+    OptionsLoc = nullptr;
+    Range = SourceRange(Info->PragmaName.getLocation());
+  }
+
+  return true;
+}
+
+StmtResult Parser::ParsePragmaInline(StmtVector &Stmts,
+                                     AllowedConstructsKind Allowed,
+                                     SourceLocation *TrailingElseLoc,
+                                     ParsedAttributesWithRange &Attrs) {
+  // Create temporary attribute list.
+  ParsedAttributesWithRange TempAttrs(AttrFactory);
+
+  // Get #pragma inline info and consume annotated token.
+  while (Tok.is(tok::annot_pragma_inline)) {
+    SourceRange Range;
+    IdentifierLoc *KindLoc;
+    IdentifierLoc *OptionsLoc;
+
+    HandlePragmaIntelInline(Range, KindLoc, OptionsLoc);
+
+    ArgsUnion Args[] = {KindLoc, OptionsLoc};
+    TempAttrs.addNew(KindLoc->Ident, Range, nullptr,
+                     KindLoc->Loc, Args, 2,
+                     AttributeList::AS_Pragma);
+
+    assert(Tok.is(tok::annot_pragma_inline));
+    ConsumeAnnotationToken();  // annot_pragma_inline
+    while (Tok.isNot(tok::annot_pragma_end))
+      ConsumeToken();
+    assert(Tok.is(tok::annot_pragma_end));
+    ConsumeAnnotationToken(); // annot_pragma_end
+  }
+
+  // Get the next statement.
+  MaybeParseCXX11Attributes(Attrs);
+
+  StmtResult S = ParseStatementOrDeclarationAfterAttributes(
+      Stmts, Allowed, TrailingElseLoc, Attrs);
+
+  Attrs.takeAllFrom(TempAttrs);
+  return S;
+}
+
+void PragmaInlineHandler::HandlePragma(Preprocessor &PP,
+                                       PragmaIntroducerKind Introducer,
+                                       Token &FirstTok) {
+  Token Tok;
+  SmallVector<Token, 4> Tokens;
+  SourceLocation InlineLoc = FirstTok.getLocation();
+  PragmaInlineInfo *Info = new PragmaInlineInfo;
+
+  Tok.startToken();
+  Tok.setKind(tok::annot_pragma_inline);
+  Tok.setLocation(InlineLoc);
+  Tok.setAnnotationValue(static_cast<void*>(Info));
+  Tokens.push_back(Tok);
+
+  Info->PragmaName = FirstTok;
+  PP.Lex(Tok);
+  Info->Option = Tok;
+  while (Tok.isNot(tok::eod)) {
+    Tokens.push_back(Tok);
+    PP.Lex(Tok);
+  }
+  InlineLoc = Tok.getLocation();
+  Tok.startToken();
+  Tok.setKind(tok::annot_pragma_end);
+  Tok.setLocation(InlineLoc);
+  Tokens.push_back(Tok);
+
+  EnterTokenS(PP, Tokens, /*DisableMacroExpansion=*/false);
+}
 
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
 
@@ -249,129 +352,6 @@ void PragmaDistributeHandler1::HandlePragma(Preprocessor &PP, PragmaIntroducerKi
   }
 
   EnterOneTokenS(PP, FirstTok, tok::annot_pragma_distribute_point);
-}
-
-// #pragma inline [recursive]
-// #pragma forceinline [recursive]
-// #pragma noinline
-
-StmtResult Parser::HandlePragmaInline() {
-  assert(Tok.is(tok::annot_pragma_inline));
-  Sema::IntelPragmaInlineOption Opt = Sema::IntelPragmaInlineOptionNone;
-  const Sema::IntelPragmaInlineKind *KindPtr = 
-    static_cast<Sema::IntelPragmaInlineKind *>(Tok.getAnnotationValue());
-  const Sema::IntelPragmaInlineKind Kind = *KindPtr;
-  SourceLocation InlineLoc = ConsumeToken();
-
-  if (Tok.isNot(tok::annot_pragma_end) && Kind != Sema::IntelPragmaNoInline) {
-    const IdentifierInfo *II = Tok.getIdentifierInfo();
-    if(II && II->isStr("recursive")) {
-      Opt = Sema::IntelPragmaInlineOptionRecursive;
-      PP.Lex(Tok);
-    }
-  }
-
-  if (Tok.isNot(tok::annot_pragma_end)) {
-    PP.Diag(Tok.getLocation(), diag::x_warn_intel_pragma_extra_text);
-  }
-  DiscardUntilEndOfDirective();
-
-  delete KindPtr;
-
-  return (Actions.ActOnPragmaOptionsInline(InlineLoc, Kind, Opt));
-}
-
-void Parser::HandlePragmaInlineDecl() {
-  assert(Tok.is(tok::annot_pragma_inline));
-  const Sema::IntelPragmaInlineKind *KindPtr = 
-    static_cast<Sema::IntelPragmaInlineKind *>(Tok.getAnnotationValue());
-  SourceLocation InlineLoc = ConsumeToken();
-
-  delete KindPtr;
-  DiscardUntilEndOfDirective();
-
-  Diag(InlineLoc, diag::x_error_intel_pragma_statement_precede)<<InlineLoc;
-}
-
-void PragmaInlineHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer, Token &FirstTok) {
-  Token Tok;
-  SmallVector<Token, 4> Tokens;
-  SourceLocation InlineLoc = FirstTok.getLocation();
-  Sema::IntelPragmaInlineKind *KindPtr = new Sema::IntelPragmaInlineKind;
-
-  *KindPtr = Sema::IntelPragmaSimpleInline;
-  Tok.startToken();
-  Tok.setKind(tok::annot_pragma_inline);
-  Tok.setLocation(InlineLoc);
-  Tok.setAnnotationValue(static_cast<void*>(KindPtr));
-  Tokens.push_back(Tok);
-
-  PP.Lex(Tok);
-  while (Tok.isNot(tok::eod)) {
-    Tokens.push_back(Tok);
-    PP.Lex(Tok);
-  }
-  InlineLoc = Tok.getLocation();
-  Tok.startToken();
-  Tok.setKind(tok::annot_pragma_end);
-  Tok.setLocation(InlineLoc);
-  Tokens.push_back(Tok);
-
-  EnterTokenS(PP, Tokens, /*DisableMacroExpansion=*/false);
-}
-
-void PragmaForceInlineHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer, Token &FirstTok) {
-  Token Tok;
-  SmallVector<Token, 4> Tokens;
-  SourceLocation InlineLoc = FirstTok.getLocation();
-  Sema::IntelPragmaInlineKind *KindPtr = new Sema::IntelPragmaInlineKind;
-
-  *KindPtr = Sema::IntelPragmaForceInline;
-  Tok.startToken();
-  Tok.setKind(tok::annot_pragma_inline);
-  Tok.setLocation(InlineLoc);
-  Tok.setAnnotationValue(static_cast<void*>(KindPtr));
-  Tokens.push_back(Tok);
-
-  PP.Lex(Tok);
-  while (Tok.isNot(tok::eod)) {
-    Tokens.push_back(Tok);
-    PP.Lex(Tok);
-  }
-  InlineLoc = Tok.getLocation();
-  Tok.startToken();
-  Tok.setKind(tok::annot_pragma_end);
-  Tok.setLocation(InlineLoc);
-  Tokens.push_back(Tok);
-
-  EnterTokenS(PP, Tokens, /*DisableMacroExpansion=*/false);
-}
-
-void PragmaNoInlineHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer, Token &FirstTok) {
-  Token Tok;
-  SmallVector<Token, 4> Tokens;
-  SourceLocation InlineLoc = FirstTok.getLocation();
-  Sema::IntelPragmaInlineKind *KindPtr = new Sema::IntelPragmaInlineKind;
-
-  *KindPtr = Sema::IntelPragmaNoInline;
-  Tok.startToken();
-  Tok.setKind(tok::annot_pragma_inline);
-  Tok.setLocation(InlineLoc);
-  Tok.setAnnotationValue(static_cast<void*>(KindPtr));
-  Tokens.push_back(Tok);
-
-  PP.Lex(Tok);
-  while (Tok.isNot(tok::eod)) {
-    Tokens.push_back(Tok);
-    PP.Lex(Tok);
-  }
-  InlineLoc = Tok.getLocation();
-  Tok.startToken();
-  Tok.setKind(tok::annot_pragma_end);
-  Tok.setLocation(InlineLoc);
-  Tokens.push_back(Tok);
-
-  EnterTokenS(PP, Tokens, /*DisableMacroExpansion=*/false);
 }
 
 // #pragma loop_count (n)
@@ -2953,6 +2933,20 @@ void Parser::initializeIntelPragmaHandlers() {
   }
 #endif // INTEL_SPECIFIC_CILKPLUS
 
+#if INTEL_CUSTOMIZATION
+  if (getLangOpts().IntelCompat) {
+    // #pragma inline
+    InlineHandler.reset(new PragmaInlineHandler("inline"));
+    PP.AddPragmaHandler(InlineHandler.get());
+    // #pragma noinline
+    NoInlineHandler.reset(new PragmaInlineHandler("noinline"));
+    PP.AddPragmaHandler(NoInlineHandler.get());
+    // #pragma forceinline
+    ForceInlineHandler.reset(new PragmaInlineHandler("forceinline"));
+    PP.AddPragmaHandler(ForceInlineHandler.get());
+  }
+#endif // INTEL_CUSTOMIZATION
+
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
   if (getLangOpts().IntelCompat) {
     // #pragma ivdep
@@ -2969,15 +2963,6 @@ void Parser::initializeIntelPragmaHandlers() {
     PP.AddPragmaHandler(DistributeHandler.get());
     DistributeHandler1.reset(new PragmaDistributeHandler1());
     PP.AddPragmaHandler(DistributeHandler1.get());
-    // #pragma inline
-    InlineHandler.reset(new PragmaInlineHandler());
-    PP.AddPragmaHandler(InlineHandler.get());
-    // #pragma noinline
-    NoInlineHandler.reset(new PragmaNoInlineHandler());
-    PP.AddPragmaHandler(NoInlineHandler.get());
-    // #pragma forceinline
-    ForceInlineHandler.reset(new PragmaForceInlineHandler());
-    PP.AddPragmaHandler(ForceInlineHandler.get());
     // #pragma loop_count
     LoopCountHandler.reset(new PragmaLoopCountHandler());
     PP.AddPragmaHandler(LoopCountHandler.get());
@@ -3118,6 +3103,18 @@ void Parser::resetIntelPragmaHandlers() {
   }
 #endif // INTEL_SPECIFIC_CILKPLUS
 
+  if (getLangOpts().IntelCompat) {
+    // #pragma inline
+    PP.RemovePragmaHandler(InlineHandler.get());
+    InlineHandler.reset();
+    // #pragma noinline
+    PP.RemovePragmaHandler(NoInlineHandler.get());
+    NoInlineHandler.reset();
+    // #pragma forceinline
+    PP.RemovePragmaHandler(ForceInlineHandler.get());
+    ForceInlineHandler.reset();
+  }
+
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
   if (getLangOpts().IntelCompat) {
     // #pragma ivdep
@@ -3134,15 +3131,6 @@ void Parser::resetIntelPragmaHandlers() {
     DistributeHandler.reset();
     PP.RemovePragmaHandler(DistributeHandler1.get());
     DistributeHandler1.reset();
-    // #pragma inline
-    PP.RemovePragmaHandler(InlineHandler.get());
-    InlineHandler.reset();
-    // #pragma noinline
-    PP.RemovePragmaHandler(NoInlineHandler.get());
-    NoInlineHandler.reset();
-    // #pragma forceinline
-    PP.RemovePragmaHandler(ForceInlineHandler.get());
-    ForceInlineHandler.reset();
     // #pragma loop_count
     PP.RemovePragmaHandler(LoopCountHandler.get());
     LoopCountHandler.reset();

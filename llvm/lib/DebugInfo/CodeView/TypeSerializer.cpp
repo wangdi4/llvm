@@ -9,7 +9,7 @@
 
 #include "llvm/DebugInfo/CodeView/TypeSerializer.h"
 
-#include "llvm/DebugInfo/MSF/StreamWriter.h"
+#include "llvm/Support/BinaryStreamWriter.h"
 
 #include <string.h>
 
@@ -52,17 +52,23 @@ Error TypeSerializer::writeRecordPrefix(TypeLeafKind Kind) {
 }
 
 TypeIndex
-TypeSerializer::insertRecordBytesPrivate(MutableArrayRef<uint8_t> Record) {
+TypeSerializer::insertRecordBytesPrivate(ArrayRef<uint8_t> &Record) {
   assert(Record.size() % 4 == 0 && "Record is not aligned to 4 bytes!");
 
   StringRef S(reinterpret_cast<const char *>(Record.data()), Record.size());
 
   TypeIndex NextTypeIndex = calcNextTypeIndex();
   auto Result = HashedRecords.try_emplace(S, NextTypeIndex);
+
+  StringRef NewData = Result.first->getKey();
+  Record = ArrayRef<uint8_t>(NewData.bytes_begin(), NewData.bytes_end());
+
   if (Result.second) {
+    // If this triggered an insert into the map, store the bytes.
     LastTypeIndex = NextTypeIndex;
     SeenRecords.push_back(Record);
   }
+
   return Result.first->getValue();
 }
 
@@ -85,20 +91,21 @@ TypeSerializer::addPadding(MutableArrayRef<uint8_t> Record) {
 
 TypeSerializer::TypeSerializer(BumpPtrAllocator &Storage)
     : RecordStorage(Storage), LastTypeIndex(),
-      RecordBuffer(MaxRecordLength * 2), Stream(RecordBuffer), Writer(Stream),
-      Mapping(Writer) {
+      RecordBuffer(MaxRecordLength * 2),
+      Stream(RecordBuffer, llvm::support::little), Writer(Stream),
+      Mapping(Writer), HashedRecords(Storage) {
   // RecordBuffer needs to be able to hold enough data so that if we are 1
   // byte short of MaxRecordLen, and then we try to write MaxRecordLen bytes,
   // we won't overflow.
 }
 
-ArrayRef<MutableArrayRef<uint8_t>> TypeSerializer::records() const {
+ArrayRef<ArrayRef<uint8_t>> TypeSerializer::records() const {
   return SeenRecords;
 }
 
 TypeIndex TypeSerializer::getLastTypeIndex() const { return LastTypeIndex; }
 
-TypeIndex TypeSerializer::insertRecordBytes(MutableArrayRef<uint8_t> Record) {
+TypeIndex TypeSerializer::insertRecordBytes(ArrayRef<uint8_t> Record) {
   assert(!TypeKind.hasValue() && "Already in a type mapping!");
   assert(Writer.getOffset() == 0 && "Stream has data already!");
 
@@ -136,11 +143,9 @@ Expected<TypeIndex> TypeSerializer::visitTypeEndGetIndex(CVType &Record) {
       reinterpret_cast<RecordPrefix *>(ThisRecordData.data());
   Prefix->RecordLen = ThisRecordData.size() - sizeof(uint16_t);
 
-  uint8_t *Copy = RecordStorage.Allocate<uint8_t>(ThisRecordData.size());
-  ::memcpy(Copy, ThisRecordData.data(), ThisRecordData.size());
-  ThisRecordData = MutableArrayRef<uint8_t>(Copy, ThisRecordData.size());
-  Record = CVType(*TypeKind, ThisRecordData);
-  TypeIndex InsertedTypeIndex = insertRecordBytesPrivate(ThisRecordData);
+  Record.Type = *TypeKind;
+  Record.RecordData = ThisRecordData;
+  TypeIndex InsertedTypeIndex = insertRecordBytesPrivate(Record.RecordData);
 
   // Write out each additional segment in reverse order, and update each
   // record's continuation index to point to the previous one.
@@ -203,15 +208,15 @@ Error TypeSerializer::visitMemberEnd(CVMemberRecord &Record) {
 
     uint8_t *SegmentBytes = RecordStorage.Allocate<uint8_t>(LengthWithSize);
     auto SavedSegment = MutableArrayRef<uint8_t>(SegmentBytes, LengthWithSize);
-    msf::MutableByteStream CS(SavedSegment);
-    msf::StreamWriter CW(CS);
+    MutableBinaryByteStream CS(SavedSegment, llvm::support::little);
+    BinaryStreamWriter CW(CS);
     if (auto EC = CW.writeBytes(CopyData))
       return EC;
     if (auto EC = CW.writeEnum(TypeLeafKind::LF_INDEX))
       return EC;
-    if (auto EC = CW.writeInteger(uint16_t(0)))
+    if (auto EC = CW.writeInteger<uint16_t>(0))
       return EC;
-    if (auto EC = CW.writeInteger(uint32_t(0xB0C0B0C0)))
+    if (auto EC = CW.writeInteger<uint32_t>(0xB0C0B0C0))
       return EC;
     FieldListSegments.push_back(SavedSegment);
 

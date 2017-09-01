@@ -1041,7 +1041,8 @@ void Sema::ActOnStartOfCilkForStmt(SourceLocation CilkForLoc, Scope *CurScope,
   else
     CurContext = CD;
 
-  PushExpressionEvaluationContext(PotentiallyEvaluated);
+  PushExpressionEvaluationContext(
+    ExpressionEvaluationContext::PotentiallyEvaluated);
 }
 
 namespace {
@@ -1287,7 +1288,8 @@ static bool CommonActOnForStmt(Sema &S, SourceLocation ForLoc,
     StrideExpr = StrideExpr->getSubExprAsWritten();
 
     // Push an evaluation context in case span needs cleanups.
-    EnterExpressionEvaluationContext EvalContext(S, S.PotentiallyEvaluated);
+    EnterExpressionEvaluationContext EvalContext(
+      S, Sema::ExpressionEvaluationContext::PotentiallyEvaluated);
 
     // Build end - begin
     Expr *Begin = S.BuildDeclRefExpr(
@@ -1562,12 +1564,12 @@ ExprResult Sema::ActOnPragmaSIMDPrivateVariable(CXXScopeSpec SS,
   // class type, unless the list item is also specified in a firstprivate
   // clause.
   if (Class && (Kind == SIMD_Private || Kind == SIMD_LastPrivate)) {
-    SpecialMemberOverloadResult *Result =
+    SpecialMemberOverloadResult Result =
         LookupSpecialMember(Class, CXXDefaultConstructor, /*ConstArg=*/false,
                             /*VolatileThis=*/false, /*RValueThis*/ false,
                             /*ConstThis*/ false, /*VolatileThis*/ false);
 
-    switch (Result->getKind()) {
+    switch (Result.getKind()) {
     case SpecialMemberOverloadResult::NoMemberOrDeleted:
       Diag(NameLoc, diag::err_pragma_simd_var_no_member)
           << KindName << DefaultConstructor << ElementTy;
@@ -1586,12 +1588,12 @@ ExprResult Sema::ActOnPragmaSIMDPrivateVariable(CXXScopeSpec SS,
   // clause requires an accessible, unambiguous copy constructor for the
   // class type.
   if (Class && (Kind == SIMD_FirstPrivate)) {
-    SpecialMemberOverloadResult *Result =
+    SpecialMemberOverloadResult Result =
         LookupSpecialMember(Class, CXXCopyConstructor, /*ConstArg=*/false,
                             /*VolatileThis=*/false, /*RValueThis*/ false,
                             /*ConstThis*/ false, /*VolatileThis*/ false);
 
-    switch (Result->getKind()) {
+    switch (Result.getKind()) {
     case SpecialMemberOverloadResult::NoMemberOrDeleted:
       Diag(NameLoc, diag::err_pragma_simd_var_no_member)
           << KindName << CopyConstructor << ElementTy;
@@ -1610,12 +1612,12 @@ ExprResult Sema::ActOnPragmaSIMDPrivateVariable(CXXScopeSpec SS,
   // clause requires an accessible, unambiguous copy assignment operator for the
   // class type.
   if (Class && (Kind == SIMD_LastPrivate)) {
-    SpecialMemberOverloadResult *Result =
+    SpecialMemberOverloadResult Result =
         LookupSpecialMember(Class, CXXCopyAssignment, /*ConstArg=*/false,
                             /*VolatileThis=*/false, /*RValueThis*/ false,
                             /*ConstThis*/ false, /*VolatileThis*/ false);
 
-    switch (Result->getKind()) {
+    switch (Result.getKind()) {
     case SpecialMemberOverloadResult::NoMemberOrDeleted:
       Diag(NameLoc, diag::err_pragma_simd_var_no_member)
           << KindName << CopyAssignment << ElementTy;
@@ -1990,7 +1992,8 @@ void Sema::ActOnStartOfSIMDForStmt(SourceLocation PragmaLoc, Scope *CurScope,
   else
     CurContext = CD;
 
-  PushExpressionEvaluationContext(PotentiallyEvaluated);
+  PushExpressionEvaluationContext(
+    Sema::ExpressionEvaluationContext::PotentiallyEvaluated);
 }
 
 static void ActOnForStmtError(Sema &S, RecordDecl *Record) {
@@ -4471,7 +4474,8 @@ StmtResult Sema::BuildCilkForStmt(SourceLocation CilkForLoc,
 
     // Build a full expression "inner_loop_var += stride * low"
     {
-      EnterExpressionEvaluationContext EvalScope(*this, PotentiallyEvaluated);
+      EnterExpressionEvaluationContext EvalScope(*this, 
+                            ExpressionEvaluationContext::PotentiallyEvaluated);
 
       // Both low and stride experssions are of type integral.
       ExprResult LowExpr = BuildDeclRefExpr(Low, Ty, VK_LValue, VarLoc);

@@ -15,6 +15,7 @@
 #ifndef LLVM_CLANG_SEMA_ATTRIBUTELIST_H
 #define LLVM_CLANG_SEMA_ATTRIBUTELIST_H
 
+#include "clang/Basic/AttrSubjectMatchRules.h"
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/TargetInfo.h"
 #include "clang/Basic/VersionTuple.h"
@@ -105,10 +106,12 @@ public:
     AS_Microsoft,
     /// __ptr16, alignas(...), etc.
     AS_Keyword,
-    /// Context-sensitive version of a keyword attribute.
-    AS_ContextSensitiveKeyword,
+#if INTEL_CUSTOMIZATION
     /// #pragma ...
     AS_Pragma,
+    /// Context-sensitive version of a keyword attribute.
+    AS_ContextSensitiveKeyword,
+#endif // INTEL_CUSTOMIZATION
 #if INTEL_SPECIFIC_CILKPLUS
     AS_CilkKeyword
 #endif // INTEL_SPECIFIC_CILKPLUS
@@ -515,9 +518,14 @@ public:
   unsigned getMaxArgs() const;
   bool hasVariadicArg() const;
   bool diagnoseAppertainsTo(class Sema &S, const Decl *D) const;
+  bool appliesToDecl(const Decl *D, attr::SubjectMatchRule MatchRule) const;
+  void getMatchRules(const LangOptions &LangOpts,
+                     SmallVectorImpl<std::pair<attr::SubjectMatchRule, bool>>
+                         &MatchRules) const;
   bool diagnoseLangOpts(class Sema &S) const;
   bool existsInTarget(const TargetInfo &Target) const;
   bool isKnownToGCC() const;
+  bool isSupportedByPragmaAttribute() const;
 
   /// \brief If the parsed attribute has a semantic equivalent, and it would
   /// have a semantic Spelling enumeration (due to having semantically-distinct
@@ -780,6 +788,8 @@ public:
   void clear() { list = nullptr; pool.clear(); }
   AttributeList *getList() const { return list; }
 
+  void clearListOnly() { list = nullptr; }
+
   /// Returns a reference to the attribute list.  Try not to introduce
   /// dependencies on this method, it may not be long-lived.
   AttributeList *&getListRef() { return list; }
@@ -933,6 +943,7 @@ enum AttributeDeclKind {
   ExpectedStructClassVariableFunctionOrInlineNamespace,
   ExpectedForMaybeUnused,
   ExpectedEnumOrClass,
+  ExpectedNamedDecl,
 };
 
 }  // end namespace clang

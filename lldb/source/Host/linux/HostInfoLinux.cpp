@@ -8,7 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "lldb/Host/linux/HostInfoLinux.h"
-#include "lldb/Core/Log.h"
+#include "lldb/Utility/Log.h"
 
 #include "llvm/Support/Threading.h"
 
@@ -40,8 +40,6 @@ void HostInfoLinux::Initialize() {
 
   g_fields = new HostInfoLinuxFields();
 }
-
-uint32_t HostInfoLinux::GetMaxThreadNameLength() { return 16; }
 
 bool HostInfoLinux::GetOSVersion(uint32_t &major, uint32_t &minor,
                                  uint32_t &update) {
