@@ -1034,24 +1034,20 @@ bool AdvisorAnalysis::get_program_trace(std::string fileIn) {
 				return false;
 			} else {
                 DEBUG(*outputLog << "returned from process_function_entry()\n");
-                DEBUG(print_execution_order(latestExecutionOrder));
             }
 		} else if (std::regex_match(line, std::regex("(Return from: )(.*)"))) {
 			if (!process_function_return(line, &latestFunction, funcStack, latestTraceGraph, lastVertex, latestExecutionOrder)) {
                 // With ROI, we could see a function return without a 
                 // matching entry to the function.
 				*outputLog << "IGNORING process function return: FAILED.\n";
-                DEBUG(print_execution_order(latestExecutionOrder));
 			} else {
                 DEBUG(*outputLog << "returned from process_function_return()\n");
-                DEBUG(print_execution_order(latestExecutionOrder));
             }
 		} else {
 			// ignore, probably program output
 		}
 	}
     DEBUG(*outputLog << "End of " << __func__ << " " << "\n");
-	DEBUG(print_execution_order(latestExecutionOrder));
 	return true;
 }
 
@@ -1084,19 +1080,25 @@ bool AdvisorAnalysis::process_time(const std::string &line, TraceGraphList_itera
 		//assert(startTime.empty());
 		startTime.push_back(cycle);
 	} else {
-                DEBUG(*outputLog << "Stop time : " << cycle << " cycles\n");
+        DEBUG(*outputLog << "Stop time : " << cycle << " cycles\n");
 		// update the timer
-		unsigned long long start = startTime.back();
-		//assert(startTime.size() == 1); // size must be one!!
-		startTime.pop_back();
+        // with region processing, we can see mismatched BSTPs
+		if(startTime.size() != 0) 
+        {
+		    unsigned long long start = startTime.back();
+		    startTime.pop_back();
 		
-		// update the graph
-        if(lastVertex != UINT_MAX)
-		    (*latestTraceGraph)[lastVertex].cpuCycles = (cycle - start);
+		    // update the graph
+            if(lastVertex != UINT_MAX)
+            {
+	            if (PerFunction) {
+		            (*latestTraceGraph)[lastVertex].cpuCycles = (cycle - start);
+                } else {
+		            (*globalTraceGraph)[lastVertex].cpuCycles = (cycle - start);
+                }
+            }
+        }
 	}
-
-	DEBUG(if(lastVertex != UINT_MAX) *outputLog << (*latestTraceGraph)[lastVertex].name << "\n");
-
 	return true;
 }
 
@@ -1189,7 +1191,11 @@ bool AdvisorAnalysis::process_load(const std::string &line, Function *function, 
 		    //latestGraph[latestVertex].memoryReadTuples.push_back(std::make_pair(addrStart, width));
                 DEBUG(*outputLog << "before push_back read tuples " << latestGraph[lastVertex].memoryReadTuples.size() << "\n");
 		    //latestGraph[latestVertex].memoryReadTuples.push_back(addrWidthTuple);
-		    latestGraph[lastVertex].memoryReadTuples.emplace_back(addrStart, width);
+	        if (PerFunction) {
+		        latestGraph[lastVertex].memoryReadTuples.emplace_back(addrStart, width);
+            } else {
+		        (*globalTraceGraph)[lastVertex].memoryReadTuples.emplace_back(addrStart, width);
+            }
 		    DEBUG(*outputLog << "after push_back read tuples\n");
 	    } catch (std::exception &e) {
 		    std::cerr << "An error occured." << e.what() << "\n";
@@ -1238,7 +1244,11 @@ bool AdvisorAnalysis::process_store(const std::string &line, Function *function,
 	if(lastVertex != UINT_MAX)
     {
         try {
-		    latestGraph[lastVertex].memoryWriteTuples.push_back(std::make_pair(addrStart, width));
+	        if (PerFunction) {
+		        latestGraph[lastVertex].memoryWriteTuples.push_back(std::make_pair(addrStart, width));
+            } else {
+		        (*globalTraceGraph)[lastVertex].memoryWriteTuples.push_back(std::make_pair(addrStart, width));
+            }
 	    } catch (std::exception &e) {
 		    std::cerr << "An error occured." << e.what() << "\n";
 	    }
@@ -1357,10 +1367,8 @@ bool AdvisorAnalysis::process_basic_block_entry(const std::string &line, Functio
 	// increment the node ID
 	ID++;
 
-	if (PerFunction) {
-	    // set the latest added vertex
-	    lastVertex = currVertex;
-	}
+	// set the latest added vertex
+	lastVertex = currVertex;
 
 	if (PerFunction) {
 	    DEBUG(*outputLog << "lululululu\n");
@@ -2853,8 +2861,8 @@ void AdvisorAnalysis::find_optimal_configuration_for_all_calls(Function *F, unsi
        
 }
 
-// Function: find_optimal_configuration_for_all_calls
-// Performs the gradient descent method for function F to find the optimal
+// Function: find_optimal_configuration_for_module
+// Performs the gradient descent method for module M to find the optimal
 // configuration of blocks on hardware vs. cpu
 // Description of gradient descent method:
 // With the gradient descent method we are trying to find the best configuration
@@ -3186,11 +3194,11 @@ bool AdvisorAnalysis::incremental_gradient_descent(Function *F, std::unordered_m
         // set the 'removeBB' target to be the least useful block. 
         min_utility = FLT_MAX;
         for(auto it = gradient.begin(); it != gradient.end(); it++) {
-          //std::cerr << "gradient " << it->first->getName().str() <<  " count " << get_basic_block_instance_count(it->first) << " utility " << it->second << std::endl; 
+          std::cerr << "gradient " << it->first->getName().str() <<  " count " << get_basic_block_instance_count(it->first) << " utility " << it->second << std::endl; 
           if((it->second < min_utility) && (get_basic_block_instance_count(it->first) > 0)) {
             removeBB = it->first;           
             min_utility = it->second;     
-            //std::cerr << "Setting min utility " << removeBB->getName().str() <<  " count " << get_basic_block_instance_count(it->first) << " utility " << min_utility << std::endl; 
+            std::cerr << "Setting min utility " << removeBB->getName().str() <<  " count " << get_basic_block_instance_count(it->first) << " utility " << min_utility << std::endl; 
           }  
         }
 
@@ -3670,11 +3678,11 @@ bool AdvisorAnalysis::incremental_gradient_descent_global(Module &M, std::unorde
         double min_utility = FLT_MAX;
 
         for(auto it = gradient.begin(); it != gradient.end(); it++) {
-          //std::cerr << "gradient " << it->first->getName().str() <<  " count " << get_basic_block_instance_count(it->first) << " utility " << it->second << std::endl; 
+          std::cerr << "gradient " << it->first->getName().str() <<  " count " << get_basic_block_instance_count(it->first) << " utility " << it->second << std::endl; 
           if((it->second < min_utility) && (get_basic_block_instance_count(it->first) > 0) && (it->second != 0)) {
             removeBB = it->first;           
             min_utility = it->second;      
-            //std::cerr << "Setting min utility " << removeBB->getName().str() <<  " count " << get_basic_block_instance_count(it->first) << " utility " << min_utility << std::endl; 
+            std::cerr << "Setting min utility " << removeBB->getName().str() <<  " count " << get_basic_block_instance_count(it->first) << " utility " << min_utility << std::endl; 
           }  
         }
   
@@ -3724,11 +3732,11 @@ bool AdvisorAnalysis::incremental_gradient_descent_global(Module &M, std::unorde
         // set the 'removeBB' target to be the least useful block. 
         min_utility = FLT_MAX;
         for(auto it = gradient.begin(); it != gradient.end(); it++) {
-          //std::cerr << "gradient " << it->first->getName().str() <<  " count " << get_basic_block_instance_count(it->first) << " utility " << it->second << std::endl; 
+          std::cerr << "gradient " << it->first->getName().str() <<  " count " << get_basic_block_instance_count(it->first) << " utility " << it->second << std::endl; 
           if((it->second < min_utility) && (get_basic_block_instance_count(it->first) > 0)) {
             removeBB = it->first;           
             min_utility = it->second;     
-            //std::cerr << "Setting min utility " << removeBB->getName().str() <<  " count " << get_basic_block_instance_count(it->first) << " utility " << min_utility << std::endl; 
+            std::cerr << "Setting min utility " << removeBB->getName().str() <<  " count " << get_basic_block_instance_count(it->first) << " utility " << min_utility << std::endl; 
           }  
         }
 
@@ -3948,7 +3956,7 @@ bool AdvisorAnalysis::incremental_gradient_descent_global(Module &M, std::unorde
           // take care to ensure the we will remove at least one
           // block.  find a power of two that encompasses maximum
           // number of blocks we will remove.
-          int max_count = (std::max(max_area, (int)area_threshold)/max_area) + 1;
+          int max_count = (max_area)?((std::max(max_area, (int)area_threshold)/max_area) + 1):0;
           int max_power = 1;
           while (max_power < max_count) {
             max_power <<= 1;
@@ -4117,7 +4125,7 @@ void AdvisorAnalysis::handle_basic_block_gradient(BasicBlock * BB, std::unordere
     
   DEBUG(*outputLog << "Performing removal of basic block " << BB->getName() << "\n");
   // need to iterate through all calls made to function
-  uint64_t latency = 0;
+  int64_t latency = 0;
     
 
   // reset all values to zero. 
@@ -4142,13 +4150,14 @@ void AdvisorAnalysis::handle_basic_block_gradient(BasicBlock * BB, std::unordere
 
   tidPool.push(tid);
 
-  unsigned area = initialArea - ModuleAreaEstimator::get_basic_block_area(*AT, BB);
+  int area = initialArea - ModuleAreaEstimator::get_basic_block_area(*AT, BB);
 
     
-  float deltaLatency = (float) (initialLatency - latency) + 1; // This one may keep things stable. 
+  float deltaLatency = (float) (initialLatency - latency);
+  if ( latency == initialLatency ) deltaLatency = -1*FLT_MIN; 
   float deltaArea = (float) (initialArea - area);
   float marginalPerformance;
-  if (deltaArea < 0.1) {
+  if ( area == initialArea ) {
     // this block contributes no area
     // never remove a block that contributes no area?? No harm.
     marginalPerformance = FLT_MAX;
@@ -4178,14 +4187,16 @@ void AdvisorAnalysis::handle_basic_block_gradient(BasicBlock * BB, std::unordere
 
   resourceVector.push_back(0);
   
-  /*{
+  {
      std::unique_lock<std::mutex> lk(threadPoolMutex);
      std::cerr << "Done with block" << BB->getName().str() << " grad: " << marginalPerformance << "delta latency" << deltaLatency << "delta area" << deltaArea << std::endl;
-     std::cerr << "New latency: " << latency << "\n";
-     std::cerr << "New area: " << area << "\n";    
      std::cerr << "Initial latency: " << initialLatency << "\n";
+     std::cerr << "New latency: " << latency << "\n";
+     std::cerr << "delta latency: " << deltaLatency << "\n";
      std::cerr << "initial area: " << initialArea << "\n";    
-     }*/
+     std::cerr << "New area: " << area << "\n";    
+     std::cerr << "delta area: " << deltaArea << "\n";
+  }
 
 }
 
@@ -4410,7 +4421,7 @@ uint64_t AdvisorAnalysis::schedule_with_resource_constraints(TraceGraphList_iter
 // and the resource constraints embedded in the IR as metadata to determine
 // the latency of the particular function call instance represented by this
 // execution trace
-uint64_t AdvisorAnalysis::schedule_with_resource_constraints_global(TraceGraphList_iterator graph_it, std::unordered_map<BasicBlock *,  std::vector<unsigned> > *resourceTable, int tid) {
+int64_t AdvisorAnalysis::schedule_with_resource_constraints_global(TraceGraphList_iterator graph_it, std::unordered_map<BasicBlock *,  std::vector<unsigned> > *resourceTable, int tid) {
         DEBUG(*outputLog << __func__ << "\n");
 
 	TraceGraph graph = *graph_it;
@@ -4458,7 +4469,7 @@ uint64_t AdvisorAnalysis::schedule_with_resource_constraints_global(TraceGraphLi
         
           TraceGraph_vertex_descriptor v = schedulableBB.front();
 
-          //std::cerr << "ScheduleBB: " << graph[v].basicblock->getName().str() << "\n";
+          //std::cerr << "\nScheduleBB: v " << v << " " <<  graph[v].basicblock->getName().str() << "\n";
 
           schedulableBB.pop();
 
@@ -4474,8 +4485,8 @@ uint64_t AdvisorAnalysis::schedule_with_resource_constraints_global(TraceGraphLi
           TraceGraph_in_edge_iterator ii, ie;
           for (boost::tie(ii, ie) = boost::in_edges(v, graph); ii != ie; ii++) {
             TraceGraph_vertex_descriptor s = boost::source(*ii, graph);
-            //TraceGraph_vertex_descriptor t = boost::target(*ii, (*graph_ref));
-            //std::cerr << (*graph_ref)[s].ID << " -> " << (*graph_ref)[t].ID << "\n";
+            //TraceGraph_vertex_descriptor t = boost::target(*ii, (graph));
+            //std::cerr << (graph)[s].ID << " -> " << (graph)[t].ID << "\n";
             int64_t transitionDelay = (int) boost::get(boost::edge_weight_t(), graph, *ii);
             
             start = std::max(start, graph[s].get_end(tid) + transitionDelay);
@@ -4520,11 +4531,12 @@ uint64_t AdvisorAnalysis::schedule_with_resource_constraints_global(TraceGraphLi
             }
           }
           
-          //std::cerr << "resource count: " << resourceVector.size() << "\n";  
 
           start = std::max(start, resourceReady);
   
           //std::cerr << "start: " << start << "\n";  
+
+          //std::cerr << "resource count: " << resourceVector.size() << "\n";  
 
           //std::cerr << "resourceReady: " << resourceReady << "\n";  
 
@@ -4556,14 +4568,15 @@ uint64_t AdvisorAnalysis::schedule_with_resource_constraints_global(TraceGraphLi
           }
   
           //std::cerr << "Schedule vertex: " << graph[v].basicblock->getName().str() <<
-          //  " start: " << start << " end: " << end << "\n";
+            // " start: " << start << " end: " << end << "\n";
           graph[v].set_start(start, tid);
           graph[v].set_end(end, tid);
   
-          //std::cerr << "VERTEX [" << v << "] START: " << (*graph_ref)[v].get_start() << " END: " << (*graph_ref)[v].get_end() << "\n";
+          //std::cerr << "VERTEX [" << v << "] START: " << (graph)[v].get_start(tid) << " END: " << (graph)[v].get_end(tid) << "\n";
   
           // keep track of last cycle as seen by scheduler
           lastCycle = std::max(lastCycle, end);
+          //std::cerr << "LastCycle: " << lastCycle<< "\n";
 
           // Mark up children as visited.
           auto oPair = boost::out_edges(v, graph);
@@ -4578,8 +4591,8 @@ uint64_t AdvisorAnalysis::schedule_with_resource_constraints_global(TraceGraphLi
               graph[s].set_start(graph[s].get_start(tid) + 1, tid);
             }
           }
-          //std::cerr << "LastCycle: " << *lastCycle_ref << "\n";
         }
+        //std::cerr << " final LastCycle: " << lastCycle<< "\n";
 
 	return lastCycle;
 }
@@ -4791,7 +4804,7 @@ uint64_t AdvisorAnalysis::schedule_without_resource_constraints_global(TraceGrap
           auto degree = boost::in_degree(*vi, graph);
           if (degree == 0) { 
             graph[*vi].set_start(0, SINGLE_THREAD_TID);
-            BasicBlock *thisBB = graph[*vi].basicblock;
+            //BasicBlock *thisBB = graph[*vi].basicblock;
             schedulableBB.push(*vi);
           } else {
             // Is this in the graph?
@@ -4803,7 +4816,7 @@ uint64_t AdvisorAnalysis::schedule_without_resource_constraints_global(TraceGrap
         
           TraceGraph_vertex_descriptor v = schedulableBB.front();
 
-          //std::cerr << "ScheduleBB: " << graph[v].basicblock->getName().str() << "\n";
+          //std::cerr << "\nScheduleBB: v " << v << " " <<  graph[v].basicblock->getName().str() << "\n";
 
           schedulableBB.pop();
 
@@ -4879,6 +4892,7 @@ uint64_t AdvisorAnalysis::schedule_without_resource_constraints_global(TraceGrap
             block_free += std::min(pipeline_latency, ModuleScheduler::get_basic_block_latency_accelerator(*LT, BB));
           } else {
             end += ModuleScheduler::get_basic_block_latency_accelerator(*LT, BB);
+            //std::cerr << "acc latency: " << ModuleScheduler::get_basic_block_latency_accelerator(*LT, BB) << "\n";  
             block_free = end;
           }
   
@@ -4889,7 +4903,7 @@ uint64_t AdvisorAnalysis::schedule_without_resource_constraints_global(TraceGrap
           resourceVector[minIdx] = block_free;  
   
           //std::cerr << "Schedule vertex: " << graph[v].basicblock->getName().str() <<
-          //  " start: " << start << " end: " << end << "\n";
+            // " start: " << start << " end: " << end << "\n";
           graph[v].set_min_start(start);
           graph[v].set_min_end(end);
           graph[v].set_start(start, SINGLE_THREAD_TID);
