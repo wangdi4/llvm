@@ -23,15 +23,14 @@
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/IntrinsicInst.h"
 
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRRegionIdentification.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/CanonExpr.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
+#include "llvm/Analysis/Intel_XmainOptLevelPass.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
-
-#include "llvm/Analysis/Intel_LoopAnalysis/IR/CanonExpr.h"
-
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRRegionIdentification.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 
 #include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h"
 
@@ -67,6 +66,7 @@ INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(XmainOptLevelPass)
 INITIALIZE_PASS_END(HIRRegionIdentification, "hir-region-identification",
                     "HIR Region Identification", false, true)
 
@@ -87,6 +87,7 @@ void HIRRegionIdentification::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<LoopInfoWrapperPass>();
   AU.addRequiredTransitive<ScalarEvolutionWrapperPass>();
   AU.addRequiredTransitive<TargetLibraryInfoWrapperPass>();
+  AU.addRequiredTransitive<XmainOptLevelPass>();
 }
 
 Type *HIRRegionIdentification::getPrimaryElementType(Type *PtrTy) const {
@@ -243,6 +244,7 @@ class HIRRegionIdentification::CostModelAnalyzer
   bool IsInnermostLoop;
   bool IsSmallTripLoop;
   bool IsProfitable;
+  unsigned OptLevel;
   unsigned InstCount;             // Approximates number of instructions in HIR.
   unsigned UnstructuredJumpCount; // Approximates goto/label counts in HIR.
   unsigned IfCount;               // Approximates number of ifs in HIR.
@@ -250,13 +252,14 @@ class HIRRegionIdentification::CostModelAnalyzer
   // TODO: use different values for O2/O3.
   const unsigned MaxInstThreshold = 200;
   const unsigned MaxIfThreshold = 7;
-  const unsigned MaxIfNestThreshold = 2;
+  const unsigned O2MaxIfNestThreshold = 2;
+  const unsigned O3MaxIfNestThreshold = 3;
   const unsigned SmallTripThreshold = 16;
 
 public:
   CostModelAnalyzer(const HIRRegionIdentification &RI, const Loop &Lp,
                     const SCEV *BECount)
-      : RI(RI), Lp(Lp), IsProfitable(true), InstCount(0),
+      : RI(RI), Lp(Lp), IsProfitable(true), OptLevel(RI.OptLevel), InstCount(0),
         UnstructuredJumpCount(0), IfCount(0) {
     HeaderDomNode = RI.DT->getNode(Lp.getHeader());
     IsInnermostLoop = Lp.empty();
@@ -284,7 +287,6 @@ public:
       }
     }
   }
-
   bool visitBasicBlock(const BasicBlock &BB);
   bool visitInstruction(const Instruction &Inst);
   bool visitLoadInst(const LoadInst &LI);
@@ -375,9 +377,9 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitStoreInst(
 bool HIRRegionIdentification::CostModelAnalyzer::visitCallInst(
     const CallInst &CI) {
 
-  // Allow user calls in small trip innermost loops so they can be unrolled.
+  // Allow user calls in small trip innermost loops so they can be completely
+  // unrolled.
   if (!IsInnermostLoop || !IsSmallTripLoop) {
-
     if (!isa<IntrinsicInst>(CI)) {
       auto Func = CI.getCalledFunction();
 
@@ -443,7 +445,8 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBranchInst(
   }
 
   // Add 1 to include reaching header node.
-  if ((IfNestCount + 1) > MaxIfNestThreshold) {
+  if ((IfNestCount + 1) >
+      ((OptLevel > 2) ? O3MaxIfNestThreshold : O2MaxIfNestThreshold)) {
     DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loop throttled due to presence of too "
                     "many nested ifs.\n");
     return false;
@@ -457,9 +460,9 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBranchInst(
   auto Succ0 = BI.getSuccessor(0);
   auto Succ1 = BI.getSuccessor(1);
 
-  // Within the same loop, conditional branches not dominating its successor and
-  // the successor not post-dominating the branch indicates presence of a goto
-  // in HLLoop.
+  // Within the same loop, conditional branches not dominating its successor
+  // and the successor not post-dominating the branch indicates presence of a
+  // goto in HLLoop.
   if ((!RI.DT->dominates(ParentBB, Succ0) &&
        !RI.PDT->dominates(Succ0, ParentBB)) ||
       (!RI.DT->dominates(ParentBB, Succ1) &&
@@ -738,14 +741,13 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
     return false;
   }
 
-  // Skip loop with vectorize/unroll pragmas for now so that tests checking for
-  // these are not affected. Allow SIMD loops and dbg metadata.
+  // Skip loop with vectorize/unroll pragmas for now so that tests checking
+  // for these are not affected. Allow SIMD loops and dbg metadata.
   MDNode *LoopID = Lp.getLoopID();
   if (!DisablePragmaBailOut && !isSIMDLoop(Lp) && LoopID &&
       !isDebugMetadataOnly(LoopID)) {
-    DEBUG(
-        dbgs()
-        << "LOOPOPT_OPTREPORT: Loops with pragmas currently not supported.\n");
+    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loops with pragmas currently not "
+                    "supported.\n");
     return false;
   }
 
@@ -785,8 +787,8 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
   }
 
   // Use the outermost LLVM loop to evaluate the trip count as we do not know
-  // the outermost HIR parent loop. This is okay for the initial analysis. If we
-  // are not able to compute trip count of the loop after suppressing some
+  // the outermost HIR parent loop. This is okay for the initial analysis. If
+  // we are not able to compute trip count of the loop after suppressing some
   // parent loops, the loop will be handled as an unknown loop.
   auto BECount =
       SE->getBackedgeTakenCountForHIR(&Lp, getOutermostParentLoop(&Lp));
@@ -817,9 +819,9 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
   }
 
   if (IVNode->getType()->getPrimitiveSizeInBits() == 1) {
-    // The following loop with i1 type IV has a trip count of 2 which is outside
-    // its range. This is a quirk of SSA. CG will generate an infinite loop for
-    // this case if we let it through.
+    // The following loop with i1 type IV has a trip count of 2 which is
+    // outside its range. This is a quirk of SSA. CG will generate an infinite
+    // loop for this case if we let it through.
     // for.i:
     // %i.08.i = phi i1 [ true, %entry ], [ false, %for.i ]
     // br i1 %i.08.i, label %for.i, label %exit
@@ -999,8 +1001,8 @@ bool HIRRegionIdentification::formRegionForLoop(const Loop &Lp,
 
 void HIRRegionIdentification::formRegions() {
 
-  // LoopInfo::iterator visits loops in reverse program order so we need to use
-  // reverse_iterator here.
+  // LoopInfo::iterator visits loops in reverse program order so we need to
+  // use reverse_iterator here.
   for (LoopInfo::reverse_iterator I = LI->rbegin(), E = LI->rend(); I != E;
        ++I) {
     unsigned Depth;
@@ -1045,11 +1047,11 @@ bool HIRRegionIdentification::areBBlocksGenerable(Function &Func) const {
 }
 
 bool HIRRegionIdentification::canFormFunctionLevelRegion(Function &Func) {
-  // Entry bblock is the first bblock of the region. We do not include it inside
-  // the region because the dummy instructions created by HIR transformations
-  // are inserted in the entry bblock. Our function level region will start from
-  // the terminator instruction of the entry bblock. This is to maintain the
-  // "single entry" property of the region.
+  // Entry bblock is the first bblock of the region. We do not include it
+  // inside the region because the dummy instructions created by HIR
+  // transformations are inserted in the entry bblock. Our function level
+  // region will start from the terminator instruction of the entry bblock.
+  // This is to maintain the "single entry" property of the region.
 
   if (!areBBlocksGenerable(Func)) {
     return false;
@@ -1076,6 +1078,7 @@ bool HIRRegionIdentification::runOnFunction(Function &Func) {
   PDT = &getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
   SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
   TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
+  OptLevel = getAnalysis<XmainOptLevelPass>().getOptLevel();
 
   if (CreateFunctionLevelRegion) {
     if (canFormFunctionLevelRegion(Func)) {

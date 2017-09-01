@@ -75,6 +75,8 @@ private:
   /// Target library information for the target.
   TargetLibraryInfo *TLI;
 
+  unsigned OptLevel;
+
   /// CostModelAnalyzer - Used to determine whether creating HIR for a loop
   /// would be profitable.
   class CostModelAnalyzer;

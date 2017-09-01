@@ -409,6 +409,8 @@ void initializeNonLTOGlobalOptPass(PassRegistry &);
 void initializeMapIntrinToImlPass(PassRegistry&);
 // Pass for indicating loopopt based throttling.
 void initializeLoopOptMarkerPass(PassRegistry&);
+// Pass to store the opt level.
+void initializeXmainOptLevelPassPass(PassRegistry&);
 // HIR Passes
 void initializeHIRRegionIdentificationPass(PassRegistry&);
 void initializeHIRSCCFormationPass(PassRegistry&);

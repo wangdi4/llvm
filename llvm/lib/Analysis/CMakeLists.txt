@@ -44,6 +44,7 @@ add_llvm_library(LLVMAnalysis
   Intel_OptVLSClientUtils.cpp
   Intel_VectorVariant.cpp
   Intel_WP.cpp
+  Intel_XmainOptLevelPass.cpp
 #endif     // INTEL_CUSTOMIZATION
   Interval.cpp
   IntervalPartition.cpp
