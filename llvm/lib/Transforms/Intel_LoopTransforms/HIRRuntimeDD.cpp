@@ -1,6 +1,6 @@
 //===- HIRRuntimeDD.cpp - Implements Multiversioning for Runtime DD -=========//
 //
-// Copyright (C) 2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2017 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
