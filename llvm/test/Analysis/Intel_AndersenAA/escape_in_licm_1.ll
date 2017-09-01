@@ -1,5 +1,6 @@
 ; It checks escape analysis helps LICM to hoist invariant load out of loop
 ; RUN: opt < %s  -anders-aa  -licm  -disable-output  -stats -S 2>&1 | grep "1 licm"
+; REQUIRES: asserts
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 

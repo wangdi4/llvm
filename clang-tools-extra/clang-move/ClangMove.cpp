@@ -168,6 +168,21 @@ private:
   ClangMoveTool *MoveTool;
 };
 
+class VarDeclarationMatch : public MatchFinder::MatchCallback {
+public:
+  explicit VarDeclarationMatch(ClangMoveTool *MoveTool)
+      : MoveTool(MoveTool) {}
+
+  void run(const MatchFinder::MatchResult &Result) override {
+    const auto *VD = Result.Nodes.getNodeAs<clang::VarDecl>("var");
+    assert(VD);
+    MoveDeclFromOldFileToNewFile(MoveTool, VD);
+  }
+
+private:
+  ClangMoveTool *MoveTool;
+};
+
 class TypeAliasMatch : public MatchFinder::MatchCallback {
 public:
   explicit TypeAliasMatch(ClangMoveTool *MoveTool)
@@ -489,8 +504,11 @@ void ClangMoveTool::registerMatchers(ast_matchers::MatchFinder *Finder) {
       isExpansionInFile(makeAbsolutePath(Context->Spec.OldHeader));
   auto InOldCC = isExpansionInFile(makeAbsolutePath(Context->Spec.OldCC));
   auto InOldFiles = anyOf(InOldHeader, InOldCC);
-  auto ForwardDecls =
-      cxxRecordDecl(unless(anyOf(isImplicit(), isDefinition())));
+  auto classTemplateForwardDecls =
+      classTemplateDecl(unless(has(cxxRecordDecl(isDefinition()))));
+  auto ForwardClassDecls = namedDecl(
+      anyOf(cxxRecordDecl(unless(anyOf(isImplicit(), isDefinition()))),
+            classTemplateForwardDecls));
   auto TopLevelDecl =
       hasDeclContext(anyOf(namespaceDecl(), translationUnitDecl()));
 
@@ -503,9 +521,8 @@ void ClangMoveTool::registerMatchers(ast_matchers::MatchFinder *Finder) {
   // We consider declarations inside a class belongs to the class. So these
   // declarations will be ignored.
   auto AllDeclsInHeader = namedDecl(
-      unless(ForwardDecls), unless(namespaceDecl()),
-      unless(usingDirectiveDecl()),                 // using namespace decl.
-      unless(classTemplateDecl(has(ForwardDecls))), // template forward decl.
+      unless(ForwardClassDecls), unless(namespaceDecl()),
+      unless(usingDirectiveDecl()), // using namespace decl.
       InOldHeader,
       hasParent(decl(anyOf(namespaceDecl(), translationUnitDecl()))),
       hasDeclContext(decl(anyOf(namespaceDecl(), translationUnitDecl()))));
@@ -516,7 +533,7 @@ void ClangMoveTool::registerMatchers(ast_matchers::MatchFinder *Finder) {
     return;
 
   // Match forward declarations in old header.
-  Finder->addMatcher(namedDecl(ForwardDecls, InOldHeader).bind("fwd_decl"),
+  Finder->addMatcher(namedDecl(ForwardClassDecls, InOldHeader).bind("fwd_decl"),
                      this);
 
   //============================================================================
@@ -617,6 +634,11 @@ void ClangMoveTool::registerMatchers(ast_matchers::MatchFinder *Finder) {
   Finder->addMatcher(functionDecl(InOldFiles, *HasAnySymbolNames, TopLevelDecl)
                          .bind("function"),
                      MatchCallbacks.back().get());
+
+  MatchCallbacks.push_back(llvm::make_unique<VarDeclarationMatch>(this));
+  Finder->addMatcher(
+      varDecl(InOldFiles, *HasAnySymbolNames, TopLevelDecl).bind("var"),
+      MatchCallbacks.back().get());
 
   // Match enum definition in old.h. Enum helpers (which are defined in old.cc)
   // will not be moved for now no matter whether they are used or not.
@@ -852,7 +874,10 @@ void ClangMoveTool::onEndOfTranslationUnit() {
     for (const auto *Decl : UnremovedDeclsInOldHeader) {
       auto Kind = Decl->getKind();
       const std::string QualifiedName = Decl->getQualifiedNameAsString();
-      if (Kind == Decl::Kind::Function || Kind == Decl::Kind::FunctionTemplate)
+      if (Kind == Decl::Kind::Var)
+        Reporter->reportDeclaration(QualifiedName, "Variable");
+      else if (Kind == Decl::Kind::Function ||
+               Kind == Decl::Kind::FunctionTemplate)
         Reporter->reportDeclaration(QualifiedName, "Function");
       else if (Kind == Decl::Kind::ClassTemplate ||
                Kind == Decl::Kind::CXXRecord)
@@ -883,6 +908,7 @@ void ClangMoveTool::onEndOfTranslationUnit() {
     case Decl::Kind::Typedef:
     case Decl::Kind::TypeAlias:
     case Decl::Kind::TypeAliasTemplate:
+    case Decl::Kind::Var:
       return true;
     default:
       return false;

@@ -30,6 +30,7 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Value.h"
 #include "llvm/Support/Casting.h"
+#include "llvm/Support/CBindingWrapping.h"
 #include "llvm/Support/ErrorHandling.h"
 #include <cassert>
 #include <cstddef>
@@ -78,7 +79,7 @@ public:
 protected:
   Metadata(unsigned ID, StorageType Storage)
       : SubclassID(ID), Storage(Storage), SubclassData16(0), SubclassData32(0) {
-    static_assert(sizeof(*this) == 8, "Metdata fields poorly packed");
+    static_assert(sizeof(*this) == 8, "Metadata fields poorly packed");
   }
 
   ~Metadata() = default;
@@ -133,6 +134,14 @@ public:
   /// @}
 };
 
+// Create wrappers for C Binding types (see CBindingWrapping.h).
+DEFINE_ISA_CONVERSION_FUNCTIONS(Metadata, LLVMMetadataRef)
+
+// Specialized opaque metadata conversions.
+inline Metadata **unwrap(LLVMMetadataRef *MDs) {
+  return reinterpret_cast<Metadata**>(MDs);
+}
+
 #define HANDLE_METADATA(CLASS) class CLASS;
 #include "llvm/IR/Metadata.def"
 
@@ -165,12 +174,13 @@ class MetadataAsValue : public Value {
   Metadata *MD;
 
   MetadataAsValue(Type *Ty, Metadata *MD);
-  ~MetadataAsValue() override;
 
   /// \brief Drop use of metadata (during teardown).
   void dropUse() { MD = nullptr; }
 
 public:
+  ~MetadataAsValue();
+
   static MetadataAsValue *get(LLVMContext &Context, Metadata *MD);
   static MetadataAsValue *getIfExists(LLVMContext &Context, Metadata *MD);
   Metadata *getMetadata() const { return MD; }
@@ -269,12 +279,11 @@ public:
 
 private:
   LLVMContext &Context;
-  uint64_t NextIndex;
+  uint64_t NextIndex = 0;
   SmallDenseMap<void *, std::pair<OwnerTy, uint64_t>, 4> UseMap;
 
 public:
-  ReplaceableMetadataImpl(LLVMContext &Context)
-      : Context(Context), NextIndex(0) {}
+  ReplaceableMetadataImpl(LLVMContext &Context) : Context(Context) {}
 
   ~ReplaceableMetadataImpl() {
     assert(UseMap.empty() && "Cannot destroy in-use replaceable metadata");
@@ -586,8 +595,9 @@ dyn_extract_or_null(Y &&MD) {
 class MDString : public Metadata {
   friend class StringMapEntry<MDString>;
 
-  StringMapEntry<MDString> *Entry;
-  MDString() : Metadata(MDStringKind, Uniqued), Entry(nullptr) {}
+  StringMapEntry<MDString> *Entry = nullptr;
+
+  MDString() : Metadata(MDStringKind, Uniqued) {}
 
 public:
   MDString(const MDString &) = delete;
@@ -1083,7 +1093,6 @@ public:
   static MDNode *getMostGenericRange(MDNode *A, MDNode *B);
   static MDNode *getMostGenericAliasScope(MDNode *A, MDNode *B);
   static MDNode *getMostGenericAlignmentOrDereferenceable(MDNode *A, MDNode *B);
-
 };
 
 /// \brief Tuple of metadata.
@@ -1305,7 +1314,7 @@ class NamedMDNode : public ilist_node<NamedMDNode> {
   friend class Module;
 
   std::string Name;
-  Module *Parent;
+  Module *Parent = nullptr;
   void *Operands; // SmallVector<TrackingMDRef, 4>
 
   void setParent(Module *M) { Parent = M; }

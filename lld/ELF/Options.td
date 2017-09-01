@@ -22,6 +22,11 @@ def build_id: F<"build-id">, HelpText<"Generate build ID note">;
 
 def build_id_eq: J<"build-id=">, HelpText<"Generate build ID note">;
 
+def compress_debug_sections : J<"compress-debug-sections=">,
+  HelpText<"Compress DWARF debug sections">;
+
+def defsym: J<"defsym=">, HelpText<"Define a symbol alias">;
+
 def L: JoinedOrSeparate<["-"], "L">, MetaVarName<"<dir>">,
   HelpText<"Add a directory to the library search path">;
 
@@ -84,7 +89,7 @@ def entry: S<"entry">, MetaVarName<"<entry>">,
 def error_limit: S<"error-limit">,
   HelpText<"Maximum number of errors to emit before stopping (0 = no limit)">;
 
-def error_undef: F<"error-unresolved-symbols">,
+def error_unresolved_symbols: F<"error-unresolved-symbols">,
   HelpText<"Report unresolved symbols as errors">;
 
 def export_dynamic: F<"export-dynamic">,
@@ -148,6 +153,9 @@ def no_define_common: F<"no-define-common">,
 def no_demangle: F<"no-demangle">,
   HelpText<"Do not demangle symbol names">;
 
+def no_dynamic_linker: F<"no-dynamic-linker">,
+  HelpText<"Inhibit output of .interp section">;
+
 def no_export_dynamic: F<"no-export-dynamic">;
 def no_fatal_warnings: F<"no-fatal-warnings">;
 
@@ -182,7 +190,7 @@ def o: JoinedOrSeparate<["-"], "o">, MetaVarName<"<path>">,
 def oformat: Separate<["--"], "oformat">, MetaVarName<"<format>">,
   HelpText<"Specify the binary format for the output object file">;
 
-def omagic: F<"omagic">, MetaVarName<"<magic>">,
+def omagic: Flag<["--"], "omagic">, MetaVarName<"<magic>">,
   HelpText<"Set the text and data sections to be readable and writable">;
 
 def pie: F<"pie">, HelpText<"Create a position independent executable">;
@@ -259,7 +267,7 @@ def version_script: S<"version-script">,
 def warn_common: F<"warn-common">,
   HelpText<"Warn about duplicate common symbols">;
 
-def warn_undef: F<"warn-unresolved-symbols">,
+def warn_unresolved_symbols: F<"warn-unresolved-symbols">,
   HelpText<"Report unresolved symbols as warnings">;
 
 def whole_archive: F<"whole-archive">,
@@ -282,6 +290,7 @@ def alias_L__library_path: J<"library-path=">, Alias<L>;
 def alias_define_common_d: Flag<["-"], "d">, Alias<define_common>;
 def alias_define_common_dc: F<"dc">, Alias<define_common>;
 def alias_define_common_dp: F<"dp">, Alias<define_common>;
+def alias_defsym: S<"defsym">, Alias<defsym>;
 def alias_discard_all_x: Flag<["-"], "x">, Alias<discard_all>;
 def alias_discard_locals_X: Flag<["-"], "X">, Alias<discard_locals>;
 def alias_dynamic_list: J<"dynamic-list=">, Alias<dynamic_list>;
@@ -336,6 +345,26 @@ def end_group_paren: Flag<["-"], ")">;
 def start_group: F<"start-group">;
 def start_group_paren: Flag<["-"], "(">;
 
+// LTO-related options.
+def lto_aa_pipeline: J<"lto-aa-pipeline=">,
+  HelpText<"AA pipeline to run during LTO. Used in conjunction with -lto-newpm-passes">;
+def lto_newpm_passes: J<"lto-newpm-passes=">,
+  HelpText<"Passes to run during LTO">;
+def lto_partitions: J<"lto-partitions=">,
+  HelpText<"Number of LTO codegen partitions">;
+def disable_verify: F<"disable-verify">;
+def mllvm: S<"mllvm">;
+def opt_remarks_filename: Separate<["--"], "opt-remarks-filename">,
+  HelpText<"YAML output file for optimization remarks">;
+def opt_remarks_with_hotness: Flag<["--"], "opt-remarks-with-hotness">,
+  HelpText<"Include hotness informations in the optimization remarks file">;
+def save_temps: F<"save-temps">;
+def thinlto_cache_dir: J<"thinlto-cache-dir=">,
+  HelpText<"Path to ThinLTO cached object file directory">;
+def thinlto_cache_policy: S<"thinlto-cache-policy">,
+  HelpText<"Pruning policy for the ThinLTO cache">;
+def thinlto_jobs: J<"thinlto-jobs=">, HelpText<"Number of ThinLTO jobs">;
+
 // Ignore LTO plugin-related options.
 // clang -flto passes -plugin and -plugin-opt to the linker. This is required
 // for ld.gold and ld.bfd to get LTO working. But it's not for lld which doesn't
@@ -357,7 +386,7 @@ def no_add_needed: F<"no-add-needed">;
 def no_allow_shlib_undefined: F<"no-allow-shlib-undefined">;
 def no_copy_dt_needed_entries: F<"no-copy-dt-needed-entries">,
   Alias<no_add_needed>;
-def no_dynamic_linker: F<"no-dynamic-linker">;
+def no_keep_memory: F<"no-keep-memory">;
 def no_mmap_output_file: F<"no-mmap-output-file">;
 def no_warn_common: F<"no-warn-common">;
 def no_warn_mismatch: F<"no-warn-mismatch">;
@@ -375,19 +404,3 @@ def Qy : F<"Qy">;
 // Aliases for ignored options
 def alias_version_script_version_script: J<"version-script=">,
   Alias<version_script>;
-
-// LTO-related options.
-def lto_aa_pipeline: J<"lto-aa-pipeline=">,
-  HelpText<"AA pipeline to run during LTO. Used in conjunction with -lto-newpm-passes">;
-def lto_newpm_passes: J<"lto-newpm-passes=">,
-  HelpText<"Passes to run during LTO">;
-def lto_partitions: J<"lto-partitions=">,
-  HelpText<"Number of LTO codegen partitions">;
-def disable_verify: F<"disable-verify">;
-def mllvm: S<"mllvm">;
-def opt_remarks_filename: S<"opt-remarks-filename">,
-  HelpText<"YAML output file for optimization remarks">;
-def opt_remarks_with_hotness: F<"opt-remarks-with-hotness">,
-  HelpText<"Include hotness informations in the optimization remarks file">;
-def save_temps: F<"save-temps">;
-def thinlto_jobs: J<"thinlto-jobs=">, HelpText<"Number of ThinLTO jobs">;

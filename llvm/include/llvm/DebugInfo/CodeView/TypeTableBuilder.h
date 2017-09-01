@@ -64,7 +64,7 @@ public:
     return *ExpectedIndex;
   }
 
-  TypeIndex writeSerializedRecord(MutableArrayRef<uint8_t> Record) {
+  TypeIndex writeSerializedRecord(ArrayRef<uint8_t> Record) {
     return Serializer.insertRecordBytes(Record);
   }
 
@@ -77,7 +77,7 @@ public:
     }
   }
 
-  ArrayRef<MutableArrayRef<uint8_t>> records() const {
+  ArrayRef<ArrayRef<uint8_t>> records() const {
     return Serializer.records();
   }
 };
@@ -120,6 +120,12 @@ public:
       Index = TypeTable.writeSerializedRecord(Record);
     }
     return Index;
+  }
+
+  /// Stop building the record.
+  void reset() {
+    if (auto EC = TempSerializer.visitTypeEnd(Type))
+      consumeError(std::move(EC));
   }
 };
 

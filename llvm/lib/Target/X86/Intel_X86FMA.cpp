@@ -571,8 +571,7 @@ bool FMAOpcodesInfo::recognizeOpcode(unsigned Opcode, bool LookForAVX512,
 unsigned FMAOpcodesInfo::getOpcodeOfKind(
     bool LookForAVX512, FMAOpcodeKind OpcodeKind, MVT VT) {
   if (OpcodeKind == ZEROOpc) {
-    MVT ElementType = VT.isVector() ? VT.getVectorElementType() : VT;
-    assert((ElementType == MVT::f32 || ElementType == MVT::f64) &&
+    assert((VT.getScalarType() == MVT::f32 || VT.getScalarType() == MVT::f64) &&
            "Only F32 and F64 ZERO vectors/scalars are supported.");
     switch (VT.getSizeInBits()) {
     case 32:
@@ -1634,6 +1633,7 @@ void FMAExprSP::initForEncodedDag(uint64_t EncodedDag) {
   assert(Dag == nullptr && "initForEncodedDag() is applied to initialized SP");
   Dag = new FMADag(EncodedDag);
   bool isOk = initForDag(*Dag);
+  (void)isOk;
   assert(isOk && "Could not initialize SP for 64-bit encoded DAG.");
 
   canonize();
@@ -3043,6 +3043,7 @@ FMAPerfDesc X86GlobalFMA::getDagPerfDesc(const FMADag &Dag) const {
     bool BIsZero = BIsTerm && B == FMADagCommon::TermZERO;
     bool CIsZero = CIsTerm && C == FMADagCommon::TermZERO;
 
+    (void)AIsZero; (void)BIsZero;
     assert((!AIsZero && !BIsZero) && "DAG has obvious inefficiencies.");
 
     bool AIsOne = AIsTerm && A == FMADagCommon::TermONE;

@@ -1,8 +1,6 @@
 ; Check HIR parsing of cases with undefined values in GEP instruction
 ; |   (undef)[undef][sext.i32.i64(undef)] = 5 * i1;
-; |   <LVAL-REG> (LINEAR [5 x i32]* undef)[LINEAR i32 undef][LINEAR i64 sext.i32.i64(undef)] {undefined} {sb:0}
-; |      <BLOB> LINEAR i32 undef {undefined} {sb:10}
-; |      <BLOB> LINEAR [5 x i32]* undef {undefined} {sb:9}
+; |   <LVAL-REG> (LINEAR [5 x i32]* undef)[LINEAR i32 undef][LINEAR i64 sext.i32.i64(undef)] {sb:0}
 ; |   <RVAL-REG> LINEAR i32 5 * i1 {sb:4}
 
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser -hir-details | FileCheck %s
@@ -10,10 +8,9 @@
 ; CHECK: NSW: Yes
 
 ; CHECK: (undef)[undef][{{.*}}undef{{.*}}]
-; CHECK-NEXT: <LVAL-REG>{{.*}}{undefined}
-; CHECK-NEXT: <BLOB>{{.*}}{undefined}
-; CHECK-NEXT: <BLOB>{{.*}}{undefined}
-
+; CHECK-NEXT: <LVAL-REG>{{.*}}
+; undef is assumed as a constant so we do not create blob ddrefs for it.
+; CHECK-NOT: <BLOB> {{.*}} undef
 
 ; ModuleID = 'gep-undef.ll'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

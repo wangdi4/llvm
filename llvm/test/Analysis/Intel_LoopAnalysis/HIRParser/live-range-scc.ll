@@ -3,9 +3,9 @@
 ; Check parsing output for the loop verifying that live range issue for the scc (%sub13 -> %add -> %sub13152 -> %dec5 -> %sub13153) is handled correctly by creating liveout copies. The issue here was that the live-range of %add and %sub13 in the scc overlaps.
 
 ; CHECK: + DO i1 = 0, 56, 1   <DO_LOOP>
-; CHECK: |   %sub13153.out2 = %sub13153;
+; CHECK: |   %sub13153.out1 = %sub13153;
 ; CHECK: |   %sub13153 = %sub13153  +  -1;
-; CHECK: |   if (-1 * i1 + %in <u %sub13153.out2)
+; CHECK: |   if (-1 * i1 + %in <u %sub13153.out1)
 ; CHECK: |   {
 ; CHECK: |      %.pre-phi = i1 + 1;
 ; CHECK: |   }
@@ -13,26 +13,25 @@
 ; CHECK: |   {
 ; CHECK: |      %1 = (%sb)[0][i1 + 2];
 ; CHECK: |      %sub13153 = %1  +  %sub13153;
-; CHECK: |      %sub13153.out1 = %sub13153;
+; CHECK: |      %sub13153.out = %sub13153;
 ; CHECK: |      %3 = (%sb)[0][i1 + 1];
 ; CHECK: |      %4 = (%b)[0];
 ; CHECK: |      (%b)[0] = -1 * %3 + %4;
 ; CHECK: |      %sub13153 = %sub13153  -  %3;
-; CHECK: |      %sub13153.out = %sub13153;
 ; CHECK: |      %.pre-phi = i1 + 1;
-; CHECK: |      if (84 * %sub13153.out != %1)
+; CHECK: |      if (84 * %sub13153 != %1)
 ; CHECK: |      {
-; CHECK: |         (%sb)[0][i1 + 1] = %sub13153.out1;
+; CHECK: |         (%sb)[0][i1 + 1] = %sub13153.out;
 ; CHECK: |         %.pre-phi = i1 + 1;
 ; CHECK: |      }
 ; CHECK: |   }
 ; CHECK: |   %5 = (%vw)[0][%.pre-phi];
 ; CHECK: |   %6 = (%j)[0][i1 + 3];
-; CHECK: |   (%j)[0][i1 + 3] = (%6 * %5);
+; CHECK: |   (%j)[0][i1 + 3] = (%5 * %6);
 ; CHECK: |   + DO i2 = 0, i1, 1   <DO_LOOP>
 ; CHECK: |   |   %7 = (%qu5)[0][i1 + 2][i2 + 1];
 ; CHECK: |   |   %9 = (%qu5)[0][i2][%.pre-phi];
-; CHECK: |   |   (%qu5)[0][i2][%.pre-phi] = (%9 * %7);
+; CHECK: |   |   (%qu5)[0][i2][%.pre-phi] = (%7 * %9);
 ; CHECK: |   + END LOOP
 ; CHECK: + END LOOP
 

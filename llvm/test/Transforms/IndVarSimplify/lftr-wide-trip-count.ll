@@ -150,7 +150,8 @@ for.end:                                          ; preds = %for.end.loopexit, %
 
 ; CHECK-LABEL: @test4(
 ; Trip count should be widened and LFTR should canonicalize the condition
-; CHECK: %wide.trip.count = zext
+; INTEL - due to change in behavior we have sext instead of zext. 
+; CHECK: %wide.trip.count = sext
 ; CHECK: %exitcond = icmp ne i64 %indvars.iv.next, %wide.trip.count
 ; CHECK: br i1 %exitcond
 }

@@ -25,6 +25,7 @@
 
 #include "llvm/Transforms/Scalar/SROA.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AssumptionCache.h"
@@ -2243,8 +2244,8 @@ class llvm::sroa::AllocaSliceRewriter
   Instruction *OldPtr;
 
   // Track post-rewrite users which are PHI nodes and Selects.
-  SmallPtrSetImpl<PHINode *> &PHIUsers;
-  SmallPtrSetImpl<SelectInst *> &SelectUsers;
+  SmallSetVector<PHINode *, 8> &PHIUsers;
+  SmallSetVector<SelectInst *, 8> &SelectUsers;
 
   // Utility IR builder, whose name prefix is setup for each visited use, and
   // the insertion point is set to point to the user.
@@ -2256,8 +2257,8 @@ public:
                       uint64_t NewAllocaBeginOffset,
                       uint64_t NewAllocaEndOffset, bool IsIntegerPromotable,
                       VectorType *PromotableVecTy,
-                      SmallPtrSetImpl<PHINode *> &PHIUsers,
-                      SmallPtrSetImpl<SelectInst *> &SelectUsers)
+                      SmallSetVector<PHINode *, 8> &PHIUsers,
+                      SmallSetVector<SelectInst *, 8> &SelectUsers)
       : DL(DL), AS(AS), Pass(Pass), OldAI(OldAI), NewAI(NewAI),
         NewAllocaBeginOffset(NewAllocaBeginOffset),
         NewAllocaEndOffset(NewAllocaEndOffset),
@@ -2352,7 +2353,8 @@ private:
 #endif
 
     return getAdjustedPtr(IRB, DL, &NewAI,
-                          APInt(DL.getPointerSizeInBits(), Offset), PointerTy,
+                          APInt(DL.getPointerTypeSizeInBits(PointerTy), Offset),
+                          PointerTy,
 #ifndef NDEBUG
                           Twine(OldName) + "."
 #else
@@ -2427,6 +2429,8 @@ private:
     Value *OldOp = LI.getOperand(0);
     assert(OldOp == OldPtr);
 
+    unsigned AS = LI.getPointerAddressSpace();
+
     Type *TargetTy = IsSplit ? Type::getIntNTy(LI.getContext(), SliceSize * 8)
                              : LI.getType();
     const bool IsLoadPastEnd = DL.getTypeStoreSize(TargetTy) > SliceSize;
@@ -2445,6 +2449,10 @@ private:
                                               LI.isVolatile(), LI.getName());
       if (LI.isVolatile())
         NewLI->setAtomic(LI.getOrdering(), LI.getSynchScope());
+
+      // Try to preserve nonnull metadata
+      if (TargetTy->isPointerTy())
+        NewLI->copyMetadata(LI, LLVMContext::MD_nonnull);
       V = NewLI;
 
       // If this is an integer load past the end of the slice (which means the
@@ -2459,7 +2467,7 @@ private:
                                 "endian_shift");
           }
     } else {
-      Type *LTy = TargetTy->getPointerTo();
+      Type *LTy = TargetTy->getPointerTo(AS);
       LoadInst *NewLI = IRB.CreateAlignedLoad(getNewAllocaSlicePtr(IRB, LTy),
                                               getSliceAlign(TargetTy),
                                               LI.isVolatile(), LI.getName());
@@ -2487,12 +2495,12 @@ private:
       // the computed value, and then replace the placeholder with LI, leaving
       // LI only used for this computation.
       Value *Placeholder =
-          new LoadInst(UndefValue::get(LI.getType()->getPointerTo()));
+          new LoadInst(UndefValue::get(LI.getType()->getPointerTo(AS)));
       V = insertInteger(DL, IRB, Placeholder, V, NewBeginOffset - BeginOffset,
                         "insert");
       LI.replaceAllUsesWith(V);
       Placeholder->replaceAllUsesWith(&LI);
-      delete Placeholder;
+      Placeholder->deleteValue();
     } else {
       LI.replaceAllUsesWith(V);
     }
@@ -2600,7 +2608,8 @@ private:
       NewSI = IRB.CreateAlignedStore(V, &NewAI, NewAI.getAlignment(),
                                      SI.isVolatile());
     } else {
-      Value *NewPtr = getNewAllocaSlicePtr(IRB, V->getType()->getPointerTo());
+      unsigned AS = SI.getPointerAddressSpace();
+      Value *NewPtr = getNewAllocaSlicePtr(IRB, V->getType()->getPointerTo(AS));
       NewSI = IRB.CreateAlignedStore(V, NewPtr, getSliceAlign(V->getType()),
                                      SI.isVolatile());
     }
@@ -3915,7 +3924,7 @@ AllocaInst *SROA::rewritePartition(AllocaInst &AI, AllocaSlices &AS,
     if (Alignment <= DL.getABITypeAlignment(SliceTy))
       Alignment = 0;
     NewAI = new AllocaInst(
-        SliceTy, nullptr, Alignment,
+      SliceTy, AI.getType()->getAddressSpace(), nullptr, Alignment,
         AI.getName() + ".sroa." + Twine(P.begin() - AS.begin()), &AI);
     ++NumNewAllocas;
   }
@@ -3929,8 +3938,8 @@ AllocaInst *SROA::rewritePartition(AllocaInst &AI, AllocaSlices &AS,
   // fact scheduled for promotion.
   unsigned PPWOldSize = PostPromotionWorklist.size();
   unsigned NumUses = 0;
-  SmallPtrSet<PHINode *, 8> PHIUsers;
-  SmallPtrSet<SelectInst *, 8> SelectUsers;
+  SmallSetVector<PHINode *, 8> PHIUsers;
+  SmallSetVector<SelectInst *, 8> SelectUsers;
 
   AllocaSliceRewriter Rewriter(DL, AS, *this, AI, *NewAI, P.beginOffset(),
                                P.endOffset(), IsIntegerPromotable, VecTy,
@@ -3946,24 +3955,20 @@ AllocaInst *SROA::rewritePartition(AllocaInst &AI, AllocaSlices &AS,
   }
 
   NumAllocaPartitionUses += NumUses;
-  MaxUsesPerAllocaPartition =
-      std::max<unsigned>(NumUses, MaxUsesPerAllocaPartition);
+  MaxUsesPerAllocaPartition.updateMax(NumUses);
 
   // Now that we've processed all the slices in the new partition, check if any
   // PHIs or Selects would block promotion.
-  for (SmallPtrSetImpl<PHINode *>::iterator I = PHIUsers.begin(),
-                                            E = PHIUsers.end();
-       I != E; ++I)
-    if (!isSafePHIToSpeculate(**I)) {
+  for (PHINode *PHI : PHIUsers)
+    if (!isSafePHIToSpeculate(*PHI)) {
       Promotable = false;
       PHIUsers.clear();
       SelectUsers.clear();
       break;
     }
-  for (SmallPtrSetImpl<SelectInst *>::iterator I = SelectUsers.begin(),
-                                               E = SelectUsers.end();
-       I != E; ++I)
-    if (!isSafeSelectToSpeculate(**I)) {
+
+  for (SelectInst *Sel : SelectUsers)
+    if (!isSafeSelectToSpeculate(*Sel)) {
       Promotable = false;
       PHIUsers.clear();
       SelectUsers.clear();
@@ -4067,8 +4072,7 @@ bool SROA::splitAlloca(AllocaInst &AI, AllocaSlices &AS) {
   }
 
   NumAllocaPartitions += NumPartitions;
-  MaxPartitionsPerAlloca =
-      std::max<unsigned>(NumPartitions, MaxPartitionsPerAlloca);
+  MaxPartitionsPerAlloca.updateMax(NumPartitions);
 
   // Migrate debug information from the old alloca to the new alloca(s)
   // and the individual partitions.
@@ -4242,7 +4246,7 @@ bool SROA::promoteAllocas(Function &F) {
   NumPromoted += PromotableAllocas.size();
 
   DEBUG(dbgs() << "Promoting allocas with mem2reg...\n");
-  PromoteMemToReg(PromotableAllocas, *DT, nullptr, AC);
+  PromoteMemToReg(PromotableAllocas, *DT, AC);
   PromotableAllocas.clear();
   return true;
 }

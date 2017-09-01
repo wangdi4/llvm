@@ -356,16 +356,22 @@ static const int svml_functions_num =  _IML_ATTR_SIZEOF_TABLE(FunctionDescriptio
 // exp2f implementation included here to avoid dependency on math library
 #include "llvm/Transforms/Intel_MapIntrinToIml/iml_exp2f.h"
 
-
+#if defined(__GNUC__)
+static const char* attrGetAccuracyName(AccuracyEnum a)
+                                      __attribute__((unused));
+#endif
 static const char* attrGetAccuracyName(AccuracyEnum a)
 {
-    (void)attrGetAccuracyName; // Quiet unused function warning.
     return valid_accuracy_names[a];
 }
 
+
+#if defined(__GNUC__)
+static const char* attrGetConfigName(ConfigurationsEnum c)
+                                         __attribute__((unused));
+#endif
 static const char* attrGetConfigName(ConfigurationsEnum c)
 {
-  (void)attrGetConfigName; // Quiet unused function warning.
   if(c == c_configuration_unsupported)
     return "unsupported";
   else

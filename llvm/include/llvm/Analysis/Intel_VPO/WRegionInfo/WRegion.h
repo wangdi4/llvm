@@ -17,7 +17,7 @@
 #ifndef LLVM_ANALYSIS_VPO_WREGION_H
 #define LLVM_ANALYSIS_VPO_WREGION_H
 
-#include "llvm/IR/Intel_LoopIR/HLNode.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLNode.h"
 #include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionNode.h"
 

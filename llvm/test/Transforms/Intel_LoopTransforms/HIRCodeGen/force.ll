@@ -6,7 +6,7 @@
 ; CHECK: br i1 true, {{.*}}label %region
 
 ; 
-; CHECK: region:
+; CHECK: region.0:
 ; CHECK: store i64 0, i64* %i1
 ; CHECK-NEXT: br label %[[L1Label:loop.[0-9]+]]
 

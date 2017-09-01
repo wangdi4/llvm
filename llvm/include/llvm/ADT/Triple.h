@@ -16,6 +16,7 @@
 // this file.  Undefine them here.
 #undef NetBSD
 #undef mips
+#undef nios2
 #undef sparc
 
 namespace llvm {
@@ -59,6 +60,7 @@ public:
     mips64,         // MIPS64: mips64
     mips64el,       // MIPS64EL: mips64el
     msp430,         // MSP430: msp430
+    nios2,          // NIOSII: nios2
     ppc,            // PPC: powerpc
     ppc64,          // PPC64: powerpc64, ppu
     ppc64le,        // PPC64LE: powerpc64le
@@ -140,7 +142,8 @@ public:
     Myriad,
     AMD,
     Mesa,
-    LastVendorType = Mesa
+    SUSE,
+    LastVendorType = SUSE
   };
   enum OSType {
     UnknownOS,
@@ -193,6 +196,9 @@ public:
     MuslEABI,
     MuslEABIHF,
 
+#if INTEL_CUSTOMIZATION
+    IntelFPGA,
+#endif // INTEL_CUSTOMIZATION
     MSVC,
     Itanium,
     Cygnus,
@@ -249,6 +255,10 @@ public:
            Vendor == Other.Vendor && OS == Other.OS &&
            Environment == Other.Environment &&
            ObjectFormat == Other.ObjectFormat;
+  }
+
+  bool operator!=(const Triple &Other) const {
+    return !(*this == Other);
   }
 
   /// @}
@@ -527,6 +537,12 @@ public:
     return getOS() == Triple::Win32 && getEnvironment() == Triple::GNU;
   }
 
+#if INTEL_CUSTOMIZATION
+  bool isINTELFPGAEnvironment() const {
+    return getEnvironment() == Triple::IntelFPGA;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   /// Tests for either Cygwin or MinGW OS
   bool isOSCygMing() const {
     return isWindowsCygwinEnvironment() || isWindowsGNUEnvironment();
@@ -560,7 +576,8 @@ public:
 
   /// Tests whether the OS uses glibc.
   bool isOSGlibc() const {
-    return getOS() == Triple::Linux || getOS() == Triple::KFreeBSD;
+    return (getOS() == Triple::Linux || getOS() == Triple::KFreeBSD) &&
+           !isAndroid();
   }
 
   /// Tests whether the OS uses the ELF binary format.
@@ -598,6 +615,19 @@ public:
 
   /// Tests whether the target is Android
   bool isAndroid() const { return getEnvironment() == Triple::Android; }
+
+  bool isAndroidVersionLT(unsigned Major) const {
+    assert(isAndroid() && "Not an Android triple!");
+
+    unsigned Env[3];
+    getEnvironmentVersion(Env[0], Env[1], Env[2]);
+
+    // 64-bit targets did not exist before API level 21 (Lollipop).
+    if (isArch64Bit() && Env[0] < 21)
+      Env[0] = 21;
+
+    return Env[0] < Major;
+  }
 
   /// Tests whether the environment is musl-libc
   bool isMusl() const {
@@ -706,6 +736,12 @@ public:
   ///
   /// \returns true if the triple is little endian, false otherwise.
   bool isLittleEndian() const;
+
+  /// Test whether target triples are compatible.
+  bool isCompatibleWith(const Triple &Other) const;
+
+  /// Merge target triples.
+  std::string merge(const Triple &Other) const;
 
   /// @}
   /// @name Static helpers for IDs.

@@ -1,15 +1,10 @@
 ; Check HIR parsing of IF instruction with TRUE predicate
-; |   if (0 true 0)
-; |   <RVAL-REG> LINEAR i1 0 {undefined} {sb:1}
-; |   <RVAL-REG> LINEAR i1 0 {undefined} {sb:1}
 
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser -hir-details | FileCheck %s
 
 ; CHECK: NSW: Yes
 
-; CHECK:      if ({{.*}}true{{.*}})
-; CHECK:      <RVAL-REG>{{.*}}{undefined}
-; CHECK-NEXT: <RVAL-REG>{{.*}}{undefined}
+; CHECK:      if (undef true undef)
 
 ; ModuleID = 'if-true.ll'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

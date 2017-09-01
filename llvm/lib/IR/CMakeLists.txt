@@ -60,5 +60,3 @@ add_llvm_library(LLVMCore
   DEPENDS
   intrinsics_gen
   )
-
-add_subdirectory(Intel_LoopIR)

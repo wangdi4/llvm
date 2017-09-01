@@ -1,4 +1,4 @@
-===========================
+o===========================
 Xmain Development Processes
 ===========================
 
@@ -55,17 +55,19 @@ When a developer is ready to commit a change, the `xmain checkin request form
 subject=xmain%20checkin%20request%20(Description%2001/01/2016)&
 body=1.%20Describe%20the%20new%20features%20or%20changes.%20Include%20tracker%23
 %20where%20applicable.%0D%0A%0D%0A%0D%0A%0D%0A
-2.%20Please%20list%20all%20modified,%20added%20or%20deleted%20files%20and%20
+2.%20Please%20explain%20why%20this%20change%20set%20should%20not%20be%20
+upstreamed%20to%20LLVM%20open%20source.%0D%0A%0D%0A%0D%0A%0D%0A
+3.%20Please%20list%20all%20modified,%20added%20or%20deleted%20files%20and%20
 directories.%0D%0A%0D%0A%0D%0A%0D%0A
-3.%20Was%20every%20change%20in%20this%20change-set%20code%20reviewed%3F%20If%20
+4.%20Was%20every%20change%20in%20this%20change-set%20code%20reviewed%3F%20If%20
 this%20is%20anything%20other%20than%20a%20single%20component%20promotion%20
 checkin%20request,%20please%20list%20the%20code%20reviewers.%0D%0A%0D%0A%0D%0A
 %0D%0A
-4.%20Does%20every%20change%20in%20the%20LLVM/Clang%20portions%20of%20the%20
+5.%20Does%20every%20change%20in%20the%20LLVM/Clang%20portions%20of%20the%20
 source%20tree%20have%20corresponding%20changes%20that%20provide%20unit%20
 testing%20coverage%3F%20Are%20any%20of%20the%20newly%20added%20unit%20tests%20
 currently%20failing%3F%0D%0A%0D%0A%0D%0A%0D%0A
-5.%20What%20stability%20testing%20was%20done%20(list%20the%20exact%20command
+6.%20What%20stability%20testing%20was%20done%20(list%20the%20exact%20command
 %20used%20to%20run%20alloy)%3F%20Please%20explain%20anything%20in%20the%20
 fail.log%20or%20problem.log%20files,%20and%20why%20the%20checkin%20should%20
 be%20allowed%20with%20these%20failures.%20For%20every%20new%20or%20flaky%20
@@ -74,8 +76,8 @@ failure%20in%20fail.log,%20a%20CQ%20must%20be%20filed%20if%20one%20does%20not
 testing%20done%20in%20addition%20to%20alloy%3F%0D%0A%0D%0A%0D%0A%0D%0A
 Please%20attach%20the%20following%20files%20from%20your%20alloy%20run,%20if%20
 applicable%3A%20status.log,%20fail.log,%20problem.log,%20and%20
-zperf%5Frt%5Frpt.log.>`_ should be filled out and mailed to the ICL Xmain
-Gatekeeper.
+zperf%5Frt%5Frpt.log.%0D%0Axmain%20checkin%20questionnaire%20version%202>`_
+should be filled out and mailed to the ICL Xmain Gatekeeper.
 
 .. _xmain-markups:
 
@@ -129,7 +131,42 @@ consideration is clarity & readability.
 
 - For Intel-added files, you do not need to put any special markups in the
   sources. Instead, the fully qualified file name should contain ``Intel``
-  or ``intel``.
+  or ``intel``. Intel-added files should be headed by an Intel copyright
+  notice, not by the typical LLVM one. The following is a sample that you can
+  adapt by changing the filename, file description, and copyright dates
+  appropriately.
+
+.. code-block:: c++
+
+  //==--- Intel_Directives.cpp - Table of directives and clauses -*- C++ -*---==//
+  //
+  // Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
+  //
+  // The information and source code contained herein is the exclusive property
+  // of Intel Corporation and may not be disclosed, examined or reproduced in
+  // whole or in part without explicit written authorization from the company.
+  //
+  // ===--------------------------------------------------------------------=== //
+
+- For code which should be excluded from final release builds but included
+  in 'prod' builds during development (such as IR printing capabilities),
+  you should use the 'INTEL_PRODUCT_RELEASE' preprocessor symbol.  This
+  symbol will be defined only for 'release' builds when ics usage is set to
+  qa mode (using 'ics set usage qa').  For example:
+
+.. code-block:: c++
+
+  void MyClass::print(raw_ostream &OS) const {
+  #if !INTEL_PRODUCT_RELEASE
+    // Print the IR for MyClass to OS.
+    OS << MyClass.A << "\n";
+  #endif // !INTEL_PRODUCT_RELEASE
+  }
+
+..
+
+  This preprocessor symbol should be used the same in either modified LLVM
+  files or Intel-specific source files.
 
 Coding Standards
 ================
@@ -143,13 +180,31 @@ from xmain when we choose to do so.
 We enforce this policy primarily through code reviews. If you notice any
 violations, you are encouraged to fix them.
 
+Unit Test Development
+=====================
+
+All functional changes to xmain must be accompanied by unit tests using the
+LIT infrastructure. This requirement is no different from what the open source
+community expects.
+
+Additionally, new programmer visible features should be accompanied by
+end-to-end tests in our ``tc`` test suites. Changes to the test suite are
+normally made using the ``TMT`` tool.
+
+All test changes must be code reviewed following the same
+:ref:`code review <code-reviews>` processes used for compiler changes. This
+includes both LIT changes and ``tc`` test changes.
+
+.. _code-reviews:
+
 Code Reviews
 ============
 
 Our code review policy requires that every piece of code in xmain is thoroughly
 understood and accepted by more than one person. Having a second person read
 through your code and attempt to understand it helps identify pieces that are
-confusing, inefficient, or incorrect. Code reviews are a critical mechanism for ensuring that the code we commit to xmain is of the highest quality.
+confusing, inefficient, or incorrect. Code reviews are a critical mechanism for
+ensuring that the code we commit to xmain is of the highest quality.
 
 Code Review Tool
 ----------------
@@ -159,13 +214,32 @@ review tool for xmain development. Individual teams may use other tools
 internally but are expected to use Code Collaborator when working with other
 teams.
 
+Choosing a code reviewer
+------------------------
+
+If you are unsure who should review your changes, the advice of the LLVM
+community documented `here <../Phabricator.html>`_ works just as well for
+xmain. That is,
+
+- Use ``svn blame`` and the commit log to find names of people who have recently
+  modified the same area of code that you are modifying.
+- If you've discussed the change with others, they are good candidates to be
+  your reviewers.
+
+.. note:: We do not currently have an xmain equivalent of CODE_OWNERS.txt, but
+          we are working on creating one. In case this document is out of date,
+          check the root llvm directory for intel_code_owners.map or something
+          similar.
+
 Expectations of code reviewers
 ------------------------------
 
-- Every change in xmain must be given a detailed line-by-line code review. A
-  cursory reading of the code is not an adequate code review. Code reviewers
-  and code authors are equally responsible for the quality of code that gets
-  committed to xmain.
+- It is the job of the code reviewer to **thoroughly** understand the code
+  changes under review. Reviewers must understand both the high level design
+  and the low level details. Every change in xmain must be given a detailed
+  line-by-line code review. A cursory reading of the code is not an adequate
+  code review. Code reviewers and code authors are equally responsible for the
+  quality of code that gets committed to xmain.
 
 - Reviews should be timely. At this time, we do not have a specific rule for
   how long a review should take. But remember that the code reviewer is usually
@@ -194,6 +268,9 @@ Expectations of code authors
 
    - Accompany each code review request with a good explanation of what you are
      trying to accomplish in the change set, providing any necessary context.
+     Well-written unit tests are often the best way to establish context for a
+     review since they should illustrate what the change set is trying to
+     accomplish.
 
    - Document your code well, either via source comments or via higher level
      documentation in the llvm/docs area.
@@ -208,10 +285,6 @@ Expectations of code authors
 
 Testing Requirements
 ====================
-
-All functional changes to xmain must be accompanied by unit tests using the
-LIT infrastructure. This requirement is no different from what the open source
-community expects.
 
 Commits to xmain are expected to meet a minimum level of stability and
 performance. Prior to requesting commit permission, developers should run

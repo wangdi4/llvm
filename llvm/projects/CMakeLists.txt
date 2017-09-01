@@ -11,7 +11,8 @@ foreach(entry ${entries})
        (NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/libcxxabi) AND
        (NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/libunwind) AND
        (NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/test-suite) AND
-       (NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/parallel-libs))
+       (NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/parallel-libs) AND
+       (NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/openmp))
       add_subdirectory(${entry})
     endif()
   endif()
@@ -22,7 +23,9 @@ endforeach(entry)
 if(${LLVM_BUILD_RUNTIME})
   # MSVC isn't quite working with libc++ yet, disable it until issues are
   # fixed.
-  if(NOT MSVC)
+  # FIXME: LLVM_FORCE_BUILD_RUNTIME is currently used by libc++ to force
+  # enable the in-tree build when targeting clang-cl.
+  if(NOT MSVC OR LLVM_FORCE_BUILD_RUNTIME)
     # Add the projects in reverse order of their dependencies so that the
     # dependent projects can see the target names of their dependencies.
     add_llvm_external_project(libunwind)
@@ -42,3 +45,5 @@ endif()
 
 add_llvm_external_project(dragonegg)
 add_llvm_external_project(parallel-libs)
+# INTEL: Below logic moved to the flag above.
+#add_llvm_external_project(openmp) INTEL

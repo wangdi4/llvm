@@ -22,14 +22,14 @@
 #include "lldb/Breakpoint/BreakpointLocation.h"
 #include "lldb/Breakpoint/BreakpointSite.h"
 #include "lldb/Core/Debugger.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Core/PluginManager.h"
 #include "lldb/Core/State.h"
-#include "lldb/Host/FileSpec.h"
 #include "lldb/Host/HostInfo.h"
 #include "lldb/Target/Process.h"
 #include "lldb/Target/Target.h"
-#include "lldb/Utility/Error.h"
+#include "lldb/Utility/FileSpec.h"
+#include "lldb/Utility/Log.h"
+#include "lldb/Utility/Status.h"
 #include "lldb/Utility/StreamString.h"
 
 // Define these constants from FreeBSD mman.h for use when targeting
@@ -59,7 +59,7 @@ PlatformSP PlatformFreeBSD::CreateInstance(bool force, const ArchSpec *arch) {
       create = true;
       break;
 
-#if defined(__FreeBSD__) || defined(__OpenBSD__)
+#if defined(__FreeBSD__)
     // Only accept "unknown" for the OS if the host is BSD and
     // it "unknown" wasn't specified (it was just returned because it
     // was NOT specified)
@@ -255,8 +255,8 @@ PlatformFreeBSD::GetSoftwareBreakpointTrapOpcode(Target &target,
   }
 }
 
-Error PlatformFreeBSD::LaunchProcess(ProcessLaunchInfo &launch_info) {
-  Error error;
+Status PlatformFreeBSD::LaunchProcess(ProcessLaunchInfo &launch_info) {
+  Status error;
   if (IsHost()) {
     error = Platform::LaunchProcess(launch_info);
   } else {
@@ -270,7 +270,7 @@ Error PlatformFreeBSD::LaunchProcess(ProcessLaunchInfo &launch_info) {
 
 lldb::ProcessSP PlatformFreeBSD::Attach(ProcessAttachInfo &attach_info,
                                         Debugger &debugger, Target *target,
-                                        Error &error) {
+                                        Status &error) {
   lldb::ProcessSP process_sp;
   if (IsHost()) {
     if (target == NULL) {

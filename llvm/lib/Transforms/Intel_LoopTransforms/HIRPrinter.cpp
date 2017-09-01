@@ -13,11 +13,12 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if !INTEL_PRODUCT_RELEASE
 #include "llvm/Support/Debug.h"
 
 #include "llvm/IR/Function.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 
 using namespace llvm;
@@ -69,3 +70,4 @@ FunctionPass *llvm::createHIRPrinterPass(raw_ostream &OS,
                                          const std::string &Banner) {
   return new HIRPrinter(OS, Banner);
 }
+#endif // !INTEL_PRODUCT_RELEASE

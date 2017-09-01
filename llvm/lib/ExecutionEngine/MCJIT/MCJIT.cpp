@@ -233,6 +233,11 @@ void MCJIT::generateCodeForModule(Module *M) {
 void MCJIT::finalizeLoadedModules() {
   MutexGuard locked(lock);
 
+#ifdef INTEL_OPENCL
+  if (OwnedModules.allModulesAreFinalized())
+    return;
+#endif // INTEL_OPENCL
+
   // Resolve any outstanding relocations.
   Dyld.resolveRelocations();
 

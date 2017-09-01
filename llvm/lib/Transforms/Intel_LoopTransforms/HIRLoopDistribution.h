@@ -15,11 +15,11 @@
 #ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRLOOPDISTRIBUTION_H
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRLOOPDISTRIBUTION_H
 
-#include "llvm/Analysis/Intel_LoopAnalysis/DDGraph.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/DDTests.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRLoopStatistics.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRDDAnalysis.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRLoopDistributionGraph.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/DDGraph.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/DDTests.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopDistributionGraph.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
 namespace llvm {

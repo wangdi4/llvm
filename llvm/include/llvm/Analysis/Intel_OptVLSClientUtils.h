@@ -19,16 +19,18 @@
 #include "llvm/Analysis/Intel_OptVLS.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/ADT/DenseMap.h"
+#include "llvm/IR/IRBuilder.h"
 
 namespace llvm {
 
 /// Common VLS-Client Cost-model utilities.
-/// The VLS-engine needs clients to provide this information in order to 
+/// The VLS-engine needs clients to provide this information in order to
 /// compute the cost of a VLS group.
 class OVLSTTICostModel : public OVLSCostModel {
 public:
   OVLSTTICostModel(const TargetTransformInfo &TTI, LLVMContext &C)
-    : OVLSCostModel(TTI, C) {}
+      : OVLSCostModel(TTI, C) {}
 
   /// \brief Returns target-specific cost for \p I based on the
   /// Target Transformation Information (TTI) interface.
@@ -50,7 +52,7 @@ public:
   Type *getVectorDataType(Type *ElemType, OVLSType &VLSType) const;
 };
 
-/// Empty implementation for the (yet non existant) LLVM vectorizer client 
+/// Empty implementation for the (yet non existant) LLVM vectorizer client
 /// (which will also operate on scalar Memrefs).
 // TODO.
 class OVLSTTICostModelLLVMIR : public OVLSTTICostModel {
@@ -70,6 +72,23 @@ public:
   uint64_t getGatherScatterOpCost(const OVLSMemref &Mrf) const override {
     return 0;
   }
+};
+
+/// Facilitates conversion between OVLSInstruction and LLVM-IR Instruction.
+class OVLSConverter {
+public:
+  /// \brief Generates LLVM-IR instructions for a set of OVLSInstructions.
+  ///
+  /// This function generates corresponding LLVM_IR instruction for
+  /// OVLSInstructions in \p OInst. It traverses the \p InstVec from lower
+  /// to higher index. Whenever there is a need to generate memory instructions
+  /// it uses the pointer address given in \p Addr and the element type in \p
+  /// ElemTy. It returns a mapping from OVLSInstruction to the generated LLVM-IR
+  /// instruction.
+  /// TODO: Support heterogeneous elem-types.
+  static DenseMap<uint64_t, Value *>
+  genLLVMIR(IRBuilder<> &Builder, const OVLSInstructionVector &InstVec,
+            Value *Addr, Type *ElemTy, unsigned Alignment);
 };
 }
 #endif

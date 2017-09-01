@@ -19,8 +19,8 @@
 #define LLVM_ANALYSIS_VPO_AVR_SWITCH_HIR_H
 
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrSwitch.h"
-#include "llvm/IR/Intel_LoopIR/HLSwitch.h"
-#include "llvm/IR/Intel_LoopIR/RegDDRef.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLSwitch.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/RegDDRef.h"
 
 using namespace llvm::loopopt;
 

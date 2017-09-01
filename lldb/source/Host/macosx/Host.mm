@@ -56,24 +56,25 @@
 
 #include "lldb/Core/ArchSpec.h"
 #include "lldb/Core/Communication.h"
-#include "lldb/Core/DataBufferHeap.h"
-#include "lldb/Core/DataExtractor.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/ModuleSpec.h"
 #include "lldb/Core/StreamFile.h"
 #include "lldb/Core/StructuredData.h"
 #include "lldb/Host/ConnectionFileDescriptor.h"
-#include "lldb/Host/FileSpec.h"
-#include "lldb/Host/FileSystem.h"
 #include "lldb/Host/HostInfo.h"
 #include "lldb/Host/ThreadLauncher.h"
 #include "lldb/Target/Platform.h"
 #include "lldb/Target/Process.h"
 #include "lldb/Utility/CleanUp.h"
+#include "lldb/Utility/DataBufferHeap.h"
+#include "lldb/Utility/DataExtractor.h"
 #include "lldb/Utility/Endian.h"
+#include "lldb/Utility/FileSpec.h"
+#include "lldb/Utility/Log.h"
 #include "lldb/Utility/NameMatches.h"
 #include "lldb/Utility/StreamString.h"
+
+#include "llvm/Support/FileSystem.h"
 
 #include "cfcpp/CFCBundle.h"
 #include "cfcpp/CFCMutableArray.h"
@@ -101,7 +102,7 @@ using namespace lldb_private;
 bool Host::GetBundleDirectory(const FileSpec &file,
                               FileSpec &bundle_directory) {
 #if defined(__APPLE__)
-  if (file.GetFileType() == FileSpec::eFileTypeDirectory) {
+  if (llvm::sys::fs::is_directory(file.GetPath())) {
     char path[PATH_MAX];
     if (file.GetPath(path, sizeof(path))) {
       CFCBundle bundle(path);
@@ -118,7 +119,7 @@ bool Host::GetBundleDirectory(const FileSpec &file,
 
 bool Host::ResolveExecutableInBundle(FileSpec &file) {
 #if defined(__APPLE__)
-  if (file.GetFileType() == FileSpec::eFileTypeDirectory) {
+  if (llvm::sys::fs::is_directory(file.GetPath())) {
     char path[PATH_MAX];
     if (file.GetPath(path, sizeof(path))) {
       CFCBundle bundle(path);
@@ -139,7 +140,7 @@ bool Host::ResolveExecutableInBundle(FileSpec &file) {
 static void *AcceptPIDFromInferior(void *arg) {
   const char *connect_url = (const char *)arg;
   ConnectionFileDescriptor file_conn;
-  Error error;
+  Status error;
   if (file_conn.Connect(connect_url, &error) == eConnectionStatusSuccess) {
     char pid_str[256];
     ::memset(pid_str, 0, sizeof(pid_str));
@@ -309,7 +310,7 @@ static bool WaitForProcessToSIGSTOP(const lldb::pid_t pid,
 //
 //    lldb::pid_t pid = LLDB_INVALID_PROCESS_ID;
 //
-//    Error lldb_error;
+//    Status lldb_error;
 //    // Sleep and wait a bit for debugserver to start to listen...
 //    char connect_url[128];
 //    ::snprintf (connect_url, sizeof(connect_url), "unix-accept://%s",
@@ -376,10 +377,10 @@ tell application \"Terminal\"\n\
 	do script the_shell_script\n\
 end tell\n";
 
-static Error
+static Status
 LaunchInNewTerminalWithAppleScript(const char *exe_path,
                                    ProcessLaunchInfo &launch_info) {
-  Error error;
+  Status error;
   char unix_socket_name[PATH_MAX] = "/tmp/XXXXXX";
   if (::mktemp(unix_socket_name) == NULL) {
     error.SetErrorString("failed to make temporary path for a unix socket");
@@ -499,7 +500,7 @@ LaunchInNewTerminalWithAppleScript(const char *exe_path,
 
   lldb::pid_t pid = LLDB_INVALID_PROCESS_ID;
 
-  Error lldb_error;
+  Status lldb_error;
   // Sleep and wait a bit for debugserver to start to listen...
   ConnectionFileDescriptor file_conn;
   char connect_url[128];
@@ -528,7 +529,7 @@ LaunchInNewTerminalWithAppleScript(const char *exe_path,
     WaitForProcessToSIGSTOP(pid, 5);
   }
 
-  FileSystem::Unlink(FileSpec{unix_socket_name, false});
+  llvm::sys::fs::remove(unix_socket_name);
   [applescript release];
   if (pid != LLDB_INVALID_PROCESS_ID)
     launch_info.SetProcessID(pid);
@@ -945,8 +946,8 @@ static void PackageXPCArguments(xpc_object_t message, const char *prefix,
  Once obtained, it will be valid for as long as the process lives.
  */
 static AuthorizationRef authorizationRef = NULL;
-static Error getXPCAuthorization(ProcessLaunchInfo &launch_info) {
-  Error error;
+static Status getXPCAuthorization(ProcessLaunchInfo &launch_info) {
+  Status error;
   Log *log(lldb_private::GetLogIfAllCategoriesSet(LIBLLDB_LOG_HOST |
                                                   LIBLLDB_LOG_PROCESS));
 
@@ -1023,11 +1024,11 @@ static Error getXPCAuthorization(ProcessLaunchInfo &launch_info) {
 }
 #endif
 
-static Error LaunchProcessXPC(const char *exe_path,
-                              ProcessLaunchInfo &launch_info,
-                              lldb::pid_t &pid) {
+static Status LaunchProcessXPC(const char *exe_path,
+                               ProcessLaunchInfo &launch_info,
+                               lldb::pid_t &pid) {
 #if !NO_XPC_SERVICES
-  Error error = getXPCAuthorization(launch_info);
+  Status error = getXPCAuthorization(launch_info);
   if (error.Fail())
     return error;
 
@@ -1155,7 +1156,7 @@ static Error LaunchProcessXPC(const char *exe_path,
 
   return error;
 #else
-  Error error;
+  Status error;
   return error;
 #endif
 }
@@ -1176,16 +1177,16 @@ static bool ShouldLaunchUsingXPC(ProcessLaunchInfo &launch_info) {
   return result;
 }
 
-Error Host::LaunchProcess(ProcessLaunchInfo &launch_info) {
-  Error error;
+Status Host::LaunchProcess(ProcessLaunchInfo &launch_info) {
+  Status error;
   char exe_path[PATH_MAX];
   PlatformSP host_platform_sp(Platform::GetHostPlatform());
 
   ModuleSpec exe_module_spec(launch_info.GetExecutableFile(),
                              launch_info.GetArchitecture());
 
-  FileSpec::FileType file_type = exe_module_spec.GetFileSpec().GetFileType();
-  if (file_type != FileSpec::eFileTypeRegular) {
+  if (!llvm::sys::fs::is_regular_file(
+          exe_module_spec.GetFileSpec().GetPath())) {
     lldb::ModuleSP exe_module_sp;
     error = host_platform_sp->ResolveExecutable(exe_module_spec, exe_module_sp,
                                                 NULL);
@@ -1245,8 +1246,8 @@ Error Host::LaunchProcess(ProcessLaunchInfo &launch_info) {
   return error;
 }
 
-Error Host::ShellExpandArguments(ProcessLaunchInfo &launch_info) {
-  Error error;
+Status Host::ShellExpandArguments(ProcessLaunchInfo &launch_info) {
+  Status error;
   if (launch_info.GetFlags().Test(eLaunchFlagShellExpandArguments)) {
     FileSpec expand_tool_spec;
     if (!HostInfo::GetLLDBPath(lldb::ePathTypeSupportExecutableDir,
@@ -1327,8 +1328,7 @@ Error Host::ShellExpandArguments(ProcessLaunchInfo &launch_info) {
       if (!str_sp)
         continue;
 
-      launch_info.GetArguments().AppendArgument(
-          llvm::StringRef(str_sp->GetValue().c_str()));
+      launch_info.GetArguments().AppendArgument(str_sp->GetValue());
     }
   }
 
@@ -1445,8 +1445,4 @@ void Host::SystemLog(SystemLogType type, const char *format, va_list args) {
     // Log to ASL
     ::asl_vlog(NULL, g_aslmsg, asl_level, format, args);
   }
-}
-
-lldb::DataBufferSP Host::GetAuxvData(lldb_private::Process *process) {
-  return lldb::DataBufferSP();
 }

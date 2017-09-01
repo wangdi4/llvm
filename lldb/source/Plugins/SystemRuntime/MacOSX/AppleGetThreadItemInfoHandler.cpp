@@ -15,7 +15,6 @@
 // Other libraries and framework includes
 // Project includes
 
-#include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/Value.h"
 #include "lldb/Expression/DiagnosticManager.h"
@@ -30,6 +29,7 @@
 #include "lldb/Target/Target.h"
 #include "lldb/Target/Thread.h"
 #include "lldb/Utility/ConstString.h"
+#include "lldb/Utility/Log.h"
 #include "lldb/Utility/StreamString.h"
 #include "lldb/lldb-private.h"
 
@@ -161,7 +161,7 @@ lldb::addr_t AppleGetThreadItemInfoHandler::SetupGetThreadItemInfoFunction(
     // First stage is to make the ClangUtility to hold our injected function:
 
     if (!m_get_thread_item_info_impl_code.get()) {
-      Error error;
+      Status error;
       if (g_get_thread_item_info_function_code != NULL) {
         m_get_thread_item_info_impl_code.reset(
             exe_ctx.GetTargetRef().GetUtilityFunctionForLanguage(
@@ -243,7 +243,7 @@ AppleGetThreadItemInfoHandler::GetThreadItemInfo(Thread &thread,
                                                  tid_t thread_id,
                                                  addr_t page_to_free,
                                                  uint64_t page_to_free_size,
-                                                 Error &error) {
+                                                 Status &error) {
   lldb::StackFrameSP thread_cur_frame = thread.GetStackFrameAtIndex(0);
   ProcessSP process_sp(thread.CalculateProcess());
   TargetSP target_sp(thread.CalculateTarget());

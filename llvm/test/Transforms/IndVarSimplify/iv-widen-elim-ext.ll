@@ -29,7 +29,8 @@ define void @foo(i32* %A, i32* %B, i32* %C, i32 %N) {
 ; CHECK-NEXT:    br label %for.inc
 ; CHECK:       for.inc:
 ; CHECK-NEXT:    [[INDVARS_IV_NEXT:%.*]] = add nuw nsw i64 [[INDVARS_IV]], 1
-; CHECK-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = zext i32 %N to i64
+; INTEL - zext changed to zext
+; CHECK-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = sext i32 %N to i64
 ; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp ne i64 [[INDVARS_IV_NEXT]], [[WIDE_TRIP_COUNT]]
 ; CHECK-NEXT:    br i1 [[EXITCOND]], label %for.body, label %for.cond.for.end_crit_edge
 ; CHECK:       for.cond.for.end_crit_edge:
@@ -93,7 +94,8 @@ define void @foo1(i32* %A, i32* %B, i32* %C, i32 %N) {
 ; CHECK-NEXT:    br label %for.inc
 ; CHECK:       for.inc:
 ; CHECK-NEXT:    [[INDVARS_IV_NEXT:%.*]] = add nuw nsw i64 [[INDVARS_IV]], 1
-; CHECK-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = zext i32 %N to i64
+; INTEL - zext changed to zext
+; CHECK-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = sext i32 %N to i64
 ; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp ne i64 [[INDVARS_IV_NEXT]], [[WIDE_TRIP_COUNT]]
 ; CHECK-NEXT:    br i1 [[EXITCOND]], label %for.body, label %for.cond.for.end_crit_edge
 ; CHECK:       for.cond.for.end_crit_edge:
@@ -160,7 +162,8 @@ define i32 @foo2(i32 %M) {
 ; CHECK-NEXT:    br label %for.inc
 ; CHECK:       for.inc:
 ; CHECK-NEXT:    [[INDVARS_IV_NEXT:%.*]] = add nuw nsw i64 [[INDVARS_IV]], 1
-; CHECK-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = zext i32 %M to i64
+; INTEL - zext changed to zext
+; CHECK-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = sext i32 %M to i64
 ; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp ne i64 [[INDVARS_IV_NEXT]], [[WIDE_TRIP_COUNT]]
 ; CHECK-NEXT:    br i1 [[EXITCOND]], label %for.body, label %for.cond.for.end_crit_edge
 ; CHECK:       for.cond.for.end_crit_edge:
@@ -230,7 +233,8 @@ define i32 @foo3(i32 %M) {
 ; CHECK-NEXT:    br label %for.inc
 ; CHECK:       for.inc:
 ; CHECK-NEXT:    [[INDVARS_IV_NEXT:%.*]] = add nuw nsw i64 [[INDVARS_IV]], 1
-; CHECK-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = zext i32 %M to i64
+; INTEL - zext changed to zext
+; CHECK-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = sext i32 %M to i64
 ; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp ne i64 [[INDVARS_IV_NEXT]], [[WIDE_TRIP_COUNT]]
 ; CHECK-NEXT:    br i1 [[EXITCOND]], label %for.body, label %for.cond.for.end_crit_edge
 ; CHECK:       for.cond.for.end_crit_edge:

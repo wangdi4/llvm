@@ -7,7 +7,6 @@ set(LIBCXXABI_SOURCES
   cxa_exception_storage.cpp
   cxa_guard.cpp
   cxa_handlers.cpp
-  cxa_new_delete.cpp
   cxa_unexpected.cpp
   cxa_vector.cpp
   cxa_virtual.cpp
@@ -20,6 +19,10 @@ set(LIBCXXABI_SOURCES
   fallback_malloc.cpp
   private_typeinfo.cpp
 )
+
+if (LIBCXXABI_ENABLE_NEW_DELETE_DEFINITIONS)
+  list(APPEND LIBCXXABI_SOURCES stdlib_new_delete.cpp)
+endif()
 
 if (LIBCXXABI_ENABLE_EXCEPTIONS)
   list(APPEND LIBCXXABI_SOURCES cxa_exception.cpp)
@@ -70,6 +73,10 @@ if (LIBCXXABI_USE_LLVM_UNWINDER)
   endif()
 else()
   append_if(libraries LIBCXXABI_HAS_GCC_S_LIB gcc_s)
+endif()
+if (MINGW)
+  # MINGW_LIBRARIES is defined in config-ix.cmake
+  list(APPEND libraries ${MINGW_LIBRARIES})
 endif()
 
 # Setup flags.

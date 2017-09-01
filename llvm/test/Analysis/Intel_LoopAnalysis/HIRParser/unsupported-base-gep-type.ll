@@ -5,9 +5,6 @@
 ; CHECK: + DO i1 = 0, 49, 1   <DO_LOOP>
 ; CHECK: |   if (undef #UNDEF# undef)
 ; CHECK: |   {
-; CHECK: |   }
-; CHECK: |   else
-; CHECK: |   {
 ; CHECK: |      %1 = (i64*)(%int_cst13.i)[2];
 ; CHECK: |   }
 ; CHECK: |   if (undef #UNDEF# undef)

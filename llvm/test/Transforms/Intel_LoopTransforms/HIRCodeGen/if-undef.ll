@@ -1,7 +1,7 @@
 ; RUN: opt < %s -loop-rotate -hir-cg -force-hir-cg -S | FileCheck %s
 ;          BEGIN REGION { }
 ;<18>         + DO i1 = 0, 4, 1   <DO_LOOP>
-;<2>          |   if (0 #UNDEF# 0)
+;<2>          |   if (undef #UNDEF# undef)
 ;<2>          |   {
 ;<8>          |      (%A)[0][i1] = i1;
 ;<2>          |   }
@@ -9,7 +9,7 @@
 ;          END REGION
 ; HLIfs may have undefined predicate, which should be CG as a br with undef
 ; as first operand
-;CHECK: region:
+;CHECK: region.0:
 ;CHECK: loop.{{[0-9]+}}:
 ;CHECK-NEXT: br i1 undef, 
 

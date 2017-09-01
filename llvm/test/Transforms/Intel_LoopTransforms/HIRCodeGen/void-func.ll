@@ -1,7 +1,7 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-cg -force-hir-cg -hir-cost-model-throttling=0 -S | FileCheck %s
 
 ; Verify that the function call returning void is CG'd correctly.
-; CHECK: region:
+; CHECK: region.0:
 ; CHECK: call void @bar
 
 ; ModuleID = 'void-func.c'

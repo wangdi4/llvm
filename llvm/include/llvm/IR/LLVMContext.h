@@ -1,4 +1,4 @@
-//===-- llvm/LLVMContext.h - Class for managing "global" state --*- C++ -*-===//
+//===- llvm/LLVMContext.h - Class for managing "global" state ---*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -37,7 +37,9 @@ class StringRef;
 class Twine;
 
 namespace yaml {
+
 class Output;
+
 } // end namespace yaml
 
 /// This is an important class for using LLVM in a threaded context.  It
@@ -78,9 +80,10 @@ public:
     MD_type = 19,                     // "type"
     MD_section_prefix = 20,           // "section_prefix"
     MD_absolute_symbol = 21,          // "absolute_symbol"
+    MD_associated = 22,               // "associated"
 #if INTEL_CUSTOMIZATION
-    MD_std_container_ptr = 22,        // "std.container.ptr"
-    MD_std_container_ptr_iter = 23    // "std.container.ptr.iter"
+    MD_std_container_ptr = 23,        // "std.container.ptr"
+    MD_std_container_ptr_iter = 24    // "std.container.ptr.iter"
 #endif                                // INTEL_CUSTOMIZATION
   };
 
@@ -137,17 +140,17 @@ public:
   void enableDebugTypeODRUniquing();
   void disableDebugTypeODRUniquing();
 
-  typedef void (*InlineAsmDiagHandlerTy)(const SMDiagnostic&, void *Context,
-                                         unsigned LocCookie);
+  using InlineAsmDiagHandlerTy = void (*)(const SMDiagnostic&, void *Context,
+                                          unsigned LocCookie);
 
   /// Defines the type of a diagnostic handler.
   /// \see LLVMContext::setDiagnosticHandler.
   /// \see LLVMContext::diagnose.
-  typedef void (*DiagnosticHandlerTy)(const DiagnosticInfo &DI, void *Context);
+  using DiagnosticHandlerTy = void (*)(const DiagnosticInfo &DI, void *Context);
 
   /// Defines the type of a yield callback.
   /// \see LLVMContext::setYieldCallback.
-  typedef void (*YieldCallbackTy)(LLVMContext *Context, void *OpaqueHandle);
+  using YieldCallbackTy = void (*)(LLVMContext *Context, void *OpaqueHandle);
 
   /// setInlineAsmDiagnosticHandler - This method sets a handler that is invoked
   /// when problems with inline asm are detected by the backend.  The first

@@ -109,6 +109,8 @@ void VPOParoptTransform::gatherWRegionNodeList() {
 bool VPOParoptTransform::paroptTransforms() {
 
   LLVMContext &C = F->getContext();
+  const DataLayout &DL = F->getParent()->getDataLayout();
+
   bool Changed = false;
 
   BasicBlock::iterator I = F->getEntryBlock().begin();
@@ -170,11 +172,11 @@ bool VPOParoptTransform::paroptTransforms() {
 
   Type *Int32Ty = Type::getInt32Ty(C);
 
-  TidPtr = new AllocaInst(Int32Ty, "tid.addr", AI);
+  TidPtr = new AllocaInst(Int32Ty, DL.getAllocaAddrSpace(), "tid.addr", AI);
   TidPtr->setAlignment(4);
 
   if ((Mode & OmpPar) && (Mode & ParTrans)) {
-    BidPtr = new AllocaInst(Int32Ty, "bid.addr", AI);
+    BidPtr = new AllocaInst(Int32Ty, DL.getAllocaAddrSpace(), "bid.addr", AI);
     BidPtr->setAlignment(4);
   }
 
@@ -365,6 +367,7 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
 
 bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W) {
 
+  const DataLayout &DL = F->getParent()->getDataLayout();
   bool Changed = false;
 
   WRNParallelLoopNode *WL = dyn_cast<WRNParallelLoopNode>(W);
@@ -467,20 +470,25 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W) {
 
   Instruction *InsertPt = dyn_cast<Instruction>(&*EntryBB->rbegin());
 
-  AllocaInst *IsLastVal = new AllocaInst(IndValTy, "is.last", InsertPt);
+  AllocaInst *IsLastVal = new AllocaInst(IndValTy, DL.getAllocaAddrSpace(),
+                                         "is.last", InsertPt);
   IsLastVal->setAlignment(4);
 
-  AllocaInst *LowerBnd = new AllocaInst(IndValTy, "lower.bnd", InsertPt);
+  AllocaInst *LowerBnd = new AllocaInst(IndValTy, DL.getAllocaAddrSpace(),
+                                        "lower.bnd", InsertPt);
   LowerBnd->setAlignment(4);
 
-  AllocaInst *UpperBnd = new AllocaInst(IndValTy, "upper.bnd", InsertPt);
+  AllocaInst *UpperBnd = new AllocaInst(IndValTy, DL.getAllocaAddrSpace(),
+                                        "upper.bnd", InsertPt);
   UpperBnd->setAlignment(4);
 
-  AllocaInst *Stride = new AllocaInst(IndValTy, "stride", InsertPt);
+  AllocaInst *Stride = new AllocaInst(IndValTy, DL.getAllocaAddrSpace(),
+                                      "stride", InsertPt);
   Stride->setAlignment(4);
 
   // UpperD is for distribtue loop
-  AllocaInst *UpperD = new AllocaInst(IndValTy, "upperD", InsertPt);
+  AllocaInst *UpperD = new AllocaInst(IndValTy, DL.getAllocaAddrSpace(),
+                                      "upperD", InsertPt);
   UpperD->setAlignment(4);
 
   // Constant Definitions
@@ -714,15 +722,15 @@ CallInst* VPOParoptTransform::genForkCallInst(WRegionNode *W, CallInst *CI) {
     ForkCallFn->setCallingConv(CallingConv::C);
   }
 
-  AttributeSet ForkCallFnAttr;
-  SmallVector<AttributeSet, 4> Attrs;
+  AttributeList ForkCallFnAttr;
+  SmallVector<AttributeList, 4> Attrs;
 
-  AttributeSet FnAttrSet;
+  AttributeList FnAttrSet;
   AttrBuilder B;
-  FnAttrSet = AttributeSet::get(C, ~0U, B);
+  FnAttrSet = AttributeList::get(C, ~0U, B);
 
   Attrs.push_back(FnAttrSet);
-  ForkCallFnAttr = AttributeSet::get(C, Attrs);
+  ForkCallFnAttr = AttributeList::get(C, Attrs);
 
   ForkCallFn->setAttributes(ForkCallFnAttr);
 
@@ -817,7 +825,7 @@ void VPOParoptTransform::genTpvCopyIn(WRegionNode *W,
     Function::arg_iterator NewArgI = NFn->arg_begin();
     ++NewArgI;
     ++NewArgI;
-    const DataLayout DL=NFn->getParent()->getDataLayout();
+    const DataLayout NDL=NFn->getParent()->getDataLayout();
     bool FirstArg = true;
 
     for (auto C : CP->items()) {
@@ -831,8 +839,10 @@ void VPOParoptTransform::genTpvCopyIn(WRegionNode *W,
         // The instruction to cast the tpv pointer to int for later comparison
         // instruction. One example is as follows.
         //   %0 = ptrtoint i32* %tpv_a to i64
-        Value *TpvArg = Builder.CreatePtrToInt(&*NewArgI,Builder.getIntPtrTy(DL));
-        Value *OldTpv = Builder.CreatePtrToInt(C->getOrig(),Builder.getIntPtrTy(DL));
+        Value *TpvArg = Builder.CreatePtrToInt(
+                                        &*NewArgI,Builder.getIntPtrTy(NDL));
+        Value *OldTpv = Builder.CreatePtrToInt(
+                                        C->getOrig(),Builder.getIntPtrTy(NDL));
 
         // The instruction to compare between the address of tpv formal
         // arugment and the tpv accessed in the outlined function. 
@@ -851,7 +861,7 @@ void VPOParoptTransform::genTpvCopyIn(WRegionNode *W,
       }
       VPOParoptUtils::genMemcpy(C->getOrig(),
                                 &*NewArgI,
-                                DL,
+                                NDL,
                                 Term->getParent());
 
       ++NewArgI;

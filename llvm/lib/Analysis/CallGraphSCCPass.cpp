@@ -73,6 +73,7 @@ public:
   PMDataManager *getAsPMDataManager() override { return this; }
   Pass *getAsPass() override { return this; }
 
+#if !INTEL_PRODUCT_RELEASE
   // Print passes managed by this manager
   void dumpPassStructure(unsigned Offset) override {
     errs().indent(Offset*2) << "Call Graph SCC Pass Manager\n";
@@ -82,6 +83,7 @@ public:
       dumpLastUses(P, Offset+1);
     }
   }
+#endif // !INTEL_PRODUCT_RELEASE
 
   Pass *getContainedPass(unsigned N) {
     assert(N < PassVector.size() && "Pass number out of range!");
@@ -144,7 +146,9 @@ bool CGPassManager::RunPassOnSCC(Pass *P, CallGraphSCC &CurSCC,
   // Run pass P on all functions in the current SCC.
   for (CallGraphNode *CGN : CurSCC) {
     if (Function *F = CGN->getFunction()) {
+#if !INTEL_PRODUCT_RELEASE
       dumpPassInfo(P, EXECUTION_MSG, ON_FUNCTION_MSG, F->getName());
+#endif // !INTEL_PRODUCT_RELEASE
       {
         TimeRegion PassTimer(getPassTimer(FPP));
         Changed |= FPP->runOnFunction(*F);
@@ -205,7 +209,7 @@ bool CGPassManager::RefreshCallGraph(const CallGraphSCC &CurSCC, CallGraph &CG,
     // Get the set of call sites currently in the function.
     for (CallGraphNode::iterator I = CGN->begin(), E = CGN->end(); I != E; ) {
       // If this call site is null, then the function pass deleted the call
-      // entirely and the WeakVH nulled it out.  
+      // entirely and the WeakTrackingVH nulled it out.
       if (!I->first ||
           // If we've already seen this call site, then the FunctionPass RAUW'd
           // one call with another, which resulted in two "uses" in the edge
@@ -348,7 +352,8 @@ bool CGPassManager::RefreshCallGraph(const CallGraphSCC &CurSCC, CallGraph &CG,
       DevirtualizedCall = true;
     
     // After scanning this function, if we still have entries in callsites, then
-    // they are dangling pointers.  WeakVH should save us for this, so abort if
+    // they are dangling pointers.  WeakTrackingVH should save us for this, so
+    // abort if
     // this happens.
     assert(CallSites.empty() && "Dangling pointers found in call sites map");
     
@@ -408,9 +413,13 @@ bool CGPassManager::RunAllPassesOnSCC(CallGraphSCC &CurSCC, CallGraph &CG,
       }
       OS.flush();
   #endif
+#if !INTEL_PRODUCT_RELEASE
       dumpPassInfo(P, EXECUTION_MSG, ON_CG_MSG, Functions);
+#endif // !INTEL_PRODUCT_RELEASE
     }
+#if !INTEL_PRODUCT_RELEASE
     dumpRequiredSet(P);
+#endif // !INTEL_PRODUCT_RELEASE
     
     initializeAnalysisImpl(P);
     
@@ -418,9 +427,11 @@ bool CGPassManager::RunAllPassesOnSCC(CallGraphSCC &CurSCC, CallGraph &CG,
     Changed |= RunPassOnSCC(P, CurSCC, CG,
                             CallGraphUpToDate, DevirtualizedCall);
     
+#if !INTEL_PRODUCT_RELEASE
     if (Changed)
       dumpPassInfo(P, MODIFICATION_MSG, ON_CG_MSG, "");
     dumpPreservedSet(P);
+#endif // !INTEL_PRODUCT_RELEASE
     
     verifyPreservedAnalysis(P);      
     removeNotPreservedAnalysis(P);
@@ -477,10 +488,8 @@ bool CGPassManager::runOnModule(Module &M) {
     if (DevirtualizedCall)
       DEBUG(dbgs() << "  CGSCCPASSMGR: Stopped iteration after " << Iteration
                    << " times, due to -max-cg-scc-iterations\n");
-    
-    if (Iteration > MaxSCCIterations)
-      MaxSCCIterations = Iteration;
-    
+
+    MaxSCCIterations.updateMax(Iteration);
   }
   Changed |= doFinalization(CG);
   return Changed;
@@ -590,6 +599,7 @@ void CallGraphSCCPass::getAnalysisUsage(AnalysisUsage &AU) const {
 }
 
 
+#if !INTEL_PRODUCT_RELEASE
 //===----------------------------------------------------------------------===//
 // PrintCallGraphPass Implementation
 //===----------------------------------------------------------------------===//
@@ -631,6 +641,8 @@ namespace {
       }
       return false;
     }
+    
+    StringRef getPassName() const override { return "Print CallGraph IR"; }
   };
   
 } // end anonymous namespace.
@@ -641,6 +653,7 @@ Pass *CallGraphSCCPass::createPrinterPass(raw_ostream &O,
                                           const std::string &Banner) const {
   return new PrintCallGraphPass(Banner, O);
 }
+#endif // !INTEL_PRODUCT_RELEASE
 
 bool CallGraphSCCPass::skipSCC(CallGraphSCC &SCC) const {
   return !SCC.getCallGraph().getModule()

@@ -15,7 +15,6 @@
 
 // C++ Includes
 
-#include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/StreamFile.h"
 #include "lldb/Expression/DiagnosticManager.h"
@@ -28,6 +27,7 @@
 #include "lldb/Target/Process.h"
 #include "lldb/Target/Target.h"
 #include "lldb/Utility/ConstString.h"
+#include "lldb/Utility/Log.h"
 #include "lldb/Utility/Stream.h"
 
 using namespace lldb_private;
@@ -65,7 +65,7 @@ UtilityFunction::~UtilityFunction() {
 
 FunctionCaller *UtilityFunction::MakeFunctionCaller(
     const CompilerType &return_type, const ValueList &arg_value_list,
-    lldb::ThreadSP thread_to_use_sp, Error &error) {
+    lldb::ThreadSP thread_to_use_sp, Status &error) {
   if (m_caller_up)
     return m_caller_up.get();
 

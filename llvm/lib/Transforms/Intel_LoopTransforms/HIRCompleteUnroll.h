@@ -18,16 +18,28 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/IR/Intel_LoopIR/HLLoop.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
 namespace llvm {
 namespace loopopt {
+class HIRLoopStatistics;
+
+struct UnrollThresholds {
+  unsigned LoopTripThreshold;
+  unsigned LoopnestTripThreshold;
+  unsigned SavingsThreshold;
+  unsigned UnrolledLoopMemRefThreshold;
+  unsigned UnrolledLoopDDRefThreshold;
+  unsigned SmallLoopMemRefThreshold;
+  unsigned SmallLoopDDRefThreshold;
+  unsigned SmallLoopAdditionalSavingsThreshold;
+  float MaxThresholdScalingFactor;
+};
 
 class HIRCompleteUnroll : public HIRTransformPass {
 public:
-  HIRCompleteUnroll(char &ID, bool IsPreVec)
-      : HIRTransformPass(ID), IsPreVec(IsPreVec) {}
+  HIRCompleteUnroll(char &ID, unsigned OptLevel, bool IsPreVec);
 
   bool runOnFunction(Function &F) override;
   void releaseMemory() override;
@@ -35,8 +47,10 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const override;
 
 private:
-  class CanonExprVisitor;
+  struct CanonExprUpdater;
   class ProfitabilityAnalyzer;
+
+  HIRLoopStatistics *HLS;
 
   /// Indicates whether we are in pre or post vec mode.
   bool IsPreVec;
@@ -54,6 +68,9 @@ private:
   // Loop in this set can be processed as top level candidates for unrolling the
   // loopnest.
   SmallPtrSet<const HLLoop *, 32> TopLevelCandidates;
+
+  // Structure holding thresholds for complete unroll.
+  UnrollThresholds Limits;
 
 private:
   // Returns true if loop is eligible for complete unrolling.
@@ -80,12 +97,12 @@ private:
 
   /// Computes constant upper bound of \p Loop by substituting outer loop trip
   /// counts by their respective IVs in the upper.
-  static int64_t computeUB(HLLoop *Loop, HLLoop *OuterLoop,
-                           SmallVectorImpl<int64_t> &TripValues);
+  static int64_t computeUB(HLLoop *Loop, unsigned TopLoopLevel,
+                           SmallVectorImpl<int64_t> &IVValues);
 
   /// Performs the complete unrolling transformation.
-  static void transformLoop(HLLoop *Loop, HLLoop *OuterLoop,
-                            SmallVectorImpl<int64_t> &TripValues);
+  static void transformLoop(HLLoop *Loop, CanonExprUpdater &CEUpdater,
+                            bool IsTopLevelLoop);
 
   /// Main routine to drive the complete unrolling transformation.
   void processCompleteUnroll(SmallVectorImpl<HLLoop *> &OuterLoops);

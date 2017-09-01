@@ -81,6 +81,7 @@ namespace {
       (void) llvm::createAndersensAAWrapperPass(); 
       (void) llvm::createNonLTOGlobalOptimizerPass(); 
       (void) llvm::createTbaaMDPropagationPass();    
+      (void) llvm::createCleanupFakeLoadsPass();
       (void) llvm::createStdContainerOptPass();      
       (void) llvm::createStdContainerAAWrapperPass();  
 #endif // INTEL_CUSTOMIZATION
@@ -93,6 +94,7 @@ namespace {
       (void) llvm::createCallGraphDOTPrinterPass();
       (void) llvm::createCallGraphViewerPass();
       (void) llvm::createCFGSimplificationPass();
+      (void) llvm::createLateCFGSimplificationPass();
       (void) llvm::createCFLAndersAAWrapperPass();
       (void) llvm::createCFLSteensAAWrapperPass();
       (void) llvm::createStructurizeCFGPass();
@@ -114,6 +116,7 @@ namespace {
       (void) llvm::createPGOInstrumentationGenLegacyPass();
       (void) llvm::createPGOInstrumentationUseLegacyPass();
       (void) llvm::createPGOIndirectCallPromotionLegacyPass();
+      (void) llvm::createPGOMemOPSizeOptLegacyPass();
       (void) llvm::createInstrProfilingLegacyPass();
       (void) llvm::createFunctionImportPass();
       (void) llvm::createFunctionInliningPass();
@@ -223,6 +226,7 @@ namespace {
       (void) llvm::createMemDerefPrinter();
       (void) llvm::createFloat2IntPass();
       (void) llvm::createEliminateAvailableExternallyPass();
+      (void) llvm::createScalarizeMaskedMemIntrinPass();
 
       (void)new llvm::IntervalPartition();
       (void)new llvm::ScalarEvolutionWrapperPass();
@@ -273,6 +277,7 @@ namespace {
       (void) llvm::createHIRLMMPass();
       (void) llvm::createHIRScalarReplArrayPass();
       (void) llvm::createHIRIdiomRecognitionPass();
+      (void) llvm::createHIRMVForConstUBPass();
       (void) llvm::createHIRDummyTransformationPass();
       (void) llvm::createHIRCodeGenPass();
 

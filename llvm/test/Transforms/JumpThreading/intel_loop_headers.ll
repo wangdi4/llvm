@@ -202,3 +202,83 @@ b6:
 
 declare void @f0()
 declare i1 @continue()
+
+;test_4877
+; The failure mode for this test is crashing, so as long as the test runs to
+; completion it's a success.
+;
+; c test
+;int
+;fn1 (int p1)
+;{
+;  int a = 0;
+;  for (; a <= 0; a++) {
+;    switch (p1) {
+;      case 0:
+;        p1++;
+;      case 1:
+;        if (p1)
+;          return 0;
+;        return 1;
+;    }
+;  }
+;  return 0;
+;}
+; The issue here is during thread creation of if.end->sw.bb %cleanup gets
+; an extra phi(created by SSAUpdate) due to the clone-copy of inc2 in %cleanup.thread.
+; cleanup.thread does not need a mapped value of this phi since it can rely
+; on the value of a computed in sw.bb1.
+;
+; Function Attrs: nounwind uwtable
+define i32 @_Z3fn1i(i32 %p1) {
+entry:
+  br label %for.cond
+
+for.cond:                                         ; preds = %for.inc, %entry
+  %p1.addr.0 = phi i32 [ %p1, %entry ], [ %p1.addr.2, %for.inc ]
+  %a.0 = phi i32 [ 0, %entry ], [ %inc2, %for.inc ]
+  %retval.0 = phi i32 [ undef, %entry ], [ %retval.1, %for.inc ]
+  %cmp = icmp slt i32 %a.0, 1
+  br i1 %cmp, label %for.body, label %for.end
+
+for.body:                                         ; preds = %for.cond
+  switch i32 %p1.addr.0, label %sw.epilog [
+    i32 0, label %sw.bb
+    i32 1, label %sw.bb1
+  ]
+
+sw.bb:                                            ; preds = %for.body
+  %inc = add nsw i32 %p1.addr.0, 1
+  br label %sw.bb1
+
+sw.bb1:                                           ; preds = %for.body, %sw.bb
+  %p1.addr.1 = phi i32 [ %p1.addr.0, %for.body ], [ %inc, %sw.bb ]
+  %tobool = icmp eq i32 %p1.addr.1, 0
+  br i1 %tobool, label %if.end, label %if.then
+
+if.then:                                          ; preds = %sw.bb1
+  br label %cleanup
+
+if.end:                                           ; preds = %sw.bb1
+  br label %cleanup
+
+sw.epilog:                                        ; preds = %for.body
+  br label %cleanup
+
+cleanup:                                          ; preds = %sw.epilog, %if.end, %if.then
+  %p1.addr.2 = phi i32 [ %p1.addr.0, %sw.epilog ], [ %p1.addr.1, %if.then ], [ %p1.addr.1, %if.end ]
+  %retval.1 = phi i32 [ %retval.0, %sw.epilog ], [ 0, %if.then ], [ 1, %if.end ]
+  %cleanup.dest.slot.0 = phi i1 [ true, %sw.epilog ], [ false, %if.then ], [ false, %if.end ]
+  br i1 %cleanup.dest.slot.0, label %for.inc, label %cleanup3
+
+for.inc:                                          ; preds = %cleanup
+  %inc2 = add nsw i32 %a.0, 1
+  br label %for.cond
+
+for.end:                                          ; preds = %for.cond
+  br label %cleanup3
+
+cleanup3:                                         ; preds = %cleanup, %for.end
+  %retval.2 = phi i32 [ %retval.1, %cleanup ], [ 0, %for.end ]
+  ret i32 %retval.2
+}

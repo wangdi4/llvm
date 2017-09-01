@@ -7,9 +7,8 @@
 ; Check parsing output for the loop verifying that the select instruction is parsed correctly.
 
 ; CHECK: + DO i1 = 0, %n + -2, 1   <DO_LOOP>
-; CHECK: |   %maxval.011.out = %maxval.011;
 ; CHECK: |   %1 = (@x)[0][i1 + 1];
-; CHECK: |   %maxval.011 = (%maxval.011.out < %1) ? %1 : %maxval.011;
+; CHECK: |   %maxval.011 = (%maxval.011 < %1) ? %1 : %maxval.011;
 ; CHECK: + END LOOP
 
 

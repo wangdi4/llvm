@@ -18,6 +18,7 @@
 #include "polly/Options.h"
 #include "polly/Support/GICHelper.h"
 #include "polly/Support/SCEVValidator.h"
+#include "polly/Support/VirtualInstruction.h"
 #include "llvm/Analysis/RegionIterator.h"
 #include "llvm/IR/DiagnosticInfo.h"
 
@@ -35,6 +36,16 @@ static cl::opt<bool> ModelReadOnlyScalars(
     "polly-analyze-read-only-scalars",
     cl::desc("Model read-only scalar values in the scop description"),
     cl::Hidden, cl::ZeroOrMore, cl::init(true), cl::cat(PollyCategory));
+
+static cl::opt<bool> UnprofitableScalarAccs(
+    "polly-unprofitable-scalar-accs",
+    cl::desc("Count statements with scalar accesses as not optimizable"),
+    cl::Hidden, cl::init(false), cl::cat(PollyCategory));
+
+static cl::opt<bool> DetectFortranArrays(
+    "polly-detect-fortran-arrays",
+    cl::desc("Detect Fortran arrays and use this for code generation"),
+    cl::Hidden, cl::init(false), cl::cat(PollyCategory));
 
 void ScopBuilder::buildPHIAccesses(PHINode *PHI, Region *NonAffineSubRegion,
                                    bool IsExitBlock) {
@@ -112,11 +123,196 @@ void ScopBuilder::buildEscapingDependences(Instruction *Inst) {
   }
 }
 
-bool ScopBuilder::buildAccessMultiDimFixed(MemAccInst Inst, Loop *L) {
+/// Check that a value is a Fortran Array descriptor.
+///
+/// We check if V has the following structure:
+/// %"struct.array1_real(kind=8)" = type { i8*, i<zz>, i<zz>,
+///                                   [<num> x %struct.descriptor_dimension] }
+///
+///
+/// %struct.descriptor_dimension = type { i<zz>, i<zz>, i<zz> }
+///
+/// 1. V's type name starts with "struct.array"
+/// 2. V's type has layout as shown.
+/// 3. Final member of V's type has name "struct.descriptor_dimension",
+/// 4. "struct.descriptor_dimension" has layout as shown.
+/// 5. Consistent use of i<zz> where <zz> is some fixed integer number.
+///
+/// We are interested in such types since this is the code that dragonegg
+/// generates for Fortran array descriptors.
+///
+/// @param V the Value to be checked.
+///
+/// @returns True if V is a Fortran array descriptor, False otherwise.
+bool isFortranArrayDescriptor(Value *V) {
+  PointerType *PTy = dyn_cast<PointerType>(V->getType());
+
+  if (!PTy)
+    return false;
+
+  Type *Ty = PTy->getElementType();
+  assert(Ty && "Ty expected to be initialized");
+  auto *StructArrTy = dyn_cast<StructType>(Ty);
+
+  if (!(StructArrTy && StructArrTy->hasName()))
+    return false;
+
+  if (!StructArrTy->getName().startswith("struct.array"))
+    return false;
+
+  if (StructArrTy->getNumElements() != 4)
+    return false;
+
+  const ArrayRef<Type *> ArrMemberTys = StructArrTy->elements();
+
+  // i8* match
+  if (ArrMemberTys[0] != Type::getInt8PtrTy(V->getContext()))
+    return false;
+
+  // Get a reference to the int type and check that all the members
+  // share the same int type
+  Type *IntTy = ArrMemberTys[1];
+  if (ArrMemberTys[2] != IntTy)
+    return false;
+
+  // type: [<num> x %struct.descriptor_dimension]
+  ArrayType *DescriptorDimArrayTy = dyn_cast<ArrayType>(ArrMemberTys[3]);
+  if (!DescriptorDimArrayTy)
+    return false;
+
+  // type: %struct.descriptor_dimension := type { ixx, ixx, ixx }
+  StructType *DescriptorDimTy =
+      dyn_cast<StructType>(DescriptorDimArrayTy->getElementType());
+
+  if (!(DescriptorDimTy && DescriptorDimTy->hasName()))
+    return false;
+
+  if (DescriptorDimTy->getName() != "struct.descriptor_dimension")
+    return false;
+
+  if (DescriptorDimTy->getNumElements() != 3)
+    return false;
+
+  for (auto MemberTy : DescriptorDimTy->elements()) {
+    if (MemberTy != IntTy)
+      return false;
+  }
+
+  return true;
+}
+
+Value *ScopBuilder::findFADAllocationVisible(MemAccInst Inst) {
+  // match: 4.1 & 4.2 store/load
+  if (!isa<LoadInst>(Inst) && !isa<StoreInst>(Inst))
+    return nullptr;
+
+  // match: 4
+  if (Inst.getAlignment() != 8)
+    return nullptr;
+
+  Value *Address = Inst.getPointerOperand();
+
+  const BitCastInst *Bitcast = nullptr;
+  // [match: 3]
+  if (auto *Slot = dyn_cast<GetElementPtrInst>(Address)) {
+    Value *TypedMem = Slot->getPointerOperand();
+    // match: 2
+    Bitcast = dyn_cast<BitCastInst>(TypedMem);
+  } else {
+    // match: 2
+    Bitcast = dyn_cast<BitCastInst>(Address);
+  }
+
+  if (!Bitcast)
+    return nullptr;
+
+  auto *MallocMem = Bitcast->getOperand(0);
+
+  // match: 1
+  auto *MallocCall = dyn_cast<CallInst>(MallocMem);
+  if (!MallocCall)
+    return nullptr;
+
+  Function *MallocFn = MallocCall->getCalledFunction();
+  if (!(MallocFn && MallocFn->hasName() && MallocFn->getName() == "malloc"))
+    return nullptr;
+
+  // Find all uses the malloc'd memory.
+  // We are looking for a "store" into a struct with the type being the Fortran
+  // descriptor type
+  for (auto user : MallocMem->users()) {
+
+    /// match: 5
+    auto *MallocStore = dyn_cast<StoreInst>(user);
+    if (!MallocStore)
+      continue;
+
+    auto *DescriptorGEP =
+        dyn_cast<GEPOperator>(MallocStore->getPointerOperand());
+    if (!DescriptorGEP)
+      continue;
+
+    // match: 5
+    auto DescriptorType =
+        dyn_cast<StructType>(DescriptorGEP->getSourceElementType());
+    if (!(DescriptorType && DescriptorType->hasName()))
+      continue;
+
+    Value *Descriptor = dyn_cast<Value>(DescriptorGEP->getPointerOperand());
+
+    if (!Descriptor)
+      continue;
+
+    if (!isFortranArrayDescriptor(Descriptor))
+      continue;
+
+    return Descriptor;
+  }
+
+  return nullptr;
+}
+
+Value *ScopBuilder::findFADAllocationInvisible(MemAccInst Inst) {
+  // match: 3
+  if (!isa<LoadInst>(Inst) && !isa<StoreInst>(Inst))
+    return nullptr;
+
+  Value *Slot = Inst.getPointerOperand();
+
+  LoadInst *MemLoad = nullptr;
+  // [match: 2]
+  if (auto *SlotGEP = dyn_cast<GetElementPtrInst>(Slot)) {
+    // match: 1
+    MemLoad = dyn_cast<LoadInst>(SlotGEP->getPointerOperand());
+  } else {
+    // match: 1
+    MemLoad = dyn_cast<LoadInst>(Slot);
+  }
+
+  if (!MemLoad)
+    return nullptr;
+
+  auto *BitcastOperator =
+      dyn_cast<BitCastOperator>(MemLoad->getPointerOperand());
+  if (!BitcastOperator)
+    return nullptr;
+
+  Value *Descriptor = dyn_cast<Value>(BitcastOperator->getOperand(0));
+  if (!Descriptor)
+    return nullptr;
+
+  if (!isFortranArrayDescriptor(Descriptor))
+    return nullptr;
+
+  return Descriptor;
+}
+
+bool ScopBuilder::buildAccessMultiDimFixed(MemAccInst Inst, ScopStmt *Stmt) {
   Value *Val = Inst.getValueOperand();
   Type *ElementType = Val->getType();
   Value *Address = Inst.getPointerOperand();
-  const SCEV *AccessFunction = SE.getSCEVAtScope(Address, L);
+  const SCEV *AccessFunction =
+      SE.getSCEVAtScope(Address, LI.getLoopFor(Inst->getParent()));
   const SCEVUnknown *BasePointer =
       dyn_cast<SCEVUnknown>(SE.getPointerBase(AccessFunction));
   enum MemoryAccess::AccessType AccType =
@@ -158,7 +354,7 @@ bool ScopBuilder::buildAccessMultiDimFixed(MemAccInst Inst, Loop *L) {
 
   const InvariantLoadsSetTy &ScopRIL = scop->getRequiredInvariantLoads();
 
-  Loop *SurroundingLoop = getFirstNonBoxedLoopFor(L, LI, scop->getBoxedLoops());
+  Loop *SurroundingLoop = Stmt->getSurroundingLoop();
   for (auto *Subscript : Subscripts) {
     InvariantLoadsSetTy AccessILS;
     if (!isAffineExpr(&scop->getRegion(), SurroundingLoop, Subscript, SE,
@@ -184,7 +380,7 @@ bool ScopBuilder::buildAccessMultiDimFixed(MemAccInst Inst, Loop *L) {
   return true;
 }
 
-bool ScopBuilder::buildAccessMultiDimParam(MemAccInst Inst, Loop *L) {
+bool ScopBuilder::buildAccessMultiDimParam(MemAccInst Inst, ScopStmt *Stmt) {
   if (!PollyDelinearize)
     return false;
 
@@ -195,7 +391,8 @@ bool ScopBuilder::buildAccessMultiDimParam(MemAccInst Inst, Loop *L) {
   enum MemoryAccess::AccessType AccType =
       isa<LoadInst>(Inst) ? MemoryAccess::READ : MemoryAccess::MUST_WRITE;
 
-  const SCEV *AccessFunction = SE.getSCEVAtScope(Address, L);
+  const SCEV *AccessFunction =
+      SE.getSCEVAtScope(Address, LI.getLoopFor(Inst->getParent()));
   const SCEVUnknown *BasePointer =
       dyn_cast<SCEVUnknown>(SE.getPointerBase(AccessFunction));
 
@@ -227,12 +424,13 @@ bool ScopBuilder::buildAccessMultiDimParam(MemAccInst Inst, Loop *L) {
   return true;
 }
 
-bool ScopBuilder::buildAccessMemIntrinsic(MemAccInst Inst, Loop *L) {
+bool ScopBuilder::buildAccessMemIntrinsic(MemAccInst Inst, ScopStmt *Stmt) {
   auto *MemIntr = dyn_cast_or_null<MemIntrinsic>(Inst);
 
   if (MemIntr == nullptr)
     return false;
 
+  auto *L = LI.getLoopFor(Inst->getParent());
   auto *LengthVal = SE.getSCEVAtScope(MemIntr->getLength(), L);
   assert(LengthVal);
 
@@ -240,7 +438,7 @@ bool ScopBuilder::buildAccessMemIntrinsic(MemAccInst Inst, Loop *L) {
   InvariantLoadsSetTy AccessILS;
   const InvariantLoadsSetTy &ScopRIL = scop->getRequiredInvariantLoads();
 
-  Loop *SurroundingLoop = getFirstNonBoxedLoopFor(L, LI, scop->getBoxedLoops());
+  Loop *SurroundingLoop = Stmt->getSurroundingLoop();
   bool LengthIsAffine = isAffineExpr(&scop->getRegion(), SurroundingLoop,
                                      LengthVal, SE, &AccessILS);
   for (LoadInst *LInst : AccessILS)
@@ -295,7 +493,7 @@ bool ScopBuilder::buildAccessMemIntrinsic(MemAccInst Inst, Loop *L) {
   return true;
 }
 
-bool ScopBuilder::buildAccessCallInst(MemAccInst Inst, Loop *L) {
+bool ScopBuilder::buildAccessCallInst(MemAccInst Inst, ScopStmt *Stmt) {
   auto *CI = dyn_cast_or_null<CallInst>(Inst);
 
   if (CI == nullptr)
@@ -324,6 +522,7 @@ bool ScopBuilder::buildAccessCallInst(MemAccInst Inst, Loop *L) {
   // Fall through
   case FMRB_OnlyAccessesArgumentPointees:
     auto AccType = ReadOnly ? MemoryAccess::READ : MemoryAccess::MAY_WRITE;
+    Loop *L = LI.getLoopFor(Inst->getParent());
     for (const auto &Arg : CI->arg_operands()) {
       if (!Arg->getType()->isPointerTy())
         continue;
@@ -342,14 +541,15 @@ bool ScopBuilder::buildAccessCallInst(MemAccInst Inst, Loop *L) {
   return true;
 }
 
-void ScopBuilder::buildAccessSingleDim(MemAccInst Inst, Loop *L) {
+void ScopBuilder::buildAccessSingleDim(MemAccInst Inst, ScopStmt *Stmt) {
   Value *Address = Inst.getPointerOperand();
   Value *Val = Inst.getValueOperand();
   Type *ElementType = Val->getType();
   enum MemoryAccess::AccessType AccType =
       isa<LoadInst>(Inst) ? MemoryAccess::READ : MemoryAccess::MUST_WRITE;
 
-  const SCEV *AccessFunction = SE.getSCEVAtScope(Address, L);
+  const SCEV *AccessFunction =
+      SE.getSCEVAtScope(Address, LI.getLoopFor(Inst->getParent()));
   const SCEVUnknown *BasePointer =
       dyn_cast<SCEVUnknown>(SE.getPointerBase(AccessFunction));
 
@@ -359,15 +559,16 @@ void ScopBuilder::buildAccessSingleDim(MemAccInst Inst, Loop *L) {
   // Check if the access depends on a loop contained in a non-affine subregion.
   bool isVariantInNonAffineLoop = false;
   SetVector<const Loop *> Loops;
-  auto &BoxedLoops = scop->getBoxedLoops();
   findLoops(AccessFunction, Loops);
   for (const Loop *L : Loops)
-    if (BoxedLoops.count(L))
+    if (Stmt->contains(L)) {
       isVariantInNonAffineLoop = true;
+      break;
+    }
 
   InvariantLoadsSetTy AccessILS;
 
-  Loop *SurroundingLoop = getFirstNonBoxedLoopFor(L, LI, BoxedLoops);
+  Loop *SurroundingLoop = Stmt->getSurroundingLoop();
   bool IsAffine = !isVariantInNonAffineLoop &&
                   isAffineExpr(&scop->getRegion(), SurroundingLoop,
                                AccessFunction, SE, &AccessILS);
@@ -384,21 +585,21 @@ void ScopBuilder::buildAccessSingleDim(MemAccInst Inst, Loop *L) {
                  {AccessFunction}, {nullptr}, Val);
 }
 
-void ScopBuilder::buildMemoryAccess(MemAccInst Inst, Loop *L) {
+void ScopBuilder::buildMemoryAccess(MemAccInst Inst, ScopStmt *Stmt) {
 
-  if (buildAccessMemIntrinsic(Inst, L))
+  if (buildAccessMemIntrinsic(Inst, Stmt))
     return;
 
-  if (buildAccessCallInst(Inst, L))
+  if (buildAccessCallInst(Inst, Stmt))
     return;
 
-  if (buildAccessMultiDimFixed(Inst, L))
+  if (buildAccessMultiDimFixed(Inst, Stmt))
     return;
 
-  if (buildAccessMultiDimParam(Inst, L))
+  if (buildAccessMultiDimParam(Inst, Stmt))
     return;
 
-  buildAccessSingleDim(Inst, L);
+  buildAccessSingleDim(Inst, Stmt);
 }
 
 void ScopBuilder::buildAccessFunctions(Region &SR) {
@@ -419,15 +620,21 @@ void ScopBuilder::buildAccessFunctions(Region &SR) {
 void ScopBuilder::buildStmts(Region &SR) {
 
   if (scop->isNonAffineSubRegion(&SR)) {
-    scop->addScopStmt(&SR);
+    Loop *SurroundingLoop = LI.getLoopFor(SR.getEntry());
+    auto &BoxedLoops = scop->getBoxedLoops();
+    while (BoxedLoops.count(SurroundingLoop))
+      SurroundingLoop = SurroundingLoop->getParentLoop();
+    scop->addScopStmt(&SR, SurroundingLoop);
     return;
   }
 
   for (auto I = SR.element_begin(), E = SR.element_end(); I != E; ++I)
     if (I->isSubRegion())
       buildStmts(*I->getNodeAs<Region>());
-    else
-      scop->addScopStmt(I->getNodeAs<BasicBlock>());
+    else {
+      Loop *SurroundingLoop = LI.getLoopFor(I->getNodeAs<BasicBlock>());
+      scop->addScopStmt(I->getNodeAs<BasicBlock>(), SurroundingLoop);
+    }
 }
 
 void ScopBuilder::buildAccessFunctions(BasicBlock &BB,
@@ -438,7 +645,7 @@ void ScopBuilder::buildAccessFunctions(BasicBlock &BB,
   if (isErrorBlock(BB, scop->getRegion(), LI, DT) && !IsExitBlock)
     return;
 
-  Loop *L = LI.getLoopFor(&BB);
+  ScopStmt *Stmt = scop->getStmtFor(&BB);
 
   for (Instruction &Inst : BB) {
     PHINode *PHI = dyn_cast<PHINode>(&Inst);
@@ -449,8 +656,10 @@ void ScopBuilder::buildAccessFunctions(BasicBlock &BB,
     if (!PHI && IsExitBlock)
       break;
 
-    if (auto MemInst = MemAccInst::dyn_cast(Inst))
-      buildMemoryAccess(MemInst, L);
+    if (auto MemInst = MemAccInst::dyn_cast(Inst)) {
+      assert(Stmt && "Cannot build access function in non-existing statement");
+      buildMemoryAccess(MemInst, Stmt);
+    }
 
     if (isIgnoredIntrinsic(&Inst))
       continue;
@@ -479,9 +688,6 @@ MemoryAccess *ScopBuilder::addMemoryAccess(
   if (!Stmt)
     return nullptr;
 
-  Value *BaseAddr = BaseAddress;
-  std::string BaseName = getIslCompatibleName("MemRef_", BaseAddr, "");
-
   bool isKnownMustAccess = false;
 
   // Accesses in single-basic block statements are always excuted.
@@ -507,9 +713,8 @@ MemoryAccess *ScopBuilder::addMemoryAccess(
   if (!isKnownMustAccess && AccType == MemoryAccess::MUST_WRITE)
     AccType = MemoryAccess::MAY_WRITE;
 
-  auto *Access =
-      new MemoryAccess(Stmt, Inst, AccType, BaseAddress, ElementType, Affine,
-                       Subscripts, Sizes, AccessValue, Kind, BaseName);
+  auto *Access = new MemoryAccess(Stmt, Inst, AccType, BaseAddress, ElementType,
+                                  Affine, Subscripts, Sizes, AccessValue, Kind);
 
   scop->addAccessFunction(Access);
   Stmt->addAccess(Access);
@@ -521,9 +726,17 @@ void ScopBuilder::addArrayAccess(
     Type *ElementType, bool IsAffine, ArrayRef<const SCEV *> Subscripts,
     ArrayRef<const SCEV *> Sizes, Value *AccessValue) {
   ArrayBasePointers.insert(BaseAddress);
-  addMemoryAccess(MemAccInst->getParent(), MemAccInst, AccType, BaseAddress,
-                  ElementType, IsAffine, AccessValue, Subscripts, Sizes,
-                  MemoryKind::Array);
+  auto *MemAccess = addMemoryAccess(
+      MemAccInst->getParent(), MemAccInst, AccType, BaseAddress, ElementType,
+      IsAffine, AccessValue, Subscripts, Sizes, MemoryKind::Array);
+
+  if (!DetectFortranArrays)
+    return;
+
+  if (Value *FAD = findFADAllocationInvisible(MemAccInst))
+    MemAccess->setFortranArrayDescriptor(FAD);
+  else if (Value *FAD = findFADAllocationVisible(MemAccInst))
+    MemAccess->setFortranArrayDescriptor(FAD);
 }
 
 void ScopBuilder::ensureValueWrite(Instruction *Inst) {
@@ -543,54 +756,40 @@ void ScopBuilder::ensureValueWrite(Instruction *Inst) {
 }
 
 void ScopBuilder::ensureValueRead(Value *V, BasicBlock *UserBB) {
-
-  // There cannot be an "access" for literal constants. BasicBlock references
-  // (jump destinations) also never change.
-  if ((isa<Constant>(V) && !isa<GlobalVariable>(V)) || isa<BasicBlock>(V))
-    return;
-
-  // If the instruction can be synthesized and the user is in the region we do
-  // not need to add a value dependences.
-  auto *Scope = LI.getLoopFor(UserBB);
-  if (canSynthesize(V, *scop, &SE, Scope))
-    return;
-
-  // Do not build scalar dependences for required invariant loads as we will
-  // hoist them later on anyway or drop the SCoP if we cannot.
-  auto &ScopRIL = scop->getRequiredInvariantLoads();
-  if (ScopRIL.count(dyn_cast<LoadInst>(V)))
-    return;
-
-  // Determine the ScopStmt containing the value's definition and use. There is
-  // no defining ScopStmt if the value is a function argument, a global value,
-  // or defined outside the SCoP.
-  Instruction *ValueInst = dyn_cast<Instruction>(V);
-  ScopStmt *ValueStmt = ValueInst ? scop->getStmtFor(ValueInst) : nullptr;
-
   ScopStmt *UserStmt = scop->getStmtFor(UserBB);
+  auto *Scope = LI.getLoopFor(UserBB);
+  auto VUse = VirtualUse::create(scop.get(), UserStmt, Scope, V, false);
+  switch (VUse.getKind()) {
+  case VirtualUse::Constant:
+  case VirtualUse::Block:
+  case VirtualUse::Synthesizable:
+  case VirtualUse::Hoisted:
+  case VirtualUse::Intra:
+    // Uses of these kinds do not need a MemoryAccess.
+    break;
 
-  // We do not model uses outside the scop.
-  if (!UserStmt)
-    return;
+  case VirtualUse::ReadOnly:
+    // Add MemoryAccess for invariant values only if requested.
+    if (!ModelReadOnlyScalars)
+      break;
 
-  // Add MemoryAccess for invariant values only if requested.
-  if (!ModelReadOnlyScalars && !ValueStmt)
-    return;
+    LLVM_FALLTHROUGH;
+  case VirtualUse::Inter:
 
-  // Ignore use-def chains within the same ScopStmt.
-  if (ValueStmt == UserStmt)
-    return;
+    // Do not create another MemoryAccess for reloading the value if one already
+    // exists.
+    if (UserStmt->lookupValueReadOf(V))
+      break;
 
-  // Do not create another MemoryAccess for reloading the value if one already
-  // exists.
-  if (UserStmt->lookupValueReadOf(V))
-    return;
+    addMemoryAccess(UserBB, nullptr, MemoryAccess::READ, V, V->getType(), true,
+                    V, ArrayRef<const SCEV *>(), ArrayRef<const SCEV *>(),
+                    MemoryKind::Value);
 
-  addMemoryAccess(UserBB, nullptr, MemoryAccess::READ, V, V->getType(), true, V,
-                  ArrayRef<const SCEV *>(), ArrayRef<const SCEV *>(),
-                  MemoryKind::Value);
-  if (ValueInst)
-    ensureValueWrite(ValueInst);
+    // Inter-statement uses need to write the value in their defining statement.
+    if (VUse.isInter())
+      ensureValueWrite(cast<Instruction>(V));
+    break;
+  }
 }
 
 void ScopBuilder::ensurePHIWrite(PHINode *PHI, BasicBlock *IncomingBlock,
@@ -635,7 +834,77 @@ void ScopBuilder::addPHIReadAccess(PHINode *PHI) {
                   ArrayRef<const SCEV *>(), MemoryKind::PHI);
 }
 
-void ScopBuilder::buildScop(Region &R) {
+#ifndef NDEBUG
+static void verifyUse(Scop *S, Use &Op, LoopInfo &LI) {
+  auto PhysUse = VirtualUse::create(S, Op, &LI, false);
+  auto VirtUse = VirtualUse::create(S, Op, &LI, true);
+  assert(PhysUse.getKind() == VirtUse.getKind());
+}
+
+/// Check the consistency of every statement's MemoryAccesses.
+///
+/// The check is carried out by expecting the "physical" kind of use (derived
+/// from the BasicBlocks instructions resides in) to be same as the "virtual"
+/// kind of use (derived from a statement's MemoryAccess).
+///
+/// The "physical" uses are taken by ensureValueRead to determine whether to
+/// create MemoryAccesses. When done, the kind of scalar access should be the
+/// same no matter which way it was derived.
+///
+/// The MemoryAccesses might be changed by later SCoP-modifying passes and hence
+/// can intentionally influence on the kind of uses (not corresponding to the
+/// "physical" anymore, hence called "virtual"). The CodeGenerator therefore has
+/// to pick up the virtual uses. But here in the code generator, this has not
+/// happened yet, such that virtual and physical uses are equivalent.
+static void verifyUses(Scop *S, LoopInfo &LI, DominatorTree &DT) {
+  for (auto *BB : S->getRegion().blocks()) {
+    auto *Stmt = S->getStmtFor(BB);
+    if (!Stmt)
+      continue;
+
+    for (auto &Inst : *BB) {
+      if (isIgnoredIntrinsic(&Inst))
+        continue;
+
+      // Branch conditions are encoded in the statement domains.
+      if (isa<TerminatorInst>(&Inst) && Stmt->isBlockStmt())
+        continue;
+
+      // Verify all uses.
+      for (auto &Op : Inst.operands())
+        verifyUse(S, Op, LI);
+
+      // Stores do not produce values used by other statements.
+      if (isa<StoreInst>(Inst))
+        continue;
+
+      // For every value defined in the block, also check that a use of that
+      // value in the same statement would not be an inter-statement use. It can
+      // still be synthesizable or load-hoisted, but these kind of instructions
+      // are not directly copied in code-generation.
+      auto VirtDef =
+          VirtualUse::create(S, Stmt, Stmt->getSurroundingLoop(), &Inst, true);
+      assert(VirtDef.getKind() == VirtualUse::Synthesizable ||
+             VirtDef.getKind() == VirtualUse::Intra ||
+             VirtDef.getKind() == VirtualUse::Hoisted);
+    }
+  }
+
+  if (S->hasSingleExitEdge())
+    return;
+
+  // PHINodes in the SCoP region's exit block are also uses to be checked.
+  for (auto &Inst : *S->getRegion().getExit()) {
+    if (!isa<PHINode>(Inst))
+      break;
+
+    for (auto &Op : Inst.operands())
+      verifyUse(S, Op, LI);
+  }
+}
+#endif
+
+void ScopBuilder::buildScop(Region &R, AssumptionCache &AC) {
   scop.reset(new Scop(R, SE, LI, *SD.getDetectionContext(&R)));
 
   buildStmts(R);
@@ -659,12 +928,68 @@ void ScopBuilder::buildScop(Region &R) {
       addArrayAccess(MemAccInst(GlobalRead), MemoryAccess::READ, BP,
                      BP->getType(), false, {AF}, {nullptr}, GlobalRead);
 
-  scop->init(AA, DT, LI);
+  scop->buildInvariantEquivalenceClasses();
+
+  if (!scop->buildDomains(&R, DT, LI))
+    return;
+
+  scop->addUserAssumptions(AC, DT, LI);
+
+  // Remove empty statements.
+  // Exit early in case there are no executable statements left in this scop.
+  scop->simplifySCoP(false);
+  if (scop->isEmpty())
+    return;
+
+  // The ScopStmts now have enough information to initialize themselves.
+  for (ScopStmt &Stmt : *scop)
+    Stmt.init(LI);
+
+  // Check early for a feasible runtime context.
+  if (!scop->hasFeasibleRuntimeContext())
+    return;
+
+  // Check early for profitability. Afterwards it cannot change anymore,
+  // only the runtime context could become infeasible.
+  if (!scop->isProfitable(UnprofitableScalarAccs)) {
+    scop->invalidate(PROFITABLE, DebugLoc());
+    return;
+  }
+
+  scop->buildSchedule(LI);
+
+  scop->finalizeAccesses();
+
+  scop->realignParams();
+  scop->addUserContext();
+
+  // After the context was fully constructed, thus all our knowledge about
+  // the parameters is in there, we add all recorded assumptions to the
+  // assumed/invalid context.
+  scop->addRecordedAssumptions();
+
+  scop->simplifyContexts();
+  if (!scop->buildAliasChecks(AA))
+    return;
+
+  scop->hoistInvariantLoads();
+  scop->canonicalizeDynamicBasePtrs();
+  scop->verifyInvariantLoads();
+  scop->simplifySCoP(true);
+
+  // Check late for a feasible runtime context because profitability did not
+  // change.
+  if (!scop->hasFeasibleRuntimeContext())
+    return;
+
+#ifndef NDEBUG
+  verifyUses(scop.get(), LI, DT);
+#endif
 }
 
-ScopBuilder::ScopBuilder(Region *R, AliasAnalysis &AA, const DataLayout &DL,
-                         DominatorTree &DT, LoopInfo &LI, ScopDetection &SD,
-                         ScalarEvolution &SE)
+ScopBuilder::ScopBuilder(Region *R, AssumptionCache &AC, AliasAnalysis &AA,
+                         const DataLayout &DL, DominatorTree &DT, LoopInfo &LI,
+                         ScopDetection &SD, ScalarEvolution &SE)
     : AA(AA), DL(DL), DT(DT), LI(LI), SD(SD), SE(SE) {
 
   Function *F = R->getEntry()->getParent();
@@ -674,7 +999,7 @@ ScopBuilder::ScopBuilder(Region *R, AliasAnalysis &AA, const DataLayout &DL,
   std::string Msg = "SCoP begins here.";
   emitOptimizationRemarkAnalysis(F->getContext(), DEBUG_TYPE, *F, Beg, Msg);
 
-  buildScop(*R);
+  buildScop(*R, AC);
 
   DEBUG(scop->print(dbgs()));
 

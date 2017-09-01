@@ -194,7 +194,7 @@ VGNode *VGLoop::getLastChild() {
 }
 
 void VGLoop::print(formatted_raw_ostream &OS, unsigned Depth) const {
-  
+#if !INTEL_PRODUCT_RELEASE  
   std::string Indent((Depth * TabLength), ' ');
 
   OS << Indent;
@@ -209,9 +209,14 @@ void VGLoop::print(formatted_raw_ostream &OS, unsigned Depth) const {
     Itr->print(OS, Depth);
 
   OS << Indent << "}\n";
+#endif // !INTEL_PRODUCT_RELEASE  
 }
 
-void VGLoop::printNodeKind(formatted_raw_ostream &OS) const { OS << "LOOP"; }
+void VGLoop::printNodeKind(formatted_raw_ostream &OS) const {
+#if !INTEL_PRODUCT_RELEASE  
+  OS << "LOOP";
+#endif // !INTEL_PRODUCT_RELEASE  
+}
 
 //----------------------------------------------//
 VGBlock::VGBlock(BasicBlock *BB) : VGNode(VGNode::VGBlockNode),
@@ -220,6 +225,7 @@ VGBlock::VGBlock(BasicBlock *BB) : VGNode(VGNode::VGBlockNode),
 VGBlock *VGBlock::clone() const { return nullptr; }
 
 void VGBlock::print(formatted_raw_ostream &OS, unsigned Depth) const {
+#if !INTEL_PRODUCT_RELEASE  
 
   std::string Indent((Depth * TabLength), ' ');
 
@@ -229,9 +235,11 @@ void VGBlock::print(formatted_raw_ostream &OS, unsigned Depth) const {
     OS << "\n" << "Label: " << *BBlock << "\n";
   printNodeKind(OS);
   OS << "{}\n";
+#endif // !INTEL_PRODUCT_RELEASE  
 }
 
 void VGBlock::print(raw_ostream &OS, unsigned Depth) const {
+#if !INTEL_PRODUCT_RELEASE  
 
   std::string Indent((Depth * TabLength), ' ');
 
@@ -241,11 +249,20 @@ void VGBlock::print(raw_ostream &OS, unsigned Depth) const {
     OS << "\n" << "Label: " << *BBlock << "\n";
   printNodeKind(OS);
   OS << "{}\n";
+#endif // !INTEL_PRODUCT_RELEASE  
 }
 
-void VGBlock::printNodeKind(formatted_raw_ostream &OS) const { OS << "Block"; }
+void VGBlock::printNodeKind(formatted_raw_ostream &OS) const {
+#if !INTEL_PRODUCT_RELEASE  
+  OS << "Block";
+#endif // !INTEL_PRODUCT_RELEASE  
+}
 
-void VGBlock::printNodeKind(raw_ostream &OS) const { OS << "Block"; }
+void VGBlock::printNodeKind(raw_ostream &OS) const {
+#if !INTEL_PRODUCT_RELEASE  
+  OS << "Block";
+#endif // !INTEL_PRODUCT_RELEASE  
+}
 
 //-----------Predicate Implementation----------//
 VGPredicate::VGPredicate()
@@ -254,6 +271,7 @@ VGPredicate::VGPredicate()
 VGPredicate *VGPredicate::clone() const { return nullptr; }
 
 void VGPredicate::print(formatted_raw_ostream &OS, unsigned Depth) const {
+#if !INTEL_PRODUCT_RELEASE  
   std::string Indent((Depth * TabLength), ' ');
 
   OS << Indent;
@@ -283,8 +301,11 @@ void VGPredicate::print(formatted_raw_ostream &OS, unsigned Depth) const {
   }
   OS << "}";
   OS << "\n";
+#endif // !INTEL_PRODUCT_RELEASE  
 }
 
 void VGPredicate::printNodeKind(formatted_raw_ostream &OS) const {
+#if !INTEL_PRODUCT_RELEASE  
   OS << "Predicate";
+#endif // !INTEL_PRODUCT_RELEASE  
 }

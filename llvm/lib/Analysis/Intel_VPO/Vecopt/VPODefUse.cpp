@@ -13,13 +13,13 @@
 
 #include "llvm/Analysis/Intel_VPO/Vecopt/Passes.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPODefUse.h"
-#include "llvm/IR/Intel_LoopIR/BlobDDRef.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/BlobDDRef.h"
 
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/PassSupport.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
 #define DEBUG_TYPE "vpo-def-use"
 
@@ -27,6 +27,7 @@ using namespace llvm;
 using namespace vpo;
 
 void IR2AVRVisitor::print(raw_ostream &OS) const {
+#if !INTEL_PRODUCT_RELEASE
 
   static std::string Indent(TabLength, ' ');
   formatted_raw_ostream FOS(dbgs());
@@ -59,6 +60,7 @@ void IR2AVRVisitor::print(raw_ostream &OS) const {
     }
     FOS << "\n";
   }
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 void IR2AVRVisitor::visit(AVRValueHIR *AValueHIR) {
@@ -157,6 +159,7 @@ void AvrDefUseBase::reset() {
 }
 
 void AvrDefUseBase::print(raw_ostream &OS, const Module *M) const {
+#if !INTEL_PRODUCT_RELEASE
 
   static std::string Indent(TabLength, ' ');
   formatted_raw_ostream FOS(OS);
@@ -193,6 +196,7 @@ void AvrDefUseBase::print(raw_ostream &OS, const Module *M) const {
       }
     }
   }
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 AvrDefUseBase::AvrDefUseBase(char &ID) : FunctionPass(ID) { reset(); }
@@ -398,13 +402,12 @@ void AvrDefUseHIR::visit(AVRValueHIR *AValueHIR) {
   if (DDRef *DDR = AValueHIR->getValue()) {
 
     auto HLoop = TopLevelLoop->getLoop();
-    auto &HNU = HLoop->getHLNodeUtils();
 
     // If the def is outside the loop, all uses of the def in the loop can
     // be treated as uniform. We want to avoid problems for cases where
     // we do not find the use AVR(such as in loop bounds for which we do
     // not build AVR nodes).
-    if (!HNU.contains(HLoop, DDR->getHLDDNode()))
+    if (!HLNodeUtils::contains(HLoop, DDR->getHLDDNode()))
       return;
 
     // This AVR value is a Def of its Symbase. Extract the actual Def AVR and
@@ -428,7 +431,7 @@ void AvrDefUseHIR::visit(AVRValueHIR *AValueHIR) {
         continue;
 
       // Skip dependencies outside TopLevelLoop
-      if (!HNU.contains(HLoop, SinkDDR->getHLDDNode()))
+      if (!HLNodeUtils::contains(HLoop, SinkDDR->getHLDDNode()))
         continue;
 
       // Skip dependencies to DDRefs whose using AVR is a Def.

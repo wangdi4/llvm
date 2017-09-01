@@ -38,10 +38,12 @@ Pass::~Pass() {
 // Force out-of-line virtual method.
 ModulePass::~ModulePass() { }
 
+#if !INTEL_PRODUCT_RELEASE
 Pass *ModulePass::createPrinterPass(raw_ostream &O,
                                     const std::string &Banner) const {
   return createPrintModulePass(O, Banner);
 }
+#endif // !INTEL_PRODUCT_RELEASE
 
 PassManagerType ModulePass::getPotentialPassManagerType() const {
   return PMT_ModulePassManager;
@@ -55,10 +57,12 @@ bool Pass::mustPreserveAnalysisID(char &AID) const {
   return Resolver->getAnalysisIfAvailable(&AID, true) != nullptr;
 }
 
+#if !INTEL_PRODUCT_RELEASE
 // dumpPassStructure - Implement the -debug-pass=Structure option
 void Pass::dumpPassStructure(unsigned Offset) {
   dbgs().indent(Offset*2) << getPassName() << "\n";
 }
+#endif // !INTEL_PRODUCT_RELEASE
 
 /// getPassName - Return a nice clean name for a pass.  This usually
 /// implemented in terms of the name that is registered by one of the
@@ -139,10 +143,12 @@ void ImmutablePass::initializePass() {
 // FunctionPass Implementation
 //
 
+#if !INTEL_PRODUCT_RELEASE
 Pass *FunctionPass::createPrinterPass(raw_ostream &O,
                                       const std::string &Banner) const {
   return createPrintFunctionPass(O, Banner);
 }
+#endif // !INTEL_PRODUCT_RELEASE
 
 PassManagerType FunctionPass::getPotentialPassManagerType() const {
   return PMT_FunctionPassManager;
@@ -164,10 +170,12 @@ bool FunctionPass::skipFunction(const Function &F) const {
 // BasicBlockPass Implementation
 //
 
+#if !INTEL_PRODUCT_RELEASE
 Pass *BasicBlockPass::createPrinterPass(raw_ostream &O,
                                         const std::string &Banner) const {
   return createPrintBasicBlockPass(O, Banner);
 }
+#endif // !INTEL_PRODUCT_RELEASE
 
 bool BasicBlockPass::doInitialization(Function &) {
   // By default, don't do anything.

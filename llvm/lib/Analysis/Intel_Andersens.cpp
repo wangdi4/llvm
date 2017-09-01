@@ -4907,6 +4907,7 @@ void IntelModRefImpl::propagate(Module &M)
 {
     auto G = buildPropagationSCC(M);
     unsigned sccNum = 0;
+    (void)sccNum;
 
     for (auto I = scc_begin(G.get()); !I.isAtEnd(); ++I) {
         const std::vector<CallGraphNode *> &SCC = *I;

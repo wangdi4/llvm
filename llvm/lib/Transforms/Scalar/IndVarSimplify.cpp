@@ -97,7 +97,7 @@ class IndVarSimplify {
   TargetLibraryInfo *TLI;
   const TargetTransformInfo *TTI;
 
-  SmallVector<WeakVH, 16> DeadInsts;
+  SmallVector<WeakTrackingVH, 16> DeadInsts;
   bool Changed = false;
 
   bool isValidRewrite(Value *FromVal, Value *ToVal);
@@ -231,8 +231,9 @@ static bool ConvertToSInt(const APFloat &APF, int64_t &IntVal) {
   bool isExact = false;
   // See if we can convert this to an int64_t
   uint64_t UIntVal;
-  if (APF.convertToInteger(&UIntVal, 64, true, APFloat::rmTowardZero,
-                           &isExact) != APFloat::opOK || !isExact)
+  if (APF.convertToInteger(makeMutableArrayRef(UIntVal), 64, true,
+                           APFloat::rmTowardZero, &isExact) != APFloat::opOK ||
+      !isExact)
     return false;
   IntVal = UIntVal;
   return true;
@@ -414,8 +415,8 @@ void IndVarSimplify::handleFloatingPointIV(Loop *L, PHINode *PN) {
                                       Compare->getName());
 
   // In the following deletions, PN may become dead and may be deleted.
-  // Use a WeakVH to observe whether this happens.
-  WeakVH WeakPH = PN;
+  // Use a WeakTrackingVH to observe whether this happens.
+  WeakTrackingVH WeakPH = PN;
 
   // Delete the old floating point exit comparison.  The branch starts using the
   // new comparison.
@@ -450,7 +451,7 @@ void IndVarSimplify::rewriteNonIntegerIVs(Loop *L) {
   //
   BasicBlock *Header = L->getHeader();
 
-  SmallVector<WeakVH, 8> PHIs;
+  SmallVector<WeakTrackingVH, 8> PHIs;
   for (BasicBlock::iterator I = Header->begin();
        PHINode *PN = dyn_cast<PHINode>(I); ++I)
     PHIs.push_back(PN);
@@ -900,13 +901,13 @@ class WidenIV {
   PHINode *WidePhi;
   Instruction *WideInc;
   const SCEV *WideIncExpr;
-  SmallVectorImpl<WeakVH> &DeadInsts;
+  SmallVectorImpl<WeakTrackingVH> &DeadInsts;
 
   SmallPtrSet<Instruction *,16> Widened;
   SmallVector<NarrowIVDefUse, 8> NarrowIVUsers;
 
   enum ExtendKind { ZeroExtended, SignExtended, Unknown };
-  // A map tracking the kind of extension used to widen each narrow IV 
+  // A map tracking the kind of extension used to widen each narrow IV
   // and narrow IV user.
   // Key: pointer to a narrow IV or IV user.
   // Value: the kind of extension used to widen this Instruction.
@@ -940,20 +941,13 @@ class WidenIV {
   }
 
 public:
-  WidenIV(const WideIVInfo &WI, LoopInfo *LInfo,
-          ScalarEvolution *SEv, DominatorTree *DTree,
-          SmallVectorImpl<WeakVH> &DI, bool HasGuards) :
-    OrigPhi(WI.NarrowIV),
-    WideType(WI.WidestNativeType),
-    LI(LInfo),
-    L(LI->getLoopFor(OrigPhi->getParent())),
-    SE(SEv),
-    DT(DTree),
-    HasGuards(HasGuards),
-    WidePhi(nullptr),
-    WideInc(nullptr),
-    WideIncExpr(nullptr),
-    DeadInsts(DI) {
+  WidenIV(const WideIVInfo &WI, LoopInfo *LInfo, ScalarEvolution *SEv,
+          DominatorTree *DTree, SmallVectorImpl<WeakTrackingVH> &DI,
+          bool HasGuards)
+      : OrigPhi(WI.NarrowIV), WideType(WI.WidestNativeType), LI(LInfo),
+        L(LI->getLoopFor(OrigPhi->getParent())), SE(SEv), DT(DTree),
+        HasGuards(HasGuards), WidePhi(nullptr), WideInc(nullptr),
+        WideIncExpr(nullptr), DeadInsts(DI) {
     assert(L->getHeader() == OrigPhi->getParent() && "Phi must be an IV");
     ExtendKindMap[OrigPhi] = WI.IsSigned ? SignExtended : ZeroExtended;
   }
@@ -1608,7 +1602,7 @@ void WidenIV::calculatePostIncRange(Instruction *NarrowDef,
       return;
 
     CmpInst::Predicate P =
-            TrueDest ? Pred : CmpInst::getInversePredicate(Pred);  
+            TrueDest ? Pred : CmpInst::getInversePredicate(Pred);
 
     auto CmpRHSRange = SE->getSignedRange(SE->getSCEV(CmpRHS));
     auto CmpConstrainedLHSRange =
@@ -1634,7 +1628,7 @@ void WidenIV::calculatePostIncRange(Instruction *NarrowDef,
   UpdateRangeFromGuards(NarrowUser);
 
   BasicBlock *NarrowUserBB = NarrowUser->getParent();
-  // If NarrowUserBB is statically unreachable asking dominator queries may 
+  // If NarrowUserBB is statically unreachable asking dominator queries may
   // yield surprising results. (e.g. the block may not have a dom tree node)
   if (!DT->isReachableFromEntry(NarrowUserBB))
     return;
@@ -2152,6 +2146,8 @@ linearFunctionTestReplace(Loop *L,
   Value *CmpIndVar = IndVar;
   const SCEV *IVCount = BackedgeTakenCount;
 
+  assert(L->getLoopLatch() && "Loop no longer in simplified form?");
+
   // If the exiting block is the same as the backedge block, we prefer to
   // compare against the post-incremented value, otherwise we must compare
   // against the preincremented value.
@@ -2224,31 +2220,41 @@ linearFunctionTestReplace(Loop *L,
       DEBUG(dbgs() << "  Widen RHS:\t" << *ExitCnt << "\n");
     } else {
       // We try to extend trip count first. If that doesn't work we truncate IV.
-      // Zext(trunc(IV)) == IV implies equivalence of the following two:
-      // Trunc(IV) == ExitCnt and IV == zext(ExitCnt). Similarly for sext. If
+#if INTEL_CUSTOMIZATION
+      // sext(trunc(IV)) == IV implies equivalence of the following two:
+      // Trunc(IV) == ExitCnt and IV == sext(ExitCnt). Similarly for zext. If
       // one of the two holds, extend the trip count, otherwise we truncate IV.
+      //
+      // Most loops have IVs in positive signed range, which means the trip
+      // count (ExitCnt) is in signed range. Since ExitCnt is likely to be
+      // signed we should try sext before zext as it is likely to preserve more
+      // indormation.
+#endif
+
       bool Extended = false;
       const SCEV *IV = SE->getSCEV(CmpIndVar);
-      const SCEV *ZExtTrunc =
-           SE->getZeroExtendExpr(SE->getTruncateExpr(SE->getSCEV(CmpIndVar),
+#if INTEL_CUSTOMIZATION
+      const SCEV *SExtTrunc =
+           SE->getSignExtendExpr(SE->getTruncateExpr(SE->getSCEV(CmpIndVar),
                                                      ExitCnt->getType()),
                                  CmpIndVar->getType());
 
-      if (ZExtTrunc == IV) {
+      if (SExtTrunc == IV) {
         Extended = true;
-        ExitCnt = Builder.CreateZExt(ExitCnt, IndVar->getType(),
+        ExitCnt = Builder.CreateSExt(ExitCnt, IndVar->getType(),
                                      "wide.trip.count");
       } else {
-        const SCEV *SExtTrunc =
-          SE->getSignExtendExpr(SE->getTruncateExpr(SE->getSCEV(CmpIndVar),
+        const SCEV *ZExtTrunc =
+          SE->getZeroExtendExpr(SE->getTruncateExpr(SE->getSCEV(CmpIndVar),
                                                     ExitCnt->getType()),
                                 CmpIndVar->getType());
-        if (SExtTrunc == IV) {
+        if (ZExtTrunc == IV) {
           Extended = true;
-          ExitCnt = Builder.CreateSExt(ExitCnt, IndVar->getType(),
+          ExitCnt = Builder.CreateZExt(ExitCnt, IndVar->getType(),
                                        "wide.trip.count");
         }
       }
+#endif // INTEL_CUSTOMIZATION
 
       if (!Extended)
         CmpIndVar = Builder.CreateTrunc(CmpIndVar, ExitCnt->getType(),
@@ -2376,6 +2382,7 @@ bool IndVarSimplify::run(Loop *L) {
   //    Loop::getCanonicalInductionVariable only supports loops with preheaders,
   //    and we're in trouble if we can't find the induction variable even when
   //    we've manually inserted one.
+  //  - LFTR relies on having a single backedge.
   if (!L->isLoopSimplifyForm())
     return false;
 

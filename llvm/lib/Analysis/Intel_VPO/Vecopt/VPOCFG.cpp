@@ -45,6 +45,7 @@ AvrCFGBase::BuilderBase::BuilderBase(AvrCFGBase& C,
 }
 
 void AvrCFGBase::print(raw_ostream &OS, const PathTy& Path) const {
+#if !INTEL_PRODUCT_RELEASE
 
   bool First = true;
 
@@ -60,6 +61,7 @@ void AvrCFGBase::print(raw_ostream &OS, const PathTy& Path) const {
 
     First = false;
   }
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 AvrCFGBase::PathTy
@@ -749,6 +751,7 @@ void AvrCFGBase::compress() {
 }
 
 void AvrCFGBase::print(raw_ostream &OS) const {
+#if !INTEL_PRODUCT_RELEASE
 
   static std::string Indent(TabLength, ' ');
 
@@ -778,9 +781,11 @@ void AvrCFGBase::print(raw_ostream &OS) const {
       FOS << " " << Succ->Id;
     FOS << "\n";
   }
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 void AvrCFGBase::printDot(raw_ostream &O, bool ShortNames) {
+#if !INTEL_PRODUCT_RELEASE
 
   static std::string TitleHeader("AVR Control Flow Graph for ");
 
@@ -790,6 +795,7 @@ void AvrCFGBase::printDot(raw_ostream &O, bool ShortNames) {
   }
 
   WriteGraph<AvrBasicBlock*>(O, getEntry(), ShortNames, TitleHeader + Title);
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 void AvrCFGBase::insertAfter(AvrBasicBlock* BB, AvrBasicBlock* NewSuccessor) {
@@ -913,6 +919,7 @@ bool AvrCFG::runOnFunction(Function &F) {
 }
 
 void AvrCFG::print(raw_ostream &OS, const Module *M) const {
+#if !INTEL_PRODUCT_RELEASE
 
   if (!CFG) {
     OS << "AVR CFG is empty\n";
@@ -920,6 +927,7 @@ void AvrCFG::print(raw_ostream &OS, const Module *M) const {
   }
 
   CFG->print(OS);
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 FunctionPass *llvm::createAvrCFGPass() {
@@ -955,6 +963,7 @@ bool AvrCFGHIR::runOnFunction(Function &F) {
 }
 
 void AvrCFGHIR::print(raw_ostream &OS, const Module *M) const {
+#if !INTEL_PRODUCT_RELEASE
 
   if (!CFG) {
     OS << "AVR CFG is empty\n";
@@ -962,6 +971,7 @@ void AvrCFGHIR::print(raw_ostream &OS, const Module *M) const {
   }
 
   CFG->print(OS);
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 FunctionPass *llvm::createAvrCFGHIRPass() {

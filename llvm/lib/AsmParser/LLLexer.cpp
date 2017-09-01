@@ -549,6 +549,7 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(ninf);
   KEYWORD(nsz);
   KEYWORD(arcp);
+  KEYWORD(contract);
   KEYWORD(fast);
   KEYWORD(nuw);
   KEYWORD(nsw);
@@ -604,6 +605,7 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(hhvm_ccc);
   KEYWORD(cxx_fast_tlscc);
   KEYWORD(amdgpu_vs);
+  KEYWORD(amdgpu_hs);
   KEYWORD(amdgpu_gs);
   KEYWORD(amdgpu_ps);
   KEYWORD(amdgpu_cs);
@@ -638,6 +640,10 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(noduplicate);
   KEYWORD(noimplicitfloat);
   KEYWORD(noinline);
+#if INTEL_CUSTOMIZATION
+  KEYWORD(inlinehint_recursive);
+  KEYWORD(alwaysinline_recursive);
+#endif // INTEL_CUSTOMIZATION
   KEYWORD(norecurse);
   KEYWORD(nonlazybind);
   KEYWORD(nonnull);
@@ -651,6 +657,7 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(returned);
   KEYWORD(returns_twice);
   KEYWORD(signext);
+  KEYWORD(speculatable);
   KEYWORD(sret);
   KEYWORD(ssp);
   KEYWORD(sspreq);

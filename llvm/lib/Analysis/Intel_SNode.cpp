@@ -221,8 +221,7 @@ bool SNode::hasTwoSucc(SNode **SnSucc1, SNode **SnSucc2) {
 const SNode* BlockSNode::getTrueTarget() const {
   BranchInst *BI = dyn_cast<BranchInst>(B->getTerminator());
   if (B->getTerminator()->getNumSuccessors() == 2 && BI) {
-    BasicBlock *BB = BI->getSuccessor(0);
-    assert(getFirstSucc()->getFirstBlock() == BB && 
+    assert(getFirstSucc()->getFirstBlock() == BI->getSuccessor(0) && 
            "expected the first successor SNode is the true target"); 
 
     return getFirstSucc();
@@ -235,8 +234,7 @@ const SNode* BlockSNode::getTrueTarget() const {
 const SNode* BlockSNode::getFalseTarget() const {
   BranchInst *BI = dyn_cast<BranchInst>(B->getTerminator());
   if (B->getTerminator()->getNumSuccessors() == 2 && BI) {
-    BasicBlock *BB = BI->getSuccessor(1);
-    assert(getLastSucc()->getFirstBlock() == BB &&
+    assert(getLastSucc()->getFirstBlock() == BI->getSuccessor(1) &&
            "expected the second successor SNode is the false target"); 
     return getLastSucc();
   }

@@ -5,7 +5,7 @@
 ; CHECK: Dump Before HIR Temp Cleanup
 ; CHECK: LiveOut symbases: 6
 ; CHECK: LiveOut symbases: 4
-; CHECK: LiveOut symbases: 44
+; CHECK: LiveOut symbases: 45
 
 ; CHECK: Dump After HIR Temp Cleanup
 ; CHECK: LiveOut symbases: 4 

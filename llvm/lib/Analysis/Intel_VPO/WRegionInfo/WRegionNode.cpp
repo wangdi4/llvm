@@ -137,9 +137,11 @@ WRegionNode *WRegionNode::getLastChild() {
 void WRegionNode::printChildren(formatted_raw_ostream &OS,
                                 unsigned Depth) const
  {
+#if !INTEL_PRODUCT_RELEASE
   for (auto I = wrn_child_begin(), E = wrn_child_end(); I != E; ++I) {
     (*I)->print(OS, Depth);
   }
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 void WRegionNode::destroy() {

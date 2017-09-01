@@ -7,7 +7,7 @@
 ;<4>          |   (%allocs)[i1] = &((%0)[0]);
 ;<11>         + END LOOP
 ;          END REGION
-;CHECK: region:
+;CHECK: region.0:
 ;CHECK: loop.{{[0-9]+}}:
 ;CHECK-NEXT: [[SEXT_SIZE:%[0-9]+]] = sext i32 %size to i64
 ;CHECK-NEXT: = alloca i8, i64 [[SEXT_SIZE]]

@@ -17,8 +17,8 @@
 #include <algorithm>
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOScenarioEvaluation.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOPredicator.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRAnalysisPass.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRVLSClient.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRAnalysisPass.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRVLSClient.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrVisitor.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrStmt.h"
 
@@ -156,7 +156,7 @@ VPOVecContextBase VPOScenarioEvaluationBase::getBestCandidate(AVRWrn *AWrn) {
       // Decomposition of AVRValueHIRs happens here
       prepareLoop(AvrLoop);
 
-      int BestCostForALoop = 0;
+      uint64_t BestCostForALoop = 0;
       // Get the scalar cost for this loop.
       // (No need to compute the cost if ForceVF is set to a VF forced by the 
       // user).
@@ -216,7 +216,8 @@ void VPOScenarioEvaluationBase::findVFCandidates(
 }
 
 VPOVecContextBase
-VPOScenarioEvaluationBase::processLoop(AVRLoop *ALoop, int *BestCostForALoop) {
+VPOScenarioEvaluationBase::processLoop(AVRLoop *ALoop,
+                                       uint64_t *BestCostForALoop) {
   DEBUG(errs() << "Process Loop\n");
 
   // Place holder for loop-level, VF-agnostic passes.
@@ -259,7 +260,7 @@ VPOScenarioEvaluationBase::processLoop(AVRLoop *ALoop, int *BestCostForALoop) {
     // required for some of the analyses in processCandidates (namely, for VLS
     // grouping).
     VPOVecContextBase VC = setVecContext(VF);
-    int Cost = processCandidate(ALoop, VF, VC);
+    uint64_t Cost = processCandidate(ALoop, VF, VC);
 
     if (Cost < *BestCostForALoop || VF == ForceVF) {
       *BestCostForALoop = Cost;
@@ -278,8 +279,9 @@ VPOScenarioEvaluationBase::processLoop(AVRLoop *ALoop, int *BestCostForALoop) {
 
 // TODO: Ideally we have very few VF sensitive adjusments to make.
 // ProcessCandidate will be as much as possible just a getCost call.
-int VPOScenarioEvaluationBase::processCandidate(AVRLoop *ALoop, unsigned int VF,
-                                                VPOVecContextBase &VC) {
+uint64_t VPOScenarioEvaluationBase::processCandidate(AVRLoop *ALoop,
+                                                     unsigned int VF,
+                                                     VPOVecContextBase &VC) {
 
   // Place holder for VF-specific passes.
   //
@@ -345,7 +347,7 @@ int VPOScenarioEvaluationBase::processCandidate(AVRLoop *ALoop, unsigned int VF,
   // Calculate the cost of the current candidate
   // (No need to calculate cost if the user forced a specific VF).
   //
-  int Cost = 0; 
+  uint64_t Cost = 0; 
   if (ForceVF == 0) { 
     Cost = getCM()->getCost(ALoop, VF, VLSInfo);
   } 
@@ -388,14 +390,14 @@ int64_t getConsecutiveStride(AVR *PtrOp) {
   assert((isa<AVRValue>(PtrOp) || isa<AVRExpression>(PtrOp)) &&
          "Unexpected AVR node");
 
-  Type *PtrType;
   // TODO: Move type to AVR. This pattern is very common
   if (AVRValue *ValOp = dyn_cast<AVRValue>(PtrOp)) {
-    PtrType = ValOp->getType();
+    (void)ValOp;
+    assert(ValOp->getType()->isPointerTy() && "Unexpected non-ptr");
   } else if (AVRExpression *ExprOp = dyn_cast<AVRExpression>(PtrOp)) {
-    PtrType = ExprOp->getType();
+    (void)ExprOp;
+    assert(ExprOp->getType()->isPointerTy() && "Unexpected non-ptr");
   }
-  assert(PtrType->isPointerTy() && "Unexpected non-ptr");
 
 #ifdef USE_EXPERIMENTAL_CODE
   // TODO: Use instead IsPointerConsecutive, once available
@@ -1044,12 +1046,12 @@ void VPOCostGathererBase::postVisit(AVRValue *AValue) {
 // TODO: What additional information will the costModel need?:
 // - a Map of Memrefs to the VLS Group they belong to (if any).
 // - ?
-int VPOCostModelBase::getCost(AVRLoop *ALoop, unsigned int VF, 
-                              VPOVLSInfoBase *VLSInfo,
-                              unsigned int *MinBitWidthP,
-                              unsigned int *MaxBitWidthP) {
+uint64_t VPOCostModelBase::getCost(AVRLoop *ALoop, unsigned int VF,
+                                   VPOVLSInfoBase *VLSInfo,
+                                   unsigned int *MinBitWidthP,
+                                   unsigned int *MaxBitWidthP) {
   DEBUG(errs() << "\nEvaluating Loop Cost for VF = " << VF << "\n");
-  unsigned int Cost;
+  uint64_t Cost;
 
   // Calculate LoopBody Cost 
   VPOCostGathererBase *CostGatherer = getCostGatherer(VF, ALoop, VLSInfo);

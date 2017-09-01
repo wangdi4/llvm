@@ -19,8 +19,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "ParVecDirectiveInsertion.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Utils/Intel_IntrinsicUtils.h"
 //#include "llvm/Analysis/Intel_LoopAnalysis/HIRParVecAnalysis.h"
 //#include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
@@ -56,6 +56,10 @@ bool ParVecDirectiveInsertion::runOnFunction(Function &Func) {
 
 void ParVecDirectiveInsertion::Visitor::visit(HLLoop *HLoop) {
   auto Info = PVA->getInfo(Mode, HLoop);
+
+  if (HLoop->isInnermost()) {
+    SkipNode = HLoop;
+  }
 
   // Insert vectorization directives?
   bool Insert = (Mode == ParVecInfo::VectorForVectorizer ||
@@ -123,13 +127,13 @@ void ParVecDirectiveInsertion::Visitor::insertParDirectives(
 
 RegDDRef *
 ParVecDirectiveInsertion::Visitor::createRegDDRef(OMP_DIRECTIVES Dir) {
-  return HIRF->getDDRefUtils().createMetadataDDRef(
+  return HIRF->getDDRefUtils().createConstDDRef(
       IntelIntrinsicUtils::createDirectiveMetadataAsValue(*(Func.getParent()),
                                                           Dir));
 }
 
 RegDDRef *ParVecDirectiveInsertion::Visitor::createRegDDRef(OMP_CLAUSES Qual) {
-  return HIRF->getDDRefUtils().createMetadataDDRef(
+  return HIRF->getDDRefUtils().createConstDDRef(
       IntelIntrinsicUtils::createClauseMetadataAsValue(*(Func.getParent()),
                                                        Qual));
 }

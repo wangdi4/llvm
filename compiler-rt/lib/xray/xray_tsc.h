@@ -13,8 +13,14 @@
 #ifndef XRAY_EMULATE_TSC_H
 #define XRAY_EMULATE_TSC_H
 
+namespace __xray {
+static constexpr uint64_t NanosecondsPerSecond = 1000ULL * 1000 * 1000;
+}
+
 #if defined(__x86_64__)
 #include "xray_x86_64.inc"
+#elif defined(__powerpc64__)
+#include "xray_powerpc64.inc"
 #elif defined(__arm__) || defined(__aarch64__) || defined(__mips__)
 // Emulated TSC.
 // There is no instruction like RDTSCP in user mode on ARM. ARM's CP15 does
@@ -34,8 +40,6 @@
 #include <time.h>
 
 namespace __xray {
-
-static constexpr uint64_t NanosecondsPerSecond = 1000ULL * 1000 * 1000;
 
 inline bool probeRequiredCPUFeatures() XRAY_NEVER_INSTRUMENT { return true; }
 
@@ -58,7 +62,7 @@ inline uint64_t getTSCFrequency() XRAY_NEVER_INSTRUMENT {
 } // namespace __xray
 
 #else
-"Unsupported CPU Architecture"
+#error Target architecture is not supported.
 #endif // CPU architecture
 
 #endif // XRAY_EMULATE_TSC_H

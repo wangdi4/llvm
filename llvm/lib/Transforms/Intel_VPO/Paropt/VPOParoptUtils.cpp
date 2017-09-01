@@ -62,7 +62,7 @@ CallInst *VPOParoptUtils::genKmpcBeginCall(Function *F, Instruction *AI,
 
   Constant *FnC = M->getOrInsertFunction("__kmpc_begin", Type::getVoidTy(C),
                                          PointerType::getUnqual(IdentTy),
-                                         Type::getInt32Ty(C), NULL);
+                                         Type::getInt32Ty(C));
 
   Function *FnKmpcBegin = cast<Function>(FnC);
 
@@ -93,7 +93,7 @@ CallInst *VPOParoptUtils::genKmpcEndCall(Function *F, Instruction *AI,
       genKmpcLocfromDebugLoc(F, AI, IdentTy, Flags, &B, &E);
 
   Constant *FnC = M->getOrInsertFunction("__kmpc_end", Type::getVoidTy(C),
-                                         PointerType::getUnqual(IdentTy), NULL);
+                                         PointerType::getUnqual(IdentTy));
 
   Function *FnKmpcEnd = cast<Function>(FnC);
 
@@ -496,8 +496,7 @@ bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
   assert(IdentTy != nullptr && "IdentTy is null.");
   assert(TidPtr != nullptr && "TidPtr is null.");
 
-  unsigned NumBBs = W->getBBSetSize();
-  assert(NumBBs >= 3 &&
+  assert(W->getBBSetSize() >= 3 &&
          "Critical Node is expected to have at least 3 BBlocks.");
 
   // W should have entry and exit BBlocks with the directive

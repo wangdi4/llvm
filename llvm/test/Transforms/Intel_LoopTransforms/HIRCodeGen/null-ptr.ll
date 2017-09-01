@@ -1,7 +1,7 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-cg -force-hir-cg -S | FileCheck %s
 
 ; Check that CG correctly handles the pointer comparison with null pointer.
-; CHECK: region:
+; CHECK: region.0:
 ; CHECK: hir.cmp.{{[0-9]+}}
 ; CHECK-SAME: icmp ne i32*
 ; CHECK-SAME: null
