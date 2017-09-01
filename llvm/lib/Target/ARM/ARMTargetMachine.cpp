@@ -12,9 +12,10 @@
 
 #include "ARM.h"
 #include "ARMCallLowering.h"
-#include "ARMInstructionSelector.h"
 #include "ARMLegalizerInfo.h"
+#ifdef LLVM_BUILD_GLOBAL_ISEL
 #include "ARMRegisterBankInfo.h"
+#endif
 #include "ARMSubtarget.h"
 #include "ARMTargetMachine.h"
 #include "ARMTargetObjectFile.h"
@@ -25,6 +26,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/CodeGen/ExecutionDepsFix.h"
 #include "llvm/CodeGen/GlobalISel/CallLowering.h"
 #include "llvm/CodeGen/GlobalISel/GISelAccessor.h"
 #include "llvm/CodeGen/GlobalISel/IRTranslator.h"
@@ -76,6 +78,10 @@ static cl::opt<cl::boolOrDefault>
 EnableGlobalMerge("arm-global-merge", cl::Hidden,
                   cl::desc("Enable the global merge pass"));
 
+namespace llvm {
+  void initializeARMExecutionDepsFixPass(PassRegistry&);
+}
+
 extern "C" void LLVMInitializeARMTarget() {
   // Register the target.
   RegisterTargetMachine<ARMLETargetMachine> X(getTheARMLETarget());
@@ -88,6 +94,7 @@ extern "C" void LLVMInitializeARMTarget() {
   initializeARMLoadStoreOptPass(Registry);
   initializeARMPreAllocLoadStoreOptPass(Registry);
   initializeARMConstantIslandsPass(Registry);
+  initializeARMExecutionDepsFixPass(Registry);
 }
 
 static std::unique_ptr<TargetLoweringObjectFile> createTLOF(const Triple &TT) {
@@ -326,14 +333,14 @@ ARMBaseTargetMachine::getSubtargetImpl(const Function &F) const {
 #else
     ARMGISelActualAccessor *GISel = new ARMGISelActualAccessor();
     GISel->CallLoweringInfo.reset(new ARMCallLowering(*I->getTargetLowering()));
-    GISel->Legalizer.reset(new ARMLegalizerInfo());
+    GISel->Legalizer.reset(new ARMLegalizerInfo(*I));
 
     auto *RBI = new ARMRegisterBankInfo(*I->getRegisterInfo());
 
     // FIXME: At this point, we can't rely on Subtarget having RBI.
     // It's awkward to mix passing RBI and the Subtarget; should we pass
     // TII/TRI as well?
-    GISel->InstSelector.reset(new ARMInstructionSelector(*I, *RBI));
+    GISel->InstSelector.reset(createARMInstructionSelector(*this, *I, *RBI));
 
     GISel->RegBankInfo.reset(RBI);
 #endif
@@ -441,7 +448,20 @@ public:
   void addPreEmitPass() override;
 };
 
+class ARMExecutionDepsFix : public ExecutionDepsFix {
+public:
+  static char ID;
+  ARMExecutionDepsFix() : ExecutionDepsFix(ID, ARM::DPRRegClass) {}
+  StringRef getPassName() const override {
+    return "ARM Execution Dependency Fix";
+  }
+};
+char ARMExecutionDepsFix::ID;
+
 } // end anonymous namespace
+
+INITIALIZE_PASS(ARMExecutionDepsFix, "arm-execution-deps-fix",
+                "ARM Execution Dependency Fix", false, false)
 
 TargetPassConfig *ARMBaseTargetMachine::createPassConfig(PassManagerBase &PM) {
   return new ARMPassConfig(this, PM);
@@ -451,7 +471,7 @@ void ARMPassConfig::addIRPasses() {
   if (TM->Options.ThreadModel == ThreadModel::Single)
     addPass(createLowerAtomicPass());
   else
-    addPass(createAtomicExpandPass(TM));
+    addPass(createAtomicExpandPass());
 
   // Cmpxchg instructions are often used with a subsequent comparison to
   // determine whether it succeeded. We can exploit existing control-flow in
@@ -466,7 +486,7 @@ void ARMPassConfig::addIRPasses() {
 
   // Match interleaved memory accesses to ldN/stN intrinsics.
   if (TM->getOptLevel() != CodeGenOpt::None)
-    addPass(createInterleavedAccessPass(TM));
+    addPass(createInterleavedAccessPass());
 }
 
 bool ARMPassConfig::addPreISel() {
@@ -536,7 +556,7 @@ void ARMPassConfig::addPreSched2() {
     if (EnableARMLoadStoreOpt)
       addPass(createARMLoadStoreOptimizationPass());
 
-    addPass(createExecutionDependencyFixPass(&ARM::DPRRegClass));
+    addPass(new ARMExecutionDepsFix());
   }
 
   // Expand some pseudo instructions into multiple instructions to allow

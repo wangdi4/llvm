@@ -18,7 +18,6 @@
 #include "lldb/Breakpoint/StoppointCallbackContext.h"
 #include "lldb/Breakpoint/Watchpoint.h"
 #include "lldb/Core/Debugger.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Core/ValueObject.h"
 #include "lldb/Expression/UserExpression.h"
 #include "lldb/Target/Process.h"
@@ -27,6 +26,7 @@
 #include "lldb/Target/Thread.h"
 #include "lldb/Target/ThreadPlan.h"
 #include "lldb/Target/UnixSignals.h"
+#include "lldb/Utility/Log.h"
 #include "lldb/Utility/StreamString.h"
 
 using namespace lldb;
@@ -435,7 +435,7 @@ protected:
             // shouldn't stop that will win.
 
             if (bp_loc_sp->GetConditionText() != nullptr) {
-              Error condition_error;
+              Status condition_error;
               bool condition_says_stop =
                   bp_loc_sp->ConditionSaysStop(exe_ctx, condition_error);
 
@@ -796,7 +796,7 @@ protected:
           expr_options.SetUnwindOnError(true);
           expr_options.SetIgnoreBreakpoints(true);
           ValueObjectSP result_value_sp;
-          Error error;
+          Status error;
           result_code = UserExpression::Evaluate(
               exe_ctx, expr_options, wp_sp->GetConditionText(),
               llvm::StringRef(), result_value_sp, error);

@@ -212,13 +212,11 @@ bool AssemblerInvocation::CreateFromArgs(AssemblerInvocation &Opts,
   // Frontend Options
   if (Args.hasArg(OPT_INPUT)) {
     bool First = true;
-    for (arg_iterator it = Args.filtered_begin(OPT_INPUT),
-                      ie = Args.filtered_end();
-         it != ie; ++it, First = false) {
-      const Arg *A = it;
-      if (First)
+    for (const Arg *A : Args.filtered(OPT_INPUT)) {
+      if (First) {
         Opts.InputFile = A->getValue();
-      else {
+        First = false;
+      } else {
         Diags.Report(diag::err_drv_unknown_argument) << A->getAsString(Args);
         Success = false;
       }
@@ -508,12 +506,12 @@ int cc1as_main(ArrayRef<const char *> Argv, const char *Argv0, void *MainAddr) {
   // FIXME: Remove this, one day.
   if (!Asm.LLVMArgs.empty()) {
     unsigned NumArgs = Asm.LLVMArgs.size();
-    const char **Args = new const char*[NumArgs + 2];
+    auto Args = llvm::make_unique<const char*[]>(NumArgs + 2);
     Args[0] = "clang (LLVM option parsing)";
     for (unsigned i = 0; i != NumArgs; ++i)
       Args[i + 1] = Asm.LLVMArgs[i].c_str();
     Args[NumArgs + 1] = nullptr;
-    llvm::cl::ParseCommandLineOptions(NumArgs + 1, Args);
+    llvm::cl::ParseCommandLineOptions(NumArgs + 1, Args.get());
   }
 
   // Execute the invocation, unless there were parsing errors.

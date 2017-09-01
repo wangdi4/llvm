@@ -23,9 +23,6 @@ class SymbolBody;
 
 class TargetInfo {
 public:
-  virtual bool isTlsInitialExecRel(uint32_t Type) const;
-  virtual bool isTlsLocalDynamicRel(uint32_t Type) const;
-  virtual bool isTlsGlobalDynamicRel(uint32_t Type) const;
   virtual bool isPicRel(uint32_t Type) const { return true; }
   virtual uint32_t getDynRel(uint32_t Type) const { return Type; }
   virtual void writeGotPltHeader(uint8_t *Buf) const {}
@@ -41,8 +38,8 @@ public:
   virtual void writePlt(uint8_t *Buf, uint64_t GotEntryAddr,
                         uint64_t PltEntryAddr, int32_t Index,
                         unsigned RelOff) const {}
-  virtual void addPltHeaderSymbols(InputSectionData *IS) const {}
-  virtual void addPltSymbols(InputSectionData *IS, uint64_t Off) const {}
+  virtual void addPltHeaderSymbols(InputSectionBase *IS) const {}
+  virtual void addPltSymbols(InputSectionBase *IS, uint64_t Off) const {}
   // Returns true if a relocation only uses the low bits of a value such that
   // all those bits are in in the same page. For example, if the relocation
   // only uses the low 12 bits in a system with 4k pages. If this is true, the
@@ -54,7 +51,8 @@ public:
   // targeting S.
   virtual bool needsThunk(RelExpr Expr, uint32_t RelocType,
                           const InputFile *File, const SymbolBody &S) const;
-  virtual RelExpr getRelExpr(uint32_t Type, const SymbolBody &S) const = 0;
+  virtual RelExpr getRelExpr(uint32_t Type, const SymbolBody &S,
+                             const uint8_t *Loc) const = 0;
   virtual void relocateOne(uint8_t *Loc, uint32_t Type, uint64_t Val) const = 0;
   virtual ~TargetInfo();
 
@@ -90,6 +88,10 @@ public:
   unsigned TcbSize = 0;
 
   bool NeedsThunks = false;
+
+  // A 4-byte field corresponding to one or more trap instructions, used to pad
+  // executable OutputSections.
+  uint32_t TrapInstr = 0;
 
   virtual RelExpr adjustRelaxExpr(uint32_t Type, const uint8_t *Data,
                                   RelExpr Expr) const;

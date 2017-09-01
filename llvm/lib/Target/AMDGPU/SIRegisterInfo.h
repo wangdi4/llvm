@@ -17,12 +17,13 @@
 
 #include "AMDGPURegisterInfo.h"
 #include "SIDefines.h"
+#include "MCTargetDesc/AMDGPUMCTargetDesc.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 
 namespace llvm {
 
-class SISubtarget;
 class MachineRegisterInfo;
+class SISubtarget;
 class SIMachineFunctionInfo;
 
 class SIRegisterInfo final : public AMDGPURegisterInfo {
@@ -31,13 +32,22 @@ private:
   unsigned VGPRSetID;
   BitVector SGPRPressureSets;
   BitVector VGPRPressureSets;
+  bool SpillSGPRToVGPR;
+  bool SpillSGPRToSMEM;
 
   void reserveRegisterTuples(BitVector &, unsigned Reg) const;
   void classifyPressureSet(unsigned PSetID, unsigned Reg,
                            BitVector &PressureSets) const;
-
 public:
-  SIRegisterInfo();
+  SIRegisterInfo(const SISubtarget &ST);
+
+  bool spillSGPRToVGPR() const {
+    return SpillSGPRToVGPR;
+  }
+
+  bool spillSGPRToSMEM() const {
+    return SpillSGPRToSMEM;
+  }
 
   /// Return the end register initially reserved for the scratch buffer in case
   /// spilling is needed.
@@ -48,7 +58,15 @@ public:
   unsigned reservedPrivateSegmentWaveByteOffsetReg(
     const MachineFunction &MF) const;
 
+  unsigned reservedStackPtrOffsetReg(const MachineFunction &MF) const;
+
   BitVector getReservedRegs(const MachineFunction &MF) const override;
+
+  const MCPhysReg *getCalleeSavedRegs(const MachineFunction *MF) const override;
+  const uint32_t *getCallPreservedMask(const MachineFunction &MF,
+                                       CallingConv::ID) const override;
+
+  unsigned getFrameRegister(const MachineFunction &MF) const override;
 
   bool requiresRegisterScavenging(const MachineFunction &Fn) const override;
 
@@ -78,15 +96,21 @@ public:
   const TargetRegisterClass *getPointerRegClass(
     const MachineFunction &MF, unsigned Kind = 0) const override;
 
-  void spillSGPR(MachineBasicBlock::iterator MI,
-                 int FI, RegScavenger *RS) const;
+  /// If \p OnlyToVGPR is true, this will only succeed if this
+  bool spillSGPR(MachineBasicBlock::iterator MI,
+                 int FI, RegScavenger *RS,
+                 bool OnlyToVGPR = false) const;
 
-  void restoreSGPR(MachineBasicBlock::iterator MI,
-                   int FI, RegScavenger *RS) const;
+  bool restoreSGPR(MachineBasicBlock::iterator MI,
+                   int FI, RegScavenger *RS,
+                   bool OnlyToVGPR = false) const;
 
   void eliminateFrameIndex(MachineBasicBlock::iterator MI, int SPAdj,
                            unsigned FIOperandNum,
                            RegScavenger *RS) const override;
+
+  bool eliminateSGPRToVGPRSpillFrameIndex(MachineBasicBlock::iterator MI,
+                                          int FI, RegScavenger *RS) const;
 
   unsigned getHWRegIndex(unsigned Reg) const {
     return getEncodingValue(Reg) & 0xff;
@@ -212,6 +236,11 @@ public:
                                   unsigned Idx) const override;
 
   const int *getRegUnitPressureSets(unsigned RegUnit) const override;
+
+  unsigned getReturnAddressReg(const MachineFunction &MF) const {
+    // Not a callee saved register.
+    return AMDGPU::SGPR30_SGPR31;
+  }
 
 private:
   void buildSpillLoadStore(MachineBasicBlock::iterator MI,

@@ -10,11 +10,11 @@
 #include "lldb/Host/Config.h"
 
 #include "lldb/Core/ArchSpec.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Host/FileSystem.h"
 #include "lldb/Host/Host.h"
 #include "lldb/Host/HostInfo.h"
 #include "lldb/Host/HostInfoBase.h"
+#include "lldb/Utility/Log.h"
 #include "lldb/Utility/StreamString.h"
 
 #include "llvm/ADT/StringExtras.h"
@@ -46,13 +46,10 @@ struct HostInfoBaseFields {
       // Remove the LLDB temporary directory if we have one. Set "recurse" to
       // true to all files that were created for the LLDB process can be cleaned
       // up.
-      FileSystem::DeleteDirectory(m_lldb_process_tmp_dir, true);
+      llvm::sys::fs::remove_directories(m_lldb_process_tmp_dir.GetPath());
     }
   }
 
-  uint32_t m_number_cpus;
-  std::string m_vendor_string;
-  std::string m_os_string;
   std::string m_host_triple;
 
   ArchSpec m_host_arch_32;
@@ -77,34 +74,6 @@ void HostInfoBase::Initialize() { g_fields = new HostInfoBaseFields(); }
 void HostInfoBase::Terminate() {
   delete g_fields;
   g_fields = nullptr;
-}
-
-uint32_t HostInfoBase::GetNumberCPUS() {
-  static llvm::once_flag g_once_flag;
-  llvm::call_once(g_once_flag, []() {
-    g_fields->m_number_cpus = std::thread::hardware_concurrency();
-  });
-  return g_fields->m_number_cpus;
-}
-
-uint32_t HostInfoBase::GetMaxThreadNameLength() { return 0; }
-
-llvm::StringRef HostInfoBase::GetVendorString() {
-  static llvm::once_flag g_once_flag;
-  llvm::call_once(g_once_flag, []() {
-    g_fields->m_vendor_string =
-        HostInfo::GetArchitecture().GetTriple().getVendorName().str();
-  });
-  return g_fields->m_vendor_string;
-}
-
-llvm::StringRef HostInfoBase::GetOSString() {
-  static llvm::once_flag g_once_flag;
-  llvm::call_once(g_once_flag, []() {
-    g_fields->m_os_string =
-        std::move(HostInfo::GetArchitecture().GetTriple().getOSName());
-  });
-  return g_fields->m_os_string;
 }
 
 llvm::StringRef HostInfoBase::GetTargetTriple() {
@@ -314,9 +283,7 @@ bool HostInfoBase::ComputeProcessTempFileDirectory(FileSpec &file_spec) {
 
   std::string pid_str{llvm::to_string(Host::GetCurrentProcessID())};
   temp_file_spec.AppendPathComponent(pid_str);
-  if (!FileSystem::MakeDirectory(temp_file_spec,
-                                 eFilePermissionsDirectoryDefault)
-           .Success())
+  if (llvm::sys::fs::create_directory(temp_file_spec.GetPath()))
     return false;
 
   file_spec.GetDirectory().SetCString(temp_file_spec.GetCString());
@@ -338,9 +305,7 @@ bool HostInfoBase::ComputeGlobalTempFileDirectory(FileSpec &file_spec) {
     return false;
 
   temp_file_spec.AppendPathComponent("lldb");
-  if (!FileSystem::MakeDirectory(temp_file_spec,
-                                 eFilePermissionsDirectoryDefault)
-           .Success())
+  if (llvm::sys::fs::create_directory(temp_file_spec.GetPath()))
     return false;
 
   file_spec.GetDirectory().SetCString(temp_file_spec.GetCString());

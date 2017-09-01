@@ -19,6 +19,7 @@
 #include "lldb/Core/Timer.h"
 #include "lldb/Core/ValueObjectVariable.h"
 #include "lldb/DataFormatters/ValueObjectPrinter.h"
+#include "lldb/Host/OptionParser.h"
 #include "lldb/Host/StringConvert.h"
 #include "lldb/Host/Symbols.h"
 #include "lldb/Interpreter/Args.h"
@@ -49,6 +50,8 @@
 #include "lldb/Target/StackFrame.h"
 #include "lldb/Target/Thread.h"
 #include "lldb/Target/ThreadSpec.h"
+
+#include "llvm/Support/FileSystem.h"
 
 // C Includes
 // C++ Includes
@@ -266,8 +269,8 @@ protected:
       }
 
       const char *file_path = command.GetArgumentAtIndex(0);
-      Timer scoped_timer(LLVM_PRETTY_FUNCTION, "(lldb) target create '%s'",
-                         file_path);
+      static Timer::Category func_cat(LLVM_PRETTY_FUNCTION);
+      Timer scoped_timer(func_cat, "(lldb) target create '%s'", file_path);
       FileSpec file_spec;
 
       if (file_path)
@@ -281,7 +284,7 @@ protected:
       llvm::StringRef arch_cstr = m_arch_option.GetArchitectureName();
       const bool get_dependent_files =
           m_add_dependents.GetOptionValue().GetCurrentValue();
-      Error error(debugger.GetTargetList().CreateTarget(
+      Status error(debugger.GetTargetList().CreateTarget(
           debugger, file_path, arch_cstr, get_dependent_files, nullptr,
           target_sp));
 
@@ -300,7 +303,7 @@ protected:
             if (file_spec && file_spec.Exists()) {
               // if the remote file does not exist, push it there
               if (!platform_sp->GetFileExists(remote_file)) {
-                Error err = platform_sp->PutFile(file_spec, remote_file);
+                Status err = platform_sp->PutFile(file_spec, remote_file);
                 if (err.Fail()) {
                   result.AppendError(err.AsCString());
                   result.SetStatus(eReturnStatusFailed);
@@ -321,7 +324,7 @@ protected:
               }
               if (file_path) {
                 // copy the remote file to the local file
-                Error err = platform_sp->GetFile(remote_file, file_spec);
+                Status err = platform_sp->GetFile(remote_file, file_spec);
                 if (err.Fail()) {
                   result.AppendError(err.AsCString());
                   result.SetStatus(eReturnStatusFailed);
@@ -836,7 +839,7 @@ protected:
           matches = target->GetImages().FindGlobalVariables(
               regex, true, UINT32_MAX, variable_list);
         } else {
-          Error error(Variable::GetValuesForVariableExpressionPath(
+          Status error(Variable::GetValuesForVariableExpressionPath(
               arg, m_exe_ctx.GetBestExecutionContextScope(),
               GetVariableCallback, target, variable_list, valobj_list));
           matches = variable_list.GetSize();
@@ -1990,9 +1993,9 @@ public:
 
     ~CommandOptions() override = default;
 
-    Error SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
-                         ExecutionContext *execution_context) override {
-      Error error;
+    Status SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
+                          ExecutionContext *execution_context) override {
+      Status error;
       const int short_option = m_getopt_table[option_idx].val;
 
       switch (short_option) {
@@ -2512,7 +2515,7 @@ protected:
                   m_symbol_file.GetOptionValue().GetCurrentValue();
             if (!module_spec.GetArchitecture().IsValid())
               module_spec.GetArchitecture() = target->GetArchitecture();
-            Error error;
+            Status error;
             ModuleSP module_sp(target->GetSharedModule(module_spec, &error));
             if (!module_sp) {
               const char *error_cstr = error.AsCString();
@@ -2747,7 +2750,7 @@ protected:
                     process->Flush();
                 }
                 if (load) {
-                  Error error = module->LoadInMemory(*target, set_pc);
+                  Status error = module->LoadInMemory(*target, set_pc);
                   if (error.Fail()) {
                     result.AppendError(error.AsCString());
                     return false;
@@ -2854,9 +2857,9 @@ public:
 
     ~CommandOptions() override = default;
 
-    Error SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
-                         ExecutionContext *execution_context) override {
-      Error error;
+    Status SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
+                          ExecutionContext *execution_context) override {
+      Status error;
 
       const int short_option = m_getopt_table[option_idx].val;
       if (short_option == 'g') {
@@ -3217,9 +3220,9 @@ public:
 
     ~CommandOptions() override = default;
 
-    Error SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
-                         ExecutionContext *execution_context) override {
-      Error error;
+    Status SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
+                          ExecutionContext *execution_context) override {
+      Status error;
 
       const int short_option = m_getopt_table[option_idx].val;
 
@@ -3517,9 +3520,9 @@ public:
 
     ~CommandOptions() override = default;
 
-    Error SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
-                         ExecutionContext *execution_context) override {
-      Error error;
+    Status SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
+                          ExecutionContext *execution_context) override {
+      Status error;
 
       const int short_option = m_getopt_table[option_idx].val;
 
@@ -4111,7 +4114,7 @@ protected:
 
               // Make sure we load any scripting resources that may be embedded
               // in the debug info files in case the platform supports that.
-              Error error;
+              Status error;
               StreamString feedback_stream;
               module_sp->LoadScriptingResourceInTarget(target, error,
                                                        &feedback_stream);
@@ -4136,20 +4139,21 @@ protected:
         module_sp->SetSymbolFileFileSpec(FileSpec());
       }
 
+      namespace fs = llvm::sys::fs;
       if (module_spec.GetUUID().IsValid()) {
         StreamString ss_symfile_uuid;
         module_spec.GetUUID().Dump(&ss_symfile_uuid);
         result.AppendErrorWithFormat(
             "symbol file '%s' (%s) does not match any existing module%s\n",
             symfile_path, ss_symfile_uuid.GetData(),
-            (symbol_fspec.GetFileType() != FileSpec::eFileTypeRegular)
+            !fs::is_regular_file(symbol_fspec.GetPath())
                 ? "\n       please specify the full path to the symbol file"
                 : "");
       } else {
         result.AppendErrorWithFormat(
             "symbol file '%s' does not match any existing module%s\n",
             symfile_path,
-            (symbol_fspec.GetFileType() != FileSpec::eFileTypeRegular)
+            !fs::is_regular_file(symbol_fspec.GetPath())
                 ? "\n       please specify the full path to the symbol file"
                 : "");
       }
@@ -4394,9 +4398,9 @@ public:
       return llvm::makeArrayRef(g_target_stop_hook_add_options);
     }
 
-    Error SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
-                         ExecutionContext *execution_context) override {
-      Error error;
+    Status SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
+                          ExecutionContext *execution_context) override {
+      Status error;
       const int short_option = m_getopt_table[option_idx].val;
 
       switch (short_option) {

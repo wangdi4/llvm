@@ -8,112 +8,215 @@
 //===----------------------------------------------------------------------===//
 
 #include "ProtocolHandlers.h"
-#include "DocumentStore.h"
-#include "clang/Format/Format.h"
+#include "ClangdLSPServer.h"
+#include "ClangdServer.h"
+#include "DraftStore.h"
 using namespace clang;
 using namespace clangd;
 
-void TextDocumentDidOpenHandler::handleNotification(
-    llvm::yaml::MappingNode *Params) {
-  auto DOTDP = DidOpenTextDocumentParams::parse(Params);
-  if (!DOTDP) {
-    Output.log("Failed to decode DidOpenTextDocumentParams!\n");
-    return;
-  }
-  Store.addDocument(DOTDP->textDocument.uri, DOTDP->textDocument.text);
-}
+namespace {
 
-void TextDocumentDidChangeHandler::handleNotification(
-    llvm::yaml::MappingNode *Params) {
-  auto DCTDP = DidChangeTextDocumentParams::parse(Params);
-  if (!DCTDP || DCTDP->contentChanges.size() != 1) {
-    Output.log("Failed to decode DidChangeTextDocumentParams!\n");
-    return;
-  }
-  // We only support full syncing right now.
-  Store.addDocument(DCTDP->textDocument.uri, DCTDP->contentChanges[0].text);
-}
+struct InitializeHandler : Handler {
+  InitializeHandler(JSONOutput &Output, ProtocolCallbacks &Callbacks)
+      : Handler(Output), Callbacks(Callbacks) {}
 
-/// Turn a [line, column] pair into an offset in Code.
-static size_t positionToOffset(StringRef Code, Position P) {
-  size_t Offset = 0;
-  for (int I = 0; I != P.line; ++I) {
-    // FIXME: \r\n
-    // FIXME: UTF-8
-    size_t F = Code.find('\n', Offset);
-    if (F == StringRef::npos)
-      return 0; // FIXME: Is this reasonable?
-    Offset = F + 1;
-  }
-  return (Offset == 0 ? 0 : (Offset - 1)) + P.character;
-}
-
-/// Turn an offset in Code into a [line, column] pair.
-static Position offsetToPosition(StringRef Code, size_t Offset) {
-  StringRef JustBefore = Code.substr(0, Offset);
-  // FIXME: \r\n
-  // FIXME: UTF-8
-  int Lines = JustBefore.count('\n');
-  int Cols = JustBefore.size() - JustBefore.rfind('\n') - 1;
-  return {Lines, Cols};
-}
-
-static std::string formatCode(StringRef Code, StringRef Filename,
-                              ArrayRef<tooling::Range> Ranges, StringRef ID) {
-  // Call clang-format.
-  // FIXME: Don't ignore style.
-  format::FormatStyle Style = format::getLLVMStyle();
-  // On windows FileManager doesn't like file://. Just strip it, clang-format
-  // doesn't need it.
-  Filename.consume_front("file://");
-  tooling::Replacements Replacements =
-      format::reformat(Style, Code, Ranges, Filename);
-
-  // Now turn the replacements into the format specified by the Language Server
-  // Protocol. Fuse them into one big JSON array.
-  std::string Edits;
-  for (auto &R : Replacements) {
-    Range ReplacementRange = {
-        offsetToPosition(Code, R.getOffset()),
-        offsetToPosition(Code, R.getOffset() + R.getLength())};
-    TextEdit TE = {ReplacementRange, R.getReplacementText()};
-    Edits += TextEdit::unparse(TE);
-    Edits += ',';
-  }
-  if (!Edits.empty())
-    Edits.pop_back();
-
-  return R"({"jsonrpc":"2.0","id":)" + ID.str() +
-         R"(,"result":[)" + Edits + R"(]})";
-}
-
-void TextDocumentRangeFormattingHandler::handleMethod(
-    llvm::yaml::MappingNode *Params, StringRef ID) {
-  auto DRFP = DocumentRangeFormattingParams::parse(Params);
-  if (!DRFP) {
-    Output.log("Failed to decode DocumentRangeFormattingParams!\n");
-    return;
+  void handleMethod(llvm::yaml::MappingNode *Params, StringRef ID) override {
+    Callbacks.onInitialize(ID, Output);
   }
 
-  std::string Code = Store.getDocument(DRFP->textDocument.uri);
+private:
+  ProtocolCallbacks &Callbacks;
+};
 
-  size_t Begin = positionToOffset(Code, DRFP->range.start);
-  size_t Len = positionToOffset(Code, DRFP->range.end) - Begin;
+struct ShutdownHandler : Handler {
+  ShutdownHandler(JSONOutput &Output, ProtocolCallbacks &Callbacks)
+      : Handler(Output), Callbacks(Callbacks) {}
 
-  writeMessage(formatCode(Code, DRFP->textDocument.uri,
-                          {clang::tooling::Range(Begin, Len)}, ID));
-}
-
-void TextDocumentFormattingHandler::handleMethod(
-    llvm::yaml::MappingNode *Params, StringRef ID) {
-  auto DFP = DocumentFormattingParams::parse(Params);
-  if (!DFP) {
-    Output.log("Failed to decode DocumentFormattingParams!\n");
-    return;
+  void handleMethod(llvm::yaml::MappingNode *Params, StringRef ID) override {
+    Callbacks.onShutdown(Output);
   }
 
-  // Format everything.
-  std::string Code = Store.getDocument(DFP->textDocument.uri);
-  writeMessage(formatCode(Code, DFP->textDocument.uri,
-                          {clang::tooling::Range(0, Code.size())}, ID));
+private:
+  ProtocolCallbacks &Callbacks;
+};
+
+struct TextDocumentDidOpenHandler : Handler {
+  TextDocumentDidOpenHandler(JSONOutput &Output, ProtocolCallbacks &Callbacks)
+      : Handler(Output), Callbacks(Callbacks) {}
+
+  void handleNotification(llvm::yaml::MappingNode *Params) override {
+    auto DOTDP = DidOpenTextDocumentParams::parse(Params);
+    if (!DOTDP) {
+      Output.log("Failed to decode DidOpenTextDocumentParams!\n");
+      return;
+    }
+    Callbacks.onDocumentDidOpen(*DOTDP, Output);
+  }
+
+private:
+  ProtocolCallbacks &Callbacks;
+};
+
+struct TextDocumentDidChangeHandler : Handler {
+  TextDocumentDidChangeHandler(JSONOutput &Output, ProtocolCallbacks &Callbacks)
+      : Handler(Output), Callbacks(Callbacks) {}
+
+  void handleNotification(llvm::yaml::MappingNode *Params) override {
+    auto DCTDP = DidChangeTextDocumentParams::parse(Params);
+    if (!DCTDP || DCTDP->contentChanges.size() != 1) {
+      Output.log("Failed to decode DidChangeTextDocumentParams!\n");
+      return;
+    }
+
+    Callbacks.onDocumentDidChange(*DCTDP, Output);
+  }
+
+private:
+  ProtocolCallbacks &Callbacks;
+};
+
+struct TextDocumentDidCloseHandler : Handler {
+  TextDocumentDidCloseHandler(JSONOutput &Output, ProtocolCallbacks &Callbacks)
+      : Handler(Output), Callbacks(Callbacks) {}
+
+  void handleNotification(llvm::yaml::MappingNode *Params) override {
+    auto DCTDP = DidCloseTextDocumentParams::parse(Params);
+    if (!DCTDP) {
+      Output.log("Failed to decode DidCloseTextDocumentParams!\n");
+      return;
+    }
+
+    Callbacks.onDocumentDidClose(*DCTDP, Output);
+  }
+
+private:
+  ProtocolCallbacks &Callbacks;
+};
+
+struct TextDocumentOnTypeFormattingHandler : Handler {
+  TextDocumentOnTypeFormattingHandler(JSONOutput &Output,
+                                      ProtocolCallbacks &Callbacks)
+      : Handler(Output), Callbacks(Callbacks) {}
+
+  void handleMethod(llvm::yaml::MappingNode *Params, StringRef ID) override {
+    auto DOTFP = DocumentOnTypeFormattingParams::parse(Params);
+    if (!DOTFP) {
+      Output.log("Failed to decode DocumentOnTypeFormattingParams!\n");
+      return;
+    }
+
+    Callbacks.onDocumentOnTypeFormatting(*DOTFP, ID, Output);
+  }
+
+private:
+  ProtocolCallbacks &Callbacks;
+};
+
+struct TextDocumentRangeFormattingHandler : Handler {
+  TextDocumentRangeFormattingHandler(JSONOutput &Output,
+                                     ProtocolCallbacks &Callbacks)
+      : Handler(Output), Callbacks(Callbacks) {}
+
+  void handleMethod(llvm::yaml::MappingNode *Params, StringRef ID) override {
+    auto DRFP = DocumentRangeFormattingParams::parse(Params);
+    if (!DRFP) {
+      Output.log("Failed to decode DocumentRangeFormattingParams!\n");
+      return;
+    }
+
+    Callbacks.onDocumentRangeFormatting(*DRFP, ID, Output);
+  }
+
+private:
+  ProtocolCallbacks &Callbacks;
+};
+
+struct TextDocumentFormattingHandler : Handler {
+  TextDocumentFormattingHandler(JSONOutput &Output,
+                                ProtocolCallbacks &Callbacks)
+      : Handler(Output), Callbacks(Callbacks) {}
+
+  void handleMethod(llvm::yaml::MappingNode *Params, StringRef ID) override {
+    auto DFP = DocumentFormattingParams::parse(Params);
+    if (!DFP) {
+      Output.log("Failed to decode DocumentFormattingParams!\n");
+      return;
+    }
+
+    Callbacks.onDocumentFormatting(*DFP, ID, Output);
+  }
+
+private:
+  ProtocolCallbacks &Callbacks;
+};
+
+struct CodeActionHandler : Handler {
+  CodeActionHandler(JSONOutput &Output, ProtocolCallbacks &Callbacks)
+      : Handler(Output), Callbacks(Callbacks) {}
+
+  void handleMethod(llvm::yaml::MappingNode *Params, StringRef ID) override {
+    auto CAP = CodeActionParams::parse(Params);
+    if (!CAP) {
+      Output.log("Failed to decode CodeActionParams!\n");
+      return;
+    }
+
+    Callbacks.onCodeAction(*CAP, ID, Output);
+  }
+
+private:
+  ProtocolCallbacks &Callbacks;
+};
+
+struct CompletionHandler : Handler {
+  CompletionHandler(JSONOutput &Output, ProtocolCallbacks &Callbacks)
+      : Handler(Output), Callbacks(Callbacks) {}
+
+  void handleMethod(llvm::yaml::MappingNode *Params, StringRef ID) override {
+    auto TDPP = TextDocumentPositionParams::parse(Params);
+    if (!TDPP) {
+      Output.log("Failed to decode TextDocumentPositionParams!\n");
+      return;
+    }
+
+    Callbacks.onCompletion(*TDPP, ID, Output);
+  }
+
+private:
+  ProtocolCallbacks &Callbacks;
+};
+
+} // namespace
+
+void clangd::regiterCallbackHandlers(JSONRPCDispatcher &Dispatcher,
+                                     JSONOutput &Out,
+                                     ProtocolCallbacks &Callbacks) {
+  Dispatcher.registerHandler(
+      "initialize", llvm::make_unique<InitializeHandler>(Out, Callbacks));
+  Dispatcher.registerHandler(
+      "shutdown", llvm::make_unique<ShutdownHandler>(Out, Callbacks));
+  Dispatcher.registerHandler(
+      "textDocument/didOpen",
+      llvm::make_unique<TextDocumentDidOpenHandler>(Out, Callbacks));
+  Dispatcher.registerHandler(
+      "textDocument/didClose",
+      llvm::make_unique<TextDocumentDidCloseHandler>(Out, Callbacks));
+  Dispatcher.registerHandler(
+      "textDocument/didChange",
+      llvm::make_unique<TextDocumentDidChangeHandler>(Out, Callbacks));
+  Dispatcher.registerHandler(
+      "textDocument/rangeFormatting",
+      llvm::make_unique<TextDocumentRangeFormattingHandler>(Out, Callbacks));
+  Dispatcher.registerHandler(
+      "textDocument/onTypeFormatting",
+      llvm::make_unique<TextDocumentOnTypeFormattingHandler>(Out, Callbacks));
+  Dispatcher.registerHandler(
+      "textDocument/formatting",
+      llvm::make_unique<TextDocumentFormattingHandler>(Out, Callbacks));
+  Dispatcher.registerHandler(
+      "textDocument/codeAction",
+      llvm::make_unique<CodeActionHandler>(Out, Callbacks));
+  Dispatcher.registerHandler(
+      "textDocument/completion",
+      llvm::make_unique<CompletionHandler>(Out, Callbacks));
 }

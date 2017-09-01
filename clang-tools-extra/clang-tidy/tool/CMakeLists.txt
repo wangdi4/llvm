@@ -2,7 +2,7 @@ set(LLVM_LINK_COMPONENTS
   support
   )
 
-add_clang_executable(clang-tidy
+add_clang_tool(clang-tidy
   ClangTidyMain.cpp
   )
 add_dependencies(clang-tidy
@@ -17,14 +17,15 @@ target_link_libraries(clang-tidy
   clangTidyCERTModule
   clangTidyCppCoreGuidelinesModule
   clangTidyGoogleModule
+  clangTidyHICPPModule
   clangTidyLLVMModule
   clangTidyMiscModule
   clangTidyModernizeModule
   clangTidyMPIModule
   clangTidyPerformanceModule
   clangTidyReadabilityModule
-  clangTidySafetyModule
   clangTooling
+  clangToolingCore
   )
 
 install(TARGETS clang-tidy

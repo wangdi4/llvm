@@ -52,7 +52,6 @@ class StepOverBreakpointsTestCase(TestBase):
         self.thread = lldbutil.get_one_thread_stopped_at_breakpoint(self.process, self.breakpoint1)
         self.assertIsNotNone(self.thread, "Didn't stop at breakpoint 1.")
 
-    @skipIf(bugnumber="llvm.org/pr31972", hostoslist=["windows"])
     def test_step_instruction(self): 
         # Count instructions between breakpoint_1 and breakpoint_4
         contextList = self.target.FindFunctions('main', lldb.eFunctionNameTypeAuto)
@@ -63,12 +62,11 @@ class StepOverBreakpointsTestCase(TestBase):
         instructions = function.GetInstructions(self.target)
         addr_1 = self.breakpoint1.GetLocationAtIndex(0).GetAddress()
         addr_4 = self.breakpoint4.GetLocationAtIndex(0).GetAddress()
-        for i in range(instructions.GetSize()) :
-            addr = instructions.GetInstructionAtIndex(i).GetAddress()
-            if (addr == addr_1) : index_1 = i
-            if (addr == addr_4) : index_4 = i 
 
-        steps_expected = index_4 - index_1
+        # if third argument is true then the count will be the number of
+        # instructions on which a breakpoint can be set.
+        # start = addr_1, end = addr_4, canSetBreakpoint = True
+        steps_expected = instructions.GetInstructionsCount(addr_1, addr_4, True)
         step_count = 0
         # Step from breakpoint_1 to breakpoint_4
         while True:

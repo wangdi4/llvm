@@ -34,6 +34,10 @@ class HexagonPacketizerList : public VLIWPacketizerList {
   // Track MIs with ignored dependence.
   std::vector<MachineInstr*> IgnoreDepMIs;
 
+  // Set to true if the packet contains an instruction that stalls with an
+  // instruction from the previous packet.
+  bool PacketStalls = false;
+
 protected:
   /// \brief A handle to the branch probability pass.
   const MachineBranchProbabilityInfo *MBPI;
@@ -112,6 +116,7 @@ protected:
   void reserveResourcesForConstExt();
   bool hasDeadDependence(const MachineInstr &I, const MachineInstr &J);
   bool hasControlDependence(const MachineInstr &I, const MachineInstr &J);
+  bool hasRegMaskDependence(const MachineInstr &I, const MachineInstr &J);
   bool hasV4SpecificDependence(const MachineInstr &I, const MachineInstr &J);
   bool producesStall(const MachineInstr &MI);
 };

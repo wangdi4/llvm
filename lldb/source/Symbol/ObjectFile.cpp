@@ -9,9 +9,6 @@
 
 #include "lldb/Symbol/ObjectFile.h"
 #include "Plugins/ObjectContainer/BSD-Archive/ObjectContainerBSDArchive.h"
-#include "lldb/Core/DataBuffer.h"
-#include "lldb/Core/DataBufferHeap.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/ModuleSpec.h"
 #include "lldb/Core/PluginManager.h"
@@ -23,6 +20,10 @@
 #include "lldb/Target/RegisterContext.h"
 #include "lldb/Target/SectionLoadList.h"
 #include "lldb/Target/Target.h"
+#include "lldb/Utility/DataBuffer.h"
+#include "lldb/Utility/DataBufferHeap.h"
+#include "lldb/Utility/DataBufferLLVM.h"
+#include "lldb/Utility/Log.h"
 #include "lldb/Utility/RegularExpression.h"
 #include "lldb/lldb-private.h"
 
@@ -36,8 +37,9 @@ ObjectFile::FindPlugin(const lldb::ModuleSP &module_sp, const FileSpec *file,
   ObjectFileSP object_file_sp;
 
   if (module_sp) {
+    static Timer::Category func_cat(LLVM_PRETTY_FUNCTION);
     Timer scoped_timer(
-        LLVM_PRETTY_FUNCTION,
+        func_cat,
         "ObjectFile::FindPlugin (module = %s, file = %p, file_offset = "
         "0x%8.8" PRIx64 ", file_size = 0x%8.8" PRIx64 ")",
         module_sp->GetFileSpec().GetPath().c_str(),
@@ -76,8 +78,8 @@ ObjectFile::FindPlugin(const lldb::ModuleSP &module_sp, const FileSpec *file,
         // and object container plug-ins can use these bytes to see if they
         // can parse this file.
         if (file_size > 0) {
-          data_sp = file->ReadFileContents(file_offset,
-                                           std::min<size_t>(512, file_size));
+          data_sp =
+              DataBufferLLVM::CreateSliceFromPath(file->GetPath(), 512, file_offset);
           data_offset = 0;
         }
       }
@@ -120,7 +122,8 @@ ObjectFile::FindPlugin(const lldb::ModuleSP &module_sp, const FileSpec *file,
             }
             // We failed to find any cached object files in the container
             // plug-ins, so lets read the first 512 bytes and try again below...
-            data_sp = archive_file.ReadFileContents(file_offset, 512);
+            data_sp = DataBufferLLVM::CreateSliceFromPath(archive_file.GetPath(),
+                                                     512, file_offset);
           }
         }
       }
@@ -174,9 +177,11 @@ ObjectFileSP ObjectFile::FindPlugin(const lldb::ModuleSP &module_sp,
   ObjectFileSP object_file_sp;
 
   if (module_sp) {
-    Timer scoped_timer(LLVM_PRETTY_FUNCTION, "ObjectFile::FindPlugin (module = "
-                                             "%s, process = %p, header_addr = "
-                                             "0x%" PRIx64 ")",
+    static Timer::Category func_cat(LLVM_PRETTY_FUNCTION);
+    Timer scoped_timer(func_cat,
+                       "ObjectFile::FindPlugin (module = "
+                       "%s, process = %p, header_addr = "
+                       "0x%" PRIx64 ")",
                        module_sp->GetFileSpec().GetPath().c_str(),
                        static_cast<void *>(process_sp.get()), header_addr);
     uint32_t idx;
@@ -206,7 +211,7 @@ size_t ObjectFile::GetModuleSpecifications(const FileSpec &file,
                                            lldb::offset_t file_offset,
                                            lldb::offset_t file_size,
                                            ModuleSpecList &specs) {
-  DataBufferSP data_sp(file.ReadFileContents(file_offset, 512));
+  DataBufferSP data_sp = DataBufferLLVM::CreateSliceFromPath(file.GetPath(), 512, file_offset);
   if (data_sp) {
     if (file_size == 0) {
       const lldb::offset_t actual_file_size = file.GetByteSize();
@@ -452,7 +457,7 @@ DataBufferSP ObjectFile::ReadMemory(const ProcessSP &process_sp,
   DataBufferSP data_sp;
   if (process_sp) {
     std::unique_ptr<DataBufferHeap> data_ap(new DataBufferHeap(byte_size, 0));
-    Error error;
+    Status error;
     const size_t bytes_read = process_sp->ReadMemory(
         addr, data_ap->GetBytes(), data_ap->GetByteSize(), error);
     if (bytes_read == byte_size)
@@ -491,7 +496,7 @@ size_t ObjectFile::ReadSectionData(const Section *section,
   if (IsInMemory()) {
     ProcessSP process_sp(m_process_wp.lock());
     if (process_sp) {
-      Error error;
+      Status error;
       const addr_t base_load_addr =
           section->GetLoadBaseAddress(&process_sp->GetTarget());
       if (base_load_addr != LLDB_INVALID_ADDRESS)
@@ -652,17 +657,17 @@ ConstString ObjectFile::GetNextSyntheticSymbolName() {
   return ConstString(ss.GetString());
 }
 
-Error ObjectFile::LoadInMemory(Target &target, bool set_pc) {
-  Error error;
+Status ObjectFile::LoadInMemory(Target &target, bool set_pc) {
+  Status error;
   ProcessSP process = target.CalculateProcess();
   if (!process)
-    return Error("No Process");
+    return Status("No Process");
   if (set_pc && !GetEntryPointAddress().IsValid())
-    return Error("No entry address in object file");
+    return Status("No entry address in object file");
 
   SectionList *section_list = GetSectionList();
   if (!section_list)
-      return Error("No section in object file");
+    return Status("No section in object file");
   size_t section_count = section_list->GetNumSections(0);
   for (size_t i = 0; i < section_count; ++i) {
     SectionSP section_sp = section_list->GetSectionAtIndex(i);

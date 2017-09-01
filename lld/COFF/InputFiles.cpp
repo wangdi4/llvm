@@ -19,7 +19,6 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/ADT/Twine.h"
-#include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/Object/Binary.h"
 #include "llvm/Object/COFF.h"
 #include "llvm/Support/COFF.h"
@@ -138,13 +137,13 @@ void ObjectFile::initializeChunks() {
     // CodeView sections are stored to a different vector because they are
     // not linked in the regular manner.
     if (Name == ".debug" || Name.startswith(".debug$")) {
-      DebugChunks.push_back(new (Alloc) SectionChunk(this, Sec));
+      DebugChunks.push_back(make<SectionChunk>(this, Sec));
       continue;
     }
 
     if (Sec->Characteristics & llvm::COFF::IMAGE_SCN_LNK_REMOVE)
       continue;
-    auto *C = new (Alloc) SectionChunk(this, Sec);
+    auto *C = make<SectionChunk>(this, Sec);
     Chunks.push_back(C);
     SparseChunks[I] = C;
   }
@@ -201,7 +200,7 @@ SymbolBody *ObjectFile::createDefined(COFFSymbolRef Sym, const void *AuxP,
                                       bool IsFirst) {
   StringRef Name;
   if (Sym.isCommon()) {
-    auto *C = new (Alloc) CommonChunk(Sym);
+    auto *C = make<CommonChunk>(Sym);
     Chunks.push_back(C);
     COFFObj->getSymbolName(Sym, Name);
     Symbol *S =
@@ -222,7 +221,7 @@ SymbolBody *ObjectFile::createDefined(COFFSymbolRef Sym, const void *AuxP,
     if (Sym.isExternal())
       return Symtab->addAbsolute(Name, Sym)->body();
     else
-      return new (Alloc) DefinedAbsolute(Name, Sym);
+      return make<DefinedAbsolute>(Name, Sym);
   }
   int32_t SectionNumber = Sym.getSectionNumber();
   if (SectionNumber == llvm::COFF::IMAGE_SYM_DEBUG)
@@ -259,8 +258,8 @@ SymbolBody *ObjectFile::createDefined(COFFSymbolRef Sym, const void *AuxP,
         Symtab->addRegular(this, Name, SC->isCOMDAT(), Sym.getGeneric(), SC);
     B = cast<DefinedRegular>(S->body());
   } else
-    B = new (Alloc) DefinedRegular(this, /*Name*/ "", SC->isCOMDAT(),
-                                   /*IsExternal*/ false, Sym.getGeneric(), SC);
+    B = make<DefinedRegular>(this, /*Name*/ "", SC->isCOMDAT(),
+                             /*IsExternal*/ false, Sym.getGeneric(), SC);
   if (SC->isCOMDAT() && Sym.getValue() == 0 && !AuxP)
     SC->setSymbol(B);
 
@@ -302,8 +301,8 @@ void ImportFile::parse() {
     fatal("broken import library");
 
   // Read names and create an __imp_ symbol.
-  StringRef Name = StringAlloc.save(StringRef(Buf + sizeof(*Hdr)));
-  StringRef ImpName = StringAlloc.save("__imp_" + Name);
+  StringRef Name = Saver.save(StringRef(Buf + sizeof(*Hdr)));
+  StringRef ImpName = Saver.save("__imp_" + Name);
   const char *NameStart = Buf + sizeof(coff_import_header) + Name.size() + 1;
   DLLName = StringRef(NameStart);
   StringRef ExtName;
@@ -326,8 +325,20 @@ void ImportFile::parse() {
   this->Hdr = Hdr;
   ExternalName = ExtName;
 
+  // Instantiate symbol objects.
   ImpSym = cast<DefinedImportData>(
       Symtab->addImportData(ImpName, this)->body());
+
+  if (Hdr->getType() == llvm::COFF::IMPORT_CONST) {
+    ConstSym =
+        cast<DefinedImportData>(Symtab->addImportData(Name, this)->body());
+
+    // A __imp_ and non-__imp_ symbols for the same dllimport'ed symbol
+    // should be gc'ed as a group. Add a bidirectional edge.
+    // Used by MarkLive.cpp.
+    ImpSym->Sibling = ConstSym;
+    ConstSym->Sibling = ImpSym;
+  }
 
   // If type is function, we need to create a thunk which jump to an
   // address pointed by the __imp_ symbol. (This allows you to call
@@ -339,38 +350,32 @@ void ImportFile::parse() {
 }
 
 void BitcodeFile::parse() {
-  Obj = check(lto::InputFile::create(
-      MemoryBufferRef(MB.getBuffer(), Saver.save(MB.getBufferIdentifier()))));
+  Obj = check(lto::InputFile::create(MemoryBufferRef(
+      MB.getBuffer(), Saver.save(ParentName + MB.getBufferIdentifier()))));
   for (const lto::InputFile::Symbol &ObjSym : Obj->symbols()) {
     StringRef SymName = Saver.save(ObjSym.getName());
-    auto Flags = ObjSym.getFlags();
     Symbol *Sym;
-    if (Flags & object::BasicSymbolRef::SF_Undefined) {
+    if (ObjSym.isUndefined()) {
       Sym = Symtab->addUndefined(SymName, this, false);
-    } else if (Flags & object::BasicSymbolRef::SF_Common) {
+    } else if (ObjSym.isCommon()) {
       Sym = Symtab->addCommon(this, SymName, ObjSym.getCommonSize());
-    } else if ((Flags & object::BasicSymbolRef::SF_Weak) &&
-               (Flags & object::BasicSymbolRef::SF_Indirect)) {
+    } else if (ObjSym.isWeak() && ObjSym.isIndirect()) {
       // Weak external.
       Sym = Symtab->addUndefined(SymName, this, true);
       std::string Fallback = ObjSym.getCOFFWeakExternalFallback();
       SymbolBody *Alias = Symtab->addUndefined(Saver.save(Fallback));
       checkAndSetWeakAlias(Symtab, this, Sym->body(), Alias);
     } else {
-      Expected<int> ComdatIndex = ObjSym.getComdatIndex();
-      bool IsCOMDAT = ComdatIndex && *ComdatIndex != -1;
+      bool IsCOMDAT = ObjSym.getComdatIndex() != -1;
       Sym = Symtab->addRegular(this, SymName, IsCOMDAT);
     }
     SymbolBodies.push_back(Sym->body());
   }
-  Directives = check(Obj->getLinkerOpts());
+  Directives = Obj->getCOFFLinkerOpts();
 }
 
 MachineTypes BitcodeFile::getMachineType() {
-  Expected<std::string> ET = getBitcodeTargetTriple(MB);
-  if (!ET)
-    return IMAGE_FILE_MACHINE_UNKNOWN;
-  switch (Triple(*ET).getArch()) {
+  switch (Triple(Obj->getTargetTriple()).getArch()) {
   case Triple::x86_64:
     return AMD64;
   case Triple::x86:

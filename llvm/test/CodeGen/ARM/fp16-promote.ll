@@ -597,7 +597,7 @@ define void @test_fma(half* %p, half* %q, half* %r) #0 {
 ; CHECK-FP16: vcvtb.f16.f32
 ; CHECK-LIBCALL-LABEL: test_fabs:
 ; CHECK-LIBCALL: bl __aeabi_h2f
-; CHECK-LIBCALL: bfc
+; CHECK-LIBCALL: bic
 ; CHECK-LIBCALL: bl __aeabi_f2h
 define void @test_fabs(half* %p) {
   %a = load half, half* %p, align 2
@@ -687,7 +687,7 @@ define void @test_maxnan(half* %p) #0 {
 ; CHECK-LIBCALL: bl __aeabi_h2f
 ; CHECK-LIBCALL: bl __aeabi_h2f
 ; CHECK-VFP-LIBCALL: vbsl
-; CHECK-NOVFP: bfc
+; CHECK-NOVFP: bic
 ; CHECK-NOVFP: and
 ; CHECK-NOVFP: orr
 ; CHECK-LIBCALL: bl __aeabi_f2h
@@ -847,21 +847,15 @@ define void @test_insertelement(half* %p, <4 x half>* %q, i32 %i) #0 {
 }
 
 ; CHECK-ALL-LABEL: test_extractelement:
+; CHECK-VFP: push {{{.*}}, lr}
 ; CHECK-VFP: sub sp, sp, #8
-; CHECK-VFP: ldrh
-; CHECK-VFP: ldrh
-; CHECK-VFP: orr
-; CHECK-VFP: str
-; CHECK-VFP: ldrh
-; CHECK-VFP: ldrh
-; CHECK-VFP: orr
-; CHECK-VFP: str
+; CHECK-VFP: ldrd
 ; CHECK-VFP: mov
 ; CHECK-VFP: orr
 ; CHECK-VFP: ldrh
 ; CHECK-VFP: strh
 ; CHECK-VFP: add sp, sp, #8
-; CHECK-VFP: bx lr
+; CHECK-VFP: pop {{{.*}}, pc}
 ; CHECK-NOVFP: ldrh
 ; CHECK-NOVFP: strh
 ; CHECK-NOVFP: ldrh

@@ -13,11 +13,11 @@
 // C++ Includes
 // Other libraries and framework includes
 // Project includes
-#include "lldb/Core/DataBufferHeap.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Core/RangeMap.h"
 #include "lldb/Core/State.h"
 #include "lldb/Target/Process.h"
+#include "lldb/Utility/DataBufferHeap.h"
+#include "lldb/Utility/Log.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -129,7 +129,8 @@ bool MemoryCache::RemoveInvalidRange(lldb::addr_t base_addr,
   return false;
 }
 
-size_t MemoryCache::Read(addr_t addr, void *dst, size_t dst_len, Error &error) {
+size_t MemoryCache::Read(addr_t addr, void *dst, size_t dst_len,
+                         Status &error) {
   size_t bytes_left = dst_len;
 
   // Check the L1 cache for a range that contain the entire memory read.
@@ -263,7 +264,9 @@ AllocatedBlock::AllocatedBlock(lldb::addr_t addr, uint32_t byte_size,
 AllocatedBlock::~AllocatedBlock() {}
 
 lldb::addr_t AllocatedBlock::ReserveBlock(uint32_t size) {
-  addr_t addr = LLDB_INVALID_ADDRESS;
+  // We must return something valid for zero bytes.
+  if (size == 0)
+    size = 1;
   Log *log(GetLogIfAllCategoriesSet(LIBLLDB_LOG_PROCESS));
   
   const size_t free_count = m_free_blocks.GetSize();
@@ -276,7 +279,7 @@ lldb::addr_t AllocatedBlock::ReserveBlock(uint32_t size) {
       // We found a free block that is big enough for our data. Figure out how
       // many chunks we will need and calculate the resulting block size we will
       // reserve.
-      addr = free_block.GetRangeBase();
+      addr_t addr = free_block.GetRangeBase();
       size_t num_chunks = CalculateChunksNeededForSize(size);
       lldb::addr_t block_size = num_chunks * m_chunk_size;
       lldb::addr_t bytes_left = range_size - block_size;
@@ -301,11 +304,14 @@ lldb::addr_t AllocatedBlock::ReserveBlock(uint32_t size) {
         free_block.SetRangeBase(reserved_block.GetRangeEnd());
         free_block.SetByteSize(bytes_left);
       }
+      LLDB_LOGV(log, "({0}) (size = {1} ({1:x})) => {2:x}", this, size, addr);
+      return addr;
     }
   }
 
-  LLDB_LOGV(log, "({0}) (size = {1} ({1:x})) => {2:x}", this, size, addr);
-  return addr;
+  LLDB_LOGV(log, "({0}) (size = {1} ({1:x})) => {2:x}", this, size,
+            LLDB_INVALID_ADDRESS);
+  return LLDB_INVALID_ADDRESS;
 }
 
 bool AllocatedBlock::FreeBlock(addr_t addr) {
@@ -339,7 +345,7 @@ void AllocatedMemoryCache::Clear() {
 
 AllocatedMemoryCache::AllocatedBlockSP
 AllocatedMemoryCache::AllocatePage(uint32_t byte_size, uint32_t permissions,
-                                   uint32_t chunk_size, Error &error) {
+                                   uint32_t chunk_size, Status &error) {
   AllocatedBlockSP block_sp;
   const size_t page_size = 4096;
   const size_t num_pages = (byte_size + page_size - 1) / page_size;
@@ -365,7 +371,7 @@ AllocatedMemoryCache::AllocatePage(uint32_t byte_size, uint32_t permissions,
 
 lldb::addr_t AllocatedMemoryCache::AllocateMemory(size_t byte_size,
                                                   uint32_t permissions,
-                                                  Error &error) {
+                                                  Status &error) {
   std::lock_guard<std::recursive_mutex> guard(m_mutex);
 
   addr_t addr = LLDB_INVALID_ADDRESS;

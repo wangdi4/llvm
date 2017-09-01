@@ -15,7 +15,6 @@
 #include "lldb/Breakpoint/Breakpoint.h"
 #include "lldb/Breakpoint/BreakpointLocation.h"
 #include "lldb/Core/Address.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Symbol/ObjectFile.h"
 #include "lldb/Target/ABI.h"
@@ -26,6 +25,7 @@
 #include "lldb/Target/Target.h"
 #include "lldb/Target/Thread.h"
 #include "lldb/Target/ThreadPlanRunToAddress.h"
+#include "lldb/Utility/Log.h"
 #include "lldb/Utility/Stream.h"
 
 using namespace lldb;
@@ -58,7 +58,7 @@ bool ThreadPlanCallFunction::ConstructorSetup(
   // If we can't read memory at the point of the process where we are planning
   // to put our function, we're
   // not going to get any further...
-  Error error;
+  Status error;
   process_sp->ReadUnsignedIntegerFromMemory(m_function_sp, 4, 0, error);
   if (!error.Success()) {
     m_constructor_errors.Printf(

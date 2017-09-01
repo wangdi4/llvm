@@ -10,7 +10,7 @@
 #include <sstream>
 
 #include "lldb/Core/ArchSpec.h"
-#include "lldb/Core/DataExtractor.h"
+#include "lldb/Core/DumpDataExtractor.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/PluginManager.h"
 #include "lldb/Core/StreamFile.h"
@@ -137,7 +137,7 @@ public:
     if (m_dynamic_type_id.Evaluate(exe_ctx->GetBestExecutionContextScope(),
                                    nullptr, nullptr, 0, &obj_load_address,
                                    nullptr, result, nullptr)) {
-      Error error;
+      Status error;
 
       lldb::addr_t type_id_addr = result.GetScalar().UInt();
       lldb::ProcessSP process_sp = exe_ctx->GetProcessSP();
@@ -303,7 +303,7 @@ public:
     if (!m_length_expression.IsValid())
       return UINT32_MAX;
 
-    Error error;
+    Status error;
     ValueObjectSP address_obj = value_obj->AddressOf(error);
     if (error.Fail())
       return UINT32_MAX;
@@ -1004,10 +1004,10 @@ bool JavaASTContext::DumpTypeValue(
     size_t data_byte_size, uint32_t bitfield_bit_size,
     uint32_t bitfield_bit_offset, ExecutionContextScope *exe_scope) {
   if (IsScalarType(type)) {
-    return data.Dump(s, data_offset, format, data_byte_size,
-                     1, // count
-                     UINT32_MAX, LLDB_INVALID_ADDRESS, bitfield_bit_size,
-                     bitfield_bit_offset, exe_scope);
+    return DumpDataExtractor(data, s, data_offset, format, data_byte_size,
+                             1, // count
+                             UINT32_MAX, LLDB_INVALID_ADDRESS,
+                             bitfield_bit_size, bitfield_bit_offset, exe_scope);
   }
   return false;
 }

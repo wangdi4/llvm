@@ -119,7 +119,7 @@ extern llvm::StringRef PollySkipFnAttr;
 //===----------------------------------------------------------------------===//
 /// Pass to detect the maximal static control parts (Scops) of a
 /// function.
-class ScopDetection : public FunctionPass {
+class ScopDetection {
 public:
   typedef SetVector<const Region *> RegionSet;
 
@@ -198,16 +198,14 @@ public:
 
 private:
   //===--------------------------------------------------------------------===//
-  ScopDetection(const ScopDetection &) = delete;
-  const ScopDetection &operator=(const ScopDetection &) = delete;
 
-  /// Analysis passes used.
+  /// Analyses used
   //@{
-  const DominatorTree *DT;
-  ScalarEvolution *SE;
-  LoopInfo *LI;
-  RegionInfo *RI;
-  AliasAnalysis *AA;
+  const DominatorTree &DT;
+  ScalarEvolution &SE;
+  LoopInfo &LI;
+  RegionInfo &RI;
+  AliasAnalysis &AA;
   //@}
 
   /// Map to remember detection contexts for all regions.
@@ -379,10 +377,11 @@ private:
   ///
   /// @param Val Value to check for invariance.
   /// @param Reg The region to consider for the invariance of Val.
+  /// @param Ctx The current detection context.
   ///
   /// @return True if the value represented by Val is invariant in the region
   ///         identified by Reg.
-  bool isInvariant(const Value &Val, const Region &Reg) const;
+  bool isInvariant(Value &Val, const Region &Reg, DetectionContext &Ctx) const;
 
   /// Check if the memory access caused by @p Inst is valid.
   ///
@@ -487,20 +486,9 @@ private:
   ///                           a loop is assumed to be profitable and
   ///                           consequently is counted.
   /// returns A tuple of number of loops and their maximal depth.
-  ScopDetection::LoopStats
+  static ScopDetection::LoopStats
   countBeneficialSubLoops(Loop *L, ScalarEvolution &SE,
-                          unsigned MinProfitableTrips) const;
-
-  /// Count the number of loops and the maximal loop depth in @p R.
-  ///
-  /// @param R The region to check
-  /// @param SE The scalar evolution analysis.
-  /// @param MinProfitableTrips The minimum number of trip counts from which
-  ///                           a loop is assumed to be profitable and
-  ///                           consequently is counted.
-  /// returns A tuple of number of loops and their maximal depth.
-  ScopDetection::LoopStats
-  countBeneficialLoops(Region *R, unsigned MinProfitableTrips) const;
+                          unsigned MinProfitableTrips);
 
   /// Check if the function @p F is marked as invalid.
   ///
@@ -537,16 +525,16 @@ private:
                       Args &&... Arguments) const;
 
 public:
-  static char ID;
-  explicit ScopDetection();
+  ScopDetection(Function &F, const DominatorTree &DT, ScalarEvolution &SE,
+                LoopInfo &LI, RegionInfo &RI, AliasAnalysis &AA);
 
   /// Get the RegionInfo stored in this pass.
   ///
   /// This was added to give the DOT printer easy access to this information.
-  RegionInfo *getRI() const { return RI; }
+  RegionInfo *getRI() const { return &RI; }
 
   /// Get the LoopInfo stored in this pass.
-  LoopInfo *getLI() const { return LI; }
+  LoopInfo *getLI() const { return &LI; }
 
   /// Is the region is the maximum region of a Scop?
   ///
@@ -608,6 +596,36 @@ public:
   /// @param R The Region to verify.
   void verifyRegion(const Region &R) const;
 
+  /// Count the number of loops and the maximal loop depth in @p R.
+  ///
+  /// @param R The region to check
+  /// @param SE The scalar evolution analysis.
+  /// @param MinProfitableTrips The minimum number of trip counts from which
+  ///                           a loop is assumed to be profitable and
+  ///                           consequently is counted.
+  /// returns A tuple of number of loops and their maximal depth.
+  static ScopDetection::LoopStats
+  countBeneficialLoops(Region *R, ScalarEvolution &SE, LoopInfo &LI,
+                       unsigned MinProfitableTrips);
+};
+
+struct ScopAnalysis : public AnalysisInfoMixin<ScopAnalysis> {
+  static AnalysisKey Key;
+  using Result = ScopDetection;
+  Result run(Function &F, FunctionAnalysisManager &FAM);
+};
+
+struct ScopAnalysisPrinterPass : public PassInfoMixin<ScopAnalysisPrinterPass> {
+  ScopAnalysisPrinterPass(raw_ostream &O) : Stream(O) {}
+  PreservedAnalyses run(Function &F, FunctionAnalysisManager &FAM);
+  raw_ostream &Stream;
+};
+
+struct ScopDetectionWrapperPass : public FunctionPass {
+  static char ID;
+  std::unique_ptr<ScopDetection> Result;
+
+  ScopDetectionWrapperPass();
   /// @name FunctionPass interface
   //@{
   virtual void getAnalysisUsage(AnalysisUsage &AU) const;
@@ -615,13 +633,16 @@ public:
   virtual bool runOnFunction(Function &F);
   virtual void print(raw_ostream &OS, const Module *) const;
   //@}
+
+  ScopDetection &getSD() { return *Result; }
+  const ScopDetection &getSD() const { return *Result; }
 };
 
 } // end namespace polly
 
 namespace llvm {
 class PassRegistry;
-void initializeScopDetectionPass(llvm::PassRegistry &);
+void initializeScopDetectionWrapperPassPass(llvm::PassRegistry &);
 } // namespace llvm
 
 #endif
