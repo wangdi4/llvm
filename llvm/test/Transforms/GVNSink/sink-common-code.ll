@@ -1,4 +1,8 @@
-; RUN: opt < %s -gvn-sink -simplifycfg -simplifycfg-sink-common=false -S | FileCheck %s
+; INTEL CUSTOMIZATION
+; The customization used to force -phi-node-folding-threshold=2,
+;   which is LLVM original.
+; RUN: opt < %s -gvn-sink -simplifycfg -simplifycfg-sink-common=false -phi-node-folding-threshold=2 -S | FileCheck %s
+; END INTEL CUSTOMIZATION
 
 define zeroext i1 @test1(i1 zeroext %flag, i32 %blksA, i32 %blksB, i32 %nblks) {
 entry:
