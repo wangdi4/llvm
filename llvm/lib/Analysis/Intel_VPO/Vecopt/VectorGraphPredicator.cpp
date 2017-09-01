@@ -172,11 +172,10 @@ public:
 
 } // End namespace llvm
 
-template void llvm::DomTreeBuilder::Calculate<VGLoop, VGBlock*>(
-    DominatorTreeBase<GraphTraits<VGBlock*>::NodeType> &DT, VGLoop &VGL);
-template void llvm::DomTreeBuilder::Calculate<VGLoop, Inverse<VGBlock*>>(
-    DominatorTreeBase<GraphTraits<Inverse<VGBlock*>>::NodeType> &DT,
-    VGLoop &VGL);
+using VGBBDomTree = DominatorTreeBase<VGBlock>;
+template void
+llvm::DomTreeBuilder::Calculate<VGBBDomTree, VGLoop>(VGBBDomTree &DT,
+                                                     VGLoop &VGL);
 
 INITIALIZE_PASS_BEGIN(VectorGraphPredicator, "vec-graph-predicator", "Vector Graph Predicator", false, true)
 INITIALIZE_PASS_DEPENDENCY(VectorGraphInfo)

@@ -504,18 +504,6 @@ private:
   AvrCFGBase* CFG = nullptr;
 };
 
-/// \brief Template specialization of the standard LLVM dominator tree utility
-/// for AVR CFGs.
-class AvrDominatorTree : public DominatorTreeBase<AvrBasicBlock> {
-
-public:
-
-  AvrDominatorTree(bool isPostDom) :
-      DominatorTreeBase<AvrBasicBlock>(isPostDom) {}
-
-  virtual ~AvrDominatorTree() {}
-};
-
 } // End VPO Vectorizer Namespace
 
 /// \brief A helper class to overcome the non-standard behavior of df_iterator.
@@ -771,6 +759,18 @@ struct DOTGraphTraits<vpo::AvrBasicBlock*> : public DefaultDOTGraphTraits {
     return DescriptionString;
   }
 
+};
+
+/// \brief Template specialization of the standard LLVM dominator tree utility
+/// for AVR CFGs.
+class AvrDominatorTree : public DominatorTreeBase<vpo::AvrBasicBlock> {
+
+public:
+
+  AvrDominatorTree(bool isPostDom) :
+      DominatorTreeBase<vpo::AvrBasicBlock>(isPostDom) {}
+
+  virtual ~AvrDominatorTree() {}
 };
 
 } // End LLVM Namespace 
