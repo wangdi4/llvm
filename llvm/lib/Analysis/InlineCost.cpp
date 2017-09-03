@@ -22,7 +22,8 @@
 #include "llvm/Analysis/CodeMetrics.h"
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/InstructionSimplify.h"
-#include "llvm/Analysis/Intel_AggInline.h"      // INTEL
+#include "llvm/Analysis/Intel_AggInline.h"          // INTEL
+#include "llvm/Analysis/Intel_IPCloningAnalysis.h"  // INTEL
 #include "llvm/Analysis/LoopInfo.h" // INTEL
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
@@ -1658,7 +1659,8 @@ static bool preferCloningToInlining(CallSite& CS,
   if (!Callee) return false;
   LoopInfo *LI = ILIC.getLI(Callee);
   if (!LI) return false;
-  if (isCallCandidateForSpecialization(CS, LI)) return true;
+  if (llvm::llvm_cloning_analysis::isCallCandidateForSpecialization(CS, LI))
+    return true;
   return false;
 } 
 
@@ -1979,15 +1981,15 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
   if (VectorBonus > 0) {
     YesReasonVector.push_back(InlrVectorBonus);
   }
-  if (Cost < Threshold) {
+  bool IsProfitable = Cost < std::max(1, Threshold);
+  if (IsProfitable) {
     *ReasonAddr = bestInlineReason(YesReasonVector, InlrProfitable);
   }
   else {
     *ReasonAddr = bestInlineReason(NoReasonVector, NinlrNotProfitable);
   }
+  return IsProfitable;
 #endif // INTEL_CUSTOMIZATION
-
-  return Cost < std::max(1, Threshold);
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
