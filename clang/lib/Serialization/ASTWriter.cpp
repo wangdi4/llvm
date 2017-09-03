@@ -535,6 +535,14 @@ ASTTypeWriter::VisitPipeType(const PipeType *T) {
   Code = TYPE_PIPE;
 }
 
+#if INTEL_CUSTOMIZATION
+void
+ASTTypeWriter::VisitChannelType(const ChannelType *T) {
+  Record.AddTypeRef(T->getElementType());
+  Code = TYPE_CHANNEL;
+}
+#endif // INTEL_CUSTOMIZATION
+
 namespace {
 
 class TypeLocWriter : public TypeLocVisitor<TypeLocWriter> {
@@ -817,6 +825,11 @@ void TypeLocWriter::VisitAtomicTypeLoc(AtomicTypeLoc TL) {
 void TypeLocWriter::VisitPipeTypeLoc(PipeTypeLoc TL) {
   Record.AddSourceLocation(TL.getKWLoc());
 }
+#if INTEL_CUSTOMIZATION
+void TypeLocWriter::VisitChannelTypeLoc(ChannelTypeLoc TL) {
+  Record.AddSourceLocation(TL.getKWLoc());
+}
+#endif // INTEL_CUSTOMIZATION
 
 void ASTWriter::WriteTypeAbbrevs() {
   using namespace llvm;

@@ -8161,6 +8161,9 @@ void Sema::CheckConversionDeclarator(Declarator &D, QualType &R,
       case DeclaratorChunk::BlockPointer:
       case DeclaratorChunk::Reference:
       case DeclaratorChunk::MemberPointer:
+#if INTEL_CUSTOMIZATION
+      case DeclaratorChunk::Channel:
+#endif // INTEL_CUSTOMIZATION
       case DeclaratorChunk::Pipe:
         extendLeft(Before, Chunk.getSourceRange());
         break;

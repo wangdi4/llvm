@@ -2729,6 +2729,11 @@ addAssociatedClassesAndNamespaces(AssociatedLookup &Result, QualType Ty) {
     case Type::Atomic:
       T = cast<AtomicType>(T)->getValueType().getTypePtr();
       continue;
+#if INTEL_CUSTOMIZATION
+    case Type::Channel:
+      T = cast<ChannelType>(T)->getElementType().getTypePtr();
+      continue;
+#endif // INTEL_CUSTOMIZATION
     case Type::Pipe:
       T = cast<PipeType>(T)->getElementType().getTypePtr();
       continue;

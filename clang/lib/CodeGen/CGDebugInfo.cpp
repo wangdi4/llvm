@@ -2404,6 +2404,12 @@ llvm::DIType* CGDebugInfo::CreateType(const PipeType *Ty,
   return getOrCreateType(Ty->getElementType(), U);
 }
 
+#if INTEL_CUSTOMIZATION
+llvm::DIType *CGDebugInfo::CreateType(const ChannelType *Ty, llvm::DIFile *U) {
+  return getOrCreateType(Ty->getElementType(), U);
+}
+#endif // INTEL_CUSTOMIZATION
+
 llvm::DIType *CGDebugInfo::CreateEnumType(const EnumType *Ty) {
   const EnumDecl *ED = Ty->getDecl();
 
@@ -2701,6 +2707,11 @@ llvm::DIType *CGDebugInfo::CreateTypeNode(QualType Ty, llvm::DIFile *Unit) {
 
   case Type::Atomic:
     return CreateType(cast<AtomicType>(Ty), Unit);
+
+#if INTEL_CUSTOMIZATION
+  case Type::Channel:
+    return CreateType(cast<ChannelType>(Ty), Unit);
+#endif // INTEL_CUSTOMIZATION
 
   case Type::Pipe:
     return CreateType(cast<PipeType>(Ty), Unit);

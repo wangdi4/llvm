@@ -240,6 +240,9 @@ TypeEvaluationKind CodeGenFunction::getEvaluationKind(QualType type) {
     case Type::FunctionNoProto:
     case Type::Enum:
     case Type::ObjCObjectPointer:
+#if INTEL_CUSTOMIZATION
+    case Type::Channel:
+#endif // INTEL_CUSTOMIZATION
     case Type::Pipe:
       return TEK_Scalar;
 
@@ -2100,6 +2103,12 @@ void CodeGenFunction::EmitVariablyModifiedType(QualType type) {
     case Type::Atomic:
       type = cast<AtomicType>(ty)->getValueType();
       break;
+
+#if INTEL_CUSTOMIZATION
+    case Type::Channel:
+      type = cast<ChannelType>(ty)->getElementType();
+      break;
+#endif // INTEL_CUSTOMIZATION
 
     case Type::Pipe:
       type = cast<PipeType>(ty)->getElementType();

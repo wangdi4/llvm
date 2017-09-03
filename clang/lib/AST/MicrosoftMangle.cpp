@@ -2552,6 +2552,17 @@ void MicrosoftCXXNameMangler::mangleType(const PipeType *T, Qualifiers,
     << Range;
 }
 
+#if INTEL_CUSTOMIZATION
+void MicrosoftCXXNameMangler::mangleType(const ChannelType *T, Qualifiers,
+                                         SourceRange Range) {
+  DiagnosticsEngine &Diags = Context.getDiags();
+  unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error,
+    "cannot mangle this OpenCL channel type yet");
+  Diags.Report(Range.getBegin(), DiagID)
+    << Range;
+}
+#endif // INTEL_CUSTOMIZATION
+
 void MicrosoftMangleContextImpl::mangleCXXName(const NamedDecl *D,
                                                raw_ostream &Out) {
   assert((isa<FunctionDecl>(D) || isa<VarDecl>(D)) &&

@@ -1079,6 +1079,10 @@ DEF_TRAVERSE_TYPE(ObjCObjectPointerType,
 
 DEF_TRAVERSE_TYPE(AtomicType, { TRY_TO(TraverseType(T->getValueType())); })
 
+#if INTEL_CUSTOMIZATION
+DEF_TRAVERSE_TYPE(ChannelType, { TRY_TO(TraverseType(T->getElementType())); })
+#endif // INTEL_CUSTOMIZATION
+
 DEF_TRAVERSE_TYPE(PipeType, { TRY_TO(TraverseType(T->getElementType())); })
 
 #undef DEF_TRAVERSE_TYPE
@@ -1319,6 +1323,10 @@ DEF_TRAVERSE_TYPELOC(ObjCObjectPointerType,
                      { TRY_TO(TraverseTypeLoc(TL.getPointeeLoc())); })
 
 DEF_TRAVERSE_TYPELOC(AtomicType, { TRY_TO(TraverseTypeLoc(TL.getValueLoc())); })
+
+#if INTEL_CUSTOMIZATION
+DEF_TRAVERSE_TYPELOC(ChannelType, { TRY_TO(TraverseTypeLoc(TL.getValueLoc())); })
+#endif // INTEL_CUSTOMIZATION
 
 DEF_TRAVERSE_TYPELOC(PipeType, { TRY_TO(TraverseTypeLoc(TL.getValueLoc())); })
 

@@ -165,6 +165,9 @@ class CGDebugInfo {
   llvm::DIType *CreateType(const RValueReferenceType *Ty, llvm::DIFile *Unit);
   llvm::DIType *CreateType(const MemberPointerType *Ty, llvm::DIFile *F);
   llvm::DIType *CreateType(const AtomicType *Ty, llvm::DIFile *F);
+#if INTEL_CUSTOMIZATION
+  llvm::DIType *CreateType(const ChannelType *Ty, llvm::DIFile *F);
+#endif // INTEL_CUSTOMIZATION
   llvm::DIType *CreateType(const PipeType *Ty, llvm::DIFile *F);
   /// Get enumeration type.
   llvm::DIType *CreateEnumType(const EnumType *Ty);

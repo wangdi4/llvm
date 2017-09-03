@@ -419,6 +419,11 @@ namespace  {
     void VisitPipeType(const PipeType *T) {
       dumpTypeAsChild(T->getElementType());
     }
+#if INTEL_CUSTOMIZATION
+    void VisitChannelType(const ChannelType *T) {
+      dumpTypeAsChild(T->getElementType());
+    }
+#endif // INTEL_CUSTOMIZATION
     void VisitAdjustedType(const AdjustedType *T) {
       dumpTypeAsChild(T->getOriginalType());
     }

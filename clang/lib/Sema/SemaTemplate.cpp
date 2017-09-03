@@ -5123,6 +5123,12 @@ bool UnnamedLocalNoLinkageFinder::VisitPipeType(const PipeType* T) {
   return false;
 }
 
+#if INTEL_CUSTOMIZATION
+bool UnnamedLocalNoLinkageFinder::VisitChannelType(const ChannelType* T) {
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
+
 bool UnnamedLocalNoLinkageFinder::VisitTagDecl(const TagDecl *Tag) {
   if (Tag->getDeclContext()->isFunctionOrMethod()) {
     S.Diag(SR.getBegin(),

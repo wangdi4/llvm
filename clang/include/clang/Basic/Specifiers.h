@@ -38,7 +38,10 @@ namespace clang {
   
   enum TypeSpecifiersPipe {
     TSP_unspecified,
-    TSP_pipe
+    TSP_pipe,
+#if INTEL_CUSTOMIZATION
+    TSP_channel,
+#endif // INTEL_CUSTOMIZATION
   };
 
   /// \brief Specifies the kind of type.

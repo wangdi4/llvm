@@ -344,6 +344,9 @@ static DeclaratorChunk *maybeMovePastReturnType(Declarator &declarator,
     case DeclaratorChunk::Array:
     case DeclaratorChunk::Reference:
     case DeclaratorChunk::MemberPointer:
+#if INTEL_CUSTOMIZATION
+    case DeclaratorChunk::Channel:
+#endif // INTEL_CUSTOMIZATION
     case DeclaratorChunk::Pipe:
       return result;
 
@@ -357,6 +360,9 @@ static DeclaratorChunk *maybeMovePastReturnType(Declarator &declarator,
         case DeclaratorChunk::Array:
         case DeclaratorChunk::Function:
         case DeclaratorChunk::Reference:
+#if INTEL_CUSTOMIZATION
+        case DeclaratorChunk::Channel:
+#endif // INTEL_CUSTOMIZATION
         case DeclaratorChunk::Pipe:
           continue;
 
@@ -438,6 +444,9 @@ static void distributeObjCPointerTypeAttr(TypeProcessingState &state,
     // Don't walk through these.
     case DeclaratorChunk::Reference:
     case DeclaratorChunk::MemberPointer:
+#if INTEL_CUSTOMIZATION
+    case DeclaratorChunk::Channel:
+#endif // INTEL_CUSTOMIZATION
     case DeclaratorChunk::Pipe:
       goto error;
     }
@@ -471,6 +480,9 @@ distributeObjCPointerTypeAttrFromDeclarator(TypeProcessingState &state,
     case DeclaratorChunk::MemberPointer:
     case DeclaratorChunk::Paren:
     case DeclaratorChunk::Array:
+#if INTEL_CUSTOMIZATION
+    case DeclaratorChunk::Channel:
+#endif // INTEL_CUSTOMIZATION
     case DeclaratorChunk::Pipe:
       continue;
 
@@ -533,6 +545,9 @@ static void distributeFunctionTypeAttr(TypeProcessingState &state,
     case DeclaratorChunk::Array:
     case DeclaratorChunk::Reference:
     case DeclaratorChunk::MemberPointer:
+#if INTEL_CUSTOMIZATION
+    case DeclaratorChunk::Channel:
+#endif // INTEL_CUSTOMIZATION
     case DeclaratorChunk::Pipe:
       continue;
     }
@@ -1343,6 +1358,9 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
         // errors.
         declarator.setInvalidType(true);
       } else if (S.getLangOpts().OpenCLVersion >= 200 && DS.isTypeSpecPipe()){
+        // #if INTEL_CUSTOMIZATION
+        // TODO: asavonic: add channel diagnostic
+        // #endif // INTEL_CUSTOMIZATION
         S.Diag(DeclLoc, diag::err_missing_actual_pipe_type)
           << DS.getSourceRange();
         declarator.setInvalidType(true);
@@ -1609,7 +1627,9 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
   // list of type attributes to be temporarily saved while the type
   // attributes are pushed around.
   // pipe attributes will be handled later ( at GetFullTypeForDeclarator )
-  if (!DS.isTypeSpecPipe())
+#if INTEL_CUSTOMIZATION
+  if (!DS.isTypeSpecPipe() && !DS.isTypeSpecChannel())
+#endif // INTEL_CUSTOMIZATION
       processTypeAttrs(state, Result, TAL_DeclSpec, DS.getAttributes().getList());
 
   // Apply const/volatile/restrict qualifiers to T.
@@ -2018,6 +2038,23 @@ QualType Sema::BuildReadPipeType(QualType T, SourceLocation Loc) {
 QualType Sema::BuildWritePipeType(QualType T, SourceLocation Loc) {
   return Context.getWritePipeType(T);
 }
+
+#if INTEL_CUSTOMIZATION
+/// \brief Build a Channel type.
+///
+/// \param T The type to which we'll be building a Channel.
+///
+/// \param Loc We do not use it for now.
+///
+/// \returns A suitable channel type, if there are no errors. Otherwise, returns a
+/// NULL type.
+QualType Sema::BuildChannelType(QualType T, SourceLocation Loc) {
+  assert(!T->isObjCObjectType() && "Should build ObjCObjectPointerType");
+
+  // Build the channel type.
+  return Context.getChannelType(T);
+}
+#endif // INTEL_CUSTOMIZATION
 
 /// Check whether the specified array size makes the array type a VLA.  If so,
 /// return true, if not, return the size of the array in SizeVal.
@@ -2575,6 +2612,9 @@ static void inferARCWriteback(TypeProcessingState &state,
     case DeclaratorChunk::Array: // suppress if written (id[])?
     case DeclaratorChunk::Function:
     case DeclaratorChunk::MemberPointer:
+#if INTEL_CUSTOMIZATION
+    case DeclaratorChunk::Channel:
+#endif // INTEL_CUSTOMIZATION
     case DeclaratorChunk::Pipe:
       return;
     }
@@ -2718,6 +2758,9 @@ static void diagnoseRedundantReturnTypeQualifiers(Sema &S, QualType RetTy,
     case DeclaratorChunk::Reference:
     case DeclaratorChunk::Array:
     case DeclaratorChunk::MemberPointer:
+#if INTEL_CUSTOMIZATION
+    case DeclaratorChunk::Channel:
+#endif // INTEL_CUSTOMIZATION
     case DeclaratorChunk::Pipe:
       // FIXME: We can't currently provide an accurate source location and a
       // fix-it hint for these.
@@ -3339,6 +3382,9 @@ classifyPointerDeclarator(Sema &S, QualType type, Declarator &declarator,
       break;
 
     case DeclaratorChunk::Function:
+#if INTEL_CUSTOMIZATION
+    case DeclaratorChunk::Channel:
+#endif // INTEL_CUSTOMIZATION
     case DeclaratorChunk::Pipe:
       break;
 
@@ -3654,6 +3700,9 @@ static bool hasOuterPointerLikeChunk(const Declarator &D, unsigned endIndex) {
       return true;
     case DeclaratorChunk::Function:
     case DeclaratorChunk::BlockPointer:
+#if INTEL_CUSTOMIZATION
+    case DeclaratorChunk::Channel:
+#endif // INTEL_CUSTOMIZATION
     case DeclaratorChunk::Pipe:
       // These are invalid anyway, so just ignore.
       break;
@@ -3735,6 +3784,9 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
         case DeclaratorChunk::Array:
           DiagKind = 2;
           break;
+#if INTEL_CUSTOMIZATION
+        case DeclaratorChunk::Channel:
+#endif // INTEL_CUSTOMIZATION
         case DeclaratorChunk::Pipe:
           break;
         }
@@ -3791,6 +3843,9 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
       switch (chunk.Kind) {
       case DeclaratorChunk::Array:
       case DeclaratorChunk::Function:
+#if INTEL_CUSTOMIZATION
+      case DeclaratorChunk::Channel:
+#endif // INTEL_CUSTOMIZATION
       case DeclaratorChunk::Pipe:
         break;
 
@@ -4629,6 +4684,13 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
       break;
     }
 
+#if INTEL_CUSTOMIZATION
+    case DeclaratorChunk::Channel: {
+      T = S.BuildChannelType(T, DeclType.Loc );
+      break;
+    }
+#endif // INTEL_CUSTOMIZATION
+
     case DeclaratorChunk::Pipe: {
       T = S.BuildReadPipeType(T, DeclType.Loc);
       processTypeAttrs(state, T, TAL_DeclSpec,
@@ -4967,6 +5029,9 @@ static void transferARCOwnership(TypeProcessingState &state,
 
     case DeclaratorChunk::Function:
     case DeclaratorChunk::MemberPointer:
+#if INTEL_CUSTOMIZATION
+    case DeclaratorChunk::Channel:
+#endif // INTEL_CUSTOMIZATION
     case DeclaratorChunk::Pipe:
       return;
     }
@@ -5280,6 +5345,16 @@ namespace {
       TL.getValueLoc().initializeFullCopy(TInfo->getTypeLoc());
     }
 
+#if INTEL_CUSTOMIZATION
+    void VisitChannelTypeLoc(ChannelTypeLoc TL) {
+      TL.setKWLoc(DS.getTypeSpecTypeLoc());
+
+      TypeSourceInfo *TInfo = 0;
+      Sema::GetTypeFromParser(DS.getRepAsType(), &TInfo);
+      TL.getValueLoc().initializeFullCopy(TInfo->getTypeLoc());
+    }
+#endif // INTEL_CUSTOMIZATION
+
     void VisitTypeLoc(TypeLoc TL) {
       // FIXME: add other typespec types and change this to an assert.
       TL.initialize(Context, DS.getTypeSpecTypeLoc());
@@ -5404,6 +5479,12 @@ namespace {
       assert(Chunk.Kind == DeclaratorChunk::Pipe);
       TL.setKWLoc(Chunk.Loc);
     }
+#if INTEL_CUSTOMIZATION
+    void VisitChannelTypeLoc(ChannelTypeLoc TL) {
+      assert(Chunk.Kind == DeclaratorChunk::Channel);
+      TL.setKWLoc(Chunk.Loc);
+    }
+#endif // INTEL_CUSTOMIZATION
 
     void VisitTypeLoc(TypeLoc TL) {
       llvm_unreachable("unsupported TypeLoc kind in declarator!");
@@ -5418,6 +5499,9 @@ static void fillAtomicQualLoc(AtomicTypeLoc ATL, const DeclaratorChunk &Chunk) {
   case DeclaratorChunk::Array:
   case DeclaratorChunk::Paren:
   case DeclaratorChunk::Pipe:
+#if INTEL_CUSTOMIZATION
+  case DeclaratorChunk::Channel:
+#endif // INTEL_CUSTOMIZATION
     llvm_unreachable("cannot be _Atomic qualified");
 
   case DeclaratorChunk::Pointer:
@@ -6351,6 +6435,9 @@ static bool distributeNullabilityTypeAttr(TypeProcessingState &state,
     // Don't walk through these.
     case DeclaratorChunk::Reference:
     case DeclaratorChunk::Pipe:
+#if INTEL_CUSTOMIZATION
+    case DeclaratorChunk::Channel:
+#endif // INTEL_CUSTOMIZATION
       return false;
     }
   }

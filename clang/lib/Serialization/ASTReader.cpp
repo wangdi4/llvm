@@ -6212,6 +6212,18 @@ QualType ASTReader::readTypeRecord(unsigned Index) {
     unsigned ReadOnly = Record[1];
     return Context.getPipeType(ElementType, ReadOnly);
   }
+#if INTEL_CUSTOMIZATION
+  case TYPE_CHANNEL: {
+    if (Record.size() != 1) {
+      Error("Incorrect encoding of channel type");
+      return QualType();
+    }
+
+    // Reading the channel element type.
+    QualType ElementType = readType(*Loc.F, Record, Idx);
+    return Context.getChannelType(ElementType);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   case TYPE_DEPENDENT_SIZED_EXT_VECTOR: {
     unsigned Idx = 0;
@@ -6552,6 +6564,11 @@ void TypeLocReader::VisitAtomicTypeLoc(AtomicTypeLoc TL) {
 void TypeLocReader::VisitPipeTypeLoc(PipeTypeLoc TL) {
   TL.setKWLoc(ReadSourceLocation());
 }
+#if INTEL_CUSTOMIZATION
+void TypeLocReader::VisitChannelTypeLoc(ChannelTypeLoc TL) {
+  TL.setKWLoc(ReadSourceLocation());
+}
+#endif // INTEL_CUSTOMIZATION
 
 TypeSourceInfo *
 ASTReader::GetTypeSourceInfo(ModuleFile &F, const ASTReader::RecordData &Record,

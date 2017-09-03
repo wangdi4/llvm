@@ -7186,6 +7186,9 @@ static int EvaluateBuiltinClassifyType(const CallExpr *E,
   case Type::ObjCObject:
   case Type::ObjCInterface:
   case Type::ObjCObjectPointer:
+#if INTEL_CUSTOMIZATION
+  case Type::Channel:
+#endif // INTEL_CUSTOMIZATION
   case Type::Pipe:
   case Type::Atomic:
     llvm_unreachable("CallExpr::isBuiltinClassifyType(): unimplemented type");

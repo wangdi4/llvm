@@ -1337,6 +1337,23 @@ ExprResult Parser::ParseCastExpression(bool isUnaryExpression,
     break;
   }
 
+#if INTEL_CUSTOMIZATION
+  case tok::kw_channel: {
+    if (!getLangOpts().OpenCL ||
+        !getTargetInfo().getSupportedOpenCLOpts().isEnabled(
+            "cl_altera_channels")) {
+      // 'channel' is a keyword only for OpenCL with cl_altera_channels
+      // extension
+      Tok.setKind(tok::identifier);
+      return ParseCastExpression(isUnaryExpression, isAddressOfOperand,
+                                 NotCastExpr, isTypeCast);
+    }
+
+    Diag(Tok, diag::err_expected_expression);
+    return ExprError();
+  }
+#endif // INTEL_CUSTOMIZATION
+
   case tok::annot_cxxscope: { // [C++] id-expression: qualified-id
     // If TryAnnotateTypeOrScopeToken annotates the token, tail recurse.
     // (We can end up in this situation after tentative parsing.)

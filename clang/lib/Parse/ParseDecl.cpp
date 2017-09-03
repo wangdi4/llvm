@@ -3739,6 +3739,13 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       }
       isInvalid = DS.SetTypePipe(true, Loc, PrevSpec, DiagID, Policy);
       break;
+#if INTEL_CUSTOMIZATION
+    case tok::kw_channel:
+      if (getLangOpts().OpenCL) {
+        isInvalid = DS.SetTypeChannel(true, Loc, PrevSpec, DiagID, Policy);
+      }
+      break;
+#endif // INTEL_CUSTOMIZATION
 #define GENERIC_IMAGE_TYPE(ImgType, Id) \
   case tok::kw_##ImgType##_t: \
     isInvalid = DS.SetTypeSpecType(DeclSpec::TST_##ImgType##_t, Loc, PrevSpec, \
@@ -4860,6 +4867,10 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
 
   case tok::kw_pipe:
     return getLangOpts().OpenCL && (getLangOpts().OpenCLVersion >= 200);
+#if INTEL_CUSTOMIZATION
+  case tok::kw_channel:
+    return getLangOpts().OpenCL;
+#endif // INTEL_CUSTOMIZATION
 
   case tok::identifier:   // foo::bar
     // Unfortunate hack to support "Class.factoryMethod" notation.
@@ -5372,6 +5383,10 @@ static bool isPtrOperatorToken(tok::TokenKind Kind, const LangOptions &Lang,
 
   if ((Kind == tok::kw_pipe) && Lang.OpenCL && (Lang.OpenCLVersion >= 200))
     return true;
+#if INTEL_CUSTOMIZATION
+  if ((Kind == tok::kw_channel) && Lang.OpenCL)
+    return true;
+#endif // INTEL_CUSTOMIZATION
 
   if (!Lang.CPlusPlus)
     return false;
@@ -5401,6 +5416,19 @@ static bool isPipeDeclerator(const Declarator &D) {
 
   return false;
 }
+
+#if INTEL_CUSTOMIZATION
+// Indicates whether the given declarator is a channel declarator.
+static bool isChannelDeclarator(const Declarator &D) {
+  const unsigned NumTypes = D.getNumTypeObjects();
+
+  for (unsigned Idx = 0; Idx != NumTypes; ++Idx)
+    if (DeclaratorChunk::Channel == D.getTypeObject(Idx).Kind)
+      return true;
+
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
 
 /// ParseDeclaratorInternal - Parse a C or C++ declarator. The direct-declarator
 /// is parsed by the function passed to it. Pass null, and the direct-declarator
@@ -5487,6 +5515,17 @@ void Parser::ParseDeclaratorInternal(Declarator &D,
         DeclaratorChunk::getPipe(DS.getTypeQualifiers(), DS.getPipeLoc()),
         DS.getAttributes(), SourceLocation());
   }
+
+#if INTEL_CUSTOMIZATION
+  if (D.getDeclSpec().isTypeSpecChannel() && !isChannelDeclarator(D)) {
+    DeclSpec DS(AttrFactory);
+    ParseTypeQualifierListOpt(DS);
+
+    D.AddTypeInfo(
+      DeclaratorChunk::getChannel(DS.getTypeQualifiers(), DS.getChannelLoc()),
+      DS.getAttributes(), SourceLocation());
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // Not a pointer, C++ reference, or block.
   if (!isPtrOperatorToken(Kind, getLangOpts(), D.getContext())) {
@@ -6792,6 +6831,9 @@ void Parser::ParseMisplacedBracketDeclarator(Declarator &D) {
     case DeclaratorChunk::BlockPointer:
     case DeclaratorChunk::MemberPointer:
     case DeclaratorChunk::Pipe:
+#if INTEL_CUSTOMIZATION
+    case DeclaratorChunk::Channel:
+#endif // INTEL_CUSTOMIZATION
       NeedParens = true;
       break;
     case DeclaratorChunk::Array:
