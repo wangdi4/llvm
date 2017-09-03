@@ -4,10 +4,6 @@
 ; RUN: opt < %s -march=x86 -mcpu=pentium -S -loop-rotate -rotation-max-header-size=0 -debug -debug-only=loop-rotate 2>&1 | FileCheck %s -check-prefix=PENTIUM-OPT
 ; RUN: opt < %s -march=x86 -mcpu=lakemont -S -loop-rotate -rotation-max-header-size=16 -debug -debug-only=loop-rotate 2>&1 | FileCheck %s -check-prefix=LMT-OPT
 
-; INTEL CUSTOMIZATION: This test fails in xmain.  CQ 411075.
-; XFAIL: *
-; END INTEL CUSTOMIZATION
-
 ; Loop should be rotated for Pentium but not for Lakemont.
 ; PENTIUM: rotating Loop at depth 1
 ; LMT-NOT: rotating Loop at depth 1

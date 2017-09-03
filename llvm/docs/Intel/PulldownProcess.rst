@@ -205,3 +205,8 @@ the normal branch promotion process, e.g.
      $ ics merge xmain-cand head
      <run xmain checkin testing and request gatekeeper approval>
      $ ics merge -push
+
+Xmain Pulldown History
+======================
+
+.. image:: llorg-pdown-progress.png

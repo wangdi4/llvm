@@ -691,10 +691,7 @@ public:
   static char ID; // Pass ID, replacement for typeid
   LoopRotateLegacyPass(int SpecifiedMaxHeaderSize = -1) : LoopPass(ID) {
     initializeLoopRotateLegacyPassPass(*PassRegistry::getPassRegistry());
-    if (SpecifiedMaxHeaderSize == -1)
-      MaxHeaderSize = DefaultRotationThreshold;
-    else
-      MaxHeaderSize = unsigned(SpecifiedMaxHeaderSize);
+    MaxHeaderSize = unsigned(SpecifiedMaxHeaderSize);  // INTEL
   }
 
   // LCSSA form makes instruction renaming easier.
@@ -718,6 +715,12 @@ public:
     auto *SEWP = getAnalysisIfAvailable<ScalarEvolutionWrapperPass>();
     auto *SE = SEWP ? &SEWP->getSE() : nullptr;
     const SimplifyQuery SQ = getBestSimplifyQuery(*this, F);
+#if INTEL_CUSTOMIZATION
+    if (MaxHeaderSize == (unsigned)-1)
+      MaxHeaderSize = DefaultRotationThreshold.getNumOccurrences() > 0 ?
+          DefaultRotationThreshold :
+          TTI->getLoopRotationDefaultThreshold(true);
+#endif //INTEL_CUSTOMIZATION
     LoopRotate LR(MaxHeaderSize, LI, TTI, AC, DT, SE, SQ);
     return LR.processLoop(L);
   }
