@@ -2,17 +2,6 @@
 // AVX-512F math implementation
 //////////////////////////////////////////////////////////////////////////////////////////////
 
-
-// rsqrt
-OclBuiltinImpl rsqrt_v16f32_impl = OclBuiltinImpl<rsqrt, [v16f32], 0, [{
-    const float16 temp = _mm512_sqrt_ps($Arg0VarName);
-    return 1.0f/temp;
-  }]>;
-
-OclBuiltinImpl rsqrt_v8f64_impl = OclBuiltinImpl<rsqrt, [v8f64], 0, [{
-    return _mm512_rsqrt14_pd($Arg0VarName);
-  }]>;
-
 // sqrt
 OclBuiltinImpl sqrt_v8f64_impl = OclBuiltinImpl<sqrt, [v8f64], 0, [{
     return _mm512_sqrt_pd($Arg0VarName);
@@ -274,6 +263,11 @@ OclBuiltinImpl rootn_svml = OclBuiltinImpl<rootn, math_FP512_types, 0, [{
 // round
 OclBuiltinImpl round_svml = OclBuiltinImpl<round, math_FP512_types, 0, [{
     return __ocl_svml_$Target_round$SVMLSuffix($Arg0VarName);
+  }]>;
+
+// rsqrt
+OclBuiltinImpl rsqrt_svml = OclBuiltinImpl<rsqrt, math_FP512_types, 0, [{
+    return __ocl_svml_$Target_rsqrt$SVMLSuffix($Arg0VarName);
   }]>;
 
 // sin
