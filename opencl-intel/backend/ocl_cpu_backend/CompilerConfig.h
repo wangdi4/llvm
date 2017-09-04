@@ -58,7 +58,7 @@ private:
 class CompilerConfig: public virtual ICompilerConfig
 {
 public:
-    CompilerConfig():m_transposeSize(TRANSPOSE_SIZE_AUTO),
+    CompilerConfig():m_transposeSize(TRANSPOSE_SIZE_NOT_SET),
                      m_rtLoopUnrollFactor(1),
                      m_useVTune(false),
                      m_loadBuiltins(true),

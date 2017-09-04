@@ -104,15 +104,35 @@ bool VectorizerCore::runOnFunction(Function &F) {
     return false;
   }
 
-  auto vkimd = KernelInternalMetadataAPI(&F);
-  // The scalar function of the function we vectorize.
-  Function* scalarFunc = vkimd.ScalarizedKernel.get();
-
-  Module *M = F.getParent();
   V_PRINT(VectorizerCore, "\nEntered VectorizerCore Wrapper!\n");
 
-  bool autoVec =  (m_pConfig->GetTransposeSize() == 0);
-  V_ASSERT(m_pConfig->GetTransposeSize() <= MAX_PACKET_WIDTH && "unssupported vector width");
+  auto kimd = KernelMetadataAPI(&F);
+  uint32_t forcedVecWidth = 0;
+  // If global setting is not set check vec_len_hint attr
+  if (TRANSPOSE_SIZE_NOT_SET != m_pConfig->GetTransposeSize())
+    forcedVecWidth = (uint32_t)m_pConfig->GetTransposeSize();
+  else
+    forcedVecWidth = (kimd.VecLenHint.hasValue()) ? kimd.VecLenHint.get() : 0;
+
+  // No need to vectorize kernel, exiting...
+  if (1 == forcedVecWidth)
+    return false;
+
+  // Vector width specified by user is not valid for current arch,
+  // fall back to autovectorization mode.
+  if (Intel::SUPPORTED !=
+      m_pConfig->GetCpuId().isTransposeSizeSupported(
+          (ETransposeSize)forcedVecWidth)) {
+    forcedVecWidth = 0;
+  }
+
+  V_ASSERT(forcedVecWidth <= MAX_PACKET_WIDTH && "unssupported vector width");
+
+  auto vkimd = KernelInternalMetadataAPI(&F);
+  Module *M = F.getParent();
+
+  // The scalar function of the function we vectorize.
+  Function* scalarFunc = vkimd.ScalarizedKernel.get();
 
   std::map<BasicBlock*, int> preVectorizationCosts; // used for statiscal purposes.
   // Emulate the entire pass-chain right here //
@@ -134,7 +154,7 @@ bool VectorizerCore::runOnFunction(Function &F) {
     fpm1.add(createDeadCodeEliminationPass());
 
     WeightedInstCounter* preCounter = nullptr;
-    if (autoVec) {
+    if (!forcedVecWidth) {
       preCounter = (WeightedInstCounter*)createWeightedInstCounter(true, m_pConfig->GetCpuId());
       fpm1.add(preCounter);
     }
@@ -178,7 +198,7 @@ bool VectorizerCore::runOnFunction(Function &F) {
     if (vecPossiblity->isVectorizable()) {
       m_vectorizationDim = chooser->getVectorizationDim();
       m_canUniteWorkgroups = chooser->getCanUniteWorkgroups();
-      if(autoVec) {
+      if(!forcedVecWidth) {
          V_ASSERT(preCounter && "pre counter should be initialzied");
          m_packetWidth = preCounter->getDesiredWidth();
          m_preWeight = preCounter->getWeight();
@@ -186,7 +206,7 @@ bool VectorizerCore::runOnFunction(Function &F) {
          // prevectorization costs until after vectorization.
          preCounter->copyBlockCosts(&preVectorizationCosts);
       } else {
-         m_packetWidth = m_pConfig->GetTransposeSize();
+         m_packetWidth = forcedVecWidth;
       }
     } else {
       // Unsafe to vectorize the function should quit now.
@@ -247,7 +267,7 @@ bool VectorizerCore::runOnFunction(Function &F) {
 
     //We only need the "post" run if there's doubt about what to do.
     WeightedInstCounter* postCounter = nullptr;
-    if (autoVec) {
+    if (!forcedVecWidth) {
       postCounter = (WeightedInstCounter*) createWeightedInstCounter(false,  m_pConfig->GetCpuId());
       fpm2.add(postCounter);
     }
@@ -271,7 +291,7 @@ bool VectorizerCore::runOnFunction(Function &F) {
 
     // If we reach the end of the function this means we choose to vectorize the kernel!!
     m_isFunctionVectorized = true;
-    if (autoVec)  {
+    if (!forcedVecWidth)  {
       V_ASSERT(postCounter && "uninitialized postCounter");
       // for statistical purposes:: //////////////////////////////////////////////
       postCounter->countPerBlockHeuristics(&preVectorizationCosts, m_packetWidth);

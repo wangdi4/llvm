@@ -80,11 +80,13 @@ bool Vectorizer::runOnModule(Module &M)
 
 
   for (auto* pFunc : Kernels) {
-    auto VecTypeHint = KernelMetadataAPI(pFunc).VecTypeHint;
+    auto kimd = KernelMetadataAPI(pFunc);
+    auto VecTypeHint = kimd.VecTypeHint;
+    auto VecLenHint = kimd.VecLenHint;
     bool disableVect = false;
 
     // look for vector type hint metadata
-    if (VecTypeHint.hasValue()) {
+    if (!VecLenHint.hasValue() && VecTypeHint.hasValue()) {
       Type* VTHTy = VecTypeHint.getType();
       if (!VTHTy->isFloatTy()     &&
           !VTHTy->isDoubleTy()    &&
@@ -96,7 +98,10 @@ bool Vectorizer::runOnModule(Module &M)
       }
     }
 
-    // Only add kernels to list, if they have scalar vec-type hint (or none)
+    // Only add kernels to list, if they:
+    // 1. have scalar vec-type hint
+    // 2. don't have vec-type hint
+    // 3. have vec-len hint
     if (!disableVect)
       scalarFuncsList.push_back(pFunc);
   }

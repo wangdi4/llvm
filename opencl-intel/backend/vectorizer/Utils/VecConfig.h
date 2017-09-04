@@ -8,13 +8,16 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #define __VEC_OPTIONS__H__
 
 #include "TargetArch.h"
+#include "ICLDevBackendOptions.h"
+
+using namespace Intel::OpenCL::DeviceBackend;
 
 namespace intel {
 
 class OptimizerConfig
 {
 public:
-    OptimizerConfig( const Intel::CPUId &cpuId, int tranposeSize,
+    OptimizerConfig( const Intel::CPUId &cpuId, ETransposeSize tranposeSize,
             std::vector<int> dumpIROptionAfter,
             std::vector<int> dumpIROptionBefore,
             std::string dumpIRDir,
@@ -44,7 +47,7 @@ public:
     {}
 
     const Intel::CPUId &GetCpuId() const { return m_cpuId; }
-    int GetTransposeSize() const { return m_transposeSize; }
+    ETransposeSize GetTransposeSize() const { return m_transposeSize; }
 
     const std::vector<int>* GetIRDumpOptionsAfter() const{ return &m_dumpIROptionsAfter; }
     const std::vector<int>* GetIRDumpOptionsBefore() const{ return &m_dumpIROptionsBefore; }
@@ -63,7 +66,7 @@ public:
 
 private:
     Intel::CPUId m_cpuId;
-    int m_transposeSize;
+    ETransposeSize m_transposeSize;
 
     std::vector<int> m_dumpIROptionsAfter;
     std::vector<int> m_dumpIROptionsBefore;
