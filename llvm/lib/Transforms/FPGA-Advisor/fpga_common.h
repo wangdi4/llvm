@@ -816,7 +816,7 @@ class AdvisorAnalysis : public ModulePass, public InstVisitor<AdvisorAnalysis> {
   void dumpImplementationCounts(Function *F);
   void dumpBlockCounts(Function *F, unsigned cpuLatency);
   void dumpBlockCountsGlobal(unsigned cpuLatency); 
-  uint64_t schedule_with_resource_constraints(TraceGraphList_iterator graph_it, Function *F, std::unordered_map<BasicBlock *,  std::vector<unsigned> > *resourceTable, int tid);
+  int64_t schedule_with_resource_constraints(TraceGraphList_iterator graph_it, Function *F, std::unordered_map<BasicBlock *,  std::vector<unsigned> > *resourceTable, int tid);
  int64_t schedule_with_resource_constraints_global(TraceGraphList_iterator graph_it, std::unordered_map<BasicBlock *,  std::vector<unsigned> > *resourceTable, int tid);
   uint64_t schedule_without_resource_constraints(TraceGraphList_iterator graph_it, Function *F, std::unordered_map<BasicBlock *, std::vector<unsigned> > *resourceTable);
   uint64_t schedule_without_resource_constraints_global(TraceGraphList_iterator graph_it, std::unordered_map<BasicBlock *, std::vector<unsigned> > *resourceTable);

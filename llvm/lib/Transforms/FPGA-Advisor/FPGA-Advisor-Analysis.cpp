@@ -3139,11 +3139,11 @@ bool AdvisorAnalysis::incremental_gradient_descent(Function *F, std::unordered_m
         double min_utility = FLT_MAX;
 
         for(auto it = gradient.begin(); it != gradient.end(); it++) {
-          //std::cerr << "gradient " << it->first->getName().str() <<  " count " << get_basic_block_instance_count(it->first) << " utility " << it->second << std::endl; 
+          std::cerr << "gradient " << it->first->getName().str() <<  " count " << get_basic_block_instance_count(it->first) << " utility " << it->second << std::endl; 
           if((it->second < min_utility) && (get_basic_block_instance_count(it->first) > 0) && (it->second != 0)) {
             removeBB = it->first;           
             min_utility = it->second;      
-            //std::cerr << "Setting min utility " << removeBB->getName().str() <<  " count " << get_basic_block_instance_count(it->first) << " utility " << min_utility << std::endl; 
+            std::cerr << "Setting min utility " << removeBB->getName().str() <<  " count " << get_basic_block_instance_count(it->first) << " utility " << min_utility << std::endl; 
           }  
         }
   
@@ -3241,7 +3241,7 @@ bool AdvisorAnalysis::incremental_gradient_descent(Function *F, std::unordered_m
           // take care to ensure the we will remove at least one
           // block.  find a power of two that encompasses maximum
           // number of blocks we will remove.
-          int max_count = (std::max(max_area, (int)area_threshold)/max_area) + 1;
+          int max_count = (max_area)?((std::max(max_area, (int)area_threshold)/max_area) + 1):0;
           int max_power = 1;
           while (max_power < max_count) {
             max_power <<= 1;
@@ -4232,7 +4232,7 @@ unsigned AdvisorAnalysis::get_cpu_only_latency_global(Module &M) {
 // and the resource constraints embedded in the IR as metadata to determine
 // the latency of the particular function call instance represented by this
 // execution trace
-uint64_t AdvisorAnalysis::schedule_with_resource_constraints(TraceGraphList_iterator graph_it, Function *F, std::unordered_map<BasicBlock *,  std::vector<unsigned> > *resourceTable, int tid) {
+int64_t AdvisorAnalysis::schedule_with_resource_constraints(TraceGraphList_iterator graph_it, Function *F, std::unordered_map<BasicBlock *,  std::vector<unsigned> > *resourceTable, int tid) {
         DEBUG(*outputLog << __func__ << "\n");
 
 	TraceGraph graph = *graph_it;
@@ -4289,7 +4289,7 @@ uint64_t AdvisorAnalysis::schedule_with_resource_constraints(TraceGraphList_iter
         
           TraceGraph_vertex_descriptor v = schedulableBB.front();
 
-          //std::cerr << "ScheduleBB: " << graph[v].basicblock->getName().str() << "\n";
+          //std::cerr << "\nScheduleBB: v " << v << " " <<  graph[v].basicblock->getName().str() << "\n";
 
           schedulableBB.pop();
 
@@ -4305,8 +4305,8 @@ uint64_t AdvisorAnalysis::schedule_with_resource_constraints(TraceGraphList_iter
           TraceGraph_in_edge_iterator ii, ie;
           for (boost::tie(ii, ie) = boost::in_edges(v, graph); ii != ie; ii++) {
             TraceGraph_vertex_descriptor s = boost::source(*ii, graph);
-            //TraceGraph_vertex_descriptor t = boost::target(*ii, (*graph_ref));
-            //std::cerr << (*graph_ref)[s].ID << " -> " << (*graph_ref)[t].ID << "\n";
+            //TraceGraph_vertex_descriptor t = boost::target(*ii, (graph));
+            //std::cerr << (graph)[s].ID << " -> " << (graph)[t].ID << "\n";
             int64_t transitionDelay = (int) boost::get(boost::edge_weight_t(), graph, *ii);
             
             start = std::max(start, graph[s].get_end(tid) + transitionDelay);
@@ -4351,9 +4351,10 @@ uint64_t AdvisorAnalysis::schedule_with_resource_constraints(TraceGraphList_iter
             }
           }
           
-          //std::cerr << "resource count: " << resourceVector.size() << "\n";  
 
           start = std::max(start, resourceReady);
+
+          //std::cerr << "resource count: " << resourceVector.size() << "\n";  
   
           //std::cerr << "start: " << start << "\n";  
 
@@ -4652,7 +4653,7 @@ uint64_t AdvisorAnalysis::schedule_without_resource_constraints(TraceGraphList_i
         
           TraceGraph_vertex_descriptor v = schedulableBB.front();
 
-          //std::cerr << "ScheduleBB: " << graph[v].basicblock->getName().str() << "\n";
+          //std::cerr << "\nScheduleBB: v " << v << " " <<  graph[v].basicblock->getName().str() << "\n";
 
           schedulableBB.pop();
 
@@ -4728,6 +4729,7 @@ uint64_t AdvisorAnalysis::schedule_without_resource_constraints(TraceGraphList_i
             block_free += std::min(pipeline_latency, ModuleScheduler::get_basic_block_latency_accelerator(*LT, BB));
           } else {
             end += ModuleScheduler::get_basic_block_latency_accelerator(*LT, BB);
+            //std::cerr << "acc latency: " << ModuleScheduler::get_basic_block_latency_accelerator(*LT, BB) << "\n";
             block_free = end;
           }
   
