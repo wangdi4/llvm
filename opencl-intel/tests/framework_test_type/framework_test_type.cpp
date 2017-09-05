@@ -368,6 +368,11 @@ TEST(FrameworkTestType, Test_opencl_printf_test)
     EXPECT_TRUE(opencl_printf_test());
 }
 
+TEST(FrameworkTestType, Test_opencl_printf_floating_point_test)
+{
+  EXPECT_TRUE(opencl_printf_floating_point_test());
+}
+
 TEST(FrameworkTestType, Test_VecTypeHintTest)
 {
     EXPECT_TRUE(VecTypeHintTest());
@@ -377,7 +382,6 @@ TEST(FrameworkTestType, Test_EventCallbackTest)
 {
     EXPECT_TRUE(EventCallbackTest());
 }
-
 
 TEST(FrameworkTestType, Test_MT_order)
 {

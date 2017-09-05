@@ -109,3 +109,7 @@ std::string GetCapturedStdout();
 // Stop capturing stderr and return the captured string
 //
 std::string GetCapturedStderr();
+
+// Split the expected and the actual outputs to lines, sort the lines and
+// compare them.
+bool compare_kernel_output(const string& expected, const string& actual);
