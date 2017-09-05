@@ -284,8 +284,8 @@ bool AdvisorAnalysis::runOnModule(Module &M) {
 	}
 
 	*outputLog << "Finished importing program trace.\n";
-	*outputLog << "Global Execution Order.\n";
-	print_execution_order(globalExecutionOrder);
+	//*outputLog << "Global Execution Order.\n";
+	//print_execution_order(globalExecutionOrder);
 
 	// should also contain a sanity check to follow the trace and make sure
 	// the paths are valid
@@ -522,19 +522,11 @@ bool AdvisorAnalysis::run_on_module(Module &M) {
 	// fill in latency table for cpu by traversing execution graph
 	getGlobalCPULatencyTable(M, LT, *globalExecutionOrder, *globalTraceGraph);
 
-	for (auto &F : M) {
-      	std::cerr << "Examine function: " << F.getName().str() << "\n";
-	    // Find constructs that are not supported by HLS
-	    if (has_unsynthesizable_construct(&F)) {
-		    *outputLog << "Function contains unsynthesizable constructs, moving on.\n";
-            continue;
-	    }
-	    std::string dgFileName = "dg." + F.getName().str() + ".log";
-	    if (!get_dependence_graph_from_file(dgFileName, &globalDepGraph, F.getName().str(), true /*is_global*/)) {
+	std::string dgFileName = "dg.global.log";
+	if (!get_dependence_graph_from_file(dgFileName, &globalDepGraph, true /*is_global*/)) {
 		    std::cerr << "Could not get the dependence graph! Error opening file " << dgFileName << "\n";
 		    assert(0);
-	    }
-    }
+	}
 	// we want to find the optimal tiling for the basicblocks
 	// the starting point of the algorithm is the MOST parallel
 	// configuration, which can be found by scheduling independent
@@ -642,7 +634,7 @@ bool AdvisorAnalysis::run_on_function(Function *F) {
 
         // We may have an indirect call.
         if(!F) {
-            *outputLog << "Found an indirect call, moving on.\n";
+            //*outputLog << "Found an indirect call, moving on.\n";
             return false;
         }
         
@@ -653,13 +645,13 @@ bool AdvisorAnalysis::run_on_function(Function *F) {
       	std::cerr << "Examine function: " << F->getName().str() << "\n";
 	// Find constructs that are not supported by HLS
 	if (has_unsynthesizable_construct(F)) {
-		*outputLog << "Function contains unsynthesizable constructs, moving on.\n";
+		//*outputLog << "Function contains unsynthesizable constructs, moving on.\n";
 		return false;
 	}
 
 	// was this function even executed in run
 	if (executionGraph.find(F) == executionGraph.end()) {
-		*outputLog << "Did not find execution of function in program trace. Skipping.\n";
+		// *outputLog << "Did not find execution of function in program trace. Skipping.\n";
 		return false;
 	}
 	
@@ -677,7 +669,7 @@ bool AdvisorAnalysis::run_on_function(Function *F) {
 	// get the dependence graph for the function
 	//depGraph = &getAnalysis<DependenceGraph>().getDepGraph();
 	std::string dgFileName = "dg." + F->getName().str() + ".log";
-	if (!get_dependence_graph_from_file(dgFileName, &functionDepGraph, F->getName().str(), false /*is_global*/)) {
+	if (!get_dependence_graph_from_file(dgFileName, &functionDepGraph, false /*is_global*/)) {
 		std::cerr << "Could not get the dependence graph! Error opening file " << dgFileName << "\n";
 		assert(0);
 	}
@@ -697,6 +689,15 @@ bool AdvisorAnalysis::run_on_function(Function *F) {
 	print_basic_block_configuration(F, outputFile);
 
 	std::cerr << "Finished computing maximal configuration\n";
+#if 0
+	*outputLog << "Trace Graph for function " << F->getName().str() << "\n";
+    TraceGraphList_iterator fIt;
+    for (fIt = executionGraph[F].begin();
+       fIt != executionGraph[F].end(); fIt++) 
+    {
+         print_trace_graph(fIt);
+    }
+#endif
 
         // Now that we have a replication factor, we will prune it to honor the area
         // constraints of the device. 
@@ -778,19 +779,19 @@ bool AdvisorAnalysis::run_on_function(Function *F) {
 bool AdvisorAnalysis::has_unsynthesizable_construct(Function *F) {
         // is defined externally, which we test by looking to see if there are any basic blocks
         if(F->getBasicBlockList().begin() == F->getBasicBlockList().end()) {
-                *outputLog << "Function is external.\n";
+                //*outputLog << "Function is external.\n";
 		return true;
         }
         
         // no recursion
 	if (has_recursive_call(F)) {
-		*outputLog << "Function has recursive call.\n";
+		//*outputLog << "Function has recursive call.\n";
 		return true;
 	}
 
 	// no external function calls
 	if (has_external_call(F)) {
-		*outputLog << "Function has external function call.\n";
+		//*outputLog << "Function has external function call.\n";
 		// return true;
 		return false; // we ignore these for now!!?!? FIXME
 	}
@@ -849,7 +850,7 @@ bool AdvisorAnalysis::does_function_call_recursive_function(CallGraphNode *CGN) 
 		CallGraphNode *calledGraphNode = it->second;
         if(calledGraphNode->getFunction())
         {
-		    *outputLog << "Found a call to function: " << calledGraphNode->getFunction()->getName() << "\n";
+		    //*outputLog << "Found a call to function: " << calledGraphNode->getFunction()->getName() << "\n";
 		    if (! calledGraphNode->getFunction()->isDeclaration()) {
 			    result |= does_function_call_recursive_function(calledGraphNode);
 		    } else {
@@ -892,7 +893,7 @@ bool AdvisorAnalysis::does_function_call_external_function(CallGraphNode *CGN) {
 		CallGraphNode *calledGraphNode = it->second;
         if(calledGraphNode->getFunction())
         {
-		    *outputLog << "Found a call to function: " << calledGraphNode->getFunction()->getName() << "\n";
+		    //*outputLog << "Found a call to function: " << calledGraphNode->getFunction()->getName() << "\n";
 		    if (std::find(recursiveFunctionList.begin(), recursiveFunctionList.end(), calledGraphNode->getFunction()) 
 			    == recursiveFunctionList.end()) {
 			result |= does_function_call_external_function(calledGraphNode);
@@ -1294,7 +1295,7 @@ bool AdvisorAnalysis::process_basic_block_entry(const std::string &line, Functio
 	    }
 	}
 
-	BasicBlock *BB = find_basicblock_by_name(funcString, bbString);
+	BasicBlock *BB = find_basicblock_by_name(bbString);
 	if (!BB) {
 		// could not find the basic block by name
 		errs() << "Could not find the basic block from trace in program! " << bbString << "\n";
@@ -1655,13 +1656,11 @@ bool AdvisorAnalysis::trace_cfg(BasicBlock *startBB) {
 // TODO: there's probably a much better way than this...
 // TODO: but I need to show results!!!
 // Function: find_basicblock_by_name
-// Return: Pointer to the basic block belonging to function and basic block, NULL if
-// not found
-BasicBlock *AdvisorAnalysis::find_basicblock_by_name(std::string funcName, std::string bbName) {
+// Return: Pointer to the basic block NULL if not found
+// Assumes: basic blocks are uniquely numbered so no duplicate names
+//   across functions
+BasicBlock *AdvisorAnalysis::find_basicblock_by_name(std::string bbName) {
 	for (auto &F : *mod) {
-		if (strcmp(funcName.c_str(), F.getName().str().c_str()) != 0) {
-			continue;
-		}
 		for (auto &BB : F) {
 			if (strcmp(bbName.c_str(), BB.getName().str().c_str()) == 0) {
 				return &BB;
@@ -1709,6 +1708,10 @@ bool AdvisorAnalysis::find_maximal_configuration_for_module(Module &M, unsigned 
 
     
   scheduled |= find_maximal_configuration_global(globalTraceGraph, globalExecutionOrder, rootVertices);
+#if 0
+	*outputLog << "Global Trace Graph.\n";
+    print_trace_graph(globalTraceGraph);
+#endif
     // find root vertices
     TraceGraph graph = *globalTraceGraph;
 	
@@ -1882,7 +1885,7 @@ bool AdvisorAnalysis::find_maximal_configuration_for_call(Function *F, TraceGrap
         DEBUG(*outputLog << __func__ << " for function " << F->getName() << "\n");
 	//std::cerr << __func__ << " for function " << F->getName().str() << "\n";
 
-	print_execution_order(execOrder);
+	DEBUG(print_execution_order(execOrder));
 
 	unsigned int totalNumVertices = boost::num_vertices(*graph);
 	TraceGraph_iterator vi, ve;
@@ -1890,7 +1893,7 @@ bool AdvisorAnalysis::find_maximal_configuration_for_call(Function *F, TraceGrap
 		TraceGraph_vertex_descriptor self = *vi;
 		BasicBlock *selfBB = (*graph)[self].basicblock;
 		DEBUG(*outputLog << "Inspecting vertex (" << self << "/" << totalNumVertices << ") " << selfBB->getName() << "\n");
-		BasicBlock *BB = find_basicblock_by_name(F->getName(), selfBB->getName());
+		BasicBlock *BB = find_basicblock_by_name(selfBB->getName());
         if(BB == NULL)
         {
             // now that we are ignoring 'dangling' basic blocks in
@@ -1908,9 +1911,9 @@ bool AdvisorAnalysis::find_maximal_configuration_for_call(Function *F, TraceGrap
 
 		// print out the static deps
 		DEBUG(*outputLog << "Found number of static dependences: " << staticDeps.size() << "\n");
-		for (auto sdi = staticDeps.begin(); sdi != staticDeps.end(); sdi++) {
-                  DEBUG(*outputLog << "\tStatic dependence with: " << (*sdi)->getName() << "\n");
-		}
+		//for (auto sdi = staticDeps.begin(); sdi != staticDeps.end(); sdi++) {
+                  //DEBUG(*outputLog << "\tStatic dependence with: " << (*sdi)->getName() << "\n");
+		//}
 
 		// dynamicDeps vector keeps track of vertices in dynamic execution trace
 		std::vector<TraceGraph_vertex_descriptor> dynamicDeps;
@@ -1944,12 +1947,12 @@ bool AdvisorAnalysis::find_maximal_configuration_for_call(Function *F, TraceGrap
 					bool dynamicDepExists = dynamic_memory_dependence_exists(self, dynDep, graph);
 					bool trueDepExists = DependenceGraph::is_basic_block_dependence_true((*graph)[self].basicblock, (*graph)[dynDep].basicblock, *functionDepGraph);
 					DEBUG(*outputLog << "dynamicDepExists: " << dynamicDepExists << "\n");
-                                        DEBUG(*outputLog << "trueDepExists: " << trueDepExists << "\n");
+                    DEBUG(*outputLog << "trueDepExists: " << trueDepExists << "\n");
 					if (!dynamicDepExists && !trueDepExists) {
 						// don't add edge to node for which there are no true dependences
 						// nor any dynamic memory dependences
-                                                DEBUG(*outputLog << "Dynamic execution determined no true or memory dependences between ");
-                                                DEBUG(*outputLog << (*graph)[self].name << " (" << self << ") and " << (*graph)[dynDep].name << " (" << dynDep << ")\n");
+                        DEBUG(*outputLog << "Dynamic execution determined no true or memory dependences between ");
+                        DEBUG(*outputLog << (*graph)[self].name << " (" << self << ") and " << (*graph)[dynDep].name << " (" << dynDep << ")\n");
 						continue;
 					}
 				}
@@ -1958,22 +1961,20 @@ bool AdvisorAnalysis::find_maximal_configuration_for_call(Function *F, TraceGrap
 			}
 		}
 
-		DEBUG(*outputLog << "Found number of dynamic dependences (before): " << dynamicDeps.size() << "\n");
+               // remove redundant dynamic dependence entries
+               // these are the dynamic dependences which another dynamic dependence is directly
+               // or indirectly dependent on
+               
+               //===----------------------------------------------------------- ------------===//
+               //
+               // I thought removal of these redundant dependencies would help performance
+               // it *significantly* slowed down my analysis.. I am removing it for now.
+               //
+               //===----------------------------------------------------------- ------------===//
+               //remove_redundant_dynamic_dependencies(graph, dynamicDeps);
 
-		// remove redundant dynamic dependence entries
-		// these are the dynamic dependences which another dynamic dependence is directly
-		// or indirectly dependent on
-		
-		//===-----------------------------------------------------------------------===//
-		//
-		// I thought removal of these redundant dependencies would help performance
-		// it *significantly* slowed down my analysis.. I am removing it for now.
-		//
-		//===-----------------------------------------------------------------------===//
-		//remove_redundant_dynamic_dependencies(graph, dynamicDeps);
+               DEBUG(*outputLog << "Found number of dynamic dependences (after): " << dynamicDeps.size() << "\n");
 
-		DEBUG(*outputLog << "Found number of dynamic dependences (after): " << dynamicDeps.size() << "\n");
-		
 		// add dependency edges to graph
 		for (auto it = dynamicDeps.begin(); it != dynamicDeps.end(); it++) {
 			/*
@@ -1990,8 +1991,8 @@ bool AdvisorAnalysis::find_maximal_configuration_for_call(Function *F, TraceGrap
 			}
 			*/
 
-                        DEBUG(*outputLog << "Dynamic execution determined true or memory dependences EXIST between ");
-                        DEBUG(*outputLog << (*graph)[self].name << " (" << self << ") and " << (*graph)[*it].name << " (" << *it << ")\n");
+             DEBUG(*outputLog << "Dynamic execution determined true or memory dependences EXIST between ");
+             DEBUG(*outputLog << (*graph)[self].name << " (" << self << ") and " << (*graph)[*it].name << " (" << *it << ")\n");
 			boost::add_edge(*it, self, *graph);
 		}
 
@@ -2007,7 +2008,7 @@ bool AdvisorAnalysis::find_maximal_configuration_for_call(Function *F, TraceGrap
 bool AdvisorAnalysis::find_maximal_configuration_global(TraceGraphList_iterator graph, ExecutionOrderList_iterator execOrder, std::vector<TraceGraph_vertex_descriptor> &rootVertices) {
     DEBUG(*outputLog << __func__ << "\n");
 
-	print_execution_order(execOrder);
+	DEBUG(print_execution_order(execOrder));
 
 	unsigned int totalNumVertices = boost::num_vertices(*graph);
 	TraceGraph_iterator vi, ve;
@@ -2023,9 +2024,9 @@ bool AdvisorAnalysis::find_maximal_configuration_global(TraceGraphList_iterator 
 
 		// print out the static deps
 		DEBUG(*outputLog << "Found number of static dependences: " << staticDeps.size() << "\n");
-		for (auto sdi = staticDeps.begin(); sdi != staticDeps.end(); sdi++) {
-                  DEBUG(*outputLog << "\tStatic dependence with: " << (*sdi)->getName() << "\n");
-		}
+		//for (auto sdi = staticDeps.begin(); sdi != staticDeps.end(); sdi++) {
+                  //DEBUG(*outputLog << "\tStatic dependence with: " << (*sdi)->getName() << "\n");
+		//}
 
 		// dynamicDeps vector keeps track of vertices in dynamic execution trace
 		std::vector<TraceGraph_vertex_descriptor> dynamicDeps;
@@ -2059,7 +2060,7 @@ bool AdvisorAnalysis::find_maximal_configuration_global(TraceGraphList_iterator 
 					bool dynamicDepExists = dynamic_memory_dependence_exists(self, dynDep, graph);
 					bool trueDepExists = DependenceGraph::is_basic_block_dependence_true((*graph)[self].basicblock, (*graph)[dynDep].basicblock, *globalDepGraph);
 					DEBUG(*outputLog << "dynamicDepExists: " << dynamicDepExists << "\n");
-                                        DEBUG(*outputLog << "trueDepExists: " << trueDepExists << "\n");
+                    DEBUG(*outputLog << "trueDepExists: " << trueDepExists << "\n");
 					if (!dynamicDepExists && !trueDepExists) {
 						// don't add edge to node for which there are no true dependences
 						// nor any dynamic memory dependences
@@ -2073,13 +2074,20 @@ bool AdvisorAnalysis::find_maximal_configuration_global(TraceGraphList_iterator 
 			}
 		}
 
-		DEBUG(*outputLog << "Found number of dynamic dependences (before): " << dynamicDeps.size() << "\n");
+               // remove redundant dynamic dependence entries
+               // these are the dynamic dependences which another dynamic dependence is directly
+               // or indirectly dependent on
+               
+               //===-----------------------------------------------------------------------===//
+               //
+               // I thought removal of these redundant dependencies would help performance
+               // it *significantly* slowed down my analysis.. I am removing it for now.
+               //
+               //===-----------------------------------------------------------------------===//
+               //remove_redundant_dynamic_dependencies(graph, dynamicDeps);
 
-        // Commented by Joy to avoid performance degradation
-		//remove_redundant_dynamic_dependencies(graph, dynamicDeps);
+               DEBUG(*outputLog << "Found number of dynamic dependences (after): " << dynamicDeps.size() << "\n");
 
-		DEBUG(*outputLog << "Found number of dynamic dependences (after): " << dynamicDeps.size() << "\n");
-		
 		// add dependency edges to graph
 		for (auto it = dynamicDeps.begin(); it != dynamicDeps.end(); it++) {
             DEBUG(*outputLog << "Dynamic execution determined true or memory dependences EXIST between ");
@@ -2125,16 +2133,16 @@ bool AdvisorAnalysis::dynamic_memory_dependence_exists(TraceGraph_vertex_descrip
 		for (auto cwit = cWrite.begin(); cwit != cWrite.end(); cwit++) {
 			// [3]
 			if (memory_accesses_conflict(*cwit, *pwit)) {
-				*outputLog << "WAW conflict between : (" << pwit->first << ", " << pwit->second;
-				*outputLog << ") and (" << cwit->first << ", " << cwit->second << ")\n";;
+				DEBUG(*outputLog << "WAW conflict between : (" << pwit->first << ", " << pwit->second);
+				DEBUG(*outputLog << ") and (" << cwit->first << ", " << cwit->second << ")\n";);
 				return true;
 			}
 		}
 		for (auto crit = cRead.begin(); crit != cRead.end(); crit++) {
 			// [1]
 			if (memory_accesses_conflict(*crit, *pwit)) {
-				*outputLog << "RAW conflict between : (" << pwit->first << ", " << pwit->second;
-				*outputLog << ") and (" << crit->first << ", " << crit->second << ")\n";;
+				DEBUG(*outputLog << "RAW conflict between : (" << pwit->first << ", " << pwit->second);
+				DEBUG(*outputLog << ") and (" << crit->first << ", " << crit->second << ")\n";);
 				return true;
 			}
 		}
@@ -2144,8 +2152,8 @@ bool AdvisorAnalysis::dynamic_memory_dependence_exists(TraceGraph_vertex_descrip
 		for (auto cwit = cWrite.begin(); cwit != cWrite.end(); cwit++) {
 			// [2]
 			if (memory_accesses_conflict(*cwit, *prit)) {
-				*outputLog << "WAR conflict between : (" << prit->first << ", " << prit->second;
-				*outputLog << ") and (" << cwit->first << ", " << cwit->second << ")\n";;
+				DEBUG(*outputLog << "WAR conflict between : (" << prit->first << ", " << prit->second);
+				DEBUG(*outputLog << ") and (" << cwit->first << ", " << cwit->second << ")\n";);
 				return true;
 			}
 		}
@@ -2184,6 +2192,26 @@ void AdvisorAnalysis::print_execution_order(ExecutionOrderList_iterator execOrde
 	}
 }
 
+
+        
+void AdvisorAnalysis::print_trace_graph(TraceGraphList_iterator traceGraph){
+	*outputLog << "Trace Graph: \n";
+	//TraceGraphList_iterator fIt = globalTraceGraph;
+	TraceGraph_iterator vi, ve;
+	for (boost::tie(vi, ve) = boost::vertices(*traceGraph); vi != ve; vi++)
+    {
+		BasicBlock *BB = (*traceGraph)[*vi].basicblock;
+        *outputLog << "vertex " << *vi << ": " << BB->getName().str() << "\n"; 
+        *outputLog << "\tin-degree:" << in_degree(*vi, *traceGraph) << "\n";
+        *outputLog << "\tout-degree:"  << out_degree(*vi, *traceGraph) << "\n"; 
+    } 
+	TraceGraph_edge_iterator edgeIt, edgeEnd; 
+	for (boost::tie(edgeIt, edgeEnd) = boost::edges(*traceGraph); edgeIt != edgeEnd; edgeIt++)
+    { 
+        *outputLog << "edge " << source(*edgeIt, *traceGraph) << "-->" 
+             << target(*edgeIt, *traceGraph) << "\n"; 
+    } 
+}
 
 // sort trace graph vertex descriptor vector in reverse order
 bool reverse_vertex_sort(TraceGraph_vertex_descriptor a, TraceGraph_vertex_descriptor b) {
@@ -4269,7 +4297,7 @@ int64_t AdvisorAnalysis::schedule_with_resource_constraints(TraceGraphList_itera
           if (degree == 0) { 
             graph[*vi].set_start(0, tid);
             BasicBlock *thisBB = graph[*vi].basicblock;
-		    BasicBlock *BB = find_basicblock_by_name(F->getName(), thisBB->getName());
+		    BasicBlock *BB = find_basicblock_by_name(thisBB->getName());
             if(BB == NULL)
             {
                 // now that we are ignoring 'dangling' basic blocks in
@@ -4633,7 +4661,7 @@ uint64_t AdvisorAnalysis::schedule_without_resource_constraints(TraceGraphList_i
           if (degree == 0) { 
             graph[*vi].set_start(0, SINGLE_THREAD_TID);
             BasicBlock *thisBB = graph[*vi].basicblock;
-		    BasicBlock *BB = find_basicblock_by_name(F->getName(), thisBB->getName());
+		    BasicBlock *BB = find_basicblock_by_name(thisBB->getName());
             if(BB == NULL)
             {
                 // now that we are ignoring 'dangling' basic blocks in
@@ -5006,7 +5034,7 @@ uint64_t AdvisorAnalysis::schedule_cpu(TraceGraphList_iterator graph_it, Functio
           //std::cerr << "deps ready: " << start << "\n";    
 
           BasicBlock *BB = graph[v].basicblock;
-		  BasicBlock *searchBB = find_basicblock_by_name(F->getName(), BB->getName());
+		  BasicBlock *searchBB = find_basicblock_by_name(BB->getName());
           if(searchBB == NULL)
           {
                 // now that we are ignoring 'dangling' basic blocks in
@@ -5674,7 +5702,7 @@ void AdvisorAnalysis::dumpBlockCounts(Function *F, unsigned cpuLatency = 0) {
     // set the vertices up with zero values for this tid. 
     for (boost::tie(vi, ve) = vertices(graph); vi != ve; vi++) {
       auto BB = graph[*vi].basicblock;
-	  BasicBlock *searchBB = find_basicblock_by_name(F->getName(), BB->getName());
+	  BasicBlock *searchBB = find_basicblock_by_name(BB->getName());
       if(searchBB == NULL)
       {
          // now that we are ignoring 'dangling' basic blocks in
@@ -5697,7 +5725,7 @@ void AdvisorAnalysis::dumpBlockCounts(Function *F, unsigned cpuLatency = 0) {
     auto BB = (*blockIt).first;
     auto count = (*blockIt).second;
     uint64_t totalCycles = count * (uint64_t) ModuleScheduler::get_basic_block_latency_cpu(*LT, BB);
-    std::cerr << "Basic block: " << BB->getName().str() << " count: " << count << " cpu latency: " << totalCycles; 
+    std::cerr << "Basic block: " << BB->getName().str()  << " function " <<  BB->getParent()->getName().str() << " count: " << count << " cpu latency: " << totalCycles; 
     if(cpuLatency != 0) {
       std::cerr << " fraction of total latency: " << ((double)(totalCycles)/((double)cpuLatency));
     }
@@ -5751,7 +5779,7 @@ void AdvisorAnalysis::print_optimal_configuration_for_all_calls(Function *F) {
 }
 
 
-bool AdvisorAnalysis::get_dependence_graph_from_file(std::string fileName, DepGraph **DG, std::string funcName, bool is_global) {
+bool AdvisorAnalysis::get_dependence_graph_from_file(std::string fileName, DepGraph **DG, bool is_global) {
 	//std::cerr << "***************\n";
 	// allocate space for dg
 	DepGraph *depGraph = NULL;
@@ -5770,7 +5798,7 @@ bool AdvisorAnalysis::get_dependence_graph_from_file(std::string fileName, DepGr
 
 	std::string line;
 
-	std::cerr << "Getting Dependence Graph from log: " << fileName << "\n";
+	//std::cerr << "Getting Dependence Graph from log: " << fileName << "\n";
 
 	while (std::getline(fin, line)) {
 		if (std::regex_match(line, std::regex("(vertex )(.*)( )(.*)"))) {
@@ -5790,7 +5818,7 @@ bool AdvisorAnalysis::get_dependence_graph_from_file(std::string fileName, DepGr
 			// parse line - end
 			//===================================//
 
-			BasicBlock *BB = find_basicblock_by_name(funcName, bbString);
+			BasicBlock *BB = find_basicblock_by_name(bbString);
 			
 			// add vertex
 			DepGraph_descriptor currVertex = boost::add_vertex(*depGraph);

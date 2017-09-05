@@ -773,7 +773,7 @@ class AdvisorAnalysis : public ModulePass, public InstVisitor<AdvisorAnalysis> {
         void getGlobalCPULatencyTable(Module &M,std::map<BasicBlock *, LatencyStruct> *LT, ExecutionOrder executionOrder, TraceGraph executionGraph);
 
 		bool check_trace_sanity();
-		BasicBlock *find_basicblock_by_name(std::string funcName, std::string bbName);
+		BasicBlock *find_basicblock_by_name(std::string bbName);
 		Function *find_function_by_name(std::string funcName);
 
 		// functions that do analysis on trace
@@ -839,6 +839,7 @@ class AdvisorAnalysis : public ModulePass, public InstVisitor<AdvisorAnalysis> {
 		void print_basic_block_configuration(Function *F, raw_ostream *out);
 		void print_optimal_configuration_for_all_calls(Function *F);
 		void print_execution_order(ExecutionOrderList_iterator execOrder);
+        void print_trace_graph(TraceGraphList_iterator traceGraph); 
         bool functionInTrace(Function * F)
         {
             std::unordered_set<Function *>::const_iterator funcIter = 
@@ -847,7 +848,7 @@ class AdvisorAnalysis : public ModulePass, public InstVisitor<AdvisorAnalysis> {
         }
 
 		// dependence graph construction
-		bool get_dependence_graph_from_file(std::string fileName, DepGraph **depGraph, std::string funcName, bool is_global);
+		bool get_dependence_graph_from_file(std::string fileName, DepGraph **depGraph, bool is_global);
 
 		// define some data structures for collecting statistics
 		std::vector<Function *> functionList;

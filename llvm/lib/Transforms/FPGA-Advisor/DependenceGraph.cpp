@@ -62,6 +62,8 @@ static cl::opt<bool> PrintGraph("print-dg", cl::desc("Enable printing of depende
 
 static cl::opt<std::string> GraphName("dg-name", cl::desc("Dependence graph name"), cl::Hidden, cl::init("dg"));
 
+static cl::opt<bool> Global("global", cl::desc("print a global dependence graph"),
+		cl::Hidden, cl::init(true));
 //===----------------------------------------------------------------------===//
 // Helper functions
 //===----------------------------------------------------------------------===//
@@ -85,9 +87,12 @@ bool DependenceGraph::dg_run_on_function(Function &F) {
 	DEBUG(*outputLog << "\n");
 
 	func = &F;
-	DG.clear();
-	NameVec.clear();
-	MemoryBBs.clear();
+    if (!Global)
+    {
+	    DG.clear();
+	    NameVec.clear();
+	    MemoryBBs.clear();
+    }
 
 	// get analyses
 	MDA = &getAnalysis<MemoryDependenceWrapperPass>(F).getMemDep();
@@ -109,20 +114,37 @@ bool DependenceGraph::dg_run_on_function(Function &F) {
 		boost::write_graphviz(outfile, DG, boost::make_label_writer(&NameVec[0]));
 	}
 
-	// output graph to file
-	std::string dgFileName = "dg." + F.getName().str() + ".log";
-	raw_fd_ostream OF(dgFileName, DEC, sys::fs::F_RW);
-	raw_ostream *outputFile = &OF;
-	output_graph_to_file(outputFile);
+    if (!Global)
+    {
+	    // output graph to file
+	    std::string dgFileName = "dg." + F.getName().str() + ".log";
+	    raw_fd_ostream OF(dgFileName, DEC, sys::fs::F_RW);
+	    raw_ostream *outputFile = &OF;
+	    output_graph_to_file(outputFile);
+    }
 
 	return true;
 }
 
 bool DependenceGraph::runOnModule(Module &M) {
     std::cerr << "DependenceGraph:" << __func__ << "\n";
+    if (Global)
+    {
+	    DG.clear();
+	    NameVec.clear();
+	    MemoryBBs.clear();
+    }
 	for (auto &F : M) {
 		dg_run_on_function(F);
 	}
+    if (Global)
+    {
+	    // output graph to file
+	    std::string dgFileName = "dg.global.log";
+	    raw_fd_ostream OF(dgFileName, DEC, sys::fs::F_RW);
+	    raw_ostream *outputFile = &OF;
+	    output_graph_to_file(outputFile);
+    }
 	return true;
 }
 
