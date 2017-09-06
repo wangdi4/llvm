@@ -920,7 +920,7 @@ private:
 
   /// \brief A pointer to the AVR Postdominator Tree for the AVR program being
   /// analyzed. Maintained by runOnAvr().
-  AvrDominatorTree *PostDominatorTree = nullptr;
+  AvrPostDominatorTree *PostDominatorTree = nullptr;
 
   /// \brief A pointer to the Def Use analysis of the AVR program being
   /// analyzed.
@@ -954,7 +954,7 @@ protected:
 
   AvrDominatorTree *getDominatorTree() { return DominatorTree; }
 
-  AvrDominatorTree *getPostDominatorTree() { return PostDominatorTree; }
+  AvrPostDominatorTree *getPostDominatorTree() { return PostDominatorTree; }
 
   /// \brief Predefined SLEVs function as triggers to the whole analysis, so
   /// creating them is normally followed by pushing them into the first-calc

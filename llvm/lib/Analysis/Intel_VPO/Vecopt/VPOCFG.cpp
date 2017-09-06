@@ -29,7 +29,7 @@ using namespace vpo;
 
 const AvrCFGBase::NodeSetTy AvrCFGBase::EmptyNodeSet;
 
-using AvrBBDomTree = DominatorTreeBase<AvrBasicBlock>;
+using AvrBBDomTree = DomTreeBase<AvrBasicBlock>;
 template void
 llvm::DomTreeBuilder::Calculate<AvrBBDomTree, AvrCFGBase>(AvrBBDomTree &DT,
                                                           AvrCFGBase &F);

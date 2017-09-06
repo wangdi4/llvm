@@ -763,14 +763,16 @@ struct DOTGraphTraits<vpo::AvrBasicBlock*> : public DefaultDOTGraphTraits {
 
 /// \brief Template specialization of the standard LLVM dominator tree utility
 /// for AVR CFGs.
-class AvrDominatorTree : public DominatorTreeBase<vpo::AvrBasicBlock> {
-
+class AvrDominatorTree : public DomTreeBase<vpo::AvrBasicBlock> {
 public:
+  AvrDominatorTree() : DomTreeBase<vpo::AvrBasicBlock>() {}
+};
 
-  AvrDominatorTree(bool isPostDom) :
-      DominatorTreeBase<vpo::AvrBasicBlock>(isPostDom) {}
-
-  virtual ~AvrDominatorTree() {}
+/// \brief Template specialization of the standard LLVM post-dominator tree
+/// utility for AVR CFGs.
+class AvrPostDominatorTree : public PostDomTreeBase<vpo::AvrBasicBlock> {
+public:
+  AvrPostDominatorTree() : PostDomTreeBase<vpo::AvrBasicBlock>() {}
 };
 
 } // End LLVM Namespace 

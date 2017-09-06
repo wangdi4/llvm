@@ -85,15 +85,15 @@ class ConstructVGSESERegions {
 private:
 
   VGLoop* ALoop;
-  VGDominatorTree& DominatorTree;
-  VGDominatorTree& PostDominatorTree;
+  VGDominatorTree &DominatorTree;
+  VGPostDominatorTree &PostDominatorTree;
   VGSESERegion *Root;
   std::stack<VGSESERegion*> RegionStack;
 
 public:
-  ConstructVGSESERegions(VGLoop* VGL, VGDominatorTree &VGDT,
-                                      VGDominatorTree &VGPDT) :
-    ALoop(VGL), DominatorTree(VGDT), PostDominatorTree(VGPDT) {
+  ConstructVGSESERegions(VGLoop *VGL, VGDominatorTree &VGDT,
+                         VGPostDominatorTree &VGPDT)
+      : ALoop(VGL), DominatorTree(VGDT), PostDominatorTree(VGPDT) {
 
     VGBlock *FirstChild = cast<VGBlock>(VGL->getFirstChild());
     auto *PostDomNode = PostDominatorTree.getNode(FirstChild)->getIDom();
@@ -172,7 +172,7 @@ public:
 
 } // End namespace llvm
 
-using VGBBDomTree = DominatorTreeBase<VGBlock>;
+using VGBBDomTree = DomTreeBase<VGBlock>;
 template void
 llvm::DomTreeBuilder::Calculate<VGBBDomTree, VGLoop>(VGBBDomTree &DT,
                                                      VGLoop &VGL);
@@ -247,9 +247,9 @@ void VectorGraphPredicator::predicateLoop(VGLoop* ALoop) {
         ALoop->print(FOS, 0);
         FOS << "\n");
 
-  VGDominatorTree DominatorTree(false /* DominatorTree */);
+  VGDominatorTree DominatorTree;
   DominatorTree.recalculate(*ALoop);
-  VGDominatorTree PostDominatorTree(true /* Post-Dominator Tree */);
+  VGPostDominatorTree PostDominatorTree;
   PostDominatorTree.recalculate(*ALoop);
 
   DEBUG(dbgs() << "Dominator Tree:\n"; DominatorTree.print(dbgs()));
@@ -435,8 +435,7 @@ void VectorGraphPredicator::handleVGSESERegion(const VGSESERegion *Region,
 */
 }
 
-void VectorGraphPredicator::predicate(VGBlock *Entry,
-                                      VGLoop *Loop,
+void VectorGraphPredicator::predicate(VGBlock *Entry, VGLoop *Loop,
                                       const VGDominatorTree &DomTree) {
   // Add an empty VGPredicate object to each VGBlock.
   for (auto It = df_iterator<VGBlock*>::begin(Entry),

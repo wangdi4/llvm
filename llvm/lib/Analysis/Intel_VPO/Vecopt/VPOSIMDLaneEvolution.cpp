@@ -230,9 +230,9 @@ void SIMDLaneEvolutionAnalysisBase::runOnAvr(AvrItr B, AvrItr E,
         FOS << "SLEV: "; CFG->print(FOS); FOS << "SLEV: ";
         DefUseBase->print(FOS));
 
-  DominatorTree = new AvrDominatorTree(false);
+  DominatorTree = new AvrDominatorTree();
   DominatorTree->recalculate(*CFG);
-  PostDominatorTree = new AvrDominatorTree(true);
+  PostDominatorTree = new AvrPostDominatorTree();
   PostDominatorTree->recalculate(*CFG);
 
   DEBUG(dbgs() << "SLEV: Dominator Tree:\n"; DominatorTree->print(dbgs()));
