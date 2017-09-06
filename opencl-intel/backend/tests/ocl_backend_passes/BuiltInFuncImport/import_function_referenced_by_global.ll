@@ -1,5 +1,5 @@
-; RUN: llvm-as %s.rtl -o %s.rtl.bc
-; RUN: opt -runtimelib=%s.rtl.bc -builtin-import -verify %s -S | FileCheck %s
+; RUN: llvm-as %s.rtl -o %t.rtl.bc
+; RUN: opt -runtimelib=%t.rtl.bc -builtin-import -verify %s -S | FileCheck %s
 
 ;*********************************************************************************
 ; When importing we need to fully explore call tree for functions referenced
