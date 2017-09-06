@@ -317,6 +317,10 @@ InlineParams getInlineParams(unsigned OptLevel, unsigned SizeOptLevel,
                              bool PrepareForLTO);
 #endif // INTEL_CUSTOMIZATION
 
+/// Return the cost associated with a callsite, including paramater passing
+/// and the call/return instruction.
+int getCallsiteCost(CallSite CS, const DataLayout &DL);
+
 /// \brief Get an InlineCost object representing the cost of inlining this
 /// callsite.
 ///

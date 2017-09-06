@@ -74,6 +74,9 @@ struct ExecutionContext {
 // Interpreter - This class represents the entirety of the interpreter.
 //
 class Interpreter : public ExecutionEngine, public InstVisitor<Interpreter> {
+#if INTEL_CUSTOMIZATION
+protected:
+#endif // INTEL_CUSTOMIZATION
   GenericValue ExitValue;          // The return value of the called function
   IntrinsicLowering *IL;
 
@@ -199,7 +202,13 @@ private:  // Helper functions
   void initializeExecutionEngine() { }
   void initializeExternalFunctions();
   GenericValue getConstantExprValue(ConstantExpr *CE, ExecutionContext &SF);
+#if INTEL_CUSTOMIZATION
+protected:
+#endif // INTEL_CUSTOMIZATION
   GenericValue getOperandValue(Value *V, ExecutionContext &SF);
+#if INTEL_CUSTOMIZATION
+private:
+#endif // INTEL_CUSTOMIZATION
   GenericValue executeTruncInst(Value *SrcVal, Type *DstTy,
                                 ExecutionContext &SF);
   GenericValue executeSExtInst(Value *SrcVal, Type *DstTy,

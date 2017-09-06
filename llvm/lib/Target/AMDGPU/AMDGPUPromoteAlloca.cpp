@@ -23,6 +23,7 @@
 #include "llvm/ADT/Twine.h"
 #include "llvm/Analysis/CaptureTracking.h"
 #include "llvm/Analysis/ValueTracking.h"
+#include "llvm/CodeGen/TargetPassConfig.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constant.h"
@@ -99,8 +100,7 @@ private:
 public:
   static char ID;
 
-  AMDGPUPromoteAlloca(const TargetMachine *TM_ = nullptr) :
-    FunctionPass(ID), TM(TM_) {}
+  AMDGPUPromoteAlloca() : FunctionPass(ID) {}
 
   bool doInitialization(Module &M) override;
   bool runOnFunction(Function &F) override;
@@ -119,29 +119,30 @@ public:
 
 char AMDGPUPromoteAlloca::ID = 0;
 
-INITIALIZE_TM_PASS(AMDGPUPromoteAlloca, DEBUG_TYPE,
-                   "AMDGPU promote alloca to vector or LDS", false, false)
+INITIALIZE_PASS(AMDGPUPromoteAlloca, DEBUG_TYPE,
+                "AMDGPU promote alloca to vector or LDS", false, false)
 
 char &llvm::AMDGPUPromoteAllocaID = AMDGPUPromoteAlloca::ID;
 
 bool AMDGPUPromoteAlloca::doInitialization(Module &M) {
-  if (!TM)
-    return false;
-
   Mod = &M;
   DL = &Mod->getDataLayout();
-
-  const Triple &TT = TM->getTargetTriple();
-
-  IsAMDGCN = TT.getArch() == Triple::amdgcn;
-  IsAMDHSA = TT.getOS() == Triple::AMDHSA;
 
   return false;
 }
 
 bool AMDGPUPromoteAlloca::runOnFunction(Function &F) {
-  if (!TM || skipFunction(F))
+  if (skipFunction(F))
     return false;
+
+  if (auto *TPC = getAnalysisIfAvailable<TargetPassConfig>())
+    TM = &TPC->getTM<TargetMachine>();
+  else
+    return false;
+
+  const Triple &TT = TM->getTargetTriple();
+  IsAMDGCN = TT.getArch() == Triple::amdgcn;
+  IsAMDHSA = TT.getOS() == Triple::AMDHSA;
 
   const AMDGPUSubtarget &ST = TM->getSubtarget<AMDGPUSubtarget>(F);
   if (!ST.isPromoteAllocaEnabled())
@@ -397,14 +398,17 @@ static Value* GEPToVectorIndex(GetElementPtrInst *GEP) {
 // instructions.
 static bool canVectorizeInst(Instruction *Inst, User *User) {
   switch (Inst->getOpcode()) {
-  case Instruction::Load:
+  case Instruction::Load: {
+    LoadInst *LI = cast<LoadInst>(Inst);
+    return !LI->isVolatile();
+  }
   case Instruction::BitCast:
   case Instruction::AddrSpaceCast:
     return true;
   case Instruction::Store: {
     // Must be the stored pointer operand, not a stored value.
     StoreInst *SI = cast<StoreInst>(Inst);
-    return SI->getPointerOperand() == User;
+    return (SI->getPointerOperand() == User) && !SI->isVolatile();
   }
   default:
     return false;
@@ -677,12 +681,19 @@ void AMDGPUPromoteAlloca::handleAlloca(AllocaInst &I) {
   }
 
   const Function &ContainingFunction = *I.getParent()->getParent();
+  CallingConv::ID CC = ContainingFunction.getCallingConv();
 
   // Don't promote the alloca to LDS for shader calling conventions as the work
   // item ID intrinsics are not supported for these calling conventions.
   // Furthermore not all LDS is available for some of the stages.
-  if (AMDGPU::isShader(ContainingFunction.getCallingConv()))
+  switch (CC) {
+  case CallingConv::AMDGPU_KERNEL:
+  case CallingConv::SPIR_KERNEL:
+    break;
+  default:
+    DEBUG(dbgs() << " promote alloca to LDS not supported with calling convention.\n");
     return;
+  }
 
   const AMDGPUSubtarget &ST =
     TM->getSubtarget<AMDGPUSubtarget>(ContainingFunction);
@@ -864,6 +875,6 @@ void AMDGPUPromoteAlloca::handleAlloca(AllocaInst &I) {
   }
 }
 
-FunctionPass *llvm::createAMDGPUPromoteAlloca(const TargetMachine *TM) {
-  return new AMDGPUPromoteAlloca(TM);
+FunctionPass *llvm::createAMDGPUPromoteAlloca() {
+  return new AMDGPUPromoteAlloca();
 }

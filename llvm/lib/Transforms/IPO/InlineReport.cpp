@@ -208,7 +208,7 @@ InlineReportCallSite* InlineReportCallSite::cloneBase(
   if (VMI == IIMap.end()) { 
     return nullptr; 
   } 
-  WeakVH newCall = VMI->second; 
+  WeakTrackingVH newCall = VMI->second; 
   Instruction* NI = cast<Instruction>(newCall);
   InlineReportCallSite* IRCSk = copyBase(*this, NI); 
   return IRCSk; 
@@ -548,7 +548,7 @@ void InlineReport::inlineCallSite(InlineFunctionInfo& InlineInfo) {
   // We use 'IIMap' to do that mapping.  
   ValueToValueMapTy IIMap; 
   SmallVector<const Value*, 8>& OriginalCalls = InlineInfo.OriginalCalls; 
-  SmallVector<WeakVH, 8>& NewCalls = InlineInfo.InlinedCalls; 
+  SmallVector<WeakTrackingVH, 8>& NewCalls = InlineInfo.InlinedCalls; 
   for (unsigned I = 0, E = OriginalCalls.size(); I < E; ++I) { 
     IIMap.insert(std::make_pair(OriginalCalls[I], NewCalls[I])); 
   } 

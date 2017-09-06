@@ -18,3 +18,11 @@ add_llvm_library(LLVMInterpreter
 if( LLVM_ENABLE_FFI )
   target_link_libraries( LLVMInterpreter PRIVATE ${FFI_LIBRARY_PATH} )
 endif()
+
+if (INTEL_CUSTOMIZATION)
+  configure_file(
+    Interpreter.h
+    ${LLVM_BINARY_DIR}/include/llvm/ExecutionEngine/Interpreter/Interpreter.h)
+
+  install(FILES Interpreter.h DESTINATION include/llvm/ExecutionEngine/Interpreter)
+endif (INTEL_CUSTOMIZATION)

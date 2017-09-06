@@ -340,6 +340,15 @@ bool IRTranslator::translateExtractValue(const User &U,
   Type *Int32Ty = Type::getInt32Ty(U.getContext());
   SmallVector<Value *, 1> Indices;
 
+  // If Src is a single element ConstantStruct, translate extractvalue
+  // to that element to avoid inserting a cast instruction.
+  if (auto CS = dyn_cast<ConstantStruct>(Src))
+    if (CS->getNumOperands() == 1) {
+      unsigned Res = getOrCreateVReg(*CS->getOperand(0));
+      ValToVReg[&U] = Res;
+      return true;
+    }
+
   // getIndexedOffsetInType is designed for GEPs, so the first index is the
   // usual array element rather than looking into the actual aggregate.
   Indices.push_back(ConstantInt::get(Int32Ty, 0));
@@ -1108,6 +1117,31 @@ bool IRTranslator::translate(const Constant &C, unsigned Reg) {
     default:
       return false;
     }
+  } else if (auto CS = dyn_cast<ConstantStruct>(&C)) {
+    // Return the element if it is a single element ConstantStruct.
+    if (CS->getNumOperands() == 1) {
+      unsigned EltReg = getOrCreateVReg(*CS->getOperand(0));
+      EntryBuilder.buildCast(Reg, EltReg);
+      return true;
+    }
+    SmallVector<unsigned, 4> Ops;
+    SmallVector<uint64_t, 4> Indices;
+    uint64_t Offset = 0;
+    for (unsigned i = 0; i < CS->getNumOperands(); ++i) {
+      unsigned OpReg = getOrCreateVReg(*CS->getOperand(i));
+      Ops.push_back(OpReg);
+      Indices.push_back(Offset);
+      Offset += MRI->getType(OpReg).getSizeInBits();
+    }
+    EntryBuilder.buildSequence(Reg, Ops, Indices);
+  } else if (auto CV = dyn_cast<ConstantVector>(&C)) {
+    if (CV->getNumOperands() == 1)
+      return translate(*CV->getOperand(0), Reg);
+    SmallVector<unsigned, 4> Ops;
+    for (unsigned i = 0; i < CV->getNumOperands(); ++i) {
+      Ops.push_back(getOrCreateVReg(*CV->getOperand(i)));
+    }
+    EntryBuilder.buildMerge(Reg, Ops);
   } else
     return false;
 
@@ -1121,6 +1155,11 @@ void IRTranslator::finalizeFunction() {
   ValToVReg.clear();
   FrameIndices.clear();
   MachinePreds.clear();
+  // MachineIRBuilder::DebugLoc can outlive the DILocation it holds. Clear it
+  // to avoid accessing free’d memory (in runOnMachineFunction) and to avoid
+  // destroying it twice (in ~IRTranslator() and ~LLVMContext())
+  EntryBuilder = MachineIRBuilder();
+  CurBuilder = MachineIRBuilder();
 }
 
 bool IRTranslator::runOnMachineFunction(MachineFunction &CurMF) {
@@ -1198,10 +1237,6 @@ bool IRTranslator::runOnMachineFunction(MachineFunction &CurMF) {
   }
 
   finishPendingPhis();
-
-  // Now that the MachineFrameInfo has been configured, no further changes to
-  // the reserved registers are possible.
-  MRI->freezeReservedRegs(*MF);
 
   // Merge the argument lowering and constants block with its single
   // successor, the LLVM-IR entry block.  We want the basic block to
