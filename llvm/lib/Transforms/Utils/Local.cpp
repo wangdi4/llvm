@@ -45,6 +45,7 @@
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/IR/ValueHandle.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/KnownBits.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
 using namespace llvm;
@@ -561,7 +562,7 @@ void llvm::RemovePredecessorAndSimplify(BasicBlock *BB, BasicBlock *Pred) {
   // that can be removed.
   BB->removePredecessor(Pred, true);
 
-  WeakVH PhiIt = &BB->front();
+  WeakTrackingVH PhiIt = &BB->front();
   while (PHINode *PN = dyn_cast<PHINode>(PhiIt)) {
     PhiIt = &*++BasicBlock::iterator(cast<Instruction>(PhiIt));
     Value *OldPhiIt = PhiIt;
@@ -1038,9 +1039,9 @@ unsigned llvm::getOrEnforceKnownAlignment(Value *V, unsigned PrefAlign,
          "getOrEnforceKnownAlignment expects a pointer!");
   unsigned BitWidth = DL.getPointerTypeSizeInBits(V->getType());
 
-  APInt KnownZero(BitWidth, 0), KnownOne(BitWidth, 0);
-  computeKnownBits(V, KnownZero, KnownOne, DL, 0, AC, CxtI, DT);
-  unsigned TrailZ = KnownZero.countTrailingOnes();
+  KnownBits Known(BitWidth);
+  computeKnownBits(V, Known, DL, 0, AC, CxtI, DT);
+  unsigned TrailZ = Known.countMinTrailingZeros();
 
   // Avoid trouble with ridiculously large TrailZ values, such as
   // those computed from a null pointer.
@@ -1258,33 +1259,6 @@ void llvm::findDbgValues(SmallVectorImpl<DbgValueInst *> &DbgValues, Value *V) {
           DbgValues.push_back(DVI);
 }
 
-static void appendOffset(SmallVectorImpl<uint64_t> &Ops, int64_t Offset) {
-  if (Offset > 0) {
-    Ops.push_back(dwarf::DW_OP_plus);
-    Ops.push_back(Offset);
-  } else if (Offset < 0) {
-    Ops.push_back(dwarf::DW_OP_minus);
-    Ops.push_back(-Offset);
-  }
-}
-
-/// Prepend \p DIExpr with a deref and offset operation.
-static DIExpression *prependDIExpr(DIBuilder &Builder, DIExpression *DIExpr,
-                                   bool Deref, int64_t Offset) {
-  if (!Deref && !Offset)
-    return DIExpr;
-  // Create a copy of the original DIDescriptor for user variable, prepending
-  // "deref" operation to a list of address elements, as new llvm.dbg.declare
-  // will take a value storing address of the memory for variable, not
-  // alloca itself.
-  SmallVector<uint64_t, 4> Ops;
-  if (Deref)
-    Ops.push_back(dwarf::DW_OP_deref);
-  appendOffset(Ops, Offset);
-  if (DIExpr)
-    Ops.append(DIExpr->elements_begin(), DIExpr->elements_end());
-  return Builder.createExpression(Ops);
-}
 
 bool llvm::replaceDbgDeclare(Value *Address, Value *NewAddress,
                              Instruction *InsertBefore, DIBuilder &Builder,
@@ -1296,9 +1270,7 @@ bool llvm::replaceDbgDeclare(Value *Address, Value *NewAddress,
   auto *DIVar = DDI->getVariable();
   auto *DIExpr = DDI->getExpression();
   assert(DIVar && "Missing variable");
-
-  DIExpr = prependDIExpr(Builder, DIExpr, Deref, Offset);
-
+  DIExpr = DIExpression::prepend(DIExpr, Deref, Offset);
   // Insert llvm.dbg.declare immediately after the original alloca, and remove
   // old llvm.dbg.declare.
   Builder.insertDeclare(NewAddress, DIVar, DIExpr, Loc, InsertBefore);
@@ -1331,7 +1303,7 @@ static void replaceOneDbgValueForAlloca(DbgValueInst *DVI, Value *NewAddress,
   if (Offset) {
     SmallVector<uint64_t, 4> Ops;
     Ops.push_back(dwarf::DW_OP_deref);
-    appendOffset(Ops, Offset);
+    DIExpression::appendOffset(Ops, Offset);
     Ops.append(DIExpr->elements_begin() + 1, DIExpr->elements_end());
     DIExpr = Builder.createExpression(Ops);
   }
@@ -1374,12 +1346,16 @@ void llvm::salvageDebugInfo(Instruction &I) {
       unsigned BitWidth =
           M.getDataLayout().getPointerSizeInBits(GEP->getPointerAddressSpace());
       APInt Offset(BitWidth, 0);
-      // Rewrite a constant GEP into a DIExpression.
+      // Rewrite a constant GEP into a DIExpression.  Since we are performing
+      // arithmetic to compute the variable's *value* in the DIExpression, we
+      // need to mark the expression with a DW_OP_stack_value.
       if (GEP->accumulateConstantOffset(M.getDataLayout(), Offset)) {
         auto *DIExpr = DVI->getExpression();
         DIBuilder DIB(M, /*AllowUnresolved*/ false);
         // GEP offsets are i32 and thus always fit into an int64_t.
-        DIExpr = prependDIExpr(DIB, DIExpr, NoDeref, Offset.getSExtValue());
+        DIExpr = DIExpression::prepend(DIExpr, DIExpression::NoDeref,
+                                       Offset.getSExtValue(),
+                                       DIExpression::WithStackValue);
         DVI->setOperand(0, MDWrap(I.getOperand(0)));
         DVI->setOperand(3, MetadataAsValue::get(I.getContext(), DIExpr));
         DEBUG(dbgs() << "SALVAGE: " << *DVI << '\n');
@@ -1391,7 +1367,7 @@ void llvm::salvageDebugInfo(Instruction &I) {
       // Rewrite the load into DW_OP_deref.
       auto *DIExpr = DVI->getExpression();
       DIBuilder DIB(M, /*AllowUnresolved*/ false);
-      DIExpr = prependDIExpr(DIB, DIExpr, WithDeref, 0);
+      DIExpr = DIExpression::prepend(DIExpr, DIExpression::WithDeref);
       DVI->setOperand(0, MDWrap(I.getOperand(0)));
       DVI->setOperand(3, MetadataAsValue::get(I.getContext(), DIExpr));
       DEBUG(dbgs() << "SALVAGE:  " << *DVI << '\n');
@@ -1500,7 +1476,7 @@ BasicBlock *llvm::changeToInvokeAndSplitBasicBlock(CallInst *CI,
   II->setAttributes(CI->getAttributes());
 
   // Make sure that anything using the call now uses the invoke!  This also
-  // updates the CallGraph if present, because it uses a WeakVH.
+  // updates the CallGraph if present, because it uses a WeakTrackingVH.
   CI->replaceAllUsesWith(II);
 
   // Delete the original call
@@ -1805,44 +1781,43 @@ void llvm::combineMetadataForCSE(Instruction *K, const Instruction *J) {
   combineMetadata(K, J, KnownIDs);
 }
 
-unsigned llvm::replaceDominatedUsesWith(Value *From, Value *To,
-                                        DominatorTree &DT,
-                                        const BasicBlockEdge &Root) {
-  assert(From->getType() == To->getType());
-  
-  unsigned Count = 0;
-  for (Value::use_iterator UI = From->use_begin(), UE = From->use_end();
-       UI != UE; ) {
-    Use &U = *UI++;
-    if (DT.dominates(Root, U)) {
-      U.set(To);
-      DEBUG(dbgs() << "Replace dominated use of '"
-            << From->getName() << "' as "
-            << *To << " in " << *U << "\n");
-      ++Count;
-    }
-  }
-  return Count;
-}
-
-unsigned llvm::replaceDominatedUsesWith(Value *From, Value *To,
-                                        DominatorTree &DT,
-                                        const BasicBlock *BB) {
+template <typename RootType, typename DominatesFn>
+static unsigned replaceDominatedUsesWith(Value *From, Value *To,
+                                         const RootType &Root,
+                                         const DominatesFn &Dominates) {
   assert(From->getType() == To->getType());
 
   unsigned Count = 0;
   for (Value::use_iterator UI = From->use_begin(), UE = From->use_end();
        UI != UE;) {
     Use &U = *UI++;
-    auto *I = cast<Instruction>(U.getUser());
-    if (DT.properlyDominates(BB, I->getParent())) {
-      U.set(To);
-      DEBUG(dbgs() << "Replace dominated use of '" << From->getName() << "' as "
-                   << *To << " in " << *U << "\n");
-      ++Count;
-    }
+    if (!Dominates(Root, U))
+      continue;
+    U.set(To);
+    DEBUG(dbgs() << "Replace dominated use of '" << From->getName() << "' as "
+                 << *To << " in " << *U << "\n");
+    ++Count;
   }
   return Count;
+}
+
+unsigned llvm::replaceDominatedUsesWith(Value *From, Value *To,
+                                        DominatorTree &DT,
+                                        const BasicBlockEdge &Root) {
+  auto Dominates = [&DT](const BasicBlockEdge &Root, const Use &U) {
+    return DT.dominates(Root, U);
+  };
+  return ::replaceDominatedUsesWith(From, To, Root, Dominates);
+}
+
+unsigned llvm::replaceDominatedUsesWith(Value *From, Value *To,
+                                        DominatorTree &DT,
+                                        const BasicBlock *BB) {
+  auto ProperlyDominates = [&DT](const BasicBlock *BB, const Use &U) {
+    auto *I = cast<Instruction>(U.getUser())->getParent();
+    return DT.properlyDominates(BB, I);
+  };
+  return ::replaceDominatedUsesWith(From, To, BB, ProperlyDominates);
 }
 
 bool llvm::callsGCLeafFunction(ImmutableCallSite CS) {

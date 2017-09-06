@@ -19,9 +19,11 @@
 #include "llvm/ADT/Optional.h"
 #include <cstdint>
 #include <bitset>
+#include <functional>
 
 namespace llvm {
 class MachineInstr;
+class MachineInstrBuilder;
 class MachineFunction;
 class MachineOperand;
 class MachineRegisterInfo;
@@ -59,9 +61,6 @@ class InstructionSelector {
 public:
   virtual ~InstructionSelector() {}
 
-  /// This is executed before selecting a function.
-  virtual void beginFunction(const MachineFunction &MF) {}
-
   /// Select the (possibly generic) instruction \p I to only use target-specific
   /// opcodes. It is OK to insert multiple instructions, but they cannot be
   /// generic pre-isel instructions.
@@ -76,6 +75,8 @@ public:
   virtual bool select(MachineInstr &I) const = 0;
 
 protected:
+  typedef std::function<void(MachineInstrBuilder &)> ComplexRendererFn;
+
   InstructionSelector();
 
   /// Mutate the newly-selected instruction \p I to constrain its (possibly

@@ -87,10 +87,16 @@ Some important things to remember about fuzz targets:
 * Usually, the narrower the target the better. E.g. if your target can parse several data formats, split it into several targets, one per format.
 
 
-Building
---------
+Fuzzer Usage
+------------
 
-Next, build the libFuzzer library as a static archive, without any sanitizer
+Very recent versions of Clang (> April 20 2017) include libFuzzer,
+and no installation is necessary.
+In order to fuzz your binary, use the `-fsanitize=fuzzer` flag during the compilation::
+
+   clang -fsanitize=fuzzer,address mytarget.c
+
+Otherwise, build the libFuzzer library as a static archive, without any sanitizer
 options. Note that the libFuzzer library contains the ``main()`` function:
 
 .. code-block:: console
@@ -299,6 +305,10 @@ The most important command line options are:
    - 1 : close ``stdout``
    - 2 : close ``stderr``
    - 3 : close both ``stdout`` and ``stderr``.
+``-print_coverage``
+   If 1, print coverage information as text at exit.
+``-dump_coverage``
+   If 1, dump coverage information as a .sancov file at exit.
 
 For the full list of flags run the fuzzer binary with ``-help=1``.
 
@@ -537,12 +547,19 @@ You can get the coverage for your corpus like this:
 
 .. code-block:: console
 
-  ASAN_OPTIONS=coverage=1 ./fuzzer CORPUS_DIR -runs=0
+  ./fuzzer CORPUS_DIR -runs=0 -print_coverage=1
 
 This will run all tests in the CORPUS_DIR but will not perform any fuzzing.
-At the end of the process it will dump a single ``.sancov`` file with coverage 
-information.  See SanitizerCoverage_ for details on querying the file using the
-``sancov`` tool.
+At the end of the process it will print text describing what code has been covered and what hasn't.
+
+Alternatively, use
+
+.. code-block:: console
+
+  ./fuzzer CORPUS_DIR -runs=0 -dump_coverage=1
+
+which will dump a ``.sancov`` file with coverage information.
+See SanitizerCoverage_ for details on querying the file using the ``sancov`` tool.
 
 You may also use other ways to visualize coverage,
 e.g. using `Clang coverage <http://clang.llvm.org/docs/SourceBasedCodeCoverage.html>`_,
@@ -727,6 +744,7 @@ small inputs, each input takes < 10ms to run, and the library code is not expect
 to crash on invalid inputs.
 Examples: regular expression matchers, text or binary format parsers, compression,
 network, crypto.
+
 
 Trophies
 ========

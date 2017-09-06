@@ -173,7 +173,7 @@ int64_t DwarfUnit::getDefaultLowerBound() const {
 }
 
 /// Check whether the DIE for this MDNode can be shared across CUs.
-static bool isShareableAcrossCUs(const DINode *D) {
+bool DwarfUnit::isShareableAcrossCUs(const DINode *D) const {
   // When the MDNode can be part of the type system, the DIE can be shared
   // across CUs.
   // Combining type units and cross-CU DIE sharing is lower value (since
@@ -181,6 +181,8 @@ static bool isShareableAcrossCUs(const DINode *D) {
   // level already) but may be implementable for some value in projects
   // building multiple independent libraries with LTO and then linking those
   // together.
+  if (isDwoUnit() && !DD->shareAcrossDWOCUs())
+    return false;
   return (isa<DIType>(D) ||
           (isa<DISubprogram>(D) && !cast<DISubprogram>(D)->isDefinition())) &&
          !GenerateDwarfTypeUnits;
@@ -373,10 +375,6 @@ void DwarfUnit::addSourceLine(DIE &Die, const DIObjCProperty *Ty) {
   assert(Ty);
 
   addSourceLine(Die, Ty->getLine(), Ty->getFilename(), Ty->getDirectory());
-}
-
-void DwarfUnit::addSourceLine(DIE &Die, const DINamespace *NS) {
-  addSourceLine(Die, NS->getLine(), NS->getFilename(), NS->getDirectory());
 }
 
 /* Byref variables, in Blocks, are declared by the programmer as "SomeType
@@ -659,6 +657,14 @@ void DwarfUnit::addTemplateParams(DIE &Buffer, DINodeArray TParams) {
       constructTemplateTypeParameterDIE(Buffer, TTP);
     else if (auto *TVP = dyn_cast<DITemplateValueParameter>(Element))
       constructTemplateValueParameterDIE(Buffer, TVP);
+  }
+}
+
+/// Add thrown types.
+void DwarfUnit::addThrownTypes(DIE &Die, DINodeArray ThrownTypes) {
+  for (const auto *Ty : ThrownTypes) {
+    DIE &TT = createAndAddDIE(dwarf::DW_TAG_thrown_type, Die);
+    addType(TT, cast<DIType>(Ty));
   }
 }
 
@@ -1077,7 +1083,6 @@ DIE *DwarfUnit::getOrCreateNameSpace(const DINamespace *NS) {
     Name = "(anonymous namespace)";
   DD->addAccelNamespace(Name, NDie);
   addGlobalName(Name, NDie, NS->getScope());
-  addSourceLine(NDie, NS);
   if (NS->getExportSymbols())
     addFlag(NDie, dwarf::DW_AT_export_symbols);
   return &NDie;
@@ -1248,6 +1253,8 @@ void DwarfUnit::applySubprogramAttributes(const DISubprogram *SP, DIE &SPDie,
     // be handled while processing variables.
     constructSubprogramArguments(SPDie, Args);
   }
+
+  addThrownTypes(SPDie, SP->getThrownTypes());
 
   if (SP->isArtificial())
     addFlag(SPDie, dwarf::DW_AT_artificial);
