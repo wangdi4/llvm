@@ -999,8 +999,6 @@ def int_ssa_copy : Intrinsic<[llvm_any_ty], [LLVMMatchType<0>],
 def int_intel_pragma : Intrinsic<[], [ llvm_metadata_ty, llvm_vararg_ty ], [],
                                  "llvm.intel.pragma">;
 
-def int_has_feature : Intrinsic<[llvm_i1_ty], [llvm_i64_ty], [IntrNoMem]>;
-
 // Intrinsic generated for the sizeof operand in source code.
 // The given constant (first argument) is the size of the data type of the
 // getelementptr constant (passed as second argument).
