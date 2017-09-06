@@ -14,9 +14,9 @@
 #ifndef LLVM_ANALYSIS_INLINECOST_H
 #define LLVM_ANALYSIS_INLINECOST_H
 
-#include "llvm/Analysis/CallGraphSCCPass.h"   // INTEL
-#include "llvm/Analysis/Intel_AggInline.h"    // INTEL
 #include "llvm/Analysis/AssumptionCache.h"
+#include "llvm/Analysis/CallGraphSCCPass.h"
+#include "llvm/Analysis/Intel_AggInline.h"    // INTEL
 #include "llvm/Analysis/LoopInfo.h"           // INTEL
 #include <cassert>
 #include <climits>

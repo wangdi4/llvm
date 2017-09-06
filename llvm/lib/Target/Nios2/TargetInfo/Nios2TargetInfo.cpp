@@ -1,4 +1,4 @@
-//===-- Cpu0TargetInfo.cpp - Nios2 Target Implementation -------------------===//
+//===-- Nios2TargetInfo.cpp - Nios2 Target Implementation -----------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -8,8 +8,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "Nios2.h"
-#include "llvm/IR/Module.h"
 #include "llvm/Support/TargetRegistry.h"
+
 using namespace llvm;
 
 Target &llvm::getTheNios2Target() {
@@ -19,5 +19,6 @@ Target &llvm::getTheNios2Target() {
 
 extern "C" void LLVMInitializeNios2TargetInfo() {
   RegisterTarget<Triple::nios2,
-        /*HasJIT=*/true> X(getTheNios2Target(), "nios2", "Nios2");
+                 /*HasJIT=*/true>
+      X(getTheNios2Target(), "nios2", "Nios2");
 }

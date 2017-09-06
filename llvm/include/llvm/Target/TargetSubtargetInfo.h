@@ -18,8 +18,8 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/CodeGen/PBQPRAConstraint.h"
-#include "llvm/CodeGen/SchedulerRegistry.h"
 #include "llvm/CodeGen/ScheduleDAGMutation.h"
+#include "llvm/CodeGen/SchedulerRegistry.h"
 #include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/Support/CodeGen.h"
@@ -231,14 +231,6 @@ public:
   /// Please use MachineRegisterInfo::subRegLivenessEnabled() instead where
   /// possible.
   virtual bool enableSubRegLiveness() const { return false; }
-
-#if INTEL_CUSTOMIZATION
-  /// Check whether the subtarget has the requested feature.
-  /// Currently implemented only by the x86 target.
-  virtual bool hasFeature(StringRef Feature) const {
-    return false;
-  }
-#endif // INTEL_CUSTOMIZATION
 
   /// Returns string representation of scheduler comment
   std::string getSchedInfoStr(const MachineInstr &MI) const override;

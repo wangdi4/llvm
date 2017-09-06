@@ -579,16 +579,11 @@ TEST_P(CoverageMappingTest, skip_duplicate_function_record) {
   ASSERT_EQ(1U, NumFuncs);
 }
 
-#ifdef INTEL_CUSTOMIZATION
-// The extra ',' in the INSTANTIATE_TEST_CASE_P macro invocation silences a
-// warning about an empty ... list.
 // FIXME: Use ::testing::Combine() when llvm updates its copy of googletest.
 INSTANTIATE_TEST_CASE_P(ParameterizedCovMapTest, CoverageMappingTest,
                         ::testing::Values(std::pair<bool, bool>({false, false}),
                                           std::pair<bool, bool>({false, true}),
                                           std::pair<bool, bool>({true, false}),
-                                          std::pair<bool, bool>({true, true})),
-                        );
-#endif // INTEL_CUSTOMIZATION
+                                          std::pair<bool, bool>({true, true})),);
 
 } // end anonymous namespace
