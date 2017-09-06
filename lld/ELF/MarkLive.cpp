@@ -220,7 +220,8 @@ template <class ELFT> void elf::markLive() {
 
   auto MarkSymbol = [&](const SymbolBody *Sym) {
     if (auto *D = dyn_cast_or_null<DefinedRegular>(Sym))
-      Enqueue({cast<InputSectionBase>(D->Section), D->Value});
+      if (auto *IS = cast_or_null<InputSectionBase>(D->Section))
+        Enqueue({IS, D->Value});
   };
 
   // Add GC root symbols.
@@ -228,6 +229,8 @@ template <class ELFT> void elf::markLive() {
   MarkSymbol(Symtab<ELFT>::X->find(Config->Init));
   MarkSymbol(Symtab<ELFT>::X->find(Config->Fini));
   for (StringRef S : Config->Undefined)
+    MarkSymbol(Symtab<ELFT>::X->find(S));
+  for (StringRef S : Script->Opt.ReferencedSymbols)
     MarkSymbol(Symtab<ELFT>::X->find(S));
 
   // Preserve externally-visible symbols if the symbols defined by this

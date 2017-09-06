@@ -44,7 +44,7 @@ OpenMPCodeOutliner::emitIntelOpenMPDefaultConstructor(const Expr *IPriv) {
   CodeGenFunction NewCGF(CGM);
   FunctionArgList Args;
   ImplicitParamDecl Dst(CGM.getContext(), /*DC=*/nullptr, SourceLocation(),
-                        /*Id=*/nullptr, PtrTy);
+                        /*Id=*/nullptr, PtrTy, ImplicitParamDecl::Other);
   Args.push_back(&Dst);
 
   auto &FI = CGM.getTypes().arrangeBuiltinFunctionDeclaration(PtrTy, Args);
@@ -82,7 +82,7 @@ OpenMPCodeOutliner::emitIntelOpenMPDestructor(QualType Ty) {
   CodeGenFunction NewCGF(CGM);
   FunctionArgList Args;
   ImplicitParamDecl Dst(CGM.getContext(), /*DC=*/nullptr, SourceLocation(),
-                        /*Id=*/nullptr, PtrTy);
+                        /*Id=*/nullptr, PtrTy, ImplicitParamDecl::Other);
   Args.push_back(&Dst);
 
   auto &FI = CGM.getTypes().arrangeBuiltinFunctionDeclaration(
@@ -146,9 +146,11 @@ OpenMPCodeOutliner::emitIntelOpenMPCopyConstructor(const Expr *IPriv) {
 
   CodeGenFunction NewCGF(CGM);
   FunctionArgList Args;
-  ImplicitParamDecl DstDecl(C, FD, SourceLocation(), nullptr, ObjPtrTy);
+  ImplicitParamDecl DstDecl(C, FD, SourceLocation(), nullptr, ObjPtrTy,
+                            ImplicitParamDecl::Other);
   Args.push_back(&DstDecl);
-  ImplicitParamDecl SrcDecl(C, FD, SourceLocation(), nullptr, ObjPtrTy);
+  ImplicitParamDecl SrcDecl(C, FD, SourceLocation(), nullptr, ObjPtrTy,
+                            ImplicitParamDecl::Other);
   Args.push_back(&SrcDecl);
 
   const CGFunctionInfo &FI =
@@ -227,9 +229,11 @@ llvm::Value *OpenMPCodeOutliner::emitIntelOpenMPCopyAssign(QualType Ty,
 
   CodeGenFunction NewCGF(CGM);
   FunctionArgList Args;
-  ImplicitParamDecl DstDecl(C, FD, SourceLocation(), nullptr, ObjPtrTy);
+  ImplicitParamDecl DstDecl(C, FD, SourceLocation(), nullptr, ObjPtrTy,
+                            ImplicitParamDecl::Other);
   Args.push_back(&DstDecl);
-  ImplicitParamDecl SrcDecl(C, FD, SourceLocation(), nullptr, ObjPtrTy);
+  ImplicitParamDecl SrcDecl(C, FD, SourceLocation(), nullptr, ObjPtrTy,
+                            ImplicitParamDecl::Other);
   Args.push_back(&SrcDecl);
 
   const CGFunctionInfo &FI =

@@ -10,6 +10,7 @@
 #ifndef LLD_COFF_INPUT_FILES_H
 #define LLD_COFF_INPUT_FILES_H
 
+#include "Config.h"
 #include "lld/Core/LLVM.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseSet.h"
@@ -20,6 +21,12 @@
 #include <memory>
 #include <set>
 #include <vector>
+
+namespace llvm {
+namespace pdb {
+class DbiModuleDescriptorBuilder;
+}
+}
 
 namespace lld {
 namespace coff {
@@ -121,6 +128,12 @@ public:
   // COFF-specific and x86-only.
   std::set<SymbolBody *> SEHandlers;
 
+  // Pointer to the PDB module descriptor builder. Various debug info records
+  // will reference object files by "module index", which is here. Things like
+  // source files and section contributions are also recorded here. Will be null
+  // if we are not producing a PDB.
+  llvm::pdb::DbiModuleDescriptorBuilder *ModuleDBI = nullptr;
+
 private:
   void initializeChunks();
   void initializeSymbols();
@@ -161,7 +174,9 @@ private:
 // for details about the format.
 class ImportFile : public InputFile {
 public:
-  explicit ImportFile(MemoryBufferRef M) : InputFile(ImportKind, M) {}
+  explicit ImportFile(MemoryBufferRef M)
+      : InputFile(ImportKind, M), Live(!Config->DoGC) {}
+
   static bool classof(const InputFile *F) { return F->kind() == ImportKind; }
 
   DefinedImportData *ImpSym = nullptr;
@@ -176,6 +191,14 @@ public:
   StringRef ExternalName;
   const coff_import_header *Hdr;
   Chunk *Location = nullptr;
+
+  // We want to eliminate dllimported symbols if no one actually refers them.
+  // This "Live" bit is used to keep track of which import library members
+  // are actually in use.
+  //
+  // If the Live bit is turned off by MarkLive, Writer will ignore dllimported
+  // symbols provided by this import library member.
+  bool Live;
 };
 
 // Used for LTO.

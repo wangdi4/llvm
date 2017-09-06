@@ -544,6 +544,8 @@ llvm::Function *CodeGenFunction::EmitSimdFunction(CGPragmaSimdWrapper &W) {
   // Ensure noinline hasn't been attached (happens in O0).  Remove function 
   // doesn't require the attribute is there, so we always remove it.
   BodyFunction->removeFnAttr(llvm::Attribute::NoInline);
+  // Remove OptimizeNone, since it requires NoInline.
+  BodyFunction->removeFnAttr(llvm::Attribute::OptimizeNone);
   return BodyFunction;
 }
 

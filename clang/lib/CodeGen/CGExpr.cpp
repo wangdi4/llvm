@@ -583,6 +583,11 @@ void CodeGenFunction::EmitTypeCheck(TypeCheckKind TCK, SourceLocation Loc,
   if (Ptr->getType()->getPointerAddressSpace())
     return;
 
+  // Don't check pointers to volatile data. The behavior here is implementation-
+  // defined.
+  if (Ty.isVolatileQualified())
+    return;
+
   SanitizerScope SanScope(this);
 
   SmallVector<std::pair<llvm::Value *, SanitizerMask>, 3> Checks;
@@ -1200,6 +1205,11 @@ LValue CodeGenFunction::EmitLValue(const Expr *E) {
 
   case Expr::MaterializeTemporaryExprClass:
     return EmitMaterializeTemporaryExpr(cast<MaterializeTemporaryExpr>(E));
+
+  case Expr::CoawaitExprClass:
+    return EmitCoawaitLValue(cast<CoawaitExpr>(E));
+  case Expr::CoyieldExprClass:
+    return EmitCoyieldLValue(cast<CoyieldExpr>(E));
   }
 }
 
@@ -1474,11 +1484,12 @@ llvm::Value *CodeGenFunction::EmitLoadOfScalar(Address Addr, bool Volatile,
     Load->setMetadata(CGM.getModule().getMDKindID("nontemporal"), Node);
   }
   if (TBAAInfo) {
-    llvm::MDNode *TBAAPath = CGM.getTBAAStructTagInfo(TBAABaseType, TBAAInfo,
-                                                      TBAAOffset);
-    if (TBAAPath)
-      CGM.DecorateInstructionWithTBAA(Load, TBAAPath,
-                                      false /*ConvertTypeToTag*/);
+    bool MayAlias = BaseInfo.getMayAlias();
+    llvm::MDNode *TBAA = MayAlias
+        ? CGM.getTBAAInfo(getContext().CharTy)
+        : CGM.getTBAAStructTagInfo(TBAABaseType, TBAAInfo, TBAAOffset);
+    if (TBAA)
+      CGM.DecorateInstructionWithTBAA(Load, TBAA, MayAlias);
   }
 
   if (EmitScalarRangeCheck(Load, Ty, Loc)) {
@@ -1528,9 +1539,9 @@ void CodeGenFunction::EmitStoreOfScalar(llvm::Value *Value, Address Addr,
     // Handle vectors differently to get better performance.
     if (Ty->isVectorType()) {
       llvm::Type *SrcTy = Value->getType();
-      auto *VecTy = cast<llvm::VectorType>(SrcTy);
+      auto *VecTy = dyn_cast<llvm::VectorType>(SrcTy);
       // Handle vec3 special.
-      if (VecTy->getNumElements() == 3) {
+      if (VecTy && VecTy->getNumElements() == 3) {
         // Our source is a vec3, do a shuffle vector to make it a vec4.
         llvm::Constant *Mask[] = {Builder.getInt32(0), Builder.getInt32(1),
                                   Builder.getInt32(2),
@@ -1564,11 +1575,12 @@ void CodeGenFunction::EmitStoreOfScalar(llvm::Value *Value, Address Addr,
     Store->setMetadata(CGM.getModule().getMDKindID("nontemporal"), Node);
   }
   if (TBAAInfo) {
-    llvm::MDNode *TBAAPath = CGM.getTBAAStructTagInfo(TBAABaseType, TBAAInfo,
-                                                      TBAAOffset);
-    if (TBAAPath)
-      CGM.DecorateInstructionWithTBAA(Store, TBAAPath,
-                                      false /*ConvertTypeToTag*/);
+    bool MayAlias = BaseInfo.getMayAlias();
+    llvm::MDNode *TBAA = MayAlias
+        ? CGM.getTBAAInfo(getContext().CharTy)
+        : CGM.getTBAAStructTagInfo(TBAABaseType, TBAAInfo, TBAAOffset);
+    if (TBAA)
+      CGM.DecorateInstructionWithTBAA(Store, TBAA, MayAlias);
   }
 }
 
@@ -2974,10 +2986,10 @@ void CodeGenFunction::EmitCfiCheckStub() {
 void CodeGenFunction::EmitCfiCheckFail() {
   SanitizerScope SanScope(this);
   FunctionArgList Args;
-  ImplicitParamDecl ArgData(getContext(), nullptr, SourceLocation(), nullptr,
-                            getContext().VoidPtrTy);
-  ImplicitParamDecl ArgAddr(getContext(), nullptr, SourceLocation(), nullptr,
-                            getContext().VoidPtrTy);
+  ImplicitParamDecl ArgData(getContext(), getContext().VoidPtrTy,
+                            ImplicitParamDecl::Other);
+  ImplicitParamDecl ArgAddr(getContext(), getContext().VoidPtrTy,
+                            ImplicitParamDecl::Other);
   Args.push_back(&ArgData);
   Args.push_back(&ArgAddr);
 
@@ -3129,9 +3141,11 @@ static llvm::Value *emitArraySubscriptGEP(CodeGenFunction &CGF,
                                           llvm::Value *ptr,
                                           ArrayRef<llvm::Value*> indices,
                                           bool inbounds,
+                                          bool signedIndices,
+                                          SourceLocation loc,
                                     const llvm::Twine &name = "arrayidx") {
   if (inbounds) {
-    return CGF.Builder.CreateInBoundsGEP(ptr, indices, name);
+    return CGF.EmitCheckedInBoundsGEP(ptr, indices, signedIndices, loc, name);
   } else {
     return CGF.Builder.CreateGEP(ptr, indices, name);
   }
@@ -3162,8 +3176,9 @@ static QualType getFixedSizeElementType(const ASTContext &ctx,
 }
 
 static Address emitArraySubscriptGEP(CodeGenFunction &CGF, Address addr,
-                                     ArrayRef<llvm::Value*> indices,
+                                     ArrayRef<llvm::Value *> indices,
                                      QualType eltType, bool inbounds,
+                                     bool signedIndices, SourceLocation loc,
                                      const llvm::Twine &name = "arrayidx") {
   // All the indices except that last must be zero.
 #ifndef NDEBUG
@@ -3183,8 +3198,8 @@ static Address emitArraySubscriptGEP(CodeGenFunction &CGF, Address addr,
   CharUnits eltAlign =
     getArrayElementAlign(addr.getAlignment(), indices.back(), eltSize);
 
-  llvm::Value *eltPtr =
-    emitArraySubscriptGEP(CGF, addr.getPointer(), indices, inbounds, name);
+  llvm::Value *eltPtr = emitArraySubscriptGEP(
+      CGF, addr.getPointer(), indices, inbounds, signedIndices, loc, name);
   return Address(eltPtr, eltAlign);
 }
 
@@ -3194,6 +3209,7 @@ LValue CodeGenFunction::EmitArraySubscriptExpr(const ArraySubscriptExpr *E,
   // in lexical order (this complexity is, sadly, required by C++17).
   llvm::Value *IdxPre =
       (E->getLHS() == E->getIdx()) ? EmitScalarExpr(E->getIdx()) : nullptr;
+  bool SignedIndices = false;
   auto EmitIdxAfterBase = [&, IdxPre](bool Promote) -> llvm::Value * {
     auto *Idx = IdxPre;
     if (E->getLHS() != E->getIdx()) {
@@ -3203,6 +3219,7 @@ LValue CodeGenFunction::EmitArraySubscriptExpr(const ArraySubscriptExpr *E,
 
     QualType IdxTy = E->getIdx()->getType();
     bool IdxSigned = IdxTy->isSignedIntegerOrEnumerationType();
+    SignedIndices |= IdxSigned;
 
     if (SanOpts.has(SanitizerKind::ArrayBounds))
       EmitBoundsCheck(E, E->getBase(), Idx, IdxTy, Accessed);
@@ -3237,7 +3254,8 @@ LValue CodeGenFunction::EmitArraySubscriptExpr(const ArraySubscriptExpr *E,
     Address Addr = EmitExtVectorElementLValue(LV);
 
     QualType EltType = LV.getType()->castAs<VectorType>()->getElementType();
-    Addr = emitArraySubscriptGEP(*this, Addr, Idx, EltType, /*inbounds*/ true);
+    Addr = emitArraySubscriptGEP(*this, Addr, Idx, EltType, /*inbounds*/ true,
+                                 SignedIndices, E->getExprLoc());
     return MakeAddrLValue(Addr, EltType, LV.getBaseInfo());
   }
 
@@ -3270,7 +3288,8 @@ LValue CodeGenFunction::EmitArraySubscriptExpr(const ArraySubscriptExpr *E,
     }
 
     Addr = emitArraySubscriptGEP(*this, Addr, Idx, vla->getElementType(),
-                                 !getLangOpts().isSignedOverflowDefined());
+                                 !getLangOpts().isSignedOverflowDefined(),
+                                 SignedIndices, E->getExprLoc());
 
   } else if (const ObjCObjectType *OIT = E->getType()->getAs<ObjCObjectType>()){
     // Indexing over an interface, as in "NSString *P; P[4];"
@@ -3296,7 +3315,8 @@ LValue CodeGenFunction::EmitArraySubscriptExpr(const ArraySubscriptExpr *E,
     CharUnits EltAlign =
       getArrayElementAlign(Addr.getAlignment(), Idx, InterfaceSize);
     llvm::Value *EltPtr =
-      emitArraySubscriptGEP(*this, Addr.getPointer(), ScaledIdx, false);
+        emitArraySubscriptGEP(*this, Addr.getPointer(), ScaledIdx, false,
+                              SignedIndices, E->getExprLoc());
     Addr = Address(EltPtr, EltAlign);
 
     // Cast back.
@@ -3318,10 +3338,10 @@ LValue CodeGenFunction::EmitArraySubscriptExpr(const ArraySubscriptExpr *E,
     auto *Idx = EmitIdxAfterBase(/*Promote*/true);
 
     // Propagate the alignment from the array itself to the result.
-    Addr = emitArraySubscriptGEP(*this, ArrayLV.getAddress(),
-                                 {CGM.getSize(CharUnits::Zero()), Idx},
-                                 E->getType(),
-                                 !getLangOpts().isSignedOverflowDefined());
+    Addr = emitArraySubscriptGEP(
+        *this, ArrayLV.getAddress(), {CGM.getSize(CharUnits::Zero()), Idx},
+        E->getType(), !getLangOpts().isSignedOverflowDefined(), SignedIndices,
+        E->getExprLoc());
     BaseInfo = ArrayLV.getBaseInfo();
 #if INTEL_CUSTOMIZATION
     // CQ#379144 TBAA for arrays
@@ -3340,7 +3360,8 @@ LValue CodeGenFunction::EmitArraySubscriptExpr(const ArraySubscriptExpr *E,
     Addr = EmitPointerWithAlignment(E->getBase(), &BaseInfo);
     auto *Idx = EmitIdxAfterBase(/*Promote*/true);
     Addr = emitArraySubscriptGEP(*this, Addr, Idx, E->getType(),
-                                 !getLangOpts().isSignedOverflowDefined());
+                                 !getLangOpts().isSignedOverflowDefined(),
+                                 SignedIndices, E->getExprLoc());
   }
 
   LValue LV = MakeAddrLValue(Addr, E->getType(), BaseInfo);
@@ -3519,7 +3540,8 @@ LValue CodeGenFunction::EmitOMPArraySectionExpr(const OMPArraySectionExpr *E,
     else
       Idx = Builder.CreateNSWMul(Idx, NumElements);
     EltPtr = emitArraySubscriptGEP(*this, Base, Idx, VLA->getElementType(),
-                                   !getLangOpts().isSignedOverflowDefined());
+                                   !getLangOpts().isSignedOverflowDefined(),
+                                   /*SignedIndices=*/false, E->getExprLoc());
   } else if (const Expr *Array = isSimpleArrayDecayOperand(E->getBase())) {
     // If this is A[i] where A is an array, the frontend will have decayed the
     // base to be a ArrayToPointerDecay implicit cast.  While correct, it is
@@ -3538,13 +3560,15 @@ LValue CodeGenFunction::EmitOMPArraySectionExpr(const OMPArraySectionExpr *E,
     // Propagate the alignment from the array itself to the result.
     EltPtr = emitArraySubscriptGEP(
         *this, ArrayLV.getAddress(), {CGM.getSize(CharUnits::Zero()), Idx},
-        ResultExprTy, !getLangOpts().isSignedOverflowDefined());
+        ResultExprTy, !getLangOpts().isSignedOverflowDefined(),
+        /*SignedIndices=*/false, E->getExprLoc());
     BaseInfo = ArrayLV.getBaseInfo();
   } else {
     Address Base = emitOMPArraySectionBase(*this, E->getBase(), BaseInfo,
                                            BaseTy, ResultExprTy, IsLowerBound);
     EltPtr = emitArraySubscriptGEP(*this, Base, Idx, ResultExprTy,
-                                   !getLangOpts().isSignedOverflowDefined());
+                                   !getLangOpts().isSignedOverflowDefined(),
+                                   /*SignedIndices=*/false, E->getExprLoc());
   }
 
   return MakeAddrLValue(EltPtr, ResultExprTy, BaseInfo);
@@ -3681,12 +3705,36 @@ static Address emitAddrOfFieldStorage(CodeGenFunction &CGF, Address base,
   return CGF.Builder.CreateStructGEP(base, idx, offset, field->getName());
 }
 
+static bool hasAnyVptr(const QualType Type, const ASTContext &Context) {
+  const auto *RD = Type.getTypePtr()->getAsCXXRecordDecl();
+  if (!RD)
+    return false;
+
+  if (RD->isDynamicClass())
+    return true;
+
+  for (const auto &Base : RD->bases())
+    if (hasAnyVptr(Base.getType(), Context))
+      return true;
+
+  for (const FieldDecl *Field : RD->fields())
+    if (hasAnyVptr(Field->getType(), Context))
+      return true;
+
+  return false;
+}
+
 LValue CodeGenFunction::EmitLValueForField(LValue base,
                                            const FieldDecl *field) {
   LValueBaseInfo BaseInfo = base.getBaseInfo();
   AlignmentSource fieldAlignSource =
     getFieldAlignmentSource(BaseInfo.getAlignmentSource());
   LValueBaseInfo FieldBaseInfo(fieldAlignSource, BaseInfo.getMayAlias());
+
+  const RecordDecl *rec = field->getParent();
+  if (rec->isUnion() || rec->hasAttr<MayAliasAttr>())
+    FieldBaseInfo.setMayAlias(true);
+  bool mayAlias = FieldBaseInfo.getMayAlias();
 
   if (field->isBitField()) {
     const CGRecordLayout &RL =
@@ -3709,11 +3757,7 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
     return LValue::MakeBitfield(Addr, Info, fieldType, FieldBaseInfo);
   }
 
-  const RecordDecl *rec = field->getParent();
   QualType type = field->getType();
-
-  bool mayAlias = rec->hasAttr<MayAliasAttr>();
-
   Address addr = base.getAddress();
   unsigned cvr = base.getVRQualifiers();
   bool TBAAPath = CGM.getCodeGenOpts().StructPathTBAA;
@@ -3722,6 +3766,14 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
     assert(!type->isReferenceType() && "union has reference member");
     // TODO: handle path-aware TBAA for union.
     TBAAPath = false;
+
+    const auto FieldType = field->getType();
+    if (CGM.getCodeGenOpts().StrictVTablePointers &&
+        hasAnyVptr(FieldType, getContext()))
+      // Because unions can easily skip invariant.barriers, we need to add
+      // a barrier every time CXXRecord field with vptr is referenced.
+      addr = Address(Builder.CreateInvariantGroupBarrier(addr.getPointer()),
+                     addr.getAlignment());
   } else {
     // For structs, we GEP to the field that the record layout suggests.
     addr = emitAddrOfFieldStorage(*this, addr, field);

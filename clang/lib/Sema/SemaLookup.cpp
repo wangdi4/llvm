@@ -2664,6 +2664,7 @@ addAssociatedClassesAndNamespaces(AssociatedLookup &Result, QualType Ty) {
       for (const auto &Arg : Proto->param_types())
         Queue.push_back(Arg.getTypePtr());
       // fallthrough
+      LLVM_FALLTHROUGH;
     }
     case Type::FunctionNoProto: {
       const FunctionType *FnType = cast<FunctionType>(T);
@@ -3821,20 +3822,19 @@ static void LookupPotentialTypoResult(Sema &SemaRef,
                                       bool FindHidden);
 
 /// \brief Check whether the declarations found for a typo correction are
-/// visible, and if none of them are, convert the correction to an 'import
-/// a module' correction.
+/// visible. Set the correction's RequiresImport flag to true if none of the
+/// declarations are visible, false otherwise.
 static void checkCorrectionVisibility(Sema &SemaRef, TypoCorrection &TC) {
-  if (TC.begin() == TC.end())
-    return;
-
   TypoCorrection::decl_iterator DI = TC.begin(), DE = TC.end();
 
   for (/**/; DI != DE; ++DI)
     if (!LookupResult::isVisible(SemaRef, *DI))
       break;
-  // Nothing to do if all decls are visible.
-  if (DI == DE)
+  // No filtering needed if all decls are visible.
+  if (DI == DE) {
+    TC.setRequiresImport(false);
     return;
+  }
 
   llvm::SmallVector<NamedDecl*, 4> NewDecls(TC.begin(), DI);
   bool AnyVisibleDecls = !NewDecls.empty();
@@ -5004,8 +5004,6 @@ static NamedDecl *getDefinitionToImport(NamedDecl *D) {
 
 void Sema::diagnoseMissingImport(SourceLocation Loc, NamedDecl *Decl,
                                  MissingImportKind MIK, bool Recover) {
-  assert(!isVisible(Decl) && "missing import for non-hidden decl?");
-
   // Suggest importing a module providing the definition of this entity, if
   // possible.
   NamedDecl *Def = getDefinitionToImport(Decl);
