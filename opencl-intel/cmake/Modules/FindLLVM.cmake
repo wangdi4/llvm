@@ -70,6 +70,8 @@ else(BUILD_LLVM_FROM_SOURCE )
       list(REMOVE_ITEM temp_list gtest gtest_main profile_rt-static profile_rt-shared LTO LTO_static)
       set_property( GLOBAL PROPERTY LLVM_LIBS ${temp_list})
     else()
+      set(LLVM_INSTALL_PREFIX ${LLVM_PATH})
+      set(LLVM_INCLUDE_DIRS  ${LLVM_PATH}/include)
       #LLVM_BINARY_DIR is set only if AddLLVM.cmake is used.
       set(LLVM_BINARY_DIR ${LLVM_INSTALL_PREFIX}/bin)
 
