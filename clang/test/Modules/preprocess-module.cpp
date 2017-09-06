@@ -1,3 +1,7 @@
+// INTEL
+// Fix is under review https://reviews.llvm.org/D37079
+// XFAIL: win32, cygwin
+
 // RUN: rm -rf %t
 // RUN: mkdir %t
 

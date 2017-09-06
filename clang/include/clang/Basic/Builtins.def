@@ -1615,8 +1615,6 @@ BUILTIN(__builtin_operator_delete, "vv*", "n")
 BUILTIN(__builtin_char_memchr, "c*cC*iz", "n")
 
 #if INTEL_CUSTOMIZATION
-// Builtin to support architecture features
-BUILTIN(__builtin_has_cpu_feature, "bULLi", "nc")
 BUILTIN(__intel_castf32_u32, "Uif", "nc")
 BUILTIN(__intel_castu32_f32, "fUi", "nc")
 BUILTIN(__intel_castu64_f64, "dUWi", "nc")

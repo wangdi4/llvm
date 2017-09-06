@@ -1,4 +1,9 @@
-// RUN: %clang_cc1 %s -O2 -std=c++11 -triple x86_64-unknown-linux-gnu -target-cpu x86-64 -target-feature +sse4.2 -target-feature +avx -emit-llvm -o - | FileCheck %s
+// INTEL_CUSTOMIZATION
+// Run this test with -unroll-count=1 to avoid fully unrolling the loop &
+// subverting the intent of the test.
+//
+// RUN: %clang_cc1 %s -mllvm -unroll-count=1 -O2 -std=c++11 -triple x86_64-unknown-linux-gnu -target-cpu x86-64 -target-feature +sse4.2 -target-feature +avx -emit-llvm -o - | FileCheck %s
+// END INTEL_CUSTOMIZATION
 
 // Testcase from llvm.org/PR32056
 
