@@ -37,7 +37,7 @@ namespace intel{
 
   char BuiltinLibInfo::ID = 0;
 
-  OCL_INITIALIZE_PASS(BuiltinLibInfo, "builtin-lib-info", "Builtin Library Info", false, false)
+  OCL_INITIALIZE_PASS(BuiltinLibInfo, "builtin-lib-info", "Builtin Library Info", false, true)
 
   BuiltinLibInfo::BuiltinLibInfo(SmallVector<Module*, 2> builtinsList, RuntimeServicesTypes type) :
     ImmutablePass(ID) {
