@@ -1650,11 +1650,8 @@ static bool worthyDoubleExternalCallSite(CallSite &CS) {
 
 static bool preferCloningToInlining(CallSite& CS,
                                     InliningLoopInfoCache& ILIC,
-                                    bool PrepareForLTO) { 
-  // As a workaround, commenting out the below source line until changes
-  // in BackendUtil.cpp, which sets PrepareForLTO flag, will be checked 
-  // into xmain branch. BackendUtil.cpp is not branch on ltoprof-xmain.
-  // if (!PrepareForLTO) return false;
+                                    bool PrepareForLTO) {
+  if (!PrepareForLTO) return false;
   Function *Callee = CS.getCalledFunction();
   if (!Callee) return false;
   LoopInfo *LI = ILIC.getLI(Callee);
@@ -1662,7 +1659,7 @@ static bool preferCloningToInlining(CallSite& CS,
   if (llvm::llvm_cloning_analysis::isCallCandidateForSpecialization(CS, LI))
     return true;
   return false;
-} 
+}
 
 #endif // INTEL_CUSTOMIZATION
 
