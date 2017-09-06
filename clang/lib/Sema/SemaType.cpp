@@ -119,8 +119,9 @@ static void diagnoseBadTypeAttribute(Sema &S, const AttributeList &attr,
 
 // Function type attributes.
 #define FUNCTION_TYPE_ATTRS_CASELIST \
-    case AttributeList::AT_NoReturn: \
-    case AttributeList::AT_Regparm: \
+  case AttributeList::AT_NoReturn: \
+  case AttributeList::AT_Regparm: \
+  case AttributeList::AT_AnyX86NoCallerSavedRegisters: \
     CALLING_CONV_ATTRS_CASELIST
 
 // Microsoft-specific type qualifiers.
@@ -343,6 +344,9 @@ static DeclaratorChunk *maybeMovePastReturnType(Declarator &declarator,
     case DeclaratorChunk::Array:
     case DeclaratorChunk::Reference:
     case DeclaratorChunk::MemberPointer:
+#if INTEL_CUSTOMIZATION
+    case DeclaratorChunk::Channel:
+#endif // INTEL_CUSTOMIZATION
     case DeclaratorChunk::Pipe:
       return result;
 
@@ -356,6 +360,9 @@ static DeclaratorChunk *maybeMovePastReturnType(Declarator &declarator,
         case DeclaratorChunk::Array:
         case DeclaratorChunk::Function:
         case DeclaratorChunk::Reference:
+#if INTEL_CUSTOMIZATION
+        case DeclaratorChunk::Channel:
+#endif // INTEL_CUSTOMIZATION
         case DeclaratorChunk::Pipe:
           continue;
 
@@ -437,6 +444,9 @@ static void distributeObjCPointerTypeAttr(TypeProcessingState &state,
     // Don't walk through these.
     case DeclaratorChunk::Reference:
     case DeclaratorChunk::MemberPointer:
+#if INTEL_CUSTOMIZATION
+    case DeclaratorChunk::Channel:
+#endif // INTEL_CUSTOMIZATION
     case DeclaratorChunk::Pipe:
       goto error;
     }
@@ -470,6 +480,9 @@ distributeObjCPointerTypeAttrFromDeclarator(TypeProcessingState &state,
     case DeclaratorChunk::MemberPointer:
     case DeclaratorChunk::Paren:
     case DeclaratorChunk::Array:
+#if INTEL_CUSTOMIZATION
+    case DeclaratorChunk::Channel:
+#endif // INTEL_CUSTOMIZATION
     case DeclaratorChunk::Pipe:
       continue;
 
@@ -532,6 +545,9 @@ static void distributeFunctionTypeAttr(TypeProcessingState &state,
     case DeclaratorChunk::Array:
     case DeclaratorChunk::Reference:
     case DeclaratorChunk::MemberPointer:
+#if INTEL_CUSTOMIZATION
+    case DeclaratorChunk::Channel:
+#endif // INTEL_CUSTOMIZATION
     case DeclaratorChunk::Pipe:
       continue;
     }
@@ -1341,6 +1357,9 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
         // errors.
         declarator.setInvalidType(true);
       } else if (S.getLangOpts().OpenCLVersion >= 200 && DS.isTypeSpecPipe()){
+        // #if INTEL_CUSTOMIZATION
+        // TODO: asavonic: add channel diagnostic
+        // #endif // INTEL_CUSTOMIZATION
         S.Diag(DeclLoc, diag::err_missing_actual_pipe_type)
           << DS.getSourceRange();
         declarator.setInvalidType(true);
@@ -1607,7 +1626,9 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
   // list of type attributes to be temporarily saved while the type
   // attributes are pushed around.
   // pipe attributes will be handled later ( at GetFullTypeForDeclarator )
-  if (!DS.isTypeSpecPipe())
+#if INTEL_CUSTOMIZATION
+  if (!DS.isTypeSpecPipe() && !DS.isTypeSpecChannel())
+#endif // INTEL_CUSTOMIZATION
       processTypeAttrs(state, Result, TAL_DeclSpec, DS.getAttributes().getList());
 
   // Apply const/volatile/restrict qualifiers to T.
@@ -2012,6 +2033,23 @@ QualType Sema::BuildWritePipeType(QualType T, SourceLocation Loc) {
   return Context.getWritePipeType(T);
 }
 
+#if INTEL_CUSTOMIZATION
+/// \brief Build a Channel type.
+///
+/// \param T The type to which we'll be building a Channel.
+///
+/// \param Loc We do not use it for now.
+///
+/// \returns A suitable channel type, if there are no errors. Otherwise, returns a
+/// NULL type.
+QualType Sema::BuildChannelType(QualType T, SourceLocation Loc) {
+  assert(!T->isObjCObjectType() && "Should build ObjCObjectPointerType");
+
+  // Build the channel type.
+  return Context.getChannelType(T);
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// Check whether the specified array size makes the array type a VLA.  If so,
 /// return true, if not, return the size of the array in SizeVal.
 static bool isArraySizeVLA(Sema &S, Expr *ArraySize, llvm::APSInt &SizeVal) {
@@ -2327,8 +2365,9 @@ bool Sema::CheckFunctionReturnType(QualType T, SourceLocation Loc) {
   // Methods cannot return interface types. All ObjC objects are
   // passed by reference.
   if (T->isObjCObjectType()) {
-    Diag(Loc, diag::err_object_cannot_be_passed_returned_by_value) << 0 << T;
-    return 0;
+    Diag(Loc, diag::err_object_cannot_be_passed_returned_by_value)
+        << 0 << T << FixItHint::CreateInsertion(Loc, "*");
+    return true;
   }
 
   return false;
@@ -2567,6 +2606,9 @@ static void inferARCWriteback(TypeProcessingState &state,
     case DeclaratorChunk::Array: // suppress if written (id[])?
     case DeclaratorChunk::Function:
     case DeclaratorChunk::MemberPointer:
+#if INTEL_CUSTOMIZATION
+    case DeclaratorChunk::Channel:
+#endif // INTEL_CUSTOMIZATION
     case DeclaratorChunk::Pipe:
       return;
     }
@@ -2710,6 +2752,9 @@ static void diagnoseRedundantReturnTypeQualifiers(Sema &S, QualType RetTy,
     case DeclaratorChunk::Reference:
     case DeclaratorChunk::Array:
     case DeclaratorChunk::MemberPointer:
+#if INTEL_CUSTOMIZATION
+    case DeclaratorChunk::Channel:
+#endif // INTEL_CUSTOMIZATION
     case DeclaratorChunk::Pipe:
       // FIXME: We can't currently provide an accurate source location and a
       // fix-it hint for these.
@@ -3335,6 +3380,9 @@ classifyPointerDeclarator(Sema &S, QualType type, Declarator &declarator,
       break;
 
     case DeclaratorChunk::Function:
+#if INTEL_CUSTOMIZATION
+    case DeclaratorChunk::Channel:
+#endif // INTEL_CUSTOMIZATION
     case DeclaratorChunk::Pipe:
       break;
 
@@ -3650,6 +3698,9 @@ static bool hasOuterPointerLikeChunk(const Declarator &D, unsigned endIndex) {
       return true;
     case DeclaratorChunk::Function:
     case DeclaratorChunk::BlockPointer:
+#if INTEL_CUSTOMIZATION
+    case DeclaratorChunk::Channel:
+#endif // INTEL_CUSTOMIZATION
     case DeclaratorChunk::Pipe:
       // These are invalid anyway, so just ignore.
       break;
@@ -3731,6 +3782,9 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
         case DeclaratorChunk::Array:
           DiagKind = 2;
           break;
+#if INTEL_CUSTOMIZATION
+        case DeclaratorChunk::Channel:
+#endif // INTEL_CUSTOMIZATION
         case DeclaratorChunk::Pipe:
           break;
         }
@@ -3776,16 +3830,8 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
     // inner pointers.
     complainAboutMissingNullability = CAMN_InnerPointers;
 
-    auto isDependentNonPointerType = [](QualType T) -> bool {
-      // Note: This is intended to be the same check as Type::canHaveNullability
-      // except with all of the ambiguous cases being treated as 'false' rather
-      // than 'true'.
-      return T->isDependentType() && !T->isAnyPointerType() &&
-        !T->isBlockPointerType() && !T->isMemberPointerType();
-    };
-
-    if (T->canHaveNullability() && !T->getNullability(S.Context) &&
-        !isDependentNonPointerType(T)) {
+    if (T->canHaveNullability(/*ResultIfUnknown*/false) &&
+        !T->getNullability(S.Context)) {
       // Note that we allow but don't require nullability on dependent types.
       ++NumPointersRemaining;
     }
@@ -3795,6 +3841,9 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
       switch (chunk.Kind) {
       case DeclaratorChunk::Array:
       case DeclaratorChunk::Function:
+#if INTEL_CUSTOMIZATION
+      case DeclaratorChunk::Channel:
+#endif // INTEL_CUSTOMIZATION
       case DeclaratorChunk::Pipe:
         break;
 
@@ -4003,7 +4052,8 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
   // If the type itself could have nullability but does not, infer pointer
   // nullability and perform consistency checking.
   if (S.CodeSynthesisContexts.empty()) {
-    if (T->canHaveNullability() && !T->getNullability(S.Context)) {
+    if (T->canHaveNullability(/*ResultIfUnknown*/false) &&
+        !T->getNullability(S.Context)) {
       if (isVaList(T)) {
         // Record that we've seen a pointer, but do nothing else.
         if (NumPointersRemaining > 0)
@@ -4645,6 +4695,13 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
       break;
     }
 
+#if INTEL_CUSTOMIZATION
+    case DeclaratorChunk::Channel: {
+      T = S.BuildChannelType(T, DeclType.Loc );
+      break;
+    }
+#endif // INTEL_CUSTOMIZATION
+
     case DeclaratorChunk::Pipe: {
       T = S.BuildReadPipeType(T, DeclType.Loc);
       processTypeAttrs(state, T, TAL_DeclSpec,
@@ -4953,6 +5010,9 @@ static void transferARCOwnership(TypeProcessingState &state,
 
     case DeclaratorChunk::Function:
     case DeclaratorChunk::MemberPointer:
+#if INTEL_CUSTOMIZATION
+    case DeclaratorChunk::Channel:
+#endif // INTEL_CUSTOMIZATION
     case DeclaratorChunk::Pipe:
       return;
     }
@@ -5266,6 +5326,16 @@ namespace {
       TL.getValueLoc().initializeFullCopy(TInfo->getTypeLoc());
     }
 
+#if INTEL_CUSTOMIZATION
+    void VisitChannelTypeLoc(ChannelTypeLoc TL) {
+      TL.setKWLoc(DS.getTypeSpecTypeLoc());
+
+      TypeSourceInfo *TInfo = 0;
+      Sema::GetTypeFromParser(DS.getRepAsType(), &TInfo);
+      TL.getValueLoc().initializeFullCopy(TInfo->getTypeLoc());
+    }
+#endif // INTEL_CUSTOMIZATION
+
     void VisitTypeLoc(TypeLoc TL) {
       // FIXME: add other typespec types and change this to an assert.
       TL.initialize(Context, DS.getTypeSpecTypeLoc());
@@ -5390,6 +5460,12 @@ namespace {
       assert(Chunk.Kind == DeclaratorChunk::Pipe);
       TL.setKWLoc(Chunk.Loc);
     }
+#if INTEL_CUSTOMIZATION
+    void VisitChannelTypeLoc(ChannelTypeLoc TL) {
+      assert(Chunk.Kind == DeclaratorChunk::Channel);
+      TL.setKWLoc(Chunk.Loc);
+    }
+#endif // INTEL_CUSTOMIZATION
 
     void VisitTypeLoc(TypeLoc TL) {
       llvm_unreachable("unsupported TypeLoc kind in declarator!");
@@ -5404,6 +5480,9 @@ static void fillAtomicQualLoc(AtomicTypeLoc ATL, const DeclaratorChunk &Chunk) {
   case DeclaratorChunk::Array:
   case DeclaratorChunk::Paren:
   case DeclaratorChunk::Pipe:
+#if INTEL_CUSTOMIZATION
+  case DeclaratorChunk::Channel:
+#endif // INTEL_CUSTOMIZATION
     llvm_unreachable("cannot be _Atomic qualified");
 
   case DeclaratorChunk::Pointer:
@@ -5589,14 +5668,15 @@ static void HandleAddressSpaceTypeAttribute(QualType &Type,
       addrSpace.setIsSigned(false);
     }
     llvm::APSInt max(addrSpace.getBitWidth());
-    max = Qualifiers::MaxAddressSpace - LangAS::Count;
+    max = Qualifiers::MaxAddressSpace - LangAS::FirstTargetAddressSpace;
     if (addrSpace > max) {
       S.Diag(Attr.getLoc(), diag::err_attribute_address_space_too_high)
         << (unsigned)max.getZExtValue() << ASArgExpr->getSourceRange();
       Attr.setInvalid();
       return;
     }
-    ASIdx = static_cast<unsigned>(addrSpace.getZExtValue()) + LangAS::Count;
+    ASIdx = static_cast<unsigned>(addrSpace.getZExtValue()) +
+            LangAS::FirstTargetAddressSpace;
   } else {
     // The keyword-based type attributes imply which address space to use.
     switch (Attr.getKind()) {
@@ -6336,6 +6416,9 @@ static bool distributeNullabilityTypeAttr(TypeProcessingState &state,
     // Don't walk through these.
     case DeclaratorChunk::Reference:
     case DeclaratorChunk::Pipe:
+#if INTEL_CUSTOMIZATION
+    case DeclaratorChunk::Channel:
+#endif // INTEL_CUSTOMIZATION
       return false;
     }
   }
@@ -6431,7 +6514,20 @@ static bool handleFunctionTypeAttr(TypeProcessingState &state,
     return true;
   }
 
-  bool IntelCompat = S.getLangOpts().IntelCompat; // INTEL
+  if (attr.getKind() == AttributeList::AT_AnyX86NoCallerSavedRegisters) {
+    if (S.CheckNoCallerSavedRegsAttr(attr))
+      return true;
+
+    // Delay if this is not a function type.
+    if (!unwrapped.isFunctionType())
+      return false;
+
+    FunctionType::ExtInfo EI =
+        unwrapped.get()->getExtInfo().withNoCallerSavedRegs(true);
+    type = unwrapped.wrap(S, S.Context.adjustFunctionType(unwrapped.get(), EI));
+    return true;
+  }
+
   if (attr.getKind() == AttributeList::AT_Regparm) {
     unsigned value;
     if (S.CheckRegparmAttr(attr, value))
@@ -6446,7 +6542,7 @@ static bool handleFunctionTypeAttr(TypeProcessingState &state,
     CallingConv CC = fn->getCallConv();
     if (CC == CC_X86FastCall) {
       S.Diag(attr.getLoc(), diag::err_attributes_are_not_compatible)
-        << FunctionType::getNameForCallConv(CC, IntelCompat) // INTEL
+        << FunctionType::getNameForCallConv(CC)
         << "regparm";
       attr.setInvalid();
       return true;
@@ -6476,8 +6572,8 @@ static bool handleFunctionTypeAttr(TypeProcessingState &state,
     const AttributedType *AT = S.getCallingConvAttributedType(type);
     if (AT && AT->getAttrKind() != CCAttrKind) {
       S.Diag(attr.getLoc(), diag::err_attributes_are_not_compatible)
-        << FunctionType::getNameForCallConv(CC, IntelCompat) // INTEL
-        << FunctionType::getNameForCallConv(CCOld, IntelCompat); // INTEL
+        << FunctionType::getNameForCallConv(CC)
+        << FunctionType::getNameForCallConv(CCOld);
       attr.setInvalid();
       return true;
     }
@@ -6504,8 +6600,7 @@ static bool handleFunctionTypeAttr(TypeProcessingState &state,
         IsInvalid = false;
       }
 
-      S.Diag(attr.getLoc(), DiagID)                             // INTEL
-          << FunctionType::getNameForCallConv(CC, IntelCompat); // INTEL
+      S.Diag(attr.getLoc(), DiagID) << FunctionType::getNameForCallConv(CC);
       if (IsInvalid) attr.setInvalid();
       return true;
     }
@@ -6514,9 +6609,7 @@ static bool handleFunctionTypeAttr(TypeProcessingState &state,
   // Also diagnose fastcall with regparm.
   if (CC == CC_X86FastCall && fn->getHasRegParm()) {
     S.Diag(attr.getLoc(), diag::err_attributes_are_not_compatible)
-        << "regparm"                                        // INTEL
-        << FunctionType::getNameForCallConv(CC_X86FastCall, // INTEL
-                                            IntelCompat);   // INTEL
+        << "regparm" << FunctionType::getNameForCallConv(CC_X86FastCall);
     attr.setInvalid();
     return true;
   }
@@ -6564,9 +6657,8 @@ void Sema::adjustMemberFunctionCC(QualType &T, bool IsStatic, bool IsCtorOrDtor,
     // Issue a warning on ignored calling convention -- except of __stdcall.
     // Again, this is what MS compiler does.
     if (CurCC != CC_X86StdCall)
-      Diag(Loc, diag::warn_cconv_structors)                 // INTEL
-          << FunctionType::getNameForCallConv(              // INTEL
-                 CurCC, Context.getLangOpts().IntelCompat); // INTEL
+      Diag(Loc, diag::warn_cconv_structors)
+          << FunctionType::getNameForCallConv(CurCC);
   // Default adjustment.
   } else {
     // Only adjust types with the default convention.  For example, on Windows

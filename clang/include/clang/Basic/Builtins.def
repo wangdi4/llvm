@@ -1687,6 +1687,9 @@ LANGBUILTIN(to_private, "v*v*", "tn", OCLC20_LANG)
 BUILTIN(__builtin_os_log_format_buffer_size, "zcC*.", "p:0:nut")
 BUILTIN(__builtin_os_log_format, "v*v*cC*.", "p:0:nt")
 
+// Builtins for XRay
+BUILTIN(__xray_customevent, "vcC*z", "")
+
 #if INTEL_CUSTOMIZATION
 BUILTIN(__builtin_va_arg_pack_len, "Si", "n")
 BUILTIN(__builtin_va_arg_pack, ".", "n")

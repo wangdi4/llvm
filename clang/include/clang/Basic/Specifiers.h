@@ -38,7 +38,10 @@ namespace clang {
   
   enum TypeSpecifiersPipe {
     TSP_unspecified,
-    TSP_pipe
+    TSP_pipe,
+#if INTEL_CUSTOMIZATION
+    TSP_channel,
+#endif // INTEL_CUSTOMIZATION
   };
 
   /// \brief Specifies the kind of type.
@@ -234,13 +237,6 @@ namespace clang {
   };
 
   /// \brief CallingConv - Specifies the calling convention that a function uses.
-#if INTEL_CUSTOMIZATION
-  /// Currently calling convention field of Type::ExtInfo class has size 4 bits.
-  /// All these bits are used already and there is no place for a new Intel
-  /// regcall calling convention. For that reason CC_X86RegCall has the same
-  /// value as CC_OpenCLKernel supposing that CC_OpenCLKernel calling convention
-  /// won't be used in Intel xmain compiler for C/C++.
-#endif // INTEL_CUSTOMIZATION
   enum CallingConv {
     CC_C,           // __attribute__((cdecl))
     CC_X86StdCall,  // __attribute__((stdcall))
@@ -272,7 +268,7 @@ namespace clang {
     case CC_X86Pascal:
     case CC_X86VectorCall:
     case CC_SpirFunction:
-    case CC_OpenCLKernel: 
+    case CC_OpenCLKernel:
     case CC_Swift:
       return false;
     default:

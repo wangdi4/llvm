@@ -27,8 +27,7 @@ namespace llvm {
 /// for a specific function. When used in the body of said function, the
 /// argument of course represents the value of the actual argument that the
 /// function was called with.
-class Argument : public Value {
-  virtual void anchor();
+class Argument final : public Value {
   Function *Parent;
   unsigned ArgNo;
 
@@ -115,8 +114,6 @@ public:
   void addAttr(Attribute Attr);
 
   /// Remove attributes from an argument.
-  void removeAttr(AttributeList AS);
-
   void removeAttr(Attribute::AttrKind Kind);
 
   /// Check if an argument has a given attribute.

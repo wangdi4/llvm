@@ -51,8 +51,7 @@ using namespace CodeGen;
 
 /***/
 
-unsigned CodeGenTypes::ClangCallConvToLLVMCallConv(ASTContext &C,    // INTEL
-						   CallingConv CC) { // INTEL
+unsigned CodeGenTypes::ClangCallConvToLLVMCallConv(CallingConv CC) {
   switch (CC) {
   default: return llvm::CallingConv::C;
   case CC_X86StdCall: return llvm::CallingConv::X86_StdCall;
@@ -69,10 +68,7 @@ unsigned CodeGenTypes::ClangCallConvToLLVMCallConv(ASTContext &C,    // INTEL
   // TODO: Add support for __vectorcall to LLVM.
   case CC_X86VectorCall: return llvm::CallingConv::X86_VectorCall;
   case CC_SpirFunction: return llvm::CallingConv::SPIR_FUNC;
-  case CC_OpenCLKernel:                      // INTEL
-    if (C.getLangOpts().IntelCompat)         // INTEL
-      return llvm::CallingConv::X86_RegCall; // INTEL
-    return CGM.getTargetCodeGenInfo().getOpenCLKernelCallingConv(); // INTEL
+  case CC_OpenCLKernel: return CGM.getTargetCodeGenInfo().getOpenCLKernelCallingConv();
   case CC_PreserveMost: return llvm::CallingConv::PreserveMost;
   case CC_PreserveAll: return llvm::CallingConv::PreserveAll;
   case CC_Swift: return llvm::CallingConv::Swift;
@@ -210,10 +206,6 @@ static CallingConv getCallingConventionForDecl(const Decl *D, bool IsWindows) {
 
   if (D->hasAttr<FastCallAttr>())
     return CC_X86FastCall;
-#if INTEL_CUSTOMIZATION
-  if (D->hasAttr<RegCallAttr>())
-    return CC_X86RegCall;
-#endif // INTEL_CUSTOMIZATION
   if (D->hasAttr<RegCallAttr>())
     return CC_X86RegCall;
 
@@ -746,7 +738,7 @@ CodeGenTypes::arrangeLLVMFunctionInfo(CanQualType resultType,
   if (FI)
     return *FI;
 
-  unsigned CC = ClangCallConvToLLVMCallConv(Context, info.getCC()); // INTEL
+  unsigned CC = ClangCallConvToLLVMCallConv(info.getCC());
 
   // Construct the function info.  We co-allocate the ArgInfos.
   FI = CGFunctionInfo::create(CC, instanceMethod, chainCall, info,
@@ -803,6 +795,7 @@ CGFunctionInfo *CGFunctionInfo::create(unsigned llvmCC,
   FI->ChainCall = chainCall;
   FI->NoReturn = info.getNoReturn();
   FI->ReturnsRetained = info.getProducesResult();
+  FI->NoCallerSavedRegs = info.getNoCallerSavedRegs();
   FI->Required = required;
   FI->HasRegParm = info.getHasRegParm();
   FI->RegParm = info.getRegParm();
@@ -1800,9 +1793,7 @@ void CodeGenModule::AddDefaultFnAttrs(llvm::Function &F) {
   ConstructDefaultFnAttrList(F.getName(),
                              F.hasFnAttribute(llvm::Attribute::OptimizeNone),
                              /* AttrOnCallsite = */ false, FuncAttrs);
-  llvm::AttributeList AS = llvm::AttributeList::get(
-      getLLVMContext(), llvm::AttributeList::FunctionIndex, FuncAttrs);
-  F.addAttributes(llvm::AttributeList::FunctionIndex, AS);
+  F.addAttributes(llvm::AttributeList::FunctionIndex, FuncAttrs);
 }
 
 void CodeGenModule::ConstructAttributeList(
@@ -1861,6 +1852,8 @@ void CodeGenModule::ConstructAttributeList(
       RetAttrs.addAttribute(llvm::Attribute::NoAlias);
     if (TargetDecl->hasAttr<ReturnsNonNullAttr>())
       RetAttrs.addAttribute(llvm::Attribute::NonNull);
+    if (TargetDecl->hasAttr<AnyX86NoCallerSavedRegistersAttr>())
+      FuncAttrs.addAttribute("no_caller_saved_registers");
 
     HasOptnone = TargetDecl->hasAttr<OptimizeNoneAttr>();
     if (auto *AllocSize = TargetDecl->getAttr<AllocSizeAttr>()) {
@@ -3530,7 +3523,7 @@ void CodeGenFunction::EmitCallArg(CallArgList &args, const Expr *E,
   assert(type->isReferenceType() == E->isGLValue() &&
          "reference binding to unmaterialized r-value!");
 
-  if (E->isGLValue()) { // INTEL
+  if (E->isGLValue()) {
     assert(E->getObjectKind() == OK_Ordinary);
     return args.add(EmitReferenceBindingToExpr(E), type);
   }

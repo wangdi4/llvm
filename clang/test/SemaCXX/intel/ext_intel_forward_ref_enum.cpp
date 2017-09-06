@@ -46,10 +46,10 @@ public:
 
 #elif TEST3
 
-enum E1; // expected-no-diagnostics
+enum E1; // expected-warning{{forward references to 'enum' types are a Microsoft extension}}
 
 void foo() {
-  enum E2; // expected-no-diagnostics
+  enum E2; // expected-warning{{forward references to 'enum' types are a Microsoft extension}}
 }
 
 class C1 {
@@ -58,7 +58,7 @@ public:
     n = TWO;
     bar = 1;
   }
-  enum E3; // expected-no-diagnostics
+  enum E3; // expected-warning{{forward references to 'enum' types are a Microsoft extension}}
   int bar;
   enum E3 { ONE, TWO, THREE };
   E3 n;

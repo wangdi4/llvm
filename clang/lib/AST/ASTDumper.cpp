@@ -419,6 +419,11 @@ namespace  {
     void VisitPipeType(const PipeType *T) {
       dumpTypeAsChild(T->getElementType());
     }
+#if INTEL_CUSTOMIZATION
+    void VisitChannelType(const ChannelType *T) {
+      dumpTypeAsChild(T->getElementType());
+    }
+#endif // INTEL_CUSTOMIZATION
     void VisitAdjustedType(const AdjustedType *T) {
       dumpTypeAsChild(T->getOriginalType());
     }
@@ -1052,10 +1057,10 @@ void ASTDumper::dumpDecl(const Decl *D) {
     dumpSourceRange(D->getSourceRange());
     OS << ' ';
     dumpLocation(D->getLocation());
-    if (Module *M = D->getImportedOwningModule())
+    if (D->isFromASTFile())
+      OS << " imported";
+    if (Module *M = D->getOwningModule())
       OS << " in " << M->getFullModuleName();
-    else if (Module *M = D->getLocalOwningModule())
-      OS << " in (local) " << M->getFullModuleName();
     if (auto *ND = dyn_cast<NamedDecl>(D))
       for (Module *M : D->getASTContext().getModulesWithMergedDefinition(
                const_cast<NamedDecl *>(ND)))

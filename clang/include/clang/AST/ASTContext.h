@@ -174,6 +174,9 @@ class ASTContext : public RefCountedBase<ASTContext> {
   mutable llvm::FoldingSet<AtomicType> AtomicTypes;
   llvm::FoldingSet<AttributedType> AttributedTypes;
   mutable llvm::FoldingSet<PipeType> PipeTypes;
+#if INTEL_CUSTOMIZATION
+  mutable llvm::FoldingSet<ChannelType> ChannelTypes;
+#endif // INTEL_CUSTOMIZATION
 
   mutable llvm::FoldingSet<QualifiedTemplateName> QualifiedTemplateNames;
   mutable llvm::FoldingSet<DependentTemplateName> DependentTemplateNames;
@@ -935,7 +938,7 @@ public:
 
   /// \brief Get the additional modules in which the definition \p Def has
   /// been merged.
-  ArrayRef<Module*> getModulesWithMergedDefinition(NamedDecl *Def) {
+  ArrayRef<Module*> getModulesWithMergedDefinition(const NamedDecl *Def) {
     auto MergedIt = MergedDefModules.find(Def);
     if (MergedIt == MergedDefModules.end())
       return None;
@@ -1178,6 +1181,10 @@ public:
   QualType getReadPipeType(QualType T) const;
   /// \brief Return a write_only pipe type for the specified type.
   QualType getWritePipeType(QualType T) const;
+
+#if INTEL_CUSTOMIZATION
+  QualType getChannelType(QualType T) const;
+#endif // INTEL_CUSTOMIZATION
 
   /// Gets the struct used to keep track of the extended descriptor for
   /// pointer to blocks.
@@ -2347,8 +2354,7 @@ public:
   uint64_t getTargetNullPointerValue(QualType QT) const;
 
   bool addressSpaceMapManglingFor(unsigned AS) const {
-    return AddrSpaceMapMangling || 
-           AS >= LangAS::Count;
+    return AddrSpaceMapMangling || AS >= LangAS::FirstTargetAddressSpace;
   }
 
 private:

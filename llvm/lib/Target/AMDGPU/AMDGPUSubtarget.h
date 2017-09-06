@@ -145,6 +145,9 @@ protected:
   bool HasSDWA;
   bool HasDPP;
   bool FlatAddressSpace;
+  bool FlatInstOffsets;
+  bool FlatGlobalInsts;
+  bool FlatScratchInsts;
   bool R600ALUInst;
   bool CaymanISA;
   bool CFALUBug;
@@ -286,6 +289,10 @@ public:
     return getGeneration() >= GFX9;
   }
 
+  bool hasMin3Max3_16() const {
+    return getGeneration() >= GFX9;
+  }
+
   bool hasCARRY() const {
     return (getGeneration() >= EVERGREEN);
   }
@@ -378,6 +385,18 @@ public:
 
   bool hasFlatAddressSpace() const {
     return FlatAddressSpace;
+  }
+
+  bool hasFlatInstOffsets() const {
+    return FlatInstOffsets;
+  }
+
+  bool hasFlatGlobalInsts() const {
+    return FlatGlobalInsts;
+  }
+
+  bool hasFlatScratchInsts() const {
+    return FlatScratchInsts;
   }
 
   bool isMesaKernel(const MachineFunction &MF) const {
