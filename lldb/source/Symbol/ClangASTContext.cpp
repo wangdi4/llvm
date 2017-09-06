@@ -3938,6 +3938,11 @@ ClangASTContext::GetTypeInfo(lldb::opaque_compiler_type_t type,
 
   const clang::Type::TypeClass type_class = qual_type->getTypeClass();
   switch (type_class) {
+  case clang::Type::Attributed:
+    return GetTypeInfo(
+        qual_type->getAs<clang::AttributedType>()
+            ->getModifiedType().getAsOpaquePtr(),
+        pointee_or_element_clang_type);
   case clang::Type::Builtin: {
     const clang::BuiltinType *builtin_type = llvm::dyn_cast<clang::BuiltinType>(
         qual_type->getCanonicalTypeInternal());
@@ -4493,7 +4498,7 @@ ClangASTContext::GetNumMemberFunctions(lldb::opaque_compiler_type_t type) {
 
     case clang::Type::ObjCObjectPointer: {
       const clang::ObjCObjectPointerType *objc_class_type =
-          qual_type->getAsObjCInterfacePointerType();
+          qual_type->getAs<clang::ObjCObjectPointerType>();
       const clang::ObjCInterfaceType *objc_interface_type =
           objc_class_type->getInterfaceType();
       if (objc_interface_type &&
@@ -4602,7 +4607,7 @@ ClangASTContext::GetMemberFunctionAtIndex(lldb::opaque_compiler_type_t type,
 
     case clang::Type::ObjCObjectPointer: {
       const clang::ObjCObjectPointerType *objc_class_type =
-          qual_type->getAsObjCInterfacePointerType();
+          qual_type->getAs<clang::ObjCObjectPointerType>();
       const clang::ObjCInterfaceType *objc_interface_type =
           objc_class_type->getInterfaceType();
       if (objc_interface_type &&
@@ -5671,7 +5676,7 @@ uint32_t ClangASTContext::GetNumFields(lldb::opaque_compiler_type_t type) {
 
   case clang::Type::ObjCObjectPointer: {
     const clang::ObjCObjectPointerType *objc_class_type =
-        qual_type->getAsObjCInterfacePointerType();
+        qual_type->getAs<clang::ObjCObjectPointerType>();
     const clang::ObjCInterfaceType *objc_interface_type =
         objc_class_type->getInterfaceType();
     if (objc_interface_type &&
@@ -5819,7 +5824,7 @@ CompilerType ClangASTContext::GetFieldAtIndex(lldb::opaque_compiler_type_t type,
 
   case clang::Type::ObjCObjectPointer: {
     const clang::ObjCObjectPointerType *objc_class_type =
-        qual_type->getAsObjCInterfacePointerType();
+        qual_type->getAs<clang::ObjCObjectPointerType>();
     const clang::ObjCInterfaceType *objc_interface_type =
         objc_class_type->getInterfaceType();
     if (objc_interface_type &&

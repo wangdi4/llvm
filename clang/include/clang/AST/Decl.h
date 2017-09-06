@@ -301,16 +301,6 @@ public:
   using Decl::isModulePrivate;
   using Decl::setModulePrivate;
 
-  /// \brief Determine whether this declaration is hidden from name lookup.
-  bool isHidden() const { return Hidden; }
-
-  /// \brief Set whether this declaration is hidden from name lookup.
-  void setHidden(bool Hide) {
-    assert((!Hide || isFromASTFile() || hasLocalOwningModuleStorage()) &&
-           "declaration with no owning module can't be hidden");
-    Hidden = Hide;
-  }
-
   /// \brief Determine whether this declaration is a C++ class member.
   bool isCXXClassMember() const {
     const DeclContext *DC = getDeclContext();
@@ -861,6 +851,7 @@ protected:
 
   class NonParmVarDeclBitfields {
     friend class VarDecl;
+    friend class ImplicitParamDecl;
     friend class ASTDeclReader;
 
     unsigned : NumVarDeclBits;
@@ -904,6 +895,10 @@ protected:
     /// declared in the same block scope. This controls whether we should merge
     /// the type of this declaration with its previous declaration.
     unsigned PreviousDeclInSameBlockScope : 1;
+
+    /// Defines kind of the ImplicitParamDecl: 'this', 'self', 'vtt', '_cmd' or
+    /// something else.
+    unsigned ImplicitParamKind : 3;
   };
 
   union {
@@ -1386,20 +1381,50 @@ public:
 
 class ImplicitParamDecl : public VarDecl {
   void anchor() override;
+
 public:
+  /// Defines the kind of the implicit parameter: is this an implicit parameter
+  /// with pointer to 'this', 'self', '_cmd', virtual table pointers, captured
+  /// context or something else.
+  enum ImplicitParamKind : unsigned {
+    ObjCSelf,        /// Parameter for Objective-C 'self' argument
+    ObjCCmd,         /// Parameter for Objective-C '_cmd' argument
+    CXXThis,         /// Parameter for C++ 'this' argument
+    CXXVTT,          /// Parameter for C++ virtual table pointers
+    CapturedContext, /// Parameter for captured context
+    Other,           /// Other implicit parameter
+  };
+
+  /// Create implicit parameter.
   static ImplicitParamDecl *Create(ASTContext &C, DeclContext *DC,
                                    SourceLocation IdLoc, IdentifierInfo *Id,
-                                   QualType T);
+                                   QualType T, ImplicitParamKind ParamKind);
+  static ImplicitParamDecl *Create(ASTContext &C, QualType T,
+                                   ImplicitParamKind ParamKind);
 
   static ImplicitParamDecl *CreateDeserialized(ASTContext &C, unsigned ID);
 
   ImplicitParamDecl(ASTContext &C, DeclContext *DC, SourceLocation IdLoc,
-                    IdentifierInfo *Id, QualType Type)
-    : VarDecl(ImplicitParam, C, DC, IdLoc, IdLoc, Id, Type,
-              /*tinfo*/ nullptr, SC_None) {
+                    IdentifierInfo *Id, QualType Type,
+                    ImplicitParamKind ParamKind)
+      : VarDecl(ImplicitParam, C, DC, IdLoc, IdLoc, Id, Type,
+                /*TInfo=*/nullptr, SC_None) {
+    NonParmVarDeclBits.ImplicitParamKind = ParamKind;
     setImplicit();
   }
 
+  ImplicitParamDecl(ASTContext &C, QualType Type, ImplicitParamKind ParamKind)
+      : VarDecl(ImplicitParam, C, /*DC=*/nullptr, SourceLocation(),
+                SourceLocation(), /*Id=*/nullptr, Type,
+                /*TInfo=*/nullptr, SC_None) {
+    NonParmVarDeclBits.ImplicitParamKind = ParamKind;
+    setImplicit();
+  }
+
+  /// Returns the implicit parameter kind.
+  ImplicitParamKind getParameterKind() const {
+    return static_cast<ImplicitParamKind>(NonParmVarDeclBits.ImplicitParamKind);
+  }
   // Implement isa/cast/dyncast/etc.
   static bool classof(const Decl *D) { return classofKind(D->getKind()); }
   static bool classofKind(Kind K) { return K == ImplicitParam; }
@@ -1839,14 +1864,15 @@ public:
     return getBody(Definition);
   }
 
-  /// isThisDeclarationADefinition - Returns whether this specific
-  /// declaration of the function is also a definition. This does not
-  /// determine whether the function has been defined (e.g., in a
-  /// previous definition); for that information, use isDefined. Note
-  /// that this returns false for a defaulted function unless that function
-  /// has been implicitly defined (possibly as deleted).
+  /// Returns whether this specific declaration of the function is also a
+  /// definition that does not contain uninstantiated body.
+  ///
+  /// This does not determine whether the function has been defined (e.g., in a
+  /// previous definition); for that information, use isDefined.
+  ///
   bool isThisDeclarationADefinition() const {
-    return IsDeleted || Body || IsLateTemplateParsed;
+    return IsDeleted || IsDefaulted || Body || IsLateTemplateParsed ||
+      hasDefiningAttr();
   }
 
   /// doesThisDeclarationHaveABody - Returns whether this specific
