@@ -30,5 +30,7 @@ protected:
     void QueryInvalidParamNameFromCQueue_Negative();
 
     void ZeroLocalSize();
+
+    void CPUSignatureDefine();
 };
 #endif /*__CL_GENERAL__*/
