@@ -4907,8 +4907,10 @@ SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I, unsigned Intrinsic) {
 
     uint64_t ElementSizeConstant =
         cast<ConstantInt>(I.getArgOperand(3))->getZExtValue();
+#if INTEL_CUSTOMIZATION  // CSA_XMAIN
     RTLIB::Libcall LibraryCall =
-        RTLIB::getMEMCPY_ELEMENT_ATOMIC(ElementSizeConstant);
+        RTLIB::getMEMCPY_ELEMENT_UNORDERED_ATOMIC(ElementSizeConstant);
+#endif
     if (LibraryCall == RTLIB::UNKNOWN_LIBCALL)
       report_fatal_error("Unsupported element size");
 
@@ -6388,6 +6390,26 @@ void SelectionDAGBuilder::visitCall(const CallInst &I) {
         if (visitUnaryFloatCall(I, ISD::FCOS))
           return;
         break;
+#if INTEL_CUSTOMIZATION
+      case LibFunc_tan:
+      case LibFunc_tanf:
+      case LibFunc_tanl:
+        if (visitUnaryFloatCall(I, ISD::FTAN))
+          return;
+        break;
+      case LibFunc_atan:
+      case LibFunc_atanf:
+      case LibFunc_atanl:
+        if (visitUnaryFloatCall(I, ISD::FATAN))
+          return;
+        break;
+      case LibFunc_atan2:
+      case LibFunc_atan2f:
+      case LibFunc_atan2l:
+        if (visitBinaryFloatCall(I, ISD::FATAN2))
+          return;
+        break;
+#endif
       case LibFunc_sqrt:
       case LibFunc_sqrtf:
       case LibFunc_sqrtl:
@@ -6433,6 +6455,7 @@ void SelectionDAGBuilder::visitCall(const CallInst &I) {
         if (visitUnaryFloatCall(I, ISD::FTRUNC))
           return;
         break;
+#if INTEL_CUSTOMIZATION
       case LibFunc_log2:
       case LibFunc_log2f:
       case LibFunc_log2l:
@@ -6445,6 +6468,19 @@ void SelectionDAGBuilder::visitCall(const CallInst &I) {
         if (visitUnaryFloatCall(I, ISD::FEXP2))
           return;
         break;
+      case LibFunc_log:
+      case LibFunc_logf:
+      case LibFunc_logl:
+        if (visitUnaryFloatCall(I, ISD::FLOG))
+          return;
+        break;
+      case LibFunc_exp:
+      case LibFunc_expf:
+      case LibFunc_expl:
+        if (visitUnaryFloatCall(I, ISD::FEXP))
+          return;
+        break;
+#endif
       case LibFunc_memcmp:
         if (visitMemCmpCall(I))
           return;

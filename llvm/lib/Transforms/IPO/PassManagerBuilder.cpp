@@ -53,6 +53,8 @@
 #include "llvm/Transforms/Utils/Intel_VecClone.h" 
 #include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h"
 #include "llvm/Transforms/Intel_VPO/Paropt/VPOParopt.h"
+
+#include "llvm/Bitcode/CSASaveRawBC.h"
 #endif //INTEL_CUSTOMIZATION
 
 using namespace llvm;
@@ -293,6 +295,14 @@ void PassManagerBuilder::addExtensionsToPM(ExtensionPointTy ETy,
 
 void PassManagerBuilder::addInitialAliasAnalysisPasses(
     legacy::PassManagerBase &PM) const {
+
+#if INTEL_CUSTOMIZATION
+  // Add the CSASaveRawBC pass which will preserve the initial IR
+  // for a module. This must be added early so it gets IR that's
+  // equivalent to the Bitcode emmitted by the -flto option
+  PM.add(createCSASaveRawBCPass());
+#endif
+
   switch (UseCFLAA) {
   case CFLAAType::Steensgaard:
     PM.add(createCFLSteensAAWrapperPass());

@@ -898,3 +898,6 @@ include "llvm/IR/IntrinsicsBPF.td"
 include "llvm/IR/IntrinsicsSystemZ.td"
 include "llvm/IR/IntrinsicsWebAssembly.td"
 include "llvm/IR/IntrinsicsNios2.td"
+//if INTEL_CUSTOMIXATON
+include "llvm/IR/IntrinsicsCSA.td"
+//endif

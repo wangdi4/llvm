@@ -308,8 +308,10 @@ set(LLVM_ALL_TARGETS
   AMDGPU
   ARM
   BPF
+  CBackend
   Hexagon
   Lanai
+  CSA
   Mips
   MSP430
   Nios2

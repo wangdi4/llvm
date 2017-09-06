@@ -3,7 +3,7 @@ add_llvm_library(LLVMBitWriter
   BitcodeWriter.cpp
   BitcodeWriterPass.cpp
   ValueEnumerator.cpp
-
+  CSASaveRawBC.cpp
   DEPENDS
   intrinsics_gen
   )

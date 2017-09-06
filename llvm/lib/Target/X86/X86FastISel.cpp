@@ -2791,6 +2791,7 @@ bool X86FastISel::fastLowerIntrinsicCall(const IntrinsicInst *II) {
     if (MSI->getDestAddressSpace() > 255)
       return false;
 
+#if 0  // CSA_XMAIN RAVI FIX ME
 #if INTEL_CUSTOMIZATION
     // Determine the function name to use based upon whether or not
     // the corresponding standard library function is available in the
@@ -2804,6 +2805,9 @@ bool X86FastISel::fastLowerIntrinsicCall(const IntrinsicInst *II) {
     const char *libFn = TLI.getLibcallName(libcall);
     return lowerCallTo(II, libFn, II->getNumArgOperands() - 2);
 #else
+    return lowerCallTo(II, "memset", II->getNumArgOperands() - 2);
+#endif // INTEL_CUSTOMIZATION
+else
     return lowerCallTo(II, "memset", II->getNumArgOperands() - 2);
 #endif // INTEL_CUSTOMIZATION
   }

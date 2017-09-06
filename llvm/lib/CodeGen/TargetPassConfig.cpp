@@ -37,6 +37,10 @@
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/SymbolRewriter.h"
 
+#if INTEL_CUSTOMIZATION
+#include "llvm/Bitcode/CSASaveRawBC.h"
+#endif
+
 using namespace llvm;
 
 static cl::opt<bool> DisablePostRASched("disable-post-ra", cl::Hidden,
@@ -436,6 +440,14 @@ void TargetPassConfig::addVerifyPass(const std::string &Banner) {
 /// Add common target configurable passes that perform LLVM IR to IR transforms
 /// following machine independent optimization.
 void TargetPassConfig::addIRPasses() {
+
+#if INTEL_CUSTOMIZATION
+  // Add the CSASaveRawBC pass which will preserve the initial IR
+  // for a module. This must be added early so it gets IR that's
+  // equivalent to the Bitcode emmitted by the -flto option
+  addPass(createCSASaveRawBCPass());
+#endif
+
   switch (UseCFLAA) {
   case CFLAAType::Steensgaard:
     addPass(createCFLSteensAAWrapperPass());
@@ -692,7 +704,11 @@ void TargetPassConfig::addMachinePasses() {
 /// Add passes that optimize machine instructions in SSA form.
 void TargetPassConfig::addMachineSSAOptimization() {
   // Pre-ra tail duplication.
-  addPass(&EarlyTailDuplicateID);
+#if INTEL_CUSTOMIZATION
+  //CSA EDIT: TailDuplication destroies natural loop form, don't do it for CSA
+  if (getTM<TargetMachine>().getTargetTriple().getArchName() != "csa")
+#endif
+    addPass(&EarlyTailDuplicateID);
 
   // Optimize PHIs before DCE: removing dead PHI cycles may make more
   // instructions dead.

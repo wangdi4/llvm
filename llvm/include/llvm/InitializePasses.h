@@ -258,6 +258,10 @@ void initializeMachineDominatorTreePass(PassRegistry&);
 void initializeMachineFunctionPrinterPassPass(PassRegistry&);
 void initializeMachineLICMPass(PassRegistry&);
 void initializeMachineLoopInfoPass(PassRegistry&);
+#if INTEL_CUSTOMIZATION
+void initializeControlDependenceGraphPass(PassRegistry&); //CSA EDIT
+void initializeCSACvtCFDFPassPass(PassRegistry&);         //CSA EDIT
+#endif
 void initializeMachineModuleInfoPass(PassRegistry&);
 void initializeMachineOptimizationRemarkEmitterPassPass(PassRegistry&);
 void initializeMachineOutlinerPass(PassRegistry&);

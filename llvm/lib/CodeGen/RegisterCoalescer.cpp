@@ -286,6 +286,18 @@ static bool isMoveInstr(const TargetRegisterInfo &tri, const MachineInstr *MI,
     Dst = MI->getOperand(0).getReg();
     DstSub = MI->getOperand(0).getSubReg();
     Src = MI->getOperand(1).getReg();
+#if INTEL_CUSTOMIZATION
+		//CSA EDIT: handle copy1 %ci1_xx, %ci64_yy, generated from, %vreg1 = AND %verg2, 1
+		if (!TargetRegisterInfo::isPhysicalRegister(Dst) && !TargetRegisterInfo::isPhysicalRegister(Src)) {
+			const MachineRegisterInfo &MRI = MI->getParent()->getParent()->getRegInfo();
+			const TargetRegisterClass *SrcRC = MRI.getRegClass(Src);
+			const TargetRegisterClass *DstRC = MRI.getRegClass(Dst);
+			if (SrcRC != DstRC && tri.getRegSizeInBits(*DstRC) == 1) {
+				return false;
+			}
+		}
+
+#endif
     SrcSub = MI->getOperand(1).getSubReg();
   } else if (MI->isSubregToReg()) {
     Dst = MI->getOperand(0).getReg();

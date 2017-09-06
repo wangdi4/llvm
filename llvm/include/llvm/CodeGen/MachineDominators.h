@@ -285,6 +285,20 @@ template <> struct GraphTraits<MachineDominatorTree*>
   static NodeRef getEntryNode(MachineDominatorTree *DT) {
     return DT->getRootNode();
   }
+#if INTEL_CUSTOMIZATION
+  //CSA EDIT: add iterator to dump the dot file
+  typedef df_iterator<MachineDomTreeNode*> nodes_iterator;
+  static nodes_iterator nodes_begin(MachineDominatorTree *N) {
+    if (getEntryNode(N))
+      return df_begin(getEntryNode(N));
+    else
+      return df_end(getEntryNode(N));
+  }
+
+  static nodes_iterator nodes_end(MachineDominatorTree *N) {
+    return df_end(getEntryNode(N));
+  }
+#endif // INTEL_CUSTOMIZATION
 };
 
 }

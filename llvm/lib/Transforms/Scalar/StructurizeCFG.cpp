@@ -16,6 +16,9 @@
 #include "llvm/Analysis/RegionInfo.h"
 #include "llvm/Analysis/RegionIterator.h"
 #include "llvm/Analysis/RegionPass.h"
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/PostDominators.h"
+#endif
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/Support/Debug.h"
@@ -154,6 +157,9 @@ class StructurizeCFG : public RegionPass {
   Region *ParentRegion;
 
   DominatorTree *DT;
+#if INTEL_CUSTOMIZATION
+  PostDominatorTree *PDT;
+#endif
   LoopInfo *LI;
 
   SmallVector<RegionNode *, 8> Order;
@@ -216,6 +222,12 @@ class StructurizeCFG : public RegionPass {
 
   void rebuildSSA();
 
+#if INTEL_CUSTOMIZATION
+  bool CSANeedRestruct();
+
+  bool MultiExitingsLoop(Loop*);
+#endif
+
 public:
   static char ID;
 
@@ -235,9 +247,15 @@ public:
       AU.addRequired<DivergenceAnalysis>();
     AU.addRequiredID(LowerSwitchID);
     AU.addRequired<DominatorTreeWrapperPass>();
+#if INTEL_CUSTOMIZATION
+    AU.addRequired<PostDominatorTreeWrapperPass>();
+#endif
     AU.addRequired<LoopInfoWrapperPass>();
 
     AU.addPreserved<DominatorTreeWrapperPass>();
+#if INTEL_CUSTOMIZATION
+    AU.addPreserved<PostDominatorTreeWrapperPass>();
+#endif
     RegionPass::getAnalysisUsage(AU);
   }
 };
@@ -908,8 +926,20 @@ bool StructurizeCFG::runOnRegion(Region *R, RGPassManager &RGM) {
   ParentRegion = R;
 
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+#if INTEL_CUSTOMIZATION
+  PDT = &getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
+#endif
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-
+#if INTEL_CUSTOMIZATION
+  //CSA EDIT:
+  {
+    Module *M = Func->getParent();
+    if (0 == M->getTargetTriple().compare("csa")) {
+      if (!CSANeedRestruct())
+        return false;
+    }
+  }
+#endif 
   orderNodes();
   collectInfos();
   createFlow();
@@ -932,6 +962,47 @@ bool StructurizeCFG::runOnRegion(Region *R, RGPassManager &RGM) {
   return true;
 }
 
+#if INTEL_CUSTOMIZATION
+bool StructurizeCFG::CSANeedRestruct() {
+  for (Loop::iterator iloop = LI->begin(), LE = LI->end(); iloop != LE; ++iloop) {
+    if (MultiExitingsLoop(*iloop)) {
+      return true;
+    }
+  }
+  typedef po_iterator<DomTreeNode *> po_dt_iterator;
+  DomTreeNode *root = DT->getRootNode();
+  for (po_dt_iterator pdt = po_dt_iterator::begin(root), END = po_dt_iterator::end(root); pdt != END; ++pdt) {
+    DomTreeNode *bn = *pdt;
+    BasicBlock *bb = bn->getBlock();
+    unsigned count = 0;
+    for (pred_iterator PI = pred_begin(bb), E = pred_end(bb); PI != E; ++PI)
+      ++count;
+    if (count > 1) {
+      DomTreeNode *pn = bn->getIDom();
+      if (pn->getNumChildren() > 1) {
+        std::vector<DomTreeNode*> cnv = pn->getChildren();
+        for (unsigned i = 0; i < cnv.size(); i++) {
+          DomTreeNode *cn = cnv[i];
+          if (bn != cn && !PDT->dominates(bn, cn)) {
+            return true;
+          }
+        }
+      }
+    }
+  }
+  return false;
+}
+
+bool StructurizeCFG::MultiExitingsLoop(Loop *L) {
+  for (Loop::iterator iloop = L->begin(), LE = L->end(); iloop != LE; ++iloop) {
+    if (MultiExitingsLoop(*iloop))
+      return true;
+  }
+  return (L->getExitingBlock() == nullptr);
+}
+#endif
+
 Pass *llvm::createStructurizeCFGPass(bool SkipUniformRegions) {
   return new StructurizeCFG(SkipUniformRegions);
 }
+

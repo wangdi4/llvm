@@ -256,6 +256,11 @@ public:
     case LibFunc_fabs:         case LibFunc_fabsf:      case LibFunc_fabsl:
     case LibFunc_sin:          case LibFunc_sinf:       case LibFunc_sinl:
     case LibFunc_cos:          case LibFunc_cosf:       case LibFunc_cosl:
+#if INTEL_CUSTOMIZATION
+    case LibFunc_tan:          case LibFunc_tanf:       case LibFunc_tanl:
+    case LibFunc_atan:         case LibFunc_atanf:      case LibFunc_atanl:
+    case LibFunc_atan2:        case LibFunc_atan2f:     case LibFunc_atan2l:
+#endif
     case LibFunc_sqrt:         case LibFunc_sqrtf:      case LibFunc_sqrtl:
     case LibFunc_sqrt_finite:  case LibFunc_sqrtf_finite:
                                                    case LibFunc_sqrtl_finite:
@@ -269,6 +274,10 @@ public:
     case LibFunc_trunc:        case LibFunc_truncf:     case LibFunc_truncl:
     case LibFunc_log2:         case LibFunc_log2f:      case LibFunc_log2l:
     case LibFunc_exp2:         case LibFunc_exp2f:      case LibFunc_exp2l:
+#if INTEL_CUSTOMIZATION
+    case LibFunc_log:          case LibFunc_logf:       case LibFunc_logl:
+    case LibFunc_exp:          case LibFunc_expf:       case LibFunc_expl:
+#endif
     case LibFunc_memcmp:       case LibFunc_strcmp:     case LibFunc_strcpy:
     case LibFunc_stpcpy:       case LibFunc_strlen:     case LibFunc_strnlen:
     case LibFunc_memchr:       case LibFunc_mempcpy:

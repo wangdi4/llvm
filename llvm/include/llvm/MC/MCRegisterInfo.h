@@ -81,7 +81,12 @@ public:
   }
 
   /// Return the size of the physical register in bytes.
-  unsigned getPhysRegSize() const { return PhysRegSize; }
+#if INTEL_CUSTOMIZATION
+  // CSA edit: For register classes that appear to have 0 size, return 1.
+  // This applies to 1 bit register/channel classes, for example.
+  // Ideally, this might be fixed elsewhere - e.g. computing the size of type i1.
+  unsigned getPhysRegSize() const { return (PhysRegSize > 0) ? PhysRegSize : 1; }
+#endif
   /// Temporary function to allow out-of-tree targets to switch.
   unsigned getSize() const { return getPhysRegSize(); }
 

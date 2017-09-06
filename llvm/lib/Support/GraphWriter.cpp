@@ -189,6 +189,35 @@ bool llvm::DisplayGraph(StringRef FilenameRef, bool wait,
     return ExecGraphViewer(ViewerPath, args, Filename, wait, ErrMsg);
   }
 
+#if INTEL_CUSTOMIZATION
+  // NOTE: this is a CSA addition*.
+  // X11 directly via Graphviz. (No "viewer" necessary.) This probably can work
+  // on Windows with Cygwin/X, even if the LLVM build itself is done with MSVC.
+  std::string XDrawerPath;
+  if ((S.TryFindProgram(getProgramName(program), XDrawerPath) ||
+       S.TryFindProgram("dot|fdp|neato|twopi|circo", XDrawerPath))) {
+
+    std::vector<const char *> args;
+    args.push_back(XDrawerPath.c_str());
+    args.push_back("-Txlib");
+    args.push_back("-Nfontname=Monospace");
+    args.push_back("-Efontname=Monospace");
+    args.push_back("-Gfontname=Monospace\\ bold");
+    args.push_back(Filename.c_str());
+    args.push_back(nullptr);
+
+    errs() << "Running '" << XDrawerPath << "' program... ";
+
+    if (!ExecGraphViewer(XDrawerPath, args, Filename, true, ErrMsg))
+      return false;
+
+    errs() << "\tfailed to launch X11 viewer with " <<
+      XDrawerPath << ". Falling back to PostScript/PDF.\n";
+    ErrMsg.clear();
+  }
+  // *End CSA addition.
+#endif
+
   enum ViewerKind {
     VK_None,
     VK_OSXOpen,
