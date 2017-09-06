@@ -46,7 +46,7 @@ bool CreateReleaseOOOQueueTest()
 	cl_platform_id platform = 0;
 
 	iRet = clGetPlatformIDs(1, &platform, NULL);
-	bResult &= SilentCheck(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clGetPlatformIDs", CL_SUCCESS, iRet);
 
 	if (!bResult)
 	{
@@ -56,7 +56,7 @@ bool CreateReleaseOOOQueueTest()
 	cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
 
 	iRet = clGetDeviceIDs(platform, gDeviceType, 0, NULL, &uiNumDevices);
-	bResult &= SilentCheck(L"clGetDeviceIDs", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clGetDeviceIDs", CL_SUCCESS, iRet);
 
 	if (!bResult)
 	{
@@ -66,7 +66,7 @@ bool CreateReleaseOOOQueueTest()
 
 	pDevices = new cl_device_id[uiNumDevices];
 	iRet = clGetDeviceIDs(platform, gDeviceType, uiNumDevices, pDevices, NULL);
-	bResult &= SilentCheck(L"clGetDeviceIDs", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clGetDeviceIDs", CL_SUCCESS, iRet);
 
 	if (!bResult)
 	{
@@ -77,7 +77,7 @@ bool CreateReleaseOOOQueueTest()
 	device_id = pDevices[0];
 
 	iRet = clGetDeviceInfo(device_id, CL_DEVICE_QUEUE_ON_HOST_PROPERTIES, sizeof(cl_command_queue_properties), &queue_properties, NULL);
-	bResult &= SilentCheck(L"clGetDeviceInfo (CL_DEVICE_QUEUE_ON_HOST_PROPERTIES)", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clGetDeviceInfo (CL_DEVICE_QUEUE_ON_HOST_PROPERTIES)", CL_SUCCESS, iRet);
 
 	if (!bResult)
 	{
@@ -94,7 +94,7 @@ bool CreateReleaseOOOQueueTest()
 
 	context = clCreateContext(prop, uiNumDevices, pDevices, NULL, NULL, &iRet);
     delete []pDevices;
-	bResult &= SilentCheck(L"clCreateContext", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clCreateContext", CL_SUCCESS, iRet);
 
 	if (!bResult)
 	{
@@ -119,7 +119,7 @@ bool CreateReleaseOOOQueueTest()
 	for (size_t i = 0; i < numOfInterations; ++i)
 	{
     	queue = clCreateCommandQueue(context, device_id, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, &iRet);
-	    bResult &= SilentCheck(L"clCreateCommandQueue", CL_SUCCESS, iRet);
+	    bResult &= SilentCheck("clCreateCommandQueue", CL_SUCCESS, iRet);
 
 	    if (!bResult)
 	    {
@@ -128,7 +128,7 @@ bool CreateReleaseOOOQueueTest()
 	    }
 
 		iRet = clReleaseCommandQueue(queue);
-	    bResult &= SilentCheck(L"clReleaseCommandQueue", CL_SUCCESS, iRet);
+	    bResult &= SilentCheck("clReleaseCommandQueue", CL_SUCCESS, iRet);
 
 	    if (!bResult)
 	    {

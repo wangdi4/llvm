@@ -8,9 +8,6 @@ if(WIN32)
     )
 endif(WIN32)
 
-#overcomming (the many!) warning issued on linux from the runtime
-remove_definitions( -Werror )
-
 #setting the path to the recorder we test
 if(WIN32)
   set (DORDER_INSTALL "")

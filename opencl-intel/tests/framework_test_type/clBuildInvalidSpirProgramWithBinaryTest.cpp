@@ -37,7 +37,7 @@ bool clBuildInvalidSpirProgramWithBinaryTest()
     cl_platform_id platform = 0;
 
     cl_int iRet = clGetPlatformIDs(1, &platform, NULL);
-    bResult &= Check(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+    bResult &= Check("clGetPlatformIDs", CL_SUCCESS, iRet);
 
     if (!bResult)
     {
@@ -61,7 +61,7 @@ bool clBuildInvalidSpirProgramWithBinaryTest()
         printf("clCreateContext = %s\n",ClErrTxt(iRet));
         return false;
     }
-    printf("context = %p\n", context);
+    printf("context = %p\n", (void*)context);
 
     // create binary container
     size_t uiContSize = 0;
@@ -92,8 +92,8 @@ bool clBuildInvalidSpirProgramWithBinaryTest()
 
     // create program with binary
     inv_g_clProgram = clCreateProgramWithBinary(context, 1, &device, &uiContSize, const_cast<const unsigned char**>(&pCont), &binaryStatus, &iRet);
-    bResult &= Check(L"clCreateProgramWithBinary", CL_INVALID_BINARY, iRet);
-    bResult &= Check(L"binaryStatus = CL_INVALID_BINARY", CL_INVALID_BINARY, binaryStatus);
+    bResult &= Check("clCreateProgramWithBinary", CL_INVALID_BINARY, iRet);
+    bResult &= Check("binaryStatus = CL_INVALID_BINARY", CL_INVALID_BINARY, binaryStatus);
 
     if (!bResult)
     {

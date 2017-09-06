@@ -61,7 +61,7 @@ bool clStructTest()
 
     // get platform
 	cl_int iRet = clGetPlatformIDs(1, &platform, NULL);
-	bResult &= SilentCheck(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clGetPlatformIDs", CL_SUCCESS, iRet);
 	if (!bResult)
 	{
 		return bResult;
@@ -69,7 +69,7 @@ bool clStructTest()
 
 	// get device
 	iRet = clGetDeviceIDs(platform, gDeviceType, 1, &device, NULL);
-	bResult &= SilentCheck(L"clGetDeviceIDs",CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clGetDeviceIDs",CL_SUCCESS, iRet);
 	if (!bResult)
 	{
 		return bResult;
@@ -77,7 +77,7 @@ bool clStructTest()
 
 	// create context
     context = clCreateContext(NULL, 1, &device, NULL, NULL, &iRet);
-	bResult &= SilentCheck(L"clCreateContext",CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clCreateContext",CL_SUCCESS, iRet);
 	if (!bResult)
 	{
 		return bResult;
@@ -85,7 +85,7 @@ bool clStructTest()
 
 	// create program with source
     cl_program program = clCreateProgramWithSource(context, 1, (const char**)&ocl_test_program, NULL, &iRet);
-	bResult &= SilentCheck(L"clCreateProgramWithSource", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clCreateProgramWithSource", CL_SUCCESS, iRet);
     if (!bResult)
 	{
 		return bResult;
@@ -93,7 +93,7 @@ bool clStructTest()
 
     // build program
     iRet = clBuildProgram(program, 1, &device, NULL, NULL, NULL);
-	bResult &= SilentCheck(L"clBuildProgram", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clBuildProgram", CL_SUCCESS, iRet);
     if (!bResult)
 	{
 		return bResult;
@@ -116,7 +116,7 @@ bool clStructTest()
 
     // Create queue
     cl_command_queue queue = clCreateCommandQueue (context, device, 0, &iRet);
-	bResult &= SilentCheck(L"clCreateCommandQueue - queue", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clCreateCommandQueue - queue", CL_SUCCESS, iRet);
     if (!bResult)
 	{
 		return bResult;
@@ -124,7 +124,7 @@ bool clStructTest()
 
     // Create Kernel
     cl_kernel kernel = clCreateKernel(program, "test", &iRet);
-	bResult &= SilentCheck(L"clCreateKernel - test", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clCreateKernel - test", CL_SUCCESS, iRet);
     if (!bResult)
 	{
 		return bResult;
@@ -132,7 +132,7 @@ bool clStructTest()
 
     // Create buffers
     cl_mem buffer_dst = clCreateBuffer(context, CL_MEM_WRITE_ONLY, BUFFERS_LENGTH * sizeof(TEST_STRUCT), NULL, &iRet);
-    bResult &= SilentCheck(L"clCreateBuffer - dst", CL_SUCCESS, iRet);
+    bResult &= SilentCheck("clCreateBuffer - dst", CL_SUCCESS, iRet);
     if (!bResult)
 	{
 		return bResult;
@@ -140,21 +140,21 @@ bool clStructTest()
 
     // Set arguments
     iRet = clSetKernelArg(kernel, 0, sizeof(TEST_STRUCT), &src1);
-    bResult &= SilentCheck(L"clSetKernelArg - src", CL_SUCCESS, iRet);
+    bResult &= SilentCheck("clSetKernelArg - src", CL_SUCCESS, iRet);
     if (!bResult)
 	{
 		return bResult;
 	}
 
     iRet = clSetKernelArg(kernel, 1, sizeof(TEST_UNION), &src2);
-    bResult &= SilentCheck(L"clSetKernelArg - src", CL_SUCCESS, iRet);
+    bResult &= SilentCheck("clSetKernelArg - src", CL_SUCCESS, iRet);
     if (!bResult)
 	{
 		return bResult;
 	}
 
     iRet = clSetKernelArg(kernel, 2, sizeof(cl_mem), &buffer_dst);
-    bResult &= SilentCheck(L"clSetKernelArg - buffer_dst", CL_SUCCESS, iRet);
+    bResult &= SilentCheck("clSetKernelArg - buffer_dst", CL_SUCCESS, iRet);
     if (!bResult)
 	{
 		return bResult;
@@ -165,7 +165,7 @@ bool clStructTest()
     size_t local_work_size[1] = { 1 };
 
     iRet = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, global_work_size, local_work_size, 0, NULL, NULL);
-    bResult &= SilentCheck(L"clEnqueueNDRangeKernel", CL_SUCCESS, iRet);    
+    bResult &= SilentCheck("clEnqueueNDRangeKernel", CL_SUCCESS, iRet);    
     if (!bResult)
 	{
 		return bResult;
@@ -173,7 +173,7 @@ bool clStructTest()
 
     // Read results. wait for completion - blocking!
     iRet = clEnqueueReadBuffer (queue, buffer_dst, CL_TRUE,  0, BUFFERS_LENGTH * sizeof(TEST_STRUCT), dst1, 0, NULL, NULL);
-    bResult &= SilentCheck(L"clEnqueueReadBuffer", CL_SUCCESS, iRet);
+    bResult &= SilentCheck("clEnqueueReadBuffer", CL_SUCCESS, iRet);
     if (!bResult)
 	{
 		return bResult;
@@ -186,14 +186,14 @@ bool clStructTest()
 
     // Set arguments
     iRet = clSetKernelArg(kernel, 0, sizeof(TEST_STRUCT), &src1);
-    bResult &= SilentCheck(L"clSetKernelArg - src", CL_SUCCESS, iRet);
+    bResult &= SilentCheck("clSetKernelArg - src", CL_SUCCESS, iRet);
     if (!bResult)
 	{
 		return bResult;
 	}
 
     iRet = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, global_work_size, local_work_size, 0, NULL, NULL);
-    bResult &= SilentCheck(L"clEnqueueNDRangeKernel", CL_SUCCESS, iRet);    
+    bResult &= SilentCheck("clEnqueueNDRangeKernel", CL_SUCCESS, iRet);    
     if (!bResult)
 	{
 		return bResult;
@@ -201,7 +201,7 @@ bool clStructTest()
 
     // Read results. wait for completion - blocking!
     iRet = clEnqueueReadBuffer (queue, buffer_dst, CL_TRUE,  0, BUFFERS_LENGTH * sizeof(TEST_STRUCT), dst2, 0, NULL, NULL);
-    bResult &= SilentCheck(L"clEnqueueReadBuffer", CL_SUCCESS, iRet);
+    bResult &= SilentCheck("clEnqueueReadBuffer", CL_SUCCESS, iRet);
     if (!bResult)
 	{
 		return bResult;
@@ -242,19 +242,19 @@ bool clStructTest()
 
     // Release objects
     iRet = clReleaseMemObject(buffer_dst);
-    bResult &= SilentCheck(L"clReleaseBuffer - buffer_dst", CL_SUCCESS, iRet);
+    bResult &= SilentCheck("clReleaseBuffer - buffer_dst", CL_SUCCESS, iRet);
 
     iRet = clReleaseKernel(kernel);
-    bResult &= SilentCheck(L"clReleaseKernel - kernel", CL_SUCCESS, iRet);
+    bResult &= SilentCheck("clReleaseKernel - kernel", CL_SUCCESS, iRet);
 
     iRet = clReleaseProgram(program);
-    bResult &= SilentCheck(L"clReleaseProgram - program", CL_SUCCESS, iRet);
+    bResult &= SilentCheck("clReleaseProgram - program", CL_SUCCESS, iRet);
 
     iRet = clReleaseCommandQueue(queue);
-    bResult &= SilentCheck(L"clReleaseCommandQueue - queue", CL_SUCCESS, iRet);
+    bResult &= SilentCheck("clReleaseCommandQueue - queue", CL_SUCCESS, iRet);
 
     iRet = clReleaseContext(context);
-    bResult &= SilentCheck(L"clReleaseContext - context", CL_SUCCESS, iRet);
+    bResult &= SilentCheck("clReleaseContext - context", CL_SUCCESS, iRet);
 
     return bResult;
 }

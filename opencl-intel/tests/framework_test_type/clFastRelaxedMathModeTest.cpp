@@ -104,7 +104,7 @@ bool clFastRelaxedMathModeTest()
         delete []pDevices;
         return deathTestFailure();
     }
-    printf("context = %d\n", (std::size_t)context);
+    printf("context = %p\n", (void*)context);
 
     clProg = clCreateProgramWithSource(context, 1,
         (const char**)&ocl_test_program, NULL, &iRet);

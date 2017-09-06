@@ -88,10 +88,10 @@ bool cl_device_local_mem_size_test()
     printf("cl_device_local_mem_size_test\n");
 
     cl_ulong stackSize = trySetStackSize(STACK_SIZE);
-    EXIT_IF_FAILED(CheckCondition(L"trySetStackSize", stackSize != 0));
+    EXIT_IF_FAILED(CheckCondition("trySetStackSize", stackSize != 0));
 
     cl_ulong expectedLocalMemSize = trySetLocalMemSize(STACK_SIZE);
-    EXIT_IF_FAILED(CheckCondition(L"trySetLocalMemSize", expectedLocalMemSize != 0));
+    EXIT_IF_FAILED(CheckCondition("trySetLocalMemSize", expectedLocalMemSize != 0));
 
     return cl_device_local_mem_size_test_body(expectedLocalMemSize, programSources);
 }
@@ -114,7 +114,7 @@ bool cl_device_local_mem_size_unlimited_stack_test()
     printf("cl_device_local_mem_size_unlimited_stack_test\n");
 
     cl_ulong stackSize = trySetStackSize(RLIM_INFINITY);
-    EXIT_IF_FAILED(CheckCondition(L"trySetStackSize", stackSize != 0));
+    EXIT_IF_FAILED(CheckCondition("trySetStackSize", stackSize != 0));
 
     return cl_device_local_mem_size_test_body(32 * 1024, programSources);
 }
@@ -139,56 +139,56 @@ bool cl_device_local_mem_size_test_body(cl_ulong expectedLocalMemSize, const std
     cl_int iRet = CL_SUCCESS;
 
     iRet = clGetPlatformIDs(1, &platform, nullptr);
-    EXIT_IF_FAILED(Check(L"clGetPlatrormIDs", CL_SUCCESS, iRet));
+    EXIT_IF_FAILED(Check("clGetPlatrormIDs", CL_SUCCESS, iRet));
 
     iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU, 1, &device, nullptr);
-    EXIT_IF_FAILED(Check(L"clGetDeviceIDs", CL_SUCCESS, iRet));
+    EXIT_IF_FAILED(Check("clGetDeviceIDs", CL_SUCCESS, iRet));
 
     cl_ulong localMemSize = 0;
 
     iRet = clGetDeviceInfo(device, CL_DEVICE_LOCAL_MEM_SIZE, sizeof(cl_ulong), &localMemSize, nullptr);
-    EXIT_IF_FAILED(Check(L"clGetDeviceInfo", CL_SUCCESS, iRet));
-    EXIT_IF_FAILED(CheckInt(L"CL_DEVICE_LOCAL_MEM_SIZE", expectedLocalMemSize, localMemSize));
+    EXIT_IF_FAILED(Check("clGetDeviceInfo", CL_SUCCESS, iRet));
+    EXIT_IF_FAILED(CheckInt("CL_DEVICE_LOCAL_MEM_SIZE", expectedLocalMemSize, localMemSize));
 
     cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
     context = clCreateContext(prop, 1, &device, nullptr, nullptr, &iRet);
-    EXIT_IF_FAILED(Check(L"clCreateContext", CL_SUCCESS, iRet));
+    EXIT_IF_FAILED(Check("clCreateContext", CL_SUCCESS, iRet));
 
     queue = clCreateCommandQueueWithProperties(context, device, nullptr, &iRet);
-    EXIT_IF_FAILED(Check(L"clCreateCommandQueueWithProperties", CL_SUCCESS, iRet));
+    EXIT_IF_FAILED(Check("clCreateCommandQueueWithProperties", CL_SUCCESS, iRet));
 
     const char *ps = programSources.c_str();
     EXIT_IF_FAILED(BuildProgramSynch(context, 1, (const char**)&ps, nullptr, "", &program));
 
     const size_t global_work_size = 100;
     buffer = clCreateBuffer(context, CL_MEM_READ_WRITE, global_work_size * sizeof(cl_int), nullptr, &iRet);
-    EXIT_IF_FAILED(Check(L"clCreateBuffer", CL_SUCCESS, iRet));
+    EXIT_IF_FAILED(Check("clCreateBuffer", CL_SUCCESS, iRet));
 
     kernel = clCreateKernel(program, "test", &iRet);
-    EXIT_IF_FAILED(Check(L"clCreateKernel", CL_SUCCESS, iRet));
+    EXIT_IF_FAILED(Check("clCreateKernel", CL_SUCCESS, iRet));
 
     iRet = clSetKernelArg(kernel, 0, sizeof(cl_mem), &buffer);
-    EXIT_IF_FAILED(Check(L"clSetKernelArg", CL_SUCCESS, iRet));
+    EXIT_IF_FAILED(Check("clSetKernelArg", CL_SUCCESS, iRet));
 
     const size_t local_work_size = 10;
     iRet = clEnqueueNDRangeKernel(queue, kernel, 1, nullptr, &global_work_size, &local_work_size, 0, nullptr, nullptr);
-    EXIT_IF_FAILED(Check(L"clEnqueueNDRangeKernel", CL_SUCCESS, iRet));
+    EXIT_IF_FAILED(Check("clEnqueueNDRangeKernel", CL_SUCCESS, iRet));
 
     iRet = clFinish(queue);
-    EXIT_IF_FAILED(Check(L"clFinish", CL_SUCCESS, iRet));
+    EXIT_IF_FAILED(Check("clFinish", CL_SUCCESS, iRet));
 
     cl_int data[global_work_size] = { 0 };
 
     iRet = clEnqueueReadBuffer(queue, buffer, CL_TRUE, 0, global_work_size * sizeof(cl_int), data, 0, nullptr, nullptr);
-    EXIT_IF_FAILED(Check(L"clEnqueueReadBuffer", CL_SUCCESS, iRet));
+    EXIT_IF_FAILED(Check("clEnqueueReadBuffer", CL_SUCCESS, iRet));
 
     bool bResult = true;
     for (size_t i = 0; i < global_work_size; ++i)
     {
-        bResult &= SilentCheckInt(L"data[i]", (cl_int)(i + 2), data[i]);
+        bResult &= SilentCheckInt("data[i]", (cl_int)(i + 2), data[i]);
     }
 
-    bResult = Check(L"Kernel results verification", true, bResult);
+    bResult = Check("Kernel results verification", true, bResult);
 
     cleanup();
 

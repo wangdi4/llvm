@@ -149,18 +149,18 @@ void HelloWorldTestThread::ThreadRoutine()
 	const size_t globalSize   = 1;
 
 	cl_kernel    kernel       = clCreateKernel(m_program, "k", &err);
-	SilentCheck(L"clCreateKernel", CL_SUCCESS, err);
+	SilentCheck("clCreateKernel", CL_SUCCESS, err);
 
 	err = clSetKernelArg(kernel, 0, sizeof(cl_mem), &m_param);
-	SilentCheck(L"clSetKernelArg", CL_SUCCESS, err);
+	SilentCheck("clSetKernelArg", CL_SUCCESS, err);
 
 	err = clEnqueueNDRangeKernel(m_queue, kernel, 1, NULL, &globalSize, NULL, 0, NULL, NULL);
-	SilentCheck(L"clEnqueueNDRangeKernel", CL_SUCCESS, err);
+	SilentCheck("clEnqueueNDRangeKernel", CL_SUCCESS, err);
 
 	err = clEnqueueReadBuffer(m_queue, m_param, CL_TRUE, 0, sizeof(int), &kernelResult, 0, NULL, NULL);
-	SilentCheck(L"clEnqueueReadBuffer", CL_SUCCESS, err);
+	SilentCheck("clEnqueueReadBuffer", CL_SUCCESS, err);
 
-	SilentCheck(L"Kernel result", m_expectedResult, kernelResult);
+	SilentCheck("Kernel result", m_expectedResult, kernelResult);
 
 	clReleaseKernel(kernel);
 }
@@ -197,7 +197,7 @@ void ConcurrentExecutionTestThread::ThreadRoutine()
 	const char* programSource    = "__kernel void k(__global int* p) { p[get_global_id(0)] = 8; }";
 
 	iRet = clGetPlatformIDs(1, &platform, NULL);
-	bResult &= SilentCheck(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clGetPlatformIDs", CL_SUCCESS, iRet);
 
 	cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
 
@@ -207,7 +207,7 @@ void ConcurrentExecutionTestThread::ThreadRoutine()
 	}
 
 	context  = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);
-	bResult &= SilentCheck(L"Create Context from type (gDeviceType)", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("Create Context from type (gDeviceType)", CL_SUCCESS, iRet);
 
 	if (!bResult)
 	{
@@ -215,7 +215,7 @@ void ConcurrentExecutionTestThread::ThreadRoutine()
 	}
 
 	iRet     = clGetDeviceIDs(platform, gDeviceType, 1, &deviceId, NULL);
-	bResult &= SilentCheck(L"Get device ID (gDeviceType)", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("Get device ID (gDeviceType)", CL_SUCCESS, iRet);
 
 	if (!bResult)
 	{
@@ -223,28 +223,28 @@ void ConcurrentExecutionTestThread::ThreadRoutine()
 	}
  
 	queue    = clCreateCommandQueue(context, deviceId, 0, &iRet);
-	bResult &= SilentCheck(L"Create command queue", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("Create command queue", CL_SUCCESS, iRet);
 
 	if (!bResult)
 	{
 		return;
 	}
 	program  = clCreateProgramWithSource(context, 1, &programSource, NULL, &iRet);
-	bResult &= SilentCheck(L"Create program with source", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("Create program with source", CL_SUCCESS, iRet);
 
 	if (!bResult)
 	{
 		return;
 	}
 	iRet     = clBuildProgram(program, 1, &deviceId, NULL, NULL, NULL);
-	bResult &= SilentCheck(L"Build program", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("Build program", CL_SUCCESS, iRet);
 
 	if (!bResult)
 	{
 		return;
 	}
 	param    = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(int), NULL, &iRet);
-	bResult &= SilentCheck(L"Build clCreateBuffer", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("Build clCreateBuffer", CL_SUCCESS, iRet);
 
 	if (!bResult)
 	{
@@ -252,7 +252,7 @@ void ConcurrentExecutionTestThread::ThreadRoutine()
 	}
 
 	kernel   = clCreateKernel(program, "k", &iRet);
-	bResult &= SilentCheck(L"clCreateKernel", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clCreateKernel", CL_SUCCESS, iRet);
 
 	if (!bResult)
 	{
@@ -260,7 +260,7 @@ void ConcurrentExecutionTestThread::ThreadRoutine()
 	}
 
 	iRet     = clSetKernelArg(kernel, 0, sizeof(cl_mem), &param);
-	bResult &= SilentCheck(L"clSetKernelArg", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clSetKernelArg", CL_SUCCESS, iRet);
 
 	if (!bResult)
 	{
@@ -268,7 +268,7 @@ void ConcurrentExecutionTestThread::ThreadRoutine()
 	}
 
 	iRet     = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &globalSize, NULL, 0, NULL, NULL);
-	bResult &= SilentCheck(L"clEnqueueNDRangeKernel", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clEnqueueNDRangeKernel", CL_SUCCESS, iRet);
 
 	if (!bResult)
 	{
@@ -276,9 +276,9 @@ void ConcurrentExecutionTestThread::ThreadRoutine()
 	}
 
 	iRet     = clEnqueueReadBuffer(queue, param, CL_TRUE, 0, sizeof(int), &kernelResult, 0, NULL, NULL);
-	bResult &= SilentCheck(L"clEnqueueReadBuffer", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clEnqueueReadBuffer", CL_SUCCESS, iRet);
 
-	bResult &= SilentCheck(L"Kernel result", 8, kernelResult);
+	bResult &= SilentCheck("Kernel result", 8, kernelResult);
 
 	clReleaseKernel(kernel);
 	clReleaseMemObject(param);
@@ -289,7 +289,6 @@ void ConcurrentExecutionTestThread::ThreadRoutine()
 
 bool MultithreadedContextRefCount()
 {
-	cl_uint        uiNumDevices = 0;
 	cl_platform_id platform     = 0;
 	cl_context     context;
 
@@ -304,7 +303,7 @@ bool MultithreadedContextRefCount()
 	printf("Begin multi threaded context ref count test\n");
 
 	iRet = clGetPlatformIDs(1, &platform, NULL);
-	bResult &= Check(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+	bResult &= Check("clGetPlatformIDs", CL_SUCCESS, iRet);
 
 	if (!bResult)
 	{
@@ -314,7 +313,7 @@ bool MultithreadedContextRefCount()
 	cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
 
 	context = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);
-	bResult &= Check(L"Create Context from type (gDeviceType)", CL_SUCCESS, iRet);
+	bResult &= Check("Create Context from type (gDeviceType)", CL_SUCCESS, iRet);
 
 	cl_uint uiCntxRefCnt = 0;
 	iRet = clGetContextInfo(context, CL_CONTEXT_REFERENCE_COUNT, sizeof(cl_uint), &uiCntxRefCnt, NULL);
@@ -410,7 +409,7 @@ bool MultithreadedReleaseObjects()
 	printf("Begin multi threaded release objects test\n");
 
 	iRet = clGetPlatformIDs(1, &platform, NULL);
-	bResult &= SilentCheck(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clGetPlatformIDs", CL_SUCCESS, iRet);
 
 	if (!bResult)
 	{
@@ -425,29 +424,29 @@ bool MultithreadedReleaseObjects()
 		for (size_t object = 0; object < numObjects; ++object)
 		{
 			contexts[object] = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);
-			bResult &= SilentCheck(L"Create Context from type (gDeviceType)", CL_SUCCESS, iRet);
+			bResult &= SilentCheck("Create Context from type (gDeviceType)", CL_SUCCESS, iRet);
 
 			iRet = clGetDeviceIDs(platform, gDeviceType, 1, &deviceId, NULL);
-			bResult &= SilentCheck(L"Get device ID (gDeviceType)", CL_SUCCESS, iRet);
+			bResult &= SilentCheck("Get device ID (gDeviceType)", CL_SUCCESS, iRet);
 
 			queues[object] = clCreateCommandQueue(contexts[object], deviceId, 0, &iRet);
-			bResult &= SilentCheck(L"Create command queue", CL_SUCCESS, iRet);
+			bResult &= SilentCheck("Create command queue", CL_SUCCESS, iRet);
 
 			programs[object] = clCreateProgramWithSource(contexts[object], 1, &programSource, NULL, &iRet);
-			bResult &= SilentCheck(L"Create program with source", CL_SUCCESS, iRet);
+			bResult &= SilentCheck("Create program with source", CL_SUCCESS, iRet);
 
 			iRet = clBuildProgram(programs[object], 1, &deviceId, NULL, NULL, NULL);
-			bResult &= SilentCheck(L"Build program", CL_SUCCESS, iRet);
+			bResult &= SilentCheck("Build program", CL_SUCCESS, iRet);
 
 			kernels[object] = clCreateKernel(programs[object], "stam", &iRet);
-			bResult &= SilentCheck(L"Create Kernel", CL_SUCCESS, iRet);
+			bResult &= SilentCheck("Create Kernel", CL_SUCCESS, iRet);
 		}
 
 		if (!bResult)
 		{
 			return false;
 		}
-		printf("\rIteration %u creation passed", iteration);
+		printf("\rIteration %zu creation passed", iteration);
 
 		//Destruction phase
 		SynchronizedThread* threads[4];
@@ -460,7 +459,7 @@ bool MultithreadedReleaseObjects()
 		pool.Init(threads, 4);
 		pool.StartAll();
 		pool.WaitAll();
-		printf("  -  destruction passed", iteration);
+		printf("  -  destruction passed");
 		for (size_t i = 0; i < 4; ++i)
 		{
 			delete threads[i];
@@ -491,7 +490,7 @@ bool MultithreadedHelloWorld()
 	printf("Begin multi threaded hello world test\n");
 
 	iRet = clGetPlatformIDs(1, &platform, NULL);
-	bResult &= SilentCheck(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clGetPlatformIDs", CL_SUCCESS, iRet);
 
 	if (!bResult)
 	{
@@ -502,19 +501,19 @@ bool MultithreadedHelloWorld()
 
 	//Creation phase
 	context  = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);
-	bResult &= SilentCheck(L"Create Context from type (gDeviceType)", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("Create Context from type (gDeviceType)", CL_SUCCESS, iRet);
 
 	iRet     = clGetDeviceIDs(platform, gDeviceType, 1, &deviceId, NULL);
-	bResult &= SilentCheck(L"Get device ID (gDeviceType)", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("Get device ID (gDeviceType)", CL_SUCCESS, iRet);
 
 	queue    = clCreateCommandQueue(context, deviceId, 0, &iRet);
-	bResult &= SilentCheck(L"Create command queue", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("Create command queue", CL_SUCCESS, iRet);
 
 	program  = clCreateProgramWithSource(context, 1, &programSource, NULL, &iRet);
-	bResult &= SilentCheck(L"Create program with source", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("Create program with source", CL_SUCCESS, iRet);
 
 	iRet     = clBuildProgram(program, 1, &deviceId, NULL, NULL, NULL);
-	bResult &= SilentCheck(L"Build program", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("Build program", CL_SUCCESS, iRet);
 
 	if (!bResult)
 	{
@@ -524,7 +523,7 @@ bool MultithreadedHelloWorld()
 	for (size_t i = 0; i < numThreads; ++i)
 	{
 		params[i] = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(int), NULL, &iRet);
-		bResult &= SilentCheck(L"Build clCreateBuffer", CL_SUCCESS, iRet);
+		bResult &= SilentCheck("Build clCreateBuffer", CL_SUCCESS, iRet);
 
 	}
 	if (!bResult)
@@ -587,22 +586,22 @@ class OrderViolationThread : public SynchronizedThread
 {
 public:
 	OrderViolationThread(int id, cl_context context, cl_command_queue queue, cl_program program, cl_mem param) :
-	  m_id(id), m_context(context), m_queue(queue), m_program(program), m_param(param), m_bResult(false)
+	  m_context(context), m_queue(queue), m_program(program), m_param(param), m_id(id), m_bResult(false)
 	{
 		cl_int err;
 		m_kernel1 = clCreateKernel(m_program, "k1", &err);
-		SilentCheck(L"clCreateKernel", CL_SUCCESS, err);
+		SilentCheck("clCreateKernel", CL_SUCCESS, err);
 		err = clSetKernelArg(m_kernel1, 0, sizeof(cl_mem), &m_param);
-		SilentCheck(L"clSetKernelArg", CL_SUCCESS, err);
+		SilentCheck("clSetKernelArg", CL_SUCCESS, err);
 		err = clSetKernelArg(m_kernel1, 1, sizeof(cl_char), &m_id);
-		SilentCheck(L"clSetKernelArg", CL_SUCCESS, err);
+		SilentCheck("clSetKernelArg", CL_SUCCESS, err);
 
 		m_kernel2 = clCreateKernel(m_program, "k2", &err);
-		SilentCheck(L"clCreateKernel", CL_SUCCESS, err);
+		SilentCheck("clCreateKernel", CL_SUCCESS, err);
 		err = clSetKernelArg(m_kernel2, 0, sizeof(cl_mem), &m_param);
-		SilentCheck(L"clSetKernelArg", CL_SUCCESS, err);
+		SilentCheck("clSetKernelArg", CL_SUCCESS, err);
 		err = clSetKernelArg(m_kernel2, 1, sizeof(cl_char), &m_id);
-		SilentCheck(L"clSetKernelArg", CL_SUCCESS, err);
+		SilentCheck("clSetKernelArg", CL_SUCCESS, err);
 
 	  }
 
@@ -633,23 +632,23 @@ void OrderViolationThread::ThreadRoutine()
 	const size_t globalSize   = 1;
 
 	cl_char* mapPtr = (cl_char*)clEnqueueMapBuffer(m_queue, m_param, CL_TRUE, CL_MAP_WRITE, 0, sizeof(cl_char), 0, NULL, NULL, &err);
-	SilentCheck(L"clEnqueueMapBuffer", CL_SUCCESS, err);
+	SilentCheck("clEnqueueMapBuffer", CL_SUCCESS, err);
 	*mapPtr = (cl_char)(0x80+m_id);
 
 	err = clEnqueueUnmapMemObject(m_queue, m_param, mapPtr, 0, NULL, NULL);
-	SilentCheck(L"clEnqueueUnmapMemObject", CL_SUCCESS, err);
+	SilentCheck("clEnqueueUnmapMemObject", CL_SUCCESS, err);
 
     // the second unmap should fail
     err = clEnqueueUnmapMemObject(m_queue, m_param, mapPtr, 0, NULL, NULL);
-    SilentCheck(L"clEnqueueUnmapMemObject", CL_INVALID_VALUE, err);
+    SilentCheck("clEnqueueUnmapMemObject", CL_INVALID_VALUE, err);
 
 	err = clEnqueueNDRangeKernel(m_queue, m_kernel1, 1, NULL, &globalSize, NULL, 0, NULL, NULL);
-	SilentCheck(L"clEnqueueNDRangeKernel(1)", CL_SUCCESS, err);
+	SilentCheck("clEnqueueNDRangeKernel(1)", CL_SUCCESS, err);
 	err = clEnqueueNDRangeKernel(m_queue, m_kernel2, 1, NULL, &globalSize, NULL, 0, NULL, NULL);
-	SilentCheck(L"clEnqueueNDRangeKernel(2)", CL_SUCCESS, err);
+	SilentCheck("clEnqueueNDRangeKernel(2)", CL_SUCCESS, err);
 
 	mapPtr = (cl_char*)clEnqueueMapBuffer(m_queue, m_param, CL_TRUE, CL_MAP_READ, 0, sizeof(cl_char), 0, NULL, NULL, &err);
-	SilentCheck(L"clEnqueueMapBuffer", CL_SUCCESS, err);
+	SilentCheck("clEnqueueMapBuffer", CL_SUCCESS, err);
 	cl_char val = *mapPtr;
 	m_bResult = (val == (cl_char)m_id);
 	if ( !m_bResult )
@@ -658,7 +657,7 @@ void OrderViolationThread::ThreadRoutine()
 	}
 
 	err = clEnqueueUnmapMemObject(m_queue, m_param, mapPtr, 0, NULL, NULL);
-	SilentCheck(L"clEnqueueUnmapMemObject", CL_SUCCESS, err);
+	SilentCheck("clEnqueueUnmapMemObject", CL_SUCCESS, err);
 }
 
 bool MultithreadedOrderViolation()
@@ -686,7 +685,7 @@ bool MultithreadedOrderViolation()
 	printf("Begin order violation test\n");
 
 	iRet = clGetPlatformIDs(1, &platform, NULL);
-	bResult &= SilentCheck(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clGetPlatformIDs", CL_SUCCESS, iRet);
 
 	if (!bResult)
 	{
@@ -697,19 +696,19 @@ bool MultithreadedOrderViolation()
 
 	//Creation phase
 	context  = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);
-	bResult &= SilentCheck(L"Create Context from type (gDeviceType)", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("Create Context from type (gDeviceType)", CL_SUCCESS, iRet);
 
 	iRet     = clGetDeviceIDs(platform, gDeviceType, 1, &deviceId, NULL);
-	bResult &= SilentCheck(L"Get device ID (gDeviceType)", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("Get device ID (gDeviceType)", CL_SUCCESS, iRet);
 
 	queue    = clCreateCommandQueue(context, deviceId, 0, &iRet);
-	bResult &= SilentCheck(L"Create command queue", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("Create command queue", CL_SUCCESS, iRet);
 
 	program  = clCreateProgramWithSource(context, 1, &programSource, NULL, &iRet);
-	bResult &= SilentCheck(L"Create program with source", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("Create program with source", CL_SUCCESS, iRet);
 
 	iRet     = clBuildProgram(program, 1, &deviceId, NULL, NULL, NULL);
-	bResult &= SilentCheck(L"Build program", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("Build program", CL_SUCCESS, iRet);
 
 	if (!bResult)
 	{
@@ -719,7 +718,7 @@ bool MultithreadedOrderViolation()
 	for (size_t i = 0; i < numThreads; ++i)
 	{
 		params[i] = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR, sizeof(cl_char), &data[i], &iRet);
-		bResult &= SilentCheck(L"Build clCreateBuffer", CL_SUCCESS, iRet);
+		bResult &= SilentCheck("Build clCreateBuffer", CL_SUCCESS, iRet);
 
 	}
 	if (!bResult)
@@ -813,14 +812,14 @@ void BuildProgramThread::ThreadRoutine()
 	cl_int iRet;
 
 	program  = clCreateProgramWithSource(m_context, 1, &s_programSource, NULL, &iRet);
-	m_bResult = SilentCheck(L"Create program with source", CL_SUCCESS, iRet);
+	m_bResult = SilentCheck("Create program with source", CL_SUCCESS, iRet);
 	if ( !m_bResult )
 	{
 		return;
 	}
 
 	iRet     = clBuildProgram(program, 1, &m_deviceId, NULL, NULL, NULL);
-	m_bResult &= SilentCheck(L"Build program", CL_SUCCESS, iRet);
+	m_bResult &= SilentCheck("Build program", CL_SUCCESS, iRet);
 
 	clReleaseProgram(program);
 }
@@ -840,7 +839,7 @@ bool MultithreadedBuildTest()
 	printf("Begin Multi-Threaded build test\n");
 
 	iRet = clGetPlatformIDs(1, &platform, NULL);
-	bResult &= SilentCheck(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clGetPlatformIDs", CL_SUCCESS, iRet);
 	if (!bResult)
 	{
 		return bResult;
@@ -850,10 +849,10 @@ bool MultithreadedBuildTest()
 
 	//Creation phase
 	context  = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);
-	bResult &= SilentCheck(L"Create Context from type (gDeviceType)", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("Create Context from type (gDeviceType)", CL_SUCCESS, iRet);
 
 	iRet     = clGetDeviceIDs(platform, gDeviceType, 1, &deviceId, NULL);
-	bResult &= SilentCheck(L"Get device ID (gDeviceType)", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("Get device ID (gDeviceType)", CL_SUCCESS, iRet);
 
 
 	SynchronizedThread* threads[numThreads];

@@ -50,7 +50,7 @@ void CL_base::SetUpTestCase()
     ASSERT_EQ(CL_SUCCESS, iRet) << " clCreateContext failed. ";
 
     m_queue = clCreateCommandQueueWithProperties(m_context, m_device, 0, &iRet);
-    CheckException(L"clCreateCommandQueueWithProperties", CL_SUCCESS, iRet);
+    CheckException("clCreateCommandQueueWithProperties", CL_SUCCESS, iRet);
 
     m_hasFailure = false; //No errors occured if we here.
 }

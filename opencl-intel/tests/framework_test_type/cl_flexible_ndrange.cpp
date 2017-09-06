@@ -67,24 +67,24 @@ bool clFlexibleNdrange()
     try
     {
         iRet = clGetPlatformIDs(1, &platform, NULL);
-        CheckException(L"clGetPlatformIDs", CL_SUCCESS, iRet);        
+        CheckException("clGetPlatformIDs", CL_SUCCESS, iRet);        
         iRet = clGetDeviceIDs(platform, gDeviceType, 1, &device, NULL);
-        CheckException(L"clGetDeviceIDs", CL_SUCCESS, iRet);
+        CheckException("clGetDeviceIDs", CL_SUCCESS, iRet);
 
         const cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };    
         context = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);
-		CheckException(L"clCreateContextFromType", CL_SUCCESS, iRet);
+		CheckException("clCreateContextFromType", CL_SUCCESS, iRet);
 		
 		queue = clCreateCommandQueue(context, device, 0, &iRet);
-		CheckException(L"clCreateCommandQueue", CL_SUCCESS, iRet);
+		CheckException("clCreateCommandQueue", CL_SUCCESS, iRet);
 
 		const size_t szLengths = { strlen(sProg) };
 		cl_program prog = clCreateProgramWithSource(context, 1, &sProg, &szLengths, &iRet);
-		CheckException(L"clCreateProgramWithSource", CL_SUCCESS, iRet);
+		CheckException("clCreateProgramWithSource", CL_SUCCESS, iRet);
 		iRet = clBuildProgram(prog, 1, &device, "-cl-std=CL2.0", NULL, NULL);
-		CheckException(L"clBuildProgram", CL_SUCCESS, iRet);
+		CheckException("clBuildProgram", CL_SUCCESS, iRet);
 		cl_kernel kernel = clCreateKernel(prog, "FlexibleNdrange", &iRet);
-		CheckException(L"clCreateKernel", CL_SUCCESS, iRet);
+		CheckException("clCreateKernel", CL_SUCCESS, iRet);
 
 		assert(GLOBAL_WORK_SIZE % LOCAL_WORK_SIZE != 0);
 		const size_t szDstArrSize = GLOBAL_WORK_SIZE / LOCAL_WORK_SIZE + 1;
@@ -94,21 +94,21 @@ bool clFlexibleNdrange()
 			iSrcArr[i] = rand();
 		}
 		clMemWrapper srcBuf = clCreateBuffer(context, CL_MEM_USE_HOST_PTR, sizeof(iSrcArr), iSrcArr, &iRet);
-		CheckException(L"clCreateBuffer", CL_SUCCESS, iRet);		
+		CheckException("clCreateBuffer", CL_SUCCESS, iRet);		
 		clMemWrapper dstBuf = clCreateBuffer(context, 0, sizeof(iDstArr), NULL, &iRet);
-		CheckException(L"clCreateBuffer", CL_SUCCESS, iRet);
+		CheckException("clCreateBuffer", CL_SUCCESS, iRet);
 
 		iRet = clSetKernelArg(kernel, 0, sizeof(cl_mem), &srcBuf);
-		CheckException(L"clSetKernelArg", CL_SUCCESS, iRet);
+		CheckException("clSetKernelArg", CL_SUCCESS, iRet);
 		iRet = clSetKernelArg(kernel, 1, sizeof(cl_mem), &dstBuf);
-		CheckException(L"clSetKernelArg", CL_SUCCESS, iRet);
+		CheckException("clSetKernelArg", CL_SUCCESS, iRet);
 
 		const size_t szGlobalWorkSize = GLOBAL_WORK_SIZE, szLocalWorkSize = LOCAL_WORK_SIZE;
 		iRet = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &szGlobalWorkSize, &szLocalWorkSize, 0, NULL, NULL);
-		CheckException(L"clEnqueueNDRangeKernel", CL_SUCCESS, iRet);
+		CheckException("clEnqueueNDRangeKernel", CL_SUCCESS, iRet);
 
 		iRet = clEnqueueReadBuffer(queue, dstBuf, CL_TRUE, 0, sizeof(iDstArr), iDstArr, 0, NULL, NULL);
-		CheckException(L"clEnqueueReadBuffer", CL_SUCCESS, iRet);
+		CheckException("clEnqueueReadBuffer", CL_SUCCESS, iRet);
 
 		// Check result
 		for (size_t i = 0; i < szDstArrSize; i++)

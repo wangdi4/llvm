@@ -43,7 +43,7 @@ bool clCreateKernelTest(openBcFunc pFunc)
 	cl_platform_id platform = 0;
 
 	cl_int iRet = clGetPlatformIDs(1, &platform, NULL);
-	bResult &= Check(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+	bResult &= Check("clGetPlatformIDs", CL_SUCCESS, iRet);
 
 	if (!bResult)
 	{
@@ -54,7 +54,7 @@ bool clCreateKernelTest(openBcFunc pFunc)
 
 	// get device(s)
 	iRet = clGetDeviceIDs(platform, gDeviceType, 0, NULL, &uiNumDevices);
-	bResult &= Check(L"clGetDeviceIDs",CL_SUCCESS, iRet);
+	bResult &= Check("clGetDeviceIDs",CL_SUCCESS, iRet);
 	if (!bResult)
 	{
 		return bResult;
@@ -67,7 +67,7 @@ bool clCreateKernelTest(openBcFunc pFunc)
 	ppContainers = new char*[uiNumDevices];
 
 	iRet = clGetDeviceIDs(platform, gDeviceType, uiNumDevices, pDevices, NULL);
-	bResult &= Check(L"clGetDeviceIDs",CL_SUCCESS, iRet);
+	bResult &= Check("clGetDeviceIDs",CL_SUCCESS, iRet);
 	if (!bResult)
 	{
 		delete []pDevices;
@@ -79,7 +79,7 @@ bool clCreateKernelTest(openBcFunc pFunc)
 
 	// create context
 	context = clCreateContext(prop, uiNumDevices, pDevices, NULL, NULL, &iRet);
-	bResult &= Check(L"clCreateContext",CL_SUCCESS, iRet);
+	bResult &= Check("clCreateContext",CL_SUCCESS, iRet);
 	if (!bResult)
 	{
 		delete []pDevices;
@@ -88,7 +88,7 @@ bool clCreateKernelTest(openBcFunc pFunc)
 		delete []ppContainers;
 		return bResult;
 	}
-	printf("context = %p\n", context);
+	printf("context = %p\n", (void*)context);
 
 	// create binary container
 	unsigned int uiContSize = 0;
@@ -130,7 +130,7 @@ bool clCreateKernelTest(openBcFunc pFunc)
 
 	// create program with binary
 	cl_program program  = clCreateProgramWithBinary(context, uiNumDevices, pDevices, pBinarySizes,  (const unsigned char**)(ppContainers), pBinaryStatus, &iRet);
-	bResult &= Check(L"clCreateProgramWithBinary", CL_SUCCESS, iRet);
+	bResult &= Check("clCreateProgramWithBinary", CL_SUCCESS, iRet);
 
 	if (!bResult)
 	{
@@ -144,7 +144,7 @@ bool clCreateKernelTest(openBcFunc pFunc)
 
 	g_bBuildFinished = false;
 	iRet = clBuildProgram(program, uiNumDevices, pDevices, NULL, pfn_notify, NULL);
-	bResult &= Check(L"clBuildProgram", CL_SUCCESS, iRet);
+	bResult &= Check("clBuildProgram", CL_SUCCESS, iRet);
 
 	while (!g_bBuildFinished)
 	{
@@ -152,22 +152,22 @@ bool clCreateKernelTest(openBcFunc pFunc)
 	}
 
 	cl_kernel kernel1 = clCreateKernel(program, "dot_product", &iRet);
-	bResult &= Check(L"clCreateKernel - dot_product", CL_SUCCESS, iRet);
+	bResult &= Check("clCreateKernel - dot_product", CL_SUCCESS, iRet);
 
 	//cl_kernel kernel2 = clCreateKernel(program, "dot_product_test", &iRet);
-	//bResult &= Check(L"clCreateKernel - dot_product_test", CL_SUCCESS, iRet);
+	//bResult &= Check("clCreateKernel - dot_product_test", CL_SUCCESS, iRet);
 
 	//cl_kernel kernel3 = clCreateKernel(program, "foo", &iRet);
-	//bResult &= Check(L"clCreateKernel - foo", CL_SUCCESS, iRet);
+	//bResult &= Check("clCreateKernel - foo", CL_SUCCESS, iRet);
 
 	//cl_uint uiNumKernels = 0;
 	//iRet = clCreateKernelsInProgram(program, 0, NULL, &uiNumKernels);
-	//bResult &= Check(L"clCreateKernelsInProgram - get numbers of kernels", CL_SUCCESS, iRet);
-	//bResult &= CheckInt(L"clCreateKernelsInProgram - check numbers kernels", 14, uiNumKernels);
+	//bResult &= Check("clCreateKernelsInProgram - get numbers of kernels", CL_SUCCESS, iRet);
+	//bResult &= CheckInt("clCreateKernelsInProgram - check numbers kernels", 14, uiNumKernels);
 
 	//cl_kernel pKernels[14];
 	//iRet = clCreateKernelsInProgram(program, uiNumKernels, pKernels, NULL);
-	//bResult &= Check(L"clCreateKernelsInProgram - get kernels", CL_SUCCESS, iRet);
+	//bResult &= Check("clCreateKernelsInProgram - get kernels", CL_SUCCESS, iRet);
 	//if (bResult)
 	//{
 	//	size_t szKernelNameLength = 0;
@@ -177,7 +177,7 @@ bool clCreateKernelTest(openBcFunc pFunc)
 	//	{
 	//		printf("%d: ",pKernels[ui]);
 	//		iRet = clGetKernelInfo(pKernels[ui], CL_KERNEL_FUNCTION_NAME, 256, psKernelName, NULL);
-	//		bResult &= Check(L"clGetKernelInfo (function's name)", CL_SUCCESS, iRet);
+	//		bResult &= Check("clGetKernelInfo (function's name)", CL_SUCCESS, iRet);
 	//		printf ("%s\n", psKernelName);
 	//	}
 	//	printf("\n");

@@ -55,7 +55,7 @@ void checkFPGAExtensionNEGATIVE()
                           /*user_data=*/nullptr);
     ASSERT_EQ(CL_BUILD_PROGRAM_FAILURE, iRet)
         << " clBuildProgram is not supposed to succefully build program which"
-        << " contains fpga specific code without CL_CONTEXT_FPGA_EMULATOR_INTEL"
+        << " contains fpga specific code without CL_CONTEXT_FPGA_EMULATOR_INTE"
         << " property passed during context creation.";
 
     clReleaseProgram(program);
@@ -79,8 +79,8 @@ void checkFPGAExtensionNEGATIVE()
         << " Kernel with 'channel' identifier must be successfully compiled if"
         << " extension is not supported.";
 
-    cl_mem buffer = clCreateBuffer(context, CL_MEM_BANK_5_ALTERA, /*size=*/20,
-                                   /*host_ptr=*/nullptr, &iRet);
+    clCreateBuffer(context, CL_MEM_BANK_5_ALTERA, /*size=*/20,
+                   /*host_ptr=*/nullptr, &iRet);
     ASSERT_EQ(CL_INVALID_VALUE, iRet)
         << " clCreateBuffer is not supposed to accept CL_MEM_BANK_5_ALTERA"
         << " flag without CL_CONTEXT_FPGA_EMULATOR_INTEL property"

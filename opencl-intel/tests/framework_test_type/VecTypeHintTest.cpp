@@ -39,7 +39,7 @@ bool VecTypeHintTest()
 	cl_platform_id platform = 0;
 
 	cl_int iRet = clGetPlatformIDs(1, &platform, NULL);
-	bResult &= Check(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+	bResult &= Check("clGetPlatformIDs", CL_SUCCESS, iRet);
 
 	if (!bResult)
 	{
@@ -81,7 +81,7 @@ bool VecTypeHintTest()
 		delete []pBinaryStatus;
 		return false;
 	}
-	printf("context = %d\n", (size_t)context);
+	printf("context = %p\n", (void*)context);
 
 
 	bResult &= BuildProgramSynch(context, 1, (const char**)&ocl_test_program, NULL, NULL, &clProg);
@@ -96,12 +96,12 @@ bool VecTypeHintTest()
 	size_t szLogSize = 0;
 	// get the binary
 	iRet = clGetProgramBuildInfo(clProg, pDevices[0], CL_PROGRAM_BUILD_LOG, 0, NULL, &szLogSize);
-	bResult &= Check(L"clGetProgramBuildInfo(CL_PROGRAM_BUILD_LOG)", CL_SUCCESS, iRet);
+	bResult &= Check("clGetProgramBuildInfo(CL_PROGRAM_BUILD_LOG)", CL_SUCCESS, iRet);
 	if (bResult)
 	{
 		char * pLog = new char[szLogSize];
 		iRet = clGetProgramBuildInfo(clProg, pDevices[0], CL_PROGRAM_BUILD_LOG, szLogSize, pLog, &szLogSize);
-		bResult &= Check(L"clGetProgramBuildInfo(CL_PROGRAM_BUILD_LOG)", CL_SUCCESS, iRet);
+		bResult &= Check("clGetProgramBuildInfo(CL_PROGRAM_BUILD_LOG)", CL_SUCCESS, iRet);
 
 		//check the logs
 		std::string strLog(pLog);
@@ -113,7 +113,7 @@ bool VecTypeHintTest()
 			kernelName += (char)('1' + i);
 			kernelName += '>';
 
-			int place = strLog.find(kernelName, 0);
+			size_t place = strLog.find(kernelName, 0);
 			if(place == string::npos)
 			{
 				printf("ERROR: Cannot find log about kernel%d!\n", i+1);

@@ -101,7 +101,8 @@ protected:
     {
         cl_mem mem_list[] = {mem_buffer_src, mem_buffer_dst};
         void* buf_loc_ptrs[2];
-        copying_native_kernel_arg_type kernel_arg = {0};
+        copying_native_kernel_arg_type kernel_arg;
+        memset(&kernel_arg, 0, sizeof(kernel_arg));
         kernel_arg.bufsize = bufsize;
         buf_loc_ptrs[0] = (void*)(&(kernel_arg.input_buf));
         buf_loc_ptrs[1] = (void*)(&(kernel_arg.output_buf));
@@ -528,7 +529,8 @@ TEST_F(NativeKernelSuite, ocl_ooo_to_native)
     // Enqueue native kernel
     cl_mem mem_list[] = {mem_buf_out_invert, mem_buf_out_mask, mem_buf_dst};
     void* buf_loc_ptrs[3];
-    adding_native_kernel_arg_type kernel_arg = {0};
+    adding_native_kernel_arg_type kernel_arg;
+    memset(&kernel_arg, 0, sizeof(kernel_arg));
     kernel_arg.bufsize = bufsize;
     buf_loc_ptrs[0] = (void*)(&(kernel_arg.input1_buf));
     buf_loc_ptrs[1] = (void*)(&(kernel_arg.input2_buf));

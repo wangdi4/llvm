@@ -43,17 +43,17 @@ bool fission_two_queues_test()
 
 	//init platform
 	err = clGetPlatformIDs(1,&platform,NULL);
-	bResult = SilentCheck(L"clGetPlatformIDs",CL_SUCCESS,err);
+	bResult = SilentCheck("clGetPlatformIDs",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	// init Devices (only one CPU...)
 	err = clGetDeviceIDs(platform,gDeviceType,1,&device,NULL);
-	bResult = SilentCheck(L"clGetDeviceIDs",CL_SUCCESS,err);
+	bResult = SilentCheck("clGetDeviceIDs",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	cl_uint numComputeUnits;
 	err = clGetDeviceInfo(device, CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(cl_uint), &numComputeUnits, NULL);
-	bResult = SilentCheck(L"clGetDeviceInfo(CL_DEVICE_MAX_COMPUTE_UNITS)",CL_SUCCESS,err);
+	bResult = SilentCheck("clGetDeviceInfo(CL_DEVICE_MAX_COMPUTE_UNITS)",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	if (numComputeUnits < 2)
@@ -67,31 +67,31 @@ bool fission_two_queues_test()
 	cl_device_partition_property properties[] = {CL_DEVICE_PARTITION_BY_COUNTS, 1, 0, 0};
 
 	err = clCreateSubDevices(device, properties, num_entries, &subdevice_id, &num_devices);
-	bResult = SilentCheck(L"clCreateSubDevices",CL_SUCCESS,err);
+	bResult = SilentCheck("clCreateSubDevices",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	//Create a context with the sub-device
 	context = clCreateContext(NULL,1, &subdevice_id, NULL, NULL, &err);
-	bResult = SilentCheck(L"clCreateContext",CL_SUCCESS,err);
+	bResult = SilentCheck("clCreateContext",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	//Create a command queue for the first device
 	cmd_queue[0] = clCreateCommandQueue(context, subdevice_id, 0, &err);
-	bResult = SilentCheck(L"clCreateCommandQueue - first queue",CL_SUCCESS,err);
+	bResult = SilentCheck("clCreateCommandQueue - first queue",CL_SUCCESS,err);
 	if (!bResult) return bResult;
 
 	//Create a command queue for the second device
 	cmd_queue[1] = clCreateCommandQueue(context, subdevice_id, 0, &err);
-	bResult = SilentCheck(L"clCreateCommandQueue - second queue",CL_SUCCESS,err);
+	bResult = SilentCheck("clCreateCommandQueue - second queue",CL_SUCCESS,err);
 	if (!bResult) return bResult;
 
-	char* ocl_test_program= "__kernel void writeThree(__global char *a) { a[get_global_id(0)] = 3; }";
+	const char* ocl_test_program= "__kernel void writeThree(__global char *a) { a[get_global_id(0)] = 3; }";
 
 	cl_kernel  kernel;
 	cl_program program;
 
 	program = clCreateProgramWithSource(context, 1, (const char**)&ocl_test_program, NULL, &err);
-	bResult = SilentCheck(L"clCreateProgramWithSource", CL_SUCCESS, err);
+	bResult = SilentCheck("clCreateProgramWithSource", CL_SUCCESS, err);
 	if (!bResult) return bResult;
 
 	err = clBuildProgram(program,0,NULL,NULL,NULL,NULL);
@@ -110,26 +110,26 @@ bool fission_two_queues_test()
 	}
 
 	kernel = clCreateKernel(program,"writeThree",&err);
-	bResult = SilentCheck(L"clCreateKernel",CL_SUCCESS,err);
+	bResult = SilentCheck("clCreateKernel",CL_SUCCESS,err);
 	if (!bResult) return bResult;
 
 	char input[WORK_SIZE];
 	memset(input, 0, WORK_SIZE);
 	cl_mem buf = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, WORK_SIZE, input, &err);
-	bResult = SilentCheck(L"clCreateBuffer",CL_SUCCESS,err);
+	bResult = SilentCheck("clCreateBuffer",CL_SUCCESS,err);
 	if (!bResult) return bResult;
 
 	err = clSetKernelArg(kernel, 0, sizeof(cl_mem), &buf);
-	bResult = SilentCheck(L"clSetKernelArg",CL_SUCCESS,err);
+	bResult = SilentCheck("clSetKernelArg",CL_SUCCESS,err);
 	if (!bResult) return bResult;
 
 	size_t globalSize = WORK_SIZE;
 	err = clEnqueueNDRangeKernel(cmd_queue[0], kernel, 1, NULL, &globalSize, NULL, 0, NULL, NULL);
-	bResult = SilentCheck(L"clEnqueueNDRangeKernel",CL_SUCCESS,err);
+	bResult = SilentCheck("clEnqueueNDRangeKernel",CL_SUCCESS,err);
 	if (!bResult) return bResult;
 
 	err = clEnqueueReadBuffer(cmd_queue[0], buf, CL_TRUE, 0, WORK_SIZE, input, 0, NULL, NULL);
-	bResult = SilentCheck(L"clEnqueueReadBuffer",CL_SUCCESS,err);
+	bResult = SilentCheck("clEnqueueReadBuffer",CL_SUCCESS,err);
 	if (!bResult) return bResult;
 
 	for (size_t i = 0; i < WORK_SIZE; ++i)
@@ -141,19 +141,19 @@ bool fission_two_queues_test()
 	}
 	//Now do the same for the second queue after releasing the first one
 	err = clReleaseCommandQueue(cmd_queue[0]);
-	bResult = SilentCheck(L"clReleaseCommandQueue [0]",CL_SUCCESS,err);
+	bResult = SilentCheck("clReleaseCommandQueue [0]",CL_SUCCESS,err);
 
 	memset(input, 0, WORK_SIZE);
 	err = clEnqueueWriteBuffer(cmd_queue[1], buf, CL_FALSE, 0, WORK_SIZE, input, 0, NULL, NULL);
-	bResult = SilentCheck(L"clEnqueueReadBuffer",CL_SUCCESS,err);
+	bResult = SilentCheck("clEnqueueReadBuffer",CL_SUCCESS,err);
 	if (!bResult) return bResult;
 
 	err = clEnqueueNDRangeKernel(cmd_queue[1], kernel, 1, NULL, &globalSize, NULL, 0, NULL, NULL);
-	bResult = SilentCheck(L"clEnqueueNDRangeKernel",CL_SUCCESS,err);
+	bResult = SilentCheck("clEnqueueNDRangeKernel",CL_SUCCESS,err);
 	if (!bResult) return bResult;
 
 	err = clEnqueueReadBuffer(cmd_queue[1], buf, CL_TRUE, 0, WORK_SIZE, input, 0, NULL, NULL);
-	bResult = SilentCheck(L"clEnqueueReadBuffer",CL_SUCCESS,err);
+	bResult = SilentCheck("clEnqueueReadBuffer",CL_SUCCESS,err);
 	if (!bResult) return bResult;
 	for (size_t i = 0; i < WORK_SIZE; ++i)
 	{
@@ -164,17 +164,17 @@ bool fission_two_queues_test()
 	}
 
 	err      = clReleaseCommandQueue(cmd_queue[1]);
-	bResult &= SilentCheck(L"clReleaseCommandQueue [1]",CL_SUCCESS,err);
+	bResult &= SilentCheck("clReleaseCommandQueue [1]",CL_SUCCESS,err);
 	err      = clReleaseProgram(program);
-	bResult &= SilentCheck(L"clReleaseProgram",CL_SUCCESS,err);
+	bResult &= SilentCheck("clReleaseProgram",CL_SUCCESS,err);
 	err      = clReleaseKernel(kernel);
-	bResult &= SilentCheck(L"clReleaseKernel",CL_SUCCESS,err);
+	bResult &= SilentCheck("clReleaseKernel",CL_SUCCESS,err);
 	err      = clReleaseMemObject(buf);
-	bResult &= SilentCheck(L"clReleaseMemObject",CL_SUCCESS,err);
+	bResult &= SilentCheck("clReleaseMemObject",CL_SUCCESS,err);
 	err      = clReleaseContext(context);
-	bResult &= SilentCheck(L"clReleaseContext",CL_SUCCESS,err);
+	bResult &= SilentCheck("clReleaseContext",CL_SUCCESS,err);
 	err      = clReleaseDevice(subdevice_id);
-	bResult &= SilentCheck(L"clReleaseDevice",CL_SUCCESS,err);
+	bResult &= SilentCheck("clReleaseDevice",CL_SUCCESS,err);
 
 	if (bResult)
 	{

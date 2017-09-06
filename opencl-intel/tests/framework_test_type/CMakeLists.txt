@@ -16,11 +16,6 @@ endif()
 
 set( CLANG "${TOOLS_BINARY_DIR}/clang" )
 
-# remove the restriction of warning as error for this component
-if (NOT WIN32)
-remove_definitions( -Werror )
-endif (NOT WIN32)
-
 if (INCLUDE_MIC_DEVICE)
   add_definitions( -DINCLUDE_MIC_DEVICE )
 endif (INCLUDE_MIC_DEVICE)

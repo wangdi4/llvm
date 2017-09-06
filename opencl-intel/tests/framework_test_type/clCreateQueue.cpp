@@ -46,7 +46,7 @@ bool clCreateQueueTest()
 
 	// get device(s)
 	cl_int iRet = clGetDeviceIDs(NULL, gDeviceType, 0, NULL, &uiNumDevices);
-	// bResult &= Check(L"clGetDeviceIDs",CL_SUCCESS, iRet);
+	// bResult &= Check("clGetDeviceIDs",CL_SUCCESS, iRet);
 	if (!bResult)
 	{
 		return bResult;
@@ -58,7 +58,7 @@ bool clCreateQueueTest()
 	pBinaryStatus = new cl_int[uiNumDevices];
 
 	iRet = clGetDeviceIDs(NULL, gDeviceType, uiNumDevices, pDevices, NULL);
-	bResult &= Check(L"clGetDeviceIDs",CL_SUCCESS, iRet);
+	bResult &= Check("clGetDeviceIDs",CL_SUCCESS, iRet);
 	if (!bResult)
 	{
 		return bResult;
@@ -66,7 +66,7 @@ bool clCreateQueueTest()
 
 	// create context
 	context = clCreateContext(0, uiNumDevices, pDevices, NULL, NULL, &iRet);
-	bResult &= Check(L"clCreateContext",CL_SUCCESS, iRet);
+	bResult &= Check("clCreateContext",CL_SUCCESS, iRet);
 	if (!bResult)
 	{
 		return bResult;
@@ -97,16 +97,16 @@ bool clCreateQueueTest()
 
 	// create program with binary
 	cl_program program  = clCreateProgramWithBinary(context, uiNumDevices, pDevices, pBinarySizes, (const unsigned char**)(&pCont), pBinaryStatus, &iRet);
-	bResult &= Check(L"clCreateProgramWithBinary", CL_SUCCESS, iRet);
+	bResult &= Check("clCreateProgramWithBinary", CL_SUCCESS, iRet);
 
 	iRet = clBuildProgram(program, uiNumDevices, pDevices, NULL, NULL, NULL);
-	bResult &= Check(L"clBuildProgram", CL_SUCCESS, iRet);
+	bResult &= Check("clBuildProgram", CL_SUCCESS, iRet);
 
     //
     // Create queues
     //
     cl_command_queue queue1 = clCreateCommandQueue (context, pDevices[0], 0 /*no properties*/, &iRet);
-	bResult &= Check(L"clCreateCommandQueue - queue1", CL_SUCCESS, iRet);
+	bResult &= Check("clCreateCommandQueue - queue1", CL_SUCCESS, iRet);
 
     cl_command_queue queue2;
     cl_command_queue queue3;
@@ -119,28 +119,28 @@ bool clCreateQueueTest()
 if (KERNEL_TEST)
 {
     queue2 = clCreateCommandQueue (context, pDevices[0], 0 /*no properties*/, &iRet);
-	bResult &= Check(L"clCreateCommandQueue - queue2", CL_SUCCESS, iRet);
+	bResult &= Check("clCreateCommandQueue - queue2", CL_SUCCESS, iRet);
 
     queue3 = clCreateCommandQueue (context, pDevices[0], 0 /*no properties*/, &iRet);
-	bResult &= Check(L"clCreateCommandQueue - queue3", CL_SUCCESS, iRet);
+	bResult &= Check("clCreateCommandQueue - queue3", CL_SUCCESS, iRet);
 
     cl_kernel kernel1 = clCreateKernel(program, "dot_product", &iRet);
-	bResult &= Check(L"clCreateKernel - dot_product", CL_SUCCESS, iRet);
+	bResult &= Check("clCreateKernel - dot_product", CL_SUCCESS, iRet);
 
 	cl_kernel kernel2 = clCreateKernel(program, "dot_product_test", &iRet);
-	bResult &= Check(L"clCreateKernel - dot_product_test", CL_SUCCESS, iRet);
+	bResult &= Check("clCreateKernel - dot_product_test", CL_SUCCESS, iRet);
 
 	cl_kernel kernel3 = clCreateKernel(program, "foo", &iRet);
-	bResult &= Check(L"clCreateKernel - foo", CL_SUCCESS, iRet);
+	bResult &= Check("clCreateKernel - foo", CL_SUCCESS, iRet);
 
 	//cl_uint uiNumKernels = 0;
 	//iRet = clCreateKernelsInProgram(program, 0, NULL, &uiNumKernels);
-	//bResult &= Check(L"clCreateKernelsInProgram - get numbers of kernels", CL_SUCCESS, iRet);
-	//bResult &= CheckInt(L"clCreateKernelsInProgram - check numbers kernels", 14, uiNumKernels);
+	//bResult &= Check("clCreateKernelsInProgram - get numbers of kernels", CL_SUCCESS, iRet);
+	//bResult &= CheckInt("clCreateKernelsInProgram - check numbers kernels", 14, uiNumKernels);
 
 	//cl_kernel pKernels[14];
 	//iRet = clCreateKernelsInProgram(program, uiNumKernels, pKernels, NULL);
-	//bResult &= Check(L"clCreateKernelsInProgram - get kernels", CL_SUCCESS, iRet);
+	//bResult &= Check("clCreateKernelsInProgram - get kernels", CL_SUCCESS, iRet);
 
     //
     // Execute commands
@@ -180,7 +180,7 @@ if (KERNEL_TEST)
 
     // Wait until all queues finish;
     iRet = clWaitForEvents (3, waitEvents+2);
-    bResult &= Check(L"clWaitForEvents - waitEvents", CL_SUCCESS, iRet);
+    bResult &= Check("clWaitForEvents - waitEvents", CL_SUCCESS, iRet);
 
     //
     // Release objects
@@ -188,7 +188,7 @@ if (KERNEL_TEST)
     for (int i=0; i<5; i++)
     {
         iRet = clReleaseEvent(waitEvents[i]);
-        bResult &= Check(L"clReleaseEvent - waitEvent", CL_SUCCESS, iRet);
+        bResult &= Check("clReleaseEvent - waitEvent", CL_SUCCESS, iRet);
     }
 }
 
@@ -200,37 +200,37 @@ if (BUFFER_TEST)
     cl_event waitEvent;
 
     cl_mem buffer = clCreateBuffer(context, CL_MEM_READ_ONLY, size * 20, NULL, &iRet);
-    bResult &= Check(L"clCreateBuffer", CL_SUCCESS, iRet);
+    bResult &= Check("clCreateBuffer", CL_SUCCESS, iRet);
 
     iRet = clEnqueueWriteBuffer (queue1, buffer, false, 0, size* 20, src, 0, NULL, NULL);
-    bResult &= Check(L"clEnqueueWriteBuffer", CL_SUCCESS, iRet);
+    bResult &= Check("clEnqueueWriteBuffer", CL_SUCCESS, iRet);
 
     iRet = clEnqueueReadBuffer (queue1, buffer, false,  size*10, size*10, dst, 0, NULL, &waitEvent);
-    bResult &= Check(L"clEnqueueReadBuffer", CL_SUCCESS, iRet);    
+    bResult &= Check("clEnqueueReadBuffer", CL_SUCCESS, iRet);    
 
     iRet = clEnqueueWriteBuffer (queue1, buffer, false, 0, size* 20, src2, 0, NULL, NULL);
-    bResult &= Check(L"clEnqueueWriteBuffer", CL_SUCCESS, iRet);
+    bResult &= Check("clEnqueueWriteBuffer", CL_SUCCESS, iRet);
 
     // Wait until all queues finish;
     iRet = clWaitForEvents (1, &waitEvent);
-    bResult &= Check(L"clWaitForEvents - waitEvents", CL_SUCCESS, iRet);
+    bResult &= Check("clWaitForEvents - waitEvents", CL_SUCCESS, iRet);
 
     iRet = clEnqueueReadBuffer (queue1, buffer, true,  0, size*10, dst, 0, NULL, NULL);
-    bResult &= Check(L"clEnqueueReadBuffer", CL_SUCCESS, iRet);    
+    bResult &= Check("clEnqueueReadBuffer", CL_SUCCESS, iRet);    
 
 
 }
 
     iRet = clReleaseCommandQueue(queue1);
-    bResult &= Check(L"clReleaseCommandQueue - queue1", CL_SUCCESS, iRet);
+    bResult &= Check("clReleaseCommandQueue - queue1", CL_SUCCESS, iRet);
     
 if (KERNEL_TEST)
 {
     iRet = clReleaseCommandQueue(queue2);
-    bResult &= Check(L"clReleaseCommandQueue - queue2", CL_SUCCESS, iRet);
+    bResult &= Check("clReleaseCommandQueue - queue2", CL_SUCCESS, iRet);
 
     iRet = clReleaseCommandQueue(queue3);
-    bResult &= Check(L"clReleaseCommandQueue - queue3", CL_SUCCESS, iRet);
+    bResult &= Check("clReleaseCommandQueue - queue3", CL_SUCCESS, iRet);
 }
 
     return bResult;

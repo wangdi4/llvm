@@ -40,7 +40,7 @@ bool clOutOfOrderTest()
 
 	// get device(s)
 	cl_int iRet = clGetDeviceIDs(NULL, gDeviceType, 0, NULL, &uiNumDevices);
-	bResult &= Check(L"clGetDeviceIDs",CL_SUCCESS, iRet);
+	bResult &= Check("clGetDeviceIDs",CL_SUCCESS, iRet);
 	if (!bResult)
 	{
 		return bResult;
@@ -49,7 +49,7 @@ bool clOutOfOrderTest()
 	// initialize arrays
 	pDevices = new cl_device_id[uiNumDevices];
 	iRet = clGetDeviceIDs(NULL, gDeviceType, uiNumDevices, pDevices, NULL);
-	bResult &= Check(L"clGetDeviceIDs",CL_SUCCESS, iRet);
+	bResult &= Check("clGetDeviceIDs",CL_SUCCESS, iRet);
 	if (!bResult)
 	{
 		return bResult;
@@ -57,7 +57,7 @@ bool clOutOfOrderTest()
 
 	// create context
 	context = clCreateContext(0, uiNumDevices, pDevices, NULL, NULL, &iRet);
-	bResult &= Check(L"clCreateContext",CL_SUCCESS, iRet);
+	bResult &= Check("clCreateContext",CL_SUCCESS, iRet);
 	if (!bResult)
 	{
 		return bResult;
@@ -65,10 +65,10 @@ bool clOutOfOrderTest()
 	
 	// create program with source
 	cl_program program = clCreateProgramWithSource(context, 1, (const char**)&ocl_test_program, NULL, &iRet);
-	bResult &= Check(L"clCreateProgramWithSource", CL_SUCCESS, iRet);
+	bResult &= Check("clCreateProgramWithSource", CL_SUCCESS, iRet);
 
 	iRet = clBuildProgram(program, uiNumDevices, pDevices, NULL, NULL, NULL);
-	bResult &= Check(L"clBuildProgram", CL_SUCCESS, iRet);
+	bResult &= Check("clBuildProgram", CL_SUCCESS, iRet);
 
 
     //
@@ -86,7 +86,7 @@ bool clOutOfOrderTest()
     // Create queue
     //
     cl_command_queue queue1 = clCreateCommandQueue (context, pDevices[0], CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, &iRet);
-	bResult &= Check(L"clCreateCommandQueue - queue1 - Out of order", CL_SUCCESS, iRet);
+	bResult &= Check("clCreateCommandQueue - queue1 - Out of order", CL_SUCCESS, iRet);
 
     //
     // Create buffers
@@ -95,7 +95,7 @@ bool clOutOfOrderTest()
 
 
     cl_mem buffer_dst = clCreateBuffer(context, CL_MEM_READ_WRITE, size * BUFFERS_LENGTH, NULL, &iRet);
-    bResult &= Check(L"clCreateBuffer - dst", CL_SUCCESS, iRet);
+    bResult &= Check("clCreateBuffer - dst", CL_SUCCESS, iRet);
 
 
     //
@@ -115,23 +115,23 @@ bool clOutOfOrderTest()
     for( j =0; j<numIter; j++)
     {               		
         iRet = clEnqueueWriteBuffer (queue1, buffer_dst, false, j*size*REPEATS, size*REPEATS, src + j*REPEATS, 0, NULL, NULL);
-        bResult &= Check(L"clEnqueueWriteBuffer - repeat", CL_SUCCESS, iRet);
+        bResult &= Check("clEnqueueWriteBuffer - repeat", CL_SUCCESS, iRet);
     }
 
     iRet = clEnqueueBarrier(queue1);
-	bResult &= Check(L"clEnqueueBarrier", CL_SUCCESS, iRet);	
+	bResult &= Check("clEnqueueBarrier", CL_SUCCESS, iRet);	
 
     // Read content and print    
     cl_event readBufferEvent;
     iRet = clEnqueueReadBuffer (queue1, buffer_dst, CL_FALSE, 0, size*BUFFERS_LENGTH, dst, 0, NULL, &readBufferEvent);
-    bResult &= Check(L"clEnqueueReadBuffer - dst", CL_SUCCESS, iRet);
+    bResult &= Check("clEnqueueReadBuffer - dst", CL_SUCCESS, iRet);
 
     cl_event markerEvent;
     iRet = clEnqueueMarkerWithWaitList(queue1, 1, &readBufferEvent, &markerEvent);
-    bResult &= Check(L"clEnqueueMarkerWithWaitList", CL_SUCCESS, iRet);
+    bResult &= Check("clEnqueueMarkerWithWaitList", CL_SUCCESS, iRet);
 
     iRet = clWaitForEvents(1, &markerEvent);
-    bResult &= Check(L"clWaitForEvents", CL_SUCCESS, iRet);
+    bResult &= Check("clWaitForEvents", CL_SUCCESS, iRet);
 
     clReleaseEvent(readBufferEvent);
     clReleaseEvent(markerEvent);
@@ -152,19 +152,19 @@ bool clOutOfOrderTest()
     // Release objects
     //
     iRet = clReleaseMemObject(buffer_dst);
-    bResult &= Check(L"clReleaseBuffer - buffer_dst", CL_SUCCESS, iRet);
+    bResult &= Check("clReleaseBuffer - buffer_dst", CL_SUCCESS, iRet);
 
     iRet = clReleaseProgram(program);
-    bResult &= Check(L"clReleaseProgram - program", CL_SUCCESS, iRet);
+    bResult &= Check("clReleaseProgram - program", CL_SUCCESS, iRet);
 
     iRet = clFinish(queue1);
-    bResult &= Check(L"clFinish - queue1", CL_SUCCESS, iRet);
+    bResult &= Check("clFinish - queue1", CL_SUCCESS, iRet);
 
     iRet = clReleaseCommandQueue(queue1);
-    bResult &= Check(L"clReleaseCommandQueue - queue1", CL_SUCCESS, iRet);
+    bResult &= Check("clReleaseCommandQueue - queue1", CL_SUCCESS, iRet);
 
     iRet = clReleaseContext(context);
-    bResult &= Check(L"clReleaseContext - context", CL_SUCCESS, iRet);
+    bResult &= Check("clReleaseContext - context", CL_SUCCESS, iRet);
 
     return bResult;
 }
@@ -192,7 +192,7 @@ bool clOODotProductTest( int iNumLoops )
 	cl_platform_id platform = 0;
 
 	cl_int iRet = clGetPlatformIDs(1, &platform, NULL);
-	bResult &= Check(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+	bResult &= Check("clGetPlatformIDs", CL_SUCCESS, iRet);
 
 	if (!bResult)
 	{
@@ -203,7 +203,7 @@ bool clOODotProductTest( int iNumLoops )
 
 	// get device(s)
 	iRet = clGetDeviceIDs(platform, gDeviceType, 0, NULL, &uiNumDevices);
-	bResult &= Check(L"clGetDeviceIDs",CL_SUCCESS, iRet);
+	bResult &= Check("clGetDeviceIDs",CL_SUCCESS, iRet);
 	if (!bResult)
 	{
 		return bResult;
@@ -212,7 +212,7 @@ bool clOODotProductTest( int iNumLoops )
 	// initialize arrays
 	pDevices = new cl_device_id[uiNumDevices];
 	iRet = clGetDeviceIDs(platform, gDeviceType, uiNumDevices, pDevices, NULL);
-	bResult &= Check(L"clGetDeviceIDs",CL_SUCCESS, iRet);
+	bResult &= Check("clGetDeviceIDs",CL_SUCCESS, iRet);
 	if (!bResult)
 	{
 		delete []pDevices;
@@ -221,7 +221,7 @@ bool clOODotProductTest( int iNumLoops )
 
 	// create context
 	context = clCreateContext(prop, uiNumDevices, pDevices, NULL, NULL, &iRet);
-	bResult &= Check(L"clCreateContext",CL_SUCCESS, iRet);
+	bResult &= Check("clCreateContext",CL_SUCCESS, iRet);
 	if (!bResult)
 	{
 		delete []pDevices;
@@ -230,10 +230,10 @@ bool clOODotProductTest( int iNumLoops )
 
 	// create program with source
 	cl_program program = clCreateProgramWithSource(context, 1, (const char**)&ocl_test_program, NULL, &iRet);
-	bResult &= Check(L"clCreateProgramWithSource", CL_SUCCESS, iRet);
+	bResult &= Check("clCreateProgramWithSource", CL_SUCCESS, iRet);
 
 	iRet = clBuildProgram(program, uiNumDevices, pDevices, NULL, NULL, NULL);
-	bResult &= Check(L"clBuildProgram", CL_SUCCESS, iRet);
+	bResult &= Check("clBuildProgram", CL_SUCCESS, iRet);
 
     //
     // From here down it is the program execution implementation
@@ -253,7 +253,7 @@ bool clOODotProductTest( int iNumLoops )
     // Create Kernel
     //
     cl_kernel kernel1 = clCreateKernel(program, "dot_product", &iRet);
-	bResult &= Check(L"clCreateKernel - dot_product", CL_SUCCESS, iRet);
+	bResult &= Check("clCreateKernel - dot_product", CL_SUCCESS, iRet);
 
     //
     // Create buffers
@@ -261,25 +261,25 @@ bool clOODotProductTest( int iNumLoops )
     size_t size = sizeof(cl_float);
 
     cl_mem buffer_srcA = clCreateBuffer(context, CL_MEM_READ_ONLY, size * BUFFERS_LENGTH, NULL, &iRet);
-    bResult &= Check(L"clCreateBuffer - srcA", CL_SUCCESS, iRet);
+    bResult &= Check("clCreateBuffer - srcA", CL_SUCCESS, iRet);
 
     cl_mem buffer_srcB = clCreateBuffer(context, CL_MEM_READ_ONLY, size * BUFFERS_LENGTH, NULL, &iRet);
-    bResult &= Check(L"clCreateBuffer - srcB", CL_SUCCESS, iRet);
+    bResult &= Check("clCreateBuffer - srcB", CL_SUCCESS, iRet);
 
     cl_mem buffer_dst = clCreateBuffer(context, CL_MEM_READ_WRITE, size * BUFFERS_LENGTH, NULL, &iRet);
-    bResult &= Check(L"clCreateBuffer - dst", CL_SUCCESS, iRet);
+    bResult &= Check("clCreateBuffer - dst", CL_SUCCESS, iRet);
 
     //
     // Set arguments
     //
     iRet = clSetKernelArg(kernel1, 0, sizeof(cl_mem), &buffer_srcA);
-    bResult &= Check(L"clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
+    bResult &= Check("clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
 
     iRet = clSetKernelArg(kernel1, 1, sizeof(cl_mem), &buffer_srcB);
-    bResult &= Check(L"clSetKernelArg - buffer_srcB", CL_SUCCESS, iRet);
+    bResult &= Check("clSetKernelArg - buffer_srcB", CL_SUCCESS, iRet);
 
     iRet = clSetKernelArg(kernel1, 2, sizeof(cl_mem), &buffer_dst);
-    bResult &= Check(L"clSetKernelArg - buffer_dst", CL_SUCCESS, iRet);
+    bResult &= Check("clSetKernelArg - buffer_dst", CL_SUCCESS, iRet);
 
     for( int i=0; i< iNumLoops; i++)
     {
@@ -287,21 +287,21 @@ bool clOODotProductTest( int iNumLoops )
         // Create queue
         //
         cl_command_queue queue1 = clCreateCommandQueue (context, pDevices[0], CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, &iRet);
-	    bResult &= Check(L"clCreateCommandQueue - queue1", CL_SUCCESS, iRet);
+	    bResult &= Check("clCreateCommandQueue - queue1", CL_SUCCESS, iRet);
 
         //
         // Execute commands - Write buffers
         //
         iRet = clEnqueueWriteBuffer (queue1, buffer_srcA, false, 0, size* BUFFERS_LENGTH, srcA, 0, NULL, NULL);
-        bResult &= Check(L"clEnqueueWriteBuffer - srcA", CL_SUCCESS, iRet);
+        bResult &= Check("clEnqueueWriteBuffer - srcA", CL_SUCCESS, iRet);
 
         iRet = clEnqueueWriteBuffer (queue1, buffer_srcB, false, 0, size* BUFFERS_LENGTH, srcB, 0, NULL, NULL);
-        bResult &= Check(L"clEnqueueWriteBuffer - srcB", CL_SUCCESS, iRet);
+        bResult &= Check("clEnqueueWriteBuffer - srcB", CL_SUCCESS, iRet);
         
 
         // Enqueue Barrier to continue only when buffers are ready
         iRet = clEnqueueBarrier(queue1);
-        bResult &= Check(L"clEnqueueBarrier", CL_SUCCESS, iRet);
+        bResult &= Check("clEnqueueBarrier", CL_SUCCESS, iRet);
 
         //
         // Execute kernel - dot_product
@@ -313,18 +313,18 @@ bool clOODotProductTest( int iNumLoops )
         for (int index =0; index < 4; index++)
         {
             iRet = clEnqueueNDRangeKernel(queue1, kernel1, 1, NULL, global_work_size, local_work_size, 0, NULL, &waitEvent[0]);
-            bResult &= Check(L"clEnqueueNDRangeKernel", CL_SUCCESS, iRet);
+            bResult &= Check("clEnqueueNDRangeKernel", CL_SUCCESS, iRet);
 
             iRet = clEnqueueReadBuffer (queue1, buffer_dst, CL_FALSE,  0, size*BUFFERS_LENGTH, dst, 1, &waitEvent[0], NULL);
-            bResult &= Check(L"clEnqueueReadBuffer", CL_SUCCESS, iRet);
+            bResult &= Check("clEnqueueReadBuffer", CL_SUCCESS, iRet);
 
             // Wait with Marker...
             iRet = clEnqueueMarker(queue1, &waitEvent[1]);
-            bResult &= Check(L"clEnqueueMarker", CL_SUCCESS, iRet);
+            bResult &= Check("clEnqueueMarker", CL_SUCCESS, iRet);
 
             // Wait on marker
             iRet = clWaitForEvents(1, &waitEvent[1]);
-            bResult &= Check(L"clWaitForEvents", CL_SUCCESS, iRet);
+            bResult &= Check("clWaitForEvents", CL_SUCCESS, iRet);
 
 
             //
@@ -338,37 +338,37 @@ bool clOODotProductTest( int iNumLoops )
             printf("\n ==== \n");
 
             iRet = clReleaseEvent(waitEvent[0]);
-            bResult &= Check(L"clReleaseEvent - waitEvent[0]", CL_SUCCESS, iRet);
+            bResult &= Check("clReleaseEvent - waitEvent[0]", CL_SUCCESS, iRet);
 
             iRet = clReleaseEvent(waitEvent[1]);
-            bResult &= Check(L"clReleaseEvent - waitEvent[1]", CL_SUCCESS, iRet);
+            bResult &= Check("clReleaseEvent - waitEvent[1]", CL_SUCCESS, iRet);
         }
         iRet = clFinish(queue1);
-        bResult &= Check(L"clFinish - queue1", CL_SUCCESS, iRet);        
+        bResult &= Check("clFinish - queue1", CL_SUCCESS, iRet);        
 
         iRet = clReleaseCommandQueue(queue1);
-        bResult &= Check(L"clReleaseCommandQueue - queue1", CL_SUCCESS, iRet);
+        bResult &= Check("clReleaseCommandQueue - queue1", CL_SUCCESS, iRet);
     }
     //
     // Release objects
     //
     iRet = clReleaseMemObject(buffer_dst);
-    bResult &= Check(L"clReleaseBuffer - buffer_dst", CL_SUCCESS, iRet);
+    bResult &= Check("clReleaseBuffer - buffer_dst", CL_SUCCESS, iRet);
 
     iRet = clReleaseMemObject(buffer_srcA);
-    bResult &= Check(L"clReleaseBuffer - buffer_srcA", CL_SUCCESS, iRet);
+    bResult &= Check("clReleaseBuffer - buffer_srcA", CL_SUCCESS, iRet);
 
     iRet = clReleaseMemObject(buffer_srcB);
-    bResult &= Check(L"clReleaseBuffer - buffer_srcB", CL_SUCCESS, iRet);
+    bResult &= Check("clReleaseBuffer - buffer_srcB", CL_SUCCESS, iRet);
 
     iRet = clReleaseKernel(kernel1);
-    bResult &= Check(L"clReleaseKernel - kernel1", CL_SUCCESS, iRet);
+    bResult &= Check("clReleaseKernel - kernel1", CL_SUCCESS, iRet);
 
     iRet = clReleaseProgram(program);
-    bResult &= Check(L"clReleaseProgram - program", CL_SUCCESS, iRet);
+    bResult &= Check("clReleaseProgram - program", CL_SUCCESS, iRet);
 
     iRet = clReleaseContext(context);
-    bResult &= Check(L"clReleaseContext - context", CL_SUCCESS, iRet);
+    bResult &= Check("clReleaseContext - context", CL_SUCCESS, iRet);
 
     delete[] srcA;
     delete[] srcB;
@@ -429,13 +429,13 @@ bool clQuickExecutionTest()
     size_t size = sizeof(cl_float);
 
     cl_mem buffer_srcA = clCreateBuffer(context, CL_MEM_READ_ONLY, size * BUFFERS_LENGTH, NULL, &iRet);
-    bResult &= Check(L"clCreateBuffer - srcA", CL_SUCCESS, iRet);
+    bResult &= Check("clCreateBuffer - srcA", CL_SUCCESS, iRet);
 
     cl_mem buffer_srcB = clCreateBuffer(context, CL_MEM_READ_ONLY, size * BUFFERS_LENGTH, NULL, &iRet);
-    bResult &= Check(L"clCreateBuffer - srcB", CL_SUCCESS, iRet);
+    bResult &= Check("clCreateBuffer - srcB", CL_SUCCESS, iRet);
 
     cl_mem buffer_dst = clCreateBuffer(context, CL_MEM_READ_WRITE, size * BUFFERS_LENGTH, NULL, &iRet);
-    bResult &= Check(L"clCreateBuffer - dst", CL_SUCCESS, iRet);
+    bResult &= Check("clCreateBuffer - dst", CL_SUCCESS, iRet);
 
 
     //
@@ -449,14 +449,14 @@ bool clQuickExecutionTest()
     }
 
     iRet = clEnqueueBarrier(queue1);
-    bResult &= Check(L"clEnqueueBarrier", CL_SUCCESS, iRet);
+    bResult &= Check("clEnqueueBarrier", CL_SUCCESS, iRet);
 
     cl_event waitEvent;
     iRet = clEnqueueReadBuffer (queue1, buffer_srcB, false, 0, size*BUFFERS_LENGTH, dst, 0, NULL, &waitEvent);
-    bResult &= Check(L"clEnqueueReadBuffer - to dst", CL_SUCCESS, iRet);
+    bResult &= Check("clEnqueueReadBuffer - to dst", CL_SUCCESS, iRet);
 
     iRet = clWaitForEvents(1, &waitEvent);
-    bResult &= Check(L"clWaitForEvents", CL_SUCCESS, iRet);
+    bResult &= Check("clWaitForEvents", CL_SUCCESS, iRet);
     
     
     //
@@ -469,7 +469,7 @@ bool clQuickExecutionTest()
     iRet = clFinish(queue1);
     iRet = clReleaseCommandQueue(queue1);
     iRet = clReleaseContext(context);
-    bResult &= Check(L"clReleaseContext - context", CL_SUCCESS, iRet);
+    bResult &= Check("clReleaseContext - context", CL_SUCCESS, iRet);
 
     delete[] srcA;
     delete[] srcB;

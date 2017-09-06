@@ -36,7 +36,7 @@ bool clIntegerExecuteTest()
 	cl_platform_id platform = 0;
 
 	iRet = clGetPlatformIDs(1, &platform, NULL);
-	bResult &= Check(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+	bResult &= Check("clGetPlatformIDs", CL_SUCCESS, iRet);
 
 	if (!bResult)
 	{
@@ -50,25 +50,25 @@ bool clIntegerExecuteTest()
     // Create context, Queue
     //
 	cl_context context = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);
-    bResult &= Check(L"clCreateContextFromType", CL_SUCCESS, iRet);    
+    bResult &= Check("clCreateContextFromType", CL_SUCCESS, iRet);    
     if (!bResult) goto release_end;
 
 	iRet = clGetDeviceIDs(platform, gDeviceType, 1, &clDefaultDeviceId, NULL);
-    bResult &= Check(L"clGetDeviceIDs", CL_SUCCESS, iRet);    
+    bResult &= Check("clGetDeviceIDs", CL_SUCCESS, iRet);    
     if (!bResult) goto release_context;
 
 	{
 		cl_command_queue queue = clCreateCommandQueue (context, clDefaultDeviceId, 0 /*no properties*/, &iRet);
-		bResult &= Check(L"clCreateCommandQueue - queue", CL_SUCCESS, iRet);
+		bResult &= Check("clCreateCommandQueue - queue", CL_SUCCESS, iRet);
 		if (!bResult) goto release_context;
 
 		// create program with source
 	#if 0
 	cl_program program = clCreateProgramWithSource(context, 1, (const char**)&ocl_test_program, NULL, &iRet);
-	bResult &= Check(L"clCreateProgramWithSource", CL_SUCCESS, iRet);
+	bResult &= Check("clCreateProgramWithSource", CL_SUCCESS, iRet);
 	if (!bResult) goto release_queue;
 	iRet = clBuildProgram(program, 0, NULL, NULL, NULL, NULL);
-	bResult &= Check(L"clBuildProgram", CL_SUCCESS, iRet);
+	bResult &= Check("clBuildProgram", CL_SUCCESS, iRet);
 	if (!bResult) goto release_program;
 	#else
 		cl_program program;
@@ -78,7 +78,7 @@ bool clIntegerExecuteTest()
 
 		{
 			cl_kernel kernel = clCreateKernel(program, "int_test", &iRet);
-			bResult &= Check(L"clCreateKernel - int_test", CL_SUCCESS, iRet);
+			bResult &= Check("clCreateKernel - int_test", CL_SUCCESS, iRet);
 			if (!bResult) goto release_program;
 
 
@@ -97,7 +97,7 @@ bool clIntegerExecuteTest()
 
 				{
 					cl_mem clBuff = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(pBuff), pBuff, &iRet);
-					bResult &= Check(L"clCreateBuffer", CL_SUCCESS, iRet);
+					bResult &= Check("clCreateBuffer", CL_SUCCESS, iRet);
 					if (!bResult)
 					{
 						goto release_kernel;
@@ -105,7 +105,7 @@ bool clIntegerExecuteTest()
 
 					// Set Kernel Arguments
 					iRet = clSetKernelArg(kernel, 0, sizeof(cl_mem), &clBuff);
-					bResult &= Check(L"clSetKernelArg - clBuff", CL_SUCCESS, iRet);
+					bResult &= Check("clSetKernelArg - clBuff", CL_SUCCESS, iRet);
 					if (!bResult) goto release_image;
 
 					{
@@ -114,12 +114,12 @@ bool clIntegerExecuteTest()
 						// Execute kernel
 						iRet = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, global_work_size, NULL, 0, NULL, NULL);
 					}
-					bResult &= Check(L"clEnqueueNDRangeKernel", CL_SUCCESS, iRet);    
+					bResult &= Check("clEnqueueNDRangeKernel", CL_SUCCESS, iRet);    
 					//
 					// Verification phase
 					//
 					iRet = clEnqueueReadBuffer( queue, clBuff, CL_TRUE, 0, sizeof(pDstBuff), pDstBuff, 0, NULL, NULL );
-					bResult &= Check(L"clEnqueueReadBuffer - Dst", CL_SUCCESS, iRet);
+					bResult &= Check("clEnqueueReadBuffer - Dst", CL_SUCCESS, iRet);
 					if (!bResult) goto release_image;
 
 					for( unsigned y=0; y < stBuffSize; ++y )

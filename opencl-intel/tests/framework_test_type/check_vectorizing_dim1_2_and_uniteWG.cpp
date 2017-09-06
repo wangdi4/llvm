@@ -80,27 +80,27 @@ bool clCheckVectorizingDim1And2AndUniteWG(int progIndex,bool hasLocalWGSize)
     try
     {
         iRet = clGetPlatformIDs(1, &platform, NULL);
-        CheckException(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+        CheckException("clGetPlatformIDs", CL_SUCCESS, iRet);
         iRet = clGetDeviceIDs(platform, gDeviceType, 1, &device, NULL);
-        CheckException(L"clGetDeviceIDs", CL_SUCCESS, iRet);
+        CheckException("clGetDeviceIDs", CL_SUCCESS, iRet);
 
         const cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
         context = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);
-        CheckException(L"clCreateContextFromType", CL_SUCCESS, iRet);
+        CheckException("clCreateContextFromType", CL_SUCCESS, iRet);
 
         queue = clCreateCommandQueue(context, device, 0, &iRet);
-        CheckException(L"clCreateCommandQueue", CL_SUCCESS, iRet);
+        CheckException("clCreateCommandQueue", CL_SUCCESS, iRet);
 
         const char * program  = (progIndex==0)?sProg_prefer1:sProg_prefer2;
         const size_t szLengths = { strlen(program) };
         cl_program prog = clCreateProgramWithSource(context, 1, (const char**)&program, &szLengths, &iRet);
 
-        CheckException(L"clCreateProgramWithSource", CL_SUCCESS, iRet);
+        CheckException("clCreateProgramWithSource", CL_SUCCESS, iRet);
         iRet = clBuildProgram(prog, 1, &device, NULL, NULL, NULL);
-        CheckException(L"clBuildProgram", CL_SUCCESS, iRet);
+        CheckException("clBuildProgram", CL_SUCCESS, iRet);
 
         cl_kernel kernel = clCreateKernel(prog, "test", &iRet);
-        CheckException(L"clCreateKernel", CL_SUCCESS, iRet);
+        CheckException("clCreateKernel", CL_SUCCESS, iRet);
 
         //create input
         cl_int iSrcArr1[WORK_SIZE_DIM][WORK_SIZE_DIM];
@@ -121,21 +121,21 @@ bool clCheckVectorizingDim1And2AndUniteWG(int progIndex,bool hasLocalWGSize)
 
         //create buffers
         clMemWrapper srcBuf1 = clCreateBuffer(context, CL_MEM_USE_HOST_PTR, sizeof(iSrcArr1), iSrcArr1, &iRet);
-        CheckException(L"clCreateBuffer", CL_SUCCESS, iRet);
+        CheckException("clCreateBuffer", CL_SUCCESS, iRet);
         clMemWrapper srcBuf2 = clCreateBuffer(context, CL_MEM_USE_HOST_PTR, sizeof(iSrcArr2), iSrcArr2, &iRet);
-        CheckException(L"clCreateBuffer", CL_SUCCESS, iRet);
+        CheckException("clCreateBuffer", CL_SUCCESS, iRet);
         clMemWrapper dstBuf = clCreateBuffer(context, CL_MEM_USE_HOST_PTR, sizeof(iDstArr),iDstArr, &iRet);
-        CheckException(L"clCreateBuffer", CL_SUCCESS, iRet);
+        CheckException("clCreateBuffer", CL_SUCCESS, iRet);
 
         //fill the buffers with the input
         iRet = clSetKernelArg(kernel, 0, sizeof(cl_mem), &srcBuf1);
-        CheckException(L"clSetKernelArg", CL_SUCCESS, iRet);
+        CheckException("clSetKernelArg", CL_SUCCESS, iRet);
         iRet = clSetKernelArg(kernel, 1, sizeof(cl_mem), &srcBuf2);
-        CheckException(L"clSetKernelArg", CL_SUCCESS, iRet);
+        CheckException("clSetKernelArg", CL_SUCCESS, iRet);
         iRet = clSetKernelArg(kernel, 2, sizeof(cl_mem), &dstBuf);
-        CheckException(L"clSetKernelArg", CL_SUCCESS, iRet);
+        CheckException("clSetKernelArg", CL_SUCCESS, iRet);
         iRet = clSetKernelArg(kernel, 3, sizeof(cl_int), &size);
-        CheckException(L"clSetKernelArg", CL_SUCCESS, iRet);
+        CheckException("clSetKernelArg", CL_SUCCESS, iRet);
 
         size_t szGlobalWorkSize[2] = {WORK_SIZE_DIM, WORK_SIZE_DIM};
 
@@ -147,17 +147,17 @@ bool clCheckVectorizingDim1And2AndUniteWG(int progIndex,bool hasLocalWGSize)
             iRet = clEnqueueNDRangeKernel(queue, kernel, 2, NULL, szGlobalWorkSize, NULL , 0, NULL, NULL);
         }
 
-        CheckException(L"clEnqueueNDRangeKernel", CL_SUCCESS, iRet);
+        CheckException("clEnqueueNDRangeKernel", CL_SUCCESS, iRet);
 
         iRet = clEnqueueReadBuffer(queue, dstBuf, CL_TRUE, 0, sizeof(iDstArr), iDstArr, 0, NULL, NULL);
-        CheckException(L"clEnqueueReadBuffer", CL_SUCCESS, iRet);
+        CheckException("clEnqueueReadBuffer", CL_SUCCESS, iRet);
 
         // Calculate correct result
         for (size_t i = 0; i < WORK_SIZE_DIM; i++)
         {
             for (size_t j = 0; j < WORK_SIZE_DIM; j++)
             {
-                if (i < size-1 && j < size){
+                if (i < ((size_t)size-1) && j < (size_t)size){
                     iSrcArr2[i+1][j] -= iSrcArr1[i+1][0]*iSrcArr2[0][j] ;
                     if (j==0){
                         iDstArr_correct[i+1] -= iSrcArr1[i+1][j]*iDstArr_correct[0];

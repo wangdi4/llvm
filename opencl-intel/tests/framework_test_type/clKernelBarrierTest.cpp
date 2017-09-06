@@ -47,7 +47,7 @@ bool clKernelBarrierTest()
 	cl_platform_id platform = 0;
 
 	cl_int iRet = clGetPlatformIDs(1, &platform, NULL);
-	bResult &= Check(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+	bResult &= Check("clGetPlatformIDs", CL_SUCCESS, iRet);
 
 	if (!bResult)
 	{
@@ -58,7 +58,7 @@ bool clKernelBarrierTest()
 
 	// get device(s)
 	iRet = clGetDeviceIDs(platform, gDeviceType, 0, NULL, &uiNumDevices);
-	bResult &= Check(L"clGetDeviceIDs",CL_SUCCESS, iRet);
+	bResult &= Check("clGetDeviceIDs",CL_SUCCESS, iRet);
 	if (!bResult)
 	{
 		return bResult;
@@ -68,7 +68,7 @@ bool clKernelBarrierTest()
 	pDevices = new cl_device_id[uiNumDevices];
 
 	iRet = clGetDeviceIDs(platform, gDeviceType, uiNumDevices, pDevices, NULL);
-	bResult &= Check(L"clGetDeviceIDs",CL_SUCCESS, iRet);
+	bResult &= Check("clGetDeviceIDs",CL_SUCCESS, iRet);
 	if (!bResult)
 	{
 		delete []pDevices;
@@ -77,21 +77,21 @@ bool clKernelBarrierTest()
 
 	// create context
 	context = clCreateContext(prop, uiNumDevices, pDevices, NULL, NULL, &iRet);
-	bResult &= Check(L"clCreateContext",CL_SUCCESS, iRet);
+	bResult &= Check("clCreateContext",CL_SUCCESS, iRet);
 	if (!bResult)
 	{
 		delete []pDevices;
 		return bResult;
 	}
-	printf("context = %p\n", context);
+	printf("context = %p\n", (void*)context);
 
 
 	// create program with source
 	cl_program program = clCreateProgramWithSource(context, 1, (const char**)&ocl_test_program, NULL, &iRet);
-	bResult &= Check(L"clCreateProgramWithSource", CL_SUCCESS, iRet);
+	bResult &= Check("clCreateProgramWithSource", CL_SUCCESS, iRet);
 
 	iRet = clBuildProgram(program, uiNumDevices, pDevices, NULL, NULL, NULL);
-	bResult &= Check(L"clBuildProgram", CL_SUCCESS, iRet);
+	bResult &= Check("clBuildProgram", CL_SUCCESS, iRet);
 	if (!bResult)
 	{
 		delete []pDevices;
@@ -112,13 +112,13 @@ bool clKernelBarrierTest()
     // Create queue
     //
     cl_command_queue queue1 = clCreateCommandQueue (context, pDevices[0], 0 /*no properties*/, &iRet);
-	bResult &= Check(L"clCreateCommandQueue - queue1", CL_SUCCESS, iRet);
+	bResult &= Check("clCreateCommandQueue - queue1", CL_SUCCESS, iRet);
 
     //
     // Create Kernel
     //
     cl_kernel kernel1 = clCreateKernel(program, "barrier_test", &iRet);
-	bResult &= Check(L"clCreateKernel - barrier_test", CL_SUCCESS, iRet);
+	bResult &= Check("clCreateKernel - barrier_test", CL_SUCCESS, iRet);
 
     //
     // Create buffers
@@ -126,15 +126,15 @@ bool clKernelBarrierTest()
     size_t size = sizeof(cl_int);
 
     cl_mem buffer_dst = clCreateBuffer(context, CL_MEM_READ_WRITE, size * BUFFERS_LENGTH, NULL, &iRet);
-    bResult &= Check(L"clCreateBuffer - dst", CL_SUCCESS, iRet);
+    bResult &= Check("clCreateBuffer - dst", CL_SUCCESS, iRet);
 
     //
     // Set arguments
     //
     iRet = clSetKernelArg(kernel1, 0, sizeof(cl_mem), &buffer_dst);
-    bResult &= Check(L"clSetKernelArg - dest", CL_SUCCESS, iRet);
+    bResult &= Check("clSetKernelArg - dest", CL_SUCCESS, iRet);
     iRet = clSetKernelArg(kernel1, 1, sizeof(cl_int), NULL);
-    bResult &= Check(L"clSetKernelArg - tmp(local)", CL_SUCCESS, iRet);
+    bResult &= Check("clSetKernelArg - tmp(local)", CL_SUCCESS, iRet);
 
 	//
     // Execute kernel
@@ -143,13 +143,13 @@ bool clKernelBarrierTest()
     size_t local_work_size[1] = { BUFFERS_LENGTH };
 
     iRet = clEnqueueNDRangeKernel(queue1, kernel1, 1, NULL, global_work_size, local_work_size, 0, NULL, NULL);
-    bResult &= Check(L"clEnqueueNDRangeKernel", CL_SUCCESS, iRet);    
+    bResult &= Check("clEnqueueNDRangeKernel", CL_SUCCESS, iRet);    
 
     //
     // Read results. wait for completion - blocking!
     //
     iRet = clEnqueueReadBuffer (queue1, buffer_dst, CL_TRUE,  0, size*BUFFERS_LENGTH, dst, 0, NULL, NULL);
-    bResult &= Check(L"clEnqueueReadBuffer", CL_SUCCESS, iRet);    
+    bResult &= Check("clEnqueueReadBuffer", CL_SUCCESS, iRet);    
 
     //
     // Print kernel output
@@ -166,22 +166,22 @@ bool clKernelBarrierTest()
     // Release objects
     //
     iRet = clReleaseMemObject(buffer_dst);
-    bResult &= Check(L"clReleaseBuffer - buffer_dst", CL_SUCCESS, iRet);
+    bResult &= Check("clReleaseBuffer - buffer_dst", CL_SUCCESS, iRet);
 
     iRet = clReleaseKernel(kernel1);
-    bResult &= Check(L"clReleaseKernel - kernel1", CL_SUCCESS, iRet);
+    bResult &= Check("clReleaseKernel - kernel1", CL_SUCCESS, iRet);
 
     iRet = clReleaseProgram(program);
-    bResult &= Check(L"clReleaseProgram - program", CL_SUCCESS, iRet);
+    bResult &= Check("clReleaseProgram - program", CL_SUCCESS, iRet);
 
     iRet = clFinish(queue1);
-    bResult &= Check(L"clFinish - queue1", CL_SUCCESS, iRet);
+    bResult &= Check("clFinish - queue1", CL_SUCCESS, iRet);
 
     iRet = clReleaseCommandQueue(queue1);
-    bResult &= Check(L"clReleaseCommandQueue - queue1", CL_SUCCESS, iRet);
+    bResult &= Check("clReleaseCommandQueue - queue1", CL_SUCCESS, iRet);
 
     iRet = clReleaseContext(context);
-    bResult &= Check(L"clReleaseContext - context", CL_SUCCESS, iRet);
+    bResult &= Check("clReleaseContext - context", CL_SUCCESS, iRet);
 
 	delete []pDevices;
     return bResult;

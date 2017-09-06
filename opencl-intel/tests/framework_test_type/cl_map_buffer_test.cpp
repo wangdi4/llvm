@@ -43,7 +43,7 @@ bool clMapBufferTest()
 	cl_platform_id platform = 0;
 
 	cl_int iRet = clGetPlatformIDs(1, &platform, NULL);
-	bResult &= Check(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+	bResult &= Check("clGetPlatformIDs", CL_SUCCESS, iRet);
 
 	if (!bResult)
 	{
@@ -54,30 +54,30 @@ bool clMapBufferTest()
 
 	// get device(s)
 	iRet = clGetDeviceIDs(platform, gDeviceType, 0, NULL, &uiNumDevices);
-	bResult &= Check(L"clGetDeviceIDs",CL_SUCCESS, iRet);
+	bResult &= Check("clGetDeviceIDs",CL_SUCCESS, iRet);
 	if (!bResult) goto end;
 
 	// initialize arrays
 	pDevices = new cl_device_id[uiNumDevices];
 
 	iRet = clGetDeviceIDs(platform, gDeviceType, uiNumDevices, pDevices, NULL);
-	bResult &= Check(L"clGetDeviceIDs",CL_SUCCESS, iRet);
+	bResult &= Check("clGetDeviceIDs",CL_SUCCESS, iRet);
 	if (!bResult) goto end;
 
 	// create context
 	context = clCreateContext(prop, uiNumDevices, pDevices, NULL, NULL, &iRet);
-	bResult &= Check(L"clCreateContext",CL_SUCCESS, iRet);
+	bResult &= Check("clCreateContext",CL_SUCCESS, iRet);
 	if (!bResult) goto end;
 
 
 	{
 		// create program with source
 		cl_program program = clCreateProgramWithSource(context, 1, (const char**)&ocl_test_program, NULL, &iRet);
-		bResult &= Check(L"clCreateProgramWithSource", CL_SUCCESS, iRet);
+		bResult &= Check("clCreateProgramWithSource", CL_SUCCESS, iRet);
 		if (!bResult) goto release_context;
 
 		iRet = clBuildProgram(program, uiNumDevices, pDevices, NULL, NULL, NULL);
-		bResult &= Check(L"clBuildProgram", CL_SUCCESS, iRet);
+		bResult &= Check("clBuildProgram", CL_SUCCESS, iRet);
 		if (!bResult) goto release_program;
 
 		//
@@ -94,7 +94,7 @@ bool clMapBufferTest()
 			// Create Kernel
 			//
 			cl_kernel kernel1 = clCreateKernel(program, "dot_product", &iRet);
-			bResult &= Check(L"clCreateKernel - dot_product", CL_SUCCESS, iRet);
+			bResult &= Check("clCreateKernel - dot_product", CL_SUCCESS, iRet);
 			if (!bResult) goto release_kernel;
 
 			{
@@ -105,32 +105,32 @@ bool clMapBufferTest()
 
 				{
 					cl_mem buffer_srcA = clCreateBuffer(context, CL_MEM_USE_HOST_PTR|CL_MEM_READ_ONLY, size * BUFFERS_LENGTH, buffA, &iRet);
-					bResult &= Check(L"clCreateBuffer - srcA", CL_SUCCESS, iRet);
+					bResult &= Check("clCreateBuffer - srcA", CL_SUCCESS, iRet);
 					if (!bResult) goto release_srcA;
 
 					{
 						cl_mem buffer_srcB = clCreateBuffer(context, CL_MEM_ALLOC_HOST_PTR|CL_MEM_READ_ONLY, size * BUFFERS_LENGTH, NULL, &iRet);
-						bResult &= Check(L"clCreateBuffer - srcB", CL_SUCCESS, iRet);
+						bResult &= Check("clCreateBuffer - srcB", CL_SUCCESS, iRet);
 						if (!bResult) goto release_srcB;
 
 						{
 							cl_mem buffer_dst = clCreateBuffer(context, CL_MEM_ALLOC_HOST_PTR|CL_MEM_READ_WRITE, size * BUFFERS_LENGTH, NULL, &iRet);
-							bResult &= Check(L"clCreateBuffer - Dst", CL_SUCCESS, iRet);
+							bResult &= Check("clCreateBuffer - Dst", CL_SUCCESS, iRet);
 							if (!bResult) goto release_dst;
 
 							//
 							// Set arguments
 							//
 							iRet = clSetKernelArg(kernel1, 0, sizeof(cl_mem), &buffer_srcA);
-							bResult &= Check(L"clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
+							bResult &= Check("clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
 							if (!bResult) goto release_dst;
 
 							iRet = clSetKernelArg(kernel1, 1, sizeof(cl_mem), &buffer_srcB);
-							bResult &= Check(L"clSetKernelArg - buffer_srcB", CL_SUCCESS, iRet);
+							bResult &= Check("clSetKernelArg - buffer_srcB", CL_SUCCESS, iRet);
 							if (!bResult) goto release_dst;
 
 							iRet = clSetKernelArg(kernel1, 2, sizeof(cl_mem), &buffer_dst);
-							bResult &= Check(L"clSetKernelArg - buffer_dst", CL_SUCCESS, iRet);
+							bResult &= Check("clSetKernelArg - buffer_dst", CL_SUCCESS, iRet);
 							if (!bResult) goto release_dst;
 
 							{
@@ -138,7 +138,7 @@ bool clMapBufferTest()
 								// Create queue
 								//
 								cl_command_queue queue1 = clCreateCommandQueue (context, pDevices[0], 0 /*no properties*/, &iRet);
-								bResult &= Check(L"clCreateCommandQueue - queue1", CL_SUCCESS, iRet);
+								bResult &= Check("clCreateCommandQueue - queue1", CL_SUCCESS, iRet);
 								if (!bResult) goto release_queue;
 
 
@@ -146,15 +146,15 @@ bool clMapBufferTest()
 								// Execute commands - Write buffers using map/unmap
 								//
 								clEnqueueMapBuffer(queue1, buffer_srcA, CL_TRUE, CL_MAP_WRITE, 0, size* BUFFERS_LENGTH, 1, NULL, NULL, &iRet);
-								bResult &= Check(L"clEnqueueMapBuffer - invalid waiting list", CL_INVALID_EVENT_WAIT_LIST, iRet);
+								bResult &= Check("clEnqueueMapBuffer - invalid waiting list", CL_INVALID_EVENT_WAIT_LIST, iRet);
 								if (!bResult) goto release_queue;
 
 								srcA = (cl_float*) clEnqueueMapBuffer(queue1, buffer_srcA, CL_TRUE, CL_MAP_WRITE, 0, size* BUFFERS_LENGTH, 0, NULL, NULL, &iRet);
-								bResult &= Check(L"clEnqueueMapBuffer - srcA", CL_SUCCESS, iRet);
+								bResult &= Check("clEnqueueMapBuffer - srcA", CL_SUCCESS, iRet);
 								if (!bResult) goto release_queue;
 
 								srcB = (cl_float*) clEnqueueMapBuffer(queue1, buffer_srcB, CL_TRUE, CL_MAP_WRITE, 0, size* BUFFERS_LENGTH, 0, NULL, NULL, &iRet);
-								bResult &= Check(L"clEnqueueMapBuffer - srcB", CL_SUCCESS, iRet);
+								bResult &= Check("clEnqueueMapBuffer - srcB", CL_SUCCESS, iRet);
 								if (!bResult) goto release_queue;
 
 								//
@@ -167,11 +167,11 @@ bool clMapBufferTest()
 								}
 
 								iRet = clEnqueueUnmapMemObject(queue1, buffer_srcA, srcA, 0, NULL, NULL);
-								bResult &= Check(L"clEnqueueUnmapMemObject - srcA", CL_SUCCESS, iRet);
+								bResult &= Check("clEnqueueUnmapMemObject - srcA", CL_SUCCESS, iRet);
 								if (!bResult) goto release_queue;
 
 								iRet = clEnqueueUnmapMemObject(queue1, buffer_srcB, srcB, 0, NULL, NULL);
-								bResult &= Check(L"clEnqueueUnmapMemObject - srcB", CL_SUCCESS, iRet);
+								bResult &= Check("clEnqueueUnmapMemObject - srcB", CL_SUCCESS, iRet);
 								if (!bResult) goto release_queue;
 							    
 								{
@@ -184,7 +184,7 @@ bool clMapBufferTest()
 									for (int index =0; index < NUM_LOOPS; index++)
 									{
 										iRet = clEnqueueNDRangeKernel(queue1, kernel1, 1, NULL, global_work_size, local_work_size, 0, NULL, NULL);
-										bResult &= Check(L"clEnqueueNDRangeKernel", CL_SUCCESS, iRet);    
+										bResult &= Check("clEnqueueNDRangeKernel", CL_SUCCESS, iRet);    
 										if (!bResult) goto release_queue;
 
 										//
@@ -192,7 +192,7 @@ bool clMapBufferTest()
 										//
 										cl_event waitOn;
 										dsts[index] = (cl_float*) clEnqueueMapBuffer(queue1, buffer_dst, CL_FALSE, CL_MAP_READ, 0, size* BUFFERS_LENGTH, 0, NULL, &waitOn, &iRet);
-										bResult &= Check(L"clEnqueueMapBuffer - Dst", CL_SUCCESS, iRet);
+										bResult &= Check("clEnqueueMapBuffer - Dst", CL_SUCCESS, iRet);
 										if (!bResult) goto release_queue;
 
 										//
@@ -209,7 +209,7 @@ bool clMapBufferTest()
 
 										// Unmap
 										iRet = clEnqueueUnmapMemObject(queue1, buffer_dst, dsts[index], 0, NULL, &waitOn);
-										bResult &= Check(L"clEnqueueUnmapMemObject - Dst", CL_SUCCESS, iRet);
+										bResult &= Check("clEnqueueUnmapMemObject - Dst", CL_SUCCESS, iRet);
 										if (!bResult) goto release_queue;
 										// Wait for Unmap to complete
 										clWaitForEvents(1, &waitOn);

@@ -42,17 +42,17 @@ bool EventDependenciesTest()
 
     //init platform
     err = clGetPlatformIDs(1,&platform,NULL);
-    bResult = SilentCheck(L"clGetPlatformIDs",CL_SUCCESS,err);
+    bResult = SilentCheck("clGetPlatformIDs",CL_SUCCESS,err);
     if (!bResult)    return bResult;
 
     // init device
     err     = clGetDeviceIDs(platform,gDeviceType,1,&device,NULL);
-    bResult = SilentCheck(L"clGetDeviceIDs",CL_SUCCESS,err);
+    bResult = SilentCheck("clGetDeviceIDs",CL_SUCCESS,err);
     if (!bResult)    return bResult;
 
     // Check for OOO support
     err     = clGetDeviceInfo(device, CL_DEVICE_QUEUE_ON_HOST_PROPERTIES, sizeof(cl_command_queue_properties), &queue_properties, NULL);
-    bResult = SilentCheck(L"clGetDeviceInfo(CL_DEVICE_QUEUE_ON_HOST_PROPERTIES)",CL_SUCCESS,err);
+    bResult = SilentCheck("clGetDeviceInfo(CL_DEVICE_QUEUE_ON_HOST_PROPERTIES)",CL_SUCCESS,err);
     if (!bResult)    return bResult;
 
     if (!(queue_properties & CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE))
@@ -66,12 +66,12 @@ bool EventDependenciesTest()
 
     //Create a context 
     context = clCreateContext(NULL,1, &device, NULL, NULL, &err);
-    bResult = SilentCheck(L"clCreateContext",CL_SUCCESS,err);
+    bResult = SilentCheck("clCreateContext",CL_SUCCESS,err);
     if (!bResult)    return bResult;
 
     //Create a command queue
     cmd_queue = clCreateCommandQueue(context, device, queue_properties, &err);
-    bResult = SilentCheck(L"clCreateCommandQueue",CL_SUCCESS,err);
+    bResult = SilentCheck("clCreateCommandQueue",CL_SUCCESS,err);
     if (!bResult)    return bResult;
 
     const char* ocl_test_program= "__kernel void k1(__global int* a, int b) {}";
@@ -85,7 +85,7 @@ bool EventDependenciesTest()
     
     // Create a buffer
     cl_mem data = clCreateBuffer(context, CL_MEM_READ_WRITE, TEST_SIZE*sizeof(cl_int), NULL, &err);
-    bResult     = SilentCheck(L"clCreateBuffer",CL_SUCCESS,err);
+    bResult     = SilentCheck("clCreateBuffer",CL_SUCCESS,err);
     if (!bResult)    return bResult;
     
     // Zero init the values
@@ -96,30 +96,30 @@ bool EventDependenciesTest()
     
     // Build the kernels
     program = clCreateProgramWithSource(context, 1, &ocl_test_program, NULL, &err);
-    bResult = SilentCheck(L"clCreateProgramWithSource",CL_SUCCESS,err);
+    bResult = SilentCheck("clCreateProgramWithSource",CL_SUCCESS,err);
     if (!bResult)    return bResult;
 
     err = clBuildProgram(program, 0, NULL, NULL, NULL, NULL);
-    bResult = SilentCheck(L"clBuildProgram",CL_SUCCESS,err);
+    bResult = SilentCheck("clBuildProgram",CL_SUCCESS,err);
     if (!bResult)    return bResult;
     
     k1      = clCreateKernel(program, "k1", &err);
-    bResult = SilentCheck(L"clCreateKernel: k1",CL_SUCCESS,err);
+    bResult = SilentCheck("clCreateKernel: k1",CL_SUCCESS,err);
     if (!bResult)    return bResult;
         
     err     = clSetKernelArg(k1, 0, sizeof(data), &data);
     err    |= clSetKernelArg(k1, 1, sizeof(max_count), &max_count);
-    bResult = SilentCheck(L"clSetKernelArg: k1",CL_SUCCESS,err);
+    bResult = SilentCheck("clSetKernelArg: k1",CL_SUCCESS,err);
     if (!bResult)    return bResult;
     event_count = 0;
 
     err = clEnqueueWriteBuffer(cmd_queue, data, CL_FALSE, 0, TEST_SIZE*sizeof(cl_int), values, 0, NULL, events + event_count);
-    bResult = SilentCheck(L"clEnqueueWriteBuffer",CL_SUCCESS,err);
+    bResult = SilentCheck("clEnqueueWriteBuffer",CL_SUCCESS,err);
     if (!bResult)    return bResult;
 
     // check that we issue an error in case that event refers to an element in event_wait_list
     err = clEnqueueWriteBuffer(cmd_queue, data, CL_FALSE, 0, TEST_SIZE * sizeof(cl_int), values, 1, events + event_count, events + event_count);
-    bResult = SilentCheck(L"clEnqueueWriteBuffer", CL_INVALID_EVENT, err);
+    bResult = SilentCheck("clEnqueueWriteBuffer", CL_INVALID_EVENT, err);
     if (!bResult)
         return bResult;
 
@@ -132,14 +132,14 @@ bool EventDependenciesTest()
         // Execute kernel 1
         event_count++;
         err = clEnqueueNDRangeKernel(cmd_queue, k1, 1, NULL, global_size, NULL, 1, events + event_count - 1, events + event_count);
-        bResult = SilentCheck(L"clEnqueueNDRangeKernel: k1",CL_SUCCESS,err);
+        bResult = SilentCheck("clEnqueueNDRangeKernel: k1",CL_SUCCESS,err);
         if (!bResult)    return bResult;
         if ( (loop_count % 10000) == 0 ) {printf(".");fflush(0);}
     }
     printf("\nCompleted\n");fflush(0);
 
     err = clEnqueueReadBuffer(cmd_queue, data, CL_TRUE, 0, TEST_SIZE*sizeof(cl_int), values, 1, events + event_count, NULL);
-    bResult = SilentCheck(L"clEnqueueReadBuffer",CL_SUCCESS,err);
+    bResult = SilentCheck("clEnqueueReadBuffer",CL_SUCCESS,err);
     if (!bResult)    return bResult;
 
     printf("----------> Test completed <----------------\n");fflush(0);

@@ -14,7 +14,7 @@ struct arg_struct
 
 void CL_CALLBACK NativeFunc(void* args)
 {
-	if (!SilentCheck(L"args properly supplied", true, args != NULL))
+	if (!SilentCheck("args properly supplied", true, args != NULL))
 	{
 		return;
 	}
@@ -38,7 +38,7 @@ bool EnqueueNativeKernelTest()
 	bool bResult = true;
 
 	err = clGetPlatformIDs(1, &platform, NULL);
-	bResult &= SilentCheck(L"clGetPlatformIDs", CL_SUCCESS, err);
+	bResult &= SilentCheck("clGetPlatformIDs", CL_SUCCESS, err);
 
 	if (!bResult)
 	{
@@ -120,7 +120,7 @@ bool EnqueueNativeKernelTest()
 	err |= clReleaseMemObject(res);
 	err |= clReleaseCommandQueue(commandQueue);
 	err |= clReleaseContext(context);
-	bResult &= SilentCheck(L"Releasing stuff", CL_SUCCESS, err);
+	bResult &= SilentCheck("Releasing stuff", CL_SUCCESS, err);
 
 	return bResult;
 }

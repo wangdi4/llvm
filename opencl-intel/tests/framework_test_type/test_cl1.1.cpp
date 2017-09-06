@@ -20,7 +20,7 @@ bool clBuildWithCL11option()
 
   // get platform
   cl_int iRet = clGetPlatformIDs(1, &platform, NULL);
-  bResult &= SilentCheck(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+  bResult &= SilentCheck("clGetPlatformIDs", CL_SUCCESS, iRet);
   if (!bResult)
   {
     return bResult;
@@ -28,7 +28,7 @@ bool clBuildWithCL11option()
 
   // get device
   iRet = clGetDeviceIDs(platform, gDeviceType, 1, &device, NULL);
-  bResult &= SilentCheck(L"clGetDeviceIDs",CL_SUCCESS, iRet);
+  bResult &= SilentCheck("clGetDeviceIDs",CL_SUCCESS, iRet);
   if (!bResult)
   {
     return bResult;
@@ -36,7 +36,7 @@ bool clBuildWithCL11option()
 
   // create context
   context = clCreateContext(NULL, 1, &device, NULL, NULL, &iRet);
-  bResult &= SilentCheck(L"clCreateContext",CL_SUCCESS, iRet);
+  bResult &= SilentCheck("clCreateContext",CL_SUCCESS, iRet);
   if (!bResult)
   {
     return bResult;
@@ -44,7 +44,7 @@ bool clBuildWithCL11option()
 
   // create program with source
   cl_program program = clCreateProgramWithSource(context, 1, (const char**)&simple_kernel, NULL, &iRet);
-  bResult &= SilentCheck(L"clCreateProgramWithSource", CL_SUCCESS, iRet);
+  bResult &= SilentCheck("clCreateProgramWithSource", CL_SUCCESS, iRet);
   if (!bResult)
   {
     return bResult;
@@ -52,7 +52,7 @@ bool clBuildWithCL11option()
 
   // build program
   iRet = clBuildProgram(program, 1, &device, "-cl-std=CL1.1", NULL, NULL);
-  bResult &= SilentCheck(L"clBuildProgram", CL_SUCCESS, iRet);
+  bResult &= SilentCheck("clBuildProgram", CL_SUCCESS, iRet);
   if (!bResult)
   {
     return bResult;

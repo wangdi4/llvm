@@ -29,14 +29,13 @@ bool clCreateBufferTest()
 	printf("=============================================================\n");
 	printf("clCreateBufferTest\n");
 	printf("=============================================================\n");
-	cl_uint uiNumDevices = 0;
 	cl_int iRet = 0;
 
 	cl_platform_id platform = 0;
 	bool bResult = true;
 
 	iRet = clGetPlatformIDs(1, &platform, NULL);
-	bResult &= Check(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+	bResult &= Check("clGetPlatformIDs", CL_SUCCESS, iRet);
 
 	if (!bResult)
 	{
@@ -48,19 +47,19 @@ bool clCreateBufferTest()
 	cl_context context = PROV_OBJ( clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet) );
 	if (CL_SUCCESS != iRet)
 	{
-		printf("clCreateContextFromType = %ls\n",ClErrTxt(iRet));
+		printf("clCreateContextFromType = %s\n",ClErrTxt(iRet));
 	    PROV_RETURN_AND_ABANDON(false);
 	}
 
-	printf("context = %p\n", context);
+	printf("context = %p\n", (void*)context);
 
 	cl_mem buffer1 = PROV_OBJ( clCreateBuffer(context, CL_MEM_READ_ONLY, 100, NULL, &iRet) );
 	EXPECT_EQ(oclErr(CL_SUCCESS),oclErr(iRet)) << "clCreateBuffer with flags (CL_MEM_READ_ONLY) should be OK.";
-	printf("buffer1 = %p\n", buffer1);
+	printf("buffer1 = %p\n", (void*)buffer1);
 
 	cl_mem buffer2 = PROV_OBJ( clCreateBuffer(context, CL_MEM_WRITE_ONLY, 100, NULL, &iRet) );
 	EXPECT_EQ(oclErr(CL_SUCCESS),oclErr(iRet)) << "clCreateBuffer with flags (CL_MEM_WRITE_ONLY) should be OK.";
-	printf("buffer2 = %p\n", buffer2);
+	printf("buffer2 = %p\n", (void*)buffer2);
 
 	cl_mem buffer3 = PROV_OBJ( clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_WRITE_ONLY, 100, NULL, &iRet) );
 	EXPECT_EQ(oclErr(CL_INVALID_VALUE),oclErr(iRet)) << "clCreateBuffer with flags (CL_MEM_READ_ONLY | CL_MEM_WRITE_ONLY) should fail.";
@@ -101,14 +100,13 @@ bool clCreateSubBufferTest()
 	printf("=============================================================\n");
 	printf("clCreateSubBufferTest\n");
 	printf("=============================================================\n");
-	cl_uint uiNumDevices = 0;
 	cl_int iRet = 0;
 
 	cl_platform_id platform = 0;
 	bool bResult = true;
 
 	iRet = clGetPlatformIDs(1, &platform, NULL);
-	bResult &= Check(L"", CL_SUCCESS, iRet);
+	bResult &= Check("", CL_SUCCESS, iRet);
 
 	if (!bResult)
 	{
@@ -120,7 +118,7 @@ bool clCreateSubBufferTest()
 	cl_context context = PROV_OBJ( clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet) );
 	if (CL_SUCCESS != iRet)
 	{
-		printf("clCreateContextFromType = %ls\n",ClErrTxt(iRet));
+		printf("clCreateContextFromType = %s\n",ClErrTxt(iRet));
 		PROV_RETURN_AND_ABANDON(false);
 	}
 

@@ -37,17 +37,17 @@ bool fission_context_test(){
 
 	//init platform
 	err = clGetPlatformIDs(1,&platform,NULL);
-	bResult = SilentCheck(L"clGetPlatformIDs",CL_SUCCESS,err);
+	bResult = SilentCheck("clGetPlatformIDs",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	// init Devices (only one CPU...)
 	err = clGetDeviceIDs(platform,gDeviceType,1,&device,NULL);
-	bResult = SilentCheck(L"clGetDeviceIDs",CL_SUCCESS,err);
+	bResult = SilentCheck("clGetDeviceIDs",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	cl_uint numComputeUnits;
 	err = clGetDeviceInfo(device, CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(cl_uint), &numComputeUnits, NULL);
-	bResult = SilentCheck(L"clGetDeviceInfo(CL_DEVICE_MAX_COMPUTE_UNITS)",CL_SUCCESS,err);
+	bResult = SilentCheck("clGetDeviceInfo(CL_DEVICE_MAX_COMPUTE_UNITS)",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	if (numComputeUnits < 2)
@@ -58,7 +58,7 @@ bool fission_context_test(){
 
 	//init context
 	context = clCreateContext(NULL,1,&device,NULL,NULL,&err);
-	bResult = SilentCheck(L"clCreateContext",CL_SUCCESS,err);
+	bResult = SilentCheck("clCreateContext",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	cl_uint num_entries = 100;
@@ -67,17 +67,17 @@ bool fission_context_test(){
 
 	cl_device_partition_property properties[] = {CL_DEVICE_PARTITION_BY_COUNTS, numComputeUnits - 1,0, 0};
 	err = clCreateSubDevices(device, properties, num_entries, out_devices, &num_devices);
-	bResult = SilentCheck(L"clCreateSubDevices",CL_SUCCESS,err);
+	bResult = SilentCheck("clCreateSubDevices",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	fflush(stdout);
 	err = clReleaseContext(context);
-	bResult = SilentCheck(L"clReleaseContext",CL_SUCCESS,err);
+	bResult = SilentCheck("clReleaseContext",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 	for (size_t i = 0; i < num_devices; i++)
 	{
 		err = clReleaseDevice(out_devices[i]);
-		bResult = SilentCheck(L"clReleaseDevice",CL_SUCCESS,err);
+		bResult = SilentCheck("clReleaseDevice",CL_SUCCESS,err);
 	}
 	printf("\n---------------------------------------\n");
 	printf("fission context test succeeded!\n");

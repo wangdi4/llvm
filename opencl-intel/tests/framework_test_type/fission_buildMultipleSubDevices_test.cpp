@@ -50,7 +50,6 @@ bool fission_buildMultipleSubDevices_test(){
 	printf("---------------------------------------\n");
 	bool bResult = true;
 	cl_context context=NULL;
-	cl_command_queue cmd_queue=NULL;
 	cl_device_id device=NULL;
 	cl_program program=NULL;
 	cl_int err;
@@ -58,16 +57,16 @@ bool fission_buildMultipleSubDevices_test(){
 
 	//init platform
 	err = clGetPlatformIDs(1,&platform,NULL);
-	bResult = SilentCheck(L"clGetPlatformIDs",CL_SUCCESS,err);
+	bResult = SilentCheck("clGetPlatformIDs",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	// init Devices (only one CPU...)
 	err = clGetDeviceIDs(platform,gDeviceType,1,&device,NULL);
-	bResult = SilentCheck(L"clGetDeviceIDs",CL_SUCCESS,err);
+	bResult = SilentCheck("clGetDeviceIDs",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 	cl_uint numComputeUnits;
 	err = clGetDeviceInfo(device, CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(cl_uint), &numComputeUnits, NULL);
-	bResult = SilentCheck(L"clGetDeviceInfo(CL_DEVICE_MAX_COMPUTE_UNITS)",CL_SUCCESS,err);
+	bResult = SilentCheck("clGetDeviceInfo(CL_DEVICE_MAX_COMPUTE_UNITS)",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	if (numComputeUnits < 4)
@@ -81,17 +80,17 @@ bool fission_buildMultipleSubDevices_test(){
 	cl_uint num_devices = 0;
 	cl_device_partition_property properties[] = {CL_DEVICE_PARTITION_BY_COUNTS, 1, 1, 0};
 	err = clCreateSubDevices(device, properties, num_entries, out_devices, &num_devices);
-	bResult = SilentCheck(L"clCreateSubDevices",CL_SUCCESS,err);
+	bResult = SilentCheck("clCreateSubDevices",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	//init context
 	context = clCreateContext(NULL,2,out_devices,NULL,NULL,&err);
-	bResult = SilentCheck(L"clCreateContext",CL_SUCCESS,err);
+	bResult = SilentCheck("clCreateContext",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
     // create program
 	program = clCreateProgramWithSource(context, 1, (const char**)&ocl_test_program, NULL, &err);
-	bResult = SilentCheck(L"clCreateProgramWithSource",CL_SUCCESS,err);
+	bResult = SilentCheck("clCreateProgramWithSource",CL_SUCCESS,err);
 	if (!bResult) 
     {
         clReleaseContext(context);
@@ -99,7 +98,7 @@ bool fission_buildMultipleSubDevices_test(){
     }
 
     err = clBuildProgram(program,2,out_devices,NULL,&notifyBuildDone,NULL);
-    bResult = SilentCheck(L"clBuildProgram",CL_SUCCESS,err);
+    bResult = SilentCheck("clBuildProgram",CL_SUCCESS,err);
 	if (!bResult) 
     {
         clReleaseProgram(program);

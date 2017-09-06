@@ -42,7 +42,7 @@ bool clKernelAttributesTest()
 	cl_platform_id platform = 0;
 
 	cl_int iRet = clGetPlatformIDs(1, &platform, NULL);
-	bResult &= Check(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+	bResult &= Check("clGetPlatformIDs", CL_SUCCESS, iRet);
 
 	if (!bResult)
 	{
@@ -72,7 +72,7 @@ bool clKernelAttributesTest()
 
 	// create context
 	context = clCreateContext(prop, uiNumDevices, pDevices, NULL, NULL, &iRet);
-	bResult &= Check(L"clCreateContext", CL_SUCCESS, iRet);
+	bResult &= Check("clCreateContext", CL_SUCCESS, iRet);
 	if (!bResult)
 	{
 		delete []pDevices;
@@ -80,7 +80,7 @@ bool clKernelAttributesTest()
 	}
 
 	prog = clCreateProgramWithSource(context, 1, (const char**)&sample_attributes_kernel, NULL, &iRet);
-	bResult &= Check(L"clCreateProgramWithSource", CL_SUCCESS, iRet);
+	bResult &= Check("clCreateProgramWithSource", CL_SUCCESS, iRet);
 	if (!bResult)
 	{
 		clReleaseContext(context);
@@ -89,7 +89,7 @@ bool clKernelAttributesTest()
 	}
 
 	iRet = clBuildProgram(prog, uiNumDevices, pDevices, NULL, NULL, NULL);
-	bResult &= Check(L"clBuildProgram", CL_SUCCESS, iRet);
+	bResult &= Check("clBuildProgram", CL_SUCCESS, iRet);
 	if (!bResult)
 	{
 		clReleaseProgram(prog);
@@ -99,7 +99,7 @@ bool clKernelAttributesTest()
 	}
 
 	kernel = clCreateKernel(prog, "sample_test_reqrd", &iRet);
-	bResult = Check(L"clCreateKernel", CL_SUCCESS, iRet);
+	bResult = Check("clCreateKernel", CL_SUCCESS, iRet);
 	if ( !bResult )
 	{
 		clReleaseProgram(prog);
@@ -111,7 +111,7 @@ bool clKernelAttributesTest()
 	// Get kernel extended attributes
 	size_t wgSizeInfo[3];
 	iRet = clGetKernelWorkGroupInfo(kernel, pDevices[0], CL_KERNEL_COMPILE_WORK_GROUP_SIZE, sizeof(wgSizeInfo), &wgSizeInfo, NULL);
-	bResult = Check(L"clGetKernelWorkGroupInfo", CL_SUCCESS, iRet);
+	bResult = Check("clGetKernelWorkGroupInfo", CL_SUCCESS, iRet);
 	if ( !bResult )
 	{
 		clReleaseKernel(kernel);
@@ -121,11 +121,11 @@ bool clKernelAttributesTest()
 		return false;
 	}
 
-	bool bRes = Check(L"CL_KERNEL_COMPILE_WORK_GROUP_SIZE", true, (wgSizeInfo[0] == 2) && (wgSizeInfo[1] == 3) && (wgSizeInfo[2] == 4));
+	bool bRes = Check("CL_KERNEL_COMPILE_WORK_GROUP_SIZE", true, (wgSizeInfo[0] == 2) && (wgSizeInfo[1] == 3) && (wgSizeInfo[2] == 4));
 
 	size_t wgMaxSize = 0;
 	iRet = clGetKernelWorkGroupInfo(kernel, pDevices[0], CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), &wgMaxSize, NULL);
-	bResult = Check(L"clGetKernelWorkGroupInfo", CL_SUCCESS, iRet);
+	bResult = Check("clGetKernelWorkGroupInfo", CL_SUCCESS, iRet);
 	if ( !bResult )
 	{
 		clReleaseKernel(kernel);
@@ -136,7 +136,7 @@ bool clKernelAttributesTest()
 	}
 
 	iRet = clGetKernelWorkGroupInfo(kernel, pDevices[0], CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE, sizeof(size_t), &wgMaxSize, NULL);
-	bResult = Check(L"clGetKernelWorkGroupInfo", CL_SUCCESS, iRet);
+	bResult = Check("clGetKernelWorkGroupInfo", CL_SUCCESS, iRet);
 	if ( !bResult )
 	{
 		clReleaseKernel(kernel);
@@ -145,11 +145,11 @@ bool clKernelAttributesTest()
 		delete []pDevices;
 		return false;
 	}
-	bRes &= Check(L"CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE", true, (wgSizeInfo[0]*wgSizeInfo[1]*wgSizeInfo[2] == wgMaxSize));
+	bRes &= Check("CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE", true, (wgSizeInfo[0]*wgSizeInfo[1]*wgSizeInfo[2] == wgMaxSize));
 
 	cl_ulong ulPrSize;
 	iRet = clGetKernelWorkGroupInfo(kernel, pDevices[0], CL_KERNEL_PRIVATE_MEM_SIZE, sizeof(cl_ulong), &ulPrSize, NULL);
-	bResult = Check(L"clGetKernelWorkGroupInfo", CL_SUCCESS, iRet);
+	bResult = Check("clGetKernelWorkGroupInfo", CL_SUCCESS, iRet);
 	if ( !bResult )
 	{
 		clReleaseKernel(kernel);
@@ -158,7 +158,7 @@ bool clKernelAttributesTest()
 		delete []pDevices;
 		return false;
 	}
-	bRes &= Check(L"CL_KERNEL_PRIVATE_MEM_SIZE", 0, ulPrSize);
+	bRes &= Check("CL_KERNEL_PRIVATE_MEM_SIZE", 0, ulPrSize);
 
 	clReleaseKernel(kernel);
 	clReleaseProgram(prog);

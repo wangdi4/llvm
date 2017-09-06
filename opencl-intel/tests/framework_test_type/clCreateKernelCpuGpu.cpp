@@ -47,7 +47,7 @@ bool clCreateKernelCpuGpuTest()
 
 	// get device(s)
 	cl_int iRet = clGetDeviceIDs(NULL, CL_DEVICE_TYPE_CPU | CL_DEVICE_TYPE_GPU, 0, NULL, &uiNumDevices);
-	bResult &= Check(L"clGetDeviceIDs",CL_SUCCESS, iRet);
+	bResult &= Check("clGetDeviceIDs",CL_SUCCESS, iRet);
 	if (!bResult)
 	{
 		return bResult;
@@ -60,7 +60,7 @@ bool clCreateKernelCpuGpuTest()
 	pBinaryStatus = new cl_int[uiNumDevices];
 
 	iRet = clGetDeviceIDs(NULL, CL_DEVICE_TYPE_CPU | CL_DEVICE_TYPE_GPU, uiNumDevices, pDevices, NULL);
-	bResult &= Check(L"clGetDeviceIDs",CL_SUCCESS, iRet);
+	bResult &= Check("clGetDeviceIDs",CL_SUCCESS, iRet);
 	if (!bResult)
 	{
 		return bResult;
@@ -68,7 +68,7 @@ bool clCreateKernelCpuGpuTest()
 
 	// create context
 	context = clCreateContext(0, uiNumDevices, pDevices, NULL, NULL, &iRet);
-	bResult &= Check(L"clCreateContext",CL_SUCCESS, iRet);
+	bResult &= Check("clCreateContext",CL_SUCCESS, iRet);
 	if (!bResult)
 	{
 		return bResult;
@@ -119,10 +119,10 @@ bool clCreateKernelCpuGpuTest()
 
 	// create program with binary
 	cl_program program  = clCreateProgramWithBinary(context, uiNumDevices, pDevices, pBinarySizes, (const unsigned char**)ppBinaries, pBinaryStatus, &iRet);
-	bResult &= Check(L"clCreateProgramWithBinary", CL_SUCCESS, iRet);
+	bResult &= Check("clCreateProgramWithBinary", CL_SUCCESS, iRet);
 
 	iRet = clBuildProgram(program, uiNumDevices, pDevices, NULL, pfn_notify, NULL);
-	bResult &= Check(L"clBuildProgram", CL_SUCCESS, iRet);
+	bResult &= Check("clBuildProgram", CL_SUCCESS, iRet);
 
 	while (!g_bCpuGpuBuildFinished)
 	{
@@ -130,11 +130,11 @@ bool clCreateKernelCpuGpuTest()
 	}
 
 	cl_kernel kernel1 = clCreateKernel(program, "fooi", &iRet);
-	bResult &= Check(L"clCreateKernel - fooi", CL_SUCCESS, iRet);
+	bResult &= Check("clCreateKernel - fooi", CL_SUCCESS, iRet);
 
 	cl_kernel kernel2 = clCreateKernel(program, "foof", &iRet);
 	//this function should fail since foof argument list is different in each device;
-	bResult &= !( Check(L"clCreateKernel - foof", CL_SUCCESS, iRet) );
+	bResult &= !( Check("clCreateKernel - foof", CL_SUCCESS, iRet) );
 
 	return bResult;
 }
