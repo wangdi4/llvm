@@ -750,6 +750,8 @@ void TypePrinter::printFunctionProtoAfter(const FunctionProtoType *T,
   if (Info.getRegParm())
     OS << " __attribute__((regparm ("
        << Info.getRegParm() << ")))";
+  if (Info.getNoCallerSavedRegs())
+    OS << "__attribute__((no_caller_saved_registers))";
 
   if (unsigned quals = T->getTypeQuals()) {
     OS << ' ';
@@ -1666,9 +1668,9 @@ void Qualifiers::print(raw_ostream &OS, const PrintingPolicy& Policy,
         OS << "__shared";
         break;
       default:
-        assert(addrspace >= LangAS::Count);
+        assert(addrspace >= LangAS::FirstTargetAddressSpace);
         OS << "__attribute__((address_space(";
-        OS << addrspace - LangAS::Count;
+        OS << addrspace - LangAS::FirstTargetAddressSpace;
         OS << ")))";
     }
   }
