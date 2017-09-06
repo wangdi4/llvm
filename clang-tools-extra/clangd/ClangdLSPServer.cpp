@@ -38,18 +38,14 @@ replacementsToEdits(StringRef Code,
 
 } // namespace
 
-class ClangdLSPServer::LSPDiagnosticsConsumer : public DiagnosticsConsumer {
-public:
-  LSPDiagnosticsConsumer(ClangdLSPServer &Server) : Server(Server) {}
+ClangdLSPServer::LSPDiagnosticsConsumer::LSPDiagnosticsConsumer(
+    ClangdLSPServer &Server)
+    : Server(Server) {}
 
-  virtual void onDiagnosticsReady(PathRef File,
-                                  std::vector<DiagWithFixIts> Diagnostics) {
-    Server.consumeDiagnostics(File, Diagnostics);
-  }
-
-private:
-  ClangdLSPServer &Server;
-};
+void ClangdLSPServer::LSPDiagnosticsConsumer::onDiagnosticsReady(
+    PathRef File, Tagged<std::vector<DiagWithFixIts>> Diagnostics) {
+  Server.consumeDiagnostics(File, Diagnostics.Value);
+}
 
 class ClangdLSPServer::LSPProtocolCallbacks : public ProtocolCallbacks {
 public:
@@ -181,7 +177,7 @@ void ClangdLSPServer::LSPProtocolCallbacks::onCompletion(
 
   auto Items = LangServer.Server.codeComplete(
       Params.textDocument.uri.file,
-      Position{Params.position.line, Params.position.character});
+      Position{Params.position.line, Params.position.character}).Value;
 
   std::string Completions;
   for (const auto &Item : Items) {
@@ -196,10 +192,8 @@ void ClangdLSPServer::LSPProtocolCallbacks::onCompletion(
 }
 
 ClangdLSPServer::ClangdLSPServer(JSONOutput &Out, bool RunSynchronously)
-    : Out(Out),
-      Server(llvm::make_unique<DirectoryBasedGlobalCompilationDatabase>(),
-             llvm::make_unique<LSPDiagnosticsConsumer>(*this),
-             RunSynchronously) {}
+    : Out(Out), DiagConsumer(*this),
+      Server(CDB, DiagConsumer, FSProvider, RunSynchronously) {}
 
 void ClangdLSPServer::run(std::istream &In) {
   assert(!IsDone && "Run was called before");

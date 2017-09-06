@@ -17,7 +17,6 @@
 #include "llvm/DebugInfo/CodeView/CVTypeVisitor.h"
 #include "llvm/DebugInfo/CodeView/LazyRandomTypeCollection.h"
 #include "llvm/DebugInfo/CodeView/SymbolDumper.h"
-#include "llvm/DebugInfo/CodeView/TypeDatabase.h"
 #include "llvm/DebugInfo/CodeView/TypeDumpVisitor.h"
 #include "llvm/DebugInfo/CodeView/TypeStreamMerger.h"
 #include "llvm/DebugInfo/CodeView/TypeTableBuilder.h"
@@ -29,6 +28,7 @@
 #include "llvm/DebugInfo/PDB/Native/InfoStreamBuilder.h"
 #include "llvm/DebugInfo/PDB/Native/PDBFile.h"
 #include "llvm/DebugInfo/PDB/Native/PDBFileBuilder.h"
+#include "llvm/DebugInfo/PDB/Native/DbiModuleDescriptorBuilder.h"
 #include "llvm/DebugInfo/PDB/Native/PDBStringTableBuilder.h"
 #include "llvm/DebugInfo/PDB/Native/PDBTypeServerHandler.h"
 #include "llvm/DebugInfo/PDB/Native/TpiStream.h"
@@ -53,12 +53,10 @@ using llvm::object::coff_section;
 static ExitOnError ExitOnErr;
 
 // Returns a list of all SectionChunks.
-static std::vector<coff_section> getInputSections(SymbolTable *Symtab) {
-  std::vector<coff_section> V;
+static void addSectionContribs(SymbolTable *Symtab, pdb::DbiStreamBuilder &DbiBuilder) {
   for (Chunk *C : Symtab->getChunks())
     if (auto *SC = dyn_cast<SectionChunk>(C))
-      V.push_back(*SC->Header);
-  return V;
+      DbiBuilder.addSectionContrib(SC->File->ModuleDBI, SC->Header);
 }
 
 static SectionChunk *findByName(std::vector<SectionChunk *> &Sections,
@@ -95,12 +93,33 @@ static void addTypeInfo(pdb::TpiStreamBuilder &TpiBuilder,
   });
 }
 
-// Merge .debug$T sections into IpiData and TpiData.
-static void mergeDebugT(SymbolTable *Symtab, pdb::PDBFileBuilder &Builder,
-                        codeview::TypeTableBuilder &TypeTable,
-                        codeview::TypeTableBuilder &IDTable) {
+// Add all object files to the PDB. Merge .debug$T sections into IpiData and
+// TpiData.
+static void addObjectsToPDB(SymbolTable *Symtab, pdb::PDBFileBuilder &Builder,
+                            codeview::TypeTableBuilder &TypeTable,
+                            codeview::TypeTableBuilder &IDTable) {
+  // Follow type servers.  If the same type server is encountered more than
+  // once for this instance of `PDBTypeServerHandler` (for example if many
+  // object files reference the same TypeServer), the types from the
+  // TypeServer will only be visited once.
+  pdb::PDBTypeServerHandler Handler;
+
   // Visit all .debug$T sections to add them to Builder.
   for (ObjectFile *File : Symtab->ObjectFiles) {
+    // Add a module descriptor for every object file. We need to put an absolute
+    // path to the object into the PDB. If this is a plain object, we make its
+    // path absolute. If it's an object in an archive, we make the archive path
+    // absolute.
+    bool InArchive = !File->ParentName.empty();
+    SmallString<128> Path = InArchive ? File->ParentName : File->getName();
+    sys::fs::make_absolute(Path);
+    StringRef Name = InArchive ? File->getName() : StringRef(Path);
+    File->ModuleDBI = &ExitOnErr(Builder.getDbiBuilder().addModuleInfo(Name));
+    File->ModuleDBI->setObjFileName(Path);
+
+    // FIXME: Walk the .debug$S sections and add them. Do things like recording
+    // source files.
+
     ArrayRef<uint8_t> Data = getDebugSection(File, ".debug$T");
     if (Data.empty())
       continue;
@@ -109,16 +128,11 @@ static void mergeDebugT(SymbolTable *Symtab, pdb::PDBFileBuilder &Builder,
     codeview::CVTypeArray Types;
     BinaryStreamReader Reader(Stream);
     SmallVector<TypeIndex, 128> SourceToDest;
-    // Follow type servers.  If the same type server is encountered more than
-    // once for this instance of `PDBTypeServerHandler` (for example if many
-    // object files reference the same TypeServer), the types from the
-    // TypeServer will only be visited once.
-    pdb::PDBTypeServerHandler Handler;
     Handler.addSearchPath(llvm::sys::path::parent_path(File->getName()));
     if (auto EC = Reader.readArray(Types, Reader.getLength()))
       fatal(EC, "Reader::readArray failed");
-    if (auto Err = codeview::mergeTypeStreams(IDTable, TypeTable, SourceToDest,
-                                              &Handler, Types))
+    if (auto Err = codeview::mergeTypeAndIdRecords(
+            IDTable, TypeTable, SourceToDest, &Handler, Types))
       fatal(Err, "codeview::mergeTypeStreams failed");
   }
 
@@ -129,55 +143,10 @@ static void mergeDebugT(SymbolTable *Symtab, pdb::PDBFileBuilder &Builder,
   addTypeInfo(Builder.getIpiBuilder(), IDTable);
 }
 
-static void dumpDebugT(ScopedPrinter &W, ObjectFile *File) {
-  ListScope LS(W, "DebugT");
-  ArrayRef<uint8_t> Data = getDebugSection(File, ".debug$T");
-  if (Data.empty())
-    return;
-
-  LazyRandomTypeCollection Types(Data, 100);
-  TypeDumpVisitor TDV(Types, &W, false);
-  // Use a default implementation that does not follow type servers and instead
-  // just dumps the contents of the TypeServer2 record.
-  if (auto EC = codeview::visitTypeStream(Types, TDV))
-    fatal(EC, "CVTypeDumper::dump failed");
-}
-
-static void dumpDebugS(ScopedPrinter &W, ObjectFile *File) {
-  ListScope LS(W, "DebugS");
-  ArrayRef<uint8_t> Data = getDebugSection(File, ".debug$S");
-  if (Data.empty())
-    return;
-
-  BinaryByteStream Stream(Data, llvm::support::little);
-  CVSymbolArray Symbols;
-  BinaryStreamReader Reader(Stream);
-  if (auto EC = Reader.readArray(Symbols, Reader.getLength()))
-    fatal(EC, "StreamReader.readArray<CVSymbolArray> failed");
-
-  TypeDatabase TDB(0);
-  CVSymbolDumper SymbolDumper(W, TDB, nullptr, false);
-  if (auto EC = SymbolDumper.dump(Symbols))
-    fatal(EC, "CVSymbolDumper::dump failed");
-}
-
-// Dump CodeView debug info. This is for debugging.
-static void dumpCodeView(SymbolTable *Symtab) {
-  ScopedPrinter W(outs());
-
-  for (ObjectFile *File : Symtab->ObjectFiles) {
-    dumpDebugT(W, File);
-    dumpDebugS(W, File);
-  }
-}
-
 // Creates a PDB file.
 void coff::createPDB(StringRef Path, SymbolTable *Symtab,
                      ArrayRef<uint8_t> SectionTable,
                      const llvm::codeview::DebugInfo *DI) {
-  if (Config->DumpPdb)
-    dumpCodeView(Symtab);
-
   BumpPtrAllocator Alloc;
   pdb::PDBFileBuilder Builder(Alloc);
   ExitOnErr(Builder.initialize(4096)); // 4096 is blocksize
@@ -200,17 +169,15 @@ void coff::createPDB(StringRef Path, SymbolTable *Symtab,
   InfoBuilder.setVersion(pdb::PdbRaw_ImplVer::PdbImplVC70);
 
   // Add an empty DPI stream.
-  auto &DbiBuilder = Builder.getDbiBuilder();
+  pdb::DbiStreamBuilder &DbiBuilder = Builder.getDbiBuilder();
   DbiBuilder.setVersionHeader(pdb::PdbDbiV110);
 
   codeview::TypeTableBuilder TypeTable(BAlloc);
   codeview::TypeTableBuilder IDTable(BAlloc);
-  mergeDebugT(Symtab, Builder, TypeTable, IDTable);
+  addObjectsToPDB(Symtab, Builder, TypeTable, IDTable);
 
   // Add Section Contributions.
-  std::vector<pdb::SectionContrib> Contribs =
-      pdb::DbiStreamBuilder::createSectionContribs(getInputSections(Symtab));
-  DbiBuilder.setSectionContribs(Contribs);
+  addSectionContribs(Symtab, DbiBuilder);
 
   // Add Section Map stream.
   ArrayRef<object::coff_section> Sections = {

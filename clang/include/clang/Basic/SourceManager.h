@@ -722,6 +722,10 @@ public:
 
   void clearIDTables();
 
+  /// Initialize this source manager suitably to replay the compilation
+  /// described by \p Old. Requires that \p Old outlive \p *this.
+  void initializeForReplay(const SourceManager &Old);
+
   DiagnosticsEngine &getDiagnostics() const { return Diag; }
 
   FileManager &getFileManager() const { return FileMgr; }
@@ -1399,10 +1403,9 @@ public:
   /// specified by Loc.
   ///
   /// If FilenameID is -1, it is considered to be unspecified.
-  void AddLineNote(SourceLocation Loc, unsigned LineNo, int FilenameID);
   void AddLineNote(SourceLocation Loc, unsigned LineNo, int FilenameID,
                    bool IsFileEntry, bool IsFileExit,
-                   bool IsSystemHeader, bool IsExternCHeader);
+                   SrcMgr::CharacteristicKind FileKind);
 
   /// \brief Determine if the source manager has a line table.
   bool hasLineTable() const { return LineTable != nullptr; }
