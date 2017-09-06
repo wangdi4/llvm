@@ -734,8 +734,8 @@ private:
   Instruction *SimplifyMemTransfer(MemIntrinsic *MI);
 #if INTEL_CUSTOMIZATION
   void GenStructFieldsCopyFromMemcpy(MemIntrinsic *MI);
-  bool ReduceICmpSizeIfProfitable(ICmpInst &ICI, Value *Op0, Value *Op1,
-                                  unsigned Size);
+  bool ReduceICmpSizeIfPossible(ICmpInst &ICI, Value *Op0, Value *Op1,
+                                unsigned Size);
 #endif
   Instruction *SimplifyMemSet(MemSetInst *MI);
 
