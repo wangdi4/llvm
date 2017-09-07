@@ -592,7 +592,7 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(svml_cc);
 #endif // INTEL_CUSTOMIZATION
   KEYWORD(x86_64_sysvcc);
-  KEYWORD(x86_64_win64cc);
+  KEYWORD(win64cc);
   KEYWORD(x86_regcallcc);
   KEYWORD(webkit_jscc);
   KEYWORD(swiftcc);
