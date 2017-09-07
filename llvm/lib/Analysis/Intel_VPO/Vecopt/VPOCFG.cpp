@@ -34,6 +34,10 @@ template void
 llvm::DomTreeBuilder::Calculate<AvrBBDomTree, AvrCFGBase>(AvrBBDomTree &DT,
                                                           AvrCFGBase &F);
 
+using AvrBBPostDomTree = PostDomTreeBase<AvrBasicBlock>;
+template void llvm::DomTreeBuilder::Calculate<AvrBBPostDomTree, AvrCFGBase>(
+    AvrBBPostDomTree &DT, AvrCFGBase &F);
+
 unsigned long long AvrBasicBlock::NextId = 0;
 
 AvrCFGBase::BuilderBase::BuilderBase(AvrCFGBase& C,
