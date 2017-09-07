@@ -99,7 +99,7 @@ static cl::opt<TargetChoice>
                           ,
                       clEnumValN(TARGET_GPU, "gpu", "generate GPU code")
 #endif
-           ),
+                          ),
            cl::init(TARGET_CPU), cl::ZeroOrMore, cl::cat(PollyCategory));
 
 #ifdef GPU_CODEGEN
@@ -134,7 +134,7 @@ static cl::opt<polly::VectorizerChoice, true> Vectorizer(
 
 static cl::opt<bool> ImportJScop(
     "polly-import",
-    cl::desc("Export the polyhedral description of the detected Scops"),
+    cl::desc("Import the polyhedral description of the detected Scops"),
     cl::Hidden, cl::init(false), cl::ZeroOrMore, cl::cat(PollyCategory));
 
 static cl::opt<bool> ExportJScop(
@@ -230,7 +230,7 @@ void initializePollyPasses(PassRegistry &Registry) {
   initializeDependenceInfoWrapperPassPass(Registry);
   initializeJSONExporterPass(Registry);
   initializeJSONImporterPass(Registry);
-  initializeIslAstInfoPass(Registry);
+  initializeIslAstInfoWrapperPassPass(Registry);
   initializeIslScheduleOptimizerPass(Registry);
   initializePollyCanonicalizePass(Registry);
   initializePolyhedralInfoPass(Registry);
@@ -333,7 +333,7 @@ void registerPollyPasses(llvm::legacy::PassManagerBase &PM) {
   } else {
     switch (CodeGeneration) {
     case CODEGEN_AST:
-      PM.add(polly::createIslAstInfoPass());
+      PM.add(polly::createIslAstInfoWrapperPassPass());
       break;
     case CODEGEN_FULL:
       PM.add(polly::createCodeGenerationPass());

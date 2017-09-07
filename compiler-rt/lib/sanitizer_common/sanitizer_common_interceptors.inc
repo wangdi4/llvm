@@ -226,11 +226,10 @@ bool PlatformHasDifferentMemcpyAndMemmove();
 #ifndef COMMON_INTERCEPTOR_STRNDUP_IMPL
 #define COMMON_INTERCEPTOR_STRNDUP_IMPL(ctx, s, size)                          \
   COMMON_INTERCEPTOR_ENTER(ctx, strndup, s, size);                             \
-  uptr from_length = internal_strnlen(s, size);                                \
-  uptr copy_length = Min(size, from_length);                                   \
+  uptr copy_length = internal_strnlen(s, size);                                \
   char *new_mem = (char *)WRAP(malloc)(copy_length + 1);                       \
   if (common_flags()->intercept_strndup) {                                     \
-    COMMON_INTERCEPTOR_READ_RANGE(ctx, s, copy_length + 1);                    \
+    COMMON_INTERCEPTOR_READ_STRING(ctx, s, Min(size, copy_length + 1));        \
   }                                                                            \
   COMMON_INTERCEPTOR_COPY_STRING(ctx, new_mem, s, copy_length);                \
   internal_memcpy(new_mem, s, copy_length);                                    \
@@ -3396,7 +3395,10 @@ INTERCEPTOR(char *, strerror_r, int errnum, char *buf, SIZE_T buflen) {
   // its metadata. See
   // https://github.com/google/sanitizers/issues/321.
   char *res = REAL(strerror_r)(errnum, buf, buflen);
-  COMMON_INTERCEPTOR_WRITE_RANGE(ctx, res, REAL(strlen)(res) + 1);
+  if (res == buf)
+    COMMON_INTERCEPTOR_WRITE_RANGE(ctx, res, REAL(strlen)(res) + 1);
+  else
+    COMMON_INTERCEPTOR_INITIALIZE_RANGE(res, REAL(strlen)(res) + 1);
   return res;
 }
 #endif //(_POSIX_C_SOURCE >= 200112L || _XOPEN_SOURCE >= 600) && !_GNU_SOURCE ||

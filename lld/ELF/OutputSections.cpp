@@ -16,8 +16,7 @@
 #include "SyntheticSections.h"
 #include "Target.h"
 #include "Threads.h"
-#include "llvm/Support/Compression.h"
-#include "llvm/Support/Dwarf.h"
+#include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/Support/MD5.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/SHA1.h"
@@ -41,6 +40,9 @@ OutputSection *Out::ProgramHeaders;
 OutputSection *Out::PreinitArray;
 OutputSection *Out::InitArray;
 OutputSection *Out::FiniArray;
+
+std::vector<OutputSection *> elf::OutputSections;
+std::vector<OutputSectionCommand *> elf::OutputSectionCommands;
 
 uint32_t OutputSection::getPhdrFlags() const {
   uint32_t Ret = PF_R;
@@ -71,75 +73,6 @@ OutputSection::OutputSection(StringRef Name, uint32_t Type, uint64_t Flags)
                   /*Link*/ 0),
       SectionIndex(INT_MAX) {}
 
-static bool compareByFilePosition(InputSection *A, InputSection *B) {
-  // Synthetic doesn't have link order dependecy, stable_sort will keep it last
-  if (A->kind() == InputSectionBase::Synthetic ||
-      B->kind() == InputSectionBase::Synthetic)
-    return false;
-  auto *LA = cast<InputSection>(A->getLinkOrderDep());
-  auto *LB = cast<InputSection>(B->getLinkOrderDep());
-  OutputSection *AOut = LA->OutSec;
-  OutputSection *BOut = LB->OutSec;
-  if (AOut != BOut)
-    return AOut->SectionIndex < BOut->SectionIndex;
-  return LA->OutSecOff < LB->OutSecOff;
-}
-
-// Compress section contents if this section contains debug info.
-template <class ELFT> void OutputSection::maybeCompress() {
-  typedef typename ELFT::Chdr Elf_Chdr;
-
-  // Compress only DWARF debug sections.
-  if (!Config->CompressDebugSections || (Flags & SHF_ALLOC) ||
-      !Name.startswith(".debug_"))
-    return;
-
-  // Create a section header.
-  ZDebugHeader.resize(sizeof(Elf_Chdr));
-  auto *Hdr = reinterpret_cast<Elf_Chdr *>(ZDebugHeader.data());
-  Hdr->ch_type = ELFCOMPRESS_ZLIB;
-  Hdr->ch_size = Size;
-  Hdr->ch_addralign = Alignment;
-
-  // Write section contents to a temporary buffer and compress it.
-  std::vector<uint8_t> Buf(Size);
-  writeTo<ELFT>(Buf.data());
-  if (Error E = zlib::compress(toStringRef(Buf), CompressedData))
-    fatal("compress failed: " + llvm::toString(std::move(E)));
-
-  // Update section headers.
-  Size = sizeof(Elf_Chdr) + CompressedData.size();
-  Flags |= SHF_COMPRESSED;
-}
-
-template <class ELFT> void OutputSection::finalize() {
-  if ((this->Flags & SHF_LINK_ORDER) && !this->Sections.empty()) {
-    std::sort(Sections.begin(), Sections.end(), compareByFilePosition);
-    assignOffsets();
-
-    // We must preserve the link order dependency of sections with the
-    // SHF_LINK_ORDER flag. The dependency is indicated by the sh_link field. We
-    // need to translate the InputSection sh_link to the OutputSection sh_link,
-    // all InputSections in the OutputSection have the same dependency.
-    if (auto *D = this->Sections.front()->getLinkOrderDep())
-      this->Link = D->OutSec->SectionIndex;
-  }
-
-  uint32_t Type = this->Type;
-  if (!Config->CopyRelocs || (Type != SHT_RELA && Type != SHT_REL))
-    return;
-
-  InputSection *First = Sections[0];
-  if (isa<SyntheticSection>(First))
-    return;
-
-  this->Link = In<ELFT>::SymTab->OutSec->SectionIndex;
-  // sh_info for SHT_REL[A] sections should contain the section header index of
-  // the section to which the relocation applies.
-  InputSectionBase *S = First->getRelocatedSection();
-  this->Info = S->OutSec->SectionIndex;
-}
-
 static uint64_t updateOffset(uint64_t Off, InputSection *S) {
   Off = alignTo(Off, S->Alignment);
   S->OutSecOff = Off;
@@ -149,7 +82,7 @@ static uint64_t updateOffset(uint64_t Off, InputSection *S) {
 void OutputSection::addSection(InputSection *S) {
   assert(S->Live);
   Sections.push_back(S);
-  S->OutSec = this;
+  S->Parent = this;
   this->updateAlignment(S->Alignment);
 
   // The actual offsets will be computed by assignAddresses. For now, use
@@ -171,9 +104,12 @@ void OutputSection::addSection(InputSection *S) {
 // This function is called after we sort input sections
 // and scan relocations to setup sections' offsets.
 void OutputSection::assignOffsets() {
+  OutputSectionCommand *Cmd = Script->getCmd(this);
   uint64_t Off = 0;
-  for (InputSection *S : Sections)
-    Off = updateOffset(Off, S);
+  for (BaseCommand *Base : Cmd->Commands)
+    if (auto *ISD = dyn_cast<InputSectionDescription>(Base))
+      for (InputSection *S : ISD->Sections)
+        Off = updateOffset(Off, S);
   this->Size = Off;
 }
 
@@ -259,69 +195,6 @@ void OutputSection::sortCtorsDtors() {
   std::stable_sort(Sections.begin(), Sections.end(), compCtors);
 }
 
-// Fill [Buf, Buf + Size) with Filler.
-// This is used for linker script "=fillexp" command.
-static void fill(uint8_t *Buf, size_t Size, uint32_t Filler) {
-  size_t I = 0;
-  for (; I + 4 < Size; I += 4)
-    memcpy(Buf + I, &Filler, 4);
-  memcpy(Buf + I, &Filler, Size - I);
-}
-
-uint32_t OutputSection::getFiller() {
-  // Determine what to fill gaps between InputSections with, as specified by the
-  // linker script. If nothing is specified and this is an executable section,
-  // fall back to trap instructions to prevent bad diassembly and detect invalid
-  // jumps to padding.
-  if (Optional<uint32_t> Filler = Script->getFiller(this))
-    return *Filler;
-  if (Flags & SHF_EXECINSTR)
-    return Target->TrapInstr;
-  return 0;
-}
-
-template <class ELFT> void OutputSection::writeTo(uint8_t *Buf) {
-  Loc = Buf;
-
-  // We may have already rendered compressed content when using
-  // -compress-debug-sections option. Write it together with header.
-  if (!CompressedData.empty()) {
-    memcpy(Buf, ZDebugHeader.data(), ZDebugHeader.size());
-    memcpy(Buf + ZDebugHeader.size(), CompressedData.data(),
-           CompressedData.size());
-    return;
-  }
-
-  // Write leading padding.
-  uint32_t Filler = getFiller();
-  if (Filler)
-    fill(Buf, Sections.empty() ? Size : Sections[0]->OutSecOff, Filler);
-
-  parallelForEachN(0, Sections.size(), [=](size_t I) {
-    InputSection *Sec = Sections[I];
-    Sec->writeTo<ELFT>(Buf);
-
-    // Fill gaps between sections.
-    if (Filler) {
-      uint8_t *Start = Buf + Sec->OutSecOff + Sec->getSize();
-      uint8_t *End;
-      if (I + 1 == Sections.size())
-        End = Buf + Size;
-      else
-        End = Buf + Sections[I + 1]->OutSecOff;
-      fill(Start, End - Start, Filler);
-    }
-  });
-
-  // Linker scripts may have BYTE()-family commands with which you
-  // can write arbitrary bytes to the output. Process them if any.
-  Script->writeDataBytes(this, Buf);
-}
-
-static uint64_t getOutFlags(InputSectionBase *S) {
-  return S->Flags & ~SHF_GROUP & ~SHF_COMPRESSED;
-}
-
 static SectionKey createKey(InputSectionBase *C, StringRef OutsecName) {
   //  The ELF spec just says
   // ----------------------------------------------------------------
@@ -396,7 +269,7 @@ static bool canMergeToProgbits(unsigned Type) {
          Type == SHT_NOTE;
 }
 
-static void reportDiscarded(InputSectionBase *IS) {
+void elf::reportDiscarded(InputSectionBase *IS) {
   if (!Config->PrintGcSections)
     return;
   message("removing unused section from '" + IS->Name + "' in file '" +
@@ -405,6 +278,31 @@ static void reportDiscarded(InputSectionBase *IS) {
 
 void OutputSectionFactory::addInputSec(InputSectionBase *IS,
                                        StringRef OutsecName) {
+  // Sections with the SHT_GROUP attribute reach here only when the - r option
+  // is given. Such sections define "section groups", and InputFiles.cpp has
+  // dedup'ed section groups by their signatures. For the -r, we want to pass
+  // through all SHT_GROUP sections without merging them because merging them
+  // creates broken section contents.
+  if (IS->Type == SHT_GROUP) {
+    OutputSection *Out = nullptr;
+    addInputSec(IS, OutsecName, Out);
+    return;
+  }
+
+  // Imagine .zed : { *(.foo) *(.bar) } script. Both foo and bar may have
+  // relocation sections .rela.foo and .rela.bar for example. Most tools do
+  // not allow multiple REL[A] sections for output section. Hence we
+  // should combine these relocation sections into single output.
+  // We skip synthetic sections because it can be .rela.dyn/.rela.plt or any
+  // other REL[A] sections created by linker itself.
+  if (!isa<SyntheticSection>(IS) &&
+      (IS->Type == SHT_REL || IS->Type == SHT_RELA)) {
+    auto *Sec = cast<InputSection>(IS);
+    OutputSection *Out = Sec->getRelocatedSection()->getOutputSection();
+    addInputSec(IS, OutsecName, Out->RelocationSection);
+    return;
+  }
+
   SectionKey Key = createKey(IS, OutsecName);
   OutputSection *&Sec = Map[Key];
   return addInputSec(IS, OutsecName, Sec);
@@ -418,7 +316,6 @@ void OutputSectionFactory::addInputSec(InputSectionBase *IS,
     return;
   }
 
-  uint64_t Flags = getOutFlags(IS);
   if (Sec) {
     if (getIncompatibleFlags(Sec->Flags) != getIncompatibleFlags(IS->Flags))
       error("incompatible section flags for " + Sec->Name +
@@ -435,9 +332,9 @@ void OutputSectionFactory::addInputSec(InputSectionBase *IS,
               "\n>>> output section " + Sec->Name + ": " +
               getELFSectionTypeName(Config->EMachine, Sec->Type));
     }
-    Sec->Flags |= Flags;
+    Sec->Flags |= IS->Flags;
   } else {
-    Sec = make<OutputSection>(OutsecName, IS->Type, Flags);
+    Sec = make<OutputSection>(OutsecName, IS->Type, IS->Flags);
     OutputSections.push_back(Sec);
   }
 
@@ -474,18 +371,3 @@ template void OutputSection::writeHeaderTo<ELF32LE>(ELF32LE::Shdr *Shdr);
 template void OutputSection::writeHeaderTo<ELF32BE>(ELF32BE::Shdr *Shdr);
 template void OutputSection::writeHeaderTo<ELF64LE>(ELF64LE::Shdr *Shdr);
 template void OutputSection::writeHeaderTo<ELF64BE>(ELF64BE::Shdr *Shdr);
-
-template void OutputSection::finalize<ELF32LE>();
-template void OutputSection::finalize<ELF32BE>();
-template void OutputSection::finalize<ELF64LE>();
-template void OutputSection::finalize<ELF64BE>();
-
-template void OutputSection::maybeCompress<ELF32LE>();
-template void OutputSection::maybeCompress<ELF32BE>();
-template void OutputSection::maybeCompress<ELF64LE>();
-template void OutputSection::maybeCompress<ELF64BE>();
-
-template void OutputSection::writeTo<ELF32LE>(uint8_t *Buf);
-template void OutputSection::writeTo<ELF32BE>(uint8_t *Buf);
-template void OutputSection::writeTo<ELF64LE>(uint8_t *Buf);
-template void OutputSection::writeTo<ELF64BE>(uint8_t *Buf);

@@ -25,8 +25,8 @@
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringSwitch.h"
+#include "llvm/BinaryFormat/ELF.h"
 #include "llvm/Support/Casting.h"
-#include "llvm/Support/ELF.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
@@ -55,6 +55,7 @@ public:
 
 private:
   void addFile(StringRef Path);
+  OutputSection *checkSection(OutputSectionCommand *Cmd, StringRef Loccation);
 
   void readAsNeeded();
   void readEntry();
@@ -75,6 +76,7 @@ private:
   BytesDataCommand *readBytesDataCommand(StringRef Tok);
   uint32_t readFill();
   uint32_t parseFill(StringRef Tok);
+  void readSectionAddressType(OutputSectionCommand *Cmd);
   OutputSectionCommand *readOutputSectionDescription(StringRef OutSec);
   std::vector<StringRef> readOutputSectionPhdrs();
   InputSectionDescription *readInputSectionDescription(StringRef Tok);
@@ -126,16 +128,16 @@ static void moveAbsRight(ExprValue &A, ExprValue &B) {
   if (A.isAbsolute())
     std::swap(A, B);
   if (!B.isAbsolute())
-    error("At least one side of the expression must be absolute");
+    error(A.Loc + ": at least one side of the expression must be absolute");
 }
 
 static ExprValue add(ExprValue A, ExprValue B) {
   moveAbsRight(A, B);
-  return {A.Sec, A.ForceAbsolute, A.Val + B.getValue()};
+  return {A.Sec, A.ForceAbsolute, A.Val + B.getValue(), A.Loc};
 }
 
 static ExprValue sub(ExprValue A, ExprValue B) {
-  return {A.Sec, A.Val - B.getValue()};
+  return {A.Sec, A.Val - B.getValue(), A.Loc};
 }
 
 static ExprValue mul(ExprValue A, ExprValue B) {
@@ -152,13 +154,13 @@ static ExprValue div(ExprValue A, ExprValue B) {
 static ExprValue bitAnd(ExprValue A, ExprValue B) {
   moveAbsRight(A, B);
   return {A.Sec, A.ForceAbsolute,
-          (A.getValue() & B.getValue()) - A.getSecAddr()};
+          (A.getValue() & B.getValue()) - A.getSecAddr(), A.Loc};
 }
 
 static ExprValue bitOr(ExprValue A, ExprValue B) {
   moveAbsRight(A, B);
   return {A.Sec, A.ForceAbsolute,
-          (A.getValue() | B.getValue()) - A.getSecAddr()};
+          (A.getValue() | B.getValue()) - A.getSecAddr(), A.Loc};
 }
 
 void ScriptParser::readDynamicList() {
@@ -562,16 +564,42 @@ uint32_t ScriptParser::readFill() {
   return V;
 }
 
+// Reads an expression and/or the special directive "(NOLOAD)" for an
+// output section definition.
+//
+// An output section name can be followed by an address expression
+// and/or by "(NOLOAD)". This grammar is not LL(1) because "(" can be
+// interpreted as either the beginning of some expression or "(NOLOAD)".
+//
+// https://sourceware.org/binutils/docs/ld/Output-Section-Address.html
+// https://sourceware.org/binutils/docs/ld/Output-Section-Type.html
+void ScriptParser::readSectionAddressType(OutputSectionCommand *Cmd) {
+  if (consume("(")) {
+    if (consume("NOLOAD")) {
+      expect(")");
+      Cmd->Noload = true;
+      return;
+    }
+    Cmd->AddrExpr = readExpr();
+    expect(")");
+  } else {
+    Cmd->AddrExpr = readExpr();
+  }
+
+  if (consume("(")) {
+    expect("NOLOAD");
+    expect(")");
+    Cmd->Noload = true;
+  }
+}
+
 OutputSectionCommand *
 ScriptParser::readOutputSectionDescription(StringRef OutSec) {
-  OutputSectionCommand *Cmd = make<OutputSectionCommand>(OutSec);
-  Cmd->Location = getCurrentLocation();
+  OutputSectionCommand *Cmd =
+      Script->createOutputSectionCommand(OutSec, getCurrentLocation());
 
-  // Read an address expression.
-  // https://sourceware.org/binutils/docs/ld/Output-Section-Address.html
   if (peek() != ":")
-    Cmd->AddrExpr = readExpr();
-
+    readSectionAddressType(Cmd);
   expect(":");
 
   if (consume("AT"))
@@ -639,7 +667,7 @@ ScriptParser::readOutputSectionDescription(StringRef OutSec) {
 // We are compatible with ld.gold because it's easier to implement.
 uint32_t ScriptParser::parseFill(StringRef Tok) {
   uint32_t V = 0;
-  if (Tok.getAsInteger(0, V))
+  if (!to_integer(Tok, V))
     setError("invalid filler expression: " + Tok);
 
   uint32_t Buf;
@@ -778,23 +806,23 @@ static Optional<uint64_t> parseInt(StringRef Tok) {
 
   // Hexadecimal
   uint64_t Val;
-  if (Tok.startswith_lower("0x") && !Tok.substr(2).getAsInteger(16, Val))
+  if (Tok.startswith_lower("0x") && to_integer(Tok.substr(2), Val, 16))
     return Val;
-  if (Tok.endswith_lower("H") && !Tok.drop_back().getAsInteger(16, Val))
+  if (Tok.endswith_lower("H") && to_integer(Tok.drop_back(), Val, 16))
     return Val;
 
   // Decimal
   if (Tok.endswith_lower("K")) {
-    if (Tok.drop_back().getAsInteger(10, Val))
+    if (!to_integer(Tok.drop_back(), Val, 10))
       return None;
     return Val * 1024;
   }
   if (Tok.endswith_lower("M")) {
-    if (Tok.drop_back().getAsInteger(10, Val))
+    if (!to_integer(Tok.drop_back(), Val, 10))
       return None;
     return Val * 1024 * 1024;
   }
-  if (Tok.getAsInteger(10, Val))
+  if (!to_integer(Tok, Val, 10))
     return None;
   return Val;
 }
@@ -817,6 +845,16 @@ StringRef ScriptParser::readParenLiteral() {
   StringRef Tok = next();
   expect(")");
   return Tok;
+}
+
+OutputSection *ScriptParser::checkSection(OutputSectionCommand *Cmd,
+                                          StringRef Location) {
+  if (Cmd->Location.empty() && Script->ErrorOnMissingSection)
+    error(Location + ": undefined section " + Cmd->Name);
+  if (Cmd->Sec)
+    return Cmd->Sec;
+  static OutputSection Dummy("", 0, 0);
+  return &Dummy;
 }
 
 Expr ScriptParser::readPrimary() {
@@ -847,8 +885,9 @@ Expr ScriptParser::readPrimary() {
   }
   if (Tok == "ADDR") {
     StringRef Name = readParenLiteral();
+    OutputSectionCommand *Cmd = Script->getOrCreateOutputSectionCommand(Name);
     return [=]() -> ExprValue {
-      return {Script->getOutputSection(Location, Name), 0};
+      return {checkSection(Cmd, Location), 0, Location};
     };
   }
   if (Tok == "ALIGN") {
@@ -859,11 +898,16 @@ Expr ScriptParser::readPrimary() {
     expect(",");
     Expr E2 = readExpr();
     expect(")");
-    return [=] { return alignTo(E().getValue(), E2().getValue()); };
+    return [=] {
+      ExprValue V = E();
+      V.Alignment = E2().getValue();
+      return V;
+    };
   }
   if (Tok == "ALIGNOF") {
     StringRef Name = readParenLiteral();
-    return [=] { return Script->getOutputSection(Location, Name)->Alignment; };
+    OutputSectionCommand *Cmd = Script->getOrCreateOutputSectionCommand(Name);
+    return [=] { return checkSection(Cmd, Location)->Alignment; };
   }
   if (Tok == "ASSERT")
     return readAssertExpr();
@@ -908,7 +952,8 @@ Expr ScriptParser::readPrimary() {
   }
   if (Tok == "LOADADDR") {
     StringRef Name = readParenLiteral();
-    return [=] { return Script->getOutputSection(Location, Name)->getLMA(); };
+    OutputSectionCommand *Cmd = Script->getOrCreateOutputSectionCommand(Name);
+    return [=] { return checkSection(Cmd, Location)->getLMA(); };
   }
   if (Tok == "ORIGIN") {
     StringRef Name = readParenLiteral();
@@ -926,7 +971,11 @@ Expr ScriptParser::readPrimary() {
   }
   if (Tok == "SIZEOF") {
     StringRef Name = readParenLiteral();
-    return [=] { return Script->getOutputSectionSize(Name); };
+    OutputSectionCommand *Cmd = Script->getOrCreateOutputSectionCommand(Name);
+    // Linker script does not create an output section if its content is empty.
+    // We want to allow SIZEOF(.foo) where .foo is a section which happened to
+    // be empty.
+    return [=] { return Cmd->Sec ? Cmd->Sec->Size : 0; };
   }
   if (Tok == "SIZEOF_HEADERS")
     return [=] { return elf::getHeaderSize(); };
