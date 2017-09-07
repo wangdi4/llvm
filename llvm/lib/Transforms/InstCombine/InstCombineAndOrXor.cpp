@@ -1284,6 +1284,11 @@ Instruction *InstCombiner::visitAnd(BinaryOperator &I) {
   if (Value *V = SimplifyBSwap(I, Builder))
     return replaceInstUsesWith(I, V);
 
+  // (0 - x) & 1 --> x & 1
+  Value *X;
+  if (match(Op1, m_One()) && match(Op0, m_Sub(m_Zero(), m_Value(X))))
+    return BinaryOperator::CreateAnd(X, Op1);
+
   if (ConstantInt *AndRHS = dyn_cast<ConstantInt>(Op1)) {
     const APInt &AndRHSMask = AndRHS->getValue();
 
@@ -1315,12 +1320,6 @@ Instruction *InstCombiner::visitAnd(BinaryOperator &I) {
 
         break;
       }
-      case Instruction::Sub:
-        // -x & 1 -> x & 1
-        if (AndRHSMask.isOneValue() && match(Op0LHS, m_Zero()))
-          return BinaryOperator::CreateAnd(Op0RHS, AndRHS);
-
-        break;
 
       case Instruction::Shl:
       case Instruction::LShr:
@@ -2175,17 +2174,6 @@ Instruction *InstCombiner::visitOr(BinaryOperator &I) {
         Value *Not = Builder.CreateNot(NotOp, NotOp->getName() + ".not");
         return BinaryOperator::CreateOr(Not, Op0);
       }
-
-  // (A & B) | (~A ^ B) -> (~A ^ B)
-  // (A & B) | (B ^ ~A) -> (~A ^ B)
-  // (B & A) | (~A ^ B) -> (~A ^ B)
-  // (B & A) | (B ^ ~A) -> (~A ^ B)
-  // The match order is important: match the xor first because the 'not'
-  // operation defines 'A'. We do not need to match the xor as Op0 because the
-  // xor was canonicalized to Op1 above.
-  if (match(Op1, m_c_Xor(m_Not(m_Value(A)), m_Value(B))) &&
-      match(Op0, m_c_And(m_Specific(A), m_Specific(B))))
-    return BinaryOperator::CreateXor(Builder.CreateNot(A), B);
 
   if (SwappedForXor)
     std::swap(Op0, Op1);
