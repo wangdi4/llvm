@@ -117,6 +117,7 @@ private:
   InstructionsTy Instructions;
   CFGEdgesTy Predecessors;
   CFGEdgesTy Successors;
+  AvrCFGBase *Parent;
 
   static unsigned long long NextId;
   unsigned long long Id;
@@ -129,7 +130,7 @@ private:
 
 public:
 
-  AvrBasicBlock() { assignId(); }
+  AvrBasicBlock(AvrCFGBase *NewParent) : Parent(NewParent) { assignId(); }
 
   unsigned long long getId() const { return Id; }
 
@@ -138,6 +139,10 @@ public:
   InstructionsTy::iterator begin() { return Instructions.begin(); }
 
   InstructionsTy::iterator end() { return Instructions.end(); }
+
+  /// \brief Return the enclosing CFG.
+  const AvrCFGBase *getParent() const { return Parent; }
+  AvrCFGBase *getParent() { return Parent; }
 
   void print(raw_ostream &O,
              bool printSingleAVRs,
@@ -265,7 +270,7 @@ private:
   void insertAfter(AvrBasicBlock* BB, AvrBasicBlock* NewSuccessor);
 
   AvrBasicBlock* createBasicBlock(AVR* A = nullptr) {
-    AvrBasicBlock* BB = new AvrBasicBlock();
+    AvrBasicBlock* BB = new AvrBasicBlock(this);
     Size++;
     if (A) {
       BB->addInstruction(A);
