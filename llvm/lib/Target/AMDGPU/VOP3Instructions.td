@@ -96,6 +96,7 @@ class VOP3_Profile<VOPProfile P> : VOPProfile<P.ArgVT> {
 class VOP3b_Profile<ValueType vt> : VOPProfile<[vt, vt, vt, vt]> {
   // v_div_scale_{f32|f64} do not support input modifiers.
   let HasModifiers = 0;
+  let HasOMod = 0;
   let Outs64 = (outs DstRC:$vdst, SReg_64:$sdst);
   let Asm64 = " $vdst, $sdst, $src0, $src1, $src2";
 }

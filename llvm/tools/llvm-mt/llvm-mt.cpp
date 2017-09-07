@@ -67,28 +67,27 @@ LLVM_ATTRIBUTE_NORETURN void reportError(Twine Msg) {
   exit(1);
 }
 
-int main(int argc, const char *argv[]) {
-  errs() << "very start\n";
-  for (int i = 0; i < argc; i++ ) {
-    errs() << argv[i] << "\n";
-  }
+int main(int argc, const char **argv) {
+  sys::PrintStackTraceOnErrorSignal(argv[0]);
+  PrettyStackTraceProgram X(argc, argv);
+
+  ExitOnErr.setBanner("llvm-mt: ");
+
+  SmallVector<const char *, 256> argv_buf;
+  SpecificBumpPtrAllocator<char> ArgAllocator;
+  ExitOnErr(errorCodeToError(sys::Process::GetArgumentVector(
+      argv_buf, makeArrayRef(argv, argc), ArgAllocator)));
+
+  llvm_shutdown_obj Y; // Call llvm_shutdown() on exit.
 
   CvtResOptTable T;
   unsigned MAI, MAC;
   ArrayRef<const char *> ArgsArr = makeArrayRef(argv + 1, argc);
   opt::InputArgList InputArgs = T.ParseArgs(ArgsArr, MAI, MAC);
 
-  errs() << "after\n";
-  for (int i = 0; i < argc; i++ ) {
-    errs() << argv[i] << "\n";
-  }
-
   for (auto &Arg : InputArgs) {
-    errs() << "found option: " << Arg->getOption().getName() << "\n";
     if (Arg->getOption().matches(OPT_unsupported)) {
       outs() << "llvm-mt: ignoring unsupported '" << Arg->getOption().getName()
-             << "' option\n";
-      errs() << "llvm-mt: ignoring unsupported '" << Arg->getOption().getName()
              << "' option\n";
     }
   }
