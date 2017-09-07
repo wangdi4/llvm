@@ -4899,7 +4899,7 @@ public:
     case CC_Swift:
     case CC_X86VectorCall:
     case CC_IntelOclBicc:
-    case CC_X86_64Win64:
+    case CC_Win64:
     case CC_PreserveMost:
     case CC_PreserveAll:
     case CC_X86RegCall:
@@ -6290,6 +6290,9 @@ public:
     LongDoubleWidth = LongDoubleAlign = SuitableAlign = 128;
     LongDoubleFormat = &llvm::APFloat::IEEEquad();
 
+    // Make __builtin_ms_va_list available.
+    HasBuiltinMSVaList = true;
+
     // {} in inline assembly are neon specifiers, not assembly variant
     // specifiers.
     NoAsmVariants = true;
@@ -6473,6 +6476,7 @@ public:
     case CC_PreserveMost:
     case CC_PreserveAll:
     case CC_OpenCLKernel:
+    case CC_Win64:
       return CCCR_OK;
     default:
       return CCCR_Warning;
@@ -6650,13 +6654,26 @@ public:
   MicrosoftARM64TargetInfo(const llvm::Triple &Triple,
                              const TargetOptions &Opts)
       : WindowsTargetInfo<AArch64leTargetInfo>(Triple, Opts), Triple(Triple) {
+
+    // This is an LLP64 platform.
+    // int:4, long:4, long long:8, long double:8.
     WCharType = UnsignedShort;
+    IntWidth = IntAlign = 32;
+    LongWidth = LongAlign = 32;
+    DoubleAlign = LongLongAlign = 64;
+    LongDoubleWidth = LongDoubleAlign = 64;
+    LongDoubleFormat = &llvm::APFloat::IEEEdouble();
+    IntMaxType = SignedLongLong;
+    Int64Type = SignedLongLong;
     SizeType = UnsignedLongLong;
+    PtrDiffType = SignedLongLong;
+    IntPtrType = SignedLongLong;
+
     TheCXXABI.set(TargetCXXABI::Microsoft);
   }
 
   void setDataLayout() override {
-    resetDataLayout("e-m:w-i64:64-i128:128-n32:64-S128");
+    resetDataLayout("e-m:w-p:64:64-i32:32-i64:64-i128:128-n32:64-S128");
   }
 
   void getVisualStudioDefines(const LangOptions &Opts,
