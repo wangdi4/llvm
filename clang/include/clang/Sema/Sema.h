@@ -8722,6 +8722,8 @@ public:
                          unsigned SpellingListIndex, bool isNSConsumed,
                          bool isTemplateInstantiation);
 
+  bool checkNSReturnsRetainedReturnType(SourceLocation loc, QualType type);
+
   //===--------------------------------------------------------------------===//
   // C++ Coroutines TS
   //
