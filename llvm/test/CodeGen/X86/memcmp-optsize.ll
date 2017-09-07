@@ -11,21 +11,27 @@
 
 declare i32 @memcmp(i8*, i8*, i64)
 
-define i32 @length2(i8* %X, i8* %Y) nounwind {
+define i32 @length2(i8* %X, i8* %Y) nounwind optsize {
 ; X86-LABEL: length2:
 ; X86:       # BB#0:
+; X86-NEXT:    pushl %edi
+; X86-NEXT:    pushl %esi
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %ecx
 ; X86-NEXT:    movzwl (%ecx), %ecx
-; X86-NEXT:    movzwl (%eax), %eax
+; X86-NEXT:    movzwl (%eax), %edx
 ; X86-NEXT:    rolw $8, %cx
-; X86-NEXT:    rolw $8, %ax
-; X86-NEXT:    xorl %edx, %edx
-; X86-NEXT:    cmpw %ax, %cx
-; X86-NEXT:    movl $-1, %ecx
-; X86-NEXT:    movl $1, %eax
-; X86-NEXT:    cmovbl %ecx, %eax
-; X86-NEXT:    cmovel %edx, %eax
+; X86-NEXT:    rolw $8, %dx
+; X86-NEXT:    xorl %esi, %esi
+; X86-NEXT:    xorl %edi, %edi
+; X86-NEXT:    incl %edi
+; X86-NEXT:    xorl %eax, %eax
+; X86-NEXT:    decl %eax
+; X86-NEXT:    cmpw %dx, %cx
+; X86-NEXT:    cmovael %edi, %eax
+; X86-NEXT:    cmovel %esi, %eax
+; X86-NEXT:    popl %esi
+; X86-NEXT:    popl %edi
 ; X86-NEXT:    retl
 ;
 ; X64-LABEL: length2:
@@ -45,7 +51,7 @@ define i32 @length2(i8* %X, i8* %Y) nounwind {
   ret i32 %m
 }
 
-define i1 @length2_eq(i8* %X, i8* %Y) nounwind {
+define i1 @length2_eq(i8* %X, i8* %Y) nounwind optsize {
 ; X86-LABEL: length2_eq:
 ; X86:       # BB#0:
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %eax
@@ -66,7 +72,7 @@ define i1 @length2_eq(i8* %X, i8* %Y) nounwind {
   ret i1 %c
 }
 
-define i1 @length2_eq_const(i8* %X) nounwind {
+define i1 @length2_eq_const(i8* %X) nounwind optsize {
 ; X86-LABEL: length2_eq_const:
 ; X86:       # BB#0:
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %eax
@@ -86,7 +92,7 @@ define i1 @length2_eq_const(i8* %X) nounwind {
   ret i1 %c
 }
 
-define i1 @length2_eq_nobuiltin_attr(i8* %X, i8* %Y) nounwind {
+define i1 @length2_eq_nobuiltin_attr(i8* %X, i8* %Y) nounwind optsize {
 ; X86-LABEL: length2_eq_nobuiltin_attr:
 ; X86:       # BB#0:
 ; X86-NEXT:    pushl $0
@@ -113,7 +119,7 @@ define i1 @length2_eq_nobuiltin_attr(i8* %X, i8* %Y) nounwind {
   ret i1 %c
 }
 
-define i32 @length3(i8* %X, i8* %Y) nounwind {
+define i32 @length3(i8* %X, i8* %Y) nounwind optsize {
 ; X86-LABEL: length3:
 ; X86:       # BB#0:
 ; X86-NEXT:    pushl $0
@@ -132,7 +138,7 @@ define i32 @length3(i8* %X, i8* %Y) nounwind {
   ret i32 %m
 }
 
-define i1 @length3_eq(i8* %X, i8* %Y) nounwind {
+define i1 @length3_eq(i8* %X, i8* %Y) nounwind optsize {
 ; X86-LABEL: length3_eq:
 ; X86:       # BB#0:
 ; X86-NEXT:    pushl $0
@@ -159,21 +165,27 @@ define i1 @length3_eq(i8* %X, i8* %Y) nounwind {
   ret i1 %c
 }
 
-define i32 @length4(i8* %X, i8* %Y) nounwind {
+define i32 @length4(i8* %X, i8* %Y) nounwind optsize {
 ; X86-LABEL: length4:
 ; X86:       # BB#0:
+; X86-NEXT:    pushl %edi
+; X86-NEXT:    pushl %esi
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %ecx
 ; X86-NEXT:    movl (%ecx), %ecx
-; X86-NEXT:    movl (%eax), %eax
+; X86-NEXT:    movl (%eax), %edx
 ; X86-NEXT:    bswapl %ecx
-; X86-NEXT:    bswapl %eax
-; X86-NEXT:    xorl %edx, %edx
-; X86-NEXT:    cmpl %eax, %ecx
-; X86-NEXT:    movl $-1, %ecx
-; X86-NEXT:    movl $1, %eax
-; X86-NEXT:    cmovbl %ecx, %eax
-; X86-NEXT:    cmovel %edx, %eax
+; X86-NEXT:    bswapl %edx
+; X86-NEXT:    xorl %esi, %esi
+; X86-NEXT:    xorl %edi, %edi
+; X86-NEXT:    incl %edi
+; X86-NEXT:    xorl %eax, %eax
+; X86-NEXT:    decl %eax
+; X86-NEXT:    cmpl %edx, %ecx
+; X86-NEXT:    cmovael %edi, %eax
+; X86-NEXT:    cmovel %esi, %eax
+; X86-NEXT:    popl %esi
+; X86-NEXT:    popl %edi
 ; X86-NEXT:    retl
 ;
 ; X64-LABEL: length4:
@@ -193,7 +205,7 @@ define i32 @length4(i8* %X, i8* %Y) nounwind {
   ret i32 %m
 }
 
-define i1 @length4_eq(i8* %X, i8* %Y) nounwind {
+define i1 @length4_eq(i8* %X, i8* %Y) nounwind optsize {
 ; X86-LABEL: length4_eq:
 ; X86:       # BB#0:
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %eax
@@ -214,7 +226,7 @@ define i1 @length4_eq(i8* %X, i8* %Y) nounwind {
   ret i1 %c
 }
 
-define i1 @length4_eq_const(i8* %X) nounwind {
+define i1 @length4_eq_const(i8* %X) nounwind optsize {
 ; X86-LABEL: length4_eq_const:
 ; X86:       # BB#0:
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %eax
@@ -232,7 +244,7 @@ define i1 @length4_eq_const(i8* %X) nounwind {
   ret i1 %c
 }
 
-define i32 @length5(i8* %X, i8* %Y) nounwind {
+define i32 @length5(i8* %X, i8* %Y) nounwind optsize {
 ; X86-LABEL: length5:
 ; X86:       # BB#0:
 ; X86-NEXT:    pushl $0
@@ -251,7 +263,7 @@ define i32 @length5(i8* %X, i8* %Y) nounwind {
   ret i32 %m
 }
 
-define i1 @length5_eq(i8* %X, i8* %Y) nounwind {
+define i1 @length5_eq(i8* %X, i8* %Y) nounwind optsize {
 ; X86-LABEL: length5_eq:
 ; X86:       # BB#0:
 ; X86-NEXT:    pushl $0
@@ -278,7 +290,7 @@ define i1 @length5_eq(i8* %X, i8* %Y) nounwind {
   ret i1 %c
 }
 
-define i32 @length8(i8* %X, i8* %Y) nounwind {
+define i32 @length8(i8* %X, i8* %Y) nounwind optsize {
 ; X86-LABEL: length8:
 ; X86:       # BB#0:
 ; X86-NEXT:    pushl $0
@@ -306,7 +318,7 @@ define i32 @length8(i8* %X, i8* %Y) nounwind {
   ret i32 %m
 }
 
-define i1 @length8_eq(i8* %X, i8* %Y) nounwind {
+define i1 @length8_eq(i8* %X, i8* %Y) nounwind optsize {
 ; X86-LABEL: length8_eq:
 ; X86:       # BB#0:
 ; X86-NEXT:    pushl $0
@@ -330,7 +342,7 @@ define i1 @length8_eq(i8* %X, i8* %Y) nounwind {
   ret i1 %c
 }
 
-define i1 @length8_eq_const(i8* %X) nounwind {
+define i1 @length8_eq_const(i8* %X) nounwind optsize {
 ; X86-LABEL: length8_eq_const:
 ; X86:       # BB#0:
 ; X86-NEXT:    pushl $0
@@ -354,7 +366,7 @@ define i1 @length8_eq_const(i8* %X) nounwind {
   ret i1 %c
 }
 
-define i1 @length12_eq(i8* %X, i8* %Y) nounwind {
+define i1 @length12_eq(i8* %X, i8* %Y) nounwind optsize {
 ; X86-LABEL: length12_eq:
 ; X86:       # BB#0:
 ; X86-NEXT:    pushl $0
@@ -381,7 +393,7 @@ define i1 @length12_eq(i8* %X, i8* %Y) nounwind {
   ret i1 %c
 }
 
-define i32 @length12(i8* %X, i8* %Y) nounwind {
+define i32 @length12(i8* %X, i8* %Y) nounwind optsize {
 ; X86-LABEL: length12:
 ; X86:       # BB#0:
 ; X86-NEXT:    pushl $0
@@ -402,7 +414,7 @@ define i32 @length12(i8* %X, i8* %Y) nounwind {
 
 ; PR33329 - https://bugs.llvm.org/show_bug.cgi?id=33329
 
-define i32 @length16(i8* %X, i8* %Y) nounwind {
+define i32 @length16(i8* %X, i8* %Y) nounwind optsize {
 ; X86-LABEL: length16:
 ; X86:       # BB#0:
 ; X86-NEXT:    pushl $0
@@ -421,7 +433,7 @@ define i32 @length16(i8* %X, i8* %Y) nounwind {
   ret i32 %m
 }
 
-define i1 @length16_eq(i8* %x, i8* %y) nounwind {
+define i1 @length16_eq(i8* %x, i8* %y) nounwind optsize {
 ; X86-NOSSE-LABEL: length16_eq:
 ; X86-NOSSE:       # BB#0:
 ; X86-NOSSE-NEXT:    pushl $0
@@ -469,7 +481,7 @@ define i1 @length16_eq(i8* %x, i8* %y) nounwind {
   ret i1 %cmp
 }
 
-define i1 @length16_eq_const(i8* %X) nounwind {
+define i1 @length16_eq_const(i8* %X) nounwind optsize {
 ; X86-NOSSE-LABEL: length16_eq_const:
 ; X86-NOSSE:       # BB#0:
 ; X86-NOSSE-NEXT:    pushl $0
@@ -514,7 +526,7 @@ define i1 @length16_eq_const(i8* %X) nounwind {
   ret i1 %c
 }
 
-define i32 @length32(i8* %X, i8* %Y) nounwind {
+define i32 @length32(i8* %X, i8* %Y) nounwind optsize {
 ; X86-LABEL: length32:
 ; X86:       # BB#0:
 ; X86-NEXT:    pushl $0
@@ -535,7 +547,7 @@ define i32 @length32(i8* %X, i8* %Y) nounwind {
 
 ; PR33325 - https://bugs.llvm.org/show_bug.cgi?id=33325
 
-define i1 @length32_eq(i8* %x, i8* %y) nounwind {
+define i1 @length32_eq(i8* %x, i8* %y) nounwind optsize {
 ; X86-LABEL: length32_eq:
 ; X86:       # BB#0:
 ; X86-NEXT:    pushl $0
@@ -572,7 +584,7 @@ define i1 @length32_eq(i8* %x, i8* %y) nounwind {
   ret i1 %cmp
 }
 
-define i1 @length32_eq_const(i8* %X) nounwind {
+define i1 @length32_eq_const(i8* %X) nounwind optsize {
 ; X86-LABEL: length32_eq_const:
 ; X86:       # BB#0:
 ; X86-NEXT:    pushl $0
@@ -610,7 +622,7 @@ define i1 @length32_eq_const(i8* %X) nounwind {
   ret i1 %c
 }
 
-define i32 @length64(i8* %X, i8* %Y) nounwind {
+define i32 @length64(i8* %X, i8* %Y) nounwind optsize {
 ; X86-LABEL: length64:
 ; X86:       # BB#0:
 ; X86-NEXT:    pushl $0
@@ -629,7 +641,7 @@ define i32 @length64(i8* %X, i8* %Y) nounwind {
   ret i32 %m
 }
 
-define i1 @length64_eq(i8* %x, i8* %y) nounwind {
+define i1 @length64_eq(i8* %x, i8* %y) nounwind optsize {
 ; X86-LABEL: length64_eq:
 ; X86:       # BB#0:
 ; X86-NEXT:    pushl $0
@@ -656,7 +668,7 @@ define i1 @length64_eq(i8* %x, i8* %y) nounwind {
   ret i1 %cmp
 }
 
-define i1 @length64_eq_const(i8* %X) nounwind {
+define i1 @length64_eq_const(i8* %X) nounwind optsize {
 ; X86-LABEL: length64_eq_const:
 ; X86:       # BB#0:
 ; X86-NEXT:    pushl $0
