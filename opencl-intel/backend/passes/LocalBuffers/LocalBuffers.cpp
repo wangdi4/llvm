@@ -64,6 +64,7 @@ namespace intel{
     return true;
   }
 
+  // TODO: LLVM has a special method to create Instruction from ConstExpr, we should use it instead.
   Instruction* LocalBuffers::CreateInstrFromConstant(Constant *pCE, Value *From, Value *To,
     std::vector<Instruction*> *InstInsert) {
 

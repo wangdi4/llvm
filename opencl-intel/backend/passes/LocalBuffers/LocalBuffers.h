@@ -61,6 +61,7 @@ namespace intel{
     /// @brief TODO: add comments
     bool ChangeConstant(Value *pTheValue, Value *pUser, Instruction *pBC, Instruction *Where);
 
+    /// ToDo: LLVM has a special method to create Instruction from ConstExpr, we should use it instead.
     /// @brief TODO: add comments
     Instruction* CreateInstrFromConstant(Constant *pCE, Value *From, Value *To, std::vector<Instruction*> *InstInsert);
 
