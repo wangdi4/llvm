@@ -33,7 +33,5 @@ private:
   bool AfterInl;
 };
 
-bool isCallCandidateForSpecialization(CallSite& CS, LoopInfo *LI);
-
 }
 #endif // LLVM_TRANSFORMS_IPO_INTEL_IPCLONING_H

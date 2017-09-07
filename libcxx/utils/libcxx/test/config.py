@@ -108,6 +108,11 @@ class Configuration(object):
             return check_value(val, env_var)
         return check_value(conf_val, name)
 
+    def get_modules_enabled(self):
+        return self.get_lit_bool('enable_modules',
+                                default=False,
+                                env_var='LIBCXX_ENABLE_MODULES')
+
     def make_static_lib_name(self, name):
         """Return the full filename for the specified library name"""
         if self.is_windows:
@@ -142,6 +147,7 @@ class Configuration(object):
         self.configure_sanitizer()
         self.configure_coverage()
         self.configure_modules()
+        self.configure_coroutines()
         self.configure_substitutions()
         self.configure_features()
 
@@ -483,9 +489,13 @@ class Configuration(object):
         # Configure extra flags
         compile_flags_str = self.get_lit_conf('compile_flags', '')
         self.cxx.compile_flags += shlex.split(compile_flags_str)
-        # FIXME: Can we remove this?
         if self.is_windows:
+            # FIXME: Can we remove this?
             self.cxx.compile_flags += ['-D_CRT_SECURE_NO_WARNINGS']
+            # Required so that tests using min/max don't fail on Windows,
+            # and so that those tests don't have to be changed to tolerate
+            # this insanity.
+            self.cxx.compile_flags += ['-DNOMINMAX']
 
     def configure_default_compile_flags(self):
         # Try and get the std version from the command line. Fall back to
@@ -626,9 +636,19 @@ class Configuration(object):
         # The __config_site header should be non-empty. Otherwise it should
         # have never been emitted by CMake.
         assert len(feature_macros) > 0
+        # FIXME: This is a hack that should be fixed using module maps (or something)
+        # If modules are enabled then we have to lift all of the definitions
+        # in __config_site onto the command line.
+        modules_enabled = self.get_modules_enabled()
+        self.cxx.compile_flags += ['-Wno-macro-redefined']
         # Transform each macro name into the feature name used in the tests.
         # Ex. _LIBCPP_HAS_NO_THREADS -> libcpp-has-no-threads
         for m in feature_macros:
+            if modules_enabled:
+                define = '-D%s' % m
+                if feature_macros[m]:
+                    define += '=%s' % (feature_macros[m])
+                self.cxx.compile_flags += [define]
             if m == '_LIBCPP_DISABLE_VISIBILITY_ANNOTATIONS':
                 continue
             if m == '_LIBCPP_ABI_VERSION':
@@ -954,14 +974,24 @@ class Configuration(object):
             self.cxx.flags += ['-g', '--coverage']
             self.cxx.compile_flags += ['-O0']
 
+    def configure_coroutines(self):
+        if self.cxx.hasCompileFlag('-fcoroutines-ts'):
+            macros = self.cxx.dumpMacros(flags=['-fcoroutines-ts'])
+            if '__cpp_coroutines' not in macros:
+                self.lit_config.warning('-fcoroutines-ts is supported but '
+                    '__cpp_coroutines is not defined')
+            # Consider coroutines supported only when the feature test macro
+            # reflects a recent value.
+            val = macros['__cpp_coroutines'].replace('L', '')
+            if int(val) >= 201703:
+                self.config.available_features.add('fcoroutines-ts')
+
     def configure_modules(self):
         modules_flags = ['-fmodules']
         if platform.system() != 'Darwin':
             modules_flags += ['-Xclang', '-fmodules-local-submodule-visibility']
         supports_modules = self.cxx.hasCompileFlag(modules_flags)
-        enable_modules = self.get_lit_bool('enable_modules',
-                                           default=False,
-                                           env_var='LIBCXX_ENABLE_MODULES')
+        enable_modules = self.get_modules_enabled()
         if enable_modules and not supports_modules:
             self.lit_config.fatal(
                 '-fmodules is enabled but not supported by the compiler')

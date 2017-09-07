@@ -565,59 +565,66 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
       Function *Caller = CS.getCaller();
       Function *Callee = CS.getCalledFunction();
 
-      // If this call site is dead and it is to a readonly function, we should
-      // just delete the call instead of trying to inline it, regardless of
-      // size.  This happens because IPSCCP propagates the result out of the
-      // call and then we're left with the dead call.
-      if (isInstructionTriviallyDead(CS.getInstruction(), &TLI)) {
-        DEBUG(dbgs() << "    -> Deleting dead call: " << *CS.getInstruction()
-                     << "\n");
-        IR.setReasonNotInlined(CS, NinlrDeleted); // INTEL
-        // Update the call graph by deleting the edge from Callee to Caller.
-        CG[Caller]->removeCallEdgeFor(CS);
-        CS.getInstruction()->eraseFromParent();
-        ++NumCallsDeleted;
-      } else {
-        // We can only inline direct calls to non-declarations.
-        if (!Callee || Callee->isDeclaration()) { // INTEL
+      // We can only inline direct calls to non-declarations.
+      if (!Callee || Callee->isDeclaration()) { // INTEL
 #if INTEL_CUSTOMIZATION
-          if (!Callee) {
-            IR.setReasonNotInlined(CS, NinlrIndirect);
-            continue;
-          }
-          if (Callee->isDeclaration()) {
-            IR.setReasonNotInlined(CS, NinlrExtern);
-            continue;
-          }
-#endif // INTEL_CUSTOMIZATION
-          continue; // INTEL
+        if (!Callee) {
+          IR.setReasonNotInlined(CS, NinlrIndirect);
+          continue;
         }
+        if (Callee->isDeclaration()) {
+          IR.setReasonNotInlined(CS, NinlrExtern);
+          continue;
+        }
+#endif // INTEL_CUSTOMIZATION
+        continue; // INTEL
+      }
 
+      Instruction *Instr = CS.getInstruction();
+
+      bool IsTriviallyDead = isInstructionTriviallyDead(Instr, &TLI);
+
+      int InlineHistoryID;
+      if (!IsTriviallyDead) {
         // If this call site was obtained by inlining another function, verify
         // that the include path for the function did not include the callee
         // itself.  If so, we'd be recursively inlining the same function,
         // which would provide the same callsites, which would cause us to
         // infinitely inline.
-        int InlineHistoryID = CallSites[CSi].second;
+        InlineHistoryID = CallSites[CSi].second;
         if (InlineHistoryID != -1 &&
             InlineHistoryIncludes(Callee, InlineHistoryID, // INTEL
-            InlineHistory)) { // INTEL
-            IR.setReasonNotInlined(CS, NinlrRecursive); // INTEL
-            continue;
-        } // INTEL
-
-        // Get DebugLoc to report. CS will be invalid after Inliner.
-        DebugLoc DLoc = CS.getInstruction()->getDebugLoc();
-        BasicBlock *Block = CS.getParent();
-        // FIXME for new PM: because of the old PM we currently generate ORE and
-        // in turn BFI on demand.  With the new PM, the ORE dependency should
-        // just become a regular analysis dependency.
-        OptimizationRemarkEmitter ORE(Caller);
-
-        // If the policy determines that we should inline this function,
-        // try to do so.
-        if (!shouldInline(CS, GetInlineCost, ORE, &IR)) // INTEL
+                                  InlineHistory)) {        // INTEL
+          IR.setReasonNotInlined(CS, NinlrRecursive);      // INTEL
           continue;
+        }                                                  // INTEL
+      }
+
+      // FIXME for new PM: because of the old PM we currently generate ORE and
+      // in turn BFI on demand.  With the new PM, the ORE dependency should
+      // just become a regular analysis dependency.
+      OptimizationRemarkEmitter ORE(Caller);
+
+      // If the policy determines that we should inline this function,
+      // delete the call instead.
+      if (!shouldInline(CS, GetInlineCost, ORE, &IR)) // INTEL
+        continue;
+
+      // If this call site is dead and it is to a readonly function, we should
+      // just delete the call instead of trying to inline it, regardless of
+      // size.  This happens because IPSCCP propagates the result out of the
+      // call and then we're left with the dead call.
+      if (IsTriviallyDead) {
+        DEBUG(dbgs() << "    -> Deleting dead call: " << *Instr << "\n");
+        IR.setReasonNotInlined(CS, NinlrDeleted); // INTEL
+        // Update the call graph by deleting the edge from Callee to Caller.
+        CG[Caller]->removeCallEdgeFor(CS);
+        Instr->eraseFromParent();
+        ++NumCallsDeleted;
+      } else {
+        // Get DebugLoc to report. CS will be invalid after Inliner.
+        DebugLoc DLoc = Instr->getDebugLoc();
+        BasicBlock *Block = CS.getParent();
 
         // Attempt to inline the function.
         using namespace ore;

@@ -149,6 +149,9 @@ class ExprArgument<string name, bit opt = 0> : Argument<name, opt>;
 class FunctionArgument<string name, bit opt = 0, bit fake = 0> : Argument<name,
                                                                           opt,
                                                                           fake>;
+class NamedArgument<string name, bit opt = 0, bit fake = 0> : Argument<name,
+                                                                          opt,
+                                                                          fake>;
 class TypeArgument<string name, bit opt = 0> : Argument<name, opt>;
 class UnsignedArgument<string name, bit opt = 0> : Argument<name, opt>;
 class VariadicUnsignedArgument<string name> : Argument<name, 1>;
@@ -1680,6 +1683,42 @@ def Section : InheritableAttr {
   let Documentation = [SectionDocs];
 }
 
+def PragmaClangBSSSection : InheritableAttr {
+  // This attribute has no spellings as it is only ever created implicitly.
+  let Spellings = [];
+  let Args = [StringArgument<"Name">];
+  let Subjects = SubjectList<[GlobalVar], ErrorDiag,
+                             "ExpectedFunctionMethodOrGlobalVar">;
+  let Documentation = [Undocumented];
+}
+
+def PragmaClangDataSection : InheritableAttr {
+  // This attribute has no spellings as it is only ever created implicitly.
+  let Spellings = [];
+  let Args = [StringArgument<"Name">];
+  let Subjects = SubjectList<[GlobalVar], ErrorDiag,
+                             "ExpectedFunctionMethodOrGlobalVar">;
+  let Documentation = [Undocumented];
+}
+
+def PragmaClangRodataSection : InheritableAttr {
+  // This attribute has no spellings as it is only ever created implicitly.
+  let Spellings = [];
+  let Args = [StringArgument<"Name">];
+  let Subjects = SubjectList<[GlobalVar], ErrorDiag,
+                             "ExpectedFunctionMethodOrGlobalVar">;
+  let Documentation = [Undocumented];
+}
+
+def PragmaClangTextSection : InheritableAttr {
+  // This attribute has no spellings as it is only ever created implicitly.
+  let Spellings = [];
+  let Args = [StringArgument<"Name">];
+  let Subjects = SubjectList<[Function], ErrorDiag,
+                             "ExpectedFunctionMethodOrGlobalVar">;
+  let Documentation = [Undocumented];
+}
+
 def Sentinel : InheritableAttr {
   let Spellings = [GCC<"sentinel">];
   let Args = [DefaultIntArgument<"Sentinel", 0>,
@@ -1819,14 +1858,14 @@ def Unavailable : InheritableAttr {
 
 def DiagnoseIf : InheritableAttr {
   let Spellings = [GNU<"diagnose_if">];
-  let Subjects = SubjectList<[Function]>;
+  let Subjects = SubjectList<[Function, ObjCMethod, ObjCProperty]>;
   let Args = [ExprArgument<"Cond">, StringArgument<"Message">,
               EnumArgument<"DiagnosticType",
                            "DiagnosticType",
                            ["error", "warning"],
                            ["DT_Error", "DT_Warning"]>,
               BoolArgument<"ArgDependent", 0, /*fake*/ 1>,
-              FunctionArgument<"Parent", 0, /*fake*/ 1>];
+              NamedArgument<"Parent", 0, /*fake*/ 1>];
   let DuplicatesAllowedWhileMerging = 1;
   let LateParsed = 1;
   let AdditionalMembers = [{

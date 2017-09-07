@@ -1,3 +1,1 @@
-add_llvm_library(LLVMNios2Info
-  Nios2TargetInfo.cpp
-  )
+add_llvm_library(LLVMNios2Info Nios2TargetInfo.cpp)

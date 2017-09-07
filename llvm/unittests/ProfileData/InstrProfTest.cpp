@@ -1023,11 +1023,7 @@ TEST_F(SparseInstrProfTest, preserve_no_records) {
   ASSERT_TRUE(I == E);
 }
 
-#ifdef INTEL_CUSTOMIZATION
-// The extra ',' in the INSTANTIATE_TEST_CASE_P macro invocation silences a
-// warning about an empty ... list.
 INSTANTIATE_TEST_CASE_P(MaybeSparse, MaybeSparseInstrProfTest,
                         ::testing::Bool(),);
-#endif // INTEL_CUSTOMIZATION
 
 } // end anonymous namespace

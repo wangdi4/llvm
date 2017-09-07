@@ -85,6 +85,9 @@ INLINE void *MmapOrDieQuietly(uptr size, const char *mem_type) {
   return MmapOrDie(size, mem_type, /*raw_report*/ true);
 }
 void UnmapOrDie(void *addr, uptr size);
+// Behaves just like MmapOrDie, but tolerates out of memory condition, in that
+// case returns nullptr.
+void *MmapOrDieOnFatalError(uptr size, const char *mem_type);
 void *MmapFixedNoReserve(uptr fixed_addr, uptr size,
                          const char *name = nullptr);
 void *MmapNoReserveOrDie(uptr size, const char *mem_type);
@@ -317,15 +320,9 @@ bool AddressSpaceIsUnlimited();
 void SetAddressSpaceUnlimited();
 void AdjustStackSize(void *attr);
 void PrepareForSandboxing(__sanitizer_sandbox_arguments *args);
-void CovPrepareForSandboxing(__sanitizer_sandbox_arguments *args);
 void SetSandboxingCallback(void (*f)());
 
-void CoverageUpdateMapping();
-void CovBeforeFork();
-void CovAfterFork(int child_pid);
-
 void InitializeCoverage(bool enabled, const char *coverage_dir);
-void ReInitializeCoverage(bool enabled, const char *coverage_dir);
 
 void InitTlsSize();
 uptr GetTlsSize();
@@ -380,7 +377,7 @@ void SetSoftRssLimitExceededCallback(void (*Callback)(bool exceeded));
 
 // Functions related to signal handling.
 typedef void (*SignalHandlerType)(int, void *, void *);
-bool IsHandledDeadlySignal(int signum);
+HandleSignalMode GetHandleSignalMode(int signum);
 void InstallDeadlySignalHandlers(SignalHandlerType handler);
 const char *DescribeSignalOrException(int signo);
 // Alternative signal stack (POSIX-only).
