@@ -68,11 +68,6 @@ LLVM_ATTRIBUTE_NORETURN void reportError(Twine Msg) {
 }
 
 int main(int argc, const char **argv) {
-  errs() << "very start\n";
-  for (int i = 0; i < argc; i++ ) {
-    errs() << argv[i] << "\n";
-  }
-
   sys::PrintStackTraceOnErrorSignal(argv[0]);
   PrettyStackTraceProgram X(argc, argv);
 
@@ -87,20 +82,12 @@ int main(int argc, const char **argv) {
 
   CvtResOptTable T;
   unsigned MAI, MAC;
-  ArrayRef<const char *> ArgsArr = makeArrayRef(argv, argc);
+  ArrayRef<const char *> ArgsArr = makeArrayRef(argv + 1, argc);
   opt::InputArgList InputArgs = T.ParseArgs(ArgsArr, MAI, MAC);
 
-  errs() << "after\n";
-  for (int i = 0; i < argc; i++ ) {
-    errs() << argv[i] << "\n";
-  }
-
   for (auto &Arg : InputArgs) {
-    errs() << "found option: " << Arg->getOption().getName() << "\n";
     if (Arg->getOption().matches(OPT_unsupported)) {
       outs() << "llvm-mt: ignoring unsupported '" << Arg->getOption().getName()
-             << "' option\n";
-      errs() << "llvm-mt: ignoring unsupported '" << Arg->getOption().getName()
              << "' option\n";
     }
   }
