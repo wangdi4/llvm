@@ -14,7 +14,6 @@ function(tablegen project ofn)
     message(FATAL_ERROR "${project}_TABLEGEN_EXE not set")
   endif()
 
-<<<<<<< HEAD
   # Use depfile instead of globbing arbitrary *.td(s)
   # DEPFILE is available for Ninja Generator with CMake>=3.7.
   if(CMAKE_GENERATOR STREQUAL "Ninja" AND NOT CMAKE_VERSION VERSION_LESS 3.7)
@@ -33,21 +32,18 @@ function(tablegen project ofn)
       )
     set(local_tds)
     set(global_tds)
+    set(intel_tds) # INTEL_CUSTOMIZATION
   else()
-    file(GLOB_RECURSE local_tds "*.td") # INTEL_CUSTOMIZATION
+    file(GLOB local_tds "*.td")
     file(GLOB_RECURSE global_tds "${LLVM_MAIN_INCLUDE_DIR}/llvm/*.td")
+    # INTEL_CUSTOMIZATION
+    file(GLOB intel_tds
+         "${LLVM_MAIN_SRC_DIR}/tools/clang/include/clang/Basic/intel/*.td")
+    # end INTEL_CUSTOMIZATION
     set(additional_cmdline
       -o ${CMAKE_CURRENT_BINARY_DIR}/${ofn}.tmp
       )
   endif()
-=======
-  file(GLOB local_tds "*.td")
-  file(GLOB_RECURSE global_tds "${LLVM_MAIN_INCLUDE_DIR}/llvm/*.td")
-  # INTEL_CUSTOMIZATION
-  file(GLOB intel_tds
-       "${LLVM_MAIN_SRC_DIR}/tools/clang/include/clang/Basic/intel/*.td")
-  # end INTEL_CUSTOMIZATION
->>>>>>> 9d55e390d7a9e52f338cdc60465bcad48d608002
 
   if (IS_ABSOLUTE ${LLVM_TARGET_DEFINITIONS})
     set(LLVM_TARGET_DEFINITIONS_ABSOLUTE ${LLVM_TARGET_DEFINITIONS})
