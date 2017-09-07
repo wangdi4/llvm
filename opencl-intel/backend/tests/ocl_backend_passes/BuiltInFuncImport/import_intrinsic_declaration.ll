@@ -31,4 +31,4 @@ declare <4 x double> @function_from_rtl(<4 x double>) nounwind
 
 
 ; CHECK:  define linkonce_odr <4 x double> @function_from_rtl(<4 x double> %in)
-; CHECK:  declare void @llvm.lifetime.start(i64, i8* nocapture)
+; CHECK:  declare void @llvm.lifetime.start
