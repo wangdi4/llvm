@@ -1766,6 +1766,9 @@ public:
   bool isQueueT() const;                        // OpenCL queue_t
   bool isReserveIDT() const;                    // OpenCL reserve_id_t
 
+#if INTEL_CUSTOMIZATION
+  bool isChannelType() const;                   // OpenCL channel type
+#endif // INTEL_CUSTOMIZATION
   bool isPipeType() const;                      // OpenCL pipe type
   bool isOpenCLSpecificType() const;            // Any OpenCL specific type
 
@@ -5475,7 +5478,7 @@ public:
 };
 
 #if INTEL_CUSTOMIZATION
-/// ChannelType - Altera OpenCL extension.
+/// ChannelType - Intel OpenCL FPGA extension.
 class ChannelType : public Type, public llvm::FoldingSetNode {
   QualType ElementType;
 
@@ -5920,6 +5923,12 @@ inline bool Type::isImageType() const {
 inline bool Type::isPipeType() const {
   return isa<PipeType>(CanonicalType);
 }
+
+#if INTEL_CUSTOMIZATION
+inline bool Type::isChannelType() const {
+  return isa<ChannelType>(CanonicalType);
+}
+#endif // INTEL_CUSTOMIZATION
 
 inline bool Type::isOpenCLSpecificType() const {
   return isSamplerT() || isEventT() || isImageType() || isClkEventT() ||

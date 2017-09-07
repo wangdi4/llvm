@@ -945,9 +945,9 @@ findLinesForRange(const CharSourceRange &R, FileID FID,
 
 /// Add as much of range B into range A as possible without exceeding a maximum
 /// size of MaxRange. Ranges are inclusive.
-std::pair<unsigned, unsigned> maybeAddRange(std::pair<unsigned, unsigned> A,
-                                            std::pair<unsigned, unsigned> B,
-                                            unsigned MaxRange) {
+static std::pair<unsigned, unsigned>
+maybeAddRange(std::pair<unsigned, unsigned> A, std::pair<unsigned, unsigned> B,
+              unsigned MaxRange) {
   // If A is already the maximum size, we're done.
   unsigned Slack = MaxRange - (A.second - A.first + 1);
   if (Slack == 0)
@@ -1252,7 +1252,7 @@ void TextDiagnostic::emitSnippetAndCaret(
     }
 
     // Finally, remove any blank spaces from the end of CaretLine.
-    while (CaretLine[CaretLine.size() - 1] == ' ')
+    while (!CaretLine.empty() && CaretLine[CaretLine.size() - 1] == ' ')
       CaretLine.erase(CaretLine.end() - 1);
 
     // Emit what we have computed.

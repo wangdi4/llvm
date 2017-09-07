@@ -41,11 +41,15 @@ struct ExprValue {
   SectionBase *Sec;
   uint64_t Val;
   bool ForceAbsolute;
+  uint64_t Alignment = 1;
+  std::string Loc;
 
-  ExprValue(SectionBase *Sec, bool ForceAbsolute, uint64_t Val)
-      : Sec(Sec), Val(Val), ForceAbsolute(ForceAbsolute) {}
-  ExprValue(SectionBase *Sec, uint64_t Val) : ExprValue(Sec, false, Val) {}
-  ExprValue(uint64_t Val) : ExprValue(nullptr, Val) {}
+  ExprValue(SectionBase *Sec, bool ForceAbsolute, uint64_t Val,
+            const Twine &Loc)
+      : Sec(Sec), Val(Val), ForceAbsolute(ForceAbsolute), Loc(Loc.str()) {}
+  ExprValue(SectionBase *Sec, uint64_t Val, const Twine &Loc)
+      : ExprValue(Sec, false, Val, Loc) {}
+  ExprValue(uint64_t Val) : ExprValue(nullptr, Val, "") {}
   bool isAbsolute() const { return ForceAbsolute || Sec == nullptr; }
   uint64_t getValue() const;
   uint64_t getSecAddr() const;
@@ -130,6 +134,12 @@ struct OutputSectionCommand : BaseCommand {
   ConstraintKind Constraint = ConstraintKind::NoConstraint;
   std::string Location;
   std::string MemoryRegionName;
+  bool Noload = false;
+
+  template <class ELFT> void finalize();
+  template <class ELFT> void writeTo(uint8_t *Buf);
+  template <class ELFT> void maybeCompress();
+  uint32_t getFiller();
 };
 
 // This struct represents one section match pattern in SECTIONS() command.
@@ -157,7 +167,7 @@ struct InputSectionDescription : BaseCommand {
   // will be associated with this InputSectionDescription.
   std::vector<SectionPattern> SectionPatterns;
 
-  std::vector<InputSectionBase *> Sections;
+  std::vector<InputSection *> Sections;
 };
 
 // Represents an ASSERT().
@@ -213,11 +223,12 @@ struct ScriptConfiguration {
 
 class LinkerScript final {
   llvm::DenseMap<OutputSection *, OutputSectionCommand *> SecToCommand;
-  OutputSectionCommand *getCmd(OutputSection *Sec) const;
+  llvm::DenseMap<StringRef, OutputSectionCommand *> NameToOutputSectionCommand;
+
   void assignSymbol(SymbolAssignment *Cmd, bool InSec);
   void setDot(Expr E, const Twine &Loc, bool InSec);
 
-  std::vector<InputSectionBase *>
+  std::vector<InputSection *>
   computeInputSections(const InputSectionDescription *);
 
   std::vector<InputSectionBase *>
@@ -234,7 +245,6 @@ class LinkerScript final {
   void process(BaseCommand &Base);
 
   OutputSection *Aether;
-  bool ErrorOnMissingSection = false;
 
   uint64_t Dot;
   uint64_t ThreadBssOffset = 0;
@@ -244,16 +254,19 @@ class LinkerScript final {
   MemoryRegion *CurMemRegion = nullptr;
 
 public:
+  bool ErrorOnMissingSection = false;
+  OutputSectionCommand *createOutputSectionCommand(StringRef Name,
+                                                   StringRef Location);
+  OutputSectionCommand *getOrCreateOutputSectionCommand(StringRef Name);
+
+  OutputSectionCommand *getCmd(OutputSection *Sec) const;
   bool hasPhdrsCommands() { return !Opt.PhdrsCommands.empty(); }
   uint64_t getDot() { return Dot; }
-  OutputSection *getOutputSection(const Twine &Loc, StringRef S);
-  uint64_t getOutputSectionSize(StringRef S);
   void discard(ArrayRef<InputSectionBase *> V);
 
   ExprValue getSymbolValue(const Twine &Loc, StringRef S);
   bool isDefined(StringRef S);
 
-  std::vector<OutputSection *> *OutputSections;
   void fabricateDefaultCommands();
   void addOrphanSections(OutputSectionFactory &Factory);
   void removeEmptyCommands();
@@ -263,16 +276,13 @@ public:
   std::vector<PhdrEntry> createPhdrs();
   bool ignoreInterpSection();
 
-  llvm::Optional<uint32_t> getFiller(OutputSection *Sec);
   bool hasLMA(OutputSection *Sec);
   bool shouldKeep(InputSectionBase *S);
   void assignOffsets(OutputSectionCommand *Cmd);
-  void placeOrphanSections();
+  void createOrphanCommands();
   void processNonSectionCommands();
-  void synchronize();
   void assignAddresses(std::vector<PhdrEntry> &Phdrs);
 
-  void writeDataBytes(OutputSection *Sec, uint8_t *Buf);
   void addSymbol(SymbolAssignment *Cmd);
   void processCommands(OutputSectionFactory &Factory);
 
