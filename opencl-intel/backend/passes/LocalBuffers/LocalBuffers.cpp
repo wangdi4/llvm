@@ -236,9 +236,9 @@ namespace intel{
          if (!inst->getType()->isVoidTy())
           inst->replaceAllUsesWith(UndefValue::get(inst->getType()));
        inst->dropAllReferences();
-       inst->eraseFromParent();
-      }
+       }
     }
+
     // Add instruction to the block, only the first time and only if it has uses
     else if ( !pInst->getParent() ) {
       for (Instruction * inst : InstInsert) {
