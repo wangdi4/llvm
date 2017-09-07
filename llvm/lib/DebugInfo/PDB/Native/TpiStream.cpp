@@ -8,7 +8,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/DebugInfo/PDB/Native/TpiStream.h"
+
 #include "llvm/ADT/iterator_range.h"
+#include "llvm/DebugInfo/CodeView/LazyRandomTypeCollection.h"
 #include "llvm/DebugInfo/CodeView/TypeRecord.h"
 #include "llvm/DebugInfo/MSF/MappedBlockStream.h"
 #include "llvm/DebugInfo/PDB/Native/PDBFile.h"
@@ -30,8 +32,7 @@ using namespace llvm::support;
 using namespace llvm::msf;
 using namespace llvm::pdb;
 
-TpiStream::TpiStream(const PDBFile &File,
-                     std::unique_ptr<MappedBlockStream> Stream)
+TpiStream::TpiStream(PDBFile &File, std::unique_ptr<MappedBlockStream> Stream)
     : Pdb(File), Stream(std::move(Stream)) {}
 
 TpiStream::~TpiStream() = default;
@@ -75,7 +76,8 @@ Error TpiStream::reload() {
                                   "Invalid TPI hash stream index.");
 
     auto HS = MappedBlockStream::createIndexedStream(
-        Pdb.getMsfLayout(), Pdb.getMsfBuffer(), Header->HashStreamIndex);
+        Pdb.getMsfLayout(), Pdb.getMsfBuffer(), Header->HashStreamIndex,
+        Pdb.getAllocator());
     BinaryStreamReader HSR(*HS);
 
     // There should be a hash value for every type record, or no hashes at all.
@@ -104,6 +106,8 @@ Error TpiStream::reload() {
     HashStream = std::move(HS);
   }
 
+  Types = llvm::make_unique<LazyRandomTypeCollection>(
+      TypeRecords, getNumTypeRecords(), getTypeIndexOffsets());
   return Error::success();
 }
 

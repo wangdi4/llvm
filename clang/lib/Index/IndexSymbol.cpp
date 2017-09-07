@@ -61,6 +61,8 @@ bool index::isFunctionLocalSymbol(const Decl *D) {
   if (isa<ObjCTypeParamDecl>(D))
     return true;
 
+  if (isa<UsingDirectiveDecl>(D))
+    return false;
   if (!D->getParentFunctionOrMethod())
     return false;
 
@@ -297,6 +299,10 @@ SymbolInfo index::getSymbolInfo(const Decl *D) {
       break;
     case Decl::TypeAlias:
       Info.Kind = SymbolKind::TypeAlias;
+      Info.Lang = SymbolLanguage::CXX;
+      break;
+    case Decl::Binding:
+      Info.Kind = SymbolKind::Variable;
       Info.Lang = SymbolLanguage::CXX;
       break;
     default:
