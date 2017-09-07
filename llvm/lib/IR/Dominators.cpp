@@ -71,6 +71,16 @@ template void
 llvm::DomTreeBuilder::Calculate<DomTreeBuilder::BBPostDomTree, Function>(
     DomTreeBuilder::BBPostDomTree &DT, Function &F);
 
+template void llvm::DomTreeBuilder::InsertEdge<DomTreeBuilder::BBDomTree>(
+    DomTreeBuilder::BBDomTree &DT, BasicBlock *From, BasicBlock *To);
+template void llvm::DomTreeBuilder::InsertEdge<DomTreeBuilder::BBPostDomTree>(
+    DomTreeBuilder::BBPostDomTree &DT, BasicBlock *From, BasicBlock *To);
+
+template void llvm::DomTreeBuilder::DeleteEdge<DomTreeBuilder::BBDomTree>(
+    DomTreeBuilder::BBDomTree &DT, BasicBlock *From, BasicBlock *To);
+template void llvm::DomTreeBuilder::DeleteEdge<DomTreeBuilder::BBPostDomTree>(
+    DomTreeBuilder::BBPostDomTree &DT, BasicBlock *From, BasicBlock *To);
+
 template bool llvm::DomTreeBuilder::Verify<DomTreeBuilder::BBDomTree>(
     const DomTreeBuilder::BBDomTree &DT);
 template bool llvm::DomTreeBuilder::Verify<DomTreeBuilder::BBPostDomTree>(
