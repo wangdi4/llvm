@@ -282,8 +282,8 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= genPrivatizationCode(W);
           Changed |= genFirstPrivatizationCode(W);
           Changed |= genLastPrivatizationCode(W, LastIterGep);
-          Changed |= genSharedCodeForTaskLoop(W);
-          Changed |= genRedCodeForTaskLoop(W);
+          Changed |= genSharedCodeForTaskGeneric(W);
+          Changed |= genRedCodeForTaskGeneric(W);
           Changed |= genTaskCode(W, KmpTaskTTWithPrivatesTy, KmpSharedTy);
           RemoveDirectives = true;
         }
@@ -300,10 +300,10 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= genPrivatizationCode(W);
           Changed |= genFirstPrivatizationCode(W);
           Changed |= genLastPrivatizationCode(W, LastIterGep);
-          Changed |= genSharedCodeForTaskLoop(W);
-          Changed |= genRedCodeForTaskLoop(W);
-          Changed |= genTaskLoopCode(W, KmpTaskTTWithPrivatesTy, KmpSharedTy,
-                                     LBPtr, UBPtr, STPtr);
+          Changed |= genSharedCodeForTaskGeneric(W);
+          Changed |= genRedCodeForTaskGeneric(W);
+          Changed |= genTaskGenericCode(W, KmpTaskTTWithPrivatesTy, KmpSharedTy,
+                                        LBPtr, UBPtr, STPtr);
           RemoveDirectives = true;
         }
         break;
@@ -2538,7 +2538,11 @@ Function *VPOParoptTransform::finalizeExtractedMTFunction(WRegionNode *W,
   Function *NFn = Function::Create(NFnTy, Fn->getLinkage());
 
   NFn->copyAttributesFrom(Fn);
-  NFn->addFnAttr("mt-func", "true");
+  if (W->getWRegionKindID() == WRegionNode::WRNTaskloop ||
+      W->getWRegionKindID() == WRegionNode::WRNTask)
+    NFn->addFnAttr("task-mt-func", "true");
+  else
+    NFn->addFnAttr("mt-func", "true");
 
   Fn->getParent()->getFunctionList().insert(Fn->getIterator(), NFn);
   NFn->takeName(Fn);

@@ -50,17 +50,17 @@ using namespace llvm::vpo;
 
 // Replace the reduction variable reference with the dereference of
 // the return pointer __kmpc_task_reduction_get_th_data
-bool VPOParoptTransform::genRedCodeForTaskLoop(WRegionNode *W) {
+bool VPOParoptTransform::genRedCodeForTaskGeneric(WRegionNode *W) {
 
   bool Changed = false;
 
-  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genRedCodeForTaskLoop\n");
+  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genRedCodeForTaskGeneric\n");
 
   ReductionClause &RedClause = W->getRed();
   if (!RedClause.empty()) {
 
     assert(W->isBBSetEmpty() &&
-           "genRedCodeForTaskLoop: BBSET should start empty");
+           "genRedCodeForTaskGeneric: BBSET should start empty");
     W->populateBBSet();
     BasicBlock *EntryBB = W->getEntryBBlock();
     BasicBlock *ExitBB = W->getExitBBlock();
@@ -84,7 +84,7 @@ bool VPOParoptTransform::genRedCodeForTaskLoop(WRegionNode *W) {
     Changed = true;
     W->resetBBSet(); // Invalidate BBSet after transformations
   }
-  DEBUG(dbgs() << "\nExit VPOParoptTransform::genRedCodeForTaskLoop\n");
+  DEBUG(dbgs() << "\nExit VPOParoptTransform::genRedCodeForTaskGeneric\n");
   return Changed;
 }
 
@@ -108,17 +108,17 @@ void VPOParoptTransform::genLprivFiniForTaskLoop(Value *Dst, Value *Src,
 
 // Replace the shared variable reference with the thunk field
 // derefernce
-bool VPOParoptTransform::genSharedCodeForTaskLoop(WRegionNode *W) {
+bool VPOParoptTransform::genSharedCodeForTaskGeneric(WRegionNode *W) {
 
   bool Changed = false;
 
-  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genSharedCodeForTaskLoop\n");
+  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genSharedCodeForTaskGeneric\n");
 
   SharedClause &ShaClause = W->getShared();
   if (!ShaClause.empty()) {
 
     assert(W->isBBSetEmpty() &&
-           "genSharedCodeForTaskLoop: BBSET should start empty");
+           "genSharedCodeForTaskGeneric: BBSET should start empty");
     W->populateBBSet();
 
     for (SharedItem *ShaI : ShaClause.items()) {
@@ -135,7 +135,7 @@ bool VPOParoptTransform::genSharedCodeForTaskLoop(WRegionNode *W) {
     Changed = true;
     W->resetBBSet(); // Invalidate BBSet after transformations
   }
-  DEBUG(dbgs() << "\nExit VPOParoptTransform::genSharedCodeForTaskLoop\n");
+  DEBUG(dbgs() << "\nExit VPOParoptTransform::genSharedCodeForTaskGeneric\n");
   return Changed;
 }
 
@@ -175,6 +175,33 @@ void VPOParoptTransform::genTaskTRedType() {
                             Type::getInt8PtrTy(C), Int32Ty};
   KmpTaskTRedTy = StructType::create(C, TaskTRedTyArgs,
                                      "struct.kmp_task_t_red_item", false);
+}
+
+// internal structure for dependInfo
+//
+// struct kmp_depend_info {
+//   size_t arg_addr;
+//   size_t arg_size;
+//   char   depend_type;
+// };
+void VPOParoptTransform::genKmpTaskDependInfo() {
+  if (KmpTaskDependInfoTy)
+    return;
+
+  LLVMContext &C = F->getContext();
+
+  IntegerType *IntTy;
+  const DataLayout &DL = F->getParent()->getDataLayout();
+
+  if (DL.getIntPtrType(Type::getInt8PtrTy(C))->getIntegerBitWidth() == 64)
+    IntTy = Type::getInt64Ty(C);
+  else
+    IntTy = Type::getInt32Ty(C);
+
+  Type *KmpTaskDependTyArgs[] = {IntTy, IntTy, Type::getInt8Ty(C)};
+
+  KmpTaskDependInfoTy = StructType::create(C, KmpTaskDependTyArgs,
+                                           "struct.kmp_depend_info", false);
 }
 
 // Build struct kmp_task_t {
@@ -349,6 +376,7 @@ bool VPOParoptTransform::genTaskLoopInitCode(
   // Build type kmp_task_t
   genKmpRoutineEntryT();
   genKmpTaskTRecordDecl();
+
   KmpSharedTy = nullptr;
   StructType *KmpPrivatesTy = nullptr;
   KmpTaskTTWithPrivatesTy =
@@ -841,6 +869,71 @@ VPOParoptTransform::genLastPrivateTaskDup(WRegionNode *W,
   return FnTaskDup;
 }
 
+// Generate the initialization code for task depend clauses. For each task
+// depend clause, the compiler initializes the pointer, the size and the
+// dependce type in the struct task_dep_info_type.
+AllocaInst *
+VPOParoptTransform::genDependInitForTask(WRegionNode *W,
+                                         Instruction *InsertBefore) {
+  if (!W->hasDepend())
+    return nullptr;
+
+  SmallVector<Type *, 4> KmpTaskTDependVecTyArgs;
+
+  DependClause DepClause = W->getDepend();
+  if (DepClause.empty())
+    return nullptr;
+
+  genKmpTaskDependInfo();
+
+  LLVMContext &C = F->getContext();
+
+  for (int I = 0; I < DepClause.size(); I++)
+    KmpTaskTDependVecTyArgs.push_back(KmpTaskDependInfoTy);
+
+  StructType *KmpTaskTDependVecTy =
+      StructType::create(C,
+                         makeArrayRef(KmpTaskTDependVecTyArgs.begin(),
+                                      KmpTaskTDependVecTyArgs.end()),
+                         "struct.kmp_task_depend_vec", false);
+
+  IRBuilder<> Builder(InsertBefore);
+  AllocaInst *DummyTaskTDependVec =
+      Builder.CreateAlloca(KmpTaskTDependVecTy, nullptr, "task.depend.vec");
+
+  const DataLayout DL = F->getParent()->getDataLayout();
+  unsigned Count = 0;
+  for (DependItem *DepI : DepClause.items()) {
+
+    Value *BaseTaskTDependGep = Builder.CreateInBoundsGEP(
+        KmpTaskTDependVecTy, DummyTaskTDependVec,
+        {Builder.getInt32(0), Builder.getInt32(Count++)});
+
+    Value *Gep =
+        Builder.CreateInBoundsGEP(KmpTaskDependInfoTy, BaseTaskTDependGep,
+                                  {Builder.getInt32(0), Builder.getInt32(0)});
+    Builder.CreateStore(
+        Builder.CreatePtrToInt(DepI->getOrig(),
+                               DL.getIntPtrType(DepI->getOrig()->getType())),
+        Gep);
+
+    Gep = Builder.CreateInBoundsGEP(KmpTaskDependInfoTy, BaseTaskTDependGep,
+                                    {Builder.getInt32(0), Builder.getInt32(1)});
+    Builder.CreateStore(
+        (DL.getIntPtrType(Builder.getInt8PtrTy())->getIntegerBitWidth() == 64)
+            ? Builder.getInt64(DL.getTypeAllocSize(
+                  DepI->getOrig()->getType()->getPointerElementType()))
+            : Builder.getInt32(DL.getTypeAllocSize(
+                  DepI->getOrig()->getType()->getPointerElementType())),
+        Gep);
+
+    Gep = Builder.CreateInBoundsGEP(KmpTaskDependInfoTy, BaseTaskTDependGep,
+                                    {Builder.getInt32(0), Builder.getInt32(2)});
+    Builder.CreateStore(Builder.getInt8(DepI->getIsIn() ? 0x1 : 0x3), Gep);
+  }
+
+  return DummyTaskTDependVec;
+}
 // Generate the call __kmpc_task_reduction_init and the corresponding
 // preparation.
 void VPOParoptTransform::genRedInitForTaskLoop(WRegionNode *W,
@@ -850,7 +943,7 @@ void VPOParoptTransform::genRedInitForTaskLoop(WRegionNode *W,
 
   genTaskTRedType();
 
-  SmallVector<Type *, 4> KmpTaksTRedRecTyArgs;
+  SmallVector<Type *, 4> KmpTaskTRedRecTyArgs;
 
   ReductionClause &RedClause = W->getRed();
   if (RedClause.empty())
@@ -858,10 +951,10 @@ void VPOParoptTransform::genRedInitForTaskLoop(WRegionNode *W,
   LLVMContext &C = F->getContext();
 
   for (int I = 0; I < RedClause.size(); I++)
-    KmpTaksTRedRecTyArgs.push_back(KmpTaskTRedTy);
+    KmpTaskTRedRecTyArgs.push_back(KmpTaskTRedTy);
 
   StructType *KmpTaskTTRedRecTy = StructType::create(
-      C, makeArrayRef(KmpTaksTRedRecTyArgs.begin(), KmpTaksTRedRecTyArgs.end()),
+      C, makeArrayRef(KmpTaskTRedRecTyArgs.begin(), KmpTaskTRedRecTyArgs.end()),
       "struct.kmp_task_t_red_rec", false);
 
   IRBuilder<> Builder(InsertBefore);
@@ -918,25 +1011,126 @@ void VPOParoptTransform::genRedInitForTaskLoop(WRegionNode *W,
 bool VPOParoptTransform::genTaskCode(WRegionNode *W,
                                      StructType *KmpTaskTTWithPrivatesTy,
                                      StructType *KmpSharedTy) {
-  return genTaskLoopCode(W, KmpTaskTTWithPrivatesTy, KmpSharedTy, nullptr,
-                         nullptr, nullptr, false);
+  return genTaskGenericCode(W, KmpTaskTTWithPrivatesTy, KmpSharedTy, nullptr,
+                            nullptr, nullptr, false);
 }
 
-// Generate the call __kmpc_omp_task_alloc, __kmpc_taskloop and the
-// corresponding outlined function
-bool VPOParoptTransform::genTaskLoopCode(WRegionNode *W,
-                                         StructType *KmpTaskTTWithPrivatesTy,
-                                         StructType *KmpSharedTy, Value *LBPtr,
-                                         Value *UBPtr, Value *STPtr,
-                                         bool isLoop) {
+// Set the the arguements in the if clause to be empty.
+void VPOParoptTransform::resetValueInTaskIfClause(WRegionNode *W) {
+  Value *V = W->getIf();
+  if (!V)
+    return;
+  resetValueInIntelClauseGeneric(W, V);
+}
 
-  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genTaskLoopCode\n");
+// Set the the arguments in the depend clause to be empty.
+void VPOParoptTransform::resetValueInTaskDependClause(WRegionNode *W) {
+  if (!W->hasDepend())
+    return;
 
-  assert(W->isBBSetEmpty() && "genTaskLoopCode: BBSET should start empty");
+  DependClause DepClause = W->getDepend();
+  if (DepClause.empty())
+    return;
+  for (DependItem *DepI : DepClause.items()) {
+    resetValueInIntelClauseGeneric(W, DepI->getOrig());
+  }
+}
+
+// Set the the arguements in the Intel compiler generated clause to be empty.
+void VPOParoptTransform::resetValueInIntelClauseGeneric(WRegionNode *W,
+                                                        Value *V) {
+  SmallVector<Instruction *, 8> IfUses;
+  for (auto IB = V->user_begin(), IE = V->user_end(); IB != IE; ++IB) {
+    if (Instruction *User = dyn_cast<Instruction>(*IB))
+      if (W->contains(User->getParent()))
+        IfUses.push_back(User);
+  }
+
+  while (!IfUses.empty()) {
+    Instruction *UI = IfUses.pop_back_val();
+    if (VPOAnalysisUtils::isIntelDirectiveOrClause(UI)) {
+      LLVMContext &C = F->getContext();
+      UI->replaceUsesOfWith(V, ConstantPointerNull::get(Type::getInt8PtrTy(C)));
+      break;
+    }
+  }
+}
+
+// The wrapper routine to generate the call __kmpc_omp_task_with_deps
+void VPOParoptTransform::genTaskDeps(WRegionNode *W, StructType *IdentTy,
+                                     Value *TidPtr, Value *TaskAlloc,
+                                     AllocaInst *DummyTaskTDependRec,
+                                     Instruction *InsertPt, bool IsTaskWait) {
+  IRBuilder<> Builder(InsertPt);
+
+  Value *BaseTaskTDependGep = Builder.CreateInBoundsGEP(
+      DummyTaskTDependRec->getAllocatedType(), DummyTaskTDependRec,
+      {Builder.getInt32(0), Builder.getInt32(0)});
+  LLVMContext &C = F->getContext();
+  Value *Dep = Builder.CreateBitCast(BaseTaskTDependGep, Type::getInt8PtrTy(C));
+  if (!IsTaskWait)
+    VPOParoptUtils::genKmpcTaskWithDeps(W, IdentTy, TidPtr, TaskAlloc, Dep,
+                                        W->getDepend().size(), InsertPt);
+  else
+    VPOParoptUtils::genKmpcTaskWaitDeps(W, IdentTy, TidPtr, Dep,
+                                        W->getDepend().size(), InsertPt);
+}
+
+// Generate the call __kmpc_omp_task_alloc, __kmpc_taskloop or
+// __kmpc_omp_task and the corresponding outlined function
+//
+// Based on the presence/absence of the IF and the DEPEND clauses,
+// there are four different codegen for tasks:
+//
+// 1. "IF(expr)" absent, "DEPEND" absent:
+//
+//    __kmpc_omp_task(&loc, GTID, thunk_temp)
+//
+//
+// 2. "IF(expr)" absent, "DEPEND" present:
+//
+//     __kmpc_omp_task_with_deps(&loc,GTID,thunk_temp, n,dep_list, 0,0)
+//
+//
+// 3. "IF(expr)" present, "DEPEND" absent:
+//
+//  if (expr != 0) {
+//    __kmpc_omp_task(&loc, GTID, thunk_temp)
+//  } else {
+//    __kmpc_omp_task_begin_if0(&loc, GTID, thunk_temp)
+//    call task_outline_func(GTID, thunk_temp)
+//    __kmpc_omp_task_complete_if0(&loc, GTID, thunk_temp)
+//  }
+//
+//
+// 4. "IF(expr)" present, "DEPEND" present:
+//
+//  if (expr != 0) {
+//    __kmpc_omp_task_with_deps(&loc,GTID,thunk_temp, n,dep_list, 0,0)
+//  } else {
+//    __kmpc_omp_wait_deps(&loc,GTID, n,dep_list, 0,0)
+//    __kmpc_omp_task_begin_if0(&loc, GTID, thunk_temp)
+//    call task_outline_func(GTID, thunk_temp)
+//    __kmpc_omp_task_complete_if0(&loc, GTID, thunk_temp)
+//  }
+//
+bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
+                                            StructType *KmpTaskTTWithPrivatesTy,
+                                            StructType *KmpSharedTy,
+                                            Value *LBPtr, Value *UBPtr,
+                                            Value *STPtr, bool isLoop) {
+
+  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genTaskGenericCode\n");
+
+  assert(W->isBBSetEmpty() && "genTaskGenericCode: BBSET should start empty");
 
   W->populateBBSet();
 
   codeExtractorPrepare(W);
+
+  resetValueInTaskIfClause(W);
+
+  resetValueInTaskDependClause(W);
 
   bool Changed = false;
 
@@ -995,7 +1189,6 @@ bool VPOParoptTransform::genTaskLoopCode(WRegionNode *W,
 
     MTFnCI->setDebugLoc(NewCall->getDebugLoc());
 
-    // MTFnArgs.clear();
 
     if (!NewCall->use_empty())
       NewCall->replaceAllUsesWith(MTFnCI);
@@ -1004,6 +1197,8 @@ bool VPOParoptTransform::genTaskLoopCode(WRegionNode *W,
     MTFnCI->takeName(NewCall);
 
     genRedInitForTaskLoop(W, NewCall);
+
+    AllocaInst *DummyTaskTDependRec = genDependInitForTask(W, NewCall);
 
     AllocaInst *PrivateBase = genTaskPrivateMapping(W, NewCall, KmpSharedTy);
     const DataLayout DL = NewF->getParent()->getDataLayout();
@@ -1017,25 +1212,76 @@ bool VPOParoptTransform::genTaskLoopCode(WRegionNode *W,
 
     genSharedInitForTaskLoop(W, PrivateBase, TaskAllocCI, KmpSharedTy,
                              KmpTaskTTWithPrivatesTy, NewCall);
-    if (isLoop)
+
+    IRBuilder<> Builder(NewCall);
+
+    Value *VIf = W->getIf();
+    Value *Cmp = nullptr;
+    if (VIf)
+      Cmp = Builder.CreateICmpNE(VIf, ConstantInt::get(VIf->getType(), 0));
+    if (isLoop) {
       VPOParoptUtils::genKmpcTaskLoop(
-          W, IdentTy, TidPtr, TaskAllocCI, LBPtr, UBPtr, STPtr,
+          W, IdentTy, TidPtr, TaskAllocCI, Cmp, LBPtr, UBPtr, STPtr,
           KmpTaskTTWithPrivatesTy, NewCall, Mode & OmpTbb,
           genLastPrivateTaskDup(W, KmpTaskTTWithPrivatesTy));
-    else
-      VPOParoptUtils::genKmpcTask(W, IdentTy, TidPtr, TaskAllocCI, NewCall);
+    } else {
+      if (!VIf) {
+        if (!DummyTaskTDependRec)
+          VPOParoptUtils::genKmpcTask(W, IdentTy, TidPtr, TaskAllocCI, NewCall);
+        else
+          genTaskDeps(W, IdentTy, TidPtr, TaskAllocCI, DummyTaskTDependRec,
+                      NewCall, false);
+      } else {
+        BasicBlock *SplitBeforeBB = NewCall->getParent();
+        TerminatorInst *ThenTerm, *ElseTerm;
+        SplitBlockAndInsertIfThenElse(Cmp, NewCall, &ThenTerm, &ElseTerm);
+        ThenTerm->getParent()->setName("task_if.then");
+        ElseTerm->getParent()->setName("task_if.else");
+        NewCall->getParent()->setName("task_if.end");
+
+        DT->addNewBlock(ThenTerm->getParent(), SplitBeforeBB);
+        DT->addNewBlock(ElseTerm->getParent(), SplitBeforeBB);
+        DT->addNewBlock(NewCall->getParent(), SplitBeforeBB);
+
+        DT->changeImmediateDominator(ThenTerm->getParent(), SplitBeforeBB);
+        DT->changeImmediateDominator(ElseTerm->getParent(), SplitBeforeBB);
+        DT->changeImmediateDominator(NewCall->getParent(), SplitBeforeBB);
+        BasicBlock *NextBB = NewCall->getParent()->getSingleSuccessor();
+        DT->changeImmediateDominator(NextBB, NewCall->getParent());
+
+        IRBuilder<> ElseBuilder(ElseTerm);
+        if (!DummyTaskTDependRec)
+          VPOParoptUtils::VPOParoptUtils::genKmpcTask(W, IdentTy, TidPtr,
+                                                      TaskAllocCI, ThenTerm);
+        else
+          genTaskDeps(W, IdentTy, TidPtr, TaskAllocCI, DummyTaskTDependRec,
+                      ThenTerm, false);
+
+        genTaskDeps(W, IdentTy, TidPtr, TaskAllocCI, DummyTaskTDependRec,
+                    ElseTerm, true);
+        VPOParoptUtils::genKmpcTaskBeginIf0(W, IdentTy, TidPtr, TaskAllocCI,
+                                            ElseTerm);
+        MTFnArgs.clear();
+        MTFnArgs.push_back(ElseBuilder.CreateLoad(TidPtr));
+        MTFnArgs.push_back(ElseBuilder.CreateBitCast(
+            TaskAllocCI, PointerType::getUnqual(KmpTaskTTWithPrivatesTy)));
+        CallInst *SeqCI = CallInst::Create(MTFn, MTFnArgs, "", ElseTerm);
+        SeqCI->setCallingConv(CS.getCallingConv());
+        SeqCI->takeName(NewCall);
+        VPOParoptUtils::genKmpcTaskCompleteIf0(W, IdentTy, TidPtr, TaskAllocCI,
+                                               ElseTerm);
+      }
+    }
 
     NewCall->eraseFromParent();
-
     NewF->eraseFromParent();
-
     MTFnCI->eraseFromParent();
 
     W->resetBBSet(); // Invalidate BBSet after transformations
 
     Changed = true;
   }
-  DEBUG(dbgs() << "\nExit VPOParoptTransform::genTaskLoopCode\n");
+  DEBUG(dbgs() << "\nExit VPOParoptTransform::genTaskGenericCode\n");
   return Changed;
 }
 

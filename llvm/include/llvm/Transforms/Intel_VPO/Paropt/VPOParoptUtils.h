@@ -430,18 +430,76 @@ public:
     /// \brief This function generates a call as follows.
     ///    void @__kmpc_taskloop({ i32, i32, i32, i32, i8* }*, i32, i8*, i32,
     ///    i64*, i64*, i64, i32, i32, i64, i8*)
-    static CallInst *genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
-                                     Value *TidPtr, Value *TaskAlloc,
-                                     Value *LBPtr, Value *UBPtr, Value *STPtr,
-                                     StructType *KmpTaskTTWithPrivatesTy,
-                                     Instruction *InsertPt, bool UseTbb,
-                                     Function *FnTaskDup);
+    static CallInst *
+    genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy, Value *TidPtr,
+                    Value *TaskAlloc, Value *Cmp, Value *LBPtr, Value *UBPtr,
+                    Value *STPtr, StructType *KmpTaskTTWithPrivatesTy,
+                    Instruction *InsertPt, bool UseTbb, Function *FnTaskDup);
 
     /// \brief This function generates a call as follows.
     ///    void @__kmpc_task({ i32, i32, i32, i32, i8* }*, i32, i8*)
     static CallInst *genKmpcTask(WRegionNode *W, StructType *IdentTy,
                                  Value *TidPtr, Value *TaskAlloc,
                                  Instruction *InsertPt);
+
+    /// \brief This function generates a call as follows.
+    ///    void @__kmpc_omp_task_begin_if0(
+    ///          { i32, i32, i32, i32, i8* }* /* &loc */,
+    ///          i32 /* tid */,
+    ///          i8* /*thunk_temp */)
+    static CallInst *genKmpcTaskBeginIf0(WRegionNode *W, StructType *IdentTy,
+                                         Value *TidPtr, Value *TaskAlloc,
+                                         Instruction *InsertPt);
+
+    /// \brief This function generates a call as follows.
+    ///    void @__kmpc_omp_task_complete_if0(
+    ///          { i32, i32, i32, i32, i8* }* /* &loc */,
+    ///          i32 /* tid */,
+    ///          i8* /*thunk_temp */)
+    static CallInst *genKmpcTaskCompleteIf0(WRegionNode *W, StructType *IdentTy,
+                                            Value *TidPtr, Value *TaskAlloc,
+                                            Instruction *InsertPt);
+
+    /// \brief This function generates a call as follows.
+    ///    void @__kmpc_omp_task_with_deps(
+    ///           { i32, i32, i32, i32, i8* }* /* &loc */,
+    ///           i32 /* tid */,
+    ///           i8* /*thunk_temp */,
+    ///           i32 /* depend_count */,
+    ///           i8* /* &depend_record
+    ///           i32 /* 0 */,
+    ///           i8* /* 0 */)
+    static CallInst *genKmpcTaskWithDeps(WRegionNode *W, StructType *IdentTy,
+                                         Value *TidPtr, Value *TaskAlloc,
+                                         Value *Dep, int DepNum,
+                                         Instruction *InsertPt);
+
+    /// \brief This function generates a call as follows.
+    ///    void @__kmpc_omp_wait_deps(
+    ///           { i32, i32, i32, i32, i8* }* /* &loc */,
+    ///           i32 /* tid */,
+    ///           i32 /* depend_count */,
+    ///           i8* /* &depend_record
+    ///           i32 /* 0 */,
+    static CallInst *genKmpcTaskWaitDeps(WRegionNode *W, StructType *IdentTy,
+                                         Value *TidPtr, Value *Dep, int DepNum,
+                                         Instruction *InsertPt);
+
+    /// \breif Generic routine to generate __kmpc_omp_task_with_deps or
+    ///  __kmpc_omp_wait_deps.
+    static CallInst *genKmpcTaskDepsGeneric(WRegionNode *W, StructType *IdentTy,
+                                            Value *TidPtr, Value *TaskAlloc,
+                                            Value *Dep, int DepNum,
+                                            Instruction *InsertPt,
+                                            std::string FnName);
+
+    /// \brief This is a generic function to support the gerenation of
+    ///   __kmpc_task, __kmpc_omp_task_begin_if0 and
+    ///   __kmpc_omp_task_complete_if0.
+    static CallInst *genKmpcTaskGeneric(WRegionNode *W, StructType *IdentTy,
+                                        Value *TidPtr, Value *TaskAlloc,
+                                        Instruction *InsertPt,
+                                        std::string FnName);
 
     /// \brief This function generates a call as follows.
     ///    void @__kmpc_omp_taskwait({ i32, i32, i32, i32, i8* }*, i32)

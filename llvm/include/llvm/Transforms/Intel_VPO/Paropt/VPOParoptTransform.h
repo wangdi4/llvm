@@ -80,7 +80,7 @@ public:
       : F(F), WI(WI), DT(DT), LI(LI), SE(SE), Mode(Mode), IdentTy(nullptr),
         TidPtr(nullptr), BidPtr(nullptr), KmpcMicroTaskTy(nullptr),
         KmpRoutineEntryPtrTy(nullptr), KmpTaskTTy(nullptr),
-        KmpTaskTRedTy(nullptr) {}
+        KmpTaskTRedTy(nullptr), KmpTaskDependInfoTy(nullptr) {}
 
   /// \brief Top level interface for parallel and prepare transformation
   bool paroptTransforms();
@@ -133,6 +133,10 @@ private:
   /// \brief Hold the struct type in the form of %struct.kmp_task_t_red_item =
   /// type { i8*, i64, i8*, i8*, i8*, i32 }
   StructType *KmpTaskTRedTy;
+
+  /// \brief Hold the struct type in the form of %struct.kmp_depend_info = type
+  /// { i64/i32, i64/i32, i8 }
+  StructType *KmpTaskDependInfoTy;
 
   /// \brief Use the WRNVisitor class (in WRegionUtils.h) to walk the
   /// W-Region Graph in DFS order and perform outlining transformation.
@@ -227,9 +231,9 @@ private:
 
   /// \brief Generate the call __kmpc_omp_task_alloc, __kmpc_taskloop and the
   /// corresponding outlined function
-  bool genTaskLoopCode(WRegionNode *W, StructType *KmpTaskTTWithPrivatesTy,
-                       StructType *KmpSharedTy, Value *LBPtr, Value *UBPtr,
-                       Value *STPtr, bool isLoop = true);
+  bool genTaskGenericCode(WRegionNode *W, StructType *KmpTaskTTWithPrivatesTy,
+                          StructType *KmpSharedTy, Value *LBPtr, Value *UBPtr,
+                          Value *STPtr, bool isLoop = true);
 
   /// \brief Generate the call __kmpc_omp_task_alloc, __kmpc_omp_task and the
   /// corresponding outlined function.
@@ -241,18 +245,29 @@ private:
 
   /// \brief Replace the shared variable reference with the thunk field
   /// derefernce
-  bool genSharedCodeForTaskLoop(WRegionNode *W);
+  bool genSharedCodeForTaskGeneric(WRegionNode *W);
 
   /// \brief Replace the reduction variable reference with the dereference of
   /// the return pointer __kmpc_task_reduction_get_th_data
-  bool genRedCodeForTaskLoop(WRegionNode *W);
+  bool genRedCodeForTaskGeneric(WRegionNode *W);
 
   /// \brief Generate the struct type kmp_task_red_input
   void genTaskTRedType();
 
+  /// breif Generate the struct type kmp_depend_info
+  void genKmpTaskDependInfo();
+
   /// \brief Generate the call __kmpc_task_reduction_init and the corresponding
   /// preparation.
   void genRedInitForTaskLoop(WRegionNode *W, Instruction *InsertBefore);
+
+  /// \brief Generate the initialization code for the depend clause
+  AllocaInst *genDependInitForTask(WRegionNode *W, Instruction *InsertBefore);
+
+  /// \brief The wrapper routine to generate the call __kmpc_omp_task_with_deps
+  void genTaskDeps(WRegionNode *W, StructType *IdentTy, Value *TidPtr,
+                   Value *TaskAlloc, AllocaInst *DummyTaskTDependRec,
+                   Instruction *InsertPt, bool IsTaskWait);
 
   /// \brief Set up the mapping between the variables (firstprivate,
   /// lastprivate, reduction and shared) and the counterparts in the thunk.
@@ -355,6 +370,15 @@ private:
   void finiCodeExtractorPrepareTransform(Function *F, bool IsTid,
                                          BasicBlock *NextBB,
                                          bool ForTask = false);
+
+  /// \brief Reset the expression value of task if clause to be empty.
+  void resetValueInTaskIfClause(WRegionNode *W);
+
+  /// \brief Reset the expression value of task depend clause to be empty.
+  void resetValueInTaskDependClause(WRegionNode *W);
+
+  /// \brief Reset the expression value of Intel clause to be empty.
+  void resetValueInIntelClauseGeneric(WRegionNode *W, Value *V);
 
   /// \brief Generate multithreaded for a given WRegion
   bool genMultiThreadedCode(WRegionNode *W);

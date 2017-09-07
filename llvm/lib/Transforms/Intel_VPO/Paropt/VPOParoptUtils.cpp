@@ -358,10 +358,137 @@ CallInst *VPOParoptUtils::genKmpcTaskWait(WRegionNode *W, StructType *IdentTy,
 }
 
 // This function generates a call as follows.
+//    void @__kmpc_omp_task_begin_if0(
+//          { i32, i32, i32, i32, i8* }* /* &loc */,
+//          i32 /* tid */,
+//          i8* /*thunk_temp */)
+CallInst *VPOParoptUtils::genKmpcTaskBeginIf0(WRegionNode *W,
+                                              StructType *IdentTy,
+                                              Value *TidPtr, Value *TaskAlloc,
+                                              Instruction *InsertPt) {
+
+  return genKmpcTaskGeneric(W, IdentTy, TidPtr, TaskAlloc, InsertPt,
+                            "__kmpc_omp_task_begin_if0");
+}
+
+// This function generates a call as follows.
+//    void @__kmpc_omp_task_complete_if0(
+//          { i32, i32, i32, i32, i8* }* /* &loc */,
+//          i32 /* tid */,
+//          i8* /*thunk_temp */)
+CallInst *VPOParoptUtils::genKmpcTaskCompleteIf0(WRegionNode *W,
+                                                 StructType *IdentTy,
+                                                 Value *TidPtr,
+                                                 Value *TaskAlloc,
+                                                 Instruction *InsertPt) {
+
+  return genKmpcTaskGeneric(W, IdentTy, TidPtr, TaskAlloc, InsertPt,
+                            "__kmpc_omp_task_complete_if0");
+}
+
+// This function generates a call as follows.
 //    void @__kmpc_task({ i32, i32, i32, i32, i8* }*, i32, i8*)
 CallInst *VPOParoptUtils::genKmpcTask(WRegionNode *W, StructType *IdentTy,
                                       Value *TidPtr, Value *TaskAlloc,
                                       Instruction *InsertPt) {
+  return genKmpcTaskGeneric(W, IdentTy, TidPtr, TaskAlloc, InsertPt,
+                            "__kmpc_omp_task");
+}
+
+// This function generates a call as follows.
+//    void @__kmpc_omp_task_with_deps(
+//           { i32, i32, i32, i32, i8* }* /* &loc */,
+//           i32 /* tid */,
+//           i8* /*thunk_temp */,
+//           i32 /* depend_count */,
+//           i8* /* &depend_record
+//           i32 /* 0 */,
+//           i8* /* 0 */)
+CallInst *VPOParoptUtils::genKmpcTaskWithDeps(WRegionNode *W,
+                                              StructType *IdentTy,
+                                              Value *TidPtr, Value *TaskAlloc,
+                                              Value *Dep, int DepNum,
+                                              Instruction *InsertPt) {
+  return genKmpcTaskDepsGeneric(W, IdentTy, TidPtr, TaskAlloc, Dep, DepNum,
+                                InsertPt, "__kmpc_omp_task_with_deps");
+}
+
+// This function generates a call as follows.
+//    void @__kmpc_omp_wait_deps(
+//           { i32, i32, i32, i32, i8* }* /* &loc */,
+//           i32 /* tid */,
+//           i32 /* depend_count */,
+//           i8* /* &depend_record
+//           i32 /* 0 */,
+//           i8* /* 0 */)
+CallInst *VPOParoptUtils::genKmpcTaskWaitDeps(WRegionNode *W,
+                                              StructType *IdentTy,
+                                              Value *TidPtr, Value *Dep,
+                                              int DepNum,
+                                              Instruction *InsertPt) {
+  return genKmpcTaskDepsGeneric(W, IdentTy, TidPtr, nullptr, Dep, DepNum,
+                                InsertPt, "__kmpc_omp_wait_deps");
+}
+
+// Generic routine to generate __kmpc_omp_task_with_deps or
+//  __kmpc_omp_wait_deps.
+CallInst *VPOParoptUtils::genKmpcTaskDepsGeneric(
+    WRegionNode *W, StructType *IdentTy, Value *TidPtr, Value *TaskAlloc,
+    Value *Dep, int DepNum, Instruction *InsertPt, std::string FnName) {
+
+  IRBuilder<> Builder(InsertPt);
+  BasicBlock *B = W->getEntryBBlock();
+  BasicBlock *E = W->getExitBBlock();
+  Function *F = B->getParent();
+  Module *M = F->getParent();
+  LLVMContext &C = F->getContext();
+  int Flags = KMP_IDENT_KMPC;
+  GlobalVariable *Loc =
+      genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
+
+  std::vector<Value *> TaskArgs;
+  TaskArgs.push_back(Loc);
+  TaskArgs.push_back(Builder.CreateLoad(TidPtr));
+  if (TaskAlloc)
+    TaskArgs.push_back(TaskAlloc);
+  TaskArgs.push_back(Builder.getInt32(DepNum));
+  TaskArgs.push_back(Dep);
+  TaskArgs.push_back(Builder.getInt32(0));
+  TaskArgs.push_back(ConstantPointerNull::get(Type::getInt8PtrTy(C)));
+
+  std::vector<Type *> TypeParams;
+  TypeParams.push_back(Loc->getType());
+  TypeParams.push_back(Type::getInt32Ty(C));
+  if (TaskAlloc)
+    TypeParams.push_back(Type::getInt8PtrTy(C));
+  TypeParams.push_back(Type::getInt32Ty(C));
+  TypeParams.push_back(Type::getInt8PtrTy(C));
+  TypeParams.push_back(Type::getInt32Ty(C));
+  TypeParams.push_back(Type::getInt8PtrTy(C));
+
+  FunctionType *FnTy = FunctionType::get(Type::getVoidTy(C), TypeParams, false);
+
+  Function *FnTask = M->getFunction(FnName);
+
+  if (!FnTask) {
+    FnTask = Function::Create(FnTy, GlobalValue::ExternalLinkage, FnName, M);
+    FnTask->setCallingConv(CallingConv::C);
+  }
+
+  CallInst *TaskCall = CallInst::Create(FnTask, TaskArgs, "", InsertPt);
+  TaskCall->setCallingConv(CallingConv::C);
+  TaskCall->setTailCall(false);
+
+  return TaskCall;
+}
+
+// This is a generic function to support the generation of
+//   __kmpc_task, __kmpc_omp_task_begin_if0 and __kmpc_omp_task_complete_if0.
+CallInst *VPOParoptUtils::genKmpcTaskGeneric(WRegionNode *W,
+                                             StructType *IdentTy, Value *TidPtr,
+                                             Value *TaskAlloc,
+                                             Instruction *InsertPt,
+                                             std::string FnName) {
   IRBuilder<> Builder(InsertPt);
   BasicBlock *B = W->getEntryBBlock();
   BasicBlock *E = W->getExitBBlock();
@@ -377,7 +504,6 @@ CallInst *VPOParoptUtils::genKmpcTask(WRegionNode *W, StructType *IdentTy,
                         Type::getInt8PtrTy(C)};
   FunctionType *FnTy = FunctionType::get(Type::getVoidTy(C), TypeParams, false);
 
-  std::string FnName = "__kmpc_omp_task";
   Function *FnTask = M->getFunction(FnName);
 
   if (!FnTask) {
@@ -399,8 +525,8 @@ CallInst *VPOParoptUtils::genKmpcTask(WRegionNode *W, StructType *IdentTy,
 // and the stride is 1.
 CallInst *VPOParoptUtils::genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
                                           Value *TidPtr, Value *TaskAlloc,
-                                          Value *LBPtr, Value *UBPtr,
-                                          Value *STPtr,
+                                          Value *Cmp, Value *LBPtr,
+                                          Value *UBPtr, Value *STPtr,
                                           StructType *KmpTaskTTWithPrivatesTy,
                                           Instruction *InsertPt, bool UseTbb,
                                           Function *FnTaskDup) {
@@ -470,8 +596,16 @@ CallInst *VPOParoptUtils::genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
   }
 
   Value *TaskLoopArgs[] = {
-      Loc, Builder.CreateLoad(TidPtr), TaskAlloc, Builder.getInt32(1), LBGep,
-      UBGep, STLoad, Builder.getInt32(0), Builder.getInt32(W->getSchedCode()),
+      Loc,
+      Builder.CreateLoad(TidPtr),
+      TaskAlloc,
+      Cmp == nullptr ? Builder.getInt32(1)
+                     : Builder.CreateSExtOrTrunc(Cmp, Type::getInt32Ty(C)),
+      LBGep,
+      UBGep,
+      STLoad,
+      Builder.getInt32(0),
+      Builder.getInt32(W->getSchedCode()),
       GrainSizeV,
       (FnTaskDup == nullptr)
           ? ConstantPointerNull::get(Type::getInt8PtrTy(C))
