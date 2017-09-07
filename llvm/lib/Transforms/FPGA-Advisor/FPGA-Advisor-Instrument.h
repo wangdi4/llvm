@@ -1,4 +1,5 @@
-//===- FPGA-Advisor-Instrument.h - Main FPGA-Advisor pass definition -------*- C++ -*-===//
+//===- FPGA-Advisor-Instrument.h - Main FPGA-Advisor pass definition -------*-
+// C++ -*-===//
 //
 // Copyright (c) 2016, Intel Corporation
 // All rights reserved.
@@ -31,57 +32,61 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file contains the class declarations for all the analysis and Advisor class
+// This file contains the class declarations for all the analysis and Advisor
+// class
 // that are useful for the FPGA-Advisor-Instrument.
 
 #ifndef LLVM_LIB_TRANSFORMS_FPGA_ADVISOR_INSTRUMENT_H
 #define LLVM_LIB_TRANSFORMS_FPGA_ADVISOR_INSTRUMENT_H
 
-#include "llvm/Pass.h"
-#include "llvm/IR/PassManager.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Function.h"
-#include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/InstVisitor.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/IR/TypeBuilder.h"
+#include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include <vector>
-#include <unordered_map>
 #include <map>
+#include <unordered_map>
+#include <vector>
 
 using namespace llvm;
 
 namespace {
 class AdvisorInstr : public ModulePass {
-	public:
-		static char ID;
-		AdvisorInstr() : ModulePass(ID) {}
-		bool runOnModule(Module &M);
-	private:
-		void instrument_function(Function *F);
-		void instrument_basic_block(BasicBlock *BB);
-		void instrument_store(StoreInst *SI);
-		void instrument_load(LoadInst *LI);
-		void instrument_timer_for_call(Instruction *I);
-		void instrument_rdtsc_before_instruction(Instruction *I, bool start);
-		void instrument_rdtsc_after_instruction(Instruction *I, bool start);
-		void instrument_rdtsc_for_call(Instruction *I, std::string);
-		uint64_t get_store_size_in_bytes(StoreInst *SI);
-		uint64_t get_load_size_in_bytes(LoadInst *LI);
-		//std::string get_value_as_string(const Value *value);
-		Module *mod;
-		raw_ostream *outputLog;
+public:
+  static char ID;
+  AdvisorInstr() : ModulePass(ID) {}
+  bool runOnModule(Module &M);
+
+private:
+  void instrument_function(Function *F);
+  void instrument_basic_block(BasicBlock *BB);
+  void instrument_store(StoreInst *SI);
+  void instrument_load(LoadInst *LI);
+  void instrument_timer_for_call(Instruction *I);
+  void instrument_rdtsc_before_instruction(Instruction *I, bool start);
+  void instrument_rdtsc_after_instruction(Instruction *I, bool start);
+  void instrument_rdtsc_for_call(Instruction *I, std::string);
+  uint64_t get_store_size_in_bytes(StoreInst *SI);
+  uint64_t get_load_size_in_bytes(LoadInst *LI);
+  // std::string get_value_as_string(const Value *value);
+  Module *mod;
+  raw_ostream *outputLog;
 
 }; // end class
 } // end anonymous namespace
 
 char AdvisorInstr::ID = 0;
-static RegisterPass<AdvisorInstr> X("fpga-advisor-instrument", "FPGA-Advisor Instrumentation Pass", false, false);
+static RegisterPass<AdvisorInstr> X("fpga-advisor-instrument",
+                                    "FPGA-Advisor Instrumentation Pass", false,
+                                    false);
 
 #endif
