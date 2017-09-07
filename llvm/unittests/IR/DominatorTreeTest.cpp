@@ -7,6 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <random>
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/AsmParser/Parser.h"
 #include "llvm/IR/Constants.h"
@@ -332,7 +333,7 @@ const auto Delete = CFGBuilder::ActionKind::Delete;
 bool CompUpdates(const CFGBuilder::Update &A, const CFGBuilder::Update &B) {
   return std::tie(A.Action, A.Edge.From, A.Edge.To) <
          std::tie(B.Action, B.Edge.From, B.Edge.To);
-};
+}
 }  // namespace
 
 TEST(DominatorTree, InsertReachable) {
@@ -537,7 +538,7 @@ TEST(DominatorTree, InsertDelete) {
   }
 }
 
-TEST(DominatorTree, InsertDeleteExhaustive) {
+TEST(DominatorTree, DISABLED_InsertDeleteExhaustive) {
   std::vector<CFGBuilder::Arc> Arcs = {
       {"1", "2"}, {"2", "3"}, {"3", "4"},  {"4", "5"},  {"5", "6"},  {"5", "7"},
       {"3", "8"}, {"8", "9"}, {"9", "10"}, {"8", "11"}, {"11", "12"}};
