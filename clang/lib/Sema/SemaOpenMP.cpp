@@ -2500,9 +2500,8 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
     Res = ActOnOpenMPTaskwaitDirective(StartLoc, EndLoc);
     break;
   case OMPD_taskgroup:
-    assert(ClausesWithImplicit.empty() &&
-           "No clauses are allowed for 'omp taskgroup' directive");
-    Res = ActOnOpenMPTaskgroupDirective(AStmt, StartLoc, EndLoc);
+    Res = ActOnOpenMPTaskgroupDirective(ClausesWithImplicit, AStmt, StartLoc,
+                                        EndLoc);
     break;
   case OMPD_flush:
     assert(AStmt == nullptr &&
@@ -5128,7 +5127,8 @@ StmtResult Sema::ActOnOpenMPTaskwaitDirective(SourceLocation StartLoc,
   return OMPTaskwaitDirective::Create(Context, StartLoc, EndLoc);
 }
 
-StmtResult Sema::ActOnOpenMPTaskgroupDirective(Stmt *AStmt,
+StmtResult Sema::ActOnOpenMPTaskgroupDirective(ArrayRef<OMPClause *> Clauses,
+                                               Stmt *AStmt,
                                                SourceLocation StartLoc,
                                                SourceLocation EndLoc) {
   if (!AStmt)
@@ -5138,7 +5138,8 @@ StmtResult Sema::ActOnOpenMPTaskgroupDirective(Stmt *AStmt,
 
   getCurFunction()->setHasBranchProtectedScope();
 
-  return OMPTaskgroupDirective::Create(Context, StartLoc, EndLoc, AStmt);
+  return OMPTaskgroupDirective::Create(Context, StartLoc, EndLoc, Clauses,
+                                       AStmt);
 }
 
 StmtResult Sema::ActOnOpenMPFlushDirective(ArrayRef<OMPClause *> Clauses,
@@ -6910,6 +6911,7 @@ OMPClause *Sema::ActOnOpenMPSingleExprClause(OpenMPClauseKind Kind, Expr *Expr,
   case OMPC_lastprivate:
   case OMPC_shared:
   case OMPC_reduction:
+  case OMPC_task_reduction:
   case OMPC_linear:
   case OMPC_aligned:
   case OMPC_copyin:
@@ -7213,6 +7215,7 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
   case OMPC_firstprivate:
   case OMPC_lastprivate:
   case OMPC_reduction:
+  case OMPC_task_reduction:
   case OMPC_linear:
   case OMPC_default:
   case OMPC_proc_bind:
@@ -7528,6 +7531,7 @@ OMPClause *Sema::ActOnOpenMPSimpleClause(
   case OMPC_lastprivate:
   case OMPC_shared:
   case OMPC_reduction:
+  case OMPC_task_reduction:
   case OMPC_linear:
   case OMPC_aligned:
   case OMPC_copyin:
@@ -7685,6 +7689,7 @@ OMPClause *Sema::ActOnOpenMPSingleExprWithArgClause(
   case OMPC_lastprivate:
   case OMPC_shared:
   case OMPC_reduction:
+  case OMPC_task_reduction:
   case OMPC_linear:
   case OMPC_aligned:
   case OMPC_copyin:
@@ -7882,6 +7887,7 @@ OMPClause *Sema::ActOnOpenMPClause(OpenMPClauseKind Kind,
   case OMPC_lastprivate:
   case OMPC_shared:
   case OMPC_reduction:
+  case OMPC_task_reduction:
   case OMPC_linear:
   case OMPC_aligned:
   case OMPC_copyin:
@@ -7993,6 +7999,11 @@ OMPClause *Sema::ActOnOpenMPVarListClause(
   case OMPC_reduction:
     Res = ActOnOpenMPReductionClause(VarList, StartLoc, LParenLoc, ColonLoc,
                                      EndLoc, ReductionIdScopeSpec, ReductionId);
+    break;
+  case OMPC_task_reduction:
+    Res = ActOnOpenMPTaskReductionClause(VarList, StartLoc, LParenLoc, ColonLoc,
+                                         EndLoc, ReductionIdScopeSpec,
+                                         ReductionId);
     break;
   case OMPC_linear:
     Res = ActOnOpenMPLinearClause(VarList, TailExpr, StartLoc, LParenLoc,
@@ -9012,10 +9023,10 @@ struct ReductionData {
 } // namespace
 
 static bool ActOnOMPReductionKindClause(
-    Sema &S, DSAStackTy *Stack, ArrayRef<Expr *> VarList,
-    SourceLocation StartLoc, SourceLocation LParenLoc, SourceLocation ColonLoc,
-    SourceLocation EndLoc, CXXScopeSpec &ReductionIdScopeSpec,
-    const DeclarationNameInfo &ReductionId,
+    Sema &S, DSAStackTy *Stack, OpenMPClauseKind ClauseKind,
+    ArrayRef<Expr *> VarList, SourceLocation StartLoc, SourceLocation LParenLoc,
+    SourceLocation ColonLoc, SourceLocation EndLoc,
+    CXXScopeSpec &ReductionIdScopeSpec, const DeclarationNameInfo &ReductionId,
     ArrayRef<Expr *> UnresolvedReductions, ReductionData &RD) {
   auto DN = ReductionId.getName();
   auto OOK = DN.getCXXOverloadedOperator();
@@ -9170,8 +9181,7 @@ static bool ActOnOMPReductionKindClause(
     // A list item that appears in a reduction clause must not be
     // const-qualified.
     if (Type.getNonReferenceType().isConstant(Context)) {
-      S.Diag(ELoc, diag::err_omp_const_reduction_list_item)
-          << getOpenMPClauseName(OMPC_reduction) << Type << ERange;
+      S.Diag(ELoc, diag::err_omp_const_reduction_list_item) << ERange;
       if (!ASE && !OASE) {
         bool IsDecl = !VD || VD->isThisDeclarationADefinition(Context) ==
                                  VarDecl::DeclarationOnly;
@@ -9189,7 +9199,8 @@ static bool ActOnOMPReductionKindClause(
       if (VD->getType()->isReferenceType() && VDDef && VDDef->hasInit()) {
         DSARefChecker Check(Stack);
         if (Check.Visit(VDDef->getInit())) {
-          S.Diag(ELoc, diag::err_omp_reduction_ref_type_arg) << ERange;
+          S.Diag(ELoc, diag::err_omp_reduction_ref_type_arg)
+              << getOpenMPClauseName(ClauseKind) << ERange;
           S.Diag(VDDef->getLocation(), diag::note_defined_here) << VDDef;
           continue;
         }
@@ -9211,7 +9222,7 @@ static bool ActOnOMPReductionKindClause(
     DVar = Stack->getTopDSA(D, false);
     if (DVar.CKind == OMPC_reduction) {
       S.Diag(ELoc, diag::err_omp_once_referenced)
-          << getOpenMPClauseName(OMPC_reduction);
+          << getOpenMPClauseName(ClauseKind);
       if (DVar.RefExpr)
         S.Diag(DVar.RefExpr->getExprLoc(), diag::note_omp_referenced);
     } else if (DVar.CKind != OMPC_unknown) {
@@ -9275,7 +9286,7 @@ static bool ActOnOMPReductionKindClause(
           !(Type->isScalarType() ||
             (S.getLangOpts().CPlusPlus && Type->isArithmeticType()))) {
         S.Diag(ELoc, diag::err_omp_clause_not_arithmetic_type_arg)
-            << S.getLangOpts().CPlusPlus;
+            << getOpenMPClauseName(ClauseKind) << S.getLangOpts().CPlusPlus;
         if (!ASE && !OASE) {
           bool IsDecl = !VD || VD->isThisDeclarationADefinition(Context) ==
                                    VarDecl::DeclarationOnly;
@@ -9287,7 +9298,8 @@ static bool ActOnOMPReductionKindClause(
       }
       if ((BOK == BO_OrAssign || BOK == BO_AndAssign || BOK == BO_XorAssign) &&
           !S.getLangOpts().CPlusPlus && Type->isFloatingType()) {
-        S.Diag(ELoc, diag::err_omp_clause_floating_type_arg);
+        S.Diag(ELoc, diag::err_omp_clause_floating_type_arg)
+            << getOpenMPClauseName(ClauseKind);
         if (!ASE && !OASE) {
           bool IsDecl = !VD || VD->isThisDeclarationADefinition(Context) ==
                                    VarDecl::DeclarationOnly;
@@ -9540,6 +9552,8 @@ static bool ActOnOMPReductionKindClause(
         }
       }
     }
+    // All reduction items are still marked as reduction (to do not increase
+    // code base size).
     Stack->addDSA(D, RefExpr->IgnoreParens(), OMPC_reduction, Ref);
     RD.push(VarsExpr, PrivateDRE, LHSDRE, RHSDRE, ReductionOp.get());
   }
@@ -9553,12 +9567,34 @@ OMPClause *Sema::ActOnOpenMPReductionClause(
     ArrayRef<Expr *> UnresolvedReductions) {
   ReductionData RD(VarList.size());
 
-  if (ActOnOMPReductionKindClause(*this, DSAStack, VarList, StartLoc, LParenLoc,
-                                  ColonLoc, EndLoc, ReductionIdScopeSpec,
-                                  ReductionId, UnresolvedReductions, RD))
+  if (ActOnOMPReductionKindClause(*this, DSAStack, OMPC_reduction, VarList,
+                                  StartLoc, LParenLoc, ColonLoc, EndLoc,
+                                  ReductionIdScopeSpec, ReductionId,
+                                  UnresolvedReductions, RD))
     return nullptr;
 
   return OMPReductionClause::Create(
+      Context, StartLoc, LParenLoc, ColonLoc, EndLoc, RD.Vars,
+      ReductionIdScopeSpec.getWithLocInContext(Context), ReductionId,
+      RD.Privates, RD.LHSs, RD.RHSs, RD.ReductionOps,
+      buildPreInits(Context, RD.ExprCaptures),
+      buildPostUpdate(*this, RD.ExprPostUpdates));
+}
+
+OMPClause *Sema::ActOnOpenMPTaskReductionClause(
+    ArrayRef<Expr *> VarList, SourceLocation StartLoc, SourceLocation LParenLoc,
+    SourceLocation ColonLoc, SourceLocation EndLoc,
+    CXXScopeSpec &ReductionIdScopeSpec, const DeclarationNameInfo &ReductionId,
+    ArrayRef<Expr *> UnresolvedReductions) {
+  ReductionData RD(VarList.size());
+
+  if (ActOnOMPReductionKindClause(*this, DSAStack, OMPC_task_reduction,
+                                  VarList, StartLoc, LParenLoc, ColonLoc,
+                                  EndLoc, ReductionIdScopeSpec, ReductionId,
+                                  UnresolvedReductions, RD))
+    return nullptr;
+
+  return OMPTaskReductionClause::Create(
       Context, StartLoc, LParenLoc, ColonLoc, EndLoc, RD.Vars,
       ReductionIdScopeSpec.getWithLocInContext(Context), ReductionId,
       RD.Privates, RD.LHSs, RD.RHSs, RD.ReductionOps,
