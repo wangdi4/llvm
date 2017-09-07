@@ -44,11 +44,18 @@ namespace llvm {
 template <typename NodeT, bool IsPostDom>
 class DominatorTreeBase;
 
+namespace DomTreeBuilder {
+template <class DomTreeT>
+struct SemiNCAInfo;
+}  // namespace DomTreeBuilder
+
 /// \brief Base class for the actual dominator tree node.
 template <class NodeT> class DomTreeNodeBase {
   friend struct PostDominatorTree;
   friend class DominatorTreeBase<NodeT, false>;
   friend class DominatorTreeBase<NodeT, true>;
+  friend struct DomTreeBuilder::SemiNCAInfo<DominatorTreeBase<NodeT, false>>;
+  friend struct DomTreeBuilder::SemiNCAInfo<DominatorTreeBase<NodeT, true>>;
 
   NodeT *TheBB;
   DomTreeNodeBase *IDom;
@@ -179,14 +186,18 @@ void PrintDomTree(const DomTreeNodeBase<NodeT> *N, raw_ostream &O,
 }
 
 namespace DomTreeBuilder {
-template <typename DomTreeT>
-struct SemiNCAInfo;
-
-// The calculate routine is provided in a separate header but referenced here.
+// The routines below are provided in a separate header but referenced here.
 template <typename DomTreeT, typename FuncT>
 void Calculate(DomTreeT &DT, FuncT &F);
 
-// The verify function is provided in a separate header but referenced here.
+template <class DomTreeT>
+void InsertEdge(DomTreeT &DT, typename DomTreeT::NodePtr From,
+                typename DomTreeT::NodePtr To);
+
+template <class DomTreeT>
+void DeleteEdge(DomTreeT &DT, typename DomTreeT::NodePtr From,
+                typename DomTreeT::NodePtr To);
+
 template <typename DomTreeT>
 bool Verify(const DomTreeT &DT);
 }  // namespace DomTreeBuilder
@@ -204,6 +215,8 @@ class DominatorTreeBase {
      DenseMap<NodeT *, std::unique_ptr<DomTreeNodeBase<NodeT>>>;
   DomTreeNodeMapType DomTreeNodes;
   DomTreeNodeBase<NodeT> *RootNode;
+  using ParentPtr = decltype(std::declval<NodeT *>()->getParent());
+  ParentPtr Parent = nullptr;
 
   mutable bool DFSInfoValid = false;
   mutable unsigned int SlowQueries = 0;
@@ -222,18 +235,20 @@ class DominatorTreeBase {
   DominatorTreeBase(DominatorTreeBase &&Arg)
       : Roots(std::move(Arg.Roots)),
         DomTreeNodes(std::move(Arg.DomTreeNodes)),
-        RootNode(std::move(Arg.RootNode)),
-        DFSInfoValid(std::move(Arg.DFSInfoValid)),
-        SlowQueries(std::move(Arg.SlowQueries)) {
+        RootNode(Arg.RootNode),
+        Parent(Arg.Parent),
+        DFSInfoValid(Arg.DFSInfoValid),
+        SlowQueries(Arg.SlowQueries) {
     Arg.wipe();
   }
 
   DominatorTreeBase &operator=(DominatorTreeBase &&RHS) {
     Roots = std::move(RHS.Roots);
     DomTreeNodes = std::move(RHS.DomTreeNodes);
-    RootNode = std::move(RHS.RootNode);
-    DFSInfoValid = std::move(RHS.DFSInfoValid);
-    SlowQueries = std::move(RHS.SlowQueries);
+    RootNode = RHS.RootNode;
+    Parent = RHS.Parent;
+    DFSInfoValid = RHS.DFSInfoValid;
+    SlowQueries = RHS.SlowQueries;
     RHS.wipe();
     return *this;
   }
@@ -254,6 +269,7 @@ class DominatorTreeBase {
   /// compare - Return false if the other dominator tree base matches this
   /// dominator tree base. Otherwise return true.
   bool compare(const DominatorTreeBase &Other) const {
+    if (Parent != Other.Parent) return true;
 
     const DomTreeNodeMapType &OtherDomTreeNodes = Other.DomTreeNodes;
     if (DomTreeNodes.size() != OtherDomTreeNodes.size())
@@ -441,6 +457,42 @@ class DominatorTreeBase {
   // API to update (Post)DominatorTree information based on modifications to
   // the CFG...
 
+  /// Inform the dominator tree about a CFG edge insertion and update the tree.
+  ///
+  /// This function has to be called just before or just after making the update
+  /// on the actual CFG. There cannot be any other updates that the dominator
+  /// tree doesn't know about.
+  ///
+  /// Note that for postdominators it automatically takes care of inserting
+  /// a reverse edge internally (so there's no need to swap the parameters).
+  ///
+  void insertEdge(NodeT *From, NodeT *To) {
+    assert(From);
+    assert(To);
+    assert(From->getParent() == Parent);
+    assert(To->getParent() == Parent);
+    DomTreeBuilder::InsertEdge(*this, From, To);
+  }
+
+  /// Inform the dominator tree about a CFG edge deletion and update the tree.
+  ///
+  /// This function has to be called just after making the update
+  /// on the actual CFG. There cannot be any other updates that the dominator
+  /// tree doesn't know about. The only exception is when the deletion that the
+  /// tree is informed about makes some (domominator) subtree unreachable -- in
+  /// this case, it is fine to perform deletions within this subtree.
+  ///
+  /// Note that for postdominators it automatically takes care of deleting
+  /// a reverse edge internally (so there's no need to swap the parameters).
+  ///
+  void deleteEdge(NodeT *From, NodeT *To) {
+    assert(From);
+    assert(To);
+    assert(From->getParent() == Parent);
+    assert(To->getParent() == Parent);
+    DomTreeBuilder::DeleteEdge(*this, From, To);
+  }
+
   /// Add a new node to the dominator tree information.
   ///
   /// This creates a new node as a child of DomBB dominator node, linking it
@@ -601,6 +653,7 @@ public:
   template <class FT> void recalculate(FT &F) {
     using TraitsTy = GraphTraits<FT *>;
     reset();
+    Parent = &F;
 
     if (!IsPostDominator) {
       // Initialize root
@@ -626,6 +679,7 @@ public:
     DomTreeNodes.clear();
     Roots.clear();
     RootNode = nullptr;
+    Parent = nullptr;
     DFSInfoValid = false;
     SlowQueries = 0;
   }
@@ -707,6 +761,7 @@ public:
   void wipe() {
     DomTreeNodes.clear();
     RootNode = nullptr;
+    Parent = nullptr;
   }
 };
 
