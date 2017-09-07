@@ -131,7 +131,10 @@ namespace intel{
         Value *pPointerCast = builder.CreatePointerCast(pGEP, PointerType::get(m_SizetTy, 0));
         LoadInst *BufferSize = builder.CreateLoad(pPointerCast);
         // TODO: when buffer size is 0, we might want to set dummy address for debugging!
-        AllocaInst *Allocation = builder.CreateAlloca(m_I8Ty, BufferSize);
+        const auto AllocaAddrSpace = m_DL->getAllocaAddrSpace();
+        // We can't use overload without explicit alloca addrspace because the BB does
+        // not have a parent yet.
+        AllocaInst *Allocation = builder.CreateAlloca(m_I8Ty, AllocaAddrSpace, BufferSize);
         // Set alignment of buffer to type size.
         unsigned Alignment = 16; // Cacheline
         if (m_DL) {
@@ -220,7 +223,8 @@ namespace intel{
           // inside the vectorizer.
           Type *slmType = ArrayType::get(m_I8Ty,
             slmSizeInBytes+STACK_PADDING_BUFFER*2);
-          AllocaInst *slmBuffer = builder.CreateAlloca(slmType);
+          const auto AllocaAddrSpace = m_DL->getAllocaAddrSpace();
+          AllocaInst *slmBuffer = builder.CreateAlloca(slmType, AllocaAddrSpace);
           // Set alignment of implicit local buffer to max alignment.
           // TODO: we should choose the min required alignment size
           slmBuffer->setAlignment(TypeAlignment::MAX_ALIGNMENT);
@@ -291,7 +295,9 @@ namespace intel{
             BarrierBufferSize = builder.CreateMul(BarrierBufferSize, LocalSize[Dim]);
           BarrierBufferSize->setName("BarrierBufferSize");
           // alloca i8, %BarrierBufferSize
-          AllocaInst *BarrierBuffer = builder.CreateAlloca(m_I8Ty, BarrierBufferSize);
+          const auto AllocaAddrSpace = m_DL->getAllocaAddrSpace();
+          AllocaInst *BarrierBuffer = builder.CreateAlloca(
+            m_I8Ty, AllocaAddrSpace, BarrierBufferSize);
           //TODO: we should choose the min required alignment size
           BarrierBuffer->setAlignment(TypeAlignment::MAX_ALIGNMENT);
           pArg = BarrierBuffer;
