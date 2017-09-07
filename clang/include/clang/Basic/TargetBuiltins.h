@@ -83,6 +83,18 @@ namespace clang {
   };
   }
 
+#if INTEL_CUSTOMIZATION
+  /// \brief CSA builtins
+  namespace CSA {
+  enum {
+    LastTIBuiltin = clang::Builtin::FirstTSBuiltin - 1,
+  #define BUILTIN(ID, TYPE, ATTRS) BI##ID,
+  #include "clang/Basic/BuiltinsCSA.def"
+    LastTSBuiltin
+  };
+  }
+#endif
+
   /// \brief X86 builtins
   namespace X86 {
   enum {

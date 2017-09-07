@@ -326,6 +326,15 @@ std::string tools::getCPUName(const ArgList &Args, const llvm::Triple &T,
   case llvm::Triple::amdgcn:
     return getR600TargetGPU(Args);
 
+#if INTEL_CUSTOMIZATION
+  case llvm::Triple::csa:
+    // last of arch or cpu
+    if (const Arg *A = Args.getLastArg(options::OPT_march_EQ,
+                                     options::OPT_mcpu_EQ))
+      return A->getValue();
+    return "";
+#endif
+
   case llvm::Triple::wasm32:
   case llvm::Triple::wasm64:
     return getWebAssemblyTargetCPU(Args);

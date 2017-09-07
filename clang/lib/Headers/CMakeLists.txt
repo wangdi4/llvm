@@ -20,6 +20,7 @@ set(modified_files
   avxintrin.h
   bmi2intrin.h
   bmiintrin.h
+  __clang_csa_math.h
   __clang_cuda_builtin_vars.h
   __clang_cuda_cmath.h
   __clang_cuda_complex_builtins.h
@@ -170,6 +171,8 @@ install(
   COMPONENT clang-headers
   PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
   DESTINATION lib${LLVM_LIBDIR_SUFFIX}/clang/${CLANG_VERSION}/include)
+
+add_subdirectory(bits)
 
 install(
   FILES ${cuda_wrapper_files}

@@ -1032,7 +1032,14 @@ void CodeGenModule::SetLLVMFunctionAttributesForDefinition(const Decl *D,
       if (any_of(FD->redecls(), [&](const FunctionDecl *Redecl) {
             return Redecl->isInlineSpecified();
           })) {
-        B.addAttribute(llvm::Attribute::InlineHint);
+#if INTEL_CUSTOMIZATION
+        // CSA EDIT: use AlwaysInline for CSA rather than InlinHint. This gets
+        // us inlining at -O0/-O1.
+        if (Target.getTriple().getArch() == llvm::Triple::csa)
+          B.addAttribute(llvm::Attribute::AlwaysInline);
+        else
+#endif
+          B.addAttribute(llvm::Attribute::InlineHint);
       } else if (CodeGenOpts.getInlining() ==
                      CodeGenOptions::OnlyHintInlining &&
                  !FD->isInlined() &&

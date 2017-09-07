@@ -393,6 +393,7 @@ static const char *getLDMOption(const llvm::Triple &T, const ArgList &Args) {
   case llvm::Triple::systemz:
     return "elf64_s390";
   case llvm::Triple::x86_64:
+  case llvm::Triple::csa:
     if (T.getEnvironment() == llvm::Triple::GNUX32)
       return "elf32_x86_64";
     return "elf_x86_64";
@@ -1868,6 +1869,7 @@ bool Generic_GCC::GCCInstallationDetector::getBiarchSibling(Multilib &M) const {
       TripleAliases.append(begin(ARMebTriples), end(ARMebTriples));
     }
     break;
+  case llvm::Triple::csa:
   case llvm::Triple::x86_64:
     LibDirs.append(begin(X86_64LibDirs), end(X86_64LibDirs));
     TripleAliases.append(begin(X86_64Triples), end(X86_64Triples));

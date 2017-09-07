@@ -1,0 +1,27 @@
+//===--- BuiltinsCSA.def - XCore Builtin function database ----*- C++ -*-===//
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the XCore-specific builtin function database.  Users of
+// this file must define the BUILTIN macro to make use of this information.
+//
+//===----------------------------------------------------------------------===//
+
+// The format of this database matches clang/Basic/Builtins.def.
+
+// BUILTIN(__builtin_dummy, "UiUi", "n")
+
+BUILTIN(__builtin_csa_directive, "vi", "n")
+BUILTIN(__builtin_csa_parallel_loop, "v", "n")
+
+BUILTIN(__builtin_csa_parallel_region_entry,  "ii", "n")
+BUILTIN(__builtin_csa_parallel_region_exit,   "vi", "n")
+BUILTIN(__builtin_csa_parallel_section_entry, "ii", "n")
+BUILTIN(__builtin_csa_parallel_section_exit,  "vi", "n")
+
+#undef BUILTIN

@@ -876,6 +876,7 @@ BUILTIN(__builtin_ia32_rdtsc, "ULLi", "")
 BUILTIN(_rdtsc, "ULLi", "") // INTEL
 BUILTIN(__rdtsc, "ULLi", "")
 BUILTIN(__builtin_ia32_rdtscp, "ULLiUi*", "")
+
 // PKU
 TARGET_BUILTIN(__builtin_ia32_rdpkru, "Ui", "", "pku")
 TARGET_BUILTIN(__builtin_ia32_wrpkru, "vUi", "", "pku")
@@ -1839,6 +1840,11 @@ TARGET_HEADER_BUILTIN(__readgsbyte,  "UcULi", "nh", "intrin.h", ALL_MS_LANGUAGES
 TARGET_HEADER_BUILTIN(__readgsword,  "UsULi", "nh", "intrin.h", ALL_MS_LANGUAGES, "")
 TARGET_HEADER_BUILTIN(__readgsdword, "ULiULi", "nh", "intrin.h", ALL_MS_LANGUAGES, "")
 TARGET_HEADER_BUILTIN(__readgsqword, "ULLiULi", "nh", "intrin.h", ALL_MS_LANGUAGES, "")
+
+// CSA-target-specific, but must be visible to host compilation, where it is a no-op
+#if INTEL_CUSTOMIZATION
+BUILTIN(__builtin_csa_parallel_loop, "v", "n")
+#endif
 
 #undef BUILTIN
 #undef TARGET_BUILTIN

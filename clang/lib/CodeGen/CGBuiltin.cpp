@@ -3171,6 +3171,10 @@ static Value *EmitTargetArchBuiltinExpr(CodeGenFunction *CGF,
   case llvm::Triple::x86:
   case llvm::Triple::x86_64:
     return CGF->EmitX86BuiltinExpr(BuiltinID, E);
+#if INTEL_CUSTOMIZATION
+  case llvm::Triple::csa:
+    return CGF->EmitCSABuiltinExpr(BuiltinID, E);
+#endif
   case llvm::Triple::ppc:
   case llvm::Triple::ppc64:
   case llvm::Triple::ppc64le:
@@ -8305,6 +8309,11 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
     // instruction, but it will create a memset that won't be optimized away.
     return Builder.CreateMemSet(Ops[0], Ops[1], Ops[2], 1, true);
   }
+#if INTEL_CUSTOMIZATION
+  case X86::BI__builtin_csa_parallel_loop: {
+    return UndefValue::get(ConvertType(E->getType())); // noop
+  }
+#endif
   case X86::BI__ud2:
     // llvm.trap makes a ud2a instruction on x86.
     return EmitTrapCall(Intrinsic::trap);
@@ -8347,6 +8356,26 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   }
 }
 
+#if INTEL_CUSTOMIZATION
+Value *CodeGenFunction::EmitCSABuiltinExpr(unsigned BuiltinID,
+                                           const CallExpr *E) {
+  switch (BuiltinID) {
+  case CSA::BI__builtin_csa_directive: {
+    Value *X = EmitScalarExpr(E->getArg(0));
+    Value *Callee = CGM.getIntrinsic(Intrinsic::csa_directive,
+                                     X->getType());
+    return Builder.CreateCall(Callee, X);
+  }
+  case CSA::BI__builtin_csa_parallel_loop: {
+    Value *Callee = CGM.getIntrinsic(Intrinsic::csa_parallel_loop);
+    return Builder.CreateCall(Callee);
+  }
+
+  default:
+    return nullptr;
+  }
+}
+#endif
 
 Value *CodeGenFunction::EmitPPCBuiltinExpr(unsigned BuiltinID,
                                            const CallExpr *E) {

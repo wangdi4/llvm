@@ -35,6 +35,7 @@ add_clang_library(clangDriver
   ToolChains/CommonArgs.cpp
   ToolChains/Contiki.cpp
   ToolChains/CrossWindows.cpp
+  ToolChains/CSA.cpp
   ToolChains/Cuda.cpp
   ToolChains/Darwin.cpp
   ToolChains/DragonFly.cpp
