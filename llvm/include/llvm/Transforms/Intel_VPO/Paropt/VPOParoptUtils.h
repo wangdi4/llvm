@@ -428,8 +428,20 @@ public:
                      Instruction *InsertPt, bool UseTbb);
 
     /// \brief This function generates a call as follows.
-    ///    void @__kmpc_taskloop({ i32, i32, i32, i32, i8* }*, i32, i8*, i32,
-    ///    i64*, i64*, i64, i32, i32, i64, i8*)
+    ///    void @__kmpc_taskloop(
+    ///            { i32, i32, i32, i32, i8* }* %loc,
+    ///           i32 %tid,
+    ///           i8* %thunk_temp,
+    ///           i32 if_val,
+    ///           i64* lb,
+    ///           i64* ub,
+    ///           i64 stride,
+    ///           i32 nogroup,
+    ///           i32 sched, // 0: no grainsize or num_tasks
+    ///                         1: grainsize is used
+    ///                         2: num_tasks is used
+    ///           i64 grainsize,
+    ///           i8* task_dup)
     static CallInst *
     genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy, Value *TidPtr,
                     Value *TaskAlloc, Value *Cmp, Value *LBPtr, Value *UBPtr,
@@ -437,7 +449,11 @@ public:
                     Instruction *InsertPt, bool UseTbb, Function *FnTaskDup);
 
     /// \brief This function generates a call as follows.
-    ///    void @__kmpc_task({ i32, i32, i32, i32, i8* }*, i32, i8*)
+    ///    void @__kmpc_task(
+    //             { i32, i32, i32, i32, i8* }* %loc,
+    //             i32 %tid,
+    //             i8* thunk_temp)
+    //
     static CallInst *genKmpcTask(WRegionNode *W, StructType *IdentTy,
                                  Value *TidPtr, Value *TaskAlloc,
                                  Instruction *InsertPt);

@@ -134,8 +134,12 @@ private:
   /// type { i8*, i64, i8*, i8*, i8*, i32 }
   StructType *KmpTaskTRedTy;
 
-  /// \brief Hold the struct type in the form of %struct.kmp_depend_info = type
-  /// { i64/i32, i64/i32, i8 }
+  /// \brief Hold the struct type as follows.
+  ///           struct kmp_depend_info {
+  ///              size_t arg_addr;
+  ///              size_t arg_size;
+  ///              char   depend_type;
+  ///           };
   StructType *KmpTaskDependInfoTy;
 
   /// \brief Use the WRNVisitor class (in WRegionUtils.h) to walk the
