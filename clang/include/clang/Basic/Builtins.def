@@ -1689,10 +1689,17 @@ BUILTIN(__builtin_os_log_format, "v*v*cC*.", "p:0:nt")
 // Builtins for XRay
 BUILTIN(__xray_customevent, "vcC*z", "")
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 BUILTIN(__builtin_va_arg_pack_len, "Si", "n")
 BUILTIN(__builtin_va_arg_pack, ".", "n")
 #endif
+=======
+// Win64-compatible va_list functions
+BUILTIN(__builtin_ms_va_start, "vc*&.", "nt")
+BUILTIN(__builtin_ms_va_end, "vc*&", "n")
+BUILTIN(__builtin_ms_va_copy, "vc*&c*&", "n")
+>>>>>>> ba419afb8473f35d5e1d3931c9e889113f52155a
 
 #undef BUILTIN
 #undef LIBBUILTIN
