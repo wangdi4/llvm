@@ -861,6 +861,8 @@ namespace CGIntelOpenMP {
                                               const OMPUseDevicePtrClause *) {}
   void OpenMPCodeOutliner::emitOMPIsDevicePtrClause(
                                                const OMPIsDevicePtrClause *) {}
+  void OpenMPCodeOutliner::emitOMPTaskReductionClause(
+                                              const OMPTaskReductionClause *) {}
 
   OpenMPCodeOutliner::OpenMPCodeOutliner(CodeGenFunction &CGF,
                                          const OMPExecutableDirective &D)
