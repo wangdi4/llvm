@@ -51,6 +51,7 @@
 #include "lldb/Utility/RegularExpression.h"
 #include "lldb/Utility/Stream.h"
 #include "lldb/Utility/StreamString.h"
+#include "lldb/lldb-enumerations.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -397,7 +398,7 @@ lldb::StopInfoSP Thread::GetStopInfo() {
   bool plan_overrides_trace =
     have_valid_stop_info && have_valid_completed_plan
     && (m_stop_info_sp->GetStopReason() == eStopReasonTrace);
-    
+
   if (have_valid_stop_info && !plan_overrides_trace) {
     return m_stop_info_sp;
   } else if (have_valid_completed_plan) {
@@ -541,7 +542,7 @@ bool Thread::CheckpointThreadState(ThreadStateCheckpoint &saved_state) {
     saved_state.orig_stop_id = process_sp->GetStopID();
   saved_state.current_inlined_depth = GetCurrentInlinedDepth();
   saved_state.m_completed_plan_stack = m_completed_plan_stack;
-	
+
   return true;
 }
 
@@ -1912,39 +1913,42 @@ const char *Thread::RunModeAsCString(lldb::RunMode mode) {
 
 size_t Thread::GetStatus(Stream &strm, uint32_t start_frame,
                          uint32_t num_frames, uint32_t num_frames_with_source,
-                         bool stop_format) {
-  ExecutionContext exe_ctx(shared_from_this());
-  Target *target = exe_ctx.GetTargetPtr();
-  Process *process = exe_ctx.GetProcessPtr();
-  size_t num_frames_shown = 0;
-  strm.Indent();
-  bool is_selected = false;
-  if (process) {
-    if (process->GetThreadList().GetSelectedThread().get() == this)
-      is_selected = true;
-  }
-  strm.Printf("%c ", is_selected ? '*' : ' ');
-  if (target && target->GetDebugger().GetUseExternalEditor()) {
-    StackFrameSP frame_sp = GetStackFrameAtIndex(start_frame);
-    if (frame_sp) {
-      SymbolContext frame_sc(
-          frame_sp->GetSymbolContext(eSymbolContextLineEntry));
-      if (frame_sc.line_entry.line != 0 && frame_sc.line_entry.file) {
-        Host::OpenFileInExternalEditor(frame_sc.line_entry.file,
-                                       frame_sc.line_entry.line);
+                         bool stop_format, bool only_stacks) {
+
+  if (!only_stacks) {
+    ExecutionContext exe_ctx(shared_from_this());
+    Target *target = exe_ctx.GetTargetPtr();
+    Process *process = exe_ctx.GetProcessPtr();
+    strm.Indent();
+    bool is_selected = false;
+    if (process) {
+      if (process->GetThreadList().GetSelectedThread().get() == this)
+        is_selected = true;
+    }
+    strm.Printf("%c ", is_selected ? '*' : ' ');
+    if (target && target->GetDebugger().GetUseExternalEditor()) {
+      StackFrameSP frame_sp = GetStackFrameAtIndex(start_frame);
+      if (frame_sp) {
+        SymbolContext frame_sc(
+            frame_sp->GetSymbolContext(eSymbolContextLineEntry));
+        if (frame_sc.line_entry.line != 0 && frame_sc.line_entry.file) {
+          Host::OpenFileInExternalEditor(frame_sc.line_entry.file,
+                                         frame_sc.line_entry.line);
+        }
       }
     }
+
+    DumpUsingSettingsFormat(strm, start_frame, stop_format);
   }
 
-  DumpUsingSettingsFormat(strm, start_frame, stop_format);
-
+  size_t num_frames_shown = 0;
   if (num_frames > 0) {
     strm.IndentMore();
 
     const bool show_frame_info = true;
-
+    const bool show_frame_unique = only_stacks;
     const char *selected_frame_marker = nullptr;
-    if (num_frames == 1 ||
+    if (num_frames == 1 || only_stacks ||
         (GetID() != GetProcess()->GetThreadList().GetSelectedThread()->GetID()))
       strm.IndentMore();
     else
@@ -1952,7 +1956,7 @@ size_t Thread::GetStatus(Stream &strm, uint32_t start_frame,
 
     num_frames_shown = GetStackFrameList()->GetStatus(
         strm, start_frame, num_frames, show_frame_info, num_frames_with_source,
-        selected_frame_marker);
+        show_frame_unique, selected_frame_marker);
     if (num_frames == 1)
       strm.IndentLess();
     strm.IndentLess();
@@ -1994,13 +1998,12 @@ bool Thread::GetDescription(Stream &strm, lldb::DescriptionLevel level,
         thread_info->GetObjectForDotSeparatedPath("trace_messages");
 
     bool printed_activity = false;
-    if (activity &&
-        activity->GetType() == StructuredData::Type::eTypeDictionary) {
+    if (activity && activity->GetType() == eStructuredDataTypeDictionary) {
       StructuredData::Dictionary *activity_dict = activity->GetAsDictionary();
       StructuredData::ObjectSP id = activity_dict->GetValueForKey("id");
       StructuredData::ObjectSP name = activity_dict->GetValueForKey("name");
-      if (name && name->GetType() == StructuredData::Type::eTypeString && id &&
-          id->GetType() == StructuredData::Type::eTypeInteger) {
+      if (name && name->GetType() == eStructuredDataTypeString && id &&
+          id->GetType() == eStructuredDataTypeInteger) {
         strm.Format("  Activity '{0}', {1:x}\n",
                     name->GetAsString()->GetValue(),
                     id->GetAsInteger()->GetValue());
@@ -2008,8 +2011,7 @@ bool Thread::GetDescription(Stream &strm, lldb::DescriptionLevel level,
       printed_activity = true;
     }
     bool printed_breadcrumb = false;
-    if (breadcrumb &&
-        breadcrumb->GetType() == StructuredData::Type::eTypeDictionary) {
+    if (breadcrumb && breadcrumb->GetType() == eStructuredDataTypeDictionary) {
       if (printed_activity)
         strm.Printf("\n");
       StructuredData::Dictionary *breadcrumb_dict =
@@ -2017,13 +2019,13 @@ bool Thread::GetDescription(Stream &strm, lldb::DescriptionLevel level,
       StructuredData::ObjectSP breadcrumb_text =
           breadcrumb_dict->GetValueForKey("name");
       if (breadcrumb_text &&
-          breadcrumb_text->GetType() == StructuredData::Type::eTypeString) {
+          breadcrumb_text->GetType() == eStructuredDataTypeString) {
         strm.Format("  Current Breadcrumb: {0}\n",
                     breadcrumb_text->GetAsString()->GetValue());
       }
       printed_breadcrumb = true;
     }
-    if (messages && messages->GetType() == StructuredData::Type::eTypeArray) {
+    if (messages && messages->GetType() == eStructuredDataTypeArray) {
       if (printed_breadcrumb)
         strm.Printf("\n");
       StructuredData::Array *messages_array = messages->GetAsArray();
@@ -2032,14 +2034,13 @@ bool Thread::GetDescription(Stream &strm, lldb::DescriptionLevel level,
         strm.Printf("  %zu trace messages:\n", msg_count);
         for (size_t i = 0; i < msg_count; i++) {
           StructuredData::ObjectSP message = messages_array->GetItemAtIndex(i);
-          if (message &&
-              message->GetType() == StructuredData::Type::eTypeDictionary) {
+          if (message && message->GetType() == eStructuredDataTypeDictionary) {
             StructuredData::Dictionary *message_dict =
                 message->GetAsDictionary();
             StructuredData::ObjectSP message_text =
                 message_dict->GetValueForKey("message");
             if (message_text &&
-                message_text->GetType() == StructuredData::Type::eTypeString) {
+                message_text->GetType() == eStructuredDataTypeString) {
               strm.Format("    {0}\n", message_text->GetAsString()->GetValue());
             }
           }

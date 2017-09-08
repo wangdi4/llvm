@@ -586,6 +586,57 @@ S3 s3;
 // expected-error@first.h:* {{'TypeDef::S3::a' from module 'FirstModule' is not present in definition of 'TypeDef::S3' in module 'SecondModule'}}
 // expected-note@second.h:* {{declaration of 'a' does not match}}
 #endif
+
+#if defined(FIRST)
+struct S4 {
+  typedef int a;
+  typedef int b;
+};
+#elif defined(SECOND)
+struct S4 {
+  typedef int b;
+  typedef int a;
+};
+#else
+S4 s4;
+// expected-error@second.h:* {{'TypeDef::S4' has different definitions in different modules; first difference is definition in module 'SecondModule' found typedef name 'b'}}
+// expected-note@first.h:* {{but in 'FirstModule' found typedef name 'a'}}
+#endif
+
+#if defined(FIRST)
+struct S5 {
+  typedef int a;
+  typedef int b;
+  int x;
+};
+#elif defined(SECOND)
+struct S5 {
+  int x;
+  typedef int b;
+  typedef int a;
+};
+#else
+S5 s5;
+// expected-error@second.h:* {{'TypeDef::S5' has different definitions in different modules; first difference is definition in module 'SecondModule' found field}}
+// expected-note@first.h:* {{but in 'FirstModule' found typedef}}
+#endif
+
+#if defined(FIRST)
+typedef float F;
+struct S6 {
+  typedef int a;
+  typedef F b;
+};
+#elif defined(SECOND)
+struct S6 {
+  typedef int a;
+  typedef float b;
+};
+#else
+S6 s6;
+// expected-error@second.h:* {{'TypeDef::S6' has different definitions in different modules; first difference is definition in module 'SecondModule' found typedef 'b' with underlying type 'float'}}
+// expected-note@first.h:* {{but in 'FirstModule' found typedef 'b' with different underlying type 'TypeDef::F' (aka 'float')}}
+#endif
 }  // namespace TypeDef
 
 namespace Using {
@@ -632,8 +683,434 @@ S3 s3;
 // expected-error@first.h:* {{'Using::S3::a' from module 'FirstModule' is not present in definition of 'Using::S3' in module 'SecondModule'}}
 // expected-note@second.h:* {{declaration of 'a' does not match}}
 #endif
+
+#if defined(FIRST)
+struct S4 {
+  using a = int;
+  using b = int;
+};
+#elif defined(SECOND)
+struct S4 {
+  using b = int;
+  using a = int;
+};
+#else
+S4 s4;
+// expected-error@second.h:* {{'Using::S4' has different definitions in different modules; first difference is definition in module 'SecondModule' found type alias name 'b'}}
+// expected-note@first.h:* {{but in 'FirstModule' found type alias name 'a'}}
+#endif
+
+#if defined(FIRST)
+struct S5 {
+  using a = int;
+  using b = int;
+  int x;
+};
+#elif defined(SECOND)
+struct S5 {
+  int x;
+  using b = int;
+  using a = int;
+};
+#else
+S5 s5;
+// expected-error@second.h:* {{'Using::S5' has different definitions in different modules; first difference is definition in module 'SecondModule' found field}}
+// expected-note@first.h:* {{but in 'FirstModule' found type alias}}
+#endif
+
+#if defined(FIRST)
+typedef float F;
+struct S6 {
+  using a = int;
+  using b = F;
+};
+#elif defined(SECOND)
+struct S6 {
+  using a = int;
+  using b = float;
+};
+#else
+S6 s6;
+// expected-error@second.h:* {{'Using::S6' has different definitions in different modules; first difference is definition in module 'SecondModule' found type alias 'b' with underlying type 'float'}}
+// expected-note@first.h:* {{but in 'FirstModule' found type alias 'b' with different underlying type 'Using::F' (aka 'float')}}
+#endif
 }  // namespace Using
 
+namespace RecordType {
+#if defined(FIRST)
+struct B1 {};
+struct S1 {
+  B1 x;
+};
+#elif defined(SECOND)
+struct A1 {};
+struct S1 {
+  A1 x;
+};
+#else
+S1 s1;
+// expected-error@first.h:* {{'RecordType::S1::x' from module 'FirstModule' is not present in definition of 'RecordType::S1' in module 'SecondModule'}}
+// expected-note@second.h:* {{declaration of 'x' does not match}}
+#endif
+}
+
+namespace DependentType {
+#if defined(FIRST)
+template <class T>
+class S1 {
+  typename T::typeA x;
+};
+#elif defined(SECOND)
+template <class T>
+class S1 {
+  typename T::typeB x;
+};
+#else
+template<class T>
+using U1 = S1<T>;
+// expected-error@first.h:* {{'DependentType::S1::x' from module 'FirstModule' is not present in definition of 'S1<T>' in module 'SecondModule'}}
+// expected-note@second.h:* {{declaration of 'x' does not match}}
+#endif
+}
+
+namespace ElaboratedType {
+#if defined(FIRST)
+namespace N1 { using type = double; }
+struct S1 {
+  N1::type x;
+};
+#elif defined(SECOND)
+namespace N1 { using type = int; }
+struct S1 {
+  N1::type x;
+};
+#else
+S1 s1;
+// expected-error@first.h:* {{'ElaboratedType::S1::x' from module 'FirstModule' is not present in definition of 'ElaboratedType::S1' in module 'SecondModule'}}
+// expected-note@second.h:* {{declaration of 'x' does not match}}
+#endif
+}
+
+namespace Enum {
+#if defined(FIRST)
+enum A1 {};
+struct S1 {
+  A1 x;
+};
+#elif defined(SECOND)
+enum A2 {};
+struct S1 {
+  A2 x;
+};
+#else
+S1 s1;
+// expected-error@first.h:* {{'Enum::S1::x' from module 'FirstModule' is not present in definition of 'Enum::S1' in module 'SecondModule'}}
+// expected-note@second.h:* {{declaration of 'x' does not match}}
+#endif
+}
+
+namespace NestedNamespaceSpecifier {
+#if defined(FIRST)
+namespace LevelA1 {
+using Type = int;
+}
+
+struct S1 {
+  LevelA1::Type x;
+};
+# elif defined(SECOND)
+namespace LevelB1 {
+namespace LevelC1 {
+using Type = int;
+}
+}
+
+struct S1 {
+  LevelB1::LevelC1::Type x;
+};
+#else
+S1 s1;
+// expected-error@second.h:* {{'NestedNamespaceSpecifier::S1' has different definitions in different modules; first difference is definition in module 'SecondModule' found field 'x' with type 'LevelB1::LevelC1::Type' (aka 'int')}}
+// expected-note@first.h:* {{but in 'FirstModule' found field 'x' with type 'LevelA1::Type' (aka 'int')}}
+#endif
+
+#if defined(FIRST)
+namespace LevelA2 { using Type = int; }
+struct S2 {
+  LevelA2::Type x;
+};
+# elif defined(SECOND)
+struct S2 {
+  int x;
+};
+#else
+S2 s2;
+// expected-error@second.h:* {{'NestedNamespaceSpecifier::S2' has different definitions in different modules; first difference is definition in module 'SecondModule' found field 'x' with type 'int'}}
+// expected-note@first.h:* {{but in 'FirstModule' found field 'x' with type 'LevelA2::Type' (aka 'int')}}
+#endif
+
+namespace LevelA3 { using Type = int; }
+namespace LevelB3 { using Type = int; }
+#if defined(FIRST)
+struct S3 {
+  LevelA3::Type x;
+};
+# elif defined(SECOND)
+struct S3 {
+  LevelB3::Type x;
+};
+#else
+S3 s3;
+// expected-error@second.h:* {{'NestedNamespaceSpecifier::S3' has different definitions in different modules; first difference is definition in module 'SecondModule' found field 'x' with type 'LevelB3::Type' (aka 'int')}}
+// expected-note@first.h:* {{but in 'FirstModule' found field 'x' with type 'LevelA3::Type' (aka 'int')}}
+#endif
+
+#if defined(FIRST)
+struct TA4 { using Type = int; };
+struct S4 {
+  TA4::Type x;
+};
+# elif defined(SECOND)
+struct TB4 { using Type = int; };
+struct S4 {
+  TB4::Type x;
+};
+#else
+S4 s4;
+// expected-error@second.h:* {{'NestedNamespaceSpecifier::S4' has different definitions in different modules; first difference is definition in module 'SecondModule' found field 'x' with type 'TB4::Type' (aka 'int')}}
+// expected-note@first.h:* {{but in 'FirstModule' found field 'x' with type 'TA4::Type' (aka 'int')}}
+#endif
+
+#if defined(FIRST)
+struct T5 { using Type = int; };
+struct S5 {
+  T5::Type x;
+};
+# elif defined(SECOND)
+namespace T5 { using Type = int; };
+struct S5 {
+  T5::Type x;
+};
+#else
+S5 s5;
+// expected-error@second.h:* {{'NestedNamespaceSpecifier::S5' has different definitions in different modules; first difference is definition in module 'SecondModule' found field 'x' with type 'T5::Type' (aka 'int')}}
+// expected-note@first.h:* {{but in 'FirstModule' found field 'x' with type 'T5::Type' (aka 'int')}}
+#endif
+
+#if defined(FIRST)
+namespace N6 {using I = int;}
+struct S6 {
+  NestedNamespaceSpecifier::N6::I x;
+};
+# elif defined(SECOND)
+using I = int;
+struct S6 {
+  ::NestedNamespaceSpecifier::I x;
+};
+#else
+S6 s6;
+// expected-error@second.h:* {{'NestedNamespaceSpecifier::S6' has different definitions in different modules; first difference is definition in module 'SecondModule' found field 'x' with type '::NestedNamespaceSpecifier::I' (aka 'int')}}
+// expected-note@first.h:* {{but in 'FirstModule' found field 'x' with type 'NestedNamespaceSpecifier::N6::I' (aka 'int')}}
+#endif
+
+#if defined(FIRST)
+template <class T, class U>
+class S7 {
+  typename T::type *x = {};
+  int z = x->T::foo();
+};
+#elif defined(SECOND)
+template <class T, class U>
+class S7 {
+  typename T::type *x = {};
+  int z = x->U::foo();
+};
+#else
+template <class T, class U>
+using U7 = S7<T, U>;
+// expected-error@second.h:* {{'NestedNamespaceSpecifier::S7' has different definitions in different modules; first difference is definition in module 'SecondModule' found field 'z' with an initializer}}
+// expected-note@first.h:* {{but in 'FirstModule' found field 'z' with a different initializer}}
+#endif
+
+#if defined(FIRST)
+template <class T>
+class S8 {
+  int x = T::template X<int>::value;
+};
+#elif defined(SECOND)
+template <class T>
+class S8 {
+  int x = T::template Y<int>::value;
+};
+#else
+template <class T>
+using U8 = S8<T>;
+// expected-error@second.h:* {{'NestedNamespaceSpecifier::S8' has different definitions in different modules; first difference is definition in module 'SecondModule' found field 'x' with an initializer}}
+// expected-note@first.h:* {{but in 'FirstModule' found field 'x' with a different initializer}}
+#endif
+
+#if defined(FIRST)
+namespace N9 { using I = int; }
+namespace O9 = N9;
+struct S9 {
+  O9::I x;
+};
+#elif defined(SECOND)
+namespace N9 { using I = int; }
+namespace P9 = N9;
+struct S9 {
+  P9::I x;
+};
+#else
+S9 s9;
+// expected-error@second.h:* {{'NestedNamespaceSpecifier::S9' has different definitions in different modules; first difference is definition in module 'SecondModule' found field 'x' with type 'P9::I' (aka 'int')}}
+// expected-note@first.h:* {{but in 'FirstModule' found field 'x' with type 'O9::I' (aka 'int')}}
+#endif
+}
+
+namespace TemplateSpecializationType {
+#if defined(FIRST)
+template <class T1> struct U1 {};
+struct S1 {
+  U1<int> u;
+};
+#elif defined(SECOND)
+template <class T1, class T2> struct U1 {};
+struct S1 {
+  U1<int, int> u;
+};
+#else
+S1 s1;
+// expected-error@first.h:* {{'TemplateSpecializationType::S1::u' from module 'FirstModule' is not present in definition of 'TemplateSpecializationType::S1' in module 'SecondModule'}}
+// expected-note@second.h:* {{declaration of 'u' does not match}}
+#endif
+
+#if defined(FIRST)
+template <class T1> struct U2 {};
+struct S2 {
+  U2<int> u;
+};
+#elif defined(SECOND)
+template <class T1> struct V1 {};
+struct S2 {
+  V1<int> u;
+};
+#else
+S2 s2;
+// expected-error@first.h:* {{'TemplateSpecializationType::S2::u' from module 'FirstModule' is not present in definition of 'TemplateSpecializationType::S2' in module 'SecondModule'}}
+// expected-note@second.h:* {{declaration of 'u' does not match}}
+#endif
+}
+
+namespace TemplateArgument {
+#if defined(FIRST)
+template <class> struct U1{};
+struct S1 {
+  U1<int> x;
+};
+#elif defined(SECOND)
+template <int> struct U1{};
+struct S1 {
+  U1<1> x;
+};
+#else
+S1 s1;
+// expected-error@first.h:* {{'TemplateArgument::S1::x' from module 'FirstModule' is not present in definition of 'TemplateArgument::S1' in module 'SecondModule'}}
+// expected-note@second.h:* {{declaration of 'x' does not match}}
+#endif
+
+#if defined(FIRST)
+template <int> struct U2{};
+struct S2 {
+  using T = U2<2>;
+};
+#elif defined(SECOND)
+template <int> struct U2{};
+struct S2 {
+  using T = U2<(2)>;
+};
+#else
+S2 s2;
+// expected-error@second.h:* {{'TemplateArgument::S2' has different definitions in different modules; first difference is definition in module 'SecondModule' found type alias 'T' with underlying type 'U2<(2)>'}}
+// expected-note@first.h:* {{but in 'FirstModule' found type alias 'T' with different underlying type 'U2<2>'}}
+#endif
+
+#if defined(FIRST)
+template <int> struct U3{};
+struct S3 {
+  using T = U3<2>;
+};
+#elif defined(SECOND)
+template <int> struct U3{};
+struct S3 {
+  using T = U3<1 + 1>;
+};
+#else
+S3 s3;
+// expected-error@second.h:* {{'TemplateArgument::S3' has different definitions in different modules; first difference is definition in module 'SecondModule' found type alias 'T' with underlying type 'U3<1 + 1>'}}
+// expected-note@first.h:* {{but in 'FirstModule' found type alias 'T' with different underlying type 'U3<2>'}}
+#endif
+
+#if defined(FIRST)
+template<class> struct T4a {};
+template <template <class> class T> struct U4 {};
+struct S4 {
+  U4<T4a> x;
+};
+#elif defined(SECOND)
+template<class> struct T4b {};
+template <template <class> class T> struct U4 {};
+struct S4 {
+  U4<T4b> x;
+};
+#else
+S4 s4;
+// expected-error@first.h:* {{'TemplateArgument::S4::x' from module 'FirstModule' is not present in definition of 'TemplateArgument::S4' in module 'SecondModule'}}
+// expected-note@second.h:* {{declaration of 'x' does not match}}
+#endif
+}
+
+namespace TemplateTypeParmType {
+#if defined(FIRST)
+template <class T1, class T2>
+struct S1 {
+  T1 x;
+};
+#elif defined(SECOND)
+template <class T1, class T2>
+struct S1 {
+  T2 x;
+};
+#else
+using TemplateTypeParmType::S1;
+// expected-error@first.h:* {{'TemplateTypeParmType::S1::x' from module 'FirstModule' is not present in definition of 'S1<T1, T2>' in module 'SecondModule'}}
+// expected-note@second.h:* {{declaration of 'x' does not match}}
+#endif
+
+#if defined(FIRST)
+template <int ...Ts>
+struct U2 {};
+template <int T, int U>
+class S2 {
+  typedef U2<U, T> type;
+  type x;
+};
+#elif defined(SECOND)
+template <int ...Ts>
+struct U2 {};
+template <int T, int U>
+class S2 {
+  typedef U2<T, U> type;
+  type x;
+};
+#else
+using TemplateTypeParmType::S2;
+// expected-error@first.h:* {{'TemplateTypeParmType::S2::x' from module 'FirstModule' is not present in definition of 'S2<T, U>' in module 'SecondModule'}}
+// expected-note@second.h:* {{declaration of 'x' does not match}}
+// expected-error@first.h:* {{'TemplateTypeParmType::S2::type' from module 'FirstModule' is not present in definition of 'S2<T, U>' in module 'SecondModule'}}
+// expected-note@second.h:* {{declaration of 'type' does not match}}
+#endif
+}
 
 // Interesting cases that should not cause errors.  struct S should not error
 // while struct T should error at the access specifier mismatch at the end.
