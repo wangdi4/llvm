@@ -237,8 +237,7 @@ public:
   /// See Also: CanonExprUtils::canReplaceIVByCanonExpr()
   static bool canReplaceIVByCanonExpr(const RegDDRef *Ref, unsigned LoopLevel,
                                       const CanonExpr *CE,
-                                      bool RelaxedMode = true,
-                                      bool CastToBlob = false);
+                                      bool RelaxedMode = true);
 
   /// Replace any IV in the Ref with a given CanonExpr*.
   /// (e.g. A[i]->A[CE], A[i+2]->A[CE+2] )
@@ -249,8 +248,8 @@ public:
   ///
   /// See Also: CanonExprUtils::replaceIVByCanonExpr().
   static void replaceIVByCanonExpr(RegDDRef *Ref, unsigned LoopLevel,
-                                   const CanonExpr *CE, bool RelaxedMode = true,
-                                   bool CastToBlob = false);
+                                   const CanonExpr *CE,
+                                   bool RelaxedMode = true);
 };
 
 } // End namespace loopopt

@@ -923,8 +923,7 @@ void HLLoop::replaceByFirstIteration() {
         }
 
         // Expected to be always successful.
-        DDRefUtils::replaceIVByCanonExpr(Ref, Level, IVReplacement, false,
-                                         true);
+        DDRefUtils::replaceIVByCanonExpr(Ref, Level, IVReplacement, false);
 
         if (!IsInnermost) {
           // Innermost loops doesn't contain IVs deeper than Level.

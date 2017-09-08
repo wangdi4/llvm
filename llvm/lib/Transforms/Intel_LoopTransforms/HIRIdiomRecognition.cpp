@@ -428,24 +428,11 @@ bool HIRIdiomRecognition::makeStartRef(RegDDRef *Ref, HLLoop *Loop,
 
     if (IsNegStride) {
       const CanonExpr *OrigUpperCE = Loop->getUpperCanonExpr();
+
       // Try to merge upper bound with CE
-      if (!CanonExprUtils::mergeable(CE, OrigUpperCE, true) ||
-          !CanonExprUtils::replaceIVByCanonExpr(CE, Level, OrigUpperCE, true)) {
-
-        std::unique_ptr<CanonExpr> UpperCE(OrigUpperCE->clone());
-
-        // If merge doesn't work - try to convert UB to blob.
-        bool Ret = UpperCE->castStandAloneBlob(CE->getSrcType(), false);
-
-        if (!Ret) {
-          return false;
-        }
-
-        Ret = CanonExprUtils::replaceIVByCanonExpr(CE, Level, UpperCE.get(),
-                                                   true);
-        assert(Ret &&
-               "Second replaceIVByCanonExpr() should always return true");
-        (void)Ret;
+      if (!CanonExprUtils::replaceIVByCanonExpr(CE, Level, OrigUpperCE, true)) {
+        DEBUG(dbgs() << "Unable to replace i" << Level << " with UB.");
+        return false;
       }
 
       BlobUpdateNeeded = true;

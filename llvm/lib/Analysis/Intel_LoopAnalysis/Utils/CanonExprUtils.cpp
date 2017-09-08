@@ -512,8 +512,7 @@ bool CanonExprUtils::hasNonLinearSemantics(unsigned DefLevel,
 bool CanonExprUtils::canReplaceIVByCanonExpr(const CanonExpr *CE1,
                                              unsigned Level,
                                              const CanonExpr *CE2,
-                                             bool RelaxedMode,
-                                             bool CastToBlob) {
+                                             bool RelaxedMode) {
   // Perform cheap checks here to avoid allocating memory.
   if (!CE1->hasIV(Level) || CE2->isIntConstant()) {
     return true;
@@ -521,13 +520,12 @@ bool CanonExprUtils::canReplaceIVByCanonExpr(const CanonExpr *CE1,
 
   std::unique_ptr<CanonExpr> CE1Clone(CE1->clone());
 
-  return replaceIVByCanonExpr(CE1Clone.get(), Level, CE2, RelaxedMode,
-                              CastToBlob);
+  return replaceIVByCanonExpr(CE1Clone.get(), Level, CE2, RelaxedMode);
 }
 
 bool CanonExprUtils::replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
                                           const CanonExpr *CE2,
-                                          bool RelaxedMode, bool CastToBlob) {
+                                          bool RelaxedMode) {
 
   // CE1 = C1*B1*i1 + C3*i2 + ..., Level 1
   // CE2 = C2*B2
@@ -546,11 +544,6 @@ bool CanonExprUtils::replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
   // Try to merge first
   bool Mergeable = mergeable(CE1, CE2, RelaxedMode);
   if (!Mergeable) {
-    if (!CastToBlob) {
-      // If cast is not allowed.
-      return false;
-    }
-
     if (!CE2->canConvertToStandAloneBlob()) {
       // If can not be casted
       return false;

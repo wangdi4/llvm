@@ -327,27 +327,13 @@ void IVSegment::replaceIVByBound(RegDDRef *Ref,
     // negative
     assert(!BoundCE->isTrunc() && "Truncations are not supported");
 
-    bool Ret;
-    if (BoundCE->getDenominator() == 1 &&
-        CanonExprUtils::mergeable(CE, BoundCE, true)) {
-      Ret = CanonExprUtils::replaceIVByCanonExpr(CE, Level, BoundCE, true);
-      CE->simplify(false);
-    } else {
-      // Have to treat bound as blob and then truncate or extend it.
-      std::unique_ptr<CanonExpr> NewBoundCE(BoundCE->clone());
-
-      Ret = NewBoundCE->castStandAloneBlob(CE->getSrcType(), false);
-
-      assert(Ret && "convertToStandAloneBlob() should always succeed as we"
-                    "already checked if it's convertible");
-
-      Ret = CE->getCanonExprUtils().replaceIVByCanonExpr(
-          CE, Level, NewBoundCE.get(), true);
-    }
+    bool Ret = CanonExprUtils::replaceIVByCanonExpr(CE, Level, BoundCE, true);
     assert(Ret &&
            "Assuming replace will always succeed as we already checked if both "
            "are mergeable.");
     (void)Ret;
+
+    CE->simplify(false);
   }
 }
 

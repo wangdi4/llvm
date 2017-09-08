@@ -225,18 +225,15 @@ public:
   /// Returns true if IV in \p CE1 at the loop \p Level by the \p CE2.
   static bool canReplaceIVByCanonExpr(const CanonExpr *CE1, unsigned Level,
                                       const CanonExpr *CE2,
-                                      bool RelaxedMode = false,
-                                      bool CastToBlob = false);
+                                      bool RelaxedMode = false);
 
   /// Replaces IV in \p CE1 at the loop \p Level by the \p CE2.
-  /// If \p CastToBlob is set true the CE2 will be converted to a standalone
+  /// If CE2 is not mergeable with CE1 it will be converted to a standalone
   /// blob and casted to CE1 src type using truncation or zero extension.
-  /// Note: CastToBlob is safe only if the value in CE2 is unsigned or is in
-  /// range of loops bounds.
+  /// Note: CE2 is assumed to be unsigned or is in a range of loop bounds.
   static bool replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
                                    const CanonExpr *CE2,
-                                   bool RelaxedMode = false,
-                                   bool CastToBlob = false);
+                                   bool RelaxedMode = false);
 
   /// Returns true if CE1 - CE2 is a constant and returns the diff in \p
   /// Distance, if it isn't null.
