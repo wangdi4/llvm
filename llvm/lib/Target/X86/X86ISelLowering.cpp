@@ -24778,7 +24778,8 @@ const char *X86TargetLowering::getTargetNodeName(unsigned Opcode) const {
 /// target, for a load/store of the specified type.
 bool X86TargetLowering::isLegalAddressingMode(const DataLayout &DL,
                                               const AddrMode &AM, Type *Ty,
-                                              unsigned AS) const {
+                                              unsigned AS,
+                                              Instruction *I) const {
   // X86 supports extremely general addressing modes.
   CodeModel::Model M = getTargetMachine().getCodeModel();
 
