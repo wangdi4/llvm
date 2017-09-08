@@ -780,7 +780,6 @@ bool AArch64InstructionSelector::select(MachineInstr &I) const {
 
     return constrainSelectedInstRegOperands(I, TII, TRI, RBI);
   }
-
   case TargetOpcode::G_INSERT: {
     LLT SrcTy = MRI.getType(I.getOperand(2).getReg());
     // Larger inserts are vectors, same-size ones should be something else by
@@ -798,7 +797,7 @@ bool AArch64InstructionSelector::select(MachineInstr &I) const {
     BuildMI(MBB, I.getIterator(), I.getDebugLoc(),
             TII.get(AArch64::SUBREG_TO_REG))
         .addDef(SrcReg)
-        .addUse(0)
+        .addImm(0)
         .addUse(I.getOperand(2).getReg())
         .addImm(AArch64::sub_32);
     RBI.constrainGenericRegister(I.getOperand(2).getReg(),
