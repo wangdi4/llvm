@@ -241,9 +241,8 @@ DECLARE_REAL_AND_INTERCEPTOR(void, free, void *)
     CheckNoDeepBind(filename, flag);                                           \
   } while (false)
 #define COMMON_INTERCEPTOR_ON_EXIT(ctx) OnExit()
-#define COMMON_INTERCEPTOR_LIBRARY_LOADED(filename, handle) \
-  CoverageUpdateMapping()
-#define COMMON_INTERCEPTOR_LIBRARY_UNLOADED() CoverageUpdateMapping()
+#define COMMON_INTERCEPTOR_LIBRARY_LOADED(filename, handle)
+#define COMMON_INTERCEPTOR_LIBRARY_UNLOADED()
 #define COMMON_INTERCEPTOR_NOTHING_IS_INITIALIZED (!asan_inited)
 #define COMMON_INTERCEPTOR_GET_TLS_RANGE(begin, end)                           \
   if (AsanThread *t = GetCurrentThread()) {                                    \
@@ -357,28 +356,22 @@ DEFINE_REAL_PTHREAD_FUNCTIONS
 
 #if SANITIZER_ANDROID
 INTERCEPTOR(void*, bsd_signal, int signum, void *handler) {
-  if (!IsHandledDeadlySignal(signum) ||
-      common_flags()->allow_user_segv_handler) {
+  if (GetHandleSignalMode(signum) != kHandleSignalExclusive)
     return REAL(bsd_signal)(signum, handler);
-  }
   return 0;
 }
 #endif
 
 INTERCEPTOR(void*, signal, int signum, void *handler) {
-  if (!IsHandledDeadlySignal(signum) ||
-      common_flags()->allow_user_segv_handler) {
+  if (GetHandleSignalMode(signum) != kHandleSignalExclusive)
     return REAL(signal)(signum, handler);
-  }
   return nullptr;
 }
 
 INTERCEPTOR(int, sigaction, int signum, const struct sigaction *act,
                             struct sigaction *oldact) {
-  if (!IsHandledDeadlySignal(signum) ||
-      common_flags()->allow_user_segv_handler) {
+  if (GetHandleSignalMode(signum) != kHandleSignalExclusive)
     return REAL(sigaction)(signum, act, oldact);
-  }
   return 0;
 }
 
@@ -713,9 +706,7 @@ INTERCEPTOR(int, __cxa_atexit, void (*func)(void *), void *arg,
 #if ASAN_INTERCEPT_FORK
 INTERCEPTOR(int, fork, void) {
   ENSURE_ASAN_INITED();
-  if (common_flags()->coverage) CovBeforeFork();
   int pid = REAL(fork)();
-  if (common_flags()->coverage) CovAfterFork(pid);
   return pid;
 }
 #endif  // ASAN_INTERCEPT_FORK

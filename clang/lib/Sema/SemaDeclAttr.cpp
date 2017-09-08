@@ -238,7 +238,7 @@ static typename std::enable_if<std::is_base_of<clang::Attr, AttrInfo>::value,
 getAttrName(const AttrInfo &Attr) {
   return &Attr;
 }
-const IdentifierInfo *getAttrName(const clang::AttributeList &Attr) {
+static const IdentifierInfo *getAttrName(const clang::AttributeList &Attr) {
   return Attr.getName();
 }
 
@@ -313,8 +313,8 @@ static bool checkAttrMutualExclusion(Sema &S, Decl *D, SourceRange Range,
 /// \returns true if IdxExpr is a valid index.
 template <typename AttrInfo>
 static bool checkFunctionOrMethodParameterIndex(
-    Sema &S, const Decl *D, const AttrInfo& Attr,
-    unsigned AttrArgNum, const Expr *IdxExpr, uint64_t &Idx) {
+    Sema &S, const Decl *D, const AttrInfo &Attr, unsigned AttrArgNum,
+    const Expr *IdxExpr, uint64_t &Idx, bool AllowImplicitThis = false) {
   assert(isFunctionOrMethodOrBlock(D));
 
   // In C++ the implicit 'this' function parameter also counts.
@@ -341,7 +341,7 @@ static bool checkFunctionOrMethodParameterIndex(
     return false;
   }
   Idx--; // Convert to zero-based.
-  if (HasImplicitThisParam) {
+  if (HasImplicitThisParam && !AllowImplicitThis) {
     if (Idx == 0) {
       S.Diag(getAttrLoc(Attr),
              diag::err_attribute_invalid_implicit_this_argument)
@@ -949,7 +949,7 @@ static bool checkFunctionConditionAttr(Sema &S, Decl *D,
     Msg = "<no message provided>";
 
   SmallVector<PartialDiagnosticAt, 8> Diags;
-  if (!Cond->isValueDependent() &&
+  if (isa<FunctionDecl>(D) && !Cond->isValueDependent() &&
       !Expr::isPotentialConstantExprUnevaluated(Cond, cast<FunctionDecl>(D),
                                                 Diags)) {
     S.Diag(Attr.getLoc(), diag::err_attr_cond_never_constant_expr)
@@ -1037,10 +1037,11 @@ static void handleDiagnoseIfAttr(Sema &S, Decl *D, const AttributeList &Attr) {
     return;
   }
 
-  auto *FD = cast<FunctionDecl>(D);
-  bool ArgDependent = ArgumentDependenceChecker(FD).referencesArgs(Cond);
+  bool ArgDependent = false;
+  if (const auto *FD = dyn_cast<FunctionDecl>(D))
+    ArgDependent = ArgumentDependenceChecker(FD).referencesArgs(Cond);
   D->addAttr(::new (S.Context) DiagnoseIfAttr(
-      Attr.getRange(), S.Context, Cond, Msg, DiagType, ArgDependent, FD,
+      Attr.getRange(), S.Context, Cond, Msg, DiagType, ArgDependent, cast<NamedDecl>(D),
       Attr.getAttributeSpellingListIndex()));
 }
 
@@ -4603,14 +4604,16 @@ static void handleTypeTagForDatatypeAttr(Sema &S, Decl *D,
 static void handleXRayLogArgsAttr(Sema &S, Decl *D,
                                   const AttributeList &Attr) {
   uint64_t ArgCount;
+
   if (!checkFunctionOrMethodParameterIndex(S, D, Attr, 1, Attr.getArgAsExpr(0),
-                                           ArgCount))
+                                           ArgCount,
+                                           true /* AllowImplicitThis*/))
     return;
 
   // ArgCount isn't a parameter index [0;n), it's a count [1;n] - hence + 1.
   D->addAttr(::new (S.Context)
-             XRayLogArgsAttr(Attr.getRange(), S.Context, ++ArgCount,
-             Attr.getAttributeSpellingListIndex()));
+                 XRayLogArgsAttr(Attr.getRange(), S.Context, ++ArgCount,
+                                 Attr.getAttributeSpellingListIndex()));
 }
 
 //===----------------------------------------------------------------------===//
@@ -5935,11 +5938,17 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     handleDLLAttr(S, D, Attr);
     break;
   case AttributeList::AT_Mips16:
-    handleSimpleAttributeWithExclusions<Mips16Attr, MipsInterruptAttr>(S, D,
-                                                                       Attr);
+    handleSimpleAttributeWithExclusions<Mips16Attr, MicroMipsAttr,
+                                        MipsInterruptAttr>(S, D, Attr);
     break;
   case AttributeList::AT_NoMips16:
     handleSimpleAttribute<NoMips16Attr>(S, D, Attr);
+    break;
+  case AttributeList::AT_MicroMips:
+    handleSimpleAttributeWithExclusions<MicroMipsAttr, Mips16Attr>(S, D, Attr);
+    break;
+  case AttributeList::AT_NoMicroMips:
+    handleSimpleAttribute<NoMicroMipsAttr>(S, D, Attr);
     break;
   case AttributeList::AT_AMDGPUFlatWorkGroupSize:
     handleAMDGPUFlatWorkGroupSizeAttr(S, D, Attr);
@@ -7252,6 +7261,12 @@ public:
 
   bool TraverseLambdaExpr(LambdaExpr *E) { return true; }
 
+  bool VisitObjCPropertyRefExpr(ObjCPropertyRefExpr *PRE) {
+    if (PRE->isClassReceiver())
+      DiagnoseDeclAvailability(PRE->getClassReceiver(), PRE->getReceiverLocation());
+    return true;
+  }
+
   bool VisitObjCMessageExpr(ObjCMessageExpr *Msg) {
     if (ObjCMethodDecl *D = Msg->getMethodDecl())
       DiagnoseDeclAvailability(
@@ -7268,6 +7283,12 @@ public:
   bool VisitMemberExpr(MemberExpr *ME) {
     DiagnoseDeclAvailability(ME->getMemberDecl(),
                              SourceRange(ME->getLocStart(), ME->getLocEnd()));
+    return true;
+  }
+
+  bool VisitObjCAvailabilityCheckExpr(ObjCAvailabilityCheckExpr *E) {
+    SemaRef.Diag(E->getLocStart(), diag::warn_at_available_unchecked_use)
+        << (!SemaRef.getLangOpts().ObjC1);
     return true;
   }
 
@@ -7380,6 +7401,9 @@ void DiagnoseUnguardedAvailability::DiagnoseDeclAvailability(
 bool DiagnoseUnguardedAvailability::VisitTypeLoc(TypeLoc Ty) {
   const Type *TyPtr = Ty.getTypePtr();
   SourceRange Range{Ty.getBeginLoc(), Ty.getEndLoc()};
+
+  if (Range.isInvalid())
+    return true;
 
   if (const TagType *TT = dyn_cast<TagType>(TyPtr)) {
     TagDecl *TD = TT->getDecl();
