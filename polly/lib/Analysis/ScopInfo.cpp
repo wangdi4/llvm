@@ -407,7 +407,9 @@ __isl_give isl_id *ScopArrayInfo::getBasePtrId() const {
   return isl_id_copy(Id);
 }
 
-void ScopArrayInfo::dump() const { print(errs()); }
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+LLVM_DUMP_METHOD void ScopArrayInfo::dump() const { print(errs()); }
+#endif
 
 void ScopArrayInfo::print(raw_ostream &OS, bool SizeAsPwAff) const {
   OS.indent(8) << *getElementType() << " " << getName();
@@ -1099,7 +1101,9 @@ void MemoryAccess::print(raw_ostream &OS) const {
     OS.indent(11) << "new: " << getNewAccessRelationStr() << ";\n";
 }
 
-void MemoryAccess::dump() const { print(errs()); }
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+LLVM_DUMP_METHOD void MemoryAccess::dump() const { print(errs()); }
+#endif
 
 __isl_give isl_pw_aff *MemoryAccess::getPwAff(const SCEV *E) {
   auto *Stmt = getStatement();
@@ -1997,7 +2001,9 @@ void ScopStmt::print(raw_ostream &OS, bool PrintInstructions) const {
     printInstructions(OS.indent(12));
 }
 
-void ScopStmt::dump() const { print(dbgs(), true); }
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+LLVM_DUMP_METHOD void ScopStmt::dump() const { print(dbgs(), true); }
+#endif
 
 void ScopStmt::removeAccessData(MemoryAccess *MA) {
   if (MA->isRead() && MA->isOriginalValueKind()) {
@@ -4659,7 +4665,9 @@ void Scop::print(raw_ostream &OS, bool PrintInstructions) const {
   printStatements(OS.indent(4), PrintInstructions);
 }
 
-void Scop::dump() const { print(dbgs(), true); }
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+LLVM_DUMP_METHOD void Scop::dump() const { print(dbgs(), true); }
+#endif
 
 isl_ctx *Scop::getIslCtx() const { return IslCtx.get(); }
 
