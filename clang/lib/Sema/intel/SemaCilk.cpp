@@ -1020,8 +1020,8 @@ void Sema::ActOnStartOfCilkForStmt(SourceLocation CilkForLoc, Scope *CurScope,
   DeclContext *DC = CapturedDecl::castToDeclContext(CD);
   IdentifierInfo *ParamName = &Context.Idents.get("__context");
   QualType ParamType = Context.getPointerType(Context.getTagDeclType(RD));
-  ImplicitParamDecl *Param
-    = ImplicitParamDecl::Create(Context, DC, CilkForLoc, ParamName, ParamType);
+  ImplicitParamDecl *Param = ImplicitParamDecl::Create(
+      Context, DC, CilkForLoc, ParamName, ParamType, ImplicitParamDecl::Other);
   DC->addDecl(Param);
 
   CD->setContextParam(0, Param);
@@ -1936,8 +1936,8 @@ void Sema::ActOnStartOfSIMDForStmt(SourceLocation PragmaLoc, Scope *CurScope,
   DeclContext *DC = CapturedDecl::castToDeclContext(CD);
   IdentifierInfo *ParamName = &Context.Idents.get("__context");
   QualType ParamType = Context.getPointerType(Context.getTagDeclType(RD));
-  ImplicitParamDecl *Param
-    = ImplicitParamDecl::Create(Context, DC, PragmaLoc, ParamName, ParamType);
+  ImplicitParamDecl *Param = ImplicitParamDecl::Create(
+      Context, DC, PragmaLoc, ParamName, ParamType, ImplicitParamDecl::Other);
   DC->addDecl(Param);
 
   CD->setContextParam(0, Param);
@@ -3920,16 +3920,16 @@ static void addReceiverParams(Sema &SemaRef, CapturedDecl *CD,
   if (!ReceiverType.isNull()) {
     DeclContext *DC = CapturedDecl::castToDeclContext(CD);
     assert(CD->getNumParams() >= 2);
-    ImplicitParamDecl *Receiver =
-        ImplicitParamDecl::Create(SemaRef.getASTContext(), DC, SourceLocation(),
-                                  /*IdInfo*/ 0, ReceiverType);
+    ImplicitParamDecl *Receiver = ImplicitParamDecl::Create(
+        SemaRef.getASTContext(), DC, SourceLocation(),
+        /*IdInfo*/ 0, ReceiverType, ImplicitParamDecl::Other);
     DC->addDecl(Receiver);
     CD->setParam(1, Receiver);
     if (!ReceiverTmpType.isNull()) {
       assert(CD->getNumParams() == 3);
       ImplicitParamDecl *ReceiverTmp = ImplicitParamDecl::Create(
           SemaRef.getASTContext(), DC, SourceLocation(), /*IdInfo*/ 0,
-          ReceiverTmpType);
+          ReceiverTmpType, ImplicitParamDecl::Other);
       DC->addDecl(ReceiverTmp);
       CD->setParam(2, ReceiverTmp);
     }
@@ -4460,15 +4460,15 @@ StmtResult Sema::BuildCilkForStmt(SourceLocation CilkForLoc,
     assert(VarLoc.isValid() && "invalid source location");
     assert(CD->getNumParams() == 3 && "bad signature");
 
-    ImplicitParamDecl *Low
-      = ImplicitParamDecl::Create(Context, DC, VarLoc,
-                                  &Context.Idents.get("__low"), Ty);
+    ImplicitParamDecl *Low = ImplicitParamDecl::Create(
+        Context, DC, VarLoc, &Context.Idents.get("__low"), Ty,
+        ImplicitParamDecl::Other);
     DC->addDecl(Low);
     CD->setParam(1, Low);
 
-    ImplicitParamDecl *High
-      = ImplicitParamDecl::Create(Context, DC, VarLoc,
-                                  &Context.Idents.get("__high"), Ty);
+    ImplicitParamDecl *High = ImplicitParamDecl::Create(
+        Context, DC, VarLoc, &Context.Idents.get("__high"), Ty,
+        ImplicitParamDecl::Other);
     DC->addDecl(High);
     CD->setParam(2, High);
 
@@ -4570,11 +4570,13 @@ StmtResult Sema::BuildSIMDForStmt(SourceLocation PragmaLoc,
     QualType IndexType = LoopCount->getType();
     ImplicitParamDecl *Index = 0, *LastIter = 0;
     Index = ImplicitParamDecl::Create(getASTContext(), DC, SourceLocation(),
-                                      /*IdInfo*/ 0, IndexType);
+                                      /*IdInfo*/ 0, IndexType,
+                                      ImplicitParamDecl::Other);
     DC->addDecl(Index);
     CD->setParam(1, Index);
     LastIter = ImplicitParamDecl::Create(getASTContext(), DC, SourceLocation(),
-                                         /*IdInfo*/ 0, Context.BoolTy);
+                                         /*IdInfo*/ 0, Context.BoolTy,
+                                         ImplicitParamDecl::Other);
     DC->addDecl(LastIter);
     CD->setParam(2, LastIter);
   }

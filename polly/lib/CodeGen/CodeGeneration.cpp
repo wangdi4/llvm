@@ -10,7 +10,7 @@
 // The CodeGeneration pass takes a Scop created by ScopInfo and translates it
 // back to LLVM-IR using the ISL code generator.
 //
-// The Scop describes the high level memory behaviour of a control flow region.
+// The Scop describes the high level memory behavior of a control flow region.
 // Transformation passes can update the schedule (execution order) of statements
 // in the Scop. ISL is used to generate an abstract syntax tree that reflects
 // the updated execution order. This clast is used to create new LLVM-IR that is
@@ -162,7 +162,6 @@ static bool CodeGen(Scop &S, IslAstInfo &AI, LoopInfo &LI, DominatorTree &DT,
   assert(!R->isTopLevelRegion() && "Top level regions are not supported");
 
   ScopAnnotator Annotator;
-  Annotator.buildAliasScopes(S);
 
   simplifyRegion(R, &DT, &LI, &RI);
   assert(R->isSimple());
@@ -183,8 +182,13 @@ static bool CodeGen(Scop &S, IslAstInfo &AI, LoopInfo &LI, DominatorTree &DT,
 
   IslNodeBuilder NodeBuilder(Builder, Annotator, DL, LI, SE, DT, S, StartBlock);
 
+  // All arrays must have their base pointers known before
+  // ScopAnnotator::buildAliasScopes.
+  NodeBuilder.allocateNewArrays();
+  Annotator.buildAliasScopes(S);
+
   if (PerfMonitoring) {
-    PerfMonitor P(EnteringBB->getParent()->getParent());
+    PerfMonitor P(S, EnteringBB->getParent()->getParent());
     P.initialize();
     P.insertRegionStart(SplitBlock->getTerminator());
 
@@ -224,7 +228,6 @@ static bool CodeGen(Scop &S, IslAstInfo &AI, LoopInfo &LI, DominatorTree &DT,
 
     isl_ast_node_free(AstRoot);
   } else {
-    NodeBuilder.allocateNewArrays();
     NodeBuilder.addParameters(S.getContext());
     Value *RTC = NodeBuilder.createRTC(AI.getRunCondition());
 
@@ -253,7 +256,7 @@ public:
 
   CodeGeneration() : ScopPass(ID) {}
 
-  /// The datalayout used
+  /// The data layout used.
   const DataLayout *DL;
 
   /// @name The analysis passes we need to generate code.

@@ -30,6 +30,7 @@
 #include "lldb/Target/Thread.h"
 #include "lldb/Target/UnixSignals.h"
 #include "lldb/Utility/Status.h"
+#include "llvm/Support/Errno.h"
 
 #include "FreeBSDThread.h"
 #include "Plugins/Process/POSIX/CrashReason.h"
@@ -529,10 +530,8 @@ void ResumeOperation::Execute(ProcessMonitor *monitor) {
 
   if (PTRACE(PT_CONTINUE, pid, (caddr_t)1, data)) {
     Log *log(ProcessPOSIXLog::GetLogIfAllCategoriesSet(POSIX_LOG_PROCESS));
-
-    if (log)
-      log->Printf("ResumeOperation (%" PRIu64 ") failed: %s", pid,
-                  strerror(errno));
+    LLDB_LOG(log, "ResumeOperation ({0}) failed: {1}", pid,
+             llvm::sys::StrError(errno));
     m_result = false;
   } else
     m_result = true;
@@ -1132,6 +1131,10 @@ ProcessMessage ProcessMonitor::MonitorSIGTRAP(ProcessMonitor *monitor,
 
   case 0:
   case TRAP_TRACE:
+#ifdef TRAP_CAP
+  // Map TRAP_CAP to a trace trap in the absense of a more specific handler.
+  case TRAP_CAP:
+#endif
     if (log)
       log->Printf("ProcessMonitor::%s() received trace event, tid = %" PRIu64
                   "  : si_code = %d",

@@ -11,14 +11,17 @@
 #include "clang/Frontend/ASTUnit.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Frontend/CompilerInvocation.h"
+#include "clang/Frontend/Utils.h"
 #include "clang/Tooling/CompilationDatabase.h"
+#include "llvm/Support/Format.h"
 
 using namespace clang::clangd;
 using namespace clang;
 
 ClangdUnit::ClangdUnit(PathRef FileName, StringRef Contents,
                        std::shared_ptr<PCHContainerOperations> PCHs,
-                       std::vector<tooling::CompileCommand> Commands)
+                       std::vector<tooling::CompileCommand> Commands,
+                       IntrusiveRefCntPtr<vfs::FileSystem> VFS)
     : FileName(FileName), PCHs(PCHs) {
   assert(!Commands.empty() && "No compile commands provided");
 
@@ -48,10 +51,17 @@ ClangdUnit::ClangdUnit(PathRef FileName, StringRef Contents,
       /*PrecompilePreambleAfterNParses=*/1, /*TUKind=*/TU_Prefix,
       /*CacheCodeCompletionResults=*/true,
       /*IncludeBriefCommentsInCodeCompletion=*/true,
-      /*AllowPCHWithCompilerErrors=*/true));
+      /*AllowPCHWithCompilerErrors=*/true,
+      /*SkipFunctionBodies=*/false,
+      /*SingleFileParse=*/false,
+      /*UserFilesAreVolatile=*/false, /*ForSerialization=*/false,
+      /*ModuleFormat=*/llvm::None,
+      /*ErrAST=*/nullptr, VFS));
+  assert(Unit && "Unit wasn't created");
 }
 
-void ClangdUnit::reparse(StringRef Contents) {
+void ClangdUnit::reparse(StringRef Contents,
+                         IntrusiveRefCntPtr<vfs::FileSystem> VFS) {
   // Do a reparse if this wasn't the first parse.
   // FIXME: This might have the wrong working directory if it changed in the
   // meantime.
@@ -59,7 +69,7 @@ void ClangdUnit::reparse(StringRef Contents) {
       FileName,
       llvm::MemoryBuffer::getMemBufferCopy(Contents, FileName).release());
 
-  Unit->Reparse(PCHs, RemappedSource);
+  Unit->Reparse(PCHs, RemappedSource, VFS);
 }
 
 namespace {
@@ -130,9 +140,31 @@ public:
           CodeCompleteOpts.IncludeBriefComments);
       if (CCS) {
         CompletionItem Item;
+        for (CodeCompletionString::Chunk C : *CCS) {
+          switch (C.Kind) {
+          case CodeCompletionString::CK_ResultType:
+            Item.detail = C.Text;
+            break;
+          case CodeCompletionString::CK_Optional:
+            break;
+          default:
+            Item.label += C.Text;
+            break;
+          }
+        }
         assert(CCS->getTypedText());
-        Item.label = CCS->getTypedText();
         Item.kind = getKind(Result.CursorKind);
+        // Priority is a 16-bit integer, hence at most 5 digits.
+        // Since identifiers with higher priority need to come first,
+        // we subtract the priority from 99999.
+        // For example, the sort text of the identifier 'a' with priority 35
+        // is 99964a.
+        assert(CCS->getPriority() < 99999 && "Expecting code completion result "
+                                             "priority to have at most "
+                                             "5-digits");
+        llvm::raw_string_ostream(Item.sortText) << llvm::format(
+            "%05d%s", 99999 - CCS->getPriority(), CCS->getTypedText());
+        Item.insertText = Item.filterText = CCS->getTypedText();
         if (CCS->getBriefComment())
           Item.documentation = CCS->getBriefComment();
         Items->push_back(std::move(Item));
@@ -146,8 +178,9 @@ public:
 };
 } // namespace
 
-std::vector<CompletionItem> ClangdUnit::codeComplete(StringRef Contents,
-                                                     Position Pos) {
+std::vector<CompletionItem>
+ClangdUnit::codeComplete(StringRef Contents, Position Pos,
+                         IntrusiveRefCntPtr<vfs::FileSystem> VFS) {
   CodeCompleteOptions CCO;
   CCO.IncludeBriefComments = 1;
   // This is where code completion stores dirty buffers. Need to free after
@@ -163,8 +196,10 @@ std::vector<CompletionItem> ClangdUnit::codeComplete(StringRef Contents,
       FileName,
       llvm::MemoryBuffer::getMemBufferCopy(Contents, FileName).release());
 
+  IntrusiveRefCntPtr<FileManager> FileMgr(
+      new FileManager(Unit->getFileSystemOpts(), VFS));
   IntrusiveRefCntPtr<SourceManager> SourceMgr(
-      new SourceManager(*DiagEngine, Unit->getFileManager()));
+      new SourceManager(*DiagEngine, *FileMgr));
   // CodeComplete seems to require fresh LangOptions.
   LangOptions LangOpts = Unit->getLangOpts();
   // The language server protocol uses zero-based line and column numbers.
@@ -172,8 +207,8 @@ std::vector<CompletionItem> ClangdUnit::codeComplete(StringRef Contents,
   Unit->CodeComplete(FileName, Pos.line + 1, Pos.character + 1, RemappedSource,
                      CCO.IncludeMacros, CCO.IncludeCodePatterns,
                      CCO.IncludeBriefComments, Collector, PCHs, *DiagEngine,
-                     LangOpts, *SourceMgr, Unit->getFileManager(),
-                     StoredDiagnostics, OwnedBuffers);
+                     LangOpts, *SourceMgr, *FileMgr, StoredDiagnostics,
+                     OwnedBuffers);
   for (const llvm::MemoryBuffer *Buffer : OwnedBuffers)
     delete Buffer;
   return Items;
@@ -221,4 +256,8 @@ std::vector<DiagWithFixIts> ClangdUnit::getLocalDiagnostics() const {
     Result.push_back({Diag, std::move(FixItsForDiagnostic)});
   }
   return Result;
+}
+
+void ClangdUnit::dumpAST(llvm::raw_ostream &OS) const {
+  Unit->getASTContext().getTranslationUnitDecl()->dump(OS, true);
 }

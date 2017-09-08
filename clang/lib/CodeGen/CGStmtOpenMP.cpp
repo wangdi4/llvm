@@ -284,8 +284,9 @@ CodeGenFunction::GenerateOpenMPCapturedStmtFunction(const CapturedStmt &S) {
       ArgType =
           getCanonicalParamType(getContext(), ArgType.getNonReferenceType());
     }
-    Args.push_back(ImplicitParamDecl::Create(getContext(), nullptr,
-                                             FD->getLocation(), II, ArgType));
+    Args.push_back(ImplicitParamDecl::Create(getContext(), /*DC=*/nullptr,
+                                             FD->getLocation(), II, ArgType,
+                                             ImplicitParamDecl::Other));
     ++I;
   }
   Args.append(

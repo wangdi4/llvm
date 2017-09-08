@@ -923,6 +923,7 @@ enum AttributeDeclKind {
   ExpectedTypeOrNamespace,
   ExpectedObjectiveCInterface,
   ExpectedMethodOrProperty,
+  ExpectedFunctionOrMethodOrProperty,
   ExpectedStructOrUnion,
   ExpectedStructOrUnionOrClass,
   ExpectedType,
