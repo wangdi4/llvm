@@ -28,6 +28,7 @@ namespace RTLIB {
   /// PPCISelLowering.cpp.
   ///
   enum Libcall {
+<<<<<<< HEAD
     // Integer
     SHL_I16,
     SHL_I32,
@@ -497,6 +498,11 @@ namespace RTLIB {
     DEOPTIMIZE,
 
     UNKNOWN_LIBCALL
+=======
+#define HANDLE_LIBCALL(code, name) code,
+    #include "RuntimeLibcalls.def"
+#undef HANDLE_LIBCALL
+>>>>>>> acdb8f988e3c545b7eae536a8c81096a43dfbd7e
   };
 
   /// getFPEXT - Return the FPEXT_*_* value for the given types, or
