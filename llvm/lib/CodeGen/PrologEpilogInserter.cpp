@@ -504,7 +504,6 @@ void PEI::doSpillCalleeSavedRegs(MachineFunction &Fn) {
   const Function *F = Fn.getFunction();
   const TargetFrameLowering *TFI = Fn.getSubtarget().getFrameLowering();
   MachineFrameInfo &MFI = Fn.getFrameInfo();
-  ArrayRef<CalleeSavedInfo> CSI = MFI.getCalleeSavedInfo();
   MinCSFrameIndex = std::numeric_limits<unsigned>::max();
   MaxCSFrameIndex = 0;
 
@@ -519,6 +518,7 @@ void PEI::doSpillCalleeSavedRegs(MachineFunction &Fn) {
   if (!F->hasFnAttribute(Attribute::Naked)) {
     MFI.setCalleeSavedInfoValid(true);
 
+    ArrayRef<CalleeSavedInfo> CSI = MFI.getCalleeSavedInfo();
     if (!CSI.empty()) {
       for (MachineBasicBlock *SaveBlock : SaveBlocks) {
         insertCSRSaves(*SaveBlock, CSI);
