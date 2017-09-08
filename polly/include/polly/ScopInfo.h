@@ -375,11 +375,10 @@ public:
   void print(raw_ostream &OS, bool SizeAsPwAff = false) const;
 
   /// Access the ScopArrayInfo associated with an access function.
-  static const ScopArrayInfo *
-  getFromAccessFunction(__isl_keep isl_pw_multi_aff *PMA);
+  static const ScopArrayInfo *getFromAccessFunction(isl::pw_multi_aff PMA);
 
   /// Access the ScopArrayInfo associated with an isl Id.
-  static const ScopArrayInfo *getFromId(__isl_take isl_id *Id);
+  static const ScopArrayInfo *getFromId(isl::id Id);
 
   /// Get the space of this array access.
   isl::space getSpace() const;
@@ -748,7 +747,7 @@ public:
   /// @param Stmt       The parent statement.
   /// @param AccType    Whether read or write access.
   /// @param AccRel     The access relation that describes the memory access.
-  MemoryAccess(ScopStmt *Stmt, AccessType AccType, __isl_take isl_map *AccRel);
+  MemoryAccess(ScopStmt *Stmt, AccessType AccType, isl::map AccRel);
 
   ~MemoryAccess();
 
@@ -916,7 +915,7 @@ public:
   /// Compute the isl representation for the SCEV @p E wrt. this access.
   ///
   /// Note that this function will also adjust the invalid context accordingly.
-  __isl_give isl_pw_aff *getPwAff(const SCEV *E);
+  isl::pw_aff getPwAff(const SCEV *E);
 
   /// Get the invalid domain for this access.
   __isl_give isl_set *getInvalidDomain() const {
