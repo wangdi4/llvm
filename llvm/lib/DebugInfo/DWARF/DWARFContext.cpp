@@ -783,20 +783,6 @@ DWARFContext::getInliningInfoForAddress(uint64_t Address,
   return InliningInfo;
 }
 
-/// DWARFContextInMemory is the simplest possible implementation of a
-/// DWARFContext. It assumes all content is available in memory and stores
-/// pointers to it.
-class DWARFContextInMemory : public DWARFContext {
-public:
-  DWARFContextInMemory(
-      const object::ObjectFile &Obj, const LoadedObjectInfo *L = nullptr,
-      function_ref<ErrorPolicy(Error)> HandleError = defaultErrorHandler);
-
-  DWARFContextInMemory(const StringMap<std::unique_ptr<MemoryBuffer>> &Sections,
-                       uint8_t AddrSize,
-                       bool isLittleEndian = sys::IsLittleEndianHost);
-};
-
 std::shared_ptr<DWARFContext>
 DWARFContext::getDWOContext(StringRef AbsolutePath) {
   if (auto S = DWP.lock()) {
@@ -1266,13 +1252,14 @@ public:
 std::unique_ptr<DWARFContext>
 DWARFContext::create(const object::ObjectFile &Obj, const LoadedObjectInfo *L,
                      function_ref<ErrorPolicy(Error)> HandleError) {
-  auto DObj = make_unique<DWARFObjInMemory>(Obj, L, HandleError);
-  return make_unique<DWARFContext>(std::move(DObj));
+  auto DObj = llvm::make_unique<DWARFObjInMemory>(Obj, L, HandleError);
+  return llvm::make_unique<DWARFContext>(std::move(DObj));
 }
 
 std::unique_ptr<DWARFContext>
 DWARFContext::create(const StringMap<std::unique_ptr<MemoryBuffer>> &Sections,
                      uint8_t AddrSize, bool isLittleEndian) {
-  auto DObj = make_unique<DWARFObjInMemory>(Sections, AddrSize, isLittleEndian);
-  return make_unique<DWARFContext>(std::move(DObj));
+  auto DObj =
+      llvm::make_unique<DWARFObjInMemory>(Sections, AddrSize, isLittleEndian);
+  return llvm::make_unique<DWARFContext>(std::move(DObj));
 }
