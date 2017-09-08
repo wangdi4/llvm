@@ -12,30 +12,37 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/Basic/Builtins.h"
-#include "clang/Basic/Cuda.h"
+#include "Targets.h"
+
+#include "Targets/AArch64.h"
+#include "Targets/AMDGPU.h"
+#include "Targets/ARM.h"
+#include "Targets/AVR.h"
+#include "Targets/BPF.h"
+#include "Targets/Hexagon.h"
+#include "Targets/Lanai.h"
+#include "Targets/Le64.h"
+#include "Targets/MSP430.h"
+#include "Targets/Mips.h"
+#include "Targets/NVPTX.h"
+#include "Targets/Nios2.h"
+#include "Targets/OSTargets.h"
+#include "Targets/PNaCl.h"
+#include "Targets/PPC.h"
+#include "Targets/SPIR.h"
+#include "Targets/Sparc.h"
+#include "Targets/SystemZ.h"
+#include "Targets/TCE.h"
+#include "Targets/WebAssembly.h"
+#include "Targets/X86.h"
+#include "Targets/XCore.h"
 #include "clang/Basic/Diagnostic.h"
-#include "clang/Basic/LangOptions.h"
-#include "clang/Basic/MacroBuilder.h"
-#include "clang/Basic/TargetBuiltins.h"
-#include "clang/Basic/TargetInfo.h"
-#include "clang/Basic/TargetOptions.h"
-#include "clang/Basic/Version.h"
-#include "clang/Frontend/CodeGenOptions.h"
-#include "llvm/ADT/APFloat.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/StringSwitch.h"
 #include "llvm/ADT/Triple.h"
-#include "llvm/MC/MCSectionMachO.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/TargetParser.h"
-#include <algorithm>
-#include <memory>
 
 using namespace clang;
 
+namespace clang {
+namespace targets {
 //===----------------------------------------------------------------------===//
 //  Common code shared among targets.
 //===----------------------------------------------------------------------===//
@@ -43,8 +50,8 @@ using namespace clang;
 /// DefineStd - Define a macro name and standard variants.  For example if
 /// MacroName is "unix", then this will define "__unix", "__unix__", and "unix"
 /// when in GNU mode.
-static void DefineStd(MacroBuilder &Builder, StringRef MacroName,
-                      const LangOptions &Opts) {
+void DefineStd(MacroBuilder &Builder, StringRef MacroName,
+               const LangOptions &Opts) {
   assert(MacroName[0] != '_' && "Identifier should be in the user's namespace");
 
   // If in GNU mode (e.g. -std=gnu99 but not -std=c99) define the raw identifier
@@ -59,14 +66,14 @@ static void DefineStd(MacroBuilder &Builder, StringRef MacroName,
   Builder.defineMacro("__" + MacroName + "__");
 }
 
-static void defineCPUMacros(MacroBuilder &Builder, StringRef CPUName,
-                            bool Tuning = true) {
+void defineCPUMacros(MacroBuilder &Builder, StringRef CPUName, bool Tuning) {
   Builder.defineMacro("__" + CPUName);
   Builder.defineMacro("__" + CPUName + "__");
   if (Tuning)
     Builder.defineMacro("__tune_" + CPUName + "__");
 }
 
+<<<<<<< HEAD
 static TargetInfo *AllocateTarget(const llvm::Triple &Triple,
                                   const TargetOptions &Opts);
 
@@ -9672,12 +9679,20 @@ protected:
 
 } // end anonymous namespace
 
+=======
+void addMinGWDefines(const LangOptions &Opts, MacroBuilder &Builder) {
+  Builder.defineMacro("__MSVCRT__");
+  Builder.defineMacro("__MINGW32__");
+  addCygMingDefines(Opts, Builder);
+}
+
+>>>>>>> 60dfdd64300c9a08bd11d0cccd5c8d1548fbbe23
 //===----------------------------------------------------------------------===//
 // Driver code
 //===----------------------------------------------------------------------===//
 
-static TargetInfo *AllocateTarget(const llvm::Triple &Triple,
-                                  const TargetOptions &Opts) {
+TargetInfo *AllocateTarget(const llvm::Triple &Triple,
+                           const TargetOptions &Opts) {
   llvm::Triple::OSType os = Triple.getOS();
 
   switch (Triple.getArch()) {
@@ -10151,7 +10166,10 @@ static TargetInfo *AllocateTarget(const llvm::Triple &Triple,
     return new LinuxTargetInfo<RenderScript64TargetInfo>(Triple, Opts);
   }
 }
+} // namespace targets
+} // namespace clang
 
+using namespace clang::targets;
 /// CreateTargetInfo - Return the target info object for the specified target
 /// options.
 TargetInfo *
@@ -10190,7 +10208,7 @@ TargetInfo::CreateTargetInfo(DiagnosticsEngine &Diags,
   llvm::StringMap<bool> Features;
   if (!Target->initFeatureMap(Features, Diags, Opts->CPU,
                               Opts->FeaturesAsWritten))
-      return nullptr;
+    return nullptr;
 
   // Add the features to the compile options.
   Opts->Features.clear();
