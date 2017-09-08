@@ -437,16 +437,15 @@ void ScopArrayInfo::print(raw_ostream &OS, bool SizeAsPwAff) const {
 }
 
 const ScopArrayInfo *
-ScopArrayInfo::getFromAccessFunction(__isl_keep isl_pw_multi_aff *PMA) {
-  isl_id *Id = isl_pw_multi_aff_get_tuple_id(PMA, isl_dim_out);
-  assert(Id && "Output dimension didn't have an ID");
+ScopArrayInfo::getFromAccessFunction(isl::pw_multi_aff PMA) {
+  isl::id Id = PMA.get_tuple_id(isl::dim::out);
+  assert(!Id.is_null() && "Output dimension didn't have an ID");
   return getFromId(Id);
 }
 
-const ScopArrayInfo *ScopArrayInfo::getFromId(__isl_take isl_id *Id) {
-  void *User = isl_id_get_user(Id);
+const ScopArrayInfo *ScopArrayInfo::getFromId(isl::id Id) {
+  void *User = Id.get_user();
   const ScopArrayInfo *SAI = static_cast<ScopArrayInfo *>(User);
-  isl_id_free(Id);
   return SAI;
 }
 
@@ -1011,13 +1010,12 @@ MemoryAccess::MemoryAccess(ScopStmt *Stmt, Instruction *AccessInst,
   Id = isl::id::alloc(Stmt->getParent()->getIslCtx(), IdName.c_str(), this);
 }
 
-MemoryAccess::MemoryAccess(ScopStmt *Stmt, AccessType AccType,
-                           __isl_take isl_map *AccRel)
+MemoryAccess::MemoryAccess(ScopStmt *Stmt, AccessType AccType, isl::map AccRel)
     : Kind(MemoryKind::Array), AccType(AccType), RedType(RT_NONE),
       Statement(Stmt), InvalidDomain(nullptr), AccessInstruction(nullptr),
-      IsAffine(true), AccessRelation(nullptr),
-      NewAccessRelation(isl::manage(AccRel)), FAD(nullptr) {
-  auto *ArrayInfoId = NewAccessRelation.get_tuple_id(isl::dim::out).release();
+      IsAffine(true), AccessRelation(nullptr), NewAccessRelation(AccRel),
+      FAD(nullptr) {
+  isl::id ArrayInfoId = NewAccessRelation.get_tuple_id(isl::dim::out);
   auto *SAI = ScopArrayInfo::getFromId(ArrayInfoId);
   Sizes.push_back(nullptr);
   for (unsigned i = 1; i < SAI->getNumberOfDimensions(); i++)
@@ -1747,12 +1745,13 @@ ScopStmt::ScopStmt(Scop &parent, __isl_take isl_map *SourceRel,
   auto *Id = isl_id_alloc(getIslCtx(), getBaseName(), this);
   Domain = isl_set_set_tuple_id(Domain, isl_id_copy(Id));
   TargetRel = isl_map_set_tuple_id(TargetRel, isl_dim_in, Id);
-  auto *Access =
-      new MemoryAccess(this, MemoryAccess::AccessType::MUST_WRITE, TargetRel);
+  auto *Access = new MemoryAccess(this, MemoryAccess::AccessType::MUST_WRITE,
+                                  isl::manage(TargetRel));
   parent.addAccessFunction(Access);
   addAccess(Access);
   SourceRel = isl_map_set_tuple_id(SourceRel, isl_dim_in, isl_id_copy(Id));
-  Access = new MemoryAccess(this, MemoryAccess::AccessType::READ, SourceRel);
+  Access = new MemoryAccess(this, MemoryAccess::AccessType::READ,
+                            isl::manage(SourceRel));
   parent.addAccessFunction(Access);
   addAccess(Access);
 }
@@ -4719,6 +4718,16 @@ Scop::getAccessesOfType(std::function<bool(MemoryAccess &)> Predicate) {
       Accesses = isl_union_map_add_map(Accesses, AccessDomain);
     }
   }
+
+  return isl_union_map_coalesce(Accesses);
+
+  for (auto X : this->getInvariantAccesses())
+    for (auto A : X.InvariantAccesses) {
+      if (!Predicate(*A))
+        continue;
+      Accesses =
+          isl_union_map_add_map(Accesses, A->getAccessRelation().release());
+    }
   return isl_union_map_coalesce(Accesses);
 }
 
