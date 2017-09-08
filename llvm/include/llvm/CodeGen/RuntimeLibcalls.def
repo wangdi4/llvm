@@ -334,6 +334,10 @@ HANDLE_LIBCALL(O_PPCF128, "__gcc_qunord")
 HANDLE_LIBCALL(MEMCPY, "memcpy")
 HANDLE_LIBCALL(MEMMOVE, "memmove")
 HANDLE_LIBCALL(MEMSET, "memset")
+#if INTEL_CUSTOMIZATION
+HANDLE_LIBCALL(INTEL_MEMCPY, "_intel_fast_memcpy")
+HANDLE_LIBCALL(INTEL_MEMSET, "_intel_fast_memset")
+#endif // INTEL_CUSTOMIZATION
 
 // Element-wise unordered-atomic memory of different sizes
 HANDLE_LIBCALL(MEMCPY_ELEMENT_UNORDERED_ATOMIC_1, "__llvm_memcpy_element_unordered_atomic_1")
