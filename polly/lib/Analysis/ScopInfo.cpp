@@ -98,7 +98,7 @@ static cl::opt<int>
     OptComputeOut("polly-analysis-computeout",
                   cl::desc("Bound the scop analysis by a maximal amount of "
                            "computational steps (0 means no bound)"),
-                  cl::Hidden, cl::init(1000000), cl::ZeroOrMore,
+                  cl::Hidden, cl::init(600000), cl::ZeroOrMore,
                   cl::cat(PollyCategory));
 
 static cl::opt<bool> PollyRemarksMinimal(
@@ -167,6 +167,10 @@ static cl::opt<bool, true> XUseInstructionNames(
     cl::desc("Use LLVM-IR names when deriving statement names"),
     cl::location(UseInstructionNames), cl::Hidden, cl::init(false),
     cl::ZeroOrMore, cl::cat(PollyCategory));
+
+static cl::opt<bool> PollyPrintInstructions(
+    "polly-print-instructions", cl::desc("Output instructions per ScopStmt"),
+    cl::Hidden, cl::Optional, cl::init(false), cl::cat(PollyCategory));
 
 //===----------------------------------------------------------------------===//
 
@@ -926,7 +930,7 @@ static bool isDivisible(const SCEV *Expr, unsigned Size, ScalarEvolution &SE) {
   }
 
   // For other n-ary expressions (Add, AddRec, Max,...) all operands need
-  // to be divisble.
+  // to be divisible.
   if (auto *NAryExpr = dyn_cast<SCEVNAryExpr>(Expr)) {
     for (auto *OpExpr : NAryExpr->operands())
       if (!isDivisible(OpExpr, Size, SE))
@@ -1647,9 +1651,11 @@ ScopStmt::ScopStmt(Scop &parent, Region &R, Loop *SurroundingLoop)
       "Stmt", R.getNameStr(), parent.getNextStmtIdx(), "", UseInstructionNames);
 }
 
-ScopStmt::ScopStmt(Scop &parent, BasicBlock &bb, Loop *SurroundingLoop)
+ScopStmt::ScopStmt(Scop &parent, BasicBlock &bb, Loop *SurroundingLoop,
+                   std::vector<Instruction *> Instructions)
     : Parent(parent), InvalidDomain(nullptr), Domain(nullptr), BB(&bb),
-      R(nullptr), Build(nullptr), SurroundingLoop(SurroundingLoop) {
+      R(nullptr), Build(nullptr), SurroundingLoop(SurroundingLoop),
+      Instructions(Instructions) {
 
   BaseName = getIslCompatibleName("Stmt", &bb, parent.getNextStmtIdx(), "",
                                   UseInstructionNames);
@@ -1863,6 +1869,15 @@ ScopStmt::~ScopStmt() {
   isl_set_free(InvalidDomain);
 }
 
+void ScopStmt::printInstructions(raw_ostream &OS) const {
+  OS << "Instructions {\n";
+
+  for (Instruction *Inst : Instructions)
+    OS.indent(16) << *Inst << "\n";
+
+  OS.indent(16) << "}\n";
+}
+
 void ScopStmt::print(raw_ostream &OS) const {
   OS << "\t" << getBaseName() << "\n";
   OS.indent(12) << "Domain :=\n";
@@ -1881,6 +1896,9 @@ void ScopStmt::print(raw_ostream &OS) const {
 
   for (MemoryAccess *Access : MemAccs)
     Access->print(OS);
+
+  if (PollyPrintInstructions)
+    printInstructions(OS.indent(12));
 }
 
 void ScopStmt::dump() const { print(dbgs()); }
@@ -1980,16 +1998,50 @@ const SCEV *Scop::getRepresentingInvariantLoadSCEV(const SCEV *S) {
   return SCEVSensitiveParameterRewriter::rewrite(S, *SE, InvEquivClassVMap);
 }
 
+// This table of function names is used to translate parameter names in more
+// human-readable names. This makes it easier to interpret Polly analysis
+// results.
+StringMap<std::string> KnownNames = {
+    {"_Z13get_global_idj", "global_id"},
+    {"_Z12get_local_idj", "local_id"},
+    {"_Z15get_global_sizej", "global_size"},
+    {"_Z14get_local_sizej", "local_size"},
+    {"_Z12get_work_dimv", "work_dim"},
+    {"_Z17get_global_offsetj", "global_offset"},
+    {"_Z12get_group_idj", "group_id"},
+    {"_Z14get_num_groupsj", "num_groups"},
+};
+
+static std::string getCallParamName(CallInst *Call) {
+  std::string Result;
+  raw_string_ostream OS(Result);
+  std::string Name = Call->getCalledFunction()->getName();
+
+  auto Iterator = KnownNames.find(Name);
+  if (Iterator != KnownNames.end())
+    Name = "__" + Iterator->getValue();
+  OS << Name;
+  for (auto &Operand : Call->arg_operands()) {
+    ConstantInt *Op = cast<ConstantInt>(&Operand);
+    OS << "_" << Op->getValue();
+  }
+  OS.flush();
+  return Result;
+}
+
 void Scop::createParameterId(const SCEV *Parameter) {
   assert(Parameters.count(Parameter));
   assert(!ParameterIds.count(Parameter));
 
   std::string ParameterName = "p_" + std::to_string(getNumParams() - 1);
 
-  if (UseInstructionNames) {
-    if (const SCEVUnknown *ValueParameter = dyn_cast<SCEVUnknown>(Parameter)) {
-      Value *Val = ValueParameter->getValue();
+  if (const SCEVUnknown *ValueParameter = dyn_cast<SCEVUnknown>(Parameter)) {
+    Value *Val = ValueParameter->getValue();
+    CallInst *Call = dyn_cast<CallInst>(Val);
 
+    if (Call && isConstCall(Call)) {
+      ParameterName = getCallParamName(Call);
+    } else if (UseInstructionNames) {
       // If this parameter references a specific Value and this value has a name
       // we use this name as it is likely to be unique and more useful than just
       // a number.
@@ -2466,7 +2518,7 @@ static inline Loop *getRegionNodeLoop(RegionNode *RN, LoopInfo &LI) {
     // able to model them and to later eliminate the run-time bounds checks.
     //
     // Specifically, for basic blocks that terminate in an unreachable and
-    // where the immeditate predecessor is part of a loop, we assume these
+    // where the immediate predecessor is part of a loop, we assume these
     // basic blocks belong to the loop the predecessor belongs to. This
     // allows us to model the following code.
     //
@@ -3135,12 +3187,9 @@ MemoryAccess *Scop::lookupBasePtrAccess(MemoryAccess *MA) {
 }
 
 bool Scop::hasNonHoistableBasePtrInScop(MemoryAccess *MA,
-                                        __isl_keep isl_union_map *Writes) {
+                                        isl::union_map Writes) {
   if (auto *BasePtrMA = lookupBasePtrAccess(MA)) {
-    auto *NHCtx = getNonHoistableCtx(BasePtrMA, Writes);
-    bool Hoistable = NHCtx != nullptr;
-    isl_set_free(NHCtx);
-    return !Hoistable;
+    return getNonHoistableCtx(BasePtrMA, Writes).is_null();
   }
 
   Value *BaseAddr = MA->getOriginalBaseAddr();
@@ -3690,8 +3739,8 @@ static bool canAlwaysBeHoisted(MemoryAccess *MA, bool StmtInvalidCtxIsEmpty,
   if (!NonHoistableCtxIsEmpty)
     return false;
 
-  // If a dereferencable load is in a statement that is modeled precisely we can
-  // hoist it.
+  // If a dereferenceable load is in a statement that is modeled precisely we
+  // can hoist it.
   if (StmtInvalidCtxIsEmpty && MAInvalidCtxIsEmpty)
     return true;
 
@@ -3831,8 +3880,7 @@ void Scop::addInvariantLoads(ScopStmt &Stmt, InvariantAccessesTy &InvMAs) {
   isl_set_free(DomainCtx);
 }
 
-__isl_give isl_set *Scop::getNonHoistableCtx(MemoryAccess *Access,
-                                             __isl_keep isl_union_map *Writes) {
+isl::set Scop::getNonHoistableCtx(MemoryAccess *Access, isl::union_map Writes) {
   // TODO: Loads that are not loop carried, hence are in a statement with
   //       zero iterators, are by construction invariant, though we
   //       currently "hoist" them anyway. This is necessary because we allow
@@ -3859,49 +3907,41 @@ __isl_give isl_set *Scop::getNonHoistableCtx(MemoryAccess *Access,
   if (hasNonHoistableBasePtrInScop(Access, Writes))
     return nullptr;
 
-  isl_map *AccessRelation = Access->getAccessRelation();
-  assert(!isl_map_is_empty(AccessRelation));
+  isl::map AccessRelation = give(Access->getAccessRelation());
+  assert(!AccessRelation.is_empty());
 
-  if (isl_map_involves_dims(AccessRelation, isl_dim_in, 0,
-                            Stmt.getNumIterators())) {
-    isl_map_free(AccessRelation);
+  if (AccessRelation.involves_dims(isl::dim::in, 0, Stmt.getNumIterators()))
     return nullptr;
-  }
 
-  AccessRelation = isl_map_intersect_domain(AccessRelation, Stmt.getDomain());
-  isl_set *SafeToLoad;
+  AccessRelation = AccessRelation.intersect_domain(give(Stmt.getDomain()));
+  isl::set SafeToLoad;
 
   auto &DL = getFunction().getParent()->getDataLayout();
   if (isSafeToLoadUnconditionally(LI->getPointerOperand(), LI->getAlignment(),
                                   DL)) {
-    SafeToLoad =
-        isl_set_universe(isl_space_range(isl_map_get_space(AccessRelation)));
-    isl_map_free(AccessRelation);
+    SafeToLoad = isl::set::universe(AccessRelation.get_space().range());
   } else if (BB != LI->getParent()) {
     // Skip accesses in non-affine subregions as they might not be executed
     // under the same condition as the entry of the non-affine subregion.
-    isl_map_free(AccessRelation);
     return nullptr;
   } else {
-    SafeToLoad = isl_map_range(AccessRelation);
+    SafeToLoad = AccessRelation.range();
   }
 
-  isl_union_map *Written = isl_union_map_intersect_range(
-      isl_union_map_copy(Writes), isl_union_set_from_set(SafeToLoad));
-  auto *WrittenCtx = isl_union_map_params(Written);
-  bool IsWritten = !isl_set_is_empty(WrittenCtx);
+  isl::union_map Written = Writes.intersect_range(SafeToLoad);
+  isl::set WrittenCtx = Written.params();
+  bool IsWritten = !WrittenCtx.is_empty();
 
   if (!IsWritten)
     return WrittenCtx;
 
-  WrittenCtx = isl_set_remove_divs(WrittenCtx);
-  bool TooComplex = isl_set_n_basic_set(WrittenCtx) >= MaxDisjunctsInDomain;
-  if (TooComplex || !isRequiredInvariantLoad(LI)) {
-    isl_set_free(WrittenCtx);
+  WrittenCtx = WrittenCtx.remove_divs();
+  bool TooComplex =
+      isl_set_n_basic_set(WrittenCtx.get()) >= MaxDisjunctsInDomain;
+  if (TooComplex || !isRequiredInvariantLoad(LI))
     return nullptr;
-  }
 
-  addAssumption(INVARIANTLOAD, isl_set_copy(WrittenCtx), LI->getDebugLoc(),
+  addAssumption(INVARIANTLOAD, WrittenCtx.copy(), LI->getDebugLoc(),
                 AS_RESTRICTION);
   return WrittenCtx;
 }
@@ -3922,20 +3962,19 @@ void Scop::hoistInvariantLoads() {
   if (!PollyInvariantLoadHoisting)
     return;
 
-  isl_union_map *Writes = getWrites();
+  isl::union_map Writes = give(getWrites());
   for (ScopStmt &Stmt : *this) {
     InvariantAccessesTy InvariantAccesses;
 
     for (MemoryAccess *Access : Stmt)
-      if (auto *NHCtx = getNonHoistableCtx(Access, Writes))
-        InvariantAccesses.push_back({Access, NHCtx});
+      if (isl::set NHCtx = getNonHoistableCtx(Access, Writes))
+        InvariantAccesses.push_back({Access, NHCtx.release()});
 
     // Transfer the memory access from the statement to the SCoP.
     for (auto InvMA : InvariantAccesses)
       Stmt.removeMemoryAccess(InvMA.MA);
     addInvariantLoads(Stmt, InvariantAccesses);
   }
-  isl_union_map_free(Writes);
 }
 
 /// Find the canonical scop array info object for a set of invariant load
@@ -4074,6 +4113,12 @@ std::string Scop::getInvalidContextStr() const {
 
 std::string Scop::getNameStr() const {
   std::string ExitName, EntryName;
+  std::tie(EntryName, ExitName) = getEntryExitStr();
+  return EntryName + "---" + ExitName;
+}
+
+std::pair<std::string, std::string> Scop::getEntryExitStr() const {
+  std::string ExitName, EntryName;
   raw_string_ostream ExitStr(ExitName);
   raw_string_ostream EntryStr(EntryName);
 
@@ -4086,7 +4131,7 @@ std::string Scop::getNameStr() const {
   } else
     ExitName = "FunctionExit";
 
-  return EntryName + "---" + ExitName;
+  return std::make_pair(EntryName, ExitName);
 }
 
 __isl_give isl_set *Scop::getContext() const { return isl_set_copy(Context); }
@@ -4576,38 +4621,6 @@ bool Scop::restrictDomains(__isl_take isl_union_set *Domain) {
 
 ScalarEvolution *Scop::getSE() const { return SE; }
 
-struct MapToDimensionDataTy {
-  int N;
-  isl_union_pw_multi_aff *Res;
-};
-
-// Create a function that maps the elements of 'Set' to its N-th dimension and
-// add it to User->Res.
-//
-// @param Set        The input set.
-// @param User->N    The dimension to map to.
-// @param User->Res  The isl_union_pw_multi_aff to which to add the result.
-//
-// @returns   isl_stat_ok if no error occured, othewise isl_stat_error.
-static isl_stat mapToDimension_AddSet(__isl_take isl_set *Set, void *User) {
-  struct MapToDimensionDataTy *Data = (struct MapToDimensionDataTy *)User;
-  int Dim;
-  isl_space *Space;
-  isl_pw_multi_aff *PMA;
-
-  Dim = isl_set_dim(Set, isl_dim_set);
-  Space = isl_set_get_space(Set);
-  PMA = isl_pw_multi_aff_project_out_map(Space, isl_dim_set, Data->N,
-                                         Dim - Data->N);
-  if (Data->N > 1)
-    PMA = isl_pw_multi_aff_drop_dims(PMA, isl_dim_out, 0, Data->N - 1);
-  Data->Res = isl_union_pw_multi_aff_add_pw_multi_aff(Data->Res, PMA);
-
-  isl_set_free(Set);
-
-  return isl_stat_ok;
-}
-
 // Create an isl_multi_union_aff that defines an identity mapping from the
 // elements of USet to their N-th dimension.
 //
@@ -4622,31 +4635,36 @@ static isl_stat mapToDimension_AddSet(__isl_take isl_set *Set, void *User) {
 //               mapping.
 // @param N      The dimension to map to.
 // @returns      A mapping from USet to its N-th dimension.
-static __isl_give isl_multi_union_pw_aff *
-mapToDimension(__isl_take isl_union_set *USet, int N) {
+static isl::multi_union_pw_aff mapToDimension(isl::union_set USet, int N) {
   assert(N >= 0);
   assert(USet);
-  assert(!isl_union_set_is_empty(USet));
+  assert(!USet.is_empty());
 
-  struct MapToDimensionDataTy Data;
+  auto Result = isl::union_pw_multi_aff::empty(USet.get_space());
 
-  auto *Space = isl_union_set_get_space(USet);
-  auto *PwAff = isl_union_pw_multi_aff_empty(Space);
+  auto Lambda = [&Result, N](isl::set S) -> isl::stat {
+    int Dim = S.dim(isl::dim::set);
+    auto PMA = isl::pw_multi_aff::project_out_map(S.get_space(), isl::dim::set,
+                                                  N, Dim - N);
+    if (N > 1)
+      PMA = PMA.drop_dims(isl::dim::out, 0, N - 1);
 
-  Data = {N, PwAff};
+    Result = Result.add_pw_multi_aff(PMA);
+    return isl::stat::ok;
+  };
 
-  auto Res = isl_union_set_foreach_set(USet, &mapToDimension_AddSet, &Data);
+  isl::stat Res = USet.foreach_set(Lambda);
   (void)Res;
 
-  assert(Res == isl_stat_ok);
+  assert(Res == isl::stat::ok);
 
-  isl_union_set_free(USet);
-  return isl_multi_union_pw_aff_from_union_pw_multi_aff(Data.Res);
+  return isl::multi_union_pw_aff(isl::union_pw_multi_aff(Result));
 }
 
-void Scop::addScopStmt(BasicBlock *BB, Loop *SurroundingLoop) {
+void Scop::addScopStmt(BasicBlock *BB, Loop *SurroundingLoop,
+                       std::vector<Instruction *> Instructions) {
   assert(BB && "Unexpected nullptr!");
-  Stmts.emplace_back(*this, *BB, SurroundingLoop);
+  Stmts.emplace_back(*this, *BB, SurroundingLoop, Instructions);
   auto *Stmt = &Stmts.back();
   StmtMap[BB] = Stmt;
 }
@@ -4792,9 +4810,9 @@ void Scop::buildSchedule(RegionNode *RN, LoopStackTy &LoopStack, LoopInfo &LI) {
     auto &NextLoopData = LoopStack.back();
 
     if (Schedule) {
-      auto *Domain = isl_schedule_get_domain(Schedule);
-      auto *MUPA = mapToDimension(Domain, LoopStack.size());
-      Schedule = isl_schedule_insert_partial_schedule(Schedule, MUPA);
+      isl::union_set Domain = give(isl_schedule_get_domain(Schedule));
+      isl::multi_union_pw_aff MUPA = mapToDimension(Domain, LoopStack.size());
+      Schedule = isl_schedule_insert_partial_schedule(Schedule, MUPA.release());
       NextLoopData.Schedule =
           combineInSequence(NextLoopData.Schedule, Schedule);
     }
@@ -4824,11 +4842,17 @@ ScopStmt *Scop::getStmtFor(Region *R) const {
 }
 
 int Scop::getRelativeLoopDepth(const Loop *L) const {
-  Loop *OuterLoop =
-      L ? R.outermostLoopInRegion(const_cast<Loop *>(L)) : nullptr;
-  if (!OuterLoop)
+  if (!L || !R.contains(L))
     return -1;
-  return L->getLoopDepth() - OuterLoop->getLoopDepth();
+  // outermostLoopInRegion always returns nullptr for top level regions
+  if (R.isTopLevelRegion()) {
+    // LoopInfo's depths start at 1, we start at 0
+    return L->getLoopDepth() - 1;
+  } else {
+    Loop *OuterLoop = R.outermostLoopInRegion(const_cast<Loop *>(L));
+    assert(OuterLoop);
+    return L->getLoopDepth() - OuterLoop->getLoopDepth();
+  }
 }
 
 ScopArrayInfo *Scop::getArrayInfoByName(const std::string BaseName) {
@@ -4925,7 +4949,7 @@ INITIALIZE_PASS_END(ScopInfoRegionPass, "polly-scops",
 ScopInfo::ScopInfo(const DataLayout &DL, ScopDetection &SD, ScalarEvolution &SE,
                    LoopInfo &LI, AliasAnalysis &AA, DominatorTree &DT,
                    AssumptionCache &AC) {
-  /// Create polyhedral descripton of scops for all the valid regions of a
+  /// Create polyhedral description of scops for all the valid regions of a
   /// function.
   for (auto &It : SD) {
     Region *R = const_cast<Region *>(It);
