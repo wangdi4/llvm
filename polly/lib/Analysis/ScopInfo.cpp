@@ -1309,19 +1309,6 @@ void ScopStmt::buildAccessRelations() {
   }
 }
 
-MemoryAccess *ScopStmt::lookupPHIReadOf(PHINode *PHI) const {
-  for (auto *MA : *this) {
-    if (!MA->isRead())
-      continue;
-    if (!MA->isLatestAnyPHIKind())
-      continue;
-
-    if (MA->getAccessInstruction() == PHI)
-      return MA;
-  }
-  return nullptr;
-}
-
 void ScopStmt::addAccess(MemoryAccess *Access) {
   Instruction *AccessInst = Access->getAccessInstruction();
 
@@ -1344,6 +1331,11 @@ void ScopStmt::addAccess(MemoryAccess *Access) {
     assert(!PHIWrites.lookup(PHI));
 
     PHIWrites[PHI] = Access;
+  } else if (Access->isAnyPHIKind() && Access->isRead()) {
+    PHINode *PHI = cast<PHINode>(Access->getAccessValue());
+    assert(!PHIReads.lookup(PHI));
+
+    PHIReads[PHI] = Access;
   }
 
   MemAccs.push_back(Access);
@@ -2014,6 +2006,11 @@ void ScopStmt::removeAccessData(MemoryAccess *MA) {
   }
   if (MA->isWrite() && MA->isOriginalAnyPHIKind()) {
     bool Found = PHIWrites.erase(cast<PHINode>(MA->getAccessInstruction()));
+    (void)Found;
+    assert(Found && "Expected access data not found");
+  }
+  if (MA->isRead() && MA->isOriginalAnyPHIKind()) {
+    bool Found = PHIReads.erase(cast<PHINode>(MA->getAccessInstruction()));
     (void)Found;
     assert(Found && "Expected access data not found");
   }
@@ -4938,7 +4935,7 @@ void Scop::buildSchedule(RegionNode *RN, LoopStackTy &LoopStack, LoopInfo &LI) {
   auto &LoopData = LoopStack.back();
   LoopData.NumBlocksProcessed += getNumBlocksInRegionNode(RN);
 
-  if (auto *Stmt = getStmtFor(RN)) {
+  for (auto *Stmt : getStmtListFor(RN)) {
     auto *UDomain = isl_union_set_from_set(Stmt->getDomain());
     auto *StmtSchedule = isl_schedule_from_domain(UDomain);
     LoopData.Schedule = combineInSequence(LoopData.Schedule, StmtSchedule);
@@ -4982,16 +4979,30 @@ ScopStmt *Scop::getStmtFor(BasicBlock *BB) const {
   return StmtMapIt->second.front();
 }
 
-ScopStmt *Scop::getStmtFor(RegionNode *RN) const {
-  if (RN->isSubRegion())
-    return getStmtFor(RN->getNodeAs<Region>());
-  return getStmtFor(RN->getNodeAs<BasicBlock>());
+ArrayRef<ScopStmt *> Scop::getStmtListFor(BasicBlock *BB) const {
+  auto StmtMapIt = StmtMap.find(BB);
+  if (StmtMapIt == StmtMap.end())
+    return {};
+  assert(StmtMapIt->second.size() == 1 &&
+         "Each statement corresponds to exactly one BB.");
+  return StmtMapIt->second;
 }
 
-ScopStmt *Scop::getStmtFor(Region *R) const {
-  ScopStmt *Stmt = getStmtFor(R->getEntry());
-  assert(!Stmt || Stmt->getRegion() == R);
-  return Stmt;
+ScopStmt *Scop::getLastStmtFor(BasicBlock *BB) const {
+  ArrayRef<ScopStmt *> StmtList = getStmtListFor(BB);
+  if (StmtList.size() > 0)
+    return StmtList.back();
+  return nullptr;
+}
+
+ArrayRef<ScopStmt *> Scop::getStmtListFor(RegionNode *RN) const {
+  if (RN->isSubRegion())
+    return getStmtListFor(RN->getNodeAs<Region>());
+  return getStmtListFor(RN->getNodeAs<BasicBlock>());
+}
+
+ArrayRef<ScopStmt *> Scop::getStmtListFor(Region *R) const {
+  return getStmtListFor(R->getEntry());
 }
 
 int Scop::getRelativeLoopDepth(const Loop *L) const {
