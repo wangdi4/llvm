@@ -120,6 +120,24 @@ public:
   void getTargetDefines(const LangOptions &Opts,
                         MacroBuilder &Builder) const override;
 };
+
+#if INTEL_CUSTOMIZATION
+class LLVM_LIBRARY_VISIBILITY SPIR32INTELFpgaTargetInfo
+    : public SPIR32TargetInfo {
+public:
+  SPIR32INTELFpgaTargetInfo(const llvm::Triple &Triple,
+                            const TargetOptions &Opts)
+      : SPIR32TargetInfo(Triple, Opts) {}
+};
+
+class LLVM_LIBRARY_VISIBILITY SPIR64INTELFpgaTargetInfo
+    : public SPIR64TargetInfo {
+public:
+  SPIR64INTELFpgaTargetInfo(const llvm::Triple &Triple,
+                            const TargetOptions &Opts)
+      : SPIR64TargetInfo(Triple, Opts) {}
+};
+#endif // INTEL_CUSTOMIZATION
 } // namespace targets
 } // namespace clang
 #endif // LLVM_CLANG_LIB_BASIC_TARGETS_SPIR_H
