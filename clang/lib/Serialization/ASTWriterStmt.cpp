@@ -2591,6 +2591,7 @@ void ASTStmtWriter::VisitOMPTaskgroupDirective(OMPTaskgroupDirective *D) {
   VisitStmt(D);
   Record.push_back(D->getNumClauses());
   VisitOMPExecutableDirective(D);
+  Record.AddStmt(D->getReductionRef());
   Code = serialization::STMT_OMP_TASKGROUP_DIRECTIVE;
 }
 
