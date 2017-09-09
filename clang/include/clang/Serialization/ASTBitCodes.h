@@ -1564,25 +1564,20 @@ namespace clang {
       EXPR_OBJC_BRIDGED_CAST,     // ObjCBridgedCastExpr
 
       STMT_MS_DEPENDENT_EXISTS,   // MSDependentExistsStmt
-<<<<<<< HEAD
-      EXPR_LAMBDA                // LambdaExpr
 #if INTEL_SPECIFIC_CILKPLUS
       // Cilk Plus
-      ,
       STMT_CILKSYNC,
       STMT_CILK_FOR_GRAINSIZE,
       STMT_CILK_FOR,
       STMT_SIMD_FOR,
-      STMT_CILK_RANKED
+      STMT_CILK_RANKED,
 #endif // INTEL_SPECIFIC_CILKPLUS
-=======
       EXPR_LAMBDA,                // LambdaExpr
       STMT_COROUTINE_BODY,
       STMT_CORETURN,
       EXPR_COAWAIT,
       EXPR_COYIELD,
       EXPR_DEPENDENT_COAWAIT,
->>>>>>> 6a4e0d5fc1fcf5ce7e11193d49ec969cb7da8db5
     };
 
     /// \brief The kinds of designators that can occur in a

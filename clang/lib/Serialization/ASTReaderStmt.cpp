@@ -4115,7 +4115,7 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
       S = LambdaExpr::CreateDeserialized(Context, NumCaptures);
       break;
     }
-<<<<<<< HEAD
+
 #if INTEL_SPECIFIC_CILKPLUS
     case STMT_CILKSYNC:
       S = new (Context) CilkSyncStmt(Empty);
@@ -4139,7 +4139,6 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
       llvm_unreachable("not implemented yet");
       break;
 #endif // INTEL_SPECIFIC_CILKPLUS
-=======
 
     case STMT_COROUTINE_BODY: {
       unsigned NumParams = Record[ASTStmtReader::NumStmtFields];
@@ -4163,7 +4162,6 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
       S = new (Context) DependentCoawaitExpr(Empty);
       break;
 
->>>>>>> 6a4e0d5fc1fcf5ce7e11193d49ec969cb7da8db5
     }
 
     // We hit a STMT_STOP, so we're done with this expression.
