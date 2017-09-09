@@ -11,15 +11,7 @@
 *.pyo
 *.rej
 *~
-<<<<<<< HEAD
 *.#*
 .*.swp
 .DS_store
 # Simulated Subversion default ignores end here
-=======
-darwin_fat
-clang_darwin
-multi_arch
-*.sw?
-*.pyc
->>>>>>> 3fba40218b918a973d76d4281d87d0dae75c40a9
