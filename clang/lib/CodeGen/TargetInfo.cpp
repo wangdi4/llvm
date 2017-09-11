@@ -2690,20 +2690,6 @@ void X86_64ABIInfo::classify(QualType Ty, uint64_t OffsetBase,
 
     postMerge(Size, Lo, Hi);
     assert((Hi != SSEUp || Lo == SSE) && "Invalid SSEUp array classification.");
-#if INTEL_CUSTOMIZATION
-    if (isNamedArg && (Hi == SSE && Lo == SSE) && (Size == 128 ||
-        (AVXLevel == X86AVXABILevel::AVX && Size == 256))) {
-      // Arguments of 256-bits are split into four eightbyte chunks. The
-      // least significant one belongs to class SSE and all the others to class
-      // SSEUP. The original Lo and Hi design considers that types can't be
-      // greater than 128-bits, so a 64-bit split in Hi and Lo makes sense.
-      // This design isn't correct for 256-bits, but since there're no cases
-      // where the upper parts would need to be inspected, avoid adding
-      // complexity and just consider Hi to match the 64-256 part.
-      Lo = SSE;
-      Hi = SSEUp;
-    }
-#endif  // INTEL_CUSTOMIZATION
     return;
   }
 
@@ -2825,20 +2811,6 @@ void X86_64ABIInfo::classify(QualType Ty, uint64_t OffsetBase,
     }
 
     postMerge(Size, Lo, Hi);
-#if INTEL_CUSTOMIZATION
-    if (isNamedArg && (Hi == SSE && Lo == SSE) && (Size == 128 ||
-        (AVXLevel == X86AVXABILevel::AVX && Size == 256))) {
-      // Arguments of 256-bits are split into four eightbyte chunks. The
-      // least significant one belongs to class SSE and all the others to class
-      // SSEUP. The original Lo and Hi design considers that types can't be
-      // greater than 128-bits, so a 64-bit split in Hi and Lo makes sense.
-      // This design isn't correct for 256-bits, but since there're no cases
-      // where the upper parts would need to be inspected, avoid adding
-      // complexity and just consider Hi to match the 64-256 part.
-      Lo = SSE;
-      Hi = SSEUp;
-    }
-#endif  // INTEL_CUSTOMIZATION
   }
 }
 
