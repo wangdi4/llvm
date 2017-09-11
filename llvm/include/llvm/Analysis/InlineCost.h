@@ -188,11 +188,23 @@ class InlineCost {
 
   InlineReportTypes::InlineReason Reason; // INTEL
 
+#if INTEL_CUSTOMIZATION
+  /// \brief The cost and the threshold used for early exit from usual inlining
+  /// process.
+  const int EarlyExitCost;
+  const int EarlyExitThreshold;
+#endif // INTEL_CUSTOMIZATION
+
   // Trivial constructor, interesting logic in the factory functions below.
 
+#if INTEL_CUSTOMIZATION
   InlineCost(int Cost, int Threshold, InlineReportTypes::InlineReason Reason
-    = InlineReportTypes::NinlrNoReason) : Cost(Cost), Threshold(Threshold),
-    Reason(Reason) {} // INTEL
+    = InlineReportTypes::NinlrNoReason, int EarlyExitCost = 0,
+    int EarlyExitThreshold = 1) :
+    Cost(Cost), Threshold(Threshold), Reason(Reason),
+    EarlyExitCost(EarlyExitCost),
+    EarlyExitThreshold(EarlyExitThreshold) {}
+#endif // INTEL_CUSTOMIZATION
 
 public:
   static InlineCost get(int Cost, int Threshold) {
@@ -202,10 +214,11 @@ public:
   }
 #if INTEL_CUSTOMIZATION
   static InlineCost get(int Cost, int Threshold,
-    InlineReportTypes::InlineReason Reason) {
+    InlineReportTypes::InlineReason Reason, int EarlyExitCost,
+    int EarlyExitThreshold) {
     assert(Cost > AlwaysInlineCost && "Cost crosses sentinel value");
     assert(Cost < NeverInlineCost && "Cost crosses sentinel value");
-    return InlineCost(Cost, Threshold, Reason);
+    return InlineCost(Cost, Threshold, Reason, EarlyExitCost, EarlyExitThreshold);
   }
 #endif // INTEL_CUSTOMIZATION
   static InlineCost getAlways() {
@@ -249,6 +262,10 @@ public:
     { return Reason; }
   void setInlineReason(InlineReportTypes::InlineReason MyReason)
     { Reason = MyReason; }
+  int getEarlyExitCost() const
+    { return EarlyExitCost; }
+  int getEarlyExitThreshold() const
+    { return EarlyExitThreshold; }
 #endif // INTEL_CUSTOMIZATION
 
 };

@@ -11,6 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Transforms/IPO/InlineReport.h"          // INTEL
 #include "llvm/Analysis/InlineCost.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SetVector.h"
@@ -65,6 +66,8 @@ static cl::opt<bool> InlineForXmain(
 static cl::opt<int> OptSizeThreshold(
     "inlineoptsize-threshold", cl::Hidden, cl::init(15),
     cl::desc("Threshold for inlining functions with -Os"));
+
+extern cl::opt<unsigned> IntelInlineReportLevel;
 #endif // INTEL_CUSTOMIZATION
 
 static cl::opt<int> InlineThreshold(
@@ -132,6 +135,12 @@ class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
   int Threshold;
 
   int Cost;
+
+  /// INTEL The cost and the threshold used for early exit during usual
+  /// inlining process. Under IntelInlineReportLevel=64  we compute both
+  /// "early exit" and real cost of inlining.
+  int EarlyExitThreshold;             // INTEL
+  int EarlyExitCost;                  // INTEL
 
   InliningLoopInfoCache* ILIC;        // INTEL
 
@@ -261,7 +270,8 @@ public:
       : TTI(TTI), GetAssumptionCache(GetAssumptionCache), GetBFI(GetBFI),
         PSI(PSI), F(Callee), DL(F.getParent()->getDataLayout()),
         CandidateCS(CSArg), Params(Params), Threshold(Params.DefaultThreshold),
-        Cost(0), ILIC(ILIC), AI(AI),                // INTEL
+        Cost(0), EarlyExitThreshold(Params.DefaultThreshold), // INTEL
+        EarlyExitCost(0), ILIC(ILIC), AI(AI),   // INTEL
         IsCallerRecursive(false), IsRecursiveCall(false),
         ExposesReturnsTwice(false), HasDynamicAlloca(false),
         ContainsNoDuplicateCall(false), HasReturn(false), HasIndirectBr(false),
@@ -276,6 +286,9 @@ public:
 
   int getThreshold() { return Threshold; }
   int getCost() { return Cost; }
+  int getEarlyExitThreshold() { return EarlyExitThreshold; }  // INTEL
+  int getEarlyExitCost() { return EarlyExitCost; }            // INTEL
+
 
   // Keep a bunch of stats about the cost savings found so we can print them
   // out when debugging.
@@ -1015,9 +1028,9 @@ bool CallAnalyzer::visitCallSite(CallSite CS) {
   // out. Pretend to inline the function, with a custom threshold.
   auto IndirectCallParams = Params;
   IndirectCallParams.DefaultThreshold = InlineConstants::IndirectCallThreshold;
-  CallAnalyzer CA(TTI, GetAssumptionCache, GetBFI, PSI, 
+  CallAnalyzer CA(TTI, GetAssumptionCache, GetBFI, PSI,
     *F, CS, ILIC, AI, IndirectCallParams); // INTEL
-  if (CA.analyzeCall(CS, nullptr)) { // INTEL 
+  if (CA.analyzeCall(CS, nullptr)) { // INTEL
     // We were able to inline the indirect call! Subtract the cost from the
     // threshold to get the bonus we want to apply, but don't go below zero.
     Cost -= std::max(0, CA.getThreshold() - CA.getCost());
@@ -1229,7 +1242,7 @@ bool CallAnalyzer::analyzeBlock(BasicBlock *BB,
         // If the function has the "use-soft-float" attribute, mark it as
         // expensive, under certain conditions.     // INTEL
         ((F.getFnAttribute("use-soft-float").       // INTEL
-          getValueAsString() == "true")             // INTEL 
+          getValueAsString() == "true")             // INTEL
           && (!InlineForXmain || !isLoadStore)))    // INTEL
         Cost += InlineConstants::CallPenalty;
     }
@@ -1258,8 +1271,21 @@ bool CallAnalyzer::analyzeBlock(BasicBlock *BB,
 
     // Check if we've past the maximum possible threshold so we don't spin in
     // huge basic blocks that will never inline.
-    if (Cost > Threshold)
+
+    if (Cost > Threshold){ // INTEL
+#if INTEL_CUSTOMIZATION
+      if (IntelInlineReportLevel & InlineReportOptions::RealCost) {
+        // Remember "early exit" cost of inlining during computation of a
+        // real cost.
+        if (!EarlyExitCost) {
+          EarlyExitCost = Cost;
+          EarlyExitThreshold = Threshold;
+        }
+      }
+      else
+#endif // INTEL_CUSTOMIZATION
       return false;
+      } // INTEL
   }
 
   return true;
@@ -1533,13 +1559,13 @@ static bool worthyDoubleCallSite2(CallSite &CS, InliningLoopInfoCache& ILIC) {
 //
 static unsigned int totalBasicBlockPredCount(Function &F)
 {
-  unsigned int count = 0; 
+  unsigned int count = 0;
   for (Function::iterator BI = F.begin(), BE = F.end(); BI != BE; ++BI) {
-    BasicBlock *BB = &*BI; 
+    BasicBlock *BB = &*BI;
     count += std::distance(pred_begin(BB), pred_end(BB));
-  } 
+  }
   return count;
-} 
+}
 
 //
 // Temporary switch to control new double callsite inlining heuristics
@@ -1555,51 +1581,51 @@ static cl::opt<bool> NewDoubleCallSiteInliningHeuristics
 //
 // The criteria for this heuristic are:
 //   (1) Must have exactly two calls to the function
-//   (2) Call must be in a loop 
+//   (2) Call must be in a loop
 //   (3) Called function must have loops
-//   (4) Called function must not have any arguments 
-//         OR Called function must have a large enough total number 
+//   (4) Called function must not have any arguments
+//         OR Called function must have a large enough total number
 //           of predecessors
 //
 static bool worthyDoubleCallSite3(CallSite &CS, InliningLoopInfoCache& ILIC) {
   if (!NewDoubleCallSiteInliningHeuristics)
-    return false; 
+    return false;
   Function *Caller = CS.getCaller();
   LoopInfo *CallerLI = ILIC.getLI(Caller);
   if (!CallerLI->getLoopFor(CS.getInstruction()->getParent()))
-    return false; 
+    return false;
   Function *Callee = CS.getCalledFunction();
   LoopInfo *CalleeLI = ILIC.getLI(Callee);
   if (CalleeLI->begin() == CalleeLI->end())
-    return false; 
-  if (CS.arg_begin() != CS.arg_end() 
-    && totalBasicBlockPredCount(*Callee) 
-    < InlineConstants::BigBasicBlockPredCount) 
-    return false; 
-  return true; 
-} 
+    return false;
+  if (CS.arg_begin() != CS.arg_end()
+    && totalBasicBlockPredCount(*Callee)
+    < InlineConstants::BigBasicBlockPredCount)
+    return false;
+  return true;
+}
 
 //
 // Return true if 'F' has exactly two callsites
 //
 static bool isDoubleCallSite(Function *F)
 {
-  unsigned int count = 0; 
+  unsigned int count = 0;
   for (User *U : F->users()) {
     CallSite Site(U);
     if (!Site || Site.getCalledFunction() != F)
       continue;
-    if (++count > 2) 
-      return false; 
-  } 
+    if (++count > 2)
+      return false;
+  }
   return count == 2;
 }
- 
+
 //
 // Return 'true' if 'CS' worth inlining, given that it is a double callsite
 // with internal linkage.
 //
-static bool worthyDoubleInternalCallSite(CallSite &CS, 
+static bool worthyDoubleInternalCallSite(CallSite &CS,
   InliningLoopInfoCache& ILIC)
 {
   return worthyDoubleCallSite1(CS, ILIC) || worthyDoubleCallSite2(CS, ILIC)
@@ -1619,7 +1645,7 @@ static bool worthyDoubleInternalCallSite(CallSite &CS,
 static bool worthyDoubleExternalCallSite(CallSite &CS) {
   Function *Caller = CS.getCaller();
   if (!NewDoubleCallSiteInliningHeuristics)
-    return false; 
+    return false;
   if (std::distance(Caller->begin(), Caller->end()) != 1)
     return false;
   Function *Callee = CS.getCalledFunction();
@@ -1631,7 +1657,7 @@ static bool worthyDoubleExternalCallSite(CallSite &CS) {
     if (++count > 1)
       return false;
   }
-  if (count != 1) 
+  if (count != 1)
     return false;
   for (BasicBlock &BB : *Caller) {
     for (Instruction &I : BB) {
@@ -1721,8 +1747,8 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
   if (InlineForXmain &&
       preferCloningToInlining(CS, *ILIC, Params.PrepareForLTO)) {
     *ReasonAddr = NinlrPreferCloning;
-    return false; 
-  } 
+    return false;
+  }
 #endif // INTEL_CUSTOMIZATION
 
   // Give out bonuses for the callsite, as the instructions setting them up
@@ -1733,7 +1759,7 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
   // the cost of inlining it drops dramatically.
   // INTEL CQ370998: Added link once ODR linkage case.
   bool OnlyOneCallAndLocalLinkage =
-       (F.hasLocalLinkage()                                     // INTEL 
+       (F.hasLocalLinkage()                                     // INTEL
          || (InlineForXmain && F.hasLinkOnceODRLinkage())) &&   // INTEL
        F.hasOneUse() &&  &F == CS.getCalledFunction();          // INTEL
   if (OnlyOneCallAndLocalLinkage) { // INTEL
@@ -1742,27 +1768,27 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
   } // INTEL
 
 #if INTEL_CUSTOMIZATION
-  else if (InlineForXmain) { 
-    if (&F == CS.getCalledFunction()) { 
-      if (isDoubleCallSite(&F)) { 
-        // If there are two calls of the function, the cost of inlining it may 
+  else if (InlineForXmain) {
+    if (&F == CS.getCalledFunction()) {
+      if (isDoubleCallSite(&F)) {
+        // If there are two calls of the function, the cost of inlining it may
         // drop, but less dramatically.
-        if (F.hasLocalLinkage() || F.hasLinkOnceODRLinkage()) { 
-           if (worthyDoubleInternalCallSite(CS, *ILIC)) { 
+        if (F.hasLocalLinkage() || F.hasLinkOnceODRLinkage()) {
+           if (worthyDoubleInternalCallSite(CS, *ILIC)) {
              Cost -= InlineConstants::SecondToLastCallToStaticBonus;
              YesReasonVector.push_back(InlrDoubleLocalCall);
-           } 
-        } 
-        else { 
-           if (worthyDoubleExternalCallSite(CS)) { 
+           }
+        }
+        else {
+           if (worthyDoubleExternalCallSite(CS)) {
              Cost -= InlineConstants::SecondToLastCallToStaticBonus;
              YesReasonVector.push_back(InlrDoubleNonLocalCall);
-           } 
-        } 
+           }
+        }
       }
     }
   }
- 
+
   // Use InlineAggressiveInfo to expose uses of global ptrs
   if (InlineForXmain && AI != nullptr && AI->isCallInstInAggInlList(CS)) {
     Cost -= InlineConstants::AggressiveInlineCallBonus;
@@ -1779,6 +1805,19 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
   } // INTEL
 
   // Check if we're done. This can happen due to bonuses and penalties.
+
+#if INTEL_CUSTOMIZATION
+  if ((IntelInlineReportLevel & InlineReportOptions::RealCost) &&
+      (Cost > Threshold)) {
+    // Remember "early exit" cost of inlining during computation of a
+    // real cost.
+    if (!EarlyExitCost) {
+      EarlyExitCost = Cost;
+      EarlyExitThreshold = Threshold;
+    }
+  }
+  else
+#endif // INTEL_CUSTOMIZiATION
   if (Cost > Threshold) { // INTEL
     *ReasonAddr = bestInlineReason(NoReasonVector, NinlrNotProfitable); // INTEL
     return false;
@@ -1848,8 +1887,20 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
   for (unsigned Idx = 0; Idx != BBWorklist.size(); ++Idx) {
     // Bail out the moment we cross the threshold. This means we'll under-count
     // the cost, but only when undercounting doesn't matter.
-    if (Cost > Threshold)
+    if (Cost > Threshold) { //INTEL
+#if INTEL_CUSTOMIZATION
+    if (IntelInlineReportLevel & InlineReportOptions::RealCost) {
+      // Remember "early exit" cost of inlining during computation of a
+      // real cost.
+      if (!EarlyExitCost) {
+        EarlyExitCost = Cost;
+        EarlyExitThreshold = Threshold;
+      }
+    }
+    else
+#endif // INTEL_CUSTOMIZATION
       break;
+    } // INTEL
 
     BasicBlock *BB = BBWorklist[Idx];
     if (BB->empty())
@@ -1923,7 +1974,7 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
     // due to branches or switches which folded above will also fold after
     // inlining.
 #if INTEL_CUSTOMIZATION
-    if (InlineForXmain) { 
+    if (InlineForXmain) {
       if (TI->getNumSuccessors() > 1) {
         if (SeekingForgivable && forgivableCondition(TI)) {
           FoundForgivable = true;
@@ -1938,14 +1989,14 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
         }
         SingleBB = false;
       }
-    } 
-    else { 
+    }
+    else {
       if (SingleBB && TI->getNumSuccessors() > 1) {
         // Take off the bonus we applied to the threshold.
         Threshold -= SingleBBBonus;
         SingleBB = false;
       }
-    } 
+    }
 #endif // INTEL_CUSTOMIZATION
   }
 
@@ -2056,7 +2107,7 @@ InlineCost llvm::getInlineCost(
     Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI,
     InliningLoopInfoCache *ILIC, // INTEL
     InlineAggressiveInfo *AI,    // INTEL
-    ProfileSummaryInfo *PSI) { 
+    ProfileSummaryInfo *PSI) {
   return getInlineCost(CS, CS.getCalledFunction(), Params, CalleeTTI,
     GetAssumptionCache, GetBFI, ILIC, AI, PSI);  // INTEL
 }
@@ -2068,7 +2119,7 @@ InlineCost llvm::getInlineCost(
     Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI,
     InliningLoopInfoCache *ILIC,    // INTEL
     InlineAggressiveInfo *AI,       // INTEL
-    ProfileSummaryInfo *PSI) {  
+    ProfileSummaryInfo *PSI) {
 
   // Cannot inline indirect calls.
   if (!Callee)
@@ -2124,7 +2175,7 @@ InlineCost llvm::getInlineCost(
   DEBUG(llvm::dbgs() << "      Analyzing call of " << Callee->getName()
                      << "...\n");
 
-  CallAnalyzer CA(CalleeTTI, GetAssumptionCache, GetBFI, PSI, 
+  CallAnalyzer CA(CalleeTTI, GetAssumptionCache, GetBFI, PSI,
                   *Callee, CS, ILIC, AI, Params);  // INTEL
 #if INTEL_CUSTOMIZATION
   InlineReason Reason = InlrNoReason;
@@ -2141,7 +2192,8 @@ InlineCost llvm::getInlineCost(
     return InlineCost::getAlways(Reason); // INTEL
 
   return llvm::InlineCost::get(CA.getCost(), // INTEL
-    CA.getThreshold(), Reason); // INTEL
+    CA.getThreshold(), Reason, CA.getEarlyExitCost(), //INTEL
+    CA.getEarlyExitThreshold()); // INTEL
 }
 
 bool llvm::isInlineViable(Function &F, // INTEL
@@ -2235,7 +2287,7 @@ InlineParams llvm::getInlineParams(int Threshold) {
   // explicitly specified to set the ColdThreshold knob
   if (InlineThreshold.getNumOccurrences() == 0) {
     Params.OptMinSizeThreshold = InlineConstants::OptMinSizeThreshold;
-    Params.OptSizeThreshold = InlineForXmain 
+    Params.OptSizeThreshold = InlineForXmain
      ? OptSizeThreshold : InlineConstants::OptSizeThreshold; // INTEL
     Params.ColdThreshold = ColdThreshold;
   } else if (ColdThreshold.getNumOccurrences() > 0) {
@@ -2255,7 +2307,7 @@ static int computeThresholdFromOptLevels(unsigned OptLevel,
   if (OptLevel > 2)
     return InlineConstants::OptAggressiveThreshold;
   if (SizeOptLevel == 1) // -Os
-    return InlineForXmain 
+    return InlineForXmain
       ? OptSizeThreshold : InlineConstants::OptSizeThreshold; // INTEL
   if (SizeOptLevel == 2) // -Oz
     return InlineConstants::OptMinSizeThreshold;
@@ -2276,6 +2328,6 @@ InlineParams llvm::getInlineParams(unsigned OptLevel, unsigned SizeOptLevel,
 
   InlParams = getInlineParams(OptLevel, SizeOptLevel);
   InlParams.PrepareForLTO = PrepareForLTO;
-  return InlParams; 
+  return InlParams;
 }
 #endif // INTEL_CUSTOMIZATION

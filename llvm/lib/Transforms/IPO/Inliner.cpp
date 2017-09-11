@@ -67,8 +67,9 @@ STATISTIC(NumCallerCallersAnalyzed, "Number of caller-callers analyzed");
 ///    8: Print the line and column info for each call site if available
 ///   16: Print the file for each call site
 ///   32: Print linkage info for each function and call site
+///   64: Print both early exit and real inlining costs
 ///
-static cl::opt<unsigned>
+cl::opt<unsigned>
 IntelInlineReportLevel("inline-report", cl::Hidden, cl::init(0),
   cl::Optional, cl::desc("Print inline report"));
 #endif // INTEL_CUSTOMIZATION
@@ -391,7 +392,7 @@ static bool shouldInline(CallSite CS,
              << NV("Callee", Callee) << " not inlined into "
              << NV("Caller", Caller)
              << " because it should never be inlined (cost=never)");
-    if (IR != nullptr)                             // INTEL 
+    if (IR != nullptr)                             // INTEL
       IR->setReasonNotInlined(CS, NinlrNeverInline); // INTEL
     return false;
   }
@@ -406,7 +407,7 @@ static bool shouldInline(CallSite CS,
              << NV("Cost", IC.getCost()) << ", threshold="
              << NV("Threshold", IC.getCostDelta() + IC.getCost()) << ")");
 
-    if (IR != nullptr)                // INTEL 
+    if (IR != nullptr)                // INTEL
       IR->setReasonNotInlined(CS, IC); // INTEL
     return false;
   }
@@ -422,7 +423,7 @@ static bool shouldInline(CallSite CS,
              << " increases the cost of inlining " << NV("Caller", Caller)
              << " in other contexts");
     IC.setInlineReason(NinlrOuterInlining); // INTEL
-    if (IR != nullptr)                                    // INTEL 
+    if (IR != nullptr)                                    // INTEL
       IR->setReasonNotInlined(CS, IC, TotalSecondaryCost); // INTEL
     return false;
   }
@@ -435,7 +436,7 @@ static bool shouldInline(CallSite CS,
            << NV("Caller", Caller) << " with cost=" << NV("Cost", IC.getCost())
            << " (threshold="
            << NV("Threshold", IC.getCostDelta() + IC.getCost()) << ")");
-  if (IR != nullptr)                                    // INTEL 
+  if (IR != nullptr)                                    // INTEL
     IR->setReasonIsInlined(CS, IC); // INTEL
   return true;
 }
@@ -497,7 +498,7 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
   // index into the InlineHistory vector.
   SmallVector<std::pair<Function *, int>, 8> InlineHistory;
 
-  IR.beginSCC(CG, SCC); // INTEL 
+  IR.beginSCC(CG, SCC); // INTEL
 
   for (CallGraphNode *Node : SCC) {
     Function *F = Node->getFunction();
@@ -732,8 +733,8 @@ bool LegacyInlinerBase::inlineCalls(CallGraphSCC &SCC) {
   bool rv = inlineCallsImpl(SCC, CG, GetAssumptionCache, PSI, TLI, // INTEL
                             InsertLifetime,                        // INTEL
                             [this](CallSite CS) { return getInlineCost(CS); },
-                            LegacyAARGetter(*this), // INTEL 
-                            ImportedFunctionsStats, // INTEL 
+                            LegacyAARGetter(*this), // INTEL
+                            ImportedFunctionsStats, // INTEL
                             ILIC, getReport());     // INTEL
   delete ILIC;    // INTEL
   ILIC = nullptr; // INTEL
@@ -961,7 +962,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
       int InlineHistoryID;
       CallSite CS;
       std::tie(CS, InlineHistoryID) = Calls[i];
-      Function &Caller = *CS.getCaller();  // INTEL 
+      Function &Caller = *CS.getCaller();  // INTEL
       Function &Callee = *CS.getCalledFunction();
 
       if (InlineHistoryID != -1 &&
@@ -982,7 +983,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
       if (!InlineFunction(CS, IFI))
         continue;
       DidInline = true;
-      ILIC->invalidateFunction(&Caller); 
+      ILIC->invalidateFunction(&Caller);
       InlinedCallees.insert(&Callee);
 
       // Add any new callsites to defined functions to the worklist.
@@ -1087,6 +1088,6 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
     // And delete the actual function from the module.
     M.getFunctionList().erase(DeadF);
   }
-  delete ILIC; // INTEL 
+  delete ILIC; // INTEL
   return Changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }
