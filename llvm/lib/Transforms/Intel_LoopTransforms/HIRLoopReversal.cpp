@@ -756,17 +756,18 @@ bool HIRLoopReversal::isReversible(HLLoop *Lp, HIRDDAnalysis &DDA,
 bool HIRLoopReversal::doHIRReversalTransform(HLLoop *Lp) {
   // Get Loop's UpperBound (UB)
   CanonExpr *UBCE = Lp->getUpperCanonExpr();
-  auto &CEU = UBCE->getCanonExprUtils();
-
   // DEBUG(::dump(UBCE, "Loop's UpperBound (UB) CE:"););
   // DEBUG(dbgs() << "UBCEDenom: " << UBCE->getDenominator() << "\n");
 
   //===  Do Loop Reversal Transformation for each MarkedCE  ===
   // For-each MCE in Collection:
-  //  1. Create CE' = -IV;
-  //  2. Update CE' = UB - IV;
-  //  3. CanonExprUtil::replaceIVWithCE(CE');
-  //  4. Call to RegDD.makeConsistent();
+  //  - Goal is to replace (IV) -> (UB - IV).
+  //    (C * B * i1) -> (C * B * (UB - IV)) -> -C*B*i1 + C*B*UB
+  //
+  //  To do it:
+  //  1. Replace IV with UB;
+  //  2. Add IV with -C and B as a coeff and a blob index.
+  //  3. RegDD.makeConsistent();
   //=== ---------------------------------------------------- ===
 
   // For each MCE in the MCEAV collection
@@ -775,69 +776,16 @@ bool HIRLoopReversal::doHIRReversalTransform(HLLoop *Lp) {
 
     CanonExpr *CE = MCE.getCE();
 
-    CanonExpr *CEPrime = CEU.createExtCanonExpr(
-        CE->getSrcType(), CE->getDestType(), CE->isSExt());
-    CEPrime->setIVCoeff(LoopLevel, InvalidBlobIndex, -1);
+    unsigned BlobIndex;
+    int64_t Coeff;
+    CE->getIVCoeff(LoopLevel, &BlobIndex, &Coeff);
 
-    bool MergeableCase = CanonExprUtils::mergeable(CE, UBCE, true);
+    bool ReplaceIVByCE =
+        CanonExprUtils::replaceIVByCanonExpr(CE, LoopLevel, UBCE, true);
+    (void)ReplaceIVByCE;
+    assert(ReplaceIVByCE && "replaceIVByCanonExpr(.) failed\n");
 
-    // Handle merge-able case: Merge directly
-    if (MergeableCase) {
-      // Update: CE' = UB - IV; (LB is always 0)
-      bool CEPrimeRet = CanonExprUtils::add(CEPrime, UBCE, true);
-      (void)CEPrimeRet;
-      assert(CEPrimeRet && "CanonExprUtils::add(.) failed on UBCE\n ");
-      // DEBUG(::dump(CEPrime, "CEPrime, Expect: CE' = UB - IV"));
-
-      // Replace original IV with CE' = UB - IV;
-      // DEBUG(::dump(CE, "CE [BEFORE replaceIVByCanonExpr(.)]\n"););
-      bool ReplaceIVByCE =
-          CanonExprUtils::replaceIVByCanonExpr(CE, LoopLevel, CEPrime, true);
-      (void)ReplaceIVByCE;
-      assert(ReplaceIVByCE && "replaceIVByCanonExpr(.) failed\n");
-      // DEBUG(::dump(CE, "CE [AFTER replaceIVByCanonExpr(.)]\n"););
-    }
-    // handle StandaloneBlob Case (not merge-able case)
-    else {
-      // Cast UBCE for StandaloneBlog form;
-      DEBUG(auto T0 = CEPrime->getSrcType(); auto T1 = UBCE->getSrcType();
-            dbgs() << "CEPrime->getSrcType(): "; T0->print(dbgs());
-            dbgs() << "  "
-                   << "UBCE->getSrcType(): ";
-            T1->print(dbgs()); dbgs() << "\n";);
-
-      // Make a UBCE clone, work ONLY with the clone for the rest of
-      // this section!
-      CanonExpr *UBCEClone = UBCE->clone();
-      // DEBUG(::dump(UBCEClone, "UBCEClone [BEFORE]: "));
-
-      bool CastToStandaloneBlob =
-          UBCEClone->castStandAloneBlob(CE->getSrcType(), false);
-
-      // DEBUG(::dump(UBCEClone, "UBCEClone [AFTER]: "));
-      // Note: CastToStandaloneBlob may NOT necessarily return true,
-      // and it is not an error if it is not!
-      //
-      // assert(CastToStandaloneBlob &&
-      //      "Expect castToStandAloneBlob() to be always succeed\n");
-      (void)CastToStandaloneBlob;
-
-      // Build: CE' = UBCEClone - iv;
-      bool CEPrimeRet = CanonExprUtils::add(CEPrime, UBCEClone, true);
-      (void)CEPrimeRet;
-      assert(CEPrimeRet && "CanonExprUtils::add(.) failed on UBCE\n ");
-      // DEBUG(::dump(CEPrime, "Expect: CE' = UB - iv"));
-
-      // Replace CE's original IV with the CE' = UB - IV;
-      bool ReplaceIVByCE =
-          CanonExprUtils::replaceIVByCanonExpr(CE, LoopLevel, CEPrime, true);
-      assert(ReplaceIVByCE && "replaceIVByCanonExpr(.) failed\n");
-      (void)ReplaceIVByCE;
-      // DEBUG(::dump(CE, "CE After replaceIVByCanonExpr(.)\n"););
-
-      // Cleanup: remove UBCEClone
-      CEU.destroy(UBCEClone);
-    }
+    CE->setIVCoeff(LoopLevel, BlobIndex, -Coeff);
 
     // Make the corresponding RegDDRef consistent with the new CE
     const SmallVector<const RegDDRef *, 3> AuxRefs = {Lp->getUpperDDRef()};
