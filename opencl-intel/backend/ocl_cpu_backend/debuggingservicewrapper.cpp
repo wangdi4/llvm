@@ -34,7 +34,7 @@ using namespace std;
 // SDK about the OCL RT version it is compatible with.
 // Actually it is unknown why the debugging library isn't delivered with the GEN driver.
 // This would solve the problem described above. For the reference see task CORC-1070.
-const char* DEBUGGER_DLL_NAME = "OclCpuDebugging4.dll";
+const char* DEBUGGER_DLL_NAME = "OclCpuDebugging5.dll";
 #else
 const char* DEBUGGER_DLL_NAME = "libOclCpuDebugging.so";
 #endif
