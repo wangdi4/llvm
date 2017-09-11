@@ -1269,7 +1269,17 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(0)->isPointerTy() &&
             FTy.getParamType(1) == SizeTTy && FTy.getParamType(2) == SizeTTy);
 
+  case LibFunc_wcslen:
+    return (NumParams == 1 && FTy.getParamType(0)->isPointerTy() &&
+            FTy.getReturnType()->isIntegerTy());
+  case LibFunc::NumLibFuncs:
+    break;
+
 #if INTEL_CUSTOMIZATION
+  // Note: These are being placed after the case for LibFunc::NumLibFuncs to
+  // avoid conflicts during community pulldowns, which otherwise occur
+  // every time a new entry is added to the enumeration.
+
   case LibFunc_dunder_isoc99_fscanf:
     // int __isoc99_fscanf(FILE *stream, const char *format, ... );
     return (NumParams >= 2 && FTy.getReturnType()->isIntegerTy() &&
@@ -1297,12 +1307,6 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(1)->isPointerTy() &&
             FTy.getParamType(2)->isPointerTy());
 #endif // INTEL_CUSTOMIZATION
-
-  case LibFunc_wcslen:
-    return (NumParams == 1 && FTy.getParamType(0)->isPointerTy() &&
-            FTy.getReturnType()->isIntegerTy());
-  case LibFunc::NumLibFuncs:
-    break;
   }
 
   llvm_unreachable("Invalid libfunc");
