@@ -13,7 +13,6 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Analysis/AliasSetTracker.h"
-#include "llvm/CodeGen/MachineDominators.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/MachineSSAUpdater.h"
 #include "llvm/Target/TargetMachine.h"
@@ -65,12 +64,6 @@ KillReadChains("csa-kill-readchains",
             cl::Hidden,
             cl::desc("CSA-specific: kill ordering chains which only link reads"),
             cl::init(false));
-
-static cl::opt<bool>
-ParallelOrderMemops("csa-parallel-memops",
-            cl::Hidden,
-            cl::desc("CSA-specific: use parallel builtins to generate parallel memop ordering"),
-            cl::init(true));
 
 // The register class we are going to use for all the memory-op
 // dependencies.  Technically they could be I0, but I don't know how
@@ -133,6 +126,7 @@ namespace {
     const TargetMachine *TM;
     const CSASubtarget *STI;
     const MCInstrInfo  *MII;
+    const MachineLoopInfo *MLI;
 
   public:
     static char ID;
@@ -144,28 +138,9 @@ namespace {
     void getAnalysisUsage(AnalysisUsage &AU) const override {
       AU.addRequired<ControlDependenceGraph>();
       AU.addRequired<AAResultsWrapperPass>();
-      AU.addRequired<MachineDominatorTree>();
-      AU.addRequired<MachinePostDominatorTree>();
+      AU.addRequired<MachineLoopInfo>();
       AU.setPreservesAll();
       MachineFunctionPass::getAnalysisUsage(AU);
-    }
-
-    // Very generic helper copied from what's in MachineDominatorTree. This
-    // should be in the upstream MachinePostDominatorTree, probably. (Is there
-    // some way to re-use it for PDT that I couldn't figure out?)
-    static bool postDominates(const MachineInstr* A, const MachineInstr* B, MachinePostDominatorTree *PDT) {
-      const MachineBasicBlock *BA = A->getParent();
-      const MachineBasicBlock *BB = B->getParent();
-      if (BA != BB)
-        return PDT->dominates(BA, BB);
-
-      // Loop through the basic block until we find A or B.
-      MachineBasicBlock::const_iterator I = BA->begin();
-      for (; &*I != A && &*I != B; ++I)
-        /*empty*/ ;
-
-      // A post-dominates B if B is found first in the basic block.
-      return &*I == B;
     }
 
   private:
@@ -175,94 +150,6 @@ namespace {
     ControlDependenceGraph *CDG;
     const CSAInstrInfo *TII;
     MachineRegisterInfo *MRI;
-    MachineDominatorTree *DT;
-    MachinePostDominatorTree *PDT;
-
-    struct parSectionInfo {
-      unsigned sectionToken;
-      MachineInstr* entry;
-      MachineInstr* exit;
-      bool operator<(const parSectionInfo &other) const { return entry < other.entry; }
-      bool containsInstr(const MachineInstr *inst,
-                         MachineDominatorTree *DT,
-                         MachinePostDominatorTree *PDT) const {
-        return DT->dominates(entry, inst) && postDominates(exit, inst, PDT) &&
-          !DT->dominates(exit, inst) && !postDominates(entry, inst, PDT);
-      }
-    };
-
-    struct parRegionInfo {
-      const MachineInstr* entry;
-      const MachineInstr* exit;
-      unsigned regionToken;
-      std::set<parSectionInfo> sections;
-      std::map<unsigned, MachineInstr*> aliasSetCaptures;
-      std::map<unsigned, MachineInstr*> aliasSetReleases;
-      bool operator<(const parRegionInfo &other) const { return entry < other.entry; }
-      const parSectionInfo* containsInstr(MachineInstr *inst,
-                         MachineDominatorTree *DT,
-                         MachinePostDominatorTree *PDT) const {
-        auto secIter = std::find_if(sections.begin(), sections.end(),
-            [inst,DT,PDT](const parSectionInfo& ps) {
-            return ps.containsInstr(inst, DT, PDT);
-            });
-        if (secIter != sections.end())
-          return &*secIter;
-        else
-          return nullptr;
-      }
-      bool isAliasSetCapture(MachineInstr *inst,
-                             unsigned* aliasSet = nullptr) {
-        for(const auto &mapEntry : aliasSetCaptures) {
-          if (mapEntry.second == inst) {
-            if (aliasSet)
-              *aliasSet = mapEntry.first;
-            return true;
-          }
-        }
-        return false;
-      }
-      bool isAliasSetRelease(MachineInstr *inst,
-                             unsigned* aliasSet = nullptr) {
-        for(const auto &mapEntry : aliasSetReleases) {
-          if (mapEntry.second == inst) {
-            if (aliasSet)
-              *aliasSet = mapEntry.first;
-            return true;
-          }
-        }
-        return false;
-      }
-    };
-
-    std::vector<parRegionInfo> parRegions;
-
-    unsigned getAliasSetForPassthrough(MachineInstr *inst) {
-      unsigned aliasSet;
-      for(parRegionInfo &pr : parRegions) {
-        if (pr.isAliasSetCapture(inst, &aliasSet))
-          return aliasSet;
-        if (pr.isAliasSetRelease(inst, &aliasSet))
-          return aliasSet;
-      }
-      assert(false && "Unknown chaining passthrough");
-    }
-
-    void dumpParRegions(void) {
-      errs() << "Dumping " << parRegions.size() << " known parallel regions and their sections:\n";
-      unsigned count = 0;
-      for(const parRegionInfo& pl : parRegions) {
-        errs() << "\tRegion " << ++count << " with " << pl.sections.size() << " parallel sections:\n";
-        for(const parSectionInfo& ps : pl.sections) {
-          errs() << "\t\tSection starting with instr " << *(ps.entry);
-          errs() << "\t\t\tending with instr " << *(ps.exit);
-        }
-      }
-      if (!count) {
-        errs() << "(No known parallel regions.)\n";
-      }
-      errs() << "\n";
-    }
 
     // For each chain, maintain 4 items:
     // start:    the first vreg in its chain
@@ -279,8 +166,6 @@ namespace {
     typedef DenseMap<unsigned, depchain> AliasSetDepchain;
     typedef DenseMap<unsigned, unsigned> AliasSetVReg;
 
-    AliasSetDepchain depchains;
-
     void addMemoryOrderingConstraints(MachineFunction* thisMF);
 
     // Helper methods:
@@ -295,17 +180,6 @@ namespace {
       unsigned issued_reg, unsigned ready_reg,
       unsigned *ready_op_num
     );
-
-    // The set of memory operations which were ordered. This excludes
-    // passthrough MOVs.
-    std::set<MachineInstr*> orderedMemops;
-
-    // Generate a MOV "passthrough" instruction corresponding to each region's
-    // entry/exit. The normal serial ordering functions should treat these like
-    // a store in terms of ordering. These instructions serve to capture the
-    // ordering token on entry/exit, which is helpful when generating the
-    // fork/join code for parallel sections.
-    void generate_region_capture_release_movs(MachineBasicBlock& BB);
 
     // Create a dependency chain in virtual registers through the
     // basic block BB.
@@ -349,53 +223,28 @@ namespace {
     unsigned merge_dependency_signals(MachineBasicBlock& BB,
                                       MachineInstr* MI,
                                       SmallVector<unsigned, MEMDEP_VEC_WIDTH>* current_wavefront,
-                                      unsigned input_mem_reg,
-                                      SmallVector<MachineOperand*, MEMDEP_VEC_WIDTH>* newOps = nullptr);
+                                      unsigned input_mem_reg);
+
+    // Return true if the specified loop has been annotated as parallel in the
+    // source code.
+    bool isParallelLoop(MachineLoop* loop) const;
+
+    // Return true if the specified basic block contains a .csa_parallel_loop
+    // pseudo-op.
+    bool findParallelLoopPseudoOp(const MachineBasicBlock& BB) const;
+
+    // Traverse the PHI nodes that were inserted by the ssa updater.
+    // For PHI nodes that belong to loops that have been annotated as
+    // parallel, mark the incoming PHI edges that represent memory-order backedges
+    // by inserting a CSA_PARALLEL_MEMDEP psuedo-op between the definition of
+    // the edge and the PHI.
+    void markParallelLoopBackedges(MachineFunction *thisMF,
+                                   const SmallVectorImpl<MachineInstr*>& inserted_PHIs);
 
     // Determine whether a given instruction should be assigned ordering.
     // This is the case if it has a memory operand and if its last use and last def
     // are both %ign.
     bool should_assign_ordering(const MachineInstr& MI) const;
-
-    // Determine if a val is trivially derived from an ancestor vreg,
-    // accounting for PHI, MOV0, and MERGE1 dataflow. COPY/COPYN transforms are
-    // not currently accounted for. if 'mergeOnly' is true, then only merge
-    // trees will be explored. If given a pointer to a vector of users "flow",
-    // it's filled with the dataflow path found. Note that there may be
-    // multiple paths.
-    bool isRegDerivedFromReg(MachineOperand* val, MachineOperand* ancestor, bool mergeOnly, SmallVector<MachineOperand*, MEMDEP_VEC_WIDTH> *flow) const {
-      std::set<MachineOperand*> visited;
-      return isRegDerivedFromReg(val, ancestor, mergeOnly, flow, &visited);
-    }
-    bool isRegDerivedFromReg(MachineOperand* val, MachineOperand* ancestor, bool mergeOnly) const {
-      SmallVector<MachineOperand*, MEMDEP_VEC_WIDTH> unused;
-      return isRegDerivedFromReg(val, ancestor, mergeOnly, &unused);
-    }
-    bool isRegDerivedFromReg(MachineOperand* val, MachineOperand* ancestor) const {
-      return isRegDerivedFromReg(val, ancestor, false);
-    }
-    bool isRegDerivedFromReg(MachineOperand* val, MachineOperand* ancestor, bool mergeOnly, SmallVector<MachineOperand*, MEMDEP_VEC_WIDTH> *flow, std::set<MachineOperand*> *visited) const;
-
-    // Enumerate parallel regions and sections.
-    void findParallelRegions(MachineFunction* MF);
-    // Helper for findParallelRegions. Needs cleanup.
-    const MachineInstr* isInstrPostDomByIntrinsic(MachineInstr *inst,
-                                                 unsigned opcode,
-                                                 unsigned token) const;
-
-    // Wipe out all of the intrinsics.
-    void eraseParallelIntrinsics(MachineFunction *MF);
-
-    unsigned isParallelRegion(MachineInstr *regionEntry, const MachineInstr** entry = nullptr, const MachineInstr** exit = nullptr) const;
-
-    // Find ordering edges which are crossing parallel sections in the same
-    // parallel region. This function also currently is in charge of removing
-    // said edges.
-    void relaxSectionOrderingEdges(MachineFunction *thisMF);
-    void relaxSectionOrderingEdges(parRegionInfo &parReg, MachineFunction *thisMF);
-
-    std::pair<MachineOperand*,MachineOperand*> isCrossSectionDependence(parRegionInfo* region, MachineInstr* i1, MachineInstr* i2);
-
   };
 }
 
@@ -406,6 +255,7 @@ MachineFunctionPass *llvm::createCSAMemopOrderingPass() {
 }
 
 bool CSAMemopOrdering::runOnMachineFunction(MachineFunction &MF) {
+
   if (!OrderMemops || (OrderMemopsType <= OrderMemopsMode::none)) {
     return false;
   }
@@ -416,8 +266,7 @@ bool CSAMemopOrdering::runOnMachineFunction(MachineFunction &MF) {
   AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
   CDG = &getAnalysis<ControlDependenceGraph>();
 
-  DT = &getAnalysis<MachineDominatorTree>();
-  PDT = &getAnalysis<MachinePostDominatorTree>();
+  MLI = &getAnalysis<MachineLoopInfo>();
 
   // Find the entry block. (Surely there's an easier way to do this?)
   ControlDependenceNode *rootN = CDG->getRoot();
@@ -438,33 +287,10 @@ bool CSAMemopOrdering::runOnMachineFunction(MachineFunction &MF) {
   DEBUG(errs() << "AliasSets for function " << MF.getName() << ":\n");
   DEBUG(AS->dump());
 
-  // If generating parallel memops for regions/sections, discover the
-  // regions/sections. This is similar to an analysis; it fills in some
-  // structures for later use. Otherwise, find and remove all parallel
-  // instrinsics.
-  if (ParallelOrderMemops) {
-    findParallelRegions(&MF);
-    DEBUG(dumpParRegions());
-  } else {
-    eraseParallelIntrinsics(&MF);
-  }
-
   // This step should run before the main dataflow conversion because
   // it introduces extra dependencies through virtual registers than
-  // the dataflow conversion must also deal with. It is effectively
-  // implementing the program's sequential semantics with respect to memory
-  // operations.
+  // the dataflow conversion must also deal with.
   addMemoryOrderingConstraints(&MF);
-
-  // If generating parallel memops for regions/sections, do the code generation
-  // here and then remove the intrinsics. If "addMemoryOrderingConstraints" is
-  // implementing sequential semantics, then "relaxSectionOrderingEdges" can be
-  // thought of as implementing "fork/join" parallelism for executions of
-  // sections within regions.
-  if (ParallelOrderMemops) {
-    relaxSectionOrderingEdges(&MF);
-    eraseParallelIntrinsics(&MF);
-  }
 
   return true;
 }
@@ -473,13 +299,10 @@ void CSAMemopOrdering::addMemoryOrderingConstraints(MachineFunction *thisMF) {
 
   const unsigned MemTokenMOVOpcode = TII->getMemTokenMOVOpcode();
 
+  AliasSetDepchain depchains;
   SmallVector<MachineInstr*, 16> inserted_PHIs;  // Phi nodes from ssa updaters
 
-  // Reset the set tracking all ordered memops.
-  orderedMemops.clear();
-
   // Initialize the maps.
-  depchains.clear();
   for (unsigned set=0, e=AS->getNumAliasSets(); set<e; ++set) {
     // Create the start of the chain for each alias set.
     depchains[set].start = MRI->createVirtualRegister(MemopRC);
@@ -518,9 +341,6 @@ void CSAMemopOrdering::addMemoryOrderingConstraints(MachineFunction *thisMF) {
   DEBUG(errs() << "Before addMemoryOrderingConstraints");
   for (MachineBasicBlock &BB : *thisMF) {
 
-    // Generate region entry/exit MOVs for capture.
-    generate_region_capture_release_movs(BB);
-
     // Link all the memory ops in BB together.
     // Return the name of the last output register (which could be
     // mem_in_reg).
@@ -546,6 +366,24 @@ void CSAMemopOrdering::addMemoryOrderingConstraints(MachineFunction *thisMF) {
     DEBUG(errs() << "After memop conversion of basic block: " << BB << "\n");
   }
 
+  // Create a mov to consume the end of all of each chain. We'll need one in
+  // each terminating basic block. (We are still thinking control flow here.)
+  // Note that using RI1 register class should keep this on the SXU.  Even
+  // though we allocate a separate virtual register for each one, LLVM in the
+  // end is free to re-use the same physical register since the values are dead
+  // after each def.
+  for (MachineBasicBlock &BB : *thisMF) {
+    if (!BB.isReturnBlock())
+      continue;
+
+    for (unsigned set=0, e=AS->getNumAliasSets(); set<e; ++set) {
+      unsigned depchain_end = MRI->createVirtualRegister(&CSA::RI1RegClass);
+      unsigned prev_chain_reg = depchains[set].start;
+      MachineInstr* endMov = BuildMI(BB, BB.getFirstTerminator(), DebugLoc(), TII->get(MemTokenMOVOpcode), depchain_end).addReg(prev_chain_reg);
+      depchains[set].uses.insert(endMov->operands_end()-1);
+    }
+  }
+
   // Finally, use the updater for each set to fully rewrite to SSA. This
   // includes generating PHI nodes.
   for (unsigned set=0, e=AS->getNumAliasSets(); set<e; ++set) {
@@ -562,35 +400,13 @@ void CSAMemopOrdering::addMemoryOrderingConstraints(MachineFunction *thisMF) {
       depchains[set].updater->RewriteUse(*op);
     }
   }
-}
 
-void
-CSAMemopOrdering::generate_region_capture_release_movs(MachineBasicBlock& BB) {
-  for (MachineInstr& MI : BB) {
-    if (MI.getOpcode() == CSA::CSA_PARALLEL_REGION_ENTRY ||
-        MI.getOpcode() == CSA::CSA_PARALLEL_REGION_EXIT) {
-
-      MachineOperand *regionTokenOp = &MI.getOperand(0);
-      for(parRegionInfo&pr : parRegions){
-        MachineOperand *entryToken = &MRI->getUniqueVRegDef(pr.regionToken)->getOperand(0);
-        if (isRegDerivedFromReg(regionTokenOp, entryToken)) {
-          for (unsigned aliasSet=0, e=AS->getNumAliasSets(); aliasSet<e; ++aliasSet) {
-            MachineInstr *mv = BuildMI(*MI.getParent(),
-                &MI,
-                MI.getDebugLoc(),
-                TII->get(CSA::MOV0),
-                CSA::IGN).addReg(CSA::IGN);
-            if (MI.getOpcode() == CSA::CSA_PARALLEL_REGION_ENTRY) {
-              pr.aliasSetCaptures[aliasSet] = mv;
-            }
-            else {
-              pr.aliasSetReleases[aliasSet] = mv;
-            }
-          }
-        }
-      }
-    }
-  }
+  // Traverse the PHI nodes that were inserted by the ssa updater.
+  // For PHI nodes that belong to loops that have been annotated as
+  // parallel, mark the incoming PHI edges that represent memory-order backedges
+  // by inserting a CSA_PARALLEL_MEMDEP psuedo-op between the definition of
+  // the edge and the PHI.
+  markParallelLoopBackedges(thisMF, inserted_PHIs);
 }
 
 void
@@ -607,21 +423,13 @@ CSAMemopOrdering::convert_block_memops_wavefront(MachineBasicBlock& BB,
     DEBUG(errs() << "Found instruction: " << MI << "\n");
 
     // If this instruction shouldn't be ordered, we're done.
-    if (not should_assign_ordering(MI))
-      continue;
+    if (not should_assign_ordering(MI)) continue;
 
-    unsigned as;
-    if (not MI.memoperands_empty()) {
-      assert(MI.hasOneMemOperand() && "Can't handle multiple-memop ordering");
-      const MachineMemOperand *mOp = *MI.memoperands_begin();
+    assert(MI.hasOneMemOperand() && "Can't handle multiple-memop ordering");
+    const MachineMemOperand *mOp = *MI.memoperands_begin();
 
-      // Use AliasAnalysis to determine which ordering chain we should be on.
-      as = AS->getAliasSetNumForMemop(mOp);
-    } else {
-      // This is not a real memory operand, but a MOV passthrough for parallel
-      // section handling.
-      as = getAliasSetForPassthrough(&MI);
-    }
+    // Use AliasAnalysis to determine which ordering chain we should be on.
+    unsigned as = AS->getAliasSetNumForMemop(mOp);
 
     // If this chain consists only of readonly access, then it is unnecessary.
     // This is a stronger requirement than is necessary.
@@ -695,18 +503,6 @@ CSAMemopOrdering::convert_block_memops_wavefront(MachineBasicBlock& BB,
     // Update the SSA updater.
     depchains[as].updater->AddAvailableValue(&BB, next_mem_reg);
   }
-
-  if (BB.isReturnBlock()) {
-    const unsigned MemTokenMOVOpcode = TII->getMemTokenMOVOpcode();
-    for (unsigned aliasSet=0, e=AS->getNumAliasSets(); aliasSet<e; ++aliasSet) {
-      unsigned depchain_end = MRI->createVirtualRegister(&CSA::RI1RegClass);
-      unsigned prev_chain_reg = depchain_reg[aliasSet] ? depchain_reg[aliasSet] : depchains[aliasSet].start;
-      MachineInstr* endMov = BuildMI(BB, BB.getFirstTerminator(), DebugLoc(), TII->get(MemTokenMOVOpcode), depchain_end).addReg(prev_chain_reg);
-      if (prev_chain_reg == depchains[aliasSet].start) {
-        depchains[aliasSet].uses.insert(endMov->operands_end()-1);
-      }
-    }
-  }
 }
 
 void CSAMemopOrdering::convert_block_memops_linear(MachineBasicBlock& BB,
@@ -765,17 +561,12 @@ void CSAMemopOrdering::convert_block_memops_linear(MachineBasicBlock& BB,
 }
 
 unsigned CSAMemopOrdering::merge_dependency_signals(MachineBasicBlock& BB,
-    MachineInstr* MI,
-    SmallVector<unsigned, MEMDEP_VEC_WIDTH>* current_wavefront,
-    unsigned input_mem_reg,
-    SmallVector<MachineOperand*, MEMDEP_VEC_WIDTH>* newOps) {
+                                                  MachineInstr* MI,
+                                                  SmallVector<unsigned, MEMDEP_VEC_WIDTH>* current_wavefront,
+                                                  unsigned input_mem_reg) {
 
   if (current_wavefront->size() > 0) {
     DEBUG(errs() << "Merging dependency signals from " << current_wavefront->size() << " register " << "\n");
-
-    SmallVector<unsigned, MEMDEP_VEC_WIDTH> original_wavefront;
-    for(unsigned in : *current_wavefront)
-      original_wavefront.push_back(in);
 
     // BFS-like algorithm for merging the registers together.
     // Merge consecutive pairs of dependency signals together,
@@ -812,16 +603,6 @@ unsigned CSAMemopOrdering::merge_dependency_signals(MachineBasicBlock& BB,
                                DebugLoc(),
                                TII->get(CSA::MERGE1),
                                next_out_reg).addImm(0).addReg((*current_level)[i]).addReg((*current_level)[i+1]);
-          }
-          if (newOps) {
-            MachineOperand& op1 = new_inst->getOperand(2);
-            MachineOperand& op2 = new_inst->getOperand(3);
-            auto op1it = std::find(original_wavefront.begin(), original_wavefront.end(), op1.getReg());
-            auto op2it = std::find(original_wavefront.begin(), original_wavefront.end(), op2.getReg());
-            if (op1it != original_wavefront.end())
-              newOps->push_back(&op1);
-            if (op2it != original_wavefront.end())
-              newOps->push_back(&op2);
           }
           DEBUG(errs() << "Inserted dependecy merge instruction " << *new_inst << "\n");
           next_level->push_back(next_out_reg);
@@ -882,395 +663,172 @@ void CSAMemopOrdering::order_memop_ins(
     MachineOperand& MO = MI.getOperand(i);
     DEBUG(errs() << "  Operand " << i << ": " << MO << "\n");
   }
-
-  // Finally, add this to the list of ordered instructions.
-  if (!MI.memoperands_empty())
-    orderedMemops.insert(&MI);
 }
 
-bool CSAMemopOrdering::isRegDerivedFromReg(MachineOperand* val, MachineOperand* ancestor, bool mergeOnly, SmallVector<MachineOperand*, MEMDEP_VEC_WIDTH> *flow, std::set<MachineOperand*> *visited) const {
-  assert(val && ancestor);
-  assert(flow);
-  assert(visited);
-  assert(val->isReg() && ancestor->isReg());
-  if(val->getReg() == ancestor->getReg()) {
-    return true;
-  }
-
-  if (visited->count(val))
-    // refuse to recurse further.
-    return false;
-
-  visited->insert(val);
-
-  assert(MRI->hasOneDef(val->getReg()) && "Expecting an SSA vreg");
-  for(MachineInstr &defMI : MRI->def_instructions(val->getReg())) {
-    // If not a PHI, then we're not going to trace backward any further.
-    if(!mergeOnly && defMI.isPHI()) {
-      unsigned numPhiOperands = defMI.getNumOperands();
-      for(unsigned i=1; i<numPhiOperands; i+= 2) {
-        MachineOperand &phiData = defMI.getOperand(i);
-        if(phiData.isReg()) {
-          MachineOperand* newAncestor = &phiData;
-          // Return true if any incoming PHI values are themselves descendants.
-          if(isRegDerivedFromReg(newAncestor, ancestor, mergeOnly, flow, visited)) {
-            flow->push_back(&phiData);
-            return true;
-          }
-        }
-      }
-    } else if (!mergeOnly && defMI.getOpcode() == CSA::MOV0) {
-      MachineOperand &movData = defMI.getOperand(1);
-      if(movData.isReg()) {
-        MachineOperand* newAncestor = &movData;
-        // Return true if the MOV source is a descendant.
-        if (isRegDerivedFromReg(newAncestor, ancestor, mergeOnly, flow, visited)) {
-          flow->push_back(&movData);
-          return true;
-        }
-      }
-    } else if (defMI.getOpcode() == CSA::MERGE1) {
-      unsigned numMergeOperands = defMI.getNumOperands();
-      for(unsigned i=2; i<numMergeOperands; ++i) {
-        MachineOperand &mergeData = defMI.getOperand(i);
-        if(mergeData.isReg()) {
-          MachineOperand* newAncestor = &mergeData;
-          // Return true if any incoming merge values are themselves descendants.
-          if (isRegDerivedFromReg(newAncestor, ancestor, mergeOnly, flow, visited)) {
-            flow->push_back(&mergeData);
-            return true;
-          }
-        }
-      }
-    }
-  }
-
-  visited->erase(val);
-  return false;
-}
-
-void CSAMemopOrdering::findParallelRegions(MachineFunction *MF){
-  // Find and index parallel intrinsics.
-  for(MachineBasicBlock& mb : *MF) {
-    for(MachineInstr& mi : mb) {
-      if (mi.getOpcode() == CSA::CSA_PARALLEL_REGION_ENTRY) {
-        parRegionInfo newRegion;
-        const MachineInstr *entry, *exit;
-        unsigned regionToken = isParallelRegion(&mi, &entry, &exit);
-        if(regionToken) {
-          assert(entry && exit);
-          assert(MRI->hasOneDef(regionToken));
-          MachineOperand& regionTokenOp = *MRI->def_begin(regionToken);
-          newRegion.regionToken = regionToken;
-          newRegion.entry = entry;
-          newRegion.exit = exit;
-
-          for(MachineBasicBlock &mbb : *MF) {
-            for(MachineInstr &mi : mbb) {
-              if (!DT->dominates(entry, &mi) || !postDominates(exit, &mi, PDT))
-                continue;
-
-              if (mi.getOpcode() == CSA::CSA_PARALLEL_SECTION_ENTRY &&
-                  isRegDerivedFromReg(&mi.getOperand(1), &regionTokenOp)) {
-                parSectionInfo newSection;
-                newSection.entry = &mi;
-                newSection.sectionToken = mi.getOperand(0).getReg();
-
-                bool foundExit = false;
-                for (MachineBasicBlock& mb2 : *MF) {
-                  for (MachineInstr& mi2 : mb2) {
-                    if (mi2.getOpcode() == CSA::CSA_PARALLEL_SECTION_EXIT) {
-                      if (DT->dominates(&mi, &mi2) && postDominates(&mi2, &mi, PDT)) {
-                        if (isRegDerivedFromReg(&mi.getOperand(0), &mi2.getOperand(0))) {
-                          newSection.exit = &mi2;
-                          foundExit = true;
-                          break;
-                        }
-                      }
-                    }
-                  }
-                }
-                if(foundExit) {
-                  newRegion.sections.insert(newSection);
-                } else {
-                  DEBUG(errs() << "WARNING: couldn't find parallel section exit\n");
-                }
-              }
-            }
-          }
-
-          parRegions.push_back(newRegion);
-        }
-        else {
-          DEBUG(errs() << "WARNING: no single-entry/single-exit region for " << mi;);
-        }
-      }
-    }
-  }
-}
-
-void CSAMemopOrdering::eraseParallelIntrinsics(MachineFunction *MF){
-  bool needDeadPHIRemoval = false;
-  std::set<MachineInstr*> toErase;
-  for(MachineBasicBlock &mbb : *MF)
-    for(MachineInstr &mi : mbb)
-      if (mi.getOpcode() == CSA::CSA_PARALLEL_SECTION_ENTRY ||
-          mi.getOpcode() == CSA::CSA_PARALLEL_SECTION_EXIT  ||
-          mi.getOpcode() == CSA::CSA_PARALLEL_REGION_ENTRY  ||
-          mi.getOpcode() == CSA::CSA_PARALLEL_REGION_EXIT) {
-        toErase.insert(&mi);
-        // Any token users should also go away.
-        for (MachineInstr &tokenUser :
-            MRI->use_nodbg_instructions(mi.getOperand(0).getReg()))
-          toErase.insert(&tokenUser);
-      }
-
-  for(MachineInstr* mi : toErase) {
-    mi->eraseFromParentAndMarkDBGValuesForRemoval();
-    needDeadPHIRemoval = true;
-  }
-
-  // We've removed all of the intrinsics, but their tokens may have been
-  // flowing through PHI nodes. Look for dead PHI nodes and remove them.
-  while (needDeadPHIRemoval) {
-    needDeadPHIRemoval= false;
-    toErase.clear();
-    for(MachineBasicBlock &mbb: *MF)
-      for(MachineInstr &mi : mbb)
-        if (mi.isPHI() && mi.getOperand(0).isReg() &&
-            MRI->use_nodbg_empty(mi.getOperand(0).getReg()))
-          toErase.insert(&mi);
-    for(MachineInstr *mi : toErase) {
-      mi->eraseFromParentAndMarkDBGValuesForRemoval();
-      needDeadPHIRemoval = true;
-    }
-  }
-}
-
-const MachineInstr* CSAMemopOrdering::isInstrPostDomByIntrinsic(MachineInstr* entryInst, unsigned op,
-                                                unsigned token) const
+bool CSAMemopOrdering::isParallelLoop(MachineLoop* loop) const
 {
-  auto *cur = PDT->getNode(entryInst->getParent());
-  assert(MRI->hasOneDef(token));
-  MachineOperand& tokenOp = *MRI->def_begin(token);
-  for( ; cur; cur = cur->getIDom()) {
-    MachineBasicBlock *dom = cur->getBlock();
+  // Look for a ".csa_parallel_loop" pseudo-opcode in the block immediately
+  // before the loop.  Note that the pseudo-opcode is not *within* the loop
+  // (unless it is referring to a nested loop).
 
-    for(MachineInstr &inst : *dom) {
-      if (inst.getOpcode()==op && postDominates(&inst, entryInst, PDT)) {
-        DEBUG(errs() << "Post-dom'ing inst is " << inst);
-        assert(inst.getNumOperands()==1 && inst.getOperand(0).isReg());
-        MachineOperand& candidateTokenOp = inst.getOperand(0);
-        if (isRegDerivedFromReg(&candidateTokenOp, &tokenOp)) {
-          DEBUG(errs() << "\t=> Yes! Post-dominator " << dom->getName() << " (BB "
-              << dom->getNumber() << " says so. Token vreg=" << token << ".\n");
-          return &inst;
-        } else {
-          DEBUG(errs() << "\t=> There's an intrinsic, but wrong token.\n");
-        }
-      }
+  // If the loop has a preheader, then looptop is that preheader; otherwise
+  // looptop is the regular loop header.
+  MachineBasicBlock* looptop = loop->getLoopPreheader();
+  if (looptop) {
+    // There is a preheader at the top of the loop. The preheader is not
+    // technically part of the loop, so it might contain the parallel pseudo
+    // op. If so, then this is a parallel loop and we're done. Most of the
+    // time, however, the pseudo-op (if any) is in the predecessor of the
+    // preheader, so we have to keep going.
+    if (findParallelLoopPseudoOp(*looptop)) {
+      DEBUG(errs() << "%%% Loop is parallel\n");
+      return true;
     }
   }
+  else {
+    // There is a no preheader at the top of the loop; use the header of the
+    // loop as the top.  Since the header is part of the loop (unlike the
+    // preheader), we do not check the header for a parallel pseudo op.
+    looptop = loop->getHeader();
+  }
 
-  DEBUG(errs() << "\t<= No parallel annotation found.\n");
-  return nullptr;
+  // If ALL predicessors to the loop contain the parallel pseudo-op, then
+  // this is a parallel loop.  If NONE of the predecessors contain the
+  // psuedo op, then this is not a parallel loop.  If SOME BUT NOT ALL
+  // predecessors contain the pseudo op, then our algorithm is broken.
+  int numPredecessors = 0;
+  int numPseudoOps = 0;
+  for (MachineBasicBlock* loopPredecessor : looptop->predecessors()) {
+    ++numPredecessors;
+    if (findParallelLoopPseudoOp(*loopPredecessor))
+      ++numPseudoOps;
+  }
+  assert((0 == numPseudoOps || numPredecessors == numPseudoOps) &&
+         "Expected all-or-none of the predecessors to have pseuodo-op");
+
+  // Return true if all of the predicessors contain the parallel pseudo-op.
+  return (numPseudoOps > 0);
 }
 
-unsigned CSAMemopOrdering::isParallelRegion(MachineInstr* regionEntry, const MachineInstr** entry, const MachineInstr** exit) const
+bool CSAMemopOrdering::findParallelLoopPseudoOp(const MachineBasicBlock& BB) const {
+  // Return true if the specified basic block contains a .csa_parallel_loop pseudo-op.
+
+  // Find a machine instruction with opcode CSA::CSA_PARALLEL_LOOP in this
+  // basic block.
+  auto MIiter = std::find_if(BB.begin(), BB.end(),
+                             [](const MachineInstr& MI) {
+                               return MI.getOpcode() == CSA::CSA_PARALLEL_LOOP;
+                             });
+
+  if (MIiter != BB.end()) {
+    // We may eventually want to remove the pseudo-op once we've processed it.
+    // BB.erase(MIiter);
+    return true;  // Found the parallel pseudo-op
+  }
+
+  return false; // Didn't find the parallel pseudo-op
+}
+
+void CSAMemopOrdering::markParallelLoopBackedges(MachineFunction *thisMF,
+                                                 const SmallVectorImpl<MachineInstr*>& inserted_PHIs)
 {
-  unsigned regionToken;
-  bool isEntry = regionEntry->getOpcode() == CSA::CSA_PARALLEL_REGION_ENTRY;
-  regionToken = regionEntry->getOperand(0).getReg();
-  DEBUG(errs() << "\tIs this a begin intrinsic? " <<
-      (isEntry ?  "yes" : "no") << "\n");
-  if (isEntry) {
-    const MachineInstr* postDom = isInstrPostDomByIntrinsic(regionEntry, CSA::CSA_PARALLEL_REGION_EXIT, regionToken);
-    DEBUG(errs() << "\tIs it post-dominated by an end intrinsic? " <<
-        (postDom ? "yes" : "no") << "\n");
-    if (postDom) {
-      if(entry)
-        *entry = regionEntry;
-      if(exit)
-        *exit = postDom;
-      return regionToken;
+  DEBUG(errs() << "%%% Before markParallelLoopBackedges\n");
+  DEBUG(thisMF->dump());
+
+  // Loop through the newly inserted PHI nodes, looking for the ones that are
+  // in the header of a parallel loop.
+  DEBUG(errs() << "%%% Inserted PHIs\n");
+  for (MachineInstr* PHI : inserted_PHIs) {
+    DEBUG(errs() << "    " << *PHI);
+
+    // Get the parallel loop in which the PHI was defined, if any
+    const MachineBasicBlock* BB = PHI->getParent();
+    MachineLoop* phiLoop = MLI->getLoopFor(BB);
+    if (! phiLoop) {
+      DEBUG(errs() << "        Not in a loop\n");
+      continue;  // Ignore PHIs not in a loop
     }
-  }
-
-  return 0;
-}
-
-std::pair<MachineOperand*,MachineOperand*>
-CSAMemopOrdering::isCrossSectionDependence(parRegionInfo* region, MachineInstr* i1, MachineInstr* i2) {
-  // All def -> use pairs to define a potential dependence "edge".
-  MachineOperand *def = std::prev(std::end(i1->defs()));
-  MachineOperand *use = std::prev(std::end(i2->uses()));
-
-  SmallVector<MachineOperand*, MEMDEP_VEC_WIDTH> flow;
-  // Is there a connecting edge?
-  if (!isRegDerivedFromReg(use, def, false, &flow))
-    // No edge. Uninteresting.
-    return {nullptr,nullptr};
-
-  // Consider pairs of instructions which are both in this region.
-  const parSectionInfo* sA = region->containsInstr(i1, DT, PDT);
-  const parSectionInfo* sB = region->containsInstr(i2, DT, PDT);
-  if (!sA || !sB)
-    // One or both of these is not in the parallel region.
-    return {nullptr,nullptr};
-
-  // Both are in a section in the region. (I.e., they're both in the same
-  // or two different sections in the region.)
-  //
-  // Interesting edges cross a section boundary. This is obviously the
-  // case if the two sections involved are different. It's also the case
-  // if the two sections are actually the same section, but the edge is
-  // going through instructions which are not in the section. (I.e., the
-  // edge "leaves" the section and comes back in.) Walk the intermediate
-  // users involved in the dataflow of the edge looking for ones which
-  // cross from one section to another.
-
-  MachineOperand *incoming = nullptr;
-  MachineOperand *outgoing = nullptr;
-  flow.push_back(use);
-  for(MachineOperand* fuser : flow) {
-    if (!outgoing && !sA->containsInstr(fuser->getParent(), DT, PDT)) {
-      assert(MRI->hasOneDef(fuser->getReg()) && "cannot understand dataflow with multiple/no defs");
-      outgoing = &*std::begin(MRI->def_operands(fuser->getReg()));
+    else if (phiLoop->getHeader() != PHI->getParent()) {
+      DEBUG(errs() << "        In a loop, but not in loop header block\n");
+      continue;
     }
-    if (outgoing && sB->containsInstr(fuser->getParent(), DT, PDT)) {
-      incoming = fuser;
-      return {incoming,outgoing};
+    else if (! isParallelLoop(phiLoop)) {
+      DEBUG(errs() << "        In serial " << *phiLoop);
+      continue;
     }
-  }
-
-  assert(!incoming && !outgoing && "discovered section exit but not re-entry?");
-  assert(sA==sB && "section-to-section edge must be a dependency");
-  return {nullptr,nullptr};
-}
-
-void CSAMemopOrdering::relaxSectionOrderingEdges(parRegionInfo &parReg, MachineFunction *thisMF) {
-
-  std::set< std::pair<unsigned, std::pair<MachineOperand*,MachineOperand*> > > edgesToRelax;
-
-  DEBUG(errs() << "Looking for section-ordering edges in region " << *parReg.entry);
-
-  // Iterate over all pairs of ordered instructions, identifying those which
-  // implement ordering between sections in the same region.
-  for(MachineInstr *iA : orderedMemops) {
-    for(MachineInstr *iB : orderedMemops) {
-
-      MachineOperand *inOp, *outOp;
-      std::tie(inOp,outOp) = isCrossSectionDependence(&parReg, iA, iB);
-      if (inOp) {
-        assert(inOp && outOp && "Found only one of edge exiting/entering operands?");
-        DEBUG(errs() << "\tSection-ordering edge from " << *iA <<
-            "\t      to ---->    " << *iB);
-        DEBUG(errs() << "\t edge section inOp: " << *inOp << "; outOp: " << *outOp << "\n");
-
-        unsigned aliasSet = AS->getAliasSetNumForMemop(*iA->memoperands_begin());
-        edgesToRelax.insert({aliasSet, {inOp, outOp}});
-      }
+    else {
+      DEBUG(errs() << "        In parallel " << *phiLoop);
     }
-  }
 
-  // For each alias set [chain] and each region, keep track of the
-  // section-exiting edges which need to be "join"ed together via MERGEs.
-  std::map<unsigned, std::set<unsigned> > sectionMergees;
+    // A PHI machine instruction has 5 or more arguments as follows:
+    //  Operand 0: output
+    //  Operand 1: input register 1
+    //  Operand 2: Last basic block on  control flow breanch for register 1 definition
+    //  Operand 3: second input register
+    //  Operand 2: Last basic block on  control flow breanch for register 2 definition
+    //  ...
+    //  Operand 2*N-1: input register N
+    //  Operand 2*N:   Last basic block on  control flow breanch for register N definition
 
-  // Iterate over the edges and replace the edge source with one coming from
-  // the ordering "fork" point.
-  for (auto edge : edgesToRelax) {
-    unsigned aliasSet = edge.first;
-    MachineOperand *incoming, *outgoing;
-    std::tie(incoming,outgoing) = edge.second;
+    // We are interested in edges that come from the same loop as the PHI. Those edges are the back
+    // edges that we want to label.  Because these PHIs were inserted as a result of memory
+    // ordering, it no more than one edge should come from the same loop as the PHI; if more than
+    // one edge *does* come from the same loop as the PHI, we'll ignore this PHI, for now.
+    MachineOperand*    backedgeOperand = nullptr;
+    auto operandIter = PHI->operands_begin();
+    auto operandEnd  = PHI->operands_end();
+    ++operandIter;   // Skip output operand
+    while (operandIter != operandEnd) {
+      MachineOperand& regOperand = *operandIter++;
+      assert(regOperand.isReg() && regOperand.getReg());
 
-    unsigned chV = parReg.aliasSetCaptures[aliasSet]->getOperand(0).getReg();
-    unsigned incomingReg = incoming->getReg();
+      MachineOperand& bbOperand  = *operandIter++;
+      assert(bbOperand.isMBB());
 
-    // Replace the incoming value with a use of the value when crossing
-    // the region entry intrinsic, as was determined by the appropriate
-    // SSAUpdater.
-    incoming->setReg(chV);
+      MachineLoop* fromLoop = MLI->getLoopFor(bbOperand.getMBB());
 
-    // On the other end, the chain output should go somewhere, namely, to
-    // a merge after the sections. (The end of the region.) Do this in a
-    // separate step, since we'll want to merge all of the
-    // section-exiting chain edges together at once. (We don't
-    // necessarily know all of them yet.)
-    sectionMergees[aliasSet].insert(outgoing->getReg());
+      if (fromLoop == phiLoop) {
+        if (backedgeOperand != nullptr) {
+          DEBUG(errs() <<
+                "%%% Ignored PHI where more than one input is from the same loop as the PHI: " <<
+                *PHI);
+          continue;
+        }
 
-    // Also arrange to reconnect the incoming edge to the implicit dataflow
-    // graph by adding it to the region join merge.
-    sectionMergees[aliasSet].insert(incomingReg);
-  }
-
-  // Finally, merge all of the outputs for each alias set. (This is the
-  // "join".) The code generation here is a little more complicated because
-  // the merge inputs may not dominate the merge point.
-  for (const auto &m : sectionMergees) {
-    unsigned aliasSet = m.first;
-    const auto &waveSet = m.second;
-    SmallVector<unsigned, MEMDEP_VEC_WIDTH> wave(waveSet.begin(), waveSet.end());
-
-    // We will use these values repeatedly to set up MachineSSAUpdaters.
-    unsigned chEntering = parReg.aliasSetCaptures[aliasSet]->getOperand(1).getReg();
-    assert(parReg.entry && "missing region entry instruction");
-    MachineBasicBlock* enteringBlock = const_cast<MachineBasicBlock*>(parReg.entry->getParent());
-
-    // Generate a MERGE1 tree joining the parallel sections' chains back into
-    // a a single chain for exiting the parallel region.
-    MachineInstr* insertBefore = parReg.aliasSetReleases[aliasSet];
-    assert(insertBefore && "missing region release" );
-    // If we are not already merging the original outgoing edge, arrange for
-    // it to be added to the merge tree tool. Otherwise, it may be left as a
-    // disconnected LIC.
-    unsigned outgoingChainVReg = insertBefore->getOperand(1).getReg();
-    // Include the old passthrough value in the merge.
-    if (!waveSet.count(outgoingChainVReg))
-      wave.push_back(outgoingChainVReg);
-
-    DEBUG(errs() << "Merging " << wave.size() << " for this alias set:\n");
-    for (unsigned wE : wave) {
-      DEBUG(errs() << "\t" << PrintReg(wE) << "\n");
-      (void)wE;
-    }
-    SmallVector<MachineOperand*, MEMDEP_VEC_WIDTH> newOps;
-    unsigned merged = merge_dependency_signals(*insertBefore->getParent(), insertBefore, &wave, chEntering, &newOps);
-    MachineInstr *mergeDef = MRI->getUniqueVRegDef(merged);
-
-    // Go back and fix up SSA form for the MERGE inputs, if necessary. This
-    // looks nasty, but it basically amounts to doing a RewriteUse on each
-    // logical MERGE input.
-    for(MachineOperand* mop : newOps) {
-      unsigned mergeIn = mop->getReg();
-      MachineInstr *inDef = MRI->getUniqueVRegDef(mergeIn);
-      assert(inDef && mergeDef);
-      assert(waveSet.count(mergeIn) || mergeIn == outgoingChainVReg);
-      if (!DT->dominates(inDef, mergeDef)) {
-        MachineSSAUpdater mergeUpdater(*thisMF);
-        mergeUpdater.Initialize(chEntering);
-        mergeUpdater.AddAvailableValue(enteringBlock, chEntering);
-        mergeUpdater.AddAvailableValue(inDef->getParent(), mergeIn);
-        mergeUpdater.RewriteUse(*mop);
+        backedgeOperand = &regOperand;
       }
     }
 
-    // Splice the merged output back into the ordering chain after the
-    // region. This is easy because of the passthrough MOVs.
-    // We can safely make this passthrough MOV dead.
-    parReg.aliasSetReleases[aliasSet]->getOperand(1).setReg(merged);
-  }
-}
+    if (backedgeOperand == nullptr)
+      continue;  // No back edges from same loop were detected
 
-void CSAMemopOrdering::relaxSectionOrderingEdges(MachineFunction *thisMF) {
-  for (parRegionInfo &pl : parRegions) {
-    relaxSectionOrderingEdges(pl, thisMF);
-  }
+    // Found a back edge from same loop as the PHI. Get register
+    unsigned backedgeReg = backedgeOperand->getReg();
+
+    // Mark the back edge by inserting a .csa_parallel_memdep psuedo-op before it.
+    // The new instruction is inserted on the output of the operation that originally defined
+    // backedgeReg; consumers of backedgeReg are not changed. The new instruction is inserted into
+    // the same BB as the operation that originally defined it, so that the SSA form does not need
+    // to be adjusted.
+    assert(MRI->hasOneDef(backedgeReg));
+    MachineOperand&    backedgeDef      = *MRI->def_begin(backedgeReg);
+    MachineInstr*      backedgeDefInstr = backedgeDef.getParent();
+    MachineBasicBlock* backedgeDefBB    = backedgeDefInstr->getParent();
+    unsigned           newMemdepReg     = MRI->createVirtualRegister(MemopRC);
+    MRI->def_begin(backedgeReg)->ChangeToRegister(newMemdepReg, true); // Replace definition
+    BuildMI(*backedgeDefBB, backedgeDefBB->getFirstTerminator(), DebugLoc(),
+            TII->get(CSA::CSA_PARALLEL_MEMDEP), backedgeReg).addReg(newMemdepReg);
+
+    // Sanity check: all channels are 0 or 1 bit wide
+  } // end for each PHI
+
+  DEBUG(errs() << "%%% After markParallelLoopBackedges\n");
+  DEBUG(thisMF->dump());
 }
 
 bool CSAMemopOrdering::should_assign_ordering(const MachineInstr& MI) const {
   using namespace std;
-  return (not MI.memoperands_empty() or MI.getOpcode() == CSA::MOV0)
+  return not MI.memoperands_empty()
     and begin(MI.defs()) != end(MI.defs()) and begin(MI.uses()) != end(MI.uses())
     and prev(end(MI.defs()))->isReg() and prev(end(MI.defs()))->getReg() == CSA::IGN
     and prev(end(MI.uses()))->isReg() and prev(end(MI.uses()))->getReg() == CSA::IGN;

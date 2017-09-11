@@ -387,11 +387,12 @@ void CSAExpandInlineAsm::buildMachineInstrFromMCInst(MachineInstr* MI, MCInst *p
 
         // Determine the size based on the pointer type and instruction information
         // This will be wrong if the pointer type is incorrect
+        const unsigned element_count = TII->getMemOpAccessWidth(parsedInst->getOpcode());
         const PointerType*const ptr_type = dyn_cast<PointerType>(arg->getType());
         assert(ptr_type && "Memory operands should be pointers");
         const DataLayout DL = TM->createDataLayout();
         const unsigned element_size = DL.getTypeStoreSize(ptr_type->getElementType());
-        const unsigned access_size = element_size;
+        const unsigned access_size = element_count*element_size;
         const unsigned alignment = DL.getABITypeAlignment(ptr_type->getElementType());
 
         DEBUG(

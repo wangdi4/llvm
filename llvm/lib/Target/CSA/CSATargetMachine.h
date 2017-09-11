@@ -42,11 +42,6 @@ public:
     return TLOF.get();
   }
 
-  // This is used to inject passes before other LLVM optimizations run, which is
-  // important for the loop intrinsic expansion pass because some optimizations
-  // move parallel loop intrinsics in unhelpful ways.
-  void adjustPassManager(PassManagerBuilder&) override;
-
 };
 
 } // End llvm namespace

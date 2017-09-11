@@ -818,8 +818,10 @@ CSATargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   if (isTailCall)
     ++NumTailCalls;
 
+#if RAVI
   if (!isTailCall)
     Chain = DAG.getCALLSEQ_START(Chain, NumBytes, 0, dl);
+#endif
 
   SDValue StackPtr = DAG.getCopyFromReg(Chain, dl, CSA::SP,
                                         getPointerTy(DAG.getDataLayout()));
