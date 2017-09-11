@@ -2399,7 +2399,7 @@ SourceLocation ASTUnit::getLocation(const FileEntry *File,
 /// \brief If \arg Loc is a loaded location from the preamble, returns
 /// the corresponding local location of the main file, otherwise it returns
 /// \arg Loc.
-SourceLocation ASTUnit::mapLocationFromPreamble(SourceLocation Loc) {
+SourceLocation ASTUnit::mapLocationFromPreamble(SourceLocation Loc) const {
   FileID PreambleID;
   if (SourceMgr)
     PreambleID = SourceMgr->getPreambleFileID();
@@ -2420,7 +2420,7 @@ SourceLocation ASTUnit::mapLocationFromPreamble(SourceLocation Loc) {
 /// \brief If \arg Loc is a local location of the main file but inside the
 /// preamble chunk, returns the corresponding loaded location from the
 /// preamble, otherwise it returns \arg Loc.
-SourceLocation ASTUnit::mapLocationToPreamble(SourceLocation Loc) {
+SourceLocation ASTUnit::mapLocationToPreamble(SourceLocation Loc) const {
   FileID PreambleID;
   if (SourceMgr)
     PreambleID = SourceMgr->getPreambleFileID();
@@ -2438,7 +2438,7 @@ SourceLocation ASTUnit::mapLocationToPreamble(SourceLocation Loc) {
   return Loc;
 }
 
-bool ASTUnit::isInPreambleFileID(SourceLocation Loc) {
+bool ASTUnit::isInPreambleFileID(SourceLocation Loc) const {
   FileID FID;
   if (SourceMgr)
     FID = SourceMgr->getPreambleFileID();
@@ -2449,7 +2449,7 @@ bool ASTUnit::isInPreambleFileID(SourceLocation Loc) {
   return SourceMgr->isInFileID(Loc, FID);
 }
 
-bool ASTUnit::isInMainFileID(SourceLocation Loc) {
+bool ASTUnit::isInMainFileID(SourceLocation Loc) const {
   FileID FID;
   if (SourceMgr)
     FID = SourceMgr->getMainFileID();
@@ -2460,7 +2460,7 @@ bool ASTUnit::isInMainFileID(SourceLocation Loc) {
   return SourceMgr->isInFileID(Loc, FID);
 }
 
-SourceLocation ASTUnit::getEndOfPreambleFileID() {
+SourceLocation ASTUnit::getEndOfPreambleFileID() const {
   FileID FID;
   if (SourceMgr)
     FID = SourceMgr->getPreambleFileID();
@@ -2471,7 +2471,7 @@ SourceLocation ASTUnit::getEndOfPreambleFileID() {
   return SourceMgr->getLocForEndOfFile(FID);
 }
 
-SourceLocation ASTUnit::getStartOfMainFileID() {
+SourceLocation ASTUnit::getStartOfMainFileID() const {
   FileID FID;
   if (SourceMgr)
     FID = SourceMgr->getMainFileID();
@@ -2547,7 +2547,7 @@ const FileEntry *ASTUnit::getPCHFile() {
   return nullptr;
 }
 
-bool ASTUnit::isModuleFile() {
+bool ASTUnit::isModuleFile() const {
   return isMainFileAST() && getLangOpts().isCompilingModule();
 }
 
