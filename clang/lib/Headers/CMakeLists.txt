@@ -2,6 +2,14 @@
 # This file has been heavily modified. Merge with care.
 set(modified_files
   adxintrin.h
+<<<<<<< HEAD
+=======
+  altivec.h
+  ammintrin.h
+  arm_acle.h
+  armintr.h
+  arm64intr.h
+>>>>>>> 9e0ef4375416584b5eac989f36098bbd84a36186
   avx2intrin.h
   avx512bwintrin.h
   avx512cdintrin.h
