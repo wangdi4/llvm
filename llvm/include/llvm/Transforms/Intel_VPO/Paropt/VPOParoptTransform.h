@@ -136,7 +136,7 @@ private:
 
   /// \brief Hold the struct type as follows.
   ///           struct kmp_depend_info {
-  ///              size_t arg_addr;
+  ///              void* arg_addr;
   ///              size_t arg_size;
   ///              char   depend_type;
   ///           };
