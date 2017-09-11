@@ -2,14 +2,6 @@
 # This file has been heavily modified. Merge with care.
 set(modified_files
   adxintrin.h
-<<<<<<< HEAD
-=======
-  altivec.h
-  ammintrin.h
-  arm_acle.h
-  armintr.h
-  arm64intr.h
->>>>>>> 9e0ef4375416584b5eac989f36098bbd84a36186
   avx2intrin.h
   avx512bwintrin.h
   avx512cdintrin.h
@@ -79,8 +71,9 @@ set(special_files
 set(orig_files
   altivec.h
   ammintrin.h
-  armintr.h
   arm_acle.h
+  armintr.h
+  arm64intr.h
   __clang_cuda_builtin_vars.h
   __clang_cuda_cmath.h
   __clang_cuda_complex_builtins.h
