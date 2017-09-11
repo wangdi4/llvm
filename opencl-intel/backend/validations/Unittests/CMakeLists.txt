@@ -14,12 +14,15 @@ set (TARGET_NAME ValidationTests)
 # we have to set proper compiler options, for win32 only, for linux gcc(g++) is used and 
 # we dont need to set such options
 if (WIN32)
-set ( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ICC_AUXILIARY_CXX_FLAGS}" )
-set ( CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   ${ICC_AUXILIARY_C_FLAGS}" )
-# some unittests have to use deprecated OpenCL API functions.
-add_definitions(
+    set ( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ICC_AUXILIARY_CXX_FLAGS}" )
+    set ( CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   ${ICC_AUXILIARY_C_FLAGS}" )
+    # some unittests have to use deprecated OpenCL API functions.
+    add_definitions(
         -wd4996 # Suppress 'function': was declared deprecated'
     )
+else(WIN32)
+    # remove the restriction of warning as error for this component
+    remove_definitions( -Werror )                                  
 endif(WIN32)
 
 
