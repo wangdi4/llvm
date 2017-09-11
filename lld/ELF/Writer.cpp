@@ -524,7 +524,7 @@ template <class ELFT> void Writer<ELFT>::addSectionSymbols() {
 //
 // This function returns true if a section needs to be put into a
 // PT_GNU_RELRO segment.
-bool elf::isRelroSection(const OutputSection *Sec) {
+static bool isRelroSection(const OutputSection *Sec) {
   if (!Config->ZRelro)
     return false;
 
@@ -1600,7 +1600,8 @@ static uint64_t getFileAlignment(uint64_t Off, OutputSection *Sec) {
   // The first section in a PT_LOAD has to have congruent offset and address
   // module the page size.
   if (Sec == First)
-    return alignTo(Off, Config->MaxPageSize, Sec->Addr);
+    return alignTo(Off, std::max<uint64_t>(Sec->Alignment, Config->MaxPageSize),
+                   Sec->Addr);
 
   // If two sections share the same PT_LOAD the file offset is calculated
   // using this formula: Off2 = Off1 + (VA2 - VA1).
@@ -1659,7 +1660,7 @@ template <class ELFT> void Writer<ELFT>::setPhdrs() {
         P.p_paddr = First->getLMA();
     }
     if (P.p_type == PT_LOAD)
-      P.p_align = Config->MaxPageSize;
+      P.p_align = std::max<uint64_t>(P.p_align, Config->MaxPageSize);
     else if (P.p_type == PT_GNU_RELRO) {
       P.p_align = 1;
       // The glibc dynamic loader rounds the size down, so we need to round up

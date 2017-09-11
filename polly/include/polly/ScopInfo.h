@@ -315,9 +315,9 @@ public:
   //  Scalars do not have array dimensions and the first dimension of
   //  a (possibly multi-dimensional) array also does not carry any size
   //  information, in case the array is not newly created.
-  __isl_give isl_pw_aff *getDimensionSizePw(unsigned Dim) const {
+  isl::pw_aff getDimensionSizePw(unsigned Dim) const {
     assert(Dim < getNumberOfDimensions() && "Invalid dimension");
-    return isl_pw_aff_copy(DimensionSizesPw[Dim]);
+    return DimensionSizesPw[Dim];
   }
 
   /// Get the canonical element type of this array.
@@ -332,7 +332,7 @@ public:
   std::string getName() const;
 
   /// Return the isl id for the base pointer.
-  __isl_give isl_id *getBasePtrId() const;
+  isl::id getBasePtrId() const;
 
   /// Return what kind of memory this represents.
   MemoryKind getKind() const { return Kind; }
@@ -364,8 +364,10 @@ public:
   /// of pre-existing. If false, it is allocated using alloca instead malloca.
   bool isOnHeap() const { return IsOnHeap; }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Dump a readable representation to stderr.
   void dump() const;
+#endif
 
   /// Print a readable representation to @p OS.
   ///
@@ -373,14 +375,13 @@ public:
   void print(raw_ostream &OS, bool SizeAsPwAff = false) const;
 
   /// Access the ScopArrayInfo associated with an access function.
-  static const ScopArrayInfo *
-  getFromAccessFunction(__isl_keep isl_pw_multi_aff *PMA);
+  static const ScopArrayInfo *getFromAccessFunction(isl::pw_multi_aff PMA);
 
   /// Access the ScopArrayInfo associated with an isl Id.
-  static const ScopArrayInfo *getFromId(__isl_take isl_id *Id);
+  static const ScopArrayInfo *getFromId(isl::id Id);
 
   /// Get the space of this array access.
-  __isl_give isl_space *getSpace() const;
+  isl::space getSpace() const;
 
   /// If the array is read only
   bool isReadOnly();
@@ -419,7 +420,7 @@ private:
   Type *ElementType;
 
   /// The isl id for the base pointer.
-  isl_id *Id;
+  isl::id Id;
 
   /// True if the newly allocated array is on heap.
   bool IsOnHeap;
@@ -428,7 +429,7 @@ private:
   SmallVector<const SCEV *, 4> DimensionSizes;
 
   /// The sizes of each dimension as isl_pw_aff.
-  SmallVector<isl_pw_aff *, 4> DimensionSizesPw;
+  SmallVector<isl::pw_aff, 4> DimensionSizesPw;
 
   /// The type of this scop array info object.
   ///
@@ -498,7 +499,7 @@ private:
   ///
   /// The identifier is unique between all memory accesses belonging to the same
   /// scop statement.
-  isl_id *Id;
+  isl::id Id;
 
   /// What is modeled by this MemoryAccess.
   /// @see MemoryKind
@@ -542,7 +543,7 @@ private:
   /// The invalid domain for an access describes all parameter combinations
   /// under which the statement looks to be executed but is in fact not because
   /// some assumption/restriction makes the access invalid.
-  isl_set *InvalidDomain;
+  isl::set InvalidDomain;
 
   // Properties describing the accessed array.
   // TODO: It might be possible to move them to ScopArrayInfo.
@@ -632,10 +633,10 @@ private:
   ///    S:     A[i] = *((double*)&A[4 * i]);
   ///
   ///    => { S[i] -> A[i]; S[i] -> A[o] : 4i <= o <= 4i + 3 }
-  isl_map *AccessRelation;
+  isl::map AccessRelation;
 
   /// Updated access relation read from JSCOP file.
-  isl_map *NewAccessRelation;
+  isl::map NewAccessRelation;
 
   /// Fortran arrays whose sizes are not statically known are stored in terms
   /// of a descriptor struct. This maintains a raw pointer to the memory,
@@ -645,7 +646,7 @@ private:
   AssertingVH<Value> FAD;
   // @}
 
-  __isl_give isl_basic_map *createBasicAccessMap(ScopStmt *Statement);
+  isl::basic_map createBasicAccessMap(ScopStmt *Statement);
 
   void assumeNoOutOfBound();
 
@@ -655,13 +656,13 @@ private:
   void computeBoundsOnAccessRelation(unsigned ElementSize);
 
   /// Get the original access function as read from IR.
-  __isl_give isl_map *getOriginalAccessRelation() const;
+  isl::map getOriginalAccessRelation() const;
 
   /// Return the space in which the access relation lives in.
-  __isl_give isl_space *getOriginalAccessRelationSpace() const;
+  isl::space getOriginalAccessRelationSpace() const;
 
   /// Get the new access function imported or set by a pass
-  __isl_give isl_map *getNewAccessRelation() const;
+  isl::map getNewAccessRelation() const;
 
   /// Fold the memory access to consider parametric offsets
   ///
@@ -746,7 +747,7 @@ public:
   /// @param Stmt       The parent statement.
   /// @param AccType    Whether read or write access.
   /// @param AccRel     The access relation that describes the memory access.
-  MemoryAccess(ScopStmt *Stmt, AccessType AccType, __isl_take isl_map *AccRel);
+  MemoryAccess(ScopStmt *Stmt, AccessType AccType, isl::map AccRel);
 
   ~MemoryAccess();
 
@@ -796,7 +797,7 @@ public:
   }
 
   /// Check if a new access relation was imported or set by a pass.
-  bool hasNewAccessRelation() const { return NewAccessRelation; }
+  bool hasNewAccessRelation() const { return !NewAccessRelation.is_null(); }
 
   /// Return the newest access relation of this access.
   ///
@@ -808,15 +809,13 @@ public:
   /// As 2) is by construction "newer" than 1) we return the new access
   /// relation if present.
   ///
-  __isl_give isl_map *getLatestAccessRelation() const {
+  isl::map getLatestAccessRelation() const {
     return hasNewAccessRelation() ? getNewAccessRelation()
                                   : getOriginalAccessRelation();
   }
 
   /// Old name of getLatestAccessRelation().
-  __isl_give isl_map *getAccessRelation() const {
-    return getLatestAccessRelation();
-  }
+  isl::map getAccessRelation() const { return getLatestAccessRelation(); }
 
   /// Get an isl map describing the memory address accessed.
   ///
@@ -831,11 +830,11 @@ public:
   /// will return the address function { S[i] -> A[4i] }.
   ///
   /// @returns The address function for this memory access.
-  __isl_give isl_map *getAddressFunction() const;
+  isl::map getAddressFunction() const;
 
   /// Return the access relation after the schedule was applied.
-  __isl_give isl_pw_multi_aff *
-  applyScheduleToAccessRelation(__isl_take isl_union_map *Schedule) const;
+  isl::pw_multi_aff
+  applyScheduleToAccessRelation(isl::union_map Schedule) const;
 
   /// Get an isl string representing the access function read from IR.
   std::string getOriginalAccessRelationStr() const;
@@ -856,14 +855,14 @@ public:
   Value *getOriginalBaseAddr() const { return BaseAddr; }
 
   /// Get the detection-time base array isl_id for this access.
-  __isl_give isl_id *getOriginalArrayId() const;
+  isl::id getOriginalArrayId() const;
 
   /// Get the base array isl_id for this access, modifiable through
   /// setNewAccessRelation().
-  __isl_give isl_id *getLatestArrayId() const;
+  isl::id getLatestArrayId() const;
 
   /// Old name of getOriginalArrayId().
-  __isl_give isl_id *getArrayId() const { return getOriginalArrayId(); }
+  isl::id getArrayId() const { return getOriginalArrayId(); }
 
   /// Get the detection-time ScopArrayInfo object for the base address.
   const ScopArrayInfo *getOriginalScopArrayInfo() const;
@@ -916,22 +915,18 @@ public:
   /// Compute the isl representation for the SCEV @p E wrt. this access.
   ///
   /// Note that this function will also adjust the invalid context accordingly.
-  __isl_give isl_pw_aff *getPwAff(const SCEV *E);
+  isl::pw_aff getPwAff(const SCEV *E);
 
   /// Get the invalid domain for this access.
-  __isl_give isl_set *getInvalidDomain() const {
-    return isl_set_copy(InvalidDomain);
-  }
+  isl::set getInvalidDomain() const { return InvalidDomain; }
 
   /// Get the invalid context for this access.
-  __isl_give isl_set *getInvalidContext() const {
-    return isl_set_params(getInvalidDomain());
-  }
+  isl::set getInvalidContext() const { return getInvalidDomain().params(); }
 
   /// Get the stride of this memory access in the specified Schedule. Schedule
   /// is a map from the statement to a schedule where the innermost dimension is
   /// the dimension of the innermost loop containing the statement.
-  __isl_give isl_set *getStride(__isl_take const isl_map *Schedule) const;
+  isl::set getStride(isl::map Schedule) const;
 
   /// Get the FortranArrayDescriptor corresponding to this memory access if
   /// it exists, and nullptr otherwise.
@@ -940,19 +935,19 @@ public:
   /// Is the stride of the access equal to a certain width? Schedule is a map
   /// from the statement to a schedule where the innermost dimension is the
   /// dimension of the innermost loop containing the statement.
-  bool isStrideX(__isl_take const isl_map *Schedule, int StrideWidth) const;
+  bool isStrideX(isl::map Schedule, int StrideWidth) const;
 
   /// Is consecutive memory accessed for a given statement instance set?
   /// Schedule is a map from the statement to a schedule where the innermost
   /// dimension is the dimension of the innermost loop containing the
   /// statement.
-  bool isStrideOne(__isl_take const isl_map *Schedule) const;
+  bool isStrideOne(isl::map Schedule) const;
 
   /// Is always the same memory accessed for a given statement instance set?
   /// Schedule is a map from the statement to a schedule where the innermost
   /// dimension is the dimension of the innermost loop containing the
   /// statement.
-  bool isStrideZero(__isl_take const isl_map *Schedule) const;
+  bool isStrideZero(isl::map Schedule) const;
 
   /// Return the kind when this access was first detected.
   MemoryKind getOriginalKind() const {
@@ -1099,15 +1094,17 @@ public:
   ///
   /// This identifier is unique for all accesses that belong to the same scop
   /// statement.
-  __isl_give isl_id *getId() const;
+  isl::id getId() const;
 
   /// Print the MemoryAccess.
   ///
   /// @param OS The output stream the MemoryAccess is printed to.
   void print(raw_ostream &OS) const;
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the MemoryAccess to stderr.
   void dump() const;
+#endif
 
   /// Is the memory access affine?
   bool isAffine() const { return IsAffine; }
@@ -1394,8 +1391,8 @@ public:
     return getRegion()->contains(L);
   }
 
-  /// Return whether this statement contains @p BB.
-  bool contains(BasicBlock *BB) const {
+  /// Return whether this statement represents @p BB.
+  bool represents(BasicBlock *BB) const {
     if (isCopyStmt())
       return false;
     if (isBlockStmt())
@@ -1407,7 +1404,7 @@ public:
   bool contains(Instruction *Inst) const {
     if (!Inst)
       return false;
-    return contains(Inst->getParent());
+    return represents(Inst->getParent());
   }
 
   /// Return the closest innermost loop that contains this statement, but is not
@@ -1501,7 +1498,6 @@ public:
   /// Return the MemoryAccess that loads a PHINode value, or nullptr if not
   /// existing, respectively not yet added.
   MemoryAccess *lookupPHIReadOf(PHINode *PHI) const {
-    assert(isBlockStmt() || R->getEntry() == PHI->getParent());
     return PHIReads.lookup(PHI);
   }
 
@@ -1587,6 +1583,12 @@ public:
     return {insts_begin(), insts_end()};
   }
 
+  /// Insert an instruction before all other instructions in this statement.
+  void prependInstruction(Instruction *Inst) {
+    assert(isBlockStmt() && "Only block statements support instruction lists");
+    Instructions.insert(Instructions.begin(), Inst);
+  }
+
   const char *getBaseName() const;
 
   /// Set the isl AST build.
@@ -1611,22 +1613,35 @@ public:
 
   /// Print the ScopStmt.
   ///
-  /// @param OS The output stream the ScopStmt is printed to.
-  void print(raw_ostream &OS) const;
+  /// @param OS                The output stream the ScopStmt is printed to.
+  /// @param PrintInstructions Whether to print the statement's instructions as
+  ///                          well.
+  void print(raw_ostream &OS, bool PrintInstructions) const;
 
   /// Print the instructions in ScopStmt.
   ///
   void printInstructions(raw_ostream &OS) const;
 
+  /// Check whether there is a value read access for @p V in this statement, and
+  /// if not, create one.
+  ///
+  /// This allows to add MemoryAccesses after the initial creation of the Scop
+  /// by ScopBuilder.
+  ///
+  /// @return The already existing or newly created MemoryKind::Value READ
+  /// MemoryAccess.
+  ///
+  /// @see ScopBuilder::ensureValueRead(Value*,ScopStmt*)
+  MemoryAccess *ensureValueRead(Value *V);
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the ScopStmt to stderr.
   void dump() const;
+#endif
 };
 
 /// Print ScopStmt S to raw_ostream O.
-static inline raw_ostream &operator<<(raw_ostream &O, const ScopStmt &S) {
-  S.print(O);
-  return O;
-}
+raw_ostream &operator<<(raw_ostream &O, const ScopStmt &S);
 
 /// Static Control Part
 ///
@@ -2318,7 +2333,7 @@ private:
   //@{
   void printContext(raw_ostream &OS) const;
   void printArrayInfo(raw_ostream &OS) const;
-  void printStatements(raw_ostream &OS) const;
+  void printStatements(raw_ostream &OS, bool PrintInstructions) const;
   void printAliasAssumptions(raw_ostream &OS) const;
   //@}
 
@@ -2811,10 +2826,14 @@ public:
   /// Print the static control part.
   ///
   /// @param OS The output stream the static control part is printed to.
-  void print(raw_ostream &OS) const;
+  /// @param PrintInstructions Whether to print the statement's instructions as
+  ///                          well.
+  void print(raw_ostream &OS, bool PrintInstructions) const;
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the ScopStmt to stderr.
   void dump() const;
+#endif
 
   /// Get the isl context of this static control part.
   ///
@@ -2956,10 +2975,7 @@ public:
 };
 
 /// Print Scop scop to raw_ostream O.
-static inline raw_ostream &operator<<(raw_ostream &O, const Scop &scop) {
-  scop.print(O);
-  return O;
-}
+raw_ostream &operator<<(raw_ostream &O, const Scop &scop);
 
 /// The legacy pass manager's analysis pass to compute scop information
 ///        for a region.

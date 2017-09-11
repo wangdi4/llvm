@@ -73,7 +73,7 @@ VirtualUse VirtualUse::create(Scop *S, ScopStmt *UserStmt, Loop *UserScope,
   // A use is inter-statement if either it is defined in another statement, or
   // there is a MemoryAccess that reads its value that has been written by
   // another statement.
-  if (InputMA || (!Virtual && !UserStmt->contains(Inst->getParent())))
+  if (InputMA || (!Virtual && !UserStmt->represents(Inst->getParent())))
     return VirtualUse(UserStmt, Val, Inter, nullptr, InputMA);
 
   return VirtualUse(UserStmt, Val, Intra, nullptr, nullptr);
@@ -121,7 +121,7 @@ void VirtualUse::print(raw_ostream &OS, bool Reproducible) const {
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void VirtualUse::dump() const {
+LLVM_DUMP_METHOD void VirtualUse::dump() const {
   print(errs(), false);
   errs() << '\n';
 }
@@ -138,7 +138,7 @@ void VirtualInstruction::print(raw_ostream &OS, bool Reproducible) const {
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void VirtualInstruction::dump() const {
+LLVM_DUMP_METHOD void VirtualInstruction::dump() const {
   print(errs(), false);
   errs() << '\n';
 }

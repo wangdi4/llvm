@@ -97,7 +97,7 @@ static void InitLibcallNames(const char **Names, const Triple &TT) {
     Names[RTLIB::FPROUND_F32_F16] = "__gnu_f2h_ieee";
   }
 
-  if (TT.isGNUEnvironment()) {
+  if (TT.isGNUEnvironment() || TT.isOSFuchsia()) {
     Names[RTLIB::SINCOS_F32] = "sincosf";
     Names[RTLIB::SINCOS_F64] = "sincos";
     Names[RTLIB::SINCOS_F80] = "sincosl";
@@ -1481,7 +1481,7 @@ Value *TargetLoweringBase::getSafeStackPointerLocation(IRBuilder<> &IRB) const {
 /// by AM is legal for this target, for a load/store of the specified type.
 bool TargetLoweringBase::isLegalAddressingMode(const DataLayout &DL,
                                                const AddrMode &AM, Type *Ty,
-                                               unsigned AS) const {
+                                               unsigned AS, Instruction *I) const {
   // The default implementation of this implements a conservative RISCy, r+r and
   // r+i addr mode.
 

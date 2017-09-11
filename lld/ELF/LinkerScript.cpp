@@ -550,6 +550,7 @@ uint64_t LinkerScript::advance(uint64_t Size, unsigned Align) {
 }
 
 void LinkerScript::output(InputSection *S) {
+  uint64_t Before = advance(0, 1);
   uint64_t Pos = advance(S->getSize(), S->Alignment);
   S->OutSecOff = Pos - S->getSize() - CurAddressState->OutSec->Addr;
 
@@ -563,7 +564,7 @@ void LinkerScript::output(InputSection *S) {
   if (CurAddressState->MemRegion) {
     uint64_t &CurOffset =
         CurAddressState->MemRegionOffset[CurAddressState->MemRegion];
-    CurOffset += CurAddressState->OutSec->Size;
+    CurOffset += Pos - Before;
     uint64_t CurSize = CurOffset - CurAddressState->MemRegion->Origin;
     if (CurSize > CurAddressState->MemRegion->Length) {
       uint64_t OverflowAmt = CurSize - CurAddressState->MemRegion->Length;
@@ -751,7 +752,7 @@ void LinkerScript::adjustSectionsAfterSorting() {
     if (auto *Cmd = dyn_cast<OutputSectionCommand>(Base)) {
       Cmd->MemRegion = findMemoryRegion(Cmd);
       // Handle align (e.g. ".foo : ALIGN(16) { ... }").
-      if (Cmd->AlignExpr)
+      if (Cmd->AlignExpr && Cmd->Sec)
         Cmd->Sec->updateAlignment(Cmd->AlignExpr().getValue());
     }
   }
@@ -788,15 +789,6 @@ void LinkerScript::adjustSectionsAfterSorting() {
   }
 
   removeEmptyCommands();
-}
-
-void LinkerScript::processNonSectionCommands() {
-  for (BaseCommand *Base : Opt.Commands) {
-    if (auto *Cmd = dyn_cast<SymbolAssignment>(Base))
-      assignSymbol(Cmd, false);
-    else if (auto *Cmd = dyn_cast<AssertCommand>(Base))
-      Cmd->Expression();
-  }
 }
 
 void LinkerScript::allocateHeaders(std::vector<PhdrEntry> &Phdrs) {
