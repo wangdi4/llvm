@@ -3594,116 +3594,145 @@ Instruction *InstCombiner::foldICmpWithCastAndCast(ICmpInst &ICmp) {
 }
 
 #if INTEL_CUSTOMIZATION
+
+/// calcReducedICmpSize - Returns the size it would profitable to reduce
+/// this iCmp to or zero if it should not be reduced. Uses DataLayout to
+/// determine if new size is legal.
+static unsigned calcReducedICmpSize(Value *Op, const DataLayout &DL) {
+
+  // This value should only have one use, otherwise it will not be removed after
+  // shrinking ICmp size.
+  if (!Op->hasOneUse())
+    return 0;
+
+  // If this value is a sext or zext from the target size, then it will be
+  // removed after shrinking ICmp size to the target size.
+  if (auto *CI = dyn_cast<CastInst>(Op)) {
+    if (isa<SExtInst>(CI) || isa<ZExtInst>(CI)) {
+      unsigned SrcWidth = CI->getSrcTy()->getScalarSizeInBits();
+      if (DL.isLegalInteger(SrcWidth))
+        return SrcWidth;
+    }
+    return 0;
+  }
+
+  Value *V;
+  ConstantInt *C;
+
+  if (match(Op, m_Shr(m_Value(V), m_ConstantInt(C))) && V->hasOneUse()) {
+    unsigned OrigSize = Op->getType()->getIntegerBitWidth();
+
+    // Make sure the shift is less than the width so we have some bits left.
+    if (C->getZExtValue() >= OrigSize)
+      return 0;
+
+    unsigned ShiftRemainder = OrigSize - C->getZExtValue();
+    if (!DL.isLegalInteger(ShiftRemainder))
+      return 0;
+
+    // (X << C) >> C - This value comes from a left shift followed by a right
+    // shift of the same size. If the number of bits not shifted out is a legal
+    // integer we can truncate and remove the shifts.
+    if (match(V, m_Shl(m_Value(), m_Specific(C))))
+      return ShiftRemainder;
+
+    // ((X << C) + Y) >> C - This value comes from a left shift followed by a
+    // binary operation followed by a right shift of the same size. These 2
+    // shifts will be removed and the value Y will be shifted back after
+    // shrinking ICmp size. If Y is an integer constant, it can be shifted
+    // back at no cost.
+    if (auto *BO = dyn_cast<BinaryOperator>(V)) {
+      switch (BO->getOpcode()) {
+      default: break;
+      case Instruction::Add:
+      case Instruction::And:
+      case Instruction::Or:
+      case Instruction::Xor:
+        // These operators commute so we need to check for shl on either side.
+        if (BO->getOperand(0)->hasOneUse() &&
+            match(BO->getOperand(0), m_Shl(m_Value(), m_Specific(C))))
+          return ShiftRemainder;
+        LLVM_FALLTHROUGH;
+      case Instruction::Sub:
+        if (BO->getOperand(1)->hasOneUse() &&
+            match(BO->getOperand(1), m_Shl(m_Value(), m_Specific(C))))
+          return ShiftRemainder;
+        break;
+      }
+    }
+    return 0;
+  }
+
+  // This value comes from an "And" instruction with a mask, then we can
+  // might be able to truncate it to remove the And.
+  if (match(Op, m_And(m_Value(), m_ConstantInt(C))) && C->getValue().isMask()) {
+    unsigned MaskWidth = C->getValue().countTrailingOnes();
+    if (DL.isLegalInteger(MaskWidth))
+      return MaskWidth;
+    return 0;
+  }
+
+  return 0;
+}
+
 /// OptimizeICmpInstSize - Try to do the comparison at a smaller integer size if
 /// profitable. This could eliminate unnecessary instructions. For example:
 ///   %a1 = sext i8 %a to i32               %b1 = and i32 %b, 127
 ///   %b1 = and i32 %b, 127         --->    %b2 = trunc i32 %b1 to i8
 ///   %cmp = icmp slt i32 %a1, %b1          %cmp = icmp slt i8 %a, %b2
 /// in this case, sext is eliminated, and the trunc instruction will be ignored
-/// by code generator. 
-Instruction *InstCombiner::OptimizeICmpInstSize(ICmpInst &ICI, 
+/// by code generator.
+Instruction *InstCombiner::OptimizeICmpInstSize(ICmpInst &ICI,
                                                 Value *Op0, Value *Op1) {
-  // Currently we only optimize integer comparisons, but we could extend this 
+  // Currently we only optimize integer comparisons, but we could extend this
   // optimization to pointer comparisons in the future.
   if (!Op0->getType()->isIntegerTy())
     return nullptr;
 
-  unsigned OrigSize = Op0->getType()->getIntegerBitWidth();
-  if (OrigSize > 8 && ReduceICmpSizeIfProfitable(ICI, Op0, Op1, 8))
+  unsigned Size0 = calcReducedICmpSize(Op0, DL);
+  unsigned Size1 = calcReducedICmpSize(Op1, DL);
+
+  // Sort so we check the smaller size first. It's possible one or both numbers
+  // are zero.
+  if (Size0 > Size1)
+    std::swap(Size0, Size1);
+
+  if (Size0 != 0 && ReduceICmpSizeIfPossible(ICI, Op0, Op1, Size0))
     return &ICI;
 
-  if (OrigSize > 16 && ReduceICmpSizeIfProfitable(ICI, Op0, Op1, 16))
-    return &ICI;
-
-  if (OrigSize > 32 && ReduceICmpSizeIfProfitable(ICI, Op0, Op1, 32))
+  if (Size1 != 0 && ReduceICmpSizeIfPossible(ICI, Op0, Op1, Size1))
     return &ICI;
 
   return nullptr;
 }
 
-/// getReduceValueSizeProfit - Evaluate the profit of reducing the size of this
-/// value as a result of shrinking ICmp size. 
-static int getReduceValueSizeProfit(Value *Op, unsigned TargetSize) {
-  assert(Op->getType()->isIntegerTy() && "Expected integer type!");
-  unsigned OrigSize = Op->getType()->getIntegerBitWidth();
-
-  // Only profitable to reduce size to 8, 16 or 32 bits.
-  if (TargetSize != 8 && TargetSize != 16 && TargetSize != 32)
-    return 0;
-  
-  // This value should only have one use, otherwise it will not be removed after
-  // shrinking ICmp size.
-  if (!Op->hasOneUse())
-    return 0;
-
-  // If this value is a sext or zext from the target size, then it will be 
-  // removed after shrinking ICmp size to the target size.
-  if (CastInst *CI = dyn_cast<CastInst>(Op)) {
-    if ((isa<SExtInst>(CI) || isa<ZExtInst>(CI)) && 
-        CI->getSrcTy()->isIntegerTy(TargetSize))
-      return 1;
-  }
-  
-  // When this value comes from a binary operation.  
-  if (BinaryOperator *BO = dyn_cast<BinaryOperator>(Op)) {
-    Value *Op0 = BO->getOperand(0);
-    Value *Op1 = BO->getOperand(1);
-    Value *V1, *V2;
-    ConstantInt *C = dyn_cast<ConstantInt>(Op1);
-    if (C && (BO->getOpcode() == Instruction::LShr || 
-        BO->getOpcode() == Instruction::AShr)) {
-      // (X << C) >> C - This value comes from a left shift from the target size
-      // followed by a right shift to the target size. These 2 shifts will be
-      // removed after shirinking ICmp size to the target size.
-      if (Op0->hasOneUse() && C->getValue() == OrigSize - TargetSize && 
-          match(Op0, m_Shl(m_Value(V1), m_Specific(C))))
-        return 2;
-      // ((X << C) + Y) >> C - This value comes from a left shift followed by a
-      // binary operation followed by a right shift to the target size. These 2
-      // shifts will be removed and the value Y will be shifted back after 
-      // shrinking ICmp size. If Y is an integer constant, it can be shifted 
-      // back at no cost.
-      auto MShl = m_Shl(m_Value(V1), m_Specific(C));
-      if (Op0->hasOneUse() && C->getValue() == OrigSize - TargetSize && 
-         (match(Op0, m_Add(MShl, m_Value(V2))) || 
-          match(Op0, m_Sub(MShl, m_Value(V2))) ||
-          match(Op0, m_And(MShl, m_Value(V2))) ||
-          match(Op0, m_Or(MShl, m_Value(V2))) ||
-          match(Op0, m_Xor(MShl, m_Value(V2)))))
-        return isa<ConstantInt>(V2) ? 2 : 1;
-    }
-    // This value comes from an "And" instruction with a mask of TargetSize.
-    if (C && BO->getOpcode() == Instruction::And && 
-        C->getValue() == APInt::getLowBitsSet(OrigSize, TargetSize))
-      return 1;
-  }
-  return 0;
-}
-
-/// Reduce the size of this ICmp instruction if possible and profitable. If two 
-/// operands are known to be within a smaller range (either signed or unsigned),
-/// and it's profitable to reduce the size of both operands, then we can do this
-/// comparison in the smaller range. Operands of equality comparisons are 
-/// treated as unsigned. To reduce the size of comparison, we truncate the 
-/// operands to the smaller type.
-bool InstCombiner::ReduceICmpSizeIfProfitable(ICmpInst &ICI, Value *Op0, 
-					      Value *Op1, unsigned Size) { 
-  int profit = getReduceValueSizeProfit(Op0, Size) + 
-                     getReduceValueSizeProfit(Op1, Size); 
-  if (profit > 0 &&
-      isKnownWithinIntRange(Op0, Size, ICI.isSigned(), DL, 0, &AC, &ICI, &DT) &&
+/// Reduce the width of an icmp to size if possible based on range of the
+/// inputs and the signedness. Returns true if change was made. False if not.
+bool InstCombiner::ReduceICmpSizeIfPossible(ICmpInst &ICI, Value *Op0,
+                                            Value *Op1, unsigned Size) {
+  if (isKnownWithinIntRange(Op0, Size, ICI.isSigned(), DL, 0, &AC, &ICI, &DT) &&
       isKnownWithinIntRange(Op1, Size, ICI.isSigned(), DL, 0, &AC, &ICI, &DT)) {
+<<<<<<< HEAD
     Value *Trunc0 = Builder.CreateTrunc(Op0, 
                             IntegerType::get(ICI.getContext(), Size));
     Value *Trunc1 = Builder.CreateTrunc(Op1, 
                             IntegerType::get(ICI.getContext(), Size));
     ICI.replaceUsesOfWith(Op0, Trunc0);
     ICI.replaceUsesOfWith(Op1, Trunc1);
+=======
+    Value *Trunc0 = Builder->CreateTrunc(Op0,
+                                      IntegerType::get(ICI.getContext(), Size));
+    Value *Trunc1 = Builder->CreateTrunc(Op1,
+                                      IntegerType::get(ICI.getContext(), Size));
+    ICI.setOperand(0, Trunc0);
+    ICI.setOperand(1, Trunc1);
+>>>>>>> 4fde78830051f128665164745fea8ff2e550405b
     return true;
   }
+
   return false;
 }
-#endif // INTEL_CUSTOMIZATION    
+#endif // INTEL_CUSTOMIZATION
 
 bool InstCombiner::OptimizeOverflowCheck(OverflowCheckFlavor OCF, Value *LHS,
                                          Value *RHS, Instruction &OrigI,
