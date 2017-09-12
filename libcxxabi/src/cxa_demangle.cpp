@@ -14,6 +14,7 @@
 #include <vector>
 #include <algorithm>
 #include <numeric>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <cctype>
@@ -895,6 +896,7 @@ public:
     case SpecialSubKind::iostream:
       return StringView("basic_iostream");
     }
+    return StringView();
   }
 
   void printLeft(OutputStream &S) const override {
@@ -943,6 +945,7 @@ public:
     case SpecialSubKind::iostream:
       return StringView("iostream");
     }
+    return StringView();
   }
 
   void printLeft(OutputStream &S) const override {
