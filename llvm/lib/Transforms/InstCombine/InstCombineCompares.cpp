@@ -3712,21 +3712,12 @@ bool InstCombiner::ReduceICmpSizeIfPossible(ICmpInst &ICI, Value *Op0,
                                             Value *Op1, unsigned Size) {
   if (isKnownWithinIntRange(Op0, Size, ICI.isSigned(), DL, 0, &AC, &ICI, &DT) &&
       isKnownWithinIntRange(Op1, Size, ICI.isSigned(), DL, 0, &AC, &ICI, &DT)) {
-<<<<<<< HEAD
-    Value *Trunc0 = Builder.CreateTrunc(Op0, 
-                            IntegerType::get(ICI.getContext(), Size));
-    Value *Trunc1 = Builder.CreateTrunc(Op1, 
-                            IntegerType::get(ICI.getContext(), Size));
-    ICI.replaceUsesOfWith(Op0, Trunc0);
-    ICI.replaceUsesOfWith(Op1, Trunc1);
-=======
-    Value *Trunc0 = Builder->CreateTrunc(Op0,
-                                      IntegerType::get(ICI.getContext(), Size));
-    Value *Trunc1 = Builder->CreateTrunc(Op1,
-                                      IntegerType::get(ICI.getContext(), Size));
+    Value *Trunc0 =
+        Builder.CreateTrunc(Op0, IntegerType::get(ICI.getContext(), Size));
+    Value *Trunc1 =
+        Builder.CreateTrunc(Op1, IntegerType::get(ICI.getContext(), Size));
     ICI.setOperand(0, Trunc0);
     ICI.setOperand(1, Trunc1);
->>>>>>> 4fde78830051f128665164745fea8ff2e550405b
     return true;
   }
 
