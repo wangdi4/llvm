@@ -66,6 +66,7 @@ ImplicationSearchThreshold(
            "condition to use to thread over a weaker condition"),
   cl::init(3), cl::Hidden);
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 static cl::opt<bool>
 JumpThreadLoopHeader("jump-thread-loop-header",
@@ -83,6 +84,12 @@ ConservativeJumpThreading("conservative-jump-threading",
                    "thread regions"),
           cl::init(true), cl::Hidden);
 #endif // INTEL_CUSTOMIZATION
+=======
+static cl::opt<bool> PrintLVIAfterJumpThreading(
+    "print-lvi-after-jump-threading",
+    cl::desc("Print the LazyValueInfo cache after JumpThreading"), cl::init(false),
+    cl::Hidden);
+>>>>>>> 7313cf88d8717af101e89811a410faf4591f2864
 
 namespace {
   /// This pass performs 'jump threading', which looks at blocks that have
@@ -114,6 +121,8 @@ namespace {
     bool runOnFunction(Function &F) override;
 
     void getAnalysisUsage(AnalysisUsage &AU) const override {
+      if (PrintLVIAfterJumpThreading)
+        AU.addRequired<DominatorTreeWrapperPass>();
       AU.addRequired<AAResultsWrapperPass>();
       AU.addRequired<LazyValueInfoWrapperPass>();
       AU.addPreserved<LazyValueInfoWrapperPass>();
@@ -164,8 +173,14 @@ bool JumpThreading::runOnFunction(Function &F) {
     BFI.reset(new BlockFrequencyInfo(F, *BPI, LI));
   }
 
-  return Impl.runImpl(F, TLI, LVI, AA, HasProfileData, std::move(BFI),
-                      std::move(BPI));
+  bool Changed = Impl.runImpl(F, TLI, LVI, AA, HasProfileData, std::move(BFI),
+                              std::move(BPI));
+  if (PrintLVIAfterJumpThreading) {
+    dbgs() << "LVI for function '" << F.getName() << "':\n";
+    LVI->printLVI(F, getAnalysis<DominatorTreeWrapperPass>().getDomTree(),
+                  dbgs());
+  }
+  return Changed;
 }
 
 PreservedAnalyses JumpThreadingPass::run(Function &F,
