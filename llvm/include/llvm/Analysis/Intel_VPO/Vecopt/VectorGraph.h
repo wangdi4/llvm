@@ -334,7 +334,7 @@ public:
 
   // GraphTraits uses getParent() to get the root of DomTree. Base class impl
   // of getParent() returns type VGNode. There is no GT specialization
-  // of base class VGNode, must have a getParent which returns 
+  // of base class VGNode, must have a getParent which returns
   // specialized GT type.
   /// \brief Returns the immediate lexical parent of the AVR.
   VGLoop *getParent() const { return getParentLoop(); }
