@@ -95,6 +95,7 @@
 
 //#define DEBUG_TYPE "fpga-advisor-analysis"
 #define DEBUG_TYPE "fpga-advisor"
+#define BUFSIZE 1024
 
 using namespace llvm;
 using namespace fpga;
@@ -328,8 +329,8 @@ bool AdvisorAnalysis::runOnModule(Module &M) {
   }
 
   *outputLog << "Finished importing program trace.\n";
-  *outputLog << "Global Execution Order.\n";
-  print_execution_order(globalExecutionOrder);
+  //*outputLog << "Global Execution Order.\n";
+  // print_execution_order(globalExecutionOrder);
 
   // should also contain a sanity check to follow the trace and make sure
   // the paths are valid
@@ -589,22 +590,12 @@ bool AdvisorAnalysis::run_on_module(Module &M) {
   // fill in latency table for cpu by traversing execution graph
   getGlobalCPULatencyTable(M, LT, *globalExecutionOrder, *globalTraceGraph);
 
-  for (auto &F : M) {
-    std::cerr << "Examine function: " << F.getName().str() << "\n";
-    // Find constructs that are not supported by HLS
-    if (has_unsynthesizable_construct(&F)) {
-      *outputLog
-          << "Function contains unsynthesizable constructs, moving on.\n";
-      continue;
-    }
-    std::string dgFileName = "dg." + F.getName().str() + ".log";
-    if (!get_dependence_graph_from_file(dgFileName, &globalDepGraph,
-                                        F.getName().str(),
-                                        true /*is_global*/)) {
-      std::cerr << "Could not get the dependence graph! Error opening file "
-                << dgFileName << "\n";
-      assert(0);
-    }
+  std::string dgFileName = "dg.global.log";
+  if (!get_dependence_graph_from_file(dgFileName, &globalDepGraph,
+                                      true /*is_global*/)) {
+    std::cerr << "Could not get the dependence graph! Error opening file "
+              << dgFileName << "\n";
+    assert(0);
   }
   // we want to find the optimal tiling for the basicblocks
   // the starting point of the algorithm is the MOST parallel
@@ -709,11 +700,11 @@ bool AdvisorAnalysis::run_on_module(Module &M) {
   *outputFile << "===-------------------------------------===\n";
 
 #if 0
-	    if (!HideGraph) {
-	        for (auto &F : M) {
-		        print_optimal_configuration_for_all_calls(&F);
-            }
-	    }
+    if (!HideGraph) {
+        for (auto &F : M) {
+            print_optimal_configuration_for_all_calls(&F);
+        }
+    }
 #endif
   return true;
 }
@@ -728,7 +719,7 @@ bool AdvisorAnalysis::run_on_function(Function *F) {
 
   // We may have an indirect call.
   if (!F) {
-    *outputLog << "Found an indirect call, moving on.\n";
+    //*outputLog << "Found an indirect call, moving on.\n";
     return false;
   }
 
@@ -739,14 +730,15 @@ bool AdvisorAnalysis::run_on_function(Function *F) {
   std::cerr << "Examine function: " << F->getName().str() << "\n";
   // Find constructs that are not supported by HLS
   if (has_unsynthesizable_construct(F)) {
-    *outputLog << "Function contains unsynthesizable constructs, moving on.\n";
+    //*outputLog << "Function contains unsynthesizable constructs, moving
+    // on.\n";
     return false;
   }
 
   // was this function even executed in run
   if (executionGraph.find(F) == executionGraph.end()) {
-    *outputLog
-        << "Did not find execution of function in program trace. Skipping.\n";
+    // *outputLog << "Did not find execution of function in program trace.
+    // Skipping.\n";
     return false;
   }
 
@@ -766,7 +758,6 @@ bool AdvisorAnalysis::run_on_function(Function *F) {
   // depGraph = &getAnalysis<DependenceGraph>().getDepGraph();
   std::string dgFileName = "dg." + F->getName().str() + ".log";
   if (!get_dependence_graph_from_file(dgFileName, &functionDepGraph,
-                                      F->getName().str(),
                                       false /*is_global*/)) {
     std::cerr << "Could not get the dependence graph! Error opening file "
               << dgFileName << "\n";
@@ -790,6 +781,15 @@ bool AdvisorAnalysis::run_on_function(Function *F) {
   print_basic_block_configuration(F, outputFile);
 
   std::cerr << "Finished computing maximal configuration\n";
+#if 0
+	*outputLog << "Trace Graph for function " << F->getName().str() << "\n";
+    TraceGraphList_iterator fIt;
+    for (fIt = executionGraph[F].begin();
+       fIt != executionGraph[F].end(); fIt++) 
+    {
+         print_trace_graph(fIt);
+    }
+#endif
 
   // Now that we have a replication factor, we will prune it to honor the area
   // constraints of the device.
@@ -888,19 +888,19 @@ bool AdvisorAnalysis::has_unsynthesizable_construct(Function *F) {
   // is defined externally, which we test by looking to see if there are any
   // basic blocks
   if (F->getBasicBlockList().begin() == F->getBasicBlockList().end()) {
-    *outputLog << "Function is external.\n";
+    //*outputLog << "Function is external.\n";
     return true;
   }
 
   // no recursion
   if (has_recursive_call(F)) {
-    *outputLog << "Function has recursive call.\n";
+    //*outputLog << "Function has recursive call.\n";
     return true;
   }
 
   // no external function calls
   if (has_external_call(F)) {
-    *outputLog << "Function has external function call.\n";
+    //*outputLog << "Function has external function call.\n";
     // return true;
     return false; // we ignore these for now!!?!? FIXME
   }
@@ -961,8 +961,8 @@ bool AdvisorAnalysis::does_function_call_recursive_function(
   for (auto it = CGN->begin(), et = CGN->end(); it != et; it++) {
     CallGraphNode *calledGraphNode = it->second;
     if (calledGraphNode->getFunction()) {
-      *outputLog << "Found a call to function: "
-                 << calledGraphNode->getFunction()->getName() << "\n";
+      //*outputLog << "Found a call to function: " <<
+      // calledGraphNode->getFunction()->getName() << "\n";
       if (!calledGraphNode->getFunction()->isDeclaration()) {
         result |= does_function_call_recursive_function(calledGraphNode);
       } else {
@@ -1007,8 +1007,8 @@ bool AdvisorAnalysis::does_function_call_external_function(CallGraphNode *CGN) {
   for (auto it = CGN->begin(), et = CGN->end(); it != et; it++) {
     CallGraphNode *calledGraphNode = it->second;
     if (calledGraphNode->getFunction()) {
-      *outputLog << "Found a call to function: "
-                 << calledGraphNode->getFunction()->getName() << "\n";
+      //*outputLog << "Found a call to function: " <<
+      // calledGraphNode->getFunction()->getName() << "\n";
       if (std::find(recursiveFunctionList.begin(), recursiveFunctionList.end(),
                     calledGraphNode->getFunction()) ==
           recursiveFunctionList.end()) {
@@ -1041,6 +1041,12 @@ bool AdvisorAnalysis::get_program_trace(std::string fileIn) {
     return false; // file not found
   }
 
+  if (fileIn.length() + 25 >= BUFSIZE) {
+    std::cerr << "BUFSIZE " << BUFSIZE
+              << " too small to hold trace-file-name: " << fileIn << std::endl;
+    return false;
+  }
+
   std::string line;
 
   // unique ID for each basic block executed
@@ -1058,7 +1064,7 @@ bool AdvisorAnalysis::get_program_trace(std::string fileIn) {
   bool showProgressBar = true;
   // get total line number from file using wc command
   FILE *in;
-  char buf[256];
+  char buf[BUFSIZE + 1]; // need to change hard-coded size
 
   unsigned int fileLineNum;
   unsigned int traceThreshold = TraceThreshold;
@@ -1072,7 +1078,7 @@ bool AdvisorAnalysis::get_program_trace(std::string fileIn) {
     fileLineNum = UINT_MAX;
   } else {
     // assert(fgets(buf, sizeof(buf), in) != NULL);
-    while (fgets(buf, 256, in)) {
+    while (fgets(buf, BUFSIZE, in)) {
     }
 
     DEBUG(*outputLog << "WC " << buf << "\n");
@@ -1151,7 +1157,6 @@ bool AdvisorAnalysis::get_program_trace(std::string fileIn) {
         return false;
       } else {
         DEBUG(*outputLog << "returned from process_function_entry()\n");
-        DEBUG(print_execution_order(latestExecutionOrder));
       }
     } else if (std::regex_match(line, std::regex("(Return from: )(.*)"))) {
       if (!process_function_return(line, &latestFunction, funcStack,
@@ -1160,10 +1165,8 @@ bool AdvisorAnalysis::get_program_trace(std::string fileIn) {
         // With ROI, we could see a function return without a
         // matching entry to the function.
         *outputLog << "IGNORING process function return: FAILED.\n";
-        DEBUG(print_execution_order(latestExecutionOrder));
       } else {
         DEBUG(*outputLog << "returned from process_function_return()\n");
-        DEBUG(print_execution_order(latestExecutionOrder));
       }
     } else {
       // ignore, probably program output
@@ -1171,7 +1174,6 @@ bool AdvisorAnalysis::get_program_trace(std::string fileIn) {
   }
   DEBUG(*outputLog << "End of " << __func__ << " "
                    << "\n");
-  DEBUG(print_execution_order(latestExecutionOrder));
   return true;
 }
 
@@ -1207,18 +1209,21 @@ bool AdvisorAnalysis::process_time(const std::string &line,
   } else {
     DEBUG(*outputLog << "Stop time : " << cycle << " cycles\n");
     // update the timer
-    unsigned long long start = startTime.back();
-    // assert(startTime.size() == 1); // size must be one!!
-    startTime.pop_back();
+    // with region processing, we can see mismatched BSTPs
+    if (startTime.size() != 0) {
+      unsigned long long start = startTime.back();
+      startTime.pop_back();
 
-    // update the graph
-    if (lastVertex != UINT_MAX)
-      (*latestTraceGraph)[lastVertex].cpuCycles = (cycle - start);
+      // update the graph
+      if (lastVertex != UINT_MAX) {
+        if (PerFunction) {
+          (*latestTraceGraph)[lastVertex].cpuCycles = (cycle - start);
+        } else {
+          (*globalTraceGraph)[lastVertex].cpuCycles = (cycle - start);
+        }
+      }
+    }
   }
-
-  DEBUG(if (lastVertex != UINT_MAX) * outputLog
-        << (*latestTraceGraph)[lastVertex].name << "\n");
-
   return true;
 }
 
@@ -1320,7 +1325,12 @@ bool AdvisorAnalysis::process_load(const std::string &line, Function *function,
                        << latestGraph[lastVertex].memoryReadTuples.size()
                        << "\n");
       // latestGraph[latestVertex].memoryReadTuples.push_back(addrWidthTuple);
-      latestGraph[lastVertex].memoryReadTuples.emplace_back(addrStart, width);
+      if (PerFunction) {
+        latestGraph[lastVertex].memoryReadTuples.emplace_back(addrStart, width);
+      } else {
+        (*globalTraceGraph)[lastVertex].memoryReadTuples.emplace_back(addrStart,
+                                                                      width);
+      }
       DEBUG(*outputLog << "after push_back read tuples\n");
     } catch (std::exception &e) {
       std::cerr << "An error occured." << e.what() << "\n";
@@ -1355,8 +1365,8 @@ bool AdvisorAnalysis::process_store(const std::string &line, Function *function,
   std::string bytesString(pch);
   //=---------------------------------=//
 
-  // std::cerr << "Discovered a store with starting address : " << addrString <<
-  // "\n";
+  // std::cerr << "Discovered a store with starting address : " << addrString
+  // << "\n";
   // std::cerr << "Store width in bytes : " << bytesString << "\n";
 
   // convert the string to uint64_t
@@ -1370,13 +1380,17 @@ bool AdvisorAnalysis::process_store(const std::string &line, Function *function,
   TraceGraph &latestGraph = *lastTraceGraph;
   if (lastVertex != UINT_MAX) {
     try {
-      latestGraph[lastVertex].memoryWriteTuples.push_back(
-          std::make_pair(addrStart, width));
+      if (PerFunction) {
+        latestGraph[lastVertex].memoryWriteTuples.push_back(
+            std::make_pair(addrStart, width));
+      } else {
+        (*globalTraceGraph)[lastVertex].memoryWriteTuples.push_back(
+            std::make_pair(addrStart, width));
+      }
     } catch (std::exception &e) {
       std::cerr << "An error occured." << e.what() << "\n";
     }
   }
-
   return true;
 }
 
@@ -1420,7 +1434,7 @@ bool AdvisorAnalysis::process_basic_block_entry(
     }
   }
 
-  BasicBlock *BB = find_basicblock_by_name(funcString, bbString);
+  BasicBlock *BB = find_basicblock_by_name(bbString);
   if (!BB) {
     // could not find the basic block by name
     errs() << "Could not find the basic block from trace in program! "
@@ -1431,9 +1445,11 @@ bool AdvisorAnalysis::process_basic_block_entry(
   DEBUG(*outputLog << "SOMETHING\n");
 
   if (isa<TerminatorInst>(BB->getFirstNonPHI())) {
-    // if the basic block only contains a branch/control flow and no computation
+    // if the basic block only contains a branch/control flow and no
+    // computation
     // then skip it, do not add to graph
-    // TODO if this is what I end up doing, need to remove looking at these
+    // TODO if this is what I end up doing, need to remove looking at
+    // these
     // basic blocks when considering transitions ?? I think that already
     // happens.
     return true;
@@ -1498,10 +1514,8 @@ bool AdvisorAnalysis::process_basic_block_entry(
   // increment the node ID
   ID++;
 
-  if (PerFunction) {
-    // set the latest added vertex
-    lastVertex = currVertex;
-  }
+  // set the latest added vertex
+  lastVertex = currVertex;
 
   if (PerFunction) {
     DEBUG(*outputLog << "lululululu\n");
@@ -1818,15 +1832,11 @@ function?!!
 // TODO: there's probably a much better way than this...
 // TODO: but I need to show results!!!
 // Function: find_basicblock_by_name
-// Return: Pointer to the basic block belonging to function and basic block,
-// NULL if
-// not found
-BasicBlock *AdvisorAnalysis::find_basicblock_by_name(std::string funcName,
-                                                     std::string bbName) {
+// Return: Pointer to the basic block NULL if not found
+// Assumes: basic blocks are uniquely numbered so no duplicate names
+//   across functions
+BasicBlock *AdvisorAnalysis::find_basicblock_by_name(std::string bbName) {
   for (auto &F : *mod) {
-    if (strcmp(funcName.c_str(), F.getName().str().c_str()) != 0) {
-      continue;
-    }
     for (auto &BB : F) {
       if (strcmp(bbName.c_str(), BB.getName().str().c_str()) == 0) {
         return &BB;
@@ -1877,11 +1887,14 @@ bool AdvisorAnalysis::find_maximal_configuration_for_module(
 
   scheduled |= find_maximal_configuration_global(
       globalTraceGraph, globalExecutionOrder, rootVertices);
+#if 0
+	*outputLog << "Global Trace Graph.\n";
+    print_trace_graph(globalTraceGraph);
+#endif
   // find root vertices
   TraceGraph graph = *globalTraceGraph;
 
   // Schedule graph.
-
   // reset resource availability table
   for (auto itRT = resourceTable.begin(); itRT != resourceTable.end(); itRT++) {
     for (auto itRV = itRT->second.begin(); itRV != itRT->second.end(); itRV++) {
@@ -1972,7 +1985,8 @@ bool AdvisorAnalysis::find_maximal_configuration_for_all_calls(
   int lastCycle = -1;
 
   int callcount = 0;
-    // JCB eoIT end check unnecessary?  AND it?  Curious about length of both iterators
+  // JCB eoIT end check unnecessary?  AND it?  Curious about length of both
+  // iterators
   for (fIt = executionGraph[F].begin(), eoIt = executionOrderListMap[F].begin();
        fIt != executionGraph[F].end(), eoIt != executionOrderListMap[F].end();
        fIt++, eoIt++) {
@@ -2058,8 +2072,9 @@ bool AdvisorAnalysis::find_maximal_configuration_for_call(
     ExecutionOrderList::iterator execOrder,
     std::vector<TraceGraph::vertex_descriptor> &rootVertices) {
   DEBUG(*outputLog << __func__ << " for function " << F->getName() << "\n");
- 
-  print_execution_order(execOrder);
+  // std::cerr << __func__ << " for function " << F->getName().str() << "\n";
+
+  DEBUG(print_execution_order(execOrder));
 
   unsigned int totalNumVertices = boost::num_vertices(*graph);
   TraceGraph::vertex_iterator vi, ve;
@@ -2068,7 +2083,7 @@ bool AdvisorAnalysis::find_maximal_configuration_for_call(
     BasicBlock *selfBB = (*graph)[self].basicblock;
     DEBUG(*outputLog << "Inspecting vertex (" << self << "/" << totalNumVertices
                      << ") " << selfBB->getName() << "\n");
-    BasicBlock *BB = find_basicblock_by_name(F->getName(), selfBB->getName());
+    BasicBlock *BB = find_basicblock_by_name(selfBB->getName());
     if (BB == NULL) {
       // now that we are ignoring 'dangling' basic blocks in
       // process_basic_block(), this case should not occur
@@ -2088,10 +2103,10 @@ bool AdvisorAnalysis::find_maximal_configuration_for_call(
     // print out the static deps
     DEBUG(*outputLog << "Found number of static dependences: "
                      << staticDeps.size() << "\n");
-    for (auto sdi = staticDeps.begin(); sdi != staticDeps.end(); sdi++) {
-      DEBUG(*outputLog << "\tStatic dependence with: " << (*sdi)->getName()
-                       << "\n");
-    }
+    // for (auto sdi = staticDeps.begin(); sdi != staticDeps.end(); sdi++) {
+    // DEBUG(*outputLog << "\tStatic dependence with: " << (*sdi)->getName() <<
+    // "\n");
+    //}
 
     // dynamicDeps vector keeps track of vertices in dynamic execution trace
     std::vector<TraceGraph::vertex_descriptor> dynamicDeps;
@@ -2149,20 +2164,19 @@ bool AdvisorAnalysis::find_maximal_configuration_for_call(
       }
     }
 
-    DEBUG(*outputLog << "Found number of dynamic dependences (before): "
-                     << dynamicDeps.size() << "\n");
-
     // remove redundant dynamic dependence entries
     // these are the dynamic dependences which another dynamic dependence is
     // directly
     // or indirectly dependent on
 
-    //===-----------------------------------------------------------------------===//
+    //===-----------------------------------------------------------
+    //------------===//
     //
     // I thought removal of these redundant dependencies would help performance
     // it *significantly* slowed down my analysis.. I am removing it for now.
     //
-    //===-----------------------------------------------------------------------===//
+    //===-----------------------------------------------------------
+    //------------===//
     // remove_redundant_dynamic_dependencies(graph, dynamicDeps);
 
     DEBUG(*outputLog << "Found number of dynamic dependences (after): "
@@ -2211,7 +2225,7 @@ bool AdvisorAnalysis::find_maximal_configuration_global(
     std::vector<TraceGraph::vertex_descriptor> &rootVertices) {
   DEBUG(*outputLog << __func__ << "\n");
 
-  print_execution_order(execOrder);
+  DEBUG(print_execution_order(execOrder));
 
   unsigned int totalNumVertices = boost::num_vertices(*graph);
   TraceGraph::vertex_iterator vi, ve;
@@ -2230,10 +2244,10 @@ bool AdvisorAnalysis::find_maximal_configuration_global(
     // print out the static deps
     DEBUG(*outputLog << "Found number of static dependences: "
                      << staticDeps.size() << "\n");
-    for (auto sdi = staticDeps.begin(); sdi != staticDeps.end(); sdi++) {
-      DEBUG(*outputLog << "\tStatic dependence with: " << (*sdi)->getName()
-                       << "\n");
-    }
+    // for (auto sdi = staticDeps.begin(); sdi != staticDeps.end(); sdi++) {
+    // DEBUG(*outputLog << "\tStatic dependence with: " << (*sdi)->getName() <<
+    // "\n");
+    //}
 
     // dynamicDeps vector keeps track of vertices in dynamic execution trace
     std::vector<TraceGraph::vertex_descriptor> dynamicDeps;
@@ -2291,10 +2305,17 @@ bool AdvisorAnalysis::find_maximal_configuration_global(
       }
     }
 
-    DEBUG(*outputLog << "Found number of dynamic dependences (before): "
-                     << dynamicDeps.size() << "\n");
+    // remove redundant dynamic dependence entries
+    // these are the dynamic dependences which another dynamic dependence is
+    // directly
+    // or indirectly dependent on
 
-    // Commented by Joy to avoid performance degradation
+    //===-----------------------------------------------------------------------===//
+    //
+    // I thought removal of these redundant dependencies would help performance
+    // it *significantly* slowed down my analysis.. I am removing it for now.
+    //
+    //===-----------------------------------------------------------------------===//
     // remove_redundant_dynamic_dependencies(graph, dynamicDeps);
 
     DEBUG(*outputLog << "Found number of dynamic dependences (after): "
@@ -2356,20 +2377,20 @@ bool AdvisorAnalysis::dynamic_memory_dependence_exists(
     for (auto cwit = cWrite.begin(); cwit != cWrite.end(); cwit++) {
       // [3]
       if (memory_accesses_conflict(*cwit, *pwit)) {
-        *outputLog << "WAW conflict between : (" << pwit->first << ", "
-                   << pwit->second;
-        *outputLog << ") and (" << cwit->first << ", " << cwit->second << ")\n";
-        ;
+        DEBUG(*outputLog << "WAW conflict between : (" << pwit->first << ", "
+                         << pwit->second);
+        DEBUG(*outputLog << ") and (" << cwit->first << ", " << cwit->second
+                         << ")\n";);
         return true;
       }
     }
     for (auto crit = cRead.begin(); crit != cRead.end(); crit++) {
       // [1]
       if (memory_accesses_conflict(*crit, *pwit)) {
-        *outputLog << "RAW conflict between : (" << pwit->first << ", "
-                   << pwit->second;
-        *outputLog << ") and (" << crit->first << ", " << crit->second << ")\n";
-        ;
+        DEBUG(*outputLog << "RAW conflict between : (" << pwit->first << ", "
+                         << pwit->second);
+        DEBUG(*outputLog << ") and (" << crit->first << ", " << crit->second
+                         << ")\n";);
         return true;
       }
     }
@@ -2379,10 +2400,10 @@ bool AdvisorAnalysis::dynamic_memory_dependence_exists(
     for (auto cwit = cWrite.begin(); cwit != cWrite.end(); cwit++) {
       // [2]
       if (memory_accesses_conflict(*cwit, *prit)) {
-        *outputLog << "WAR conflict between : (" << prit->first << ", "
-                   << prit->second;
-        *outputLog << ") and (" << cwit->first << ", " << cwit->second << ")\n";
-        ;
+        DEBUG(*outputLog << "WAR conflict between : (" << prit->first << ", "
+                         << prit->second);
+        DEBUG(*outputLog << ") and (" << cwit->first << ", " << cwit->second
+                         << ")\n";);
         return true;
       }
     }
@@ -2420,6 +2441,24 @@ void AdvisorAnalysis::print_execution_order(
       *outputLog << *eit << " ";
     }
     *outputLog << "\n";
+  }
+}
+
+void AdvisorAnalysis::print_trace_graph(TraceGraphList::iterator traceGraph) {
+  *outputLog << "Trace Graph: \n";
+  // TraceGraphList_iterator fIt = globalTraceGraph;
+  TraceGraph::vertex_iterator vi, ve;
+  for (boost::tie(vi, ve) = boost::vertices(*traceGraph); vi != ve; vi++) {
+    BasicBlock *BB = (*traceGraph)[*vi].basicblock;
+    *outputLog << "vertex " << *vi << ": " << BB->getName().str() << "\n";
+    *outputLog << "\tin-degree:" << in_degree(*vi, *traceGraph) << "\n";
+    *outputLog << "\tout-degree:" << out_degree(*vi, *traceGraph) << "\n";
+  }
+  TraceGraph::edge_iterator edgeIt, edgeEnd;
+  for (boost::tie(edgeIt, edgeEnd) = boost::edges(*traceGraph);
+       edgeIt != edgeEnd; edgeIt++) {
+    *outputLog << "edge " << source(*edgeIt, *traceGraph) << "-->"
+               << target(*edgeIt, *traceGraph) << "\n";
   }
 }
 
@@ -3161,8 +3200,8 @@ void AdvisorAnalysis::find_optimal_configuration_for_all_calls(
   std::cerr << "Final Area: " << finalArea << "\n";
 }
 
-// Function: find_optimal_configuration_for_all_calls
-// Performs the gradient descent method for function F to find the optimal
+// Function: find_optimal_configuration_for_module
+// Performs the gradient descent method for module M to find the optimal
 // configuration of blocks on hardware vs. cpu
 // Description of gradient descent method:
 // With the gradient descent method we are trying to find the best configuration
@@ -3479,16 +3518,16 @@ bool AdvisorAnalysis::incremental_gradient_descent(
   double min_utility = FLT_MAX;
 
   for (auto it = gradient.begin(); it != gradient.end(); it++) {
-    // std::cerr << "gradient " << it->first->getName().str() <<  " count " <<
-    // get_basic_block_instance_count(it->first) << " utility " << it->second <<
-    // std::endl;
+    std::cerr << "gradient " << it->first->getName().str() << " count "
+              << get_basic_block_instance_count(it->first) << " utility "
+              << it->second << std::endl;
     if ((it->second < min_utility) &&
         (get_basic_block_instance_count(it->first) > 0) && (it->second != 0)) {
       removeBB = it->first;
       min_utility = it->second;
-      // std::cerr << "Setting min utility " << removeBB->getName().str() <<  "
-      // count " << get_basic_block_instance_count(it->first) << " utility " <<
-      // min_utility << std::endl;
+      std::cerr << "Setting min utility " << removeBB->getName().str()
+                << " count " << get_basic_block_instance_count(it->first)
+                << " utility " << min_utility << std::endl;
     }
   }
 
@@ -3542,16 +3581,16 @@ bool AdvisorAnalysis::incremental_gradient_descent(
   // set the 'removeBB' target to be the least useful block.
   min_utility = FLT_MAX;
   for (auto it = gradient.begin(); it != gradient.end(); it++) {
-    // std::cerr << "gradient " << it->first->getName().str() <<  " count " <<
-    // get_basic_block_instance_count(it->first) << " utility " << it->second <<
-    // std::endl;
+    std::cerr << "gradient " << it->first->getName().str() << " count "
+              << get_basic_block_instance_count(it->first) << " utility "
+              << it->second << std::endl;
     if ((it->second < min_utility) &&
         (get_basic_block_instance_count(it->first) > 0)) {
       removeBB = it->first;
       min_utility = it->second;
-      // std::cerr << "Setting min utility " << removeBB->getName().str() <<  "
-      // count " << get_basic_block_instance_count(it->first) << " utility " <<
-      // min_utility << std::endl;
+      std::cerr << "Setting min utility " << removeBB->getName().str()
+                << " count " << get_basic_block_instance_count(it->first)
+                << " utility " << min_utility << std::endl;
     }
   }
 
@@ -3596,7 +3635,9 @@ bool AdvisorAnalysis::incremental_gradient_descent(
     // take care to ensure the we will remove at least one
     // block.  find a power of two that encompasses maximum
     // number of blocks we will remove.
-    int max_count = (std::max(max_area, (int)area_threshold) / max_area) + 1;
+    int max_count =
+        (max_area) ? ((std::max(max_area, (int)area_threshold) / max_area) + 1)
+                   : 0;
     int max_power = 1;
     while (max_power < max_count) {
       max_power <<= 1;
@@ -3970,7 +4011,7 @@ bool AdvisorAnalysis::incremental_gradient_descent_global(
   int64_t finalDeltaArea = 0;
 
   // this code must go away.
-  auto fIt = globalTraceGraph;
+  TraceGraphList::iterator fIt = globalTraceGraph;
   {
 
     std::unordered_map<BasicBlock *, std::vector<unsigned>> resourceTable;
@@ -4097,16 +4138,16 @@ bool AdvisorAnalysis::incremental_gradient_descent_global(
   double min_utility = FLT_MAX;
 
   for (auto it = gradient.begin(); it != gradient.end(); it++) {
-    // std::cerr << "gradient " << it->first->getName().str() <<  " count " <<
-    // get_basic_block_instance_count(it->first) << " utility " << it->second <<
-    // std::endl;
+    std::cerr << "gradient " << it->first->getName().str() << " count "
+              << get_basic_block_instance_count(it->first) << " utility "
+              << it->second << std::endl;
     if ((it->second < min_utility) &&
         (get_basic_block_instance_count(it->first) > 0) && (it->second != 0)) {
       removeBB = it->first;
       min_utility = it->second;
-      // std::cerr << "Setting min utility " << removeBB->getName().str() <<  "
-      // count " << get_basic_block_instance_count(it->first) << " utility " <<
-      // min_utility << std::endl;
+      std::cerr << "Setting min utility " << removeBB->getName().str()
+                << " count " << get_basic_block_instance_count(it->first)
+                << " utility " << min_utility << std::endl;
     }
   }
 
@@ -4159,16 +4200,16 @@ bool AdvisorAnalysis::incremental_gradient_descent_global(
   // set the 'removeBB' target to be the least useful block.
   min_utility = FLT_MAX;
   for (auto it = gradient.begin(); it != gradient.end(); it++) {
-    // std::cerr << "gradient " << it->first->getName().str() <<  " count " <<
-    // get_basic_block_instance_count(it->first) << " utility " << it->second <<
-    // std::endl;
+    std::cerr << "gradient " << it->first->getName().str() << " count "
+              << get_basic_block_instance_count(it->first) << " utility "
+              << it->second << std::endl;
     if ((it->second < min_utility) &&
         (get_basic_block_instance_count(it->first) > 0)) {
       removeBB = it->first;
       min_utility = it->second;
-      // std::cerr << "Setting min utility " << removeBB->getName().str() <<  "
-      // count " << get_basic_block_instance_count(it->first) << " utility " <<
-      // min_utility << std::endl;
+      std::cerr << "Setting min utility " << removeBB->getName().str()
+                << " count " << get_basic_block_instance_count(it->first)
+                << " utility " << min_utility << std::endl;
     }
   }
 
@@ -4412,7 +4453,9 @@ bool AdvisorAnalysis::incremental_gradient_descent_global(
     // take care to ensure the we will remove at least one
     // block.  find a power of two that encompasses maximum
     // number of blocks we will remove.
-    int max_count = (std::max(max_area, (int)area_threshold) / max_area) + 1;
+    int max_count =
+        (max_area) ? ((std::max(max_area, (int)area_threshold) / max_area) + 1)
+                   : 0;
     int max_power = 1;
     while (max_power < max_count) {
       max_power <<= 1;
@@ -4610,7 +4653,8 @@ void AdvisorAnalysis::handle_basic_block_gradient(
   DEBUG(*outputLog << "Performing removal of basic block " << BB->getName()
                    << "\n");
   // need to iterate through all calls made to function
-  uint64_t latency = 0;
+
+  int64_t latency = 0;
 
   // reset all values to zero.
   // Really we should do our own maintainence here so as to reduce overhead.
@@ -4636,13 +4680,15 @@ void AdvisorAnalysis::handle_basic_block_gradient(
 
   tidPool.push(tid);
 
-  unsigned area = initialArea - ModuleAreaEstimator::getBasicBlockArea(*AT, BB);
+  int area = initialArea - ModuleAreaEstimator::getBasicBlockArea(*AT, BB);
 
-  float deltaLatency =
-      (float)(initialLatency - latency) + 1; // This one may keep things stable.
+  float deltaLatency = (float)(initialLatency - latency);
+  if (latency == initialLatency)
+    deltaLatency = -1 * FLT_MIN;
   float deltaArea = (float)(initialArea - area);
+
   float marginalPerformance;
-  if (deltaArea < 0.1) {
+  if (area == initialArea) {
     // this block contributes no area
     // never remove a block that contributes no area?? No harm.
     marginalPerformance = FLT_MAX;
@@ -4670,16 +4716,18 @@ void AdvisorAnalysis::handle_basic_block_gradient(
 
   resourceVector.push_back(0);
 
-  /*{
-     std::unique_lock<std::mutex> lk(threadPoolMutex);
-     std::cerr << "Done with block" << BB->getName().str() << " grad: " <<
-     marginalPerformance << "delta latency" << deltaLatency << "delta area" <<
-     deltaArea << std::endl;
-     std::cerr << "New latency: " << latency << "\n";
-     std::cerr << "New area: " << area << "\n";
-     std::cerr << "Initial latency: " << initialLatency << "\n";
-     std::cerr << "initial area: " << initialArea << "\n";
-     }*/
+  {
+    std::unique_lock<std::mutex> lk(threadPoolMutex);
+    std::cerr << "Done with block" << BB->getName().str()
+              << " grad: " << marginalPerformance << "delta latency"
+              << deltaLatency << "delta area" << deltaArea << std::endl;
+    std::cerr << "Initial latency: " << initialLatency << "\n";
+    std::cerr << "New latency: " << latency << "\n";
+    std::cerr << "delta latency: " << deltaLatency << "\n";
+    std::cerr << "initial area: " << initialArea << "\n";
+    std::cerr << "New area: " << area << "\n";
+    std::cerr << "delta area: " << deltaArea << "\n";
+  }
 }
 
 unsigned AdvisorAnalysis::get_cpu_only_latency(Function *F) {
@@ -4712,7 +4760,7 @@ unsigned AdvisorAnalysis::get_cpu_only_latency_global(Module &M) {
 // and the resource constraints embedded in the IR as metadata to determine
 // the latency of the particular function call instance represented by this
 // execution trace
-uint64_t AdvisorAnalysis::schedule_with_resource_constraints(
+int64_t AdvisorAnalysis::schedule_with_resource_constraints(
     TraceGraphList::iterator graph_it, Function *F,
     std::unordered_map<BasicBlock *, std::vector<unsigned>> *resourceTable,
     int tid) {
@@ -4753,7 +4801,7 @@ uint64_t AdvisorAnalysis::schedule_with_resource_constraints(
     if (degree == 0) {
       graph[*vi].setStart(0, tid);
       BasicBlock *thisBB = graph[*vi].basicblock;
-      BasicBlock *BB = find_basicblock_by_name(F->getName(), thisBB->getName());
+      BasicBlock *BB = find_basicblock_by_name(thisBB->getName());
       if (BB == NULL) {
         // now that we are ignoring 'dangling' basic blocks in
         // process_basic_block(), this case should not occur
@@ -4771,10 +4819,10 @@ uint64_t AdvisorAnalysis::schedule_with_resource_constraints(
 
   while (!schedulableBB.empty()) {
 
-    auto v = schedulableBB.front();
+    TraceGraph::vertex_descriptor v = schedulableBB.front();
 
-    // std::cerr << "ScheduleBB: " << graph[v].basicblock->getName().str() <<
-    // "\n";
+    // std::cerr << "\nScheduleBB: v " << v << " " <<
+    // graph[v].basicblock->getName().str() << "\n";
 
     schedulableBB.pop();
 
@@ -4791,9 +4839,8 @@ uint64_t AdvisorAnalysis::schedule_with_resource_constraints(
     TraceGraph::in_edge_iterator ii, ie;
     for (boost::tie(ii, ie) = boost::in_edges(v, graph); ii != ie; ii++) {
       TraceGraph::vertex_descriptor s = boost::source(*ii, graph);
-      // TraceGraph_vertex_descriptor t = boost::target(*ii, (*graph_ref));
-      // std::cerr << (*graph_ref)[s].ID << " -> " << (*graph_ref)[t].ID <<
-      // "\n";
+      // TraceGraph_vertex_descriptor t = boost::target(*ii, (graph));
+      // std::cerr << (graph)[s].ID << " -> " << (graph)[t].ID << "\n";
       int64_t transitionDelay =
           (int)boost::get(boost::edge_weight_t(), graph, *ii);
 
@@ -4841,9 +4888,9 @@ uint64_t AdvisorAnalysis::schedule_with_resource_constraints(
       }
     }
 
-    // std::cerr << "resource count: " << resourceVector.size() << "\n";
-
     start = std::max(start, resourceReady);
+
+    // std::cerr << "resource count: " << resourceVector.size() << "\n";
 
     // std::cerr << "start: " << start << "\n";
 
@@ -4919,7 +4966,7 @@ uint64_t AdvisorAnalysis::schedule_with_resource_constraints(
 // and the resource constraints embedded in the IR as metadata to determine
 // the latency of the particular function call instance represented by this
 // execution trace
-uint64_t AdvisorAnalysis::schedule_with_resource_constraints_global(
+int64_t AdvisorAnalysis::schedule_with_resource_constraints_global(
     TraceGraphList::iterator graph_it,
     std::unordered_map<BasicBlock *, std::vector<unsigned>> *resourceTable,
     int tid) {
@@ -4970,8 +5017,8 @@ uint64_t AdvisorAnalysis::schedule_with_resource_constraints_global(
 
     TraceGraph::vertex_descriptor v = schedulableBB.front();
 
-    // std::cerr << "ScheduleBB: " << graph[v].basicblock->getName().str() <<
-    // "\n";
+    // std::cerr << "\nScheduleBB: v " << v << " " <<
+    // graph[v].basicblock->getName().str() << "\n";
 
     schedulableBB.pop();
 
@@ -4988,9 +5035,8 @@ uint64_t AdvisorAnalysis::schedule_with_resource_constraints_global(
     TraceGraph::in_edge_iterator ii, ie;
     for (boost::tie(ii, ie) = boost::in_edges(v, graph); ii != ie; ii++) {
       TraceGraph::vertex_descriptor s = boost::source(*ii, graph);
-      // TraceGraph_vertex_descriptor t = boost::target(*ii, (*graph_ref));
-      // std::cerr << (*graph_ref)[s].ID << " -> " << (*graph_ref)[t].ID <<
-      // "\n";
+      // TraceGraph_vertex_descriptor t = boost::target(*ii, (graph));
+      // std::cerr << (graph)[s].ID << " -> " << (graph)[t].ID << "\n";
       int64_t transitionDelay =
           (int)boost::get(boost::edge_weight_t(), graph, *ii);
 
@@ -5038,11 +5084,11 @@ uint64_t AdvisorAnalysis::schedule_with_resource_constraints_global(
       }
     }
 
-    // std::cerr << "resource count: " << resourceVector.size() << "\n";
-
     start = std::max(start, resourceReady);
 
     // std::cerr << "start: " << start << "\n";
+
+    // std::cerr << "resource count: " << resourceVector.size() << "\n";
 
     // std::cerr << "resourceReady: " << resourceReady << "\n";
 
@@ -5080,16 +5126,16 @@ uint64_t AdvisorAnalysis::schedule_with_resource_constraints_global(
 
     // std::cerr << "Schedule vertex: " << graph[v].basicblock->getName().str()
     // <<
-    //  " start: " << start << " end: " << end << "\n";
+    // " start: " << start << " end: " << end << "\n";
     graph[v].setStart(start, tid);
     graph[v].setEnd(end, tid);
 
-    // std::cerr << "VERTEX [" << v << "] START: " <<
-    // (*graph_ref)[v].get_start() << " END: " << (*graph_ref)[v].get_end() <<
-    // "\n";
+    // std::cerr << "VERTEX [" << v << "] START: " << (graph)[v].get_start(tid)
+    // << " END: " << (graph)[v].get_end(tid) << "\n";
 
     // keep track of last cycle as seen by scheduler
     lastCycle = std::max(lastCycle, end);
+    // std::cerr << "LastCycle: " << lastCycle<< "\n";
 
     // Mark up children as visited.
     auto oPair = boost::out_edges(v, graph);
@@ -5104,8 +5150,8 @@ uint64_t AdvisorAnalysis::schedule_with_resource_constraints_global(
         graph[s].setStart(graph[s].getStart(tid) + 1, tid);
       }
     }
-    // std::cerr << "LastCycle: " << *lastCycle_ref << "\n";
   }
+  // std::cerr << " final LastCycle: " << lastCycle<< "\n";
 
   return lastCycle;
 }
@@ -5147,7 +5193,7 @@ uint64_t AdvisorAnalysis::schedule_without_resource_constraints(
     if (degree == 0) {
       graph[*vi].setStart(0, SINGLE_THREAD_TID);
       BasicBlock *thisBB = graph[*vi].basicblock;
-      BasicBlock *BB = find_basicblock_by_name(F->getName(), thisBB->getName());
+      BasicBlock *BB = find_basicblock_by_name(thisBB->getName());
       if (BB == NULL) {
         // now that we are ignoring 'dangling' basic blocks in
         // process_basic_block(), this case should not occur
@@ -5167,8 +5213,8 @@ uint64_t AdvisorAnalysis::schedule_without_resource_constraints(
 
     TraceGraph::vertex_descriptor v = schedulableBB.front();
 
-    // std::cerr << "ScheduleBB: " << graph[v].basicblock->getName().str() <<
-    // "\n";
+    // std::cerr << "\nScheduleBB: v " << v << " " <<
+    // graph[v].basicblock->getName().str() << "\n";
 
     schedulableBB.pop();
 
@@ -5251,6 +5297,8 @@ uint64_t AdvisorAnalysis::schedule_without_resource_constraints(
                    ModuleScheduler::getBasicBlockLatencyAccelerator(*LT, BB));
     } else {
       end += ModuleScheduler::getBasicBlockLatencyAccelerator(*LT, BB);
+      // std::cerr << "acc latency: " <<
+      // ModuleScheduler::get_basic_block_latency_accelerator(*LT, BB) << "\n";
       block_free = end;
     }
 
@@ -5332,7 +5380,7 @@ uint64_t AdvisorAnalysis::schedule_without_resource_constraints_global(
     auto degree = boost::in_degree(*vi, graph);
     if (degree == 0) {
       graph[*vi].setStart(0, SINGLE_THREAD_TID);
-
+      // BasicBlock *thisBB = graph[*vi].basicblock;
       schedulableBB.push(*vi);
     } else {
       // Is this in the graph?
@@ -5342,10 +5390,10 @@ uint64_t AdvisorAnalysis::schedule_without_resource_constraints_global(
 
   while (!schedulableBB.empty()) {
 
-    auto v = schedulableBB.front();
+    TraceGraph::vertex_descriptor v = schedulableBB.front();
 
-    // std::cerr << "ScheduleBB: " << graph[v].basicblock->getName().str() <<
-    // "\n";
+    // std::cerr << "\nScheduleBB: v " << v << " " <<
+    // graph[v].basicblock->getName().str() << "\n";
 
     schedulableBB.pop();
 
@@ -5362,7 +5410,7 @@ uint64_t AdvisorAnalysis::schedule_without_resource_constraints_global(
     // Probably we can refactor this to remove the loop. This might help us.
     TraceGraph::in_edge_iterator ii, ie;
     for (boost::tie(ii, ie) = boost::in_edges(v, graph); ii != ie; ii++) {
-      auto s = boost::source(*ii, graph);
+      TraceGraph::vertex_descriptor s = boost::source(*ii, graph);
 
       start = std::max(start, (int64_t)graph[s].getEnd(SINGLE_THREAD_TID));
     }
@@ -5428,6 +5476,8 @@ uint64_t AdvisorAnalysis::schedule_without_resource_constraints_global(
                    ModuleScheduler::getBasicBlockLatencyAccelerator(*LT, BB));
     } else {
       end += ModuleScheduler::getBasicBlockLatencyAccelerator(*LT, BB);
+      // std::cerr << "acc latency: " <<
+      // ModuleScheduler::get_basic_block_latency_accelerator(*LT, BB) << "\n";
       block_free = end;
     }
 
@@ -5439,7 +5489,7 @@ uint64_t AdvisorAnalysis::schedule_without_resource_constraints_global(
 
     // std::cerr << "Schedule vertex: " << graph[v].basicblock->getName().str()
     // <<
-    //  " start: " << start << " end: " << end << "\n";
+    // " start: " << start << " end: " << end << "\n";
     graph[v].setMinStart(start);
     graph[v].setMinEnd(end);
     graph[v].setStart(start, SINGLE_THREAD_TID);
@@ -5457,7 +5507,7 @@ uint64_t AdvisorAnalysis::schedule_without_resource_constraints_global(
     auto oi = oPair.first;
     auto oe = oPair.second;
     for (; oi != oe; oi++) {
-      auto s = boost::target(*oi, graph);
+      TraceGraph::vertex_descriptor s = boost::target(*oi, graph);
       if (graph[s].getStart(SINGLE_THREAD_TID) == -1) {
         // we can now schedule this one.
         schedulableBB.push(s);
@@ -5520,7 +5570,7 @@ uint64_t AdvisorAnalysis::schedule_cpu(TraceGraphList::iterator graph_it,
 
   while (!schedulableBB.empty()) {
 
-    auto v = schedulableBB.front();
+    TraceGraph::vertex_descriptor v = schedulableBB.front();
 
     schedulableBB.pop();
 
@@ -5547,7 +5597,7 @@ uint64_t AdvisorAnalysis::schedule_cpu(TraceGraphList::iterator graph_it,
     // std::cerr << "deps ready: " << start << "\n";
 
     BasicBlock *BB = graph[v].basicblock;
-    BasicBlock *searchBB = find_basicblock_by_name(F->getName(), BB->getName());
+    BasicBlock *searchBB = find_basicblock_by_name(BB->getName());
     if (searchBB == NULL) {
       // now that we are ignoring 'dangling' basic blocks in
       // process_basic_block(), this case should not occur
@@ -5582,7 +5632,7 @@ uint64_t AdvisorAnalysis::schedule_cpu(TraceGraphList::iterator graph_it,
     auto oi = oPair.first;
     auto oe = oPair.second;
     for (; oi != oe; oi++) {
-      auto s = boost::target(*oi, graph);
+      TraceGraph::vertex_descriptor s = boost::target(*oi, graph);
       if (graph[s].getStart(SINGLE_THREAD_TID) == -1) {
         // we can now schedule this one.
         schedulableBB.push(s);
@@ -6267,8 +6317,7 @@ void AdvisorAnalysis::dumpBlockCounts(Function *F, unsigned cpuLatency = 0) {
     // set the vertices up with zero values for this tid.
     for (boost::tie(vi, ve) = vertices(graph); vi != ve; vi++) {
       auto BB = graph[*vi].basicblock;
-      BasicBlock *searchBB =
-          find_basicblock_by_name(F->getName(), BB->getName());
+      BasicBlock *searchBB = find_basicblock_by_name(BB->getName());
       if (searchBB == NULL) {
         // now that we are ignoring 'dangling' basic blocks in
         // process_basic_block(), this case should not occur
@@ -6292,7 +6341,8 @@ void AdvisorAnalysis::dumpBlockCounts(Function *F, unsigned cpuLatency = 0) {
     auto count = (*blockIt).second;
     uint64_t totalCycles =
         count * (uint64_t)ModuleScheduler::getBasicBlockLatencyCpu(*LT, BB);
-    std::cerr << "Basic block: " << BB->getName().str() << " count: " << count
+    std::cerr << "Basic block: " << BB->getName().str() << " function "
+              << BB->getParent()->getName().str() << " count: " << count
               << " cpu latency: " << totalCycles;
     if (cpuLatency != 0) {
       std::cerr << " fraction of total latency: "
@@ -6338,8 +6388,8 @@ void AdvisorAnalysis::dumpBlockCountsGlobal(unsigned cpuLatency = 0) {
 void AdvisorAnalysis::print_optimal_configuration_for_all_calls(Function *F) {
   // std::cerr << "PRINTOUT OPTIMAL CONFIGURATION\n";
   int callNum = 0;
-  for (auto fIt = executionGraph[F].begin(); fIt != executionGraph[F].end();
-       fIt++) {
+  for (TraceGraphList::iterator fIt = executionGraph[F].begin();
+       fIt != executionGraph[F].end(); fIt++) {
 
     callNum++;
     std::string outfileName(F->getName().str() + "." + std::to_string(callNum) +
@@ -6353,7 +6403,6 @@ void AdvisorAnalysis::print_optimal_configuration_for_all_calls(Function *F) {
 
 bool AdvisorAnalysis::get_dependence_graph_from_file(std::string fileName,
                                                      DepGraph **DG,
-                                                     std::string funcName,
                                                      bool is_global) {
   // std::cerr << "***************\n";
   // allocate space for dg
@@ -6373,7 +6422,7 @@ bool AdvisorAnalysis::get_dependence_graph_from_file(std::string fileName,
 
   std::string line;
 
-  std::cerr << "Getting Dependence Graph from log: " << fileName << "\n";
+  // std::cerr << "Getting Dependence Graph from log: " << fileName << "\n";
 
   while (std::getline(fin, line)) {
     if (std::regex_match(line, std::regex("(vertex )(.*)( )(.*)"))) {
@@ -6393,10 +6442,10 @@ bool AdvisorAnalysis::get_dependence_graph_from_file(std::string fileName,
       // parse line - end
       //===================================//
 
-      BasicBlock *BB = find_basicblock_by_name(funcName, bbString);
+      BasicBlock *BB = find_basicblock_by_name(bbString);
 
       // add vertex
-      auto currVertex = boost::add_vertex(*depGraph);
+      DepGraph::vertex_descriptor currVertex = boost::add_vertex(*depGraph);
       (*depGraph)[currVertex] = BB;
 
     } else if (std::regex_match(line, std::regex("(edge )(.*)( )(.*)()(.*)"))) {

@@ -1,6 +1,8 @@
 #ifndef LLVM_LIB_TRANSFORMS_FPGA_ADVISOR_MAE_H
 #define LLVM_LIB_TRANSFORMS_FPGA_ADVISOR_MAE_H
 
+#include "llvm/Analysis/AliasAnalysis.h"
+#include "llvm/Analysis/MemoryDependenceAnalysis.h"
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/Pass.h"
 
@@ -9,6 +11,8 @@ class BasicBlock;
 class Instruction;
 class Module;
 }
+
+using namespace llvm;
 
 namespace fpga {
 
@@ -25,7 +29,7 @@ namespace fpga {
 // the
 // clock speed of the design, memory... ?
 class ModuleAreaEstimator : public ModulePass,
-                            InstVisitor<ModuleAreaEstimator> {
+                            public InstVisitor<ModuleAreaEstimator> {
 public:
   static char ID;
   static void *analyzerLibHandle;

@@ -35,7 +35,7 @@ ModuleScheduler::ModuleScheduler() : ModulePass(ID) {
   }
 }
 
-bool ModuleScheduler::runOnModule(Module &M) override {
+bool ModuleScheduler::runOnModule(Module &M) {
   std::cerr << "ModuleScheduler:" << __func__ << "\n";
   for (auto &F : M) {
     visit(F);
@@ -43,12 +43,12 @@ bool ModuleScheduler::runOnModule(Module &M) override {
   return true;
 }
 
-ModuleScheduler::visitBasicBlock(BasicBlock &BB) {
+void ModuleScheduler::visitBasicBlock(BasicBlock &BB) {
   LatencyStruct latencyStruct;
   latencyStruct.cpuLatency = 0;
 
   for (Instruction &I : BB) {
-    latencyStruct.cpuLatency += get_instruction_latency(&I);
+    latencyStruct.cpuLatency += getInstructionLatency(&I);
   }
 
   if (useDefault) {
@@ -60,7 +60,7 @@ ModuleScheduler::visitBasicBlock(BasicBlock &BB) {
     latencyStruct.acceleratorII = getBlockII(&BB);
   }
 
-  latencyTableFPGA.insert(
+  LatencyTableFPGA.insert(
       std::make_pair(BB.getTerminator()->getParent(), latencyStruct));
 }
 

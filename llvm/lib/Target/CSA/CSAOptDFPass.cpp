@@ -1826,15 +1826,20 @@ seq_add_stride(CSASeqCandidate& sc,
   assert(sc.opcode != CSASeqCandidate::INVALID_OPCODE);
 
   assert(in_stride_op);
-  MachineInstr* strideInst =
+  MachineInstrBuilder MIB =
     BuildMI(BB,
             prev_inst,
             sc.pickInst->getDebugLoc(),
             TII.get(sc.opcode),
             sc.top).
     addReg(pred_reg).
-    add(*sc.get_pick_input_op(loop_header)).
-    add(*in_stride_op);
+    add(*sc.get_pick_input_op(loop_header));
+  if (in_stride_op->isReg())
+	  MIB.addReg(in_stride_op->getReg());
+  else
+	  MIB.add(*in_stride_op);
+  MachineInstr *strideInst = MIB;
+  
   strideInst->setFlag(MachineInstr::NonSequential);
   return strideInst;
 }
@@ -2183,7 +2188,7 @@ seq_do_transform_loop_stride(CSASeqCandidate& scandidate,
                                        TII,
                                        LMFI,
                                        *BB,
-                                       scandidate.pickInst);
+                                       seqInfo.seq_inst);
   }
 
   MachineInstr* stride_inst =

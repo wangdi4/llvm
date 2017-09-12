@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <cstring>
 #include <iostream>
+#include <dlfcn.h>
 
 using namespace std;
 
@@ -41,7 +42,7 @@ bool ModuleAreaEstimator::runOnModule(Module &M) {
   return true;
 }
 
-ModuleAreaEstimator::visitBasicBlock(BasicBlock &BB) {
+void ModuleAreaEstimator::visitBasicBlock(BasicBlock &BB) {
   int area = 0;
 
   if (useDefault) {
@@ -54,7 +55,7 @@ ModuleAreaEstimator::visitBasicBlock(BasicBlock &BB) {
     // y1 is the number of this operation existing in the basic block
 
     for (Instruction &I : BB) {
-      area += instruction_area_complexity(&I);
+      area += instructionAreaComplexity(&I);
     }
   } else {
     area = getBlockArea(&BB);
@@ -66,14 +67,14 @@ ModuleAreaEstimator::visitBasicBlock(BasicBlock &BB) {
 int ModuleAreaEstimator::instructionAreaComplexity(Instruction *I) {
   // basic complexity of instruction is 1
   int complexity = 1;
-  if (instruction_needs_fp(I)) {
-    complexity += get_fp_area_cost();
+  if (instructionNeedsFp(I)) {
+    complexity += getFpAreaCost();
   }
-  if (instruction_needs_global_memory(I)) {
-    complexity += get_global_memory_area_cost();
+  if (instructionNeedsGlobalMemory(I)) {
+    complexity += getGlobalMemoryAreaCost();
   }
-  if (instruction_needs_muxes(I)) {
-    complexity += get_mux_area_cost(I);
+  if (instructionNeedsMuxes(I)) {
+    complexity += getMuxAreaCost(I);
   }
   return complexity;
 }

@@ -5,6 +5,7 @@
 
 #include <map>
 
+#include "llvm/IR/InstVisitor.h"
 #include "llvm/Pass.h"
 
 namespace llvm {

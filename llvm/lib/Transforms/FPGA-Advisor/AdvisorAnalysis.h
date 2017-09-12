@@ -269,7 +269,7 @@ private:
                                 TraceGraph executionGraph);
 
   bool check_trace_sanity();
-  BasicBlock *find_basicblock_by_name(std::string funcName, std::string bbName);
+  BasicBlock *find_basicblock_by_name(std::string bbName);
   Function *find_function_by_name(std::string funcName);
 
   // functions that do analysis on trace
@@ -354,11 +354,11 @@ private:
   void dumpImplementationCounts(Function *F);
   void dumpBlockCounts(Function *F, unsigned cpuLatency);
   void dumpBlockCountsGlobal(unsigned cpuLatency);
-  uint64_t schedule_with_resource_constraints(
+  int64_t schedule_with_resource_constraints(
       TraceGraphList::iterator graph_it, Function *F,
       std::unordered_map<BasicBlock *, std::vector<unsigned>> *resourceTable,
       int tid);
-  uint64_t schedule_with_resource_constraints_global(
+  int64_t schedule_with_resource_constraints_global(
       TraceGraphList::iterator graph_it,
       std::unordered_map<BasicBlock *, std::vector<unsigned>> *resourceTable,
       int tid);
@@ -403,6 +403,7 @@ private:
   void print_basic_block_configuration(Function *F, raw_ostream *out);
   void print_optimal_configuration_for_all_calls(Function *F);
   void print_execution_order(ExecutionOrderList::iterator execOrder);
+  void print_trace_graph(TraceGraphList::iterator traceGraph);
   bool functionInTrace(Function *F) {
     std::unordered_set<Function *>::const_iterator funcIter =
         functionsSeen.find(F);
@@ -411,7 +412,7 @@ private:
 
   // dependence graph construction
   bool get_dependence_graph_from_file(std::string fileName, DepGraph **depGraph,
-                                      std::string funcName, bool is_global);
+                                      bool is_global);
 
   // define some data structures for collecting statistics
   std::vector<Function *> functionList;

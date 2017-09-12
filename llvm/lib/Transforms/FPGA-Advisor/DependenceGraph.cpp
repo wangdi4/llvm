@@ -79,6 +79,10 @@ static cl::opt<std::string> GraphName("dg-name",
                                       cl::desc("Dependence graph name"),
                                       cl::Hidden, cl::init("dg"));
 
+static cl::opt<bool> Global("global",
+                            cl::desc("print a global dependence graph"),
+                            cl::Hidden, cl::init(true));
+
 namespace fpga {
 //===----------------------------------------------------------------------===//
 // DependenceGraph Class functions
@@ -101,9 +105,11 @@ bool DependenceGraph::dgRunOnFunction(Function &F) {
   DEBUG(*outputLog << "\n");
 
   func = &F;
-  DG.clear();
-  NameVec.clear();
-  MemoryBBs.clear();
+  if (!Global) {
+    DG.clear();
+    NameVec.clear();
+    MemoryBBs.clear();
+  }
 
   // get analyses
   MDA = &getAnalysis<MemoryDependenceWrapperPass>(F).getMemDep();
@@ -113,7 +119,7 @@ bool DependenceGraph::dgRunOnFunction(Function &F) {
   addVertices(F);
   // if (PrintGraph) {
   //	boost::write_graphviz(std::cerr, DG,
-  // boost::make_label_writer(&NameVec[0]));
+  //boost::make_label_writer(&NameVec[0]));
   //}
 
   // now process each vertex by adding edge to the vertex that
@@ -126,19 +132,33 @@ bool DependenceGraph::dgRunOnFunction(Function &F) {
     boost::write_graphviz(outfile, DG, boost::make_label_writer(&NameVec[0]));
   }
 
-  // output graph to file
-  std::string dgFileName = "dg." + F.getName().str() + ".log";
-  raw_fd_ostream OF(dgFileName, DEC, sys::fs::F_RW);
-  raw_ostream *outputFile = &OF;
-  output_graph_to_file(outputFile);
+  if (!Global) {
+    // output graph to file
+    std::string dgFileName = "dg." + F.getName().str() + ".log";
+    raw_fd_ostream OF(dgFileName, DEC, sys::fs::F_RW);
+    raw_ostream *outputFile = &OF;
+    output_graph_to_file(outputFile);
+  }
 
   return true;
 }
 
 bool DependenceGraph::runOnModule(Module &M) {
   std::cerr << "DependenceGraph:" << __func__ << "\n";
+  if (Global) {
+    DG.clear();
+    NameVec.clear();
+    MemoryBBs.clear();
+  }
   for (auto &F : M) {
     dgRunOnFunction(F);
+  }
+  if (Global) {
+    // output graph to file
+    std::string dgFileName = "dg.global.log";
+    raw_fd_ostream OF(dgFileName, DEC, sys::fs::F_RW);
+    raw_ostream *outputFile = &OF;
+    output_graph_to_file(outputFile);
   }
   return true;
 }

@@ -392,8 +392,9 @@ namespace {
     // parallel region. This function also currently is in charge of removing
     // said edges.
     void relaxSectionOrderingEdges(MachineFunction *thisMF);
+    void relaxSectionOrderingEdges(parRegionInfo &parReg, MachineFunction *thisMF);
 
-    MachineOperand* isCrossSectionDependence(parRegionInfo* region, MachineInstr* i1, MachineInstr* i2);
+    std::pair<MachineOperand*,MachineOperand*> isCrossSectionDependence(parRegionInfo* region, MachineInstr* i1, MachineInstr* i2);
 
   };
 }
@@ -408,6 +409,9 @@ bool CSAMemopOrdering::runOnMachineFunction(MachineFunction &MF) {
   if (!OrderMemops || (OrderMemopsType <= OrderMemopsMode::none)) {
     return false;
   }
+  parRegions.clear();
+  depchains.clear();
+  orderedMemops.clear();
 
   TII = static_cast<const CSAInstrInfo*>(MF.getSubtarget().getInstrInfo());
   MRI = &MF.getRegInfo();
@@ -1098,7 +1102,7 @@ unsigned CSAMemopOrdering::isParallelRegion(MachineInstr* regionEntry, const Mac
   return 0;
 }
 
-MachineOperand*
+std::pair<MachineOperand*,MachineOperand*>
 CSAMemopOrdering::isCrossSectionDependence(parRegionInfo* region, MachineInstr* i1, MachineInstr* i2) {
   // All def -> use pairs to define a potential dependence "edge".
   MachineOperand *def = std::prev(std::end(i1->defs()));
@@ -1108,14 +1112,14 @@ CSAMemopOrdering::isCrossSectionDependence(parRegionInfo* region, MachineInstr* 
   // Is there a connecting edge?
   if (!isRegDerivedFromReg(use, def, false, &flow))
     // No edge. Uninteresting.
-    return nullptr;
+    return {nullptr,nullptr};
 
   // Consider pairs of instructions which are both in this region.
   const parSectionInfo* sA = region->containsInstr(i1, DT, PDT);
   const parSectionInfo* sB = region->containsInstr(i2, DT, PDT);
   if (!sA || !sB)
     // One or both of these is not in the parallel region.
-    return nullptr;
+    return {nullptr,nullptr};
 
   // Both are in a section in the region. (I.e., they're both in the same
   // or two different sections in the region.)
@@ -1133,124 +1137,137 @@ CSAMemopOrdering::isCrossSectionDependence(parRegionInfo* region, MachineInstr* 
   flow.push_back(use);
   for(MachineOperand* fuser : flow) {
     if (!outgoing && !sA->containsInstr(fuser->getParent(), DT, PDT)) {
-      outgoing = fuser;
+      assert(MRI->hasOneDef(fuser->getReg()) && "cannot understand dataflow with multiple/no defs");
+      outgoing = &*std::begin(MRI->def_operands(fuser->getReg()));
     }
     if (outgoing && sB->containsInstr(fuser->getParent(), DT, PDT)) {
       incoming = fuser;
-      return incoming;
+      return {incoming,outgoing};
     }
   }
 
   assert(!incoming && !outgoing && "discovered section exit but not re-entry?");
   assert(sA==sB && "section-to-section edge must be a dependency");
-  return nullptr;
+  return {nullptr,nullptr};
+}
+
+void CSAMemopOrdering::relaxSectionOrderingEdges(parRegionInfo &parReg, MachineFunction *thisMF) {
+
+  std::set< std::pair<unsigned, std::pair<MachineOperand*,MachineOperand*> > > edgesToRelax;
+
+  DEBUG(errs() << "Looking for section-ordering edges in region " << *parReg.entry);
+
+  // Iterate over all pairs of ordered instructions, identifying those which
+  // implement ordering between sections in the same region.
+  for(MachineInstr *iA : orderedMemops) {
+    for(MachineInstr *iB : orderedMemops) {
+
+      MachineOperand *inOp, *outOp;
+      std::tie(inOp,outOp) = isCrossSectionDependence(&parReg, iA, iB);
+      if (inOp) {
+        assert(inOp && outOp && "Found only one of edge exiting/entering operands?");
+        DEBUG(errs() << "\tSection-ordering edge from " << *iA <<
+            "\t      to ---->    " << *iB);
+        DEBUG(errs() << "\t edge section inOp: " << *inOp << "; outOp: " << *outOp << "\n");
+
+        unsigned aliasSet = AS->getAliasSetNumForMemop(*iA->memoperands_begin());
+        edgesToRelax.insert({aliasSet, {inOp, outOp}});
+      }
+    }
+  }
+
+  // For each alias set [chain] and each region, keep track of the
+  // section-exiting edges which need to be "join"ed together via MERGEs.
+  std::map<unsigned, std::set<unsigned> > sectionMergees;
+
+  // Iterate over the edges and replace the edge source with one coming from
+  // the ordering "fork" point.
+  for (auto edge : edgesToRelax) {
+    unsigned aliasSet = edge.first;
+    MachineOperand *incoming, *outgoing;
+    std::tie(incoming,outgoing) = edge.second;
+
+    unsigned chV = parReg.aliasSetCaptures[aliasSet]->getOperand(0).getReg();
+    unsigned incomingReg = incoming->getReg();
+
+    // Replace the incoming value with a use of the value when crossing
+    // the region entry intrinsic, as was determined by the appropriate
+    // SSAUpdater.
+    incoming->setReg(chV);
+
+    // On the other end, the chain output should go somewhere, namely, to
+    // a merge after the sections. (The end of the region.) Do this in a
+    // separate step, since we'll want to merge all of the
+    // section-exiting chain edges together at once. (We don't
+    // necessarily know all of them yet.)
+    sectionMergees[aliasSet].insert(outgoing->getReg());
+
+    // Also arrange to reconnect the incoming edge to the implicit dataflow
+    // graph by adding it to the region join merge.
+    sectionMergees[aliasSet].insert(incomingReg);
+  }
+
+  // Finally, merge all of the outputs for each alias set. (This is the
+  // "join".) The code generation here is a little more complicated because
+  // the merge inputs may not dominate the merge point.
+  for (const auto &m : sectionMergees) {
+    unsigned aliasSet = m.first;
+    const auto &waveSet = m.second;
+    SmallVector<unsigned, MEMDEP_VEC_WIDTH> wave(waveSet.begin(), waveSet.end());
+
+    // We will use these values repeatedly to set up MachineSSAUpdaters.
+    unsigned chEntering = parReg.aliasSetCaptures[aliasSet]->getOperand(1).getReg();
+    assert(parReg.entry && "missing region entry instruction");
+    MachineBasicBlock* enteringBlock = const_cast<MachineBasicBlock*>(parReg.entry->getParent());
+
+    // Generate a MERGE1 tree joining the parallel sections' chains back into
+    // a a single chain for exiting the parallel region.
+    MachineInstr* insertBefore = parReg.aliasSetReleases[aliasSet];
+    assert(insertBefore && "missing region release" );
+    // If we are not already merging the original outgoing edge, arrange for
+    // it to be added to the merge tree tool. Otherwise, it may be left as a
+    // disconnected LIC.
+    unsigned outgoingChainVReg = insertBefore->getOperand(1).getReg();
+    // Include the old passthrough value in the merge.
+    if (!waveSet.count(outgoingChainVReg))
+      wave.push_back(outgoingChainVReg);
+
+    DEBUG(errs() << "Merging " << wave.size() << " for this alias set:\n");
+    for (unsigned wE : wave) {
+      DEBUG(errs() << "\t" << PrintReg(wE) << "\n");
+      (void)wE;
+    }
+    SmallVector<MachineOperand*, MEMDEP_VEC_WIDTH> newOps;
+    unsigned merged = merge_dependency_signals(*insertBefore->getParent(), insertBefore, &wave, chEntering, &newOps);
+    MachineInstr *mergeDef = MRI->getUniqueVRegDef(merged);
+
+    // Go back and fix up SSA form for the MERGE inputs, if necessary. This
+    // looks nasty, but it basically amounts to doing a RewriteUse on each
+    // logical MERGE input.
+    for(MachineOperand* mop : newOps) {
+      unsigned mergeIn = mop->getReg();
+      MachineInstr *inDef = MRI->getUniqueVRegDef(mergeIn);
+      assert(inDef && mergeDef);
+      assert(waveSet.count(mergeIn) || mergeIn == outgoingChainVReg);
+      if (!DT->dominates(inDef, mergeDef)) {
+        MachineSSAUpdater mergeUpdater(*thisMF);
+        mergeUpdater.Initialize(chEntering);
+        mergeUpdater.AddAvailableValue(enteringBlock, chEntering);
+        mergeUpdater.AddAvailableValue(inDef->getParent(), mergeIn);
+        mergeUpdater.RewriteUse(*mop);
+      }
+    }
+
+    // Splice the merged output back into the ordering chain after the
+    // region. This is easy because of the passthrough MOVs.
+    // We can safely make this passthrough MOV dead.
+    parReg.aliasSetReleases[aliasSet]->getOperand(1).setReg(merged);
+  }
 }
 
 void CSAMemopOrdering::relaxSectionOrderingEdges(MachineFunction *thisMF) {
-
-  std::map<parRegionInfo*, std::set< std::pair<MachineInstr*, MachineOperand*> > > edgesToRelax;
-
   for (parRegionInfo &pl : parRegions) {
-    DEBUG(errs() << "Looking for section-ordering edges in region " << *pl.entry);
-
-    // Iterate over all pairs of ordered instructions, identifying those which
-    // implement ordering between sections in the same region.
-    for(MachineInstr *iA : orderedMemops) {
-      for(MachineInstr *iB : orderedMemops) {
-
-        MachineOperand* inOp = isCrossSectionDependence(&pl, iA, iB);
-        if (inOp) {
-         DEBUG(errs() << "\tSection-ordering edge from " << *iA <<
-                    "\t      to ---->    " << *iB);
-          std::pair<MachineInstr*, MachineOperand*> edge = {iA, inOp};
-          edgesToRelax[&pl].insert(edge);
-        }
-      }
-    }
-
-    // For each alias set [chain] and each region, keep track of the
-    // section-exiting edges which need to be "join"ed together via MERGEs.
-    std::map<unsigned, std::set<unsigned> > sectionMergees;
-
-    // Iterate over the edges and replace the edge source with one coming from
-    // the ordering "fork" point. Add the edge destination to the list of those
-    // to be merged together for this alias set.
-    for (auto edge : edgesToRelax[&pl]) {
-      MachineInstr *iA = edge.first;
-      MachineOperand *incoming = edge.second;
-      unsigned def = std::prev(std::end(iA->defs()))->getReg();
-
-
-      unsigned aliasSet = AS->getAliasSetNumForMemop(*iA->memoperands_begin());
-      unsigned chV = pl.aliasSetCaptures[aliasSet]->getOperand(0).getReg();
-
-      // Replace the incoming value with a use of the value when crossing
-      // the region entry intrinsic, as was determined by the appropriate
-      // SSAUpdater.
-      incoming->setReg(chV);
-
-      // On the other end, the chain output should go somewhere, namely, to
-      // a merge after the sections. (The end of the region.) Do this in a
-      // separate step, since we'll want to merge all of the
-      // section-exiting chain edges together at once. (We don't
-      // necessarily know all of them yet.)
-      sectionMergees[aliasSet].insert(def);
-    }
-
-    // Finally, merge all of the outputs for each alias set. (This is the
-    // "join".) The code generation here is a little more complicated because
-    // the merge inputs may not dominate the merge point.
-    for (const auto &m : sectionMergees) {
-      unsigned aliasSet = m.first;
-      const auto &waveSet = m.second;
-      SmallVector<unsigned, MEMDEP_VEC_WIDTH> wave(waveSet.begin(), waveSet.end());
-
-      // We will use these values repeatedly to set up MachineSSAUpdaters.
-      unsigned chEntering = pl.aliasSetCaptures[aliasSet]->getOperand(1).getReg();
-      assert(pl.entry && "missing region entry instruction");
-      MachineBasicBlock* enteringBlock = const_cast<MachineBasicBlock*>(pl.entry->getParent());
-
-      // Generate a MERGE1 tree joining the parallel sections' chains back into
-      // a a single chain for exiting the parallel region.
-      MachineInstr* insertBefore = pl.aliasSetReleases[aliasSet];
-      assert(insertBefore && "missing region release" );
-      SmallVector<MachineOperand*, MEMDEP_VEC_WIDTH> newOps;
-      unsigned merged = merge_dependency_signals(*insertBefore->getParent(), insertBefore, &wave, chEntering, &newOps);
-      MachineInstr *mergeDef = MRI->getUniqueVRegDef(merged);
-
-      // Go back and fix up SSA form for the MERGE inputs, if necessary.
-      for(MachineOperand* mop : newOps) {
-        unsigned mergeIn = mop->getReg();
-        MachineInstr *inDef = MRI->getUniqueVRegDef(mergeIn);
-        assert(inDef && mergeDef);
-        assert(waveSet.count(mergeIn));
-        if (!DT->dominates(inDef, mergeDef)) {
-          MachineSSAUpdater mergeUpdater(*thisMF);
-          mergeUpdater.Initialize(chEntering);
-          mergeUpdater.AddAvailableValue(enteringBlock, chEntering);
-          mergeUpdater.AddAvailableValue(inDef->getParent(), mergeIn);
-          mergeUpdater.RewriteUse(*mop);
-        }
-
-        // Splice the merged output back into the ordering chain after the
-        // region. This is easy because of the passthrough MOVs.
-        // We can safely make this passthrough MOV dead.
-        pl.aliasSetReleases[aliasSet]->getOperand(1).setReg(merged);
-        // If no actual local merge instruction was created, then we should
-        // ensure SSA for the use.
-        if (newOps.size() == 0) {
-          MachineInstr *inDef = MRI->getUniqueVRegDef(merged);
-          MachineOperand *useOp = &pl.aliasSetReleases[aliasSet]->getOperand(1);
-          if (!DT->dominates(inDef, useOp->getParent())) {
-            MachineSSAUpdater mergeUpdater(*thisMF);
-            mergeUpdater.Initialize(chEntering);
-            mergeUpdater.AddAvailableValue(enteringBlock, chEntering);
-            mergeUpdater.AddAvailableValue(inDef->getParent(), merged);
-            mergeUpdater.RewriteUse(*mop);
-          }
-        }
-      }
-    }
+    relaxSectionOrderingEdges(pl, thisMF);
   }
 }
 
