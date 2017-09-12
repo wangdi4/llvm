@@ -3277,11 +3277,8 @@ INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(GlobalsAAWrapperPass)
-<<<<<<< HEAD
 INITIALIZE_PASS_DEPENDENCY(AndersensAAWrapperPass)   // INTEL
-=======
 INITIALIZE_PASS_DEPENDENCY(OptimizationRemarkEmitterWrapperPass)
->>>>>>> 7d3d44a14cc36c73cfd3e322a511ab8e2b462251
 INITIALIZE_PASS_END(InstructionCombiningPass, "instcombine",
                     "Combine redundant instructions", false, false)
 
