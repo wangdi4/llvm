@@ -494,6 +494,8 @@ DwarfDebug::getOrCreateDwarfCompileUnit(const DICompileUnit *DIUnit) {
 
 void DwarfDebug::constructAndAddImportedEntityDIE(DwarfCompileUnit &TheCU,
                                                   const DIImportedEntity *N) {
+  if (isa<DILocalScope>(N->getScope()))
+    return;
   if (DIE *D = TheCU.getOrCreateContextDIE(N->getScope()))
     D->addChild(TheCU.constructImportedEntityDIE(N));
 }
@@ -690,7 +692,7 @@ void DwarfDebug::finalizeModuleInfo() {
 
   // Emit all frontend-produced Skeleton CUs, i.e., Clang modules.
   for (auto *CUNode : MMI->getModule()->debug_compile_units())
-    if (CUNode->getDWOId() && isEmptyCU(CUNode))
+    if (CUNode->getDWOId())
       getOrCreateDwarfCompileUnit(CUNode);
 
   // Compute DIE offsets and sizes.
