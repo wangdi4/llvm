@@ -241,10 +241,13 @@ class HIRRegionIdentification::CostModelAnalyzer
   const HIRRegionIdentification &RI;
   const Loop &Lp;
   DomTreeNode *HeaderDomNode;
-  bool IsInnermostLoop;
+
+  const bool IsInnermostLoop;
+  const bool IsUnknownLoop;
   bool IsSmallTripLoop;
   bool IsProfitable;
-  unsigned OptLevel;
+
+  const unsigned OptLevel;
   unsigned InstCount;             // Approximates number of instructions in HIR.
   unsigned UnstructuredJumpCount; // Approximates goto/label counts in HIR.
   unsigned IfCount;               // Approximates number of ifs in HIR.
@@ -258,35 +261,12 @@ class HIRRegionIdentification::CostModelAnalyzer
 
 public:
   CostModelAnalyzer(const HIRRegionIdentification &RI, const Loop &Lp,
-                    const SCEV *BECount)
-      : RI(RI), Lp(Lp), IsProfitable(true), OptLevel(RI.OptLevel), InstCount(0),
-        UnstructuredJumpCount(0), IfCount(0) {
-    HeaderDomNode = RI.DT->getNode(Lp.getHeader());
-    IsInnermostLoop = Lp.empty();
-
-    auto ConstBECount = dyn_cast<SCEVConstant>(BECount);
-    IsSmallTripLoop =
-        (ConstBECount &&
-         (ConstBECount->getValue()->getZExtValue() <= SmallTripThreshold));
-  }
+                    const SCEV *BECount);
 
   bool isProfitable() const { return IsProfitable; }
 
-  void analyze() {
+  void analyze();
 
-    for (auto BB = Lp.block_begin(), E = Lp.block_end(); BB != E; ++BB) {
-
-      // Skip bblocks which belong to inner loops.
-      if (!IsInnermostLoop && (RI.LI->getLoopFor(*BB) != &Lp)) {
-        continue;
-      }
-
-      if (!visitBasicBlock(**BB)) {
-        IsProfitable = false;
-        break;
-      }
-    }
-  }
   bool visitBasicBlock(const BasicBlock &BB);
   bool visitInstruction(const Instruction &Inst);
   bool visitLoadInst(const LoadInst &LI);
@@ -294,6 +274,64 @@ public:
   bool visitCallInst(const CallInst &CI);
   bool visitBranchInst(const BranchInst &BI);
 };
+
+HIRRegionIdentification::CostModelAnalyzer::CostModelAnalyzer(
+    const HIRRegionIdentification &RI, const Loop &Lp, const SCEV *BECount)
+    : RI(RI), Lp(Lp), IsInnermostLoop(Lp.empty()),
+      IsUnknownLoop(isa<SCEVCouldNotCompute>(BECount)), IsProfitable(true),
+      OptLevel(RI.OptLevel), InstCount(0), UnstructuredJumpCount(0),
+      IfCount(0) {
+
+  HeaderDomNode = RI.DT->getNode(Lp.getHeader());
+
+  auto ConstBECount = dyn_cast<SCEVConstant>(BECount);
+  IsSmallTripLoop =
+      (ConstBECount &&
+       (ConstBECount->getValue()->getZExtValue() <= SmallTripThreshold));
+}
+
+void HIRRegionIdentification::CostModelAnalyzer::analyze() {
+
+  // SIMD loops should not be throttled.
+  if (RI.isSIMDLoop(Lp)) {
+    IsProfitable = true;
+    return;
+  }
+
+  // Only allow innermost multi-exit loops for now.
+  if (!Lp.getExitingBlock() && !Lp.empty()) {
+    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: outer multi-exit loop throttled for "
+                    "compile time reasons.\n");
+    IsProfitable = false;
+    return;
+  }
+
+  // Only handle standalone single bblock unknown loops at O2. We allow bigger
+  // standalone innermost loops at O3.
+  // We don't do much for outer unknown loops except prefetching which isn't
+  // ready yet. Innermost unknown loops embedded inside other loops are
+  // throttled for compile time reasons.
+  if (IsUnknownLoop && (((OptLevel < 3) && (Lp.getNumBlocks() != 1)) ||
+                        (Lp.getLoopDepth() != 1))) {
+    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: unknown loop throttled for compile "
+                    "time reasons.\n");
+    IsProfitable = false;
+    return;
+  }
+
+  for (auto BB = Lp.block_begin(), E = Lp.block_end(); BB != E; ++BB) {
+
+    // Skip bblocks which belong to inner loops.
+    if (!IsInnermostLoop && (RI.LI->getLoopFor(*BB) != &Lp)) {
+      continue;
+    }
+
+    if (!visitBasicBlock(**BB)) {
+      IsProfitable = false;
+      break;
+    }
+  }
+}
 
 bool HIRRegionIdentification::CostModelAnalyzer::visitBasicBlock(
     const BasicBlock &BB) {
@@ -379,7 +417,10 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitCallInst(
 
   // Allow user calls in small trip innermost loops so they can be completely
   // unrolled.
-  if (!IsInnermostLoop || !IsSmallTripLoop) {
+  // Also allow them in innermost unknown loops at O3 and above. They may be
+  // candidates for predicate optimization.
+  if (!IsInnermostLoop ||
+      (!IsSmallTripLoop && ((OptLevel < 3) || !IsUnknownLoop))) {
     if (!isa<IntrinsicInst>(CI)) {
       auto Func = CI.getCalledFunction();
 
@@ -480,28 +521,6 @@ bool HIRRegionIdentification::shouldThrottleLoop(const Loop &Lp,
 
   if (!CostModelThrottling) {
     return false;
-  }
-
-  // SIMD loops should not be throttled.
-  if (isSIMDLoop(Lp)) {
-    return false;
-  }
-
-  // Only allow innermost multi-exit loops for now.
-  if (!Lp.getExitingBlock() && !Lp.empty()) {
-    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: outer multi-exit loop throttled for "
-                    "compile time reasons.\n");
-    return true;
-  }
-
-  // Only handle standalone single bblock unknown loops for now. We don't do
-  // much for outer unknown loops except prefetching which isn't ready yet.
-  // Inner unknown loops are throttled for compile time reasons.
-  if (isa<SCEVCouldNotCompute>(BECount) &&
-      ((Lp.getNumBlocks() != 1) || (Lp.getLoopDepth() != 1))) {
-    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: unknown loop throttled for compile "
-                    "time reasons.\n");
-    return true;
   }
 
   CostModelAnalyzer CMA(*this, Lp, BECount);

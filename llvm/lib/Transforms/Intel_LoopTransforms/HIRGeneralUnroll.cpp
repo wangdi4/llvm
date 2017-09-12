@@ -77,9 +77,9 @@
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopResource.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
@@ -172,7 +172,7 @@ private:
   unsigned refineUnrollFactorUsingReuseAnalysis(const HLLoop *Loop,
                                                 unsigned CurUnrollFactor) const;
 };
-}
+} // namespace
 
 char HIRGeneralUnroll::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRGeneralUnroll, "hir-general-unroll",
@@ -361,12 +361,19 @@ bool HIRGeneralUnroll::isProfitable(const HLLoop *Loop,
 // TODO: Add temporal locality analysis?
 class ReuseAnalyzer final : public HLNodeVisitorBase {
 private:
+  HIRLoopStatistics *HLS;
+  const HLLoop *Loop;
   SmallSet<unsigned, 16> RvalTempBlobSymbases;
   int Reuse;
   bool CyclicalDefUse;
 
 public:
-  ReuseAnalyzer() : Reuse(0), CyclicalDefUse(false) {}
+  ReuseAnalyzer(HIRLoopStatistics *HLS, const HLLoop *Loop)
+      : HLS(HLS), Loop(Loop), Reuse(0), CyclicalDefUse(false) {}
+
+  void analyze() {
+    HLNodeUtils::visitRange(*this, Loop->child_begin(), Loop->child_end());
+  }
 
   void visit(const HLDDNode *Node);
 
@@ -389,7 +396,9 @@ void ReuseAnalyzer::visit(const HLDDNode *Node) {
     LvalSymbase = LvalRef->getSymbase();
 
     if (cast<HLInst>(Node)->isCopyInst()) {
-      if (RvalTempBlobSymbases.count(LvalSymbase)) {
+      // Only consider reuse for copies which dominate the backedge path.
+      if (RvalTempBlobSymbases.count(LvalSymbase) &&
+          HLNodeUtils::dominates(Node, Loop->getLastChild(), HLS)) {
         ++Reuse;
       }
       // No more processing needed for copy instructions.
@@ -432,9 +441,9 @@ unsigned HIRGeneralUnroll::refineUnrollFactorUsingReuseAnalysis(
     return CurUnrollFactor;
   }
 
-  ReuseAnalyzer RA;
+  ReuseAnalyzer RA(HLS, Loop);
 
-  HLNodeUtils::visitRange(RA, Loop->child_begin(), Loop->child_end());
+  RA.analyze();
 
   if (!RA.hasReuse()) {
     // Loop is not profitable.
