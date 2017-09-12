@@ -102,7 +102,7 @@ namespace intel {
 
       // Set NoBuiltin attribute to avoid replacements by 'puts'/'putc'.
       if (!printfCI->isNoBuiltin())
-        printfCI->addAttribute(AttributeSet::FunctionIndex,
+        printfCI->addAttribute(AttributeList::FunctionIndex,
                                Attribute::NoBuiltin);
 
       for(Use & use: printfCI->arg_operands()) {
