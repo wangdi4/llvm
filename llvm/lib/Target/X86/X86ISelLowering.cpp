@@ -32984,6 +32984,7 @@ static SDValue combineMaskedLoad(SDNode *N, SelectionDAG &DAG,
     WideSrc0 = DAG.getVectorShuffle(WideVecVT, dl, WideSrc0,
                                     DAG.getUNDEF(WideVecVT), ShuffleVec);
   }
+
   // Prepare the new mask.
   SDValue NewMask;
   SDValue Mask = Mld->getMask();
@@ -33006,12 +33007,9 @@ static SDValue combineMaskedLoad(SDNode *N, SelectionDAG &DAG,
                                      WidenNumElts);
 
     unsigned NumConcat = WidenNumElts / MaskNumElts;
-    SmallVector<SDValue, 16> Ops(NumConcat);
     SDValue ZeroVal = DAG.getConstant(0, dl, Mask.getValueType());
+    SmallVector<SDValue, 16> Ops(NumConcat, ZeroVal);
     Ops[0] = Mask;
-    for (unsigned i = 1; i != NumConcat; ++i)
-      Ops[i] = ZeroVal;
-
     NewMask = DAG.getNode(ISD::CONCAT_VECTORS, dl, NewMaskVT, Ops);
   }
 
@@ -33129,12 +33127,9 @@ static SDValue combineMaskedStore(SDNode *N, SelectionDAG &DAG,
                                      WidenNumElts);
 
     unsigned NumConcat = WidenNumElts / MaskNumElts;
-    SmallVector<SDValue, 16> Ops(NumConcat);
     SDValue ZeroVal = DAG.getConstant(0, dl, Mask.getValueType());
+    SmallVector<SDValue, 16> Ops(NumConcat, ZeroVal);
     Ops[0] = Mask;
-    for (unsigned i = 1; i != NumConcat; ++i)
-      Ops[i] = ZeroVal;
-
     NewMask = DAG.getNode(ISD::CONCAT_VECTORS, dl, NewMaskVT, Ops);
   }
 
