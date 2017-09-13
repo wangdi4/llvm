@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-; RUN: opt < %s -jump-threading -jump-thread-loop-header=false -print-lazy-value-info -disable-output 2>&1 | FileCheck %s ;INTEL
-=======
-; RUN: opt < %s -jump-threading -print-lvi-after-jump-threading -disable-output 2>&1 | FileCheck %s
->>>>>>> 7313cf88d8717af101e89811a410faf4591f2864
+; RUN: opt < %s -jump-threading -jump-thread-loop-header=false -print-lvi-after-jump-threading -disable-output 2>&1 | FileCheck %s
 
 ; Testing LVI cache after jump-threading
 

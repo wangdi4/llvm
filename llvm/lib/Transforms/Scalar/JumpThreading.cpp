@@ -66,7 +66,11 @@ ImplicationSearchThreshold(
            "condition to use to thread over a weaker condition"),
   cl::init(3), cl::Hidden);
 
-<<<<<<< HEAD
+static cl::opt<bool> PrintLVIAfterJumpThreading(
+    "print-lvi-after-jump-threading",
+    cl::desc("Print the LazyValueInfo cache after JumpThreading"), cl::init(false),
+    cl::Hidden);
+
 #if INTEL_CUSTOMIZATION
 static cl::opt<bool>
 JumpThreadLoopHeader("jump-thread-loop-header",
@@ -84,12 +88,6 @@ ConservativeJumpThreading("conservative-jump-threading",
                    "thread regions"),
           cl::init(true), cl::Hidden);
 #endif // INTEL_CUSTOMIZATION
-=======
-static cl::opt<bool> PrintLVIAfterJumpThreading(
-    "print-lvi-after-jump-threading",
-    cl::desc("Print the LazyValueInfo cache after JumpThreading"), cl::init(false),
-    cl::Hidden);
->>>>>>> 7313cf88d8717af101e89811a410faf4591f2864
 
 namespace {
   /// This pass performs 'jump threading', which looks at blocks that have
