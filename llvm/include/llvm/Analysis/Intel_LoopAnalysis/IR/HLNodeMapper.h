@@ -49,7 +49,11 @@ public:
 
   HLNode *getMappedImpl(const HLNode *Node) const override {
     auto Iter = NodeMap.find(Node);
-    assert(Iter != NodeMap.end() && "Requesting not mapped node");
+
+    if (Iter == NodeMap.end()) {
+      return nullptr;
+    }
+
     return Iter->getSecond();
   }
 };

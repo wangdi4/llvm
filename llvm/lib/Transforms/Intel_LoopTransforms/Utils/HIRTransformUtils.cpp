@@ -397,10 +397,18 @@ public:
   LabelRemapVisitor(const HLNodeMapper &Mapper) : Mapper(Mapper) {}
 
   void visit(HLGoto *Goto) {
-    if (!Goto->isExternal()) {
-      Goto->setTargetLabel(Mapper.getMapped(Goto->getTargetLabel()));
+    if (Goto->isExternal()) {
+      return;
+    }
+
+    HLLabel *TargetLabelClone = Mapper.getMapped(Goto->getTargetLabel());
+
+    // If target label was cloned - remap goto to the cloned label.
+    if (TargetLabelClone) {
+      Goto->setTargetLabel(TargetLabelClone);
     }
   }
+
 
   void visit(HLNode *) {}
   void postVisit(HLNode *) {}
