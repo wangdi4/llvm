@@ -100,6 +100,8 @@ static cl::opt<int> ColdCallSiteRelFreq(
 
 namespace {
 
+typedef SmallVector<InlineReason,2> InlineReasonVector;  // INTEL
+
 class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
   typedef InstVisitor<CallAnalyzer, bool> Base;
   friend class InstVisitor<CallAnalyzer, bool>;
@@ -206,7 +208,8 @@ class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
   /// attributes and callee hotness for PGO builds. The Callee is explicitly
   /// passed to support analyzing indirect calls whose target is inferred by
   /// analysis.
-  void updateThreshold(CallSite CS, Function &Callee);
+  void updateThreshold(CallSite CS, Function &Callee,     // INTEL
+    InlineReasonVector &YesReasonVector);                 // INTEL
 
   /// Return true if size growth is allowed when inlining the callee at CS.
   bool allowSizeGrowth(CallSite CS);
@@ -695,7 +698,8 @@ bool CallAnalyzer::isColdCallSite(CallSite CS, BlockFrequencyInfo *CallerBFI) {
   return CallSiteFreq < CallerEntryFreq * ColdProb;
 }
 
-void CallAnalyzer::updateThreshold(CallSite CS, Function &Callee) {
+void CallAnalyzer::updateThreshold(CallSite CS, Function &Callee, // INTEL
+  InlineReasonVector &YesReasonVector) {                          // INTEL
   // If no size growth is allowed for this inlining, set Threshold to 0.
   if (!allowSizeGrowth(CS)) {
     Threshold = 0;
@@ -817,12 +821,17 @@ void CallAnalyzer::updateThreshold(CallSite CS, Function &Callee) {
   VectorBonus = Threshold * VectorBonusPercent / 100;
 
   bool OnlyOneCallAndLocalLinkage =
-      F.hasLocalLinkage() && F.hasOneUse() && &F == CS.getCalledFunction();
+       (F.hasLocalLinkage()                                     // INTEL
+         || (InlineForXmain && F.hasLinkOnceODRLinkage())) &&   // INTEL
+       F.hasOneUse() &&  &F == CS.getCalledFunction();          // INTEL
   // If there is only one call of the function, and it has internal linkage,
   // the cost of inlining it drops dramatically. It may seem odd to update
   // Cost in updateThreshold, but the bonus depends on the logic in this method.
-  if (OnlyOneCallAndLocalLinkage)
+  // INTEL CQ370998: Added link once ODR linkage case.
+  if (OnlyOneCallAndLocalLinkage) {                 // INTEL
     Cost -= LastCallToStaticBonus;
+    YesReasonVector.push_back(InlrSingleLocalCall); // INTEL
+  }                                                 // INTEL
 }
 
 bool CallAnalyzer::visitCmpInst(CmpInst &I) {
@@ -1098,9 +1107,9 @@ bool CallAnalyzer::visitCallSite(CallSite CS) {
   // out. Pretend to inline the function, with a custom threshold.
   auto IndirectCallParams = Params;
   IndirectCallParams.DefaultThreshold = InlineConstants::IndirectCallThreshold;
-  CallAnalyzer CA(TTI, GetAssumptionCache, GetBFI, PSI, 
+  CallAnalyzer CA(TTI, GetAssumptionCache, GetBFI, PSI,
     *F, CS, ILIC, AI, IndirectCallParams); // INTEL
-  if (CA.analyzeCall(CS, nullptr)) { // INTEL 
+  if (CA.analyzeCall(CS, nullptr)) { // INTEL
     // We were able to inline the indirect call! Subtract the cost from the
     // threshold to get the bonus we want to apply, but don't go below zero.
     Cost -= std::max(0, CA.getThreshold() - CA.getCost());
@@ -1303,7 +1312,7 @@ bool CallAnalyzer::analyzeBlock(BasicBlock *BB,
         // If the function has the "use-soft-float" attribute, mark it as
         // expensive, under certain conditions.     // INTEL
         ((F.getFnAttribute("use-soft-float").       // INTEL
-          getValueAsString() == "true")             // INTEL 
+          getValueAsString() == "true")             // INTEL
           && (!InlineForXmain || !isLoadStore)))    // INTEL
         Cost += InlineConstants::CallPenalty;
     }
@@ -1347,8 +1356,6 @@ bool CallAnalyzer::analyzeBlock(BasicBlock *BB,
 /// return the best reason among all of them.  Inlining/Non-inlining reasons
 /// are considered better if their corresponding enum value is lower.
 ///
-
-typedef SmallVector<InlineReason,2> InlineReasonVector;
 
 static InlineReason bestInlineReason(const InlineReasonVector& ReasonVector,
   InlineReason DefaultReason)
@@ -1607,13 +1614,13 @@ static bool worthyDoubleCallSite2(CallSite &CS, InliningLoopInfoCache& ILIC) {
 //
 static unsigned int totalBasicBlockPredCount(Function &F)
 {
-  unsigned int count = 0; 
+  unsigned int count = 0;
   for (Function::iterator BI = F.begin(), BE = F.end(); BI != BE; ++BI) {
-    BasicBlock *BB = &*BI; 
+    BasicBlock *BB = &*BI;
     count += std::distance(pred_begin(BB), pred_end(BB));
-  } 
+  }
   return count;
-} 
+}
 
 //
 // Temporary switch to control new double callsite inlining heuristics
@@ -1629,51 +1636,51 @@ static cl::opt<bool> NewDoubleCallSiteInliningHeuristics
 //
 // The criteria for this heuristic are:
 //   (1) Must have exactly two calls to the function
-//   (2) Call must be in a loop 
+//   (2) Call must be in a loop
 //   (3) Called function must have loops
-//   (4) Called function must not have any arguments 
-//         OR Called function must have a large enough total number 
+//   (4) Called function must not have any arguments
+//         OR Called function must have a large enough total number
 //           of predecessors
 //
 static bool worthyDoubleCallSite3(CallSite &CS, InliningLoopInfoCache& ILIC) {
   if (!NewDoubleCallSiteInliningHeuristics)
-    return false; 
+    return false;
   Function *Caller = CS.getCaller();
   LoopInfo *CallerLI = ILIC.getLI(Caller);
   if (!CallerLI->getLoopFor(CS.getInstruction()->getParent()))
-    return false; 
+    return false;
   Function *Callee = CS.getCalledFunction();
   LoopInfo *CalleeLI = ILIC.getLI(Callee);
   if (CalleeLI->begin() == CalleeLI->end())
-    return false; 
-  if (CS.arg_begin() != CS.arg_end() 
-    && totalBasicBlockPredCount(*Callee) 
-    < InlineConstants::BigBasicBlockPredCount) 
-    return false; 
-  return true; 
-} 
+    return false;
+  if (CS.arg_begin() != CS.arg_end()
+    && totalBasicBlockPredCount(*Callee)
+    < InlineConstants::BigBasicBlockPredCount)
+    return false;
+  return true;
+}
 
 //
 // Return true if 'F' has exactly two callsites
 //
 static bool isDoubleCallSite(Function *F)
 {
-  unsigned int count = 0; 
+  unsigned int count = 0;
   for (User *U : F->users()) {
     CallSite Site(U);
     if (!Site || Site.getCalledFunction() != F)
       continue;
-    if (++count > 2) 
-      return false; 
-  } 
+    if (++count > 2)
+      return false;
+  }
   return count == 2;
 }
- 
+
 //
 // Return 'true' if 'CS' worth inlining, given that it is a double callsite
 // with internal linkage.
 //
-static bool worthyDoubleInternalCallSite(CallSite &CS, 
+static bool worthyDoubleInternalCallSite(CallSite &CS,
   InliningLoopInfoCache& ILIC)
 {
   return worthyDoubleCallSite1(CS, ILIC) || worthyDoubleCallSite2(CS, ILIC)
@@ -1693,7 +1700,7 @@ static bool worthyDoubleInternalCallSite(CallSite &CS,
 static bool worthyDoubleExternalCallSite(CallSite &CS) {
   Function *Caller = CS.getCaller();
   if (!NewDoubleCallSiteInliningHeuristics)
-    return false; 
+    return false;
   if (std::distance(Caller->begin(), Caller->end()) != 1)
     return false;
   Function *Callee = CS.getCalledFunction();
@@ -1705,7 +1712,7 @@ static bool worthyDoubleExternalCallSite(CallSite &CS) {
     if (++count > 1)
       return false;
   }
-  if (count != 1) 
+  if (count != 1)
     return false;
   for (BasicBlock &BB : *Caller) {
     for (Instruction &I : BB) {
@@ -1724,9 +1731,9 @@ static bool worthyDoubleExternalCallSite(CallSite &CS) {
 
 static bool preferCloningToInlining(CallSite& CS,
                                     InliningLoopInfoCache& ILIC,
-                                    bool PrepareForLTO) { 
+                                    bool PrepareForLTO) {
   // As a workaround, commenting out the below source line until changes
-  // in BackendUtil.cpp, which sets PrepareForLTO flag, will be checked 
+  // in BackendUtil.cpp, which sets PrepareForLTO flag, will be checked
   // into xmain branch. BackendUtil.cpp is not branch on ltoprof-xmain.
   // if (!PrepareForLTO) return false;
   Function *Callee = CS.getCalledFunction();
@@ -1736,7 +1743,7 @@ static bool preferCloningToInlining(CallSite& CS,
   if (llvm::llvm_cloning_analysis::isCallCandidateForSpecialization(CS, LI))
     return true;
   return false;
-} 
+}
 
 #endif // INTEL_CUSTOMIZATION
 
@@ -1773,17 +1780,8 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
   assert(NumVectorInstructions == 0);
 
   // Update the threshold based on callsite properties
-  updateThreshold(CS, F);
+  updateThreshold(CS, F, YesReasonVector); // INTEL
 
-<<<<<<< HEAD
-  FiftyPercentVectorBonus = 3 * Threshold / 2;
-  TenPercentVectorBonus = 3 * Threshold / 4;
-
-  // Track whether the post-inlining function would have more than one basic
-  // block. A single basic block is often intended for inlining. Balloon the
-  // threshold by 50% until we pass the single-BB phase.
-  bool SingleBB = true;
-  int SingleBBBonus = Threshold / 2;
   // INTEL  CQ378383: Tolerate a single "forgivable" condition when optimizing
   // INTEL  for size. In this case, we delay subtracting out the single basic
   // INTEL  block bonus until we see a second branch with multiple targets.
@@ -1794,60 +1792,41 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
   // Speculatively apply all possible bonuses to Threshold. If cost exceeds
   // this Threshold any time, and cost cannot decrease, we can stop processing
   // the rest of the function body.
-  Threshold += (SingleBBBonus + FiftyPercentVectorBonus);
+  Threshold += (SingleBBBonus + VectorBonus);
 #if INTEL_CUSTOMIZATION
   if (InlineForXmain &&
       preferCloningToInlining(CS, *ILIC, Params.PrepareForLTO)) {
     *ReasonAddr = NinlrPreferCloning;
-    return false; 
-  } 
+    return false;
+  }
 #endif // INTEL_CUSTOMIZATION
-=======
-  // Speculatively apply all possible bonuses to Threshold. If cost exceeds
-  // this Threshold any time, and cost cannot decrease, we can stop processing
-  // the rest of the function body.
-  Threshold += (SingleBBBonus + VectorBonus);
->>>>>>> 0e9b0bc63df6c36fecf1f5fcf70353d7a632ffd6
 
   // Give out bonuses for the callsite, as the instructions setting them up
   // will be gone after inlining.
   Cost -= getCallsiteCost(CS, DL);
 
-<<<<<<< HEAD
-  // If there is only one call of the function, and it has internal linkage,
-  // the cost of inlining it drops dramatically.
-  // INTEL CQ370998: Added link once ODR linkage case.
-  bool OnlyOneCallAndLocalLinkage =
-       (F.hasLocalLinkage()                                     // INTEL 
-         || (InlineForXmain && F.hasLinkOnceODRLinkage())) &&   // INTEL
-       F.hasOneUse() &&  &F == CS.getCalledFunction();          // INTEL
-  if (OnlyOneCallAndLocalLinkage) { // INTEL
-    Cost -= InlineConstants::LastCallToStaticBonus;
-    YesReasonVector.push_back(InlrSingleLocalCall); // INTEL
-  } // INTEL
-
 #if INTEL_CUSTOMIZATION
-  else if (InlineForXmain) { 
-    if (&F == CS.getCalledFunction()) { 
-      if (isDoubleCallSite(&F)) { 
-        // If there are two calls of the function, the cost of inlining it may 
+  if (InlineForXmain) {
+    if (&F == CS.getCalledFunction()) {
+      if (isDoubleCallSite(&F)) {
+        // If there are two calls of the function, the cost of inlining it may
         // drop, but less dramatically.
-        if (F.hasLocalLinkage() || F.hasLinkOnceODRLinkage()) { 
-           if (worthyDoubleInternalCallSite(CS, *ILIC)) { 
+        if (F.hasLocalLinkage() || F.hasLinkOnceODRLinkage()) {
+           if (worthyDoubleInternalCallSite(CS, *ILIC)) {
              Cost -= InlineConstants::SecondToLastCallToStaticBonus;
              YesReasonVector.push_back(InlrDoubleLocalCall);
-           } 
-        } 
-        else { 
-           if (worthyDoubleExternalCallSite(CS)) { 
+           }
+        }
+        else {
+           if (worthyDoubleExternalCallSite(CS)) {
              Cost -= InlineConstants::SecondToLastCallToStaticBonus;
              YesReasonVector.push_back(InlrDoubleNonLocalCall);
-           } 
-        } 
+           }
+        }
       }
     }
   }
- 
+
   // Use InlineAggressiveInfo to expose uses of global ptrs
   if (InlineForXmain && AI != nullptr && AI->isCallInstInAggInlList(CS)) {
     Cost -= InlineConstants::AggressiveInlineCallBonus;
@@ -1856,8 +1835,6 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
 
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> 0e9b0bc63df6c36fecf1f5fcf70353d7a632ffd6
   // If this function uses the coldcc calling convention, prefer not to inline
   // it.
   if (F.getCallingConv() == CallingConv::Cold) { // INTEL
@@ -2011,7 +1988,7 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
     // due to branches or switches which folded above will also fold after
     // inlining.
 #if INTEL_CUSTOMIZATION
-    if (InlineForXmain) { 
+    if (InlineForXmain) {
       if (TI->getNumSuccessors() > 1) {
         if (SeekingForgivable && forgivableCondition(TI)) {
           FoundForgivable = true;
@@ -2026,14 +2003,14 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
         }
         SingleBB = false;
       }
-    } 
-    else { 
+    }
+    else {
       if (SingleBB && TI->getNumSuccessors() > 1) {
         // Take off the bonus we applied to the threshold.
         Threshold -= SingleBBBonus;
         SingleBB = false;
       }
-    } 
+    }
 #endif // INTEL_CUSTOMIZATION
   }
 
@@ -2047,7 +2024,9 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
 #endif // INTEL_CUSTOMIZATION
 
   bool OnlyOneCallAndLocalLinkage =
-      F.hasLocalLinkage() && F.hasOneUse() && &F == CS.getCalledFunction();
+       (F.hasLocalLinkage()                                     // INTEL
+         || (InlineForXmain && F.hasLinkOnceODRLinkage())) &&   // INTEL
+       F.hasOneUse() &&  &F == CS.getCalledFunction();          // INTEL
   // If this is a noduplicate call, we can still inline as long as
   // inlining this would cause the removal of the caller (so the instruction
   // is not actually duplicated, just moved).
@@ -2146,7 +2125,7 @@ InlineCost llvm::getInlineCost(
     Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI,
     InliningLoopInfoCache *ILIC, // INTEL
     InlineAggressiveInfo *AI,    // INTEL
-    ProfileSummaryInfo *PSI) { 
+    ProfileSummaryInfo *PSI) {
   return getInlineCost(CS, CS.getCalledFunction(), Params, CalleeTTI,
     GetAssumptionCache, GetBFI, ILIC, AI, PSI);  // INTEL
 }
@@ -2158,7 +2137,7 @@ InlineCost llvm::getInlineCost(
     Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI,
     InliningLoopInfoCache *ILIC,    // INTEL
     InlineAggressiveInfo *AI,       // INTEL
-    ProfileSummaryInfo *PSI) {  
+    ProfileSummaryInfo *PSI) {
 
   // Cannot inline indirect calls.
   if (!Callee)
@@ -2214,7 +2193,7 @@ InlineCost llvm::getInlineCost(
   DEBUG(llvm::dbgs() << "      Analyzing call of " << Callee->getName()
                      << "...\n");
 
-  CallAnalyzer CA(CalleeTTI, GetAssumptionCache, GetBFI, PSI, 
+  CallAnalyzer CA(CalleeTTI, GetAssumptionCache, GetBFI, PSI,
                   *Callee, CS, ILIC, AI, Params);  // INTEL
 #if INTEL_CUSTOMIZATION
   InlineReason Reason = InlrNoReason;
@@ -2325,7 +2304,7 @@ InlineParams llvm::getInlineParams(int Threshold) {
   // explicitly specified to set the ColdThreshold knob
   if (InlineThreshold.getNumOccurrences() == 0) {
     Params.OptMinSizeThreshold = InlineConstants::OptMinSizeThreshold;
-    Params.OptSizeThreshold = InlineForXmain 
+    Params.OptSizeThreshold = InlineForXmain
      ? OptSizeThreshold : InlineConstants::OptSizeThreshold; // INTEL
     Params.ColdThreshold = ColdThreshold;
   } else if (ColdThreshold.getNumOccurrences() > 0) {
@@ -2345,7 +2324,7 @@ static int computeThresholdFromOptLevels(unsigned OptLevel,
   if (OptLevel > 2)
     return InlineConstants::OptAggressiveThreshold;
   if (SizeOptLevel == 1) // -Os
-    return InlineForXmain 
+    return InlineForXmain
       ? OptSizeThreshold : InlineConstants::OptSizeThreshold; // INTEL
   if (SizeOptLevel == 2) // -Oz
     return InlineConstants::OptMinSizeThreshold;
@@ -2366,6 +2345,6 @@ InlineParams llvm::getInlineParams(unsigned OptLevel, unsigned SizeOptLevel,
 
   InlParams = getInlineParams(OptLevel, SizeOptLevel);
   InlParams.PrepareForLTO = PrepareForLTO;
-  return InlParams; 
+  return InlParams;
 }
 #endif // INTEL_CUSTOMIZATION
