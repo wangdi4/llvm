@@ -36,6 +36,7 @@ static const char *RTLNames[] = {
 #if INTEL_CUSTOMIZATION
     /* Nios II target */ "libomptarget.rtl.nios2.so",
     /* MIC target     */ "libomptarget.rtl.x86_64_mic.so",
+    /* CSA target     */ "libomptarget.rtl.csa.so",
 #endif // INTEL_CUSTOMIZATION
     /* PowerPC target */ "libomptarget.rtl.ppc64.so",
     /* x86_64 target  */ "libomptarget.rtl.x86_64.so",
