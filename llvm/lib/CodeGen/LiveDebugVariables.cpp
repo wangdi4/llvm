@@ -329,6 +329,7 @@ public:
 };
 } // namespace
 
+#ifndef NDEBUG
 static void printDebugLoc(const DebugLoc &DL, raw_ostream &CommentOS,
                           const LLVMContext &Ctx) {
   if (!DL)
@@ -365,7 +366,6 @@ static void printExtendedName(raw_ostream &OS, const DILocalVariable *V,
   }
 }
 
-#ifndef NDEBUG
 void UserValue::print(raw_ostream &OS, const TargetRegisterInfo *TRI) {
   auto *DV = cast<DILocalVariable>(Variable);
   OS << "!\"";
