@@ -1233,9 +1233,9 @@ void VPOScenarioEvaluationBase::visit(AVRValue *AValue) {
 // TODO: What additional information will the costModel need?:
 // - a Map of Memrefs to the VLS Group they belong to (if any).
 // - ?
-int VPOCostModelBase::getCost(AVRLoop *ALoop, unsigned int VF, 
-                              VPOVLSInfoBase *VLSInfo,
-                              HIRSafeReductionAnalysis *SRA) {
+uint64_t VPOCostModelBase::getCost(AVRLoop *ALoop, unsigned int VF,
+                                   VPOVLSInfoBase *VLSInfo,
+                                   HIRSafeReductionAnalysis *SRA) {
   DEBUG(errs() << "\nEvaluating Loop Cost for VF = " << VF << "\n");
   uint64_t Cost;
 

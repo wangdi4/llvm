@@ -468,8 +468,8 @@ public:
   // want to encode the results of the CostModel, namely, which ALoops in the
   // region to vectorize and using which VFs (directly/explicitely in the
   // AVR?...)
-  int getCost(AVRLoop *ALoop, unsigned int VF, VPOVLSInfoBase *VLSInfo,
-              HIRSafeReductionAnalysis *SRA);
+  uint64_t getCost(AVRLoop *ALoop, unsigned int VF, VPOVLSInfoBase *VLSInfo,
+                   HIRSafeReductionAnalysis *SRA);
 
   virtual VPOCostGathererBase *getCostGatherer(unsigned int VF, AVRLoop *ALoop, 
                                                VPOVLSInfoBase *VLSInfo,
