@@ -33,6 +33,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/VectorUtils.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -410,7 +411,18 @@ void DDWalk::visit(HLDDNode *Node) {
     if (auto Call = dyn_cast<CallInst>(Inst->getLLVMInstruction())) {
       auto Func = Call->getCalledFunction();
 
-      if (!Func || !TLI.isFunctionVectorizable(Func->getName())) {
+      bool IsNotVectorizable = false;
+
+      if (Func) {
+        if (Func->isIntrinsic())
+          IsNotVectorizable = !isTriviallyVectorizable(Func->getIntrinsicID());
+        else
+          IsNotVectorizable = !TLI.isFunctionVectorizable(Func->getName());
+      } else {
+        IsNotVectorizable = true;
+      }
+
+      if (IsNotVectorizable) {
         Info->setVecType(ParVecInfo::UNKNOWN_CALL);
         Info->setParType(ParVecInfo::UNKNOWN_CALL);
         return;
