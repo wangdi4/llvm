@@ -611,7 +611,7 @@ let IntrProperties = [IntrNoMem, IntrSpeculatable] in {
                                        llvm_metadata_ty,
                                        llvm_metadata_ty]>;
   def int_dbg_value        : Intrinsic<[],
-                                       [llvm_metadata_ty, llvm_i64_ty,
+                                       [llvm_metadata_ty,
                                         llvm_metadata_ty,
                                         llvm_metadata_ty]>;
 }
