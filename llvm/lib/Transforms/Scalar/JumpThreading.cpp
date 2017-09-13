@@ -123,7 +123,6 @@ namespace {
         AU.addRequired<DominatorTreeWrapperPass>();
       AU.addRequired<AAResultsWrapperPass>();
       AU.addRequired<LazyValueInfoWrapperPass>();
-      AU.addPreserved<LazyValueInfoWrapperPass>();
       AU.addPreserved<GlobalsAAWrapperPass>();
       AU.addPreserved<AndersensAAWrapperPass>();                        // INTEL
       AU.addPreserved<InlineAggressiveWrapperPass>();                   // INTEL
