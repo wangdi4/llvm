@@ -46,6 +46,7 @@
 #endif
 
 // C++ Includes
+#include <csignal>
 
 // Other libraries and framework includes
 // Project includes
@@ -58,6 +59,7 @@
 #include "lldb/Host/Predicate.h"
 #include "lldb/Host/ProcessLauncher.h"
 #include "lldb/Host/ThreadLauncher.h"
+#include "lldb/Host/posix/ConnectionFileDescriptorPosix.h"
 #include "lldb/Target/FileAction.h"
 #include "lldb/Target/ProcessLaunchInfo.h"
 #include "lldb/Target/UnixSignals.h"
@@ -68,10 +70,12 @@
 #include "lldb/Utility/Status.h"
 #include "lldb/lldb-private-forward.h"
 #include "llvm/ADT/SmallString.h"
+#include "llvm/ADT/StringSwitch.h"
 #include "llvm/Support/Errno.h"
 #include "llvm/Support/FileSystem.h"
 
 #if defined(_WIN32)
+#include "lldb/Host/windows/ConnectionGenericFileWindows.h"
 #include "lldb/Host/windows/ProcessLauncherWindows.h"
 #else
 #include "lldb/Host/posix/ProcessLauncherPosixFork.h"
@@ -405,25 +409,6 @@ const char *Host::GetSignalAsCString(int signo) {
 
 #endif
 
-#ifndef _WIN32
-
-lldb::thread_key_t
-Host::ThreadLocalStorageCreate(ThreadLocalStorageCleanupCallback callback) {
-  pthread_key_t key;
-  ::pthread_key_create(&key, callback);
-  return key;
-}
-
-void *Host::ThreadLocalStorageGet(lldb::thread_key_t key) {
-  return ::pthread_getspecific(key);
-}
-
-void Host::ThreadLocalStorageSet(lldb::thread_key_t key, void *value) {
-  ::pthread_setspecific(key, value);
-}
-
-#endif
-
 #if !defined(__APPLE__) // see Host.mm
 
 bool Host::GetBundleDirectory(const FileSpec &file, FileSpec &bundle) {
@@ -640,4 +625,60 @@ const UnixSignalsSP &Host::GetUnixSignals() {
   static const auto s_unix_signals_sp =
       UnixSignals::Create(HostInfo::GetArchitecture());
   return s_unix_signals_sp;
+}
+
+std::unique_ptr<Connection> Host::CreateDefaultConnection(llvm::StringRef url) {
+#if defined(_WIN32)
+  if (url.startswith("file://"))
+    return std::unique_ptr<Connection>(new ConnectionGenericFile());
+#endif
+  return std::unique_ptr<Connection>(new ConnectionFileDescriptor());
+}
+
+#if defined(LLVM_ON_UNIX)
+WaitStatus WaitStatus::Decode(int wstatus) {
+  if (WIFEXITED(wstatus))
+    return {Exit, uint8_t(WEXITSTATUS(wstatus))};
+  else if (WIFSIGNALED(wstatus))
+    return {Signal, uint8_t(WTERMSIG(wstatus))};
+  else if (WIFSTOPPED(wstatus))
+    return {Stop, uint8_t(WSTOPSIG(wstatus))};
+  llvm_unreachable("Unknown wait status");
+}
+#endif
+
+void llvm::format_provider<WaitStatus>::format(const WaitStatus &WS,
+                                               raw_ostream &OS,
+                                               StringRef Options) {
+  if (Options == "g") {
+    char type;
+    switch (WS.type) {
+    case WaitStatus::Exit:
+      type = 'W';
+      break;
+    case WaitStatus::Signal:
+      type = 'X';
+      break;
+    case WaitStatus::Stop:
+      type = 'S';
+      break;
+    }
+    OS << formatv("{0}{1:x-2}", type, WS.status);
+    return;
+  }
+
+  assert(Options.empty());
+  const char *desc;
+  switch(WS.type) {
+  case WaitStatus::Exit:
+    desc = "Exited with status";
+    break;
+  case WaitStatus::Signal:
+    desc = "Killed by signal";
+    break;
+  case WaitStatus::Stop:
+    desc = "Stopped by signal";
+    break;
+  }
+  OS << desc << " " << int(WS.status);
 }
