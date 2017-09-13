@@ -2807,9 +2807,9 @@ bool X86FastISel::fastLowerIntrinsicCall(const IntrinsicInst *II) {
 #else
     return lowerCallTo(II, "memset", II->getNumArgOperands() - 2);
 #endif // INTEL_CUSTOMIZATION
-else
+#else // !0
     return lowerCallTo(II, "memset", II->getNumArgOperands() - 2);
-#endif // INTEL_CUSTOMIZATION
+#endif  // !0
   }
   case Intrinsic::stackprotector: {
     // Emit code to store the stack guard onto the stack.
