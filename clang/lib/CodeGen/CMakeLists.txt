@@ -93,6 +93,7 @@ add_clang_library(clangCodeGen
   intel/CGIntelEmit.cpp
   intel/CGIntelStmt.cpp
   intel/CGIntelStmtOpenMP.cpp
+  intel/CGSPIRMetadataAdder.cpp
 # end INTEL_CUSTOMIZATION
 
   DEPENDS
