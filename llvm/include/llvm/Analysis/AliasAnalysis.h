@@ -505,7 +505,6 @@ public:
     return getModRefInfo(I, MemoryLocation(P, Size));
   }
 
-<<<<<<< HEAD
  #if INTEL_CUSTOMIZATION
    /// getModRefInfoForMaskedScatter - Return information about whether a
    /// masked_scatter intrinsic call modifies or reads the specified memory
@@ -515,12 +514,8 @@ public:
                                             const MemoryLocation &Loc);
  #endif // INTEL_CUSTOMIZATION
 
-  /// Check whether or not an instruction may read or write memory (without
-  /// regard to a specific location).
-=======
   /// Check whether or not an instruction may read or write the optionally
   /// specified memory location.
->>>>>>> 211f7eebced921d7da15dc764c41c84545d73fd1
   ///
   ///
   /// An instruction that doesn't read or write memory may be trivially LICM'd
