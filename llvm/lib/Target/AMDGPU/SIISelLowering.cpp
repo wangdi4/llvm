@@ -1195,6 +1195,9 @@ static void allocateSpecialInputSGPRs(CCState &CCInfo,
 
   if (Info.hasWorkGroupIDZ())
     ArgInfo.WorkGroupIDZ = allocateSGPR32Input(CCInfo);
+
+  if (Info.hasImplicitArgPtr())
+    ArgInfo.ImplicitArgPtr = allocateSGPR64Input(CCInfo);
 }
 
 // Allocate special inputs passed in user SGPRs.
@@ -1885,8 +1888,7 @@ void SITargetLowering::passSpecialInputs(
     return;
 
   const Function *CalleeFunc = CLI.CS.getCalledFunction();
-  if (!CalleeFunc)
-    report_fatal_error("indirect calls not handled");
+  assert(CalleeFunc);
 
   SelectionDAG &DAG = CLI.DAG;
   const SDLoc &DL = CLI.DL;
@@ -1914,7 +1916,8 @@ void SITargetLowering::passSpecialInputs(
     AMDGPUFunctionArgInfo::WORKGROUP_ID_Z,
     AMDGPUFunctionArgInfo::WORKITEM_ID_X,
     AMDGPUFunctionArgInfo::WORKITEM_ID_Y,
-    AMDGPUFunctionArgInfo::WORKITEM_ID_Z
+    AMDGPUFunctionArgInfo::WORKITEM_ID_Z,
+    AMDGPUFunctionArgInfo::IMPLICIT_ARG_PTR
   };
 
   for (auto InputID : InputRegs) {
@@ -1933,7 +1936,17 @@ void SITargetLowering::passSpecialInputs(
 
     // All special arguments are ints for now.
     EVT ArgVT = TRI->getSpillSize(*ArgRC) == 8 ? MVT::i64 : MVT::i32;
-    SDValue InputReg = loadInputValue(DAG, ArgRC, ArgVT, DL, *IncomingArg);
+    SDValue InputReg;
+
+    if (IncomingArg) {
+      InputReg = loadInputValue(DAG, ArgRC, ArgVT, DL, *IncomingArg);
+    } else {
+      // The implicit arg ptr is special because it doesn't have a corresponding
+      // input for kernels, and is computed from the kernarg segment pointer.
+      assert(InputID == AMDGPUFunctionArgInfo::IMPLICIT_ARG_PTR);
+      InputReg = getImplicitArgPtr(DAG, DL);
+    }
+
     if (OutgoingArg->isRegister()) {
       RegsToPass.emplace_back(OutgoingArg->getRegister(), InputReg);
     } else {
@@ -1948,11 +1961,6 @@ void SITargetLowering::passSpecialInputs(
 // The wave scratch offset register is used as the global base pointer.
 SDValue SITargetLowering::LowerCall(CallLoweringInfo &CLI,
                                     SmallVectorImpl<SDValue> &InVals) const {
-  const AMDGPUTargetMachine &TM =
-    static_cast<const AMDGPUTargetMachine &>(getTargetMachine());
-  if (!TM.enableFunctionCalls())
-    return AMDGPUTargetLowering::LowerCall(CLI, InVals);
-
   SelectionDAG &DAG = CLI.DAG;
   const SDLoc &DL = CLI.DL;
   SmallVector<ISD::OutputArg, 32> &Outs = CLI.Outs;
@@ -1967,12 +1975,23 @@ SDValue SITargetLowering::LowerCall(CallLoweringInfo &CLI,
   bool IsThisReturn = false;
   MachineFunction &MF = DAG.getMachineFunction();
 
+  if (IsVarArg) {
+    return lowerUnhandledCall(CLI, InVals,
+                              "unsupported call to variadic function ");
+  }
+
+  if (!CLI.CS.getCalledFunction()) {
+    return lowerUnhandledCall(CLI, InVals,
+                              "unsupported indirect call to function ");
+  }
+
+  if (IsTailCall && MF.getTarget().Options.GuaranteedTailCallOpt) {
+    return lowerUnhandledCall(CLI, InVals,
+                              "unsupported required tail call to function ");
+  }
+
   // TODO: Implement tail calls.
   IsTailCall = false;
-
-  if (IsVarArg || MF.getTarget().Options.GuaranteedTailCallOpt) {
-    report_fatal_error("varargs and tail calls not implemented");
-  }
 
   if (GlobalAddressSDNode *GA = dyn_cast<GlobalAddressSDNode>(Callee)) {
     // FIXME: Remove this hack for function pointer types.
@@ -3662,7 +3681,8 @@ SDValue SITargetLowering::LowerINTRINSIC_WO_CHAIN(SDValue Op,
   case Intrinsic::amdgcn_implicitarg_ptr: {
     if (MFI->isEntryFunction())
       return getImplicitArgPtr(DAG, DL);
-    report_fatal_error("amdgcn.implicitarg.ptr not implemented for functions");
+    return getPreloadedValue(DAG, *MFI, VT,
+                             AMDGPUFunctionArgInfo::IMPLICIT_ARG_PTR);
   }
   case Intrinsic::amdgcn_kernarg_segment_ptr: {
     return getPreloadedValue(DAG, *MFI, VT,
