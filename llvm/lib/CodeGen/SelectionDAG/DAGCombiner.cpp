@@ -12677,6 +12677,7 @@ bool DAGCombiner::MergeConsecutiveStores(StoreSDNode *St) {
 
   EVT MemVT = St->getMemoryVT();
   int64_t ElementSizeBytes = MemVT.getSizeInBits() / 8;
+  unsigned NumMemElts = MemVT.isVector() ? MemVT.getVectorNumElements() : 1;
 
   if (MemVT.getSizeInBits() * 2 > MaximumLegalStoreInBits)
     return false;
@@ -12834,11 +12835,7 @@ bool DAGCombiner::MergeConsecutiveStores(StoreSDNode *St) {
              TLI.storeOfVectorConstantIsCheap(MemVT, i + 1, FirstStoreAS)) &&
             !NoVectors) {
           // Find a legal type for the vector store.
-          unsigned Elts = i + 1;
-          if (MemVT.isVector()) {
-            // When merging vector stores, get the total number of elements.
-            Elts *= MemVT.getVectorNumElements();
-          }
+          unsigned Elts = (i + 1) * NumMemElts;
           EVT Ty = EVT::getVectorVT(Context, MemVT.getScalarType(), Elts);
           if (TLI.isTypeLegal(Ty) &&
               TLI.canMergeStoresTo(FirstStoreAS, Ty, DAG) &&
@@ -12877,7 +12874,6 @@ bool DAGCombiner::MergeConsecutiveStores(StoreSDNode *St) {
       unsigned FirstStoreAS = FirstInChain->getAddressSpace();
       unsigned FirstStoreAlign = FirstInChain->getAlignment();
       unsigned NumStoresToMerge = 1;
-      bool IsVec = MemVT.isVector();
       for (unsigned i = 0; i < NumConsecutiveStores; ++i) {
         StoreSDNode *St = cast<StoreSDNode>(StoreNodes[i].MemNode);
         unsigned StoreValOpcode = St->getValue().getOpcode();
@@ -12891,11 +12887,7 @@ bool DAGCombiner::MergeConsecutiveStores(StoreSDNode *St) {
           return RV;
 
         // Find a legal type for the vector store.
-        unsigned Elts = i + 1;
-        if (IsVec) {
-          // When merging vector stores, get the total number of elements.
-          Elts *= MemVT.getVectorNumElements();
-        }
+        unsigned Elts = (i + 1) * NumMemElts;
         EVT Ty =
             EVT::getVectorVT(*DAG.getContext(), MemVT.getScalarType(), Elts);
         bool IsFast;
@@ -13010,7 +13002,9 @@ bool DAGCombiner::MergeConsecutiveStores(StoreSDNode *St) {
         isDereferenceable = false;
 
       // Find a legal type for the vector store.
-      EVT StoreTy = EVT::getVectorVT(Context, MemVT, i + 1);
+      unsigned Elts = (i + 1) * NumMemElts;
+      EVT StoreTy = EVT::getVectorVT(Context, MemVT.getScalarType(), Elts);
+
       bool IsFastSt, IsFastLd;
       if (TLI.isTypeLegal(StoreTy) &&
           TLI.canMergeStoresTo(FirstStoreAS, StoreTy, DAG) &&
@@ -13079,7 +13073,9 @@ bool DAGCombiner::MergeConsecutiveStores(StoreSDNode *St) {
     // to memory.
     EVT JointMemOpVT;
     if (UseVectorTy) {
-      JointMemOpVT = EVT::getVectorVT(Context, MemVT, NumElem);
+      // Find a legal type for the vector store.
+      unsigned Elts = NumElem * NumMemElts;
+      JointMemOpVT = EVT::getVectorVT(Context, MemVT.getScalarType(), Elts);
     } else {
       unsigned SizeInBits = NumElem * ElementSizeBytes * 8;
       JointMemOpVT = EVT::getIntegerVT(Context, SizeInBits);
@@ -15713,38 +15709,23 @@ SDValue DAGCombiner::visitSCALAR_TO_VECTOR(SDNode *N) {
   EVT VT = N->getValueType(0);
 
   // Replace a SCALAR_TO_VECTOR(EXTRACT_VECTOR_ELT(V,C0)) pattern
-  // with a VECTOR_SHUFFLE and possible truncate.
+  // with a VECTOR_SHUFFLE.
   if (InVal.getOpcode() == ISD::EXTRACT_VECTOR_ELT) {
     SDValue InVec = InVal->getOperand(0);
     SDValue EltNo = InVal->getOperand(1);
-    auto InVecT = InVec.getValueType();
-    ConstantSDNode *C0 = dyn_cast<ConstantSDNode>(EltNo);
 
-    if (C0) {
-      SmallVector<int, 8> NewMask(InVecT.getVectorNumElements(), -1);
+    // FIXME: We could support implicit truncation if the shuffle can be
+    // scaled to a smaller vector scalar type.
+    ConstantSDNode *C0 = dyn_cast<ConstantSDNode>(EltNo);
+    if (C0 && VT == InVec.getValueType() &&
+        VT.getScalarType() == InVal.getValueType()) {
+      SmallVector<int, 8> NewMask(VT.getVectorNumElements(), -1);
       int Elt = C0->getZExtValue();
       NewMask[0] = Elt;
-      SDValue Val;
-      if (VT.getVectorNumElements() <= InVecT.getVectorNumElements() &&
-          TLI.isShuffleMaskLegal(NewMask, VT)) {
-        Val = DAG.getVectorShuffle(InVecT, SDLoc(N), InVec,
-                                   DAG.getUNDEF(InVecT), NewMask);
-        // If the initial vector is the correct size this shuffle is a
-        // valid result.
-        if (VT == InVecT)
-          return Val;
-        // If not we must truncate the vector.
-        if (VT.getVectorNumElements() != InVecT.getVectorNumElements()) {
-          MVT IdxTy = TLI.getVectorIdxTy(DAG.getDataLayout());
-          SDValue ZeroIdx = DAG.getConstant(0, SDLoc(N), IdxTy);
-          EVT SubVT =
-              EVT::getVectorVT(*DAG.getContext(), InVecT.getVectorElementType(),
-                               VT.getVectorNumElements());
-          Val = DAG.getNode(ISD::EXTRACT_SUBVECTOR, SDLoc(N), SubVT, Val,
-                            ZeroIdx);
-          return Val;
-        }
-      }
+
+      if (TLI.isShuffleMaskLegal(NewMask, VT))
+        return DAG.getVectorShuffle(VT, SDLoc(N), InVec, DAG.getUNDEF(VT),
+                                    NewMask);
     }
   }
 
