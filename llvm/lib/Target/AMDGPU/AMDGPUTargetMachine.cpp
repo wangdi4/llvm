@@ -142,6 +142,7 @@ extern "C" void LLVMInitializeAMDGPUTarget() {
   initializeSIPeepholeSDWAPass(*PR);
   initializeSIShrinkInstructionsPass(*PR);
   initializeSIFixControlFlowLiveIntervalsPass(*PR);
+  initializeSIOptimizeExecMaskingPreRAPass(*PR);
   initializeSILoadStoreOptimizerPass(*PR);
   initializeAMDGPUAlwaysInlinePass(*PR);
   initializeAMDGPUAnnotateKernelFeaturesPass(*PR);
@@ -485,7 +486,10 @@ public:
 class GCNPassConfig final : public AMDGPUPassConfig {
 public:
   GCNPassConfig(LLVMTargetMachine &TM, PassManagerBase &PM)
-    : AMDGPUPassConfig(TM, PM) {}
+    : AMDGPUPassConfig(TM, PM) {
+    // It is necessary to know the register usage of the entire call graph.
+    setRequiresCodeGenSCCOrder(EnableAMDGPUFunctionCalls);
+  }
 
   GCNTargetMachine &getGCNTargetMachine() const {
     return getTM<GCNTargetMachine>();
@@ -781,6 +785,9 @@ void GCNPassConfig::addFastRegAlloc(FunctionPass *RegAllocPass) {
 }
 
 void GCNPassConfig::addOptimizedRegAlloc(FunctionPass *RegAllocPass) {
+  if (getOptLevel() > CodeGenOpt::None)
+    insertPass(&MachineSchedulerID, &SIOptimizeExecMaskingPreRAID);
+
   // This needs to be run directly before register allocation because earlier
   // passes might recompute live intervals.
   insertPass(&MachineSchedulerID, &SIFixControlFlowLiveIntervalsID);
