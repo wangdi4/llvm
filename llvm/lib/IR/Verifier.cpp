@@ -741,9 +741,9 @@ void Verifier::visitNamedMDNode(const NamedMDNode &NMD) {
         NMD.getName() == "llvm.dbg.cu" || NMD.getName() == "llvm.dbg.mir" ||
             NMD.getName().startswith("llvm.dbg.intel") ||
             NMD.getName().startswith("llvm.dbg.ms"),
-#endif // INTEL_CUSTOMIZATION
              "unrecognized named metadata node in the llvm.dbg namespace",
              &NMD);
+#endif // INTEL_CUSTOMIZATION
   for (const MDNode *MD : NMD.operands()) {
     if (NMD.getName() == "llvm.dbg.cu")
       AssertDI(MD && isa<DICompileUnit>(MD), "invalid compile unit", &NMD, MD);
