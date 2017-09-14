@@ -281,17 +281,15 @@ struct InlineParams {
   /// Threshold to use when the callsite is considered hot.
   Optional<int> HotCallSiteThreshold;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   /// This flag indicates that it is LTO compile phase. This flag is
   /// set when PrepareForLTO flag in PassManagerBuilder is true. .
   bool PrepareForLTO;
 #endif // INTEL_CUSTOMIZATION
-=======
+
   /// Threshold to use when the callsite is considered hot relative to function
   /// entry.
   Optional<int> LocallyHotCallSiteThreshold;
->>>>>>> 2bbed02c0b20129d1a8011acf9f42502272f0466
 
   /// Threshold to use when the callsite is considered cold.
   Optional<int> ColdCallSiteThreshold;

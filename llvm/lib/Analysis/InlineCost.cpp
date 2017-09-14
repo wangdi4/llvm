@@ -714,10 +714,6 @@ bool CallAnalyzer::isColdCallSite(CallSite CS, BlockFrequencyInfo *CallerBFI) {
   return CallSiteFreq < CallerEntryFreq * ColdProb;
 }
 
-<<<<<<< HEAD
-void CallAnalyzer::updateThreshold(CallSite CS, Function &Callee, // INTEL
-  InlineReasonVector &YesReasonVector) {                          // INTEL
-=======
 Optional<int>
 CallAnalyzer::getHotCallSiteThreshold(CallSite CS,
                                       BlockFrequencyInfo *CallerBFI) {
@@ -746,8 +742,8 @@ CallAnalyzer::getHotCallSiteThreshold(CallSite CS,
   return None;
 }
 
-void CallAnalyzer::updateThreshold(CallSite CS, Function &Callee) {
->>>>>>> 2bbed02c0b20129d1a8011acf9f42502272f0466
+void CallAnalyzer::updateThreshold(CallSite CS, Function &Callee, // INTEL
+  InlineReasonVector &YesReasonVector) {                          // INTEL
   // If no size growth is allowed for this inlining, set Threshold to 0.
   if (!allowSizeGrowth(CS)) {
     Threshold = 0;
