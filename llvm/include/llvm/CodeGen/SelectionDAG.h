@@ -377,11 +377,7 @@ public:
 
   /// Prepare this SelectionDAG to process code in the given MachineFunction.
   void init(MachineFunction &NewMF, OptimizationRemarkEmitter &NewORE,
-<<<<<<< HEAD
-            const TargetLibraryInfo *TLibI); // INTEL
-=======
-            Pass *PassPtr);
->>>>>>> 4bcb1039534773c3463698c63e142678749a439a
+            Pass *PassPtr, const TargetLibraryInfo *TLibI); // INTEL
 
   /// Clear state and free memory necessary to make this
   /// SelectionDAG ready to process a new block.
