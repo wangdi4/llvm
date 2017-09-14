@@ -104,7 +104,7 @@ static cl::opt<int> ColdCallSiteRelFreq(
 
 static cl::opt<int> HotCallSiteRelFreq(
     "hot-callsite-rel-freq", cl::Hidden, cl::init(60), cl::ZeroOrMore,
-    cl::desc("Maxmimum block frequency, expressed as a multiple of caller's "
+    cl::desc("Minimum block frequency, expressed as a multiple of caller's "
              "entry frequency, for a callsite to be hot in the absence of "
              "profile information."));
 
