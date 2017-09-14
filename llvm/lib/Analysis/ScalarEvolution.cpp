@@ -6556,16 +6556,11 @@ ScalarEvolution::getBackedgeTakenInfo(const Loop *L) {
         // case, createNodeForPHI will perform the necessary updates on its
         // own when it gets to that point.
         if (!isa<PHINode>(I) || !isa<SCEVUnknown>(Old)) {
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION // HIR parsing
           HIRInfo.isValid() ? eraseValueFromMap(HIt->first) :
                               eraseValueFromMap(It->first);
 #endif // INTEL_CUSTOMIZATION
-          forgetMemoizedResults(Old);
-=======
-          eraseValueFromMap(It->first);
           forgetMemoizedResults(Old, false);
->>>>>>> 511c1a306c885f5947c676677cc831d700852e5d
         }
         if (PHINode *PN = dyn_cast<PHINode>(I))
           ConstantEvolutionLoopExitValue.erase(PN);
