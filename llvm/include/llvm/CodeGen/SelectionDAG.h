@@ -220,6 +220,7 @@ class SelectionDAG {
 #endif // INTEL_CUSTOMIZATION
 
   MachineFunction *MF;
+  Pass *SDAGISelPass = nullptr;
   LLVMContext *Context;
   CodeGenOpt::Level OptLevel;
 
@@ -376,13 +377,19 @@ public:
 
   /// Prepare this SelectionDAG to process code in the given MachineFunction.
   void init(MachineFunction &NewMF, OptimizationRemarkEmitter &NewORE,
+<<<<<<< HEAD
             const TargetLibraryInfo *TLibI); // INTEL
+=======
+            Pass *PassPtr);
+>>>>>>> 4bcb1039534773c3463698c63e142678749a439a
 
   /// Clear state and free memory necessary to make this
   /// SelectionDAG ready to process a new block.
   void clear();
 
   MachineFunction &getMachineFunction() const { return *MF; }
+  const Pass *getPass() const { return SDAGISelPass; }
+
   const DataLayout &getDataLayout() const { return MF->getDataLayout(); }
   const TargetMachine &getTarget() const { return TM; }
   const TargetSubtargetInfo &getSubtarget() const { return MF->getSubtarget(); }
