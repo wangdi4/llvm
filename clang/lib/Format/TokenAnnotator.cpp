@@ -2006,6 +2006,9 @@ unsigned TokenAnnotator::splitPenalty(const AnnotatedLine &Line,
     if ((Left.is(TT_TemplateString) && Left.TokenText.endswith("${")) ||
         (Right.is(TT_TemplateString) && Right.TokenText.startswith("}")))
       return 100;
+    // Prefer breaking call chains (".foo") over empty "{}", "[]" or "()".
+    if (Left.opensScope() && Right.closesScope())
+      return 200;
   }
 
   if (Right.is(tok::identifier) && Right.Next && Right.Next->is(TT_DictLiteral))
@@ -2350,7 +2353,7 @@ bool TokenAnnotator::spaceRequiredBefore(const AnnotatedLine &Line,
         Left.Tok.getIdentifierInfo())
       return false;
     if (Right.is(tok::l_paren) &&
-        Left.isOneOf(tok::kw_throw, Keywords.kw_await, tok::kw_void))
+        Left.isOneOf(tok::kw_throw, Keywords.kw_await, Keywords.kw_typeof, tok::kw_void))
       return true;
     if ((Left.isOneOf(Keywords.kw_let, Keywords.kw_var, Keywords.kw_in,
                       tok::kw_const) ||
