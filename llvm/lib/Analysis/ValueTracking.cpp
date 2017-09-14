@@ -3429,13 +3429,6 @@ void llvm::getUnderlyingObjectsForCodeGen(const Value *V,
     GetUnderlyingObjects(const_cast<Value *>(V), Objs, DL);
 
     for (Value *V : Objs) {
-      // If GetUnderlyingObjects fails to find an identifiable object,
-      // getUnderlyingObjectsForCodeGen also fails for safety.
-      if (!isIdentifiedObject(V)) {
-        Objects.clear();
-        return;
-      }
-
       if (!Visited.insert(V).second)
         continue;
       if (Operator::getOpcode(V) == Instruction::IntToPtr) {
@@ -3445,6 +3438,12 @@ void llvm::getUnderlyingObjectsForCodeGen(const Value *V,
           Working.push_back(O);
           continue;
         }
+      }
+      // If GetUnderlyingObjects fails to find an identifiable object,
+      // getUnderlyingObjectsForCodeGen also fails for safety.
+      if (!isIdentifiedObject(V)) {
+        Objects.clear();
+        return;
       }
       Objects.push_back(const_cast<Value *>(V));
     }
