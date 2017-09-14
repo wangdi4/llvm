@@ -26,6 +26,9 @@ class Function;
 class Loop;
 class LoopInfo;
 class ScalarEvolution;
+class SCEV;
+class SCEVAddRecExpr;
+class APInt;
 
 namespace loopopt {
 
@@ -77,14 +80,17 @@ private:
   /// Implements find()/insert() functionality.
   HLLoop *findOrInsertHLLoopImpl(const Loop *Lp, HLLoop *HLoop, bool Insert);
 
+  /// Returns the signed max of \p AddRec by analyzing its stride.
+  APInt getAddRecRefinedSignedMax(const SCEVAddRecExpr *AddRec) const;
+
   /// Returns true if Inst represents a non-negative NSW SCEVAddRecExpr.
-  bool isNonNegativeNSWIV(const Loop *Loop, const Instruction *Inst) const;
+  bool isNonNegativeNSWIV(const Loop *Loop, const PHINode *IVPhi) const;
 
   /// Returns true if normalized loop IV has NSW semantics.
-  bool hasNSWSemantics(const Loop *Lp, const PHINode *IVPhi) const;
+  bool hasNSWSemantics(const Loop *Lp, Type *IVType, const SCEV *BECount) const;
 
   /// Sets the IV type for HLoop.
-  void setIVType(HLLoop *HLoop) const;
+  void setIVType(HLLoop *HLoop, const SCEV *BECount) const;
 
   /// Moves children of IfParent to loop's preheader/postexit if they are
   /// valid, else returns false.

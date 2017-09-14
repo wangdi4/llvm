@@ -112,9 +112,48 @@ HLLoop *HIRLoopFormation::findHLLoop(const Loop *Lp) {
   return findOrInsertHLLoopImpl(Lp, nullptr, false);
 }
 
+APInt HIRLoopFormation::getAddRecRefinedSignedMax(
+    const SCEVAddRecExpr *AddRec) const {
+  // For a case like this-
+  //
+  // i = 0
+  // DO
+  //   ...
+  //   i += 2 <NSW>
+  // END DO
+  //
+  // ScalarEvolution can refine the max value of IV based on its initial value
+  // of 0 and stride of 2 to (SignedMax - 1). If an IV with a positive stride
+  // has NSW, its 'least' signed max value is (SignedMax - (Stride - 1)). This
+  // function returns this value.
+  APInt MaxVal =
+      APInt::getSignedMaxValue(AddRec->getType()->getPrimitiveSizeInBits());
+
+  if (!AddRec->isAffine()) {
+    return MaxVal;
+  }
+
+  auto ConstStride = dyn_cast<SCEVConstant>(AddRec->getStepRecurrence(*SE));
+
+  if (!ConstStride) {
+    return MaxVal;
+  }
+
+  auto &Stride = ConstStride->getAPInt();
+
+  if (Stride.isNegative()) {
+    return MaxVal;
+  }
+
+  MaxVal -= Stride;
+  MaxVal += 1ULL;
+
+  return MaxVal;
+}
+
 bool HIRLoopFormation::isNonNegativeNSWIV(const Loop *Lp,
-                                          const Instruction *Inst) const {
-  auto SC = SE->getSCEVForHIR(const_cast<Instruction *>(Inst),
+                                          const PHINode *IVPhi) const {
+  auto SC = SE->getSCEVForHIR(const_cast<PHINode *>(IVPhi),
                               getOutermostHIRParentLoop(Lp));
 
   if (!isa<SCEVAddRecExpr>(SC)) {
@@ -127,7 +166,8 @@ bool HIRLoopFormation::isNonNegativeNSWIV(const Loop *Lp,
     return false;
   }
 
-  // We need more checks for multi-exit loops.
+  // Checking minimum signed value of IV is enough to deduce NSW for single-exit
+  // loops but we need more checks for multi-exit loops.
   if (Lp->getExitingBlock()) {
     return true;
   }
@@ -142,65 +182,54 @@ bool HIRLoopFormation::isNonNegativeNSWIV(const Loop *Lp,
   //     goto exit;
   // }
 
-  // No range refinement was done for the max value of IV so we can be sure it
-  // remains in non-negative range.
-  if (Range.getSignedMax().isMaxSignedValue()) {
+  APInt Max = Range.getSignedMax();
+  APInt RefinedMax = getAddRecRefinedSignedMax(cast<SCEVAddRecExpr>(SC));
+
+  // If no range refinement was done for the max value of IV based on loop exit,
+  // we can be sure it remains in non-negative range.
+  return Max.sge(RefinedMax);
+}
+
+bool HIRLoopFormation::hasNSWSemantics(const Loop *Lp, Type *IVType,
+                                       const SCEV *BECount) const {
+  assert(IVType->isIntegerTy() && "Integer IV type expected!");
+
+  // Loop has NSW if backedge taken count is in signed range.
+  if (!isa<SCEVCouldNotCompute>(BECount) && SE->isKnownNonNegative(BECount)) {
     return true;
   }
 
-  // If the max value was refined, we can return true only if the backedge count
-  // is known to be non-negative.
-  auto BECount =
-      SE->getBackedgeTakenCountForHIR(Lp, getOutermostHIRParentLoop(Lp));
+  // Set NSW if there is a non-negative integer IV in the loop header (less
+  // than or equal to the size of IVType).
+  // For example-
+  //
+  // %p.addr.07 = phi i32* [ %incdec.ptr, %for.body ], [ %p, %entry ] <<
+  // pointer IV
+  // %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 0, %entry ] <<
+  // NSW IV of same size as pointer
+  auto IVSize = IVType->getPrimitiveSizeInBits();
+  auto HeaderBB = Lp->getHeader();
 
-  return SE->isKnownNonNegative(BECount);
-}
-
-bool HIRLoopFormation::hasNSWSemantics(const Loop *Lp,
-                                       const PHINode *IVPhi) const {
-
-  auto IVType = IVPhi->getType();
-
-  if (IVType->isIntegerTy()) {
-    if (isNonNegativeNSWIV(Lp, IVPhi)) {
-      return true;
+  for (auto &PhiInst : (*HeaderBB)) {
+    if (!isa<PHINode>(PhiInst)) {
+      break;
     }
 
-  } else if (IVType->isPointerTy()) {
+    auto PhiTy = PhiInst.getType();
 
-    // Set NSW if there is a non-negative integer IV in the loop header (less
-    // than or equal to the size of the pointer IV) which has NSW flag set.
-    // For example-
-    //
-    // %p.addr.07 = phi i32* [ %incdec.ptr, %for.body ], [ %p, %entry ] <<
-    // pointer IV
-    // %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 0, %entry ] <<
-    // NSW IV of same size as pointer
-    auto PtrSize = Func->getParent()->getDataLayout().getTypeSizeInBits(IVType);
-    auto HeaderBB = Lp->getHeader();
+    if (!PhiTy->isIntegerTy() || (PhiTy->getPrimitiveSizeInBits() > IVSize)) {
+      continue;
+    }
 
-    for (auto &PhiInst : (*HeaderBB)) {
-      if (!isa<PHINode>(PhiInst)) {
-        break;
-      }
-
-      auto PhiTy = PhiInst.getType();
-
-      if (!PhiTy->isIntegerTy() ||
-          (PhiTy->getPrimitiveSizeInBits() > PtrSize)) {
-        continue;
-      }
-
-      if (isNonNegativeNSWIV(Lp, &PhiInst)) {
-        return true;
-      }
+    if (isNonNegativeNSWIV(Lp, &cast<PHINode>(PhiInst))) {
+      return true;
     }
   }
 
   return false;
 }
 
-void HIRLoopFormation::setIVType(HLLoop *HLoop) const {
+void HIRLoopFormation::setIVType(HLLoop *HLoop, const SCEV *BECount) const {
   Value *Cond;
   auto Lp = HLoop->getLLVMLoop();
   auto Latch = Lp->getLoopLatch();
@@ -235,7 +264,7 @@ void HIRLoopFormation::setIVType(HLLoop *HLoop) const {
 
   HLoop->setIVType(IVType);
 
-  auto IsNSW = hasNSWSemantics(Lp, IVNode);
+  auto IsNSW = hasNSWSemantics(Lp, IVType, BECount);
   HLoop->setNSW(IsNSW);
 }
 
@@ -404,7 +433,7 @@ void HIRLoopFormation::formLoops() {
 
     HIR->getHLNodeUtils().moveAsFirstChildren(HLoop, FirstChildIter, EndIter);
 
-    setIVType(HLoop);
+    setIVType(HLoop, BECount);
 
     if (!IsUnknownLoop) {
       // Remove label and bottom test.
