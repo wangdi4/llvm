@@ -33,10 +33,11 @@
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionAliasAnalysis.h"
 #include "llvm/Analysis/Intel_Andersens.h"  // INTEL
+#include "llvm/Analysis/Intel_DTrans/DTransAnalysis.h" // INTEL
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h" // INTEL - HIR
+#include "llvm/Analysis/Intel_StdContainerAA.h"  // INTEL
 #include "llvm/Analysis/Intel_VPO/Vecopt/Passes.h"   // INTEL
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionPasses.h" // INTEL
-#include "llvm/Analysis/Intel_StdContainerAA.h"  // INTEL
 #include "llvm/Analysis/Intel_XmainOptLevelPass.h" // INTEL
 #include "llvm/Analysis/ScopedNoAliasAA.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
@@ -55,11 +56,12 @@
 #include "llvm/Transforms/Utils/SymbolRewriter.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include "llvm/Transforms/Vectorize.h"
+#include "llvm/Transforms/Intel_DTrans/DTransOpt.h"              // INTEL
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"         // INTEL - HIR
 #include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h" // INTEL
-#include "llvm/Transforms/Utils/Intel_VecClone.h"                // INTEL
 #include "llvm/Transforms/Intel_VPO/VPOPasses.h"                 // INTEL
 #include "llvm/Transforms/Intel_VPO/Vecopt/VecoptPasses.h"       // INTEL
+#include "llvm/Transforms/Utils/Intel_VecClone.h"                // INTEL
 #include <cstdlib>
 
 namespace {
@@ -80,6 +82,8 @@ namespace {
       (void) llvm::createAlignmentFromAssumptionsPass();
 #if INTEL_CUSTOMIZATION
       (void) llvm::createAndersensAAWrapperPass();
+      (void) llvm::createDTransOptWrapperPass();
+      (void) llvm::createDTransAnalysisWrapperPass();
       (void) llvm::createNonLTOGlobalOptimizerPass();
       (void) llvm::createTbaaMDPropagationPass();
       (void) llvm::createCleanupFakeLoadsPass();

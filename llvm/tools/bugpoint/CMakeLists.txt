@@ -16,6 +16,7 @@ set(LLVM_LINK_COMPONENTS
   TransformUtils
   Vectorize
 # INTEL_CUSTOMIZATION
+  Intel_DTrans
   Intel_LoopAnalysis
   Intel_LoopTransforms
   Intel_MapIntrinToIml

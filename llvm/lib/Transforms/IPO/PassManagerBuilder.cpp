@@ -48,11 +48,12 @@
 #include "llvm/Transforms/Scalar/SimpleLoopUnswitch.h"
 #include "llvm/Transforms/Vectorize.h"
 #if INTEL_CUSTOMIZATION
+#include "llvm/Transforms/Intel_DTrans/DTransOpt.h"
 #include "llvm/Transforms/Intel_VPO/VPOPasses.h"
 #include "llvm/Transforms/Intel_VPO/Vecopt/VecoptPasses.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/IR/IRPrintingPasses.h"
-#include "llvm/Transforms/Utils/Intel_VecClone.h" 
+#include "llvm/Transforms/Utils/Intel_VecClone.h"
 #include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h"
 #include "llvm/Transforms/Intel_VPO/Paropt/VPOParopt.h"
 #endif //INTEL_CUSTOMIZATION
@@ -196,6 +197,11 @@ static cl::opt<bool> EnableIPCloning("enable-ip-cloning",
 static cl::opt<bool> 
     EnableInlineAggAnalysis("enable-inline-aggressive-analysis",
     cl::init(true), cl::Hidden, cl::desc("Enable Inline Aggressive Analysis"));
+
+// DTrans optimizations -- this is a placeholder for future work.
+static cl::opt<bool> EnableDTrans("enable-dtrans",
+    cl::init(false), cl::Hidden,
+    cl::desc("Enable DTrans optimizations"));
 #endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool> EnableNonLTOGlobalsModRef(
@@ -918,6 +924,13 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   // required for virtual constant propagation.
   PM.add(createPostOrderFunctionAttrsLegacyPass());
   PM.add(createReversePostOrderFunctionAttrsPass());
+
+#if INTEL_CUSTOMIZATION
+  // This optimization pass is just a placeholder, but adding it to the
+  // pipeline causes the DTransAnalysis to be run.
+  if (EnableDTrans)
+    PM.add(createDTransOptWrapperPass());
+#endif // INTEL_CUSTOMIZATION
 
   // Split globals using inrange annotations on GEP indices. This can help
   // improve the quality of generated code when virtual constant propagation or

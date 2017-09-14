@@ -500,6 +500,9 @@ void initializeWholeProgramWrapperPassPass(PassRegistry&);
 void initializeVPlanDriverPass(PassRegistry&);
 // OpenCL Passes
 void initializeFMASplitterPass(PassRegistry&);
+// DTrans passes
+void initializeDTransAnalysisWrapperPass(PassRegistry&);
+void initializeDTransOptWrapperPass(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION
 
 } // end namespace llvm
