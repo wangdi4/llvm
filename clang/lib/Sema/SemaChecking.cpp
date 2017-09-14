@@ -3056,14 +3056,9 @@ ExprResult Sema::SemaAtomicOpsOverloaded(ExprResult TheCallResult,
     // bool __atomic_compare_exchange(A *, C *, CP, bool, int, int)
     GNUCmpXchg
   } Form = Init;
-<<<<<<< HEAD
+  const unsigned NumForm = GNUCmpXchg + 1;
   const unsigned NumArgs[] = { 2, 2, 3, 3, 3, 3, 4, 5, 5, 6 }; // INTEL
   const unsigned NumVals[] = { 1, 0, 1, 1, 1, 1, 2, 2, 2, 3 }; // INTEL
-=======
-  const unsigned NumForm = GNUCmpXchg + 1;
-  const unsigned NumArgs[] = { 2, 2, 3, 3, 3, 3, 4, 5, 6 };
-  const unsigned NumVals[] = { 1, 0, 1, 1, 1, 1, 2, 2, 3 };
->>>>>>> 84162ace309f1c79bc374a1d0cc19c2c91a32ee8
   // where:
   //   C is an appropriate type,
   //   A is volatile _Atomic(C) for __c11 builtins and is C for GNU builtins,

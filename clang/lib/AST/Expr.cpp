@@ -4024,8 +4024,7 @@ unsigned AtomicExpr::getNumSubExprs(AtomicOp Op) {
 
   case AO__atomic_compare_exchange:
   case AO__atomic_compare_exchange_n:
-<<<<<<< HEAD
-    return 6;
+    return 7;
 
 #if INTEL_CUSTOMIZATION
   case AO__atomic_store_explicit:
@@ -4141,9 +4140,6 @@ unsigned AtomicExpr::getNumSubExprs(AtomicOp Op) {
     return 3;
 
 #endif // INTEL_CUSTOMIZATION
-=======
-    return 7;
->>>>>>> 84162ace309f1c79bc374a1d0cc19c2c91a32ee8
   }
   llvm_unreachable("unknown atomic op");
 }

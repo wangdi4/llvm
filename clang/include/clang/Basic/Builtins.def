@@ -738,7 +738,6 @@ BUILTIN(__atomic_signal_fence, "vi", "n")
 BUILTIN(__atomic_always_lock_free, "izvCD*", "n")
 BUILTIN(__atomic_is_lock_free, "izvCD*", "n")
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 BUILTIN(__builtin_atand2l, "LdLdLd"  , "Fnc")
 BUILTIN(__builtin_atand2, "ddd"  , "Fnc")
@@ -932,7 +931,7 @@ BUILTIN(__sec_implicit_index, "ii", "t")
 #if INTEL_CUSTOMIZATION
 BUILTIN(__assume_aligned, "v.", "tn")
 #endif // INTEL_CUSTOMIZATION
-=======
+
 // OpenCL 2.0 atomic builtins.
 ATOMIC_BUILTIN(__opencl_atomic_init, "v.", "t")
 ATOMIC_BUILTIN(__opencl_atomic_load, "v.", "t")
@@ -947,7 +946,6 @@ ATOMIC_BUILTIN(__opencl_atomic_fetch_or, "v.", "t")
 ATOMIC_BUILTIN(__opencl_atomic_fetch_xor, "v.", "t")
 ATOMIC_BUILTIN(__opencl_atomic_fetch_min, "v.", "t")
 ATOMIC_BUILTIN(__opencl_atomic_fetch_max, "v.", "t")
->>>>>>> 84162ace309f1c79bc374a1d0cc19c2c91a32ee8
 
 #undef ATOMIC_BUILTIN
 
