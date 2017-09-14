@@ -195,7 +195,7 @@ static cl::opt<bool>
 static cl::opt<bool>
     EnableForwardOpTree("polly-enable-optree",
                         cl::desc("Enable operand tree forwarding"), cl::Hidden,
-                        cl::init(false), cl::cat(PollyCategory));
+                        cl::init(true), cl::cat(PollyCategory));
 
 static cl::opt<bool>
     DumpBefore("polly-dump-before",
@@ -227,7 +227,7 @@ static cl::opt<bool>
 static cl::opt<bool>
     EnableSimplify("polly-enable-simplify",
                    cl::desc("Simplify SCoP after optimizations"),
-                   cl::init(false), cl::cat(PollyCategory));
+                   cl::init(true), cl::cat(PollyCategory));
 
 static cl::opt<bool> EnablePruneUnprofitable(
     "polly-enable-prune-unprofitable",
@@ -464,7 +464,7 @@ static void buildDefaultPollyPipeline(FunctionPassManager &PM,
     case OPTIMIZER_NONE:
       break; /* Do nothing */
     case OPTIMIZER_ISL:
-      assert("ISL optimizer is not implemented");
+      llvm_unreachable("ISL optimizer is not implemented");
       break;
     }
 
@@ -482,7 +482,7 @@ static void buildDefaultPollyPipeline(FunctionPassManager &PM,
   }
 #ifdef GPU_CODEGEN
   else
-    assert("Hybrid Target with GPU support is not implemented");
+    llvm_unreachable("Hybrid Target with GPU support is not implemented");
 #endif
 
   PM.addPass(CodePreparationPass());
