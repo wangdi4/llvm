@@ -736,13 +736,11 @@ void Verifier::visitNamedMDNode(const NamedMDNode &NMD) {
   // There used to be various other llvm.dbg.* nodes, but we don't support
   // upgrading them and we want to reserve the namespace for future uses.
   if (NMD.getName().startswith("llvm.dbg."))
-<<<<<<< HEAD
-    AssertDI(NMD.getName() == "llvm.dbg.cu" ||
-             NMD.getName().startswith("llvm.dbg.intel") || // INTEL
-             NMD.getName().startswith("llvm.dbg.ms"),      // INTEL
-=======
-    AssertDI(NMD.getName() == "llvm.dbg.cu" || NMD.getName() == "llvm.dbg.mir",
->>>>>>> 2cd77a84868638c82bda5b620838e775dbf4997c
+#if INTEL_CUSTOMIZATION
+    AssertDI(NMD.getName() == "llvm.dbg.cu" || NMD.getName() == "llvm.dbg.mir" ||
+             NMD.getName().startswith("llvm.dbg.intel") || 
+             NMD.getName().startswith("llvm.dbg.ms"),      
+#endif // INTEL_CUSTOMIZATION
              "unrecognized named metadata node in the llvm.dbg namespace",
              &NMD);
   for (const MDNode *MD : NMD.operands()) {
