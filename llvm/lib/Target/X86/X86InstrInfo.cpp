@@ -9356,6 +9356,30 @@ static const uint16_t ReplaceableInstrs[][3] = {
   { X86::VBROADCASTSDZ256m, X86::VBROADCASTSDZ256m, X86::VPBROADCASTQZ256m },
   { X86::VBROADCASTSDZr,    X86::VBROADCASTSDZr,    X86::VPBROADCASTQZr },
   { X86::VBROADCASTSDZm,    X86::VBROADCASTSDZm,    X86::VPBROADCASTQZm },
+  { X86::VINSERTF32x4Zrr,   X86::VINSERTF32x4Zrr,   X86::VINSERTI32x4Zrr },
+  { X86::VINSERTF32x4Zrm,   X86::VINSERTF32x4Zrm,   X86::VINSERTI32x4Zrm },
+  { X86::VINSERTF32x8Zrr,   X86::VINSERTF32x8Zrr,   X86::VINSERTI32x8Zrr },
+  { X86::VINSERTF32x8Zrm,   X86::VINSERTF32x8Zrm,   X86::VINSERTI32x8Zrm },
+  { X86::VINSERTF64x2Zrr,   X86::VINSERTF64x2Zrr,   X86::VINSERTI64x2Zrr },
+  { X86::VINSERTF64x2Zrm,   X86::VINSERTF64x2Zrm,   X86::VINSERTI64x2Zrm },
+  { X86::VINSERTF64x4Zrr,   X86::VINSERTF64x4Zrr,   X86::VINSERTI64x4Zrr },
+  { X86::VINSERTF64x4Zrm,   X86::VINSERTF64x4Zrm,   X86::VINSERTI64x4Zrm },
+  { X86::VINSERTF32x4Z256rr,X86::VINSERTF32x4Z256rr,X86::VINSERTI32x4Z256rr },
+  { X86::VINSERTF32x4Z256rm,X86::VINSERTF32x4Z256rm,X86::VINSERTI32x4Z256rm },
+  { X86::VINSERTF64x2Z256rr,X86::VINSERTF64x2Z256rr,X86::VINSERTI64x2Z256rr },
+  { X86::VINSERTF64x2Z256rm,X86::VINSERTF64x2Z256rm,X86::VINSERTI64x2Z256rm },
+  { X86::VEXTRACTF32x4Zrr,   X86::VEXTRACTF32x4Zrr,   X86::VEXTRACTI32x4Zrr },
+  { X86::VEXTRACTF32x4Zmr,   X86::VEXTRACTF32x4Zmr,   X86::VEXTRACTI32x4Zmr },
+  { X86::VEXTRACTF32x8Zrr,   X86::VEXTRACTF32x8Zrr,   X86::VEXTRACTI32x8Zrr },
+  { X86::VEXTRACTF32x8Zmr,   X86::VEXTRACTF32x8Zmr,   X86::VEXTRACTI32x8Zmr },
+  { X86::VEXTRACTF64x2Zrr,   X86::VEXTRACTF64x2Zrr,   X86::VEXTRACTI64x2Zrr },
+  { X86::VEXTRACTF64x2Zmr,   X86::VEXTRACTF64x2Zmr,   X86::VEXTRACTI64x2Zmr },
+  { X86::VEXTRACTF64x4Zrr,   X86::VEXTRACTF64x4Zrr,   X86::VEXTRACTI64x4Zrr },
+  { X86::VEXTRACTF64x4Zmr,   X86::VEXTRACTF64x4Zmr,   X86::VEXTRACTI64x4Zmr },
+  { X86::VEXTRACTF32x4Z256rr,X86::VEXTRACTF32x4Z256rr,X86::VEXTRACTI32x4Z256rr },
+  { X86::VEXTRACTF32x4Z256mr,X86::VEXTRACTF32x4Z256mr,X86::VEXTRACTI32x4Z256mr },
+  { X86::VEXTRACTF64x2Z256rr,X86::VEXTRACTF64x2Z256rr,X86::VEXTRACTI64x2Z256rr },
+  { X86::VEXTRACTF64x2Z256mr,X86::VEXTRACTF64x2Z256mr,X86::VEXTRACTI64x2Z256mr },
 };
 
 static const uint16_t ReplaceableInstrsAVX2[][3] = {
@@ -10537,22 +10561,31 @@ char LDTLSCleanup::ID = 0;
 FunctionPass*
 llvm::createCleanupLocalDynamicTLSPass() { return new LDTLSCleanup(); }
 
-size_t X86InstrInfo::getOutliningCallOverhead(
-MachineBasicBlock::iterator &StartIt,
-MachineBasicBlock::iterator &EndIt) const {
-  // We just have to emit a call, so return 1.
-  return 1;
+// Constants defining how certain sequences should be outlined.
+const unsigned MachineOutlinerDefaultFn = 0;
+const unsigned MachineOutlinerTailCallFn = 1;
+
+std::pair<size_t, unsigned> X86InstrInfo::getOutliningCallOverhead(
+    MachineBasicBlock::iterator &StartIt,
+    MachineBasicBlock::iterator &EndIt) const {
+
+  // Is this a tail call? If it is, make note of it.
+  if (EndIt->isTerminator())
+    return std::make_pair(1, MachineOutlinerTailCallFn);
+
+  return std::make_pair(1, MachineOutlinerDefaultFn);
 }
 
-size_t X86InstrInfo::getOutliningFrameOverhead(
-MachineBasicBlock::iterator &StartIt,
-MachineBasicBlock::iterator &EndIt) const {
+std::pair<size_t, unsigned> X86InstrInfo::getOutliningFrameOverhead(
+  std::vector<std::pair<MachineBasicBlock::iterator, 
+                        MachineBasicBlock::iterator>> &CandidateClass) const {
   // Is this a tail-call?
-  if (EndIt->isTerminator())
-    return 0; // Yes, so we already have a return.
+  // Is the last instruction in this class a terminator?
+  if (CandidateClass[0].second->isTerminator())
+    return std::make_pair(0, MachineOutlinerTailCallFn);
 
   // No, so we have to add a return to the end.
-  return 1;
+  return std::make_pair(1, MachineOutlinerDefaultFn);
 }
 
 bool X86InstrInfo::isFunctionSafeToOutlineFrom(MachineFunction &MF) const {
@@ -10616,10 +10649,10 @@ X86InstrInfo::getOutliningType(MachineInstr &MI) const {
 
 void X86InstrInfo::insertOutlinerEpilogue(MachineBasicBlock &MBB,
                                           MachineFunction &MF,
-                                          bool IsTailCall) const {
+                                          unsigned FrameClass) const {
 
   // If we're a tail call, we already have a return, so don't do anything.
-  if (IsTailCall)
+  if (FrameClass == MachineOutlinerTailCallFn)
     return;
 
   // We're a normal call, so our sequence doesn't have a return instruction.
@@ -10630,15 +10663,15 @@ void X86InstrInfo::insertOutlinerEpilogue(MachineBasicBlock &MBB,
 
 void X86InstrInfo::insertOutlinerPrologue(MachineBasicBlock &MBB,
                                           MachineFunction &MF,
-                                          bool IsTailCall) const {}
+                                          unsigned FrameClass) const {}
 
 MachineBasicBlock::iterator
 X86InstrInfo::insertOutlinedCall(Module &M, MachineBasicBlock &MBB,
                                  MachineBasicBlock::iterator &It,
                                  MachineFunction &MF,
-                                 bool IsTailCall) const {
+                                 unsigned CallClass) const {
   // Is it a tail call?
-  if (IsTailCall) {
+  if (CallClass == MachineOutlinerTailCallFn) {
     // Yes, just insert a JMP.
     It = MBB.insert(It,
                   BuildMI(MF, DebugLoc(), get(X86::JMP_1))

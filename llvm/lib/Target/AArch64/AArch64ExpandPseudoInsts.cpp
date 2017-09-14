@@ -966,6 +966,11 @@ bool AArch64ExpandPseudo::expandMI(MachineBasicBlock &MBB,
   case AArch64::CMP_SWAP_128:
     return expandCMP_SWAP_128(MBB, MBBI, NextMBBI);
 
+  case AArch64::AESMCrrTied:
+  case AArch64::AESIMCrrTied:
+    MI.setDesc(TII->get(Opcode == AArch64::AESMCrrTied ? AArch64::AESMCrr :
+                                                         AArch64::AESIMCrr));
+    return true;
   }
   return false;
 }
