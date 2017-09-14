@@ -737,9 +737,10 @@ void Verifier::visitNamedMDNode(const NamedMDNode &NMD) {
   // upgrading them and we want to reserve the namespace for future uses.
   if (NMD.getName().startswith("llvm.dbg."))
 #if INTEL_CUSTOMIZATION
-    AssertDI(NMD.getName() == "llvm.dbg.cu" || NMD.getName() == "llvm.dbg.mir" ||
-             NMD.getName().startswith("llvm.dbg.intel") || 
-             NMD.getName().startswith("llvm.dbg.ms"),      
+    AssertDI(
+        NMD.getName() == "llvm.dbg.cu" || NMD.getName() == "llvm.dbg.mir" ||
+            NMD.getName().startswith("llvm.dbg.intel") ||
+            NMD.getName().startswith("llvm.dbg.ms"),
 #endif // INTEL_CUSTOMIZATION
              "unrecognized named metadata node in the llvm.dbg namespace",
              &NMD);
