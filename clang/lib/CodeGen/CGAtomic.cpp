@@ -15,6 +15,7 @@
 #include "CGRecordLayout.h"
 #include "CodeGenFunction.h"
 #include "CodeGenModule.h"
+#include "TargetInfo.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/CodeGen/CGFunctionInfo.h"
 #include "llvm/IR/DataLayout.h"
@@ -359,13 +360,15 @@ static void emitAtomicCmpXchg(CodeGenFunction &CGF, AtomicExpr *E, bool IsWeak,
                               Address Val1, Address Val2,
                               uint64_t Size,
                               llvm::AtomicOrdering SuccessOrder,
-                              llvm::AtomicOrdering FailureOrder) {
+                              llvm::AtomicOrdering FailureOrder,
+                              llvm::SyncScope::ID Scope) {
   // Note that cmpxchg doesn't support weak cmpxchg, at least at the moment.
   llvm::Value *Expected = CGF.Builder.CreateLoad(Val1);
   llvm::Value *Desired = CGF.Builder.CreateLoad(Val2);
 
   llvm::AtomicCmpXchgInst *Pair = CGF.Builder.CreateAtomicCmpXchg(
-      Ptr.getPointer(), Expected, Desired, SuccessOrder, FailureOrder);
+      Ptr.getPointer(), Expected, Desired, SuccessOrder, FailureOrder,
+      Scope);
   Pair->setVolatile(E->isVolatile());
   Pair->setWeak(IsWeak);
 
@@ -407,7 +410,8 @@ static void emitAtomicCmpXchgFailureSet(CodeGenFunction &CGF, AtomicExpr *E,
                                         Address Val1, Address Val2,
                                         llvm::Value *FailureOrderVal,
                                         uint64_t Size,
-                                        llvm::AtomicOrdering SuccessOrder) {
+                                        llvm::AtomicOrdering SuccessOrder,
+                                        llvm::SyncScope::ID Scope) {
   llvm::AtomicOrdering FailureOrder;
   if (llvm::ConstantInt *FO = dyn_cast<llvm::ConstantInt>(FailureOrderVal)) {
     auto FOS = FO->getSExtValue();
@@ -435,7 +439,7 @@ static void emitAtomicCmpXchgFailureSet(CodeGenFunction &CGF, AtomicExpr *E,
           llvm::AtomicCmpXchgInst::getStrongestFailureOrdering(SuccessOrder);
     }
     emitAtomicCmpXchg(CGF, E, IsWeak, Dest, Ptr, Val1, Val2, Size, SuccessOrder,
-                      FailureOrder);
+                      FailureOrder, Scope);
     return;
   }
 
@@ -460,13 +464,13 @@ static void emitAtomicCmpXchgFailureSet(CodeGenFunction &CGF, AtomicExpr *E,
   // doesn't fold to a constant for the ordering.
   CGF.Builder.SetInsertPoint(MonotonicBB);
   emitAtomicCmpXchg(CGF, E, IsWeak, Dest, Ptr, Val1, Val2,
-                    Size, SuccessOrder, llvm::AtomicOrdering::Monotonic);
+                    Size, SuccessOrder, llvm::AtomicOrdering::Monotonic, Scope);
   CGF.Builder.CreateBr(ContBB);
 
   if (AcquireBB) {
     CGF.Builder.SetInsertPoint(AcquireBB);
     emitAtomicCmpXchg(CGF, E, IsWeak, Dest, Ptr, Val1, Val2,
-                      Size, SuccessOrder, llvm::AtomicOrdering::Acquire);
+                      Size, SuccessOrder, llvm::AtomicOrdering::Acquire, Scope);
     CGF.Builder.CreateBr(ContBB);
     SI->addCase(CGF.Builder.getInt32((int)llvm::AtomicOrderingCABI::consume),
                 AcquireBB);
@@ -476,7 +480,7 @@ static void emitAtomicCmpXchgFailureSet(CodeGenFunction &CGF, AtomicExpr *E,
   if (SeqCstBB) {
     CGF.Builder.SetInsertPoint(SeqCstBB);
     emitAtomicCmpXchg(CGF, E, IsWeak, Dest, Ptr, Val1, Val2, Size, SuccessOrder,
-                      llvm::AtomicOrdering::SequentiallyConsistent);
+                      llvm::AtomicOrdering::SequentiallyConsistent, Scope);
     CGF.Builder.CreateBr(ContBB);
     SI->addCase(CGF.Builder.getInt32((int)llvm::AtomicOrderingCABI::seq_cst),
                 SeqCstBB);
@@ -488,7 +492,8 @@ static void emitAtomicCmpXchgFailureSet(CodeGenFunction &CGF, AtomicExpr *E,
 static void EmitAtomicOp(CodeGenFunction &CGF, AtomicExpr *E, Address Dest,
                          Address Ptr, Address Val1, Address Val2,
                          llvm::Value *IsWeak, llvm::Value *FailureOrder,
-                         uint64_t Size, llvm::AtomicOrdering Order) {
+                         uint64_t Size, llvm::AtomicOrdering Order,
+                         llvm::SyncScope::ID Scope) {
   llvm::AtomicRMWInst::BinOp Op = llvm::AtomicRMWInst::Add;
   llvm::Instruction::BinaryOps PostOp = (llvm::Instruction::BinaryOps)0;
 
@@ -592,6 +597,7 @@ static void EmitAtomicOp(CodeGenFunction &CGF, AtomicExpr *E, Address Dest,
     break;
 #endif // INTEL_CUSTOMIZATION
   case AtomicExpr::AO__c11_atomic_init:
+  case AtomicExpr::AO__opencl_atomic_init:
     llvm_unreachable("Already handled!");
 
 #if INTEL_CUSTOMIZATION
@@ -603,8 +609,9 @@ static void EmitAtomicOp(CodeGenFunction &CGF, AtomicExpr *E, Address Dest,
   case AtomicExpr::AO__atomic_compare_exchange_strong_explicit_16:
 #endif // INTEL_CUSTOMIZATION
   case AtomicExpr::AO__c11_atomic_compare_exchange_strong:
+  case AtomicExpr::AO__opencl_atomic_compare_exchange_strong:
     emitAtomicCmpXchgFailureSet(CGF, E, false, Dest, Ptr, Val1, Val2,
-                                FailureOrder, Size, Order);
+                                FailureOrder, Size, Order, Scope);
     return;
 #if INTEL_CUSTOMIZATION
   case AtomicExpr::AO__atomic_compare_exchange_weak_explicit:
@@ -618,14 +625,15 @@ static void EmitAtomicOp(CodeGenFunction &CGF, AtomicExpr *E, Address Dest,
       //break;
 #endif // INTEL_CUSTOMIZATION
   case AtomicExpr::AO__c11_atomic_compare_exchange_weak:
+  case AtomicExpr::AO__opencl_atomic_compare_exchange_weak:
     emitAtomicCmpXchgFailureSet(CGF, E, true, Dest, Ptr, Val1, Val2,
-                                FailureOrder, Size, Order);
+                                FailureOrder, Size, Order, Scope);
     return;
   case AtomicExpr::AO__atomic_compare_exchange:
   case AtomicExpr::AO__atomic_compare_exchange_n: {
     if (llvm::ConstantInt *IsWeakC = dyn_cast<llvm::ConstantInt>(IsWeak)) {
       emitAtomicCmpXchgFailureSet(CGF, E, IsWeakC->getZExtValue(), Dest, Ptr,
-                                  Val1, Val2, FailureOrder, Size, Order);
+                                  Val1, Val2, FailureOrder, Size, Order, Scope);
     } else {
       // Create all the relevant BB's
       llvm::BasicBlock *StrongBB =
@@ -639,12 +647,12 @@ static void EmitAtomicOp(CodeGenFunction &CGF, AtomicExpr *E, Address Dest,
 
       CGF.Builder.SetInsertPoint(StrongBB);
       emitAtomicCmpXchgFailureSet(CGF, E, false, Dest, Ptr, Val1, Val2,
-                                  FailureOrder, Size, Order);
+                                  FailureOrder, Size, Order, Scope);
       CGF.Builder.CreateBr(ContBB);
 
       CGF.Builder.SetInsertPoint(WeakBB);
       emitAtomicCmpXchgFailureSet(CGF, E, true, Dest, Ptr, Val1, Val2,
-                                  FailureOrder, Size, Order);
+                                  FailureOrder, Size, Order, Scope);
       CGF.Builder.CreateBr(ContBB);
 
       CGF.Builder.SetInsertPoint(ContBB);
@@ -660,10 +668,11 @@ static void EmitAtomicOp(CodeGenFunction &CGF, AtomicExpr *E, Address Dest,
   case AtomicExpr::AO__atomic_load_explicit_16:
 #endif // INTEL_CUSTOMIZATION
   case AtomicExpr::AO__c11_atomic_load:
+  case AtomicExpr::AO__opencl_atomic_load:
   case AtomicExpr::AO__atomic_load_n:
   case AtomicExpr::AO__atomic_load: {
     llvm::LoadInst *Load = CGF.Builder.CreateLoad(Ptr);
-    Load->setAtomic(Order);
+    Load->setAtomic(Order, Scope);
     Load->setVolatile(E->isVolatile());
     CGF.Builder.CreateStore(Load, Dest);
     return;
@@ -678,11 +687,12 @@ static void EmitAtomicOp(CodeGenFunction &CGF, AtomicExpr *E, Address Dest,
   case AtomicExpr::AO__atomic_store_explicit_16:
 #endif // INTEL_CUSTOMIZATION
   case AtomicExpr::AO__c11_atomic_store:
+  case AtomicExpr::AO__opencl_atomic_store:
   case AtomicExpr::AO__atomic_store:
   case AtomicExpr::AO__atomic_store_n: {
     llvm::Value *LoadVal1 = CGF.Builder.CreateLoad(Val1);
     llvm::StoreInst *Store = CGF.Builder.CreateStore(LoadVal1, Ptr);
-    Store->setAtomic(Order);
+    Store->setAtomic(Order, Scope);
     Store->setVolatile(E->isVolatile());
     return;
   }
@@ -696,6 +706,7 @@ static void EmitAtomicOp(CodeGenFunction &CGF, AtomicExpr *E, Address Dest,
     case AtomicExpr::AO__atomic_exchange_explicit_16:
 #endif // INTEL_CUSTOMIZATION
   case AtomicExpr::AO__c11_atomic_exchange:
+  case AtomicExpr::AO__opencl_atomic_exchange:
   case AtomicExpr::AO__atomic_exchange_n:
   case AtomicExpr::AO__atomic_exchange:
     Op = llvm::AtomicRMWInst::Xchg;
@@ -705,6 +716,7 @@ static void EmitAtomicOp(CodeGenFunction &CGF, AtomicExpr *E, Address Dest,
     PostOp = llvm::Instruction::Add;
     // Fall through.
   case AtomicExpr::AO__c11_atomic_fetch_add:
+  case AtomicExpr::AO__opencl_atomic_fetch_add:
   case AtomicExpr::AO__atomic_fetch_add:
     Op = llvm::AtomicRMWInst::Add;
     break;
@@ -713,14 +725,26 @@ static void EmitAtomicOp(CodeGenFunction &CGF, AtomicExpr *E, Address Dest,
     PostOp = llvm::Instruction::Sub;
     // Fall through.
   case AtomicExpr::AO__c11_atomic_fetch_sub:
+  case AtomicExpr::AO__opencl_atomic_fetch_sub:
   case AtomicExpr::AO__atomic_fetch_sub:
     Op = llvm::AtomicRMWInst::Sub;
+    break;
+
+  case AtomicExpr::AO__opencl_atomic_fetch_min:
+    Op = E->getValueType()->isSignedIntegerType() ? llvm::AtomicRMWInst::Min
+                                                  : llvm::AtomicRMWInst::UMin;
+    break;
+
+  case AtomicExpr::AO__opencl_atomic_fetch_max:
+    Op = E->getValueType()->isSignedIntegerType() ? llvm::AtomicRMWInst::Max
+                                                  : llvm::AtomicRMWInst::UMax;
     break;
 
   case AtomicExpr::AO__atomic_and_fetch:
     PostOp = llvm::Instruction::And;
     // Fall through.
   case AtomicExpr::AO__c11_atomic_fetch_and:
+  case AtomicExpr::AO__opencl_atomic_fetch_and:
   case AtomicExpr::AO__atomic_fetch_and:
     Op = llvm::AtomicRMWInst::And;
     break;
@@ -729,6 +753,7 @@ static void EmitAtomicOp(CodeGenFunction &CGF, AtomicExpr *E, Address Dest,
     PostOp = llvm::Instruction::Or;
     // Fall through.
   case AtomicExpr::AO__c11_atomic_fetch_or:
+  case AtomicExpr::AO__opencl_atomic_fetch_or:
   case AtomicExpr::AO__atomic_fetch_or:
     Op = llvm::AtomicRMWInst::Or;
     break;
@@ -737,6 +762,7 @@ static void EmitAtomicOp(CodeGenFunction &CGF, AtomicExpr *E, Address Dest,
     PostOp = llvm::Instruction::Xor;
     // Fall through.
   case AtomicExpr::AO__c11_atomic_fetch_xor:
+  case AtomicExpr::AO__opencl_atomic_fetch_xor:
   case AtomicExpr::AO__atomic_fetch_xor:
     Op = llvm::AtomicRMWInst::Xor;
     break;
@@ -751,7 +777,7 @@ static void EmitAtomicOp(CodeGenFunction &CGF, AtomicExpr *E, Address Dest,
 
   llvm::Value *LoadVal1 = CGF.Builder.CreateLoad(Val1);
   llvm::AtomicRMWInst *RMWI =
-      CGF.Builder.CreateAtomicRMW(Op, Ptr.getPointer(), LoadVal1, Order);
+      CGF.Builder.CreateAtomicRMW(Op, Ptr.getPointer(), LoadVal1, Order, Scope);
   RMWI->setVolatile(E->isVolatile());
 
   // For __atomic_*_fetch operations, perform the operation again to
@@ -824,13 +850,15 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
   Address Dest = Address::invalid();
   Address Ptr(EmitScalarExpr(E->getPtr()), alignChars);
 
-  if (E->getOp() == AtomicExpr::AO__c11_atomic_init) {
+  if (E->getOp() == AtomicExpr::AO__c11_atomic_init ||
+      E->getOp() == AtomicExpr::AO__opencl_atomic_init) {
     LValue lvalue = MakeAddrLValue(Ptr, AtomicTy);
     EmitAtomicInit(E->getVal1(), lvalue);
     return RValue::get(nullptr);
   }
 
   llvm::Value *Order = EmitScalarExpr(E->getOrder());
+  llvm::Value *Scope = EmitScalarExpr(E->getScope());
 
   switch (E->getOp()) {
 #if INTEL_CUSTOMIZATION
@@ -924,9 +952,11 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
     break;
 #endif // INTEL_CUSTOMIZATION
   case AtomicExpr::AO__c11_atomic_init:
+  case AtomicExpr::AO__opencl_atomic_init:
     llvm_unreachable("Already handled above with EmitAtomicInit!");
 
   case AtomicExpr::AO__c11_atomic_load:
+  case AtomicExpr::AO__opencl_atomic_load:
   case AtomicExpr::AO__atomic_load_n:
     break;
 
@@ -959,6 +989,8 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
 #endif // INTEL_CUSTOMIZATION
   case AtomicExpr::AO__c11_atomic_compare_exchange_strong:
   case AtomicExpr::AO__c11_atomic_compare_exchange_weak:
+  case AtomicExpr::AO__opencl_atomic_compare_exchange_strong:
+  case AtomicExpr::AO__opencl_atomic_compare_exchange_weak:
   case AtomicExpr::AO__atomic_compare_exchange_n:
   case AtomicExpr::AO__atomic_compare_exchange:
     Val1 = EmitPointerWithAlignment(E->getVal1());
@@ -967,12 +999,15 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
     else
       Val2 = EmitValToTemp(*this, E->getVal2());
     OrderFail = EmitScalarExpr(E->getOrderFail());
-    if (E->getNumSubExprs() == 6)
+    if (E->getOp() == AtomicExpr::AO__atomic_compare_exchange_n ||
+        E->getOp() == AtomicExpr::AO__atomic_compare_exchange)
       IsWeak = EmitScalarExpr(E->getWeak());
     break;
 
   case AtomicExpr::AO__c11_atomic_fetch_add:
   case AtomicExpr::AO__c11_atomic_fetch_sub:
+  case AtomicExpr::AO__opencl_atomic_fetch_add:
+  case AtomicExpr::AO__opencl_atomic_fetch_sub:
     if (MemTy->isPointerType()) {
       // For pointer arithmetic, we're required to do a bit of math:
       // adding 1 to an int* is not the same as adding 1 to a uintptr_t.
@@ -1003,11 +1038,18 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
   case AtomicExpr::AO__atomic_sub_fetch:
   case AtomicExpr::AO__c11_atomic_store:
   case AtomicExpr::AO__c11_atomic_exchange:
+  case AtomicExpr::AO__opencl_atomic_store:
+  case AtomicExpr::AO__opencl_atomic_exchange:
   case AtomicExpr::AO__atomic_store_n:
   case AtomicExpr::AO__atomic_exchange_n:
   case AtomicExpr::AO__c11_atomic_fetch_and:
   case AtomicExpr::AO__c11_atomic_fetch_or:
   case AtomicExpr::AO__c11_atomic_fetch_xor:
+  case AtomicExpr::AO__opencl_atomic_fetch_and:
+  case AtomicExpr::AO__opencl_atomic_fetch_or:
+  case AtomicExpr::AO__opencl_atomic_fetch_xor:
+  case AtomicExpr::AO__opencl_atomic_fetch_min:
+  case AtomicExpr::AO__opencl_atomic_fetch_max:
   case AtomicExpr::AO__atomic_fetch_and:
   case AtomicExpr::AO__atomic_fetch_or:
   case AtomicExpr::AO__atomic_fetch_xor:
@@ -1043,6 +1085,7 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
     bool UseOptimizedLibcall = false;
     switch (E->getOp()) {
     case AtomicExpr::AO__c11_atomic_init:
+    case AtomicExpr::AO__opencl_atomic_init:
       llvm_unreachable("Already handled above with EmitAtomicInit!");
 
 #if INTEL_CUSTOMIZATION
@@ -1120,15 +1163,22 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
     case AtomicExpr::AO__atomic_xor_fetch_explicit_16:
 #endif // INTEL_CUSTOMIZATION
     case AtomicExpr::AO__c11_atomic_fetch_add:
+    case AtomicExpr::AO__opencl_atomic_fetch_add:
     case AtomicExpr::AO__atomic_fetch_add:
     case AtomicExpr::AO__c11_atomic_fetch_and:
+    case AtomicExpr::AO__opencl_atomic_fetch_and:
     case AtomicExpr::AO__atomic_fetch_and:
     case AtomicExpr::AO__c11_atomic_fetch_or:
+    case AtomicExpr::AO__opencl_atomic_fetch_or:
     case AtomicExpr::AO__atomic_fetch_or:
     case AtomicExpr::AO__atomic_fetch_nand:
     case AtomicExpr::AO__c11_atomic_fetch_sub:
+    case AtomicExpr::AO__opencl_atomic_fetch_sub:
     case AtomicExpr::AO__atomic_fetch_sub:
     case AtomicExpr::AO__c11_atomic_fetch_xor:
+    case AtomicExpr::AO__opencl_atomic_fetch_xor:
+    case AtomicExpr::AO__opencl_atomic_fetch_min:
+    case AtomicExpr::AO__opencl_atomic_fetch_max:
     case AtomicExpr::AO__atomic_fetch_xor:
     case AtomicExpr::AO__atomic_add_fetch:
     case AtomicExpr::AO__atomic_and_fetch:
@@ -1177,6 +1227,11 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
     case AtomicExpr::AO__c11_atomic_exchange:
     case AtomicExpr::AO__c11_atomic_compare_exchange_weak:
     case AtomicExpr::AO__c11_atomic_compare_exchange_strong:
+    case AtomicExpr::AO__opencl_atomic_load:
+    case AtomicExpr::AO__opencl_atomic_store:
+    case AtomicExpr::AO__opencl_atomic_exchange:
+    case AtomicExpr::AO__opencl_atomic_compare_exchange_weak:
+    case AtomicExpr::AO__opencl_atomic_compare_exchange_strong:
     case AtomicExpr::AO__atomic_load_n:
     case AtomicExpr::AO__atomic_load:
     case AtomicExpr::AO__atomic_store_n:
@@ -1198,7 +1253,24 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
                getContext().getSizeType());
     }
     // Atomic address is the first or second parameter
-    Args.add(RValue::get(EmitCastToVoidPtr(Ptr.getPointer())),
+    // The OpenCL atomic library functions only accept pointer arguments to
+    // generic address space.
+    auto CastToGenericAddrSpace = [&](llvm::Value *V, QualType PT) {
+      if (!E->isOpenCL())
+        return V;
+      auto AS = PT->getAs<PointerType>()->getPointeeType().getAddressSpace();
+      if (AS == LangAS::opencl_generic)
+        return V;
+      auto DestAS = getContext().getTargetAddressSpace(LangAS::opencl_generic);
+      auto T = V->getType();
+      auto *DestType = T->getPointerElementType()->getPointerTo(DestAS);
+
+      return getTargetHooks().performAddrSpaceCast(
+          *this, V, AS, LangAS::opencl_generic, DestType, false);
+    };
+
+    Args.add(RValue::get(CastToGenericAddrSpace(
+                 EmitCastToVoidPtr(Ptr.getPointer()), E->getPtr()->getType())),
              getContext().VoidPtrTy);
 
     std::string LibCallName;
@@ -1209,6 +1281,7 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
     llvm::Instruction::BinaryOps PostOp = (llvm::Instruction::BinaryOps)0;
     switch (E->getOp()) {
     case AtomicExpr::AO__c11_atomic_init:
+    case AtomicExpr::AO__opencl_atomic_init:
       llvm_unreachable("Already handled!");
 
     // There is only one libcall for compare an exchange, because there is no
@@ -1234,13 +1307,17 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
 #endif // INTEL_CUSTOMIZATION
     case AtomicExpr::AO__c11_atomic_compare_exchange_weak:
     case AtomicExpr::AO__c11_atomic_compare_exchange_strong:
+    case AtomicExpr::AO__opencl_atomic_compare_exchange_weak:
+    case AtomicExpr::AO__opencl_atomic_compare_exchange_strong:
     case AtomicExpr::AO__atomic_compare_exchange:
     case AtomicExpr::AO__atomic_compare_exchange_n:
       LibCallName = "__atomic_compare_exchange";
       RetTy = getContext().BoolTy;
       HaveRetTy = true;
-      Args.add(RValue::get(EmitCastToVoidPtr(Val1.getPointer())),
-               getContext().VoidPtrTy);
+      Args.add(
+          RValue::get(CastToGenericAddrSpace(
+              EmitCastToVoidPtr(Val1.getPointer()), E->getVal1()->getType())),
+          getContext().VoidPtrTy);
       AddDirectArgument(*this, Args, UseOptimizedLibcall, Val2.getPointer(),
                         MemTy, E->getExprLoc(), sizeChars);
       Args.add(RValue::get(Order), getContext().IntTy);
@@ -1258,6 +1335,7 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
     case AtomicExpr::AO__atomic_exchange_explicit_16:
 #endif // INTEL_CUSTOMIZATION
     case AtomicExpr::AO__c11_atomic_exchange:
+    case AtomicExpr::AO__opencl_atomic_exchange:
     case AtomicExpr::AO__atomic_exchange_n:
     case AtomicExpr::AO__atomic_exchange:
       LibCallName = "__atomic_exchange";
@@ -1275,6 +1353,7 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
     case AtomicExpr::AO__atomic_store_explicit_16:
 #endif // INTEL_CUSTOMIZATION
     case AtomicExpr::AO__c11_atomic_store:
+    case AtomicExpr::AO__opencl_atomic_store:
     case AtomicExpr::AO__atomic_store:
     case AtomicExpr::AO__atomic_store_n:
       LibCallName = "__atomic_store";
@@ -1294,6 +1373,7 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
     case AtomicExpr::AO__atomic_load_explicit_16:
 #endif // INTEL_CUSTOMIZATION
     case AtomicExpr::AO__c11_atomic_load:
+    case AtomicExpr::AO__opencl_atomic_load:
     case AtomicExpr::AO__atomic_load:
     case AtomicExpr::AO__atomic_load_n:
       LibCallName = "__atomic_load";
@@ -1320,6 +1400,7 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
     case AtomicExpr::AO__atomic_fetch_add_explicit_16:
 #endif // INTEL_CUSTOMIZATION
     case AtomicExpr::AO__c11_atomic_fetch_add:
+    case AtomicExpr::AO__opencl_atomic_fetch_add:
     case AtomicExpr::AO__atomic_fetch_add:
       LibCallName = "__atomic_fetch_add";
       AddDirectArgument(*this, Args, UseOptimizedLibcall, Val1.getPointer(),
@@ -1347,6 +1428,7 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
     case AtomicExpr::AO__atomic_fetch_and_explicit_16:
 #endif // INTEL_CUSTOMIZATION
     case AtomicExpr::AO__c11_atomic_fetch_and:
+    case AtomicExpr::AO__opencl_atomic_fetch_and:
     case AtomicExpr::AO__atomic_fetch_and:
       LibCallName = "__atomic_fetch_and";
       AddDirectArgument(*this, Args, UseOptimizedLibcall, Val1.getPointer(),
@@ -1374,6 +1456,7 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
     case AtomicExpr::AO__atomic_fetch_or_explicit_16:
 #endif // INTEL_CUSTOMIZATION
     case AtomicExpr::AO__c11_atomic_fetch_or:
+    case AtomicExpr::AO__opencl_atomic_fetch_or:
     case AtomicExpr::AO__atomic_fetch_or:
       LibCallName = "__atomic_fetch_or";
       AddDirectArgument(*this, Args, UseOptimizedLibcall, Val1.getPointer(),
@@ -1401,6 +1484,7 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
     case AtomicExpr::AO__atomic_fetch_sub_explicit_16:
 #endif // INTEL_CUSTOMIZATION
     case AtomicExpr::AO__c11_atomic_fetch_sub:
+    case AtomicExpr::AO__opencl_atomic_fetch_sub:
     case AtomicExpr::AO__atomic_fetch_sub:
       LibCallName = "__atomic_fetch_sub";
       AddDirectArgument(*this, Args, UseOptimizedLibcall, Val1.getPointer(),
@@ -1428,10 +1512,25 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
     case AtomicExpr::AO__atomic_fetch_xor_explicit_16:
 #endif // INTEL_CUSTOMIZATION
     case AtomicExpr::AO__c11_atomic_fetch_xor:
+    case AtomicExpr::AO__opencl_atomic_fetch_xor:
     case AtomicExpr::AO__atomic_fetch_xor:
       LibCallName = "__atomic_fetch_xor";
       AddDirectArgument(*this, Args, UseOptimizedLibcall, Val1.getPointer(),
                         MemTy, E->getExprLoc(), sizeChars);
+      break;
+    case AtomicExpr::AO__opencl_atomic_fetch_min:
+      LibCallName = E->getValueType()->isSignedIntegerType()
+                        ? "__atomic_fetch_min"
+                        : "__atomic_fetch_umin";
+      AddDirectArgument(*this, Args, UseOptimizedLibcall, Val1.getPointer(),
+                        LoweredMemTy, E->getExprLoc(), sizeChars);
+      break;
+    case AtomicExpr::AO__opencl_atomic_fetch_max:
+      LibCallName = E->getValueType()->isSignedIntegerType()
+                        ? "__atomic_fetch_max"
+                        : "__atomic_fetch_umax";
+      AddDirectArgument(*this, Args, UseOptimizedLibcall, Val1.getPointer(),
+                        LoweredMemTy, E->getExprLoc(), sizeChars);
       break;
     // T __atomic_nand_fetch_N(T *mem, T val, int order)
     // T __atomic_fetch_nand_N(T *mem, T val, int order)
@@ -1461,6 +1560,11 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
       break;
     }
 
+    if (E->isOpenCL()) {
+      LibCallName = std::string("__opencl") +
+          StringRef(LibCallName).drop_front(1).str();
+
+    }
     // Optimized functions have the size in their name.
     if (UseOptimizedLibcall)
       LibCallName += "_" + llvm::utostr(Size);
@@ -1481,6 +1585,8 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
     // order is always the last parameter
     Args.add(RValue::get(Order),
              getContext().IntTy);
+    if (E->isOpenCL())
+      Args.add(RValue::get(Scope), getContext().IntTy);
 
     // PostOp is only needed for the atomic_*_fetch operations, and
     // thus is only needed for and implemented in the
@@ -1517,6 +1623,7 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
   }
 
   bool IsStore = E->getOp() == AtomicExpr::AO__c11_atomic_store ||
+                 E->getOp() == AtomicExpr::AO__opencl_atomic_store ||
                  E->getOp() == AtomicExpr::AO__atomic_store ||
 #if INTEL_CUSTOMIZATION
                  E->getOp() ==  AtomicExpr::AO__atomic_store_explicit   || 
@@ -1528,6 +1635,7 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
 #endif //INTEL_CUSTOMIZATION
                  E->getOp() == AtomicExpr::AO__atomic_store_n;
   bool IsLoad = E->getOp() == AtomicExpr::AO__c11_atomic_load ||
+                E->getOp() == AtomicExpr::AO__opencl_atomic_load ||
                 E->getOp() == AtomicExpr::AO__atomic_load ||
 #if INTEL_CUSTOMIZATION
                 E->getOp() ==  AtomicExpr::AO__atomic_load_explicit   || 
@@ -1539,6 +1647,12 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
 #endif //INTEL_CUSTOMIZATION
                 E->getOp() == AtomicExpr::AO__atomic_load_n;
 
+  assert(isa<llvm::ConstantInt>(Scope) &&
+      "Non-constant synchronization scope not supported");
+  auto SCID = getTargetHooks().getLLVMSyncScopeID(
+      static_cast<SyncScope>(cast<llvm::ConstantInt>(Scope)->getZExtValue()),
+      getLLVMContext());
+
   if (isa<llvm::ConstantInt>(Order)) {
     auto ord = cast<llvm::ConstantInt>(Order)->getZExtValue();
     // We should not ever get to a case where the ordering isn't a valid C ABI
@@ -1547,30 +1661,30 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
       switch ((llvm::AtomicOrderingCABI)ord) {
       case llvm::AtomicOrderingCABI::relaxed:
         EmitAtomicOp(*this, E, Dest, Ptr, Val1, Val2, IsWeak, OrderFail, Size,
-                     llvm::AtomicOrdering::Monotonic);
+                     llvm::AtomicOrdering::Monotonic, SCID);
         break;
       case llvm::AtomicOrderingCABI::consume:
       case llvm::AtomicOrderingCABI::acquire:
         if (IsStore)
           break; // Avoid crashing on code with undefined behavior
         EmitAtomicOp(*this, E, Dest, Ptr, Val1, Val2, IsWeak, OrderFail, Size,
-                     llvm::AtomicOrdering::Acquire);
+                     llvm::AtomicOrdering::Acquire, SCID);
         break;
       case llvm::AtomicOrderingCABI::release:
         if (IsLoad)
           break; // Avoid crashing on code with undefined behavior
         EmitAtomicOp(*this, E, Dest, Ptr, Val1, Val2, IsWeak, OrderFail, Size,
-                     llvm::AtomicOrdering::Release);
+                     llvm::AtomicOrdering::Release, SCID);
         break;
       case llvm::AtomicOrderingCABI::acq_rel:
         if (IsLoad || IsStore)
           break; // Avoid crashing on code with undefined behavior
         EmitAtomicOp(*this, E, Dest, Ptr, Val1, Val2, IsWeak, OrderFail, Size,
-                     llvm::AtomicOrdering::AcquireRelease);
+                     llvm::AtomicOrdering::AcquireRelease, SCID);
         break;
       case llvm::AtomicOrderingCABI::seq_cst:
         EmitAtomicOp(*this, E, Dest, Ptr, Val1, Val2, IsWeak, OrderFail, Size,
-                     llvm::AtomicOrdering::SequentiallyConsistent);
+                     llvm::AtomicOrdering::SequentiallyConsistent, SCID);
         break;
       }
     if (RValTy->isVoidType())
@@ -1606,13 +1720,13 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
 
   // Emit all the different atomics
   Builder.SetInsertPoint(MonotonicBB);
-  EmitAtomicOp(*this, E, Dest, Ptr, Val1, Val2, IsWeak, OrderFail,
-               Size, llvm::AtomicOrdering::Monotonic);
+  EmitAtomicOp(*this, E, Dest, Ptr, Val1, Val2, IsWeak, OrderFail, Size,
+               llvm::AtomicOrdering::Monotonic, SCID);
   Builder.CreateBr(ContBB);
   if (!IsStore) {
     Builder.SetInsertPoint(AcquireBB);
-    EmitAtomicOp(*this, E, Dest, Ptr, Val1, Val2, IsWeak, OrderFail,
-                 Size, llvm::AtomicOrdering::Acquire);
+    EmitAtomicOp(*this, E, Dest, Ptr, Val1, Val2, IsWeak, OrderFail, Size,
+                 llvm::AtomicOrdering::Acquire, SCID);
     Builder.CreateBr(ContBB);
     SI->addCase(Builder.getInt32((int)llvm::AtomicOrderingCABI::consume),
                 AcquireBB);
@@ -1621,23 +1735,23 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
   }
   if (!IsLoad) {
     Builder.SetInsertPoint(ReleaseBB);
-    EmitAtomicOp(*this, E, Dest, Ptr, Val1, Val2, IsWeak, OrderFail,
-                 Size, llvm::AtomicOrdering::Release);
+    EmitAtomicOp(*this, E, Dest, Ptr, Val1, Val2, IsWeak, OrderFail, Size,
+                 llvm::AtomicOrdering::Release, SCID);
     Builder.CreateBr(ContBB);
     SI->addCase(Builder.getInt32((int)llvm::AtomicOrderingCABI::release),
                 ReleaseBB);
   }
   if (!IsLoad && !IsStore) {
     Builder.SetInsertPoint(AcqRelBB);
-    EmitAtomicOp(*this, E, Dest, Ptr, Val1, Val2, IsWeak, OrderFail,
-                 Size, llvm::AtomicOrdering::AcquireRelease);
+    EmitAtomicOp(*this, E, Dest, Ptr, Val1, Val2, IsWeak, OrderFail, Size,
+                 llvm::AtomicOrdering::AcquireRelease, SCID);
     Builder.CreateBr(ContBB);
     SI->addCase(Builder.getInt32((int)llvm::AtomicOrderingCABI::acq_rel),
                 AcqRelBB);
   }
   Builder.SetInsertPoint(SeqCstBB);
-  EmitAtomicOp(*this, E, Dest, Ptr, Val1, Val2, IsWeak, OrderFail,
-               Size, llvm::AtomicOrdering::SequentiallyConsistent);
+  EmitAtomicOp(*this, E, Dest, Ptr, Val1, Val2, IsWeak, OrderFail, Size,
+               llvm::AtomicOrdering::SequentiallyConsistent, SCID);
   Builder.CreateBr(ContBB);
   SI->addCase(Builder.getInt32((int)llvm::AtomicOrderingCABI::seq_cst),
               SeqCstBB);

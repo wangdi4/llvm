@@ -3972,12 +3972,17 @@ AtomicExpr::AtomicExpr(SourceLocation BLoc, ArrayRef<Expr*> args,
 unsigned AtomicExpr::getNumSubExprs(AtomicOp Op) {
   switch (Op) {
   case AO__c11_atomic_init:
-  case AO__c11_atomic_load:
-  case AO__atomic_load_n:
+  case AO__opencl_atomic_init:
     return 2;
+  case AO__c11_atomic_load:
+  case AO__opencl_atomic_load:
+  case AO__atomic_load_n:
+    return 3;
 
   case AO__c11_atomic_store:
   case AO__c11_atomic_exchange:
+  case AO__opencl_atomic_store:
+  case AO__opencl_atomic_exchange:
   case AO__atomic_load:
   case AO__atomic_store:
   case AO__atomic_store_n:
@@ -3987,6 +3992,13 @@ unsigned AtomicExpr::getNumSubExprs(AtomicOp Op) {
   case AO__c11_atomic_fetch_and:
   case AO__c11_atomic_fetch_or:
   case AO__c11_atomic_fetch_xor:
+  case AO__opencl_atomic_fetch_add:
+  case AO__opencl_atomic_fetch_sub:
+  case AO__opencl_atomic_fetch_and:
+  case AO__opencl_atomic_fetch_or:
+  case AO__opencl_atomic_fetch_xor:
+  case AO__opencl_atomic_fetch_min:
+  case AO__opencl_atomic_fetch_max:
   case AO__atomic_fetch_add:
   case AO__atomic_fetch_sub:
   case AO__atomic_fetch_and:
@@ -3999,17 +4011,20 @@ unsigned AtomicExpr::getNumSubExprs(AtomicOp Op) {
   case AO__atomic_or_fetch:
   case AO__atomic_xor_fetch:
   case AO__atomic_nand_fetch:
-    return 3;
+    return 4;
 
   case AO__atomic_exchange:
-    return 4;
+    return 5;
 
   case AO__c11_atomic_compare_exchange_strong:
   case AO__c11_atomic_compare_exchange_weak:
-    return 5;
+  case AO__opencl_atomic_compare_exchange_strong:
+  case AO__opencl_atomic_compare_exchange_weak:
+    return 6;
 
   case AO__atomic_compare_exchange:
   case AO__atomic_compare_exchange_n:
+<<<<<<< HEAD
     return 6;
 
 #if INTEL_CUSTOMIZATION
@@ -4126,8 +4141,18 @@ unsigned AtomicExpr::getNumSubExprs(AtomicOp Op) {
     return 3;
 
 #endif // INTEL_CUSTOMIZATION
+=======
+    return 7;
+>>>>>>> 84162ace309f1c79bc374a1d0cc19c2c91a32ee8
   }
   llvm_unreachable("unknown atomic op");
+}
+
+QualType AtomicExpr::getValueType() const {
+  auto T = getPtr()->getType()->castAs<PointerType>()->getPointeeType();
+  if (auto AT = T->getAs<AtomicType>())
+    return AT->getValueType();
+  return T;
 }
 
 QualType OMPArraySectionExpr::getBaseOriginalType(const Expr *Base) {
