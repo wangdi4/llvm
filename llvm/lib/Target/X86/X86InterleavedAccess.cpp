@@ -144,9 +144,9 @@ class X86InterleavedAccessGroup {
   ///   Out-V3 = P4, q4, r4, s4
   void transpose_4x4(ArrayRef<Instruction *> InputVectors,
                      SmallVectorImpl<Value *> &TransposedMatrix);
-<<<<<<< HEAD
-  void interleave8bit_32x4(ArrayRef<Instruction *> InputVectors,
-                          SmallVectorImpl<Value *> &TransposedMatrix);
+  void interleave8bitStride4(ArrayRef<Instruction *> InputVectors,
+                             SmallVectorImpl<Value *> &TransposedMatrix,
+                             unsigned NumSubVecElems);
 
 #ifdef INTEL_CUSTOMIZATION
   const TargetTransformInfo &TTI;
@@ -176,11 +176,6 @@ class X86InterleavedAccessGroup {
     }
   }
 #endif // INTEL_CUSTOMIZATION
-=======
-  void interleave8bitStride4(ArrayRef<Instruction *> InputVectors,
-                             SmallVectorImpl<Value *> &TransposedMatrix,
-                             unsigned NumSubVecElems);
->>>>>>> f87ba7b70143d984f58e25faf3bfcefb3025d7c3
 
 public:
   /// In order to form an interleaved access group X86InterleavedAccessGroup
