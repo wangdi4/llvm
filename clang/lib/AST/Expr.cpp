@@ -3973,16 +3973,13 @@ unsigned AtomicExpr::getNumSubExprs(AtomicOp Op) {
   switch (Op) {
   case AO__c11_atomic_init:
   case AO__opencl_atomic_init:
-    return 2;
   case AO__c11_atomic_load:
-  case AO__opencl_atomic_load:
   case AO__atomic_load_n:
-    return 3;
+    return 2;
 
+  case AO__opencl_atomic_load:
   case AO__c11_atomic_store:
   case AO__c11_atomic_exchange:
-  case AO__opencl_atomic_store:
-  case AO__opencl_atomic_exchange:
   case AO__atomic_load:
   case AO__atomic_store:
   case AO__atomic_store_n:
@@ -3992,13 +3989,6 @@ unsigned AtomicExpr::getNumSubExprs(AtomicOp Op) {
   case AO__c11_atomic_fetch_and:
   case AO__c11_atomic_fetch_or:
   case AO__c11_atomic_fetch_xor:
-  case AO__opencl_atomic_fetch_add:
-  case AO__opencl_atomic_fetch_sub:
-  case AO__opencl_atomic_fetch_and:
-  case AO__opencl_atomic_fetch_or:
-  case AO__opencl_atomic_fetch_xor:
-  case AO__opencl_atomic_fetch_min:
-  case AO__opencl_atomic_fetch_max:
   case AO__atomic_fetch_add:
   case AO__atomic_fetch_sub:
   case AO__atomic_fetch_and:
@@ -4011,19 +4001,29 @@ unsigned AtomicExpr::getNumSubExprs(AtomicOp Op) {
   case AO__atomic_or_fetch:
   case AO__atomic_xor_fetch:
   case AO__atomic_nand_fetch:
-    return 4;
+    return 3;
 
+  case AO__opencl_atomic_store:
+  case AO__opencl_atomic_exchange:
+  case AO__opencl_atomic_fetch_add:
+  case AO__opencl_atomic_fetch_sub:
+  case AO__opencl_atomic_fetch_and:
+  case AO__opencl_atomic_fetch_or:
+  case AO__opencl_atomic_fetch_xor:
+  case AO__opencl_atomic_fetch_min:
+  case AO__opencl_atomic_fetch_max:
   case AO__atomic_exchange:
-    return 5;
+    return 4;
 
   case AO__c11_atomic_compare_exchange_strong:
   case AO__c11_atomic_compare_exchange_weak:
+    return 5;
+
   case AO__opencl_atomic_compare_exchange_strong:
   case AO__opencl_atomic_compare_exchange_weak:
-    return 6;
-
   case AO__atomic_compare_exchange:
   case AO__atomic_compare_exchange_n:
+<<<<<<< HEAD
     return 7;
 
 #if INTEL_CUSTOMIZATION
@@ -4140,6 +4140,9 @@ unsigned AtomicExpr::getNumSubExprs(AtomicOp Op) {
     return 3;
 
 #endif // INTEL_CUSTOMIZATION
+=======
+    return 6;
+>>>>>>> c69952ba2661157600028866336e57a94112c7e8
   }
   llvm_unreachable("unknown atomic op");
 }
