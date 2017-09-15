@@ -1801,24 +1801,17 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
       Width = Target->getPointerWidth(0); 
       Align = Target->getPointerAlign(0);
       break;
-    case BuiltinType::OCLSampler:
-    case BuiltinType::OCLEvent:
-    case BuiltinType::OCLClkEvent:
-    case BuiltinType::OCLQueue:
-    case BuiltinType::OCLReserveID:
-<<<<<<< HEAD
-      // Currently these types are pointers to opaque types.
-      Width = Target->getPointerWidth(0);
-      Align = Target->getPointerAlign(0);
-      break;
 #if INTEL_CUSTOMIZATION
     case BuiltinType::VAArgPack:
       Width = Target->getPointerWidth(0);
       Align = Target->getPointerAlign(0);
       break;
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 7ac28eb0a5acdf20f912938e0c609426986bb866
+    case BuiltinType::OCLSampler:
+    case BuiltinType::OCLEvent:
+    case BuiltinType::OCLClkEvent:
+    case BuiltinType::OCLQueue:
+    case BuiltinType::OCLReserveID:
 #define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
     case BuiltinType::Id:
 #include "clang/Basic/OpenCLImageTypes.def"
