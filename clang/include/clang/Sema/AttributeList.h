@@ -106,6 +106,7 @@ public:
     AS_Microsoft,
     /// __ptr16, alignas(...), etc.
     AS_Keyword,
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     /// #pragma ...
     AS_Pragma,
@@ -115,6 +116,14 @@ public:
 #if INTEL_SPECIFIC_CILKPLUS
     AS_CilkKeyword
 #endif // INTEL_SPECIFIC_CILKPLUS
+=======
+    /// #pragma ...
+    AS_Pragma,
+    // Note TableGen depends on the order above.  Do not add or change the order
+    // without adding related code to TableGen/ClangAttrEmitter.cpp.
+    /// Context-sensitive version of a keyword attribute.
+    AS_ContextSensitiveKeyword,
+>>>>>>> 6688aa21fbb5aa2bd258563e969a440fda6a1528
   };
 
 private:
