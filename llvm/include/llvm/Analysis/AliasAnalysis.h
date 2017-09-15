@@ -61,11 +61,8 @@ class BasicAAResult;
 class BasicBlock;
 class DominatorTree;
 class OrderedBasicBlock;
-<<<<<<< HEAD
 class IntrinsicInst;    // INTEL
-=======
 class Value;
->>>>>>> c5e4ac86db224b038d3085916521e35ef233cc17
 
 /// The possible results of an alias query.
 ///
