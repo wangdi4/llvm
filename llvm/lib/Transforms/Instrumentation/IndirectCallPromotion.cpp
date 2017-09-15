@@ -125,15 +125,10 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<ProfileSummaryInfoWrapperPass>();
+    AU.addPreserved<WholeProgramWrapperPass>(); // INTEL
   }
 
   StringRef getPassName() const override { return "PGOIndirectCallPromotion"; }
-
-#if INTEL_CUSTOMIZATION
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addPreserved<WholeProgramWrapperPass>();
-  }
-#endif // INTEL_CUSTOMIZATION
 
 private:
   bool runOnModule(Module &M) override;
