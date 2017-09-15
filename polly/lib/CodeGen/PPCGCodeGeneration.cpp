@@ -90,12 +90,14 @@ static cl::opt<bool> PrivateMemory("polly-acc-use-private",
                                    cl::init(false), cl::ZeroOrMore,
                                    cl::cat(PollyCategory));
 
-static cl::opt<bool> ManagedMemory("polly-acc-codegen-managed-memory",
-                                   cl::desc("Generate Host kernel code assuming"
-                                            " that all memory has been"
-                                            " declared as managed memory"),
-                                   cl::Hidden, cl::init(false), cl::ZeroOrMore,
-                                   cl::cat(PollyCategory));
+bool polly::PollyManagedMemory;
+static cl::opt<bool, true>
+    XManagedMemory("polly-acc-codegen-managed-memory",
+                   cl::desc("Generate Host kernel code assuming"
+                            " that all memory has been"
+                            " declared as managed memory"),
+                   cl::location(PollyManagedMemory), cl::Hidden,
+                   cl::init(false), cl::ZeroOrMore, cl::cat(PollyCategory));
 
 static cl::opt<bool>
     FailOnVerifyModuleFailure("polly-acc-fail-on-verify-module-failure",
@@ -285,6 +287,8 @@ static __isl_give isl_id_to_ast_expr *pollyBuildAstExprForStmt(
   isl::ast_build Build = isl::manage(isl_ast_build_copy(Build_C));
   isl::ctx Ctx = Build.get_ctx();
   isl::id_to_ast_expr RefToExpr = isl::id_to_ast_expr::alloc(Ctx, 0);
+
+  Stmt->setAstBuild(Build);
 
   for (MemoryAccess *Acc : *Stmt) {
     isl::map AddrFunc = Acc->getAddressFunction();
@@ -746,14 +750,14 @@ void GPUNodeBuilder::initializeAfterRTH() {
 
   GPUContext = createCallInitContext();
 
-  if (!ManagedMemory)
+  if (!PollyManagedMemory)
     allocateDeviceArrays();
   else
     prepareManagedDeviceArrays();
 }
 
 void GPUNodeBuilder::finalize() {
-  if (!ManagedMemory)
+  if (!PollyManagedMemory)
     freeDeviceArrays();
 
   createCallFreeContext(GPUContext);
@@ -761,8 +765,9 @@ void GPUNodeBuilder::finalize() {
 }
 
 void GPUNodeBuilder::allocateDeviceArrays() {
-  assert(!ManagedMemory && "Managed memory will directly send host pointers "
-                           "to the kernel. There is no need for device arrays");
+  assert(!PollyManagedMemory &&
+         "Managed memory will directly send host pointers "
+         "to the kernel. There is no need for device arrays");
   isl_ast_build *Build = isl_ast_build_from_context(S.getContext().release());
 
   for (int i = 0; i < Prog->n_array; ++i) {
@@ -778,6 +783,19 @@ void GPUNodeBuilder::allocateDeviceArrays() {
           ArraySize,
           Builder.CreateMul(Offset,
                             Builder.getInt64(ScopArray->getElemSizeInBytes())));
+    const SCEV *SizeSCEV = SE.getSCEV(ArraySize);
+    // It makes no sense to have an array of size 0. The CUDA API will
+    // throw an error anyway if we invoke `cuMallocManaged` with size `0`. We
+    // choose to be defensive and catch this at the compile phase. It is
+    // most likely that we are doing something wrong with size computation.
+    if (SizeSCEV->isZero()) {
+      errs() << getUniqueScopName(&S)
+             << " has computed array size 0: " << *ArraySize
+             << " | for array: " << *(ScopArray->getBasePtr())
+             << ". This is illegal, exiting.\n";
+      report_fatal_error("array size was computed to be 0");
+    }
+
     Value *DevArray = createCallAllocateMemoryForDevice(ArraySize);
     DevArray->setName(DevArrayName);
     DeviceAllocations[ScopArray] = DevArray;
@@ -787,7 +805,7 @@ void GPUNodeBuilder::allocateDeviceArrays() {
 }
 
 void GPUNodeBuilder::prepareManagedDeviceArrays() {
-  assert(ManagedMemory &&
+  assert(PollyManagedMemory &&
          "Device array most only be prepared in managed-memory mode");
   for (int i = 0; i < Prog->n_array; ++i) {
     gpu_array_info *Array = &Prog->array[i];
@@ -834,7 +852,7 @@ void GPUNodeBuilder::addCUDAAnnotations(Module *M, Value *BlockDimX,
 }
 
 void GPUNodeBuilder::freeDeviceArrays() {
-  assert(!ManagedMemory && "Managed memory does not use device arrays");
+  assert(!PollyManagedMemory && "Managed memory does not use device arrays");
   for (auto &Array : DeviceAllocations)
     createCallFreeDeviceMemory(Array.second);
 }
@@ -919,8 +937,9 @@ void GPUNodeBuilder::createCallFreeKernel(Value *GPUKernel) {
 }
 
 void GPUNodeBuilder::createCallFreeDeviceMemory(Value *Array) {
-  assert(!ManagedMemory && "Managed memory does not allocate or free memory "
-                           "for device");
+  assert(!PollyManagedMemory &&
+         "Managed memory does not allocate or free memory "
+         "for device");
   const char *Name = "polly_freeDeviceMemory";
   Module *M = Builder.GetInsertBlock()->getParent()->getParent();
   Function *F = M->getFunction(Name);
@@ -938,8 +957,9 @@ void GPUNodeBuilder::createCallFreeDeviceMemory(Value *Array) {
 }
 
 Value *GPUNodeBuilder::createCallAllocateMemoryForDevice(Value *Size) {
-  assert(!ManagedMemory && "Managed memory does not allocate or free memory "
-                           "for device");
+  assert(!PollyManagedMemory &&
+         "Managed memory does not allocate or free memory "
+         "for device");
   const char *Name = "polly_allocateMemoryForDevice";
   Module *M = Builder.GetInsertBlock()->getParent()->getParent();
   Function *F = M->getFunction(Name);
@@ -959,8 +979,9 @@ Value *GPUNodeBuilder::createCallAllocateMemoryForDevice(Value *Size) {
 void GPUNodeBuilder::createCallCopyFromHostToDevice(Value *HostData,
                                                     Value *DeviceData,
                                                     Value *Size) {
-  assert(!ManagedMemory && "Managed memory does not transfer memory between "
-                           "device and host");
+  assert(!PollyManagedMemory &&
+         "Managed memory does not transfer memory between "
+         "device and host");
   const char *Name = "polly_copyFromHostToDevice";
   Module *M = Builder.GetInsertBlock()->getParent()->getParent();
   Function *F = M->getFunction(Name);
@@ -982,8 +1003,9 @@ void GPUNodeBuilder::createCallCopyFromHostToDevice(Value *HostData,
 void GPUNodeBuilder::createCallCopyFromDeviceToHost(Value *DeviceData,
                                                     Value *HostData,
                                                     Value *Size) {
-  assert(!ManagedMemory && "Managed memory does not transfer memory between "
-                           "device and host");
+  assert(!PollyManagedMemory &&
+         "Managed memory does not transfer memory between "
+         "device and host");
   const char *Name = "polly_copyFromDeviceToHost";
   Module *M = Builder.GetInsertBlock()->getParent()->getParent();
   Function *F = M->getFunction(Name);
@@ -1003,8 +1025,8 @@ void GPUNodeBuilder::createCallCopyFromDeviceToHost(Value *DeviceData,
 }
 
 void GPUNodeBuilder::createCallSynchronizeDevice() {
-  assert(ManagedMemory && "explicit synchronization is only necessary for "
-                          "managed memory");
+  assert(PollyManagedMemory && "explicit synchronization is only necessary for "
+                               "managed memory");
   const char *Name = "polly_synchronizeDevice";
   Module *M = Builder.GetInsertBlock()->getParent()->getParent();
   Function *F = M->getFunction(Name);
@@ -1131,9 +1153,9 @@ Value *GPUNodeBuilder::getArrayOffset(gpu_array_info *Array) {
 
 Value *GPUNodeBuilder::getManagedDeviceArray(gpu_array_info *Array,
                                              ScopArrayInfo *ArrayInfo) {
-  assert(ManagedMemory && "Only used when you wish to get a host "
-                          "pointer for sending data to the kernel, "
-                          "with managed memory");
+  assert(PollyManagedMemory && "Only used when you wish to get a host "
+                               "pointer for sending data to the kernel, "
+                               "with managed memory");
   std::map<ScopArrayInfo *, Value *>::iterator it;
   it = DeviceAllocations.find(ArrayInfo);
   assert(it != DeviceAllocations.end() &&
@@ -1143,7 +1165,7 @@ Value *GPUNodeBuilder::getManagedDeviceArray(gpu_array_info *Array,
 
 void GPUNodeBuilder::createDataTransfer(__isl_take isl_ast_node *TransferStmt,
                                         enum DataDirection Direction) {
-  assert(!ManagedMemory && "Managed memory needs no data transfers");
+  assert(!PollyManagedMemory && "Managed memory needs no data transfers");
   isl_ast_expr *Expr = isl_ast_node_user_get_expr(TransferStmt);
   isl_ast_expr *Arg = isl_ast_expr_get_op_arg(Expr, 0);
   isl_id *Id = isl_ast_expr_get_id(Arg);
@@ -1213,7 +1235,7 @@ void GPUNodeBuilder::createUser(__isl_take isl_ast_node *UserStmt) {
     return;
   }
   if (isPrefix(Str, "to_device")) {
-    if (!ManagedMemory)
+    if (!PollyManagedMemory)
       createDataTransfer(UserStmt, HOST_TO_DEVICE);
     else
       isl_ast_node_free(UserStmt);
@@ -1223,7 +1245,7 @@ void GPUNodeBuilder::createUser(__isl_take isl_ast_node *UserStmt) {
   }
 
   if (isPrefix(Str, "from_device")) {
-    if (!ManagedMemory) {
+    if (!PollyManagedMemory) {
       createDataTransfer(UserStmt, DEVICE_TO_HOST);
     } else {
       createCallSynchronizeDevice();
@@ -1583,7 +1605,7 @@ GPUNodeBuilder::createLaunchParameters(ppcg_kernel *Kernel, Function *F,
     ArgSizes[Index] = SAI->getElemSizeInBytes();
 
     Value *DevArray = nullptr;
-    if (ManagedMemory) {
+    if (PollyManagedMemory) {
       DevArray = getManagedDeviceArray(&Prog->array[i],
                                        const_cast<ScopArrayInfo *>(SAI));
     } else {
@@ -1605,7 +1627,7 @@ GPUNodeBuilder::createLaunchParameters(ppcg_kernel *Kernel, Function *F,
 
     if (gpu_array_is_read_only_scalar(&Prog->array[i])) {
       Value *ValPtr = nullptr;
-      if (ManagedMemory)
+      if (PollyManagedMemory)
         ValPtr = DevArray;
       else
         ValPtr = BlockGen.getOrCreateAlloca(SAI);
@@ -2905,7 +2927,7 @@ public:
 
       PPCGArray.space = Array->getSpace().release();
       PPCGArray.type = strdup(TypeName.c_str());
-      PPCGArray.size = Array->getElementType()->getPrimitiveSizeInBits() / 8;
+      PPCGArray.size = DL->getTypeAllocSize(Array->getElementType());
       PPCGArray.name = strdup(Array->getName().c_str());
       PPCGArray.extent = nullptr;
       PPCGArray.n_index = Array->getNumberOfDimensions();
