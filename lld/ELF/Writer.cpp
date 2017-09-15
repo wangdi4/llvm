@@ -199,7 +199,7 @@ template <class ELFT> void Writer<ELFT>::run() {
   // If -compressed-debug-sections is specified, we need to compress
   // .debug_* sections. Do it right now because it changes the size of
   // output sections.
-  parallelForEach(OutputSections.begin(), OutputSections.end(),
+  parallelForEach(OutputSections,
                   [](OutputSection *Sec) { Sec->maybeCompress<ELFT>(); });
 
   Script->assignAddresses();
@@ -451,7 +451,11 @@ static bool includeInSymtab(const SymbolBody &B) {
     if (auto *S = dyn_cast<MergeInputSection>(Sec))
       if (!S->getSectionPiece(D->Value)->Live)
         return false;
+    return true;
   }
+
+  if (auto *Sym = dyn_cast<DefinedCommon>(&B))
+    return Sym->Live;
   return true;
 }
 
@@ -502,7 +506,7 @@ template <class ELFT> void Writer<ELFT>::addSectionSymbols() {
 
     auto *Sym =
         make<DefinedRegular>("", /*IsLocal=*/true, /*StOther=*/0, STT_SECTION,
-                             /*Value=*/0, /*Size=*/0, IS, nullptr);
+                             /*Value=*/0, /*Size=*/0, IS);
     InX::SymTab->addSymbol(Sym);
   }
 }
@@ -774,7 +778,7 @@ addOptionalRegular(StringRef Name, SectionBase *Sec, uint64_t Val,
 // need these symbols, since IRELATIVE relocs are resolved through GOT
 // and PLT. For details, see http://www.airs.com/blog/archives/403.
 template <class ELFT> void Writer<ELFT>::addRelIpltSymbols() {
-  if (InX::DynSymTab)
+  if (!Config->Static)
     return;
   StringRef S = Config->IsRela ? "__rela_iplt_start" : "__rel_iplt_start";
   addOptionalRegular<ELFT>(S, In<ELFT>::RelaIplt, 0, STV_HIDDEN, STB_WEAK);
@@ -872,27 +876,8 @@ template <class ELFT> static void sortBySymbolsOrder() {
   if (Config->SymbolOrderingFile.empty())
     return;
 
-  // Build a map from symbols to their priorities. Symbols that didn't
-  // appear in the symbol ordering file have the lowest priority 0.
-  // All explicitly mentioned symbols have negative (higher) priorities.
-  DenseMap<StringRef, int> SymbolOrder;
-  int Priority = -Config->SymbolOrderingFile.size();
-  for (StringRef S : Config->SymbolOrderingFile)
-    SymbolOrder.insert({S, Priority++});
-
-  // Build a map from sections to their priorities.
-  DenseMap<SectionBase *, int> SectionOrder;
-  for (ObjFile<ELFT> *File : ObjFile<ELFT>::Instances) {
-    for (SymbolBody *Body : File->getSymbols()) {
-      auto *D = dyn_cast<DefinedRegular>(Body);
-      if (!D || !D->Section)
-        continue;
-      int &Priority = SectionOrder[D->Section];
-      Priority = std::min(Priority, SymbolOrder.lookup(D->getName()));
-    }
-  }
-
   // Sort sections by priority.
+  DenseMap<SectionBase *, int> SectionOrder = buildSectionOrder<ELFT>();
   for (BaseCommand *Base : Script->Opt.Commands)
     if (auto *Sec = dyn_cast<OutputSection>(Base))
       Sec->sort([&](InputSectionBase *S) { return SectionOrder.lookup(S); });
@@ -1168,6 +1153,39 @@ static void removeUnusedSyntheticSections() {
   }
 }
 
+// Returns true if a symbol can be replaced at load-time by a symbol
+// with the same name defined in other ELF executable or DSO.
+static bool computeIsPreemptible(const SymbolBody &B) {
+  assert(!B.isLocal());
+  // Shared symbols resolve to the definition in the DSO. The exceptions are
+  // symbols with copy relocations (which resolve to .bss) or preempt plt
+  // entries (which resolve to that plt entry).
+  if (auto *SS = dyn_cast<SharedSymbol>(&B))
+    return !SS->CopyRelSec && !SS->NeedsPltAddr;
+
+  // Only symbols that appear in dynsym can be preempted.
+  if (!B.symbol()->includeInDynsym())
+    return false;
+
+  // Only default visibility symbols can be preempted.
+  if (B.symbol()->Visibility != STV_DEFAULT)
+    return false;
+
+  // Undefined symbols in non-DSOs are usually just an error, so it
+  // doesn't matter whether we return true or false here. However, if
+  // -unresolved-symbols=ignore-all is specified, undefined symbols in
+  // executables are automatically exported so that the runtime linker
+  // can try to resolve them. In that case, they is preemptible. So, we
+  // return true for an undefined symbol in case the option is specified.
+  if (!Config->Shared)
+    return B.isUndefined();
+
+  // -Bsymbolic means that definitions are not preempted.
+  if (Config->Bsymbolic || (Config->BsymbolicFunctions && B.isFunc()))
+    return !B.isDefined();
+  return true;
+}
+
 // Create output section objects and add them to OutputSections.
 template <class ELFT> void Writer<ELFT>::finalizeSections() {
   Out::DebugInfo = findSection(".debug_info");
@@ -1201,6 +1219,9 @@ template <class ELFT> void Writer<ELFT>::finalizeSections() {
   applySynthetic({In<ELFT>::EhFrame},
                  [](SyntheticSection *SS) { SS->finalizeContents(); });
 
+  for (Symbol *S : Symtab->getSymbols())
+    S->body()->IsPreemptible = computeIsPreemptible(*S->body());
+
   // Scan relocations. This must be done after every symbol is declared so that
   // we can correctly decide if a dynamic relocation is needed.
   forEachRelSec(scanRelocations<ELFT>);
@@ -1223,7 +1244,7 @@ template <class ELFT> void Writer<ELFT>::finalizeSections() {
     if (InX::DynSymTab && S->includeInDynsym()) {
       InX::DynSymTab->addSymbol(Body);
       if (auto *SS = dyn_cast<SharedSymbol>(Body))
-        if (cast<SharedFile<ELFT>>(SS->File)->isNeeded())
+        if (cast<SharedFile<ELFT>>(S->File)->isNeeded())
           In<ELFT>::VerNeed->addSymbol(SS);
     }
   }
