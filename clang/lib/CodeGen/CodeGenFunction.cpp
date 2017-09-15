@@ -725,7 +725,8 @@ static void markAsIgnoreThreadCheckingAtRuntime(llvm::Function *Fn) {
 
 static bool matchesStlAllocatorFn(const Decl *D, const ASTContext &Ctx) {
   auto *MD = dyn_cast_or_null<CXXMethodDecl>(D);
-  if (!MD || !MD->getName().equals("allocate") ||
+  if (!MD || !MD->getDeclName().getAsIdentifierInfo() ||
+      !MD->getDeclName().getAsIdentifierInfo()->isStr("allocate") ||
       (MD->getNumParams() != 1 && MD->getNumParams() != 2))
     return false;
 
