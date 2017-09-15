@@ -673,9 +673,10 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
 
     ReplaceInstWithInst(ThenForkBB->getTerminator(), NewForkBI);
 
-
-    DT->changeImmediateDominator(ForkTestCI->getParent(),
-                                 ThenForkBB->getTerminator()->getSuccessor(0));
+    DT->changeImmediateDominator(ThenForkBB, ForkTestCI->getParent());
+    DT->changeImmediateDominator(ElseCallBB, ForkTestCI->getParent());
+    DT->changeImmediateDominator(ThenForkBB->getTerminator()->getSuccessor(0),
+                                 ForkTestCI->getParent());
 
     // Remove the serial call to MTFn function from the program, reducing
     // the use-count of MTFn

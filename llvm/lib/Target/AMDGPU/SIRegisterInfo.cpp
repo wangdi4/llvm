@@ -207,7 +207,11 @@ BitVector SIRegisterInfo::getReservedRegs(const MachineFunction &MF) const {
     assert(!isSubRegister(ScratchRSrcReg, ScratchWaveOffsetReg));
   }
 
+  // We have to assume the SP is needed in case there are calls in the function,
+  // which is detected after the function is lowered. If we aren't really going
+  // to need SP, don't bother reserving it.
   unsigned StackPtrReg = MFI->getStackPtrOffsetReg();
+
   if (StackPtrReg != AMDGPU::NoRegister) {
     reserveRegisterTuples(Reserved, StackPtrReg);
     assert(!isSubRegister(ScratchRSrcReg, StackPtrReg));
@@ -1044,18 +1048,29 @@ void SIRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator MI,
           unsigned CarryOut
             = MRI.createVirtualRegister(&AMDGPU::SReg_64_XEXECRegClass);
           unsigned ScaledReg
-            = MRI.createVirtualRegister(&AMDGPU::SReg_32_XM0RegClass);
+            = MRI.createVirtualRegister(&AMDGPU::VGPR_32RegClass);
 
-          // XXX - Should this use a vector shift?
-          BuildMI(*MBB, MI, DL, TII->get(AMDGPU::S_LSHR_B32), ScaledReg)
-            .addReg(DiffReg, RegState::Kill)
-            .addImm(Log2_32(ST.getWavefrontSize()));
+          BuildMI(*MBB, MI, DL, TII->get(AMDGPU::V_LSHRREV_B32_e64), ScaledReg)
+            .addImm(Log2_32(ST.getWavefrontSize()))
+            .addReg(DiffReg, RegState::Kill);
 
           // TODO: Fold if use instruction is another add of a constant.
-          BuildMI(*MBB, MI, DL, TII->get(AMDGPU::V_ADD_I32_e64), ResultReg)
-            .addReg(CarryOut, RegState::Define | RegState::Dead)
-            .addImm(Offset)
-            .addReg(ScaledReg, RegState::Kill);
+          if (AMDGPU::isInlinableLiteral32(Offset, ST.hasInv2PiInlineImm())) {
+            BuildMI(*MBB, MI, DL, TII->get(AMDGPU::V_ADD_I32_e64), ResultReg)
+              .addReg(CarryOut, RegState::Define | RegState::Dead)
+              .addImm(Offset)
+              .addReg(ScaledReg, RegState::Kill);
+          } else {
+            unsigned ConstOffsetReg
+              = MRI.createVirtualRegister(&AMDGPU::SReg_32_XM0RegClass);
+
+            BuildMI(*MBB, MI, DL, TII->get(AMDGPU::S_MOV_B32), ConstOffsetReg)
+              .addImm(Offset);
+            BuildMI(*MBB, MI, DL, TII->get(AMDGPU::V_ADD_I32_e64), ResultReg)
+              .addReg(CarryOut, RegState::Define | RegState::Dead)
+              .addReg(ConstOffsetReg, RegState::Kill)
+              .addReg(ScaledReg, RegState::Kill);
+          }
 
           MRI.setRegAllocationHint(CarryOut, 0, AMDGPU::VCC);
         }
@@ -1341,12 +1356,11 @@ unsigned SIRegisterInfo::getPreloadedValue(const MachineFunction &MF,
   case SIRegisterInfo::PRIVATE_SEGMENT_WAVE_BYTE_OFFSET:
     return MFI->PrivateSegmentWaveByteOffsetSystemSGPR;
   case SIRegisterInfo::PRIVATE_SEGMENT_BUFFER:
-    if (ST.isAmdCodeObjectV2(MF)) {
-      assert(MFI->hasPrivateSegmentBuffer());
-      return MFI->PrivateSegmentBufferUserSGPR;
-    }
-    assert(MFI->hasPrivateMemoryInputPtr());
-    return MFI->PrivateMemoryPtrUserSGPR;
+    assert(MFI->hasPrivateSegmentBuffer());
+    return MFI->PrivateSegmentBufferUserSGPR;
+  case SIRegisterInfo::IMPLICIT_BUFFER_PTR:
+    assert(MFI->hasImplicitBufferPtr());
+    return MFI->ImplicitBufferPtrUserSGPR;
   case SIRegisterInfo::KERNARG_SEGMENT_PTR:
     assert(MFI->hasKernargSegmentPtr());
     return MFI->KernargSegmentPtrUserSGPR;

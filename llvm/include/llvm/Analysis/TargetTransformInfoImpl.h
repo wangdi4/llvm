@@ -120,6 +120,10 @@ public:
     return SI.getNumCases();
   }
 
+  int getExtCost(const Instruction *I, const Value *Src) {
+    return TTI::TCC_Basic;
+  }
+
   unsigned getCallCost(FunctionType *FTy, int NumArgs) {
     assert(FTy && "FunctionType must be provided to this routine.");
 
@@ -220,7 +224,8 @@ public:
     return true;
   }
 
-  void getUnrollingPreferences(Loop *, TTI::UnrollingPreferences &) {}
+  void getUnrollingPreferences(Loop *, ScalarEvolution &,
+                               TTI::UnrollingPreferences &) {}
 
   unsigned getLoopRotationDefaultThreshold(bool OptForSize) const { return 16; }
 
@@ -458,6 +463,19 @@ public:
   }
 
 #endif
+  Type *getMemcpyLoopLoweringType(LLVMContext &Context, Value *Length,
+                                  unsigned SrcAlign, unsigned DestAlign) const {
+    return Type::getInt8Ty(Context);
+  }
+
+  void getMemcpyLoopResidualLoweringType(SmallVectorImpl<Type *> &OpsOut,
+                                         LLVMContext &Context,
+                                         unsigned RemainingBytes,
+                                         unsigned SrcAlign,
+                                         unsigned DestAlign) const {
+    for (unsigned i = 0; i != RemainingBytes; ++i)
+      OpsOut.push_back(Type::getInt8Ty(Context));
+  }
 
   bool areInlineCompatible(const Function *Caller,
                            const Function *Callee) const {
@@ -700,14 +718,14 @@ public:
     return static_cast<T *>(this)->getIntrinsicCost(IID, RetTy, ParamTys);
   }
 
-  unsigned getUserCost(const User *U) {
+  unsigned getUserCost(const User *U, ArrayRef<const Value *> Operands) {
     if (isa<PHINode>(U))
       return TTI::TCC_Free; // Model all PHI nodes as free.
 
     if (const GEPOperator *GEP = dyn_cast<GEPOperator>(U)) {
-      SmallVector<Value *, 4> Indices(GEP->idx_begin(), GEP->idx_end());
-      return static_cast<T *>(this)->getGEPCost(
-          GEP->getSourceElementType(), GEP->getPointerOperand(), Indices);
+      return static_cast<T *>(this)->getGEPCost(GEP->getSourceElementType(),
+                                                GEP->getPointerOperand(),
+                                                Operands.drop_front());
     }
 
     if (auto CS = ImmutableCallSite(U)) {
@@ -729,6 +747,8 @@ public:
       // nop on most sane targets.
       if (isa<CmpInst>(CI->getOperand(0)))
         return TTI::TCC_Free;
+      if (isa<SExtInst>(CI) || isa<ZExtInst>(CI) || isa<FPExtInst>(CI))
+        return static_cast<T *>(this)->getExtCost(CI, Operands.back());
     }
 
     return static_cast<T *>(this)->getOperationCost(
