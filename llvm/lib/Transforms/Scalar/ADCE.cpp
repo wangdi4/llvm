@@ -28,6 +28,7 @@
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/DebugInfoMetadata.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
@@ -90,6 +91,10 @@ struct BlockInfoType {
 
 class AggressiveDeadCodeElimination {
   Function &F;
+
+  // ADCE does not use DominatorTree per se, but it updates it to preserve the
+  // analysis.
+  DominatorTree &DT;
   PostDominatorTree &PDT;
 
   /// Mapping of blocks to associated information, an element in BlockInfoVec.
@@ -158,9 +163,10 @@ class AggressiveDeadCodeElimination {
   void makeUnconditional(BasicBlock *BB, BasicBlock *Target);
 
 public:
-  AggressiveDeadCodeElimination(Function &F, PostDominatorTree &PDT)
-      : F(F), PDT(PDT) {}
-  bool performDeadCodeElimination();
+ AggressiveDeadCodeElimination(Function &F, DominatorTree &DT,
+                               PostDominatorTree &PDT)
+     : F(F), DT(DT), PDT(PDT) {}
+ bool performDeadCodeElimination();
 };
 }
 
@@ -558,14 +564,31 @@ void AggressiveDeadCodeElimination::updateDeadRegions() {
     }
     assert((PreferredSucc && PreferredSucc->PostOrder > 0) &&
            "Failed to find safe successor for dead branch");
+
+    // Collect removed successors to update the (Post)DominatorTrees.
+    SmallPtrSet<BasicBlock *, 4> RemovedSuccessors;
     bool First = true;
     for (auto *Succ : successors(BB)) {
-      if (!First || Succ != PreferredSucc->BB)
+      if (!First || Succ != PreferredSucc->BB) {
         Succ->removePredecessor(BB);
-      else
+        RemovedSuccessors.insert(Succ);
+      } else
         First = false;
     }
     makeUnconditional(BB, PreferredSucc->BB);
+
+    // Inform the dominators about the deleted CFG edges.
+    for (auto *Succ : RemovedSuccessors) {
+      // It might have happened that the same successor appeared multiple times
+      // and the CFG edge wasn't really removed.
+      if (Succ != PreferredSucc->BB) {
+        DEBUG(dbgs() << "ADCE: Removing (Post)DomTree edge " << BB->getName()
+                     << " -> " << Succ->getName() << "\n");
+        DT.deleteEdge(BB, Succ);
+        PDT.deleteEdge(BB, Succ);
+      }
+    }
+
     NumBranchesRemoved += 1;
   }
 }
@@ -610,6 +633,9 @@ void AggressiveDeadCodeElimination::makeUnconditional(BasicBlock *BB,
   InstInfo[NewTerm].Live = true;
   if (const DILocation *DL = PredTerm->getDebugLoc())
     NewTerm->setDebugLoc(DL);
+
+  InstInfo.erase(PredTerm);
+  PredTerm->eraseFromParent();
 }
 
 //===----------------------------------------------------------------------===//
@@ -618,13 +644,16 @@ void AggressiveDeadCodeElimination::makeUnconditional(BasicBlock *BB,
 //
 //===----------------------------------------------------------------------===//
 PreservedAnalyses ADCEPass::run(Function &F, FunctionAnalysisManager &FAM) {
+  auto &DT = FAM.getResult<DominatorTreeAnalysis>(F);
   auto &PDT = FAM.getResult<PostDominatorTreeAnalysis>(F);
-  if (!AggressiveDeadCodeElimination(F, PDT).performDeadCodeElimination())
+  if (!AggressiveDeadCodeElimination(F, DT, PDT).performDeadCodeElimination())
     return PreservedAnalyses::all();
 
   PreservedAnalyses PA;
   PA.preserveSet<CFGAnalyses>();
   PA.preserve<GlobalsAA>();
+  PA.preserve<DominatorTreeAnalysis>();
+  PA.preserve<PostDominatorTreeAnalysis>();
   return PA;
 }
 
@@ -638,16 +667,23 @@ struct ADCELegacyPass : public FunctionPass {
   bool runOnFunction(Function &F) override {
     if (skipFunction(F))
       return false;
+
+    auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
     auto &PDT = getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
-    return AggressiveDeadCodeElimination(F, PDT).performDeadCodeElimination();
+    return AggressiveDeadCodeElimination(F, DT, PDT)
+        .performDeadCodeElimination();
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
+    // We require DominatorTree here only to update and thus preserve it.
+    AU.addRequired<DominatorTreeWrapperPass>();
     AU.addRequired<PostDominatorTreeWrapperPass>();
     if (!RemoveControlFlowFlag)
       AU.setPreservesCFG();
     AU.addPreserved<AndersensAAWrapperPass>();     // INTEL
     AU.addPreserved<GlobalsAAWrapperPass>();
+    AU.addPreserved<DominatorTreeWrapperPass>();
+    AU.addPreserved<PostDominatorTreeWrapperPass>();
   }
 };
 }
