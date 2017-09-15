@@ -2028,7 +2028,7 @@ private:
                     DenseMap<BasicBlock *, isl::set> &InvalidDomainMap);
 
   /// Add parameter constraints to @p C that imply a non-empty domain.
-  __isl_give isl_set *addNonEmptyDomainConstraints(__isl_take isl_set *C) const;
+  isl::set addNonEmptyDomainConstraints(isl::set C) const;
 
   /// Return the access for the base ptr of @p MA if any.
   MemoryAccess *lookupBasePtrAccess(MemoryAccess *MA);
@@ -2511,7 +2511,7 @@ public:
   ///
   /// Returns the set of context parameters that are currently constrained. In
   /// case the full set of parameters is needed, see @getFullParamSpace.
-  __isl_give isl_space *getParamSpace() const;
+  isl::space getParamSpace() const;
 
   /// Return the full space of parameters.
   ///
