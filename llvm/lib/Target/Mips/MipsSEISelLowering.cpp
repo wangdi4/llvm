@@ -1257,19 +1257,22 @@ static SDValue lowerMSACopyIntr(SDValue Op, SelectionDAG &DAG, unsigned Opc) {
 static SDValue lowerMSASplatZExt(SDValue Op, unsigned OpNr, SelectionDAG &DAG) {
   EVT ResVecTy = Op->getValueType(0);
   EVT ViaVecTy = ResVecTy;
+  bool BigEndian = !DAG.getSubtarget().getTargetTriple().isLittleEndian();
   SDLoc DL(Op);
 
   // When ResVecTy == MVT::v2i64, LaneA is the upper 32 bits of the lane and
   // LaneB is the lower 32-bits. Otherwise LaneA and LaneB are alternating
   // lanes.
-  SDValue LaneA;
-  SDValue LaneB = Op->getOperand(2);
+  SDValue LaneA = Op->getOperand(OpNr);
+  SDValue LaneB;
 
   if (ResVecTy == MVT::v2i64) {
-    LaneA = DAG.getConstant(0, DL, MVT::i32);
+    LaneB = DAG.getConstant(0, DL, MVT::i32);
     ViaVecTy = MVT::v4i32;
+    if(BigEndian)
+      std::swap(LaneA, LaneB);
   } else
-    LaneA = LaneB;
+    LaneB = LaneA;
 
   SDValue Ops[16] = { LaneA, LaneB, LaneA, LaneB, LaneA, LaneB, LaneA, LaneB,
                       LaneA, LaneB, LaneA, LaneB, LaneA, LaneB, LaneA, LaneB };
@@ -1277,8 +1280,11 @@ static SDValue lowerMSASplatZExt(SDValue Op, unsigned OpNr, SelectionDAG &DAG) {
   SDValue Result = DAG.getBuildVector(
       ViaVecTy, DL, makeArrayRef(Ops, ViaVecTy.getVectorNumElements()));
 
-  if (ViaVecTy != ResVecTy)
-    Result = DAG.getNode(ISD::BITCAST, DL, ResVecTy, Result);
+  if (ViaVecTy != ResVecTy) {
+    SDValue One = DAG.getConstant(1, DL, ViaVecTy);
+    Result = DAG.getNode(ISD::BITCAST, DL, ResVecTy,
+                         DAG.getNode(ISD::AND, DL, ViaVecTy, Result, One));
+  }
 
   return Result;
 }
@@ -3414,9 +3420,17 @@ MipsSETargetLowering::emitST_F16_PSEUDO(MachineInstr &MI,
                                : (Subtarget.isABI_O32() ? &Mips::GPR32RegClass
                                                         : &Mips::GPR64RegClass);
   const bool UsingMips32 = RC == &Mips::GPR32RegClass;
-  unsigned Rs = RegInfo.createVirtualRegister(RC);
+  unsigned Rs = RegInfo.createVirtualRegister(&Mips::GPR32RegClass);
 
   BuildMI(*BB, MI, DL, TII->get(Mips::COPY_U_H), Rs).addReg(Ws).addImm(0);
+  if(!UsingMips32) {
+    unsigned Tmp = RegInfo.createVirtualRegister(&Mips::GPR64RegClass);
+    BuildMI(*BB, MI, DL, TII->get(Mips::SUBREG_TO_REG), Tmp)
+        .addImm(0)
+        .addReg(Rs)
+        .addImm(Mips::sub_32);
+    Rs = Tmp;
+  }
   BuildMI(*BB, MI, DL, TII->get(UsingMips32 ? Mips::SH : Mips::SH64))
       .addReg(Rs)
       .addReg(Rt)
@@ -3466,6 +3480,12 @@ MipsSETargetLowering::emitLD_F16_PSEUDO(MachineInstr &MI,
       BuildMI(*BB, MI, DL, TII->get(UsingMips32 ? Mips::LH : Mips::LH64), Rt);
   for (unsigned i = 1; i < MI.getNumOperands(); i++)
     MIB.add(MI.getOperand(i));
+
+  if(!UsingMips32) {
+    unsigned Tmp = RegInfo.createVirtualRegister(&Mips::GPR32RegClass);
+    BuildMI(*BB, MI, DL, TII->get(Mips::COPY), Tmp).addReg(Rt, 0, Mips::sub_32);
+    Rt = Tmp;
+  }
 
   BuildMI(*BB, MI, DL, TII->get(Mips::FILL_H), Wd).addReg(Rt);
 
@@ -3534,6 +3554,7 @@ MipsSETargetLowering::emitFPROUND_PSEUDO(MachineInstr &MI,
   assert(Subtarget.hasMSA() && Subtarget.hasMips32r2());
 
   bool IsFGR64onMips64 = Subtarget.hasMips64() && IsFGR64;
+  bool IsFGR64onMips32 = !Subtarget.hasMips64() && IsFGR64;
 
   const TargetInstrInfo *TII = Subtarget.getInstrInfo();
   DebugLoc DL = MI.getDebugLoc();
@@ -3544,7 +3565,9 @@ MipsSETargetLowering::emitFPROUND_PSEUDO(MachineInstr &MI,
   unsigned Wtemp = RegInfo.createVirtualRegister(&Mips::MSA128WRegClass);
   const TargetRegisterClass *GPRRC =
       IsFGR64onMips64 ? &Mips::GPR64RegClass : &Mips::GPR32RegClass;
-  unsigned MFC1Opc = IsFGR64onMips64 ? Mips::DMFC1 : Mips::MFC1;
+  unsigned MFC1Opc = IsFGR64onMips64
+                         ? Mips::DMFC1
+                         : (IsFGR64onMips32 ? Mips::MFC1_D64 : Mips::MFC1);
   unsigned FILLOpc = IsFGR64onMips64 ? Mips::FILL_D : Mips::FILL_W;
 
   // Perform the register class copy as mentioned above.
@@ -3553,7 +3576,7 @@ MipsSETargetLowering::emitFPROUND_PSEUDO(MachineInstr &MI,
   BuildMI(*BB, MI, DL, TII->get(FILLOpc), Wtemp).addReg(Rtemp);
   unsigned WPHI = Wtemp;
 
-  if (!Subtarget.hasMips64() && IsFGR64) {
+  if (IsFGR64onMips32) {
     unsigned Rtemp2 = RegInfo.createVirtualRegister(GPRRC);
     BuildMI(*BB, MI, DL, TII->get(Mips::MFHC1_D64), Rtemp2).addReg(Fs);
     unsigned Wtemp2 = RegInfo.createVirtualRegister(&Mips::MSA128WRegClass);
@@ -3647,7 +3670,9 @@ MipsSETargetLowering::emitFPEXTEND_PSEUDO(MachineInstr &MI,
   MachineRegisterInfo &RegInfo = BB->getParent()->getRegInfo();
   const TargetRegisterClass *GPRRC =
       IsFGR64onMips64 ? &Mips::GPR64RegClass : &Mips::GPR32RegClass;
-  unsigned MTC1Opc = IsFGR64onMips64 ? Mips::DMTC1 : Mips::MTC1;
+  unsigned MTC1Opc = IsFGR64onMips64
+                         ? Mips::DMTC1
+                         : (IsFGR64onMips32 ? Mips::MTC1_D64 : Mips::MTC1);
   unsigned COPYOpc = IsFGR64onMips64 ? Mips::COPY_S_D : Mips::COPY_S_W;
 
   unsigned Wtemp = RegInfo.createVirtualRegister(&Mips::MSA128WRegClass);
