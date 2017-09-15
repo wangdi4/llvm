@@ -20,7 +20,6 @@
 #include "llvm/ADT/StringMap.h"
 #include "llvm/Analysis/Intel_Directives.h"
 #include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h"
-#include "llvm/Transforms/Utils/Intel_IntrinsicUtils.h"
 
 #define DEBUG_TYPE "vpo-utils"
 
@@ -33,7 +32,7 @@ StringRef VPOAnalysisUtils::getDirectiveName(int Id) {
 }
 
 StringRef VPOAnalysisUtils::getClauseName(int Id) {
-  return IntelIntrinsicUtils::getClauseString(Id).substr(9); // skip "QUAL_OMP_"
+  return IntelDirectives::ClauseStrings[Id].substr(9); // skip "QUAL_OMP_"
 }
 
 bool VPOAnalysisUtils::isOpenMPDirective(StringRef DirFullName) {

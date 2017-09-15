@@ -35,7 +35,7 @@ add_llvm_library(LLVMAnalysis
   InlineCost.cpp
   InstCount.cpp
   InstructionSimplify.cpp
-#ifdef INTEL_CUSTOMIZATION
+# INTEL_CUSTOMIZATION
   Intel_AggInline.cpp
   Intel_Andersens.cpp
   Intel_Directives.cpp
@@ -46,7 +46,9 @@ add_llvm_library(LLVMAnalysis
   Intel_OptVLSClientUtils.cpp
   Intel_VectorVariant.cpp
   Intel_WP.cpp
-#endif     // INTEL_CUSTOMIZATION
+  Intel_VPO/Utils/IntrinsicUtils.cpp             # TODO: Move to lib/Analysis
+  Intel_VPO/Utils/OpenMPDirectivesAndClauses.cpp # TODO: Move to lib/Analysis
+# end INTEL_CUSTOMIZATION
   Interval.cpp
   IntervalPartition.cpp
   IteratedDominanceFrontier.cpp
