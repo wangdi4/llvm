@@ -1137,14 +1137,11 @@ static uint64_t getRawAttributeMask(Attribute::AttrKind Val) {
   case Attribute::SwiftError:      return 1ULL << 52;
   case Attribute::WriteOnly:       return 1ULL << 53;
   case Attribute::Speculatable:    return 1ULL << 54;
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  case Attribute::AlwaysInlineRecursive: return 1ULL << 55;
-  case Attribute::InlineHintRecursive:   return 1ULL << 56;
-#endif // INTEL_CUSTOMIZATION
-=======
   case Attribute::StrictFP:        return 1ULL << 55;
->>>>>>> 68d0bd1ed4f2ffe240f711c6dea176f459366db4
+#if INTEL_CUSTOMIZATION
+  case Attribute::AlwaysInlineRecursive: return 1ULL << 56;
+  case Attribute::InlineHintRecursive:   return 1ULL << 57;
+#endif // INTEL_CUSTOMIZATION
   case Attribute::Dereferenceable:
     llvm_unreachable("dereferenceable attribute not supported in raw format");
     break;
