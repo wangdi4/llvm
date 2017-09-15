@@ -479,7 +479,7 @@ void MemoryAccess::wrapConstantDimensions() {
 
     // Compute: index % size
     // Modulo must apply in the divide of the previous iteration, if any.
-    isl::aff Modulo = Var.mod_val(DimSizeVal);
+    isl::aff Modulo = Var.mod(DimSizeVal);
     Modulo = Modulo.pullback(DivModAff);
 
     // Compute: floor(index / size)
@@ -946,7 +946,7 @@ void MemoryAccess::buildAccessRelation(const ScopArrayInfo *SAI) {
 
   // Initialize the invalid domain which describes all iterations for which the
   // access relation is not modeled correctly.
-  isl::set StmtInvalidDomain = isl::manage(getStatement()->getInvalidDomain());
+  isl::set StmtInvalidDomain = getStatement()->getInvalidDomain();
   InvalidDomain = isl::set::empty(StmtInvalidDomain.get_space());
 
   isl::ctx Ctx = Id.get_ctx();
@@ -1251,10 +1251,9 @@ __isl_give isl_map *ScopStmt::getSchedule() const {
   return M;
 }
 
-void ScopStmt::restrictDomain(__isl_take isl_set *NewDomain) {
-  assert(isl_set_is_subset(NewDomain, Domain) &&
+void ScopStmt::restrictDomain(isl::set NewDomain) {
+  assert(NewDomain.is_subset(Domain) &&
          "New domain is not a subset of old domain!");
-  isl_set_free(Domain);
   Domain = NewDomain;
 }
 
@@ -1316,9 +1315,9 @@ void ScopStmt::realignParams() {
   for (MemoryAccess *MA : *this)
     MA->realignParams();
 
-  auto *Ctx = Parent.getContext();
-  InvalidDomain = isl_set_gist_params(InvalidDomain, isl_set_copy(Ctx));
-  Domain = isl_set_gist_params(Domain, Ctx);
+  isl::set Ctx = isl::manage(Parent.getContext());
+  InvalidDomain = InvalidDomain.gist_params(Ctx);
+  Domain = Domain.gist_params(Ctx);
 }
 
 /// Add @p BSet to the set @p User if @p BSet is bounded.
@@ -1690,17 +1689,16 @@ buildConditionSets(Scop &S, BasicBlock *BB, TerminatorInst *TI, Loop *L,
 }
 
 void ScopStmt::buildDomain() {
-  isl_id *Id = isl_id_alloc(getIslCtx(), getBaseName(), this);
+  isl::id Id = isl::id::alloc(getIslCtx(), getBaseName(), this);
 
-  Domain = getParent()->getDomainConditions(this);
-  Domain = isl_set_set_tuple_id(Domain, Id);
+  Domain = isl::manage(getParent()->getDomainConditions(this));
+  Domain = Domain.set_tuple_id(Id);
 }
 
 void ScopStmt::collectSurroundingLoops() {
-  for (unsigned u = 0, e = isl_set_n_dim(Domain); u < e; u++) {
-    isl_id *DimId = isl_set_get_dim_id(Domain, isl_dim_set, u);
-    NestLoops.push_back(static_cast<Loop *>(isl_id_get_user(DimId)));
-    isl_id_free(DimId);
+  for (unsigned u = 0, e = Domain.dim(isl::dim::set); u < e; u++) {
+    isl::id DimId = Domain.get_dim_id(isl::dim::set, u);
+    NestLoops.push_back(static_cast<Loop *>(DimId.get_user()));
   }
 }
 
@@ -1724,12 +1722,12 @@ ScopStmt::ScopStmt(Scop &parent, BasicBlock &bb, Loop *SurroundingLoop,
 
 ScopStmt::ScopStmt(Scop &parent, __isl_take isl_map *SourceRel,
                    __isl_take isl_map *TargetRel, __isl_take isl_set *NewDomain)
-    : Parent(parent), InvalidDomain(nullptr), Domain(NewDomain), BB(nullptr),
-      R(nullptr), Build(nullptr) {
+    : Parent(parent), InvalidDomain(nullptr), Domain(isl::manage(NewDomain)),
+      BB(nullptr), R(nullptr), Build(nullptr) {
   BaseName = getIslCompatibleName("CopyStmt_", "",
                                   std::to_string(parent.getCopyStmtsNum()));
   auto *Id = isl_id_alloc(getIslCtx(), getBaseName(), this);
-  Domain = isl_set_set_tuple_id(Domain, isl_id_copy(Id));
+  Domain = Domain.set_tuple_id(isl::manage(isl_id_copy(Id)));
   TargetRel = isl_map_set_tuple_id(TargetRel, isl_dim_in, Id);
   auto *Access = new MemoryAccess(this, MemoryAccess::AccessType::MUST_WRITE,
                                   isl::manage(TargetRel));
@@ -1884,7 +1882,7 @@ void ScopStmt::checkForReductions() {
   }
 }
 
-std::string ScopStmt::getDomainStr() const { return stringFromIslObj(Domain); }
+std::string ScopStmt::getDomainStr() const { return Domain.to_str(); }
 
 std::string ScopStmt::getScheduleStr() const {
   auto *S = getSchedule();
@@ -1895,10 +1893,7 @@ std::string ScopStmt::getScheduleStr() const {
   return Str;
 }
 
-void ScopStmt::setInvalidDomain(__isl_take isl_set *ID) {
-  isl_set_free(InvalidDomain);
-  InvalidDomain = ID;
-}
+void ScopStmt::setInvalidDomain(isl::set ID) { InvalidDomain = ID; }
 
 BasicBlock *ScopStmt::getEntryBlock() const {
   if (isBlockStmt())
@@ -1916,20 +1911,17 @@ Loop *ScopStmt::getLoopForDimension(unsigned Dimension) const {
 
 isl_ctx *ScopStmt::getIslCtx() const { return Parent.getIslCtx(); }
 
-__isl_give isl_set *ScopStmt::getDomain() const { return isl_set_copy(Domain); }
+__isl_give isl_set *ScopStmt::getDomain() const { return Domain.copy(); }
 
 __isl_give isl_space *ScopStmt::getDomainSpace() const {
-  return isl_set_get_space(Domain);
+  return Domain.get_space().release();
 }
 
 __isl_give isl_id *ScopStmt::getDomainId() const {
-  return isl_set_get_tuple_id(Domain);
+  return Domain.get_tuple_id().release();
 }
 
-ScopStmt::~ScopStmt() {
-  isl_set_free(Domain);
-  isl_set_free(InvalidDomain);
-}
+ScopStmt::~ScopStmt() {}
 
 void ScopStmt::printInstructions(raw_ostream &OS) const {
   OS << "Instructions {\n";
@@ -3890,13 +3882,13 @@ void Scop::addInvariantLoads(ScopStmt &Stmt, InvariantAccessesTy &InvMAs) {
   if (InvMAs.empty())
     return;
 
-  auto *StmtInvalidCtx = Stmt.getInvalidContext();
-  bool StmtInvalidCtxIsEmpty = isl_set_is_empty(StmtInvalidCtx);
+  isl::set StmtInvalidCtx = Stmt.getInvalidContext();
+  bool StmtInvalidCtxIsEmpty = StmtInvalidCtx.is_empty();
 
   // Get the context under which the statement is executed but remove the error
   // context under which this statement is reached.
   isl_set *DomainCtx = isl_set_params(Stmt.getDomain());
-  DomainCtx = isl_set_subtract(DomainCtx, StmtInvalidCtx);
+  DomainCtx = isl_set_subtract(DomainCtx, StmtInvalidCtx.copy());
 
   if (isl_set_n_basic_set(DomainCtx) >= MaxDisjunctsInDomain) {
     auto *AccInst = InvMAs.front().MA->getAccessInstruction();
@@ -4812,10 +4804,10 @@ bool Scop::restrictDomains(__isl_take isl_union_set *Domain) {
     NewStmtDomain = isl_union_set_coalesce(NewStmtDomain);
 
     if (isl_union_set_is_empty(NewStmtDomain)) {
-      Stmt.restrictDomain(isl_set_empty(Stmt.getDomainSpace()));
+      Stmt.restrictDomain(isl::set::empty(isl::manage(Stmt.getDomainSpace())));
       isl_union_set_free(NewStmtDomain);
     } else
-      Stmt.restrictDomain(isl_set_from_union_set(NewStmtDomain));
+      Stmt.restrictDomain(isl::manage(isl_set_from_union_set(NewStmtDomain)));
   }
   isl_union_set_free(Domain);
   return Changed;
