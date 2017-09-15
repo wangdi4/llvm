@@ -1,4 +1,4 @@
-//===--- CloexecSocketCheck.h - clang-tidy-----------------------*- C++ -*-===//
+//===--- CloexecEpollCreate1Check.h - clang-tidy-----------------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,8 +7,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_ANDROID_CLOEXEC_SOCKET_H
-#define LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_ANDROID_CLOEXEC_SOCKET_H
+#ifndef LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_ANDROID_CLOEXEC_EPOLL_CREATE1_H
+#define LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_ANDROID_CLOEXEC_EPOLL_CREATE1_H
 
 #include "CloexecCheck.h"
 
@@ -16,13 +16,13 @@ namespace clang {
 namespace tidy {
 namespace android {
 
-/// Finds code that uses socket() without using the SOCK_CLOEXEC flag.
+/// Finds code that uses epoll_create1() without using the EPOLL_CLOEXEC flag.
 ///
 /// For the user-facing documentation see:
-/// http://clang.llvm.org/extra/clang-tidy/checks/android-cloexec-socket.html
-class CloexecSocketCheck : public CloexecCheck {
+/// http://clang.llvm.org/extra/clang-tidy/checks/android-cloexec-epoll-create1.html
+class CloexecEpollCreate1Check : public CloexecCheck {
 public:
-  CloexecSocketCheck(StringRef Name, ClangTidyContext *Context)
+  CloexecEpollCreate1Check(StringRef Name, ClangTidyContext *Context)
       : CloexecCheck(Name, Context) {}
   void registerMatchers(ast_matchers::MatchFinder *Finder) override;
   void check(const ast_matchers::MatchFinder::MatchResult &Result) override;
@@ -32,4 +32,4 @@ public:
 } // namespace tidy
 } // namespace clang
 
-#endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_ANDROID_CLOEXEC_SOCKET_H
+#endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_ANDROID_CLOEXEC_EPOLL_CREATE1_H
