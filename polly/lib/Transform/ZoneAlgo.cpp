@@ -251,8 +251,8 @@ static std::string printInstruction(Instruction *Instr,
 
 ZoneAlgorithm::ZoneAlgorithm(const char *PassName, Scop *S, LoopInfo *LI)
     : PassName(PassName), IslCtx(S->getSharedIslCtx()), S(S), LI(LI),
-      Schedule(give(S->getSchedule())) {
-  auto Domains = give(S->getDomains());
+      Schedule(S->getSchedule()) {
+  auto Domains = S->getDomains();
 
   Schedule =
       give(isl_union_map_intersect_domain(Schedule.take(), Domains.take()));
@@ -386,8 +386,8 @@ bool ZoneAlgorithm::isCompatibleScop() {
 }
 
 isl::map ZoneAlgorithm::getScatterFor(ScopStmt *Stmt) const {
-  auto ResultSpace = give(isl_space_map_from_domain_and_range(
-      Stmt->getDomainSpace(), ScatterSpace.copy()));
+  isl::space ResultSpace = give(isl_space_map_from_domain_and_range(
+      Stmt->getDomainSpace().release(), ScatterSpace.copy()));
   return give(isl_union_map_extract_map(Schedule.keep(), ResultSpace.take()));
 }
 
@@ -411,7 +411,7 @@ isl::map ZoneAlgorithm::getScatterFor(isl::set Domain) const {
 }
 
 isl::set ZoneAlgorithm::getDomainFor(ScopStmt *Stmt) const {
-  return give(isl_set_remove_redundancies(Stmt->getDomain()));
+  return Stmt->getDomain().remove_redundancies();
 }
 
 isl::set ZoneAlgorithm::getDomainFor(MemoryAccess *MA) const {
