@@ -367,7 +367,7 @@ bool JSONImporter::importSchedule(Scop &S, Json::Value &JScop,
       return false;
     }
 
-    isl_space *Space = Stmt.getDomainSpace();
+    isl_space *Space = Stmt.getDomainSpace().release();
 
     // Copy the old tuple id. This is necessary to retain the user pointer,
     // that stores the reference to the ScopStmt this schedule belongs to.
@@ -396,7 +396,8 @@ bool JSONImporter::importSchedule(Scop &S, Json::Value &JScop,
     if (NewSchedule.find(&Stmt) != NewSchedule.end())
       ScheduleMap = isl_union_map_add_map(ScheduleMap, NewSchedule[&Stmt]);
     else
-      ScheduleMap = isl_union_map_add_map(ScheduleMap, Stmt.getSchedule());
+      ScheduleMap =
+          isl_union_map_add_map(ScheduleMap, Stmt.getSchedule().release());
   }
 
   S.setSchedule(ScheduleMap);
