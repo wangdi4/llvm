@@ -3718,10 +3718,6 @@ bool InstCombiner::ReduceICmpSizeIfPossible(ICmpInst &ICI, Value *Op0,
         Builder.CreateTrunc(Op1, IntegerType::get(ICI.getContext(), Size));
     ICI.setOperand(0, Trunc0);
     ICI.setOperand(1, Trunc1);
-<<<<<<< HEAD
-=======
-
->>>>>>> 3141c7fa2285fd8eb7e8edf46c07bb6466d578f7
     return true;
   }
 
