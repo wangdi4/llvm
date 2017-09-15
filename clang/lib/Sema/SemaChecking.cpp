@@ -3357,7 +3357,7 @@ ExprResult Sema::SemaAtomicOpsOverloaded(ExprResult TheCallResult,
   } else if (getLangOpts().IntelCompat && AtomTy->isAtomicType()) {
     if (AtomTy.isConstQualified()) {
       Diag(DRE->getLocStart(), diag::err_atomic_op_needs_non_const_atomic)
-        << Ptr->getType() << Ptr->getSourceRange();
+        << 0 << Ptr->getType() << Ptr->getSourceRange();
       return ExprError();
     }
     ValType = AtomTy->getAs<AtomicType>()->getValueType();
