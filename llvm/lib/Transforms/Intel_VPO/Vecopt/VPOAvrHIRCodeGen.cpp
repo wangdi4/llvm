@@ -789,7 +789,30 @@ bool AVRCodeGenHIR::vectorize(unsigned int VL) {
   if (!MainLoop->hasChildren()) {
     DEBUG(errs() << "\n\n\nRemoving empty loop\n");
     MainLoop->getHLNodeUtils().remove(MainLoop);
+  } else {
+    // Prevent LLVM from possibly unrolling vectorized loops with non-constant
+    // trip counts. See loop in function fxpAutoCorrelation() that is part of
+    // telecom/autcor00data_1 (opt_base_st_64_hsw). Inner loop has max trip
+    // count estimate of 16, VPO vectorizer chooses VF=4, and LLVM unrolls by 4.
+    // However, the inner loop does not always have a constant 16 trip count,
+    // leading to a performance degradation caused by entering the scalar code
+    // path.
+    if (!MainLoop->isConstTripLoop()) {
+      const Loop *Lp = MainLoop->getLLVMLoop();
+      LLVMContext &Context = Lp->getHeader()->getContext();
+      SmallVector<Metadata *, 4> MDs;
+      MDs.push_back(nullptr);
+      SmallVector<Metadata *, 1> DisableOperands;
+      DisableOperands.push_back(MDString::get(Context,
+                                "llvm.loop.unroll.disable"));
+      MDNode *DisableUnroll = MDNode::get(Context, DisableOperands);
+      MDs.push_back(DisableUnroll);
+      MDNode *NewLoopID = MDNode::get(Context, MDs);
+      NewLoopID->replaceOperandWith(0, NewLoopID);
+      MainLoop->setLoopMetadata(NewLoopID);
+    }
   }
+
   if (NeedRemainderLoop)
     DEBUG(OrigLoop->dump());
 

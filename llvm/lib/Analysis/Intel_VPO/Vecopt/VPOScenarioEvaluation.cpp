@@ -111,7 +111,7 @@ VPOVecContextBase VPOScenarioEvaluationBase::getBestCandidate(AVRWrn *AWrn) {
   }
   int initialVF = ForceVF ? ForceVF : 1;
   //DEBUG(errs() << "Set dummy vectCand with VF = " << initialVF << "\n");
-  VPOVecContextBase VectCand(initialVF); 
+  VPOVecContextBase VectCand(initialVF);
 
 #if 1
   // FORNOW: An AVRWrn node is expected to have only one AVRLoop child
@@ -119,7 +119,7 @@ VPOVecContextBase VPOScenarioEvaluationBase::getBestCandidate(AVRWrn *AWrn) {
 
   // Check that we have an AVRLoop
   if (!AvrLoop)
-    return VectCand; 
+    return VectCand;
 #endif
 
   // Loop over search space of candidates within AWrn. In the future this will
@@ -1088,6 +1088,19 @@ void VPOCostGathererBase::visit(AVRExpression *Expr) {
       // The cost of extracting from the value vector and pointer vector.
       Type *PtrsVecTy = ToVectorTy(PtrType, VF);
       for (unsigned i = 0; i < VF; ++i) {
+        // Add the cost of extracting the mask bit, icmp to check mask bit, and
+        // br instruction.
+        if (!UseGatherOrScatter && isMaskRequired) {
+          for (unsigned i = 0; i < VF; ++i) {
+            Type *CmpTy = Type::getInt1Ty(Expr->getType()->getContext());
+            VectorType *VecCmpTy = VectorType::get(CmpTy, VF);
+            Cost += TTI.getVectorInstrCost(Instruction::ExtractElement,
+                                           VecCmpTy, i);
+            Cost += TTI.getCmpSelInstrCost(Instruction::ICmp, CmpTy);
+            Cost += TTI.getCFInstrCost(Instruction::Br);
+          }
+        }
+
         //  The cost of extracting the pointer operand.
         Cost +=
             TTI.getVectorInstrCost(Instruction::ExtractElement, PtrsVecTy, i);
@@ -1233,6 +1246,10 @@ void VPOScenarioEvaluationBase::visit(AVRValue *AValue) {
 // TODO: What additional information will the costModel need?:
 // - a Map of Memrefs to the VLS Group they belong to (if any).
 // - ?
+// TODO: A fix was made to return uint64_t here because this function was
+// previously computing cost based on uint64_t and returning int. This
+// caused a signed int overflow, but the remaining question that needs to
+// be answered is why such a high cost was being computed in the first place.
 uint64_t VPOCostModelBase::getCost(AVRLoop *ALoop, unsigned int VF,
                                    VPOVLSInfoBase *VLSInfo,
                                    HIRSafeReductionAnalysis *SRA) {
@@ -1245,6 +1262,7 @@ uint64_t VPOCostModelBase::getCost(AVRLoop *ALoop, unsigned int VF,
     HLLoop *HIRLoop = ALoopHIR->getLoop();
     SRA->computeSafeReductionChains(HIRLoop);
   }
+
   VPOCostGathererBase *CostGatherer = getCostGatherer(VF, ALoop, VLSInfo, SRA);
   assert(CostGatherer && "Invalid CostGatherer");
   AVRVisitor<VPOCostGathererBase> AVisitor(*CostGatherer);

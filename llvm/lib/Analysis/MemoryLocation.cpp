@@ -186,7 +186,14 @@ static void getMemLocsForPtrVec(const Value *PtrVec,
 
   // Constant pointer vector.
   unsigned NumElts = Results.size();
-  if (const auto *CV = dyn_cast<Constant>(PtrVec)) {
+  const auto *CV = dyn_cast<Constant>(PtrVec);
+  bool isGepExpr = false;
+  if (CV) {
+    const ConstantExpr *CE = dyn_cast<ConstantExpr>(CV);
+    if (CE && CE->getOpcode() == Instruction::GetElementPtr)
+      isGepExpr = true;
+  }
+  if (CV && !isGepExpr) {
     // If this vector is an undef value, we can assume that none of its
     // elements aliases with any pointer.
     if (isa<UndefValue>(CV)) {

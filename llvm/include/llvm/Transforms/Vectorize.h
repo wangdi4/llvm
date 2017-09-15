@@ -154,11 +154,13 @@ bool vectorizeBasicBlock(Pass *P, BasicBlock &BB,
 //
 Pass *createLoadStoreVectorizerPass();
 
+#if INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 //
 // VPlanDriverVectorizer - Create a VPlan Driver pass.
 //
 Pass *createVPlanDriverPass();
+#endif // INTEL_CUSTOMIZATION
 
 } // End llvm namespace
 

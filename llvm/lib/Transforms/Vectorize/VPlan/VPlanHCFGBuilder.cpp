@@ -662,6 +662,7 @@ void VPlanHCFGBuilder::simplifyPlainCFG(HCFGState &State) {
   assert(isa<VPRegionBlock>(Plan->getEntry()) &&
          "VPlan entry is not a VPRegionBlock");
   VPRegionBlock *TopRegion = cast<VPRegionBlock>(Plan->getEntry());
+  (void) TopRegion;
   VPLoopInfo *VPLInfo = Plan->getVPLoopInfo();
 
   assert((VPLInfo->size() == 1) && "Expected only 1 top-level loop");

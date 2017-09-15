@@ -65,6 +65,9 @@ void VPlanVerifier::verifyVPLoopInfo(const VPLoopRegion *LoopRegion) const {
 
   assert((VPLInfo->getLoopFor(Header) == Loop) &&
          "Unexpected loop from loop header");
+
+  (void) Loop;
+  (void) Header;
 }
 
 // Verify information of LoopRegions nested in \p Region.
@@ -161,6 +164,10 @@ void VPlanVerifier::verifyNumLoops(const VPRegionBlock *TopRegion) const {
   assert(NumLoopsInCFG == NumLoopsInVPLoopInfo &&
          NumLoopsInVPLoopInfo == NumLoopsInLoopInfo &&
          "Number of loops in HCFG, VPLoopInfo and LoopInfo don't match");
+
+  (void) NumLoopsInCFG;
+  (void) NumLoopsInVPLoopInfo;
+  (void) NumLoopsInLoopInfo;
 }
 
 // Main class to verify loop information.
@@ -195,6 +202,8 @@ void VPlanVerifier::verifyRegions(const VPRegionBlock *Region) const {
     assert(Exit->getNumPredecessors() > 1 &&
            "Region exit must have more than one predecessors");
   }
+  (void) Entry;
+  (void) Exit;
 
   // Traverse Region's blocks
   unsigned NumBlocks = 0;
@@ -226,6 +235,7 @@ void VPlanVerifier::verifyRegions(const VPRegionBlock *Region) const {
       assert(std::find(SuccPreds.begin(), SuccPreds.end(), VPB) !=
                  SuccPreds.end() &&
              "Missing predecessor link");
+      (void) SuccPreds;
     }
 
     // Check block's predecessors
@@ -246,6 +256,7 @@ void VPlanVerifier::verifyRegions(const VPRegionBlock *Region) const {
       assert(std::find(PredSuccs.begin(), PredSuccs.end(), VPB) !=
                  PredSuccs.end() &&
              "Missing successor link");
+      (void)PredSuccs;
     }
   }
 
