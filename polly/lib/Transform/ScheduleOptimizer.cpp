@@ -247,7 +247,7 @@ static isl::union_set getIsolateOptions(isl::set IsolateDomain,
                                         unsigned OutDimsNum) {
   unsigned Dims = IsolateDomain.dim(isl::dim::set);
   assert(OutDimsNum <= Dims &&
-         "The isl_set IsolateDomain is used to describe the range of schedule "
+         "The isl::set IsolateDomain is used to describe the range of schedule "
          "dimensions values, which should be isolated. Consequently, the "
          "number of its dimensions should be greater than or equal to the "
          "number of the schedule dimensions.");
@@ -1442,6 +1442,10 @@ private:
 char IslScheduleOptimizer::ID = 0;
 
 bool IslScheduleOptimizer::runOnScop(Scop &S) {
+
+  // Skip SCoPs in case they're already optimised by PPCGCodeGeneration
+  if (S.isToBeSkipped())
+    return false;
 
   // Skip empty SCoPs but still allow code generation as it will delete the
   // loops present but not needed.

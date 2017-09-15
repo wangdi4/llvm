@@ -186,7 +186,10 @@ namespace {
       Hash.AddTemplateName(Name);
     }
     void VisitNestedNameSpecifier(NestedNameSpecifier *NNS) override {
-      Hash.AddNestedNameSpecifier(NNS);
+      ID.AddBoolean(NNS);
+      if (NNS) {
+        Hash.AddNestedNameSpecifier(NNS);
+      }
     }
   };
 }
@@ -524,6 +527,30 @@ void OMPClauseProfiler::VisitOMPSharedClause(const OMPSharedClause *C) {
 }
 void OMPClauseProfiler::VisitOMPReductionClause(
                                          const OMPReductionClause *C) {
+  Profiler->VisitNestedNameSpecifier(
+      C->getQualifierLoc().getNestedNameSpecifier());
+  Profiler->VisitName(C->getNameInfo().getName());
+  VisitOMPClauseList(C);
+  VistOMPClauseWithPostUpdate(C);
+  for (auto *E : C->privates()) {
+    if (E)
+      Profiler->VisitStmt(E);
+  }
+  for (auto *E : C->lhs_exprs()) {
+    if (E)
+      Profiler->VisitStmt(E);
+  }
+  for (auto *E : C->rhs_exprs()) {
+    if (E)
+      Profiler->VisitStmt(E);
+  }
+  for (auto *E : C->reduction_ops()) {
+    if (E)
+      Profiler->VisitStmt(E);
+  }
+}
+void OMPClauseProfiler::VisitOMPTaskReductionClause(
+    const OMPTaskReductionClause *C) {
   Profiler->VisitNestedNameSpecifier(
       C->getQualifierLoc().getNestedNameSpecifier());
   Profiler->VisitName(C->getNameInfo().getName());
