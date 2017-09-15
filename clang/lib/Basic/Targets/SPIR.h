@@ -39,8 +39,11 @@ public:
       : TargetInfo(Triple) {
     assert(getTriple().getOS() == llvm::Triple::UnknownOS &&
            "SPIR target must use unknown OS");
-    assert(getTriple().getEnvironment() == llvm::Triple::UnknownEnvironment &&
+#if INTEL_CUSTOMIZATION
+    assert((getTriple().getEnvironment() == llvm::Triple::UnknownEnvironment ||
+            getTriple().getEnvironment() == llvm::Triple::IntelFPGA) &&
            "SPIR target must use unknown environment type");
+#endif // INTEL_CUSTOMIZATION
     TLSSupported = false;
     LongWidth = LongAlign = 64;
     AddrSpaceMap = &SPIRAddrSpaceMap;
