@@ -715,18 +715,6 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
     // FIXME: Don't bother expanding UCNs if !tok.hasUCN().
     expandUCNs(UDSuffixBuf, StringRef(SuffixBegin, ThisTokEnd - SuffixBegin));
     if (isValidUDSuffix(PP.getLangOpts(), UDSuffixBuf)) {
-<<<<<<< HEAD
-      // Any suffix pieces we might have parsed are actually part of the
-      // ud-suffix.
-      isLong = false;
-      isUnsigned = false;
-      isLongLong = false;
-      isFloat = false;
-      isHalf = false;
-      isImaginary = false;
-      MicrosoftInteger = 0;
-      hadDSuffix = false; // INTEL
-=======
       if (!isImaginary) {
         // Any suffix pieces we might have parsed are actually part of the
         // ud-suffix.
@@ -737,8 +725,8 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
         isHalf = false;
         isImaginary = false;
         MicrosoftInteger = 0;
+        hadDSuffix = false; // INTEL
       }
->>>>>>> 442707be84f5e5b20bf3d489a2d1423c8f06b4eb
 
       saw_ud_suffix = true;
       return;
