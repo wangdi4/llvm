@@ -290,7 +290,7 @@ isl::space ScopArrayInfo::getSpace() const {
 }
 
 bool ScopArrayInfo::isReadOnly() {
-  isl::union_set WriteSet = give(S.getWrites()).range();
+  isl::union_set WriteSet = S.getWrites().range();
   isl::space Space = getSpace();
   WriteSet = WriteSet.extract_set(Space);
 
@@ -1025,7 +1025,7 @@ MemoryAccess::MemoryAccess(ScopStmt *Stmt, AccessType AccType, isl::map AccRel)
 }
 
 void MemoryAccess::realignParams() {
-  isl::set Ctx = isl::manage(Statement->getParent()->getContext());
+  isl::set Ctx = Statement->getParent()->getContext();
   InvalidDomain = InvalidDomain.gist_params(Ctx);
   AccessRelation = AccessRelation.gist_params(Ctx);
 }
@@ -1179,7 +1179,7 @@ void MemoryAccess::setNewAccessRelation(isl::map NewAccess) {
     // Check whether there is an access for every statement instance.
     isl::set StmtDomain = getStatement()->getDomain();
     StmtDomain = StmtDomain.intersect_params(
-        isl::manage(getStatement()->getParent()->getContext()));
+        getStatement()->getParent()->getContext());
     isl::set NewDomain = NewAccess.domain();
     assert(StmtDomain.is_subset(NewDomain) &&
            "Partial READ accesses not supported");
@@ -1312,7 +1312,7 @@ void ScopStmt::realignParams() {
   for (MemoryAccess *MA : *this)
     MA->realignParams();
 
-  isl::set Ctx = isl::manage(Parent.getContext());
+  isl::set Ctx = Parent.getContext();
   InvalidDomain = InvalidDomain.gist_params(Ctx);
   Domain = Domain.gist_params(Ctx);
 }
@@ -2193,10 +2193,10 @@ void Scop::addParams(const ParameterSetTy &NewParameters) {
   }
 }
 
-__isl_give isl_id *Scop::getIdForParam(const SCEV *Parameter) const {
+isl::id Scop::getIdForParam(const SCEV *Parameter) const {
   // Normalize the SCEV to get the representing element for an invariant load.
   Parameter = getRepresentingInvariantLoadSCEV(Parameter);
-  return isl_id_copy(ParameterIds.lookup(Parameter));
+  return isl::manage(isl_id_copy(ParameterIds.lookup(Parameter)));
 }
 
 __isl_give isl_set *
@@ -2423,7 +2423,7 @@ void Scop::realignParams() {
   for (ScopStmt &Stmt : *this)
     Stmt.realignParams();
   // Simplify the schedule according to the context too.
-  Schedule = isl_schedule_gist_domain_params(Schedule, getContext());
+  Schedule = isl_schedule_gist_domain_params(Schedule, getContext().release());
 }
 
 static __isl_give isl_set *
@@ -2441,7 +2441,7 @@ simplifyAssumptionContext(__isl_take isl_set *AssumptionContext,
         isl_set_gist_params(AssumptionContext, DomainParameters);
   }
 
-  AssumptionContext = isl_set_gist_params(AssumptionContext, S.getContext());
+  AssumptionContext = isl_set_gist_params(AssumptionContext, S.getContext().release());
   return AssumptionContext;
 }
 
@@ -3538,7 +3538,7 @@ Scop::Scop(Region &R, ScalarEvolution &ScalarEvolution, LoopInfo &LI,
 }
 
 void Scop::foldSizeConstantsToRight() {
-  isl_union_set *Accessed = isl_union_map_range(getAccesses());
+  isl_union_set *Accessed = isl_union_map_range(getAccesses().release());
 
   for (auto Array : arrays()) {
     if (Array->getNumberOfDimensions() <= 1)
@@ -3903,7 +3903,7 @@ void Scop::addInvariantLoads(ScopStmt &Stmt, InvariantAccessesTy &InvMAs) {
         if (!Values.count(AccInst))
           continue;
 
-        if (isl_id *ParamId = getIdForParam(Parameter)) {
+        if (isl_id *ParamId = getIdForParam(Parameter).release()) {
           int Dim = isl_set_find_dim_by_id(DomainCtx, isl_dim_param, ParamId);
           if (Dim >= 0)
             DomainCtx = isl_set_eliminate(DomainCtx, isl_dim_param, Dim, 1);
@@ -3938,7 +3938,7 @@ void Scop::addInvariantLoads(ScopStmt &Stmt, InvariantAccessesTy &InvMAs) {
     } else {
       MACtx = isl_set_copy(DomainCtx);
       MACtx = isl_set_subtract(MACtx, isl_set_union(MAInvalidCtx, NHCtx));
-      MACtx = isl_set_gist_params(MACtx, getContext());
+      MACtx = isl_set_gist_params(MACtx, getContext().release());
     }
 
     bool Consolidated = false;
@@ -4106,7 +4106,7 @@ void Scop::hoistInvariantLoads() {
   if (!PollyInvariantLoadHoisting)
     return;
 
-  isl::union_map Writes = give(getWrites());
+  isl::union_map Writes = getWrites();
   for (ScopStmt &Stmt : *this) {
     InvariantAccessesTy InvariantAccesses;
 
@@ -4244,7 +4244,7 @@ const ScopArrayInfo *Scop::getScopArrayInfo(Value *BasePtr, MemoryKind Kind) {
   return SAI;
 }
 
-std::string Scop::getContextStr() const { return stringFromIslObj(Context); }
+std::string Scop::getContextStr() const { return getContext().to_str(); }
 
 std::string Scop::getAssumedContextStr() const {
   assert(AssumedContext && "Assumed context not yet built");
@@ -4278,7 +4278,7 @@ std::pair<std::string, std::string> Scop::getEntryExitStr() const {
   return std::make_pair(EntryName, ExitName);
 }
 
-__isl_give isl_set *Scop::getContext() const { return isl_set_copy(Context); }
+isl::set Scop::getContext() const { return isl::manage(isl_set_copy(Context)); }
 __isl_give isl_space *Scop::getParamSpace() const {
   return isl_set_get_space(Context);
 }
@@ -4292,7 +4292,7 @@ isl::space Scop::getFullParamSpace() const {
 
   unsigned PDim = 0;
   for (const SCEV *Parameter : Parameters) {
-    isl::id Id = isl::manage(getIdForParam(Parameter));
+    isl::id Id = getIdForParam(Parameter);
     Space = Space.set_dim_id(isl::dim::param, PDim++, Id);
   }
 
@@ -4466,7 +4466,7 @@ bool Scop::trackAssumption(AssumptionKind Kind, __isl_keep isl_set *Set,
 void Scop::addAssumption(AssumptionKind Kind, __isl_take isl_set *Set,
                          DebugLoc Loc, AssumptionSign Sign, BasicBlock *BB) {
   // Simplify the assumptions/restrictions first.
-  Set = isl_set_gist_params(Set, getContext());
+  Set = isl_set_gist_params(Set, getContext().release());
 
   if (!trackAssumption(Kind, Set, Loc, Sign, BB)) {
     isl_set_free(Set);
@@ -4681,51 +4681,42 @@ __isl_give isl_pw_aff *Scop::getPwAffOnly(const SCEV *E, BasicBlock *BB) {
   return PWAC.first;
 }
 
-__isl_give isl_union_map *
+isl::union_map
 Scop::getAccessesOfType(std::function<bool(MemoryAccess &)> Predicate) {
-  isl_union_map *Accesses = isl_union_map_empty(getParamSpace());
+  isl::union_map Accesses = isl::union_map::empty(isl::manage(getParamSpace()));
 
   for (ScopStmt &Stmt : *this) {
     for (MemoryAccess *MA : Stmt) {
       if (!Predicate(*MA))
         continue;
 
-      isl_set *Domain = Stmt.getDomain().release();
-      isl_map *AccessDomain = MA->getAccessRelation().release();
-      AccessDomain = isl_map_intersect_domain(AccessDomain, Domain);
-      Accesses = isl_union_map_add_map(Accesses, AccessDomain);
+      isl::set Domain = Stmt.getDomain();
+      isl::map AccessDomain = MA->getAccessRelation();
+      AccessDomain = AccessDomain.intersect_domain(Domain);
+      Accesses = Accesses.add_map(AccessDomain);
     }
   }
 
-  return isl_union_map_coalesce(Accesses);
-
-  for (auto X : this->getInvariantAccesses())
-    for (auto A : X.InvariantAccesses) {
-      if (!Predicate(*A))
-        continue;
-      Accesses =
-          isl_union_map_add_map(Accesses, A->getAccessRelation().release());
-    }
-  return isl_union_map_coalesce(Accesses);
+  return Accesses.coalesce();
 }
 
-__isl_give isl_union_map *Scop::getMustWrites() {
+isl::union_map Scop::getMustWrites() {
   return getAccessesOfType([](MemoryAccess &MA) { return MA.isMustWrite(); });
 }
 
-__isl_give isl_union_map *Scop::getMayWrites() {
+isl::union_map Scop::getMayWrites() {
   return getAccessesOfType([](MemoryAccess &MA) { return MA.isMayWrite(); });
 }
 
-__isl_give isl_union_map *Scop::getWrites() {
+isl::union_map Scop::getWrites() {
   return getAccessesOfType([](MemoryAccess &MA) { return MA.isWrite(); });
 }
 
-__isl_give isl_union_map *Scop::getReads() {
+isl::union_map Scop::getReads() {
   return getAccessesOfType([](MemoryAccess &MA) { return MA.isRead(); });
 }
 
-__isl_give isl_union_map *Scop::getAccesses() {
+isl::union_map Scop::getAccesses() {
   return getAccessesOfType([](MemoryAccess &MA) { return true; });
 }
 
