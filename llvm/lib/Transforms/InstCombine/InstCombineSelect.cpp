@@ -447,8 +447,7 @@ static Value *foldSelectCttzCtlz(ICmpInst *ICI, Value *TrueVal, Value *FalseVal,
     IntrinsicInst *II = cast<IntrinsicInst>(Count);
     // Explicitly clear the 'undef_on_zero' flag.
     IntrinsicInst *NewI = cast<IntrinsicInst>(II->clone());
-    Type *Ty = NewI->getArgOperand(1)->getType();
-    NewI->setArgOperand(1, Constant::getNullValue(Ty));
+    NewI->setArgOperand(1, ConstantInt::getFalse(NewI->getContext()));
     Builder.Insert(NewI);
     return Builder.CreateZExtOrTrunc(NewI, ValueOnZero->getType());
   }
@@ -1389,9 +1388,17 @@ Instruction *InstCombiner::visitSelectInst(SelectInst &SI) {
     auto SPF = SPR.Flavor;
 
     if (SelectPatternResult::isMinOrMax(SPF)) {
-      // Canonicalize so that type casts are outside select patterns.
-      if (LHS->getType()->getPrimitiveSizeInBits() !=
-          SelType->getPrimitiveSizeInBits()) {
+      // Canonicalize so that
+      // - type casts are outside select patterns.
+      // - float clamp is transformed to min/max pattern
+
+      bool IsCastNeeded = LHS->getType() != SelType;
+      Value *CmpLHS = cast<CmpInst>(CondVal)->getOperand(0);
+      Value *CmpRHS = cast<CmpInst>(CondVal)->getOperand(1);
+      if (IsCastNeeded ||
+          (LHS->getType()->isFPOrFPVectorTy() &&
+           ((CmpLHS != LHS && CmpLHS != RHS) ||
+            (CmpRHS != LHS && CmpRHS != RHS)))) {
         CmpInst::Predicate Pred = getCmpPredicateForMinMax(SPF, SPR.Ordered);
 
         Value *Cmp;
@@ -1404,10 +1411,12 @@ Instruction *InstCombiner::visitSelectInst(SelectInst &SI) {
           Cmp = Builder.CreateFCmp(Pred, LHS, RHS);
         }
 
-        Value *NewSI = Builder.CreateCast(
-            CastOp, Builder.CreateSelect(Cmp, LHS, RHS, SI.getName(), &SI),
-            SelType);
-        return replaceInstUsesWith(SI, NewSI);
+        Value *NewSI = Builder.CreateSelect(Cmp, LHS, RHS, SI.getName(), &SI);
+        if (!IsCastNeeded)
+          return replaceInstUsesWith(SI, NewSI);
+
+        Value *NewCast = Builder.CreateCast(CastOp, NewSI, SelType);
+        return replaceInstUsesWith(SI, NewCast);
       }
     }
 
