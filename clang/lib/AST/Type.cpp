@@ -3520,15 +3520,11 @@ LinkageInfo LinkageComputer::computeTypeLinkageInfo(const Type *T) {
     return computeTypeLinkageInfo(
         cast<ObjCObjectPointerType>(T)->getPointeeType());
   case Type::Atomic:
-<<<<<<< HEAD
-    return computeLinkageInfo(cast<AtomicType>(T)->getValueType());
+    return computeTypeLinkageInfo(cast<AtomicType>(T)->getValueType());
 #if INTEL_CUSTOMIZATION
   case Type::Channel:
-    return computeLinkageInfo(cast<ChannelType>(T)->getElementType());
+    return computeTypeLinkageInfo(cast<ChannelType>(T)->getElementType());
 #endif // INTEL_CUSTOMIZATION
-=======
-    return computeTypeLinkageInfo(cast<AtomicType>(T)->getValueType());
->>>>>>> e972363a0a6b3d98f622ab83f76acf69774b7130
   case Type::Pipe:
     return computeTypeLinkageInfo(cast<PipeType>(T)->getElementType());
   }

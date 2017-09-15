@@ -1365,26 +1365,15 @@ LinkageInfo LinkageComputer::getLVForDecl(const NamedDecl *D,
   D->setCachedLinkage(LV.getLinkage());
 
 #ifndef NDEBUG
-<<<<<<< HEAD
-    // In C (because of gnu inline) and in c++ with microsoft extensions an
-    // static can follow an extern, so we can have two decls with different
-    // linkages.
-    const LangOptions &Opts = D->getASTContext().getLangOpts();
-#if INTEL_CUSTOMIZATION
-    // CQ#369830 - static declarations are treated differently.
-    if (!Opts.CPlusPlus || Opts.MicrosoftExt || Opts.IntelCompat)
-#else
-    if (!Opts.CPlusPlus || Opts.MicrosoftExt)
-#endif // INTEL_CUSTOMIZATION
-      return LV;
-=======
   // In C (because of gnu inline) and in c++ with microsoft extensions an
   // static can follow an extern, so we can have two decls with different
   // linkages.
   const LangOptions &Opts = D->getASTContext().getLangOpts();
-  if (!Opts.CPlusPlus || Opts.MicrosoftExt)
+#if INTEL_CUSTOMIZATION
+  // CQ#369830 - static declarations are treated differently.
+  if (!Opts.CPlusPlus || Opts.MicrosoftExt || Opts.IntelCompat)
+#endif // INTEL_CUSTOMIZATION
     return LV;
->>>>>>> e972363a0a6b3d98f622ab83f76acf69774b7130
 
   // We have just computed the linkage for this decl. By induction we know
   // that all other computed linkages match, check that the one we just
