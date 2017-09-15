@@ -382,7 +382,7 @@ bool ScopArrayInfo::updateSizes(ArrayRef<const SCEV *> NewSizes,
       DimensionSizesPw.push_back(nullptr);
       continue;
     }
-    isl::pw_aff Size = isl::manage(S.getPwAffOnly(Expr));
+    isl::pw_aff Size = S.getPwAffOnly(Expr);
     DimensionSizesPw.push_back(Size);
   }
   return true;
@@ -1228,7 +1228,7 @@ isl::map ScopStmt::getSchedule() const {
     return isl::manage(isl_map_from_aff(isl_aff_zero_on_domain(
         isl_local_space_from_space(getDomainSpace().release()))));
   }
-  auto *Schedule = getParent()->getSchedule();
+  auto *Schedule = getParent()->getSchedule().release();
   if (!Schedule) {
     isl_set_free(Domain);
     return nullptr;
@@ -1688,7 +1688,7 @@ buildConditionSets(Scop &S, BasicBlock *BB, TerminatorInst *TI, Loop *L,
 void ScopStmt::buildDomain() {
   isl::id Id = isl::id::alloc(getIslCtx(), getBaseName(), this);
 
-  Domain = isl::manage(getParent()->getDomainConditions(this));
+  Domain = getParent()->getDomainConditions(this);
   Domain = Domain.set_tuple_id(Id);
 }
 
@@ -2200,7 +2200,7 @@ isl::id Scop::getIdForParam(const SCEV *Parameter) const {
 }
 
 isl::set Scop::addNonEmptyDomainConstraints(isl::set C) const {
-  isl_set *DomainContext = isl_union_set_params(getDomains());
+  isl_set *DomainContext = isl_union_set_params(getDomains().release());
   return isl::manage(isl_set_intersect_params(C.release(), DomainContext));
 }
 
@@ -2435,7 +2435,7 @@ simplifyAssumptionContext(__isl_take isl_set *AssumptionContext,
   // domains, thus we cannot use the remaining domain to simplify the
   // assumptions.
   if (!S.hasErrorBlock()) {
-    isl_set *DomainParameters = isl_union_set_params(S.getDomains());
+    isl_set *DomainParameters = isl_union_set_params(S.getDomains().release());
     AssumptionContext =
         isl_set_gist_params(AssumptionContext, DomainParameters);
   }
@@ -2558,7 +2558,7 @@ static bool calculateMinMaxAccess(Scop::AliasGroupTy AliasGroup, Scop &S,
 
   MinMaxAccesses.reserve(AliasGroup.size());
 
-  isl::union_set Domains = give(S.getDomains());
+  isl::union_set Domains = S.getDomains();
   isl::union_map Accesses = isl::union_map::empty(S.getParamSpace());
 
   for (MemoryAccess *MA : AliasGroup)
@@ -2681,14 +2681,14 @@ static inline __isl_give isl_set *addDomainDimId(__isl_take isl_set *Domain,
   return isl_set_set_dim_id(Domain, isl_dim_set, Dim, DimId);
 }
 
-__isl_give isl_set *Scop::getDomainConditions(const ScopStmt *Stmt) const {
+isl::set Scop::getDomainConditions(const ScopStmt *Stmt) const {
   return getDomainConditions(Stmt->getEntryBlock());
 }
 
-__isl_give isl_set *Scop::getDomainConditions(BasicBlock *BB) const {
+isl::set Scop::getDomainConditions(BasicBlock *BB) const {
   auto DIt = DomainMap.find(BB);
   if (DIt != DomainMap.end())
-    return DIt->getSecond().copy();
+    return DIt->getSecond();
 
   auto &RI = *R.getRegionInfo();
   auto *BBR = RI.getRegionFor(BB);
@@ -3096,7 +3096,7 @@ isl::set Scop::getPredecessorDomainConstraints(BasicBlock *BB, isl::set Domain,
       PropagatedRegions.insert(PredR);
     }
 
-    auto *PredBBDom = getDomainConditions(PredBB);
+    auto *PredBBDom = getDomainConditions(PredBB).release();
     Loop *PredBBLoop = getFirstNonBoxedLoopFor(PredBB, LI, getBoxedLoops());
 
     PredBBDom = adjustDomainDimensions(*this, PredBBDom, PredBBLoop, BBLoop);
@@ -4301,9 +4301,9 @@ isl::space Scop::getFullParamSpace() const {
   return Space;
 }
 
-__isl_give isl_set *Scop::getAssumedContext() const {
+isl::set Scop::getAssumedContext() const {
   assert(AssumedContext && "Assumed context not yet built");
-  return isl_set_copy(AssumedContext);
+  return isl::manage(isl_set_copy(AssumedContext));
 }
 
 bool Scop::isProfitable(bool ScalarsAreUnprofitable) const {
@@ -4335,8 +4335,8 @@ bool Scop::isProfitable(bool ScalarsAreUnprofitable) const {
 }
 
 bool Scop::hasFeasibleRuntimeContext() const {
-  auto *PositiveContext = getAssumedContext();
-  auto *NegativeContext = getInvalidContext();
+  auto *PositiveContext = getAssumedContext().release();
+  auto *NegativeContext = getInvalidContext().release();
   PositiveContext =
       addNonEmptyDomainConstraints(isl::manage(PositiveContext)).release();
   bool IsFeasible = !(isl_set_is_empty(PositiveContext) ||
@@ -4347,7 +4347,7 @@ bool Scop::hasFeasibleRuntimeContext() const {
     return false;
   }
 
-  auto *DomainContext = isl_union_set_params(getDomains());
+  auto *DomainContext = isl_union_set_params(getDomains().release());
   IsFeasible = !isl_set_is_subset(DomainContext, NegativeContext);
   IsFeasible &= !isl_set_is_subset(Context, NegativeContext);
   isl_set_free(NegativeContext);
@@ -4499,7 +4499,7 @@ void Scop::addRecordedAssumptions() {
     }
 
     // If the domain was deleted the assumptions are void.
-    isl_set *Dom = getDomainConditions(AS.BB);
+    isl_set *Dom = getDomainConditions(AS.BB).release();
     if (!Dom) {
       isl_set_free(AS.Set);
       continue;
@@ -4529,8 +4529,8 @@ void Scop::invalidate(AssumptionKind Kind, DebugLoc Loc, BasicBlock *BB) {
                 AS_ASSUMPTION, BB);
 }
 
-__isl_give isl_set *Scop::getInvalidContext() const {
-  return isl_set_copy(InvalidContext);
+isl::set Scop::getInvalidContext() const {
+  return isl::manage(isl_set_copy(InvalidContext));
 }
 
 void Scop::printContext(raw_ostream &OS) const {
@@ -4666,20 +4666,20 @@ __isl_give PWACtx Scop::getPwAff(const SCEV *E, BasicBlock *BB,
   return Affinator.getPwAff(SE->getZero(E->getType()), BB);
 }
 
-__isl_give isl_union_set *Scop::getDomains() const {
+isl::union_set Scop::getDomains() const {
   isl_space *EmptySpace = isl_space_params_alloc(getIslCtx(), 0);
   isl_union_set *Domain = isl_union_set_empty(EmptySpace);
 
   for (const ScopStmt &Stmt : *this)
     Domain = isl_union_set_add_set(Domain, Stmt.getDomain().release());
 
-  return Domain;
+  return isl::manage(Domain);
 }
 
-__isl_give isl_pw_aff *Scop::getPwAffOnly(const SCEV *E, BasicBlock *BB) {
+isl::pw_aff Scop::getPwAffOnly(const SCEV *E, BasicBlock *BB) {
   PWACtx PWAC = getPwAff(E, BB);
   isl_set_free(PWAC.second);
-  return PWAC.first;
+  return isl::manage(PWAC.first);
 }
 
 isl::union_map
@@ -4736,24 +4736,24 @@ bool Scop::containsExtensionNode(__isl_keep isl_schedule *Schedule) {
                                                      nullptr) == isl_stat_error;
 }
 
-__isl_give isl_union_map *Scop::getSchedule() const {
-  auto *Tree = getScheduleTree();
+isl::union_map Scop::getSchedule() const {
+  auto *Tree = getScheduleTree().release();
   if (containsExtensionNode(Tree)) {
     isl_schedule_free(Tree);
     return nullptr;
   }
   auto *S = isl_schedule_get_map(Tree);
   isl_schedule_free(Tree);
-  return S;
+  return isl::manage(S);
 }
 
-__isl_give isl_schedule *Scop::getScheduleTree() const {
-  return isl_schedule_intersect_domain(isl_schedule_copy(Schedule),
-                                       getDomains());
+isl::schedule Scop::getScheduleTree() const {
+  return isl::manage(isl_schedule_intersect_domain(isl_schedule_copy(Schedule),
+                                                   getDomains().release()));
 }
 
 void Scop::setSchedule(__isl_take isl_union_map *NewSchedule) {
-  auto *S = isl_schedule_from_domain(getDomains());
+  auto *S = isl_schedule_from_domain(getDomains().release());
   S = isl_schedule_insert_partial_schedule(
       S, isl_multi_union_pw_aff_from_union_map(NewSchedule));
   isl_schedule_free(Schedule);
