@@ -50,9 +50,14 @@ struct PrintingPolicy {
       UseVoidForZeroParams(!LO.CPlusPlus),
       TerseOutput(false), PolishForDeclaration(false),
       Half(LO.Half), MSWChar(LO.MicrosoftExt && !LO.WChar),
+<<<<<<< HEAD
       IncludeNewlines(true), MSVCFormatting(false), // INTEL
       IntelCompat(LO.IntelCompat) // INTEL
   { } // INTEL
+=======
+      IncludeNewlines(true), MSVCFormatting(false),
+      ConstantsAsWritten(false) { }
+>>>>>>> 05fae15d08c7298a9a14bde5b50d1eafa298dee9
 
   /// \brief Adjust this printing policy for cases where it's known that
   /// we're printing C++ code (for instance, if AST dumping reaches a
@@ -203,11 +208,31 @@ struct PrintingPolicy {
   /// spaces after template arguments.
   bool MSVCFormatting : 1;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   /// \brief Whether to use Intel Compatability printing options
   bool IntelCompat : 1;
 #endif // INTEL_CUSTOMIZATION
 
+=======
+  /// \brief Whether we should print the constant expressions as written in the
+  /// sources.
+  ///
+  /// This flag determines whether constants expressions like
+  ///
+  /// \code
+  /// 0x10
+  /// 2.5e3
+  /// \endcode
+  ///
+  /// will be printed as written or as follows:
+  ///
+  /// \code
+  /// 0x10
+  /// 2.5e3
+  /// \endcode
+  bool ConstantsAsWritten;
+>>>>>>> 05fae15d08c7298a9a14bde5b50d1eafa298dee9
 };
 
 } // end namespace clang
