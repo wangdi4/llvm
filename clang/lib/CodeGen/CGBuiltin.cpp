@@ -731,8 +731,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
   default: break;  // Handle intrinsics and libm functions below.
   case Builtin::BI__builtin___CFStringMakeConstantString:
   case Builtin::BI__builtin___NSStringMakeConstantString:
-<<<<<<< HEAD
-    return RValue::get(CGM.EmitConstantExpr(E, E->getType(), nullptr));
+    return RValue::get(ConstantEmitter(*this).emitAbstract(E, E->getType()));
 #if INTEL_CUSTOMIZATION
   // CQ373809: unknown '__intel_***' builtin functions
   case Builtin::BI__intel_castu32_f32: {
@@ -752,9 +751,6 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
   case Builtin::BI__builtin_va_arg_pack:
     return RValue::get(Builder.CreateCall(CGM.getIntrinsic(Intrinsic::vaargpack)));
 #endif // INTEL_CUSTOMIZATION
-=======
-    return RValue::get(ConstantEmitter(*this).emitAbstract(E, E->getType()));
->>>>>>> c2327951c910a8e803db77cc748bcec04d5eaab0
   case Builtin::BI__builtin_stdarg_start:
   case Builtin::BI__builtin_va_start:
   case Builtin::BI__va_start:
