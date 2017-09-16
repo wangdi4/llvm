@@ -34,12 +34,9 @@
 #include "llvm/MC/MachineLocation.h"
 #include "llvm/MC/MCSection.h"
 #include "llvm/MC/MCStreamer.h"
-<<<<<<< HEAD
-#include "llvm/Support/CommandLine.h"
-=======
+#include "llvm/Support/CommandLine.h"             // INTEL
 #include "llvm/MC/MCSymbol.h"
 #include "llvm/Support/Casting.h"
->>>>>>> ee8a71b7340b1de52e3367cdf22800767133d3a1
 #include "llvm/Target/TargetFrameLowering.h"
 #include "llvm/Target/TargetLoweringObjectFile.h"
 #include "llvm/Target/TargetMachine.h"
