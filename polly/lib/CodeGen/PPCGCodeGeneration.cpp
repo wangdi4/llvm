@@ -1219,6 +1219,8 @@ void GPUNodeBuilder::createUser(__isl_take isl_ast_node *UserStmt) {
   const char *Str = isl_id_get_name(Id);
   if (!strcmp(Str, "kernel")) {
     createKernel(UserStmt);
+    if (PollyManagedMemory)
+      createCallSynchronizeDevice();
     isl_ast_expr_free(Expr);
     return;
   }
@@ -1248,7 +1250,6 @@ void GPUNodeBuilder::createUser(__isl_take isl_ast_node *UserStmt) {
     if (!PollyManagedMemory) {
       createDataTransfer(UserStmt, DEVICE_TO_HOST);
     } else {
-      createCallSynchronizeDevice();
       isl_ast_node_free(UserStmt);
     }
     isl_ast_expr_free(Expr);
@@ -3139,7 +3140,8 @@ public:
       DEBUG(dbgs() << getUniqueScopName(S)
                    << " does not have permutable bands. Bailing out\n";);
     } else {
-      Schedule = map_to_device(PPCGGen, Schedule);
+      const bool CreateTransferToFromDevice = !PollyManagedMemory;
+      Schedule = map_to_device(PPCGGen, Schedule, CreateTransferToFromDevice);
       PPCGGen->tree = generate_code(PPCGGen, isl_schedule_copy(Schedule));
     }
 
@@ -3431,6 +3433,9 @@ public:
     SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
     DL = &S->getRegion().getEntry()->getModule()->getDataLayout();
     RI = &getAnalysis<RegionInfoPass>().getRegionInfo();
+
+    DEBUG(dbgs() << "PPCGCodeGen running on : " << getUniqueScopName(S)
+                 << " | loop depth: " << S->getMaxLoopDepth() << "\n");
 
     // We currently do not support functions other than intrinsics inside
     // kernels, as code generation will need to offload function calls to the
