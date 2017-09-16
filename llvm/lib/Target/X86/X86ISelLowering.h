@@ -1291,6 +1291,10 @@ namespace llvm {
     EmitVAStartSaveXMMRegsWithCustomInserter(MachineInstr &BInstr,
                                              MachineBasicBlock *BB) const;
 
+    MachineBasicBlock *EmitLoweredCascadedSelect(MachineInstr &MI1,
+                                                 MachineInstr &MI2,
+                                                 MachineBasicBlock *BB) const;
+
     MachineBasicBlock *EmitLoweredSelect(MachineInstr &I,
                                          MachineBasicBlock *BB) const;
 
