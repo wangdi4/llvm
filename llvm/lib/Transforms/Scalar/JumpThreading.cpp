@@ -173,7 +173,7 @@ JumpThreadingPass::JumpThreadingPass(int T, bool AllowCFGSimps) {       // INTEL
 //    ...  // P(cond == true) = 1%
 //  }
 //
-//  Here we know that when block A is taken, c must be true, which means
+//  Here we know that when block A is taken, cond must be true, which means
 //      P(cond == true | A) = 1
 //
 //  Given that P(cond == true) = P(cond == true | A) * P(A) +
