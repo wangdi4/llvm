@@ -712,7 +712,7 @@ private:
     PointerIntPair<const SCEV *, 1> MaxAndComplete;
 
     /// True iff the backedge is taken either exactly Max or zero times.
-    bool MaxOrZero;
+    bool MaxOrZero = false;
 
     /// \name Helper projection functions on \c MaxAndComplete.
     /// @{
