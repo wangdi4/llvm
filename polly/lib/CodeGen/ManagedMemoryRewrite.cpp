@@ -121,21 +121,26 @@ static void expandConstantExpr(ConstantExpr *Cur, PollyIRBuilder &Builder,
                                Instruction *Parent, int index,
                                SmallPtrSet<Instruction *, 4> &Expands) {
   assert(Cur && "invalid constant expression passed");
-
   Instruction *I = Cur->getAsInstruction();
+  assert(I && "unable to convert ConstantExpr to Instruction");
+
+  DEBUG(dbgs() << "Expanding ConstantExpression: " << *Cur
+               << " | in Instruction: " << *I << "\n";);
+
+  // Invalidate `Cur` so that no one after this point uses `Cur`. Rather,
+  // they should mutate `I`.
+  Cur = nullptr;
+
   Expands.insert(I);
   Parent->setOperand(index, I);
 
-  assert(I && "unable to convert ConstantExpr to Instruction");
   // The things that `Parent` uses (its operands) should be created
   // before `Parent`.
   Builder.SetInsertPoint(Parent);
   Builder.Insert(I);
 
-  DEBUG(dbgs() << "Expanding ConstantExpression: " << *Cur
-               << " | in Instruction: " << *I << "\n";);
-  for (unsigned i = 0; i < Cur->getNumOperands(); i++) {
-    Value *Op = Cur->getOperand(i);
+  for (unsigned i = 0; i < I->getNumOperands(); i++) {
+    Value *Op = I->getOperand(i);
     assert(isa<Constant>(Op) && "constant must have a constant operand");
 
     if (ConstantExpr *CExprOp = dyn_cast<ConstantExpr>(Op))
@@ -213,13 +218,15 @@ replaceGlobalArray(Module &M, const DataLayout &DL, GlobalVariable &Array,
   // At this point, we have committed to replacing this array.
   ReplacedGlobals.insert(&Array);
 
-  std::string NewName = (Array.getName() + Twine(".toptr")).str();
+  std::string NewName = Array.getName();
+  NewName += ".toptr";
   GlobalVariable *ReplacementToArr =
       cast<GlobalVariable>(M.getOrInsertGlobal(NewName, ElemPtrTy));
   ReplacementToArr->setInitializer(ConstantPointerNull::get(ElemPtrTy));
 
   Function *PollyMallocManaged = getOrCreatePollyMallocManaged(M);
-  Twine FnName = Array.getName() + ".constructor";
+  std::string FnName = Array.getName();
+  FnName += ".constructor";
   PollyIRBuilder Builder(M.getContext());
   FunctionType *Ty = FunctionType::get(Builder.getVoidTy(), false);
   const GlobalValue::LinkageTypes Linkage = Function::ExternalLinkage;
@@ -317,6 +324,33 @@ static void rewriteAllocaAsManagedMemory(AllocaInst *Alloca,
   }
 }
 
+// Replace all uses of `Old` with `New`, even inside `ConstantExpr`.
+//
+// `replaceAllUsesWith` does replace values in `ConstantExpr`. This function
+// actually does replace it in `ConstantExpr`. The caveat is that if there is
+// a use that is *outside* a function (say, at global declarations), we fail.
+// So, this is meant to be used on values which we know will only be used
+// within functions.
+//
+// This process works by looking through the uses of `Old`. If it finds a
+// `ConstantExpr`, it recursively looks for the owning instruction.
+// Then, it expands all the `ConstantExpr` to instructions and replaces
+// `Old` with `New` in the expanded instructions.
+static void replaceAllUsesAndConstantUses(Value *Old, Value *New,
+                                          PollyIRBuilder &Builder) {
+  SmallVector<Instruction *, 4> UserInstructions;
+  // Get all instructions that use array. We need to do this weird thing
+  // because `Constant`s that contain this array neeed to be expanded into
+  // instructions so that we can replace their parameters. `Constant`s cannot
+  // be edited easily, so we choose to convert all `Constant`s to
+  // `Instruction`s and handle all of the uses of `Array` uniformly.
+  for (Use &ArrayUse : Old->uses())
+    getInstructionUsersOfValue(ArrayUse.getUser(), UserInstructions);
+
+  for (Instruction *I : UserInstructions)
+    rewriteOldValToNew(I, Old, New, Builder);
+}
+
 class ManagedMemoryRewritePass : public ModulePass {
 public:
   static char ID;
@@ -330,18 +364,22 @@ public:
     Function *Malloc = M.getFunction("malloc");
 
     if (Malloc) {
+      PollyIRBuilder Builder(M.getContext());
       Function *PollyMallocManaged = getOrCreatePollyMallocManaged(M);
       assert(PollyMallocManaged && "unable to create polly_mallocManaged");
-      Malloc->replaceAllUsesWith(PollyMallocManaged);
+
+      replaceAllUsesAndConstantUses(Malloc, PollyMallocManaged, Builder);
       Malloc->eraseFromParent();
     }
 
     Function *Free = M.getFunction("free");
 
     if (Free) {
+      PollyIRBuilder Builder(M.getContext());
       Function *PollyFreeManaged = getOrCreatePollyFreeManaged(M);
       assert(PollyFreeManaged && "unable to create polly_freeManaged");
-      Free->replaceAllUsesWith(PollyFreeManaged);
+
+      replaceAllUsesAndConstantUses(Free, PollyFreeManaged, Builder);
       Free->eraseFromParent();
     }
 
