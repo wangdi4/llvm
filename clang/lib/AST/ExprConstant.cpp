@@ -984,6 +984,7 @@ namespace {
     void moveFromAndCancel(SpeculativeEvaluationRAII &&Other) {
       Info = Other.Info;
       OldStatus = Other.OldStatus;
+      OldIsSpeculativelyEvaluating = Other.OldIsSpeculativelyEvaluating;
       Other.Info = nullptr;
     }
 
@@ -9785,6 +9786,8 @@ public:
   VoidExprEvaluator(EvalInfo &Info) : ExprEvaluatorBaseTy(Info) {}
 
   bool Success(const APValue &V, const Expr *e) { return true; }
+
+  bool ZeroInitialization(const Expr *E) { return true; }
 
   bool VisitCastExpr(const CastExpr *E) {
     switch (E->getCastKind()) {

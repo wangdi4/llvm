@@ -352,7 +352,11 @@ def SDTFmaRound : SDTypeProfile<1, 4, [SDTCisSameAs<0,1>,
                            SDTCisSameAs<1,2>, SDTCisSameAs<1,3>,
                            SDTCisFP<0>, SDTCisVT<4, i32>]>;
 
-def X86PAlignr : SDNode<"X86ISD::PALIGNR", SDTShuff3OpI>;
+def X86PAlignr : SDNode<"X86ISD::PALIGNR",
+                        SDTypeProfile<1, 3, [SDTCVecEltisVT<0, i8>,
+                                             SDTCisSameAs<0,1>,
+                                             SDTCisSameAs<0,2>,
+                                             SDTCisVT<3, i8>]>>;
 def X86VAlign  : SDNode<"X86ISD::VALIGN", SDTShuff3OpI>;
 
 def X86Conflict : SDNode<"X86ISD::CONFLICT", SDTIntUnaryOp>;
@@ -756,15 +760,6 @@ def memop : PatFrag<(ops node:$ptr), (vec128load node:$ptr), [{
 def memopv4f32 : PatFrag<(ops node:$ptr), (v4f32 (memop node:$ptr))>;
 def memopv2f64 : PatFrag<(ops node:$ptr), (v2f64 (memop node:$ptr))>;
 def memopv2i64 : PatFrag<(ops node:$ptr), (v2i64 (memop node:$ptr))>;
-
-// SSSE3 uses MMX registers for some instructions. They aren't aligned on a
-// 16-byte boundary.
-// FIXME: 8 byte alignment for mmx reads is not required
-def memop64 : PatFrag<(ops node:$ptr), (load node:$ptr), [{
-  return cast<LoadSDNode>(N)->getAlignment() >= 8;
-}]>;
-
-def memopmmx  : PatFrag<(ops node:$ptr), (x86mmx  (memop64 node:$ptr))>;
 
 def X86masked_gather  : SDNode<"X86ISD::MGATHER",  SDTMaskedGather,
                        [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
