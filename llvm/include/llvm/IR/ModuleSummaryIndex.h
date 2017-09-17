@@ -32,6 +32,7 @@
 #include <cstdint>
 #include <map>
 #include <memory>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -46,7 +47,13 @@ template <typename T> struct MappingTraits;
 
 /// \brief Class to accumulate and hold information about a callee.
 struct CalleeInfo {
-  enum class HotnessType : uint8_t { Unknown = 0, Cold = 1, None = 2, Hot = 3 };
+  enum class HotnessType : uint8_t {
+    Unknown = 0,
+    Cold = 1,
+    None = 2,
+    Hot = 3,
+    Critical = 4
+  };
   HotnessType Hotness = HotnessType::Unknown;
 
   CalleeInfo() = default;
@@ -515,7 +522,7 @@ using ModulePathStringTableTy = StringMap<std::pair<uint64_t, ModuleHash>>;
 
 /// Map of global value GUID to its summary, used to identify values defined in
 /// a particular module, and provide efficient access to their summary.
-using GVSummaryMapTy = std::map<GlobalValue::GUID, GlobalValueSummary *>;
+using GVSummaryMapTy = DenseMap<GlobalValue::GUID, GlobalValueSummary *>;
 
 /// Class to hold module path string table and global value map,
 /// and encapsulate methods for operating on them.
@@ -541,6 +548,9 @@ private:
   /// GVFlags::Live==false are really dead. Otherwise, all values must be
   /// considered live.
   bool WithGlobalValueDeadStripping = false;
+
+  std::set<std::string> CfiFunctionDefs;
+  std::set<std::string> CfiFunctionDecls;
 
   // YAML I/O support.
   friend yaml::MappingTraits<ModuleSummaryIndex>;
@@ -592,6 +602,12 @@ public:
     const auto I = OidGuidMap.find(OriginalID);
     return I == OidGuidMap.end() ? 0 : I->second;
   }
+
+  std::set<std::string> &cfiFunctionDefs() { return CfiFunctionDefs; }
+  const std::set<std::string> &cfiFunctionDefs() const { return CfiFunctionDefs; }
+
+  std::set<std::string> &cfiFunctionDecls() { return CfiFunctionDecls; }
+  const std::set<std::string> &cfiFunctionDecls() const { return CfiFunctionDecls; }
 
   /// Add a global value summary for a value of the given name.
   void addGlobalValueSummary(StringRef ValueName,
