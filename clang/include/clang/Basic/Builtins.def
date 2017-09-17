@@ -52,6 +52,7 @@
 //  LL  -> long long
 //  LLL -> __int128_t (e.g. LLLi)
 //  W   -> int64_t
+//  N   -> 'int' size if target is LP64, 'L' otherwise.
 //  S   -> signed
 //  U   -> unsigned
 //  I   -> Required to constant fold to an integer constant expression.
@@ -961,12 +962,12 @@ BUILTIN(__debugbreak, "v",   "n")
 LANGBUILTIN(__assume, "vb",  "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
 #endif // INTEL_CUSTOMIZATION
 LIBBUILTIN(_byteswap_ushort, "UsUs",     "fnc", "stdlib.h", ALL_MS_LANGUAGES)
-LIBBUILTIN(_byteswap_ulong,  "ULiULi",   "fnc", "stdlib.h", ALL_MS_LANGUAGES)
+LIBBUILTIN(_byteswap_ulong,  "UNiUNi",   "fnc", "stdlib.h", ALL_MS_LANGUAGES)
 LIBBUILTIN(_byteswap_uint64, "ULLiULLi", "fnc", "stdlib.h", ALL_MS_LANGUAGES)
 LANGBUILTIN(__debugbreak,     "v",   "n", ALL_MS_LANGUAGES)
 #endif // INTEL_SPECIFIC_IL0_BACKEND
-LANGBUILTIN(__exception_code, "ULi", "n", ALL_MS_LANGUAGES)
-LANGBUILTIN(_exception_code,  "ULi", "n", ALL_MS_LANGUAGES)
+LANGBUILTIN(__exception_code, "UNi", "n", ALL_MS_LANGUAGES)
+LANGBUILTIN(_exception_code,  "UNi", "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(__exception_info, "v*",  "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_exception_info,  "v*",  "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(__abnormal_termination, "i", "n", ALL_MS_LANGUAGES)
@@ -974,13 +975,13 @@ LANGBUILTIN(_abnormal_termination,  "i", "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(__GetExceptionInfo, "v*.", "ntu", ALL_MS_LANGUAGES)
 LANGBUILTIN(_InterlockedAnd8,   "ccD*c",        "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_InterlockedAnd16,  "ssD*s",        "n", ALL_MS_LANGUAGES)
-LANGBUILTIN(_InterlockedAnd,    "LiLiD*Li",     "n", ALL_MS_LANGUAGES)
+LANGBUILTIN(_InterlockedAnd,    "NiNiD*Ni",     "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_InterlockedCompareExchange8,   "ccD*cc",         "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_InterlockedCompareExchange16,  "ssD*ss",         "n", ALL_MS_LANGUAGES)
 #if INTEL_CUSTOMIZATION
 // CQ#374782: In icc, these builtins are availble on Linux as well. Also,
 // pointer arguments are non-volatile. We do the same.
-LANGBUILTIN(_InterlockedCompareExchange,    "LiLiD*LiLi",     "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
+LANGBUILTIN(_InterlockedCompareExchange,    "NiNiD*NiNi",     "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
 #endif // INTEL_CUSTOMIZATION
 LANGBUILTIN(_InterlockedCompareExchange64,  "LLiLLiD*LLiLLi", "n", ALL_MS_LANGUAGES)
 #if INTEL_CUSTOMIZATION
@@ -992,8 +993,8 @@ LANGBUILTIN(_InterlockedDecrement16,        "ssD*",     "n", ALL_MS_LANGUAGES)
 #if INTEL_CUSTOMIZATION
 // CQ#374782: In icc, these builtins are availble on Linux as well. Also,
 // pointer arguments are non-volatile. We do the same.
-LANGBUILTIN(_InterlockedDecrement,          "LiLiD*",   "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
-LANGBUILTIN(_InterlockedExchange,           "LiLiD*Li",     "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
+LANGBUILTIN(_InterlockedDecrement,          "NiNiD*",   "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
+LANGBUILTIN(_InterlockedExchange,           "NiNiD*Ni",     "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
 #endif // INTEL_CUSTOMIZATION
 LANGBUILTIN(_InterlockedExchange8,          "ccD*c",        "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_InterlockedExchange16,         "ssD*s",        "n", ALL_MS_LANGUAGES)
@@ -1002,31 +1003,31 @@ LANGBUILTIN(_InterlockedExchangeAdd16,      "ssD*s",          "n", ALL_MS_LANGUA
 #if INTEL_CUSTOMIZATION
 // CQ#374782: In icc, these builtins are availble on Linux as well. Also,
 // pointer arguments are non-volatile. We do the same.
-LANGBUILTIN(_InterlockedExchangeAdd,        "LiLiD*Li",       "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
+LANGBUILTIN(_InterlockedExchangeAdd,        "NiNiD*Ni",       "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
 LANGBUILTIN(_InterlockedExchangePointer,    "v*v*D*v*",   "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
 #endif // INTEL_CUSTOMIZATION
 LANGBUILTIN(_InterlockedExchangeSub8,   "ccD*c",        "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_InterlockedExchangeSub16,  "ssD*s",        "n", ALL_MS_LANGUAGES)
-LANGBUILTIN(_InterlockedExchangeSub,    "LiLiD*Li",     "n", ALL_MS_LANGUAGES)
+LANGBUILTIN(_InterlockedExchangeSub,    "NiNiD*Ni",     "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_InterlockedIncrement16,        "ssD*",     "n", ALL_MS_LANGUAGES)
 #if INTEL_CUSTOMIZATION
 // CQ#374782: In icc, these builtins are availble on Linux as well. Also,
 // pointer arguments are non-volatile. We do the same.
-LANGBUILTIN(_InterlockedIncrement,          "LiLiD*",   "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
+LANGBUILTIN(_InterlockedIncrement,          "NiNiD*",   "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
 #endif // INTEL_CUSTOMIZATION
 LANGBUILTIN(_InterlockedOr8,  "ccD*c",        "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_InterlockedOr16, "ssD*s",        "n", ALL_MS_LANGUAGES)
-LANGBUILTIN(_InterlockedOr,   "LiLiD*Li",     "n", ALL_MS_LANGUAGES)
+LANGBUILTIN(_InterlockedOr,   "NiNiD*Ni",     "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_InterlockedXor8,  "ccD*c",       "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_InterlockedXor16, "ssD*s",       "n", ALL_MS_LANGUAGES)
-LANGBUILTIN(_InterlockedXor,   "LiLiD*Li",    "n", ALL_MS_LANGUAGES)
+LANGBUILTIN(_InterlockedXor,   "NiNiD*Ni",    "n", ALL_MS_LANGUAGES)
+LANGBUILTIN(_interlockedbittestandset, "UcNiD*Ni", "n", ALL_MS_LANGUAGES)
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
 // CQ#368488 - builtins fixes for iclang.
 BUILTIN(__noop,       "i.",  "n")
 #else
 LANGBUILTIN(__noop,           "i.",  "n", ALL_MS_LANGUAGES)
 #endif // INTEL_SPECIFIC_IL0_BACKEND
-LANGBUILTIN(_interlockedbittestandset, "UcLiD*Li", "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(__popcnt16, "UsUs",     "nc", ALL_MS_LANGUAGES)
 LANGBUILTIN(__popcnt,   "UiUi",     "nc", ALL_MS_LANGUAGES)
 LANGBUILTIN(__popcnt64, "ULLiULLi", "nc", ALL_MS_LANGUAGES)
@@ -1034,12 +1035,12 @@ LANGBUILTIN(_ReturnAddress, "v*", "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_rotl8,  "UcUcUc",    "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_rotl16, "UsUsUc",    "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_rotl,   "UiUii",     "n", ALL_MS_LANGUAGES)
-LANGBUILTIN(_lrotl,  "ULiULii",   "n", ALL_MS_LANGUAGES)
+LANGBUILTIN(_lrotl,  "UNiUNii",   "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_rotl64, "ULLiULLii", "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_rotr8,  "UcUcUc",    "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_rotr16, "UsUsUc",    "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_rotr,   "UiUii",     "n", ALL_MS_LANGUAGES)
-LANGBUILTIN(_lrotr,  "ULiULii",   "n", ALL_MS_LANGUAGES)
+LANGBUILTIN(_lrotr,  "UNiUNii",   "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_rotr64, "ULLiULLii", "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(__va_start,       "vc**.", "nt", ALL_MS_LANGUAGES)
 LANGBUILTIN(__fastfail, "vUi",    "nr", ALL_MS_LANGUAGES)
@@ -1692,6 +1693,11 @@ BUILTIN(__xray_customevent, "vcC*z", "")
 BUILTIN(__builtin_va_arg_pack_len, "Si", "n")
 BUILTIN(__builtin_va_arg_pack, ".", "n")
 #endif
+
+// Win64-compatible va_list functions
+BUILTIN(__builtin_ms_va_start, "vc*&.", "nt")
+BUILTIN(__builtin_ms_va_end, "vc*&", "n")
+BUILTIN(__builtin_ms_va_copy, "vc*&c*&", "n")
 
 #undef BUILTIN
 #undef LIBBUILTIN

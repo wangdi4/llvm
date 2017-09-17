@@ -15,6 +15,7 @@
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/ASTMutationListener.h"
+#include "clang/AST/ASTStructuralEquivalence.h"
 #include "clang/AST/CXXInheritance.h"
 #include "clang/AST/DeclObjC.h"
 #include "clang/AST/DeclTemplate.h"
@@ -119,6 +120,7 @@ static void diagnoseBadTypeAttribute(Sema &S, const AttributeList &attr,
 
 // Function type attributes.
 #define FUNCTION_TYPE_ATTRS_CASELIST \
+  case AttributeList::AT_NSReturnsRetained: \
   case AttributeList::AT_NoReturn: \
   case AttributeList::AT_Regparm: \
   case AttributeList::AT_AnyX86NoCallerSavedRegisters: \
@@ -653,12 +655,6 @@ static void distributeTypeAttrsFromDeclarator(TypeProcessingState &state,
     OBJC_POINTER_TYPE_ATTRS_CASELIST:
       distributeObjCPointerTypeAttrFromDeclarator(state, *attr, declSpecType);
       break;
-
-    case AttributeList::AT_NSReturnsRetained:
-      if (!state.getSema().getLangOpts().ObjCAutoRefCount)
-        break;
-      // fallthrough
-      LLVM_FALLTHROUGH;
 
     FUNCTION_TYPE_ATTRS_CASELIST:
       distributeFunctionTypeAttrFromDeclarator(state, *attr, declSpecType);
@@ -2462,6 +2458,11 @@ QualType Sema::BuildFunctionType(QualType T,
   if (EPI.ExtParameterInfos) {
     checkExtParameterInfos(*this, ParamTypes, EPI,
                            [=](unsigned i) { return Loc; });
+  }
+
+  if (EPI.ExtInfo.getProducesResult()) {
+    // This is just a warning, so we can't fail to build if we see it.
+    checkNSReturnsRetainedReturnType(Loc, T);
   }
 
   if (Invalid)
@@ -5133,6 +5134,8 @@ static AttributeList::Kind getAttrListKind(AttributedType::Kind kind) {
     return AttributeList::AT_TypeNullUnspecified;
   case AttributedType::attr_objc_kindof:
     return AttributeList::AT_ObjCKindOf;
+  case AttributedType::attr_ns_returns_retained:
+    return AttributeList::AT_NSReturnsRetained;
   }
   llvm_unreachable("unexpected attribute kind!");
 }
@@ -6519,17 +6522,26 @@ static bool handleFunctionTypeAttr(TypeProcessingState &state,
   // ns_returns_retained is not always a type attribute, but if we got
   // here, we're treating it as one right now.
   if (attr.getKind() == AttributeList::AT_NSReturnsRetained) {
-    assert(S.getLangOpts().ObjCAutoRefCount &&
-           "ns_returns_retained treated as type attribute in non-ARC");
     if (attr.getNumArgs()) return true;
 
     // Delay if this is not a function type.
     if (!unwrapped.isFunctionType())
       return false;
 
-    FunctionType::ExtInfo EI
-      = unwrapped.get()->getExtInfo().withProducesResult(true);
-    type = unwrapped.wrap(S, S.Context.adjustFunctionType(unwrapped.get(), EI));
+    // Check whether the return type is reasonable.
+    if (S.checkNSReturnsRetainedReturnType(attr.getLoc(),
+                                           unwrapped.get()->getReturnType()))
+      return true;
+
+    // Only actually change the underlying type in ARC builds.
+    QualType origType = type;
+    if (state.getSema().getLangOpts().ObjCAutoRefCount) {
+      FunctionType::ExtInfo EI
+        = unwrapped.get()->getExtInfo().withProducesResult(true);
+      type = unwrapped.wrap(S, S.Context.adjustFunctionType(unwrapped.get(), EI));
+    }
+    type = S.Context.getAttributedType(AttributedType::attr_ns_returns_retained,
+                                       origType, type);
     return true;
   }
 
@@ -6912,22 +6924,47 @@ static void HandleOpenCLAccessAttr(QualType &CurType, const AttributeList &Attr,
   }
 
   if (const TypedefType* TypedefTy = CurType->getAs<TypedefType>()) {
-    QualType PointeeTy = TypedefTy->desugar();
-    S.Diag(Attr.getLoc(), diag::err_opencl_multiple_access_qualifiers);
+#if INTEL_CUSTOMIZATION
+    // TODO: upstream to llvm.org together with changes
+    // in SemaDeclAttr.cpp and test/SemaOpenCL/access-qualifier.cl
+    QualType BaseTy = TypedefTy->desugar();
 
     std::string PrevAccessQual;
-    switch (cast<BuiltinType>(PointeeTy.getTypePtr())->getKind()) {
-      #define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
-    case BuiltinType::Id:                                          \
-      PrevAccessQual = #Access;                                    \
-      break;
-      #include "clang/Basic/OpenCLImageTypes.def"
-    default:
-      assert(0 && "Unable to find corresponding image type.");
+    if (BaseTy->isPipeType()) {
+      if (TypedefTy->getDecl()->hasAttr<OpenCLAccessAttr>()) {
+        OpenCLAccessAttr *Attr =
+            TypedefTy->getDecl()->getAttr<OpenCLAccessAttr>();
+        PrevAccessQual = Attr->getSpelling();
+      } else {
+        PrevAccessQual = "read_only";
+      }
+    } else if (const BuiltinType* ImgType = BaseTy->getAs<BuiltinType>()) {
+
+      switch (ImgType->getKind()) {
+        #define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
+      case BuiltinType::Id:                                          \
+        PrevAccessQual = #Access;                                    \
+        break;
+        #include "clang/Basic/OpenCLImageTypes.def"
+      default:
+        assert(0 && "Unable to find corresponding image type.");
+      }
+    } else {
+      llvm_unreachable("unexpected type");
+    }
+    StringRef AttrName = Attr.getName()->getName();
+    if (PrevAccessQual == AttrName.ltrim("_")) {
+      // Duplicated qualifiers
+      S.Diag(Attr.getLoc(), diag::warn_duplicate_declspec)
+         << AttrName << Attr.getRange();
+    } else {
+      // Contradicting qualifiers
+      S.Diag(Attr.getLoc(), diag::err_opencl_multiple_access_qualifiers);
     }
 
     S.Diag(TypedefTy->getDecl()->getLocStart(),
-       diag::note_opencl_typedef_access_qualifier) << PrevAccessQual;
+           diag::note_opencl_typedef_access_qualifier) << PrevAccessQual;
+#endif // INTEL_CUSTOMIZATION
   } else if (CurType->isPipeType()) {
     if (Attr.getSemanticSpelling() == OpenCLAccessAttr::Keyword_write_only) {
       QualType ElemType = CurType->getAs<PipeType>()->getElementType();
@@ -7112,12 +7149,6 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
       attr.setUsedAsTypeAttr();
       break;
 
-    case AttributeList::AT_NSReturnsRetained:
-      if (!state.getSema().getLangOpts().ObjCAutoRefCount)
-        break;
-      // fallthrough into the function attrs
-      LLVM_FALLTHROUGH;
-
     FUNCTION_TYPE_ATTRS_CASELIST:
       attr.setUsedAsTypeAttr();
 
@@ -7277,6 +7308,20 @@ bool Sema::RequireCompleteType(SourceLocation Loc, QualType T,
     }
   }
   return false;
+}
+
+bool Sema::hasStructuralCompatLayout(Decl *D, Decl *Suggested) {
+  llvm::DenseSet<std::pair<Decl *, Decl *>> NonEquivalentDecls;
+  if (!Suggested)
+    return false;
+
+  // FIXME: Add a specific mode for C11 6.2.7/1 in StructuralEquivalenceContext
+  // and isolate from other C++ specific checks.
+  StructuralEquivalenceContext Ctx(
+      D->getASTContext(), Suggested->getASTContext(), NonEquivalentDecls,
+      false /*StrictTypeSpelling*/, true /*Complain*/,
+      true /*ErrorOnTagTypeMismatch*/);
+  return Ctx.IsStructurallyEquivalent(D, Suggested);
 }
 
 /// \brief Determine whether there is any declaration of \p D that was ever a

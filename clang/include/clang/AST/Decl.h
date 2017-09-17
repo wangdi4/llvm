@@ -1660,6 +1660,8 @@ private:
 #if INTEL_SPECIFIC_CILKPLUS
   bool IsSpawning: 1;
 #endif // INTEL_SPECIFIC_CILKPLUS
+  unsigned InstantiationIsPending:1;
+
   /// \brief Indicates if the function uses __try.
   unsigned UsesSEHTry : 1;
 
@@ -1757,6 +1759,7 @@ protected:
 #if INTEL_SPECIFIC_CILKPLUS
         IsSpawning(false),
 #endif // INTEL_SPECIFIC_CILKPLUS
+        InstantiationIsPending(false),
         UsesSEHTry(false), HasSkippedBody(false), WillHaveBody(false),
         EndRangeLoc(NameInfo.getEndLoc()), TemplateOrSpecialization(),
         DNLoc(NameInfo.getInfo()) {}
@@ -1878,7 +1881,7 @@ public:
   ///
   bool isThisDeclarationADefinition() const {
     return IsDeleted || IsDefaulted || Body || IsLateTemplateParsed ||
-      hasDefiningAttr();
+      WillHaveBody || hasDefiningAttr();
   }
 
   /// doesThisDeclarationHaveABody - Returns whether this specific
@@ -1953,6 +1956,16 @@ public:
   bool isSpawning() const { return IsSpawning; }
   void setSpawning() { IsSpawning = true; }
 #endif // INTEL_SPECIFIC_CILKPLUS
+
+  /// \brief Whether the instantiation of this function is pending.
+  /// This bit is set when the decision to instantiate this function is made
+  /// and unset if and when the function body is created. That leaves out
+  /// cases where instantiation did not happen because the template definition
+  /// was not seen in this TU. This bit remains set in those cases, under the
+  /// assumption that the instantiation will happen in some other TU.
+  bool instantiationIsPending() const { return InstantiationIsPending; }
+  void setInstantiationIsPending(bool IC) { InstantiationIsPending = IC; }
+
   /// \brief Indicates the function uses __try.
   bool usesSEHTry() const { return UsesSEHTry; }
   void setUsesSEHTry(bool UST) { UsesSEHTry = UST; }
@@ -2018,7 +2031,10 @@ public:
   /// These functions have special behavior under C++1y [expr.new]:
   ///    An implementation is allowed to omit a call to a replaceable global
   ///    allocation function. [...]
-  bool isReplaceableGlobalAllocationFunction() const;
+  ///
+  /// If this function is an aligned allocation/deallocation function, return
+  /// true through IsAligned.
+  bool isReplaceableGlobalAllocationFunction(bool *IsAligned = nullptr) const;
 
   /// Compute the language linkage.
   LanguageLinkage getLanguageLinkage() const;
