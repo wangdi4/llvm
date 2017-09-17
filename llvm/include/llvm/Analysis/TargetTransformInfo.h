@@ -155,6 +155,13 @@ public:
   int getGEPCost(Type *PointeeType, const Value *Ptr,
                  ArrayRef<const Value *> Operands) const;
 
+  /// \brief Estimate the cost of a EXT operation when lowered.
+  ///
+  /// The contract for this function is the same as \c getOperationCost except
+  /// that it supports an interface that provides extra information specific to
+  /// the EXT operation.
+  int getExtCost(const Instruction *I, const Value *Src) const;
+
   /// \brief Estimate the cost of a function call when lowered.
   ///
   /// The contract for this is the same as \c getOperationCost except that it
@@ -216,9 +223,23 @@ public:
   /// other context they may not be folded. This routine can distinguish such
   /// cases.
   ///
+  /// \p Operands is a list of operands which can be a result of transformations
+  /// of the current operands. The number of the operands on the list must equal
+  /// to the number of the current operands the IR user has. Their order on the
+  /// list must be the same as the order of the current operands the IR user
+  /// has.
+  ///
   /// The returned cost is defined in terms of \c TargetCostConstants, see its
   /// comments for a detailed explanation of the cost values.
-  int getUserCost(const User *U) const;
+  int getUserCost(const User *U, ArrayRef<const Value *> Operands) const;
+
+  /// \brief This is a helper function which calls the two-argument getUserCost
+  /// with \p Operands which are the current operands U has.
+  int getUserCost(const User *U) const {
+    SmallVector<const Value *, 4> Operands(U->value_op_begin(),
+                                           U->value_op_end());
+    return getUserCost(U, Operands);
+  }
 
   /// \brief Return true if branch divergence exists.
   ///
@@ -366,7 +387,8 @@ public:
   /// \brief Get target-customized preferences for the generic loop unrolling
   /// transformation. The caller will initialize UP with the current
   /// target-independent defaults.
-  void getUnrollingPreferences(Loop *L, UnrollingPreferences &UP) const;
+  void getUnrollingPreferences(Loop *L, ScalarEvolution &,
+                               UnrollingPreferences &UP) const;
 
   /// \brief Get target-customized default threshold for loop rotation.
   unsigned getLoopRotationDefaultThreshold(bool OptForSize) const;
@@ -752,6 +774,29 @@ public:
   /// instruction, return false otherwise.
   bool isTargetSpecificShuffleMask(SmallVectorImpl<int> &Mask) const;
 #endif // INTEL_CUSTOMIZATION
+
+  /// \returns The type to use in a loop expansion of a memcpy call.
+  Type *getMemcpyLoopLoweringType(LLVMContext &Context, Value *Length,
+                                  unsigned SrcAlign, unsigned DestAlign) const;
+
+  /// \param[out] OpsOut The operand types to copy RemainingBytes of memory.
+  /// \param RemainingBytes The number of bytes to copy.
+  ///
+  /// Calculates the operand types to use when copying \p RemainingBytes of
+  /// memory, where source and destination alignments are \p SrcAlign and
+  /// \p DestAlign respectively.
+  void getMemcpyLoopResidualLoweringType(SmallVectorImpl<Type *> &OpsOut,
+                                         LLVMContext &Context,
+                                         unsigned RemainingBytes,
+                                         unsigned SrcAlign,
+                                         unsigned DestAlign) const;
+
+  /// \returns True if we want to test the new memcpy lowering functionality in
+  /// Transform/Utils.
+  /// Temporary. Will be removed once we move to the new functionality and
+  /// remove the old.
+  bool useWideIRMemcpyLoopLowering() const;
+
   /// \returns True if the two functions have compatible attributes for inlining
   /// purposes.
   bool areInlineCompatible(const Function *Caller,
@@ -826,6 +871,7 @@ public:
   virtual int getOperationCost(unsigned Opcode, Type *Ty, Type *OpTy) = 0;
   virtual int getGEPCost(Type *PointeeType, const Value *Ptr,
                          ArrayRef<const Value *> Operands) = 0;
+  virtual int getExtCost(const Instruction *I, const Value *Src) = 0;
   virtual int getCallCost(FunctionType *FTy, int NumArgs) = 0;
   virtual int getCallCost(const Function *F, int NumArgs) = 0;
   virtual int getCallCost(const Function *F,
@@ -837,14 +883,17 @@ public:
                                ArrayRef<const Value *> Arguments) = 0;
   virtual unsigned getEstimatedNumberOfCaseClusters(const SwitchInst &SI,
                                                     unsigned &JTSize) = 0;
-  virtual int getUserCost(const User *U) = 0;
+  virtual int
+  getUserCost(const User *U, ArrayRef<const Value *> Operands) = 0;
   virtual bool hasBranchDivergence() = 0;
   virtual bool isSourceOfDivergence(const Value *V) = 0;
   virtual bool isAlwaysUniform(const Value *V) = 0;
   virtual unsigned getFlatAddressSpace() = 0;
   virtual bool isLoweredToCall(const Function *F) = 0;
-  virtual void getUnrollingPreferences(Loop *L, UnrollingPreferences &UP) = 0;
-  virtual unsigned getLoopRotationDefaultThreshold(bool OptForSize) const = 0;
+  virtual void getUnrollingPreferences(Loop *L, ScalarEvolution &,
+                                       UnrollingPreferences &UP) = 0;
+  virtual unsigned                                            // INTEL
+  getLoopRotationDefaultThreshold(bool OptForSize) const = 0; // INTEL
   virtual bool isLegalAddImmediate(int64_t Imm) = 0;
   virtual bool isLegalICmpImmediate(int64_t Imm) = 0;
   virtual bool isLegalAddressingMode(Type *Ty, GlobalValue *BaseGV,
@@ -958,6 +1007,12 @@ public:
   virtual bool
   isTargetSpecificShuffleMask(SmallVectorImpl<int> &Mask) const = 0;
 #endif // INTEL_CUSTOMIZATION
+  virtual Type *getMemcpyLoopLoweringType(LLVMContext &Context, Value *Length,
+                                          unsigned SrcAlign,
+                                          unsigned DestAlign) const = 0;
+  virtual void getMemcpyLoopResidualLoweringType(
+      SmallVectorImpl<Type *> &OpsOut, LLVMContext &Context,
+      unsigned RemainingBytes, unsigned SrcAlign, unsigned DestAlign) const = 0;
   virtual bool areInlineCompatible(const Function *Caller,
                                    const Function *Callee) const = 0;
   virtual unsigned getLoadStoreVecRegBitWidth(unsigned AddrSpace) const = 0;
@@ -999,6 +1054,9 @@ public:
                  ArrayRef<const Value *> Operands) override {
     return Impl.getGEPCost(PointeeType, Ptr, Operands);
   }
+  int getExtCost(const Instruction *I, const Value *Src) override {
+    return Impl.getExtCost(I, Src);
+  }
   int getCallCost(FunctionType *FTy, int NumArgs) override {
     return Impl.getCallCost(FTy, NumArgs);
   }
@@ -1020,7 +1078,9 @@ public:
                        ArrayRef<const Value *> Arguments) override {
     return Impl.getIntrinsicCost(IID, RetTy, Arguments);
   }
-  int getUserCost(const User *U) override { return Impl.getUserCost(U); }
+  int getUserCost(const User *U, ArrayRef<const Value *> Operands) override {
+    return Impl.getUserCost(U, Operands);
+  }
   bool hasBranchDivergence() override { return Impl.hasBranchDivergence(); }
   bool isSourceOfDivergence(const Value *V) override {
     return Impl.isSourceOfDivergence(V);
@@ -1037,8 +1097,9 @@ public:
   bool isLoweredToCall(const Function *F) override {
     return Impl.isLoweredToCall(F);
   }
-  void getUnrollingPreferences(Loop *L, UnrollingPreferences &UP) override {
-    return Impl.getUnrollingPreferences(L, UP);
+  void getUnrollingPreferences(Loop *L, ScalarEvolution &SE,
+                               UnrollingPreferences &UP) override {
+    return Impl.getUnrollingPreferences(L, SE, UP);
   }
   unsigned getLoopRotationDefaultThreshold(bool OptForSize) const override {
     return Impl.getLoopRotationDefaultThreshold(OptForSize);
@@ -1284,6 +1345,19 @@ public:
     return Impl.isTargetSpecificShuffleMask(Mask);
   }
 #endif // INTEL_CUSTOMIZATION
+  Type *getMemcpyLoopLoweringType(LLVMContext &Context, Value *Length,
+                                  unsigned SrcAlign,
+                                  unsigned DestAlign) const override {
+    return Impl.getMemcpyLoopLoweringType(Context, Length, SrcAlign, DestAlign);
+  }
+  void getMemcpyLoopResidualLoweringType(SmallVectorImpl<Type *> &OpsOut,
+                                         LLVMContext &Context,
+                                         unsigned RemainingBytes,
+                                         unsigned SrcAlign,
+                                         unsigned DestAlign) const override {
+    Impl.getMemcpyLoopResidualLoweringType(OpsOut, Context, RemainingBytes,
+                                           SrcAlign, DestAlign);
+  }
   bool areInlineCompatible(const Function *Caller,
                            const Function *Callee) const override {
     return Impl.areInlineCompatible(Caller, Callee);

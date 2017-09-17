@@ -98,8 +98,8 @@ private:
 
   AVRLoop* ALoop;
   AvrCFGBase& CFG;
-  AvrDominatorTree& DominatorTree;
-  AvrDominatorTree& PostDominatorTree;
+  AvrDominatorTree &DominatorTree;
+  AvrPostDominatorTree &PostDominatorTree;
   SESERegion *Root;
   std::stack<SESERegion*> RegionStack;
 
@@ -131,10 +131,8 @@ private:
   }
 
 public:
-  ConstructSESERegions(AVRLoop* AL,
-                       AvrCFGBase& C,
-                       AvrDominatorTree& DT,
-                       AvrDominatorTree& PDT)
+  ConstructSESERegions(AVRLoop *AL, AvrCFGBase &C, AvrDominatorTree &DT,
+                       AvrPostDominatorTree &PDT)
       : ALoop(AL), CFG(C), DominatorTree(DT), PostDominatorTree(PDT) {
 
     AvrBasicBlock* BasicBlock = CFG.getBasicBlock(&*ALoop->child_begin());
@@ -408,9 +406,9 @@ void VPOPredicatorBase::predicateLoop(AVRLoop* ALoop) {
         FOS << "Predicating DAG:\n";
         CFG.print(FOS));
 
-  AvrDominatorTree DominatorTree(false);
+  AvrDominatorTree DominatorTree;
   DominatorTree.recalculate(CFG);
-  AvrDominatorTree PostDominatorTree(true);
+  AvrPostDominatorTree PostDominatorTree;
   PostDominatorTree.recalculate(CFG);
 
   DEBUG(dbgs() << "Dominator Tree:\n"; DominatorTree.print(dbgs()));

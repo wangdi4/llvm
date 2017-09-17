@@ -11,8 +11,8 @@
 #define LLD_ELF_GDB_INDEX_H
 
 #include "InputFiles.h"
-#include "llvm/Object/ELF.h"
 #include "llvm/DebugInfo/DWARF/DWARFContext.h"
+#include "llvm/Object/ELF.h"
 
 namespace lld {
 namespace elf {
@@ -45,6 +45,7 @@ struct NameTypeEntry {
 // debug information performed. That information futher used
 // for filling gdb index section areas.
 struct GdbIndexChunk {
+  InputSection *DebugInfoSec;
   std::vector<AddressEntry> AddressArea;
   std::vector<CompilationUnitEntry> CompilationUnits;
   std::vector<NameTypeEntry> NamesAndTypes;
