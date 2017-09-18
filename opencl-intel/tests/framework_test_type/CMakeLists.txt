@@ -34,6 +34,11 @@ include_directories( ../../framework/export
                      ${CL_API_HEADERS}
                      ${OCL_SOURCE_DIR}/tests/test_common )
 
+if (NOT WIN32)
+    # silence warning coming from a gtest header.
+    add_definitions ( -Wno-sign-compare )
+endif (NOT WIN32)
+
 set( IGNORE_FILES clBuildCubinProgram|clBuildProgram.cpp|clCreateCudaKernel|clCreateKernelCpuGpu|clCreateQueue )
 
 FIND_SOURCES( ${IGNORE_FILES} )
