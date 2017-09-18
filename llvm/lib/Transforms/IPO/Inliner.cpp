@@ -946,6 +946,10 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
     FunctionAnalysisManager &FAM =
         AM.getResult<FunctionAnalysisManagerCGSCCProxy>(*C, CG)
             .getManager();
+
+    // Get the remarks emission analysis for the caller.
+    auto &ORE = FAM.getResult<OptimizationRemarkEmitterAnalysis>(F);
+
     std::function<AssumptionCache &(Function &)> GetAssumptionCache =
         [&](Function &F) -> AssumptionCache & {
       return FAM.getResult<AssumptionAnalysis>(F);
@@ -958,11 +962,12 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
       Function &Callee = *CS.getCalledFunction();
       auto &CalleeTTI = FAM.getResult<TargetIRAnalysis>(Callee);
       return getInlineCost(CS, Params, CalleeTTI, GetAssumptionCache, {GetBFI},
+<<<<<<< HEAD
                            ILIC, AggI, PSI);
+=======
+                           PSI, &ORE);
+>>>>>>> 25ef265dc91724da4987f81fdf66ea3147192eeb
     };
-
-    // Get the remarks emission analysis for the caller.
-    auto &ORE = FAM.getResult<OptimizationRemarkEmitterAnalysis>(F);
 
     // Now process as many calls as we have within this caller in the sequnece.
     // We bail out as soon as the caller has to change so we can update the

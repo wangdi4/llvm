@@ -57,10 +57,12 @@ public:
   InlineCost getInlineCost(CallSite CS) override {
     Function *Callee = CS.getCalledFunction();
     TargetTransformInfo &TTI = TTIWP->getTTI(*Callee);
+    OptimizationRemarkEmitter ORE(CS.getCaller());
     std::function<AssumptionCache &(Function &)> GetAssumptionCache =
         [&](Function &F) -> AssumptionCache & {
       return ACT->getAssumptionCache(F);
     };
+<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
     auto *Agg = getAnalysisIfAvailable<InlineAggressiveWrapperPass>();
@@ -69,6 +71,10 @@ public:
 
     return llvm::getInlineCost(CS, Params, TTI, GetAssumptionCache, 
                                /*GetBFI=*/None, ILIC, AggI, PSI); // INTEL 
+=======
+    return llvm::getInlineCost(CS, Params, TTI, GetAssumptionCache,
+                               /*GetBFI=*/None, PSI, &ORE);
+>>>>>>> 25ef265dc91724da4987f81fdf66ea3147192eeb
   }
 
   bool runOnSCC(CallGraphSCC &SCC) override;
