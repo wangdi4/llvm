@@ -286,15 +286,11 @@ public:
   CallAnalyzer(const TargetTransformInfo &TTI,
                std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
                Optional<function_ref<BlockFrequencyInfo &(Function &)>> &GetBFI,
-<<<<<<< HEAD
-               ProfileSummaryInfo *PSI, Function &Callee, CallSite CSArg,
+               ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE,
+               Function &Callee, CallSite CSArg,   // INTEL
                InliningLoopInfoCache *ILIC,        // INTEL
                InlineAggressiveInfo *AI,           // INTEL
                const InlineParams &Params)
-=======
-               ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE,
-               Function &Callee, CallSite CSArg, const InlineParams &Params)
->>>>>>> 25ef265dc91724da4987f81fdf66ea3147192eeb
       : TTI(TTI), GetAssumptionCache(GetAssumptionCache), GetBFI(GetBFI),
         PSI(PSI), F(Callee), DL(F.getParent()->getDataLayout()), ORE(ORE),
         CandidateCS(CSArg), Params(Params), Threshold(Params.DefaultThreshold),
@@ -1197,15 +1193,9 @@ bool CallAnalyzer::visitCallSite(CallSite CS) {
   // out. Pretend to inline the function, with a custom threshold.
   auto IndirectCallParams = Params;
   IndirectCallParams.DefaultThreshold = InlineConstants::IndirectCallThreshold;
-<<<<<<< HEAD
-  CallAnalyzer CA(TTI, GetAssumptionCache, GetBFI, PSI,
-    *F, CS, ILIC, AI, IndirectCallParams); // INTEL
-  if (CA.analyzeCall(CS, nullptr)) { // INTEL
-=======
   CallAnalyzer CA(TTI, GetAssumptionCache, GetBFI, PSI, ORE, *F, CS,
-                  IndirectCallParams);
-  if (CA.analyzeCall(CS)) {
->>>>>>> 25ef265dc91724da4987f81fdf66ea3147192eeb
+                  ILIC, AI, IndirectCallParams); // INTEL
+  if (CA.analyzeCall(CS, nullptr)) { // INTEL
     // We were able to inline the indirect call! Subtract the cost from the
     // threshold to get the bonus we want to apply, but don't go below zero.
     Cost -= std::max(0, CA.getThreshold() - CA.getCost());
@@ -1954,12 +1944,8 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
   } // INTEL
 
   // Check if we're done. This can happen due to bonuses and penalties.
-<<<<<<< HEAD
-  if (Cost > Threshold) { // INTEL
+  if (Cost > Threshold && !ComputeFullInlineCost) { // INTEL
     *ReasonAddr = bestInlineReason(NoReasonVector, NinlrNotProfitable); // INTEL
-=======
-  if (Cost > Threshold && !ComputeFullInlineCost)
->>>>>>> 25ef265dc91724da4987f81fdf66ea3147192eeb
     return false;
   } // INTEL
 
@@ -2238,17 +2224,11 @@ InlineCost llvm::getInlineCost(
     CallSite CS, const InlineParams &Params, TargetTransformInfo &CalleeTTI,
     std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
     Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI,
-<<<<<<< HEAD
     InliningLoopInfoCache *ILIC, // INTEL
     InlineAggressiveInfo *AI,    // INTEL
-    ProfileSummaryInfo *PSI) {
-  return getInlineCost(CS, CS.getCalledFunction(), Params, CalleeTTI,
-    GetAssumptionCache, GetBFI, ILIC, AI, PSI);  // INTEL
-=======
     ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE) {
   return getInlineCost(CS, CS.getCalledFunction(), Params, CalleeTTI,
-                       GetAssumptionCache, GetBFI, PSI, ORE);
->>>>>>> 25ef265dc91724da4987f81fdf66ea3147192eeb
+                       GetAssumptionCache, GetBFI, ILIC, AI, PSI, ORE);// INTEL
 }
 
 InlineCost llvm::getInlineCost(
@@ -2256,13 +2236,9 @@ InlineCost llvm::getInlineCost(
     TargetTransformInfo &CalleeTTI,
     std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
     Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI,
-<<<<<<< HEAD
     InliningLoopInfoCache *ILIC,    // INTEL
     InlineAggressiveInfo *AI,       // INTEL
-    ProfileSummaryInfo *PSI) {
-=======
     ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE) {
->>>>>>> 25ef265dc91724da4987f81fdf66ea3147192eeb
 
   // Cannot inline indirect calls.
   if (!Callee)
@@ -2322,19 +2298,13 @@ InlineCost llvm::getInlineCost(
   DEBUG(llvm::dbgs() << "      Analyzing call of " << Callee->getName()
                      << "... (caller:" << Caller->getName() << ")\n");
 
-<<<<<<< HEAD
-  CallAnalyzer CA(CalleeTTI, GetAssumptionCache, GetBFI, PSI,
-                  *Callee, CS, ILIC, AI, Params);  // INTEL
+  CallAnalyzer CA(CalleeTTI, GetAssumptionCache, GetBFI, PSI, ORE, *Callee, CS,
+                  ILIC, AI, Params);  // INTEL
 #if INTEL_CUSTOMIZATION
   InlineReason Reason = InlrNoReason;
   bool ShouldInline = CA.analyzeCall(CS, &Reason);
   assert(Reason != InlrNoReason);
 #endif // INTEL_CUSTOMIZATION
-=======
-  CallAnalyzer CA(CalleeTTI, GetAssumptionCache, GetBFI, PSI, ORE, *Callee, CS,
-                  Params);
-  bool ShouldInline = CA.analyzeCall(CS);
->>>>>>> 25ef265dc91724da4987f81fdf66ea3147192eeb
 
   DEBUG(CA.dump());
 

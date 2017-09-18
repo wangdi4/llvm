@@ -62,19 +62,15 @@ public:
         [&](Function &F) -> AssumptionCache & {
       return ACT->getAssumptionCache(F);
     };
-<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
     auto *Agg = getAnalysisIfAvailable<InlineAggressiveWrapperPass>();
     InlineAggressiveInfo *AggI = Agg ? &Agg->getResult() : nullptr;
 #endif // INTEL_CUSTOMIZATION
 
-    return llvm::getInlineCost(CS, Params, TTI, GetAssumptionCache, 
-                               /*GetBFI=*/None, ILIC, AggI, PSI); // INTEL 
-=======
     return llvm::getInlineCost(CS, Params, TTI, GetAssumptionCache,
-                               /*GetBFI=*/None, PSI, &ORE);
->>>>>>> 25ef265dc91724da4987f81fdf66ea3147192eeb
+                               /*GetBFI=*/None, ILIC, AggI, // INTEL
+                               PSI, &ORE);                  // INTEL
   }
 
   bool runOnSCC(CallGraphSCC &SCC) override;

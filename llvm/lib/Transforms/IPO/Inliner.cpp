@@ -962,11 +962,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
       Function &Callee = *CS.getCalledFunction();
       auto &CalleeTTI = FAM.getResult<TargetIRAnalysis>(Callee);
       return getInlineCost(CS, Params, CalleeTTI, GetAssumptionCache, {GetBFI},
-<<<<<<< HEAD
-                           ILIC, AggI, PSI);
-=======
-                           PSI, &ORE);
->>>>>>> 25ef265dc91724da4987f81fdf66ea3147192eeb
+                           ILIC, AggI, PSI, &ORE); // INTEL
     };
 
     // Now process as many calls as we have within this caller in the sequnece.
