@@ -4045,6 +4045,7 @@ void llvm::WriteIndexToFile(
   Out.write((char *)&Buffer.front(), Buffer.size());
 }
 
+namespace {
 /// Class to manage the bitcode writing for a thin link bitcode file.
 class ThinLinkBitcodeWriter : public ModuleBitcodeWriterBase {
   /// ModHash is for use in ThinLTO incremental build, generated while writing
@@ -4065,6 +4066,7 @@ public:
 private:
   void writeSimplifiedModuleInfo();
 };
+} // namespace
 
 // This function writes a simpilified module info for thin link bitcode file.
 // It only contains the source file name along with the name(the offset and
