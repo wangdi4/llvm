@@ -3,9 +3,11 @@ set(LLVM_LINK_COMPONENTS
   )
 
 if (MSVC)
+  set_source_files_properties(SemaDeclAttr.cpp PROPERTIES COMPILE_FLAGS /bigobj)
   set_source_files_properties(SemaExpr.cpp PROPERTIES COMPILE_FLAGS /bigobj)
 # INTEL_CUSTOMIZATION
   set_source_files_properties(intel/SemaCilk.cpp intel/SemaIntelAttr.cpp
+                              SemaExprCXX.cpp
                               PROPERTIES COMPILE_FLAGS /bigobj)
 # end INTEL_CUSTOMIZATION
 endif()

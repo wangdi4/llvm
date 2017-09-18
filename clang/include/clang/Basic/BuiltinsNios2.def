@@ -51,35 +51,6 @@ BUILTIN(__builtin_flushd, "vvD*", "")
 // void __builtin_flushda(volatile void *);
 BUILTIN(__builtin_flushda, "vvD*", "")
 
-// void* nios2_memcpy_l4_to_device(void *dev_dst, void *l4_src, size_t n);
-// copies data from L4 memory to L3/L2
-// - returns: the destination pointer
-// - param1: the destination pointer (must be within L2 or L3)
-// - param2: the source pointer (must be within L4)
-// - param3: the number of bytes to copy; copied chunk must fit entirely into
-//             single memory level
-BUILTIN(__builtin_nios2_memcpy_l4_to_device, "v*v*v*z", "")
-
-// void* nios2_memcpy_l4_to_device(void *l4_dst, void *dev_src, size_t n);
-// copies data from L3/L2 to L4 memory
-// - returns: the destination pointer
-// - param1: the destination pointer (must be within L4)
-// - param2: the source pointer (must be within L2 or L3)
-// - param3: the number of bytes to copy; copied chunk must fit entirely into
-//             single memory level
-BUILTIN(__builtin_nios2_memcpy_device_to_l4, "v*v*v*z", "")
-
-// void nios_abort(int errcode);
-BUILTIN(__builtin_nios_abort, "vi", "")
-// size_t nios_get_free_l2_mem_size (void);
-BUILTIN(__builtin_nios_get_free_l2_mem_size, "z", "")
-// size_t nios_get_free_l3_mem_size (void);
-BUILTIN(__builtin_nios_get_free_l3_mem_size, "z", "")
-// void * nios2_unsafe_malloc_l2 (size_t size, int align);
-BUILTIN(__builtin_nios2_unsafe_malloc_l2, "v*zi", "")
-// void nios2_unsafe_free_l2 (void * ptr);
-BUILTIN(__builtin_nios2_unsafe_free_l2, "vv*", "")
-
 // Nios2 R2 builtins:
 
 // int __builtin_wrpie(int);

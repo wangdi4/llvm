@@ -731,19 +731,6 @@ bool Parser::ConsumeAndStoreUntil(tok::TokenKind T1, tok::TokenKind T2,
       ConsumeBrace();
       break;
 
-    case tok::code_completion:
-      Toks.push_back(Tok);
-      ConsumeCodeCompletionToken();
-      break;
-
-    case tok::string_literal:
-    case tok::wide_string_literal:
-    case tok::utf8_string_literal:
-    case tok::utf16_string_literal:
-    case tok::utf32_string_literal:
-      Toks.push_back(Tok);
-      ConsumeStringToken();
-      break;
     case tok::semi:
       if (StopAtSemi)
         return false;
@@ -751,7 +738,7 @@ bool Parser::ConsumeAndStoreUntil(tok::TokenKind T1, tok::TokenKind T2,
     default:
       // consume this token.
       Toks.push_back(Tok);
-      ConsumeToken();
+      ConsumeAnyToken(/*ConsumeCodeCompletionTok*/true);
       break;
     }
     isFirstTokenConsumed = false;
@@ -902,7 +889,7 @@ bool Parser::ConsumeAndStoreFunctionPrologue(CachedTokens &Toks) {
         // If the opening brace is not preceded by one of these tokens, we are
         // missing the mem-initializer-id. In order to recover better, we need
         // to use heuristics to determine if this '{' is most likely the
-        // begining of a brace-init-list or the function body.
+        // beginning of a brace-init-list or the function body.
         // Check the token after the corresponding '}'.
         TentativeParsingAction PA(*this);
         if (SkipUntil(tok::r_brace) &&

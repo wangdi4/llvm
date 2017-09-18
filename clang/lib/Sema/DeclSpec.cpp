@@ -317,6 +317,9 @@ bool Declarator::isDeclarationOfFunction() const {
     case DeclaratorChunk::Array:
     case DeclaratorChunk::BlockPointer:
     case DeclaratorChunk::MemberPointer:
+#if INTEL_CUSTOMIZATION
+    case DeclaratorChunk::Channel:
+#endif // INTEL_CUSTOMIZATION
     case DeclaratorChunk::Pipe:
       return false;
     }
@@ -802,6 +805,23 @@ bool DeclSpec::SetTypePipe(bool isPipe, SourceLocation Loc,
   return false;
 }
 
+#if INTEL_CUSTOMIZATION
+bool DeclSpec::SetTypeChannel(bool isChannel, SourceLocation Loc,
+                              const char *&PrevSpec, unsigned &DiagID,
+                              const PrintingPolicy &Policy) {
+
+  if (TypeSpecType != TST_unspecified) {
+    PrevSpec = DeclSpec::getSpecifierName((TST)TypeSpecType, Policy);
+    DiagID = diag::err_invalid_decl_spec_combination;
+    return true;
+  }
+
+  TypeSpecChannel = isChannel;
+
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
+
 bool DeclSpec::SetTypeAltiVecPixel(bool isAltiVecPixel, SourceLocation Loc,
                           const char *&PrevSpec, unsigned &DiagID,
                           const PrintingPolicy &Policy) {
@@ -1101,8 +1121,10 @@ void DeclSpec::Finish(Sema &S, const PrintingPolicy &Policy) {
                !S.getLangOpts().ZVector)
         S.Diag(TSTLoc, diag::err_invalid_vector_double_decl_spec);
     } else if (TypeSpecType == TST_float) {
-      // vector float is unsupported for ZVector.
-      if (S.getLangOpts().ZVector)
+      // vector float is unsupported for ZVector unless we have the
+      // vector-enhancements facility 1 (ISA revision 12).
+      if (S.getLangOpts().ZVector &&
+          !S.Context.getTargetInfo().hasFeature("arch12"))
         S.Diag(TSTLoc, diag::err_invalid_vector_float_decl_spec);
     } else if (TypeSpecWidth == TSW_long) {
       // vector long is unsupported for ZVector and deprecated for AltiVec.

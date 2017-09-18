@@ -278,20 +278,20 @@ static void AddOpenMPLinkerScript(const ToolChain &TC, Compilation &C,
 
   LksStream << "SECTIONS\n";
   LksStream << "{\n";
-  LksStream << "  .omp_offloading :\n";
-  LksStream << "  ALIGN(0x10)\n";
-  LksStream << "  {\n";
 
-  for (auto &BI : InputBinaryInfo) {
-    LksStream << "    . = ALIGN(0x10);\n";
+  // Put each target binary into a separate section.
+  for (const auto &BI : InputBinaryInfo) {
+    LksStream << "  .omp_offloading." << BI.first << " :\n";
+    LksStream << "  ALIGN(0x10)\n";
+    LksStream << "  {\n";
     LksStream << "    PROVIDE_HIDDEN(.omp_offloading.img_start." << BI.first
               << " = .);\n";
     LksStream << "    " << BI.second << "\n";
     LksStream << "    PROVIDE_HIDDEN(.omp_offloading.img_end." << BI.first
               << " = .);\n";
+    LksStream << "  }\n";
   }
 
-  LksStream << "  }\n";
   // Add commands to define host entries begin and end. We use 1-byte subalign
   // so that the linker does not add any padding and the elements in this
   // section form an array.
@@ -651,6 +651,8 @@ void tools::gnutools::Assembler::ConstructJob(Compilation &C,
                                               const InputInfoList &Inputs,
                                               const ArgList &Args,
                                               const char *LinkingOutput) const {
+  const auto &D = getToolChain().getDriver();
+
   claimNoWarnArgs(Args);
 
   ArgStringList CmdArgs;
@@ -660,6 +662,23 @@ void tools::gnutools::Assembler::ConstructJob(Compilation &C,
   bool IsPIE;
   std::tie(RelocationModel, PICLevel, IsPIE) =
       ParsePICArgs(getToolChain(), Args);
+
+  if (const Arg *A = Args.getLastArg(options::OPT_gz, options::OPT_gz_EQ)) {
+    if (A->getOption().getID() == options::OPT_gz) {
+      CmdArgs.push_back("-compress-debug-sections");
+    } else {
+      StringRef Value = A->getValue();
+      if (Value == "none") {
+        CmdArgs.push_back("-compress-debug-sections=none");
+      } else if (Value == "zlib" || Value == "zlib-gnu") {
+        CmdArgs.push_back(
+            Args.MakeArgString("-compress-debug-sections=" + Twine(Value)));
+      } else {
+        D.Diag(diag::err_drv_unsupported_option_argument)
+            << A->getOption().getName() << Value;
+      }
+    }
+  }
 
   switch (getToolChain().getArch()) {
   default:
@@ -894,6 +913,8 @@ static bool isSoftFloatABI(const ArgList &Args) {
           A->getValue() == StringRef("soft"));
 }
 
+/// \p Flag must be a flag accepted by the driver with its leading '-' removed,
+//     otherwise '-print-multi-lib' will not emit them correctly.
 static void addMultilibFlag(bool Enabled, const char *const Flag,
                             std::vector<std::string> &Flags) {
   if (Enabled)
@@ -1438,17 +1459,17 @@ static void findAndroidArmMultilibs(const Driver &D,
   // Find multilibs with subdirectories like armv7-a, thumb, armv7-a/thumb.
   FilterNonExistent NonExistent(Path, "/crtbegin.o", D.getVFS());
   Multilib ArmV7Multilib = makeMultilib("/armv7-a")
-                               .flag("+armv7")
-                               .flag("-thumb");
+                               .flag("+march=armv7-a")
+                               .flag("-mthumb");
   Multilib ThumbMultilib = makeMultilib("/thumb")
-                               .flag("-armv7")
-                               .flag("+thumb");
+                               .flag("-march=armv7-a")
+                               .flag("+mthumb");
   Multilib ArmV7ThumbMultilib = makeMultilib("/armv7-a/thumb")
-                               .flag("+armv7")
-                               .flag("+thumb");
+                               .flag("+march=armv7-a")
+                               .flag("+mthumb");
   Multilib DefaultMultilib = makeMultilib("")
-                               .flag("-armv7")
-                               .flag("-thumb");
+                               .flag("-march=armv7-a")
+                               .flag("-mthumb");
   MultilibSet AndroidArmMultilibs =
       MultilibSet()
           .Either(ThumbMultilib, ArmV7Multilib,
@@ -1466,8 +1487,8 @@ static void findAndroidArmMultilibs(const Driver &D,
   bool IsArmV7Mode = (IsArmArch || IsThumbArch) &&
       (llvm::ARM::parseArchVersion(Arch) == 7 ||
        (IsArmArch && Arch == "" && IsV7SubArch));
-  addMultilibFlag(IsArmV7Mode, "armv7", Flags);
-  addMultilibFlag(IsThumbMode, "thumb", Flags);
+  addMultilibFlag(IsArmV7Mode, "march=armv7-a", Flags);
+  addMultilibFlag(IsThumbMode, "mthumb", Flags);
 
   if (AndroidArmMultilibs.select(Flags, Result.SelectedMultilib))
     Result.Multilibs = AndroidArmMultilibs;
@@ -1595,6 +1616,49 @@ bool Generic_GCC::GCCVersion::isOlderThan(int RHSMajor, int RHSMinor,
 
   // The versions are equal.
   return false;
+}
+
+/// \brief Parse a GCCVersion object out of a string of text.
+///
+/// This is the primary means of forming GCCVersion objects.
+/*static*/
+Generic_GCC::GCCVersion Generic_GCC::GCCVersion::Parse(StringRef VersionText) {
+  const GCCVersion BadVersion = {VersionText.str(), -1, -1, -1, "", "", ""};
+  std::pair<StringRef, StringRef> First = VersionText.split('.');
+  std::pair<StringRef, StringRef> Second = First.second.split('.');
+
+  GCCVersion GoodVersion = {VersionText.str(), -1, -1, -1, "", "", ""};
+  if (First.first.getAsInteger(10, GoodVersion.Major) || GoodVersion.Major < 0)
+    return BadVersion;
+  GoodVersion.MajorStr = First.first.str();
+  if (First.second.empty())
+    return GoodVersion;
+  if (Second.first.getAsInteger(10, GoodVersion.Minor) || GoodVersion.Minor < 0)
+    return BadVersion;
+  GoodVersion.MinorStr = Second.first.str();
+
+  // First look for a number prefix and parse that if present. Otherwise just
+  // stash the entire patch string in the suffix, and leave the number
+  // unspecified. This covers versions strings such as:
+  //   5        (handled above)
+  //   4.4
+  //   4.4.0
+  //   4.4.x
+  //   4.4.2-rc4
+  //   4.4.x-patched
+  // And retains any patch number it finds.
+  StringRef PatchText = GoodVersion.PatchSuffix = Second.second.str();
+  if (!PatchText.empty()) {
+    if (size_t EndNumber = PatchText.find_first_not_of("0123456789")) {
+      // Try to parse the number and any suffix.
+      if (PatchText.slice(0, EndNumber).getAsInteger(10, GoodVersion.Patch) ||
+          GoodVersion.Patch < 0)
+        return BadVersion;
+      GoodVersion.PatchSuffix = PatchText.substr(EndNumber);
+    }
+  }
+
+  return GoodVersion;
 }
 
 static llvm::StringRef getGCCToolchainDir(const ArgList &Args) {
@@ -2276,9 +2340,11 @@ bool Generic_GCC::IsIntegratedAssemblerDefault() const {
     return true;
   case llvm::Triple::mips64:
   case llvm::Triple::mips64el:
-    // Enabled for Debian mips64/mips64el only. Other targets are unable to
-    // distinguish N32 from N64.
-    if (getTriple().getEnvironment() == llvm::Triple::GNUABI64)
+    // Enabled for Debian and Android mips64/mipsel, as they can precisely
+    // identify the ABI in use (Debian) or only use N64 for MIPS64 (Android).
+    // Other targets are unable to distinguish N32 from N64.
+    if (getTriple().getEnvironment() == llvm::Triple::GNUABI64 ||
+        getTriple().isAndroid())
       return true;
     return false;
   default:
@@ -2397,7 +2463,8 @@ Generic_GCC::TranslateArgs(const llvm::opt::DerivedArgList &Args, StringRef,
 void Generic_ELF::anchor() {}
 
 void Generic_ELF::addClangTargetOptions(const ArgList &DriverArgs,
-                                        ArgStringList &CC1Args) const {
+                                        ArgStringList &CC1Args,
+                                        Action::OffloadKind) const {
   const Generic_GCC::GCCVersion &V = GCCInstallation.getVersion();
   bool UseInitArrayDefault =
       getTriple().getArch() == llvm::Triple::aarch64 ||
@@ -2406,7 +2473,8 @@ void Generic_ELF::addClangTargetOptions(const ArgList &DriverArgs,
        (!V.isOlderThan(4, 7, 0) || getTriple().isAndroid())) ||
       getTriple().getOS() == llvm::Triple::NaCl ||
       (getTriple().getVendor() == llvm::Triple::MipsTechnologies &&
-       !getTriple().hasEnvironment());
+       !getTriple().hasEnvironment()) ||
+      getTriple().getOS() == llvm::Triple::Solaris;
 
   if (DriverArgs.hasFlag(options::OPT_fuse_init_array,
                          options::OPT_fno_use_init_array, UseInitArrayDefault))

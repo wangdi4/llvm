@@ -106,6 +106,8 @@ Available checks are:
      invalid pointers. These checks are made in terms of
      ``__builtin_object_size``, and consequently may be able to detect more
      problems at higher optimization levels.
+  -  ``-fsanitize=pointer-overflow``: Performing pointer arithmetic which
+     overflows.
   -  ``-fsanitize=return``: In C++, reaching the end of a
      value-returning function without returning a value.
   -  ``-fsanitize=returns-nonnull-attribute``: Returning null pointer
@@ -146,6 +148,12 @@ You can also use the following check groups:
      nullability does not have undefined behavior, it is often unintentional,
      so UBSan offers to catch it.
 
+Volatile
+--------
+
+The ``null``, ``alignment``, ``object-size``, and ``vptr`` checks do not apply
+to pointers to types with the ``volatile`` qualifier.
+
 Stack traces and report symbolization
 =====================================
 If you want UBSan to print symbolized stack trace for each error report, you
@@ -156,8 +164,6 @@ will need to:
 #. Run your program with environment variable
    ``UBSAN_OPTIONS=print_stacktrace=1``.
 #. Make sure ``llvm-symbolizer`` binary is in ``PATH``.
-
-Stacktrace printing for UBSan issues is currently not supported on Darwin.
 
 Issue Suppression
 =================

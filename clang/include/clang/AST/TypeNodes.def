@@ -107,6 +107,9 @@ NON_CANONICAL_TYPE(ObjCTypeParam, Type)
 TYPE(ObjCObject, Type)
 TYPE(ObjCInterface, ObjCObjectType)
 TYPE(ObjCObjectPointer, Type)
+#if INTEL_CUSTOMIZATION
+TYPE(Channel, Type)
+#endif // INTEL_CUSTOMIZATION
 TYPE(Pipe, Type)
 TYPE(Atomic, Type)
 

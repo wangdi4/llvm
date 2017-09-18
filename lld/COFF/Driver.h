@@ -34,7 +34,6 @@ extern LinkerDriver *Driver;
 using llvm::COFF::MachineTypes;
 using llvm::COFF::WindowsSubsystem;
 using llvm::Optional;
-class InputFile;
 
 // Implemented in MarkLive.cpp.
 void markLive(const std::vector<Chunk *> &Chunks);
@@ -119,17 +118,10 @@ private:
   void enqueueTask(std::function<void()> Task);
   bool run();
 
-  // Driver is the owner of all opened files.
-  // InputFiles have MemoryBufferRefs to them.
-  std::vector<std::unique_ptr<MemoryBuffer>> OwningMBs;
-
   std::list<std::function<void()>> TaskQueue;
   std::vector<StringRef> FilePaths;
   std::vector<MemoryBufferRef> Resources;
 };
-
-void parseModuleDefs(MemoryBufferRef MB);
-void writeImportLibrary();
 
 // Functions below this line are defined in DriverUtils.cpp.
 
@@ -185,7 +177,7 @@ void runMSVCLinker(std::string Rsp, ArrayRef<StringRef> Objects);
 // Create enum with OPT_xxx values for each option in Options.td
 enum {
   OPT_INVALID = 0,
-#define OPTION(_1, _2, ID, _4, _5, _6, _7, _8, _9, _10, _11) OPT_##ID,
+#define OPTION(_1, _2, ID, _4, _5, _6, _7, _8, _9, _10, _11, _12) OPT_##ID,
 #include "Options.inc"
 #undef OPTION
 };

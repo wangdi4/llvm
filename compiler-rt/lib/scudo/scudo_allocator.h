@@ -53,7 +53,7 @@ struct UnpackedHeader {
   u64 Offset            : 16; // Offset from the beginning of the backend
                               // allocation to the beginning of the chunk
                               // itself, in multiples of MinAlignment. See
-                              /// comment about its maximum value and in init().
+                              // comment about its maximum value and in init().
   u64 Salt              : 8;
 };
 
@@ -62,7 +62,7 @@ COMPILER_CHECK(sizeof(UnpackedHeader) == sizeof(PackedHeader));
 
 // Minimum alignment of 8 bytes for 32-bit, 16 for 64-bit
 const uptr MinAlignmentLog = FIRST_32_SECOND_64(3, 4);
-const uptr MaxAlignmentLog = 24; // 16 MB
+const uptr MaxAlignmentLog = 24;  // 16 MB
 const uptr MinAlignment = 1 << MinAlignmentLog;
 const uptr MaxAlignment = 1 << MaxAlignmentLog;
 
@@ -70,21 +70,66 @@ const uptr ChunkHeaderSize = sizeof(PackedHeader);
 const uptr AlignedChunkHeaderSize =
     (ChunkHeaderSize + MinAlignment - 1) & ~(MinAlignment - 1);
 
-struct AllocatorOptions {
-  u32 QuarantineSizeMb;
-  u32 ThreadLocalQuarantineSizeKb;
-  bool MayReturnNull;
-  s32 ReleaseToOSIntervalMs;
-  bool DeallocationTypeMismatch;
-  bool DeleteSizeMismatch;
-  bool ZeroContents;
-
-  void setFrom(const Flags *f, const CommonFlags *cf);
-  void copyTo(Flags *f, CommonFlags *cf) const;
+#if SANITIZER_CAN_USE_ALLOCATOR64
+const uptr AllocatorSpace = ~0ULL;
+# if defined(__aarch64__) && SANITIZER_ANDROID
+const uptr AllocatorSize = 0x4000000000ULL;  // 256G.
+# elif defined(__aarch64__)
+const uptr AllocatorSize = 0x10000000000ULL;  // 1T.
+# else
+const uptr AllocatorSize = 0x40000000000ULL;  // 4T.
+# endif
+typedef DefaultSizeClassMap SizeClassMap;
+struct AP64 {
+  static const uptr kSpaceBeg = AllocatorSpace;
+  static const uptr kSpaceSize = AllocatorSize;
+  static const uptr kMetadataSize = 0;
+  typedef __scudo::SizeClassMap SizeClassMap;
+  typedef NoOpMapUnmapCallback MapUnmapCallback;
+  static const uptr kFlags =
+      SizeClassAllocator64FlagMasks::kRandomShuffleChunks;
 };
+typedef SizeClassAllocator64<AP64> PrimaryAllocator;
+#else
+// Currently, the 32-bit Sanitizer allocator has not yet benefited from all the
+// security improvements brought to the 64-bit one. This makes the 32-bit
+// version of Scudo slightly less toughened.
+static const uptr RegionSizeLog = 20;
+static const uptr NumRegions = SANITIZER_MMAP_RANGE_SIZE >> RegionSizeLog;
+# if SANITIZER_WORDSIZE == 32
+typedef FlatByteMap<NumRegions> ByteMap;
+# elif SANITIZER_WORDSIZE == 64
+typedef TwoLevelByteMap<(NumRegions >> 12), 1 << 12> ByteMap;
+# endif  // SANITIZER_WORDSIZE
+typedef DefaultSizeClassMap SizeClassMap;
+struct AP32 {
+  static const uptr kSpaceBeg = 0;
+  static const u64 kSpaceSize = SANITIZER_MMAP_RANGE_SIZE;
+  static const uptr kMetadataSize = 0;
+  typedef __scudo::SizeClassMap SizeClassMap;
+  static const uptr kRegionSizeLog = RegionSizeLog;
+  typedef __scudo::ByteMap ByteMap;
+  typedef NoOpMapUnmapCallback MapUnmapCallback;
+  static const uptr kFlags =
+      SizeClassAllocator32FlagMasks::kRandomShuffleChunks;
+};
+typedef SizeClassAllocator32<AP32> PrimaryAllocator;
+#endif  // SANITIZER_CAN_USE_ALLOCATOR64
 
-void initAllocator(const AllocatorOptions &options);
-void drainQuarantine();
+// __sanitizer::RoundUp has a CHECK that is extraneous for us. Use our own.
+INLINE uptr RoundUpTo(uptr Size, uptr Boundary) {
+  return (Size + Boundary - 1) & ~(Boundary - 1);
+}
+
+#include "scudo_allocator_secondary.h"
+#include "scudo_allocator_combined.h"
+
+typedef SizeClassAllocatorLocalCache<PrimaryAllocator> AllocatorCache;
+typedef ScudoLargeMmapAllocator SecondaryAllocator;
+typedef ScudoCombinedAllocator<PrimaryAllocator, AllocatorCache,
+    SecondaryAllocator> ScudoBackendAllocator;
+
+void initScudo();
 
 void *scudoMalloc(uptr Size, AllocType Type);
 void scudoFree(void *Ptr, AllocType Type);
@@ -97,8 +142,6 @@ void *scudoPvalloc(uptr Size);
 int scudoPosixMemalign(void **MemPtr, uptr Alignment, uptr Size);
 void *scudoAlignedAlloc(uptr Alignment, uptr Size);
 uptr scudoMallocUsableSize(void *Ptr);
-
-#include "scudo_allocator_secondary.h"
 
 }  // namespace __scudo
 

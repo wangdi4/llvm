@@ -23,6 +23,7 @@
 #include "polly/Canonicalization.h"
 #include "polly/CodeGen/CodeGeneration.h"
 #include "polly/CodeGen/CodegenCleanup.h"
+#include "polly/CodeGen/PPCGCodeGeneration.h"
 #include "polly/DeLICM.h"
 #include "polly/DependenceInfo.h"
 #include "polly/FlattenSchedule.h"
@@ -35,6 +36,7 @@
 #include "polly/Support/DumpModulePass.h"
 #include "llvm/Analysis/CFGPrinter.h"
 #include "llvm/IR/LegacyPassManager.h"
+#include "llvm/Support/TargetSelect.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/Scalar.h"
@@ -90,16 +92,35 @@ static cl::opt<CodeGenChoice> CodeGeneration(
                clEnumValN(CODEGEN_NONE, "none", "No code generation")),
     cl::Hidden, cl::init(CODEGEN_FULL), cl::ZeroOrMore, cl::cat(PollyCategory));
 
-enum TargetChoice { TARGET_CPU, TARGET_GPU };
+enum TargetChoice { TARGET_CPU, TARGET_GPU, TARGET_HYBRID };
 static cl::opt<TargetChoice>
     Target("polly-target", cl::desc("The hardware to target"),
            cl::values(clEnumValN(TARGET_CPU, "cpu", "generate CPU code")
 #ifdef GPU_CODEGEN
                           ,
-                      clEnumValN(TARGET_GPU, "gpu", "generate GPU code")
+                      clEnumValN(TARGET_GPU, "gpu", "generate GPU code"),
+                      clEnumValN(TARGET_HYBRID, "hybrid",
+                                 "generate GPU code (preferably) or CPU code")
 #endif
                           ),
            cl::init(TARGET_CPU), cl::ZeroOrMore, cl::cat(PollyCategory));
+
+#ifdef GPU_CODEGEN
+static cl::opt<GPURuntime> GPURuntimeChoice(
+    "polly-gpu-runtime", cl::desc("The GPU Runtime API to target"),
+    cl::values(clEnumValN(GPURuntime::CUDA, "libcudart",
+                          "use the CUDA Runtime API"),
+               clEnumValN(GPURuntime::OpenCL, "libopencl",
+                          "use the OpenCL Runtime API")),
+    cl::init(GPURuntime::CUDA), cl::ZeroOrMore, cl::cat(PollyCategory));
+
+static cl::opt<GPUArch>
+    GPUArchChoice("polly-gpu-arch", cl::desc("The GPU Architecture to target"),
+                  cl::values(clEnumValN(GPUArch::NVPTX64, "nvptx64",
+                                        "target NVIDIA 64-bit architecture")),
+                  cl::init(GPUArch::NVPTX64), cl::ZeroOrMore,
+                  cl::cat(PollyCategory));
+#endif
 
 VectorizerChoice polly::PollyVectorizerChoice;
 static cl::opt<polly::VectorizerChoice, true> Vectorizer(
@@ -116,7 +137,7 @@ static cl::opt<polly::VectorizerChoice, true> Vectorizer(
 
 static cl::opt<bool> ImportJScop(
     "polly-import",
-    cl::desc("Export the polyhedral description of the detected Scops"),
+    cl::desc("Import the polyhedral description of the detected Scops"),
     cl::Hidden, cl::init(false), cl::ZeroOrMore, cl::cat(PollyCategory));
 
 static cl::opt<bool> ExportJScop(
@@ -205,6 +226,10 @@ void initializePollyPasses(PassRegistry &Registry) {
 
 #ifdef GPU_CODEGEN
   initializePPCGCodeGenerationPass(Registry);
+  LLVMInitializeNVPTXTarget();
+  LLVMInitializeNVPTXTargetInfo();
+  LLVMInitializeNVPTXTargetMC();
+  LLVMInitializeNVPTXAsmPrinter();
 #endif
   initializeCodePreparationPass(Registry);
   initializeDeadCodeElimPass(Registry);
@@ -212,11 +237,11 @@ void initializePollyPasses(PassRegistry &Registry) {
   initializeDependenceInfoWrapperPassPass(Registry);
   initializeJSONExporterPass(Registry);
   initializeJSONImporterPass(Registry);
-  initializeIslAstInfoPass(Registry);
+  initializeIslAstInfoWrapperPassPass(Registry);
   initializeIslScheduleOptimizerPass(Registry);
   initializePollyCanonicalizePass(Registry);
   initializePolyhedralInfoPass(Registry);
-  initializeScopDetectionPass(Registry);
+  initializeScopDetectionWrapperPassPass(Registry);
   initializeScopInfoRegionPassPass(Registry);
   initializeScopInfoWrapperPassPass(Registry);
   initializeCodegenCleanupPass(Registry);
@@ -259,7 +284,7 @@ void registerPollyPasses(llvm::legacy::PassManagerBase &PM) {
   for (auto &Filename : DumpBeforeFile)
     PM.add(polly::createDumpModulePass(Filename, false));
 
-  PM.add(polly::createScopDetectionPass());
+  PM.add(polly::createScopDetectionWrapperPassPass());
 
   if (PollyDetectOnly)
     return;
@@ -291,9 +316,12 @@ void registerPollyPasses(llvm::legacy::PassManagerBase &PM) {
   if (EnablePruneUnprofitable)
     PM.add(polly::createPruneUnprofitablePass());
 
-  if (Target == TARGET_GPU) {
-    // GPU generation provides its own scheduling optimization strategy.
-  } else {
+#ifdef GPU_CODEGEN
+  if (Target == TARGET_HYBRID)
+    PM.add(
+        polly::createPPCGCodeGenerationPass(GPUArchChoice, GPURuntimeChoice));
+#endif
+  if (Target == TARGET_CPU || Target == TARGET_HYBRID)
     switch (Optimizer) {
     case OPTIMIZER_NONE:
       break; /* Do nothing */
@@ -302,19 +330,14 @@ void registerPollyPasses(llvm::legacy::PassManagerBase &PM) {
       PM.add(polly::createIslScheduleOptimizerPass());
       break;
     }
-  }
 
   if (ExportJScop)
     PM.add(polly::createJSONExporterPass());
 
-  if (Target == TARGET_GPU) {
-#ifdef GPU_CODEGEN
-    PM.add(polly::createPPCGCodeGenerationPass());
-#endif
-  } else {
+  if (Target == TARGET_CPU || Target == TARGET_HYBRID)
     switch (CodeGeneration) {
     case CODEGEN_AST:
-      PM.add(polly::createIslAstInfoPass());
+      PM.add(polly::createIslAstInfoWrapperPassPass());
       break;
     case CODEGEN_FULL:
       PM.add(polly::createCodeGenerationPass());
@@ -322,7 +345,11 @@ void registerPollyPasses(llvm::legacy::PassManagerBase &PM) {
     case CODEGEN_NONE:
       break;
     }
-  }
+#ifdef GPU_CODEGEN
+  else
+    PM.add(
+        polly::createPPCGCodeGenerationPass(GPUArchChoice, GPURuntimeChoice));
+#endif
 
   // FIXME: This dummy ModulePass keeps some programs from miscompiling,
   // probably some not correctly preserved analyses. It acts as a barrier to
@@ -336,11 +363,6 @@ void registerPollyPasses(llvm::legacy::PassManagerBase &PM) {
 
   if (CFGPrinter)
     PM.add(llvm::createCFGPrinterLegacyPassPass());
-
-  if (Target == TARGET_GPU) {
-    // Invariant load hoisting not yet supported by GPU code generation.
-    PollyInvariantLoadHoisting = false;
-  }
 }
 
 static bool shouldEnablePolly() {

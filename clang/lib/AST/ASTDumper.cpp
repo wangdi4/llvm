@@ -419,6 +419,11 @@ namespace  {
     void VisitPipeType(const PipeType *T) {
       dumpTypeAsChild(T->getElementType());
     }
+#if INTEL_CUSTOMIZATION
+    void VisitChannelType(const ChannelType *T) {
+      dumpTypeAsChild(T->getElementType());
+    }
+#endif // INTEL_CUSTOMIZATION
     void VisitAdjustedType(const AdjustedType *T) {
       dumpTypeAsChild(T->getOriginalType());
     }
@@ -1052,10 +1057,10 @@ void ASTDumper::dumpDecl(const Decl *D) {
     dumpSourceRange(D->getSourceRange());
     OS << ' ';
     dumpLocation(D->getLocation());
-    if (Module *M = D->getImportedOwningModule())
+    if (D->isFromASTFile())
+      OS << " imported";
+    if (Module *M = D->getOwningModule())
       OS << " in " << M->getFullModuleName();
-    else if (Module *M = D->getLocalOwningModule())
-      OS << " in (local) " << M->getFullModuleName();
     if (auto *ND = dyn_cast<NamedDecl>(D))
       for (Module *M : D->getASTContext().getModulesWithMergedDefinition(
                const_cast<NamedDecl *>(ND)))
@@ -1197,6 +1202,27 @@ void ASTDumper::VisitFunctionDecl(const FunctionDecl *D) {
                                                  E = C->init_end();
          I != E; ++I)
       dumpCXXCtorInitializer(*I);
+
+  if (const CXXMethodDecl *MD = dyn_cast<CXXMethodDecl>(D))
+    if (MD->size_overridden_methods() != 0) {
+      auto dumpOverride =
+        [=](const CXXMethodDecl *D) {
+          SplitQualType T_split = D->getType().split();
+          OS << D << " " << D->getParent()->getName() << "::"
+             << D->getNameAsString() << " '" << QualType::getAsString(T_split) << "'";
+        };
+
+      dumpChild([=] {
+        auto FirstOverrideItr = MD->begin_overridden_methods();
+        OS << "Overrides: [ ";
+        dumpOverride(*FirstOverrideItr);
+        for (const auto *Override :
+               llvm::make_range(FirstOverrideItr + 1,
+                                MD->end_overridden_methods()))
+          dumpOverride(Override);
+        OS << " ]";
+      });
+    }
 
   if (D->doesThisDeclarationHaveABody())
     dumpStmt(D->getBody());

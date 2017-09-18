@@ -341,21 +341,13 @@ bool Parser::SkipUntil(ArrayRef<tok::TokenKind> Toks, SkipUntilFlags Flags) {
       ConsumeBrace();
       break;
 
-    case tok::string_literal:
-    case tok::wide_string_literal:
-    case tok::utf8_string_literal:
-    case tok::utf16_string_literal:
-    case tok::utf32_string_literal:
-      ConsumeStringToken();
-      break;
-        
     case tok::semi:
       if (HasFlagsSet(Flags, StopAtSemi))
         return false;
       // FALL THROUGH.
     default:
       // Skip this token.
-      ConsumeToken();
+      ConsumeAnyToken();
       break;
     }
     isFirstTokenSkipped = false;
@@ -528,6 +520,8 @@ void Parser::Initialize() {
 
   // Prime the lexer look-ahead.
   ConsumeToken();
+
+  PP.replayPreambleConditionalStack();
 }
 
 void Parser::LateTemplateParserCleanupCallback(void *P) {
@@ -538,6 +532,8 @@ void Parser::LateTemplateParserCleanupCallback(void *P) {
 }
 
 bool Parser::ParseFirstTopLevelDecl(DeclGroupPtrTy &Result) {
+  Actions.ActOnStartOfTranslationUnit();
+
   // C11 6.9p1 says translation units must have at least one top-level
   // declaration. C++ doesn't have this restriction. We also don't want to
   // complain if we have a precompiled header, although technically if the PCH
@@ -582,19 +578,19 @@ bool Parser::ParseTopLevelDecl(DeclGroupPtrTy &Result) {
     Actions.ActOnModuleInclude(Tok.getLocation(),
                                reinterpret_cast<Module *>(
                                    Tok.getAnnotationValue()));
-    ConsumeToken();
+    ConsumeAnnotationToken();
     return false;
 
   case tok::annot_module_begin:
     Actions.ActOnModuleBegin(Tok.getLocation(), reinterpret_cast<Module *>(
                                                     Tok.getAnnotationValue()));
-    ConsumeToken();
+    ConsumeAnnotationToken();
     return false;
 
   case tok::annot_module_end:
     Actions.ActOnModuleEnd(Tok.getLocation(), reinterpret_cast<Module *>(
                                                   Tok.getAnnotationValue()));
-    ConsumeToken();
+    ConsumeAnnotationToken();
     return false;
 
   case tok::annot_pragma_attribute:
@@ -851,6 +847,7 @@ Parser::ParseExternalDeclaration(ParsedAttributesWithRange &attrs,
     }
     // This must be 'export template'. Parse it so we can diagnose our lack
     // of support.
+    LLVM_FALLTHROUGH;
   case tok::kw_using:
   case tok::kw_namespace:
   case tok::kw_typedef:
@@ -1969,6 +1966,7 @@ bool Parser::isTokenEqualOrEqualTypo() {
     Diag(Tok, diag::err_invalid_token_after_declarator_suggest_equal)
         << Kind
         << FixItHint::CreateReplacement(SourceRange(Tok.getLocation()), "=");
+    LLVM_FALLTHROUGH;
   case tok::equal:
     return true;
   }
@@ -2255,7 +2253,7 @@ bool Parser::parseMisplacedModuleImport() {
         Actions.ActOnModuleEnd(Tok.getLocation(),
                                reinterpret_cast<Module *>(
                                    Tok.getAnnotationValue()));
-        ConsumeToken();
+        ConsumeAnnotationToken();
         continue;
       }
       // Inform caller that recovery failed, the error must be handled at upper
@@ -2267,7 +2265,7 @@ bool Parser::parseMisplacedModuleImport() {
       Actions.ActOnModuleBegin(Tok.getLocation(),
                                reinterpret_cast<Module *>(
                                    Tok.getAnnotationValue()));
-      ConsumeToken();
+      ConsumeAnnotationToken();
       ++MisplacedModuleBeginCount;
       continue;
     case tok::annot_module_include:
@@ -2276,7 +2274,7 @@ bool Parser::parseMisplacedModuleImport() {
       Actions.ActOnModuleInclude(Tok.getLocation(),
                                  reinterpret_cast<Module *>(
                                      Tok.getAnnotationValue()));
-      ConsumeToken();
+      ConsumeAnnotationToken();
       // If there is another module import, process it.
       continue;
     default:

@@ -607,6 +607,9 @@ namespace clang {
 
       /// \brief Record code for \#pragma pack options.
       PACK_PRAGMA_OPTIONS = 61,
+
+      /// \brief The stack of open #ifs/#ifdefs recorded in a preamble.
+      PP_CONDITIONAL_STACK = 62,
     };
 
     /// \brief Record types used within a source manager block.
@@ -843,6 +846,11 @@ namespace clang {
     /// constant describes a record for a specific type class in the
     /// AST. Note that DeclCode values share this code space.
     enum TypeCode {
+#if INTEL_CUSTOMIZATION
+      /// Intel specific type codes
+      /// \brief A ChannelType record.
+      TYPE_CHANNEL               = 1024,
+#endif // INTEL_CUSTOMIZATION
       /// \brief An ExtQualType record.
       TYPE_EXT_QUAL                 = 1,
       /// \brief A ComplexType record.

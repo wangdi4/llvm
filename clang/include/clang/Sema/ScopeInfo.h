@@ -408,6 +408,8 @@ public:
           (HasBranchProtectedScope && HasBranchIntoScope));
   }
 
+  bool isCoroutine() const { return !FirstCoroutineStmtLoc.isInvalid(); }
+
   void setFirstCoroutineStmt(SourceLocation Loc, StringRef Keyword) {
     assert(FirstCoroutineStmtLoc.isInvalid() &&
                    "first coroutine statement location already set");
