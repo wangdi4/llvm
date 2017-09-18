@@ -1,5 +1,4 @@
-; RUN: llvm-as %s -o %t.bc
-; RUN: opt  -runtimelib %p/../../Full/runtime.bc -O3 -inline-threshold=4096 -inline -lowerswitch -scalarize -mergereturn -loop-simplify -phicanon -predicate -mem2reg -dce -packetize -packet-size=16 -gather-scatter -verify %t.bc -S -o %t1.ll
+; RUN: opt -runtimelib %p/../../Full/runtime.bc -inline-threshold=4096 -inline -domtree -mem2reg -instcombine -simplifycfg -lowerswitch -scalarize -mergereturn -loop-simplify -phicanon -predicate -mem2reg -dce -packetize -packet-size=16 -gather-scatter -verify %s -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 
 ; Check uniform masked scatter/gather of unsigned int when index is 64bit
@@ -9,7 +8,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ;CHECK: kernel
 ;CHECK: @"internal.gather.v16i32[i64].m1"(i1 true, i32* [[NAME2:%stripAS[0-9]*]], <16 x i64> %[[REG:[0-9]+]], i32 64, i1 true)
-;CHECK: @"internal.scatter.v16i32[i64].m1"(i1 true, i32* [[NAME3:%stripAS[0-9]*]], <16 x i64> %[[REG]], <16 x i32> %23, i32 64, i1 true)
+;CHECK: @"internal.scatter.v16i32[i64].m1"(i1 true, i32* [[NAME3:%stripAS[0-9]*]], <16 x i64> %[[REG]], <16 x i32> %24, i32 64, i1 true)
 ;CHECK: ret void
 
 define void @kernel(i32* nocapture %A, i64 %k) nounwind {

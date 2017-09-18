@@ -1,5 +1,4 @@
-; RUN: llvm-as %s -o %t.bc
-; RUN: opt  -O3 -inline-threshold=4096 -inline -lowerswitch -mergereturn -loop-simplify -phicanon -predicate -specialize -specialize-threshold=10 -verify %t.bc -S -o %t1.ll
+; RUN: opt -inline-threshold=4096 -inline -domtree -mem2reg -instcombine -simplifycfg -lowerswitch -mergereturn -loop-simplify -phicanon -predicate -specialize -specialize-threshold=10 -verify %s -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 
 ; ModuleID = 'wlATIRadixSort.cl'
