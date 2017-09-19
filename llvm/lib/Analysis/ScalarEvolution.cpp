@@ -6970,6 +6970,12 @@ ScalarEvolution::computeExitLimit(const Loop *L, BasicBlock *ExitingBlock,
   ExitLimitQuery Query(L, ExitingBlock, AllowPredicates);
   auto MaybeEL = ExitLimits.find(Query);
   if (MaybeEL != ExitLimits.end())
+#if INTEL_CUSTOMIZATION // HIR parsing
+    // Ignore invalid cache entries in HIR mode.
+    if (!HIRInfo.isValid() ||
+        (MaybeEL->second.ExactNotTaken == getCouldNotCompute()) ||
+        isValidSCEVForHIR(MaybeEL->second.ExactNotTaken))
+#endif // INTEL_CUSTOMIZATION
     return MaybeEL->second;
   ExitLimit EL = computeExitLimitImpl(L, ExitingBlock, AllowPredicates);
   ExitLimits.insert({Query, EL});
