@@ -683,14 +683,11 @@ struct ADCELegacyPass : public FunctionPass {
     AU.addRequired<PostDominatorTreeWrapperPass>();
     if (!RemoveControlFlowFlag)
       AU.setPreservesCFG();
-<<<<<<< HEAD
-    AU.addPreserved<AndersensAAWrapperPass>();     // INTEL
-=======
     else {
       AU.addPreserved<DominatorTreeWrapperPass>();
       AU.addPreserved<PostDominatorTreeWrapperPass>();
     }
->>>>>>> 5288e9123b1632b0eb21745beb1e6399d0998622
+    AU.addPreserved<AndersensAAWrapperPass>();     // INTEL
     AU.addPreserved<GlobalsAAWrapperPass>();
   }
 };
