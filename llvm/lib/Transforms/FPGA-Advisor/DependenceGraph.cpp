@@ -199,6 +199,7 @@ void DependenceGraph::addVertices(Function &F) {
     }
     DepGraph::vertex_descriptor currVertex = boost::add_vertex(DG);
     DG[currVertex] = &BB;
+    BlockMap[&BB] = currVertex;
     NameVec.push_back(BB.getName().str());
     // if (memoryInst) {
     // MemoryBBs.push_back(currVertex);
@@ -208,9 +209,12 @@ void DependenceGraph::addVertices(Function &F) {
 
 void DependenceGraph::addEdges() {
   DepGraph::vertex_iterator vi, ve;
+
   for (boost::tie(vi, ve) = vertices(DG); vi != ve; vi++) {
     BasicBlock *currBB = DG[*vi];
+    auto currBBVertex = *vi;
     std::vector<std::pair<BasicBlock *, bool>> depBBs;
+        
     DEBUG(*outputLog << "******************************************************"
                         "************************************************\n");
     DEBUG(*outputLog << "Examining dependencies for basic block: "
@@ -323,20 +327,22 @@ void DependenceGraph::addEdges() {
     }
 
     // add all the dependent edges
-    for (auto di = depBBs.begin(); di != depBBs.end(); di++) {
+    
+    for (auto di = depBBs.begin(), de = depBBs.end(); di != de; di++) {
       BasicBlock *depBB = di->first;
       DepGraph::vertex_descriptor depVertex =
-          get_vertex_descriptor_for_basic_block(depBB, DG);
-      DepGraph::vertex_descriptor currVertex =
-          get_vertex_descriptor_for_basic_block(currBB, DG);
+        BlockMap[depBB];
+        //    get_vertex_descriptor_for_basic_block(depBB, DG);
+      //      DepGraph::vertex_descriptor currVertex =
+      //          get_vertex_descriptor_for_basic_block(currBB, DG);
       bool trueDep = di->second;
       // std::pair<DepGraph_edge_descriptor, bool> p =
       // boost::add_edge(currVertex, depVertex, DG);
       // boost::put(true_dependence_t(), DG, p.first, trueDep);
       if (trueDep) {
-        boost::add_edge(currVertex, depVertex, true, DG);
+        boost::add_edge(currBBVertex, depVertex, true, DG);
       } else {
-        boost::add_edge(currVertex, depVertex, false, DG);
+        boost::add_edge(currBBVertex, depVertex, false, DG);
       }
     }
   }
@@ -401,10 +407,10 @@ bool DependenceGraph::unsupportedMemoryInstruction(Instruction *I) {
 // BB1 to BB2 in DG
 bool DependenceGraph::isBasicBlockDependent(BasicBlock *BB1, BasicBlock *BB2,
                                             DepGraph &DG) {
-  DepGraph::vertex_descriptor bb1 =
-      get_vertex_descriptor_for_basic_block(BB1, DG);
-  DepGraph::vertex_descriptor bb2 =
-      get_vertex_descriptor_for_basic_block(BB2, DG);
+  DepGraph::vertex_descriptor bb1 = //BlockMap[BB1];
+  get_vertex_descriptor_for_basic_block(BB1, DG);
+    DepGraph::vertex_descriptor bb2 = //BlockMap[BB2];
+  get_vertex_descriptor_for_basic_block(BB2, DG);
 
   // unfortunately I need to iterate through all the out edges of bb1
   DepGraph::out_edge_iterator oi, oe;
@@ -422,10 +428,10 @@ bool DependenceGraph::isBasicBlockDependent(BasicBlock *BB1, BasicBlock *BB2,
 bool DependenceGraph::isBasicBlockDependenceTrue(BasicBlock *BB1,
                                                  BasicBlock *BB2,
                                                  DepGraph &DG) {
-  DepGraph::vertex_descriptor bb1 =
-      get_vertex_descriptor_for_basic_block(BB1, DG);
-  DepGraph::vertex_descriptor bb2 =
-      get_vertex_descriptor_for_basic_block(BB2, DG);
+  DepGraph::vertex_descriptor bb1 = // BlockMap[BB1];
+    get_vertex_descriptor_for_basic_block(BB1, DG);
+  DepGraph::vertex_descriptor bb2 = // BlockMap[BB2];
+    get_vertex_descriptor_for_basic_block(BB2, DG);
 
   // get the edge
   // bool found;

@@ -133,6 +133,7 @@ MemoryDependenceResults *MDA;
 DominatorTree *DT;
 DepGraph *functionDepGraph;
 DepGraph *globalDepGraph;
+std::unordered_map<BasicBlock *, DepGraph::vertex_descriptor> FuncBlockMap;
 // latency tables
 std::map<BasicBlock *, LatencyStruct>
     *LT; // filled in by ModuleScheduler - simple visitation of instructions
@@ -591,7 +592,7 @@ bool AdvisorAnalysis::run_on_module(Module &M) {
   getGlobalCPULatencyTable(M, LT, *globalExecutionOrder, *globalTraceGraph);
 
   std::string dgFileName = "dg.global.log";
-  if (!get_dependence_graph_from_file(dgFileName, &globalDepGraph,
+  if (!getDependenceGraphFromFile(dgFileName, &globalDepGraph,
                                       true /*is_global*/)) {
     std::cerr << "Could not get the dependence graph! Error opening file "
               << dgFileName << "\n";
@@ -757,7 +758,7 @@ bool AdvisorAnalysis::run_on_function(Function *F) {
   // get the dependence graph for the function
   // depGraph = &getAnalysis<DependenceGraph>().getDepGraph();
   std::string dgFileName = "dg." + F->getName().str() + ".log";
-  if (!get_dependence_graph_from_file(dgFileName, &functionDepGraph,
+  if (!getDependenceGraphFromFile(dgFileName, &functionDepGraph,
                                       false /*is_global*/)) {
     std::cerr << "Could not get the dependence graph! Error opening file "
               << dgFileName << "\n";
@@ -6401,6 +6402,69 @@ void AdvisorAnalysis::print_optimal_configuration_for_all_calls(Function *F) {
   }
 }
 
+bool AdvisorAnalysis::getDependenceGraphFromFile(std::string fileName,
+                                                 DepGraph **DG,
+                                                 bool isGlobal) {
+  DepGraph *depGraph = NULL;
+  depGraph = (!isGlobal) ? new DepGraph : *DG;
+
+  ifstream fin;
+  fin.open(fileName.c_str());
+
+  // file not found
+  if (!fin.good()) return false;
+
+  std::string line;
+  const char *delim = " ";
+  while (std::getline(fin, line)) {
+    std::vector<char> rawLine(line.size()+1);
+    strncpy(&rawLine[0], line.c_str(), line.length());
+    rawLine[line.length()] = '\0';
+    
+    char *token = std::strtok(&rawLine[0], delim);
+    if (token != NULL) {
+      if (strcmp(token, "vertex") == 0) {
+        token = std::strtok(NULL, delim);
+        std::string bbString(token);
+
+        token = std::strtok(NULL, delim);
+        std::string vString(token);
+
+        BasicBlock *BB = find_basicblock_by_name(bbString);
+
+        // add vertex
+        auto currVertex = boost::add_vertex(*depGraph);
+        (*depGraph)[currVertex] = BB;
+        //BlockMap[BB] = currVertex;
+      }
+      else if (strcmp(token, "edge") == 0) {
+        token = std::strtok(NULL, delim);
+        int source = std::atoi(token);
+
+        token = std::strtok(NULL, delim);
+        int target = std::atoi(token);
+
+        token = std::strtok(NULL, delim);
+        bool trueDep = (std::atoi(token) == 1);
+
+        boost::add_edge(source, target, trueDep, *depGraph);
+      }
+      else {
+        assert(0 && "Invalid input in graph file!");
+      }
+    }
+    else {
+      assert(0 && "Error reading line from graph file!");
+    }
+  }
+
+  if (!isGlobal) {
+    *DG = depGraph;
+  }
+
+  return true;
+}
+
 bool AdvisorAnalysis::get_dependence_graph_from_file(std::string fileName,
                                                      DepGraph **DG,
                                                      bool is_global) {
@@ -6447,7 +6511,7 @@ bool AdvisorAnalysis::get_dependence_graph_from_file(std::string fileName,
       // add vertex
       DepGraph::vertex_descriptor currVertex = boost::add_vertex(*depGraph);
       (*depGraph)[currVertex] = BB;
-
+      
     } else if (std::regex_match(line, std::regex("(edge )(.*)( )(.*)()(.*)"))) {
       //===================================//
       // parse line - begin

@@ -16,6 +16,7 @@
 #include <list>
 #include <map>
 
+
 namespace llvm {
 class BasicBlock;
 class Function;
@@ -413,7 +414,9 @@ private:
   // dependence graph construction
   bool get_dependence_graph_from_file(std::string fileName, DepGraph **depGraph,
                                       bool is_global);
-
+  bool getDependenceGraphFromFile(std::string fileName, DepGraph **depGraph,
+                                  bool isGlobal);
+  
   // define some data structures for collecting statistics
   std::vector<Function *> functionList;
   std::vector<Function *> recursiveFunctionList;

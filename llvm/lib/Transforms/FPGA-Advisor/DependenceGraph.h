@@ -66,6 +66,7 @@ private:
   std::vector<std::string> NameVec;
   // a list of basic blocks that may read or write memory
   std::vector<BasicBlock *> MemoryBBs;
+  std::unordered_map<BasicBlock *, DepGraph::vertex_descriptor> BlockMap;
 }; // end class DependenceGraph
 }
 
