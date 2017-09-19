@@ -7,7 +7,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/Scalar.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/SCCIterator.h"
@@ -20,6 +19,7 @@
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/SSAUpdater.h"
 
 using namespace llvm;
@@ -329,7 +329,7 @@ void StructurizeCFG::analyzeLoops(RegionNode *N) {
       Loops[Exit] = N->getEntry();
 
   } else {
-    // Test for sucessors as back edge
+    // Test for successors as back edge
     BasicBlock *BB = N->getNodeAs<BasicBlock>();
     BranchInst *Term = cast<BranchInst>(BB->getTerminator());
 
@@ -352,20 +352,10 @@ Value *StructurizeCFG::invert(Value *Condition) {
   if (Instruction *Inst = dyn_cast<Instruction>(Condition)) {
     // Third: Check all the users for an invert
     BasicBlock *Parent = Inst->getParent();
-    for (User *U : Condition->users()) {
-      if (Instruction *I = dyn_cast<Instruction>(U)) {
+    for (User *U : Condition->users())
+      if (Instruction *I = dyn_cast<Instruction>(U))
         if (I->getParent() == Parent && match(I, m_Not(m_Specific(Condition))))
           return I;
-      }
-    }
-
-    // Avoid creating a new instruction in the common case of a compare.
-    if (CmpInst *Cmp = dyn_cast<CmpInst>(Inst)) {
-      if (Cmp->hasOneUse()) {
-        Cmp->setPredicate(Cmp->getInversePredicate());
-        return Cmp;
-      }
-    }
 
     // Last option: Create a new instruction
     return BinaryOperator::CreateNot(Condition, "", Parent->getTerminator());

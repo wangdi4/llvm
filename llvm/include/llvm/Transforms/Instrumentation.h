@@ -116,6 +116,9 @@ struct InstrProfOptions {
   // Add the 'noredzone' attribute to added runtime library calls.
   bool NoRedZone = false;
 
+  // Do counter register promotion
+  bool DoCounterPromotion = false;
+
   // Name of the profile file to use as output
   std::string InstrProfileOutput;
 
@@ -131,7 +134,8 @@ FunctionPass *createAddressSanitizerFunctionPass(bool CompileKernel = false,
                                                  bool Recover = false,
                                                  bool UseAfterScope = false);
 ModulePass *createAddressSanitizerModulePass(bool CompileKernel = false,
-                                             bool Recover = false);
+                                             bool Recover = false,
+                                             bool UseGlobalsGC = true);
 
 // Insert MemorySanitizer instrumentation (detection of uninitialized reads)
 FunctionPass *createMemorySanitizerPass(int TrackOrigins = 0,
@@ -176,6 +180,8 @@ struct SanitizerCoverageOptions {
   bool Use8bitCounters = false;
   bool TracePC = false;
   bool TracePCGuard = false;
+  bool Inline8bitCounters = false;
+  bool NoPrune = false;
 
   SanitizerCoverageOptions() = default;
 };

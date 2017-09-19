@@ -33,8 +33,8 @@
 #include "lldb/Utility/ConstString.h"   // for ConstString
 #include "lldb/Utility/DataExtractor.h" // for DataExtractor
 #include "lldb/Utility/Endian.h"        // for InlHostByteOrder
-#include "lldb/Utility/Error.h"         // for Error
 #include "lldb/Utility/FileSpec.h"      // for FileSpec
+#include "lldb/Utility/Status.h"        // for Status
 #include "lldb/Utility/Stream.h"        // for Stream
 #include "lldb/Utility/StreamString.h"  // for StreamString
 
@@ -67,7 +67,7 @@ static size_t ReadBytes(ExecutionContextScope *exe_scope,
 
   TargetSP target_sp(exe_scope->CalculateTarget());
   if (target_sp) {
-    Error error;
+    Status error;
     bool prefer_file_cache = false;
     return target_sp->ReadMemory(address, prefer_file_cache, dst, dst_len,
                                  error);
@@ -322,7 +322,7 @@ addr_t Address::GetCallableLoadAddress(Target *target, bool is_indirect) const {
 
   if (is_indirect && target) {
     ProcessSP processSP = target->GetProcessSP();
-    Error error;
+    Status error;
     if (processSP) {
       code_addr = processSP->ResolveIndirectFunction(this, error);
       if (!error.Success())
@@ -361,8 +361,9 @@ addr_t Address::GetOpcodeLoadAddress(Target *target,
 }
 
 bool Address::SetOpcodeLoadAddress(lldb::addr_t load_addr, Target *target,
-                                   AddressClass addr_class) {
-  if (SetLoadAddress(load_addr, target)) {
+                                   AddressClass addr_class,
+                                   bool allow_section_end) {
+  if (SetLoadAddress(load_addr, target, allow_section_end)) {
     if (target) {
       if (addr_class == eAddressClassInvalid)
         addr_class = GetAddressClass();
@@ -734,7 +735,7 @@ bool Address::Dump(Stream *s, ExecutionContextScope *exe_scope, DumpStyle style,
     if (process) {
       addr_t load_addr = GetLoadAddress(target);
       if (load_addr != LLDB_INVALID_ADDRESS) {
-        Error memory_error;
+        Status memory_error;
         addr_t dereferenced_load_addr =
             process->ReadPointerFromMemory(load_addr, memory_error);
         if (dereferenced_load_addr != LLDB_INVALID_ADDRESS) {
@@ -1001,9 +1002,10 @@ AddressClass Address::GetAddressClass() const {
   return eAddressClassUnknown;
 }
 
-bool Address::SetLoadAddress(lldb::addr_t load_addr, Target *target) {
-  if (target &&
-      target->GetSectionLoadList().ResolveLoadAddress(load_addr, *this))
+bool Address::SetLoadAddress(lldb::addr_t load_addr, Target *target,
+                             bool allow_section_end) {
+  if (target && target->GetSectionLoadList().ResolveLoadAddress(
+                    load_addr, *this, allow_section_end))
     return true;
   m_section_wp.reset();
   m_offset = load_addr;

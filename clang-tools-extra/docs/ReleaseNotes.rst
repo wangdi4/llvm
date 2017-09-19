@@ -57,6 +57,45 @@ The improvements are...
 Improvements to clang-tidy
 --------------------------
 
+- New `android-cloexec-creat
+  <http://clang.llvm.org/extra/clang-tidy/checks/android-cloexec-creat.html>`_ check
+
+  Detect usage of ``creat()``.
+
+- New `android-cloexec-open
+  <http://clang.llvm.org/extra/clang-tidy/checks/android-cloexec-open.html>`_ check
+
+  Checks if the required file flag ``O_CLOEXEC`` exists in ``open()``,
+  ``open64()`` and ``openat()``.
+
+- New `android-cloexec-fopen
+  <http://clang.llvm.org/extra/clang-tidy/checks/android-cloexec-fopen.html>`_ check
+
+  Checks if the required mode ``e`` exists in the mode argument of ``fopen()``.
+
+- New `android-cloexec-socket
+  <http://clang.llvm.org/extra/clang-tidy/checks/android-cloexec-socket.html>`_ check
+
+  Checks if the required file flag ``SOCK_CLOEXEC`` is present in the argument of
+  ``socket()``.
+
+- New `bugprone-suspicious-memset-usage
+  <http://clang.llvm.org/extra/clang-tidy/checks/bugprone-suspicious-memset-usage.html>`_ check
+
+  Finds ``memset()`` calls with potential mistakes in their arguments.
+  Replaces and extends the ``google-runtime-memset`` check.
+
+- New `bugprone-undefined-memory-manipulation
+  <http://clang.llvm.org/extra/clang-tidy/checks/bugprone-undefined-memory-manipulation.html>`_ check
+
+  Finds calls of memory manipulation functions ``memset()``, ``memcpy()`` and
+  ``memmove()`` on not TriviallyCopyable objects resulting in undefined behavior.
+
+- New `cert-dcl21-cpp
+  <http://clang.llvm.org/extra/clang-tidy/checks/cert-dcl21-cpp.html>`_ check
+
+  Checks if the overloaded postfix ``operator++/--`` returns a constant object.
+
 - New `cert-dcl58-cpp
   <http://clang.llvm.org/extra/clang-tidy/checks/cert-dcl58-cpp.html>`_ check
 
@@ -67,39 +106,77 @@ Improvements to clang-tidy
 
   Allow custom memory management functions to be considered as well.
 
-- New `readability-misleading-indentation
-  <http://clang.llvm.org/extra/clang-tidy/checks/readability-misleading-indentation.html>`_ check
+- New `misc-forwarding-reference-overload
+  <http://clang.llvm.org/extra/clang-tidy/checks/misc-forwarding-reference-overload.html>`_ check
 
-  Finds misleading indentation where braces should be introduced or the code should be reformatted.
+  Finds perfect forwarding constructors that can unintentionally hide copy or move constructors.
 
-- Added `ParameterThreshold` to `readability-function-size`.
+- New `misc-lambda-function-name <http://clang.llvm.org/extra/clang-tidy/checks/misc-lambda-function-name.html>`_ check
 
-  Finds functions that have more then `ParameterThreshold` parameters and emits a warning.
+  Finds uses of ``__func__`` or ``__FUNCTION__`` inside lambdas.
 
-- New `hicpp` module
+- New `modernize-replace-random-shuffle
+  <http://clang.llvm.org/extra/clang-tidy/checks/modernize-replace-random-shuffle.html>`_ check
 
-  Adds checks that implement the `High Integrity C++ Coding Standard <http://www.codingstandard.com/section/index/>`_ and other safety
-  standards. Many checks are aliased to other modules.
+  Finds and fixes usage of ``std::random_shuffle`` as the function has been removed from C++17.
 
 - New `modernize-return-braced-init-list
   <http://clang.llvm.org/extra/clang-tidy/checks/modernize-return-braced-init-list.html>`_ check
 
   Finds and replaces explicit calls to the constructor in a return statement by
   a braced initializer list so that the return type is not needlessly repeated.
-  
-- New `misc-forwarding-reference-overload
-  <http://clang.llvm.org/extra/clang-tidy/checks/misc-forwarding-reference-overload.html>`_ check
 
-  Finds perfect forwarding constructors that can unintentionally hide copy or move constructors.
+- New `modernize-unary-static-assert-check
+  <http://clang.llvm.org/extra/clang-tidy/checks/modernize-unary-static-assert.html>`_ check
 
-- Support clang-formatting of the code around applied fixes (``-format-style``
-  command-line option).
+  The check diagnoses any ``static_assert`` declaration with an empty string literal
+  and provides a fix-it to replace the declaration with a single-argument ``static_assert`` declaration.
+
+- Improved `modernize-use-emplace
+  <http://clang.llvm.org/extra/clang-tidy/checks/modernize-use-emplace.html>`_ check
+
+  Removes unnecessary ``std::make_pair`` and ``std::make_tuple`` calls in
+  push_back calls and turns them into emplace_back. The check now also is able
+  to remove user-defined make functions from ``push_back`` calls on containers
+  of custom tuple-like types by providing `TupleTypes` and `TupleMakeFunctions`.
+
+- New `modernize-use-noexcept
+  <http://clang.llvm.org/extra/clang-tidy/checks/modernize-use-noexcept.html>`_ check
+
+  Replaces dynamic exception specifications with ``noexcept`` or a user defined macro.
 
 - New `performance-inefficient-vector-operation
   <http://clang.llvm.org/extra/clang-tidy/checks/performance-inefficient-vector-operation.html>`_ check
 
   Finds possible inefficient vector operations in for loops that may cause
   unnecessary memory reallocations.
+
+- Added `NestingThreshold` to `readability-function-size
+  <http://clang.llvm.org/extra/clang-tidy/checks/readability-function-size.html>`_ check
+
+  Finds compound statements which create next nesting level after `NestingThreshold` and emits a warning.
+
+- Added `ParameterThreshold` to `readability-function-size
+  <http://clang.llvm.org/extra/clang-tidy/checks/readability-function-size.html>`_ check
+
+  Finds functions that have more than `ParameterThreshold` parameters and emits a warning.
+
+- New `readability-misleading-indentation
+  <http://clang.llvm.org/extra/clang-tidy/checks/readability-misleading-indentation.html>`_ check
+
+  Finds misleading indentation where braces should be introduced or the code should be reformatted.
+
+- Support clang-formatting of the code around applied fixes (``-format-style``
+  command-line option).
+
+- New `bugprone` module
+
+  Adds checks that target bugprone code constructs.
+
+- New `hicpp` module
+
+  Adds checks that implement the `High Integrity C++ Coding Standard <http://www.codingstandard.com/section/index/>`_ and other safety
+  standards. Many checks are aliased to other modules.
 
 Improvements to include-fixer
 -----------------------------

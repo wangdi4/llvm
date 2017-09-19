@@ -15,7 +15,6 @@
 #include "lldb/Core/Debugger.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/StreamFile.h"
-#include "lldb/Core/Timer.h"
 #include "lldb/Host/OptionParser.h"
 #include "lldb/Interpreter/Args.h"
 #include "lldb/Interpreter/CommandInterpreter.h"
@@ -31,6 +30,7 @@
 #include "lldb/Utility/Log.h"
 #include "lldb/Utility/RegularExpression.h"
 #include "lldb/Utility/Stream.h"
+#include "lldb/Utility/Timer.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -93,9 +93,9 @@ public:
 
     ~CommandOptions() override = default;
 
-    Error SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
-                         ExecutionContext *execution_context) override {
-      Error error;
+    Status SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
+                          ExecutionContext *execution_context) override {
+      Status error;
       const int short_option = m_getopt_table[option_idx].val;
 
       switch (short_option) {

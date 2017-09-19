@@ -215,6 +215,21 @@ static std::string getR600TargetGPU(const ArgList &Args) {
   return "";
 }
 
+static std::string getNios2TargetCPU(const ArgList &Args) {
+  Arg *A = Args.getLastArg(options::OPT_mcpu_EQ);
+  if (!A)
+    A = Args.getLastArg(options::OPT_march_EQ);
+
+  if (!A)
+    return "";
+
+  const char *name = A->getValue();
+  return llvm::StringSwitch<const char *>(name)
+      .Case("r1", "nios2r1")
+      .Case("r2", "nios2r2")
+      .Default(name);
+}
+
 static std::string getLanaiTargetCPU(const ArgList &Args) {
   if (Arg *A = Args.getLastArg(options::OPT_mcpu_EQ)) {
     return A->getValue();
@@ -266,6 +281,10 @@ std::string tools::getCPUName(const ArgList &Args, const llvm::Triple &T,
     if (const Arg *A = Args.getLastArg(options::OPT_mmcu_EQ))
       return A->getValue();
     return "";
+
+  case llvm::Triple::nios2: {
+    return getNios2TargetCPU(Args);
+  }
 
   case llvm::Triple::mips:
   case llvm::Triple::mipsel:
@@ -505,6 +524,7 @@ void tools::linkSanitizerRuntimeDeps(const ToolChain &TC,
   CmdArgs.push_back("-lm");
   // There's no libdl on FreeBSD or RTEMS.
   if (TC.getTriple().getOS() != llvm::Triple::FreeBSD &&
+      TC.getTriple().getOS() != llvm::Triple::NetBSD &&
       TC.getTriple().getOS() != llvm::Triple::RTEMS)
     CmdArgs.push_back("-ldl");
 }
@@ -577,6 +597,17 @@ collectSanitizerRuntimes(const ToolChain &TC, const ArgList &Args,
     StaticRuntimes.push_back("esan");
 }
 
+static void addLibFuzzerRuntime(const ToolChain &TC,
+                                const ArgList &Args,
+                                ArgStringList &CmdArgs) {
+    StringRef ParentDir = llvm::sys::path::parent_path(TC.getDriver().InstalledDir);
+    SmallString<128> P(ParentDir);
+    llvm::sys::path::append(P, "lib", "libLLVMFuzzer.a");
+    CmdArgs.push_back(Args.MakeArgString(P));
+    TC.AddCXXStdlibLibArgs(Args, CmdArgs);
+}
+
+
 // Should be called before we add system libraries (C++ ABI, libstdc++/libc++,
 // C runtime, etc). Returns true if sanitizer system deps need to be linked in.
 bool tools::addSanitizerRuntimes(const ToolChain &TC, const ArgList &Args,
@@ -586,6 +617,12 @@ bool tools::addSanitizerRuntimes(const ToolChain &TC, const ArgList &Args,
   collectSanitizerRuntimes(TC, Args, SharedRuntimes, StaticRuntimes,
                            NonWholeStaticRuntimes, HelperStaticRuntimes,
                            RequiredSymbols);
+  // Inject libfuzzer dependencies.
+  if (TC.getSanitizerArgs().needsFuzzer()
+      && !Args.hasArg(options::OPT_shared)) {
+    addLibFuzzerRuntime(TC, Args, CmdArgs);
+  }
+
   for (auto RT : SharedRuntimes)
     addSanitizerRuntime(TC, Args, CmdArgs, RT, true, false);
   for (auto RT : HelperStaticRuntimes)

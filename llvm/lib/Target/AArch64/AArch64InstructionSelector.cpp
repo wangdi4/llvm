@@ -33,6 +33,8 @@
 
 #define DEBUG_TYPE "aarch64-isel"
 
+#include "llvm/CodeGen/GlobalISel/InstructionSelectorImpl.h"
+
 using namespace llvm;
 
 #ifndef LLVM_BUILD_GLOBAL_ISEL
@@ -51,7 +53,6 @@ public:
                              const AArch64Subtarget &STI,
                              const AArch64RegisterBankInfo &RBI);
 
-  void beginFunction(const MachineFunction &MF) override;
   bool select(MachineInstr &I) const override;
 
 private:
@@ -67,20 +68,17 @@ private:
   bool selectCompareBranch(MachineInstr &I, MachineFunction &MF,
                            MachineRegisterInfo &MRI) const;
 
-  bool selectArithImmed(MachineOperand &Root, MachineOperand &Result1,
-                        MachineOperand &Result2) const;
+  ComplexRendererFn selectArithImmed(MachineOperand &Root) const;
 
   const AArch64TargetMachine &TM;
   const AArch64Subtarget &STI;
   const AArch64InstrInfo &TII;
   const AArch64RegisterInfo &TRI;
   const AArch64RegisterBankInfo &RBI;
-  bool ForCodeSize;
 
-  PredicateBitset AvailableFeatures;
-  PredicateBitset
-  computeAvailableFeatures(const MachineFunction *MF,
-                           const AArch64Subtarget *Subtarget) const;
+#define GET_GLOBALISEL_PREDICATES_DECL
+#include "AArch64GenGlobalISel.inc"
+#undef GET_GLOBALISEL_PREDICATES_DECL
 
 // We declare the temporaries used by selectImpl() in the class to minimize the
 // cost of constructing placeholder values.
@@ -99,7 +97,10 @@ AArch64InstructionSelector::AArch64InstructionSelector(
     const AArch64TargetMachine &TM, const AArch64Subtarget &STI,
     const AArch64RegisterBankInfo &RBI)
     : InstructionSelector(), TM(TM), STI(STI), TII(*STI.getInstrInfo()),
-      TRI(*STI.getRegisterInfo()), RBI(RBI), ForCodeSize(), AvailableFeatures()
+      TRI(*STI.getRegisterInfo()), RBI(RBI),
+#define GET_GLOBALISEL_PREDICATES_INIT
+#include "AArch64GenGlobalISel.inc"
+#undef GET_GLOBALISEL_PREDICATES_INIT
 #define GET_GLOBALISEL_TEMPORARIES_INIT
 #include "AArch64GenGlobalISel.inc"
 #undef GET_GLOBALISEL_TEMPORARIES_INIT
@@ -213,6 +214,7 @@ static unsigned selectBinaryOp(unsigned GenericOpc, unsigned RegBankID,
         return GenericOpc;
       }
     }
+    break;
   case AArch64::FPRRegBankID:
     switch (OpSize) {
     case 32:
@@ -244,7 +246,8 @@ static unsigned selectBinaryOp(unsigned GenericOpc, unsigned RegBankID,
         return GenericOpc;
       }
     }
-  };
+    break;
+  }
   return GenericOpc;
 }
 
@@ -268,6 +271,7 @@ static unsigned selectLoadStoreUIOp(unsigned GenericOpc, unsigned RegBankID,
     case 64:
       return isStore ? AArch64::STRXui : AArch64::LDRXui;
     }
+    break;
   case AArch64::FPRRegBankID:
     switch (OpSize) {
     case 8:
@@ -279,7 +283,8 @@ static unsigned selectLoadStoreUIOp(unsigned GenericOpc, unsigned RegBankID,
     case 64:
       return isStore ? AArch64::STRDui : AArch64::LDRDui;
     }
-  };
+    break;
+  }
   return GenericOpc;
 }
 
@@ -576,12 +581,6 @@ bool AArch64InstructionSelector::selectVaStartDarwin(
   constrainSelectedInstRegOperands(*MIB, TII, TRI, RBI);
   I.eraseFromParent();
   return true;
-}
-
-void AArch64InstructionSelector::beginFunction(
-    const MachineFunction &MF) {
-  ForCodeSize = MF.getFunction()->optForSize();
-  AvailableFeatures = computeAvailableFeatures(&MF, &STI);
 }
 
 bool AArch64InstructionSelector::select(MachineInstr &I) const {
@@ -954,7 +953,7 @@ bool AArch64InstructionSelector::select(MachineInstr &I) const {
     const RegisterBank &SrcRB = *RBI.getRegBank(SrcReg, MRI, TRI);
 
     if (DstRB.getID() != SrcRB.getID()) {
-      DEBUG(dbgs() << "G_TRUNC input/output on different banks\n");
+      DEBUG(dbgs() << "G_TRUNC/G_PTRTOINT input/output on different banks\n");
       return false;
     }
 
@@ -971,16 +970,21 @@ bool AArch64InstructionSelector::select(MachineInstr &I) const {
 
       if (!RBI.constrainGenericRegister(SrcReg, *SrcRC, MRI) ||
           !RBI.constrainGenericRegister(DstReg, *DstRC, MRI)) {
-        DEBUG(dbgs() << "Failed to constrain G_TRUNC\n");
+        DEBUG(dbgs() << "Failed to constrain G_TRUNC/G_PTRTOINT\n");
         return false;
       }
 
       if (DstRC == SrcRC) {
         // Nothing to be done
+      } else if (Opcode == TargetOpcode::G_TRUNC && DstTy == LLT::scalar(32) &&
+                 SrcTy == LLT::scalar(64)) {
+        llvm_unreachable("TableGen can import this case");
+        return false;
       } else if (DstRC == &AArch64::GPR32RegClass &&
                  SrcRC == &AArch64::GPR64RegClass) {
         I.getOperand(1).setSubReg(AArch64::sub_32);
       } else {
+        DEBUG(dbgs() << "Unhandled mismatched classes in G_TRUNC/G_PTRTOINT\n");
         return false;
       }
 
@@ -1321,6 +1325,9 @@ bool AArch64InstructionSelector::select(MachineInstr &I) const {
   case TargetOpcode::G_VASTART:
     return STI.isTargetDarwin() ? selectVaStartDarwin(I, MF, MRI)
                                 : selectVaStartAAPCS(I, MF, MRI);
+  case TargetOpcode::G_IMPLICIT_DEF:
+    I.setDesc(TII.get(TargetOpcode::IMPLICIT_DEF));
+    return true;
   }
 
   return false;
@@ -1329,9 +1336,8 @@ bool AArch64InstructionSelector::select(MachineInstr &I) const {
 /// SelectArithImmed - Select an immediate value that can be represented as
 /// a 12-bit value shifted left by either 0 or 12.  If so, return true with
 /// Val set to the 12-bit value and Shift set to the shifter operand.
-bool AArch64InstructionSelector::selectArithImmed(
-    MachineOperand &Root, MachineOperand &Result1,
-    MachineOperand &Result2) const {
+InstructionSelector::ComplexRendererFn
+AArch64InstructionSelector::selectArithImmed(MachineOperand &Root) const {
   MachineInstr &MI = *Root.getParent();
   MachineBasicBlock &MBB = *MI.getParent();
   MachineFunction &MF = *MBB.getParent();
@@ -1350,13 +1356,13 @@ bool AArch64InstructionSelector::selectArithImmed(
   else if (Root.isReg()) {
     MachineInstr *Def = MRI.getVRegDef(Root.getReg());
     if (Def->getOpcode() != TargetOpcode::G_CONSTANT)
-      return false;
+      return nullptr;
     MachineOperand &Op1 = Def->getOperand(1);
     if (!Op1.isCImm() || Op1.getCImm()->getBitWidth() > 64)
-      return false;
+      return nullptr;
     Immed = Op1.getCImm()->getZExtValue();
   } else
-    return false;
+    return nullptr;
 
   unsigned ShiftAmt;
 
@@ -1366,14 +1372,10 @@ bool AArch64InstructionSelector::selectArithImmed(
     ShiftAmt = 12;
     Immed = Immed >> 12;
   } else
-    return false;
+    return nullptr;
 
   unsigned ShVal = AArch64_AM::getShifterImm(AArch64_AM::LSL, ShiftAmt);
-  Result1.ChangeToImmediate(Immed);
-  Result1.clearParent();
-  Result2.ChangeToImmediate(ShVal);
-  Result2.clearParent();
-  return true;
+  return [=](MachineInstrBuilder &MIB) { MIB.addImm(Immed).addImm(ShVal); };
 }
 
 namespace llvm {

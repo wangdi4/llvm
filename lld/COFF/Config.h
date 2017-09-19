@@ -31,6 +31,7 @@ class SymbolBody;
 
 // Short aliases.
 static const auto AMD64 = llvm::COFF::IMAGE_FILE_MACHINE_AMD64;
+static const auto ARM64 = llvm::COFF::IMAGE_FILE_MACHINE_ARM64;
 static const auto ARMNT = llvm::COFF::IMAGE_FILE_MACHINE_ARMNT;
 static const auto I386 = llvm::COFF::IMAGE_FILE_MACHINE_I386;
 
@@ -73,7 +74,7 @@ enum class DebugType {
 // Global configuration.
 struct Configuration {
   enum ManifestKind { SideBySide, Embed, No };
-  bool is64() { return Machine == AMD64; }
+  bool is64() { return Machine == AMD64 || Machine == ARM64; }
 
   llvm::COFF::MachineTypes Machine = IMAGE_FILE_MACHINE_UNKNOWN;
   bool Verbose = false;
@@ -81,6 +82,7 @@ struct Configuration {
   SymbolBody *Entry = nullptr;
   bool NoEntry = false;
   std::string OutputFile;
+  std::string ImportName;
   bool ColorDiagnostics;
   bool DoGC = true;
   bool DoICF = true;
@@ -91,6 +93,7 @@ struct Configuration {
   bool WriteSymtab = true;
   unsigned DebugTypes = static_cast<unsigned>(DebugType::None);
   llvm::SmallString<128> PDBPath;
+  std::vector<llvm::StringRef> Argv;
 
   // Symbols in this set are considered as live by the garbage collector.
   std::set<SymbolBody *> GCRoot;
@@ -155,17 +158,12 @@ struct Configuration {
   uint32_t MajorOSVersion = 6;
   uint32_t MinorOSVersion = 0;
   bool DynamicBase = true;
-  bool AllowBind = true;
   bool NxCompat = true;
   bool AllowIsolation = true;
   bool TerminalServerAware = true;
   bool LargeAddressAware = false;
   bool HighEntropyVA = false;
   bool AppContainer = false;
-
-  // This is for debugging.
-  bool DebugPdb = false;
-  bool DumpPdb = false;
 };
 
 extern Configuration *Config;

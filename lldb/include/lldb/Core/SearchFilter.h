@@ -11,7 +11,7 @@
 #define liblldb_SearchFilter_h_
 
 #include "lldb/Core/FileSpecList.h"
-#include "lldb/Core/StructuredData.h"
+#include "lldb/Utility/StructuredData.h"
 
 #include "lldb/Utility/FileSpec.h" // for FileSpec
 #include "lldb/lldb-forward.h"     // for SearchFilterSP, TargetSP, Modu...
@@ -28,7 +28,7 @@ namespace lldb_private {
 class CompileUnit;
 }
 namespace lldb_private {
-class Error;
+class Status;
 }
 namespace lldb_private {
 class Function;
@@ -250,7 +250,7 @@ public:
   static lldb::SearchFilterSP
   CreateFromStructuredData(Target &target,
                            const StructuredData::Dictionary &data_dict,
-                           Error &error);
+                           Status &error);
 
   virtual StructuredData::ObjectSP SerializeToStructuredData() {
     return StructuredData::ObjectSP();
@@ -285,7 +285,7 @@ public:
 
   static const char *FilterTyToName(enum FilterTy);
 
-  static FilterTy NameToFilterTy(const char *name);
+  static FilterTy NameToFilterTy(llvm::StringRef name);
 
 protected:
   // Serialization of SearchFilter options:
@@ -351,7 +351,7 @@ public:
   static lldb::SearchFilterSP
   CreateFromStructuredData(Target &target,
                            const StructuredData::Dictionary &data_dict,
-                           Error &error);
+                           Status &error);
 
   StructuredData::ObjectSP SerializeToStructuredData() override;
 
@@ -405,7 +405,7 @@ public:
   static lldb::SearchFilterSP
   CreateFromStructuredData(Target &target,
                            const StructuredData::Dictionary &data_dict,
-                           Error &error);
+                           Status &error);
 
   StructuredData::ObjectSP SerializeToStructuredData() override;
 
@@ -462,7 +462,7 @@ public:
   static lldb::SearchFilterSP
   CreateFromStructuredData(Target &target,
                            const StructuredData::Dictionary &data_dict,
-                           Error &error);
+                           Status &error);
 
   StructuredData::ObjectSP SerializeToStructuredData() override;
 
@@ -515,7 +515,7 @@ public:
   static lldb::SearchFilterSP
   CreateFromStructuredData(Target &target,
                            const StructuredData::Dictionary &data_dict,
-                           Error &error);
+                           Status &error);
 
   StructuredData::ObjectSP SerializeToStructuredData() override;
 

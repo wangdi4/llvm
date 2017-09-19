@@ -7,21 +7,21 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Analysis/ScalarEvolutionExpander.h"
-#include "llvm/Analysis/ScalarEvolutionExpressions.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/ScalarEvolutionExpander.h"
+#include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/AsmParser/Parser.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/GlobalVariable.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/Module.h"
 #include "llvm/IR/LegacyPassManager.h"
+#include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Support/SourceMgr.h"
 #include "gtest/gtest.h"
@@ -640,6 +640,25 @@ TEST_F(ScalarEvolutionsTest, SCEVNormalization) {
       "for.end.loopexit: "
       "  ret void "
       "} "
+      " "
+      "define void @f_2(i32 %a, i32 %b, i32 %c, i32 %d) "
+      "    local_unnamed_addr { "
+      "entry: "
+      "  br label %loop_0 "
+      " "
+      "loop_0: "
+      "  br i1 undef, label %loop_0, label %loop_1 "
+      " "
+      "loop_1: "
+      "  br i1 undef, label %loop_2, label %loop_1 "
+      " "
+      " "
+      "loop_2: "
+      "  br i1 undef, label %end, label %loop_2 "
+      " "
+      "end: "
+      "  ret void "
+      "} "
       ,
       Err, C);
 
@@ -663,6 +682,85 @@ TEST_F(ScalarEvolutionsTest, SCEVNormalization) {
     auto *N1 = normalizeForPostIncUse(S1, Loops, SE);
     auto *D1 = denormalizeForPostIncUse(N1, Loops, SE);
     EXPECT_EQ(S1, D1) << *S1 << " " << *D1;
+  });
+
+  runWithSE(*M, "f_2", [&](Function &F, LoopInfo &LI, ScalarEvolution &SE) {
+    auto *L2 = *LI.begin();
+    auto *L1 = *std::next(LI.begin());
+    auto *L0 = *std::next(LI.begin(), 2);
+
+    auto GetAddRec = [&SE](const Loop *L, std::initializer_list<const SCEV *> Ops) {
+      SmallVector<const SCEV *, 4> OpsCopy(Ops);
+      return SE.getAddRecExpr(OpsCopy, L, SCEV::FlagAnyWrap);
+    };
+
+    auto GetAdd = [&SE](std::initializer_list<const SCEV *> Ops) {
+      SmallVector<const SCEV *, 4> OpsCopy(Ops);
+      return SE.getAddExpr(OpsCopy, SCEV::FlagAnyWrap);
+    };
+
+    // We first populate the AddRecs vector with a few "interesting" SCEV
+    // expressions, and then we go through the list and assert that each
+    // expression in it has an invertible normalization.
+
+    std::vector<const SCEV *> Exprs;
+    {
+      const SCEV *V0 = SE.getSCEV(&*F.arg_begin());
+      const SCEV *V1 = SE.getSCEV(&*std::next(F.arg_begin(), 1));
+      const SCEV *V2 = SE.getSCEV(&*std::next(F.arg_begin(), 2));
+      const SCEV *V3 = SE.getSCEV(&*std::next(F.arg_begin(), 3));
+
+      Exprs.push_back(GetAddRec(L0, {V0}));             // 0
+      Exprs.push_back(GetAddRec(L0, {V0, V1}));         // 1
+      Exprs.push_back(GetAddRec(L0, {V0, V1, V2}));     // 2
+      Exprs.push_back(GetAddRec(L0, {V0, V1, V2, V3})); // 3
+
+      Exprs.push_back(
+          GetAddRec(L1, {Exprs[1], Exprs[2], Exprs[3], Exprs[0]})); // 4
+      Exprs.push_back(
+          GetAddRec(L1, {Exprs[1], Exprs[2], Exprs[0], Exprs[3]})); // 5
+      Exprs.push_back(
+          GetAddRec(L1, {Exprs[1], Exprs[3], Exprs[3], Exprs[1]})); // 6
+
+      Exprs.push_back(GetAdd({Exprs[6], Exprs[3], V2})); // 7
+
+      Exprs.push_back(
+          GetAddRec(L2, {Exprs[4], Exprs[3], Exprs[3], Exprs[5]})); // 8
+
+      Exprs.push_back(
+          GetAddRec(L2, {Exprs[4], Exprs[6], Exprs[7], Exprs[3], V0})); // 9
+    }
+
+    std::vector<PostIncLoopSet> LoopSets;
+    for (int i = 0; i < 8; i++) {
+      LoopSets.emplace_back();
+      if (i & 1)
+        LoopSets.back().insert(L0);
+      if (i & 2)
+        LoopSets.back().insert(L1);
+      if (i & 4)
+        LoopSets.back().insert(L2);
+    }
+
+    for (const auto &LoopSet : LoopSets)
+      for (auto *S : Exprs) {
+        {
+          auto *N = llvm::normalizeForPostIncUse(S, LoopSet, SE);
+          auto *D = llvm::denormalizeForPostIncUse(N, LoopSet, SE);
+
+          // Normalization and then denormalizing better give us back the same
+          // value.
+          EXPECT_EQ(S, D) << "S = " << *S << "  D = " << *D << " N = " << *N;
+        }
+        {
+          auto *D = llvm::denormalizeForPostIncUse(S, LoopSet, SE);
+          auto *N = llvm::normalizeForPostIncUse(D, LoopSet, SE);
+
+          // Denormalization and then normalizing better give us back the same
+          // value.
+          EXPECT_EQ(S, N) << "S = " << *S << "  N = " << *N;
+        }
+      }
   });
 }
 
@@ -754,6 +852,82 @@ TEST_F(ScalarEvolutionsTest, SCEVZeroExtendExpr) {
   const SCEV *S = SE.getSCEV(Accum);
   Type *I128Ty = Type::getInt128Ty(Context);
   SE.getZeroExtendExpr(S, I128Ty);
+}
+
+// Make sure that SCEV doesn't introduce illegal ptrtoint/inttoptr instructions
+TEST_F(ScalarEvolutionsTest, SCEVZeroExtendExprNonIntegral) {
+  /*
+   * Create the following code:
+   * func(i64 addrspace(10)* %arg)
+   * top:
+   *  br label %L.ph
+   * L.ph:
+   *  br label %L
+   * L:
+   *  %phi = phi i64 [i64 0, %L.ph], [ %add, %L2 ]
+   *  %add = add i64 %phi2, 1
+   *  br i1 undef, label %post, label %L2
+   * post:
+   *  %gepbase = getelementptr i64 addrspace(10)* %arg, i64 1
+   *  #= %gep = getelementptr i64 addrspace(10)* %gepbase, i64 %add =#
+   *  ret void
+   *
+   * We will create the appropriate SCEV expression for %gep and expand it,
+   * then check that no inttoptr/ptrtoint instructions got inserted.
+   */
+
+  // Create a module with non-integral pointers in it's datalayout
+  Module NIM("nonintegral", Context);
+  std::string DataLayout = M.getDataLayoutStr();
+  if (!DataLayout.empty())
+    DataLayout += "-";
+  DataLayout += "ni:10";
+  NIM.setDataLayout(DataLayout);
+
+  Type *T_int1 = Type::getInt1Ty(Context);
+  Type *T_int64 = Type::getInt64Ty(Context);
+  Type *T_pint64 = T_int64->getPointerTo(10);
+
+  FunctionType *FTy =
+      FunctionType::get(Type::getVoidTy(Context), {T_pint64}, false);
+  Function *F = cast<Function>(NIM.getOrInsertFunction("foo", FTy));
+
+  Argument *Arg = &*F->arg_begin();
+
+  BasicBlock *Top = BasicBlock::Create(Context, "top", F);
+  BasicBlock *LPh = BasicBlock::Create(Context, "L.ph", F);
+  BasicBlock *L = BasicBlock::Create(Context, "L", F);
+  BasicBlock *Post = BasicBlock::Create(Context, "post", F);
+
+  IRBuilder<> Builder(Top);
+  Builder.CreateBr(LPh);
+
+  Builder.SetInsertPoint(LPh);
+  Builder.CreateBr(L);
+
+  Builder.SetInsertPoint(L);
+  PHINode *Phi = Builder.CreatePHI(T_int64, 2);
+  Value *Add = Builder.CreateAdd(Phi, ConstantInt::get(T_int64, 1), "add");
+  Builder.CreateCondBr(UndefValue::get(T_int1), L, Post);
+  Phi->addIncoming(ConstantInt::get(T_int64, 0), LPh);
+  Phi->addIncoming(Add, L);
+
+  Builder.SetInsertPoint(Post);
+  Value *GepBase = Builder.CreateGEP(Arg, ConstantInt::get(T_int64, 1));
+  Instruction *Ret = Builder.CreateRetVoid();
+
+  ScalarEvolution SE = buildSE(*F);
+  auto *AddRec =
+      SE.getAddRecExpr(SE.getUnknown(GepBase), SE.getConstant(T_int64, 1),
+                       LI->getLoopFor(L), SCEV::FlagNUW);
+
+  SCEVExpander Exp(SE, NIM.getDataLayout(), "expander");
+  Exp.disableCanonicalMode();
+  Exp.expandCodeFor(AddRec, T_pint64, Ret);
+
+  // Make sure none of the instructions inserted were inttoptr/ptrtoint.
+  // The verifier will check this.
+  EXPECT_FALSE(verifyFunction(*F, &errs()));
 }
 
 }  // end anonymous namespace

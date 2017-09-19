@@ -74,7 +74,7 @@ using namespace lldb_private;
 
 namespace {
 
-Error AttachToProcess(ProcessAttachInfo &attach_info, Target &target) {
+Status AttachToProcess(ProcessAttachInfo &attach_info, Target &target) {
   std::lock_guard<std::recursive_mutex> guard(target.GetAPIMutex());
 
   auto process_sp = target.GetProcessSP();
@@ -85,8 +85,8 @@ Error AttachToProcess(ProcessAttachInfo &attach_info, Target &target) {
       // listener, so if a valid listener is supplied, we need to error out
       // to let the client know.
       if (attach_info.GetListener())
-        return Error("process is connected and already has a listener, pass "
-                     "empty listener");
+        return Status("process is connected and already has a listener, pass "
+                      "empty listener");
     }
   }
 
@@ -1279,7 +1279,7 @@ lldb::SBWatchpoint SBTarget::WatchAddress(lldb::addr_t addr, size_t size,
     }
 
     // Target::CreateWatchpoint() is thread safe.
-    Error cw_error;
+    Status cw_error;
     // This API doesn't take in a type, so we can't figure out what it is.
     CompilerType *type = NULL;
     watchpoint_sp =
@@ -1863,7 +1863,7 @@ lldb::SBInstructionList SBTarget::ReadInstructions(lldb::SBAddress base_addr,
       DataBufferHeap data(
           target_sp->GetArchitecture().GetMaximumOpcodeByteSize() * count, 0);
       bool prefer_file_cache = false;
-      lldb_private::Error error;
+      lldb_private::Status error;
       lldb::addr_t load_addr = LLDB_INVALID_ADDRESS;
       const size_t bytes_read =
           target_sp->ReadMemory(*addr_ptr, prefer_file_cache, data.GetBytes(),
@@ -2170,7 +2170,7 @@ lldb::addr_t SBTarget::GetStackRedZoneSize() {
     if (process_sp)
       abi_sp = process_sp->GetABI();
     else
-      abi_sp = ABI::FindPlugin(target_sp->GetArchitecture());
+      abi_sp = ABI::FindPlugin(ProcessSP(), target_sp->GetArchitecture());
     if (abi_sp)
       return abi_sp->GetRedZoneSize();
   }

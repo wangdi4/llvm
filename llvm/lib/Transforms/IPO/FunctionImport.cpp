@@ -17,6 +17,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/StringSet.h"
 #include "llvm/ADT/Triple.h"
+#include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/IR/AutoUpgrade.h"
 #include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/IR/IntrinsicInst.h"
@@ -25,7 +26,6 @@
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Linker/Linker.h"
 #include "llvm/Object/IRObjectFile.h"
-#include "llvm/Object/ModuleSummaryIndexObjectFile.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/SourceMgr.h"
@@ -63,6 +63,12 @@ static cl::opt<float> ImportHotInstrFactor(
 static cl::opt<float> ImportHotMultiplier(
     "import-hot-multiplier", cl::init(3.0), cl::Hidden, cl::value_desc("x"),
     cl::desc("Multiply the `import-instr-limit` threshold for hot callsites"));
+
+static cl::opt<float> ImportCriticalMultiplier(
+    "import-critical-multiplier", cl::init(100.0), cl::Hidden,
+    cl::value_desc("x"),
+    cl::desc(
+        "Multiply the `import-instr-limit` threshold for critical callsites"));
 
 // FIXME: This multiplier was not really tuned up.
 static cl::opt<float> ImportColdMultiplier(
@@ -117,7 +123,7 @@ namespace {
 /// - [insert you fancy metric here]
 static const GlobalValueSummary *
 selectCallee(const ModuleSummaryIndex &Index,
-             const GlobalValueSummaryList &CalleeSummaryList,
+             ArrayRef<std::unique_ptr<GlobalValueSummary>> CalleeSummaryList,
              unsigned Threshold, StringRef CallerModulePath) {
   auto It = llvm::find_if(
       CalleeSummaryList,
@@ -168,19 +174,6 @@ selectCallee(const ModuleSummaryIndex &Index,
   return cast<GlobalValueSummary>(It->get());
 }
 
-/// Return the summary for the function \p GUID that fits the \p Threshold, or
-/// null if there's no match.
-static const GlobalValueSummary *selectCallee(GlobalValue::GUID GUID,
-                                              unsigned Threshold,
-                                              const ModuleSummaryIndex &Index,
-                                              StringRef CallerModulePath) {
-  auto CalleeSummaryList = Index.findGlobalValueSummaryList(GUID);
-  if (CalleeSummaryList == Index.end())
-    return nullptr; // This function does not have a summary
-  return selectCallee(Index, CalleeSummaryList->second, Threshold,
-                      CallerModulePath);
-}
-
 using EdgeInfo = std::tuple<const FunctionSummary *, unsigned /* Threshold */,
                             GlobalValue::GUID>;
 
@@ -194,19 +187,23 @@ static void computeImportForFunction(
     FunctionImporter::ImportMapTy &ImportList,
     StringMap<FunctionImporter::ExportSetTy> *ExportLists = nullptr) {
   for (auto &Edge : Summary.calls()) {
-    auto GUID = Edge.first.getGUID();
-    DEBUG(dbgs() << " edge -> " << GUID << " Threshold:" << Threshold << "\n");
+    ValueInfo VI = Edge.first;
+    DEBUG(dbgs() << " edge -> " << VI.getGUID() << " Threshold:" << Threshold
+                 << "\n");
 
-    if (Index.findGlobalValueSummaryList(GUID) == Index.end()) {
+    if (VI.getSummaryList().empty()) {
       // For SamplePGO, the indirect call targets for local functions will
       // have its original name annotated in profile. We try to find the
       // corresponding PGOFuncName as the GUID.
-      GUID = Index.getGUIDFromOriginalID(GUID);
+      auto GUID = Index.getGUIDFromOriginalID(VI.getGUID());
       if (GUID == 0)
+        continue;
+      VI = Index.getValueInfo(GUID);
+      if (!VI)
         continue;
     }
 
-    if (DefinedGVSummaries.count(GUID)) {
+    if (DefinedGVSummaries.count(VI.getGUID())) {
       DEBUG(dbgs() << "ignored! Target already in destination module.\n");
       continue;
     }
@@ -216,14 +213,16 @@ static void computeImportForFunction(
         return ImportHotMultiplier;
       if (Hotness == CalleeInfo::HotnessType::Cold)
         return ImportColdMultiplier;
+      if (Hotness == CalleeInfo::HotnessType::Critical)
+        return ImportCriticalMultiplier;
       return 1.0;
     };
 
     const auto NewThreshold =
         Threshold * GetBonusMultiplier(Edge.second.Hotness);
 
-    auto *CalleeSummary =
-        selectCallee(GUID, NewThreshold, Index, Summary.modulePath());
+    auto *CalleeSummary = selectCallee(Index, VI.getSummaryList(), NewThreshold,
+                                       Summary.modulePath());
     if (!CalleeSummary) {
       DEBUG(dbgs() << "ignored! No qualifying callee with summary found.\n");
       continue;
@@ -255,7 +254,7 @@ static void computeImportForFunction(
     const auto AdjThreshold = GetAdjustedThreshold(Threshold, IsHotCallsite);
 
     auto ExportModulePath = ResolvedCalleeSummary->modulePath();
-    auto &ProcessedThreshold = ImportList[ExportModulePath][GUID];
+    auto &ProcessedThreshold = ImportList[ExportModulePath][VI.getGUID()];
     /// Since the traversal of the call graph is DFS, we can revisit a function
     /// a second time with a higher threshold. In this case, it is added back to
     /// the worklist with the new threshold.
@@ -271,7 +270,7 @@ static void computeImportForFunction(
     // Make exports in the source module.
     if (ExportLists) {
       auto &ExportList = (*ExportLists)[ExportModulePath];
-      ExportList.insert(GUID);
+      ExportList.insert(VI.getGUID());
       if (!PreviouslyImported) {
         // This is the first time this function was exported from its source
         // module, so mark all functions and globals it references as exported
@@ -291,7 +290,7 @@ static void computeImportForFunction(
     }
 
     // Insert the newly imported function to the worklist.
-    Worklist.emplace_back(ResolvedCalleeSummary, AdjThreshold, GUID);
+    Worklist.emplace_back(ResolvedCalleeSummary, AdjThreshold, VI.getGUID());
   }
 }
 
@@ -301,8 +300,7 @@ static void computeImportForFunction(
 static void ComputeImportForModule(
     const GVSummaryMapTy &DefinedGVSummaries, const ModuleSummaryIndex &Index,
     FunctionImporter::ImportMapTy &ImportList,
-    StringMap<FunctionImporter::ExportSetTy> *ExportLists = nullptr,
-    const DenseSet<GlobalValue::GUID> *DeadSymbols = nullptr) {
+    StringMap<FunctionImporter::ExportSetTy> *ExportLists = nullptr) {
   // Worklist contains the list of function imported in this module, for which
   // we will analyse the callees and may import further down the callgraph.
   SmallVector<EdgeInfo, 128> Worklist;
@@ -310,7 +308,7 @@ static void ComputeImportForModule(
   // Populate the worklist with the import for the functions in the current
   // module
   for (auto &GVSummary : DefinedGVSummaries) {
-    if (DeadSymbols && DeadSymbols->count(GVSummary.first)) {
+    if (!Index.isGlobalValueLive(GVSummary.second)) {
       DEBUG(dbgs() << "Ignores Dead GUID: " << GVSummary.first << "\n");
       continue;
     }
@@ -353,15 +351,14 @@ void llvm::ComputeCrossModuleImport(
     const ModuleSummaryIndex &Index,
     const StringMap<GVSummaryMapTy> &ModuleToDefinedGVSummaries,
     StringMap<FunctionImporter::ImportMapTy> &ImportLists,
-    StringMap<FunctionImporter::ExportSetTy> &ExportLists,
-    const DenseSet<GlobalValue::GUID> *DeadSymbols) {
+    StringMap<FunctionImporter::ExportSetTy> &ExportLists) {
   // For each module that has function defined, compute the import/export lists.
   for (auto &DefinedGVSummaries : ModuleToDefinedGVSummaries) {
     auto &ImportList = ImportLists[DefinedGVSummaries.first()];
     DEBUG(dbgs() << "Computing import for Module '"
                  << DefinedGVSummaries.first() << "'\n");
     ComputeImportForModule(DefinedGVSummaries.second, Index, ImportList,
-                           &ExportLists, DeadSymbols);
+                           &ExportLists);
   }
 
   // When computing imports we added all GUIDs referenced by anything
@@ -423,84 +420,71 @@ void llvm::ComputeCrossModuleImportForModule(
 #endif
 }
 
-DenseSet<GlobalValue::GUID> llvm::computeDeadSymbols(
-    const ModuleSummaryIndex &Index,
+void llvm::computeDeadSymbols(
+    ModuleSummaryIndex &Index,
     const DenseSet<GlobalValue::GUID> &GUIDPreservedSymbols) {
+  assert(!Index.withGlobalValueDeadStripping());
   if (!ComputeDead)
-    return DenseSet<GlobalValue::GUID>();
+    return;
   if (GUIDPreservedSymbols.empty())
     // Don't do anything when nothing is live, this is friendly with tests.
-    return DenseSet<GlobalValue::GUID>();
-  DenseSet<GlobalValue::GUID> LiveSymbols = GUIDPreservedSymbols;
-  SmallVector<GlobalValue::GUID, 128> Worklist;
-  Worklist.reserve(LiveSymbols.size() * 2);
-  for (auto GUID : LiveSymbols) {
-    DEBUG(dbgs() << "Live root: " << GUID << "\n");
-    Worklist.push_back(GUID);
-  }
-  // Add values flagged in the index as live roots to the worklist.
-  for (const auto &Entry : Index) {
-    bool IsLiveRoot = llvm::any_of(
-        Entry.second,
-        [&](const std::unique_ptr<llvm::GlobalValueSummary> &Summary) {
-          return Summary->liveRoot();
-        });
-    if (!IsLiveRoot)
+    return;
+  unsigned LiveSymbols = 0;
+  SmallVector<ValueInfo, 128> Worklist;
+  Worklist.reserve(GUIDPreservedSymbols.size() * 2);
+  for (auto GUID : GUIDPreservedSymbols) {
+    ValueInfo VI = Index.getValueInfo(GUID);
+    if (!VI)
       continue;
-    DEBUG(dbgs() << "Live root (summary): " << Entry.first << "\n");
-    Worklist.push_back(Entry.first);
+    for (auto &S : VI.getSummaryList())
+      S->setLive(true);
   }
+
+  // Add values flagged in the index as live roots to the worklist.
+  for (const auto &Entry : Index)
+    for (auto &S : Entry.second.SummaryList)
+      if (S->isLive()) {
+        DEBUG(dbgs() << "Live root: " << Entry.first << "\n");
+        Worklist.push_back(ValueInfo(&Entry));
+        ++LiveSymbols;
+        break;
+      }
+
+  // Make value live and add it to the worklist if it was not live before.
+  // FIXME: we should only make the prevailing copy live here
+  auto visit = [&](ValueInfo VI) {
+    for (auto &S : VI.getSummaryList())
+      if (S->isLive())
+        return;
+    for (auto &S : VI.getSummaryList())
+      S->setLive(true);
+    ++LiveSymbols;
+    Worklist.push_back(VI);
+  };
 
   while (!Worklist.empty()) {
-    auto GUID = Worklist.pop_back_val();
-    auto It = Index.findGlobalValueSummaryList(GUID);
-    if (It == Index.end()) {
-      DEBUG(dbgs() << "Not in index: " << GUID << "\n");
-      continue;
-    }
-
-    // FIXME: we should only make the prevailing copy live here
-    for (auto &Summary : It->second) {
-      for (auto Ref : Summary->refs()) {
-        auto RefGUID = Ref.getGUID();
-        if (LiveSymbols.insert(RefGUID).second) {
-          DEBUG(dbgs() << "Marking live (ref): " << RefGUID << "\n");
-          Worklist.push_back(RefGUID);
-        }
-      }
-      if (auto *FS = dyn_cast<FunctionSummary>(Summary.get())) {
-        for (auto Call : FS->calls()) {
-          auto CallGUID = Call.first.getGUID();
-          if (LiveSymbols.insert(CallGUID).second) {
-            DEBUG(dbgs() << "Marking live (call): " << CallGUID << "\n");
-            Worklist.push_back(CallGUID);
-          }
-        }
-      }
+    auto VI = Worklist.pop_back_val();
+    for (auto &Summary : VI.getSummaryList()) {
+      for (auto Ref : Summary->refs())
+        visit(Ref);
+      if (auto *FS = dyn_cast<FunctionSummary>(Summary.get()))
+        for (auto Call : FS->calls())
+          visit(Call.first);
       if (auto *AS = dyn_cast<AliasSummary>(Summary.get())) {
         auto AliaseeGUID = AS->getAliasee().getOriginalName();
-        if (LiveSymbols.insert(AliaseeGUID).second) {
-          DEBUG(dbgs() << "Marking live (alias): " << AliaseeGUID << "\n");
-          Worklist.push_back(AliaseeGUID);
-        }
+        ValueInfo AliaseeVI = Index.getValueInfo(AliaseeGUID);
+        if (AliaseeVI)
+          visit(AliaseeVI);
       }
     }
   }
-  DenseSet<GlobalValue::GUID> DeadSymbols;
-  DeadSymbols.reserve(
-      std::min(Index.size(), Index.size() - LiveSymbols.size()));
-  for (auto &Entry : Index) {
-    auto GUID = Entry.first;
-    if (!LiveSymbols.count(GUID)) {
-      DEBUG(dbgs() << "Marking dead: " << GUID << "\n");
-      DeadSymbols.insert(GUID);
-    }
-  }
-  DEBUG(dbgs() << LiveSymbols.size() << " symbols Live, and "
-               << DeadSymbols.size() << " symbols Dead \n");
-  NumDeadSymbols += DeadSymbols.size();
-  NumLiveSymbols += LiveSymbols.size();
-  return DeadSymbols;
+  Index.setWithGlobalValueDeadStripping();
+
+  unsigned DeadSymbols = Index.size() - LiveSymbols;
+  DEBUG(dbgs() << LiveSymbols << " symbols Live, and " << DeadSymbols
+               << " symbols Dead \n");
+  NumDeadSymbols += DeadSymbols;
+  NumLiveSymbols += LiveSymbols;
 }
 
 /// Compute the set of summaries needed for a ThinLTO backend compilation of
@@ -561,14 +545,27 @@ void llvm::thinLTOResolveWeakForLinkerModule(
   };
 
   auto updateLinkage = [&](GlobalValue &GV) {
-    if (!GlobalValue::isWeakForLinker(GV.getLinkage()))
-      return;
     // See if the global summary analysis computed a new resolved linkage.
     const auto &GS = DefinedGlobals.find(GV.getGUID());
     if (GS == DefinedGlobals.end())
       return;
     auto NewLinkage = GS->second->linkage();
     if (NewLinkage == GV.getLinkage())
+      return;
+
+    // Switch the linkage to weakany if asked for, e.g. we do this for
+    // linker redefined symbols (via --wrap or --defsym).
+    // We record that the visibility should be changed here in `addThinLTO`
+    // as we need access to the resolution vectors for each input file in
+    // order to find which symbols have been redefined.
+    // We may consider reorganizing this code and moving the linkage recording
+    // somewhere else, e.g. in thinLTOResolveWeakForLinkerInIndex.
+    if (NewLinkage == GlobalValue::WeakAnyLinkage) {
+      GV.setLinkage(NewLinkage);
+      return;
+    }
+
+    if (!GlobalValue::isWeakForLinker(GV.getLinkage()))
       return;
     // Check for a non-prevailing def that has interposable linkage
     // (e.g. non-odr weak or linkonce). In that case we can't simply
@@ -621,8 +618,7 @@ void llvm::thinLTOInternalizeModule(Module &TheModule,
       return true;
 
     // Lookup the linkage recorded in the summaries during global analysis.
-    const auto &GS = DefinedGlobals.find(GV.getGUID());
-    GlobalValue::LinkageTypes Linkage;
+    auto GS = DefinedGlobals.find(GV.getGUID());
     if (GS == DefinedGlobals.end()) {
       // Must have been promoted (possibly conservatively). Find original
       // name so that we can access the correct summary and see if it can
@@ -634,7 +630,7 @@ void llvm::thinLTOInternalizeModule(Module &TheModule,
       std::string OrigId = GlobalValue::getGlobalIdentifier(
           OrigName, GlobalValue::InternalLinkage,
           TheModule.getSourceFileName());
-      const auto &GS = DefinedGlobals.find(GlobalValue::getGUID(OrigId));
+      GS = DefinedGlobals.find(GlobalValue::getGUID(OrigId));
       if (GS == DefinedGlobals.end()) {
         // Also check the original non-promoted non-globalized name. In some
         // cases a preempted weak value is linked in as a local copy because
@@ -642,15 +638,11 @@ void llvm::thinLTOInternalizeModule(Module &TheModule,
         // In that case, since it was originally not a local value, it was
         // recorded in the index using the original name.
         // FIXME: This may not be needed once PR27866 is fixed.
-        const auto &GS = DefinedGlobals.find(GlobalValue::getGUID(OrigName));
+        GS = DefinedGlobals.find(GlobalValue::getGUID(OrigName));
         assert(GS != DefinedGlobals.end());
-        Linkage = GS->second->linkage();
-      } else {
-        Linkage = GS->second->linkage();
       }
-    } else
-      Linkage = GS->second->linkage();
-    return !GlobalValue::isLocalLinkage(Linkage);
+    }
+    return !GlobalValue::isLocalLinkage(GS->second->linkage());
   };
 
   // FIXME: See if we can just internalize directly here via linkage changes
@@ -825,7 +817,7 @@ static bool doImportingForModule(Module &M) {
   // is only enabled when testing importing via the 'opt' tool, which does
   // not do the ThinLink that would normally determine what values to promote.
   for (auto &I : *Index) {
-    for (auto &S : I.second) {
+    for (auto &S : I.second.SummaryList) {
       if (GlobalValue::isLocalLinkage(S->linkage()))
         S->setLinkage(GlobalValue::ExternalLinkage);
     }

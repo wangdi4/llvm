@@ -11,8 +11,8 @@
 #define LLD_ELF_INPUT_FILES_H
 
 #include "Config.h"
-#include "InputSection.h"
 #include "Error.h"
+#include "InputSection.h"
 #include "Symbols.h"
 
 #include "lld/Core/LLVM.h"
@@ -34,7 +34,7 @@ struct DILineInfo;
 namespace lto {
 class InputFile;
 }
-}
+} // namespace llvm
 
 namespace lld {
 namespace elf {
@@ -92,10 +92,6 @@ public:
   ELFKind EKind = ELFNoneKind;
   uint16_t EMachine = llvm::ELF::EM_NONE;
   uint8_t OSABI = 0;
-
-  // For SharedKind inputs, the string to use in DT_NEEDED when the library
-  // has no soname.
-  std::string DefaultSoName;
 
   // Cache for toString(). Only toString() should use this member.
   mutable std::string ToStringCache;
@@ -160,7 +156,7 @@ public:
   ArrayRef<SymbolBody *> getSymbols();
   ArrayRef<SymbolBody *> getLocalSymbols();
 
-  explicit ObjectFile(MemoryBufferRef M);
+  ObjectFile(MemoryBufferRef M, StringRef ArchiveName);
   void parse(llvm::DenseSet<llvm::CachedHashStringRef> &ComdatGroups);
 
   InputSectionBase *getSection(const Elf_Sym &Sym) const;
@@ -198,14 +194,17 @@ private:
   void initializeSymbols();
   void initializeDwarfLine();
   InputSectionBase *getRelocTarget(const Elf_Shdr &Sec);
-  InputSectionBase *createInputSection(const Elf_Shdr &Sec,
-                                       StringRef SectionStringTable);
+  InputSectionBase *createInputSection(const Elf_Shdr &Sec);
+  StringRef getSectionName(const Elf_Shdr &Sec);
 
   bool shouldMerge(const Elf_Shdr &Sec);
   SymbolBody *createSymbolBody(const Elf_Sym *Sym);
 
   // List of all symbols referenced or defined by this file.
   std::vector<SymbolBody *> SymbolBodies;
+
+  // .shstrtab contents.
+  StringRef SectionStringTable;
 
   // Debugging information to retrieve source file and line for error
   // reporting. Linker may find reasonable number of errors in a
@@ -223,7 +222,11 @@ private:
 // archive file semantics.
 class LazyObjectFile : public InputFile {
 public:
-  explicit LazyObjectFile(MemoryBufferRef M) : InputFile(LazyObjectKind, M) {}
+  LazyObjectFile(MemoryBufferRef M, StringRef ArchiveName,
+                 uint64_t OffsetInArchive)
+      : InputFile(LazyObjectKind, M), OffsetInArchive(OffsetInArchive) {
+    this->ArchiveName = ArchiveName;
+  }
 
   static bool classof(const InputFile *F) {
     return F->kind() == LazyObjectKind;
@@ -231,6 +234,7 @@ public:
 
   template <class ELFT> void parse();
   MemoryBufferRef getBuffer();
+  InputFile *fetch();
 
 private:
   std::vector<StringRef> getSymbols();
@@ -238,14 +242,16 @@ private:
   std::vector<StringRef> getBitcodeSymbols();
 
   bool Seen = false;
+  uint64_t OffsetInArchive;
 };
 
 // An ArchiveFile object represents a .a file.
 class ArchiveFile : public InputFile {
 public:
-  explicit ArchiveFile(MemoryBufferRef M) : InputFile(ArchiveKind, M) {}
+  explicit ArchiveFile(std::unique_ptr<Archive> &&File);
   static bool classof(const InputFile *F) { return F->kind() == ArchiveKind; }
   template <class ELFT> void parse();
+  ArrayRef<Symbol *> getSymbols() { return Symbols; }
 
   // Returns a memory buffer for a given symbol and the offset in the archive
   // for the member. An empty memory buffer and an offset of zero
@@ -256,6 +262,7 @@ public:
 private:
   std::unique_ptr<Archive> File;
   llvm::DenseSet<uint64_t> Seen;
+  std::vector<Symbol *> Symbols;
 };
 
 class BitcodeFile : public InputFile {
@@ -283,12 +290,12 @@ template <class ELFT> class SharedFile : public ELFFileBase<ELFT> {
   typedef typename ELFT::Versym Elf_Versym;
 
   std::vector<StringRef> Undefs;
-  StringRef SoName;
   const Elf_Shdr *VersymSec = nullptr;
   const Elf_Shdr *VerdefSec = nullptr;
 
 public:
-  StringRef getSoName() const;
+  std::string SoName;
+
   const Elf_Shdr *getSection(const Elf_Sym &Sym) const;
   llvm::ArrayRef<StringRef> getUndefinedSymbols() { return Undefs; }
 
@@ -296,7 +303,7 @@ public:
     return F->kind() == Base::SharedKind;
   }
 
-  explicit SharedFile(MemoryBufferRef M);
+  SharedFile(MemoryBufferRef M, StringRef DefaultSoName);
 
   void parseSoName();
   void parseRest();
@@ -329,7 +336,7 @@ public:
 
 InputFile *createObjectFile(MemoryBufferRef MB, StringRef ArchiveName = "",
                             uint64_t OffsetInArchive = 0);
-InputFile *createSharedFile(MemoryBufferRef MB);
+InputFile *createSharedFile(MemoryBufferRef MB, StringRef DefaultSoName);
 
 } // namespace elf
 } // namespace lld

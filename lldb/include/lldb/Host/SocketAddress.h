@@ -41,8 +41,9 @@ public:
   //----------------------------------------------------------------------------
   // Static method to get all address information for a host and/or service
   //----------------------------------------------------------------------------
-  static std::vector<SocketAddress> GetAddressInfo(const char *hostname,
-                                                 const char *servname);
+  static std::vector<SocketAddress>
+  GetAddressInfo(const char *hostname, const char *servname, int ai_family,
+                 int ai_socktype, int ai_protocol, int ai_flags = 0);
 
   //------------------------------------------------------------------
   // Constructors and Destructors
@@ -149,6 +150,11 @@ public:
   // Returns true if the socket is INADDR_ANY
   //------------------------------------------------------------------
   bool IsAnyAddr() const;
+
+  //------------------------------------------------------------------
+  // Returns true if the socket is INADDR_LOOPBACK
+  //------------------------------------------------------------------
+  bool IsLocalhost() const;
 
   //------------------------------------------------------------------
   // Direct access to all of the sockaddr structures

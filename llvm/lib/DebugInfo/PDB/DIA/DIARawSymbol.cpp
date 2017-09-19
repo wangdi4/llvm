@@ -14,6 +14,7 @@
 #include "llvm/DebugInfo/PDB/DIA/DIAEnumSymbols.h"
 #include "llvm/DebugInfo/PDB/DIA/DIASession.h"
 #include "llvm/DebugInfo/PDB/PDBExtras.h"
+#include "llvm/DebugInfo/PDB/PDBSymbolTypeBuiltin.h"
 #include "llvm/DebugInfo/PDB/PDBSymbolTypePointer.h"
 #include "llvm/DebugInfo/PDB/PDBSymbolTypeVTable.h"
 #include "llvm/DebugInfo/PDB/PDBSymbolTypeVTableShape.h"
@@ -124,16 +125,16 @@ PrivateGetDIAValue(IDiaSymbol *Symbol,
   return Result8;
 }
 
-PDB_UniqueId
+codeview::GUID
 PrivateGetDIAValue(IDiaSymbol *Symbol,
                    HRESULT (__stdcall IDiaSymbol::*Method)(GUID *)) {
   GUID Result;
   if (S_OK != (Symbol->*Method)(&Result))
-    return PDB_UniqueId();
+    return codeview::GUID();
 
-  static_assert(sizeof(PDB_UniqueId) == sizeof(GUID),
-                "PDB_UniqueId is the wrong size!");
-  PDB_UniqueId IdResult;
+  static_assert(sizeof(codeview::GUID) == sizeof(GUID),
+                "GUID is the wrong size!");
+  codeview::GUID IdResult;
   ::memcpy(&IdResult, &Result, sizeof(GUID));
   return IdResult;
 }
@@ -371,8 +372,11 @@ DIARawSymbol::findChildren(PDB_SymType Type) const {
   enum SymTagEnum EnumVal = static_cast<enum SymTagEnum>(Type);
 
   CComPtr<IDiaEnumSymbols> DiaEnumerator;
-  if (S_OK != Symbol->findChildrenEx(EnumVal, nullptr, nsNone, &DiaEnumerator))
-    return nullptr;
+  if (S_OK !=
+      Symbol->findChildrenEx(EnumVal, nullptr, nsNone, &DiaEnumerator)) {
+    if (S_OK != Symbol->findChildren(EnumVal, nullptr, nsNone, &DiaEnumerator))
+      return nullptr;
+  }
 
   return llvm::make_unique<DIAEnumSymbols>(Session, DiaEnumerator);
 }
@@ -720,7 +724,7 @@ uint32_t DIARawSymbol::getVirtualTableShapeId() const {
   return PrivateGetDIAValue(Symbol, &IDiaSymbol::get_virtualTableShapeId);
 }
 
-std::unique_ptr<PDBSymbolTypeVTable>
+std::unique_ptr<PDBSymbolTypeBuiltin>
 DIARawSymbol::getVirtualBaseTableType() const {
   CComPtr<IDiaSymbol> TableType;
   if (FAILED(Symbol->get_virtualBaseTableType(&TableType)) || !TableType)
@@ -729,7 +733,7 @@ DIARawSymbol::getVirtualBaseTableType() const {
   auto RawVT = llvm::make_unique<DIARawSymbol>(Session, TableType);
   auto Pointer =
       llvm::make_unique<PDBSymbolTypePointer>(Session, std::move(RawVT));
-  return unique_dyn_cast<PDBSymbolTypeVTable>(Pointer->getPointeeType());
+  return unique_dyn_cast<PDBSymbolTypeBuiltin>(Pointer->getPointeeType());
 }
 
 PDB_DataKind DIARawSymbol::getDataKind() const {
@@ -742,7 +746,7 @@ PDB_SymType DIARawSymbol::getSymTag() const {
                                                 &IDiaSymbol::get_symTag);
 }
 
-PDB_UniqueId DIARawSymbol::getGuid() const {
+codeview::GUID DIARawSymbol::getGuid() const {
   return PrivateGetDIAValue(Symbol, &IDiaSymbol::get_guid);
 }
 
