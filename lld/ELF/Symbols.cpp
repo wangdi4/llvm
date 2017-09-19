@@ -35,6 +35,7 @@ DefinedRegular *ElfSym::Edata1;
 DefinedRegular *ElfSym::Edata2;
 DefinedRegular *ElfSym::End1;
 DefinedRegular *ElfSym::End2;
+DefinedRegular *ElfSym::GlobalOffsetTable;
 DefinedRegular *ElfSym::MipsGp;
 DefinedRegular *ElfSym::MipsGpDisp;
 DefinedRegular *ElfSym::MipsLocalGp;
@@ -93,7 +94,7 @@ static uint64_t getSymVA(const SymbolBody &Body, int64_t &Addend) {
     if (D.isTls() && !Config->Relocatable) {
       if (!Out::TlsPhdr)
         fatal(toString(D.File) +
-              " has a STT_TLS symbol but doesn't have a PT_TLS section");
+              " has an STT_TLS symbol but doesn't have an SHF_TLS section");
       return VA - Out::TlsPhdr->p_vaddr;
     }
     return VA;
@@ -101,12 +102,12 @@ static uint64_t getSymVA(const SymbolBody &Body, int64_t &Addend) {
   case SymbolBody::DefinedCommonKind:
     if (!Config->DefineCommon)
       return 0;
-    return InX::Common->OutSec->Addr + InX::Common->OutSecOff +
+    return InX::Common->getParent()->Addr + InX::Common->OutSecOff +
            cast<DefinedCommon>(Body).Offset;
   case SymbolBody::SharedKind: {
     auto &SS = cast<SharedSymbol>(Body);
     if (SS.NeedsCopy)
-      return SS.CopyRelSec->OutSec->Addr + SS.CopyRelSec->OutSecOff +
+      return SS.CopyRelSec->getParent()->Addr + SS.CopyRelSec->OutSecOff +
              SS.CopyRelSecOff;
     if (SS.NeedsPltAddr)
       return Body.getPltVA();
@@ -158,13 +159,21 @@ bool SymbolBody::isPreemptible() const {
   return true;
 }
 
+// Overwrites all attributes with Other's so that this symbol becomes
+// an alias to Other. This is useful for handling some options such as
+// --wrap.
+void SymbolBody::copy(SymbolBody *Other) {
+  memcpy(symbol()->Body.buffer, Other->symbol()->Body.buffer,
+         sizeof(Symbol::Body));
+}
+
 uint64_t SymbolBody::getVA(int64_t Addend) const {
   uint64_t OutVA = getSymVA(*this, Addend);
   return OutVA + Addend;
 }
 
-template <class ELFT> typename ELFT::uint SymbolBody::getGotVA() const {
-  return In<ELFT>::Got->getVA() + getGotOffset();
+uint64_t SymbolBody::getGotVA() const {
+  return InX::Got->getVA() + getGotOffset();
 }
 
 uint64_t SymbolBody::getGotOffset() const {
@@ -207,13 +216,13 @@ OutputSection *SymbolBody::getOutputSection() const {
 
   if (auto *S = dyn_cast<SharedSymbol>(this)) {
     if (S->NeedsCopy)
-      return S->CopyRelSec->OutSec;
+      return S->CopyRelSec->getParent();
     return nullptr;
   }
 
   if (isa<DefinedCommon>(this)) {
     if (Config->DefineCommon)
-      return InX::Common->OutSec;
+      return InX::Common->getParent();
     return nullptr;
   }
 
@@ -256,7 +265,12 @@ void SymbolBody::parseSymbolVersion() {
   }
 
   // It is an error if the specified version is not defined.
-  error(toString(File) + ": symbol " + S + " has undefined version " + Verstr);
+  // Usually version script is not provided when linking executable,
+  // but we may still want to override a versioned symbol from DSO,
+  // so we do not report error in this case.
+  if (Config->Shared)
+    error(toString(File) + ": symbol " + S + " has undefined version " +
+          Verstr);
 }
 
 Defined::Defined(Kind K, StringRefZ Name, bool IsLocal, uint8_t StOther,
@@ -264,15 +278,14 @@ Defined::Defined(Kind K, StringRefZ Name, bool IsLocal, uint8_t StOther,
     : SymbolBody(K, Name, IsLocal, StOther, Type) {}
 
 template <class ELFT> bool DefinedRegular::isMipsPIC() const {
+  typedef typename ELFT::Ehdr Elf_Ehdr;
   if (!Section || !isFunc())
     return false;
+
+  auto *Sec = cast<InputSectionBase>(Section);
+  const Elf_Ehdr *Hdr = Sec->template getFile<ELFT>()->getObj().getHeader();
   return (this->StOther & STO_MIPS_MIPS16) == STO_MIPS_PIC ||
-         (cast<InputSectionBase>(Section)
-              ->template getFile<ELFT>()
-              ->getObj()
-              .getHeader()
-              ->e_flags &
-          EF_MIPS_PIC);
+         (Hdr->e_flags & EF_MIPS_PIC);
 }
 
 Undefined::Undefined(StringRefZ Name, bool IsLocal, uint8_t StOther,
@@ -327,12 +340,7 @@ InputFile *LazyArchive::fetch() {
   return createObjectFile(MBInfo.first, file()->getName(), MBInfo.second);
 }
 
-InputFile *LazyObject::fetch() {
-  MemoryBufferRef MBRef = file()->getBuffer();
-  if (MBRef.getBuffer().empty())
-    return nullptr;
-  return createObjectFile(MBRef);
-}
+InputFile *LazyObject::fetch() { return file()->fetch(); }
 
 uint8_t Symbol::computeBinding() const {
   if (Config->Relocatable)
@@ -374,11 +382,6 @@ std::string lld::toString(const SymbolBody &B) {
       return *S;
   return B.getName();
 }
-
-template uint32_t SymbolBody::template getGotVA<ELF32LE>() const;
-template uint32_t SymbolBody::template getGotVA<ELF32BE>() const;
-template uint64_t SymbolBody::template getGotVA<ELF64LE>() const;
-template uint64_t SymbolBody::template getGotVA<ELF64BE>() const;
 
 template uint32_t SymbolBody::template getSize<ELF32LE>() const;
 template uint32_t SymbolBody::template getSize<ELF32BE>() const;

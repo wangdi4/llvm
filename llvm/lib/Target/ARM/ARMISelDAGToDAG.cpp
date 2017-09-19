@@ -740,7 +740,9 @@ bool ARMDAGToDAGISel::SelectLdStSOReg(SDValue N, SDValue &Base, SDValue &Offset,
     unsigned PowerOfTwo = 0;
     SDValue NewMulConst;
     if (canExtractShiftFromMul(Offset, 31, PowerOfTwo, NewMulConst)) {
+      HandleSDNode Handle(Offset);
       replaceDAGValue(Offset.getOperand(1), NewMulConst);
+      Offset = Handle.getValue();
       ShAmt = PowerOfTwo;
       ShOpcVal = ARM_AM::lsl;
     }
@@ -1420,7 +1422,9 @@ bool ARMDAGToDAGISel::SelectT2AddrModeSoReg(SDValue N,
     unsigned PowerOfTwo = 0;
     SDValue NewMulConst;
     if (canExtractShiftFromMul(OffReg, 3, PowerOfTwo, NewMulConst)) {
+      HandleSDNode Handle(OffReg);
       replaceDAGValue(OffReg.getOperand(1), NewMulConst);
+      OffReg = Handle.getValue();
       ShAmt = PowerOfTwo;
     }
   }
@@ -2678,9 +2682,12 @@ void ARMDAGToDAGISel::Select(SDNode *N) {
 
       SDNode *ResNode;
       if (Subtarget->isThumb()) {
-        SDValue Pred = getAL(CurDAG, dl);
-        SDValue PredReg = CurDAG->getRegister(0, MVT::i32);
-        SDValue Ops[] = { CPIdx, Pred, PredReg, CurDAG->getEntryNode() };
+        SDValue Ops[] = {
+          CPIdx,
+          getAL(CurDAG, dl),
+          CurDAG->getRegister(0, MVT::i32),
+          CurDAG->getEntryNode()
+        };
         ResNode = CurDAG->getMachineNode(ARM::tLDRpci, dl, MVT::i32, MVT::Other,
                                          Ops);
       } else {
@@ -2694,6 +2701,17 @@ void ARMDAGToDAGISel::Select(SDNode *N) {
         ResNode = CurDAG->getMachineNode(ARM::LDRcp, dl, MVT::i32, MVT::Other,
                                          Ops);
       }
+      // Annotate the Node with memory operand information so that MachineInstr
+      // queries work properly. This e.g. gives the register allocation the
+      // required information for rematerialization.
+      MachineFunction& MF = CurDAG->getMachineFunction();
+      MachineSDNode::mmo_iterator MemOp = MF.allocateMemRefsArray(1);
+      MemOp[0] = MF.getMachineMemOperand(
+          MachinePointerInfo::getConstantPool(MF),
+          MachineMemOperand::MOLoad, 4, 4);
+
+      cast<MachineSDNode>(ResNode)->setMemRefs(MemOp, MemOp+1);
+        
       ReplaceNode(N, ResNode);
       return;
     }

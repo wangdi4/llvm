@@ -27,7 +27,6 @@
 #include "lldb/Core/RegisterValue.h"
 #include "lldb/Core/Section.h"
 #include "lldb/Core/StreamFile.h"
-#include "lldb/Core/Timer.h"
 #include "lldb/Host/Host.h"
 #include "lldb/Symbol/DWARFCallFrameInfo.h"
 #include "lldb/Symbol/ObjectFile.h"
@@ -40,10 +39,11 @@
 #include "lldb/Target/Thread.h"
 #include "lldb/Target/ThreadList.h"
 #include "lldb/Utility/DataBufferLLVM.h"
-#include "lldb/Utility/Error.h"
 #include "lldb/Utility/FileSpec.h"
 #include "lldb/Utility/Log.h"
+#include "lldb/Utility/Status.h"
 #include "lldb/Utility/StreamString.h"
+#include "lldb/Utility/Timer.h"
 #include "lldb/Utility/UUID.h"
 
 #include "lldb/Utility/SafeMachO.h"
@@ -2121,8 +2121,8 @@ UUID ObjectFileMachO::GetSharedCacheUUID(FileSpec dyld_shared_cache,
 }
 
 size_t ObjectFileMachO::ParseSymtab() {
-  Timer scoped_timer(LLVM_PRETTY_FUNCTION,
-                     "ObjectFileMachO::ParseSymtab () module = %s",
+  static Timer::Category func_cat(LLVM_PRETTY_FUNCTION);
+  Timer scoped_timer(func_cat, "ObjectFileMachO::ParseSymtab () module = %s",
                      m_file.GetFilename().AsCString(""));
   ModuleSP module_sp(GetModule());
   if (!module_sp)
@@ -2502,7 +2502,7 @@ size_t ObjectFileMachO::ParseSymtab() {
       if (text_section_sp.get() && eh_frame_section_sp.get() &&
           m_type != eTypeDebugInfo) {
         DWARFCallFrameInfo eh_frame(*this, eh_frame_section_sp,
-                                    eRegisterKindEHFrame, true);
+                                    DWARFCallFrameInfo::EH);
         DWARFCallFrameInfo::FunctionAddressAndSizeVector functions;
         eh_frame.GetFunctionAddressAndSizeVector(functions);
         addr_t text_base_addr = text_section_sp->GetFileAddress();
@@ -3850,7 +3850,7 @@ size_t ObjectFileMachO::ParseSymtab() {
             symbol_name = NULL;
         } else {
           const addr_t str_addr = strtab_addr + nlist.n_strx;
-          Error str_error;
+          Status str_error;
           if (process->ReadCStringFromMemory(str_addr, memory_symbol_name,
                                              str_error))
             symbol_name = memory_symbol_name.c_str();
@@ -5968,7 +5968,7 @@ bool ObjectFileMachO::SetLoadAddress(Target &target, lldb::addr_t value,
 }
 
 bool ObjectFileMachO::SaveCore(const lldb::ProcessSP &process_sp,
-                               const FileSpec &outfile, Error &error) {
+                               const FileSpec &outfile, Status &error) {
   if (process_sp) {
     Target &target = process_sp->GetTarget();
     const ArchSpec target_arch = target.GetArchitecture();
@@ -5997,7 +5997,7 @@ bool ObjectFileMachO::SaveCore(const lldb::ProcessSP &process_sp,
         std::vector<segment_command_64> segment_load_commands;
         //                uint32_t range_info_idx = 0;
         MemoryRegionInfo range_info;
-        Error range_error = process_sp->GetMemoryRegionInfo(0, range_info);
+        Status range_error = process_sp->GetMemoryRegionInfo(0, range_info);
         const uint32_t addr_byte_size = target_arch.GetAddressByteSize();
         const ByteOrder byte_order = target_arch.GetByteOrder();
         if (range_error.Success()) {
@@ -6231,7 +6231,7 @@ bool ObjectFileMachO::SaveCore(const lldb::ProcessSP &process_sp,
                        segment.vmsize, segment.vmaddr);
                 addr_t bytes_left = segment.vmsize;
                 addr_t addr = segment.vmaddr;
-                Error memory_read_error;
+                Status memory_read_error;
                 while (bytes_left > 0 && error.Success()) {
                   const size_t bytes_to_read =
                       bytes_left > sizeof(bytes) ? sizeof(bytes) : bytes_left;

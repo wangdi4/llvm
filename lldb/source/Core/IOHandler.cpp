@@ -27,7 +27,7 @@
 #include "lldb/Core/StreamFile.h"
 #include "lldb/Host/File.h"            // for File
 #include "lldb/Host/Predicate.h"       // for Predicate, ::eBroad...
-#include "lldb/Utility/Error.h"        // for Error
+#include "lldb/Utility/Status.h"       // for Status
 #include "lldb/Utility/StreamString.h" // for StreamString
 #include "lldb/Utility/StringList.h"   // for StringList
 #include "lldb/lldb-forward.h"         // for StreamFileSP
@@ -58,7 +58,7 @@
 #include "llvm/ADT/StringRef.h" // for StringRef
 
 #ifdef _MSC_VER
-#include <windows.h>
+#include "lldb/Host/windows/windows.h"
 #endif
 
 #include <memory> // for shared_ptr
@@ -515,7 +515,7 @@ bool IOHandlerEditline::GetLines(StringList &lines, bool &interrupted) {
   } else {
 #endif
     bool done = false;
-    Error error;
+    Status error;
 
     while (!done) {
       // Show line numbers if we are asked to

@@ -1,5 +1,5 @@
 ; RUN: llc -filetype=asm -o - %s | FileCheck %s --check-prefix=ASM
-; RUN: llc -filetype=obj -o - %s | llvm-dwarfdump - | FileCheck %s
+; RUN: llc -filetype=obj -o - %s | llvm-dwarfdump --debug-dump=info - | FileCheck %s
 ;
 ; Generated at -O2 from:
 ;   struct B;
@@ -17,8 +17,8 @@
 ; The inlined A::this pointer has the same location as B::this, but it may not be
 ; modified by the debugger.
 ;
-; ASM: [stack value]
-; CHECK:  Location description: 70 00 9f
+; ASM: [DW_OP_stack_value]
+; CHECK:  DW_AT_location {{.*}} 70 00 9f
 ;                               rax+0, stack-value
 source_filename = "ab.cpp"
 target datalayout = "e-m:o-i64:64-f80:128-n8:16:32:64-S128"

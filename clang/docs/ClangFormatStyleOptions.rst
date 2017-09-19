@@ -209,23 +209,45 @@ the configuration (without a prefix: ``Auto``).
     float       b = 23;
     std::string ccc = 23;
 
-**AlignEscapedNewlinesLeft** (``bool``)
-  If ``true``, aligns escaped newlines as far left as possible.
-  Otherwise puts them into the right-most column.
+**AlignEscapedNewlines** (``EscapedNewlineAlignmentStyle``)
+  Options for aligning backslashes in escaped newlines.
 
-  .. code-block:: c++
+  Possible values:
 
-    true:
-    #define A   \
-      int aaaa; \
-      int b;    \
-      int dddddddddd;
+  * ``ENAS_DontAlign`` (in configuration: ``DontAlign``)
+    Don't align escaped newlines.
 
-    false:
-    #define A                                                                      \
-      int aaaa;                                                                    \
-      int b;                                                                       \
-      int dddddddddd;
+    .. code-block:: c++
+
+      #define A \
+        int aaaa; \
+        int b; \
+        int dddddddddd;
+
+  * ``ENAS_Left`` (in configuration: ``Left``)
+    Align escaped newlines as far left as possible.
+
+    .. code-block:: c++
+
+      true:
+      #define A   \
+        int aaaa; \
+        int b;    \
+        int dddddddddd;
+
+      false:
+
+  * ``ENAS_Right`` (in configuration: ``Right``)
+    Align escaped newlines in the right-most column.
+
+    .. code-block:: c++
+
+      #define A                                                                      \
+        int aaaa;                                                                    \
+        int b;                                                                       \
+        int dddddddddd;
+
+
 
 **AlignOperands** (``bool``)
   If ``true``, horizontally align operands of binary and ternary
@@ -287,12 +309,28 @@ the configuration (without a prefix: ``Auto``).
   * ``SFS_None`` (in configuration: ``None``)
     Never merge functions into a single line.
 
+  * ``SFS_InlineOnly`` (in configuration: ``InlineOnly``)
+    Only merge functions defined inside a class. Same as "inline",
+    except it does not implies "empty": i.e. top level empty functions
+    are not merged either.
+
+    .. code-block:: c++
+
+      class Foo {
+        void f() { foo(); }
+      };
+      void f() {
+        foo();
+      }
+      void f() {
+      }
+
   * ``SFS_Empty`` (in configuration: ``Empty``)
     Only merge empty functions.
 
     .. code-block:: c++
 
-      void f() { bar(); }
+      void f() {}
       void f2() {
         bar2();
       }
@@ -305,6 +343,10 @@ the configuration (without a prefix: ``Auto``).
       class Foo {
         void f() { foo(); }
       };
+      void f() {
+        foo();
+      }
+      void f() {}
 
   * ``SFS_All`` (in configuration: ``All``)
     Merge all functions fitting on a single line.
@@ -496,146 +538,158 @@ the configuration (without a prefix: ``Auto``).
 
   * ``bool AfterClass`` Wrap class definitions.
 
-  .. code-block:: c++
+    .. code-block:: c++
 
-    true:
-    class foo {};
+      true:
+      class foo {};
 
-    false:
-    class foo
-    {};
+      false:
+      class foo
+      {};
 
   * ``bool AfterControlStatement`` Wrap control statements (``if``/``for``/``while``/``switch``/..).
 
-  .. code-block:: c++
+    .. code-block:: c++
 
-    true:
-    if (foo())
-    {
-    } else
-    {}
-    for (int i = 0; i < 10; ++i)
-    {}
+      true:
+      if (foo())
+      {
+      } else
+      {}
+      for (int i = 0; i < 10; ++i)
+      {}
 
-    false:
-    if (foo()) {
-    } else {
-    }
-    for (int i = 0; i < 10; ++i) {
-    }
+      false:
+      if (foo()) {
+      } else {
+      }
+      for (int i = 0; i < 10; ++i) {
+      }
 
   * ``bool AfterEnum`` Wrap enum definitions.
 
-  .. code-block:: c++
+    .. code-block:: c++
 
-    true:
-    enum X : int
-    {
-      B
-    };
+      true:
+      enum X : int
+      {
+        B
+      };
 
-    false:
-    enum X : int { B };
+      false:
+      enum X : int { B };
 
   * ``bool AfterFunction`` Wrap function definitions.
 
-  .. code-block:: c++
+    .. code-block:: c++
 
-    true:
-    void foo()
-    {
-      bar();
-      bar2();
-    }
+      true:
+      void foo()
+      {
+        bar();
+        bar2();
+      }
 
-    false:
-    void foo() {
-      bar();
-      bar2();
-    }
+      false:
+      void foo() {
+        bar();
+        bar2();
+      }
 
   * ``bool AfterNamespace`` Wrap namespace definitions.
 
-  .. code-block:: c++
+    .. code-block:: c++
 
-    true:
-    namespace
-    {
-    int foo();
-    int bar();
-    }
+      true:
+      namespace
+      {
+      int foo();
+      int bar();
+      }
 
-    false:
-    namespace {
-    int foo();
-    int bar();
-    }
+      false:
+      namespace {
+      int foo();
+      int bar();
+      }
 
   * ``bool AfterObjCDeclaration`` Wrap ObjC definitions (``@autoreleasepool``, interfaces, ..).
 
   * ``bool AfterStruct`` Wrap struct definitions.
 
-  .. code-block:: c++
+    .. code-block:: c++
 
-    true:
-    struct foo
-    {
-      int x;
-    }
+      true:
+      struct foo
+      {
+        int x;
+      };
 
-    false:
-    struct foo {
-      int x;
-    }
+      false:
+      struct foo {
+        int x;
+      };
 
   * ``bool AfterUnion`` Wrap union definitions.
 
-  .. code-block:: c++
+    .. code-block:: c++
 
-    true:
-    union foo
-    {
-      int x;
-    }
+      true:
+      union foo
+      {
+        int x;
+      }
 
-    false:
-    union foo {
-      int x;
-    }
+      false:
+      union foo {
+        int x;
+      }
 
   * ``bool BeforeCatch`` Wrap before ``catch``.
 
-  .. code-block:: c++
+    .. code-block:: c++
 
-    true:
-    try {
-      foo();
-    }
-    catch () {
-    }
+      true:
+      try {
+        foo();
+      }
+      catch () {
+      }
 
-    false:
-    try {
-      foo();
-    } catch () {
-    }
+      false:
+      try {
+        foo();
+      } catch () {
+      }
 
   * ``bool BeforeElse`` Wrap before ``else``.
 
-  .. code-block:: c++
+    .. code-block:: c++
 
-    true:
-    if (foo()) {
-    }
-    else {
-    }
+      true:
+      if (foo()) {
+      }
+      else {
+      }
 
-    false:
-    if (foo()) {
-    } else {
-    }
+      false:
+      if (foo()) {
+      } else {
+      }
 
   * ``bool IndentBraces`` Indent the wrapped braces themselves.
+
+  * ``bool SplitEmptyFunctionBody`` If ``false``, empty function body can be put on a single line.
+    This option is used only if the opening brace of the function has
+    already been wrapped, i.e. the `AfterFunction` brace wrapping mode is
+    set, and the function could/should not be put on a single line (as per
+    `AllowShortFunctionsOnASingleLine` and constructor formatting options).
+
+    .. code-block:: c++
+
+      int f()   vs.   inf f()
+      {}              {
+                      }
 
 
 **BreakAfterJavaFieldAnnotations** (``bool``)
@@ -872,22 +926,45 @@ the configuration (without a prefix: ``Auto``).
          ? firstValue
          : SecondValueVeryVeryVeryVeryLong;
 
-     true:
+     false:
      veryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryLongDescription ?
          firstValue :
          SecondValueVeryVeryVeryVeryLong;
 
-**BreakConstructorInitializersBeforeComma** (``bool``)
-  Always break constructor initializers before commas and align
-  the commas with the colon.
+**BreakConstructorInitializers** (``BreakConstructorInitializersStyle``)
+  The constructor initializers style to use.
 
-  .. code-block:: c++
+  Possible values:
 
-     true:                                  false:
-     SomeClass::Constructor()       vs.     SomeClass::Constructor() : a(a),
-         : a(a)                                                   b(b),
-         , b(b)                                                   c(c) {}
-         , c(c) {}
+  * ``BCIS_BeforeColon`` (in configuration: ``BeforeColon``)
+    Break constructor initializers before the colon and after the commas.
+
+    .. code-block:: c++
+
+    Constructor()
+        : initializer1(),
+          initializer2()
+
+  * ``BCIS_BeforeComma`` (in configuration: ``BeforeComma``)
+    Break constructor initializers before the colon and commas, and align
+    the commas with the colon.
+
+    .. code-block:: c++
+
+    Constructor()
+        : initializer1()
+        , initializer2()
+
+  * ``BCIS_AfterColon`` (in configuration: ``AfterColon``)
+    Break constructor initializers after the colon and commas.
+
+    .. code-block:: c++
+
+    Constructor() :
+        initializer1(),
+        initializer2()
+
+
 
 **BreakStringLiterals** (``bool``)
   Allow breaking string literals when formatting.
@@ -908,6 +985,31 @@ the configuration (without a prefix: ``Auto``).
      // CommentPragmas: '^ FOOBAR pragma:'
      // Will leave the following line unaffected
      #include <vector> // FOOBAR pragma: keep
+
+**CompactNamespaces** (``bool``)
+  If ``true``, consecutive namespace declarations will be on the same
+  line. If ``false``, each namespace is declared on a new line.
+
+  .. code-block:: c++
+
+    true:
+    namespace Foo { namespace Bar {
+    }}
+
+    false:
+    namespace Foo {
+    namespace Bar {
+    }
+    }
+
+  If it does not fit on a single line, the overflowing namespaces get
+  wrapped:
+
+  .. code-block:: c++
+
+    namespace Foo { namespace Bar {
+    namespace Extra {
+    }}}
 
 **ConstructorInitializerAllOnOneLineOrOnePerLine** (``bool``)
   If the constructor initializers don't fit on a line, put each
@@ -1299,6 +1401,9 @@ the configuration (without a prefix: ``Auto``).
   Add a space in front of an Objective-C protocol list, i.e. use
   ``Foo <Protocol>`` instead of ``Foo<Protocol>``.
 
+**PenaltyBreakAssignment** (``unsigned``)
+  The penalty for breaking around an assignment operator.
+
 **PenaltyBreakBeforeFirstCallParameter** (``unsigned``)
   The penalty for breaking a function call after ``call(``.
 
@@ -1369,6 +1474,15 @@ the configuration (without a prefix: ``Auto``).
      false:                                 true:
      #include "b.h"                 vs.     #include "a.h"
      #include "a.h"                         #include "b.h"
+
+**SortUsingDeclarations** (``bool``)
+  If ``true``, clang-format will sort using declarations.
+
+  .. code-block:: c++
+
+     false:                                 true:
+     using std::cout;               vs.     using std::cin;
+     using std::cin;                        using std::cout;
 
 **SpaceAfterCStyleCast** (``bool``)
   If ``true``, a space is inserted after C style casts.
@@ -1525,7 +1639,7 @@ the configuration (without a prefix: ``Auto``).
     Use C++03-compatible syntax.
 
   * ``LS_Cpp11`` (in configuration: ``Cpp11``)
-    Use features of C++11, C++14 and C++1z (e.g. ``A<A<int>>`` instead of 
+    Use features of C++11, C++14 and C++1z (e.g. ``A<A<int>>`` instead of
     ``A<A<int> >``).
 
   * ``LS_Auto`` (in configuration: ``Auto``)
