@@ -1023,16 +1023,80 @@ namespace CGIntelOpenMP {
     }
   }
 
+  void OpenMPCodeOutliner::emitOMPDeviceClause(const OMPDeviceClause *Cl) {
+    addArg("QUAL.OMP.DEVICE");
+    auto SavedIP = CGF.Builder.saveIP();
+    setOutsideInsertPoint();
+    addArg(CGF.EmitScalarExpr(Cl->getDevice()));
+    CGF.Builder.restoreIP(SavedIP);
+    emitOpndClause();
+  }
+
+  void
+  OpenMPCodeOutliner::emitOMPIsDevicePtrClause(const OMPIsDevicePtrClause *Cl) {
+    addArg("QUAL.OMP.IS_DEVICE_PTR");
+    for (auto *E : Cl->varlists())
+      addArg(E);
+    emitListClause();
+  }
+
+  void
+  OpenMPCodeOutliner::emitOMPDefaultmapClause(const OMPDefaultmapClause *Cl) {
+    SmallString<64> DefaultmapString;
+    switch (Cl->getDefaultmapModifier()) {
+    case OMPC_DEFAULTMAP_MODIFIER_tofrom:
+      DefaultmapString += "QUAL.OMP.DEFAULTMAP.TOFROM";
+      break;
+    case OMPC_DEFAULTMAP_MODIFIER_last:
+    case OMPC_DEFAULTMAP_MODIFIER_unknown:
+      llvm_unreachable("Unknown defaultmap modifier");
+    }
+    switch (Cl->getDefaultmapKind()) {
+    case OMPC_DEFAULTMAP_scalar:
+      DefaultmapString += ".SCALAR";
+      break;
+    case OMPC_DEFAULTMAP_unknown:
+      llvm_unreachable("Unknown defaultmap kind");
+    }
+    addArg(DefaultmapString);
+    emitSimpleClause();
+  }
+
+  void OpenMPCodeOutliner::emitOMPNowaitClause(const OMPNowaitClause *Cl) {
+    addArg("QUAL.OMP.NOWAIT");
+    emitSimpleClause();
+  }
+
+  void OpenMPCodeOutliner::emitOMPUseDevicePtrClause(
+      const OMPUseDevicePtrClause *Cl) {
+    addArg("QUAL.OMP.USE_DEVICE_PTR");
+    for (auto *E : Cl->varlists())
+      addArg(E);
+    emitListClause();
+  }
+
+  void OpenMPCodeOutliner::emitOMPToClause(const OMPToClause *Cl) {
+    addArg("QUAL.OMP.TO");
+    for (auto *E : Cl->varlists())
+      addArg(E);
+    emitListClause();
+  }
+
+  void OpenMPCodeOutliner::emitOMPFromClause(const OMPFromClause *Cl) {
+    addArg("QUAL.OMP.FROM");
+    for (auto *E : Cl->varlists())
+      addArg(E);
+    emitListClause();
+  }
+
   void OpenMPCodeOutliner::emitOMPCopyprivateClause(
                                         const OMPCopyprivateClause *) {}
-  void OpenMPCodeOutliner::emitOMPNowaitClause(const OMPNowaitClause *) {}
   void OpenMPCodeOutliner::emitOMPFlushClause(const OMPFlushClause *) {}
   void OpenMPCodeOutliner::emitOMPReadClause(const OMPReadClause *) {}
   void OpenMPCodeOutliner::emitOMPWriteClause(const OMPWriteClause *) {}
   void OpenMPCodeOutliner::emitOMPUpdateClause(const OMPUpdateClause *) {}
   void OpenMPCodeOutliner::emitOMPCaptureClause(const OMPCaptureClause *) {}
   void OpenMPCodeOutliner::emitOMPSeqCstClause(const OMPSeqCstClause *) {}
-  void OpenMPCodeOutliner::emitOMPDeviceClause(const OMPDeviceClause *) {}
   void OpenMPCodeOutliner::emitOMPThreadsClause(const OMPThreadsClause *) {}
   void OpenMPCodeOutliner::emitOMPSIMDClause(const OMPSIMDClause *) {}
   void OpenMPCodeOutliner::emitOMPNumTeamsClause(const OMPNumTeamsClause *) {}
@@ -1041,14 +1105,6 @@ namespace CGIntelOpenMP {
   void OpenMPCodeOutliner::emitOMPHintClause(const OMPHintClause *) {}
   void OpenMPCodeOutliner::emitOMPDistScheduleClause(
                                               const OMPDistScheduleClause *) {}
-  void OpenMPCodeOutliner::emitOMPDefaultmapClause(
-                                                const OMPDefaultmapClause *) {}
-  void OpenMPCodeOutliner::emitOMPToClause(const OMPToClause *) {}
-  void OpenMPCodeOutliner::emitOMPFromClause(const OMPFromClause *) {}
-  void OpenMPCodeOutliner::emitOMPUseDevicePtrClause(
-                                              const OMPUseDevicePtrClause *) {}
-  void OpenMPCodeOutliner::emitOMPIsDevicePtrClause(
-                                               const OMPIsDevicePtrClause *) {}
   void OpenMPCodeOutliner::emitOMPTaskReductionClause(
                                               const OMPTaskReductionClause *) {}
 
@@ -1242,6 +1298,14 @@ namespace CGIntelOpenMP {
   void OpenMPCodeOutliner::emitOMPTargetDirective() {
     startDirectiveIntrinsicSet("DIR.OMP.TARGET", "DIR.OMP.END.TARGET");
   }
+  void OpenMPCodeOutliner::emitOMPTargetDataDirective() {
+    startDirectiveIntrinsicSet("DIR.OMP.TARGET.DATA",
+                               "DIR.OMP.END.TARGET.DATA");
+  }
+  void OpenMPCodeOutliner::emitOMPTargetUpdateDirective() {
+    startDirectiveIntrinsicSet("DIR.OMP.TARGET.UPDATE",
+                               "DIR.OMP.END.TARGET.UPDATE");
+  }
   void OpenMPCodeOutliner::emitOMPTaskDirective() {
     startDirectiveIntrinsicSet("DIR.OMP.TASK", "DIR.OMP.END.TASK");
   }
@@ -1422,6 +1486,14 @@ void CodeGenFunction::EmitIntelOpenMPDirective(
     CGM.setHasTargetCode();
     Outliner.emitOMPTargetDirective();
     break;
+  case OMPD_target_data:
+    CGM.setHasTargetCode();
+    Outliner.emitOMPTargetDataDirective();
+    break;
+  case OMPD_target_update:
+    CGM.setHasTargetCode();
+    Outliner.emitOMPTargetUpdateDirective();
+    break;
   case OMPD_task:
     Outliner.emitOMPTaskDirective();
     break;
@@ -1444,7 +1516,6 @@ void CodeGenFunction::EmitIntelOpenMPDirective(
   case OMPD_teams_distribute_parallel_for:
   case OMPD_teams_distribute_parallel_for_simd:
   case OMPD_cancel:
-  case OMPD_target_data:
   case OMPD_parallel_sections:
   case OMPD_for_simd:
   case OMPD_cancellation_point:
@@ -1455,7 +1526,6 @@ void CodeGenFunction::EmitIntelOpenMPDirective(
   case OMPD_target_parallel_for:
   case OMPD_target_parallel_for_simd:
   case OMPD_target_simd:
-  case OMPD_target_update:
   case OMPD_target_teams:
   case OMPD_target_teams_distribute:
   case OMPD_target_teams_distribute_simd:

@@ -378,6 +378,24 @@ int main(int argc, char **argv) {
 #pragma omp parallel for
   for (int i = 0; i < N; i++)
     result[i][i][i] = input1[i] + input2[i][i];
+  {
+    int *a, *b;
+    int z = 3, y = 9;
+// CHECK-REG: [[TARG_TOKENVAL:%[0-9]+]] = call token{{.*}}region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.DEVICE"(i32 4), "QUAL.OMP.IS_DEVICE_PTR"(i32** %a{{.*}}, i32** %b{{.*}}), "QUAL.OMP.DEFAULTMAP.TOFROM.SCALAR"(), "QUAL.OMP.NOWAIT"() ]
+// CHECK-REG: region.exit(token [[TARG_TOKENVAL]]) [ "DIR.OMP.END.TARGET"() ]
+    #pragma omp target device(4) is_device_ptr(a,b) \
+                       defaultmap(tofrom:scalar) nowait
+    {
+    }
+// CHECK-REG: [[TARGD_TOKENVAL:%[0-9]+]] = call token{{.*}}region.entry() [ "DIR.OMP.TARGET.DATA"(), "QUAL.OMP.MAP.TOFROM"(i32* %z{{.*}}), "QUAL.OMP.USE_DEVICE_PTR"(i32** %a{{.*}}, i32** %b{{.*}}) ]
+// CHECK-REG: region.exit(token [[TARGD_TOKENVAL]]) [ "DIR.OMP.END.TARGET.DATA"() ]
+    #pragma omp target data map(tofrom:z) use_device_ptr(a,b)
+    {
+    }
+// CHECK-REG: [[TARGU_TOKENVAL:%[0-9]+]] = call token{{.*}}region.entry() [ "DIR.OMP.TARGET.UPDATE"(), "QUAL.OMP.TO"(i32* %z{{.*}}), "QUAL.OMP.FROM"(i32* %y{{.*}}) ]
+// CHECK-REG: region.exit(token [[TARGU_TOKENVAL]]) [ "DIR.OMP.END.TARGET.UPDATE"() ]
+    #pragma omp target update to(z) from(y)
+  }
 
   return 0;
 }

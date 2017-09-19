@@ -171,6 +171,8 @@ public:
   void emitOMPCriticalDirective();
   void emitOMPOrderedDirective();
   void emitOMPTargetDirective();
+  void emitOMPTargetDataDirective();
+  void emitOMPTargetUpdateDirective();
   void emitOMPTaskLoopDirective();
   void emitOMPTaskLoopSimdDirective();
   void emitOMPTaskDirective();
