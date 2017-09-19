@@ -41,6 +41,11 @@ else()
   include( CMake_linux_tools )
 endif ()
 
+if( INTEL_PRODUCT_RELEASE )
+    add_definitions( -DINTEL_PRODUCT_RELEASE )
+endif( INTEL_PRODUCT_RELEASE )
+
+
 # Supported configurations
 set(CMAKE_CONFIGURATION_TYPES
     "Debug"
