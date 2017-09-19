@@ -14720,13 +14720,10 @@ bool Sema::tryCaptureVariable(
 #endif // INTEL_SPECIFIC_CILKPLUS
   if (IsGlobal && !(LangOpts.OpenMP && IsOpenMPCapturedDecl(Var)))
     return true;
-<<<<<<< HEAD
 #if INTEL_SPECIFIC_CILKPLUS
   }
 #endif // INTEL_SPECIFIC_CILKPLUS
-=======
   Var = Var->getCanonicalDecl();
->>>>>>> 6c069179ecafe5ff6fa9af37a9143c0e7c17b33f
 
   // Walk up the stack to determine whether we can capture the variable,
   // performing the "simple" checks that don't depend on type. We stop when
