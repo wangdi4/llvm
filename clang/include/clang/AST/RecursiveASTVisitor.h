@@ -86,7 +86,7 @@ namespace clang {
       return false;                                                            \
   } while (false)
 
-/// \brief A class that does preordor or postorder
+/// \brief A class that does preorder or postorder
 /// depth-first traversal on the entire Clang AST and visits each node.
 ///
 /// This class performs three distinct tasks:
