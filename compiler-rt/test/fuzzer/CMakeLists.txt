@@ -1,4 +1,5 @@
 set(LIBFUZZER_TEST_DEPS ${SANITIZER_COMMON_LIT_TEST_DEPS})
+list(REMOVE_ITEM LIBFUZZER_TEST_DEPS SanitizerLintCheck)
 if (NOT COMPILER_RT_STANDALONE_BUILD)
   list(APPEND LIBFUZZER_TEST_DEPS fuzzer asan)
 endif()
@@ -33,6 +34,8 @@ foreach(arch ${FUZZER_SUPPORTED_ARCH})
   list(APPEND LIBFUZZER_TESTSUITES ${CMAKE_CURRENT_BINARY_DIR}/${CONFIG_NAME})
 
 endforeach()
+
+set(EXCLUDE_FROM_ALL ON)
 
 add_lit_testsuite(check-fuzzer "Running Fuzzer tests"
   ${LIBFUZZER_TESTSUITES}
