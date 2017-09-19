@@ -234,7 +234,7 @@ def XPHI : Instruction {
 
 // These are target-independent nodes, but have target-specific formats.
 def SDT_CSACall         : SDTypeProfile<0, 1, [SDTCisVT<0, iPTR>]>;
-def SDT_CSACallSeqStart : SDCallSeqStart<[ SDTCisVT<0, i64>]>;
+def SDT_CSACallSeqStart : SDCallSeqStart<[ SDTCisVT<0, i64>, SDTCisVT<1, i64> ]>;
 def SDT_CSACallSeqEnd   : SDCallSeqEnd<[ SDTCisVT<0, i64>, SDTCisVT<1, i64> ]>;
 
 def SDT_CSAWrapper      : SDTypeProfile<1, 1, [SDTCisSameAs<0,1>,
@@ -250,6 +250,7 @@ def CSACall : SDNode<"CSAISD::Call", SDT_CSACall,
 
 def CSATailCall : SDNode<"CSAISD::TailCall", SDT_CSACall,
                       [SDNPHasChain, SDNPOptInGlue, SDNPVariadic]>;
+
 def callseq_start : SDNode<"ISD::CALLSEQ_START", SDT_CSACallSeqStart,
                            [SDNPHasChain, SDNPOutGlue]>;
 def callseq_end   : SDNode<"ISD::CALLSEQ_END",   SDT_CSACallSeqEnd,
@@ -258,9 +259,9 @@ def callseq_end   : SDNode<"ISD::CALLSEQ_END",   SDT_CSACallSeqEnd,
 def CSAWrapper : SDNode<"CSAISD::Wrapper", SDT_CSAWrapper>;
 
 let Defs = [SP], Uses = [SP] in {
-def ADJCALLSTACKDOWN : PseudoInstCSA<(outs), (ins i64imm:$amt),
-                               "# ADJCALLSTACKDOWN $amt",
-                               [(callseq_start timm:$amt)]>;
+def ADJCALLSTACKDOWN : PseudoInstCSA<(outs), (ins i64imm:$amt1, i64imm:$amt2),
+                               "# ADJCALLSTACKDOWN $amt1, $amt2",
+                               [(callseq_start timm:$amt1, timm:$amt2)]>;
 def ADJCALLSTACKUP : PseudoInstCSA<(outs), (ins i64imm:$amt1, i64imm:$amt2),
                             "# ADJCALLSTACKUP $amt1",
                             [(callseq_end timm:$amt1, timm:$amt2)]>;

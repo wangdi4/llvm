@@ -1,4 +1,3 @@
-# INTEL_CUSTOMIZATION
 # RUN: llvm-mc -triple i386-linux-gnu  %s| FileCheck %s
 
 # This test checks the altmacro string delimiter '<' and '>'.
@@ -72,4 +71,3 @@ fun2 <5,6>
 
 fun4 <5,4
 .noaltmacro
-

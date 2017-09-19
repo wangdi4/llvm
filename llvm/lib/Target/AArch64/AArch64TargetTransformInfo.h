@@ -43,10 +43,16 @@ class AArch64TTIImpl : public BasicTTIImplBase<AArch64TTIImpl> {
     VECTOR_LDST_FOUR_ELEMENTS
   };
 
+  bool isWideningInstruction(Type *Ty, unsigned Opcode,
+                             ArrayRef<const Value *> Args);
+
 public:
   explicit AArch64TTIImpl(const AArch64TargetMachine *TM, const Function &F)
       : BaseT(TM, F.getParent()->getDataLayout()), ST(TM->getSubtargetImpl(F)),
         TLI(ST->getTargetLowering()) {}
+
+  bool areInlineCompatible(const Function *Caller,
+                           const Function *Callee) const;
 
   /// \name Scalar TTI Implementations
   /// @{
@@ -75,13 +81,17 @@ public:
     return 31;
   }
 
-  unsigned getRegisterBitWidth(bool Vector) {
+  unsigned getRegisterBitWidth(bool Vector) const {
     if (Vector) {
       if (ST->hasNEON())
         return 128;
       return 0;
     }
     return 64;
+  }
+
+  unsigned getMinVectorRegisterBitWidth() {
+    return ST->getMinVectorRegisterBitWidth();
   }
 
   unsigned getMaxInterleaveFactor(unsigned VF);
@@ -112,7 +122,8 @@ public:
 
   int getCostOfKeepingLiveOverCall(ArrayRef<Type *> Tys);
 
-  void getUnrollingPreferences(Loop *L, TTI::UnrollingPreferences &UP);
+  void getUnrollingPreferences(Loop *L, ScalarEvolution &SE,
+                               TTI::UnrollingPreferences &UP);
 
   Value *getOrCreateResultFromMemIntrinsic(IntrinsicInst *Inst,
                                            Type *ExpectedType);
@@ -134,6 +145,13 @@ public:
   unsigned getMinPrefetchStride();
 
   unsigned getMaxPrefetchIterationsAhead();
+
+  bool shouldExpandReduction(const IntrinsicInst *II) const {
+    return false;
+  }
+
+  bool useReductionIntrinsic(unsigned Opcode, Type *Ty,
+                             TTI::ReductionFlags Flags) const;
   /// @}
 };
 

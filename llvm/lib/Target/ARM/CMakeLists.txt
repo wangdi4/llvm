@@ -1,6 +1,9 @@
 set(LLVM_TARGET_DEFINITIONS ARM.td)
 
-tablegen(LLVM ARMGenRegisterBank.inc -gen-register-bank)
+if(LLVM_BUILD_GLOBAL_ISEL)
+  tablegen(LLVM ARMGenRegisterBank.inc -gen-register-bank)
+  tablegen(LLVM ARMGenGlobalISel.inc -gen-global-isel)
+endif()
 tablegen(LLVM ARMGenRegisterInfo.inc -gen-register-info)
 tablegen(LLVM ARMGenInstrInfo.inc -gen-instr-info)
 tablegen(LLVM ARMGenMCCodeEmitter.inc -gen-emitter)
@@ -46,6 +49,7 @@ add_llvm_target(ARMCodeGen
   ARMLoadStoreOptimizer.cpp
   ARMMCInstLower.cpp
   ARMMachineFunctionInfo.cpp
+  ARMMacroFusion.cpp
   ARMRegisterInfo.cpp
   ARMOptimizeBarriersPass.cpp
   ARMSelectionDAGInfo.cpp

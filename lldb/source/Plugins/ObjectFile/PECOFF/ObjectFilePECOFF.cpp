@@ -10,7 +10,7 @@
 #include "ObjectFilePECOFF.h"
 #include "WindowsMiniDump.h"
 
-#include "llvm/Support/COFF.h"
+#include "llvm/BinaryFormat/COFF.h"
 
 #include "lldb/Core/ArchSpec.h"
 #include "lldb/Core/FileSpecList.h"
@@ -19,7 +19,6 @@
 #include "lldb/Core/PluginManager.h"
 #include "lldb/Core/Section.h"
 #include "lldb/Core/StreamFile.h"
-#include "lldb/Core/Timer.h"
 #include "lldb/Symbol/ObjectFile.h"
 #include "lldb/Target/Process.h"
 #include "lldb/Target/SectionLoadList.h"
@@ -28,6 +27,7 @@
 #include "lldb/Utility/DataBufferLLVM.h"
 #include "lldb/Utility/FileSpec.h"
 #include "lldb/Utility/StreamString.h"
+#include "lldb/Utility/Timer.h"
 #include "lldb/Utility/UUID.h"
 
 #include "llvm/Support/MemoryBuffer.h"
@@ -145,7 +145,7 @@ size_t ObjectFilePECOFF::GetModuleSpecifications(
 
 bool ObjectFilePECOFF::SaveCore(const lldb::ProcessSP &process_sp,
                                 const lldb_private::FileSpec &outfile,
-                                lldb_private::Error &error) {
+                                lldb_private::Status &error) {
   return SaveMiniDump(process_sp, outfile, error);
 }
 
@@ -440,7 +440,7 @@ DataExtractor ObjectFilePECOFF::ReadImageData(uint32_t offset, size_t size) {
   DataExtractor data;
   if (process_sp) {
     auto data_ap = llvm::make_unique<DataBufferHeap>(size, 0);
-    Error readmem_error;
+    Status readmem_error;
     size_t bytes_read =
         process_sp->ReadMemory(m_image_base + offset, data_ap->GetBytes(),
                                data_ap->GetByteSize(), readmem_error);

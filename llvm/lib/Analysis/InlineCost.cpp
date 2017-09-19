@@ -22,7 +22,8 @@
 #include "llvm/Analysis/CodeMetrics.h"
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/InstructionSimplify.h"
-#include "llvm/Analysis/Intel_AggInline.h"      // INTEL
+#include "llvm/Analysis/Intel_AggInline.h"          // INTEL
+#include "llvm/Analysis/Intel_IPCloningAnalysis.h"  // INTEL
 #include "llvm/Analysis/LoopInfo.h" // INTEL
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
@@ -83,13 +84,19 @@ static cl::opt<int>
 // PGO before we actually hook up inliner with analysis passes such as BPI and
 // BFI.
 static cl::opt<int> ColdThreshold(
-    "inlinecold-threshold", cl::Hidden, cl::init(225),
+    "inlinecold-threshold", cl::Hidden, cl::init(45),
     cl::desc("Threshold for inlining functions with cold attribute"));
 
 static cl::opt<int>
     HotCallSiteThreshold("hot-callsite-threshold", cl::Hidden, cl::init(3000),
                          cl::ZeroOrMore,
                          cl::desc("Threshold for hot callsites "));
+
+static cl::opt<int> ColdCallSiteRelFreq(
+    "cold-callsite-rel-freq", cl::Hidden, cl::init(2), cl::ZeroOrMore,
+    cl::desc("Maxmimum block frequency, expressed as a percentage of caller's "
+             "entry frequency, for a callsite to be cold in the absence of "
+             "profile information."));
 
 namespace {
 
@@ -202,6 +209,9 @@ class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
 
   /// Return true if size growth is allowed when inlining the callee at CS.
   bool allowSizeGrowth(CallSite CS);
+
+  /// Return true if \p CS is a cold callsite.
+  bool isColdCallSite(CallSite CS, BlockFrequencyInfo *CallerBFI);
 
   // Custom analysis routines.
   bool analyzeBlock(BasicBlock *BB, SmallPtrSetImpl<const Value *> &EphValues);
@@ -665,6 +675,26 @@ bool CallAnalyzer::allowSizeGrowth(CallSite CS) {
   return true;
 }
 
+bool CallAnalyzer::isColdCallSite(CallSite CS, BlockFrequencyInfo *CallerBFI) {
+  // If global profile summary is available, then callsite's coldness is
+  // determined based on that.
+  if (PSI->hasProfileSummary())
+    return PSI->isColdCallSite(CS, CallerBFI);
+  if (!CallerBFI)
+    return false;
+
+  // In the absence of global profile summary, determine if the callsite is cold
+  // relative to caller's entry. We could potentially cache the computation of
+  // scaled entry frequency, but the added complexity is not worth it unless
+  // this scaling shows up high in the profiles.
+  const BranchProbability ColdProb(ColdCallSiteRelFreq, 100);
+  auto CallSiteBB = CS.getInstruction()->getParent();
+  auto CallSiteFreq = CallerBFI->getBlockFreq(CallSiteBB);
+  auto CallerEntryFreq =
+      CallerBFI->getBlockFreq(&(CS.getCaller()->getEntryBlock()));
+  return CallSiteFreq < CallerEntryFreq * ColdProb;
+}
+
 void CallAnalyzer::updateThreshold(CallSite CS, Function &Callee) {
   // If no size growth is allowed for this inlining, set Threshold to 0.
   if (!allowSizeGrowth(CS)) {
@@ -700,21 +730,33 @@ void CallAnalyzer::updateThreshold(CallSite CS, Function &Callee) {
       Threshold = MaxIfValid(Threshold, Params.HintThreshold);
     if (PSI) {
       BlockFrequencyInfo *CallerBFI = GetBFI ? &((*GetBFI)(*Caller)) : nullptr;
-      if (PSI->isHotCallSite(CS, CallerBFI)) {
-        DEBUG(dbgs() << "Hot callsite.\n");
-        Threshold = Params.HotCallSiteThreshold.getValue();
-      } else if (PSI->isFunctionEntryHot(&Callee)) {
-        DEBUG(dbgs() << "Hot callee.\n");
-        // If callsite hotness can not be determined, we may still know
-        // that the callee is hot and treat it as a weaker hint for threshold
-        // increase.
-        Threshold = MaxIfValid(Threshold, Params.HintThreshold);
-      } else if (PSI->isColdCallSite(CS, CallerBFI)) {
-        DEBUG(dbgs() << "Cold callsite.\n");
-        Threshold = MinIfValid(Threshold, Params.ColdCallSiteThreshold);
-      } else if (PSI->isFunctionEntryCold(&Callee)) {
-        DEBUG(dbgs() << "Cold callee.\n");
-        Threshold = MinIfValid(Threshold, Params.ColdThreshold);
+      // FIXME: After switching to the new passmanager, simplify the logic below
+      // by checking only the callsite hotness/coldness. The check for CallerBFI
+      // exists only because we do not have BFI available with the old PM.
+      //
+      // Use callee's hotness information only if we have no way of determining
+      // callsite's hotness information. Callsite hotness can be determined if
+      // sample profile is used (which adds hotness metadata to calls) or if
+      // caller's BlockFrequencyInfo is available.
+      if (CallerBFI || PSI->hasSampleProfile()) {
+        if (PSI->isHotCallSite(CS, CallerBFI)) {
+          DEBUG(dbgs() << "Hot callsite.\n");
+          Threshold = Params.HotCallSiteThreshold.getValue();
+        } else if (isColdCallSite(CS, CallerBFI)) {
+          DEBUG(dbgs() << "Cold callsite.\n");
+          Threshold = MinIfValid(Threshold, Params.ColdCallSiteThreshold);
+        }
+      } else {
+        if (PSI->isFunctionEntryHot(&Callee)) {
+          DEBUG(dbgs() << "Hot callee.\n");
+          // If callsite hotness can not be determined, we may still know
+          // that the callee is hot and treat it as a weaker hint for threshold
+          // increase.
+          Threshold = MaxIfValid(Threshold, Params.HintThreshold);
+        } else if (PSI->isFunctionEntryCold(&Callee)) {
+          DEBUG(dbgs() << "Cold callee.\n");
+          Threshold = MinIfValid(Threshold, Params.ColdThreshold);
+        }
       }
     }
   }
@@ -893,7 +935,7 @@ bool CallAnalyzer::simplifyCallSite(Function *F, CallSite CS) {
   // because we have to continually rebuild the argument list even when no
   // simplifications can be performed. Until that is fixed with remapping
   // inside of instsimplify, directly constant fold calls here.
-  if (!canConstantFoldCallTo(F))
+  if (!canConstantFoldCallTo(CS, F))
     return false;
 
   // Try to re-map the arguments to constants.
@@ -909,7 +951,7 @@ bool CallAnalyzer::simplifyCallSite(Function *F, CallSite CS) {
 
     ConstantArgs.push_back(C);
   }
-  if (Constant *C = ConstantFoldCall(F, ConstantArgs)) {
+  if (Constant *C = ConstantFoldCall(CS, F, ConstantArgs)) {
     SimplifiedValues[CS.getInstruction()] = C;
     return true;
   }
@@ -1034,22 +1076,74 @@ bool CallAnalyzer::visitSwitchInst(SwitchInst &SI) {
     if (isa<ConstantInt>(V))
       return true;
 
-  // Otherwise, we need to accumulate a cost proportional to the number of
-  // distinct successor blocks. This fan-out in the CFG cannot be represented
-  // for free even if we can represent the core switch as a jumptable that
-  // takes a single instruction.
+  // Assume the most general case where the switch is lowered into
+  // either a jump table, bit test, or a balanced binary tree consisting of
+  // case clusters without merging adjacent clusters with the same
+  // destination. We do not consider the switches that are lowered with a mix
+  // of jump table/bit test/binary search tree. The cost of the switch is
+  // proportional to the size of the tree or the size of jump table range.
   //
   // NB: We convert large switches which are just used to initialize large phi
   // nodes to lookup tables instead in simplify-cfg, so this shouldn't prevent
   // inlining those. It will prevent inlining in cases where the optimization
   // does not (yet) fire.
-  SmallPtrSet<BasicBlock *, 8> SuccessorBlocks;
-  SuccessorBlocks.insert(SI.getDefaultDest());
-  for (auto Case : SI.cases())
-    SuccessorBlocks.insert(Case.getCaseSuccessor());
-  // Add cost corresponding to the number of distinct destinations. The first
-  // we model as free because of fallthrough.
-  Cost += (SuccessorBlocks.size() - 1) * InlineConstants::InstrCost;
+
+  // Maximum valid cost increased in this function.
+  int CostUpperBound = INT_MAX - InlineConstants::InstrCost - 1;
+
+  // Exit early for a large switch, assuming one case needs at least one
+  // instruction.
+  // FIXME: This is not true for a bit test, but ignore such case for now to
+  // save compile-time.
+  int64_t CostLowerBound =
+      std::min((int64_t)CostUpperBound,
+               (int64_t)SI.getNumCases() * InlineConstants::InstrCost + Cost);
+
+  if (CostLowerBound > Threshold) {
+    Cost = CostLowerBound;
+    return false;
+  }
+
+  unsigned JumpTableSize = 0;
+  unsigned NumCaseCluster =
+      TTI.getEstimatedNumberOfCaseClusters(SI, JumpTableSize);
+
+  // If suitable for a jump table, consider the cost for the table size and
+  // branch to destination.
+  if (JumpTableSize) {
+    int64_t JTCost = (int64_t)JumpTableSize * InlineConstants::InstrCost +
+                     4 * InlineConstants::InstrCost;
+
+    Cost = std::min((int64_t)CostUpperBound, JTCost + Cost);
+    return false;
+  }
+
+  // Considering forming a binary search, we should find the number of nodes
+  // which is same as the number of comparisons when lowered. For a given
+  // number of clusters, n, we can define a recursive function, f(n), to find
+  // the number of nodes in the tree. The recursion is :
+  // f(n) = 1 + f(n/2) + f (n - n/2), when n > 3,
+  // and f(n) = n, when n <= 3.
+  // This will lead a binary tree where the leaf should be either f(2) or f(3)
+  // when n > 3.  So, the number of comparisons from leaves should be n, while
+  // the number of non-leaf should be :
+  //   2^(log2(n) - 1) - 1
+  //   = 2^log2(n) * 2^-1 - 1
+  //   = n / 2 - 1.
+  // Considering comparisons from leaf and non-leaf nodes, we can estimate the
+  // number of comparisons in a simple closed form :
+  //   n + n / 2 - 1 = n * 3 / 2 - 1
+  if (NumCaseCluster <= 3) {
+    // Suppose a comparison includes one compare and one conditional branch.
+    Cost += NumCaseCluster * 2 * InlineConstants::InstrCost;
+    return false;
+  }
+
+  int64_t ExpectedNumberOfCompare = 3 * (int64_t)NumCaseCluster / 2 - 1;
+  int64_t SwitchCost =
+      ExpectedNumberOfCompare * 2 * InlineConstants::InstrCost;
+
+  Cost = std::min((int64_t)CostUpperBound, SwitchCost + Cost);
   return false;
 }
 
@@ -1580,7 +1674,8 @@ static bool preferCloningToInlining(CallSite& CS,
   if (!Callee) return false;
   LoopInfo *LI = ILIC.getLI(Callee);
   if (!LI) return false;
-  if (isCallCandidateForSpecialization(CS, LI)) return true;
+  if (llvm::llvm_cloning_analysis::isCallCandidateForSpecialization(CS, LI))
+    return true;
   return false;
 } 
 
@@ -1648,36 +1743,10 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
   } 
 #endif // INTEL_CUSTOMIZATION
 
-  // Give out bonuses per argument, as the instructions setting them up will
-  // be gone after inlining.
-  for (unsigned I = 0, E = CS.arg_size(); I != E; ++I) {
-    if (CS.isByValArgument(I)) {
-      // We approximate the number of loads and stores needed by dividing the
-      // size of the byval type by the target's pointer size.
-      PointerType *PTy = cast<PointerType>(CS.getArgument(I)->getType());
-      unsigned TypeSize = DL.getTypeSizeInBits(PTy->getElementType());
-      unsigned PointerSize = DL.getPointerSizeInBits();
-      // Ceiling division.
-      unsigned NumStores = (TypeSize + PointerSize - 1) / PointerSize;
+  // Give out bonuses for the callsite, as the instructions setting them up
+  // will be gone after inlining.
+  Cost -= getCallsiteCost(CS, DL);
 
-      // If it generates more than 8 stores it is likely to be expanded as an
-      // inline memcpy so we take that as an upper bound. Otherwise we assume
-      // one load and one store per word copied.
-      // FIXME: The maxStoresPerMemcpy setting from the target should be used
-      // here instead of a magic number of 8, but it's not available via
-      // DataLayout.
-      NumStores = std::min(NumStores, 8U);
-
-      Cost -= 2 * NumStores * InlineConstants::InstrCost;
-    } else {
-      // For non-byval arguments subtract off one instruction per call
-      // argument.
-      Cost -= InlineConstants::InstrCost;
-    }
-  }
-  // The call instruction also disappears after inlining.
-  Cost -= InlineConstants::InstrCost + InlineConstants::CallPenalty;
-  
   // If there is only one call of the function, and it has internal linkage,
   // the cost of inlining it drops dramatically.
   // INTEL CQ370998: Added link once ODR linkage case.
@@ -1927,15 +1996,15 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
   if (VectorBonus > 0) {
     YesReasonVector.push_back(InlrVectorBonus);
   }
-  if (Cost < Threshold) {
+  bool IsProfitable = Cost < std::max(1, Threshold);
+  if (IsProfitable) {
     *ReasonAddr = bestInlineReason(YesReasonVector, InlrProfitable);
   }
   else {
     *ReasonAddr = bestInlineReason(NoReasonVector, NinlrNotProfitable);
   }
+  return IsProfitable;
 #endif // INTEL_CUSTOMIZATION
-
-  return Cost < std::max(1, Threshold);
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -1965,6 +2034,38 @@ static bool functionsHaveCompatibleAttributes(Function *Caller,
                                               TargetTransformInfo &TTI) {
   return TTI.areInlineCompatible(Caller, Callee) &&
          AttributeFuncs::areInlineCompatible(*Caller, *Callee);
+}
+
+int llvm::getCallsiteCost(CallSite CS, const DataLayout &DL) {
+  int Cost = 0;
+  for (unsigned I = 0, E = CS.arg_size(); I != E; ++I) {
+    if (CS.isByValArgument(I)) {
+      // We approximate the number of loads and stores needed by dividing the
+      // size of the byval type by the target's pointer size.
+      PointerType *PTy = cast<PointerType>(CS.getArgument(I)->getType());
+      unsigned TypeSize = DL.getTypeSizeInBits(PTy->getElementType());
+      unsigned PointerSize = DL.getPointerSizeInBits();
+      // Ceiling division.
+      unsigned NumStores = (TypeSize + PointerSize - 1) / PointerSize;
+
+      // If it generates more than 8 stores it is likely to be expanded as an
+      // inline memcpy so we take that as an upper bound. Otherwise we assume
+      // one load and one store per word copied.
+      // FIXME: The maxStoresPerMemcpy setting from the target should be used
+      // here instead of a magic number of 8, but it's not available via
+      // DataLayout.
+      NumStores = std::min(NumStores, 8U);
+
+      Cost += 2 * NumStores * InlineConstants::InstrCost;
+    } else {
+      // For non-byval arguments subtract off one instruction per call
+      // argument.
+      Cost += InlineConstants::InstrCost;
+    }
+  }
+  // The call instruction also disappears after inlining.
+  Cost += InlineConstants::InstrCost + InlineConstants::CallPenalty;
+  return Cost;
 }
 
 InlineCost llvm::getInlineCost(

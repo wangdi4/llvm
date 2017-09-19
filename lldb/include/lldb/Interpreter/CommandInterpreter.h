@@ -510,7 +510,7 @@ protected:
                                      StringList *matches = nullptr) const;
 
 private:
-  Error PreprocessCommand(std::string &command);
+  Status PreprocessCommand(std::string &command);
 
   // Completely resolves aliases and abbreviations, returning a pointer to the
   // final command object and updating command_line to the fully substituted
@@ -539,7 +539,7 @@ private:
   std::string m_repeat_command; // Stores the command that will be executed for
                                 // an empty command string.
   lldb::ScriptInterpreterSP m_script_interpreter_sp;
-  std::mutex m_script_interpreter_mutex;
+  std::recursive_mutex m_script_interpreter_mutex;
   lldb::IOHandlerSP m_command_io_handler_sp;
   char m_comment_char;
   bool m_batch_command_mode;

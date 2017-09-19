@@ -3,11 +3,13 @@
 performance-inefficient-vector-operation
 ========================================
 
-Finds possible inefficient `std::vector` operations (e.g. `push_back`) that may
-cause unnecessary memory reallocations.
+Finds possible inefficient ``std::vector`` operations (e.g. ``push_back``,
+``emplace_back``) that may cause unnecessary memory reallocations.
 
-Currently, the check only detects a typical counter-based for loop with a single
-statement in it, see below:
+Currently, the check only detects following kinds of loops with a single
+statement body:
+
+* Counter-based for loops start with 0:
 
 .. code-block:: c++
 
@@ -16,5 +18,32 @@ statement in it, see below:
     v.push_back(n);
     // This will trigger the warning since the push_back may cause multiple
     // memory reallocations in v. This can be avoid by inserting a 'reserve(n)'
-    // statment before the for statment.
+    // statement before the for statement.
   }
+
+
+* For-range loops like ``for (range-declaration : range_expression)``, the type
+  of ``range_expression`` can be ``std::vector``, ``std::array``,
+  ``std::deque``, ``std::set``, ``std::unordered_set``, ``std::map``,
+  ``std::unordered_set``:
+
+.. code-block:: c++
+
+  std::vector<int> data;
+  std::vector<int> v;
+
+  for (auto element : data) {
+    v.push_back(element);
+    // This will trigger the warning since the 'push_back' may cause multiple
+    // memory reallocations in v. This can be avoid by inserting a
+    // 'reserve(data.size())' statement before the for statement.
+  }
+
+
+Options
+-------
+
+.. option:: VectorLikeClasses
+
+   Semicolon-separated list of names of vector-like classes. By default only
+   ``::std::vector`` is considered.

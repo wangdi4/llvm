@@ -113,8 +113,7 @@ namespace {
 class CSAPassConfig : public TargetPassConfig {
 public:
   CSAPassConfig(CSATargetMachine &TM, legacy::PassManagerBase &PM)
-//RAVI    : TargetPassConfig(TM, PM) {}
-          : TargetPassConfig(&TM, PM) {}
+          : TargetPassConfig(TM, PM) {}
 
   CSATargetMachine &getCSATargetMachine() const {
     return getTM<CSATargetMachine>();

@@ -25,6 +25,7 @@ add_llvm_library(LLVMTransformUtils
   Intel_GeneralUtils.cpp
   Intel_IntrinsicUtils.cpp
   Intel_VecClone.cpp
+  ../Intel_VPO/Utils/IntrinsicUtils.cpp # TODO: Move to lib/Transforms/Utils
 #endif // INTEL_CUSTOMIZATION
   LCSSA.cpp
   LibCallsShrinkWrap.cpp
@@ -42,6 +43,7 @@ add_llvm_library(LLVMTransformUtils
   MetaRenamer.cpp
   ModuleUtils.cpp
   NameAnonGlobals.cpp
+  OrderedInstructions.cpp
   PredicateInfo.cpp
   PromoteMemoryToRegister.cpp
   StripGCRelocates.cpp

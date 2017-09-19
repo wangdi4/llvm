@@ -14,7 +14,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/IPO/FunctionAttrs.h"
-#include "llvm/Transforms/IPO.h"
 #include "llvm/ADT/SCCIterator.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallSet.h"
@@ -36,7 +35,7 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Transforms/IPO.h"
 using namespace llvm;
 
 #define DEBUG_TYPE "functionattrs"
@@ -837,7 +836,7 @@ static bool addNoAliasAttrs(const SCCNodeSet &SCCNodes) {
   // pointers.
   for (Function *F : SCCNodes) {
     // Already noalias.
-    if (F->doesNotAlias(0))
+    if (F->returnDoesNotAlias())
       continue;
 
     // We can infer and propagate function attributes only when we know that the
@@ -857,10 +856,11 @@ static bool addNoAliasAttrs(const SCCNodeSet &SCCNodes) {
 
   bool MadeChange = false;
   for (Function *F : SCCNodes) {
-    if (F->doesNotAlias(0) || !F->getReturnType()->isPointerTy())
+    if (F->returnDoesNotAlias() ||
+        !F->getReturnType()->isPointerTy())
       continue;
 
-    F->setDoesNotAlias(0);
+    F->setReturnDoesNotAlias();
     ++NumNoAlias;
     MadeChange = true;
   }
@@ -1208,6 +1208,10 @@ static bool runImpl(CallGraphSCC &SCC, AARGetterT AARGetter,   // INTEL
 
     SCCNodes.insert(F);
   }
+
+  // Skip it if the SCC only contains optnone functions.
+  if (SCCNodes.empty())
+    return Changed;
 
   Changed |= addArgumentReturnedAttrs(SCCNodes);
   Changed |= addReadAttrs(SCCNodes, AARGetter);

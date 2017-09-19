@@ -181,44 +181,6 @@ private:
 
 } // end anonymous namespace.
 
-static std::pair<X86::CondCode, bool>
-getX86ConditionCode(CmpInst::Predicate Predicate) {
-  X86::CondCode CC = X86::COND_INVALID;
-  bool NeedSwap = false;
-  switch (Predicate) {
-  default: break;
-  // Floating-point Predicates
-  case CmpInst::FCMP_UEQ: CC = X86::COND_E;       break;
-  case CmpInst::FCMP_OLT: NeedSwap = true;        LLVM_FALLTHROUGH;
-  case CmpInst::FCMP_OGT: CC = X86::COND_A;       break;
-  case CmpInst::FCMP_OLE: NeedSwap = true;        LLVM_FALLTHROUGH;
-  case CmpInst::FCMP_OGE: CC = X86::COND_AE;      break;
-  case CmpInst::FCMP_UGT: NeedSwap = true;        LLVM_FALLTHROUGH;
-  case CmpInst::FCMP_ULT: CC = X86::COND_B;       break;
-  case CmpInst::FCMP_UGE: NeedSwap = true;        LLVM_FALLTHROUGH;
-  case CmpInst::FCMP_ULE: CC = X86::COND_BE;      break;
-  case CmpInst::FCMP_ONE: CC = X86::COND_NE;      break;
-  case CmpInst::FCMP_UNO: CC = X86::COND_P;       break;
-  case CmpInst::FCMP_ORD: CC = X86::COND_NP;      break;
-  case CmpInst::FCMP_OEQ:                         LLVM_FALLTHROUGH;
-  case CmpInst::FCMP_UNE: CC = X86::COND_INVALID; break;
-
-  // Integer Predicates
-  case CmpInst::ICMP_EQ:  CC = X86::COND_E;       break;
-  case CmpInst::ICMP_NE:  CC = X86::COND_NE;      break;
-  case CmpInst::ICMP_UGT: CC = X86::COND_A;       break;
-  case CmpInst::ICMP_UGE: CC = X86::COND_AE;      break;
-  case CmpInst::ICMP_ULT: CC = X86::COND_B;       break;
-  case CmpInst::ICMP_ULE: CC = X86::COND_BE;      break;
-  case CmpInst::ICMP_SGT: CC = X86::COND_G;       break;
-  case CmpInst::ICMP_SGE: CC = X86::COND_GE;      break;
-  case CmpInst::ICMP_SLT: CC = X86::COND_L;       break;
-  case CmpInst::ICMP_SLE: CC = X86::COND_LE;      break;
-  }
-
-  return std::make_pair(CC, NeedSwap);
-}
-
 static std::pair<unsigned, bool>
 getX86SSEConditionCode(CmpInst::Predicate Predicate) {
   unsigned CC;
@@ -453,6 +415,8 @@ bool X86FastISel::X86FastEmitLoad(EVT VT, X86AddressMode &AM,
     assert(HasAVX);
     if (IsNonTemporal && Alignment >= 32 && HasAVX2)
       Opc = HasVLX ? X86::VMOVNTDQAZ256rm : X86::VMOVNTDQAYrm;
+    else if (IsNonTemporal && Alignment >= 16)
+      return false; // Force split for X86::VMOVNTDQArm
     else if (Alignment >= 32)
       Opc = HasVLX ? X86::VMOVAPSZ256rm : X86::VMOVAPSYrm;
     else
@@ -463,6 +427,8 @@ bool X86FastISel::X86FastEmitLoad(EVT VT, X86AddressMode &AM,
     assert(HasAVX);
     if (IsNonTemporal && Alignment >= 32 && HasAVX2)
       Opc = X86::VMOVNTDQAYrm;
+    else if (IsNonTemporal && Alignment >= 16)
+      return false; // Force split for X86::VMOVNTDQArm
     else if (Alignment >= 32)
       Opc = HasVLX ? X86::VMOVAPDZ256rm : X86::VMOVAPDYrm;
     else
@@ -476,6 +442,8 @@ bool X86FastISel::X86FastEmitLoad(EVT VT, X86AddressMode &AM,
     assert(HasAVX);
     if (IsNonTemporal && Alignment >= 32 && HasAVX2)
       Opc = X86::VMOVNTDQAYrm;
+    else if (IsNonTemporal && Alignment >= 16)
+      return false; // Force split for X86::VMOVNTDQArm
     else if (Alignment >= 32)
       Opc = HasVLX ? X86::VMOVDQA64Z256rm : X86::VMOVDQAYrm;
     else
@@ -1220,7 +1188,7 @@ bool X86FastISel::X86SelectRet(const Instruction *I) {
       CC != CallingConv::X86_StdCall &&
       CC != CallingConv::X86_ThisCall &&
       CC != CallingConv::X86_64_SysV &&
-      CC != CallingConv::X86_64_Win64)
+      CC != CallingConv::Win64)
     return false;
 
   // Don't handle popping bytes if they don't fit the ret's immediate.
@@ -1574,7 +1542,7 @@ bool X86FastISel::X86SelectCmp(const Instruction *I) {
 
   X86::CondCode CC;
   bool SwapArgs;
-  std::tie(CC, SwapArgs) = getX86ConditionCode(Predicate);
+  std::tie(CC, SwapArgs) = X86::getX86ConditionCode(Predicate);
   assert(CC <= X86::LAST_VALID_COND && "Unexpected condition code.");
   unsigned Opc = X86::getSETFromCond(CC);
 
@@ -1712,7 +1680,7 @@ bool X86FastISel::X86SelectBranch(const Instruction *I) {
 
       bool SwapArgs;
       unsigned BranchOpc;
-      std::tie(CC, SwapArgs) = getX86ConditionCode(Predicate);
+      std::tie(CC, SwapArgs) = X86::getX86ConditionCode(Predicate);
       assert(CC <= X86::LAST_VALID_COND && "Unexpected condition code.");
 
       BranchOpc = X86::GetCondBranchFromCond(CC);
@@ -2085,7 +2053,7 @@ bool X86FastISel::X86FastEmitCMoveSelect(MVT RetVT, const Instruction *I) {
     }
 
     bool NeedSwap;
-    std::tie(CC, NeedSwap) = getX86ConditionCode(Predicate);
+    std::tie(CC, NeedSwap) = X86::getX86ConditionCode(Predicate);
     assert(CC <= X86::LAST_VALID_COND && "Unexpected condition code.");
 
     const Value *CmpLHS = CI->getOperand(0);
@@ -2334,7 +2302,7 @@ bool X86FastISel::X86FastEmitPseudoSelect(MVT RetVT, const Instruction *I) {
   const auto *CI = dyn_cast<CmpInst>(Cond);
   if (CI && (CI->getParent() == I->getParent())) {
     bool NeedSwap;
-    std::tie(CC, NeedSwap) = getX86ConditionCode(CI->getPredicate());
+    std::tie(CC, NeedSwap) = X86::getX86ConditionCode(CI->getPredicate());
     if (CC > X86::LAST_VALID_COND)
       return false;
 
@@ -2791,7 +2759,6 @@ bool X86FastISel::fastLowerIntrinsicCall(const IntrinsicInst *II) {
     if (MSI->getDestAddressSpace() > 255)
       return false;
 
-#if 0  // CSA_XMAIN RAVI FIX ME
 #if INTEL_CUSTOMIZATION
     // Determine the function name to use based upon whether or not
     // the corresponding standard library function is available in the
@@ -2807,9 +2774,6 @@ bool X86FastISel::fastLowerIntrinsicCall(const IntrinsicInst *II) {
 #else
     return lowerCallTo(II, "memset", II->getNumArgOperands() - 2);
 #endif // INTEL_CUSTOMIZATION
-#else // !0
-    return lowerCallTo(II, "memset", II->getNumArgOperands() - 2);
-#endif  // !0
   }
   case Intrinsic::stackprotector: {
     // Emit code to store the stack guard onto the stack.
@@ -3118,19 +3082,19 @@ bool X86FastISel::fastLowerArguments() {
   if (!Subtarget->is64Bit())
     return false;
 
+  if (Subtarget->useSoftFloat())
+    return false;
+
   // Only handle simple cases. i.e. Up to 6 i32/i64 scalar arguments.
   unsigned GPRCnt = 0;
   unsigned FPRCnt = 0;
-  unsigned Idx = 0;
   for (auto const &Arg : F->args()) {
-    // The first argument is at index 1.
-    ++Idx;
-    if (F->getAttributes().hasAttribute(Idx, Attribute::ByVal) ||
-        F->getAttributes().hasAttribute(Idx, Attribute::InReg) ||
-        F->getAttributes().hasAttribute(Idx, Attribute::StructRet) ||
-        F->getAttributes().hasAttribute(Idx, Attribute::SwiftSelf) ||
-        F->getAttributes().hasAttribute(Idx, Attribute::SwiftError) ||
-        F->getAttributes().hasAttribute(Idx, Attribute::Nest))
+    if (Arg.hasAttribute(Attribute::ByVal) ||
+        Arg.hasAttribute(Attribute::InReg) ||
+        Arg.hasAttribute(Attribute::StructRet) ||
+        Arg.hasAttribute(Attribute::SwiftSelf) ||
+        Arg.hasAttribute(Attribute::SwiftError) ||
+        Arg.hasAttribute(Attribute::Nest))
       return false;
 
     Type *ArgTy = Arg.getType();
@@ -3231,6 +3195,15 @@ bool X86FastISel::fastLowerCall(CallLoweringInfo &CLI) {
   bool Is64Bit        = Subtarget->is64Bit();
   bool IsWin64        = Subtarget->isCallingConvWin64(CC);
 
+  const CallInst *CI =
+      CLI.CS ? dyn_cast<CallInst>(CLI.CS->getInstruction()) : nullptr;
+  const Function *CalledFn = CI ? CI->getCalledFunction() : nullptr;
+
+  // Functions with no_caller_saved_registers that need special handling.
+  if ((CI && CI->hasFnAttr("no_caller_saved_registers")) ||
+      (CalledFn && CalledFn->hasFnAttribute("no_caller_saved_registers")))
+    return false;
+
   // Handle only C, fastcc, and webkit_js calling conventions for now.
   switch (CC) {
   default: return false;
@@ -3241,7 +3214,7 @@ bool X86FastISel::fastLowerCall(CallLoweringInfo &CLI) {
   case CallingConv::X86_FastCall:
   case CallingConv::X86_StdCall:
   case CallingConv::X86_ThisCall:
-  case CallingConv::X86_64_Win64:
+  case CallingConv::Win64:
   case CallingConv::X86_64_SysV:
     break;
   }
@@ -3334,7 +3307,7 @@ bool X86FastISel::fastLowerCall(CallLoweringInfo &CLI) {
   // Issue CALLSEQ_START
   unsigned AdjStackDown = TII.getCallFrameSetupOpcode();
   BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, TII.get(AdjStackDown))
-    .addImm(NumBytes).addImm(0);
+    .addImm(NumBytes).addImm(0).addImm(0);
 
   // Walk the register/memloc assignments, inserting copies/loads.
   const X86RegisterInfo *RegInfo = Subtarget->getRegisterInfo();
@@ -3726,13 +3699,6 @@ unsigned X86FastISel::X86MaterializeInt(const ConstantInt *CI, MVT VT) {
     switch (VT.SimpleTy) {
     default: llvm_unreachable("Unexpected value type");
     case MVT::i1:
-      if (Subtarget->hasAVX512()) {
-        // Need to copy to a VK1 register.
-        unsigned ResultReg = createResultReg(&X86::VK1RegClass);
-        BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc,
-                TII.get(TargetOpcode::COPY), ResultReg).addReg(SrcReg);
-        return ResultReg;
-      }
     case MVT::i8:
       return fastEmitInst_extractsubreg(MVT::i8, SrcReg, /*Kill=*/true,
                                         X86::sub_8bit);

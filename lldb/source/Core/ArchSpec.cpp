@@ -24,11 +24,11 @@
 
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/Twine.h" // for Twine
-#include "llvm/Support/COFF.h"
-#include "llvm/Support/Compiler.h" // for LLVM_FALLTHROUGH
-#include "llvm/Support/ELF.h"
+#include "llvm/BinaryFormat/COFF.h"
+#include "llvm/BinaryFormat/ELF.h"
+#include "llvm/BinaryFormat/MachO.h" // for CPUType::CPU_T...
+#include "llvm/Support/Compiler.h"   // for LLVM_FALLTHROUGH
 #include "llvm/Support/Host.h"
-#include "llvm/Support/MachO.h" // for CPUType::CPU_T...
 
 #include <memory> // for shared_ptr
 #include <string>
@@ -1555,7 +1555,7 @@ static void StopInfoOverrideCallbackTypeARM(lldb_private::Thread &thread) {
 #if 0
                 // ARM mode: check for condition on intsruction
                 const addr_t pc = reg_ctx_sp->GetPC();
-                Error error;
+                Status error;
                 // If we fail to read the opcode we will get UINT64_MAX as the
                 // result in "opcode" which we can use to detect if we read a
                 // valid opcode.
@@ -1635,7 +1635,7 @@ void ArchSpec::PiecewiseTripleCompare(
 }
 
 bool ArchSpec::IsAlwaysThumbInstructions() const {
-  std::string Error;
+  std::string Status;
   if (GetTriple().getArch() == llvm::Triple::arm ||
       GetTriple().getArch() == llvm::Triple::thumb) {
     // v. https://en.wikipedia.org/wiki/ARM_Cortex-M

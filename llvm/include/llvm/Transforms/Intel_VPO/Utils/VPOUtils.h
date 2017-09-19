@@ -201,17 +201,15 @@ public:
     /// \brief Return a call to the llvm.masked.gather intrinsic. A null Mask
     /// defaults to an unmasked gather. A null PassThru value uses undef value
     /// for pass through value.
-    static CallInst* createMaskedGatherCall(Module *M,
-                                            Value *VecPtr,
+    static CallInst* createMaskedGatherCall(Value *VecPtr,
                                             IRBuilder<> &Builder,
                                             unsigned Alignment = 0,
                                             Value *Mask = nullptr,
                                             Value *PassThru = nullptr);
 
     /// \brief Return a call to the llvm.masked.load intrinsic. It uses the
-    /// interface provided by IRBuilder and then marks the generated call
-    /// instruction with no-feature-outlining metadata. A null PassThru value
-    /// uses undef value for pass through value.
+    /// interface provided by IRBuilder. A null PassThru value uses undef value
+    /// for pass through value.
     static CallInst* createMaskedLoadCall(Value *VecPtr,
                                           IRBuilder<> &Builder,
                                           unsigned Alignment,
@@ -220,16 +218,14 @@ public:
 
     /// \brief Return a call to the llvm.masked.scatter intrinsic. A null Mask
     /// defaults to an unmasked scatter.
-    static CallInst* createMaskedScatterCall(Module *M,
-                                             Value *VecPtr,
+    static CallInst* createMaskedScatterCall(Value *VecPtr,
                                              Value *VecData,
                                              IRBuilder<> &Builder,
                                              unsigned Alignment = 0,
                                              Value *Mask = nullptr);
 
     /// \brief Return a call to the llvm.masked.store intrinsic. It uses the
-    /// interface provided by IRBuilder and then marks the generated call
-    /// instruction with no-feature-outlining metadata.
+    /// interface provided by IRBuilder.
     static CallInst* createMaskedStoreCall(Value *VecPtr,
                                            Value *VecData,
                                            IRBuilder<> &Builder,
