@@ -25,6 +25,7 @@ StringRef Triple::getArchTypeName(ArchType Kind) {
   case aarch64_be:     return "aarch64_be";
   case arm:            return "arm";
   case armeb:          return "armeb";
+  case arc:            return "arc";
   case avr:            return "avr";
   case bpfel:          return "bpfel";
   case bpfeb:          return "bpfeb";
@@ -82,6 +83,8 @@ StringRef Triple::getArchTypePrefix(ArchType Kind) {
 
   case aarch64:
   case aarch64_be:  return "aarch64";
+
+  case arc:         return "arc";
 
   case arm:
   case armeb:
@@ -258,6 +261,7 @@ Triple::ArchType Triple::getArchTypeForLLVMName(StringRef Name) {
   return StringSwitch<Triple::ArchType>(Name)
     .Case("aarch64", aarch64)
     .Case("aarch64_be", aarch64_be)
+    .Case("arc", arc)
     .Case("arm64", aarch64) // "arm64" is an alias for "aarch64"
     .Case("arm", arm)
     .Case("armeb", armeb)
@@ -387,6 +391,7 @@ static Triple::ArchType parseArch(StringRef ArchName) {
     .Case("xscaleeb", Triple::armeb)
     .Case("aarch64", Triple::aarch64)
     .Case("aarch64_be", Triple::aarch64_be)
+    .Case("arc", Triple::arc)
     .Case("arm64", Triple::aarch64)
     .Case("arm", Triple::arm)
     .Case("armeb", Triple::armeb)
@@ -626,6 +631,7 @@ static Triple::ObjectFormatType getDefaultFormat(const Triple &T) {
     return Triple::ELF;
 
   case Triple::aarch64_be:
+  case Triple::arc:
   case Triple::amdgcn:
   case Triple::amdil:
   case Triple::amdil64:
@@ -1179,6 +1185,7 @@ static unsigned getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
   case llvm::Triple::msp430:
     return 16;
 
+  case llvm::Triple::arc:
   case llvm::Triple::arm:
   case llvm::Triple::armeb:
   case llvm::Triple::hexagon:
@@ -1262,6 +1269,7 @@ Triple Triple::get32BitArchVariant() const {
   case Triple::amdil:
   case Triple::hsail:
   case Triple::spir:
+  case Triple::arc:
   case Triple::arm:
   case Triple::armeb:
   case Triple::hexagon:
@@ -1312,6 +1320,7 @@ Triple Triple::get64BitArchVariant() const {
   Triple T(*this);
   switch (getArch()) {
   case Triple::UnknownArch:
+  case Triple::arc:
   case Triple::avr:
   case Triple::hexagon:
   case Triple::kalimba:
