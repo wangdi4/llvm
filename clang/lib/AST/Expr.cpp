@@ -1815,6 +1815,49 @@ OverloadedOperatorKind BinaryOperator::getOverloadedOperator(Opcode Opc) {
   return OverOps[Opc];
 }
 
+#if INTEL_CUSTOMIZATION
+// This change is cherry-picked from LLVM trunk r313666 and r313784 (which
+// amended r313666 by deleting the IExp varaible and the offset size check
+// at the end of the function.
+//
+// When r313666 is merged with xmain, the INTEL_CUSTOMIZATION of this function
+// can be deleted and the LLVM trunk change followed without modification.
+// Three associated lit tests will fail if tested with a 32-bit target triple,
+// but those failures are fixed by r313684.
+bool BinaryOperator::isNullPointerArithmeticExtension(ASTContext &Ctx,
+                                                      Opcode Opc,
+                                                      Expr *LHS, Expr *RHS) {
+  if (Opc != BO_Add)
+    return false;
+
+  // Check that we have one pointer and one integer operand.
+  Expr *PExp;
+  if (LHS->getType()->isPointerType()) {
+    if (!RHS->getType()->isIntegerType())
+      return false;
+    PExp = LHS;
+  } else if (RHS->getType()->isPointerType()) {
+    if (!LHS->getType()->isIntegerType())
+      return false;
+    PExp = RHS;
+  } else {
+    return false;
+  }
+
+  // Check that the pointer is a nullptr.
+  if (!PExp->IgnoreParenCasts()
+          ->isNullPointerConstant(Ctx, Expr::NPC_ValueDependentIsNotNull))
+    return false;
+
+  // Check that the pointee type is char-sized.
+  const PointerType *PTy = PExp->getType()->getAs<PointerType>();
+  if (!PTy || !PTy->getPointeeType()->isCharType())
+    return false;
+
+  return true;
+}
+#endif // INTEL_CUSTOMIZATION
+
 InitListExpr::InitListExpr(const ASTContext &C, SourceLocation lbraceloc,
                            ArrayRef<Expr*> initExprs, SourceLocation rbraceloc)
   : Expr(InitListExprClass, QualType(), VK_RValue, OK_Ordinary, false, false,
