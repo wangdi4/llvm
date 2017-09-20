@@ -13,6 +13,7 @@ Xmain
    XmainProcesses
    PulldownProcess
    JIRA
+   IRSuppression
    LoopAnalysis/index
    LoopTransforms/index
    VPO/index

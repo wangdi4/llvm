@@ -1,13 +1,9 @@
-o===========================
+===========================
 Xmain Development Processes
 ===========================
 
 .. contents::
    :local:
-
-The Intel LLVM development process documentation is currently under review. If
-anything looks wrong to you, please contact `David Kreitzer
-<mailto:david.l.kreitzer@intel.com>`_.
 
 Introduction
 ============
@@ -16,7 +12,8 @@ This document describes our processes for code development in xmain. There is a
 separate :doc:`document <OpenSourceProcesses>` describing our processes for open
 source LLVM/clang code development.
 
-The xmain project stays in sync with open source via our pulldown process.
+The xmain project stays in sync with open source via our
+:doc:`pulldown process <PulldownProcess>`.
 xmain typically stays within several months of open source trunk. Consequently,
 changes that are committed directly to open source usually do **not** need to
 be ported to xmain by the developer. The exception is when the changes are
@@ -101,6 +98,37 @@ consideration is clarity & readability.
       return R;
   #endif // INTEL_CUSTOMIZATION
 
+- Multi-line modifications may be marked in the same way. There is no need to
+  retain the original unmodified community code as that would usually degrade
+  clarity. As such, ``#if INTEL_CUSTOMIZATION`` directives should rarely, if
+  ever, have an accompanying ``#else``. Here is an example of proper usage.
+
+.. We cannot format this block as c++ due to the diff markers.
+.. code-block:: text
+
+  -  // If there is a trivial two-entry PHI node in this basic block, and we can
+  -  // eliminate it, do so now.
+  -  if (PHINode *PN = dyn_cast<PHINode>(BB->begin()))
+  -    if (PN->getNumIncomingValues() == 2)
+  -      Changed |= FoldTwoEntryPHINode(PN, TTI, DL);
+  +#if INTEL_CUSTOMIZATION
+  +  // If there is a PHI node in this basic block, and we can
+  +  // eliminate some of its entries, do so now.
+  +  if (PHINode *PN = dyn_cast<PHINode>(BB->begin())) {
+  +    // FoldPHIEntries is an Intel customized generalized version of the LLVM
+  +    // open source routine called FoldTwoEntryPHINode(that folds a two-entry
+  +    // phinode into "select") which is capable of handling any number
+  +    // of phi entries. It iteratively transforms each conditional into
+  +    // "select". Any changes (one such change could be regarding cost model)
+  +    // made by the LLVM community to FoldTwoEntryPHINode will need to be
+  +    // incorporated to this routine (FoldPHIEntries).
+  +    // To keep xmain as clean as possible we got rid of the FoldTwoEntryPHINode,
+  +    // therefore, there might be conflicts during code merge. If resolving
+  +    // conflicts becomes too cumbersome, we can try something different.
+  +    Changed |= FoldPHIEntries(PN, TTI, DL);
+  +  }
+  +#endif
+
 - Some files, e.g. tablegen (.td) files, are not run through the preprocessor,
   so the #if INTEL_CUSTOMIZATION method does not work. For those types of files,
   multi-line additions should be enclosed in comments like this.
@@ -128,6 +156,21 @@ consideration is clarity & readability.
   Inliner::Inliner(char &ID, bool InsertLifetime)
       : CallGraphSCCPass(ID), InsertLifetime(InsertLifetime), // INTEL
         Report(IntelInlineReportLevel) {}                     // INTEL
+
+- Pure deletions should be excluded with an explanatory comment like this.
+
+.. code-block:: c++
+
+  #if !INTEL_CUSTOMIZATION
+      // This code isn't needed with the Intel customizations, because we always
+      // run the SSAUpdater to resolve cross-BB references.
+      // Remap the value if necessary.
+      if (Instruction *Inst = dyn_cast<Instruction>(IV)) {
+        DenseMap<Instruction*, Value*>::iterator I = ValueMap.find(Inst);
+        if (I != ValueMap.end())
+          IV = I->second;
+      }
+  #endif // !INTEL_CUSTOMIZATION
 
 - For Intel-added files, you do not need to put any special markups in the
   sources. Instead, the fully qualified file name should contain ``Intel``
@@ -209,10 +252,9 @@ ensuring that the code we commit to xmain is of the highest quality.
 Code Review Tool
 ----------------
 
-`Code Collaborator <https://ir-codecollab.intel.com/ui>`_ is the official code
-review tool for xmain development. Individual teams may use other tools
-internally but are expected to use Code Collaborator when working with other
-teams.
+`Gerrit <https://git-amr-2.devtools.intel.com/gerrit>`_ is the official code
+review tool for xmain development. All xmain code reviews should be done
+through gerrit.
 
 Choosing a code reviewer
 ------------------------
@@ -221,7 +263,7 @@ If you are unsure who should review your changes, the advice of the LLVM
 community documented `here <../Phabricator.html>`_ works just as well for
 xmain. That is,
 
-- Use ``svn blame`` and the commit log to find names of people who have recently
+- Use ``git blame`` and the commit log to find names of people who have recently
   modified the same area of code that you are modifying.
 - If you've discussed the change with others, they are good candidates to be
   your reviewers.
@@ -333,5 +375,5 @@ Large regressions always need to be analyzed and understood. The gatekeeper
 will usually not approve checkin requests involving large performance
 regressions, but there may be exceptions in some cases.
 
-The developer must submit a CQ for any performance regression that requires
-follow-up work before the gatekeeper will approve the checkin request.
+The developer must submit a JIRA report for any performance regression that
+requires follow-up work before the gatekeeper will approve the checkin request.
