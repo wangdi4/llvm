@@ -2208,7 +2208,9 @@ bool AdvisorAnalysis::find_maximal_configuration_for_call(
                           "dependences EXIST between ");
       DEBUG(*outputLog << (*graph)[self].name << " (" << self << ") and "
                        << (*graph)[*it].name << " (" << *it << ")\n");
-      boost::add_edge(*it, self, *graph);
+      if (!boost::edge(*it, self, *graph).second) { // avoid duplicates
+        boost::add_edge(*it, self, *graph);
+      }
     }
 
     // update the execution order index for current basic block after it has
@@ -2328,7 +2330,9 @@ bool AdvisorAnalysis::find_maximal_configuration_global(
                           "dependences EXIST between ");
       DEBUG(*outputLog << (*graph)[self].name << " (" << self << ") and "
                        << (*graph)[*it].name << " (" << *it << ")\n");
-      boost::add_edge(*it, self, *graph);
+      if (!boost::edge(*it, self, *graph).second) { // avoid duplicates
+        boost::add_edge(*it, self, *graph);
+      }
     }
 
     // update the execution order index for current basic block after it has
