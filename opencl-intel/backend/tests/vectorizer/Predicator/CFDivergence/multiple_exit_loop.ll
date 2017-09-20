@@ -1,12 +1,11 @@
-; RUN: llvm-as %s -o %t.bc
-; RUN: opt  -O3 -inline-threshold=4096 -inline -lowerswitch -mergereturn -loop-simplify -phicanon -predicate -verify %t.bc -S -o %t1.ll
+; RUN: opt -O3 -inline-threshold=4096 -inline -lowerswitch -mergereturn -loop-simplify -phicanon -predicate -verify %s -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 
 ; ModuleID = 'multiple_exit_loop.cl'
 target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:64-s0:64:64-f80:128:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; CHECK: void @internalDivBranchMX
+; CHECK-LABEL: void @internalDivBranchMX
 ; CHECK: @masked_load
 ; CHECK: header:
 ; CHECK: @masked_store
@@ -48,7 +47,7 @@ define void @internalDivBranchMX(i32 addrspace(1)* nocapture %a, i32 addrspace(1
 
 declare i64 @_Z13get_global_idj(i32) nounwind readnone
 
-; CHECK: void @externalDivBranchMX
+; CHECK-LABEL: void @externalDivBranchMX
 ; CHECK: @masked_store
 ; CHECK-NOT: @masked_load
 ; CHECK-NOT: @masked_load
@@ -93,7 +92,7 @@ define void @externalDivBranchMX(i32 addrspace(1)* nocapture %a, i32 addrspace(1
   ret void
 }
 
-; CHECK: void @externalDivBranchNestedUnLoopsMX
+; CHECK-LABEL: void @externalDivBranchNestedUnLoopsMX
 ; CHECK: @masked_store
 ; CHECK-NOT: @masked_load
 ; CHECK-NOT: @masked_load
@@ -152,7 +151,7 @@ define void @externalDivBranchNestedUnLoopsMX(i32 addrspace(1)* nocapture %a, i3
   ret void
 }
 
-; CHECK: void @externalDivBranchNestedLoopsMX
+; CHECK-LABEL: void @externalDivBranchNestedLoopsMX
 ; CHECK: @masked_store
 ; CHECK: @masked_load
 ; CHECK: @masked_store
@@ -212,7 +211,7 @@ define void @externalDivBranchNestedLoopsMX(i32 addrspace(1)* nocapture %a, i32 
   ret void
 }
 
-; CHECK: void @internalDivBranchNestedUnLoopsMX
+; CHECK-LABEL: void @internalDivBranchNestedUnLoopsMX
 ; CHECK: load i32
 ; CHECK: @masked_load
 ; CHECK: @masked_store
@@ -264,7 +263,7 @@ define void @internalDivBranchNestedUnLoopsMX(i32 addrspace(1)* nocapture %a, i3
   ret void
 }
 
-; CHECK: void @internalDivBranchNestedLoopsMX
+; CHECK-LABEL: void @internalDivBranchNestedLoopsMX
 ; CHECK: @masked_load
 ; CHECK: @masked_load
 ; CHECK: @masked_store
@@ -316,7 +315,7 @@ define void @internalDivBranchNestedLoopsMX(i32 addrspace(1)* nocapture %a, i32 
   ret void
 }
 
-; CHECK: void @internalDivBranchThreeNestedUnLoopsMX
+; CHECK-LABEL: void @internalDivBranchThreeNestedUnLoopsMX
 ; CHECK: load i32
 ; CHECK: @masked_load
 ; CHECK: @masked_store
@@ -379,7 +378,7 @@ define void @internalDivBranchThreeNestedUnLoopsMX(i32 addrspace(1)* nocapture %
   ret void
 }
 
-; CHECK: void @internalUnBranchDivLoopMX
+; CHECK-LABEL: void @internalUnBranchDivLoopMX
 ; CHECK: @masked_load
 ; CHECK: ret
 
@@ -413,7 +412,7 @@ define void @internalUnBranchDivLoopMX(i32 addrspace(1)* nocapture %a, i32 addrs
   ret void
 }
 
-; CHECK: void @externalUnBranchDivLoopMX
+; CHECK-LABEL: void @externalUnBranchDivLoopMX
 ; CHECK: @masked_load
 ; CHECK: ret
 
