@@ -1,6 +1,6 @@
 ; Check that label is remapped after OptPredicate pass
 
-; RUN: opt -hir-ssa-deconstruction -hir-opt-predicate -print-after=hir-opt-predicate -S -disable-output -debug < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-opt-predicate -print-after=hir-opt-predicate -S -disable-output -debug-only=hir-opt-predicate < %s 2>&1 | FileCheck %s
 
 ; Source:
 ; int a[1000];

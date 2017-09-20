@@ -55,7 +55,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 
-#define DEBUG_TYPE "hir-loopinterchange"
+#define DEBUG_TYPE "hir-loop-interchange"
 
 using namespace llvm;
 using namespace llvm::loopopt;

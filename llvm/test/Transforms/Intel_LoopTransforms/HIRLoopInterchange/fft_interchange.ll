@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt -anders-aa  -hir-ssa-deconstruction  -hir-temp-cleanup -debug  -hir-loop-interchange  < %s 2>&1 | FileCheck %s
+; RUN: opt -anders-aa  -hir-ssa-deconstruction  -hir-temp-cleanup -debug-only=hir-loop-interchange -hir-loop-interchange  < %s 2>&1 | FileCheck %s
 ; CHECK:  Interchanged:
 
 ;Module Before HIR; ModuleID = 'fft_interchange.c'

@@ -641,7 +641,8 @@ bool HIRRegionIdentification::containsCycle(const BasicBlock *BB,
   return false;
 }
 
-bool HIRRegionIdentification::isGenerable(const BasicBlock *BB) {
+bool HIRRegionIdentification::isGenerable(const BasicBlock *BB,
+                                          const Loop *Lp) {
   auto FirstInst = BB->getFirstNonPHI();
 
   if (isa<LandingPadInst>(FirstInst) || isa<FuncletPadInst>(FirstInst)) {
@@ -664,6 +665,37 @@ bool HIRRegionIdentification::isGenerable(const BasicBlock *BB) {
     DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Exception handling currently not "
                     "supported.\n");
     return false;
+  }
+
+  if (Lp && !Lp->getExitingBlock()) {
+    // If there are multiple switch successors that jump to the same bblock
+    // outside the loop, we throttle this loop. This condition essentially means
+    // that there are multiple edges between src and dest bblock. Currently, the
+    // lveout handling mechanism in the framework assumes each goto represents a
+    // unique (src, dest) bblock pair. To handle this case we will have to add
+    // more information to goto's (like switch case value) and do some tracking
+    // of values liveout for each case goto. This is pretty complicated and
+    // hence being left as a TODO for now. It may be simpler to handle switches
+    // where the same value is liveout from each edge but this is also being
+    // left as a TODO for now.
+    if (auto Switch = dyn_cast<SwitchInst>(Term)) {
+      SmallPtrSet<BasicBlock *, 8> LoopExitBBs;
+
+      for (unsigned I = 0, NumSuccs = Switch->getNumSuccessors(); I < NumSuccs;
+           ++I) {
+        auto SuccBB = Switch->getSuccessor(I);
+
+        if (!Lp->contains(SuccBB)) {
+          if (LoopExitBBs.count(SuccBB) && isa<PHINode>(SuccBB->begin())) {
+            DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Switch instruction with "
+                            "multiple successors outside the loop currently "
+                            "not supported.\n");
+            return false;
+          }
+          LoopExitBBs.insert(SuccBB);
+        }
+      }
+    }
   }
 
   // Skip the terminator instruction.
@@ -716,7 +748,7 @@ bool HIRRegionIdentification::areBBlocksGenerable(const Loop &Lp) const {
       continue;
     }
 
-    if (!isGenerable(*BB)) {
+    if (!isGenerable(*BB, &Lp)) {
       return false;
     }
 
@@ -1052,7 +1084,7 @@ void HIRRegionIdentification::createFunctionLevelRegion(Function &Func) {
 bool HIRRegionIdentification::areBBlocksGenerable(Function &Func) const {
 
   for (auto BBIt = ++Func.begin(), E = Func.end(); BBIt != E; ++BBIt) {
-    if (!isGenerable(&*BBIt)) {
+    if (!isGenerable(&*BBIt, nullptr)) {
       return false;
     }
 
