@@ -133,7 +133,7 @@ MemoryDependenceResults *MDA;
 DominatorTree *DT;
 DepGraph *functionDepGraph;
 DepGraph *globalDepGraph;
-std::unordered_map<BasicBlock *, DepGraph::vertex_descriptor> FuncBlockMap;
+std::unordered_map<BasicBlock *, DepGraph::vertex_descriptor> BlockMap;
 // latency tables
 std::map<BasicBlock *, LatencyStruct>
     *LT; // filled in by ModuleScheduler - simple visitation of instructions
@@ -2144,7 +2144,7 @@ bool AdvisorAnalysis::find_maximal_configuration_for_call(
         if (!StaticDepsOnly) {
           bool dynamicDepExists =
               dynamic_memory_dependence_exists(self, dynDep, graph);
-          bool trueDepExists = DependenceGraph::isBasicBlockDependenceTrue(
+          bool trueDepExists = isBBDependenceTrue(
               (*graph)[self].basicblock, (*graph)[dynDep].basicblock,
               *functionDepGraph);
           DEBUG(*outputLog << "dynamicDepExists: " << dynamicDepExists << "\n");
@@ -2285,7 +2285,7 @@ bool AdvisorAnalysis::find_maximal_configuration_global(
         if (!StaticDepsOnly) {
           bool dynamicDepExists =
               dynamic_memory_dependence_exists(self, dynDep, graph);
-          bool trueDepExists = DependenceGraph::isBasicBlockDependenceTrue(
+          bool trueDepExists = isBBDependenceTrue(
               (*graph)[self].basicblock, (*graph)[dynDep].basicblock,
               *globalDepGraph);
           DEBUG(*outputLog << "dynamicDepExists: " << dynamicDepExists << "\n");
@@ -6435,7 +6435,7 @@ bool AdvisorAnalysis::getDependenceGraphFromFile(std::string fileName,
         // add vertex
         auto currVertex = boost::add_vertex(*depGraph);
         (*depGraph)[currVertex] = BB;
-        //BlockMap[BB] = currVertex;
+        BlockMap[BB] = currVertex;
       }
       else if (strcmp(token, "edge") == 0) {
         token = std::strtok(NULL, delim);
@@ -6465,91 +6465,20 @@ bool AdvisorAnalysis::getDependenceGraphFromFile(std::string fileName,
   return true;
 }
 
-bool AdvisorAnalysis::get_dependence_graph_from_file(std::string fileName,
-                                                     DepGraph **DG,
-                                                     bool is_global) {
-  // std::cerr << "***************\n";
-  // allocate space for dg
-  DepGraph *depGraph = NULL;
-  if (!is_global)
-    depGraph = new DepGraph;
-  else
-    depGraph = *DG;
+bool AdvisorAnalysis::isBBDependenceTrue(BasicBlock *BB1,
+                                         BasicBlock *BB2,
+                                         DepGraph &DG) {
+  auto bb1 = BlockMap[BB1];
+  auto bb2 = BlockMap[BB2];
 
-  // read file
-  ifstream fin;
-  fin.open(fileName.c_str());
+  // get the edge
+  std::pair<DepGraph::edge_descriptor, bool> ep = boost::edge(bb1, bb2, DG);
 
-  if (!fin.good()) {
-    return false; // file not found
+  if (ep.second) {
+    return boost::get(true_dependence_t(), DG, ep.first);
   }
-
-  std::string line;
-
-  // std::cerr << "Getting Dependence Graph from log: " << fileName << "\n";
-
-  while (std::getline(fin, line)) {
-    if (std::regex_match(line, std::regex("(vertex )(.*)( )(.*)"))) {
-      //===================================//
-      // parse line - begin
-      //===================================//
-      const char *delimiter = " ";
-      std::vector<char> lineCopy(line.begin(), line.end());
-      lineCopy.push_back(0);
-
-      char *pch = std::strtok(&lineCopy[7], delimiter);
-      std::string bbString(pch);
-
-      pch = strtok(NULL, delimiter);
-      std::string vString(pch);
-      //===================================//
-      // parse line - end
-      //===================================//
-
-      BasicBlock *BB = find_basicblock_by_name(bbString);
-
-      // add vertex
-      DepGraph::vertex_descriptor currVertex = boost::add_vertex(*depGraph);
-      (*depGraph)[currVertex] = BB;
-      
-    } else if (std::regex_match(line, std::regex("(edge )(.*)( )(.*)()(.*)"))) {
-      //===================================//
-      // parse line - begin
-      //===================================//
-      const char *delimiter = " ";
-      std::vector<char> lineCopy(line.begin(), line.end());
-      lineCopy.push_back(0);
-
-      char *pch = std::strtok(&lineCopy[5], delimiter);
-      std::string source(pch);
-
-      pch = strtok(NULL, delimiter);
-      std::string target(pch);
-
-      pch = strtok(NULL, delimiter);
-      std::string trueDep(pch);
-      //===================================//
-      // parse line - end
-      //===================================//
-
-      if (std::atoi(trueDep.c_str()) == 1) {
-        boost::add_edge(std::atoi(source.c_str()), std::atoi(target.c_str()),
-                        true, *depGraph);
-      } else if (std::atoi(trueDep.c_str()) == 0) {
-        boost::add_edge(std::atoi(source.c_str()), std::atoi(target.c_str()),
-                        false, *depGraph);
-      } else {
-        assert(0);
-      }
-
-    } else {
-      std::cerr << "Unknown line in " << fileName << "\n";
-      assert(0);
-    }
-  }
-  if (!is_global)
-    *DG = depGraph;
-  return true;
+  
+  return false; // such edge does not exist
 }
 
 // Function: modify_resource_requirement

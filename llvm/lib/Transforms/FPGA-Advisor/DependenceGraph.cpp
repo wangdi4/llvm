@@ -213,7 +213,8 @@ void DependenceGraph::addEdges() {
   for (boost::tie(vi, ve) = vertices(DG); vi != ve; vi++) {
     BasicBlock *currBB = DG[*vi];
     auto currBBVertex = *vi;
-    std::vector<std::pair<BasicBlock *, bool>> depBBs;
+    //    std::vector<std::pair<BasicBlock *, bool>> depBBs;
+    std::unordered_map<BasicBlock *, bool> depBBs;
         
     DEBUG(*outputLog << "******************************************************"
                         "************************************************\n");
@@ -351,11 +352,7 @@ void DependenceGraph::addEdges() {
 DepGraph::vertex_descriptor
 DependenceGraph::get_vertex_descriptor_for_basic_block(BasicBlock *BB,
                                                        DepGraph &depGraph) {
-  // DependenceGraph::DepGraph_descriptor
-  // DependenceGraph::get_vertex_descriptor_for_basic_block(BasicBlock *BB) {
   DepGraph::vertex_iterator vi, ve;
-  // std::cerr << __func__ << " searching for basic block: " <<
-  // BB->getName().str() << "\n";
   boost::tie(vi, ve) = vertices(depGraph);
   for (; vi != ve; vi++) {
     if (depGraph[*vi] == BB) {
@@ -369,23 +366,24 @@ DependenceGraph::get_vertex_descriptor_for_basic_block(BasicBlock *BB,
 }
 
 void DependenceGraph::insertDependentBasicBlock(
-    std::vector<std::pair<BasicBlock *, bool>> &list, BasicBlock *BB,
+    std::unordered_map<BasicBlock *, bool> &list, BasicBlock *BB,
     bool trueDep) {
-  for (auto search = list.begin(); search != list.end(); search++) {
-    if (search->first == BB) {
-      // exists, update trueDep to true if true
-      search->second |= trueDep;
-      return;
-    }
-  }
 
-  list.push_back(std::make_pair(BB, trueDep));
+  list[BB] |= trueDep;
+  /*
+  if (list.find(BB) != list.end()) {
+    list[BB] |= trueDep;
+  }
+  else {
+    list[BB] = trueDep;
+  }
+  */
 }
 
 // Function insert_dependent_basic_block_all_memory
 // adds all basic blocks with memory instructions into dependency list
 void DependenceGraph::insertDependentBasicBlockAllMemory(
-    std::vector<std::pair<BasicBlock *, bool>> &list, bool trueDep) {
+    std::unordered_map<BasicBlock *, bool> &list, bool trueDep) {
   for (auto &BB : MemoryBBs) {
     insertDependentBasicBlock(list, BB, trueDep);
   }

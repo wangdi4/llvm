@@ -3,6 +3,8 @@
 
 #include "AdvisorCommon.h"
 
+#include <unordered_map>
+
 #include <boost/graph/adjacency_list.hpp>
 
 #include "llvm/IR/Function.h"
@@ -51,10 +53,10 @@ private:
   void addVertices(Function &F);
   void addEdges();
   void
-  insertDependentBasicBlock(std::vector<std::pair<BasicBlock *, bool>> &list,
+  insertDependentBasicBlock(std::unordered_map<BasicBlock *, bool> &list,
                             BasicBlock *BB, bool trueDep);
   void insertDependentBasicBlockAllMemory(
-      std::vector<std::pair<BasicBlock *, bool>> &list, bool trueDep);
+      std::unordered_map<BasicBlock *, bool> &list, bool trueDep);
   bool unsupportedMemoryInstruction(Instruction *I);
   void output_graph_to_file(raw_ostream *outputFile);
   bool dgRunOnFunction(Function &F);
