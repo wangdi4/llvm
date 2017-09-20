@@ -92,6 +92,40 @@ Address ABIInfo::EmitMSVAArg(CodeGenFunction &CGF, Address VAListAddr,
   return Address::invalid();
 }
 
+#if INTEL_CUSTOMIZATION
+static ABIArgInfo classifyOpenCL(QualType Ty, ASTContext &Context) {
+  if (Ty->isVoidType())
+    return ABIArgInfo::getIgnore();
+
+  if (const EnumType *EnumTy = Ty->getAs<EnumType>())
+    Ty = EnumTy->getDecl()->getIntegerType();
+
+  if (const RecordType *RT = Ty->getAs<RecordType>())
+    return ABIArgInfo::getIndirect(Context.getTypeAlignInChars(RT),
+                                   /*ByVal=*/false);
+
+  if (Ty->isPromotableIntegerType())
+    return ABIArgInfo::getExtend();
+
+  return ABIArgInfo::getDirect();
+}
+
+static bool doOpenCLClassification(CGFunctionInfo &FI, ASTContext &Context) {
+  if (!Context.getLangOpts().OpenCL)
+    return false;
+
+  // Use OpenCL classify to prevent coercing
+  // Otherwise, vector types will be coerced to a matching integer
+  // type to conform with ABI, e.g.: <8 x i8> will be coerced to i64
+  FI.getReturnInfo() = classifyOpenCL(FI.getReturnType(), Context);
+
+  for (auto &Arg : FI.arguments())
+    Arg.info = classifyOpenCL(Arg.type, Context);
+
+  return true;
+}
+#endif // INTEL_CUSTOMIZATION
+
 ABIInfo::~ABIInfo() {}
 
 /// Does the given lowering require more than the given number of
@@ -1729,6 +1763,12 @@ void X86_32ABIInfo::computeVectorCallArgs(CGFunctionInfo &FI, CCState &State,
 }
 
 void X86_32ABIInfo::computeInfo(CGFunctionInfo &FI) const {
+#if INTEL_CUSTOMIZATION
+  ASTContext &Context = getContext();
+  if (doOpenCLClassification(FI, Context))
+    return;
+#endif // INTEL_CUSTOMIZATION
+
   CCState State(FI.getCallingConvention());
   if (IsMCUABI)
     State.FreeRegs = 3;
@@ -3539,6 +3579,11 @@ ABIArgInfo X86_64ABIInfo::classifyRegCallStructType(QualType Ty,
 }
 
 void X86_64ABIInfo::computeInfo(CGFunctionInfo &FI) const {
+#if INTEL_CUSTOMIZATION
+  ASTContext &Context = getContext();
+  if (doOpenCLClassification(FI, Context))
+    return;
+#endif // INTEL_CUSTOMIZATION
 
   bool IsRegCall = FI.getCallingConvention() == llvm::CallingConv::X86_RegCall;
 
@@ -3977,6 +4022,12 @@ void WinX86_64ABIInfo::computeVectorCallArgs(CGFunctionInfo &FI,
 }
 
 void WinX86_64ABIInfo::computeInfo(CGFunctionInfo &FI) const {
+#if INTEL_CUSTOMIZATION
+  ASTContext &Context = getContext();
+  if (doOpenCLClassification(FI, Context))
+    return;
+#endif // INTEL_CUSTOMIZATION
+
   bool IsVectorCall =
       FI.getCallingConvention() == llvm::CallingConv::X86_VectorCall;
   bool IsRegCall = FI.getCallingConvention() == llvm::CallingConv::X86_RegCall;
