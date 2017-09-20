@@ -40,12 +40,24 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "fpga_common.h"
+#include "DependenceGraph.h"
+
+#include "llvm/Analysis/MemoryDependenceAnalysis.h"
+#include "llvm/IR/DebugInfo.h"
+#include "llvm/IR/Dominators.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/raw_ostream.h"
+
+#include <boost/graph/graphviz.hpp>
+
+#include <fstream>
+#include <string>
 
 #define DEBUG_TYPE "fpga-advisor-dependence"
 
 using namespace llvm;
-using namespace fpga;
 
 //===----------------------------------------------------------------------===//
 // Globals
@@ -70,16 +82,14 @@ static cl::opt<std::string> GraphName("dg-name",
 static cl::opt<bool> Global("global",
                             cl::desc("print a global dependence graph"),
                             cl::Hidden, cl::init(true));
-//===----------------------------------------------------------------------===//
-// Helper functions
-//===----------------------------------------------------------------------===//
 
+namespace fpga {
 //===----------------------------------------------------------------------===//
 // DependenceGraph Class functions
 //===----------------------------------------------------------------------===//
 
 // Function: runOnFunction
-bool DependenceGraph::dg_run_on_function(Function &F) {
+bool DependenceGraph::dgRunOnFunction(Function &F) {
   std::string fileName = "dg." + F.getName().str() + ".log";
   raw_fd_ostream OL("dependence-graph.log", DEC, sys::fs::F_RW);
   outputLog = &OL;
@@ -106,7 +116,7 @@ bool DependenceGraph::dg_run_on_function(Function &F) {
   DT = &getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
 
   // add each BB into DG
-  add_vertices(F);
+  addVertices(F);
   // if (PrintGraph) {
   //	boost::write_graphviz(std::cerr, DG,
   //boost::make_label_writer(&NameVec[0]));
@@ -114,7 +124,7 @@ bool DependenceGraph::dg_run_on_function(Function &F) {
 
   // now process each vertex by adding edge to the vertex that
   // the current vertex depends on
-  add_edges();
+  addEdges();
   // boost::write_graphviz(std::cerr, DG);
   if (PrintGraph) {
     std::string graphFileName = GraphName + "." + F.getName().str() + ".dot";
@@ -141,7 +151,7 @@ bool DependenceGraph::runOnModule(Module &M) {
     MemoryBBs.clear();
   }
   for (auto &F : M) {
-    dg_run_on_function(F);
+    dgRunOnFunction(F);
   }
   if (Global) {
     // output graph to file
@@ -155,27 +165,27 @@ bool DependenceGraph::runOnModule(Module &M) {
 
 void DependenceGraph::output_graph_to_file(raw_ostream *outputFile) {
   // first print all the vertices
-  DepGraph_iterator vi, ve;
+  DepGraph::vertex_iterator vi, ve;
   for (boost::tie(vi, ve) = boost::vertices(DG); vi != ve; vi++) {
     DEBUG(*outputLog << "print vertex: " << (uint64_t)*vi << "\n");
 
-    DepGraph_descriptor self = *vi;
+    DepGraph::vertex_descriptor self = *vi;
     *outputFile << "vertex " << DG[self]->getName() << " " << self << "\n";
   }
 
   // print all the edges between them, also if the dependence is true)
-  DepGraph_edge_iterator ei, ee;
+  DepGraph::edge_iterator ei, ee;
   for (boost::tie(ei, ee) = boost::edges(DG); ei != ee; ei++) {
     //*outputLog << "print edge: " << (uint64_t) *ei << "\n";
-    DepGraph_edge_descriptor edge = *ei;
-    DepGraph_descriptor s = boost::source(edge, DG);
-    DepGraph_descriptor t = boost::target(edge, DG);
+    DepGraph::edge_descriptor edge = *ei;
+    DepGraph::vertex_descriptor s = boost::source(edge, DG);
+    DepGraph::vertex_descriptor t = boost::target(edge, DG);
     bool trueDep = boost::get(true_dependence_t(), DG, edge);
     *outputFile << "edge " << s << " " << t << " " << trueDep << "\n";
   }
 }
 
-void DependenceGraph::add_vertices(Function &F) {
+void DependenceGraph::addVertices(Function &F) {
   for (auto &BB : F) {
     DEBUG(*outputLog << __func__ << " ADD VERTEX FOR BB: " << BB.getName()
                      << "\n");
@@ -187,8 +197,9 @@ void DependenceGraph::add_vertices(Function &F) {
         // break;
       }
     }
-    DepGraph_descriptor currVertex = boost::add_vertex(DG);
+    DepGraph::vertex_descriptor currVertex = boost::add_vertex(DG);
     DG[currVertex] = &BB;
+    BlockMap[&BB] = currVertex;
     NameVec.push_back(BB.getName().str());
     // if (memoryInst) {
     // MemoryBBs.push_back(currVertex);
@@ -196,11 +207,15 @@ void DependenceGraph::add_vertices(Function &F) {
   }
 }
 
-void DependenceGraph::add_edges() {
-  DepGraph_iterator vi, ve;
+void DependenceGraph::addEdges() {
+  DepGraph::vertex_iterator vi, ve;
+
   for (boost::tie(vi, ve) = vertices(DG); vi != ve; vi++) {
     BasicBlock *currBB = DG[*vi];
-    std::vector<std::pair<BasicBlock *, bool>> depBBs;
+    auto currBBVertex = *vi;
+    //    std::vector<std::pair<BasicBlock *, bool>> depBBs;
+    std::unordered_map<BasicBlock *, bool> depBBs;
+        
     DEBUG(*outputLog << "******************************************************"
                         "************************************************\n");
     DEBUG(*outputLog << "Examining dependencies for basic block: "
@@ -233,7 +248,7 @@ void DependenceGraph::add_edges() {
           DEBUG(dep->print(*outputLog));
           DEBUG(*outputLog << "\tfrom basic block: " << depBB->getName()
                            << "\n");
-          insert_dependent_basic_block(depBBs, depBB, true);
+          insertDependentBasicBlock(depBBs, depBB, true);
         }
       }
 
@@ -246,12 +261,12 @@ void DependenceGraph::add_edges() {
         //"\n";
 
         // we cannot analyze function call instructions
-        if (unsupported_memory_instruction(&*I)) {
+        if (unsupportedMemoryInstruction(&*I)) {
           // do something
           DEBUG(*outputLog << "Not a supported memory instruction but may read "
                               "or write memory. Adding dependence to all basic "
                               "blocks.\n");
-          insert_dependent_basic_block_all_memory(depBBs, false);
+          insertDependentBasicBlockAllMemory(depBBs, false);
           continue;
         }
 
@@ -281,11 +296,11 @@ void DependenceGraph::add_edges() {
             if (nonLocalMDR.isUnknown() || dep == NULL) {
               DEBUG(*outputLog << "Unknown/Other type dependence!!! Adding "
                                   "dependence to all basic blocks.\n");
-              insert_dependent_basic_block_all_memory(depBBs, false);
+              insertDependentBasicBlockAllMemory(depBBs, false);
               break;
             }
             BasicBlock *depBB = dep->getParent();
-            insert_dependent_basic_block(depBBs, depBB, false);
+            insertDependentBasicBlock(depBBs, depBB, false);
 
             DEBUG(*outputLog << "Memory instruction dependent on: ");
             DEBUG(dep->print(*outputLog));
@@ -297,7 +312,7 @@ void DependenceGraph::add_edges() {
           // dependent
           DEBUG(*outputLog << "Unknown dependence!!! Adding dependence to all "
                               "basic blocks.\n");
-          insert_dependent_basic_block_all_memory(depBBs, false);
+          insertDependentBasicBlockAllMemory(depBBs, false);
         } else {
           DEBUG(*outputLog << "> Local dependence.\n");
           Instruction *dep = MDR.getInst();
@@ -307,39 +322,37 @@ void DependenceGraph::add_edges() {
           DEBUG(dep->print(*outputLog));
           DEBUG(*outputLog << "\tfrom basic block: " << depBB->getName()
                            << "\n");
-          insert_dependent_basic_block(depBBs, depBB, false);
+          insertDependentBasicBlock(depBBs, depBB, false);
         }
       }
     }
 
     // add all the dependent edges
-    for (auto di = depBBs.begin(); di != depBBs.end(); di++) {
+    
+    for (auto di = depBBs.begin(), de = depBBs.end(); di != de; di++) {
       BasicBlock *depBB = di->first;
-      DepGraph_descriptor depVertex =
-          get_vertex_descriptor_for_basic_block(depBB, DG);
-      DepGraph_descriptor currVertex =
-          get_vertex_descriptor_for_basic_block(currBB, DG);
+      DepGraph::vertex_descriptor depVertex =
+        BlockMap[depBB];
+        //    get_vertex_descriptor_for_basic_block(depBB, DG);
+      //      DepGraph::vertex_descriptor currVertex =
+      //          get_vertex_descriptor_for_basic_block(currBB, DG);
       bool trueDep = di->second;
       // std::pair<DepGraph_edge_descriptor, bool> p =
       // boost::add_edge(currVertex, depVertex, DG);
       // boost::put(true_dependence_t(), DG, p.first, trueDep);
       if (trueDep) {
-        boost::add_edge(currVertex, depVertex, true, DG);
+        boost::add_edge(currBBVertex, depVertex, true, DG);
       } else {
-        boost::add_edge(currVertex, depVertex, false, DG);
+        boost::add_edge(currBBVertex, depVertex, false, DG);
       }
     }
   }
 }
 
-DepGraph_descriptor
+DepGraph::vertex_descriptor
 DependenceGraph::get_vertex_descriptor_for_basic_block(BasicBlock *BB,
                                                        DepGraph &depGraph) {
-  // DependenceGraph::DepGraph_descriptor
-  // DependenceGraph::get_vertex_descriptor_for_basic_block(BasicBlock *BB) {
-  DepGraph_iterator vi, ve;
-  // std::cerr << __func__ << " searching for basic block: " <<
-  // BB->getName().str() << "\n";
+  DepGraph::vertex_iterator vi, ve;
   boost::tie(vi, ve) = vertices(depGraph);
   for (; vi != ve; vi++) {
     if (depGraph[*vi] == BB) {
@@ -352,37 +365,31 @@ DependenceGraph::get_vertex_descriptor_for_basic_block(BasicBlock *BB,
   assert(0);
 }
 
-void DependenceGraph::insert_dependent_basic_block(
-    std::vector<std::pair<BasicBlock *, bool>> &list, BasicBlock *BB,
+void DependenceGraph::insertDependentBasicBlock(
+    std::unordered_map<BasicBlock *, bool> &list, BasicBlock *BB,
     bool trueDep) {
-  for (auto search = list.begin(); search != list.end(); search++) {
-    if (search->first == BB) {
-      // exists, update trueDep to true if true
-      search->second |= trueDep;
-      return;
-    }
-  }
 
-  list.push_back(std::make_pair(BB, trueDep));
-}
-
-void DependenceGraph::insert_dependent_basic_block_all(
-    std::vector<std::pair<BasicBlock *, bool>> &list, bool trueDep) {
-  for (auto &BB : *func) {
-    insert_dependent_basic_block(list, &BB, trueDep);
+  list[BB] |= trueDep;
+  /*
+  if (list.find(BB) != list.end()) {
+    list[BB] |= trueDep;
   }
+  else {
+    list[BB] = trueDep;
+  }
+  */
 }
 
 // Function insert_dependent_basic_block_all_memory
 // adds all basic blocks with memory instructions into dependency list
-void DependenceGraph::insert_dependent_basic_block_all_memory(
-    std::vector<std::pair<BasicBlock *, bool>> &list, bool trueDep) {
+void DependenceGraph::insertDependentBasicBlockAllMemory(
+    std::unordered_map<BasicBlock *, bool> &list, bool trueDep) {
   for (auto &BB : MemoryBBs) {
-    insert_dependent_basic_block(list, BB, trueDep);
+    insertDependentBasicBlock(list, BB, trueDep);
   }
 }
 
-bool DependenceGraph::unsupported_memory_instruction(Instruction *I) {
+bool DependenceGraph::unsupportedMemoryInstruction(Instruction *I) {
   unsigned opcode = I->getOpcode();
   if (opcode != Instruction::Store && opcode != Instruction::Load &&
       opcode != Instruction::VAArg && opcode != Instruction::AtomicCmpXchg &&
@@ -396,13 +403,15 @@ bool DependenceGraph::unsupported_memory_instruction(Instruction *I) {
 // Return: true if BB1 must execute after BB2 due to dependence
 // this function only cares about direct dependences, i.e. is there an edge from
 // BB1 to BB2 in DG
-bool DependenceGraph::is_basic_block_dependent(BasicBlock *BB1, BasicBlock *BB2,
-                                               DepGraph &DG) {
-  DepGraph_descriptor bb1 = get_vertex_descriptor_for_basic_block(BB1, DG);
-  DepGraph_descriptor bb2 = get_vertex_descriptor_for_basic_block(BB2, DG);
+bool DependenceGraph::isBasicBlockDependent(BasicBlock *BB1, BasicBlock *BB2,
+                                            DepGraph &DG) {
+  DepGraph::vertex_descriptor bb1 = //BlockMap[BB1];
+  get_vertex_descriptor_for_basic_block(BB1, DG);
+    DepGraph::vertex_descriptor bb2 = //BlockMap[BB2];
+  get_vertex_descriptor_for_basic_block(BB2, DG);
 
   // unfortunately I need to iterate through all the out edges of bb1
-  DepGraph_out_edge_iterator oi, oe;
+  DepGraph::out_edge_iterator oi, oe;
   for (boost::tie(oi, oe) = boost::out_edges(bb1, DG); oi != oe; oi++) {
     if (bb2 == boost::target(*oi, DG)) {
       return true;
@@ -414,34 +423,27 @@ bool DependenceGraph::is_basic_block_dependent(BasicBlock *BB1, BasicBlock *BB2,
 // Function: is_basic_block_dependence_true
 // Return: true if there is a true dependence flowing from BB2 to BB1
 // i.e. BB1 is dependent on BB2
-bool DependenceGraph::is_basic_block_dependence_true(BasicBlock *BB1,
-                                                     BasicBlock *BB2,
-                                                     DepGraph &DG) {
-  DepGraph_descriptor bb1 = get_vertex_descriptor_for_basic_block(BB1, DG);
-  DepGraph_descriptor bb2 = get_vertex_descriptor_for_basic_block(BB2, DG);
-
-  /*
-  DepGraph_out_edge_iterator oi, oe;
-  for (boost::tie(oi, oe) = boost::out_edge(bb1, DG); oi != oe; oi++) {
-          if (bb2 == boost::target(*oi, DG) && ) {
-          }
-
-  }
-  return false;
-  */
+bool DependenceGraph::isBasicBlockDependenceTrue(BasicBlock *BB1,
+                                                 BasicBlock *BB2,
+                                                 DepGraph &DG) {
+  DepGraph::vertex_descriptor bb1 = // BlockMap[BB1];
+    get_vertex_descriptor_for_basic_block(BB1, DG);
+  DepGraph::vertex_descriptor bb2 = // BlockMap[BB2];
+    get_vertex_descriptor_for_basic_block(BB2, DG);
 
   // get the edge
   // bool found;
   // DepGraph_edge_descriptor e;
   // boost::tie(e, found)
-  std::pair<DepGraph_edge_descriptor, bool> ep = boost::edge(bb1, bb2, DG);
+  std::pair<DepGraph::edge_descriptor, bool> ep = boost::edge(bb1, bb2, DG);
 
   if (ep.second) {
     // check edge bool
     bool trueDep;
     // trueDep = boost::get(true_dependence_t(), DG, ep.first);
     // boost::property_map<DepGraph, true_dependence_t>::type trueDepMap =
-    // boost::get(true_dependence_t(), DG);  bool trueDep = trueDepMap[ep.first];
+    // boost::get(true_dependence_t(), DG);
+    // bool trueDep = trueDepMap[ep.first];
     bool t = boost::get(true_dependence_t(), DG, ep.first);
     trueDep = t;
 
@@ -451,21 +453,24 @@ bool DependenceGraph::is_basic_block_dependence_true(BasicBlock *BB1,
 }
 
 // Function: get_all_basic_block_dependencies
-void DependenceGraph::get_all_basic_block_dependencies(
+void DependenceGraph::getAllBasicBlockDependencies(
     DepGraph &depGraph, BasicBlock *BB, std::vector<BasicBlock *> &deps) {
-  DepGraph_descriptor v = get_vertex_descriptor_for_basic_block(BB, depGraph);
+  DepGraph::vertex_descriptor v =
+      get_vertex_descriptor_for_basic_block(BB, depGraph);
   // DepGraph_descriptor v = ();
   // the basic blocks that this basic block is dependent on are the targets of
-  // the out edges of vertex v
-  DepGraph_out_edge_iterator oi, oe;
+  // the out edges
+  // of vertex v
+  DepGraph::out_edge_iterator oi, oe;
   for (boost::tie(oi, oe) = boost::out_edges(v, depGraph); oi != oe; oi++) {
-    DepGraph_descriptor dep = boost::target(*oi, depGraph);
+    DepGraph::vertex_descriptor dep = boost::target(*oi, depGraph);
     BasicBlock *depBB = depGraph[dep];
     // there should be no redundant edges.
     deps.push_back(depBB);
   }
 }
-
 char DependenceGraph::ID = 0;
-static RegisterPass<DependenceGraph>
+}
+
+static RegisterPass<fpga::DependenceGraph>
     X("depgraph", "FPGA-Advisor dependence graph generator", false, false);

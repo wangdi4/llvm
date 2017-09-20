@@ -18,7 +18,7 @@ set(LLVM_REQUIRES_EH 1)
 set(LLVM_REQUIRES_RTTI 1)
 
 # Boost lib
-set(Boost_ADDITIONAL_VERSIONS "1.39.0" "1.59.0")
+set(Boost_ADDITIONAL_VERSIONS "1.39.0" "1.59.0" "1.64.0")
 
 find_library( TBB_LIBRARY tbb )
 
@@ -31,11 +31,17 @@ add_llvm_loadable_module( LLVMFPGA-Advisor
   DependenceGraph.cpp
   FPGA-Advisor-Instrument.cpp
   FPGA-Advisor-Analysis.cpp
+  ModuleAreaEstimator.cpp
+  ModuleScheduler.cpp
 
   PLUGIN_TOOL
   opt
+
+  ADDITIONAL_HEADER_DIRS
+  ${TBBROOT}/include
   )
 
+set_target_properties( LLVMFPGA-Advisor PROPERTIES COMPILE_FLAGS "-I${TBBROOT}/include" )
 # listing tbb here is not the right thing to do,
 # but it seems to work.
 target_link_libraries( LLVMFPGA-Advisor tbb )
