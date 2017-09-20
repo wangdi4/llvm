@@ -573,6 +573,12 @@ void CodeGenModule::Release() {
 
   // Emit OpenCL specific module metadata: OpenCL/SPIR version.
   if (LangOpts.OpenCL) {
+#if INTEL_CUSTOMIZATION
+    if (!getContext().isFPContractDisabled() &&
+        getLangOpts().getDefaultFPContractMode() != LangOptions::FPC_Off)
+      getModule().getOrInsertNamedMetadata("opencl.enable.FP_CONTRACT");
+#endif // INTEL_CUSTOMIZATION
+
     EmitOpenCLMetadata();
     // Emit SPIR version.
     if (getTriple().getArch() == llvm::Triple::spir ||
