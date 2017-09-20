@@ -31,6 +31,16 @@
 #define INF_REF_CNT (LONG_MAX>>1) // leave room for additions/subtractions
 #define CONSIDERED_INF(x) (x > (INF_REF_CNT>>1))
 
+#ifdef INTEL_CUSTOMIZATION
+static bool offload_is_mandatory = false;
+static void CheckMandatoryIsOffload (const char *message) {
+   if (offload_is_mandatory) {
+        fprintf(stderr, "ERROR : %s\n", message);
+        exit(1);
+   }
+}
+#endif
+
 // List of all plugins that can support offloading.
 static const char *RTLNames[] = {
 #if INTEL_CUSTOMIZATION
@@ -292,6 +302,12 @@ void RTLsTy::LoadRTLs() {
     DP("Target offloading disabled by environment\n");
     return;
   }
+#if INTEL_CUSTOMIZATION
+  // Save if OMP_TARGET_OFFLOAD is set to MANDATORY
+  if (envStr && !strcmp(envStr, "MANDATORY")) {
+     offload_is_mandatory = true;
+  }
+#endif
 
   DP("Loading RTLs...\n");
 
@@ -1161,6 +1177,9 @@ EXTERN void __tgt_register_lib(__tgt_bin_desc *desc) {
     }
 
     if (!FoundRTL) {
+#ifdef INTEL_CUSTOMIZATION
+      CheckMandatoryIsOffload("Offload failed no device RTL for image");
+#endif
       DP("No RTL found for image " DPxMOD "!\n", DPxPTR(img->ImageStart));
     }
   }
@@ -1388,6 +1407,9 @@ static int InitLibrary(DeviceTy& Device) {
 static int CheckDevice(int32_t device_id) {
   // Is device ready?
   if (!device_is_ready(device_id)) {
+#ifdef INTEL_CUSTOMIZATION
+    CheckMandatoryIsOffload("Device is not ready");
+#endif
     DP("Device %d is not ready.\n", device_id);
     return OFFLOAD_FAIL;
   }
@@ -1659,6 +1681,9 @@ static int target_data_begin(DeviceTy &Device, int32_t arg_num,
       if (!Pointer_TgtPtrBegin) {
         DP("Call to getOrAllocTgtPtr returned null pointer (device failure or "
             "illegal mapping).\n");
+#ifdef INTEL_CUSTOMIZATION
+        rc = OFFLOAD_FAIL;
+#endif
       }
       DP("There are %zu bytes allocated at target address " DPxMOD " - is%s new"
           "\n", sizeof(void *), DPxPTR(Pointer_TgtPtrBegin),
@@ -1676,6 +1701,9 @@ static int target_data_begin(DeviceTy &Device, int32_t arg_num,
       // getOrAlloc() returning NULL is not an error.
       DP("Call to getOrAllocTgtPtr returned null pointer (device failure or "
           "illegal mapping).\n");
+#ifdef INTEL_CUSTOMIZATION
+      rc = OFFLOAD_FAIL;
+#endif
     }
     DP("There are %" PRId64 " bytes allocated at target address " DPxMOD
         " - is%s new\n", arg_sizes[i], DPxPTR(TgtPtrBegin),
@@ -1783,8 +1811,16 @@ EXTERN void __tgt_target_data_begin(int32_t device_id, int32_t arg_num,
       new_args_base, new_args, new_arg_sizes, new_arg_types, false);
 
   //target_data_begin(Device, arg_num, args_base, args, arg_sizes, arg_types);
+
+#ifdef INTEL_CUSTOMIZATION
+  int rc = 
+#endif
   target_data_begin(Device, new_arg_num, new_args_base, new_args, new_arg_sizes,
       new_arg_types);
+#ifdef INTEL_CUSTOMIZATION
+  if (rc != OFFLOAD_SUCCESS)
+      CheckMandatoryIsOffload("Offload failed during data mapping");
+#endif
 
   // Cleanup translation memory
   cleanup_map(new_arg_num, new_args_base, new_args, new_arg_sizes,
@@ -1919,6 +1955,9 @@ EXTERN void __tgt_target_data_end(int32_t device_id, int32_t arg_num,
 
   DeviceTy &Device = Devices[device_id];
   if (!Device.IsInit) {
+#ifdef INTEL_CUSTOMIZATION
+      CheckMandatoryIsOffload("Offload failed device no initialized");
+#endif
     DP("uninit device: ignore");
     return;
   }
@@ -1933,8 +1972,15 @@ EXTERN void __tgt_target_data_end(int32_t device_id, int32_t arg_num,
       new_args_base, new_args, new_arg_sizes, new_arg_types, false);
 
   //target_data_end(Device, arg_num, args_base, args, arg_sizes, arg_types);
+#ifdef INTEL_CUSTOMIZATION
+  int rc =
+#endif
   target_data_end(Device, new_arg_num, new_args_base, new_args, new_arg_sizes,
       new_arg_types);
+#ifdef INTEL_CUSTOMIZATION
+  if (rc != OFFLOAD_SUCCESS)
+      CheckMandatoryIsOffload("Offload failed during data mapping");
+#endif
 
   // Cleanup translation memory
   cleanup_map(new_arg_num, new_args_base, new_args, new_arg_sizes,
@@ -1984,7 +2030,14 @@ EXTERN void __tgt_target_data_update(int32_t device_id, int32_t arg_num,
     if (arg_types[i] & OMP_TGT_MAPTYPE_FROM) {
       DP("Moving %" PRId64 " bytes (tgt:" DPxMOD ") -> (hst:" DPxMOD ")\n",
           arg_sizes[i], DPxPTR(TgtPtrBegin), DPxPTR(HstPtrBegin));
+#ifdef INTEL_CUSTOMIZATION
+      int rc = 
+#endif
       Device.data_retrieve(HstPtrBegin, TgtPtrBegin, MapSize);
+#ifdef INTEL_CUSTOMIZATION
+      if (rc != OFFLOAD_SUCCESS)
+         CheckMandatoryIsOffload("Offload failed during data mapping");
+#endif
 
       uintptr_t lb = (uintptr_t) HstPtrBegin;
       uintptr_t ub = (uintptr_t) HstPtrBegin + MapSize;
@@ -2212,6 +2265,9 @@ static int target(int32_t device_id, void *host_ptr, int32_t arg_num,
           &tgt_args[0], &tgt_offsets[0], tgt_args.size());
     }
   } else {
+#ifdef INTEL_CUSTOMIZATION
+    rc =  OFFLOAD_FAIL;
+#endif
     DP("Errors occurred while obtaining target arguments, skipping kernel "
         "execution\n");
   }
@@ -2233,6 +2289,10 @@ static int target(int32_t device_id, void *host_ptr, int32_t arg_num,
     DP("Call to target_data_end failed.\n");
     rc = OFFLOAD_FAIL;
   }
+#ifdef INTEL_CUSTOMIZATION
+  if (rc != 0)
+      CheckMandatoryIsOffload("Offload failed during target update");
+#endif
 
   return rc;
 }
@@ -2269,6 +2329,10 @@ EXTERN int __tgt_target(int32_t device_id, void *host_ptr, int32_t arg_num,
   cleanup_map(new_arg_num, new_args_base, new_args, new_arg_sizes,
       new_arg_types, arg_num, args_base);
 
+#ifdef INTEL_CUSTOMIZATION
+  if (rc != 0)
+    CheckMandatoryIsOffload("Offload failed during target execution");
+#endif
   return rc;
 }
 
@@ -2317,6 +2381,10 @@ EXTERN int __tgt_target_teams(int32_t device_id, void *host_ptr,
   cleanup_map(new_arg_num, new_args_base, new_args, new_arg_sizes,
       new_arg_types, arg_num, args_base);
 
+#ifdef INTEL_CUSTOMIZATION
+    if (rc != 0)
+      CheckMandatoryIsOffload("Offload failed during target teams execution");
+#endif
   return rc;
 }
 
