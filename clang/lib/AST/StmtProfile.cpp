@@ -1746,6 +1746,7 @@ void StmtProfiler::VisitCXXUnresolvedConstructExpr(
     const CXXUnresolvedConstructExpr *S) {
   VisitExpr(S);
   VisitType(S->getTypeAsWritten());
+  ID.AddInteger(S->isListInitialization());
 }
 
 void StmtProfiler::VisitCXXDependentScopeMemberExpr(
