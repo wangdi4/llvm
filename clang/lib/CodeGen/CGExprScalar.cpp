@@ -433,7 +433,6 @@ public:
     return CGF.EmitScalarExpr(E->getIndexExpr());
   }
 
-<<<<<<< HEAD
   Value *VisitCEANBuiltinExpr(CEANBuiltinExpr *E) {
     CodeGenFunction::LocalVarsDeclGuard Guard(CGF);
     CGF.EmitCEANBuiltinExprBody(E);
@@ -443,7 +442,7 @@ public:
     return 0;
   }
 #endif // INTEL_SPECIFIC_CILKPLUS
-=======
+
   Value *emitConstant(const CodeGenFunction::ConstantEmission &Constant,
                       Expr *E) {
     assert(Constant && "not a constant");
@@ -453,7 +452,6 @@ public:
     return Constant.getValue();
   }
 
->>>>>>> b92a424f05b905b5b3c616066f1064b9aceaed22
   // l-values.
   Value *VisitDeclRefExpr(DeclRefExpr *E) {
     if (CodeGenFunction::ConstantEmission Constant = CGF.tryEmitAsConstant(E))
