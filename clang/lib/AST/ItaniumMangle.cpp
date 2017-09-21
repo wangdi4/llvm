@@ -1316,15 +1316,10 @@ void CXXNameMangler::mangleUnqualifiedName(const NamedDecl *ND,
       //
       //   void test() { extern void foo(); }
       //   static void foo();
-<<<<<<< HEAD
-      // This naming convention is the same as that followed by GCC,
-      // though it shouldn't actually matter.
 #if INTEL_CUSTOMIZATION
       // CQ371729: Incompatible name mangling.
       if (!getASTContext().getLangOpts().IntelCompat)
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 5f4efc24c888d4c43af20c2c5a8e028720b8644d
       if (ND && ND->getFormalLinkage() == InternalLinkage &&
           !ND->isExternallyVisible() &&
           getEffectiveDeclContext(ND)->isFileContext())
