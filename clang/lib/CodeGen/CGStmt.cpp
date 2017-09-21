@@ -644,31 +644,10 @@ CodeGenFunction::IntelPragmaInlineState::getPragmaInlineAttribute() {
 #endif // INTEL_CUSTOMIZATION
 
 void CodeGenFunction::EmitAttributedStmt(const AttributedStmt &S) {
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   IntelPragmaInlineState PS(*this, S.getAttrs());
 #endif // INTEL_CUSTOMIZATION
-
-  const Stmt *SubStmt = S.getSubStmt();
-  switch (SubStmt->getStmtClass()) {
-  case Stmt::DoStmtClass:
-    EmitDoStmt(cast<DoStmt>(*SubStmt), S.getAttrs());
-    break;
-  case Stmt::ForStmtClass:
-    EmitForStmt(cast<ForStmt>(*SubStmt), S.getAttrs());
-    break;
-  case Stmt::WhileStmtClass:
-    EmitWhileStmt(cast<WhileStmt>(*SubStmt), S.getAttrs());
-    break;
-  case Stmt::CXXForRangeStmtClass:
-    EmitCXXForRangeStmt(cast<CXXForRangeStmt>(*SubStmt), S.getAttrs());
-    break;
-  default:
-    EmitStmt(SubStmt);
-  }
-=======
   EmitStmt(S.getSubStmt(), S.getAttrs());
->>>>>>> 3f0db6ed816c5fae9bf6a7b2b1711e8fc57b8589
 }
 
 void CodeGenFunction::EmitGotoStmt(const GotoStmt &S) {
