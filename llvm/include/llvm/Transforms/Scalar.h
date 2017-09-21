@@ -458,6 +458,12 @@ Pass *createLowerGuardIntrinsicPass();
 
 //===----------------------------------------------------------------------===//
 //
+// MergeICmps - Merge integer comparison chains
+//
+Pass *createMergeICmpsPass();
+
+//===----------------------------------------------------------------------===//
+//
 // ValuePropagation - Propagate CFG-derived value information
 //
 Pass *createCorrelatedValuePropagationPass();
