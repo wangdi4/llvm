@@ -5,10 +5,6 @@ Open Source Development Processes
 .. contents::
    :local:
 
-The Intel LLVM development process documentation is currently under review. If
-anything looks wrong to you, please contact `David Kreitzer
-<mailto:david.l.kreitzer@intel.com>`_.
-
 Introduction
 ============
 
@@ -132,8 +128,9 @@ Read the Commit messages section of the
 :doc:`LLVM Developer Policy <../DeveloperPolicy>` document to understand the
 community guidelines for the format of commit messages. Please follow them.
 
-There are no specific rules on how to do the actual commit, but ics provides
-a feature for committing to llvm.org directly from an llorg workspace. That is
+There are no specific rules on how to do the actual commit, but the ICL
+KnowledgeBase offers `this suggestion <http://ssg8vweb1.sc.intel.com/lore/article.php?id=587>`_
+for committing to llvm.org directly from an llorg workspace. That is
 a convenience that enables you to develop, test, and commit from a single
 workspace.
 
