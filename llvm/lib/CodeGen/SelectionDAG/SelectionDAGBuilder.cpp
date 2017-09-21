@@ -5646,7 +5646,7 @@ SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I, unsigned Intrinsic) {
 #if INTEL_CUSTOMIZATION
   case Intrinsic::intel_std_container_ptr:
   case Intrinsic::intel_std_container_ptr_iter:
-  case Intrinsic::intel_fakeload: 
+  case Intrinsic::intel_fakeload:
 #endif // INTEL_CUSTOMIZATION
 
     // Drop the intrinsic, but forward the value
@@ -5656,13 +5656,11 @@ SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I, unsigned Intrinsic) {
   case Intrinsic::var_annotation:
     // Discard annotate attributes and assumptions
     return nullptr;
-<<<<<<< HEAD
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
   case Intrinsic::intel_pragma:
     // Discard everything
     return nullptr;
 #endif  // INTEL_SPECIFIC_IL0_BACKEND
-=======
 
   case Intrinsic::codeview_annotation: {
     // Emit a label associated with this metadata.
@@ -5676,7 +5674,6 @@ SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I, unsigned Intrinsic) {
     return nullptr;
   }
 
->>>>>>> c86178ea3759fc69d6d82efe45c5b3f613a9492a
   case Intrinsic::init_trampoline: {
     const Function *F = cast<Function>(I.getArgOperand(1)->stripPointerCasts());
 
