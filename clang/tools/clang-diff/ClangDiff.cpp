@@ -50,6 +50,11 @@ static cl::opt<std::string> DestinationPath(cl::Positional,
                                             cl::Optional,
                                             cl::cat(ClangDiffCategory));
 
+static cl::opt<std::string> StopAfter("stop-diff-after",
+                                      cl::desc("<topdown|bottomup>"),
+                                      cl::Optional, cl::init(""),
+                                      cl::cat(ClangDiffCategory));
+
 static cl::opt<int> MaxSize("s", cl::desc("<maxsize>"), cl::Optional,
                             cl::init(-1), cl::cat(ClangDiffCategory));
 
@@ -134,13 +139,14 @@ div.code {
 highlightStack = []
 function clearHighlight() {
   while (highlightStack.length) {
-    let [l, r] = highlightStack.pop()
-    document.getElementById(l).style.backgroundColor = 'white'
-    document.getElementById(r).style.backgroundColor = 'white'
+    var [l, r] = highlightStack.pop()
+    document.getElementById(l).style.backgroundColor = 'inherit'
+    if (r[1] != '-')
+      document.getElementById(r).style.backgroundColor = 'inherit'
   }
 }
 function highlight(event) {
-  id = event.target['id']
+  var id = event.target['id']
   doHighlight(id)
 }
 function doHighlight(id) {
@@ -148,20 +154,66 @@ function doHighlight(id) {
   source = document.getElementById(id)
   if (!source.attributes['tid'])
     return
-  tid = source.attributes['tid'].value
-  target = document.getElementById(tid)
-  if (!target || source.parentElement && source.parentElement.classList.contains('code'))
+  var mapped = source
+  while (mapped && mapped.parentElement && mapped.attributes['tid'].value.substr(1) === '-1')
+    mapped = mapped.parentElement
+  var tid = null, target = null
+  if (mapped) {
+    tid = mapped.attributes['tid'].value
+    target = document.getElementById(tid)
+  }
+  if (source.parentElement && source.parentElement.classList.contains('code'))
     return
-  source.style.backgroundColor = target.style.backgroundColor = 'lightgrey'
-  highlightStack.push([id, tid])
+  source.style.backgroundColor = 'lightgrey'
   source.scrollIntoView()
-  target.scrollIntoView()
+  if (target) {
+    if (mapped === source)
+      target.style.backgroundColor = 'lightgrey'
+    target.scrollIntoView()
+  }
+  highlightStack.push([id, tid])
   location.hash = '#' + id
 }
 function scrollToBoth() {
   doHighlight(location.hash.substr(1))
 }
+function changed(elem) {
+  return elem.classList.length == 0
+}
+function nextChangedNode(prefix, increment, number) {
+  do {
+    number += increment
+    var elem = document.getElementById(prefix + number)
+  } while(elem && !changed(elem))
+  return elem ? number : null
+}
+function handleKey(e) {
+  var down = e.code === "KeyJ"
+  var up = e.code === "KeyK"
+  if (!down && !up)
+    return
+  var id = highlightStack[0] ? highlightStack[0][0] : 'R0'
+  var oldelem = document.getElementById(id)
+  var number = parseInt(id.substr(1))
+  var increment = down ? 1 : -1
+  var lastnumber = number
+  var prefix = id[0]
+  do {
+    number = nextChangedNode(prefix, increment, number)
+    var elem = document.getElementById(prefix + number)
+    if (up && elem) {
+      while (elem.parentElement && changed(elem.parentElement))
+        elem = elem.parentElement
+      number = elem.id.substr(1)
+    }
+  } while ((down && id !== 'R0' && oldelem.contains(elem)))
+  if (!number)
+    number = lastnumber
+  elem = document.getElementById(prefix + number)
+  doHighlight(prefix + number)
+}
 window.onload = scrollToBoth
+window.onkeydown = handleKey
 </script>
 <body>
 <div onclick='highlight(event)'>
@@ -311,6 +363,18 @@ static void printNodeAsJson(raw_ostream &OS, diff::SyntaxTree &Tree,
   const diff::Node &N = Tree.getNode(Id);
   OS << "{";
   printNodeAttributes(OS, Tree, Id);
+  auto Identifier = N.getIdentifier();
+  auto QualifiedIdentifier = N.getQualifiedIdentifier();
+  if (Identifier) {
+    OS << R"(,"identifier":")";
+    printJsonString(OS, *Identifier);
+    OS << R"(")";
+    if (QualifiedIdentifier && *Identifier != *QualifiedIdentifier) {
+      OS << R"(,"qualified_identifier":")";
+      printJsonString(OS, *QualifiedIdentifier);
+      OS << R"(")";
+    }
+  }
   OS << R"(,"children":[)";
   if (N.Children.size() > 0) {
     printNodeAsJson(OS, Tree, N.Children[0]);
@@ -425,6 +489,14 @@ int main(int argc, const char **argv) {
   diff::ComparisonOptions Options;
   if (MaxSize != -1)
     Options.MaxSize = MaxSize;
+  if (!StopAfter.empty()) {
+    if (StopAfter == "topdown")
+      Options.StopAfterTopDown = true;
+    else if (StopAfter != "bottomup") {
+      llvm::errs() << "Error: Invalid argument for -stop-after\n";
+      return 1;
+    }
+  }
   diff::SyntaxTree SrcTree(Src->getASTContext());
   diff::SyntaxTree DstTree(Dst->getASTContext());
   diff::ASTDiff Diff(SrcTree, DstTree, Options);

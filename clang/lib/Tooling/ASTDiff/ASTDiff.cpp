@@ -92,7 +92,7 @@ private:
 
   // Computes the ratio of common descendants between the two nodes.
   // Descendants are only considered to be equal when they are mapped in M.
-  double getSimilarity(const Mapping &M, NodeId Id1, NodeId Id2) const;
+  double getJaccardSimilarity(const Mapping &M, NodeId Id1, NodeId Id2) const;
 
   // Returns the node that has the highest degree of similarity.
   NodeId findCandidate(const Mapping &M, NodeId Id1) const;
@@ -111,24 +111,26 @@ private:
 /// Represents the AST of a TranslationUnit.
 class SyntaxTree::Impl {
 public:
-  /// Constructs a tree from the entire translation unit.
-  Impl(SyntaxTree *Parent, const ASTContext &AST);
+  Impl(SyntaxTree *Parent, ASTContext &AST);
   /// Constructs a tree from an AST node.
-  Impl(SyntaxTree *Parent, Decl *N, const ASTContext &AST);
-  Impl(SyntaxTree *Parent, Stmt *N, const ASTContext &AST);
+  Impl(SyntaxTree *Parent, Decl *N, ASTContext &AST);
+  Impl(SyntaxTree *Parent, Stmt *N, ASTContext &AST);
   template <class T>
   Impl(SyntaxTree *Parent,
        typename std::enable_if<std::is_base_of<Stmt, T>::value, T>::type *Node,
-       const ASTContext &AST)
+       ASTContext &AST)
       : Impl(Parent, dyn_cast<Stmt>(Node), AST) {}
   template <class T>
   Impl(SyntaxTree *Parent,
        typename std::enable_if<std::is_base_of<Decl, T>::value, T>::type *Node,
-       const ASTContext &AST)
+       ASTContext &AST)
       : Impl(Parent, dyn_cast<Decl>(Node), AST) {}
 
   SyntaxTree *Parent;
-  const ASTContext &AST;
+  ASTContext &AST;
+  PrintingPolicy TypePP;
+  /// Nodes in preorder.
+  std::vector<Node> Nodes;
   std::vector<NodeId> Leaves;
   // Maps preorder indices to postorder ones.
   std::vector<int> PostorderIds;
@@ -147,48 +149,41 @@ public:
   bool isInSubtree(NodeId Id, NodeId SubtreeRoot) const;
   int findPositionInParent(NodeId Id, bool Shifted = false) const;
 
+  std::string getRelativeName(const NamedDecl *ND,
+                              const DeclContext *Context) const;
+  std::string getRelativeName(const NamedDecl *ND) const;
+
   std::string getNodeValue(NodeId Id) const;
   std::string getNodeValue(const Node &Node) const;
+  std::string getDeclValue(const Decl *D) const;
+  std::string getStmtValue(const Stmt *S) const;
 
 private:
-  /// Nodes in preorder.
-  std::vector<Node> Nodes;
-
   void initTree();
   void setLeftMostDescendants();
 };
+
+static bool isSpecializedNodeExcluded(const Decl *D) { return D->isImplicit(); }
+static bool isSpecializedNodeExcluded(const Stmt *S) { return false; }
+static bool isSpecializedNodeExcluded(CXXCtorInitializer *I) {
+  return !I->isWritten();
+}
 
 template <class T>
 static bool isNodeExcluded(const SourceManager &SrcMgr, T *N) {
   if (!N)
     return true;
-  SourceLocation SLoc = N->getLocStart();
-  return SLoc.isValid() && SrcMgr.isInSystemHeader(SLoc);
+  SourceLocation SLoc = N->getSourceRange().getBegin();
+  if (SLoc.isValid()) {
+    // Ignore everything from other files.
+    if (!SrcMgr.isInMainFile(SLoc))
+      return true;
+    // Ignore macros.
+    if (SLoc != SrcMgr.getSpellingLoc(SLoc))
+      return true;
+  }
+  return isSpecializedNodeExcluded(N);
 }
-
-namespace {
-/// Counts the number of nodes that will be compared.
-struct NodeCountVisitor : public RecursiveASTVisitor<NodeCountVisitor> {
-  int Count = 0;
-  const SyntaxTree::Impl &Tree;
-  NodeCountVisitor(const SyntaxTree::Impl &Tree) : Tree(Tree) {}
-  bool TraverseDecl(Decl *D) {
-    if (isNodeExcluded(Tree.AST.getSourceManager(), D))
-      return true;
-    ++Count;
-    RecursiveASTVisitor<NodeCountVisitor>::TraverseDecl(D);
-    return true;
-  }
-  bool TraverseStmt(Stmt *S) {
-    if (isNodeExcluded(Tree.AST.getSourceManager(), S))
-      return true;
-    ++Count;
-    RecursiveASTVisitor<NodeCountVisitor>::TraverseStmt(S);
-    return true;
-  }
-  bool TraverseType(QualType T) { return true; }
-};
-} // end anonymous namespace
 
 namespace {
 // Sets Height, Parent and Children for each node.
@@ -201,6 +196,7 @@ struct PreorderVisitor : public RecursiveASTVisitor<PreorderVisitor> {
 
   template <class T> std::tuple<NodeId, NodeId> PreTraverse(T *ASTNode) {
     NodeId MyId = Id;
+    Tree.Nodes.emplace_back();
     Node &N = Tree.getMutableNode(MyId);
     N.Parent = Parent;
     N.Depth = Depth;
@@ -242,6 +238,8 @@ struct PreorderVisitor : public RecursiveASTVisitor<PreorderVisitor> {
     return true;
   }
   bool TraverseStmt(Stmt *S) {
+    if (S)
+      S = S->IgnoreImplicit();
     if (isNodeExcluded(Tree.AST.getSourceManager(), S))
       return true;
     auto SavedState = PreTraverse(S);
@@ -250,27 +248,31 @@ struct PreorderVisitor : public RecursiveASTVisitor<PreorderVisitor> {
     return true;
   }
   bool TraverseType(QualType T) { return true; }
+  bool TraverseConstructorInitializer(CXXCtorInitializer *Init) {
+    if (isNodeExcluded(Tree.AST.getSourceManager(), Init))
+      return true;
+    auto SavedState = PreTraverse(Init);
+    RecursiveASTVisitor<PreorderVisitor>::TraverseConstructorInitializer(Init);
+    PostTraverse(SavedState);
+    return true;
+  }
 };
 } // end anonymous namespace
 
-SyntaxTree::Impl::Impl(SyntaxTree *Parent, const ASTContext &AST)
-    : Impl(Parent, AST.getTranslationUnitDecl(), AST) {}
+SyntaxTree::Impl::Impl(SyntaxTree *Parent, ASTContext &AST)
+    : Parent(Parent), AST(AST), TypePP(AST.getLangOpts()) {
+  TypePP.AnonymousTagLocations = false;
+}
 
-SyntaxTree::Impl::Impl(SyntaxTree *Parent, Decl *N, const ASTContext &AST)
-    : Parent(Parent), AST(AST) {
-  NodeCountVisitor NodeCounter(*this);
-  NodeCounter.TraverseDecl(N);
-  Nodes.resize(NodeCounter.Count);
+SyntaxTree::Impl::Impl(SyntaxTree *Parent, Decl *N, ASTContext &AST)
+    : Impl(Parent, AST) {
   PreorderVisitor PreorderWalker(*this);
   PreorderWalker.TraverseDecl(N);
   initTree();
 }
 
-SyntaxTree::Impl::Impl(SyntaxTree *Parent, Stmt *N, const ASTContext &AST)
-    : Parent(Parent), AST(AST) {
-  NodeCountVisitor NodeCounter(*this);
-  NodeCounter.TraverseStmt(N);
-  Nodes.resize(NodeCounter.Count);
+SyntaxTree::Impl::Impl(SyntaxTree *Parent, Stmt *N, ASTContext &AST)
+    : Impl(Parent, AST) {
   PreorderVisitor PreorderWalker(*this);
   PreorderWalker.TraverseStmt(N);
   initTree();
@@ -351,55 +353,121 @@ int SyntaxTree::Impl::findPositionInParent(NodeId Id, bool Shifted) const {
   llvm_unreachable("Node not found in parent's children.");
 }
 
+// Returns the qualified name of ND. If it is subordinate to Context,
+// then the prefix of the latter is removed from the returned value.
+std::string
+SyntaxTree::Impl::getRelativeName(const NamedDecl *ND,
+                                  const DeclContext *Context) const {
+  std::string Val = ND->getQualifiedNameAsString();
+  std::string ContextPrefix;
+  if (!Context)
+    return Val;
+  if (auto *Namespace = dyn_cast<NamespaceDecl>(Context))
+    ContextPrefix = Namespace->getQualifiedNameAsString();
+  else if (auto *Record = dyn_cast<RecordDecl>(Context))
+    ContextPrefix = Record->getQualifiedNameAsString();
+  else if (AST.getLangOpts().CPlusPlus11)
+    if (auto *Tag = dyn_cast<TagDecl>(Context))
+      ContextPrefix = Tag->getQualifiedNameAsString();
+  // Strip the qualifier, if Val refers to somthing in the current scope.
+  // But leave one leading ':' in place, so that we know that this is a
+  // relative path.
+  if (!ContextPrefix.empty() && StringRef(Val).startswith(ContextPrefix))
+    Val = Val.substr(ContextPrefix.size() + 1);
+  return Val;
+}
+
+std::string SyntaxTree::Impl::getRelativeName(const NamedDecl *ND) const {
+  return getRelativeName(ND, ND->getDeclContext());
+}
+
+static const DeclContext *getEnclosingDeclContext(ASTContext &AST,
+                                                  const Stmt *S) {
+  while (S) {
+    const auto &Parents = AST.getParents(*S);
+    if (Parents.empty())
+      return nullptr;
+    const auto &P = Parents[0];
+    if (const auto *D = P.get<Decl>())
+      return D->getDeclContext();
+    S = P.get<Stmt>();
+  }
+  return nullptr;
+}
+
+static std::string getInitializerValue(const CXXCtorInitializer *Init,
+                                       const PrintingPolicy &TypePP) {
+  if (Init->isAnyMemberInitializer())
+    return Init->getAnyMember()->getName();
+  if (Init->isBaseInitializer())
+    return QualType(Init->getBaseClass(), 0).getAsString(TypePP);
+  if (Init->isDelegatingInitializer())
+    return Init->getTypeSourceInfo()->getType().getAsString(TypePP);
+  llvm_unreachable("Unknown initializer type");
+}
+
 std::string SyntaxTree::Impl::getNodeValue(NodeId Id) const {
   return getNodeValue(getNode(Id));
 }
 
 std::string SyntaxTree::Impl::getNodeValue(const Node &N) const {
   const DynTypedNode &DTN = N.ASTNode;
-  if (auto *X = DTN.get<BinaryOperator>())
-    return X->getOpcodeStr();
-  if (auto *X = DTN.get<AccessSpecDecl>()) {
-    CharSourceRange Range(X->getSourceRange(), false);
+  if (auto *S = DTN.get<Stmt>())
+    return getStmtValue(S);
+  if (auto *D = DTN.get<Decl>())
+    return getDeclValue(D);
+  if (auto *Init = DTN.get<CXXCtorInitializer>())
+    return getInitializerValue(Init, TypePP);
+  llvm_unreachable("Fatal: unhandled AST node.\n");
+}
+
+std::string SyntaxTree::Impl::getDeclValue(const Decl *D) const {
+  std::string Value;
+  if (auto *V = dyn_cast<ValueDecl>(D))
+    return getRelativeName(V) + "(" + V->getType().getAsString(TypePP) + ")";
+  if (auto *N = dyn_cast<NamedDecl>(D))
+    Value += getRelativeName(N) + ";";
+  if (auto *T = dyn_cast<TypedefNameDecl>(D))
+    return Value + T->getUnderlyingType().getAsString(TypePP) + ";";
+  if (auto *T = dyn_cast<TypeDecl>(D))
+    if (T->getTypeForDecl())
+      Value +=
+          T->getTypeForDecl()->getCanonicalTypeInternal().getAsString(TypePP) +
+          ";";
+  if (auto *U = dyn_cast<UsingDirectiveDecl>(D))
+    return U->getNominatedNamespace()->getName();
+  if (auto *A = dyn_cast<AccessSpecDecl>(D)) {
+    CharSourceRange Range(A->getSourceRange(), false);
     return Lexer::getSourceText(Range, AST.getSourceManager(),
                                 AST.getLangOpts());
   }
-  if (auto *X = DTN.get<IntegerLiteral>()) {
+  return Value;
+}
+
+std::string SyntaxTree::Impl::getStmtValue(const Stmt *S) const {
+  if (auto *U = dyn_cast<UnaryOperator>(S))
+    return UnaryOperator::getOpcodeStr(U->getOpcode());
+  if (auto *B = dyn_cast<BinaryOperator>(S))
+    return B->getOpcodeStr();
+  if (auto *M = dyn_cast<MemberExpr>(S))
+    return getRelativeName(M->getMemberDecl());
+  if (auto *I = dyn_cast<IntegerLiteral>(S)) {
     SmallString<256> Str;
-    X->getValue().toString(Str, /*Radix=*/10, /*Signed=*/false);
+    I->getValue().toString(Str, /*Radix=*/10, /*Signed=*/false);
     return Str.str();
   }
-  if (auto *X = DTN.get<StringLiteral>())
-    return X->getString();
-  if (auto *X = DTN.get<ValueDecl>())
-    return X->getNameAsString() + "(" + X->getType().getAsString() + ")";
-  if (DTN.get<DeclStmt>() || DTN.get<TranslationUnitDecl>())
-    return "";
-  std::string Value;
-  if (auto *X = DTN.get<DeclRefExpr>()) {
-    if (X->hasQualifier()) {
-      llvm::raw_string_ostream OS(Value);
-      PrintingPolicy PP(AST.getLangOpts());
-      X->getQualifier()->print(OS, PP);
-    }
-    Value += X->getDecl()->getNameAsString();
-    return Value;
+  if (auto *F = dyn_cast<FloatingLiteral>(S)) {
+    SmallString<256> Str;
+    F->getValue().toString(Str);
+    return Str.str();
   }
-  if (auto *X = DTN.get<NamedDecl>())
-    Value += X->getNameAsString() + ";";
-  if (auto *X = DTN.get<TypedefNameDecl>())
-    return Value + X->getUnderlyingType().getAsString() + ";";
-  if (DTN.get<NamespaceDecl>())
-    return Value;
-  if (auto *X = DTN.get<TypeDecl>())
-    if (X->getTypeForDecl())
-      Value +=
-          X->getTypeForDecl()->getCanonicalTypeInternal().getAsString() + ";";
-  if (DTN.get<Decl>())
-    return Value;
-  if (DTN.get<Stmt>())
-    return "";
-  llvm_unreachable("Fatal: unhandled AST node.\n");
+  if (auto *D = dyn_cast<DeclRefExpr>(S))
+    return getRelativeName(D->getDecl(), getEnclosingDeclContext(AST, S));
+  if (auto *String = dyn_cast<StringLiteral>(S))
+    return String->getString();
+  if (auto *B = dyn_cast<CXXBoolLiteralExpr>(S))
+    return B->getValue() ? "true" : "false";
+  return "";
 }
 
 /// Identifies a node in a subtree by its postorder offset, starting at 1.
@@ -622,6 +690,22 @@ ast_type_traits::ASTNodeKind Node::getType() const {
 
 StringRef Node::getTypeLabel() const { return getType().asStringRef(); }
 
+llvm::Optional<std::string> Node::getQualifiedIdentifier() const {
+  if (auto *ND = ASTNode.get<NamedDecl>()) {
+    if (ND->getDeclName().isIdentifier())
+      return ND->getQualifiedNameAsString();
+  }
+  return llvm::None;
+}
+
+llvm::Optional<StringRef> Node::getIdentifier() const {
+  if (auto *ND = ASTNode.get<NamedDecl>()) {
+    if (ND->getDeclName().isIdentifier())
+      return ND->getName();
+  }
+  return llvm::None;
+}
+
 namespace {
 // Compares nodes by their depth.
 struct HeightLess {
@@ -699,8 +783,8 @@ bool ASTDiff::Impl::haveSameParents(const Mapping &M, NodeId Id1,
 
 void ASTDiff::Impl::addOptimalMapping(Mapping &M, NodeId Id1,
                                       NodeId Id2) const {
-  if (std::max(T1.getNumberOfDescendants(Id1),
-               T2.getNumberOfDescendants(Id2)) >= Options.MaxSize)
+  if (std::max(T1.getNumberOfDescendants(Id1), T2.getNumberOfDescendants(Id2)) >
+      Options.MaxSize)
     return;
   ZhangShashaMatcher Matcher(*this, T1, T2, Id1, Id2);
   std::vector<std::pair<NodeId, NodeId>> R = Matcher.getMatchingNodes();
@@ -712,16 +796,23 @@ void ASTDiff::Impl::addOptimalMapping(Mapping &M, NodeId Id1,
   }
 }
 
-double ASTDiff::Impl::getSimilarity(const Mapping &M, NodeId Id1,
-                                    NodeId Id2) const {
-  if (Id1.isInvalid() || Id2.isInvalid())
-    return 0.0;
+double ASTDiff::Impl::getJaccardSimilarity(const Mapping &M, NodeId Id1,
+                                           NodeId Id2) const {
   int CommonDescendants = 0;
   const Node &N1 = T1.getNode(Id1);
-  for (NodeId Id = Id1 + 1; Id <= N1.RightMostDescendant; ++Id)
-    CommonDescendants += int(T2.isInSubtree(M.getDst(Id), Id2));
-  return 2.0 * CommonDescendants /
-         (T1.getNumberOfDescendants(Id1) + T2.getNumberOfDescendants(Id2));
+  // Count the common descendants, excluding the subtree root.
+  for (NodeId Src = Id1 + 1; Src <= N1.RightMostDescendant; ++Src) {
+    NodeId Dst = M.getDst(Src);
+    CommonDescendants += int(Dst.isValid() && T2.isInSubtree(Dst, Id2));
+  }
+  // We need to subtract 1 to get the number of descendants excluding the root.
+  double Denominator = T1.getNumberOfDescendants(Id1) - 1 +
+                       T2.getNumberOfDescendants(Id2) - 1 - CommonDescendants;
+  // CommonDescendants is less than the size of one subtree.
+  assert(Denominator >= 0 && "Expected non-negative denominator.");
+  if (Denominator == 0)
+    return 0;
+  return CommonDescendants / Denominator;
 }
 
 NodeId ASTDiff::Impl::findCandidate(const Mapping &M, NodeId Id1) const {
@@ -732,7 +823,7 @@ NodeId ASTDiff::Impl::findCandidate(const Mapping &M, NodeId Id1) const {
       continue;
     if (M.hasDst(Id2))
       continue;
-    double Similarity = getSimilarity(M, Id1, Id2);
+    double Similarity = getJaccardSimilarity(M, Id1, Id2);
     if (Similarity >= Options.MinSimilarity && Similarity > HighestSimilarity) {
       HighestSimilarity = Similarity;
       Candidate = Id2;
@@ -752,8 +843,8 @@ void ASTDiff::Impl::matchBottomUp(Mapping &M) const {
       }
       break;
     }
-    const Node &N1 = T1.getNode(Id1);
     bool Matched = M.hasSrc(Id1);
+    const Node &N1 = T1.getNode(Id1);
     bool MatchedChildren =
         std::any_of(N1.Children.begin(), N1.Children.end(),
                     [&](NodeId Child) { return M.hasSrc(Child); });
@@ -821,6 +912,8 @@ ASTDiff::Impl::Impl(SyntaxTree::Impl &T1, SyntaxTree::Impl &T2,
 
 void ASTDiff::Impl::computeMapping() {
   TheMapping = matchTopDown();
+  if (Options.StopAfterTopDown)
+    return;
   matchBottomUp(TheMapping);
 }
 
@@ -877,7 +970,7 @@ NodeId ASTDiff::getMapped(const SyntaxTree &SourceTree, NodeId Id) const {
   return DiffImpl->getMapped(SourceTree.TreeImpl, Id);
 }
 
-SyntaxTree::SyntaxTree(const ASTContext &AST)
+SyntaxTree::SyntaxTree(ASTContext &AST)
     : TreeImpl(llvm::make_unique<SyntaxTree::Impl>(
           this, AST.getTranslationUnitDecl(), AST)) {}
 
