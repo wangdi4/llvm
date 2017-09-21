@@ -4261,6 +4261,7 @@ private:
   void AddObjCARCExceptionMetadata(llvm::Instruction *Inst);
 
   llvm::Value *GetValueForARMHint(unsigned BuiltinID);
+<<<<<<< HEAD
 
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
 public:
@@ -4274,6 +4275,12 @@ private:
   void EmitPragmaStmt(const PragmaStmt &S);
   llvm::BasicBlock *CreateIPForInlineEnd(llvm::BasicBlock *InlineBB);
 #endif  // INTEL_SPECIFIC_IL0_BACKEND
+=======
+  llvm::Value *EmitX86CpuIs(const CallExpr *E);
+  llvm::Value *EmitX86CpuIs(StringRef CPUStr);
+  llvm::Value *EmitX86CpuSupports(const CallExpr *E);
+  llvm::Value *EmitX86CpuSupports(ArrayRef<StringRef> FeatureStrs);
+>>>>>>> 371351289d7eef8673fd1c579689b6057738cc21
 };
 
 /// Helper class with most of the code for saving a value for a
