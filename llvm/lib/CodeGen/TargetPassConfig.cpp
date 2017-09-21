@@ -921,6 +921,9 @@ void TargetPassConfig::addMachineSSAOptimization() {
   addPass(&MachineLICMID, false);
   addPass(&MachineCSEID, false);
 
+  // Coalesce basic blocks with the same branch condition
+  addPass(&BranchCoalescingID);
+
   addPass(&MachineSinkingID);
 
 #if INTEL_CUSTOMIZATION
