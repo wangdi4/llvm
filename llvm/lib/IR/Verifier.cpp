@@ -507,10 +507,6 @@ private:
   void verifySiblingFuncletUnwinds();
 
   void verifyFragmentExpression(const DbgInfoIntrinsic &I);
-  template <typename ValueOrMetadata>
-  void verifyFragmentExpression(const DIVariable &V,
-                                DIExpression::FragmentInfo Fragment,
-                                ValueOrMetadata *Desc);
   void verifyFnArgs(const DbgInfoIntrinsic &I);
 
   /// Module-level debug info verification...
@@ -1186,11 +1182,8 @@ void Verifier::visitDIExpression(const DIExpression &N) {
 void Verifier::visitDIGlobalVariableExpression(
     const DIGlobalVariableExpression &GVE) {
   AssertDI(GVE.getVariable(), "missing variable");
-  if (auto *Expr = GVE.getExpression()) {
+  if (auto *Expr = GVE.getExpression())
     visitDIExpression(*Expr);
-    if (auto Fragment = Expr->getFragmentInfo())
-      verifyFragmentExpression(*GVE.getVariable(), *Fragment, &GVE);
-  }
 }
 
 void Verifier::visitDIObjCProperty(const DIObjCProperty &N) {
@@ -4506,7 +4499,7 @@ void Verifier::visitDbgIntrinsic(StringRef Kind, DbgIntrinsicTy &DII) {
   verifyFnArgs(DII);
 }
 
-static uint64_t getVariableSize(const DIVariable &V) {
+static uint64_t getVariableSize(const DILocalVariable &V) {
   // Be careful of broken types (checked elsewhere).
   const Metadata *RawType = V.getRawType();
   while (RawType) {
@@ -4545,7 +4538,7 @@ void Verifier::verifyFragmentExpression(const DbgInfoIntrinsic &I) {
   if (!V || !E || !E->isValid())
     return;
 
-  // Nothing to do if this isn't a DW_OP_LLVM_fragment expression.
+  // Nothing to do if this isn't a bit piece expression.
   auto Fragment = E->getFragmentInfo();
   if (!Fragment)
     return;
@@ -4559,24 +4552,17 @@ void Verifier::verifyFragmentExpression(const DbgInfoIntrinsic &I) {
   if (V->isArtificial())
     return;
 
-  verifyFragmentExpression(*V, *Fragment, &I);
-}
-
-template <typename ValueOrMetadata>
-void Verifier::verifyFragmentExpression(const DIVariable &V,
-                                        DIExpression::FragmentInfo Fragment,
-                                        ValueOrMetadata *Desc) {
   // If there's no size, the type is broken, but that should be checked
   // elsewhere.
-  uint64_t VarSize = getVariableSize(V);
+  uint64_t VarSize = getVariableSize(*V);
   if (!VarSize)
     return;
 
-  unsigned FragSize = Fragment.SizeInBits;
-  unsigned FragOffset = Fragment.OffsetInBits;
+  unsigned FragSize = Fragment->SizeInBits;
+  unsigned FragOffset = Fragment->OffsetInBits;
   AssertDI(FragSize + FragOffset <= VarSize,
-         "fragment is larger than or outside of variable", Desc, &V);
-  AssertDI(FragSize != VarSize, "fragment covers entire variable", Desc, &V);
+         "fragment is larger than or outside of variable", &I, V, E);
+  AssertDI(FragSize != VarSize, "fragment covers entire variable", &I, V, E);
 }
 
 void Verifier::verifyFnArgs(const DbgInfoIntrinsic &I) {
