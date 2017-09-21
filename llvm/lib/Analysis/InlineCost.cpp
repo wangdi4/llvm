@@ -1944,12 +1944,8 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
   } // INTEL
 
   // Check if we're done. This can happen due to bonuses and penalties.
-<<<<<<< HEAD
-  if (Cost > Threshold && !ComputeFullInlineCost) { // INTEL
+  if (Cost >= Threshold && !ComputeFullInlineCost) { // INTEL
     *ReasonAddr = bestInlineReason(NoReasonVector, NinlrNotProfitable); // INTEL
-=======
-  if (Cost >= Threshold && !ComputeFullInlineCost)
->>>>>>> 33be26f89361e721175635ed0195348a38fbffcc
     return false;
   } // INTEL
 
