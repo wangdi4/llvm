@@ -20,11 +20,8 @@
 #include "llvm/ADT/SCCIterator.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/CallGraph.h"
-<<<<<<< HEAD
 #include "llvm/Analysis/Intel_WP.h"       // INTEL
-=======
 #include "llvm/IR/CallSite.h"
->>>>>>> 046ca0444537c9beab4d6d2ad0be4a9cd6df4cf0
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/LLVMContext.h"
@@ -604,11 +601,7 @@ void CallGraphSCCPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addPreserved<WholeProgramWrapperPass>();  // INTEL
 }
 
-<<<<<<< HEAD
-
 #if !INTEL_PRODUCT_RELEASE
-=======
->>>>>>> 046ca0444537c9beab4d6d2ad0be4a9cd6df4cf0
 //===----------------------------------------------------------------------===//
 // PrintCallGraphPass Implementation
 //===----------------------------------------------------------------------===//
