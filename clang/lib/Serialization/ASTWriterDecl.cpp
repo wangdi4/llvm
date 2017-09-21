@@ -852,17 +852,16 @@ void ASTDeclWriter::VisitObjCPropertyImplDecl(ObjCPropertyImplDecl *D) {
 void ASTDeclWriter::VisitFieldDecl(FieldDecl *D) {
   VisitDeclaratorDecl(D);
   Record.push_back(D->isMutable());
-  if (D->InitStorage.getInt() == FieldDecl::ISK_BitWidthOrNothing &&
-      D->InitStorage.getPointer() == nullptr) {
-    Record.push_back(0);
-  } else if (D->InitStorage.getInt() == FieldDecl::ISK_CapturedVLAType) {
-    Record.push_back(D->InitStorage.getInt() + 1);
-    Record.AddTypeRef(
-        QualType(static_cast<Type *>(D->InitStorage.getPointer()), 0));
-  } else {
-    Record.push_back(D->InitStorage.getInt() + 1);
-    Record.AddStmt(static_cast<Expr *>(D->InitStorage.getPointer()));
-  }
+
+  FieldDecl::InitStorageKind ISK = D->InitStorage.getInt();
+  Record.push_back(ISK);
+  if (ISK == FieldDecl::ISK_CapturedVLAType)
+    Record.AddTypeRef(QualType(D->getCapturedVLAType(), 0));
+  else if (ISK)
+    Record.AddStmt(D->getInClassInitializer());
+
+  Record.AddStmt(D->getBitWidth());
+
   if (!D->getDeclName())
     Record.AddDeclRef(Context.getInstantiatedFromUnnamedFieldDecl(D));
 
@@ -876,6 +875,7 @@ void ASTDeclWriter::VisitFieldDecl(FieldDecl *D) {
       !D->isModulePrivate() &&
       !D->getBitWidth() &&
       !D->hasInClassInitializer() &&
+      !D->hasCapturedVLAType() &&
       !D->hasExtInfo() &&
       !ObjCIvarDecl::classofKind(D->getKind()) &&
       !ObjCAtDefsFieldDecl::classofKind(D->getKind()) &&
@@ -1744,7 +1744,7 @@ void ASTWriter::WriteDeclAbbrevs() {
   Abv->Add(BitCodeAbbrevOp(0));                       // hasExtInfo
   // FieldDecl
   Abv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 1)); // isMutable
-  Abv->Add(BitCodeAbbrevOp(0));                       //getBitWidth
+  Abv->Add(BitCodeAbbrevOp(0));                       // InitStyle
   // Type Source Info
   Abv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 6));
   Abv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Array));
@@ -1777,7 +1777,7 @@ void ASTWriter::WriteDeclAbbrevs() {
   Abv->Add(BitCodeAbbrevOp(0));                       // hasExtInfo
   // FieldDecl
   Abv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 1)); // isMutable
-  Abv->Add(BitCodeAbbrevOp(0));                       //getBitWidth
+  Abv->Add(BitCodeAbbrevOp(0));                       // InitStyle
   // ObjC Ivar
   Abv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 6)); // getAccessControl
   Abv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 6)); // getSynthesize
