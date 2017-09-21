@@ -396,6 +396,7 @@ class CXXNameMangler {
   AbiTagState AbiTagsRoot;
 
   llvm::DenseMap<uintptr_t, unsigned> Substitutions;
+  llvm::DenseMap<StringRef, unsigned> ModuleSubstitutions;
 
   ASTContext &getASTContext() const { return Context.getASTContext(); }
 
@@ -490,6 +491,8 @@ private:
 
   void mangleNameWithAbiTags(const NamedDecl *ND,
                              const AbiTagList *AdditionalAbiTags);
+  void mangleModuleName(const Module *M);
+  void mangleModuleNamePrefix(StringRef Name);
   void mangleTemplateName(const TemplateDecl *TD,
                           const TemplateArgument *TemplateArgs,
                           unsigned NumTemplateArgs);
@@ -870,9 +873,9 @@ void CXXNameMangler::mangleName(const NamedDecl *ND) {
 
 void CXXNameMangler::mangleNameWithAbiTags(const NamedDecl *ND,
                                            const AbiTagList *AdditionalAbiTags) {
-  //  <name> ::= <nested-name>
-  //         ::= <unscoped-name>
-  //         ::= <unscoped-template-name> <template-args>
+  //  <name> ::= [<module-name>] <nested-name>
+  //         ::= [<module-name>] <unscoped-name>
+  //         ::= [<module-name>] <unscoped-template-name> <template-args>
   //         ::= <local-name>
   //
   const DeclContext *DC = getEffectiveDeclContext(ND);
@@ -891,6 +894,19 @@ void CXXNameMangler::mangleNameWithAbiTags(const NamedDecl *ND,
 
   DC = IgnoreLinkageSpecDecls(DC);
 
+  if (isLocalContainerContext(DC)) {
+    mangleLocalName(ND, AdditionalAbiTags);
+    return;
+  }
+
+  // Do not mangle the owning module for an external linkage declaration.
+  // This enables backwards-compatibility with non-modular code, and is
+  // a valid choice since conflicts are not permitted by C++ Modules TS
+  // [basic.def.odr]/6.2.
+  if (!ND->hasExternalFormalLinkage())
+    if (Module *M = ND->getOwningModuleForLinkage())
+      mangleModuleName(M);
+
   if (DC->isTranslationUnit() || isStdNamespace(DC)) {
     // Check if we have a template.
     const TemplateArgumentList *TemplateArgs = nullptr;
@@ -904,12 +920,42 @@ void CXXNameMangler::mangleNameWithAbiTags(const NamedDecl *ND,
     return;
   }
 
-  if (isLocalContainerContext(DC)) {
-    mangleLocalName(ND, AdditionalAbiTags);
+  mangleNestedName(ND, DC, AdditionalAbiTags);
+}
+
+void CXXNameMangler::mangleModuleName(const Module *M) {
+  // Implement the C++ Modules TS name mangling proposal; see
+  //     https://gcc.gnu.org/wiki/cxx-modules?action=AttachFile
+  //
+  //   <module-name> ::= W <unscoped-name>+ E
+  //                 ::= W <module-subst> <unscoped-name>* E
+  Out << 'W';
+  mangleModuleNamePrefix(M->Name);
+  Out << 'E';
+}
+
+void CXXNameMangler::mangleModuleNamePrefix(StringRef Name) {
+  //  <module-subst> ::= _ <seq-id>          # 0 < seq-id < 10
+  //                 ::= W <seq-id - 10> _   # otherwise
+  auto It = ModuleSubstitutions.find(Name);
+  if (It != ModuleSubstitutions.end()) {
+    if (It->second < 10)
+      Out << '_' << static_cast<char>('0' + It->second);
+    else
+      Out << 'W' << (It->second - 10) << '_';
     return;
   }
 
-  mangleNestedName(ND, DC, AdditionalAbiTags);
+  // FIXME: Preserve hierarchy in module names rather than flattening
+  // them to strings; use Module*s as substitution keys.
+  auto Parts = Name.rsplit('.');
+  if (Parts.second.empty())
+    Parts.second = Parts.first;
+  else
+    mangleModuleNamePrefix(Parts.first);
+
+  Out << Parts.second.size() << Parts.second;
+  ModuleSubstitutions.insert({Name, ModuleSubstitutions.size()});
 }
 
 void CXXNameMangler::mangleTemplateName(const TemplateDecl *TD,
@@ -1262,17 +1308,25 @@ void CXXNameMangler::mangleUnqualifiedName(const NamedDecl *ND,
     }
 
     if (II) {
-      // We must avoid conflicts between internally- and externally-
-      // linked variable and function declaration names in the same TU:
+      // Match GCC's naming convention for internal linkage symbols, for
+      // symbols that are not actually visible outside of this TU. GCC
+      // distinguishes between internal and external linkage symbols in
+      // its mangling, to support cases like this that were valid C++ prior
+      // to DR426:
+      //
       //   void test() { extern void foo(); }
       //   static void foo();
+<<<<<<< HEAD
       // This naming convention is the same as that followed by GCC,
       // though it shouldn't actually matter.
 #if INTEL_CUSTOMIZATION
       // CQ371729: Incompatible name mangling.
       if (!getASTContext().getLangOpts().IntelCompat)
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 5f4efc24c888d4c43af20c2c5a8e028720b8644d
       if (ND && ND->getFormalLinkage() == InternalLinkage &&
+          !ND->isExternallyVisible() &&
           getEffectiveDeclContext(ND)->isFileContext())
         Out << 'L';
 
