@@ -33,13 +33,8 @@ namespace clang {
       DIAG_SIZE_FRONTEND      =  100,
       DIAG_SIZE_SERIALIZATION =  120,
       DIAG_SIZE_LEX           =  400,
-<<<<<<< HEAD
       DIAG_SIZE_PARSE         =  600, // INTEL
-      DIAG_SIZE_AST           =  150,
-=======
-      DIAG_SIZE_PARSE         =  500,
-      DIAG_SIZE_AST           =  110,
->>>>>>> c259e431a5e80c73ee1df96d1f323defbc796aee
+      DIAG_SIZE_AST           =  150, // INTEL
       DIAG_SIZE_COMMENT       =  100,
       DIAG_SIZE_SEMA          = 4000, // INTEL
       DIAG_SIZE_ANALYSIS      =  100
