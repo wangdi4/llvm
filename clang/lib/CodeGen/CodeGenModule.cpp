@@ -2560,6 +2560,7 @@ CodeGenModule::GetOrCreateLLVMGlobal(StringRef MangledName,
         D->getType().isConstant(Context) &&
         isExternallyVisible(D->getLinkageAndVisibility().getLinkage()))
       GV->setSection(".cp.rodata");
+<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
     if (getLangOpts().OpenCL) {
@@ -2605,6 +2606,8 @@ CodeGenModule::GetOrCreateLLVMGlobal(StringRef MangledName,
         }
       }
     }
+=======
+>>>>>>> 72ee108137acea74ea7d3c05362bb06d25637cc2
   }
 
   auto ExpectedAS =
