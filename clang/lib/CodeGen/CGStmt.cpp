@@ -51,7 +51,7 @@ void CodeGenFunction::EmitStopPoint(const Stmt *S) {
   }
 }
 
-void CodeGenFunction::EmitStmt(const Stmt *S) {
+void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
   assert(S && "Null statement?");
   PGO.setCurrentStmt(S);
 
@@ -156,16 +156,16 @@ void CodeGenFunction::EmitStmt(const Stmt *S) {
   case Stmt::IndirectGotoStmtClass:
     EmitIndirectGotoStmt(cast<IndirectGotoStmt>(*S)); break;
 
-  case Stmt::IfStmtClass:       EmitIfStmt(cast<IfStmt>(*S));             break;
-  case Stmt::WhileStmtClass:    EmitWhileStmt(cast<WhileStmt>(*S));       break;
-  case Stmt::DoStmtClass:       EmitDoStmt(cast<DoStmt>(*S));             break;
-  case Stmt::ForStmtClass:      EmitForStmt(cast<ForStmt>(*S));           break;
+  case Stmt::IfStmtClass:      EmitIfStmt(cast<IfStmt>(*S));              break;
+  case Stmt::WhileStmtClass:   EmitWhileStmt(cast<WhileStmt>(*S), Attrs); break;
+  case Stmt::DoStmtClass:      EmitDoStmt(cast<DoStmt>(*S), Attrs);       break;
+  case Stmt::ForStmtClass:     EmitForStmt(cast<ForStmt>(*S), Attrs);     break;
 
-  case Stmt::ReturnStmtClass:   EmitReturnStmt(cast<ReturnStmt>(*S));     break;
+  case Stmt::ReturnStmtClass:  EmitReturnStmt(cast<ReturnStmt>(*S));      break;
 
-  case Stmt::SwitchStmtClass:   EmitSwitchStmt(cast<SwitchStmt>(*S));     break;
-  case Stmt::GCCAsmStmtClass:   // Intentional fall-through.
-  case Stmt::MSAsmStmtClass:    EmitAsmStmt(cast<AsmStmt>(*S));           break;
+  case Stmt::SwitchStmtClass:  EmitSwitchStmt(cast<SwitchStmt>(*S));      break;
+  case Stmt::GCCAsmStmtClass:  // Intentional fall-through.
+  case Stmt::MSAsmStmtClass:   EmitAsmStmt(cast<AsmStmt>(*S));            break;
   case Stmt::CoroutineBodyStmtClass:
     EmitCoroutineBody(cast<CoroutineBodyStmt>(*S));
     break;
@@ -203,7 +203,7 @@ void CodeGenFunction::EmitStmt(const Stmt *S) {
     EmitCXXTryStmt(cast<CXXTryStmt>(*S));
     break;
   case Stmt::CXXForRangeStmtClass:
-    EmitCXXForRangeStmt(cast<CXXForRangeStmt>(*S));
+    EmitCXXForRangeStmt(cast<CXXForRangeStmt>(*S), Attrs);
     break;
   case Stmt::SEHTryStmtClass:
     EmitSEHTryStmt(cast<SEHTryStmt>(*S));
@@ -644,6 +644,7 @@ CodeGenFunction::IntelPragmaInlineState::getPragmaInlineAttribute() {
 #endif // INTEL_CUSTOMIZATION
 
 void CodeGenFunction::EmitAttributedStmt(const AttributedStmt &S) {
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   IntelPragmaInlineState PS(*this, S.getAttrs());
 #endif // INTEL_CUSTOMIZATION
@@ -665,6 +666,9 @@ void CodeGenFunction::EmitAttributedStmt(const AttributedStmt &S) {
   default:
     EmitStmt(SubStmt);
   }
+=======
+  EmitStmt(S.getSubStmt(), S.getAttrs());
+>>>>>>> 3f0db6ed816c5fae9bf6a7b2b1711e8fc57b8589
 }
 
 void CodeGenFunction::EmitGotoStmt(const GotoStmt &S) {
