@@ -963,6 +963,7 @@ BUILTIN(__builtin_index, "c*cC*i", "Fn")
 BUILTIN(__builtin_rindex, "c*cC*i", "Fn")
 
 // Microsoft builtins.  These are only active with -fms-extensions.
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // CQ#370960: _alloca is always enabled in ICC mode.
 LANGBUILTIN(_alloca, "v*z", "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
@@ -976,6 +977,11 @@ BUILTIN(__debugbreak, "v",   "n")
 // CQ#373187: __assume is always enabled in ICC mode.
 LANGBUILTIN(__assume, "vb",  "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
 #endif // INTEL_CUSTOMIZATION
+=======
+LANGBUILTIN(_alloca,          "v*z", "n", ALL_MS_LANGUAGES)
+LANGBUILTIN(__annotation,     "wC*.","n", ALL_MS_LANGUAGES)
+LANGBUILTIN(__assume,         "vb",  "n", ALL_MS_LANGUAGES)
+>>>>>>> b2ae0f8aec4d5e8e12acf8fccf908317c3df98fc
 LIBBUILTIN(_byteswap_ushort, "UsUs",     "fnc", "stdlib.h", ALL_MS_LANGUAGES)
 LIBBUILTIN(_byteswap_ulong,  "UNiUNi",   "fnc", "stdlib.h", ALL_MS_LANGUAGES)
 LIBBUILTIN(_byteswap_uint64, "ULLiULLi", "fnc", "stdlib.h", ALL_MS_LANGUAGES)
