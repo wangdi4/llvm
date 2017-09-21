@@ -2561,7 +2561,6 @@ CodeGenModule::GetOrCreateLLVMGlobal(StringRef MangledName,
         isExternallyVisible(D->getLinkageAndVisibility().getLinkage()))
       GV->setSection(".cp.rodata");
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     if (getLangOpts().OpenCL) {
       if (auto *ChanTy = dyn_cast<ChannelType>(D->getType())) {
@@ -2584,7 +2583,7 @@ CodeGenModule::GetOrCreateLLVMGlobal(StringRef MangledName,
       }
     }
 #endif // INTEL_CUSTOMIZATION
-=======
+
     // Check if we a have a const declaration with an initializer, we may be
     // able to emit it as available_externally to expose it's value to the
     // optimizer.
@@ -2606,7 +2605,6 @@ CodeGenModule::GetOrCreateLLVMGlobal(StringRef MangledName,
         }
       }
     }
->>>>>>> 0682709a5e5c9df240e0fd7bccd8f7115b25506b
   }
 
   auto ExpectedAS =
