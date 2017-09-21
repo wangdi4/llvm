@@ -1751,6 +1751,7 @@ private:
   typedef SmallVector<SourceLocation, 20> CommaLocsTy;
 
   /// ParseExpressionList - Used for C/C++ (argument-)expression-list.
+<<<<<<< HEAD
   bool ParseExpressionList(SmallVectorImpl<Expr *> &Exprs,
                            SmallVectorImpl<SourceLocation> &CommaLocs,
                            std::function<void()> Completer = nullptr);
@@ -1764,6 +1765,13 @@ private:
                                                    ArrayRef<Expr *> Args) = 0,
                            Expr *Data = 0);
 #endif // INTEL_SPECIFIC_CILKPLUS
+=======
+  bool ParseExpressionList(
+      SmallVectorImpl<Expr *> &Exprs,
+      SmallVectorImpl<SourceLocation> &CommaLocs,
+      llvm::function_ref<void()> Completer = llvm::function_ref<void()>());
+
+>>>>>>> bc52a0a360d1484c9293cd163c59098d476746cc
   /// ParseSimpleExpressionList - A simple comma-separated list of expressions,
   /// used for misc language extensions.
   bool ParseSimpleExpressionList(SmallVectorImpl<Expr*> &Exprs,
