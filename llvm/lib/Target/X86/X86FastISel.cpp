@@ -1238,16 +1238,6 @@ bool X86FastISel::X86SelectRet(const Instruction *I) {
       if (SrcVT == MVT::i1) {
         if (Outs[0].Flags.isSExt())
           return false;
-        // In case SrcReg is a K register, COPY to a GPR
-        if (MRI.getRegClass(SrcReg) == &X86::VK1RegClass) {
-          unsigned KSrcReg = SrcReg;
-          SrcReg = createResultReg(&X86::GR32RegClass);
-          BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc,
-                  TII.get(TargetOpcode::COPY), SrcReg)
-              .addReg(KSrcReg);
-          SrcReg = fastEmitInst_extractsubreg(MVT::i8, SrcReg, /*Kill=*/true,
-                                              X86::sub_8bit);
-        }
         SrcReg = fastEmitZExtFromI1(MVT::i8, SrcReg, /*TODO: Kill=*/false);
         SrcVT = MVT::i8;
       }
@@ -1553,17 +1543,6 @@ bool X86FastISel::X86SelectZExt(const Instruction *I) {
   // Handle zero-extension from i1 to i8, which is common.
   MVT SrcVT = TLI.getSimpleValueType(DL, I->getOperand(0)->getType());
   if (SrcVT == MVT::i1) {
-    // In case ResultReg is a K register, COPY to a GPR
-    if (MRI.getRegClass(ResultReg) == &X86::VK1RegClass) {
-      unsigned KResultReg = ResultReg;
-      ResultReg = createResultReg(&X86::GR32RegClass);
-      BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc,
-              TII.get(TargetOpcode::COPY), ResultReg)
-          .addReg(KResultReg);
-      ResultReg = fastEmitInst_extractsubreg(MVT::i8, ResultReg, /*Kill=*/true,
-                                             X86::sub_8bit);
-    }
-
     // Set the high bits to zero.
     ResultReg = fastEmitZExtFromI1(MVT::i8, ResultReg, /*TODO: Kill=*/false);
     SrcVT = MVT::i8;
@@ -3325,16 +3304,6 @@ bool X86FastISel::fastLowerCall(CallLoweringInfo &CLI) {
 
       // Handle zero-extension from i1 to i8, which is common.
       if (ArgVT == MVT::i1) {
-        // In case SrcReg is a K register, COPY to a GPR
-        if (MRI.getRegClass(ArgReg) == &X86::VK1RegClass) {
-          unsigned KArgReg = ArgReg;
-          ArgReg = createResultReg(&X86::GR32RegClass);
-          BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc,
-                  TII.get(TargetOpcode::COPY), ArgReg)
-              .addReg(KArgReg);
-          ArgReg = fastEmitInst_extractsubreg(MVT::i8, ArgReg, /*Kill=*/true,
-                                              X86::sub_8bit);
-        }
         // Set the high bits to zero.
         ArgReg = fastEmitZExtFromI1(MVT::i8, ArgReg, /*TODO: Kill=*/false);
         ArgVT = MVT::i8;
