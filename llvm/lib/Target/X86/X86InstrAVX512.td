@@ -519,7 +519,7 @@ multiclass vinsert_for_size_split<int Opcode, X86VectorVTInfo From,
                                   X86VectorVTInfo To,
                                   SDPatternOperator vinsert_insert,
                                   SDPatternOperator vinsert_for_mask> {
-  let ExeDomain = To.ExeDomain in {
+  let hasSideEffects = 0, ExeDomain = To.ExeDomain in {
     defm rr : AVX512_maskable_split<Opcode, MRMSrcReg, To, (outs To.RC:$dst),
                    (ins To.RC:$src1, From.RC:$src2, u8imm:$src3),
                    "vinsert" # From.EltTypeName # "x" # From.NumElts,
@@ -531,6 +531,7 @@ multiclass vinsert_for_size_split<int Opcode, X86VectorVTInfo From,
                                            (From.VT From.RC:$src2),
                                            (iPTR imm))>, AVX512AIi8Base, EVEX_4V;
 
+    let mayLoad = 1 in
     defm rm : AVX512_maskable_split<Opcode, MRMSrcMem, To, (outs To.RC:$dst),
                    (ins To.RC:$src1, From.MemOp:$src2, u8imm:$src3),
                    "vinsert" # From.EltTypeName # "x" # From.NumElts,
@@ -1283,6 +1284,7 @@ multiclass avx512_subvec_broadcast_rm<bits<8> opc, string OpcodeStr,
 //  is requested.
 multiclass avx512_subvec_broadcast_rm_dq<bits<8> opc, string OpcodeStr,
                           X86VectorVTInfo _Dst, X86VectorVTInfo _Src> {
+  let hasSideEffects = 0, mayLoad = 1 in
   defm rm : AVX512_maskable_split<opc, MRMSrcMem, _Dst, (outs _Dst.RC:$dst),
                            (ins _Src.MemOp:$src), OpcodeStr, "$src", "$src",
                            (null_frag),
@@ -3903,6 +3905,233 @@ let Predicates = [HasVLX] in {
   def : Pat<(store (v32i8 (extract_subvector
                            (v64i8 VR512:$src), (iPTR 0))), addr:$dst),
      (VMOVDQU32Z256mr addr:$dst, (v32i8 (EXTRACT_SUBREG VR512:$src,sub_ymm)))>;
+
+  // If we're inserting into an all zeros vector, just use a plain move which
+  // will zero the upper bits.
+  // TODO: Is there a safe way to detect whether the producing instruction
+  // already zeroed the upper bits?
+
+  // 128->256 register form.
+  def : Pat<(v4f64 (insert_subvector (bitconvert (v8i32 immAllZerosV)),
+                                     (v2f64 VR128:$src), (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVAPDZ128rr VR128:$src), sub_xmm)>;
+  def : Pat<(v8f32 (insert_subvector (bitconvert (v8i32 immAllZerosV)),
+                                     (v4f32 VR128:$src), (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVAPSZ128rr VR128:$src), sub_xmm)>;
+  def : Pat<(v4i64 (insert_subvector (bitconvert (v8i32 immAllZerosV)),
+                                     (v2i64 VR128:$src), (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVDQA64Z128rr VR128:$src), sub_xmm)>;
+  def : Pat<(v8i32 (insert_subvector (bitconvert (v8i32 immAllZerosV)),
+                                     (v4i32 VR128:$src), (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVDQA64Z128rr VR128:$src), sub_xmm)>;
+  def : Pat<(v16i16 (insert_subvector (bitconvert (v8i32 immAllZerosV)),
+                                      (v8i16 VR128:$src), (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVDQA64Z128rr VR128:$src), sub_xmm)>;
+  def : Pat<(v32i8 (insert_subvector (bitconvert (v8i32 immAllZerosV)),
+                                     (v16i8 VR128:$src), (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVDQA64Z128rr VR128:$src), sub_xmm)>;
+
+  // 128->256 memory form.
+  def : Pat<(v4f64 (insert_subvector (bitconvert (v8i32 immAllZerosV)),
+                                     (loadv2f64 addr:$src), (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVAPDZ128rm addr:$src), sub_xmm)>;
+  def : Pat<(v8f32 (insert_subvector (bitconvert (v8i32 immAllZerosV)),
+                                     (loadv4f32 addr:$src), (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVAPSZ128rm addr:$src), sub_xmm)>;
+  def : Pat<(v4i64 (insert_subvector (bitconvert (v8i32 immAllZerosV)),
+                                     (loadv2i64 addr:$src), (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVDQA64Z128rm addr:$src), sub_xmm)>;
+  def : Pat<(v8i32 (insert_subvector (bitconvert (v8i32 immAllZerosV)),
+                                     (bc_v4i32 (loadv2i64 addr:$src)),
+                                     (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVDQA64Z128rm addr:$src), sub_xmm)>;
+  def : Pat<(v16i16 (insert_subvector (bitconvert (v8i32 immAllZerosV)),
+                                      (bc_v8i16 (loadv2i64 addr:$src)),
+                                      (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVDQA64Z128rm addr:$src), sub_xmm)>;
+  def : Pat<(v32i8 (insert_subvector (bitconvert (v8i32 immAllZerosV)),
+                                     (bc_v16i8 (loadv2i64 addr:$src)),
+                                     (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVDQA64Z128rm addr:$src), sub_xmm)>;
+
+  // 128->512 register form.
+  def : Pat<(v8f64 (insert_subvector (bitconvert (v16i32 immAllZerosV)),
+                                     (v2f64 VR128X:$src), (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVAPDZ128rr VR128X:$src), sub_xmm)>;
+  def : Pat<(v16f32 (insert_subvector (bitconvert (v16i32 immAllZerosV)),
+                                      (v4f32 VR128X:$src), (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVAPSZ128rr VR128X:$src), sub_xmm)>;
+  def : Pat<(v8i64 (insert_subvector (bitconvert (v16i32 immAllZerosV)),
+                                      (v2i64 VR128X:$src), (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVDQA64Z128rr VR128X:$src), sub_xmm)>;
+  def : Pat<(v16i32 (insert_subvector (bitconvert (v16i32 immAllZerosV)),
+                                      (v4i32 VR128X:$src), (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVDQA64Z128rr VR128X:$src), sub_xmm)>;
+  def : Pat<(v32i16 (insert_subvector (bitconvert (v16i32 immAllZerosV)),
+                                      (v8i16 VR128X:$src), (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVDQA64Z128rr VR128X:$src), sub_xmm)>;
+  def : Pat<(v64i8 (insert_subvector (bitconvert (v16i32 immAllZerosV)),
+                                     (v16i8 VR128X:$src), (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVDQA64Z128rr VR128X:$src), sub_xmm)>;
+
+  // 128->512 memory form.
+  def : Pat<(v8f64 (insert_subvector (bitconvert (v16i32 immAllZerosV)),
+                                     (loadv2f64 addr:$src), (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVAPDZ128rm addr:$src), sub_xmm)>;
+  def : Pat<(v16f32 (insert_subvector (bitconvert (v16i32 immAllZerosV)),
+                                      (loadv4f32 addr:$src), (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVAPSZ128rm addr:$src), sub_xmm)>;
+  def : Pat<(v8i64 (insert_subvector (bitconvert (v16i32 immAllZerosV)),
+                                      (loadv2i64 addr:$src), (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVDQA64Z128rm addr:$src), sub_xmm)>;
+  def : Pat<(v16i32 (insert_subvector (bitconvert (v16i32 immAllZerosV)),
+                                      (bc_v4i32 (loadv2i64 addr:$src)),
+                                      (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVDQA64Z128rm addr:$src), sub_xmm)>;
+  def : Pat<(v32i16 (insert_subvector (bitconvert (v16i32 immAllZerosV)),
+                                      (bc_v8i16 (loadv2i64 addr:$src)),
+                                      (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVDQA64Z128rm addr:$src), sub_xmm)>;
+  def : Pat<(v64i8 (insert_subvector (bitconvert (v16i32 immAllZerosV)),
+                                     (bc_v16i8 (loadv2i64 addr:$src)),
+                                     (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVDQA64Z128rm addr:$src), sub_xmm)>;
+
+  // 256->512 register form.
+  def : Pat<(v8f64 (insert_subvector (bitconvert (v16i32 immAllZerosV)),
+                                     (v4f64 VR256X:$src), (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVAPDZ256rr VR256X:$src), sub_ymm)>;
+  def : Pat<(v16f32 (insert_subvector (bitconvert (v16i32 immAllZerosV)),
+                                      (v8f32 VR256X:$src), (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVAPSZ256rr VR256X:$src), sub_ymm)>;
+  def : Pat<(v8i64 (insert_subvector (bitconvert (v16i32 immAllZerosV)),
+                                     (v4i64 VR256X:$src), (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVDQA64Z256rr VR256X:$src), sub_ymm)>;
+  def : Pat<(v16i32 (insert_subvector (bitconvert (v16i32 immAllZerosV)),
+                                      (v8i32 VR256X:$src), (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVDQA64Z256rr VR256X:$src), sub_ymm)>;
+  def : Pat<(v32i16 (insert_subvector (bitconvert (v16i32 immAllZerosV)),
+                                      (v16i16 VR256X:$src), (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVDQA64Z256rr VR256X:$src), sub_ymm)>;
+  def : Pat<(v64i8 (insert_subvector (bitconvert (v16i32 immAllZerosV)),
+                                     (v32i8 VR256X:$src), (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVDQA64Z256rr VR256X:$src), sub_ymm)>;
+
+  // 256->512 memory form.
+  def : Pat<(v8f64 (insert_subvector (bitconvert (v16i32 immAllZerosV)),
+                                     (loadv4f64 addr:$src), (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVAPDZ256rm addr:$src), sub_ymm)>;
+  def : Pat<(v16f32 (insert_subvector (bitconvert (v16i32 immAllZerosV)),
+                                      (loadv8f32 addr:$src), (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVAPSZ256rm addr:$src), sub_ymm)>;
+  def : Pat<(v8i64 (insert_subvector (bitconvert (v16i32 immAllZerosV)),
+                                     (loadv4i64 addr:$src), (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVDQA64Z256rm addr:$src), sub_ymm)>;
+  def : Pat<(v16i32 (insert_subvector (bitconvert (v16i32 immAllZerosV)),
+                                      (bc_v8i32 (loadv4i64 addr:$src)),
+                                      (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVDQA64Z256rm addr:$src), sub_ymm)>;
+  def : Pat<(v32i16 (insert_subvector (bitconvert (v16i32 immAllZerosV)),
+                                      (bc_v16i16 (loadv4i64 addr:$src)),
+                                      (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVDQA64Z256rm addr:$src), sub_ymm)>;
+  def : Pat<(v64i8 (insert_subvector (bitconvert (v16i32 immAllZerosV)),
+                                     (bc_v32i8 (loadv4i64 addr:$src)),
+                                     (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVDQA64Z256rm addr:$src), sub_ymm)>;
+}
+
+let Predicates = [HasAVX512, NoVLX] in {
+  // If we're inserting into an all zeros vector, just use a plain move which
+  // will zero the upper bits.
+  // TODO: Is there a safe way to detect whether the producing instruction
+  // already zeroed the upper bits?
+
+  // 128->512 register form.
+  def : Pat<(v8f64 (insert_subvector (bitconvert (v16i32 immAllZerosV)),
+                                     (v2f64 VR128:$src), (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVAPDrr VR128:$src), sub_xmm)>;
+  def : Pat<(v16f32 (insert_subvector (bitconvert (v16i32 immAllZerosV)),
+                                      (v4f32 VR128:$src), (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVAPSrr VR128:$src), sub_xmm)>;
+  def : Pat<(v8i64 (insert_subvector (bitconvert (v16i32 immAllZerosV)),
+                                      (v2i64 VR128:$src), (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVDQArr VR128:$src), sub_xmm)>;
+  def : Pat<(v16i32 (insert_subvector (bitconvert (v16i32 immAllZerosV)),
+                                      (v4i32 VR128:$src), (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVDQArr VR128:$src), sub_xmm)>;
+  def : Pat<(v32i16 (insert_subvector (bitconvert (v16i32 immAllZerosV)),
+                                      (v8i16 VR128:$src), (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVDQArr VR128:$src), sub_xmm)>;
+  def : Pat<(v64i8 (insert_subvector (bitconvert (v16i32 immAllZerosV)),
+                                     (v16i8 VR128:$src), (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVDQArr VR128:$src), sub_xmm)>;
+
+  // 128->512 memory form.
+  def : Pat<(v8f64 (insert_subvector (bitconvert (v16i32 immAllZerosV)),
+                                     (loadv2f64 addr:$src), (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVAPDrm addr:$src), sub_xmm)>;
+  def : Pat<(v16f32 (insert_subvector (bitconvert (v16i32 immAllZerosV)),
+                                      (loadv4f32 addr:$src), (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVAPSrm addr:$src), sub_xmm)>;
+  def : Pat<(v8i64 (insert_subvector (bitconvert (v16i32 immAllZerosV)),
+                                      (loadv2i64 addr:$src), (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVDQArm addr:$src), sub_xmm)>;
+  def : Pat<(v16i32 (insert_subvector (bitconvert (v16i32 immAllZerosV)),
+                                      (bc_v4i32 (loadv2i64 addr:$src)),
+                                      (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVDQArm addr:$src), sub_xmm)>;
+  def : Pat<(v32i16 (insert_subvector (bitconvert (v16i32 immAllZerosV)),
+                                      (bc_v8i16 (loadv2i64 addr:$src)),
+                                      (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVDQArm addr:$src), sub_xmm)>;
+  def : Pat<(v64i8 (insert_subvector (bitconvert (v16i32 immAllZerosV)),
+                                     (bc_v16i8 (loadv2i64 addr:$src)),
+                                     (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVDQArm addr:$src), sub_xmm)>;
+
+  // 256->512 register form.
+  def : Pat<(v8f64 (insert_subvector (bitconvert (v16i32 immAllZerosV)),
+                                     (v4f64 VR256:$src), (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVAPDYrr VR256:$src), sub_ymm)>;
+  def : Pat<(v16f32 (insert_subvector (bitconvert (v16i32 immAllZerosV)),
+                                      (v8f32 VR256:$src), (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVAPSYrr VR256:$src), sub_ymm)>;
+  def : Pat<(v8i64 (insert_subvector (bitconvert (v16i32 immAllZerosV)),
+                                     (v4i64 VR256:$src), (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVDQAYrr VR256:$src), sub_ymm)>;
+  def : Pat<(v16i32 (insert_subvector (bitconvert (v16i32 immAllZerosV)),
+                                      (v8i32 VR256:$src), (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVDQAYrr VR256:$src), sub_ymm)>;
+  def : Pat<(v32i16 (insert_subvector (bitconvert (v16i32 immAllZerosV)),
+                                      (v16i16 VR256:$src), (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVDQAYrr VR256:$src), sub_ymm)>;
+  def : Pat<(v64i8 (insert_subvector (bitconvert (v16i32 immAllZerosV)),
+                                     (v32i8 VR256:$src), (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVDQAYrr VR256:$src), sub_ymm)>;
+
+  // 256->512 memory form.
+  def : Pat<(v8f64 (insert_subvector (bitconvert (v16i32 immAllZerosV)),
+                                     (loadv4f64 addr:$src), (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVAPDYrm addr:$src), sub_ymm)>;
+  def : Pat<(v16f32 (insert_subvector (bitconvert (v16i32 immAllZerosV)),
+                                      (loadv8f32 addr:$src), (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVAPSYrm addr:$src), sub_ymm)>;
+  def : Pat<(v8i64 (insert_subvector (bitconvert (v16i32 immAllZerosV)),
+                                     (loadv4i64 addr:$src), (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVDQAYrm addr:$src), sub_ymm)>;
+  def : Pat<(v16i32 (insert_subvector (bitconvert (v16i32 immAllZerosV)),
+                                      (bc_v8i32 (loadv4i64 addr:$src)),
+                                      (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVDQAYrm addr:$src), sub_ymm)>;
+  def : Pat<(v32i16 (insert_subvector (bitconvert (v16i32 immAllZerosV)),
+                                      (bc_v16i16 (loadv4i64 addr:$src)),
+                                      (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVDQAYrm addr:$src), sub_ymm)>;
+  def : Pat<(v64i8 (insert_subvector (bitconvert (v16i32 immAllZerosV)),
+                                     (bc_v32i8 (loadv4i64 addr:$src)),
+                                     (iPTR 0))),
+            (SUBREG_TO_REG (i64 0), (VMOVDQAYrm addr:$src), sub_ymm)>;
 }
 
 multiclass masked_move_for_extract<string InstrStr, X86VectorVTInfo From,
@@ -4377,10 +4606,6 @@ let Constraints = "$src0 = $dst" in
 
 let Predicates = [HasAVX512] in {
   let AddedComplexity = 15 in {
-  // Move scalar to XMM zero-extended, zeroing a VR128X then do a
-  // MOVS{S,D} to the lower bits.
-  def : Pat<(v4f32 (X86vzmovl (v4f32 (scalar_to_vector FR32X:$src)))),
-            (VMOVSSZrr (v4f32 (AVX512_128_SET0)), FR32X:$src)>;
   def : Pat<(v4f32 (X86vzmovl (v4f32 VR128X:$src))),
             (VMOVSSZrr (v4f32 (AVX512_128_SET0)), (COPY_TO_REGCLASS VR128X:$src, FR32X))>;
   def : Pat<(v4i32 (X86vzmovl (v4i32 VR128X:$src))),
@@ -4464,14 +4689,6 @@ let Predicates = [HasAVX512] in {
   def : Pat<(v8f64 (X86vzload addr:$src)),
             (SUBREG_TO_REG (i32 0), (VMOVSDZrm addr:$src), sub_xmm)>;
   }
-  def : Pat<(v8f32 (X86vzmovl (insert_subvector undef,
-                   (v4f32 (scalar_to_vector FR32X:$src)), (iPTR 0)))),
-            (SUBREG_TO_REG (i32 0), (v4f32 (VMOVSSZrr (v4f32 (AVX512_128_SET0)),
-                                            FR32X:$src)), sub_xmm)>;
-  def : Pat<(v4f64 (X86vzmovl (insert_subvector undef,
-                   (v2f64 (scalar_to_vector FR64X:$src)), (iPTR 0)))),
-            (SUBREG_TO_REG (i64 0), (v2f64 (VMOVSDZrr (v2f64 (AVX512_128_SET0)),
-                                     FR64X:$src)), sub_xmm)>;
   def : Pat<(v4i64 (X86vzmovl (insert_subvector undef,
                    (v2i64 (scalar_to_vector (loadi64 addr:$src))), (iPTR 0)))),
             (SUBREG_TO_REG (i64 0), (VMOVQI2PQIZrm addr:$src), sub_xmm)>;
@@ -6453,14 +6670,6 @@ multiclass avx512_fma3p_213_rm<bits<8> opc, string OpcodeStr, SDNode OpNode,
              _.RC:$src1,(_.VT (X86VBroadcast (_.ScalarLdFrag addr:$src3)))), 1, 0>,
             AVX512FMA3Base, EVEX_B;
   }
-
-  // Additional pattern for folding broadcast nodes in other orders.
-  def : Pat<(_.VT (vselect _.KRCWM:$mask,
-                   (OpNode _.RC:$src1, _.RC:$src2,
-                    (X86VBroadcast (_.ScalarLdFrag addr:$src3))),
-                   _.RC:$src1)),
-            (!cast<Instruction>(NAME#Suff#_.ZSuffix#mbk) _.RC:$src1,
-             _.KRCWM:$mask, _.RC:$src2, addr:$src3)>;
 }
 
 multiclass avx512_fma3_213_round<bits<8> opc, string OpcodeStr, SDNode OpNode,
@@ -6497,7 +6706,7 @@ multiclass avx512_fma3p_213_f<bits<8> opc, string OpcodeStr, SDNode OpNode,
                                       avx512vl_f64_info, "PD">, VEX_W;
 }
 
-defm VFMADD213    : avx512_fma3p_213_f<0xA8, "vfmadd213", fma, X86FmaddRnd>;
+defm VFMADD213    : avx512_fma3p_213_f<0xA8, "vfmadd213", X86Fmadd, X86FmaddRnd>;
 defm VFMSUB213    : avx512_fma3p_213_f<0xAA, "vfmsub213", X86Fmsub, X86FmsubRnd>;
 defm VFMADDSUB213 : avx512_fma3p_213_f<0xA6, "vfmaddsub213", X86Fmaddsub, X86FmaddsubRnd>;
 defm VFMSUBADD213 : avx512_fma3p_213_f<0xA7, "vfmsubadd213", X86Fmsubadd, X86FmsubaddRnd>;
@@ -6528,24 +6737,6 @@ multiclass avx512_fma3p_231_rm<bits<8> opc, string OpcodeStr, SDNode OpNode,
                       (_.VT (X86VBroadcast(_.ScalarLdFrag addr:$src3))),
                       _.RC:$src1)), 1, 0>, AVX512FMA3Base, EVEX_B;
   }
-
-  // Additional patterns for folding broadcast nodes in other orders.
-  def : Pat<(_.VT (OpNode (X86VBroadcast (_.ScalarLdFrag addr:$src3)),
-                   _.RC:$src2, _.RC:$src1)),
-            (!cast<Instruction>(NAME#Suff#_.ZSuffix#mb) _.RC:$src1,
-             _.RC:$src2, addr:$src3)>;
-  def : Pat<(_.VT (vselect _.KRCWM:$mask,
-                   (OpNode (X86VBroadcast (_.ScalarLdFrag addr:$src3)),
-                    _.RC:$src2, _.RC:$src1),
-                   _.RC:$src1)),
-            (!cast<Instruction>(NAME#Suff#_.ZSuffix#mbk) _.RC:$src1,
-             _.KRCWM:$mask, _.RC:$src2, addr:$src3)>;
-  def : Pat<(_.VT (vselect _.KRCWM:$mask,
-                   (OpNode (X86VBroadcast (_.ScalarLdFrag addr:$src3)),
-                    _.RC:$src2, _.RC:$src1),
-                   _.ImmAllZerosV)),
-            (!cast<Instruction>(NAME#Suff#_.ZSuffix#mbkz) _.RC:$src1,
-             _.KRCWM:$mask, _.RC:$src2, addr:$src3)>;
 }
 
 multiclass avx512_fma3_231_round<bits<8> opc, string OpcodeStr, SDNode OpNode,
@@ -6583,7 +6774,7 @@ multiclass avx512_fma3p_231_f<bits<8> opc, string OpcodeStr, SDNode OpNode,
                                       avx512vl_f64_info, "PD">, VEX_W;
 }
 
-defm VFMADD231    : avx512_fma3p_231_f<0xB8, "vfmadd231", fma, X86FmaddRnd>;
+defm VFMADD231    : avx512_fma3p_231_f<0xB8, "vfmadd231", X86Fmadd, X86FmaddRnd>;
 defm VFMSUB231    : avx512_fma3p_231_f<0xBA, "vfmsub231", X86Fmsub, X86FmsubRnd>;
 defm VFMADDSUB231 : avx512_fma3p_231_f<0xB6, "vfmaddsub231", X86Fmaddsub, X86FmaddsubRnd>;
 defm VFMSUBADD231 : avx512_fma3p_231_f<0xB7, "vfmsubadd231", X86Fmsubadd, X86FmsubaddRnd>;
@@ -6599,28 +6790,23 @@ multiclass avx512_fma3p_132_rm<bits<8> opc, string OpcodeStr, SDNode OpNode,
           (_.VT (OpNode _.RC:$src1, _.RC:$src3, _.RC:$src2)), 1, 1, vselect, 1>,
          AVX512FMA3Base;
 
+  // Pattern is 312 order so that the load is in a different place from the
+  // 213 and 231 patterns this helps tablegen's duplicate pattern detection.
   defm m: AVX512_maskable_3src<opc, MRMSrcMem, _, (outs _.RC:$dst),
           (ins _.RC:$src2, _.MemOp:$src3),
           OpcodeStr, "$src3, $src2", "$src2, $src3",
-          (_.VT (OpNode _.RC:$src1, (_.LdFrag addr:$src3), _.RC:$src2)), 1, 0>,
+          (_.VT (OpNode (_.LdFrag addr:$src3), _.RC:$src1, _.RC:$src2)), 1, 0>,
          AVX512FMA3Base;
 
+  // Pattern is 312 order so that the load is in a different place from the
+  // 213 and 231 patterns this helps tablegen's duplicate pattern detection.
   defm mb: AVX512_maskable_3src<opc, MRMSrcMem, _, (outs _.RC:$dst),
          (ins _.RC:$src2, _.ScalarMemOp:$src3),
          OpcodeStr, "${src3}"##_.BroadcastStr##", $src2",
          "$src2, ${src3}"##_.BroadcastStr,
-         (_.VT (OpNode _.RC:$src1,
-                      (_.VT (X86VBroadcast(_.ScalarLdFrag addr:$src3))),
-                      _.RC:$src2)), 1, 0>, AVX512FMA3Base, EVEX_B;
+         (_.VT (OpNode (_.VT (X86VBroadcast(_.ScalarLdFrag addr:$src3))),
+                       _.RC:$src1, _.RC:$src2)), 1, 0>, AVX512FMA3Base, EVEX_B;
   }
-
-  // Additional patterns for folding broadcast nodes in other orders.
-  def : Pat<(_.VT (vselect _.KRCWM:$mask,
-                   (OpNode (X86VBroadcast (_.ScalarLdFrag addr:$src3)),
-                    _.RC:$src1, _.RC:$src2),
-                   _.RC:$src1)),
-            (!cast<Instruction>(NAME#Suff#_.ZSuffix#mbk) _.RC:$src1,
-             _.KRCWM:$mask, _.RC:$src2, addr:$src3)>;
 }
 
 multiclass avx512_fma3_132_round<bits<8> opc, string OpcodeStr, SDNode OpNode,
@@ -6658,7 +6844,7 @@ multiclass avx512_fma3p_132_f<bits<8> opc, string OpcodeStr, SDNode OpNode,
                                       avx512vl_f64_info, "PD">, VEX_W;
 }
 
-defm VFMADD132    : avx512_fma3p_132_f<0x98, "vfmadd132", fma, X86FmaddRnd>;
+defm VFMADD132    : avx512_fma3p_132_f<0x98, "vfmadd132", X86Fmadd, X86FmaddRnd>;
 defm VFMSUB132    : avx512_fma3p_132_f<0x9A, "vfmsub132", X86Fmsub, X86FmsubRnd>;
 defm VFMADDSUB132 : avx512_fma3p_132_f<0x96, "vfmaddsub132", X86Fmaddsub, X86FmaddsubRnd>;
 defm VFMSUBADD132 : avx512_fma3p_132_f<0x97, "vfmsubadd132", X86Fmsubadd, X86FmsubaddRnd>;
@@ -6668,13 +6854,11 @@ defm VFNMSUB132   : avx512_fma3p_132_f<0x9E, "vfnmsub132", X86Fnmsub, X86FnmsubR
 // Scalar FMA
 multiclass avx512_fma3s_common<bits<8> opc, string OpcodeStr, X86VectorVTInfo _,
                                dag RHS_VEC_r, dag RHS_VEC_m, dag RHS_VEC_rb,
-                               dag RHS_r, dag RHS_m, bit MaskOnlyReg,
-                               bit MaskOnlyRegInt> {
+                               dag RHS_r, dag RHS_m, bit MaskOnlyReg> {
 let Constraints = "$src1 = $dst", hasSideEffects = 0 in {
   defm r_Int: AVX512_maskable_3src_scalar<opc, MRMSrcReg, _, (outs _.RC:$dst),
           (ins _.RC:$src2, _.RC:$src3), OpcodeStr,
-          "$src3, $src2", "$src2, $src3", RHS_VEC_r, 1, 1, MaskOnlyRegInt>,
-          AVX512FMA3Base;
+          "$src3, $src2", "$src2, $src3", RHS_VEC_r, 1, 1>, AVX512FMA3Base;
 
   defm m_Int: AVX512_maskable_3src_scalar<opc, MRMSrcMem, _, (outs _.RC:$dst),
           (ins _.RC:$src2, _.IntScalarMemOp:$src3), OpcodeStr,
@@ -6682,8 +6866,8 @@ let Constraints = "$src1 = $dst", hasSideEffects = 0 in {
 
   defm rb_Int: AVX512_maskable_3src_scalar<opc, MRMSrcReg, _, (outs _.RC:$dst),
          (ins _.RC:$src2, _.RC:$src3, AVX512RC:$rc),
-         OpcodeStr, "$rc, $src3, $src2", "$src2, $src3, $rc", RHS_VEC_rb, 1, 1,
-         MaskOnlyRegInt>, AVX512FMA3Base, EVEX_B, EVEX_RC;
+         OpcodeStr, "$rc, $src3, $src2", "$src2, $src3, $rc", RHS_VEC_rb, 1, 1>,
+         AVX512FMA3Base, EVEX_B, EVEX_RC;
 
   let isCodeGenOnly = 1, isCommutable = 1 in {
     def r     : AVX512FMA3<opc, MRMSrcReg, (outs _.FRC:$dst),
@@ -6716,7 +6900,7 @@ multiclass avx512_fma3s_all<bits<8> opc213, bits<8> opc231, bits<8> opc132,
                 (set _.FRC:$dst, (_.EltVT (OpNode _.FRC:$src2, _.FRC:$src1,
                          _.FRC:$src3))),
                 (set _.FRC:$dst, (_.EltVT (OpNode _.FRC:$src2, _.FRC:$src1,
-                         (_.ScalarLdFrag addr:$src3)))), 0, 0>;
+                         (_.ScalarLdFrag addr:$src3)))), 0>;
 
   defm NAME#231#SUFF#Z: avx512_fma3s_common<opc231, OpcodeStr#"231"#_.Suffix, _,
                 (_.VT (OpNodeRnds3 _.RC:$src2, _.RC:$src3, _.RC:$src1,
@@ -6728,19 +6912,17 @@ multiclass avx512_fma3s_all<bits<8> opc213, bits<8> opc231, bits<8> opc132,
                 (set _.FRC:$dst, (_.EltVT (OpNode _.FRC:$src2, _.FRC:$src3,
                                           _.FRC:$src1))),
                 (set _.FRC:$dst, (_.EltVT (OpNode _.FRC:$src2,
-                            (_.ScalarLdFrag addr:$src3), _.FRC:$src1))), 1, 0>;
+                            (_.ScalarLdFrag addr:$src3), _.FRC:$src1))), 1>;
 
   defm NAME#132#SUFF#Z: avx512_fma3s_common<opc132, OpcodeStr#"132"#_.Suffix, _,
-                (_.VT (OpNodeRnds1 _.RC:$src1, _.RC:$src3, _.RC:$src2,
-                                   (i32 FROUND_CURRENT))),
+                (null_frag),
                 (_.VT (OpNodeRnds1 _.RC:$src1, _.ScalarIntMemCPat:$src3,
                               _.RC:$src2, (i32 FROUND_CURRENT))),
-                (_.VT (OpNodeRnds1 _.RC:$src1, _.RC:$src3, _.RC:$src2,
-                         (i32 imm:$rc))),
+                (null_frag),
                 (set _.FRC:$dst, (_.EltVT (OpNode _.FRC:$src1, _.FRC:$src3,
                          _.FRC:$src2))),
                 (set _.FRC:$dst, (_.EltVT (OpNode _.FRC:$src1,
-                          (_.ScalarLdFrag addr:$src3), _.FRC:$src2))), 1, 1>;
+                          (_.ScalarLdFrag addr:$src3), _.FRC:$src2))), 1>;
   }
 }
 
@@ -6757,7 +6939,7 @@ multiclass avx512_fma3s<bits<8> opc213, bits<8> opc231, bits<8> opc132,
   }
 }
 
-defm VFMADD  : avx512_fma3s<0xA9, 0xB9, 0x99, "vfmadd", fma, X86FmaddRnds1,
+defm VFMADD  : avx512_fma3s<0xA9, 0xB9, 0x99, "vfmadd", X86Fmadd, X86FmaddRnds1,
                             X86FmaddRnds3>;
 defm VFMSUB  : avx512_fma3s<0xAB, 0xBB, 0x9B, "vfmsub", X86Fmsub, X86FmsubRnds1,
                             X86FmsubRnds3>;
