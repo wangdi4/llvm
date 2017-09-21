@@ -477,6 +477,7 @@ private:
 class MemoryAccess {
   friend class Scop;
   friend class ScopStmt;
+  friend class ScopBuilder;
 
 public:
   /// The access type of a memory access
@@ -1189,6 +1190,8 @@ using InvariantEquivClassesTy = SmallVector<InvariantEquivClassTy, 8>;
 /// accesses.
 /// At the moment every statement represents a single basic block of LLVM-IR.
 class ScopStmt {
+  friend class ScopBuilder;
+
 public:
   /// Create the ScopStmt from a BasicBlock.
   ScopStmt(Scop &parent, BasicBlock &bb, Loop *SurroundingLoop,
@@ -1210,9 +1213,6 @@ public:
   ScopStmt(const ScopStmt &) = delete;
   const ScopStmt &operator=(const ScopStmt &) = delete;
   ~ScopStmt();
-
-  /// Initialize members after all MemoryAccesses have been added.
-  void init(LoopInfo &LI);
 
 private:
   /// Polyhedral description
@@ -1308,24 +1308,6 @@ private:
 
   /// Vector for Instructions in this statement.
   std::vector<Instruction *> Instructions;
-
-  /// Build the statement.
-  //@{
-  void buildDomain();
-
-  /// Fill NestLoops with loops surrounding this statement.
-  void collectSurroundingLoops();
-
-  /// Build the access relation of all memory accesses.
-  void buildAccessRelations();
-
-  /// Detect and mark reductions in the ScopStmt
-  void checkForReductions();
-
-  /// Collect loads which might form a reduction chain with @p StoreMA
-  void collectCandiateReductionLoads(MemoryAccess *StoreMA,
-                                     SmallVectorImpl<MemoryAccess *> &Loads);
-  //@}
 
   /// Remove @p MA from dictionaries pointing to them.
   void removeAccessData(MemoryAccess *MA);
