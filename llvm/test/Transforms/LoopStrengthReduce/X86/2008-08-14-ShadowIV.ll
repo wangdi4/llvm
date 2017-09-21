@@ -106,12 +106,106 @@ bb:		; preds = %bb, %bb.nph
 	%tmp3 = uitofp i8 %i.03 to double		; <double>:1 [#uses=1]
 	tail call void @foo( double %tmp3 ) nounwind
 	%indvar.next = add nsw nuw i8 %i.03, 1		; <i32> [#uses=2]
-        %tmp = sext i8 %indvar.next to i32
+	%tmp = sext i8 %indvar.next to i32
 	%exitcond = icmp eq i32 %tmp, 32767		; <i1> [#uses=1]
 	br i1 %exitcond, label %return, label %bb
 
 return:		; preds = %bb, %entry
 	ret void
+}
+
+; Unable to eliminate cast because the integer IV overflows (accum exceeds
+; SINT_MAX).
+
+define i32 @foobar5() {
+; CHECK-LABEL:  foobar5(
+; CHECK-NOT:      phi double
+; CHECK-NOT:      phi float
+entry:
+  br label %loop
+
+loop:
+  %accum = phi i32 [ -3220, %entry ], [ %accum.next, %loop ]
+  %iv = phi i32 [ 12, %entry ], [ %iv.next, %loop ]
+  %tmp1 = sitofp i32 %accum to double
+  tail call void @foo( double %tmp1 ) nounwind
+  %accum.next = add i32 %accum, 9597741
+  %iv.next = add nuw nsw i32 %iv, 1
+  %exitcond = icmp ugt i32 %iv, 235
+  br i1 %exitcond, label %exit, label %loop
+
+exit:                                           ; preds = %loop
+  ret i32 %accum.next
+}
+
+; Can eliminate if we set nsw and, thus, think that we don't overflow SINT_MAX.
+
+define i32 @foobar6() {
+; CHECK-LABEL:  foobar6(
+; CHECK:          phi double
+
+entry:
+  br label %loop
+
+loop:
+  %accum = phi i32 [ -3220, %entry ], [ %accum.next, %loop ]
+  %iv = phi i32 [ 12, %entry ], [ %iv.next, %loop ]
+  %tmp1 = sitofp i32 %accum to double
+  tail call void @foo( double %tmp1 ) nounwind
+  %accum.next = add nsw i32 %accum, 9597741
+  %iv.next = add nuw nsw i32 %iv, 1
+  %exitcond = icmp ugt i32 %iv, 235
+  br i1 %exitcond, label %exit, label %loop
+
+exit:                                           ; preds = %loop
+  ret i32 %accum.next
+}
+
+; Unable to eliminate cast because the integer IV overflows (accum exceeds
+; UINT_MAX).
+
+define i32 @foobar7() {
+; CHECK-LABEL:  foobar7(
+; CHECK-NOT:      phi double
+; CHECK-NOT:      phi float
+entry:
+  br label %loop
+
+loop:
+  %accum = phi i32 [ -3220, %entry ], [ %accum.next, %loop ]
+  %iv = phi i32 [ 12, %entry ], [ %iv.next, %loop ]
+  %tmp1 = uitofp i32 %accum to double
+  tail call void @foo( double %tmp1 ) nounwind
+  %accum.next = add i32 %accum, 9597741
+  %iv.next = add nuw nsw i32 %iv, 1
+  %exitcond = icmp ugt i32 %iv, 235
+  br i1 %exitcond, label %exit, label %loop
+
+exit:                                           ; preds = %loop
+  ret i32 %accum.next
+}
+
+; Can eliminate if we set nuw and, thus, think that we don't overflow UINT_MAX.
+
+define i32 @foobar8() {
+; CHECK-LABEL:  foobar8(
+; CHECK:          phi double
+
+entry:
+  br label %loop
+
+loop:
+  %accum = phi i32 [ -3220, %entry ], [ %accum.next, %loop ]
+  %iv = phi i32 [ 12, %entry ], [ %iv.next, %loop ]
+  %tmp1 = uitofp i32 %accum to double
+  tail call void @foo( double %tmp1 ) nounwind
+  %accum.next = add nuw i32 %accum, 9597741
+  %iv.next = add nuw nsw i32 %iv, 1
+  %exitcond = icmp ugt i32 %iv, 235
+  br i1 %exitcond, label %exit, label %loop
+
+exit:                                           ; preds = %loop
+  ret i32 %accum.next
 }
 
 declare void @bar(i32)
