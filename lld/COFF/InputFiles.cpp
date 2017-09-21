@@ -65,6 +65,12 @@ void ArchiveFile::parse() {
   // Parse a MemoryBufferRef as an archive file.
   File = check(Archive::create(MB), toString(this));
 
+  // MSVC link.exe supports nested static libraries unlike Unix linkers.
+  // To support that, we'll add inner libraries to the symbol table.
+  for (MemoryBufferRef MB : getArchiveMembers(File.get()))
+    if (identify_magic(MB.getBuffer()) == file_magic::archive)
+      make<ArchiveFile>(MB)->parse();
+
   // Read the symbol table to construct Lazy objects.
   for (const Archive::Symbol &Sym : File->symbols())
     Symtab->addLazy(this, Sym);
@@ -81,6 +87,25 @@ void ArchiveFile::addMember(const Archive::Symbol *Sym) {
     return;
 
   Driver->enqueueArchiveMember(C, Sym->getName(), getName());
+}
+
+std::vector<MemoryBufferRef> getArchiveMembers(Archive *File) {
+  std::vector<MemoryBufferRef> V;
+  Error Err = Error::success();
+  for (const ErrorOr<Archive::Child> &COrErr : File->children(Err)) {
+    Archive::Child C =
+        check(COrErr,
+              File->getFileName() + ": could not get the child of the archive");
+    MemoryBufferRef MBRef =
+        check(C.getMemoryBufferRef(),
+              File->getFileName() +
+                  ": could not get the buffer for a child of the archive");
+    V.push_back(MBRef);
+  }
+  if (Err)
+    fatal(File->getFileName() +
+          ": Archive::children failed: " + toString(std::move(Err)));
+  return V;
 }
 
 void ObjFile::parse() {
