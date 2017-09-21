@@ -27,7 +27,12 @@ private:
     StringRef String;
     Data(uint32_t Value) : Int(Value) {}
     Data(const StringRef Value) : String(Value) {}
-    Data(const RCToken &Token);
+    Data(const RCToken &Token) {
+      if (Token.kind() == RCToken::Kind::Int)
+        Int = Token.intValue();
+      else
+        String = Token.value();
+    }
   } Data;
   bool IsInt;
 
@@ -90,6 +95,53 @@ public:
   raw_ostream &log(raw_ostream &) const override;
 };
 
+// ACCELERATORS resource. Defines a named table of accelerators for the app.
+//
+// Ref: msdn.microsoft.com/en-us/library/windows/desktop/aa380610(v=vs.85).aspx
+class AcceleratorsResource : public RCResource {
+public:
+  class Accelerator {
+  public:
+    IntOrString Event;
+    uint32_t Id;
+    uint8_t Flags;
+
+    enum Options {
+      ASCII = (1 << 0),
+      VIRTKEY = (1 << 1),
+      NOINVERT = (1 << 2),
+      ALT = (1 << 3),
+      SHIFT = (1 << 4),
+      CONTROL = (1 << 5)
+    };
+
+    static constexpr size_t NumFlags = 6;
+    static StringRef OptionsStr[NumFlags];
+  };
+
+  AcceleratorsResource(OptionalStmtList &&OptStmts)
+      : OptStatements(std::move(OptStmts)) {}
+  void addAccelerator(IntOrString Event, uint32_t Id, uint8_t Flags) {
+    Accelerators.push_back(Accelerator{Event, Id, Flags});
+  }
+  raw_ostream &log(raw_ostream &) const override;
+
+private:
+  std::vector<Accelerator> Accelerators;
+  OptionalStmtList OptStatements;
+};
+
+// CURSOR resource. Represents a single cursor (".cur") file.
+//
+// Ref: msdn.microsoft.com/en-us/library/windows/desktop/aa380920(v=vs.85).aspx
+class CursorResource : public RCResource {
+  StringRef CursorLoc;
+
+public:
+  CursorResource(StringRef Location) : CursorLoc(Location) {}
+  raw_ostream &log(raw_ostream &) const override;
+};
+
 // ICON resource. Represents a single ".ico" file containing a group of icons.
 //
 // Ref: msdn.microsoft.com/en-us/library/windows/desktop/aa381018(v=vs.85).aspx
@@ -98,6 +150,19 @@ class IconResource : public RCResource {
 
 public:
   IconResource(StringRef Location) : IconLoc(Location) {}
+  raw_ostream &log(raw_ostream &) const override;
+};
+
+// HTML resource. Represents a local webpage that is to be embedded into the
+// resulting resource file. It embeds a file only - no additional resources
+// (images etc.) are included with this resource.
+//
+// Ref: msdn.microsoft.com/en-us/library/windows/desktop/aa966018(v=vs.85).aspx
+class HTMLResource : public RCResource {
+  StringRef HTMLLoc;
+
+public:
+  HTMLResource(StringRef Location) : HTMLLoc(Location) {}
   raw_ostream &log(raw_ostream &) const override;
 };
 
