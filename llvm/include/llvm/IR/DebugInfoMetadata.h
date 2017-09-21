@@ -2638,7 +2638,7 @@ public:
   Metadata *getRawExpression() const { return getOperand(1); }
 
   DIExpression *getExpression() const {
-    return cast_or_null<DIExpression>(getRawExpression());
+    return cast<DIExpression>(getRawExpression());
   }
 
   static bool classof(const Metadata *MD) {
