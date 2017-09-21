@@ -254,7 +254,6 @@ void initializeMachineBranchProbabilityInfoPass(PassRegistry&);
 void initializeMachineCSEPass(PassRegistry&);
 void initializeMachineCombinerPass(PassRegistry&);
 void initializeMachineCopyPropagationPass(PassRegistry&);
-void initializeMachineCopyPropagationPreRegRewritePass(PassRegistry&);
 void initializeMachineDominanceFrontierPass(PassRegistry&);
 void initializeMachineDominatorTreePass(PassRegistry&);
 void initializeMachineFunctionPrinterPassPass(PassRegistry&);
