@@ -33,27 +33,14 @@ namespace clang {
       DIAG_SIZE_FRONTEND      =  100,
       DIAG_SIZE_SERIALIZATION =  120,
       DIAG_SIZE_LEX           =  400,
-      DIAG_SIZE_PARSE         =  500,
-      DIAG_SIZE_AST           =  110,
+      DIAG_SIZE_PARSE         =  600, // INTEL
+      DIAG_SIZE_AST           =  120, // INTEL
       DIAG_SIZE_COMMENT       =  100,
-      DIAG_SIZE_SEMA          = 3500,
+      DIAG_SIZE_SEMA          = 4000, // INTEL
       DIAG_SIZE_ANALYSIS      =  100
     };
     // Start position for diagnostics.
     enum {
-<<<<<<< HEAD
-      DIAG_START_COMMON        =                                 0,
-      DIAG_START_DRIVER        = DIAG_START_COMMON          +  300,
-      DIAG_START_FRONTEND      = DIAG_START_DRIVER          +  200,
-      DIAG_START_SERIALIZATION = DIAG_START_FRONTEND        +  100,
-      DIAG_START_LEX           = DIAG_START_SERIALIZATION   +  120,
-      DIAG_START_PARSE         = DIAG_START_LEX             +  400,
-      DIAG_START_AST           = DIAG_START_PARSE           +  600, // INTEL
-      DIAG_START_COMMENT       = DIAG_START_AST             +  120, // INTEL
-      DIAG_START_SEMA          = DIAG_START_COMMENT         +  100,
-      DIAG_START_ANALYSIS      = DIAG_START_SEMA            + 4000, // INTEL
-      DIAG_UPPER_LIMIT         = DIAG_START_ANALYSIS        +  100
-=======
       DIAG_START_COMMON        =                          0,
       DIAG_START_DRIVER        = DIAG_START_COMMON        + DIAG_SIZE_COMMON,
       DIAG_START_FRONTEND      = DIAG_START_DRIVER        + DIAG_SIZE_DRIVER,
@@ -65,7 +52,6 @@ namespace clang {
       DIAG_START_SEMA          = DIAG_START_COMMENT       + DIAG_SIZE_COMMENT,
       DIAG_START_ANALYSIS      = DIAG_START_SEMA          + DIAG_SIZE_SEMA,
       DIAG_UPPER_LIMIT         = DIAG_START_ANALYSIS      + DIAG_SIZE_ANALYSIS
->>>>>>> 661923d04a7ba850d5007d4d647a2174e0eea002
     };
 
     class CustomDiagInfo;
