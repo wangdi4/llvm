@@ -1,4 +1,4 @@
-; RUN: opt -O3 -inline-threshold=4096 -inline -lowerswitch -mergereturn -loop-simplify -phicanon -predicate -verify %s -S -o %t1.ll
+; RUN: opt -inline-threshold=4096 -inline -mem2reg -instcombine -loop-unswitch -simplifycfg -mergereturn -loop-simplify -phicanon -predicate -verify %s -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 
 ; ModuleID = 'multiple_exit_loop.cl'
