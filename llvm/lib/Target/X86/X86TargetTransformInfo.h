@@ -125,11 +125,15 @@ public:
   bool isLegalMaskedStore(Type *DataType);
   bool isLegalMaskedGather(Type *DataType);
   bool isLegalMaskedScatter(Type *DataType);
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   bool isAdvancedOptimEnabled() const;
   bool adjustCallArgs(CallInst* CI);
   bool isTargetSpecificShuffleMask(SmallVectorImpl<int> &Mask) const;
 #endif // INTEL_CUSTOMIZATION
+=======
+  bool hasDivRemOp(Type *DataType, bool IsSigned);
+>>>>>>> 193e898f75bb16c3aa0223598a3cd91822246464
   bool areInlineCompatible(const Function *Caller,
                            const Function *Callee) const;
   bool expandMemCmp(Instruction *I, unsigned &MaxLoadSize);
