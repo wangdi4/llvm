@@ -547,6 +547,7 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
   isFloat128 = false;
 #endif  // INTEL_CUSTOMIZATION
   isImaginary = false;
+  isFloat16 = false;
   isFloat128 = false;
   MicrosoftInteger = 0;
   hadError = false;
@@ -605,6 +606,13 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
       if (!isFPConstant) break;  // Error for integer constant.
       if (isHalf || isFloat || isLong || isFloat128)
         break; // HF, FF, LF, QF invalid.
+
+      if (s + 2 < ThisTokEnd && s[1] == '1' && s[2] == '6') {
+          s += 2; // success, eat up 2 characters.
+          isFloat16 = true;
+          continue;
+      }
+
       isFloat = true;
       continue;  // Success.
     case 'q':    // FP Suffix for "__float128"
@@ -722,6 +730,7 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
         isUnsigned = false;
         isLongLong = false;
         isFloat = false;
+        isFloat16 = false;
         isHalf = false;
         isImaginary = false;
         MicrosoftInteger = 0;
