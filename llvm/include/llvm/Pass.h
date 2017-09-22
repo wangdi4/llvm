@@ -228,15 +228,12 @@ public:
 ///
 class ModulePass : public Pass {
 public:
-<<<<<<< HEAD
-#if !INTEL_PRODUCT_RELEASE
-=======
   explicit ModulePass(char &pid) : Pass(PT_Module, pid) {}
 
   // Force out-of-line virtual method.
   ~ModulePass() override;
 
->>>>>>> 9797e4a2a0cef51a5cbd267c2b69b1072db4e96c
+#if !INTEL_PRODUCT_RELEASE
   /// createPrinterPass - Get a module printer pass.
   Pass *createPrinterPass(raw_ostream &OS,
                           const std::string &Banner) const override;

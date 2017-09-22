@@ -46,12 +46,8 @@ Pass::~Pass() {
 // Force out-of-line virtual method.
 ModulePass::~ModulePass() = default;
 
-<<<<<<< HEAD
 #if !INTEL_PRODUCT_RELEASE
-Pass *ModulePass::createPrinterPass(raw_ostream &O,
-=======
 Pass *ModulePass::createPrinterPass(raw_ostream &OS,
->>>>>>> 9797e4a2a0cef51a5cbd267c2b69b1072db4e96c
                                     const std::string &Banner) const {
   return createPrintModulePass(OS, Banner);
 }
@@ -153,12 +149,8 @@ void ImmutablePass::initializePass() {
 // FunctionPass Implementation
 //
 
-<<<<<<< HEAD
 #if !INTEL_PRODUCT_RELEASE
-Pass *FunctionPass::createPrinterPass(raw_ostream &O,
-=======
 Pass *FunctionPass::createPrinterPass(raw_ostream &OS,
->>>>>>> 9797e4a2a0cef51a5cbd267c2b69b1072db4e96c
                                       const std::string &Banner) const {
   return createPrintFunctionPass(OS, Banner);
 }
@@ -184,12 +176,8 @@ bool FunctionPass::skipFunction(const Function &F) const {
 // BasicBlockPass Implementation
 //
 
-<<<<<<< HEAD
 #if !INTEL_PRODUCT_RELEASE
-Pass *BasicBlockPass::createPrinterPass(raw_ostream &O,
-=======
 Pass *BasicBlockPass::createPrinterPass(raw_ostream &OS,
->>>>>>> 9797e4a2a0cef51a5cbd267c2b69b1072db4e96c
                                         const std::string &Banner) const {
   return createPrintBasicBlockPass(OS, Banner);
 }

@@ -67,7 +67,7 @@ void initializeIntel_LoopAnalysis(PassRegistry&);
 /// Intel_LoopTransforms library.
 void initializeIntel_LoopTransforms(PassRegistry&);
 
-// initializeIntel_VPOAnaylsis - Initialize all passes linked into the 
+// initializeIntel_VPOAnaylsis - Initialize all passes linked into the
 // Intel_VPOAnalysis library
 void initializeIntel_VPOAnalysis(PassRegistry&);
 
@@ -171,9 +171,9 @@ void initializeGlobalSplitPass(PassRegistry&);
 void initializeGlobalsAAWrapperPassPass(PassRegistry&);
 void initializeGuardWideningLegacyPassPass(PassRegistry&);
 void initializeIPCPPass(PassRegistry&);
+void initializeIPSCCPLegacyPassPass(PassRegistry&);
+void initializeIRTranslatorPass(PassRegistry&);
 void initializeIPCloningLegacyPassPass(PassRegistry&);             // INTEL
-void initializeIPSCCPLegacyPassPass(PassRegistry &);
-void initializeIRTranslatorPass(PassRegistry &);
 void initializeIVUsersWrapperPassPass(PassRegistry&);
 void initializeIfConverterPass(PassRegistry&);
 void initializeImplicitNullChecksPass(PassRegistry&);
@@ -399,7 +399,6 @@ void initializeWinEHPreparePass(PassRegistry&);
 void initializeWriteBitcodePassPass(PassRegistry&);
 void initializeWriteThinLTOBitcodePass(PassRegistry&);
 void initializeXRayInstrumentationPass(PassRegistry&);
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // Pass for alias analysis for STL templates
 void initializeStdContainerAAWrapperPassPass(PassRegistry &);
@@ -488,20 +487,8 @@ void initializeVPODriverHIRPass(PassRegistry&);
 void initializeVPODirectiveCleanupPass(PassRegistry&);
 void initializeVectorGraphInfoPass(PassRegistry&);
 void initializeVectorGraphPredicatorPass(PassRegistry&);
+void initializeWholeProgramWrapperPassPass(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION
-void initializeLoopDistributePass(PassRegistry&);
-void initializeSjLjEHPreparePass(PassRegistry&);
-void initializeDemandedBitsWrapperPassPass(PassRegistry&);
-void initializeFuncletLayoutPass(PassRegistry &);
-void initializeLoopLoadEliminationPass(PassRegistry&);
-void initializeFunctionImportPassPass(PassRegistry &);
-void initializeLoopVersioningPassPass(PassRegistry &);
-void initializeWholeProgramWrapperPassPass(PassRegistry&); // INTEL
-void initializeWholeProgramDevirtPass(PassRegistry &);
-void initializePatchableFunctionPass(PassRegistry &);
-}
-=======
->>>>>>> 9797e4a2a0cef51a5cbd267c2b69b1072db4e96c
 
 } // end namespace llvm
 
