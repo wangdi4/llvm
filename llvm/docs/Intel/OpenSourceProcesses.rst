@@ -76,8 +76,8 @@ run the ipscan tool as documented :ref:`here <ipscan>`. Also consider conducting
 an internal code review. We do not currently have specific internal code review
 requirements, so use your best judgment. It is prudent to at least conduct a
 design level review for all but the most trivial changes. If you do choose to
-conduct an internal code review, `Code Collaborator
-<https://ir-codecollab.intel.com/ui>`_ is the tool to use.
+conduct an internal code review,
+`gerrit <https://git-amr-2.devtools.intel.com/gerrit>`_ is the tool to use.
 
 External code reviews should follow the community Phabricator code review
 procedures documented :doc:`here <../Phabricator>`.
