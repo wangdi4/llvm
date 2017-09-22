@@ -69,22 +69,17 @@ bool Builtin::Context::builtinIsSupported(const Builtin::Info &BuiltinInfo,
   bool MSModeUnsupported =
       !LangOpts.MicrosoftExt && (BuiltinInfo.Langs & MS_LANG);
   bool ObjCUnsupported = !LangOpts.ObjC1 && BuiltinInfo.Langs == OBJC_LANG;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // CQ#370960 Allow ICC specific intrinsic.
   if (LangOpts.IntelCompat && (BuiltinInfo.Langs & ICC_LANG))
     return true;
 #endif // INTEL_CUSTOMIZATION
-  bool OclCUnsupported = LangOpts.OpenCLVersion != 200 &&
-                         BuiltinInfo.Langs == OCLC20_LANG;
-=======
   bool OclC1Unsupported = (LangOpts.OpenCLVersion / 100) != 1 &&
                           (BuiltinInfo.Langs & ALL_OCLC_LANGUAGES ) ==  OCLC1X_LANG;
   bool OclC2Unsupported = LangOpts.OpenCLVersion != 200 &&
                           (BuiltinInfo.Langs & ALL_OCLC_LANGUAGES) == OCLC20_LANG;
   bool OclCUnsupported = !LangOpts.OpenCL &&
                          (BuiltinInfo.Langs & ALL_OCLC_LANGUAGES);
->>>>>>> 9adfcaf8db6a2f0513d4cf03deba2d4f4ccbc931
   return !BuiltinsUnsupported && !MathBuiltinsUnsupported && !OclCUnsupported &&
          !OclC1Unsupported && !OclC2Unsupported &&
          !GnuModeUnsupported && !MSModeUnsupported && !ObjCUnsupported;
