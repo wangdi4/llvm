@@ -1,4 +1,4 @@
-//===- llvm/InitializePasses.h -------- Initialize All Passes ---*- C++ -*-===//
+//===- llvm/InitializePasses.h - Initialize All Passes ----------*- C++ -*-===//
 //
 //                      The LLVM Compiler Infrastructure
 //
@@ -399,6 +399,7 @@ void initializeWinEHPreparePass(PassRegistry&);
 void initializeWriteBitcodePassPass(PassRegistry&);
 void initializeWriteThinLTOBitcodePass(PassRegistry&);
 void initializeXRayInstrumentationPass(PassRegistry&);
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // Pass for alias analysis for STL templates
 void initializeStdContainerAAWrapperPassPass(PassRegistry &);
@@ -499,5 +500,9 @@ void initializeWholeProgramWrapperPassPass(PassRegistry&); // INTEL
 void initializeWholeProgramDevirtPass(PassRegistry &);
 void initializePatchableFunctionPass(PassRegistry &);
 }
+=======
+>>>>>>> 9797e4a2a0cef51a5cbd267c2b69b1072db4e96c
 
-#endif
+} // end namespace llvm
+
+#endif // LLVM_INITIALIZEPASSES_H
