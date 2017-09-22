@@ -350,16 +350,16 @@ public:
     UP.BEInsns = 2;
   }
 
-<<<<<<< HEAD
+#if INTEL_CUSTOMIZATION
   unsigned getLoopRotationDefaultThreshold(bool OptForSize) const { return 16; }
-=======
+#endif // INTEL_CUSTOMIZATION
+
   int getInstructionLatency(const Instruction *I) {
     if (isa<LoadInst>(I))
       return getST()->getSchedModel().DefaultLoadLatency;
 
     return BaseT::getInstructionLatency(I);
   }
->>>>>>> 19969b8b8fb27f1bbb7f9b60c2e915aca4de2ebe
 
   /// @}
 
