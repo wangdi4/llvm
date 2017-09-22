@@ -330,46 +330,6 @@ int32_t checkForExitOnError(int32_t error, const char* errorText) {
 }
 
 static
-std::string find_csa_clang() {
-
-  // If the user defined an envirionment variable to point to csa-clang,
-  // use it
-  const char *csa_clang_env = getenv(ENV_CLANG);
-  if (NULL != csa_clang_env) {
-    return csa_clang_env;
-  }
-
-  std::string csa_clang_path;
-
-  // Get the PATH environment variable and make a copy I can muck with.
-  const char *path = getenv("PATH");
-  char *myPath = strdup(path);
-  bool found_csa_clang = false;
-
-  // Scan PATH looking for a directory that contains an executable
-  // copy of csa-clang
-  for (const char *dir = strtok(myPath, ":"); dir; dir = strtok(NULL, ":")) {
-    csa_clang_path = dir;
-    csa_clang_path += "/csa-clang";
-    if (0 == access(csa_clang_path.c_str(), X_OK)) {
-      found_csa_clang = true;
-      break;
-    }
-  }
-
-  // Free the allocated memory before I forget.
-  free(myPath);
-
-  // If we found a copy of csa-clang we can execute return it. Otherwise
-  // return an empty string
-  if (found_csa_clang) {
-    return csa_clang_path;
-  } else {
-    return "";
-  }
-}
-
-static
 std::string find_gold_plugin() {
 
   // If the user defined an environment variable to point to the gold
@@ -796,7 +756,7 @@ bool build_csa_assembly(const char *tmp_name,
 
   // Find csa-clang. Do this before we create anything that might need
   // to be cleaned up
-  std::string csa_clang = find_csa_clang();
+  std::string csa_clang = "icx -target csa ";
   if (csa_clang.empty()) {
     fprintf(stderr, "Failed to find csa-clang.\n");
     return false;
