@@ -3454,6 +3454,7 @@ STATISTIC(InvalidatedRegions, "Number of regions invalidated by utility");
 STATISTIC(InvalidatedLoops, "Number of loops invalidated by utility");
 STATISTIC(LoopsRemoved, "Number of empty Loops removed by utility");
 STATISTIC(IfsRemoved, "Number of empty Ifs removed by utility");
+STATISTIC(SwitchesRemoved, "Number of empty Switches removed by utility");
 STATISTIC(RedundantLoops, "Number of redundant loops removed by utility");
 STATISTIC(RedundantPredicates,
           "Number of redundant predicates removed by utility");
@@ -3509,6 +3510,22 @@ public:
       IfsRemoved++;
       Changed = true;
     }
+  }
+
+  void postVisit(HLSwitch *Switch) {
+    if (Switch->getNumDefaultCaseChildren()) {
+      return;
+    }
+
+    for (unsigned I = 1, E = Switch->getNumCases(); I <= E; ++I) {
+      if (Switch->getNumCaseChildren(I)) {
+        return;
+      }
+    }
+
+    HLNodeUtils::remove(Switch);
+    SwitchesRemoved++;
+    Changed = true;
   }
 
   void visit(HLNode *) {}
@@ -3672,15 +3689,15 @@ public:
 
     // Collect all gotos pointing to Node which are either a direct siblings to
     // the target label or a last node in their parent containers.
-    std::for_each(
-        GotosToRemove.begin(), GotosToRemove.end(),
-        [Node, &FoundGotos](HLGoto *Goto) {
-          if (Goto->getTargetLabel() == Node &&
-              (Goto->getNextNode() == Node ||
-               HLNodeUtils::getLastLexicalChild(Goto->getParent()) == Goto)) {
-            FoundGotos.push_back(Goto);
-          }
-        });
+    std::for_each(GotosToRemove.begin(), GotosToRemove.end(),
+                  [Node, &FoundGotos](HLGoto *Goto) {
+                    if (Goto->getTargetLabel() == Node &&
+                        (Goto->getNextNode() == Node ||
+                         HLNodeUtils::getLastLexicalChild(Goto->getParent(),
+                                                          Goto) == Goto)) {
+                      FoundGotos.push_back(Goto);
+                    }
+                  });
 
     for (HLGoto *Goto : FoundGotos) {
       RedundantInstructions++;
@@ -3815,7 +3832,9 @@ public:
     } else {
       // Clear gotos as we are not able to remove any of them because there's a
       // node between gotos and a label.
-      GotosToRemove.clear();
+      if (IsJoinNode) {
+        GotosToRemove.clear();
+      }
 
       // Unable to remove node means this is not a join point now.
       IsJoinNode = false;
