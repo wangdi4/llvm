@@ -6717,38 +6717,33 @@ ScalarEvolution::getBackedgeTakenInfo(const Loop *L) {
 void ScalarEvolution::forgetLoop(const Loop *L) {
   // Drop any stored trip count value.
   auto RemoveLoopFromBackedgeMap =
-      [L](DenseMap<const Loop *, BackedgeTakenInfo> &Map) {
+      [](DenseMap<const Loop *, BackedgeTakenInfo> &Map, const Loop *L) {
         auto BTCPos = Map.find(L);
         if (BTCPos != Map.end()) {
           BTCPos->second.clear();
           Map.erase(BTCPos);
         }
       };
+<<<<<<< HEAD
   
   RemoveLoopFromBackedgeMap(BackedgeTakenCounts);
   RemoveLoopFromBackedgeMap(HIRBackedgeTakenCounts); // INTEL
   RemoveLoopFromBackedgeMap(PredicatedBackedgeTakenCounts);
+=======
 
-  // Drop information about predicated SCEV rewrites for this loop.
-  for (auto I = PredicatedSCEVRewrites.begin();
-       I != PredicatedSCEVRewrites.end();) {
-    std::pair<const SCEV *, const Loop *> Entry = I->first;
-    if (Entry.second == L)
-      PredicatedSCEVRewrites.erase(I++);
-    else
-      ++I;
-  }
+  SmallVector<const Loop *, 16> LoopWorklist(1, L);
+  SmallVector<Instruction *, 32> Worklist;
+  SmallPtrSet<Instruction *, 16> Visited;
+>>>>>>> 022ffdf29f1d855a9d170f9a9eef6fe5968c55df
 
-  // Drop information about expressions based on loop-header PHIs.
-  SmallVector<Instruction *, 16> Worklist;
-  PushLoopPHIs(L, Worklist);
+  // Iterate over all the loops and sub-loops to drop SCEV information.
+  while (!LoopWorklist.empty()) {
+    auto *CurrL = LoopWorklist.pop_back_val();
 
-  SmallPtrSet<Instruction *, 8> Visited;
-  while (!Worklist.empty()) {
-    Instruction *I = Worklist.pop_back_val();
-    if (!Visited.insert(I).second)
-      continue;
+    RemoveLoopFromBackedgeMap(BackedgeTakenCounts, CurrL);
+    RemoveLoopFromBackedgeMap(PredicatedBackedgeTakenCounts, CurrL);
 
+<<<<<<< HEAD
     ValueExprMapType::iterator It =
       ValueExprMap.find_as(static_cast<Value *>(I));
 #if INTEL_CUSTOMIZATION // HIR parsing 
@@ -6762,23 +6757,49 @@ void ScalarEvolution::forgetLoop(const Loop *L) {
       forgetMemoizedResults(It->second);
       if (PHINode *PN = dyn_cast<PHINode>(I))
         ConstantEvolutionLoopExitValue.erase(PN);
+=======
+    // Drop information about predicated SCEV rewrites for this loop.
+    for (auto I = PredicatedSCEVRewrites.begin();
+         I != PredicatedSCEVRewrites.end();) {
+      std::pair<const SCEV *, const Loop *> Entry = I->first;
+      if (Entry.second == CurrL)
+        PredicatedSCEVRewrites.erase(I++);
+      else
+        ++I;
+>>>>>>> 022ffdf29f1d855a9d170f9a9eef6fe5968c55df
     }
 
-    PushDefUseChildren(I, Worklist);
+    // Drop information about expressions based on loop-header PHIs.
+    PushLoopPHIs(CurrL, Worklist);
+
+    while (!Worklist.empty()) {
+      Instruction *I = Worklist.pop_back_val();
+      if (!Visited.insert(I).second)
+        continue;
+
+      ValueExprMapType::iterator It =
+          ValueExprMap.find_as(static_cast<Value *>(I));
+      if (It != ValueExprMap.end()) {
+        eraseValueFromMap(It->first);
+        forgetMemoizedResults(It->second);
+        if (PHINode *PN = dyn_cast<PHINode>(I))
+          ConstantEvolutionLoopExitValue.erase(PN);
+      }
+
+      PushDefUseChildren(I, Worklist);
+    }
+
+    for (auto I = ExitLimits.begin(); I != ExitLimits.end(); ++I) {
+      auto &Query = I->first;
+      if (Query.L == CurrL)
+        ExitLimits.erase(I);
+    }
+
+    LoopPropertiesCache.erase(CurrL);
+    // Forget all contained loops too, to avoid dangling entries in the
+    // ValuesAtScopes map.
+    LoopWorklist.append(CurrL->begin(), CurrL->end());
   }
-
-  for (auto I = ExitLimits.begin(); I != ExitLimits.end(); ++I) {
-    auto &Query = I->first;
-    if (Query.L == L)
-      ExitLimits.erase(I);
-  }
-
-  // Forget all contained loops too, to avoid dangling entries in the
-  // ValuesAtScopes map.
-  for (Loop *I : *L)
-    forgetLoop(I);
-
-  LoopPropertiesCache.erase(L);
 }
 
 void ScalarEvolution::forgetValue(Value *V) {
