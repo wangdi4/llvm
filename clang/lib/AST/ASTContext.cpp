@@ -6038,11 +6038,7 @@ static char getObjCEncodingForPrimitiveKind(const ASTContext *C,
     case BuiltinType::Float128:   return 'Q';
 #endif  // INTEL_CUSTOMIZATION
 
-<<<<<<< HEAD
-=======
     case BuiltinType::Float16:
-    case BuiltinType::Float128:
->>>>>>> 87063256b97d572c2a6d108d509af2de5034fba3
     case BuiltinType::Half:
       // FIXME: potentially need @encodes for these!
       return ' ';
