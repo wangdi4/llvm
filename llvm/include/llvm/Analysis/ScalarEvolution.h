@@ -504,6 +504,37 @@ public:
   /// return true. For pointer types, this is the pointer-sized integer type.
   Type *getEffectiveSCEVType(Type *Ty) const;
 
+#if INTEL_CUSTOMIZATION // HIR parsing
+  /// Lists types of HIR metadata.
+  enum HIRLiveKind {
+    LiveIn,
+    LiveOut,
+    LiveRange
+  };
+
+  /// Returns MDKind ID associated with this HIR metadata type.
+  unsigned getHIRMDKindID(HIRLiveKind Kind);
+
+  /// Returns MDNode associated with this instruction for the particular HIR
+  /// metadata type.
+  MDNode *getHIRMetadata(const Instruction *Inst, HIRLiveKind Kind);
+
+  /// Return a SCEV expression suitable for HIR consumption. Specified loop
+  /// is assumed to be the outermost loop of the loopnest. A null outermost
+  /// loop specifies disabling all AddRecs.
+  const SCEV *getSCEVForHIR(Value *Val, const Loop *OutermostLoop);
+
+  /// Returns a SCEVAtScope expression suitable for HIR consumption.
+  const SCEV *getSCEVAtScopeForHIR(const SCEV *SC, const Loop *Lp,
+                                   const Loop *OutermostLoop);
+
+  /// Clears HIR relates SCEV caches.
+  void clearHIRCache() {
+    HIRValueExprMap.clear();
+    HIRBackedgeTakenCounts.clear();
+  }
+
+#endif  // INTEL_CUSTOMIZATION
   // Returns a wider type among {Ty1, Ty2}.
   Type *getWiderType(Type *Ty1, Type *Ty2) const;
 
@@ -594,64 +625,8 @@ public:
   /// Return a SCEV for the constant 0 of a specific type.
   const SCEV *getZero(Type *Ty) { return getConstant(Ty, 0); }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION // HIR parsing 
-  /// The typedef for HIRValueExprMap.
-  ///
-  typedef DenseMap<Value *, const SCEV *> HIRValueExprMapType;
-
-  /// This is a cache of HIR values we have analyzed so far. It is built
-  /// on top of ValueExprMap and needs to stay in sync with it.
-  HIRValueExprMapType HIRValueExprMap;
-
-  /// Structure to contain all HIR related info.
-  struct HIRInfoS {
-  private:
-    // Indicates whether we are parsing for HIR.
-    bool IsValid;
-    // Sets the outermost loop in HIR's context. Used to suppress AddRecs 
-    // belonging to parents of this loop.
-    const Loop *OutermostLoop;
-
-    // Used to differentiate between constructed and copy constructed objects.
-    HIRInfoS *Initializer;
-
-  public:
-    HIRInfoS() : Initializer(nullptr) { reset(); } 
-
-    // Copy construction is a hack to disable HIR mode temporarily.
-    HIRInfoS(HIRInfoS&);
-    // Destructor restores the initializer, if it exists.
-    ~HIRInfoS(); 
-
-    bool isValid() const { return IsValid; }
-    const Loop *getOutermostLoop() const { return OutermostLoop; }
-
-    void set(const Loop *OutermostLoop) {
-      IsValid = true;
-      this->OutermostLoop = OutermostLoop;
-    }
-
-    void reset() {
-      IsValid = false;
-      OutermostLoop = nullptr;
-    }
-  };
-
-  HIRInfoS HIRInfo;
-
-  // MDKind ID for HIR metadata.
-  unsigned HIRLiveInID = 0;
-  unsigned HIRLiveOutID = 0;
-  unsigned HIRLiveRangeID = 0;
-#endif  // INTEL_CUSTOMIZATION
-
-  /// Mark predicate values currently being processed by isImpliedCond.
-  SmallPtrSet<Value *, 6> PendingLoopPredicates;
-=======
   /// Return a SCEV for the constant 1 of a specific type.
   const SCEV *getOne(Type *Ty) { return getConstant(Ty, 1); }
->>>>>>> 2ff7d65548772f818dc85a9c3a545876f95cbb00
 
   /// Return an expression for sizeof AllocTy that is type IntTy
   const SCEV *getSizeOfExpr(Type *IntTy, Type *AllocTy);
@@ -754,6 +729,14 @@ public:
   /// prematurely via another branch.
   unsigned getSmallConstantTripCount(const Loop *L, BasicBlock *ExitingBlock);
 
+#if INTEL_CUSTOMIZATION // HIR parsing
+  /// Returns a backedge taken count suitable for HIR consumption.
+  const SCEV *getBackedgeTakenCountForHIR(const Loop *Lp, 
+                                          const Loop *OutermostLoop);
+
+  /// Returns true if ZttInst represents the ztt of the loop. 
+  bool isLoopZtt(const Loop *Lp, const BranchInst *ZttInst, bool Inverse);
+#endif  // INTEL_CUSTOMIZATION
   /// Returns the upper bound of the loop trip count as a normal unsigned
   /// value.
   /// Returns 0 if the trip count is unknown or not constant.
@@ -844,22 +827,10 @@ public:
     return getRangeRef(S, HINT_RANGE_UNSIGNED);
   }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION // HIR parsing 
-  /// This is a cache of HIR backedge taken counts. It is built on top of
-  /// BackedgeTakenCounts and needs to stay in sync with it.
-  DenseMap<const Loop*, BackedgeTakenInfo> HIRBackedgeTakenCounts;
-#endif  // INTEL_CUSTOMIZATION
-
-  /// Cache the predicated backedge-taken count of the loops for this
-  /// function as they are computed.
-  DenseMap<const Loop *, BackedgeTakenInfo> PredicatedBackedgeTakenCounts;
-=======
   /// Determine the min of the unsigned range for a particular SCEV.
   APInt getUnsignedRangeMin(const SCEV *S) {
     return getRangeRef(S, HINT_RANGE_UNSIGNED).getUnsignedMin();
   }
->>>>>>> 2ff7d65548772f818dc85a9c3a545876f95cbb00
 
   /// Determine the max of the unsigned range for a particular SCEV.
   APInt getUnsignedRangeMax(const SCEV *S) {
@@ -1159,6 +1130,57 @@ private:
   /// This is a cache of the values we have analyzed so far.
   ValueExprMapType ValueExprMap;
 
+#if INTEL_CUSTOMIZATION // HIR parsing 
+  /// The typedef for HIRValueExprMap.
+  ///
+  typedef DenseMap<Value *, const SCEV *> HIRValueExprMapType;
+
+  /// This is a cache of HIR values we have analyzed so far. It is built
+  /// on top of ValueExprMap and needs to stay in sync with it.
+  HIRValueExprMapType HIRValueExprMap;
+
+  /// Structure to contain all HIR related info.
+  struct HIRInfoS {
+  private:
+    // Indicates whether we are parsing for HIR.
+    bool IsValid;
+    // Sets the outermost loop in HIR's context. Used to suppress AddRecs 
+    // belonging to parents of this loop.
+    const Loop *OutermostLoop;
+
+    // Used to differentiate between constructed and copy constructed objects.
+    HIRInfoS *Initializer;
+
+  public:
+    HIRInfoS() : Initializer(nullptr) { reset(); } 
+
+    // Copy construction is a hack to disable HIR mode temporarily.
+    HIRInfoS(HIRInfoS&);
+    // Destructor restores the initializer, if it exists.
+    ~HIRInfoS(); 
+
+    bool isValid() const { return IsValid; }
+    const Loop *getOutermostLoop() const { return OutermostLoop; }
+
+    void set(const Loop *OutermostLoop) {
+      IsValid = true;
+      this->OutermostLoop = OutermostLoop;
+    }
+
+    void reset() {
+      IsValid = false;
+      OutermostLoop = nullptr;
+    }
+  };
+
+  HIRInfoS HIRInfo;
+
+  // MDKind ID for HIR metadata.
+  unsigned HIRLiveInID = 0;
+  unsigned HIRLiveOutID = 0;
+  unsigned HIRLiveRangeID = 0;
+#endif  // INTEL_CUSTOMIZATION
+
   /// Mark predicate values currently being processed by isImpliedCond.
   SmallPtrSet<Value *, 6> PendingLoopPredicates;
 
@@ -1173,8 +1195,10 @@ private:
   /// Memoized values for the GetMinTrailingZeros
   DenseMap<const SCEV *, uint32_t> MinTrailingZerosCache;
 
+public: // INTEL
   /// Return the Value set from which the SCEV expr is generated.
   SetVector<ValueOffsetPair> *getSCEVValues(const SCEV *S);
+private: // INTEL
 
   /// Private helper method for the GetMinTrailingZeros method
   uint32_t GetMinTrailingZerosImpl(const SCEV *S);
@@ -1209,22 +1233,7 @@ private:
     ExitLimit(const SCEV *E, const SCEV *M, bool MaxOrZero,
               const SmallPtrSetImpl<const SCEVPredicate *> &PredSet);
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION // HIR parsing 
-  /// Returns true if specified SCEV is suitable for HIR consumption. 
-  bool isValidSCEVForHIR(const SCEV *SC) const;
-
-  /// Constructs the original SCEV corresponding to this HIR SCEV by 
-  /// re-parsing contained SCEVUnknowns.
-  const SCEV *getOriginalSCEV(const SCEV *SC);
-#endif  // INTEL_CUSTOMIZATION
-
-  /// Try to match the Expr as "(L + R)<Flags>".
-  bool splitBinaryAdd(const SCEV *Expr, const SCEV *&L, const SCEV *&R,
-                      SCEV::NoWrapFlags &Flags);
-=======
     ExitLimit(const SCEV *E, const SCEV *M, bool MaxOrZero);
->>>>>>> 2ff7d65548772f818dc85a9c3a545876f95cbb00
 
     /// Test whether this ExitLimit contains any computed information, or
     /// whether it's all SCEVCouldNotCompute values.
@@ -1347,46 +1356,15 @@ private:
     void clear();
   };
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION // HIR parsing
-  /// Lists types of HIR metadata.
-  enum HIRLiveKind {
-    LiveIn,
-    LiveOut,
-    LiveRange
-  };
-
-  /// Returns MDKind ID associated with this HIR metadata type.
-  unsigned getHIRMDKindID(HIRLiveKind Kind);
-
-  /// Returns MDNode associated with this instruction for the particular HIR
-  /// metadata type.
-  MDNode *getHIRMetadata(const Instruction *Inst, HIRLiveKind Kind);
-
-  /// Return a SCEV expression suitable for HIR consumption. Specified loop
-  /// is assumed to be the outermost loop of the loopnest. A null outermost
-  /// loop specifies disabling all AddRecs.
-  const SCEV *getSCEVForHIR(Value *Val, const Loop *OutermostLoop);
-
-  /// Returns a SCEVAtScope expression suitable for HIR consumption.
-  const SCEV *getSCEVAtScopeForHIR(const SCEV *SC, const Loop *Lp,
-                                   const Loop *OutermostLoop);
-
-  /// Clears HIR relates SCEV caches.
-  void clearHIRCache() {
-    HIRValueExprMap.clear();
-    HIRBackedgeTakenCounts.clear();
-  }
-
-#endif  // INTEL_CUSTOMIZATION
-
-  // Returns a wider type among {Ty1, Ty2}.
-  Type *getWiderType(Type *Ty1, Type *Ty2) const;
-=======
   /// Cache the backedge-taken count of the loops for this function as they
   /// are computed.
   DenseMap<const Loop *, BackedgeTakenInfo> BackedgeTakenCounts;
->>>>>>> 2ff7d65548772f818dc85a9c3a545876f95cbb00
+
+#if INTEL_CUSTOMIZATION // HIR parsing 
+  /// This is a cache of HIR backedge taken counts. It is built on top of
+  /// BackedgeTakenCounts and needs to stay in sync with it.
+  DenseMap<const Loop*, BackedgeTakenInfo> HIRBackedgeTakenCounts;
+#endif  // INTEL_CUSTOMIZATION
 
   /// Cache the predicated backedge-taken count of the loops for this
   /// function as they are computed.
@@ -1515,25 +1493,9 @@ private:
   /// Provide the special handling we need to analyze GEP SCEVs.
   const SCEV *createNodeForGEP(GEPOperator *GEP);
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION // HIR parsing
-  /// Returns a backedge taken count suitable for HIR consumption.
-  const SCEV *getBackedgeTakenCountForHIR(const Loop *Lp, 
-                                          const Loop *OutermostLoop);
-
-  /// Returns true if ZttInst represents the ztt of the loop. 
-  bool isLoopZtt(const Loop *Lp, const BranchInst *ZttInst, bool Inverse);
-#endif  // INTEL_CUSTOMIZATION
-
-  /// Returns the upper bound of the loop trip count as a normal unsigned
-  /// value.
-  /// Returns 0 if the trip count is unknown or not constant.
-  unsigned getSmallConstantMaxTripCount(const Loop *L);
-=======
   /// Implementation code for getSCEVAtScope; called at most once for each
   /// SCEV+Loop pair.
   const SCEV *computeSCEVAtScope(const SCEV *S, const Loop *L);
->>>>>>> 2ff7d65548772f818dc85a9c3a545876f95cbb00
 
   /// This looks up computed SCEV values for all instructions that depend on
   /// the given instruction and removes them from the ValueExprMap map if they
@@ -1790,6 +1752,15 @@ private:
   /// prove them individually.
   bool isKnownPredicateViaSplitting(ICmpInst::Predicate Pred, const SCEV *LHS,
                                     const SCEV *RHS);
+
+#if INTEL_CUSTOMIZATION // HIR parsing 
+  /// Returns true if specified SCEV is suitable for HIR consumption. 
+  bool isValidSCEVForHIR(const SCEV *SC) const;
+
+  /// Constructs the original SCEV corresponding to this HIR SCEV by 
+  /// re-parsing contained SCEVUnknowns.
+  const SCEV *getOriginalSCEV(const SCEV *SC);
+#endif  // INTEL_CUSTOMIZATION
 
   /// Try to match the Expr as "(L + R)<Flags>".
   bool splitBinaryAdd(const SCEV *Expr, const SCEV *&L, const SCEV *&R,
