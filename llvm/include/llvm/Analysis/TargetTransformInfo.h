@@ -23,21 +23,28 @@
 #define LLVM_ANALYSIS_TARGETTRANSFORMINFO_H
 
 #include "llvm/ADT/Optional.h"
-#include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
+#include "llvm/Support/AtomicOrdering.h"
 #include "llvm/Support/DataTypes.h"
 #include <functional>
 
 namespace llvm {
 
+namespace Intrinsic {
+enum ID : unsigned;
+}
+
 class Function;
 class GlobalValue;
+class IntrinsicInst;
+class LoadInst;
 class Loop;
-class ScalarEvolution;
 class SCEV;
+class ScalarEvolution;
+class StoreInst;
+class SwitchInst;
 class Type;
 class User;
 class Value;
@@ -725,6 +732,8 @@ public:
   ///  ((v0+v2), (v1+v3), undef, undef)
   int getArithmeticReductionCost(unsigned Opcode, Type *Ty,
                                  bool IsPairwiseForm) const;
+  int getMinMaxReductionCost(Type *Ty, Type *CondTy, bool IsPairwiseForm,
+                             bool IsUnsigned) const;
 
   /// \returns The cost of Intrinsic instructions. Analyses the real arguments.
   /// Three cases are handled: 1. scalar instruction 2. vector instruction
@@ -991,6 +1000,8 @@ public:
                                          unsigned AddressSpace) = 0;
   virtual int getArithmeticReductionCost(unsigned Opcode, Type *Ty,
                                          bool IsPairwiseForm) = 0;
+  virtual int getMinMaxReductionCost(Type *Ty, Type *CondTy,
+                                     bool IsPairwiseForm, bool IsUnsigned) = 0;
   virtual int getIntrinsicInstrCost(Intrinsic::ID ID, Type *RetTy,
                       ArrayRef<Type *> Tys, FastMathFlags FMF,
                       unsigned ScalarizationCostPassed) = 0;
@@ -1302,6 +1313,10 @@ public:
                                  bool IsPairwiseForm) override {
     return Impl.getArithmeticReductionCost(Opcode, Ty, IsPairwiseForm);
   }
+  int getMinMaxReductionCost(Type *Ty, Type *CondTy,
+                             bool IsPairwiseForm, bool IsUnsigned) override {
+    return Impl.getMinMaxReductionCost(Ty, CondTy, IsPairwiseForm, IsUnsigned);
+   }
   int getIntrinsicInstrCost(Intrinsic::ID ID, Type *RetTy, ArrayRef<Type *> Tys,
                FastMathFlags FMF, unsigned ScalarizationCostPassed) override {
     return Impl.getIntrinsicInstrCost(ID, RetTy, Tys, FMF,
