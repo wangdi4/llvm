@@ -1899,7 +1899,11 @@ void MicrosoftCXXNameMangler::mangleType(const BuiltinType *T, Qualifiers,
     Out << "$$T";
     break;
 
+<<<<<<< HEAD
   case BuiltinType::Float16:
+=======
+  case BuiltinType::Float128:
+>>>>>>> 185b81b1f8cd4522708f8f90128320fd4985896c
   case BuiltinType::Half: {
     DiagnosticsEngine &Diags = Context.getDiags();
     unsigned DiagID = Diags.getCustomDiagID(
