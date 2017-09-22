@@ -49,8 +49,11 @@ followed.
 
 When a developer is ready to commit a change, the `xmain checkin request form
 <mailto:icl.xmain.gatekeeper@intel.com?
-subject=xmain%20checkin%20request%20(Description%2001/01/2016)&
-body=1.%20Describe%20the%20new%20features%20or%20changes.%20Include%20tracker%23
+subject=xmain%20checkin%20request%20(Description%2001/01/2017)&
+body=If%20you%20are%20planning%20to%20submit%20your%20changes%20via%20gerrit,
+%20you%20may%20link%20to%20the%20gerrit%20review%20here%20and%20only%20answer
+%20questions%202%20and%206.%0D%0A%0D%0A%0D%0A%0D%0A
+1.%20Describe%20the%20new%20features%20or%20changes.%20Include%20Jira%23
 %20where%20applicable.%0D%0A%0D%0A%0D%0A%0D%0A
 2.%20Please%20explain%20why%20this%20change%20set%20should%20not%20be%20
 upstreamed%20to%20LLVM%20open%20source.%0D%0A%0D%0A%0D%0A%0D%0A
@@ -64,16 +67,16 @@ checkin%20request,%20please%20list%20the%20code%20reviewers.%0D%0A%0D%0A%0D%0A
 source%20tree%20have%20corresponding%20changes%20that%20provide%20unit%20
 testing%20coverage%3F%20Are%20any%20of%20the%20newly%20added%20unit%20tests%20
 currently%20failing%3F%0D%0A%0D%0A%0D%0A%0D%0A
-6.%20What%20stability%20testing%20was%20done%20(list%20the%20exact%20command
+6.%20What%20testing%20was%20done%20(list%20the%20exact%20command
 %20used%20to%20run%20alloy)%3F%20Please%20explain%20anything%20in%20the%20
 fail.log%20or%20problem.log%20files,%20and%20why%20the%20checkin%20should%20
 be%20allowed%20with%20these%20failures.%20For%20every%20new%20or%20flaky%20
-failure%20in%20fail.log,%20a%20CQ%20must%20be%20filed%20if%20one%20does%20not
-%20already%20exist,%20and%20the%20CQ%20number%20provided.%20Was%20any%20
+failure%20in%20fail.log,%20a%20JR%20must%20be%20filed%20if%20one%20does%20not
+%20already%20exist,%20and%20the%20JR%20number%20provided.%20Was%20any%20
 testing%20done%20in%20addition%20to%20alloy%3F%0D%0A%0D%0A%0D%0A%0D%0A
 Please%20attach%20the%20following%20files%20from%20your%20alloy%20run,%20if%20
 applicable%3A%20status.log,%20fail.log,%20problem.log,%20and%20
-zperf%5Frt%5Frpt.log.%0D%0Axmain%20checkin%20questionnaire%20version%202>`_
+zperf%5Frt%5Frpt.log.%0D%0Axmain%20checkin%20questionnaire%20version%203>`_
 should be filled out and mailed to the ICL Xmain Gatekeeper.
 
 .. _xmain-markups:
