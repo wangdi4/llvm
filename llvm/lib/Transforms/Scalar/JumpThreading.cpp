@@ -2108,21 +2108,16 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
   SmallVector<BasicBlock*, 16> RegionBlocks;
   bool ThreadingLoopHeader = false;
 
-<<<<<<< HEAD
-  if (!collectThreadRegionBlocks(RegionInfo, RegionBlocks))
-=======
-  // If threading this would thread across a loop header, don't thread the edge.
+  // If threading this would thread into a loop header don't thread the edge.
   // See the comments above FindLoopHeaders for justifications and caveats.
-  if (LoopHeaders.count(BB) || LoopHeaders.count(SuccBB)) {
-    DEBUG({
-      bool BBIsHeader = LoopHeaders.count(BB);
-      bool SuccIsHeader = LoopHeaders.count(SuccBB);
-      dbgs() << "  Not threading across "
-          << (BBIsHeader ? "loop header BB '" : "block BB '") << BB->getName()
-          << "' to dest " << (SuccIsHeader ? "loop header BB '" : "block BB '")
-          << SuccBB->getName() << "' - it might create an irreducible loop!\n";
-    });
->>>>>>> 9ca441aa442dd8c33b7a580447ede231b8f02ea7
+  if (LoopHeaders.count(SuccBB) && !JumpThreadLoopHeader) {
+    DEBUG(dbgs() << "  Not threading to dest loop header BB '"
+                 << SuccBB->getName()
+                 << "' - it might create an irreducible loop!\n");
+    return false;
+  }
+
+  if (!collectThreadRegionBlocks(RegionInfo, RegionBlocks))
     return false;
 
   for (auto BB : RegionBlocks) {
