@@ -9275,9 +9275,11 @@ static void checkEnumComparison(Sema &S, SourceLocation Loc, Expr *LHS,
     return;
 
   // Ignore anonymous enums.
-  if (!LHSEnumType->getDecl()->getIdentifier())
+  if (!LHSEnumType->getDecl()->getIdentifier() &&
+      !LHSEnumType->getDecl()->getTypedefNameForAnonDecl())
     return;
-  if (!RHSEnumType->getDecl()->getIdentifier())
+  if (!RHSEnumType->getDecl()->getIdentifier() &&
+      !RHSEnumType->getDecl()->getTypedefNameForAnonDecl())
     return;
 
   if (S.Context.hasSameUnqualifiedType(LHSStrippedType, RHSStrippedType))
