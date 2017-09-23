@@ -370,3 +370,71 @@ def IntelInline : Attr {
   }];
   let Documentation = [Undocumented];
 }
+
+def OpenCLChannelDepth : Attr {
+  let Spellings = [GNU<"depth">];
+  let Args = [UnsignedArgument<"Depth">];
+  let Subjects = SubjectList<[Var]>;
+// FIXME: Add documentation
+  let Documentation = [Undocumented];
+  let LangOpts = [OpenCL];
+}
+
+def OpenCLChannelIO : Attr {
+  let Spellings = [GNU<"io">];
+  let Args = [StringArgument<"IOName">];
+  let Subjects = SubjectList<[Var]>;
+// FIXME: Add documentation
+  let Documentation = [Undocumented];
+  let LangOpts = [OpenCL];
+}
+
+def OpenCLLocalMemSize : Attr {
+  let Spellings = [GNU<"local_mem_size">];
+  let Args = [UnsignedArgument<"LocalMemSize">];
+  let Subjects = SubjectList<[ParmVar], ErrorDiag>;
+// FIXME: Add documentation
+  let Documentation = [Undocumented];
+  let LangOpts = [OpenCL];
+}
+
+def OpenCLBufferLocation : Attr {
+  let Spellings = [GNU<"buffer_location">];
+  let Args = [StringArgument<"BufferLocation">];
+  let Subjects = SubjectList<[ParmVar], ErrorDiag>;
+// FIXME: Add documentation
+  let Documentation = [Undocumented];
+  let LangOpts = [OpenCL];
+}
+
+def MaxWorkGroupSize : InheritableAttr {
+  let Spellings = [GNU<"max_work_group_size">];
+  let Args = [UnsignedArgument<"XDim">, UnsignedArgument<"YDim">,
+              UnsignedArgument<"ZDim">];
+  let Subjects = SubjectList<[Function]>;
+// FIXME: Add documentation
+  let Documentation = [Undocumented];
+}
+
+def Task : InheritableAttr {
+  let Spellings = [GNU<"task">];
+  let Subjects = SubjectList<[Function]>;
+// FIXME: Add documentation
+  let Documentation = [Undocumented];
+}
+
+def NumComputeUnits : InheritableAttr {
+  let Spellings = [GNU<"num_compute_units">];
+  let Args = [UnsignedArgument<"NumComputeUnits">];
+  let Subjects = SubjectList<[Function]>;
+// FIXME: Add documentation
+  let Documentation = [Undocumented];
+}
+
+def NumSimdWorkItems : InheritableAttr {
+  let Spellings = [GNU<"num_simd_work_items">];
+  let Args = [UnsignedArgument<"NumSimdWorkItems">];
+  let Subjects = SubjectList<[Function]>;
+// FIXME: Add documentation
+  let Documentation = [Undocumented];
+}

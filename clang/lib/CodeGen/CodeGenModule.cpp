@@ -49,6 +49,9 @@
 #include "clang/CodeGen/ConstantInitBuilder.h"
 #include "clang/Frontend/CodeGenOptions.h"
 #include "clang/Sema/SemaDiagnostic.h"
+#if INTEL_CUSTOMIZATION
+#include "llvm/ADT/SmallVector.h"
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/ADT/Triple.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/CallSite.h"
@@ -2560,6 +2563,7 @@ CodeGenModule::GetOrCreateLLVMGlobal(StringRef MangledName,
         D->getType().isConstant(Context) &&
         isExternallyVisible(D->getLinkageAndVisibility().getLinkage()))
       GV->setSection(".cp.rodata");
+<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
     if (getLangOpts().OpenCL) {
@@ -2624,6 +2628,8 @@ CodeGenModule::GetOrCreateLLVMGlobal(StringRef MangledName,
         }
       }
     }
+=======
+>>>>>>> 3c0f0b9e58f36315c879e93e2441451a0c21cdd1
   }
 
   auto ExpectedAS =
@@ -2856,6 +2862,61 @@ void CodeGenModule::maybeSetTrivialComdat(const Decl &D,
     return;
   GO.setComdat(TheModule.getOrInsertComdat(GO.getName()));
 }
+
+#if INTEL_CUSTOMIZATION
+static void maybeEmitGlobalChannelMetadata(const VarDecl *D,
+                                           llvm::GlobalVariable *GV,
+                                           CodeGenModule &CGM) {
+  auto *ChanTy = dyn_cast<ChannelType>(D->getType());
+
+  if (!ChanTy)
+    return;
+
+  llvm::Type *Int32Ty = llvm::IntegerType::getInt32Ty(CGM.getLLVMContext());
+
+  llvm::Metadata *ChannelDepthMD = nullptr;
+
+  if (D->hasAttr<OpenCLChannelDepthAttr>()) {
+    OpenCLChannelDepthAttr *DepthAttr = D->getAttr<OpenCLChannelDepthAttr>();
+    llvm::Metadata *ChannelDepthMDOps[] = {
+        llvm::MDString::get(CGM.getLLVMContext(), "depth"),
+        llvm::ConstantAsMetadata::get(
+            llvm::ConstantInt::get(Int32Ty, DepthAttr->getDepth(), false))};
+
+    ChannelDepthMD = llvm::MDNode::get(CGM.getLLVMContext(), ChannelDepthMDOps);
+  }
+
+  auto *PacketSize = llvm::ConstantInt::get(
+      Int32Ty, CGM.getContext().getTypeSize(ChanTy->getElementType()) / 8,
+      false);
+  llvm::Metadata *PacketSizeMDOps[] = {
+      llvm::MDString::get(CGM.getLLVMContext(), "packet_size"),
+      llvm::ConstantAsMetadata::get(PacketSize)};
+  llvm::Metadata *PacketSizeMD =
+      llvm::MDNode::get(CGM.getLLVMContext(), PacketSizeMDOps);
+
+  auto *PacketAlign = llvm::ConstantInt::get(
+      Int32Ty, CGM.getContext().getTypeAlign(ChanTy->getElementType()) / 8,
+      false);
+  llvm::Metadata *PacketAlignMDOps[] = {
+      llvm::MDString::get(CGM.getLLVMContext(), "packet_align"),
+      llvm::ConstantAsMetadata::get(PacketAlign)};
+  llvm::Metadata *PacketAlignMD =
+      llvm::MDNode::get(CGM.getLLVMContext(), PacketAlignMDOps);
+
+  llvm::SmallVector<llvm::Metadata *, 4> Ops;
+  Ops.push_back(llvm::ConstantAsMetadata::get(GV));
+  Ops.push_back(PacketSizeMD);
+  Ops.push_back(PacketAlignMD);
+  if (ChannelDepthMD)
+    Ops.push_back(ChannelDepthMD);
+
+  CGM.getModule()
+      .getOrInsertNamedMetadata("opencl.channels")
+      ->addOperand(llvm::MDNode::get(CGM.getLLVMContext(),
+                                     ArrayRef<llvm::Metadata *>(Ops)));
+}
+#endif // INTEL_CUSTOMIZATION
 
 /// Pass IsTentative as true if you want to create a tentative definition.
 void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D,
@@ -3125,6 +3186,10 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D,
   if (CGDebugInfo *DI = getModuleDebugInfo())
     if (getCodeGenOpts().getDebugInfo() >= codegenoptions::LimitedDebugInfo)
       DI->EmitGlobalVariable(GV, D);
+
+#if INTEL_CUSTOMIZATION
+  maybeEmitGlobalChannelMetadata(D, GV, *this);
+#endif // INTEL_CUSTOMIZATION
 }
 
 static bool isVarDeclStrongDefinition(const ASTContext &Context,
