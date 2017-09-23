@@ -2563,30 +2563,7 @@ CodeGenModule::GetOrCreateLLVMGlobal(StringRef MangledName,
         D->getType().isConstant(Context) &&
         isExternallyVisible(D->getLinkageAndVisibility().getLinkage()))
       GV->setSection(".cp.rodata");
-<<<<<<< HEAD
 
-#if INTEL_CUSTOMIZATION
-    if (getLangOpts().OpenCL) {
-      if (auto *ChanTy = dyn_cast<ChannelType>(D->getType())) {
-        llvm::Type *Int32Ty = llvm::IntegerType::getInt32Ty(getLLVMContext());
-
-        auto *PacketSize = llvm::ConstantInt::get(
-            Int32Ty, getContext().getTypeSize(ChanTy->getElementType()) / 8,
-            false);
-
-        auto *PacketAlign = llvm::ConstantInt::get(
-            Int32Ty, getContext().getTypeAlign(ChanTy->getElementType()) / 8,
-            false);
-
-        llvm::Metadata *Ops[] = {llvm::ConstantAsMetadata::get(GV),
-                                 llvm::ConstantAsMetadata::get(PacketSize),
-                                 llvm::ConstantAsMetadata::get(PacketAlign)};
-
-        TheModule.getOrInsertNamedMetadata("opencl.channels")
-            ->addOperand(llvm::MDNode::get(getLLVMContext(), Ops));
-      }
-    }
-#endif // INTEL_CUSTOMIZATION
     // Check if we a have a const declaration with an initializer, we may be
     // able to emit it as available_externally to expose it's value to the
     // optimizer.
@@ -2628,8 +2605,6 @@ CodeGenModule::GetOrCreateLLVMGlobal(StringRef MangledName,
         }
       }
     }
-=======
->>>>>>> 3c0f0b9e58f36315c879e93e2441451a0c21cdd1
   }
 
   auto ExpectedAS =
