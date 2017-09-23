@@ -1,5 +1,9 @@
+<<<<<<< HEAD
 ;;***INTEL
 ; RUN: %llc_dwarf %s -filetype=obj -debug-emit-dwarf-attr-count -o - | llvm-dwarfdump -debug-dump=info - | FileCheck %s
+=======
+; RUN: %llc_dwarf %s -filetype=obj -o - | llvm-dwarfdump -debug-info - | FileCheck %s
+>>>>>>> 8e66c2eabb59ca9e06bca6d2244c8145c133b812
 ; Generated from:
 ;
 ; struct A {
