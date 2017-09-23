@@ -335,9 +335,10 @@ void test_inner_template() {
   HeapArray<int> Array1;
   HeapArray<int> Array2(100);
   HeapArray<int> Array3(100, 0);
+  HeapArray<int> Array4(100, 0, nullptr);
 
   Array1 = static_cast<HeapArray<int> &&>(Array2);
-  HeapArray<int> Array4(static_cast<HeapArray<int> &&>(Array3));
+  HeapArray<int> Array5(static_cast<HeapArray<int> &&>(Array3));
 
   int *NonOwningPtr = Array1.data();           // Ok
   gsl::owner<int *> OwningPtr = Array1.data(); // Bad, since it does not return the owner

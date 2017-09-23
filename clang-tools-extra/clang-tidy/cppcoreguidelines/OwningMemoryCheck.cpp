@@ -58,18 +58,19 @@ void OwningMemoryCheck::registerMatchers(MatchFinder *Finder) {
               .bind("owner_initialization")),
       this);
 
+  const auto HasConstructorInitializerForOwner =
+      has(cxxConstructorDecl(forEachConstructorInitializer(
+          cxxCtorInitializer(allOf(isMemberInitializer(), forField(IsOwnerType),
+                                   withInitializer(
+                                       // Avoid templatesdeclaration with
+                                       // excluding parenListExpr.
+                                       allOf(unless(ConsideredOwner),
+                                             unless(parenListExpr())))))
+              .bind("owner_member_initializer"))));
+
   // Match class member initialization that expects owners, but does not get
   // them.
-  Finder->addMatcher(
-      cxxRecordDecl(has(cxxConstructorDecl(forEachConstructorInitializer(
-          cxxCtorInitializer(
-              allOf(
-                  isMemberInitializer(), forField(IsOwnerType),
-                  withInitializer(
-                      // Avoid templatesdeclaration with excluding parenListExpr.
-                      allOf(unless(ConsideredOwner), unless(parenListExpr())))))
-              .bind("owner_member_initializer"))))),
-      this);
+  Finder->addMatcher(cxxRecordDecl(HasConstructorInitializerForOwner), this);
 
   // Matching on assignment operations where the RHS is a newly created owner,
   // but the LHS is not an owner.
