@@ -131,7 +131,7 @@ bool link(ArrayRef<const char *> ArgsArr, raw_ostream &Diag) {
     Add("-entry:" + StringRef(A->getValue()));
   if (auto *A = Args.getLastArg(OPT_subs))
     Add("-subsystem:" + StringRef(A->getValue()));
-  if (auto *A = Args.getLastArg(OPT_outlib))
+  if (auto *A = Args.getLastArg(OPT_out_implib))
     Add("-implib:" + StringRef(A->getValue()));
   if (auto *A = Args.getLastArg(OPT_stack))
     Add("-stack:" + StringRef(A->getValue()));
@@ -159,6 +159,9 @@ bool link(ArrayRef<const char *> ArgsArr, raw_ostream &Diag) {
     else
       error("unknown parameter: -m" + S);
   }
+
+  for (auto *A : Args.filtered(OPT_mllvm))
+    Add("-mllvm:" + StringRef(A->getValue()));
 
   if (Args.getLastArgValue(OPT_m) == "i386pe")
     Add("-alternatename:__image_base__=___ImageBase");
