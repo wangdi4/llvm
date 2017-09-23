@@ -897,7 +897,7 @@ void ASTContext::mergeDefinitionIntoModule(NamedDecl *ND, Module *M,
   if (getLangOpts().ModulesLocalVisibility)
     MergedDefModules[ND].push_back(M);
   else
-    ND->setHidden(false);
+    ND->setVisibleDespiteOwningModule();
 }
 
 void ASTContext::deduplicateMergedDefinitonsFor(NamedDecl *ND) {
@@ -1967,10 +1967,18 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
   }
   break;
 
-  case Type::Pipe: {
-    TypeInfo Info = getTypeInfo(cast<PipeType>(T)->getElementType());
+#if INTEL_CUSTOMIZATION
+  case Type::Channel: {
+    TypeInfo Info = getTypeInfo(cast<ChannelType>(T)->getElementType());
     Width = Info.Width;
     Align = Info.Align;
+    break;
+  }
+#endif // INTEL_CUSTOMIZATION
+
+  case Type::Pipe: {
+    Width = Target->getPointerWidth(getTargetAddressSpace(LangAS::opencl_global));
+    Align = Target->getPointerAlign(getTargetAddressSpace(LangAS::opencl_global));
   }
 
   }
@@ -2807,6 +2815,9 @@ QualType ASTContext::getVariableArrayDecayedType(QualType type) const {
   case Type::FunctionProto:
   case Type::BlockPointer:
   case Type::MemberPointer:
+#if INTEL_CUSTOMIZATION
+  case Type::Channel:
+#endif // INTEL_CUSTOMIZATION
   case Type::Pipe:
     return type;
 
@@ -3417,6 +3428,34 @@ QualType ASTContext::getWritePipeType(QualType T) const {
   return getPipeType(T, false);
 }
 
+#if INTEL_CUSTOMIZATION
+/// Return channel type for the specified type.
+QualType ASTContext::getChannelType(QualType T) const {
+  llvm::FoldingSetNodeID ID;
+  ChannelType::Profile(ID, T);
+
+  void *InsertPos = 0;
+  if (ChannelType *PT = ChannelTypes.FindNodeOrInsertPos(ID, InsertPos))
+    return QualType(PT, 0);
+
+  // If the channel element type isn't canonical, this won't be a canonical type
+  // either, so fill in the canonical type field.
+  QualType Canonical;
+  if (!T.isCanonical()) {
+    Canonical = getChannelType(getCanonicalType(T));
+
+    // Get the new insert position for the node we care about.
+    ChannelType *NewIP = ChannelTypes.FindNodeOrInsertPos(ID, InsertPos);
+    assert(!NewIP && "Shouldn't be in the map!");
+    (void)NewIP;
+  }
+  ChannelType *New = new (*this, TypeAlignment) ChannelType(T, Canonical);
+  Types.push_back(New);
+  ChannelTypes.InsertNode(New, InsertPos);
+  return QualType(New, 0);
+}
+#endif // INTEL_CUSTOMIZATION
+
 #ifndef NDEBUG
 static bool NeedsInjectedClassNameType(const RecordDecl *D) {
   if (!isa<CXXRecordDecl>(D)) return false;
@@ -3595,7 +3634,7 @@ QualType ASTContext::getSubstTemplateTypeParmPackType(
     = new (*this, TypeAlignment) SubstTemplateTypeParmPackType(Parm, Canon,
                                                                ArgPack);
   Types.push_back(SubstParm);
-  SubstTemplateTypeParmTypes.InsertNode(SubstParm, InsertPos);
+  SubstTemplateTypeParmPackTypes.InsertNode(SubstParm, InsertPos);
   return QualType(SubstParm, 0);  
 }
 
@@ -4567,6 +4606,12 @@ QualType ASTContext::getTagDeclType(const TagDecl *Decl) const {
 /// needs to agree with the definition in <stddef.h>.
 CanQualType ASTContext::getSizeType() const {
   return getFromTargetType(Target->getSizeType());
+}
+
+/// Return the unique signed counterpart of the integer type 
+/// corresponding to size_t.
+CanQualType ASTContext::getSignedSizeType() const {
+  return getFromTargetType(Target->getSignedSizeType());
 }
 
 /// getIntMaxType - Return the unique type for "intmax_t" (C99 7.18.1.5).
@@ -6047,9 +6092,19 @@ static void EncodeBitField(const ASTContext *Ctx, std::string& S,
   // compatibility with GCC, although providing it breaks anything that
   // actually uses runtime introspection and wants to work on both runtimes...
   if (Ctx->getLangOpts().ObjCRuntime.isGNUFamily()) {
-    const RecordDecl *RD = FD->getParent();
-    const ASTRecordLayout &RL = Ctx->getASTRecordLayout(RD);
-    S += llvm::utostr(RL.getFieldOffset(FD->getFieldIndex()));
+    uint64_t Offset;
+
+    if (const auto *IVD = dyn_cast<ObjCIvarDecl>(FD)) {
+      Offset = Ctx->lookupFieldBitOffset(IVD->getContainingInterface(), nullptr,
+                                         IVD);
+    } else {
+      const RecordDecl *RD = FD->getParent();
+      const ASTRecordLayout &RL = Ctx->getASTRecordLayout(RD);
+      Offset = RL.getFieldOffset(FD->getFieldIndex());
+    }
+
+    S += llvm::utostr(Offset);
+
     if (const EnumType *ET = T->getAs<EnumType>())
       S += ObjCEncodingForEnumType(Ctx, ET);
     else {
@@ -6296,6 +6351,8 @@ void ASTContext::getObjCEncodingForTypeImpl(QualType T, std::string& S,
       S += "{objc_class=}";
       return;
     }
+    // TODO: Double check to make sure this intentially falls through.
+    LLVM_FALLTHROUGH;
   }
   
   case Type::ObjCInterface: {
@@ -6420,6 +6477,9 @@ void ASTContext::getObjCEncodingForTypeImpl(QualType T, std::string& S,
   case Type::DeducedTemplateSpecialization:
     return;
 
+#if INTEL_CUSTOMIZATION
+  case Type::Channel:
+#endif // INTEL_CUSTOMIZATION
   case Type::Pipe:
 #define ABSTRACT_TYPE(KIND, BASE)
 #define TYPE(KIND, BASE)
@@ -8013,6 +8073,8 @@ QualType ASTContext::mergeFunctionTypes(QualType lhs, QualType rhs,
 
   if (lbaseInfo.getProducesResult() != rbaseInfo.getProducesResult())
     return QualType();
+  if (lbaseInfo.getNoCallerSavedRegs() != rbaseInfo.getNoCallerSavedRegs())
+    return QualType();
 
   // FIXME: some uses, e.g. conditional exprs, really want this to be 'both'.
   bool NoReturn = lbaseInfo.getNoReturn() || rbaseInfo.getNoReturn();
@@ -8419,6 +8481,26 @@ QualType ASTContext::mergeTypes(QualType LHS, QualType RHS,
 
     return QualType();
   }
+#if INTEL_CUSTOMIZATION
+  case Type::Channel:
+  {
+    // Merge two pointer types, while trying to preserve typedef info
+    QualType LHSValue = LHS->getAs<ChannelType>()->getElementType();
+    QualType RHSValue = RHS->getAs<ChannelType>()->getElementType();
+    if (Unqualified) {
+      LHSValue = LHSValue.getUnqualifiedType();
+      RHSValue = RHSValue.getUnqualifiedType();
+    }
+    QualType ResultType = mergeTypes(LHSValue, RHSValue, false,
+                                     Unqualified);
+    if (ResultType.isNull()) return QualType();
+    if (getCanonicalType(LHSValue) == getCanonicalType(ResultType))
+      return LHS;
+    if (getCanonicalType(RHSValue) == getCanonicalType(ResultType))
+      return RHS;
+    return getChannelType(ResultType);
+  }
+#endif // INTEL_CUSTOMIZATION
   case Type::Pipe:
   {
     assert(LHS != RHS &&
@@ -8606,6 +8688,9 @@ static QualType DecodeTypeFromStr(const char *&Str, const ASTContext &Context,
   
   // Read the prefixed modifiers first.
   bool Done = false;
+  #ifndef NDEBUG
+  bool IsSpecialLong = false;
+  #endif
   while (!Done) {
     switch (*Str++) {
     default: Done = true; --Str; break;
@@ -8623,12 +8708,28 @@ static QualType DecodeTypeFromStr(const char *&Str, const ASTContext &Context,
       Unsigned = true;
       break;
     case 'L':
+      assert(!IsSpecialLong && "Can't use 'L' with 'W' or 'N' modifiers");
       assert(HowLong <= 2 && "Can't have LLLL modifier");
       ++HowLong;
       break;
+    case 'N': {
+      // 'N' behaves like 'L' for all non LP64 targets and 'int' otherwise.
+      assert(!IsSpecialLong && "Can't use two 'N' or 'W' modifiers!");
+      assert(HowLong == 0 && "Can't use both 'L' and 'N' modifiers!");
+      #ifndef NDEBUG
+      IsSpecialLong = true;
+      #endif
+      if (Context.getTargetInfo().getLongWidth() == 32)
+        ++HowLong;
+      break;
+    }
     case 'W':
       // This modifier represents int64 type.
+      assert(!IsSpecialLong && "Can't use two 'N' or 'W' modifiers!");
       assert(HowLong == 0 && "Can't use both 'L' and 'W' modifiers!");
+      #ifndef NDEBUG
+      IsSpecialLong = true;
+      #endif
       switch (Context.getTargetInfo().getInt64Type()) {
       default:
         llvm_unreachable("Unexpected integer type");
@@ -8639,6 +8740,7 @@ static QualType DecodeTypeFromStr(const char *&Str, const ASTContext &Context,
         HowLong = 2;
         break;
       }
+      break;
     }
   }
 
@@ -8830,8 +8932,8 @@ static QualType DecodeTypeFromStr(const char *&Str, const ASTContext &Context,
       char *End;
       unsigned AddrSpace = strtoul(Str, &End, 10);
       if (End != Str && AddrSpace != 0) {
-        Type = Context.getAddrSpaceQualType(Type, AddrSpace +
-            LangAS::Count);
+        Type = Context.getAddrSpaceQualType(
+            Type, AddrSpace + LangAS::FirstTargetAddressSpace);
         Str = End;
       }
       if (c == '*')
@@ -9672,13 +9774,8 @@ uint64_t ASTContext::getTargetNullPointerValue(QualType QT) const {
 }
 
 unsigned ASTContext::getTargetAddressSpace(unsigned AS) const {
-  // For OpenCL, only function local variables are not explicitly marked with
-  // an address space in the AST, and these need to be the address space of
-  // alloca.
-  if (!AS && LangOpts.OpenCL)
-    return getTargetInfo().getDataLayout().getAllocaAddrSpace();
-  if (AS >= LangAS::Count)
-    return AS - LangAS::Count;
+  if (AS >= LangAS::FirstTargetAddressSpace)
+    return AS - LangAS::FirstTargetAddressSpace;
   else
     return (*AddrSpaceMap)[AS];
 }

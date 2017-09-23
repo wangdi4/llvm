@@ -1115,7 +1115,7 @@ void CapturedStmt::setCapturedRegionKind(CapturedRegionKind Kind) {
 
 bool CapturedStmt::capturesVariable(const VarDecl *Var) const {
   for (const auto &I : captures()) {
-    if (!I.capturesVariable())
+    if (!I.capturesVariable() && !I.capturesVariableByCopy())
       continue;
 
     // This does not handle variable redeclarations. This should be

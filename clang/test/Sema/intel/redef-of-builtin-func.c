@@ -7,9 +7,11 @@
 int __builtin_exp = 1;
 // expected-error@-1{{redefinition of '__builtin_exp' as different kind of symbol}}
 // expected-note@-2{{previous definition is here}}
+// expected-note@-3{{unguarded header; consider using #ifdef guards or #pragma once}}
 int __builtin_index = 1;
 // expected-error@-1{{redefinition of '__builtin_index' as different kind of symbol}}
 // expected-note@-2{{previous definition is here}}
+// expected-note@-3{{unguarded header; consider using #ifdef guards or #pragma once}}
 
 #elif OK
 

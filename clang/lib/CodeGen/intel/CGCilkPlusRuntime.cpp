@@ -109,8 +109,8 @@ public:
     StructType *Ty = StructType::create(C, "__cilkrts_pedigree");
     cache[&C] = Ty;
     Ty->setBody(TypeBuilder<uint64_t, X>::get(C),             // rank
-                TypeBuilder<__cilkrts_pedigree *, X>::get(C), // next
-                NULL);
+                TypeBuilder<__cilkrts_pedigree *, X>::get(C) // next
+                );
     return Ty;
   }
   enum { rank, next };
@@ -141,8 +141,8 @@ public:
         TypeBuilder<void **, X>::get(
             C), // saved_protected_tail (__cilkrts_stack_frame**)
         TypeBuilder<void *, X>::get(C),             // sysdep
-        TypeBuilder<__cilkrts_pedigree, X>::get(C), // pedigree
-        NULL);
+        TypeBuilder<__cilkrts_pedigree, X>::get(C) // pedigree
+        );
     return Ty;
   }
   enum {
@@ -183,8 +183,8 @@ public:
         TypeBuilder<uint32_t, false>::get(C),              // mxcsr
         TypeBuilder<uint16_t, false>::get(C),              // fpcsr
         TypeBuilder<uint16_t, false>::get(C),              // reserved
-        TypeBuilder<__cilkrts_pedigree, false>::get(C),    // parent_pedigree
-        NULL);
+        TypeBuilder<__cilkrts_pedigree, false>::get(C)     // parent_pedigree
+        );
     return Ty;
   }
   enum {

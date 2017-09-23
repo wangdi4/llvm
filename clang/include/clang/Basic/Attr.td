@@ -149,6 +149,9 @@ class ExprArgument<string name, bit opt = 0> : Argument<name, opt>;
 class FunctionArgument<string name, bit opt = 0, bit fake = 0> : Argument<name,
                                                                           opt,
                                                                           fake>;
+class NamedArgument<string name, bit opt = 0, bit fake = 0> : Argument<name,
+                                                                          opt,
+                                                                          fake>;
 class TypeArgument<string name, bit opt = 0> : Argument<name, opt>;
 class UnsignedArgument<string name, bit opt = 0> : Argument<name, opt>;
 class VariadicUnsignedArgument<string name> : Argument<name, 1>;
@@ -511,7 +514,7 @@ def AddressSpace : TypeAttr {
 def Alias : Attr {
   let Spellings = [GCC<"alias">];
   let Args = [StringArgument<"Aliasee">];
-  let Subjects = SubjectList<[Function, GlobalVar], WarnDiag, //***INTEL
+  let Subjects = SubjectList<[Function, GlobalVar], WarnDiag,  //***INTEL
                              "ExpectedFunctionOrGlobalVar">;
   let Documentation = [Undocumented];
 }
@@ -663,6 +666,30 @@ def Availability : InheritableAttr {
              .Case("tvos_app_extension", "tvOS (App Extension)")
              .Case("watchos_app_extension", "watchOS (App Extension)")
              .Default(llvm::StringRef());
+}
+static llvm::StringRef getPlatformNameSourceSpelling(llvm::StringRef Platform) {
+    return llvm::StringSwitch<llvm::StringRef>(Platform)
+             .Case("ios", "iOS")
+             .Case("macos", "macOS")
+             .Case("tvos", "tvOS")
+             .Case("watchos", "watchOS")
+             .Case("ios_app_extension", "iOSApplicationExtension")
+             .Case("macos_app_extension", "macOSApplicationExtension")
+             .Case("tvos_app_extension", "tvOSApplicationExtension")
+             .Case("watchos_app_extension", "watchOSApplicationExtension")
+             .Default(Platform);
+}
+static llvm::StringRef canonicalizePlatformName(llvm::StringRef Platform) {
+    return llvm::StringSwitch<llvm::StringRef>(Platform)
+             .Case("iOS", "ios")
+             .Case("macOS", "macos")
+             .Case("tvOS", "tvos")
+             .Case("watchOS", "watchos")
+             .Case("iOSApplicationExtension", "ios_app_extension")
+             .Case("macOSApplicationExtension", "macos_app_extension")
+             .Case("tvOSApplicationExtension", "tvos_app_extension")
+             .Case("watchOSApplicationExtension", "watchos_app_extension")
+             .Default(Platform);
 } }];
   let HasCustomParsing = 1;
   let DuplicatesAllowedWhileMerging = 1;
@@ -873,6 +900,13 @@ def OpenCLUnrollHint : InheritableAttr {
   let Spellings = [GNU<"opencl_unroll_hint">];
   let Args = [UnsignedArgument<"UnrollHint">];
   let Documentation = [OpenCLUnrollHintDocs];
+}
+
+def OpenCLIntelReqdSubGroupSize: InheritableAttr {
+  let Spellings = [GNU<"intel_reqd_sub_group_size">];
+  let Args = [UnsignedArgument<"SubGroupSize">];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Documentation = [OpenCLIntelReqdSubGroupSizeDocs];
 }
 
 // This attribute is both a type attribute, and a declaration attribute (for
@@ -1160,6 +1194,12 @@ def MipsInterrupt : InheritableAttr, TargetSpecificAttr<TargetMips> {
   let Documentation = [MipsInterruptDocs];
 }
 
+def MicroMips : InheritableAttr, TargetSpecificAttr<TargetMips> {
+  let Spellings = [GCC<"micromips">];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Documentation = [MicroMipsDocs];
+}
+
 def Mode : Attr {
   let Spellings = [GCC<"mode">];
   let Subjects = SubjectList<[Var, Enum, TypedefName, Field], ErrorDiag,
@@ -1240,6 +1280,12 @@ def NoMips16 : InheritableAttr, TargetSpecificAttr<TargetMips> {
   let Spellings = [GCC<"nomips16">];
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [Undocumented];
+}
+
+def NoMicroMips : InheritableAttr, TargetSpecificAttr<TargetMips> {
+  let Spellings = [GCC<"nomicromips">];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Documentation = [MicroMipsDocs];
 }
 
 // This is not a TargetSpecificAttr so that is silently accepted and
@@ -1649,6 +1695,42 @@ def Section : InheritableAttr {
   let Documentation = [SectionDocs];
 }
 
+def PragmaClangBSSSection : InheritableAttr {
+  // This attribute has no spellings as it is only ever created implicitly.
+  let Spellings = [];
+  let Args = [StringArgument<"Name">];
+  let Subjects = SubjectList<[GlobalVar], ErrorDiag,
+                             "ExpectedFunctionMethodOrGlobalVar">;
+  let Documentation = [Undocumented];
+}
+
+def PragmaClangDataSection : InheritableAttr {
+  // This attribute has no spellings as it is only ever created implicitly.
+  let Spellings = [];
+  let Args = [StringArgument<"Name">];
+  let Subjects = SubjectList<[GlobalVar], ErrorDiag,
+                             "ExpectedFunctionMethodOrGlobalVar">;
+  let Documentation = [Undocumented];
+}
+
+def PragmaClangRodataSection : InheritableAttr {
+  // This attribute has no spellings as it is only ever created implicitly.
+  let Spellings = [];
+  let Args = [StringArgument<"Name">];
+  let Subjects = SubjectList<[GlobalVar], ErrorDiag,
+                             "ExpectedFunctionMethodOrGlobalVar">;
+  let Documentation = [Undocumented];
+}
+
+def PragmaClangTextSection : InheritableAttr {
+  // This attribute has no spellings as it is only ever created implicitly.
+  let Spellings = [];
+  let Args = [StringArgument<"Name">];
+  let Subjects = SubjectList<[Function], ErrorDiag,
+                             "ExpectedFunctionMethodOrGlobalVar">;
+  let Documentation = [Undocumented];
+}
+
 def Sentinel : InheritableAttr {
   let Spellings = [GCC<"sentinel">];
   let Args = [DefaultIntArgument<"Sentinel", 0>,
@@ -1732,11 +1814,18 @@ def Target : InheritableAttr {
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [TargetDocs];
   let AdditionalMembers = [{
-    typedef std::pair<std::vector<std::string>, StringRef> ParsedTargetAttr;
+    struct ParsedTargetAttr {
+      std::vector<std::string> Features;
+      StringRef Architecture;
+      bool DuplicateArchitecture = false;
+    };
     ParsedTargetAttr parse() const {
+      return parse(getFeaturesStr());
+    }
+    static ParsedTargetAttr parse(StringRef Features) {
       ParsedTargetAttr Ret;
       SmallVector<StringRef, 1> AttrFeatures;
-      getFeaturesStr().split(AttrFeatures, ",");
+      Features.split(AttrFeatures, ",");
 
       // Grab the various features and prepend a "+" to turn on the feature to
       // the backend and add them to our existing set of features.
@@ -1753,12 +1842,15 @@ def Target : InheritableAttr {
 	  continue;
 
         // While we're here iterating check for a different target cpu.
-        if (Feature.startswith("arch="))
-          Ret.second = Feature.split("=").second.trim();
-        else if (Feature.startswith("no-"))
-          Ret.first.push_back("-" + Feature.split("-").second.str());
+        if (Feature.startswith("arch=")) {
+          if (!Ret.Architecture.empty())
+            Ret.DuplicateArchitecture = true;
+          else
+            Ret.Architecture = Feature.split("=").second.trim();
+        } else if (Feature.startswith("no-"))
+          Ret.Features.push_back("-" + Feature.split("-").second.str());
         else
-          Ret.first.push_back("+" + Feature.str());
+          Ret.Features.push_back("+" + Feature.str());
       }
       return Ret;
     }
@@ -1788,14 +1880,14 @@ def Unavailable : InheritableAttr {
 
 def DiagnoseIf : InheritableAttr {
   let Spellings = [GNU<"diagnose_if">];
-  let Subjects = SubjectList<[Function]>;
+  let Subjects = SubjectList<[Function, ObjCMethod, ObjCProperty]>;
   let Args = [ExprArgument<"Cond">, StringArgument<"Message">,
               EnumArgument<"DiagnosticType",
                            "DiagnosticType",
                            ["error", "warning"],
                            ["DT_Error", "DT_Warning"]>,
               BoolArgument<"ArgDependent", 0, /*fake*/ 1>,
-              FunctionArgument<"Parent", 0, /*fake*/ 1>];
+              NamedArgument<"Parent", 0, /*fake*/ 1>];
   let DuplicatesAllowedWhileMerging = 1;
   let LateParsed = 1;
   let AdditionalMembers = [{
@@ -1941,6 +2033,12 @@ def AnyX86Interrupt : InheritableAttr, TargetSpecificAttr<TargetAnyX86> {
   let ParseKind = "Interrupt";
   let HasCustomParsing = 1;
   let Documentation = [AnyX86InterruptDocs];
+}
+
+def AnyX86NoCallerSavedRegisters : InheritableAttr,
+                                   TargetSpecificAttr<TargetAnyX86> {
+  let Spellings = [GCC<"no_caller_saved_registers">];
+  let Documentation = [AnyX86NoCallerSavedRegistersDocs];
 }
 
 def X86ForceAlignArgPointer : InheritableAttr, TargetSpecificAttr<TargetX86> {

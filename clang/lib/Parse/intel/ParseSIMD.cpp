@@ -232,9 +232,9 @@ struct SIMDReductionItemParser {
 
 } // namespace
 
-static bool ParseSIMDClauses(Parser &P, Sema &S, SourceLocation BeginLoc,
-                             SmallVectorImpl<Attr *> &AttrList) {
-  const Token &Tok = P.getCurToken();
+bool Parser::ParseSIMDClauses(Sema &S, SourceLocation BeginLoc,
+                              SmallVectorImpl<Attr *> &AttrList) {
+  const Token &Tok = getCurToken();
   // # pragma simd simd-clauses
   // simd-clauses:
   //   simd-clause
@@ -244,67 +244,63 @@ static bool ParseSIMDClauses(Parser &P, Sema &S, SourceLocation BeginLoc,
     const IdentifierInfo *II = Tok.getIdentifierInfo();
 
     if (!II) {
-      P.Diag(Tok, diag::err_expected_ident);
-      while (P.getCurToken().isNot(tok::eof) &&
-             !P.SkipUntil(tok::annot_pragma_simd_end, Parser::StopBeforeMatch));
+      Diag(Tok, diag::err_expected_ident);
+      while (getCurToken().isNot(tok::eof) &&
+             !SkipUntil(tok::annot_pragma_simd_end, Parser::StopBeforeMatch))
+        ;
       return false;
     }
 
     AttrResult A = AttrEmpty();
     if (II->isStr("vectorlength")) {
-      P.ConsumeToken();
+      ConsumeToken();
       SIMDVectorLengthItemParser ItemParser;
-      if (!ParseSIMDExpression(P, S, ItemParser) || !ItemParser.E)
+      if (!ParseSIMDExpression(*this, S, ItemParser) || !ItemParser.E)
         return false;
       A = S.ActOnPragmaSIMDLength(ILoc, ItemParser.E);
-    }
-    else if (II->isStr("linear")) {
-      P.ConsumeToken();
+    } else if (II->isStr("linear")) {
+      ConsumeToken();
       SIMDLinearItemParser ItemParser;
-      if (!ParseSIMDList(P, S, ItemParser))
+      if (!ParseSIMDList(*this, S, ItemParser))
         return false;
       A = S.ActOnPragmaSIMDLinear(ILoc, ItemParser.Exprs);
-    }
-    else if (II->isStr("private")) {
-      P.ConsumeToken();
+    } else if (II->isStr("private")) {
+      ConsumeToken();
       Sema::SIMDPrivateKind Kind = Sema::SIMD_Private;
       SIMDPrivateItemParser ItemParser(Kind);
-      if (!ParseSIMDList(P, S, ItemParser))
+      if (!ParseSIMDList(*this, S, ItemParser))
         return false;
       A = S.ActOnPragmaSIMDPrivate(ILoc, ItemParser.Exprs, Kind);
-    }
-    else if (II->isStr("firstprivate")) {
-      P.ConsumeToken();
+    } else if (II->isStr("firstprivate")) {
+      ConsumeToken();
       Sema::SIMDPrivateKind Kind = Sema::SIMD_FirstPrivate;
       SIMDPrivateItemParser ItemParser(Kind);
-      if (!ParseSIMDList(P, S, ItemParser))
+      if (!ParseSIMDList(*this, S, ItemParser))
         return false;
       A = S.ActOnPragmaSIMDPrivate(ILoc, ItemParser.Exprs, Kind);
-    }
-    else if (II->isStr("lastprivate")) {
-      P.ConsumeToken();
+    } else if (II->isStr("lastprivate")) {
+      ConsumeToken();
       Sema::SIMDPrivateKind Kind = Sema::SIMD_LastPrivate;
       SIMDPrivateItemParser ItemParser(Kind);
-      if (!ParseSIMDList(P, S, ItemParser))
+      if (!ParseSIMDList(*this, S, ItemParser))
         return false;
       A = S.ActOnPragmaSIMDPrivate(ILoc, ItemParser.Exprs, Kind);
-    }
-    else if (II->isStr("reduction")) {
-      P.ConsumeToken();
+    } else if (II->isStr("reduction")) {
+      ConsumeToken();
       SIMDReductionItemParser ItemParser;
-      if (!ParseSIMDList(P, S, ItemParser))
+      if (!ParseSIMDList(*this, S, ItemParser))
         return false;
       A = S.ActOnPragmaSIMDReduction(ILoc, ItemParser.Operator,
                                      ItemParser.VarExprs);
     }
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
     else if (II->isStr("assert")) {
-      P.ConsumeToken();
+      ConsumeToken();
       A = S.ActOnPragmaSIMDAssert(ILoc);
     }
 #endif // INTEL_SPECIFIC_IL0_BACKEND
     else {
-      P.Diag(Tok, diag::warn_simd_invalid_clause);
+      Diag(Tok, diag::warn_simd_invalid_clause);
       return false;
     }
 
@@ -323,19 +319,19 @@ void Parser::HandlePragmaSIMD() {
   PP.Diag(Loc, diag::err_pragma_simd_expected_for_loop);
 }
 
-static void FinishPragmaSIMD(Parser &P, SourceLocation BeginLoc) {
-  const Token &Tok = P.getCurToken();
+void Parser::FinishPragmaSIMD(SourceLocation BeginLoc) {
+  const Token &Tok = getCurToken();
   assert(Tok.is(tok::annot_pragma_simd_end));
   SourceLocation EndLoc = Tok.getLocation();
 
-  const SourceManager &SM = P.getPreprocessor().getSourceManager();
+  const SourceManager &SM = getPreprocessor().getSourceManager();
   unsigned StartLineNumber = SM.getSpellingLineNumber(BeginLoc);
   unsigned EndLineNumber = SM.getSpellingLineNumber(EndLoc);
   (void)StartLineNumber;
   (void)EndLineNumber;
   assert(StartLineNumber == EndLineNumber);
 
-  P.ConsumeToken();
+  ConsumeAnnotationToken();
 }
 
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
@@ -461,19 +457,19 @@ StmtResult Parser::ParseSIMDDirective() {
   assert(Tok.is(tok::annot_pragma_simd));
   SourceLocation Loc = Tok.getLocation();
   SourceLocation HashLoc = Loc;
-  ConsumeToken();
+  ConsumeAnnotationToken();
 
   SmallVector<Attr *, 4> SIMDAttrList;
   SIMDAttrList.push_back(::new SIMDAttr(Loc, Actions.Context, 0));
 
-  if (!ParseSIMDClauses(*this, Actions, Loc, SIMDAttrList)) {
+  if (!ParseSIMDClauses(Actions, Loc, SIMDAttrList)) {
     while (Tok.isNot(tok::eof) &&
            !SkipUntil(tok::annot_pragma_simd_end, StopBeforeMatch));
-    FinishPragmaSIMD(*this, Loc);
+    FinishPragmaSIMD(Loc);
     return StmtError();
   }
 
-  FinishPragmaSIMD(*this, Loc);
+  FinishPragmaSIMD(Loc);
 
   StmtResult Pragma;
 #ifdef INTEL_SPECIFIC_IL0_BACKEND

@@ -10,21 +10,19 @@
 #ifndef LLD_ELF_TARGET_H
 #define LLD_ELF_TARGET_H
 
+#include "Error.h"
 #include "InputSection.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/Object/ELF.h"
 
-#include <memory>
-
 namespace lld {
+std::string toString(uint32_t RelType);
+
 namespace elf {
 class InputFile;
 class SymbolBody;
 
 class TargetInfo {
 public:
-  virtual bool isTlsInitialExecRel(uint32_t Type) const;
-  virtual bool isTlsLocalDynamicRel(uint32_t Type) const;
   virtual bool isPicRel(uint32_t Type) const { return true; }
   virtual uint32_t getDynRel(uint32_t Type) const { return Type; }
   virtual void writeGotPltHeader(uint8_t *Buf) const {}
@@ -53,6 +51,9 @@ public:
   // targeting S.
   virtual bool needsThunk(RelExpr Expr, uint32_t RelocType,
                           const InputFile *File, const SymbolBody &S) const;
+  // Return true if we can reach Dst from Src with Relocation RelocType
+  virtual bool inBranchRange(uint32_t RelocType, uint64_t Src,
+                             uint64_t Dst) const;
   virtual RelExpr getRelExpr(uint32_t Type, const SymbolBody &S,
                              const uint8_t *Loc) const = 0;
   virtual void relocateOne(uint8_t *Loc, uint32_t Type, uint64_t Val) const = 0;
@@ -67,6 +68,10 @@ public:
   // installs that is 65536, so the first 15 pages cannot be used.
   // Given that, the smallest value that can be used in here is 0x10000.
   uint64_t DefaultImageBase = 0x10000;
+
+  // Offset of _GLOBAL_OFFSET_TABLE_ from base of .got section. Use -1 for
+  // end of .got
+  uint64_t GotBaseSymOff = 0;
 
   uint32_t CopyRel;
   uint32_t GotRel;
@@ -104,14 +109,54 @@ public:
   virtual void relaxTlsLdToLe(uint8_t *Loc, uint32_t Type, uint64_t Val) const;
 };
 
+TargetInfo *getAArch64TargetInfo();
+TargetInfo *getAMDGPUTargetInfo();
+TargetInfo *getARMTargetInfo();
+TargetInfo *getAVRTargetInfo();
+TargetInfo *getPPC64TargetInfo();
+TargetInfo *getPPCTargetInfo();
+TargetInfo *getSPARCV9TargetInfo();
+TargetInfo *getX32TargetInfo();
+TargetInfo *getX86TargetInfo();
+TargetInfo *getX86_64TargetInfo();
+template <class ELFT> TargetInfo *getMipsTargetInfo();
+
+std::string getErrorLocation(const uint8_t *Loc);
+
 uint64_t getPPC64TocBase();
 uint64_t getAArch64Page(uint64_t Expr);
 
 extern TargetInfo *Target;
-TargetInfo *createTarget();
+TargetInfo *getTarget();
+
+template <unsigned N>
+static void checkInt(uint8_t *Loc, int64_t V, uint32_t Type) {
+  if (!llvm::isInt<N>(V))
+    error(getErrorLocation(Loc) + "relocation " + lld::toString(Type) +
+          " out of range");
 }
 
-std::string toString(uint32_t RelType);
+template <unsigned N>
+static void checkUInt(uint8_t *Loc, uint64_t V, uint32_t Type) {
+  if (!llvm::isUInt<N>(V))
+    error(getErrorLocation(Loc) + "relocation " + lld::toString(Type) +
+          " out of range");
 }
+
+template <unsigned N>
+static void checkIntUInt(uint8_t *Loc, uint64_t V, uint32_t Type) {
+  if (!llvm::isInt<N>(V) && !llvm::isUInt<N>(V))
+    error(getErrorLocation(Loc) + "relocation " + lld::toString(Type) +
+          " out of range");
+}
+
+template <unsigned N>
+static void checkAlignment(uint8_t *Loc, uint64_t V, uint32_t Type) {
+  if ((V & (N - 1)) != 0)
+    error(getErrorLocation(Loc) + "improper alignment for relocation " +
+          lld::toString(Type));
+}
+} // namespace elf
+} // namespace lld
 
 #endif

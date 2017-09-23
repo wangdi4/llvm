@@ -1,14 +1,15 @@
 add_lldb_library(lldbUtility
   Baton.cpp
+  Connection.cpp
   ConstString.cpp
   DataBufferHeap.cpp
   DataBufferLLVM.cpp
   DataEncoder.cpp
   DataExtractor.cpp
-  Error.cpp
   FastDemangle.cpp
   FileSpec.cpp
   History.cpp
+  IOObject.cpp
   JSON.cpp
   LLDBAssert.cpp
   Log.cpp
@@ -18,6 +19,7 @@ add_lldb_library(lldbUtility
   RegularExpression.cpp
   SelectHelper.cpp
   SharingPtr.cpp
+  Status.cpp
   Stream.cpp
   StreamCallback.cpp
   StreamGDBRemote.cpp
@@ -26,8 +28,10 @@ add_lldb_library(lldbUtility
   StringExtractorGDBRemote.cpp
   StringLexer.cpp
   StringList.cpp
+  StructuredData.cpp
   TaskPool.cpp
   TildeExpressionResolver.cpp
+  Timer.cpp
   UserID.cpp
   UriParser.cpp
   UUID.cpp
@@ -38,5 +42,6 @@ add_lldb_library(lldbUtility
   # lldbUtility cannot have any dependencies
 
   LINK_COMPONENTS
+    BinaryFormat
     Support
   )

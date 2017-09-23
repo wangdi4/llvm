@@ -99,7 +99,9 @@ def CXX11CompatDeprecatedWritableStr :
 def DeprecatedAttributes : DiagGroup<"deprecated-attributes">;
 def DeprecatedDeclarations : DiagGroup<"deprecated-declarations">;
 def UnavailableDeclarations : DiagGroup<"unavailable-declarations">;
-def UnguardedAvailability : DiagGroup<"unguarded-availability">;
+def UnguardedAvailabilityNew : DiagGroup<"unguarded-availability-new">;
+def UnguardedAvailability : DiagGroup<"unguarded-availability",
+                                      [UnguardedAvailabilityNew]>;
 // partial-availability is an alias of unguarded-availability.
 def : DiagGroup<"partial-availability", [UnguardedAvailability]>;
 def DeprecatedDynamicExceptionSpec
@@ -150,6 +152,9 @@ def GNUFlexibleArrayUnionMember : DiagGroup<"gnu-flexible-array-union-member">;
 def GNUFoldingConstant : DiagGroup<"gnu-folding-constant">;
 def FormatExtraArgs : DiagGroup<"format-extra-args">;
 def FormatZeroLength : DiagGroup<"format-zero-length">;
+def CXX1zCompatMangling : DiagGroup<"c++1z-compat-mangling">;
+// Name of this warning in GCC.
+def NoexceptType : DiagGroup<"noexcept-type", [CXX1zCompatMangling]>;
 
 // Warnings for C++1y code which is not compatible with prior C++ standards.
 def CXXPre14Compat : DiagGroup<"c++98-c++11-compat">;
@@ -212,7 +217,8 @@ def CXX14CompatPedantic : DiagGroup<"c++14-compat-pedantic",
                                     [CXXPre1zCompatPedantic]>;
 
 def CXX1zCompat : DiagGroup<"c++1z-compat", [DeprecatedRegister,
-                                             DeprecatedIncrementBool]>;
+                                             DeprecatedIncrementBool,
+                                             CXX1zCompatMangling]>;
 
 def ExitTimeDestructors : DiagGroup<"exit-time-destructors">;
 def FlexibleArrayExtensions : DiagGroup<"flexible-array-extensions">;
@@ -308,6 +314,7 @@ def : DiagGroup<"nonportable-cfstrings">;
 def NonVirtualDtor : DiagGroup<"non-virtual-dtor">;
 def : DiagGroup<"effc++", [NonVirtualDtor]>;
 def OveralignedType : DiagGroup<"over-aligned">;
+def AlignedAllocationUnavailable : DiagGroup<"aligned-allocation-unavailable">;
 def OldStyleCast : DiagGroup<"old-style-cast">;
 def : DiagGroup<"old-style-definition">;
 def OutOfLineDeclaration : DiagGroup<"out-of-line-declaration">;
@@ -468,8 +475,9 @@ def IgnoredPragmaIntrinsic : DiagGroup<"ignored-pragma-intrinsic">;
 def UnknownPragmas : DiagGroup<"unknown-pragmas">;
 def IgnoredPragmas : DiagGroup<"ignored-pragmas", [IgnoredPragmaIntrinsic]>;
 def PragmaClangAttribute : DiagGroup<"pragma-clang-attribute">;
+def PragmaPack : DiagGroup<"pragma-pack">;
 def Pragmas : DiagGroup<"pragmas", [UnknownPragmas, IgnoredPragmas,
-                                    PragmaClangAttribute]>;
+                                    PragmaClangAttribute, PragmaPack]>;
 def UnknownWarningOption : DiagGroup<"unknown-warning-option">;
 def NSobjectAttribute : DiagGroup<"NSObject-attribute">;
 def IndependentClassAttribute : DiagGroup<"IndependentClass-attribute">;
@@ -492,6 +500,7 @@ def UnneededInternalDecl : DiagGroup<"unneeded-internal-declaration">;
 def UnneededMemberFunction : DiagGroup<"unneeded-member-function">;
 def UnusedPrivateField : DiagGroup<"unused-private-field">;
 def UnusedFunction : DiagGroup<"unused-function", [UnneededInternalDecl]>;
+def UnusedTemplate : DiagGroup<"unused-template", [UnneededInternalDecl]>;
 def UnusedMemberFunction : DiagGroup<"unused-member-function",
                                      [UnneededMemberFunction]>;
 def UnusedLabel : DiagGroup<"unused-label">;
@@ -633,6 +642,7 @@ def Conversion : DiagGroup<"conversion",
 def Unused : DiagGroup<"unused",
                        [UnusedArgument, UnusedFunction, UnusedLabel,
                         // UnusedParameter, (matches GCC's behavior)
+                        // UnusedTemplate, (clean-up libc++ before enabling)
                         // UnusedMemberFunction, (clean-up llvm before enabling)
                         UnusedPrivateField, UnusedLambdaCapture,
                         UnusedLocalTypedef, UnusedValue, UnusedVariable,
@@ -742,6 +752,7 @@ def Pedantic : DiagGroup<"pedantic">;
 // Aliases.
 def : DiagGroup<"", [Extra]>;                   // -W = -Wextra
 def : DiagGroup<"endif-labels", [ExtraTokens]>; // -Wendif-labels=-Wextra-tokens
+def : DiagGroup<"cpp", [PoundWarning]>;         // -Wcpp = -W#warnings
 def : DiagGroup<"comments", [Comment]>;         // -Wcomments = -Wcomment
 def : DiagGroup<"conversion-null",
                 [NullConversion]>; // -Wconversion-null = -Wnull-conversion
@@ -902,6 +913,7 @@ def BackendOptimizationRemarkAnalysis : DiagGroup<"pass-analysis">;
 def BackendOptimizationFailure : DiagGroup<"pass-failed">;
 
 // Instrumentation based profiling warnings.
+def ProfileInstrMissing : DiagGroup<"profile-instr-missing">;
 def ProfileInstrOutOfDate : DiagGroup<"profile-instr-out-of-date">;
 def ProfileInstrUnprofiled : DiagGroup<"profile-instr-unprofiled">;
 

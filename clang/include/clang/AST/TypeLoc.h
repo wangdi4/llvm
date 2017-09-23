@@ -2179,6 +2179,29 @@ public:
   }
 };
 
+#if INTEL_CUSTOMIZATION
+struct ChannelTypeLocInfo {
+  SourceLocation KWLoc;
+};
+
+class ChannelTypeLoc : public ConcreteTypeLoc<UnqualTypeLoc, ChannelTypeLoc, ChannelType,
+                                              ChannelTypeLocInfo> {
+public:
+  TypeLoc getValueLoc() const { return this->getInnerTypeLoc(); }
+
+  SourceRange getLocalSourceRange() const { return SourceRange(getKWLoc()); }
+
+  SourceLocation getKWLoc() const { return this->getLocalData()->KWLoc; }
+  void setKWLoc(SourceLocation Loc) { this->getLocalData()->KWLoc = Loc; }
+
+  void initializeLocal(ASTContext &Context, SourceLocation Loc) {
+    setKWLoc(Loc);
+  }
+
+  QualType getInnerType() const { return this->getTypePtr()->getElementType(); }
+};
+#endif // INTEL_CUSTOMIZATION
+
 struct PipeTypeLocInfo {
   SourceLocation KWLoc;
 };
