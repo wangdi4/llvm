@@ -6724,40 +6724,19 @@ void ScalarEvolution::forgetLoop(const Loop *L) {
           Map.erase(BTCPos);
         }
       };
-<<<<<<< HEAD
   
-  RemoveLoopFromBackedgeMap(BackedgeTakenCounts);
-  RemoveLoopFromBackedgeMap(HIRBackedgeTakenCounts); // INTEL
-  RemoveLoopFromBackedgeMap(PredicatedBackedgeTakenCounts);
-=======
-
   SmallVector<const Loop *, 16> LoopWorklist(1, L);
   SmallVector<Instruction *, 32> Worklist;
   SmallPtrSet<Instruction *, 16> Visited;
->>>>>>> 022ffdf29f1d855a9d170f9a9eef6fe5968c55df
 
   // Iterate over all the loops and sub-loops to drop SCEV information.
   while (!LoopWorklist.empty()) {
     auto *CurrL = LoopWorklist.pop_back_val();
 
     RemoveLoopFromBackedgeMap(BackedgeTakenCounts, CurrL);
+    RemoveLoopFromBackedgeMap(HIRBackedgeTakenCounts, CurrL); // INTEL
     RemoveLoopFromBackedgeMap(PredicatedBackedgeTakenCounts, CurrL);
 
-<<<<<<< HEAD
-    ValueExprMapType::iterator It =
-      ValueExprMap.find_as(static_cast<Value *>(I));
-#if INTEL_CUSTOMIZATION // HIR parsing 
-      // HIRValueExprMap is built on top of ValueExprMap so it needs to stay
-      // in sync with it. If we are clearing enteries from ValueExprMap, we
-      // need to clear them from HIRValueExprMap as well.
-      HIRValueExprMap.erase(static_cast<Value *>(I));
-#endif // INTEL_CUSTOMIZATION
-    if (It != ValueExprMap.end()) {
-      eraseValueFromMap(It->first);
-      forgetMemoizedResults(It->second);
-      if (PHINode *PN = dyn_cast<PHINode>(I))
-        ConstantEvolutionLoopExitValue.erase(PN);
-=======
     // Drop information about predicated SCEV rewrites for this loop.
     for (auto I = PredicatedSCEVRewrites.begin();
          I != PredicatedSCEVRewrites.end();) {
@@ -6766,7 +6745,6 @@ void ScalarEvolution::forgetLoop(const Loop *L) {
         PredicatedSCEVRewrites.erase(I++);
       else
         ++I;
->>>>>>> 022ffdf29f1d855a9d170f9a9eef6fe5968c55df
     }
 
     // Drop information about expressions based on loop-header PHIs.
@@ -6776,6 +6754,13 @@ void ScalarEvolution::forgetLoop(const Loop *L) {
       Instruction *I = Worklist.pop_back_val();
       if (!Visited.insert(I).second)
         continue;
+
+#if INTEL_CUSTOMIZATION // HIR parsing
+      // HIRValueExprMap is built on top of ValueExprMap so it needs to stay
+      // in sync with it. If we are clearing enteries from ValueExprMap, we
+      // need to clear them from HIRValueExprMap as well.
+      HIRValueExprMap.erase(static_cast<Value *>(I));
+#endif // INTEL_CUSTOMIZATION
 
       ValueExprMapType::iterator It =
           ValueExprMap.find_as(static_cast<Value *>(I));
