@@ -7,13 +7,13 @@
 # An important constraint of the build is that it only produces libraries
 # based on the ability of the host toolchain to target various platforms.
 
+cmake_minimum_required(VERSION 3.4.3)
+
 # Check if compiler-rt is built as a standalone project.
 if (CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR OR COMPILER_RT_STANDALONE_BUILD)
   project(CompilerRT C CXX ASM)
   set(COMPILER_RT_STANDALONE_BUILD TRUE)
 endif()
-
-cmake_minimum_required(VERSION 3.4.3)
 
 # Add path for custom compiler-rt modules.
 list(INSERT CMAKE_MODULE_PATH 0
@@ -30,6 +30,9 @@ option(COMPILER_RT_BUILD_SANITIZERS "Build sanitizers" ON)
 mark_as_advanced(COMPILER_RT_BUILD_SANITIZERS)
 option(COMPILER_RT_BUILD_XRAY "Build xray" ON)
 mark_as_advanced(COMPILER_RT_BUILD_XRAY)
+
+set(COMPILER_RT_BAREMETAL_BUILD OFF CACHE BOOLEAN
+  "Build for a bare-metal target.")
 
 if (COMPILER_RT_STANDALONE_BUILD)
   load_llvm_config()
@@ -77,7 +80,7 @@ pythonize_bool(COMPILER_RT_DEBUG)
 
 include(config-ix)
 
-if(APPLE AND SANITIZER_MIN_OSX_VERSION VERSION_LESS "10.9")
+if(APPLE AND SANITIZER_MIN_OSX_VERSION AND SANITIZER_MIN_OSX_VERSION VERSION_LESS "10.9")
   # Mac OS X prior to 10.9 had problems with exporting symbols from
   # libc++/libc++abi.
   set(use_cxxabi_default OFF)
@@ -169,10 +172,16 @@ endif()
 
 append_list_if(COMPILER_RT_DEBUG -DSANITIZER_DEBUG=1 SANITIZER_COMMON_CFLAGS)
 
-# Build with optimization, unless we're in debug mode. If we're using MSVC,
+# If we're using MSVC,
 # always respect the optimization flags set by CMAKE_BUILD_TYPE instead.
-if(NOT COMPILER_RT_DEBUG AND NOT MSVC)
-  list(APPEND SANITIZER_COMMON_CFLAGS -O3)
+if (NOT MSVC)
+
+  # Build with optimization, unless we're in debug mode. 
+  if(COMPILER_RT_DEBUG)
+    list(APPEND SANITIZER_COMMON_CFLAGS -O0)
+  else()
+    list(APPEND SANITIZER_COMMON_CFLAGS -O3)
+  endif()
 endif()
 
 # Determine if we should restrict stack frame sizes.
@@ -239,14 +248,24 @@ set(COMPILER_RT_LIBCXX_PATH ${LLVM_MAIN_SRC_DIR}/projects/libcxx)
 if(EXISTS ${COMPILER_RT_LIBCXX_PATH}/)
   set(COMPILER_RT_HAS_LIBCXX_SOURCES TRUE)
 else()
-  set(COMPILER_RT_HAS_LIBCXX_SOURCES FALSE)
+  set(COMPILER_RT_LIBCXX_PATH ${LLVM_MAIN_SRC_DIR}/../libcxx)
+  if(EXISTS ${COMPILER_RT_LIBCXX_PATH}/)
+    set(COMPILER_RT_HAS_LIBCXX_SOURCES TRUE)
+  else()
+    set(COMPILER_RT_HAS_LIBCXX_SOURCES FALSE)
+  endif()
 endif()
 
 set(COMPILER_RT_LLD_PATH ${LLVM_MAIN_SRC_DIR}/tools/lld)
 if(EXISTS ${COMPILER_RT_LLD_PATH}/ AND LLVM_TOOL_LLD_BUILD)
   set(COMPILER_RT_HAS_LLD TRUE)
 else()
-  set(COMPILER_RT_HAS_LLD FALSE)
+  set(COMPILER_RT_LLD_PATH ${LLVM_MAIN_SRC_DIR}/../lld)
+  if(EXISTS ${COMPILER_RT_LLD_PATH}/ AND LLVM_TOOL_LLD_BUILD)
+    set(COMPILER_RT_HAS_LLD TRUE)
+  else()
+    set(COMPILER_RT_HAS_LLD FALSE)
+  endif()
 endif()
 pythonize_bool(COMPILER_RT_HAS_LLD)
 

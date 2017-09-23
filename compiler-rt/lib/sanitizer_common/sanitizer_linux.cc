@@ -59,11 +59,17 @@
 #include <ucontext.h>
 #include <unistd.h>
 
+#if SANITIZER_LINUX
+#include <sys/utsname.h>
+#endif
+
+#if SANITIZER_LINUX && !SANITIZER_ANDROID
+#include <sys/personality.h>
+#endif
+
 #if SANITIZER_FREEBSD
 #include <sys/exec.h>
 #include <sys/sysctl.h>
-#include <vm/vm_param.h>
-#include <vm/pmap.h>
 #include <machine/atomic.h>
 extern "C" {
 // <sys/umtx.h> must be included after <errno.h> and <sys/types.h> on
@@ -211,7 +217,6 @@ static void stat64_to_stat(struct stat64 *in, struct stat *out) {
   out->st_atime = in->st_atime;
   out->st_mtime = in->st_mtime;
   out->st_ctime = in->st_ctime;
-  out->st_ino = in->st_ino;
 }
 #endif
 
@@ -231,13 +236,13 @@ static void kernel_stat_to_stat(struct kernel_stat *in, struct stat *out) {
   out->st_atime = in->st_atime_nsec;
   out->st_mtime = in->st_mtime_nsec;
   out->st_ctime = in->st_ctime_nsec;
-  out->st_ino = in->st_ino;
 }
 #endif
 
 uptr internal_stat(const char *path, void *buf) {
 #if SANITIZER_FREEBSD
-  return internal_syscall(SYSCALL(stat), path, buf);
+  return internal_syscall(SYSCALL(fstatat), AT_FDCWD, (uptr)path,
+                          (uptr)buf, 0);
 #elif SANITIZER_USES_CANONICAL_LINUX_SYSCALLS
   return internal_syscall(SYSCALL(newfstatat), AT_FDCWD, (uptr)path,
                           (uptr)buf, 0);
@@ -261,7 +266,8 @@ uptr internal_stat(const char *path, void *buf) {
 
 uptr internal_lstat(const char *path, void *buf) {
 #if SANITIZER_FREEBSD
-  return internal_syscall(SYSCALL(lstat), path, buf);
+  return internal_syscall(SYSCALL(fstatat), AT_FDCWD, (uptr)path,
+                          (uptr)buf, AT_SYMLINK_NOFOLLOW);
 #elif SANITIZER_USES_CANONICAL_LINUX_SYSCALLS
   return internal_syscall(SYSCALL(newfstatat), AT_FDCWD, (uptr)path,
                          (uptr)buf, AT_SYMLINK_NOFOLLOW);
@@ -549,7 +555,7 @@ void BlockingMutex::Lock() {
 
 void BlockingMutex::Unlock() {
   atomic_uint32_t *m = reinterpret_cast<atomic_uint32_t *>(&opaque_storage_);
-  u32 v = atomic_exchange(m, MtxUnlocked, memory_order_relaxed);
+  u32 v = atomic_exchange(m, MtxUnlocked, memory_order_release);
   CHECK_NE(v, MtxUnlocked);
   if (v == MtxSleeping) {
 #if SANITIZER_FREEBSD
@@ -604,7 +610,9 @@ uptr internal_getppid() {
 }
 
 uptr internal_getdents(fd_t fd, struct linux_dirent *dirp, unsigned int count) {
-#if SANITIZER_USES_CANONICAL_LINUX_SYSCALLS
+#if SANITIZER_FREEBSD
+  return internal_syscall(SYSCALL(getdirentries), fd, (uptr)dirp, count, NULL);
+#elif SANITIZER_USES_CANONICAL_LINUX_SYSCALLS
   return internal_syscall(SYSCALL(getdents64), fd, (uptr)dirp, count);
 #else
   return internal_syscall(SYSCALL(getdents), fd, (uptr)dirp, count);
@@ -621,8 +629,7 @@ uptr internal_prctl(int option, uptr arg2, uptr arg3, uptr arg4, uptr arg5) {
 }
 #endif
 
-uptr internal_sigaltstack(const struct sigaltstack *ss,
-                         struct sigaltstack *oss) {
+uptr internal_sigaltstack(const void *ss, void *oss) {
   return internal_syscall(SYSCALL(sigaltstack), (uptr)ss, (uptr)oss);
 }
 
@@ -811,6 +818,72 @@ bool ThreadLister::GetDirectoryEntries() {
   }
   entry_ = (struct linux_dirent *)buffer_.data();
   return true;
+}
+
+#if SANITIZER_WORDSIZE == 32
+// Take care of unusable kernel area in top gigabyte.
+static uptr GetKernelAreaSize() {
+#if SANITIZER_LINUX && !SANITIZER_X32
+  const uptr gbyte = 1UL << 30;
+
+  // Firstly check if there are writable segments
+  // mapped to top gigabyte (e.g. stack).
+  MemoryMappingLayout proc_maps(/*cache_enabled*/true);
+  MemoryMappedSegment segment;
+  while (proc_maps.Next(&segment)) {
+    if ((segment.end >= 3 * gbyte) && segment.IsWritable()) return 0;
+  }
+
+#if !SANITIZER_ANDROID
+  // Even if nothing is mapped, top Gb may still be accessible
+  // if we are running on 64-bit kernel.
+  // Uname may report misleading results if personality type
+  // is modified (e.g. under schroot) so check this as well.
+  struct utsname uname_info;
+  int pers = personality(0xffffffffUL);
+  if (!(pers & PER_MASK)
+      && uname(&uname_info) == 0
+      && internal_strstr(uname_info.machine, "64"))
+    return 0;
+#endif  // SANITIZER_ANDROID
+
+  // Top gigabyte is reserved for kernel.
+  return gbyte;
+#else
+  return 0;
+#endif  // SANITIZER_LINUX && !SANITIZER_X32
+}
+#endif  // SANITIZER_WORDSIZE == 32
+
+uptr GetMaxVirtualAddress() {
+#if SANITIZER_WORDSIZE == 64
+# if defined(__powerpc64__) || defined(__aarch64__)
+  // On PowerPC64 we have two different address space layouts: 44- and 46-bit.
+  // We somehow need to figure out which one we are using now and choose
+  // one of 0x00000fffffffffffUL and 0x00003fffffffffffUL.
+  // Note that with 'ulimit -s unlimited' the stack is moved away from the top
+  // of the address space, so simply checking the stack address is not enough.
+  // This should (does) work for both PowerPC64 Endian modes.
+  // Similarly, aarch64 has multiple address space layouts: 39, 42 and 47-bit.
+  return (1ULL << (MostSignificantSetBitIndex(GET_CURRENT_FRAME()) + 1)) - 1;
+# elif defined(__mips64)
+  return (1ULL << 40) - 1;  // 0x000000ffffffffffUL;
+# elif defined(__s390x__)
+  return (1ULL << 53) - 1;  // 0x001fffffffffffffUL;
+# else
+  return (1ULL << 47) - 1;  // 0x00007fffffffffffUL;
+# endif
+#else  // SANITIZER_WORDSIZE == 32
+# if defined(__s390__)
+  return (1ULL << 31) - 1;  // 0x7fffffff;
+# else
+  uptr res = (1ULL << 32) - 1;  // 0xffffffff;
+  if (!common_flags()->full_address_space)
+    res -= GetKernelAreaSize();
+  CHECK_LT(reinterpret_cast<uptr>(&res), res);
+  return res;
+# endif
+#endif  // SANITIZER_WORDSIZE
 }
 
 uptr GetPageSize() {
@@ -1394,16 +1467,27 @@ AndroidApiLevel AndroidGetApiLevel() {
 
 #endif
 
-bool IsHandledDeadlySignal(int signum) {
-  if (common_flags()->handle_abort && signum == SIGABRT)
-    return true;
-  if (common_flags()->handle_sigill && signum == SIGILL)
-    return true;
-  if (common_flags()->handle_sigfpe && signum == SIGFPE)
-    return true;
-  if (common_flags()->handle_segv && signum == SIGSEGV)
-    return true;
-  return common_flags()->handle_sigbus && signum == SIGBUS;
+static HandleSignalMode GetHandleSignalModeImpl(int signum) {
+  switch (signum) {
+    case SIGABRT:
+      return common_flags()->handle_abort;
+    case SIGILL:
+      return common_flags()->handle_sigill;
+    case SIGFPE:
+      return common_flags()->handle_sigfpe;
+    case SIGSEGV:
+      return common_flags()->handle_segv;
+    case SIGBUS:
+      return common_flags()->handle_sigbus;
+  }
+  return kHandleSignalNo;
+}
+
+HandleSignalMode GetHandleSignalMode(int signum) {
+  HandleSignalMode result = GetHandleSignalModeImpl(signum);
+  if (result == kHandleSignalYes && !common_flags()->allow_user_segv_handler)
+    return kHandleSignalExclusive;
+  return result;
 }
 
 #if !SANITIZER_GO
@@ -1586,9 +1670,36 @@ void CheckNoDeepBind(const char *filename, int flag) {
 #endif
 }
 
-uptr FindAvailableMemoryRange(uptr size, uptr alignment, uptr left_padding) {
+uptr FindAvailableMemoryRange(uptr size, uptr alignment, uptr left_padding,
+                              uptr *largest_gap_found) {
   UNREACHABLE("FindAvailableMemoryRange is not available");
   return 0;
+}
+
+bool GetRandom(void *buffer, uptr length) {
+  if (!buffer || !length || length > 256)
+    return false;
+#if defined(__NR_getrandom)
+  static atomic_uint8_t skip_getrandom_syscall;
+  if (!atomic_load_relaxed(&skip_getrandom_syscall)) {
+    // Up to 256 bytes, getrandom will not be interrupted.
+    uptr res = internal_syscall(SYSCALL(getrandom), buffer, length, 0);
+    int rverrno = 0;
+    if (internal_iserror(res, &rverrno) && rverrno == ENOSYS)
+      atomic_store_relaxed(&skip_getrandom_syscall, 1);
+    else if (res == length)
+      return true;
+  }
+#endif
+  uptr fd = internal_open("/dev/urandom", O_RDONLY);
+  if (internal_iserror(fd))
+    return false;
+  // internal_read deals with EINTR.
+  uptr res = internal_read(fd, buffer, length);
+  if (internal_iserror(res))
+    return false;
+  internal_close(fd);
+  return true;
 }
 
 } // namespace __sanitizer

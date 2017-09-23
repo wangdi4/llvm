@@ -1,5 +1,5 @@
-; RUN: llc -march=amdgcn -mtriple=amdgcn-amd-amdhsa -mattr=-promote-alloca -verify-machineinstrs < %s | FileCheck -check-prefix=HSA -check-prefix=CI %s
-; RUN: llc -march=amdgcn -mtriple=amdgcn-amd-amdhsa -mcpu=gfx900 -mattr=-promote-alloca -verify-machineinstrs < %s | FileCheck -check-prefix=HSA -check-prefix=GFX9 %s
+; RUN: llc -march=amdgcn -mtriple=amdgcn-amd-amdhsa -mattr=-promote-alloca -verify-machineinstrs < %s | FileCheck -enable-var-scope -check-prefix=HSA -check-prefix=CI %s
+; RUN: llc -march=amdgcn -mtriple=amdgcn-amd-amdhsa -mcpu=gfx900 -mattr=-promote-alloca -verify-machineinstrs < %s | FileCheck -enable-var-scope -check-prefix=HSA -check-prefix=GFX9 %s
 
 ; HSA-LABEL: {{^}}use_group_to_flat_addrspacecast:
 ; HSA: enable_sgpr_private_segment_buffer = 1
@@ -10,20 +10,22 @@
 ; CI-DAG: s_load_dword [[PTR:s[0-9]+]], s[6:7], 0x0{{$}}
 ; CI-DAG: s_load_dword [[APERTURE:s[0-9]+]], s[4:5], 0x10{{$}}
 ; CI-DAG: v_mov_b32_e32 [[VAPERTURE:v[0-9]+]], [[APERTURE]]
+; CI-DAG: v_cmp_ne_u32_e64 vcc, [[PTR]], -1
+; CI-DAG: v_cndmask_b32_e32 v[[HI:[0-9]+]], 0, [[VAPERTURE]], vcc
+; CI-DAG: v_mov_b32_e32 [[VPTR:v[0-9]+]], [[PTR]]
+; CI-DAG: v_cndmask_b32_e32 v[[LO:[0-9]+]], 0, [[VPTR]]
 
+; HSA-DAG: v_mov_b32_e32 [[K:v[0-9]+]], 7
 ; GFX9-DAG: s_load_dword [[PTR:s[0-9]+]], s[4:5], 0x0{{$}}
 ; GFX9-DAG: s_getreg_b32 [[SSRC_SHARED:s[0-9]+]], hwreg(15, 16, 16)
 ; GFX9-DAG: s_lshl_b32 [[SSRC_SHARED_BASE:s[0-9]+]], [[SSRC_SHARED]], 16
 ; GFX9-DAG: v_mov_b32_e32 [[VAPERTURE:v[0-9]+]], [[SSRC_SHARED_BASE]]
 
 ; GFX9-XXX: v_mov_b32_e32 [[VAPERTURE:v[0-9]+]], src_shared_base
-
-; HSA-DAG: v_mov_b32_e32 [[VPTR:v[0-9]+]], [[PTR]]
-
-; HSA-DAG: v_cmp_ne_u32_e64 vcc, [[PTR]], -1
-; HSA-DAG: v_cndmask_b32_e32 v[[HI:[0-9]+]], 0, [[VAPERTURE]]
-; HSA-DAG: v_cndmask_b32_e32 v[[LO:[0-9]+]], 0, [[VPTR]]
-; HSA-DAG: v_mov_b32_e32 [[K:v[0-9]+]], 7
+; GFX9: v_cmp_ne_u32_e64 vcc, [[PTR]], -1
+; GFX9: v_cndmask_b32_e32 v[[HI:[0-9]+]], 0, [[VAPERTURE]], vcc
+; GFX9-DAG: v_mov_b32_e32 [[VPTR:v[0-9]+]], [[PTR]]
+; GFX9-DAG: v_cndmask_b32_e32 v[[LO:[0-9]+]], 0, [[VPTR]]
 
 ; HSA: flat_store_dword v{{\[}}[[LO]]:[[HI]]{{\]}}, [[K]]
 
@@ -48,6 +50,12 @@ define amdgpu_kernel void @use_group_to_flat_addrspacecast(i32 addrspace(3)* %pt
 ; CI-DAG: s_load_dword [[APERTURE:s[0-9]+]], s[4:5], 0x11{{$}}
 ; CI-DAG: v_mov_b32_e32 [[VAPERTURE:v[0-9]+]], [[APERTURE]]
 
+; CI-DAG: v_mov_b32_e32 [[K:v[0-9]+]], 7
+; CI-DAG: v_cmp_ne_u32_e64 vcc, [[PTR]], 0
+; CI-DAG: v_cndmask_b32_e32 v[[HI:[0-9]+]], 0, [[VAPERTURE]], vcc
+; CI-DAG: v_mov_b32_e32 [[VPTR:v[0-9]+]], [[PTR]]
+; CI-DAG: v_cndmask_b32_e32 v[[LO:[0-9]+]], 0, [[VPTR]]
+
 ; GFX9-DAG: s_load_dword [[PTR:s[0-9]+]], s[4:5], 0x0{{$}}
 ; GFX9-DAG: s_getreg_b32 [[SSRC_PRIVATE:s[0-9]+]], hwreg(15, 0, 16)
 ; GFX9-DAG: s_lshl_b32 [[SSRC_PRIVATE_BASE:s[0-9]+]], [[SSRC_PRIVATE]], 16
@@ -55,12 +63,11 @@ define amdgpu_kernel void @use_group_to_flat_addrspacecast(i32 addrspace(3)* %pt
 
 ; GFX9-XXX: v_mov_b32_e32 [[VAPERTURE:v[0-9]+]], src_private_base
 
-; HSA-DAG: v_mov_b32_e32 [[VPTR:v[0-9]+]], [[PTR]]
-
-; HSA-DAG: v_cmp_ne_u32_e64 vcc, [[PTR]], 0
-; HSA-DAG: v_cndmask_b32_e32 v[[HI:[0-9]+]], 0, [[VAPERTURE]]
-; HSA-DAG: v_cndmask_b32_e32 v[[LO:[0-9]+]], 0, [[VPTR]]
-; HSA-DAG: v_mov_b32_e32 [[K:v[0-9]+]], 7
+; GFX9-DAG: v_mov_b32_e32 [[K:v[0-9]+]], 7
+; GFX9: v_cmp_ne_u32_e64 vcc, [[PTR]], 0
+; GFX9: v_cndmask_b32_e32 v[[HI:[0-9]+]], 0, [[VAPERTURE]], vcc
+; GFX9: v_mov_b32_e32 [[VPTR:v[0-9]+]], [[PTR]]
+; GFX9-DAG: v_cndmask_b32_e32 v[[LO:[0-9]+]], 0, [[VPTR]]
 
 ; HSA: flat_store_dword v{{\[}}[[LO]]:[[HI]]{{\]}}, [[K]]
 
@@ -223,9 +230,8 @@ define amdgpu_kernel void @cast_0_private_to_flat_addrspacecast() #0 {
 }
 
 ; HSA-LABEL: {{^}}cast_0_flat_to_private_addrspacecast:
-; HSA-DAG: v_mov_b32_e32 [[PTR:v[0-9]+]], 0{{$}}
-; HSA-DAG: v_mov_b32_e32 [[K:v[0-9]+]], 7{{$}}
-; HSA: buffer_store_dword [[K]], [[PTR]], s{{\[[0-9]+:[0-9]+\]}}, s{{[0-9]+}} offen
+; HSA: v_mov_b32_e32 [[K:v[0-9]+]], 7{{$}}
+; HSA: buffer_store_dword [[K]], off, s{{\[[0-9]+:[0-9]+\]}}, s{{[0-9]+$}}
 define amdgpu_kernel void @cast_0_flat_to_private_addrspacecast() #0 {
   %cast = addrspacecast i32 addrspace(4)* null to i32 addrspace(0)*
   store volatile i32 7, i32* %cast
