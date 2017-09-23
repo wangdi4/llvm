@@ -6,10 +6,8 @@
 #include "VPLoopInfo.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/Support/GenericDomTreeConstruction.h"
-#include "VPDominatorTree.h"
 
 namespace llvm {
-class VPDominatorTree;
 
 namespace vpo {
 
@@ -461,7 +459,7 @@ public:
   StringRef getName() const { return "Phi Recipe"; };
 
   ~VPPhiValueRecipe() {
-    delete Phi;
+    Phi->deleteValue();
   }
 
 private:
@@ -650,7 +648,7 @@ public:
 
   VPBasicBlock *splitBlock(VPBlockBase *Block, VPLoopInfo *VPLInfo,
                            VPDominatorTree &DomTree,
-                           VPDominatorTree &PostDomTree);
+                           VPPostDominatorTree &PostDomTree);
 };
 
 } // End VPO Vectorizer Namespace 

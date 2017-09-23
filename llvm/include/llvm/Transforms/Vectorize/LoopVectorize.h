@@ -65,8 +65,6 @@
 #include "llvm/Transforms/Scalar/LoopPassManager.h"
 #include <functional>
 
-// Get rid of INTEL_VPO_EXPERIMENTAL changes before promoting
-#define INTEL_VPO_EXPERIMENTAL
 namespace llvm {
 
 /// The LoopVectorize Pass.
@@ -77,7 +75,7 @@ struct LoopVectorizePass : public PassInfoMixin<LoopVectorizePass> {
   /// considered.
   bool AlwaysVectorize = true;
 
-#ifdef INTEL_VPO_EXPERIMENTAL
+#if INTEL_CUSTOMIZATION
   /// If true, only do legality checks and return
   bool OnlyLegal = false;
 #endif
@@ -93,8 +91,6 @@ struct LoopVectorizePass : public PassInfoMixin<LoopVectorizePass> {
   AssumptionCache *AC;
   std::function<const LoopAccessInfo &(Loop &)> *GetLAA;
   OptimizationRemarkEmitter *ORE;
-
-  BlockFrequency ColdEntryFreq;
 
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 

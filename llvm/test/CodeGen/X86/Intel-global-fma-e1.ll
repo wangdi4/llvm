@@ -33,8 +33,8 @@ define void @func32() #0 {
 ; CHECK-NEXT:    vmovss {{.*#+}} xmm1 = mem[0],zero,zero,zero
 ; CHECK-NEXT:    vmovss {{.*#+}} xmm2 = mem[0],zero,zero,zero
 ; CHECK-NEXT:    vmulss {{.*}}(%rip), %xmm0, %xmm0
-; CHECK-NEXT:    vaddss {{.*}}(%rip), %xmm1, %xmm1
 ; CHECK-NEXT:    vfmadd231ss {{.*}}(%rip), %xmm2, %xmm0
+; CHECK-NEXT:    vaddss {{.*}}(%rip), %xmm1, %xmm1
 ; CHECK-NEXT:    vfmadd132ss {{.*}}(%rip), %xmm1, %xmm1
 ; CHECK-NEXT:    vfmadd213ss %xmm0, %xmm0, %xmm1
 ; CHECK-NEXT:    vmovss %xmm1, {{.*}}(%rip)
@@ -96,8 +96,8 @@ define void @func64() #0 {
 ; CHECK-NEXT:    vmovsd {{.*#+}} xmm1 = mem[0],zero
 ; CHECK-NEXT:    vmovsd {{.*#+}} xmm2 = mem[0],zero
 ; CHECK-NEXT:    vmulsd {{.*}}(%rip), %xmm0, %xmm0
-; CHECK-NEXT:    vaddsd {{.*}}(%rip), %xmm1, %xmm1
 ; CHECK-NEXT:    vfmadd231sd {{.*}}(%rip), %xmm2, %xmm0
+; CHECK-NEXT:    vaddsd {{.*}}(%rip), %xmm1, %xmm1
 ; CHECK-NEXT:    vfmadd132sd {{.*}}(%rip), %xmm1, %xmm1
 ; CHECK-NEXT:    vfmadd213sd %xmm0, %xmm0, %xmm1
 ; CHECK-NEXT:    vmovsd %xmm1, {{.*}}(%rip)
@@ -159,8 +159,8 @@ define void @func32x4() #0 {
 ; CHECK-NEXT:    vmovaps {{.*}}(%rip), %xmm1
 ; CHECK-NEXT:    vmovaps {{.*}}(%rip), %xmm2
 ; CHECK-NEXT:    vmulps {{.*}}(%rip), %xmm0, %xmm0
-; CHECK-NEXT:    vaddps {{.*}}(%rip), %xmm1, %xmm1
 ; CHECK-NEXT:    vfmadd231ps {{.*}}(%rip), %xmm2, %xmm0
+; CHECK-NEXT:    vaddps {{.*}}(%rip), %xmm1, %xmm1
 ; CHECK-NEXT:    vfmadd132ps {{.*}}(%rip), %xmm1, %xmm1
 ; CHECK-NEXT:    vfmadd213ps %xmm0, %xmm0, %xmm1
 ; CHECK-NEXT:    vmovaps %xmm1, {{.*}}(%rip)
@@ -222,8 +222,8 @@ define void @func64x2() #0 {
 ; CHECK-NEXT:    vmovapd {{.*}}(%rip), %xmm1
 ; CHECK-NEXT:    vmovapd {{.*}}(%rip), %xmm2
 ; CHECK-NEXT:    vmulpd {{.*}}(%rip), %xmm0, %xmm0
-; CHECK-NEXT:    vaddpd {{.*}}(%rip), %xmm1, %xmm1
 ; CHECK-NEXT:    vfmadd231pd {{.*}}(%rip), %xmm2, %xmm0
+; CHECK-NEXT:    vaddpd {{.*}}(%rip), %xmm1, %xmm1
 ; CHECK-NEXT:    vfmadd132pd {{.*}}(%rip), %xmm1, %xmm1
 ; CHECK-NEXT:    vfmadd213pd %xmm0, %xmm0, %xmm1
 ; CHECK-NEXT:    vmovapd %xmm1, {{.*}}(%rip)
@@ -285,8 +285,8 @@ define void @func32x8() #0 {
 ; CHECK-NEXT:    vmovaps {{.*}}(%rip), %ymm1
 ; CHECK-NEXT:    vmovaps {{.*}}(%rip), %ymm2
 ; CHECK-NEXT:    vmulps {{.*}}(%rip), %ymm0, %ymm0
-; CHECK-NEXT:    vaddps {{.*}}(%rip), %ymm1, %ymm1
 ; CHECK-NEXT:    vfmadd231ps {{.*}}(%rip), %ymm2, %ymm0
+; CHECK-NEXT:    vaddps {{.*}}(%rip), %ymm1, %ymm1
 ; CHECK-NEXT:    vfmadd132ps {{.*}}(%rip), %ymm1, %ymm1
 ; CHECK-NEXT:    vfmadd213ps %ymm0, %ymm0, %ymm1
 ; CHECK-NEXT:    vmovaps %ymm1, {{.*}}(%rip)
@@ -349,8 +349,8 @@ define void @func64x4() #0 {
 ; CHECK-NEXT:    vmovapd {{.*}}(%rip), %ymm1
 ; CHECK-NEXT:    vmovapd {{.*}}(%rip), %ymm2
 ; CHECK-NEXT:    vmulpd {{.*}}(%rip), %ymm0, %ymm0
-; CHECK-NEXT:    vaddpd {{.*}}(%rip), %ymm1, %ymm1
 ; CHECK-NEXT:    vfmadd231pd {{.*}}(%rip), %ymm2, %ymm0
+; CHECK-NEXT:    vaddpd {{.*}}(%rip), %ymm1, %ymm1
 ; CHECK-NEXT:    vfmadd132pd {{.*}}(%rip), %ymm1, %ymm1
 ; CHECK-NEXT:    vfmadd213pd %ymm0, %ymm0, %ymm1
 ; CHECK-NEXT:    vmovapd %ymm1, {{.*}}(%rip)
@@ -413,8 +413,8 @@ define void @func32x16() #1 {
 ; CHECK-NEXT:    vmovaps {{.*}}(%rip), %zmm1
 ; CHECK-NEXT:    vmovaps {{.*}}(%rip), %zmm2
 ; CHECK-NEXT:    vmulps {{.*}}(%rip), %zmm0, %zmm0
-; CHECK-NEXT:    vaddps {{.*}}(%rip), %zmm1, %zmm1
 ; CHECK-NEXT:    vfmadd231ps {{.*}}(%rip), %zmm2, %zmm0
+; CHECK-NEXT:    vaddps {{.*}}(%rip), %zmm1, %zmm1
 ; CHECK-NEXT:    vfmadd132ps {{.*}}(%rip), %zmm1, %zmm1
 ; CHECK-NEXT:    vfmadd213ps %zmm0, %zmm0, %zmm1
 ; CHECK-NEXT:    vmovaps %zmm1, {{.*}}(%rip)
@@ -477,8 +477,8 @@ define void @func64x8() #1 {
 ; CHECK-NEXT:    vmovapd {{.*}}(%rip), %zmm1
 ; CHECK-NEXT:    vmovapd {{.*}}(%rip), %zmm2
 ; CHECK-NEXT:    vmulpd {{.*}}(%rip), %zmm0, %zmm0
-; CHECK-NEXT:    vaddpd {{.*}}(%rip), %zmm1, %zmm1
 ; CHECK-NEXT:    vfmadd231pd {{.*}}(%rip), %zmm2, %zmm0
+; CHECK-NEXT:    vaddpd {{.*}}(%rip), %zmm1, %zmm1
 ; CHECK-NEXT:    vfmadd132pd {{.*}}(%rip), %zmm1, %zmm1
 ; CHECK-NEXT:    vfmadd213pd %zmm0, %zmm0, %zmm1
 ; CHECK-NEXT:    vmovapd %zmm1, {{.*}}(%rip)

@@ -1,7 +1,7 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_VPLAN_INTEL_LOOPCFU_H 
 #define LLVM_TRANSFORMS_VECTORIZE_VPLAN_INTEL_LOOPCFU_H 
 
-#include "../VPlan.h"
+//#include "../VPlan.h"
 #include "IntelVPlan.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
@@ -19,13 +19,13 @@ private:
   LoopInfo *LI;
   VPLoopInfo *VPLI;
   VPDominatorTree *DT;
-  VPDominatorTree *PDT;
+  VPPostDominatorTree *PDT;
   const VPLoop *VecLoop;
   
 public: 
   VPLoopCFU(IntelVPlan *Plan, IntelVPlanUtils &PlanUtils, ScalarEvolution *SE,
             LoopInfo *LI, VPLoopInfo *VPLInfo, VPDominatorTree *DomTree,
-            VPDominatorTree *PostDomTree) :
+            VPPostDominatorTree *PostDomTree) :
             Plan(Plan), PlanUtils(PlanUtils), SE(SE), LI(LI), VPLI(VPLInfo),
             DT(DomTree), PDT(PostDomTree) {}
 

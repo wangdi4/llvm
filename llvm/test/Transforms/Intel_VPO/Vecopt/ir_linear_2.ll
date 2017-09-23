@@ -4,7 +4,7 @@
 ; CHECK: vector.ph
 ; CHECK:  load i32, i32* %i2
 ; CHECK: vector.body
-; CHECK:  call void @llvm.masked.scatter.v4i32(<4 x i32> %vec.linear, {{.*}})
+; CHECK:  call void @llvm.masked.scatter.v4i32.v4p0i32(<4 x i32> %vec.linear, {{.*}})
 ; CHECK:  %lin.cast{{.*}} = trunc i64 {{.*}} to i32
 ; CHECK-NEXT:  mul i32 %lin.cast{{.*}}, 3
 ; CHECK-NEXT:  add i32 {{.*}}

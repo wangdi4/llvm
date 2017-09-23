@@ -1,3 +1,4 @@
+// REQUIRES: x86
 // RUN: llvm-mc -filetype=obj -triple=x86_64-pc-linux %s -o %t.o
 // RUN: echo .global __progname > %t2.s
 // RUN: llvm-mc -filetype=obj -triple=x86_64-pc-linux %t2.s -o %t2.o
@@ -12,7 +13,7 @@
 // RUN: ld.lld -o %t %t.o %t.so
 // RUN: llvm-readobj -dyn-symbols %t | FileCheck %s
 
-// RUN: echo "{_start;};" > %t.dynlist
+// RUN: echo "{ _start; };" > %t.dynlist
 // RUN: ld.lld -dynamic-list %t.dynlist -o %t %t.o %t.so
 // RUN: llvm-readobj -dyn-symbols %t | FileCheck %s
 

@@ -8,11 +8,11 @@
 #===----------------------------------------------------------------------===//
 
 import importlib
-import lit.util  # pylint: disable=import-error,no-name-in-module
 import locale
 import os
 import platform
 import re
+import subprocess
 import sys
 
 class DefaultTargetInfo(object):
@@ -46,25 +46,26 @@ def test_locale(loc):
         locale.setlocale(locale.LC_ALL, default_locale)
 
 
-def add_common_locales(features, lit_config):
+def add_common_locales(features, lit_config, is_windows=False):
     # A list of locales needed by the test-suite.
     # The list uses the canonical name for the locale used in the test-suite
     # TODO: On Linux ISO8859 *may* needs to hyphenated.
     locales = [
-        'en_US.UTF-8',
-        'fr_FR.UTF-8',
-        'ru_RU.UTF-8',
-        'zh_CN.UTF-8',
-        'fr_CA.ISO8859-1',
-        'cs_CZ.ISO8859-2'
+        ('en_US.UTF-8', 'English_United States.1252'),
+        ('fr_FR.UTF-8', 'French_France.1252'),
+        ('ru_RU.UTF-8', 'Russian_Russia.1251'),
+        ('zh_CN.UTF-8', 'Chinese_China.936'),
+        ('fr_CA.ISO8859-1', 'French_Canada.1252'),
+        ('cs_CZ.ISO8859-2', 'Czech_Czech Republic.1250')
     ]
-    for loc in locales:
-        if test_locale(loc):
-            features.add('locale.{0}'.format(loc))
+    for loc_id, windows_loc_name in locales:
+        loc_name = windows_loc_name if is_windows else loc_id
+        if test_locale(loc_name):
+            features.add('locale.{0}'.format(loc_id))
         else:
             lit_config.warning('The locale {0} is not supported by '
                                'your platform. Some tests will be '
-                               'unsupported.'.format(loc))
+                               'unsupported.'.format(loc_name))
 
 
 class DarwinLocalTI(DefaultTargetInfo):
@@ -72,12 +73,13 @@ class DarwinLocalTI(DefaultTargetInfo):
         super(DarwinLocalTI, self).__init__(full_config)
 
     def is_host_macosx(self):
-        name = lit.util.capture(['sw_vers', '-productName']).strip()
+        name = subprocess.check_output(['sw_vers', '-productName']).strip()
         return name == "Mac OS X"
 
     def get_macosx_version(self):
         assert self.is_host_macosx()
-        version = lit.util.capture(['sw_vers', '-productVersion']).strip()
+        version = subprocess.check_output(
+            ['sw_vers', '-productVersion']).strip()
         version = re.sub(r'([0-9]+\.[0-9]+)(\..*)?', r'\1', version)
         return version
 
@@ -85,7 +87,7 @@ class DarwinLocalTI(DefaultTargetInfo):
         assert self.is_host_macosx()
         cmd = ['xcrun', '--sdk', name, '--show-sdk-path']
         try:
-            out = lit.util.capture(cmd).strip()
+            out = subprocess.check_output(cmd).strip()
         except OSError:
             pass
 
@@ -126,7 +128,7 @@ class DarwinLocalTI(DefaultTargetInfo):
         else:
             cmd = ['xcrun', '--show-sdk-path']
         try:
-            out = lit.util.capture(cmd).strip()
+            out = subprocess.check_output(cmd).strip()
             res = 0
         except OSError:
             res = -1
@@ -166,10 +168,6 @@ class DarwinLocalTI(DefaultTargetInfo):
         # Don't link libc++abi explicitly on OS X because the symbols
         # should be available in libc++ directly.
         return False
-
-    def add_sanitizer_features(self, sanitizer_type, features):
-        if sanitizer_type == 'Undefined':
-            features.add('sanitizer-new-delete')
 
 
 class FreeBSDLocalTI(DefaultTargetInfo):
@@ -251,7 +249,8 @@ class WindowsLocalTI(DefaultTargetInfo):
         super(WindowsLocalTI, self).__init__(full_config)
 
     def add_locale_features(self, features):
-        add_common_locales(features, self.full_config.lit_config)
+        add_common_locales(features, self.full_config.lit_config,
+                           is_windows=True)
 
     def use_lit_shell_default(self):
         # Default to the internal shell on Windows, as bash on Windows is

@@ -440,7 +440,7 @@ static void optimizeImmediatePostdomBlocks(VPRegionBlock *Region,
   
   // We iterate through the DomTree and check against all children.
   VPDominatorTree *RegionDT = Region->getDT();
-  VPDominatorTree *RegionPDT = Region->getPDT();
+  VPPostDominatorTree *RegionPDT = Region->getPDT();
   // Walk down the nodes of the dominator graph
   for (auto DTNode :
        make_range(df_iterator<VPDomTreeNode *>::begin(RegionDT->getRootNode()),

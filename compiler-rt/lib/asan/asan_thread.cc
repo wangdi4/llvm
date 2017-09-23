@@ -166,16 +166,19 @@ void AsanThread::FinishSwitchFiber(FakeStack *fake_stack_save,
 }
 
 inline AsanThread::StackBounds AsanThread::GetStackBounds() const {
-  if (!atomic_load(&stack_switching_, memory_order_acquire))
-    return StackBounds{stack_bottom_, stack_top_};  // NOLINT
+  if (!atomic_load(&stack_switching_, memory_order_acquire)) {
+    // Make sure the stack bounds are fully initialized.
+    if (stack_bottom_ >= stack_top_) return {0, 0};
+    return {stack_bottom_, stack_top_};
+  }
   char local;
   const uptr cur_stack = (uptr)&local;
   // Note: need to check next stack first, because FinishSwitchFiber
   // may be in process of overwriting stack_top_/bottom_. But in such case
   // we are already on the next stack.
   if (cur_stack >= next_stack_bottom_ && cur_stack < next_stack_top_)
-    return StackBounds{next_stack_bottom_, next_stack_top_};  // NOLINT
-  return StackBounds{stack_bottom_, stack_top_};              // NOLINT
+    return {next_stack_bottom_, next_stack_top_};
+  return {stack_bottom_, stack_top_};
 }
 
 uptr AsanThread::stack_top() {

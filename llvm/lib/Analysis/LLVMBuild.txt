@@ -22,4 +22,4 @@ subdirectories = Intel_LoopAnalysis Intel_VPO
 type = Library
 name = Analysis
 parent = Libraries
-required_libraries = Core Support ProfileData Object
+required_libraries = BinaryFormat Core Object ProfileData Support

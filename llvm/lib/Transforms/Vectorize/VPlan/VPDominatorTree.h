@@ -7,15 +7,22 @@
 
 namespace llvm {
 
-class VPBlockBase;
+// ***** ATTENTION: This file is not used for now because there was a cyclic
+// dependency between this header and VPlan.h. After the last pulldown, this
+// caused some forward declaration errors on VPBlockBase depending on the order
+// in which VPlan.h or this header was included from other files. Thus, this
+// code was moved to VPlan.h.
+
+//class VPBlockBase;
 /// \brief Template specialization of the standard LLVM dominator tree utility
 /// for VPBlocks.
-class VPDominatorTree : public DominatorTreeBase<VPBlockBase> {
+class VPDominatorTree : public DominatorTreeBase<VPBlockBase, false> {
 public:
-  VPDominatorTree(bool isPostDom) : DominatorTreeBase<VPBlockBase>(isPostDom) {}
+  VPDominatorTree(bool isPostDom) : DominatorTreeBase<VPBlockBase, false>() {}
 
   virtual ~VPDominatorTree() {}
 };
+
 typedef DomTreeNodeBase<VPBlockBase> VPDomTreeNode;
 
 template <>

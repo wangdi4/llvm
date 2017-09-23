@@ -1,8 +1,8 @@
 ; RUN: opt %loadPolly -polly-parallel -polly-parallel-force -polly-ast -analyze < %s | FileCheck %s -check-prefix=AST
 ; RUN: opt %loadPolly -polly-parallel -polly-parallel-force -polly-codegen -S -verify-dom-info < %s | FileCheck %s -check-prefix=IR
 
-; RUN: opt %loadPolly -polly-parallel -polly-parallel-force -polly-import-jscop -polly-import-jscop-dir=%S -polly-ast -analyze < %s | FileCheck %s -check-prefix=AST-STRIDE4
-; RUN: opt %loadPolly -polly-parallel -polly-parallel-force -polly-import-jscop -polly-import-jscop-dir=%S -polly-codegen -S < %s | FileCheck %s -check-prefix=IR-STRIDE4
+; RUN: opt %loadPolly -polly-parallel -polly-parallel-force -polly-import-jscop -polly-ast -analyze < %s | FileCheck %s -check-prefix=AST-STRIDE4
+; RUN: opt %loadPolly -polly-parallel -polly-parallel-force -polly-import-jscop -polly-codegen -S < %s | FileCheck %s -check-prefix=IR-STRIDE4
 
 ; This extensive test case tests the creation of the full set of OpenMP calls
 ; as well as the subfunction creation using a trivial loop as example.
@@ -70,8 +70,7 @@
 ; IR-NEXT:   %[[gep:[._a-zA-Z0-9]*]] = getelementptr [1024 x float], [1024 x float]* {{.*}}, i64 0, i64 %polly.indvar
 ; IR-NEXT:   store float 1.000000e+00, float* %[[gep]]
 ; IR-NEXT:   %polly.indvar_next = add nsw i64 %polly.indvar, 1
-; IR-NEXT:   %polly.adjust_ub = sub i64 %polly.par.UBAdjusted, 1
-; IR-NEXT:   %polly.loop_cond = icmp sle i64 %polly.indvar, %polly.adjust_ub
+; IR-NEXT:   %polly.loop_cond = icmp sle i64 %polly.indvar_next, %polly.par.UBAdjusted
 ; IR-NEXT:   br i1 %polly.loop_cond, label %polly.loop_header, label %polly.loop_exit
 
 ; IR-LABEL: polly.loop_preheader:

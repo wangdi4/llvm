@@ -153,8 +153,8 @@ VPBasicBlock::createEmptyBasicBlock(VPTransformState::CFGState &CFG) {
   return NewBB;
 }
 
-#ifndef INTEL_CUSTOMIZATION
-#ifdef INTEL_CUSTOMIZATION
+#if !INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 // Eventually, we will remove the ifndef macro above, when we use separate
 // libraries for opensource VPlan and VPO VPlan. In the meantime, this function
 // cannot be shared by both implementations. This implementation is for
@@ -206,7 +206,7 @@ void VPBasicBlock::vectorize(VPTransformState *State) {
 }
 #endif // INTEL_CUSTOMIZATION
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 void VPBasicBlock::moveConditionalEOBTo(VPBasicBlock *ToBB, VPlan *Plan) {
   // Set ConditionBitRecipe in NewBlock. Note that we are only setting the
   // successor selector pointer. The ConditionBitRecipe is kept in its
@@ -262,7 +262,7 @@ void VPRegionBlock::vectorize(VPTransformState *State) {
 /// basic blocks as needed, and fills them all.
 void VPlan::vectorize(VPTransformState *State) {
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 // NOTE: This function is not used in VPO vectorizer. IntelVPlan::vectorize is
 // used instead.
 #endif
@@ -482,7 +482,7 @@ void VPlanPrinter::dumpRegion(const VPRegionBlock *Region) {
   increaseDepth();
   OS << Indent;
   OS << "label = \"" << getReplicatorString(Region) << " "
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
      << DOT::EscapeString(Region->getName()) << " Size=" << Region->getSize()
      << "\"\n\n";
 #else

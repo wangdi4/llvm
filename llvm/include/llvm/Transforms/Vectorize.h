@@ -108,20 +108,10 @@ struct VectorizeConfig {
 
 //===----------------------------------------------------------------------===//
 //
-// BBVectorize - A basic-block vectorization pass.
-//
-BasicBlockPass *
-createBBVectorizePass(const VectorizeConfig &C = VectorizeConfig());
-
-// Get rid of INTEL_VPO_EXPERIMENTAL changes before promoting
-#define INTEL_VPO_EXPERIMENTAL
-
-//===----------------------------------------------------------------------===//
-//
 // LoopVectorize - Create a loop vectorization pass.
 //
 Pass *createLoopVectorizePass(bool NoUnrolling = false,
-#ifdef INTEL_VPO_EXPERIMENTAL
+#if INTEL_CUSTOMIZATION
                               bool AlwaysVectorize = true,
                               bool OnlyLegal = false);
 #else

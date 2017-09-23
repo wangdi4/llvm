@@ -383,7 +383,7 @@ void VPlanHCFGBuilder::splitLoopsPreheader(VPLoop *VPL, HCFGState &State) {
 void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL, HCFGState &State) {
 
   VPDominatorTree &VPDomTree = State.VPDomTree;
-  VPDominatorTree &VPPostDomTree = State.VPPostDomTree;
+  VPPostDominatorTree &VPPostDomTree = State.VPPostDomTree;
   IntelVPlanUtils &PlanUtils = State.PlanUtils;
   VPLoopInfo *VPLInfo = PlanUtils.getVPlan()->getVPLoopInfo();
 
@@ -792,7 +792,7 @@ void VPlanHCFGBuilder::buildLoopRegions(HCFGState &State) {
 
 static bool isNonLoopRegion(VPBlockBase *Entry, VPRegionBlock *ParentRegion,
                             VPDominatorTree &VPDomTree,
-                            VPDominatorTree &VPPostDomTree,
+                            VPPostDominatorTree &VPPostDomTree,
                             VPBlockBase *&OutputExit) {
 
   // Region's entry must have multiple successors and must be a VPBasicBlock at
@@ -974,7 +974,7 @@ void VPlanHCFGBuilder::buildHierarchicalCFG(Loop *TheLoop,
   // building process.
   HCFGState State(TheLoop, WRLoop, Plan);
   VPDominatorTree &VPDomTree = State.VPDomTree;
-  VPDominatorTree &VPPostDomTree = State.VPPostDomTree;
+  VPPostDominatorTree &VPPostDomTree = State.VPPostDomTree;
 
   // Build Top Region enclosing the plain CFG
   VPRegionBlock *TopRegion = buildPlainCFG(State);

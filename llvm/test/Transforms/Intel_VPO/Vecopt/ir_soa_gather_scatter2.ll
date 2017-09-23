@@ -5,12 +5,12 @@
 ; CHECK:   %[[G_V_PTRS:.*]] = shufflevector <4 x i32*> %{{.*}}, <4 x i32*> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3>
 ; CHECK:   %[[G_GEP:.*]] = getelementptr i32, <8 x i32*> %[[G_V_PTRS]], <8 x i32> <i32 0, i32 0, i32 0, i32 0, i32 1, i32 1, i32 1, i32 1>
 ; CHECK:   %replicatedMaskVec. = shufflevector <4 x i1> %[[MASK:.*]], <4 x i1> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3>
-; CHECK:   %wide.masked.gather = call <8 x i32> @llvm.masked.gather.v8i32(<8 x i32*> %[[G_GEP]], i32 4, <8 x i1> %replicatedMaskVec., <8 x i32> undef)
+; CHECK:   %wide.masked.gather = call <8 x i32> @llvm.masked.gather.v8i32.v8p0i32(<8 x i32*> %[[G_GEP]], i32 4, <8 x i1> %replicatedMaskVec., <8 x i32> undef)
 ; CHECK:   %[[VALUE_TO_STORE:.*]] = add <8 x i32> %wide.masked.gather, <i32 5, i32 5, i32 5, i32 5, i32 6, i32 6, i32 6, i32 6>
 ; CHECK:   %[[S_V_PTRS:.*]] = shufflevector <4 x i32*> %{{.*}}, <4 x i32*> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3>
 ; CHECK:   %[[S_GEP:.*]] = getelementptr i32, <8 x i32*> %[[S_V_PTRS]], <8 x i32> <i32 0, i32 0, i32 0, i32 0, i32 1, i32 1, i32 1, i32 1>
 ; CHECK:   %replicatedMaskVec.3 = shufflevector <4 x i1> %[[MASK:.*]], <4 x i1> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3>
-; CHECK:   call void @llvm.masked.scatter.v8i32(<8 x i32> %[[VALUE_TO_STORE]], <8 x i32*> %[[S_GEP]], i32 4, <8 x i1> %replicatedMaskVec.3)
+; CHECK:   call void @llvm.masked.scatter.v8i32.v8p0i32(<8 x i32> %[[VALUE_TO_STORE]], <8 x i32*> %[[S_GEP]], i32 4, <8 x i1> %replicatedMaskVec.3)
 
 
 @varr2p = external global <2 x i32>*, align 8

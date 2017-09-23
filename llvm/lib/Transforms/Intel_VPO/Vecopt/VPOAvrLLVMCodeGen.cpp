@@ -648,6 +648,8 @@ void AVRCodeGen::vectorizeStoreInstruction(Instruction *Inst,
   std::vector<Value *> Arguments;
 
   ArgumentTypes.push_back(VectorOfElementsType);
+  // VectorOfPointersType now needed for scatter intrinsic name mangling
+  ArgumentTypes.push_back(VectorOfPointersType);
 
   // Vector of data, pointers to store
   Arguments.push_back(VecDataOp);
@@ -937,7 +939,6 @@ void AVRCodeGen::vectorizeInstruction(Instruction *Inst) {
     if (TLI->isFunctionVectorizable(CalledFunc)) {
       vectorizeCallInstruction(Call);
     } else {
-errs() << "Function is serialized\n";
       serializeInstruction(Inst);
     }
     break;

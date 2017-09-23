@@ -54,7 +54,7 @@ IntelVPlanUtils::createNonUniformConditionBitRecipe(
 VPBasicBlock *IntelVPlanUtils::splitBlock(VPBlockBase *Block,
                                           VPLoopInfo *VPLInfo,
                                           VPDominatorTree &DomTree,
-                                          VPDominatorTree &PostDomTree) {
+                                          VPPostDominatorTree &PostDomTree) {
   VPBasicBlock *NewBlock = createBasicBlock();
   insertBlockAfter(NewBlock, Block);
 
@@ -272,12 +272,13 @@ void VPBasicBlock::vectorize(VPTransformState *State) {
   DEBUG(dbgs() << "LV: filled BB:" << *NewBB);
 }
 
-template void llvm::Calculate<VPRegionBlock, VPBlockBase *>(
-    DominatorTreeBase<GraphTraits<VPBlockBase *>::NodeType> &DT,
-    VPRegionBlock &VPR);
-//template void llvm::Calculate<VPRegionBlock, Inverse<VPBlockBase *>>(
-//    DominatorTreeBase<GraphTraits<Inverse<VPBlockBase *>>::NodeType> &DT,
-//    VPRegionBlock &VPR);
+using VPDomTree = DomTreeBase<VPBlockBase>;
+template void llvm::DomTreeBuilder::Calculate<VPDomTree, VPRegionBlock>(
+    VPDomTree &DT, VPRegionBlock &VPR);
+
+using VPPostDomTree = PostDomTreeBase<VPBlockBase>;
+template void llvm::DomTreeBuilder::Calculate<VPPostDomTree, VPRegionBlock>(
+    VPPostDomTree &PDT, VPRegionBlock &VPR);
 
 void VPUniformConditionBitRecipe::vectorize(VPTransformState &State) {
   if (isa<Instruction>(ScConditionBit)) {

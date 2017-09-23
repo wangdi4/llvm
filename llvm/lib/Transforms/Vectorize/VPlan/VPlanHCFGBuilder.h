@@ -55,12 +55,12 @@ private:
     Loop *const TheLoop;
     const WRNVecLoopNode *const WRLoop;
     VPDominatorTree VPDomTree;
-    VPDominatorTree VPPostDomTree;
+    VPPostDominatorTree VPPostDomTree;
     IntelVPlanUtils PlanUtils;
 
     HCFGState(Loop *Lp, const WRNVecLoopNode *WRL, IntelVPlan *Plan)
-        : TheLoop(Lp), WRLoop(WRL), VPDomTree(false /*PostDom*/),
-          VPPostDomTree(true /*PostDom*/), PlanUtils(Plan) {}
+        : TheLoop(Lp), WRLoop(WRL), VPDomTree(), VPPostDomTree(),
+          PlanUtils(Plan) {}
   };
 
   /// Loop Info analysis.

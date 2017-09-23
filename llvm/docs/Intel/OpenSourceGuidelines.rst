@@ -5,15 +5,23 @@ Open Source Guidelines
 .. contents::
    :local:
 
-The Intel LLVM development process documentation is currently under review. If
-anything looks wrong to you, please contact `David Kreitzer
-<mailto:david.l.kreitzer@intel.com>`_.
+.. toctree::
+   :hidden:
+
+   SPECOpenSourceGuidelines
+   OpenSourceDecisionFlow
 
 Introduction
 ============
 
-This document describes the process for deciding whether a code change should
-be targeted for LLVM open source or kept Intel proprietary in xmain.
+This document describes our Xmain and LLORG open sourcing guidelines.
+
+Our proprietary compilers (ICC/ICX) should demonstrate industry leading
+performance on all IA platforms (Intel and AMD) against all relevant
+compilers. At the same time, open source compilers (GCC/LLVM) should
+perform best on IA against other architectures. In order to achieve
+these goals, we need to maintain a fine balance of performance and
+features between Xmain and LLORG.
 
 There are several benefits of committing our LLVM/clang improvements to open
 source, and there are some good reasons to keep our LLVM/clang improvements to
@@ -27,19 +35,41 @@ ourselves as illustrated in the following table.
 |              | optimizations, unique SW       | optimizations                |
 |              | features                       |                              |
 +--------------+--------------------------------+------------------------------+
-| Why we do it | (A) Retain performance         | (D) Maximize reach of IA     |
+| Why we do it | (A) Retain performance         | (E) Maximize reach of IA     |
 |              |     differentiation for IA only|     enabling and             |
 |              |                                |     optimizations to all     |
 |              | (B) Retain unique SW features  |     LLVM-based tools         |
-|              |     for IA only                |     customers.               |
+|              |     for IA only                |     customers                |
 |              |                                |                              |
-|              | (C) Create direct developers   | (E) Driving language/        |
-|              |     influence point            |     programming models       |
-|              |                                |     (Secondary goal) Need    |
-|              |                                |     community influence where|
-|              |                                |     needed to meet primary   |
-|              |                                |     goals (D), (E) above     |
+|              | (C) Create direct developers   | (F) Encourage CSPs to switch |
+|              |     influence point            |     from GCC to LLVM to have |
+|              |                                |     greater influence, and   |
+|              | (D) Demonstrate a significant  |     increase likelihood of   |
+|              |     lead in SPEC scores on     |     switching to ICX         |
+|              |     Intel processors vs. AMD   |                              |
+|              |     to help Intel's bottom line| (G) Driving language /       |
+|              |                                |     programming models       |
+|              |                                |     (Secondary goal)         |
+|              |                                |                              |
+|              |                                | (H) Need community influence |
+|              |                                |     where needed to meet     |
+|              |                                |     primary goals (E), (F),  |
+|              |                                |     (G) above                |
 +--------------+--------------------------------+------------------------------+
+
+**CPU2017 Compiler Performance Considerations**
+
+In addition to demonstrating industry leading performance, it is also crucial
+that we seek and maintain a significant lead in SPEC2017 on Intel Architectures
+against AMD, as stated in the table above.
+
+It is also important to improve CPU2017 performance in LLVM Open Source to
+achieve goal (E) above, that is, to encourage CSPs to switch from GCC to LLVM.
+
+These two goals can sometimes work against each other. For more guidance,
+please see :doc:`CPU2017 Performance Guidelines <SPECOpenSourceGuidelines>`
+
+**General Open Sourcing Considerations**
 
 The decision making process on whether to open source a code change should start
 before actual design of a code change. This has several benefits.
@@ -73,14 +103,17 @@ Open Source Guiding Principles
 7. **OPEN SOURCE** language and parallel programming model features, except
    performance.
 
+8. **DO NOT OPEN SOURCE** changes that hurt our competitive standing in SPEC
+   vs AMD.
+
 Decision Making Process
 =======================
 
-- Refer to the :ref:`Open Source Guide <open-source-guide>` to find out whether
-  your code should be open sourced.
+- A high level summary flow of decision making and testing is illustrated
+  here : :doc:`Open Source Decision Flow <OpenSourceDecisionFlow>`
 
-- Submit the code category your code falls into and corresponding guidance to
-  your manager to get decision approved.
+- Additional details on open sourcing guidelines for individual components
+  can be found here : :ref:`Open Source Guide <open-source-guide>`
 
 - If you cannot identify the Code Categories your code belongs to, or you would
   like to appeal for an exception, send mail to
@@ -95,6 +128,10 @@ Open Source Guide
 +----------------------+--------------+-----------+----------------------------+
 | Code Categories      | Open Source? | Last Edit | Rationale                  |
 +======================+==============+===========+============================+
+| All changes that     | Maybe        | 8/31/2017 | See  :doc:`CPU2017         |
+| affect SPEC          |              |           | Performance Guidelines     |
+| performance          |              |           | <SPECOpenSourceGuidelines>`|
++----------------------+--------------+-----------+----------------------------+
 | Interprocedural &    | No           | 6/9/2015  | Raises all boats, don't    |
 | Loop Optimizations   |              |           | want competitive compilers |
 |                      |              |           | or architectures to        |

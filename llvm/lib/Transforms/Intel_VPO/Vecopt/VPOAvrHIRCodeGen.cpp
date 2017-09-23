@@ -1029,8 +1029,7 @@ void AVRCodeGenHIR::replaceLibCallsInRemainderLoop(HLInst *HInst) {
         AttrBuilder AttrList;
         AttrList.addAttribute("stride", "indirect");
         VecCall->setAttributes(VecCall->getAttributes().addAttributes(
-          VecCall->getContext(), I + 1,
-          AttributeList::get(VecCall->getContext(), I + 1, AttrList)));
+          VecCall->getContext(), I + 1, AttrList));
       }
       //analyzeCallArgMemoryReferences(HInst, WideCall, CallArgs);
     }
@@ -1539,8 +1538,7 @@ void AVRCodeGenHIR::analyzeCallArgMemoryReferences(
 
       if (AttrList.hasAttributes()) {
         VecCall->setAttributes(VecCall->getAttributes().addAttributes(
-            VecCall->getContext(), I + 1,
-            AttributeList::get(VecCall->getContext(), I + 1, AttrList)));
+            VecCall->getContext(), I + 1, AttrList));
       }
     }
   }

@@ -14,9 +14,9 @@
 #ifndef LLVM_ANALYSIS_INLINECOST_H
 #define LLVM_ANALYSIS_INLINECOST_H
 
-#include "llvm/Analysis/CallGraphSCCPass.h"   // INTEL
-#include "llvm/Analysis/Intel_AggInline.h"    // INTEL
 #include "llvm/Analysis/AssumptionCache.h"
+#include "llvm/Analysis/CallGraphSCCPass.h"
+#include "llvm/Analysis/Intel_AggInline.h"    // INTEL
 #include "llvm/Analysis/LoopInfo.h"           // INTEL
 #include <cassert>
 #include <climits>
@@ -108,6 +108,7 @@ typedef enum {
    InlrFirst, // Just a marker placed before the first inlining reason
    InlrNoReason,
    InlrAlwaysInline,
+   InlrAlwaysInlineRecursive, // INTEL
    InlrSingleLocalCall,
    InlrSingleBasicBlock,
    InlrAlmostSingleBasicBlock,
@@ -315,6 +316,10 @@ InlineParams getInlineParams(unsigned OptLevel, unsigned SizeOptLevel);
 InlineParams getInlineParams(unsigned OptLevel, unsigned SizeOptLevel,
                              bool PrepareForLTO);
 #endif // INTEL_CUSTOMIZATION
+
+/// Return the cost associated with a callsite, including parameter passing
+/// and the call/return instruction.
+int getCallsiteCost(CallSite CS, const DataLayout &DL);
 
 /// \brief Get an InlineCost object representing the cost of inlining this
 /// callsite.

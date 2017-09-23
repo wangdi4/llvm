@@ -30,14 +30,19 @@ extern "C" {
 
 using namespace fuzzer;
 
+static void CheckFnPtr(void *FnPtr, const char *FnName, bool WarnIfMissing) {
+  if (FnPtr == nullptr && WarnIfMissing) {
+    Printf("WARNING: Failed to find function \"%s\".\n", FnName);
+  }
+}
+
 namespace fuzzer {
 
 ExternalFunctions::ExternalFunctions() {
 #define EXT_FUNC(NAME, RETURN_TYPE, FUNC_SIG, WARN)                            \
   this->NAME = ::NAME;                                                         \
-  if (::NAME == nullptr && WARN) {                                             \
-    Printf("WARNING: Failed to find function \"%s\".\n", #NAME);               \
-  }
+  CheckFnPtr(reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(::NAME)),    \
+             #NAME, WARN);
 
 #include "FuzzerExtFunctions.def"
 
