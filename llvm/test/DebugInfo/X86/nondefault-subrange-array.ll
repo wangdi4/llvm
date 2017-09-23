@@ -1,6 +1,11 @@
+<<<<<<< HEAD
 ;;***INTEL
 ; RUN: llc -mtriple=x86_64-apple-darwin -O0 -filetype=obj -debug-emit-dwarf-attr-count -o %t < %s
 ; RUN: llvm-dwarfdump -debug-info %t | FileCheck %s
+=======
+; RUN: llc -mtriple=x86_64-apple-darwin -O0 -filetype=obj -o %t < %s
+; RUN: llvm-dwarfdump -v -debug-info %t | FileCheck %s
+>>>>>>> 3776c52b4dbfc3e919070bf0ad17bf42a36b7858
 
 source_filename = "test/DebugInfo/X86/nondefault-subrange-array.ll"
 

@@ -1,6 +1,11 @@
+<<<<<<< HEAD
 ;;***INTEL
 ; RUN: llc -mtriple=x86_64-apple-darwin -O0 -filetype=obj -o %t -debug-emit-dwarf-attr-count < %s
 ; RUN: llvm-dwarfdump -debug-info %t | FileCheck %s
+=======
+; RUN: llc -mtriple=x86_64-apple-darwin -O0 -filetype=obj -o %t < %s
+; RUN: llvm-dwarfdump -v -debug-info %t | FileCheck %s
+>>>>>>> 3776c52b4dbfc3e919070bf0ad17bf42a36b7858
 ; <rdar://problem/12566646>
 
 %struct.foo = type { i32, [1 x i32] }
