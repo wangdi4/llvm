@@ -26,7 +26,6 @@
 #include "lldb/Core/ArchSpec.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/ModuleSpec.h"
-#include "lldb/Core/Timer.h"
 #include "lldb/Host/Host.h"
 #include "lldb/Symbol/ObjectFile.h"
 #include "lldb/Utility/CleanUp.h"
@@ -35,6 +34,7 @@
 #include "lldb/Utility/Endian.h"
 #include "lldb/Utility/Log.h"
 #include "lldb/Utility/StreamString.h"
+#include "lldb/Utility/Timer.h"
 #include "lldb/Utility/UUID.h"
 #include "mach/machine.h"
 
@@ -536,7 +536,7 @@ bool Symbols::DownloadObjectAndSymbolFile(ModuleSpec &module_spec,
             log->Printf("Calling %s with file %s to find dSYM",
                         g_dsym_for_uuid_exe_path, file_path);
         }
-        Error error = Host::RunShellCommand(
+        Status error = Host::RunShellCommand(
             command.GetData(),
             NULL,            // current working directory
             &exit_status,    // Exit status

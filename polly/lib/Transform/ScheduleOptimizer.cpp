@@ -53,6 +53,7 @@
 #include "polly/Options.h"
 #include "polly/ScopInfo.h"
 #include "polly/Support/GICHelper.h"
+#include "polly/Support/ISLOStream.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Support/Debug.h"
 #include "isl/aff.h"
@@ -235,79 +236,76 @@ static cl::opt<bool> OptimizedScops(
              "transformations is applied on the schedule tree"),
     cl::init(false), cl::ZeroOrMore, cl::cat(PollyCategory));
 
-/// Create an isl_union_set, which describes the isolate option based on
-/// IsoalteDomain.
+/// Create an isl::union_set, which describes the isolate option based on
+/// IsolateDomain.
 ///
-/// @param IsolateDomain An isl_set whose @p OutDimsNum last dimensions should
+/// @param IsolateDomain An isl::set whose @p OutDimsNum last dimensions should
 ///                      belong to the current band node.
 /// @param OutDimsNum    A number of dimensions that should belong to
 ///                      the current band node.
-static __isl_give isl_union_set *
-getIsolateOptions(__isl_take isl_set *IsolateDomain, unsigned OutDimsNum) {
-  auto Dims = isl_set_dim(IsolateDomain, isl_dim_set);
+static isl::union_set getIsolateOptions(isl::set IsolateDomain,
+                                        unsigned OutDimsNum) {
+  unsigned Dims = IsolateDomain.dim(isl::dim::set);
   assert(OutDimsNum <= Dims &&
-         "The isl_set IsolateDomain is used to describe the range of schedule "
+         "The isl::set IsolateDomain is used to describe the range of schedule "
          "dimensions values, which should be isolated. Consequently, the "
          "number of its dimensions should be greater than or equal to the "
          "number of the schedule dimensions.");
-  auto *IsolateRelation = isl_map_from_domain(IsolateDomain);
-  IsolateRelation =
-      isl_map_move_dims(IsolateRelation, isl_dim_out, 0, isl_dim_in,
-                        Dims - OutDimsNum, OutDimsNum);
-  auto *IsolateOption = isl_map_wrap(IsolateRelation);
-  auto *Id = isl_id_alloc(isl_set_get_ctx(IsolateOption), "isolate", nullptr);
-  return isl_union_set_from_set(isl_set_set_tuple_id(IsolateOption, Id));
+  isl::map IsolateRelation = isl::map::from_domain(IsolateDomain);
+  IsolateRelation = IsolateRelation.move_dims(isl::dim::out, 0, isl::dim::in,
+                                              Dims - OutDimsNum, OutDimsNum);
+  isl::set IsolateOption = IsolateRelation.wrap();
+  isl::id Id = isl::id::alloc(IsolateOption.get_ctx(), "isolate", nullptr);
+  IsolateOption = IsolateOption.set_tuple_id(Id);
+  return isl::union_set(IsolateOption);
 }
 
-/// Create an isl_union_set, which describes the atomic option for the dimension
-/// of the current node.
+/// Create an isl::union_set, which describes the atomic option for the
+/// dimension of the current node.
 ///
 /// It may help to reduce the size of generated code.
 ///
-/// @param Ctx An isl_ctx, which is used to create the isl_union_set.
-static __isl_give isl_union_set *getAtomicOptions(isl_ctx *Ctx) {
-  auto *Space = isl_space_set_alloc(Ctx, 0, 1);
-  auto *AtomicOption = isl_set_universe(Space);
-  auto *Id = isl_id_alloc(Ctx, "atomic", nullptr);
-  return isl_union_set_from_set(isl_set_set_tuple_id(AtomicOption, Id));
+/// @param Ctx An isl::ctx, which is used to create the isl::union_set.
+static isl::union_set getAtomicOptions(isl::ctx Ctx) {
+  isl::space Space(Ctx, 0, 1);
+  isl::set AtomicOption = isl::set::universe(Space);
+  isl::id Id = isl::id::alloc(Ctx, "atomic", nullptr);
+  AtomicOption = AtomicOption.set_tuple_id(Id);
+  return isl::union_set(AtomicOption);
 }
 
-/// Create an isl_union_set, which describes the option of the form
+/// Create an isl::union_set, which describes the option of the form
 /// [isolate[] -> unroll[x]].
 ///
-/// @param Ctx An isl_ctx, which is used to create the isl_union_set.
-static __isl_give isl_union_set *getUnrollIsolatedSetOptions(isl_ctx *Ctx) {
-  auto *Space = isl_space_alloc(Ctx, 0, 0, 1);
-  auto *UnrollIsolatedSetOption = isl_map_universe(Space);
-  auto *DimInId = isl_id_alloc(Ctx, "isolate", nullptr);
-  auto *DimOutId = isl_id_alloc(Ctx, "unroll", nullptr);
+/// @param Ctx An isl::ctx, which is used to create the isl::union_set.
+static isl::union_set getUnrollIsolatedSetOptions(isl::ctx Ctx) {
+  isl::space Space = isl::space(Ctx, 0, 0, 1);
+  isl::map UnrollIsolatedSetOption = isl::map::universe(Space);
+  isl::id DimInId = isl::id::alloc(Ctx, "isolate", nullptr);
+  isl::id DimOutId = isl::id::alloc(Ctx, "unroll", nullptr);
   UnrollIsolatedSetOption =
-      isl_map_set_tuple_id(UnrollIsolatedSetOption, isl_dim_in, DimInId);
+      UnrollIsolatedSetOption.set_tuple_id(isl::dim::in, DimInId);
   UnrollIsolatedSetOption =
-      isl_map_set_tuple_id(UnrollIsolatedSetOption, isl_dim_out, DimOutId);
-  return isl_union_set_from_set(isl_map_wrap(UnrollIsolatedSetOption));
+      UnrollIsolatedSetOption.set_tuple_id(isl::dim::out, DimOutId);
+  return UnrollIsolatedSetOption.wrap();
 }
 
 /// Make the last dimension of Set to take values from 0 to VectorWidth - 1.
 ///
 /// @param Set         A set, which should be modified.
 /// @param VectorWidth A parameter, which determines the constraint.
-static __isl_give isl_set *addExtentConstraints(__isl_take isl_set *Set,
-                                                int VectorWidth) {
-  auto Dims = isl_set_dim(Set, isl_dim_set);
-  auto Space = isl_set_get_space(Set);
-  auto *LocalSpace = isl_local_space_from_space(Space);
-  auto *ExtConstr =
-      isl_constraint_alloc_inequality(isl_local_space_copy(LocalSpace));
-  ExtConstr = isl_constraint_set_constant_si(ExtConstr, 0);
-  ExtConstr =
-      isl_constraint_set_coefficient_si(ExtConstr, isl_dim_set, Dims - 1, 1);
-  Set = isl_set_add_constraint(Set, ExtConstr);
-  ExtConstr = isl_constraint_alloc_inequality(LocalSpace);
-  ExtConstr = isl_constraint_set_constant_si(ExtConstr, VectorWidth - 1);
-  ExtConstr =
-      isl_constraint_set_coefficient_si(ExtConstr, isl_dim_set, Dims - 1, -1);
-  return isl_set_add_constraint(Set, ExtConstr);
+static isl::set addExtentConstraints(isl::set Set, int VectorWidth) {
+  unsigned Dims = Set.dim(isl::dim::set);
+  isl::space Space = Set.get_space();
+  isl::local_space LocalSpace = isl::local_space(Space);
+  isl::constraint ExtConstr = isl::constraint::alloc_inequality(LocalSpace);
+  ExtConstr = ExtConstr.set_constant_si(0);
+  ExtConstr = ExtConstr.set_coefficient_si(isl::dim::set, Dims - 1, 1);
+  Set = Set.add_constraint(ExtConstr);
+  ExtConstr = isl::constraint::alloc_inequality(LocalSpace);
+  ExtConstr = ExtConstr.set_constant_si(VectorWidth - 1);
+  ExtConstr = ExtConstr.set_coefficient_si(isl::dim::set, Dims - 1, -1);
+  return Set.add_constraint(ExtConstr);
 }
 
 /// Build the desired set of partial tile prefixes.
@@ -325,34 +323,31 @@ static __isl_give isl_set *addExtentConstraints(__isl_take isl_set *Set,
 ///
 /// @param ScheduleRange A range of a map, which describes a prefix schedule
 ///                      relation.
-static __isl_give isl_set *
-getPartialTilePrefixes(__isl_take isl_set *ScheduleRange, int VectorWidth) {
-  auto Dims = isl_set_dim(ScheduleRange, isl_dim_set);
-  auto *LoopPrefixes = isl_set_project_out(isl_set_copy(ScheduleRange),
-                                           isl_dim_set, Dims - 1, 1);
-  auto *ExtentPrefixes =
-      isl_set_add_dims(isl_set_copy(LoopPrefixes), isl_dim_set, 1);
+static isl::set getPartialTilePrefixes(isl::set ScheduleRange,
+                                       int VectorWidth) {
+  unsigned Dims = ScheduleRange.dim(isl::dim::set);
+  isl::set LoopPrefixes = ScheduleRange.project_out(isl::dim::set, Dims - 1, 1);
+  isl::set ExtentPrefixes = LoopPrefixes.add_dims(isl::dim::set, 1);
   ExtentPrefixes = addExtentConstraints(ExtentPrefixes, VectorWidth);
-  auto *BadPrefixes = isl_set_subtract(ExtentPrefixes, ScheduleRange);
-  BadPrefixes = isl_set_project_out(BadPrefixes, isl_dim_set, Dims - 1, 1);
-  return isl_set_subtract(LoopPrefixes, BadPrefixes);
+  isl::set BadPrefixes = ExtentPrefixes.subtract(ScheduleRange);
+  BadPrefixes = BadPrefixes.project_out(isl::dim::set, Dims - 1, 1);
+  return LoopPrefixes.subtract(BadPrefixes);
 }
 
-__isl_give isl_schedule_node *ScheduleTreeOptimizer::isolateFullPartialTiles(
-    __isl_take isl_schedule_node *Node, int VectorWidth) {
-  assert(isl_schedule_node_get_type(Node) == isl_schedule_node_band);
-  Node = isl_schedule_node_child(Node, 0);
-  Node = isl_schedule_node_child(Node, 0);
-  auto *SchedRelUMap = isl_schedule_node_get_prefix_schedule_relation(Node);
-  auto *ScheduleRelation = isl_map_from_union_map(SchedRelUMap);
-  auto *ScheduleRange = isl_map_range(ScheduleRelation);
-  auto *IsolateDomain = getPartialTilePrefixes(ScheduleRange, VectorWidth);
-  auto *AtomicOption = getAtomicOptions(isl_set_get_ctx(IsolateDomain));
-  auto *IsolateOption = getIsolateOptions(IsolateDomain, 1);
-  Node = isl_schedule_node_parent(Node);
-  Node = isl_schedule_node_parent(Node);
-  auto *Options = isl_union_set_union(IsolateOption, AtomicOption);
-  Node = isl_schedule_node_band_set_ast_build_options(Node, Options);
+isl::schedule_node
+ScheduleTreeOptimizer::isolateFullPartialTiles(isl::schedule_node Node,
+                                               int VectorWidth) {
+  assert(isl_schedule_node_get_type(Node.get()) == isl_schedule_node_band);
+  Node = Node.child(0).child(0);
+  isl::union_map SchedRelUMap = Node.get_prefix_schedule_relation();
+  isl::map ScheduleRelation = isl::map::from_union_map(SchedRelUMap);
+  isl::set ScheduleRange = ScheduleRelation.range();
+  isl::set IsolateDomain = getPartialTilePrefixes(ScheduleRange, VectorWidth);
+  isl::union_set AtomicOption = getAtomicOptions(IsolateDomain.get_ctx());
+  isl::union_set IsolateOption = getIsolateOptions(IsolateDomain, 1);
+  Node = Node.parent().parent();
+  isl::union_set Options = IsolateOption.unite(AtomicOption);
+  Node = Node.band_set_ast_build_options(Options);
   return Node;
 }
 
@@ -379,7 +374,7 @@ ScheduleTreeOptimizer::prevectSchedBand(__isl_take isl_schedule_node *Node,
   Sizes =
       isl_multi_val_set_val(Sizes, 0, isl_val_int_from_si(Ctx, VectorWidth));
   Node = isl_schedule_node_band_tile(Node, Sizes);
-  Node = isolateFullPartialTiles(Node, VectorWidth);
+  Node = isolateFullPartialTiles(give(Node), VectorWidth).release();
   Node = isl_schedule_node_child(Node, 0);
   // Make sure the "trivially vectorizable loop" is not unrolled. Otherwise,
   // we will have troubles to match it in the backend.
@@ -774,7 +769,7 @@ static bool containsOnlyMatrMultAcc(__isl_keep isl_map *PartialSchedule,
 ///
 /// @param  Schedule The schedule of the SCoP statement.
 /// @param  D The SCoP dependencies.
-/// @param  Pos The parameter to desribe an acceptable true dependence.
+/// @param  Pos The parameter to describe an acceptable true dependence.
 ///             In case it has a negative value, try to determine its
 ///             acceptable value.
 /// @return True in case dependencies correspond to the matrix multiplication
@@ -1017,7 +1012,7 @@ getMacroKernelParams(const MicroKernelParamsTy &MicroKernelParams,
 
   // Car can be computed to be zero since it is floor to int.
   // On Mac OS, division by 0 does not raise a signal. This causes negative
-  // tile sizes to be computed. Prevent division by 0 Cac by early returning
+  // tile sizes to be computed. Prevent division by Cac==0 by early returning
   // if this happens.
   if (Car == 0)
     return {1, 1, 1};
@@ -1226,30 +1221,29 @@ getInductionVariablesSubstitution(__isl_take isl_schedule_node *Node,
 /// @param MicroKernelParams Parameters of the micro-kernel
 ///                          to be taken into account.
 /// @return The modified isl_schedule_node.
-static __isl_give isl_schedule_node *
-isolateAndUnrollMatMulInnerLoops(__isl_take isl_schedule_node *Node,
+static isl::schedule_node
+isolateAndUnrollMatMulInnerLoops(isl::schedule_node Node,
                                  struct MicroKernelParamsTy MicroKernelParams) {
-  auto *Child = isl_schedule_node_get_child(Node, 0);
-  auto *UnMapOldIndVar = isl_schedule_node_get_prefix_schedule_relation(Child);
-  isl_schedule_node_free(Child);
-  auto *Prefix = isl_map_range(isl_map_from_union_map(UnMapOldIndVar));
-  auto Dims = isl_set_dim(Prefix, isl_dim_set);
-  Prefix = isl_set_project_out(Prefix, isl_dim_set, Dims - 1, 1);
+  isl::schedule_node Child = Node.get_child(0);
+  isl::union_map UnMapOldIndVar = Child.get_prefix_schedule_relation();
+  isl::set Prefix = isl::map::from_union_map(UnMapOldIndVar).range();
+  unsigned Dims = Prefix.dim(isl::dim::set);
+  Prefix = Prefix.project_out(isl::dim::set, Dims - 1, 1);
   Prefix = getPartialTilePrefixes(Prefix, MicroKernelParams.Nr);
   Prefix = getPartialTilePrefixes(Prefix, MicroKernelParams.Mr);
-  auto *IsolateOption = getIsolateOptions(
-      isl_set_add_dims(isl_set_copy(Prefix), isl_dim_set, 3), 3);
-  auto *Ctx = isl_schedule_node_get_ctx(Node);
-  auto *AtomicOption = getAtomicOptions(Ctx);
-  auto *Options =
-      isl_union_set_union(IsolateOption, isl_union_set_copy(AtomicOption));
-  Options = isl_union_set_union(Options, getUnrollIsolatedSetOptions(Ctx));
-  Node = isl_schedule_node_band_set_ast_build_options(Node, Options);
-  Node = isl_schedule_node_parent(isl_schedule_node_parent(Node));
+
+  isl::union_set IsolateOption =
+      getIsolateOptions(Prefix.add_dims(isl::dim::set, 3), 3);
+  isl::ctx Ctx = Node.get_ctx();
+  isl::union_set AtomicOption = getAtomicOptions(Ctx);
+  isl::union_set Options = IsolateOption.unite(AtomicOption);
+  Options = Options.unite(getUnrollIsolatedSetOptions(Ctx));
+  Node = Node.band_set_ast_build_options(Options);
+  Node = Node.parent().parent();
   IsolateOption = getIsolateOptions(Prefix, 3);
-  Options = isl_union_set_union(IsolateOption, AtomicOption);
-  Node = isl_schedule_node_band_set_ast_build_options(Node, Options);
-  Node = isl_schedule_node_child(isl_schedule_node_child(Node, 0), 0);
+  Options = IsolateOption.unite(AtomicOption);
+  Node = Node.band_set_ast_build_options(Options);
+  Node = Node.child(0).child(0);
   return Node;
 }
 
@@ -1304,7 +1298,8 @@ __isl_give isl_schedule_node *ScheduleTreeOptimizer::optimizeMatMulPattern(
     __isl_take isl_schedule_node *Node, const llvm::TargetTransformInfo *TTI,
     MatMulInfoTy &MMI) {
   assert(TTI && "The target transform info should be provided.");
-  Node = markInterIterationAliasFree(Node, MMI.WriteToC->getLatestBaseAddr());
+  Node = markInterIterationAliasFree(
+      Node, MMI.WriteToC->getLatestScopArrayInfo()->getBasePtr());
   int DimOutNum = isl_schedule_node_band_n_member(Node);
   assert(DimOutNum > 2 && "In case of the matrix multiplication the loop nest "
                           "and, consequently, the corresponding scheduling "
@@ -1327,7 +1322,8 @@ __isl_give isl_schedule_node *ScheduleTreeOptimizer::optimizeMatMulPattern(
       Node, MicroKernelParams, MacroKernelParams);
   if (!MapOldIndVar)
     return Node;
-  Node = isolateAndUnrollMatMulInnerLoops(Node, MicroKernelParams);
+  Node =
+      isolateAndUnrollMatMulInnerLoops(give(Node), MicroKernelParams).release();
   return optimizeDataLayoutMatrMulPattern(Node, MapOldIndVar, MicroKernelParams,
                                           MacroKernelParams, MMI);
 }
@@ -1447,6 +1443,10 @@ char IslScheduleOptimizer::ID = 0;
 
 bool IslScheduleOptimizer::runOnScop(Scop &S) {
 
+  // Skip SCoPs in case they're already optimised by PPCGCodeGeneration
+  if (S.isToBeSkipped())
+    return false;
+
   // Skip empty SCoPs but still allow code generation as it will delete the
   // loops present but not needed.
   if (S.getSize() == 0) {
@@ -1480,13 +1480,13 @@ bool IslScheduleOptimizer::runOnScop(Scop &S) {
         Dependences::TYPE_RAW | Dependences::TYPE_WAR | Dependences::TYPE_WAW;
   }
 
-  isl_union_set *Domain = S.getDomains();
+  isl::union_set Domain = give(S.getDomains());
 
   if (!Domain)
     return false;
 
-  isl_union_map *Validity = D.getDependences(ValidityKinds);
-  isl_union_map *Proximity = D.getDependences(ProximityKinds);
+  isl::union_map Validity = give(D.getDependences(ValidityKinds));
+  isl::union_map Proximity = give(D.getDependences(ProximityKinds));
 
   // Simplify the dependences by removing the constraints introduced by the
   // domains. This can speed up the scheduling time significantly, as large
@@ -1496,20 +1496,19 @@ bool IslScheduleOptimizer::runOnScop(Scop &S) {
   // interesting anyway. In some cases this option may stop the scheduler to
   // find any schedule.
   if (SimplifyDeps == "yes") {
-    Validity = isl_union_map_gist_domain(Validity, isl_union_set_copy(Domain));
-    Validity = isl_union_map_gist_range(Validity, isl_union_set_copy(Domain));
-    Proximity =
-        isl_union_map_gist_domain(Proximity, isl_union_set_copy(Domain));
-    Proximity = isl_union_map_gist_range(Proximity, isl_union_set_copy(Domain));
+    Validity = Validity.gist_domain(Domain);
+    Validity = Validity.gist_range(Domain);
+    Proximity = Proximity.gist_domain(Domain);
+    Proximity = Proximity.gist_range(Domain);
   } else if (SimplifyDeps != "no") {
     errs() << "warning: Option -polly-opt-simplify-deps should either be 'yes' "
               "or 'no'. Falling back to default: 'yes'\n";
   }
 
   DEBUG(dbgs() << "\n\nCompute schedule from: ");
-  DEBUG(dbgs() << "Domain := " << stringFromIslObj(Domain) << ";\n");
-  DEBUG(dbgs() << "Proximity := " << stringFromIslObj(Proximity) << ";\n");
-  DEBUG(dbgs() << "Validity := " << stringFromIslObj(Validity) << ";\n");
+  DEBUG(dbgs() << "Domain := " << Domain << ";\n");
+  DEBUG(dbgs() << "Proximity := " << Proximity << ";\n");
+  DEBUG(dbgs() << "Validity := " << Validity << ";\n");
 
   unsigned IslSerializeSCCs;
 
@@ -1559,16 +1558,12 @@ bool IslScheduleOptimizer::runOnScop(Scop &S) {
   auto OnErrorStatus = isl_options_get_on_error(Ctx);
   isl_options_set_on_error(Ctx, ISL_ON_ERROR_CONTINUE);
 
-  isl_schedule_constraints *ScheduleConstraints;
-  ScheduleConstraints = isl_schedule_constraints_on_domain(Domain);
-  ScheduleConstraints =
-      isl_schedule_constraints_set_proximity(ScheduleConstraints, Proximity);
-  ScheduleConstraints = isl_schedule_constraints_set_validity(
-      ScheduleConstraints, isl_union_map_copy(Validity));
-  ScheduleConstraints =
-      isl_schedule_constraints_set_coincidence(ScheduleConstraints, Validity);
+  auto SC = isl::schedule_constraints::on_domain(Domain);
+  SC = SC.set_proximity(Proximity);
+  SC = SC.set_validity(Validity);
+  SC = SC.set_coincidence(Validity);
   isl_schedule *Schedule;
-  Schedule = isl_schedule_constraints_compute_schedule(ScheduleConstraints);
+  Schedule = SC.compute_schedule().release();
   isl_options_set_on_error(Ctx, OnErrorStatus);
 
   // In cases the scheduler is not able to optimize the code, we just do not

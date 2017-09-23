@@ -112,6 +112,12 @@ OptionEnumValueElement g_language_enumerators[] = {
   "{ "                                                                         \
   "${module.file.basename}{`${function.name-with-args}"                        \
   "{${frame.no-debug}${function.pc-offset}}}}"
+
+#define MODULE_WITH_FUNC_NO_ARGS                                               \
+  "{ "                                                                         \
+  "${module.file.basename}{`${function.name-without-args}"                     \
+  "{${frame.no-debug}${function.pc-offset}}}}"
+
 #define FILE_AND_LINE "{ at ${line.file.basename}:${line.number}}"
 #define IS_OPTIMIZED "{${function.is-optimized} [opt]}"
 
@@ -139,6 +145,10 @@ OptionEnumValueElement g_language_enumerators[] = {
 
 #define DEFAULT_FRAME_FORMAT                                                   \
   "frame #${frame.index}: ${frame.pc}" MODULE_WITH_FUNC FILE_AND_LINE          \
+      IS_OPTIMIZED "\\n"
+
+#define DEFAULT_FRAME_FORMAT_NO_ARGS                                           \
+  "frame #${frame.index}: ${frame.pc}" MODULE_WITH_FUNC_NO_ARGS FILE_AND_LINE  \
       IS_OPTIMIZED "\\n"
 
 // Three parts to this disassembly format specification:
@@ -186,13 +196,15 @@ static PropertyDefinition g_properties[] = {
     {"auto-confirm", OptionValue::eTypeBoolean, true, false, nullptr, nullptr,
      "If true all confirmation prompts will receive their default reply."},
     {"disassembly-format", OptionValue::eTypeFormatEntity, true, 0,
-     DEFAULT_DISASSEMBLY_FORMAT, nullptr, "The default disassembly format "
-                                          "string to use when disassembling "
-                                          "instruction sequences."},
+     DEFAULT_DISASSEMBLY_FORMAT, nullptr,
+     "The default disassembly format "
+     "string to use when disassembling "
+     "instruction sequences."},
     {"frame-format", OptionValue::eTypeFormatEntity, true, 0,
-     DEFAULT_FRAME_FORMAT, nullptr, "The default frame format string to use "
-                                    "when displaying stack frame information "
-                                    "for threads."},
+     DEFAULT_FRAME_FORMAT, nullptr,
+     "The default frame format string to use "
+     "when displaying stack frame information "
+     "for threads."},
     {"notify-void", OptionValue::eTypeBoolean, true, false, nullptr, nullptr,
      "Notify the user explicitly if an expression returns void (default: "
      "false)."},
@@ -203,18 +215,21 @@ static PropertyDefinition g_properties[] = {
      nullptr, g_language_enumerators,
      "The script language to be used for evaluating user-written scripts."},
     {"stop-disassembly-count", OptionValue::eTypeSInt64, true, 4, nullptr,
-     nullptr, "The number of disassembly lines to show when displaying a "
-              "stopped context."},
+     nullptr,
+     "The number of disassembly lines to show when displaying a "
+     "stopped context."},
     {"stop-disassembly-display", OptionValue::eTypeEnum, true,
      Debugger::eStopDisassemblyTypeNoDebugInfo, nullptr,
      g_show_disassembly_enum_values,
      "Control when to display disassembly when displaying a stopped context."},
     {"stop-line-count-after", OptionValue::eTypeSInt64, true, 3, nullptr,
-     nullptr, "The number of sources lines to display that come after the "
-              "current source line when displaying a stopped context."},
+     nullptr,
+     "The number of sources lines to display that come after the "
+     "current source line when displaying a stopped context."},
     {"stop-line-count-before", OptionValue::eTypeSInt64, true, 3, nullptr,
-     nullptr, "The number of sources lines to display that come before the "
-              "current source line when displaying a stopped context."},
+     nullptr,
+     "The number of sources lines to display that come before the "
+     "current source line when displaying a stopped context."},
     {"stop-show-column", OptionValue::eTypeEnum, false,
      eStopShowColumnAnsiOrCaret, nullptr, s_stop_show_column_values,
      "If true, LLDB will use the column information from the debug info to "
@@ -232,19 +247,22 @@ static PropertyDefinition g_properties[] = {
     {"term-width", OptionValue::eTypeSInt64, true, 80, nullptr, nullptr,
      "The maximum number of columns to use for displaying text."},
     {"thread-format", OptionValue::eTypeFormatEntity, true, 0,
-     DEFAULT_THREAD_FORMAT, nullptr, "The default thread format string to use "
-                                     "when displaying thread information."},
+     DEFAULT_THREAD_FORMAT, nullptr,
+     "The default thread format string to use "
+     "when displaying thread information."},
     {"thread-stop-format", OptionValue::eTypeFormatEntity, true, 0,
-     DEFAULT_THREAD_STOP_FORMAT, nullptr, "The default thread format  "
-                                     "string to usewhen displaying thread "
-                                     "information as part of the stop display."},
+     DEFAULT_THREAD_STOP_FORMAT, nullptr,
+     "The default thread format  "
+     "string to use when displaying thread "
+     "information as part of the stop display."},
     {"use-external-editor", OptionValue::eTypeBoolean, true, false, nullptr,
      nullptr, "Whether to use an external editor or not."},
     {"use-color", OptionValue::eTypeBoolean, true, true, nullptr, nullptr,
      "Whether to use Ansi color codes or not."},
     {"auto-one-line-summaries", OptionValue::eTypeBoolean, true, true, nullptr,
-     nullptr, "If true, LLDB will automatically display small structs in "
-              "one-liner format (default: true)."},
+     nullptr,
+     "If true, LLDB will automatically display small structs in "
+     "one-liner format (default: true)."},
     {"auto-indent", OptionValue::eTypeBoolean, true, true, nullptr, nullptr,
      "If true, LLDB will auto indent/outdent code. Currently only supported in "
      "the REPL (default: true)."},
@@ -255,8 +273,13 @@ static PropertyDefinition g_properties[] = {
      "The tab size to use when indenting code in multi-line input mode "
      "(default: 4)."},
     {"escape-non-printables", OptionValue::eTypeBoolean, true, true, nullptr,
-     nullptr, "If true, LLDB will automatically escape non-printable and "
-              "escape characters when formatting strings."},
+     nullptr,
+     "If true, LLDB will automatically escape non-printable and "
+     "escape characters when formatting strings."},
+    {"frame-format-unique", OptionValue::eTypeFormatEntity, true, 0,
+     DEFAULT_FRAME_FORMAT_NO_ARGS, nullptr,
+     "The default frame format string to use when displaying stack frame"
+     "information for threads from thread backtrace unique."},
     {nullptr, OptionValue::eTypeInvalid, true, 0, nullptr, nullptr, nullptr}};
 
 enum {
@@ -282,14 +305,16 @@ enum {
   ePropertyAutoIndent,
   ePropertyPrintDecls,
   ePropertyTabSize,
-  ePropertyEscapeNonPrintables
+  ePropertyEscapeNonPrintables,
+  ePropertyFrameFormatUnique,
 };
 
 LoadPluginCallbackType Debugger::g_load_plugin_callback = nullptr;
 
-Error Debugger::SetPropertyValue(const ExecutionContext *exe_ctx,
-                                 VarSetOperationType op,
-  llvm::StringRef property_path, llvm::StringRef value) {
+Status Debugger::SetPropertyValue(const ExecutionContext *exe_ctx,
+                                  VarSetOperationType op,
+                                  llvm::StringRef property_path,
+                                  llvm::StringRef value) {
   bool is_load_script = (property_path == "target.load-script-from-symbol-file");
   bool is_escape_non_printables = (property_path == "escape-non-printables");
   TargetSP target_sp;
@@ -299,7 +324,7 @@ Error Debugger::SetPropertyValue(const ExecutionContext *exe_ctx,
     load_script_old_value =
         target_sp->TargetProperties::GetLoadScriptFromSymbolFile();
   }
-  Error error(Properties::SetPropertyValue(exe_ctx, op, property_path, value));
+  Status error(Properties::SetPropertyValue(exe_ctx, op, property_path, value));
   if (error.Success()) {
     // FIXME it would be nice to have "on-change" callbacks for properties
     if (property_path == g_properties[ePropertyPrompt].name) {
@@ -321,7 +346,7 @@ Error Debugger::SetPropertyValue(const ExecutionContext *exe_ctx,
                load_script_old_value == eLoadScriptFromSymFileWarn) {
       if (target_sp->TargetProperties::GetLoadScriptFromSymbolFile() ==
           eLoadScriptFromSymFileTrue) {
-        std::list<Error> errors;
+        std::list<Status> errors;
         StreamString feedback_stream;
         if (!target_sp->LoadScriptingResources(errors, &feedback_stream)) {
           StreamFileSP stream_sp(GetErrorFile());
@@ -354,6 +379,11 @@ const FormatEntity::Entry *Debugger::GetDisassemblyFormat() const {
 
 const FormatEntity::Entry *Debugger::GetFrameFormat() const {
   const uint32_t idx = ePropertyFrameFormat;
+  return m_collection_sp->GetPropertyAtIndexAsFormatEntity(nullptr, idx);
+}
+
+const FormatEntity::Entry *Debugger::GetFrameFormatUnique() const {
+  const uint32_t idx = ePropertyFrameFormatUnique;
   return m_collection_sp->GetPropertyAtIndexAsFormatEntity(nullptr, idx);
 }
 
@@ -550,7 +580,7 @@ void Debugger::SettingsInitialize() { Target::SettingsInitialize(); }
 
 void Debugger::SettingsTerminate() { Target::SettingsTerminate(); }
 
-bool Debugger::LoadPlugin(const FileSpec &spec, Error &error) {
+bool Debugger::LoadPlugin(const FileSpec &spec, Status &error) {
   if (g_load_plugin_callback) {
     llvm::sys::DynamicLibrary dynlib =
         g_load_plugin_callback(shared_from_this(), spec, error);
@@ -570,7 +600,7 @@ bool Debugger::LoadPlugin(const FileSpec &spec, Error &error) {
 static FileSpec::EnumerateDirectoryResult
 LoadPluginCallback(void *baton, llvm::sys::fs::file_type ft,
                    const FileSpec &file_spec) {
-  Error error;
+  Status error;
 
   static ConstString g_dylibext("dylib");
   static ConstString g_solibext("so");
@@ -595,7 +625,7 @@ LoadPluginCallback(void *baton, llvm::sys::fs::file_type ft,
       return FileSpec::eEnumerateDirectoryResultNext;
     }
 
-    Error plugin_load_error;
+    Status plugin_load_error;
     debugger->LoadPlugin(plugin_file_spec, plugin_load_error);
 
     return FileSpec::eEnumerateDirectoryResultNext;
@@ -1365,7 +1395,7 @@ size_t Debugger::GetProcessSTDOUT(Process *process, Stream *stream) {
         process = target_sp->GetProcessSP().get();
     }
     if (process) {
-      Error error;
+      Status error;
       size_t len;
       char stdio_buffer[1024];
       while ((len = process->GetSTDOUT(stdio_buffer, sizeof(stdio_buffer),
@@ -1393,7 +1423,7 @@ size_t Debugger::GetProcessSTDERR(Process *process, Stream *stream) {
         process = target_sp->GetProcessSP().get();
     }
     if (process) {
-      Error error;
+      Status error;
       size_t len;
       char stdio_buffer[1024];
       while ((len = process->GetSTDERR(stdio_buffer, sizeof(stdio_buffer),
@@ -1463,7 +1493,7 @@ void Debugger::HandleProcessEvent(const EventSP &event_sp) {
             EventDataStructuredData::GetObjectFromEvent(event_sp.get());
         if (output_stream_sp) {
           StreamString content_stream;
-          Error error =
+          Status error =
               plugin_sp->GetDescription(structured_data_sp, content_stream);
           if (error.Success()) {
             if (!content_stream.GetString().empty()) {
@@ -1702,8 +1732,8 @@ Target *Debugger::GetSelectedOrDummyTarget(bool prefer_dummy) {
   return GetDummyTarget();
 }
 
-Error Debugger::RunREPL(LanguageType language, const char *repl_options) {
-  Error err;
+Status Debugger::RunREPL(LanguageType language, const char *repl_options) {
+  Status err;
   FileSpec repl_executable;
 
   if (language == eLanguageTypeUnknown) {
