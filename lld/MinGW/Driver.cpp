@@ -146,6 +146,8 @@ bool mingw::link(ArrayRef<const char *> ArgsArr, raw_ostream &Diag) {
 
   if (Args.hasArg(OPT_shared))
     Add("-dll");
+  if (Args.hasArg(OPT_verbose))
+    Add("-verbose");
 
   if (auto *A = Args.getLastArg(OPT_m)) {
     StringRef S = A->getValue();
@@ -176,7 +178,7 @@ bool mingw::link(ArrayRef<const char *> ArgsArr, raw_ostream &Diag) {
   StringRef Prefix = "";
   bool Static = false;
   for (auto *A : Args) {
-    switch (A->getOption().getID()) {
+    switch (A->getOption().getUnaliasedOption().getID()) {
     case OPT_INPUT:
       if (StringRef(A->getValue()).endswith(".def"))
         Add("-def:" + StringRef(A->getValue()));
@@ -200,9 +202,6 @@ bool mingw::link(ArrayRef<const char *> ArgsArr, raw_ostream &Diag) {
       break;
     }
   }
-
-  if (Args.hasArg(OPT_verbose))
-    Add("-verbose");
 
   if (Args.hasArg(OPT_verbose) || Args.hasArg(OPT__HASH_HASH_HASH))
     outs() << llvm::join(LinkArgs, " ") << "\n";

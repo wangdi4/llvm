@@ -108,7 +108,7 @@ static cl::opt<int> HotCallSiteRelFreq(
              "entry frequency, for a callsite to be hot in the absence of "
              "profile information."));
 
-static cl::opt<bool> ComputeFullInlineCost(
+static cl::opt<bool> OptComputeFullInlineCost(
     "inline-cost-full", cl::Hidden, cl::init(false),
     cl::desc("Compute the full inline cost of a call site even when the cost "
              "exceeds the threshold."));
@@ -153,6 +153,7 @@ class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
   int Threshold;
 
   int Cost;
+  bool ComputeFullInlineCost;
 
   InliningLoopInfoCache* ILIC;        // INTEL
 
@@ -294,7 +295,12 @@ public:
       : TTI(TTI), GetAssumptionCache(GetAssumptionCache), GetBFI(GetBFI),
         PSI(PSI), F(Callee), DL(F.getParent()->getDataLayout()), ORE(ORE),
         CandidateCS(CSArg), Params(Params), Threshold(Params.DefaultThreshold),
+<<<<<<< HEAD
         Cost(0), ILIC(ILIC), AI(AI),                // INTEL
+=======
+        Cost(0), ComputeFullInlineCost(OptComputeFullInlineCost ||
+                                       Params.ComputeFullInlineCost || ORE),
+>>>>>>> 7f44c36d0722680aaaf12d6c9ebd714f4b6a4312
         IsCallerRecursive(false), IsRecursiveCall(false),
         ExposesReturnsTwice(false), HasDynamicAlloca(false),
         ContainsNoDuplicateCall(false), HasReturn(false), HasIndirectBr(false),
@@ -2291,9 +2297,6 @@ InlineCost llvm::getInlineCost(
     }
 #endif // INTEL_CUSTOMIZATION
   } // INTEL
-
-  if (ORE)
-    ComputeFullInlineCost = true;
 
   DEBUG(llvm::dbgs() << "      Analyzing call of " << Callee->getName()
                      << "... (caller:" << Caller->getName() << ")\n");
