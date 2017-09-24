@@ -103,6 +103,16 @@ private:
   SESERegion *Root;
   std::stack<SESERegion*> RegionStack;
 
+  // Get the immediate post dominator block for the given block. Returns
+  // nullptr if there is no post dominator. To account for virtual exit
+  // nodes added with a null underlying basic block during the PostDomTree
+  // construction, use this interface and check for a nullptr instead of
+  // checking the post dominator node.
+  AvrBasicBlock *getPostDomBlock(AvrBasicBlock *Block) {
+    auto* PostDomNode = PostDominatorTree.getNode(Block)->getIDom();
+    return PostDomNode ? PostDomNode->getBlock() : nullptr;
+  }
+
   void processControlFlow(AVR* ANode) {
 
     // Check if this AVR node contains a SESE region. If so, create it as a
@@ -113,10 +123,10 @@ private:
 
     AvrBasicBlock* BasicBlock = CFG.getBasicBlock(ANode);
     assert(BasicBlock && "AVR node not in CFG?");
-    AvrBasicBlock* PostDom =
-      PostDominatorTree.getNode(BasicBlock)->getIDom()->getBlock();
-    AvrBasicBlock* Dom = DominatorTree.getNode(PostDom)->getIDom()->getBlock();
-    
+    AvrBasicBlock* PostDom = getPostDomBlock(BasicBlock);
+    AvrBasicBlock* Dom = PostDom ?
+      DominatorTree.getNode(PostDom)->getIDom()->getBlock() : nullptr;
+
     if (Dom == BasicBlock) {
 
       SESERegion *SubRegion = new SESERegion(ANode, Dom, PostDom);
@@ -125,8 +135,8 @@ private:
     }
     // If this AVR node is divergent, it marks the SESE region it affects for
     // deconstruction (either the one it contains or the one it resides in).
-    // TODO: Enable SLEV 
-    //if (!ANode->getSLEV().isUniform()) 
+    // TODO: Enable SLEV
+    //if (!ANode->getSLEV().isUniform())
       RegionStack.top()->setDivergent();
   }
 
@@ -137,9 +147,9 @@ public:
 
     AvrBasicBlock* BasicBlock = CFG.getBasicBlock(&*ALoop->child_begin());
     assert(BasicBlock && "Loop node not in CFG?");
-    auto* PostDomNode = PostDominatorTree.getNode(BasicBlock)->getIDom();
-    if (PostDomNode) {
-      AvrBasicBlock* PostDom = PostDomNode->getBlock();
+
+    AvrBasicBlock* PostDom = getPostDomBlock(BasicBlock);
+    if (PostDom) {
       AvrBasicBlock* Dom = DominatorTree.getNode(PostDom)->getIDom()->getBlock();
       Root = new SESERegion(ALoop, Dom, PostDom);
     }
@@ -150,7 +160,7 @@ public:
 
     RegionStack.push(Root);
   }
-  
+
   virtual ~ConstructSESERegions() {
     delete Root;
   }
@@ -179,11 +189,11 @@ public:
 class CollectLexicalLinks {
 
 public:
-  
+
   typedef std::set<std::pair<AVR*, AVR*> > ConstraintsTy;
 
 private:
-  
+
   ConstraintsTy Constraints;
 
 public:
@@ -215,11 +225,11 @@ public:
     AVR *FirstDefaultChild = nullptr;
     if (ASwitch->hasDefaultCaseChildren())
       FirstDefaultChild = ASwitch->getDefaultCaseFirstChild();
-    
+
     for (unsigned Case = 1; Case <= ASwitch->getNumCases(); ++Case) {
       if (!ASwitch->hasCaseChildren(Case))
         continue;
-      
+
       if (FirstDefaultChild)
         Constraints.insert(std::make_pair(FirstDefaultChild,
                                           ASwitch->getCaseLastChild(Case)));
@@ -478,7 +488,7 @@ void VPOPredicatorBase::handleSESERegion(const SESERegion *Region, AvrCFGBase* C
   AvrBasicBlock* RegionExitBB = Region->getExit();
   Worklist.push_back(RegionEntryBB);
 
-  // The following blocks get special treatment. 
+  // The following blocks get special treatment.
   AVRBlock* EntryBlock = nullptr;
   AVRBlock* ExitBlock = nullptr;
 
@@ -774,14 +784,14 @@ void VPOPredicatorBase::predicate(AVRBlock* Entry) {
       }
       else {
         if (isa<AVRBranch>(Terminator)) {
-          
+
           AVRBranch *ab = cast<AVRBranch>(Terminator);
           errs() << "isConditional?: " << ab->isConditional() << "\ni";
 
           assert(!cast<AVRBranch>(Terminator)->isConditional() &&
                  "Did not expect conditional branches at this point");
         }
-        else 
+        else
           // In HIR, there aren't explicit unconditional AVRBranch instructions.
           // By now, we assume that if the terminator is not AVRIf or AVRSwitch,
           // then it has to be an AVRAssig (and meaning unconditional branch).
@@ -902,4 +912,3 @@ bool VPOPredicatorHIR::runOnFunction(Function &F) {
   AVRG = &getAnalysis<AVRGenerateHIR>();
   return VPOPredicatorBase::runOnFunction(F);
 }
-
