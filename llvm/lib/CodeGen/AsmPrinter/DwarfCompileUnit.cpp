@@ -53,6 +53,7 @@
 
 using namespace llvm;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 static cl::opt<bool> EmitPubnamesWithLocals(
         "debug-emit-pubnames-with-locals",
@@ -71,6 +72,8 @@ DwarfPubSections("generate-dwarf-pub-sections", cl::Hidden,
                             clEnumVal(Disable, "Disabled")),
                  cl::init(Default));
 
+=======
+>>>>>>> 67308a38141a2fd0d3658fede727d4ee6713330a
 DwarfCompileUnit::DwarfCompileUnit(unsigned UID, const DICompileUnit *Node,
                                    AsmPrinter *A, DwarfDebug *DW,
                                    DwarfFile *DWU)
@@ -780,10 +783,7 @@ bool DwarfCompileUnit::hasDwarfPubSections() const {
   if (CUNode->getGnuPubnames())
     return true;
 
-  if (DwarfPubSections == Default)
-    return DD->tuneForGDB() && !includeMinimalInlineScopes();
-
-  return DwarfPubSections == Enable;
+  return DD->tuneForGDB() && !includeMinimalInlineScopes();
 }
 
 /// addGlobalName - Add a new global name to the compile unit.
