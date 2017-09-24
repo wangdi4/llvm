@@ -1,11 +1,6 @@
-<<<<<<< HEAD
 ;;***INTEL
-; RUN: llc -mtriple=x86_64-pc-linux-gnu -generate-gnu-dwarf-pub-sections -debug-emit-pubnames-with-locals < %s | FileCheck -check-prefix=ASM %s
-; RUN: llc -mtriple=x86_64-pc-linux-gnu -generate-gnu-dwarf-pub-sections -debug-emit-pubnames-with-locals -filetype=obj < %s | llvm-dwarfdump -v - | FileCheck %s
-=======
-; RUN: llc -mtriple=x86_64-pc-linux-gnu < %s | FileCheck -check-prefix=ASM %s
-; RUN: llc -mtriple=x86_64-pc-linux-gnu -filetype=obj < %s | llvm-dwarfdump -v - | FileCheck %s
->>>>>>> 76221cbae00c7d6152ea694e095b7aa2c47f58d2
+; RUN: llc -mtriple=x86_64-pc-linux-gnu -debug-emit-pubnames-with-locals < %s | FileCheck -check-prefix=ASM %s
+; RUN: llc -mtriple=x86_64-pc-linux-gnu -debug-emit-pubnames-with-locals -filetype=obj < %s | llvm-dwarfdump -v - | FileCheck %s
 ; ModuleID = 'dwarf-public-names.cpp'
 ;
 ; Generated from:

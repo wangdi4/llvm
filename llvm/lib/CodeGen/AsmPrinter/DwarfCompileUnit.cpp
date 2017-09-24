@@ -53,14 +53,14 @@
 
 using namespace llvm;
 
-<<<<<<< HEAD
-//***INTEL
+#if INTEL_CUSTOMIZATION
 static cl::opt<bool> EmitPubnamesWithLocals(
         "debug-emit-pubnames-with-locals",
         cl::Hidden,
         cl::desc("Add local symbol names to the .debug_pubnames section"),
         cl::init(false));
-=======
+#endif // INTEL_CUSTOMIZATION
+
 enum DefaultOnOff { Default, Enable, Disable };
 
 static cl::opt<DefaultOnOff>
@@ -70,7 +70,6 @@ DwarfPubSections("generate-dwarf-pub-sections", cl::Hidden,
                             clEnumVal(Enable, "Enabled"),
                             clEnumVal(Disable, "Disabled")),
                  cl::init(Default));
->>>>>>> 76221cbae00c7d6152ea694e095b7aa2c47f58d2
 
 DwarfCompileUnit::DwarfCompileUnit(unsigned UID, const DICompileUnit *Node,
                                    AsmPrinter *A, DwarfDebug *DW,
