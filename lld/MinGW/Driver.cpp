@@ -120,6 +120,7 @@ bool mingw::link(ArrayRef<const char *> ArgsArr, raw_ostream &Diag) {
   auto Add = [&](const Twine &S) { LinkArgs.push_back(S.str()); };
 
   Add("lld-link");
+  Add("-lldmingw");
 
   if (auto *A = Args.getLastArg(OPT_entry)) {
     StringRef S = A->getValue();
@@ -145,6 +146,8 @@ bool mingw::link(ArrayRef<const char *> ArgsArr, raw_ostream &Diag) {
 
   if (Args.hasArg(OPT_shared))
     Add("-dll");
+  if (Args.hasArg(OPT_verbose))
+    Add("-verbose");
 
   if (auto *A = Args.getLastArg(OPT_m)) {
     StringRef S = A->getValue();
@@ -173,8 +176,8 @@ bool mingw::link(ArrayRef<const char *> ArgsArr, raw_ostream &Diag) {
     SearchPaths.push_back(A->getValue());
 
   StringRef Prefix = "";
-  for (auto *A : Args.filtered(OPT_INPUT, OPT_l, OPT_whole_archive,
-                               OPT_no_whole_archive)) {
+  bool Static = false;
+  for (auto *A : Args) {
     switch (A->getOption().getID()) {
     case OPT_INPUT:
       if (StringRef(A->getValue()).endswith(".def"))
@@ -183,8 +186,7 @@ bool mingw::link(ArrayRef<const char *> ArgsArr, raw_ostream &Diag) {
         Add(Prefix + StringRef(A->getValue()));
       break;
     case OPT_l:
-      Add(Prefix +
-          searchLibrary(A->getValue(), SearchPaths, Args.hasArg(OPT_Bstatic)));
+      Add(Prefix + searchLibrary(A->getValue(), SearchPaths, Static));
       break;
     case OPT_whole_archive:
       Prefix = "-wholearchive:";
@@ -192,11 +194,14 @@ bool mingw::link(ArrayRef<const char *> ArgsArr, raw_ostream &Diag) {
     case OPT_no_whole_archive:
       Prefix = "";
       break;
+    case OPT_Bstatic:
+      Static = true;
+      break;
+    case OPT_Bdynamic:
+      Static = false;
+      break;
     }
   }
-
-  if (Args.hasArg(OPT_verbose))
-    Add("-verbose");
 
   if (Args.hasArg(OPT_verbose) || Args.hasArg(OPT__HASH_HASH_HASH))
     outs() << llvm::join(LinkArgs, " ") << "\n";
