@@ -1746,6 +1746,7 @@ static void writeDICompileUnit(raw_ostream &Out, const DICompileUnit *N,
   Printer.printBool("splitDebugInlining", N->getSplitDebugInlining(), true);
   Printer.printBool("debugInfoForProfiling", N->getDebugInfoForProfiling(),
                     false);
+  Printer.printBool("gnuPubnames", N->getGnuPubnames(), false);
   Out << ")";
 }
 
