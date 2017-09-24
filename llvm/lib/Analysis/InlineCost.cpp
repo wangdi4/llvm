@@ -295,12 +295,9 @@ public:
       : TTI(TTI), GetAssumptionCache(GetAssumptionCache), GetBFI(GetBFI),
         PSI(PSI), F(Callee), DL(F.getParent()->getDataLayout()), ORE(ORE),
         CandidateCS(CSArg), Params(Params), Threshold(Params.DefaultThreshold),
-<<<<<<< HEAD
-        Cost(0), ILIC(ILIC), AI(AI),                // INTEL
-=======
         Cost(0), ComputeFullInlineCost(OptComputeFullInlineCost ||
                                        Params.ComputeFullInlineCost || ORE),
->>>>>>> 7f44c36d0722680aaaf12d6c9ebd714f4b6a4312
+        ILIC(ILIC), AI(AI),                // INTEL
         IsCallerRecursive(false), IsRecursiveCall(false),
         ExposesReturnsTwice(false), HasDynamicAlloca(false),
         ContainsNoDuplicateCall(false), HasReturn(false), HasIndirectBr(false),
