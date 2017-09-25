@@ -4267,7 +4267,6 @@ static bool isTargetShuffle(unsigned Opcode) {
   case X86ISD::VSHLDQ:
   case X86ISD::VSRLDQ:
   case X86ISD::MOVLHPS:
-  case X86ISD::MOVLHPD:
   case X86ISD::MOVHLPS:
   case X86ISD::MOVLPS:
   case X86ISD::MOVLPD:
@@ -5735,7 +5734,6 @@ static bool getTargetShuffleMask(SDNode *N, MVT VT, bool AllowSentinelZero,
     DecodeMOVDDUPMask(VT, Mask);
     IsUnary = true;
     break;
-  case X86ISD::MOVLHPD:
   case X86ISD::MOVLPD:
   case X86ISD::MOVLPS:
     // Not yet implemented
@@ -24651,7 +24649,6 @@ const char *X86TargetLowering::getTargetNodeName(unsigned Opcode) const {
   case X86ISD::SHUFP:              return "X86ISD::SHUFP";
   case X86ISD::SHUF128:            return "X86ISD::SHUF128";
   case X86ISD::MOVLHPS:            return "X86ISD::MOVLHPS";
-  case X86ISD::MOVLHPD:            return "X86ISD::MOVLHPD";
   case X86ISD::MOVHLPS:            return "X86ISD::MOVHLPS";
   case X86ISD::MOVLPS:             return "X86ISD::MOVLPS";
   case X86ISD::MOVLPD:             return "X86ISD::MOVLPD";
