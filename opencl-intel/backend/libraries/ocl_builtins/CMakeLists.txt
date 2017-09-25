@@ -74,8 +74,7 @@ add_subdirectory (utils/TableGen)
 set (CL_BUILTIN_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
 # target directory for OCL .rtl, and .dll/.so of SVML library
-#set (BUILTINS_INSTALL_DIR ${OCL_TOOLS_BINARY_DIR}/${CMAKE_CFG_INTDIR})
-set (BUILTINS_INSTALL_DIR ${CMAKE_BINARY_DIR}/lib)
+set (BUILTINS_INSTALL_DIR ${OCL_TOOLS_BINARY_DIR}/${CMAKE_CFG_INTDIR})
 
 # global headers
 if (DEFINED OCL_CLANG_HEADERS)
