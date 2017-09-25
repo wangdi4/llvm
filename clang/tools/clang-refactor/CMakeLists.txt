@@ -9,8 +9,11 @@ add_clang_executable(clang-refactor
   )
 
 target_link_libraries(clang-refactor
+  clangAST
   clangBasic
+  clangFormat
   clangFrontend
+  clangLex
   clangRewrite
   clangTooling
   clangToolingCore
