@@ -768,8 +768,13 @@ bool SampleProfileLoader::inlineHotFunctions(
       // when cost exceeds threshold without checking all IRs in the callee.
       // The acutal cost does not matter because we only checks isNever() to
       // see if it is legal to inline the callsite.
+#if INTEL_CUSTOMIZATION
+      InliningLoopInfoCache *ILIC = new InliningLoopInfoCache();
       InlineCost Cost = getInlineCost(CS, Params, GetTTI(*CalledFunction), GetAC,
-                                      None, nullptr, nullptr);
+                                      None, ILIC, nullptr, nullptr, nullptr);
+      delete ILIC;
+#endif // INTEL_CUSTOMIZATION
+
       if (Cost.isNever()) {
         ORE->emit(OptimizationRemark(DEBUG_TYPE, "Not inline", DLoc, BB)
                   << "incompatible inlining");
