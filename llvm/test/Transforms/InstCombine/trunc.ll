@@ -532,4 +532,20 @@ define <8 x i8> @wide_lengthening_splat(<4 x i16> %v) {
   %tr = trunc <8 x i16> %shuf to <8 x i8>
   ret <8 x i8> %tr
 }
+ 
+; Check replacement of sext with select according to information about demanded bits
+; http://rise4fun.com/Alive/SrK
+define zeroext i8 @replace_sext_with_select(i1 %a, i32 %x, i1 %cond) {
+; CHECK-LABEL: @replace_sext_with_select(
+; CHECK-NEXT:    [[TMP1:%.*]] = select i1 [[A:%.*]], i32 255, i32 0
+; CHECK-NEXT:    [[B:%.*]] = select i1 [[COND:%.*]], i32 [[TMP1]], i32 [[X:%.*]]
+; CHECK-NEXT:    [[CONV:%.*]] = trunc i32 [[B]] to i8
+; CHECK-NEXT:    ret i8 [[CONV]]
+;
+  %ext = sext i1 %a to i32
+  %b = select i1 %cond, i32 %ext, i32 %x
+  %conv = trunc i32 %b to i8
+  ret i8 %conv
+}
+
 
