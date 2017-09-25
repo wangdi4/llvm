@@ -63,8 +63,8 @@ public:
 
     /// Finds an address range in the sorted vector of ranges.
     address_range_iterator findRange(const DWARFAddressRange &R) const {
-      const auto Begin = Ranges.cbegin();
-      const auto End = Ranges.cend();
+      auto Begin = Ranges.begin();
+      auto End = Ranges.end();
       auto Iter = std::upper_bound(Begin, End, R);
       if (Iter != Begin)
         --Iter;

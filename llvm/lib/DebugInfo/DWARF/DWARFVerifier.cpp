@@ -26,8 +26,8 @@ using namespace object;
 
 DWARFVerifier::DieRangeInfo::address_range_iterator
 DWARFVerifier::DieRangeInfo::insert(const DWARFAddressRange &R) {
-  const auto Begin = Ranges.cbegin();
-  const auto End = Ranges.cend();
+  auto Begin = Ranges.begin();
+  auto End = Ranges.end();
   auto Pos = std::lower_bound(Begin, End, R);
 
   if (Pos != End) {
@@ -41,12 +41,12 @@ DWARFVerifier::DieRangeInfo::insert(const DWARFAddressRange &R) {
   }
 
   Ranges.insert(Pos, R);
-  return Ranges.cend();
+  return Ranges.end();
 }
 
 DWARFVerifier::DieRangeInfo::die_range_info_iterator
 DWARFVerifier::DieRangeInfo::insert(const DieRangeInfo &RI) {
-  const auto End = Children.end();
+  auto End = Children.end();
   auto Iter = Children.begin();
   while (Iter != End) {
     if (Iter->intersects(RI))
@@ -54,7 +54,7 @@ DWARFVerifier::DieRangeInfo::insert(const DieRangeInfo &RI) {
     ++Iter;
   }
   Children.insert(RI);
-  return Children.cend();
+  return Children.end();
 }
 
 bool DWARFVerifier::DieRangeInfo::contains(const DieRangeInfo &RHS) const {
@@ -65,7 +65,7 @@ bool DWARFVerifier::DieRangeInfo::contains(const DieRangeInfo &RHS) const {
 
   // Since the ranges are sorted we can advance where we start searching with
   // this object's ranges as we traverse RHS.Ranges.
-  const auto End = Ranges.cend();
+  auto End = Ranges.end();
   auto Iter = findRange(RHS.Ranges.front());
 
   // Now linearly walk the ranges in this object and see if they contain each
@@ -86,7 +86,7 @@ bool DWARFVerifier::DieRangeInfo::intersects(const DieRangeInfo &RHS) const {
   if (Ranges.empty() || RHS.Ranges.empty())
     return false;
 
-  const auto End = Ranges.end();
+  auto End = Ranges.end();
   auto Iter = findRange(RHS.Ranges.front());
   for (const auto &R : RHS.Ranges) {
     if (R.HighPC <= Iter->LowPC)
@@ -313,7 +313,7 @@ unsigned DWARFVerifier::verifyDieRanges(const DWARFDie &Die,
 
     // Verify that ranges don't intersect.
     const auto IntersectingRange = RI.insert(Range);
-    if (IntersectingRange != RI.Ranges.cend()) {
+    if (IntersectingRange != RI.Ranges.end()) {
       ++NumErrors;
       OS << format("error: DIE has overlapping address ranges: [0x%08" PRIx64
                    " - 0x%08" PRIx64 "] and [0x%08" PRIx64 " - 0x%08" PRIx64
@@ -326,7 +326,7 @@ unsigned DWARFVerifier::verifyDieRanges(const DWARFDie &Die,
 
   // Verify that children don't intersect.
   const auto IntersectingChild = ParentRI.insert(RI);
-  if (IntersectingChild != ParentRI.Children.cend()) {
+  if (IntersectingChild != ParentRI.Children.end()) {
     ++NumErrors;
     OS << "error: DIEs have overlapping address ranges:";
     Die.dump(OS, 0);
