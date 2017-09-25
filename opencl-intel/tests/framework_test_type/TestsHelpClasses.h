@@ -49,11 +49,6 @@ void validateEqualityOfFiles(string fileName1, string fileName2, bool isEqual, i
 
 void validateSubstringInFile(string fileName, string subString, bool doesExist);
 /*
-* run Ioc from the command prompt
-* arguments - all the commands and options for Ioc
-*/
-void runIoc(string arguments);
-/*
 * just delete all the files you give him, if they exists
 * files[] - all the file names to be removed
 * num - the length of the array.

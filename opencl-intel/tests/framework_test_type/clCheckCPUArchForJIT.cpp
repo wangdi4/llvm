@@ -207,7 +207,14 @@ bool clCheckCPUArchForJIT() {
         return false;
     }
     // construct program container
-    fread(((unsigned char*)pCont), 1, (size_t)GET_FPOS_T(fileSize), fout);
+    size_t ret = fread(((unsigned char*)pCont), 1, (size_t)GET_FPOS_T(fileSize), fout);
+    if(ret != (size_t)GET_FPOS_T(fileSize))
+    {
+        printf("Failed read file.\n");
+        fclose(fout);
+        clReleaseContext(context);
+        return false;
+    }
     fclose(fout);
 
     size_t binarySize = uiContSize;

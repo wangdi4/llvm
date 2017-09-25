@@ -139,17 +139,6 @@ void removeFiles(string files[], int num){
 		remove(files[i].c_str());
 	}
 }
-void runIoc(string arguments){
-	std::string execString;
-	std::string archType = (IS_64_BIT) ? "64" : "32";
-
-	execString = "ioc";
-	execString += archType + " ";
-	execString += arguments;
-
-	system(execString.c_str());
-}
-
 void validateEqualityOfFiles(string fileName1, string fileName2, bool isEqual,int linesToSkip){
 	string const files = "The Files " + fileName1 + " and " + fileName2 ;
 	ifstream file1(fileName1.c_str());

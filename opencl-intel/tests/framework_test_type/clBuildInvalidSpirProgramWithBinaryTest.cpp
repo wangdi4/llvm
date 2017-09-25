@@ -87,7 +87,13 @@ bool clBuildInvalidSpirProgramWithBinaryTest()
         return false;
     }
     // Construct program container
-    fread(((unsigned char*)pCont), 1, (size_t)GET_FPOS_T(fileSize), pIRfile);
+    size_t ret = fread(((unsigned char*)pCont), 1, (size_t)GET_FPOS_T(fileSize), pIRfile);
+    if(ret != (size_t)GET_FPOS_T(fileSize))
+    {
+        printf("Failed read file.\n");
+        return false;
+    }
+
     fclose(pIRfile);
 
     // create program with binary

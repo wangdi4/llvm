@@ -495,7 +495,8 @@ void CL21::GetKernelSubGroupInfo_COMPILE_NUM_SUB_GROUPS() const
     unsigned char* pCont = (unsigned char*)malloc(uiContSize);
 
     // construct program container
-    fread(((unsigned char*)pCont), 1, (size_t)GET_FPOS_T(fileSize), fout);
+    size_t ret = fread(((unsigned char*)pCont), 1, (size_t)GET_FPOS_T(fileSize), fout);
+    ASSERT_EQ(ret, (size_t)GET_FPOS_T(fileSize)) << "Failed read file.";
     fclose(fout);
 
     size_t binarySize = uiContSize;

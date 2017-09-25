@@ -164,7 +164,12 @@ bool clCheckJITLoadTest()
     char* pBuffer = new char[size];
 	
     // copy the file content to the buffer
-    fread(pBuffer, 1, size, pFile);
+    size_t ret = fread(pBuffer, 1, size, pFile);
+    if (ret != size)
+    {
+        printf("Failed read file.\n");
+        return false;
+    }
     fclose(pFile);
 
 
