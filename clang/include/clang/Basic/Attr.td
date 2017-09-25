@@ -2484,11 +2484,7 @@ def DLLImport : InheritableAttr, TargetSpecificAttr<TargetWindows> {
   let Documentation = [DLLImportDocs];
 }
 
-<<<<<<< HEAD
-def SelectAny : InheritableAttr/*INTEL: , TargetSpecificAttr<TargetWindows>*/ {
-=======
 def SelectAny : InheritableAttr {
->>>>>>> 1af16988a3734bcb5dccd5b70a5b75b32402a25a
   let Spellings = [Declspec<"selectany">, GCC<"selectany">];
   let Documentation = [SelectAnyDocs];
 }
