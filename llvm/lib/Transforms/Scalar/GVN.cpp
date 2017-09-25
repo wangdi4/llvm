@@ -32,12 +32,8 @@
 #include "llvm/Analysis/CFG.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/InstructionSimplify.h"
-<<<<<<< HEAD
 #include "llvm/Analysis/Intel_Andersens.h" // INTEL
-#include "llvm/Analysis/Loads.h"
-=======
 #include "llvm/Analysis/LoopInfo.h"
->>>>>>> c49953f5fec8fd01c8313085e92db6f00024e173
 #include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/Analysis/MemoryDependenceAnalysis.h"
 #include "llvm/Analysis/OptimizationDiagnosticInfo.h"

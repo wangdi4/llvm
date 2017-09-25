@@ -26,12 +26,9 @@
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/InstructionSimplify.h"
-<<<<<<< HEAD
 #include "llvm/Analysis/Intel_AggInline.h"          // INTEL
 #include "llvm/Analysis/Intel_Andersens.h"          // INTEL
-=======
 #include "llvm/Analysis/LazyValueInfo.h"
->>>>>>> c49953f5fec8fd01c8313085e92db6f00024e173
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
@@ -146,13 +143,9 @@ namespace {
 
   public:
     static char ID; // Pass identification
-<<<<<<< HEAD
+
     JumpThreading(int T = -1, bool AllowCFGSimps = true) :              // INTEL
       FunctionPass(ID), Impl(T, AllowCFGSimps) {                        // INTEL
-=======
-
-    JumpThreading(int T = -1) : FunctionPass(ID), Impl(T) {
->>>>>>> c49953f5fec8fd01c8313085e92db6f00024e173
       initializeJumpThreadingPass(*PassRegistry::getPassRegistry());
     }
 
@@ -185,16 +178,10 @@ INITIALIZE_PASS_END(JumpThreading, "jump-threading",
                 "Jump Threading", false, false)
 
 // Public interface to the Jump Threading pass
-<<<<<<< HEAD
 FunctionPass *llvm::createJumpThreadingPass(int Threshold,              // INTEL
                                             bool AllowCFGSimps) {       // INTEL
   return new JumpThreading(Threshold, AllowCFGSimps);                   // INTEL
 }                                                                       // INTEL
-=======
-FunctionPass *llvm::createJumpThreadingPass(int Threshold) {
-  return new JumpThreading(Threshold);
-}
->>>>>>> c49953f5fec8fd01c8313085e92db6f00024e173
 
 JumpThreadingPass::JumpThreadingPass(int T, bool AllowCFGSimps) {       // INTEL
   DoCFGSimplifications = AllowCFGSimps;                                 // INTEL
@@ -1616,14 +1603,9 @@ bool JumpThreadingPass::SimplifyPartiallyRedundantLoad(LoadInst *LI) {
 /// the list.
 static BasicBlock *
 FindMostPopularDest(BasicBlock *BB,
-<<<<<<< HEAD
                     const ThreadRegionInfo &RegionInfo,                 // INTEL
-                    const SmallVectorImpl<std::pair<BasicBlock*,
-                                  BasicBlock*> > &PredToDestList) {
-=======
                     const SmallVectorImpl<std::pair<BasicBlock *,
                                           BasicBlock *>> &PredToDestList) {
->>>>>>> c49953f5fec8fd01c8313085e92db6f00024e173
   assert(!PredToDestList.empty());
 
   // Determine popularity.  If there are multiple possible destinations, we
@@ -2455,7 +2437,6 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
         UsesToRename.push_back(&U);
       }
 
-<<<<<<< HEAD
       // If there are no uses outside the block, we're done with this
       // instruction.
       if (UsesToRename.empty())
@@ -2480,16 +2461,6 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
       while (!UsesToRename.empty())
         SSAUpdate.RewriteUse(*UsesToRename.pop_back_val());
       DEBUG(dbgs() << "\n");
-=======
-  // Ok, NewBB is good to go.  Update the terminator of PredBB to jump to
-  // NewBB instead of BB.  This eliminates predecessors from BB, which requires
-  // us to simplify any PHI nodes in BB.
-  TerminatorInst *PredTerm = PredBB->getTerminator();
-  for (unsigned i = 0, e = PredTerm->getNumSuccessors(); i != e; ++i)
-    if (PredTerm->getSuccessor(i) == BB) {
-      BB->removePredecessor(PredBB, true);
-      PredTerm->setSuccessor(i, NewBB);
->>>>>>> c49953f5fec8fd01c8313085e92db6f00024e173
     }
   }
 
