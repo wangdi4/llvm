@@ -749,31 +749,7 @@ bool SampleProfileLoader::inlineHotFunctions(
       }
       DebugLoc DLoc = I->getDebugLoc();
       BasicBlock *BB = I->getParent();
-<<<<<<< HEAD
-      InlineParams Params;
-      Params.ComputeFullInlineCost = true;
-      // Checks if there is anything in the reachable portion of the callee at
-      // this callsite that makes this inlining potentially illegal. Need to
-      // set ComputeFullInlineCost, otherwise getInlineCost may return early
-      // when cost exceeds threshold without checking all IRs in the callee.
-      // The acutal cost does not matter because we only checks isNever() to
-      // see if it is legal to inline the callsite.
-#if INTEL_CUSTOMIZATION
-      InliningLoopInfoCache *ILIC = new InliningLoopInfoCache();
-      InlineCost Cost = getInlineCost(CS, Params, GetTTI(*CalledFunction), GetAC,
-                                      None, ILIC, nullptr, nullptr, nullptr);
-      delete ILIC;
-#endif // INTEL_CUSTOMIZATION
-
-      if (Cost.isNever()) {
-        ORE->emit(OptimizationRemark(DEBUG_TYPE, "Not inline", DLoc, BB)
-                  << "incompatible inlining");
-        continue;
-      }
-      if (InlineFunction(CS, IFI)) {
-=======
       if (InlineFunction(CallSite(DI), IFI)) {
->>>>>>> a31c940251feae02186fe4e7e9ab8030274e0913
         LocalChanged = true;
         // The call to InlineFunction erases DI, so we can't pass it here.
         ORE->emit(OptimizationRemark(DEBUG_TYPE, "HotInline", DLoc, BB)
