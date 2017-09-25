@@ -2817,7 +2817,6 @@ void ASTWriter::WriteSubmodules(Module *WritingModule) {
   Abbrev->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Blob));    // Macro name
   unsigned ExportAsAbbrev = Stream.EmitAbbrev(std::move(Abbrev));
 
-
   // Write the submodule metadata block.
   RecordData::value_type Record[] = {
       getNumberOfModules(WritingModule),
