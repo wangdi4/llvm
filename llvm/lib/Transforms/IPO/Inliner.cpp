@@ -389,14 +389,10 @@ shouldInline(CallSite CS, function_ref<InlineCost(CallSite CS)> GetInlineCost,
       return OptimizationRemarkMissed(DEBUG_TYPE, "NeverInline", Call)
              << NV("Callee", Callee) << " not inlined into "
              << NV("Caller", Caller)
-<<<<<<< HEAD
-             << " because it should never be inlined (cost=never)");
-    if (IR != nullptr)                               // INTEL
-      IR->setReasonNotInlined(CS, NinlrNeverInline); // INTEL
-=======
              << " because it should never be inlined (cost=never)";
     });
->>>>>>> 093624c347baf30d43a40f8916f2c89145411e95
+    if (IR != nullptr)                               // INTEL
+      IR->setReasonNotInlined(CS, NinlrNeverInline); // INTEL
     return None;
   }
 
@@ -409,14 +405,10 @@ shouldInline(CallSite CS, function_ref<InlineCost(CallSite CS)> GetInlineCost,
              << NV("Callee", Callee) << " not inlined into "
              << NV("Caller", Caller) << " because too costly to inline (cost="
              << NV("Cost", IC.getCost())
-<<<<<<< HEAD
-             << ", threshold=" << NV("Threshold", IC.getThreshold()) << ")");
-    if (IR != nullptr)                // INTEL
-      IR->setReasonNotInlined(CS, IC); // INTEL
-=======
              << ", threshold=" << NV("Threshold", IC.getThreshold()) << ")";
     });
->>>>>>> 093624c347baf30d43a40f8916f2c89145411e95
+    if (IR != nullptr)                // INTEL
+      IR->setReasonNotInlined(CS, IC); // INTEL
     return None;
   }
 
