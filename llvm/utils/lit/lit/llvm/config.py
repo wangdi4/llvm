@@ -97,7 +97,7 @@ class LLVMConfig(object):
             # For paths, we should be able to take a list of them and process all
             # of them.
             paths_to_add = value
-            if isinstance(paths_to_add, basestring):
+            if lit.util.is_string(paths_to_add):
                 paths_to_add = [paths_to_add]
 
             def norm(x):
@@ -148,14 +148,14 @@ class LLVMConfig(object):
         output, _ = llvm_config_cmd.communicate()
         output = output.decode(encoding)
         lines = output.split('\n')
-        for (line, (_, patterns)) in zip(lines, features):
+        for (feature_line, (_, patterns)) in zip(lines, features):
             # We should have either a callable or a dictionary.  If it's a
             # dictionary, grep each key against the output and use the value if
             # it matches.  If it's a callable, it does the entire translation.
             if callable(patterns):
-                features_to_add = patterns(line)
+                features_to_add = patterns(feature_line)
                 self.config.available_features.update(features_to_add)
             else:
-                for (match, feature) in patterns.items():
-                    if re.search(line, match):
+                for (re_pattern, feature) in patterns.items():
+                    if re.search(re_pattern, feature_line):
                         self.config.available_features.add(feature)
