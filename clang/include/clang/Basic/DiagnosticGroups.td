@@ -339,6 +339,7 @@ def NonPODVarargs : DiagGroup<"non-pod-varargs">;
 def ClassVarargs : DiagGroup<"class-varargs", [NonPODVarargs]>;
 def : DiagGroup<"nonportable-cfstrings">;
 def NonVirtualDtor : DiagGroup<"non-virtual-dtor">;
+def NullPointerArithmetic : DiagGroup<"null-pointer-arithmetic">;
 def : DiagGroup<"effc++", [NonVirtualDtor]>;
 def OveralignedType : DiagGroup<"over-aligned">;
 def AlignedAllocationUnavailable : DiagGroup<"aligned-allocation-unavailable">;
@@ -712,10 +713,15 @@ def Extra : DiagGroup<"extra", [
     SemiBeforeMethodBody,
     MissingMethodReturnType,
     SignCompare,
+<<<<<<< HEAD
     UnusedParameter, // INTEL
     // CQ380634: Warnings from this group should be enabled under -Wextra // INTEL
     // only // INTEL
     TautologicalCompare // INTEL
+=======
+    UnusedParameter,
+    NullPointerArithmetic
+>>>>>>> cac5bac11b51c77c46ed014d8ceab2473aa6a820
   ]>;
 
 def Most : DiagGroup<"most", [

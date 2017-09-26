@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // This entire file is cherry picked from LLVM r31366, as amended by r313684
 // and r313784.
@@ -9,6 +10,9 @@
 // RUN: %clang_cc1 -S %s -emit-llvm -o - | FileCheck %s
 // RUN: %clang_cc1 -S %s -emit-llvm -triple i686-unknown-unknown -o - | FileCheck %s
 // RUN: %clang_cc1 -S %s -emit-llvm -triple x86_64-unknown-unknown -o - | FileCheck %s
+=======
+// RUN: %clang_cc1 -S %s -emit-llvm -o - | FileCheck %s
+>>>>>>> cac5bac11b51c77c46ed014d8ceab2473aa6a820
 
 #include <stdint.h>
 
@@ -27,22 +31,35 @@ int8_t *test1(intptr_t n) {
 // CHECK: inttoptr
 // CHECK-NOT: getelementptr
 
+<<<<<<< HEAD
 // This doesn't meet the idiom because the element type is larger than a byte.
 int16_t *test2(intptr_t n) {
   return (int16_t*)0 + n;
+=======
+// This doesn't meet the idiom because the offset type isn't pointer-sized.
+int8_t *test2(int8_t n) {
+  return NULLPTRI8 + n;
+>>>>>>> cac5bac11b51c77c46ed014d8ceab2473aa6a820
 }
 // CHECK-LABEL: test2
 // CHECK: getelementptr
 // CHECK-NOT: inttoptr
 
+<<<<<<< HEAD
 // This doesn't meet the idiom because the offset is subtracted.
 int8_t* test3(intptr_t n) {
   return NULLPTRI8 - n;
+=======
+// This doesn't meet the idiom because the element type is larger than a byte.
+int16_t *test3(intptr_t n) {
+  return (int16_t*)0 + n;
+>>>>>>> cac5bac11b51c77c46ed014d8ceab2473aa6a820
 }
 // CHECK-LABEL: test3
 // CHECK: getelementptr
 // CHECK-NOT: inttoptr
 
+<<<<<<< HEAD
 // This checks the case where the offset isn't pointer-sized.
 // The front end will implicitly cast the offset to an integer, so we need to
 // make sure that doesn't cause problems on targets where integers and pointers
@@ -53,3 +70,12 @@ int8_t *test4(int8_t b) {
 // CHECK-LABEL: test4
 // CHECK: inttoptr
 // CHECK-NOT: getelementptr
+=======
+// This doesn't meet the idiom because the offset is subtracted.
+int8_t* test4(intptr_t n) {
+  return NULLPTRI8 - n;
+}
+// CHECK-LABEL: test4
+// CHECK: getelementptr
+// CHECK-NOT: inttoptr
+>>>>>>> cac5bac11b51c77c46ed014d8ceab2473aa6a820

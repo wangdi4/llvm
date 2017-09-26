@@ -3172,17 +3172,23 @@ public:
     return isShiftAssignOp(getOpcode());
   }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // This change is cherry-picked from LLVM trunk r313666.
   // When r313666 is merged with xmain, the INTEL_CUSTOMIZATION of this function
   // can be deleted and the LLVM trunk change followed without modification.
   //
+=======
+>>>>>>> cac5bac11b51c77c46ed014d8ceab2473aa6a820
   // Return true if a binary operator using the specified opcode and operands
   // would match the 'p = (i8*)nullptr + n' idiom for casting a pointer-sized
   // integer to a pointer.
   static bool isNullPointerArithmeticExtension(ASTContext &Ctx, Opcode Opc,
                                                Expr *LHS, Expr *RHS);
+<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> cac5bac11b51c77c46ed014d8ceab2473aa6a820
 
   static bool classof(const Stmt *S) {
     return S->getStmtClass() >= firstBinaryOperatorConstant &&
