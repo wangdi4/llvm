@@ -1,27 +1,5 @@
-//===--- opencl-c.h - OpenCL C language builtin function header -----------===//
-//
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
-//
-//===----------------------------------------------------------------------===//
-
-#ifndef _OPENCL_H_
-#define _OPENCL_H_
-
-<<<<<<< HEAD
-#if __OPENCL_C_VERSION__ >= CL_VERSION_2_0
-#ifndef cl_khr_depth_images
-#define cl_khr_depth_images
-#endif //cl_khr_depth_images
-#endif //__OPENCL_C_VERSION__ >= CL_VERSION_2_0
-
-#if __OPENCL_C_VERSION__ < CL_VERSION_2_0
-#ifdef cl_khr_3d_image_writes
-#pragma OPENCL EXTENSION cl_khr_3d_image_writes : enable
-#endif //cl_khr_3d_image_writes
-#endif //__OPENCL_C_VERSION__ < CL_VERSION_2_0
+#ifndef _OPENCL_COMMON_H_
+#define _OPENCL_COMMON_H_
 
 #define __ovld __attribute__((overloadable))
 #define __conv __attribute__((convergent))
@@ -29,6 +7,18 @@
 // Optimizations
 #define __purefn __attribute__((pure))
 #define __cnfn __attribute__((const))
+
+#ifdef cl_khr_fp64
+#if __OPENCL_C_VERSION__ < CL_VERSION_1_2
+#pragma OPENCL EXTENSION cl_khr_fp64 : enable
+#endif
+#endif
+
+#if __OPENCL_C_VERSION__ < CL_VERSION_2_0
+#ifdef cl_khr_3d_image_writes
+#pragma OPENCL EXTENSION cl_khr_3d_image_writes : enable
+#endif //cl_khr_3d_image_writes
+#endif //__OPENCL_C_VERSION__ < CL_VERSION_2_0
 
 // built-in scalar data types:
 
@@ -52,35 +42,9 @@ typedef unsigned int uint;
  */
 typedef unsigned long ulong;
 
-/**
- * The unsigned integer type of the result of the sizeof operator. This
- * is a 32-bit unsigned integer if CL_DEVICE_ADDRESS_BITS
- * defined in table 4.3 is 32-bits and is a 64-bit unsigned integer if
- * CL_DEVICE_ADDRESS_BITS is 64-bits.
- */
-typedef __SIZE_TYPE__ size_t;
+// Flag type and values for barrier, mem_fence, read_mem_fence, write_mem_fence
+typedef uint cl_mem_fence_flags;
 
-/**
- * A signed integer type that is the result of subtracting two pointers.
- * This is a 32-bit signed integer if CL_DEVICE_ADDRESS_BITS
- * defined in table 4.3 is 32-bits and is a 64-bit signed integer if
- * CL_DEVICE_ADDRESS_BITS is 64-bits.
- */
-typedef __PTRDIFF_TYPE__ ptrdiff_t;
-
-/**
-* A signed integer type with the property that any valid pointer to
-* void can be converted to this type, then converted back to pointer
-* to void, and the result will compare equal to the original pointer.
-*/
-typedef __INTPTR_TYPE__ intptr_t;
-
-/**
-* An unsigned integer type with the property that any valid pointer to
-* void can be converted to this type, then converted back to pointer
-* to void, and the result will compare equal to the original pointer.
-*/
-typedef __UINTPTR_TYPE__ uintptr_t;
 
 // built-in vector data types:
 typedef char char2 __attribute__((ext_vector_type(2)));
@@ -137,18 +101,11 @@ typedef half half8 __attribute__((ext_vector_type(8)));
 typedef half half16 __attribute__((ext_vector_type(16)));
 #endif
 #ifdef cl_khr_fp64
-#if __OPENCL_C_VERSION__ < CL_VERSION_1_2
-#pragma OPENCL EXTENSION cl_khr_fp64 : enable
-#endif
 typedef double double2 __attribute__((ext_vector_type(2)));
 typedef double double3 __attribute__((ext_vector_type(3)));
 typedef double double4 __attribute__((ext_vector_type(4)));
 typedef double double8 __attribute__((ext_vector_type(8)));
 typedef double double16 __attribute__((ext_vector_type(16)));
-#endif
-
-#if __OPENCL_C_VERSION__ >= CL_VERSION_2_0
-#define NULL ((void*)0)
 #endif
 
 /**
@@ -6582,87 +6539,85 @@ half16 __ovld __cnfn convert_half16_rtz(double16);
 #endif // cl_khr_fp16
 
 /**
- * OpenCL v1.1/1.2/2.0 s6.2.4.2 - as_type operators
+ * OpenCL as_type operators
  * Reinterprets a data type as another data type of the same size
  */
-#define as_char(x) __builtin_astype((x),   char)
-#define as_char2(x) __builtin_astype((x),  char2)
-#define as_char3(x) __builtin_astype((x),  char3)
-#define as_char4(x) __builtin_astype((x),  char4)
-#define as_char8(x) __builtin_astype((x),  char8)
+#define as_char(x) __builtin_astype((x), char)
+#define as_char2(x) __builtin_astype((x), char2)
+#define as_char3(x) __builtin_astype((x), char3)
+#define as_char4(x) __builtin_astype((x), char4)
+#define as_char8(x) __builtin_astype((x), char8)
 #define as_char16(x) __builtin_astype((x), char16)
 
-#define as_uchar(x) __builtin_astype((x),   uchar)
-#define as_uchar2(x) __builtin_astype((x),  uchar2)
-#define as_uchar3(x) __builtin_astype((x),  uchar3)
-#define as_uchar4(x) __builtin_astype((x),  uchar4)
-#define as_uchar8(x) __builtin_astype((x),  uchar8)
+#define as_uchar(x) __builtin_astype((x), uchar)
+#define as_uchar2(x) __builtin_astype((x), uchar2)
+#define as_uchar3(x) __builtin_astype((x), uchar3)
+#define as_uchar4(x) __builtin_astype((x), uchar4)
+#define as_uchar8(x) __builtin_astype((x), uchar8)
 #define as_uchar16(x) __builtin_astype((x), uchar16)
 
-#define as_short(x) __builtin_astype((x),   short)
-#define as_short2(x) __builtin_astype((x),  short2)
-#define as_short3(x) __builtin_astype((x),  short3)
-#define as_short4(x) __builtin_astype((x),  short4)
-#define as_short8(x) __builtin_astype((x),  short8)
+#define as_short(x) __builtin_astype((x), short)
+#define as_short2(x) __builtin_astype((x), short2)
+#define as_short3(x) __builtin_astype((x), short3)
+#define as_short4(x) __builtin_astype((x), short4)
+#define as_short8(x) __builtin_astype((x), short8)
 #define as_short16(x) __builtin_astype((x), short16)
 
-#define as_ushort(x) __builtin_astype((x),   ushort)
-#define as_ushort2(x) __builtin_astype((x),  ushort2)
-#define as_ushort3(x) __builtin_astype((x),  ushort3)
-#define as_ushort4(x) __builtin_astype((x),  ushort4)
-#define as_ushort8(x) __builtin_astype((x),  ushort8)
+#define as_ushort(x) __builtin_astype((x), ushort)
+#define as_ushort2(x) __builtin_astype((x), ushort2)
+#define as_ushort3(x) __builtin_astype((x), ushort3)
+#define as_ushort4(x) __builtin_astype((x), ushort4)
+#define as_ushort8(x) __builtin_astype((x), ushort8)
 #define as_ushort16(x) __builtin_astype((x), ushort16)
 
-#define as_int(x) __builtin_astype((x),   int)
-#define as_int2(x) __builtin_astype((x),  int2)
-#define as_int3(x) __builtin_astype((x),  int3)
-#define as_int4(x) __builtin_astype((x),  int4)
-#define as_int8(x) __builtin_astype((x),  int8)
+#define as_int(x) __builtin_astype((x), int)
+#define as_int2(x) __builtin_astype((x), int2)
+#define as_int3(x) __builtin_astype((x), int3)
+#define as_int4(x) __builtin_astype((x), int4)
+#define as_int8(x) __builtin_astype((x), int8)
 #define as_int16(x) __builtin_astype((x), int16)
 
-#define as_uint(x) __builtin_astype((x),   uint)
-#define as_uint2(x) __builtin_astype((x),  uint2)
-#define as_uint3(x) __builtin_astype((x),  uint3)
-#define as_uint4(x) __builtin_astype((x),  uint4)
-#define as_uint8(x) __builtin_astype((x),  uint8)
+#define as_uint(x) __builtin_astype((x), uint)
+#define as_uint2(x) __builtin_astype((x), uint2)
+#define as_uint3(x) __builtin_astype((x), uint3)
+#define as_uint4(x) __builtin_astype((x), uint4)
+#define as_uint8(x) __builtin_astype((x), uint8)
 #define as_uint16(x) __builtin_astype((x), uint16)
 
-#define as_long(x) __builtin_astype((x),   long)
-#define as_long2(x) __builtin_astype((x),  long2)
-#define as_long3(x) __builtin_astype((x),  long3)
-#define as_long4(x) __builtin_astype((x),  long4)
-#define as_long8(x) __builtin_astype((x),  long8)
+#define as_long(x) __builtin_astype((x), long)
+#define as_long2(x) __builtin_astype((x), long2)
+#define as_long3(x) __builtin_astype((x), long3)
+#define as_long4(x) __builtin_astype((x), long4)
+#define as_long8(x) __builtin_astype((x), long8)
 #define as_long16(x) __builtin_astype((x), long16)
 
-#define as_ulong(x) __builtin_astype((x),   ulong)
-#define as_ulong2(x) __builtin_astype((x),  ulong2)
-#define as_ulong3(x) __builtin_astype((x),  ulong3)
-#define as_ulong4(x) __builtin_astype((x),  ulong4)
-#define as_ulong8(x) __builtin_astype((x),  ulong8)
+#define as_ulong(x) __builtin_astype((x), ulong)
+#define as_ulong2(x) __builtin_astype((x), ulong2)
+#define as_ulong3(x) __builtin_astype((x), ulong3)
+#define as_ulong4(x) __builtin_astype((x), ulong4)
+#define as_ulong8(x) __builtin_astype((x), ulong8)
 #define as_ulong16(x) __builtin_astype((x), ulong16)
 
-#define as_float(x) __builtin_astype((x),   float)
-#define as_float2(x) __builtin_astype((x),  float2)
-#define as_float3(x) __builtin_astype((x),  float3)
-#define as_float4(x) __builtin_astype((x),  float4)
-#define as_float8(x) __builtin_astype((x),  float8)
+#define as_float(x) __builtin_astype((x), float)
+#define as_float2(x) __builtin_astype((x), float2)
+#define as_float3(x) __builtin_astype((x), float3)
+#define as_float4(x) __builtin_astype((x), float4)
+#define as_float8(x) __builtin_astype((x), float8)
 #define as_float16(x) __builtin_astype((x), float16)
 
-#ifdef cl_khr_fp64
-#define as_double(x) __builtin_astype((x),   double)
-#define as_double2(x) __builtin_astype((x),  double2)
-#define as_double3(x) __builtin_astype((x),  double3)
-#define as_double4(x) __builtin_astype((x),  double4)
-#define as_double8(x) __builtin_astype((x),  double8)
+#define as_double(x) __builtin_astype((x), double)
+#define as_double2(x) __builtin_astype((x), double2)
+#define as_double3(x) __builtin_astype((x), double3)
+#define as_double4(x) __builtin_astype((x), double4)
+#define as_double8(x) __builtin_astype((x), double8)
 #define as_double16(x) __builtin_astype((x), double16)
-#endif //cl_khr_fp64
 
 #ifdef cl_khr_fp16
-#define as_half(x) __builtin_astype((x),   half)
-#define as_half2(x) __builtin_astype((x),  half2)
-#define as_half3(x) __builtin_astype((x),  half3)
-#define as_half4(x) __builtin_astype((x),  half4)
-#define as_half8(x) __builtin_astype((x),  half8)
+#define as_half(x) __builtin_astype((x), half)
+#define as_half2(x) __builtin_astype((x), half2)
+#define as_half3(x) __builtin_astype((x), half3)
+#define as_half4(x) __builtin_astype((x), half4)
+#define as_half8(x) __builtin_astype((x), half8)
 #define as_half16(x) __builtin_astype((x), half16)
 #endif //cl_khr_fp16
 
@@ -6685,87 +6640,6 @@ half16 __ovld __cnfn convert_half16_rtz(double16);
  * For clEnqueueTask, this returns 1.
  */
 uint __ovld __cnfn get_work_dim(void);
-
-/**
- * Returns the number of global work-items specified for
- * dimension identified by dimindx. This value is given by
- * the global_work_size argument to
- * clEnqueueNDRangeKernel. Valid values of dimindx
- * are 0 to get_work_dim() - 1. For other values of
- * dimindx, get_global_size() returns 1.
- * For clEnqueueTask, this always returns 1.
- */
-size_t __ovld __cnfn get_global_size(uint dimindx);
-
-/**
- * Returns the unique global work-item ID value for
- * dimension identified by dimindx. The global work-item
- * ID specifies the work-item ID based on the number of
- * global work-items specified to execute the kernel. Valid
- * values of dimindx are 0 to get_work_dim() - 1. For
- * other values of dimindx, get_global_id() returns 0.
- * For clEnqueueTask, this returns 0.
- */
-size_t __ovld __cnfn get_global_id(uint dimindx);
-
-/**
- * Returns the number of local work-items specified in
- * dimension identified by dimindx. This value is given by
- * the local_work_size argument to
- * clEnqueueNDRangeKernel if local_work_size is not
- * NULL; otherwise the OpenCL implementation chooses
- * an appropriate local_work_size value which is returned
- * by this function. Valid values of dimindx are 0 to
- * get_work_dim() - 1. For other values of dimindx,
- * get_local_size() returns 1.
- * For clEnqueueTask, this always returns 1.
- */
-size_t __ovld __cnfn get_local_size(uint dimindx);
-
-/**
- * Returns the unique local work-item ID i.e. a work-item
- * within a specific work-group for dimension identified by
- * dimindx. Valid values of dimindx are 0 to
- * get_work_dim() - 1. For other values of dimindx,
- * get_local_id() returns 0.
- * For clEnqueueTask, this returns 0.
- */
-size_t __ovld __cnfn get_local_id(uint dimindx);
-
-/**
- * Returns the number of work-groups that will execute a
- * kernel for dimension identified by dimindx.
- * Valid values of dimindx are 0 to get_work_dim() - 1.
- * For other values of dimindx, get_num_groups () returns
- * 1.
- * For clEnqueueTask, this always returns 1.
- */
-size_t __ovld __cnfn get_num_groups(uint dimindx);
-
-/**
- * get_group_id returns the work-group ID which is a
- * number from 0 .. get_num_groups(dimindx) - 1.
- * Valid values of dimindx are 0 to get_work_dim() - 1.
- * For other values, get_group_id() returns 0.
- * For clEnqueueTask, this returns 0.
- */
-size_t __ovld __cnfn get_group_id(uint dimindx);
-
-/**
- * get_global_offset returns the offset values specified in
- * global_work_offset argument to
- * clEnqueueNDRangeKernel.
- * Valid values of dimindx are 0 to get_work_dim() - 1.
- * For other values, get_global_offset() returns 0.
- * For clEnqueueTask, this returns 0.
- */
-size_t __ovld __cnfn get_global_offset(uint dimindx);
-
-#if __OPENCL_C_VERSION__ >= CL_VERSION_2_0
-size_t __ovld get_enqueued_local_size(uint dimindx);
-size_t __ovld get_global_linear_id(void);
-size_t __ovld get_local_linear_id(void);
-#endif //__OPENCL_C_VERSION__ >= CL_VERSION_2_0
 
 // OpenCL v1.1 s6.11.2, v1.2 s6.12.2, v2.0 s6.13.2 - Math functions
 
@@ -7593,184 +7467,6 @@ half16 __ovld __cnfn fmod(half16 x, half16 y);
 #endif //cl_khr_fp16
 
 /**
- * Returns fmin(x - floor (x), 0x1.fffffep-1f ).
- * floor(x) is returned in iptr.
- */
-#if __OPENCL_C_VERSION__ >= CL_VERSION_2_0
-float __ovld fract(float x, float *iptr);
-float2 __ovld fract(float2 x, float2 *iptr);
-float3 __ovld fract(float3 x, float3 *iptr);
-float4 __ovld fract(float4 x, float4 *iptr);
-float8 __ovld fract(float8 x, float8 *iptr);
-float16 __ovld fract(float16 x, float16 *iptr);
-#ifdef cl_khr_fp64
-double __ovld fract(double x, double *iptr);
-double2 __ovld fract(double2 x, double2 *iptr);
-double3 __ovld fract(double3 x, double3 *iptr);
-double4 __ovld fract(double4 x, double4 *iptr);
-double8 __ovld fract(double8 x, double8 *iptr);
-double16 __ovld fract(double16 x, double16 *iptr);
-#endif //cl_khr_fp64
-#ifdef cl_khr_fp16
-half __ovld fract(half x, half *iptr);
-half2 __ovld fract(half2 x, half2 *iptr);
-half3 __ovld fract(half3 x, half3 *iptr);
-half4 __ovld fract(half4 x, half4 *iptr);
-half8 __ovld fract(half8 x, half8 *iptr);
-half16 __ovld fract(half16 x, half16 *iptr);
-#endif //cl_khr_fp16
-#else
-float __ovld fract(float x, __global float *iptr);
-float2 __ovld fract(float2 x, __global float2 *iptr);
-float3 __ovld fract(float3 x, __global float3 *iptr);
-float4 __ovld fract(float4 x, __global float4 *iptr);
-float8 __ovld fract(float8 x, __global float8 *iptr);
-float16 __ovld fract(float16 x, __global float16 *iptr);
-float __ovld fract(float x, __local float *iptr);
-float2 __ovld fract(float2 x, __local float2 *iptr);
-float3 __ovld fract(float3 x, __local float3 *iptr);
-float4 __ovld fract(float4 x, __local float4 *iptr);
-float8 __ovld fract(float8 x, __local float8 *iptr);
-float16 __ovld fract(float16 x, __local float16 *iptr);
-float __ovld fract(float x, __private float *iptr);
-float2 __ovld fract(float2 x, __private float2 *iptr);
-float3 __ovld fract(float3 x, __private float3 *iptr);
-float4 __ovld fract(float4 x, __private float4 *iptr);
-float8 __ovld fract(float8 x, __private float8 *iptr);
-float16 __ovld fract(float16 x, __private float16 *iptr);
-#ifdef cl_khr_fp64
-double __ovld fract(double x, __global double *iptr);
-double2 __ovld fract(double2 x, __global double2 *iptr);
-double3 __ovld fract(double3 x, __global double3 *iptr);
-double4 __ovld fract(double4 x, __global double4 *iptr);
-double8 __ovld fract(double8 x, __global double8 *iptr);
-double16 __ovld fract(double16 x, __global double16 *iptr);
-double __ovld fract(double x, __local double *iptr);
-double2 __ovld fract(double2 x, __local double2 *iptr);
-double3 __ovld fract(double3 x, __local double3 *iptr);
-double4 __ovld fract(double4 x, __local double4 *iptr);
-double8 __ovld fract(double8 x, __local double8 *iptr);
-double16 __ovld fract(double16 x, __local double16 *iptr);
-double __ovld fract(double x, __private double *iptr);
-double2 __ovld fract(double2 x, __private double2 *iptr);
-double3 __ovld fract(double3 x, __private double3 *iptr);
-double4 __ovld fract(double4 x, __private double4 *iptr);
-double8 __ovld fract(double8 x, __private double8 *iptr);
-double16 __ovld fract(double16 x, __private double16 *iptr);
-#endif //cl_khr_fp64
-#ifdef cl_khr_fp16
-half __ovld fract(half x, __global half *iptr);
-half2 __ovld fract(half2 x, __global half2 *iptr);
-half3 __ovld fract(half3 x, __global half3 *iptr);
-half4 __ovld fract(half4 x, __global half4 *iptr);
-half8 __ovld fract(half8 x, __global half8 *iptr);
-half16 __ovld fract(half16 x, __global half16 *iptr);
-half __ovld fract(half x, __local half *iptr);
-half2 __ovld fract(half2 x, __local half2 *iptr);
-half3 __ovld fract(half3 x, __local half3 *iptr);
-half4 __ovld fract(half4 x, __local half4 *iptr);
-half8 __ovld fract(half8 x, __local half8 *iptr);
-half16 __ovld fract(half16 x, __local half16 *iptr);
-half __ovld fract(half x, __private half *iptr);
-half2 __ovld fract(half2 x, __private half2 *iptr);
-half3 __ovld fract(half3 x, __private half3 *iptr);
-half4 __ovld fract(half4 x, __private half4 *iptr);
-half8 __ovld fract(half8 x, __private half8 *iptr);
-half16 __ovld fract(half16 x, __private half16 *iptr);
-#endif //cl_khr_fp16
-#endif //__OPENCL_C_VERSION__ >= CL_VERSION_2_0
-
-/**
- * Extract mantissa and exponent from x. For each
- * component the mantissa returned is a float with
- * magnitude in the interval [1/2, 1) or 0. Each
- * component of x equals mantissa returned * 2^exp.
- */
-#if __OPENCL_C_VERSION__ >= CL_VERSION_2_0
-float __ovld frexp(float x, int *exp);
-float2 __ovld frexp(float2 x, int2 *exp);
-float3 __ovld frexp(float3 x, int3 *exp);
-float4 __ovld frexp(float4 x, int4 *exp);
-float8 __ovld frexp(float8 x, int8 *exp);
-float16 __ovld frexp(float16 x, int16 *exp);
-#ifdef cl_khr_fp64
-double __ovld frexp(double x, int *exp);
-double2 __ovld frexp(double2 x, int2 *exp);
-double3 __ovld frexp(double3 x, int3 *exp);
-double4 __ovld frexp(double4 x, int4 *exp);
-double8 __ovld frexp(double8 x, int8 *exp);
-double16 __ovld frexp(double16 x, int16 *exp);
-#endif //cl_khr_fp64
-#ifdef cl_khr_fp16
-half __ovld frexp(half x, int *exp);
-half2 __ovld frexp(half2 x, int2 *exp);
-half3 __ovld frexp(half3 x, int3 *exp);
-half4 __ovld frexp(half4 x, int4 *exp);
-half8 __ovld frexp(half8 x, int8 *exp);
-half16 __ovld frexp(half16 x, int16 *exp);
-#endif //cl_khr_fp16
-#else
-float __ovld frexp(float x, __global int *exp);
-float2 __ovld frexp(float2 x, __global int2 *exp);
-float3 __ovld frexp(float3 x, __global int3 *exp);
-float4 __ovld frexp(float4 x, __global int4 *exp);
-float8 __ovld frexp(float8 x, __global int8 *exp);
-float16 __ovld frexp(float16 x, __global int16 *exp);
-float __ovld frexp(float x, __local int *exp);
-float2 __ovld frexp(float2 x, __local int2 *exp);
-float3 __ovld frexp(float3 x, __local int3 *exp);
-float4 __ovld frexp(float4 x, __local int4 *exp);
-float8 __ovld frexp(float8 x, __local int8 *exp);
-float16 __ovld frexp(float16 x, __local int16 *exp);
-float __ovld frexp(float x, __private int *exp);
-float2 __ovld frexp(float2 x, __private int2 *exp);
-float3 __ovld frexp(float3 x, __private int3 *exp);
-float4 __ovld frexp(float4 x, __private int4 *exp);
-float8 __ovld frexp(float8 x, __private int8 *exp);
-float16 __ovld frexp(float16 x, __private int16 *exp);
-#ifdef cl_khr_fp64
-double __ovld frexp(double x, __global int *exp);
-double2 __ovld frexp(double2 x, __global int2 *exp);
-double3 __ovld frexp(double3 x, __global int3 *exp);
-double4 __ovld frexp(double4 x, __global int4 *exp);
-double8 __ovld frexp(double8 x, __global int8 *exp);
-double16 __ovld frexp(double16 x, __global int16 *exp);
-double __ovld frexp(double x, __local int *exp);
-double2 __ovld frexp(double2 x, __local int2 *exp);
-double3 __ovld frexp(double3 x, __local int3 *exp);
-double4 __ovld frexp(double4 x, __local int4 *exp);
-double8 __ovld frexp(double8 x, __local int8 *exp);
-double16 __ovld frexp(double16 x, __local int16 *exp);
-double __ovld frexp(double x, __private int *exp);
-double2 __ovld frexp(double2 x, __private int2 *exp);
-double3 __ovld frexp(double3 x, __private int3 *exp);
-double4 __ovld frexp(double4 x, __private int4 *exp);
-double8 __ovld frexp(double8 x, __private int8 *exp);
-double16 __ovld frexp(double16 x, __private int16 *exp);
-#endif //cl_khr_fp64
-#ifdef cl_khr_fp16
-half __ovld frexp(half x, __global int *exp);
-half2 __ovld frexp(half2 x, __global int2 *exp);
-half3 __ovld frexp(half3 x, __global int3 *exp);
-half4 __ovld frexp(half4 x, __global int4 *exp);
-half8 __ovld frexp(half8 x, __global int8 *exp);
-half16 __ovld frexp(half16 x, __global int16 *exp);
-half __ovld frexp(half x, __local int *exp);
-half2 __ovld frexp(half2 x, __local int2 *exp);
-half3 __ovld frexp(half3 x, __local int3 *exp);
-half4 __ovld frexp(half4 x, __local int4 *exp);
-half8 __ovld frexp(half8 x, __local int8 *exp);
-half16 __ovld frexp(half16 x, __local int16 *exp);
-half __ovld frexp(half x, __private int *exp);
-half2 __ovld frexp(half2 x, __private int2 *exp);
-half3 __ovld frexp(half3 x, __private int3 *exp);
-half4 __ovld frexp(half4 x, __private int4 *exp);
-half8 __ovld frexp(half8 x, __private int8 *exp);
-half16 __ovld frexp(half16 x, __private int16 *exp);
-#endif //cl_khr_fp16
-#endif //__OPENCL_C_VERSION__ >= CL_VERSION_2_0
-
-/**
  * Compute the value of the square root of x^2 + y^2
  * without undue overflow or underflow.
  */
@@ -7892,90 +7588,6 @@ half4 __ovld __cnfn lgamma(half4 x);
 half8 __ovld __cnfn lgamma(half8 x);
 half16 __ovld __cnfn lgamma(half16 x);
 #endif //cl_khr_fp16
-
-#if __OPENCL_C_VERSION__ >= CL_VERSION_2_0
-float __ovld lgamma_r(float x, int *signp);
-float2 __ovld lgamma_r(float2 x, int2 *signp);
-float3 __ovld lgamma_r(float3 x, int3 *signp);
-float4 __ovld lgamma_r(float4 x, int4 *signp);
-float8 __ovld lgamma_r(float8 x, int8 *signp);
-float16 __ovld lgamma_r(float16 x, int16 *signp);
-#ifdef cl_khr_fp64
-double __ovld lgamma_r(double x, int *signp);
-double2 __ovld lgamma_r(double2 x, int2 *signp);
-double3 __ovld lgamma_r(double3 x, int3 *signp);
-double4 __ovld lgamma_r(double4 x, int4 *signp);
-double8 __ovld lgamma_r(double8 x, int8 *signp);
-double16 __ovld lgamma_r(double16 x, int16 *signp);
-#endif //cl_khr_fp64
-#ifdef cl_khr_fp16
-half __ovld lgamma_r(half x, int *signp);
-half2 __ovld lgamma_r(half2 x, int2 *signp);
-half3 __ovld lgamma_r(half3 x, int3 *signp);
-half4 __ovld lgamma_r(half4 x, int4 *signp);
-half8 __ovld lgamma_r(half8 x, int8 *signp);
-half16 __ovld lgamma_r(half16 x, int16 *signp);
-#endif //cl_khr_fp16
-#else
-float __ovld lgamma_r(float x, __global int *signp);
-float2 __ovld lgamma_r(float2 x, __global int2 *signp);
-float3 __ovld lgamma_r(float3 x, __global int3 *signp);
-float4 __ovld lgamma_r(float4 x, __global int4 *signp);
-float8 __ovld lgamma_r(float8 x, __global int8 *signp);
-float16 __ovld lgamma_r(float16 x, __global int16 *signp);
-float __ovld lgamma_r(float x, __local int *signp);
-float2 __ovld lgamma_r(float2 x, __local int2 *signp);
-float3 __ovld lgamma_r(float3 x, __local int3 *signp);
-float4 __ovld lgamma_r(float4 x, __local int4 *signp);
-float8 __ovld lgamma_r(float8 x, __local int8 *signp);
-float16 __ovld lgamma_r(float16 x, __local int16 *signp);
-float __ovld lgamma_r(float x, __private int *signp);
-float2 __ovld lgamma_r(float2 x, __private int2 *signp);
-float3 __ovld lgamma_r(float3 x, __private int3 *signp);
-float4 __ovld lgamma_r(float4 x, __private int4 *signp);
-float8 __ovld lgamma_r(float8 x, __private int8 *signp);
-float16 __ovld lgamma_r(float16 x, __private int16 *signp);
-#ifdef cl_khr_fp64
-double __ovld lgamma_r(double x, __global int *signp);
-double2 __ovld lgamma_r(double2 x, __global int2 *signp);
-double3 __ovld lgamma_r(double3 x, __global int3 *signp);
-double4 __ovld lgamma_r(double4 x, __global int4 *signp);
-double8 __ovld lgamma_r(double8 x, __global int8 *signp);
-double16 __ovld lgamma_r(double16 x, __global int16 *signp);
-double __ovld lgamma_r(double x, __local int *signp);
-double2 __ovld lgamma_r(double2 x, __local int2 *signp);
-double3 __ovld lgamma_r(double3 x, __local int3 *signp);
-double4 __ovld lgamma_r(double4 x, __local int4 *signp);
-double8 __ovld lgamma_r(double8 x, __local int8 *signp);
-double16 __ovld lgamma_r(double16 x, __local int16 *signp);
-double __ovld lgamma_r(double x, __private int *signp);
-double2 __ovld lgamma_r(double2 x, __private int2 *signp);
-double3 __ovld lgamma_r(double3 x, __private int3 *signp);
-double4 __ovld lgamma_r(double4 x, __private int4 *signp);
-double8 __ovld lgamma_r(double8 x, __private int8 *signp);
-double16 __ovld lgamma_r(double16 x, __private int16 *signp);
-#endif //cl_khr_fp64
-#ifdef cl_khr_fp16
-half __ovld lgamma_r(half x, __global int *signp);
-half2 __ovld lgamma_r(half2 x, __global int2 *signp);
-half3 __ovld lgamma_r(half3 x, __global int3 *signp);
-half4 __ovld lgamma_r(half4 x, __global int4 *signp);
-half8 __ovld lgamma_r(half8 x, __global int8 *signp);
-half16 __ovld lgamma_r(half16 x, __global int16 *signp);
-half __ovld lgamma_r(half x, __local int *signp);
-half2 __ovld lgamma_r(half2 x, __local int2 *signp);
-half3 __ovld lgamma_r(half3 x, __local int3 *signp);
-half4 __ovld lgamma_r(half4 x, __local int4 *signp);
-half8 __ovld lgamma_r(half8 x, __local int8 *signp);
-half16 __ovld lgamma_r(half16 x, __local int16 *signp);
-half __ovld lgamma_r(half x, __private int *signp);
-half2 __ovld lgamma_r(half2 x, __private int2 *signp);
-half3 __ovld lgamma_r(half3 x, __private int3 *signp);
-half4 __ovld lgamma_r(half4 x, __private int4 *signp);
-half8 __ovld lgamma_r(half8 x, __private int8 *signp);
-half16 __ovld lgamma_r(half16 x, __private int16 *signp);
-#endif //cl_khr_fp16
-#endif //__OPENCL_C_VERSION__ >= CL_VERSION_2_0
 
 /**
  * Compute natural logarithm.
@@ -8193,97 +7805,6 @@ half16 __ovld __cnfn minmag(half16 x, half16 y);
 #endif //cl_khr_fp16
 
 /**
- * Decompose a floating-point number. The modf
- * function breaks the argument x into integral and
- * fractional parts, each of which has the same sign as
- * the argument. It stores the integral part in the object
- * pointed to by iptr.
- */
-#if __OPENCL_C_VERSION__ >= CL_VERSION_2_0
-float __ovld modf(float x, float *iptr);
-float2 __ovld modf(float2 x, float2 *iptr);
-float3 __ovld modf(float3 x, float3 *iptr);
-float4 __ovld modf(float4 x, float4 *iptr);
-float8 __ovld modf(float8 x, float8 *iptr);
-float16 __ovld modf(float16 x, float16 *iptr);
-#ifdef cl_khr_fp64
-double __ovld modf(double x, double *iptr);
-double2 __ovld modf(double2 x, double2 *iptr);
-double3 __ovld modf(double3 x, double3 *iptr);
-double4 __ovld modf(double4 x, double4 *iptr);
-double8 __ovld modf(double8 x, double8 *iptr);
-double16 __ovld modf(double16 x, double16 *iptr);
-#endif //cl_khr_fp64
-#ifdef cl_khr_fp16
-half __ovld modf(half x, half *iptr);
-half2 __ovld modf(half2 x, half2 *iptr);
-half3 __ovld modf(half3 x, half3 *iptr);
-half4 __ovld modf(half4 x, half4 *iptr);
-half8 __ovld modf(half8 x, half8 *iptr);
-half16 __ovld modf(half16 x, half16 *iptr);
-#endif //cl_khr_fp16
-#else
-float __ovld modf(float x, __global float *iptr);
-float2 __ovld modf(float2 x, __global float2 *iptr);
-float3 __ovld modf(float3 x, __global float3 *iptr);
-float4 __ovld modf(float4 x, __global float4 *iptr);
-float8 __ovld modf(float8 x, __global float8 *iptr);
-float16 __ovld modf(float16 x, __global float16 *iptr);
-float __ovld modf(float x, __local float *iptr);
-float2 __ovld modf(float2 x, __local float2 *iptr);
-float3 __ovld modf(float3 x, __local float3 *iptr);
-float4 __ovld modf(float4 x, __local float4 *iptr);
-float8 __ovld modf(float8 x, __local float8 *iptr);
-float16 __ovld modf(float16 x, __local float16 *iptr);
-float __ovld modf(float x, __private float *iptr);
-float2 __ovld modf(float2 x, __private float2 *iptr);
-float3 __ovld modf(float3 x, __private float3 *iptr);
-float4 __ovld modf(float4 x, __private float4 *iptr);
-float8 __ovld modf(float8 x, __private float8 *iptr);
-float16 __ovld modf(float16 x, __private float16 *iptr);
-#ifdef cl_khr_fp64
-double __ovld modf(double x, __global double *iptr);
-double2 __ovld modf(double2 x, __global double2 *iptr);
-double3 __ovld modf(double3 x, __global double3 *iptr);
-double4 __ovld modf(double4 x, __global double4 *iptr);
-double8 __ovld modf(double8 x, __global double8 *iptr);
-double16 __ovld modf(double16 x, __global double16 *iptr);
-double __ovld modf(double x, __local double *iptr);
-double2 __ovld modf(double2 x, __local double2 *iptr);
-double3 __ovld modf(double3 x, __local double3 *iptr);
-double4 __ovld modf(double4 x, __local double4 *iptr);
-double8 __ovld modf(double8 x, __local double8 *iptr);
-double16 __ovld modf(double16 x, __local double16 *iptr);
-double __ovld modf(double x, __private double *iptr);
-double2 __ovld modf(double2 x, __private double2 *iptr);
-double3 __ovld modf(double3 x, __private double3 *iptr);
-double4 __ovld modf(double4 x, __private double4 *iptr);
-double8 __ovld modf(double8 x, __private double8 *iptr);
-double16 __ovld modf(double16 x, __private double16 *iptr);
-#endif //cl_khr_fp64
-#ifdef cl_khr_fp16
-half __ovld modf(half x, __global half *iptr);
-half2 __ovld modf(half2 x, __global half2 *iptr);
-half3 __ovld modf(half3 x, __global half3 *iptr);
-half4 __ovld modf(half4 x, __global half4 *iptr);
-half8 __ovld modf(half8 x, __global half8 *iptr);
-half16 __ovld modf(half16 x, __global half16 *iptr);
-half __ovld modf(half x, __local half *iptr);
-half2 __ovld modf(half2 x, __local half2 *iptr);
-half3 __ovld modf(half3 x, __local half3 *iptr);
-half4 __ovld modf(half4 x, __local half4 *iptr);
-half8 __ovld modf(half8 x, __local half8 *iptr);
-half16 __ovld modf(half16 x, __local half16 *iptr);
-half __ovld modf(half x, __private half *iptr);
-half2 __ovld modf(half2 x, __private half2 *iptr);
-half3 __ovld modf(half3 x, __private half3 *iptr);
-half4 __ovld modf(half4 x, __private half4 *iptr);
-half8 __ovld modf(half8 x, __private half8 *iptr);
-half16 __ovld modf(half16 x, __private half16 *iptr);
-#endif //cl_khr_fp16
-#endif //__OPENCL_C_VERSION__ >= CL_VERSION_2_0
-
-/**
  * Returns a quiet NaN. The nancode may be placed
  * in the significand of the resulting NaN.
  */
@@ -8448,102 +7969,6 @@ half16 __ovld __cnfn remainder(half16 x, half16 y);
 #endif //cl_khr_fp16
 
 /**
- * The remquo function computes the value r such
- * that r = x - n*y, where n is the integer nearest the
- * exact value of x/y. If there are two integers closest
- * to x/y, n shall be the even one. If r is zero, it is
- * given the same sign as x. This is the same value
- * that is returned by the remainder function.
- * remquo also calculates the lower seven bits of the
- * integral quotient x/y, and gives that value the same
- * sign as x/y. It stores this signed value in the object
- * pointed to by quo.
- */
-#if __OPENCL_C_VERSION__ >= CL_VERSION_2_0
-float __ovld remquo(float x, float y, int *quo);
-float2 __ovld remquo(float2 x, float2 y, int2 *quo);
-float3 __ovld remquo(float3 x, float3 y, int3 *quo);
-float4 __ovld remquo(float4 x, float4 y, int4 *quo);
-float8 __ovld remquo(float8 x, float8 y, int8 *quo);
-float16 __ovld remquo(float16 x, float16 y, int16 *quo);
-#ifdef cl_khr_fp64
-double __ovld remquo(double x, double y, int *quo);
-double2 __ovld remquo(double2 x, double2 y, int2 *quo);
-double3 __ovld remquo(double3 x, double3 y, int3 *quo);
-double4 __ovld remquo(double4 x, double4 y, int4 *quo);
-double8 __ovld remquo(double8 x, double8 y, int8 *quo);
-double16 __ovld remquo(double16 x, double16 y, int16 *quo);
-#endif //cl_khr_fp64
-#ifdef cl_khr_fp16
-half __ovld remquo(half x, half y, int *quo);
-half2 __ovld remquo(half2 x, half2 y, int2 *quo);
-half3 __ovld remquo(half3 x, half3 y, int3 *quo);
-half4 __ovld remquo(half4 x, half4 y, int4 *quo);
-half8 __ovld remquo(half8 x, half8 y, int8 *quo);
-half16 __ovld remquo(half16 x, half16 y, int16 *quo);
-
-#endif //cl_khr_fp16
-#else
-float __ovld remquo(float x, float y, __global int *quo);
-float2 __ovld remquo(float2 x, float2 y, __global int2 *quo);
-float3 __ovld remquo(float3 x, float3 y, __global int3 *quo);
-float4 __ovld remquo(float4 x, float4 y, __global int4 *quo);
-float8 __ovld remquo(float8 x, float8 y, __global int8 *quo);
-float16 __ovld remquo(float16 x, float16 y, __global int16 *quo);
-float __ovld remquo(float x, float y, __local int *quo);
-float2 __ovld remquo(float2 x, float2 y, __local int2 *quo);
-float3 __ovld remquo(float3 x, float3 y, __local int3 *quo);
-float4 __ovld remquo(float4 x, float4 y, __local int4 *quo);
-float8 __ovld remquo(float8 x, float8 y, __local int8 *quo);
-float16 __ovld remquo(float16 x, float16 y, __local int16 *quo);
-float __ovld remquo(float x, float y, __private int *quo);
-float2 __ovld remquo(float2 x, float2 y, __private int2 *quo);
-float3 __ovld remquo(float3 x, float3 y, __private int3 *quo);
-float4 __ovld remquo(float4 x, float4 y, __private int4 *quo);
-float8 __ovld remquo(float8 x, float8 y, __private int8 *quo);
-float16 __ovld remquo(float16 x, float16 y, __private int16 *quo);
-#ifdef cl_khr_fp64
-double __ovld remquo(double x, double y, __global int *quo);
-double2 __ovld remquo(double2 x, double2 y, __global int2 *quo);
-double3 __ovld remquo(double3 x, double3 y, __global int3 *quo);
-double4 __ovld remquo(double4 x, double4 y, __global int4 *quo);
-double8 __ovld remquo(double8 x, double8 y, __global int8 *quo);
-double16 __ovld remquo(double16 x, double16 y, __global int16 *quo);
-double __ovld remquo(double x, double y, __local int *quo);
-double2 __ovld remquo(double2 x, double2 y, __local int2 *quo);
-double3 __ovld remquo(double3 x, double3 y, __local int3 *quo);
-double4 __ovld remquo(double4 x, double4 y, __local int4 *quo);
-double8 __ovld remquo(double8 x, double8 y, __local int8 *quo);
-double16 __ovld remquo(double16 x, double16 y, __local int16 *quo);
-double __ovld remquo(double x, double y, __private int *quo);
-double2 __ovld remquo(double2 x, double2 y, __private int2 *quo);
-double3 __ovld remquo(double3 x, double3 y, __private int3 *quo);
-double4 __ovld remquo(double4 x, double4 y, __private int4 *quo);
-double8 __ovld remquo(double8 x, double8 y, __private int8 *quo);
-double16 __ovld remquo(double16 x, double16 y, __private int16 *quo);
-#endif //cl_khr_fp64
-#ifdef cl_khr_fp16
-half __ovld remquo(half x, half y, __global int *quo);
-half2 __ovld remquo(half2 x, half2 y, __global int2 *quo);
-half3 __ovld remquo(half3 x, half3 y, __global int3 *quo);
-half4 __ovld remquo(half4 x, half4 y, __global int4 *quo);
-half8 __ovld remquo(half8 x, half8 y, __global int8 *quo);
-half16 __ovld remquo(half16 x, half16 y, __global int16 *quo);
-half __ovld remquo(half x, half y, __local int *quo);
-half2 __ovld remquo(half2 x, half2 y, __local int2 *quo);
-half3 __ovld remquo(half3 x, half3 y, __local int3 *quo);
-half4 __ovld remquo(half4 x, half4 y, __local int4 *quo);
-half8 __ovld remquo(half8 x, half8 y, __local int8 *quo);
-half16 __ovld remquo(half16 x, half16 y, __local int16 *quo);
-half __ovld remquo(half x, half y, __private int *quo);
-half2 __ovld remquo(half2 x, half2 y, __private int2 *quo);
-half3 __ovld remquo(half3 x, half3 y, __private int3 *quo);
-half4 __ovld remquo(half4 x, half4 y, __private int4 *quo);
-half8 __ovld remquo(half8 x, half8 y, __private int8 *quo);
-half16 __ovld remquo(half16 x, half16 y, __private int16 *quo);
-#endif //cl_khr_fp16
-#endif //__OPENCL_C_VERSION__ >= CL_VERSION_2_0
-/**
  * Round to integral value (using round to nearest
  * even rounding mode) in floating-point format.
  * Refer to section 7.1 for description of rounding
@@ -8677,95 +8102,6 @@ half4 __ovld __cnfn sin(half4);
 half8 __ovld __cnfn sin(half8);
 half16 __ovld __cnfn sin(half16);
 #endif //cl_khr_fp16
-
-/**
- * Compute sine and cosine of x. The computed sine
- * is the return value and computed cosine is returned
- * in cosval.
- */
-#if __OPENCL_C_VERSION__ >= CL_VERSION_2_0
-float __ovld sincos(float x, float *cosval);
-float2 __ovld sincos(float2 x, float2 *cosval);
-float3 __ovld sincos(float3 x, float3 *cosval);
-float4 __ovld sincos(float4 x, float4 *cosval);
-float8 __ovld sincos(float8 x, float8 *cosval);
-float16 __ovld sincos(float16 x, float16 *cosval);
-#ifdef cl_khr_fp64
-double __ovld sincos(double x, double *cosval);
-double2 __ovld sincos(double2 x, double2 *cosval);
-double3 __ovld sincos(double3 x, double3 *cosval);
-double4 __ovld sincos(double4 x, double4 *cosval);
-double8 __ovld sincos(double8 x, double8 *cosval);
-double16 __ovld sincos(double16 x, double16 *cosval);
-#endif //cl_khr_fp64
-#ifdef cl_khr_fp16
-half __ovld sincos(half x, half *cosval);
-half2 __ovld sincos(half2 x, half2 *cosval);
-half3 __ovld sincos(half3 x, half3 *cosval);
-half4 __ovld sincos(half4 x, half4 *cosval);
-half8 __ovld sincos(half8 x, half8 *cosval);
-half16 __ovld sincos(half16 x, half16 *cosval);
-#endif //cl_khr_fp16
-#else
-float __ovld sincos(float x, __global float *cosval);
-float2 __ovld sincos(float2 x, __global float2 *cosval);
-float3 __ovld sincos(float3 x, __global float3 *cosval);
-float4 __ovld sincos(float4 x, __global float4 *cosval);
-float8 __ovld sincos(float8 x, __global float8 *cosval);
-float16 __ovld sincos(float16 x, __global float16 *cosval);
-float __ovld sincos(float x, __local float *cosval);
-float2 __ovld sincos(float2 x, __local float2 *cosval);
-float3 __ovld sincos(float3 x, __local float3 *cosval);
-float4 __ovld sincos(float4 x, __local float4 *cosval);
-float8 __ovld sincos(float8 x, __local float8 *cosval);
-float16 __ovld sincos(float16 x, __local float16 *cosval);
-float __ovld sincos(float x, __private float *cosval);
-float2 __ovld sincos(float2 x, __private float2 *cosval);
-float3 __ovld sincos(float3 x, __private float3 *cosval);
-float4 __ovld sincos(float4 x, __private float4 *cosval);
-float8 __ovld sincos(float8 x, __private float8 *cosval);
-float16 __ovld sincos(float16 x, __private float16 *cosval);
-#ifdef cl_khr_fp64
-double __ovld sincos(double x, __global double *cosval);
-double2 __ovld sincos(double2 x, __global double2 *cosval);
-double3 __ovld sincos(double3 x, __global double3 *cosval);
-double4 __ovld sincos(double4 x, __global double4 *cosval);
-double8 __ovld sincos(double8 x, __global double8 *cosval);
-double16 __ovld sincos(double16 x, __global double16 *cosval);
-double __ovld sincos(double x, __local double *cosval);
-double2 __ovld sincos(double2 x, __local double2 *cosval);
-double3 __ovld sincos(double3 x, __local double3 *cosval);
-double4 __ovld sincos(double4 x, __local double4 *cosval);
-double8 __ovld sincos(double8 x, __local double8 *cosval);
-double16 __ovld sincos(double16 x, __local double16 *cosval);
-double __ovld sincos(double x, __private double *cosval);
-double2 __ovld sincos(double2 x, __private double2 *cosval);
-double3 __ovld sincos(double3 x, __private double3 *cosval);
-double4 __ovld sincos(double4 x, __private double4 *cosval);
-double8 __ovld sincos(double8 x, __private double8 *cosval);
-double16 __ovld sincos(double16 x, __private double16 *cosval);
-#endif //cl_khr_fp64
-#ifdef cl_khr_fp16
-half __ovld sincos(half x, __global half *cosval);
-half2 __ovld sincos(half2 x, __global half2 *cosval);
-half3 __ovld sincos(half3 x, __global half3 *cosval);
-half4 __ovld sincos(half4 x, __global half4 *cosval);
-half8 __ovld sincos(half8 x, __global half8 *cosval);
-half16 __ovld sincos(half16 x, __global half16 *cosval);
-half __ovld sincos(half x, __local half *cosval);
-half2 __ovld sincos(half2 x, __local half2 *cosval);
-half3 __ovld sincos(half3 x, __local half3 *cosval);
-half4 __ovld sincos(half4 x, __local half4 *cosval);
-half8 __ovld sincos(half8 x, __local half8 *cosval);
-half16 __ovld sincos(half16 x, __local half16 *cosval);
-half __ovld sincos(half x, __private half *cosval);
-half2 __ovld sincos(half2 x, __private half2 *cosval);
-half3 __ovld sincos(half3 x, __private half3 *cosval);
-half4 __ovld sincos(half4 x, __private half4 *cosval);
-half8 __ovld sincos(half8 x, __private half8 *cosval);
-half16 __ovld sincos(half16 x, __private half16 *cosval);
-#endif //cl_khr_fp16
-#endif //__OPENCL_C_VERSION__ >= CL_VERSION_2_0
 
 /**
  * Compute hyperbolic sine.
@@ -9692,62 +9028,6 @@ long8 __ovld __cnfn clz(long8 x);
 ulong8 __ovld __cnfn clz(ulong8 x);
 long16 __ovld __cnfn clz(long16 x);
 ulong16 __ovld __cnfn clz(ulong16 x);
-
-/**
- * Returns the count of trailing 0-bits in x. If x is 0,
- * returns the size in bits of the type of x or
- * component type of x, if x is a vector.
- */
-#if __OPENCL_C_VERSION__ >= CL_VERSION_2_0
-char __ovld ctz(char x);
-uchar __ovld ctz(uchar x);
-char2 __ovld ctz(char2 x);
-uchar2 __ovld ctz(uchar2 x);
-char3 __ovld ctz(char3 x);
-uchar3 __ovld ctz(uchar3 x);
-char4 __ovld ctz(char4 x);
-uchar4 __ovld ctz(uchar4 x);
-char8 __ovld ctz(char8 x);
-uchar8 __ovld ctz(uchar8 x);
-char16 __ovld ctz(char16 x);
-uchar16 __ovld ctz(uchar16 x);
-short __ovld ctz(short x);
-ushort __ovld ctz(ushort x);
-short2 __ovld ctz(short2 x);
-ushort2 __ovld ctz(ushort2 x);
-short3 __ovld ctz(short3 x);
-ushort3 __ovld ctz(ushort3 x);
-short4 __ovld ctz(short4 x);
-ushort4 __ovld ctz(ushort4 x);
-short8 __ovld ctz(short8 x);
-ushort8 __ovld ctz(ushort8 x);
-short16 __ovld ctz(short16 x);
-ushort16 __ovld ctz(ushort16 x);
-int __ovld ctz(int x);
-uint __ovld ctz(uint x);
-int2 __ovld ctz(int2 x);
-uint2 __ovld ctz(uint2 x);
-int3 __ovld ctz(int3 x);
-uint3 __ovld ctz(uint3 x);
-int4 __ovld ctz(int4 x);
-uint4 __ovld ctz(uint4 x);
-int8 __ovld ctz(int8 x);
-uint8 __ovld ctz(uint8 x);
-int16 __ovld ctz(int16 x);
-uint16 __ovld ctz(uint16 x);
-long __ovld ctz(long x);
-ulong __ovld ctz(ulong x);
-long2 __ovld ctz(long2 x);
-ulong2 __ovld ctz(ulong2 x);
-long3 __ovld ctz(long3 x);
-ulong3 __ovld ctz(ulong3 x);
-long4 __ovld ctz(long4 x);
-ulong4 __ovld ctz(ulong4 x);
-long8 __ovld ctz(long8 x);
-ulong8 __ovld ctz(ulong8 x);
-long16 __ovld ctz(long16 x);
-ulong16 __ovld ctz(ulong16 x);
-#endif //__OPENCL_C_VERSION__ >= CL_VERSION_2_0
 
 /**
  * Returns mul_hi(a, b) + c.
@@ -11382,8 +10662,6 @@ half16 __ovld __cnfn bitselect(half16 a, half16 b, half16 c);
  * For each component of a vector type,
  * result[i] = if MSB of c[i] is set ? b[i] : a[i].
  * For a scalar type, result = c ? b : a.
- * b and a must have the same type.
- * c must have the same number of elements and bits as a.
  */
 char __ovld __cnfn select(char a, char b, char c);
 uchar __ovld __cnfn select(uchar a, uchar b, char c);
@@ -11397,7 +10675,60 @@ char8 __ovld __cnfn select(char8 a, char8 b, char8 c);
 uchar8 __ovld __cnfn select(uchar8 a, uchar8 b, char8 c);
 char16 __ovld __cnfn select(char16 a, char16 b, char16 c);
 uchar16 __ovld __cnfn select(uchar16 a, uchar16 b, char16 c);
-
+short __ovld __cnfn select(short a, short b, char c);
+ushort __ovld __cnfn select(ushort a, ushort b, char c);
+short2 __ovld __cnfn select(short2 a, short2 b, char2 c);
+ushort2 __ovld __cnfn select(ushort2 a, ushort2 b, char2 c);
+short3 __ovld __cnfn select(short3 a, short3 b, char3 c);
+ushort3 __ovld __cnfn select(ushort3 a, ushort3 b, char3 c);
+short4 __ovld __cnfn select(short4 a, short4 b, char4 c);
+ushort4 __ovld __cnfn select(ushort4 a, ushort4 b, char4 c);
+short8 __ovld __cnfn select(short8 a, short8 b, char8 c);
+ushort8 __ovld __cnfn select(ushort8 a, ushort8 b, char8 c);
+short16 __ovld __cnfn select(short16 a, short16 b, char16 c);
+ushort16 __ovld __cnfn select(ushort16 a, ushort16 b, char16 c);
+int __ovld __cnfn select(int a, int b, char c);
+uint __ovld __cnfn select(uint a, uint b, char c);
+int2 __ovld __cnfn select(int2 a, int2 b, char2 c);
+uint2 __ovld __cnfn select(uint2 a, uint2 b, char2 c);
+int3 __ovld __cnfn select(int3 a, int3 b, char3 c);
+uint3 __ovld __cnfn select(uint3 a, uint3 b, char3 c);
+int4 __ovld __cnfn select(int4 a, int4 b, char4 c);
+uint4 __ovld __cnfn select(uint4 a, uint4 b, char4 c);
+int8 __ovld __cnfn select(int8 a, int8 b, char8 c);
+uint8 __ovld __cnfn select(uint8 a, uint8 b, char8 c);
+int16 __ovld __cnfn select(int16 a, int16 b, char16 c);
+uint16 __ovld __cnfn select(uint16 a, uint16 b, char16 c);
+long __ovld __cnfn select(long a, long b, char c);
+ulong __ovld __cnfn select(ulong a, ulong b, char c);
+long2 __ovld __cnfn select(long2 a, long2 b, char2 c);
+ulong2 __ovld __cnfn select(ulong2 a, ulong2 b, char2 c);
+long3 __ovld __cnfn select(long3 a, long3 b, char3 c);
+ulong3 __ovld __cnfn select(ulong3 a, ulong3 b, char3 c);
+long4 __ovld __cnfn select(long4 a, long4 b, char4 c);
+ulong4 __ovld __cnfn select(ulong4 a, ulong4 b, char4 c);
+long8 __ovld __cnfn select(long8 a, long8 b, char8 c);
+ulong8 __ovld __cnfn select(ulong8 a, ulong8 b, char8 c);
+long16 __ovld __cnfn select(long16 a, long16 b, char16 c);
+ulong16 __ovld __cnfn select(ulong16 a, ulong16 b, char16 c);
+float __ovld __cnfn select(float a, float b, char c);
+float2 __ovld __cnfn select(float2 a, float2 b, char2 c);
+float3 __ovld __cnfn select(float3 a, float3 b, char3 c);
+float4 __ovld __cnfn select(float4 a, float4 b, char4 c);
+float8 __ovld __cnfn select(float8 a, float8 b, char8 c);
+float16 __ovld __cnfn select(float16 a, float16 b, char16 c);
+char __ovld __cnfn select(char a, char b, short c);
+uchar __ovld __cnfn select(uchar a, uchar b, short c);
+char2 __ovld __cnfn select(char2 a, char2 b, short2 c);
+uchar2 __ovld __cnfn select(uchar2 a, uchar2 b, short2 c);
+char3 __ovld __cnfn select(char3 a, char3 b, short3 c);
+uchar3 __ovld __cnfn select(uchar3 a, uchar3 b, short3 c);
+char4 __ovld __cnfn select(char4 a, char4 b, short4 c);
+uchar4 __ovld __cnfn select(uchar4 a, uchar4 b, short4 c);
+char8 __ovld __cnfn select(char8 a, char8 b, short8 c);
+uchar8 __ovld __cnfn select(uchar8 a, uchar8 b, short8 c);
+char16 __ovld __cnfn select(char16 a, char16 b, short16 c);
+uchar16 __ovld __cnfn select(uchar16 a, uchar16 b, short16 c);
 short __ovld __cnfn select(short a, short b, short c);
 ushort __ovld __cnfn select(ushort a, ushort b, short c);
 short2 __ovld __cnfn select(short2 a, short2 b, short2 c);
@@ -11410,7 +10741,60 @@ short8 __ovld __cnfn select(short8 a, short8 b, short8 c);
 ushort8 __ovld __cnfn select(ushort8 a, ushort8 b, short8 c);
 short16 __ovld __cnfn select(short16 a, short16 b, short16 c);
 ushort16 __ovld __cnfn select(ushort16 a, ushort16 b, short16 c);
-
+int __ovld __cnfn select(int a, int b, short c);
+uint __ovld __cnfn select(uint a, uint b, short c);
+int2 __ovld __cnfn select(int2 a, int2 b, short2 c);
+uint2 __ovld __cnfn select(uint2 a, uint2 b, short2 c);
+int3 __ovld __cnfn select(int3 a, int3 b, short3 c);
+uint3 __ovld __cnfn select(uint3 a, uint3 b, short3 c);
+int4 __ovld __cnfn select(int4 a, int4 b, short4 c);
+uint4 __ovld __cnfn select(uint4 a, uint4 b, short4 c);
+int8 __ovld __cnfn select(int8 a, int8 b, short8 c);
+uint8 __ovld __cnfn select(uint8 a, uint8 b, short8 c);
+int16 __ovld __cnfn select(int16 a, int16 b, short16 c);
+uint16 __ovld __cnfn select(uint16 a, uint16 b, short16 c);
+long __ovld __cnfn select(long a, long b, short c);
+ulong __ovld __cnfn select(ulong a, ulong b, short c);
+long2 __ovld __cnfn select(long2 a, long2 b, short2 c);
+ulong2 __ovld __cnfn select(ulong2 a, ulong2 b, short2 c);
+long3 __ovld __cnfn select(long3 a, long3 b, short3 c);
+ulong3 __ovld __cnfn select(ulong3 a, ulong3 b, short3 c);
+long4 __ovld __cnfn select(long4 a, long4 b, short4 c);
+ulong4 __ovld __cnfn select(ulong4 a, ulong4 b, short4 c);
+long8 __ovld __cnfn select(long8 a, long8 b, short8 c);
+ulong8 __ovld __cnfn select(ulong8 a, ulong8 b, short8 c);
+long16 __ovld __cnfn select(long16 a, long16 b, short16 c);
+ulong16 __ovld __cnfn select(ulong16 a, ulong16 b, short16 c);
+float __ovld __cnfn select(float a, float b, short c);
+float2 __ovld __cnfn select(float2 a, float2 b, short2 c);
+float3 __ovld __cnfn select(float3 a, float3 b, short3 c);
+float4 __ovld __cnfn select(float4 a, float4 b, short4 c);
+float8 __ovld __cnfn select(float8 a, float8 b, short8 c);
+float16 __ovld __cnfn select(float16 a, float16 b, short16 c);
+char __ovld __cnfn select(char a, char b, int c);
+uchar __ovld __cnfn select(uchar a, uchar b, int c);
+char2 __ovld __cnfn select(char2 a, char2 b, int2 c);
+uchar2 __ovld __cnfn select(uchar2 a, uchar2 b, int2 c);
+char3 __ovld __cnfn select(char3 a, char3 b, int3 c);
+uchar3 __ovld __cnfn select(uchar3 a, uchar3 b, int3 c);
+char4 __ovld __cnfn select(char4 a, char4 b, int4 c);
+uchar4 __ovld __cnfn select(uchar4 a, uchar4 b, int4 c);
+char8 __ovld __cnfn select(char8 a, char8 b, int8 c);
+uchar8 __ovld __cnfn select(uchar8 a, uchar8 b, int8 c);
+char16 __ovld __cnfn select(char16 a, char16 b, int16 c);
+uchar16 __ovld __cnfn select(uchar16 a, uchar16 b, int16 c);
+short __ovld __cnfn select(short a, short b, int c);
+ushort __ovld __cnfn select(ushort a, ushort b, int c);
+short2 __ovld __cnfn select(short2 a, short2 b, int2 c);
+ushort2 __ovld __cnfn select(ushort2 a, ushort2 b, int2 c);
+short3 __ovld __cnfn select(short3 a, short3 b, int3 c);
+ushort3 __ovld __cnfn select(ushort3 a, ushort3 b, int3 c);
+short4 __ovld __cnfn select(short4 a, short4 b, int4 c);
+ushort4 __ovld __cnfn select(ushort4 a, ushort4 b, int4 c);
+short8 __ovld __cnfn select(short8 a, short8 b, int8 c);
+ushort8 __ovld __cnfn select(ushort8 a, ushort8 b, int8 c);
+short16 __ovld __cnfn select(short16 a, short16 b, int16 c);
+ushort16 __ovld __cnfn select(ushort16 a, ushort16 b, int16 c);
 int __ovld __cnfn select(int a, int b, int c);
 uint __ovld __cnfn select(uint a, uint b, int c);
 int2 __ovld __cnfn select(int2 a, int2 b, int2 c);
@@ -11423,13 +10807,60 @@ int8 __ovld __cnfn select(int8 a, int8 b, int8 c);
 uint8 __ovld __cnfn select(uint8 a, uint8 b, int8 c);
 int16 __ovld __cnfn select(int16 a, int16 b, int16 c);
 uint16 __ovld __cnfn select(uint16 a, uint16 b, int16 c);
+long __ovld __cnfn select(long a, long b, int c);
+ulong __ovld __cnfn select(ulong a, ulong b, int c);
+long2 __ovld __cnfn select(long2 a, long2 b, int2 c);
+ulong2 __ovld __cnfn select(ulong2 a, ulong2 b, int2 c);
+long3 __ovld __cnfn select(long3 a, long3 b, int3 c);
+ulong3 __ovld __cnfn select(ulong3 a, ulong3 b, int3 c);
+long4 __ovld __cnfn select(long4 a, long4 b, int4 c);
+ulong4 __ovld __cnfn select(ulong4 a, ulong4 b, int4 c);
+long8 __ovld __cnfn select(long8 a, long8 b, int8 c);
+ulong8 __ovld __cnfn select(ulong8 a, ulong8 b, int8 c);
+long16 __ovld __cnfn select(long16 a, long16 b, int16 c);
+ulong16 __ovld __cnfn select(ulong16 a, ulong16 b, int16 c);
 float __ovld __cnfn select(float a, float b, int c);
 float2 __ovld __cnfn select(float2 a, float2 b, int2 c);
 float3 __ovld __cnfn select(float3 a, float3 b, int3 c);
 float4 __ovld __cnfn select(float4 a, float4 b, int4 c);
 float8 __ovld __cnfn select(float8 a, float8 b, int8 c);
 float16 __ovld __cnfn select(float16 a, float16 b, int16 c);
-
+char __ovld __cnfn select(char a, char b, long c);
+uchar __ovld __cnfn select(uchar a, uchar b, long c);
+char2 __ovld __cnfn select(char2 a, char2 b, long2 c);
+uchar2 __ovld __cnfn select(uchar2 a, uchar2 b, long2 c);
+char3 __ovld __cnfn select(char3 a, char3 b, long3 c);
+uchar3 __ovld __cnfn select(uchar3 a, uchar3 b, long3 c);
+char4 __ovld __cnfn select(char4 a, char4 b, long4 c);
+uchar4 __ovld __cnfn select(uchar4 a, uchar4 b, long4 c);
+char8 __ovld __cnfn select(char8 a, char8 b, long8 c);
+uchar8 __ovld __cnfn select(uchar8 a, uchar8 b, long8 c);
+char16 __ovld __cnfn select(char16 a, char16 b, long16 c);
+uchar16 __ovld __cnfn select(uchar16 a, uchar16 b, long16 c);
+short __ovld __cnfn select(short a, short b, long c);
+ushort __ovld __cnfn select(ushort a, ushort b, long c);
+short2 __ovld __cnfn select(short2 a, short2 b, long2 c);
+ushort2 __ovld __cnfn select(ushort2 a, ushort2 b, long2 c);
+short3 __ovld __cnfn select(short3 a, short3 b, long3 c);
+ushort3 __ovld __cnfn select(ushort3 a, ushort3 b, long3 c);
+short4 __ovld __cnfn select(short4 a, short4 b, long4 c);
+ushort4 __ovld __cnfn select(ushort4 a, ushort4 b, long4 c);
+short8 __ovld __cnfn select(short8 a, short8 b, long8 c);
+ushort8 __ovld __cnfn select(ushort8 a, ushort8 b, long8 c);
+short16 __ovld __cnfn select(short16 a, short16 b, long16 c);
+ushort16 __ovld __cnfn select(ushort16 a, ushort16 b, long16 c);
+int __ovld __cnfn select(int a, int b, long c);
+uint __ovld __cnfn select(uint a, uint b, long c);
+int2 __ovld __cnfn select(int2 a, int2 b, long2 c);
+uint2 __ovld __cnfn select(uint2 a, uint2 b, long2 c);
+int3 __ovld __cnfn select(int3 a, int3 b, long3 c);
+uint3 __ovld __cnfn select(uint3 a, uint3 b, long3 c);
+int4 __ovld __cnfn select(int4 a, int4 b, long4 c);
+uint4 __ovld __cnfn select(uint4 a, uint4 b, long4 c);
+int8 __ovld __cnfn select(int8 a, int8 b, long8 c);
+uint8 __ovld __cnfn select(uint8 a, uint8 b, long8 c);
+int16 __ovld __cnfn select(int16 a, int16 b, long16 c);
+uint16 __ovld __cnfn select(uint16 a, uint16 b, long16 c);
 long __ovld __cnfn select(long a, long b, long c);
 ulong __ovld __cnfn select(ulong a, ulong b, long c);
 long2 __ovld __cnfn select(long2 a, long2 b, long2 c);
@@ -11442,7 +10873,12 @@ long8 __ovld __cnfn select(long8 a, long8 b, long8 c);
 ulong8 __ovld __cnfn select(ulong8 a, ulong8 b, long8 c);
 long16 __ovld __cnfn select(long16 a, long16 b, long16 c);
 ulong16 __ovld __cnfn select(ulong16 a, ulong16 b, long16 c);
-
+float __ovld __cnfn select(float a, float b, long c);
+float2 __ovld __cnfn select(float2 a, float2 b, long2 c);
+float3 __ovld __cnfn select(float3 a, float3 b, long3 c);
+float4 __ovld __cnfn select(float4 a, float4 b, long4 c);
+float8 __ovld __cnfn select(float8 a, float8 b, long8 c);
+float16 __ovld __cnfn select(float16 a, float16 b, long16 c);
 char __ovld __cnfn select(char a, char b, uchar c);
 uchar __ovld __cnfn select(uchar a, uchar b, uchar c);
 char2 __ovld __cnfn select(char2 a, char2 b, uchar2 c);
@@ -11455,7 +10891,60 @@ char8 __ovld __cnfn select(char8 a, char8 b, uchar8 c);
 uchar8 __ovld __cnfn select(uchar8 a, uchar8 b, uchar8 c);
 char16 __ovld __cnfn select(char16 a, char16 b, uchar16 c);
 uchar16 __ovld __cnfn select(uchar16 a, uchar16 b, uchar16 c);
-
+short __ovld __cnfn select(short a, short b, uchar c);
+ushort __ovld __cnfn select(ushort a, ushort b, uchar c);
+short2 __ovld __cnfn select(short2 a, short2 b, uchar2 c);
+ushort2 __ovld __cnfn select(ushort2 a, ushort2 b, uchar2 c);
+short3 __ovld __cnfn select(short3 a, short3 b, uchar3 c);
+ushort3 __ovld __cnfn select(ushort3 a, ushort3 b, uchar3 c);
+short4 __ovld __cnfn select(short4 a, short4 b, uchar4 c);
+ushort4 __ovld __cnfn select(ushort4 a, ushort4 b, uchar4 c);
+short8 __ovld __cnfn select(short8 a, short8 b, uchar8 c);
+ushort8 __ovld __cnfn select(ushort8 a, ushort8 b, uchar8 c);
+short16 __ovld __cnfn select(short16 a, short16 b, uchar16 c);
+ushort16 __ovld __cnfn select(ushort16 a, ushort16 b, uchar16 c);
+int __ovld __cnfn select(int a, int b, uchar c);
+uint __ovld __cnfn select(uint a, uint b, uchar c);
+int2 __ovld __cnfn select(int2 a, int2 b, uchar2 c);
+uint2 __ovld __cnfn select(uint2 a, uint2 b, uchar2 c);
+int3 __ovld __cnfn select(int3 a, int3 b, uchar3 c);
+uint3 __ovld __cnfn select(uint3 a, uint3 b, uchar3 c);
+int4 __ovld __cnfn select(int4 a, int4 b, uchar4 c);
+uint4 __ovld __cnfn select(uint4 a, uint4 b, uchar4 c);
+int8 __ovld __cnfn select(int8 a, int8 b, uchar8 c);
+uint8 __ovld __cnfn select(uint8 a, uint8 b, uchar8 c);
+int16 __ovld __cnfn select(int16 a, int16 b, uchar16 c);
+uint16 __ovld __cnfn select(uint16 a, uint16 b, uchar16 c);
+long __ovld __cnfn select(long a, long b, uchar c);
+ulong __ovld __cnfn select(ulong a, ulong b, uchar c);
+long2 __ovld __cnfn select(long2 a, long2 b, uchar2 c);
+ulong2 __ovld __cnfn select(ulong2 a, ulong2 b, uchar2 c);
+long3 __ovld __cnfn select(long3 a, long3 b, uchar3 c);
+ulong3 __ovld __cnfn select(ulong3 a, ulong3 b, uchar3 c);
+long4 __ovld __cnfn select(long4 a, long4 b, uchar4 c);
+ulong4 __ovld __cnfn select(ulong4 a, ulong4 b, uchar4 c);
+long8 __ovld __cnfn select(long8 a, long8 b, uchar8 c);
+ulong8 __ovld __cnfn select(ulong8 a, ulong8 b, uchar8 c);
+long16 __ovld __cnfn select(long16 a, long16 b, uchar16 c);
+ulong16 __ovld __cnfn select(ulong16 a, ulong16 b, uchar16 c);
+float __ovld __cnfn select(float a, float b, uchar c);
+float2 __ovld __cnfn select(float2 a, float2 b, uchar2 c);
+float3 __ovld __cnfn select(float3 a, float3 b, uchar3 c);
+float4 __ovld __cnfn select(float4 a, float4 b, uchar4 c);
+float8 __ovld __cnfn select(float8 a, float8 b, uchar8 c);
+float16 __ovld __cnfn select(float16 a, float16 b, uchar16 c);
+char __ovld __cnfn select(char a, char b, ushort c);
+uchar __ovld __cnfn select(uchar a, uchar b, ushort c);
+char2 __ovld __cnfn select(char2 a, char2 b, ushort2 c);
+uchar2 __ovld __cnfn select(uchar2 a, uchar2 b, ushort2 c);
+char3 __ovld __cnfn select(char3 a, char3 b, ushort3 c);
+uchar3 __ovld __cnfn select(uchar3 a, uchar3 b, ushort3 c);
+char4 __ovld __cnfn select(char4 a, char4 b, ushort4 c);
+uchar4 __ovld __cnfn select(uchar4 a, uchar4 b, ushort4 c);
+char8 __ovld __cnfn select(char8 a, char8 b, ushort8 c);
+uchar8 __ovld __cnfn select(uchar8 a, uchar8 b, ushort8 c);
+char16 __ovld __cnfn select(char16 a, char16 b, ushort16 c);
+uchar16 __ovld __cnfn select(uchar16 a, uchar16 b, ushort16 c);
 short __ovld __cnfn select(short a, short b, ushort c);
 ushort __ovld __cnfn select(ushort a, ushort b, ushort c);
 short2 __ovld __cnfn select(short2 a, short2 b, ushort2 c);
@@ -11468,7 +10957,60 @@ short8 __ovld __cnfn select(short8 a, short8 b, ushort8 c);
 ushort8 __ovld __cnfn select(ushort8 a, ushort8 b, ushort8 c);
 short16 __ovld __cnfn select(short16 a, short16 b, ushort16 c);
 ushort16 __ovld __cnfn select(ushort16 a, ushort16 b, ushort16 c);
-
+int __ovld __cnfn select(int a, int b, ushort c);
+uint __ovld __cnfn select(uint a, uint b, ushort c);
+int2 __ovld __cnfn select(int2 a, int2 b, ushort2 c);
+uint2 __ovld __cnfn select(uint2 a, uint2 b, ushort2 c);
+int3 __ovld __cnfn select(int3 a, int3 b, ushort3 c);
+uint3 __ovld __cnfn select(uint3 a, uint3 b, ushort3 c);
+int4 __ovld __cnfn select(int4 a, int4 b, ushort4 c);
+uint4 __ovld __cnfn select(uint4 a, uint4 b, ushort4 c);
+int8 __ovld __cnfn select(int8 a, int8 b, ushort8 c);
+uint8 __ovld __cnfn select(uint8 a, uint8 b, ushort8 c);
+int16 __ovld __cnfn select(int16 a, int16 b, ushort16 c);
+uint16 __ovld __cnfn select(uint16 a, uint16 b, ushort16 c);
+long __ovld __cnfn select(long a, long b, ushort c);
+ulong __ovld __cnfn select(ulong a, ulong b, ushort c);
+long2 __ovld __cnfn select(long2 a, long2 b, ushort2 c);
+ulong2 __ovld __cnfn select(ulong2 a, ulong2 b, ushort2 c);
+long3 __ovld __cnfn select(long3 a, long3 b, ushort3 c);
+ulong3 __ovld __cnfn select(ulong3 a, ulong3 b, ushort3 c);
+long4 __ovld __cnfn select(long4 a, long4 b, ushort4 c);
+ulong4 __ovld __cnfn select(ulong4 a, ulong4 b, ushort4 c);
+long8 __ovld __cnfn select(long8 a, long8 b, ushort8 c);
+ulong8 __ovld __cnfn select(ulong8 a, ulong8 b, ushort8 c);
+long16 __ovld __cnfn select(long16 a, long16 b, ushort16 c);
+ulong16 __ovld __cnfn select(ulong16 a, ulong16 b, ushort16 c);
+float __ovld __cnfn select(float a, float b, ushort c);
+float2 __ovld __cnfn select(float2 a, float2 b, ushort2 c);
+float3 __ovld __cnfn select(float3 a, float3 b, ushort3 c);
+float4 __ovld __cnfn select(float4 a, float4 b, ushort4 c);
+float8 __ovld __cnfn select(float8 a, float8 b, ushort8 c);
+float16 __ovld __cnfn select(float16 a, float16 b, ushort16 c);
+char __ovld __cnfn select(char a, char b, uint c);
+uchar __ovld __cnfn select(uchar a, uchar b, uint c);
+char2 __ovld __cnfn select(char2 a, char2 b, uint2 c);
+uchar2 __ovld __cnfn select(uchar2 a, uchar2 b, uint2 c);
+char3 __ovld __cnfn select(char3 a, char3 b, uint3 c);
+uchar3 __ovld __cnfn select(uchar3 a, uchar3 b, uint3 c);
+char4 __ovld __cnfn select(char4 a, char4 b, uint4 c);
+uchar4 __ovld __cnfn select(uchar4 a, uchar4 b, uint4 c);
+char8 __ovld __cnfn select(char8 a, char8 b, uint8 c);
+uchar8 __ovld __cnfn select(uchar8 a, uchar8 b, uint8 c);
+char16 __ovld __cnfn select(char16 a, char16 b, uint16 c);
+uchar16 __ovld __cnfn select(uchar16 a, uchar16 b, uint16 c);
+short __ovld __cnfn select(short a, short b, uint c);
+ushort __ovld __cnfn select(ushort a, ushort b, uint c);
+short2 __ovld __cnfn select(short2 a, short2 b, uint2 c);
+ushort2 __ovld __cnfn select(ushort2 a, ushort2 b, uint2 c);
+short3 __ovld __cnfn select(short3 a, short3 b, uint3 c);
+ushort3 __ovld __cnfn select(ushort3 a, ushort3 b, uint3 c);
+short4 __ovld __cnfn select(short4 a, short4 b, uint4 c);
+ushort4 __ovld __cnfn select(ushort4 a, ushort4 b, uint4 c);
+short8 __ovld __cnfn select(short8 a, short8 b, uint8 c);
+ushort8 __ovld __cnfn select(ushort8 a, ushort8 b, uint8 c);
+short16 __ovld __cnfn select(short16 a, short16 b, uint16 c);
+ushort16 __ovld __cnfn select(ushort16 a, ushort16 b, uint16 c);
 int __ovld __cnfn select(int a, int b, uint c);
 uint __ovld __cnfn select(uint a, uint b, uint c);
 int2 __ovld __cnfn select(int2 a, int2 b, uint2 c);
@@ -11481,13 +11023,60 @@ int8 __ovld __cnfn select(int8 a, int8 b, uint8 c);
 uint8 __ovld __cnfn select(uint8 a, uint8 b, uint8 c);
 int16 __ovld __cnfn select(int16 a, int16 b, uint16 c);
 uint16 __ovld __cnfn select(uint16 a, uint16 b, uint16 c);
+long __ovld __cnfn select(long a, long b, uint c);
+ulong __ovld __cnfn select(ulong a, ulong b, uint c);
+long2 __ovld __cnfn select(long2 a, long2 b, uint2 c);
+ulong2 __ovld __cnfn select(ulong2 a, ulong2 b, uint2 c);
+long3 __ovld __cnfn select(long3 a, long3 b, uint3 c);
+ulong3 __ovld __cnfn select(ulong3 a, ulong3 b, uint3 c);
+long4 __ovld __cnfn select(long4 a, long4 b, uint4 c);
+ulong4 __ovld __cnfn select(ulong4 a, ulong4 b, uint4 c);
+long8 __ovld __cnfn select(long8 a, long8 b, uint8 c);
+ulong8 __ovld __cnfn select(ulong8 a, ulong8 b, uint8 c);
+long16 __ovld __cnfn select(long16 a, long16 b, uint16 c);
+ulong16 __ovld __cnfn select(ulong16 a, ulong16 b, uint16 c);
 float __ovld __cnfn select(float a, float b, uint c);
 float2 __ovld __cnfn select(float2 a, float2 b, uint2 c);
 float3 __ovld __cnfn select(float3 a, float3 b, uint3 c);
 float4 __ovld __cnfn select(float4 a, float4 b, uint4 c);
 float8 __ovld __cnfn select(float8 a, float8 b, uint8 c);
 float16 __ovld __cnfn select(float16 a, float16 b, uint16 c);
-
+char __ovld __cnfn select(char a, char b, ulong c);
+uchar __ovld __cnfn select(uchar a, uchar b, ulong c);
+char2 __ovld __cnfn select(char2 a, char2 b, ulong2 c);
+uchar2 __ovld __cnfn select(uchar2 a, uchar2 b, ulong2 c);
+char3 __ovld __cnfn select(char3 a, char3 b, ulong3 c);
+uchar3 __ovld __cnfn select(uchar3 a, uchar3 b, ulong3 c);
+char4 __ovld __cnfn select(char4 a, char4 b, ulong4 c);
+uchar4 __ovld __cnfn select(uchar4 a, uchar4 b, ulong4 c);
+char8 __ovld __cnfn select(char8 a, char8 b, ulong8 c);
+uchar8 __ovld __cnfn select(uchar8 a, uchar8 b, ulong8 c);
+char16 __ovld __cnfn select(char16 a, char16 b, ulong16 c);
+uchar16 __ovld __cnfn select(uchar16 a, uchar16 b, ulong16 c);
+short __ovld __cnfn select(short a, short b, ulong c);
+ushort __ovld __cnfn select(ushort a, ushort b, ulong c);
+short2 __ovld __cnfn select(short2 a, short2 b, ulong2 c);
+ushort2 __ovld __cnfn select(ushort2 a, ushort2 b, ulong2 c);
+short3 __ovld __cnfn select(short3 a, short3 b, ulong3 c);
+ushort3 __ovld __cnfn select(ushort3 a, ushort3 b, ulong3 c);
+short4 __ovld __cnfn select(short4 a, short4 b, ulong4 c);
+ushort4 __ovld __cnfn select(ushort4 a, ushort4 b, ulong4 c);
+short8 __ovld __cnfn select(short8 a, short8 b, ulong8 c);
+ushort8 __ovld __cnfn select(ushort8 a, ushort8 b, ulong8 c);
+short16 __ovld __cnfn select(short16 a, short16 b, ulong16 c);
+ushort16 __ovld __cnfn select(ushort16 a, ushort16 b, ulong16 c);
+int __ovld __cnfn select(int a, int b, ulong c);
+uint __ovld __cnfn select(uint a, uint b, ulong c);
+int2 __ovld __cnfn select(int2 a, int2 b, ulong2 c);
+uint2 __ovld __cnfn select(uint2 a, uint2 b, ulong2 c);
+int3 __ovld __cnfn select(int3 a, int3 b, ulong3 c);
+uint3 __ovld __cnfn select(uint3 a, uint3 b, ulong3 c);
+int4 __ovld __cnfn select(int4 a, int4 b, ulong4 c);
+uint4 __ovld __cnfn select(uint4 a, uint4 b, ulong4 c);
+int8 __ovld __cnfn select(int8 a, int8 b, ulong8 c);
+uint8 __ovld __cnfn select(uint8 a, uint8 b, ulong8 c);
+int16 __ovld __cnfn select(int16 a, int16 b, ulong16 c);
+uint16 __ovld __cnfn select(uint16 a, uint16 b, ulong16 c);
 long __ovld __cnfn select(long a, long b, ulong c);
 ulong __ovld __cnfn select(ulong a, ulong b, ulong c);
 long2 __ovld __cnfn select(long2 a, long2 b, ulong2 c);
@@ -11500,7 +11089,12 @@ long8 __ovld __cnfn select(long8 a, long8 b, ulong8 c);
 ulong8 __ovld __cnfn select(ulong8 a, ulong8 b, ulong8 c);
 long16 __ovld __cnfn select(long16 a, long16 b, ulong16 c);
 ulong16 __ovld __cnfn select(ulong16 a, ulong16 b, ulong16 c);
-
+float __ovld __cnfn select(float a, float b, ulong c);
+float2 __ovld __cnfn select(float2 a, float2 b, ulong2 c);
+float3 __ovld __cnfn select(float3 a, float3 b, ulong3 c);
+float4 __ovld __cnfn select(float4 a, float4 b, ulong4 c);
+float8 __ovld __cnfn select(float8 a, float8 b, ulong8 c);
+float16 __ovld __cnfn select(float16 a, float16 b, ulong16 c);
 #ifdef cl_khr_fp64
 double __ovld __cnfn select(double a, double b, long c);
 double2 __ovld __cnfn select(double2 a, double2 b, long2 c);
@@ -11530,1248 +11124,7 @@ half8 __ovld __cnfn select(half8 a, half8 b, ushort8 c);
 half16 __ovld __cnfn select(half16 a, half16 b, ushort16 c);
 #endif //cl_khr_fp16
 
-// OpenCL v1.1 s6.11.7, v1.2 s6.12.7, v2.0 s6.13.7 - Vector Data Load and Store Functions
-// OpenCL extensions v1.1 s9.6.6, v1.2 s9.5.6, v2.0 s9.4.6 - Vector Data Load and Store Functions for Half Type
-/**
- * Use generic type gentype to indicate the built-in data types
- * char, uchar, short, ushort, int, uint, long, ulong, float,
- * double or half.
- *
- * vloadn return sizeof (gentypen) bytes of data read from address (p + (offset * n)).
- *
- * vstoren write sizeof (gentypen) bytes given by data to address (p + (offset * n)).
- *
- * The address computed as (p + (offset * n)) must be 
- * 8-bit aligned if gentype is char, uchar;
- * 16-bit aligned if gentype is short, ushort, half;
- * 32-bit aligned if gentype is int, uint, float;
- * 64-bit aligned if gentype is long, ulong, double.
- */
-
-char2 __ovld vload2(size_t offset, const __constant char *p);
-uchar2 __ovld vload2(size_t offset, const __constant uchar *p);
-short2 __ovld vload2(size_t offset, const __constant short *p);
-ushort2 __ovld vload2(size_t offset, const __constant ushort *p);
-int2 __ovld vload2(size_t offset, const __constant int *p);
-uint2 __ovld vload2(size_t offset, const __constant uint *p);
-long2 __ovld vload2(size_t offset, const __constant long *p);
-ulong2 __ovld vload2(size_t offset, const __constant ulong *p);
-float2 __ovld vload2(size_t offset, const __constant float *p);
-char3 __ovld vload3(size_t offset, const __constant char *p);
-uchar3 __ovld vload3(size_t offset, const __constant uchar *p);
-short3 __ovld vload3(size_t offset, const __constant short *p);
-ushort3 __ovld vload3(size_t offset, const __constant ushort *p);
-int3 __ovld vload3(size_t offset, const __constant int *p);
-uint3 __ovld vload3(size_t offset, const __constant uint *p);
-long3 __ovld vload3(size_t offset, const __constant long *p);
-ulong3 __ovld vload3(size_t offset, const __constant ulong *p);
-float3 __ovld vload3(size_t offset, const __constant float *p);
-char4 __ovld vload4(size_t offset, const __constant char *p);
-uchar4 __ovld vload4(size_t offset, const __constant uchar *p);
-short4 __ovld vload4(size_t offset, const __constant short *p);
-ushort4 __ovld vload4(size_t offset, const __constant ushort *p);
-int4 __ovld vload4(size_t offset, const __constant int *p);
-uint4 __ovld vload4(size_t offset, const __constant uint *p);
-long4 __ovld vload4(size_t offset, const __constant long *p);
-ulong4 __ovld vload4(size_t offset, const __constant ulong *p);
-float4 __ovld vload4(size_t offset, const __constant float *p);
-char8 __ovld vload8(size_t offset, const __constant char *p);
-uchar8 __ovld vload8(size_t offset, const __constant uchar *p);
-short8 __ovld vload8(size_t offset, const __constant short *p);
-ushort8 __ovld vload8(size_t offset, const __constant ushort *p);
-int8 __ovld vload8(size_t offset, const __constant int *p);
-uint8 __ovld vload8(size_t offset, const __constant uint *p);
-long8 __ovld vload8(size_t offset, const __constant long *p);
-ulong8 __ovld vload8(size_t offset, const __constant ulong *p);
-float8 __ovld vload8(size_t offset, const __constant float *p);
-char16 __ovld vload16(size_t offset, const __constant char *p);
-uchar16 __ovld vload16(size_t offset, const __constant uchar *p);
-short16 __ovld vload16(size_t offset, const __constant short *p);
-ushort16 __ovld vload16(size_t offset, const __constant ushort *p);
-int16 __ovld vload16(size_t offset, const __constant int *p);
-uint16 __ovld vload16(size_t offset, const __constant uint *p);
-long16 __ovld vload16(size_t offset, const __constant long *p);
-ulong16 __ovld vload16(size_t offset, const __constant ulong *p);
-float16 __ovld vload16(size_t offset, const __constant float *p);
-#ifdef cl_khr_fp64
-double2 __ovld vload2(size_t offset, const __constant double *p);
-double3 __ovld vload3(size_t offset, const __constant double *p);
-double4 __ovld vload4(size_t offset, const __constant double *p);
-double8 __ovld vload8(size_t offset, const __constant double *p);
-double16 __ovld vload16(size_t offset, const __constant double *p);
-#endif //cl_khr_fp64
-
-#ifdef cl_khr_fp16
-half __ovld vload(size_t offset, const __constant half *p);
-half2 __ovld vload2(size_t offset, const __constant half *p);
-half3 __ovld vload3(size_t offset, const __constant half *p);
-half4 __ovld vload4(size_t offset, const __constant half *p);
-half8 __ovld vload8(size_t offset, const __constant half *p);
-half16 __ovld vload16(size_t offset, const __constant half *p);
-#endif //cl_khr_fp16
-
-#if __OPENCL_C_VERSION__ >= CL_VERSION_2_0
-char2 __ovld vload2(size_t offset, const char *p);
-uchar2 __ovld vload2(size_t offset, const uchar *p);
-short2 __ovld vload2(size_t offset, const short *p);
-ushort2 __ovld vload2(size_t offset, const ushort *p);
-int2 __ovld vload2(size_t offset, const int *p);
-uint2 __ovld vload2(size_t offset, const uint *p);
-long2 __ovld vload2(size_t offset, const long *p);
-ulong2 __ovld vload2(size_t offset, const ulong *p);
-float2 __ovld vload2(size_t offset, const float *p);
-char3 __ovld vload3(size_t offset, const char *p);
-uchar3 __ovld vload3(size_t offset, const uchar *p);
-short3 __ovld vload3(size_t offset, const short *p);
-ushort3 __ovld vload3(size_t offset, const ushort *p);
-int3 __ovld vload3(size_t offset, const int *p);
-uint3 __ovld vload3(size_t offset, const uint *p);
-long3 __ovld vload3(size_t offset, const long *p);
-ulong3 __ovld vload3(size_t offset, const ulong *p);
-float3 __ovld vload3(size_t offset, const float *p);
-char4 __ovld vload4(size_t offset, const char *p);
-uchar4 __ovld vload4(size_t offset, const uchar *p);
-short4 __ovld vload4(size_t offset, const short *p);
-ushort4 __ovld vload4(size_t offset, const ushort *p);
-int4 __ovld vload4(size_t offset, const int *p);
-uint4 __ovld vload4(size_t offset, const uint *p);
-long4 __ovld vload4(size_t offset, const long *p);
-ulong4 __ovld vload4(size_t offset, const ulong *p);
-float4 __ovld vload4(size_t offset, const float *p);
-char8 __ovld vload8(size_t offset, const char *p);
-uchar8 __ovld vload8(size_t offset, const uchar *p);
-short8 __ovld vload8(size_t offset, const short *p);
-ushort8 __ovld vload8(size_t offset, const ushort *p);
-int8 __ovld vload8(size_t offset, const int *p);
-uint8 __ovld vload8(size_t offset, const uint *p);
-long8 __ovld vload8(size_t offset, const long *p);
-ulong8 __ovld vload8(size_t offset, const ulong *p);
-float8 __ovld vload8(size_t offset, const float *p);
-char16 __ovld vload16(size_t offset, const char *p);
-uchar16 __ovld vload16(size_t offset, const uchar *p);
-short16 __ovld vload16(size_t offset, const short *p);
-ushort16 __ovld vload16(size_t offset, const ushort *p);
-int16 __ovld vload16(size_t offset, const int *p);
-uint16 __ovld vload16(size_t offset, const uint *p);
-long16 __ovld vload16(size_t offset, const long *p);
-ulong16 __ovld vload16(size_t offset, const ulong *p);
-float16 __ovld vload16(size_t offset, const float *p);
-
-#ifdef cl_khr_fp64
-double2 __ovld vload2(size_t offset, const double *p);
-double3 __ovld vload3(size_t offset, const double *p);
-double4 __ovld vload4(size_t offset, const double *p);
-double8 __ovld vload8(size_t offset, const double *p);
-double16 __ovld vload16(size_t offset, const double *p);
-#endif //cl_khr_fp64
-
-#ifdef cl_khr_fp16
-half __ovld vload(size_t offset, const half *p);
-half2 __ovld vload2(size_t offset, const half *p);
-half3 __ovld vload3(size_t offset, const half *p);
-half4 __ovld vload4(size_t offset, const half *p);
-half8 __ovld vload8(size_t offset, const half *p);
-half16 __ovld vload16(size_t offset, const half *p);
-#endif //cl_khr_fp16
-#else
-char2 __ovld vload2(size_t offset, const __global char *p);
-uchar2 __ovld vload2(size_t offset, const __global uchar *p);
-short2 __ovld vload2(size_t offset, const __global short *p);
-ushort2 __ovld vload2(size_t offset, const __global ushort *p);
-int2 __ovld vload2(size_t offset, const __global int *p);
-uint2 __ovld vload2(size_t offset, const __global uint *p);
-long2 __ovld vload2(size_t offset, const __global long *p);
-ulong2 __ovld vload2(size_t offset, const __global ulong *p);
-float2 __ovld vload2(size_t offset, const __global float *p);
-char3 __ovld vload3(size_t offset, const __global char *p);
-uchar3 __ovld vload3(size_t offset, const __global uchar *p);
-short3 __ovld vload3(size_t offset, const __global short *p);
-ushort3 __ovld vload3(size_t offset, const __global ushort *p);
-int3 __ovld vload3(size_t offset, const __global int *p);
-uint3 __ovld vload3(size_t offset, const __global uint *p);
-long3 __ovld vload3(size_t offset, const __global long *p);
-ulong3 __ovld vload3(size_t offset, const __global ulong *p);
-float3 __ovld vload3(size_t offset, const __global float *p);
-char4 __ovld vload4(size_t offset, const __global char *p);
-uchar4 __ovld vload4(size_t offset, const __global uchar *p);
-short4 __ovld vload4(size_t offset, const __global short *p);
-ushort4 __ovld vload4(size_t offset, const __global ushort *p);
-int4 __ovld vload4(size_t offset, const __global int *p);
-uint4 __ovld vload4(size_t offset, const __global uint *p);
-long4 __ovld vload4(size_t offset, const __global long *p);
-ulong4 __ovld vload4(size_t offset, const __global ulong *p);
-float4 __ovld vload4(size_t offset, const __global float *p);
-char8 __ovld vload8(size_t offset, const __global char *p);
-uchar8 __ovld vload8(size_t offset, const __global uchar *p);
-short8 __ovld vload8(size_t offset, const __global short *p);
-ushort8 __ovld vload8(size_t offset, const __global ushort *p);
-int8 __ovld vload8(size_t offset, const __global int *p);
-uint8 __ovld vload8(size_t offset, const __global uint *p);
-long8 __ovld vload8(size_t offset, const __global long *p);
-ulong8 __ovld vload8(size_t offset, const __global ulong *p);
-float8 __ovld vload8(size_t offset, const __global float *p);
-char16 __ovld vload16(size_t offset, const __global char *p);
-uchar16 __ovld vload16(size_t offset, const __global uchar *p);
-short16 __ovld vload16(size_t offset, const __global short *p);
-ushort16 __ovld vload16(size_t offset, const __global ushort *p);
-int16 __ovld vload16(size_t offset, const __global int *p);
-uint16 __ovld vload16(size_t offset, const __global uint *p);
-long16 __ovld vload16(size_t offset, const __global long *p);
-ulong16 __ovld vload16(size_t offset, const __global ulong *p);
-float16 __ovld vload16(size_t offset, const __global float *p);
-char2 __ovld vload2(size_t offset, const __local char *p);
-uchar2 __ovld vload2(size_t offset, const __local uchar *p);
-short2 __ovld vload2(size_t offset, const __local short *p);
-ushort2 __ovld vload2(size_t offset, const __local ushort *p);
-int2 __ovld vload2(size_t offset, const __local int *p);
-uint2 __ovld vload2(size_t offset, const __local uint *p);
-long2 __ovld vload2(size_t offset, const __local long *p);
-ulong2 __ovld vload2(size_t offset, const __local ulong *p);
-float2 __ovld vload2(size_t offset, const __local float *p);
-char3 __ovld vload3(size_t offset, const __local char *p);
-uchar3 __ovld vload3(size_t offset, const __local uchar *p);
-short3 __ovld vload3(size_t offset, const __local short *p);
-ushort3 __ovld vload3(size_t offset, const __local ushort *p);
-int3 __ovld vload3(size_t offset, const __local int *p);
-uint3 __ovld vload3(size_t offset, const __local uint *p);
-long3 __ovld vload3(size_t offset, const __local long *p);
-ulong3 __ovld vload3(size_t offset, const __local ulong *p);
-float3 __ovld vload3(size_t offset, const __local float *p);
-char4 __ovld vload4(size_t offset, const __local char *p);
-uchar4 __ovld vload4(size_t offset, const __local uchar *p);
-short4 __ovld vload4(size_t offset, const __local short *p);
-ushort4 __ovld vload4(size_t offset, const __local ushort *p);
-int4 __ovld vload4(size_t offset, const __local int *p);
-uint4 __ovld vload4(size_t offset, const __local uint *p);
-long4 __ovld vload4(size_t offset, const __local long *p);
-ulong4 __ovld vload4(size_t offset, const __local ulong *p);
-float4 __ovld vload4(size_t offset, const __local float *p);
-char8 __ovld vload8(size_t offset, const __local char *p);
-uchar8 __ovld vload8(size_t offset, const __local uchar *p);
-short8 __ovld vload8(size_t offset, const __local short *p);
-ushort8 __ovld vload8(size_t offset, const __local ushort *p);
-int8 __ovld vload8(size_t offset, const __local int *p);
-uint8 __ovld vload8(size_t offset, const __local uint *p);
-long8 __ovld vload8(size_t offset, const __local long *p);
-ulong8 __ovld vload8(size_t offset, const __local ulong *p);
-float8 __ovld vload8(size_t offset, const __local float *p);
-char16 __ovld vload16(size_t offset, const __local char *p);
-uchar16 __ovld vload16(size_t offset, const __local uchar *p);
-short16 __ovld vload16(size_t offset, const __local short *p);
-ushort16 __ovld vload16(size_t offset, const __local ushort *p);
-int16 __ovld vload16(size_t offset, const __local int *p);
-uint16 __ovld vload16(size_t offset, const __local uint *p);
-long16 __ovld vload16(size_t offset, const __local long *p);
-ulong16 __ovld vload16(size_t offset, const __local ulong *p);
-float16 __ovld vload16(size_t offset, const __local float *p);
-char2 __ovld vload2(size_t offset, const __private char *p);
-uchar2 __ovld vload2(size_t offset, const __private uchar *p);
-short2 __ovld vload2(size_t offset, const __private short *p);
-ushort2 __ovld vload2(size_t offset, const __private ushort *p);
-int2 __ovld vload2(size_t offset, const __private int *p);
-uint2 __ovld vload2(size_t offset, const __private uint *p);
-long2 __ovld vload2(size_t offset, const __private long *p);
-ulong2 __ovld vload2(size_t offset, const __private ulong *p);
-float2 __ovld vload2(size_t offset, const __private float *p);
-char3 __ovld vload3(size_t offset, const __private char *p);
-uchar3 __ovld vload3(size_t offset, const __private uchar *p);
-short3 __ovld vload3(size_t offset, const __private short *p);
-ushort3 __ovld vload3(size_t offset, const __private ushort *p);
-int3 __ovld vload3(size_t offset, const __private int *p);
-uint3 __ovld vload3(size_t offset, const __private uint *p);
-long3 __ovld vload3(size_t offset, const __private long *p);
-ulong3 __ovld vload3(size_t offset, const __private ulong *p);
-float3 __ovld vload3(size_t offset, const __private float *p);
-char4 __ovld vload4(size_t offset, const __private char *p);
-uchar4 __ovld vload4(size_t offset, const __private uchar *p);
-short4 __ovld vload4(size_t offset, const __private short *p);
-ushort4 __ovld vload4(size_t offset, const __private ushort *p);
-int4 __ovld vload4(size_t offset, const __private int *p);
-uint4 __ovld vload4(size_t offset, const __private uint *p);
-long4 __ovld vload4(size_t offset, const __private long *p);
-ulong4 __ovld vload4(size_t offset, const __private ulong *p);
-float4 __ovld vload4(size_t offset, const __private float *p);
-char8 __ovld vload8(size_t offset, const __private char *p);
-uchar8 __ovld vload8(size_t offset, const __private uchar *p);
-short8 __ovld vload8(size_t offset, const __private short *p);
-ushort8 __ovld vload8(size_t offset, const __private ushort *p);
-int8 __ovld vload8(size_t offset, const __private int *p);
-uint8 __ovld vload8(size_t offset, const __private uint *p);
-long8 __ovld vload8(size_t offset, const __private long *p);
-ulong8 __ovld vload8(size_t offset, const __private ulong *p);
-float8 __ovld vload8(size_t offset, const __private float *p);
-char16 __ovld vload16(size_t offset, const __private char *p);
-uchar16 __ovld vload16(size_t offset, const __private uchar *p);
-short16 __ovld vload16(size_t offset, const __private short *p);
-ushort16 __ovld vload16(size_t offset, const __private ushort *p);
-int16 __ovld vload16(size_t offset, const __private int *p);
-uint16 __ovld vload16(size_t offset, const __private uint *p);
-long16 __ovld vload16(size_t offset, const __private long *p);
-ulong16 __ovld vload16(size_t offset, const __private ulong *p);
-float16 __ovld vload16(size_t offset, const __private float *p);
-
-#ifdef cl_khr_fp64
-double2 __ovld vload2(size_t offset, const __global double *p);
-double3 __ovld vload3(size_t offset, const __global double *p);
-double4 __ovld vload4(size_t offset, const __global double *p);
-double8 __ovld vload8(size_t offset, const __global double *p);
-double16 __ovld vload16(size_t offset, const __global double *p);
-double2 __ovld vload2(size_t offset, const __local double *p);
-double3 __ovld vload3(size_t offset, const __local double *p);
-double4 __ovld vload4(size_t offset, const __local double *p);
-double8 __ovld vload8(size_t offset, const __local double *p);
-double16 __ovld vload16(size_t offset, const __local double *p);
-double2 __ovld vload2(size_t offset, const __private double *p);
-double3 __ovld vload3(size_t offset, const __private double *p);
-double4 __ovld vload4(size_t offset, const __private double *p);
-double8 __ovld vload8(size_t offset, const __private double *p);
-double16 __ovld vload16(size_t offset, const __private double *p);
-#endif //cl_khr_fp64
-
-#ifdef cl_khr_fp16
-half __ovld vload(size_t offset, const __global half *p);
-half2 __ovld vload2(size_t offset, const __global half *p);
-half3 __ovld vload3(size_t offset, const __global half *p);
-half4 __ovld vload4(size_t offset, const __global half *p);
-half8 __ovld vload8(size_t offset, const __global half *p);
-half16 __ovld vload16(size_t offset, const __global half *p);
-half __ovld vload(size_t offset, const __local half *p);
-half2 __ovld vload2(size_t offset, const __local half *p);
-half3 __ovld vload3(size_t offset, const __local half *p);
-half4 __ovld vload4(size_t offset, const __local half *p);
-half8 __ovld vload8(size_t offset, const __local half *p);
-half16 __ovld vload16(size_t offset, const __local half *p);
-half __ovld vload(size_t offset, const __private half *p);
-half2 __ovld vload2(size_t offset, const __private half *p);
-half3 __ovld vload3(size_t offset, const __private half *p);
-half4 __ovld vload4(size_t offset, const __private half *p);
-half8 __ovld vload8(size_t offset, const __private half *p);
-half16 __ovld vload16(size_t offset, const __private half *p);
-#endif //cl_khr_fp16
-#endif //__OPENCL_C_VERSION__ >= CL_VERSION_2_0
-
-#if __OPENCL_C_VERSION__ >= CL_VERSION_2_0
-void __ovld vstore2(char2 data, size_t offset, char *p);
-void __ovld vstore2(uchar2 data, size_t offset, uchar *p);
-void __ovld vstore2(short2 data, size_t offset, short *p);
-void __ovld vstore2(ushort2 data, size_t offset, ushort *p);
-void __ovld vstore2(int2 data, size_t offset, int *p);
-void __ovld vstore2(uint2 data, size_t offset, uint *p);
-void __ovld vstore2(long2 data, size_t offset, long *p);
-void __ovld vstore2(ulong2 data, size_t offset, ulong *p);
-void __ovld vstore2(float2 data, size_t offset, float *p);
-void __ovld vstore3(char3 data, size_t offset, char *p);
-void __ovld vstore3(uchar3 data, size_t offset, uchar *p);
-void __ovld vstore3(short3 data, size_t offset, short *p);
-void __ovld vstore3(ushort3 data, size_t offset, ushort *p);
-void __ovld vstore3(int3 data, size_t offset, int *p);
-void __ovld vstore3(uint3 data, size_t offset, uint *p);
-void __ovld vstore3(long3 data, size_t offset, long *p);
-void __ovld vstore3(ulong3 data, size_t offset, ulong *p);
-void __ovld vstore3(float3 data, size_t offset, float *p);
-void __ovld vstore4(char4 data, size_t offset, char *p);
-void __ovld vstore4(uchar4 data, size_t offset, uchar *p);
-void __ovld vstore4(short4 data, size_t offset, short *p);
-void __ovld vstore4(ushort4 data, size_t offset, ushort *p);
-void __ovld vstore4(int4 data, size_t offset, int *p);
-void __ovld vstore4(uint4 data, size_t offset, uint *p);
-void __ovld vstore4(long4 data, size_t offset, long *p);
-void __ovld vstore4(ulong4 data, size_t offset, ulong *p);
-void __ovld vstore4(float4 data, size_t offset, float *p);
-void __ovld vstore8(char8 data, size_t offset, char *p);
-void __ovld vstore8(uchar8 data, size_t offset, uchar *p);
-void __ovld vstore8(short8 data, size_t offset, short *p);
-void __ovld vstore8(ushort8 data, size_t offset, ushort *p);
-void __ovld vstore8(int8 data, size_t offset, int *p);
-void __ovld vstore8(uint8 data, size_t offset, uint *p);
-void __ovld vstore8(long8 data, size_t offset, long *p);
-void __ovld vstore8(ulong8 data, size_t offset, ulong *p);
-void __ovld vstore8(float8 data, size_t offset, float *p);
-void __ovld vstore16(char16 data, size_t offset, char *p);
-void __ovld vstore16(uchar16 data, size_t offset, uchar *p);
-void __ovld vstore16(short16 data, size_t offset, short *p);
-void __ovld vstore16(ushort16 data, size_t offset, ushort *p);
-void __ovld vstore16(int16 data, size_t offset, int *p);
-void __ovld vstore16(uint16 data, size_t offset, uint *p);
-void __ovld vstore16(long16 data, size_t offset, long *p);
-void __ovld vstore16(ulong16 data, size_t offset, ulong *p);
-void __ovld vstore16(float16 data, size_t offset, float *p);
-#ifdef cl_khr_fp64
-void __ovld vstore2(double2 data, size_t offset, double *p);
-void __ovld vstore3(double3 data, size_t offset, double *p);
-void __ovld vstore4(double4 data, size_t offset, double *p);
-void __ovld vstore8(double8 data, size_t offset, double *p);
-void __ovld vstore16(double16 data, size_t offset, double *p);
-#endif //cl_khr_fp64
-#ifdef cl_khr_fp16
-void __ovld vstore(half data, size_t offset, half *p);
-void __ovld vstore2(half2 data, size_t offset, half *p);
-void __ovld vstore3(half3 data, size_t offset, half *p);
-void __ovld vstore4(half4 data, size_t offset, half *p);
-void __ovld vstore8(half8 data, size_t offset, half *p);
-void __ovld vstore16(half16 data, size_t offset, half *p);
-#endif //cl_khr_fp16
-#else
-void __ovld vstore2(char2 data, size_t offset, __global char *p);
-void __ovld vstore2(uchar2 data, size_t offset, __global uchar *p);
-void __ovld vstore2(short2 data, size_t offset, __global short *p);
-void __ovld vstore2(ushort2 data, size_t offset, __global ushort *p);
-void __ovld vstore2(int2 data, size_t offset, __global int *p);
-void __ovld vstore2(uint2 data, size_t offset, __global uint *p);
-void __ovld vstore2(long2 data, size_t offset, __global long *p);
-void __ovld vstore2(ulong2 data, size_t offset, __global ulong *p);
-void __ovld vstore2(float2 data, size_t offset, __global float *p);
-void __ovld vstore3(char3 data, size_t offset, __global char *p);
-void __ovld vstore3(uchar3 data, size_t offset, __global uchar *p);
-void __ovld vstore3(short3 data, size_t offset, __global short *p);
-void __ovld vstore3(ushort3 data, size_t offset, __global ushort *p);
-void __ovld vstore3(int3 data, size_t offset, __global int *p);
-void __ovld vstore3(uint3 data, size_t offset, __global uint *p);
-void __ovld vstore3(long3 data, size_t offset, __global long *p);
-void __ovld vstore3(ulong3 data, size_t offset, __global ulong *p);
-void __ovld vstore3(float3 data, size_t offset, __global float *p);
-void __ovld vstore4(char4 data, size_t offset, __global char *p);
-void __ovld vstore4(uchar4 data, size_t offset, __global uchar *p);
-void __ovld vstore4(short4 data, size_t offset, __global short *p);
-void __ovld vstore4(ushort4 data, size_t offset, __global ushort *p);
-void __ovld vstore4(int4 data, size_t offset, __global int *p);
-void __ovld vstore4(uint4 data, size_t offset, __global uint *p);
-void __ovld vstore4(long4 data, size_t offset, __global long *p);
-void __ovld vstore4(ulong4 data, size_t offset, __global ulong *p);
-void __ovld vstore4(float4 data, size_t offset, __global float *p);
-void __ovld vstore8(char8 data, size_t offset, __global char *p);
-void __ovld vstore8(uchar8 data, size_t offset, __global uchar *p);
-void __ovld vstore8(short8 data, size_t offset, __global short *p);
-void __ovld vstore8(ushort8 data, size_t offset, __global ushort *p);
-void __ovld vstore8(int8 data, size_t offset, __global int *p);
-void __ovld vstore8(uint8 data, size_t offset, __global uint *p);
-void __ovld vstore8(long8 data, size_t offset, __global long *p);
-void __ovld vstore8(ulong8 data, size_t offset, __global ulong *p);
-void __ovld vstore8(float8 data, size_t offset, __global float *p);
-void __ovld vstore16(char16 data, size_t offset, __global char *p);
-void __ovld vstore16(uchar16 data, size_t offset, __global uchar *p);
-void __ovld vstore16(short16 data, size_t offset, __global short *p);
-void __ovld vstore16(ushort16 data, size_t offset, __global ushort *p);
-void __ovld vstore16(int16 data, size_t offset, __global int *p);
-void __ovld vstore16(uint16 data, size_t offset, __global uint *p);
-void __ovld vstore16(long16 data, size_t offset, __global long *p);
-void __ovld vstore16(ulong16 data, size_t offset, __global ulong *p);
-void __ovld vstore16(float16 data, size_t offset, __global float *p);
-void __ovld vstore2(char2 data, size_t offset, __local char *p);
-void __ovld vstore2(uchar2 data, size_t offset, __local uchar *p);
-void __ovld vstore2(short2 data, size_t offset, __local short *p);
-void __ovld vstore2(ushort2 data, size_t offset, __local ushort *p);
-void __ovld vstore2(int2 data, size_t offset, __local int *p);
-void __ovld vstore2(uint2 data, size_t offset, __local uint *p);
-void __ovld vstore2(long2 data, size_t offset, __local long *p);
-void __ovld vstore2(ulong2 data, size_t offset, __local ulong *p);
-void __ovld vstore2(float2 data, size_t offset, __local float *p);
-void __ovld vstore3(char3 data, size_t offset, __local char *p);
-void __ovld vstore3(uchar3 data, size_t offset, __local uchar *p);
-void __ovld vstore3(short3 data, size_t offset, __local short *p);
-void __ovld vstore3(ushort3 data, size_t offset, __local ushort *p);
-void __ovld vstore3(int3 data, size_t offset, __local int *p);
-void __ovld vstore3(uint3 data, size_t offset, __local uint *p);
-void __ovld vstore3(long3 data, size_t offset, __local long *p);
-void __ovld vstore3(ulong3 data, size_t offset, __local ulong *p);
-void __ovld vstore3(float3 data, size_t offset, __local float *p);
-void __ovld vstore4(char4 data, size_t offset, __local char *p);
-void __ovld vstore4(uchar4 data, size_t offset, __local uchar *p);
-void __ovld vstore4(short4 data, size_t offset, __local short *p);
-void __ovld vstore4(ushort4 data, size_t offset, __local ushort *p);
-void __ovld vstore4(int4 data, size_t offset, __local int *p);
-void __ovld vstore4(uint4 data, size_t offset, __local uint *p);
-void __ovld vstore4(long4 data, size_t offset, __local long *p);
-void __ovld vstore4(ulong4 data, size_t offset, __local ulong *p);
-void __ovld vstore4(float4 data, size_t offset, __local float *p);
-void __ovld vstore8(char8 data, size_t offset, __local char *p);
-void __ovld vstore8(uchar8 data, size_t offset, __local uchar *p);
-void __ovld vstore8(short8 data, size_t offset, __local short *p);
-void __ovld vstore8(ushort8 data, size_t offset, __local ushort *p);
-void __ovld vstore8(int8 data, size_t offset, __local int *p);
-void __ovld vstore8(uint8 data, size_t offset, __local uint *p);
-void __ovld vstore8(long8 data, size_t offset, __local long *p);
-void __ovld vstore8(ulong8 data, size_t offset, __local ulong *p);
-void __ovld vstore8(float8 data, size_t offset, __local float *p);
-void __ovld vstore16(char16 data, size_t offset, __local char *p);
-void __ovld vstore16(uchar16 data, size_t offset, __local uchar *p);
-void __ovld vstore16(short16 data, size_t offset, __local short *p);
-void __ovld vstore16(ushort16 data, size_t offset, __local ushort *p);
-void __ovld vstore16(int16 data, size_t offset, __local int *p);
-void __ovld vstore16(uint16 data, size_t offset, __local uint *p);
-void __ovld vstore16(long16 data, size_t offset, __local long *p);
-void __ovld vstore16(ulong16 data, size_t offset, __local ulong *p);
-void __ovld vstore16(float16 data, size_t offset, __local float *p);
-void __ovld vstore2(char2 data, size_t offset, __private char *p);
-void __ovld vstore2(uchar2 data, size_t offset, __private uchar *p);
-void __ovld vstore2(short2 data, size_t offset, __private short *p);
-void __ovld vstore2(ushort2 data, size_t offset, __private ushort *p);
-void __ovld vstore2(int2 data, size_t offset, __private int *p);
-void __ovld vstore2(uint2 data, size_t offset, __private uint *p);
-void __ovld vstore2(long2 data, size_t offset, __private long *p);
-void __ovld vstore2(ulong2 data, size_t offset, __private ulong *p);
-void __ovld vstore2(float2 data, size_t offset, __private float *p);
-void __ovld vstore3(char3 data, size_t offset, __private char *p);
-void __ovld vstore3(uchar3 data, size_t offset, __private uchar *p);
-void __ovld vstore3(short3 data, size_t offset, __private short *p);
-void __ovld vstore3(ushort3 data, size_t offset, __private ushort *p);
-void __ovld vstore3(int3 data, size_t offset, __private int *p);
-void __ovld vstore3(uint3 data, size_t offset, __private uint *p);
-void __ovld vstore3(long3 data, size_t offset, __private long *p);
-void __ovld vstore3(ulong3 data, size_t offset, __private ulong *p);
-void __ovld vstore3(float3 data, size_t offset, __private float *p);
-void __ovld vstore4(char4 data, size_t offset, __private char *p);
-void __ovld vstore4(uchar4 data, size_t offset, __private uchar *p);
-void __ovld vstore4(short4 data, size_t offset, __private short *p);
-void __ovld vstore4(ushort4 data, size_t offset, __private ushort *p);
-void __ovld vstore4(int4 data, size_t offset, __private int *p);
-void __ovld vstore4(uint4 data, size_t offset, __private uint *p);
-void __ovld vstore4(long4 data, size_t offset, __private long *p);
-void __ovld vstore4(ulong4 data, size_t offset, __private ulong *p);
-void __ovld vstore4(float4 data, size_t offset, __private float *p);
-void __ovld vstore8(char8 data, size_t offset, __private char *p);
-void __ovld vstore8(uchar8 data, size_t offset, __private uchar *p);
-void __ovld vstore8(short8 data, size_t offset, __private short *p);
-void __ovld vstore8(ushort8 data, size_t offset, __private ushort *p);
-void __ovld vstore8(int8 data, size_t offset, __private int *p);
-void __ovld vstore8(uint8 data, size_t offset, __private uint *p);
-void __ovld vstore8(long8 data, size_t offset, __private long *p);
-void __ovld vstore8(ulong8 data, size_t offset, __private ulong *p);
-void __ovld vstore8(float8 data, size_t offset, __private float *p);
-void __ovld vstore16(char16 data, size_t offset, __private char *p);
-void __ovld vstore16(uchar16 data, size_t offset, __private uchar *p);
-void __ovld vstore16(short16 data, size_t offset, __private short *p);
-void __ovld vstore16(ushort16 data, size_t offset, __private ushort *p);
-void __ovld vstore16(int16 data, size_t offset, __private int *p);
-void __ovld vstore16(uint16 data, size_t offset, __private uint *p);
-void __ovld vstore16(long16 data, size_t offset, __private long *p);
-void __ovld vstore16(ulong16 data, size_t offset, __private ulong *p);
-void __ovld vstore16(float16 data, size_t offset, __private float *p);
-#ifdef cl_khr_fp64
-void __ovld vstore2(double2 data, size_t offset, __global double *p);
-void __ovld vstore3(double3 data, size_t offset, __global double *p);
-void __ovld vstore4(double4 data, size_t offset, __global double *p);
-void __ovld vstore8(double8 data, size_t offset, __global double *p);
-void __ovld vstore16(double16 data, size_t offset, __global double *p);
-void __ovld vstore2(double2 data, size_t offset, __local double *p);
-void __ovld vstore3(double3 data, size_t offset, __local double *p);
-void __ovld vstore4(double4 data, size_t offset, __local double *p);
-void __ovld vstore8(double8 data, size_t offset, __local double *p);
-void __ovld vstore16(double16 data, size_t offset, __local double *p);
-void __ovld vstore2(double2 data, size_t offset, __private double *p);
-void __ovld vstore3(double3 data, size_t offset, __private double *p);
-void __ovld vstore4(double4 data, size_t offset, __private double *p);
-void __ovld vstore8(double8 data, size_t offset, __private double *p);
-void __ovld vstore16(double16 data, size_t offset, __private double *p);
-#endif //cl_khr_fp64
-#ifdef cl_khr_fp16
-void __ovld vstore(half data, size_t offset, __global half *p);
-void __ovld vstore2(half2 data, size_t offset, __global half *p);
-void __ovld vstore3(half3 data, size_t offset, __global half *p);
-void __ovld vstore4(half4 data, size_t offset, __global half *p);
-void __ovld vstore8(half8 data, size_t offset, __global half *p);
-void __ovld vstore16(half16 data, size_t offset, __global half *p);
-void __ovld vstore(half data, size_t offset, __local half *p);
-void __ovld vstore2(half2 data, size_t offset, __local half *p);
-void __ovld vstore3(half3 data, size_t offset, __local half *p);
-void __ovld vstore4(half4 data, size_t offset, __local half *p);
-void __ovld vstore8(half8 data, size_t offset, __local half *p);
-void __ovld vstore16(half16 data, size_t offset, __local half *p);
-void __ovld vstore(half data, size_t offset, __private half *p);
-void __ovld vstore2(half2 data, size_t offset, __private half *p);
-void __ovld vstore3(half3 data, size_t offset, __private half *p);
-void __ovld vstore4(half4 data, size_t offset, __private half *p);
-void __ovld vstore8(half8 data, size_t offset, __private half *p);
-void __ovld vstore16(half16 data, size_t offset, __private half *p);
-#endif //cl_khr_fp16
-#endif //__OPENCL_C_VERSION__ >= CL_VERSION_2_0
-
-/**
- * Read sizeof (half) bytes of data from address
- * (p + offset). The data read is interpreted as a
- * half value. The half value is converted to a
- * float value and the float value is returned.
- * The read address computed as (p + offset)
- * must be 16-bit aligned.
- */
-float __ovld vload_half(size_t offset, const __constant half *p);
-#if __OPENCL_C_VERSION__ >= CL_VERSION_2_0
-float __ovld vload_half(size_t offset, const half *p);
-#else
-float __ovld vload_half(size_t offset, const __global half *p);
-float __ovld vload_half(size_t offset, const __local half *p);
-float __ovld vload_half(size_t offset, const __private half *p);
-#endif //__OPENCL_C_VERSION__ >= CL_VERSION_2_0
-
-/**
- * Read sizeof (halfn) bytes of data from address
- * (p + (offset * n)). The data read is interpreted
- * as a halfn value. The halfn value read is
- * converted to a floatn value and the floatn
- * value is returned. The read address computed
- * as (p + (offset * n)) must be 16-bit aligned.
- */
-float2 __ovld vload_half2(size_t offset, const __constant half *p);
-float3 __ovld vload_half3(size_t offset, const __constant half *p);
-float4 __ovld vload_half4(size_t offset, const __constant half *p);
-float8 __ovld vload_half8(size_t offset, const __constant half *p);
-float16 __ovld vload_half16(size_t offset, const __constant half *p);
-#if __OPENCL_C_VERSION__ >= CL_VERSION_2_0
-float2 __ovld vload_half2(size_t offset, const half *p);
-float3 __ovld vload_half3(size_t offset, const half *p);
-float4 __ovld vload_half4(size_t offset, const half *p);
-float8 __ovld vload_half8(size_t offset, const half *p);
-float16 __ovld vload_half16(size_t offset, const half *p);
-#else
-float2 __ovld vload_half2(size_t offset, const __global half *p);
-float3 __ovld vload_half3(size_t offset, const __global half *p);
-float4 __ovld vload_half4(size_t offset, const __global half *p);
-float8 __ovld vload_half8(size_t offset, const __global half *p);
-float16 __ovld vload_half16(size_t offset, const __global half *p);
-float2 __ovld vload_half2(size_t offset, const __local half *p);
-float3 __ovld vload_half3(size_t offset, const __local half *p);
-float4 __ovld vload_half4(size_t offset, const __local half *p);
-float8 __ovld vload_half8(size_t offset, const __local half *p);
-float16 __ovld vload_half16(size_t offset, const __local half *p);
-float2 __ovld vload_half2(size_t offset, const __private half *p);
-float3 __ovld vload_half3(size_t offset, const __private half *p);
-float4 __ovld vload_half4(size_t offset, const __private half *p);
-float8 __ovld vload_half8(size_t offset, const __private half *p);
-float16 __ovld vload_half16(size_t offset, const __private half *p);
-#endif //__OPENCL_C_VERSION__ >= CL_VERSION_2_0
-
-/**
- * The float value given by data is first
- * converted to a half value using the appropriate
- * rounding mode. The half value is then written
- * to address computed as (p + offset). The
- * address computed as (p + offset) must be 16-
- * bit aligned.
- * vstore_half use the current rounding mode.
- * The default current rounding mode is round to
- * nearest even.
- */
-#if __OPENCL_C_VERSION__ >= CL_VERSION_2_0
-void __ovld vstore_half(float data, size_t offset, half *p);
-void __ovld vstore_half_rte(float data, size_t offset, half *p);
-void __ovld vstore_half_rtz(float data, size_t offset, half *p);
-void __ovld vstore_half_rtp(float data, size_t offset, half *p);
-void __ovld vstore_half_rtn(float data, size_t offset, half *p);
-#ifdef cl_khr_fp64
-void __ovld vstore_half(double data, size_t offset, half *p);
-void __ovld vstore_half_rte(double data, size_t offset, half *p);
-void __ovld vstore_half_rtz(double data, size_t offset, half *p);
-void __ovld vstore_half_rtp(double data, size_t offset, half *p);
-void __ovld vstore_half_rtn(double data, size_t offset, half *p);
-#endif //cl_khr_fp64
-#else
-void __ovld vstore_half(float data, size_t offset, __global half *p);
-void __ovld vstore_half_rte(float data, size_t offset, __global half *p);
-void __ovld vstore_half_rtz(float data, size_t offset, __global half *p);
-void __ovld vstore_half_rtp(float data, size_t offset, __global half *p);
-void __ovld vstore_half_rtn(float data, size_t offset, __global half *p);
-void __ovld vstore_half(float data, size_t offset, __local half *p);
-void __ovld vstore_half_rte(float data, size_t offset, __local half *p);
-void __ovld vstore_half_rtz(float data, size_t offset, __local half *p);
-void __ovld vstore_half_rtp(float data, size_t offset, __local half *p);
-void __ovld vstore_half_rtn(float data, size_t offset, __local half *p);
-void __ovld vstore_half(float data, size_t offset, __private half *p);
-void __ovld vstore_half_rte(float data, size_t offset, __private half *p);
-void __ovld vstore_half_rtz(float data, size_t offset, __private half *p);
-void __ovld vstore_half_rtp(float data, size_t offset, __private half *p);
-void __ovld vstore_half_rtn(float data, size_t offset, __private half *p);
-#ifdef cl_khr_fp64
-void __ovld vstore_half(double data, size_t offset, __global half *p);
-void __ovld vstore_half_rte(double data, size_t offset, __global half *p);
-void __ovld vstore_half_rtz(double data, size_t offset, __global half *p);
-void __ovld vstore_half_rtp(double data, size_t offset, __global half *p);
-void __ovld vstore_half_rtn(double data, size_t offset, __global half *p);
-void __ovld vstore_half(double data, size_t offset, __local half *p);
-void __ovld vstore_half_rte(double data, size_t offset, __local half *p);
-void __ovld vstore_half_rtz(double data, size_t offset, __local half *p);
-void __ovld vstore_half_rtp(double data, size_t offset, __local half *p);
-void __ovld vstore_half_rtn(double data, size_t offset, __local half *p);
-void __ovld vstore_half(double data, size_t offset, __private half *p);
-void __ovld vstore_half_rte(double data, size_t offset, __private half *p);
-void __ovld vstore_half_rtz(double data, size_t offset, __private half *p);
-void __ovld vstore_half_rtp(double data, size_t offset, __private half *p);
-void __ovld vstore_half_rtn(double data, size_t offset, __private half *p);
-#endif //cl_khr_fp64
-#endif //__OPENCL_C_VERSION__ >= CL_VERSION_2_0
-
-/**
- * The floatn value given by data is converted to
- * a halfn value using the appropriate rounding
- * mode. The halfn value is then written to
- * address computed as (p + (offset * n)). The
- * address computed as (p + (offset * n)) must be
- * 16-bit aligned.
- * vstore_halfn uses the current rounding mode.
- * The default current rounding mode is round to
- * nearest even.
- */
-#if __OPENCL_C_VERSION__ >= CL_VERSION_2_0
-void __ovld vstore_half2(float2 data, size_t offset, half *p);
-void __ovld vstore_half3(float3 data, size_t offset, half *p);
-void __ovld vstore_half4(float4 data, size_t offset, half *p);
-void __ovld vstore_half8(float8 data, size_t offset, half *p);
-void __ovld vstore_half16(float16 data, size_t offset, half *p);
-void __ovld vstore_half2_rte(float2 data, size_t offset, half *p);
-void __ovld vstore_half3_rte(float3 data, size_t offset, half *p);
-void __ovld vstore_half4_rte(float4 data, size_t offset, half *p);
-void __ovld vstore_half8_rte(float8 data, size_t offset, half *p);
-void __ovld vstore_half16_rte(float16 data, size_t offset, half *p);
-void __ovld vstore_half2_rtz(float2 data, size_t offset, half *p);
-void __ovld vstore_half3_rtz(float3 data, size_t offset, half *p);
-void __ovld vstore_half4_rtz(float4 data, size_t offset, half *p);
-void __ovld vstore_half8_rtz(float8 data, size_t offset, half *p);
-void __ovld vstore_half16_rtz(float16 data, size_t offset, half *p);
-void __ovld vstore_half2_rtp(float2 data, size_t offset, half *p);
-void __ovld vstore_half3_rtp(float3 data, size_t offset, half *p);
-void __ovld vstore_half4_rtp(float4 data, size_t offset, half *p);
-void __ovld vstore_half8_rtp(float8 data, size_t offset, half *p);
-void __ovld vstore_half16_rtp(float16 data, size_t offset, half *p);
-void __ovld vstore_half2_rtn(float2 data, size_t offset, half *p);
-void __ovld vstore_half3_rtn(float3 data, size_t offset, half *p);
-void __ovld vstore_half4_rtn(float4 data, size_t offset, half *p);
-void __ovld vstore_half8_rtn(float8 data, size_t offset, half *p);
-void __ovld vstore_half16_rtn(float16 data, size_t offset, half *p);
-#ifdef cl_khr_fp64
-void __ovld vstore_half2(double2 data, size_t offset, half *p);
-void __ovld vstore_half3(double3 data, size_t offset, half *p);
-void __ovld vstore_half4(double4 data, size_t offset, half *p);
-void __ovld vstore_half8(double8 data, size_t offset, half *p);
-void __ovld vstore_half16(double16 data, size_t offset, half *p);
-void __ovld vstore_half2_rte(double2 data, size_t offset, half *p);
-void __ovld vstore_half3_rte(double3 data, size_t offset, half *p);
-void __ovld vstore_half4_rte(double4 data, size_t offset, half *p);
-void __ovld vstore_half8_rte(double8 data, size_t offset, half *p);
-void __ovld vstore_half16_rte(double16 data, size_t offset, half *p);
-void __ovld vstore_half2_rtz(double2 data, size_t offset, half *p);
-void __ovld vstore_half3_rtz(double3 data, size_t offset, half *p);
-void __ovld vstore_half4_rtz(double4 data, size_t offset, half *p);
-void __ovld vstore_half8_rtz(double8 data, size_t offset, half *p);
-void __ovld vstore_half16_rtz(double16 data, size_t offset, half *p);
-void __ovld vstore_half2_rtp(double2 data, size_t offset, half *p);
-void __ovld vstore_half3_rtp(double3 data, size_t offset, half *p);
-void __ovld vstore_half4_rtp(double4 data, size_t offset, half *p);
-void __ovld vstore_half8_rtp(double8 data, size_t offset, half *p);
-void __ovld vstore_half16_rtp(double16 data, size_t offset, half *p);
-void __ovld vstore_half2_rtn(double2 data, size_t offset, half *p);
-void __ovld vstore_half3_rtn(double3 data, size_t offset, half *p);
-void __ovld vstore_half4_rtn(double4 data, size_t offset, half *p);
-void __ovld vstore_half8_rtn(double8 data, size_t offset, half *p);
-void __ovld vstore_half16_rtn(double16 data, size_t offset, half *p);
-#endif //cl_khr_fp64
-#else
-void __ovld vstore_half2(float2 data, size_t offset, __global half *p);
-void __ovld vstore_half3(float3 data, size_t offset, __global half *p);
-void __ovld vstore_half4(float4 data, size_t offset, __global half *p);
-void __ovld vstore_half8(float8 data, size_t offset, __global half *p);
-void __ovld vstore_half16(float16 data, size_t offset, __global half *p);
-void __ovld vstore_half2_rte(float2 data, size_t offset, __global half *p);
-void __ovld vstore_half3_rte(float3 data, size_t offset, __global half *p);
-void __ovld vstore_half4_rte(float4 data, size_t offset, __global half *p);
-void __ovld vstore_half8_rte(float8 data, size_t offset, __global half *p);
-void __ovld vstore_half16_rte(float16 data, size_t offset, __global half *p);
-void __ovld vstore_half2_rtz(float2 data, size_t offset, __global half *p);
-void __ovld vstore_half3_rtz(float3 data, size_t offset, __global half *p);
-void __ovld vstore_half4_rtz(float4 data, size_t offset, __global half *p);
-void __ovld vstore_half8_rtz(float8 data, size_t offset, __global half *p);
-void __ovld vstore_half16_rtz(float16 data, size_t offset, __global half *p);
-void __ovld vstore_half2_rtp(float2 data, size_t offset, __global half *p);
-void __ovld vstore_half3_rtp(float3 data, size_t offset, __global half *p);
-void __ovld vstore_half4_rtp(float4 data, size_t offset, __global half *p);
-void __ovld vstore_half8_rtp(float8 data, size_t offset, __global half *p);
-void __ovld vstore_half16_rtp(float16 data, size_t offset, __global half *p);
-void __ovld vstore_half2_rtn(float2 data, size_t offset, __global half *p);
-void __ovld vstore_half3_rtn(float3 data, size_t offset, __global half *p);
-void __ovld vstore_half4_rtn(float4 data, size_t offset, __global half *p);
-void __ovld vstore_half8_rtn(float8 data, size_t offset, __global half *p);
-void __ovld vstore_half16_rtn(float16 data, size_t offset, __global half *p);
-void __ovld vstore_half2(float2 data, size_t offset, __local half *p);
-void __ovld vstore_half3(float3 data, size_t offset, __local half *p);
-void __ovld vstore_half4(float4 data, size_t offset, __local half *p);
-void __ovld vstore_half8(float8 data, size_t offset, __local half *p);
-void __ovld vstore_half16(float16 data, size_t offset, __local half *p);
-void __ovld vstore_half2_rte(float2 data, size_t offset, __local half *p);
-void __ovld vstore_half3_rte(float3 data, size_t offset, __local half *p);
-void __ovld vstore_half4_rte(float4 data, size_t offset, __local half *p);
-void __ovld vstore_half8_rte(float8 data, size_t offset, __local half *p);
-void __ovld vstore_half16_rte(float16 data, size_t offset, __local half *p);
-void __ovld vstore_half2_rtz(float2 data, size_t offset, __local half *p);
-void __ovld vstore_half3_rtz(float3 data, size_t offset, __local half *p);
-void __ovld vstore_half4_rtz(float4 data, size_t offset, __local half *p);
-void __ovld vstore_half8_rtz(float8 data, size_t offset, __local half *p);
-void __ovld vstore_half16_rtz(float16 data, size_t offset, __local half *p);
-void __ovld vstore_half2_rtp(float2 data, size_t offset, __local half *p);
-void __ovld vstore_half3_rtp(float3 data, size_t offset, __local half *p);
-void __ovld vstore_half4_rtp(float4 data, size_t offset, __local half *p);
-void __ovld vstore_half8_rtp(float8 data, size_t offset, __local half *p);
-void __ovld vstore_half16_rtp(float16 data, size_t offset, __local half *p);
-void __ovld vstore_half2_rtn(float2 data, size_t offset, __local half *p);
-void __ovld vstore_half3_rtn(float3 data, size_t offset, __local half *p);
-void __ovld vstore_half4_rtn(float4 data, size_t offset, __local half *p);
-void __ovld vstore_half8_rtn(float8 data, size_t offset, __local half *p);
-void __ovld vstore_half16_rtn(float16 data, size_t offset, __local half *p);
-void __ovld vstore_half2(float2 data, size_t offset, __private half *p);
-void __ovld vstore_half3(float3 data, size_t offset, __private half *p);
-void __ovld vstore_half4(float4 data, size_t offset, __private half *p);
-void __ovld vstore_half8(float8 data, size_t offset, __private half *p);
-void __ovld vstore_half16(float16 data, size_t offset, __private half *p);
-void __ovld vstore_half2_rte(float2 data, size_t offset, __private half *p);
-void __ovld vstore_half3_rte(float3 data, size_t offset, __private half *p);
-void __ovld vstore_half4_rte(float4 data, size_t offset, __private half *p);
-void __ovld vstore_half8_rte(float8 data, size_t offset, __private half *p);
-void __ovld vstore_half16_rte(float16 data, size_t offset, __private half *p);
-void __ovld vstore_half2_rtz(float2 data, size_t offset, __private half *p);
-void __ovld vstore_half3_rtz(float3 data, size_t offset, __private half *p);
-void __ovld vstore_half4_rtz(float4 data, size_t offset, __private half *p);
-void __ovld vstore_half8_rtz(float8 data, size_t offset, __private half *p);
-void __ovld vstore_half16_rtz(float16 data, size_t offset, __private half *p);
-void __ovld vstore_half2_rtp(float2 data, size_t offset, __private half *p);
-void __ovld vstore_half3_rtp(float3 data, size_t offset, __private half *p);
-void __ovld vstore_half4_rtp(float4 data, size_t offset, __private half *p);
-void __ovld vstore_half8_rtp(float8 data, size_t offset, __private half *p);
-void __ovld vstore_half16_rtp(float16 data, size_t offset, __private half *p);
-void __ovld vstore_half2_rtn(float2 data, size_t offset, __private half *p);
-void __ovld vstore_half3_rtn(float3 data, size_t offset, __private half *p);
-void __ovld vstore_half4_rtn(float4 data, size_t offset, __private half *p);
-void __ovld vstore_half8_rtn(float8 data, size_t offset, __private half *p);
-void __ovld vstore_half16_rtn(float16 data, size_t offset, __private half *p);
-#ifdef cl_khr_fp64
-void __ovld vstore_half2(double2 data, size_t offset, __global half *p);
-void __ovld vstore_half3(double3 data, size_t offset, __global half *p);
-void __ovld vstore_half4(double4 data, size_t offset, __global half *p);
-void __ovld vstore_half8(double8 data, size_t offset, __global half *p);
-void __ovld vstore_half16(double16 data, size_t offset, __global half *p);
-void __ovld vstore_half2_rte(double2 data, size_t offset, __global half *p);
-void __ovld vstore_half3_rte(double3 data, size_t offset, __global half *p);
-void __ovld vstore_half4_rte(double4 data, size_t offset, __global half *p);
-void __ovld vstore_half8_rte(double8 data, size_t offset, __global half *p);
-void __ovld vstore_half16_rte(double16 data, size_t offset, __global half *p);
-void __ovld vstore_half2_rtz(double2 data, size_t offset, __global half *p);
-void __ovld vstore_half3_rtz(double3 data, size_t offset, __global half *p);
-void __ovld vstore_half4_rtz(double4 data, size_t offset, __global half *p);
-void __ovld vstore_half8_rtz(double8 data, size_t offset, __global half *p);
-void __ovld vstore_half16_rtz(double16 data, size_t offset, __global half *p);
-void __ovld vstore_half2_rtp(double2 data, size_t offset, __global half *p);
-void __ovld vstore_half3_rtp(double3 data, size_t offset, __global half *p);
-void __ovld vstore_half4_rtp(double4 data, size_t offset, __global half *p);
-void __ovld vstore_half8_rtp(double8 data, size_t offset, __global half *p);
-void __ovld vstore_half16_rtp(double16 data, size_t offset, __global half *p);
-void __ovld vstore_half2_rtn(double2 data, size_t offset, __global half *p);
-void __ovld vstore_half3_rtn(double3 data, size_t offset, __global half *p);
-void __ovld vstore_half4_rtn(double4 data, size_t offset, __global half *p);
-void __ovld vstore_half8_rtn(double8 data, size_t offset, __global half *p);
-void __ovld vstore_half16_rtn(double16 data, size_t offset, __global half *p);
-void __ovld vstore_half2(double2 data, size_t offset, __local half *p);
-void __ovld vstore_half3(double3 data, size_t offset, __local half *p);
-void __ovld vstore_half4(double4 data, size_t offset, __local half *p);
-void __ovld vstore_half8(double8 data, size_t offset, __local half *p);
-void __ovld vstore_half16(double16 data, size_t offset, __local half *p);
-void __ovld vstore_half2_rte(double2 data, size_t offset, __local half *p);
-void __ovld vstore_half3_rte(double3 data, size_t offset, __local half *p);
-void __ovld vstore_half4_rte(double4 data, size_t offset, __local half *p);
-void __ovld vstore_half8_rte(double8 data, size_t offset, __local half *p);
-void __ovld vstore_half16_rte(double16 data, size_t offset, __local half *p);
-void __ovld vstore_half2_rtz(double2 data, size_t offset, __local half *p);
-void __ovld vstore_half3_rtz(double3 data, size_t offset, __local half *p);
-void __ovld vstore_half4_rtz(double4 data, size_t offset, __local half *p);
-void __ovld vstore_half8_rtz(double8 data, size_t offset, __local half *p);
-void __ovld vstore_half16_rtz(double16 data, size_t offset, __local half *p);
-void __ovld vstore_half2_rtp(double2 data, size_t offset, __local half *p);
-void __ovld vstore_half3_rtp(double3 data, size_t offset, __local half *p);
-void __ovld vstore_half4_rtp(double4 data, size_t offset, __local half *p);
-void __ovld vstore_half8_rtp(double8 data, size_t offset, __local half *p);
-void __ovld vstore_half16_rtp(double16 data, size_t offset, __local half *p);
-void __ovld vstore_half2_rtn(double2 data, size_t offset, __local half *p);
-void __ovld vstore_half3_rtn(double3 data, size_t offset, __local half *p);
-void __ovld vstore_half4_rtn(double4 data, size_t offset, __local half *p);
-void __ovld vstore_half8_rtn(double8 data, size_t offset, __local half *p);
-void __ovld vstore_half16_rtn(double16 data, size_t offset, __local half *p);
-void __ovld vstore_half2(double2 data, size_t offset, __private half *p);
-void __ovld vstore_half3(double3 data, size_t offset, __private half *p);
-void __ovld vstore_half4(double4 data, size_t offset, __private half *p);
-void __ovld vstore_half8(double8 data, size_t offset, __private half *p);
-void __ovld vstore_half16(double16 data, size_t offset, __private half *p);
-void __ovld vstore_half2_rte(double2 data, size_t offset, __private half *p);
-void __ovld vstore_half3_rte(double3 data, size_t offset, __private half *p);
-void __ovld vstore_half4_rte(double4 data, size_t offset, __private half *p);
-void __ovld vstore_half8_rte(double8 data, size_t offset, __private half *p);
-void __ovld vstore_half16_rte(double16 data, size_t offset, __private half *p);
-void __ovld vstore_half2_rtz(double2 data, size_t offset, __private half *p);
-void __ovld vstore_half3_rtz(double3 data, size_t offset, __private half *p);
-void __ovld vstore_half4_rtz(double4 data, size_t offset, __private half *p);
-void __ovld vstore_half8_rtz(double8 data, size_t offset, __private half *p);
-void __ovld vstore_half16_rtz(double16 data, size_t offset, __private half *p);
-void __ovld vstore_half2_rtp(double2 data, size_t offset, __private half *p);
-void __ovld vstore_half3_rtp(double3 data, size_t offset, __private half *p);
-void __ovld vstore_half4_rtp(double4 data, size_t offset, __private half *p);
-void __ovld vstore_half8_rtp(double8 data, size_t offset, __private half *p);
-void __ovld vstore_half16_rtp(double16 data, size_t offset, __private half *p);
-void __ovld vstore_half2_rtn(double2 data, size_t offset, __private half *p);
-void __ovld vstore_half3_rtn(double3 data, size_t offset, __private half *p);
-void __ovld vstore_half4_rtn(double4 data, size_t offset, __private half *p);
-void __ovld vstore_half8_rtn(double8 data, size_t offset, __private half *p);
-void __ovld vstore_half16_rtn(double16 data, size_t offset, __private half *p);
-#endif //cl_khr_fp64
-#endif //__OPENCL_C_VERSION__ >= CL_VERSION_2_0
-
-/**
- * For n = 1, 2, 4, 8 and 16 read sizeof (halfn)
- * bytes of data from address (p + (offset * n)).
- * The data read is interpreted as a halfn value.
- * The halfn value read is converted to a floatn
- * value and the floatn value is returned.
- * The address computed as (p + (offset * n))
- * must be aligned to sizeof (halfn) bytes.
- * For n = 3, vloada_half3 reads a half3 from
- * address (p + (offset * 4)) and returns a float3.
- * The address computed as (p + (offset * 4))
- * must be aligned to sizeof (half) * 4 bytes.
- */
-float __ovld vloada_half(size_t offset, const __constant half *p);
-float2 __ovld vloada_half2(size_t offset, const __constant half *p);
-float3 __ovld vloada_half3(size_t offset, const __constant half *p);
-float4 __ovld vloada_half4(size_t offset, const __constant half *p);
-float8 __ovld vloada_half8(size_t offset, const __constant half *p);
-float16 __ovld vloada_half16(size_t offset, const __constant half *p);
-#if __OPENCL_C_VERSION__ >= CL_VERSION_2_0
-float __ovld vloada_half(size_t offset, const half *p);
-float2 __ovld vloada_half2(size_t offset, const half *p);
-float3 __ovld vloada_half3(size_t offset, const half *p);
-float4 __ovld vloada_half4(size_t offset, const half *p);
-float8 __ovld vloada_half8(size_t offset, const half *p);
-float16 __ovld vloada_half16(size_t offset, const half *p);
-#else
-float __ovld vloada_half(size_t offset, const __global half *p);
-float2 __ovld vloada_half2(size_t offset, const __global half *p);
-float3 __ovld vloada_half3(size_t offset, const __global half *p);
-float4 __ovld vloada_half4(size_t offset, const __global half *p);
-float8 __ovld vloada_half8(size_t offset, const __global half *p);
-float16 __ovld vloada_half16(size_t offset, const __global half *p);
-float __ovld vloada_half(size_t offset, const __local half *p);
-float2 __ovld vloada_half2(size_t offset, const __local half *p);
-float3 __ovld vloada_half3(size_t offset, const __local half *p);
-float4 __ovld vloada_half4(size_t offset, const __local half *p);
-float8 __ovld vloada_half8(size_t offset, const __local half *p);
-float16 __ovld vloada_half16(size_t offset, const __local half *p);
-float __ovld vloada_half(size_t offset, const __private half *p);
-float2 __ovld vloada_half2(size_t offset, const __private half *p);
-float3 __ovld vloada_half3(size_t offset, const __private half *p);
-float4 __ovld vloada_half4(size_t offset, const __private half *p);
-float8 __ovld vloada_half8(size_t offset, const __private half *p);
-float16 __ovld vloada_half16(size_t offset, const __private half *p);
-#endif //__OPENCL_C_VERSION__ >= CL_VERSION_2_0
-
-/**
- * The floatn value given by data is converted to
- * a halfn value using the appropriate rounding
- * mode.
- * For n = 1, 2, 4, 8 and 16, the halfn value is
- * written to the address computed as (p + (offset
- * * n)). The address computed as (p + (offset *
- * n)) must be aligned to sizeof (halfn) bytes.
- * For n = 3, the half3 value is written to the
- * address computed as (p + (offset * 4)). The
- * address computed as (p + (offset * 4)) must be
- * aligned to sizeof (half) * 4 bytes.
- * vstorea_halfn uses the current rounding
- * mode. The default current rounding mode is
- * round to nearest even.
- */
-#if __OPENCL_C_VERSION__ >= CL_VERSION_2_0
-void __ovld vstorea_half(float data, size_t offset, half *p);
-void __ovld vstorea_half2(float2 data, size_t offset, half *p);
-void __ovld vstorea_half3(float3 data, size_t offset, half *p);
-void __ovld vstorea_half4(float4 data, size_t offset, half *p);
-void __ovld vstorea_half8(float8 data, size_t offset, half *p);
-void __ovld vstorea_half16(float16 data, size_t offset, half *p);
-
-void __ovld vstorea_half_rte(float data, size_t offset, half *p);
-void __ovld vstorea_half2_rte(float2 data, size_t offset, half *p);
-void __ovld vstorea_half3_rte(float3 data, size_t offset, half *p);
-void __ovld vstorea_half4_rte(float4 data, size_t offset, half *p);
-void __ovld vstorea_half8_rte(float8 data, size_t offset, half *p);
-void __ovld vstorea_half16_rte(float16 data, size_t offset, half *p);
-
-void __ovld vstorea_half_rtz(float data, size_t offset, half *p);
-void __ovld vstorea_half2_rtz(float2 data, size_t offset, half *p);
-void __ovld vstorea_half3_rtz(float3 data, size_t offset, half *p);
-void __ovld vstorea_half4_rtz(float4 data, size_t offset, half *p);
-void __ovld vstorea_half8_rtz(float8 data, size_t offset, half *p);
-void __ovld vstorea_half16_rtz(float16 data, size_t offset, half *p);
-
-void __ovld vstorea_half_rtp(float data, size_t offset, half *p);
-void __ovld vstorea_half2_rtp(float2 data, size_t offset, half *p);
-void __ovld vstorea_half3_rtp(float3 data, size_t offset, half *p);
-void __ovld vstorea_half4_rtp(float4 data, size_t offset, half *p);
-void __ovld vstorea_half8_rtp(float8 data, size_t offset, half *p);
-void __ovld vstorea_half16_rtp(float16 data, size_t offset, half *p);
-
-void __ovld vstorea_half_rtn(float data, size_t offset, half *p);
-void __ovld vstorea_half2_rtn(float2 data, size_t offset, half *p);
-void __ovld vstorea_half3_rtn(float3 data, size_t offset, half *p);
-void __ovld vstorea_half4_rtn(float4 data, size_t offset, half *p);
-void __ovld vstorea_half8_rtn(float8 data, size_t offset, half *p);
-void __ovld vstorea_half16_rtn(float16 data, size_t offset, half *p);
-
-#ifdef cl_khr_fp64
-void __ovld vstorea_half(double data, size_t offset, half *p);
-void __ovld vstorea_half2(double2 data, size_t offset, half *p);
-void __ovld vstorea_half3(double3 data, size_t offset, half *p);
-void __ovld vstorea_half4(double4 data, size_t offset, half *p);
-void __ovld vstorea_half8(double8 data, size_t offset, half *p);
-void __ovld vstorea_half16(double16 data, size_t offset, half *p);
-
-void __ovld vstorea_half_rte(double data, size_t offset, half *p);
-void __ovld vstorea_half2_rte(double2 data, size_t offset, half *p);
-void __ovld vstorea_half3_rte(double3 data, size_t offset, half *p);
-void __ovld vstorea_half4_rte(double4 data, size_t offset, half *p);
-void __ovld vstorea_half8_rte(double8 data, size_t offset, half *p);
-void __ovld vstorea_half16_rte(double16 data, size_t offset, half *p);
-
-void __ovld vstorea_half_rtz(double data, size_t offset, half *p);
-void __ovld vstorea_half2_rtz(double2 data, size_t offset, half *p);
-void __ovld vstorea_half3_rtz(double3 data, size_t offset, half *p);
-void __ovld vstorea_half4_rtz(double4 data, size_t offset, half *p);
-void __ovld vstorea_half8_rtz(double8 data, size_t offset, half *p);
-void __ovld vstorea_half16_rtz(double16 data, size_t offset, half *p);
-
-void __ovld vstorea_half_rtp(double data, size_t offset, half *p);
-void __ovld vstorea_half2_rtp(double2 data, size_t offset, half *p);
-void __ovld vstorea_half3_rtp(double3 data, size_t offset, half *p);
-void __ovld vstorea_half4_rtp(double4 data, size_t offset, half *p);
-void __ovld vstorea_half8_rtp(double8 data, size_t offset, half *p);
-void __ovld vstorea_half16_rtp(double16 data, size_t offset, half *p);
-
-void __ovld vstorea_half_rtn(double data, size_t offset, half *p);
-void __ovld vstorea_half2_rtn(double2 data, size_t offset, half *p);
-void __ovld vstorea_half3_rtn(double3 data, size_t offset, half *p);
-void __ovld vstorea_half4_rtn(double4 data, size_t offset, half *p);
-void __ovld vstorea_half8_rtn(double8 data, size_t offset, half *p);
-void __ovld vstorea_half16_rtn(double16 data, size_t offset, half *p);
-#endif //cl_khr_fp64
-
-#else
-void __ovld vstorea_half(float data, size_t offset, __global half *p);
-void __ovld vstorea_half2(float2 data, size_t offset, __global half *p);
-void __ovld vstorea_half3(float3 data, size_t offset, __global half *p);
-void __ovld vstorea_half4(float4 data, size_t offset, __global half *p);
-void __ovld vstorea_half8(float8 data, size_t offset, __global half *p);
-void __ovld vstorea_half16(float16 data, size_t offset, __global half *p);
-
-void __ovld vstorea_half_rte(float data, size_t offset, __global half *p);
-void __ovld vstorea_half2_rte(float2 data, size_t offset, __global half *p);
-void __ovld vstorea_half3_rte(float3 data, size_t offset, __global half *p);
-void __ovld vstorea_half4_rte(float4 data, size_t offset, __global half *p);
-void __ovld vstorea_half8_rte(float8 data, size_t offset, __global half *p);
-void __ovld vstorea_half16_rte(float16 data, size_t offset, __global half *p);
-
-void __ovld vstorea_half_rtz(float data, size_t offset, __global half *p);
-void __ovld vstorea_half2_rtz(float2 data, size_t offset, __global half *p);
-void __ovld vstorea_half3_rtz(float3 data, size_t offset, __global half *p);
-void __ovld vstorea_half4_rtz(float4 data, size_t offset, __global half *p);
-void __ovld vstorea_half8_rtz(float8 data, size_t offset, __global half *p);
-void __ovld vstorea_half16_rtz(float16 data, size_t offset, __global half *p);
-
-void __ovld vstorea_half_rtp(float data, size_t offset, __global half *p);
-void __ovld vstorea_half2_rtp(float2 data, size_t offset, __global half *p);
-void __ovld vstorea_half3_rtp(float3 data, size_t offset, __global half *p);
-void __ovld vstorea_half4_rtp(float4 data, size_t offset, __global half *p);
-void __ovld vstorea_half8_rtp(float8 data, size_t offset, __global half *p);
-void __ovld vstorea_half16_rtp(float16 data, size_t offset, __global half *p);
-
-void __ovld vstorea_half_rtn(float data, size_t offset, __global half *p);
-void __ovld vstorea_half2_rtn(float2 data, size_t offset, __global half *p);
-void __ovld vstorea_half3_rtn(float3 data, size_t offset, __global half *p);
-void __ovld vstorea_half4_rtn(float4 data, size_t offset, __global half *p);
-void __ovld vstorea_half8_rtn(float8 data, size_t offset, __global half *p);
-void __ovld vstorea_half16_rtn(float16 data, size_t offset, __global half *p);
-
-void __ovld vstorea_half(float data, size_t offset, __local half *p);
-void __ovld vstorea_half2(float2 data, size_t offset, __local half *p);
-void __ovld vstorea_half3(float3 data, size_t offset, __local half *p);
-void __ovld vstorea_half4(float4 data, size_t offset, __local half *p);
-void __ovld vstorea_half8(float8 data, size_t offset, __local half *p);
-void __ovld vstorea_half16(float16 data, size_t offset, __local half *p);
-
-void __ovld vstorea_half_rte(float data, size_t offset, __local half *p);
-void __ovld vstorea_half2_rte(float2 data, size_t offset, __local half *p);
-void __ovld vstorea_half3_rte(float3 data, size_t offset, __local half *p);
-void __ovld vstorea_half4_rte(float4 data, size_t offset, __local half *p);
-void __ovld vstorea_half8_rte(float8 data, size_t offset, __local half *p);
-void __ovld vstorea_half16_rte(float16 data, size_t offset, __local half *p);
-
-void __ovld vstorea_half_rtz(float data, size_t offset, __local half *p);
-void __ovld vstorea_half2_rtz(float2 data, size_t offset, __local half *p);
-void __ovld vstorea_half3_rtz(float3 data, size_t offset, __local half *p);
-void __ovld vstorea_half4_rtz(float4 data, size_t offset, __local half *p);
-void __ovld vstorea_half8_rtz(float8 data, size_t offset, __local half *p);
-void __ovld vstorea_half16_rtz(float16 data, size_t offset, __local half *p);
-
-void __ovld vstorea_half_rtp(float data, size_t offset, __local half *p);
-void __ovld vstorea_half2_rtp(float2 data, size_t offset, __local half *p);
-void __ovld vstorea_half3_rtp(float3 data, size_t offset, __local half *p);
-void __ovld vstorea_half4_rtp(float4 data, size_t offset, __local half *p);
-void __ovld vstorea_half8_rtp(float8 data, size_t offset, __local half *p);
-void __ovld vstorea_half16_rtp(float16 data, size_t offset, __local half *p);
-
-void __ovld vstorea_half_rtn(float data, size_t offset, __local half *p);
-void __ovld vstorea_half2_rtn(float2 data, size_t offset, __local half *p);
-void __ovld vstorea_half3_rtn(float3 data, size_t offset, __local half *p);
-void __ovld vstorea_half4_rtn(float4 data, size_t offset, __local half *p);
-void __ovld vstorea_half8_rtn(float8 data, size_t offset, __local half *p);
-void __ovld vstorea_half16_rtn(float16 data, size_t offset, __local half *p);
-
-void __ovld vstorea_half(float data, size_t offset, __private half *p);
-void __ovld vstorea_half2(float2 data, size_t offset, __private half *p);
-void __ovld vstorea_half3(float3 data, size_t offset, __private half *p);
-void __ovld vstorea_half4(float4 data, size_t offset, __private half *p);
-void __ovld vstorea_half8(float8 data, size_t offset, __private half *p);
-void __ovld vstorea_half16(float16 data, size_t offset, __private half *p);
-
-void __ovld vstorea_half_rte(float data, size_t offset, __private half *p);
-void __ovld vstorea_half2_rte(float2 data, size_t offset, __private half *p);
-void __ovld vstorea_half3_rte(float3 data, size_t offset, __private half *p);
-void __ovld vstorea_half4_rte(float4 data, size_t offset, __private half *p);
-void __ovld vstorea_half8_rte(float8 data, size_t offset, __private half *p);
-void __ovld vstorea_half16_rte(float16 data, size_t offset, __private half *p);
-
-void __ovld vstorea_half_rtz(float data, size_t offset, __private half *p);
-void __ovld vstorea_half2_rtz(float2 data, size_t offset, __private half *p);
-void __ovld vstorea_half3_rtz(float3 data, size_t offset, __private half *p);
-void __ovld vstorea_half4_rtz(float4 data, size_t offset, __private half *p);
-void __ovld vstorea_half8_rtz(float8 data, size_t offset, __private half *p);
-void __ovld vstorea_half16_rtz(float16 data, size_t offset, __private half *p);
-
-void __ovld vstorea_half_rtp(float data, size_t offset, __private half *p);
-void __ovld vstorea_half2_rtp(float2 data, size_t offset, __private half *p);
-void __ovld vstorea_half3_rtp(float3 data, size_t offset, __private half *p);
-void __ovld vstorea_half4_rtp(float4 data, size_t offset, __private half *p);
-void __ovld vstorea_half8_rtp(float8 data, size_t offset, __private half *p);
-void __ovld vstorea_half16_rtp(float16 data, size_t offset, __private half *p);
-
-void __ovld vstorea_half_rtn(float data, size_t offset, __private half *p);
-void __ovld vstorea_half2_rtn(float2 data, size_t offset, __private half *p);
-void __ovld vstorea_half3_rtn(float3 data, size_t offset, __private half *p);
-void __ovld vstorea_half4_rtn(float4 data, size_t offset, __private half *p);
-void __ovld vstorea_half8_rtn(float8 data, size_t offset, __private half *p);
-void __ovld vstorea_half16_rtn(float16 data, size_t offset, __private half *p);
-
-#ifdef cl_khr_fp64
-void __ovld vstorea_half(double data, size_t offset, __global half *p);
-void __ovld vstorea_half2(double2 data, size_t offset, __global half *p);
-void __ovld vstorea_half3(double3 data, size_t offset, __global half *p);
-void __ovld vstorea_half4(double4 data, size_t offset, __global half *p);
-void __ovld vstorea_half8(double8 data, size_t offset, __global half *p);
-void __ovld vstorea_half16(double16 data, size_t offset, __global half *p);
-
-void __ovld vstorea_half_rte(double data, size_t offset, __global half *p);
-void __ovld vstorea_half2_rte(double2 data, size_t offset, __global half *p);
-void __ovld vstorea_half3_rte(double3 data, size_t offset, __global half *p);
-void __ovld vstorea_half4_rte(double4 data, size_t offset, __global half *p);
-void __ovld vstorea_half8_rte(double8 data, size_t offset, __global half *p);
-void __ovld vstorea_half16_rte(double16 data, size_t offset, __global half *p);
-
-void __ovld vstorea_half_rtz(double data, size_t offset, __global half *p);
-void __ovld vstorea_half2_rtz(double2 data, size_t offset, __global half *p);
-void __ovld vstorea_half3_rtz(double3 data, size_t offset, __global half *p);
-void __ovld vstorea_half4_rtz(double4 data, size_t offset, __global half *p);
-void __ovld vstorea_half8_rtz(double8 data, size_t offset, __global half *p);
-void __ovld vstorea_half16_rtz(double16 data, size_t offset, __global half *p);
-
-void __ovld vstorea_half_rtp(double data, size_t offset, __global half *p);
-void __ovld vstorea_half2_rtp(double2 data, size_t offset, __global half *p);
-void __ovld vstorea_half3_rtp(double3 data, size_t offset, __global half *p);
-void __ovld vstorea_half4_rtp(double4 data, size_t offset, __global half *p);
-void __ovld vstorea_half8_rtp(double8 data, size_t offset, __global half *p);
-void __ovld vstorea_half16_rtp(double16 data, size_t offset, __global half *p);
-
-void __ovld vstorea_half_rtn(double data, size_t offset, __global half *p);
-void __ovld vstorea_half2_rtn(double2 data, size_t offset, __global half *p);
-void __ovld vstorea_half3_rtn(double3 data, size_t offset, __global half *p);
-void __ovld vstorea_half4_rtn(double4 data, size_t offset, __global half *p);
-void __ovld vstorea_half8_rtn(double8 data, size_t offset, __global half *p);
-void __ovld vstorea_half16_rtn(double16 data, size_t offset, __global half *p);
-
-void __ovld vstorea_half(double data, size_t offset, __local half *p);
-void __ovld vstorea_half2(double2 data, size_t offset, __local half *p);
-void __ovld vstorea_half3(double3 data, size_t offset, __local half *p);
-void __ovld vstorea_half4(double4 data, size_t offset, __local half *p);
-void __ovld vstorea_half8(double8 data, size_t offset, __local half *p);
-void __ovld vstorea_half16(double16 data, size_t offset, __local half *p);
-
-void __ovld vstorea_half_rte(double data, size_t offset, __local half *p);
-void __ovld vstorea_half2_rte(double2 data, size_t offset, __local half *p);
-void __ovld vstorea_half3_rte(double3 data, size_t offset, __local half *p);
-void __ovld vstorea_half4_rte(double4 data, size_t offset, __local half *p);
-void __ovld vstorea_half8_rte(double8 data, size_t offset, __local half *p);
-void __ovld vstorea_half16_rte(double16 data, size_t offset, __local half *p);
-
-void __ovld vstorea_half_rtz(double data, size_t offset, __local half *p);
-void __ovld vstorea_half2_rtz(double2 data, size_t offset, __local half *p);
-void __ovld vstorea_half3_rtz(double3 data, size_t offset, __local half *p);
-void __ovld vstorea_half4_rtz(double4 data, size_t offset, __local half *p);
-void __ovld vstorea_half8_rtz(double8 data, size_t offset, __local half *p);
-void __ovld vstorea_half16_rtz(double16 data, size_t offset, __local half *p);
-
-void __ovld vstorea_half_rtp(double data, size_t offset, __local half *p);
-void __ovld vstorea_half2_rtp(double2 data, size_t offset, __local half *p);
-void __ovld vstorea_half3_rtp(double3 data, size_t offset, __local half *p);
-void __ovld vstorea_half4_rtp(double4 data, size_t offset, __local half *p);
-void __ovld vstorea_half8_rtp(double8 data, size_t offset, __local half *p);
-void __ovld vstorea_half16_rtp(double16 data, size_t offset, __local half *p);
-
-void __ovld vstorea_half_rtn(double data, size_t offset, __local half *p);
-void __ovld vstorea_half2_rtn(double2 data, size_t offset, __local half *p);
-void __ovld vstorea_half3_rtn(double3 data, size_t offset, __local half *p);
-void __ovld vstorea_half4_rtn(double4 data, size_t offset, __local half *p);
-void __ovld vstorea_half8_rtn(double8 data, size_t offset, __local half *p);
-void __ovld vstorea_half16_rtn(double16 data, size_t offset, __local half *p);
-
-void __ovld vstorea_half(double data, size_t offset, __private half *p);
-void __ovld vstorea_half2(double2 data, size_t offset, __private half *p);
-void __ovld vstorea_half3(double3 data, size_t offset, __private half *p);
-void __ovld vstorea_half4(double4 data, size_t offset, __private half *p);
-void __ovld vstorea_half8(double8 data, size_t offset, __private half *p);
-void __ovld vstorea_half16(double16 data, size_t offset, __private half *p);
-
-void __ovld vstorea_half_rte(double data, size_t offset, __private half *p);
-void __ovld vstorea_half2_rte(double2 data, size_t offset, __private half *p);
-void __ovld vstorea_half3_rte(double3 data, size_t offset, __private half *p);
-void __ovld vstorea_half4_rte(double4 data, size_t offset, __private half *p);
-void __ovld vstorea_half8_rte(double8 data, size_t offset, __private half *p);
-void __ovld vstorea_half16_rte(double16 data, size_t offset, __private half *p);
-
-void __ovld vstorea_half_rtz(double data, size_t offset, __private half *p);
-void __ovld vstorea_half2_rtz(double2 data, size_t offset, __private half *p);
-void __ovld vstorea_half3_rtz(double3 data, size_t offset, __private half *p);
-void __ovld vstorea_half4_rtz(double4 data, size_t offset, __private half *p);
-void __ovld vstorea_half8_rtz(double8 data, size_t offset, __private half *p);
-void __ovld vstorea_half16_rtz(double16 data, size_t offset, __private half *p);
-
-void __ovld vstorea_half_rtp(double data, size_t offset, __private half *p);
-void __ovld vstorea_half2_rtp(double2 data, size_t offset, __private half *p);
-void __ovld vstorea_half3_rtp(double3 data, size_t offset, __private half *p);
-void __ovld vstorea_half4_rtp(double4 data, size_t offset, __private half *p);
-void __ovld vstorea_half8_rtp(double8 data, size_t offset, __private half *p);
-void __ovld vstorea_half16_rtp(double16 data, size_t offset, __private half *p);
-
-void __ovld vstorea_half_rtn(double data, size_t offset, __private half *p);
-void __ovld vstorea_half2_rtn(double2 data,size_t offset, __private half *p);
-void __ovld vstorea_half3_rtn(double3 data,size_t offset, __private half *p);
-void __ovld vstorea_half4_rtn(double4 data,size_t offset, __private half *p);
-void __ovld vstorea_half8_rtn(double8 data,size_t offset, __private half *p);
-void __ovld vstorea_half16_rtn(double16 data,size_t offset, __private half *p);
-#endif //cl_khr_fp64
-#endif //__OPENCL_C_VERSION__ >= CL_VERSION_2_0
-
 // OpenCL v1.1 s6.11.8, v1.2 s6.12.8, v2.0 s6.13.8 - Synchronization Functions
-
-// Flag type and values for barrier, mem_fence, read_mem_fence, write_mem_fence
-typedef uint cl_mem_fence_flags;
 
 /**
  * Queue a memory fence to ensure correct
@@ -12784,15 +11137,6 @@ typedef uint cl_mem_fence_flags;
  * ordering of memory operations to global memory
  */
 #define CLK_GLOBAL_MEM_FENCE   0x02
-
-#if __OPENCL_C_VERSION__ >= CL_VERSION_2_0
-/**
- * Queue a memory fence to ensure correct ordering of memory
- * operations between work-items of a work-group to
- * image memory.
- */
-#define CLK_IMAGE_MEM_FENCE  0x04
-#endif //__OPENCL_C_VERSION__ >= CL_VERSION_2_0
 
 /**
  * All work-items in a work-group executing the kernel
@@ -12825,22 +11169,6 @@ typedef uint cl_mem_fence_flags;
  */
 
 void __ovld __conv barrier(cl_mem_fence_flags flags);
-
-#if __OPENCL_C_VERSION__ >= CL_VERSION_2_0
-
-typedef enum memory_scope {
-  memory_scope_work_item = __OPENCL_MEMORY_SCOPE_WORK_ITEM,
-  memory_scope_work_group = __OPENCL_MEMORY_SCOPE_WORK_GROUP,
-  memory_scope_device = __OPENCL_MEMORY_SCOPE_DEVICE,
-  memory_scope_all_svm_devices = __OPENCL_MEMORY_SCOPE_ALL_SVM_DEVICES,
-#if defined(cl_intel_subgroups) || defined(cl_khr_subgroups)
-  memory_scope_sub_group = __OPENCL_MEMORY_SCOPE_SUB_GROUP
-#endif
-} memory_scope;
-
-void __ovld __conv work_group_barrier(cl_mem_fence_flags flags, memory_scope scope);
-void __ovld __conv work_group_barrier(cl_mem_fence_flags flags);
-#endif //__OPENCL_C_VERSION__ >= CL_VERSION_2_0
 
 // OpenCL v1.1 s6.11.9, v1.2 s6.12.9 - Explicit Memory Fence Functions
 
@@ -12882,1091 +11210,6 @@ void __ovld read_mem_fence(cl_mem_fence_flags flags);
  * CLK_GLOBAL_MEM_FENCE.
  */
 void __ovld write_mem_fence(cl_mem_fence_flags flags);
-
-// OpenCL v2.0 s6.13.9 - Address Space Qualifier Functions
-
-#if __OPENCL_C_VERSION__ >= CL_VERSION_2_0
-cl_mem_fence_flags __ovld get_fence(const void *ptr);
-cl_mem_fence_flags __ovld get_fence(void *ptr);
-
-/** 
- * Builtin functions to_global, to_local, and to_private need to be declared as Clang builtin functions
- * and checked in Sema since they should be declared as
- *   addr gentype* to_addr (gentype*);
- * where gentype is builtin type or user defined type.
- */
-
-#endif //__OPENCL_C_VERSION__ >= CL_VERSION_2_0
-
-// OpenCL v1.1 s6.11.10, v1.2 s6.12.10, v2.0 s6.13.10 - Async Copies from Global to Local Memory, Local to Global Memory, and Prefetch
-
-/**
- * event_t async_work_group_copy (
- * __global gentype *dst,
- * const __local gentype *src,
- * size_t num_elements,
- * event_t event)
- * Perform an async copy of num_elements
- * gentype elements from src to dst. The async
- * copy is performed by all work-items in a workgroup
- * and this built-in function must therefore
- * be encountered by all work-items in a workgroup
- * executing the kernel with the same
- * argument values; otherwise the results are
- * undefined.
- * Returns an event object that can be used by
- * wait_group_events to wait for the async copy
- * to finish. The event argument can also be used
- * to associate the async_work_group_copy with
- * a previous async copy allowing an event to be
- * shared by multiple async copies; otherwise event
- * should be zero.
- * If event argument is non-zero, the event object
- * supplied in event argument will be returned.
- * This function does not perform any implicit
- * synchronization of source data such as using a
- * barrier before performing the copy.
- */
-event_t __ovld async_work_group_copy(__local char *dst, const __global char *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local uchar *dst, const __global uchar *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local short *dst, const __global short *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local ushort *dst, const __global ushort *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local int *dst, const __global int *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local uint *dst, const __global uint *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local long *dst, const __global long *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local ulong *dst, const __global ulong *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local float *dst, const __global float *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local char2 *dst, const __global char2 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local uchar2 *dst, const __global uchar2 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local short2 *dst, const __global short2 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local ushort2 *dst, const __global ushort2 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local int2 *dst, const __global int2 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local uint2 *dst, const __global uint2 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local long2 *dst, const __global long2 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local ulong2 *dst, const __global ulong2 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local float2 *dst, const __global float2 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local char3 *dst, const __global char3 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local uchar3 *dst, const __global uchar3 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local short3 *dst, const __global short3 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local ushort3 *dst, const __global ushort3 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local int3 *dst, const __global int3 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local uint3 *dst, const __global uint3 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local long3 *dst, const __global long3 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local ulong3 *dst, const __global ulong3 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local float3 *dst, const __global float3 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local char4 *dst, const __global char4 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local uchar4 *dst, const __global uchar4 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local short4 *dst, const __global short4 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local ushort4 *dst, const __global ushort4 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local int4 *dst, const __global int4 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local uint4 *dst, const __global uint4 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local long4 *dst, const __global long4 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local ulong4 *dst, const __global ulong4 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local float4 *dst, const __global float4 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local char8 *dst, const __global char8 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local uchar8 *dst, const __global uchar8 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local short8 *dst, const __global short8 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local ushort8 *dst, const __global ushort8 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local int8 *dst, const __global int8 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local uint8 *dst, const __global uint8 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local long8 *dst, const __global long8 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local ulong8 *dst, const __global ulong8 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local float8 *dst, const __global float8 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local char16 *dst, const __global char16 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local uchar16 *dst, const __global uchar16 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local short16 *dst, const __global short16 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local ushort16 *dst, const __global ushort16 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local int16 *dst, const __global int16 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local uint16 *dst, const __global uint16 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local long16 *dst, const __global long16 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local ulong16 *dst, const __global ulong16 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local float16 *dst, const __global float16 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global char *dst, const __local char *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global uchar *dst, const __local uchar *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global short *dst, const __local short *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global ushort *dst, const __local ushort *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global int *dst, const __local int *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global uint *dst, const __local uint *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global long *dst, const __local long *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global ulong *dst, const __local ulong *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global float *dst, const __local float *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global char2 *dst, const __local char2 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global uchar2 *dst, const __local uchar2 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global short2 *dst, const __local short2 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global ushort2 *dst, const __local ushort2 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global int2 *dst, const __local int2 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global uint2 *dst, const __local uint2 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global long2 *dst, const __local long2 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global ulong2 *dst, const __local ulong2 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global float2 *dst, const __local float2 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global char3 *dst, const __local char3 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global uchar3 *dst, const __local uchar3 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global short3 *dst, const __local short3 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global ushort3 *dst, const __local ushort3 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global int3 *dst, const __local int3 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global uint3 *dst, const __local uint3 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global long3 *dst, const __local long3 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global ulong3 *dst, const __local ulong3 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global float3 *dst, const __local float3 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global char4 *dst, const __local char4 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global uchar4 *dst, const __local uchar4 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global short4 *dst, const __local short4 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global ushort4 *dst, const __local ushort4 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global int4 *dst, const __local int4 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global uint4 *dst, const __local uint4 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global long4 *dst, const __local long4 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global ulong4 *dst, const __local ulong4 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global float4 *dst, const __local float4 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global char8 *dst, const __local char8 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global uchar8 *dst, const __local uchar8 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global short8 *dst, const __local short8 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global ushort8 *dst, const __local ushort8 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global int8 *dst, const __local int8 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global uint8 *dst, const __local uint8 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global long8 *dst, const __local long8 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global ulong8 *dst, const __local ulong8 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global float8 *dst, const __local float8 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global char16 *dst, const __local char16 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global uchar16 *dst, const __local uchar16 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global short16 *dst, const __local short16 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global ushort16 *dst, const __local ushort16 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global int16 *dst, const __local int16 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global uint16 *dst, const __local uint16 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global long16 *dst, const __local long16 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global ulong16 *dst, const __local ulong16 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global float16 *dst, const __local float16 *src, size_t num_elements, event_t event);
-#ifdef cl_khr_fp64
-event_t __ovld async_work_group_copy(__local double *dst, const __global double *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local double2 *dst, const __global double2 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local double3 *dst, const __global double3 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local double4 *dst, const __global double4 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local double8 *dst, const __global double8 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local double16 *dst, const __global double16 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global double *dst, const __local double *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global double2 *dst, const __local double2 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global double3 *dst, const __local double3 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global double4 *dst, const __local double4 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global double8 *dst, const __local double8 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global double16 *dst, const __local double16 *src, size_t num_elements, event_t event);
-#endif //cl_khr_fp64
-#ifdef cl_khr_fp16
-event_t __ovld async_work_group_copy(__local half *dst, const __global half *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local half2 *dst, const __global half2 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local half3 *dst, const __global half3 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local half4 *dst, const __global half4 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local half8 *dst, const __global half8 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__local half16 *dst, const __global half16 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global half *dst, const __local half *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global half2 *dst, const __local half2 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global half3 *dst, const __local half3 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global half4 *dst, const __local half4 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global half8 *dst, const __local half8 *src, size_t num_elements, event_t event);
-event_t __ovld async_work_group_copy(__global half16 *dst, const __local half16 *src, size_t num_elements, event_t event);
-#endif //cl_khr_fp16
-
-/**
- * Perform an async gather of num_elements
- * gentype elements from src to dst. The
- * src_stride is the stride in elements for each
- * gentype element read from src. The dst_stride
- * is the stride in elements for each gentype
- * element written to dst. The async gather is
- * performed by all work-items in a work-group.
- * This built-in function must therefore be
- * encountered by all work-items in a work-group
- * executing the kernel with the same argument
- * values; otherwise the results are undefined.
- * Returns an event object that can be used by
- * wait_group_events to wait for the async copy
- * to finish. The event argument can also be used
- * to associate the
- * async_work_group_strided_copy with a
- * previous async copy allowing an event to be
- * shared by multiple async copies; otherwise event
- * should be zero.
- * If event argument is non-zero, the event object
- * supplied in event argument will be returned.
- * This function does not perform any implicit
- * synchronization of source data such as using a
- * barrier before performing the copy.
- */
-event_t __ovld async_work_group_strided_copy(__local char *dst, const __global char *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local uchar *dst, const __global uchar *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local short *dst, const __global short *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local ushort *dst, const __global ushort *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local int *dst, const __global int *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local uint *dst, const __global uint *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local long *dst, const __global long *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local ulong *dst, const __global ulong *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local float *dst, const __global float *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local char2 *dst, const __global char2 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local uchar2 *dst, const __global uchar2 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local short2 *dst, const __global short2 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local ushort2 *dst, const __global ushort2 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local int2 *dst, const __global int2 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local uint2 *dst, const __global uint2 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local long2 *dst, const __global long2 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local ulong2 *dst, const __global ulong2 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local float2 *dst, const __global float2 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local char3 *dst, const __global char3 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local uchar3 *dst, const __global uchar3 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local short3 *dst, const __global short3 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local ushort3 *dst, const __global ushort3 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local int3 *dst, const __global int3 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local uint3 *dst, const __global uint3 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local long3 *dst, const __global long3 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local ulong3 *dst, const __global ulong3 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local float3 *dst, const __global float3 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local char4 *dst, const __global char4 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local uchar4 *dst, const __global uchar4 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local short4 *dst, const __global short4 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local ushort4 *dst, const __global ushort4 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local int4 *dst, const __global int4 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local uint4 *dst, const __global uint4 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local long4 *dst, const __global long4 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local ulong4 *dst, const __global ulong4 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local float4 *dst, const __global float4 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local char8 *dst, const __global char8 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local uchar8 *dst, const __global uchar8 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local short8 *dst, const __global short8 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local ushort8 *dst, const __global ushort8 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local int8 *dst, const __global int8 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local uint8 *dst, const __global uint8 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local long8 *dst, const __global long8 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local ulong8 *dst, const __global ulong8 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local float8 *dst, const __global float8 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local char16 *dst, const __global char16 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local uchar16 *dst, const __global uchar16 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local short16 *dst, const __global short16 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local ushort16 *dst, const __global ushort16 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local int16 *dst, const __global int16 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local uint16 *dst, const __global uint16 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local long16 *dst, const __global long16 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local ulong16 *dst, const __global ulong16 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local float16 *dst, const __global float16 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global char *dst, const __local char *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global uchar *dst, const __local uchar *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global short *dst, const __local short *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global ushort *dst, const __local ushort *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global int *dst, const __local int *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global uint *dst, const __local uint *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global long *dst, const __local long *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global ulong *dst, const __local ulong *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global float *dst, const __local float *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global char2 *dst, const __local char2 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global uchar2 *dst, const __local uchar2 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global short2 *dst, const __local short2 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global ushort2 *dst, const __local ushort2 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global int2 *dst, const __local int2 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global uint2 *dst, const __local uint2 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global long2 *dst, const __local long2 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global ulong2 *dst, const __local ulong2 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global float2 *dst, const __local float2 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global char3 *dst, const __local char3 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global uchar3 *dst, const __local uchar3 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global short3 *dst, const __local short3 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global ushort3 *dst, const __local ushort3 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global int3 *dst, const __local int3 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global uint3 *dst, const __local uint3 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global long3 *dst, const __local long3 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global ulong3 *dst, const __local ulong3 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global float3 *dst, const __local float3 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global char4 *dst, const __local char4 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global uchar4 *dst, const __local uchar4 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global short4 *dst, const __local short4 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global ushort4 *dst, const __local ushort4 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global int4 *dst, const __local int4 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global uint4 *dst, const __local uint4 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global long4 *dst, const __local long4 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global ulong4 *dst, const __local ulong4 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global float4 *dst, const __local float4 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global char8 *dst, const __local char8 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global uchar8 *dst, const __local uchar8 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global short8 *dst, const __local short8 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global ushort8 *dst, const __local ushort8 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global int8 *dst, const __local int8 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global uint8 *dst, const __local uint8 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global long8 *dst, const __local long8 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global ulong8 *dst, const __local ulong8 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global float8 *dst, const __local float8 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global char16 *dst, const __local char16 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global uchar16 *dst, const __local uchar16 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global short16 *dst, const __local short16 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global ushort16 *dst, const __local ushort16 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global int16 *dst, const __local int16 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global uint16 *dst, const __local uint16 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global long16 *dst, const __local long16 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global ulong16 *dst, const __local ulong16 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global float16 *dst, const __local float16 *src, size_t num_elements, size_t dst_stride, event_t event);
-#ifdef cl_khr_fp64
-event_t __ovld async_work_group_strided_copy(__local double *dst, const __global double *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local double2 *dst, const __global double2 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local double3 *dst, const __global double3 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local double4 *dst, const __global double4 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local double8 *dst, const __global double8 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local double16 *dst, const __global double16 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global double *dst, const __local double *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global double2 *dst, const __local double2 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global double3 *dst, const __local double3 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global double4 *dst, const __local double4 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global double8 *dst, const __local double8 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global double16 *dst, const __local double16 *src, size_t num_elements, size_t dst_stride, event_t event);
-#endif //cl_khr_fp64
-#ifdef cl_khr_fp16
-event_t __ovld async_work_group_strided_copy(__local half *dst, const __global half *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local half2 *dst, const __global half2 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local half3 *dst, const __global half3 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local half4 *dst, const __global half4 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local half8 *dst, const __global half8 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__local half16 *dst, const __global half16 *src, size_t num_elements, size_t src_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global half *dst, const __local half *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global half2 *dst, const __local half2 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global half3 *dst, const __local half3 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global half4 *dst, const __local half4 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global half8 *dst, const __local half8 *src, size_t num_elements, size_t dst_stride, event_t event);
-event_t __ovld async_work_group_strided_copy(__global half16 *dst, const __local half16 *src, size_t num_elements, size_t dst_stride, event_t event);
-#endif //cl_khr_fp16
-
-/**
- * Wait for events that identify the
- * async_work_group_copy operations to
- * complete. The event objects specified in
- * event_list will be released after the wait is
- * performed.
- * This function must be encountered by all workitems
- * in a work-group executing the kernel with
- * the same num_events and event objects specified
- * in event_list; otherwise the results are undefined.
- */
-void __ovld wait_group_events(int num_events, event_t *event_list);
-
-/**
- * Prefetch num_elements * sizeof(gentype)
- * bytes into the global cache. The prefetch
- * instruction is applied to a work-item in a workgroup
- * and does not affect the functional
- * behavior of the kernel.
- */
-void __ovld prefetch(const __global char *p, size_t num_elements);
-void __ovld prefetch(const __global uchar *p, size_t num_elements);
-void __ovld prefetch(const __global short *p, size_t num_elements);
-void __ovld prefetch(const __global ushort *p, size_t num_elements);
-void __ovld prefetch(const __global int *p, size_t num_elements);
-void __ovld prefetch(const __global uint *p, size_t num_elements);
-void __ovld prefetch(const __global long *p, size_t num_elements);
-void __ovld prefetch(const __global ulong *p, size_t num_elements);
-void __ovld prefetch(const __global float *p, size_t num_elements);
-void __ovld prefetch(const __global char2 *p, size_t num_elements);
-void __ovld prefetch(const __global uchar2 *p, size_t num_elements);
-void __ovld prefetch(const __global short2 *p, size_t num_elements);
-void __ovld prefetch(const __global ushort2 *p, size_t num_elements);
-void __ovld prefetch(const __global int2 *p, size_t num_elements);
-void __ovld prefetch(const __global uint2 *p, size_t num_elements);
-void __ovld prefetch(const __global long2 *p, size_t num_elements);
-void __ovld prefetch(const __global ulong2 *p, size_t num_elements);
-void __ovld prefetch(const __global float2 *p, size_t num_elements);
-void __ovld prefetch(const __global char3 *p, size_t num_elements);
-void __ovld prefetch(const __global uchar3 *p, size_t num_elements);
-void __ovld prefetch(const __global short3 *p, size_t num_elements);
-void __ovld prefetch(const __global ushort3 *p, size_t num_elements);
-void __ovld prefetch(const __global int3 *p, size_t num_elements);
-void __ovld prefetch(const __global uint3 *p, size_t num_elements);
-void __ovld prefetch(const __global long3 *p, size_t num_elements);
-void __ovld prefetch(const __global ulong3 *p, size_t num_elements);
-void __ovld prefetch(const __global float3 *p, size_t num_elements);
-void __ovld prefetch(const __global char4 *p, size_t num_elements);
-void __ovld prefetch(const __global uchar4 *p, size_t num_elements);
-void __ovld prefetch(const __global short4 *p, size_t num_elements);
-void __ovld prefetch(const __global ushort4 *p, size_t num_elements);
-void __ovld prefetch(const __global int4 *p, size_t num_elements);
-void __ovld prefetch(const __global uint4 *p, size_t num_elements);
-void __ovld prefetch(const __global long4 *p, size_t num_elements);
-void __ovld prefetch(const __global ulong4 *p, size_t num_elements);
-void __ovld prefetch(const __global float4 *p, size_t num_elements);
-void __ovld prefetch(const __global char8 *p, size_t num_elements);
-void __ovld prefetch(const __global uchar8 *p, size_t num_elements);
-void __ovld prefetch(const __global short8 *p, size_t num_elements);
-void __ovld prefetch(const __global ushort8 *p, size_t num_elements);
-void __ovld prefetch(const __global int8 *p, size_t num_elements);
-void __ovld prefetch(const __global uint8 *p, size_t num_elements);
-void __ovld prefetch(const __global long8 *p, size_t num_elements);
-void __ovld prefetch(const __global ulong8 *p, size_t num_elements);
-void __ovld prefetch(const __global float8 *p, size_t num_elements);
-void __ovld prefetch(const __global char16 *p, size_t num_elements);
-void __ovld prefetch(const __global uchar16 *p, size_t num_elements);
-void __ovld prefetch(const __global short16 *p, size_t num_elements);
-void __ovld prefetch(const __global ushort16 *p, size_t num_elements);
-void __ovld prefetch(const __global int16 *p, size_t num_elements);
-void __ovld prefetch(const __global uint16 *p, size_t num_elements);
-void __ovld prefetch(const __global long16 *p, size_t num_elements);
-void __ovld prefetch(const __global ulong16 *p, size_t num_elements);
-void __ovld prefetch(const __global float16 *p, size_t num_elements);
-#ifdef cl_khr_fp64
-void __ovld prefetch(const __global double *p, size_t num_elements);
-void __ovld prefetch(const __global double2 *p, size_t num_elements);
-void __ovld prefetch(const __global double3 *p, size_t num_elements);
-void __ovld prefetch(const __global double4 *p, size_t num_elements);
-void __ovld prefetch(const __global double8 *p, size_t num_elements);
-void __ovld prefetch(const __global double16 *p, size_t num_elements);
-#endif //cl_khr_fp64
-#ifdef cl_khr_fp16
-void __ovld prefetch(const __global half *p, size_t num_elements);
-void __ovld prefetch(const __global half2 *p, size_t num_elements);
-void __ovld prefetch(const __global half3 *p, size_t num_elements);
-void __ovld prefetch(const __global half4 *p, size_t num_elements);
-void __ovld prefetch(const __global half8 *p, size_t num_elements);
-void __ovld prefetch(const __global half16 *p, size_t num_elements);
-#endif // cl_khr_fp16
-
-// OpenCL v1.1 s6.11.1, v1.2 s6.12.11 - Atomic Functions
-
-#if defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
-#pragma OPENCL EXTENSION cl_khr_int64_base_atomics : enable
-#pragma OPENCL EXTENSION cl_khr_int64_extended_atomics : enable
-#endif
-/**
- * Read the 32-bit value (referred to as old)
- * stored at location pointed by p. Compute
- * (old + val) and store result at location
- * pointed by p. The function returns old.
- */
-int __ovld atomic_add(volatile __global int *p, int val);
-unsigned int __ovld atomic_add(volatile __global unsigned int *p, unsigned int val);
-int __ovld atomic_add(volatile __local int *p, int val);
-unsigned int __ovld atomic_add(volatile __local unsigned int *p, unsigned int val);
-
-#if defined(cl_khr_global_int32_base_atomics)
-int __ovld atom_add(volatile __global int *p, int val);
-unsigned int __ovld atom_add(volatile __global unsigned int *p, unsigned int val);
-#endif
-#if defined(cl_khr_local_int32_base_atomics)
-int __ovld atom_add(volatile __local int *p, int val);
-unsigned int __ovld atom_add(volatile __local unsigned int *p, unsigned int val);
-#endif
-
-#if defined(cl_khr_int64_base_atomics)
-long __ovld atom_add(volatile __global long *p, long val);
-unsigned long __ovld atom_add(volatile __global unsigned long *p, unsigned long val);
-long __ovld atom_add(volatile __local long *p, long val);
-unsigned long __ovld atom_add(volatile __local unsigned long *p, unsigned long val);
-#endif
-
-/**
- * Read the 32-bit value (referred to as old) stored at location pointed by p.
- * Compute (old - val) and store result at location pointed by p. The function
- * returns old.
- */
-int __ovld atomic_sub(volatile __global int *p, int val);
-unsigned int __ovld atomic_sub(volatile __global unsigned int *p, unsigned int val);
-int __ovld atomic_sub(volatile __local int *p, int val);
-unsigned int __ovld atomic_sub(volatile __local unsigned int *p, unsigned int val);
-
-#if defined(cl_khr_global_int32_base_atomics)
-int __ovld atom_sub(volatile __global int *p, int val);
-unsigned int __ovld atom_sub(volatile __global unsigned int *p, unsigned int val);
-#endif
-#if defined(cl_khr_local_int32_base_atomics)
-int __ovld atom_sub(volatile __local int *p, int val);
-unsigned int __ovld atom_sub(volatile __local unsigned int *p, unsigned int val);
-#endif
-
-#if defined(cl_khr_int64_base_atomics)
-long __ovld atom_sub(volatile __global long *p, long val);
-unsigned long __ovld atom_sub(volatile __global unsigned long *p, unsigned long val);
-long __ovld atom_sub(volatile __local long *p, long val);
-unsigned long __ovld atom_sub(volatile __local unsigned long *p, unsigned long val);
-#endif
-
-/**
- * Swaps the old value stored at location p
- * with new value given by val. Returns old
- * value.
- */
-int __ovld atomic_xchg(volatile __global int *p, int val);
-unsigned int __ovld atomic_xchg(volatile __global unsigned int *p, unsigned int val);
-int __ovld atomic_xchg(volatile __local int *p, int val);
-unsigned int __ovld atomic_xchg(volatile __local unsigned int *p, unsigned int val);
-float __ovld atomic_xchg(volatile __global float *p, float val);
-float __ovld atomic_xchg(volatile __local float *p, float val);
-
-#if defined(cl_khr_global_int32_base_atomics)
-int __ovld atom_xchg(volatile __global int *p, int val);
-unsigned int __ovld atom_xchg(volatile __global unsigned int *p, unsigned int val);
-#endif
-#if defined(cl_khr_local_int32_base_atomics)
-int __ovld atom_xchg(volatile __local int *p, int val);
-unsigned int __ovld atom_xchg(volatile __local unsigned int *p, unsigned int val);
-#endif
-
-#if defined(cl_khr_int64_base_atomics)
-long __ovld atom_xchg(volatile __global long *p, long val);
-long __ovld atom_xchg(volatile __local long *p, long val);
-unsigned long __ovld atom_xchg(volatile __global unsigned long *p, unsigned long val);
-unsigned long __ovld atom_xchg(volatile __local unsigned long *p, unsigned long val);
-#endif
-
-/**
- * Read the 32-bit value (referred to as old)
- * stored at location pointed by p. Compute
- * (old + 1) and store result at location
- * pointed by p. The function returns old.
- */
-int __ovld atomic_inc(volatile __global int *p);
-unsigned int __ovld atomic_inc(volatile __global unsigned int *p);
-int __ovld atomic_inc(volatile __local int *p);
-unsigned int __ovld atomic_inc(volatile __local unsigned int *p);
-
-#if defined(cl_khr_global_int32_base_atomics)
-int __ovld atom_inc(volatile __global int *p);
-unsigned int __ovld atom_inc(volatile __global unsigned int *p);
-#endif
-#if defined(cl_khr_local_int32_base_atomics)
-int __ovld atom_inc(volatile __local int *p);
-unsigned int __ovld atom_inc(volatile __local unsigned int *p);
-#endif
-
-#if defined(cl_khr_int64_base_atomics)
-long __ovld atom_inc(volatile __global long *p);
-unsigned long __ovld atom_inc(volatile __global unsigned long *p);
-long __ovld atom_inc(volatile __local long *p);
-unsigned long __ovld atom_inc(volatile __local unsigned long *p);
-#endif
-
-/**
- * Read the 32-bit value (referred to as old)
- * stored at location pointed by p. Compute
- * (old - 1) and store result at location
- * pointed by p. The function returns old.
- */
-int __ovld atomic_dec(volatile __global int *p);
-unsigned int __ovld atomic_dec(volatile __global unsigned int *p);
-int __ovld atomic_dec(volatile __local int *p);
-unsigned int __ovld atomic_dec(volatile __local unsigned int *p);
-
-#if defined(cl_khr_global_int32_base_atomics)
-int __ovld atom_dec(volatile __global int *p);
-unsigned int __ovld atom_dec(volatile __global unsigned int *p);
-#endif
-#if defined(cl_khr_local_int32_base_atomics)
-int __ovld atom_dec(volatile __local int *p);
-unsigned int __ovld atom_dec(volatile __local unsigned int *p);
-#endif
-
-#if defined(cl_khr_int64_base_atomics)
-long __ovld atom_dec(volatile __global long *p);
-unsigned long __ovld atom_dec(volatile __global unsigned long *p);
-long __ovld atom_dec(volatile __local long *p);
-unsigned long __ovld atom_dec(volatile __local unsigned long *p);
-#endif
-
-/**
- * Read the 32-bit value (referred to as old)
- * stored at location pointed by p. Compute
- * (old == cmp) ? val : old and store result at
- * location pointed by p. The function
- * returns old.
- */
-int __ovld atomic_cmpxchg(volatile __global int *p, int cmp, int val);
-unsigned int __ovld atomic_cmpxchg(volatile __global unsigned int *p, unsigned int cmp, unsigned int val);
-int __ovld atomic_cmpxchg(volatile __local int *p, int cmp, int val);
-unsigned int __ovld atomic_cmpxchg(volatile __local unsigned int *p, unsigned int cmp, unsigned int val);
-
-#if defined(cl_khr_global_int32_base_atomics)
-int __ovld atom_cmpxchg(volatile __global int *p, int cmp, int val);
-unsigned int __ovld atom_cmpxchg(volatile __global unsigned int *p, unsigned int cmp, unsigned int val);
-#endif
-#if defined(cl_khr_local_int32_base_atomics)
-int __ovld atom_cmpxchg(volatile __local int *p, int cmp, int val);
-unsigned int __ovld atom_cmpxchg(volatile __local unsigned int *p, unsigned int cmp, unsigned int val);
-#endif
-
-#if defined(cl_khr_int64_base_atomics)
-long __ovld atom_cmpxchg(volatile __global long *p, long cmp, long val);
-unsigned long __ovld atom_cmpxchg(volatile __global unsigned long *p, unsigned long cmp, unsigned long val);
-long __ovld atom_cmpxchg(volatile __local long *p, long cmp, long val);
-unsigned long __ovld atom_cmpxchg(volatile __local unsigned long *p, unsigned long cmp, unsigned long val);
-#endif
-
-/**
- * Read the 32-bit value (referred to as old)
- * stored at location pointed by p. Compute
- * min(old, val) and store minimum value at
- * location pointed by p. The function
- * returns old.
- */
-int __ovld atomic_min(volatile __global int *p, int val);
-unsigned int __ovld atomic_min(volatile __global unsigned int *p, unsigned int val);
-int __ovld atomic_min(volatile __local int *p, int val);
-unsigned int __ovld atomic_min(volatile __local unsigned int *p, unsigned int val);
-
-#if defined(cl_khr_global_int32_extended_atomics)
-int __ovld atom_min(volatile __global int *p, int val);
-unsigned int __ovld atom_min(volatile __global unsigned int *p, unsigned int val);
-#endif
-#if defined(cl_khr_local_int32_extended_atomics)
-int __ovld atom_min(volatile __local int *p, int val);
-unsigned int __ovld atom_min(volatile __local unsigned int *p, unsigned int val);
-#endif
-
-#if defined(cl_khr_int64_extended_atomics)
-long __ovld atom_min(volatile __global long *p, long val);
-unsigned long __ovld atom_min(volatile __global unsigned long *p, unsigned long val);
-long __ovld atom_min(volatile __local long *p, long val);
-unsigned long __ovld atom_min(volatile __local unsigned long *p, unsigned long val);
-#endif
-
-/**
- * Read the 32-bit value (referred to as old)
- * stored at location pointed by p. Compute
- * max(old, val) and store maximum value at
- * location pointed by p. The function
- * returns old.
- */
-int __ovld atomic_max(volatile __global int *p, int val);
-unsigned int __ovld atomic_max(volatile __global unsigned int *p, unsigned int val);
-int __ovld atomic_max(volatile __local int *p, int val);
-unsigned int __ovld atomic_max(volatile __local unsigned int *p, unsigned int val);
-
-#if defined(cl_khr_global_int32_extended_atomics)
-int __ovld atom_max(volatile __global int *p, int val);
-unsigned int __ovld atom_max(volatile __global unsigned int *p, unsigned int val);
-#endif
-#if defined(cl_khr_local_int32_extended_atomics)
-int __ovld atom_max(volatile __local int *p, int val);
-unsigned int __ovld atom_max(volatile __local unsigned int *p, unsigned int val);
-#endif
-
-#if defined(cl_khr_int64_extended_atomics)
-long __ovld atom_max(volatile __global long *p, long val);
-unsigned long __ovld atom_max(volatile __global unsigned long *p, unsigned long val);
-long __ovld atom_max(volatile __local long *p, long val);
-unsigned long __ovld atom_max(volatile __local unsigned long *p, unsigned long val);
-#endif
-
-/**
- * Read the 32-bit value (referred to as old)
- * stored at location pointed by p. Compute
- * (old & val) and store result at location
- * pointed by p. The function returns old.
- */
-int __ovld atomic_and(volatile __global int *p, int val);
-unsigned int __ovld atomic_and(volatile __global unsigned int *p, unsigned int val);
-int __ovld atomic_and(volatile __local int *p, int val);
-unsigned int __ovld atomic_and(volatile __local unsigned int *p, unsigned int val);
-
-#if defined(cl_khr_global_int32_extended_atomics)
-int __ovld atom_and(volatile __global int *p, int val);
-unsigned int __ovld atom_and(volatile __global unsigned int *p, unsigned int val);
-#endif
-#if defined(cl_khr_local_int32_extended_atomics)
-int __ovld atom_and(volatile __local int *p, int val);
-unsigned int __ovld atom_and(volatile __local unsigned int *p, unsigned int val);
-#endif
-
-#if defined(cl_khr_int64_extended_atomics)
-long __ovld atom_and(volatile __global long *p, long val);
-unsigned long __ovld atom_and(volatile __global unsigned long *p, unsigned long val);
-long __ovld atom_and(volatile __local long *p, long val);
-unsigned long __ovld atom_and(volatile __local unsigned long *p, unsigned long val);
-#endif
-
-/**
- * Read the 32-bit value (referred to as old)
- * stored at location pointed by p. Compute
- * (old | val) and store result at location
- * pointed by p. The function returns old.
- */
-int __ovld atomic_or(volatile __global int *p, int val);
-unsigned int __ovld atomic_or(volatile __global unsigned int *p, unsigned int val);
-int __ovld atomic_or(volatile __local int *p, int val);
-unsigned int __ovld atomic_or(volatile __local unsigned int *p, unsigned int val);
-
-#if defined(cl_khr_global_int32_extended_atomics)
-int __ovld atom_or(volatile __global int *p, int val);
-unsigned int __ovld atom_or(volatile __global unsigned int *p, unsigned int val);
-#endif
-#if defined(cl_khr_local_int32_extended_atomics)
-int __ovld atom_or(volatile __local int *p, int val);
-unsigned int __ovld atom_or(volatile __local unsigned int *p, unsigned int val);
-#endif
-
-#if defined(cl_khr_int64_extended_atomics)
-long __ovld atom_or(volatile __global long *p, long val);
-unsigned long __ovld atom_or(volatile __global unsigned long *p, unsigned long val);
-long __ovld atom_or(volatile __local long *p, long val);
-unsigned long __ovld atom_or(volatile __local unsigned long *p, unsigned long val);
-#endif
-
-/**
- * Read the 32-bit value (referred to as old)
- * stored at location pointed by p. Compute
- * (old ^ val) and store result at location
- * pointed by p. The function returns old.
- */
-int __ovld atomic_xor(volatile __global int *p, int val);
-unsigned int __ovld atomic_xor(volatile __global unsigned int *p, unsigned int val);
-int __ovld atomic_xor(volatile __local int *p, int val);
-unsigned int __ovld atomic_xor(volatile __local unsigned int *p, unsigned int val);
-
-#if defined(cl_khr_global_int32_extended_atomics)
-int __ovld atom_xor(volatile __global int *p, int val);
-unsigned int __ovld atom_xor(volatile __global unsigned int *p, unsigned int val);
-#endif
-#if defined(cl_khr_local_int32_extended_atomics)
-int __ovld atom_xor(volatile __local int *p, int val);
-unsigned int __ovld atom_xor(volatile __local unsigned int *p, unsigned int val);
-#endif
-
-#if defined(cl_khr_int64_extended_atomics)
-long __ovld atom_xor(volatile __global long *p, long val);
-unsigned long __ovld atom_xor(volatile __global unsigned long *p, unsigned long val);
-long __ovld atom_xor(volatile __local long *p, long val);
-unsigned long __ovld atom_xor(volatile __local unsigned long *p, unsigned long val);
-#endif
-
-#if defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
-#pragma OPENCL EXTENSION cl_khr_int64_base_atomics : disable
-#pragma OPENCL EXTENSION cl_khr_int64_extended_atomics : disable
-#endif
-
-// OpenCL v2.0 s6.13.11 - Atomics Functions
-
-#if __OPENCL_C_VERSION__ >= CL_VERSION_2_0
-#ifndef ATOMIC_VAR_INIT
-#define ATOMIC_VAR_INIT(x) (x)
-#endif //ATOMIC_VAR_INIT
-#define ATOMIC_FLAG_INIT 0
-
-// enum values aligned with what clang uses in EmitAtomicExpr()
-typedef enum memory_order
-{
-  memory_order_relaxed = __ATOMIC_RELAXED,
-  memory_order_acquire = __ATOMIC_ACQUIRE,
-  memory_order_release = __ATOMIC_RELEASE,
-  memory_order_acq_rel = __ATOMIC_ACQ_REL,
-  memory_order_seq_cst = __ATOMIC_SEQ_CST
-} memory_order;
-
-// double atomics support requires extensions cl_khr_int64_base_atomics and cl_khr_int64_extended_atomics
-#if defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
-#pragma OPENCL EXTENSION cl_khr_int64_base_atomics : enable
-#pragma OPENCL EXTENSION cl_khr_int64_extended_atomics : enable
-#endif
-
-// atomic_init()
-void __ovld atomic_init(volatile atomic_int *object, int value);
-void __ovld atomic_init(volatile atomic_uint *object, uint value);
-void __ovld atomic_init(volatile atomic_float *object, float value);
-#if defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
-void __ovld atomic_init(volatile atomic_long *object, long value);
-void __ovld atomic_init(volatile atomic_ulong *object, ulong value);
-#ifdef cl_khr_fp64
-void __ovld atomic_init(volatile atomic_double *object, double value);
-#endif //cl_khr_fp64
-#endif
-
-// atomic_work_item_fence()
-void __ovld atomic_work_item_fence(cl_mem_fence_flags flags, memory_order order, memory_scope scope);
-
-// atomic_fetch()
-
-int __ovld atomic_fetch_add(volatile atomic_int *object, int operand);
-int __ovld atomic_fetch_add_explicit(volatile atomic_int *object, int operand, memory_order order);
-int __ovld atomic_fetch_add_explicit(volatile atomic_int *object, int operand, memory_order order, memory_scope scope);
-uint __ovld atomic_fetch_add(volatile atomic_uint *object, uint operand);
-uint __ovld atomic_fetch_add_explicit(volatile atomic_uint *object, uint operand, memory_order order);
-uint __ovld atomic_fetch_add_explicit(volatile atomic_uint *object, uint operand, memory_order order, memory_scope scope);
-int __ovld atomic_fetch_sub(volatile atomic_int *object, int operand);
-int __ovld atomic_fetch_sub_explicit(volatile atomic_int *object, int operand, memory_order order);
-int __ovld atomic_fetch_sub_explicit(volatile atomic_int *object, int operand, memory_order order, memory_scope scope);
-uint __ovld atomic_fetch_sub(volatile atomic_uint *object, uint operand);
-uint __ovld atomic_fetch_sub_explicit(volatile atomic_uint *object, uint operand, memory_order order);
-uint __ovld atomic_fetch_sub_explicit(volatile atomic_uint *object, uint operand, memory_order order, memory_scope scope);
-int __ovld atomic_fetch_or(volatile atomic_int *object, int operand);
-int __ovld atomic_fetch_or_explicit(volatile atomic_int *object, int operand, memory_order order);
-int __ovld atomic_fetch_or_explicit(volatile atomic_int *object, int operand, memory_order order, memory_scope scope);
-uint __ovld atomic_fetch_or(volatile atomic_uint *object, uint operand);
-uint __ovld atomic_fetch_or_explicit(volatile atomic_uint *object, uint operand, memory_order order);
-uint __ovld atomic_fetch_or_explicit(volatile atomic_uint *object, uint operand, memory_order order, memory_scope scope);
-int __ovld atomic_fetch_xor(volatile atomic_int *object, int operand);
-int __ovld atomic_fetch_xor_explicit(volatile atomic_int *object, int operand, memory_order order);
-int __ovld atomic_fetch_xor_explicit(volatile atomic_int *object, int operand, memory_order order, memory_scope scope);
-uint __ovld atomic_fetch_xor(volatile atomic_uint *object, uint operand);
-uint __ovld atomic_fetch_xor_explicit(volatile atomic_uint *object, uint operand, memory_order order);
-uint __ovld atomic_fetch_xor_explicit(volatile atomic_uint *object, uint operand, memory_order order, memory_scope scope);
-int __ovld atomic_fetch_and(volatile atomic_int *object, int operand);
-int __ovld atomic_fetch_and_explicit(volatile atomic_int *object, int operand, memory_order order);
-int __ovld atomic_fetch_and_explicit(volatile atomic_int *object, int operand, memory_order order, memory_scope scope);
-uint __ovld atomic_fetch_and(volatile atomic_uint *object, uint operand);
-uint __ovld atomic_fetch_and_explicit(volatile atomic_uint *object, uint operand, memory_order order);
-uint __ovld atomic_fetch_and_explicit(volatile atomic_uint *object, uint operand, memory_order order, memory_scope scope);
-int __ovld atomic_fetch_min(volatile atomic_int *object, int operand);
-int __ovld atomic_fetch_min_explicit(volatile atomic_int *object, int operand, memory_order order);
-int __ovld atomic_fetch_min_explicit(volatile atomic_int *object, int operand, memory_order order, memory_scope scope);
-uint __ovld atomic_fetch_min(volatile atomic_uint *object, uint operand);
-uint __ovld atomic_fetch_min_explicit(volatile atomic_uint *object, uint operand, memory_order order);
-uint __ovld atomic_fetch_min_explicit(volatile atomic_uint *object, uint operand, memory_order order, memory_scope scope);
-uint __ovld atomic_fetch_min(volatile atomic_uint *object, int operand);
-uint __ovld atomic_fetch_min_explicit(volatile atomic_uint *object, int operand, memory_order order);
-uint __ovld atomic_fetch_min_explicit(volatile atomic_uint *object, int operand, memory_order order, memory_scope scope);
-int __ovld atomic_fetch_max(volatile atomic_int *object, int operand);
-int __ovld atomic_fetch_max_explicit(volatile atomic_int *object, int operand, memory_order order);
-int __ovld atomic_fetch_max_explicit(volatile atomic_int *object, int operand, memory_order order, memory_scope scope);
-uint __ovld atomic_fetch_max(volatile atomic_uint *object, uint operand);
-uint __ovld atomic_fetch_max_explicit(volatile atomic_uint *object, uint operand, memory_order order);
-uint __ovld atomic_fetch_max_explicit(volatile atomic_uint *object, uint operand, memory_order order, memory_scope scope);
-uint __ovld atomic_fetch_max(volatile atomic_uint *object, int operand);
-uint __ovld atomic_fetch_max_explicit(volatile atomic_uint *object, int operand, memory_order order);
-uint __ovld atomic_fetch_max_explicit(volatile atomic_uint *object, int operand, memory_order order, memory_scope scope);
-
-#if defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
-long __ovld atomic_fetch_add(volatile atomic_long *object, long operand);
-long __ovld atomic_fetch_add_explicit(volatile atomic_long *object, long operand, memory_order order);
-long __ovld atomic_fetch_add_explicit(volatile atomic_long *object, long operand, memory_order order, memory_scope scope);
-ulong __ovld atomic_fetch_add(volatile atomic_ulong *object, ulong operand);
-ulong __ovld atomic_fetch_add_explicit(volatile atomic_ulong *object, ulong operand, memory_order order);
-ulong __ovld atomic_fetch_add_explicit(volatile atomic_ulong *object, ulong operand, memory_order order, memory_scope scope);
-long __ovld atomic_fetch_sub(volatile atomic_long *object, long operand);
-long __ovld atomic_fetch_sub_explicit(volatile atomic_long *object, long operand, memory_order order);
-long __ovld atomic_fetch_sub_explicit(volatile atomic_long *object, long operand, memory_order order, memory_scope scope);
-ulong __ovld atomic_fetch_sub(volatile atomic_ulong *object, ulong operand);
-ulong __ovld atomic_fetch_sub_explicit(volatile atomic_ulong *object, ulong operand, memory_order order);
-ulong __ovld atomic_fetch_sub_explicit(volatile atomic_ulong *object, ulong operand, memory_order order, memory_scope scope);
-long __ovld atomic_fetch_or(volatile atomic_long *object, long operand);
-long __ovld atomic_fetch_or_explicit(volatile atomic_long *object, long operand, memory_order order);
-long __ovld atomic_fetch_or_explicit(volatile atomic_long *object, long operand, memory_order order, memory_scope scope);
-ulong __ovld atomic_fetch_or(volatile atomic_ulong *object, ulong operand);
-ulong __ovld atomic_fetch_or_explicit(volatile atomic_ulong *object, ulong operand, memory_order order);
-ulong __ovld atomic_fetch_or_explicit(volatile atomic_ulong *object, ulong operand, memory_order order, memory_scope scope);
-long __ovld atomic_fetch_xor(volatile atomic_long *object, long operand);
-long __ovld atomic_fetch_xor_explicit(volatile atomic_long *object, long operand, memory_order order);
-long __ovld atomic_fetch_xor_explicit(volatile atomic_long *object, long operand, memory_order order, memory_scope scope);
-ulong __ovld atomic_fetch_xor(volatile atomic_ulong *object, ulong operand);
-ulong __ovld atomic_fetch_xor_explicit(volatile atomic_ulong *object, ulong operand, memory_order order);
-ulong __ovld atomic_fetch_xor_explicit(volatile atomic_ulong *object, ulong operand, memory_order order, memory_scope scope);
-long __ovld atomic_fetch_and(volatile atomic_long *object, long operand);
-long __ovld atomic_fetch_and_explicit(volatile atomic_long *object, long operand, memory_order order);
-long __ovld atomic_fetch_and_explicit(volatile atomic_long *object, long operand, memory_order order, memory_scope scope);
-ulong __ovld atomic_fetch_and(volatile atomic_ulong *object, ulong operand);
-ulong __ovld atomic_fetch_and_explicit(volatile atomic_ulong *object, ulong operand, memory_order order);
-ulong __ovld atomic_fetch_and_explicit(volatile atomic_ulong *object, ulong operand, memory_order order, memory_scope scope);
-long __ovld atomic_fetch_min(volatile atomic_long *object, long operand);
-long __ovld atomic_fetch_min_explicit(volatile atomic_long *object, long operand, memory_order order);
-long __ovld atomic_fetch_min_explicit(volatile atomic_long *object, long operand, memory_order order, memory_scope scope);
-ulong __ovld atomic_fetch_min(volatile atomic_ulong *object, ulong operand);
-ulong __ovld atomic_fetch_min_explicit(volatile atomic_ulong *object, ulong operand, memory_order order);
-ulong __ovld atomic_fetch_min_explicit(volatile atomic_ulong *object, ulong operand, memory_order order, memory_scope scope);
-ulong __ovld atomic_fetch_min(volatile atomic_ulong *object, long operand);
-ulong __ovld atomic_fetch_min_explicit(volatile atomic_ulong *object, long operand, memory_order order);
-ulong __ovld atomic_fetch_min_explicit(volatile atomic_ulong *object, long operand, memory_order order, memory_scope scope);
-long __ovld atomic_fetch_max(volatile atomic_long *object, long operand);
-long __ovld atomic_fetch_max_explicit(volatile atomic_long *object, long operand, memory_order order);
-long __ovld atomic_fetch_max_explicit(volatile atomic_long *object, long operand, memory_order order, memory_scope scope);
-ulong __ovld atomic_fetch_max(volatile atomic_ulong *object, ulong operand);
-ulong __ovld atomic_fetch_max_explicit(volatile atomic_ulong *object, ulong operand, memory_order order);
-ulong __ovld atomic_fetch_max_explicit(volatile atomic_ulong *object, ulong operand, memory_order order, memory_scope scope);
-ulong __ovld atomic_fetch_max(volatile atomic_ulong *object, long operand);
-ulong __ovld atomic_fetch_max_explicit(volatile atomic_ulong *object, long operand, memory_order order);
-ulong __ovld atomic_fetch_max_explicit(volatile atomic_ulong *object, long operand, memory_order order, memory_scope scope);
-#endif //defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
-
-// OpenCL v2.0 s6.13.11.7.5:
-// add/sub: atomic type argument can be uintptr_t/intptr_t, value type argument can be ptrdiff_t.
-// or/xor/and/min/max: atomic type argument can be intptr_t/uintptr_t, value type argument can be intptr_t/uintptr_t.
-
-#if defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics) 
-uintptr_t __ovld atomic_fetch_add(volatile atomic_uintptr_t *object, ptrdiff_t operand);
-uintptr_t __ovld atomic_fetch_add_explicit(volatile atomic_uintptr_t *object, ptrdiff_t operand, memory_order order);
-uintptr_t __ovld atomic_fetch_add_explicit(volatile atomic_uintptr_t *object, ptrdiff_t operand, memory_order order, memory_scope scope);
-uintptr_t __ovld atomic_fetch_sub(volatile atomic_uintptr_t *object, ptrdiff_t operand);
-uintptr_t __ovld atomic_fetch_sub_explicit(volatile atomic_uintptr_t *object, ptrdiff_t operand, memory_order order);
-uintptr_t __ovld atomic_fetch_sub_explicit(volatile atomic_uintptr_t *object, ptrdiff_t operand, memory_order order, memory_scope scope);
-
-uintptr_t __ovld atomic_fetch_or(volatile atomic_uintptr_t *object, intptr_t operand);
-uintptr_t __ovld atomic_fetch_or_explicit(volatile atomic_uintptr_t *object, intptr_t operand, memory_order order);
-uintptr_t __ovld atomic_fetch_or_explicit(volatile atomic_uintptr_t *object, intptr_t operand, memory_order order, memory_scope scope);
-uintptr_t __ovld atomic_fetch_xor(volatile atomic_uintptr_t *object, intptr_t operand);
-uintptr_t __ovld atomic_fetch_xor_explicit(volatile atomic_uintptr_t *object, intptr_t operand, memory_order order);
-uintptr_t __ovld atomic_fetch_xor_explicit(volatile atomic_uintptr_t *object, intptr_t operand, memory_order order, memory_scope scope);
-uintptr_t __ovld atomic_fetch_and(volatile atomic_uintptr_t *object, intptr_t operand);
-uintptr_t __ovld atomic_fetch_and_explicit(volatile atomic_uintptr_t *object, intptr_t operand, memory_order order);
-uintptr_t __ovld atomic_fetch_and_explicit(volatile atomic_uintptr_t *object, intptr_t operand, memory_order order, memory_scope scope);
-uintptr_t __ovld atomic_fetch_min(volatile atomic_uintptr_t *object, intptr_t opermax);
-uintptr_t __ovld atomic_fetch_min_explicit(volatile atomic_uintptr_t *object, intptr_t opermax, memory_order minder);
-uintptr_t __ovld atomic_fetch_min_explicit(volatile atomic_uintptr_t *object, intptr_t opermax, memory_order minder, memory_scope scope);
-uintptr_t __ovld atomic_fetch_max(volatile atomic_uintptr_t *object, intptr_t opermax);
-uintptr_t __ovld atomic_fetch_max_explicit(volatile atomic_uintptr_t *object, intptr_t opermax, memory_order minder);
-uintptr_t __ovld atomic_fetch_max_explicit(volatile atomic_uintptr_t *object, intptr_t opermax, memory_order minder, memory_scope scope);
-
-intptr_t __ovld atomic_fetch_or(volatile atomic_intptr_t *object, uintptr_t operand);
-intptr_t __ovld atomic_fetch_or_explicit(volatile atomic_intptr_t *object, uintptr_t operand, memory_order order);
-intptr_t __ovld atomic_fetch_or_explicit(volatile atomic_intptr_t *object, uintptr_t operand, memory_order order, memory_scope scope);
-intptr_t __ovld atomic_fetch_xor(volatile atomic_intptr_t *object, uintptr_t operand);
-intptr_t __ovld atomic_fetch_xor_explicit(volatile atomic_intptr_t *object, uintptr_t operand, memory_order order);
-intptr_t __ovld atomic_fetch_xor_explicit(volatile atomic_intptr_t *object, uintptr_t operand, memory_order order, memory_scope scope);
-intptr_t __ovld atomic_fetch_and(volatile atomic_intptr_t *object, uintptr_t operand);
-intptr_t __ovld atomic_fetch_and_explicit(volatile atomic_intptr_t *object, uintptr_t operand, memory_order order);
-intptr_t __ovld atomic_fetch_and_explicit(volatile atomic_intptr_t *object, uintptr_t operand, memory_order order, memory_scope scope);
-intptr_t __ovld atomic_fetch_min(volatile atomic_intptr_t *object, uintptr_t opermax);
-intptr_t __ovld atomic_fetch_min_explicit(volatile atomic_intptr_t *object, uintptr_t opermax, memory_order minder);
-intptr_t __ovld atomic_fetch_min_explicit(volatile atomic_intptr_t *object, uintptr_t opermax, memory_order minder, memory_scope scope);
-intptr_t __ovld atomic_fetch_max(volatile atomic_intptr_t *object, uintptr_t opermax);
-intptr_t __ovld atomic_fetch_max_explicit(volatile atomic_intptr_t *object, uintptr_t opermax, memory_order minder);
-intptr_t __ovld atomic_fetch_max_explicit(volatile atomic_intptr_t *object, uintptr_t opermax, memory_order minder, memory_scope scope);
-#endif
-
-// atomic_store()
-
-void __ovld atomic_store(volatile atomic_int *object, int desired);
-void __ovld atomic_store_explicit(volatile atomic_int *object, int desired, memory_order order);
-void __ovld atomic_store_explicit(volatile atomic_int *object, int desired, memory_order order, memory_scope scope);
-void __ovld atomic_store(volatile atomic_uint *object, uint desired);
-void __ovld atomic_store_explicit(volatile atomic_uint *object, uint desired, memory_order order);
-void __ovld atomic_store_explicit(volatile atomic_uint *object, uint desired, memory_order order, memory_scope scope);
-void __ovld atomic_store(volatile atomic_float *object, float desired);
-void __ovld atomic_store_explicit(volatile atomic_float *object, float desired, memory_order order);
-void __ovld atomic_store_explicit(volatile atomic_float *object, float desired, memory_order order, memory_scope scope);
-#if defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
-#ifdef cl_khr_fp64
-void __ovld atomic_store(volatile atomic_double *object, double desired);
-void __ovld atomic_store_explicit(volatile atomic_double *object, double desired, memory_order order);
-void __ovld atomic_store_explicit(volatile atomic_double *object, double desired, memory_order order, memory_scope scope);
-#endif //cl_khr_fp64
-void __ovld atomic_store(volatile atomic_long *object, long desired);
-void __ovld atomic_store_explicit(volatile atomic_long *object, long desired, memory_order order);
-void __ovld atomic_store_explicit(volatile atomic_long *object, long desired, memory_order order, memory_scope scope);
-void __ovld atomic_store(volatile atomic_ulong *object, ulong desired);
-void __ovld atomic_store_explicit(volatile atomic_ulong *object, ulong desired, memory_order order);
-void __ovld atomic_store_explicit(volatile atomic_ulong *object, ulong desired, memory_order order, memory_scope scope);
-#endif
-
-// atomic_load()
-
-int __ovld atomic_load(volatile atomic_int *object);
-int __ovld atomic_load_explicit(volatile atomic_int *object, memory_order order);
-int __ovld atomic_load_explicit(volatile atomic_int *object, memory_order order, memory_scope scope);
-uint __ovld atomic_load(volatile atomic_uint *object);
-uint __ovld atomic_load_explicit(volatile atomic_uint *object, memory_order order);
-uint __ovld atomic_load_explicit(volatile atomic_uint *object, memory_order order, memory_scope scope);
-float __ovld atomic_load(volatile atomic_float *object);
-float __ovld atomic_load_explicit(volatile atomic_float *object, memory_order order);
-float __ovld atomic_load_explicit(volatile atomic_float *object, memory_order order, memory_scope scope);
-#if defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
-#ifdef cl_khr_fp64
-double __ovld atomic_load(volatile atomic_double *object);
-double __ovld atomic_load_explicit(volatile atomic_double *object, memory_order order);
-double __ovld atomic_load_explicit(volatile atomic_double *object, memory_order order, memory_scope scope);
-#endif //cl_khr_fp64
-long __ovld atomic_load(volatile atomic_long *object);
-long __ovld atomic_load_explicit(volatile atomic_long *object, memory_order order);
-long __ovld atomic_load_explicit(volatile atomic_long *object, memory_order order, memory_scope scope);
-ulong __ovld atomic_load(volatile atomic_ulong *object);
-ulong __ovld atomic_load_explicit(volatile atomic_ulong *object, memory_order order);
-ulong __ovld atomic_load_explicit(volatile atomic_ulong *object, memory_order order, memory_scope scope);
-#endif
-
-// atomic_exchange()
-
-int __ovld atomic_exchange(volatile atomic_int *object, int desired);
-int __ovld atomic_exchange_explicit(volatile atomic_int *object, int desired, memory_order order);
-int __ovld atomic_exchange_explicit(volatile atomic_int *object, int desired, memory_order order, memory_scope scope);
-uint __ovld atomic_exchange(volatile atomic_uint *object, uint desired);
-uint __ovld atomic_exchange_explicit(volatile atomic_uint *object, uint desired, memory_order order);
-uint __ovld atomic_exchange_explicit(volatile atomic_uint *object, uint desired, memory_order order, memory_scope scope);
-float __ovld atomic_exchange(volatile atomic_float *object, float desired);
-float __ovld atomic_exchange_explicit(volatile atomic_float *object, float desired, memory_order order);
-float __ovld atomic_exchange_explicit(volatile atomic_float *object, float desired, memory_order order, memory_scope scope);
-#if defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
-#ifdef cl_khr_fp64
-double __ovld atomic_exchange(volatile atomic_double *object, double desired);
-double __ovld atomic_exchange_explicit(volatile atomic_double *object, double desired, memory_order order);
-double __ovld atomic_exchange_explicit(volatile atomic_double *object, double desired, memory_order order, memory_scope scope);
-#endif //cl_khr_fp64
-long __ovld atomic_exchange(volatile atomic_long *object, long desired);
-long __ovld atomic_exchange_explicit(volatile atomic_long *object, long desired, memory_order order);
-long __ovld atomic_exchange_explicit(volatile atomic_long *object, long desired, memory_order order, memory_scope scope);
-ulong __ovld atomic_exchange(volatile atomic_ulong *object, ulong desired);
-ulong __ovld atomic_exchange_explicit(volatile atomic_ulong *object, ulong desired, memory_order order);
-ulong __ovld atomic_exchange_explicit(volatile atomic_ulong *object, ulong desired, memory_order order, memory_scope scope);
-#endif
-
-// atomic_compare_exchange_strong() and atomic_compare_exchange_weak()
-
-bool __ovld atomic_compare_exchange_strong(volatile atomic_int *object, int *expected, int desired);
-bool __ovld atomic_compare_exchange_strong_explicit(volatile atomic_int *object, int *expected,
-                                                                                 int desired, memory_order success, memory_order failure);
-bool __ovld atomic_compare_exchange_strong_explicit(volatile atomic_int *object, int *expected,
-                                                                                 int desired, memory_order success, memory_order failure, memory_scope scope);
-bool __ovld atomic_compare_exchange_strong(volatile atomic_uint *object, uint *expected, uint desired);
-bool __ovld atomic_compare_exchange_strong_explicit(volatile atomic_uint *object, uint *expected,
-                                                                                 uint desired, memory_order success, memory_order failure);
-bool __ovld atomic_compare_exchange_strong_explicit(volatile atomic_uint *object, uint *expected,
-                                                                                 uint desired, memory_order success, memory_order failure, memory_scope scope);
-bool __ovld atomic_compare_exchange_weak(volatile atomic_int *object, int *expected, int desired);
-bool __ovld atomic_compare_exchange_weak_explicit(volatile atomic_int *object, int *expected,
-                                                                                 int desired, memory_order success, memory_order failure);
-bool __ovld atomic_compare_exchange_weak_explicit(volatile atomic_int *object, int *expected,
-                                                                                 int desired, memory_order success, memory_order failure, memory_scope scope);
-bool __ovld atomic_compare_exchange_weak(volatile atomic_uint *object, uint *expected, uint desired);
-bool __ovld atomic_compare_exchange_weak_explicit(volatile atomic_uint *object, uint *expected,
-                                                                                 uint desired, memory_order success, memory_order failure);
-bool __ovld atomic_compare_exchange_weak_explicit(volatile atomic_uint *object, uint *expected,
-                                                                                 uint desired, memory_order success, memory_order failure, memory_scope scope);
-bool __ovld atomic_compare_exchange_strong(volatile atomic_float *object, float *expected, float desired);
-bool __ovld atomic_compare_exchange_strong_explicit(volatile atomic_float *object, float *expected,
-                                                                                 float desired, memory_order success, memory_order failure);
-bool __ovld atomic_compare_exchange_strong_explicit(volatile atomic_float *object, float *expected,
-                                                                                 float desired, memory_order success, memory_order failure, memory_scope scope);
-bool __ovld atomic_compare_exchange_weak(volatile atomic_float *object, float *expected, float desired);
-bool __ovld atomic_compare_exchange_weak_explicit(volatile atomic_float *object, float *expected,
-                                                                                 float desired, memory_order success, memory_order failure);
-bool __ovld atomic_compare_exchange_weak_explicit(volatile atomic_float *object, float *expected,
-                                                                                 float desired, memory_order success, memory_order failure, memory_scope scope);
-#if defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
-#ifdef cl_khr_fp64
-bool __ovld atomic_compare_exchange_strong(volatile atomic_double *object, double *expected, double desired);
-bool __ovld atomic_compare_exchange_strong_explicit(volatile atomic_double *object, double *expected,
-                                                                                 double desired, memory_order success, memory_order failure);
-bool __ovld atomic_compare_exchange_strong_explicit(volatile atomic_double *object, double *expected,
-                                                                                 double desired, memory_order success, memory_order failure, memory_scope scope);
-bool __ovld atomic_compare_exchange_weak(volatile atomic_double *object, double *expected, double desired);
-bool __ovld atomic_compare_exchange_weak_explicit(volatile atomic_double *object, double *expected,
-                                                                                 double desired, memory_order success, memory_order failure);
-bool __ovld atomic_compare_exchange_weak_explicit(volatile atomic_double *object, double *expected,
-                                                                                 double desired, memory_order success, memory_order failure, memory_scope scope);
-#endif //cl_khr_fp64
-bool __ovld atomic_compare_exchange_strong(volatile atomic_long *object, long *expected, long desired);
-bool __ovld atomic_compare_exchange_strong_explicit(volatile atomic_long *object, long *expected,
-                                                                                 long desired, memory_order success, memory_order failure);
-bool __ovld atomic_compare_exchange_strong_explicit(volatile atomic_long *object, long *expected,
-                                                                                 long desired, memory_order success, memory_order failure, memory_scope scope);
-bool __ovld atomic_compare_exchange_weak(volatile atomic_long *object, long *expected, long desired);
-bool __ovld atomic_compare_exchange_weak_explicit(volatile atomic_long *object, long *expected,
-                                                                                 long desired, memory_order success, memory_order failure);
-bool __ovld atomic_compare_exchange_weak_explicit(volatile atomic_long *object, long *expected,
-                                                                                 long desired, memory_order success, memory_order failure, memory_scope scope);
-bool __ovld atomic_compare_exchange_strong(volatile atomic_ulong *object, ulong *expected, ulong desired);
-bool __ovld atomic_compare_exchange_strong_explicit(volatile atomic_ulong *object, ulong *expected,
-                                                                                 ulong desired, memory_order success, memory_order failure);
-bool __ovld atomic_compare_exchange_strong_explicit(volatile atomic_ulong *object, ulong *expected,
-                                                                                 ulong desired, memory_order success, memory_order failure, memory_scope scope);
-bool __ovld atomic_compare_exchange_weak(volatile atomic_ulong *object, ulong *expected, ulong desired);
-bool __ovld atomic_compare_exchange_weak_explicit(volatile atomic_ulong *object, ulong *expected,
-                                                                                 ulong desired, memory_order success, memory_order failure);
-bool __ovld atomic_compare_exchange_weak_explicit(volatile atomic_ulong *object, ulong *expected,
-                                                                                 ulong desired, memory_order success, memory_order failure, memory_scope scope);
-#endif
-
-// atomic_flag_test_and_set() and atomic_flag_clear()
-
-bool __ovld atomic_flag_test_and_set(volatile atomic_flag *object);
-bool __ovld atomic_flag_test_and_set_explicit(volatile atomic_flag *object, memory_order order);
-bool __ovld atomic_flag_test_and_set_explicit(volatile atomic_flag *object, memory_order order, memory_scope scope);
-void __ovld atomic_flag_clear(volatile atomic_flag *object);
-void __ovld atomic_flag_clear_explicit(volatile atomic_flag *object, memory_order order);
-void __ovld atomic_flag_clear_explicit(volatile atomic_flag *object, memory_order order, memory_scope scope);
-
-#endif //__OPENCL_C_VERSION__ >= CL_VERSION_2_0
 
 // OpenCL v1.1 s6.11.12, v1.2 s6.12.12, v2.0 s6.13.12 - Miscellaneous Vector Functions
 
@@ -14460,11 +11703,6 @@ half16 __ovld __cnfn shuffle2(half8 x, half8 y, ushort16 mask);
 half16 __ovld __cnfn shuffle2(half16 x, half16 y, ushort16 mask);
 #endif //cl_khr_fp16
 
-#if __OPENCL_C_VERSION__ >= CL_VERSION_1_2
-// OpenCL v1.2 s6.12.13, v2.0 s6.13.13 - printf
-
-int printf(__constant const char* st, ...);
-#endif
 
 // OpenCL v1.1 s6.11.3, v1.2 s6.12.14, v2.0 s6.13.14 - Image Read and Write Functions
 
@@ -14572,7 +11810,7 @@ int printf(__constant const char* st, ...);
  * only. The filter_mode specified in sampler
  * must be set to CLK_FILTER_NEAREST; otherwise
  * the values returned are undefined.
- 
+
  * The read_image{f|i|ui} calls that take
  * integer coordinates must use a sampler with
  * normalized coordinates set to
@@ -14649,84 +11887,6 @@ uint4 __purefn __ovld read_imageui(read_only image2d_array_msaa_t image, int4 co
 float __purefn __ovld read_imagef(read_only image2d_array_msaa_depth_t image, int4 coord, int sample);
 #endif //cl_khr_gl_msaa_sharing
 
-// OpenCL Extension v2.0 s9.18 - Mipmaps
-#if __OPENCL_C_VERSION__ >= CL_VERSION_2_0
-#ifdef cl_khr_mipmap_image
-
-float4 __purefn __ovld read_imagef(read_only image1d_t image, sampler_t sampler, float coord, float lod);
-int4 __purefn __ovld read_imagei(read_only image1d_t image, sampler_t sampler, float coord, float lod);
-uint4 __purefn __ovld read_imageui(read_only image1d_t image, sampler_t sampler, float coord, float lod);
-
-float4 __purefn __ovld read_imagef(read_only image1d_array_t image_array, sampler_t sampler, float2 coord, float lod);
-int4 __purefn __ovld read_imagei(read_only image1d_array_t image_array, sampler_t sampler, float2 coord, float lod);
-uint4 __purefn __ovld read_imageui(read_only image1d_array_t image_array, sampler_t sampler, float2 coord, float lod);
-
-float4 __purefn __ovld read_imagef(read_only image2d_t image, sampler_t sampler, float2 coord, float lod);
-int4 __purefn __ovld read_imagei(read_only image2d_t image, sampler_t sampler, float2 coord, float lod);
-uint4 __purefn __ovld read_imageui(read_only image2d_t image, sampler_t sampler, float2 coord, float lod);
-
-float __purefn __ovld read_imagef(read_only image2d_depth_t image, sampler_t sampler, float2 coord, float lod);
-
-float4 __purefn __ovld read_imagef(read_only image2d_array_t image_array, sampler_t sampler, float4 coord, float lod);
-int4 __purefn __ovld read_imagei(read_only image2d_array_t image_array, sampler_t sampler, float4 coord, float lod);
-uint4 __purefn __ovld read_imageui(read_only image2d_array_t image_array, sampler_t sampler, float4 coord, float lod);
-
-float __purefn __ovld read_imagef(read_only image2d_array_depth_t image, sampler_t sampler, float4 coord, float lod);
-
-float4 __purefn __ovld read_imagef(read_only image3d_t image, sampler_t sampler, float4 coord, float lod);
-int4 __purefn __ovld read_imagei(read_only image3d_t image, sampler_t sampler, float4 coord, float lod);
-uint4 __purefn __ovld read_imageui(read_only image3d_t image, sampler_t sampler, float4 coord, float lod);
-
-float4 __purefn __ovld read_imagef(read_only image1d_t image, sampler_t sampler, float coord, float gradientX, float gradientY);
-int4 __purefn __ovld read_imagei(read_only image1d_t image, sampler_t sampler, float coord, float gradientX, float gradientY);
-uint4 __purefn __ovld read_imageui(read_only image1d_t image, sampler_t sampler, float coord, float gradientX, float gradientY);
-
-float4 __purefn __ovld read_imagef(read_only image1d_array_t image_array, sampler_t sampler, float2 coord, float gradientX, float gradientY);
-int4 __purefn __ovld read_imagei(read_only image1d_array_t image_array, sampler_t sampler, float2 coord, float gradientX, float gradientY);
-uint4 __purefn __ovld read_imageui(read_only image1d_array_t image_array, sampler_t sampler, float2 coord, float gradientX, float gradientY);
-
-float4 __purefn __ovld read_imagef(read_only image2d_t image, sampler_t sampler, float2 coord, float2 gradientX, float2 gradientY);
-int4 __purefn __ovld read_imagei(read_only image2d_t image, sampler_t sampler, float2 coord, float2 gradientX, float2 gradientY);
-uint4 __purefn __ovld read_imageui(read_only image2d_t image, sampler_t sampler, float2 coord, float2 gradientX, float2 gradientY);
-
-float __purefn __ovld read_imagef(read_only image2d_depth_t image, sampler_t sampler, float2 coord, float2 gradientX, float2 gradientY);
-
-float4 __purefn __ovld read_imagef(read_only image2d_array_t image_array, sampler_t sampler, float4 coord, float2 gradientX, float2 gradientY);
-int4 __purefn __ovld read_imagei(read_only image2d_array_t image_array, sampler_t sampler, float4 coord, float2 gradientX, float2 gradientY);
-uint4 __purefn __ovld read_imageui(read_only image2d_array_t image_array, sampler_t sampler, float4 coord, float2 gradientX, float2 gradientY);
-
-float __purefn __ovld read_imagef(read_only image2d_array_depth_t image, sampler_t sampler, float4 coord, float2 gradientX, float2 gradientY);
-
-float4 __purefn __ovld read_imagef(read_only image3d_t image, sampler_t sampler, float4 coord, float4 gradientX, float4 gradientY);
-int4 __purefn __ovld read_imagei(read_only image3d_t image, sampler_t sampler, float4 coord, float4 gradientX, float4 gradientY);
-uint4 __purefn __ovld read_imageui(read_only image3d_t image, sampler_t sampler, float4 coord, float4 gradientX, float4 gradientY);
-
-float4 __purefn __ovld read_imagef(read_only image1d_t image, sampler_t sampler, float coord, float lod);
-int4 __purefn __ovld read_imagei(read_only image1d_t image, sampler_t sampler, float coord, float lod);
-uint4 __purefn __ovld read_imageui(read_only image1d_t image, sampler_t sampler, float coord, float lod);
-
-float4 __purefn __ovld read_imagef(read_only image1d_array_t image_array, sampler_t sampler, float2 coord, float lod);
-int4 __purefn __ovld read_imagei(read_only image1d_array_t image_array, sampler_t sampler, float2 coord, float lod);
-uint4 __purefn __ovld read_imageui(read_only image1d_array_t image_array, sampler_t sampler, float2 coord, float lod);
-
-float4 __purefn __ovld read_imagef(read_only image2d_t image, sampler_t sampler, float2 coord, float lod);
-int4 __purefn __ovld read_imagei(read_only image2d_t image, sampler_t sampler, float2 coord, float lod);
-uint4 __purefn __ovld read_imageui(read_only image2d_t image, sampler_t sampler, float2 coord, float lod);
-
-float __purefn __ovld read_imagef(read_only image2d_depth_t image, sampler_t sampler, float2 coord, float lod);
-
-float4 __purefn __ovld read_imagef(read_only image2d_array_t image_array, sampler_t sampler, float4 coord, float lod);
-int4 __purefn __ovld read_imagei(read_only image2d_array_t image_array, sampler_t sampler, float4 coord, float lod);
-uint4 __purefn __ovld read_imageui(read_only image2d_array_t image_array, sampler_t sampler, float4 coord, float lod);
-
-float __purefn __ovld read_imagef(read_only image2d_array_depth_t image, sampler_t sampler, float4 coord, float lod);
-
-float4 __purefn __ovld read_imagef(read_only image3d_t image, sampler_t sampler, float4 coord, float lod);
-int4 __purefn __ovld read_imagei(read_only image3d_t image, sampler_t sampler, float4 coord, float lod);
-uint4 __purefn __ovld read_imageui(read_only image3d_t image, sampler_t sampler, float4 coord, float lod);
-
-#endif //cl_khr_mipmap_image
-#endif //__OPENCL_C_VERSION__ >= CL_VERSION_2_0
 
 /**
 * Sampler-less Image Access
@@ -14780,137 +11940,6 @@ half4 __purefn __ovld read_imageh(read_only image1d_array_t image, int2 coord);
 half4 __purefn __ovld read_imageh(read_only image2d_array_t image, int4 coord);
 half4 __purefn __ovld read_imageh(read_only image1d_buffer_t image, int coord);
 #endif //cl_khr_fp16
-
-// Image read functions for read_write images
-#if __OPENCL_C_VERSION__ >= CL_VERSION_2_0
-float4 __purefn __ovld read_imagef(read_write image1d_t image, int coord);
-int4 __purefn __ovld read_imagei(read_write image1d_t image, int coord);
-uint4 __purefn __ovld read_imageui(read_write image1d_t image, int coord);
-
-float4 __purefn __ovld read_imagef(read_write image1d_buffer_t image, int coord);
-int4 __purefn __ovld read_imagei(read_write image1d_buffer_t image, int coord);
-uint4 __purefn __ovld read_imageui(read_write image1d_buffer_t image, int coord);
-
-float4 __purefn __ovld read_imagef(read_write image1d_array_t image, int2 coord);
-int4 __purefn __ovld read_imagei(read_write image1d_array_t image, int2 coord);
-uint4 __purefn __ovld read_imageui(read_write image1d_array_t image, int2 coord);
-
-float4 __purefn __ovld read_imagef(read_write image2d_t image, int2 coord);
-int4 __purefn __ovld read_imagei(read_write image2d_t image, int2 coord);
-uint4 __purefn __ovld read_imageui(read_write image2d_t image, int2 coord);
-
-float4 __purefn __ovld read_imagef(read_write image2d_array_t image, int4 coord);
-int4 __purefn __ovld read_imagei(read_write image2d_array_t image, int4 coord);
-uint4 __purefn __ovld read_imageui(read_write image2d_array_t image, int4 coord);
-
-float4 __purefn __ovld read_imagef(read_write image3d_t image, int4 coord);
-int4 __purefn __ovld read_imagei(read_write image3d_t image, int4 coord);
-uint4 __purefn __ovld read_imageui(read_write image3d_t image, int4 coord);
-
-#ifdef cl_khr_depth_images
-float __purefn __ovld read_imagef(read_write image2d_depth_t image, int2 coord);
-float __purefn __ovld read_imagef(read_write image2d_array_depth_t image, int4 coord);
-#endif //cl_khr_depth_images
-
-#if cl_khr_gl_msaa_sharing
-float4 __purefn __ovld read_imagef(read_write image2d_msaa_t image, int2 coord, int sample);
-int4 __purefn __ovld read_imagei(read_write image2d_msaa_t image, int2 coord, int sample);
-uint4 __purefn __ovld read_imageui(read_write image2d_msaa_t image, int2 coord, int sample);
-
-float4 __purefn __ovld read_imagef(read_write image2d_array_msaa_t image, int4 coord, int sample);
-int4 __purefn __ovld read_imagei(read_write image2d_array_msaa_t image, int4 coord, int sample);
-uint4 __purefn __ovld read_imageui(read_write image2d_array_msaa_t image, int4 coord, int sample);
-
-float __purefn __ovld read_imagef(read_write image2d_msaa_depth_t image, int2 coord, int sample);
-float __purefn __ovld read_imagef(read_write image2d_array_msaa_depth_t image, int4 coord, int sample);
-#endif //cl_khr_gl_msaa_sharing
-
-#if __OPENCL_C_VERSION__ >= CL_VERSION_2_0
-#ifdef cl_khr_mipmap_image
-float4 __purefn __ovld read_imagef(read_write image1d_t image, sampler_t sampler, float coord, float lod);
-int4 __purefn __ovld read_imagei(read_write image1d_t image, sampler_t sampler, float coord, float lod);
-uint4 __purefn __ovld read_imageui(read_write image1d_t image, sampler_t sampler, float coord, float lod);
-
-float4 __purefn __ovld read_imagef(read_write image1d_array_t image_array, sampler_t sampler, float2 coord, float lod);
-int4 __purefn __ovld read_imagei(read_write image1d_array_t image_array, sampler_t sampler, float2 coord, float lod);
-uint4 __purefn __ovld read_imageui(read_write image1d_array_t image_array, sampler_t sampler, float2 coord, float lod);
-
-float4 __purefn __ovld read_imagef(read_write image2d_t image, sampler_t sampler, float2 coord, float lod);
-int4 __purefn __ovld read_imagei(read_write image2d_t image, sampler_t sampler, float2 coord, float lod);
-uint4 __purefn __ovld read_imageui(read_write image2d_t image, sampler_t sampler, float2 coord, float lod);
-
-float __purefn __ovld read_imagef(read_write image2d_depth_t image, sampler_t sampler, float2 coord, float lod);
-
-float4 __purefn __ovld read_imagef(read_write image2d_array_t image_array, sampler_t sampler, float4 coord, float lod);
-int4 __purefn __ovld read_imagei(read_write image2d_array_t image_array, sampler_t sampler, float4 coord, float lod);
-uint4 __purefn __ovld read_imageui(read_write image2d_array_t image_array, sampler_t sampler, float4 coord, float lod);
-
-float __purefn __ovld read_imagef(read_write image2d_array_depth_t image, sampler_t sampler, float4 coord, float lod);
-
-float4 __purefn __ovld read_imagef(read_write image3d_t image, sampler_t sampler, float4 coord, float lod);
-int4 __purefn __ovld read_imagei(read_write image3d_t image, sampler_t sampler, float4 coord, float lod);
-uint4 __purefn __ovld read_imageui(read_write image3d_t image, sampler_t sampler, float4 coord, float lod);
-
-float4 __purefn __ovld read_imagef(read_write image1d_t image, sampler_t sampler, float coord, float gradientX, float gradientY);
-int4 __purefn __ovld read_imagei(read_write image1d_t image, sampler_t sampler, float coord, float gradientX, float gradientY);
-uint4 __purefn __ovld read_imageui(read_write image1d_t image, sampler_t sampler, float coord, float gradientX, float gradientY);
-
-float4 __purefn __ovld read_imagef(read_write image1d_array_t image_array, sampler_t sampler, float2 coord, float gradientX, float gradientY);
-int4 __purefn __ovld read_imagei(read_write image1d_array_t image_array, sampler_t sampler, float2 coord, float gradientX, float gradientY);
-uint4 __purefn __ovld read_imageui(read_write image1d_array_t image_array, sampler_t sampler, float2 coord, float gradientX, float gradientY);
-
-float4 __purefn __ovld read_imagef(read_write image2d_t image, sampler_t sampler, float2 coord, float2 gradientX, float2 gradientY);
-int4 __purefn __ovld read_imagei(read_write image2d_t image, sampler_t sampler, float2 coord, float2 gradientX, float2 gradientY);
-uint4 __purefn __ovld read_imageui(read_write image2d_t image, sampler_t sampler, float2 coord, float2 gradientX, float2 gradientY);
-
-float __purefn __ovld read_imagef(read_write image2d_depth_t image, sampler_t sampler, float2 coord, float2 gradientX, float2 gradientY);
-
-float4 __purefn __ovld read_imagef(read_write image2d_array_t image_array, sampler_t sampler, float4 coord, float2 gradientX, float2 gradientY);
-int4 __purefn __ovld read_imagei(read_write image2d_array_t image_array, sampler_t sampler, float4 coord, float2 gradientX, float2 gradientY);
-uint4 __purefn __ovld read_imageui(read_write image2d_array_t image_array, sampler_t sampler, float4 coord, float2 gradientX, float2 gradientY);
-
-float __purefn __ovld read_imagef(read_write image2d_array_depth_t image, sampler_t sampler, float4 coord, float2 gradientX, float2 gradientY);
-
-float4 __purefn __ovld read_imagef(read_write image3d_t image, sampler_t sampler, float4 coord, float4 gradientX, float4 gradientY);
-int4 __purefn __ovld read_imagei(read_write image3d_t image, sampler_t sampler, float4 coord, float4 gradientX, float4 gradientY);
-uint4 __purefn __ovld read_imageui(read_write image3d_t image, sampler_t sampler, float4 coord, float4 gradientX, float4 gradientY);
-
-float4 __purefn __ovld read_imagef(read_write image1d_t image, sampler_t sampler, float coord, float lod);
-int4 __purefn __ovld read_imagei(read_write image1d_t image, sampler_t sampler, float coord, float lod);
-uint4 __purefn __ovld read_imageui(read_write image1d_t image, sampler_t sampler, float coord, float lod);
-
-float4 __purefn __ovld read_imagef(read_write image1d_array_t image_array, sampler_t sampler, float2 coord, float lod);
-int4 __purefn __ovld read_imagei(read_write image1d_array_t image_array, sampler_t sampler, float2 coord, float lod);
-uint4 __purefn __ovld read_imageui(read_write image1d_array_t image_array, sampler_t sampler, float2 coord, float lod);
-
-float4 __purefn __ovld read_imagef(read_write image2d_t image, sampler_t sampler, float2 coord, float lod);
-int4 __purefn __ovld read_imagei(read_write image2d_t image, sampler_t sampler, float2 coord, float lod);
-uint4 __purefn __ovld read_imageui(read_write image2d_t image, sampler_t sampler, float2 coord, float lod);
-
-float __purefn __ovld read_imagef(read_write image2d_depth_t image, sampler_t sampler, float2 coord, float lod);
-
-float4 __purefn __ovld read_imagef(read_write image2d_array_t image_array, sampler_t sampler, float4 coord, float lod);
-int4 __purefn __ovld read_imagei(read_write image2d_array_t image_array, sampler_t sampler, float4 coord, float lod);
-uint4 __purefn __ovld read_imageui(read_write image2d_array_t image_array, sampler_t sampler, float4 coord, float lod);
-
-float __purefn __ovld read_imagef(read_write image2d_array_depth_t image, sampler_t sampler, float4 coord, float lod);
-
-float4 __purefn __ovld read_imagef(read_write image3d_t image, sampler_t sampler, float4 coord, float lod);
-int4 __purefn __ovld read_imagei(read_write image3d_t image, sampler_t sampler, float4 coord, float lod);
-uint4 __purefn __ovld read_imageui(read_write image3d_t image, sampler_t sampler, float4 coord, float lod);
-#endif //cl_khr_mipmap_image
-#endif //__OPENCL_C_VERSION__ >= CL_VERSION_2_0
-
-// Image read functions returning half4 type
-#ifdef cl_khr_fp16
-half4 __purefn __ovld read_imageh(read_write image1d_t image, int coord);
-half4 __purefn __ovld read_imageh(read_write image2d_t image, int2 coord);
-half4 __purefn __ovld read_imageh(read_write image3d_t image, int4 coord);
-half4 __purefn __ovld read_imageh(read_write image1d_array_t image, int2 coord);
-half4 __purefn __ovld read_imageh(read_write image2d_array_t image, int4 coord);
-half4 __purefn __ovld read_imageh(read_write image1d_buffer_t image, int coord);
-#endif //cl_khr_fp16
-#endif //__OPENCL_C_VERSION__ >= CL_VERSION_2_0
 
 /**
  * Write color value to location specified by coordinate
@@ -15010,36 +12039,6 @@ void __ovld write_imagef(write_only image2d_depth_t image, int2 coord, float col
 void __ovld write_imagef(write_only image2d_array_depth_t image, int4 coord, float color);
 #endif //cl_khr_depth_images
 
-// OpenCL Extension v2.0 s9.18 - Mipmaps
-#if __OPENCL_C_VERSION__ >= CL_VERSION_2_0
-#ifdef cl_khr_mipmap_image
-void __ovld write_imagef(write_only image1d_t image, int coord, int lod, float4 color);
-void __ovld write_imagei(write_only image1d_t image, int coord, int lod, int4 color);
-void __ovld write_imageui(write_only image1d_t image, int coord, int lod, uint4 color);
-
-void __ovld write_imagef(write_only image1d_array_t image_array, int2 coord, int lod, float4 color);
-void __ovld write_imagei(write_only image1d_array_t image_array, int2 coord, int lod, int4 color);
-void __ovld write_imageui(write_only image1d_array_t image_array, int2 coord, int lod, uint4 color);
-
-void __ovld write_imagef(write_only image2d_t image, int2 coord, int lod, float4 color);
-void __ovld write_imagei(write_only image2d_t image, int2 coord, int lod, int4 color);
-void __ovld write_imageui(write_only image2d_t image, int2 coord, int lod, uint4 color);
-
-void __ovld write_imagef(write_only image2d_array_t image_array, int4 coord, int lod, float4 color);
-void __ovld write_imagei(write_only image2d_array_t image_array, int4 coord, int lod, int4 color);
-void __ovld write_imageui(write_only image2d_array_t image_array, int4 coord, int lod, uint4 color);
-
-void __ovld write_imagef(write_only image2d_depth_t image, int2 coord, int lod, float color);
-void __ovld write_imagef(write_only image2d_array_depth_t image, int4 coord, int lod, float color);
-
-#ifdef cl_khr_3d_image_writes
-void __ovld write_imagef(write_only image3d_t image, int4 coord, int lod, float4 color);
-void __ovld write_imagei(write_only image3d_t image, int4 coord, int lod, int4 color);
-void __ovld write_imageui(write_only image3d_t image, int4 coord, int lod, uint4 color);
-#endif
-#endif //cl_khr_mipmap_image
-#endif //__OPENCL_C_VERSION__ >= CL_VERSION_2_0
-
 // Image write functions for half4 type
 #ifdef cl_khr_fp16
 void __ovld write_imageh(write_only image1d_t image, int coord, half4 color);
@@ -15052,95 +12051,17 @@ void __ovld write_imageh(write_only image2d_array_t image, int4 coord, half4 col
 void __ovld write_imageh(write_only image1d_buffer_t image, int coord, half4 color);
 #endif //cl_khr_fp16
 
-// Image write functions for read_write images
-#if __OPENCL_C_VERSION__ >= CL_VERSION_2_0
-void __ovld write_imagef(read_write image2d_t image, int2 coord, float4 color);
-void __ovld write_imagei(read_write image2d_t image, int2 coord, int4 color);
-void __ovld write_imageui(read_write image2d_t image, int2 coord, uint4 color);
-
-void __ovld write_imagef(read_write image2d_array_t image_array, int4 coord, float4 color);
-void __ovld write_imagei(read_write image2d_array_t image_array, int4 coord, int4 color);
-void __ovld write_imageui(read_write image2d_array_t image_array, int4 coord, uint4 color);
-
-void __ovld write_imagef(read_write image1d_t image, int coord, float4 color);
-void __ovld write_imagei(read_write image1d_t image, int coord, int4 color);
-void __ovld write_imageui(read_write image1d_t image, int coord, uint4 color);
-
-void __ovld write_imagef(read_write image1d_buffer_t image, int coord, float4 color);
-void __ovld write_imagei(read_write image1d_buffer_t image, int coord, int4 color);
-void __ovld write_imageui(read_write image1d_buffer_t image, int coord, uint4 color);
-
-void __ovld write_imagef(read_write image1d_array_t image_array, int2 coord, float4 color);
-void __ovld write_imagei(read_write image1d_array_t image_array, int2 coord, int4 color);
-void __ovld write_imageui(read_write image1d_array_t image_array, int2 coord, uint4 color);
-
-#ifdef cl_khr_3d_image_writes
-void __ovld write_imagef(read_write image3d_t image, int4 coord, float4 color);
-void __ovld write_imagei(read_write image3d_t image, int4 coord, int4 color);
-void __ovld write_imageui(read_write image3d_t image, int4 coord, uint4 color);
-#endif
-
-#ifdef cl_khr_depth_images
-void __ovld write_imagef(read_write image2d_depth_t image, int2 coord, float color);
-void __ovld write_imagef(read_write image2d_array_depth_t image, int4 coord, float color);
-#endif //cl_khr_depth_images
-
-#if __OPENCL_C_VERSION__ >= CL_VERSION_2_0
-#ifdef cl_khr_mipmap_image
-void __ovld write_imagef(read_write image1d_t image, int coord, int lod, float4 color);
-void __ovld write_imagei(read_write image1d_t image, int coord, int lod, int4 color);
-void __ovld write_imageui(read_write image1d_t image, int coord, int lod, uint4 color);
-
-void __ovld write_imagef(read_write image1d_array_t image_array, int2 coord, int lod, float4 color);
-void __ovld write_imagei(read_write image1d_array_t image_array, int2 coord, int lod, int4 color);
-void __ovld write_imageui(read_write image1d_array_t image_array, int2 coord, int lod, uint4 color);
-
-void __ovld write_imagef(read_write image2d_t image, int2 coord, int lod, float4 color);
-void __ovld write_imagei(read_write image2d_t image, int2 coord, int lod, int4 color);
-void __ovld write_imageui(read_write image2d_t image, int2 coord, int lod, uint4 color);
-
-void __ovld write_imagef(read_write image2d_array_t image_array, int4 coord, int lod, float4 color);
-void __ovld write_imagei(read_write image2d_array_t image_array, int4 coord, int lod, int4 color);
-void __ovld write_imageui(read_write image2d_array_t image_array, int4 coord, int lod, uint4 color);
-
-void __ovld write_imagef(read_write image2d_depth_t image, int2 coord, int lod, float color);
-void __ovld write_imagef(read_write image2d_array_depth_t image, int4 coord, int lod, float color);
-
-#ifdef cl_khr_3d_image_writes
-void __ovld write_imagef(read_write image3d_t image, int4 coord, int lod, float4 color);
-void __ovld write_imagei(read_write image3d_t image, int4 coord, int lod, int4 color);
-void __ovld write_imageui(read_write image3d_t image, int4 coord, int lod, uint4 color);
-#endif
-#endif //cl_khr_mipmap_image
-#endif //__OPENCL_C_VERSION__ >= CL_VERSION_2_0
-
-// Image write functions for half4 type
-#ifdef cl_khr_fp16
-void __ovld write_imageh(read_write image1d_t image, int coord, half4 color);
-void __ovld write_imageh(read_write image2d_t image, int2 coord, half4 color);
-#ifdef cl_khr_3d_image_writes
-void __ovld write_imageh(read_write image3d_t image, int4 coord, half4 color);
-#endif
-void __ovld write_imageh(read_write image1d_array_t image, int2 coord, half4 color);
-void __ovld write_imageh(read_write image2d_array_t image, int4 coord, half4 color);
-void __ovld write_imageh(read_write image1d_buffer_t image, int coord, half4 color);
-#endif //cl_khr_fp16
-#endif //__OPENCL_C_VERSION__ >= CL_VERSION_2_0
-
 // Note: In OpenCL v1.0/1.1/1.2, image argument of image query builtin functions does not have
 // access qualifier, which by default assume read_only access qualifier. Image query builtin
 // functions with write_only image argument should also be declared.
 
 /**
  * Return the image width in pixels.
- *
-  */
+ */
 int __ovld __cnfn get_image_width(read_only image1d_t image);
 int __ovld __cnfn get_image_width(read_only image1d_buffer_t image);
 int __ovld __cnfn get_image_width(read_only image2d_t image);
-#ifdef cl_khr_3d_image_writes
 int __ovld __cnfn get_image_width(read_only image3d_t image);
-#endif
 int __ovld __cnfn get_image_width(read_only image1d_array_t image);
 int __ovld __cnfn get_image_width(read_only image2d_array_t image);
 #ifdef cl_khr_depth_images
@@ -15172,23 +12093,539 @@ int __ovld __cnfn get_image_width(write_only image2d_msaa_depth_t image);
 int __ovld __cnfn get_image_width(write_only image2d_array_msaa_t image);
 int __ovld __cnfn get_image_width(write_only image2d_array_msaa_depth_t image);
 #endif //cl_khr_gl_msaa_sharing
-=======
-#include "opencl-c-common.h"
-#include "opencl-c-platform.h"
->>>>>>> 6221a2535428cc92454c91684d32ce1b21635dd7
 
-#if __OPENCL_C_VERSION__ >= CL_VERSION_2_0
-#include "opencl-c-20.h"
-#include "opencl-c-platform-20.h"
-#else
-#include "opencl-c-platform-12.h"
+/**
+ * Return the image height in pixels.
+ */
+int __ovld __cnfn get_image_height(read_only image2d_t image);
+int __ovld __cnfn get_image_height(read_only image3d_t image);
+int __ovld __cnfn get_image_height(read_only image2d_array_t image);
+#ifdef cl_khr_depth_images
+int __ovld __cnfn get_image_height(read_only image2d_depth_t image);
+int __ovld __cnfn get_image_height(read_only image2d_array_depth_t image);
+#endif //cl_khr_depth_images
+#if defined(cl_khr_gl_msaa_sharing)
+int __ovld __cnfn get_image_height(read_only image2d_msaa_t image);
+int __ovld __cnfn get_image_height(read_only image2d_msaa_depth_t image);
+int __ovld __cnfn get_image_height(read_only image2d_array_msaa_t image);
+int __ovld __cnfn get_image_height(read_only image2d_array_msaa_depth_t image);
+#endif //cl_khr_gl_msaa_sharing
+
+int __ovld __cnfn get_image_height(write_only image2d_t image);
+#ifdef cl_khr_3d_image_writes
+int __ovld __cnfn get_image_height(write_only image3d_t image);
+#endif
+int __ovld __cnfn get_image_height(write_only image2d_array_t image);
+#ifdef cl_khr_depth_images
+int __ovld __cnfn get_image_height(write_only image2d_depth_t image);
+int __ovld __cnfn get_image_height(write_only image2d_array_depth_t image);
+#endif //cl_khr_depth_images
+#if defined(cl_khr_gl_msaa_sharing)
+int __ovld __cnfn get_image_height(write_only image2d_msaa_t image);
+int __ovld __cnfn get_image_height(write_only image2d_msaa_depth_t image);
+int __ovld __cnfn get_image_height(write_only image2d_array_msaa_t image);
+int __ovld __cnfn get_image_height(write_only image2d_array_msaa_depth_t image);
+#endif //cl_khr_gl_msaa_sharing
+
+/**
+ * Return the image depth in pixels.
+ */
+int __ovld __cnfn get_image_depth(read_only image3d_t image);
+
+#ifdef cl_khr_3d_image_writes
+int __ovld __cnfn get_image_depth(write_only image3d_t image);
 #endif
 
-// Disable any extensions we may have enabled previously.
-#pragma OPENCL EXTENSION all : disable
 
-#undef __purefn
-#undef __cnfn
-#undef __ovld
+/**
+ * Return the channel data type. Valid values are:
+ * CLK_SNORM_INT8
+ * CLK_SNORM_INT16
+ * CLK_UNORM_INT8
+ * CLK_UNORM_INT16
+ * CLK_UNORM_SHORT_565
+ * CLK_UNORM_SHORT_555
+ * CLK_UNORM_SHORT_101010
+ * CLK_SIGNED_INT8
+ * CLK_SIGNED_INT16
+ * CLK_SIGNED_INT32
+ * CLK_UNSIGNED_INT8
+ * CLK_UNSIGNED_INT16
+ * CLK_UNSIGNED_INT32
+ * CLK_HALF_FLOAT
+ * CLK_FLOAT
+ */
 
-#endif //_OPENCL_H_
+//
+// Channel Datatype.
+//
+#define CLK_SNORM_INT8        0x10D0
+#define CLK_SNORM_INT16       0x10D1
+#define CLK_UNORM_INT8        0x10D2
+#define CLK_UNORM_INT16       0x10D3
+#define CLK_UNORM_SHORT_565   0x10D4
+#define CLK_UNORM_SHORT_555   0x10D5
+#define CLK_UNORM_INT_101010  0x10D6
+#define CLK_SIGNED_INT8       0x10D7
+#define CLK_SIGNED_INT16      0x10D8
+#define CLK_SIGNED_INT32      0x10D9
+#define CLK_UNSIGNED_INT8     0x10DA
+#define CLK_UNSIGNED_INT16    0x10DB
+#define CLK_UNSIGNED_INT32    0x10DC
+#define CLK_HALF_FLOAT        0x10DD
+#define CLK_FLOAT             0x10DE
+#define CLK_UNORM_INT24       0x10DF
+
+int __ovld __cnfn get_image_channel_data_type(read_only image1d_t image);
+int __ovld __cnfn get_image_channel_data_type(read_only image1d_buffer_t image);
+int __ovld __cnfn get_image_channel_data_type(read_only image2d_t image);
+int __ovld __cnfn get_image_channel_data_type(read_only image3d_t image);
+int __ovld __cnfn get_image_channel_data_type(read_only image1d_array_t image);
+int __ovld __cnfn get_image_channel_data_type(read_only image2d_array_t image);
+#ifdef cl_khr_depth_images
+int __ovld __cnfn get_image_channel_data_type(read_only image2d_depth_t image);
+int __ovld __cnfn get_image_channel_data_type(read_only image2d_array_depth_t image);
+#endif //cl_khr_depth_images
+#if defined(cl_khr_gl_msaa_sharing)
+int __ovld __cnfn get_image_channel_data_type(read_only image2d_msaa_t image);
+int __ovld __cnfn get_image_channel_data_type(read_only image2d_msaa_depth_t image);
+int __ovld __cnfn get_image_channel_data_type(read_only image2d_array_msaa_t image);
+int __ovld __cnfn get_image_channel_data_type(read_only image2d_array_msaa_depth_t image);
+#endif //cl_khr_gl_msaa_sharing
+
+int __ovld __cnfn get_image_channel_data_type(write_only image1d_t image);
+int __ovld __cnfn get_image_channel_data_type(write_only image1d_buffer_t image);
+int __ovld __cnfn get_image_channel_data_type(write_only image2d_t image);
+#ifdef cl_khr_3d_image_writes
+int __ovld __cnfn get_image_channel_data_type(write_only image3d_t image);
+#endif
+int __ovld __cnfn get_image_channel_data_type(write_only image1d_array_t image);
+int __ovld __cnfn get_image_channel_data_type(write_only image2d_array_t image);
+#ifdef cl_khr_depth_images
+int __ovld __cnfn get_image_channel_data_type(write_only image2d_depth_t image);
+int __ovld __cnfn get_image_channel_data_type(write_only image2d_array_depth_t image);
+#endif //cl_khr_depth_images
+#if defined(cl_khr_gl_msaa_sharing)
+int __ovld __cnfn get_image_channel_data_type(write_only image2d_msaa_t image);
+int __ovld __cnfn get_image_channel_data_type(write_only image2d_msaa_depth_t image);
+int __ovld __cnfn get_image_channel_data_type(write_only image2d_array_msaa_t image);
+int __ovld __cnfn get_image_channel_data_type(write_only image2d_array_msaa_depth_t image);
+#endif //cl_khr_gl_msaa_sharing
+
+/**
+ * Return the image channel order. Valid values are:
+ * CLK_A
+ * CLK_R
+ * CLK_Rx
+ * CLK_RG
+ * CLK_RGx
+ * CLK_RA
+ * CLK_RGB
+ * CLK_RGBx
+ * CLK_RGBA
+ * CLK_ARGB
+ * CLK_BGRA
+ * CLK_INTENSITY
+ * CLK_LUMINANCE
+ */
+// Channel order, numbering must be aligned with cl_channel_order in cl.h
+//
+#define CLK_R         0x10B0
+#define CLK_A         0x10B1
+#define CLK_RG        0x10B2
+#define CLK_RA        0x10B3
+#define CLK_RGB       0x10B4
+#define CLK_RGBA      0x10B5
+#define CLK_BGRA      0x10B6
+#define CLK_ARGB      0x10B7
+#define CLK_INTENSITY 0x10B8
+#define CLK_LUMINANCE 0x10B9
+#define CLK_Rx                0x10BA
+#define CLK_RGx               0x10BB
+#define CLK_RGBx              0x10BC
+#define CLK_DEPTH             0x10BD
+#define CLK_DEPTH_STENCIL     0x10BE
+
+int __ovld __cnfn get_image_channel_order(read_only image1d_t image);
+int __ovld __cnfn get_image_channel_order(read_only image1d_buffer_t image);
+int __ovld __cnfn get_image_channel_order(read_only image2d_t image);
+int __ovld __cnfn get_image_channel_order(read_only image3d_t image);
+int __ovld __cnfn get_image_channel_order(read_only image1d_array_t image);
+int __ovld __cnfn get_image_channel_order(read_only image2d_array_t image);
+#ifdef cl_khr_depth_images
+int __ovld __cnfn get_image_channel_order(read_only image2d_depth_t image);
+int __ovld __cnfn get_image_channel_order(read_only image2d_array_depth_t image);
+#endif //cl_khr_depth_images
+#if defined(cl_khr_gl_msaa_sharing)
+int __ovld __cnfn get_image_channel_order(read_only image2d_msaa_t image);
+int __ovld __cnfn get_image_channel_order(read_only image2d_msaa_depth_t image);
+int __ovld __cnfn get_image_channel_order(read_only image2d_array_msaa_t image);
+int __ovld __cnfn get_image_channel_order(read_only image2d_array_msaa_depth_t image);
+#endif //cl_khr_gl_msaa_sharing
+
+int __ovld __cnfn get_image_channel_order(write_only image1d_t image);
+int __ovld __cnfn get_image_channel_order(write_only image1d_buffer_t image);
+int __ovld __cnfn get_image_channel_order(write_only image2d_t image);
+#ifdef cl_khr_3d_image_writes
+int __ovld __cnfn get_image_channel_order(write_only image3d_t image);
+#endif
+int __ovld __cnfn get_image_channel_order(write_only image1d_array_t image);
+int __ovld __cnfn get_image_channel_order(write_only image2d_array_t image);
+#ifdef cl_khr_depth_images
+int __ovld __cnfn get_image_channel_order(write_only image2d_depth_t image);
+int __ovld __cnfn get_image_channel_order(write_only image2d_array_depth_t image);
+#endif //cl_khr_depth_images
+#if defined(cl_khr_gl_msaa_sharing)
+int __ovld __cnfn get_image_channel_order(write_only image2d_msaa_t image);
+int __ovld __cnfn get_image_channel_order(write_only image2d_msaa_depth_t image);
+int __ovld __cnfn get_image_channel_order(write_only image2d_array_msaa_t image);
+int __ovld __cnfn get_image_channel_order(write_only image2d_array_msaa_depth_t image);
+#endif //cl_khr_gl_msaa_sharing
+
+/**
+ * Return the 2D image width and height as an int2
+ * type. The width is returned in the x component, and
+ * the height in the y component.
+ */
+int2 __ovld __cnfn get_image_dim(read_only image2d_t image);
+int2 __ovld __cnfn get_image_dim(read_only image2d_array_t image);
+#ifdef cl_khr_depth_images
+int2 __ovld __cnfn get_image_dim(read_only image2d_array_depth_t image);
+int2 __ovld __cnfn get_image_dim(read_only image2d_depth_t image);
+#endif //cl_khr_depth_images
+#if defined(cl_khr_gl_msaa_sharing)
+int2 __ovld __cnfn get_image_dim(read_only image2d_msaa_t image);
+int2 __ovld __cnfn get_image_dim(read_only image2d_msaa_depth_t image);
+int2 __ovld __cnfn get_image_dim(read_only image2d_array_msaa_t image);
+int2 __ovld __cnfn get_image_dim(read_only image2d_array_msaa_depth_t image);
+#endif //cl_khr_gl_msaa_sharing
+
+int2 __ovld __cnfn get_image_dim(write_only image2d_t image);
+int2 __ovld __cnfn get_image_dim(write_only image2d_array_t image);
+#ifdef cl_khr_depth_images
+int2 __ovld __cnfn get_image_dim(write_only image2d_array_depth_t image);
+int2 __ovld __cnfn get_image_dim(write_only image2d_depth_t image);
+#endif //cl_khr_depth_images
+#if defined(cl_khr_gl_msaa_sharing)
+int2 __ovld __cnfn get_image_dim(write_only image2d_msaa_t image);
+int2 __ovld __cnfn get_image_dim(write_only image2d_msaa_depth_t image);
+int2 __ovld __cnfn get_image_dim(write_only image2d_array_msaa_t image);
+int2 __ovld __cnfn get_image_dim(write_only image2d_array_msaa_depth_t image);
+#endif //cl_khr_gl_msaa_sharing
+
+/**
+ * Return the 3D image width, height, and depth as an
+ * int4 type. The width is returned in the x
+ * component, height in the y component, depth in the z
+ * component and the w component is 0.
+ */
+int4 __ovld __cnfn get_image_dim(read_only image3d_t image);
+#ifdef cl_khr_3d_image_writes
+int4 __ovld __cnfn get_image_dim(write_only image3d_t image);
+#endif
+
+/**
+* Return the number of samples associated with image
+*/
+#if defined(cl_khr_gl_msaa_sharing)
+int __ovld get_image_num_samples(read_only image2d_msaa_t image);
+int __ovld get_image_num_samples(read_only image2d_msaa_depth_t image);
+int __ovld get_image_num_samples(read_only image2d_array_msaa_depth_t image);
+int __ovld get_image_num_samples(read_only image2d_array_msaa_t image);
+int __ovld get_image_num_samples(read_only image2d_array_msaa_depth_t image);
+
+int __ovld get_image_num_samples(write_only image2d_msaa_t image);
+int __ovld get_image_num_samples(write_only image2d_msaa_depth_t image);
+int __ovld get_image_num_samples(write_only image2d_array_msaa_depth_t image);
+int __ovld get_image_num_samples(write_only image2d_array_msaa_t image);
+int __ovld get_image_num_samples(write_only image2d_array_msaa_depth_t image);
+#endif
+
+
+// OpenCL Extension v2.0 s9.17 - Sub-groups
+
+#if defined(cl_intel_subgroups) || defined(cl_khr_subgroups)
+// Shared Sub Group Functions
+uint    __ovld get_sub_group_size(void);
+uint    __ovld get_max_sub_group_size(void);
+uint    __ovld get_num_sub_groups(void);
+uint    __ovld get_sub_group_id(void);
+uint    __ovld get_sub_group_local_id(void);
+
+void    __ovld __conv sub_group_barrier(cl_mem_fence_flags flags);
+
+int     __ovld __conv sub_group_all(int predicate);
+int     __ovld __conv sub_group_any(int predicate);
+
+int     __ovld __conv sub_group_broadcast(int   x, uint sub_group_local_id);
+uint    __ovld __conv sub_group_broadcast(uint  x, uint sub_group_local_id);
+long    __ovld __conv sub_group_broadcast(long  x, uint sub_group_local_id);
+ulong   __ovld __conv sub_group_broadcast(ulong x, uint sub_group_local_id);
+float   __ovld __conv sub_group_broadcast(float x, uint sub_group_local_id);
+
+int     __ovld __conv sub_group_reduce_add(int   x);
+uint    __ovld __conv sub_group_reduce_add(uint  x);
+long    __ovld __conv sub_group_reduce_add(long  x);
+ulong   __ovld __conv sub_group_reduce_add(ulong x);
+float   __ovld __conv sub_group_reduce_add(float x);
+int     __ovld __conv sub_group_reduce_min(int   x);
+uint    __ovld __conv sub_group_reduce_min(uint  x);
+long    __ovld __conv sub_group_reduce_min(long  x);
+ulong   __ovld __conv sub_group_reduce_min(ulong x);
+float   __ovld __conv sub_group_reduce_min(float x);
+int     __ovld __conv sub_group_reduce_max(int   x);
+uint    __ovld __conv sub_group_reduce_max(uint  x);
+long    __ovld __conv sub_group_reduce_max(long  x);
+ulong   __ovld __conv sub_group_reduce_max(ulong x);
+float   __ovld __conv sub_group_reduce_max(float x);
+
+int     __ovld __conv sub_group_scan_exclusive_add(int   x);
+uint    __ovld __conv sub_group_scan_exclusive_add(uint  x);
+long    __ovld __conv sub_group_scan_exclusive_add(long  x);
+ulong   __ovld __conv sub_group_scan_exclusive_add(ulong x);
+float   __ovld __conv sub_group_scan_exclusive_add(float x);
+int     __ovld __conv sub_group_scan_exclusive_min(int   x);
+uint    __ovld __conv sub_group_scan_exclusive_min(uint  x);
+long    __ovld __conv sub_group_scan_exclusive_min(long  x);
+ulong   __ovld __conv sub_group_scan_exclusive_min(ulong x);
+float   __ovld __conv sub_group_scan_exclusive_min(float x);
+int     __ovld __conv sub_group_scan_exclusive_max(int   x);
+uint    __ovld __conv sub_group_scan_exclusive_max(uint  x);
+long    __ovld __conv sub_group_scan_exclusive_max(long  x);
+ulong   __ovld __conv sub_group_scan_exclusive_max(ulong x);
+float   __ovld __conv sub_group_scan_exclusive_max(float x);
+
+int     __ovld __conv sub_group_scan_inclusive_add(int   x);
+uint    __ovld __conv sub_group_scan_inclusive_add(uint  x);
+long    __ovld __conv sub_group_scan_inclusive_add(long  x);
+ulong   __ovld __conv sub_group_scan_inclusive_add(ulong x);
+float   __ovld __conv sub_group_scan_inclusive_add(float x);
+int     __ovld __conv sub_group_scan_inclusive_min(int   x);
+uint    __ovld __conv sub_group_scan_inclusive_min(uint  x);
+long    __ovld __conv sub_group_scan_inclusive_min(long  x);
+ulong   __ovld __conv sub_group_scan_inclusive_min(ulong x);
+float   __ovld __conv sub_group_scan_inclusive_min(float x);
+int     __ovld __conv sub_group_scan_inclusive_max(int   x);
+uint    __ovld __conv sub_group_scan_inclusive_max(uint  x);
+long    __ovld __conv sub_group_scan_inclusive_max(long  x);
+ulong   __ovld __conv sub_group_scan_inclusive_max(ulong x);
+float   __ovld __conv sub_group_scan_inclusive_max(float x);
+
+#ifdef cl_khr_fp16
+half    __ovld __conv sub_group_broadcast(half x, uint sub_group_local_id);
+half    __ovld __conv sub_group_reduce_add(half x);
+half    __ovld __conv sub_group_reduce_min(half x);
+half    __ovld __conv sub_group_reduce_max(half x);
+half    __ovld __conv sub_group_scan_exclusive_add(half x);
+half    __ovld __conv sub_group_scan_exclusive_min(half x);
+half    __ovld __conv sub_group_scan_exclusive_max(half x);
+half    __ovld __conv sub_group_scan_inclusive_add(half x);
+half    __ovld __conv sub_group_scan_inclusive_min(half x);
+half    __ovld __conv sub_group_scan_inclusive_max(half x);
+#endif //cl_khr_fp16
+
+#ifdef cl_khr_fp64
+double  __ovld __conv sub_group_broadcast(double x, uint sub_group_local_id);
+double  __ovld __conv sub_group_reduce_add(double x);
+double  __ovld __conv sub_group_reduce_min(double x);
+double  __ovld __conv sub_group_reduce_max(double x);
+double  __ovld __conv sub_group_scan_exclusive_add(double x);
+double  __ovld __conv sub_group_scan_exclusive_min(double x);
+double  __ovld __conv sub_group_scan_exclusive_max(double x);
+double  __ovld __conv sub_group_scan_inclusive_add(double x);
+double  __ovld __conv sub_group_scan_inclusive_min(double x);
+double  __ovld __conv sub_group_scan_inclusive_max(double x);
+#endif //cl_khr_fp64
+
+#endif //cl_khr_subgroups cl_intel_subgroups
+
+#ifdef cl_amd_media_ops
+uint __ovld amd_bitalign(uint a, uint b, uint c);
+uint2 __ovld amd_bitalign(uint2 a, uint2 b, uint2 c);
+uint3 __ovld amd_bitalign(uint3 a, uint3 b, uint3 c);
+uint4 __ovld amd_bitalign(uint4 a, uint4 b, uint4 c);
+uint8 __ovld amd_bitalign(uint8 a, uint8 b, uint8 c);
+uint16 __ovld amd_bitalign(uint16 a, uint16 b, uint16 c);
+
+uint __ovld amd_bytealign(uint a, uint b, uint c);
+uint2 __ovld amd_bytealign(uint2 a, uint2 b, uint2 c);
+uint3 __ovld amd_bytealign(uint3 a, uint3 b, uint3 c);
+uint4 __ovld amd_bytealign(uint4 a, uint4 b, uint4 c);
+uint8 __ovld amd_bytealign(uint8 a, uint8 b, uint8 c);
+uint16 __ovld amd_bytealign(uint16 a, uint16 b, uint16 c);
+
+uint __ovld amd_lerp(uint a, uint b, uint c);
+uint2 __ovld amd_lerp(uint2 a, uint2 b, uint2 c);
+uint3 __ovld amd_lerp(uint3 a, uint3 b, uint3 c);
+uint4 __ovld amd_lerp(uint4 a, uint4 b, uint4 c);
+uint8 __ovld amd_lerp(uint8 a, uint8 b, uint8 c);
+uint16 __ovld amd_lerp(uint16 a, uint16 b, uint16 c);
+
+uint __ovld amd_pack(float4 v);
+
+uint __ovld amd_sad4(uint4 x, uint4 y, uint z);
+
+uint __ovld amd_sadhi(uint a, uint b, uint c);
+uint2 __ovld amd_sadhi(uint2 a, uint2 b, uint2 c);
+uint3 __ovld amd_sadhi(uint3 a, uint3 b, uint3 c);
+uint4 __ovld amd_sadhi(uint4 a, uint4 b, uint4 c);
+uint8 __ovld amd_sadhi(uint8 a, uint8 b, uint8 c);
+uint16 __ovld amd_sadhi(uint16 a, uint16 b, uint16 c);
+
+uint __ovld amd_sad(uint a, uint b, uint c);
+uint2 __ovld amd_sad(uint2 a, uint2 b, uint2 c);
+uint3 __ovld amd_sad(uint3 a, uint3 b, uint3 c);
+uint4 __ovld amd_sad(uint4 a, uint4 b, uint4 c);
+uint8 __ovld amd_sad(uint8 a, uint8 b, uint8 c);
+uint16 __ovld amd_sad(uint16 a, uint16 b, uint16 c);
+float __ovld amd_unpack0(uint a);
+float2 __ovld amd_unpack0(uint2 a);
+float3 __ovld amd_unpack0(uint3 a);
+float4 __ovld amd_unpack0(uint4 a);
+float8 __ovld amd_unpack0(uint8 a);
+float16 __ovld amd_unpack0(uint16 a);
+
+float __ovld amd_unpack1(uint a);
+float2 __ovld amd_unpack1(uint2 a);
+float3 __ovld amd_unpack1(uint3 a);
+float4 __ovld amd_unpack1(uint4 a);
+float8 __ovld amd_unpack1(uint8 a);
+float16 __ovld amd_unpack1(uint16 a);
+
+float __ovld amd_unpack2(uint a);
+float2 __ovld amd_unpack2(uint2 a);
+float3 __ovld amd_unpack2(uint3 a);
+float4 __ovld amd_unpack2(uint4 a);
+float8 __ovld amd_unpack2(uint8 a);
+float16 __ovld amd_unpack2(uint16 a);
+
+float __ovld amd_unpack3(uint a);
+float2 __ovld amd_unpack3(uint2 a);
+float3 __ovld amd_unpack3(uint3 a);
+float4 __ovld amd_unpack3(uint4 a);
+float8 __ovld amd_unpack3(uint8 a);
+float16 __ovld amd_unpack3(uint16 a);
+#endif // cl_amd_media_ops
+
+#ifdef cl_amd_media_ops2
+int __ovld amd_bfe(int src0, uint src1, uint src2);
+int2 __ovld amd_bfe(int2 src0, uint2 src1, uint2 src2);
+int3 __ovld amd_bfe(int3 src0, uint3 src1, uint3 src2);
+int4 __ovld amd_bfe(int4 src0, uint4 src1, uint4 src2);
+int8 __ovld amd_bfe(int8 src0, uint8 src1, uint8 src2);
+int16 __ovld amd_bfe(int16 src0, uint16 src1, uint16 src2);
+
+uint __ovld amd_bfe(uint src0, uint src1, uint src2);
+uint2 __ovld amd_bfe(uint2 src0, uint2 src1, uint2 src2);
+uint3 __ovld amd_bfe(uint3 src0, uint3 src1, uint3 src2);
+uint4 __ovld amd_bfe(uint4 src0, uint4 src1, uint4 src2);
+uint8 __ovld amd_bfe(uint8 src0, uint8 src1, uint8 src2);
+uint16 __ovld amd_bfe(uint16 src0, uint16 src1, uint16 src2);
+
+uint __ovld amd_bfm(uint src0, uint src1);
+uint2 __ovld amd_bfm(uint2 src0, uint2 src1);
+uint3 __ovld amd_bfm(uint3 src0, uint3 src1);
+uint4 __ovld amd_bfm(uint4 src0, uint4 src1);
+uint8 __ovld amd_bfm(uint8 src0, uint8 src1);
+uint16 __ovld amd_bfm(uint16 src0, uint16 src1);
+
+float __ovld amd_max3(float src0, float src1, float src2);
+float2 __ovld amd_max3(float2 src0, float2 src1, float2 src2);
+float3 __ovld amd_max3(float3 src0, float3 src1, float3 src2);
+float4 __ovld amd_max3(float4 src0, float4 src1, float4 src2);
+float8 __ovld amd_max3(float8 src0, float8 src1, float8 src2);
+float16 __ovld amd_max3(float16 src0, float16 src1, float16 src2);
+
+int __ovld amd_max3(int src0, int src1, int src2);
+int2 __ovld amd_max3(int2 src0, int2 src1, int2 src2);
+int3 __ovld amd_max3(int3 src0, int3 src1, int3 src2);
+int4 __ovld amd_max3(int4 src0, int4 src1, int4 src2);
+int8 __ovld amd_max3(int8 src0, int8 src1, int8 src2);
+int16 __ovld amd_max3(int16 src0, int16 src1, int16 src2);
+
+uint __ovld amd_max3(uint src0, uint src1, uint src2);
+uint2 __ovld amd_max3(uint2 src0, uint2 src1, uint2 src2);
+uint3 __ovld amd_max3(uint3 src0, uint3 src1, uint3 src2);
+uint4 __ovld amd_max3(uint4 src0, uint4 src1, uint4 src2);
+uint8 __ovld amd_max3(uint8 src0, uint8 src1, uint8 src2);
+uint16 __ovld amd_max3(uint16 src0, uint16 src1, uint16 src2);
+
+float __ovld amd_median3(float src0, float src1, float src2);
+float2 __ovld amd_median3(float2 src0, float2 src1, float2 src2);
+float3 __ovld amd_median3(float3 src0, float3 src1, float3 src2);
+float4 __ovld amd_median3(float4 src0, float4 src1, float4 src2);
+float8 __ovld amd_median3(float8 src0, float8 src1, float8 src2);
+float16 __ovld amd_median3(float16 src0, float16 src1, float16 src2);
+
+int __ovld amd_median3(int src0, int src1, int src2);
+int2 __ovld amd_median3(int2 src0, int2 src1, int2 src2);
+int3 __ovld amd_median3(int3 src0, int3 src1, int3 src2);
+int4 __ovld amd_median3(int4 src0, int4 src1, int4 src2);
+int8 __ovld amd_median3(int8 src0, int8 src1, int8 src2);
+int16 __ovld amd_median3(int16 src0, int16 src1, int16 src2);
+
+uint __ovld amd_median3(uint src0, uint src1, uint src2);
+uint2 __ovld amd_median3(uint2 src0, uint2 src1, uint2 src2);
+uint3 __ovld amd_median3(uint3 src0, uint3 src1, uint3 src2);
+uint4 __ovld amd_median3(uint4 src0, uint4 src1, uint4 src2);
+uint8 __ovld amd_median3(uint8 src0, uint8 src1, uint8 src2);
+uint16 __ovld amd_median3(uint16 src0, uint16 src1, uint16 src2);
+
+float __ovld amd_min3(float src0, float src1, float src);
+float2 __ovld amd_min3(float2 src0, float2 src1, float2 src);
+float3 __ovld amd_min3(float3 src0, float3 src1, float3 src);
+float4 __ovld amd_min3(float4 src0, float4 src1, float4 src);
+float8 __ovld amd_min3(float8 src0, float8 src1, float8 src);
+float16 __ovld amd_min3(float16 src0, float16 src1, float16 src);
+
+int __ovld amd_min3(int src0, int src1, int src2);
+int2 __ovld amd_min3(int2 src0, int2 src1, int2 src2);
+int3 __ovld amd_min3(int3 src0, int3 src1, int3 src2);
+int4 __ovld amd_min3(int4 src0, int4 src1, int4 src2);
+int8 __ovld amd_min3(int8 src0, int8 src1, int8 src2);
+int16 __ovld amd_min3(int16 src0, int16 src1, int16 src2);
+
+uint __ovld amd_min3(uint src0, uint src1, uint src2);
+uint2 __ovld amd_min3(uint2 src0, uint2 src1, uint2 src2);
+uint3 __ovld amd_min3(uint3 src0, uint3 src1, uint3 src2);
+uint4 __ovld amd_min3(uint4 src0, uint4 src1, uint4 src2);
+uint8 __ovld amd_min3(uint8 src0, uint8 src1, uint8 src2);
+uint16 __ovld amd_min3(uint16 src0, uint16 src1, uint16 src2);
+
+ulong __ovld amd_mqsad(ulong src0, uint src1, ulong src2);
+ulong2 __ovld amd_mqsad(ulong2 src0, uint2 src1, ulong2 src2);
+ulong3 __ovld amd_mqsad(ulong3 src0, uint3 src1, ulong3 src2);
+ulong4 __ovld amd_mqsad(ulong4 src0, uint4 src1, ulong4 src2);
+ulong8 __ovld amd_mqsad(ulong8 src0, uint8 src1, ulong8 src2);
+ulong16 __ovld amd_mqsad(ulong16 src0, uint16 src1, ulong16 src2);
+
+ulong __ovld amd_qsad(ulong src0, uint src1, ulong src2);
+ulong2 __ovld amd_qsad(ulong2 src0, uint2 src1, ulong2 src2);
+ulong3 __ovld amd_qsad(ulong3 src0, uint3 src1, ulong3 src2);
+ulong4 __ovld amd_qsad(ulong4 src0, uint4 src1, ulong4 src2);
+ulong8 __ovld amd_qsad(ulong8 src0, uint8 src1, ulong8 src2);
+ulong16 __ovld amd_qsad(ulong16 src0, uint16 src1, ulong16 src2);
+
+uint __ovld amd_msad(uint src0, uint src1, uint src2);
+uint2 __ovld amd_msad(uint2 src0, uint2 src1, uint2 src2);
+uint3 __ovld amd_msad(uint3 src0, uint3 src1, uint3 src2);
+uint4 __ovld amd_msad(uint4 src0, uint4 src1, uint4 src2);
+uint8 __ovld amd_msad(uint8 src0, uint8 src1, uint8 src2);
+uint16 __ovld amd_msad(uint16 src0, uint16 src1, uint16 src2);
+
+uint __ovld amd_sadd(uint src0, uint src1, uint src2);
+uint2 __ovld amd_sadd(uint2 src0, uint2 src1, uint2 src2);
+uint3 __ovld amd_sadd(uint3 src0, uint3 src1, uint3 src2);
+uint4 __ovld amd_sadd(uint4 src0, uint4 src1, uint4 src2);
+uint8 __ovld amd_sadd(uint8 src0, uint8 src1, uint8 src2);
+uint16 __ovld amd_sadd(uint16 src0, uint16 src1, uint16 src2);
+
+uint __ovld amd_sadw(uint src0, uint src1, uint src2);
+uint2 __ovld amd_sadw(uint2 src0, uint2 src1, uint2 src2);
+uint3 __ovld amd_sadw(uint3 src0, uint3 src1, uint3 src2);
+uint4 __ovld amd_sadw(uint4 src0, uint4 src1, uint4 src2);
+uint8 __ovld amd_sadw(uint8 src0, uint8 src1, uint8 src2);
+uint16 __ovld amd_sadw(uint16 src0, uint16 src1, uint16 src2);
+#endif // cl_amd_media_ops2
+
+#endif //_OPENCL_COMMON_H_
