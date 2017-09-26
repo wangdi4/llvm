@@ -5501,6 +5501,12 @@ def err_offsetof_field_of_virtual_base : Error<
 def warn_sub_ptr_zero_size_types : Warning<
   "subtraction of pointers to type %0 of zero size has undefined behavior">,
   InGroup<PointerArith>;
+def warn_pointer_arith_null_ptr : Warning<
+  "performing pointer arithmetic on a null pointer has undefined behavior%select{| if the offset is nonzero}0">,
+  InGroup<NullPointerArithmetic>, DefaultIgnore;
+def warn_gnu_null_ptr_arith : Warning<
+  "arithmetic on a null pointer treated as a cast from integer to pointer is a GNU extension">,
+  InGroup<NullPointerArithmetic>, DefaultIgnore;
 
 def warn_floatingpoint_eq : Warning<
   "comparing floating point with == or != is unsafe">,
@@ -8238,12 +8244,12 @@ def err_c99_array_usage_cxx : Error<
   "feature, not permitted in C++">;
 def err_type_unsupported : Error<
   "%0 is not supported on this target">;
-def err_nsconsumed_attribute_mismatch : Error<
+def warn_nsconsumed_attribute_mismatch : Warning<
   "overriding method has mismatched ns_consumed attribute on its"
-  " parameter">;
-def err_nsreturns_retained_attribute_mismatch : Error<
+  " parameter">, InGroup<NSConsumedMismatch>;
+def warn_nsreturns_retained_attribute_mismatch : Warning<
   "overriding method has mismatched ns_returns_%select{not_retained|retained}0"
-  " attributes">;
+  " attributes">, InGroup<NSReturnsMismatch>;
   
 def note_getter_unavailable : Note<
   "or because setter is declared here, but no getter method %0 is found">;
@@ -8869,7 +8875,7 @@ def note_omp_critical_no_hint : Note<
 def err_omp_depend_clause_thread_simd : Error<
   "'depend' clauses cannot be mixed with '%0' clause">;
 def err_omp_depend_sink_expected_loop_iteration : Error<
-  "expected %0 loop iteration variable">;
+  "expected%select{| %1}0 loop iteration variable">;
 def err_omp_depend_sink_unexpected_expr : Error<
   "unexpected expression: number of expressions is larger than the number of associated loops">;
 def err_omp_depend_sink_expected_plus_minus : Error<

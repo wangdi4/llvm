@@ -338,6 +338,7 @@ def NonPODVarargs : DiagGroup<"non-pod-varargs">;
 def ClassVarargs : DiagGroup<"class-varargs", [NonPODVarargs]>;
 def : DiagGroup<"nonportable-cfstrings">;
 def NonVirtualDtor : DiagGroup<"non-virtual-dtor">;
+def NullPointerArithmetic : DiagGroup<"null-pointer-arithmetic">;
 def : DiagGroup<"effc++", [NonVirtualDtor]>;
 def OveralignedType : DiagGroup<"over-aligned">;
 def AlignedAllocationUnavailable : DiagGroup<"aligned-allocation-unavailable">;
@@ -506,6 +507,9 @@ def Pragmas : DiagGroup<"pragmas", [UnknownPragmas, IgnoredPragmas,
                                     PragmaClangAttribute, PragmaPack]>;
 def UnknownWarningOption : DiagGroup<"unknown-warning-option">;
 def NSobjectAttribute : DiagGroup<"NSObject-attribute">;
+def NSConsumedMismatch : DiagGroup<"nsconsumed-mismatch">;
+def NSReturnsMismatch : DiagGroup<"nsreturns-mismatch">;
+
 def IndependentClassAttribute : DiagGroup<"IndependentClass-attribute">;
 def UnknownAttributes : DiagGroup<"unknown-attributes">;
 def IgnoredAttributes : DiagGroup<"ignored-attributes">;
@@ -706,7 +710,8 @@ def Extra : DiagGroup<"extra", [
     SemiBeforeMethodBody,
     MissingMethodReturnType,
     SignCompare,
-    UnusedParameter
+    UnusedParameter,
+    NullPointerArithmetic
   ]>;
 
 def Most : DiagGroup<"most", [
