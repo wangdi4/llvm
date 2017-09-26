@@ -31,6 +31,22 @@
 #include "omptargetplugin.h"
 #include "csa_invoke.h"
 
+// TODO:
+// - Current implementation is limited to one target binary only, but the host
+//   process may have more than one target part - for example both executable
+//   file and shared libraries it depends on may have their own target parts.
+//   Implementation should be enhanced to suppport multiple target programs.
+// - The number of OpenMP offload devices is currently hardcoded to 4. Should
+//   it be somehow deduced from the target HW configuration?
+// - Support for 'omp declare target' global data. It is natural for the target
+//   program to reference host instances of global variables (due to shared
+//   memroy model), so the target program has to be patched to use host variable
+//   addresses at some point. Ideally that should be done by the loader - all
+//   references to globals in the target program may have dynamic relocations
+//   and the loader would automatically resolve them to the symbols defined in
+//   the host process. But that does not seem feasible until we switch to the
+//   binary format of the target code.
+
 #ifndef TARGET_NAME
 #define TARGET_NAME csa
 #endif
@@ -113,11 +129,12 @@ struct BitcodeBounds {
 
 /// Array of Dynamic libraries loaded for this target.
 struct DynLibTy {
-  char *FileName;
+  std::string FileName;
   void *Handle;
 };
 
-std::list<std::string> filesToDelete;
+static std::list<std::string> filesToDelete;
+static bool SaveTemps = false;
 
 /// Account the memory allocated per device.
 struct AllocMemEntryTy {
@@ -205,25 +222,31 @@ public:
     assert(E.ExplicitlyAllocatedMemory.end() != iter);
     E.ExplicitlyAllocatedMemory.erase(iter);
   }
-  
-  RTLDeviceInfoTy(int32_t num_devices) { FuncGblEntries.resize(num_devices); }
+
+  RTLDeviceInfoTy(int32_t num_devices) {
+    if (auto *Str = getenv(ENV_SAVE_TEMPS)) {
+      SaveTemps = std::atoi(Str);
+    }
+    FuncGblEntries.resize(num_devices);
+  }
 
   ~RTLDeviceInfoTy() {
     // Close dynamic libraries
-    for (std::list<DynLibTy>::iterator ii = DynLibs.begin(),
-                                       ie = DynLibs.begin();
-         ii != ie; ++ii)
-      if (ii->Handle) {
-        dlclose(ii->Handle);
-        remove(ii->FileName);
+    for (const auto &Lib : DynLibs) {
+      if (Lib.Handle)
+        dlclose(Lib.Handle);
 
-        // Cleanup CSA files
-        std::string bcFile(ii->FileName);  bcFile += ".bc";
-        remove(bcFile.c_str());
+      // Cleanup CSA files
+      if (!SaveTemps) {
+        remove(Lib.FileName.c_str());
 
-        std::string asmFile(ii->FileName); asmFile += ".s";
+        //std::string bcFile(Lib.FileName);  bcFile += ".bc";
+        //remove(bcFile.c_str());
+
+        std::string asmFile(Lib.FileName); asmFile += ".s";
         remove(asmFile.c_str());
       }
+    }
   }
 };
 
@@ -295,7 +318,7 @@ int32_t __tgt_rtl_init_device(int32_t device_id) { return OFFLOAD_SUCCESS; }
 static
 void deleteTempFiles() {
   // If we've been asked to save the temporaries, don't delete them
-  if (getenv(ENV_SAVE_TEMPS)) {
+  if (SaveTemps) {
     return;
   }
 
@@ -961,6 +984,8 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
     return NULL;
   }
 
+  DeviceInfo.DynLibs.push_back(Lib);
+
   // Build the CSA assembly file
   std::string csaAsmFile;
   if (! build_csa_assembly(tmp_name, bitcode_bounds, bitcode_data, csaAsmFile)) {
@@ -995,8 +1020,8 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   }
 
   DP("Entries table range is (%016lx)->(%016lx)\n", (Elf64_Addr)entries_begin,
-     (Elf64_Addr)entries_end)
-    DeviceInfo.createOffloadTable(device_id, entries_begin, entries_end, csaAsmFile);
+     (Elf64_Addr)entries_end);
+  DeviceInfo.createOffloadTable(device_id, entries_begin, entries_end, csaAsmFile);
 
   elf_end(e);
 
