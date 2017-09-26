@@ -1835,18 +1835,6 @@ OverloadedOperatorKind BinaryOperator::getOverloadedOperator(Opcode Opc) {
   return OverOps[Opc];
 }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-// This change is cherry-picked from LLVM trunk r313666 and r313784 (which
-// amended r313666 by deleting the IExp varaible and the offset size check
-// at the end of the function.
-//
-// When r313666 is merged with xmain, the INTEL_CUSTOMIZATION of this function
-// can be deleted and the LLVM trunk change followed without modification.
-// Three associated lit tests will fail if tested with a 32-bit target triple,
-// but those failures are fixed by r313684.
-=======
->>>>>>> cac5bac11b51c77c46ed014d8ceab2473aa6a820
 bool BinaryOperator::isNullPointerArithmeticExtension(ASTContext &Ctx,
                                                       Opcode Opc,
                                                       Expr *LHS, Expr *RHS) {
@@ -1855,26 +1843,17 @@ bool BinaryOperator::isNullPointerArithmeticExtension(ASTContext &Ctx,
 
   // Check that we have one pointer and one integer operand.
   Expr *PExp;
-<<<<<<< HEAD
-=======
   Expr *IExp;
->>>>>>> cac5bac11b51c77c46ed014d8ceab2473aa6a820
   if (LHS->getType()->isPointerType()) {
     if (!RHS->getType()->isIntegerType())
       return false;
     PExp = LHS;
-<<<<<<< HEAD
-=======
     IExp = RHS;
->>>>>>> cac5bac11b51c77c46ed014d8ceab2473aa6a820
   } else if (RHS->getType()->isPointerType()) {
     if (!LHS->getType()->isIntegerType())
       return false;
     PExp = RHS;
-<<<<<<< HEAD
-=======
     IExp = LHS;
->>>>>>> cac5bac11b51c77c46ed014d8ceab2473aa6a820
   } else {
     return false;
   }
@@ -1889,19 +1868,12 @@ bool BinaryOperator::isNullPointerArithmeticExtension(ASTContext &Ctx,
   if (!PTy || !PTy->getPointeeType()->isCharType())
     return false;
 
-<<<<<<< HEAD
-  return true;
-}
-#endif // INTEL_CUSTOMIZATION
-
-=======
   // Check that the integer type is pointer-sized.
   if (Ctx.getTypeSize(IExp->getType()) != Ctx.getTypeSize(PExp->getType()))
     return false;
 
   return true;
 }
->>>>>>> cac5bac11b51c77c46ed014d8ceab2473aa6a820
 InitListExpr::InitListExpr(const ASTContext &C, SourceLocation lbraceloc,
                            ArrayRef<Expr*> initExprs, SourceLocation rbraceloc)
   : Expr(InitListExprClass, QualType(), VK_RValue, OK_Ordinary, false, false,

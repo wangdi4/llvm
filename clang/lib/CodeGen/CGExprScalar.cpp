@@ -2722,16 +2722,6 @@ static Value *emitPointerArithmetic(CodeGenFunction &CGF,
   auto &DL = CGF.CGM.getDataLayout();
   auto PtrTy = cast<llvm::PointerType>(pointer->getType());
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  // This change is cherry-picked from LLVM trunk r313666.
-  // When r313666 is merged with xmain, the INTEL_CUSTOMIZATION of this function
-  // can be deleted and the LLVM trunk change followed without modification.
-  // Three associated lit tests will fail if tested with a 32-bit target triple,
-  // but those failures are fixed by r313684.
-  //
-=======
->>>>>>> cac5bac11b51c77c46ed014d8ceab2473aa6a820
   // Some versions of glibc and gcc use idioms (particularly in their malloc
   // routines) that add a pointer-sized integer (known to be a pointer value)
   // to a null pointer in order to cast the value back to an integer or as
@@ -2751,16 +2741,9 @@ static Value *emitPointerArithmetic(CodeGenFunction &CGF,
   //
   if (BinaryOperator::isNullPointerArithmeticExtension(CGF.getContext(),
                                                        op.Opcode,
-<<<<<<< HEAD
-                                                       expr->getLHS(),
-                                                       expr->getRHS()))
-    return CGF.Builder.CreateIntToPtr(index, pointer->getType());
-#endif // INTEL_CUSTOMIZATION
-=======
                                                        expr->getLHS(), 
                                                        expr->getRHS()))
     return CGF.Builder.CreateIntToPtr(index, pointer->getType());
->>>>>>> cac5bac11b51c77c46ed014d8ceab2473aa6a820
 
   if (width != DL.getTypeSizeInBits(PtrTy)) {
     // Zero-extend or sign-extend the pointer value according to
