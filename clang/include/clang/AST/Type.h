@@ -3164,7 +3164,6 @@ public:
       ABIMask         = 0x0F,
       IsConsumed      = 0x10,
       HasPassObjSize  = 0x20,
-      IsNoEscape      = 0x40,
     };
     unsigned char Data;
 
@@ -3202,19 +3201,6 @@ public:
     ExtParameterInfo withHasPassObjectSize() const {
       ExtParameterInfo Copy = *this;
       Copy.Data |= HasPassObjSize;
-      return Copy;
-    }
-
-    bool isNoEscape() const {
-      return Data & IsNoEscape;
-    }
-
-    ExtParameterInfo withIsNoEscape(bool NoEscape) const {
-      ExtParameterInfo Copy = *this;
-      if (NoEscape)
-        Copy.Data |= IsNoEscape;
-      else
-        Copy.Data &= ~IsNoEscape;
       return Copy;
     }
 
