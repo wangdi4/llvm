@@ -201,9 +201,7 @@ bool LPPassManager::runOnFunction(Function &F) {
 
 #if !INTEL_PRODUCT_RELEASE
       if (Changed)
-        dumpPassInfo(P, MODIFICATION_MSG, ON_LOOP_MSG,
-                     LoopWasDeleted ? "<deleted>"
-                                    : CurrentLoop->getHeader()->getName());
+        dumpPassInfo(P, MODIFICATION_MSG, ON_LOOP_MSG, CurrentLoop->getName());
       dumpPreservedSet(P);
 #endif // !INTEL_PRODUCT_RELEASE
 
