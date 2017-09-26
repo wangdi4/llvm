@@ -5551,21 +5551,27 @@ void Parser::ParseDeclaratorInternal(Declarator &D,
         DS.getAttributes(), SourceLocation());
   }
 
-#if INTEL_CUSTOMIZATION
-  if (D.getDeclSpec().isTypeSpecChannel() && !isChannelDeclarator(D)) {
-    DeclSpec DS(AttrFactory);
-    ParseTypeQualifierListOpt(DS);
-
-    D.AddTypeInfo(
-      DeclaratorChunk::getChannel(DS.getTypeQualifiers(), DS.getChannelLoc()),
-      DS.getAttributes(), SourceLocation());
-  }
-#endif // INTEL_CUSTOMIZATION
 
   // Not a pointer, C++ reference, or block.
   if (!isPtrOperatorToken(Kind, getLangOpts(), D.getContext())) {
     if (DirectDeclParser)
       (this->*DirectDeclParser)(D);
+
+#if INTEL_CUSTOMIZATION
+    if (D.getDeclSpec().isTypeSpecChannel() && !isChannelDeclarator(D)) {
+      // Unlike Pipes, Channels handled here, because arrays of channels are
+      // allowed and we must parse further.
+      DeclSpec DS(AttrFactory);
+      ParseTypeQualifierListOpt(DS, AR_AllAttributesParsed,
+                                /*AtomicAllowed=*/true,
+                                /*IdentifierRequired=*/true);
+
+      D.AddTypeInfo(DeclaratorChunk::getChannel(DS.getTypeQualifiers(),
+                                                DS.getChannelLoc()),
+                    DS.getAttributes(), SourceLocation());
+    }
+#endif // INTEL_CUSTOMIZATION
+
     return;
   }
 
@@ -6866,13 +6872,13 @@ void Parser::ParseMisplacedBracketDeclarator(Declarator &D) {
     case DeclaratorChunk::BlockPointer:
     case DeclaratorChunk::MemberPointer:
     case DeclaratorChunk::Pipe:
-#if INTEL_CUSTOMIZATION
-    case DeclaratorChunk::Channel:
-#endif // INTEL_CUSTOMIZATION
       NeedParens = true;
       break;
     case DeclaratorChunk::Array:
     case DeclaratorChunk::Function:
+#if INTEL_CUSTOMIZATION
+    case DeclaratorChunk::Channel:
+#endif // INTEL_CUSTOMIZATION
     case DeclaratorChunk::Paren:
       break;
     }

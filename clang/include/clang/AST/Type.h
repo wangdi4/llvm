@@ -5492,6 +5492,10 @@ public:
 
   QualType getElementType() const { return ElementType; }
 
+  bool isIncompleteType(NamedDecl **Def) const {
+    return ElementType->isIncompleteType(Def);
+  }
+
   bool isSugared() const { return false; }
 
   QualType desugar() const { return QualType(this, 0); }
