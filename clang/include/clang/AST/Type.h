@@ -1673,6 +1673,9 @@ public:
   bool isAggregateType() const;
   bool isFundamentalType() const;
   bool isCompoundType() const;
+#if INTEL_CUSTOMIZATION
+  bool isDoubleType() const;       // (double + long double)
+#endif // INTEL_CUSTOMIZATION
 
   // Type Predicates: Check to see if this type is structurally the specified
   // type, ignoring typedefs and qualifiers.
