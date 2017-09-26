@@ -385,12 +385,18 @@ shouldInline(CallSite CS, function_ref<InlineCost(CallSite CS)> GetInlineCost,
   if (IC.isNever()) {
     DEBUG(dbgs() << "    NOT Inlining: cost=never"
                  << ", Call: " << *CS.getInstruction() << "\n");
-    ORE.emit(OptimizationRemarkMissed(DEBUG_TYPE, "NeverInline", Call)
+    ORE.emit([&]() {
+      return OptimizationRemarkMissed(DEBUG_TYPE, "NeverInline", Call)
              << NV("Callee", Callee) << " not inlined into "
              << NV("Caller", Caller)
+<<<<<<< HEAD
              << " because it should never be inlined (cost=never)");
     if (IR != nullptr)                               // INTEL
       IR->setReasonNotInlined(CS, NinlrNeverInline); // INTEL
+=======
+             << " because it should never be inlined (cost=never)";
+    });
+>>>>>>> 093624c347baf30d43a40f8916f2c89145411e95
     return None;
   }
 
@@ -398,13 +404,19 @@ shouldInline(CallSite CS, function_ref<InlineCost(CallSite CS)> GetInlineCost,
     DEBUG(dbgs() << "    NOT Inlining: cost=" << IC.getCost()
                  << ", thres=" << IC.getThreshold()
                  << ", Call: " << *CS.getInstruction() << "\n");
-    ORE.emit(OptimizationRemarkMissed(DEBUG_TYPE, "TooCostly", Call)
+    ORE.emit([&]() {
+      return OptimizationRemarkMissed(DEBUG_TYPE, "TooCostly", Call)
              << NV("Callee", Callee) << " not inlined into "
              << NV("Caller", Caller) << " because too costly to inline (cost="
              << NV("Cost", IC.getCost())
+<<<<<<< HEAD
              << ", threshold=" << NV("Threshold", IC.getThreshold()) << ")");
     if (IR != nullptr)                // INTEL
       IR->setReasonNotInlined(CS, IC); // INTEL
+=======
+             << ", threshold=" << NV("Threshold", IC.getThreshold()) << ")";
+    });
+>>>>>>> 093624c347baf30d43a40f8916f2c89145411e95
     return None;
   }
 
@@ -652,12 +664,14 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
                    << NV("Callee", Callee) << " inlined into "
                    << NV("Caller", Caller) << " with cost=always");
         else
-          ORE.emit(OptimizationRemark(DEBUG_TYPE, "Inlined", DLoc, Block)
+          ORE.emit([&]() {
+            return OptimizationRemark(DEBUG_TYPE, "Inlined", DLoc, Block)
                    << NV("Callee", Callee) << " inlined into "
                    << NV("Caller", Caller)
                    << " with cost=" << NV("Cost", OIC->getCost())
                    << " (threshold=" << NV("Threshold", OIC->getThreshold())
-                   << ")");
+                   << ")";
+          });
 
         IR.inlineCallSite(InlineInfo); // INTEL
         IR.endUpdate();                // INTEL
