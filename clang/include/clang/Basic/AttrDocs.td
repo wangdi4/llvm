@@ -2595,6 +2595,15 @@ An error will be given if:
   - Specified value is not in range of supported values.
   }];
 }
+
+def OpenCLBlockingDocs : Documentation {
+  let Category = DocCatVariable;
+  let Content = [{
+By default, pipes exhibit nonblocking behavior. If you want the pipes in your
+kernel to exhibit blocking behavior, specify the blocking attribute
+(__attribute__((blocking))) when you declare the read and write pipes.
+  }];
+}
 // endif INTEL_CUSTOMIZATION
 
 def OMPDeclareSimdDocs : Documentation {

@@ -371,6 +371,13 @@ def IntelInline : Attr {
   let Documentation = [Undocumented];
 }
 
+def OpenCLBlocking : Attr {
+  let Spellings = [GNU<"blocking">];
+  let Subjects = SubjectList<[Var]>;
+  let Documentation = [OpenCLBlockingDocs];
+  let LangOpts = [OpenCL];
+}
+
 def OpenCLChannelDepth : Attr {
   let Spellings = [GNU<"depth">];
   let Args = [UnsignedArgument<"Depth">];

@@ -3018,6 +3018,25 @@ static void handleNumSimdWorkItemsAttr(Sema &S, Decl *D,
       Attr.getAttributeSpellingListIndex()));
 }
 
+static void handleOpenCLBlockingAttr(Sema &S, Decl *D,
+                                     const AttributeList &Attr) {
+  if (D->isInvalidDecl())
+    return;
+
+  VarDecl *VD = cast<VarDecl>(D);
+  QualType Ty = VD->getType();
+
+  const Type *TypePtr = Ty.getTypePtr();
+  if (!TypePtr->isPipeType()) {
+    S.Diag(Attr.getLoc(), diag::warn_intel_opencl_attribute_wrong_decl_type)
+        << Attr.getName() << 47;
+    return;
+  }
+
+  D->addAttr(::new (S.Context) OpenCLBlockingAttr(
+      Attr.getRange(), S.Context, Attr.getAttributeSpellingListIndex()));
+}
+
 static void handleOpenCLChannelDepthAttr(Sema & S, Decl * D,
                                          const AttributeList &Attr) {
   if (D->isInvalidDecl())
@@ -7487,6 +7506,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     break;
   case AttributeList::AT_NumSimdWorkItems:
     handleNumSimdWorkItemsAttr(S, D, Attr);
+    break;
+  case AttributeList::AT_OpenCLBlocking:
+    handleOpenCLBlockingAttr(S, D, Attr);
     break;
   case AttributeList::AT_OpenCLChannelDepth:
     handleOpenCLChannelDepthAttr(S, D, Attr);
