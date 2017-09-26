@@ -84,8 +84,12 @@ public:
     bool PipeBI = StringSwitch<bool>(FName)
       .Case("__read_pipe_2", true)
       .Case("__read_pipe_4", true)
+      .Case("__read_pipe_2_bl", true)
+      .Case("__read_pipe_4_bl", true)
       .Case("__write_pipe_2", true)
       .Case("__write_pipe_4", true)
+      .Case("__write_pipe_2_bl", true)
+      .Case("__write_pipe_4_bl", true)
       .Case("__reserve_read_pipe", true)
       .Case("__reserve_write_pipe", true)
       .Default(false);
