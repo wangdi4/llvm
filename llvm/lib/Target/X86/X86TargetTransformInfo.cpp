@@ -2642,12 +2642,16 @@ bool X86TTIImpl::areInlineCompatible(const Function *Caller,
   return (CallerBits & CalleeBits) == CalleeBits;
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 unsigned X86TTIImpl::getLoopRotationDefaultThreshold(bool OptForSize) const {
   return (ST->getCPU() == "lakemont" && OptForSize) ? 2 : 16;
 }
 #endif // INTEL_CUSTOMIZATION
 bool X86TTIImpl::expandMemCmp(Instruction *I, unsigned &MaxLoadSize) {
+=======
+bool X86TTIImpl::enableMemCmpExpansion(unsigned &MaxLoadSize) {
+>>>>>>> bb3c660e87f59abb665570a31b01ab125ec4c10e
   // TODO: We can increase these based on available vector ops.
   MaxLoadSize = ST->is64Bit() ? 8 : 4;
   return true;

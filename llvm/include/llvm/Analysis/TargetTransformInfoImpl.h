@@ -295,7 +295,7 @@ public:
 
   bool enableAggressiveInterleaving(bool LoopHasReductions) { return false; }
 
-  bool expandMemCmp(Instruction *I, unsigned &MaxLoadSize) { return false; }
+  bool enableMemCmpExpansion(unsigned &MaxLoadSize) { return false; }
 
   bool enableInterleavedAccessVectorization() { return false; }
 
