@@ -145,6 +145,7 @@ CodeGenTBAA::getTBAAInfo(QualType QTy) {
   if (Ty->isStdByteType())
     return MetadataCache[Ty] = getChar();
 
+<<<<<<< HEAD
   // Handle pointers.
 #if INTEL_CUSTOMIZATION
   // CQ#379144 TBAA for pointers.
@@ -153,9 +154,12 @@ CodeGenTBAA::getTBAAInfo(QualType QTy) {
       return MetadataCache[Ty] = createTBAAPointerType(PTy);
   } else
 #endif // INTEL_CUSTOMIZATION
+=======
+  // Handle pointers and references.
+>>>>>>> 597065b960a9ea92e9ccdc805013b8210574a777
   // TODO: Implement C++'s type "similarity" and consider dis-"similar"
   // pointers distinct.
-  if (Ty->isPointerType())
+  if (Ty->isPointerType() || Ty->isReferenceType())
     return MetadataCache[Ty] = createTBAAScalarType("any pointer",
                                                     getChar());
 
