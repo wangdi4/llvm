@@ -7,6 +7,24 @@
 //
 //===---------------------------------------------------------------------===//
 
+// To test that the documentation builds cleanly, you must run clang-tblgen to
+// convert the .td file into a .rst file, and then run sphinx to convert the
+// .rst file into an HTML file. After completing testing, you should revert the
+// generated .rst file so that the modified version does not get checked in to
+// version control.
+//
+// To run clang-tblgen to generate the .rst file:
+// clang-tblgen -gen-attr-docs -I <root>/llvm/tools/clang/include
+//   <root>/llvm/tools/clang/include/clang/Basic/Attr.td -o
+//   <root>/llvm/tools/clang/docs/AttributeReference.rst
+//
+// To run sphinx to generate the .html files (note that sphinx-build must be
+// available on the PATH):
+// Windows (from within the clang\docs directory):
+//   make.bat html
+// Non-Windows (from within the clang\docs directory):
+//   make -f Makefile.sphinx html
+
 def GlobalDocumentation {
   code Intro =[{..
   -------------------------------------------------------------------
@@ -109,6 +127,47 @@ GNU ``__thread`` keyword.  The variable must not have a destructor and must have
 a constant initializer, if any.  The attribute only applies to variables
 declared with static storage duration, such as globals, class static data
 members, and static locals.
+  }];
+}
+
+def NoEscapeDocs : Documentation {
+  let Category = DocCatVariable;
+  let Content = [{
+``noescape`` placed on a function parameter of a pointer type is used to inform
+the compiler that the pointer cannot escape: that is, no reference to the object
+the pointer points to that is derived from the parameter value will survive
+after the function returns. Users are responsible for making sure parameters
+annotated with ``noescape`` do not actuallly escape.
+
+For example:
+
+.. code-block:: c
+  int *gp;
+
+  void nonescapingFunc(__attribute__((noescape)) int *p) {
+    *p += 100; // OK.
+  }
+
+  void escapingFunc(__attribute__((noescape)) int *p) {
+    gp = p; // Not OK.
+  }
+
+Additionally, when the parameter is a `block pointer
+<https://clang.llvm.org/docs/BlockLanguageSpec.html>`, the same restriction
+applies to copies of the block. For example:
+
+  typedef void (^BlockTy)();
+  BlockTy g0, g1;
+
+  void nonescapingFunc(__attribute__((noescape)) BlockTy block) {
+    block(); // OK.
+  }
+
+  void escapingFunc(__attribute__((noescape)) BlockTy block) {
+    g0 = block; // Not OK.
+    g1 = Block_copy(block); // Not OK either.
+  }
+
   }];
 }
 
@@ -3173,4 +3232,19 @@ def ObjCSubclassingRestrictedDocs : Documentation {
 This attribute can be added to an Objective-C ``@interface`` declaration to
 ensure that this class cannot be subclassed.
   }];
+}
+
+
+def SelectAnyDocs : Documentation {
+  let Category = DocCatType;
+  let Content = [{
+This attribute appertains to a global symbol, causing it to have a weak
+definition (
+`linkonce <https://llvm.org/docs/LangRef.html#linkage-types>`_
+), allowing the linker to select any definition.
+
+For more information see
+`gcc documentation <https://gcc.gnu.org/onlinedocs/gcc-7.2.0/gcc/Microsoft-Windows-Variable-Attributes.html>`_
+or `msvc documentation <https://docs.microsoft.com/pl-pl/cpp/cpp/selectany>`_.
+}];
 }

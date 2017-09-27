@@ -99,16 +99,18 @@ static uint64_t getSymVA(const SymbolBody &Body, int64_t &Addend) {
     }
     return VA;
   }
-  case SymbolBody::DefinedCommonKind:
+  case SymbolBody::DefinedCommonKind: {
     if (!Config->DefineCommon)
       return 0;
-    return InX::Common->getParent()->Addr + InX::Common->OutSecOff +
-           cast<DefinedCommon>(Body).Offset;
+    auto DC = cast<DefinedCommon>(Body);
+    if (!DC.Live)
+      return 0;
+    return DC.Section->getParent()->Addr + DC.Section->OutSecOff;
+  }
   case SymbolBody::SharedKind: {
     auto &SS = cast<SharedSymbol>(Body);
     if (SS.CopyRelSec)
-      return SS.CopyRelSec->getParent()->Addr + SS.CopyRelSec->OutSecOff +
-             SS.CopyRelSecOff;
+      return SS.CopyRelSec->getParent()->Addr + SS.CopyRelSec->OutSecOff;
     if (SS.NeedsPltAddr)
       return Body.getPltVA();
     return 0;
@@ -130,6 +132,12 @@ SymbolBody::SymbolBody(Kind K, StringRefZ Name, bool IsLocal, uint8_t StOther,
       IsInIgot(false), IsPreemptible(false), Type(Type), StOther(StOther),
       Name(Name) {}
 
+bool SymbolBody::isUndefWeak() const {
+  if (isLocal())
+    return false;
+  return symbol()->isWeak() && (isUndefined() || isLazy());
+}
+
 InputFile *SymbolBody::getFile() const {
   if (isLocal()) {
     const SectionBase *Sec = cast<DefinedRegular>(this)->Section;
@@ -144,7 +152,7 @@ InputFile *SymbolBody::getFile() const {
 // Overwrites all attributes with Other's so that this symbol becomes
 // an alias to Other. This is useful for handling some options such as
 // --wrap.
-void SymbolBody::copy(SymbolBody *Other) {
+void SymbolBody::copyFrom(SymbolBody *Other) {
   memcpy(symbol()->Body.buffer, Other->symbol()->Body.buffer,
          sizeof(Symbol::Body));
 }
@@ -202,9 +210,9 @@ OutputSection *SymbolBody::getOutputSection() const {
     return nullptr;
   }
 
-  if (isa<DefinedCommon>(this)) {
+  if (auto *S = dyn_cast<DefinedCommon>(this)) {
     if (Config->DefineCommon)
-      return InX::Common->getParent();
+      return S->Section->getParent();
     return nullptr;
   }
 
@@ -336,11 +344,13 @@ uint8_t Symbol::computeBinding() const {
 }
 
 bool Symbol::includeInDynsym() const {
+  if (!Config->HasDynSymTab)
+    return false;
   if (computeBinding() == STB_LOCAL)
     return false;
-  if (body()->isUndefined())
-    return Config->Shared || !body()->symbol()->isWeak();
-  return ExportDynamic || body()->isShared();
+  if (!body()->isInCurrentDSO())
+    return true;
+  return ExportDynamic;
 }
 
 // Print out a log message for --trace-symbol.

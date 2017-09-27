@@ -206,6 +206,10 @@ void tools::gcc::Linker::RenderExtraToolArgs(const JobAction &JA,
 
 static bool addXRayRuntime(const ToolChain &TC, const ArgList &Args,
                            ArgStringList &CmdArgs) {
+  // Do not add the XRay runtime to shared libraries.
+  if (Args.hasArg(options::OPT_shared))
+    return false;
+
   if (Args.hasFlag(options::OPT_fxray_instrument,
                    options::OPT_fnoxray_instrument, false)) {
     CmdArgs.push_back("-whole-archive");
@@ -213,6 +217,7 @@ static bool addXRayRuntime(const ToolChain &TC, const ArgList &Args,
     CmdArgs.push_back("-no-whole-archive");
     return true;
   }
+
   return false;
 }
 
@@ -1311,12 +1316,12 @@ bool clang::driver::findMIPSMultilibs(const Driver &D,
 
   if (TargetTriple.getVendor() == llvm::Triple::MipsTechnologies &&
       TargetTriple.getOS() == llvm::Triple::Linux &&
-      TargetTriple.getEnvironment() == llvm::Triple::GNU)
+      TargetTriple.isGNUEnvironment())
     return findMipsMtiMultilibs(Flags, NonExistent, Result);
 
   if (TargetTriple.getVendor() == llvm::Triple::ImaginationTechnologies &&
       TargetTriple.getOS() == llvm::Triple::Linux &&
-      TargetTriple.getEnvironment() == llvm::Triple::GNU)
+      TargetTriple.isGNUEnvironment())
     return findMipsImgMultilibs(Flags, NonExistent, Result);
 
   if (findMipsCsMultilibs(Flags, NonExistent, Result))

@@ -2131,6 +2131,37 @@ Decl *Parser::ParseDeclarationAfterDeclarator(
 
 Decl *Parser::ParseDeclarationAfterDeclaratorAndAttributes(
     Declarator &D, const ParsedTemplateInfo &TemplateInfo, ForRangeInit *FRI) {
+  // RAII type used to track whether we're inside an initializer.
+  struct InitializerScopeRAII {
+    Parser &P;
+    Declarator &D;
+    Decl *ThisDecl;
+
+    InitializerScopeRAII(Parser &P, Declarator &D, Decl *ThisDecl)
+        : P(P), D(D), ThisDecl(ThisDecl) {
+      if (ThisDecl && P.getLangOpts().CPlusPlus) {
+        Scope *S = nullptr;
+        if (D.getCXXScopeSpec().isSet()) {
+          P.EnterScope(0);
+          S = P.getCurScope();
+        }
+        P.Actions.ActOnCXXEnterDeclInitializer(S, ThisDecl);
+      }
+    }
+    ~InitializerScopeRAII() { pop(); }
+    void pop() {
+      if (ThisDecl && P.getLangOpts().CPlusPlus) {
+        Scope *S = nullptr;
+        if (D.getCXXScopeSpec().isSet())
+          S = P.getCurScope();
+        P.Actions.ActOnCXXExitDeclInitializer(S, ThisDecl);
+        if (S)
+          P.ExitScope();
+      }
+      ThisDecl = nullptr;
+    }
+  };
+
   // Inform the current actions module that we just parsed this declarator.
   Decl *ThisDecl = nullptr;
   switch (TemplateInfo.Kind) {
@@ -2208,10 +2239,7 @@ Decl *Parser::ParseDeclarationAfterDeclaratorAndAttributes(
       else
         Diag(ConsumeToken(), diag::err_default_special_members);
     } else {
-      if (getLangOpts().CPlusPlus && D.getCXXScopeSpec().isSet()) {
-        EnterScope(0);
-        Actions.ActOnCXXEnterDeclInitializer(getCurScope(), ThisDecl);
-      }
+      InitializerScopeRAII InitScope(*this, D, ThisDecl);
 
       if (Tok.is(tok::code_completion)) {
         Actions.CodeCompleteInitializer(getCurScope(), ThisDecl);
@@ -2234,10 +2262,7 @@ Decl *Parser::ParseDeclarationAfterDeclaratorAndAttributes(
         FRI->RangeExpr = Init;
       }
 
-      if (getLangOpts().CPlusPlus && D.getCXXScopeSpec().isSet()) {
-        Actions.ActOnCXXExitDeclInitializer(getCurScope(), ThisDecl);
-        ExitScope();
-      }
+      InitScope.pop();
 
       if (Init.isInvalid()) {
         SmallVector<tok::TokenKind, 2> StopTokens;
@@ -2259,23 +2284,27 @@ Decl *Parser::ParseDeclarationAfterDeclaratorAndAttributes(
     ExprVector Exprs;
     CommaLocsTy CommaLocs;
 
-    if (getLangOpts().CPlusPlus && D.getCXXScopeSpec().isSet()) {
-      EnterScope(0);
-      Actions.ActOnCXXEnterDeclInitializer(getCurScope(), ThisDecl);
+    InitializerScopeRAII InitScope(*this, D, ThisDecl);
+
+    llvm::function_ref<void()> ExprListCompleter;
+    auto ThisVarDecl = dyn_cast_or_null<VarDecl>(ThisDecl);
+    auto ConstructorCompleter = [&, ThisVarDecl] {
+      Actions.CodeCompleteConstructor(
+          getCurScope(), ThisVarDecl->getType()->getCanonicalTypeInternal(),
+          ThisDecl->getLocation(), Exprs);
+    };
+    if (ThisVarDecl) {
+      // ParseExpressionList can sometimes succeed even when ThisDecl is not
+      // VarDecl. This is an error and it is reported in a call to
+      // Actions.ActOnInitializerError(). However, we call
+      // CodeCompleteConstructor only on VarDecls, falling back to default
+      // completer in other cases.
+      ExprListCompleter = ConstructorCompleter;
     }
 
-    if (ParseExpressionList(Exprs, CommaLocs, [&] {
-          Actions.CodeCompleteConstructor(getCurScope(),
-                 cast<VarDecl>(ThisDecl)->getType()->getCanonicalTypeInternal(),
-                                          ThisDecl->getLocation(), Exprs);
-       })) {
+    if (ParseExpressionList(Exprs, CommaLocs, ExprListCompleter)) {
       Actions.ActOnInitializerError(ThisDecl);
       SkipUntil(tok::r_paren, StopAtSemi);
-
-      if (getLangOpts().CPlusPlus && D.getCXXScopeSpec().isSet()) {
-        Actions.ActOnCXXExitDeclInitializer(getCurScope(), ThisDecl);
-        ExitScope();
-      }
     } else {
       // Match the ')'.
       T.consumeClose();
@@ -2283,10 +2312,7 @@ Decl *Parser::ParseDeclarationAfterDeclaratorAndAttributes(
       assert(!Exprs.empty() && Exprs.size()-1 == CommaLocs.size() &&
              "Unexpected number of commas!");
 
-      if (getLangOpts().CPlusPlus && D.getCXXScopeSpec().isSet()) {
-        Actions.ActOnCXXExitDeclInitializer(getCurScope(), ThisDecl);
-        ExitScope();
-      }
+      InitScope.pop();
 
       ExprResult Initializer = Actions.ActOnParenListExpr(T.getOpenLocation(),
                                                           T.getCloseLocation(),
@@ -2299,17 +2325,11 @@ Decl *Parser::ParseDeclarationAfterDeclaratorAndAttributes(
     // Parse C++0x braced-init-list.
     Diag(Tok, diag::warn_cxx98_compat_generalized_initializer_lists);
 
-    if (D.getCXXScopeSpec().isSet()) {
-      EnterScope(0);
-      Actions.ActOnCXXEnterDeclInitializer(getCurScope(), ThisDecl);
-    }
+    InitializerScopeRAII InitScope(*this, D, ThisDecl);
 
     ExprResult Init(ParseBraceInitializer());
 
-    if (D.getCXXScopeSpec().isSet()) {
-      Actions.ActOnCXXExitDeclInitializer(getCurScope(), ThisDecl);
-      ExitScope();
-    }
+    InitScope.pop();
 
     if (Init.isInvalid()) {
       Actions.ActOnInitializerError(ThisDecl);
@@ -3510,6 +3530,10 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       isInvalid = DS.SetTypeSpecType(DeclSpec::TST_double, Loc, PrevSpec,
                                      DiagID, Policy);
       break;
+    case tok::kw__Float16:
+      isInvalid = DS.SetTypeSpecType(DeclSpec::TST_float16, Loc, PrevSpec,
+                                     DiagID, Policy);
+      break;
     case tok::kw___float128:
       isInvalid = DS.SetTypeSpecType(DeclSpec::TST_float128, Loc, PrevSpec,
                                      DiagID, Policy);
@@ -4513,6 +4537,7 @@ bool Parser::isKnownToBeTypeSpecifier(const Token &Tok) const {
   case tok::kw_half:
   case tok::kw_float:
   case tok::kw_double:
+  case tok::kw__Float16:
   case tok::kw___float128:
   case tok::kw_bool:
   case tok::kw__Bool:
@@ -4588,6 +4613,7 @@ bool Parser::isTypeSpecifierQualifier() {
   case tok::kw_half:
   case tok::kw_float:
   case tok::kw_double:
+  case tok::kw__Float16:
   case tok::kw___float128:
   case tok::kw_bool:
   case tok::kw__Bool:
@@ -4744,6 +4770,7 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
   case tok::kw_half:
   case tok::kw_float:
   case tok::kw_double:
+  case tok::kw__Float16:
   case tok::kw___float128:
   case tok::kw_bool:
   case tok::kw__Bool:

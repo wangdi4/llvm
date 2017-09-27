@@ -826,7 +826,7 @@ private:
   CreateMemForInlineAsm(unsigned SegReg, const MCExpr *Disp, unsigned BaseReg,
                         unsigned IndexReg, unsigned Scale, SMLoc Start,
                         SMLoc End, unsigned Size, StringRef Identifier,
-                        InlineAsmIdentifierInfo &Info);
+                        const InlineAsmIdentifierInfo &Info);
 
   bool parseDirectiveEven(SMLoc L);
   bool ParseDirectiveWord(unsigned Size, SMLoc L);
@@ -1258,7 +1258,7 @@ std::unique_ptr<X86Operand> X86AsmParser::ParseOperand() {
 std::unique_ptr<X86Operand> X86AsmParser::CreateMemForInlineAsm(
     unsigned SegReg, const MCExpr *Disp, unsigned BaseReg, unsigned IndexReg,
     unsigned Scale, SMLoc Start, SMLoc End, unsigned Size, StringRef Identifier,
-    InlineAsmIdentifierInfo &Info) {
+    const InlineAsmIdentifierInfo &Info) {
   // If we found a decl other than a VarDecl, then assume it is a FuncDecl or
   // some other label reference.
   if (isa<MCSymbolRefExpr>(Disp) && Info.OpDecl && !Info.IsVarDecl) {
@@ -1985,9 +1985,12 @@ std::unique_ptr<X86Operand> X86AsmParser::ParseMemOperand(unsigned SegReg,
       // memory operand consumed.
     } else {
       SMLoc ExprEnd;
+      getLexer().UnLex(AsmToken(AsmToken::LParen, "("));
 
-      // It must be an parenthesized expression, parse it now.
-      if (getParser().parseParenExpression(Disp, ExprEnd))
+      // It must be either an parenthesized expression, or an expression that
+      // begins from a parenthesized expression, parse it now. Example: (1+2) or
+      // (1+2)+3
+      if (getParser().parseExpression(Disp, ExprEnd))
         return nullptr;
 
       // After parsing the base expression we could either have a parenthesized

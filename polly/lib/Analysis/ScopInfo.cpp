@@ -1540,8 +1540,26 @@ bool buildConditionSets(Scop &S, BasicBlock *BB, Value *Condition,
                         TerminatorInst *TI, Loop *L, __isl_keep isl_set *Domain,
                         DenseMap<BasicBlock *, isl::set> &InvalidDomainMap,
                         SmallVectorImpl<__isl_give isl_set *> &ConditionSets) {
+  ScalarEvolution &SE = *S.getSE();
   isl_set *ConsequenceCondSet = nullptr;
-  if (auto *CCond = dyn_cast<ConstantInt>(Condition)) {
+
+  if (auto Load = dyn_cast<LoadInst>(Condition)) {
+    const SCEV *LHSSCEV = SE.getSCEVAtScope(Load, L);
+    const SCEV *RHSSCEV = SE.getZero(LHSSCEV->getType());
+    bool NonNeg = false;
+    isl_pw_aff *LHS = getPwAff(S, BB, InvalidDomainMap, LHSSCEV, NonNeg);
+    isl_pw_aff *RHS = getPwAff(S, BB, InvalidDomainMap, RHSSCEV, NonNeg);
+    ConsequenceCondSet =
+        buildConditionSet(ICmpInst::ICMP_SLE, LHS, RHS, Domain);
+  } else if (auto *PHI = dyn_cast<PHINode>(Condition)) {
+    auto *Unique = dyn_cast<ConstantInt>(
+        getUniqueNonErrorValue(PHI, &S.getRegion(), *S.getLI(), *S.getDT()));
+
+    if (Unique->isZero())
+      ConsequenceCondSet = isl_set_empty(isl_set_get_space(Domain));
+    else
+      ConsequenceCondSet = isl_set_universe(isl_set_get_space(Domain));
+  } else if (auto *CCond = dyn_cast<ConstantInt>(Condition)) {
     if (CCond->isZero())
       ConsequenceCondSet = isl_set_empty(isl_set_get_space(Domain));
     else
@@ -1574,7 +1592,6 @@ bool buildConditionSets(Scop &S, BasicBlock *BB, Value *Condition,
     assert(ICond &&
            "Condition of exiting branch was neither constant nor ICmp!");
 
-    ScalarEvolution &SE = *S.getSE();
     LoopInfo &LI = *S.getLI();
     DominatorTree &DT = *S.getDT();
     Region &R = S.getRegion();
@@ -4919,9 +4936,14 @@ void Scop::addAccessData(MemoryAccess *Access) {
 }
 
 void Scop::removeAccessData(MemoryAccess *Access) {
-  if (Access->isOriginalValueKind() && Access->isRead()) {
+  if (Access->isOriginalValueKind() && Access->isWrite()) {
+    ValueDefAccs.erase(Access->getAccessValue());
+  } else if (Access->isOriginalValueKind() && Access->isRead()) {
     auto &Uses = ValueUseAccs[Access->getScopArrayInfo()];
     std::remove(Uses.begin(), Uses.end(), Access);
+  } else if (Access->isOriginalPHIKind() && Access->isRead()) {
+    PHINode *PHI = cast<PHINode>(Access->getAccessInstruction());
+    PHIReadAccs.erase(PHI);
   } else if (Access->isOriginalAnyPHIKind() && Access->isWrite()) {
     auto &Incomings = PHIIncomingAccs[Access->getScopArrayInfo()];
     std::remove(Incomings.begin(), Incomings.end(), Access);
@@ -4935,11 +4957,7 @@ MemoryAccess *Scop::getValueDef(const ScopArrayInfo *SAI) const {
   if (!Val)
     return nullptr;
 
-  ScopStmt *Stmt = getStmtFor(Val);
-  if (!Stmt)
-    return nullptr;
-
-  return Stmt->lookupValueWriteOf(Val);
+  return ValueDefAccs.lookup(Val);
 }
 
 ArrayRef<MemoryAccess *> Scop::getValueUses(const ScopArrayInfo *SAI) const {
@@ -4957,10 +4975,7 @@ MemoryAccess *Scop::getPHIRead(const ScopArrayInfo *SAI) const {
     return nullptr;
 
   PHINode *PHI = cast<PHINode>(SAI->getBasePtr());
-  ScopStmt *Stmt = getStmtFor(PHI);
-  assert(Stmt && "PHINode must be within the SCoP");
-
-  return Stmt->lookupPHIReadOf(PHI);
+  return PHIReadAccs.lookup(PHI);
 }
 
 ArrayRef<MemoryAccess *> Scop::getPHIIncomings(const ScopArrayInfo *SAI) const {

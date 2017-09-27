@@ -748,7 +748,8 @@ const SCEV *tryForwardThroughPHI(const SCEV *Expr, Region &R,
     Value *Final = nullptr;
 
     for (unsigned i = 0; i < PHI->getNumIncomingValues(); i++) {
-      if (isErrorBlock(*PHI->getIncomingBlock(i), R, LI, DT))
+      BasicBlock *Incoming = PHI->getIncomingBlock(i);
+      if (isErrorBlock(*Incoming, R, LI, DT) && R.contains(Incoming))
         continue;
       if (Final)
         return Expr;
@@ -761,4 +762,18 @@ const SCEV *tryForwardThroughPHI(const SCEV *Expr, Region &R,
   return Expr;
 }
 
+Value *getUniqueNonErrorValue(PHINode *PHI, Region *R, LoopInfo &LI,
+                              const DominatorTree &DT) {
+  Value *V = nullptr;
+  for (unsigned i = 0; i < PHI->getNumIncomingValues(); i++) {
+    BasicBlock *BB = PHI->getIncomingBlock(i);
+    if (!isErrorBlock(*BB, *R, LI, DT)) {
+      if (V)
+        return nullptr;
+      V = PHI->getIncomingValue(i);
+    }
+  }
+
+  return V;
+}
 } // namespace polly

@@ -1145,6 +1145,17 @@ const internal::VariadicDynCastAllOfMatcher<
   Decl,
   ObjCInterfaceDecl> objcInterfaceDecl;
 
+/// \brief Matches Objective-C implementation declarations.
+///
+/// Example matches Foo
+/// \code
+///   @implementation Foo
+///   @end
+/// \endcode
+const internal::VariadicDynCastAllOfMatcher<
+  Decl,
+  ObjCImplementationDecl> objcImplementationDecl;
+
 /// \brief Matches Objective-C protocol declarations.
 ///
 /// Example matches FooDelegate
@@ -3522,16 +3533,21 @@ AST_MATCHER_P(FunctionDecl, returns,
   return InnerMatcher.matches(Node.getReturnType(), Finder, Builder);
 }
 
-/// \brief Matches extern "C" function declarations.
+/// \brief Matches extern "C" function or variable declarations.
 ///
 /// Given:
 /// \code
 ///   extern "C" void f() {}
 ///   extern "C" { void g() {} }
 ///   void h() {}
+///   extern "C" int x = 1;
+///   extern "C" int y = 2;
+///   int z = 3;
 /// \endcode
 /// functionDecl(isExternC())
-///   matches the declaration of f and g, but not the declaration h
+///   matches the declaration of f and g, but not the declaration of h.
+/// varDecl(isExternC())
+///   matches the declaration of x and y, but not the declaration of z.
 AST_POLYMORPHIC_MATCHER(isExternC, AST_POLYMORPHIC_SUPPORTED_TYPES(FunctionDecl,
                                                                    VarDecl)) {
   return Node.isExternC();

@@ -11,7 +11,7 @@
 // which is used in GCC 3.2 and newer (and many compilers that are
 // ABI-compatible with GCC):
 //
-//   http://mentorembedded.github.io/cxx-abi/abi.html#mangling
+//   http://itanium-cxx-abi.github.io/cxx-abi/abi.html#mangling
 //
 //===----------------------------------------------------------------------===//
 #include "clang/AST/Mangle.h"
@@ -1287,9 +1287,15 @@ void CXXNameMangler::mangleUnqualifiedName(const NamedDecl *ND,
       //
       //   void test() { extern void foo(); }
       //   static void foo();
+      //
+      // Don't bother with the L marker for names in anonymous namespaces; the
+      // 12_GLOBAL__N_1 mangling is quite sufficient there, and this better
+      // matches GCC anyway, because GCC does not treat anonymous namespaces as
+      // implying internal linkage.
       if (ND && ND->getFormalLinkage() == InternalLinkage &&
           !ND->isExternallyVisible() &&
-          getEffectiveDeclContext(ND)->isFileContext())
+          getEffectiveDeclContext(ND)->isFileContext() &&
+          !ND->isInAnonymousNamespace())
         Out << 'L';
 
       auto *FD = dyn_cast<FunctionDecl>(ND);
@@ -1669,6 +1675,10 @@ void CXXNameMangler::mangleUnqualifiedBlock(const BlockDecl *Block) {
   // the symbol in question isn't externally visible.
   if (!Number)
     Number = Context.getBlockId(Block, false);
+  else {
+    // Stored mangling numbers are 1-based.
+    --Number;
+  }
   Out << "Ub";
   if (Number > 0)
     Out << Number - 1;
@@ -1687,10 +1697,15 @@ void CXXNameMangler::mangleLambda(const CXXRecordDecl *Lambda) {
   // to emit that last part of the prefix here.
   if (Decl *Context = Lambda->getLambdaContextDecl()) {
     if ((isa<VarDecl>(Context) || isa<FieldDecl>(Context)) &&
-        Context->getDeclContext()->isRecord()) {
+        !isa<ParmVarDecl>(Context)) {
+      // FIXME: 'inline auto [a, b] = []{ return ... };' does not get a
+      // reasonable mangling here.
       if (const IdentifierInfo *Name
             = cast<NamedDecl>(Context)->getIdentifier()) {
         mangleSourceName(Name);
+        const TemplateArgumentList *TemplateArgs = nullptr;
+        if (isTemplate(cast<NamedDecl>(Context), TemplateArgs))
+          mangleTemplateArgs(*TemplateArgs);
         Out << 'M';
       }
     }
@@ -2441,6 +2456,7 @@ void CXXNameMangler::mangleType(const BuiltinType *T) {
   // UNSUPPORTED:    ::= De # IEEE 754r decimal floating point (128 bits)
   // UNSUPPORTED:    ::= Df # IEEE 754r decimal floating point (32 bits)
   //                 ::= Dh # IEEE 754r half-precision floating point (16 bits)
+  //                 ::= DF <number> _ # ISO/IEC TS 18661 binary floating point type _FloatN (N bits);
   //                 ::= Di # char32_t
   //                 ::= Ds # char16_t
   //                 ::= Dn # std::nullptr_t (i.e., decltype(nullptr))
@@ -2502,6 +2518,9 @@ void CXXNameMangler::mangleType(const BuiltinType *T) {
     break;
   case BuiltinType::Int128:
     Out << 'n';
+    break;
+  case BuiltinType::Float16:
+    Out << "DF16_";
     break;
   case BuiltinType::Half:
     Out << "Dh";
@@ -2635,6 +2654,9 @@ CXXNameMangler::mangleExtParameterInfo(FunctionProtoType::ExtParameterInfo PI) {
 
   if (PI.isConsumed())
     mangleVendorQualifier("ns_consumed");
+
+  if (PI.isNoEscape())
+    mangleVendorQualifier("noescape");
 }
 
 // <type>          ::= <function-type>

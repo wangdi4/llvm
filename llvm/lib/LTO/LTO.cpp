@@ -217,6 +217,11 @@ static void computeCacheKey(
     AddUnsigned(S.TTRes.TheKind);
     AddUnsigned(S.TTRes.SizeM1BitWidth);
 
+    AddUint64(S.TTRes.AlignLog2);
+    AddUint64(S.TTRes.SizeM1);
+    AddUint64(S.TTRes.BitMask);
+    AddUint64(S.TTRes.InlineBits);
+
     AddUint64(S.WPDRes.size());
     for (auto &WPD : S.WPDRes) {
       AddUnsigned(WPD.first);
@@ -230,6 +235,8 @@ static void computeCacheKey(
           AddUint64(Arg);
         AddUnsigned(ByArg.second.TheKind);
         AddUint64(ByArg.second.Info);
+        AddUnsigned(ByArg.second.Byte);
+        AddUnsigned(ByArg.second.Bit);
       }
     }
   };
@@ -1159,7 +1166,7 @@ Error LTO::runThinLTO(AddStreamFn AddStream, NativeObjectCache Cache,
   return BackendProc->wait();
 }
 
-Expected<std::unique_ptr<tool_output_file>>
+Expected<std::unique_ptr<ToolOutputFile>>
 lto::setupOptimizationRemarks(LLVMContext &Context,
                               StringRef LTORemarksFilename,
                               bool LTOPassRemarksWithHotness, int Count) {
@@ -1172,7 +1179,7 @@ lto::setupOptimizationRemarks(LLVMContext &Context,
 
   std::error_code EC;
   auto DiagnosticFile =
-      llvm::make_unique<tool_output_file>(Filename, EC, sys::fs::F_None);
+      llvm::make_unique<ToolOutputFile>(Filename, EC, sys::fs::F_None);
   if (EC)
     return errorCodeToError(EC);
   Context.setDiagnosticsOutputFile(

@@ -725,7 +725,7 @@ void CodeGenFunction::EmitTypeCheck(TypeCheckKind TCK, SourceLocation Loc,
 
     // Blacklist based on the mangled type.
     if (!CGM.getContext().getSanitizerBlacklist().isBlacklistedType(
-            Out.str())) {
+            SanitizerKind::Vptr, Out.str())) {
       llvm::hash_code TypeHash = hash_value(Out.str());
 
       // Load the vptr, and compute hash_16_bytes(TypeHash, vptr).
@@ -4409,10 +4409,7 @@ RValue CodeGenFunction::EmitCall(QualType CalleeType, const CGCallee &OrigCallee
       SanitizerScope SanScope(this);
       llvm::Constant *FTRTTIConst =
           CGM.GetAddrOfRTTIDescriptor(QualType(FnType, 0), /*ForEH=*/true);
-      llvm::Type *PrefixStructTyElems[] = {
-        PrefixSig->getType(),
-        FTRTTIConst->getType()
-      };
+      llvm::Type *PrefixStructTyElems[] = {PrefixSig->getType(), Int32Ty};
       llvm::StructType *PrefixStructTy = llvm::StructType::get(
           CGM.getLLVMContext(), PrefixStructTyElems, /*isPacked=*/true);
 
@@ -4433,8 +4430,10 @@ RValue CodeGenFunction::EmitCall(QualType CalleeType, const CGCallee &OrigCallee
       EmitBlock(TypeCheck);
       llvm::Value *CalleeRTTIPtr =
           Builder.CreateConstGEP2_32(PrefixStructTy, CalleePrefixStruct, 0, 1);
-      llvm::Value *CalleeRTTI =
+      llvm::Value *CalleeRTTIEncoded =
           Builder.CreateAlignedLoad(CalleeRTTIPtr, getPointerAlign());
+      llvm::Value *CalleeRTTI =
+          DecodeAddrUsedInPrologue(CalleePtr, CalleeRTTIEncoded);
       llvm::Value *CalleeRTTIMatch =
           Builder.CreateICmpEQ(CalleeRTTI, FTRTTIConst);
       llvm::Constant *StaticData[] = {

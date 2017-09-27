@@ -18,6 +18,23 @@
 #include <set>
 
 class Segment;
+class SectionBase;
+
+class SectionTableRef {
+private:
+  llvm::ArrayRef<std::unique_ptr<SectionBase>> Sections;
+
+public:
+  SectionTableRef(llvm::ArrayRef<std::unique_ptr<SectionBase>> Secs)
+      : Sections(Secs) {}
+  SectionTableRef(const SectionTableRef &) = default;
+
+  SectionBase *getSection(uint16_t Index, llvm::Twine ErrMsg);
+
+  template <class T>
+  T *getSectionOfType(uint16_t Index, llvm::Twine IndexErrMsg,
+                      llvm::Twine TypeErrMsg);
+};
 
 class SectionBase {
 public:
@@ -39,6 +56,7 @@ public:
   uint64_t Type = llvm::ELF::SHT_NULL;
 
   virtual ~SectionBase() {}
+  virtual void initialize(SectionTableRef SecTable);
   virtual void finalize();
   template <class ELFT> void writeHeader(llvm::FileOutputBuffer &Out) const;
   virtual void writeSection(llvm::FileOutputBuffer &Out) const = 0;
@@ -72,6 +90,7 @@ public:
   uint64_t VAddr;
 
   uint64_t OriginalOffset;
+  Segment *ParentSegment = nullptr;
 
   Segment(llvm::ArrayRef<uint8_t> Data) : Contents(Data) {}
   void finalize();
@@ -113,15 +132,32 @@ public:
   }
 };
 
+// Symbols have a st_shndx field that normally stores an index but occasionally
+// stores a different special value. This enum keeps track of what the st_shndx
+// field means. Most of the values are just copies of the special SHN_* values.
+// SYMBOL_SIMPLE_INDEX means that the st_shndx is just an index of a section.
+enum SymbolShndxType {
+  SYMBOL_SIMPLE_INDEX = 0,
+  SYMBOL_ABS = llvm::ELF::SHN_ABS,
+  SYMBOL_COMMON = llvm::ELF::SHN_COMMON,
+  SYMBOL_HEXAGON_SCOMMON = llvm::ELF::SHN_HEXAGON_SCOMMON,
+  SYMBOL_HEXAGON_SCOMMON_2 = llvm::ELF::SHN_HEXAGON_SCOMMON_2,
+  SYMBOL_HEXAGON_SCOMMON_4 = llvm::ELF::SHN_HEXAGON_SCOMMON_4,
+  SYMBOL_HEXAGON_SCOMMON_8 = llvm::ELF::SHN_HEXAGON_SCOMMON_8,
+};
+
 struct Symbol {
   uint8_t Binding;
   SectionBase *DefinedIn;
+  SymbolShndxType ShndxType;
   uint32_t Index;
   llvm::StringRef Name;
   uint32_t NameIndex;
   uint64_t Size;
   uint8_t Type;
   uint64_t Value;
+
+  uint16_t getShndx() const;
 };
 
 class SymbolTableSection : public SectionBase {
@@ -132,9 +168,11 @@ protected:
 public:
   void setStrTab(StringTableSection *StrTab) { SymbolNames = StrTab; }
   void addSymbol(llvm::StringRef Name, uint8_t Bind, uint8_t Type,
-                 SectionBase *DefinedIn, uint64_t Value, uint64_t Sz);
+                 SectionBase *DefinedIn, uint64_t Value, uint16_t Shndx,
+                 uint64_t Sz);
   void addSymbolNames();
   const Symbol *getSymbolByIndex(uint32_t Index) const;
+  void initialize(SectionTableRef SecTable) override;
   void finalize() override;
   static bool classof(const SectionBase *S) {
     return S->Type == llvm::ELF::SHT_SYMTAB;
@@ -144,6 +182,90 @@ public:
 // Only writeSection depends on the ELF type so we implement it in a subclass.
 template <class ELFT> class SymbolTableSectionImpl : public SymbolTableSection {
   void writeSection(llvm::FileOutputBuffer &Out) const override;
+};
+
+struct Relocation {
+  const Symbol *RelocSymbol;
+  uint64_t Offset;
+  uint64_t Addend;
+  uint32_t Type;
+};
+
+template <class SymTabType> class RelocationSectionBase : public SectionBase {
+private:
+  SymTabType *Symbols;
+  SectionBase *SecToApplyRel;
+
+public:
+  void setSymTab(SymTabType *StrTab) { Symbols = StrTab; }
+  void setSection(SectionBase *Sec) { SecToApplyRel = Sec; }
+  void initialize(SectionTableRef SecTable) override;
+  void finalize() override;
+};
+
+template <class ELFT>
+class RelocationSection : public RelocationSectionBase<SymbolTableSection> {
+private:
+  typedef typename ELFT::Rel Elf_Rel;
+  typedef typename ELFT::Rela Elf_Rela;
+
+  std::vector<Relocation> Relocations;
+
+  template <class T> void writeRel(T *Buf) const;
+
+public:
+  void addRelocation(Relocation Rel) { Relocations.push_back(Rel); }
+  void writeSection(llvm::FileOutputBuffer &Out) const override;
+
+  static bool classof(const SectionBase *S) {
+    if (S->Flags & llvm::ELF::SHF_ALLOC)
+      return false;
+    return S->Type == llvm::ELF::SHT_REL || S->Type == llvm::ELF::SHT_RELA;
+  }
+};
+
+class SectionWithStrTab : public Section {
+private:
+  StringTableSection *StrTab;
+
+public:
+  SectionWithStrTab(llvm::ArrayRef<uint8_t> Data) : Section(Data) {}
+  void setStrTab(StringTableSection *StringTable) { StrTab = StringTable; }
+  void initialize(SectionTableRef SecTable) override;
+  void finalize() override;
+  static bool classof(const SectionBase *S);
+};
+
+class DynamicSymbolTableSection : public SectionWithStrTab {
+public:
+  DynamicSymbolTableSection(llvm::ArrayRef<uint8_t> Data)
+      : SectionWithStrTab(Data) {}
+  static bool classof(const SectionBase *S) {
+    return S->Type == llvm::ELF::SHT_DYNSYM;
+  }
+};
+
+class DynamicSection : public SectionWithStrTab {
+public:
+  DynamicSection(llvm::ArrayRef<uint8_t> Data) : SectionWithStrTab(Data) {}
+  static bool classof(const SectionBase *S) {
+    return S->Type == llvm::ELF::SHT_DYNAMIC;
+  }
+};
+
+class DynamicRelocationSection
+    : public RelocationSectionBase<DynamicSymbolTableSection> {
+private:
+  llvm::ArrayRef<uint8_t> Contents;
+
+public:
+  DynamicRelocationSection(llvm::ArrayRef<uint8_t> Data) : Contents(Data) {}
+  void writeSection(llvm::FileOutputBuffer &Out) const override;
+  static bool classof(const SectionBase *S) {
+    if (!(S->Flags & llvm::ELF::SHF_ALLOC))
+      return false;
+    return S->Type == llvm::ELF::SHT_REL || S->Type == llvm::ELF::SHT_RELA;
+  }
 };
 
 template <class ELFT> class Object {
@@ -156,11 +278,11 @@ private:
   typedef typename ELFT::Phdr Elf_Phdr;
 
   void initSymbolTable(const llvm::object::ELFFile<ELFT> &ElfFile,
-                       SymbolTableSection *SymTab);
+                       SymbolTableSection *SymTab, SectionTableRef SecTable);
   SecPtr makeSection(const llvm::object::ELFFile<ELFT> &ElfFile,
                      const Elf_Shdr &Shdr);
   void readProgramHeaders(const llvm::object::ELFFile<ELFT> &ElfFile);
-  void readSectionHeaders(const llvm::object::ELFFile<ELFT> &ElfFile);
+  SectionTableRef readSectionHeaders(const llvm::object::ELFFile<ELFT> &ElfFile);
 
 protected:
   StringTableSection *SectionNames;

@@ -99,6 +99,28 @@ static bool SemaBuiltinAnnotation(Sema &S, CallExpr *TheCall) {
   return false;
 }
 
+static bool SemaBuiltinMSVCAnnotation(Sema &S, CallExpr *TheCall) {
+  // We need at least one argument.
+  if (TheCall->getNumArgs() < 1) {
+    S.Diag(TheCall->getLocEnd(), diag::err_typecheck_call_too_few_args_at_least)
+        << 0 << 1 << TheCall->getNumArgs()
+        << TheCall->getCallee()->getSourceRange();
+    return true;
+  }
+
+  // All arguments should be wide string literals.
+  for (Expr *Arg : TheCall->arguments()) {
+    auto *Literal = dyn_cast<StringLiteral>(Arg->IgnoreParenCasts());
+    if (!Literal || !Literal->isWide()) {
+      S.Diag(Arg->getLocStart(), diag::err_msvc_annotation_wide_str)
+          << Arg->getSourceRange();
+      return true;
+    }
+  }
+
+  return false;
+}
+
 /// Check that the argument to __builtin_addressof is a glvalue, and set the
 /// result type to the corresponding pointer type.
 static bool SemaBuiltinAddressof(Sema &S, CallExpr *TheCall) {
@@ -811,7 +833,7 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
     switch (Context.getTargetInfo().getTriple().getArch()) {
     case llvm::Triple::arm:
     case llvm::Triple::thumb:
-      if (SemaBuiltinVAStartARM(TheCall))
+      if (SemaBuiltinVAStartARMMicrosoft(TheCall))
         return ExprError();
       break;
     default:
@@ -1000,6 +1022,10 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
   case Builtin::BI##ID: \
     return SemaAtomicOpsOverloaded(TheCallResult, AtomicExpr::AO##ID);
 #include "clang/Basic/Builtins.def"
+  case Builtin::BI__annotation:
+    if (SemaBuiltinMSVCAnnotation(*this, TheCall))
+      return ExprError();
+    break;
   case Builtin::BI__builtin_annotation:
     if (SemaBuiltinAnnotation(*this, TheCall))
       return ExprError();
@@ -3898,7 +3924,7 @@ bool Sema::SemaBuiltinVAStart(unsigned BuiltinID, CallExpr *TheCall) {
   return false;
 }
 
-bool Sema::SemaBuiltinVAStartARM(CallExpr *Call) {
+bool Sema::SemaBuiltinVAStartARMMicrosoft(CallExpr *Call) {
   // void __va_start(va_list *ap, const char *named_addr, size_t slot_size,
   //                 const char *named_addr);
 
@@ -3917,23 +3943,33 @@ bool Sema::SemaBuiltinVAStartARM(CallExpr *Call) {
   if (checkVAStartIsInVariadicFunction(*this, Func))
     return true;
 
-  const struct {
-    unsigned ArgNo;
-    QualType Type;
-  } ArgumentTypes[] = {
-    { 1, Context.getPointerType(Context.CharTy.withConst()) },
-    { 2, Context.getSizeType() },
-  };
+  // __va_start on Windows does not validate the parameter qualifiers
 
-  for (const auto &AT : ArgumentTypes) {
-    const Expr *Arg = Call->getArg(AT.ArgNo)->IgnoreParens();
-    if (Arg->getType().getCanonicalType() == AT.Type.getCanonicalType())
-      continue;
-    Diag(Arg->getLocStart(), diag::err_typecheck_convert_incompatible)
-      << Arg->getType() << AT.Type << 1 /* different class */
-      << 0 /* qualifier difference */ << 3 /* parameter mismatch */
-      << AT.ArgNo + 1 << Arg->getType() << AT.Type;
-  }
+  const Expr *Arg1 = Call->getArg(1)->IgnoreParens();
+  const Type *Arg1Ty = Arg1->getType().getCanonicalType().getTypePtr();
+
+  const Expr *Arg2 = Call->getArg(2)->IgnoreParens();
+  const Type *Arg2Ty = Arg2->getType().getCanonicalType().getTypePtr();
+
+  const QualType &ConstCharPtrTy =
+      Context.getPointerType(Context.CharTy.withConst());
+  if (!Arg1Ty->isPointerType() ||
+      Arg1Ty->getPointeeType().withoutLocalFastQualifiers() != Context.CharTy)
+    Diag(Arg1->getLocStart(), diag::err_typecheck_convert_incompatible)
+        << Arg1->getType() << ConstCharPtrTy
+        << 1 /* different class */
+        << 0 /* qualifier difference */
+        << 3 /* parameter mismatch */
+        << 2 << Arg1->getType() << ConstCharPtrTy;
+
+  const QualType SizeTy = Context.getSizeType();
+  if (Arg2Ty->getCanonicalTypeInternal().withoutLocalFastQualifiers() != SizeTy)
+    Diag(Arg2->getLocStart(), diag::err_typecheck_convert_incompatible)
+        << Arg2->getType() << SizeTy
+        << 1 /* different class */
+        << 0 /* qualifier difference */
+        << 3 /* parameter mismatch */
+        << 3 << Arg2->getType() << SizeTy;
 
   return false;
 }
@@ -6320,7 +6356,7 @@ CheckPrintfHandler::checkFormatExpr(const analyze_printf::PrintfSpecifier &FS,
       CastFix << ")";
 
       SmallVector<FixItHint,4> Hints;
-      if (!AT.matchesType(S.Context, IntendedTy))
+      if (!AT.matchesType(S.Context, IntendedTy) || ShouldNotPrintDirectly) 
         Hints.push_back(FixItHint::CreateReplacement(SpecRange, os.str()));
 
       if (const CStyleCastExpr *CCast = dyn_cast<CStyleCastExpr>(E)) {
@@ -8145,8 +8181,11 @@ struct IntRange {
     // For enum types, use the known bit width of the enumerators.
     if (const EnumType *ET = dyn_cast<EnumType>(T)) {
       EnumDecl *Enum = ET->getDecl();
+      // In C++11, enums without definitions can have an explicitly specified
+      // underlying type.  Use this type to compute the range.
       if (!Enum->isCompleteDefinition())
-        return IntRange(C.getIntWidth(QualType(T, 0)), false);
+        return IntRange(C.getIntWidth(QualType(T, 0)),
+                        !ET->isSignedIntegerOrEnumerationType());
 
       unsigned NumPositive = Enum->getNumPositiveBits();
       unsigned NumNegative = Enum->getNumNegativeBits();
@@ -8541,32 +8580,55 @@ bool HasEnumType(Expr *E) {
   return E->getType()->isEnumeralType();
 }
 
-void CheckTrivialUnsignedComparison(Sema &S, BinaryOperator *E) {
+bool isNonBooleanUnsignedValue(Expr *E) {
+  // We are checking that the expression is not known to have boolean value,
+  // is an integer type; and is either unsigned after implicit casts,
+  // or was unsigned before implicit casts.
+  return !E->isKnownToHaveBooleanValue() && E->getType()->isIntegerType() &&
+         (!E->getType()->isSignedIntegerType() ||
+          !E->IgnoreParenImpCasts()->getType()->isSignedIntegerType());
+}
+
+bool CheckTautologicalComparisonWithZero(Sema &S, BinaryOperator *E) {
   // Disable warning in template instantiations.
   if (S.inTemplateInstantiation())
-    return;
+    return false;
 
-  BinaryOperatorKind op = E->getOpcode();
+  // bool values are handled by DiagnoseOutOfRangeComparison().
+
+  BinaryOperatorKind Op = E->getOpcode();
   if (E->isValueDependent())
-    return;
+    return false;
 
-  if (op == BO_LT && IsZero(S, E->getRHS())) {
-    S.Diag(E->getOperatorLoc(), diag::warn_lunsigned_always_true_comparison)
-      << "< 0" << "false" << HasEnumType(E->getLHS())
-      << E->getLHS()->getSourceRange() << E->getRHS()->getSourceRange();
-  } else if (op == BO_GE && IsZero(S, E->getRHS())) {
-    S.Diag(E->getOperatorLoc(), diag::warn_lunsigned_always_true_comparison)
-      << ">= 0" << "true" << HasEnumType(E->getLHS())
-      << E->getLHS()->getSourceRange() << E->getRHS()->getSourceRange();
-  } else if (op == BO_GT && IsZero(S, E->getLHS())) {
-    S.Diag(E->getOperatorLoc(), diag::warn_runsigned_always_true_comparison)
-      << "0 >" << "false" << HasEnumType(E->getRHS())
-      << E->getLHS()->getSourceRange() << E->getRHS()->getSourceRange();
-  } else if (op == BO_LE && IsZero(S, E->getLHS())) {
-    S.Diag(E->getOperatorLoc(), diag::warn_runsigned_always_true_comparison)
-      << "0 <=" << "true" << HasEnumType(E->getRHS())
-      << E->getLHS()->getSourceRange() << E->getRHS()->getSourceRange();
-  }
+  Expr *LHS = E->getLHS();
+  Expr *RHS = E->getRHS();
+
+  bool Match = true;
+
+  if (Op == BO_LT && isNonBooleanUnsignedValue(LHS) && IsZero(S, RHS)) {
+    S.Diag(E->getOperatorLoc(),
+           HasEnumType(LHS) ? diag::warn_lunsigned_enum_always_true_comparison
+                            : diag::warn_lunsigned_always_true_comparison)
+        << "< 0" << false << LHS->getSourceRange() << RHS->getSourceRange();
+  } else if (Op == BO_GE && isNonBooleanUnsignedValue(LHS) && IsZero(S, RHS)) {
+    S.Diag(E->getOperatorLoc(),
+           HasEnumType(LHS) ? diag::warn_lunsigned_enum_always_true_comparison
+                            : diag::warn_lunsigned_always_true_comparison)
+        << ">= 0" << true << LHS->getSourceRange() << RHS->getSourceRange();
+  } else if (Op == BO_GT && isNonBooleanUnsignedValue(RHS) && IsZero(S, LHS)) {
+    S.Diag(E->getOperatorLoc(),
+           HasEnumType(RHS) ? diag::warn_runsigned_enum_always_true_comparison
+                            : diag::warn_runsigned_always_true_comparison)
+        << "0 >" << false << LHS->getSourceRange() << RHS->getSourceRange();
+  } else if (Op == BO_LE && isNonBooleanUnsignedValue(RHS) && IsZero(S, LHS)) {
+    S.Diag(E->getOperatorLoc(),
+           HasEnumType(RHS) ? diag::warn_runsigned_enum_always_true_comparison
+                            : diag::warn_runsigned_always_true_comparison)
+        << "0 <=" << true << LHS->getSourceRange() << RHS->getSourceRange();
+  } else
+    Match = false;
+
+  return Match;
 }
 
 void DiagnoseOutOfRangeComparison(Sema &S, BinaryOperator *E, Expr *Constant,
@@ -8586,7 +8648,7 @@ void DiagnoseOutOfRangeComparison(Sema &S, BinaryOperator *E, Expr *Constant,
 
   bool OtherIsBooleanType = Other->isKnownToHaveBooleanValue();
 
-  // 0 values are handled later by CheckTrivialUnsignedComparison().
+  // 0 values are handled later by CheckTautologicalComparisonWithZero().
   if ((Value == 0) && (!OtherIsBooleanType))
     return;
 
@@ -8823,16 +8885,22 @@ void AnalyzeComparison(Sema &S, BinaryOperator *E) {
         (IsRHSIntegralLiteral && IsLHSIntegralLiteral);
   } else if (!T->hasUnsignedIntegerRepresentation())
       IsComparisonConstant = E->isIntegerConstantExpr(S.Context);
-  
+
+  // We don't care about value-dependent expressions or expressions
+  // whose result is a constant.
+  if (IsComparisonConstant)
+    return AnalyzeImpConvsInComparison(S, E);
+
+  // If this is a tautological comparison, suppress -Wsign-compare.
+  if (CheckTautologicalComparisonWithZero(S, E))
+    return AnalyzeImpConvsInComparison(S, E);
+
   // We don't do anything special if this isn't an unsigned integral
   // comparison:  we're only interested in integral comparisons, and
   // signed comparisons only happen in cases we don't care to warn about.
-  //
-  // We also don't care about value-dependent expressions or expressions
-  // whose result is a constant.
-  if (!T->hasUnsignedIntegerRepresentation() || IsComparisonConstant)
+  if (!T->hasUnsignedIntegerRepresentation())
     return AnalyzeImpConvsInComparison(S, E);
-  
+
   // Check to see if one of the (unmodified) operands is of different
   // signedness.
   Expr *signedOperand, *unsignedOperand;
@@ -8845,7 +8913,6 @@ void AnalyzeComparison(Sema &S, BinaryOperator *E) {
     signedOperand = RHS;
     unsignedOperand = LHS;
   } else {
-    CheckTrivialUnsignedComparison(S, E);
     return AnalyzeImpConvsInComparison(S, E);
   }
 
@@ -8857,11 +8924,9 @@ void AnalyzeComparison(Sema &S, BinaryOperator *E) {
   AnalyzeImplicitConversions(S, LHS, E->getOperatorLoc());
   AnalyzeImplicitConversions(S, RHS, E->getOperatorLoc());
 
-  // If the signed range is non-negative, -Wsign-compare won't fire,
-  // but we should still check for comparisons which are always true
-  // or false.
+  // If the signed range is non-negative, -Wsign-compare won't fire.
   if (signedRange.NonNegative)
-    return CheckTrivialUnsignedComparison(S, E);
+    return;
 
   // For (in)equality comparisons, if the unsigned operand is a
   // constant which cannot collide with a overflowed signed operand,

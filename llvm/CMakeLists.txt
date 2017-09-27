@@ -396,6 +396,8 @@ endif()
 
 option(LLVM_ENABLE_EXPENSIVE_CHECKS "Enable expensive checks" OFF)
 
+option(LLVM_ENABLE_DUMP "Enable dump functions in release builds" OFF)
+
 set(LLVM_ABI_BREAKING_CHECKS "WITH_ASSERTS" CACHE STRING
   "Enable abi-breaking checks.  Can be WITH_ASSERTS, FORCE_ON or FORCE_OFF.")
 
@@ -548,7 +550,8 @@ else()
   set(LLVM_ADD_NATIVE_VISUALIZERS_TO_SOLUTION FALSE CACHE INTERNAL "For Visual Studio 2013, manually copy natvis files to Documents\\Visual Studio 2013\\Visualizers" FORCE)
 endif()
 
-if (LLVM_BUILD_INSTRUMENTED OR LLVM_BUILD_INSTRUMENTED_COVERAGE)
+if (LLVM_BUILD_INSTRUMENTED OR LLVM_BUILD_INSTRUMENTED_COVERAGE OR
+    LLVM_ENABLE_IR_PGO)
   if(NOT LLVM_PROFILE_MERGE_POOL_SIZE)
     # A pool size of 1-2 is probably sufficient on a SSD. 3-4 should be fine
     # for spining disks. Anything higher may only help on slower mediums.
@@ -556,10 +559,9 @@ if (LLVM_BUILD_INSTRUMENTED OR LLVM_BUILD_INSTRUMENTED_COVERAGE)
   endif()
   if(NOT LLVM_PROFILE_FILE_PATTERN)
     if(NOT LLVM_PROFILE_DATA_DIR)
-      file(TO_NATIVE_PATH "${LLVM_BINARY_DIR}/profiles/%${LLVM_PROFILE_MERGE_POOL_SIZE}m.profraw" LLVM_PROFILE_FILE_PATTERN)
-    else()
-      file(TO_NATIVE_PATH "${LLVM_PROFILE_DATA_DIR}/%${LLVM_PROFILE_MERGE_POOL_SIZE}m.profraw" LLVM_PROFILE_FILE_PATTERN)
+      file(TO_NATIVE_PATH "${LLVM_BINARY_DIR}/profiles" LLVM_PROFILE_DATA_DIR)
     endif()
+		file(TO_NATIVE_PATH "${LLVM_PROFILE_DATA_DIR}/%${LLVM_PROFILE_MERGE_POOL_SIZE}m.profraw" LLVM_PROFILE_FILE_PATTERN)
   endif()
 endif()
 
@@ -845,7 +847,6 @@ if( LLVM_INCLUDE_UTILS )
   add_subdirectory(utils/PerfectShuffle)
   add_subdirectory(utils/count)
   add_subdirectory(utils/not)
-  add_subdirectory(utils/llvm-lit)
   add_subdirectory(utils/yaml-bench)
 else()
   if ( LLVM_INCLUDE_TESTS )
@@ -931,6 +932,11 @@ if (LLVM_INCLUDE_DOCS)
 endif()
 
 add_subdirectory(cmake/modules)
+
+# Do this last so that all lit targets have already been created.
+if (LLVM_INCLUDE_UTILS)
+  add_subdirectory(utils/llvm-lit)
+endif()
 
 if (NOT LLVM_INSTALL_TOOLCHAIN_ONLY)
   install(DIRECTORY include/llvm include/llvm-c

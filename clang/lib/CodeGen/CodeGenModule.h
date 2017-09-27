@@ -513,6 +513,9 @@ public:
   /// Finalize LLVM code generation.
   void Release();
 
+  /// Return true if we should emit location information for expressions.
+  bool getExpressionLocationsEnabled() const;
+
   /// Return a reference to the configured Objective-C runtime.
   CGObjCRuntime &getObjCRuntime() {
     if (!ObjCRuntime) createObjCRuntime();
@@ -1103,7 +1106,8 @@ public:
   /// annotations are emitted during finalization of the LLVM code.
   void AddGlobalAnnotations(const ValueDecl *D, llvm::GlobalValue *GV);
 
-  bool isInSanitizerBlacklist(llvm::Function *Fn, SourceLocation Loc) const;
+  bool isInSanitizerBlacklist(SanitizerMask Kind, llvm::Function *Fn,
+                              SourceLocation Loc) const;
 
   bool isInSanitizerBlacklist(llvm::GlobalVariable *GV, SourceLocation Loc,
                               QualType Ty,

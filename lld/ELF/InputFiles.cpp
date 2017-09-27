@@ -35,6 +35,11 @@ using namespace llvm::sys::fs;
 using namespace lld;
 using namespace lld::elf;
 
+std::vector<BinaryFile *> elf::BinaryFiles;
+std::vector<BitcodeFile *> elf::BitcodeFiles;
+std::vector<InputFile *> elf::ObjectFiles;
+std::vector<InputFile *> elf::SharedFiles;
+
 TarWriter *elf::Tar;
 
 InputFile::InputFile(Kind K, MemoryBufferRef M) : MB(M), FileKind(K) {}
@@ -820,8 +825,6 @@ static uint8_t getBitcodeMachineKind(StringRef Path, const Triple &T) {
   }
 }
 
-std::vector<BitcodeFile *> BitcodeFile::Instances;
-
 BitcodeFile::BitcodeFile(MemoryBufferRef MB, StringRef ArchiveName,
                          uint64_t OffsetInArchive)
     : InputFile(BitcodeKind, MB) {
@@ -917,8 +920,6 @@ static ELFKind getELFKind(MemoryBufferRef MB) {
   return (Endian == ELFDATA2LSB) ? ELF64LEKind : ELF64BEKind;
 }
 
-std::vector<BinaryFile *> BinaryFile::Instances;
-
 template <class ELFT> void BinaryFile::parse() {
   ArrayRef<uint8_t> Data = toArrayRef(MB.getBuffer());
   auto *Section =
@@ -931,7 +932,7 @@ template <class ELFT> void BinaryFile::parse() {
   // characters in a filename are replaced with underscore.
   std::string S = "_binary_" + MB.getBufferIdentifier().str();
   for (size_t I = 0; I < S.size(); ++I)
-    if (!isalnum(S[I]))
+    if (!elf::isAlnum(S[I]))
       S[I] = '_';
 
   Symtab->addRegular<ELFT>(Saver.save(S + "_start"), STV_DEFAULT, STT_OBJECT,

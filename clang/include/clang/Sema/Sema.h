@@ -1086,6 +1086,11 @@ public:
   /// definition in this translation unit.
   llvm::MapVector<NamedDecl *, SourceLocation> UndefinedButUsed;
 
+  /// Determine if VD, which must be a variable or function, is an external
+  /// symbol that nonetheless can't be referenced from outside this translation
+  /// unit because its type has no linkage and it's not extern "C".
+  bool isExternalWithNoLinkageType(ValueDecl *VD);
+
   /// Obtain a sorted list of functions that are undefined but ODR-used.
   void getUndefinedButUsed(
       SmallVectorImpl<std::pair<NamedDecl *, SourceLocation> > &Undefined);
@@ -2737,13 +2742,15 @@ public:
                               CXXRecordDecl *ActingContext,
                               Expr *From, QualType ToType,
                               OverloadCandidateSet& CandidateSet,
-                              bool AllowObjCConversionOnExplicit);
+                              bool AllowObjCConversionOnExplicit,
+                              bool AllowResultConversion = true);
   void AddTemplateConversionCandidate(FunctionTemplateDecl *FunctionTemplate,
                                       DeclAccessPair FoundDecl,
                                       CXXRecordDecl *ActingContext,
                                       Expr *From, QualType ToType,
                                       OverloadCandidateSet &CandidateSet,
-                                      bool AllowObjCConversionOnExplicit);
+                                      bool AllowObjCConversionOnExplicit,
+                                      bool AllowResultConversion = true);
   void AddSurrogateCandidate(CXXConversionDecl *Conversion,
                              DeclAccessPair FoundDecl,
                              CXXRecordDecl *ActingContext,
@@ -2782,6 +2789,14 @@ public:
   /// failing attribute, or NULL if they were all successful.
   EnableIfAttr *CheckEnableIf(FunctionDecl *Function, ArrayRef<Expr *> Args,
                               bool MissingImplicitThis = false);
+
+  /// Find the failed Boolean condition within a given Boolean
+  /// constant expression, and describe it with a string.
+  ///
+  /// \param AllowTopLevelCond Whether to allow the result to be the
+  /// complete top-level condition.
+  std::pair<Expr *, std::string>
+  findFailedBooleanCondition(Expr *Cond, bool AllowTopLevelCond);
 
   /// Emit diagnostics for the diagnose_if attributes on Function, ignoring any
   /// non-ArgDependent DiagnoseIfAttrs.
@@ -8588,9 +8603,11 @@ public:
   /// \brief Finish current declare reduction construct initializer.
   void ActOnOpenMPDeclareReductionCombinerEnd(Decl *D, Expr *Combiner);
   /// \brief Initialize declare reduction construct initializer.
-  void ActOnOpenMPDeclareReductionInitializerStart(Scope *S, Decl *D);
+  /// \return omp_priv variable.
+  VarDecl *ActOnOpenMPDeclareReductionInitializerStart(Scope *S, Decl *D);
   /// \brief Finish current declare reduction construct initializer.
-  void ActOnOpenMPDeclareReductionInitializerEnd(Decl *D, Expr *Initializer);
+  void ActOnOpenMPDeclareReductionInitializerEnd(Decl *D, Expr *Initializer,
+                                                 VarDecl *OmpPrivParm);
   /// \brief Called at the end of '#pragma omp declare reduction'.
   DeclGroupPtrTy ActOnOpenMPDeclareReductionDirectiveEnd(
       Scope *S, DeclGroupPtrTy DeclReductions, bool IsValid);
@@ -10247,7 +10264,7 @@ private:
   bool CheckPPCBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall);
 
   bool SemaBuiltinVAStart(unsigned BuiltinID, CallExpr *TheCall);
-  bool SemaBuiltinVAStartARM(CallExpr *Call);
+  bool SemaBuiltinVAStartARMMicrosoft(CallExpr *Call);
   bool SemaBuiltinUnorderedCompare(CallExpr *TheCall);
   bool SemaBuiltinFPClassification(CallExpr *TheCall, unsigned NumArgs);
   bool SemaBuiltinVSX(CallExpr *TheCall);
@@ -10488,6 +10505,36 @@ public:
   SmallVector<CXXRecordDecl*, 4> DelayedDllExportClasses;
 
 private:
+  class SavePendingParsedClassStateRAII {
+  public:
+    SavePendingParsedClassStateRAII(Sema &S) : S(S) { swapSavedState(); }
+
+    ~SavePendingParsedClassStateRAII() {
+      assert(S.DelayedExceptionSpecChecks.empty() &&
+             "there shouldn't be any pending delayed exception spec checks");
+      assert(S.DelayedDefaultedMemberExceptionSpecs.empty() &&
+             "there shouldn't be any pending delayed defaulted member "
+             "exception specs");
+      assert(S.DelayedDllExportClasses.empty() &&
+             "there shouldn't be any pending delayed DLL export classes");
+      swapSavedState();
+    }
+
+  private:
+    Sema &S;
+    decltype(DelayedExceptionSpecChecks) SavedExceptionSpecChecks;
+    decltype(DelayedDefaultedMemberExceptionSpecs)
+        SavedDefaultedMemberExceptionSpecs;
+    decltype(DelayedDllExportClasses) SavedDllExportClasses;
+
+    void swapSavedState() {
+      SavedExceptionSpecChecks.swap(S.DelayedExceptionSpecChecks);
+      SavedDefaultedMemberExceptionSpecs.swap(
+          S.DelayedDefaultedMemberExceptionSpecs);
+      SavedDllExportClasses.swap(S.DelayedDllExportClasses);
+    }
+  };
+
   /// \brief Helper class that collects misaligned member designations and
   /// their location info for delayed diagnostics.
   struct MisalignedMember {

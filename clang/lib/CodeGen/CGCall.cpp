@@ -455,11 +455,15 @@ const CGFunctionInfo &
 CodeGenTypes::arrangeObjCMessageSendSignature(const ObjCMethodDecl *MD,
                                               QualType receiverType) {
   SmallVector<CanQualType, 16> argTys;
+  SmallVector<FunctionProtoType::ExtParameterInfo, 4> extParamInfos(2);
   argTys.push_back(Context.getCanonicalParamType(receiverType));
   argTys.push_back(Context.getCanonicalParamType(Context.getObjCSelType()));
   // FIXME: Kill copy?
   for (const auto *I : MD->parameters()) {
     argTys.push_back(Context.getCanonicalParamType(I->getType()));
+    auto extParamInfo = FunctionProtoType::ExtParameterInfo().withIsNoEscape(
+        I->hasAttr<NoEscapeAttr>());
+    extParamInfos.push_back(extParamInfo);
   }
 
   FunctionType::ExtInfo einfo;
@@ -475,7 +479,7 @@ CodeGenTypes::arrangeObjCMessageSendSignature(const ObjCMethodDecl *MD,
 
   return arrangeLLVMFunctionInfo(
       GetReturnType(MD->getReturnType()), /*instanceMethod=*/false,
-      /*chainCall=*/false, argTys, einfo, {}, required);
+      /*chainCall=*/false, argTys, einfo, extParamInfos, required);
 }
 
 const CGFunctionInfo &
@@ -2093,6 +2097,9 @@ void CodeGenModule::ConstructAttributeList(
       break;
     }
 
+    if (FI.getExtParameterInfo(ArgNo).isNoEscape())
+      Attrs.addAttribute(llvm::Attribute::NoCapture);
+
     if (Attrs.hasAttributes()) {
       unsigned FirstIRArg, NumIRArgs;
       std::tie(FirstIRArg, NumIRArgs) = IRFunctionArgs.getIRArgs(ArgNo);
@@ -3055,7 +3062,8 @@ static void emitWriteback(CodeGenFunction &CGF,
 
   // If the argument wasn't provably non-null, we need to null check
   // before doing the store.
-  bool provablyNonNull = llvm::isKnownNonNull(srcAddr.getPointer());
+  bool provablyNonNull = llvm::isKnownNonZero(srcAddr.getPointer(),
+                                              CGF.CGM.getDataLayout());
   if (!provablyNonNull) {
     llvm::BasicBlock *writebackBB = CGF.createBasicBlock("icr.writeback");
     contBB = CGF.createBasicBlock("icr.done");
@@ -3195,7 +3203,8 @@ static void emitWritebackArg(CodeGenFunction &CGF, CallArgList &args,
   // If the address is *not* known to be non-null, we need to switch.
   llvm::Value *finalArgument;
 
-  bool provablyNonNull = llvm::isKnownNonNull(srcAddr.getPointer());
+  bool provablyNonNull = llvm::isKnownNonZero(srcAddr.getPointer(),
+                                              CGF.CGM.getDataLayout());
   if (provablyNonNull) {
     finalArgument = temp.getPointer();
   } else {

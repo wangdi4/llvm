@@ -106,6 +106,7 @@
 #include <clc/math/native_log.h>
 #include <clc/math/native_log2.h>
 #include <clc/math/native_powr.h>
+#include <clc/math/native_recip.h>
 #include <clc/math/native_sin.h>
 #include <clc/math/native_sqrt.h>
 #include <clc/math/native_rsqrt.h>
@@ -126,6 +127,7 @@
 #include <clc/integer/mad_sat.h>
 #include <clc/integer/mul24.h>
 #include <clc/integer/mul_hi.h>
+#include <clc/integer/popcount.h>
 #include <clc/integer/rhadd.h>
 #include <clc/integer/rotate.h>
 #include <clc/integer/sub_sat.h>
@@ -234,6 +236,25 @@
 #include <clc/cl_khr_local_int32_extended_atomics/atom_min.h>
 #include <clc/cl_khr_local_int32_extended_atomics/atom_or.h>
 #include <clc/cl_khr_local_int32_extended_atomics/atom_xor.h>
+
+/* cl_khr_int64_base_atomics Extension Functions */
+#ifdef cl_khr_int64_base_atomics
+#include <clc/cl_khr_int64_base_atomics/atom_add.h>
+#include <clc/cl_khr_int64_base_atomics/atom_cmpxchg.h>
+#include <clc/cl_khr_int64_base_atomics/atom_dec.h>
+#include <clc/cl_khr_int64_base_atomics/atom_inc.h>
+#include <clc/cl_khr_int64_base_atomics/atom_sub.h>
+#include <clc/cl_khr_int64_base_atomics/atom_xchg.h>
+#endif
+
+/* cl_khr_int64_extended_atomics Extension Functions */
+#ifdef cl_khr_int64_base_atomics
+#include <clc/cl_khr_int64_extended_atomics/atom_and.h>
+#include <clc/cl_khr_int64_extended_atomics/atom_max.h>
+#include <clc/cl_khr_int64_extended_atomics/atom_min.h>
+#include <clc/cl_khr_int64_extended_atomics/atom_or.h>
+#include <clc/cl_khr_int64_extended_atomics/atom_xor.h>
+#endif
 
 /* 6.12.12 Miscellaneous Vector Functions */
 #include <clc/misc/shuffle.h>

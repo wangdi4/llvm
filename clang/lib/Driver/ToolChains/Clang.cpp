@@ -2276,8 +2276,7 @@ static void RenderAnalyzerOptions(const ArgList &Args, ArgStringList &CmdArgs,
 }
 
 static void RenderSSPOptions(const ToolChain &TC, const ArgList &Args,
-                             ArgStringList &CmdArgs, bool KernelOrKext,
-                             bool IsHosted) {
+                             ArgStringList &CmdArgs, bool KernelOrKext) {
   const llvm::Triple &EffectiveTriple = TC.getEffectiveTriple();
 
   // NVPTX doesn't support stack protectors; from the compiler's perspective, it
@@ -2302,12 +2301,7 @@ static void RenderSSPOptions(const ToolChain &TC, const ArgList &Args,
     else if (A->getOption().matches(options::OPT_fstack_protector_all))
       StackProtectorLevel = LangOptions::SSPReq;
   } else {
-    // Only use a default stack protector on Darwin in case -ffreestanding is
-    // not specified.
-    if (EffectiveTriple.isOSDarwin() && !IsHosted)
-      StackProtectorLevel = 0;
-    else
-      StackProtectorLevel = DefaultStackProtectorLevel;
+    StackProtectorLevel = DefaultStackProtectorLevel;
   }
 
   if (StackProtectorLevel) {
@@ -2461,19 +2455,6 @@ static void RenderBuiltinOptions(const ToolChain &TC, const llvm::Triple &T,
   //                     by default.
   if (TC.getArch() == llvm::Triple::le32)
     CmdArgs.push_back("-fno-math-builtin");
-
-#if 0
-  // Default to -fno-builtin-str{cat,cpy} on Darwin for ARM.
-  //
-  // FIXME: Now that PR4941 has been fixed this can be enabled.
-  if (T.isOSDarwin() && (TC.getArch() == llvm::Triple::arm ||
-                         TC.getArch() == llvm::Triple::thumb)) {
-    if (!Args.hasArg(options::OPT_fbuiltin_strcat))
-      CmdArgs.push_back("-fno-builtin-strcat");
-    if (!Args.hasArg(options::OPT_fbuiltin_strcpy))
-      CmdArgs.push_back("-fno-builtin-strcpy");
-  }
-#endif
 }
 
 static void RenderModulesOptions(Compilation &C, const Driver &D,
@@ -2971,10 +2952,8 @@ static void RenderDebugOptions(const ToolChain &TC, const Driver &D,
     CmdArgs.push_back("-debug-info-macro");
 
   // -ggnu-pubnames turns on gnu style pubnames in the backend.
-  if (Args.hasArg(options::OPT_ggnu_pubnames)) {
-    CmdArgs.push_back("-backend-option");
-    CmdArgs.push_back("-generate-gnu-dwarf-pub-sections");
-  }
+  if (Args.hasArg(options::OPT_ggnu_pubnames))
+    CmdArgs.push_back("-ggnu-pubnames");
 
   // -gdwarf-aranges turns on the emission of the aranges section in the
   // backend.
@@ -3254,8 +3233,12 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   }
 
   CmdArgs.push_back("-mthread-model");
-  if (Arg *A = Args.getLastArg(options::OPT_mthread_model))
+  if (Arg *A = Args.getLastArg(options::OPT_mthread_model)) {
+    if (!getToolChain().isThreadModelSupported(A->getValue()))
+      D.Diag(diag::err_drv_invalid_thread_model_for_target)
+          << A->getValue() << A->getAsString(Args);
     CmdArgs.push_back(A->getValue());
+  }
   else
     CmdArgs.push_back(Args.MakeArgString(getToolChain().getThreadModel()));
 
@@ -3409,6 +3392,15 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-mpie-copy-relocations");
   }
 
+  // -fhosted is default.
+  // TODO: Audit uses of KernelOrKext and see where it'd be more appropriate to
+  // use Freestanding.
+  bool Freestanding =
+      Args.hasFlag(options::OPT_ffreestanding, options::OPT_fhosted, false) ||
+      KernelOrKext;
+  if (Freestanding)
+    CmdArgs.push_back("-ffreestanding");
+
   // This is a coarse approximation of what llvm-gcc actually does, both
   // -fasynchronous-unwind-tables and -fnon-call-exceptions interact in more
   // complicated ways.
@@ -3417,7 +3409,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                    options::OPT_fno_asynchronous_unwind_tables,
                    (getToolChain().IsUnwindTablesDefault(Args) ||
                     getToolChain().getSanitizerArgs().needsUnwindTables()) &&
-                       !KernelOrKext);
+                       !Freestanding);
   if (Args.hasFlag(options::OPT_funwind_tables, options::OPT_fno_unwind_tables,
                    AsynchronousUnwindTables))
     CmdArgs.push_back("-munwind-tables");
@@ -3807,13 +3799,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
   Args.AddLastArg(CmdArgs, options::OPT_ftlsmodel_EQ);
 
-  // -fhosted is default.
-  bool IsHosted =
-      !Args.hasFlag(options::OPT_ffreestanding, options::OPT_fhosted, false) &&
-      !KernelOrKext;
-  if (!IsHosted)
-    CmdArgs.push_back("-ffreestanding");
-
   // Forward -f (flag) options which we can pass directly.
   Args.AddLastArg(CmdArgs, options::OPT_femit_all_decls);
   Args.AddLastArg(CmdArgs, options::OPT_fheinous_gnu_extensions);
@@ -3919,7 +3904,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
   Args.AddLastArg(CmdArgs, options::OPT_pthread);
 
-  RenderSSPOptions(getToolChain(), Args, CmdArgs, KernelOrKext, IsHosted);
+  RenderSSPOptions(getToolChain(), Args, CmdArgs, KernelOrKext);
 
   // Translate -mstackrealign
   if (Args.hasFlag(options::OPT_mstackrealign, options::OPT_mno_stackrealign,
@@ -4039,7 +4024,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   // -fuse-cxa-atexit is default.
   if (!Args.hasFlag(
           options::OPT_fuse_cxa_atexit, options::OPT_fno_use_cxa_atexit,
-          !IsWindowsCygnus && !IsWindowsGNU &&
+          !RawTriple.isOSWindows() &&
               RawTriple.getOS() != llvm::Triple::Solaris &&
               getToolChain().getArch() != llvm::Triple::hexagon &&
               getToolChain().getArch() != llvm::Triple::xcore &&

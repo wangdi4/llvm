@@ -263,9 +263,9 @@ public:
         if (I->capturesThis())
           CXXThisFieldDecl = *Field;
         else if (I->capturesVariable())
-          CaptureFields[I->getCapturedVar()] = *Field;
+          CaptureFields[I->getCapturedVar()->getCanonicalDecl()] = *Field;
         else if (I->capturesVariableByCopy())
-          CaptureFields[I->getCapturedVar()] = *Field;
+          CaptureFields[I->getCapturedVar()->getCanonicalDecl()] = *Field;
       }
     }
 
@@ -279,7 +279,7 @@ public:
 
     /// \brief Lookup the captured field decl for a variable.
     virtual const FieldDecl *lookup(const VarDecl *VD) const {
-      return CaptureFields.lookup(VD);
+      return CaptureFields.lookup(VD->getCanonicalDecl());
     }
 
     bool isCXXThisExprCaptured() const { return getThisFieldDecl() != nullptr; }
@@ -1586,7 +1586,8 @@ public:
   llvm::Function *GenerateBlockFunction(GlobalDecl GD,
                                         const CGBlockInfo &Info,
                                         const DeclMapTy &ldm,
-                                        bool IsLambdaConversionToBlock);
+                                        bool IsLambdaConversionToBlock,
+                                        bool BuildGlobalBlock);
 
   llvm::Constant *GenerateCopyHelperFunction(const CGBlockInfo &blockInfo);
   llvm::Constant *GenerateDestroyHelperFunction(const CGBlockInfo &blockInfo);
@@ -1776,6 +1777,15 @@ public:
   /// EmitMCountInstrumentation - Emit call to .mcount.
   void EmitMCountInstrumentation();
 
+  /// Encode an address into a form suitable for use in a function prologue.
+  llvm::Constant *EncodeAddrForUseInPrologue(llvm::Function *F,
+                                             llvm::Constant *Addr);
+
+  /// Decode an address used in a function prologue, encoded by \c
+  /// EncodeAddrForUseInPrologue.
+  llvm::Value *DecodeAddrUsedInPrologue(llvm::Value *F,
+                                        llvm::Value *EncodedAddr);
+
   /// EmitFunctionProlog - Emit the target specific LLVM code to load the
   /// arguments for the given function. This is also responsible for naming the
   /// LLVM function arguments.
@@ -1818,8 +1828,7 @@ public:
   /// TypeOfSelfObject - Return type of object that this self represents.
   QualType TypeOfSelfObject();
 
-  /// hasAggregateLLVMType - Return true if the specified AST type will map into
-  /// an aggregate LLVM type or is void.
+  /// getEvaluationKind - Return the TypeEvaluationKind of QualType \c T.
   static TypeEvaluationKind getEvaluationKind(QualType T);
 
   static bool hasScalarEvaluationKind(QualType T) {
@@ -2534,7 +2543,7 @@ public:
   /// This function may clear the current insertion point; callers should use
   /// EnsureInsertPoint if they wish to subsequently generate code without first
   /// calling EmitBlock, EmitBranch, or EmitStmt.
-  void EmitStmt(const Stmt *S);
+  void EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs = None);
 
   /// EmitSimpleStmt - Try to emit a "simple" statement which does not
   /// necessarily require an insertion point or debug information; typically
@@ -2876,6 +2885,9 @@ public:
   bool EmitOMPWorksharingLoop(const OMPLoopDirective &S, Expr *EUB,
                               const CodeGenLoopBoundsTy &CodeGenLoopBounds,
                               const CodeGenDispatchBoundsTy &CGDispatchBounds);
+
+  /// Emits the lvalue for the expression with possibly captured variable.
+  LValue EmitOMPSharedLValue(const Expr *E);
 
 private:
   /// Helpers for blocks

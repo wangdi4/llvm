@@ -1434,6 +1434,9 @@ public:
   const APInt &getAPIntValue() const { return Value->getValue(); }
   uint64_t getZExtValue() const { return Value->getZExtValue(); }
   int64_t getSExtValue() const { return Value->getSExtValue(); }
+  uint64_t getLimitedValue(uint64_t Limit = UINT64_MAX) {
+    return Value->getLimitedValue(Limit);
+  }
 
   bool isOne() const { return Value->isOne(); }
   bool isNullValue() const { return Value->isZero(); }
@@ -1848,19 +1851,20 @@ public:
   }
 };
 
-class EHLabelSDNode : public SDNode {
+class LabelSDNode : public SDNode {
   friend class SelectionDAG;
 
   MCSymbol *Label;
 
-  EHLabelSDNode(unsigned Order, const DebugLoc &dl, MCSymbol *L)
+  LabelSDNode(unsigned Order, const DebugLoc &dl, MCSymbol *L)
       : SDNode(ISD::EH_LABEL, Order, dl, getSDVTList(MVT::Other)), Label(L) {}
 
 public:
   MCSymbol *getLabel() const { return Label; }
 
   static bool classof(const SDNode *N) {
-    return N->getOpcode() == ISD::EH_LABEL;
+    return N->getOpcode() == ISD::EH_LABEL ||
+           N->getOpcode() == ISD::ANNOTATION_LABEL;
   }
 };
 
