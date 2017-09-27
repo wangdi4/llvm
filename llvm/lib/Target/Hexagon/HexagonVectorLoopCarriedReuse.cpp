@@ -183,7 +183,8 @@ namespace {
    friend raw_ostream &operator<< (raw_ostream &OS, const DepChain &D);
   };
 
- raw_ostream &operator<< (raw_ostream &OS, const DepChain &D) {
+  LLVM_ATTRIBUTE_UNUSED
+  raw_ostream &operator<<(raw_ostream &OS, const DepChain &D) {
     const ChainOfDependences &CD = D.Chain;
     int ChainSize = CD.size();
     OS << "**DepChain Start::**\n";
@@ -206,7 +207,8 @@ namespace {
     bool isDefined() { return Inst2Replace != nullptr; }
   };
   typedef struct ReuseValue ReuseValue;
-  raw_ostream &operator<< (raw_ostream &OS, const ReuseValue &RU) {
+  LLVM_ATTRIBUTE_UNUSED
+  raw_ostream &operator<<(raw_ostream &OS, const ReuseValue &RU) {
     OS << "** ReuseValue ***\n";
     OS << "Instruction to Replace: " << *(RU.Inst2Replace) << "\n";
     OS << "Backedge Instruction: " << *(RU.BackedgeInst) << "\n";
@@ -479,11 +481,10 @@ bool HexagonVectorLoopCarriedReuse::doVLCR() {
   assert((CurLoop->getNumBlocks() == 1) &&
          "Can do VLCR only on single block loops");
 
-  BasicBlock *HdrB = CurLoop->getHeader();
   bool Changed;
   bool Continue;
 
-  DEBUG(dbgs() << "Working on Loop: " << *HdrB << "\n");
+  DEBUG(dbgs() << "Working on Loop: " << *CurLoop->getHeader() << "\n");
   do {
     // Reset datastructures.
     Dependences.clear();
