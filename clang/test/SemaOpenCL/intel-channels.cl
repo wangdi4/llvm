@@ -24,3 +24,10 @@ __kernel void k2() {
   int i1 = read_channel_altera(arr[1]);
   int i2 = read_channel_altera(multiarr[1][2]);
 }
+
+channel foo; // expected-error{{missing actual type specifier for channel}}
+
+struct incomplete;
+
+channel struct incomplete ch_arr[10]; // expected-error{{array has incomplete element type 'channel struct incomplete'}}
+channel struct incomplete ch; // expected-error{{tentative definition has type '__global channel struct incomplete' that is never completed}}
