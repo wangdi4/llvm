@@ -22667,7 +22667,7 @@ static SDValue LowerRotate(SDValue Op, const X86Subtarget &Subtarget,
   assert((Opcode == ISD::ROTL) && "Only ROTL supported");
 
   // XOP has 128-bit vector variable + immediate rotates.
-  // +ve/-ve Amt = rotate left/right.
+  // +ve/-ve Amt = rotate left/right - just need to handle ISD::ROTL.
 
   // Split 256-bit integers.
   if (VT.is256BitVector())
@@ -22680,13 +22680,13 @@ static SDValue LowerRotate(SDValue Op, const X86Subtarget &Subtarget,
     if (auto *RotateConst = BVAmt->getConstantSplatNode()) {
       uint64_t RotateAmt = RotateConst->getAPIntValue().getZExtValue();
       assert(RotateAmt < EltSizeInBits && "Rotation out of range");
-      return DAG.getNode(X86ISD::VPROTI, DL, VT, R,
+      return DAG.getNode(X86ISD::VROTLI, DL, VT, R,
                          DAG.getConstant(RotateAmt, DL, MVT::i8));
     }
   }
 
   // Use general rotate by variable (per-element).
-  return DAG.getNode(X86ISD::VPROT, DL, VT, R, Amt);
+  return Op;
 }
 
 static SDValue LowerXALUO(SDValue Op, SelectionDAG &DAG) {
@@ -24610,8 +24610,6 @@ const char *X86TargetLowering::getTargetNodeName(unsigned Opcode) const {
   case X86ISD::RDSEED:             return "X86ISD::RDSEED";
   case X86ISD::VPMADDUBSW:         return "X86ISD::VPMADDUBSW";
   case X86ISD::VPMADDWD:           return "X86ISD::VPMADDWD";
-  case X86ISD::VPROT:              return "X86ISD::VPROT";
-  case X86ISD::VPROTI:             return "X86ISD::VPROTI";
   case X86ISD::VPSHA:              return "X86ISD::VPSHA";
   case X86ISD::VPSHL:              return "X86ISD::VPSHL";
   case X86ISD::VPCOM:              return "X86ISD::VPCOM";
@@ -36953,12 +36951,14 @@ X86TargetLowering::getRegForInlineAsmConstraint(const TargetRegisterInfo *TRI,
     if (Size == 1) Size = 8;
     unsigned DestReg = getX86SubSuperRegisterOrZero(Res.first, Size);
     if (DestReg > 0) {
-      Res.first = DestReg;
-      Res.second = Size == 8 ? &X86::GR8RegClass
-                 : Size == 16 ? &X86::GR16RegClass
-                 : Size == 32 ? &X86::GR32RegClass
-                 : &X86::GR64RegClass;
-      assert(Res.second->contains(Res.first) && "Register in register class");
+      bool is64Bit = Subtarget.is64Bit();
+      const TargetRegisterClass *RC =
+          Size == 8 ? (is64Bit ? &X86::GR8RegClass : &X86::GR8_NOREXRegClass)
+        : Size == 16 ? (is64Bit ? &X86::GR16RegClass : &X86::GR16_NOREXRegClass)
+        : Size == 32 ? (is64Bit ? &X86::GR32RegClass : &X86::GR32_NOREXRegClass)
+        : &X86::GR64RegClass;
+      if (RC->contains(DestReg))
+        Res = std::make_pair(DestReg, RC);
     } else {
       // No register found/type mismatch.
       Res.first = 0;
