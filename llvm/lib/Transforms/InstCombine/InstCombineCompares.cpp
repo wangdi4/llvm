@@ -4416,6 +4416,8 @@ Instruction *InstCombiner::foldICmpUsingKnownBits(ICmpInst &I) {
       return replaceInstUsesWith(I, ConstantInt::getTrue(I.getType()));
     if (Op0Max.slt(Op1Min)) // A >=s B -> false if max(A) < min(B)
       return replaceInstUsesWith(I, ConstantInt::getFalse(I.getType()));
+    if (Op1Min == Op0Max) // A >=s B -> A == B if max(A) == min(B)
+      return new ICmpInst(ICmpInst::ICMP_EQ, Op0, Op1);
     break;
   case ICmpInst::ICMP_SLE:
     assert(!isa<ConstantInt>(Op1) && "ICMP_SLE with ConstantInt not folded!");
@@ -4423,6 +4425,8 @@ Instruction *InstCombiner::foldICmpUsingKnownBits(ICmpInst &I) {
       return replaceInstUsesWith(I, ConstantInt::getTrue(I.getType()));
     if (Op0Min.sgt(Op1Max)) // A <=s B -> false if min(A) > max(B)
       return replaceInstUsesWith(I, ConstantInt::getFalse(I.getType()));
+    if (Op1Max == Op0Min) // A <=s B -> A == B if min(A) == max(B)
+      return new ICmpInst(ICmpInst::ICMP_EQ, Op0, Op1);
     break;
   case ICmpInst::ICMP_UGE:
     assert(!isa<ConstantInt>(Op1) && "ICMP_UGE with ConstantInt not folded!");
@@ -4430,6 +4434,8 @@ Instruction *InstCombiner::foldICmpUsingKnownBits(ICmpInst &I) {
       return replaceInstUsesWith(I, ConstantInt::getTrue(I.getType()));
     if (Op0Max.ult(Op1Min)) // A >=u B -> false if max(A) < min(B)
       return replaceInstUsesWith(I, ConstantInt::getFalse(I.getType()));
+    if (Op1Min == Op0Max) // A >=u B -> A == B if max(A) == min(B)
+      return new ICmpInst(ICmpInst::ICMP_EQ, Op0, Op1);
     break;
   case ICmpInst::ICMP_ULE:
     assert(!isa<ConstantInt>(Op1) && "ICMP_ULE with ConstantInt not folded!");
@@ -4437,6 +4443,8 @@ Instruction *InstCombiner::foldICmpUsingKnownBits(ICmpInst &I) {
       return replaceInstUsesWith(I, ConstantInt::getTrue(I.getType()));
     if (Op0Min.ugt(Op1Max)) // A <=u B -> false if min(A) > max(B)
       return replaceInstUsesWith(I, ConstantInt::getFalse(I.getType()));
+    if (Op1Max == Op0Min) // A <=u B -> A == B if min(A) == max(B)
+      return new ICmpInst(ICmpInst::ICMP_EQ, Op0, Op1);
     break;
   }
 
