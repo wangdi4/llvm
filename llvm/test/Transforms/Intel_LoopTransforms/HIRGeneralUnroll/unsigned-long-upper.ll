@@ -4,16 +4,15 @@
 
 ; CHECK: Before HIR General Unroll
 ; CHECK: + DO i1 = 0, -1152921504606846979, 1   <DO_LOOP>
-; CHECK: |   %rem = i1  %u  50;
-; CHECK: |   %0 = (@A)[0][%rem];
-; CHECK: |   %rem1 = i1 + 1  %u  50;
-; CHECK: |   (@A)[0][%rem1] = i1 + %0 + 1;
+; CHECK: |   %sub = i1 + 1  +  -1;
+; CHECK: |   %0 = (@A)[0][i1 + -50 * (%sub /u 50)];
+; CHECK: |   (@A)[0][i1 + -50 * (%i.08 /u 50) + 1] = i1 + %0 + 1;
+; CHECK: |   %i.08 = i1 + 2;
 ; CHECK: + END LOOP
 
-; CHECK: After HIR General Unroll
-; CHECK: + DO i1 = 0, 2161727821137838078, 1   <DO_LOOP>
-; CHECK: DO i1 = -1152921504606846984, -1152921504606846979, 1
-
+; CHECK: IR Dump After HIR General Unroll
+; CHECK: + DO i1 = 0, 4323455642275676158, 1   <DO_LOOP>
+; CHECK: DO i1 = -1152921504606846980, -1152921504606846979, 1
 
 source_filename = "unsigned-long-iv.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
