@@ -36,12 +36,8 @@ namespace clang {
       DIAG_SIZE_PARSE         =  600, // INTEL
       DIAG_SIZE_AST           =  150, // INTEL
       DIAG_SIZE_COMMENT       =  100,
-<<<<<<< HEAD
-      DIAG_SIZE_SEMA          = 4000, // INTEL
-=======
       DIAG_SIZE_CROSSTU       =  100,
-      DIAG_SIZE_SEMA          = 3500,
->>>>>>> 6254bf4aded7574f297d7eaa82e54702b3820366
+      DIAG_SIZE_SEMA          = 4000, // INTEL
       DIAG_SIZE_ANALYSIS      =  100
     };
     // Start position for diagnostics.

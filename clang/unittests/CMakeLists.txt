@@ -19,11 +19,8 @@ if(CLANG_ENABLE_STATIC_ANALYZER)
 endif()
 add_subdirectory(ASTMatchers)
 add_subdirectory(AST)
-<<<<<<< HEAD
-if(NOT WIN32)  # INTEL_CUSTOMIZATION, Tooling needs bigobj on windows.
-=======
 add_subdirectory(CrossTU)
->>>>>>> 6254bf4aded7574f297d7eaa82e54702b3820366
+if(NOT WIN32)  # INTEL_CUSTOMIZATION, Tooling needs bigobj on windows.
 add_subdirectory(Tooling)
 endif()
 add_subdirectory(Format)
