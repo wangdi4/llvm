@@ -5774,7 +5774,7 @@ bool SimplifyCFGOpt::SimplifySwitch(SwitchInst *SI, IRBuilder<> &Builder) {
   // Try to eliminate cases that have the same results as the default case
   // and no side effects.
   if (EliminateRedundantCases(SI))
-    return SimplifyCFG(BB, TTI, BonusInstThreshold, AC) | true;
+    return SimplifyCFG(BB, TTI, AC, Options) | true;
 #endif // INTEL_CUSTOMIZATION
 
   // Try to transform the switch into an icmp and a branch.
