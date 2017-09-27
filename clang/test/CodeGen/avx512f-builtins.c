@@ -8329,20 +8329,10 @@ __m128 test_mm_mask_move_ss (__m128 __W, __mmask8 __U, __m128 __A, __m128 __B)
 
 __m128 test_mm_maskz_move_ss (__mmask8 __U, __m128 __A, __m128 __B)
 {
-<<<<<<< HEAD
-  // O2-LABEL: @test_mm_maskz_move_ss
-  // O2: %[[M:.*]] = and i8 %__U, 1
-  // O2: %[[M2:.*]] = icmp
-  // O2: %[[ELM1:.*]] = extractelement <4 x float> %__B, i32 0
-  // O2: %[[SEL:.*]] = select i1 %[[M2]]
-  // O2: %[[RES:.*]] = insertelement <4 x float> %__A, float %[[SEL]], i32 0
-  // O2: ret <4 x float> %[[RES]]
-=======
   // CHECK-LABEL: @test_mm_maskz_move_ss
   // CHECK: %vecext.i = extractelement <4 x float> %5, i32 0
   // CHECK: %cond.i = phi float [ %vecext.i, %cond.true.i ], [ 0.000000e+00, %cond.false.i ]
   // CHECK: %vecins.i = insertelement <4 x float> %6, float %cond.i, i32 0
->>>>>>> 2d4bdbc5f5c3abfa1a1e6c2f900dce6dd66ca810
   return _mm_maskz_move_ss (__U, __A, __B);
 }
 
