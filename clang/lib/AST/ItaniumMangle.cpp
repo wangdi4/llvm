@@ -1316,18 +1316,15 @@ void CXXNameMangler::mangleUnqualifiedName(const NamedDecl *ND,
       //
       //   void test() { extern void foo(); }
       //   static void foo();
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-      // CQ371729: Incompatible name mangling.
-      if (!getASTContext().getLangOpts().IntelCompat)
-#endif // INTEL_CUSTOMIZATION
-=======
       //
       // Don't bother with the L marker for names in anonymous namespaces; the
       // 12_GLOBAL__N_1 mangling is quite sufficient there, and this better
       // matches GCC anyway, because GCC does not treat anonymous namespaces as
       // implying internal linkage.
->>>>>>> dd94e045be9b18d4a967fb747522b6da743aa18d
+#if INTEL_CUSTOMIZATION
+      // CQ371729: Incompatible name mangling.
+      if (!getASTContext().getLangOpts().IntelCompat)
+#endif // INTEL_CUSTOMIZATION
       if (ND && ND->getFormalLinkage() == InternalLinkage &&
           !ND->isExternallyVisible() &&
           getEffectiveDeclContext(ND)->isFileContext() &&
