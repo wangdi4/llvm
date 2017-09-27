@@ -8991,8 +8991,7 @@ Decl *Sema::ActOnUsingDirective(Scope *S,
       Diag(IdentLoc, diag::ext_using_undefined_std);
       R.addDecl(getOrCreateStdNamespace());
       R.resolveKind();
-<<<<<<< HEAD
-    } 
+    }
 #if INTEL_CUSTOMIZATION
     // Fix for CQ#374762: Allow "using namespace = __cxxabiv1;"
     // even if "__cxxabiv1" hasn't been defined yet, for GCC compatibility.
@@ -9005,9 +9004,6 @@ Decl *Sema::ActOnUsingDirective(Scope *S,
       R.resolveKind();
     }
 #endif // INTEL_CUSTOMIZATION
-=======
-    }
->>>>>>> 734df4f9a7271d061df0720bfdb183d58497fea8
     // Otherwise, attempt typo correction.
     else TryNamespaceTypoCorrection(*this, R, S, SS, IdentLoc, NamespcName);
   }
