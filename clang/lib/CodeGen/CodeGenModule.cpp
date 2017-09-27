@@ -2550,7 +2550,6 @@ CodeGenModule::GetOrCreateLLVMGlobal(StringRef MangledName,
       EmitGlobalVarDefinition(D);
     }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     // Fix for CQ#371078: linkfail when static const/constexpr is used as a
     // field of a structure.
@@ -2558,13 +2557,11 @@ CodeGenModule::GetOrCreateLLVMGlobal(StringRef MangledName,
       EmitGlobalVarDefinition(D);
     }
 #endif // INTEL_CUSTOMIZATION
-=======
     // Emit section information for extern variables.
     if (D->hasExternalStorage()) {
       if (const SectionAttr *SA = D->getAttr<SectionAttr>())
         GV->setSection(SA->getName());
     }
->>>>>>> 2dab9ecc4a8eba7b83700673007d3ce340e015d7
 
     // Handle XCore specific ABI requirements.
     if (getTriple().getArch() == llvm::Triple::xcore &&
