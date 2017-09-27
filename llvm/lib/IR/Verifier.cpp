@@ -1150,7 +1150,6 @@ void Verifier::visitDITemplateValueParameter(
 void Verifier::visitDIVariable(const DIVariable &N) {
   if (auto *S = N.getRawScope())
     AssertDI(isa<DIScope>(S), "invalid scope", &N, S);
-  AssertDI(isType(N.getRawType()), "invalid type ref", &N, N.getRawType());
   if (auto *F = N.getRawFile())
     AssertDI(isa<DIFile>(F), "invalid file", &N, F);
 }
@@ -1173,6 +1172,7 @@ void Verifier::visitDILocalVariable(const DILocalVariable &N) {
   // Checks common to all variables.
   visitDIVariable(N);
 
+  AssertDI(isType(N.getRawType()), "invalid type ref", &N, N.getRawType());
   AssertDI(N.getTag() == dwarf::DW_TAG_variable, "invalid tag", &N);
   AssertDI(N.getRawScope() && isa<DILocalScope>(N.getRawScope()),
            "local variable requires a valid scope", &N, N.getRawScope());
@@ -1185,6 +1185,8 @@ void Verifier::visitDIExpression(const DIExpression &N) {
 void Verifier::visitDIGlobalVariableExpression(
     const DIGlobalVariableExpression &GVE) {
   AssertDI(GVE.getVariable(), "missing variable");
+  if (auto *Var = GVE.getVariable())
+    visitDIGlobalVariable(*Var);
   if (auto *Expr = GVE.getExpression()) {
     visitDIExpression(*Expr);
     if (auto Fragment = Expr->getFragmentInfo())
