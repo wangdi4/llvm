@@ -12085,12 +12085,12 @@ static SDValue lowerV2X128VectorShuffle(const SDLoc &DL, MVT VT, SDValue V1,
                                                 Zeroable, Subtarget, DAG))
     return Blend;
 
-  bool IsV1Zero = ISD::isBuildVectorAllZeros(V1.getNode());
-  bool IsV2Zero = ISD::isBuildVectorAllZeros(V2.getNode());
+  bool IsLowZero = (Zeroable & 0x3) == 0x3;
+  bool IsHighZero = (Zeroable & 0xc) == 0xc;
 
   // If either input operand is a zero vector, use VPERM2X128 because its mask
   // allows us to replace the zero input with an implicit zero.
-  if (!IsV1Zero && !IsV2Zero) {
+  if (!IsLowZero && !IsHighZero) {
     // Check for patterns which can be matched with a single insert of a 128-bit
     // subvector.
     bool OnlyUsesV1 = isShuffleEquivalent(V1, V2, Mask, {0, 1, 0, 1});
@@ -12124,30 +12124,17 @@ static SDValue lowerV2X128VectorShuffle(const SDLoc &DL, MVT VT, SDValue V1,
   //    [6]   - ignore
   //    [7]   - zero high half of destination
 
-  int MaskLO = WidenedMask[0] < 0 ? 0 : WidenedMask[0];
-  int MaskHI = WidenedMask[1] < 0 ? 0 : WidenedMask[1];
+  assert(WidenedMask[0] >= 0 && WidenedMask[1] >= 0 && "Undef half?");
 
-  unsigned PermMask = MaskLO | (MaskHI << 4);
+  unsigned PermMask = 0;
+  PermMask |= IsLowZero  ? 0x08 : (WidenedMask[0] << 0);
+  PermMask |= IsHighZero ? 0x80 : (WidenedMask[1] << 4);
 
-  // If either input is a zero vector, replace it with an undef input.
-  // Shuffle mask values <  4 are selecting elements of V1.
-  // Shuffle mask values >= 4 are selecting elements of V2.
-  // Adjust each half of the permute mask by clearing the half that was
-  // selecting the zero vector and setting the zero mask bit.
-  if (IsV1Zero) {
+  // Check the immediate mask and replace unused sources with undef.
+  if ((PermMask & 0x0a) != 0x00 && (PermMask & 0xa0) != 0x00)
     V1 = DAG.getUNDEF(VT);
-    if (MaskLO < 2)
-      PermMask = (PermMask & 0xf0) | 0x08;
-    if (MaskHI < 2)
-      PermMask = (PermMask & 0x0f) | 0x80;
-  }
-  if (IsV2Zero) {
+  if ((PermMask & 0x0a) != 0x02 && (PermMask & 0xa0) != 0x20)
     V2 = DAG.getUNDEF(VT);
-    if (MaskLO >= 2)
-      PermMask = (PermMask & 0xf0) | 0x08;
-    if (MaskHI >= 2)
-      PermMask = (PermMask & 0x0f) | 0x80;
-  }
 
   return DAG.getNode(X86ISD::VPERM2X128, DL, VT, V1, V2,
                      DAG.getConstant(PermMask, DL, MVT::i8));
@@ -21634,14 +21621,15 @@ static SDValue LowerMULH(SDValue Op, const X86Subtarget &Subtarget,
 
   // AVX2 implementations - extend xmm subvectors to ymm.
   if (Subtarget.hasInt256()) {
+    unsigned NumElems = VT.getVectorNumElements();
     SDValue Lo = DAG.getIntPtrConstant(0, dl);
-    SDValue Hi = DAG.getIntPtrConstant(VT.getVectorNumElements() / 2, dl);
+    SDValue Hi = DAG.getIntPtrConstant(NumElems / 2, dl);
 
     if (VT == MVT::v32i8) {
-      SDValue ALo = DAG.getNode(ISD::EXTRACT_SUBVECTOR, dl, MVT::v16i8, A, Lo);
-      SDValue BLo = DAG.getNode(ISD::EXTRACT_SUBVECTOR, dl, MVT::v16i8, B, Lo);
-      SDValue AHi = DAG.getNode(ISD::EXTRACT_SUBVECTOR, dl, MVT::v16i8, A, Hi);
-      SDValue BHi = DAG.getNode(ISD::EXTRACT_SUBVECTOR, dl, MVT::v16i8, B, Hi);
+      SDValue ALo = extract128BitVector(A, 0, DAG, dl);
+      SDValue BLo = extract128BitVector(B, 0, DAG, dl);
+      SDValue AHi = extract128BitVector(A, NumElems / 2, DAG, dl);
+      SDValue BHi = extract128BitVector(B, NumElems / 2, DAG, dl);
       ALo = DAG.getNode(ExSSE41, dl, MVT::v16i16, ALo);
       BLo = DAG.getNode(ExSSE41, dl, MVT::v16i16, BLo);
       AHi = DAG.getNode(ExSSE41, dl, MVT::v16i16, AHi);
@@ -26463,7 +26451,7 @@ void X86TargetLowering::SetupEntryBlockForSjLj(MachineInstr &MI,
   }
 
   MachineInstrBuilder MIB = BuildMI(*MBB, MI, DL, TII->get(Op));
-  addFrameReference(MIB, FI, 36);
+  addFrameReference(MIB, FI, Subtarget.is64Bit() ? 56 : 36);
   if (UseImmLabel)
     MIB.addMBB(DispatchBB);
   else
@@ -26571,21 +26559,17 @@ X86TargetLowering::EmitSjLjDispatchBlock(MachineInstr &MI,
 
   unsigned IReg = MRI->createVirtualRegister(&X86::GR32RegClass);
   addFrameReference(BuildMI(DispatchBB, DL, TII->get(X86::MOV32rm), IReg), FI,
-                    4);
+                    Subtarget.is64Bit() ? 8 : 4);
   BuildMI(DispatchBB, DL, TII->get(X86::CMP32ri))
       .addReg(IReg)
       .addImm(LPadList.size());
-  BuildMI(DispatchBB, DL, TII->get(X86::JA_1)).addMBB(TrapBB);
+  BuildMI(DispatchBB, DL, TII->get(X86::JAE_1)).addMBB(TrapBB);
 
-  unsigned JReg = MRI->createVirtualRegister(&X86::GR32RegClass);
-  BuildMI(DispContBB, DL, TII->get(X86::SUB32ri), JReg)
-      .addReg(IReg)
-      .addImm(1);
   BuildMI(DispContBB, DL,
           TII->get(Subtarget.is64Bit() ? X86::JMP64m : X86::JMP32m))
       .addReg(0)
       .addImm(Subtarget.is64Bit() ? 8 : 4)
-      .addReg(JReg)
+      .addReg(IReg)
       .addJumpTableIndex(MJTI)
       .addReg(0);
 
@@ -27795,12 +27779,16 @@ static SDValue combineX86ShuffleChain(ArrayRef<SDValue> Inputs, SDValue Root,
   if (Depth < 2)
     return SDValue();
 
+  // Depth threshold above which we can efficiently use variable mask shuffles.
+  // TODO This should probably be target specific.
+  bool AllowVariableMask = (Depth >= 3) || HasVariableMask;
+
   bool MaskContainsZeros =
       any_of(Mask, [](int M) { return M == SM_SentinelZero; });
 
   if (is128BitLaneCrossingShuffleMask(MaskVT, Mask)) {
     // If we have a single input lane-crossing shuffle then lower to VPERMV.
-    if (UnaryShuffle && (Depth >= 3 || HasVariableMask) && !MaskContainsZeros &&
+    if (UnaryShuffle && AllowVariableMask && !MaskContainsZeros &&
         ((Subtarget.hasAVX2() &&
           (MaskVT == MVT::v8f32 || MaskVT == MVT::v8i32)) ||
          (Subtarget.hasAVX512() &&
@@ -27821,7 +27809,7 @@ static SDValue combineX86ShuffleChain(ArrayRef<SDValue> Inputs, SDValue Root,
 
     // Lower a unary+zero lane-crossing shuffle as VPERMV3 with a zero
     // vector as the second source.
-    if (UnaryShuffle && (Depth >= 3 || HasVariableMask) &&
+    if (UnaryShuffle && AllowVariableMask &&
         ((Subtarget.hasAVX512() &&
           (MaskVT == MVT::v8f64 || MaskVT == MVT::v8i64 ||
            MaskVT == MVT::v16f32 || MaskVT == MVT::v16i32)) ||
@@ -27849,7 +27837,7 @@ static SDValue combineX86ShuffleChain(ArrayRef<SDValue> Inputs, SDValue Root,
     }
 
     // If we have a dual input lane-crossing shuffle then lower to VPERMV3.
-    if ((Depth >= 3 || HasVariableMask) && !MaskContainsZeros &&
+    if (AllowVariableMask && !MaskContainsZeros &&
         ((Subtarget.hasAVX512() &&
           (MaskVT == MVT::v8f64 || MaskVT == MVT::v8i64 ||
            MaskVT == MVT::v16f32 || MaskVT == MVT::v16i32)) ||
@@ -27875,7 +27863,7 @@ static SDValue combineX86ShuffleChain(ArrayRef<SDValue> Inputs, SDValue Root,
 
   // See if we can combine a single input shuffle with zeros to a bit-mask,
   // which is much simpler than any shuffle.
-  if (UnaryShuffle && MaskContainsZeros && (Depth >= 3 || HasVariableMask) &&
+  if (UnaryShuffle && MaskContainsZeros && AllowVariableMask &&
       isSequentialOrUndefOrZeroInRange(Mask, 0, NumMaskElts, 0) &&
       DAG.getTargetLoweringInfo().isTypeLegal(MaskVT)) {
     APInt Zero = APInt::getNullValue(MaskEltSizeInBits);
@@ -27906,7 +27894,7 @@ static SDValue combineX86ShuffleChain(ArrayRef<SDValue> Inputs, SDValue Root,
   // If we have a single input shuffle with different shuffle patterns in the
   // the 128-bit lanes use the variable mask to VPERMILPS.
   // TODO Combine other mask types at higher depths.
-  if (UnaryShuffle && HasVariableMask && !MaskContainsZeros &&
+  if (UnaryShuffle && AllowVariableMask && !MaskContainsZeros &&
       ((MaskVT == MVT::v8f32 && Subtarget.hasAVX()) ||
        (MaskVT == MVT::v16f32 && Subtarget.hasAVX512()))) {
     SmallVector<SDValue, 16> VPermIdx;
@@ -27926,7 +27914,7 @@ static SDValue combineX86ShuffleChain(ArrayRef<SDValue> Inputs, SDValue Root,
 
   // With XOP, binary shuffles of 128/256-bit floating point vectors can combine
   // to VPERMIL2PD/VPERMIL2PS.
-  if ((Depth >= 3 || HasVariableMask) && Subtarget.hasXOP() &&
+  if (AllowVariableMask && Subtarget.hasXOP() &&
       (MaskVT == MVT::v2f64 || MaskVT == MVT::v4f64 || MaskVT == MVT::v4f32 ||
        MaskVT == MVT::v8f32)) {
     // VPERMIL2 Operation.
@@ -27968,7 +27956,7 @@ static SDValue combineX86ShuffleChain(ArrayRef<SDValue> Inputs, SDValue Root,
   // Intel's manuals suggest only using PSHUFB if doing so replacing 5
   // instructions, but in practice PSHUFB tends to be *very* fast so we're
   // more aggressive.
-  if (UnaryShuffle && (Depth >= 3 || HasVariableMask) &&
+  if (UnaryShuffle && AllowVariableMask &&
       ((RootVT.is128BitVector() && Subtarget.hasSSSE3()) ||
        (RootVT.is256BitVector() && Subtarget.hasAVX2()) ||
        (RootVT.is512BitVector() && Subtarget.hasBWI()))) {
@@ -27986,7 +27974,7 @@ static SDValue combineX86ShuffleChain(ArrayRef<SDValue> Inputs, SDValue Root,
         continue;
       }
       M = Ratio * M + i % Ratio;
-      assert ((M / 16) == (i / 16) && "Lane crossing detected");
+      assert((M / 16) == (i / 16) && "Lane crossing detected");
       PSHUFBMask.push_back(DAG.getConstant(M, DL, MVT::i8));
     }
     MVT ByteVT = MVT::getVectorVT(MVT::i8, NumBytes);
@@ -28002,8 +27990,7 @@ static SDValue combineX86ShuffleChain(ArrayRef<SDValue> Inputs, SDValue Root,
   // With XOP, if we have a 128-bit binary input shuffle we can always combine
   // to VPPERM. We match the depth requirement of PSHUFB - VPPERM is never
   // slower than PSHUFB on targets that support both.
-  if ((Depth >= 3 || HasVariableMask) && RootVT.is128BitVector() &&
-      Subtarget.hasXOP()) {
+  if (AllowVariableMask && RootVT.is128BitVector() && Subtarget.hasXOP()) {
     // VPPERM Mask Operation
     // Bits[4:0] - Byte Index (0 - 31)
     // Bits[7:5] - Permute Operation (0 - Source byte, 4 - ZERO)
@@ -29324,7 +29311,7 @@ static SDValue combineBitcastvxi1(SelectionDAG &DAG, SDValue BitCast,
     // sign-extend to a 256-bit operation to avoid truncation.
     if (N0->getOpcode() == ISD::SETCC &&
         N0->getOperand(0)->getValueType(0).is256BitVector() &&
-        Subtarget.hasInt256()) {
+        Subtarget.hasAVX()) {
       SExtVT = MVT::v4i64;
       FPCastVT = MVT::v4f64;
     }
@@ -35539,16 +35526,13 @@ static SDValue combineLoopSADPattern(SDNode *N, SelectionDAG &DAG,
     Sad = DAG.getNode(ISD::TRUNCATE, DL, VT, Sad);
 
   if (VT.getSizeInBits() > ResVT.getSizeInBits()) {
-    // Update part of elements of the reduction vector. This is done by first
-    // extracting a sub-vector from it, updating this sub-vector, and inserting
-    // it back.
-    SDValue SubPhi = DAG.getNode(ISD::EXTRACT_SUBVECTOR, DL, ResVT, Phi,
-                                 DAG.getIntPtrConstant(0, DL));
-    SDValue Res = DAG.getNode(ISD::ADD, DL, ResVT, Sad, SubPhi);
-    return DAG.getNode(ISD::INSERT_SUBVECTOR, DL, VT, Phi, Res,
-                       DAG.getIntPtrConstant(0, DL));
-  } else
-    return DAG.getNode(ISD::ADD, DL, VT, Sad, Phi);
+    // Fill the upper elements with zero to match the add width.
+    SDValue Zero = DAG.getConstant(0, DL, VT);
+    Sad = DAG.getNode(ISD::INSERT_SUBVECTOR, DL, VT, Zero, Sad,
+                      DAG.getIntPtrConstant(0, DL));
+  }
+
+  return DAG.getNode(ISD::ADD, DL, VT, Sad, Phi);
 }
 
 /// Convert vector increment or decrement to sub/add with an all-ones constant:
