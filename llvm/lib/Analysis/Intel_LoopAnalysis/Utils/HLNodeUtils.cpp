@@ -302,6 +302,32 @@ HLInst *HLNodeUtils::createCopyInst(RegDDRef *RvalRef, const Twine &Name,
   return HInst;
 }
 
+unsigned HLNodeUtils::createAlloca(Type *Ty, HLRegion *Reg, const Twine &Name) {
+  // Adjust the intertion point to pointer before the first dummy instruction as
+  // we do not want alloca to be a dummy instruction.
+  auto SavedInsertPt = DummyIRBuilder->GetInsertPoint();
+  auto InsertBB = SavedInsertPt->getParent();
+
+  // If we have inserted dummy instructions before, insert before them.
+  if (FirstDummyInst) {
+    DummyIRBuilder->SetInsertPoint(FirstDummyInst);
+  }
+
+  auto Inst = DummyIRBuilder->CreateAlloca(Ty, nullptr, Name);
+
+  // Reset the insertion point.
+  DummyIRBuilder->SetInsertPoint(InsertBB, SavedInsertPt);
+
+  // Add a blob entry for the alloca instruction and return its index.
+  unsigned AllocaBlobIndex;
+  unsigned NewSymbase = getDDRefUtils().getNewSymbase();
+
+  getBlobUtils().createBlob(Inst, NewSymbase, true, &AllocaBlobIndex);
+  Reg->addLiveInTemp(NewSymbase, Inst);
+
+  return AllocaBlobIndex;
+}
+
 HLInst *HLNodeUtils::createLoad(RegDDRef *RvalRef, const Twine &Name,
                                 RegDDRef *LvalRef) {
   return createUnaryHLInst(Instruction::Load, RvalRef, Name, LvalRef, nullptr);
@@ -3781,7 +3807,7 @@ public:
       LabelSafeContainer = nullptr;
     }
 
-    HLGoto *LastGoto =  dyn_cast_or_null<HLGoto>(Loop->getLastChild());
+    HLGoto *LastGoto = dyn_cast_or_null<HLGoto>(Loop->getLastChild());
     if (LastGoto) {
       // If there is a goto left at the end of the loop we have to convert loop
       // to a straight line code.
@@ -3849,7 +3875,7 @@ public:
     return Node == SkipNode;
   }
 };
-}
+} // namespace
 
 template <typename VisitorTy>
 static bool removeNodesImpl(HLNode *Node, bool RemoveEmptyParentNodes) {
@@ -3935,7 +3961,7 @@ struct UpdateLoopExitsVisitor final : public HLNodeVisitorBase {
     unsigned TargetTopsortNum =
         Goto->isExternal() ? -1 : Goto->getTargetLabel()->getTopSortNum();
 
-    for(auto I = Loops.rbegin(), E = Loops.rend(); I != E; ++I) {
+    for (auto I = Loops.rbegin(), E = Loops.rend(); I != E; ++I) {
       HLLoop *Loop = *I;
       if (TargetTopsortNum > Loop->getMaxTopSortNum()) {
         Loop->setNumExits(Loop->getNumExits() + 1);

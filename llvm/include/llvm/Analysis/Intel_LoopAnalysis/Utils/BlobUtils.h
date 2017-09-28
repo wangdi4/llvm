@@ -57,6 +57,8 @@ private:
   friend class CanonExprUtils;
   // To get new symbase number.
   friend class DDRefUtils;
+  // To access createBlob().
+  friend class HLNodeUtils;
   // Sets itself.
   friend class HIRSymbaseAssignment;
 

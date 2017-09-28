@@ -50,6 +50,36 @@ RegDDRef *DDRefUtils::createScalarRegDDRef(unsigned SB, CanonExpr *CE) {
   return RegDD;
 }
 
+RegDDRef *DDRefUtils::createGEPRef(unsigned BasePtrBlobIndex, unsigned Level,
+                                   unsigned SB, bool IsMemRef) {
+  if (SB == InvalidSymbase) {
+    SB = getNewSymbase();
+  }
+
+  RegDDRef *Ref = createRegDDRef(SB);
+  auto BaseCE =
+      getCanonExprUtils().createSelfBlobCanonExpr(BasePtrBlobIndex, Level);
+
+  Ref->setBaseCE(BaseCE);
+  Ref->addBlobDDRef(BasePtrBlobIndex, Level);
+
+  if (!IsMemRef) {
+    Ref->setAddressOf(true);
+  }
+
+  return Ref;
+}
+
+RegDDRef *DDRefUtils::createMemRef(unsigned BasePtrBlobIndex, unsigned Level,
+                                   unsigned SB) {
+  return createGEPRef(BasePtrBlobIndex, Level, SB, true);
+}
+
+RegDDRef *DDRefUtils::createAddressOfRef(unsigned BasePtrBlobIndex,
+                                         unsigned Level, unsigned SB) {
+  return createGEPRef(BasePtrBlobIndex, Level, SB, false);
+}
+
 RegDDRef *DDRefUtils::createConstDDRef(Type *Ty, int64_t Val) {
   RegDDRef *NewRegDD = createRegDDRef(ConstantSymbase);
   CanonExpr *CE = getCanonExprUtils().createCanonExpr(Ty, 0, Val);

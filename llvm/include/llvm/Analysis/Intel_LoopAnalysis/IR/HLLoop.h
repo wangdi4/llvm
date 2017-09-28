@@ -633,8 +633,14 @@ public:
   /// Returns true if loop has livein temps.
   bool hasLiveInTemps() const { return !LiveInSet.empty(); }
 
+  /// Returns number of livein temps.
+  unsigned getNumLiveInTemps() const { return LiveInSet.size(); }
+
   /// Returns true if loop has liveout temps.
   bool hasLiveOutTemps() const { return !LiveOutSet.empty(); }
+
+  /// Returns number of liveout temps.
+  unsigned getNumLiveOutTemps() const { return LiveOutSet.size(); }
 
   /// Returns true if this symbase is live in to this loop.
   bool isLiveIn(unsigned Symbase) const {

@@ -105,6 +105,9 @@ FunctionPass *createHIRIdiomRecognitionPass();
 
 /// Creates pass that multiversions loop for the probable trip count value.
 FunctionPass *createHIRMVForConstUBPass();
+
+/// Creates pass that performs loop concatenation.
+FunctionPass *createHIRLoopConcatenationPass();
 }
 
 #endif

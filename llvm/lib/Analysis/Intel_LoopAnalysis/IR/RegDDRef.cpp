@@ -15,11 +15,11 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/RegDDRef.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
-#include "llvm/IR/Instructions.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/CanonExpr.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLDDNode.h"
-#include "llvm/Support/Debug.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/Support/Debug.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -779,6 +779,17 @@ bool RegDDRef::replaceTempBlob(unsigned OldIndex, unsigned NewIndex) {
   BRef->replaceBlob(NewIndex);
 
   return true;
+}
+
+bool RegDDRef::replaceTempBlobs(
+    SmallVectorImpl<std::pair<unsigned, unsigned>> &BlobMap) {
+  bool Res = false;
+
+  for (auto &Pair : BlobMap) {
+    Res = replaceTempBlob(Pair.first, Pair.second) || Res;
+  }
+
+  return Res;
 }
 
 void RegDDRef::removeAllBlobDDRefs() {

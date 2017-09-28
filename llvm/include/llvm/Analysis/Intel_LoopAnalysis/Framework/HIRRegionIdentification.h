@@ -39,6 +39,8 @@ class GetElementPtrInst;
 class GEPOperator;
 class SCEV;
 class TargetLibraryInfo;
+class MDNode;
+class Type;
 
 namespace loopopt {
 
@@ -160,6 +162,12 @@ private:
   /// Creates a function level region out of all the function bblocks, except
   /// the entry bblock.
   void createFunctionLevelRegion(Function &F);
+
+  /// Checks whether this loop basic block is loop concatenation candidate.
+  static bool isLoopConcatenationCandidate(BasicBlock *BB);
+
+  // Checks whether the current function is loop concatenation candidate.
+  bool isLoopConcatenationCandidate() const;
 
   /// Returns true if metadata node \p Node contains only debug metadata or
   /// equals null.

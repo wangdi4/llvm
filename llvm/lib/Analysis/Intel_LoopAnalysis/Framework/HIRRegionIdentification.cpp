@@ -1115,10 +1115,116 @@ bool HIRRegionIdentification::canFormFunctionLevelRegion(Function &Func) {
     return false;
   }
 
-  SmallVector<Loop *, 4> AllLoops = LI->getLoopsInPreorder();
+  SmallVector<Loop *, 16> AllLoops = LI->getLoopsInPreorder();
 
   for (auto Lp : AllLoops) {
     if (!isSelfGenerable(*Lp, Lp->getLoopDepth(), true)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+bool HIRRegionIdentification::isLoopConcatenationCandidate(BasicBlock *BB) {
+  // Check that-
+  // 1) All loads either load an i8 type value or load an i32 type value from
+  // the same alloca.
+  // 2) All stores store an i32 type value and use the same alloca as the base
+  // pointer.
+  // 3) Rest of the instructions are all integer type.
+  auto &Cnxt = BB->getContext();
+  auto Int8Ty = Type::getInt8Ty(Cnxt);
+  auto Int32Ty = Type::getInt32Ty(Cnxt);
+  Value *Alloca = nullptr;
+  unsigned NumAllocaLoads = 0, NumAllocaStores = 0;
+
+  for (auto It = BB->begin(), E = --BB->end(); It != E; ++It) {
+    auto &Inst = (*It);
+    auto InstTy = Inst.getType();
+    Value *Ptr = nullptr;
+
+    if (auto LInst = dyn_cast<LoadInst>(&Inst)) {
+      if (InstTy != Int8Ty) {
+        if (InstTy != Int32Ty) {
+          return false;
+        }
+        Ptr = LInst->getPointerOperand();
+      }
+      ++NumAllocaLoads;
+
+    } else if (auto SInst = dyn_cast<StoreInst>(&Inst)) {
+      if (SInst->getValueOperand()->getType() != Int32Ty) {
+        return false;
+      }
+      Ptr = SInst->getPointerOperand();
+      ++NumAllocaStores;
+
+    } else if (!isa<PointerType>(InstTy) && !isa<IntegerType>(InstTy)) {
+      return false;
+    }
+
+    if (Ptr) {
+      auto GEP = dyn_cast<GetElementPtrInst>(Ptr);
+
+      if (!GEP) {
+        return false;
+      }
+
+      auto GEPPtr = GEP->getPointerOperand();
+
+      if (Alloca) {
+        if (GEPPtr != Alloca) {
+          return false;
+        }
+      } else if (!isa<AllocaInst>(GEPPtr)) {
+        return false;
+      } else {
+        Alloca = GEPPtr;
+      }
+    }
+  }
+
+  if ((NumAllocaLoads != 4) && (NumAllocaStores != 4)) {
+    return false;
+  }
+
+  return true;
+}
+
+bool HIRRegionIdentification::isLoopConcatenationCandidate() const {
+  // Restrict to O3 and above.
+  if (OptLevel < 3) {
+    return false;
+  }
+
+  // We are looking for 16, single bblock loops which have a backedge count of
+  // 3.
+  if (std::distance(LI->begin(), LI->end()) != 16) {
+    return false;
+  }
+
+  // Perform the cheap bblock count check first.
+  for (auto Lp : *LI) {
+    if (Lp->getNumBlocks() != 1) {
+      return false;
+    }
+  }
+
+  // Check backedge taken count.
+  for (auto Lp : *LI) {
+    auto BECount = SE->getBackedgeTakenCountForHIR(Lp, Lp);
+    auto ConstBECount = dyn_cast<SCEVConstant>(BECount);
+
+    if (!ConstBECount || (ConstBECount->getValue()->getSExtValue() != 3)) {
+      return false;
+    }
+  }
+
+  // Perform more checks on the loop body to minimize chances of forming
+  // function level region in other cases.
+  for (auto Lp : *LI) {
+    if (!isLoopConcatenationCandidate(Lp->getHeader())) {
       return false;
     }
   }
@@ -1138,7 +1244,7 @@ bool HIRRegionIdentification::runOnFunction(Function &Func) {
   TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
   OptLevel = getAnalysis<XmainOptLevelPass>().getOptLevel();
 
-  if (CreateFunctionLevelRegion) {
+  if (CreateFunctionLevelRegion || isLoopConcatenationCandidate()) {
     if (canFormFunctionLevelRegion(Func)) {
       createFunctionLevelRegion(Func);
     }

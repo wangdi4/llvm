@@ -546,6 +546,17 @@ public:
   HLInst *createCopyInst(RegDDRef *RvalRef, const Twine &Name = "copy",
                          RegDDRef *LvalRef = nullptr);
 
+  /// Creates an alloca instruction in the defualt address space(0) with default
+  /// alignment. This can be extended if needed.
+  /// \p Reg is the region where alloca will be used. It is needed so we can add
+  /// the alloca as region live in.
+  ///
+  /// The function returns the blob index of the alloca temp. No HLInst is
+  /// returned because we do not need one in HIR. The underlying (non-dummy)
+  /// instruction in the function entry block is enough. The caller can create
+  /// GEP refs using the returned blob index as the base pointer.
+  unsigned createAlloca(Type *Ty, HLRegion *Reg, const Twine &Name = "alloca");
+
   /// Creates a new Load instruction.
   HLInst *createLoad(RegDDRef *RvalRef, const Twine &Name = "load",
                      RegDDRef *LvalRef = nullptr);

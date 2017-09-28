@@ -324,15 +324,16 @@ public:
     return (GlobalVar && GlobalVar->isConstant());
   }
 
+  /// Returns true if the Ref access function argument.
+  bool accessesFunctionArgument() const {
+    auto BaseVal = getTempBaseValue();
+    return (BaseVal && isa<Argument>(BaseVal));
+  }
+
   /// Returns true if Ref is an alloca access.
   bool accessesAlloca() const {
     auto BaseVal = getTempBaseValue();
-
-    if (!BaseVal) {
-      return false;
-    }
-
-    return isa<AllocaInst>(BaseVal);
+    return (BaseVal && isa<AllocaInst>(BaseVal));
   }
 
   /// Returns the canonical form of the subscript base.
@@ -603,7 +604,10 @@ public:
   /// Returns true if this DDRef contains undefined canon expressions.
   bool containsUndef() const override;
 
-  /// Adds a dimension to the DDRef with optional trailing offsets.
+  /// Adds a dimension to the DDRef with optional trailing offsets. The new
+  /// dimension becomes the highest dimension of the ref. For example, if the
+  /// ref looks like A[i1] before the call, it will look like A[0][i1] after
+  /// adding a zero canon expr as an additional dimension.
   void
   addDimension(CanonExpr *IndexCE,
                const SmallVectorImpl<unsigned> *TrailingOffsets = nullptr) {
@@ -717,6 +721,11 @@ public:
   /// Replaces temp blob with \p OldIndex by new temp blob with \p NewIndex, if
   /// it exists in DDRef. Returns true if it is replaced.
   bool replaceTempBlob(unsigned OldIndex, unsigned NewIndex);
+
+  /// Replaces temp blobs using pairs (OldIndex, NewIndex) in \p BlobMap.
+  /// Returns true if any blob is replaced.
+  bool
+  replaceTempBlobs(SmallVectorImpl<std::pair<unsigned, unsigned>> &BlobMap);
 
   /// Removes all blob DDRefs attached to this DDRef.
   void removeAllBlobDDRefs();

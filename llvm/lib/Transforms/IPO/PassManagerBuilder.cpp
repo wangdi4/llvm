@@ -1117,6 +1117,9 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
   PM.add(createHIRTempCleanupPass());
 
   if (!RunLoopOptFrameworkOnly) {
+    if (OptLevel > 2) {
+      PM.add(createHIRLoopConcatenationPass());
+    }
     // TODO: refine cost model for individual transformations for code size.
     if (SizeLevel == 0) {
       PM.add(createHIRParDirInsertPass());
