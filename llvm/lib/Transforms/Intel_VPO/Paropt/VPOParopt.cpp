@@ -55,8 +55,9 @@ INITIALIZE_PASS_END(VPOParopt, "vpo-paropt", "VPO Paropt Module Pass", false,
 
 char VPOParopt::ID = 0;
 
-ModulePass *llvm::createVPOParoptPass(unsigned Mode) { 
-  return new VPOParopt((ParTrans | OmpPar | OmpVec | OmpTpv | OmpTbb) & Mode);
+ModulePass *llvm::createVPOParoptPass(unsigned Mode) {
+  return new VPOParopt(
+      (ParTrans | OmpPar | OmpVec | OmpTpv | OmpOffload | OmpTbb) & Mode);
 }
 
 VPOParopt::VPOParopt(unsigned MyMode)
@@ -135,6 +136,10 @@ bool VPOParopt::runOnModule(Module &M) {
     DEBUG(dbgs() << "\n}=== VPOParopt end func: " << F->getName() <<"\n");
   }
 
+  genCtorList(M);
+  if (Mode & OmpOffload)
+    removeUndeclaredGlobals(M);
+
   // Thread private legacy mode implementation
   if (Mode & OmpTpv) {
     VPOParoptTpvLegacyPass VPTL;
@@ -145,4 +150,89 @@ bool VPOParopt::runOnModule(Module &M) {
 
   DEBUG(dbgs() << "\n====== End VPO Paropt Pass ======\n\n");
   return Changed;
+}
+
+// \brief Remove routines and global variables which has no target declare
+// attribute.
+void VPOParopt::removeUndeclaredGlobals(Module &M) {
+  std::vector<GlobalVariable *> DeadGlobalVars; // Keep track of dead globals
+  for (GlobalVariable &GV : M.globals())
+    if (!GV.isTargetDeclare()) {
+      DeadGlobalVars.push_back(&GV); // Keep track of dead globals
+      if (GV.hasInitializer()) {
+        Constant *Init = GV.getInitializer();
+        GV.setInitializer(nullptr);
+        if (!isa<GlobalValue>(Init) && !isa<ConstantData>(Init))
+          Init->destroyConstant();
+      }
+    }
+
+  std::vector<Function *> DeadFunctions;
+
+  for (Function &F : M) {
+    if (!F.getAttributes().hasAttribute(AttributeList::FunctionIndex,
+                                        "target.declare")) {
+      DeadFunctions.push_back(&F);
+      if (!F.isDeclaration())
+        F.deleteBody();
+    }
+  }
+  auto EraseUnusedGlobalValue = [&](GlobalValue *GV) {
+    GV->removeDeadConstantUsers();
+    GV->eraseFromParent();
+  };
+
+  for (GlobalVariable *GV : DeadGlobalVars)
+    EraseUnusedGlobalValue(GV);
+
+  for (Function *F : DeadFunctions)
+    EraseUnusedGlobalValue(F);
+}
+
+// Creates the global llvm.global_ctors initialized with
+// with the function .omp_offloading.descriptor_reg
+void VPOParopt::genCtorList(Module &M) {
+  LLVMContext &C = M.getContext();
+  Type *VoidPtrTy = Type::getInt8PtrTy(C);
+  Type *Int32Ty = Type::getInt32Ty(C);
+  Type *VoidTy = Type::getVoidTy(C);
+
+  FunctionType *CtorFTy = FunctionType::get(VoidTy, false);
+  Type *CtorPFTy = PointerType::getUnqual(CtorFTy);
+
+  StructType *CtorStructTy = StructType::get(
+      C, {Int32Ty, llvm::PointerType::getUnqual(CtorFTy), VoidPtrTy});
+
+  SmallVector<Constant *, 16> CtorArrayInitBuffer;
+
+  int CtorCnt = 0;
+  for (auto F = M.begin(), E = M.end(); F != E; ++F) {
+    if (F->getAttributes().hasAttribute(AttributeList::FunctionIndex,
+                                        "offload.ctor"))
+      CtorCnt++;
+  }
+  if (CtorCnt == 0)
+    return;
+
+  for (auto F = M.begin(), E = M.end(); F != E; ++F) {
+    if (!F->getAttributes().hasAttribute(AttributeList::FunctionIndex,
+                                         "offload.ctor"))
+      continue;
+    F->removeFnAttr("offload.ctor");
+    SmallVector<Constant *, 16> CtorInitBuffer;
+    CtorInitBuffer.push_back(ConstantInt::getSigned(Int32Ty, 0));
+    Constant *Initializer = &*F;
+    CtorInitBuffer.push_back(ConstantExpr::getBitCast(Initializer, CtorPFTy));
+    CtorInitBuffer.push_back(ConstantPointerNull::get(Type::getInt8PtrTy(C)));
+
+    Constant *CtorInit = ConstantStruct::get(CtorStructTy, CtorInitBuffer);
+
+    CtorArrayInitBuffer.push_back(CtorInit);
+  }
+  Constant *CtorArrayInit = ConstantArray::get(
+      ArrayType::get(CtorStructTy, CtorCnt), CtorArrayInitBuffer);
+
+  new GlobalVariable(M, CtorArrayInit->getType(), false,
+                     GlobalValue::AppendingLinkage, CtorArrayInit,
+                     "llvm.global_ctors");
 }

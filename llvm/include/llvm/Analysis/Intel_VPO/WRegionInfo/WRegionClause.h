@@ -386,14 +386,13 @@ private:
 
 public:
   enum WRNMapKind {
-    WRNMapNone      = 0x0000,
-    WRNMapTo        = 0x0001,
-    WRNMapFrom      = 0x0002,
-    WRNMapTofrom    = 0x0004,
-    WRNMapAlloc     = 0x0008,
-    WRNMapRelease   = 0x0010,
-    WRNMapDelete    = 0x0020,
-    WRNMapAlways    = 0x0100  
+    WRNMapNone = 0x0000,
+    WRNMapTo = 0x0001,
+    WRNMapFrom = 0x0002,
+    WRNMapAlways = 0x0004,
+    WRNMapDelete = 0x0008,
+    WRNMapAlloc = 0x0010,
+    WRNMapRelease = 0x0020,
   } WRNMapKind;
 
   MapItem(VAR Orig) : Item(Orig), MapKind(0) {} 
@@ -407,7 +406,7 @@ public:
       case QUAL_OMP_MAP_FROM:
         return WRNMapFrom;
       case QUAL_OMP_MAP_TOFROM:
-        return WRNMapTofrom;
+        return WRNMapFrom | WRNMapTo;
       case QUAL_OMP_MAP_ALLOC:
         return WRNMapAlloc;
       case QUAL_OMP_MAP_RELEASE:
@@ -419,7 +418,7 @@ public:
       case QUAL_OMP_MAP_ALWAYS_FROM:
         return WRNMapFrom | WRNMapAlways;
       case QUAL_OMP_MAP_ALWAYS_TOFROM:
-        return WRNMapTofrom | WRNMapAlways;
+        return WRNMapTo | WRNMapFrom | WRNMapAlways;
       case QUAL_OMP_MAP_ALWAYS_ALLOC:
         return WRNMapAlloc | WRNMapAlways;
       case QUAL_OMP_MAP_ALWAYS_RELEASE:
@@ -434,7 +433,7 @@ public:
   void setMapKind(unsigned MK) { MapKind = MK; }
   void setIsMapTo()      { MapKind |= WRNMapTo; }
   void setIsMapFrom()    { MapKind |= WRNMapFrom; }
-  void setIsMapTofrom()  { MapKind |= WRNMapTofrom; }
+  void setIsMapTofrom() { MapKind |= WRNMapFrom | WRNMapTo; }
   void setIsMapAlloc()   { MapKind |= WRNMapAlloc; }
   void setIsMapRelease() { MapKind |= WRNMapRelease; }
   void setIsMapDelete()  { MapKind |= WRNMapDelete; }
@@ -443,7 +442,7 @@ public:
   unsigned getMapKind()    const { return MapKind; }
   bool getIsMapTo()        const { return MapKind & WRNMapTo; }
   bool getIsMapFrom()      const { return MapKind & WRNMapFrom; }
-  bool getIsMapTofrom()    const { return MapKind & WRNMapTofrom; }
+  bool getIsMapTofrom() const { return MapKind & (WRNMapFrom | WRNMapTo); }
   bool getIsMapAlloc()     const { return MapKind & WRNMapAlloc; }
   bool getIsMapRelease()   const { return MapKind & WRNMapRelease; }
   bool getIsMapDelete()    const { return MapKind & WRNMapDelete; }

@@ -357,6 +357,139 @@ CallInst *VPOParoptUtils::genKmpcTaskWait(WRegionNode *W, StructType *IdentTy,
   return TaskWaitCall;
 }
 
+// \brief Build int32_t __tgt_target(int32_t device_id,
+//                                   void *host_ptr,
+//                                   int32_t arg_num,
+//                                   void** args_base,
+//                                   void **args,
+//                                   size_t *arg_sizes,
+//                                   int32_t *arg_types)
+//
+CallInst *VPOParoptUtils::genTgtTarget(WRegionNode *W, Value *OffloadRegionId,
+                                       int NumberOfPtrs,
+                                       Value *BasePointersArray,
+                                       Value *PointersArray, Value *SizesArray,
+                                       Value *MapTypesArray,
+                                       Instruction *InsertPt) {
+  IRBuilder<> Builder(InsertPt);
+  BasicBlock *B = W->getEntryBBlock();
+  Function *F = B->getParent();
+  Module *M = F->getParent();
+  LLVMContext &C = F->getContext();
+
+  Value *Args[] = {Builder.getInt32(-1),
+                   OffloadRegionId,
+                   ConstantInt::get(Type::getInt32Ty(C), NumberOfPtrs),
+                   BasePointersArray,
+                   PointersArray,
+                   SizesArray,
+                   MapTypesArray,
+                   Builder.getInt32(0),
+                   Builder.getInt32(0)};
+  Type *TypeParams[] = {Type::getInt32Ty(C),      OffloadRegionId->getType(),
+                        Type::getInt32Ty(C),      BasePointersArray->getType(),
+                        PointersArray->getType(), SizesArray->getType(),
+                        MapTypesArray->getType(), Type::getInt32Ty(C),
+                        Type::getInt32Ty(C)};
+  FunctionType *FnTy =
+      FunctionType::get(Type::getInt32Ty(C), TypeParams, false);
+
+  std::string FnName = "__tgt_target";
+  Function *FnGen = M->getFunction(FnName);
+
+  if (!FnGen) {
+    FnGen = Function::Create(FnTy, GlobalValue::ExternalLinkage, FnName, M);
+    FnGen->setCallingConv(CallingConv::C);
+  }
+
+  CallInst *Call = CallInst::Create(FnGen, Args, "", InsertPt);
+  Call->setCallingConv(CallingConv::C);
+  Call->setTailCall(false);
+
+  return Call;
+}
+
+// Call to i32 __tgt_unregister_lib(__tgt_bin_desc *desc);
+CallInst *VPOParoptUtils::genTgtUnregisterLib(WRegionNode *W, Value *Desc,
+                                              Instruction *InsertPt) {
+  return genTgtRegGeneric(W, Desc, InsertPt, "__tgt_unregister_lib");
+}
+
+// Call to i32 __tgt_register_lib(__tgt_bin_desc *desc);
+CallInst *VPOParoptUtils::genTgtRegisterLib(WRegionNode *W, Value *Desc,
+                                            Instruction *InsertPt) {
+  return genTgtRegGeneric(W, Desc, InsertPt, "__tgt_register_lib");
+}
+
+// Call to generic function to support the generation of
+// __tgt_register_lib and __tgt_unregister_lib.
+CallInst *VPOParoptUtils::genTgtRegGeneric(WRegionNode *W, Value *Desc,
+                                           Instruction *InsertPt,
+                                           std::string FnName) {
+  IRBuilder<> Builder(InsertPt);
+  BasicBlock *B = W->getEntryBBlock();
+  Function *F = B->getParent();
+  Module *M = F->getParent();
+  LLVMContext &C = F->getContext();
+
+  Value *Args[] = {Desc};
+  Type *TypeParams[] = {Desc->getType()};
+
+  FunctionType *FnTy =
+      FunctionType::get(Type::getInt32Ty(C), TypeParams, false);
+
+  Function *Fn = M->getFunction(FnName);
+
+  if (!Fn) {
+    Fn = Function::Create(FnTy, GlobalValue::ExternalLinkage, FnName, M);
+    Fn->setCallingConv(CallingConv::C);
+  }
+
+  CallInst *Call = CallInst::Create(Fn, Args, "", InsertPt);
+  Call->setCallingConv(CallingConv::C);
+  Call->setTailCall(false);
+
+  return Call;
+}
+
+// Call to i32 __cxa_atexit(void (i8*)*
+//   @.omp_offloading.descriptor_unreg, i8* bitcast (%struct.__tgt_bin_desc*
+//   @.omp_offloading.descriptor to i8*), i8* @__dso_handle)
+CallInst *VPOParoptUtils::genCxaAtExit(WRegionNode *W, Value *TgtDescUnregFn,
+                                       Value *Desc, Value *Handle,
+                                       Instruction *InsertPt) {
+  IRBuilder<> Builder(InsertPt);
+  BasicBlock *B = W->getEntryBBlock();
+  Function *F = B->getParent();
+  Module *M = F->getParent();
+  LLVMContext &C = F->getContext();
+
+  SmallVector<Value *, 4> Args;
+
+  Args.push_back(TgtDescUnregFn);
+  Args.push_back(Builder.CreateBitCast(Desc, Type::getInt8PtrTy(C)));
+  Args.push_back(Handle);
+  Type *TypeParams[] = {TgtDescUnregFn->getType(), Type::getInt8PtrTy(C),
+                        Type::getInt8PtrTy(C)};
+
+  FunctionType *FnTy =
+      FunctionType::get(Type::getInt32Ty(C), TypeParams, false);
+
+  std::string FnName = "__cxa_atexit";
+  Function *Fn = M->getFunction(FnName);
+
+  if (!Fn) {
+    Fn = Function::Create(FnTy, GlobalValue::ExternalLinkage, FnName, M);
+    Fn->setCallingConv(CallingConv::C);
+  }
+
+  CallInst *Call = CallInst::Create(Fn, Args, "", InsertPt);
+  Call->setCallingConv(CallingConv::C);
+  Call->setTailCall(false);
+
+  return Call;
+}
+
 // This function generates a call as follows.
 //    void @__kmpc_omp_task_begin_if0(
 //          { i32, i32, i32, i32, i8* }* /* &loc */,

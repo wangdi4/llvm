@@ -651,7 +651,7 @@ Variables and aliases can have a
 Syntax::
 
       @<GlobalVarName> = [Linkage] [Visibility] [DLLStorageClass] [ThreadLocal]
-                         [ThreadPrivate] 
+                         [ThreadPrivate] [TargetDeclare]
                          [(unnamed_addr|local_unnamed_addr)] [AddrSpace]
                          [ExternallyInitialized]
                          <global | constant> <Type> [<InitializerConstant>]
@@ -686,6 +686,13 @@ in the argument list of the directive omp threadprivate (list).
 .. code-block:: none
 
    @G = thread_private global i32 0, align 4
+
+The following example defines a target-declare global which is
+in the argument list of the directive omp declare target (list).
+
+.. code-block:: none
+
+   @G = target_declare global i32 0, align 4
 
 .. END INTEL_CUSTOMIZATION
 

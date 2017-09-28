@@ -80,7 +80,10 @@ public:
       : F(F), WI(WI), DT(DT), LI(LI), SE(SE), Mode(Mode), IdentTy(nullptr),
         TidPtr(nullptr), BidPtr(nullptr), KmpcMicroTaskTy(nullptr),
         KmpRoutineEntryPtrTy(nullptr), KmpTaskTTy(nullptr),
-        KmpTaskTRedTy(nullptr), KmpTaskDependInfoTy(nullptr) {}
+        KmpTaskTRedTy(nullptr), KmpTaskDependInfoTy(nullptr),
+        KmpOffloadRegionId(nullptr), TgtOffloadEntryTy(nullptr),
+        TgtDeviceImageQTy(nullptr), TgtBinaryDescriptorQTy(nullptr),
+        DsoHandle(nullptr) {}
 
   /// \brief Top level interface for parallel and prepare transformation
   bool paroptTransforms();
@@ -141,6 +144,89 @@ private:
   ///              char   depend_type;
   ///           };
   StructType *KmpTaskDependInfoTy;
+
+  /// The target region ID is used by the runtime library to identify the
+  /// current target region, so it only has to be unique and not necessarily
+  /// point to anything. It could be the pointer to the outlined function that
+  /// implements the target region, but we aren't using that so that the
+  /// compiler doesn't need to keep that, and could therefore inline the host
+  /// function if proven worthwhile during optimization. In the other hand, if
+  /// emitting code for the device, the ID has to be the function address so
+  /// that it can retrieved from the offloading entry and launched by the
+  /// runtime library. We also mark the outlined function to have external
+  /// linkage in case we are emitting code for the device, because these
+  /// functions will be entry points to the device.
+  GlobalVariable *KmpOffloadRegionId;
+
+  /// \brief Hold the struct type as follows.
+  ///    struct __tgt_offload_entry {
+  ///      void      *addr;       // Pointer to the offload entry info.
+  ///                             // (function or global)
+  ///      char      *name;       // Name of the function or global.
+  ///      size_t     size;       // Size of the entry info (0 if it is a
+  ///                             // function).
+  ///      int32_t    flags;      // Flags associated with the entry,
+  ///                             // e.g. 'link'. 
+  ///      int32_t    reserved;   // Reserved, to use by the
+  ///                             // runtime library.
+  /// };
+  StructType *TgtOffloadEntryTy;
+
+  /// \brief Hold the struct type as follows.
+  /// struct __tgt_device_image{
+  ///   void   *ImageStart;       // Pointer to the target code start.
+  ///   void   *ImageEnd;         // Pointer to the target code end.
+  ///     We also add the host entries to the device image, as it may be useful
+  ///     for the target runtime to have access to that information.
+  ///   __tgt_offload_entry  *EntriesBegin;   // Begin of the table with all
+  ///                                         // the entries.
+  ///   __tgt_offload_entry  *EntriesEnd;     // End of the table with all the
+  ///                                         // entries (non inclusive).
+  /// };
+  StructType *TgtDeviceImageQTy;
+
+  /// \brief Hold the struct type as follows.
+  /// struct __tgt_bin_desc{
+  ///   int32_t              NumDevices;      // Number of devices supported.
+  ///   __tgt_device_image   *DeviceImages;   // Arrays of device images
+  ///                                         // (one per device).
+  ///   __tgt_offload_entry  *EntriesBegin;   // Begin of the table with all the
+  ///                                         // entries.
+  ///   __tgt_offload_entry  *EntriesEnd;     // End of the table with all the
+  ///                                         // entries (non inclusive).
+  /// };
+  StructType *TgtBinaryDescriptorQTy;
+
+  /// \brief Create a variable that binds the atexit to this shared object.
+  GlobalVariable *DsoHandle;
+
+  /// \brief Struct that keeps all the relevant information that should be kept
+  /// throughout a 'target data' region.
+  class TargetDataInfo {
+  public:
+    /// The array of base pointer passed to the runtime library.
+    Value *BasePointersArray = nullptr;
+    /// The array of section pointers passed to the runtime library.
+    Value *PointersArray = nullptr;
+    /// The array of sizes passed to the runtime library.
+    Value *SizesArray = nullptr;
+    /// The array of map types passed to the runtime library.
+    Value *MapTypesArray = nullptr;
+    /// The total number of pointers passed to the runtime library.
+    unsigned NumberOfPtrs = 0u;
+    explicit TargetDataInfo() {}
+    void clearArrayInfo() {
+      BasePointersArray = nullptr;
+      PointersArray = nullptr;
+      SizesArray = nullptr;
+      MapTypesArray = nullptr;
+      NumberOfPtrs = 0u;
+    }
+    bool isValid() {
+      return BasePointersArray && PointersArray && SizesArray &&
+             MapTypesArray && NumberOfPtrs;
+    }
+  };
 
   /// \brief Use the WRNVisitor class (in WRegionUtils.h) to walk the
   /// W-Region Graph in DFS order and perform outlining transformation.
@@ -383,6 +469,77 @@ private:
 
   /// \brief Reset the expression value of Intel clause to be empty.
   void resetValueInIntelClauseGeneric(WRegionNode *W, Value *V);
+
+  /// \brief Generate the code for the directive omp target
+  bool genTargetOffloadingCode(WRegionNode *W);
+
+  /// \brief Generate the initialization code for the directive omp target
+  CallInst *genTargetInitCode(WRegionNode *W,
+                              CallInst *Call,
+                              Instruction *InsertPt);
+
+  /// \brief Generate the pointers pointing to the array of base pointer, the
+  /// array of section pointers, the array of sizes, the array of map types.
+  void genOffloadArraysArgument(TargetDataInfo *Info, Instruction *InsertPt);
+
+  /// \brief Pass the data to the array of base pointer as well as  array of
+  /// section pointers.
+  void genOffloadArraysInit(WRegionNode *W, TargetDataInfo *Info,
+                            CallInst *Call,
+                            Instruction *InsertPt);
+
+  /// \breif Return the map type for the data clause.
+  void getMapTypes(WRegionNode *W, SmallVectorImpl<uint32_t> &MapTypes);
+
+  /// \brief Register the offloading descriptors as well the offloading binary
+  /// descriptors.
+  void genRegistrationFunction(WRegionNode *W, Function *Fn);
+
+  /// \brief Register the offloading descriptors.
+  void genOffloadEntriesAndInfoMetadata(WRegionNode *W, Function *Fn);
+
+  /// \brief Register the offloading binary descriptors.
+  void genOffloadingBinaryDescriptorRegistration(WRegionNode *W);
+
+  /// \brief Create offloading entry for the provided entry ID and address.
+  void genOffloadEntry(Constant *ID, Constant *Addr);
+
+  /// \brief Return/Create the target region ID used by the runtime library to
+  /// identify the current target region.
+  GlobalVariable *getOMPOffloadRegionId();
+
+  /// \brief Return/Create a variable that binds the atexit to this shared
+  /// object.
+  GlobalVariable *getDsoHandle();
+
+  /// \brief Return the size_t type for 32/bit architecture
+  Type *getSizeTTy();
+
+  /// \brief Return/Create the struct type __tgt_offload_entry.
+  StructType *getTgtOffloadEntryQTy();
+
+  /// \brief Return/Create the struct type __tgt_device_image.
+  StructType *getTgtDeviceImageQTy();
+
+  /// \brief Return/Create the struct type __tgt_bin_desc.
+  StructType *getTgtBinaryDescriptorQTy();
+
+  /// \brief Create the function .omp_offloading.descriptor_reg
+  Function *createTgtDescRegisterLib(WRegionNode *W, Function *TgtDescUnregFn,
+                                     GlobalVariable *Desc);
+
+  /// \brief Create the function .omp_offloading.descriptor_unreg
+  Function *createTgtDescUnRegisterLib(WRegionNode *W, GlobalVariable *Desc);
+
+  /// \brief If the map data is global variable, Create the stack variable and
+  /// replace the the global variable with the stack variable.
+  bool genMapPrivationCode(WRegionNode *W);
+
+  /// \brief build the CFG for if clause.
+  void buildCFGForIfClause(Value *Cmp,
+                           TerminatorInst *&ThenTerm,
+                           TerminatorInst *&ElseTerm,
+                           Instruction *InsertPt);
 
   /// \brief Generate multithreaded for a given WRegion
   bool genMultiThreadedCode(WRegionNode *W);

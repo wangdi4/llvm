@@ -490,6 +490,18 @@ public:
                                          Value *Dep, int DepNum,
                                          Instruction *InsertPt);
 
+    /// \brief Build int32_t __tgt_target(int32_t device_id,
+    ///                                   void *host_ptr,
+    ///                                   int32_t arg_num,
+    ///                                   void** args_base,
+    ///                                   void **args,
+    ///                                   size_t *arg_sizes,
+    ///                                   int32_t *arg_types)
+    ///
+    static CallInst *genTgtTarget(WRegionNode *W, Value *OffloadRegionId,
+                                  int NumberOfPtrs, Value *BasePointersArray,
+                                  Value *PointersArray, Value *SizesArray,
+                                  Value *MapTypesArray, Instruction *InsertPt);
     /// \brief This function generates a call as follows.
     ///    void @__kmpc_omp_wait_deps(
     ///           { i32, i32, i32, i32, i8* }* /* &loc */,
@@ -509,7 +521,7 @@ public:
                                             Instruction *InsertPt,
                                             std::string FnName);
 
-    /// \brief This is a generic function to support the gerenation of
+    /// \brief This is a generic function to support the generation of
     ///   __kmpc_task, __kmpc_omp_task_begin_if0 and
     ///   __kmpc_omp_task_complete_if0.
     static CallInst *genKmpcTaskGeneric(WRegionNode *W, StructType *IdentTy,
@@ -521,6 +533,27 @@ public:
     ///    void @__kmpc_omp_taskwait({ i32, i32, i32, i32, i8* }*, i32)
     static CallInst *genKmpcTaskWait(WRegionNode *W, StructType *IdentTy,
                                      Value *TidPtr, Instruction *InsertPt);
+
+    /// \brief Call to i32 __tgt_unregister_lib(__tgt_bin_desc *desc);
+    static CallInst *genTgtUnregisterLib(WRegionNode *W, Value *Desc,
+                                         Instruction *InsertPt);
+
+    /// \brief Call to i32 __tgt_register_lib(__tgt_bin_desc *desc);
+    static CallInst *genTgtRegisterLib(WRegionNode *W, Value *Desc,
+                                       Instruction *InsertPt);
+
+    /// \brief Call to generic function to support the generation of
+    /// __tgt_register_lib and __tgt_unregister_lib.
+    static CallInst *genTgtRegGeneric(WRegionNode *W, Value *Desc,
+                                      Instruction *InsertPt,
+                                      std::string FnName);
+
+    /// \brief Call to i32 __cxa_atexit(void (i8*)*
+    /// @.omp_offloading.descriptor_unreg, i8* bitcast (%struct.__tgt_bin_desc*
+    /// @.omp_offloading.descriptor to i8*), i8* @__dso_handle)
+    static CallInst *genCxaAtExit(WRegionNode *W, Value *TgtDescUnregFn,
+                                  Value *Desc, Value *Handle,
+                                  Instruction *InsertPt);
 
     /// \brief This function generates a call as follows.
     ///    i8* @__kmpc_task_reduction_get_th_data(i32, i8*, i8*)

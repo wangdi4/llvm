@@ -230,7 +230,10 @@ namespace llvm {
 
     bool ParseTLSModel(GlobalVariable::ThreadLocalMode &TLM);
     bool ParseOptionalThreadLocal(GlobalVariable::ThreadLocalMode &TLM);
-    bool ParseOptionalThreadPrivate(bool &IsThreadPrivate);  // INTEL
+#if INTEL_CUSTOMIZATION
+    bool ParseOptionalThreadPrivate(bool &IsThreadPrivate);
+    bool ParseOptionalTargetDeclare(bool &IsTargetDeclare);
+#endif // INTEL_CUSTOMIZATION
     bool ParseOptionalUnnamedAddr(GlobalVariable::UnnamedAddr &UnnamedAddr);
     bool ParseOptionalAddrSpace(unsigned &AddrSpace);
     bool ParseOptionalParamAttrs(AttrBuilder &B);
@@ -283,13 +286,14 @@ namespace llvm {
                      unsigned DLLStorageClass,
                      GlobalVariable::ThreadLocalMode TLM,
                      GlobalVariable::UnnamedAddr UnnamedAddr,
-                     bool IsThreadPrivate);  // INTEL
+                     bool IsThreadPrivate, bool IsTargetDeclare); // INTEL
     bool parseIndirectSymbol(const std::string &Name, LocTy Loc,
                              unsigned Linkage, unsigned Visibility,
                              unsigned DLLStorageClass,
                              GlobalVariable::ThreadLocalMode TLM,
                              GlobalVariable::UnnamedAddr UnnamedAddr,
-                             bool IsThreadPrivate);  // INTEL
+                             bool IsThreadPrivate,  // INTEL
+                             bool IsTargetDeclare); // INTEL
     bool parseComdat();
     bool ParseStandaloneMetadata();
     bool ParseNamedMetadata();

@@ -1232,27 +1232,14 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
           genTaskDeps(W, IdentTy, TidPtr, TaskAllocCI, DummyTaskTDependRec,
                       NewCall, false);
       } else {
-        BasicBlock *SplitBeforeBB = NewCall->getParent();
+
         TerminatorInst *ThenTerm, *ElseTerm;
-        SplitBlockAndInsertIfThenElse(Cmp, NewCall, &ThenTerm, &ElseTerm);
-        ThenTerm->getParent()->setName("task_if.then");
-        ElseTerm->getParent()->setName("task_if.else");
-        NewCall->getParent()->setName("task_if.end");
 
-        DT->addNewBlock(ThenTerm->getParent(), SplitBeforeBB);
-        DT->addNewBlock(ElseTerm->getParent(), SplitBeforeBB);
-        DT->addNewBlock(NewCall->getParent(), SplitBeforeBB);
-
-        DT->changeImmediateDominator(ThenTerm->getParent(), SplitBeforeBB);
-        DT->changeImmediateDominator(ElseTerm->getParent(), SplitBeforeBB);
-        DT->changeImmediateDominator(NewCall->getParent(), SplitBeforeBB);
-        BasicBlock *NextBB = NewCall->getParent()->getSingleSuccessor();
-        DT->changeImmediateDominator(NextBB, NewCall->getParent());
-
+        buildCFGForIfClause(Cmp, ThenTerm, ElseTerm, NewCall);
         IRBuilder<> ElseBuilder(ElseTerm);
         if (!DummyTaskTDependRec)
-          VPOParoptUtils::VPOParoptUtils::genKmpcTask(W, IdentTy, TidPtr,
-                                                      TaskAllocCI, ThenTerm);
+          VPOParoptUtils::genKmpcTask(W, IdentTy, TidPtr, TaskAllocCI,
+                                      ThenTerm);
         else
           genTaskDeps(W, IdentTy, TidPtr, TaskAllocCI, DummyTaskTDependRec,
                       ThenTerm, false);
@@ -1289,4 +1276,26 @@ bool VPOParoptTransform::genTaskWaitCode(WRegionNode *W) {
   VPOParoptUtils::genKmpcTaskWait(W, IdentTy, TidPtr,
                                   W->getEntryBBlock()->getTerminator());
   return true;
+}
+
+// build the CFG for if clause.
+void VPOParoptTransform::buildCFGForIfClause(Value *Cmp,
+                                             TerminatorInst *&ThenTerm,
+                                             TerminatorInst *&ElseTerm,
+                                             Instruction *InsertPt) {
+  BasicBlock *SplitBeforeBB = InsertPt->getParent();
+  SplitBlockAndInsertIfThenElse(Cmp, InsertPt, &ThenTerm, &ElseTerm);
+  ThenTerm->getParent()->setName("if.then");
+  ElseTerm->getParent()->setName("if.else");
+  InsertPt->getParent()->setName("if.end");
+
+  DT->addNewBlock(ThenTerm->getParent(), SplitBeforeBB);
+  DT->addNewBlock(ElseTerm->getParent(), SplitBeforeBB);
+  DT->addNewBlock(InsertPt->getParent(), SplitBeforeBB);
+
+  DT->changeImmediateDominator(ThenTerm->getParent(), SplitBeforeBB);
+  DT->changeImmediateDominator(ElseTerm->getParent(), SplitBeforeBB);
+  DT->changeImmediateDominator(InsertPt->getParent(), SplitBeforeBB);
+  BasicBlock *NextBB = InsertPt->getParent()->getSingleSuccessor();
+  DT->changeImmediateDominator(NextBB, InsertPt->getParent());
 }

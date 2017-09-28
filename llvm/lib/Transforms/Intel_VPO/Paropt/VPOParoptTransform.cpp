@@ -314,9 +314,17 @@ bool VPOParoptTransform::paroptTransforms() {
           RemoveDirectives = true;
         }
         break;
+      case WRegionNode::WRNTarget:
+        DEBUG(dbgs() << "\n WRNTarget  - Transformation \n\n");
+        if ((Mode & OmpPar) && (Mode & ParTrans)) {
+          Changed = genMapPrivationCode(W);
+          Changed = genTargetOffloadingCode(W);
+          RemoveDirectives = true;
+        }
+        break;
 
-      // 2. Constructs that do not need to perform outlining. E.g., simd,
-      //    taskgroup, atomic, for, sections, etc.
+        // 2. Constructs that do not need to perform outlining. E.g., simd,
+        //    taskgroup, atomic, for, sections, etc.
 
       case WRegionNode::WRNTaskgroup:
         break;

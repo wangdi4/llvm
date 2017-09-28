@@ -2556,8 +2556,11 @@ void AssemblyWriter::printGlobal(const GlobalVariable *GV) {
   PrintDLLStorageClass(GV->getDLLStorageClass(), Out);
   PrintThreadLocalModel(GV->getThreadLocalMode(), Out);
 #if INTEL_CUSTOMIZATION
-  if (GV->isThreadPrivate()) 
+  if (GV->isThreadPrivate())
     Out << "thread_private ";
+
+  if (GV->isTargetDeclare())
+    Out << "target_declare ";
 #endif // INTEL_CUSTOMIZATION
   StringRef UA = getUnnamedAddrEncoding(GV->getUnnamedAddr());
   if (!UA.empty())
