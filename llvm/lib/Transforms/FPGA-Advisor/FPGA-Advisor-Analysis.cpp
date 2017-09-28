@@ -4242,11 +4242,11 @@ bool AdvisorAnalysis::incremental_gradient_descent_global(
 
     for (auto it = gradient.begin(); it != gradient.end(); it++) {
       if (get_basic_block_instance_count(it->first) > 0) {
+        max_area = ModuleAreaEstimator::getBasicBlockArea(*AT, it->first);
         double coef = 1 / (it->second + FLT_MIN);
         coefs[it->first] = coef;
         if (max_coef < coef) {
           max_coef = coef;
-          max_area = ModuleAreaEstimator::getBasicBlockArea(*AT, it->first);
         }
       } else {
         // can't remove blocks that aren't there.
