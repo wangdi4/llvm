@@ -88,6 +88,12 @@ LANGOPT(CilkPlus, 1, 0, "Intel Cilk Plus extensions to C/C++")
 #if INTEL_CUSTOMIZATION
 #if INTEL_SPECIFIC_OPENMP
 LANGOPT(IntelOpenMP, 1, 0, "Intel specific OpenMP codegen")
+LANGOPT(IntelOpenMPRegion, 1, 0, "Intel specific OpenMP codegen with regions")
+LANGOPT(OpenMPThreadPrivateLegacy, 1, 0, "Use legacy OpenMP threadprivate")
+LANGOPT(OpenMPSimdOnly,     1, 0, "Enable OpenMP SIMD only")
+LANGOPT(OpenMPSimdDisabled, 1, 0, "Disable OpenMP SIMD only")
+LANGOPT(OpenMPTBBOnly,      1, 0, "Enable OpenMP TBB only")
+LANGOPT(OpenMPTBBDisabled,  1, 0, "Disable OpenMP TBB only")
 #endif // INTEL_SPECIFIC_OPENMP
 LANGOPT(IntelCompat       , 1, 0,
         "Enables or disables Intel Compiler compatibility mode")

@@ -486,6 +486,8 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
       Opts.setVecLib(CodeGenOptions::Accelerate);
     else if (Name == "SVML")
       Opts.setVecLib(CodeGenOptions::SVML);
+    else if (Name == "Libmvec")
+      Opts.setVecLib(CodeGenOptions::Libmvec);
     else if (Name == "none")
       Opts.setVecLib(CodeGenOptions::NoLibrary);
     else
@@ -2089,6 +2091,9 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   }
 #if INTEL_SPECIFIC_OPENMP
   Opts.IntelOpenMP = Args.hasArg(OPT_fintel_openmp);
+  Opts.IntelOpenMPRegion = Args.hasArg(OPT_fintel_openmp_region);
+  Opts.OpenMPThreadPrivateLegacy =
+      Args.hasArg(OPT_fopenmp_threadprivate_legacy);
   Opts.IntelDriverTempfileName =
       Args.getLastArgValue(OPT_fintel_driver_tempfile_name_EQ);
 #endif // INTEL_SPECIFIC_OPENMP
@@ -2553,7 +2558,28 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
 
   // Check if -fopenmp is specified.
   Opts.OpenMP = Args.hasArg(options::OPT_fopenmp) ? 1 : 0;
+
+#if INTEL_CUSTOMIZATION
+  Opts.OpenMPSimdOnly = false;
+  Opts.OpenMPSimdDisabled = false;
+  Opts.OpenMPTBBOnly = false;
+  Opts.OpenMPTBBDisabled = false;
+  if (Opts.OpenMP) {
+    // OpenMP is enabled but we want to disable OpenMP subset
+    Opts.OpenMPSimdDisabled = Args.hasArg(OPT_fnointel_openmp_simd);
+    Opts.OpenMPTBBDisabled = Args.hasArg(OPT_fnointel_openmp_tbb);
+  } else {
+    Opts.OpenMPSimdOnly = Args.hasArg(OPT_fintel_openmp_simd);
+    Opts.OpenMPTBBOnly = Args.hasArg(OPT_fintel_openmp_tbb);
+    if (Opts.OpenMPSimdOnly || Opts.OpenMPTBBOnly)
+      Opts.OpenMP = true;
+  }
+#endif //INTEL_CUSTOMIZATION
+
   Opts.OpenMPUseTLS =
+#if INTEL_CUSTOMIZATION
+      !Args.hasArg(options::OPT_fopenmp_threadprivate_legacy) &&
+#endif  // INTEL_CUSTOMIZATION
       Opts.OpenMP && !Args.hasArg(options::OPT_fnoopenmp_use_tls);
   Opts.OpenMPIsDevice =
       Opts.OpenMP && Args.hasArg(options::OPT_fopenmp_is_device);

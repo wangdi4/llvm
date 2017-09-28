@@ -1145,7 +1145,7 @@ void CodeGenFunction::EmitOMPLoopBody(const OMPLoopDirective &D,
                                       JumpDest LoopExit) {
   RunCleanupsScope BodyScope(*this);
 #if INTEL_SPECIFIC_OPENMP
-  if (CGM.getLangOpts().IntelOpenMP) {
+  if (CGM.getLangOpts().IntelOpenMP || CGM.getLangOpts().IntelOpenMPRegion) {
     // Emit variables for orignal loop controls
     for (auto *E : D.counters()) {
       auto *VD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
@@ -1163,7 +1163,7 @@ void CodeGenFunction::EmitOMPLoopBody(const OMPLoopDirective &D,
   }
   // Update the linear variables.
 #if INTEL_SPECIFIC_OPENMP
-  if (!CGM.getLangOpts().IntelOpenMP)
+  if (!CGM.getLangOpts().IntelOpenMP && !CGM.getLangOpts().IntelOpenMPRegion)
 #endif // INTEL_SPECIFIC_OPENMP
   for (const auto *C : D.getClausesOfKind<OMPLinearClause>()) {
     for (auto *U : C->updates())
@@ -1196,6 +1196,22 @@ void CodeGenFunction::EmitOMPInnerLoop(
   auto CondBlock = createBasicBlock("omp.inner.for.cond");
   EmitBlock(CondBlock);
   const SourceRange &R = S.getSourceRange();
+#if INTEL_CUSTOMIZATION
+  if (CGM.getLangOpts().IntelOpenMP || CGM.getLangOpts().IntelOpenMPRegion) {
+    llvm::SmallVector<const clang::Attr *, 4> Attrs;
+    llvm::ArrayRef<const clang::Attr *> AttrRef = Attrs;
+    if (auto *LD = dyn_cast<OMPLoopDirective>(&S)) {
+      auto *CS = cast<CapturedStmt>(LD->getAssociatedStmt())->getCapturedStmt();
+      if (CS->getStmtClass() == Stmt::AttributedStmtClass) {
+        auto *AS = cast<AttributedStmt>(CS);
+        AttrRef =  AS->getAttrs();
+      }
+    }
+    LoopStack.push(CondBlock, CGM.getContext(), AttrRef,
+                   SourceLocToDebugLoc(R.getBegin()),
+                   SourceLocToDebugLoc(R.getEnd()));
+  } else
+#endif // INTEL_CUSTOMIZATION
   LoopStack.push(CondBlock, SourceLocToDebugLoc(R.getBegin()),
                  SourceLocToDebugLoc(R.getEnd()));
 
@@ -1207,21 +1223,6 @@ void CodeGenFunction::EmitOMPInnerLoop(
 
   auto LoopBody = createBasicBlock("omp.inner.for.body");
 
-#if INTEL_SPECIFIC_OPENMP
-  llvm::PHINode *LoopPHI;
-  llvm::Type *IVType;
-  if (IncomingBlock != nullptr) {
-    // Create a PHI for the loop and store its value in the iteration variable
-    auto *VD = cast<VarDecl>(cast<DeclRefExpr>(IterationVariable)->getDecl());
-    IVType = ConvertTypeForMem(VD->getType());
-    LoopPHI = Builder.CreatePHI(IVType, 2);
-    auto Zero = llvm::ConstantInt::get(IVType, 0);
-    LoopPHI->addIncoming(Zero, IncomingBlock);
-    EmitVarDecl(*VD);
-    Address A = GetAddrOfLocalVar(VD);
-    Builder.CreateStore(LoopPHI, A);
-  }
-#endif // INTEL_SPECIFIC_OPENMP
   // Emit condition.
   EmitBranchOnBoolExpr(LoopCond, LoopBody, ExitBlock, getProfileCount(&S));
   if (ExitBlock != LoopExit.getBlock()) {
@@ -1240,13 +1241,6 @@ void CodeGenFunction::EmitOMPInnerLoop(
 
   // Emit "IV = IV + 1" and a back-edge to the condition block.
   EmitBlock(Continue.getBlock());
-#if INTEL_SPECIFIC_OPENMP
-  if (IncomingBlock != nullptr) {
-    auto One = llvm::ConstantInt::get(IVType, 1);
-    llvm::Value *Add = Builder.CreateAdd(LoopPHI, One);   
-    LoopPHI->addIncoming(Add, Builder.GetInsertBlock());
-  } else
-#endif // INTEL_SPECIFIC_OPENMP
   EmitIgnoredExpr(IncExpr);
   PostIncGen(*this);
   BreakContinueStack.pop_back();
@@ -4209,6 +4203,11 @@ void CodeGenFunction::EmitOMPTargetUpdateDirective(
 #if INTEL_SPECIFIC_OPENMP
 void CodeGenFunction::EmitIntelOMPLoop(const OMPLoopDirective &S,
                                        OpenMPDirectiveKind K) {
+  // Emit the loop iteration variable.
+  auto IVExpr = cast<DeclRefExpr>(S.getIterationVariable());
+  auto IVDecl = cast<VarDecl>(IVExpr->getDecl());
+  EmitVarDecl(*IVDecl);
+  
   // Emit the iterations count variable.
   // If it is not a variable, Sema decided to calculate iterations count on each
   // iteration (e.g., it is foldable into a constant).
@@ -4239,7 +4238,9 @@ void CodeGenFunction::EmitIntelOMPLoop(const OMPLoopDirective &S,
       incrementProfileCounter(&S);
     }
 
-    if (isOpenMPWorksharingDirective(S.getDirectiveKind())) {
+    if (isOpenMPWorksharingDirective(S.getDirectiveKind()) ||
+        isOpenMPTaskLoopDirective(S.getDirectiveKind()) ||
+        isOpenMPDistributeDirective(S.getDirectiveKind())) {
       // Emit helper vars inits.
       EmitOMPHelperVar(*this, cast<DeclRefExpr>(S.getLowerBoundVariable()));
       EmitOMPHelperVar(*this, cast<DeclRefExpr>(S.getUpperBoundVariable()));
@@ -4260,14 +4261,27 @@ void CodeGenFunction::EmitIntelOMPLoop(const OMPLoopDirective &S,
       case OMPD_simd:
         Outliner.emitOMPSIMDDirective();
         break;
+      case OMPD_for:
+        Outliner.emitOMPForDirective();
+        break;
       case OMPD_parallel_for:
         Outliner.emitOMPParallelForDirective();
+        break;
+      case OMPD_parallel_for_simd:
+        Outliner.emitOMPParallelForSimdDirective();
+        break;
+      case OMPD_taskloop:
+        Outliner.emitOMPTaskLoopDirective();
+        break;
+      case OMPD_taskloop_simd:
+        Outliner.emitOMPTaskLoopSimdDirective();
         break;
       default:
         llvm_unreachable("unexpected loop kind");
       }
       Outliner << S.clauses();
 
+      EmitIgnoredExpr(S.getInit());
       // while (idx <= UB) { BODY; ++idx; }
       if (ThenBlock == nullptr)
         ThenBlock = Builder.GetInsertBlock();
@@ -4280,15 +4294,6 @@ void CodeGenFunction::EmitIntelOMPLoop(const OMPLoopDirective &S,
                        [](CodeGenFunction &) {}, ThenBlock,
                        S.getIterationVariable());
       EmitBlock(LoopExit.getBlock());
-      // The iteration variable is always defined inside and will be marked
-      // private when used.
-      // The original loop control variable could be defined inside or
-      // outside so treat it as an explicit private
-      for (auto *C : S.counters()) {
-        auto VD = cast<VarDecl>(cast<DeclRefExpr>(C)->getDecl());
-        Outliner.addExplicit(VD);
-        Outliner.emitImplicit(C, OMPC_private);
-      }
     }
      
     // We're now done with the loop, so jump to the continuation block.
@@ -4316,11 +4321,39 @@ void CodeGenFunction::EmitIntelOMPSimdDirective(const OMPSimdDirective &S) {
   emitIntelDirective(*this, OMPD_simd, CodeGen);
 }
 
+void CodeGenFunction::EmitIntelOMPForDirective(const OMPForDirective &S) {
+  auto &&CodeGen = [&S](CodeGenFunction &CGF, PrePostActionTy &) {
+    CGF.EmitIntelOMPLoop(S, OMPD_for);
+  };
+  emitIntelDirective(*this, OMPD_for, CodeGen);
+}
+
 void CodeGenFunction::EmitIntelOMPParallelForDirective(
                                       const OMPParallelForDirective &S) {
   auto &&CodeGen = [&S](CodeGenFunction &CGF, PrePostActionTy &) {
     CGF.EmitIntelOMPLoop(S, OMPD_parallel_for);
   };
   emitIntelDirective(*this, OMPD_parallel_for, CodeGen);
+}
+void CodeGenFunction::EmitIntelOMPParallelForSimdDirective(
+                                      const OMPParallelForSimdDirective &S) {
+  auto &&CodeGen = [&S](CodeGenFunction &CGF, PrePostActionTy &) {
+    CGF.EmitIntelOMPLoop(S, OMPD_parallel_for_simd);
+  };
+  emitIntelDirective(*this, OMPD_parallel_for_simd, CodeGen);
+}
+void CodeGenFunction::EmitIntelOMPTaskLoopDirective(
+                                             const OMPTaskLoopDirective &S) {
+  auto &&CodeGen = [&S](CodeGenFunction &CGF, PrePostActionTy &) {
+    CGF.EmitIntelOMPLoop(S, OMPD_taskloop);
+  };
+  emitIntelDirective(*this, OMPD_taskloop, CodeGen);
+}
+void CodeGenFunction::EmitIntelOMPTaskLoopSimdDirective(
+                                         const OMPTaskLoopSimdDirective &S) {
+  auto &&CodeGen = [&S](CodeGenFunction &CGF, PrePostActionTy &) {
+    CGF.EmitIntelOMPLoop(S, OMPD_taskloop_simd);
+  };
+  emitIntelDirective(*this, OMPD_taskloop_simd, CodeGen);
 }
 #endif // INTEL_SPECIFIC_OPENMP

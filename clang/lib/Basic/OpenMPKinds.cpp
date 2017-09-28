@@ -45,6 +45,30 @@ const char *clang::getOpenMPDirectiveName(OpenMPDirectiveKind Kind) {
   llvm_unreachable("Invalid OpenMP directive kind");
 }
 
+#if INTEL_CUSTOMIZATION
+bool clang::isAllowedInSimdSubset(OpenMPDirectiveKind DKind) {
+  switch (DKind) {
+#define OPENMP_DIRECTIVE_SIMD_SUBSET(Name)                                     \
+  case OMPD_##Name:                                                            \
+    return true;
+#include "clang/Basic/OpenMPKinds.def"
+  default:
+    return false;
+  }
+}
+
+bool clang::isAllowedInTBBSubset(OpenMPDirectiveKind DKind) {
+  switch (DKind) {
+#define OPENMP_DIRECTIVE_TBB_SUBSET(Name)                                     \
+  case OMPD_##Name:                                                            \
+    return true;
+#include "clang/Basic/OpenMPKinds.def"
+  default:
+    return false;
+  }
+}
+#endif // INTEL_CUSTOMIZATION
+
 OpenMPClauseKind clang::getOpenMPClauseKind(StringRef Str) {
   // 'flush' clause cannot be specified explicitly, because this is an implicit
   // clause for 'flush' directive. If the 'flush' clause is explicitly specified

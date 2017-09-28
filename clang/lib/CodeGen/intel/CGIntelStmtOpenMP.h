@@ -44,14 +44,34 @@ class OpenMPCodeOutliner {
     llvm::Value *VLASize = nullptr;
   };
   typedef llvm::SmallVector<ArraySectionDataTy, 4> ArraySectionTy;
+
+  // Used temporarily to build a bundle
+  OpenMPClauseKind CurrentClauseKind;
+  StringRef BundleString;
+  SmallVector<llvm::Value*, 8> BundleValues;
+  void clearBundleTemps() { BundleString = ""; BundleValues.clear(); }
+
+  struct DirectiveIntrinsicSet final {
+    OpenMPDirectiveKind DKind;
+    SmallVector<llvm::OperandBundleDef, 8> OpBundles;
+    SmallVector<llvm::Intrinsic::ID, 8> Intrins;
+    StringRef End;
+    llvm::CallInst *CallEntry;
+    DirectiveIntrinsicSet(StringRef E, OpenMPDirectiveKind K)
+          : DKind(K), End(E), CallEntry(nullptr) {}
+    void clear() { OpBundles.clear(); Intrins.clear(); }
+  };
+  SmallVector<DirectiveIntrinsicSet, 4> Directives;
   CodeGenFunction &CGF;
-  StringRef End;
-  llvm::Function *IntelDirective = nullptr;
-  llvm::Function *IntelSimpleClause = nullptr;
-  llvm::Function *IntelListClause = nullptr;
   llvm::LLVMContext &C;
-  llvm::SmallVector<llvm::Value *, 16> Args;
-  llvm::CallInst *DirectiveInst;
+
+  // For region entry/exit implementation
+  llvm::Function *RegionEntryDirective = nullptr;
+  llvm::Function *RegionExitDirective = nullptr;
+
+  // Used to insert instructions outside the region
+  llvm::Instruction *OutsideInsertInstruction = nullptr;
+
   const OMPExecutableDirective &Directive;
 
   ArraySectionDataTy emitArraySectionData(const OMPArraySectionExpr *E);
@@ -62,7 +82,12 @@ class OpenMPCodeOutliner {
   void addArg(StringRef Str);
   void addArg(const Expr *E);
 
-  void emitDirective();
+  void getLegalDirectives(SmallVector<DirectiveIntrinsicSet *, 4> &Dirs);
+  void startDirectiveIntrinsicSet(StringRef B, StringRef E,
+                                  OpenMPDirectiveKind K = OMPD_unknown);
+  void emitDirective(DirectiveIntrinsicSet &D, StringRef Name);
+  void emitMultipleDirectives(DirectiveIntrinsicSet &D);
+  void emitClause(llvm::Intrinsic::ID IID);
   void emitSimpleClause();
   void emitOpndClause();
   void emitListClause();
@@ -122,8 +147,12 @@ class OpenMPCodeOutliner {
                                          const Expr *DstExpr,
                                          const Expr *AssignOp);
 
+  bool isImplicit(const VarDecl *);
+  bool isExplicit(const VarDecl *);
   void addImplicitClauses();
   void addRefsToOuter();
+
+  llvm::MapVector<const VarDecl *, OpenMPClauseKind> ImplicitMap;
   llvm::DenseSet<const VarDecl *> ExplicitRefs;
   llvm::DenseSet<const VarDecl *> VarDefs;
   llvm::DenseSet<const VarDecl *> VarRefs;
@@ -134,18 +163,32 @@ public:
   void emitOMPParallelDirective();
   void emitOMPParallelForDirective();
   void emitOMPSIMDDirective();
+  void emitOMPForDirective();
+  void emitOMPParallelForSimdDirective();
   void emitOMPAtomicDirective(OMPAtomicClause ClauseKind);
   void emitOMPSingleDirective();
   void emitOMPMasterDirective();
   void emitOMPCriticalDirective();
   void emitOMPOrderedDirective();
   void emitOMPTargetDirective();
+  void emitOMPTargetDataDirective();
+  void emitOMPTargetUpdateDirective();
+  void emitOMPTaskLoopDirective();
+  void emitOMPTaskLoopSimdDirective();
+  void emitOMPTaskDirective();
+  void emitOMPTaskGroupDirective();
+  void emitOMPTaskWaitDirective();
+  void emitOMPTaskYieldDirective();
   OpenMPCodeOutliner &operator<<(ArrayRef<OMPClause *> Clauses);
   void emitImplicit(Expr *E, OpenMPClauseKind K);
   void emitImplicit(const VarDecl *VD, OpenMPClauseKind K);
   void addVariableDef(const VarDecl *VD) { VarDefs.insert(VD); }
   void addVariableRef(const VarDecl *VD) { VarRefs.insert(VD); }
+  void addExplicit(const Expr *E);
   void addExplicit(const VarDecl *VD) { ExplicitRefs.insert(VD); }
+  void setOutsideInsertPoint() {
+    CGF.Builder.SetInsertPoint(OutsideInsertInstruction);
+  }
 };
 
 /// Base class for handling code generation inside OpenMP regions.
