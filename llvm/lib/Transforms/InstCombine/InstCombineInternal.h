@@ -238,7 +238,8 @@ public:
                AssumptionCache &AC, TargetLibraryInfo &TLI, DominatorTree &DT,
                const DataLayout &DL, LoopInfo *LI)
       : Worklist(Worklist), Builder(Builder), MinimizeSize(MinimizeSize),
-        ExpensiveCombines(ExpensiveCombines), AA(AA), AC(AC), TLI(TLI), DT(DT),
+        ExpensiveCombines(ExpensiveCombines), AA(AA),
+        AC(AC), TLI(TLI), DT(DT),
         DL(DL), SQ(DL, &TLI, &DT, &AC), LI(LI), MadeIRChange(false) {}
 
   /// \brief Run the combiner over the entire worklist until it is empty.

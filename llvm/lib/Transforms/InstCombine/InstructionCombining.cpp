@@ -3168,7 +3168,8 @@ static bool prepareICWorklistFromFunction(Function &F, const DataLayout &DL,
 static bool
 combineInstructionsOverFunction(Function &F, InstCombineWorklist &Worklist,
                                 AliasAnalysis *AA, AssumptionCache &AC,
-                                TargetLibraryInfo &TLI, DominatorTree &DT,
+                                TargetLibraryInfo &TLI,
+                                DominatorTree &DT,
                                 bool ExpensiveCombines = true,
                                 LoopInfo *LI = nullptr) {
   auto &DL = F.getParent()->getDataLayout();
@@ -3215,12 +3216,11 @@ PreservedAnalyses InstCombinePass::run(Function &F,
   auto &AC = AM.getResult<AssumptionAnalysis>(F);
   auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
   auto &TLI = AM.getResult<TargetLibraryAnalysis>(F);
-
   auto *LI = AM.getCachedResult<LoopAnalysis>(F);
 
   // FIXME: The AliasAnalysis is not yet supported in the new pass manager
-  if (!combineInstructionsOverFunction(F, Worklist, nullptr, AC, TLI, DT,
-                                       ExpensiveCombines, LI))
+  if (!combineInstructionsOverFunction(F, Worklist, nullptr, AC, TLI,
+                                       DT, ExpensiveCombines, LI))
     // No changes, all analyses are preserved.
     return PreservedAnalyses::all();
 
@@ -3262,8 +3262,8 @@ bool InstructionCombiningPass::runOnFunction(Function &F) {
   auto *LIWP = getAnalysisIfAvailable<LoopInfoWrapperPass>();
   auto *LI = LIWP ? &LIWP->getLoopInfo() : nullptr;
 
-  return combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, DT,
-                                         ExpensiveCombines, LI);
+  return combineInstructionsOverFunction(F, Worklist, AA, AC, TLI,
+                                         DT, ExpensiveCombines, LI);
 }
 
 char InstructionCombiningPass::ID = 0;

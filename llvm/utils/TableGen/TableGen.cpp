@@ -43,9 +43,10 @@ enum ActionType {
   PrintSets,
   GenOptParserDefs,
   GenCTags,
-  GenDirectives,   // INTEL
-  GenSVMLVariants, // INTEL
-  GenMAPatterns,   // INTEL
+  GenDirectives,      // INTEL
+  GenSVMLVariants,    // INTEL
+  GenLibmvecVariants, // INTEL
+  GenMAPatterns,      // INTEL
   GenAttributes,
   GenSearchableTables,
   GenGlobalISel,
@@ -102,6 +103,8 @@ namespace {
                                 parallel/vector constructs and regions"),
                     clEnumValN(GenSVMLVariants, "gen-svml",
                                "Generate SVML variant function names"),
+                    clEnumValN(GenLibmvecVariants, "gen-libmvec",
+                               "Generate Libmvec variant function names"),
                     clEnumValN(GenMAPatterns, "gen-ma-patterns",
                                "Generate MUL/ADD patterns"),
 // END INTEL_CUSTOMIZATION
@@ -202,6 +205,9 @@ bool LLVMTableGenMain(raw_ostream &OS, RecordKeeper &Records) {
     break;
   case GenSVMLVariants:
     EmitSVMLVariants(Records, OS);
+    break;
+  case GenLibmvecVariants:
+    EmitLibmvecVariants(Records, OS);
     break;
   case GenMAPatterns:
     EmitMAPatterns(Records, OS);

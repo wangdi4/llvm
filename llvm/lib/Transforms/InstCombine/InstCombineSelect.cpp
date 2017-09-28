@@ -549,6 +549,69 @@ static bool adjustMinMax(SelectInst &Sel, ICmpInst &Cmp) {
   return true;
 }
 
+#if INTEL_CUSTOMIZATION
+static Value *transformToMinMax(Value *TrueVal, Value *FalseVal, ICmpInst *Cmp,
+                                InstCombiner::BuilderTy &Builder) {
+  // Transform:
+  // X >u C (Note: or C - 1) ? (X >s 0 ? C : 0) : X
+  // X >u C (Note: or C - 1)? (X <s 1 ? 0 : C) : X
+  // X <u C + 1 (Note: or C) ? X : (X >s 0 ? C : 0)
+  // X <u C + 1 (Note: or C)? X : (X <s 1 ? 0 : C)
+  // to smin(smax(X, 0), C)
+  ICmpInst::Predicate OuterPred;
+  Value *X;
+  const APInt *C1, *C2;
+  APInt AdjustedC1;
+  if (!(match(Cmp, m_ICmp(OuterPred, m_Value(X), m_APInt(C1))) &&
+        C1->isStrictlyPositive()))
+    return nullptr;
+  switch (OuterPred) {
+  case CmpInst::ICMP_UGT:
+    // Outer select condition could be X >u C or X >u C - 1. We need to adjust
+    // constant in case of C - 1, adjusted value will be used further to match
+    // inner select instruction.
+    AdjustedC1 = *C1 + 1;
+    break;
+  case CmpInst::ICMP_ULT:
+    std::swap(TrueVal, FalseVal);
+    OuterPred = CmpInst::getInversePredicate(OuterPred);
+    // Outer select condition could be X <u C + 1 or X <u C. We need to adjust
+    // constant in case of C + 1, adjusted value will be used further to match
+    // inner select instruction.
+    AdjustedC1 = *C1 - 1;
+    break;
+  default:
+    return nullptr;
+    break;
+  }
+  Value *InnerCondVal, *InnerTrueVal, *InnerFalseVal;
+  if (!(FalseVal == X &&
+        match(TrueVal, m_Select(m_Value(InnerCondVal), m_Value(InnerTrueVal), m_Value(InnerFalseVal)))))
+    return nullptr;
+  ICmpInst::Predicate InnerPred;
+  if (match(InnerCondVal, m_ICmp(InnerPred, m_Specific(X), m_One())) &&
+      InnerPred == CmpInst::ICMP_SLT) {
+    if (!(match(InnerTrueVal, m_Zero()) && match(InnerFalseVal, m_APInt(C2)) &&
+          (AdjustedC1 == *C2 || *C1 == *C2)))
+      return nullptr;
+  } else if (match(InnerCondVal, m_ICmp(InnerPred, m_Specific(X), m_Zero())) &&
+             InnerPred == CmpInst::ICMP_SGT) {
+    if (!(match(InnerFalseVal, m_Zero()) && match(InnerTrueVal, m_APInt(C2)) &&
+          (AdjustedC1 == *C2 || *C1 == *C2)))
+      return nullptr;
+  } else {
+    return nullptr;
+  }
+  Constant *Zero = ConstantInt::getNullValue(X->getType());
+  Value *NewInner =
+      generateMinMaxSelectPattern(Builder, SPF_SMAX, X, Zero); // smax(X, 0)
+  Value *NewOuter = generateMinMaxSelectPattern(
+      Builder, SPF_SMIN, NewInner,
+      ConstantInt::get(X->getContext(), *C2)); // smin(smax(X, 0), C)
+  return NewOuter;
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// If this is an integer min/max (icmp + select) with a constant operand,
 /// create the canonical icmp for the min/max operation and canonicalize the
 /// constant to the 'false' operand of the select:
@@ -599,6 +662,13 @@ Instruction *InstCombiner::foldSelectInstWithICmp(SelectInst &SI,
                                                   ICmpInst *ICI) {
   if (Instruction *NewSel = canonicalizeMinMaxWithConstant(SI, *ICI, Builder))
     return NewSel;
+
+#if INTEL_CUSTOMIZATION
+  // if canonicalization is not possible then try to transform to min/max
+  if (Value *NewSel = transformToMinMax(SI.getTrueValue(), SI.getFalseValue(), ICI, Builder)) {
+    return replaceInstUsesWith(SI, NewSel);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   bool Changed = adjustMinMax(SI, *ICI);
 

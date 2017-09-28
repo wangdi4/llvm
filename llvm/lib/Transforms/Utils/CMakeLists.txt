@@ -67,5 +67,5 @@ add_llvm_library(LLVMTransformUtils
 
   DEPENDS
   intrinsics_gen
-  intel_directives_gen
+  intel_directives_gen  #INTEL
   )
