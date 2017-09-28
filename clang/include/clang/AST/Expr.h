@@ -2390,11 +2390,21 @@ public:
 
   SourceLocation getLocStart() const LLVM_READONLY;
   SourceLocation getLocEnd() const LLVM_READONLY;
+<<<<<<< HEAD
 #if INTEL_SPECIFIC_CILKPLUS
   void setCilkSpawnLoc(SourceLocation Loc) { CilkSpawnLoc = Loc; }
   SourceLocation getCilkSpawnLoc() const LLVM_READONLY { return CilkSpawnLoc; }
   bool isCilkSpawnCall() const { return CilkSpawnLoc.isValid(); }
 #endif // INTEL_SPECIFIC_CILKPLUS
+=======
+
+  bool isCallToStdMove() const {
+    const FunctionDecl* FD = getDirectCallee();
+    return getNumArgs() == 1 && FD && FD->isInStdNamespace() &&
+           FD->getIdentifier() && FD->getIdentifier()->isStr("move");
+  }
+
+>>>>>>> 9ecb2a666051a91774f4542f6684dd95618be2d0
   static bool classof(const Stmt *T) {
     return T->getStmtClass() >= firstCallExprConstant &&
            T->getStmtClass() <= lastCallExprConstant;
