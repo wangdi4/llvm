@@ -2556,7 +2556,7 @@ void Preprocessor::HandleMicrosoftImportIntelDirective(SourceLocation HashLoc,
   Args.push_back(nullptr);
 
   StringRef Nul("NUL");
-  const StringRef *Redirects[] = {&Nul, &Nul, &Nul};
+  Optional<StringRef> Redirects[] = {Nul, Nul, Nul};
   if (llvm::sys::ExecuteAndWait(MSCompiler, &Args[0], nullptr, Redirects, 0, 0,
                                 &ErrMsg)) {
     Diag(FilenameTok, diag::err_import_exec) << MSCompiler;
