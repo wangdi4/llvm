@@ -43,6 +43,11 @@ set(modified_files
   mwaitxintrin.h
   nmmintrin.h
   pkuintrin.h
+  opencl-c-common.h
+  opencl-c-20.h
+  opencl-c-platform.h
+  opencl-c-platform-12.h
+  opencl-c-platform-20.h
   pmmintrin.h
   popcntintrin.h
   prfchwintrin.h

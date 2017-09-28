@@ -1,4 +1,5 @@
 // RUN: %clang_cc1 -x cl -cl-std=CL2.0 -triple spir -emit-llvm %s -o - | FileCheck %s
+// RUN: %clang_cc1 -x cl -cl-std=CL2.0 -triple spir -emit-llvm -D USE_ARRAYS %s -o - | FileCheck %s
 
 typedef float float4 __attribute__((ext_vector_type(4)));
 
@@ -9,6 +10,17 @@ struct st {
   int i2;
 };
 
+#ifdef USE_ARRAYS
+channel int ich_arr[5];
+channel long lch_arr[5][4];
+channel struct st sch_arr[5][4][3];
+channel float4 fch_arr[1];
+
+channel int ich_arr1[5];
+channel long lch_arr1[5][4];
+channel struct st sch_arr1[5][4][3];
+channel float4 fch_arr1[1];
+#else
 channel int ich;
 channel long lch;
 channel struct st sch;
@@ -18,6 +30,7 @@ channel int ich1;
 channel long lch1;
 channel struct st sch1;
 channel float4 fch1;
+#endif
 
 // Declarations documented in 'Intel FPGA SDK for OpenCL Programming Guide'
 // You can find it at https://www.altera.com/products/design-software/embedded-software-developers/opencl/documentation.html
@@ -80,6 +93,17 @@ __kernel void k1() {
     __local bool *p_to_l_valid = &l_valid;
     __private bool *p_to_p_valid = &p_valid;
 
+#ifdef USE_ARRAYS
+    write_channel_altera(ich_arr[3], i);
+    write_channel_altera(lch_arr[3][2], l);
+    write_channel_altera(sch_arr[3][2][1], s);
+    write_channel_altera(fch_arr[0], f);
+
+    valid = write_channel_nb_altera(ich_arr[3], i);
+    valid = write_channel_nb_altera(lch_arr[3][2], l);
+    valid = write_channel_nb_altera(sch_arr[3][2][1], s);
+    valid = write_channel_nb_altera(fch_arr[0], f);
+#else
     write_channel_altera(ich, i);
     write_channel_altera(lch, l);
     write_channel_altera(sch, s);
@@ -89,7 +113,20 @@ __kernel void k1() {
     valid = write_channel_nb_altera(lch, l);
     valid = write_channel_nb_altera(sch, s);
     valid = write_channel_nb_altera(fch, f);
+#endif
 
+#ifdef USE_ARRAYS
+    i = read_channel_altera(ich_arr[3]);
+    l = read_channel_altera(lch_arr[3][2]);
+    s = read_channel_altera(sch_arr[3][2][1]);
+    f = read_channel_altera(fch_arr[0]);
+
+    i = read_channel_nb_altera(ich_arr[3], p_to_g_valid);
+    l = read_channel_nb_altera(lch_arr[3][2], p_to_l_valid);
+    s = read_channel_nb_altera(sch_arr[3][2][1], p_to_p_valid);
+    f = read_channel_nb_altera(fch_arr[0], p_to_valid);
+    f = read_channel_nb_altera(fch_arr1[0], &valid);
+#else
     i = read_channel_altera(ich);
     l = read_channel_altera(lch);
     s = read_channel_altera(sch);
@@ -100,4 +137,5 @@ __kernel void k1() {
     s = read_channel_nb_altera(sch, p_to_p_valid);
     f = read_channel_nb_altera(fch, p_to_valid);
     f = read_channel_nb_altera(fch1, &valid);
+#endif
 }

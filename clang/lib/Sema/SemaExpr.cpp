@@ -14316,9 +14316,10 @@ static bool captureInBlock(BlockScopeInfo *BSI, VarDecl *Var,
                                  Sema &S) {
   Expr *CopyExpr = nullptr;
   bool ByRef = false;
-      
-  // Blocks are not allowed to capture arrays.
-  if (CaptureType->isArrayType()) {
+
+#if INTEL_CUSTOMIZATION
+  // Blocks are not allowed to capture arrays, excepting OpenCL
+  if (!S.getLangOpts().OpenCL && CaptureType->isArrayType()) {
     if (BuildAndDiagnose) {
       S.Diag(Loc, diag::err_ref_array_type);
       S.Diag(Var->getLocation(), diag::note_previous_decl) 
@@ -14326,6 +14327,7 @@ static bool captureInBlock(BlockScopeInfo *BSI, VarDecl *Var,
     }
     return false;
   }
+#endif // INTEL_CUSTOMIZATION
 
   // Forbid the block-capture of autoreleasing variables.
   if (CaptureType.getObjCLifetime() == Qualifiers::OCL_Autoreleasing) {

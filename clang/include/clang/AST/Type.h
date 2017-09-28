@@ -1676,6 +1676,9 @@ public:
   bool isAggregateType() const;
   bool isFundamentalType() const;
   bool isCompoundType() const;
+#if INTEL_CUSTOMIZATION
+  bool isDoubleType() const;       // (double + long double)
+#endif // INTEL_CUSTOMIZATION
 
   // Type Predicates: Check to see if this type is structurally the specified
   // type, ignoring typedefs and qualifiers.
@@ -5494,6 +5497,10 @@ class ChannelType : public Type, public llvm::FoldingSetNode {
 public:
 
   QualType getElementType() const { return ElementType; }
+
+  bool isIncompleteType(NamedDecl **Def) const {
+    return ElementType->isIncompleteType(Def);
+  }
 
   bool isSugared() const { return false; }
 
