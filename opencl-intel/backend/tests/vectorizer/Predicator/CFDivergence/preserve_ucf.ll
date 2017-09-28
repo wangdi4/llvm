@@ -1,5 +1,5 @@
-; RUN: opt -presucf=false -predicate -verify %s -S -o %t0.ll
-; RUN: opt -presucf=true -predicate -verify %s -S -o %t1.ll
+; RUN: %oclopt -presucf=false -predicate -verify %s -S -o %t0.ll
+; RUN: %oclopt -presucf=true -predicate -verify %s -S -o %t1.ll
 ; RUN: FileCheck %s -input-file=%t0.ll -check-prefix=CHECK-UCFOFF
 ; RUN: FileCheck %s -input-file=%t1.ll -check-prefix=CHECK-UCFON
 

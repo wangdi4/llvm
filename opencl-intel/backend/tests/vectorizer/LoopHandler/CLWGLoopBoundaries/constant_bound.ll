@@ -1,5 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: opt -runtimelib %p/../../Full/runtime.bc -kernel-analysis -cl-loop-bound -verify %t.bc -S -o %t1.ll
+; RUN: %oclopt -runtimelib %p/../../Full/runtime.bc -kernel-analysis -cl-loop-bound -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 
 ; CHECK: @test

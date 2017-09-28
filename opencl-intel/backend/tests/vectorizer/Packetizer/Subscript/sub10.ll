@@ -1,4 +1,4 @@
-; RUN: opt -runtimelib %p/../../Full/runtime.bc -inline-threshold=4096 -inline -domtree -mem2reg -instcombine -simplifycfg -lowerswitch -scalarize -mergereturn -loop-simplify -phicanon -predicate -mem2reg -dce -packetize -packet-size=16 -gather-scatter -verify %s -S -o %t1.ll
+; RUN: %oclopt -runtimelib %p/../../Full/runtime.bc -inline-threshold=4096 -inline -domtree -mem2reg -instcombine -simplifycfg -lowerswitch -scalarize -mergereturn -loop-simplify -phicanon -predicate -mem2reg -dce -packetize -packet-size=16 -gather-scatter -verify %s -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 
 ; Check uniform masked scatter/gather of unsigned int when index is 64bit

@@ -1,5 +1,5 @@
 ; RUN: llvm-as %s.rtl -o %t.rtl.bc
-; RUN: opt -runtimelib=%t.rtl.bc -builtin-import -verify %s -S | FileCheck %s
+; RUN: %oclopt -runtimelib=%t.rtl.bc -builtin-import -verify %s -S | FileCheck %s
 
 ;********************************************************************************
 ; This test checks that the BuiltInFuncImport pass correctly handles the following

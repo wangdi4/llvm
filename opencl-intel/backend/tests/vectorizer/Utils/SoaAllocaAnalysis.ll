@@ -1,4 +1,4 @@
-; RUN: opt -analyze -SoaAllocaAnalysis -verify %s -S -o %t.ll
+; RUN: %oclopt -analyze -SoaAllocaAnalysis -verify %s -S -o %t.ll
 ; RUN: FileCheck %s --input-file=%t.ll
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -1,4 +1,4 @@
-; RUN: opt -relaxed-funcs -S %s -o %t.ll
+; RUN: %oclopt -relaxed-funcs -S %s -o %t.ll
 ; RUN: FileCheck %s --input-file=%t.ll
 
 define void @check_exp_float(float %f1, <2 x float> %f2, <3 x float> %f3, <4 x float> %f4, <8 x float> %f8, <16 x float> %f16) nounwind {

@@ -1,5 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: opt -linear-id-resolver -verify %t.bc -S -o %t1.ll
+; RUN: %oclopt -linear-id-resolver -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 
 ; ModuleID = 'get_local_linear_id'

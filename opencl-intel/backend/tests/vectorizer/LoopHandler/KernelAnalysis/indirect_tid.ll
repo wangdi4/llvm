@@ -1,5 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: opt -analyze -kernel-analysis -verify %t.bc -S -o %t1.ll
+; RUN: %oclopt -analyze -kernel-analysis -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 ; CHECK: KernelAnalysis
 ; CHECK: kernel_call_func_with_gid no

@@ -1,4 +1,4 @@
-; RUN: opt -SimplifyGEP -verify %s -S | FileCheck %s
+; RUN: %oclopt -SimplifyGEP -verify %s -S | FileCheck %s
 
 ; ModuleID = 'Program'
 

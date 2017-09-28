@@ -1,5 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: opt -runtimelib %p/../Full/dxruntime.bc -scalarize -verify %t.bc -S -o %t1.ll -runtime=dx
+; RUN: %oclopt -runtimelib %p/../Full/dxruntime.bc -scalarize -verify %t.bc -S -o %t1.ll -runtime=dx
 ; RUN: FileCheck %s --input-file=%t1.ll
 
 ;CHECK: dx_soa_store

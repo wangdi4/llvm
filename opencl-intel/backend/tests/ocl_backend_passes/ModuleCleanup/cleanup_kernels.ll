@@ -1,4 +1,4 @@
-; RUN: opt -module-cleanup -S %s -o %t.ll
+; RUN: %oclopt -module-cleanup -S %s -o %t.ll
 ; RUN: FileCheck %s --input-file=%t.ll
 
 ; all functions here are kernels and they should not be removed

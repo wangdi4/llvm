@@ -1,4 +1,4 @@
-; RUN: opt -analyze -B-BarrierAnalysis -verify -S < %s | FileCheck %s
+; RUN: %oclopt -analyze -B-BarrierAnalysis -verify -S < %s | FileCheck %s
 
 ;;*****************************************************************************
 ;; This test checks the DataPerBarrier pass

@@ -1,4 +1,4 @@
-; RUN: opt -prevent-div-crash -S %s -o %t.ll
+; RUN: %oclopt -prevent-div-crash -S %s -o %t.ll
 ; RUN: FileCheck %s --input-file=%t.ll
 
 ; CHECK: @sample_test

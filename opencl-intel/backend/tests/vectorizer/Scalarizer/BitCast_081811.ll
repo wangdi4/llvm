@@ -1,6 +1,6 @@
 ; CSSD100006905
 ; RUN: llvm-as %s -o %t.bc
-; RUN: opt -scalarize -runtimelib %p/../Full/runtime.bc -packet-size=4 -S %t.bc -o - \
+; RUN: %oclopt -scalarize -runtimelib %p/../Full/runtime.bc -packet-size=4 -S %t.bc -o - \
 ; RUN: | FileCheck %s
 
 ; CHECK: @__Vectorized_.intel_median_bitonic_vector

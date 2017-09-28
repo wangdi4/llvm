@@ -1,0 +1,12 @@
+@LIT_SITE_CFG_IN_HEADER@
+
+import sys
+
+config.opencl_binary_dir = "@OPENCL_BINARY_DIR@"
+config.llvm_binary_dir = "@LLVM_BINARY_DIR@"
+config.build_fpga_emulator = "@BUILD_FPGA_EMULATOR@"
+
+config.host_arch = "@HOST_ARCH@"
+
+# Let the main config do the real work.
+lit_config.load_config(config, "@BACKEND_ROOT_DIR@/tests/lit.cfg")

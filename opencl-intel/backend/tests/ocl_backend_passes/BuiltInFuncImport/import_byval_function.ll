@@ -1,5 +1,5 @@
 ; RUN: llvm-as %s.rtl -o %t.rtl.bc
-; RUN: opt -runtimelib=%t.rtl.bc -builtin-import -verify %s -S | FileCheck %s
+; RUN: %oclopt -runtimelib=%t.rtl.bc -builtin-import -verify %s -S | FileCheck %s
 
 ;********************************************************************************
 ; When we have a case of pSrcFunction having a byval parameter it means the following:

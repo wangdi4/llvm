@@ -1,4 +1,4 @@
-; RUN: opt  -runtimelib %p/../Full/runtime.bc -resolve -verify -instcombine -verify -S -o - %s \
+; RUN: %oclopt  -runtimelib %p/../Full/runtime.bc -resolve -verify -instcombine -verify -S -o - %s \
 ; RUN: | FileCheck %s
 
 ; ModuleID = '/home/work/zrackove/git/trunk2/src/backend/tests/vectorizer/Packetizer/Mangling/soa_all.ll'

@@ -1,4 +1,4 @@
-; RUN: opt -O1 -ocl-asaa -S < %s | FileCheck %s
+; RUN: %oclopt -O1 -ocl-asaa -S < %s | FileCheck %s
 ;;*****************************************************************************
 ;; Verify that "store float 0x3FB99999A0000000" isn't in loop
 ;; and there's no comparison of constant instruction

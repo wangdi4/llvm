@@ -1,4 +1,4 @@
-; RUN: opt  -runtimelib %p/../../Full/runtime.bc -packetize -packet-size=16 -verify %s -S -o - \
+; RUN: %oclopt  -runtimelib %p/../../Full/runtime.bc -packetize -packet-size=16 -verify %s -S -o - \
 ; RUN: | FileCheck %s
 
 

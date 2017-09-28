@@ -1,6 +1,6 @@
 ; Negative scenario for OCL2.0
 ; block call can NOT be resolved at compile time
-; RUN: opt -resolve-block-call -S < %s | FileCheck %s
+; RUN: %oclopt -resolve-block-call -S < %s | FileCheck %s
 
 ;kernel void global_scope(__global int* res)
 ;{

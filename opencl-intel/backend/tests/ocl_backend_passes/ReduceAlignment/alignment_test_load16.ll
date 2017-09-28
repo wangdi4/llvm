@@ -1,4 +1,4 @@
-; RUN: opt -reduce-alignment -S %s -o %t.ll
+; RUN: %oclopt -reduce-alignment -S %s -o %t.ll
 ; RUN: FileCheck %s --input-file=%t.ll
 
 ;;*****************************************************************************

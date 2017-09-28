@@ -1,4 +1,4 @@
-; RUN: opt  -runtimelib %p/../Full/runtime.bc -resolve -verify -S < %s \
+; RUN: %oclopt  -runtimelib %p/../Full/runtime.bc -resolve -verify -S < %s \
 ; RUN: | FileCheck %s
 ; Make sure no fake calls exist
 ; CHECK-NOT call{{.*}}@fake

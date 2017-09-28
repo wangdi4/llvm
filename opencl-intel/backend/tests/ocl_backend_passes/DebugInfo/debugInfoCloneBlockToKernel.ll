@@ -1,4 +1,4 @@
-; RUN: opt -cloneblockinvokefunctokernel -verify -S %s -o %t.ll
+; RUN: %oclopt -cloneblockinvokefunctokernel -verify -S %s -o %t.ll
 ; RUN: FileCheck %s --input-file=%t.ll
 
 ;; Ticket ID : CSSD100020567

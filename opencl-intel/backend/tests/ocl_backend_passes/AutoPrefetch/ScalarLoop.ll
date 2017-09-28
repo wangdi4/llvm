@@ -1,5 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: opt -prefetch -verify %t.bc -S -o %t.oll
+; RUN: %oclopt -prefetch -verify %t.bc -S -o %t.oll
 ; RUN: FileCheck %s --input-file=%t.oll
 
 ; ModuleID = 'Triad'

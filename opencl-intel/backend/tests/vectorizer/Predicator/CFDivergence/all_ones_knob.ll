@@ -12,8 +12,8 @@
 ; opt -S -O3 -inline -lowerswitch -scalarize -mergereturn -loop-simplify -phicanon
 
 ; Check that all ones bypasses are not insterted.
-; RUN: opt -S -predicate -all-ones=false < %s > %t_allones_off.ll
-; RUN: opt -S -predicate < %s > %t_allones_on.ll
+; RUN: %oclopt -S -predicate -all-ones=false < %s > %t_allones_off.ll
+; RUN: %oclopt -S -predicate < %s > %t_allones_on.ll
 ; RUN: FileCheck %s --input-file=%t_allones_off.ll --check-prefix=CHECK-ALLONESOFF
 ; RUN: FileCheck %s --input-file=%t_allones_on.ll --check-prefix=CHECK-ALLONESON
 

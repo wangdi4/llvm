@@ -1,4 +1,4 @@
-; RUN: opt -prelegbools -verify -S %s -o - | FileCheck %s
+; RUN: %oclopt -prelegbools -verify -S %s -o - | FileCheck %s
 
 ; Test that the pass doesn't do anything illegal/unexpected
 @glob.bools = constant <4 x i1> <i1 false, i1 true, i1 false, i1 true>

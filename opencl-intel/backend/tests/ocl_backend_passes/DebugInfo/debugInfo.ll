@@ -1,4 +1,4 @@
-; RUN: opt -debug-info -S %s | FileCheck %s
+; RUN: %oclopt -debug-info -S %s | FileCheck %s
 ;
 ;; This test was generated using the following cl code with this command:
 ;;

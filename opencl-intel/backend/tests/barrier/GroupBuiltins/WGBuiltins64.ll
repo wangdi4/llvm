@@ -1,4 +1,4 @@
-; RUN: opt -verify -S < %s
+; RUN: %oclopt -verify -S < %s
 ;; This file is used as Built-in module to test work group built-in pass for 64bit modules
 ;; The only requirment is to contain a valid LLVM IR.
 

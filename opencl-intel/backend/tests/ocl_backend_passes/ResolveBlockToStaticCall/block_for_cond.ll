@@ -1,6 +1,6 @@
 ; Rregression test. Currently 28May this kernel fails compilation
 ; block variable call in for loop should be resolved to static call
-; RUN: opt -resolve-block-call -S < %s | FileCheck %s
+; RUN: %oclopt -resolve-block-call -S < %s | FileCheck %s
 
 ;kernel void block_for_cond(__global int* res)
 ;{

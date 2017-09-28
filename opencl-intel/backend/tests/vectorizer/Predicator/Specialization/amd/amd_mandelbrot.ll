@@ -1,4 +1,4 @@
-; RUN: opt -inline-threshold=4096 -inline -O1 -lowerswitch -mergereturn -loop-simplify -phicanon -predicate -specialize -verify %s -S -o %t1.ll
+; RUN: %oclopt -inline-threshold=4096 -inline -O1 -lowerswitch -mergereturn -loop-simplify -phicanon -predicate -specialize -verify %s -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 
 ; ModuleID = 'amd_mandelbrot.cl'

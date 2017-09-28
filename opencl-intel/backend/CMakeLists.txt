@@ -139,12 +139,6 @@ if (LLVM_BUILD_OCL_CPU_BACKEND)
         add_subdirectory(ocl_mic_executor "${CMAKE_CURRENT_BINARY_DIR}/ocl_mic_executor")
         add_subdirectory(MICJITEngine     "${CMAKE_CURRENT_BINARY_DIR}/MICJITEngine")
     endif ()
-
-    # Tests
-    add_subdirectory(tests/type_conversion)
-    add_subdirectory(tests/recorder)
-    add_subdirectory(tests/debugger_test_type)
-    add_subdirectory(tests/metadata_api_test_type)
 endif (LLVM_BUILD_OCL_CPU_BACKEND)
 
 # Validation utilities
@@ -178,6 +172,11 @@ if (BACKEND_BUILD_VERIFICATION_LIB)
     set_target_properties( FMAtest PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/validation/tests )
     set_target_properties( tinyxml_STL PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/externals )
 endif (BACKEND_BUILD_VERIFICATION_LIB)
+
+if (LLVM_BUILD_OCL_CPU_BACKEND)
+    # Tests
+    add_subdirectory(tests)
+endif(LLVM_BUILD_OCL_CPU_BACKEND)
 
 # copy the Clang conformance tests to the validation directory
 install(FILES ${BACKEND_ROOT_DIR}/tests/Conformance.7z

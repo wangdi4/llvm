@@ -1,4 +1,4 @@
-; RUN: opt -add-implicit-args -local-buffers -prepare-kernel-args -S < %s | FileCheck %s
+; RUN: %oclopt -add-implicit-args -local-buffers -prepare-kernel-args -S < %s | FileCheck %s
 
 ; The test checks that global variables usages marked with the dbg_declare_inst metadata are ignored by the pass, and do not cause extra local memory allocation.
 ; The request size is 100 bytes. Together with 256 bytes of padding needed for vectorizer, it is 356, which we expect to be rounded to 384 (128*3).

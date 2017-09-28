@@ -1,4 +1,4 @@
-; RUN: opt < %s -analyze -detectfuncptrcall  | FileCheck %s
+; RUN: %oclopt < %s -analyze -detectfuncptrcall  | FileCheck %s
 
 declare void @llvm.memset.p0i8.i32(i8* nocapture, i8, i32, i32, i1) nounwind
 define i32 @test0(i8* %P) {

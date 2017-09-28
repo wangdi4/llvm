@@ -1,4 +1,4 @@
-; RUN: opt -analyze -B-ValueAnalysis -verify -S < %s | FileCheck %s
+; RUN: %oclopt -analyze -B-ValueAnalysis -verify -S < %s | FileCheck %s
 
 ;;*****************************************************************************
 ; This test checks the DataPerValue pass

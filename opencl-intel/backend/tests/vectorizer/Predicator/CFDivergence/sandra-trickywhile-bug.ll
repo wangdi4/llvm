@@ -1,4 +1,4 @@
-; RUN: opt -presucf=true -predicate -verify %s -S -o %t0.ll
+; RUN: %oclopt -presucf=true -predicate -verify %s -S -o %t0.ll
 
 ; The test checks that preidcator works correctly(does not hang on)
 ; in the following situaltion:

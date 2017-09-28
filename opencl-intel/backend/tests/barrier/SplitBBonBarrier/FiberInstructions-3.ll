@@ -1,4 +1,4 @@
-; RUN: opt -B-SplitOnBarrier -verify -S < %s | FileCheck %s
+; RUN: %oclopt -B-SplitOnBarrier -verify -S < %s | FileCheck %s
 
 ;;*****************************************************************************
 ;; This test checks the SplitBBonBarrier pass

@@ -1,4 +1,4 @@
-; RUN: opt -sub-group-adaptation -verify -S < %s | FileCheck %s
+; RUN: %oclopt -sub-group-adaptation -verify -S < %s | FileCheck %s
 ;;*****************************************************************************
 ;; This test checks the SubGroupAdaptation pass
 ;; Four cases:

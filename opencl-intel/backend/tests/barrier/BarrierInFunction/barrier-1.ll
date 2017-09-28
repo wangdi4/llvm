@@ -1,4 +1,4 @@
-; RUN: opt -B-BarrierInFunction -verify -S < %s | FileCheck %s
+; RUN: %oclopt -B-BarrierInFunction -verify -S < %s | FileCheck %s
 
 ;;*****************************************************************************
 ;; This test checks the BarrierInFunction pass

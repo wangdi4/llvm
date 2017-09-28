@@ -1,4 +1,4 @@
-; RUN: opt < %s -analyze -detectfuncptrcall  | FileCheck %s
+; RUN: %oclopt < %s -analyze -detectfuncptrcall  | FileCheck %s
 
 declare noalias i32* @_Znwj(i32 %x) nounwind
 

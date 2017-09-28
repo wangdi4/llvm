@@ -1,4 +1,4 @@
-; RUN: opt -B-DuplicateCalledKernels -verify -S < %s | FileCheck %s
+; RUN: %oclopt -B-DuplicateCalledKernels -verify -S < %s | FileCheck %s
 
 ;;*****************************************************************************
 ;; This test checks the the DuplicateCalledKernels pass clone a called kernel.

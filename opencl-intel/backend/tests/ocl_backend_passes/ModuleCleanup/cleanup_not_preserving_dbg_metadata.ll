@@ -1,4 +1,4 @@
-; RUN: opt -module-cleanup -S %s -o %t.ll
+; RUN: %oclopt -module-cleanup -S %s -o %t.ll
 ; RUN: FileCheck %s --input-file=%t.ll
 
 ; clean up functions not preserving !gdb Metadata

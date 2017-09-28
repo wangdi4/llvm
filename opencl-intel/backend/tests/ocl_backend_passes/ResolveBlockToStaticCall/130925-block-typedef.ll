@@ -1,6 +1,6 @@
 ; Regression test. Optimization pass crashed on following code.
 ; test that pass does not crash
-; RUN: opt -resolve-block-call -S < %s
+; RUN: %oclopt -resolve-block-call -S < %s
 
 
 ; typedef int (^block_t)(int);

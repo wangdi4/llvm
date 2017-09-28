@@ -1,5 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: opt -analyze -B-WIAnalysis  -verify %t.bc -S -o %t1.ll
+; RUN: %oclopt -analyze -B-WIAnalysis  -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 
 ;;*****************************************************************************

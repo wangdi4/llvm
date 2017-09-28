@@ -1,4 +1,4 @@
-; RUN: opt -runtimelib %p/../runtime.bc -inline-threshold=4096 -inline -domtree -mem2reg -instcombine -simplifycfg -lowerswitch -scalarize -mergereturn -loop-simplify -phicanon -predicate -mem2reg -dce -packetize -packet-size=4 -resolve -verify %s -S -o %t1.ll
+; RUN: %oclopt -runtimelib %p/../runtime.bc -inline-threshold=4096 -inline -domtree -mem2reg -instcombine -simplifycfg -lowerswitch -scalarize -mergereturn -loop-simplify -phicanon -predicate -mem2reg -dce -packetize -packet-size=4 -resolve -verify %s -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 
 ; ModuleID = 'amd_mandelbrot.cl'

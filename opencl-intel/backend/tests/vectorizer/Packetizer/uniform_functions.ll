@@ -1,6 +1,6 @@
 ; XFAIL: *
 ; RUN: llvm-as %s -o %t.bc
-; RUN: opt  -runtimelib %p/../Full/runtime.bc -packetize -packet-size=4 -verify %t.bc -S -o %t1.ll
+; RUN: %oclopt  -runtimelib %p/../Full/runtime.bc -packetize -packet-size=4 -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 
 ; ModuleID = 'Program'
@@ -236,7 +236,7 @@ entry:
   ret void
 }
 
-; RUN: opt  -runtimelib %p/../Full/runtime.bc -packetize -packet-size=4 -verify %s -S -o - \
+; RUN: %oclopt  -runtimelib %p/../Full/runtime.bc -packetize -packet-size=4 -verify %s -S -o - \
 ; RUN: | FileCheck %s
 
 

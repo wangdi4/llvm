@@ -3,8 +3,8 @@
 ;; LLVM IR was generated using the following command:
 ;; bash$ ./clang -cc1 -x cl -cl-std=CL2.0 -triple spir64-unknown-unknown -include opencl-c.h -emit-llvm gather_scatter_prefetch.cl -o -
 
-; RUN: opt -runtimelib %p/../../Full/runtime.bc -scalarize -predicate -mem2reg -dce -packetize -packet-size=16 -gather-scatter -gather-scatter-prefetch -verify %s -S -o - | FileCheck -check-prefix=CHECK_HW_PF %s
-; RUN: opt -runtimelib %p/../../Full/runtime.bc -scalarize -predicate -mem2reg -dce -packetize -packet-size=16 -gather-scatter -verify %s -S -o - | FileCheck -check-prefix=CHECK_SW_PF %s
+; RUN: %oclopt -runtimelib %p/../../Full/runtime.bc -scalarize -predicate -mem2reg -dce -packetize -packet-size=16 -gather-scatter -gather-scatter-prefetch -verify %s -S -o - | FileCheck -check-prefix=CHECK_HW_PF %s
+; RUN: %oclopt -runtimelib %p/../../Full/runtime.bc -scalarize -predicate -mem2reg -dce -packetize -packet-size=16 -gather-scatter -verify %s -S -o - | FileCheck -check-prefix=CHECK_SW_PF %s
 
 ; CHECK_HW_PF: call void @"internal.prefetch.gather.v16f32[i64].m1"
 

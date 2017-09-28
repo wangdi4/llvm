@@ -5,7 +5,7 @@
 ; IR was generated with:
 ; clang -cc1 -triple x86_64-pc-win32-elf -emit-llvm -fwrapv -O3 -x cl -I src/cl_api -I src/backend/clang_headers -I cclang/cl_headers/ -I src/backend/libraries/ocl_builtins -include opencl_.h -fblocks -D__OPENCL_C_VERSION__=200 -target-cpu core-avx2 < src\backend\tests\vectorizer\WIAnalysis\2015-11-08-bug.cl
 
-; RUN: opt -CLBltnPreVec -predicate -WIAnalysis -S < %s
+; RUN: %oclopt -CLBltnPreVec -predicate -WIAnalysis -S < %s
 
 ; ModuleID = '2015-11-08-bug.cl'
 target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:64-s0:64:64-f80:128:128-n8:16:32:64-S128"

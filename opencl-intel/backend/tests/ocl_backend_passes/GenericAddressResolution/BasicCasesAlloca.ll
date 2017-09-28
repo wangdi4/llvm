@@ -1,5 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: opt -generic-addr-static-resolution -verify %t.bc -S -o %t1.ll
+; RUN: %oclopt -generic-addr-static-resolution -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 
 ; CHECK: @test

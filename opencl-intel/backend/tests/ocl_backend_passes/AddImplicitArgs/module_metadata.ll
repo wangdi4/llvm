@@ -1,4 +1,4 @@
-; RUN: opt -add-implicit-args -S -verify < %s | FileCheck %s
+; RUN: %oclopt -add-implicit-args -S -verify < %s | FileCheck %s
 ; check the metadata is preserved correctly during transformations
 
 ; ModuleID = 'main'

@@ -1,4 +1,4 @@
-; RUN: opt -resolve-block-call -add-implicit-args -S < %s | FileCheck %s
+; RUN: %oclopt -resolve-block-call -add-implicit-args -S < %s | FileCheck %s
 ;
 ; Regression test. Check if byval stuct paasing to block always have
 ; the same aligment on a call site and a callee.

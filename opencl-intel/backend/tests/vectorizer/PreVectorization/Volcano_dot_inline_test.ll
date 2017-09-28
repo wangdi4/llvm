@@ -1,6 +1,6 @@
 
 ; RUN: llvm-as %s -o %t.bc
-; RUN: opt -runtimelib %p/../Full/runtime.bc -runtime=ocl -CLBltnPreVec %t.bc -S -o %t1.ll
+; RUN: %oclopt -runtimelib %p/../Full/runtime.bc -runtime=ocl -CLBltnPreVec %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 
 

@@ -1,5 +1,5 @@
 ; RUN: llvm-as %S/attr_copy_basic.rtl -o %t.attr_copy_basic.rtl.bc
-; RUN: opt -runtimelib=%t.attr_copy_basic.rtl.bc -builtin-import -verify %s -S | FileCheck %s
+; RUN: %oclopt -runtimelib=%t.attr_copy_basic.rtl.bc -builtin-import -verify %s -S | FileCheck %s
 
 ; ensure that linker inside builtin-import pass imports function attributes
 

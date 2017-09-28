@@ -1,4 +1,4 @@
-; RUN: opt < %s -analyze -detectfuncptrcall  | FileCheck %s
+; RUN: %oclopt < %s -analyze -detectfuncptrcall  | FileCheck %s
 
 %struct.__block_descriptor = type { i64, i64 }
 %struct.__block_literal_generic = type { i8*, i32, i32, i8*, %struct.__block_descriptor* }

@@ -1,4 +1,4 @@
-; RUN: opt -B-RedundantPhiNode -verify -S < %s | FileCheck %s
+; RUN: %oclopt -B-RedundantPhiNode -verify -S < %s | FileCheck %s
 
 ;;*****************************************************************************
 ;; This test checks the RedundantPhiNode pass

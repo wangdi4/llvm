@@ -1,5 +1,5 @@
 ; calls local block
-; RUN: opt -resolve-block-call -S < %s | FileCheck %s
+; RUN: %oclopt -resolve-block-call -S < %s | FileCheck %s
 
 
 ;kernel void global_scope(__global int* res)

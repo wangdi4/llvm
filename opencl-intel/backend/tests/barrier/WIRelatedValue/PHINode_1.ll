@@ -1,4 +1,4 @@
-; RUN: opt -analyze -B-WIAnalysis -verify -S < %s | FileCheck %s
+; RUN: %oclopt -analyze -B-WIAnalysis -verify -S < %s | FileCheck %s
 ; XFAIL: *
 
 ;;*****************************************************************************

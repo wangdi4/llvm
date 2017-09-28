@@ -1,5 +1,5 @@
 ; RUN: llvm-as %p/WGBuiltins64.ll -o %t.WGBuiltins64.bc
-; RUN: opt -runtimelib=%t.WGBuiltins64.bc -B-ValueAnalysis -B-BarrierAnalysis -B-SplitOnBarrier -B-Barrier -verify -S < %s | FileCheck %s
+; RUN: %oclopt -runtimelib=%t.WGBuiltins64.bc -B-ValueAnalysis -B-BarrierAnalysis -B-SplitOnBarrier -B-Barrier -verify -S < %s | FileCheck %s
 
 ;;*****************************************************************************
 ; This test checks the Barrier pass

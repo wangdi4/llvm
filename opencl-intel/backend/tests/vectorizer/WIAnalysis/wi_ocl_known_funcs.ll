@@ -1,6 +1,6 @@
 ; XFAIL: *
 ; RUN: llvm-as %s -o %t.bc
-; RUN: opt  -runtimelib %p/../Full/runtime.bc -runtime=ocl -print-wia-check -WIAnalysis %t.bc -S -o %t1.ll  | FileCheck %s
+; RUN: %oclopt  -runtimelib %p/../Full/runtime.bc -runtime=ocl -print-wia-check -WIAnalysis %t.bc -S -o %t1.ll  | FileCheck %s
 
 
 ; ModuleID = 'WItest'

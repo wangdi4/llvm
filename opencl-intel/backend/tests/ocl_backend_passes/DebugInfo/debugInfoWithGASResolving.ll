@@ -1,4 +1,4 @@
-; RUN: opt -generic-addr-static-resolution -verify -S %s -o %t.ll
+; RUN: %oclopt -generic-addr-static-resolution -verify -S %s -o %t.ll
 ; RUN: FileCheck %s --input-file=%t.ll
 
 ;; This test was generated using the following cl code with this command:

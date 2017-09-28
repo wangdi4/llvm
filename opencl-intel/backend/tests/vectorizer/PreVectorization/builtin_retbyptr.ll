@@ -1,4 +1,4 @@
-; RUN: opt -runtimelib %p/../Full/runtime.bc -runtime=ocl -CLBltnPreVec -verify -S -o - %s \
+; RUN: %oclopt -runtimelib %p/../Full/runtime.bc -runtime=ocl -CLBltnPreVec -verify -S -o - %s \
 ; RUN: | FileCheck %s
 
 ; ModuleID = 'Program'

@@ -1,4 +1,4 @@
-; RUN: opt -analyze -WIAnalysis -verify < %s | FileCheck %s 
+; RUN: %oclopt -analyze -WIAnalysis -verify < %s | FileCheck %s 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; This test checks that WIAnalysis pass calculates WI dependency for gep with structure base type.

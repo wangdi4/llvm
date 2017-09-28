@@ -1,4 +1,4 @@
-; RUN: opt -shift-ignore-upper-bits -S %s -o %t.ll
+; RUN: %oclopt -shift-ignore-upper-bits -S %s -o %t.ll
 ; RUN: FileCheck %s --input-file=%t.ll
 
 ; CHECK: @sample_test

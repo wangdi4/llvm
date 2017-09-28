@@ -1,5 +1,5 @@
 ; call global block variable
-; RUN: opt -resolve-block-call -S < %s | FileCheck %s
+; RUN: %oclopt -resolve-block-call -S < %s | FileCheck %s
 
 
 ;int (^__constant globalBlock)(int) = ^int(int num)

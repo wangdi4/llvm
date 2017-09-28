@@ -5,7 +5,7 @@
 ;; double.
 ;; ************************************************************************************
 ;;
-;; RUN: opt -S -printf-args-promotion -verify < %s | FileCheck %s
+;; RUN: %oclopt -S -printf-args-promotion -verify < %s | FileCheck %s
 
 ; CHECK:  [[INT8:%[a-z.0-9]+]] = zext <2 x i8> <i8 1, i8 2> to <2 x i32>
 ; CHECK:  [[INT16:%[a-z.0-9]+]] = zext <3 x i16> <i16 1, i16 2, i16 3> to <3 x i32>

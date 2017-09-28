@@ -1,4 +1,4 @@
-; RUN: opt -ocl-syncfunctionattrs -simplifycfg -verify -S < %s | FileCheck %s
+; RUN: %oclopt -ocl-syncfunctionattrs -simplifycfg -verify -S < %s | FileCheck %s
 
 ;;*****************************************************************************
 ;; This test checks the the LLVM pass SimplifyCFG does not add new barrier instructions.

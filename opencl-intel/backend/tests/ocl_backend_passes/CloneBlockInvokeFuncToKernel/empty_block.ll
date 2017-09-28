@@ -5,7 +5,7 @@
 ;;}
 
 ;; __block_empty_block_invoke function should not be processed by this pass. Otherwise it may crash.
-; RUN: opt -cloneblockinvokefunctokernel <  %s -S
+; RUN: %oclopt -cloneblockinvokefunctokernel <  %s -S
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"

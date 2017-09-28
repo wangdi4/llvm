@@ -1,4 +1,4 @@
-// RUN: clang -O0 -x cl -emit-llvm -S %s -o - | opt -module-obfuscation -S | FileCheck %s
+// RUN: clang -O0 -x cl -emit-llvm -S %s -o - | %oclopt -module-obfuscation -S | FileCheck %s
 
 kernel void tst(global float *I) {
 // CHECK: @tst

@@ -1,4 +1,4 @@
-; RUN: opt -B-GroupBuiltins -verify -S < %s | FileCheck %s
+; RUN: %oclopt -B-GroupBuiltins -verify -S < %s | FileCheck %s
 
 ;;*****************************************************************************
 ;; This test checks the GroupBuiltins pass

@@ -1,4 +1,4 @@
-; RUN: opt -debug-info -add-implicit-args -local-buffers -prepare-kernel-args -S %s -o %t.ll
+; RUN: %oclopt -debug-info -add-implicit-args -local-buffers -prepare-kernel-args -S %s -o %t.ll
 ; RUN: FileCheck %s --input-file=%t.ll
 
 ;; This test was generated using the following cl code with this command:

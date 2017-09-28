@@ -1,4 +1,4 @@
-; RUN: opt -ocl-syncfunctionattrs -jump-threading -verify -S < %s | FileCheck %s
+; RUN: %oclopt -ocl-syncfunctionattrs -jump-threading -verify -S < %s | FileCheck %s
 
 ;;*****************************************************************************
 ;; This test checks the the LLVM pass JumpThreading does not add new barrier instructions.
