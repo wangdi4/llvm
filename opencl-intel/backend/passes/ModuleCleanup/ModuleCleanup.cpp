@@ -10,13 +10,14 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "OCLPassSupport.h"
 #include "OclTune.h"
 
-#include "llvm/Pass.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/InstIterator.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/InstIterator.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Module.h"
+#include "llvm/Pass.h"
 
 
 using namespace llvm;
@@ -32,8 +33,11 @@ extern "C"
 namespace intel{
 
   /// Delete function body preserving attached Metadata
+  /// (except !dbg and !prof, declarations are not allowed to have them)
   static void deleteFunctionBody(Function *Func) {
     SmallVector<std::pair<unsigned, MDNode *>, 8> MDs;
+    Func->eraseMetadata(LLVMContext::MD_dbg);
+    Func->eraseMetadata(LLVMContext::MD_prof);
     Func->getAllMetadata(MDs);
 
     Func->deleteBody();
