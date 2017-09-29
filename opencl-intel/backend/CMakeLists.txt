@@ -126,7 +126,7 @@ if (LLVM_BUILD_OCL_CPU_BACKEND)
     add_subdirectory(optimizer         "${CMAKE_CURRENT_BINARY_DIR}/optimizer")
     add_subdirectory(ocl_cpu_backend   "${CMAKE_CURRENT_BINARY_DIR}/ocl_cpu_backend")
 #    Disable until CORC-2317 is fixed
-#    add_subdirectory(ocl_cpu_debugging "${CMAKE_CURRENT_BINARY_DIR}/ocl_cpu_debugging") 
+    add_subdirectory(ocl_cpu_debugging "${CMAKE_CURRENT_BINARY_DIR}/ocl_cpu_debugging") 
     add_subdirectory(ocl_opt           "${CMAKE_CURRENT_BINARY_DIR}/ocl_opt")
     add_subdirectory(ocl_opt_img       "${CMAKE_CURRENT_BINARY_DIR}/ocl_opt_img")
     add_subdirectory(libraries/ocl_builtins "${CMAKE_CURRENT_BINARY_DIR}/ocl_builtins")

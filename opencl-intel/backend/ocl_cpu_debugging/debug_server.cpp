@@ -598,27 +598,6 @@ bool DebugServer::DebugServerImpl::DebuggedGlobalIdMatch(unsigned x, unsigned y,
 }
 
 
-void DebugServer::DebugServerImpl::DumpFunctionVars()
-{
-    DEBUG_SERVER_LOG("Dumping function vars ===============");
-    cerr << ">--------------- Local vars\n";
-    for (   vector<FunctionStackFrame::VarDeclInfo>::iterator i = m_stack.front().vars.begin();
-            i != m_stack.front().vars.end(); ++i)
-    {
-        if (i->expression)
-            i->description->dump();
-    }
-
-    cerr << ">--------------- Global vars\n";
-    for (   vector<FunctionStackFrame::VarDeclInfo>::iterator i = m_stack.front().vars.begin();
-            i != m_stack.front().vars.end(); ++i)
-    {
-        if (!i->expression)
-            i->description->dump();
-    }
-}
-
-
 VarsMapping DebugServer::DebugServerImpl::CollectVisibleVars(
     const MDNode* line_metadata, const FunctionStackFrame& stackframe)
 {
