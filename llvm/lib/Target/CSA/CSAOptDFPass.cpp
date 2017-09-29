@@ -18,7 +18,6 @@
 #include "InstPrinter/CSAInstPrinter.h"
 #include "CSAInstrInfo.h"
 #include "CSATargetMachine.h"
-#include "CSALicAllocation.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/CodeGen/LiveVariables.h"
 #include "llvm/CodeGen/MachineFunction.h"

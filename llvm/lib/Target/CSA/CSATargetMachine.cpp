@@ -172,10 +172,6 @@ public:
     Banner = std::string("After CSACvtCFDFPass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
 
-    addPass(createCSADFParLoopPass(), false);
-    Banner = std::string("After CSADFParLoopPass");
-    DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
-
     addPass(createCSAOptDFPass(), false);
     Banner = std::string("After CSAOptDFPass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
@@ -196,12 +192,6 @@ public:
       addPass(createCSAStatisticsPass(), false);
     }
 #else
-    Banner = std::string("Before CSAConvertControlPass");
-    DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
-    addPass(createCSAConvertControlPass(), false);
-    Banner = std::string("After CSAConvertControlPass");
-    DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
-
     Banner = std::string("Before CSAOptDFPass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
 
