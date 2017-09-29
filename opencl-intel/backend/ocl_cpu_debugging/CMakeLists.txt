@@ -8,7 +8,7 @@ if(WIN32)
     # As discussed with VPG (CORC-1070) OclCpuDebugging.dll won't be a part of the driver,
     # "This increases footprint of the driver and don't bring value to iGFX driver product.
     # This library should be distributed as part of SDK which is targeted for developers not final users."
-    set(TARGET_NAME OclCpuDebugging4)
+    set(TARGET_NAME OclCpuDebugging5)
 else(WIN32)
     set(TARGET_NAME OclCpuDebugging)
 endif(WIN32)
