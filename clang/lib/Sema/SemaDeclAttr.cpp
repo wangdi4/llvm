@@ -5982,27 +5982,6 @@ static void handleMSInheritanceAttr(Sema &S, Decl *D, const AttributeList &Attr)
   }
 }
 
-#if INTEL_CUSTOMIZATION
-// CQ380552: xmain should allow selectany MS attribute on linux in intel
-// compatibility mode. The check has been moved here from
-// include/clang/Basic/Attr.td
-static void handleSelectAnyAttr(Sema & S, Decl * D,
-                                const AttributeList & Attr) {
-
-  if (!S.Context.getTargetInfo().getTriple().isOSWindows() &&
-      !S.getLangOpts().IntelCompat) {
-    S.Diag(Attr.getLoc(), Attr.isDeclspecAttribute()
-                              ? diag::warn_unhandled_ms_attribute_ignored
-                              : diag::warn_unknown_attribute_ignored)
-        << Attr.getName();
-    return;
-  }
-
-  D->addAttr(::new (S.Context) SelectAnyAttr(
-      Attr.getRange(), S.Context, Attr.getAttributeSpellingListIndex()));
-}
-#endif // INTEL_CUSTOMIZATION
-
 static void handleDeclspecThreadAttr(Sema &S, Decl *D,
                                      const AttributeList &Attr) {
 
@@ -7389,11 +7368,7 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     handleMSInheritanceAttr(S, D, Attr);
     break;
   case AttributeList::AT_SelectAny:
-#if INTEL_CUSTOMIZATION
-    // CQ380552: xmain should allow selectany attribute in intel
-    // compatibility mode.
-    handleSelectAnyAttr(S, D, Attr);
-#endif // INTEL_CUSTOMIZATION
+    handleSimpleAttribute<SelectAnyAttr>(S, D, Attr);
     break;
   case AttributeList::AT_Thread:
     handleDeclspecThreadAttr(S, D, Attr);
