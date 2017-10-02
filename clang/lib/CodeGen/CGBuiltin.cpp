@@ -8083,6 +8083,10 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
     // instruction, but it will create a memset that won't be optimized away.
     return Builder.CreateMemSet(Ops[0], Ops[1], Ops[2], 1, true);
   }
+  case X86::BI__builtin_csa_parallel_region_entry:
+  case X86::BI__builtin_csa_parallel_region_exit:
+  case X86::BI__builtin_csa_parallel_section_entry:
+  case X86::BI__builtin_csa_parallel_section_exit:
   case X86::BI__builtin_csa_parallel_loop: {
     return UndefValue::get(ConvertType(E->getType())); // noop
   }

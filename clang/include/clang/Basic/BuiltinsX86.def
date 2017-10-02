@@ -1844,8 +1844,12 @@ TARGET_HEADER_BUILTIN(__readgsword,  "UsUNi", "nh", "intrin.h", ALL_MS_LANGUAGES
 TARGET_HEADER_BUILTIN(__readgsdword, "UNiUNi", "nh", "intrin.h", ALL_MS_LANGUAGES, "")
 TARGET_HEADER_BUILTIN(__readgsqword, "ULLiUNi", "nh", "intrin.h", ALL_MS_LANGUAGES, "")
 
-// CSA-target-specific, but must be visible to host compilation, where it is a no-op
+// CSA-target-specific, but must be visible to host compilation, where they are no-ops
 BUILTIN(__builtin_csa_parallel_loop, "v", "n")
+BUILTIN(__builtin_csa_parallel_region_entry,  "ii", "n")
+BUILTIN(__builtin_csa_parallel_region_exit,   "vi", "n")
+BUILTIN(__builtin_csa_parallel_section_entry, "ii", "n")
+BUILTIN(__builtin_csa_parallel_section_exit,  "vi", "n")
 
 #undef BUILTIN
 #undef TARGET_BUILTIN
