@@ -49,11 +49,6 @@ static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(false),
                                  cl::Hidden,
                                  cl::desc("Disable " OPT_DESC " pass"));
 
-#define OPT_SWITCH_DDG OPT_SWITCH "-ddg"
-static cl::opt<bool>
-    ShowDDG(OPT_SWITCH_DDG, cl::init(false), cl::Hidden,
-            cl::desc("Show DDG in debug output before " OPT_DESC " pass"));
-
 static cl::list<unsigned>
     TransformNodes(OPT_SWITCH "-nodes", cl::Hidden,
                    cl::desc("List nodes to transform by " OPT_DESC));
@@ -651,15 +646,6 @@ bool HIRIdiomRecognition::runOnLoop(HLLoop *Loop) {
     return false;
   }
 
-  DEBUG(dbgs() << "Loop DD graph: ");
-  if (ShowDDG) {
-    DEBUG(dbgs() << "\n");
-    DEBUG(DDA->getGraph(Loop).dump());
-    DEBUG(dbgs() << "\n");
-  } else {
-    DEBUG(dbgs() << "Use -" OPT_SWITCH_DDG " to show the graph.\n");
-  }
-
   // Check for EH context
   // HLS->getTotalLoopStatistics()
 
@@ -686,6 +672,12 @@ bool HIRIdiomRecognition::runOnLoop(HLLoop *Loop) {
     }
 
     Candidates.push_back(NewCandidate);
+  }
+
+  if (!Candidates.empty()) {
+    DEBUG(dbgs() << "Loop DD graph:\n");
+    DEBUG(DDA->getGraph(Loop).dump());
+    DEBUG(dbgs() << "\n");
   }
 
   bool Changed = false;

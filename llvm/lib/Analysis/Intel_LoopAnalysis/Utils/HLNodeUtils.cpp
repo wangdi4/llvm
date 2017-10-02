@@ -3513,12 +3513,12 @@ public:
   }
 
   void postVisit(HLSwitch *Switch) {
-    if (Switch->getNumDefaultCaseChildren()) {
+    if (Switch->hasDefaultCaseChildren()) {
       return;
     }
 
     for (unsigned I = 1, E = Switch->getNumCases(); I <= E; ++I) {
-      if (Switch->getNumCaseChildren(I)) {
+      if (Switch->hasCaseChildren(I)) {
         return;
       }
     }
@@ -3538,6 +3538,8 @@ public:
       postVisit(Loop);
     } else if (HLRegion *Region = dyn_cast<HLRegion>(Node)) {
       postVisit(Region);
+    } else if (HLSwitch *Switch = dyn_cast<HLSwitch>(Node)) {
+      postVisit(Switch);
     }
   }
 
