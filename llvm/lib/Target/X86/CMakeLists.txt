@@ -39,6 +39,7 @@ set(sources
   Intel_X86FMA.cpp        # INTEL
   X86AsmPrinter.cpp
   X86CallFrameOptimization.cpp
+  X86CmovConversion.cpp
   X86ExpandPseudo.cpp
   X86FastISel.cpp
   X86FixupBWInsts.cpp
@@ -66,7 +67,6 @@ set(sources
   X86TargetTransformInfo.cpp
   X86VZeroUpper.cpp
   X86WinAllocaExpander.cpp
-  X86FixupBWInsts.cpp     # INTEL
   X86WinEHState.cpp
   X86CallingConv.cpp
   ${GLOBAL_ISEL_BUILD_FILES}

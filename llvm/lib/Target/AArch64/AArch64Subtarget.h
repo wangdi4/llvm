@@ -70,6 +70,7 @@ protected:
   bool HasFullFP16 = false;
   bool HasSPE = false;
   bool HasLSLFast = false;
+  bool HasSVE = false;
 
   // HasZeroCycleRegMove - Has zero-cycle register mov instructions.
   bool HasZeroCycleRegMove = false;
@@ -82,6 +83,9 @@ protected:
 
   // NegativeImmediates - transform instructions with negative immediates
   bool NegativeImmediates = true;
+
+  // Enable 64-bit vectorization in SLP.
+  unsigned MinVectorRegisterBitWidth = 64;
 
   bool UseAA = false;
   bool PredictableSelectIsExpensive = false;
@@ -106,6 +110,7 @@ protected:
   unsigned PrefFunctionAlignment = 0;
   unsigned PrefLoopAlignment = 0;
   unsigned MaxJumpTableSize = 0;
+  unsigned WideningBaseCost = 0;
 
   // ReserveX18 - X18 is not available as a general purpose register.
   bool ReserveX18;
@@ -188,6 +193,10 @@ public:
 
   bool isXRaySupported() const override { return true; }
 
+  unsigned getMinVectorRegisterBitWidth() const {
+    return MinVectorRegisterBitWidth;
+  }
+
   bool isX18Reserved() const { return ReserveX18; }
   bool hasFPARMv8() const { return HasFPARMv8; }
   bool hasNEON() const { return HasNEON; }
@@ -210,6 +219,13 @@ public:
   bool hasArithmeticCbzFusion() const { return HasArithmeticCbzFusion; }
   bool hasFuseAES() const { return HasFuseAES; }
   bool hasFuseLiterals() const { return HasFuseLiterals; }
+
+  /// \brief Return true if the CPU supports any kind of instruction fusion.
+  bool hasFusion() const {
+    return hasArithmeticBccFusion() || hasArithmeticCbzFusion() ||
+           hasFuseAES() || hasFuseLiterals();
+  }
+
   bool useRSqrt() const { return UseRSqrt; }
   unsigned getMaxInterleaveFactor() const { return MaxInterleaveFactor; }
   unsigned getVectorInsertExtractBaseCost() const {
@@ -226,6 +242,8 @@ public:
 
   unsigned getMaximumJumpTableSize() const { return MaxJumpTableSize; }
 
+  unsigned getWideningBaseCost() const { return WideningBaseCost; }
+
   /// CPU has TBI (top byte of addresses is ignored during HW address
   /// translation) and OS enables it.
   bool supportsAddressTopByteIgnored() const;
@@ -234,6 +252,7 @@ public:
   bool hasFullFP16() const { return HasFullFP16; }
   bool hasSPE() const { return HasSPE; }
   bool hasLSLFast() const { return HasLSLFast; }
+  bool hasSVE() const { return HasSVE; }
 
   bool isLittleEndian() const { return IsLittle; }
 
@@ -287,6 +306,17 @@ public:
   bool enableEarlyIfConversion() const override;
 
   std::unique_ptr<PBQPRAConstraint> getCustomPBQPConstraints() const override;
+
+  bool isCallingConvWin64(CallingConv::ID CC) const {
+    switch (CC) {
+    case CallingConv::C:
+      return isTargetWindows();
+    case CallingConv::Win64:
+      return true;
+    default:
+      return false;
+    }
+  }
 };
 } // End llvm namespace
 

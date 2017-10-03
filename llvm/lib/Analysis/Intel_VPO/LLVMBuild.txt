@@ -15,7 +15,7 @@
 type = Library
 name = Intel_VPOAnalysis
 parent = Libraries
-required_libraries = Analysis Core Scalar Support TransformUtils
+required_libraries = Analysis Core Scalar Support TransformUtils Intel_LoopAnalysis
 
 ; TransformUtils needed for Intel_GeneralUtils.cpp
 

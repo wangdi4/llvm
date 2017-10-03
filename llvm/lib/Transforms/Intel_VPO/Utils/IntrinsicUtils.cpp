@@ -28,7 +28,6 @@
 #include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
 
 #define DEBUG_TYPE "VPOIntrinsicUtils"
-#define IGNORE_FEATURE_OUTLINING_STRING "ignore_for_intel_feature_outlining"
 
 using namespace llvm;
 using namespace llvm::vpo;
@@ -78,109 +77,23 @@ bool VPOUtils::stripDirectives(Function &F) {
   return changed;
 }
 
-void VPOUtils::addNoFeatureOutline(CallInst *Call) {
-  Call->setMetadata(IGNORE_FEATURE_OUTLINING_STRING,
-                    MDNode::get(Call->getContext(), {}));
-}
-
-CallInst *VPOUtils::createMaskedGatherCall(Module *M,
-                                                   Value *VecPtr,
-                                                   IRBuilder<> &Builder,
-                                                   unsigned Alignment,
-                                                   Value *Mask,
-                                                   Value *PassThru)
-{
-  CallInst *NewCallInst;
-  Intrinsic::ID IntrinsicID = Intrinsic::masked_gather;
-
-  Type *Int1Ty = Type::getInt1Ty(M->getContext()); // Mask type
-  Type *Int32Ty = Type::getInt32Ty(M->getContext()); // Alignment type
-
-  Type *VectorOfPointersType = VecPtr->getType();
-  Type *ElementPointerType = VectorOfPointersType->getVectorElementType();
-  Type *ElementType = ElementPointerType->getPointerElementType();
-  unsigned VL = VectorOfPointersType->getVectorNumElements();
-  Type *VectorOfElementsType = VectorType::get(ElementType, VL);
-
-  SmallVector<Type *, 4> ArgumentTypes;
-  SmallVector<Value *, 4> Arguments;
-
-  ArgumentTypes.push_back(VectorOfElementsType);
-  Function *Intrinsic = Intrinsic::getDeclaration(M, 
-                                                  IntrinsicID, 
-                                                  ArrayRef<Type *>(ArgumentTypes));
-  assert(Intrinsic &&
-         "Expected to have an intrinsic for this memory operation");
-
-  // Vector of pointers to load
-  Arguments.push_back(VecPtr);
-
-  // Alignment argument
-  Arguments.push_back(ConstantInt::get(Int32Ty, Alignment));
-
-  // Mask argument
-  if (!Mask) 
-    Mask = ConstantVector::getSplat(VL, ConstantInt::get(Int1Ty, 1));
-
-  Arguments.push_back(Mask);
-
-  // Passthru argument
-  if (!PassThru) 
-    PassThru = UndefValue::get(VectorOfElementsType);
-
-  Arguments.push_back(PassThru);
-
-  NewCallInst = Builder.CreateCall(Intrinsic, Arguments);
-  addNoFeatureOutline(NewCallInst);
-
+CallInst *VPOUtils::createMaskedGatherCall(Value *VecPtr,
+                                           IRBuilder<> &Builder,
+                                           unsigned Alignment,
+                                           Value *Mask,
+                                           Value *PassThru) {
+  auto NewCallInst = Builder.CreateMaskedGather(VecPtr, Alignment, Mask,
+                                                PassThru);
   return NewCallInst;
 }
 
-CallInst *VPOUtils::createMaskedScatterCall(Module *M,
-                                                    Value *VecPtr,
-                                                    Value *VecData,
-                                                    IRBuilder<> &Builder,
-                                                    unsigned Alignment,
-                                                    Value *Mask)
-{
-  CallInst *NewCallInst;
-  Intrinsic::ID IntrinsicID = Intrinsic::masked_scatter;
-
-  Type *Int1Ty = Type::getInt1Ty(M->getContext()); // Mask type
-  Type *Int32Ty = Type::getInt32Ty(M->getContext()); // Alignment type
-
-  Type *VectorOfPointersType = VecPtr->getType();
-  Type *ElementPointerType = VectorOfPointersType->getVectorElementType();
-  Type *ElementType = ElementPointerType->getPointerElementType();
-  unsigned VL = VectorOfPointersType->getVectorNumElements();
-  Type *VectorOfElementsType = VectorType::get(ElementType, VL);
-
-  SmallVector<Type *, 4> ArgumentTypes;
-  SmallVector<Value *, 4> Arguments;
-
-  ArgumentTypes.push_back(VectorOfElementsType);
-  Function *Intrinsic = Intrinsic::getDeclaration(M, 
-                                                  IntrinsicID, 
-                                                  ArrayRef<Type *>(ArgumentTypes));
-  assert(Intrinsic &&
-         "Expected to have an intrinsic for this memory operation");
-
-  // Vector of pointers to load
-  Arguments.push_back(VecData);
-  Arguments.push_back(VecPtr);
-
-  // Alignment argument
-  Arguments.push_back(ConstantInt::get(Int32Ty, Alignment));
-
-  // Mask argument
-  if (!Mask) 
-    Mask = ConstantVector::getSplat(VL, ConstantInt::get(Int1Ty, 1));
-
-  Arguments.push_back(Mask);
-
-  NewCallInst = Builder.CreateCall(Intrinsic, Arguments);
-  addNoFeatureOutline(NewCallInst);
-
+CallInst *VPOUtils::createMaskedScatterCall(Value *VecPtr,
+                                            Value *VecData,
+                                            IRBuilder<> &Builder,
+                                            unsigned Alignment,
+                                            Value *Mask) {
+  auto NewCallInst = Builder.CreateMaskedScatter(VecData, VecPtr, Alignment,
+                                                 Mask);
   return NewCallInst;
 }
 
@@ -191,7 +104,6 @@ CallInst *VPOUtils::createMaskedLoadCall(Value *VecPtr,
                                          Value *PassThru) {
   auto NewCallInst = Builder.CreateMaskedLoad(VecPtr, Alignment, Mask,
                                                PassThru);
-  addNoFeatureOutline(NewCallInst);
   return NewCallInst;
 }
 
@@ -202,6 +114,5 @@ CallInst *VPOUtils::createMaskedStoreCall(Value *VecPtr,
                                           Value *Mask) {
   auto NewCallInst = Builder.CreateMaskedStore(VecData, VecPtr, Alignment,
                                                 Mask);
-  addNoFeatureOutline(NewCallInst);
   return NewCallInst;
 }

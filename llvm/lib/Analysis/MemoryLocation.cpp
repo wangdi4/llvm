@@ -171,7 +171,8 @@ static bool isMemLocResolved(const MemoryLocation &Loc) {
 static void getMemLocsForPtrVec(const Value *PtrVec,
                                 SmallVectorImpl<MemoryLocation> &Results,
                                 bool &Resolved, int Depth) {
-  assert(PtrVec->getType()->isVectorTy());
+  if (!PtrVec->getType()->isVectorTy())
+    return;
 
   // Stop if search reaches depth or we already have what we need.
   if (Depth == 0 || Resolved)
@@ -213,6 +214,9 @@ static void getMemLocsForPtrVec(const Value *PtrVec,
   }
 
   const auto *Op = dyn_cast<Operator>(PtrVec);
+  if (!Op)
+    return;
+
   switch (Op->getOpcode()) {
   // Currently only examine the following instructions for simplicity
   // and safety.

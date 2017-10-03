@@ -46,10 +46,10 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseMapInfo.h"
 #include "llvm/ADT/DenseSet.h"
-#include "llvm/ADT/iterator_range.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/Analysis/Intel_WP.h"      // INTEL
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/iterator_range.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/TypeMetadataUtils.h"
@@ -1328,7 +1328,7 @@ bool DevirtModule::run() {
     }
 
     for (auto &P : *ExportSummary) {
-      for (auto &S : P.second) {
+      for (auto &S : P.second.SummaryList) {
         auto *FS = dyn_cast<FunctionSummary>(S.get());
         if (!FS)
           continue;

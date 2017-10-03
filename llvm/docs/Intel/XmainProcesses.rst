@@ -5,10 +5,6 @@ Xmain Development Processes
 .. contents::
    :local:
 
-The Intel LLVM development process documentation is currently under review. If
-anything looks wrong to you, please contact `David Kreitzer
-<mailto:david.l.kreitzer@intel.com>`_.
-
 Introduction
 ============
 
@@ -16,7 +12,8 @@ This document describes our processes for code development in xmain. There is a
 separate :doc:`document <OpenSourceProcesses>` describing our processes for open
 source LLVM/clang code development.
 
-The xmain project stays in sync with open source via our pulldown process.
+The xmain project stays in sync with open source via our
+:doc:`pulldown process <PulldownProcess>`.
 xmain typically stays within several months of open source trunk. Consequently,
 changes that are committed directly to open source usually do **not** need to
 be ported to xmain by the developer. The exception is when the changes are
@@ -52,29 +49,34 @@ followed.
 
 When a developer is ready to commit a change, the `xmain checkin request form
 <mailto:icl.xmain.gatekeeper@intel.com?
-subject=xmain%20checkin%20request%20(Description%2001/01/2016)&
-body=1.%20Describe%20the%20new%20features%20or%20changes.%20Include%20tracker%23
+subject=xmain%20checkin%20request%20(Description%2001/01/2017)&
+body=If%20you%20are%20planning%20to%20submit%20your%20changes%20via%20gerrit,
+%20you%20may%20link%20to%20the%20gerrit%20review%20here%20and%20only%20answer
+%20questions%202%20and%206.%0D%0A%0D%0A%0D%0A%0D%0A
+1.%20Describe%20the%20new%20features%20or%20changes.%20Include%20Jira%23
 %20where%20applicable.%0D%0A%0D%0A%0D%0A%0D%0A
-2.%20Please%20list%20all%20modified,%20added%20or%20deleted%20files%20and%20
+2.%20Please%20explain%20why%20this%20change%20set%20should%20not%20be%20
+upstreamed%20to%20LLVM%20open%20source.%0D%0A%0D%0A%0D%0A%0D%0A
+3.%20Please%20list%20all%20modified,%20added%20or%20deleted%20files%20and%20
 directories.%0D%0A%0D%0A%0D%0A%0D%0A
-3.%20Was%20every%20change%20in%20this%20change-set%20code%20reviewed%3F%20If%20
+4.%20Was%20every%20change%20in%20this%20change-set%20code%20reviewed%3F%20If%20
 this%20is%20anything%20other%20than%20a%20single%20component%20promotion%20
 checkin%20request,%20please%20list%20the%20code%20reviewers.%0D%0A%0D%0A%0D%0A
 %0D%0A
-4.%20Does%20every%20change%20in%20the%20LLVM/Clang%20portions%20of%20the%20
+5.%20Does%20every%20change%20in%20the%20LLVM/Clang%20portions%20of%20the%20
 source%20tree%20have%20corresponding%20changes%20that%20provide%20unit%20
 testing%20coverage%3F%20Are%20any%20of%20the%20newly%20added%20unit%20tests%20
 currently%20failing%3F%0D%0A%0D%0A%0D%0A%0D%0A
-5.%20What%20stability%20testing%20was%20done%20(list%20the%20exact%20command
+6.%20What%20testing%20was%20done%20(list%20the%20exact%20command
 %20used%20to%20run%20alloy)%3F%20Please%20explain%20anything%20in%20the%20
 fail.log%20or%20problem.log%20files,%20and%20why%20the%20checkin%20should%20
 be%20allowed%20with%20these%20failures.%20For%20every%20new%20or%20flaky%20
-failure%20in%20fail.log,%20a%20CQ%20must%20be%20filed%20if%20one%20does%20not
-%20already%20exist,%20and%20the%20CQ%20number%20provided.%20Was%20any%20
+failure%20in%20fail.log,%20a%20JR%20must%20be%20filed%20if%20one%20does%20not
+%20already%20exist,%20and%20the%20JR%20number%20provided.%20Was%20any%20
 testing%20done%20in%20addition%20to%20alloy%3F%0D%0A%0D%0A%0D%0A%0D%0A
 Please%20attach%20the%20following%20files%20from%20your%20alloy%20run,%20if%20
 applicable%3A%20status.log,%20fail.log,%20problem.log,%20and%20
-zperf%5Frt%5Frpt.log.%0D%0Axmain%20checkin%20questionnaire%20version%201>`_
+zperf%5Frt%5Frpt.log.%0D%0Axmain%20checkin%20questionnaire%20version%203>`_
 should be filled out and mailed to the ICL Xmain Gatekeeper.
 
 .. _xmain-markups:
@@ -98,6 +100,37 @@ consideration is clarity & readability.
     if (Instruction *R = OptimizeICmpInstSize(I, Op0, Op1))
       return R;
   #endif // INTEL_CUSTOMIZATION
+
+- Multi-line modifications may be marked in the same way. There is no need to
+  retain the original unmodified community code as that would usually degrade
+  clarity. As such, ``#if INTEL_CUSTOMIZATION`` directives should rarely, if
+  ever, have an accompanying ``#else``. Here is an example of proper usage.
+
+.. We cannot format this block as c++ due to the diff markers.
+.. code-block:: text
+
+  -  // If there is a trivial two-entry PHI node in this basic block, and we can
+  -  // eliminate it, do so now.
+  -  if (PHINode *PN = dyn_cast<PHINode>(BB->begin()))
+  -    if (PN->getNumIncomingValues() == 2)
+  -      Changed |= FoldTwoEntryPHINode(PN, TTI, DL);
+  +#if INTEL_CUSTOMIZATION
+  +  // If there is a PHI node in this basic block, and we can
+  +  // eliminate some of its entries, do so now.
+  +  if (PHINode *PN = dyn_cast<PHINode>(BB->begin())) {
+  +    // FoldPHIEntries is an Intel customized generalized version of the LLVM
+  +    // open source routine called FoldTwoEntryPHINode(that folds a two-entry
+  +    // phinode into "select") which is capable of handling any number
+  +    // of phi entries. It iteratively transforms each conditional into
+  +    // "select". Any changes (one such change could be regarding cost model)
+  +    // made by the LLVM community to FoldTwoEntryPHINode will need to be
+  +    // incorporated to this routine (FoldPHIEntries).
+  +    // To keep xmain as clean as possible we got rid of the FoldTwoEntryPHINode,
+  +    // therefore, there might be conflicts during code merge. If resolving
+  +    // conflicts becomes too cumbersome, we can try something different.
+  +    Changed |= FoldPHIEntries(PN, TTI, DL);
+  +  }
+  +#endif
 
 - Some files, e.g. tablegen (.td) files, are not run through the preprocessor,
   so the #if INTEL_CUSTOMIZATION method does not work. For those types of files,
@@ -126,6 +159,21 @@ consideration is clarity & readability.
   Inliner::Inliner(char &ID, bool InsertLifetime)
       : CallGraphSCCPass(ID), InsertLifetime(InsertLifetime), // INTEL
         Report(IntelInlineReportLevel) {}                     // INTEL
+
+- Pure deletions should be excluded with an explanatory comment like this.
+
+.. code-block:: c++
+
+  #if !INTEL_CUSTOMIZATION
+      // This code isn't needed with the Intel customizations, because we always
+      // run the SSAUpdater to resolve cross-BB references.
+      // Remap the value if necessary.
+      if (Instruction *Inst = dyn_cast<Instruction>(IV)) {
+        DenseMap<Instruction*, Value*>::iterator I = ValueMap.find(Inst);
+        if (I != ValueMap.end())
+          IV = I->second;
+      }
+  #endif // !INTEL_CUSTOMIZATION
 
 - For Intel-added files, you do not need to put any special markups in the
   sources. Instead, the fully qualified file name should contain ``Intel``
@@ -207,10 +255,9 @@ ensuring that the code we commit to xmain is of the highest quality.
 Code Review Tool
 ----------------
 
-`Code Collaborator <https://ir-codecollab.intel.com/ui>`_ is the official code
-review tool for xmain development. Individual teams may use other tools
-internally but are expected to use Code Collaborator when working with other
-teams.
+`Gerrit <https://git-amr-2.devtools.intel.com/gerrit>`_ is the official code
+review tool for xmain development. All xmain code reviews should be done
+through gerrit.
 
 Choosing a code reviewer
 ------------------------
@@ -219,7 +266,7 @@ If you are unsure who should review your changes, the advice of the LLVM
 community documented `here <../Phabricator.html>`_ works just as well for
 xmain. That is,
 
-- Use ``svn blame`` and the commit log to find names of people who have recently
+- Use ``git blame`` and the commit log to find names of people who have recently
   modified the same area of code that you are modifying.
 - If you've discussed the change with others, they are good candidates to be
   your reviewers.
@@ -331,5 +378,5 @@ Large regressions always need to be analyzed and understood. The gatekeeper
 will usually not approve checkin requests involving large performance
 regressions, but there may be exceptions in some cases.
 
-The developer must submit a CQ for any performance regression that requires
-follow-up work before the gatekeeper will approve the checkin request.
+The developer must submit a JIRA report for any performance regression that
+requires follow-up work before the gatekeeper will approve the checkin request.

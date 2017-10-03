@@ -5,10 +5,6 @@ Open Source Development Processes
 .. contents::
    :local:
 
-The Intel LLVM development process documentation is currently under review. If
-anything looks wrong to you, please contact `David Kreitzer
-<mailto:david.l.kreitzer@intel.com>`_.
-
 Introduction
 ============
 
@@ -80,8 +76,8 @@ run the ipscan tool as documented :ref:`here <ipscan>`. Also consider conducting
 an internal code review. We do not currently have specific internal code review
 requirements, so use your best judgment. It is prudent to at least conduct a
 design level review for all but the most trivial changes. If you do choose to
-conduct an internal code review, `Code Collaborator
-<https://ir-codecollab.intel.com/ui>`_ is the tool to use.
+conduct an internal code review,
+`gerrit <https://git-amr-2.devtools.intel.com/gerrit>`_ is the tool to use.
 
 External code reviews should follow the community Phabricator code review
 procedures documented :doc:`here <../Phabricator>`.
@@ -108,6 +104,23 @@ platforms. And it will run some performance regression testing. Note that it is
 only possible to run this alloy testing on an llorg ics workspace. Running alloy
 on a manually constructed llvm.org workspace is not supported.
 
+The community does not generally allow you to knowingly introduce stability
+regressions. But occasionally, tests in our internal suites will regress due
+to test case errors exposed by your changes. It is acceptable to submit a
+bug report against the test suite and proceed with the commit.
+
+Performance regressions may be allowed in some cases. It is impossible to
+write a set of rules that covers all scenarios, but here are a few reasons why
+a performance regression may be allowed. If in doubt, contact the `performance
+architect <mailto:zia.ansari@intel.com>`_.
+
+#. The regression is the result of a necessary correctness fix.
+
+#. The magnitude of the regression is small and offset by larger gains.
+
+#. The regression is caused by a second order effect of an otherwise good code
+   generation difference. Code alignment differences are a common culprit.
+
 Commit Procedures
 =================
 
@@ -115,7 +128,14 @@ Read the Commit messages section of the
 :doc:`LLVM Developer Policy <../DeveloperPolicy>` document to understand the
 community guidelines for the format of commit messages. Please follow them.
 
-There are no specific rules on how to do the actual commit, but ics provides
-a feature for committing to llvm.org directly from an llorg workspace. That is
+There are no specific rules on how to do the actual commit, but the ICL
+KnowledgeBase offers `this suggestion <http://ssg8vweb1.sc.intel.com/lore/article.php?id=587>`_
+for committing to llvm.org directly from an llorg workspace. That is
 a convenience that enables you to develop, test, and commit from a single
 workspace.
+
+Any expected stability regressions should be reported to `LLVM QA
+<mailto:ICL_LLVM_QA@intel.com>`_.
+
+Any expected performance regressions should be reported to `LLVM PTA
+<mailto:ICL_LLVM_Performance@intel.com>`_.

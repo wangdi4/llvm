@@ -2,7 +2,7 @@ add_llvm_library(LLVMIntel_VPOTransforms
   VPOTransform.cpp
 
   Utils/CFGRestructuring.cpp
-  Utils/IntrinsicUtils.cpp
+#  Utils/IntrinsicUtils.cpp // TODO: move to Transforms/Utils
 #  Utils/GeneralUtils.cpp // moved to Transforms/Utils
   Utils/MultiVersioning.cpp
 #  Utils/ParSecTrans.cpp

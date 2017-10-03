@@ -31,7 +31,6 @@ void llvm::initializeIntel_LoopTransforms(PassRegistry &Registry) {
   initializeHIRLoopDistributionForMemRecPass(Registry);
   initializeHIRLoopDistributionForLoopNestPass(Registry);
   initializeHIRCodeGenPass(Registry);
-  initializeVPODriverHIRPass(Registry);
   initializeHIRParDirInsertPass(Registry);
   initializeHIRVecDirInsertPass(Registry);
   initializeHIROptVarPredicatePass(Registry);

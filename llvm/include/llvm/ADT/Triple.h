@@ -148,6 +148,7 @@ public:
   enum OSType {
     UnknownOS,
 
+    Ananas,
     CloudABI,
     Darwin,
     DragonFly,
@@ -196,6 +197,9 @@ public:
     MuslEABI,
     MuslEABIHF,
 
+#if INTEL_CUSTOMIZATION
+    IntelFPGA,
+#endif // INTEL_CUSTOMIZATION
     MSVC,
     Itanium,
     Cygnus,
@@ -240,7 +244,9 @@ public:
 
   /// Default constructor is the same as an empty string and leaves all
   /// triple fields unknown.
-  Triple() : Data(), Arch(), Vendor(), OS(), Environment(), ObjectFormat() {}
+  Triple()
+      : Data(), Arch(), SubArch(), Vendor(), OS(), Environment(),
+        ObjectFormat() {}
 
   explicit Triple(const Twine &Str);
   Triple(const Twine &ArchStr, const Twine &VendorStr, const Twine &OSStr);
@@ -252,6 +258,10 @@ public:
            Vendor == Other.Vendor && OS == Other.OS &&
            Environment == Other.Environment &&
            ObjectFormat == Other.ObjectFormat;
+  }
+
+  bool operator!=(const Triple &Other) const {
+    return !(*this == Other);
   }
 
   /// @}
@@ -530,6 +540,12 @@ public:
     return getOS() == Triple::Win32 && getEnvironment() == Triple::GNU;
   }
 
+#if INTEL_CUSTOMIZATION
+  bool isINTELFPGAEnvironment() const {
+    return getEnvironment() == Triple::IntelFPGA;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   /// Tests for either Cygwin or MinGW OS
   bool isOSCygMing() const {
     return isWindowsCygwinEnvironment() || isWindowsGNUEnvironment();
@@ -723,6 +739,12 @@ public:
   ///
   /// \returns true if the triple is little endian, false otherwise.
   bool isLittleEndian() const;
+
+  /// Test whether target triples are compatible.
+  bool isCompatibleWith(const Triple &Other) const;
+
+  /// Merge target triples.
+  std::string merge(const Triple &Other) const;
 
   /// @}
   /// @name Static helpers for IDs.

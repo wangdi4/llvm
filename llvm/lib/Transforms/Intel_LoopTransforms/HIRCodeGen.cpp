@@ -882,7 +882,7 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
     Instruction *LInst;
 
     if (GEPVal->getType()->isVectorTy()) {
-      LInst = VPOUtils::createMaskedGatherCall(F->getParent(), GEPVal, Builder,
+      LInst = VPOUtils::createMaskedGatherCall(GEPVal, Builder,
                                                Ref->getAlignment(), MaskVal);
     } else if (MaskVal) {
       LInst = VPOUtils::createMaskedLoadCall(GEPVal, Builder,
@@ -1441,8 +1441,7 @@ void CGVisitor::generateLvalStore(const HLInst *HInst, Value *StorePtr,
 
     if (StorePtr->getType()->isVectorTy()) {
       ResInst = VPOUtils::createMaskedScatterCall(
-          F->getParent(), StorePtr, StoreVal, Builder, LvalRef->getAlignment(),
-          MaskVal);
+          StorePtr, StoreVal, Builder, LvalRef->getAlignment(), MaskVal);
     } else if (MaskVal) {
       ResInst = VPOUtils::createMaskedStoreCall(
           StorePtr, StoreVal, Builder, LvalRef->getAlignment(), MaskVal);

@@ -1,5 +1,5 @@
 ; RUN: opt -instcombine -S < %s | FileCheck %s
-
+; XFAIL: intel_opencl
 
 @.str = private constant [3 x i8] c"%c\00"
 

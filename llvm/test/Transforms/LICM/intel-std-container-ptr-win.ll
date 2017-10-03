@@ -57,13 +57,13 @@ for.cond4:                                        ; preds = %for.body6, %for.bod
   br i1 %cmp5, label %for.body6, label %for.inc21
 
 for.body6:                                        ; preds = %for.cond4
-; CHECK: %tmp2 = load float, float* %add.ptr.i13, align 4, !tbaa !19, !std.container.ptr !13
+; CHECK: %tmp2 = load float, float* %add.ptr.i13, align 4, !tbaa !18, !std.container.ptr !12
 ; CHECK-NEXT: %add.ptr.i5 = getelementptr inbounds float, float* %tmp7, i64 %conv7
-; CHECK-NEXT: %tmp8 = load float, float* %add.ptr.i5, align 4, !tbaa !19, !std.container.ptr !15
+; CHECK-NEXT: %tmp8 = load float, float* %add.ptr.i5, align 4, !tbaa !18, !std.container.ptr !14
 ; CHECK-NEXT: %mul = fmul float %tmp5, %tmp8
 ; CHECK-NEXT: %add = fadd float %tmp2, %mul
 ; CHECK-NEXT: %add.ptr.i1 = getelementptr inbounds float, float* %tmp10, i64 %conv7
-; CHECK-NEXT: store float %add, float* %add.ptr.i1, align 4, !tbaa !19, !std.container.ptr !13
+; CHECK-NEXT: store float %add, float* %add.ptr.i1, align 4, !tbaa !18, !std.container.ptr !12
   %conv = sext i32 %i.0 to i64
   %tmp = load %"class.std::vector.0"*, %"class.std::vector.0"** getelementptr inbounds (%"class.std::vector", %"class.std::vector"* @"\01?c@@3V?$vector@V?$vector@MV?$allocator@M@std@@@std@@V?$allocator@V?$vector@MV?$allocator@M@std@@@std@@@2@@std@@A", i64 0, i32 0, i32 0, i32 0), align 8, !tbaa !8
   %call.i = call %"class.std::vector.0"* @"llvm.intel.std.container.ptr.p0class.std::vector.0"(%"class.std::vector.0"* %tmp)
@@ -113,10 +113,10 @@ declare %"class.std::vector.0"* @"llvm.intel.std.container.ptr.p0class.std::vect
 
 attributes #0 = { nounwind readonly }
 
-!llvm.module.flags = !{!0, !6}
+!llvm.module.flags = !{!6}
 !llvm.ident = !{!7}
 
-!0 = !{i32 6, !"Linker Options", !1}
+!llvm.linker.options = !{!1}
 !1 = !{!2, !3, !4, !5}
 !2 = !{!"/FAILIFMISMATCH:\22_MSC_VER=1800\22"}
 !3 = !{!"/FAILIFMISMATCH:\22_ITERATOR_DEBUG_LEVEL=0\22"}

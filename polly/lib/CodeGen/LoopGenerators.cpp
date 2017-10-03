@@ -49,6 +49,9 @@ static cl::opt<int>
 // contains the loop iv 'polly.indvar', the incremented loop iv
 // 'polly.indvar_next' as well as the condition to check if we execute another
 // iteration of the loop. After the loop has finished, we branch to ExitBB.
+// We expect the type of UB, LB, UB+Stride to be large enough for values that
+// UB may take throughout the execution of the loop, including the computation
+// of indvar + Stride before the final abort.
 Value *polly::createLoop(Value *LB, Value *UB, Value *Stride,
                          PollyIRBuilder &Builder, LoopInfo &LI,
                          DominatorTree &DT, BasicBlock *&ExitBB,
@@ -123,10 +126,8 @@ Value *polly::createLoop(Value *LB, Value *UB, Value *Stride,
   IV->addIncoming(LB, PreHeaderBB);
   Stride = Builder.CreateZExtOrBitCast(Stride, LoopIVType);
   Value *IncrementedIV = Builder.CreateNSWAdd(IV, Stride, "polly.indvar_next");
-  Value *LoopCondition;
-  UB = Builder.CreateSub(UB, Stride, "polly.adjust_ub");
-  LoopCondition = Builder.CreateICmp(Predicate, IV, UB);
-  LoopCondition->setName("polly.loop_cond");
+  Value *LoopCondition =
+      Builder.CreateICmp(Predicate, IncrementedIV, UB, "polly.loop_cond");
 
   // Create the loop latch and annotate it as such.
   BranchInst *B = Builder.CreateCondBr(LoopCondition, HeaderBB, ExitBB);
@@ -158,7 +159,7 @@ Value *ParallelLoopGenerator::createParallelLoop(
   Value *SubFnParam = Builder.CreateBitCast(Struct, Builder.getInt8PtrTy(),
                                             "polly.par.userContext");
 
-  // Add one as the upper bound provided by openmp is a < comparison
+  // Add one as the upper bound provided by OpenMP is a < comparison
   // whereas the codegenForSequential function creates a <= comparison.
   UB = Builder.CreateAdd(UB, ConstantInt::get(LongType, 1));
 
@@ -356,7 +357,7 @@ Value *ParallelLoopGenerator::createSubFn(Value *Stride, AllocaInst *StructData,
   LB = Builder.CreateLoad(LBPtr, "polly.par.LB");
   UB = Builder.CreateLoad(UBPtr, "polly.par.UB");
 
-  // Subtract one as the upper bound provided by openmp is a < comparison
+  // Subtract one as the upper bound provided by OpenMP is a < comparison
   // whereas the codegenForSequential function creates a <= comparison.
   UB = Builder.CreateSub(UB, ConstantInt::get(LongType, 1),
                          "polly.par.UBAdjusted");
