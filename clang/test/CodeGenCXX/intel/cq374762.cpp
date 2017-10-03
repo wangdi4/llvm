@@ -2,7 +2,7 @@
 
 namespace abi = __cxxabiv1; //this namespace might be known for xmain without any includes
 
-//CHECK: {{![0-9]+}} = !DIImportedEntity(tag: DW_TAG_imported_declaration, name: "abi", {{.+}} [[N:![0-9]+]]
+//CHECK: {{![0-9]+}} = !DIImportedEntity(tag: DW_TAG_imported_declaration, name: "abi", {{.+}}entity: [[N:![0-9]+]]
 //CHECK: [[N]] = !DINamespace(name: "__cxxabiv1"
 
 

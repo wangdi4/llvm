@@ -65,10 +65,10 @@
 /// ultimately led to the creation of an illegal COPY.
 //===----------------------------------------------------------------------===//
 
-#include "llvm/ADT/DenseSet.h"
 #include "AMDGPU.h"
 #include "AMDGPUSubtarget.h"
 #include "SIInstrInfo.h"
+#include "llvm/ADT/DenseSet.h"
 #include "llvm/CodeGen/MachineDominators.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
@@ -174,6 +174,31 @@ static bool isSGPRToVGPRCopy(const TargetRegisterClass *SrcRC,
   return TRI.isSGPRClass(SrcRC) && TRI.hasVGPRs(DstRC);
 }
 
+static bool tryChangeVGPRtoSGPRinCopy(MachineInstr &MI,
+                                      const SIRegisterInfo *TRI,
+                                      const SIInstrInfo *TII) {
+  MachineRegisterInfo &MRI = MI.getParent()->getParent()->getRegInfo();
+  auto &Src = MI.getOperand(1);
+  unsigned DstReg = MI.getOperand(0).getReg();
+  unsigned SrcReg = Src.getReg();
+  if (!TargetRegisterInfo::isVirtualRegister(SrcReg) ||
+      !TargetRegisterInfo::isVirtualRegister(DstReg))
+    return false;
+
+  for (const auto &MO : MRI.reg_nodbg_operands(DstReg)) {
+    const auto *UseMI = MO.getParent();
+    if (UseMI == &MI)
+      continue;
+    if (MO.isDef() || UseMI->getParent() != MI.getParent() ||
+        UseMI->getOpcode() <= TargetOpcode::GENERIC_OP_END ||
+        !TII->isOperandLegal(*UseMI, UseMI->getOperandNo(&MO), &Src))
+      return false;
+  }
+  // Change VGPR to SGPR destination.
+  MRI.setRegClass(DstReg, TRI->getEquivalentSGPRClass(MRI.getRegClass(DstReg)));
+  return true;
+}
+
 // Distribute an SGPR->VGPR copy of a REG_SEQUENCE into a VGPR REG_SEQUENCE.
 //
 // SGPRx = ...
@@ -213,6 +238,9 @@ static bool foldVGPRCopyIntoRegSequence(MachineInstr &MI,
 
   if (!isSGPRToVGPRCopy(SrcRC, DstRC, *TRI))
     return false;
+
+  if (tryChangeVGPRtoSGPRinCopy(CopyUse, TRI, TII))
+    return true;
 
   // TODO: Could have multiple extracts?
   unsigned SubReg = CopyUse.getOperand(1).getSubReg();
@@ -278,8 +306,7 @@ static bool phiHasBreakDef(const MachineInstr &PHI,
 
     Visited.insert(Reg);
 
-    MachineInstr *DefInstr = MRI.getUniqueVRegDef(Reg);
-    assert(DefInstr);
+    MachineInstr *DefInstr = MRI.getVRegDef(Reg);
     switch (DefInstr->getOpcode()) {
     default:
       break;
@@ -346,7 +373,7 @@ bool searchPredecessors(const MachineBasicBlock *MBB,
     return false;
 
   DenseSet<const MachineBasicBlock*> Visited;
-  SmallVector<MachineBasicBlock*, 4> Worklist(MBB->pred_begin(), 
+  SmallVector<MachineBasicBlock*, 4> Worklist(MBB->pred_begin(),
                                               MBB->pred_end());
 
   while (!Worklist.empty()) {
@@ -546,7 +573,13 @@ bool SIFixSGPRCopies::runOnMachineFunction(MachineFunction &MF) {
         const TargetRegisterClass *SrcRC, *DstRC;
         std::tie(SrcRC, DstRC) = getCopyRegClasses(MI, *TRI, MRI);
         if (isVGPRToSGPRCopy(SrcRC, DstRC, *TRI)) {
-          MachineInstr *DefMI = MRI.getVRegDef(MI.getOperand(1).getReg());
+          unsigned SrcReg = MI.getOperand(1).getReg();
+          if (!TargetRegisterInfo::isVirtualRegister(SrcReg)) {
+            TII->moveToVALU(MI);
+            break;
+          }
+
+          MachineInstr *DefMI = MRI.getVRegDef(SrcReg);
           unsigned SMovOp;
           int64_t Imm;
           // If we are just copying an immediate, we can replace the copy with
@@ -558,6 +591,8 @@ bool SIFixSGPRCopies::runOnMachineFunction(MachineFunction &MF) {
             break;
           }
           TII->moveToVALU(MI);
+        } else if (isSGPRToVGPRCopy(SrcRC, DstRC, *TRI)) {
+          tryChangeVGPRtoSGPRinCopy(MI, TRI, TII);
         }
 
         break;

@@ -2310,12 +2310,6 @@ enum IntelPragmaKindType {
   IntelPragma_SPECCALLAGG
 };
 
-enum IntelPragmaExprKind {
-  IntelPragmaExprConst,
-  IntelPragmaExprLValue,
-  IntelPragmaExprRValue
-};
-
 struct IntelPragmaAttrib {
   Expr *Value;
   IntelPragmaExprKind ExprKind;

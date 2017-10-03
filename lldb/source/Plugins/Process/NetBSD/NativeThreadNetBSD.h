@@ -12,6 +12,7 @@
 
 #include "lldb/Host/common/NativeThreadProtocol.h"
 
+#include <csignal>
 #include <map>
 #include <string>
 
@@ -24,7 +25,7 @@ class NativeThreadNetBSD : public NativeThreadProtocol {
   friend class NativeProcessNetBSD;
 
 public:
-  NativeThreadNetBSD(NativeProcessNetBSD *process, lldb::tid_t tid);
+  NativeThreadNetBSD(NativeProcessNetBSD &process, lldb::tid_t tid);
 
   // ---------------------------------------------------------------------
   // NativeThreadProtocol Interface
@@ -38,14 +39,14 @@ public:
 
   NativeRegisterContextSP GetRegisterContext() override;
 
-  Error SetWatchpoint(lldb::addr_t addr, size_t size, uint32_t watch_flags,
-                      bool hardware) override;
+  Status SetWatchpoint(lldb::addr_t addr, size_t size, uint32_t watch_flags,
+                       bool hardware) override;
 
-  Error RemoveWatchpoint(lldb::addr_t addr) override;
+  Status RemoveWatchpoint(lldb::addr_t addr) override;
 
-  Error SetHardwareBreakpoint(lldb::addr_t addr, size_t size) override;
+  Status SetHardwareBreakpoint(lldb::addr_t addr, size_t size) override;
 
-  Error RemoveHardwareBreakpoint(lldb::addr_t addr) override;
+  Status RemoveHardwareBreakpoint(lldb::addr_t addr) override;
 
 private:
   // ---------------------------------------------------------------------

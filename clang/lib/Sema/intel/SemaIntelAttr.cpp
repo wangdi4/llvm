@@ -9,21 +9,6 @@
 #include "llvm/ADT/StringExtras.h"
 #include "clang/AST/ExprCXX.h"
 
-using namespace clang;
-
-static StringRef CreateStringRef(const char *Str) {
-  char *Data = new char[::strlen(Str) + 1];
-  ::strcpy(Data, Str);
-  return StringRef(Data);
-}
-
-static Expr *CreateStringExpr(const char *Str, ASTContext &Context, SourceLocation Loc = SourceLocation()) {
-  StringRef Par = CreateStringRef(Str);
-  QualType Type = Context.getConstantArrayType(Context.CharTy, 
-    llvm::APInt(32, Par.size() + 1), ArrayType::Normal, 0);
-  return (StringLiteral::Create(Context, Par, StringLiteral::Ascii, false, Type, Loc));
-}
-
 static Expr *CreateStringExpr(const std::string &Str, ASTContext &Context, SourceLocation Loc) {
   return (CreateStringExpr(Str.data(), Context, Loc));
 }
@@ -82,29 +67,6 @@ StmtResult Sema::ActOnPragmaOptionsDistribute(SourceLocation KindLoc) {
   return StmtResult(stmt);
 }
 
-// #pragma inline
-StmtResult Sema::ActOnPragmaOptionsInline(SourceLocation KindLoc, 
-  IntelPragmaInlineKind PragmaKind, IntelPragmaInlineOption Option) {
-  PragmaStmt* stmt = new (Context) PragmaStmt(KindLoc);
-  switch (PragmaKind) {
-    case (IntelPragmaForceInline):
-      (stmt->getAttribs()).push_back(IntelPragmaAttrib(CreateStringExpr("FORCEINLINE", Context, KindLoc), IntelPragmaExprConst));
-      (stmt->getRealAttribs()).push_back(CreateStringExpr("forceinline", Context, KindLoc));
-      break;
-    case (IntelPragmaNoInline):
-      (stmt->getAttribs()).push_back(IntelPragmaAttrib(CreateStringExpr("NOINLINE", Context, KindLoc), IntelPragmaExprConst));
-      (stmt->getRealAttribs()).push_back(CreateStringExpr("noinline", Context, KindLoc));
-      break;
-    default:
-      (stmt->getAttribs()).push_back(IntelPragmaAttrib(CreateStringExpr("INLINE", Context, KindLoc), IntelPragmaExprConst));
-      (stmt->getRealAttribs()).push_back(CreateStringExpr("inline", Context, KindLoc));
-      break;
-  }
-  if (Option == IntelPragmaInlineOptionRecursive) {
-    (stmt->getAttribs()).push_back(IntelPragmaAttrib(CreateStringExpr("COMPLETE", Context, KindLoc), IntelPragmaExprConst));
-    (stmt->getRealAttribs()).push_back(CreateStringExpr(" recursive", Context, KindLoc));
-  }
-  stmt->setPragmaKind(IntelPragmaInline);
   MarkDeclarationsReferencedInPragma(*this, stmt);
   return StmtResult(stmt);
 }

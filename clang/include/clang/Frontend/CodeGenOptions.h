@@ -179,6 +179,11 @@ public:
   /// A list of command-line options to forward to the LLVM backend.
   std::vector<std::string> BackendOptions;
 
+#if INTEL_CUSTOMIZATION
+  /// OpenCL compile options to embed in the SPIR metadata
+  std::string SPIRCompileOptions;
+#endif // INTEL_CUSTOMIZATION
+
   /// A list of dependent libraries.
   std::vector<std::string> DependentLibraries;
 

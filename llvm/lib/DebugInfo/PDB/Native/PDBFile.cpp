@@ -15,9 +15,9 @@
 #include "llvm/DebugInfo/PDB/Native/DbiStream.h"
 #include "llvm/DebugInfo/PDB/Native/GlobalsStream.h"
 #include "llvm/DebugInfo/PDB/Native/InfoStream.h"
+#include "llvm/DebugInfo/PDB/Native/PDBStringTable.h"
 #include "llvm/DebugInfo/PDB/Native/PublicsStream.h"
 #include "llvm/DebugInfo/PDB/Native/RawError.h"
-#include "llvm/DebugInfo/PDB/Native/StringTable.h"
 #include "llvm/DebugInfo/PDB/Native/SymbolStream.h"
 #include "llvm/DebugInfo/PDB/Native/TpiStream.h"
 #include "llvm/Support/BinaryStream.h"
@@ -146,7 +146,8 @@ Error PDBFile::parseFileHeaders() {
   // at getBlockSize() intervals, so we have to be compatible.
   // See the function fpmPn() for more information:
   // https://github.com/Microsoft/microsoft-pdb/blob/master/PDB/msf/msf.cpp#L489
-  auto FpmStream = MappedBlockStream::createFpmStream(ContainerLayout, *Buffer);
+  auto FpmStream =
+      MappedBlockStream::createFpmStream(ContainerLayout, *Buffer, Allocator);
   BinaryStreamReader FpmReader(*FpmStream);
   ArrayRef<uint8_t> FpmBytes;
   if (auto EC = FpmReader.readBytes(FpmBytes,
@@ -184,7 +185,8 @@ Error PDBFile::parseStreamData() {
   // is exactly what we are attempting to parse.  By specifying a custom
   // subclass of IPDBStreamData which only accesses the fields that have already
   // been parsed, we can avoid this and reuse MappedBlockStream.
-  auto DS = MappedBlockStream::createDirectoryStream(ContainerLayout, *Buffer);
+  auto DS = MappedBlockStream::createDirectoryStream(ContainerLayout, *Buffer,
+                                                     Allocator);
   BinaryStreamReader Reader(*DS);
   if (auto EC = Reader.readInteger(NumStreams))
     return EC;
@@ -226,6 +228,14 @@ Error PDBFile::parseStreamData() {
 
 ArrayRef<support::ulittle32_t> PDBFile::getDirectoryBlockArray() const {
   return ContainerLayout.DirectoryBlocks;
+}
+
+MSFStreamLayout PDBFile::getStreamLayout(uint32_t StreamIdx) const {
+  MSFStreamLayout Result;
+  auto Blocks = getStreamBlockList(StreamIdx);
+  Result.Blocks.assign(Blocks.begin(), Blocks.end());
+  Result.Length = getStreamByteSize(StreamIdx);
+  return Result;
 }
 
 Expected<GlobalsStream &> PDBFile::getPDBGlobalsStream() {
@@ -337,8 +347,8 @@ Expected<SymbolStream &> PDBFile::getPDBSymbolStream() {
   return *Symbols;
 }
 
-Expected<StringTable &> PDBFile::getStringTable() {
-  if (!Strings || !StringTableStream) {
+Expected<PDBStringTable &> PDBFile::getStringTable() {
+  if (!Strings) {
     auto IS = getPDBInfoStream();
     if (!IS)
       return IS.takeError();
@@ -350,22 +360,36 @@ Expected<StringTable &> PDBFile::getStringTable() {
     if (!NS)
       return NS.takeError();
 
+    auto N = llvm::make_unique<PDBStringTable>();
     BinaryStreamReader Reader(**NS);
-    auto N = llvm::make_unique<StringTable>();
-    if (auto EC = N->load(Reader))
+    if (auto EC = N->reload(Reader))
       return std::move(EC);
-    Strings = std::move(N);
+    assert(Reader.bytesRemaining() == 0);
     StringTableStream = std::move(*NS);
+    Strings = std::move(N);
   }
   return *Strings;
+}
+
+uint32_t PDBFile::getPointerSize() {
+  auto DbiS = getPDBDbiStream();
+  if (!DbiS)
+    return 0;
+  PDB_Machine Machine = DbiS->getMachineType();
+  if (Machine == PDB_Machine::Amd64)
+    return 8;
+  return 4;
 }
 
 bool PDBFile::hasPDBDbiStream() const { return StreamDBI < getNumStreams(); }
 
 bool PDBFile::hasPDBGlobalsStream() {
   auto DbiS = getPDBDbiStream();
-  if (!DbiS)
+  if (!DbiS) {
+    consumeError(DbiS.takeError());
     return false;
+  }
+
   return DbiS->getGlobalSymbolStreamIndex() < getNumStreams();
 }
 
@@ -375,8 +399,10 @@ bool PDBFile::hasPDBIpiStream() const { return StreamIPI < getNumStreams(); }
 
 bool PDBFile::hasPDBPublicsStream() {
   auto DbiS = getPDBDbiStream();
-  if (!DbiS)
+  if (!DbiS) {
+    consumeError(DbiS.takeError());
     return false;
+  }
   return DbiS->getPublicSymbolStreamIndex() < getNumStreams();
 }
 
@@ -389,7 +415,7 @@ bool PDBFile::hasPDBSymbolStream() {
 
 bool PDBFile::hasPDBTpiStream() const { return StreamTPI < getNumStreams(); }
 
-bool PDBFile::hasStringTable() {
+bool PDBFile::hasPDBStringTable() {
   auto IS = getPDBInfoStream();
   if (!IS)
     return false;
@@ -406,5 +432,6 @@ PDBFile::safelyCreateIndexedStream(const MSFLayout &Layout,
                                    uint32_t StreamIndex) const {
   if (StreamIndex >= getNumStreams())
     return make_error<RawError>(raw_error_code::no_stream);
-  return MappedBlockStream::createIndexedStream(Layout, MsfData, StreamIndex);
+  return MappedBlockStream::createIndexedStream(Layout, MsfData, StreamIndex,
+                                                Allocator);
 }

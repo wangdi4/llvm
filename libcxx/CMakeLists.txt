@@ -118,6 +118,7 @@ if (LIBCXX_CXX_ABI STREQUAL "default")
     cxxabi.h
     PATHS ${LLVM_MAIN_SRC_DIR}/projects/libcxxabi/include
           ${LLVM_MAIN_SRC_DIR}/runtimes/libcxxabi/include
+          ${LLVM_MAIN_SRC_DIR}/../libcxxabi/include
     NO_DEFAULT_PATH
   )
   if (LIBCXX_TARGETING_MSVC)
@@ -344,8 +345,19 @@ set(LIBCXX_COMPILER    ${CMAKE_CXX_COMPILER})
 set(LIBCXX_SOURCE_DIR  ${CMAKE_CURRENT_SOURCE_DIR})
 set(LIBCXX_BINARY_DIR  ${CMAKE_CURRENT_BINARY_DIR})
 set(LIBCXX_BINARY_INCLUDE_DIR "${LIBCXX_BINARY_DIR}/include/c++build")
-set(LIBCXX_LIBRARY_DIR ${CMAKE_BINARY_DIR}/lib${LIBCXX_LIBDIR_SUFFIX})
+if (LLVM_LIBRARY_OUTPUT_INTDIR)
+  set(LIBCXX_LIBRARY_DIR ${LLVM_LIBRARY_OUTPUT_INTDIR})
+else()
+  set(LIBCXX_LIBRARY_DIR ${CMAKE_BINARY_DIR}/lib${LIBCXX_LIBDIR_SUFFIX})
+endif()
 file(MAKE_DIRECTORY "${LIBCXX_BINARY_INCLUDE_DIR}")
+
+set(LIBCXX_INSTALL_PREFIX "" CACHE STRING
+    "Define libc++ destination prefix.")
+
+if (NOT LIBCXX_INSTALL_PREFIX MATCHES "^$|.*/")
+  message(FATAL_ERROR "LIBCXX_INSTALL_PREFIX has to end with \"/\".")
+endif()
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${LIBCXX_LIBRARY_DIR})
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${LIBCXX_LIBRARY_DIR})
@@ -447,6 +459,11 @@ add_compile_flags_if_supported(-nostdinc++)
 # visible. This prevents new definitions for inline functions from appearing in
 # the dylib when get ODR used by another function.
 add_compile_flags_if_supported(-fvisibility-inlines-hidden)
+
+if (LIBCXX_CONFIGURE_IDE)
+  # This simply allows IDE to process <experimental/coroutine>
+  add_compile_flags_if_supported(-fcoroutines-ts)
+endif()
 
 # Let the library headers know they are currently being used to build the
 # library.
@@ -627,7 +644,12 @@ endif()
 # Create the lit.site.cfg file even when LIBCXX_INCLUDE_TESTS is OFF or
 # LLVM_FOUND is OFF. This allows users to run the tests manually using
 # LIT without requiring a full LLVM checkout.
-add_subdirectory(test)
+#
+# However, since some submission systems strip test/ subdirectories, check for
+# it before adding it.
+if(IS_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/test")
+  add_subdirectory(test)
+endif()
 if (LIBCXX_INCLUDE_TESTS)
   add_subdirectory(lib/abi)
 endif()

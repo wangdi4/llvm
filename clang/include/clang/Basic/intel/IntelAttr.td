@@ -347,3 +347,101 @@ def Leaf : IgnoredAttr {
   let Spellings = [GNU<"leaf">];
   let Subjects = SubjectList<[Function]>;
 }
+
+def IntelInline : Attr {
+  let Spellings = [Pragma<"", "inline">, Pragma<"", "forceinline">,
+                   Pragma<"", "noinline">];
+  let Args =  [EnumArgument<"Option", "OptionType",
+                           ["recursive", "<unspecified>"],
+                           ["Recursive", "NotRecursive"]>];
+  let AdditionalMembers = [{
+  void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
+    OS << getDiagnosticName(Policy);
+  }
+  std::string getDiagnosticName(const PrintingPolicy &Policy) const {
+    unsigned SpellingIndex = getSpellingListIndex();
+    if (SpellingIndex == Pragma_inline)
+      return "#pragma inline";
+    else if (SpellingIndex == Pragma_forceinline)
+      return "#pragma forceinline";
+    else
+      return "#pragma noinline";
+  }
+  }];
+  let Documentation = [Undocumented];
+}
+
+def OpenCLChannelDepth : Attr {
+  let Spellings = [GNU<"depth">];
+  let Args = [UnsignedArgument<"Depth">];
+  let Subjects = SubjectList<[Var]>;
+// FIXME: Add documentation
+  let Documentation = [Undocumented];
+  let LangOpts = [OpenCL];
+}
+
+def OpenCLChannelIO : Attr {
+  let Spellings = [GNU<"io">];
+  let Args = [StringArgument<"IOName">];
+  let Subjects = SubjectList<[Var]>;
+// FIXME: Add documentation
+  let Documentation = [Undocumented];
+  let LangOpts = [OpenCL];
+}
+
+def OpenCLLocalMemSize : Attr {
+  let Spellings = [GNU<"local_mem_size">];
+  let Args = [UnsignedArgument<"LocalMemSize">];
+  let Subjects = SubjectList<[ParmVar], ErrorDiag>;
+// FIXME: Add documentation
+  let Documentation = [Undocumented];
+  let LangOpts = [OpenCL];
+}
+
+def OpenCLBufferLocation : Attr {
+  let Spellings = [GNU<"buffer_location">];
+  let Args = [StringArgument<"BufferLocation">];
+  let Subjects = SubjectList<[ParmVar], ErrorDiag>;
+// FIXME: Add documentation
+  let Documentation = [Undocumented];
+  let LangOpts = [OpenCL];
+}
+
+def MaxWorkGroupSize : InheritableAttr {
+  let Spellings = [GNU<"max_work_group_size">];
+  let Args = [UnsignedArgument<"XDim">, UnsignedArgument<"YDim">,
+              UnsignedArgument<"ZDim">];
+  let Subjects = SubjectList<[Function]>;
+// FIXME: Add documentation
+  let Documentation = [Undocumented];
+}
+
+def Task : InheritableAttr {
+  let Spellings = [GNU<"task">];
+  let Subjects = SubjectList<[Function]>;
+// FIXME: Add documentation
+  let Documentation = [Undocumented];
+}
+
+def NumComputeUnits : InheritableAttr {
+  let Spellings = [GNU<"num_compute_units">];
+  let Args = [UnsignedArgument<"NumComputeUnits">];
+  let Subjects = SubjectList<[Function]>;
+// FIXME: Add documentation
+  let Documentation = [Undocumented];
+}
+
+def NumSimdWorkItems : InheritableAttr {
+  let Spellings = [GNU<"num_simd_work_items">];
+  let Args = [UnsignedArgument<"NumSimdWorkItems">];
+  let Subjects = SubjectList<[Function]>;
+// FIXME: Add documentation
+  let Documentation = [Undocumented];
+}
+
+def VecLenHint : InheritableAttr {
+  let Spellings = [GNU<"intel_vec_len_hint">];
+  let Args = [UnsignedArgument<"VecLen">];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Documentation = [VecLenHintDocs];
+}

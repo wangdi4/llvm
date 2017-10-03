@@ -374,10 +374,13 @@ static void InitializeStandardPredefinedMacros(const TargetInfo &TI,
     else if (!LangOpts.GNUMode && LangOpts.Digraphs)
       Builder.defineMacro("__STDC_VERSION__", "199409L");
   } else {
+    // FIXME: Use correct value for C++20.
+    if (LangOpts.CPlusPlus2a)
+      Builder.defineMacro("__cplusplus", "201707L");
     // C++17 [cpp.predefined]p1:
     //   The name __cplusplus is defined to the value 201703L when compiling a
     //   C++ translation unit.
-    if (LangOpts.CPlusPlus1z)
+    else if (LangOpts.CPlusPlus1z)
       Builder.defineMacro("__cplusplus", "201703L");
     // C++1y [cpp.predefined]p1:
     //   The name __cplusplus is defined to the value 201402L when compiling a
@@ -535,7 +538,7 @@ static void InitializeCPlusPlusFeatureTestMacros(const LangOptions &LangOpts,
   if (LangOpts.ConceptsTS)
     Builder.defineMacro("__cpp_experimental_concepts", "1");
   if (LangOpts.CoroutinesTS)
-    Builder.defineMacro("__cpp_coroutines", "1");
+    Builder.defineMacro("__cpp_coroutines", "201703L");
 }
 
 static void InitializePredefinedMacros(const TargetInfo &TI,
@@ -1108,7 +1111,9 @@ void clang::InitializePreprocessor(
 
   // Install things like __POWERPC__, __GNUC__, etc into the macro table.
   if (InitOpts.UsePredefines) {
-    if (LangOpts.CUDA && PP.getAuxTargetInfo())
+    // FIXME: This will create multiple definitions for most of the predefined
+    // macros. This is not the right way to handle this.
+    if ((LangOpts.CUDA || LangOpts.OpenMPIsDevice) && PP.getAuxTargetInfo())
       InitializePredefinedMacros(*PP.getAuxTargetInfo(), LangOpts, FEOpts,
                                  Builder);
 

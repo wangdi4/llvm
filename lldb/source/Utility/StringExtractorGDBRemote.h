@@ -10,6 +10,7 @@
 #ifndef utility_StringExtractorGDBRemote_h_
 #define utility_StringExtractorGDBRemote_h_
 
+#include "lldb/Utility/Status.h"
 #include "lldb/Utility/StringExtractor.h"
 #include "llvm/ADT/StringRef.h" // for StringRef
 
@@ -72,6 +73,7 @@ public:
     eServerPacketType_qGetWorkingDir,
     eServerPacketType_qFileLoadAddress,
     eServerPacketType_QEnvironment,
+    eServerPacketType_QEnableErrorStrings,
     eServerPacketType_QLaunchArch,
     eServerPacketType_QSetDisableASLR,
     eServerPacketType_QSetDetachOnError,
@@ -164,6 +166,12 @@ public:
     eServerPacketType__M,
     eServerPacketType__m,
     eServerPacketType_notify, // '%' notification
+
+    eServerPacketType_jTraceStart,
+    eServerPacketType_jTraceBufferRead,
+    eServerPacketType_jTraceMetaRead,
+    eServerPacketType_jTraceStop,
+    eServerPacketType_jTraceConfigRead,
   };
 
   ServerPacketType GetServerPacketType() const;
@@ -183,6 +191,8 @@ public:
   // Returns zero if the packet isn't a EXX packet where XX are two hex
   // digits. Otherwise the error encoded in XX is returned.
   uint8_t GetError();
+
+  lldb_private::Status GetStatus();
 
   size_t GetEscapedBinaryData(std::string &str);
 

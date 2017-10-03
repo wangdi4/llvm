@@ -164,7 +164,7 @@ class CodeGenTypes {
 
   llvm::SmallSet<const Type *, 8> RecordsWithOpaqueMemberPointers;
 
-  unsigned ClangCallConvToLLVMCallConv(ASTContext &C, CallingConv CC); // INTEL
+  unsigned ClangCallConvToLLVMCallConv(CallingConv CC);
 
 public:
   CodeGenTypes(CodeGenModule &cgm);

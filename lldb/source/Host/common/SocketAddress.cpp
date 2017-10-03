@@ -6,6 +6,12 @@
 // License. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
+//
+// Note: This file is used on Darwin by debugserver, so it needs to remain as
+//       self contained as possible, and devoid of references to LLVM unless 
+//       there is compelling reason.
+//
+//===----------------------------------------------------------------------===//
 
 #if defined(_MSC_VER)
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
@@ -195,7 +201,7 @@ const SocketAddress &SocketAddress::
 operator=(const struct addrinfo *addr_info) {
   Clear();
   if (addr_info && addr_info->ai_addr && addr_info->ai_addrlen > 0 &&
-      addr_info->ai_addrlen <= sizeof m_socket_addr) {
+      size_t(addr_info->ai_addrlen) <= sizeof m_socket_addr) {
     ::memcpy(&m_socket_addr, addr_info->ai_addr, addr_info->ai_addrlen);
   }
   return *this;
@@ -227,7 +233,8 @@ bool SocketAddress::getaddrinfo(const char *host, const char *service,
                                 int ai_flags) {
   Clear();
 
-  auto addresses = GetAddressInfo(host, service, ai_family, ai_socktype, ai_protocol, ai_flags);
+  auto addresses = GetAddressInfo(host, service, ai_family, ai_socktype,
+                                  ai_protocol, ai_flags);
   if (!addresses.empty())
     *this = addresses[0];
   return IsValid();
@@ -308,6 +315,13 @@ bool SocketAddress::IsAnyAddr() const {
   return (GetFamily() == AF_INET)
              ? m_socket_addr.sa_ipv4.sin_addr.s_addr == htonl(INADDR_ANY)
              : 0 == memcmp(&m_socket_addr.sa_ipv6.sin6_addr, &in6addr_any, 16);
+}
+
+bool SocketAddress::IsLocalhost() const {
+  return (GetFamily() == AF_INET)
+             ? m_socket_addr.sa_ipv4.sin_addr.s_addr == htonl(INADDR_LOOPBACK)
+             : 0 == memcmp(&m_socket_addr.sa_ipv6.sin6_addr, &in6addr_loopback,
+                           16);
 }
 
 bool SocketAddress::operator==(const SocketAddress &rhs) const {

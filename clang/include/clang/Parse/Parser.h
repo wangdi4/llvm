@@ -166,6 +166,7 @@ class Parser : public CodeCompletionHandler {
   std::unique_ptr<PragmaHandler> FPContractHandler;
   std::unique_ptr<PragmaHandler> OpenCLExtensionHandler;
   std::unique_ptr<PragmaHandler> OpenMPHandler;
+  std::unique_ptr<PragmaHandler> PCSectionHandler;
   std::unique_ptr<PragmaHandler> MSCommentHandler;
   std::unique_ptr<PragmaHandler> MSDetectMismatchHandler;
   std::unique_ptr<PragmaHandler> MSPointersToMembers;
@@ -213,16 +214,6 @@ class Parser : public CodeCompletionHandler {
 
   clang::StmtResult HandlePragmaDistribute();
   void HandlePragmaDistributeDecl();
-
-  // Pragma inline
-  std::unique_ptr<PragmaHandler> InlineHandler;
-  // Pragma forceinline
-  std::unique_ptr<PragmaHandler> ForceInlineHandler;
-  // Pragma noinline
-  std::unique_ptr<PragmaHandler> NoInlineHandler;
-
-  clang::StmtResult HandlePragmaInline();
-  void HandlePragmaInlineDecl();
 
   // Pragma loop_count
   std::unique_ptr<PragmaHandler> LoopCountHandler;
@@ -494,8 +485,9 @@ public:
   }
 
   /// ConsumeToken - Consume the current 'peek token' and lex the next one.
-  /// This does not work with special tokens: string literals, code completion
-  /// and balanced tokens must be handled using the specific consume methods.
+  /// This does not work with special tokens: string literals, code completion,
+  /// annotation tokens and balanced tokens must be handled using the specific
+  /// consume methods.
   /// Returns the location of the consumed token.
   SourceLocation ConsumeToken() {
     assert(!isTokenSpecial() &&
@@ -556,7 +548,7 @@ private:
   /// isTokenSpecial - True if this token requires special consumption methods.
   bool isTokenSpecial() const {
     return isTokenStringLiteral() || isTokenParen() || isTokenBracket() ||
-           isTokenBrace() || Tok.is(tok::code_completion);
+           isTokenBrace() || Tok.is(tok::code_completion) || Tok.isAnnotation();
   }
 
   /// \brief Returns true if the current token is '=' or is a type of '='.
@@ -587,7 +579,17 @@ private:
     if (Tok.is(tok::code_completion))
       return ConsumeCodeCompletionTok ? ConsumeCodeCompletionToken()
                                       : handleUnexpectedCodeCompletionToken();
+    if (Tok.isAnnotation())
+      return ConsumeAnnotationToken();
     return ConsumeToken();
+  }
+
+  SourceLocation ConsumeAnnotationToken() {
+    assert(Tok.isAnnotation() && "wrong consume method");
+    SourceLocation Loc = Tok.getLocation();
+    PrevTokLocation = Tok.getAnnotationEndLoc();
+    PP.Lex(Tok);
+    return Loc;
   }
 
   /// ConsumeParen - This consume method keeps the paren count up-to-date.
@@ -769,6 +771,11 @@ private:
   /// for-statement
   /// {code}
   StmtResult ParseSIMDDirective();
+  /// \brief Dispatch function to parse a SIMD clause.
+  bool ParseSIMDClauses(Sema &S, SourceLocation BeginLoc,
+                        SmallVectorImpl<Attr *> &AttrList);
+  /// \brief helper function to cleanup for Pragma SIMD.
+  void FinishPragmaSIMD(SourceLocation BeginLoc);
 #endif // INTEL_CUSTOMIZATION
   /// \brief Handle the annotation token produced for
   /// #pragma clang loop and #pragma unroll.
@@ -800,7 +807,7 @@ public:
   }
 
   /// getTypeAnnotation - Read a parsed type out of an annotation token.
-  static ParsedType getTypeAnnotation(Token &Tok) {
+  static ParsedType getTypeAnnotation(const Token &Tok) {
     return ParsedType::getFromOpaquePtr(Tok.getAnnotationValue());
   }
 
@@ -811,7 +818,7 @@ private:
 
   /// \brief Read an already-translated primary expression out of an annotation
   /// token.
-  static ExprResult getExprAnnotation(Token &Tok) {
+  static ExprResult getExprAnnotation(const Token &Tok) {
     return ExprResult::getFromOpaquePointer(Tok.getAnnotationValue());
   }
 
@@ -1500,7 +1507,29 @@ private:
 #if INTEL_CUSTOMIZATION
   // CQ#371799 - let #pragma unroll precede non-loop statements.
   /// Save #pragma unroll as pending to be applied once any loop occurs.
-  ParsedAttributesWithRange PendingPragmaUnroll;
+public:
+  void pushPendingPragmaUnroll() {
+    PendingPragmaUnroll.push_back(new ParsedAttributesWithRange(AttrFactory));
+  }
+  void popPendingPragmaUnroll() {
+    auto *Pending = PendingPragmaUnroll.back();
+    delete Pending;
+    PendingPragmaUnroll.pop_back();
+  }
+  ParsedAttributesWithRange *getPendingUnrollAttr() {
+    return PendingPragmaUnroll.back();
+  }
+  class PendingPragmaUnrollRAII {
+    Parser &P;
+
+  public:
+    PendingPragmaUnrollRAII(Parser &P) : P(P) { P.pushPendingPragmaUnroll(); }
+    ~PendingPragmaUnrollRAII() { P.popPendingPragmaUnroll(); }
+  };
+
+private:
+  SmallVector<ParsedAttributesWithRange *, 4> PendingPragmaUnroll;
+  PendingPragmaUnrollRAII PendingPragmaUnrollRAIIObject;
 #endif // INTEL_CUSTOMIZATION
 
   DeclGroupPtrTy ParseExternalDeclaration(ParsedAttributesWithRange &attrs,
@@ -1662,6 +1691,8 @@ public:
   };
 
   ExprResult ParseExpression(TypeCastState isTypeCast = NotTypeCast);
+  ExprResult ParseConstantExpressionInExprEvalContext(
+      TypeCastState isTypeCast = NotTypeCast);
   ExprResult ParseConstantExpression(TypeCastState isTypeCast = NotTypeCast);
   ExprResult ParseConstraintExpression();
   // Expr that doesn't include commas.
@@ -1700,6 +1731,8 @@ private:
             K == tok::period || K == tok::arrow ||
             K == tok::plusplus || K == tok::minusminus);
   }
+
+  bool diagnoseUnknownTemplateId(ExprResult TemplateName, SourceLocation Less);
 
   ExprResult ParsePostfixExpressionSuffix(ExprResult LHS);
   ExprResult ParseUnaryExprOrTypeTraitExpression();
@@ -2000,6 +2033,21 @@ private:  //***INTEL
   /// \brief Check Intel-pragma statements
   void CheckIntelStmt(StmtVector& Stmts);
 #endif // INTEL_SPECIFIC_IL0_BACKEND
+#if INTEL_CUSTOMIZATION
+  // Pragma inline
+  std::unique_ptr<PragmaHandler> InlineHandler;
+  // Pragma forceinline
+  std::unique_ptr<PragmaHandler> ForceInlineHandler;
+  // Pragma noinline
+  std::unique_ptr<PragmaHandler> NoInlineHandler;
+  bool HandlePragmaIntelInline(SourceRange &Range,
+                               IdentifierLoc* &KindLoc,
+                               IdentifierLoc* &OptionsLoc);
+  StmtResult ParsePragmaInline(StmtVector &Stmts,
+                               AllowedConstructsKind Allowed,
+                               SourceLocation *TrailingElseLoc,
+                               ParsedAttributesWithRange &Attrs);
+#endif // INTEL_CUSTOMIZATION
 #if INTEL_SPECIFIC_CILKPLUS
   StmtResult ParseCilkForStmt();
   /// \brief Parse the Cilk grainsize pragma followed by a Cilk for statement.
@@ -2089,6 +2137,7 @@ private:  //***INTEL
     DSC_trailing, // C++11 trailing-type-specifier in a trailing return type
     DSC_alias_declaration, // C++11 type-specifier-seq in an alias-declaration
     DSC_top_level, // top-level/namespace declaration context
+    DSC_template_param, // template parameter context
     DSC_template_type_arg, // template type argument context
     DSC_objc_method_result, // ObjC method result context, enables 'instancetype'
     DSC_condition // condition declaration context
@@ -2099,6 +2148,7 @@ private:  //***INTEL
   static bool isTypeSpecifier(DeclSpecContext DSC) {
     switch (DSC) {
     case DSC_normal:
+    case DSC_template_param:
     case DSC_class:
     case DSC_top_level:
     case DSC_objc_method_result:
@@ -2119,6 +2169,7 @@ private:  //***INTEL
   static bool isClassTemplateDeductionContext(DeclSpecContext DSC) {
     switch (DSC) {
     case DSC_normal:
+    case DSC_template_param:
     case DSC_class:
     case DSC_top_level:
     case DSC_condition:
@@ -2993,10 +3044,7 @@ private:
   bool ParseGreaterThanInTemplateList(SourceLocation &RAngleLoc,
                                       bool ConsumeLastToken,
                                       bool ObjCGenericList);
-  bool ParseTemplateIdAfterTemplateName(TemplateTy Template,
-                                        SourceLocation TemplateNameLoc,
-                                        const CXXScopeSpec &SS,
-                                        bool ConsumeLastToken,
+  bool ParseTemplateIdAfterTemplateName(bool ConsumeLastToken,
                                         SourceLocation &LAngleLoc,
                                         TemplateArgList &TemplateArgs,
                                         SourceLocation &RAngleLoc);

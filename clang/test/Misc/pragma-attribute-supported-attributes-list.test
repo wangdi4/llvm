@@ -2,7 +2,9 @@
 
 // The number of supported attributes should never go down!
 
-// CHECK: #pragma clang attribute supports 59 attributes:
+// if INTEL_CUSTOMIZATION
+// CHECK: #pragma clang attribute supports 63 attributes:
+// endif INTEL_CUSTOMIZATION
 // CHECK-NEXT: AMDGPUFlatWorkGroupSize (SubjectMatchRule_function)
 // CHECK-NEXT: AMDGPUNumSGPR (SubjectMatchRule_function)
 // CHECK-NEXT: AMDGPUNumVGPR (SubjectMatchRule_function)
@@ -30,8 +32,10 @@
 // CHECK-NEXT: IFunc (SubjectMatchRule_function)
 // CHECK-NEXT: InternalLinkage (SubjectMatchRule_variable, SubjectMatchRule_function, SubjectMatchRule_record)
 // CHECK-NEXT: LTOVisibilityPublic (SubjectMatchRule_record)
+// CHECK-NEXT: MicroMips (SubjectMatchRule_function)
 // CHECK-NEXT: NoDebug (SubjectMatchRule_hasType_functionType, SubjectMatchRule_objc_method, SubjectMatchRule_variable_not_is_parameter)
 // CHECK-NEXT: NoDuplicate (SubjectMatchRule_function)
+// CHECK-NEXT: NoMicroMips (SubjectMatchRule_function)
 // CHECK-NEXT: NoSanitize (SubjectMatchRule_function, SubjectMatchRule_objc_method, SubjectMatchRule_variable_is_global)
 // CHECK-NEXT: NoSanitizeSpecific (SubjectMatchRule_function, SubjectMatchRule_variable_is_global)
 // CHECK-NEXT: NoSplitStack (SubjectMatchRule_function)
@@ -42,6 +46,7 @@
 // CHECK-NEXT: ObjCRuntimeName (SubjectMatchRule_objc_interface, SubjectMatchRule_objc_protocol)
 // CHECK-NEXT: ObjCRuntimeVisible (SubjectMatchRule_objc_interface)
 // CHECK-NEXT: ObjCSubclassingRestricted (SubjectMatchRule_objc_interface)
+// CHECK-NEXT: OpenCLIntelReqdSubGroupSize (SubjectMatchRule_function)
 // CHECK-NEXT: OpenCLNoSVM (SubjectMatchRule_variable)
 // CHECK-NEXT: OptimizeNone (SubjectMatchRule_function, SubjectMatchRule_objc_method)
 // CHECK-NEXT: Overloadable (SubjectMatchRule_function)
@@ -59,6 +64,9 @@
 // CHECK-NEXT: TLSModel (SubjectMatchRule_variable_is_thread_local)
 // CHECK-NEXT: Target (SubjectMatchRule_function)
 // CHECK-NEXT: TestTypestate (SubjectMatchRule_function_is_member)
+// if INTEL_CUSTOMIZATION
+// CHECK-NEXT: VecLenHint (SubjectMatchRule_function)
+// endif INTEL_CUSTOMIZATION
 // CHECK-NEXT: WarnUnusedResult (SubjectMatchRule_objc_method, SubjectMatchRule_enum, SubjectMatchRule_record, SubjectMatchRule_hasType_functionType)
 // CHECK-NEXT: XRayInstrument (SubjectMatchRule_function_is_member, SubjectMatchRule_objc_method, SubjectMatchRule_function)
 // CHECK-NEXT: XRayLogArgs (SubjectMatchRule_function_is_member, SubjectMatchRule_objc_method, SubjectMatchRule_function)

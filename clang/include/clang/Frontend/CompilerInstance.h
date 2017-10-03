@@ -136,6 +136,13 @@ class CompilerInstance : public ModuleLoader {
   /// along with the module map
   llvm::DenseMap<const IdentifierInfo *, Module *> KnownModules;
 
+  /// \brief The set of top-level modules that has already been built on the
+  /// fly as part of this overall compilation action.
+  std::map<std::string, std::string> BuiltModules;
+
+  /// Should we delete the BuiltModules when we're done?
+  bool DeleteBuiltModules = true;
+
   /// \brief The location of the module-import keyword for the last module
   /// import. 
   SourceLocation LastModuleImportLoc;
@@ -175,6 +182,11 @@ class CompilerInstance : public ModuleLoader {
 
   /// The list of active output files.
   std::list<OutputFile> OutputFiles;
+
+#if INTEL_CUSTOMIZATION
+  // Force this output buffer
+  std::unique_ptr<llvm::raw_pwrite_stream> OutputStream;
+#endif // INTEL_CUSTOMIZATION
 
   CompilerInstance(const CompilerInstance &) = delete;
   void operator=(const CompilerInstance &) = delete;
@@ -765,6 +777,16 @@ public:
 
   /// }
 
+#if INTEL_CUSTOMIZATION
+  void SetOutputStream(std::unique_ptr<llvm::raw_pwrite_stream> OutStream) {
+    OutputStream = std::move(OutStream);
+  }
+
+  std::unique_ptr<llvm::raw_pwrite_stream> GetOutputStream() {
+    return std::move(OutputStream);
+  }
+#endif // INTEL_CUSTOMIZATION
+
   // Create module manager.
   void createModuleManager();
 
@@ -773,6 +795,9 @@ public:
   ModuleLoadResult loadModule(SourceLocation ImportLoc, ModuleIdPath Path,
                               Module::NameVisibilityKind Visibility,
                               bool IsInclusionDirective) override;
+
+  void loadModuleFromSource(SourceLocation ImportLoc, StringRef ModuleName,
+                            StringRef Source) override;
 
   void makeModuleVisible(Module *Mod, Module::NameVisibilityKind Visibility,
                          SourceLocation ImportLoc) override;
