@@ -155,6 +155,7 @@ public:
 
 #define DEBUG_TYPE "csa-convert-control"
   void addPreRegAlloc() override {
+    using namespace csa_memop_ordering_shared_options;
     std::string Banner;
 #if 1
     Banner = std::string("Before Machine CDG Pass");
@@ -164,7 +165,12 @@ public:
     Banner = std::string("After Machine CDG Pass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
 
-    addPass(createCSAMemopOrderingPass(), false);
+    addPass(
+      OrderMemopsType == independent
+        ? createCSAIndependentMemopOrderingPass()
+        : createCSAMemopOrderingPass(),
+      true
+    );
     Banner = std::string("After CSAMemopOrderingPass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
 

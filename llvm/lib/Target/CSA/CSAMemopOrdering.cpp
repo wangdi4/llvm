@@ -25,23 +25,11 @@
 #include "MachineCDG.h"
 
 using namespace llvm;
+using namespace csa_memop_ordering_shared_options;
 
-// Flag for controlling code that deals with memory ordering.
-enum OrderMemopsMode {
-  // No extra code added at all for ordering.  Often incorrect.
-  none = 0,
+namespace csa_memop_ordering_shared_options {
 
-  // Linear ordering of all memops.  Dumb but should be correct.
-  linear = 1,
-
-  //  Stores inside a basic block are totally ordered.
-  //  Loads ordered between the stores, but
-  //  unordered with respect to each other.
-  //  No reordering across basic blocks.
-  wavefront = 2,
-};
-
-static cl::opt<OrderMemopsMode>
+cl::opt<OrderMemopsMode>
 OrderMemopsType("csa-order-memops-type",
                 cl::Hidden,
                 cl::desc("CSA Specific: Order memory operations"),
@@ -50,28 +38,32 @@ OrderMemopsType("csa-order-memops-type",
                            clEnumVal(linear,
                                      "Linear ordering. Dumb but correct"),
                            clEnumVal(wavefront,
-                                     "Totally ordered stores, parallel loads between stores.")),
+                                     "Totally ordered stores, parallel loads between stores."),
+                           clEnumVal(independent,
+                                     "Order memory operations independently with more fine-grained alias analysis. This should expose more parallelism at the possible expense of compile time and graph size. Semi-experimental.")),
                 cl::init(OrderMemopsMode::wavefront));
 
 //  Boolean flag.  If it is set to 0, we force "none" for memory
 //  ordering.  Otherwise, we just obey the OrderMemopsType variable.
-static cl::opt<int>
+cl::opt<int>
 OrderMemops("csa-order-memops",
             cl::Hidden, cl::ZeroOrMore,
             cl::desc("CSA Specific: Disable ordering of memory operations (by setting to 0)"),
             cl::init(1));
+
+cl::opt<bool>
+ParallelOrderMemops("csa-parallel-memops",
+            cl::Hidden,
+            cl::desc("CSA-specific: use parallel builtins to generate parallel memop ordering"),
+            cl::init(true));
+
+}
 
 static cl::opt<bool>
 KillReadChains("csa-kill-readchains",
             cl::Hidden,
             cl::desc("CSA-specific: kill ordering chains which only link reads"),
             cl::init(false));
-
-static cl::opt<bool>
-ParallelOrderMemops("csa-parallel-memops",
-            cl::Hidden,
-            cl::desc("CSA-specific: use parallel builtins to generate parallel memop ordering"),
-            cl::init(true));
 
 // The register class we are going to use for all the memory-op
 // dependencies.  Technically they could be I0, but I don't know how
