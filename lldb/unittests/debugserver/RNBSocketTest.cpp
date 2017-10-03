@@ -30,7 +30,7 @@ static void ServerCallbackv4(const void *baton, in_port_t port) {
     Socket *client_socket;
     char addr_buffer[256];
     sprintf(addr_buffer, "%s:%d", baton, port);
-    Error err = Socket::TcpConnect(addr_buffer, false, client_socket);
+    Status err = Socket::TcpConnect(addr_buffer, false, client_socket);
     if (err.Fail())
       abort();
     char buffer[32];
@@ -53,9 +53,21 @@ static void ServerCallbackv4(const void *baton, in_port_t port) {
 }
 
 void TestSocketListen(const char *addr) {
+  // Skip IPv6 tests if there isn't a valid interafce
+  auto addresses = lldb_private::SocketAddress::GetAddressInfo(
+      addr, NULL, AF_UNSPEC, SOCK_STREAM, IPPROTO_TCP);
+  if (addresses.size() == 0)
+    return;
+
+  char addr_wrap[256];
+  if (addresses.front().GetFamily() == AF_INET6)
+    sprintf(addr_wrap, "[%s]", addr);
+  else
+    sprintf(addr_wrap, "%s", addr);
+
   RNBSocket server_socket;
   auto result =
-      server_socket.Listen(addr, 0, ServerCallbackv4, (const void *)addr);
+      server_socket.Listen(addr, 0, ServerCallbackv4, (const void *)addr_wrap);
   ASSERT_TRUE(result == rnb_success);
   result = server_socket.Write(hello.c_str(), hello.length());
   ASSERT_TRUE(result == rnb_success);
@@ -71,14 +83,27 @@ void TestSocketListen(const char *addr) {
 
 TEST(RNBSocket, LoopBackListenIPv4) { TestSocketListen("127.0.0.1"); }
 
+TEST(RNBSocket, LoopBackListenIPv6) { TestSocketListen("::1"); }
+
+TEST(RNBSocket, AnyListen) { TestSocketListen("*"); }
+
 void TestSocketConnect(const char *addr) {
+  // Skip IPv6 tests if there isn't a valid interafce
+  auto addresses = lldb_private::SocketAddress::GetAddressInfo(
+      addr, NULL, AF_UNSPEC, SOCK_STREAM, IPPROTO_TCP);
+  if (addresses.size() == 0)
+    return;
+
   char addr_wrap[256];
-  sprintf(addr_wrap, "%s:0", addr);
+  if (addresses.front().GetFamily() == AF_INET6)
+    sprintf(addr_wrap, "[%s]:0", addr);
+  else
+    sprintf(addr_wrap, "%s:0", addr);
 
   Socket *server_socket;
   Predicate<uint16_t> port_predicate;
   port_predicate.SetValue(0, eBroadcastNever);
-  Error err =
+  Status err =
       Socket::TcpListen(addr_wrap, false, server_socket, &port_predicate);
   ASSERT_FALSE(err.Fail());
 
@@ -96,7 +121,7 @@ void TestSocketConnect(const char *addr) {
     ASSERT_EQ(bye, goodbye);
   } else {
     Socket *connected_socket;
-    err = server_socket->Accept(addr_wrap, false, connected_socket);
+    err = server_socket->Accept(connected_socket);
     if (err.Fail()) {
       llvm::errs() << err.AsCString();
       abort();
@@ -131,3 +156,5 @@ void TestSocketConnect(const char *addr) {
 }
 
 TEST(RNBSocket, LoopBackConnectIPv4) { TestSocketConnect("127.0.0.1"); }
+
+TEST(RNBSocket, LoopBackConnectIPv6) { TestSocketConnect("::1"); }

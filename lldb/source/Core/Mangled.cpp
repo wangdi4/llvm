@@ -10,7 +10,7 @@
 #include "lldb/Core/Mangled.h"
 
 #if defined(_WIN32)
-#include <windows.h>
+#include "lldb/Host/windows/windows.h"
 
 #include <dbghelp.h>
 #pragma comment(lib, "dbghelp.lib")
@@ -27,12 +27,12 @@
 #include <cxxabi.h>
 #endif
 
-#include "lldb/Core/Timer.h"
 #include "lldb/Utility/ConstString.h"
 #include "lldb/Utility/Log.h"
 #include "lldb/Utility/Logging.h"
 #include "lldb/Utility/RegularExpression.h"
 #include "lldb/Utility/Stream.h"
+#include "lldb/Utility/Timer.h"
 #include "lldb/lldb-enumerations.h" // for LanguageType
 
 #include "Plugins/Language/CPlusPlus/CPlusPlusLanguage.h"
@@ -258,8 +258,8 @@ Mangled::GetDemangledName(lldb::LanguageType language) const {
   // haven't already decoded our mangled name.
   if (m_mangled && !m_demangled) {
     // We need to generate and cache the demangled name.
-    Timer scoped_timer(LLVM_PRETTY_FUNCTION,
-                       "Mangled::GetDemangledName (m_mangled = %s)",
+    static Timer::Category func_cat(LLVM_PRETTY_FUNCTION);
+    Timer scoped_timer(func_cat, "Mangled::GetDemangledName (m_mangled = %s)",
                        m_mangled.GetCString());
 
     Log *log = lldb_private::GetLogIfAllCategoriesSet(LIBLLDB_LOG_DEMANGLE);

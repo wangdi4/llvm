@@ -16,4 +16,12 @@
 
 #cmakedefine01 HAVE_SYS_EVENT_H
 
+#cmakedefine01 HAVE_PPOLL
+
+#cmakedefine01 HAVE_SIGACTION
+
+#cmakedefine01 HAVE_PROCESS_VM_READV
+
+#cmakedefine01 HAVE_NR_PROCESS_VM_READV
+
 #endif // #ifndef LLDB_HOST_CONFIG_H

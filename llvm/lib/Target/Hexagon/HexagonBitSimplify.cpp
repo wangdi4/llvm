@@ -7,14 +7,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#define DEBUG_TYPE "hexbit"
-
 #include "HexagonBitTracker.h"
 #include "HexagonTargetMachine.h"
 #include "llvm/ADT/BitVector.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineDominators.h"
@@ -41,6 +39,8 @@
 #include <limits>
 #include <utility>
 #include <vector>
+
+#define DEBUG_TYPE "hexbit"
 
 using namespace llvm;
 
@@ -1947,8 +1947,10 @@ bool BitSimplification::genStoreImmediate(MachineInstr *MI) {
   switch (Opc) {
     case Hexagon::S2_storeri_io:
       Align++;
+      LLVM_FALLTHROUGH;
     case Hexagon::S2_storerh_io:
       Align++;
+      LLVM_FALLTHROUGH;
     case Hexagon::S2_storerb_io:
       break;
     default:
@@ -2174,8 +2176,10 @@ bool BitSimplification::genBitSplit(MachineInstr *MI,
       const RegisterSet &AVs) {
   if (!GenBitSplit)
     return false;
-  if (CountBitSplit >= MaxBitSplit)
-    return false;
+  if (MaxBitSplit.getNumOccurrences()) {
+    if (CountBitSplit >= MaxBitSplit)
+      return false;
+  }
 
   unsigned Opc = MI->getOpcode();
   switch (Opc) {
@@ -2254,7 +2258,8 @@ bool BitSimplification::genBitSplit(MachineInstr *MI,
       continue;
 
     // Generate bitsplit where S is defined.
-    CountBitSplit++;
+    if (MaxBitSplit.getNumOccurrences())
+      CountBitSplit++;
     MachineInstr *DefS = MRI.getVRegDef(S);
     assert(DefS != nullptr);
     DebugLoc DL = DefS->getDebugLoc();
@@ -2380,9 +2385,11 @@ bool BitSimplification::simplifyExtractLow(MachineInstr *MI,
       const RegisterSet &AVs) {
   if (!GenExtract)
     return false;
-  if (CountExtract >= MaxExtract)
-    return false;
-  CountExtract++;
+  if (MaxExtract.getNumOccurrences()) {
+    if (CountExtract >= MaxExtract)
+      return false;
+    CountExtract++;
+  }
 
   unsigned W = RC.width();
   unsigned RW = W;

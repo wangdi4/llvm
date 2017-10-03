@@ -12,7 +12,7 @@
 // template <class RandomAccessIterator>
 //     void
 //     random_shuffle(RandomAccessIterator first, RandomAccessIterator last);
-// 
+//
 // template <class RandomAccessIterator, class RandomNumberGenerator>
 //     void
 //     random_shuffle(RandomAccessIterator first, RandomAccessIterator last,
@@ -23,6 +23,7 @@
 //  However, for backwards compatibility, if _LIBCPP_ENABLE_CXX17_REMOVED_RANDOM_SHUFFLE
 //  is defined before including <algorithm>, then random_shuffle will be restored.
 
+// MODULES_DEFINES: _LIBCPP_ENABLE_CXX17_REMOVED_RANDOM_SHUFFLE
 #define _LIBCPP_ENABLE_CXX17_REMOVED_RANDOM_SHUFFLE
 
 #include <algorithm>
