@@ -90,6 +90,7 @@ void initializePipeSupportPass(llvm::PassRegistry&);
 void initializePipeOrderingPass(llvm::PassRegistry&);
 void initializeInfiniteLoopCreatorPass(llvm::PassRegistry&);
 void initializeAutorunReplicatorPass(llvm::PassRegistry&);
+void initializeImplicitGlobalIdPassPass(llvm::PassRegistry&);
 }
 
 #endif

@@ -101,7 +101,8 @@ void ImplicitGlobalIdPass::insertComputeGlobalIds(Function* pFunc)
     //
     DIScope *scope = nullptr;
     DebugLoc loc;
-    getBBScope(entry_block, &scope, loc);
+    bool res = getBBScope(entry_block, &scope, loc); (void)res;
+    assert(res && "Failed to get scope and debug location!");
 
     for (unsigned i = 0; i <= 2; ++i) {
       // Create implicit local variables to hold the gids
@@ -117,14 +118,12 @@ void ImplicitGlobalIdPass::insertComputeGlobalIds(Function* pFunc)
 
       // LLVM 3.6 UPGRADE: TODO: uncomment the line below if the new DIVariable
       // does need dwarf::DW_OP_deref expression
-      Instruction *gid_declare =
-        diBuilder->insertDeclare(gid_alloca,
-                                div,
-                                //diBuilder->createExpression(dwarf::DW_OP_deref),
-                                diBuilder->createExpression(),
-                                gid_alloca->getDebugLoc(),
-                                insert_before);
-      gid_declare->setDebugLoc(loc);
+      (void) diBuilder->insertDeclare(gid_alloca,
+                                      div,
+                                      //diBuilder->createExpression(dwarf::DW_OP_deref),
+                                      diBuilder->createExpression(),
+                                      loc,
+                                      insert_before);
       if (!functionHasBarriers) {
         runOnBasicBlock(i, gid_alloca, insert_before);
       } else {
