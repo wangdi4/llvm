@@ -86,8 +86,6 @@
 // however, is that finding the locations where the implicit uses need
 // to be added, and updating the live ranges will be more involved.
 
-#define DEBUG_TYPE "expand-condsets"
-
 #include "HexagonInstrInfo.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SetVector.h"
@@ -115,6 +113,8 @@
 #include <iterator>
 #include <set>
 #include <utility>
+
+#define DEBUG_TYPE "expand-condsets"
 
 using namespace llvm;
 
@@ -559,16 +559,27 @@ unsigned HexagonExpandCondsets::getCondTfrOpcode(const MachineOperand &SO,
     }
     unsigned PhysS = (RS.Sub == 0) ? PhysR : TRI->getSubReg(PhysR, RS.Sub);
     const TargetRegisterClass *RC = TRI->getMinimalPhysRegClass(PhysS);
-    switch (RC->getSize()) {
-      case 4:
+    switch (TRI->getRegSizeInBits(*RC)) {
+      case 32:
         return IfTrue ? A2_tfrt : A2_tfrf;
-      case 8:
+      case 64:
         return IfTrue ? A2_tfrpt : A2_tfrpf;
     }
     llvm_unreachable("Invalid register operand");
   }
-  if (SO.isImm() || SO.isFPImm())
-    return IfTrue ? C2_cmoveit : C2_cmoveif;
+  switch (SO.getType()) {
+    case MachineOperand::MO_Immediate:
+    case MachineOperand::MO_FPImmediate:
+    case MachineOperand::MO_ConstantPoolIndex:
+    case MachineOperand::MO_TargetIndex:
+    case MachineOperand::MO_JumpTableIndex:
+    case MachineOperand::MO_ExternalSymbol:
+    case MachineOperand::MO_GlobalAddress:
+    case MachineOperand::MO_BlockAddress:
+      return IfTrue ? C2_cmoveit : C2_cmoveif;
+    default:
+      break;
+  }
   llvm_unreachable("Unexpected source operand");
 }
 

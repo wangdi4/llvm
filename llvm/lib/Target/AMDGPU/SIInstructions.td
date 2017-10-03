@@ -94,6 +94,12 @@ defm V_INTERP_MOV_F32 : VINTRP_m <
 //===----------------------------------------------------------------------===//
 // Pseudo Instructions
 //===----------------------------------------------------------------------===//
+def ATOMIC_FENCE : SPseudoInstSI<
+  (outs), (ins i32imm:$ordering, i32imm:$scope),
+  [(atomic_fence (i32 imm:$ordering), (i32 imm:$scope))],
+  "ATOMIC_FENCE $ordering, $scope"> {
+  let hasSideEffects = 1;
+}
 
 let hasSideEffects = 0, mayLoad = 0, mayStore = 0, Uses = [EXEC] in {
 
@@ -110,12 +116,6 @@ def V_CNDMASK_B64_PSEUDO : VOP3Common <(outs VReg_64:$vdst),
 def V_MOV_B64_PSEUDO : VPseudoInstSI <(outs VReg_64:$vdst),
                                       (ins VSrc_b64:$src0)>;
 } // End let hasSideEffects = 0, mayLoad = 0, mayStore = 0, Uses = [EXEC]
-
-def S_TRAP_PSEUDO : SPseudoInstSI <(outs), (ins i16imm:$simm16)> {
-  let hasSideEffects = 1;
-  let SALU = 1;
-  let usesCustomInserter = 1;
-}
 
 let usesCustomInserter = 1, SALU = 1 in {
 def GET_GROUPSTATICSIZE : PseudoInstSI <(outs SReg_32:$sdst), (ins),
@@ -173,6 +173,13 @@ def SI_MASK_BRANCH : VPseudoInstSI <
 }
 
 let isTerminator = 1 in {
+
+ def SI_NON_UNIFORM_BRCOND_PSEUDO : CFPseudoInstSI <
+  (outs),
+  (ins SReg_64:$vcc, brtarget:$target),
+  [(brcond i1:$vcc, bb:$target)]> {
+    let Size = 12;
+}
 
 def SI_IF: CFPseudoInstSI <
   (outs SReg_64:$dst), (ins SReg_64:$vcc, brtarget:$target),
@@ -284,6 +291,19 @@ def SI_INIT_M0 : SPseudoInstSI <(outs), (ins SSrc_b32:$src)> {
   let usesCustomInserter = 1;
   let isAsCheapAsAMove = 1;
   let isReMaterializable = 1;
+}
+
+def SI_INIT_EXEC : SPseudoInstSI <
+  (outs), (ins i64imm:$src), []> {
+  let Defs = [EXEC];
+  let usesCustomInserter = 1;
+  let isAsCheapAsAMove = 1;
+}
+
+def SI_INIT_EXEC_FROM_INPUT : SPseudoInstSI <
+  (outs), (ins SSrc_b32:$input, i32imm:$shift), []> {
+  let Defs = [EXEC];
+  let usesCustomInserter = 1;
 }
 
 // Return for returning shaders to a shader variant epilog.
@@ -399,14 +419,19 @@ def SI_PC_ADD_REL_OFFSET : SPseudoInstSI <
 } // End SubtargetPredicate = isGCN
 
 let Predicates = [isGCN] in {
-def : Pat<
-  (trap),
-  (S_TRAP_PSEUDO TRAPID.LLVM_TRAP)
+def : Pat <
+  (AMDGPUinit_exec i64:$src),
+  (SI_INIT_EXEC (as_i64imm $src))
+>;
+
+def : Pat <
+  (AMDGPUinit_exec_from_input i32:$input, i32:$shift),
+  (SI_INIT_EXEC_FROM_INPUT (i32 $input), (as_i32imm $shift))
 >;
 
 def : Pat<
-  (debugtrap),
-  (S_TRAP_PSEUDO TRAPID.LLVM_DEBUG_TRAP)
+  (AMDGPUtrap timm:$trapid),
+  (S_TRAP $trapid)
 >;
 
 def : Pat<
@@ -477,8 +502,8 @@ def : Pat <
 
 // fp_to_fp16 patterns
 def : Pat <
-  (i32 (AMDGPUfp_to_f16 (f32 (VOP3Mods0 f32:$src0, i32:$src0_modifiers, i1:$clamp, i32:$omod)))),
-  (V_CVT_F16_F32_e64 $src0_modifiers, f32:$src0, $clamp, $omod)
+  (i32 (AMDGPUfp_to_f16 (f32 (VOP3Mods f32:$src0, i32:$src0_modifiers)))),
+  (V_CVT_F16_F32_e64 $src0_modifiers, f32:$src0, DSTCLAMP.NONE, DSTOMOD.NONE)
 >;
 
 def : Pat <
@@ -507,11 +532,11 @@ def : Pat <
 
 multiclass FMADPat <ValueType vt, Instruction inst> {
   def : Pat <
-    (vt (fmad (VOP3NoMods0 vt:$src0, i32:$src0_modifiers, i1:$clamp, i32:$omod),
-              (VOP3NoMods  vt:$src1, i32:$src1_modifiers),
-              (VOP3NoMods  vt:$src2, i32:$src2_modifiers))),
-    (inst $src0_modifiers, $src0, $src1_modifiers, $src1,
-          $src2_modifiers, $src2, $clamp, $omod)
+    (vt (fmad (VOP3NoMods vt:$src0),
+              (VOP3NoMods vt:$src1),
+              (VOP3NoMods vt:$src2))),
+    (inst SRCMODS.NONE, $src0, SRCMODS.NONE, $src1,
+          SRCMODS.NONE, $src2, DSTCLAMP.NONE, DSTOMOD.NONE)
   >;
 }
 
@@ -681,10 +706,9 @@ def : BitConvert <v16f32, v16i32, VReg_512>;
 // If denormals are not enabled, it only impacts the compare of the
 // inputs. The output result is not flushed.
 class ClampPat<Instruction inst, ValueType vt> : Pat <
-  (vt (AMDGPUclamp
-        (VOP3Mods0Clamp vt:$src0, i32:$src0_modifiers, i32:$omod))),
+  (vt (AMDGPUclamp (VOP3Mods vt:$src0, i32:$src0_modifiers))),
   (inst i32:$src0_modifiers, vt:$src0,
-        i32:$src0_modifiers, vt:$src0, DSTCLAMP.ENABLE, $omod)
+        i32:$src0_modifiers, vt:$src0, DSTCLAMP.ENABLE, DSTOMOD.NONE)
 >;
 
 def : ClampPat<V_MAX_F32_e64, f32>;
@@ -905,6 +929,14 @@ def : UMad24Pat<V_MAD_U32_U24>;
 defm : BFIPatterns <V_BFI_B32, S_MOV_B32, SReg_64>;
 def : ROTRPattern <V_ALIGNBIT_B32>;
 
+def : Pat<(i32 (trunc (srl i64:$src0, (and i32:$src1, (i32 31))))),
+          (V_ALIGNBIT_B32 (i32 (EXTRACT_SUBREG (i64 $src0), sub1)),
+                          (i32 (EXTRACT_SUBREG (i64 $src0), sub0)), $src1)>;
+
+def : Pat<(i32 (trunc (srl i64:$src0, (i32 ShiftAmt32Imm:$src1)))),
+          (V_ALIGNBIT_B32 (i32 (EXTRACT_SUBREG (i64 $src0), sub1)),
+                          (i32 (EXTRACT_SUBREG (i64 $src0), sub0)), $src1)>;
+
 /********** ====================== **********/
 /**********   Indirect addressing  **********/
 /********** ====================== **********/
@@ -1028,7 +1060,7 @@ def : Pat <
 
 class FPToI1Pat<Instruction Inst, int KOne, ValueType kone_type, ValueType vt, SDPatternOperator fp_to_int> : Pat <
   (i1 (fp_to_int (vt (VOP3Mods vt:$src0, i32:$src0_modifiers)))),
-  (i1 (Inst 0, (kone_type KOne), $src0_modifiers, $src0, DSTCLAMP.NONE, DSTOMOD.NONE))
+  (i1 (Inst 0, (kone_type KOne), $src0_modifiers, $src0, DSTCLAMP.NONE))
 >;
 
 def : FPToI1Pat<V_CMP_EQ_F32_e64, CONST.FP32_ONE, i32, f32, fp_to_uint>;

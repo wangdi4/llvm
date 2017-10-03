@@ -33,12 +33,14 @@
 
 // List of all plugins that can support offloading.
 static const char *RTLNames[] = {
-    /* PowerPC target */ "libomptarget.rtl.ppc64.so",
+#if INTEL_CUSTOMIZATION
+    /* Nios II target */ "libomptarget.rtl.nios2.so",
     /* MIC target     */ "libomptarget.rtl.x86_64_mic.so",
+#endif // INTEL_CUSTOMIZATION
+    /* PowerPC target */ "libomptarget.rtl.ppc64.so",
     /* x86_64 target  */ "libomptarget.rtl.x86_64.so",
     /* CUDA target    */ "libomptarget.rtl.cuda.so",
-    /* AArch64 target */ "libomptarget.rtl.aarch64.so",
-    /* Nios II target */ "libomptarget.rtl.nios2.so"};
+    /* AArch64 target */ "libomptarget.rtl.aarch64.so"};
 
 // forward declarations
 struct RTLInfoTy;
@@ -2146,12 +2148,14 @@ static int target(int32_t device_id, void *host_ptr, int32_t arg_num,
       } else {
         fpArrays.push_back(TgtPtrBegin);
         TgtBaseOffset = (intptr_t)HstPtrBase - (intptr_t)HstPtrBegin;
+#ifdef OMPTARGET_DEBUG
         void *TgtPtrBase = (void *)((intptr_t)TgtPtrBegin + TgtBaseOffset);
         DP("Allocated %" PRId64 " bytes of target memory at " DPxMOD " for "
             "%sprivate array " DPxMOD " - pushing target argument " DPxMOD "\n",
             arg_sizes[i], DPxPTR(TgtPtrBegin),
             (arg_types[i] & OMP_TGT_MAPTYPE_TO ? "first-" : ""),
             DPxPTR(HstPtrBegin), DPxPTR(TgtPtrBase));
+#endif
         // If first-private, copy data from host
         if (arg_types[i] & OMP_TGT_MAPTYPE_TO) {
           int rt = Device.data_submit(TgtPtrBegin, HstPtrBegin, arg_sizes[i]);
@@ -2173,9 +2177,11 @@ static int target(int32_t device_id, void *host_ptr, int32_t arg_num,
       TgtPtrBegin = Device.getTgtPtrBegin(HstPtrBegin, arg_sizes[i], IsLast,
           false);
       TgtBaseOffset = (intptr_t)HstPtrBase - (intptr_t)HstPtrBegin;
+#ifdef OMPTARGET_DEBUG
       void *TgtPtrBase = (void *)((intptr_t)TgtPtrBegin + TgtBaseOffset);
       DP("Obtained target argument " DPxMOD " from host pointer " DPxMOD "\n",
           DPxPTR(TgtPtrBase), DPxPTR(HstPtrBegin));
+#endif
     }
     tgt_args.push_back(TgtPtrBegin);
     tgt_offsets.push_back(TgtBaseOffset);

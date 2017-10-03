@@ -35,7 +35,6 @@
 #include "llvm/LTO/LTOBackend.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/SubtargetFeature.h"
-#include "llvm/Object/ModuleSummaryIndexObjectFile.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/MemoryBuffer.h"
@@ -50,10 +49,12 @@
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#include "llvm/Transforms/IPO/ThinLTOBitcodeWriter.h"
 #include "llvm/Transforms/Instrumentation.h"
 #include "llvm/Transforms/ObjCARC.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/GVN.h"
+#include "llvm/Transforms/Utils/NameAnonGlobals.h"
 #include "llvm/Transforms/Utils/SymbolRewriter.h"
 #include <memory>
 using namespace clang;
@@ -129,16 +130,20 @@ public:
 // that we add to the PassManagerBuilder.
 class PassManagerBuilderWrapper : public PassManagerBuilder {
 public:
-  PassManagerBuilderWrapper(const CodeGenOptions &CGOpts,
+  PassManagerBuilderWrapper(const Triple &TargetTriple,
+                            const CodeGenOptions &CGOpts,
                             const LangOptions &LangOpts)
-      : PassManagerBuilder(), CGOpts(CGOpts), LangOpts(LangOpts) {}
+      : PassManagerBuilder(), TargetTriple(TargetTriple), CGOpts(CGOpts),
+        LangOpts(LangOpts) {}
+  const Triple &getTargetTriple() const { return TargetTriple; }
   const CodeGenOptions &getCGOpts() const { return CGOpts; }
   const LangOptions &getLangOpts() const { return LangOpts; }
+
 private:
+  const Triple &TargetTriple;
   const CodeGenOptions &CGOpts;
   const LangOptions &LangOpts;
 };
-
 }
 
 static void addObjCARCAPElimPass(const PassManagerBuilder &Builder, PassManagerBase &PM) {
@@ -182,19 +187,42 @@ static void addSanitizerCoveragePass(const PassManagerBuilder &Builder,
   Opts.Use8bitCounters = CGOpts.SanitizeCoverage8bitCounters;
   Opts.TracePC = CGOpts.SanitizeCoverageTracePC;
   Opts.TracePCGuard = CGOpts.SanitizeCoverageTracePCGuard;
+  Opts.NoPrune = CGOpts.SanitizeCoverageNoPrune;
+  Opts.Inline8bitCounters = CGOpts.SanitizeCoverageInline8bitCounters;
   PM.add(createSanitizerCoverageModulePass(Opts));
+}
+
+// Check if ASan should use GC-friendly instrumentation for globals.
+// First of all, there is no point if -fdata-sections is off (expect for MachO,
+// where this is not a factor). Also, on ELF this feature requires an assembler
+// extension that only works with -integrated-as at the moment.
+static bool asanUseGlobalsGC(const Triple &T, const CodeGenOptions &CGOpts) {
+  if (!CGOpts.SanitizeAddressGlobalsDeadStripping)
+    return false;
+  switch (T.getObjectFormat()) {
+  case Triple::MachO:
+  case Triple::COFF:
+    return true;
+  case Triple::ELF:
+    return CGOpts.DataSections && !CGOpts.DisableIntegratedAS;
+  default:
+    return false;
+  }
 }
 
 static void addAddressSanitizerPasses(const PassManagerBuilder &Builder,
                                       legacy::PassManagerBase &PM) {
   const PassManagerBuilderWrapper &BuilderWrapper =
       static_cast<const PassManagerBuilderWrapper&>(Builder);
+  const Triple &T = BuilderWrapper.getTargetTriple();
   const CodeGenOptions &CGOpts = BuilderWrapper.getCGOpts();
   bool Recover = CGOpts.SanitizeRecover.has(SanitizerKind::Address);
   bool UseAfterScope = CGOpts.SanitizeAddressUseAfterScope;
+  bool UseGlobalsGC = asanUseGlobalsGC(T, CGOpts);
   PM.add(createAddressSanitizerFunctionPass(/*CompileKernel*/ false, Recover,
                                             UseAfterScope));
-  PM.add(createAddressSanitizerModulePass(/*CompileKernel*/false, Recover));
+  PM.add(createAddressSanitizerModulePass(/*CompileKernel*/ false, Recover,
+                                          UseGlobalsGC));
 }
 
 static void addKernelAddressSanitizerPasses(const PassManagerBuilder &Builder,
@@ -383,15 +411,11 @@ static void initTargetOptions(llvm::TargetOptions &Options,
 
   Options.UseInitArray = CodeGenOpts.UseInitArray;
   Options.DisableIntegratedAS = CodeGenOpts.DisableIntegratedAS;
-  Options.CompressDebugSections = CodeGenOpts.CompressDebugSections;
+  Options.CompressDebugSections = CodeGenOpts.getCompressDebugSections();
   Options.RelaxELFRelocations = CodeGenOpts.RelaxELFRelocations;
 
   // Set EABI version.
-  Options.EABIVersion = llvm::StringSwitch<llvm::EABI>(TargetOpts.EABIVersion)
-                            .Case("4", llvm::EABI::EABI4)
-                            .Case("5", llvm::EABI::EABI5)
-                            .Case("gnu", llvm::EABI::GNU)
-                            .Default(llvm::EABI::Default);
+  Options.EABIVersion = TargetOpts.EABIVersion;
 
   if (LangOpts.SjLjExceptions)
     Options.ExceptionModel = llvm::ExceptionHandling::SjLj;
@@ -436,8 +460,6 @@ void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
   if (CodeGenOpts.DisableLLVMPasses)
     return;
 
-  PassManagerBuilderWrapper PMBuilder(CodeGenOpts, LangOpts);
-
   // Figure out TargetLibraryInfo.  This needs to be added to MPM and FPM
   // manually (and not via PMBuilder), since some passes (eg. InstrProfiling)
   // are inserted before PMBuilder ones - they'd get the default-constructed
@@ -445,6 +467,8 @@ void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
   Triple TargetTriple(TheModule->getTargetTriple());
   std::unique_ptr<TargetLibraryInfoImpl> TLII(
       createTLII(TargetTriple, CodeGenOpts));
+
+  PassManagerBuilderWrapper PMBuilder(TargetTriple, CodeGenOpts, LangOpts);
 
   // At O0 and O1 we only run the always inliner which is more efficient. At
   // higher optimization levels we run the normal inliner.
@@ -464,7 +488,6 @@ void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
 
   PMBuilder.OptLevel = CodeGenOpts.OptimizationLevel;
   PMBuilder.SizeLevel = CodeGenOpts.OptimizeSize;
-  PMBuilder.BBVectorize = CodeGenOpts.VectorizeBB;
   PMBuilder.SLPVectorize = CodeGenOpts.VectorizeSLP;
   PMBuilder.LoopVectorize = CodeGenOpts.VectorizeLoop;
 
@@ -829,11 +852,15 @@ void EmitAssemblyHelper::EmitAssemblyWithNewPassManager(
   if (CodeGenOpts.hasProfileIRUse())
     PGOOpt.ProfileUseFile = CodeGenOpts.ProfileInstrumentUsePath;
 
+  if (!CodeGenOpts.SampleProfileFile.empty())
+    PGOOpt.SampleProfileFile = CodeGenOpts.SampleProfileFile;
+
   // Only pass a PGO options struct if -fprofile-generate or
   // -fprofile-use were passed on the cmdline.
   PassBuilder PB(TM.get(),
     (PGOOpt.RunProfileGen ||
-      !PGOOpt.ProfileUseFile.empty()) ?
+      !PGOOpt.ProfileUseFile.empty() ||
+      !PGOOpt.SampleProfileFile.empty()) ?
         Optional<PGOOptions>(PGOOpt) : None);
 
   LoopAnalysisManager LAM;
@@ -851,20 +878,34 @@ void EmitAssemblyHelper::EmitAssemblyWithNewPassManager(
   PB.registerLoopAnalyses(LAM);
   PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
 
-  ModulePassManager MPM;
+  ModulePassManager MPM(CodeGenOpts.DebugPassManager);
 
   if (!CodeGenOpts.DisableLLVMPasses) {
+    bool IsThinLTO = CodeGenOpts.EmitSummaryIndex;
+    bool IsLTO = CodeGenOpts.PrepareForLTO;
+
     if (CodeGenOpts.OptimizationLevel == 0) {
       // Build a minimal pipeline based on the semantics required by Clang,
       // which is just that always inlining occurs.
       MPM.addPass(AlwaysInlinerPass());
+      if (IsThinLTO)
+        MPM.addPass(NameAnonGlobalPass());
     } else {
-      // Otherwise, use the default pass pipeline. We also have to map our
-      // optimization levels into one of the distinct levels used to configure
-      // the pipeline.
+      // Map our optimization levels into one of the distinct levels used to
+      // configure the pipeline.
       PassBuilder::OptimizationLevel Level = mapToLevel(CodeGenOpts);
 
-      MPM = PB.buildPerModuleDefaultPipeline(Level);
+      if (IsThinLTO) {
+        MPM = PB.buildThinLTOPreLinkDefaultPipeline(
+            Level, CodeGenOpts.DebugPassManager);
+        MPM.addPass(NameAnonGlobalPass());
+      } else if (IsLTO) {
+        MPM = PB.buildLTOPreLinkDefaultPipeline(Level,
+                                                CodeGenOpts.DebugPassManager);
+      } else {
+        MPM = PB.buildPerModuleDefaultPipeline(Level,
+                                               CodeGenOpts.DebugPassManager);
+      }
     }
   }
 
@@ -872,6 +913,7 @@ void EmitAssemblyHelper::EmitAssemblyWithNewPassManager(
   // create that pass manager here and use it as needed below.
   legacy::PassManager CodeGenPasses;
   bool NeedCodeGen = false;
+  Optional<raw_fd_ostream> ThinLinkOS;
 
   // Append any output we need to the pass manager.
   switch (Action) {
@@ -879,9 +921,24 @@ void EmitAssemblyHelper::EmitAssemblyWithNewPassManager(
     break;
 
   case Backend_EmitBC:
-    MPM.addPass(BitcodeWriterPass(*OS, CodeGenOpts.EmitLLVMUseLists,
-                                  CodeGenOpts.EmitSummaryIndex,
-                                  CodeGenOpts.EmitSummaryIndex));
+    if (CodeGenOpts.EmitSummaryIndex) {
+      if (!CodeGenOpts.ThinLinkBitcodeFile.empty()) {
+        std::error_code EC;
+        ThinLinkOS.emplace(CodeGenOpts.ThinLinkBitcodeFile, EC,
+                           llvm::sys::fs::F_None);
+        if (EC) {
+          Diags.Report(diag::err_fe_unable_to_open_output)
+              << CodeGenOpts.ThinLinkBitcodeFile << EC.message();
+          return;
+        }
+      }
+      MPM.addPass(
+          ThinLTOBitcodeWriterPass(*OS, ThinLinkOS ? &*ThinLinkOS : nullptr));
+    } else {
+      MPM.addPass(BitcodeWriterPass(*OS, CodeGenOpts.EmitLLVMUseLists,
+                                    CodeGenOpts.EmitSummaryIndex,
+                                    CodeGenOpts.EmitSummaryIndex));
+    }
     break;
 
   case Backend_EmitLL:
@@ -921,11 +978,11 @@ Expected<BitcodeModule> clang::FindThinLTOModule(MemoryBufferRef MBRef) {
   if (!BMsOrErr)
     return BMsOrErr.takeError();
 
-  // The bitcode file may contain multiple modules, we want the one with a
-  // summary.
+  // The bitcode file may contain multiple modules, we want the one that is
+  // marked as being the ThinLTO module.
   for (BitcodeModule &BM : *BMsOrErr) {
-    Expected<bool> HasSummary = BM.hasSummary();
-    if (HasSummary && *HasSummary)
+    Expected<BitcodeLTOInfo> LTOInfo = BM.getLTOInfo();
+    if (LTOInfo && LTOInfo->IsThinLTO)
       return BM;
   }
 
@@ -941,7 +998,7 @@ static void runThinLTOBackend(ModuleSummaryIndex *CombinedIndex, Module *M,
                               std::unique_ptr<raw_pwrite_stream> OS,
                               std::string SampleProfile,
                               BackendAction Action) {
-  StringMap<std::map<GlobalValue::GUID, GlobalValueSummary *>>
+  StringMap<DenseMap<GlobalValue::GUID, GlobalValueSummary *>>
       ModuleToDefinedGVSummaries;
   CombinedIndex->collectDefinedGVSummariesPerModule(ModuleToDefinedGVSummaries);
 
@@ -952,10 +1009,14 @@ static void runThinLTOBackend(ModuleSummaryIndex *CombinedIndex, Module *M,
   // via a WriteIndexesThinBackend.
   FunctionImporter::ImportMapTy ImportList;
   for (auto &GlobalList : *CombinedIndex) {
+    // Ignore entries for undefined references.
+    if (GlobalList.second.SummaryList.empty())
+      continue;
+
     auto GUID = GlobalList.first;
-    assert(GlobalList.second.size() == 1 &&
+    assert(GlobalList.second.SummaryList.size() == 1 &&
            "Expected individual combined index to have one summary per GUID");
-    auto &Summary = GlobalList.second[0];
+    auto &Summary = GlobalList.second.SummaryList[0];
     // Skip the summaries for the importing module. These are included to
     // e.g. record required linkage changes.
     if (Summary->modulePath() == M->getModuleIdentifier())
@@ -1000,6 +1061,7 @@ static void runThinLTOBackend(ModuleSummaryIndex *CombinedIndex, Module *M,
   Conf.CGOptLevel = getCGOptLevel(CGOpts);
   initTargetOptions(Conf.Options, CGOpts, TOpts, LOpts, HeaderOpts);
   Conf.SampleProfile = std::move(SampleProfile);
+  Conf.UseNewPM = CGOpts.ExperimentalNewPassManager;
   switch (Action) {
   case Backend_EmitNothing:
     Conf.PreCodeGenModuleHook = [](size_t Task, const Module &Mod) {
@@ -1044,7 +1106,8 @@ void clang::EmitBackendOutput(DiagnosticsEngine &Diags,
     // into memory and pass it into runThinLTOBackend, which will run the
     // function importer and invoke LTO passes.
     Expected<std::unique_ptr<ModuleSummaryIndex>> IndexOrErr =
-        llvm::getModuleSummaryIndexForFile(CGOpts.ThinLTOIndexFile);
+        llvm::getModuleSummaryIndexForFile(CGOpts.ThinLTOIndexFile,
+                                           /*IgnoreEmptyThinLTOIndexFile*/true);
     if (!IndexOrErr) {
       logAllUnhandledErrors(IndexOrErr.takeError(), errs(),
                             "Error loading index file '" +

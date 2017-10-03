@@ -49,7 +49,7 @@ static bool printLoc(llvm::raw_ostream &OS, SourceLocation Loc,
 static StringRef GetExternalSourceContainer(const NamedDecl *D) {
   if (!D)
     return StringRef();
-  if (auto *attr = D->getAttr<ExternalSourceSymbolAttr>()) {
+  if (auto *attr = D->getExternalSourceSymbolAttr()) {
     return attr->getDefinedIn();
   }
   return StringRef();
@@ -811,7 +811,13 @@ void USRGenerator::VisitType(QualType T) {
       T = InjT->getInjectedSpecializationType();
       continue;
     }
-    
+    if (const auto *VT = T->getAs<VectorType>()) {
+      Out << (T->isExtVectorType() ? ']' : '[');
+      Out << VT->getNumElements();
+      T = VT->getElementType();
+      continue;
+    }
+
     // Unhandled type.
     Out << ' ';
     break;

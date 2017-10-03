@@ -70,13 +70,17 @@ static const char kSuppressionLeak[] = "leak";
 static const char *kSuppressionTypes[] = { kSuppressionLeak };
 static const char kStdSuppressions[] =
 #if SANITIZER_SUPPRESS_LEAK_ON_PTHREAD_EXIT
-  // The actual string allocation happens here (for more details refer to the
-  // SANITIZER_SUPPRESS_LEAK_ON_PTHREAD_EXIT definition).
-  "leak:*_dl_map_object_deps*\n"
+  // For more details refer to the SANITIZER_SUPPRESS_LEAK_ON_PTHREAD_EXIT
+  // definition.
+  "leak:*pthread_exit*\n"
 #endif  // SANITIZER_SUPPRESS_LEAK_ON_PTHREAD_EXIT
+#if SANITIZER_MAC
+  // For Darwin and os_log/os_trace: https://reviews.llvm.org/D35173
+  "leak:*_os_trace*\n"
+#endif
   // TLS leak in some glibc versions, described in
   // https://sourceware.org/bugzilla/show_bug.cgi?id=12650.
-  "leak:*tls_get_addr_tail*\n";
+  "leak:*tls_get_addr*\n";
 
 void InitializeSuppressions() {
   CHECK_EQ(nullptr, suppression_ctx);
@@ -265,19 +269,21 @@ static void ProcessThreads(SuspendedThreadsList const &suspended_threads,
     }
 
     if (flags()->use_tls) {
-      LOG_THREADS("TLS at %p-%p.\n", tls_begin, tls_end);
-      if (cache_begin == cache_end) {
-        ScanRangeForPointers(tls_begin, tls_end, frontier, "TLS", kReachable);
-      } else {
-        // Because LSan should not be loaded with dlopen(), we can assume
-        // that allocator cache will be part of static TLS image.
-        CHECK_LE(tls_begin, cache_begin);
-        CHECK_GE(tls_end, cache_end);
-        if (tls_begin < cache_begin)
-          ScanRangeForPointers(tls_begin, cache_begin, frontier, "TLS",
-                               kReachable);
-        if (tls_end > cache_end)
-          ScanRangeForPointers(cache_end, tls_end, frontier, "TLS", kReachable);
+      if (tls_begin) {
+        LOG_THREADS("TLS at %p-%p.\n", tls_begin, tls_end);
+        // If the tls and cache ranges don't overlap, scan full tls range,
+        // otherwise, only scan the non-overlapping portions
+        if (cache_begin == cache_end || tls_end < cache_begin ||
+            tls_begin > cache_end) {
+          ScanRangeForPointers(tls_begin, tls_end, frontier, "TLS", kReachable);
+        } else {
+          if (tls_begin < cache_begin)
+            ScanRangeForPointers(tls_begin, cache_begin, frontier, "TLS",
+                                 kReachable);
+          if (tls_end > cache_end)
+            ScanRangeForPointers(cache_end, tls_end, frontier, "TLS",
+                                 kReachable);
+        }
       }
       if (dtls && !DTLSInDestruction(dtls)) {
         for (uptr j = 0; j < dtls->dtv_size; ++j) {
@@ -299,11 +305,10 @@ static void ProcessThreads(SuspendedThreadsList const &suspended_threads,
 }
 
 void ScanRootRegion(Frontier *frontier, const RootRegion &root_region,
-                    uptr region_begin, uptr region_end, uptr prot) {
+                    uptr region_begin, uptr region_end, bool is_readable) {
   uptr intersection_begin = Max(root_region.begin, region_begin);
   uptr intersection_end = Min(region_end, root_region.begin + root_region.size);
   if (intersection_begin >= intersection_end) return;
-  bool is_readable = prot & MemoryMappingLayout::kProtectionRead;
   LOG_POINTERS("Root region %p-%p intersects with mapped region %p-%p (%s)\n",
                root_region.begin, root_region.begin + root_region.size,
                region_begin, region_end,
@@ -316,11 +321,10 @@ void ScanRootRegion(Frontier *frontier, const RootRegion &root_region,
 static void ProcessRootRegion(Frontier *frontier,
                               const RootRegion &root_region) {
   MemoryMappingLayout proc_maps(/*cache_enabled*/ true);
-  uptr begin, end, prot;
-  while (proc_maps.Next(&begin, &end,
-                        /*offset*/ nullptr, /*filename*/ nullptr,
-                        /*filename_size*/ 0, &prot)) {
-    ScanRootRegion(frontier, root_region, begin, end, prot);
+  MemoryMappedSegment segment;
+  while (proc_maps.Next(&segment)) {
+    ScanRootRegion(frontier, root_region, segment.start, segment.end,
+                   segment.IsReadable());
   }
 }
 
@@ -572,18 +576,16 @@ static bool CheckForLeaks() {
   return false;
 }
 
+static bool has_reported_leaks = false;
+bool HasReportedLeaks() { return has_reported_leaks; }
+
 void DoLeakCheck() {
   BlockingMutexLock l(&global_mutex);
   static bool already_done;
   if (already_done) return;
   already_done = true;
-  bool have_leaks = CheckForLeaks();
-  if (!have_leaks) {
-    return;
-  }
-  if (common_flags()->exitcode) {
-    Die();
-  }
+  has_reported_leaks = CheckForLeaks();
+  if (has_reported_leaks) HandleLeaks();
 }
 
 static int DoRecoverableLeakCheck() {
