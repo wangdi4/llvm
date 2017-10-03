@@ -16,7 +16,7 @@
 ;;}
 ;;==========================================
 ;;
-; The test checks that GenericAddressStaticResolution pass copies debug info along with resolved func.
+; The test checks that the passes preserve debug info.
 ;
 ; CHECK: @func{{.*}} !dbg ![[DMETA1:[0-9]+]]
 ; CHECK: @invoke_func{{.*}} !dbg ![[DMETA2:[0-9]+]]

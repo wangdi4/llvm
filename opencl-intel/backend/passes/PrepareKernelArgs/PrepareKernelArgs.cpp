@@ -86,8 +86,9 @@ namespace intel{
     pNewF->setCallingConv(pFunc->getCallingConv());
     pNewF->copyMetadata(pFunc, 0);
 
-    // Set DISubprogram as an original function has
-    pNewF->setSubprogram(pFunc->getSubprogram());
+    // pFunc is expected to be inlined anyway,
+    // so no need to duplicate DISubprogram.
+    pFunc->setSubprogram(nullptr);
 
     return pNewF;
   }
