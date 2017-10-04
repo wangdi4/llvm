@@ -27,7 +27,12 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
+#if INTEL_CUSTOMIZATION
+#include "llvm/IR/Constant.h"
+#endif
+
 namespace llvm {
+namespace vpo {
 
 // Forward declarations.
 class VPUser;
@@ -50,17 +55,26 @@ public:
   /// are actually instantiated. Values of this enumeration are kept in the
   /// SubclassID field of the VPValue objects. They are used for concrete
   /// type identification.
+#if INTEL_CUSTOMIZATION
+  enum { VPValueSC, VPUserSC, VPInstructionSC, VPConstantSC };
+#else
   enum { VPValueSC, VPUserSC, VPInstructionSC };
+#endif
 
   VPValue() : SubclassID(VPValueSC) {}
   VPValue(const VPValue &) = delete;
   VPValue &operator=(const VPValue &) = delete;
+#if INTEL_CUSTOMIZATION
+  virtual ~VPValue() {}
+#endif
 
   /// \return an ID for the concrete type of this object.
   /// This is used to implement the classof checks. This should not be used
   /// for any other purpose, as the values may change as LLVM evolves.
   unsigned getVPValueID() const { return SubclassID; }
-
+#if INTEL_CUSTOMIZATION
+  virtual
+#endif
   void printAsOperand(raw_ostream &OS) const {
     OS << "%vp" << (unsigned short)(unsigned long long)this;
   }
@@ -161,6 +175,46 @@ public:
   }
 };
 
+#if INTEL_CUSTOMIZATION
+/// This class augments VPValue with constant operands that encapsulates LLVM
+/// Constant information. In the same way as LLVM Constant, VPConstant is
+/// immutable (once created they never change) and are fully shared by
+/// structural equivalence (e.g. i32 7 == i32 7, but i32 7 != i64 7). This means
+/// that two structurally equivalent VPConstants will always have the same
+/// address.
+// TODO: At this point, to-be-kept-scalar and to-be-widened instances of the
+// same input Constant are represented with the same VPConstant because the
+// input is the same Constant. Currently, we assume that there is a single VL
+// that is applied to everything within VPlan and CG makes the right
+// widening/scalarizing decisions. The idea is to progressively model those CG
+// decisions in early stages of VPlan and, for that, we will need VPType or
+// similar. When a VPConstant has a VPType, the latter would be part of the
+// structural equivalence and both to-be-kept-scalar and to-be-widened
+// constants will be represented with two different VPConstants.
+class VPConstant : public VPValue {
+  // VPlan is currently the context where we hold the pool of VPConstants.
+  friend class VPlan;
+
+private:
+  Constant *Const;
+
+protected:
+  VPConstant(Constant *Const) : VPValue(VPValue::VPConstantSC), Const(Const) {}
+
+public:
+  VPConstant(const VPConstant &) = delete;
+  VPConstant &operator=(const VPConstant &) const = delete;
+
+  // Structural comparators.
+  bool operator==(const VPConstant &C) const { return Const == C.Const; };
+  bool operator<(const VPConstant &C) const { return Const < C.Const; };
+
+  void printAsOperand(raw_ostream &OS) const override {
+    Const->printAsOperand(OS);
+  }
+};
+#endif // INTEL_CUSTOMIZATION
+} // namespace vpo
 } // namespace llvm
 
 #endif // LLVM_TRANSFORMS_VECTORIZE_VPLAN_VALUE_H

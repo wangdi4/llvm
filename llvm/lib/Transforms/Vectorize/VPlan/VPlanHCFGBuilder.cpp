@@ -782,7 +782,7 @@ private:
 
   DenseMap<Value *, VPConditionBitRecipeBase *> BranchCondMap;
   DenseMap<BasicBlock *, VPBasicBlock *> BB2VPBB;
-  DenseMap<Value *, VPValue *> Value2VPValue;
+  DenseMap<Value *, VPValue *> IRDef2VPValue;
 
   // Auxiliary functions
   bool isConditionForUniformBranch(Instruction *I);
@@ -888,44 +888,40 @@ bool PlainCFGBuilder::isExternalDef(Instruction *Inst) {
 // IROp. This function must only be used to create/retrieve *operands* for a
 // VPInstruction and not to create regular VPInstruction's.
 VPValue *PlainCFGBuilder::createOrGetVPOperand(Value *IROp) {
-  auto VPValIt = Value2VPValue.find(IROp);
+  // Constant operand
+  if (Constant *IRConst = dyn_cast<Constant>(IROp))
+    return PlanUtils.getVPlan()->getVPConstant(IRConst);
 
-  VPValue *VPVal;
-  if (VPValIt != Value2VPValue.end()) {
-    VPVal = VPValIt->second;
-  } else {
-    // There is no VPValue generated for IROp. This means that IROp is:
-    //   A) a definition external to VPlan,
-    //   B) a use whose definition hasnt't been visited yet,
-    //   C) a Constant
-    //   D) any other Value without specific representation in VPlan.
+  auto VPValIt = IRDef2VPValue.find(IROp);
+  // Operand has an associated VPInstruction or VPValue (for Values without
+  // specific representation) that was previously created.
+  if (VPValIt != IRDef2VPValue.end())
+    return VPValIt->second;
 
-    // TODO: Memory deallocation of new VPValue.
-    if (auto *InstOperand = dyn_cast<Instruction>(IROp)) {
-      if (isExternalDef(InstOperand)) // A
-        VPVal = new VPValue();
-      else {
-        // B: Create instruction without operands and do not insert it. It will
-        // be fixed when the definition is processed.
-        // TODO: Assert for PhiInst?
-        VPBasicBlock *PrevInsertPoint = VPIRBuilder.getInsertBlock();
-        VPIRBuilder.clearInsertionPoint();
-        VPVal =
-            VPIRBuilder.createNaryOp(InstOperand->getOpcode(), {}, InstOperand);
-        VPIRBuilder.setInsertPoint(PrevInsertPoint);
-      }
-    } else if (isa<Constant>(IROp)) { // C
-      // TODO: Introduce VPCconstant
-      VPVal = new VPValue();
-    } else { // D
-      // TODO: Add VPRaw? Specific representation for metadata?.
-      VPVal = new VPValue();
-    }
+  // Operand is not a Constant and doesn't have a previously created
+  // VPInstruction/VPValue. This means that operand is:
+  //   A) a definition external to VPlan,
+  //   B) a use whose definition hasnt't been visited yet (phi's operands),
+  //   C) any other Value without specific representation in VPlan.
+  VPValue *NewVPVal;
+  if (auto *InstOperand = dyn_cast<Instruction>(IROp)) {
+    // A and B: Create instruction without operands and do not insert it in
+    // the VPBasicBlock. For A, we insert it in the VPlan's pool of external
+    // definitions. For B, it will be fixed and inserted when the definition
+    // is processed.
+    VPBuilder::InsertPointGuard Guard(VPIRBuilder);
+    VPIRBuilder.clearInsertionPoint();
+    NewVPVal = VPIRBuilder.createNaryOp(InstOperand->getOpcode(),
+                                        {} /*No operands*/, InstOperand);
+    if (isExternalDef(InstOperand))
+      PlanUtils.getVPlan()->addExternalDef(cast<VPInstruction>(NewVPVal));
+  } else // C
+    // TODO: Add VPRaw? Specific representation for metadata?.
+    // TODO: Memory deallocation of these VPValues.
+    NewVPVal = new VPValue();
 
-    Value2VPValue[IROp] = VPVal;
-  }
-
-  return VPVal;
+  IRDef2VPValue[IROp] = NewVPVal;
+  return NewVPVal;
 }
 
 // Helper function that creates VPInstruction's for a range of Instructions in a
@@ -938,17 +934,16 @@ void PlainCFGBuilder::createVPInstructionsForRange(
   VPIRBuilder.setInsertPoint(InsertionPoint);
   for (Instruction &InstRef : make_range(I, J)) {
     Instruction *Inst = &InstRef;
-    auto VPValIt = Value2VPValue.find(Inst);
+    auto VPValIt = IRDef2VPValue.find(Inst);
 
     VPInstruction *NewVPInst;
-    if (VPValIt != Value2VPValue.end()) {
+    if (VPValIt != IRDef2VPValue.end()) {
       // Inst is a definition with a user that has been previosly visited. We
       // have to set its operands properly and insert it into the
       // VPBasicBlock/Recipe.
       assert(isa<VPInstruction>(VPValIt->second) &&
              "Unexpected VPValue. Expected a VPInstruction");
       NewVPInst = cast<VPInstruction>(VPValIt->second);
-
       VPIRBuilder.insert(NewVPInst);
     } else {
       // Create new VPInstruction.
@@ -956,15 +951,13 @@ void PlainCFGBuilder::createVPInstructionsForRange(
       // branches.
       NewVPInst = cast<VPInstruction>(VPIRBuilder.createNaryOp(
           Inst->getOpcode(), {} /*No operands*/, Inst));
-
-      Value2VPValue[Inst] = NewVPInst;
+      IRDef2VPValue[Inst] = NewVPInst;
     }
 
     // Translate LLVM-IR operands to VPValue operands and set them in the new
     // VPInstruction.
-    for (Value *Op : Inst->operands()) {
+    for (Value *Op : Inst->operands())
       NewVPInst->addOperand(createOrGetVPOperand(Op));
-    }
   }
 }
 

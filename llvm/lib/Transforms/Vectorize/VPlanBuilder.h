@@ -67,11 +67,40 @@ public:
   }
 
   VPBasicBlock *getInsertBlock() const { return BB; }
+  VPBasicBlock::iterator getInsertPoint() const { return InsertPt; }
 
   /// \brief Insert and return the specified instruction.
   VPInstruction *insert(VPInstruction *I) const {
     BB->insert(I, InsertPt);
     return I;
+  }
+
+  /// InsertPoint - A saved insertion point.
+  class VPInsertPoint {
+    VPBasicBlock *Block = nullptr;
+    VPBasicBlock::iterator Point;
+
+  public:
+    /// \brief Creates a new insertion point which doesn't point to anything.
+    VPInsertPoint() = default;
+
+    /// \brief Creates a new insertion point at the given location.
+    VPInsertPoint(VPBasicBlock *InsertBlock, VPBasicBlock::iterator InsertPoint)
+        : Block(InsertBlock), Point(InsertPoint) {}
+
+    /// \brief Returns true if this insert point is set.
+    bool isSet() const { return (Block != nullptr); }
+
+    VPBasicBlock *getBlock() const { return Block; }
+    VPBasicBlock::iterator getPoint() const { return Point; }
+  };
+
+  /// \brief Sets the current insert point to a previously-saved location.
+  void restoreIP(VPInsertPoint IP) {
+    if (IP.isSet())
+      setInsertPoint(IP.getBlock(), IP.getPoint());
+    else
+      clearInsertionPoint();
   }
 #endif
 
@@ -82,7 +111,14 @@ public:
     BB = TheBB;
     InsertPt = BB->end();
   }
-
+#if INTEL_CUSTOMIZATION
+  /// \brief This specifies that created instructions should be inserted at the
+  /// specified point.
+  void setInsertPoint(VPBasicBlock *TheBB, VPBasicBlock::iterator IP) {
+    BB = TheBB;
+    InsertPt = IP;
+  }
+#endif
   VPValue *createNot(VPValue *Operand) {
     return createInstruction(VPInstruction::Not, {Operand});
   }
@@ -94,8 +130,33 @@ public:
   VPValue *createOr(VPValue *LHS, VPValue *RHS) {
     return createInstruction(Instruction::BinaryOps::Or, {LHS, RHS});
   }
-};
 
+#if INTEL_CUSTOMIZATION
+  //===--------------------------------------------------------------------===//
+  // RAII helpers.
+  //===--------------------------------------------------------------------===//
+
+  // \brief RAII object that stores the current insertion point and restores it
+  // when the object is destroyed.
+  class InsertPointGuard {
+    VPBuilder &Builder;
+    // TODO: AssertingVH<VPBasicBlock> Block;
+    VPBasicBlock* Block;
+    VPBasicBlock::iterator Point;
+
+  public:
+    InsertPointGuard(VPBuilder &B)
+        : Builder(B), Block(B.getInsertBlock()), Point(B.getInsertPoint()) {}
+
+    InsertPointGuard(const InsertPointGuard &) = delete;
+    InsertPointGuard &operator=(const InsertPointGuard &) = delete;
+
+    ~InsertPointGuard() {
+      Builder.restoreIP(VPInsertPoint(Block, Point));
+    }
+  };
+#endif // INTEL_CUSTOMIZATION
+};
 #if INTEL_CUSTOMIZATION
 //==========================//
 //== VPO-specific changes ==//

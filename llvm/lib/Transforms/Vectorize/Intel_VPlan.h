@@ -1677,9 +1677,20 @@ protected:
   /// Holds the name of the VPlan, for printing.
   std::string Name;
 
-#if !INTEL_CUSTOMIZATION
-  // NOTE: Value2VPValue is only used in open-source as a stepping stone to
-  // VPInstructionData. It is not used in VPO.
+#if INTEL_CUSTOMIZATION
+  /// Holds all the VPConstants created for this VPlan.
+  DenseSet<VPConstant*> VPConstants;
+
+  // TODO: We should follow the same approach for VPExternalDefs as for
+  // VPConstant (i.e. having a single instance per structurally equal external
+  // definition). However, it is better to wait until we have the right
+  // class to represent external definitions (VPLiveIn class or similar) because
+  // they need a specific '<' operator and guarantee that the class is immutable
+  // after the construction. For now, the following data structure is used only
+  // for memory deallocation purposes.
+  /// Holds all the external definitions created for this VPlan.
+  SmallVector<VPInstruction *, 32> VPExternalDefs;
+#else
   /// Holds a mapping between Values and their corresponding VPValue inside
   /// VPlan.
   Value2VPValueTy Value2VPValue;
@@ -1700,7 +1711,12 @@ public:
   ~VPlan() {
     if (Entry)
       VPBlockBase::deleteCFG(Entry);
-#if !INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
+    for (auto *VPConst : VPConstants)
+      delete VPConst;
+    for (auto *VPInst : VPExternalDefs)
+      delete VPInst;
+#else
     for (auto &MapEntry : Value2VPValue)
       delete MapEntry.second;
 #endif
@@ -1721,7 +1737,7 @@ public:
 
   void setEntry(VPBlockBase *Block) { Entry = Block; }
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION // Old interfaces. To be removed.
   void setInst2Recipe(Instruction *I, VPRecipeBase *R) { Inst2Recipe[I] = R; }
 
   void resetInst2Recipe(Instruction *I) { Inst2Recipe.erase(I); }
@@ -1757,7 +1773,20 @@ public:
 
   void setName(const Twine &newName) { Name = newName.str(); }
 
-#if !INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
+  /// Create a new VPConstant for \p Const if it doesn't exist or retrieve the
+  /// existing one.
+  VPConstant *getVPConstant(Constant *Const) {
+    // Dropping the const qualifier is not a problem because VPConstant is
+    // immutable.
+    return *VPConstants.insert(new VPConstant(Const)).first;
+  }
+
+  /// Add a new element to the pool of external definitions.
+  void addExternalDef(VPInstruction *VPInst) {
+    VPExternalDefs.push_back(VPInst);
+  }
+#else
   void addVPValue(Value &V) {
     if (!Value2VPValue.count(&V))
       Value2VPValue[&V] = new VPValue();
