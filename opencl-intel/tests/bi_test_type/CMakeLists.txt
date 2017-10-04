@@ -3,7 +3,8 @@ set( INSTALL_DIR tests/${TARGET} )
 
 include_directories( AFTER
     ${CL_API_HEADERS}
-    ../../externals/gtest/include )
+    ../../externals/gtest/include
+    ${OCL_SOURCE_DIR}/tests/test_common )
 
 add_executable( ${TARGET} bi_tests.cpp pipe_tests.cpp )
 target_link_libraries( ${TARGET} googletest ${PTHREAD_LIB})

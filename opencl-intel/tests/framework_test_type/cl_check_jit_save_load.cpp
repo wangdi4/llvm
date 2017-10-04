@@ -122,7 +122,11 @@ bool clCheckJITSaveLoadTest()
     };
 
     printf("clCheckJITSaveLoadTest\n");
-    if(gDeviceType != CL_DEVICE_TYPE_CPU) return true;
+    if (gDeviceType != CL_DEVICE_TYPE_CPU
+        && gDeviceType != CL_DEVICE_TYPE_ACCELERATOR /* fpga emulator case */)
+    {
+        return true;
+    }
 
     cl_platform_id platform = 0;
     cl_int iRet = clGetPlatformIDs(1, &platform, NULL);

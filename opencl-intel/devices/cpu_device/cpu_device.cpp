@@ -603,7 +603,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             //if OUT paramVal is NULL it should be ignored
             if(nullptr != paramVal)
             {
+#ifdef BUILD_FPGA_EMULATOR
+                *(cl_device_type*)paramVal =
+                    (cl_device_type)CL_DEVICE_TYPE_ACCELERATOR;
+#else
                 *(cl_device_type*)paramVal = (cl_device_type)CL_DEVICE_TYPE_CPU;
+#endif
             }
             return CL_DEV_SUCCESS;
         }
@@ -1282,11 +1287,15 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         }
         case( CL_DEVICE_NAME):
         {
+#ifdef BUILD_FPGA_EMULATOR
+            const char* name = "Intel(R) FPGA Emulation Device (preview)";
+#else
             const char* name = CPUDetect::GetInstance()->GetCPUBrandString();
             if (!strcmp("", name))
             {
                 name = "Unknown CPU";
             }
+#endif
             *pinternalRetunedValueSize = strlen(name) + 1;
             if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {

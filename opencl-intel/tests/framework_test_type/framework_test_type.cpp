@@ -835,12 +835,17 @@ int main(int argc, char** argv)
 {
     std::map<std::string, cl_device_type> clDeviceTypeMap;
     gBcfuncMap[CL_DEVICE_TYPE_CPU] = cpuBCOpen;
+#ifdef BUILD_FPGA_EMULATOR
+    gBcfuncMap[CL_DEVICE_TYPE_ACCELERATOR] = cpuBCOpen;
+#else
     gBcfuncMap[CL_DEVICE_TYPE_ACCELERATOR] = micBCOpen;
+#endif
     gBcfuncMap[CL_DEVICE_TYPE_GPU] = cpuBCOpen;
     gBcfuncMap[CL_DEVICE_TYPE_DEFAULT] = cpuBCOpen;
     gBcfuncMap[CL_DEVICE_TYPE_ALL] = cpuBCOpen;
     clDeviceTypeMap["cpu"] = CL_DEVICE_TYPE_CPU;
     clDeviceTypeMap["mic"] = CL_DEVICE_TYPE_ACCELERATOR;
+    clDeviceTypeMap["fpga_fast_emu"] = CL_DEVICE_TYPE_ACCELERATOR;
     clDeviceTypeMap["gpu"] = CL_DEVICE_TYPE_GPU;
     clDeviceTypeMap["default"] = CL_DEVICE_TYPE_DEFAULT;
     clDeviceTypeMap["all"] = CL_DEVICE_TYPE_ALL;

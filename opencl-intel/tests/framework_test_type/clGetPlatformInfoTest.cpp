@@ -96,7 +96,11 @@ bool clGetPlatformInfoTest()
         {
             expectedString += "2.1 ";
         }
-        #else //BUILD_EXPERIMENTAL_21
+        #elif defined(BUILD_FPGA_EMULATOR)
+        {
+            expectedString += "2.0 ";
+        }
+        #else // BUILD_FPGA_EMULATOR
         {
             switch (GetOpenclVerByCpuModel())
             {

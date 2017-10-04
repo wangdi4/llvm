@@ -3,6 +3,8 @@
 #include "FrameworkTest.h"
 #include "cl_provisional.h"
 
+extern cl_device_type gDeviceType;
+
 #define BOGUS_ERR_CODE -10
 
 #define NOISY_CHECK(name, expected, actual) \
@@ -89,13 +91,13 @@ bool EventCallbackTest()
 	cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
 
 	// get device(s)
-	iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU, 0, NULL, &uiNumDevices);
+	iRet = clGetDeviceIDs(platform, gDeviceType, 0, NULL, &uiNumDevices);
 	NOISY_CHECK("clGetDeviceIDs",CL_SUCCESS, iRet);
 
 	// initialize arrays
 	pDevices = PROV_ARR(new cl_device_id[uiNumDevices]);
 
-	iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU, uiNumDevices, pDevices, NULL);
+	iRet = clGetDeviceIDs(platform, gDeviceType, uiNumDevices, pDevices, NULL);
 	NOISY_CHECK("clGetDeviceIDs",CL_SUCCESS, iRet);
 
 	// create context

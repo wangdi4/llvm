@@ -12,6 +12,7 @@
 
 using namespace std;
 
+extern cl_device_type gDeviceType;
 
 // The copying native kernel function simply copies an input buffer into the 
 // output buffer.
@@ -65,11 +66,11 @@ protected:
         ASSERT_EQ(CL_SUCCESS, rc);
 
         cl_uint num_devices;
-        rc = clGetDeviceIDs(platform_id, CL_DEVICE_TYPE_CPU, 0, 0, &num_devices);
+        rc = clGetDeviceIDs(platform_id, gDeviceType, 0, 0, &num_devices);
         ASSERT_EQ(CL_SUCCESS, rc);
         m_devices = (cl_device_id*) malloc(num_devices * sizeof(*m_devices));
         ASSERT_TRUE(m_devices != 0);
-        rc = clGetDeviceIDs(platform_id, CL_DEVICE_TYPE_CPU, num_devices, m_devices, 0);
+        rc = clGetDeviceIDs(platform_id, gDeviceType, num_devices, m_devices, 0);
         ASSERT_EQ(CL_SUCCESS, rc);
 
         cl_context_properties props[3] = {

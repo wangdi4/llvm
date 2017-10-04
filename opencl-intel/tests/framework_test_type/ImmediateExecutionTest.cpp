@@ -2,6 +2,8 @@
 #include <CL/cl_ext.h>
 #include "FrameworkTest.h"
 
+extern cl_device_type gDeviceType;
+
 static const size_t IMMEDIATE_EXECUTION_GLOBAL_SIZE  = 4;
 static const size_t IMMEDIATE_EXECUTION_LOCAL_SIZE   = 4;
 
@@ -36,7 +38,7 @@ bool immediateExecutionTest()
     cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
 
     // get the first CPU device
-    iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU, 1, &device_id, NULL);
+    iRet = clGetDeviceIDs(platform, gDeviceType, 1, &device_id, NULL);
     bResult &= SilentCheck("clGetDeviceIDs",CL_SUCCESS, iRet);
     if (!bResult)
     {

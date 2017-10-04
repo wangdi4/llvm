@@ -1,4 +1,10 @@
+#include <map>
+#include <string>
+
 #include "bi_tests.h"
+#include "test_common.h"
+
+cl_device_type gDeviceType = CL_DEVICE_TYPE_CPU;
 
 cl_platform_id fetchPlatform() {
 
@@ -38,8 +44,9 @@ void BITest::SetUp() {
   platform = fetchPlatform();
   ASSERT_TRUE(platform != nullptr) << "No OpenCL platforms available";
 
-  device = fetchDevice(platform, CL_DEVICE_TYPE_CPU);
-  ASSERT_TRUE(device != nullptr) << "OpenCL CPU device not found";
+  device = fetchDevice(platform, gDeviceType);
+  ASSERT_TRUE(device != nullptr) << "OpenCL device of type" << gDeviceType <<
+     " not found";
 
   cl_int error;
   context = clCreateContext(NULL, 1, &device, NULL, NULL, &error);
@@ -81,8 +88,26 @@ cl_mem BITest::createBuffer(size_t size, cl_mem_flags flags, void *host_ptr) {
   return buf;
 }
 
+CommandLineOption<std::string> deviceOption("--device_type");
 
 int main(int argc, char **argv) {
+  std::map<std::string, cl_device_type> clDeviceTypeMap;
+  clDeviceTypeMap["cpu"] = CL_DEVICE_TYPE_CPU;
+  clDeviceTypeMap["fpga_fast_emu"] = CL_DEVICE_TYPE_ACCELERATOR;
+  clDeviceTypeMap["default"] = CL_DEVICE_TYPE_DEFAULT;
+  clDeviceTypeMap["all"] = CL_DEVICE_TYPE_ALL;
   ::testing::InitGoogleTest(&argc, argv);
+  if (argc > 1) {
+    for (int i = 1 ; i < argc ; i++)
+      if (deviceOption.isMatch(argv[i])) {
+        std::string deviceTypeStr = deviceOption.getValue(argv[i]);
+        auto iter = clDeviceTypeMap.find(deviceTypeStr);
+        if (iter == clDeviceTypeMap.end()) {
+            printf("error: unkown device option: %s\n", deviceTypeStr.c_str());
+            return 1;
+        }
+        gDeviceType = iter->second;
+      }
+  }
   return RUN_ALL_TESTS();
 }

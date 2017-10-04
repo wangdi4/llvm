@@ -74,7 +74,11 @@ else()
 endif(WIN32)
 
 # set that name of the main output file as a target name
-set( TARGET_NAME intelocl${BUILD_PLATFORM} )
+if (NOT WIN32 OR BUILD_FPGA_EMULATOR)
+    set( TARGET_NAME intelocl${BUILD_PLATFORM}${OPENCL_BINARIES_POSTFIX} )
+else (NOT WIN32 OR BUILD_FPGA_EMULATOR)
+    set( TARGET_NAME intelocl${BUILD_PLATFORM} )
+endif (NOT WIN32 OR BUILD_FPGA_EMULATOR)
 
 FIND_SOURCES()
 CALCULATE_TARGET_SOURCES()

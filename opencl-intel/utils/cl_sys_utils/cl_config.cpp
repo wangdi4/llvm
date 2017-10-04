@@ -505,7 +505,9 @@ OPENCL_VERSION BasicCLConfigWrapper::GetOpenCLVersion() const
 
 #ifdef BUILD_EXPERIMENTAL_21
     return OPENCL_VERSION_2_1;
-#endif // BUILD_EXPERIMENTAL_21
+#elif defined(BUILD_FPGA_EMULATOR)
+    return OPENCL_VERSION_2_0;
+#endif // BUILD_FPGA_EMULATOR
 
 #if !defined (__ANDROID__)
     s_ver = GetOpenclVerByCpuModel();

@@ -473,7 +473,7 @@ void CL21::GetKernelSubGroupInfo_COMPILE_NUM_SUB_GROUPS() const
     bResult &= Check("clGetPlatformIDs", CL_SUCCESS, iRet);
 
     cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
-    iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU, 1, &device, NULL);
+    iRet = clGetDeviceIDs(platform, gDeviceType, 1, &device, NULL);
     bResult &= Check("clGetDeviceIDs", CL_SUCCESS, iRet);
 
     context = clCreateContext(prop, 1, &device, NULL, NULL, &iRet);

@@ -50,7 +50,7 @@
 #define RELEASE_MEM 7
 #define RELEASE_IMAGES 8
 
-
+extern cl_device_type gDeviceType;
 
 //kernel test for native functions with one argument
 
@@ -297,11 +297,11 @@ bool clNativeFunctionTest()
     cl_command_queue queue;
 
 
-    cl_context context = clCreateContextFromType(prop, CL_DEVICE_TYPE_CPU, NULL, NULL, &iRet);
+    cl_context context = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);
     bResult &= SilentCheck("clCreateContextFromType", CL_SUCCESS, iRet);    
     if (!bResult) goto release_end;
 
-	iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU, 1, &clDefaultDeviceId, NULL);
+    iRet = clGetDeviceIDs(platform, gDeviceType, 1, &clDefaultDeviceId, NULL);
     bResult &= SilentCheck("clGetDeviceIDs", CL_SUCCESS, iRet);    
     if (!bResult) goto release_context;
 

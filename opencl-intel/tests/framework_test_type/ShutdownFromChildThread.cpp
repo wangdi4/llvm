@@ -3,6 +3,8 @@
 #include "FrameworkTest.h"
 #include "FrameworkTestThreads.h"
 
+extern cl_device_type gDeviceType;
+
 class ShutdownThread : public SynchronizedThread
 {
 public:
@@ -15,7 +17,7 @@ protected:
 
 void ShutdownThread::ThreadRoutine()
 {
-	cl_device_type    deviceType = CL_DEVICE_TYPE_CPU;
+	cl_device_type    deviceType = gDeviceType;
 	cl_device_id      deviceId;
 	cl_device_id*     devices = NULL;
 	cl_uint           numDevices = 0;

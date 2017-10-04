@@ -53,11 +53,12 @@ const unsigned int PlatformModule::m_uiPlatformInfoStrSize = sizeof(m_vPlatformI
 const char* PlatformModule::m_vPlatformVersionStr = nullptr;
 #ifdef BUILD_EXPERIMENTAL_21
 const char PlatformModule::m_vPlatformNameStr[] = "Experimental OpenCL 2.1 CPU Only Platform";
-const unsigned int PlatformModule::m_uiPlatformNameStrSize = sizeof(m_vPlatformNameStr) / sizeof(char);
+#elif defined(BUILD_FPGA_EMULATOR)
+const char PlatformModule::m_vPlatformNameStr[] = "Intel(R) FPGA Emulation Platform for OpenCL(TM) (preview)";
 #else
 const char PlatformModule::m_vPlatformNameStr[] = "Intel(R) OpenCL";
-const unsigned int PlatformModule::m_uiPlatformNameStrSize = sizeof(m_vPlatformNameStr) / sizeof(char);
 #endif // BUILD_EXPERIMENTAL_21
+const unsigned int PlatformModule::m_uiPlatformNameStrSize = sizeof(m_vPlatformNameStr) / sizeof(char);
 const char PlatformModule::m_vPlatformVendorStr[] = "Intel(R) Corporation";
 const unsigned int PlatformModule::m_uiPlatformVendorStrSize = sizeof(m_vPlatformVendorStr) / sizeof(char);
 

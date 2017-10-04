@@ -12,6 +12,8 @@
 #include <sys/resource.h>
 #endif
 
+extern cl_device_type gDeviceType;
+
 cl_ulong trySetLocalMemSize(cl_ulong size)
 {
 #ifdef _WIN32
@@ -141,7 +143,7 @@ bool cl_device_local_mem_size_test_body(cl_ulong expectedLocalMemSize, const std
     iRet = clGetPlatformIDs(1, &platform, nullptr);
     EXIT_IF_FAILED(Check("clGetPlatrormIDs", CL_SUCCESS, iRet));
 
-    iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU, 1, &device, nullptr);
+    iRet = clGetDeviceIDs(platform, gDeviceType, 1, &device, nullptr);
     EXIT_IF_FAILED(Check("clGetDeviceIDs", CL_SUCCESS, iRet));
 
     cl_ulong localMemSize = 0;

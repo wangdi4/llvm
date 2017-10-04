@@ -42,16 +42,17 @@ link_directories( ${TBB_LIB_DIR} )
 
 add_executable(${TARGET} ${TARGET_SOURCES})
 
+target_link_libraries(${TARGET} googletest cl_sys_utils)
 
 if (NOT WIN32)
-  if( ANDROID )
-    target_link_libraries( ${TARGET} c++ )
-    set_property(TARGET ${TARGET} APPEND_STRING PROPERTY LINK_FLAGS " -pie")
-  endif( ANDROID )
-  target_link_libraries(${TARGET} intelocl${BUILD_PLATFORM}${OPENCL_BINARIES_POSTFIX} cl_logger${OPENCL_BINARIES_POSTFIX} googletest ${PTHREAD_LIB} cl_sys_utils)
-else (NOT WIN32)
-  target_link_libraries(${TARGET} intelocl${BUILD_PLATFORM} googletest cl_sys_utils)
+  target_link_libraries(${TARGET} cl_logger${OPENCL_BINARIES_POSTFIX} ${PTHREAD_LIB})
 endif (NOT WIN32)
+
+if (NOT WIN32 OR BUILD_FPGA_EMULATOR)
+  target_link_libraries(${TARGET} intelocl${BUILD_PLATFORM}${OPENCL_BINARIES_POSTFIX})
+else (NOT WIN32 OR BUILD_FPGA_EMULATOR)
+  target_link_libraries(${TARGET} intelocl${BUILD_PLATFORM})
+endif (NOT WIN32 OR BUILD_FPGA_EMULATOR)
 
 #
 ##

@@ -136,7 +136,10 @@ bool GenerateBinaryFile()
 }
 
 bool clCheckCPUArchForJIT() {
-    if (gDeviceType != CL_DEVICE_TYPE_CPU) return true;
+    if (gDeviceType != CL_DEVICE_TYPE_CPU
+        && gDeviceType != CL_DEVICE_TYPE_ACCELERATOR /* fpga emulator case */) {
+      return true;
+    }
 
     if (!UNSETENV("VOLCANO_CPU_ARCH")) {
         printf("ERROR clCheckCPUArchForJIT: Can't unset VOLCANO_CPU_ARCH environment variable. Test FAILED\n");

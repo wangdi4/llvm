@@ -1,15 +1,22 @@
 #include "CL/cl.h"
 #include "gtest/gtest.h"
+
+#include <fstream>
+#include <map>
+#include <memory>
 #include <stdio.h>
 #include <stdlib.h>
+
 #include "FrameworkTest.h"
-#include "cl_utils.h"
 #include "cl_sys_info.h"
-#include <memory>
-#include <fstream>
+#include "cl_utils.h"
+#include "test_common.h"
+
 #ifdef _WIN32
 #include <windows.h>
 #endif
+
+cl_device_type gDeviceType = CL_DEVICE_TYPE_CPU;
 
 /**************************************************************************************************
 * clBuildProgram
@@ -30,7 +37,7 @@ static cl_platform_id getPlatformIds(){
 
 static cl_device_id* getDevices(cl_platform_id platform, cl_uint *uiNumDevices){
   // get device(s)
-  cl_int iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU, 0, NULL, uiNumDevices);
+  cl_int iRet = clGetDeviceIDs(platform, gDeviceType, 0, NULL, uiNumDevices);
   std::auto_ptr<cl_device_id> devices;
   if (CL_SUCCESS != iRet){
     printf("clGetDeviceIDs = %s\n",ClErrTxt(iRet));
@@ -38,7 +45,7 @@ static cl_device_id* getDevices(cl_platform_id platform, cl_uint *uiNumDevices){
   }
   // initialize arrays
   devices.reset(new cl_device_id[*uiNumDevices]);
-  iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU, *uiNumDevices, devices.get(), NULL);
+  iRet = clGetDeviceIDs(platform, gDeviceType, *uiNumDevices, devices.get(), NULL);
   if (CL_SUCCESS != iRet){
     printf("clGetDeviceIDs = %s\n",ClErrTxt(iRet));
     return nullptr;
@@ -509,7 +516,7 @@ TEST(OclRecorder, recording_local_memory2)
     ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clGetPlatformIDs";
 
     cl_device_id computeDevices;
-    returnResult = clGetDeviceIDs(computePlatform, CL_DEVICE_TYPE_CPU, 1, &computeDevices, NULL);
+    returnResult = clGetDeviceIDs(computePlatform, gDeviceType, 1, &computeDevices, NULL);
     ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clGetDeviceIDs";
 
     cl_context_properties prop[] = { CL_CONTEXT_PLATFORM, reinterpret_cast<cl_context_properties>(computePlatform), 0 };
@@ -682,7 +689,7 @@ TEST(OclRecorder, equal_arguments)
     ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clGetPlatformIDs";
 
     cl_device_id computeDevices;
-    returnResult = clGetDeviceIDs(computePlatform, CL_DEVICE_TYPE_CPU, 1, &computeDevices, NULL);
+    returnResult = clGetDeviceIDs(computePlatform, gDeviceType, 1, &computeDevices, NULL);
     ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clGetDeviceIDs";
 
     cl_context_properties prop[] = { CL_CONTEXT_PLATFORM, reinterpret_cast<cl_context_properties>(computePlatform), 0 };
@@ -790,7 +797,7 @@ TEST(OclRecorder, recording_half_ptr)
 
     cl_device_id computeDevices;
     cl_uint num_devices_available = 0;
-    returnResult = clGetDeviceIDs(computePlatform, CL_DEVICE_TYPE_CPU, 1, &computeDevices, &num_devices_available);
+    returnResult = clGetDeviceIDs(computePlatform, gDeviceType, 1, &computeDevices, &num_devices_available);
     ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clGetDeviceIDs";
     ASSERT_TRUE(num_devices_available >=1 );
 
@@ -875,7 +882,30 @@ TEST(OclRecorder, recording_half_ptr)
     recordDatFile.close();
 }
 
+CommandLineOption<std::string> deviceOption("--device_type");
+
 int main(int argc, char** argv){
-   ::testing::InitGoogleTest(&argc, argv);
-   return RUN_ALL_TESTS();
+    std::map<std::string, cl_device_type> clDeviceTypeMap;
+    clDeviceTypeMap["cpu"] = CL_DEVICE_TYPE_CPU;
+    clDeviceTypeMap["mic"] = CL_DEVICE_TYPE_ACCELERATOR;
+    clDeviceTypeMap["fpga_fast_emu"] = CL_DEVICE_TYPE_ACCELERATOR;
+    clDeviceTypeMap["gpu"] = CL_DEVICE_TYPE_GPU;
+    clDeviceTypeMap["default"] = CL_DEVICE_TYPE_DEFAULT;
+    clDeviceTypeMap["all"] = CL_DEVICE_TYPE_ALL;
+    ::testing::InitGoogleTest(&argc, argv);
+    if (argc > 1) {
+      for (int i = 1 ; i < argc ; i++)
+        if (deviceOption.isMatch(argv[i])) {
+          std::string deviceTypeStr = deviceOption.getValue(argv[i]);
+          auto iter = clDeviceTypeMap.find(deviceTypeStr);
+          if (iter == clDeviceTypeMap.end()) {
+              printf("error: unkown device option: %s\n",
+                  deviceTypeStr.c_str());
+              return 1;
+          }
+          printf("detected device %lu\n", iter->second);
+          gDeviceType = iter->second;
+        }
+    }
+    return RUN_ALL_TESTS();
 }
