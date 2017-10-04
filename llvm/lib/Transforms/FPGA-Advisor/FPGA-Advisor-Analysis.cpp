@@ -324,7 +324,7 @@ bool AdvisorAnalysis::runOnModule(Module &M) {
   //=------------------------------------------------------=//
   // [3] Read trace from file into memory
   //=------------------------------------------------------=//
-  if (!get_program_trace(TraceFileName)) {
+  if (!getProgramTrace(TraceFileName)) {
     errs() << "Could not process trace file: " << TraceFileName << "!\n";
     return false;
   }
@@ -1026,10 +1026,8 @@ bool AdvisorAnalysis::does_function_call_external_function(CallGraphNode *CGN) {
   return result;
 }
 
-// Function: get_program_trace
-// Return: false if unsuccessful
 // Reads input trace file, parses and stores trace into executionTrace map
-bool AdvisorAnalysis::get_program_trace(std::string fileIn) {
+bool AdvisorAnalysis::getProgramTrace(std::string fileIn) {
   // the instrumentation phase will instrument all functions as long as
   // they are not external to the module (this will include recursive functions)
   // when recording the trace, create the trace for each function encountered,
@@ -1095,6 +1093,7 @@ bool AdvisorAnalysis::get_program_trace(std::string fileIn) {
   unsigned int totalLineNum = std::min(traceThreshold, fileLineNum);
 
   unsigned int times = 0;
+  const char *delim = " ";
   while (std::getline(fin, line)) {
     if (lineNum > traceThreshold) {
       break;
@@ -1122,67 +1121,77 @@ bool AdvisorAnalysis::get_program_trace(std::string fileIn) {
     // 3. Return from: <func name>
     // 4. Store at address: <addr start> size in bytes: <size>
     // 5. Load from address: <addr start> size in bytes: <size>
-    if (std::regex_match(line, std::regex("(B: )(.*)( F: )(.*)"))) {
-      lastVertex = UINT_MAX; // may be changed in process_basic_block_entry
-      if (!process_basic_block_entry(line, latestFunction, ID, latestTraceGraph,
-                                     lastVertex, latestExecutionOrder)) {
-        *outputLog << "process basic block entry: FAILED.\n";
-        return false;
+
+    std::vector<char> rawLine(line.size()+1);
+    strncpy(&rawLine[0], line.c_str(), line.length());
+    rawLine[line.length()] = '\0';
+
+    char *token = std::strtok(&rawLine[0], delim);
+    if (token != NULL) {
+      if (strcmp(token, "B:") == 0) {
+        lastVertex = UINT_MAX;
+        if (!processBasicBlockEntry(line, latestFunction, ID, latestTraceGraph, lastVertex, latestExecutionOrder)) {
+          *outputLog << "process basic block entry: FAILED.\n";
+          return false;
+        }
       }
-    } else if (std::regex_match(line, std::regex("(BSTR: )(.*)"))) {
-      if (!process_time(line, latestTraceGraph, lastVertex, true)) {
-        *outputLog << "process time start: FAILED.\n";
-        return false;
+      else if (strcmp(token, "BSTR:") == 0) {
+        if (!processTime(line, latestTraceGraph, lastVertex, true)) {
+          *outputLog << "process time start: FAILED.\n";
+          return false;          
+        }
       }
-    } else if (std::regex_match(line, std::regex("(BSTP: )(.*)"))) {
-      if (!process_time(line, latestTraceGraph, lastVertex, false)) {
-        *outputLog << "process time stop: FAILED.\n";
-        return false;
+      else if (strcmp(token, "BSTP:") == 0) {
+        if (!processTime(line, latestTraceGraph, lastVertex, false)) {
+          *outputLog << "process time stop: FAILED.\n";
+          return false;          
+        }
       }
-    } else if (std::regex_match(line, std::regex("(ST: )(.*)( B: )(.*)"))) {
-      if (!process_store(line, latestFunction, latestTraceGraph, lastVertex)) {
-        *outputLog << "process store: FAILED.\n";
-        return false;
+      else if (strcmp(token, "ST:") == 0) {
+        if (!processStore(line, latestFunction, latestTraceGraph, lastVertex)) {
+          *outputLog << "process store: FAILED.\n";
+          return false;
+        }        
       }
-    } else if (std::regex_match(line, std::regex("(LD: )(.*)( B: )(.*)"))) {
-      if (!process_load(line, latestFunction, latestTraceGraph, lastVertex)) {
-        *outputLog << "process load: FAILED.\n";
-        return false;
+      else if (strcmp(token, "LD:") == 0) {
+        if (!processLoad(line, latestFunction, latestTraceGraph, lastVertex)) {
+          *outputLog << "process load: FAILED.\n";
+          return false;
+        }        
       }
-    } else if (std::regex_match(line,
-                                std::regex("(Entering Function: )(.*)"))) {
-      if (!process_function_entry(line, &latestFunction, latestTraceGraph,
-                                  lastVertex, latestExecutionOrder,
-                                  funcStack)) {
-        *outputLog << "process function entry: FAILED.\n";
-        return false;
-      } else {
-        DEBUG(*outputLog << "returned from process_function_entry()\n");
+      else if (strcmp(token, "Entering") == 0) {
+        if (!processFunctionEntry(line, &latestFunction, latestTraceGraph,
+                                    lastVertex, latestExecutionOrder,
+                                    funcStack)) {
+          *outputLog << "process function entry: FAILED.\n";
+          return false;
+        } else {
+          DEBUG(*outputLog << "returned from process_function_entry()\n");
+        }        
       }
-    } else if (std::regex_match(line, std::regex("(Return from: )(.*)"))) {
-      if (!process_function_return(line, &latestFunction, funcStack,
-                                   latestTraceGraph, lastVertex,
-                                   latestExecutionOrder)) {
-        // With ROI, we could see a function return without a
-        // matching entry to the function.
-        *outputLog << "IGNORING process function return: FAILED.\n";
-      } else {
-        DEBUG(*outputLog << "returned from process_function_return()\n");
+      else if (strcmp(token, "Return") == 0) {
+        if (!processFunctionReturn(line, &latestFunction, funcStack,
+                                     latestTraceGraph, lastVertex,
+                                     latestExecutionOrder)) {
+          // With ROI, we could see a function return without a
+          // matching entry to the function.
+          *outputLog << "IGNORING process function return: FAILED.\n";
+        } else {
+          DEBUG(*outputLog << "returned from process_function_return()\n");
+        }
       }
-    } else {
-      // ignore, probably program output
     }
   }
-  DEBUG(*outputLog << "End of " << __func__ << " "
-                   << "\n");
+  DEBUG(*outputLog << "End of " << __func__ << " " << "\n");
   return true;
 }
 
+
 // process one line of trace containing a time start or stop
-bool AdvisorAnalysis::process_time(const std::string &line,
-                                   TraceGraphList::iterator latestTraceGraph,
-                                   TraceGraph::vertex_descriptor lastVertex,
-                                   bool start) {
+bool AdvisorAnalysis::processTime(const std::string &line,
+                                  TraceGraphList::iterator latestTraceGraph,
+                                  TraceGraph::vertex_descriptor lastVertex,
+                                  bool start) {
   DEBUG(*outputLog << __func__ << " " << line << "\n");
   const char *delimiter = " ";
 
@@ -1229,7 +1238,7 @@ bool AdvisorAnalysis::process_time(const std::string &line,
 }
 
 // process one line of trace containing return
-bool AdvisorAnalysis::process_function_return(
+bool AdvisorAnalysis::processFunctionReturn(
     const std::string &line, Function **function,
     std::stack<FunctionExecutionRecord> &stack,
     TraceGraphList::iterator &lastTraceGraph,
@@ -1283,9 +1292,9 @@ bool AdvisorAnalysis::process_function_return(
 }
 
 // process one line of trace containing load
-bool AdvisorAnalysis::process_load(const std::string &line, Function *function,
-                                   TraceGraphList::iterator lastTraceGraph,
-                                   TraceGraph::vertex_descriptor lastVertex) {
+bool AdvisorAnalysis::processLoad(const std::string &line, Function *function,
+                                  TraceGraphList::iterator lastTraceGraph,
+                                  TraceGraph::vertex_descriptor lastVertex) {
   DEBUG(*outputLog << __func__ << " " << line << "\n");
   const char *delimiter = " ";
 
@@ -1343,9 +1352,9 @@ bool AdvisorAnalysis::process_load(const std::string &line, Function *function,
 }
 
 // process one line of trace containing store
-bool AdvisorAnalysis::process_store(const std::string &line, Function *function,
-                                    TraceGraphList::iterator lastTraceGraph,
-                                    TraceGraph::vertex_descriptor lastVertex) {
+bool AdvisorAnalysis::processStore(const std::string &line, Function *function,
+                                   TraceGraphList::iterator lastTraceGraph,
+                                   TraceGraph::vertex_descriptor lastVertex) {
   DEBUG(*outputLog << __func__ << " " << line << "\n");
   const char *delimiter = " ";
 
@@ -1396,7 +1405,7 @@ bool AdvisorAnalysis::process_store(const std::string &line, Function *function,
 }
 
 // process one line of trace containing basic block entry
-bool AdvisorAnalysis::process_basic_block_entry(
+bool AdvisorAnalysis::processBasicBlockEntry(
     const std::string &line, Function *latestFunction, int &ID,
     TraceGraphList::iterator lastTraceGraph,
     TraceGraph::vertex_descriptor &lastVertex,
@@ -1528,7 +1537,7 @@ bool AdvisorAnalysis::process_basic_block_entry(
 }
 
 // processes one line of input from trace of entering a function
-bool AdvisorAnalysis::process_function_entry(
+bool AdvisorAnalysis::processFunctionEntry(
     const std::string &line, Function **function,
     TraceGraphList::iterator &latestTraceGraph,
     TraceGraph::vertex_descriptor &latestVertex,

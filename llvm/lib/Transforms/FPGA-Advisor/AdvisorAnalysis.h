@@ -233,33 +233,33 @@ private:
 
   void print_statistics();
 
-  bool get_program_trace(std::string fileIn);
-  bool process_time(const std::string &line,
-                    TraceGraphList::iterator lastTraceGraph,
-                    TraceGraph::vertex_descriptor lastVertex, bool start);
+  bool getProgramTrace(std::string fileIn);
+  bool processTime(const std::string &line,
+                   TraceGraphList::iterator lastTraceGraph,
+                   TraceGraph::vertex_descriptor lastVertex, bool start);
   bool
-  process_function_return(const std::string &line, Function **function,
-                          std::stack<FunctionExecutionRecord> &stack,
-                          TraceGraphList::iterator &lastTraceGraph,
-                          TraceGraph::vertex_descriptor &lastVertex,
-                          ExecutionOrderList::iterator &lastExecutionOrder);
-  bool process_load(const std::string &line, Function *function,
+  processFunctionReturn(const std::string &line, Function **function,
+                        std::stack<FunctionExecutionRecord> &stack,
+                        TraceGraphList::iterator &lastTraceGraph,
+                        TraceGraph::vertex_descriptor &lastVertex,
+                        ExecutionOrderList::iterator &lastExecutionOrder);
+  bool processLoad(const std::string &line, Function *function,
+                   TraceGraphList::iterator lastTraceGraph,
+                   TraceGraph::vertex_descriptor lastVertex);
+  bool processStore(const std::string &line, Function *function,
                     TraceGraphList::iterator lastTraceGraph,
                     TraceGraph::vertex_descriptor lastVertex);
-  bool process_store(const std::string &line, Function *function,
-                     TraceGraphList::iterator lastTraceGraph,
-                     TraceGraph::vertex_descriptor lastVertex);
   bool
-  process_basic_block_entry(const std::string &line, Function *latestFunction,
-                            int &ID, TraceGraphList::iterator lastTraceGraph,
-                            TraceGraph::vertex_descriptor &lastVertex,
-                            ExecutionOrderList::iterator lastExecutionOrder);
+  processBasicBlockEntry(const std::string &line, Function *latestFunction,
+                         int &ID, TraceGraphList::iterator lastTraceGraph,
+                         TraceGraph::vertex_descriptor &lastVertex,
+                         ExecutionOrderList::iterator lastExecutionOrder);
   bool
-  process_function_entry(const std::string &line, Function **function,
-                         TraceGraphList::iterator &latestTraceGraph,
-                         TraceGraph::vertex_descriptor &latestVertex,
-                         ExecutionOrderList::iterator &latestExecutinoOrder,
-                         std::stack<FunctionExecutionRecord> &stack);
+  processFunctionEntry(const std::string &line, Function **function,
+                       TraceGraphList::iterator &latestTraceGraph,
+                       TraceGraph::vertex_descriptor &latestVertex,
+                       ExecutionOrderList::iterator &latestExecutinoOrder,
+                       std::stack<FunctionExecutionRecord> &stack);
   void getCPULatencyTable(Function *F,
                           std::map<BasicBlock *, LatencyStruct> *LT,
                           ExecutionOrderList &executionOrderList,
