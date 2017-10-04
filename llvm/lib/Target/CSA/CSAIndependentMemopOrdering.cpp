@@ -717,6 +717,7 @@ raw_ostream& operator<<(raw_ostream& out, const MemopCFG::Merge& merge) {
       out << (first ? " " : ", ") << merged;
       first = false;
     }
+    if (merge.delayed_emit_idx) out << " [" << merge.delayed_emit_idx << "]";
   }
   return out;
 }
@@ -1997,7 +1998,7 @@ void MemopCFG::Node::emit_merges() {
         emit_merge(merges[delayed_emit_queue.front()]);
         delayed_emit_queue.pop();
       }
-      if (not merges[merge_idx].delayed_emit_idx) {
+      if (merges[merge_idx].delayed_emit_idx) {
         delayed_emit_queue.push(merge_idx);
       } else emit_merge(merges[merge_idx]);
     }
