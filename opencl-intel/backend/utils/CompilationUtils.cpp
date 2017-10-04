@@ -599,7 +599,6 @@ Function *CompilationUtils::AddMoreArgsToFunc(
   // Set DISubprogram as an original function has. Do it before delete body
   // since DISubprogram will be deleted too
   NewF->setSubprogram(F->getSubprogram());
-  F->setSubprogram(nullptr);
 
   // Delete original function body - this is needed to remove linkage (if exists)
   F->deleteBody();
