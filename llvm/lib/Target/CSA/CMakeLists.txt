@@ -12,22 +12,18 @@ add_public_tablegen_target(CSACommonTableGen)
 add_llvm_target(CSACodeGen
   CSAAllocUnitPass.cpp
   CSAAsmPrinter.cpp
-  CSAConvertControlPass.cpp
   CSACvtCFDFPass.cpp
   CSADeadInstructionElim.cpp
   CSAFrameLowering.cpp
   CSAISelDAGToDAG.cpp
   CSAISelLowering.cpp
-  CSAIfConversion.cpp
   CSAInstrInfo.cpp
-  CSALicAllocation.cpp
   CSALowerAggrCopies.cpp
   CSALoopIntrinsicExpander.cpp
   CSAMCInstLower.cpp
   CSAMachineFunctionInfo.cpp
   CSAOMPAllocaTypeFixer.cpp
   CSAOptDFPass.cpp
-  CSADFParLoopPass.cpp
   CSARedundantMovElim.cpp
   CSARegisterInfo.cpp
   CSASelectionDAGInfo.cpp
@@ -37,6 +33,7 @@ add_llvm_target(CSACodeGen
   MachineCDG.cpp
   CSAExpandInlineAsm.cpp
   CSAMemopOrdering.cpp
+  CSAIndependentMemopOrdering.cpp
   CSAFortranIntrinsics.cpp
   CSANormalizeDebugPass.cpp
   )

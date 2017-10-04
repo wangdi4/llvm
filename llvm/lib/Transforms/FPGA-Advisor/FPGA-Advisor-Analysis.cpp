@@ -2217,7 +2217,9 @@ bool AdvisorAnalysis::find_maximal_configuration_for_call(
                           "dependences EXIST between ");
       DEBUG(*outputLog << (*graph)[self].name << " (" << self << ") and "
                        << (*graph)[*it].name << " (" << *it << ")\n");
-      boost::add_edge(*it, self, *graph);
+      if (!boost::edge(*it, self, *graph).second) { // avoid duplicates
+        boost::add_edge(*it, self, *graph);
+      }
     }
 
     // update the execution order index for current basic block after it has
@@ -2337,7 +2339,9 @@ bool AdvisorAnalysis::find_maximal_configuration_global(
                           "dependences EXIST between ");
       DEBUG(*outputLog << (*graph)[self].name << " (" << self << ") and "
                        << (*graph)[*it].name << " (" << *it << ")\n");
-      boost::add_edge(*it, self, *graph);
+      if (!boost::edge(*it, self, *graph).second) { // avoid duplicates
+        boost::add_edge(*it, self, *graph);
+      }
     }
 
     // update the execution order index for current basic block after it has
@@ -4247,11 +4251,11 @@ bool AdvisorAnalysis::incremental_gradient_descent_global(
 
     for (auto it = gradient.begin(); it != gradient.end(); it++) {
       if (get_basic_block_instance_count(it->first) > 0) {
+        max_area = ModuleAreaEstimator::getBasicBlockArea(*AT, it->first);
         double coef = 1 / (it->second + FLT_MIN);
         coefs[it->first] = coef;
         if (max_coef < coef) {
           max_coef = coef;
-          max_area = ModuleAreaEstimator::getBasicBlockArea(*AT, it->first);
         }
       } else {
         // can't remove blocks that aren't there.

@@ -15,7 +15,6 @@
 #include "CSA.h"
 #include "InstPrinter/CSAInstPrinter.h"
 #include "CSATargetMachine.h"
-#include "CSALicAllocation.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/SCCIterator.h"
