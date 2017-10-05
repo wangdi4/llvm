@@ -3,5 +3,5 @@
 include "avx2/AVX2.td"
 // avx2 - 32 bit
 def target : AVX2 {
-  let Target = "xxx"; //to be injected from command line
+  let Target = "s9";
 }

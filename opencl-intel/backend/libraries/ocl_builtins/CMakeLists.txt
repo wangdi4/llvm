@@ -475,12 +475,12 @@ function( create_target PROC ARCH TARGET_DIR PREBUILD_IMAGE_LIBRARY)
   # intermediate directory for OpenCL compilation/link
   set (INTERMEDIATE_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR})
 
-  list(APPEND CMD_ARGS -gen-ocl-bi -inject target.Target=${ARCH})
+  list(APPEND CMD_ARGS -gen-ocl-bi)
   # generate OCL builtin implementation
   tblgenoclblt(OCL_TABLEGEN_SOURCE
     ${INTERMEDIATE_OUTPUT_DIR}
     ${TARGET_DIR}
-    target-${TARGET_DIR}.td
+    target-${ARCH}.td
     target-${ARCH}.cl
     ${CMD_ARGS}
   )

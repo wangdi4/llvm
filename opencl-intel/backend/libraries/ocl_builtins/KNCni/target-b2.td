@@ -3,5 +3,5 @@
 include "KNCni/KNCni.td"
 
 def target : KNC {
-  let Target = "xxx"; //to be injected from the command line
+  let Target = "b2";
 }
