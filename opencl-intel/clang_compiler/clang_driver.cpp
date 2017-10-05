@@ -202,6 +202,7 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
     // 3. I think we only used 'experimental 2.x' as a separate platform
     //    (not a device). Having 2 devices seems to be an overkill for this
     //    purpose.
+    optionsEx << " -cl-ext=+cl_intel_channels";
     optionsEx << " -cl-ext=+cl_altera_channels";
 
   }

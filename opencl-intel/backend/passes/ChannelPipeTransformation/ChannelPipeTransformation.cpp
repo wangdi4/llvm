@@ -21,8 +21,9 @@
 #include "ChannelPipeTransformation.h"
 
 #include <llvm/ADT/SmallString.h>
-#include <llvm/IR/Instructions.h>
+#include <llvm/ADT/StringSwitch.h>
 #include <llvm/IR/IRBuilder.h>
+#include <llvm/IR/Instructions.h>
 #include <llvm/Transforms/Utils/BasicBlockUtils.h>
 #include <llvm/Transforms/Utils/ModuleUtils.h>
 
@@ -34,6 +35,7 @@
 
 #include <PipeCommon.h>
 
+#include <algorithm>
 #include <utility>
 
 using namespace llvm;
@@ -67,14 +69,15 @@ typedef DenseMap<Value*, PipeMetadata> PipeMetadataMap;
 namespace intel {
 
 char ChannelPipeTransformation::ID = 0;
-OCL_INITIALIZE_PASS_BEGIN(ChannelPipeTransformation, "channel-pipe-transformation",
-                          "Transform Altera channels into OpenCL 2.0 pipes",
+OCL_INITIALIZE_PASS_BEGIN(ChannelPipeTransformation,
+                          "channel-pipe-transformation",
+                          "Transform Intel FPGA channels into OpenCL 2.0 pipes",
                           false, true)
 OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
-OCL_INITIALIZE_PASS_END(ChannelPipeTransformation, "channel-pipe-transformation",
-                        "Transform Altera channels into OpenCL 2.0 pipes",
+OCL_INITIALIZE_PASS_END(ChannelPipeTransformation,
+                        "channel-pipe-transformation",
+                        "Transform Intel FPGA channels into OpenCL 2.0 pipes",
                         false, true)
-
 
 ChannelPipeTransformation::ChannelPipeTransformation() : ModulePass(ID) {
 }
@@ -83,8 +86,8 @@ static void getPipesMetadata(const Module &M,
                              ValueToValueMap &ChannelToPipeMap,
                              PipeMetadataMap &PipesMD) {
   // ToDo: Use MetadataAPI for collecting the data,
-  // once clang emits 4.0-style of Metadata for channels (attached to global objects),
-  // this all will turn into a dozen of lines of well-supported code.
+  // once clang emits 4.0-style of Metadata for channels (attached to global
+  // objects), this all will turn into a dozen of lines of well-supported code.
   auto *MDs = M.getNamedMetadata("opencl.channels");
   if (!MDs) {
     llvm_unreachable("'opencl.channels' metadata not found.");
@@ -436,21 +439,58 @@ static bool createPipeGlobals(Module &M,
 static Value *getPipeByChannel(Value *ChannelGlobal,
                               ValueToValueMap ChannelToPipeMap,
                               IRBuilder<> &Builder) {
-  if (auto *ChannelArrGEP = dyn_cast<GEPOperator>(ChannelGlobal)) {
-    // ChannelGlobal is a GEP, so, it is read from array of channels
-    // we need to replace GEP from array of channels
-    // with GEP from array of pipes
-    auto *PipeGlobal = ChannelToPipeMap[ChannelArrGEP->getPointerOperand()];
-    SmallVector<Value *, 8> Indices;
-    auto IdxEnd = ChannelArrGEP->idx_end();
-    for (auto *Ind = ChannelArrGEP->idx_begin(); Ind != IdxEnd; ++Ind) {
-      Indices.push_back(*Ind);
-    }
-
-    return Builder.CreateGEP(PipeGlobal, ArrayRef<Value *>(Indices));
-  } else {
+  if (!isa<GEPOperator>(ChannelGlobal)) {
     return ChannelToPipeMap[ChannelGlobal];
   }
+
+  // ChannelGlobal is a GEP, so, it is read from array of channels
+  // we need to replace GEP from array of channels
+  // with GEP from array of pipes.
+  //
+  // In some cases there is more than one GEP and we need to go deeper to find
+  // the top-level array of channels.
+  //
+  // %1 = getelementptr...[5 x [4 x %opencl.channel_t*]]* @a, i64 0, i64 %idx1
+  // %2 = load i16, i16* %ind1, align 2, !tbaa !17
+  // %idx2 = sext i16 %2 to i64
+  // %3 = getelementptr...[4 x %opencl.channel_t*]* %1, i64 0, i64 %idx2
+  // %13 = load %opencl.channel_t*, %opencl.channel_t** %3
+
+  Value *ChannelArray = ChannelGlobal;
+  SmallVector<Value *, 8> Indices;
+  Type *FirstIndexTy = nullptr;
+
+  // We need to construct GEP to array of pipes from one or several subsequent
+  // GEPs to array of channels
+  // To do this we need to go back through GEPs and save an indices in reverse
+  // order.
+  // For example from the following sequence of GEPs:
+  //   gep 0, 4 <- this GEP is processed last
+  //   gep 0, 3, 2 <- this GEP is processed second
+  //   gep 0, 2 <- we processing this GEP first
+  // We need to obtain the one GEP:
+  //   gep 0, 4, 3, 2, 2
+  while (auto *ChannelArrGEP = dyn_cast<GEPOperator>(ChannelArray)) {
+    auto First = ChannelArrGEP->idx_begin();
+    assert(cast<ConstantInt>(*First)->isZero() &&
+           "Expected zero as first argument of GEP because it is a GEP"
+           "into a global array which has pointer to pointer type");
+    auto Index = ChannelArrGEP->idx_end();
+    if (!FirstIndexTy)
+      FirstIndexTy = (*First)->getType();
+    // Let's save indices in reverse order except the first one which is zero
+    for (--Index; Index != First; --Index) {
+      Indices.push_back(*Index);
+    }
+    ChannelArray = ChannelArrGEP->getPointerOperand();
+  }
+  Indices.push_back(ConstantInt::get(FirstIndexTy, 0));
+  std::reverse(Indices.begin(), Indices.end());
+
+  auto *PipeGlobal = ChannelToPipeMap[ChannelArray];
+  assert(PipeGlobal && "Cannot find corresponding pipe value");
+
+  return Builder.CreateGEP(PipeGlobal, ArrayRef<Value *>(Indices));
 }
 
 static void insertReadPipe(Function *ReadPipe,
@@ -536,7 +576,7 @@ static bool replaceReadChannel(Function &F, Function &ReadPipe,
     }
 
     assert(ArgIt == ChannelCall->arg_end() &&
-           "Unexpected number of arguments in read_channel_altera.");
+           "Unexpected number of arguments in read_channel_intel.");
 
     // discover the global value, from where our channel argument came from
     Value *ChanGlobal = cast<LoadInst>(ChanArg)->getPointerOperand();
@@ -544,6 +584,7 @@ static bool replaceReadChannel(Function &F, Function &ReadPipe,
     // TODO: remove original load instruction
 
     Value *Pipe = getPipeByChannel(ChanGlobal, ChannelToPipeMap, Builder);
+    assert(Pipe && "Cannot find pipe global variable");
 
     if (NonBlocking)
       insertNBReadPipe(&ReadPipe, Pipe, DstPtr, IsValidPtr, Builder, M);
@@ -701,20 +742,45 @@ static bool replaceChannelBuiltins(Module &M,
   assert(NBReadPipe && "no '__read_pipe_2_intel' built-in declared in RTL");
   assert(NBWritePipe && "no '__write_pipe_2_intel' built-in declared in RTL");
 
+  SmallVector<Function *, 8> FunctionsToDelete;
+
   bool Changed = false;
-  for (auto &F : M) {
+  for (auto &F: M) {
     auto Name = F.getName();
-    if (Name.npos != Name.find("read_channel_altera")) {
-      Changed |= replaceReadChannel(F, *ReadPipe, M, ChannelToPipeMap);
-    } else if (Name.npos != Name.find("read_channel_nb_altera")) {
-      Changed |= replaceReadChannel(F, *NBReadPipe, M, ChannelToPipeMap, true);
-    } else if (Name.npos != Name.find("write_channel_altera")) {
-      Changed |= replaceWriteChannel(F, *WritePipe, M, ChannelToPipeMap);
-    } else if (Name.npos != Name.find("write_channel_nb_altera")) {
-      Changed |= replaceWriteChannel(
-          F, *NBWritePipe, M, ChannelToPipeMap, true);
+    auto *ReadFn = StringSwitch<Function *>(Name)
+      .StartsWith("_Z19read_channel_altera", ReadPipe)
+      .StartsWith("_Z18read_channel_intel",  ReadPipe)
+      .StartsWith("_Z22read_channel_nb_altera", NBReadPipe)
+      .StartsWith("_Z21read_channel_nb_intel",  NBReadPipe)
+      .Default(nullptr);
+
+    if (ReadFn) {
+      bool IsNonBlocking = ReadFn == NBReadPipe;
+      Changed |= replaceReadChannel(F, *ReadFn, M, ChannelToPipeMap,
+                                    IsNonBlocking);
+      FunctionsToDelete.push_back(&F);
+    }
+
+    auto *WriteFn = StringSwitch<Function *>(Name)
+      .StartsWith("_Z20write_channel_altera", WritePipe)
+      .StartsWith("_Z19write_channel_intel",  WritePipe)
+      .StartsWith("_Z23write_channel_nb_altera", NBWritePipe)
+      .StartsWith("_Z22write_channel_nb_intel",  NBWritePipe)
+      .Default(nullptr);
+
+    if (WriteFn) {
+      bool IsNonBlocking = WriteFn == NBWritePipe;
+      Changed |= replaceWriteChannel(F, *WriteFn, M, ChannelToPipeMap,
+                                     IsNonBlocking);
+      FunctionsToDelete.push_back(&F);
+      continue;
     }
   }
+
+  for (auto &F: FunctionsToDelete) {
+    F->eraseFromParent();
+  }
+
   return Changed;
 }
 

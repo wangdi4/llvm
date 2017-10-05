@@ -19,9 +19,12 @@
 ; __kernel void foo() {
 ; }
 ; ----------------------------------------------------
+; Compile options: -cc1 -emit-llvm -triple spir64-unknown-unknown-intelfpga -disable-llvm-passes -x cl -cl-std=CL2.0
+; ----------------------------------------------------
+; REQUIRES: fpga-emulator
 ; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -channel-pipe-transformation -verify %s -S | FileCheck %s
-target datalayout = "e-p:32:32-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
-target triple = "spir"
+target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
+target triple = "spir64-unknown-unknown-intelfpga"
 
 %opencl.channel_t = type opaque
 
@@ -46,44 +49,39 @@ target triple = "spir"
 ; CHECK-DAG: call {{.*}} @__pipe_init_array{{.*}}({{.*}} @pipe.sch_arr{{.*}} i32 60, i32 16, i32 1)
 ; CHECK-DAG: call {{.*}} @__pipe_init_array{{.*}}({{.*}} @pipe.lch_arr{{.*}} i32 20, i32 8, i32 3)
 
-; Function Attrs: norecurse nounwind readnone
-define spir_kernel void @foo() #0 {
+; Function Attrs: nounwind
+define spir_kernel void @foo() #0 !kernel_arg_addr_space !16 !kernel_arg_access_qual !16 !kernel_arg_type !16 !kernel_arg_base_type !16 !kernel_arg_type_qual !16 {
 entry:
   ret void
 }
 
-attributes #0 = { norecurse nounwind readnone "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #0 = { nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
 
-!opencl.kernels = !{!0}
-!opencl.channels = !{!6, !9, !13, !17, !18, !19}
+!opencl.channels = !{!0, !3, !7, !11, !12, !13}
+!llvm.module.flags = !{!14}
 !opencl.enable.FP_CONTRACT = !{}
-!opencl.ocl.version = !{!20}
-!opencl.spir.version = !{!20}
-!opencl.used.extensions = !{!21}
-!opencl.used.optional.core.features = !{!21}
-!opencl.compiler.options = !{!21}
-!llvm.ident = !{!22}
+!opencl.ocl.version = !{!15}
+!opencl.spir.version = !{!15}
+!opencl.used.extensions = !{!16}
+!opencl.used.optional.core.features = !{!16}
+!opencl.compiler.options = !{!16}
+!llvm.ident = !{!17}
 
-!0 = !{void ()* @foo, !1, !2, !3, !4, !5}
-!1 = !{!"kernel_arg_addr_space"}
-!2 = !{!"kernel_arg_access_qual"}
-!3 = !{!"kernel_arg_type"}
-!4 = !{!"kernel_arg_base_type"}
-!5 = !{!"kernel_arg_type_qual"}
-!6 = !{%opencl.channel_t addrspace(1)* addrspace(1)* @ich, !7, !8}
-!7 = !{!"packet_size", i32 4}
-!8 = !{!"packet_align", i32 4}
-!9 = !{%opencl.channel_t addrspace(1)* addrspace(1)* @lch, !10, !11, !12}
-!10 = !{!"packet_size", i32 8}
-!11 = !{!"packet_align", i32 8}
-!12 = !{!"depth", i32 3}
-!13 = !{%opencl.channel_t addrspace(1)* addrspace(1)* @sch, !14, !15, !16}
-!14 = !{!"packet_size", i32 16}
-!15 = !{!"packet_align", i32 16}
-!16 = !{!"depth", i32 0}
-!17 = !{[5 x %opencl.channel_t addrspace(1)*] addrspace(1)* @ich_arr, !7, !8}
-!18 = !{[5 x [4 x %opencl.channel_t addrspace(1)*]] addrspace(1)* @lch_arr, !10, !11, !12}
-!19 = !{[5 x [4 x [3 x %opencl.channel_t addrspace(1)*]]] addrspace(1)* @sch_arr, !14, !15, !16}
-!20 = !{i32 2, i32 0}
-!21 = !{}
-!22 = !{!"clang version 3.8.1 "}
+!0 = !{%opencl.channel_t addrspace(1)* addrspace(1)* @ich, !1, !2}
+!1 = !{!"packet_size", i32 4}
+!2 = !{!"packet_align", i32 4}
+!3 = !{%opencl.channel_t addrspace(1)* addrspace(1)* @lch, !4, !5, !6}
+!4 = !{!"packet_size", i32 8}
+!5 = !{!"packet_align", i32 8}
+!6 = !{!"depth", i32 3}
+!7 = !{%opencl.channel_t addrspace(1)* addrspace(1)* @sch, !8, !9, !10}
+!8 = !{!"packet_size", i32 16}
+!9 = !{!"packet_align", i32 16}
+!10 = !{!"depth", i32 0}
+!11 = !{[5 x %opencl.channel_t addrspace(1)*] addrspace(1)* @ich_arr, !1, !2}
+!12 = !{[5 x [4 x %opencl.channel_t addrspace(1)*]] addrspace(1)* @lch_arr, !4, !5, !6}
+!13 = !{[5 x [4 x [3 x %opencl.channel_t addrspace(1)*]]] addrspace(1)* @sch_arr, !8, !9, !10}
+!14 = !{i32 1, !"wchar_size", i32 4}
+!15 = !{i32 2, i32 0}
+!16 = !{}
+!17 = !{!"clang version 5.0.0 "}
