@@ -19,29 +19,57 @@ OclBuiltinImpl transpose_masked_store_char4x8_avx = OclBuiltinImpl<__ocl_masked_
 // ****************************************************************************
 //                                 short4x8
 // ****************************************************************************
-OclBuiltinImpl transpose_load_short4x8_avx = OclBuiltinImpl<__ocl_load_transpose4x8, [v4i16], 0, [{
-    short16 Arg0 = vload16(0, (const __private short*)$Arg0VarName);                           // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3
-    short16 Arg1 = vload16(1, (const __private short*)$Arg0VarName);                           // x4 y4 z4 w4 x5 y5 z5 w5 x6 y6 z6 w6 x7 y7 z7 w7
-    $Arg1Type Arg2 = $Arg1VarName;
-    $Arg2Type Arg3 = $Arg2VarName;
-    $Arg3Type Arg4 = $Arg3VarName;
-    $Arg4Type Arg5 = $Arg4VarName;
 
-    //__ocl_load_transpose_short4x8_common_avx(short16 Arg0, short16 Arg1, __private short8* Arg2, __private short8* Arg3, __private short8* Arg4, __private short8* Arg5)
-    #{__ocl_load_transpose_short4x8_common_avx}#
+/// @brief Receives short8x4 matrix as 2 halfs (2 short4x4 matrixes) using 2 short16,
+///        transposes it and outputs the rows of the transposed matrix.
+/// @param Arg0    - short16 - Upper part of the short8x4 matrix to be transposed
+/// @param Arg1    - short16 - Lower part of the short8x4 matrix to be transposed
+/// @param Arg2-5  - short8* - Rows 0-3 of the transposed matrix
+OclBuiltinImpl transpose_load_short4x8_avx_helper = OclBuiltinImpl<__ocl_load_transpose4x8_helper, [v4i16], 0, [{
+    ushort16 maskUnpackLo = {0, 16, 1, 17, 2, 18, 3, 19,  8, 24,  9, 25, 10, 26, 11, 27};
+    ushort16 maskUnpackHi = {4, 20, 5, 21, 6, 22, 7, 23, 12, 28, 13, 29, 14, 30, 15, 31};
+    uint8 maskPermute = {0, 4, 1, 5, 2, 6, 3, 7};
+    short16 tmp1 = __ocl_helper_shuffle2($Arg0VarName, $Arg1VarName, maskUnpackLo); // x0 x4 y0 y4 z0 z4 w0 w4 x2 x6 y2 y6 z2 z6 w2 w6
+    short16 tmp2 = __ocl_helper_shuffle2($Arg0VarName, $Arg1VarName, maskUnpackHi); // x1 x5 y1 y5 z1 z5 w1 w5 x3 x7 y3 y7 z3 z7 w3 w7
+    short16 tmp3 = __ocl_helper_shuffle2(tmp1, tmp2, maskUnpackLo);                 // x0 x1 x4 x5 y0 y1 y4 y5 x2 x3 x6 x7 y2 y3 y6 y7
+    short16 tmp4 = __ocl_helper_shuffle2(tmp1, tmp2, maskUnpackHi);                 // z0 z1 z4 z5 w0 w1 w4 w5 z2 z3 z6 z7 w2 w3 w6 w7
+    short16 tmp5 = as_short16(__ocl_helper_shuffle(as_float8(tmp3), maskPermute));  // x0 x1 x2 x3 x4 x5 x6 x7 y0 y1 y2 y3 y4 y5 y6 y7
+    short16 tmp6 = as_short16(__ocl_helper_shuffle(as_float8(tmp4), maskPermute));  // z0 z1 z2 z3 z4 z5 z6 z7 w0 w1 w2 w3 w4 w5 w6 w7
+    *$Arg2VarName = tmp5.lo;                                                        // x0 x1 x2 x3 x4 x5 x6 x7
+    *$Arg3VarName = tmp5.hi;                                                        // y0 y1 y2 y3 y4 y5 y6 y7
+    *$Arg4VarName = tmp6.lo;                                                        // z0 z1 z2 z3 z4 z5 z6 z7
+    *$Arg5VarName = tmp6.hi;                                                        // w0 w1 w2 w3 w4 w5 w6 w7
+  }]>;
+
+/// @brief Receives short4x8 matrix as 4 matrix rows, transposes it and outputs the matrix
+///        2 halfs (2 short4x4 matrixes) using 2 short16, which create one short4x8 matrix
+/// @param Arg0    - short16* - Upper part of the transposed short4x8
+/// @param Arg1    - short16* - Lower part of the transposed short4x8
+/// @param Arg2-5  - short8   - Rows 0-3 of the matrix to be transposed
+OclBuiltinImpl transpose_store_short4x8_sse4_helper = OclBuiltinImpl<__ocl_transpose_store4x8_helper, [v4i16], 0, [{
+    ushort16 low16 = {0, 8, 1, 9, 2, 10, 3, 11, 4, 12, 5, 13, 6, 14, 7, 15};
+    float8 xy = as_float8(__ocl_helper_shuffle2($Arg2VarName, $Arg3VarName, low16)); // x0 y0 x1 y1 x2 y2 x3 y3 x4 y4 x5 y5 x6 y6 x7 y7
+    float8 zw = as_float8(__ocl_helper_shuffle2($Arg4VarName, $Arg5VarName, low16)); // z0 w0 z1 w1 z2 w2 z3 w3 z4 w4 z5 w5 z6 w6 z7 w7
+    uint8 low8  = {0, 8, 1, 9, 2, 10, 3, 11};
+    uint8 high8 = {4, 12, 5, 13, 6, 14, 7, 15};
+    *$Arg0VarName = as_short16(__ocl_helper_shuffle2(xy, zw, low8));                 // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3
+    *$Arg1VarName = as_short16(__ocl_helper_shuffle2(xy, zw, high8));                // x4 y4 z4 w4 x5 y5 z5 w5 x6 y6 z6 w6 x7 y7 z7 w7
+  }]>;
+
+OclBuiltinImpl transpose_load_short4x8_avx = OclBuiltinImpl<__ocl_load_transpose4x8, [v4i16], 0, [{
+    short16 vLoaded0 = vload16(0, (const __private short*)$Arg0VarName);            // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3
+    short16 vLoaded1 = vload16(1, (const __private short*)$Arg0VarName);            // x4 y4 z4 w4 x5 y5 z5 w5 x6 y6 z6 w6 x7 y7 z7 w7
+
+    __ocl_load_transpose4x8_helper(vLoaded0, vLoaded1, $Arg1VarName, $Arg2VarName, $Arg3VarName, $Arg4VarName);
   }]>;
 
 OclBuiltinImpl transpose_store_short4x8_avx = OclBuiltinImpl<__ocl_transpose_store4x8, [v4i16], 0, [{
     short16 xyzw0, xyzw1;
-    __private short16* Arg0 = &xyzw0;
-    __private short16* Arg1 = &xyzw1;
-    $Arg1Type Arg2 = $Arg1VarName;
-    $Arg2Type Arg3 = $Arg2VarName;
-    $Arg3Type Arg4 = $Arg3VarName;
-    $Arg4Type Arg5 = $Arg4VarName;
+    __private short16* pStore0 = &xyzw0;
+    __private short16* pStore1 = &xyzw1;
 
-    //__ocl_transpose_store_short4x8_common_avx(short16* Arg0, short16* Arg1, short8 Arg2, short8 Arg3, short8 Arg4, short8 Arg5)
-    #{__ocl_transpose_store_short4x8_common_avx}#
+    __ocl_transpose_store4x8_helper(pStore0, pStore1, $Arg1VarName, $Arg2VarName, $Arg3VarName, $Arg4VarName);
+
     vstore16(xyzw0, 0, (__private short*)$Arg0VarName);
     vstore16(xyzw1, 1, (__private short*)$Arg0VarName);
   }]>;
@@ -61,32 +89,23 @@ OclBuiltinImpl transpose_gather_short4x8_avx = OclBuiltinImpl<__ocl_gather_trans
     xyzw0123 = as_double4(_mm256_blend_pd((__m256d)xyzw0123, (__m256d)xyzw3, 0x8));   // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3
 
     double4 xyzw4567;
-    xyzw4567.s0 = *((__private double*)$Arg4VarName);                                              // x4 y4 z4 w4  D  D  D  D  D  D  D  D  D  D  D  D
+    xyzw4567.s0 = *((__private double*)$Arg4VarName);                                 // x4 y4 z4 w4  D  D  D  D  D  D  D  D  D  D  D  D
     xyzw4567 = as_double4(_mm256_blend_pd((__m256d)xyzw4567, (__m256d)xyzw5, 0x2));   // x4 y4 z4 w4 x5 y5 z5 w5  D  D  D  D  D  D  D  D
     xyzw4567 = as_double4(_mm256_blend_pd((__m256d)xyzw4567, (__m256d)xyzw6, 0x4));   // x4 y4 z4 w4 x5 y5 z5 w5 x6 y6 z6 w6  D  D  D  D
     xyzw4567 = as_double4(_mm256_blend_pd((__m256d)xyzw4567, (__m256d)xyzw7, 0x8));   // x4 y4 z4 w4 x5 y5 z5 w5 x6 y6 z6 w6 x7 y7 z7 w7
-    short16 Arg0 = as_short16(xyzw0123);
-    short16 Arg1 = as_short16(xyzw4567);
-    $Arg8Type Arg2 = $Arg8VarName;
-    $Arg9Type Arg3 = $Arg9VarName;
-    $Arg10Type Arg4 = $Arg10VarName;
-    $Arg11Type Arg5 = $Arg11VarName;
+    short16 vLoaded0 = as_short16(xyzw0123);
+    short16 vLoaded1 = as_short16(xyzw4567);
 
-    //__ocl_load_transpose_short4x8_common_avx(short16 Arg0, short16 Arg1, __private short8* Arg2, __private short8* Arg3, __private short8* Arg4, __private short8* Arg5)
-    #{__ocl_load_transpose_short4x8_common_avx}#
+    __ocl_load_transpose4x8_helper(vLoaded0, vLoaded1, $Arg8VarName, $Arg9VarName, $Arg10VarName, $Arg11VarName);
   }]>;
 
 OclBuiltinImpl transpose_scatter_short4x8_avx = OclBuiltinImpl<__ocl_transpose_scatter4x8, [v4i16], 0, [{
     short16 xyzw0, xyzw1;
-    __private short16* Arg0 = &xyzw0;
-    __private short16* Arg1 = &xyzw1;
-    $Arg8Type Arg2 = $Arg8VarName;
-    $Arg9Type Arg3 = $Arg9VarName;
-    $Arg10Type Arg4 = $Arg10VarName;
-    $Arg11Type Arg5 = $Arg11VarName;
+    __private short16* pStore0 = &xyzw0;
+    __private short16* pStore1 = &xyzw1;
 
-    //__ocl_transpose_store_short4x8_common_avx(__private short16* Arg0, __private short16* Arg1, short8 Arg2, short8 Arg3, short8 Arg4, short8 Arg5)
-    #{__ocl_transpose_store_short4x8_common_avx}#
+    __ocl_transpose_store4x8_helper(pStore0, pStore1, $Arg8VarName, $Arg9VarName, $Arg10VarName, $Arg11VarName);
+
     *((__private double*)$Arg0VarName) = as_double4(xyzw0).s0;                         // x0 y0 z0 w0
     *((__private double*)$Arg1VarName) = as_double4(xyzw0).s1;                         // x1 y1 z1 w1
     *((__private double*)$Arg2VarName) = as_double4(xyzw0).s2;                         // x2 y2 z2 w2

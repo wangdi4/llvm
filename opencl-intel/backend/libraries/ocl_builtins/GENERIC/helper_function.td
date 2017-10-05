@@ -81,6 +81,24 @@ let Types = [v8f64],
 //                                 transpose
 // ****************************************************************************
 
+let Types = [v4i32, v4f32],
+    Attrs = [INTERNAL_INLINE, OVERLOADABLE],
+    NeedForwardDecl = 1 in {
+  def __ocl_load_transpose4x4_avx2_helper   : OclBuiltin<"__ocl_load_transpose4x4_avx2_helper", (outs), (ins v8gentype:$In0, v8gentype:$In1, pgentype:$Out0, pgentype:$Out1, pgentype:$Out2, pgentype:$Out3), [], [], 0, 0>, PRIVATE;
+  def __ocl_transpose_store4x4_avx2_helper  : OclBuiltin<"__ocl_transpose_store4x4_avx2_helper", (outs), (ins v8gentype:$In0, v8gentype:$In1, pv8gentype:$Out0, pv8gentype:$Out1), [], [], 0, 0>, PRIVATE;
+
+  def __ocl_common_transpose4x8_avx2_helper  : OclBuiltin<"__ocl_common_transpose4x8_avx2_helper", (outs), (ins v8gentype:$In0, v8gentype:$In1, v8gentype:$In2, v8gentype:$In3, pv8gentype:$Out0, pv8gentype:$Out1, pv8gentype:$Out2, pv8gentype:$Out3),  [], [], 0, 0>, PRIVATE;
+}
+
+let Types = [v4i8, v4i16],
+    Attrs = [INTERNAL_INLINE, OVERLOADABLE],
+    NeedForwardDecl = 1 in {
+  def __ocl_load_transpose4x4_helper   : OclBuiltin<"__ocl_load_transpose4x4_helper", (outs), (ins v16gentype:$In, pgentype:$Out0, pgentype:$Out1, pgentype:$Out2, pgentype:$Out3), [], [], 0, 0>, PRIVATE;
+  def __ocl_transpose_store4x4_helper  : OclBuiltin<"__ocl_transpose_store4x4_helper", (outs), (ins pv16gentype:$Out, gentype:$In0, gentype:$In2, gentype:$In3, gentype:$In4), [], [], 0, 0>, PRIVATE;
+
+  def __ocl_load_transpose4x8_helper   : OclBuiltin<"__ocl_load_transpose4x8_helper", (outs), (ins v16gentype:$In0, v16gentype:$In1, pv8gentype:$Out0, pv8gentype:$Out1, pv8gentype:$Out2, pv8gentype:$Out3), [], [], 0, 0>, PRIVATE;
+  def __ocl_transpose_store4x8_helper  : OclBuiltin<"__ocl_transpose_store4x8_helper", (outs), (ins pv16gentype:$Out0, pv16gentype:$Out1, v8gentype:$In0, v8gentype:$In1, v8gentype:$In2, v8gentype:$In3), [], [], 0, 0>, PRIVATE;
+}
 
 let Types = [v4f32, v4i32, v4i8, v4i16],
     Attrs = [INTERNAL_INLINE, OVERLOADABLE],

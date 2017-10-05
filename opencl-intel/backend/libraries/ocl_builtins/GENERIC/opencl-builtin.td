@@ -194,6 +194,10 @@ def memory_order : OclType<"memory_order", "memory_order", 1, 32, 0>;
 def memory_scope : OclType<"memory_scope", "memory_scope", 1, 32, 0>;
 def bool : OclType<"bool", "bool", 1, 32, 0>;
 
+// Custom types
+def char32 : OclType<"char32", "__v32qi", 1, 0, 0>;
+def pchar32 : OclType<"pchar32", "__v32qi", 1, 0, 1>;
+
 class TypeNameList<list<string> names> {
   list<string> Names = names;
 }

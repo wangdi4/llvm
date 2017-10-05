@@ -70,7 +70,13 @@ OclBuiltinImpl __ocl_masked_store_short_4x8_AVX = OclBuiltinImpl<__ocl_masked_st
 //                                 int4x4
 // ****************************************************************************
 OclBuiltinImpl __ocl_masked_load_int_4x4_AVX = OclBuiltinImpl<__ocl_masked_load4x4, [v4i32], 0, [{
-    #{__ocl_masked_load_float_4x4_common}#
+    float8 extendedMask = as_float8($Arg2VarName.s01230123);
+    float8 maskLow = extendedMask.s00001111;
+    float8 maskHigh = extendedMask.s22223333;
+    __private float8* tmpLoadAdd = (__private float8*)$Arg0VarName;
+    __private float8* tmpLoadedValues = (__private float8*)$Arg1VarName;
+    tmpLoadedValues[0] = as_float8(_mm256_maskload_ps((float*)&(tmpLoadAdd[0]), (__m256i)maskLow));
+    tmpLoadedValues[1] = as_float8(_mm256_maskload_ps((float*)&(tmpLoadAdd[1]), (__m256i)maskHigh));
   }]>;
 
 OclBuiltinImpl __ocl_masked_store_int_4x4_AVX = OclBuiltinImpl<__ocl_masked_store4x4, [v4i32], 0, [{
@@ -94,8 +100,14 @@ OclBuiltinImpl __ocl_masked_store_int_float_4x8_AVX = OclBuiltinImpl<__ocl_maske
 //                                 float4x4
 // ****************************************************************************
 OclBuiltinImpl __ocl_masked_load_float_4x4_AVX = OclBuiltinImpl<__ocl_masked_load4x4, [v4f32], 0, [{
-    *((__private float16*)$Arg1VarName) = 0;              //to avoid dnormals for the non loaded floats
-    #{__ocl_masked_load_float_4x4_common}#
+    *((__private float16*)$Arg1VarName) = 0;                                        // to avoid denormals for the non loaded floats
+    float8 extendedMask = as_float8($Arg2VarName.s01230123);
+    float8 maskLow = extendedMask.s00001111;
+    float8 maskHigh = extendedMask.s22223333;
+    __private float8* tmpLoadAdd = (__private float8*)$Arg0VarName;
+    __private float8* tmpLoadedValues = (__private float8*)$Arg1VarName;
+    tmpLoadedValues[0] = as_float8(_mm256_maskload_ps((float*)&(tmpLoadAdd[0]), (__m256i)maskLow));
+    tmpLoadedValues[1] = as_float8(_mm256_maskload_ps((float*)&(tmpLoadAdd[1]), (__m256i)maskHigh));
   }]>;
 
 OclBuiltinImpl __ocl_masked_store_float_4x4_AVX = OclBuiltinImpl<__ocl_masked_store4x4, [v4f32], 0, [{
