@@ -92,6 +92,82 @@ bool HIRSCCFormation::isConsideredLinear(const NodeTy *Node) const {
   return true;
 }
 
+bool HIRSCCFormation::isMulByConstRecurrence(const PHINode *Phi) const {
+  // Looks for this pattern-
+  //
+  // L:
+  //  t1 = phi (t2, init)
+  //  ...
+  //  t2 = shl t1, constant; OR t2 = mul t1, constant;
+  //  ...
+  //  if () {
+  //    goto L:
+  //  }
+  //
+  // -where both t1 and t2 are NOT live out of the loop.
+  //
+  // Suppressing such recurrences results in cleaner HIR code. When the phi is
+  // deconstructed without SCC, the recurrence appears at the end of the loop so
+  // it cannot cause live range issues as opposed to keeping the original
+  // mul/shift instruction which can appear anywhere inside the loop. For
+  // example, in the case below multiplication appears at the beginning of the
+  // loop and both the old and new values are being used inside the loop.
+  //
+  // DO i1
+  //  t.out = t
+  //  t = t * 2
+  //
+  //    = t
+  //    = t.out
+  // END DO
+  //
+  // If we use non-SCC deconstruction, the code will look like the following
+  // without the copy which is cleaner.
+  //
+  // DO i1
+  //     = 2 * t
+  //     = t
+  //   t = t * 2
+  // END DO
+  //
+  // Perhaps it would have helped if SCEV had a concept of SCEVMulRecExpr
+  // similar to SCEVAddRecExpr.
+  //
+  // TODO: make the suppression logic more generic.
+
+  // Recurrences (reductions of interest) in innermost loops will most likely be
+  // live out of the loop which makes the suppression non-profitable.
+  if (CurLoop->empty()) {
+    return false;
+  }
+
+  bool IsMulReccurrence = false;
+  const Instruction *Inst = nullptr;
+  auto PhiLp = LI->getLoopFor(Phi->getParent());
+
+  for (unsigned I = 0, Num = Phi->getNumIncomingValues(); I < Num; ++I) {
+    auto Val = Phi->getIncomingValue(I);
+    Inst = dyn_cast<Instruction>(Val);
+
+    if (!Inst || (LI->getLoopFor(Inst->getParent()) != PhiLp)) {
+      continue;
+    }
+
+    if ((Inst->getOpcode() != Instruction::Shl) &&
+        (Inst->getOpcode() != Instruction::Mul)) {
+      return false;
+    }
+
+    if (isa<ConstantInt>(Inst->getOperand(0)) ||
+        isa<ConstantInt>(Inst->getOperand(1))) {
+      IsMulReccurrence = true;
+      break;
+    }
+  }
+
+  return (IsMulReccurrence && !isLoopLiveOut(Phi) && !isLoopLiveOut(Inst));
+}
+
 bool HIRSCCFormation::isCandidateRootNode(const NodeTy *Node) const {
   assert(isa<PHINode>(Node) && "Instruction is not a phi!");
 
@@ -108,6 +184,11 @@ bool HIRSCCFormation::isCandidateRootNode(const NodeTy *Node) const {
   }
 
   if (Node->getType()->isIntegerTy()) {
+
+    if (isMulByConstRecurrence(cast<PHINode>(Node))) {
+      return false;
+    }
+
     auto SC = SE->getSCEV(const_cast<NodeTy *>(Node));
 
     // Do not form SCCs where root nodes have range info. This allows
@@ -307,6 +388,10 @@ bool HIRSCCFormation::isCandidateNode(const NodeTy *Node) const {
 
   if (!Phi) {
     return true;
+  }
+
+  if (isMulByConstRecurrence(Phi)) {
+    return false;
   }
 
   if (RI->isHeaderPhi(Phi)) {

@@ -127,6 +127,9 @@ private:
   const int NO_SCC = -1;
 
 private:
+  /// Returns true if Phi forms a recurrence of the form (t = t * constant).
+  bool isMulByConstRecurrence(const PHINode *Phi) const;
+
   /// Returns true if this is a potential root of a new SCC.
   bool isCandidateRootNode(const NodeTy *Node) const;
 
