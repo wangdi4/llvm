@@ -757,47 +757,30 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::visit(const HLDDNode *Node) {
   bool CanSimplifyRvals =
       (!Inst || (!isa<CallInst>(Inst) && !isa<ReturnInst>(Inst)));
   bool CanSimplifyLval = true;
+  bool HasNonConstRval = false;
 
   for (; RefIt != End; ++RefIt, ++NumRvalOp) {
     RvalRef = *RefIt;
+    // Only the first two operands of select are relavant for simplification.
+    bool SimplificationCandidate = (!IsSelect || (NumRvalOp < 2));
+
+    if (SimplificationCandidate) {
+      HasNonConstRval = HasNonConstRval || !RvalRef->isConstant();
+    }
 
     if (!processRef(RvalRef)) {
-      // Only the first two operands of select are relavant for simplification.
-      if (!IsSelect || (NumRvalOp < 2)) {
+      if (SimplificationCandidate) {
         CanSimplifyRvals = false;
       }
     }
   }
 
-  if (HInst && (LvalRef = HInst->getLvalDDRef())) {
-    // Terminal lval refs are only used to invalidate their encountered uses.
-    if (LvalRef->isTerminalRef()) {
-      // If rvals can be simplified, consider terminal lval as also simplified.
-      CanSimplifyLval = CanSimplifyRvals;
-      updateBlobs(LvalRef, CanSimplifyRvals);
-    } else {
-      CanSimplifyLval = processRef(LvalRef);
-    }
-  }
-
-  // Ignore gep/copy instructions as all the cost has been accounted for in
-  // refs.
-  bool IsGEP = false;
-  if (Inst && ((IsGEP = isa<GetElementPtrInst>(Inst)) || HInst->isCopyInst())) {
-    if (IsGEP || !CanSimplifyRvals) {
-      NumDDRefs += 2;
-    }
-    return;
-  }
-
-  // Load/Store instructions can be simplified/eliminated if they are constant
-  // array/alloca accesses. We let them through to account for these savings.
-
   if (CanSimplifyRvals) {
-    assert(RvalRef && "At least one rval ref is expected!");
-
-    // Only add savings if rval is not already a constant.
-    if ((NumRvalOp != 1) || !RvalRef->isConstant()) {
+    // Only add savings if RHS was not already a constant.
+    // RHS can turn constant after pre vec complete unroll. Since we do not
+    // perform constant propagation/DCE after complete unroll we may mistakenly
+    // identify it as savings in post vec complete unroll.
+    if (HasNonConstRval) {
       ++Savings;
     }
   } else {
@@ -805,17 +788,33 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::visit(const HLDDNode *Node) {
     NumDDRefs += NumRvalOp;
   }
 
-  if (LvalRef) {
+  if (HInst && (LvalRef = HInst->getLvalDDRef())) {
+    bool AlreadySimplified = false;
+
+    if (LvalRef->isTerminalRef()) {
+      // If rvals can be simplified, consider terminal lval as also simplified.
+      CanSimplifyLval = CanSimplifyRvals;
+      AlreadySimplified = !HasNonConstRval;
+
+      // Terminal lval refs are used to invalidate their encountered uses.
+      updateBlobs(LvalRef, CanSimplifyRvals);
+    } else {
+      CanSimplifyLval = processRef(LvalRef);
+    }
+
     if (CanSimplifyLval) {
-      ++Savings;
+      if (!AlreadySimplified) {
+        ++Savings;
+      }
     } else {
       ++NumDDRefs;
     }
-  }
 
-  // Cost of load/store has already been accounted for in refs.
-  if (Inst && (isa<LoadInst>(Inst) || isa<StoreInst>(Inst))) {
-    return;
+    // Cost of load/store/gep/copy has already been accounted for in refs.
+    if (isa<LoadInst>(Inst) || isa<StoreInst>(Inst) ||
+        isa<GetElementPtrInst>(Inst) || HInst->isCopyInst()) {
+      return;
+    }
   }
 
   if (!CanSimplifyRvals || !CanSimplifyLval) {
