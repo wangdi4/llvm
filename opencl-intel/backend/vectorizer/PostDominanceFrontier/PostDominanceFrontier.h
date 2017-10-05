@@ -8,8 +8,8 @@
 #ifndef POST_DOMINANANCE_FRONTIER_H
 #define POST_DOMINANANCE_FRONTIER_H
 
-#include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/DominanceFrontier.h"
+#include "llvm/Analysis/PostDominators.h"
 
 namespace intel {
 
@@ -18,16 +18,16 @@ namespace intel {
 /// used to compute a backward dominator frontiers.
 ///
 template <class BlockT>
-class PostDominanceFrontierBase : public llvm::DominanceFrontierBase<BlockT> {
+class PostDominanceFrontierBase : public llvm::DominanceFrontierBase<BlockT, true> {
 private:
   typedef llvm::GraphTraits<BlockT *> BlockTraits;
 
 public:
-  typedef llvm::DominatorTreeBase<BlockT> DomTreeT;
+  typedef llvm::DominatorTreeBase<BlockT, true> DomTreeT;
   typedef llvm::DomTreeNodeBase<BlockT> DomTreeNodeT;
-  typedef typename llvm::DominanceFrontierBase<BlockT>::DomSetType DomSetType;
+  typedef typename llvm::DominanceFrontierBase<BlockT, true>::DomSetType DomSetType;
 
-  PostDominanceFrontierBase() : llvm::DominanceFrontierBase<BlockT>(true) {}
+  PostDominanceFrontierBase() : llvm::DominanceFrontierBase<BlockT, true>() {}
 
   void analyze(DomTreeT &DT) {
     this->Roots = DT.getRoots();
@@ -79,11 +79,11 @@ class PostDominanceFrontier : public llvm::FunctionPass {
   PostDominanceFrontierBase<llvm::BasicBlock> Base;
 
 public:
-  typedef llvm::DominatorTreeBase<llvm::BasicBlock> DomTreeT;
+  typedef llvm::DominatorTreeBase<llvm::BasicBlock, true> DomTreeT;
   typedef llvm::DomTreeNodeBase<llvm::BasicBlock> DomTreeNodeT;
-  typedef llvm::DominanceFrontierBase<llvm::BasicBlock>::DomSetType DomSetType;
-  typedef llvm::DominanceFrontierBase<llvm::BasicBlock>::iterator iterator;
-  typedef llvm::DominanceFrontierBase<llvm::BasicBlock>::const_iterator const_iterator;
+  typedef llvm::DominanceFrontierBase<llvm::BasicBlock, true>::DomSetType DomSetType;
+  typedef llvm::DominanceFrontierBase<llvm::BasicBlock, true>::iterator iterator;
+  typedef llvm::DominanceFrontierBase<llvm::BasicBlock, true>::const_iterator const_iterator;
 
   static char ID; // Pass ID, replacement for typeid
 
@@ -129,7 +129,7 @@ public:
     return Base.compareDomSet(DS1, DS2);
   }
 
-  bool compare(llvm::DominanceFrontierBase<llvm::BasicBlock> &Other) const {
+  bool compare(llvm::DominanceFrontierBase<llvm::BasicBlock, true> &Other) const {
     return Base.compare(Other);
   }
 

@@ -252,7 +252,7 @@ namespace intel {
         LoadInst *pLoadInstr = cast<LoadInst>(pInstr);
         LoadInst *pNewLoad = new LoadInst(pNewValue, pLoadInstr->getName(),
                                     pLoadInstr->isVolatile(),  pLoadInstr->getAlignment(),
-                                    pLoadInstr->getOrdering(), pLoadInstr->getSynchScope(),
+                                    pLoadInstr->getOrdering(), pLoadInstr->getSyncScopeID(),
                                     pLoadInstr);
         pNewInstr = pNewLoad;
         break;
@@ -261,7 +261,7 @@ namespace intel {
         StoreInst *pStoreInstr = cast<StoreInst>(pInstr);
         StoreInst *pNewStore = new StoreInst(pStoreInstr->getValueOperand(), pNewValue,
                                     pStoreInstr->isVolatile(),  pStoreInstr->getAlignment(),
-                                    pStoreInstr->getOrdering(), pStoreInstr->getSynchScope(),
+                                    pStoreInstr->getOrdering(), pStoreInstr->getSyncScopeID(),
                                     pStoreInstr);
         pNewInstr = pNewStore;
         break;
@@ -271,7 +271,7 @@ namespace intel {
         AtomicCmpXchgInst *pNewCmpXchg = new AtomicCmpXchgInst(
                                           pNewValue, pCmpXchg->getCompareOperand(), pCmpXchg->getNewValOperand(),
                                           pCmpXchg->getSuccessOrdering(), pCmpXchg->getFailureOrdering(),
-                                          pCmpXchg->getSynchScope(), pCmpXchg);
+                                          pCmpXchg->getSyncScopeID(), pCmpXchg);
         pNewCmpXchg->setVolatile(pCmpXchg->isVolatile());
         pNewInstr = pNewCmpXchg;
         break;
@@ -281,7 +281,7 @@ namespace intel {
         AtomicRMWInst *pNewAtomicRMW = new AtomicRMWInst(
                                         pAtomicRMW->getOperation(), pNewValue,
                                         pAtomicRMW->getValOperand(),pAtomicRMW->getOrdering(),
-                                        pAtomicRMW->getSynchScope(), pAtomicRMW);
+                                        pAtomicRMW->getSyncScopeID(), pAtomicRMW);
         pNewAtomicRMW->setVolatile(pAtomicRMW->isVolatile());
         pNewInstr = pNewAtomicRMW;
         break;

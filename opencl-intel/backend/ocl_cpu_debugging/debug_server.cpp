@@ -41,12 +41,12 @@
 #undef max
 #endif
 
-#include "llvm/Support/MutexGuard.h"
+#include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/IR/DebugInfo.h"
-#include "llvm/Support/Dwarf.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/Support/FileSystem.h"
+#include "llvm/Support/MutexGuard.h"
 #include "llvm/Support/Path.h"
 
 #include <string>
