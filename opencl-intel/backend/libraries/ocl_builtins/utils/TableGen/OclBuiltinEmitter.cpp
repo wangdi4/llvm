@@ -969,17 +969,19 @@ OclBuiltinImpl::appendImpl(const Record* R)
   impl->m_IsDeclOnly = R->getValueAsBit("IsDeclOnly");
   // CustomMacro
   {
-    ListInit* macroses = R->getValueAsListInit("CustomMacro");
-    if(macroses)
-    {
-      for (ListInit::const_iterator iter = macroses->begin();
-        iter != macroses->end(); ++iter) {
-        PairInit* pair = dyn_cast<PairInit>(*iter);
-        if(pair)
-        {
-          std::string const& keyword = dyn_cast<StringInit>(pair->getFirst())->getValue();
-          std::string const& replacement = dyn_cast<StringInit>(pair->getSecond())->getValue();
-          impl->m_customMacro[keyword] = replacement;
+    ListInit* Macroses = R->getValueAsListInit("CustomMacro");
+    if (Macroses) {
+      for (ListInit::const_iterator Iter = Macroses->begin();
+           Iter != Macroses->end(); ++Iter) {
+        ListInit* Pair = dyn_cast<ListInit>(*Iter);
+        if (Pair) {
+          assert(Pair->size() == 2 &&
+                 "Custom macro supports only pairs of strings");
+          std::string const& Key =
+            dyn_cast<StringInit>(Pair->getElement(0))->getValue();
+          std::string const& Replacement =
+            dyn_cast<StringInit>(Pair->getElement(1))->getValue();
+          impl->m_customMacro[Key] = Replacement;
         } else {
           GENOCL_WARNING("'" << R->getName() << "' specifes invalid custom macro.\n");
         }

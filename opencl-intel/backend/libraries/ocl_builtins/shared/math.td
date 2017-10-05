@@ -164,7 +164,7 @@ OclBuiltinImpl hypot_svml_expand = OclBuiltinImpl<hypot, math_svml_vFvF_expand, 
 // hypotf and hypot are in range [-10000.0, 10000.0] for both arguments.
 // Choosing zero to avoid an additional constant load.
 OclBuiltinImpl hypot_svml_promote = OclBuiltinImpl<hypot, math_svml_vFvF_promote, 0, Promote2_tolerant_v3_to_v4,
-                     ["$TolerantValue0"->"0.0", "$TolerantValue1"->"0.0"]>;
+                     [["$TolerantValue0","0.0"], ["$TolerantValue1","0.0"]]>;
 
 // ilogb
 // float3 are promoted to float4

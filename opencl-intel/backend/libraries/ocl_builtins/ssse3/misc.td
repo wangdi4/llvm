@@ -56,12 +56,12 @@ code IntrinsicLikeShuffle = [{
  * shuffle with mask size 2                                      *
 \*****************************************************************/
 // shuffle with mask size 2 - chars shorts ints => promote to native mask
-OclBuiltinImpl shuffle_2_promote = OclBuiltinImpl<shuffle_2, [ v2u8,  v4u8,  v8u8,  v16u8,
+OclBuiltinImpl shuffle_2_promote = OclBuiltinImpl<shuffle_2, [v2u8,  v4u8,  v8u8,  v16u8,
                                                               v2u16, v4u16, v8u16, v16u16,
                                                               v2u32, v4u32, v8u32, v16u32], 0,
-                 PromoteShuffleByMask, ["$MaskPattern"->".s01"]>;
+                                                              PromoteShuffleByMask, [["$MaskPattern",".s01"]]>;
 // shuffle with mask size 2 - long2
-OclBuiltinImpl sse42_shuffle_2_v2u64 = OclBuiltinImpl<shuffle_2, [v2u64], 0, IntrinsicLikeShuffle, ["$ShiftLeftBy"->"3"]>;
+OclBuiltinImpl sse42_shuffle_2_v2u64 = OclBuiltinImpl<shuffle_2, [v2u64], 0, IntrinsicLikeShuffle, [["$ShiftLeftBy","3"]]>;
 // shuffle with mask size 2 - long4, long8, long16 => expand to long2
 OclBuiltinImpl shuffle_2_v4v8v16u64 = OclBuiltinImpl<shuffle_2, [v4u64, v8u64, v16u64], 0, ExpandShuffleByVector>;
 
@@ -70,16 +70,16 @@ OclBuiltinImpl shuffle_2_v4v8v16u64 = OclBuiltinImpl<shuffle_2, [v4u64, v8u64, v
  * shuffle with mask size 4                                      *
 \*****************************************************************/
 // shuffle with mask size 4 - chars shorts => promote to native mask
-OclBuiltinImpl shuffle_4_promote = OclBuiltinImpl<shuffle_4, [ v2u8,  v4u8,  v8u8,  v16u8,
+OclBuiltinImpl shuffle_4_promote = OclBuiltinImpl<shuffle_4, [v2u8,  v4u8,  v8u8,  v16u8,
                                                               v2u16, v4u16, v8u16, v16u16], 0,
-                 PromoteShuffleByMask, ["$MaskPattern"->".s0123"]>;
+                                                              PromoteShuffleByMask, [["$MaskPattern",".s0123"]]>;
 // shuffle with mask size 4 - longs => expand to native mask
 OclBuiltinImpl shuffle_4_expand = OclBuiltinImpl<shuffle_4, [v2u64, v4u64, v8u64, v16u64], 0, ExpandShuffleByMask>;
 
 // shuffle with mask size 4 - int2 => promote to int4
 OclBuiltinImpl shuffle_4_v2u32 = OclBuiltinImpl<shuffle_4, [v2u32], 0, PromoteShuffleByVector>;
 // shuffle with mask size 4 - int4
-OclBuiltinImpl sse42_shuffle_4_v4u32 = OclBuiltinImpl<shuffle_4, [v4u32], 0, IntrinsicLikeShuffle, ["$ShiftLeftBy"->"2"]>;
+OclBuiltinImpl sse42_shuffle_4_v4u32 = OclBuiltinImpl<shuffle_4, [v4u32], 0, IntrinsicLikeShuffle, [["$ShiftLeftBy","2"]]>;
 // shuffle with mask size 4 - int8, int16 => expand to int4
 OclBuiltinImpl shuffle_4_v8v16u32 = OclBuiltinImpl<shuffle_4, [v8u32, v16u32], 0, ExpandShuffleByVector>;
 
@@ -89,7 +89,7 @@ OclBuiltinImpl shuffle_4_v8v16u32 = OclBuiltinImpl<shuffle_4, [v8u32, v16u32], 0
 \*****************************************************************/
 // shuffle with mask size 8 - chars => promote to native mask
 OclBuiltinImpl shuffle_8_promote = OclBuiltinImpl<shuffle_8, [v2u8,  v4u8,  v8u8,  v16u8], 0,
-                 PromoteShuffleByMask, ["$MaskPattern"->".s01234567"]>;
+                                                  PromoteShuffleByMask, [["$MaskPattern",".s01234567"]]>;
 // shuffle with mask size 8 - ints longs => expand to native mask
 OclBuiltinImpl shuffle_8_expand = OclBuiltinImpl<shuffle_8, [v2u32, v4u32, v8u32, v16u32,
                                                              v2u64, v4u64, v8u64, v16u64], 0, ExpandShuffleByMask>;
@@ -97,7 +97,7 @@ OclBuiltinImpl shuffle_8_expand = OclBuiltinImpl<shuffle_8, [v2u32, v4u32, v8u32
 // shuffle with mask size 8 - short2, short4 => promote to short8
 OclBuiltinImpl shuffle_8_v2v4u16 = OclBuiltinImpl<shuffle_8, [v2u16, v4u16], 0, PromoteShuffleByVector>;
 // shuffle with mask size 8 - short8
-OclBuiltinImpl sse42_shuffle_8_v8u16 = OclBuiltinImpl<shuffle_8, [v8u16], 0, IntrinsicLikeShuffle, ["$ShiftLeftBy"->"1"]>;
+OclBuiltinImpl sse42_shuffle_8_v8u16 = OclBuiltinImpl<shuffle_8, [v8u16], 0, IntrinsicLikeShuffle, [["$ShiftLeftBy","1"]]>;
 // shuffle with mask size 8 - short16 => expand to short8
 OclBuiltinImpl shuffle_8_v16u16 = OclBuiltinImpl<shuffle_8, [v16u16], 0, ExpandShuffleByVector>;
 

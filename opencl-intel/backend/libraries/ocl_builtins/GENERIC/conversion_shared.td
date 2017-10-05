@@ -66,19 +66,19 @@ OclBuiltinImpl trunc_i8   = OclBuiltinImpl<convert_i8,
                                             v1u64, v2u64, v3u64, v4u64, v8u64, v16u64], 0, BitTrunc>;
 
 OclBuiltinImpl fp2int_i8_f  = OclBuiltinImpl<convert_i8, float_types, 0,
-                                                PromoteI32, ["$Round"->""]>;
+                                                PromoteI32, [["$Round",""]]>;
 
 OclBuiltinImpl fp2int_i8_f_rte  = OclBuiltinImpl<convert_i8_rte, float_types, 0,
-                                                    PromoteI32, ["$Round"->"_rte"]>;
+                                                    PromoteI32, [["$Round","_rte"]]>;
 
 OclBuiltinImpl fp2int_i8_f_rtz  = OclBuiltinImpl<convert_i8_rtz, float_types, 0,
-                                                    PromoteI32, ["$Round"->"_rtz"]>;
+                                                    PromoteI32, [["$Round","_rtz"]]>;
 
 OclBuiltinImpl fp2int_i8_f_rtp  = OclBuiltinImpl<convert_i8_rtp, float_types, 0,
-                                                    PromoteI32, ["$Round"->"_rtp"]>;
+                                                    PromoteI32, [["$Round","_rtp"]]>;
 
 OclBuiltinImpl fp2int_i8_f_rtn  = OclBuiltinImpl<convert_i8_rtn, float_types, 0,
-                                                    PromoteI32, ["$Round"->"_rtn"]>;
+                                                    PromoteI32, [["$Round","_rtn"]]>;
 
 OclBuiltinImpl bitcast_u8 = OclBuiltinImpl<convert_u8,
                                            [v1i8, v2i8, v3i8, v4i8, v8i8, v16i8,
@@ -94,19 +94,19 @@ OclBuiltinImpl trunc_u8   = OclBuiltinImpl<convert_u8,
 
 
 OclBuiltinImpl fp2int_u8_f  = OclBuiltinImpl<convert_u8, float_types, 0,
-                                                PromoteU32, ["$Round"->""]>;
+                                                PromoteU32, [["$Round",""]]>;
 
 OclBuiltinImpl fp2int_u8_f_rte  = OclBuiltinImpl<convert_u8_rte, float_types, 0,
-                                                    PromoteU32, ["$Round"->"_rte"]>;
+                                                    PromoteU32, [["$Round","_rte"]]>;
 
 OclBuiltinImpl fp2int_u8_f_rtz  = OclBuiltinImpl<convert_u8_rtz, float_types, 0,
-                                                    PromoteU32, ["$Round"->"_rtz"]>;
+                                                    PromoteU32, [["$Round","_rtz"]]>;
 
 OclBuiltinImpl fp2int_u8_f_rtp  = OclBuiltinImpl<convert_u8_rtp, float_types, 0,
-                                                    PromoteU32, ["$Round"->"_rtp"]>;
+                                                    PromoteU32, [["$Round","_rtp"]]>;
 
 OclBuiltinImpl fp2int_u8_f_rtn  = OclBuiltinImpl<convert_u8_rtn, float_types, 0,
-                                                    PromoteU32, ["$Round"->"_rtn"]>;
+                                                    PromoteU32, [["$Round","_rtn"]]>;
 
 // 16-bit integer output
 OclBuiltinImpl sext_i16    = OclBuiltinImpl<convert_i16,
@@ -126,20 +126,20 @@ OclBuiltinImpl trunc_i16   = OclBuiltinImpl<convert_i16,
                                              v1u64, v2u64, v3u64, v4u64, v8u64, v16u64], 0, BitTrunc>;
 
 OclBuiltinImpl fp2int_i16_f  = OclBuiltinImpl<convert_i16, float_types, 0,
-                                                PromoteI32, ["$Round"->""]>;
+                                                PromoteI32, [["$Round",""]]>;
 
 
 OclBuiltinImpl fp2int_i16_f_rte  = OclBuiltinImpl<convert_i16_rte, float_types, 0,
-                                                    PromoteI32, ["$Round"->"_rte"]>;
+                                                    PromoteI32, [["$Round","_rte"]]>;
 
 OclBuiltinImpl fp2int_i16_f_rtz  = OclBuiltinImpl<convert_i16_rtz, float_types, 0,
-                                                    PromoteI32, ["$Round"->"_rtz"]>;
+                                                    PromoteI32, [["$Round","_rtz"]]>;
 
 OclBuiltinImpl fp2int_i16_f_rtp  = OclBuiltinImpl<convert_i16_rtp, float_types, 0,
-                                                    PromoteI32, ["$Round"->"_rtp"]>;
+                                                    PromoteI32, [["$Round","_rtp"]]>;
 
 OclBuiltinImpl fp2int_i16_f_rtn  = OclBuiltinImpl<convert_i16_rtn, float_types, 0,
-                                                    PromoteI32, ["$Round"->"_rtn"]>;
+                                                    PromoteI32, [["$Round","_rtn"]]>;
 
 
 OclBuiltinImpl sext_u16    = OclBuiltinImpl<convert_u16,
@@ -162,19 +162,19 @@ OclBuiltinImpl trunc_u16   = OclBuiltinImpl<convert_u16,
 
 
 OclBuiltinImpl fp2int_u16_f  = OclBuiltinImpl<convert_u16, float_types, 0,
-                                              PromoteU32, ["$Round"->""]>;
+                                              PromoteU32, [["$Round",""]]>;
 
 OclBuiltinImpl fp2int_u16_f_rte  = OclBuiltinImpl<convert_u16_rte, float_types, 0,
-                                                  PromoteU32, ["$Round"->"_rte"]>;
+                                                  PromoteU32, [["$Round","_rte"]]>;
 
 OclBuiltinImpl fp2int_u16_f_rtz  = OclBuiltinImpl<convert_u16_rtz, float_types, 0,
-                                                  PromoteU32, ["$Round"->"_rtz"]>;
+                                                  PromoteU32, [["$Round","_rtz"]]>;
 
 OclBuiltinImpl fp2int_u16_f_rtp  = OclBuiltinImpl<convert_u16_rtp, float_types, 0,
-                                                  PromoteU32, ["$Round"->"_rtp"]>;
+                                                  PromoteU32, [["$Round","_rtp"]]>;
 
 OclBuiltinImpl fp2int_u16_f_rtn  = OclBuiltinImpl<convert_u16_rtn, float_types, 0,
-                                                  PromoteU32, ["$Round"->"_rtn"]>;
+                                                  PromoteU32, [["$Round","_rtn"]]>;
 
 // 32-bit integer output
 OclBuiltinImpl sext_i32    = OclBuiltinImpl<convert_i32,

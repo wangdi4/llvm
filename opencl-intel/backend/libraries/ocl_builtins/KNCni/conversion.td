@@ -243,45 +243,45 @@ OclBuiltinImpl cvt_i64_v8f = OclBuiltinImpl<convert_i64, float_types, 0, [{
 // convert_i64_rtz.
 OclBuiltinImpl cvt_i64_rtz_v8f = OclBuiltinImpl<convert_i64_rtz,
                                           [v8f64, v8f32], 0, convert_ui64_code,
-                                          ["$Rounding"->"ZERO"]>;
+                                          [["$Rounding","ZERO"]]>;
 OclBuiltinImpl cvt_i64_rtz_v1f_v4f = OclBuiltinImpl<convert_i64_rtz,
                                           [v1f64, v2f64, v3f64, v4f64,
                                            v1f32, v2f32, v3f32, v4f32],
                                            0, convert_ui64_mask_code,
-                                          ["$Rounding"->"ZERO"]>;
+                                          [["$Rounding","ZERO"]]>;
 OclBuiltinImpl cvt_i64_rtz_v16f = OclBuiltinImpl<convert_i64_rtz, [v16f64, v16f32], 0, Expand1>;
 
 // convert_i64_rte
 OclBuiltinImpl cvt_i64_rte_v8f = OclBuiltinImpl<convert_i64_rte,
                                           [v8f64, v8f32], 0, convert_ui64_code,
-                                          ["$Rounding"->"NEAREST_INT"]>;
+                                          [["$Rounding","NEAREST_INT"]]>;
 OclBuiltinImpl cvt_i64_rte_v1f_v4f = OclBuiltinImpl<convert_i64_rte,
                                           [v1f64, v2f64, v3f64, v4f64,
                                            v1f32, v2f32, v3f32, v4f32],
                                            0, convert_ui64_mask_code,
-                                          ["$Rounding"->"NEAREST_INT"]>;
+                                          [["$Rounding","NEAREST_INT"]]>;
 OclBuiltinImpl cvt_i64_rte_v16f = OclBuiltinImpl<convert_i64_rte, [v16f64, v16f32], 0, Expand1>;
 
 // convert_i64_rtp
 OclBuiltinImpl cvt_i64_rtp_v8f = OclBuiltinImpl<convert_i64_rtp,
                                           [v8f64, v8f32], 0, convert_ui64_code,
-                                          ["$Rounding"->"POS_INF"]>;
+                                          [["$Rounding","POS_INF"]]>;
 OclBuiltinImpl cvt_i64_rtp_v1f_v4f = OclBuiltinImpl<convert_i64_rtp,
                                           [v1f64, v2f64, v3f64, v4f64,
                                            v1f32, v2f32, v3f32, v4f32],
                                            0, convert_ui64_mask_code,
-                                          ["$Rounding"->"POS_INF"]>;
+                                          [["$Rounding","POS_INF"]]>;
 OclBuiltinImpl cvt_i64_rtp_v16f = OclBuiltinImpl<convert_i64_rtp, [v16f64, v16f32], 0, Expand1>;
 
 // convert_i64_rtn
 OclBuiltinImpl cvt_i64_rtn_v8f = OclBuiltinImpl<convert_i64_rtn,
                                           [v8f64, v8f32], 0, convert_ui64_code,
-                                          ["$Rounding"->"NEG_INF"]>;
+                                          [["$Rounding","NEG_INF"]]>;
 OclBuiltinImpl cvt_i64_rtn_v1f_v4f = OclBuiltinImpl<convert_i64_rtn,
                                           [v1f64, v2f64, v3f64, v4f64,
                                            v1f32, v2f32, v3f32, v4f32],
                                            0, convert_ui64_mask_code,
-                                          ["$Rounding"->"NEG_INF"]>;
+                                          [["$Rounding","NEG_INF"]]>;
 OclBuiltinImpl cvt_i64_rtn_v16f = OclBuiltinImpl<convert_i64_rtn, [v16f64, v16f32], 0, Expand1>;
 
 // convert_u64
@@ -292,45 +292,45 @@ OclBuiltinImpl cvt_u64_v8f = OclBuiltinImpl<convert_u64, float_types, 0, [{
 // convert_u64_rtz.
 OclBuiltinImpl cvt_u64_rtz_v8f = OclBuiltinImpl<convert_u64_rtz,
                                           [v8f64, v8f32], 0, convert_ui64_code,
-                                          ["$Rounding"->"ZERO"]>;
+                                          [["$Rounding","ZERO"]]>;
 OclBuiltinImpl cvt_u64_rtz_v1f_v4f = OclBuiltinImpl<convert_u64_rtz,
                                           [v1f64, v2f64, v3f64, v4f64,
                                            v1f32, v2f32, v3f32, v4f32],
                                            0, convert_ui64_mask_code,
-                                          ["$Rounding"->"ZERO"]>;
+                                          [["$Rounding","ZERO"]]>;
 OclBuiltinImpl cvt_u64_rtz_v16f = OclBuiltinImpl<convert_u64_rtz, [v16f64, v16f32], 0, Expand1>;
 
 // convert_u64_rte
 OclBuiltinImpl cvt_u64_rte_v8f = OclBuiltinImpl<convert_u64_rte,
                                           [v8f64, v8f32], 0, convert_ui64_code,
-                                          ["$Rounding"->"NEAREST_INT"]>;
+                                          [["$Rounding","NEAREST_INT"]]>;
 OclBuiltinImpl cvt_u64_rte_v1f_v4f = OclBuiltinImpl<convert_u64_rte,
                                           [v1f64, v2f64, v3f64, v4f64,
                                            v1f32, v2f32, v3f32, v4f32],
                                            0, convert_ui64_mask_code,
-                                          ["$Rounding"->"NEAREST_INT"]>;
+                                          [["$Rounding","NEAREST_INT"]]>;
 OclBuiltinImpl cvt_u64_rte_v16f = OclBuiltinImpl<convert_u64_rte, [v16f64, v16f32], 0, Expand1>;
 
 // convert_u64_rtp
 OclBuiltinImpl cvt_u64_rtp_v8f = OclBuiltinImpl<convert_u64_rtp,
                                           [v8f64, v8f32], 0, convert_ui64_code,
-                                          ["$Rounding"->"POS_INF"]>;
+                                          [["$Rounding","POS_INF"]]>;
 OclBuiltinImpl cvt_u64_rtp_v1f_v4f = OclBuiltinImpl<convert_u64_rtp,
                                           [v1f64, v2f64, v3f64, v4f64,
                                            v1f32, v2f32, v3f32, v4f32],
                                            0, convert_ui64_mask_code,
-                                          ["$Rounding"->"POS_INF"]>;
+                                          [["$Rounding","POS_INF"]]>;
 OclBuiltinImpl cvt_u64_rtp_v16f = OclBuiltinImpl<convert_u64_rtp, [v16f64, v16f32], 0, Expand1>;
 
 // convert_u64_rtn
 OclBuiltinImpl cvt_u64_rtn_v8f = OclBuiltinImpl<convert_u64_rtn,
                                           [v8f64, v8f32], 0, convert_ui64_code,
-                                          ["$Rounding"->"NEG_INF"]>;
+                                          [["$Rounding","NEG_INF"]]>;
 OclBuiltinImpl cvt_u64_rtn_v1f_v4f = OclBuiltinImpl<convert_u64_rtn,
                                           [v1f64, v2f64, v3f64, v4f64,
                                            v1f32, v2f32, v3f32, v4f32],
                                            0, convert_ui64_mask_code,
-                                          ["$Rounding"->"NEG_INF"]>;
+                                          [["$Rounding","NEG_INF"]]>;
 OclBuiltinImpl cvt_u64_rtn_v16f = OclBuiltinImpl<convert_u64_rtn, [v16f64, v16f32], 0, Expand1>;
 
 // convert_f32

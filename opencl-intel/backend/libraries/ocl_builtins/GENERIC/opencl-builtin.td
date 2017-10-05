@@ -841,12 +841,12 @@ class VOLATILE_GLOBAL  : OclAddressSpace<"__global",   0, 1>;
 
 
 // OclBuiltinImpl
-class OclBuiltinImpl<OclBuiltin builtin, list<OclType> types, bit isDeclOnly, code impl, list<pair<string, string>> customMacro = []> {
+class OclBuiltinImpl<OclBuiltin builtin, list<OclType> types, bit isDeclOnly, code impl, list<list<string>> customMacro = []> {
   OclBuiltin Builtin = builtin;
   list<OclType> Types = types;
   code Impl = impl;
   bit IsDeclOnly = isDeclOnly; // Just need declaration, for OCL builtin implementation defined somewhere else.
-  list<pair<string, string>> CustomMacro = customMacro;
+  list<list<string>> CustomMacro = customMacro;
 }
 
 //Reflection module map cell
