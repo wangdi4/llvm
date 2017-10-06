@@ -166,7 +166,7 @@ private:
   ///      size_t     size;       // Size of the entry info (0 if it is a
   ///                             // function).
   ///      int32_t    flags;      // Flags associated with the entry,
-  ///                             // e.g. 'link'. 
+  ///                             // e.g. 'link'.
   ///      int32_t    reserved;   // Reserved, to use by the
   ///                             // runtime library.
   /// };
@@ -474,8 +474,7 @@ private:
   bool genTargetOffloadingCode(WRegionNode *W);
 
   /// \brief Generate the initialization code for the directive omp target
-  CallInst *genTargetInitCode(WRegionNode *W,
-                              CallInst *Call,
+  CallInst *genTargetInitCode(WRegionNode *W, CallInst *Call,
                               Instruction *InsertPt);
 
   /// \brief Generate the pointers pointing to the array of base pointer, the
@@ -485,8 +484,7 @@ private:
   /// \brief Pass the data to the array of base pointer as well as  array of
   /// section pointers.
   void genOffloadArraysInit(WRegionNode *W, TargetDataInfo *Info,
-                            CallInst *Call,
-                            Instruction *InsertPt);
+                            CallInst *Call, Instruction *InsertPt);
 
   /// \breif Return the map type for the data clause.
   void getMapTypes(WRegionNode *W, SmallVectorImpl<uint32_t> &MapTypes);
@@ -536,10 +534,8 @@ private:
   bool genMapPrivationCode(WRegionNode *W);
 
   /// \brief build the CFG for if clause.
-  void buildCFGForIfClause(Value *Cmp,
-                           TerminatorInst *&ThenTerm,
-                           TerminatorInst *&ElseTerm,
-                           Instruction *InsertPt);
+  void buildCFGForIfClause(Value *Cmp, TerminatorInst *&ThenTerm,
+                           TerminatorInst *&ElseTerm, Instruction *InsertPt);
 
   /// \brief Generate multithreaded for a given WRegion
   bool genMultiThreadedCode(WRegionNode *W);
@@ -577,6 +573,15 @@ private:
 
   /// \brief Insert a barrier at the end of the construct
   bool genBarrier(WRegionNode *W, bool IsExplicit);
+
+  /// \brief Generate the intrinsic @llvm.codemotion.fence to inhibit the cse
+  /// for the gep instruction related to array/struture which is marked
+  /// as private, firstprivate, lastprivate, reduction or shared.
+  void genCodemotionFenceforPrivatizationAggr(WRegionNode *W);
+
+  /// \brief Clean up the intrinsic @llvm.codemotion.fence and replace the use
+  /// of the intrinsic with the its operand.
+  bool clearCodemotionFenceIntrinsic(WRegionNode *W);
 };
 
 } /// namespace vpo

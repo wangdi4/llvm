@@ -1058,6 +1058,10 @@ def int_intel_std_container_ptr_iter  : Intrinsic<[llvm_anyptr_ty],
 def int_intel_fakeload   : Intrinsic<[llvm_anyptr_ty],
                                  [LLVMMatchType<0>, llvm_metadata_ty],
                                  [IntrNoMem]>;
+
+def int_codemotion_fence : Intrinsic<[llvm_anyptr_ty],
+                                     [LLVMMatchType<0>],
+                                     [IntrReadMem]>;
 // endif INTEL_CUSTOMIZATION
 
 include "llvm/IR/IntrinsicsPowerPC.td"
