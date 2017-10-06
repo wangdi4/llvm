@@ -727,6 +727,13 @@ bool HIRRegionIdentification::isGenerable(const BasicBlock *BB,
                         "supported.\n");
         return false;
       }
+
+      if (CInst->hasOperandBundles()) {
+        DEBUG(
+            dbgs()
+            << "LOOPOPT_OPTREPORT: Operand bundles currently not supported.\n");
+        return false;
+      }
     }
 
     if (containsUnsupportedTy(&*Inst)) {
