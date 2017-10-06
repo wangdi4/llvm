@@ -268,14 +268,13 @@ bool HIRCreation::isCrossLinked(const SwitchInst *SI,
 void HIRCreation::sortDomChildren(
     DomTreeNode *Node, SmallVectorImpl<BasicBlock *> &SortedChildren) const {
 
-  // Sort the dom children of Node using post dominator relationship. If child1
-  // post dominates child2, it should be visited after child2 otherwise forward
-  // edges can turn into back edges.
-
   auto NodeBB = Node->getBlock();
 
   for (auto &I : (*Node)) {
-    SortedChildren.push_back(I->getBlock());
+    auto BB = I->getBlock();
+    if (CurRegion->containsBBlock(BB)) {
+      SortedChildren.push_back(BB);
+    }
   }
 
   SmallPtrSet<const BasicBlock *, 2> EndBBs;
@@ -303,26 +302,20 @@ HLNode *HIRCreation::doPreOrderRegionWalk(BasicBlock *BB,
 
   auto Reg = dyn_cast<HLRegion>(InsertionPos);
 
-  bool IsFunctionEntryBB = (Reg && Reg->isFunctionLevel());
-
-  if (!IsFunctionEntryBB && !CurRegion->containsBBlock(BB)) {
-    return InsertionPos;
-  }
-
-  SmallVector<BasicBlock *, 8> DomChildren;
-  auto Root = DT->getNode(BB);
-
-  if (IsFunctionEntryBB) {
+  if (Reg && Reg->isFunctionLevel()) {
     // Populate just the terminator of the function entry bblock.
     InsertionPos = populateTerminator(BB, InsertionPos);
   } else {
+    assert(CurRegion->containsBBlock(BB) && "Encountered non-region bblock!");
     // Visit(link) this bblock to HIR.
     InsertionPos = populateInstSequence(BB, InsertionPos);
   }
 
+  auto Root = DT->getNode(BB);
   auto TermNode = InsertionPos;
   auto IfTerm = dyn_cast<HLIf>(TermNode);
   auto SwitchTerm = IfTerm ? nullptr : dyn_cast<HLSwitch>(TermNode);
+  SmallVector<BasicBlock *, 8> DomChildren;
 
   // Sort dominator children.
   sortDomChildren(Root, DomChildren);
