@@ -2338,9 +2338,8 @@ void MemopCFG::prune_chains() {
 
 void MemopCFG::emit_chains() {
 
-  // Finalize and simplify the merges.
+  // Expand all of the merge trees.
   for (const std::unique_ptr<Node>& node : nodes) {
-    node->finalize_merges();
     node->expand_merge_trees();
   }
 
