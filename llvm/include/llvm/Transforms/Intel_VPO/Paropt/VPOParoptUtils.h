@@ -545,8 +545,7 @@ public:
     /// \brief Call to generic function to support the generation of
     /// __tgt_register_lib and __tgt_unregister_lib.
     static CallInst *genTgtRegGeneric(WRegionNode *W, Value *Desc,
-                                      Instruction *InsertPt,
-                                      std::string FnName);
+                                      Instruction *InsertPt, StringRef FnName);
 
     /// \brief Call to i32 __cxa_atexit(void (i8*)*
     /// @.omp_offloading.descriptor_unreg, i8* bitcast (%struct.__tgt_bin_desc*

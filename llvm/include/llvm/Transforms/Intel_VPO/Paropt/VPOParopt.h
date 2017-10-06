@@ -85,13 +85,13 @@ public:
 
 private:
   WRegionInfo *WI;
-  /// \brief Creates the global llvm.global_ctors initialized with
+  /// \brief Creates the global llvm.global_ctors initialized
   /// with the function .omp_offloading.descriptor_reg
   void genCtorList(Module &M);
 
   /// \brief Remove routines and global variables which has no target declare
   /// attribute.
-  void removeUndeclaredGlobals(Module &M);
+  void removeTargetUndeclaredGlobals(Module &M);
   unsigned Mode;
 };
 

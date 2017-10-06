@@ -101,7 +101,7 @@ protected:
 
   unsigned ThreadLocal : 3; // Is this symbol "Thread Local", if so, what is
                             // the desired model?
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   unsigned ThreadPrivate : 1; // The thread_private attribute indicates
                               // if the global variable is associated
                               // with an OpenMP threadprivate directive
@@ -243,7 +243,7 @@ public:
     Visibility = V;
   }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   bool isThreadPrivate() const { return ThreadPrivate; }
   void setThreadPrivate(bool Val) { ThreadPrivate = Val; }
 

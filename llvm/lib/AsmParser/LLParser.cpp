@@ -509,12 +509,10 @@ bool LLParser::ParseUnnamedGlobal() {
 #if INTEL_CUSTOMIZATION
   bool IsThreadPrivate = false;
   bool IsTargetDeclare = false;
+  ParseOptionalThreadPrivate(IsThreadPrivate);
+  ParseOptionalTargetDeclare(IsTargetDeclare);
 #endif // INTEL_CUSTOMIZATION
   if (ParseOptionalLinkage(Linkage, HasLinkage, Visibility, DLLStorageClass) ||
-#if INTEL_CUSTOMIZATION
-      ParseOptionalThreadPrivate(IsThreadPrivate) ||
-      ParseOptionalTargetDeclare(IsTargetDeclare) ||
-#endif // INTEL_CUSTOMIZATION
       ParseOptionalThreadLocal(TLM) || ParseOptionalUnnamedAddr(UnnamedAddr))
     return true;
 
@@ -545,13 +543,11 @@ bool LLParser::ParseNamedGlobal() {
 #if INTEL_CUSTOMIZATION
   bool IsThreadPrivate = false;
   bool IsTargetDeclare = false;
+  ParseOptionalThreadPrivate(IsThreadPrivate);
+  ParseOptionalTargetDeclare(IsTargetDeclare);
 #endif // INTEL_CUSTOMIZATION
   if (ParseToken(lltok::equal, "expected '=' in global variable") ||
       ParseOptionalLinkage(Linkage, HasLinkage, Visibility, DLLStorageClass) ||
-#if INTEL_CUSTOMIZATION
-      ParseOptionalThreadPrivate(IsThreadPrivate) ||
-      ParseOptionalTargetDeclare(IsTargetDeclare) ||
-#endif // INTEL_CUSTOMIZATION
       ParseOptionalThreadLocal(TLM) || ParseOptionalUnnamedAddr(UnnamedAddr))
     return true;
 
@@ -735,8 +731,8 @@ bool LLParser::parseIndirectSymbol(const std::string &Name, LocTy NameLoc,
                                    unsigned DLLStorageClass,
                                    GlobalVariable::ThreadLocalMode TLM,
                                    GlobalVariable::UnnamedAddr UnnamedAddr,
-                                   bool IsThreadPrivate,    // INTEL
-                                   bool IsTargetDeclare) {  // INTEL
+                                   bool IsThreadPrivate,   // INTEL
+                                   bool IsTargetDeclare) { // INTEL
   bool IsAlias;
   if (Lex.getKind() == lltok::kw_alias)
     IsAlias = true;
@@ -877,8 +873,8 @@ bool LLParser::ParseGlobal(const std::string &Name, LocTy NameLoc,
                            unsigned Visibility, unsigned DLLStorageClass,
                            GlobalVariable::ThreadLocalMode TLM,
                            GlobalVariable::UnnamedAddr UnnamedAddr,
-                           bool IsThreadPrivate,    // INTEL
-                           bool IsTargetDeclare) {  // INTEL
+                           bool IsThreadPrivate,   // INTEL
+                           bool IsTargetDeclare) { // INTEL
   if (!isValidVisibilityForLinkage(Visibility, Linkage))
     return Error(NameLoc,
                  "symbol with local linkage must have default visibility");
@@ -1381,23 +1377,19 @@ bool LLParser::ParseOptionalThreadLocal(GlobalVariable::ThreadLocalMode &TLM) {
   return false;
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 /// ParseOptionalThreadPrivate
 ///   := 'thread_private'
-bool LLParser::ParseOptionalThreadPrivate(bool &IsThreadPrivate) {
-  if (!EatIfPresent(lltok::kw_thread_private))
-    return false;
-  IsThreadPrivate = true;
-  return false;
+void LLParser::ParseOptionalThreadPrivate(bool &IsThreadPrivate) {
+  if (EatIfPresent(lltok::kw_thread_private))
+    IsThreadPrivate = true;
 }
 
 /// ParseOptionalTargetDeclare
-///   := 'thread_private'
-bool LLParser::ParseOptionalTargetDeclare(bool &IsTargetDeclare) {
-  if (!EatIfPresent(lltok::kw_target_declare))
-    return false;
-  IsTargetDeclare = true;
-  return false;
+///   := 'target_declare'
+void LLParser::ParseOptionalTargetDeclare(bool &IsTargetDeclare) {
+  if (EatIfPresent(lltok::kw_target_declare))
+    IsTargetDeclare = true;
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -1492,7 +1484,7 @@ bool LLParser::ParseOptionalParamAttrs(AttrBuilder &B) {
     case lltok::kw_noduplicate:
     case lltok::kw_noimplicitfloat:
     case lltok::kw_noinline:
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     case lltok::kw_inlinehint_recursive:
     case lltok::kw_alwaysinline_recursive:
 #endif // INTEL_CUSTOMIZATION
@@ -1587,7 +1579,7 @@ bool LLParser::ParseOptionalReturnAttrs(AttrBuilder &B) {
     case lltok::kw_noduplicate:
     case lltok::kw_noimplicitfloat:
     case lltok::kw_noinline:
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     case lltok::kw_inlinehint_recursive:
     case lltok::kw_alwaysinline_recursive:
 #endif // INTEL_CUSTOMIZATION

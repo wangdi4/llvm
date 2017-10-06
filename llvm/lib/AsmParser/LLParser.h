@@ -230,10 +230,10 @@ namespace llvm {
 
     bool ParseTLSModel(GlobalVariable::ThreadLocalMode &TLM);
     bool ParseOptionalThreadLocal(GlobalVariable::ThreadLocalMode &TLM);
-#if INTEL_CUSTOMIZATION
-    bool ParseOptionalThreadPrivate(bool &IsThreadPrivate);
-    bool ParseOptionalTargetDeclare(bool &IsTargetDeclare);
-#endif // INTEL_CUSTOMIZATION
+  #if INTEL_CUSTOMIZATION
+    void ParseOptionalThreadPrivate(bool &IsThreadPrivate);
+    void ParseOptionalTargetDeclare(bool &IsTargetDeclare);
+  #endif // INTEL_CUSTOMIZATION
     bool ParseOptionalUnnamedAddr(GlobalVariable::UnnamedAddr &UnnamedAddr);
     bool ParseOptionalAddrSpace(unsigned &AddrSpace);
     bool ParseOptionalParamAttrs(AttrBuilder &B);

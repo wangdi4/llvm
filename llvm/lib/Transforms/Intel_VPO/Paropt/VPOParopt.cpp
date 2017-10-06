@@ -138,7 +138,7 @@ bool VPOParopt::runOnModule(Module &M) {
 
   genCtorList(M);
   if (Mode & OmpOffload)
-    removeUndeclaredGlobals(M);
+    removeTargetUndeclaredGlobals(M);
 
   // Thread private legacy mode implementation
   if (Mode & OmpTpv) {
@@ -154,12 +154,12 @@ bool VPOParopt::runOnModule(Module &M) {
 
 // \brief Remove routines and global variables which has no target declare
 // attribute.
-void VPOParopt::removeUndeclaredGlobals(Module &M) {
+void VPOParopt::removeTargetUndeclaredGlobals(Module &M) {
   std::vector<GlobalVariable *> DeadGlobalVars; // Keep track of dead globals
   for (GlobalVariable &GV : M.globals())
     if (!GV.isTargetDeclare()) {
       DeadGlobalVars.push_back(&GV); // Keep track of dead globals
-      if (GV.hasInitializer()) {
+      if (GV.use_empty() && GV.hasInitializer()) {
         Constant *Init = GV.getInitializer();
         GV.setInitializer(nullptr);
         if (!isa<GlobalValue>(Init) && !isa<ConstantData>(Init))
@@ -178,6 +178,8 @@ void VPOParopt::removeUndeclaredGlobals(Module &M) {
     }
   }
   auto EraseUnusedGlobalValue = [&](GlobalValue *GV) {
+    if (!GV->use_empty())
+      return;
     GV->removeDeadConstantUsers();
     GV->eraseFromParent();
   };
@@ -201,7 +203,7 @@ void VPOParopt::genCtorList(Module &M) {
   Type *CtorPFTy = PointerType::getUnqual(CtorFTy);
 
   StructType *CtorStructTy = StructType::get(
-      C, {Int32Ty, llvm::PointerType::getUnqual(CtorFTy), VoidPtrTy});
+      C, { Int32Ty, llvm::PointerType::getUnqual(CtorFTy), VoidPtrTy });
 
   SmallVector<Constant *, 16> CtorArrayInitBuffer;
 

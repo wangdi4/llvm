@@ -81,7 +81,7 @@ public:
         TidPtr(nullptr), BidPtr(nullptr), KmpcMicroTaskTy(nullptr),
         KmpRoutineEntryPtrTy(nullptr), KmpTaskTTy(nullptr),
         KmpTaskTRedTy(nullptr), KmpTaskDependInfoTy(nullptr),
-        KmpOffloadRegionId(nullptr), TgtOffloadEntryTy(nullptr),
+        TgtOffloadRegionId(nullptr), TgtOffloadEntryTy(nullptr),
         TgtDeviceImageQTy(nullptr), TgtBinaryDescriptorQTy(nullptr),
         DsoHandle(nullptr) {}
 
@@ -156,7 +156,7 @@ private:
   /// runtime library. We also mark the outlined function to have external
   /// linkage in case we are emitting code for the device, because these
   /// functions will be entry points to the device.
-  GlobalVariable *KmpOffloadRegionId;
+  GlobalVariable *TgtOffloadRegionId;
 
   /// \brief Hold the struct type as follows.
   ///    struct __tgt_offload_entry {
@@ -166,7 +166,7 @@ private:
   ///      size_t     size;       // Size of the entry info (0 if it is a
   ///                             // function).
   ///      int32_t    flags;      // Flags associated with the entry,
-  ///                             // e.g. 'link'. 
+  ///                             // e.g. 'link'.
   ///      int32_t    reserved;   // Reserved, to use by the
   ///                             // runtime library.
   /// };
@@ -462,10 +462,13 @@ private:
                                          bool ForTask = false);
 
   /// \brief Reset the expression value of task if clause to be empty.
-  void resetValueInTaskIfClause(WRegionNode *W);
+  void resetValueInIfClause(WRegionNode *W);
 
   /// \brief Reset the expression value of task depend clause to be empty.
   void resetValueInTaskDependClause(WRegionNode *W);
+
+  /// \brief Reset the expression value in private clause to be empty.
+  void resetValueInPrivateClause(WRegionNode *W);
 
   /// \brief Reset the expression value of Intel clause to be empty.
   void resetValueInIntelClauseGeneric(WRegionNode *W, Value *V);
@@ -474,8 +477,7 @@ private:
   bool genTargetOffloadingCode(WRegionNode *W);
 
   /// \brief Generate the initialization code for the directive omp target
-  CallInst *genTargetInitCode(WRegionNode *W,
-                              CallInst *Call,
+  CallInst *genTargetInitCode(WRegionNode *W, CallInst *Call,
                               Instruction *InsertPt);
 
   /// \brief Generate the pointers pointing to the array of base pointer, the
@@ -485,8 +487,7 @@ private:
   /// \brief Pass the data to the array of base pointer as well as  array of
   /// section pointers.
   void genOffloadArraysInit(WRegionNode *W, TargetDataInfo *Info,
-                            CallInst *Call,
-                            Instruction *InsertPt);
+                            CallInst *Call, Instruction *InsertPt);
 
   /// \breif Return the map type for the data clause.
   void getMapTypes(WRegionNode *W, SmallVectorImpl<uint32_t> &MapTypes);
@@ -536,10 +537,8 @@ private:
   bool genMapPrivationCode(WRegionNode *W);
 
   /// \brief build the CFG for if clause.
-  void buildCFGForIfClause(Value *Cmp,
-                           TerminatorInst *&ThenTerm,
-                           TerminatorInst *&ElseTerm,
-                           Instruction *InsertPt);
+  void buildCFGForIfClause(Value *Cmp, TerminatorInst *&ThenTerm,
+                           TerminatorInst *&ElseTerm, Instruction *InsertPt);
 
   /// \brief Generate multithreaded for a given WRegion
   bool genMultiThreadedCode(WRegionNode *W);

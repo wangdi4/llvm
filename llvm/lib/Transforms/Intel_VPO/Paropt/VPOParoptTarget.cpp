@@ -56,7 +56,8 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
   W->populateBBSet();
 
   codeExtractorPrepare(W);
-  resetValueInTaskIfClause(W);
+  resetValueInIfClause(W);
+  resetValueInPrivateClause(W);
 
   bool Changed = false;
 
@@ -93,17 +94,17 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
     Instruction *InsertPt = NewCall;
 
     if (VIf) {
-      Value *Cmp = Builder.CreateICmpNE(VIf, ConstantInt::get(VIf->getType(), 0));
+      Value *Cmp =
+          Builder.CreateICmpNE(VIf, ConstantInt::get(VIf->getType(), 0));
       TerminatorInst *ThenTerm, *ElseTerm;
       buildCFGForIfClause(Cmp, ThenTerm, ElseTerm, InsertPt);
       InsertPt = ThenTerm;
       Call = genTargetInitCode(W, NewCall, InsertPt);
       Builder.SetInsertPoint(ElseTerm);
-      Builder.CreateStore(ConstantInt::getSigned(
-                            Type::getInt32Ty(F->getContext()),-1),
-                          OffloadError);
-    }
-    else
+      Builder.CreateStore(
+          ConstantInt::getSigned(Type::getInt32Ty(F->getContext()), -1),
+          OffloadError);
+    } else
       Call = genTargetInitCode(W, NewCall, InsertPt);
 
     Builder.SetInsertPoint(InsertPt);
@@ -147,8 +148,7 @@ Type *VPOParoptTransform::getSizeTTy() {
 }
 
 // Generate the initialization code for the directive omp target.
-CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W,
-                                                CallInst *Call,
+CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
                                                 Instruction *InsertPt) {
   IRBuilder<> Builder(InsertPt);
   TargetDataInfo Info;
@@ -264,15 +264,15 @@ GlobalVariable *VPOParoptTransform::getDsoHandle() {
 // Return/Create the target region ID used by the runtime library to
 // identify the current target region.
 GlobalVariable *VPOParoptTransform::getOMPOffloadRegionId() {
-  if (KmpOffloadRegionId)
-    return KmpOffloadRegionId;
+  if (TgtOffloadRegionId)
+    return TgtOffloadRegionId;
 
   LLVMContext &C = F->getContext();
-  KmpOffloadRegionId = new GlobalVariable(
+  TgtOffloadRegionId = new GlobalVariable(
       *(F->getParent()), Type::getInt8Ty(C), true, GlobalValue::PrivateLinkage,
       Constant::getNullValue(Type::getInt8Ty(C)), ".omp_offload.region_id");
 
-  return KmpOffloadRegionId;
+  return TgtOffloadRegionId;
 }
 
 // Generate the pointers pointing to the array of base pointer, the
@@ -318,8 +318,8 @@ StructType *VPOParoptTransform::getTgtOffloadEntryQTy() {
 
   LLVMContext &C = F->getContext();
 
-  Type *TyArgs[] = {Type::getInt8PtrTy(C), Type::getInt8PtrTy(C), getSizeTTy(),
-                    Type::getInt32Ty(C), Type::getInt32Ty(C)};
+  Type *TyArgs[] = { Type::getInt8PtrTy(C), Type::getInt8PtrTy(C), getSizeTTy(),
+                     Type::getInt32Ty(C),   Type::getInt32Ty(C) };
   TgtOffloadEntryTy =
       StructType::create(C, TyArgs, "struct.__tgt_offload_entry", false);
   return TgtOffloadEntryTy;
@@ -340,9 +340,10 @@ StructType *VPOParoptTransform::getTgtDeviceImageQTy() {
   if (TgtDeviceImageQTy)
     return TgtDeviceImageQTy;
   LLVMContext &C = F->getContext();
-  Type *TyArgs[] = {Type::getInt8PtrTy(C), Type::getInt8PtrTy(C),
-                    PointerType::getUnqual(getTgtOffloadEntryQTy()),
-                    PointerType::getUnqual(getTgtOffloadEntryQTy())};
+  Type *TyArgs[] = { Type::getInt8PtrTy(C),
+                     Type::getInt8PtrTy(C),
+                     PointerType::getUnqual(getTgtOffloadEntryQTy()),
+                     PointerType::getUnqual(getTgtOffloadEntryQTy()) };
   TgtDeviceImageQTy =
       StructType::create(C, TyArgs, "struct.__tgt_device_image", false);
   return TgtDeviceImageQTy;
@@ -361,10 +362,10 @@ StructType *VPOParoptTransform::getTgtBinaryDescriptorQTy() {
     return TgtBinaryDescriptorQTy;
 
   LLVMContext &C = F->getContext();
-  Type *TyArgs[] = {Type::getInt32Ty(C),
-                    PointerType::getUnqual(getTgtDeviceImageQTy()),
-                    PointerType::getUnqual(getTgtOffloadEntryQTy()),
-                    PointerType::getUnqual(getTgtOffloadEntryQTy())};
+  Type *TyArgs[] = { Type::getInt32Ty(C),
+                     PointerType::getUnqual(getTgtDeviceImageQTy()),
+                     PointerType::getUnqual(getTgtOffloadEntryQTy()),
+                     PointerType::getUnqual(getTgtOffloadEntryQTy()) };
   TgtBinaryDescriptorQTy =
       StructType::create(C, TyArgs, "struct.__tgt_bin_desc", false);
   return TgtBinaryDescriptorQTy;
@@ -414,8 +415,9 @@ void VPOParoptTransform::genRegistrationFunction(WRegionNode *W, Function *Fn) {
 }
 
 // Register the offloading descriptors.
-void VPOParoptTransform::genOffloadEntriesAndInfoMetadata(
-    WRegionNode *W, Function *OutlinedFn) {
+void
+VPOParoptTransform::genOffloadEntriesAndInfoMetadata(WRegionNode *W,
+                                                     Function *OutlinedFn) {
   Module *M = F->getParent();
   LLVMContext &C = F->getContext();
 
@@ -430,8 +432,8 @@ void VPOParoptTransform::genOffloadEntriesAndInfoMetadata(
 }
 
 // Register the offloading binary descriptors.
-void VPOParoptTransform::genOffloadingBinaryDescriptorRegistration(
-    WRegionNode *W) {
+void
+VPOParoptTransform::genOffloadingBinaryDescriptorRegistration(WRegionNode *W) {
   if (Mode & OmpOffload)
     return;
   Module *M = F->getParent();
@@ -472,8 +474,8 @@ void VPOParoptTransform::genOffloadingBinaryDescriptorRegistration(
                          DevArrayInit, ".omp_offloading.device_images");
   DeviceImages->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
 
-  Constant *Index[] = {Constant::getNullValue(Type::getInt32Ty(C)),
-                       Constant::getNullValue(Type::getInt32Ty(C))};
+  Constant *Index[] = { Constant::getNullValue(Type::getInt32Ty(C)),
+                        Constant::getNullValue(Type::getInt32Ty(C)) };
 
   SmallVector<Constant *, 16> DescInitBuffer;
   DescInitBuffer.push_back(ConstantInt::get(Type::getInt32Ty(C), 1));
@@ -498,7 +500,7 @@ Function *VPOParoptTransform::createTgtDescUnRegisterLib(WRegionNode *W,
   LLVMContext &C = F->getContext();
   Module *M = F->getParent();
 
-  Type *Params[] = {Type::getInt8PtrTy(C)};
+  Type *Params[] = { Type::getInt8PtrTy(C) };
   FunctionType *FnTy = FunctionType::get(Type::getVoidTy(C), Params, false);
 
   Function *Fn = Function::Create(FnTy, GlobalValue::InternalLinkage,
@@ -526,7 +528,7 @@ Function *VPOParoptTransform::createTgtDescRegisterLib(WRegionNode *W,
   LLVMContext &C = F->getContext();
   Module *M = F->getParent();
 
-  Type *Params[] = {Type::getInt8PtrTy(C)};
+  Type *Params[] = { Type::getInt8PtrTy(C) };
   FunctionType *FnTy = FunctionType::get(Type::getVoidTy(C), Params, false);
 
   Function *Fn = Function::Create(FnTy, GlobalValue::InternalLinkage,

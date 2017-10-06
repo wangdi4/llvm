@@ -1016,7 +1016,7 @@ bool VPOParoptTransform::genTaskCode(WRegionNode *W,
 }
 
 // Set the the arguements in the if clause to be empty.
-void VPOParoptTransform::resetValueInTaskIfClause(WRegionNode *W) {
+void VPOParoptTransform::resetValueInIfClause(WRegionNode *W) {
   Value *V = W->getIf();
   if (!V)
     return;
@@ -1033,6 +1033,20 @@ void VPOParoptTransform::resetValueInTaskDependClause(WRegionNode *W) {
     return;
   for (DependItem *DepI : DepClause.items()) {
     resetValueInIntelClauseGeneric(W, DepI->getOrig());
+  }
+}
+
+// Set the values in the private clause to be empty.
+void VPOParoptTransform::resetValueInPrivateClause(WRegionNode *W) {
+  if (!W->hasPrivate())
+    return;
+
+  PrivateClause &PrivClause = W->getPriv();
+  if (PrivClause.empty())
+    return;
+
+  for (PrivateItem *PrivI : PrivClause.items()) {
+    resetValueInIntelClauseGeneric(W, PrivI->getOrig());
   }
 }
 
@@ -1128,7 +1142,7 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
 
   codeExtractorPrepare(W);
 
-  resetValueInTaskIfClause(W);
+  resetValueInIfClause(W);
 
   resetValueInTaskDependClause(W);
 
