@@ -3593,12 +3593,15 @@ bool AdvisorAnalysis::incremental_gradient_descent(
   double alpha;
 
   // set the 'removeBB' target to be the least useful block.
-  min_utility = FLT_MAX;
+  // The gradients are negative perf per area.
+  // large perf per area is actually a good thing.  It means the
+  // block is useful. Hence MIN IS A SERIOUS MISNOMER!!!!                                                                                                     
+  min_utility = -1 * FLT_MAX;
   for (auto it = gradient.begin(); it != gradient.end(); it++) {
     std::cerr << "gradient " << it->first->getName().str() << " count "
               << get_basic_block_instance_count(it->first) << " utility "
               << it->second << std::endl;
-    if ((it->second < min_utility) &&
+    if ((it->second > min_utility) &&
         (get_basic_block_instance_count(it->first) > 0)) {
       removeBB = it->first;
       min_utility = it->second;
@@ -4216,12 +4219,15 @@ bool AdvisorAnalysis::incremental_gradient_descent_global(
   double alpha;
 
   // set the 'removeBB' target to be the least useful block.
-  min_utility = FLT_MAX;
+  // The gradients are negative perf per area.
+  // large perf per area is actually a good thing.  It means the
+  // block is useful. Hence MIN IS A SERIOUS MISNOMER!!!!                                                                                                     
+  min_utility = -1 * FLT_MAX;
   for (auto it = gradient.begin(); it != gradient.end(); it++) {
     std::cerr << "gradient " << it->first->getName().str() << " count "
               << get_basic_block_instance_count(it->first) << " utility "
               << it->second << std::endl;
-    if ((it->second < min_utility) &&
+    if ((it->second > min_utility) &&
         (get_basic_block_instance_count(it->first) > 0)) {
       removeBB = it->first;
       min_utility = it->second;
@@ -4230,7 +4236,6 @@ bool AdvisorAnalysis::incremental_gradient_descent_global(
                 << " utility " << min_utility << std::endl;
     }
   }
-
   // Rapid gradient descent method #1.  Removes area until partial derviatives
   // start to become unreliable.
   // models partial derivatives as 1/k^2 (Amdahl's Law).
