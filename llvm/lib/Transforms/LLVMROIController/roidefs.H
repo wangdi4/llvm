@@ -137,4 +137,15 @@ struct ROIbbinfo{
         ar & bbDesc;
     }
 };
+// Support for manually marking ROIs in source code
+struct markerInfo{
+  UINT64 currentCount;
+  string funcName;
+};
+
+struct markerROIInfo{
+  UINT64 triggerCount;
+  BOOL isStart;
+  BOOL isTriggered;
+};
 #endif
