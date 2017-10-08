@@ -139,6 +139,7 @@ FullDependences::FullDependences(DDRef *Source, DDRef *Destination,
 
   Consistent = true;
   LoopIndependent = false;
+  Reversed = false;
   DV = CommonLevels ? new DVEntry[CommonLevels] : nullptr;
 }
 
@@ -4597,8 +4598,6 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
       return nullptr;
     }
   }
-
-  Result.Reversed = false;
 
   //
   //  Reverse DV when needed
