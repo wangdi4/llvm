@@ -42,8 +42,10 @@
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/PatternMatch.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetSubtargetInfo.h"
@@ -242,7 +244,6 @@ bool VPOParoptTransform::paroptTransforms() {
       case WRegionNode::WRNParallel:
       {
         DEBUG(dbgs() << "\n WRNParallel - Transformation \n\n");
-
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           // Privatization is enabled for both Prepare and Transform passes
           Changed = genPrivatizationCode(W);
@@ -315,8 +316,11 @@ bool VPOParoptTransform::paroptTransforms() {
         }
         break;
       case WRegionNode::WRNTarget:
+        if (Mode & ParPrepare)
+          genCodemotionFenceforPrivatizationAggr(W);
         DEBUG(dbgs() << "\n WRNTarget  - Transformation \n\n");
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
+          Changed = clearCodemotionFenceIntrinsic(W);
           Changed |= genPrivatizationCode(W);
           Changed |= genMapPrivationCode(W);
           Changed |= genTargetOffloadingCode(W);
@@ -1324,6 +1328,54 @@ bool VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
 
   DEBUG(dbgs() << "\nExit VPOParoptTransform::genLastPrivatizationCode\n");
   return Changed;
+}
+
+// Clean up the intrinsic @llvm.codemotion.fence and replace the use
+// of the intrinsic with the its operand.
+bool VPOParoptTransform::clearCodemotionFenceIntrinsic(WRegionNode *W) {
+  bool Changed = false;
+  W->populateBBSet();
+  for (auto IB = W->bbset_begin(); IB != W->bbset_end(); IB++)
+    for (auto &I : **IB)
+      if (CallInst *CI = dyn_cast<CallInst>(&I)) {
+        const Function *Callee = CI->getCalledFunction();
+        if (Callee->getIntrinsicID() == Intrinsic::codemotion_fence) {
+          I.replaceAllUsesWith(cast<CallInst>(&I)->getOperand(0));
+          Changed = true;
+        }
+      }
+  return Changed;
+}
+
+// Generate the intrinsic @llvm.codemotion.fence to inhibit the cse
+// for the gep instruction related to array/struture which is marked
+// as private, firstprivate, lastprivate, reduction or shared.
+void
+VPOParoptTransform::genCodemotionFenceforPrivatizationAggr(WRegionNode *W) {
+  PrivateClause &PrivClause = W->getPriv();
+
+  if (!PrivClause.empty()) {
+    W->populateBBSet();
+    BasicBlock *EntryBB = W->getEntryBBlock();
+    IRBuilder<> Builder(EntryBB->getTerminator());
+    for (PrivateItem *PrivI : PrivClause.items()) {
+      Value *I = PrivI->getOrig();
+      AllocaInst *AI = dyn_cast<AllocaInst>(I);
+      Type *AllocaTy = AI->getAllocatedType();
+
+      if (!AllocaTy->isSingleValueType()) {
+        Instruction *NewI = Builder.CreateCodemotionFence(I);
+
+        for (auto IB = I->user_begin(), IE = I->user_end(); IB != IE; IB++) {
+          if (Instruction *User = dyn_cast<Instruction>(*IB))
+            if (User != NewI &&
+                !VPOAnalysisUtils::isIntelDirectiveOrClause(User) &&
+                W->contains(User->getParent()))
+              User->replaceUsesOfWith(I, NewI);
+        }
+      }
+    }
+  }
 }
 
 bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {

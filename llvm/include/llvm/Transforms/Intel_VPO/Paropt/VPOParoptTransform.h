@@ -576,6 +576,15 @@ private:
 
   /// \brief Insert a barrier at the end of the construct
   bool genBarrier(WRegionNode *W, bool IsExplicit);
+
+  /// \brief Generate the intrinsic @llvm.codemotion.fence to inhibit the cse
+  /// for the gep instruction related to array/struture which is marked
+  /// as private, firstprivate, lastprivate, reduction or shared.
+  void genCodemotionFenceforPrivatizationAggr(WRegionNode *W);
+
+  /// \brief Clean up the intrinsic @llvm.codemotion.fence and replace the use
+  /// of the intrinsic with the its operand.
+  bool clearCodemotionFenceIntrinsic(WRegionNode *W);
 };
 
 } /// namespace vpo
