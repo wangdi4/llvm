@@ -23,7 +23,6 @@
 #include "CL/cl.h"
 #include "test_utils.h"
 #include "TestsHelpClasses.h"
-#include "PipeCommon.h"
 
 extern "C" {
     extern CL_API_ENTRY cl_mem CL_API_CALL clCreatePipeINTEL(
@@ -98,17 +97,21 @@ bool clPipes()
 		CheckException("clGetPipeInfo", CL_INVALID_VALUE, iRet);
 
         // Intel extension
-        vector<char> pipeBuf(pipe_get_total_size(uiPacketSize, uiMaxPackets));
-        size_t szPipeBufSize = pipeBuf.size();
+        vector<char> pipeBuf;
+        size_t szPipeBufSize = 0;
+        clCreatePipeINTEL(context, CL_MEM_READ_WRITE | CL_MEM_HOST_NO_ACCESS, uiPacketSize, uiMaxPackets, NULL, NULL, &szPipeBufSize, &iRet);
+        CheckException("clCreatePipeINTEL", CL_SUCCESS, iRet);
+
+        pipeBuf.resize(szPipeBufSize);
         clMemWrapper pipeIntel = clCreatePipeINTEL(context, CL_MEM_READ_WRITE | CL_MEM_HOST_NO_ACCESS, uiPacketSize, uiMaxPackets, NULL, &pipeBuf[0], &szPipeBufSize, &iRet);
-        CheckException("clCreatePipeINTE", CL_SUCCESS, iRet);
+        CheckException("clCreatePipeINTEL", CL_SUCCESS, iRet);
 
         clCreatePipeINTEL(context, CL_MEM_READ_WRITE | CL_MEM_HOST_NO_ACCESS, uiPacketSize, uiMaxPackets, NULL, NULL, &szPipeBufSize, &iRet);
-        CheckException("clCreatePipeINTE", szPipeBufSize == pipeBuf.size(), true);
+        CheckException("clCreatePipeINTEL", szPipeBufSize == pipeBuf.size(), true);
 
         szPipeBufSize--;
         clCreatePipeINTEL(context, CL_MEM_READ_WRITE | CL_MEM_HOST_NO_ACCESS, uiPacketSize, uiMaxPackets, NULL, &pipeBuf[0], &szPipeBufSize, &iRet);
-        CheckException("clCreatePipeINTE", CL_OUT_OF_RESOURCES, iRet);
+        CheckException("clCreatePipeINTEL", CL_OUT_OF_RESOURCES, iRet);
 
 	}
 	catch (const std::exception&)

@@ -84,8 +84,6 @@ endif (NOT WIN32 OR BUILD_FPGA_EMULATOR)
 
 set_source_files_properties( cl_device_local_mem_size.cpp PROPERTIES COMPILE_DEFINITIONS STACK_SIZE=8388608 )
 
-set_source_files_properties( cl_pipes.cpp PROPERTIES COMPILE_FLAGS "-Wno-unused-function" )
-
 set( CREATE_DIR_NAME tests/framework_test_type)
 
 file(GLOB_RECURSE CP_FILES RELATIVE  ${CMAKE_CURRENT_SOURCE_DIR} *.py *.xml *.xsd )
