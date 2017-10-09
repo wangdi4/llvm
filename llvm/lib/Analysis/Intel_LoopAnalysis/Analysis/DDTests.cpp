@@ -124,18 +124,12 @@ STATISTIC(WeakZeroSIVapplications, "Weak-Zero SIV applications");
 STATISTIC(WeakZeroSIVsuccesses, "Weak-Zero SIV successes");
 STATISTIC(WeakZeroSIVindependence, "Weak-Zero SIV independence");
 
-// Returns true if a particular level is scalar; that is,
-// if no subscript in the source or destination mention the induction
-// variable associated with the loop at this level.
-// Leave this out of line, so it will serve as a virtual method anchor
-bool Dependences::isScalar(unsigned level) const { return false; }
-
 //===----------------------------------------------------------------------===//
 // FullDependence methods
 
-FullDependences::FullDependences(DDRef *Source, DDRef *Destination,
+Dependences::Dependences(DDRef *Source, DDRef *Destination,
                                  unsigned CommonLevels)
-    : Dependences(Source, Destination), Levels(CommonLevels) {
+    : Src(Source), Dst(Destination), Levels(CommonLevels) {
 
   Consistent = true;
   LoopIndependent = false;
@@ -143,31 +137,31 @@ FullDependences::FullDependences(DDRef *Source, DDRef *Destination,
   DV = CommonLevels ? new DVEntry[CommonLevels] : nullptr;
 }
 
-FullDependences::~FullDependences() { delete[] DV; }
+Dependences::~Dependences() { delete[] DV; }
 
 // The rest are simple getters that hide the implementation.
 
 // getDirection - Returns the direction associated with a particular level.
-DVKind FullDependences::getDirection(unsigned Level) const {
+DVKind Dependences::getDirection(unsigned Level) const {
   assert(0 < Level && Level <= Levels && "Level out of range");
   return DV[Level - 1].Direction;
 }
 
 // Returns the distance (or NULL) associated with a particular level.
-const CanonExpr *FullDependences::getDistance(unsigned Level) const {
+const CanonExpr *Dependences::getDistance(unsigned Level) const {
   assert(0 < Level && Level <= Levels && "Level out of range");
   return DV[Level - 1].Distance;
 }
 
 // setDirection - sets DV for  with a particular level.
-void FullDependences::setDirection(const unsigned Level,
+void Dependences::setDirection(const unsigned Level,
                                    const DVKind Direction) const {
   assert(0 < Level && Level <= Levels && "Level out of range");
   DV[Level - 1].Direction = Direction;
 }
 
 // sets the distance for a particular level.
-void FullDependences::setDistance(const unsigned Level,
+void Dependences::setDistance(const unsigned Level,
                                   const CanonExpr *CE) const {
   assert(0 < Level && Level <= Levels && "Level out of range");
   DV[Level - 1].Distance = CE;
@@ -176,27 +170,27 @@ void FullDependences::setDistance(const unsigned Level,
 // Returns true if a particular level is scalar; that is,
 // if no subscript in the source or destination mention the induction
 // variable associated with the loop at this level.
-bool FullDependences::isScalar(unsigned Level) const {
+bool Dependences::isScalar(unsigned Level) const {
   assert(0 < Level && Level <= Levels && "Level out of range");
   return DV[Level - 1].Scalar;
 }
 
 // Returns true if peeling the first iteration from this loop
 // will break this dependence.
-bool FullDependences::isPeelFirst(unsigned Level) const {
+bool Dependences::isPeelFirst(unsigned Level) const {
   assert(0 < Level && Level <= Levels && "Level out of range");
   return DV[Level - 1].PeelFirst;
 }
 
 // Returns true if peeling the last iteration from this loop
 // will break this dependence.
-bool FullDependences::isPeelLast(unsigned Level) const {
+bool Dependences::isPeelLast(unsigned Level) const {
   assert(0 < Level && Level <= Levels && "Level out of range");
   return DV[Level - 1].PeelLast;
 }
 
 // Returns true if splitting this loop will break the dependence.
-bool FullDependences::isSplitable(unsigned Level) const {
+bool Dependences::isSplitable(unsigned Level) const {
   assert(0 < Level && Level <= Levels && "Level out of range");
   return DV[Level - 1].Splitable;
 }
@@ -1288,7 +1282,7 @@ const SCEVConstant *DependenceAnalysis::collectConstantUpperBound(const Loop *L,
 // Return true if dependence disproved.
 
 bool DDTest::testZIV(const CanonExpr *Src, const CanonExpr *Dst,
-                     FullDependences &Result) {
+                     Dependences &Result) {
 
   DEBUG(dbgs() << "\n    src = "; Src->dump());
   DEBUG(dbgs() << "\n    dst = "; Dst->dump());
@@ -1338,7 +1332,7 @@ bool DDTest::testZIV(const CanonExpr *Src, const CanonExpr *Dst,
 
 bool DDTest::strongSIVtest(const CanonExpr *Coeff, const CanonExpr *SrcConst,
                            const CanonExpr *DstConst, const HLLoop *CurLoop,
-                           unsigned Level, FullDependences &Result,
+                           unsigned Level, Dependences &Result,
                            Constraint &NewConstraint) {
   DEBUG(dbgs() << "\nStrong SIV test\n");
   DEBUG(dbgs() << "\n    Coeff = "; Coeff->dump());
@@ -1517,7 +1511,7 @@ bool DDTest::weakCrossingSIVtest(const CanonExpr *Coeff,
                                  const CanonExpr *SrcConst,
                                  const CanonExpr *DstConst,
                                  const HLLoop *CurLoop, unsigned Level,
-                                 FullDependences &Result,
+                                 Dependences &Result,
                                  Constraint &NewConstraint,
                                  const CanonExpr *&SplitIter) {
   DEBUG(dbgs() << "\tWeak-Crossing SIV test\n");
@@ -1781,7 +1775,7 @@ static APInt minAPInt(APInt A, APInt B) { return A.slt(B) ? A : B; }
 bool DDTest::exactSIVtest(const CanonExpr *SrcCoeff, const CanonExpr *DstCoeff,
                           const CanonExpr *SrcConst, const CanonExpr *DstConst,
                           const HLLoop *CurLoop, unsigned Level,
-                          FullDependences &Result, Constraint &NewConstraint) {
+                          Dependences &Result, Constraint &NewConstraint) {
 
   DEBUG(dbgs() << "\nExact SIV test\n");
   DEBUG(dbgs() << "\n    SrcCoeff = "; SrcCoeff->dump());
@@ -2046,7 +2040,7 @@ bool DDTest::weakZeroSrcSIVtest(const CanonExpr *DstCoeff,
                                 const CanonExpr *SrcConst,
                                 const CanonExpr *DstConst,
                                 const HLLoop *CurLoop, unsigned Level,
-                                FullDependences &Result,
+                                Dependences &Result,
                                 Constraint &NewConstraint) {
   // For the WeakSIV test, it's possible the loop isn't common to
   // the Src and Dst loops. If it isn't, then there's no need to
@@ -2186,7 +2180,7 @@ bool DDTest::weakZeroDstSIVtest(const CanonExpr *SrcCoeff,
                                 const CanonExpr *SrcConst,
                                 const CanonExpr *DstConst,
                                 const HLLoop *CurLoop, unsigned Level,
-                                FullDependences &Result,
+                                Dependences &Result,
                                 Constraint &NewConstraint) {
   // For the WeakSIV test, it's possible the loop isn't common to the
   // Src and Dst loops. If it isn't, then there's no need to record a direction.
@@ -2295,7 +2289,7 @@ bool DDTest::weakZeroDstSIVtest(const CanonExpr *SrcCoeff,
 bool DDTest::exactRDIVtest(const CanonExpr *SrcCoeff, const CanonExpr *DstCoeff,
                            const CanonExpr *SrcConst, const CanonExpr *DstConst,
                            const HLLoop *SrcLoop, const HLLoop *DstLoop,
-                           FullDependences &Result) {
+                           Dependences &Result) {
 
   DEBUG(dbgs() << "\nExact RDIV test\n");
   DEBUG(dbgs() << "\n    SrcCoeff = "; SrcCoeff->dump());
@@ -2600,7 +2594,7 @@ bool DDTest::symbolicRDIVtest(const CanonExpr *A1, const CanonExpr *A2,
 //
 // Return true if dependence disproved.
 bool DDTest::testSIV(const CanonExpr *Src, const CanonExpr *Dst,
-                     unsigned &Level, FullDependences &Result,
+                     unsigned &Level, Dependences &Result,
                      Constraint &NewConstraint, const CanonExpr *&SplitIter,
                      const HLLoop *SrcParentLoop, const HLLoop *DstParentLoop) {
 
@@ -2683,7 +2677,7 @@ bool DDTest::testSIV(const CanonExpr *Src, const CanonExpr *Dst,
 // Return true if dependence disproved.
 
 bool DDTest::testRDIV(const CanonExpr *Src, const CanonExpr *Dst,
-                      FullDependences &Result, const HLLoop *SrcParentLoop,
+                      Dependences &Result, const HLLoop *SrcParentLoop,
                       const HLLoop *DstParentLoop) {
 
   // we have 3 possible situations here:
@@ -2742,7 +2736,7 @@ bool DDTest::testRDIV(const CanonExpr *Src, const CanonExpr *Dst,
 // Can sometimes refine direction vectors.
 bool DDTest::testMIV(const CanonExpr *Src, const CanonExpr *Dst,
                      const DirectionVector &InputDV,
-                     const SmallBitVector &Loops, FullDependences &Result,
+                     const SmallBitVector &Loops, Dependences &Result,
                      const HLLoop *SrcParentLoop, const HLLoop *DstParentLoop) {
 
   DEBUG(dbgs() << "\n   src = "; Src->dump());
@@ -2790,7 +2784,7 @@ static const CanonExpr *getConstantPart(const CanonExpr *Product) {
 
 bool DDTest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
                         const HLLoop *SrcParentLoop,
-                        const HLLoop *DstParentLoop, FullDependences &Result) {
+                        const HLLoop *DstParentLoop, Dependences &Result) {
 
   DEBUG(dbgs() << "\nstarting gcd\n");
   DEBUG(dbgs() << "\n   src = "; Src->dump());
@@ -3060,7 +3054,7 @@ bool DDTest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
 bool DDTest::banerjeeMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
                              const DirectionVector &InputDV,
                              const SmallBitVector &Loops,
-                             FullDependences &Result,
+                             Dependences &Result,
                              const HLLoop *SrcParentLoop,
                              const HLLoop *DstParentLoop) {
 
@@ -4165,7 +4159,7 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
     return nullptr;
   }
 
-  FullDependences Result(SrcDDRef, DstDDRef, CommonLevels);
+  Dependences Result(SrcDDRef, DstDDRef, CommonLevels);
 
   if (NoCommonNest && !ForFusion && (SrcLevels == 0 || DstLevels == 0)) {
     Result.setDirection(1, DVKind::EQ);
@@ -4177,7 +4171,7 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
   //  Number of dimemsion are different or different base: need to bail out
   if (!EqualBaseCE || NumSrcDim != NumDstDim || (NoCommonNest && !ForFusion)) {
     DEBUG(dbgs() << "\nDiff dim,  base, or no common nests\n");
-    auto Final = make_unique<FullDependences>(Result);
+    auto Final = make_unique<Dependences>(Result);
     Result.DV = nullptr;
     return std::move(Final);
   }
@@ -4654,7 +4648,7 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
     }
   }
 
-  auto Final = make_unique<FullDependences>(Result);
+  auto Final = make_unique<Dependences>(Result);
   Result.DV = nullptr;
   return std::move(Final);
 }
@@ -5357,7 +5351,7 @@ const  SCEV *DependenceAnalysis::getSplitIteration(const Dependence &Dep,
   // establish loop nesting levels
   establishNestingLevels(Src, Dst);
 
-  FullDependences Result(Src, Dst, false, CommonLevels);
+  Dependences Result(Src, Dst, false, CommonLevels);
 
   // See if there are GEPs we can use.
   bool UsefulGEP = false;

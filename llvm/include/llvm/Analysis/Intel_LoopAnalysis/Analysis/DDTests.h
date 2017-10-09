@@ -59,16 +59,6 @@ class HLLoop;
 class HLNodeUtils;
 class HIRLoopStatistics;
 
-/// Dependences - This class represents a dependence between two memory
-/// memory references in a function. It contains minimal information and
-/// is used in the very common situation where the compiler is unable to
-/// determine anything beyond the existence of a dependence; that is, it
-/// represents a confused dependence (see also FullDependence). In most
-/// cases (for output, flow, and anti dependences), the dependence implies
-/// an ordering, where the source must precede the destination; in contrast,
-/// input dependences are unordered.
-///
-
 enum DVKind : unsigned char {
   NONE = 0,
   LT = 1,
@@ -161,19 +151,22 @@ struct DistanceVector : public std::array<DistTy, MaxLoopNestLevel> {
   // Print DistVec from level 1 to Level
   void print(raw_ostream &OS, unsigned Level) const;
 
-  // Print the entire DistanceVector
-  void print(raw_ostream &OS) const;
-
   // Set as all 0
   void setZero();
 };
 
+/// Dependence - This class represents a dependence between two memory
+/// references in a function. It contains detailed information about the
+/// dependence (direction vectors, etc.).
+/// In most cases (for output, flow, and anti dependences), the dependence
+/// implies an ordering, where the source must precede the destination; in
+/// contrast, input dependences are unordered.
+
+/// The class has more information than put in the DD Edge which contains
+/// the DV. These detail info are avaiable through calls to Depends
+
 class Dependences {
 public:
-  Dependences(DDRef *Source, DDRef *Destination)
-      : Src(Source), Dst(Destination) {}
-  virtual ~Dependences() {}
-
   /// Dependences::DVEntry - Each level in the distance/direction vector
   /// has a direction (or perhaps a union of several directions), and
   /// perhaps a distance.
@@ -189,91 +182,12 @@ public:
           PeelLast(false), Splitable(false), Distance(nullptr) {}
   };
 
-  /// getSrc - Returns the source instruction for this dependence.
-  ///
-  DDRef *getSrc() const { return Src; }
-
-  /// getDst - Returns the destination instruction for this dependence.
-  ///
-  DDRef *getDst() const { return Dst; }
+  Dependences(DDRef *SrcDDRef, DDRef *DstDDRef, unsigned Levels);
+  ~Dependences();
 
   /// isLoopIndependent - Returns true if this is a loop-independent
   /// dependence.
-  virtual bool isLoopIndependent() const { return true; }
-
-  /// isConfused - Returns true if this dependence is confused
-  /// (the compiler understands nothing and makes worst-case
-  /// assumptions).
-  // virtual bool isConfused() const { return true; }
-
-  /// isConsistent - Returns true if this dependence is consistent
-  /// (occurs every time the source and destination are executed).
-  // virtual bool isConsistent() const { return false; }
-
-  /// getLevels - Returns the number of common loops surrounding the
-  /// source and destination of the dependence.
-
-  virtual unsigned getLevels() const { return 0; }
-
-  /// isReversed: DD edge computed in reverse order
-  /// see example below for details
-
-  virtual bool isReversed() const { return false; }
-
-  /// getDirection - Returns the direction associated with a particular
-  /// level.
-  virtual DVKind getDirection(unsigned Level) const { return DVKind::ALL; }
-
-  /// getDistance - Returns the distance (or NULL) associated with a
-  /// particular level.
-  virtual const CanonExpr *getDistance(unsigned Level) const { return nullptr; }
-
-  /// isPeelFirst - Returns true if peeling the first iteration from
-  /// this loop will break this dependence.
-  virtual bool isPeelFirst(unsigned Level) const { return false; }
-
-  /// isPeelLast - Returns true if peeling the last iteration from
-  /// this loop will break this dependence.
-  virtual bool isPeelLast(unsigned Level) const { return false; }
-
-  /// isSplitable - Returns true if splitting this loop will break
-  /// the dependence.
-  virtual bool isSplitable(unsigned Level) const { return false; }
-
-  /// isScalar - Returns true if a particular level is scalar; that is,
-  /// if no subscript in the source or destination mention the induction
-  /// variable associated with the loop at this level.
-  virtual bool isScalar(unsigned Level) const;
-
-  /// dump - For debugging purposes, dumps a dependence to OS.
-  ///
-  void dump(raw_ostream &OS) const;
-
-private:
-  DDRef *Src, *Dst;
-  friend class DDTest;
-};
-
-/// FullDependence - This class represents a dependence between two memory
-/// references in a function. It contains detailed information about the
-/// dependence (direction vectors, etc.) and is used when the compiler is
-/// able to accurately analyze the interaction of the references; that is,
-/// it is not a confused dependence (see Dependence). In most cases
-/// (for output, flow, and anti dependences), the dependence implies an
-/// ordering, where the source must precede the destination; in contrast,
-/// input dependences are unordered.
-
-/// The class has more information that  put in the DD Edge which contains
-/// the DV.  These detail info are avaiable through calls to Depends
-
-class FullDependences : public Dependences {
-public:
-  FullDependences(DDRef *SrcDDRef, DDRef *DstDDRef, unsigned Levels);
-  ~FullDependences();
-
-  /// isLoopIndependent - Returns true if this is a loop-independent
-  /// dependence.
-  bool isLoopIndependent() const override { return LoopIndependent; }
+  bool isLoopIndependent() const { return LoopIndependent; }
 
   /// isConfused - Returns true if this dependence is confused
   /// (the compiler understands nothing and makes worst-case
@@ -286,36 +200,42 @@ public:
 
   /// getLevels - Returns the number of common loops surrounding the
   /// source and destination of the dependence.
-  unsigned getLevels() const override { return Levels; }
+  unsigned getLevels() const { return Levels; }
 
-  bool isReversed() const override { return Reversed; }
+  bool isReversed() const { return Reversed; }
 
   /// getDirection - Returns the direction associated with a particular
   /// level.
-  DVKind getDirection(unsigned Level) const override;
+  DVKind getDirection(unsigned Level) const;
 
   /// getDistance - Returns the distance (or NULL) associated with a
   /// particular level.
-  const CanonExpr *getDistance(unsigned Level) const override;
+  const CanonExpr *getDistance(unsigned Level) const;
 
   /// isPeelFirst - Returns true if peeling the first iteration from
   /// this loop will break this dependence.
-  bool isPeelFirst(unsigned Level) const override;
+  bool isPeelFirst(unsigned Level) const;
 
   /// isPeelLast - Returns true if peeling the last iteration from
   /// this loop will break this dependence.
-  bool isPeelLast(unsigned Level) const override;
+  bool isPeelLast(unsigned Level) const;
 
   /// isSplitable - Returns true if splitting the loop will break
   /// the dependence.
-  bool isSplitable(unsigned Level) const override;
+  bool isSplitable(unsigned Level) const;
 
   /// isScalar - Returns true if a particular level is scalar; that is,
   /// if no subscript in the source or destination mention the induction
   /// variable associated with the loop at this level.
-  bool isScalar(unsigned Level) const override;
+  bool isScalar(unsigned Level) const;
+
+  /// dump - For debugging purposes, dumps a dependence to OS.
+  ///
+  void dump(raw_ostream &OS) const;
 
 private:
+  DDRef *Src, *Dst;
+
   unsigned short Levels; // commonLevels
   bool LoopIndependent;
   bool Consistent; // Init to true, then refine.
@@ -715,7 +635,7 @@ class DDTest {
   /// If the dependence isn't proven to exist,
   /// marks the Result as inconsistent.
   bool testZIV(const CanonExpr *Src, const CanonExpr *Dst,
-               FullDependences &Result);
+               Dependences &Result);
 
   /// testSIV - Tests the SIV subscript pair (Src and Dst) for dependence.
   /// Things of the form [c1 + a1*i] and [c2 + a2*j], where
@@ -728,7 +648,7 @@ class DDTest {
   /// If the dependence isn't proven to exist,
   /// marks the Result as inconsistent.
   bool testSIV(const CanonExpr *Src, const CanonExpr *Dst, unsigned &Level,
-               FullDependences &Result, Constraint &NewConstraint,
+               Dependences &Result, Constraint &NewConstraint,
                const CanonExpr *&SplitIter, const HLLoop *SrcParentLoop,
                const HLLoop *DstParentLoop);
 
@@ -742,7 +662,7 @@ class DDTest {
   /// If there might be a dependence, returns false.
   /// Marks the Result as inconsistent.
   bool testRDIV(const CanonExpr *Src, const CanonExpr *Dst,
-                FullDependences &Result, const HLLoop *SrcParentLoop,
+                Dependences &Result, const HLLoop *SrcParentLoop,
                 const HLLoop *DstParentLoop);
 
   /// testMIV - Tests the MIV subscript pair (Src and Dst) for dependence.
@@ -751,7 +671,7 @@ class DDTest {
 
   bool testMIV(const CanonExpr *Src, const CanonExpr *Dst,
                const DirectionVector &InputDV, const SmallBitVector &Loops,
-               FullDependences &Result, const HLLoop *SrcParentLoop,
+               Dependences &Result, const HLLoop *SrcParentLoop,
                const HLLoop *DstParentLoop);
 
   /// strongSIVtest - Tests the strong SIV subscript pair (Src and Dst)
@@ -764,7 +684,7 @@ class DDTest {
   /// Sets appropriate direction and distance.
   bool strongSIVtest(const CanonExpr *Coeff, const CanonExpr *SrcConst,
                      const CanonExpr *DstConst, const HLLoop *CurrentLoop,
-                     unsigned Level, FullDependences &Result,
+                     unsigned Level, Dependences &Result,
                      Constraint &NewConstraint);
 
   /// weakCrossingSIVtest - Tests the weak-crossing SIV subscript pair
@@ -779,7 +699,7 @@ class DDTest {
   /// Marks the dependence as splitable.
   bool weakCrossingSIVtest(const CanonExpr *SrcCoeff, const CanonExpr *SrcConst,
                            const CanonExpr *DstConst, const HLLoop *CurrentLoop,
-                           unsigned Level, FullDependences &Result,
+                           unsigned Level, Dependences &Result,
                            Constraint &NewConstraint,
                            const CanonExpr *&SplitIter);
 
@@ -795,7 +715,7 @@ class DDTest {
   bool exactSIVtest(const CanonExpr *SrcCoeff, const CanonExpr *DstCoeff,
                     const CanonExpr *SrcConst, const CanonExpr *DstConst,
                     const HLLoop *CurrentLoop, unsigned Level,
-                    FullDependences &Result, Constraint &NewConstraint);
+                    Dependences &Result, Constraint &NewConstraint);
 
   /// weakZeroSrcSIVtest - Tests the weak-zero SIV subscript pair
   /// (Src and Dst) for dependence.
@@ -809,7 +729,7 @@ class DDTest {
   /// If loop peeling will break the dependence, mark appropriately.
   bool weakZeroSrcSIVtest(const CanonExpr *DstCoeff, const CanonExpr *SrcConst,
                           const CanonExpr *DstConst, const HLLoop *CurrentLoop,
-                          unsigned Level, FullDependences &Result,
+                          unsigned Level, Dependences &Result,
                           Constraint &NewConstraint);
 
   /// weakZeroDstSIVtest - Tests the weak-zero SIV subscript pair
@@ -824,7 +744,7 @@ class DDTest {
   /// If loop peeling will break the dependence, mark appropriately.
   bool weakZeroDstSIVtest(const CanonExpr *SrcCoeff, const CanonExpr *SrcConst,
                           const CanonExpr *DstConst, const HLLoop *CurrentLoop,
-                          unsigned Level, FullDependences &Result,
+                          unsigned Level, Dependences &Result,
                           Constraint &NewConstraint);
 
   /// exactRDIVtest - Tests the RDIV subscript pair for dependence.
@@ -838,7 +758,7 @@ class DDTest {
   bool exactRDIVtest(const CanonExpr *SrcCoeff, const CanonExpr *DstCoeff,
                      const CanonExpr *SrcConst, const CanonExpr *DstConst,
                      const HLLoop *SrcLoop, const HLLoop *DstLoop,
-                     FullDependences &Result);
+                     Dependences &Result);
 
   /// symbolicRDIVtest - Tests the RDIV subscript pair for dependence.
   /// Things of the form [c1 + a*i] and [c2 + b*j],
@@ -861,7 +781,7 @@ class DDTest {
   /// so we use it as a backup for everything.
   bool gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
                   const HLLoop *srcParentLoop, const HLLoop *dstParentLoop,
-                  FullDependences &Result);
+                  Dependences &Result);
 
   /// banerjeeMIVtest - Tests an MIV subscript pair for dependence.
   /// Returns true if any possible dependence is disproved.
@@ -869,7 +789,7 @@ class DDTest {
   /// Computes directions.
   bool banerjeeMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
                        const DirectionVector &InputDV,
-                       const SmallBitVector &Loops, FullDependences &Result,
+                       const SmallBitVector &Loops, Dependences &Result,
                        const HLLoop *SrcLoop, const HLLoop *DstLoop);
 
   /// collectCoefficientInfo - Walks through the subscript,

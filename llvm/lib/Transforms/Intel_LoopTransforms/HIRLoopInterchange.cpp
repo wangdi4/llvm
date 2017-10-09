@@ -579,24 +579,26 @@ struct HIRLoopInterchange::CollectDDInfo final : public HLNodeVisitorBase {
         const DirectionVector *TempDV = &Edge->getDV();
 
         // Calling Demand Driven DD to refine DV
-        DirectionVector RefinedDV;
+        RefinedDependence RefinedDep;
+
         if (RefineDV) {
           DDRef *SrcDDRef = Edge->getSrc();
           DDRef *DstDDRef = DDref;
-          DistanceVector RefinedDistV;
-          bool IsIndep;
-          bool IsDVRefined =
+
+          RefinedDep =
               LIP.DDA->refineDV(SrcDDRef, DstDDRef, LIP.InnermostNestingLevel,
-                                LIP.OutmostNestingLevel, RefinedDV,
-                                RefinedDistV, false, &IsIndep);
-          if (IsIndep) {
+                                LIP.OutmostNestingLevel, false);
+
+          if (RefinedDep.isIndependent()) {
             continue;
           }
-          if (IsDVRefined) {
-            if (ignoreEdge(Edge, CandidateLoop, &RefinedDV)) {
+
+          if (RefinedDep.isRefined()) {
+            if (ignoreEdge(Edge, CandidateLoop, &RefinedDep.getDV())) {
               continue;
             }
-            TempDV = &RefinedDV;
+
+            TempDV = &RefinedDep.getDV();
           }
         }
         if (ignoreDVWithNoLTGT(*TempDV, LIP.OutmostNestingLevel,

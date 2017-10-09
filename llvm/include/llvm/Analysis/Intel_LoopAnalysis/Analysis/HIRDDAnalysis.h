@@ -59,6 +59,76 @@ enum DDVerificationLevel {
   Innermost
 };
 
+class RefinedDependence {
+  DirectionVector DV;
+  DistanceVector DistV;
+  bool Refined;
+  bool Reversed;
+  bool Independent;
+
+public:
+  RefinedDependence() : Refined(false), Reversed(false), Independent(false) {}
+
+  DirectionVector &getDV() {
+    return DV;
+  }
+
+  DistanceVector &getDist() {
+    return DistV;
+  }
+
+  bool isReversed() const {
+    return Reversed;
+  }
+
+  bool isRefined() const {
+    return Refined;
+  }
+
+  bool isIndependent() const {
+    return Independent;
+  }
+
+  void setIndependent() {
+    Independent = true;
+  }
+
+  void setRefined() {
+    Refined = true;
+  }
+
+  void setReversed() {
+    Reversed = true;
+  }
+
+  LLVM_DUMP_METHOD
+  void print(raw_ostream &OS) const {
+    if (!isIndependent()) {
+      DV.print(OS, false);
+      OS << " ";
+      DistV.print(OS, DV.getLastLevel());
+    }
+
+    OS << "< ";
+    if (isRefined()) {
+      OS << "refined ";
+    }
+    if (isIndependent()) {
+      OS << "independent ";
+    }
+    if (isReversed()) {
+      OS << "reversed ";
+    }
+    OS << ">";
+  }
+
+  LLVM_DUMP_METHOD
+  void dump() const {
+    print(dbgs());
+    dbgs() << "\n";
+  }
+};
+
 class HIRDDAnalysis final : public HIRAnalysisPass {
 public:
   HIRDDAnalysis() : HIRAnalysisPass(ID, HIRAnalysisPass::HIRDDAnalysisVal) {}
@@ -128,19 +198,16 @@ public:
     return getGraphImpl(static_cast<const HLNode *>(Loop), InputEdgesReq);
   }
 
-  /// \brief Refine DV by calling demand driven DD. Return true when RefineDV
-  /// is set.
-  bool refineDV(DDRef *SrcDDRef, DDRef *DstDDRef,
-                unsigned InnermostNestingLevel, unsigned OutermostNestingLevel,
-                DirectionVector &RefinedDV, DistanceVector &RefinedDistV,
-                bool ForFusion, bool *IsIndependent);
+  /// \brief Refine DV by calling demand driven DD.
+  RefinedDependence refineDV(DDRef *SrcDDRef, DDRef *DstDDRef,
+                             unsigned InnermostNestingLevel,
+                             unsigned OutermostNestingLevel, bool ForFusion);
 
   // TODO still needed? Call findDependences directly?
   // bool demandDrivenDD(DDRef* SrcRef, DDRef* SinkRef,
   //  DirectionVector* input_dv, DirectionVector* output_dv);
 
   // \brief Returns a new unused symbase ID.
-  unsigned getNewSymbase();
   void releaseMemory() override;
 
   void verifyAnalysis() const override;

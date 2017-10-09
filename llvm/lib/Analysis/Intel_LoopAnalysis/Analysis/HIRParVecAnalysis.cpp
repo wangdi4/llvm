@@ -384,12 +384,10 @@ void DDWalk::analyze(const RegDDRef *SrcRef, const DDEdge *Edge) {
 
   // Is this really useful if refineDV() doesn't recompute?
   if (Edge->isRefinableDepAtLevel(NestLevel)) {
-    DirectionVector DV;
-    DistanceVector DistV;
+    auto RefinedDep =
+        DDA.refineDV(Edge->getSrc(), SinkRef, NestLevel, 1, false);
 
-    bool IsIndep = false;
-    if (DDA.refineDV(Edge->getSrc(), SinkRef, NestLevel, 1, DV, DistV, false,
-                     &IsIndep)) {
+    if (RefinedDep.isRefined()) {
       // TODO: Set Type/Loc. Call emitDiag().
       DEBUG(dbgs() << "\tis unsafe to vectorize/parallelize");
     } else {

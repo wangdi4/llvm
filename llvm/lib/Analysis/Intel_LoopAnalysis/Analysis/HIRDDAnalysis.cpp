@@ -422,34 +422,43 @@ void HIRDDAnalysis::buildGraph(const HLNode *Node, bool BuildInputEdges) {
   Node->getHLNodeUtils().visit(Visitor, Node);
 }
 
-bool HIRDDAnalysis::refineDV(DDRef *SrcDDRef, DDRef *DstDDRef,
-                             unsigned InnermostNestingLevel,
-                             unsigned OutermostNestingLevel,
-                             DirectionVector &RefinedDV,
-                             DistanceVector &RefinedDistV, bool ForFusion,
-                             bool *IsIndependent) {
+RefinedDependence HIRDDAnalysis::refineDV(DDRef *SrcDDRef, DDRef *DstDDRef,
+                                          unsigned InnermostNestingLevel,
+                                          unsigned OutermostNestingLevel,
+                                          bool ForFusion) {
 
-  bool IsDVRefined = false;
-  *IsIndependent = false;
+  RefinedDependence Dep;
+
   RegDDRef *RegDDref = dyn_cast<RegDDRef>(DstDDRef);
 
   if (RegDDref && !(RegDDref->isTerminalRef())) {
     DDTest DT(*AAR, RegDDref->getHLDDNode()->getHLNodeUtils(), *HLS);
-    DirectionVector InputDV;
+
+    DirectionVector &InputDV = Dep.getDV();
     InputDV.setAsInput(InnermostNestingLevel, OutermostNestingLevel);
+
     auto Result = DT.depends(SrcDDRef, DstDDRef, InputDV, ForFusion);
-    if (Result == nullptr) {
-      *IsIndependent = true;
-      return true;
-    }
-    for (unsigned I = 1; I <= Result->getLevels(); ++I) {
-      RefinedDV[I - 1] = Result->getDirection(I);
-      IsDVRefined = true;
-      RefinedDistV[I - 1] = DT.mapDVToDist(RefinedDV[I - 1], I, *Result);
+
+    if (Result != nullptr) {
+      Dep.setRefined();
+
+      if (Result->isReversed()) {
+        Dep.setReversed();
+      }
+
+      DirectionVector &RefinedDV = Dep.getDV();
+      DistanceVector &RefinedDistV = Dep.getDist();
+
+      for (unsigned I = 1; I <= Result->getLevels(); ++I) {
+        RefinedDV[I - 1] = Result->getDirection(I);
+        RefinedDistV[I - 1] = DT.mapDVToDist(RefinedDV[I - 1], I, *Result);
+      }
+    } else {
+      Dep.setIndependent();
     }
   }
 
-  return IsDVRefined;
+  return Dep;
 }
 
 bool HIRDDAnalysis::graphForNodeValid(const HLNode *Node) {
