@@ -159,6 +159,8 @@ void VPOParopt::removeTargetUndeclaredGlobals(Module &M) {
   for (GlobalVariable &GV : M.globals())
     if (!GV.isTargetDeclare()) {
       DeadGlobalVars.push_back(&GV); // Keep track of dead globals
+      // TODO  The check of use_empty will be removed after the frontend
+      // generates target_declare attribute for the variable GV.
       if (GV.use_empty() && GV.hasInitializer()) {
         Constant *Init = GV.getInitializer();
         GV.setInitializer(nullptr);
@@ -178,6 +180,8 @@ void VPOParopt::removeTargetUndeclaredGlobals(Module &M) {
     }
   }
   auto EraseUnusedGlobalValue = [&](GlobalValue *GV) {
+    // TODO  The check of use_empty will be removed after the frontend
+    // generates target_declare attribute for the variable GV.
     if (!GV->use_empty())
       return;
     GV->removeDeadConstantUsers();

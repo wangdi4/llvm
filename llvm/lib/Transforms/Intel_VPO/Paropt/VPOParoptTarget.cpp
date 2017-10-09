@@ -151,7 +151,7 @@ Type *VPOParoptTransform::getSizeTTy() {
 CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
                                                 Instruction *InsertPt) {
   IRBuilder<> Builder(InsertPt);
-  TargetDataInfo Info;
+  TgDataInfo Info;
 
   MapClause MpClause = W->getMap();
   Info.NumberOfPtrs = MpClause.size();
@@ -192,10 +192,10 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
                            ".offload_maptypes", nullptr);
     MapTypesArrayGbl->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
 
-    Info.BasePointersArray = TgBasePointersArray;
-    Info.PointersArray = TgPointersArray;
-    Info.SizesArray = SizesArrayGbl;
-    Info.MapTypesArray = MapTypesArrayGbl;
+    Info.BaseDataPtrs = TgBasePointersArray;
+    Info.DataPtrs = TgPointersArray;
+    Info.DataSizes = SizesArrayGbl;
+    Info.DataMapTypes = MapTypesArrayGbl;
 
     genOffloadArraysInit(W, &Info, Call, InsertPt);
   }
@@ -205,8 +205,8 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
   GlobalVariable *OffloadRegionId = getOMPOffloadRegionId();
 
   return VPOParoptUtils::genTgtTarget(
-      W, OffloadRegionId, Info.NumberOfPtrs, Info.BasePointersArray,
-      Info.PointersArray, Info.SizesArray, Info.MapTypesArray, InsertPt);
+      W, OffloadRegionId, Info.NumberOfPtrs, Info.BaseDataPtrs,
+      Info.DataPtrs, Info.DataSizes, Info.DataMapTypes, InsertPt);
 }
 
 // Return the map type for the data clause.
@@ -220,7 +220,7 @@ void VPOParoptTransform::getMapTypes(WRegionNode *W,
 // Pass the data to the array of base pointer as well as  array of
 // section pointers.
 void VPOParoptTransform::genOffloadArraysInit(WRegionNode *W,
-                                              TargetDataInfo *Info,
+                                              TgDataInfo *Info,
                                               CallInst *Call,
                                               Instruction *InsertPt) {
   IRBuilder<> Builder(InsertPt);
@@ -234,12 +234,12 @@ void VPOParoptTransform::genOffloadArraysInit(WRegionNode *W,
       BPVal = Builder.CreateIntToPtr(BPVal, Builder.getInt8PtrTy());
     Value *BP = Builder.CreateConstInBoundsGEP2_32(
         ArrayType::get(Builder.getInt8PtrTy(), Info->NumberOfPtrs),
-        Info->BasePointersArray, 0, Cnt);
+        Info->BaseDataPtrs, 0, Cnt);
     Builder.CreateStore(BPVal, BP);
 
     Value *P = Builder.CreateConstInBoundsGEP2_32(
         ArrayType::get(Builder.getInt8PtrTy(), Info->NumberOfPtrs),
-        Info->PointersArray, 0, Cnt);
+        Info->DataPtrs, 0, Cnt);
     Builder.CreateStore(BPVal, P);
     Cnt++;
   }
@@ -264,111 +264,122 @@ GlobalVariable *VPOParoptTransform::getDsoHandle() {
 // Return/Create the target region ID used by the runtime library to
 // identify the current target region.
 GlobalVariable *VPOParoptTransform::getOMPOffloadRegionId() {
-  if (TgtOffloadRegionId)
-    return TgtOffloadRegionId;
+  if (TgOffloadRegionId)
+    return TgOffloadRegionId;
 
   LLVMContext &C = F->getContext();
-  TgtOffloadRegionId = new GlobalVariable(
+  TgOffloadRegionId = new GlobalVariable(
       *(F->getParent()), Type::getInt8Ty(C), true, GlobalValue::PrivateLinkage,
       Constant::getNullValue(Type::getInt8Ty(C)), ".omp_offload.region_id");
 
-  return TgtOffloadRegionId;
+  return TgOffloadRegionId;
 }
 
 // Generate the pointers pointing to the array of base pointer, the
 // array of section pointers, the array of sizes, the array of map types.
-void VPOParoptTransform::genOffloadArraysArgument(TargetDataInfo *Info,
+void VPOParoptTransform::genOffloadArraysArgument(TgDataInfo *Info,
                                                   Instruction *InsertPt) {
   IRBuilder<> Builder(InsertPt);
 
   if (Info->NumberOfPtrs) {
-    Info->BasePointersArray = Builder.CreateConstInBoundsGEP2_32(
+    Info->BaseDataPtrs = Builder.CreateConstInBoundsGEP2_32(
         ArrayType::get(Builder.getInt8PtrTy(), Info->NumberOfPtrs),
-        Info->BasePointersArray, 0, 0);
-    Info->PointersArray = Builder.CreateConstInBoundsGEP2_32(
+        Info->BaseDataPtrs, 0, 0);
+    Info->DataPtrs = Builder.CreateConstInBoundsGEP2_32(
         ArrayType::get(Builder.getInt8PtrTy(), Info->NumberOfPtrs),
-        Info->PointersArray, 0, 0);
-    Info->SizesArray = Builder.CreateConstInBoundsGEP2_32(
-        ArrayType::get(getSizeTTy(), Info->NumberOfPtrs), Info->SizesArray, 0,
+        Info->DataPtrs, 0, 0);
+    Info->DataSizes = Builder.CreateConstInBoundsGEP2_32(
+        ArrayType::get(getSizeTTy(), Info->NumberOfPtrs), Info->DataSizes, 0,
         0);
-    Info->MapTypesArray = Builder.CreateConstInBoundsGEP2_32(
+    Info->DataMapTypes = Builder.CreateConstInBoundsGEP2_32(
         ArrayType::get(Type::getInt32Ty(F->getContext()), Info->NumberOfPtrs),
-        Info->MapTypesArray, 0, 0);
+        Info->DataMapTypes, 0, 0);
   } else {
-    Info->BasePointersArray = ConstantPointerNull::get(Builder.getInt8PtrTy());
-    Info->PointersArray = ConstantPointerNull::get(Builder.getInt8PtrTy());
-    Info->SizesArray =
+    Info->BaseDataPtrs = ConstantPointerNull::get(Builder.getInt8PtrTy());
+    Info->DataPtrs = ConstantPointerNull::get(Builder.getInt8PtrTy());
+    Info->DataSizes =
         ConstantPointerNull::get(PointerType::getUnqual(getSizeTTy()));
-    Info->MapTypesArray = ConstantPointerNull::get(
+    Info->DataMapTypes = ConstantPointerNull::get(
         PointerType::getUnqual(Type::getInt32Ty(F->getContext())));
   }
 }
-// struct __tgt_offload_entry{
-//   void      *addr;       // Pointer to the offload entry info.
-//                          // (function or global)
-//   char      *name;       // Name of the function or global.
-//   size_t     size;       // Size of the entry info (0 if it a function).
-//   int32_t    flags;      // Flags associated with the entry, e.g. 'link'.
-//   int32_t    reserved;   // Reserved, to use by the runtime library.
+
+// \brief Hold the struct type as follows.
+//    struct __tgt_offload_entry {
+//      void      *addr;       // The address of a global variable
+//                             // or entry point in the host.
+//      char      *name;       // Name of the symbol referring to the
+//                             // global variable or entry point.
+//      size_t     size;       // Size in bytes of the global variable or
+//                             // zero if it is entry point.
+//      int32_t    flags;      // Flags of the entry.
+//      int32_t    reserved;   // Reserved by the runtime library.
 // };
-//
-StructType *VPOParoptTransform::getTgtOffloadEntryQTy() {
-  if (TgtOffloadEntryTy)
-    return TgtOffloadEntryTy;
+StructType *VPOParoptTransform::getTgOffloadEntryTy() {
+  if (TgOffloadEntryTy)
+    return TgOffloadEntryTy;
 
   LLVMContext &C = F->getContext();
 
   Type *TyArgs[] = { Type::getInt8PtrTy(C), Type::getInt8PtrTy(C), getSizeTTy(),
                      Type::getInt32Ty(C),   Type::getInt32Ty(C) };
-  TgtOffloadEntryTy =
+  TgOffloadEntryTy =
       StructType::create(C, TyArgs, "struct.__tgt_offload_entry", false);
-  return TgtOffloadEntryTy;
+  return TgOffloadEntryTy;
 }
 
+// \brief Hold the struct type as follows.
 // struct __tgt_device_image{
-//   void   *ImageStart;       // Pointer to the target code start.
-//   void   *ImageEnd;         // Pointer to the target code end.
-//     We also add the host entries to the device image, as it may be useful
-//     for the target runtime to have access to that information.
-//   __tgt_offload_entry  *EntriesBegin;   // Begin of the table with all
-//                                         // the entries.
-//   __tgt_offload_entry  *EntriesEnd;     // End of the table with all the
-//                                         // entries (non inclusive).
+//   void   *ImageStart;       // The address of the beginning of the
+//                             // target code.
+//   void   *ImageEnd;         // The address of the end of the target
+//                             // code.
+//   __tgt_offload_entry  *EntriesBegin;  // The first element of an array
+//                                        // containing the globals and
+//                                        // target entry points.
+//   __tgt_offload_entry  *EntriesEnd;    // The last element of an array
+//                                        // containing the globals and
+//                                        // target entry points.
 // };
-//
-StructType *VPOParoptTransform::getTgtDeviceImageQTy() {
-  if (TgtDeviceImageQTy)
-    return TgtDeviceImageQTy;
+StructType *VPOParoptTransform::getTgDeviceImageTy() {
+  if (TgDeviceImageTy)
+    return TgDeviceImageTy;
   LLVMContext &C = F->getContext();
   Type *TyArgs[] = { Type::getInt8PtrTy(C),
                      Type::getInt8PtrTy(C),
-                     PointerType::getUnqual(getTgtOffloadEntryQTy()),
-                     PointerType::getUnqual(getTgtOffloadEntryQTy()) };
-  TgtDeviceImageQTy =
+                     PointerType::getUnqual(getTgOffloadEntryTy()),
+                     PointerType::getUnqual(getTgOffloadEntryTy()) };
+  TgDeviceImageTy =
       StructType::create(C, TyArgs, "struct.__tgt_device_image", false);
-  return TgtDeviceImageQTy;
+  return TgDeviceImageTy;
 }
+
+// \brief Hold the struct type as follows.
 // struct __tgt_bin_desc{
-//   int32_t              NumDevices;      // Number of devices supported.
-//   __tgt_device_image   *DeviceImages;   // Arrays of device images
-//                                         // (one per device).
-//   __tgt_offload_entry  *EntriesBegin;   // Begin of the table with all the
-//                                         // entries.
-//   __tgt_offload_entry  *EntriesEnd;     // End of the table with all the
-//                                         // entries (non inclusive).
+//   uint32_t              NumDevices;     // Number of device types i
+//                                         // supported.
+//   __tgt_device_image   *DeviceImages;   // A pointer to an array of
+//                                         // NumDevices elements.
+//   __tgt_offload_entry  *EntriesBegin;   // The first element of an array
+//                                         // containing the globals and
+//                                         // target entry points.
+//   __tgt_offload_entry  *EntriesEnd;     // The last element of an array
+//                                         // containing the globals and
+//                                         // target entry points.
 // };
-StructType *VPOParoptTransform::getTgtBinaryDescriptorQTy() {
-  if (TgtBinaryDescriptorQTy)
-    return TgtBinaryDescriptorQTy;
+//
+StructType *VPOParoptTransform::getTgBinaryDescriptorTy() {
+  if (TgBinaryDescriptorTy)
+    return TgBinaryDescriptorTy;
 
   LLVMContext &C = F->getContext();
   Type *TyArgs[] = { Type::getInt32Ty(C),
-                     PointerType::getUnqual(getTgtDeviceImageQTy()),
-                     PointerType::getUnqual(getTgtOffloadEntryQTy()),
-                     PointerType::getUnqual(getTgtOffloadEntryQTy()) };
-  TgtBinaryDescriptorQTy =
+                     PointerType::getUnqual(getTgDeviceImageTy()),
+                     PointerType::getUnqual(getTgOffloadEntryTy()),
+                     PointerType::getUnqual(getTgOffloadEntryTy()) };
+  TgBinaryDescriptorTy =
       StructType::create(C, TyArgs, "struct.__tgt_bin_desc", false);
-  return TgtBinaryDescriptorQTy;
+  return TgBinaryDescriptorTy;
 }
 
 // Create offloading entry for the provided entry ID and address.
@@ -396,7 +407,7 @@ void VPOParoptTransform::genOffloadEntry(Constant *ID, Constant *Addr) {
   EntryInitBuffer.push_back(ConstantInt::get(Type::getInt32Ty(C), 0));
 
   Constant *EntryInit =
-      ConstantStruct::get(getTgtOffloadEntryQTy(), EntryInitBuffer);
+      ConstantStruct::get(getTgOffloadEntryTy(), EntryInitBuffer);
 
   GlobalVariable *Entry =
       new GlobalVariable(*M, EntryInit->getType(),
@@ -438,7 +449,7 @@ VPOParoptTransform::genOffloadingBinaryDescriptorRegistration(WRegionNode *W) {
     return;
   Module *M = F->getParent();
   LLVMContext &C = F->getContext();
-  auto OffloadEntryTy = getTgtOffloadEntryQTy();
+  auto OffloadEntryTy = getTgOffloadEntryTy();
   GlobalVariable *HostEntriesBegin = new GlobalVariable(
       *M, OffloadEntryTy, /*isConstant=*/true, GlobalValue::ExternalLinkage,
       /*Initializer=*/nullptr, ".omp_offloading.entries_begin");
@@ -461,12 +472,12 @@ VPOParoptTransform::genOffloadingBinaryDescriptorRegistration(WRegionNode *W) {
   DevInitBuffer.push_back(HostEntriesEnd);
 
   Constant *DevInit =
-      ConstantStruct::get(getTgtDeviceImageQTy(), DevInitBuffer);
+      ConstantStruct::get(getTgDeviceImageTy(), DevInitBuffer);
 
   DevInitBuffer.clear();
   DevInitBuffer.push_back(DevInit);
   Constant *DevArrayInit = ConstantArray::get(
-      ArrayType::get(getTgtDeviceImageQTy(), 1), DevInitBuffer);
+      ArrayType::get(getTgDeviceImageTy(), 1), DevInitBuffer);
 
   GlobalVariable *DeviceImages =
       new GlobalVariable(*M, DevArrayInit->getType(),
@@ -485,17 +496,17 @@ VPOParoptTransform::genOffloadingBinaryDescriptorRegistration(WRegionNode *W) {
   DescInitBuffer.push_back(HostEntriesEnd);
 
   Constant *DescInit =
-      ConstantStruct::get(getTgtBinaryDescriptorQTy(), DescInitBuffer);
+      ConstantStruct::get(getTgBinaryDescriptorTy(), DescInitBuffer);
   GlobalVariable *Desc =
       new GlobalVariable(*M, DescInit->getType(),
                          /*isConstant=*/true, GlobalValue::InternalLinkage,
                          DescInit, ".omp_offloading.descriptor");
-  Function *TgtDescUnregFn = createTgtDescUnRegisterLib(W, Desc);
-  createTgtDescRegisterLib(W, TgtDescUnregFn, Desc);
+  Function *TgDescUnregFn = createTgDescUnregisterLib(W, Desc);
+  createTgDescRegisterLib(W, TgDescUnregFn, Desc);
 }
 
 // Create the function .omp_offloading.descriptor_unreg.
-Function *VPOParoptTransform::createTgtDescUnRegisterLib(WRegionNode *W,
+Function *VPOParoptTransform::createTgDescUnregisterLib(WRegionNode *W,
                                                          GlobalVariable *Desc) {
   LLVMContext &C = F->getContext();
   Module *M = F->getParent();
@@ -522,8 +533,8 @@ Function *VPOParoptTransform::createTgtDescUnRegisterLib(WRegionNode *W,
 }
 
 // Create the function .omp_offloading.descriptor_reg
-Function *VPOParoptTransform::createTgtDescRegisterLib(WRegionNode *W,
-                                                       Function *TgtDescUnregFn,
+Function *VPOParoptTransform::createTgDescRegisterLib(WRegionNode *W,
+                                                       Function *TgDescUnregFn,
                                                        GlobalVariable *Desc) {
   LLVMContext &C = F->getContext();
   Module *M = F->getParent();
@@ -544,7 +555,7 @@ Function *VPOParoptTransform::createTgtDescRegisterLib(WRegionNode *W,
 
   Builder.CreateRetVoid();
   VPOParoptUtils::genTgtRegisterLib(W, Desc, EntryBB->getTerminator());
-  VPOParoptUtils::genCxaAtExit(W, TgtDescUnregFn, Desc, getDsoHandle(),
+  VPOParoptUtils::genCxaAtExit(W, TgDescUnregFn, Desc, getDsoHandle(),
                                EntryBB->getTerminator());
 
   Fn->setSection(".text.startup");

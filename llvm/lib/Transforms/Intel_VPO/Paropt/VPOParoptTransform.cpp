@@ -2904,3 +2904,45 @@ bool VPOParoptTransform::genBarrier(WRegionNode *W, bool IsExplicit) {
   DEBUG(dbgs() << "\nExit VPOParoptTransform::genBarrier\n");
   return true;
 }
+
+// Set the the arguments in the if clause to be empty.
+void VPOParoptTransform::resetValueInIfClause(WRegionNode *W) {
+  Value *V = W->getIf();
+  if (!V)
+    return;
+  resetValueInIntelClauseGeneric(W, V);
+}
+
+// Set the values in the private clause to be empty.
+void VPOParoptTransform::resetValueInPrivateClause(WRegionNode *W) {
+  if (!W->hasPrivate())
+    return;
+
+  PrivateClause &PrivClause = W->getPriv();
+  if (PrivClause.empty())
+    return;
+
+  for (PrivateItem *PrivI : PrivClause.items()) {
+    resetValueInIntelClauseGeneric(W, PrivI->getOrig());
+  }
+}
+
+// Set the the arguments in the Intel compiler generated clause to be empty.
+void VPOParoptTransform::resetValueInIntelClauseGeneric(WRegionNode *W,
+                                                        Value *V) {
+  SmallVector<Instruction *, 8> IfUses;
+  for (auto IB = V->user_begin(), IE = V->user_end(); IB != IE; ++IB) {
+    if (Instruction *User = dyn_cast<Instruction>(*IB))
+      if (W->contains(User->getParent()))
+        IfUses.push_back(User);
+  }
+
+  while (!IfUses.empty()) {
+    Instruction *UI = IfUses.pop_back_val();
+    if (VPOAnalysisUtils::isIntelDirectiveOrClause(UI)) {
+      LLVMContext &C = F->getContext();
+      UI->replaceUsesOfWith(V, ConstantPointerNull::get(Type::getInt8PtrTy(C)));
+      break;
+    }
+  }
+}

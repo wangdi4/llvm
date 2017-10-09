@@ -81,8 +81,8 @@ public:
         TidPtr(nullptr), BidPtr(nullptr), KmpcMicroTaskTy(nullptr),
         KmpRoutineEntryPtrTy(nullptr), KmpTaskTTy(nullptr),
         KmpTaskTRedTy(nullptr), KmpTaskDependInfoTy(nullptr),
-        TgtOffloadRegionId(nullptr), TgtOffloadEntryTy(nullptr),
-        TgtDeviceImageQTy(nullptr), TgtBinaryDescriptorQTy(nullptr),
+        TgOffloadRegionId(nullptr), TgOffloadEntryTy(nullptr),
+        TgDeviceImageTy(nullptr), TgBinaryDescriptorTy(nullptr),
         DsoHandle(nullptr) {}
 
   /// \brief Top level interface for parallel and prepare transformation
@@ -145,86 +145,81 @@ private:
   ///           };
   StructType *KmpTaskDependInfoTy;
 
-  /// The target region ID is used by the runtime library to identify the
-  /// current target region, so it only has to be unique and not necessarily
-  /// point to anything. It could be the pointer to the outlined function that
-  /// implements the target region, but we aren't using that so that the
-  /// compiler doesn't need to keep that, and could therefore inline the host
-  /// function if proven worthwhile during optimization. In the other hand, if
-  /// emitting code for the device, the ID has to be the function address so
-  /// that it can retrieved from the offloading entry and launched by the
-  /// runtime library. We also mark the outlined function to have external
-  /// linkage in case we are emitting code for the device, because these
-  /// functions will be entry points to the device.
-  GlobalVariable *TgtOffloadRegionId;
+  /// The target region ID is an unique global varialble used by the runtime
+  /// libarary.
+  GlobalVariable *TgOffloadRegionId;
 
   /// \brief Hold the struct type as follows.
   ///    struct __tgt_offload_entry {
-  ///      void      *addr;       // Pointer to the offload entry info.
-  ///                             // (function or global)
-  ///      char      *name;       // Name of the function or global.
-  ///      size_t     size;       // Size of the entry info (0 if it is a
-  ///                             // function).
-  ///      int32_t    flags;      // Flags associated with the entry,
-  ///                             // e.g. 'link'.
-  ///      int32_t    reserved;   // Reserved, to use by the
-  ///                             // runtime library.
+  ///      void      *addr;       // The address of a global variable
+  ///                             // or entry point in the host.
+  ///      char      *name;       // Name of the symbol referring to the
+  ///                             // global variable or entry point.
+  ///      size_t     size;       // Size in bytes of the global variable or
+  ///                             // zero if it is entry point.
+  ///      int32_t    flags;      // Flags of the entry.
+  ///      int32_t    reserved;   // Reserved by the runtime library.
   /// };
-  StructType *TgtOffloadEntryTy;
+  StructType *TgOffloadEntryTy;
 
   /// \brief Hold the struct type as follows.
   /// struct __tgt_device_image{
-  ///   void   *ImageStart;       // Pointer to the target code start.
-  ///   void   *ImageEnd;         // Pointer to the target code end.
-  ///     We also add the host entries to the device image, as it may be useful
-  ///     for the target runtime to have access to that information.
-  ///   __tgt_offload_entry  *EntriesBegin;   // Begin of the table with all
-  ///                                         // the entries.
-  ///   __tgt_offload_entry  *EntriesEnd;     // End of the table with all the
-  ///                                         // entries (non inclusive).
+  ///   void   *ImageStart;       // The address of the beginning of the
+  ///                             // target code.
+  ///   void   *ImageEnd;         // The address of the end of the target
+  ///                             // code.
+  ///   __tgt_offload_entry  *EntriesBegin;  // The first element of an array
+  ///                                        // containing the globals and
+  ///                                        // target entry points.
+  ///   __tgt_offload_entry  *EntriesEnd;    // The last element of an array
+  ///                                        // containing the globals and
+  ///                                        // target entry points.
   /// };
-  StructType *TgtDeviceImageQTy;
+  StructType *TgDeviceImageTy;
 
   /// \brief Hold the struct type as follows.
   /// struct __tgt_bin_desc{
-  ///   int32_t              NumDevices;      // Number of devices supported.
-  ///   __tgt_device_image   *DeviceImages;   // Arrays of device images
-  ///                                         // (one per device).
-  ///   __tgt_offload_entry  *EntriesBegin;   // Begin of the table with all the
-  ///                                         // entries.
-  ///   __tgt_offload_entry  *EntriesEnd;     // End of the table with all the
-  ///                                         // entries (non inclusive).
+  ///   uint32_t              NumDevices;     // Number of device types i
+  ///                                         // supported.
+  ///   __tgt_device_image   *DeviceImages;   // A pointer to an array of
+  ///                                         // NumDevices elements.
+  ///   __tgt_offload_entry  *EntriesBegin;   // The first element of an array
+  ///                                         // containing the globals and
+  ///                                         // target entry points.
+  ///   __tgt_offload_entry  *EntriesEnd;     // The last element of an array
+  ///                                         // containing the globals and
+  ///                                         // target entry points.
   /// };
-  StructType *TgtBinaryDescriptorQTy;
+  StructType *TgBinaryDescriptorTy;
 
   /// \brief Create a variable that binds the atexit to this shared object.
   GlobalVariable *DsoHandle;
 
-  /// \brief Struct that keeps all the relevant information that should be kept
-  /// throughout a 'target data' region.
-  class TargetDataInfo {
+  /// \brief Struct that keeps all the information needed to pass to
+  /// the runtime library.
+  class TgDataInfo {
   public:
-    /// The array of base pointer passed to the runtime library.
-    Value *BasePointersArray = nullptr;
-    /// The array of section pointers passed to the runtime library.
-    Value *PointersArray = nullptr;
-    /// The array of sizes passed to the runtime library.
-    Value *SizesArray = nullptr;
-    /// The array of map types passed to the runtime library.
-    Value *MapTypesArray = nullptr;
-    /// The total number of pointers passed to the runtime library.
+    /// The array of base pointers passed to the runtime library.
+    Value *BaseDataPtrs = nullptr;
+    /// The array of data pointers passed to the runtime library.
+    Value *DataPtrs = nullptr;
+    /// The array of data sizes passed to the runtime library.
+    Value *DataSizes = nullptr;
+    /// The array of data map types passed to the runtime library.
+    Value *DataMapTypes = nullptr;
+    /// The number of pointers passed to the runtime library.
     unsigned NumberOfPtrs = 0u;
-    explicit TargetDataInfo() {}
+    explicit TgDataInfo() {}
     void clearArrayInfo() {
-      BasePointersArray = nullptr;
-      PointersArray = nullptr;
-      SizesArray = nullptr;
-      MapTypesArray = nullptr;
+      BaseDataPtrs = nullptr;
+      DataPtrs = nullptr;
+      DataSizes = nullptr;
+      DataMapTypes = nullptr;
       NumberOfPtrs = 0u;
     }
     bool isValid() {
-      return BasePointersArray && PointersArray && SizesArray &&
-             MapTypesArray && NumberOfPtrs;
+      return BaseDataPtrs && DataPtrs && DataSizes &&
+             DataMapTypes && NumberOfPtrs;
     }
   };
 
@@ -482,11 +477,11 @@ private:
 
   /// \brief Generate the pointers pointing to the array of base pointer, the
   /// array of section pointers, the array of sizes, the array of map types.
-  void genOffloadArraysArgument(TargetDataInfo *Info, Instruction *InsertPt);
+  void genOffloadArraysArgument(TgDataInfo *Info, Instruction *InsertPt);
 
   /// \brief Pass the data to the array of base pointer as well as  array of
   /// section pointers.
-  void genOffloadArraysInit(WRegionNode *W, TargetDataInfo *Info,
+  void genOffloadArraysInit(WRegionNode *W, TgDataInfo *Info,
                             CallInst *Call, Instruction *InsertPt);
 
   /// \breif Return the map type for the data clause.
@@ -517,20 +512,20 @@ private:
   Type *getSizeTTy();
 
   /// \brief Return/Create the struct type __tgt_offload_entry.
-  StructType *getTgtOffloadEntryQTy();
+  StructType *getTgOffloadEntryTy();
 
   /// \brief Return/Create the struct type __tgt_device_image.
-  StructType *getTgtDeviceImageQTy();
+  StructType *getTgDeviceImageTy();
 
   /// \brief Return/Create the struct type __tgt_bin_desc.
-  StructType *getTgtBinaryDescriptorQTy();
+  StructType *getTgBinaryDescriptorTy();
 
   /// \brief Create the function .omp_offloading.descriptor_reg
-  Function *createTgtDescRegisterLib(WRegionNode *W, Function *TgtDescUnregFn,
+  Function *createTgDescRegisterLib(WRegionNode *W, Function *TgDescUnregFn,
                                      GlobalVariable *Desc);
 
   /// \brief Create the function .omp_offloading.descriptor_unreg
-  Function *createTgtDescUnRegisterLib(WRegionNode *W, GlobalVariable *Desc);
+  Function *createTgDescUnregisterLib(WRegionNode *W, GlobalVariable *Desc);
 
   /// \brief If the map data is global variable, Create the stack variable and
   /// replace the the global variable with the stack variable.
