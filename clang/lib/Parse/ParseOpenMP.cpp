@@ -1899,14 +1899,8 @@ bool Parser::ParseOpenMPVarList(OpenMPDirectiveKind DKind,
                      Tok.isNot(tok::annot_pragma_openmp_end))) {
     ColonProtectionRAIIObject ColonRAII(*this, MayHaveTail);
     // Parse variable
-#if INTEL_CUSTOMIZATION
-    Actions.StartCEAN(Sema::OpenMPCEANAllowed);
-#endif // INTEL_CUSTOMIZATION
     ExprResult VarExpr =
         Actions.CorrectDelayedTyposInExpr(ParseAssignmentExpression());
-#if INTEL_CUSTOMIZATION
-    Actions.EndCEAN();
-#endif // INTEL_CUSTOMIZATION
 
     if (VarExpr.isUsable())
       Vars.push_back(VarExpr.get());

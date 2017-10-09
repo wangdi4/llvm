@@ -3089,84 +3089,6 @@ Parser::DeclGroupPtrTy Parser::ParseCXXClassMemberDeclarationWithPragmas(
     AccessSpecifier &AS, ParsedAttributesWithRange &AccessAttrs,
     DeclSpec::TST TagType, Decl *TagDecl) {
 
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  if (getLangOpts().IntelCompat) {
-    switch (Tok.getKind()) {
-    case (tok::annot_pragma_ivdep):
-      HandlePragmaIvdepDecl();
-      return DeclGroupPtrTy();
-    case (tok::annot_pragma_novector):
-      HandlePragmaNoVectorDecl();
-      return DeclGroupPtrTy();
-    case (tok::annot_pragma_vector):
-      HandlePragmaVectorDecl();
-      return DeclGroupPtrTy();
-    case (tok::annot_pragma_distribute_point):
-      HandlePragmaDistributeDecl();
-      return DeclGroupPtrTy();
-    case (tok::annot_pragma_loop_count):
-      HandlePragmaLoopCountDecl();
-      return DeclGroupPtrTy();
-    case (tok::annot_pragma_optimize):
-      HandlePragmaOptimizeDecl();
-      return DeclGroupPtrTy();
-    case (tok::annot_pragma_optimization_level):
-      HandlePragmaOptimizationLevelDecl();
-      return DeclGroupPtrTy();
-    case (tok::annot_pragma_parallel):
-      HandlePragmaParallelDecl();
-      return DeclGroupPtrTy();
-    case (tok::annot_pragma_noparallel):
-      HandlePragmaNoParallelDecl();
-      return DeclGroupPtrTy();
-    case (tok::annot_pragma_unroll):
-      HandlePragmaUnrollDecl();
-      return DeclGroupPtrTy();
-    case (tok::annot_pragma_unroll_and_jam):
-      HandlePragmaUnrollAndJamDecl();
-      return DeclGroupPtrTy();
-    case (tok::annot_pragma_nofusion):
-      HandlePragmaNoFusionDecl();
-      return DeclGroupPtrTy();
-    case (tok::annot_pragma_optimization_parameter):
-      HandlePragmaOptimizationParameterDecl();
-      return DeclGroupPtrTy();
-    case (tok::annot_pragma_alloc_section):
-      HandlePragmaAllocSectionDecl();
-      return DeclGroupPtrTy();
-    case (tok::annot_pragma_section):
-      HandlePragmaSectionDecl();
-      return DeclGroupPtrTy();
-    case (tok::annot_pragma_alloc_text):
-      HandlePragmaAllocTextDecl();
-      return DeclGroupPtrTy();
-    case (tok::annot_pragma_auto_inline):
-      HandlePragmaAutoInlineDecl();
-      return DeclGroupPtrTy();
-    case (tok::annot_pragma_seg):
-      HandlePragmaSegDecl();
-      return DeclGroupPtrTy();
-    case (tok::annot_pragma_check_stack):
-      HandlePragmaCheckStackDecl();
-      return DeclGroupPtrTy();
-    case (tok::annot_pragma_init_seg):
-      HandlePragmaInitSegDecl();
-      return DeclGroupPtrTy();
-    case (tok::annot_pragma_float_control):
-      HandlePragmaFloatControlDecl();
-      return DeclGroupPtrTy();
-    case (tok::annot_pragma_intel_fp_contract):
-      HandlePragmaCommonOnOffDecl(Sema::IntelPragmaFPContract, false);
-      return DeclGroupPtrTy();
-    case (tok::annot_pragma_fenv_access):
-      HandlePragmaCommonOnOffDecl(Sema::IntelPragmaFEnvAccess, false);
-      return DeclGroupPtrTy();
-    default:
-      break;
-    }
-  }
-#endif // INTEL_SPECIFIC_IL0_BACKEND
-
   switch (Tok.getKind()) {
   case tok::kw___if_exists:
   case tok::kw___if_not_exists:
@@ -4208,16 +4130,6 @@ void Parser::ParseCXX11AttributeSpecifier(ParsedAttributes &attrs,
 
     // Parse attribute arguments
     if (Tok.is(tok::l_paren)) {
-#if INTEL_SPECIFIC_CILKPLUS
-      if ((ScopeName && ScopeName->isStr("gnu")) ||
-          (getLangOpts().CilkPlus &&
-           (!ScopeName || ScopeName->isStr("cilkplus")) &&
-           AttrName->isStr("vector"))) {
-        ParseGNUAttributeArgs(AttrName, AttrLoc, attrs, endLoc, ScopeName,
-                              ScopeLoc, AttributeList::AS_CXX11, nullptr);
-        AttrParsed = true;
-      } else
-#endif // INTEL_SPECIFIC_CILKPLUS
         AttrParsed = ParseCXX11AttributeArgs(AttrName, AttrLoc, attrs, endLoc,
                                              ScopeName, ScopeLoc);
     }

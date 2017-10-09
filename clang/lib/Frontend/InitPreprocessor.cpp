@@ -577,10 +577,7 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
                       "\"" CLANG_VERSION_STRING " "
                       + getClangFullRepositoryVersion() + "\"");
 #if INTEL_CUSTOMIZATION
-// CQ#368488 - skip the check and define GCC_* macros for iclang.
-#ifndef INTEL_SPECIFIC_IL0_BACKEND
   if (!LangOpts.IntelCompat)
-#endif  // not INTEL_SPECIFIC_IL0_BACKEND
 #endif  // INTEL_CUSTOMIZATION
   if (!LangOpts.MSVCCompat) {
     // Currently claim to be compatible with GCC 4.2.1-5621, but only if we're
@@ -617,19 +614,11 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   Builder.defineMacro("__PRAGMA_REDEFINE_EXTNAME", "1");
 
 #if INTEL_CUSTOMIZATION
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  // Version string for iclang: cfe_iclangC/tr60450
-  if (LangOpts.IntelCompat)
-    Builder.defineMacro("__VERSION__", "\"" +
-                      Twine(getIClangFullCPPVersion()) + "\"");
-  else
-#else
   // Version string for xmain: cq374831
   if (LangOpts.IntelCompat)
     Builder.defineMacro("__VERSION__", "\"" +
                       Twine(getXMainFullCPPVersion()) + "\"");
   else
-#endif // INTEL_SPECIFIC_IL0_BACKEND
 #endif // INTEL_CUSTOMIZATION
   // As sad as it is, enough software depends on the __VERSION__ for version
   // checks that it is necessary to report 4.2.1 (the base GCC version we claim
@@ -727,9 +716,7 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   if (!LangOpts.MSVCCompat && LangOpts.CPlusPlus) {
 #if INTEL_CUSTOMIZATION
     // CQ#369662 - Intel driver already sets __GNUG__ into appropriate value.
-#ifndef INTEL_SPECIFIC_IL0_BACKEND
     if (!LangOpts.IntelCompat)
-#endif  // !INTEL_SPECIFIC_IL0_BACKEND
 #endif // INTEL_CUSTOMIZATION
     Builder.defineMacro("__GNUG__", "4");
     Builder.defineMacro("__GXX_WEAK__");
@@ -803,10 +790,6 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
     Builder.defineMacro("__I__", "1j");
   }
 #endif // INTEL_CUSTOMIZATION
-#if INTEL_SPECIFIC_CILKPLUS
-  if (LangOpts.CilkPlus)
-    Builder.defineMacro("__cilk", "200");
-#endif // INTEL_SPECIFIC_CILKPLUS
 
   DefineTypeSize("__SCHAR_MAX__", TargetInfo::SignedChar, TI, Builder);
   DefineTypeSize("__SHRT_MAX__", TargetInfo::SignedShort, TI, Builder);

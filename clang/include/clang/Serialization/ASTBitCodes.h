@@ -1426,12 +1426,7 @@ namespace serialization {
 
       /// \brief An ObjCTypeParamDecl record.
       DECL_OBJC_TYPE_PARAM,
-
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-      /// \brief A PragmaDecl record.
-      DECL_PRAGMA,
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
-
+ 
       /// \brief An OMPCapturedExprDecl record.
       DECL_OMP_CAPTUREDEXPR,
 
@@ -1477,11 +1472,6 @@ namespace serialization {
 
       /// \brief A LabelStmt record.
       STMT_LABEL,
-
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-      /// \brief A PragmaStmt record.
-      STMT_PRAGMA,
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
 
       /// \brief An AttributedStmt record.
       STMT_ATTRIBUTED,
@@ -1647,11 +1637,7 @@ namespace serialization {
 
       /// \brief An AtomicExpr record.
       EXPR_ATOMIC,
-#if INTEL_SPECIFIC_CILKPLUS
-      /// \brief A CEANIndexExpr record.
-      EXPR_CEAN_INDEX,
-      EXPR_CEAN_BUILTIN,
-#endif // INTEL_SPECIFIC_CILKPLUS
+
       // Objective-C
 
       /// \brief An ObjCStringLiteral record.
@@ -1876,14 +1862,6 @@ namespace serialization {
       EXPR_OBJC_BRIDGED_CAST,     // ObjCBridgedCastExpr
 
       STMT_MS_DEPENDENT_EXISTS,   // MSDependentExistsStmt
-#if INTEL_SPECIFIC_CILKPLUS
-      // Cilk Plus
-      STMT_CILKSYNC,
-      STMT_CILK_FOR_GRAINSIZE,
-      STMT_CILK_FOR,
-      STMT_SIMD_FOR,
-      STMT_CILK_RANKED,
-#endif // INTEL_SPECIFIC_CILKPLUS
       EXPR_LAMBDA,                // LambdaExpr
       STMT_COROUTINE_BODY,
       STMT_CORETURN,

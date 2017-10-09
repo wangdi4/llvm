@@ -27,11 +27,6 @@
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/Intrinsics.h"
-#if INTEL_SPECIFIC_CILKPLUS
-#include "intel/CGCilkPlusRuntime.h"
-#include "clang/Basic/CapturedStmt.h"
-#include "llvm/IR/TypeBuilder.h"
-#endif // INTEL_SPECIFIC_CILKPLUS
 #include "llvm/IR/MDBuilder.h"
 
 using namespace clang;
@@ -116,19 +111,12 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
   }
 
   switch (S->getStmtClass()) {
-#if INTEL_CUSTOMIZATION
-  case Stmt::PragmaStmtClass:
-    llvm_unreachable("should have emitted this statement as simple");
-#endif  // INTEL_CUSTOMIZATION
   case Stmt::NoStmtClass:
   case Stmt::CXXCatchStmtClass:
   case Stmt::SEHExceptStmtClass:
   case Stmt::SEHFinallyStmtClass:
   case Stmt::MSDependentExistsStmtClass:
     llvm_unreachable("invalid statement class to emit generically");
-#if INTEL_SPECIFIC_CILKPLUS
-  case Stmt::CilkSyncStmtClass:
-#endif // INTEL_SPECIFIC_CILKPLUS
   case Stmt::NullStmtClass:
   case Stmt::CompoundStmtClass:
   case Stmt::DeclStmtClass:
@@ -231,20 +219,6 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
   case Stmt::SEHTryStmtClass:
     EmitSEHTryStmt(cast<SEHTryStmt>(*S));
     break;
-#if INTEL_SPECIFIC_CILKPLUS
-  case Stmt::CilkForGrainsizeStmtClass:
-    EmitCilkForGrainsizeStmt(cast<CilkForGrainsizeStmt>(*S));
-    break;
-  case Stmt::CilkForStmtClass:
-    EmitCilkForStmt(cast<CilkForStmt>(*S));
-    break;
-  case Stmt::SIMDForStmtClass:
-    EmitSIMDForStmt(cast<SIMDForStmt>(*S));
-    break;
-  case Stmt::CilkRankedStmtClass:
-    EmitCilkRankedStmt(cast<CilkRankedStmt>(*S));
-    break;
-#endif // INTEL_SPECIFIC_CILKPLUS
   case Stmt::OMPParallelDirectiveClass:
     EmitOMPParallelDirective(cast<OMPParallelDirective>(*S));
     break;
@@ -402,13 +376,6 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
 bool CodeGenFunction::EmitSimpleStmt(const Stmt *S) {
   switch (S->getStmtClass()) {
   default: return false;
-#if INTEL_SPECIFIC_CILKPLUS
-  case Stmt::CilkSyncStmtClass:
-    CGM.getCilkPlusRuntime().EmitCilkSync(*this); break;
-#endif // INTEL_SPECIFIC_CILKPLUS
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  case Stmt::PragmaStmtClass:   EmitPragmaStmt(cast<PragmaStmt>(*S));     break;
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
   case Stmt::NullStmtClass: break;
   case Stmt::CompoundStmtClass: EmitCompoundStmt(cast<CompoundStmt>(*S)); break;
   case Stmt::DeclStmtClass:     EmitDeclStmt(cast<DeclStmt>(*S));         break;
@@ -1312,13 +1279,8 @@ void CodeGenFunction::EmitDeclStmt(const DeclStmt &S) {
   if (HaveInsertPoint())
     EmitStopPoint(&S);
 
-  for (const auto *I : S.decls()) { // INTEL
+  for (const auto *I : S.decls())
     EmitDecl(*I);
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-    if (I->hasAttr<AvoidFalseShareAttr>())
-      EmitIntelAttribute(*I);
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
-  }                                 // INTEL
 }
 
 void CodeGenFunction::EmitBreakStmt(const BreakStmt &S) {
@@ -2516,9 +2478,6 @@ CodeGenFunction::GenerateCapturedStmtFunction(const CapturedStmt &S) {
   llvm::Function *F =
     llvm::Function::Create(FuncLLVMTy, llvm::GlobalValue::InternalLinkage,
                            CapturedStmtInfo->getHelperName(), &CGM.getModule());
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  CGM.registerAsMangled(F->getName(), CD);
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
   CGM.SetInternalFunctionAttributes(CD, F, FuncInfo);
   if (CD->isNothrow())
     F->addFnAttr(llvm::Attribute::NoUnwind);

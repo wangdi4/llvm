@@ -1738,9 +1738,6 @@ private:
   unsigned HasImplicitReturnZero : 1;
   unsigned IsLateTemplateParsed : 1;
   unsigned IsConstexpr : 1;
-#if INTEL_SPECIFIC_CILKPLUS
-  bool IsSpawning : 1;
-#endif // INTEL_SPECIFIC_CILKPLUS
   unsigned InstantiationIsPending : 1;
 
   /// \brief Indicates if the function uses __try.
@@ -1849,9 +1846,6 @@ protected:
         IsDeleted(false), IsTrivial(false), IsDefaulted(false),
         IsExplicitlyDefaulted(false), HasImplicitReturnZero(false),
         IsLateTemplateParsed(false), IsConstexpr(isConstexprSpecified),
-#if INTEL_SPECIFIC_CILKPLUS
-        IsSpawning(false),
-#endif // INTEL_SPECIFIC_CILKPLUS
         InstantiationIsPending(false), UsesSEHTry(false), HasSkippedBody(false),
         WillHaveBody(false), IsCopyDeductionCandidate(false), HasODRHash(false),
         ODRHash(0), EndRangeLoc(NameInfo.getEndLoc()),
@@ -2048,11 +2042,6 @@ public:
   /// Whether this is a (C++11) constexpr function or constexpr constructor.
   bool isConstexpr() const { return IsConstexpr; }
   void setConstexpr(bool IC) { IsConstexpr = IC; }
-#if INTEL_SPECIFIC_CILKPLUS
-  /// \brief Whether this function is a Cilk spawning function.
-  bool isSpawning() const { return IsSpawning; }
-  void setSpawning() { IsSpawning = true; }
-#endif // INTEL_SPECIFIC_CILKPLUS
 
   /// \brief Whether the instantiation of this function is pending.
   /// This bit is set when the decision to instantiate this function is made
@@ -3893,10 +3882,7 @@ private:
 
   /// \brief The body of the outlined function.
   llvm::PointerIntPair<Stmt *, 1, bool> BodyAndNothrow;
-#if INTEL_SPECIFIC_CILKPLUS
-  /// \brief Whether this CapturedDecl contains Cilk spawns.
-  bool IsSpawning;
-#endif // INTEL_SPECIFIC_CILKPLUS
+
   explicit CapturedDecl(DeclContext *DC, unsigned NumParams);
 
   ImplicitParamDecl *const *getParams() const {
@@ -3919,10 +3905,7 @@ public:
 
   Stmt *getBody() const override;
   void setBody(Stmt *B);
-#if INTEL_SPECIFIC_CILKPLUS
-  void setSpawning() { IsSpawning = true; }
-  bool isSpawning() const { return IsSpawning; }
-#endif // INTEL_SPECIFIC_CILKPLUS
+
   bool isNothrow() const;
   void setNothrow(bool Nothrow = true);
 
@@ -3975,42 +3958,7 @@ public:
     return static_cast<CapturedDecl *>(const_cast<DeclContext *>(DC));
   }
 };
-#if INTEL_SPECIFIC_CILKPLUS
-class CilkSpawnDecl : public Decl {
-  /// \brief The CapturedStmt associated to the expression or statement with
-  /// a Cilk spawn call.
-  CapturedStmt *CapturedSpawn;
 
-  CilkSpawnDecl(DeclContext *DC, CapturedStmt *Spawn);
-
-public:
-  static CilkSpawnDecl *Create(ASTContext &C, DeclContext *DC,
-                               CapturedStmt *Spawn);
-  static CilkSpawnDecl *CreateDeserialized(ASTContext &C, unsigned ID);
-
-  /// \brief Returns if this Cilk spawn has a receiver.
-  bool hasReceiver() const;
-
-  /// \brief Returns the receiver declaration.
-  VarDecl *getReceiverDecl() const;
-
-  /// \brief Returns the expression or statement with a Cilk spawn.
-  Stmt *getSpawnStmt();
-  const Stmt *getSpawnStmt() const {
-    return const_cast<CilkSpawnDecl *>(this)->getSpawnStmt();
-  }
-
-  /// \brief Returns the associated CapturedStmt.
-  CapturedStmt *getCapturedStmt() { return CapturedSpawn; }
-  const CapturedStmt *getCapturedStmt() const { return CapturedSpawn; }
-
-  static bool classof(const Decl *D) { return classofKind(D->getKind()); }
-  static bool classofKind(Kind K) { return K == CilkSpawn; }
-
-  friend class ASTDeclReader;
-  friend class ASTDeclWriter;
-};
-#endif // INTEL_SPECIFIC_CILKPLUS
 /// \brief Describes a module import declaration, which makes the contents
 /// of the named module visible in the current translation unit.
 ///
@@ -4210,53 +4158,6 @@ inline bool IsEnumDeclComplete(EnumDecl *ED) {
 inline bool IsEnumDeclScoped(EnumDecl *ED) {
   return ED->isScoped();
 }
-
-#if INTEL_CUSTOMIZATION
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-/// PragmaDecl
-class PragmaStmt;
-class PragmaDecl : public Decl {
-  virtual void anchor();
-  PragmaStmt *TheStmt;
-  SourceLocation LocStart;
-
-  PragmaDecl(DeclContext *DC, SourceLocation IdentL)
-    : Decl(Pragma, DC, IdentL), TheStmt(NULL), LocStart(IdentL) {
-    setReferenced();
-    setIsUsed();
-  }
-
-public:
-  static PragmaDecl *Create(ASTContext &C, DeclContext *DC,
-                           SourceLocation IdentL);
-  static PragmaDecl *CreateDeserialized(ASTContext &C, unsigned ID);
-
-  PragmaStmt *getStmt() const { return TheStmt; }
-  void setStmt(PragmaStmt *T) { TheStmt = T; }
-
-  void setLocStart(SourceLocation L) { LocStart = L; }
-  SourceLocation getLocStart() { return LocStart; }
-
-  SourceRange getSourceRange() const LLVM_READONLY {
-    return SourceRange(LocStart, getLocation());
-  }
-
-  // Implement isa/cast/dyncast/etc.
-  static bool classof(const Decl *D) { return classofKind(D->getKind()); }
-  static bool classof(const PragmaDecl *D) { return true; }
-  static bool classofKind(Kind K) { return K == Pragma; }
-};
-#else
-class PragmaDecl : public Decl {
-public:
-  static bool classof(const Decl *D) { 
-    llvm_unreachable("Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
-    return false;
-  }
-};
-#endif // INTEL_SPECIFIC_IL0_BACKEND
-#endif // INTEL_CUSTOMIZATION
-
 } // namespace clang
 
 #endif // LLVM_CLANG_AST_DECL_H

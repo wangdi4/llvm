@@ -17,9 +17,6 @@
 #include "CGCXXABI.h"
 #include "CGCall.h"
 #include "CGDebugInfo.h"
-#if INTEL_SPECIFIC_CILKPLUS
-#include "intel/CGCilkPlusRuntime.h"
-#endif  // INTEL_SPECIFIC_CILKPLUS
 #include "CGObjCRuntime.h"
 #include "CGOpenCLRuntime.h"
 #include "CGOpenMPRuntime.h"
@@ -140,10 +137,7 @@ CodeGenModule::CodeGenModule(ASTContext &C, const HeaderSearchOptions &HSO,
     createOpenMPRuntime();
   if (LangOpts.CUDA)
     createCUDARuntime();
-#if INTEL_SPECIFIC_CILKPLUS
-  if (LangOpts.CilkPlus)
-    createCilkPlusRuntime();
-#endif // INTEL_SPECIFIC_CILKPLUS
+
   // Enable TBAA unless it's suppressed. ThreadSanitizer needs TBAA even at O0.
   if (LangOpts.Sanitize.has(SanitizerKind::Thread) ||
       (!CodeGenOpts.RelaxedAliasing && CodeGenOpts.OptimizationLevel > 0))
@@ -267,12 +261,6 @@ void CodeGenModule::createOpenMPRuntime() {
 void CodeGenModule::createCUDARuntime() {
   CUDARuntime.reset(CreateNVCUDARuntime(*this));
 }
-
-#if INTEL_SPECIFIC_CILKPLUS
-void CodeGenModule::createCilkPlusRuntime() {
-  CilkPlusRuntime.reset(new CGCilkPlusRuntime);
-}
-#endif // INTEL_SPECIFIC_CILKPLUS
 
 void CodeGenModule::addReplacement(StringRef Name, llvm::Constant *C) {
   Replacements[Name] = C;
@@ -613,10 +601,6 @@ void CodeGenModule::Release() {
 
   if (getCodeGenOpts().EmitDeclMetadata)
     EmitDeclMetadata();
-#if INTEL_SPECIFIC_CILKPLUS
-  if (getLangOpts().CilkPlus)
-    EmitCilkElementalVariants();
-#endif  // INTEL_SPECIFIC_CILKPLUS
 #if INTEL_CUSTOMIZATION
   if (getCodeGenOpts().getDebugInfo() != codegenoptions::NoDebugInfo) {
     if (getLangOpts().IntelCompat)
@@ -903,11 +887,7 @@ StringRef CodeGenModule::getBlockMangledName(GlobalDecl GD,
   auto Result = Manglings.insert(std::make_pair(Out.str(), BD));
   return Result.first->first();
 }
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-void CodeGenModule::registerAsMangled(StringRef Name, GlobalDecl GD) {
-  MangledDeclNames[GD.getCanonicalDecl()] = Name;
-}
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+
 llvm::GlobalValue *CodeGenModule::GetGlobalValue(StringRef Name) {
   return getModule().getNamedValue(Name);
 }
@@ -1030,12 +1010,6 @@ void CodeGenModule::SetLLVMFunctionAttributes(const Decl *D,
   ConstructAttributeList(F->getName(), Info, D, PAL, CallingConv, false);
   F->setAttributes(PAL);
   F->setCallingConv(static_cast<llvm::CallingConv::ID>(CallingConv));
-#if INTEL_SPECIFIC_CILKPLUS
-  // Add metadata if this is a Cilk Plus elemental function.
-  if (getLangOpts().CilkPlus)
-    if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D))
-      EmitCilkElementalMetadata(Info, FD, F);
-#endif // INTEL_SPECIFIC_CILKPLUS
 }
 
 /// Determines whether the language options require us to model
@@ -4428,11 +4402,7 @@ void CodeGenModule::EmitTopLevelDecl(Decl *D) {
     getModule().appendModuleInlineAsm(AD->getAsmString()->getString());
     break;
   }
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  case Decl::Pragma:
-    CodeGenFunction(*this).EmitPragmaDecl(cast<PragmaDecl>(*D));
-    break;
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+
   case Decl::Import: {
     auto *Import = cast<ImportDecl>(D);
 
@@ -4495,10 +4465,6 @@ void CodeGenModule::EmitTopLevelDecl(Decl *D) {
     assert(isa<TypeDecl>(D) && "Unsupported decl kind");
     break;
   }
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  if (D->hasAttr<AvoidFalseShareAttr>())
-    CodeGenFunction(*this).EmitIntelAttribute(*D);
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
 }
 
 void CodeGenModule::AddDeferredUnusedCoverageMapping(Decl *D) {

@@ -50,11 +50,6 @@ CODEGENOPT(DisableFPElim     , 1, 0) ///< Set when -fomit-frame-pointer is enabl
 CODEGENOPT(DisableFree       , 1, 0) ///< Don't free memory.
 CODEGENOPT(DiscardValueNames , 1, 0) ///< Discard Value Names from the IR (LLVMContext flag)
 CODEGENOPT(DisableGCov       , 1, 0) ///< Don't run the GCov pass, for testing.
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-// CQ#368488 - disable standard inliner pass for AlwaysInline attribute,
-// only inline functions marked with "INTEL_ALWAYS_INLINE".
-CODEGENOPT(IntelAlwaysInline , 1, 0)
-#endif // INTEL_SPECIFIC_IL0_BACKEND
 
 #ifdef INTEL_CUSTOMIZATION
 // CMPLRS-47771 - Disable all optimizations that would set the

@@ -2122,7 +2122,7 @@ private:
 
   /// \brief The pointer part is the implicit the outlined function and the
   /// int part is the captured region kind, 'CR_Default' etc.
-#if INTEL_CUSTOMIZATION || INTEL_SPECIFIC_CILKPLUS
+#if INTEL_CUSTOMIZATION
   // The old code here used to use
   //
   // llvm::PointerIntPair<CapturedDecl *, 1, CapturedRegionKind> CapDeclAndKind;
@@ -2298,123 +2298,6 @@ public:
 
   child_range children();
 };
-
-#if INTEL_CUSTOMIZATION
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-/// PragmaStmt
-///
-
-enum IntelPragmaKindType {
-  IntelUnknownPragmaKind,
-  IntelPragmaIvdep,
-  IntelPragmaDistribute,
-  IntelPragmaInline,
-  IntelPragmaInlineEnd,
-  IntelPragmaLoopCount,
-  IntelPragmaNoVector,
-  IntelPragmaOptimize,
-  IntelPragmaOptimizationLevel,
-  IntelPragmaOptimizationLevelGCC,
-  IntelPragmaNoParallel,
-  IntelPragmaUnroll,
-  IntelPragmaUnrollAndJam,
-  IntelPragmaNoFusion,
-  IntelPragmaVector,
-  IntelPragmaOptimizationParameter,
-  IntelPragmaParallel,
-  IntelPragmaAllocSection,
-  IntelPragmaSection,
-  IntelPragmaAllocText,
-  IntelPragmaAutoInline,
-  IntelPragmaBCCDSeg,
-  IntelPragmaCheckStack,
-  IntelPragmaInitSeg,
-  IntelPragmaFloatControl,
-  IntelPragmaKindCommonOnOff,
-  IntelCommonAttribute,
-  IntelAssumeAligned,
-  IntelPragma_SPECCALL,
-  IntelPragma_SPECCALLAGG
-};
-
-struct IntelPragmaAttrib {
-  Expr *Value;
-  IntelPragmaExprKind ExprKind;
-  
-  IntelPragmaAttrib(Expr *Val, IntelPragmaExprKind Kind) : Value(Val), ExprKind(Kind) {}
-};
-
-typedef llvm::SmallVector<IntelPragmaAttrib, 4> PragmaAttribsVector;
-typedef llvm::SmallVector<Expr *, 4> PragmaRealAttribsVector;
-
-class PragmaStmt : public Stmt {
-  SourceLocation SemiLoc;
-  PragmaAttribsVector Attribs;
-  PragmaRealAttribsVector RealAttribs;
-  IntelPragmaKindType PragmaKind;
-  bool IsDecl;
-public:
-  PragmaStmt(SourceLocation L)
-    : Stmt(PragmaStmtClass), SemiLoc(L), Attribs(), RealAttribs(),
-      PragmaKind(IntelUnknownPragmaKind), IsDecl(false) {}
-
-  /// \brief Build an empty null statement.
-  explicit PragmaStmt(EmptyShell Empty) : Stmt(PragmaStmtClass, Empty),
-    SemiLoc(), Attribs(), RealAttribs(), PragmaKind(IntelUnknownPragmaKind), IsDecl(false) { }
-
-  SourceLocation getSemiLoc() const { return SemiLoc; }
-  void setSemiLoc(SourceLocation L) { SemiLoc = L; }
-
-  SourceRange getSourceRange() const LLVM_READONLY { return SourceRange(SemiLoc); }
-  SourceLocation getLocStart() const LLVM_READONLY { return SemiLoc; }
-  SourceLocation getLocEnd() const LLVM_READONLY { return SemiLoc; }
-
-  PragmaAttribsVector &getAttribs() { return (Attribs); }
-  const PragmaAttribsVector &getAttribs() const { return (Attribs); }
-  PragmaRealAttribsVector &getRealAttribs() { return (RealAttribs); }
-  const PragmaRealAttribsVector &getRealAttribs() const { return (RealAttribs); }
-
-  bool isNullOp() const { return (PragmaKind == IntelUnknownPragmaKind); }
-  void turnToNullOp();
-  IntelPragmaKindType getPragmaKind() const { return PragmaKind; }
-  void setPragmaKind(IntelPragmaKindType K) { PragmaKind = K; }
-  void setDecl() { IsDecl = true; }
-  bool isDecl() const { return (IsDecl); }
-
-  static bool classof(const Stmt *T) {
-    return T->getStmtClass() == PragmaStmtClass;
-  }
-  static bool classof(const PragmaStmt *) { return true; }
-
-  child_range children() {
-    return child_range(child_iterator(), child_iterator());
-  }
-
-  friend class ASTStmtReader;
-  friend class ASTStmtWriter;
-};
-#else
-class PragmaStmt : public Stmt {
-public:
-  SourceLocation getLocStart() const LLVM_READONLY {
-    llvm_unreachable("Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
-    return SourceLocation();
-  }
-  SourceLocation getLocEnd() const LLVM_READONLY {
-    llvm_unreachable("Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
-    return SourceLocation();
-  }
-  child_range children() {
-    llvm_unreachable("Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
-    return child_range(child_iterator(), child_iterator());
-  }
-  static bool classof(const Stmt *) {
-    llvm_unreachable("Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
-    return false;
-  }
-};
-#endif // INTEL_SPECIFIC_IL0_BACKEND
-#endif // INTEL_CUSTOMIZATION
 } // namespace clang
 
 #endif // LLVM_CLANG_AST_STMT_H

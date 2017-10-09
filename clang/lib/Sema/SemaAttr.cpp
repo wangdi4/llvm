@@ -826,9 +826,3 @@ void Sema::PopPragmaVisibility(bool IsNamespaceEnd, SourceLocation EndLoc) {
   if (Stack->empty())
     FreeVisContext();
 }
-
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-void Sema::SetMac68kAlignment() {
-  ActOnPragmaOptionsAlign(POAK_Mac68k, SourceLocation());
-}
-#endif // INTEL_SPECIFIC_IL0_BACKEND

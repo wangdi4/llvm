@@ -59,14 +59,7 @@ StmtResult Sema::ActOnExprStmt(ExprResult FE) {
   // operand, even incomplete types.
 
   // Same thing in for stmt first clause (when expr) and third clause.
-#if INTEL_SPECIFIC_CILKPLUS
-  StmtResult Res = ActOnCEANExpr(FE.get());
-  if (Res.isInvalid())
-    return StmtError();
-  return StmtResult(Res.get());
-#else
   return StmtResult(FE.getAs<Stmt>());
-#endif // INTEL_SPECIFIC_CILKPLUS
 }
 
 
@@ -359,28 +352,6 @@ sema::CompoundScopeInfo &Sema::getCurCompoundScope() const {
   return getCurFunction()->CompoundScopes.back();
 }
 
-#if INTEL_SPECIFIC_CILKPLUS
-sema::CompoundScopeInfo &Sema::getCurCompoundScopeSkipSIMDFor() const {
-  unsigned I = FunctionScopes.size() - 1;
-  while (isa<SIMDForScopeInfo>(FunctionScopes[I]))
-    --I;
-  assert((I < FunctionScopes.size()) && "unwrap unexpected");
-  return FunctionScopes[I]->CompoundScopes.back();
-}
-
-sema::CompoundScopeInfo &Sema::getCurCompoundScopeSkipCilkFor() const {
-  if (getLangOpts().CilkPlus) {
-    unsigned I = FunctionScopes.size() - 1;
-    while (isa<CilkForScopeInfo>(FunctionScopes[I]))
-      --I;
-    assert((I < FunctionScopes.size()) && "unwrap unexpected");
-    return FunctionScopes[I]->CompoundScopes.back();
-  }
-
-  return getCurFunction()->CompoundScopes.back();
-}
-#endif // INTEL_SPECIFIC_CILKPLUS
-
 StmtResult Sema::ActOnCompoundStmt(SourceLocation L, SourceLocation R,
                                    ArrayRef<Stmt *> Elts,
                                    bool isStmtExpr) { //***INTEL
@@ -421,79 +392,9 @@ StmtResult Sema::ActOnCompoundStmt(SourceLocation L, SourceLocation R,
     for (unsigned i = 0; i != NumElts - 1; ++i)
       DiagnoseEmptyLoopBody(Elts[i], Elts[i + 1]);
   }
-#if INTEL_SPECIFIC_CILKPLUS
-  // Check whether Cilk spawns in this compound statement are well-formed.
-  if (getLangOpts().CilkPlus && getCurCompoundScope().HasCilkSpawn)
-    for (unsigned i = 0; i < NumElts; ++i)
-      DiagnoseCilkSpawn(Elts[i], isStmtExpr);
-#endif // INTEL_SPECIFIC_CILKPLUS
-
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  // Analisys for #pragma ivdep, distribute_point before empty statements (i.e. goto, break, continue, declspec)
-  SmallVector<SourceLocation, 4> locs;
-  SmallVector<unsigned, 4> messages;
-  bool cont = true;
-  size_t offset = 1;
-  PragmaStmt* stmt = NULL;
-  // Warn on pragma ivdep, error on distribute_point without preceded statements
-  while (NumElts != 0 && cont) {
-    if (isa<PragmaStmt>(Elts[NumElts - offset])) {
-      stmt = cast<PragmaStmt>(Elts[NumElts - offset]);
-    }
-    else if (isa<PragmaStmt>(Elts[NumElts - offset]->stripLabelLikeStatements())) {
-      stmt = cast<PragmaStmt>(Elts[NumElts - offset]->stripLabelLikeStatements());
-    }
-    else
-      cont = false;
-    if (cont) {
-      switch(stmt->getPragmaKind())
-      {
-        case (IntelPragmaIvdep):
-        case (IntelPragmaNoVector):
-        case (IntelPragmaVector):
-        case (IntelPragmaNoParallel):
-        case (IntelPragmaParallel):
-          messages.push_back(diag::x_warn_intel_pragma_wrong_place);
-          locs.push_back(stmt->getSemiLoc());
-          DeletePragmaOnError(stmt);
-          break;
-        case (IntelPragmaDistribute):
-        case (IntelPragmaInline):
-        case (IntelPragmaLoopCount):
-        case (IntelPragmaUnroll):
-        case (IntelPragmaUnrollAndJam):
-        case (IntelPragmaNoFusion):
-          messages.push_back(diag::x_error_intel_pragma_wrong_place);
-          locs.push_back(stmt->getSemiLoc());
-          DeletePragmaOnError(stmt);
-          break;
-        case (IntelPragmaInlineEnd):
-        case (IntelPragmaOptimize):
-        case (IntelPragmaOptimizationLevel):
-        case (IntelPragmaAllocSection):
-        case (IntelPragmaSection):
-        case (IntelPragmaAllocText):
-        case (IntelPragmaAutoInline):
-        case (IntelPragmaBCCDSeg):
-        case (IntelPragmaCheckStack):
-        case (IntelPragmaInitSeg):
-        case (IntelPragmaFloatControl):
-          break;
-        default:
-          DeletePragmaOnError(stmt);
-          break;
-      }
-      ++offset;
-      cont = (offset <= NumElts);
-    }
-  }
-  for (size_t cnt = locs.size(); cnt > 0; --cnt)
-  {
-    Diag(locs[cnt - 1], messages[cnt - 1]) << locs[cnt - 1];
-  }
-#endif // INTEL_SPECIFIC_IL0_BACKEND
 
   return CompoundStmt::Create(Context, Elts, L, R);
+
 }
 
 StmtResult
@@ -666,15 +567,9 @@ StmtResult Sema::BuildIfStmt(SourceLocation IfLoc, bool IsConstexpr,
   DiagnoseUnusedExprResult(thenStmt);
   DiagnoseUnusedExprResult(elseStmt);
 
-#if INTEL_SPECIFIC_CILKPLUS
-  return ActOnCEANIfStmt(new (Context) IfStmt(Context, IfLoc, IsConstexpr,
-			      InitStmt, Cond.get().first, Cond.get().second,
-                              thenStmt, ElseLoc, elseStmt));
-#else
   return new (Context)
       IfStmt(Context, IfLoc, IsConstexpr, InitStmt, Cond.get().first,
              Cond.get().second, thenStmt, ElseLoc, elseStmt);
-#endif // INTEL_SPECIFIC_CILKPLUS
 }
 
 namespace {
@@ -2956,17 +2851,6 @@ StmtResult
 Sema::ActOnBreakStmt(SourceLocation BreakLoc, Scope *CurScope) {
   Scope *S = CurScope->getBreakParent();
   if (!S) {
-#if INTEL_SPECIFIC_CILKPLUS
-    // Break from a Cilk for loop is not allowed unless the break is
-    // inside a nested loop or switch statement.
-    if (isa<CilkForScopeInfo>(getCurFunction())) {
-      Diag(BreakLoc, diag::err_cilk_for_cannot_break);
-      return StmtError();
-    } else if (isa<SIMDForScopeInfo>(getCurFunction())) {
-      Diag(BreakLoc, diag::err_simd_for_cannot_break);
-      return StmtError();
-    }
-#endif // INTEL_SPECIFIC_CILKPLUS
     // C99 6.8.6.3p1: A break shall appear only in or as a switch/loop body.
     return StmtError(Diag(BreakLoc, diag::err_break_not_in_loop_or_switch));
   }
@@ -2977,12 +2861,7 @@ Sema::ActOnBreakStmt(SourceLocation BreakLoc, Scope *CurScope) {
 
   return new (Context) BreakStmt(BreakLoc);
 }
-#if INTEL_SPECIFIC_CILKPLUS
-StmtResult
-Sema::ActOnCilkSyncStmt(SourceLocation SyncLoc) {
-  return new (Context) CilkSyncStmt(SyncLoc);
-}
-#endif // INTEL_SPECIFIC_CILKPLUS
+
 /// \brief Determine whether the given expression is a candidate for
 /// copy elision in either a return statement or a throw expression.
 ///
@@ -3167,16 +3046,6 @@ Sema::ActOnCapScopeReturnStmt(SourceLocation ReturnLoc, Expr *RetValExp) {
   LambdaScopeInfo *CurLambda = dyn_cast<LambdaScopeInfo>(CurCap);
   bool HasDeducedReturnType =
       CurLambda && hasDeducedReturnType(CurLambda->CallOperator);
-#if INTEL_SPECIFIC_CILKPLUS
-  // It is not allowed to return from a Cilk for statement.
-  if (isa<CilkForScopeInfo>(CurCap)) {
-    Diag(ReturnLoc, diag::err_cilk_for_cannot_return);
-    return StmtError();
-  } else if (isa<SIMDForScopeInfo>(CurCap)) {
-    Diag(ReturnLoc, diag::err_simd_for_cannot_return);
-    return StmtError();
-  }
-#endif // INTEL_SPECIFIC_CILKPLUS
 
   if (ExprEvalContexts.back().Context ==
           ExpressionEvaluationContext::DiscardedStatement &&
@@ -4229,16 +4098,6 @@ static void buildCapturedStmtCaptureList(
   }
 }
 
-#if INTEL_SPECIFIC_CILKPLUS
-void Sema::BuildCapturedStmtCaptureList(
-    SmallVectorImpl<CapturedStmt::Capture> &Captures,
-    SmallVectorImpl<Expr *> &CaptureInits,
-    ArrayRef<CapturingScopeInfo::Capture> Candidates) {
-
-  buildCapturedStmtCaptureList(Captures, CaptureInits, Candidates);
-    }
-#endif // INTEL_SPECIFIC_CILKPLUS
-
 void Sema::ActOnCapturedRegionStart(SourceLocation Loc, Scope *CurScope,
                                     CapturedRegionKind Kind,
                                     unsigned NumParams) {
@@ -4349,17 +4208,7 @@ StmtResult Sema::ActOnCapturedRegionEnd(Stmt *S) {
 
   CapturedDecl *CD = RSI->TheCapturedDecl;
   RecordDecl *RD = RSI->TheRecordDecl;
-#if INTEL_SPECIFIC_CILKPLUS
-  // If capturing an expression, then needs to make this expression as a full
-  // expression. If it is not parsed after entering the captured region,
-  // then check if it has any nontrivial call.
-  if (Expr *E = dyn_cast<Expr>(S))
-    if (!isa<ExprWithCleanups>(E)) {
-      if (E->hasNonTrivialCall(Context))
-        Cleanup.setExprNeedsCleanups(true);
-      S = MaybeCreateExprWithCleanups(E);
-    }
-#endif // INTEL_SPECIFIC_CILKPLUS
+
   CapturedStmt *Res = CapturedStmt::Create(
       getASTContext(), S, static_cast<CapturedRegionKind>(RSI->CapRegionKind),
       Captures, CaptureInits, CD, RD);

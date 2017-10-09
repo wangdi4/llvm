@@ -4259,10 +4259,6 @@ BlockDecl *BlockDecl::CreateDeserialized(ASTContext &C, unsigned ID) {
 CapturedDecl::CapturedDecl(DeclContext *DC, unsigned NumParams)
     : Decl(Captured, DC, SourceLocation()), DeclContext(Captured),
       NumParams(NumParams), ContextParam(0), BodyAndNothrow(nullptr, false)
-#if INTEL_SPECIFIC_CILKPLUS
-        ,
-        IsSpawning(false)
-#endif // INTEL_SPECIFIC_CILKPLUS
 {}
 
 CapturedDecl *CapturedDecl::Create(ASTContext &C, DeclContext *DC,

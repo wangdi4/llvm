@@ -79,17 +79,8 @@ namespace clang {
   std::string getClangFullCPPVersion();
 
 #if INTEL_CUSTOMIZATION
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  /// \brief Retrieves a string representing the complete clang version suitable
-  /// for use in the CPP __VERSION__ macro, which includes the clang version
-  /// number, the repository version, and the vendor tag.
-  ///
-  /// Version string for iclang: cfe_iclangC/tr60450
-  std::string getIClangFullCPPVersion();
-#else // if !GNU_VERSION_STRING
   /// Version string for xmain: cq374831
   std::string getXMainFullCPPVersion();
-#endif // INTEL_SPECIFIC_IL0_BACKEND
 #endif // INTEL_CUSTOMIZATION
 }
 

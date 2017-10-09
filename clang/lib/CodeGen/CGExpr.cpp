@@ -13,9 +13,6 @@
 
 #include "CGCXXABI.h"
 #include "CGCall.h"
-#if INTEL_SPECIFIC_CILKPLUS
-#include "intel/CGCilkPlusRuntime.h"
-#endif // INTEL_SPECIFIC_CILKPLUS
 #include "CGCleanup.h"
 #include "CGDebugInfo.h"
 #include "CGObjCRuntime.h"
@@ -358,18 +355,6 @@ static Address createReferenceTemporary(CodeGenFunction &CGF,
   switch (M->getStorageDuration()) {
   case SD_FullExpression:
   case SD_Automatic: {
-#if INTEL_SPECIFIC_CILKPLUS
-    // In a captured statement, don't alloca the receiver temp; it is passed in.
-    if (CodeGenFunction::CGCilkSpawnInfo *Info =
-          dyn_cast_or_null<CodeGenFunction::CGCilkSpawnInfo>
-                                                      (CGF.CapturedStmtInfo)) {
-      if (Info->isReceiverDecl(M->getExtendingDecl())) {
-        assert(Info->getReceiverTmp().isValid() &&
-               "Expected receiver temporary in captured statement");
-        return Info->getReceiverTmp();
-      }
-    }
-#endif // INTEL_SPECIFIC_CILKPLUS
     // If we have a constant temporary array or record try to promote it into a
     // constant global under the same rules a normal constant would've been
     // promoted. This is easier on the optimizer and generally emits fewer
@@ -492,22 +477,6 @@ EmitMaterializeTemporaryExpr(const MaterializeTemporaryExpr *M) {
     switch (M->getStorageDuration()) {
     case SD_Automatic:
     case SD_FullExpression:
-#if INTEL_CUSTOMIZATION
-      // This is a temporary "hack" to disable lifetime.start/lifetime.end
-      // for cilk programs.
-      // After r274385 which started lifetime.start/end on temporary markers,
-      // all cilk tests fail due to a temporary start/end being placed on the
-      // incoming pointer to cilk_spawn_helper (%1), which causes dead store
-      // elimination to remove all memory writes through these pointers.
-      // It's unclear whether there's a bug in lifetime insertion, or if the
-      // cilk code needs to be tweaked because of the funny "fastcall"
-      // convention in linux.
-      // For now, we're going to disable this until this can be figured out.
-      //
-      if (dyn_cast_or_null<CGCilkSpawnInfo>(CapturedStmtInfo))
-	break;
-#endif //INTEL_CUSTOMIZATION
-
       if (auto *Size = EmitLifetimeStart(
               CGM.getDataLayout().getTypeAllocSize(Object.getElementType()),
               Object.getPointer())) {
@@ -1205,15 +1174,6 @@ LValue CodeGenFunction::EmitLValue(const Expr *E) {
   ApplyDebugLocation DL(*this, E);
   switch (E->getStmtClass()) {
   default: return EmitUnsupportedLValue(E, "l-value expression");
-#if INTEL_CUSTOMIZATION
-  case Expr::CEANBuiltinExprClass: {
-    auto *CBE = cast<CEANBuiltinExpr>(E);
-    LocalVarsDeclGuard Guard(*this);
-    EmitCEANBuiltinExprBody(CBE);
-    assert(CBE->getBuiltinKind() != CEANBuiltinExpr::ReduceMutating);
-    return EmitLValue(CBE->getReturnExpr());
-  }
-#endif // INTEL_CUSTOMIZATION
   case Expr::ObjCPropertyRefExprClass:
     llvm_unreachable("cannot emit a property reference directly");
 
@@ -2476,38 +2436,6 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
                                              AlignmentSource::Decl);
           return MakeAddrLValue(I->second, T);
         }
-#if INTEL_SPECIFIC_CILKPLUS
-        else {
-          // If referencing a loop control variable, then load its
-          // corresponding inner loop control variable.
-          if (CapturedStmtInfo->getKind() == CR_CilkFor) {
-            CGCilkForStmtInfo *CFSI =
-                reinterpret_cast<CGCilkForStmtInfo *>(CapturedStmtInfo);
-            if (CFSI->getCilkForStmt().getLoopControlVar() == VD) {
-              auto Addr = CFSI->getInnerLoopControlVarAddr();
-              assert(Addr.isValid() &&
-                     "missing inner loop control variable address");
-              return MakeAddrLValue(Addr, T);
-            }
-          } else if (CapturedStmtInfo->getKind() == CR_SIMDFor) {
-            // If this variable is a SIMD data-privatization variable, then
-            // load its corresponding local copy.
-            CGSIMDForStmtInfo *FSI = cast<CGSIMDForStmtInfo>(CapturedStmtInfo);
-            if (FSI->shouldReplaceWithLocal()) {
-              auto Addr = FSI->lookupLocalAddr(VD);
-              if (Addr.isValid())
-                return MakeAddrLValue(Addr, T);
-            }
-          } else if (CapturedStmtInfo->getKind() == CR_CilkSpawn) {
-            CGCilkSpawnInfo *SSI = cast<CGCilkSpawnInfo>(CapturedStmtInfo);
-            if (SSI->isReceiverDecl(ND)) {
-              auto Addr = SSI->getReceiverAddr();
-              if (Addr.isValid())
-                return MakeAddrLValue(Addr, T);
-            }
-          }
-// Otherwise load it from the captured struct.
-#endif // INTEL_SPECIFIC_CILKPLUS
         LValue CapLVal =
             EmitCapturedFieldLValue(*this, CapturedStmtInfo->lookup(VD),
                                     CapturedStmtInfo->getContextValue());
@@ -2515,9 +2443,6 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
             Address(CapLVal.getPointer(), getContext().getDeclAlign(VD)),
             CapLVal.getType(), LValueBaseInfo(AlignmentSource::Decl),
             CapLVal.getTBAAInfo());
-#if INTEL_SPECIFIC_CILKPLUS
-        }
-#endif // INTEL_SPECIFIC_CILKPLUS
       }
 
 #if INTEL_CUSTOMIZATION
@@ -2530,19 +2455,6 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
       }
 #endif  // INTEL_CUSTOMIZATION
     }
-
-#if INTEL_SPECIFIC_CILKPLUS
-    // special case of receiver declared in advance
-    // int i;
-    // i = Spawn foo();
-    else if (CapturedStmtInfo &&
-             (CapturedStmtInfo->getKind() == CR_CilkSpawn) &&
-             CapturedStmtInfo->lookup(VD)) {
-      return EmitCapturedFieldLValue(*this, CapturedStmtInfo->lookup(VD),
-                                     CapturedStmtInfo->getContextValue());
-    }
-#endif // INTEL_SPECIFIC_CILKPLUS
-
   }
 
   // FIXME: We should be able to assert this for FunctionDecls as well!
@@ -4491,24 +4403,8 @@ LValue CodeGenFunction::EmitBinaryOperatorLValue(const BinaryOperator *E) {
     case Qualifiers::OCL_Weak:
       break;
     }
-#if INTEL_SPECIFIC_CILKPLUS
-    LValue LV;
-    RValue RV;
-    // Cilk Plus needs the LHS evaluated first to handle cases such as
-    // array[f()] = _Cilk_spawn foo();
-    // This evaluation order requirement implies that _Cilk_spawn cannot
-    // spawn Objective C block calls.
-    if (getLangOpts().CilkPlus && E->getRHS()->isCilkSpawn()) {
-      LV = EmitCheckedLValue(E->getLHS(), TCK_Store);
-      RV = EmitAnyExpr(E->getRHS());
-    } else {
-      RV = EmitAnyExpr(E->getRHS());
-      LV = EmitCheckedLValue(E->getLHS(), TCK_Store);
-    }
-#else
     RValue RV = EmitAnyExpr(E->getRHS());
     LValue LV = EmitCheckedLValue(E->getLHS(), TCK_Store);
-#endif // INTEL_SPECIFIC_CILKPLUS
     if (RV.isScalar())
       EmitNullabilityCheck(LV, RV.getScalarVal(), E->getExprLoc());
     EmitStoreThroughLValue(RV, LV);
@@ -4822,13 +4718,7 @@ RValue CodeGenFunction::EmitCall(QualType CalleeType, const CGCallee &OrigCallee
     Callee.setFunctionPointer(CalleePtr);
   }
 
-  return EmitCall(FnInfo, Callee, ReturnValue, Args, nullptr, // INTEL
-                  E->getExprLoc() // INTEL
-#if INTEL_SPECIFIC_CILKPLUS
-                  ,
-                  E->isCilkSpawnCall()
-#endif // INTEL_SPECIFIC_CILKPLUS
-                      ); // INTEL
+  return EmitCall(FnInfo, Callee, ReturnValue, Args, nullptr, E->getExprLoc());
 }
 
 LValue CodeGenFunction::
@@ -4963,56 +4853,3 @@ RValue CodeGenFunction::EmitPseudoObjectRValue(const PseudoObjectExpr *E,
 LValue CodeGenFunction::EmitPseudoObjectLValue(const PseudoObjectExpr *E) {
   return emitPseudoObjectExpr(*this, E, true, AggValueSlot::ignored()).LV;
 }
-#if INTEL_SPECIFIC_CILKPLUS
-static void EmitRecursiveCEANBuiltinExpr(CodeGenFunction &CGF,
-                                         const CEANBuiltinExpr *E,
-                                         unsigned Rank) {
-  if (Rank < E->getRank()) {
-    const DeclStmt *DS = cast<DeclStmt>(E->getVars()[Rank]);
-    CGF.EmitStmt(DS);
-    llvm::BasicBlock *CondBlock = CGF.createBasicBlock("cean.loop.cond");
-    CGF.EmitBranch(CondBlock);
-    CGF.EmitBlock(CondBlock);
-    CGF.LoopStack.setParallel();
-    CGF.LoopStack.setVectorizeEnable(true);
-    CGF.LoopStack.push(CondBlock, 
-                       CGF.SourceLocToDebugLoc(E->getLocStart()),
-                       CGF.SourceLocToDebugLoc(E->getLocEnd()));
-    llvm::BasicBlock *MainLoop = CGF.createBasicBlock("cean.loop.body");
-    llvm::BasicBlock *ExitLoop = CGF.createBasicBlock("cean.loop.exit");
-    const VarDecl *VD = cast<VarDecl>(DS->getSingleDecl());
-    CGF.Builder.CreateCondBr(
-                CGF.Builder.CreateICmpNE(CGF.Builder.CreateLoad(CGF.GetAddrOfLocalVar(VD)),
-                                         CGF.EmitScalarExpr(E->getLengths()[Rank])),
-                MainLoop, ExitLoop);
-    CGF.EmitBlock(MainLoop);
-    {
-      CodeGenFunction::RunCleanupsScope BodyScope(CGF);
-      EmitRecursiveCEANBuiltinExpr(CGF, E, Rank + 1);
-      CGF.EmitStmt(E->getIncrements()[Rank]);
-    }
-    CGF.LoopStack.pop();
-    CGF.EmitBranch(CondBlock);
-    CGF.EmitBlock(ExitLoop, true);
-  } else {
-    CodeGenFunction::RunCleanupsScope BodyScope(CGF);
-    CGF.EmitStmt(E->getBody());
-  }
-}
-
-void CodeGenFunction::EmitCEANBuiltinExprBody(const CEANBuiltinExpr *E) {
-  if (E->getBuiltinKind() != CEANBuiltinExpr::ImplicitIndex) {
-    if (E->getBuiltinKind() != CEANBuiltinExpr::ReduceMutating)
-      EmitStmt(E->getInit());
-    JumpDest ExitExpr = getJumpDestInCurrentScope("cean.builtin.end");
-    BreakContinueStack.push_back(BreakContinue(ExitExpr, ExitExpr));
-    {
-      RunCleanupsScope BodyScope(*this);
-      EmitRecursiveCEANBuiltinExpr(*this, E, 0);
-    }
-    BreakContinueStack.pop_back();
-    EmitBranchThroughCleanup(ExitExpr);
-    EmitBlock(ExitExpr.getBlock());
-  }
-}
-#endif // INTEL_SPECIFIC_CILKPLUS

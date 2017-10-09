@@ -1231,64 +1231,6 @@ void Sema::PushDeclContext(Scope *S, DeclContext *DC) {
 void Sema::PopDeclContext() {
   assert(CurContext && "DeclContext imbalance!");
 
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-SmallVector<PragmaDecl *, 4> optLevelDecls;
-SmallVector<PragmaDecl *, 4> decls;
-SmallVector<StringRef, 4> declsNames;
-SmallVector<StringRef, 4> optLevelDeclsNames;
-
-for (DeclContext::decl_iterator iter = CurContext->noload_decls_begin(),
-  iterE = CurContext->noload_decls_end(); iter != iterE; ++iter) {
-  if (isa<PragmaDecl>(*iter)) {
-    switch (cast<PragmaDecl>(*iter)->getStmt()->getPragmaKind()) {
-      case (IntelPragmaOptimizationLevel):
-        optLevelDecls.push_back(cast<PragmaDecl>(*iter));
-        optLevelDeclsNames.push_back("INTEL_OPTIMIZATION_LEVEL");
-        break;
-      case (IntelPragmaOptimizationParameter):
-        decls.push_back(cast<PragmaDecl>(*iter));
-        declsNames.push_back("OPT_PARAM_TARGET_ARCH");
-        break;
-      default:
-        break;
-    }
-  }
-  else if (!isa<PragmaDecl>(*iter)) {
-    if (!optLevelDecls.empty() && !isa<FunctionDecl>(*iter)) {
-      Diag(iter->getLocStart(), diag::x_warn_intel_pragma_function_only) <<
-        iter->getLocEnd();
-      for (size_t i = 0; i < optLevelDecls.size(); ++i) {
-        DeletePragmaOnError(optLevelDecls[i]->getStmt());
-        if (CommonFunctionOptions.count(optLevelDeclsNames[i]) > 0) {
-          OptionsList[CommonFunctionOptions[optLevelDeclsNames[i]]] = NULL;
-        }
-        CommonFunctionOptions.erase(optLevelDeclsNames[i]);
-      }
-    }
-    optLevelDecls.clear();
-    decls.clear();
-  }
-}
-if (!decls.empty()) {
-  Diag(decls.back()->getStmt()->getSemiLoc(), diag::x_error_intel_pragma_declaration_precede) <<
-    decls.back()->getStmt()->getSemiLoc();
-  if (CommonFunctionOptions.count(declsNames.back()) > 0) {
-    OptionsList[CommonFunctionOptions[declsNames.back()]] = NULL;
-  }
-  CommonFunctionOptions.erase(declsNames.back());
-  decls.clear();
-}
-if (!optLevelDecls.empty()) {
-  Diag(optLevelDecls.back()->getStmt()->getSemiLoc(), diag::x_error_intel_pragma_declaration_precede) <<
-    optLevelDecls.back()->getStmt()->getSemiLoc();
-  if (CommonFunctionOptions.count(optLevelDeclsNames.back()) > 0) {
-    OptionsList[CommonFunctionOptions[optLevelDeclsNames.back()]] = NULL;
-  }
-  CommonFunctionOptions.erase(optLevelDeclsNames.back());
-  optLevelDecls.clear();
-}
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
-
   CurContext = getContainingDC(CurContext);
   assert(CurContext && "Popped translation unit!");
 }
@@ -4520,16 +4462,6 @@ Sema::ParsedFreeStandingDeclSpec(Scope *S, AccessSpecifier AS, DeclSpec &DS,
 
   // Handle anonymous struct definitions.
   if (RecordDecl *Record = dyn_cast_or_null<RecordDecl>(Tag)) {
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-    if (!getLangOpts().MicrosoftExt && !DS.getAttributes().empty()) {
-      AttributeList* attrs = DS.getAttributes().getList();
-      while (attrs) {
-        if (attrs->isDeclspecAttribute())
-          ProcessDeclAttributeList(S, Record, attrs);
-        attrs = attrs->getNext();
-      }
-    }
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
     if (!Record->getDeclName() && Record->isCompleteDefinition() &&
         DS.getStorageClassSpec() != DeclSpec::SCS_typedef) {
       if (getLangOpts().CPlusPlus ||
@@ -9648,13 +9580,6 @@ bool Sema::CheckFunctionDeclaration(Scope *S, FunctionDecl *NewFD,
   bool MergeTypeWithPrevious = !getLangOpts().CPlusPlus &&
                                !Previous.isShadowed();
 
-#if INTEL_SPECIFIC_CILKPLUS
-  // Check that Cilk elemental function requirements are met
-  if (getLangOpts().CilkPlus && NewFD->hasAttr<CilkElementalAttr>() &&
-      !DiagnoseElementalAttributes(NewFD))
-    return false;
-#endif // INTEL_SPECIFIC_CILKPLUS
-
   bool Redeclaration = false;
   NamedDecl *OldDecl = nullptr;
   bool MayNeedOverloadableChecks = false;
@@ -10690,12 +10615,7 @@ bool Sema::DeduceVariableDeclarationType(VarDecl *VDecl, bool DirectInit,
 /// declaration dcl. If DirectInit is true, this is C++ direct
 /// initialization rather than copy initialization.
 void Sema::AddInitializerToDecl(Decl *RealDecl, Expr *Init,
-                                bool DirectInit 
-#if INTEL_SPECIFIC_CILKPLUS
-                                ,
-                                bool &IsCilkSpawnReceiver
-#endif // INTEL_SPECIFIC_CILKPLUS
-  ) {
+                                bool DirectInit) {
   // If there is no declaration, there was an error parsing it.  Just ignore
   // the initializer.
   if (!RealDecl || RealDecl->isInvalidDecl()) {
@@ -10920,22 +10840,8 @@ void Sema::AddInitializerToDecl(Decl *RealDecl, Expr *Init,
   //   struct T { S a, b; } t = { Temp(), Temp() }
   //
   // we should destroy the first Temp before constructing the second.
-#if INTEL_SPECIFIC_CILKPLUS
-  // We may initlize this variable with a Cilk Spawn:
-  //
-  //  int x = _Cilk_spawn func();
-  //
-  CilkReceiverKind Kind = CRK_MaybeReceiver;
-#endif // INTEL_SPECIFIC_CILKPLUS
   ExprResult Result = ActOnFinishFullExpr(Init, VDecl->getLocation(), 
-#if INTEL_SPECIFIC_CILKPLUS
-                                          Kind,
-#endif // INTEL_SPECIFIC_CILKPLUS
                                           false, VDecl->isConstexpr());
-#if INTEL_SPECIFIC_CILKPLUS
-  // Confirm if this is initializing a variable with a spawn call.
-  IsCilkSpawnReceiver = getLangOpts().CilkPlus && (Kind == CRK_IsReceiver);
-#endif // INTEL_SPECIFIC_CILKPLUS
   if (Result.isInvalid()) {
     VDecl->setInvalidDecl();
     return;
@@ -12776,37 +12682,6 @@ Decl *Sema::ActOnFinishFunctionBody(Decl *dcl, Stmt *Body,
   sema::AnalysisBasedWarnings::Policy WP = AnalysisWarnings.getDefaultPolicy();
   sema::AnalysisBasedWarnings::Policy *ActivePolicy = nullptr;
 
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  if (Body && !CommonFunctionOptions.empty()) {
-    SmallVector<Stmt *, 4> Stmts;
-    for (llvm::SmallVectorImpl<Stmt*>::iterator iter = OptionsList.begin(), E = OptionsList.end();
-      iter != E; ++iter) {
-      if (*iter != NULL)
-        Stmts.push_back(*iter);
-    }
-    Stmts.push_back(Body);
-    CompoundStmt *CS = new (Context) CompoundStmt(Context, Stmts,
-      SourceLocation(), SourceLocation());
-    Body = CS;
-    // Erase all one-shot attributes, if any
-    if (CommonFunctionOptions.count("INTEL_OPTIMIZATION_LEVEL") > 0) {
-      OptionsList[CommonFunctionOptions["INTEL_OPTIMIZATION_LEVEL"]] = NULL;
-    }
-    CommonFunctionOptions.erase("INTEL_OPTIMIZATION_LEVEL");
-    if (CommonFunctionOptions.count("OPT_PARAM_TARGET_ARCH") > 0) {
-      OptionsList[CommonFunctionOptions["OPT_PARAM_TARGET_ARCH"]] = NULL;
-    }
-    CommonFunctionOptions.erase("OPT_PARAM_TARGET_ARCH");
-    if (CommonFunctionOptions.count("AUTO_INLINE") > 0) {
-      OptionsList[CommonFunctionOptions["AUTO_INLINE"]] = NULL;
-    }
-    CommonFunctionOptions.erase("AUTO_INLINE");
-    if (CommonFunctionOptions.count("CHECK_STACK") > 0) {
-      OptionsList[CommonFunctionOptions["CHECK_STACK"]] = NULL;
-    }
-    CommonFunctionOptions.erase("CHECK_STACK");
-  }
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
   if (getLangOpts().CoroutinesTS && getCurFunction()->isCoroutine())
     CheckCompletedCoroutineBody(FD, Body);
 
@@ -13029,10 +12904,6 @@ Decl *Sema::ActOnFinishFunctionBody(Decl *dcl, Stmt *Body,
       MarkBaseAndMemberDestructorsReferenced(Destructor->getLocation(),
                                              Destructor->getParent());
     }
-#if INTEL_SPECIFIC_CILKPLUS
-    if (FD && FD->hasAttr<CilkElementalAttr>())
-      DiagnoseCilkElemental(FD, Body);
-#endif // INTEL_SPECIFIC_CILKPLUS
 
     // If any errors have occurred, clear out any temporaries that may have
     // been leftover. This ensures that these temporaries won't be picked up for

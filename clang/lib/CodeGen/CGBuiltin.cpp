@@ -60,13 +60,6 @@ llvm::Constant *CodeGenModule::getBuiltinLibFunction(const FunctionDecl *FD,
   if (FD->hasAttr<AsmLabelAttr>())
     Name = getMangledName(D);
   else
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-    if (getLangOpts().IntelCompat) {
-      // ICLANG mode: do not skip the __builtin_ prefix.
-      Name = Context.BuiltinInfo.getName(BuiltinID);
-    }
-    else
-#endif // INTEL_SPECIFIC_IL0_BACKEND
     Name = Context.BuiltinInfo.getName(BuiltinID) + 10;
 
   llvm::FunctionType *Ty =
@@ -1608,7 +1601,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
         Builder.CreateCall(FnExpect, {ArgValue, ExpectedValue}, "expval");
     return RValue::get(Result);
   }
-#if defined(INTEL_CUSTOMIZATION) && !defined(INTEL_SPECIFIC_IL0_BACKEND)
+#if defined(INTEL_CUSTOMIZATION)
   // CQ#373129 - support for __assume_aligned builtin.
   case Builtin::BI__assume_aligned:
     if (!getLangOpts().IntelCompat)
@@ -1616,7 +1609,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
     assert(E->getNumArgs() == 2 &&
            "Wrong number of arguments for __assume_aligned builtin");
     // Intentional fall through.
-#endif // INTEL_CUSTOMIZATION and not INTEL_SPECIFIC_IL0_BACKEND
+#endif // INTEL_CUSTOMIZATION
   case Builtin::BI__builtin_assume_aligned: {
     Value *PtrValue = EmitScalarExpr(E->getArg(0));
     Value *OffsetValue =
@@ -1929,11 +1922,6 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
   }
   case Builtin::BImemcpy:
   case Builtin::BI__builtin_memcpy: {
-#if INTEL_SPECIFIC_IL0_BACKEND
-    // Let IL0 intrinsic table handle this.
-    if (getLangOpts().IntelCompat)
-        break;
-#endif // INTEL_SPECIFIC_IL0_BACKEND
     Address Dest = EmitPointerWithAlignment(E->getArg(0));
     Address Src = EmitPointerWithAlignment(E->getArg(1));
     Value *SizeVal = EmitScalarExpr(E->getArg(2));
@@ -1990,11 +1978,6 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
 
   case Builtin::BImemmove:
   case Builtin::BI__builtin_memmove: {
-#if INTEL_SPECIFIC_IL0_BACKEND
-    // Let IL0 intrinsic table handle this.
-    if (getLangOpts().IntelCompat)
-        break;
-#endif // INTEL_SPECIFIC_IL0_BACKEND
     Address Dest = EmitPointerWithAlignment(E->getArg(0));
     Address Src = EmitPointerWithAlignment(E->getArg(1));
     Value *SizeVal = EmitScalarExpr(E->getArg(2));
@@ -2007,11 +1990,6 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
   }
   case Builtin::BImemset:
   case Builtin::BI__builtin_memset: {
-#if INTEL_SPECIFIC_IL0_BACKEND
-    // Let IL0 intrinsic table handle this.
-    if (getLangOpts().IntelCompat)
-        break;
-#endif // INTEL_SPECIFIC_IL0_BACKEND
     Address Dest = EmitPointerWithAlignment(E->getArg(0));
     Value *ByteVal = Builder.CreateTrunc(EmitScalarExpr(E->getArg(1)),
                                          Builder.getInt8Ty());
@@ -2194,42 +2172,6 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
   case Builtin::BI__sync_lock_test_and_set:
   case Builtin::BI__sync_lock_release:
   case Builtin::BI__sync_swap:
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  case Builtin::BI__atomic_store_explicit:
-  case Builtin::BI__atomic_load_explicit:
-  case Builtin::BI__atomic_exchange_explicit:
-  case Builtin::BI__atomic_compare_exchange_weak_explicit:
-  case Builtin::BI__atomic_compare_exchange_strong_explicit:
-  case Builtin::BI__atomic_fetch_add_explicit:
-  case Builtin::BI__atomic_fetch_sub_explicit:
-  case Builtin::BI__atomic_fetch_and_explicit:
-  case Builtin::BI__atomic_fetch_nand_explicit:
-  case Builtin::BI__atomic_fetch_or_explicit:
-  case Builtin::BI__atomic_fetch_xor_explicit:
-  case Builtin::BI__atomic_add_fetch_explicit:
-  case Builtin::BI__atomic_sub_fetch_explicit:
-  case Builtin::BI__atomic_and_fetch_explicit:
-  case Builtin::BI__atomic_nand_fetch_explicit:
-  case Builtin::BI__atomic_or_fetch_explicit:
-  case Builtin::BI__atomic_xor_fetch_explicit:
-  case Builtin::BI__assume_aligned: {
-    llvm::SmallVector<llvm::Value *, 4> Args;
-    auto &C = CGM.getLLVMContext();
-    Args.push_back(llvm::MetadataAsValue::get(
-        C, llvm::MDString::get(C, "ASSUME_ALIGNED")));
-    llvm::Value *Arg1 = EmitScalarExpr(E->getArg(0));
-    llvm::Value *Arg2 = EmitScalarExpr(E->getArg(1));
-    llvm::Type *UIntTy = ConvertTypeForMem(getContext().UnsignedIntTy);
-    llvm::Value *Res = Builder.CreatePtrToInt(Arg1, UIntTy);
-    llvm::Value *Sub = Builder.CreateIntCast(Arg2, UIntTy, false);
-    Sub = Builder.CreateSub(Sub, llvm::ConstantInt::get(UIntTy, 1));
-    Res = Builder.CreateAnd(Res, Sub);
-    Args.push_back(llvm::MetadataAsValue::get(
-        C, llvm::ValueAsMetadata::get(Builder.CreateIsNull(Res))));
-    llvm::Value *Fn = CGM.getIntrinsic(llvm::Intrinsic::intel_pragma);
-    return RValue::get(Builder.CreateCall(Fn, Args));
-  }
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
     llvm_unreachable("Shouldn't make it through sema");
 #if INTEL_CUSTOMIZATION
   case Builtin::BI__builtin_return:
@@ -2495,10 +2437,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
     llvm::FunctionType *FTy = CGM.getTypes().GetFunctionType(FuncInfo);
     llvm::Constant *Func = CGM.CreateRuntimeFunction(FTy, LibCallName);
     return EmitCall(FuncInfo, CGCallee::forDirect(Func),
-                    ReturnValueSlot(), Args, // INTEL
-#if INTEL_SPECIFIC_CILKPLUS
-                    nullptr, SourceLocation(), E->isCilkSpawnCall());
-#endif // INTEL_SPECIFIC_CILKPLUS
+                    ReturnValueSlot(), Args);
   }
 
   case Builtin::BI__atomic_test_and_set: {

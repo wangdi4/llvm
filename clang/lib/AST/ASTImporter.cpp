@@ -284,9 +284,6 @@ namespace clang {
     Expr *VisitPackExpansionExpr(PackExpansionExpr *E);
     Expr *VisitCXXNewExpr(CXXNewExpr *CE);
     Expr *VisitCXXDeleteExpr(CXXDeleteExpr *E);
-#if INTEL_CUSTOMIZATION
-    Decl *VisitPragmaDecl(PragmaDecl *D);
-#endif  // INTEL_CUSTOMIZATION
     Expr *VisitCXXConstructExpr(CXXConstructExpr *E);
     Expr *VisitCXXMemberCallExpr(CXXMemberCallExpr *E);
     Expr *VisitCXXDependentScopeMemberExpr(CXXDependentScopeMemberExpr *E);
@@ -6815,15 +6812,3 @@ bool ASTImporter::IsStructurallyEquivalent(QualType From, QualType To,
                                    false, Complain);
   return Ctx.IsStructurallyEquivalent(From, To);
 }
-
-#if INTEL_CUSTOMIZATION
-Decl *ASTNodeImporter::VisitPragmaDecl(PragmaDecl *D) {
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  return VisitDecl(D);
-#else
-  llvm_unreachable(
-      "Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
-  return 0;
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
-}
-#endif  // INTEL_CUSTOMIZATION

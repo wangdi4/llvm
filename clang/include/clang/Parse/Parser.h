@@ -186,187 +186,6 @@ class Parser : public CodeCompletionHandler {
   std::unique_ptr<PragmaHandler> NoUnrollHintHandler;
   std::unique_ptr<PragmaHandler> FPHandler;
   std::unique_ptr<PragmaHandler> AttributePragmaHandler;
-#if INTEL_SPECIFIC_CILKPLUS
-  std::unique_ptr<PragmaHandler> CilkGrainsizeHandler;
-  std::unique_ptr<PragmaHandler> SIMDHandler;
-#endif // INTEL_SPECIFIC_CILKPLUS
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  clang::StmtResult ParsePragmaInSIMD();
-
-  void DiscardBeforeEndOfDirective();
-  void DiscardUntilEndOfDirective();
-
-  // Pragma ivdep
-  std::unique_ptr<PragmaHandler> IvdepHandler;
-
-  clang::StmtResult HandlePragmaIvdep();
-  void HandlePragmaIvdepDecl();
-
-  // Pragma novector
-  std::unique_ptr<PragmaHandler> NoVectorHandler;
-
-  clang::StmtResult HandlePragmaNoVector();
-  void HandlePragmaNoVectorDecl();
-
-  // Pragma distribute_point
-  std::unique_ptr<PragmaHandler> DistributeHandler;
-  std::unique_ptr<PragmaHandler> DistributeHandler1;
-
-  clang::StmtResult HandlePragmaDistribute();
-  void HandlePragmaDistributeDecl();
-
-  // Pragma loop_count
-  std::unique_ptr<PragmaHandler> LoopCountHandler;
-  std::unique_ptr<PragmaHandler> LoopCountHandler1;
-
-  clang::StmtResult HandlePragmaLoopCount();
-  void HandlePragmaLoopCountDecl();
-
-  // Pragma optimize("", on|off)
-  std::unique_ptr<PragmaHandler> IntelOptimizeHandler;
-
-  clang::StmtResult HandlePragmaOptimize();
-  void HandlePragmaOptimizeDecl();
-
-  // Pragma [GCC|intel] optimization_level 0-3|reset
-  std::unique_ptr<PragmaHandler> OptimizationLevelHandler;
-  std::unique_ptr<PragmaHandler> GCCOptimizationLevelHandler;
-
-  void HandlePragmaOptimizationLevel();
-  void HandlePragmaOptimizationLevelDecl();
-
-  // Pragma noparallel
-  std::unique_ptr<PragmaHandler> NoParallelHandler;
-
-  clang::StmtResult HandlePragmaNoParallel();
-  void HandlePragmaNoParallelDecl();
-
-  // Pragma unroll, nounroll
-  std::unique_ptr<PragmaHandler> NoUnrollHandler;
-  std::unique_ptr<PragmaHandler> UnrollHandler;
-
-  clang::StmtResult HandlePragmaUnroll();
-  void HandlePragmaUnrollDecl();
-
-  // Pragma unroll_and_jam, nounroll_and_jam
-  std::unique_ptr<PragmaHandler> NoUnrollAndJamHandler;
-  std::unique_ptr<PragmaHandler> UnrollAndJamHandler;
-
-  clang::StmtResult HandlePragmaUnrollAndJam();
-  void HandlePragmaUnrollAndJamDecl();
-
-  // Pragma nofusion
-  std::unique_ptr<PragmaHandler> NoFusionHandler;
-
-  clang::StmtResult HandlePragmaNoFusion();
-  void HandlePragmaNoFusionDecl();
-
-  // Pragma ident
-  std::unique_ptr<PragmaHandler> IdentHandler;
-
-  // Pragma vector
-  std::unique_ptr<PragmaHandler> VectorHandler;
-
-  clang::StmtResult HandlePragmaVector();
-  void HandlePragmaVectorDecl();
-
-  // Pragma intel optimization_parameter target_arch=<CPU>
-  std::unique_ptr<PragmaHandler> OptimizationParameterHandler;
-
-  void HandlePragmaOptimizationParameter();
-  void HandlePragmaOptimizationParameterDecl();
-
-  // Pragma parallel
-  std::unique_ptr<PragmaHandler> ParallelHandler;
-
-  clang::StmtResult HandlePragmaParallel();
-  void HandlePragmaParallelDecl();
-
-  // Pragma alloc_section(var1, var2, ...., "section")
-  std::unique_ptr<PragmaHandler> AllocSectionHandler;
-
-  clang::StmtResult HandlePragmaAllocSection();
-  void HandlePragmaAllocSectionDecl();
-
-  // Pragma section("section", attribute1, attribute2, ...)
-  std::unique_ptr<PragmaHandler> SectionHandler;
-
-  clang::StmtResult HandlePragmaSection();
-  void HandlePragmaSectionDecl();
-
-  // Pragma alloc_text("section", function1, function2, ...)
-  std::unique_ptr<PragmaHandler> AllocTextHandler;
-
-  clang::StmtResult HandlePragmaAllocText();
-  void HandlePragmaAllocTextDecl();
-
-  // Pragma auto_inline(on|off)
-  std::unique_ptr<PragmaHandler> AutoInlineHandler;
-
-  clang::StmtResult HandlePragmaAutoInline();
-  void HandlePragmaAutoInlineDecl();
-
-  // Pragmas {bss_seg|code_seg|const_seg|data_seg} ([[{push|pop}, ] [identifier ,]]["segment-name"[, "segment-class"])
-  std::unique_ptr<PragmaHandler> BssSegHandler;
-  std::unique_ptr<PragmaHandler> CodeSegHandler;
-  std::unique_ptr<PragmaHandler> ConstSegHandler;
-  std::unique_ptr<PragmaHandler> DataSegHandler;
-
-  clang::StmtResult HandlePragmaSeg();
-  void HandlePragmaSegDecl();
-
-  // Pragma check_stack(on|off|+|-)
-  std::unique_ptr<PragmaHandler> CheckStackHandler;
-
-  clang::StmtResult HandlePragmaCheckStack();
-  void HandlePragmaCheckStackDecl();
-
-  // Pragma component
-  std::unique_ptr<PragmaHandler> ComponentHandler;
-
-  // Pragma conform
-  std::unique_ptr<PragmaHandler> ConformHandler;
-
-  // Pragma deprecated
-  std::unique_ptr<PragmaHandler> DeprecatedHandler;
-
-  // Pragma fp_contract
-  clang::StmtResult HandlePragmaCommonOnOff(Sema::IntelPragmaCommonOnOff Kind, bool isDefaultAllowed);
-  void HandlePragmaCommonOnOffDecl(Sema::IntelPragmaCommonOnOff Kind, bool isDefaultAllowed);
-
-  std::unique_ptr<PragmaHandler> IntelFPContractHandler;
-  std::unique_ptr<PragmaHandler> IntelFenvAccessHandler;
-
-  // Pragmas init_seg(compiler|lib|user|"sect-name")
-  std::unique_ptr<PragmaHandler> InitSegHandler;
-
-  clang::StmtResult HandlePragmaInitSeg();
-  void HandlePragmaInitSegDecl();
-
-  // Pragma float_control
-  SmallVector<unsigned, 4> FCVector;
-  unsigned FPState;
-
-  std::unique_ptr<PragmaHandler> FloatControlHandler;
-
-  clang::StmtResult HandlePragmaFloatControl();
-  void HandlePragmaFloatControlDecl();
-
-  // Pragma region
-  std::unique_ptr<PragmaHandler> RegionHandler;
-
-  // Pragma endregion
-  std::unique_ptr<PragmaHandler> EndRegionHandler;
-
-  // Pragma start_map_region
-  std::unique_ptr<PragmaHandler> StartMapRegionHandler;
-
-  // Pragma stop_map_endregion
-  std::unique_ptr<PragmaHandler> StopMapRegionHandler;
-
-  // Pragma vtordisp
-  std::unique_ptr<PragmaHandler> VtorDispHandler;
-#endif // INTEL_SPECIFIC_IL0_BACKEND
   std::unique_ptr<CommentHandler> CommentSemaHandler;
 
   /// Whether the '>' token acts as an operator or not. This will be
@@ -1762,17 +1581,6 @@ private:
       SmallVectorImpl<SourceLocation> &CommaLocs,
       llvm::function_ref<void()> Completer = llvm::function_ref<void()>());
 
-#if INTEL_SPECIFIC_CILKPLUS
-  /// ParseSecReduceExpressionList - Used for reducer (argument-)expression-list
-  bool ParseSecReduceExpressionList(SmallVectorImpl<Expr*> &Exprs,
-                           SmallVectorImpl<SourceLocation> &CommaLocs,
-                           bool CheckReturnType,
-                           void (Sema::*Completer)(Scope *S,
-                                                   Expr *Data,
-                                                   ArrayRef<Expr *> Args) = 0,
-                           Expr *Data = 0);
-#endif // INTEL_SPECIFIC_CILKPLUS
-
   /// ParseSimpleExpressionList - A simple comma-separated list of expressions,
   /// used for misc language extensions.
   bool ParseSimpleExpressionList(SmallVectorImpl<Expr*> &Exprs,
@@ -2042,10 +1850,6 @@ private:  //***INTEL
                                  AllowedConstructsKind Allowed,
                                  SourceLocation *TrailingElseLoc,
                                  ParsedAttributesWithRange &Attrs);
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  /// \brief Check Intel-pragma statements
-  void CheckIntelStmt(StmtVector& Stmts);
-#endif // INTEL_SPECIFIC_IL0_BACKEND
 #if INTEL_CUSTOMIZATION
   // HLS loop pragmas
   std::unique_ptr<PragmaHandler> LoopCoalesceHandler;
@@ -2067,14 +1871,6 @@ private:  //***INTEL
                                SourceLocation *TrailingElseLoc,
                                ParsedAttributesWithRange &Attrs);
 #endif // INTEL_CUSTOMIZATION
-#if INTEL_SPECIFIC_CILKPLUS
-  StmtResult ParseCilkForStmt();
-  /// \brief Parse the Cilk grainsize pragma followed by a Cilk for statement.
-  ///
-  /// #pragma cilk grainsize = ...
-  /// _Cilk_for (...)
-  StmtResult ParsePragmaCilkGrainsize();
-#endif // INTEL_SPECIFIC_CILKPLUS
   /// \brief Describes the behavior that should be taken for an __if_exists
   /// block.
   enum IfExistsBehavior {
@@ -2672,20 +2468,7 @@ private:
                                        IdentifierInfo *ScopeName,
                                        SourceLocation ScopeLoc,
                                        AttributeList::Syntax Syntax);
-#if INTEL_SPECIFIC_CILKPLUS
-  void ParseCilkPlusElementalAttribute(IdentifierInfo &AttrName,
-                                       SourceLocation AttrNameLoc,
-                                       ParsedAttributes &Attrs,
-                                       SourceLocation *EndLoc,
-                                       AttributeList::Syntax Syntax);
 
-  void ParseFunctionParameterAttribute(IdentifierInfo &AttrName,
-                                       SourceLocation AttrNameLoc,
-                                       ParsedAttributes &Attrs,
-                                       SourceLocation *EndLoc,
-                                       IdentifierInfo &ScopeName,
-                                       SourceLocation ScopeLoc);
-#endif // INTEL_SPECIFIC_CILKPLUS
   void ParseTypeTagForDatatypeAttribute(IdentifierInfo &AttrName,
                                         SourceLocation AttrNameLoc,
                                         ParsedAttributes &Attrs,

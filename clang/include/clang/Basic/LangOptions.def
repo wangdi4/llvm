@@ -83,9 +83,6 @@
 LANGOPT(C99               , 1, 0, "C99")
 LANGOPT(C11               , 1, 0, "C11")
 LANGOPT(C17               , 1, 0, "C17")
-#if INTEL_SPECIFIC_CILKPLUS
-LANGOPT(CilkPlus, 1, 0, "Intel Cilk Plus extensions to C/C++")
-#endif // INTEL_SPECIFIC_CILKPLUS
 #if INTEL_CUSTOMIZATION
 LANGOPT(IntelOpenMP, 1, 0, "Intel specific OpenMP codegen")
 LANGOPT(IntelOpenMPRegion, 1, 0, "Intel specific OpenMP codegen with regions")
@@ -119,17 +116,6 @@ LANGOPT(GNUVersion    , 32, 0, "GNU C++ version")
 // CQ376358: Support -ffriend-injection option
 LANGOPT(FriendFunctionInject, 1, 0, "Inject friend functions into the enclosing namespace")
 LANGOPT(FriendClassInject, 1, 0, "Inject friend classes into the enclosing namespace")
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-LANGOPT(PragmaOptimizationLevelIntel      , 1, 1, 
-        "Specifies whether #pragma optimization_level shoud use Intel(DEFAULT) or GCC syntax")
-LANGOPT(vd      , 1, 1, 
-        "Enables the addition of the hidden vtordisp construction destruction displacement memeber")
-ENUM_LANGOPT(FPModel, IntelFPModel, 32, static_cast<IntelFPModel>(IFP_Fast|IFP_FP_Contract), 
-        "Active float data precision")
-LANGOPT(AlignMac68k      , 1, 0, 
-        "Enables or disables default mac68k alignment")
-LANGOPT(FormatExtensions  , 1, 0, "FreeBSD format extensions")
-#endif // INTEL_SPECIFIC_IL0_BACKEND
 #endif // INTEL_CUSTOMIZATION
 LANGOPT(MSVCCompat        , 1, 0, "Microsoft Visual C++ full compatibility mode")
 LANGOPT(MicrosoftExt      , 1, 0, "Microsoft C++ extensions")

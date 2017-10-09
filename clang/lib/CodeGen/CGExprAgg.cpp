@@ -122,17 +122,6 @@ public:
   void VisitSubstNonTypeTemplateParmExpr(SubstNonTypeTemplateParmExpr *E) {
     return Visit(E->getReplacement());
   }
-#if INTEL_SPECIFIC_CILKPLUS
-  void VisitCEANBuiltinExpr(CEANBuiltinExpr *E) {
-    CodeGenFunction::LocalVarsDeclGuard Guard(CGF);
-    CGF.EmitCEANBuiltinExprBody(E);
-    if (E->getBuiltinKind() != CEANBuiltinExpr::ReduceMutating)
-      Visit(E->getReturnExpr());
-  }
-  void VisitCilkSpawnExpr(CilkSpawnExpr *E) {
-    CGF.EmitCilkSpawnExpr(E);
-  }
-#endif // INTEL_SPECIFIC_CILKPLUS
   // l-values.
   void VisitDeclRefExpr(DeclRefExpr *E) { EmitAggLoadOfLValue(E); }
   void VisitMemberExpr(MemberExpr *ME) { EmitAggLoadOfLValue(ME); }

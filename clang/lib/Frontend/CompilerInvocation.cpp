@@ -1438,9 +1438,6 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
   Opts.ShowStats = Args.hasArg(OPT_print_stats);
   Opts.ShowTimers = Args.hasArg(OPT_ftime_report);
   Opts.ShowVersion = Args.hasArg(OPT_version);
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  Opts.HelpPragma = Args.hasArg(OPT_help_pragma);
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
   Opts.ASTMergeFiles = Args.getAllArgValues(OPT_ast_merge);
   Opts.LLVMArgs = Args.getAllArgValues(OPT_mllvm);
   Opts.FixWhatYouCan = Args.hasArg(OPT_fix_what_you_can);
@@ -2201,11 +2198,6 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
 
   llvm::Triple T(TargetOpts.Triple);
   CompilerInvocation::setLangDefaults(Opts, IK, T, PPOpts, LangStd);
-#if INTEL_SPECIFIC_CILKPLUS
-  Opts.CilkPlus = Args.hasArg(OPT_fcilkplus);
-  if (Opts.CilkPlus && (Opts.ObjC1 || Opts.ObjC2))
-    Diags.Report(diag::err_drv_cilk_objc);
-#endif // INTEL_SPECIFIC_CILKPLUS
 #if INTEL_CUSTOMIZATION
   Opts.IntelCompat = Args.hasArg(OPT_fintel_compatibility);
   Opts.IntelMSCompat = Args.hasArg(OPT_fintel_ms_compatibility);
@@ -2283,11 +2275,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
 
   // CQ380574: Ability to set various predefines based on gcc version needed.
   Opts.GNUVersion = getLastArgIntValue(Args, OPT_gnu_version_EQ,
-#if INTEL_SPECIFIC_IL0_BACKEND
-                                       40800,
-#else
                                        40500,
-#endif // INTEL_SPECIFIC_IL0_BACKEND
                                        Diags);
 
   // cmplrs-417: Get the appropriate FABI version to emulate
@@ -2307,44 +2295,6 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.FriendClassInject =
       Args.hasFlag(OPT_friend_injection, OPT_no_friend_injection,
                    Opts.GNUVersion < 40001 && !Opts.CPlusPlus11);
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  StringRef OptLevel = Args.getLastArgValue(OPT_pragma_optimization_level_EQ, "Intel");
-  Opts.PragmaOptimizationLevelIntel = (OptLevel == "Intel") ? 1 : 0;
-  Opts.AlignMac68k = Args.hasArg(OPT_malign_mac68k);
-  Opts.vd = getLastArgIntValue(Args, OPT_vd, 1);
-  std::vector<std::string> FPModel = Args.getAllArgValues(OPT_fp_model);
-  if (FPModel.empty())
-    FPModel.push_back("fast");
-  for (std::vector<std::string>::iterator I = FPModel.begin(), E = FPModel.end(); I != E; ++I) {
-    if (*I == "fast" || *I == "fast=1") {
-      Opts.setFPModel(static_cast<LangOptions::IntelFPModel>(LangOptions::IFP_Fast|LangOptions::IFP_FP_Contract));
-    }
-    else if (*I == "fast=2") {
-      Opts.setFPModel(static_cast<LangOptions::IntelFPModel>(LangOptions::IFP_Fast2|LangOptions::IFP_FP_Contract));
-    }
-    else if (*I == "precise") {
-      Opts.setFPModel(static_cast<LangOptions::IntelFPModel>(LangOptions::IFP_Precise|LangOptions::IFP_FP_Contract|LangOptions::IFP_ValueSafety));
-    }
-    else if (*I == "source") {
-      Opts.setFPModel(static_cast<LangOptions::IntelFPModel>(LangOptions::IFP_Source|LangOptions::IFP_FP_Contract|LangOptions::IFP_ValueSafety));
-    }
-    else if (*I == "double") {
-      Opts.setFPModel(static_cast<LangOptions::IntelFPModel>(LangOptions::IFP_Double|LangOptions::IFP_FP_Contract|LangOptions::IFP_ValueSafety));
-    }
-    else if (*I == "extended") {
-      Opts.setFPModel(static_cast<LangOptions::IntelFPModel>(LangOptions::IFP_Extended|LangOptions::IFP_FP_Contract|LangOptions::IFP_ValueSafety));
-    }
-    else if (*I == "strict") {
-      Opts.setFPModel(static_cast<LangOptions::IntelFPModel>(LangOptions::IFP_Precise|LangOptions::IFP_FEnv_Access|LangOptions::IFP_Except|LangOptions::IFP_ValueSafety));
-    }
-    else if (*I == "except" && !(Opts.getFPModel() & LangOptions::IFP_Fast) && !(Opts.getFPModel() & LangOptions::IFP_Fast2)) {
-      Opts.setFPModel(static_cast<LangOptions::IntelFPModel>(LangOptions::IFP_Source|LangOptions::IFP_Except|(Opts.getFPModel() & LangOptions::IFP_FP_Contract)|(Opts.getFPModel() & LangOptions::IFP_ValueSafety)|(Opts.getFPModel() & LangOptions::IFP_FEnv_Access)));
-    }
-    else if (*I == "no-except" && !(Opts.getFPModel() & LangOptions::IFP_Fast) && !(Opts.getFPModel() & LangOptions::IFP_Fast2)) {
-      Opts.setFPModel(static_cast<LangOptions::IntelFPModel>(LangOptions::IFP_Source|(Opts.getFPModel() & LangOptions::IFP_FP_Contract)|(Opts.getFPModel() & LangOptions::IFP_ValueSafety)|(Opts.getFPModel() & LangOptions::IFP_FEnv_Access)));
-    }
-  }
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
 #endif  // INTEL_CUSTOMIZATION
 
   // -cl-strict-aliasing needs to emit diagnostic in the case where CL > 1.0.
@@ -2579,9 +2529,6 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.WCharIsSigned = Args.hasFlag(OPT_fsigned_wchar, OPT_fno_signed_wchar, true);
   Opts.ShortEnums = Args.hasArg(OPT_fshort_enums);
   Opts.Freestanding = Args.hasArg(OPT_ffreestanding);
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  Opts.FormatExtensions = Args.hasArg(OPT_fformat_extensions);
-#endif // INTEL_SPECIFIC_IL0_BACKEND
   Opts.NoBuiltin = Args.hasArg(OPT_fno_builtin) || Opts.Freestanding;
   if (!Opts.NoBuiltin)
     getAllNoBuiltinFuncValues(Args, Opts.NoBuiltinFuncs);

@@ -169,19 +169,6 @@ CXSourceRange cxloc::translateSourceRange(const SourceManager &SM,
 static SourceRange getRawCursorExtent(CXCursor C);
 static SourceRange getFullCursorExtent(CXCursor C, SourceManager &SrcMgr);
 
-#if INTEL_CUSTOMIZATION
-bool CursorVisitor::VisitPragmaDecl(PragmaDecl *D) {
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  if (Stmt *PS = D->getStmt())
-    return Visit(MakeCXCursor(PS, StmtParent, TU, RegionOfInterest));
-  return false;
-#else
-  llvm_unreachable("Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
-  return false;
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
-}
-#endif  // INTEL_CUSTOMIZATION
-
 RangeComparisonResult CursorVisitor::CompareRegionOfInterest(SourceRange R) {
   return RangeCompare(AU->getSourceManager(), R, RegionOfInterest);
 }
@@ -5132,10 +5119,6 @@ CXString clang_getCursorKindSpelling(enum CXCursorKind Kind) {
     return cxstring::createRef("CXXAccessSpecifier");
   case CXCursor_ModuleImportDecl:
     return cxstring::createRef("ModuleImport");
-#if INTEL_SPECIFIC_CILKPLUS
-  case CXCursor_CilkRankedStmt:
-    return cxstring::createRef("CilkRankedStmt");
-#endif // INTEL_SPECIFIC_CILKPLUS
   case CXCursor_OMPParallelDirective:
     return cxstring::createRef("OMPParallelDirective");
   case CXCursor_OMPSimdDirective:
@@ -5949,14 +5932,6 @@ CXCursor clang_getCursorDefinition(CXCursor C) {
     return clang_getNullCursor();
 
   switch (D->getKind()) {
-#if INTEL_CUSTOMIZATION
-  case Decl::Pragma:
-#ifndef INTEL_SPECIFIC_IL0_BACKEND
-    llvm_unreachable(
-      "Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
-    break;
-#endif  // INTEL_CUSTOMIZATION
   // Declaration kinds that don't really separate the notions of
   // declaration and definition.
   case Decl::Namespace:
@@ -5986,9 +5961,6 @@ CXCursor clang_getCursorDefinition(CXCursor C) {
   case Decl::Block:
   case Decl::Captured:
   case Decl::OMPCapturedExpr:
-#if INTEL_SPECIFIC_CILKPLUS
-  case Decl::CilkSpawn:
-#endif               // INTEL_SPECIFIC_CILKPLUS
   case Decl::Label:  // FIXME: Is this right??
   case Decl::ClassScopeFunctionSpecialization:
   case Decl::CXXDeductionGuide:

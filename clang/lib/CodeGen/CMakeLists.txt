@@ -103,11 +103,7 @@ add_clang_library(clangCodeGen
   TargetInfo.cpp
   VarBypassDetector.cpp
 # INTEL_CUSTOMIZATION
-  intel/CGCilkPlusRuntime.cpp
-  intel/CGElementalFunction.cpp
   intel/CGBuiltin_getBuiltinIntelLibFunction.cpp
-  intel/CGIntelEmit.cpp
-  intel/CGIntelStmt.cpp
   intel/CGIntelStmtOpenMP.cpp
   intel/CGSPIRMetadataAdder.cpp
   intel/CGIntelHLS.cpp

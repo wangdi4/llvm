@@ -162,12 +162,6 @@ void Parser::ParseGNUAttributes(ParsedAttributes &attrs,
       SourceLocation AttrNameLoc = ConsumeToken();
 
       if (Tok.isNot(tok::l_paren)) {
-#if INTEL_SPECIFIC_CILKPLUS
-        if (AttrName->isStr("vector") && !getLangOpts().CilkPlus) {
-          Diag(Tok, diag::err_cilkplus_disable);
-          SkipUntil(tok::r_paren, StopAtSemi | StopBeforeMatch);
-        }
-#endif // INTEL_SPECIFIC_CILKPLUS
         attrs.addNew(AttrName, AttrNameLoc, nullptr, AttrNameLoc, nullptr, 0,
                      AttributeList::AS_GNU);
         continue;
@@ -235,11 +229,6 @@ static void fillAttrFullName(const IdentifierInfo &II,
     // FIXME:  add AS_ContextSensitiveKeyword
     Variety = "Keyword";
     break;
-#if INTEL_SPECIFIC_CILKPLUS
-  case AttributeList::Syntax::AS_CilkKeyword:
-    Variety = "CilkKeyword";
-    break;
-#endif // INTEL_SPECIFIC_CILKPLUS
   default:
     Variety = "GNU";
   }
@@ -259,6 +248,33 @@ static bool attributeHasIdentifierArg(const IdentifierInfo &II,
       .Default(false);
 #undef CLANG_ATTR_IDENTIFIER_ARG_LIST
 }
+
+/// \brief Determine whether the given attribute parses a type argument.
+static bool attributeIsTypeArgAttr(const IdentifierInfo &II,
+                                      AttributeList::Syntax Syntax,
+                                      IdentifierInfo *ScopeName) {
+  std::string FullName;
+  fillAttrFullName(II, Syntax, ScopeName, FullName);
+#define CLANG_ATTR_TYPE_ARG_LIST
+  return llvm::StringSwitch<bool>(FullName)
+#include "clang/Parse/AttrParserStringSwitches.inc"
+           .Default(false);
+#undef CLANG_ATTR_TYPE_ARG_LIST
+}
+
+/// \brief Determine whether the given attribute requires parsing its arguments
+/// in an unevaluated context or not.
+static bool attributeParsedArgsUnevaluated(const IdentifierInfo &II,
+                                      AttributeList::Syntax Syntax,
+                                      IdentifierInfo *ScopeName) {
+  std::string FullName;
+  fillAttrFullName(II, Syntax, ScopeName, FullName);
+#define CLANG_ATTR_ARG_CONTEXT_LIST
+  return llvm::StringSwitch<bool>(FullName)
+#include "clang/Parse/AttrParserStringSwitches.inc"
+           .Default(false);
+#undef CLANG_ATTR_ARG_CONTEXT_LIST
+}
 #else
 /// \brief Determine whether the given attribute has an identifier argument.
 static bool attributeHasIdentifierArg(const IdentifierInfo &II) {
@@ -268,7 +284,6 @@ static bool attributeHasIdentifierArg(const IdentifierInfo &II) {
            .Default(false);
 #undef CLANG_ATTR_IDENTIFIER_ARG_LIST
 }
-#endif // INTEL_CUSTOMIZATION
 
 /// \brief Determine whether the given attribute parses a type argument.
 static bool attributeIsTypeArgAttr(const IdentifierInfo &II) {
@@ -288,6 +303,7 @@ static bool attributeParsedArgsUnevaluated(const IdentifierInfo &II) {
            .Default(false);
 #undef CLANG_ATTR_ARG_CONTEXT_LIST
 }
+#endif // INTEL_CUSTOMIZATION
 
 IdentifierLoc *Parser::ParseIdentifierLoc() {
   assert(Tok.is(tok::identifier) && "expected an identifier");
@@ -365,7 +381,12 @@ unsigned Parser::ParseAttributeArgsCommon(
 
     // Parse the non-empty comma-separated list of expressions.
     do {
+#if INTEL_CUSTOMIZATION
+      bool Uneval = attributeParsedArgsUnevaluated(*AttrName, Syntax,
+                                                   ScopeName);
+#else
       bool Uneval = attributeParsedArgsUnevaluated(*AttrName);
+#endif // INTEL_CUSTOMIZATION
       EnterExpressionEvaluationContext Unevaluated(
           Actions,
           Uneval ? Sema::ExpressionEvaluationContext::Unevaluated
@@ -412,20 +433,8 @@ void Parser::ParseGNUAttributeArgs(IdentifierInfo *AttrName,
 
   AttributeList::Kind AttrKind =
       AttributeList::getKind(AttrName, ScopeName, Syntax);
-#if INTEL_SPECIFIC_CILKPLUS
-  if (AttrName->isStr("vector")) {
-    // Cilk Plus elemental function attributes have their own grammar.
-    if (!getLangOpts().CilkPlus) {
-      Diag(Tok, diag::err_cilkplus_disable);
-      SkipUntil(tok::r_paren, StopAtSemi | StopBeforeMatch);
-      return;
-    }
-    ParseCilkPlusElementalAttribute(*AttrName, AttrNameLoc, Attrs, EndLoc,
-                                    Syntax);
-    return;
-  } else
-#endif // INTEL_SPECIFIC_CILKPLUS
-      if (AttrKind == AttributeList::AT_Availability) {
+
+  if (AttrKind == AttributeList::AT_Availability) {
     ParseAvailabilityAttribute(*AttrName, AttrNameLoc, Attrs, EndLoc, ScopeName,
                                ScopeLoc, Syntax);
     return;
@@ -441,7 +450,11 @@ void Parser::ParseGNUAttributeArgs(IdentifierInfo *AttrName,
     ParseTypeTagForDatatypeAttribute(*AttrName, AttrNameLoc, Attrs, EndLoc,
                                      ScopeName, ScopeLoc, Syntax);
     return;
+#if INTEL_CUSTOMIZATION
+  } else if (attributeIsTypeArgAttr(*AttrName, Syntax, ScopeName)) {
+#else
   } else if (attributeIsTypeArgAttr(*AttrName)) {
+#endif // INTEL_CUSTOMIZATION
     ParseAttributeWithTypeArg(*AttrName, AttrNameLoc, Attrs, EndLoc, ScopeName,
                               ScopeLoc, Syntax);
     return;
@@ -612,18 +625,6 @@ bool Parser::ParseMicrosoftDeclSpecArgs(IdentifierInfo *AttrName,
                                AttributeList::AS_Declspec);
     T.skipToEnd();
     return !HasInvalidAccessor;
-#if INTEL_SPECIFIC_CILKPLUS
-  } else if (AttrName->isStr("vector")) {
-    // The vector declspec may have optional argument clauses. Check for a l-paren
-    // to decide wether we should parse argument clauses or not.
-    if (Tok.getKind() == tok::l_paren)
-      ParseCilkPlusElementalAttribute(*AttrName, AttrNameLoc, Attrs, 0,
-                                      AttributeList::AS_Declspec);
-    else
-      Attrs.addNew(AttrName, AttrNameLoc, 0, AttrNameLoc, 0, 0,
-                   AttributeList::AS_Declspec);
-    return true;
-#endif // INTEL_SPECIFIC_CILKPLUS
   }
 
   unsigned NumArgs =
@@ -2076,9 +2077,6 @@ Parser::DeclGroupPtrTy Parser::ParseDeclGroup(ParsingDeclSpec &DS,
 
         Decl *TheDecl =
           ParseFunctionDefinition(D, ParsedTemplateInfo(), &LateParsedAttrs);
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-        Actions.ActOnVarFunctionDeclForSections(TheDecl);
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
         return Actions.ConvertDeclToDeclGroup(TheDecl);
       }
 
@@ -2342,9 +2340,6 @@ Decl *Parser::ParseDeclarationAfterDeclaratorAndAttributes(
     }
   }
 
-#if INTEL_SPECIFIC_CILKPLUS
-  bool IsCilkSpawnReceiver = false;
-#endif // INTEL_SPECIFIC_CILKPLUS
   // Parse declarator '=' initializer.
   // If a '==' or '+=' is found, suggest a fixit to '='.
   if (isTokenEqualOrEqualTypo()) {
@@ -2398,12 +2393,7 @@ Decl *Parser::ParseDeclarationAfterDeclaratorAndAttributes(
         Actions.ActOnInitializerError(ThisDecl);
       } else
         Actions.AddInitializerToDecl(ThisDecl, Init.get(),
-                                     /*DirectInit=*/false // INTEL
-#if INTEL_SPECIFIC_CILKPLUS
-                                     ,
-                                     IsCilkSpawnReceiver
-#endif // INTEL_SPECIFIC_CILKPLUS
-                                    );
+                                     /*DirectInit=*/false);
     }
   } else if (Tok.is(tok::l_paren)) {
     // Parse C++ direct initializer: '(' expression-list ')'
@@ -2447,12 +2437,7 @@ Decl *Parser::ParseDeclarationAfterDeclaratorAndAttributes(
                                                           T.getCloseLocation(),
                                                           Exprs);
       Actions.AddInitializerToDecl(ThisDecl, Initializer.get(),
-                                   /*DirectInit=*/true // INTEL
-#if INTEL_SPECIFIC_CILKPLUS
-                                   ,
-                                   IsCilkSpawnReceiver
-#endif // INTEL_SPECIFIC_CILKPLUS
-                                  );
+                                   /*DirectInit=*/true);
     }
 #if INTEL_CUSTOMIZATION
 // Fix for CQ376508: attributes must be ignored after parenthesized initializer.
@@ -2484,26 +2469,13 @@ Decl *Parser::ParseDeclarationAfterDeclaratorAndAttributes(
     if (Init.isInvalid()) {
       Actions.ActOnInitializerError(ThisDecl);
     } else
-      Actions.AddInitializerToDecl(ThisDecl, Init.get(), /*DirectInit=*/true // INTEL
-#if INTEL_SPECIFIC_CILKPLUS
-                                   ,
-                                   IsCilkSpawnReceiver
-#endif // INTEL_SPECIFIC_CILKPLUS
-                                  );
+      Actions.AddInitializerToDecl(ThisDecl, Init.get(), /*DirectInit=*/true);
   } else {
     Actions.ActOnUninitializedDecl(ThisDecl);
   }
 
   Actions.FinalizeDeclaration(ThisDecl);
-#if INTEL_SPECIFIC_CILKPLUS
-  Actions.DiscardCleanupsInEvaluationContext();
 
-  if (getLangOpts().CilkPlus && IsCilkSpawnReceiver && isa<VarDecl>(ThisDecl))
-    return Actions.BuildCilkSpawnDecl(ThisDecl);
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  Actions.ActOnVarFunctionDeclForSections(ThisDecl);
-#endif // INTEL_SPECIFIC_IL0_BACKEND
-#endif // INTEL_SPECIFIC_CILKPLUS
   return ThisDecl;
 }
 

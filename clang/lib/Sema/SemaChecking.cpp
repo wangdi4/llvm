@@ -1121,70 +1121,6 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
     if (SemaBuiltinAnnotation(*this, TheCall))
       return ExprError();
     break;
-#if INTEL_SPECIFIC_CILKPLUS
-  case Builtin::BI__sec_reduce_add:
-  case Builtin::BI__sec_reduce_mul:
-  case Builtin::BI__sec_reduce_max:
-  case Builtin::BI__sec_reduce_min:
-  case Builtin::BI__sec_reduce_max_ind:
-  case Builtin::BI__sec_reduce_min_ind:
-  case Builtin::BI__sec_reduce_all_zero:
-  case Builtin::BI__sec_reduce_all_nonzero:
-  case Builtin::BI__sec_reduce_any_zero:
-  case Builtin::BI__sec_reduce_any_nonzero:
-  case Builtin::BI__sec_reduce:
-  case Builtin::BI__sec_reduce_mutating:
-  case Builtin::BI__sec_implicit_index: {
-    CEANBuiltinExpr::CEANKindType Kind = CEANBuiltinExpr::Unknown;
-    switch (BuiltinID) {
-    case Builtin::BI__sec_reduce_add:
-      Kind = CEANBuiltinExpr::ReduceAdd;
-      break;
-    case Builtin::BI__sec_reduce_mul:
-      Kind = CEANBuiltinExpr::ReduceMul;
-      break;
-    case Builtin::BI__sec_reduce_max:
-      Kind = CEANBuiltinExpr::ReduceMax;
-      break;
-    case Builtin::BI__sec_reduce_min:
-      Kind = CEANBuiltinExpr::ReduceMin;
-      break;
-    case Builtin::BI__sec_reduce_max_ind:
-      Kind = CEANBuiltinExpr::ReduceMaxIndex;
-      break;
-    case Builtin::BI__sec_reduce_min_ind:
-      Kind = CEANBuiltinExpr::ReduceMinIndex;
-      break;
-    case Builtin::BI__sec_reduce_all_zero:
-      Kind = CEANBuiltinExpr::ReduceAllZero;
-      break;
-    case Builtin::BI__sec_reduce_all_nonzero:
-      Kind = CEANBuiltinExpr::ReduceAllNonZero;
-      break;
-    case Builtin::BI__sec_reduce_any_zero:
-      Kind = CEANBuiltinExpr::ReduceAnyZero;
-      break;
-    case Builtin::BI__sec_reduce_any_nonzero:
-      Kind = CEANBuiltinExpr::ReduceAnyNonZero;
-      break;
-    case Builtin::BI__sec_reduce:
-      Kind = CEANBuiltinExpr::Reduce;
-      break;
-    case Builtin::BI__sec_reduce_mutating:
-      Kind = CEANBuiltinExpr::ReduceMutating;
-      break;
-    case Builtin::BI__sec_implicit_index:
-      Kind = CEANBuiltinExpr::ImplicitIndex;
-      break;
-    default:
-      llvm_unreachable("Unsupported CEAN intrinsic.");
-    }
-    return ActOnCEANBuiltinExpr(CurScope, TheCall->getLocStart(), Kind,
-                                llvm::makeArrayRef(TheCall->getArgs(), TheCall->getNumArgs()),
-                                TheCall->getRParenLoc());
-    }
-    break;
-#endif // INTEL_SPECIFIC_CILKPLUS
 #if INTEL_CUSTOMIZATION
     // CQ#373129 - support for __assume_aligned builtin.
     case Builtin::BI__assume_aligned: {
@@ -12518,16 +12454,6 @@ void Sema::DiagnoseEmptyLoopBody(const Stmt *S,
     StmtLoc = WS->getCond()->getSourceRange().getEnd();
     Body = WS->getBody();
     DiagID = diag::warn_empty_while_body;
-#if INTEL_SPECIFIC_CILKPLUS
-  } else if (const CilkForStmt *CFS = dyn_cast<CilkForStmt>(S)) {
-    StmtLoc = CFS->getCilkForLoc();
-    Body = CFS->getBody()->getCapturedStmt();
-    DiagID = diag::warn_empty_cilk_for_body;
-  } else if (const SIMDForStmt *FS = dyn_cast<SIMDForStmt>(S)) {
-    StmtLoc = FS->getForLoc();
-    Body = FS->getBody()->getCapturedStmt();
-    DiagID = diag::warn_empty_simd_for_body;
-#endif // INTEL_SPECIFIC_CILKPLUS
   } else
     return; // Neither `for' nor `while'.
 

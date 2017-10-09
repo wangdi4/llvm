@@ -12,9 +12,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "CGBlocks.h"
-#if INTEL_SPECIFIC_CILKPLUS
-#include "intel/CGCilkPlusRuntime.h"
-#endif // INTEL_SPECIFIC_CILKPLUS
 #include "CGCXXABI.h"
 #include "CGCleanup.h"
 #include "CGDebugInfo.h"
@@ -46,16 +43,6 @@ using namespace CodeGen;
 
 void CodeGenFunction::EmitDecl(const Decl &D) {
   switch (D.getKind()) {
-#if INTEL_CUSTOMIZATION
-  case Decl::Pragma:
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-    CodeGenFunction(CGM).EmitPragmaDecl(cast<PragmaDecl>(D));
-    return;
-#else
-    llvm_unreachable(
-      "Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
-#endif  // INTEL_CUSTOMIZATION
   case Decl::BuiltinTemplate:
   case Decl::TranslationUnit:
   case Decl::ExternCContext:
@@ -152,10 +139,6 @@ void CodeGenFunction::EmitDecl(const Decl &D) {
           EmitVarDecl(*HD);
     return;
   }
-#if INTEL_SPECIFIC_CILKPLUS
-  case Decl::CilkSpawn:
-    return EmitCilkSpawnDecl(cast<CilkSpawnDecl>(&D));
-#endif                     // INTEL_SPECIFIC_CILKPLUS
 
   case Decl::OMPDeclareReduction:
     return CGM.EmitOMPDeclareReduction(cast<OMPDeclareReductionDecl>(&D), this);
@@ -1012,18 +995,6 @@ static bool shouldUseMemSetPlusStoresToInitialize(llvm::Constant *Init,
 /// variable declaration with auto, register, or no storage class specifier.
 /// These turn into simple stack objects, or GlobalValues depending on target.
 void CodeGenFunction::EmitAutoVarDecl(const VarDecl &D) {
-#if INTEL_SPECIFIC_CILKPLUS
-  if (CGCilkSpawnInfo *Info =
-        dyn_cast_or_null<CGCilkSpawnInfo>(CapturedStmtInfo)) {
-    // Do initialization if this decl is inside the helper function.
-    if (Info->isReceiverDecl(&D)) {
-      AutoVarEmission Emission(D);
-      Emission.Addr = Info->getReceiverAddr();
-      EmitAutoVarInit(Emission);
-      return;
-    }
-  }
-#endif // INTEL_SPECIFIC_CILKPLUS
   AutoVarEmission emission = EmitAutoVarAlloca(D);
   EmitAutoVarInit(emission);
   EmitAutoVarCleanups(emission);
@@ -1190,10 +1161,6 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
     EnsureInsertPoint();
 
     if (!DidCallStackSave) {
-#if INTEL_SPECIFIC_CILKPLUS
-      if (!(CurCGCilkImplicitSyncInfo &&
-            CurCGCilkImplicitSyncInfo->needsImplicitSync())) {
-#endif // INTEL_SPECIFIC_CILKPLUS
       // Save the stack.
       Address Stack =
         CreateTempAlloca(Int8PtrTy, getPointerAlign(), "saved_stack");
@@ -1207,57 +1174,14 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
       // Push a cleanup block and restore the stack there.
       // FIXME: in general circumstances, this should be an EH cleanup.
       pushStackRestore(NormalCleanup, Stack);
-#if INTEL_SPECIFIC_CILKPLUS
-      }
-#endif // INTEL_SPECIFIC_CILKPLUS
     }
     llvm::Value *elementCount;
     QualType elementType;
     std::tie(elementCount, elementType) = getVLASize(Ty);
-#if INTEL_SPECIFIC_CILKPLUS
-    if (CurCGCilkImplicitSyncInfo &&
-        CurCGCilkImplicitSyncInfo->needsImplicitSync()) {
-      llvm::Type *TypeParams[] = {CGM.SizeTy};
-      llvm::FunctionType *FnTy = llvm::FunctionType::get(
-          CGM.VoidPtrTy, TypeParams, /*isVarArg*/ false);
-      llvm::Constant *F = CGM.CreateBuiltinFunction(FnTy, "malloc");
-
-      uint64_t TypeSize =
-          getContext().getTypeSizeInChars(elementType).getQuantity();
-      llvm::Value *VLASize =
-          Builder.CreateMul(llvm::ConstantInt::get(CGM.SizeTy, TypeSize),
-                            elementCount, "sizeof_val");
-      llvm::Value *Args[] = {VLASize};
-      llvm::Value *VLA = EmitRuntimeCall(F, Args);
-      QualType PtrTy = getContext().getPointerType(elementType);
-      VLA = Builder.CreatePointerBitCastOrAddrSpaceCast(VLA, ConvertType(PtrTy),
-                                                        "vla_ptr");
-      address = Address(VLA, alignment);
-
-      llvm::Type *TypeParams2[] = {CGM.VoidPtrTy};
-      llvm::FunctionType *FnTy2 =
-          llvm::FunctionType::get(CGM.VoidTy, TypeParams2, /*isVarArg*/ false);
-      auto F2 = CGM.CreateBuiltinFunction(FnTy2, "free");
-
-      FunctionArgList Args2;
-      ImplicitParamDecl Dst(CGM.getContext(), /*DC=*/nullptr, SourceLocation(),
-                            /*Id=*/nullptr, CGM.getContext().VoidPtrTy,
-                            ImplicitParamDecl::Other);
-      Args2.push_back(&Dst);
-
-      const CGFunctionInfo &FI = CGM.getTypes().
-          arrangeBuiltinFunctionDeclaration(CGM.getContext().VoidTy, Args2);
-
-      EHStack.pushCleanup<CallCleanupFunction>(NormalAndEHCleanup, F2, &FI, &D);
-    } else {
-#endif // INTEL_SPECIFIC_CILKPLUS
     llvm::Type *llvmTy = ConvertTypeForMem(elementType);
 
     // Allocate memory for the array.
     address = CreateTempAlloca(llvmTy, alignment, "vla", elementCount);
-#if INTEL_SPECIFIC_CILKPLUS
-    }
-#endif // INTEL_SPECIFIC_CILKPLUS
   }
 
   setAddrOfLocalVar(&D, address);

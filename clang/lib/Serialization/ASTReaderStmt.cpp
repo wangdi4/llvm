@@ -615,101 +615,7 @@ void ASTStmtReader::VisitArraySubscriptExpr(ArraySubscriptExpr *E) {
   E->setLHS(Record.readSubExpr());
   E->setRHS(Record.readSubExpr());
   E->setRBracketLoc(ReadSourceLocation());
-#if INTEL_SPECIFIC_CILKPLUS
-  if (CEANIndexExpr *CIE = dyn_cast_or_null<CEANIndexExpr>(E->getIdx()))
-    CIE->setBase(E->getBase());
-#endif // INTEL_SPECIFIC_CILKPLUS
 }
-
-#if INTEL_SPECIFIC_CILKPLUS
-//===----------------------------------------------------------------------===//
-// Cilk Plus Expressions and Statements.
-//===----------------------------------------------------------------------===//
-
-void ASTStmtReader::VisitCEANIndexExpr(CEANIndexExpr *E) {
-  VisitExpr(E);
-  E->setBase(0);
-  E->setLowerBound(Record.readSubExpr());
-  E->setColonLoc1(Record.readSourceLocation());
-  E->setLength(Record.readSubExpr());
-  E->setColonLoc2(Record.readSourceLocation());
-  E->setStride(Record.readSubExpr());
-  E->setIndexExpr(Record.readSubExpr());
-  E->setRank(Record.readInt());
-}
-
-void ASTStmtReader::VisitCEANBuiltinExpr(CEANBuiltinExpr *E) {
-  VisitExpr(E);
-  Record.readInt();
-  Record.readInt();
-  E->setBuiltinKind(static_cast<CEANBuiltinExpr::CEANKindType>(Record.readInt()));
-  E->setStartLoc(Record.readSourceLocation());
-  E->setRParenLoc(Record.readSourceLocation());
-  llvm::SmallVector<Expr *, 16> Args;
-  for (unsigned i = 0; i < E->getArgsSize(); ++i)
-    Args.push_back(Record.readSubExpr());
-  E->setArgs(Args);
-  Args.clear();
-  for (unsigned i = 0; i < E->getRank(); ++i)
-    Args.push_back(Record.readSubExpr());
-  E->setLengths(Args);
-  llvm::SmallVector<Stmt *, 16> Vars;
-  for (unsigned i = 0; i < E->getRank(); ++i)
-    Vars.push_back(Record.readSubStmt());
-  E->setVars(Vars);
-  Vars.clear();
-  for (unsigned i = 0; i < E->getRank(); ++i)
-    Vars.push_back(Record.readSubStmt());
-  E->setIncrements(Vars);
-  E->setInit(Record.readSubStmt());
-  E->setBody(Record.readSubStmt());
-  E->setReturnExpr(Record.readSubExpr());
-}
-
-void ASTStmtReader::VisitCilkSpawnExpr(CilkSpawnExpr *E) {
-  llvm_unreachable("not implemented yet");
-}
-
-void ASTStmtReader::VisitCilkSyncStmt(CilkSyncStmt *S) {
-  VisitStmt(S);
-  S->SyncLoc = Record.readSourceLocation();
-}
-
-void ASTStmtReader::VisitCilkForGrainsizeStmt(CilkForGrainsizeStmt *S) {
-  llvm_unreachable("not implemented yet");
-}
-
-void ASTStmtReader::VisitCilkForStmt(CilkForStmt *S) {
-  llvm_unreachable("not implemented yet");
-}
-
-void ASTStmtReader::VisitSIMDForStmt(SIMDForStmt *S) {
-  llvm_unreachable("not implemented yet");
-}
-
-void ASTStmtReader::VisitCilkRankedStmt(CilkRankedStmt *S) {
-  VisitStmt(S);
-  Record.readInt();
-  SmallVector<Expr *, 16> Lengths;
-  for (unsigned i = 0, N = S->getRank(); i < N; ++i)
-    Lengths.push_back(Record.readSubExpr());
-  if (S->getRank() > 0)
-    S->setLengths(Lengths);
-  SmallVector<Stmt *, 16> Vars;
-  for (unsigned i = 0, N = S->getRank(); i < N; ++i)
-    Vars.push_back(Record.readSubStmt());
-  if (S->getRank() > 0)
-    S->setVars(Vars);
-  Vars.clear();
-  for (unsigned i = 0, N = S->getRank(); i < N; ++i)
-    Vars.push_back(Record.readSubStmt());
-  if (S->getRank() > 0)
-    S->setIncrements(Vars);
-  S->setAssociatedStmt(Record.readSubStmt());
-  S->setInits(Record.readSubStmt());
-}
-
-#endif // INTEL_SPECIFIC_CILKPLUS
 
 void ASTStmtReader::VisitOMPArraySectionExpr(OMPArraySectionExpr *E) {
   VisitExpr(E);
@@ -1337,11 +1243,6 @@ void ASTStmtReader::VisitCXXOperatorCallExpr(CXXOperatorCallExpr *E) {
   E->Operator = (OverloadedOperatorKind)Record.readInt();
   E->Range = Record.readSourceRange();
   E->setFPFeatures(FPOptions(Record.readInt()));
-#if INTEL_SPECIFIC_CILKPLUS
-  if (E->Operator == OO_Subscript)
-    if (CEANIndexExpr *CIE = dyn_cast_or_null<CEANIndexExpr>(E->getArg(0)))
-      CIE->setBase(E->getCallee());
-#endif // INTEL_SPECIFIC_CILKPLUS
 }
 
 void ASTStmtReader::VisitCXXConstructExpr(CXXConstructExpr *E) {
@@ -3245,11 +3146,6 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
     case STMT_DECL:
       S = new (Context) DeclStmt(Empty);
       break;
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-    case STMT_PRAGMA:
-      S = new (Context) PragmaStmt(Empty);
-      break;
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
     case STMT_GCCASM:
       S = new (Context) GCCAsmStmt(Empty);
       break;
@@ -3323,16 +3219,6 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
     case EXPR_ARRAY_SUBSCRIPT:
       S = new (Context) ArraySubscriptExpr(Empty);
       break;
-#if INTEL_SPECIFIC_CILKPLUS
-    case EXPR_CEAN_INDEX:
-      S = new (Context) CEANIndexExpr(Empty);
-      break;
-
-    case EXPR_CEAN_BUILTIN:
-      S = CEANBuiltinExpr::CreateEmpty(Context, Record[ASTStmtReader::NumExprFields],
-                                       Record[ASTStmtReader::NumExprFields + 1]);
-      break;
-#endif // INTEL_SPECIFIC_CILKPLUS
 
     case EXPR_OMP_ARRAY_SECTION:
       S = new (Context) OMPArraySectionExpr(Empty);
@@ -4125,30 +4011,6 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
       break;
     }
 
-#if INTEL_SPECIFIC_CILKPLUS
-    case STMT_CILKSYNC:
-      S = new (Context) CilkSyncStmt(Empty);
-      break;
-
-    case STMT_CILK_RANKED:
-      S = CilkRankedStmt::CreateEmpty(Context,
-                                      Record[ASTStmtReader::NumStmtFields],
-                                      Empty);
-      break;
-
-    case STMT_CILK_FOR_GRAINSIZE:
-      llvm_unreachable("not implemented yet");
-      break;
-
-    case STMT_CILK_FOR:
-      llvm_unreachable("not implemented yet");
-      break;
-
-    case STMT_SIMD_FOR:
-      llvm_unreachable("not implemented yet");
-      break;
-#endif // INTEL_SPECIFIC_CILKPLUS
-
     case STMT_COROUTINE_BODY: {
       unsigned NumParams = Record[ASTStmtReader::NumStmtFields];
       S = CoroutineBodyStmt::Create(Context, Empty, NumParams);
@@ -4193,29 +4055,3 @@ Done:
   assert(StmtStack.size() == PrevNumStmts + 1 && "Extra expressions on stack!");
   return StmtStack.pop_back_val();
 }
-
-#if INTEL_CUSTOMIZATION
-void ASTStmtReader::VisitPragmaStmt(PragmaStmt *S) {
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  size_t Attribs;
-  VisitStmt(S);
-  S->setSemiLoc(ReadSourceLocation(Record, Idx));
-  Attribs = Record[Idx++];
-  for(size_t i = 0; i < Attribs; ++i) {
-    S->getAttribs().push_back(
-      IntelPragmaAttrib(Reader.ReadSubExpr(),
-                        (IntelPragmaExprKind)Record[Idx++]));
-  }
-  Attribs = Record[Idx++];
-  for(size_t i = 0; i < Attribs; ++i) {
-    S->getRealAttribs().push_back(Reader.ReadSubExpr());
-  }
-  S->setPragmaKind((IntelPragmaKindType)Record[Idx++]);
-  if (Record[Idx++] > 0)
-    S->setDecl();
-#else
-  llvm_unreachable(
-    "Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
-#endif // INTEL_SPECIFIC_IL0_BACKEND
-}
-#endif // INTEL_CUSTOMIZATION

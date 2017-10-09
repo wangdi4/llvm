@@ -114,9 +114,6 @@ public:
     // without adding related code to TableGen/ClangAttrEmitter.cpp.
     /// Context-sensitive version of a keyword attribute.
     AS_ContextSensitiveKeyword,
-#if INTEL_SPECIFIC_CILKPLUS
-    AS_CilkKeyword
-#endif // INTEL_SPECIFIC_CILKPLUS
   };
 
 private:
@@ -387,10 +384,6 @@ public:
     return SyntaxUsed == AS_C2x;
   }
   bool isKeywordAttribute() const {
-#if INTEL_SPECIFIC_CILKPLUS
-    if (SyntaxUsed == AS_CilkKeyword)
-      return true;
-#endif // INTEL_SPECIFIC_CILKPLUS
     return SyntaxUsed == AS_Keyword || SyntaxUsed == AS_ContextSensitiveKeyword;
   }
   bool isContextSensitiveKeywordAttribute() const {
