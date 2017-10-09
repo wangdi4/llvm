@@ -262,10 +262,6 @@ struct MemopCFG {
     // Whether this parallel section state is incompatible with another one,
     // indicating an incorrect use of parallel section intrinsics.
     bool incompatible_with(const SectionStates&) const;
-
-    // Whether this parallel section state is compatible with another one and
-    // can be used interchangeably with it.
-    bool compatible_with(const SectionStates&) const;
   };
 
   // A holder for all of the relevant information pertaining to a single memop.
@@ -1135,38 +1131,6 @@ bool MemopCFG::SectionStates::incompatible_with(
   return false;
 }
 
-bool MemopCFG::SectionStates::compatible_with(
-  const MemopCFG::SectionStates& that
-) const {
-  using namespace std;
-
-  // Look at each pair of states.
-  for (int region = 0; region < int(states.size()); ++region) {
-    State state_a = states[region];
-    State state_b = that.states[region];
-
-    // If they're the same, they're clearly compatible.
-    if (state_a == state_b) continue;
-
-    // If they're different and neither is no_intrinsics_encountered, they're
-    // not compatible.
-    if (
-      state_a != State::no_intrinsics_encountered
-        and state_b != State::no_intrinsics_encountered
-    ) return false;
-
-    // If one is no_intrinsics_encountered and the other is not_in_section,
-    // they're still compatible.
-    if (state_b == State::no_intrinsics_encountered) swap(state_a, state_b);
-    if (state_b == State::not_in_section) continue;
-
-    // Otherwise, they're not compatible.
-    return false;
-  }
-
-  return true;
-}
-
 // Recursively searches for a virtual register def through phi nodes given a
 // virtual register number and a set of phi nodes that shouldn't be visited
 // again in order to avoid infinite recursion.
@@ -1179,6 +1143,9 @@ static const MachineInstr* find_non_phi_def(
   // Look up the def of the virtual register.
   const MachineInstr*const def = MRI.getUniqueVRegDef(vreg);
   assert(def && "Unexpected non-SSA-form virtual register");
+
+  // If this is an implicit def, ignore it.
+  if (def->isImplicitDef()) return nullptr;
 
   // If it's not a phi node, we're done.
   if (not def->isPHI()) return def;
@@ -1705,8 +1672,8 @@ int MemopCFG::Node::wire_merges(
   for (const MergePhiEntry& mergephi : mergephis) {
     if (sec_states.incompatible_with(mergephi.states)) {
       DEBUG(
-        errs() << "Incompatible section states:\nprev: " << mergephi.states
-          << "\ncur:  " << sec_states << "\n"
+        errs() << BB->getNumber() << ": Incompatible section states:\nprev: "
+          << mergephi.states << "\ncur:  " << sec_states << "\n"
       );
       status = false;
       return -1;
@@ -1719,18 +1686,7 @@ int MemopCFG::Node::wire_merges(
   for (
     int mergephi_idx = 0; mergephi_idx != int(mergephis.size()); ++mergephi_idx
   ) {
-    if (mergephis[mergephi_idx].loop_height == loop_height) {
-      if (not sec_states.compatible_with(mergephis[mergephi_idx].states)) {
-        DEBUG(
-          errs() << "Bad sections states at same nest height:\nprev: "
-            << mergephis[mergephi_idx].states << "\ncur:  " << sec_states
-            << "\n"
-        );
-        status = false;
-        return -1;
-      }
-      return mergephi_idx;
-    }
+    if (mergephis[mergephi_idx].loop_height == loop_height) return mergephi_idx;
   }
 
   // Otherwise, a new mergephi really does need to be constructed.
