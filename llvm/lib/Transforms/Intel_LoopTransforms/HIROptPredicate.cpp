@@ -254,7 +254,7 @@ struct HIROptPredicate::CandidateLookup final : public HLNodeVisitorBase {
   void visit(HLLoop *Loop);
   void visit(const HLLabel *) { HasLabel = true; }
 
-  bool skipRecursion(const HLNode *Node) const override {
+  bool skipRecursion(const HLNode *Node) const {
     return Node == SkipNode;
   }
 

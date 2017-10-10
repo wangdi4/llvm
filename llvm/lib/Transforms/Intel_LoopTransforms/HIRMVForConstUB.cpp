@@ -83,7 +83,7 @@ private:
     void postVisit(const HLNode *) {}
     void visit(const HLNode *) {}
 
-    bool skipRecursion(const HLNode *Node) const override {
+    bool skipRecursion(const HLNode *Node) const {
       return Node == SkipNode;
     }
   };

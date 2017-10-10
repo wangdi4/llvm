@@ -156,7 +156,7 @@ public:
   }
   void postVisit(HLNode *Node) {}
 
-  bool isDone() const override { return AbortCollector; }
+  bool isDone() const { return AbortCollector; }
 
   bool hasNegIVExpr(void) const { return HasNegIVExpr; }
 
@@ -285,7 +285,7 @@ struct HIRLoopReversal::AnalyzeDDInfo final : public HLNodeVisitorBase {
 
   void visit(const HLNode *Node) {}
 
-  bool isDone() const override { return AbortCollector; }
+  bool isDone() const { return AbortCollector; }
 
   // Any premature abort?
   bool getCollectionAborted(void) const { return AbortCollector; }

@@ -64,7 +64,7 @@ class ParVecDirectiveInsertion : public HIRTransformPass {
     /// \brief Returns true if directive is inserted for at least one loop.
     bool getInserted() { return Inserted; }
 
-    bool skipRecursion(const HLNode *Node) const override {
+    bool skipRecursion(const HLNode *Node) const {
       return Node == SkipNode;
     }
   };

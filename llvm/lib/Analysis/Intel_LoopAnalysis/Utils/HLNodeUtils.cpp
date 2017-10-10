@@ -986,7 +986,7 @@ struct HLNodeUtils::LoopFinderUpdater final : public HLNodeVisitorBase {
   void visit(HLNode *Node) {}
   void postVisit(HLNode *Node) {}
 
-  bool isDone() const override {
+  bool isDone() const {
     if (FinderMode && FoundLoop) {
       return true;
     }
@@ -2052,7 +2052,7 @@ struct HLNodeUtils::TopSorter final : public HLNodeVisitorBase {
     visit(static_cast<HLNode *>(Region));
   }
 
-  bool isDone() const override { return Stop; }
+  bool isDone() const { return Stop; }
 
   void postVisit(HLNode *) {}
 };
@@ -2223,7 +2223,7 @@ struct StructuredFlowChecker final : public HLNodeVisitorBase {
 
   void postVisit(const HLNode *) {}
 
-  bool isDone() const override { return (IsDone || !isStructured()); }
+  bool isDone() const { return (IsDone || !isStructured()); }
   bool isStructured() const { return IsStructured; }
 };
 
@@ -3300,7 +3300,7 @@ public:
   void visit(const HLDDNode *Node);
   void postVisit(const HLNode *Node) {}
   void postVisit(const HLDDNode *Node) {}
-  bool isDone() const override { return (NumNonLinearLRefs > 0); }
+  bool isDone() const { return (NumNonLinearLRefs > 0); }
 };
 
 ///  Make a quick pass here to save compile time:

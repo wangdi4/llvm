@@ -303,7 +303,7 @@ public:
   void visit(const HLNode *Node) {}
   void postVisit(const HLNode *Node) {}
 
-  bool isDone() const override { return !IsLegal; }
+  bool isDone() const { return !IsLegal; }
 
   /// Driver function which checks legality of the loop.
   bool isLegal();

@@ -194,7 +194,7 @@ struct DistributionNodeCreator final : public HLNodeVisitorBase {
   DistPPGraph *DGraph;
   DistPPNode *CurDistPPNode;
 
-  bool isDone() const override { return !DGraph->isGraphValid(); }
+  bool isDone() const { return !DGraph->isGraphValid(); }
 
   // establishes HLNode's corresponding DistPPNode
   void addToNodeMap(DistPPNode *DNode, HLNode *HNode) {

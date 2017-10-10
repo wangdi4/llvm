@@ -161,7 +161,7 @@ struct HIRRuntimeDD::MemoryAliasAnalyzer final : public HLNodeVisitorBase {
                  << ": " << HIRRuntimeDD::getResultString(Result) << "\n");
   }
 
-  bool skipRecursion(const HLNode *N) const override { return N == SkipNode; }
+  bool skipRecursion(const HLNode *N) const { return N == SkipNode; }
 
   bool analyzedRefs(RuntimeDDResult Result) const {
     // If we have analyzed the memrefs inside this loop, we can skip recursing

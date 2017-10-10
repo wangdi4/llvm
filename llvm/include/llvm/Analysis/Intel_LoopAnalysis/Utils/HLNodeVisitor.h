@@ -69,9 +69,9 @@ namespace loopopt {
 ///   void visit(HLGoto* Goto) { errs() << "visited goto!\n" }
 ///   void visit(HLInst* Inst) { errs() << "visited instruction!\n" }
 ///
-///   bool isDone() override { return false; }
+///   bool isDone() { return false; }
 ///
-///   bool skipRecursion override (HLNode *Node) { return Node == SkipNode; }
+///   bool skipRecursion(HLNode *Node) { return Node == SkipNode; }
 /// };
 ///
 /// It is also possible to implement generic(catch-all) visit() functions for
@@ -97,8 +97,8 @@ using IsHLNodeTy =
     typename std::enable_if<std::is_base_of<HLNode, T>::value>::type;
 
 struct HLNodeVisitorBase {
-  virtual bool isDone() const { return false; }
-  virtual bool skipRecursion(const HLNode *Node) const { return false; }
+  bool isDone() const { return false; }
+  bool skipRecursion(const HLNode *Node) const { return false; }
 };
 
 template <typename HV, bool Recursive = true, bool RecurseInsideLoops = true,

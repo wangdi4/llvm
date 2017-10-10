@@ -224,7 +224,7 @@ struct HIRLoopInterchange::CollectCandidateLoops final
   }
   void visit(HLNode *Node) {}
   void postVisit(HLNode *Node) {}
-  bool skipRecursion(const HLNode *Node) const override {
+  bool skipRecursion(const HLNode *Node) const {
     return Node == SkipNode;
   }
 };

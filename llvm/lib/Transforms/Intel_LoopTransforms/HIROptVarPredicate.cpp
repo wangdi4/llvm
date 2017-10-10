@@ -246,7 +246,7 @@ public:
   void visit(const HLNode *Node) {}
   void postVisit(const HLNode *Node) {}
 
-  bool skipRecursion(const HLNode *Node) const override {
+  bool skipRecursion(const HLNode *Node) const {
     return SkipNode == Node;
   }
 };

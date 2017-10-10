@@ -444,7 +444,7 @@ public:
 
   void postVisit(HLNode *Node) {}
 
-  bool isDone() const override { return (!IsHandled); }
+  bool isDone() const { return (!IsHandled); }
   bool isHandled() { return IsHandled; }
   bool getUnitStrideRefSeen() { return UnitStrideRefSeen; }
   bool getMemRefSeen() { return MemRefSeen; }
