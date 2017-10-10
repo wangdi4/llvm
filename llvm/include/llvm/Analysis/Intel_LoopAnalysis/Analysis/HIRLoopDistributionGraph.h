@@ -176,6 +176,9 @@ public:
 
   void createNodes();
 
+  // Condenses all DistPPGraph edges into a single PiGraphEdge
+  void createEdges();
+
   // Marks graph as invalid for given reason
   // Possible failures could be too many nodes, edges etc
   void setInvalid(StringRef FailureReason) {
@@ -185,44 +188,6 @@ public:
   bool isGraphValid() { return PPGraph->isGraphValid(); }
 
   std::string getFailureReason() { return PPGraph->getFailureReason(); }
-
-  // Condenses all DistPPGraph edges into a single PiGraphEdge
-  void createEdges() {
-
-    for (auto PiBlkIt = PiBlocks.begin(), PiEndIt = PiBlocks.end();
-         PiBlkIt != PiEndIt; ++PiBlkIt) {
-      PiBlock *SrcBlk = *PiBlkIt;
-      for (auto NodeIt = SrcBlk->dist_node_begin(),
-                EndIt = SrcBlk->dist_node_end();
-           NodeIt != EndIt; ++NodeIt) {
-        // Maps a sink piblock to a list of ddedges
-        DenseMap<PiBlock *, SmallVector<const DDEdge *, 16>> CurEdges;
-
-        // Go through all outgoing dist edges and add their dd edges
-        // to sink pi block's list in CurEdges
-        for (auto EdgeIt = PPGraph->outgoing_edges_begin(*NodeIt),
-                  EndEdgeIt = PPGraph->outgoing_edges_end(*NodeIt);
-             EdgeIt != EndEdgeIt; ++EdgeIt) {
-          PiBlock *SinkPiBlk = DistPPNodeToPiBlock[(*EdgeIt)->getSink()];
-          assert(SinkPiBlk && "Invalid dist edge added");
-          if (SrcBlk == SinkPiBlk) {
-            // No cycles, not even self cycles
-            continue;
-          }
-          CurEdges[SinkPiBlk].append((*EdgeIt)->DDEdges.begin(),
-                                     (*EdgeIt)->DDEdges.end());
-        }
-
-        // Edges in graph cannot be modified once added.
-        // Once all edge lists for a given src piblock are fully created, create
-        // PiGraphEdges out of them
-        for (auto PiEdgeIt = CurEdges.begin(), PiEdgeEnd = CurEdges.end();
-             PiEdgeIt != PiEdgeEnd; ++PiEdgeIt) {
-          addEdge(PiGraphEdge(SrcBlk, PiEdgeIt->first, PiEdgeIt->second));
-        }
-      }
-    }
-  }
 
   SmallVectorImpl<PiBlock *>::iterator node_begin() { return PiBlocks.begin(); }
   SmallVectorImpl<PiBlock *>::iterator node_end() { return PiBlocks.end(); }
@@ -236,7 +201,7 @@ public:
     }
   }
 
-  ~PiGraph() {
+  virtual ~PiGraph() {
     for (PiBlock *PBlk : PiBlocks) {
       delete PBlk;
     }

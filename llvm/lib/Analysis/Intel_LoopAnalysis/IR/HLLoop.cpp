@@ -618,9 +618,7 @@ CanonExpr *HLLoop::getTripCountCanonExpr() const {
   int64_t StrideConst = getStrideCanonExpr()->getConstant();
   Result = getCanonExprUtils().cloneAndSubtract(UBCE, getLowerCanonExpr());
   assert(Result && " Trip Count computation failed.");
-  if (!Result) {
-    return nullptr;
-  }
+
   Result->divide(StrideConst);
   Result->addConstant(StrideConst, true);
   Result->simplify(true);

@@ -77,10 +77,6 @@ static cl::opt<bool>
     ForceDDA("force-hir-dd-analysis", cl::init(false), cl::Hidden,
              cl::desc("forces graph construction for every request"));
 
-typedef DDRefGatherer<DDRef, AllRefs ^ (ConstantRefs | GenericRValRefs |
-                                        IsAddressOfRefs)>
-    DDARefGatherer;
-
 FunctionPass *llvm::createHIRDDAnalysisPass() { return new HIRDDAnalysis(); }
 
 char HIRDDAnalysis::ID = 0;
@@ -185,7 +181,7 @@ DDGraph HIRDDAnalysis::getGraphImpl(const HLNode *Node, bool InputEdgesReq) {
 
   // TODO: We have to treat NoData graph as Invalid if there are edges
   // associated with the Loop/Region. For ex. the distribution pass creates new
-  // loops and populates it with old HLNodes. Calling getGraph() on NoData nodes
+  // loop and populates it with old HLNodes. Calling getGraph() on NoData nodes
   // potentially can lead to duplicated edges or invalid dependencies.
 
   // conservatively assume input edges are always invalid
@@ -482,32 +478,6 @@ void HIRDDAnalysis::GraphVerifier::visit(HLLoop *Loop) {
       (Loop->isInnermost() && CurLevel == DDVerificationLevel::Innermost)) {
     if (!CurDDA->graphForNodeValid(Loop)) {
       CurDDA->buildGraph(Loop, false);
-    }
-  }
-}
-
-bool DDGraph::singleEdgeGoingOut(const DDRef *LRef) {
-  unsigned NumEdge = 0;
-
-  for (auto *Edge : outgoing(LRef)) {
-    (void)Edge;
-    if (NumEdge++ > 1) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-void DDGraph::print(raw_ostream &OS) const {
-  DDARefGatherer::MapTy Refs;
-  DDARefGatherer::gather(CurNode, Refs);
-
-  for (auto Pair : Refs) {
-    for (DDRef *Ref : Pair.second) {
-      for (DDEdge *E : outgoing(Ref)) {
-        E->print(OS);
-      }
     }
   }
 }

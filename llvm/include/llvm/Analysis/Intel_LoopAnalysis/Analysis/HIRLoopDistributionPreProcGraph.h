@@ -167,11 +167,12 @@ public:
 
   // TODO destruction needs to be handled carefully if we want
   // to reuse graph from inner loop dist in outer loop distribution
-  ~DistPPGraph() {
+  virtual ~DistPPGraph() {
     for (DistPPNode *Node : DistPPNodeList) {
       delete Node;
     }
   }
+
   void addNode(DistPPNode *NewNode) { DistPPNodeList.push_back(NewNode); }
 
 private:
