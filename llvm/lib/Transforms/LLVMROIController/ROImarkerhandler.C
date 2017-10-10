@@ -2,7 +2,7 @@
 using namespace std;
 static int regionNumber = 0;
 static bool inRegion = false;
-void ROIMarkerHandler (string fnName, bool isStarting )
+void ROIMarkerHandler (const char * fnName, bool isStarting )
 {
     if(isStarting)
     {
@@ -12,7 +12,7 @@ void ROIMarkerHandler (string fnName, bool isStarting )
         else {
           regionNumber++;
           inRegion = true;
-          cerr << "\t **** Starting ROI " << regionNumber; 
+          cerr << "\t **** Starting ROI " << regionNumber << " function " << fnName << endl; 
         }
     }
     else
@@ -21,7 +21,7 @@ void ROIMarkerHandler (string fnName, bool isStarting )
           cerr << "\t **** NOT in a region. IGNORING STOP\n";
         }
         else {
-          cerr << "\t **** Ending ROI " << regionNumber; 
+          cerr << "\t **** Ending ROI " << regionNumber << " function " << fnName << endl; 
           inRegion = false;
         }
     }

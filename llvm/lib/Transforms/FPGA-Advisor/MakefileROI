@@ -1,8 +1,7 @@
-LLVMSRC=/nfs/mmdc/disks/tpi4/proj/ThreadPoints/DesignForward2/CSA-LPU/Leap-FPGA-Advisor/llvm-3.6.1.src/
 BOOST_ROOT=/usr/intel/pkgs/boost/1.59.0/
 all: ROIhandler
 ROIhandler: ROIhandler.C fpgaROImarkerhandler.C
-	clang -g -emit-llvm ROIhandler.C -c -o ROIhandler.bc
-	clang -g -emit-llvm fpgaROImarkerhandler.C -c -o fpgaROImarkerhandler.bc
+	csa-clang -target x86_64-unknown-linux-gnu -g -emit-llvm ROIhandler.C -c -o ROIhandler.bc
+	csa-clang -target x86_64-unknown-linux-gnu -g -emit-llvm fpgaROImarkerhandler.C -c -o fpgaROImarkerhandler.bc
 clean: 
 	rm *.bc *.o

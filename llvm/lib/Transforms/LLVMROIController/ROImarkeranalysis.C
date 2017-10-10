@@ -45,7 +45,7 @@ static bool init_done = false;
 
 static UINT32 ROIcount; // number of regions, assumed contiguous starting from 1
 
-extern void ROIMarkerHandler (string funcName, bool isStarting );
+extern void ROIMarkerHandler (const char *, bool isStarting );
 
 static bool compareMRI( const struct markerROIInfo *first, const struct markerROIInfo *second) 
 {
@@ -112,6 +112,8 @@ void ROIMarker(int marker, const char * funcName)
     mInfoIterator mit = markerInfoMap.find(marker);
     if (mit == markerInfoMap.end()) {
       struct markerInfo *mi = new struct markerInfo;
+      mi->currentCount = 0;
+      mi->funcName = funcName;
       markerInfoMap.insert(std::pair<int,struct markerInfo *>(marker,mi));
       mit = markerInfoMap.find(marker);
     }
@@ -128,7 +130,7 @@ void ROIMarker(int marker, const char * funcName)
       if(!mriList.empty()){
         if(mit->second->currentCount == mriList.front()->triggerCount){
           cerr << "\t **** ROI " << (mriList.front()->isStart?"start":"stop" ) << endl;
-          ROIMarkerHandler(mit->second->funcName, mriList.front()->isStart);
+          ROIMarkerHandler(mit->second->funcName.c_str(), mriList.front()->isStart);
           mrit->second.pop_front();
         }
       }

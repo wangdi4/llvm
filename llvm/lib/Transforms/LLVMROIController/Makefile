@@ -1,6 +1,6 @@
 BOOST_ROOT=/usr/intel/pkgs/boost/1.59.0/
 
-all: ROIanalysis ROIhandler ROImarkeranalysis
+all: ROIanalysis ROIhandler ROImarker
 
 ROIanalysis: ROIanalysis.C ROIanalysis.H 
 	csa-clang -target x86_64-unknown-linux-gnu -g -I $(CSA_TOP)/tools/src/llvm/include -I $(BOOST_ROOT)/include -emit-llvm ROIanalysis.C	-c -o ROIanalysis.bc
