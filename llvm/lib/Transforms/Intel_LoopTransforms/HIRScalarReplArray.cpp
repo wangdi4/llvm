@@ -190,7 +190,7 @@ LLVM_DUMP_METHOD void RefTuple::print(bool NewLine) const {
 }
 #endif
 
-typedef DDRefGrouping::RefGroupVecTy<const RegDDRef> RefGroupVecTy;
+typedef DDRefGrouping::RefGroupVecTy<const RegDDRef *> RefGroupVecTy;
 
 MemRefGroup::MemRefGroup(RefGroupTy &Group, HIRScalarReplArray *HSRA)
     : HasRWGap(false), HSRA(HSRA), MaxDepDist(-1), NumLoads(0), NumStores(0),

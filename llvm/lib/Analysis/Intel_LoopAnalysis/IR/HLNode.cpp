@@ -216,6 +216,20 @@ void HLNode::printPredicate(formatted_raw_ostream &OS, PredicateTy Pred) {
 #endif // !INTEL_PRODUCT_RELEASE
 }
 
+HLNode *HLNode::getLexicalParent() const {
+  HLNode *Parent = getParent();
+
+  if (auto HInst = dyn_cast<HLInst>(this)) {
+    if (HInst->isInPreheaderOrPostexit()) {
+      assert(isa<HLLoop>(Parent) &&
+             "Parent of preheader/postexit is expected to be a loop");
+      Parent = Parent->getParent();
+    }
+  }
+
+  return Parent;
+}
+
 HLLoop *HLNode::getParentLoop() const {
   assert(!isa<HLRegion>(this) && "Region cannot have a parent!");
 

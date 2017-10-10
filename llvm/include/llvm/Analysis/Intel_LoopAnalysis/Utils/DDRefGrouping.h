@@ -33,7 +33,7 @@ namespace loopopt {
 
 class DDRefGrouping {
 public:
-  template <typename RefTy> using RefGroupTy = SmallVector<RefTy *, 8>;
+  template <typename RefTy> using RefGroupTy = SmallVector<RefTy, 8>;
 
   template <typename RefTy>
   using RefGroupVecTy = std::vector<RefGroupTy<RefTy>>;
@@ -50,7 +50,7 @@ private:
                         unsigned &CurrentGroupIndex) {
     auto StartGroupIndex = CurrentGroupIndex;
 
-    for (auto *Ref : MemRefVector) {
+    for (auto &Ref : MemRefVector) {
       bool MatchFound = false;
 
       // Check if DDRef matches any of the groups.

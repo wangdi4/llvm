@@ -802,6 +802,10 @@ void HLLoop::createZtt(bool IsOverwrite, bool IsSigned) {
 
   assert((!hasZtt() || IsOverwrite) && "Overwriting existing Ztt.");
 
+  if (hasZtt()) {
+    removeZtt();
+  }
+
   // Don't generate Ztt for Const trip loops.
   std::unique_ptr<CanonExpr> TripCE(getTripCountCanonExpr());
   assert(TripCE && " Trip Count CE is null.");

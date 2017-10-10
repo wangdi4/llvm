@@ -117,6 +117,9 @@ FunctionPass *createHIRLoopConcatenationPass();
 
 /// Creates pass that performs array transpose.
 FunctionPass *createHIRArrayTransposePass();
+
+/// Creates pass that fuses loops.
+FunctionPass *createHIRLoopFusionPass();
 }
 
 #endif

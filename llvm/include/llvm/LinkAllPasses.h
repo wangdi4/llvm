@@ -293,6 +293,7 @@ namespace {
       (void) llvm::createHIRMVForConstUBPass();
       (void) llvm::createHIRLoopConcatenationPass();
       (void) llvm::createHIRArrayTransposePass();
+      (void) llvm::createHIRLoopFusionPass();
       (void) llvm::createHIRDummyTransformationPass();
       (void) llvm::createHIRCodeGenPass();
 

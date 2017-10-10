@@ -46,7 +46,7 @@ class BlobUtils;
 // Typedef for a list of HLNodes.
 typedef simple_ilist<HLNode> HLContainerTy;
 
-typedef iterator_range<typename HLContainerTy::iterator> NodeRangeTy;
+typedef iterator_range<typename HLContainerTy::iterator> HLNodeRangeTy;
 
 // Container for Goto's
 typedef SmallVector<HLGoto *, 16> GotoContainerTy;
@@ -201,8 +201,13 @@ public:
   /// Returns true if this node is attached to a HIR region.
   bool isAttached() const { return getParentRegionImpl(); }
 
-  /// \brief Returns the immediate lexical parent of the HLNode.
+  /// Returns the HIR parent of the HLNode.
+  /// This is different for HLInsts which are located in loop
+  /// preheader/postexit.
   HLNode *getParent() const { return Parent; }
+
+  /// Returns the immediate lexical parent of the HLNode.
+  HLNode *getLexicalParent() const;
 
   /// \brief Returns the parent loop of this node, if one exists.
   HLLoop *getParentLoop() const;

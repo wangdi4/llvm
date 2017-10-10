@@ -5133,13 +5133,9 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
 
   if (Result == nullptr) {
     DEBUG(dbgs() << "\nIs Independent!\n");
+    return false;
   } else {
     DEBUG(Result->dump(dbgs()));
-  }
-
-  // Independent?
-  if (Result == nullptr) {
-    return false;
   }
 
   unsigned Levels = Result->getLevels();

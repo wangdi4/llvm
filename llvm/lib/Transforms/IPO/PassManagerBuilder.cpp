@@ -1205,6 +1205,7 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
     }
 
     PM.add(createHIRIdiomRecognitionPass());
+    PM.add(createHIRLoopFusionPass());
 
     if (SizeLevel == 0) {
       PM.add(createHIRUnrollAndJamPass());

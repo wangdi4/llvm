@@ -154,6 +154,18 @@ public:
   /// Returns true if this is a call instruction.
   bool isCallInst() const { return isa<CallInst>(Inst); }
 
+  /// Returns true if \p Call instruction has unsafe side effects.
+  static bool hasUnsafeSideEffect(const CallInst *Call) {
+    assert(Call && "Inst is nullptr");
+    return !Call->onlyReadsMemory() && !Call->onlyAccessesArgMemory();
+  }
+
+  /// Returns true if this is a call instruction with unsafe side effects.
+  bool isUnsafeSideEffectCallInst() const {
+    auto Call = dyn_cast<CallInst>(Inst);
+    return Call && hasUnsafeSideEffect(Call);
+  }
+
   /// Returns true if this is an indirect call instruction.
   bool isIndirectCallInst() const {
     auto Call = dyn_cast<CallInst>(Inst);

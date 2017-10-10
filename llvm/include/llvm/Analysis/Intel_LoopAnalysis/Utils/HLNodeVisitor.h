@@ -105,7 +105,6 @@ template <typename HV, bool Recursive = true, bool RecurseInsideLoops = true,
           bool Forward = true>
 class HLNodeVisitor {
 
-  // TODO: if C++14 would be available, std::is_final can be used
   static_assert(std::is_base_of<HLNodeVisitorBase, HV>::value,
                 "HV must be a final derivative of HLNodeVisitorBase");
 

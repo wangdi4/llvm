@@ -39,4 +39,5 @@ void llvm::initializeIntel_LoopTransforms(PassRegistry &Registry) {
   initializeHIRMVForConstUBPass(Registry);
   initializeHIRLoopConcatenationPass(Registry);
   initializeHIRArrayTransposePass(Registry);
+  initializeHIRLoopFusionPass(Registry);
 }

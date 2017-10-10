@@ -884,13 +884,23 @@ public:
 
   /// Inserts an unlinked Node as first preheader node of Loop.
   static void insertAsFirstPreheaderNode(HLLoop *Loop, HLNode *Node);
+  static void insertAsFirstPreheaderNodes(HLLoop *Loop,
+                                          HLContainerTy *NodeContainer);
+
   /// Inserts an unlinked Node as last preheader node of Loop.
   static void insertAsLastPreheaderNode(HLLoop *Loop, HLNode *Node);
+  static void insertAsLastPreheaderNodes(HLLoop *Loop,
+                                         HLContainerTy *NodeContainer);
 
   /// Inserts an unlinked Node as first postexit node of Loop.
   static void insertAsFirstPostexitNode(HLLoop *Loop, HLNode *Node);
+  static void insertAsFirstPostexitNodes(HLLoop *Loop,
+                                         HLContainerTy *NodeContainer);
+
   /// Inserts an unlinked Node as last postexit node of Loop.
   static void insertAsLastPostexitNode(HLLoop *Loop, HLNode *Node);
+  static void insertAsLastPostexitNodes(HLLoop *Loop,
+                                        HLContainerTy *NodeContainer);
 
   /// Unlinks Node from its current position and inserts it before Pos in HIR.
   static void moveBefore(HLNode *Pos, HLNode *Node);
@@ -1328,13 +1338,13 @@ public:
   // Replaces \p If with its *then* or *else* body.
   // Returns iterator range [FirstBodyChild, LastBodyChild) in the destination
   // container.
-  static NodeRangeTy replaceNodeWithBody(HLIf *If, bool ThenBody);
+  static HLNodeRangeTy replaceNodeWithBody(HLIf *If, bool ThenBody);
 
   // Replaces \p Switch with the body of the case with \p CaseNum.
   // Zero \p CaseNum corresponds to the default case.
   // Returns iterator range [FirstCaseChild, LastCaseChild) in the destination
   // container.
-  static NodeRangeTy replaceNodeWithBody(HLSwitch *Switch, unsigned CaseNum);
+  static HLNodeRangeTy replaceNodeWithBody(HLSwitch *Switch, unsigned CaseNum);
 
   /// Recursively traverse the HIR from the /p Node and remove empty HLLoops and
   /// empty HLIfs.
