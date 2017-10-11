@@ -22,22 +22,23 @@
 //  CPUDeviceTest.cpp
 ///////////////////////////////////////////////////////////
 
-#include "cpu_dev_test.h"
-#include "program.h"
-#include "logger_test.h"
-#include "program_service_test.h"
-#include "kernel_execute_test.h"
-#include "image_test.h"
-#include "task_executor.h"
-#include "logger_test.h"
 #include "cl_sys_info.h"
 #include "cl_utils.h"
+#include "common_utils.h"
+#include "cpu_dev_test.h"
+#include "image_test.h"
+#include "kernel_execute_test.h"
+#include "logger_test.h"
+#include "program.h"
+#include "program_service_test.h"
+#include "task_executor.h"
+
+#include <assert.h>
 #include <cl_device_api.h>
 #include <gtest/gtest.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <assert.h>
 #ifdef _WIN32
 #include <windows.h>
 #else
@@ -134,7 +135,11 @@ bool clGetDeviceInfo_TypeTest()
 			printf("clDevGetDeviceInfo failed param value size is in wrong size: %d instead of %d\n",param_value_size,sizeof(cl_device_type));
 			return false;
 		}
+#ifdef BUILD_FPGA_EMULATOR
+		if(device_type != CL_DEVICE_TYPE_ACCELERATOR)
+#else
 		if(device_type != CL_DEVICE_TYPE_CPU)
+#endif
 		{
 			printf("clDevGetDeviceInfo failed wrong device type %d instead of %d\n", device_type,CL_DEVICE_TYPE_CPU);
 			return false;
@@ -667,9 +672,8 @@ TEST(CpuDeviceTestType, Test_ExecuteNativeKernel)
 
 TEST(CpuDeviceTestType, Test_BuildFromBinary)
 {
-	// [QA]: correct hardcoded path
-	// EXPECT_TRUE(BuildFromBinary_test("validation/cpu_device_test_type/test.bc", 2, "dot_product", 3));
-	EXPECT_TRUE(BuildFromBinary_test("test.bc", 2, "dot_product", 3));
+	std::string filename = get_exe_dir() + "test.bc";
+	EXPECT_TRUE(BuildFromBinary_test(filename.c_str(), 2, "dot_product", 3));
 }
 
 TEST(CpuDeviceTestType, Test_memoryTest)
@@ -679,9 +683,8 @@ TEST(CpuDeviceTestType, Test_memoryTest)
 
 TEST(CpuDeviceTestType, Test_KernelExecute_Math)
 {
-	// [QA]: correct hardcoded path
-	// EXPECT_TRUE(KernelExecute_Math_Test("validation/cpu_device_test_type/test.bc"));
-	EXPECT_TRUE(KernelExecute_Math_Test("test.bc"));
+	std::string filename = get_exe_dir() + "test.bc";
+	EXPECT_TRUE(KernelExecute_Math_Test(filename.c_str()));
 }
 
 #ifndef _WIN32

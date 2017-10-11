@@ -10,7 +10,7 @@
 #include "FrameworkTest.h"
 #include "cl_sys_info.h"
 #include "cl_utils.h"
-#include "test_common.h"
+#include "options.hpp"
 
 #ifdef _WIN32
 #include <windows.h>

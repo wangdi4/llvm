@@ -483,15 +483,24 @@ endif (WIN32)
 
 set(OCL_SYS_DEPENDENT_SUBDIR        ${OS}${ADDR}_${INSTALL_SUBDIR})
 set(OCL_SYS_DEPENDENT_IMPLIB_SUBDIR ${IMPLIB_SUBDIR}/${OCL_SYS_DEPENDENT_SUBDIR})
+
+if (WIN32)
+    set( TBB_LIB_DIR ${OCL_SOURCE_DIR}/externals/tbb/${IMPLIB_SUBDIR}/VS2010${TBB_BINARIES_POSTFIX}/${OCL_SYS_DEPENDENT_SUBDIR} )
+else (WIN32)
+    set( TBB_LIB_DIR ${OCL_SOURCE_DIR}/externals/tbb/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR} )
+endif (WIN32)
 # END OF set OS-dependent source tree elements
 
 
 # Define the single binary directory where the Backend tools will be placed
 set(OCL_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
 set(OCL_TOOLS_BINARY_DIR ${OCL_BINARY_DIR}/bin)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${OCL_TOOLS_BINARY_DIR} )
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${OCL_BINARY_DIR}/lib )
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${OCL_BINARY_DIR}/lib )
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${OCL_TOOLS_BINARY_DIR})
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${OCL_BINARY_DIR}/lib)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${OCL_BINARY_DIR}/lib)
+set(OCL_RUNTIME_BINARY_DIR ${OCL_BINARY_DIR}/bin)
+set(OCL_RUNTIME_LIBS_DIR  ${OCL_BINARY_DIR}/lib)
+set(OCL_TESTS_BINARY_DIR ${OCL_BINARY_DIR}/tests)
 
 
 SET_UNICODE_OFF()
@@ -529,13 +538,15 @@ if (INCLUDE_MIC_DEVICE)
 endif (INCLUDE_MIC_DEVICE)
 
 # paths
+
+set( TBB_INCLUDE_DIRS externals/tbb/include externals/tbb/enhancements )
+
 include_directories( BEFORE
         utils/cl_logger/export
         utils/cl_hw_utils/export
         utils/cl_sys_utils/export
         devices/device_commands/export
-        externals/tbb/include
-        externals/tbb/enhancements
+        ${TBB_INCLUDE_DIRS}
     )
 
 # Framework IDE Folders Names
@@ -560,8 +571,17 @@ if(BUILD_LLVM_FROM_SOURCE)
     add_subdirectory(${LLVM_SRC_ROOT} "${CMAKE_CURRENT_BINARY_DIR}/llvm")
 endif()
 
-#validation
-add_subdirectory( tests )
+# validation
+# TODO: add 'master' option to disable all kinds of validation
+option( OPENCL_RT_INCLUDE_TESTS
+    "Generate build targets for OpenCL RT unittest. Defaults to ON.
+    You can use this option to disable the generation of build targets
+    for OpenCL RT unittests." ON )
+option( OPENCL_RT_BUILD_TESTS "Build OpenCL RT unittests. Defaults to OFF.
+    Targets for building each unittest are generated in any case." OFF )
+if (OPENCL_RT_INCLUDE_TESTS)
+    add_subdirectory( tests )
+endif (OPENCL_RT_INCLUDE_TESTS)
 
 # The conformance tests must be compiled with the headers located in
 # ${OCL_CONFORMANCE_INCLUDE} and not the ones in ${OCL_GLOBAL_INCLUDE}.

@@ -10,4 +10,4 @@ config.build_fpga_emulator = "@BUILD_FPGA_EMULATOR@"
 config.host_arch = "@HOST_ARCH@"
 
 # Let the main config do the real work.
-lit_config.load_config(config, "@BACKEND_ROOT_DIR@/tests/lit.cfg")
+lit_config.load_config(config, "@RT_TESTS_ROOT_DIR@/lit.cfg")

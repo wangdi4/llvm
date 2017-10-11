@@ -9,14 +9,6 @@
 #include "cl_types.h"
 #include "cl_utils.h"
 
-#if defined(_WIN32)
-#define SETENV(NAME,VALUE)      (_putenv_s(NAME,VALUE) == 0)
-#define UNSETENV(NAME)          (_putenv_s(NAME,"") == 0)
-#else
-#define SETENV(NAME,VALUE)      (setenv(NAME,VALUE,1) == 0)
-#define UNSETENV(NAME)          (unsetenv(NAME) == 0)
-#endif
-
 bool CheckCondition(const char * name, bool condition);
 bool SilentCheckCondition(const char * name, bool condition);
 bool Check(const char * name, cl_int expected, cl_int result);

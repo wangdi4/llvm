@@ -15,9 +15,12 @@
 
 #include <CL/cl.h>
 #include <CL/cl_ext.h>
-#include <stdio.h>
+
 #include <gtest/gtest.h>
+#include <stdio.h>
+
 #include "FrameworkTest.h"
+#include "common_utils.h"
 
 #define CL_CONFIG_GL_DIRECTX_INTEROP "CL_CONFIG_GL_DIRECTX_INTEROP"
 

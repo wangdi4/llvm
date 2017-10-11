@@ -1,10 +1,12 @@
 #include <CL/cl.h>
 
+#include <climits>
 #include <cstdio>
 #include <cstdlib>
-#include <climits>
 #include <string>
+
 #include "FrameworkTest.h"
+#include "common_utils.h"
 
 #ifdef _WIN32
 #include <windows.h>

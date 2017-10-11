@@ -5,12 +5,6 @@ add_subdirectory(metadata_api_test_type)
 
 include(${LLVM_PATH}/lib/cmake/llvm/AddLLVM.cmake)
 
-# ugly if becaus ${CMAKE_CFG_INTDIR} doesn't work as expected
-if (WIN32)
-  set(OPENCL_BINARY_DIR ${CMAKE_BINARY_DIR}/bin/${CMAKE_BUILD_TYPE})
-else(WIN32)
-  set(OPENCL_BINARY_DIR ${CMAKE_BINARY_DIR}/bin)
-endif(WIN32)
 set(LLVM_BINARY_DIR ${LLVM_PATH}/bin)
 
 # Let's help CMake to find llvm/utils/lit/lit.py
@@ -23,10 +17,14 @@ configure_lit_site_cfg(
 )
 
 list(APPEND BE_TEST_DEPS
-  oclopt SATest
+  oclopt
   # count not
   # llvm-as llvm-dis FileCheck
 )
+
+if (BACKEND_BUILD_VERIFICATION_LIB)
+  list(APPEND BE_TEST_DEPS SATest)
+endif (BACKEND_BUILD_VERIFICATION_LIB)
 
 # It is used by lit.cfg to find lit.site.cfg when user launches LIT tests from a
 # certain sub-directory instead of launching 'check-ocl-backend' target

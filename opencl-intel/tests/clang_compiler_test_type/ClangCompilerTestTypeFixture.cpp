@@ -20,6 +20,7 @@
 
 #include "ClangCompilerTestTypeFixture.h"
 #include "common_clang.h"
+#include "common_utils.h"
 
 #include <algorithm>
 
@@ -67,7 +68,7 @@ void ClangCompilerTestType::TearDown() {
 
 void ClangCompilerTestType::GetTestSPIRVProgram(std::vector<char>& spirv)
 {
-    std::fstream spirv_file(SPIRV_TEST_FILE, std::fstream::in | std::fstream::binary);
+    std::fstream spirv_file(get_exe_dir() + SPIRV_TEST_FILE, std::fstream::in | std::fstream::binary);
     if (!spirv_file.is_open())
     {
         printf("Error while opening test spirv file: %s\n", SPIRV_TEST_FILE);

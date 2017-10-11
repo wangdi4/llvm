@@ -22,7 +22,7 @@ include_directories( ${OCL_SOURCE_DIR}/externals/gtest/include
   ${OCL_SOURCE_DIR}/cl_api
   ${CL_API_HEADERS}
   ${OCL_SOURCE_DIR}/tests/framework_test_type/
-  ${OCL_SOURCE_DIR}/tests/test_common
+  ${OCL_SOURCE_DIR}/tests/test_utils/export
   ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export
 )
 
@@ -33,19 +33,6 @@ add_executable(
   ${OCL_SOURCE_DIR}/utils/cl_sys_utils/cl_utils.cpp
   ${OCL_SOURCE_DIR}/tests/framework_test_type/test_utils.cpp
 )
-
-#setting TBB directory
-if (WIN32)
-  if (${MSVC_VERSION} EQUAL 1500)
-    # Visual Studio 2008
-    set( TBB_LIB_DIR ${OCL_SOURCE_DIR}/externals/tbb/${IMPLIB_SUBDIR}/VS2008/${OCL_SYS_DEPENDENT_SUBDIR} )
-  else (${MSVC_VERSION} EQUAL 1500)
-    # Visual Studio 2010
-    set( TBB_LIB_DIR ${OCL_SOURCE_DIR}/externals/tbb/${IMPLIB_SUBDIR}/VS2010/${OCL_SYS_DEPENDENT_SUBDIR} )
-  endif (${MSVC_VERSION} EQUAL 1500)
-else (WIN32)
-  set( TBB_LIB_DIR ${OCL_SOURCE_DIR}/externals/tbb/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR} )
-endif (WIN32)
 
 #linking
 link_directories( ${TBB_LIB_DIR} ${CMAKE_INSTALL_PREFIX}/bin/ )

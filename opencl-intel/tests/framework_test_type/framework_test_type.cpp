@@ -1,14 +1,18 @@
 #include "CL/cl.h"
-#include "cl_types.h"
-#include "FrameworkTest.h"
+
 #include <gtest/gtest.h>
-#include <string>
 #include <map>
-#include <test_common.h>
-#include "cl_user_logger.h"
-#include "CL21.h"
-#include "CL20.h"
+#include <string>
+
 #include "CL.h"
+#include "CL20.h"
+#include "CL21.h"
+#include "FrameworkTest.h"
+#include "cl_env.h"
+#include "cl_types.h"
+#include "cl_user_logger.h"
+#include "common_utils.h"
+#include "options.hpp"
 
 namespace Intel { namespace OpenCL { namespace Utils {
 
@@ -21,15 +25,8 @@ FrameworkUserLogger* g_pUserLogger = NULL;
 
 //BC open functions:
 void cpuBCOpen(FILE*& pIRFile){
-  // [QA]: correct hardcoded path
-  // FOPEN(pIRFile, "validation/framework_test_type/test.bc", "rb");
-  FOPEN(pIRFile, "test.bc", "rb");
-}
-
-void micBCOpen(FILE*& pIRFile){
-  // [QA]: remove hardcoded path
-  // FOPEN(pIRFile, "validation/framework_test_type/mic_test.bc", "rb");
-  FOPEN(pIRFile, "mic_test.bc", "rb");
+    std::string filename = get_exe_dir() + "test.bc";
+    FOPEN(pIRFile, filename.c_str(), "rb");
 }
 
 // CL_DEVICE_TYPE_CPU is the default device.
@@ -833,36 +830,55 @@ TEST(FrameworkTestType, clAoSFieldScatterGather)
 //
 int main(int argc, char** argv)
 {
-    std::map<std::string, cl_device_type> clDeviceTypeMap;
     gBcfuncMap[CL_DEVICE_TYPE_CPU] = cpuBCOpen;
-#ifdef BUILD_FPGA_EMULATOR
     gBcfuncMap[CL_DEVICE_TYPE_ACCELERATOR] = cpuBCOpen;
-#else
-    gBcfuncMap[CL_DEVICE_TYPE_ACCELERATOR] = micBCOpen;
-#endif
     gBcfuncMap[CL_DEVICE_TYPE_GPU] = cpuBCOpen;
     gBcfuncMap[CL_DEVICE_TYPE_DEFAULT] = cpuBCOpen;
     gBcfuncMap[CL_DEVICE_TYPE_ALL] = cpuBCOpen;
+
+    std::map<std::string, cl_device_type> clDeviceTypeMap;
     clDeviceTypeMap["cpu"] = CL_DEVICE_TYPE_CPU;
-    clDeviceTypeMap["mic"] = CL_DEVICE_TYPE_ACCELERATOR;
+#ifdef BUILD_FPGA_EMULATOR
     clDeviceTypeMap["fpga_fast_emu"] = CL_DEVICE_TYPE_ACCELERATOR;
+#endif
     clDeviceTypeMap["gpu"] = CL_DEVICE_TYPE_GPU;
     clDeviceTypeMap["default"] = CL_DEVICE_TYPE_DEFAULT;
     clDeviceTypeMap["all"] = CL_DEVICE_TYPE_ALL;
     ::testing::InitGoogleTest(&argc, argv);
-    if (argc > 1) {//are there still arguments left?
-      for (int i=1 ; i<argc ; i++)
-        if (deviceOption.isMatch(argv[i]))
+
+    std::string deviceTypeStr;
+    if (argc > 1)
+    { //are there still arguments left?
+        for (int i=1 ; i<argc ; i++)
         {
-          std::string deviceTypeStr = deviceOption.getValue(argv[i]);
-          std::map<std::string, cl_device_type>::iterator iter = clDeviceTypeMap.find(deviceTypeStr);
-          if (iter == clDeviceTypeMap.end())
-          {
-              printf("error: unkown device option: %s\n", deviceTypeStr.c_str());
-              return 1;
-          }
-          gDeviceType = iter->second;
+            if (deviceOption.isMatch(argv[i]))
+            {
+                deviceTypeStr = deviceOption.getValue(argv[i]);
+                std::map<std::string, cl_device_type>::iterator iter =
+                    clDeviceTypeMap.find(deviceTypeStr);
+                if (iter == clDeviceTypeMap.end())
+                {
+                    printf("error: unkown device option: %s\n",
+                        deviceTypeStr.c_str());
+                    return 1;
+                }
+                gDeviceType = iter->second;
+            }
         }
     }
+
+    if (GetEnv(deviceTypeStr, "CL_DEVICE_TYPE"))
+    {
+        std::map<std::string, cl_device_type>::iterator iter =
+            clDeviceTypeMap.find(deviceTypeStr);
+        if (iter == clDeviceTypeMap.end())
+        {
+            printf("error: unkown value of CL_DEVICE_TYPE env variable: %s\n",
+                deviceTypeStr.c_str());
+            return 1;
+        }
+        gDeviceType = iter->second;
+    }
+
     return RUN_ALL_TESTS();
 }

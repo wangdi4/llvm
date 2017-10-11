@@ -20,11 +20,12 @@
 
 #include "CL/cl.h"
 #include "cl_types.h"
-#include <stdio.h>
-#include <iostream>
+
 #include <fstream>
 #include <stdio.h>
+
 #include "FrameworkTest.h"
+#include "common_utils.h"
 
 #ifdef _WIN32
 #include <windows.h>

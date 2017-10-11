@@ -1,7 +1,12 @@
 #include "CL/cl.h"
 #include "cl_types.h"
+
 #include <stdio.h>
+#include <string>
+
 #include "FrameworkTest.h"
+#include "common_utils.h"
+
 #ifdef _WIN32
 #include <windows.h>
 #endif
@@ -67,7 +72,8 @@ bool clBuildInvalidSpirProgramWithBinaryTest()
     size_t uiContSize = 0;
     FILE* pIRfile = NULL;
 
-    FOPEN(pIRfile, "inv_test.bc", "rb");
+    std::string filename = get_exe_dir() + "inv_test.bc";
+    FOPEN(pIRfile, filename.c_str(), "rb");
 
     fpos_t fileSize;
     SET_FPOS_T(fileSize, 0);

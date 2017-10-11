@@ -12,12 +12,6 @@ include_directories( BEFORE
     css
     css/hrt )
 
-if (WIN32)
-    set( TBB_LIB_DIR ${OCL_SOURCE_DIR}/externals/tbb/${IMPLIB_SUBDIR}/VS2010/${OCL_SYS_DEPENDENT_SUBDIR} )
-else (WIN32)
-    set( TBB_LIB_DIR ${OCL_SOURCE_DIR}/externals/tbb/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR} )
-endif (WIN32)
-
 link_directories( ${TBB_LIB_DIR}
                   ${CMAKE_CURRENT_SOURCE_DIR}/res )
 

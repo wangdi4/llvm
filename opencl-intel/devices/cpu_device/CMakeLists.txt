@@ -41,12 +41,6 @@ endif(WIN32)
 
 set(FILES_TO_COPY ${CMAKE_SHARED_LIBRARY_PREFIX}${TARGET_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX} )
 
-if (WIN32)
-    set( TBB_LIB_DIR  )
-else (WIN32)
-    set( TBB_LIB_DIR ${OCL_SOURCE_DIR}/externals/tbb/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR} )
-endif (WIN32)
-
 link_directories(   ${TBB_LIB_DIR}
                     ${OCL_SOURCE_DIR}/externals/gpa/libs/${TAL_LIB_DIR_SUFFIX}
                 )

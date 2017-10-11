@@ -5,9 +5,9 @@
 #include <stdio.h>
 
 #include <fstream>
-#include <iostream>
 
 #include "FrameworkTest.h"
+#include "common_utils.h"
 
 using namespace Intel::OpenCL::Utils;
 

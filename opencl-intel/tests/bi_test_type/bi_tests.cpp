@@ -2,7 +2,9 @@
 #include <string>
 
 #include "bi_tests.h"
-#include "test_common.h"
+#include "cl_env.h"
+#include "options.hpp"
+#include "common_utils.h"
 
 cl_device_type gDeviceType = CL_DEVICE_TYPE_CPU;
 
@@ -97,10 +99,11 @@ int main(int argc, char **argv) {
   clDeviceTypeMap["default"] = CL_DEVICE_TYPE_DEFAULT;
   clDeviceTypeMap["all"] = CL_DEVICE_TYPE_ALL;
   ::testing::InitGoogleTest(&argc, argv);
+  std::string deviceTypeStr;
   if (argc > 1) {
     for (int i = 1 ; i < argc ; i++)
       if (deviceOption.isMatch(argv[i])) {
-        std::string deviceTypeStr = deviceOption.getValue(argv[i]);
+        deviceTypeStr = deviceOption.getValue(argv[i]);
         auto iter = clDeviceTypeMap.find(deviceTypeStr);
         if (iter == clDeviceTypeMap.end()) {
             printf("error: unkown device option: %s\n", deviceTypeStr.c_str());
@@ -109,5 +112,17 @@ int main(int argc, char **argv) {
         gDeviceType = iter->second;
       }
   }
+
+  if (GetEnv(deviceTypeStr, "CL_DEVICE_TYPE")) {
+    std::map<std::string, cl_device_type>::iterator iter =
+        clDeviceTypeMap.find(deviceTypeStr);
+    if (iter == clDeviceTypeMap.end()) {
+      printf("error: unkown value of CL_DEVICE_TYPE env variable: %s\n",
+          deviceTypeStr.c_str());
+      return 1;
+    }
+    gDeviceType = iter->second;
+  }
+
   return RUN_ALL_TESTS();
 }

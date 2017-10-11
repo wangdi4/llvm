@@ -384,3 +384,69 @@ function(use_eh val)
         endif()    
     endif()
 endfunction(use_eh)
+
+# Set of functions used to add unittests
+# TODO: reuse in backend
+
+# Adds new executable from SOURCE_FILES and links it to LINK_LIBRARIES
+function (add_ocl_unittest test_name)
+  cmake_parse_arguments("ARG" "" "" "SOURCE_FILES;LINK_LIBRARIES" ${ARGN})
+  if (NOT OPENCL_RT_BUILD_TESTS)
+    set(EXCLUDE_FROM_ALL ON)
+  endif (NOT OPENCL_RT_BUILD_TESTS)
+
+  include_directories(${OCL_SOURCE_DIR}/externals/gtest/include)
+  include_directories(${CL_API_HEADERS})
+
+  if (EXCLUDE_FROM_ALL)
+    add_executable(${test_name} EXCLUDE_FROM_ALL ${ARG_SOURCE_FILES})
+  else (EXCLUDE_FROM_ALL)
+    add_executable(${test_name} ${ARG_SOURCE_FILES})
+  endif (EXCLUDE_FROM_ALL)
+
+  target_link_libraries(${test_name} googletest ${PTHREAD_LIB})
+  if (NOT ARG_LINK_LIBRARIES STREQUAL "")
+    target_link_libraries(${test_name} ${ARG_LINK_LIBRARIES})
+  endif (NOT ARG_LINK_LIBRARIES STREQUAL "")
+
+  set_target_properties(${test_name} PROPERTIES
+      RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+      LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+      ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+  set_target_properties(${test_name} PROPERTIES FOLDER "validation")
+
+  string(TOLOWER ${test_name} test_name_lowercase)
+  set(LIT_TARGET check-ocl-${test_name_lowercase})
+  add_lit_testsuite(${LIT_TARGET}
+    "Running the OpenCL ${test_name} unittests"
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    PARAMS ${RT_TEST_PARAMS}
+    DEPENDS ${test_name}
+    ARGS ${RT_TEST_ARGS})
+  set_target_properties(${LIT_TARGET} PROPERTIES FOLDER "Tests")
+endfunction()
+
+# Copies files to current binary dir on build time
+function (add_ocl_unittest_artifacts )
+  cmake_parse_arguments("ARG" "CONFIGURE" "FILE;RENAME" "FILES" ${ARGN})
+  if (NOT "${ARG_FILE}" STREQUAL "")
+    if (NOT "${ARG_RENAME}" STREQUAL "")
+      get_filename_component(FILE_NAME ${ARG_FILE} NAME)
+      set(destination ${CMAKE_CURRENT_BINARY_DIR}/${FILE_NAME})
+    else (NOT "${ARG_RENAME}" STREQUAL "")
+      set(destination ${CMAKE_CURRENT_BINARY_DIR}/${ARG_RENAME})
+    endif (NOT "${ARG_RENAME}" STREQUAL "")
+
+    if (ARG_CONFIGURE)
+      configure_file(${ARG_FILE} ${destination} @ONLY)
+    else (ARG_CONFIGURE)
+      configure_file(${ARG_FILE} ${destination} COPYONLY)
+    endif (ARG_CONFIGURE)
+  endif (NOT "${ARG_FILE}" STREQUAL "")
+
+  foreach(filename ${ARG_FILES})
+    get_filename_component(FILE_NAME ${filename} NAME)
+    set(destination ${CMAKE_CURRENT_BINARY_DIR}/${FILE_NAME})
+    configure_file(${filename} ${destination} COPYONLY)
+  endforeach(filename)
+endfunction()

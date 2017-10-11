@@ -4,12 +4,15 @@
 #include <sstream>
 #include <map>
 
+#include "common_utils.h"
+
 class PipeTest : public BITest {
 protected:
   virtual void SetUp() {
     BITest::SetUp();
 
-    std::ifstream file("pipe_tests.cl");
+    std::string filename = get_exe_dir() + "pipe_tests.cl";
+    std::ifstream file(filename);
     std::stringstream buf;
     buf << file.rdbuf();
 
@@ -20,7 +23,7 @@ protected:
       clCreateProgramWithSource(context, 1, &src, NULL, &error);
     ASSERT_EQ(error, CL_SUCCESS);
 
-    error = clBuildProgram(program, 1, &device, "-cl-std=CL2.0", NULL, NULL);
+    error = clBuildProgram(program, 1, &device, "-cl-std=CL2.0 -Ibi_test_type", NULL, NULL);
     size_t log_size;
     clGetProgramBuildInfo(program, device,
                           CL_PROGRAM_BUILD_LOG, 0, NULL, &log_size);

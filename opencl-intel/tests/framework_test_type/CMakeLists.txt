@@ -1,38 +1,11 @@
-#ensure we are using the frontend LLVM tools
-if( NOT DEFINED LLVM_PATH_FE )
-    message( FATAL_ERROR "LLVM_PATH_FE is not specified. Please specify LLVM library location for fronted using LLVM_PATH_FE parameter to CMAKE" )
-endif()
-
-set(LLVM_PATH ${LLVM_PATH_FE})
-find_package(LLVM REQUIRED)
-
-if( CMAKE_CROSSCOMPILING OR LLVM_USE_NATIVE OR ANDROID )
-   set(TOOLS_BINARY_DIR "${LLVM_BINARY_DIR}/../native/bin")
-   set(SPIRV_CONVERTER  "${LLVM_PATH_BE}/native/bin/llvm-spirv")
-else()
-   set(TOOLS_BINARY_DIR "${LLVM_BINARY_DIR}" )
-   set(SPIRV_CONVERTER  "${LLVM_PATH_BE}/bin/llvm-spirv")
-endif()
-
-set( CLANG "${TOOLS_BINARY_DIR}/clang" )
-
-if (INCLUDE_MIC_DEVICE)
-  add_definitions( -DINCLUDE_MIC_DEVICE )
-endif (INCLUDE_MIC_DEVICE)
-
 if (INCLUDE_MKL)
-	add_definitions( -D__INCLUDE_MKL__ )
+    add_definitions( -D__INCLUDE_MKL__ )
 endif(INCLUDE_MKL)
-
-#include helping functions of cmake.
-include (../../cmake_utils/CMakeFuncs.txt)
 
 set( TARGET framework_test_type )
 
-include_directories( ../../framework/export 
-                     ../../externals/gtest/include
-                     ${CL_API_HEADERS}
-                     ${OCL_SOURCE_DIR}/tests/test_common )
+include_directories( ${OCL_SOURCE_DIR}/framework/export
+                     ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export )
 
 if (NOT WIN32)
     # silence warning coming from a gtest header.
@@ -44,29 +17,26 @@ set( IGNORE_FILES clBuildCubinProgram|clBuildProgram.cpp|clCreateCudaKernel|clCr
 FIND_SOURCES( ${IGNORE_FILES} )
 CALCULATE_TARGET_SOURCES()
 
-if (WIN32)
-    if (${MSVC_VERSION} EQUAL 1500)
-        # Visual Studio 2008
-        set( TBB_LIB_DIR ${OCL_SOURCE_DIR}/externals/tbb/${IMPLIB_SUBDIR}/VS2008/${OCL_SYS_DEPENDENT_SUBDIR} )
-    else (${MSVC_VERSION} EQUAL 1500)
-        # Visual Studio 2010
-        set( TBB_LIB_DIR ${OCL_SOURCE_DIR}/externals/tbb/${IMPLIB_SUBDIR}/VS2010${TBB_BINARIES_POSTFIX}/${OCL_SYS_DEPENDENT_SUBDIR} )
-    endif (${MSVC_VERSION} EQUAL 1500)
-else (WIN32)
-    set( TBB_LIB_DIR ${OCL_SOURCE_DIR}/externals/tbb/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR} )
-endif (WIN32)
+set( TARGET_LIBS test_utils )
 
 link_directories( ${TBB_LIB_DIR} )
 
-add_executable( ${TARGET} ${TARGET_SOURCES} )
+if (WIN32)
+  set( TARGET_LIBS ${TARGET_LIBS} delayimp )
+endif (WIN32)
 
-target_link_libraries( ${TARGET} googletest )
+if (NOT WIN32 OR BUILD_FPGA_EMULATOR)
+  set( TARGET_LIBS ${TARGET_LIBS} intelocl${BUILD_PLATFORM}${OPENCL_BINARIES_POSTFIX} )
+else (NOT WIN32 OR BUILD_FPGA_EMULATOR)
+  set( TARGET_LIBS ${TARGET_LIBS} intelocl${BUILD_PLATFORM} )
+endif (NOT WIN32 OR BUILD_FPGA_EMULATOR)
 
-if (NOT WIN32)
-  target_link_libraries( ${TARGET} ${PTHREAD_LIB} )
-else (NOT WIN32)
-  target_link_libraries( ${TARGET} delayimp )
+set_source_files_properties( cl_device_local_mem_size.cpp PROPERTIES COMPILE_DEFINITIONS STACK_SIZE=8388608 )
 
+add_ocl_unittest( ${TARGET} SOURCE_FILES ${TARGET_SOURCES}
+    LINK_LIBRARIES ${TARGET_LIBS} )
+
+if (WIN32)
   set_target_properties(${TARGET} PROPERTIES
     LINK_FLAGS_RELEASE "${LINK_FLAGS_RELEASE} /DELAYLOAD:tbb${TBB_BINARIES_POSTFIX}.dll"
     LINK_FLAGS_DEBUG "${LINK_FLAGS_DEBUG} /DELAYLOAD:tbb_debug${TBB_BINARIES_POSTFIX}.dll"
@@ -74,28 +44,8 @@ else (NOT WIN32)
 
   # set 8 MB of stack size
   set_target_properties( ${TARGET} PROPERTIES LINK_FLAGS /STACK:"8388608" )
-endif (NOT WIN32)
+endif (WIN32)
 
-if (NOT WIN32 OR BUILD_FPGA_EMULATOR)
-  target_link_libraries( ${TARGET} intelocl${BUILD_PLATFORM}${OPENCL_BINARIES_POSTFIX} )
-else (NOT WIN32 OR BUILD_FPGA_EMULATOR)
-  target_link_libraries( ${TARGET} intelocl${BUILD_PLATFORM} )
-endif (NOT WIN32 OR BUILD_FPGA_EMULATOR)
-
-set_source_files_properties( cl_device_local_mem_size.cpp PROPERTIES COMPILE_DEFINITIONS STACK_SIZE=8388608 )
-
-set( CREATE_DIR_NAME tests/framework_test_type)
-
-file(GLOB_RECURSE CP_FILES RELATIVE  ${CMAKE_CURRENT_SOURCE_DIR} *.py *.xml *.xsd )
-# Copy *.py *.xml and *.xsd from current directory to appropriate test directory in 'Release' area.
-install(FILES ${CP_FILES} DESTINATION ${CREATE_DIR_NAME})
-# Copy *.py from ../GeneralScripts directory to appropriate test directory in 'Release' area.
-install(FILES ../GeneralScripts/cmk_test_type_runner.py ../GeneralScripts/cmk_xml_entities.py DESTINATION ${CREATE_DIR_NAME})
-# Copy generated executable to appropriate test directory in 'Release' area.
-install(TARGETS ${TARGET} DESTINATION ${CREATE_DIR_NAME})
-# Copy *.xml cfg files which defines the options of the test to appropriate test directory in 'Release' area.
-install(FILES cfg_win.xml cfg_linux.xml DESTINATION ${CREATE_DIR_NAME}/framework_test)
-install(FILES framework_test_type.pm DESTINATION ${CREATE_DIR_NAME})
 
 set( INCLUDE_HEADERS_PATH ${LLVM_INCLUDE_DIRS}/cclang)
 
@@ -126,39 +76,19 @@ set (
 set( REQD_NUM_SG_INPUT_FILE reqd_num_sub_groups_32.bc )
 endif(BUILD_X64)
 
-if ( INCLUDE_MIC_DEVICE )
-set( MIC_SPIR_OUTPUT_FILE mic_test.bc )
-
-set (MIC_OPTIONS
-  -cc1 -emit-llvm-bc -fblocks -x cl -I ${INCLUDE_HEADERS_PATH} -include opencl-c.h -o
-  ${CMAKE_CURRENT_BINARY_DIR}/${MIC_SPIR_OUTPUT_FILE}
-  ${SPIR_OPT}
-  ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
-)
-
-add_custom_command( TARGET ${TARGET}
-  POST_BUILD
-  COMMAND ${CLANG} ${MIC_OPTIONS}
-  MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
-  DEPENDS ${INCLUDE_HEADERS_PATH}/opencl-c.h
-  COMMENT "Generate spir binary for framework_test_type: ${MIC_SPIR_OUTPUT_FILE}"
-  VERBATIM
-)
-
-endif ( INCLUDE_MIC_DEVICE )
-
 add_custom_command( TARGET ${TARGET}
   POST_BUILD
   COMMAND ${CLANG} -cc1 -x cl ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
   -I ${INCLUDE_HEADERS_PATH} -emit-llvm-bc
   ${SPIR_OPT}
-  -include opencl-c.h -O0 -o ${CMAKE_CURRENT_BINARY_DIR}/${SPIR_OUTPUT_FILE}
+  -include opencl-c.h -disable-llvm-passes -o ${CMAKE_CURRENT_BINARY_DIR}/${SPIR_OUTPUT_FILE}
   COMMAND ${CLANG} -cc1 -x cl ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
   -I ${INCLUDE_HEADERS_PATH} -emit-llvm-bc
   ${INV_SPIR_OPT}
-  -include opencl-c.h -O0 -o ${CMAKE_CURRENT_BINARY_DIR}/${INV_SPIR_OUTPUT_FILE}
+  -include opencl-c.h -disable-llvm-passes -o ${CMAKE_CURRENT_BINARY_DIR}/${INV_SPIR_OUTPUT_FILE}
   MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
   DEPENDS ${INCLUDE_HEADERS_PATH}/opencl-c.h
+  BYPRODUCTS ${SPIR_OUTPUT_FILE} ${INV_SPIR_OUTPUT_FILE}
   COMMENT "Generate spir binary files for framework_test_type:  ${SPIR_OUTPUT_FILE}, ${INV_SPIR_OUTPUT_FILE}"
   VERBATIM
 )
@@ -167,23 +97,9 @@ add_custom_command( TARGET ${TARGET}
   POST_BUILD
   COMMAND ${SPIRV_CONVERTER} -o ${SPIRV_OUTPUT_FILE} ${CMAKE_CURRENT_BINARY_DIR}/${SPIR_OUTPUT_FILE}
   DEPENDS ${SPIR_OUTPUT_FILE}
+  BYPRODUCTS ${SPIRV_OUTPUT_FILE}
   COMMENT "Generate spirv binary files for framework_test_type:  ${SPIRV_OUTPUT_FILE}"
   VERBATIM
 )
-
-set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/${SPIR_OUTPUT_FILE} PROPERTIES GENERATED TRUE)
-if ( INCLUDE_MIC_DEVICE )
-  set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/${MIC_SPIR_OUTPUT_FILE} PROPERTIES GENERATED TRUE)
-endif ( INCLUDE_MIC_DEVICE )
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${SPIR_OUTPUT_FILE} DESTINATION ${CREATE_DIR_NAME})
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${INV_SPIR_OUTPUT_FILE} DESTINATION ${CREATE_DIR_NAME})
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${SPIRV_OUTPUT_FILE} DESTINATION ${CREATE_DIR_NAME})
-install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/${REQD_NUM_SG_INPUT_FILE} DESTINATION ${CREATE_DIR_NAME})
-if ( INCLUDE_MIC_DEVICE )
-  install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${MIC_SPIR_OUTPUT_FILE} DESTINATION ${CREATE_DIR_NAME})
-endif ( INCLUDE_MIC_DEVICE )
-
-set_target_properties( ${TARGET} PROPERTIES FOLDER "validation" )
-#set_target_properties( framework_test_type_kernel PROPERTIES FOLDER "validation/workloads" )
 
 add_dependencies( ${TARGET} clang_compiler${BUILD_PLATFORM} )
