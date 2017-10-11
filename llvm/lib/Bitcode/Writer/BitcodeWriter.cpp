@@ -537,6 +537,12 @@ static uint64_t getAttrKindEncoding(Attribute::AttrKind Kind) {
     return bitc::ATTR_KIND_INACCESSIBLEMEM_OR_ARGMEMONLY;
   case Attribute::InlineHint:
     return bitc::ATTR_KIND_INLINE_HINT;
+#if INTEL_CUSTOMIZATION
+  case Attribute::NoinlineList:
+    return bitc::ATTR_KIND_NOINLINE_LIST;
+  case Attribute::InlineList:
+    return bitc::ATTR_KIND_INLINE_LIST;
+#endif // INTEL_CUSTOMIZATION
   case Attribute::InReg:
     return bitc::ATTR_KIND_IN_REG;
   case Attribute::JumpTable:

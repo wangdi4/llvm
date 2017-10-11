@@ -2140,6 +2140,21 @@ InlineCost llvm::getInlineCost(
   if (!Callee)
     return llvm::InlineCost::getNever(NinlrIndirect); // INTEL
 
+#if INTEL_CUSTOMIZATION
+  // Give the priority to Attribute::InlineList and Attribute::NoinlineList
+  if (CS.hasFnAttr(Attribute::InlineList)) {
+    InlineReason Reason = InlrNoReason;
+    if (isInlineViable(*Callee, Reason)) {
+      return llvm::InlineCost::getAlways(InlrInlineList);
+    }
+    assert(IsNotInlinedReason(Reason));
+    return llvm::InlineCost::getNever(Reason);
+  }
+  if (CS.hasFnAttr(Attribute::NoinlineList)) {
+    return llvm::InlineCost::getNever(NinlrNoinlineList);
+  }
+#endif // INTEL_CUSTOMIZATION
+
   // Calls to functions with always-inline attributes should be inlined
   // whenever possible.
   if (CS.hasFnAttr(Attribute::AlwaysInline)) {

@@ -20,6 +20,7 @@
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/FunctionAttrs.h"
+#include "llvm/Transforms/IPO/InlineLists.h" // INTEL
 
 using namespace llvm;
 
@@ -35,6 +36,7 @@ void llvm::initializeIPO(PassRegistry &Registry) {
   initializeGlobalSplitPass(Registry);
   initializeIPCPPass(Registry);
   initializeAlwaysInlinerLegacyPassPass(Registry);
+  initializeInlineListsPass(Registry); // INTEL
   initializeSimpleInlinerPass(Registry);
   initializeInferFunctionAttrsLegacyPassPass(Registry);
   initializeInternalizeLegacyPassPass(Registry);
@@ -76,6 +78,12 @@ void LLVMAddConstantMergePass(LLVMPassManagerRef PM) {
 void LLVMAddDeadArgEliminationPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createDeadArgEliminationPass());
 }
+
+#if INTEL_CUSTOMIZATION
+void LLVMAddInlineListsPass(LLVMPassManagerRef PM) {
+  unwrap(PM)->add(createInlineListsPass());
+}
+#endif  // INTEL_CUSTOMIZATION
 
 void LLVMAddFunctionAttrsPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createPostOrderFunctionAttrsLegacyPass());

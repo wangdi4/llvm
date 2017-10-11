@@ -36,6 +36,32 @@ using namespace InlineReportTypes; // INTEL
 
 #define DEBUG_TYPE "inline"
 
+#if INTEL_CUSTOMIZATION
+// Inline if function has always_inline or inline_list attributes, don't inline
+// if function has noinline-list attribute. InlineList/NoinlineList attributes
+// are stronger than any other attributes of function.
+static bool hasAppropriateInlineAttribute(Function &F) {
+  if (F.hasFnAttribute(Attribute::NoinlineList))
+    return false;
+  if (F.hasFnAttribute(Attribute::AlwaysInline) ||
+      F.hasFnAttribute(Attribute::InlineList))
+    return true;
+  return false;
+}
+
+// Inline if callsite has always_inline or inline_list attributes, don't inline
+// if callsite has noinline-list attribute. InlineList/NoinlineList attributes
+// are stronger than any other attributes of function.
+static bool hasAppropriateInlineAttribute(CallSite &CS) {
+  if (CS.hasFnAttr(Attribute::NoinlineList))
+    return false;
+  if (CS.hasFnAttr(Attribute::AlwaysInline) ||
+      CS.hasFnAttr(Attribute::InlineList))
+    return true;
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
+
 PreservedAnalyses AlwaysInlinerPass::run(Module &M, ModuleAnalysisManager &) {
   InlineFunctionInfo IFI;
   SmallSetVector<CallSite, 16> Calls;
@@ -43,7 +69,7 @@ PreservedAnalyses AlwaysInlinerPass::run(Module &M, ModuleAnalysisManager &) {
   SmallVector<Function *, 16> InlinedFunctions;
   InlineReason Reason; // INTEL
   for (Function &F : M)
-    if (!F.isDeclaration() && F.hasFnAttribute(Attribute::AlwaysInline) &&
+    if (!F.isDeclaration() && hasAppropriateInlineAttribute(F) && // INTEL
         isInlineViable(F, Reason)) { // INTEL
       Calls.clear();
 
@@ -201,11 +227,19 @@ InlineCost AlwaysInlinerLegacyPass::getInlineCost(CallSite CS) {
   // Only inline direct calls to functions with always-inline attributes
   // that are viable for inlining. FIXME: We shouldn't even get here for
   // declarations.
-  InlineReason Reason; // INTEL
+#if INTEL_CUSTOMIZATION
+  InlineReason Reason;
   if (Callee && !Callee->isDeclaration() &&
-      CS.hasFnAttr(Attribute::AlwaysInline) &&
-      isInlineViable(*Callee, Reason)) // INTEL
-    return InlineCost::getAlways(InlrAlwaysInline); // INTEL
+      hasAppropriateInlineAttribute(CS) &&
+      isInlineViable(*Callee, Reason)) {
+    if (CS.hasFnAttr(Attribute::InlineList))
+      return InlineCost::getAlways(InlrInlineList);
+    return InlineCost::getAlways(InlrAlwaysInline);
+  }
 
-  return InlineCost::getNever(NinlrNotAlwaysInline); // INTEL
+  if (CS.hasFnAttr(Attribute::NoinlineList))
+    return InlineCost::getNever(NinlrNoinlineList);
+
+  return InlineCost::getNever(NinlrNotAlwaysInline);
+#endif // INTEL_CUSTOMIZATION
 }

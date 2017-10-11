@@ -393,7 +393,7 @@ static bool shouldInline(CallSite CS,
              << NV("Caller", Caller)
              << " because it should never be inlined (cost=never)");
     if (IR != nullptr)                             // INTEL
-      IR->setReasonNotInlined(CS, NinlrNeverInline); // INTEL
+      IR->setReasonNotInlined(CS, IC.getInlineReason()); // INTEL
     return false;
   }
 

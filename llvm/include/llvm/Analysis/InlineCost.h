@@ -109,6 +109,7 @@ typedef enum {
    InlrNoReason,
    InlrAlwaysInline,
    InlrAlwaysInlineRecursive, // INTEL
+   InlrInlineList,            // INTEL
    InlrSingleLocalCall,
    InlrSingleBasicBlock,
    InlrAlmostSingleBasicBlock,
@@ -121,6 +122,7 @@ typedef enum {
    InlrLast, // Just a marker placed after the last inlining reason
    NinlrFirst, // Just a marker placed before the first non-inlining reason
    NinlrNoReason,
+   NinlrNoinlineList,         // INTEL
    NinlrColdCC,
    NinlrDeleted,
    NinlrDuplicateCall,

@@ -643,6 +643,8 @@ lltok::Kind LLLexer::LexIdentifier() {
 #if INTEL_CUSTOMIZATION
   KEYWORD(inlinehint_recursive);
   KEYWORD(alwaysinline_recursive);
+  KEYWORD(inlinelist);
+  KEYWORD(noinlinelist);
 #endif // INTEL_CUSTOMIZATION
   KEYWORD(norecurse);
   KEYWORD(nonlazybind);

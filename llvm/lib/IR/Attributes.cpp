@@ -294,6 +294,10 @@ std::string Attribute::getAsString(bool InAttrGrp) const {
     return "alwaysinline_recursive";
   if (hasAttribute(Attribute::InlineHintRecursive))
     return "inlinehint_recursive";
+  if (hasAttribute(Attribute::InlineList))
+    return "inlinelist";
+  if (hasAttribute(Attribute::NoinlineList))
+    return "noinlinelist";
 #endif  // INTEL_CUSTOMIZATION
   if (hasAttribute(Attribute::NonLazyBind))
     return "nonlazybind";

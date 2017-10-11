@@ -47,6 +47,7 @@
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/FunctionAttrs.h"
+#include "llvm/Transforms/IPO/InlineLists.h" // INTEL
 #include "llvm/Transforms/Instrumentation.h"
 #include "llvm/Transforms/ObjCARC.h"
 #include "llvm/Transforms/Scalar.h"
@@ -77,13 +78,14 @@ namespace {
       (void) llvm::createBitTrackingDCEPass();
       (void) llvm::createArgumentPromotionPass();
       (void) llvm::createAlignmentFromAssumptionsPass();
-#if INTEL_CUSTOMIZATION 
-      (void) llvm::createAndersensAAWrapperPass(); 
-      (void) llvm::createNonLTOGlobalOptimizerPass(); 
-      (void) llvm::createTbaaMDPropagationPass();    
+#if INTEL_CUSTOMIZATION
+      (void) llvm::createAndersensAAWrapperPass();
+      (void) llvm::createNonLTOGlobalOptimizerPass();
+      (void) llvm::createTbaaMDPropagationPass();
       (void) llvm::createCleanupFakeLoadsPass();
-      (void) llvm::createStdContainerOptPass();      
-      (void) llvm::createStdContainerAAWrapperPass();  
+      (void) llvm::createStdContainerOptPass();
+      (void) llvm::createStdContainerAAWrapperPass();
+      (void) llvm::createInlineListsPass();
 #endif // INTEL_CUSTOMIZATION
       (void) llvm::createBasicAAWrapperPass();
       (void) llvm::createSCEVAAWrapperPass();
@@ -240,9 +242,9 @@ namespace {
       (void) llvm::AreStatisticsEnabled();
       (void) llvm::sys::RunningOnValgrind();
 
-  #if INTEL_CUSTOMIZATION 
+  #if INTEL_CUSTOMIZATION
       (void) llvm::createSNodeAnalysisPass();
-      (void) llvm::createLoopOptMarkerPass(); 
+      (void) llvm::createLoopOptMarkerPass();
       // HIR passes
       (void) llvm::createHIRRegionIdentificationPass();
       (void) llvm::createHIRSCCFormationPass();

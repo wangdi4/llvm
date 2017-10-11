@@ -74,6 +74,7 @@ MODULE_PASS("rpo-functionattrs", ReversePostOrderFunctionAttrsPass())
 MODULE_PASS("sample-profile", SampleProfileLoaderPass())
 MODULE_PASS("strip-dead-prototypes", StripDeadPrototypesPass())
 MODULE_PASS("wholeprogramdevirt", WholeProgramDevirtPass())
+MODULE_PASS("inlinelists", InlineListsPass()) // INTEL
 MODULE_PASS("verify", VerifierPass())
 #undef MODULE_PASS
 

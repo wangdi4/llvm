@@ -54,6 +54,7 @@
 ; CHECK-O2-NEXT: Running pass: InstCombinePass
 ; CHECK-EP-Peephole-NEXT: Running pass: NoOpFunctionPass
 ; CHECK-O2-NEXT: Finished llvm::Function pass manager run.
+; CHECK-O2-NEXT: Running pass: InlineListsPass
 ; CHECK-O2-NEXT: Running pass: ModuleToPostOrderCGSCCPassAdaptor<{{.*}}InlinerPass>
 ; CHECK-O2-NEXT: Running pass: GlobalOptPass
 ; CHECK-O2-NEXT: Running pass: GlobalDCEPass

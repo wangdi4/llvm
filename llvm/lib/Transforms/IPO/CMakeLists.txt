@@ -20,6 +20,7 @@ add_llvm_library(LLVMipo
   InlineSimple.cpp
   Inliner.cpp
   Intel_IPCloning.cpp     # INTEL
+  InlineLists.cpp   # INTEL
   Internalize.cpp
   LoopExtractor.cpp
   LowerTypeTests.cpp

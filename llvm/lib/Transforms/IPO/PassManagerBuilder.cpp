@@ -54,6 +54,7 @@
 #include "llvm/Transforms/Utils/Intel_VecClone.h" 
 #include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h"
 #include "llvm/Transforms/Intel_VPO/Paropt/VPOParopt.h"
+#include "llvm/Transforms/IPO/InlineLists.h"
 #endif //INTEL_CUSTOMIZATION
 
 using namespace llvm;
@@ -539,6 +540,7 @@ void PassManagerBuilder::populateModulePassManager(
   if (OptLevel == 0) {
     addPGOInstrPasses(MPM);
     if (Inliner) {
+      MPM.add(createInlineListsPass()); // INTEL: -[no]inline-list parsing
       MPM.add(Inliner);
       Inliner = nullptr;
     }
@@ -631,6 +633,9 @@ void PassManagerBuilder::populateModulePassManager(
   // not run it a second time
   if (!PerformThinLTO && !PrepareForThinLTOUsingPGOSampleProfile)
     addPGOInstrPasses(MPM);
+
+  if (Inliner)
+    MPM.add(createInlineListsPass()); // INTEL: -[no]inline-list parsing
 
   if (EnableNonLTOGlobalsModRef)
     // We add a module alias analysis pass here. In part due to bugs in the
@@ -940,6 +945,10 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   addExtensionsToPM(EP_Peephole, PM);
 
 #if INTEL_CUSTOMIZATION
+  bool RunInliner = Inliner;
+  if (RunInliner) {
+    PM.add(createInlineListsPass()); // -[no]inline-list parsing
+  }
   if (EnableAndersen) {
     PM.add(createAndersensAAWrapperPass()); // Andersen's IP alias analysis
   }
@@ -952,7 +961,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 #endif // INTEL_CUSTOMIZATION
 
   // Inline small functions
-  bool RunInliner = Inliner;
   if (RunInliner) {
     PM.add(Inliner);
     Inliner = nullptr;

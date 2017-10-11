@@ -1340,6 +1340,15 @@ example:
     is propagated down the call chain, until either a call site marked by a
     noinline attibute, or a function declared with a noinline attribute. A
     callee marked with a noinline attribute, is not inlined.
+``inlinelist``
+    This attribute indicates that the inliner should force inlining of
+    the current function or callsite. Callsites and functions for inlining are
+    supplied in command line with the ``-inline-inline-list`` command line
+    option.
+``noinlinelist``
+    This attribute indicates that the inliner must not inline the current
+    function or callsite. Callsites and functions for not inlining are supplied
+    in command line with the ``-inline-noinline-list`` command line option.
 .. END INTEL_CUSTOMIZATION
 ``builtin``
     This indicates that the callee function at a call site should be
