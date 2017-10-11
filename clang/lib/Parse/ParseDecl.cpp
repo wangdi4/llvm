@@ -3745,8 +3745,8 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
     case tok::kw_channel:
       if (!getLangOpts().OpenCL ||
           !getTargetInfo().getSupportedOpenCLOpts()
-          .isSupported("cl_altera_channels", 120)) {
-        // 'channel' is a keyword only for OpenCL with cl_altera_channels
+          .isSupported("cl_intel_channels", 100)) {
+        // 'channel' is a keyword only for OpenCL with cl_intel_channels
         // extension
         Tok.setKind(tok::identifier);
         continue;
@@ -4886,7 +4886,7 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
   case tok::kw_channel:
     return getLangOpts().OpenCL &&
       getTargetInfo().getSupportedOpenCLOpts().
-         isEnabled("cl_altera_channels");
+         isEnabled("cl_intel_channels");
 #endif // INTEL_CUSTOMIZATION
 
   case tok::identifier:   // foo::bar
@@ -5404,7 +5404,7 @@ static bool isPtrOperatorToken(tok::TokenKind Kind, const LangOptions &Lang,
     return true;
 #if INTEL_CUSTOMIZATION
   if ((Kind == tok::kw_channel) && Lang.OpenCL &&
-      Target.getSupportedOpenCLOpts().isEnabled("cl_altera_channels"))
+      Target.getSupportedOpenCLOpts().isEnabled("cl_intel_channels"))
     return true;
 #endif // INTEL_CUSTOMIZATION
 

@@ -1,6 +1,6 @@
 // RUN: %clang_cc1 -x cl -cl-std=CL2.0 -triple spir -emit-llvm %s -o - | FileCheck %s
 
-#pragma OPENCL EXTENSION cl_altera_channels : enable
+#pragma OPENCL EXTENSION cl_intel_channels : enable
 
 struct st {
   int i1;

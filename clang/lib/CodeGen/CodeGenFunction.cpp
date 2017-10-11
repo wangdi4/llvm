@@ -700,6 +700,13 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
             llvm::APInt(32, (uint64_t)(IsSignedInteger ? 1 : 0))))};
     Fn->setMetadata("vec_type_hint", llvm::MDNode::get(Context, AttrMDArgs));
   }
+#if INTEL_CUSTOMIZATION
+  if (const VecLenHintAttr *A = FD->getAttr<VecLenHintAttr>()) {
+    llvm::Metadata *AttrMDArgs[] = {
+        llvm::ConstantAsMetadata::get(Builder.getInt32(A->getVecLen()))};
+    Fn->setMetadata(A->getSpelling(), llvm::MDNode::get(Context, AttrMDArgs));
+  }
+#endif // INTEL_CUSTOMIZATION
 
   if (const WorkGroupSizeHintAttr *A = FD->getAttr<WorkGroupSizeHintAttr>()) {
     llvm::Metadata *AttrMDArgs[] = {

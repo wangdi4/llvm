@@ -2575,6 +2575,26 @@ the red zone.
   The system will crash if the wrong handler is used.
   }];
 }
+
+def VecLenHintDocs : Documentation {
+  let Content = [{
+The optional __attribute__((intel_vec_len_hint(<int>))) can be used to provide
+a hint to the compiler that the kernel performs the best if vectorized to
+the specified vector length.
+
+The lengths accepted by the attribute are:
+0 - the compiler makes heuristic-based decision whether to vectorize the kernel,
+        and if so which vector length to use (default behavior).
+1 - No vectorization by the compiler. Explicit vector data types in kernels
+        are left intact.
+4,8,16 - Disables heuristic and vectorizes to the length of 4,8,16 respectively.
+
+Other values are invalid. An error will be reported during compilation.
+
+An error will be given if:
+  - Specified value is not in range of supported values.
+  }];
+}
 // endif INTEL_CUSTOMIZATION
 
 def OMPDeclareSimdDocs : Documentation {
