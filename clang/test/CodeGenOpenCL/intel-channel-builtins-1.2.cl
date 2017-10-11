@@ -1,5 +1,8 @@
-// RUN: %clang_cc1 -x cl -cl-std=CL2.0 -triple spir -emit-llvm %s -o - | FileCheck %s
-// RUN: %clang_cc1 -x cl -cl-std=CL2.0 -triple spir -emit-llvm -D USE_ARRAYS %s -o - | FileCheck %s
+// RUN: %clang_cc1 -x cl -cl-std=CL1.2 -triple spir -emit-llvm %s -o - | FileCheck %s
+// RUN: %clang_cc1 -x cl -cl-std=CL1.2 -triple spir -emit-llvm -D USE_ARRAYS %s -o - | FileCheck %s
+// XFAIL: *
+// Test disabled due to https://jira01.devtools.intel.com/browse/CORC-1903
+// [FPGA][Clang] Allow channels declaration for -cl-std=1.x
 
 typedef float float4 __attribute__((ext_vector_type(4)));
 
@@ -56,42 +59,32 @@ channel float4 fch1;
 // CHECK: declare void @_Z18read_channel_intel11ocl_channel2st(%struct.st* sret, %opencl.channel_t {{.*}}*)
 // CHECK: declare <4 x float> @_Z18read_channel_intel11ocl_channelDv4_f(%opencl.channel_t {{.*}}*)
 //
-// CHECK: declare i32 @_Z21read_channel_nb_intel11ocl_channeliPU3AS4b(%opencl.channel_t {{.*}}*, i8 addrspace(4)*)
-// CHECK: declare i64 @_Z21read_channel_nb_intel11ocl_channellPU3AS4b(%opencl.channel_t {{.*}}*, i8 addrspace(4)*)
-// CHECK: declare void @_Z21read_channel_nb_intel11ocl_channel2stPU3AS4b(%struct.st* sret, %opencl.channel_t {{.*}}*, i8 addrspace(4)*)
-// CHECK: declare <4 x float> @_Z21read_channel_nb_intel11ocl_channelDv4_fPU3AS4b(%opencl.channel_t {{.*}}*, i8 addrspace(4)*)
+// CHECK: declare i32 @_Z21read_channel_nb_intel11ocl_channeliPb(%opencl.channel_t {{.*}}*, i8*)
+// CHECK: declare i64 @_Z21read_channel_nb_intel11ocl_channellPb(%opencl.channel_t {{.*}}*, i8*)
+// CHECK: declare void @_Z21read_channel_nb_intel11ocl_channel2stPb(%struct.st* sret, %opencl.channel_t {{.*}}*, i8*)
+// CHECK: declare <4 x float> @_Z21read_channel_nb_intel11ocl_channelDv4_fPb(%opencl.channel_t {{.*}}*, i8*)
 //
-// CHECK-NOT: declare i32 @_Z21read_channel_nb_intel11ocl_channeliPb(%opencl.channel_t {{.*}}*, i8*)
-// CHECK-NOT: declare i64 @_Z21read_channel_nb_intel11ocl_channellPb(%opencl.channel_t {{.*}}*, i8*)
-// CHECK-NOT: declare void @_Z21read_channel_nb_intel11ocl_channel2stPb(%struct.st* sret, %opencl.channel_t {{.*}}*, i8*)
-// CHECK-NOT: declare <4 x float> @_Z21read_channel_nb_intel11ocl_channelDv4_fPb(%opencl.channel_t {{.*}}*, i8*)
+// CHECK: declare i32 @_Z21read_channel_nb_intel11ocl_channeliPU3AS3b(%opencl.channel_t {{.*}}*, i8 addrspace(3)*)
+// CHECK: declare i64 @_Z21read_channel_nb_intel11ocl_channellPU3AS3b(%opencl.channel_t {{.*}}*, i8 addrspace(3)*)
+// CHECK: declare void @_Z21read_channel_nb_intel11ocl_channel2stPU3AS3b(%struct.st* sret, %opencl.channel_t {{.*}}*, i8 addrspace(3)*)
+// CHECK: declare <4 x float> @_Z21read_channel_nb_intel11ocl_channelDv4_fPU3AS3b(%opencl.channel_t {{.*}}*, i8 addrspace(3)*)
 //
-// CHECK-NOT: declare i32 @_Z21read_channel_nb_intel11ocl_channeliPU3AS3b(%opencl.channel_t {{.*}}*, i8 addrspace(3)*)
-// CHECK-NOT: declare i64 @_Z21read_channel_nb_intel11ocl_channellPU3AS3b(%opencl.channel_t {{.*}}*, i8 addrspace(3)*)
-// CHECK-NOT: declare void @_Z21read_channel_nb_intel11ocl_channel2stPU3AS3b(%struct.st* sret, %opencl.channel_t {{.*}}*, i8 addrspace(3)*)
-// CHECK-NOT: declare <4 x float> @_Z21read_channel_nb_intel11ocl_channelDv4_fPU3AS3b(%opencl.channel_t {{.*}}*, i8 addrspace(3)*)
-//
-// CHECK-NOT: declare i32 @_Z21read_channel_nb_intel11ocl_channeliPU3AS1b(%opencl.channel_t {{.*}}*, i8 addrspace(1)*)
-// CHECK-NOT: declare i64 @_Z21read_channel_nb_intel11ocl_channellPU3AS1b(%opencl.channel_t {{.*}}*, i8 addrspace(1)*)
-// CHECK-NOT: declare void @_Z21read_channel_nb_intel11ocl_channel2stPU3AS1b(%struct.st* sret, %opencl.channel_t {{.*}}*, i8 addrspace(1)*)
-// CHECK-NOT: declare <4 x float> @_Z21read_channel_nb_intel11ocl_channelDv4_fPU3AS1b(%opencl.channel_t {{.*}}*, i8 addrspace(1)*)
+// CHECK: declare i32 @_Z21read_channel_nb_intel11ocl_channeliPU3AS1b(%opencl.channel_t {{.*}}*, i8 addrspace(1)*)
+// CHECK: declare i64 @_Z21read_channel_nb_intel11ocl_channellPU3AS1b(%opencl.channel_t {{.*}}*, i8 addrspace(1)*)
+// CHECK: declare void @_Z21read_channel_nb_intel11ocl_channel2stPU3AS1b(%struct.st* sret, %opencl.channel_t {{.*}}*, i8 addrspace(1)*)
+// CHECK: declare <4 x float> @_Z21read_channel_nb_intel11ocl_channelDv4_fPU3AS1b(%opencl.channel_t {{.*}}*, i8 addrspace(1)*)
 
-__global bool g_valid;
-
-__kernel void k1() {
+__kernel void k1(__global bool *p_to_g_valid) {
     int i = 5;
     long l = 100500;
     struct st s = { 1, 2 };
     float4 f = { 0.1, 0.2, 0.3, 0.4 };
-
     bool valid;
-    __local bool l_valid;
     __private bool p_valid;
+    __local bool l_valid;
 
-    bool *p_to_valid = &valid;
-    __global bool *p_to_g_valid = &g_valid;
-    __local bool *p_to_l_valid = &l_valid;
     __private bool *p_to_p_valid = &p_valid;
+    __local bool *p_to_l_valid = &l_valid;
 
 #ifdef USE_ARRAYS
     write_channel_intel(ich_arr[3], i);
@@ -124,8 +117,7 @@ __kernel void k1() {
     i = read_channel_nb_intel(ich_arr[3], p_to_g_valid);
     l = read_channel_nb_intel(lch_arr[3][2], p_to_l_valid);
     s = read_channel_nb_intel(sch_arr[3][2][1], p_to_p_valid);
-    f = read_channel_nb_intel(fch_arr[0], p_to_valid);
-    f = read_channel_nb_intel(fch_arr1[0], &valid);
+    f = read_channel_nb_intel(fch_arr[0], &valid);
 #else
     i = read_channel_intel(ich);
     l = read_channel_intel(lch);
@@ -135,7 +127,7 @@ __kernel void k1() {
     i = read_channel_nb_intel(ich, p_to_g_valid);
     l = read_channel_nb_intel(lch, p_to_l_valid);
     s = read_channel_nb_intel(sch, p_to_p_valid);
-    f = read_channel_nb_intel(fch, p_to_valid);
-    f = read_channel_nb_intel(fch1, &valid);
+    f = read_channel_nb_intel(fch, &valid);
 #endif
 }
+

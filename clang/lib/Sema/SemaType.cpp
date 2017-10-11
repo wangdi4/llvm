@@ -1359,7 +1359,7 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
         declarator.setInvalidType(true);
 #if INTEL_CUSTOMIZATION
       } else if (S.getLangOpts().OpenCL &&
-                 S.getOpenCLOptions().isEnabled("cl_altera_channels") &&
+                 S.getOpenCLOptions().isEnabled("cl_intel_channels") &&
                  DS.isTypeSpecChannel()){
         S.Diag(DeclLoc, diag::err_opencl_missing_actual_channel_type)
           << DS.getSourceRange();
