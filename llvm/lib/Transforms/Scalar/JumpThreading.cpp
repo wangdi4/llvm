@@ -1891,8 +1891,14 @@ static bool collectThreadRegionBlocks(const ThreadRegionInfo &RegionInfo,
     BasicBlock *BBTop = SubRegion.first;
     BasicBlock *BBBottom = SubRegion.second;
 
+    // If we already visited BBBottom in a previous subregion, we need to stop
+    // because the remapping logic can't handle the same block being in two
+    // subregions. It may be possible to thread such a case, but it would
+    // probably require duplicating the shared block.
+    if (!Visited.insert(BBBottom).second)
+      return false;
+
     WorkStack.push_back(BBBottom);
-    Visited.insert(BBBottom);
 
     while (!WorkStack.empty()) {
       BasicBlock *BB = WorkStack.back();
