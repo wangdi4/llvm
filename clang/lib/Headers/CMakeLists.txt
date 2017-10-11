@@ -163,14 +163,7 @@ endforeach( f )
 add_custom_target(intel-intrinsic-headers ALL DEPENDS ${intel_out_files})
 set_target_properties(intel-intrinsic-headers PROPERTIES FOLDER "Misc")
 
-if (MSVC)
-  foreach( f ${out_files} )
-    string(REPLACE "${CMAKE_CFG_INTDIR}" "\${BUILD_TYPE}" install_file ${f})
-    list(APPEND install_headers ${install_file})
-  endforeach( f )
-else()
-  set(install_headers ${out_files})
-endif()
+set(install_headers ${out_files})
 
 install(
   FILES ${install_headers} ${CMAKE_CURRENT_BINARY_DIR}/arm_neon.h
