@@ -687,10 +687,18 @@ public:
                     bool *IsTruncOrSExt, bool *IsZExt, bool *IsNegation,
                     SCEVConstant **ConstMultiplier, SCEV **Additive) const;
 
-  /// Returns constant multiplier which when applied to AddRec yields MulAddRec,
-  /// if possible, otherwise returns nullptr.
-  const SCEVConstant *getMultiplier(const SCEVAddRecExpr *AddRec,
-                                    const SCEVAddRecExpr *MulAddRec) const;
+  /// Returns the SCEVConstant representing signed division result of LHS and
+  /// RHS.
+  const SCEVConstant *getSDiv(const SCEVConstant *LHS,
+                              const SCEVConstant *RHS) const;
+
+  /// Returns constant multiplier which when applied to AddRec may yield
+  /// MulAddRec, otherwise returns nullptr. This function does not perform all
+  /// sanity checks so the returned result may be incorrect. Caller is
+  /// responsible for sanity checking.
+  const SCEVConstant *
+  getPossibleMultiplier(const SCEVAddRecExpr *AddRec,
+                        const SCEVAddRecExpr *MulAddRec) const;
 
   /// Implements AddRec specific checks for replacement.
   bool isReplacableAddRec(const SCEVAddRecExpr *OrigAddRec,
@@ -1116,37 +1124,74 @@ bool HIRParser::BlobProcessor::isReplacable(const SCEV *OrigSCEV,
 }
 
 const SCEVConstant *
-HIRParser::BlobProcessor::getMultiplier(const SCEVAddRecExpr *AddRec,
-                                        const SCEVAddRecExpr *MulAddRec) const {
+HIRParser::BlobProcessor::getSDiv(const SCEVConstant *LHS,
+                                  const SCEVConstant *RHS) const {
+  return cast<SCEVConstant>(HIRP->SE->getConstant(cast<ConstantInt>(
+      ConstantExpr::getSDiv(LHS->getValue(), RHS->getValue()))));
+}
 
+const SCEVConstant *HIRParser::BlobProcessor::getPossibleMultiplier(
+    const SCEVAddRecExpr *AddRec, const SCEVAddRecExpr *MulAddRec) const {
+  unsigned NumOperands = AddRec->getNumOperands();
+  assert((NumOperands == MulAddRec->getNumOperands()) && "Operand mismatch!");
+
+  // There may be cases where we still don't catch the multiplier.
+  // TODO: extend it when a test case is available.
   const SCEVConstant *Mul = nullptr;
 
-  auto Op = dyn_cast<SCEVConstant>(AddRec->getOperand(1));
-  auto MulOp = dyn_cast<SCEVConstant>(MulAddRec->getOperand(1));
+  // We use the last operand of the recurrences to find the multiplier as this
+  // operand represents a non-zero stride for the recurrence.
+  auto LastOp = AddRec->getOperand(NumOperands - 1);
+  auto LastMulOp = MulAddRec->getOperand(NumOperands - 1);
 
-  if (Op && MulOp) {
-    Mul = cast<SCEVConstant>(HIRP->SE->getConstant(cast<ConstantInt>(
-        ConstantExpr::getSDiv(MulOp->getValue(), Op->getValue()))));
+  auto ConstStride = dyn_cast<SCEVConstant>(LastOp);
+  auto MulConstStride = dyn_cast<SCEVConstant>(LastMulOp);
+
+  // Looking for this condition-
+  // AddRec: {0,+,1}
+  // MulAddRec: {0,+,2}
+  if (ConstStride && MulConstStride) {
+    assert(!ConstStride->getValue()->isZero() &&
+           "Stride of add recurrence is zero!");
+    assert(!MulConstStride->getValue()->isZero() &&
+           "Stride of add recurrence is zero!");
+
+    Mul = getSDiv(MulConstStride, ConstStride);
 
     if (Mul->isZero()) {
       return nullptr;
     }
 
     return Mul;
-  }
 
-  // Looking for this condition-
-  // AddRec: {0,+,%size_x}<%for.cond.47.preheader>
-  // MulAddRec: {0,+,(4 * %size_x)}<%for.cond.47.preheader>
-  auto MulSCEV = dyn_cast<SCEVMulExpr>(MulAddRec->getOperand(1));
-
-  if (!MulSCEV || (MulSCEV->getNumOperands() != 2) ||
-      !isa<SCEVConstant>(MulSCEV->getOperand(0)) ||
-      (MulSCEV->getOperand(1) != AddRec->getOperand(1))) {
+  } else if (ConstStride || MulConstStride) {
+    // No match if only one of them is a constant.
     return nullptr;
   }
 
-  Mul = cast<SCEVConstant>(MulSCEV->getOperand(0));
+  // Looking for this condition-
+  // AddRec: {0,+,%size_x} or {0,+,(2 * %size_x)}
+  // MulAddRec: {0,+,(4 * %size_x)}
+  auto MulStrideOp = dyn_cast<SCEVMulExpr>(LastMulOp);
+
+  if (!MulStrideOp || !isa<SCEVConstant>(MulStrideOp->getOperand(0))) {
+    return nullptr;
+  }
+
+  MulConstStride = cast<SCEVConstant>(MulStrideOp->getOperand(0));
+
+  auto StrideOp = dyn_cast<SCEVMulExpr>(LastOp);
+  if (!StrideOp || !isa<SCEVConstant>(StrideOp->getOperand(0))) {
+    Mul = MulConstStride;
+
+  } else {
+    ConstStride = cast<SCEVConstant>(StrideOp->getOperand(0));
+    Mul = getSDiv(MulConstStride, ConstStride);
+
+    if (Mul->isZero()) {
+      return nullptr;
+    }
+  }
 
   return Mul;
 }
@@ -1158,15 +1203,17 @@ bool HIRParser::BlobProcessor::isReplacableAddRec(
 
   const SCEVConstant *Mul = nullptr;
   const SCEV *Add = nullptr;
+  unsigned NumOperands = OrigAddRec->getNumOperands();
 
   // Get constant multiplier, if any.
-  if (NewAddRec->getOperand(1) != OrigAddRec->getOperand(1)) {
+  if (NewAddRec->getOperand(NumOperands - 1) !=
+      OrigAddRec->getOperand(NumOperands - 1)) {
 
     if (!ConstMultiplier) {
       return false;
     }
 
-    Mul = getMultiplier(NewAddRec, OrigAddRec);
+    Mul = getPossibleMultiplier(NewAddRec, OrigAddRec);
 
     if (!Mul) {
       return false;
@@ -1187,7 +1234,7 @@ bool HIRParser::BlobProcessor::isReplacableAddRec(
   }
 
   // Now match operands
-  for (unsigned I = 1, E = NewAddRec->getNumOperands(); I < E; ++I) {
+  for (unsigned I = 1; I < NumOperands; ++I) {
     if (NewAddRec->getOperand(I) != OrigAddRec->getOperand(I)) {
       return false;
     }
