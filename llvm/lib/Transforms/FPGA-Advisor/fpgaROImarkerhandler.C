@@ -24,7 +24,7 @@ int ROIprintf(const char *fmt, ...)
 }
 
 // Used for manually marking ROIs in application code.
-void ROIMarkerHandler (string functionName, bool isStarting )
+void ROIMarkerHandler (const char * functionName, bool isStarting )
 {
     if(isStarting)
     {
@@ -51,7 +51,7 @@ void ROIMarkerHandler (string functionName, bool isStarting )
         regionNumber++;
         stringstream ss;
         ss << "region" << dec << regionNumber << "-"
-           << "-" << functionName.c_str() << ".trace.log";
+           << "-" << functionName << ".trace.log";
         string fileName = ss.str();
         currentTraceFile = fopen(fileName.c_str(), "w");
         if ( !currentTraceFile)
@@ -59,7 +59,7 @@ void ROIMarkerHandler (string functionName, bool isStarting )
             cerr << " Could not create file " << fileName << " for writing\n";
             exit(1);
         }
-        fprintf(currentTraceFile, "Entering Function: %s\n", functionName.c_str());
+        fprintf(currentTraceFile, "Entering Function: %s\n", functionName);
         inRegion = true;
     }
     else

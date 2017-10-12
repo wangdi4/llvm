@@ -36,6 +36,7 @@ END_LEGAL */
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <string>
 
 // Exceptions are disabled, but boost requires the ability to
 // throw an exception. Continuing from this call is undefined
