@@ -212,7 +212,7 @@ void VPOScenarioEvaluationBase::findVFCandidates(VFsVector &VFCandidates) {
     // No need to recurse inside values. See comments in the visit function.
     AVisitor.visit(ALoop, true, true, false /*RecursiveInsideValues*/, true);
 
-    int Idx = I1_TYPE_SIZE;
+    int Idx = I8_TYPE_SIZE;
     while (Idx < NUM_TYPE_SIZE) {
       if (LoopTypeSizes[Idx] > 0) {
         SmallestTySize = (0x1 << Idx) & 0xFF;
@@ -222,7 +222,7 @@ void VPOScenarioEvaluationBase::findVFCandidates(VFsVector &VFCandidates) {
     }
 
     Idx = NUM_TYPE_SIZE - 1;
-    while (Idx >= I1_TYPE_SIZE) {
+    while (Idx >= I8_TYPE_SIZE) {
       if (LoopTypeSizes[Idx] > 0) {
         LargestTySize = (0x1 << Idx) & 0xFF;
         break;
@@ -1009,12 +1009,7 @@ void VPOCostGathererBase::visit(AVRExpression *Expr) {
           cast<AVRValueHIR>(Expr->getParent()));
     }
 
-    // FIXME: There has to be some interface to get the basic type of a
-    // recursive SequentialType. Example: 'pointer to multidimensional array of
-    // floats' would return 'float'
-    Type *DataTy = PtrType->getPointerElementType();
-    while (isa<SequentialType>(DataTy))
-      DataTy = DataTy->getSequentialElementType();
+    Type *DataTy = Expr->getType();
 
 #ifdef USE_EXPERIMENTAL_CODE 
     ConsecutiveStride = getConsecutiveStride(Op);
