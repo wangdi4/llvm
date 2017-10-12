@@ -611,6 +611,45 @@ void ControlDependenceGraph::writeDotGraph(StringRef fname) {
 #endif
 }
 
+void CSASSAGraph::BuildCSASSAGraph(MachineFunction &F) {
+  MachineRegisterInfo* MRI = &F.getRegInfo();
+  for (MachineFunction::iterator BB = F.begin(), E = F.end(); BB != E; ++BB) {
+    for (MachineBasicBlock::iterator I = BB->begin(); I != BB->end(); ++I) {
+      MachineInstr* minstr = &*I;
+      CSASSANode* sn;
+      if (instr2ssan.find(minstr) == instr2ssan.end()) {
+        sn = new CSASSANode(minstr);
+        instr2ssan[minstr] = sn;
+      } else {
+        sn = instr2ssan[minstr];
+      }
+      for (MIOperands MO(*minstr); MO.isValid(); ++MO) {
+        if (MO->isReg() && MO->isDef()) {
+          unsigned reg = MO->getReg();
+          MachineRegisterInfo::use_iterator UI = MRI->use_begin(reg);
+          while (UI != MRI->use_end()) {
+            MachineInstr* uinstr = UI->getParent();
+            CSASSANode* cnode;
+            if (instr2ssan.find(uinstr) == instr2ssan.end()) {
+              cnode = new CSASSANode(uinstr);
+              instr2ssan[uinstr] = cnode;
+            } else {
+              cnode = instr2ssan[uinstr];
+            }
+            sn->children.push_back(cnode);
+            ++UI;
+          }
+        }
+      }
+    }
+  }
+  root = new CSASSANode(nullptr);
+  for (DenseMap<MachineInstr*, CSASSANode*>::iterator i2n = instr2ssan.begin(), i2nEnd = instr2ssan.end(); i2n != i2nEnd; ++i2n) {
+    root->children.push_back(i2n->second);
+  }
+}
+
+
 } // namespace llvm
 
 

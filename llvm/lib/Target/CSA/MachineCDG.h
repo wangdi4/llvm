@@ -18,7 +18,9 @@
 #include "llvm/CodeGen/MachinePostDominators.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineFunction.h"
+#include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/Target/TargetSubtargetInfo.h"
+#include "llvm/Target/TargetRegisterInfo.h"
 #include <map>
 #include <set>
 #include <deque>
@@ -420,6 +422,76 @@ namespace llvm {
 #endif
       }
     };
+
+
+
+  class CSASSANode {
+  public:
+    MachineInstr* minstr;
+    SmallVector<CSASSANode *, 4> children;
+    CSASSANode(MachineInstr* ainstr) {
+      this->minstr = ainstr;
+    }
+  };
+
+  template <> struct GraphTraits<CSASSANode *> {
+    typedef CSASSANode NodeType;
+    typedef CSASSANode* NodeRef;
+    typedef SmallVectorImpl<CSASSANode *>::iterator ChildIteratorType;
+
+    static NodeType *getEntryNode(NodeType *N) { return N; }
+
+    static inline ChildIteratorType child_begin(NodeType *N) {
+      return N->children.begin();
+    }
+    static inline ChildIteratorType child_end(NodeType *N) {
+      return N->children.end();
+    }
+
+    typedef df_iterator<CSASSANode *> nodes_iterator;
+
+    static nodes_iterator nodes_begin(CSASSANode *N) {
+      return df_begin(getEntryNode(N));
+    }
+    static nodes_iterator nodes_end(CSASSANode *N) {
+      return df_end(getEntryNode(N));
+    }
+  };
+
+
+  class CSASSAGraph {
+    CSASSANode* root;
+  public:
+    DenseMap<MachineInstr *, CSASSANode *> instr2ssan;
+    CSASSANode* getRoot() {
+      return root;
+    }
+    void BuildCSASSAGraph(MachineFunction &F);
+    ~CSASSAGraph() {
+      delete root;
+      for (DenseMap<MachineInstr*, CSASSANode*>::iterator i2n = instr2ssan.begin(), i2nEnd = instr2ssan.end(); i2n != i2nEnd; ++i2n) {
+        delete i2n->second;
+      }
+    }
+  };
+
+  template <> struct GraphTraits<CSASSAGraph *>
+    : public GraphTraits<CSASSANode *> {
+    static NodeType *getEntryNode(CSASSAGraph *SSAG) {
+      return SSAG->getRoot();
+    }
+
+    static nodes_iterator nodes_begin(CSASSAGraph *SSAG) {
+      if (getEntryNode(SSAG))
+        return df_begin(getEntryNode(SSAG));
+      else
+        return df_end(getEntryNode(SSAG));
+    }
+
+    static nodes_iterator nodes_end(CSASSAGraph *SSAG) {
+      return df_end(getEntryNode(SSAG));
+    }
+  };
 
 } // namespace llvm
 
