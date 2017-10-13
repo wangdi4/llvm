@@ -15,7 +15,14 @@ struct S3 {
   int i;
 };
 
+struct S4 {
+  int i;
+};
+
 void foo() {}
+
+int glob_int = 2;
+int *glob_ptr;
 
 // CHECK-LABEL: @main
 int main(int argc, char **argv) {
@@ -396,7 +403,29 @@ int main(int argc, char **argv) {
 // CHECK-REG: region.exit(token [[TARGU_TOKENVAL]]) [ "DIR.OMP.END.TARGET.UPDATE"() ]
     #pragma omp target update to(z) from(y)
   }
-
+  {
+    int local_int = 1;
+// CHECK-REG: [[TARG2_TOKENVAL:%[0-9]+]] = call token{{.*}}TARGET{{.*}}IS_DEVICE_PTR{{.*}}glob_ptr{{.*}}FIRSTPRIVATE{{.*}}glob_int{{.*}}FIRSTPRIVATE{{.*}}local_int
+// CHECK-REG: region.exit(token [[TARG2_TOKENVAL]]) [ "DIR.OMP.END.TARGET"() ]
+    #pragma omp target is_device_ptr(glob_ptr)
+    {
+      glob_int = local_int + 1;
+      glob_ptr++;
+    }
+    S4 s4;
+// CHECK-REG: [[TARG3_TOKENVAL:%[0-9]+]] = call token{{.*}}TARGET{{.*}}MAP.TOFROM{{.*}}%struct.S4
+// CHECK-REG: region.exit(token [[TARG3_TOKENVAL]]) [ "DIR.OMP.END.TARGET"() ]
+    #pragma omp target
+    {
+      s4.i = 1;
+    }
+// CHECK-REG: [[TARG4_TOKENVAL:%[0-9]+]] = call token{{.*}}TARGET{{.*}}DEFAULTMAP.TOFROM.SCALAR{{.*}}MAP.TOFROM{{.*}}glob_int{{.*}}MAP.TOFROM{{.*}}local_int
+// CHECK-REG: region.exit(token [[TARG4_TOKENVAL]]) [ "DIR.OMP.END.TARGET"() ]
+    #pragma omp target defaultmap(tofrom:scalar)
+    {
+      glob_int = local_int + 1;
+    }
+  }
   return 0;
 }
 

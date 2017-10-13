@@ -155,7 +155,7 @@ class OpenMPCodeOutliner {
   llvm::MapVector<const VarDecl *, OpenMPClauseKind> ImplicitMap;
   llvm::DenseSet<const VarDecl *> ExplicitRefs;
   llvm::DenseSet<const VarDecl *> VarDefs;
-  llvm::DenseSet<const VarDecl *> VarRefs;
+  llvm::SmallSetVector<const VarDecl *, 32> VarRefs;
 
 public:
   OpenMPCodeOutliner(CodeGenFunction &CGF, const OMPExecutableDirective &D);

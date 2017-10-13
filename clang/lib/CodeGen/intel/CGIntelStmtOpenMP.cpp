@@ -453,8 +453,10 @@ namespace CGIntelOpenMP {
       addArg("QUAL.OMP.PRIVATE"); break;
     case OMPC_firstprivate:
       addArg("QUAL.OMP.FIRSTPRIVATE"); break;
-    case OMPC_shared: 
+    case OMPC_shared:
       addArg("QUAL.OMP.SHARED"); break;
+    case OMPC_map:
+      addArg("QUAL.OMP.MAP.TOFROM"); break;
     default:
       llvm_unreachable("Clause not allowed");
     }
@@ -496,6 +498,7 @@ namespace CGIntelOpenMP {
     auto DKind = Directive.getDirectiveKind();
     if (DKind != OMPD_simd && DKind != OMPD_for &&
         DKind != OMPD_taskloop && DKind != OMPD_taskloop_simd &&
+        DKind != OMPD_target &&
         !isOpenMPParallelDirective(DKind))
       return;
 
@@ -508,6 +511,12 @@ namespace CGIntelOpenMP {
       if (VarDefs.find(VD) != VarDefs.end()) {
         // Defined in the region: private
         emitImplicit(VD, OMPC_private);
+      } else if (DKind == OMPD_target) {
+        if (!VD->getType()->isScalarType() ||
+            Directive.hasClausesOfKind<OMPDefaultmapClause>())
+          emitImplicit(VD, OMPC_map);
+        else
+          emitImplicit(VD, OMPC_firstprivate);
       } else if (DKind != OMPD_simd && DKind != OMPD_for) {
         // Referenced but not defined in the region: shared
         emitImplicit(VD, OMPC_shared);
@@ -1035,8 +1044,11 @@ namespace CGIntelOpenMP {
   void
   OpenMPCodeOutliner::emitOMPIsDevicePtrClause(const OMPIsDevicePtrClause *Cl) {
     addArg("QUAL.OMP.IS_DEVICE_PTR");
-    for (auto *E : Cl->varlists())
+    for (auto *E : Cl->varlists()) {
+      auto *PVD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
+      addExplicit(PVD);
       addArg(E);
+    }
     emitListClause();
   }
 
