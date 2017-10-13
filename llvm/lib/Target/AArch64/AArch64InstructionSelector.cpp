@@ -758,7 +758,6 @@ bool AArch64InstructionSelector::select(MachineInstr &I) const {
     constrainSelectedInstRegOperands(I, TII, TRI, RBI);
     return true;
   }
-
   case TargetOpcode::G_FRAME_INDEX: {
     // allocas and G_FRAME_INDEX are only supported in addrspace(0).
     if (Ty != LLT::pointer(0, 64)) {

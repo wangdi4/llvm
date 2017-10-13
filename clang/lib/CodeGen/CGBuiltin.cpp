@@ -8366,10 +8366,14 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
     return Builder.CreateMemSet(Ops[0], Ops[1], Ops[2], 1, true);
   }
 #if INTEL_CUSTOMIZATION
+  case X86::BI__builtin_csa_parallel_region_entry:
+  case X86::BI__builtin_csa_parallel_region_exit:
+  case X86::BI__builtin_csa_parallel_section_entry:
+  case X86::BI__builtin_csa_parallel_section_exit:
   case X86::BI__builtin_csa_parallel_loop: {
     return UndefValue::get(ConvertType(E->getType())); // noop
   }
-#endif
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__ud2:
     // llvm.trap makes a ud2a instruction on x86.
     return EmitTrapCall(Intrinsic::trap);
@@ -8431,7 +8435,7 @@ Value *CodeGenFunction::EmitCSABuiltinExpr(unsigned BuiltinID,
     return nullptr;
   }
 }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
 Value *CodeGenFunction::EmitPPCBuiltinExpr(unsigned BuiltinID,
                                            const CallExpr *E) {

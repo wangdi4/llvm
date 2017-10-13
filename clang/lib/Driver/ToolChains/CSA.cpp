@@ -26,7 +26,6 @@ void CSAToolChain::addClangTargetOptions(const llvm::opt::ArgList &DriverArgs,
   // Linux default options to pass to cc1
   Linux::addClangTargetOptions(DriverArgs, CC1Args, DeviceOffloadKind);
 
-
   // Examine the effective (last/rightmost) optimization option given.
   if (Arg *A = DriverArgs.getLastArg(options::OPT_O_Group)) {
     // If -O0 is specified, disable dataflow conversion and memop ordering.
@@ -42,6 +41,12 @@ void CSAToolChain::addClangTargetOptions(const llvm::opt::ArgList &DriverArgs,
     // Targets.
     CC1Args.push_back("-O");
   }
+
+  // Disable builtin knowledge of memset and memcpy. The purpose of this is to
+  // disable LoopIdiomRecognize for CSA, temporarily, until we do intelligent
+  // things with the memset/memcpy intrinsics.
+  CC1Args.push_back("-fno-builtin-memset");
+  CC1Args.push_back("-fno-builtin-memcpy");
 
   // Since we're using the CSAToolChain, we know the target is CSA.
   // Check for the -fopenmp-targets=... list to see if we're compiling an
