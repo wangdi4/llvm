@@ -4258,6 +4258,9 @@ void CodeGenFunction::EmitIntelOMPLoop(const OMPLoopDirective &S,
           getJumpDestInCurrentScope(createBasicBlock("omp.loop.exit"));
 
       switch (K) {
+      case OMPD_distribute:
+        Outliner.emitOMPDistributeDirective();
+        break;
       case OMPD_simd:
         Outliner.emitOMPSIMDDirective();
         break;
@@ -4355,5 +4358,12 @@ void CodeGenFunction::EmitIntelOMPTaskLoopSimdDirective(
     CGF.EmitIntelOMPLoop(S, OMPD_taskloop_simd);
   };
   emitIntelDirective(*this, OMPD_taskloop_simd, CodeGen);
+}
+void CodeGenFunction::EmitIntelOMPDistributeDirective(
+                                         const OMPDistributeDirective &S) {
+  auto &&CodeGen = [&S](CodeGenFunction &CGF, PrePostActionTy &) {
+    CGF.EmitIntelOMPLoop(S, OMPD_distribute);
+  };
+  emitIntelDirective(*this, OMPD_distribute, CodeGen);
 }
 #endif // INTEL_SPECIFIC_OPENMP
