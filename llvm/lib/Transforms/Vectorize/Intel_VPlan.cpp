@@ -318,6 +318,11 @@ void VPInstruction::print(raw_ostream &O) const {
   case VPInstruction::Not:
     O << "not";
     break;
+#if INTEL_CUSTOMIZATION
+  case VPInstruction::SemiPhi:
+    O << "semi-phi";
+    break;
+#endif
   default:
     O << Instruction::getOpcodeName(getOpcode());
   }

@@ -2,6 +2,7 @@
 #include "../VPlanBuilder.h"
 #include "Intel_LoopCFU.h"
 #include "VPLoopInfo.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeVisitor.h"
 #include "llvm/Analysis/LoopIterator.h"
@@ -884,9 +885,11 @@ bool PlainCFGBuilder::isExternalDef(Instruction *Inst) {
   return TheLoop->isLoopInvariant(Inst);
 }
 
-// Helper function that creates a new VPValue or retrieves an existing one for
-// IROp. This function must only be used to create/retrieve *operands* for a
-// VPInstruction and not to create regular VPInstruction's.
+// Helper function that is used by 'createVPInstructionsForRange' to create a
+// new VPValue or retrieve an existing one for an Instruction's operand (IROp).
+// This function must only be used to create/retrieve VPValues for
+// *Instruction's operands* and not to create regular VPInstruction's. For the
+// latter, you should look at 'createVPInstructionForRange'.
 VPValue *PlainCFGBuilder::createOrGetVPOperand(Value *IROp) {
   // Constant operand
   if (Constant *IRConst = dyn_cast<Constant>(IROp))
@@ -924,8 +927,8 @@ VPValue *PlainCFGBuilder::createOrGetVPOperand(Value *IROp) {
   return NewVPVal;
 }
 
-// Helper function that creates VPInstruction's for a range of Instructions in a
-// BasicBlock. VPInstruction's are created using a VPBuilder so new
+// Create VPInstruction's for a range of Instructions in a BasicBlock.
+// VPInstruction's are created using a VPBuilder so new
 // VPInstructionRangeRecipe's are created automatically when necessary.
 void PlainCFGBuilder::createVPInstructionsForRange(
     BasicBlock::iterator I, BasicBlock::iterator J,
@@ -954,7 +957,7 @@ void PlainCFGBuilder::createVPInstructionsForRange(
       IRDef2VPValue[Inst] = NewVPInst;
     }
 
-    // Translate LLVM-IR operands to VPValue operands and set them in the new
+    // Translate LLVM-IR operands into VPValue operands and set them in the new
     // VPInstruction.
     for (Value *Op : Inst->operands())
       NewVPInst->addOperand(createOrGetVPOperand(Op));
@@ -1198,10 +1201,20 @@ class PlainCFGBuilderHIR : public HLNodeVisitorBase {
 private:
   /// Outermost loop of the input loop nest.
   HLLoop *TheLoop;
-  /// Loop header VPBasicBlock to HLLoop map. It is populated here. To be used
-  /// when building loop regions.
-  SmallDenseMap<VPBasicBlock *, HLLoop *> &Header2HLLoop;
+
+  /// HIR DDGraph that contains DD information for the incoming loop nest. It is
+  /// used to navigate from sink blobs to their respective source blobs.
+  const DDGraph &DDG;
+
   IntelVPlanUtils &PlanUtils;
+
+  /// Map between loop header VPBasicBlock's and their respective HLLoop's. It
+  /// is populated in this phase to keep the information necessary to create
+  /// VPLoopRegionHIR's later in the H-CFG construction process.
+  SmallDenseMap<VPBasicBlock *, HLLoop *> &Header2HLLoop;
+
+  /// VPInstruction builder for HIR.
+  VPBuilderHIR VPHIRBuilder;
 
   /// Output TopRegion.
   VPRegionBlock *TopRegion = nullptr;
@@ -1215,14 +1228,24 @@ private:
   /// Hold the VPBasicBlock that is being populated with instructions. Null
   /// value indicates that a new active VPBasicBlock has to be created.
   VPBasicBlock *ActiveVPBB = nullptr;
-  // VPRecipeBase *CurrentRecipe = nullptr;
 
-  /// Map between HLNode's that open a VPBasicBlock and such VPBasicBlock.
+  /// Map between HLNode's that open a VPBasicBlock and such VPBasicBlock's.
   DenseMap<HLNode *, VPBasicBlock *> HLN2VPBB;
+
+  /// Map between HLInst's and their respective VPValue's representing their definition.
+  DenseMap<HLDDNode *, VPValue *> HLDef2VPValue;
 
   VPBasicBlock *createOrGetVPBB(HLNode *HNode = nullptr);
   void connectVPBBtoPreds(VPBasicBlock *VPBB);
   void updateActiveVPBB(HLNode *HNode = nullptr, bool IsPredecessor = true);
+
+  // VPInstruction methods
+  VPValue *createNoOperandVPInst(HLDDNode *DDNode = nullptr);
+  VPValue *createOrGetVPDefFrom(const DDEdge *Edge);
+  VPValue *createOrGetVPOperand(RegDDRef *HIROp);
+  void buildVPOpsForDDNode(HLDDNode *HInst,
+                           SmallVectorImpl<VPValue *> &VPValueOps);
+  void createOrFixVPInstr(HLDDNode *DDNode);
 
   // Visitor methods
   void visit(const HLNode *Node) {}
@@ -1238,11 +1261,9 @@ private:
   void visit(HLLabel *HLabel);
 
 public:
-  PlainCFGBuilderHIR(HLLoop *Lp,
-                     SmallDenseMap<VPBasicBlock *, HLLoop *> &H2HLLp,
-                     IntelVPlanUtils &Utils)
-      : TheLoop(Lp), Header2HLLoop(H2HLLp), PlanUtils(Utils),
-        TopRegion(PlanUtils.createRegion(false /*isReplicator*/)) {}
+  PlainCFGBuilderHIR(HLLoop *Lp, const DDGraph &DDG, IntelVPlanUtils &Utils,
+                     SmallDenseMap<VPBasicBlock *, HLLoop *> &H2HLLp)
+      : TheLoop(Lp), DDG(DDG), PlanUtils(Utils), Header2HLLoop(H2HLLp) {}
 
   /// Build a plain CFG for an HLLoop loop nest. Return the TopRegion containing
   /// the plain CFG.
@@ -1300,17 +1321,220 @@ void PlainCFGBuilderHIR::connectVPBBtoPreds(VPBasicBlock *VPBB) {
   Predecessors.clear();
 }
 
-/// Auxiliary function that updates active VPBasicBlock only if this is set to
-/// null. It creates a new active VPBasicBlock, connect it to existing
-/// predecessors and, if \p ISPredecessor, add it as a new predecessor of
-/// subsequent active.
-/// VPBasicBlock's.
+// Update active VPBasicBlock only when this is null. It creates a new active
+// VPBasicBlock, connect it to existing predecessors, set it as new insertion
+// point in VPHIRBUilder and, if \p ISPredecessor is true, add it as predecessor
+// of the (future) subsequent active VPBasicBlock's.
 void PlainCFGBuilderHIR::updateActiveVPBB(HLNode *HNode, bool IsPredecessor) {
   if (!ActiveVPBB) {
     ActiveVPBB = createOrGetVPBB(HNode);
     connectVPBBtoPreds(ActiveVPBB);
+    VPHIRBuilder.setInsertPoint(ActiveVPBB);
+
     if (IsPredecessor)
       Predecessors.push_back(ActiveVPBB);
+  }
+}
+
+// Return the Constant representation of a constant RegDDRef.
+static Constant *getConstantFromHIR(RegDDRef *RDDRef) {
+  assert(RDDRef->getSingleCanonExpr() &&
+         "Constant CanonExpr that is not Single CanonExpr?");
+  CanonExpr *CExpr = RDDRef->getSingleCanonExpr();
+
+  if (CExpr->isIntConstant()) {
+    int64_t CECoeff = CExpr->getConstant();
+    Type *CETy = CExpr->getDestType();
+
+    // Null value for pointer types needs special treatment
+    if (CECoeff == 0 && CETy->isPointerTy()) {
+      return Constant::getNullValue(CETy);
+    }
+    return ConstantInt::getSigned(CETy, CECoeff);
+  }
+
+  ConstantFP *FPConst;
+  if (CExpr->isFPConstant(&FPConst))
+    return FPConst;
+
+  if (CExpr->isNull())
+    return ConstantPointerNull::get(cast<PointerType>(CExpr->getDestType()));
+
+  llvm_unreachable("Unsupported HIR Constant.");
+}
+
+// Return the VPInstruction opcode for a given HLDDNode.
+static unsigned getOpcodeFromHIR(HLDDNode *DDNode) {
+  if (auto *HInst = dyn_cast<HLInst>(DDNode)) {
+    assert(HInst->getLLVMInstruction() &&
+           "Missing LLVM Instruction for HLInst.");
+    return HInst->getLLVMInstruction()->getOpcode();
+  }
+
+  if (auto *HIf = dyn_cast<HLIf>(DDNode)) {
+    assert(HIf->getNumPredicates() && "HLIf with no predicate?");
+    Type *PredType = (*HIf->ddref_begin())->getDestType();
+
+    if (PredType->isIntOrIntVectorTy()) {
+      return Instruction::ICmp;
+    }
+
+    assert(PredType->isFPOrFPVectorTy() && "Expected a floating point type.");
+    // HIR only generates multiple predicates for integers.
+    assert(HIf->getNumPredicates() == 1 &&
+           "Expected single predicate for FP type.");
+
+    return Instruction::FCmp;
+  }
+
+  llvm_unreachable("Missing opcode for HLInst.");
+}
+
+// Create a VPInstruction with no operands and do not insert it in any
+// VPBasicBlock.
+VPValue *PlainCFGBuilderHIR::createNoOperandVPInst(HLDDNode *DDNode) {
+  VPBuilder::InsertPointGuard Guard(VPHIRBuilder);
+  VPHIRBuilder.clearInsertionPoint();
+  unsigned Opcode = DDNode ? getOpcodeFromHIR(DDNode) : 0 /*No operand*/;
+  VPValue *NewVPVal = VPHIRBuilder.createNaryOp(Opcode, {} /*No operands*/, DDNode);
+  return NewVPVal;
+}
+
+// Returns the VPValue that defines Edge's sink.
+VPValue *PlainCFGBuilderHIR::createOrGetVPDefFrom(const DDEdge *Edge) {
+  // Get the HLDDNode causing the definition.
+  HLDDNode *DefNode = Edge->getSrc()->getHLDDNode();
+  auto VPValIt = HLDef2VPValue.find(DefNode);
+
+  // Return the VPValue associated to the HLDDNode definition if it has been
+  // visited previously.
+  if (VPValIt != HLDef2VPValue.end())
+    return VPValIt->second;
+
+  // HLDDNode definition hasn't been visited yet. Create VPInstruction without
+  // operands and do not insert it in the VPBasicBlock. This VPInstruciton will
+  // be fixed and inserted when the HLDDNode definition is processed in
+  // createVPInstructionsForRange.
+  VPValue *NewVPInst = createNoOperandVPInst(DefNode);
+  HLDef2VPValue[DefNode] = NewVPInst;
+  return NewVPInst;
+}
+
+// Helper function that is used by 'buildVPOpsForDDNode' to create a new VPValue
+// or retrieve an existing one for an HLDDNode's operand (HIROp). This function
+// must only be used to create/retrieve VPValues for *HLDDNode's operands*
+// and not to create regular VPInstruction's. For the latter, you should look at
+// 'createOrFixVPInstr'.
+VPValue *PlainCFGBuilderHIR::createOrGetVPOperand(RegDDRef *HIROp) {
+  if (HIROp->isConstant()) {
+    return PlanUtils.getVPlan()->getVPConstant(getConstantFromHIR(HIROp));
+  }
+
+  if (HIROp->isUnitaryBlob()) {
+    // Operand represents a single temporal that doesn't need decomposition.
+    // Conversions or single temporals with constant additive != 1 will not hit
+    // here.
+    auto OpInEdges = DDG.incoming(HIROp);
+
+    // If operand has incoming DD edges, we need to retrieve (or create) the
+    // VPValues associated to the DD sources (definition). If there are
+    // multiple definitions, in addition, we introduce a semi-phi operation that
+    // "blends" all the VPValue definitions.
+    if (OpInEdges.begin() != OpInEdges.end()) {
+      // Single definition.
+      if (std::next(OpInEdges.begin()) == OpInEdges.end())
+        return createOrGetVPDefFrom(*OpInEdges.begin());
+
+      // Multiple definitions.
+      SmallVector<VPValue *, 4> OpVPDefs;
+      for (const DDEdge *Edge : OpInEdges) {
+        OpVPDefs.push_back(createOrGetVPDefFrom(Edge));
+      }
+
+      return VPHIRBuilder.createSemiPhiOp(OpVPDefs);
+    }
+
+    // Operand has no incoming DD edges. This means that HIROp is a use whose
+    // definition is outside VPlan.
+    VPValue *NewVPVal = createNoOperandVPInst();
+    PlanUtils.getVPlan()->addExternalDef(cast<VPInstruction>(NewVPVal));
+    return NewVPVal;
+  }
+
+  // Operand is a complex RegDDRef that needs decomposition. As it may contain
+  // different temps (uses), we cannot introduce them into the VPValue U-D
+  // chain until decomposition happens. For that reason, we use a VPValue to
+  // mark that operand needs to be fixed later.
+  // FIXME: This memory is not being freed. It will be fixed when introducing
+  // decomposition.
+  return new VPValue();
+}
+
+// Return a sequence of VPValues (VPValueOps) that represents DDNode's operands
+// in VPlan. In addition to the RegDDRef to VPValue translation, operands are
+// sorted in the way VPlan expects them. Some operands, such as the LHS operand
+// in some HIR instructions, are ignored because they are not explicitly
+// represented as an operand in VPlan.
+void PlainCFGBuilderHIR::buildVPOpsForDDNode(
+    HLDDNode *DDNode, SmallVectorImpl<VPValue *> &VPValueOps) {
+
+  auto *HInst = dyn_cast<HLInst>(DDNode);
+  bool IsStore =
+      HInst && HInst->getLLVMInstruction()->getOpcode() == Instruction::Store;
+
+  // Collect operands necessary to build a VPInstruction out of an HLInst and
+  // translate them into VPValue's. We skip LHS operands for most instructions.
+  for (RegDDRef *HIROp :
+       make_range(DDNode->op_ddref_begin(), DDNode->op_ddref_end())) {
+    if (HIROp->isLval() && !IsStore)
+      continue;
+
+    VPValueOps.push_back(createOrGetVPOperand(HIROp));
+  }
+
+  // Fix discrepancies in the order of operands between HLInst and
+  // VPInstruction:
+  //     - Store: dest = store src -> store src dest
+  if (IsStore)
+    std::iter_swap(VPValueOps.begin(), std::next(VPValueOps.begin()));
+}
+
+// Main helper function that creates a VPInstruction for DDNode and inserts it
+// in the active VPBasicBlock and the HLDef2VPValue map. If a VPInstruction was
+// created before for this DDNode, the VPInstruction is retrieved, its operands
+// are created and it's inserted in the active VPBasicBlock.
+void PlainCFGBuilderHIR::createOrFixVPInstr(HLDDNode *DDNode) {
+
+  DEBUG(dbgs() << "Creating or fixing:"; DDNode->dump(); dbgs() << "\n");
+
+  // Translate HIR operands into VPValue operands. This needs to happen before
+  // creating the VPInstruction because it may introduce new VPInstructions for
+  // operands (e.g., semi-phis).
+  SmallVector<VPValue *, 4> VPValueOps;
+  buildVPOpsForDDNode(DDNode, VPValueOps);
+
+  auto VPValIt = HLDef2VPValue.find(DDNode);
+  VPInstruction *NewVPInst;
+
+  if (VPValIt != HLDef2VPValue.end()) {
+    // DDNode is a definition with a user that has been previously visited. We
+    // have to set its operands properly and insert it into the
+    // VPBasicBlock/Recipe.
+    NewVPInst = cast<VPInstruction>(VPValIt->second);
+    VPHIRBuilder.insert(NewVPInst);
+  } else {
+    // Create new VPInstruction.
+    // NOTE: We set operands later to factorize code in 'if' and 'else'
+    // branches.
+    NewVPInst = cast<VPInstruction>(VPHIRBuilder.createNaryOp(
+        getOpcodeFromHIR(DDNode), {} /*No operands*/, DDNode));
+
+    HLDef2VPValue[DDNode] = NewVPInst;
+  }
+
+  // Set VPInstruction's operands.
+  for (VPValue *Operand : VPValueOps) {
+    NewVPInst->addOperand(Operand);
   }
 }
 
@@ -1387,10 +1611,11 @@ void PlainCFGBuilderHIR::visit(HLIf *HIf) {
   // TODO: Predicates in HLIf are not HLInst's but CmpInst! We have to process
   // them separately and manually, creating VPInstructions for them and
   // combining them with AND operations.
-  // HLNodeUtils::visitRange<false /*Recursive*/>(*this /*visitor*/,
-  //                                              HIf->pred_begin(),
-  //                                              HIf->pred_end());
   updateActiveVPBB(HIf);
+
+  // Create (single, not decomposed) VPInstruction for HLIf's predicate.
+  createOrFixVPInstr(HIf);
+
   VPBasicBlock *ConditionVPBB = ActiveVPBB;
   // assert("HLIf condition generates more than one VPBB?");
   // TODO: Workaround. Setting a fake ConditionBitRecipe.
@@ -1441,6 +1666,9 @@ void PlainCFGBuilderHIR::visit(HLIf *HIf) {
 void PlainCFGBuilderHIR::visit(HLInst *HInst) {
   // Create new VPBasicBlock if there isn't a reusable one.
   updateActiveVPBB(HInst);
+
+  // Create VPInstruction for HInst
+  createOrFixVPInstr(HInst);
 }
 
 void PlainCFGBuilderHIR::visit(HLGoto *HGoto) {
@@ -1477,6 +1705,8 @@ void PlainCFGBuilderHIR::visit(HLLabel *HLabel) {
 }
 
 VPRegionBlock *PlainCFGBuilderHIR::buildPlainCFG() {
+  // Create new TopRegion.
+  TopRegion = PlanUtils.createRegion(false /*isReplicator*/);
 
   // Create a dummy VPBB as TopRegion's Entry.
   assert(!ActiveVPBB && "ActiveVPBB must be null.");
@@ -1497,7 +1727,7 @@ VPRegionBlock *PlainCFGBuilderHIR::buildPlainCFG() {
 }
 
 VPRegionBlock *VPlanHCFGBuilderHIR::buildPlainCFG() {
-  PlainCFGBuilderHIR PCFGBuilder(TheLoop, Header2HLLoop, PlanUtils);
+  PlainCFGBuilderHIR PCFGBuilder(TheLoop, DDG, PlanUtils, Header2HLLoop);
   VPRegionBlock *TopRegion = PCFGBuilder.buildPlainCFG();
   return TopRegion;
 }

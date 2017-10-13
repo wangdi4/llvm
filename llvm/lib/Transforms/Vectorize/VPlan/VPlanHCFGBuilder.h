@@ -30,7 +30,9 @@ namespace llvm {
 class ScalarEvolution;
 class Loop;
 
-using namespace loopopt;
+namespace loopopt { // TODO
+class DDGraph;
+}
 
 namespace vpo {
 
@@ -132,11 +134,16 @@ public:
   }
 };
 
+using namespace loopopt;
+
 class VPlanHCFGBuilderHIR : public VPlanHCFGBuilderBase {
 
 private:
   /// The outermost loop to be vectorized.
   HLLoop *TheLoop;
+
+  /// HIR DDGraph that contains DD information for the incoming loop nest.
+  const DDGraph &DDG;
 
   /// Loop header VPBasicBlock to HLLoop map. To be used when building loop
   /// regions.
@@ -146,8 +153,8 @@ private:
 
 public:
   VPlanHCFGBuilderHIR(const WRNVecLoopNode *WRL, HLLoop *Lp, IntelVPlan *Plan,
-                      VPOVectorizationLegality *Legal)
-      : VPlanHCFGBuilderBase(WRL, Plan, Legal), TheLoop(Lp) {
+                      VPOVectorizationLegality *Legal, const DDGraph &DDG)
+      : VPlanHCFGBuilderBase(WRL, Plan, Legal), TheLoop(Lp), DDG(DDG) {
 
     Verifier = new VPlanVerifierHIR(Lp);
     assert((!WRLp || WRLp->getTheLoop<HLLoop>() == TheLoop) &&

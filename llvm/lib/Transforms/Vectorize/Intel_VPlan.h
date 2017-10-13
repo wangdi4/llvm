@@ -410,14 +410,23 @@ public:
 /// the VPInstruction is also a single def-use vertex.
 ///
 /// Design Principle: access to underlying IR is forbidden by default. Adding
-/// new friends to this class to have access it must be justify and approved by
-/// the team.
+/// new friends to this class to have access to it must be very well justified.
 class VPInstruction : public VPUser, public VPRecipeBase {
   friend class VPBuilderIR;
+  friend class VPBuilderHIR;
 
 public:
+#if INTEL_CUSTOMIZATION
   /// VPlan opcodes, extending LLVM IR with idiomatics instructions.
+  // SemiPhi is an experimental mechanism to deal with multiple definitions
+  // coming from HIR, but in a more "relaxed way" (to be defined) than using
+  // proper Phi nodes. At this point, we can find semi-phis at any point of the
+  // VPBasicBlock and even redundant semi-phis blending exactly the same
+  // definitions.
+  enum { Not = Instruction::OtherOpsEnd + 1, SemiPhi };
+#else
   enum { Not = Instruction::OtherOpsEnd + 1 };
+#endif
 
 private:
   typedef unsigned char OpcodeTy;

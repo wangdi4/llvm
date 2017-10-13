@@ -19,6 +19,11 @@
 
 namespace llvm { // LLVM Namespace
 
+// Forward declarations
+namespace loopopt {
+class HLDDNode;
+}
+
 namespace vpo {  // VPO Namespace
 
 // Base class
@@ -40,6 +45,27 @@ public:
   unsigned getSCID() const { return SubclassID; }
 };
 
-} // End VPO Namespace
-} // End LLVM Namespace
+
+using namespace loopopt;
+
+// Class to hold HIR-specific information of a VPInstruction.
+class VPInstructionDataHIR : public VPInstructionData {
+private:
+  HLDDNode *DDNode;
+
+public:
+  VPInstructionDataHIR(HLDDNode *DDNode)
+      : VPInstructionData(VPInstructionDataHIRSC), DDNode(DDNode) {}
+
+  HLDDNode *getInstruction() { return DDNode; }
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPInstructionData *V) {
+    return V->getSCID() == VPInstructionDataHIRSC;
+  }
+};
+
+} // namespace vpo
+} // namespace llvm
+
 #endif // LLVM_TRANSFORMS_VECTORIZE_VPLAN_INSTRUCTION_DATA_H

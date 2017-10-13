@@ -19,6 +19,7 @@
 #include "VPlanPredicator.h"
 #include "VolcanoOpenCL.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
@@ -152,7 +153,7 @@ class VPlanDriverHIR : public VPlanDriverBase<HLLoop> {
 private:
   HIRFramework *HIRF;
   HIRLoopStatistics *HIRLoopStats;
-  // HIRDDAnalysis *DDA;
+  HIRDDAnalysis *DDA;
   // HIRVectVLSAnalysis *VLS;
 
   bool processLoop(HLLoop *Lp, unsigned VF, Function &Fn,
@@ -558,7 +559,7 @@ INITIALIZE_PASS_DEPENDENCY(HIRLoopStatistics)
 // INITIALIZE_PASS_DEPENDENCY(HIRParser)
 // INITIALIZE_PASS_DEPENDENCY(HIRLocalityAnalysis)
 // INITIALIZE_PASS_DEPENDENCY(HIRVectVLSAnalysis)
-// INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
 // INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysis)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
@@ -579,11 +580,11 @@ void VPlanDriverHIR::getAnalysisUsage(AnalysisUsage &AU) const {
   //  AU.addRequired<LoopInfoWrapperPass>();
   //  AU.addRequired<ScalarEvolutionWrapperPass>();
 
-  AU.addRequiredTransitive<HIRFramework>();
-  AU.addRequiredTransitive<HIRLoopStatistics>();
+  AU.addRequired<HIRFramework>();
+  AU.addRequired<HIRLoopStatistics>();
   //  AU.addRequiredTransitive<HIRParser>();
   //  AU.addRequiredTransitive<HIRLocalityAnalysis>();
-  //  AU.addRequiredTransitive<HIRDDAnalysis>();
+  AU.addRequired<HIRDDAnalysis>();
   //  AU.addRequiredTransitive<HIRSafeReductionAnalysis>();
   //  AU.addRequired<HIRVectVLSAnalysis>();
 }
@@ -591,10 +592,10 @@ void VPlanDriverHIR::getAnalysisUsage(AnalysisUsage &AU) const {
 bool VPlanDriverHIR::runOnFunction(Function &Fn) {
 
   DEBUG(dbgs() << "VPlan HIR Driver for Function: " << Fn.getName() << "\n");
-  
+
   HIRF = &getAnalysis<HIRFramework>();
   HIRLoopStats = &getAnalysis<HIRLoopStatistics>();
-  // DDA = &getAnalysis<HIRDDAnalysis>();
+  DDA = &getAnalysis<HIRDDAnalysis>();
   // VLS = &getAnalysis<HIRVectVLSAnalysis>();
 
   return VPlanDriverBase::processFunction(Fn, WRegionCollection::HIR);
@@ -605,7 +606,7 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, unsigned VF, Function &Fn,
 
   // TODO: Do we need legality check in HIR?. If we reach this point, the loop
   // either has been marked with SIMD directive by 'HIR Vec Directive Insertion
-  // Pass' or we are a stress testing mode.
+  // Pass' or we are in stress testing mode.
   // VPOVectorizationLegality LVL(Lp, PSE, TLI, TTI, &Fn, LI, DT);
 
   // Send explicit data from WRLoop to the Legality.
@@ -614,8 +615,26 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, unsigned VF, Function &Fn,
   // TODO: EnterExplicitData works with Values. This is weird. Please, revisit.
   // LoopVectorizationPlanner::EnterExplicitData(WRLp, LVL);
 
+  // TODO: We use HIR DDGraph to build VPValue D-U graph in VPlan.
+  // Unfortunately, the current DDGraph for an HLLoop doesn't include the loop
+  // PH and Exit as we do in VPlan. As a workaround, we are currently using the
+  // parent HLLoop/HLRegion's DDGraph. However, this leads to building
+  // unecessary large DDGraph.  Potential solutions:
+  //     1. Extend HIR with a new interface that provides the HLLoop DDGraph
+  //     including PH and Exit.
+  //     2. Manually keep track of live VPValue definitions in PH and Exit while
+  //     building the DU graph.
+  //
+  HLLoop *HLoop = WRLp->getTheLoop<HLLoop>();
+  assert(HLoop && "Expected HIR Loop.");
+  assert(HLoop->getParentRegion() && "Expected parent HLRegion.");
+
+  const DDGraph &DDG = HLoop->getParentLoop()
+                           ? DDA->getGraph(HLoop->getParentLoop())
+                           : DDA->getGraph(HLoop->getParentRegion());
+
   //TODO: No Legal for HIR.
-  LoopVectorizationPlannerHIR LVP(WRLp, Lp, TLI, TTI, nullptr /*Legal*/);
+  LoopVectorizationPlannerHIR LVP(WRLp, Lp, TLI, TTI, nullptr /*Legal*/, DDG);
 
   LVP.buildInitialVPlans(VF /*MinVF*/, VF /*MaxVF*/);
 

@@ -28,6 +28,7 @@ class TargetTransformInfo;
 
 namespace loopopt {
 class HLLoop;
+class DDGraph;
 }
 
 using namespace llvm::loopopt;
@@ -244,12 +245,17 @@ private:
   /// The loop that we evaluate.
   HLLoop *TheLoop;
 
+  /// HIR DDGraph that contains DD information for the incoming loop nest.
+  const DDGraph &DDG;
+
 public:
   LoopVectorizationPlannerHIR(WRNVecLoopNode *WRL, HLLoop *Lp,
                               const TargetLibraryInfo *TLI,
                               const TargetTransformInfo *TTI,
-                              VPOVectorizationLegality *Legal)
-      : LoopVectorizationPlannerBase(WRL, TLI, TTI, Legal), TheLoop(Lp) {}
+                              VPOVectorizationLegality *Legal,
+                              const DDGraph &DDG)
+      : LoopVectorizationPlannerBase(WRL, TLI, TTI, Legal), TheLoop(Lp),
+        DDG(DDG) {}
 };
 
 } // namespace vpo

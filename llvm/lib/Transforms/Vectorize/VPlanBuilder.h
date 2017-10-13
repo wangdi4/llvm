@@ -179,6 +179,29 @@ public:
     return createNaryOp(Opcode, ArrayRef<VPValue *>(Operands), Inst);
   }
 };
+
+class VPBuilderHIR : public VPBuilder {
+public:
+  /// Create an N-ary operation with \p Opcode and \p Operands and set \p HInst
+  /// as its VPInstructionData.
+  VPValue *createNaryOp(unsigned Opcode, ArrayRef<VPValue *> Operands,
+                        HLDDNode *DDNode) {
+    VPInstruction *NewVPInst = createInstruction(Opcode, Operands);
+    NewVPInst->setHIRData(new VPInstructionDataHIR(DDNode));
+    return NewVPInst;
+  }
+  VPValue *createNaryOp(unsigned Opcode,
+                        std::initializer_list<VPValue *> Operands,
+                        HLDDNode *DDNode) {
+    return createNaryOp(Opcode, ArrayRef<VPValue *>(Operands), DDNode);
+  }
+
+  /// Create a semi-phi operation with \p Operands as reaching definitions.
+  VPValue *createSemiPhiOp(ArrayRef<VPValue *> Operands) {
+    return createInstruction(VPInstruction::SemiPhi, Operands);
+  }
+};
+
 #endif
 
 } // namespace vpo
