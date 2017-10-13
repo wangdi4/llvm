@@ -14,6 +14,8 @@
 #include "CSATargetMachine.h"
 #include "CSALowerAggrCopies.h"
 #include "CSAFortranIntrinsics.h"
+#include "CSALoopIntrinsicExpander.h"
+#include "CSAOMPAllocaTypeFixer.h"
 #include "CSA.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/CodeGen/AsmPrinter.h"
@@ -40,7 +42,10 @@
 #include "llvm/Target/TargetOptions.h"
 #include "llvm/Target/TargetRegisterInfo.h"
 #include "llvm/Target/TargetSubtargetInfo.h"
+#include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Utils/LoopSimplify.h"
+#include "llvm/Transforms/Utils/Mem2Reg.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 
 
@@ -113,7 +118,7 @@ namespace {
 class CSAPassConfig : public TargetPassConfig {
 public:
   CSAPassConfig(CSATargetMachine &TM, legacy::PassManagerBase &PM)
-          : TargetPassConfig(TM, PM) {}
+    : TargetPassConfig(TM, PM) {}
 
   CSATargetMachine &getCSATargetMachine() const {
     return getTM<CSATargetMachine>();
@@ -123,9 +128,6 @@ public:
 
     // Add the pass to lower memset/memmove/memcpy
     addPass(createLowerAggrCopies());
-
-    // Add the pass to convert Fortran "builtin" calls
-    addPass(createFortranIntrinsics());
 
     // Install an instruction selector.
     addPass(createCSAISelDag(getCSATargetMachine(), getOptLevel()));
@@ -153,6 +155,7 @@ public:
 
 #define DEBUG_TYPE "csa-convert-control"
   void addPreRegAlloc() override {
+    using namespace csa_memop_ordering_shared_options;
     std::string Banner;
 #if 1
     Banner = std::string("Before Machine CDG Pass");
@@ -162,16 +165,17 @@ public:
     Banner = std::string("After Machine CDG Pass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
 
-    addPass(createCSAMemopOrderingPass(), false);
+    addPass(
+      OrderMemopsType == independent
+        ? createCSAIndependentMemopOrderingPass()
+        : createCSAMemopOrderingPass(),
+      true
+    );
     Banner = std::string("After CSAMemopOrderingPass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
 
     addPass(createCSACvtCFDFPass(), false);
     Banner = std::string("After CSACvtCFDFPass");
-    DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
-
-    addPass(createCSADFParLoopPass(), false);
-    Banner = std::string("After CSADFParLoopPass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
 
     addPass(createCSAOptDFPass(), false);
@@ -194,12 +198,6 @@ public:
       addPass(createCSAStatisticsPass(), false);
     }
 #else
-    Banner = std::string("Before CSAConvertControlPass");
-    DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
-    addPass(createCSAConvertControlPass(), false);
-    Banner = std::string("After CSAConvertControlPass");
-    DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
-
     Banner = std::string("Before CSAOptDFPass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
 
@@ -226,4 +224,20 @@ public:
 TargetPassConfig *CSATargetMachine::createPassConfig(legacy::PassManagerBase &PM) {
   CSAPassConfig *PassConfig = new CSAPassConfig(*this, PM);
   return PassConfig;
+}
+
+void CSATargetMachine::adjustPassManager(PassManagerBuilder& PMB) {
+  PMB.addExtension(PassManagerBuilder::EP_EarlyAsPossible,
+    [](const PassManagerBuilder&, legacy::PassManagerBase& PM) {
+
+      // Add the pass to convert Fortran "builtin" calls
+      PM.add(createFortranIntrinsics());
+
+      // Add the pass to expand loop intrinsics
+      PM.add(createCSAOMPAllocaTypeFixerPass());
+      PM.add(createPromoteMemoryToRegisterPass());
+      PM.add(createLoopSimplifyPass());
+      PM.add(createCSALoopIntrinsicExpanderPass());
+    }
+  );
 }

@@ -39,11 +39,12 @@ endif()
 
 if(INTEL_CUSTOMIZATION)
  if(${LLVM_BUILD_OPENMP})
-  add_llvm_external_project(openmp)
+# Special handling for OpenMP. Don't try to build it on Windows
+  if(NOT MSVC)
+    add_llvm_external_project(openmp)
+  endif()
  endif()
 endif()
 
 add_llvm_external_project(dragonegg)
 add_llvm_external_project(parallel-libs)
-# INTEL: Below logic moved to the flag above.
-#add_llvm_external_project(openmp) INTEL

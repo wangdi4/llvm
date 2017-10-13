@@ -1305,20 +1305,8 @@ void ScopStmt::buildAccessRelations() {
     auto *SAI = S.getOrCreateScopArrayInfo(Access->getOriginalBaseAddr(),
                                            ElementType, Access->Sizes, Ty);
     Access->buildAccessRelation(SAI);
+    S.addAccessData(Access);
   }
-}
-
-MemoryAccess *ScopStmt::lookupPHIReadOf(PHINode *PHI) const {
-  for (auto *MA : *this) {
-    if (!MA->isRead())
-      continue;
-    if (!MA->isLatestAnyPHIKind())
-      continue;
-
-    if (MA->getAccessInstruction() == PHI)
-      return MA;
-  }
-  return nullptr;
 }
 
 void ScopStmt::addAccess(MemoryAccess *Access) {
@@ -1343,6 +1331,11 @@ void ScopStmt::addAccess(MemoryAccess *Access) {
     assert(!PHIWrites.lookup(PHI));
 
     PHIWrites[PHI] = Access;
+  } else if (Access->isAnyPHIKind() && Access->isRead()) {
+    PHINode *PHI = cast<PHINode>(Access->getAccessValue());
+    assert(!PHIReads.lookup(PHI));
+
+    PHIReads[PHI] = Access;
   }
 
   MemAccs.push_back(Access);
@@ -1535,6 +1528,47 @@ buildConditionSets(Scop &S, BasicBlock *BB, SwitchInst *SI, Loop *L,
   return true;
 }
 
+/// Build condition sets for unsigned ICmpInst(s).
+/// Special handling is required for unsigned operands to ensure that if
+/// MSB (aka the Sign bit) is set for an operands in an unsigned ICmpInst
+/// it should wrap around.
+///
+/// @param IsStrictUpperBound holds information on the predicate relation
+/// between TestVal and UpperBound, i.e,
+/// TestVal < UpperBound  OR  TestVal <= UpperBound
+static __isl_give isl_set *
+buildUnsignedConditionSets(Scop &S, BasicBlock *BB, Value *Condition,
+                           __isl_keep isl_set *Domain, const SCEV *SCEV_TestVal,
+                           const SCEV *SCEV_UpperBound,
+                           DenseMap<BasicBlock *, isl::set> &InvalidDomainMap,
+                           bool IsStrictUpperBound) {
+
+  // Do not take NonNeg assumption on TestVal
+  // as it might have MSB (Sign bit) set.
+  isl_pw_aff *TestVal = getPwAff(S, BB, InvalidDomainMap, SCEV_TestVal, false);
+  // Take NonNeg assumption on UpperBound.
+  isl_pw_aff *UpperBound =
+      getPwAff(S, BB, InvalidDomainMap, SCEV_UpperBound, true);
+
+  // 0 <= TestVal
+  isl_set *First =
+      isl_pw_aff_le_set(isl_pw_aff_zero_on_domain(isl_local_space_from_space(
+                            isl_pw_aff_get_domain_space(TestVal))),
+                        isl_pw_aff_copy(TestVal));
+
+  isl_set *Second;
+  if (IsStrictUpperBound)
+    // TestVal < UpperBound
+    Second = isl_pw_aff_lt_set(TestVal, UpperBound);
+  else
+    // TestVal <= UpperBound
+    Second = isl_pw_aff_le_set(TestVal, UpperBound);
+
+  isl_set *ConsequenceCondSet = isl_set_intersect(First, Second);
+  ConsequenceCondSet = setDimensionIds(Domain, ConsequenceCondSet);
+  return ConsequenceCondSet;
+}
+
 /// Build the conditions sets for the branch condition @p Condition in
 /// the @p Domain.
 ///
@@ -1589,12 +1623,37 @@ buildConditionSets(Scop &S, BasicBlock *BB, Value *Condition,
     // to be set. The comparison is equal to a signed comparison under this
     // assumption.
     bool NonNeg = ICond->isUnsigned();
-    LHS = getPwAff(S, BB, InvalidDomainMap,
-                   SE.getSCEVAtScope(ICond->getOperand(0), L), NonNeg);
-    RHS = getPwAff(S, BB, InvalidDomainMap,
-                   SE.getSCEVAtScope(ICond->getOperand(1), L), NonNeg);
-    ConsequenceCondSet =
-        buildConditionSet(ICond->getPredicate(), LHS, RHS, Domain);
+    const SCEV *LeftOperand = SE.getSCEVAtScope(ICond->getOperand(0), L),
+               *RightOperand = SE.getSCEVAtScope(ICond->getOperand(1), L);
+
+    switch (ICond->getPredicate()) {
+    case ICmpInst::ICMP_ULT:
+      ConsequenceCondSet =
+          buildUnsignedConditionSets(S, BB, Condition, Domain, LeftOperand,
+                                     RightOperand, InvalidDomainMap, true);
+      break;
+    case ICmpInst::ICMP_ULE:
+      ConsequenceCondSet =
+          buildUnsignedConditionSets(S, BB, Condition, Domain, LeftOperand,
+                                     RightOperand, InvalidDomainMap, false);
+      break;
+    case ICmpInst::ICMP_UGT:
+      ConsequenceCondSet =
+          buildUnsignedConditionSets(S, BB, Condition, Domain, RightOperand,
+                                     LeftOperand, InvalidDomainMap, true);
+      break;
+    case ICmpInst::ICMP_UGE:
+      ConsequenceCondSet =
+          buildUnsignedConditionSets(S, BB, Condition, Domain, RightOperand,
+                                     LeftOperand, InvalidDomainMap, false);
+      break;
+    default:
+      LHS = getPwAff(S, BB, InvalidDomainMap, LeftOperand, NonNeg);
+      RHS = getPwAff(S, BB, InvalidDomainMap, RightOperand, NonNeg);
+      ConsequenceCondSet =
+          buildConditionSet(ICond->getPredicate(), LHS, RHS, Domain);
+      break;
+    }
   }
 
   // If no terminator was given we are only looking for parameter constraints
@@ -1950,6 +2009,11 @@ void ScopStmt::removeAccessData(MemoryAccess *MA) {
     (void)Found;
     assert(Found && "Expected access data not found");
   }
+  if (MA->isRead() && MA->isOriginalAnyPHIKind()) {
+    bool Found = PHIReads.erase(cast<PHINode>(MA->getAccessInstruction()));
+    (void)Found;
+    assert(Found && "Expected access data not found");
+  }
 }
 
 void ScopStmt::removeMemoryAccess(MemoryAccess *MA) {
@@ -1963,8 +2027,10 @@ void ScopStmt::removeMemoryAccess(MemoryAccess *MA) {
     return Acc->getAccessInstruction() == MA->getAccessInstruction();
   };
   for (auto *MA : MemAccs) {
-    if (Predicate(MA))
+    if (Predicate(MA)) {
       removeAccessData(MA);
+      Parent.removeAccessData(MA);
+    }
   }
   MemAccs.erase(std::remove_if(MemAccs.begin(), MemAccs.end(), Predicate),
                 MemAccs.end());
@@ -1977,6 +2043,7 @@ void ScopStmt::removeSingleMemoryAccess(MemoryAccess *MA) {
   MemAccs.erase(MAIt);
 
   removeAccessData(MA);
+  Parent.removeAccessData(MA);
 
   auto It = InstructionToAccess.find(MA->getAccessInstruction());
   if (It != InstructionToAccess.end()) {
@@ -3746,7 +3813,7 @@ void Scop::removeStmts(std::function<bool(ScopStmt &)> ShouldDelete) {
 
 void Scop::removeStmtNotInDomainMap() {
   auto ShouldDelete = [this](ScopStmt &Stmt) -> bool {
-    return !this->DomainMap[Stmt.getEntryBlock()];
+    return !this->DomainMap.lookup(Stmt.getEntryBlock());
   };
   removeStmts(ShouldDelete);
 }
@@ -4868,7 +4935,7 @@ void Scop::buildSchedule(RegionNode *RN, LoopStackTy &LoopStack, LoopInfo &LI) {
   auto &LoopData = LoopStack.back();
   LoopData.NumBlocksProcessed += getNumBlocksInRegionNode(RN);
 
-  if (auto *Stmt = getStmtFor(RN)) {
+  for (auto *Stmt : getStmtListFor(RN)) {
     auto *UDomain = isl_union_set_from_set(Stmt->getDomain());
     auto *StmtSchedule = isl_schedule_from_domain(UDomain);
     LoopData.Schedule = combineInSequence(LoopData.Schedule, StmtSchedule);
@@ -4912,16 +4979,30 @@ ScopStmt *Scop::getStmtFor(BasicBlock *BB) const {
   return StmtMapIt->second.front();
 }
 
-ScopStmt *Scop::getStmtFor(RegionNode *RN) const {
-  if (RN->isSubRegion())
-    return getStmtFor(RN->getNodeAs<Region>());
-  return getStmtFor(RN->getNodeAs<BasicBlock>());
+ArrayRef<ScopStmt *> Scop::getStmtListFor(BasicBlock *BB) const {
+  auto StmtMapIt = StmtMap.find(BB);
+  if (StmtMapIt == StmtMap.end())
+    return {};
+  assert(StmtMapIt->second.size() == 1 &&
+         "Each statement corresponds to exactly one BB.");
+  return StmtMapIt->second;
 }
 
-ScopStmt *Scop::getStmtFor(Region *R) const {
-  ScopStmt *Stmt = getStmtFor(R->getEntry());
-  assert(!Stmt || Stmt->getRegion() == R);
-  return Stmt;
+ScopStmt *Scop::getLastStmtFor(BasicBlock *BB) const {
+  ArrayRef<ScopStmt *> StmtList = getStmtListFor(BB);
+  if (StmtList.size() > 0)
+    return StmtList.back();
+  return nullptr;
+}
+
+ArrayRef<ScopStmt *> Scop::getStmtListFor(RegionNode *RN) const {
+  if (RN->isSubRegion())
+    return getStmtListFor(RN->getNodeAs<Region>());
+  return getStmtListFor(RN->getNodeAs<BasicBlock>());
+}
+
+ArrayRef<ScopStmt *> Scop::getStmtListFor(Region *R) const {
+  return getStmtListFor(R->getEntry());
 }
 
 int Scop::getRelativeLoopDepth(const Loop *L) const {
@@ -4944,6 +5025,69 @@ ScopArrayInfo *Scop::getArrayInfoByName(const std::string BaseName) {
       return SAI;
   }
   return nullptr;
+}
+
+void Scop::addAccessData(MemoryAccess *Access) {
+  const ScopArrayInfo *SAI = Access->getOriginalScopArrayInfo();
+  assert(SAI && "can only use after access relations have been constructed");
+
+  if (Access->isOriginalValueKind() && Access->isRead())
+    ValueUseAccs[SAI].push_back(Access);
+  else if (Access->isOriginalAnyPHIKind() && Access->isWrite())
+    PHIIncomingAccs[SAI].push_back(Access);
+}
+
+void Scop::removeAccessData(MemoryAccess *Access) {
+  if (Access->isOriginalValueKind() && Access->isRead()) {
+    auto &Uses = ValueUseAccs[Access->getScopArrayInfo()];
+    std::remove(Uses.begin(), Uses.end(), Access);
+  } else if (Access->isOriginalAnyPHIKind() && Access->isWrite()) {
+    auto &Incomings = PHIIncomingAccs[Access->getScopArrayInfo()];
+    std::remove(Incomings.begin(), Incomings.end(), Access);
+  }
+}
+
+MemoryAccess *Scop::getValueDef(const ScopArrayInfo *SAI) const {
+  assert(SAI->isValueKind());
+
+  Instruction *Val = dyn_cast<Instruction>(SAI->getBasePtr());
+  if (!Val)
+    return nullptr;
+
+  ScopStmt *Stmt = getStmtFor(Val);
+  if (!Stmt)
+    return nullptr;
+
+  return Stmt->lookupValueWriteOf(Val);
+}
+
+ArrayRef<MemoryAccess *> Scop::getValueUses(const ScopArrayInfo *SAI) const {
+  assert(SAI->isValueKind());
+  auto It = ValueUseAccs.find(SAI);
+  if (It == ValueUseAccs.end())
+    return {};
+  return It->second;
+}
+
+MemoryAccess *Scop::getPHIRead(const ScopArrayInfo *SAI) const {
+  assert(SAI->isPHIKind() || SAI->isExitPHIKind());
+
+  if (SAI->isExitPHIKind())
+    return nullptr;
+
+  PHINode *PHI = cast<PHINode>(SAI->getBasePtr());
+  ScopStmt *Stmt = getStmtFor(PHI);
+  assert(Stmt && "PHINode must be within the SCoP");
+
+  return Stmt->lookupPHIReadOf(PHI);
+}
+
+ArrayRef<MemoryAccess *> Scop::getPHIIncomings(const ScopArrayInfo *SAI) const {
+  assert(SAI->isPHIKind() || SAI->isExitPHIKind());
+  auto It = PHIIncomingAccs.find(SAI);
+  if (It == PHIIncomingAccs.end())
+    return {};
+  return It->second;
 }
 
 //===----------------------------------------------------------------------===//

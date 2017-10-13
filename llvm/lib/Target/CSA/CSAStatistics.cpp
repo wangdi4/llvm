@@ -17,7 +17,6 @@
 #include "InstPrinter/CSAInstPrinter.h"
 #include "CSAInstrInfo.h"
 #include "CSATargetMachine.h"
-#include "CSALicAllocation.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/SparseSet.h"

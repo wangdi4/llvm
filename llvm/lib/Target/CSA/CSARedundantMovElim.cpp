@@ -418,6 +418,7 @@ bool CSARedundantMovElim::isRedundantMov(const MachineInstr& MI) const {
   if (!MI.getFlag(MachineInstr::NonSequential))
     return false;
 
+
   // (b)
   assert(MI.getNumOperands() == 2);
   const MachineOperand* dest = &MI.getOperand(0);
@@ -436,6 +437,17 @@ bool CSARedundantMovElim::isRedundantMov(const MachineInstr& MI) const {
 
   unsigned src_reg = src->getReg();
   unsigned dest_reg = dest->getReg();
+
+  const TargetRegisterClass* src_RC= TII->lookupLICRegClass(src_reg);
+  const TargetRegisterClass* dest_RC = TII->lookupLICRegClass(dest_reg);
+
+  if ((!src_RC) || (!dest_RC)) {
+    // Error looking up register classes for input/output LICs.
+    return false;
+  }
+  if (dest_RC == &CSA::RI1RegClass)
+    return false;
+
 
   // (c)
   //
@@ -468,14 +480,6 @@ bool CSARedundantMovElim::isRedundantMov(const MachineInstr& MI) const {
   }
 
   // (e)
-  const TargetRegisterClass* src_RC= TII->lookupLICRegClass(src_reg);
-  const TargetRegisterClass* dest_RC = TII->lookupLICRegClass(dest_reg);
-
-  if ((!src_RC) || (!dest_RC)) {
-    // Error looking up register classes for input/output LICs.
-    return false;
-  }
-
   int src_bitwidth = this->TRI->getRegSizeInBits(*src_RC);
   int mov_bitwidth = TII->getMOVBitwidth(MI.getOpcode());
   int dest_bitwidth = this->TRI->getRegSizeInBits(*dest_RC);

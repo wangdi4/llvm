@@ -54,6 +54,11 @@ InterleaveSrc("csa-emit-src", cl::ZeroOrMore, cl::Hidden,
               cl::desc("CSA Specific: Emit source line in asm file"),
               cl::init(false));
 
+static cl::opt<bool>
+StrictTermination("csa-strict-term", cl::Hidden,
+                  cl::desc("CSA Specific: Turn on strict termination mode"),
+                  cl::init(false));
+
 namespace {
   class LineReader {
   private:
@@ -449,7 +454,7 @@ void CSAAsmPrinter::EmitStartOfAsmFile(Module &M) {
   writeAsmLine("\t.version 0,6,0");
   // This should probably be replaced by code to handle externs
   //  writeAsmLine("\t.set implicitextern");
-  //writeAsmLine("\t.set relaxed");
+  if (not StrictTermination) writeAsmLine("\t.set relaxed");
   writeAsmLine("\t.unit sxu");
 }
 
