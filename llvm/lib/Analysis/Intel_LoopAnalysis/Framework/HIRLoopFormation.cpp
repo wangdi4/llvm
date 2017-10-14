@@ -368,6 +368,66 @@ const Loop *HIRLoopFormation::getOutermostHIRParentLoop(const Loop *Lp) const {
   return ParLp;
 }
 
+void HIRLoopFormation::processLoopExitGoto(HLIf *BottomTest, HLLabel *LoopLabel,
+                                           HLLoop *HLoop) const {
+  // If loop exit goto was not removed as redundant, it means that it is not the
+  // lexical successor of the loop. In this case we need to preserve the goto by
+  // moving it after the loop.
+  //
+  // Change from-
+  //
+  // + UNKNOWN LOOP i2
+  // |  L:
+  // |  ...
+  // |  if () {
+  // |    goto L;
+  // |  else {
+  // |    goto Exit;
+  // |  }
+  // + END LOOP
+  //
+  // OtherLabel:
+  //
+  // To-
+  //
+  // + UNKNOWN LOOP i2
+  // |  L:
+  // |  ...
+  // |  if () {
+  // |    goto L;
+  // }  }
+  // + END LOOP
+  // goto Exit;
+  //
+  // OtherLabel:
+  //
+  if (!BottomTest->hasThenChildren()) {
+    return;
+  }
+
+  assert(((BottomTest->getNumThenChildren() == 1) &&
+          isa<HLGoto>(BottomTest->getFirstThenChild())) &&
+         "Unexpected bottom test!");
+
+  if (!BottomTest->hasElseChildren()) {
+    return;
+  }
+
+  assert(((BottomTest->getNumElseChildren() == 1) &&
+          isa<HLGoto>(BottomTest->getFirstElseChild())) &&
+         "Unexpected bottom test!");
+
+  auto ThenGoto = cast<HLGoto>(BottomTest->getFirstThenChild());
+
+  // Check which goto represents backedge and move the other one after the loop.
+  if (ThenGoto->getTargetLabel() == LoopLabel) {
+    ThenGoto->getHLNodeUtils().moveAfter(HLoop,
+                                         BottomTest->getFirstElseChild());
+  } else {
+    ThenGoto->getHLNodeUtils().moveAfter(HLoop, ThenGoto);
+  }
+}
+
 void HIRLoopFormation::formLoops() {
 
   HLRegion *PrevRegion = nullptr;
@@ -416,16 +476,17 @@ void HIRLoopFormation::formLoops() {
       BottomTestIter = std::next(BottomTestIter);
     }
 
+    HLIf *BottomTest = cast<HLIf>(&*BottomTestIter);
+
     // Create a new loop and move its children inside.
     HLLoop *HLoop = HIR->getHLNodeUtils().createHLLoop(Lp);
-    HLoop->setLoopMetadata(Lp->getLoopID());
+    HIR->getHLNodeUtils().insertBefore(Label, HLoop);
 
-    HLIf *BottomTest = cast<HLIf>(&*BottomTestIter);
+    HLoop->setLoopMetadata(Lp->getLoopID());
     HLoop->setBranchDebugLoc(BottomTest->getDebugLoc());
     HLoop->setCmpTestDebugLoc(BottomTest->pred_begin()->DbgLoc);
 
-    // Hook loop into HIR.
-    HIR->getHLNodeUtils().insertBefore(&*LabelIter, HLoop);
+    processLoopExitGoto(BottomTest, Label, HLoop);
 
     // Include Label and bottom test as explicit nodes inside the unknown loop.
     auto FirstChildIter = IsUnknownLoop ? LabelIter : std::next(LabelIter);
@@ -437,10 +498,8 @@ void HIRLoopFormation::formLoops() {
 
     if (!IsUnknownLoop) {
       // Remove label and bottom test.
-      HIR->getHLNodeUtils().erase(&*LabelIter);
-
-      // Can bottom test contain anything else??? Should probably assert on it.
-      HIR->getHLNodeUtils().erase(&*BottomTestIter);
+      HIR->getHLNodeUtils().erase(Label);
+      HIR->getHLNodeUtils().erase(BottomTest);
 
       // TODO: Look into whether setting ztt is beneficial for unknown loops.
       if (!IsConstTripLoop) {

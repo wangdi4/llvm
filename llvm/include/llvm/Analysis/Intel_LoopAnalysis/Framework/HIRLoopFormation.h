@@ -103,6 +103,11 @@ private:
   /// Returns the outermost parent loop of \p Lp contained in the HIR region.
   const Loop *getOutermostHIRParentLoop(const Loop *Lp) const;
 
+  /// Moves the loop exit goto after the loop if it is not removed as redundant
+  /// by HIRCleanup pass.
+  void processLoopExitGoto(HLIf *BottomTest, HLLabel *LoopLabel,
+                           HLLoop *HLoop) const;
+
   /// Forms loops in HIR.
   void formLoops();
 
