@@ -171,10 +171,23 @@ void TempInfo::substituteInUseRef() {
 
   if (auto UseRef = getUseRef()) {
     auto UseNode = UseRef->getHLDDNode();
+    auto UseInst = dyn_cast<HLInst>(UseNode);
+    RegDDRef *LvalRef = nullptr;
+    unsigned Index = getBlobIndex();
 
-    UseNode->replaceOperandDDRef(UseRef, getDefInst()->removeRvalDDRef());
+    // If use is in the copy, replace use inst by def inst by changing its lval.
+    // This is so that we don't add memref to copy insts.
+    if (UseInst && UseInst->isCopyInst()) {
+      LvalRef = UseInst->removeLvalDDRef();
+      DefInst->replaceOperandDDRef(DefInst->getLvalDDRef(), LvalRef);
+      HLNodeUtils::moveBefore(UseInst, DefInst);
+      HLNodeUtils::remove(UseInst);
 
-    auto LvalRef = UseNode->getLvalDDRef();
+    } else {
+      UseNode->replaceOperandDDRef(UseRef, DefInst->removeRvalDDRef());
+      HLNodeUtils::remove(DefInst);
+      LvalRef = UseNode->getLvalDDRef();
+    }
 
     // Rval blob could have been propagated to lval temp by parser. Since we now
     // have a load in the rval, we need to make lval as a self blob. For
@@ -185,9 +198,13 @@ void TempInfo::substituteInUseRef() {
     // becomes t2 = A[i]. t2 can no longer be in terms of t1. It should be
     // marked as a self-blob.
     if (LvalRef && LvalRef->isTerminalRef() &&
-        LvalRef->usesTempBlob(getBlobIndex())) {
+        LvalRef->usesTempBlob(Index)) {
       LvalRef->makeSelfBlob();
     }
+
+  } else {
+    // No uses, we can simply remove the instruction.
+    HLNodeUtils::remove(DefInst);
   }
 }
 
@@ -565,6 +582,8 @@ void TempSubstituter::eliminateSubstitutedTemps(HLRegion *Reg) {
       continue;
     }
 
+    auto Parent = Temp.getDefInst()->getParent();
+
     if (Temp.isLoad()) {
       // Suppress temp substitution for regions with simd loops as explicit
       // reduction recognition fails otherwise. This is a workaround until
@@ -618,12 +637,10 @@ void TempSubstituter::eliminateSubstitutedTemps(HLRegion *Reg) {
           ParentLoop = ParentLoop->getParentLoop();
         }
       }
+
+      // Temp is deemed unnecessary.
+      HLNodeUtils::remove(Temp.getDefInst());
     }
-
-    auto Parent = Temp.getDefInst()->getParent();
-
-    // Temp is deemed unnecessary.
-    Reg->getHLNodeUtils().remove(Temp.getDefInst());
 
     if (isNodeEmpty(Parent)) {
       HasEmptyNodes = true;

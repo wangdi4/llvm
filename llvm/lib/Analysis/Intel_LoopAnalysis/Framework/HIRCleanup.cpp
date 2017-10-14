@@ -77,7 +77,7 @@ void HIRCleanup::eliminateRedundantGotos() {
     if ((LabelSuccessor && (TargetBB == LabelSuccessor->getSrcBBlock())) ||
         (!LabelSuccessor &&
          (TargetBB == Goto->getParentRegion()->getSuccBBlock()))) {
-      HIR->getHLNodeUtils().erase(Goto);
+      HLNodeUtils::erase(Goto);
     } else {
       // Link Goto to its HLLabel target, if available.
       auto It = HIR->Labels.find(TargetBB);
@@ -133,7 +133,7 @@ void HIRCleanup::eliminateRedundantLabels() {
         LoopLatchHooks[LabelBB] = LexSuccessor;
       }
 
-      HIR->getHLNodeUtils().erase(Label);
+      HLNodeUtils::erase(Label);
     }
   }
 }

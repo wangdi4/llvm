@@ -99,8 +99,7 @@ struct HoistCandidate {
   unsigned Level;
   SmallVector<HLIf *, 8> Clones;
 
-  HoistCandidate(HLIf *If, unsigned Level)
-      : PilotIf(If), Level(Level) {
+  HoistCandidate(HLIf *If, unsigned Level) : PilotIf(If), Level(Level) {
     Ifs.insert(If);
   }
 
@@ -546,7 +545,6 @@ bool HIROptPredicate::processOptPredicate(bool &HasMultiexitLoop) {
 // If-Then and other inside the Else.
 void HIROptPredicate::transformCandidate(HLLoop *TargetLoop,
                                          HoistCandidate &Candidate) {
-  auto &HNU = TargetLoop->getHLNodeUtils();
 
   SmallDenseMap<HLIf *, std::pair<HLContainerTy, HLContainerTy>, 8> Containers;
   Containers.reserve(Candidate.Ifs.size());
@@ -571,7 +569,7 @@ void HIROptPredicate::transformCandidate(HLLoop *TargetLoop,
 
     // Insert then-case after the HLIf
     if (!ThenContainer.empty()) {
-      HNU.insertAfter(If, &ThenContainer);
+      HLNodeUtils::insertAfter(If, &ThenContainer);
     }
 
     // Insert else-case after the cloned HLIf
@@ -579,21 +577,21 @@ void HIROptPredicate::transformCandidate(HLLoop *TargetLoop,
       // Update HLGotos to new cloned targets
       HIRTransformUtils::remapLabelsRange(CloneMapper, &ElseContainer.front(),
                                           &ElseContainer.back());
-      HNU.insertAfter(ClonnedIf, &ElseContainer);
+      HLNodeUtils::insertAfter(ClonnedIf, &ElseContainer);
     }
 
     if (If == PilotIf) {
       // Move the If condition outside.
       hoistIf(PilotIf, TargetLoop);
     } else {
-      HNU.remove(If);
+      HLNodeUtils::remove(If);
     }
 
-    HNU.remove(ClonnedIf);
+    HLNodeUtils::remove(ClonnedIf);
   }
 
-  HNU.moveAsFirstChild(PilotIf, TargetLoop, true);
-  HNU.insertAsFirstChild(PilotIf, NewElseLoop, false);
+  HLNodeUtils::moveAsFirstChild(PilotIf, TargetLoop, true);
+  HLNodeUtils::insertAsFirstChild(PilotIf, NewElseLoop, false);
 }
 
 bool HIROptPredicate::transformClones(HLLoop *TargetLoop,
@@ -630,14 +628,14 @@ void HIROptPredicate::removeThenElseChildren(HLIf *If,
 
   // Collect Then Children.
   if (If->hasThenChildren()) {
-    If->getHLNodeUtils().remove(ThenContainer, If->getFirstThenChild(),
-                                If->getLastThenChild());
+    HLNodeUtils::remove(ThenContainer, If->getFirstThenChild(),
+                        If->getLastThenChild());
   }
 
   // Collect Else Children.
   if (If->hasElseChildren()) {
-    If->getHLNodeUtils().remove(ElseContainer, If->getFirstElseChild(),
-                                If->getLastElseChild());
+    HLNodeUtils::remove(ElseContainer, If->getFirstElseChild(),
+                        If->getLastElseChild());
   }
 }
 
@@ -645,7 +643,7 @@ void HIROptPredicate::hoistIf(HLIf *If, HLLoop *OrigLoop) {
   // TODO: remove loop live-ins
 
   // Hoist the If outside the loop.
-  If->getHLNodeUtils().moveBefore(OrigLoop, If);
+  HLNodeUtils::moveBefore(OrigLoop, If);
 
   unsigned Level = OrigLoop->getNestingLevel();
 

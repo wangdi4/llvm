@@ -113,11 +113,11 @@ HLNode *HIRCreation::populateTerminator(BasicBlock *BB, HLNode *InsertionPos) {
       If->setDebugLoc(BI->getDebugLoc());
 
       HLGoto *ThenGoto = getHLNodeUtils().createHLGoto(BB, BI->getSuccessor(0));
-      getHLNodeUtils().insertAsFirstChild(If, ThenGoto, true);
+      HLNodeUtils::insertAsFirstChild(If, ThenGoto, true);
       Gotos.push_back(ThenGoto);
 
       HLGoto *ElseGoto = getHLNodeUtils().createHLGoto(BB, BI->getSuccessor(1));
-      getHLNodeUtils().insertAsFirstChild(If, ElseGoto, false);
+      HLNodeUtils::insertAsFirstChild(If, ElseGoto, false);
       Gotos.push_back(ElseGoto);
 
       TermNode = If;
@@ -144,7 +144,7 @@ HLNode *HIRCreation::populateTerminator(BasicBlock *BB, HLNode *InsertionPos) {
     // Add gotos to all the cases. They are added for convenience in forming
     // lexical links and will be eliminated later.
     auto DefaultGoto = getHLNodeUtils().createHLGoto(BB, SI->getDefaultDest());
-    getHLNodeUtils().insertAsFirstDefaultChild(Switch, DefaultGoto);
+    HLNodeUtils::insertAsFirstDefaultChild(Switch, DefaultGoto);
     Gotos.push_back(DefaultGoto);
 
     const DebugLoc &DbgLoc = SI->getDebugLoc();
@@ -154,7 +154,7 @@ HLNode *HIRCreation::populateTerminator(BasicBlock *BB, HLNode *InsertionPos) {
 
     for (auto I = SI->case_begin(), E = SI->case_end(); I != E; ++I, ++Count) {
       auto CaseGoto = getHLNodeUtils().createHLGoto(BB, I->getCaseSuccessor());
-      getHLNodeUtils().insertAsFirstChild(Switch, CaseGoto, Count);
+      HLNodeUtils::insertAsFirstChild(Switch, CaseGoto, Count);
       Gotos.push_back(CaseGoto);
 
       CaseGoto->setDebugLoc(DbgLoc);
@@ -171,9 +171,9 @@ HLNode *HIRCreation::populateTerminator(BasicBlock *BB, HLNode *InsertionPos) {
 
   // Insert new node into the region.
   if (auto Region = dyn_cast<HLRegion>(InsertionPos)) {
-    getHLNodeUtils().insertAsFirstChild(Region, TermNode);
+    HLNodeUtils::insertAsFirstChild(Region, TermNode);
   } else {
-    getHLNodeUtils().insertAfter(InsertionPos, TermNode);
+    HLNodeUtils::insertAfter(InsertionPos, TermNode);
   }
 
   return TermNode;
@@ -186,9 +186,9 @@ HLNode *HIRCreation::populateInstSequence(BasicBlock *BB,
   Labels[BB] = Label;
 
   if (auto Region = dyn_cast<HLRegion>(InsertionPos)) {
-    getHLNodeUtils().insertAsFirstChild(Region, Label);
+    HLNodeUtils::insertAsFirstChild(Region, Label);
   } else {
-    getHLNodeUtils().insertAfter(InsertionPos, Label);
+    HLNodeUtils::insertAfter(InsertionPos, Label);
   }
 
   InsertionPos = Label;
@@ -196,7 +196,7 @@ HLNode *HIRCreation::populateInstSequence(BasicBlock *BB,
   for (auto I = BB->getFirstInsertionPt(), E = std::prev(BB->end()); I != E;
        ++I) {
     auto Inst = getHLNodeUtils().createHLInst(&*I);
-    getHLNodeUtils().insertAfter(InsertionPos, Inst);
+    HLNodeUtils::insertAfter(InsertionPos, Inst);
     InsertionPos = Inst;
   }
 

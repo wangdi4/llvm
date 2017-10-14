@@ -16,13 +16,13 @@
 //
 
 #include "llvm/ADT/SCCIterator.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeVisitor.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 
 #include "HIRLoopDistribution.h"
 
@@ -133,7 +133,6 @@ void HIRLoopDistribution::distributeLoop(
   unsigned LastLoopNum = DistPoints.size();
   unsigned Num = 0;
   bool CopyPreHeader = true;
-  auto &HNU = Loop->getHLNodeUtils();
 
   for (PiBlockList &PList : DistPoints) {
     // Each PiBlockList forms a new loop
@@ -143,21 +142,21 @@ void HIRLoopDistribution::distributeLoop(
 
     HLLoop *NewLoop = Loop->cloneEmptyLoop();
     if (CopyPreHeader) {
-      HNU.moveAsFirstPreheaderNodes(NewLoop, Loop->pre_begin(),
-                                    Loop->pre_end());
+      HLNodeUtils::moveAsFirstPreheaderNodes(NewLoop, Loop->pre_begin(),
+                                             Loop->pre_end());
       CopyPreHeader = false;
     }
     if (++Num == LastLoopNum) {
-      HNU.moveAsFirstPostexitNodes(NewLoop, Loop->post_begin(),
-                                   Loop->post_end());
+      HLNodeUtils::moveAsFirstPostexitNodes(NewLoop, Loop->post_begin(),
+                                            Loop->post_end());
     }
 
-    HNU.insertBefore(Loop, NewLoop);
+    HLNodeUtils::insertBefore(Loop, NewLoop);
     // Each piblock is comprised of multiple HLNodes
     for (PiBlock *PiBlk : PList) {
       for (auto NodeI = PiBlk->nodes_begin(), E = PiBlk->nodes_end();
            NodeI != E; ++NodeI) {
-        HNU.moveAsLastChild(NewLoop, *NodeI);
+        HLNodeUtils::moveAsLastChild(NewLoop, *NodeI);
       }
     }
   }
@@ -170,7 +169,7 @@ void HIRLoopDistribution::distributeLoop(
   // The loop is now empty, all its children moved into new loops
   assert(!Loop->hasChildren() &&
          "Loop Distribution failed to account for all Loop Children");
-  HNU.remove(Loop);
+  HLNodeUtils::remove(Loop);
 }
 
 // Form perfect loop candidates by grouping stmt only piblocks

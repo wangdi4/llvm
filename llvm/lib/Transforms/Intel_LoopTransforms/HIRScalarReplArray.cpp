@@ -74,16 +74,16 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/DDGraph.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLocalityAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGatherer.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 
 #include "HIRScalarReplArray.h"
 
@@ -535,7 +535,7 @@ void MemRefGroup::generateTempRotation(HLLoop *Lp) {
     RegDDRef *RvalRef = TmpV[Idx + 1];
     HLInst *CopyInst = HNU->createCopyInst(RvalRef->clone(), ScalarReplCopyName,
                                            LvalRef->clone());
-    HNU->insertAsLastChild(Lp, CopyInst);
+    HLNodeUtils::insertAsLastChild(Lp, CopyInst);
   }
 
   DEBUG(FOS << "AFTER generateTempRotation(.): \n"; Lp->dump(); FOS << "\n");
@@ -597,7 +597,7 @@ void MemRefGroup::generateLoadInPrehdr(HLLoop *Lp, RegDDRef *MemRef,
   // Insert the load into the Lp's preheader
   HLNodeUtils *HNU = HSRA->HNU;
   HLInst *LoadInst = HNU->createLoad(MemRef2, ScalarReplTempName, TmpRefClone);
-  HNU->insertAsLastPreheaderNode(Lp, LoadInst);
+  HLNodeUtils::insertAsLastPreheaderNode(Lp, LoadInst);
 
   // Mark TempRefClone as Lp's LiveIn
   Lp->addLiveInTemp(TmpRefClone->getSymbase());
@@ -666,9 +666,9 @@ HLInst *MemRefGroup::generateStoreInPostexit(HLLoop *Lp, RegDDRef *MemRef,
   HLInst *StoreInst = HNU->createStore(TmpRef, ScalarReplStoreName, MemRef);
 
   if (InsertAfter) {
-    HNU->insertAfter(InsertAfter, StoreInst);
+    HLNodeUtils::insertAfter(InsertAfter, StoreInst);
   } else {
-    HNU->insertAsFirstPostexitNode(Lp, StoreInst);
+    HLNodeUtils::insertAsFirstPostexitNode(Lp, StoreInst);
   }
 
   Lp->addLiveOutTemp(TmpRef->getSymbase());
@@ -1212,7 +1212,7 @@ void HIRScalarReplArray::doInLoopProc(HLLoop *Lp, MemRefGroup &MRG) {
     HLInst *LoadInst =
         HNU->createLoad(MemRefClone, ScalarReplLoadName, TmpRefClone);
     HLDDNode *DDNode = MemRef->getHLDDNode();
-    HNU->insertBefore(DDNode, LoadInst);
+    HLNodeUtils::insertBefore(DDNode, LoadInst);
   }
 
   // Generate a store if MinIdxStoreRT is available
@@ -1225,7 +1225,7 @@ void HIRScalarReplArray::doInLoopProc(HLLoop *Lp, MemRefGroup &MRG) {
     HLInst *StoreInst =
         HNU->createStore(TmpRefClone, ScalarReplStoreName, MemRefClone);
     HLDDNode *DDNode = MemRef->getHLDDNode();
-    HNU->insertAfter(DDNode, StoreInst);
+    HLNodeUtils::insertAfter(DDNode, StoreInst);
   }
 
   // Replace each MemRef with its matching Temp
@@ -1264,17 +1264,23 @@ void HIRScalarReplArray::replaceMemRefWithTmp(RegDDRef *MemRef,
     HLInst *CopyInst = nullptr;
     RegDDRef *OtherRef = nullptr;
 
-    // StoreInst: replace with a CopyInst
+    // StoreInst: replace with a LoadInst or CopyInst depending on the rval.
     if (isa<StoreInst>(LLVMInst) && MemRef->isLval()) {
       OtherRef = HInst->removeOperandDDRef(1);
-      CopyInst = HNU->createCopyInst(OtherRef, ScalarReplCopyName, TmpRefClone);
-      HNU->replace(HInst, CopyInst);
+      if (OtherRef->isMemRef()) {
+        auto LInst = HNU->createLoad(OtherRef, ScalarReplCopyName, TmpRefClone);
+        HLNodeUtils::replace(HInst, LInst);
+      } else {
+        CopyInst =
+            HNU->createCopyInst(OtherRef, ScalarReplCopyName, TmpRefClone);
+        HLNodeUtils::replace(HInst, CopyInst);
+      }
     }
     // LoadInst: replace with a CopyInst
-    else if (isa<LoadInst>(LLVMInst) && MemRef->isRval()) {
+    else if (isa<LoadInst>(LLVMInst)) {
       OtherRef = HInst->removeOperandDDRef(0);
       CopyInst = HNU->createCopyInst(TmpRefClone, ScalarReplCopyName, OtherRef);
-      HNU->replace(HInst, CopyInst);
+      HLNodeUtils::replace(HInst, CopyInst);
     }
     // Neither a Load nor a Store: do regular replacement
     else {

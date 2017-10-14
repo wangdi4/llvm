@@ -978,7 +978,7 @@ struct HLNodeUtils::LoopFinderUpdater final : public HLNodeVisitorBase {
     if (FinderMode) {
       FoundLoop = true;
     } else {
-      Loop->getHLNodeUtils().updateLoopInfo(Loop);
+      updateLoopInfo(Loop);
     }
   }
 
@@ -1859,8 +1859,10 @@ HLNode *HLNodeUtils::getLinkListNodeImpl(HLNode *Node, bool Prev) {
 
   if (!Parent) {
     assert(isa<HLRegion>(Node) && "getPrev() called on detached node!");
-    auto FirstOrLastRegIter = Prev ? getHIRFramework().hir_begin()
-                                   : std::prev(getHIRFramework().hir_end());
+    auto &HIRF = Node->getHLNodeUtils().getHIRFramework();
+
+    auto FirstOrLastRegIter =
+        Prev ? HIRF.hir_begin() : std::prev(HIRF.hir_end());
     auto NodeIter = Node->getIterator();
 
     if (NodeIter != FirstOrLastRegIter) {
@@ -3359,23 +3361,6 @@ bool HLNodeUtils::hasNonUnitStrideRefs(const HLLoop *Loop) {
   return NUS.HasNonUnitStride;
 }
 
-/// t0 = a[i1];     LRef =
-///  ...
-/// t1  = t0        Node
-/// Looking for Node (assuming  forward sub is not done)
-HLInst *
-HLNodeUtils::findForwardSubInst(const DDRef *LRef,
-                                SmallVectorImpl<HLInst *> &ForwardSubInsts) {
-
-  for (auto &Inst : ForwardSubInsts) {
-    const RegDDRef *RRef = Inst->getRvalDDRef();
-    if (RRef->getSymbase() == LRef->getSymbase()) {
-      return Inst;
-    }
-  }
-  return nullptr;
-}
-
 const HLLoop *HLNodeUtils::getLowestCommonAncestorLoop(const HLLoop *Lp1,
                                                        const HLLoop *Lp2) {
   assert(Lp1 && "Lp1 is null!");
@@ -3445,13 +3430,12 @@ bool HLNodeUtils::areEqual(const HLIf *NodeA, const HLIf *NodeB) {
 }
 
 NodeRangeTy HLNodeUtils::replaceNodeWithBody(HLIf *If, bool ThenBody) {
-  HLNodeUtils &HNU = If->getHLNodeUtils();
 
   auto NodeRange = ThenBody ? std::make_pair(If->then_begin(), If->then_end())
                             : std::make_pair(If->else_begin(), If->else_end());
   auto LastNode = std::prev(NodeRange.second);
 
-  HNU.moveAfter(If, NodeRange.first, NodeRange.second);
+  HLNodeUtils::moveAfter(If, NodeRange.first, NodeRange.second);
   HLNodeUtils::remove(If);
 
   return make_range(NodeRange.first, std::next(LastNode));
@@ -3459,7 +3443,6 @@ NodeRangeTy HLNodeUtils::replaceNodeWithBody(HLIf *If, bool ThenBody) {
 
 NodeRangeTy HLNodeUtils::replaceNodeWithBody(HLSwitch *Switch,
                                              unsigned CaseNum) {
-  HLNodeUtils &HNU = Switch->getHLNodeUtils();
 
   auto NodeRange = (CaseNum == 0)
                        ? std::make_pair(Switch->default_case_child_begin(),
@@ -3468,7 +3451,7 @@ NodeRangeTy HLNodeUtils::replaceNodeWithBody(HLSwitch *Switch,
                                         Switch->case_child_end(CaseNum));
   auto LastNode = std::prev(NodeRange.second);
 
-  HNU.moveAfter(Switch, NodeRange.first, NodeRange.second);
+  HLNodeUtils::moveAfter(Switch, NodeRange.first, NodeRange.second);
   HLNodeUtils::remove(Switch);
 
   return make_range(NodeRange.first, std::next(LastNode));

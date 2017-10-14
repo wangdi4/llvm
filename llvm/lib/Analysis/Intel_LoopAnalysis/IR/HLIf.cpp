@@ -14,9 +14,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLIf.h"
-#include "llvm/Support/Debug.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+#include "llvm/Support/Debug.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -83,14 +83,14 @@ HLIf *HLIf::cloneImpl(GotoContainerTy *GotoList, LabelMapTy *LabelMap,
        ThenIter != ThenIterEnd; ++ThenIter) {
     HLNode *NewHLNode =
         cloneBaseImpl(&*ThenIter, GotoList, LabelMap, NodeMapper);
-    getHLNodeUtils().insertAsLastChild(NewHLIf, NewHLNode, true);
+    HLNodeUtils::insertAsLastChild(NewHLIf, NewHLNode, true);
   }
 
   for (auto ElseIter = this->else_begin(), ElseIterEnd = this->else_end();
        ElseIter != ElseIterEnd; ++ElseIter) {
     HLNode *NewHLNode =
         cloneBaseImpl(&*ElseIter, GotoList, LabelMap, NodeMapper);
-    getHLNodeUtils().insertAsLastChild(NewHLIf, NewHLNode, false);
+    HLNodeUtils::insertAsLastChild(NewHLIf, NewHLNode, false);
   }
 
   return NewHLIf;
@@ -241,8 +241,8 @@ void HLIf::addPredicate(const HLPredicate &Pred, RegDDRef *Ref1,
            (Ref1->getDestType()->isIntegerTy() ||
             Ref1->getDestType()->isPointerTy())) ||
           (CmpInst::isFPPredicate(Pred) &&
-          (isPredicateTrueOrFalse(Pred) ||
-           Ref1->getDestType()->isFloatingPointTy()))) &&
+           (isPredicateTrueOrFalse(Pred) ||
+            Ref1->getDestType()->isFloatingPointTy()))) &&
          "Predicate/DDRef type mismatch!");
   unsigned NumOp;
 
@@ -298,7 +298,7 @@ void HLIf::invertPredicate(const_pred_iterator CPredI) {
   assert((CPredI != pred_end()) && "End iterator is not a valid input!");
   auto PredI = getNonConstPredIterator(CPredI);
   auto PredKind = PredI->Kind;
-  
+
   // Inversion is a no-op for undef predicate.
   if (PredKind != UNDEFINED_PREDICATE) {
     PredI->Kind = CmpInst::getInversePredicate(PredKind);

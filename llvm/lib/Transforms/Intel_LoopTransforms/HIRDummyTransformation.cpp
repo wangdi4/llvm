@@ -29,9 +29,9 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h"
 
-#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
 #define DEBUG_TYPE "hir-dummy"
 
@@ -76,7 +76,7 @@ struct NodeVisitor final : public HLNodeVisitorBase {
   void insertLabel(HLInst *I) {
     HLLabel *Label =
         I->getHLNodeUtils().createHLLabel("L" + std::to_string(Num++));
-    I->getHLNodeUtils().insertBefore(I, Label);
+    HLNodeUtils::insertBefore(I, Label);
   }
 
   void visit(HLInst *I) {
@@ -96,7 +96,7 @@ struct NodeVisitor final : public HLNodeVisitorBase {
   void visit(HLNode *Node) {}
   void postVisit(HLNode *Node) {}
 };
-}
+} // namespace
 
 char HIRDummyTransformation::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRDummyTransformation, "hir-dummy",

@@ -15,12 +15,12 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/Analysis/LoopInfo.h"
-#include "llvm/Support/Debug.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+#include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
 
 using namespace llvm;
@@ -157,7 +157,7 @@ HLLoop *HLLoop::cloneImpl(GotoContainerTy *GotoList, LabelMapTy *LabelMap,
   for (auto PreIter = this->pre_begin(), PreIterEnd = this->pre_end();
        PreIter != PreIterEnd; ++PreIter) {
     HLNode *NewHLNode = cloneBaseImpl(&*PreIter, nullptr, nullptr, NodeMapper);
-    getHLNodeUtils().insertAsLastPreheaderNode(NewHLLoop, NewHLNode);
+    HLNodeUtils::insertAsLastPreheaderNode(NewHLLoop, NewHLNode);
   }
 
   // Clone the children.
@@ -166,13 +166,13 @@ HLLoop *HLLoop::cloneImpl(GotoContainerTy *GotoList, LabelMapTy *LabelMap,
        ChildIter != ChildIterEnd; ++ChildIter) {
     HLNode *NewHLNode =
         cloneBaseImpl(&*ChildIter, GotoList, LabelMap, NodeMapper);
-    getHLNodeUtils().insertAsLastChild(NewHLLoop, NewHLNode);
+    HLNodeUtils::insertAsLastChild(NewHLLoop, NewHLNode);
   }
 
   for (auto PostIter = this->post_begin(), PostIterEnd = this->post_end();
        PostIter != PostIterEnd; ++PostIter) {
     HLNode *NewHLNode = cloneBaseImpl(&*PostIter, nullptr, nullptr, NodeMapper);
-    getHLNodeUtils().insertAsLastPostexitNode(NewHLLoop, NewHLNode);
+    HLNodeUtils::insertAsLastPostexitNode(NewHLLoop, NewHLNode);
   }
 
   return NewHLLoop;
@@ -837,8 +837,8 @@ HLIf *HLLoop::extractZtt(unsigned NewLevel) {
 
   HLIf *Ztt = removeZtt();
 
-  getHLNodeUtils().insertBefore(this, Ztt);
-  getHLNodeUtils().moveAsFirstChild(Ztt, this, true);
+  HLNodeUtils::insertBefore(this, Ztt);
+  HLNodeUtils::moveAsFirstChild(Ztt, this, true);
 
   if (NewLevel == NonLinearLevel) {
     NewLevel = getNestingLevel() - 1;
@@ -847,9 +847,8 @@ HLIf *HLLoop::extractZtt(unsigned NewLevel) {
   assert(CanonExprUtils::isValidLinearDefLevel(NewLevel) &&
          "Invalid nesting level.");
 
-  std::for_each(
-      Ztt->ddref_begin(), Ztt->ddref_end(),
-      [NewLevel](RegDDRef *Ref) { Ref->updateDefLevel(NewLevel); });
+  std::for_each(Ztt->ddref_begin(), Ztt->ddref_end(),
+                [NewLevel](RegDDRef *Ref) { Ref->updateDefLevel(NewLevel); });
 
   return Ztt;
 }
@@ -862,7 +861,7 @@ void HLLoop::extractPreheader() {
 
   extractZtt();
 
-  getHLNodeUtils().moveBefore(this, pre_begin(), pre_end());
+  HLNodeUtils::moveBefore(this, pre_begin(), pre_end());
 }
 
 void HLLoop::extractPostexit() {
@@ -873,7 +872,7 @@ void HLLoop::extractPostexit() {
 
   extractZtt();
 
-  getHLNodeUtils().moveAfter(this, post_begin(), post_end());
+  HLNodeUtils::moveAfter(this, post_begin(), post_end());
 }
 
 void HLLoop::extractPreheaderAndPostexit() {
@@ -881,13 +880,9 @@ void HLLoop::extractPreheaderAndPostexit() {
   extractPostexit();
 }
 
-void HLLoop::removePreheader() {
-  getHLNodeUtils().remove(pre_begin(), pre_end());
-}
+void HLLoop::removePreheader() { HLNodeUtils::remove(pre_begin(), pre_end()); }
 
-void HLLoop::removePostexit() {
-  getHLNodeUtils().remove(post_begin(), post_end());
-}
+void HLLoop::removePostexit() { HLNodeUtils::remove(post_begin(), post_end()); }
 
 void HLLoop::replaceByFirstIteration() {
   unsigned Level = getNestingLevel();
@@ -897,7 +892,7 @@ void HLLoop::replaceByFirstIteration() {
   bool IsInnermost = isInnermost();
 
   const RegDDRef *LB = getLowerDDRef();
-  SmallVector<const RegDDRef*, 4> Aux = {LB};
+  SmallVector<const RegDDRef *, 4> Aux = {LB};
 
   auto &HNU = getHLNodeUtils();
 

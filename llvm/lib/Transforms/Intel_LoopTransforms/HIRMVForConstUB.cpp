@@ -23,10 +23,10 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
 #define OPT_SWITCH "hir-mv-const-ub"
 #define OPT_DESCR "HIR Multiversioning for constant UB"
@@ -46,7 +46,6 @@ namespace {
 
 class HIRMVForConstUB : public HIRTransformPass {
   DDRefUtils *DRU;
-  HLNodeUtils *HNU;
   BlobUtils *BU;
 
 public:
@@ -89,7 +88,7 @@ private:
     }
   };
 };
-}
+} // namespace
 
 char HIRMVForConstUB::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRMVForConstUB, OPT_SWITCH, OPT_DESCR, false, false)
@@ -164,15 +163,14 @@ void HIRMVForConstUB::transformLoop(HLLoop *Loop, unsigned TempIndex,
                                     int64_t Constant) {
   unsigned Level = Loop->getNestingLevel();
 
-  RegDDRef *LHS =
-      DRU->createSelfBlobRef(TempIndex, Level - 1);
+  RegDDRef *LHS = DRU->createSelfBlobRef(TempIndex, Level - 1);
   RegDDRef *RHS = DRU->createConstDDRef(LHS->getDestType(), Constant);
 
-  HLIf *If = HNU->createHLIf(PredicateTy::ICMP_EQ, LHS, RHS);
+  HLIf *If = Loop->getHLNodeUtils().createHLIf(PredicateTy::ICMP_EQ, LHS, RHS);
 
-  HNU->insertAfter(Loop, If);
-  HNU->insertAsFirstChild(If, Loop->clone(), false);
-  HNU->moveAsFirstChild(If, Loop, true);
+  HLNodeUtils::insertAfter(Loop, If);
+  HLNodeUtils::insertAsFirstChild(If, Loop->clone(), false);
+  HLNodeUtils::moveAsFirstChild(If, Loop, true);
 
   propagateConstant(Loop, TempIndex, Constant);
 
@@ -217,7 +215,6 @@ bool HIRMVForConstUB::runOnFunction(Function &F) {
 
   auto &HIRF = getAnalysis<HIRFramework>();
   BU = &HIRF.getBlobUtils();
-  HNU = &HIRF.getHLNodeUtils();
   DRU = &HIRF.getDDRefUtils();
 
   DEBUG(dbgs() << "HIRRuntimeDD for function: " << F.getName() << "\n");

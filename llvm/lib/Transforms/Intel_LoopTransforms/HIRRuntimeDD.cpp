@@ -803,7 +803,7 @@ void HIRRuntimeDD::generateDDTest(LoopContext &Context) {
         createIntersectionCondition(OrigLoop->getHLNodeUtils(), Nodes, S1, S2);
     TestDDRefs.push_back(And->getLvalDDRef()->clone());
   }
-  HNU.insertBefore(Context.Loop, &Nodes);
+  HLNodeUtils::insertBefore(Context.Loop, &Nodes);
 
   Type *Ty = TestDDRefs.front()->getDestType();
   HLIf *MemcheckIf =
@@ -816,10 +816,10 @@ void HIRRuntimeDD::generateDDTest(LoopContext &Context) {
                              HNU.getDDRefUtils().createConstDDRef(Ty, 0));
   }
 
-  HNU.insertBefore(Context.Loop, MemcheckIf);
+  HLNodeUtils::insertBefore(Context.Loop, MemcheckIf);
 
-  HNU.moveAsFirstChild(MemcheckIf, ModifiedLoop, true);
-  HNU.insertAsFirstChild(MemcheckIf, OrigLoop, false);
+  HLNodeUtils::moveAsFirstChild(MemcheckIf, ModifiedLoop, true);
+  HLNodeUtils::insertAsFirstChild(MemcheckIf, OrigLoop, false);
 
   // Implementation Note: The transformation adds NoAlias/Scope metadata to the
   // original loop and creates a clone for the unmodified loop.

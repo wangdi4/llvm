@@ -279,22 +279,22 @@ bool HIRLoopFormation::populatedPreheaderPostexitNodes(
   auto PostEndIt =
       !PredicateInversion ? IfParent->then_end() : IfParent->else_end();
 
-  auto &HNU = HLoop->getHLNodeUtils();
-
   bool HasPreheader = (PreBegIt != PreEndIt);
   bool HasPostexit = (PostBegIt != PostEndIt);
 
-  if ((HasPreheader && !HNU.validPreheaderPostexitNodes(PreBegIt, PreEndIt)) ||
-      (HasPostexit && !HNU.validPreheaderPostexitNodes(PostBegIt, PostEndIt))) {
+  if ((HasPreheader &&
+       !HLNodeUtils::validPreheaderPostexitNodes(PreBegIt, PreEndIt)) ||
+      (HasPostexit &&
+       !HLNodeUtils::validPreheaderPostexitNodes(PostBegIt, PostEndIt))) {
     return false;
   }
 
   if (HasPreheader) {
-    HNU.moveAsFirstPreheaderNodes(HLoop, PreBegIt, PreEndIt);
+    HLNodeUtils::moveAsFirstPreheaderNodes(HLoop, PreBegIt, PreEndIt);
   }
 
   if (HasPostexit) {
-    HNU.moveAsFirstPostexitNodes(HLoop, PostBegIt, PostEndIt);
+    HLNodeUtils::moveAsFirstPostexitNodes(HLoop, PostBegIt, PostEndIt);
   }
 
   return true;
@@ -345,8 +345,8 @@ void HIRLoopFormation::setZtt(HLLoop *HLoop) {
           (PredicateInversion && (IfParent->getNumElseChildren() == 1))) &&
          "Something went wrong during ztt recognition!");
 
-  HIR->getHLNodeUtils().moveBefore(IfParent, HLoop);
-  HIR->getHLNodeUtils().remove(IfParent);
+  HLNodeUtils::moveBefore(IfParent, HLoop);
+  HLNodeUtils::remove(IfParent);
 
   HLoop->setZtt(IfParent);
 
@@ -480,7 +480,7 @@ void HIRLoopFormation::formLoops() {
 
     // Create a new loop and move its children inside.
     HLLoop *HLoop = HIR->getHLNodeUtils().createHLLoop(Lp);
-    HIR->getHLNodeUtils().insertBefore(Label, HLoop);
+    HLNodeUtils::insertBefore(Label, HLoop);
 
     HLoop->setLoopMetadata(Lp->getLoopID());
     HLoop->setBranchDebugLoc(BottomTest->getDebugLoc());
@@ -492,14 +492,14 @@ void HIRLoopFormation::formLoops() {
     auto FirstChildIter = IsUnknownLoop ? LabelIter : std::next(LabelIter);
     auto EndIter = IsUnknownLoop ? std::next(BottomTestIter) : BottomTestIter;
 
-    HIR->getHLNodeUtils().moveAsFirstChildren(HLoop, FirstChildIter, EndIter);
+    HLNodeUtils::moveAsFirstChildren(HLoop, FirstChildIter, EndIter);
 
     setIVType(HLoop, BECount);
 
     if (!IsUnknownLoop) {
       // Remove label and bottom test.
-      HIR->getHLNodeUtils().erase(Label);
-      HIR->getHLNodeUtils().erase(BottomTest);
+      HLNodeUtils::erase(Label);
+      HLNodeUtils::erase(BottomTest);
 
       // TODO: Look into whether setting ztt is beneficial for unknown loops.
       if (!IsConstTripLoop) {

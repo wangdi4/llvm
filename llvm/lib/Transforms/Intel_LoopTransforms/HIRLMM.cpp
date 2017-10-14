@@ -692,17 +692,22 @@ void HIRLMM::handleInLoopMemRef(HLLoop *Lp, RegDDRef *Ref, RegDDRef *TmpRef,
     HLInst *CopyInst = nullptr;
     RegDDRef *OtherRef = nullptr;
 
-    // StoreInst: replace with a CopyInst
+    // StoreInst: replace with a LoadInst or CopyInst depending on the rval.
     if (isa<StoreInst>(LLVMInst) && Ref->isLval()) {
       OtherRef = DDNode->removeOperandDDRef(1);
-      CopyInst = HNU->createCopyInst(OtherRef, LIMMCopyName, TmpRefClone);
-      HNU->replace(DDNode, CopyInst);
+      if (OtherRef->isMemRef()) {
+        auto LInst = HNU->createLoad(OtherRef, LIMMCopyName, TmpRefClone);
+        HLNodeUtils::replace(DDNode, LInst);
+      } else {
+        CopyInst = HNU->createCopyInst(OtherRef, LIMMCopyName, TmpRefClone);
+        HLNodeUtils::replace(DDNode, CopyInst);
+      }
     }
     // LoadInst: replace with a CopyInst
-    else if (isa<LoadInst>(LLVMInst) && Ref->isRval()) {
+    else if (isa<LoadInst>(LLVMInst)) {
       OtherRef = DDNode->removeOperandDDRef(0);
       CopyInst = HNU->createCopyInst(TmpRefClone, LIMMCopyName, OtherRef);
-      HNU->replace(DDNode, CopyInst);
+      HLNodeUtils::replace(DDNode, CopyInst);
     }
     // Neither a Load nor a Store in HLInst*: do regular replacement
     else {

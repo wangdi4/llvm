@@ -2005,7 +2005,6 @@ void HIRCompleteUnroll::transformLoop(HLLoop *Loop, CanonExprUpdater &CEUpdater,
 
   // Container for cloning body.
   HLContainerTy LoopBody;
-  HLNodeUtils &HNU = Loop->getHLNodeUtils();
 
   auto &IVValues = CEUpdater.IVValues;
 
@@ -2020,7 +2019,7 @@ void HIRCompleteUnroll::transformLoop(HLLoop *Loop, CanonExprUpdater &CEUpdater,
   if (UB < 0) {
     // We remove postexit so that visitor doesn't visit disconnected nodes.
     Loop->removePostexit();
-    HNU.remove(Loop);
+    HLNodeUtils::remove(Loop);
     return;
   }
 
@@ -2034,7 +2033,8 @@ void HIRCompleteUnroll::transformLoop(HLLoop *Loop, CanonExprUpdater &CEUpdater,
   }
 
   if (ZttHasBlob) {
-    HNU.visit<false>(CEUpdater, Loop->extractZtt(CEUpdater.TopLoopLevel));
+    HLNodeUtils::visit<false>(CEUpdater,
+                              Loop->extractZtt(CEUpdater.TopLoopLevel));
   } else {
     Loop->removeZtt();
   }
@@ -2042,16 +2042,16 @@ void HIRCompleteUnroll::transformLoop(HLLoop *Loop, CanonExprUpdater &CEUpdater,
   HLNode *Marker = nullptr;
 
   if (!IsTopLevelLoop) {
-    HNU.visitRange(CEUpdater, Loop->post_begin(), Loop->post_end());
+    HLNodeUtils::visitRange(CEUpdater, Loop->post_begin(), Loop->post_end());
   }
 
   Loop->extractPreheaderAndPostexit();
 
   if (IsTopLevelLoop) {
-    Marker = HNU.getOrCreateMarkerNode();
+    Marker = Loop->getHLNodeUtils().getOrCreateMarkerNode();
     // Replace top level loop of the unroll loopnest with marker node to avoid
     // top sort num recomputation.
-    HNU.replace(Loop, Marker);
+    HLNodeUtils::replace(Loop, Marker);
   }
 
   auto OrigFirstChild = Loop->getFirstChild();
@@ -2063,35 +2063,37 @@ void HIRCompleteUnroll::transformLoop(HLLoop *Loop, CanonExprUpdater &CEUpdater,
   // each time. Thus, loop body will be expanded by no. of stmts x TripCount.
   for (int64_t IVVal = LB; IVVal < UB; IVVal += Step) {
     // Clone iteration
-    HNU.cloneSequence(&LoopBody, OrigFirstChild, OrigLastChild);
+    HLNodeUtils::cloneSequence(&LoopBody, OrigFirstChild, OrigLastChild);
 
     // Store references as LoopBody will be empty after insertion.
     HLNode *CurFirstChild = &(LoopBody.front());
     HLNode *CurLastChild = &(LoopBody.back());
 
-    HNU.insertBefore(OrigFirstChild, &LoopBody);
+    HLNodeUtils::insertBefore(OrigFirstChild, &LoopBody);
 
     // Update IV value of loop for the current unrolled iteration for
     // substitution inside the canon expr.
     IVValues.back() = IVVal;
 
     // Update the CanonExpr
-    HNU.visitRange<true, false>(CEUpdater, CurFirstChild, CurLastChild);
+    HLNodeUtils::visitRange<true, false>(CEUpdater, CurFirstChild,
+                                         CurLastChild);
   }
 
   // Reuse original children for last iteration.
   IVValues.back() = UB;
-  HNU.visitRange<true, false>(CEUpdater, OrigFirstChild, OrigLastChild);
+  HLNodeUtils::visitRange<true, false>(CEUpdater, OrigFirstChild,
+                                       OrigLastChild);
 
   IVValues.pop_back();
 
   if (IsTopLevelLoop) {
     // Replace marker node with the unrolled loop children.
-    HNU.moveBefore(Marker, Loop->child_begin(), Loop->child_end());
-    HNU.remove(Marker);
+    HLNodeUtils::moveBefore(Marker, Loop->child_begin(), Loop->child_end());
+    HLNodeUtils::remove(Marker);
   } else {
-    HNU.moveBefore(Loop, Loop->child_begin(), Loop->child_end());
-    HNU.remove(Loop);
+    HLNodeUtils::moveBefore(Loop, Loop->child_begin(), Loop->child_end());
+    HLNodeUtils::remove(Loop);
   }
 }
 

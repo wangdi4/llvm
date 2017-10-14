@@ -13,12 +13,12 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
 
 using namespace llvm;
@@ -206,7 +206,7 @@ void HLInst::print(formatted_raw_ostream &OS, unsigned Depth,
 
   auto E = op_ddref_end();
 
-  // Do not print function pointer value of an indirect call as an argument. 
+  // Do not print function pointer value of an indirect call as an argument.
   if (isIndirectCallInst()) {
     --E;
   }
@@ -425,21 +425,24 @@ void HLInst::verify() const {
            getOperandDDRef(2)->isStandAloneUndefBlob() &&
            "DDRefs for Select or Cmp Instruction with "
            "True or False predicate must be undefined");
-  }
 
-  if (isa<LoadInst>(Inst)) {
+  } else if (isa<LoadInst>(Inst)) {
     assert(getRvalDDRef()->isMemRef() &&
            "Rval of load instruction is not a memref!");
-  }
 
-  if (isa<StoreInst>(Inst)) {
+  } else if (isa<StoreInst>(Inst)) {
     assert(getLvalDDRef()->isMemRef() &&
            "Lval of store instruction is not a memref!");
-  }
 
-  if (isa<GetElementPtrInst>(Inst)) {
+  } else if (isa<GetElementPtrInst>(Inst)) {
     assert(getRvalDDRef()->isAddressOf() &&
            "Rval of GEP instruction is not an AddressOf ref!");
+
+  } else if (isCopyInst()) {
+    assert(getLvalDDRef()->isTerminalRef() &&
+           "Lval of copy instruction is not a terminal!");
+    assert((getRvalDDRef()->isTerminalRef() || getRvalDDRef()->isAddressOf()) &&
+           "Rval of copy instruction is not a terminal or an AddressOf ref!");
   }
 }
 

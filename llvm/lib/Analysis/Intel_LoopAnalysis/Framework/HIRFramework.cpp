@@ -61,7 +61,7 @@ bool HIRFramework::runOnFunction(Function &F) {
   HIRP = &getAnalysis<HIRParser>();
 
   getHLNodeUtils().HIRF = this;
-  getHLNodeUtils().removeEmptyNodesRange(hir_begin(), hir_end());
+  HLNodeUtils::removeEmptyNodesRange(hir_begin(), hir_end());
   getHLNodeUtils().initTopSortNum();
 
   estimateMaxTripCounts();

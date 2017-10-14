@@ -928,6 +928,6 @@ void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap) {
 
   // If a remainder loop is not needed get rid of the OrigLoop at this point.
   if (!NeedRemainderLoop && !IsUnknownLoop) {
-    Loop->getHLNodeUtils().remove(Loop);
+    HLNodeUtils::remove(Loop);
   }
 }

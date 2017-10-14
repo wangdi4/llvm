@@ -50,6 +50,14 @@ private:
                            SmallVectorImpl<HLInst *> &PreLoopInsts,
                            DDGraph DDG);
 
+  /// Find node receiving the load
+  /// e.g.   t0 = a[i] ;
+  ///         ...
+  ///        t1 = t0
+  ///  returns t1 = t0
+  static HLInst *findForwardSubInst(const DDRef *LRef,
+                             SmallVectorImpl<HLInst *> &ForwardSubInsts);
+
   // \Brief Gather Pre / Post Nodes in Vectors
   // Called from EnablePerfectLoopNest Util
   // Return false if unwanted nodes are encountered (e.g  if)

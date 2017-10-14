@@ -13,13 +13,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
+#include "llvm/Support/Debug.h"
 
-#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopReversal.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLMM.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopReversal.h"
 
 #define DEBUG_TYPE "hir-transform-utils"
 
@@ -34,7 +34,7 @@ bool HIRTransformUtils::isHIRLoopReversible(
     HIRSafeReductionAnalysis &HSRA, // INPUT: HIRSafeReductionAnalysis
     HIRLoopStatistics &HLS,         // INPUT: Existing HIRLoopStatitics
     bool DoProfitTest               // INPUT: Control Profit Tests
-    ) {
+) {
   assert(InnermostLp && "HLLoop* can't be a nullptr\n");
   assert(InnermostLp->isInnermost() &&
          "HIR LoopReversal can only work with an inner-most loop\n");
@@ -51,7 +51,7 @@ bool HIRTransformUtils::isHIRLoopReversible(
       DoProfitTest, // Control Profit Test
       true,         // Always do Legal Tests
       false         // OFF Short-circuit action (doing analysis now)
-      );
+  );
 }
 
 void HIRTransformUtils::doHIRLoopReversal(
@@ -59,7 +59,7 @@ void HIRTransformUtils::doHIRLoopReversal(
     HIRDDAnalysis &HDDA,            // INPUT: HIR DDAnalysis
     HIRSafeReductionAnalysis &HSRA, // INPUT: HIRSafeReductionAnalysis
     HIRLoopStatistics &HLS          // INPUT: Existing HIRLoopStatitics
-    ) {
+) {
   assert(InnermostLp && "HLLoop* can't be a nullptr\n");
   assert(InnermostLp->isInnermost() &&
          "HIR LoopReversal can only work with an inner-most loop\n");
@@ -77,7 +77,7 @@ void HIRTransformUtils::doHIRLoopReversal(
       false,       // Assert on legality
       true // ON Short-circuit action (expect the analysis has been done in the
            // previous API call)
-      );
+  );
 
   // Reverse the Loop
   assert(IsReversible && "Expect the loop is reversible\n");
@@ -90,7 +90,7 @@ bool HIRTransformUtils::doHIRLoopRedundantMemoryMotion(
     HLLoop *InnermostLp,   // INPUT + OUTPUT: a given innermost loop
     HIRDDAnalysis &HDDA,   // INPUT: Existing HIR DDAnalysis
     HIRLoopStatistics &HLS // INPUT: Existing HIR LoopStatitics Analysis
-    ) {
+) {
   assert(InnermostLp && "HLLoop* can't be null\n");
   assert(InnermostLp->isInnermost() && "HIR LRMM (Loop Redundant Memory "
                                        "Motion) can only work on an inner-most "
@@ -105,7 +105,7 @@ bool HIRTransformUtils::doHIRLoopInvariantMemoryMotion(
     HLLoop *InnermostLp,   // INPUT + OUTPUT: a given innermost loop
     HIRDDAnalysis &HDDA,   // INPUT: Existing HIR DDAnalysis
     HIRLoopStatistics &HLS // INPUT: Existing HIR LoopStatitics Analysis
-    ) {
+) {
   assert(InnermostLp && "HLLoop* can't be null\n");
   assert(InnermostLp->isInnermost() && "HIR LIMM (Loop Invariant Memory "
                                        "Motion) can only work on an inner-most "
@@ -119,7 +119,7 @@ bool HIRTransformUtils::doHIRLoopMemoryMotion(
     HLLoop *InnermostLp,   // INPUT + OUTPUT: a given innermost loop
     HIRDDAnalysis &HDDA,   // INPUT: HIR DDAnalysis
     HIRLoopStatistics &HLS // INPUT: Existing HIRLoopStatitics Analysis
-    ) {
+) {
   assert(InnermostLp && "HLLoop* can't be null\n");
   assert(InnermostLp->isInnermost() &&
          "HIR LMM (Loop Memory Motion) can only work on an inner-most loop\n");
@@ -155,7 +155,6 @@ bool HIRTransformUtils::isRemainderLoopNeeded(HLLoop *OrigLoop,
   // the trip count of the original loop.
   HLInst *TempInst = nullptr;
   CanonExpr *TripCE = Ref->getSingleCanonExpr();
-  auto &HNU = OrigLoop->getHLNodeUtils();
 
   if (TripCE->isSignedDiv() && (TripCE->getDenominator() != 1)) {
     // Create DDRef for Unroll Factor.
@@ -175,9 +174,9 @@ bool HIRTransformUtils::isRemainderLoopNeeded(HLLoop *OrigLoop,
 
     Ref->makeConsistent(&AuxRefs, OrigLoop->getNestingLevel() - 1);
 
-    TempInst = HNU.createCopyInst(Ref, "tgu");
+    TempInst = OrigLoop->getHLNodeUtils().createCopyInst(Ref, "tgu");
   }
-  HNU.insertBefore(const_cast<HLLoop *>(OrigLoop), TempInst);
+  HLNodeUtils::insertBefore(const_cast<HLLoop *>(OrigLoop), TempInst);
   *NewTCRef = TempInst->getLvalDDRef();
 
   return true;
@@ -338,7 +337,8 @@ HLLoop *HIRTransformUtils::setupMainAndRemainderLoops(
 /// Update Loop properties based on Input Permutations
 /// Used by Loop Interchange now. Will be useful for loop blocking later
 void HIRTransformUtils::permuteLoopNests(
-    HLLoop *OutermostLoop, const SmallVectorImpl<const HLLoop *> &LoopPermutation) {
+    HLLoop *OutermostLoop,
+    const SmallVectorImpl<const HLLoop *> &LoopPermutation) {
 
   SmallVector<HLLoop *, MaxLoopNestLevel> SavedLoops;
   HLLoop *DstLoop = OutermostLoop;
@@ -409,11 +409,10 @@ public:
     }
   }
 
-
   void visit(HLNode *) {}
   void postVisit(HLNode *) {}
 };
-}
+} // namespace
 
 void HIRTransformUtils::remapLabelsRange(const HLNodeMapper &Mapper,
                                          HLNode *Begin, HLNode *End) {

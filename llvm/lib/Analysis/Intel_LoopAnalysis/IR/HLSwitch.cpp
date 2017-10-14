@@ -66,7 +66,7 @@ HLSwitch *HLSwitch::cloneImpl(GotoContainerTy *GotoList, LabelMapTy *LabelMap,
             EndIt = this->default_case_child_end();
        It != EndIt; It++) {
     HLNode *NewHLNode = cloneBaseImpl(&*It, GotoList, LabelMap, NodeMapper);
-    getHLNodeUtils().insertAsLastDefaultChild(NewHLSwitch, NewHLNode);
+    HLNodeUtils::insertAsLastDefaultChild(NewHLSwitch, NewHLNode);
   }
 
   /// Clone case children
@@ -74,7 +74,7 @@ HLSwitch *HLSwitch::cloneImpl(GotoContainerTy *GotoList, LabelMapTy *LabelMap,
     for (auto It = this->case_child_begin(I), EndIt = this->case_child_end(I);
          It != EndIt; It++) {
       HLNode *NewHLNode = cloneBaseImpl(&*It, GotoList, LabelMap, NodeMapper);
-      getHLNodeUtils().insertAsLastChild(NewHLSwitch, NewHLNode, I);
+      HLNodeUtils::insertAsLastChild(NewHLSwitch, NewHLNode, I);
     }
   }
 
@@ -303,8 +303,8 @@ void HLSwitch::removeCase(unsigned CaseNum) {
   assert((CaseNum <= getNumCases()) && "CaseNum is out of range!");
 
   /// Remove CaseNum's HLNodes
-  getHLNodeUtils().remove(case_child_begin_internal(CaseNum),
-                          case_child_end_internal(CaseNum));
+  HLNodeUtils::remove(case_child_begin_internal(CaseNum),
+                      case_child_end_internal(CaseNum));
 
   /// Remove the case value DDRef.
   removeCaseValueDDRef(CaseNum);

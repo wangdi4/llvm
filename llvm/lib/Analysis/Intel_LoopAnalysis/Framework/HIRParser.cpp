@@ -2370,8 +2370,8 @@ void HIRParser::postParse(HLIf *If) {
   // If 'then' is empty, move 'else' children to 'then' by inverting predicate.
   if (!If->hasThenChildren() && (If->getNumPredicates() == 1)) {
     If->invertPredicate(PredIter);
-    getHLNodeUtils().moveAsFirstChildren(If, If->else_begin(), If->else_end(),
-                                         true);
+    HLNodeUtils::moveAsFirstChildren(If, If->else_begin(), If->else_end(),
+                                     true);
   }
 }
 
@@ -3190,7 +3190,7 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
     Level = CurLevel;
 
     if (parseDebugIntrinsic(HInst)) {
-      getHLNodeUtils().erase(HInst);
+      HLNodeUtils::erase(HInst);
       return;
     }
 
@@ -3307,7 +3307,7 @@ void HIRParser::phase2Parse() {
        SymIt != E; ++SymIt) {
     for (auto InstIt = SymIt->second.begin(), EndIt = SymIt->second.end();
          InstIt != EndIt; ++InstIt) {
-      getHLNodeUtils().erase(InstIt->first);
+      HLNodeUtils::erase(InstIt->first);
     }
   }
 

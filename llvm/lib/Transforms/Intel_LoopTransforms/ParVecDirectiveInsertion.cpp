@@ -92,9 +92,9 @@ HLInst *ParVecDirectiveInsertion::Visitor::insertDirective(HLLoop *Lp,
   auto Inst = Lp->getHLNodeUtils().createCall(Intrin, CallArgs);
 
   if (Append) {
-    Lp->getHLNodeUtils().insertAfter(Lp, Inst);
+    HLNodeUtils::insertAfter(Lp, Inst);
   } else {
-    Lp->getHLNodeUtils().insertBefore(Lp, Inst);
+    HLNodeUtils::insertBefore(Lp, Inst);
   }
   return Inst;
 }

@@ -225,13 +225,14 @@ private:
 
   /// Implementation of cloneSequence() which clones from Node1
   /// to Node2 and inserts into the CloneContainer.
-  void cloneSequenceImpl(HLContainerTy *CloneContainer, const HLNode *Node1,
-                         const HLNode *Node2, HLNodeMapper *NodeMapper);
+  static void cloneSequenceImpl(HLContainerTy *CloneContainer,
+                                const HLNode *Node1, const HLNode *Node2,
+                                HLNodeMapper *NodeMapper);
 
   /// Returns successor of Node assuming control flows in strict lexical order
   /// (by ignoring jumps(gotos)).
   /// This should only be called from HIRCleanup pass.
-  HLNode *getLexicalControlFlowSuccessor(HLNode *Node);
+  static HLNode *getLexicalControlFlowSuccessor(HLNode *Node);
 
   /// Internal helper functions, not to be called directly.
 
@@ -240,47 +241,49 @@ private:
   /// range of 1(node). UpdateSeparator indicates whether separators used in
   /// containers should be updated. Additional arguments for updating postexit
   /// separator and switch's case number is required.
-  void insertImpl(HLNode *Parent, HLContainerTy::iterator Pos,
-                  HLContainerTy *OrigContainer, HLContainerTy::iterator First,
-                  HLContainerTy::iterator Last, bool UpdateSeparator,
-                  bool PostExitSeparator = false, int CaseNum = -1);
+  static void insertImpl(HLNode *Parent, HLContainerTy::iterator Pos,
+                         HLContainerTy *OrigContainer,
+                         HLContainerTy::iterator First,
+                         HLContainerTy::iterator Last, bool UpdateSeparator,
+                         bool PostExitSeparator = false, int CaseNum = -1);
 
   /// Moves [First, last) from OrigContainer to InsertContainer.
   /// If OrigContainer is null it assumes a range of 1(node) and inserts First
   /// into InsertContainer.
-  void insertInternal(HLContainerTy &InsertContainer,
-                      HLContainerTy::iterator Pos, HLContainerTy *OrigContainer,
-                      HLContainerTy::iterator First,
-                      HLContainerTy::iterator Last);
+  static void insertInternal(HLContainerTy &InsertContainer,
+                             HLContainerTy::iterator Pos,
+                             HLContainerTy *OrigContainer,
+                             HLContainerTy::iterator First,
+                             HLContainerTy::iterator Last);
 
   /// Updates nesting level and innermost flag for Loop.
-  void updateLoopInfo(HLLoop *Loop);
+  static void updateLoopInfo(HLLoop *Loop);
 
   /// Helper function for recursively updating loop info for loops in
   /// [First, Last). This is called during insertion.
-  void updateLoopInfoRecursively(HLContainerTy::iterator First,
-                                 HLContainerTy::iterator Last);
+  static void updateLoopInfoRecursively(HLContainerTy::iterator First,
+                                        HLContainerTy::iterator Last);
 
   /// Implements insertAs*Child() functionality.
-  void insertAsChildImpl(HLNode *Parent, HLContainerTy *OrigContainer,
-                         HLContainerTy::iterator First,
-                         HLContainerTy::iterator Last, bool IsFirstChild);
+  static void insertAsChildImpl(HLNode *Parent, HLContainerTy *OrigContainer,
+                                HLContainerTy::iterator First,
+                                HLContainerTy::iterator Last,
+                                bool IsFirstChild);
 
   /// Implements insertAs*Child() functionality for switch.
-  void insertAsChildImpl(HLSwitch *Switch, HLContainerTy *OrigContainer,
-                         HLContainerTy::iterator First,
-                         HLContainerTy::iterator Last, unsigned CaseNum,
-                         bool isFirstChild);
+  static void insertAsChildImpl(HLSwitch *Switch, HLContainerTy *OrigContainer,
+                                HLContainerTy::iterator First,
+                                HLContainerTy::iterator Last, unsigned CaseNum,
+                                bool isFirstChild);
 
   /// Returns true if nodes are valid types as preheader/postexit nodes.
-  bool validPreheaderPostexitNodes(HLContainerTy::iterator First,
-                                   HLContainerTy::iterator Last);
+  static bool validPreheaderPostexitNodes(HLContainerTy::iterator First,
+                                          HLContainerTy::iterator Last);
 
   /// Implements insertAs*Preheader*()/insertAs*Postexit*() functionality.
-  void insertAsPreheaderPostexitImpl(HLLoop *Loop, HLContainerTy *OrigContainer,
-                                     HLContainerTy::iterator First,
-                                     HLContainerTy::iterator Last,
-                                     bool IsPreheader, bool IsFirstChild);
+  static void insertAsPreheaderPostexitImpl(
+      HLLoop *Loop, HLContainerTy *OrigContainer, HLContainerTy::iterator First,
+      HLContainerTy::iterator Last, bool IsPreheader, bool IsFirstChild);
 
   /// Implements remove functionality. Removes [First, last) and destroys them
   /// if Erase is set. If erase isn't set and MoveContainer isn't null they are
@@ -315,12 +318,13 @@ private:
                                HLContainerTy::iterator Last);
 
   /// Update the goto branches with new labels.
-  void updateGotos(GotoContainerTy *GotoList, LabelMapTy *LabelMap);
+  static void updateGotos(GotoContainerTy *GotoList, LabelMapTy *LabelMap);
 
   /// Implements moveAs*Children() functionality for switch.
-  void moveAsChildrenImpl(HLSwitch *Switch, HLContainerTy::iterator First,
-                          HLContainerTy::iterator Last, unsigned CaseNum,
-                          bool isFirstChild);
+  static void moveAsChildrenImpl(HLSwitch *Switch,
+                                 HLContainerTy::iterator First,
+                                 HLContainerTy::iterator Last, unsigned CaseNum,
+                                 bool isFirstChild);
 
   /// Implements get*LexicalChild() functionality.
   static const HLNode *getLexicalChildImpl(const HLNode *Parent,
@@ -359,26 +363,26 @@ private:
   void initTopSortNum();
 
   /// Called by the framework to update TopSortNum field for a range of HLNodes.
-  void updateTopSortNum(const HLContainerTy &Container,
-                        HLContainerTy::iterator First,
-                        HLContainerTy::iterator Last);
+  static void updateTopSortNum(const HLContainerTy &Container,
+                               HLContainerTy::iterator First,
+                               HLContainerTy::iterator Last);
 
   /// Evenly sets TopSortNumbers from a range (MinNum, MaxNum) to subtrees
   /// [First, Last).
-  void distributeTopSortNum(HLContainerTy::iterator First,
-                            HLContainerTy::iterator Last, unsigned MinNum,
-                            unsigned MaxNum);
+  static void distributeTopSortNum(HLContainerTy::iterator First,
+                                   HLContainerTy::iterator Last,
+                                   unsigned MinNum, unsigned MaxNum);
 
   /// Implements get*LinkListNode() functionality.
-  HLNode *getLinkListNodeImpl(HLNode *Node, bool Prev);
+  static HLNode *getLinkListNodeImpl(HLNode *Node, bool Prev);
 
   /// Returns the previous node belonging to its parent if one exists, else
   /// returns nullptr.
-  HLNode *getPrevLinkListNode(HLNode *Node);
+  static HLNode *getPrevLinkListNode(HLNode *Node);
 
   /// Returns the next node belonging to its parent if one exists, else returns
   /// nullptr.
-  HLNode *getNextLinkListNode(HLNode *Node);
+  static HLNode *getNextLinkListNode(HLNode *Node);
 
   enum VALType : unsigned { IsUnknown, IsConstant, IsMax, IsMin };
 
@@ -748,9 +752,9 @@ public:
   /// to the cloned node. This is used for accessing clones having original
   /// node pointers.
   /// This utility does not support Region cloning.
-  void cloneSequence(HLContainerTy *CloneContainer, const HLNode *Node1,
-                     const HLNode *Node2 = nullptr,
-                     HLNodeMapper *NodeMapper = nullptr) {
+  static void cloneSequence(HLContainerTy *CloneContainer, const HLNode *Node1,
+                            const HLNode *Node2 = nullptr,
+                            HLNodeMapper *NodeMapper = nullptr) {
     assert(Node1 && "Node1 is null!");
     assert(!isa<HLRegion>(Node1) && "Node1 - Region Cloning is not allowed.");
     assert((!Node2 || !isa<HLRegion>(Node2)) &&
@@ -829,200 +833,211 @@ public:
   }
 
   /// Inserts an unlinked Node before Pos in HIR.
-  void insertBefore(HLNode *Pos, HLNode *Node);
+  static void insertBefore(HLNode *Pos, HLNode *Node);
   /// Inserts unlinked Nodes in NodeContainer before Pos in HIR.
   /// The contents of NodeContainer will be empty after insertion.
-  void insertBefore(HLNode *Pos, HLContainerTy *NodeContainer);
+  static void insertBefore(HLNode *Pos, HLContainerTy *NodeContainer);
   /// Inserts an unlinked Node after Pos in HIR.
-  void insertAfter(HLNode *Pos, HLNode *Node);
+  static void insertAfter(HLNode *Pos, HLNode *Node);
   /// Inserts unlinked Nodes in NodeContainer after Pos in HIR.
   /// The contents of NodeContainer will be empty after insertion.
-  void insertAfter(HLNode *Pos, HLContainerTy *NodeContainer);
+  static void insertAfter(HLNode *Pos, HLContainerTy *NodeContainer);
 
   /// Inserts an unlinked Node as first child of parent region.
-  void insertAsFirstChild(HLRegion *Reg, HLNode *Node);
+  static void insertAsFirstChild(HLRegion *Reg, HLNode *Node);
   /// Inserts an unlinked Node as last child of parent region.
-  void insertAsLastChild(HLRegion *Reg, HLNode *Node);
+  static void insertAsLastChild(HLRegion *Reg, HLNode *Node);
 
   /// Inserts an unlinked Node as first child of parent loop.
-  void insertAsFirstChild(HLLoop *Loop, HLNode *Node);
+  static void insertAsFirstChild(HLLoop *Loop, HLNode *Node);
   /// Inserts unlinked Nodes as first children of parent loop.
   /// The order of NodeContainer is insertion order.
   /// The contents of NodeContainer will be empty after insertion.
-  void insertAsFirstChildren(HLLoop *Loop, HLContainerTy *NodeContainer);
+  static void insertAsFirstChildren(HLLoop *Loop, HLContainerTy *NodeContainer);
   /// Inserts an unlinked Node as last child of parent loop.
-  void insertAsLastChild(HLLoop *Loop, HLNode *Node);
+  static void insertAsLastChild(HLLoop *Loop, HLNode *Node);
   /// Inserts unlinked Nodes as last children of parent loop.
   /// The order of NodeContainer is insertion order.
   /// The contents of NodeContainer will be empty after insertion.
-  void insertAsLastChildren(HLLoop *Loop, HLContainerTy *NodeContainer);
+  static void insertAsLastChildren(HLLoop *Loop, HLContainerTy *NodeContainer);
 
   /// Inserts an unlinked Node as first child of this If. The flag IsThenChild
   /// indicates whether this is to be inserted as then or else child.
-  void insertAsFirstChild(HLIf *If, HLNode *Node, bool IsThenChild);
+  static void insertAsFirstChild(HLIf *If, HLNode *Node, bool IsThenChild);
   /// Inserts an unlinked Node as last child of this If. The flaga IsThenChild
   /// indicates whether this is to be inserted as then or else child.
-  void insertAsLastChild(HLIf *If, HLNode *Node, bool IsThenChild);
+  static void insertAsLastChild(HLIf *If, HLNode *Node, bool IsThenChild);
 
   /// Inserts an unlinked Node as first default case child of switch.
-  void insertAsFirstDefaultChild(HLSwitch *Switch, HLNode *Node);
+  static void insertAsFirstDefaultChild(HLSwitch *Switch, HLNode *Node);
   /// Inserts an unlinked Node as last default case child of switch.
-  void insertAsLastDefaultChild(HLSwitch *Switch, HLNode *Node);
+  static void insertAsLastDefaultChild(HLSwitch *Switch, HLNode *Node);
 
   /// Inserts an unlinked Node as first CaseNum case child of switch.
   /// Range of CaseNum is [1, getNumCases()].
-  void insertAsFirstChild(HLSwitch *Switch, HLNode *Node, unsigned CaseNum);
+  static void insertAsFirstChild(HLSwitch *Switch, HLNode *Node,
+                                 unsigned CaseNum);
   /// Inserts an unlinked Node as last CaseNum case child of switch.
   /// Range of CaseNum is [1, getNumCases()].
-  void insertAsLastChild(HLSwitch *Switch, HLNode *Node, unsigned CaseNum);
+  static void insertAsLastChild(HLSwitch *Switch, HLNode *Node,
+                                unsigned CaseNum);
 
   /// Inserts an unlinked Node as first preheader node of Loop.
-  void insertAsFirstPreheaderNode(HLLoop *Loop, HLNode *Node);
+  static void insertAsFirstPreheaderNode(HLLoop *Loop, HLNode *Node);
   /// Inserts an unlinked Node as last preheader node of Loop.
-  void insertAsLastPreheaderNode(HLLoop *Loop, HLNode *Node);
+  static void insertAsLastPreheaderNode(HLLoop *Loop, HLNode *Node);
 
   /// Inserts an unlinked Node as first postexit node of Loop.
-  void insertAsFirstPostexitNode(HLLoop *Loop, HLNode *Node);
+  static void insertAsFirstPostexitNode(HLLoop *Loop, HLNode *Node);
   /// Inserts an unlinked Node as last postexit node of Loop.
-  void insertAsLastPostexitNode(HLLoop *Loop, HLNode *Node);
+  static void insertAsLastPostexitNode(HLLoop *Loop, HLNode *Node);
 
   /// Unlinks Node from its current position and inserts it before Pos in HIR.
-  void moveBefore(HLNode *Pos, HLNode *Node);
+  static void moveBefore(HLNode *Pos, HLNode *Node);
   /// Unlinks Node from its current position and inserts it after Pos in HIR.
-  void moveAfter(HLNode *Pos, HLNode *Node);
+  static void moveAfter(HLNode *Pos, HLNode *Node);
 
   /// Unlinks Node from its current position and inserts as first child of
   /// parent region.
-  void moveAsFirstChild(HLRegion *Reg, HLNode *Node);
+  static void moveAsFirstChild(HLRegion *Reg, HLNode *Node);
   /// Unlinks Node from its current position and inserts as last child of parent
   /// region.
-  void moveAsLastChild(HLRegion *Reg, HLNode *Node);
+  static void moveAsLastChild(HLRegion *Reg, HLNode *Node);
 
   /// Unlinks Node from its current position and inserts as first child of
   /// parent loop.
-  void moveAsFirstChild(HLLoop *Loop, HLNode *Node);
+  static void moveAsFirstChild(HLLoop *Loop, HLNode *Node);
   /// Unlinks Node from its current position and inserts as last child of parent
   /// loop.
-  void moveAsLastChild(HLLoop *Loop, HLNode *Node);
+  static void moveAsLastChild(HLLoop *Loop, HLNode *Node);
 
   /// Unlinks Node from its current position and inserts as first childa of this
   /// If. The flag IsThenChild indicates whether this is to be moved as then or
   /// else child.
-  void moveAsFirstChild(HLIf *If, HLNode *Node, bool IsThenChild = true);
+  static void moveAsFirstChild(HLIf *If, HLNode *Node, bool IsThenChild = true);
   /// Unlinks Node from its current position and inserts as last child of this
   /// If. The flag IsThenChild indicates whether this is to be moved as then or
   /// else child.
-  void moveAsLastChild(HLIf *If, HLNode *Node, bool IsThenChild = true);
+  static void moveAsLastChild(HLIf *If, HLNode *Node, bool IsThenChild = true);
 
   /// Unlinks Node from its current position and inserts as first default case
   /// child of switch.
-  void moveAsFirstDefaultChild(HLSwitch *Switch, HLNode *Node);
+  static void moveAsFirstDefaultChild(HLSwitch *Switch, HLNode *Node);
   /// Unlinks Node from its current position and inserts as last default case
   /// child of switch.
-  void moveAsLastDefaultChild(HLSwitch *Switch, HLNode *Node);
+  static void moveAsLastDefaultChild(HLSwitch *Switch, HLNode *Node);
 
   /// Unlinks Node from its current position and inserts as first CaseNum case
   /// child of switch.
   /// Range of CaseNum is [1, getNumCases()].
-  void moveAsFirstChild(HLSwitch *Switch, HLNode *Node, unsigned CaseNum);
+  static void moveAsFirstChild(HLSwitch *Switch, HLNode *Node,
+                               unsigned CaseNum);
   /// Unlinks Node from its current position and inserts as last CaseNum case
   /// child of switch.
   /// Range of CaseNum is [1, getNumCases()].
-  void moveAsLastChild(HLSwitch *Switch, HLNode *Node, unsigned CaseNum);
+  static void moveAsLastChild(HLSwitch *Switch, HLNode *Node, unsigned CaseNum);
 
   /// Unlinks Node from its current position and inserts as first preheader node
   /// of Loop.
-  void moveAsFirstPreheaderNode(HLLoop *Loop, HLNode *Node);
+  static void moveAsFirstPreheaderNode(HLLoop *Loop, HLNode *Node);
   /// Unlinks Node from its current position and inserts an last preheader node
   /// of Loop.
-  void moveAsLastPreheaderNode(HLLoop *Loop, HLNode *Node);
+  static void moveAsLastPreheaderNode(HLLoop *Loop, HLNode *Node);
 
   /// Unlinks Node from its current position and inserts as first postexit node
   /// of Loop.
-  void moveAsFirstPostexitNode(HLLoop *Loop, HLNode *Node);
+  static void moveAsFirstPostexitNode(HLLoop *Loop, HLNode *Node);
   /// Unlinks Node from its current position and inserts as last postexit node
   /// of Loop.
-  void moveAsLastPostexitNode(HLLoop *Loop, HLNode *Node);
+  static void moveAsLastPostexitNode(HLLoop *Loop, HLNode *Node);
 
   /// Unlinks [First, Last) from their current position and inserts them before
   /// Pos.
-  void moveBefore(HLNode *Pos, HLContainerTy::iterator First,
-                  HLContainerTy::iterator Last);
+  static void moveBefore(HLNode *Pos, HLContainerTy::iterator First,
+                         HLContainerTy::iterator Last);
   /// Unlinks [First, Last) from their current position and inserts them after
   /// Pos.
-  void moveAfter(HLNode *Pos, HLContainerTy::iterator First,
-                 HLContainerTy::iterator Last);
+  static void moveAfter(HLNode *Pos, HLContainerTy::iterator First,
+                        HLContainerTy::iterator Last);
 
   /// Unlinks [First, Last) from their current position and inserts them at the
   /// begining of the parent region's children.
-  void moveAsFirstChildren(HLRegion *Reg, HLContainerTy::iterator First,
-                           HLContainerTy::iterator Last);
+  static void moveAsFirstChildren(HLRegion *Reg, HLContainerTy::iterator First,
+                                  HLContainerTy::iterator Last);
   /// Unlinks [First, Last) from their current position and inserts them at the
   /// end of the parent region's children.
-  void moveAsLastChildren(HLRegion *Reg, HLContainerTy::iterator First,
-                          HLContainerTy::iterator Last);
+  static void moveAsLastChildren(HLRegion *Reg, HLContainerTy::iterator First,
+                                 HLContainerTy::iterator Last);
 
   /// Unlinks [First, Last) from their current position and inserts them at the
   /// begining of the parent loop's children.
-  void moveAsFirstChildren(HLLoop *Loop, HLContainerTy::iterator First,
-                           HLContainerTy::iterator Last);
+  static void moveAsFirstChildren(HLLoop *Loop, HLContainerTy::iterator First,
+                                  HLContainerTy::iterator Last);
   /// Unlinks [First, Last) from their current position and inserts them at the
   /// end of the parent loop's children.
-  void moveAsLastChildren(HLLoop *Loop, HLContainerTy::iterator First,
-                          HLContainerTy::iterator Last);
+  static void moveAsLastChildren(HLLoop *Loop, HLContainerTy::iterator First,
+                                 HLContainerTy::iterator Last);
 
   /// Unlinks [First, Last) from their current position and inserts them at the
   /// begining of this If. The flag IsThenChild indicates whether they are to be
   /// moved as then or else children.
-  void moveAsFirstChildren(HLIf *If, HLContainerTy::iterator First,
-                           HLContainerTy::iterator Last,
-                           bool IsThenChild = true);
+  static void moveAsFirstChildren(HLIf *If, HLContainerTy::iterator First,
+                                  HLContainerTy::iterator Last,
+                                  bool IsThenChild = true);
   /// Unlinks [First, Last) from their current position and inserts them at the
   /// end of this If. The flag IsThenChild indicates whether they are to be
   /// moved as then or else children.
-  void moveAsLastChildren(HLIf *If, HLContainerTy::iterator First,
-                          HLContainerTy::iterator Last,
-                          bool IsThenChild = true);
+  static void moveAsLastChildren(HLIf *If, HLContainerTy::iterator First,
+                                 HLContainerTy::iterator Last,
+                                 bool IsThenChild = true);
 
   /// Unlinks [First, Last) from their current position and inserts them at the
   /// beginning of default case child of switch.
-  void moveAsFirstDefaultChildren(HLSwitch *Switch,
-                                  HLContainerTy::iterator First,
-                                  HLContainerTy::iterator Last);
+  static void moveAsFirstDefaultChildren(HLSwitch *Switch,
+                                         HLContainerTy::iterator First,
+                                         HLContainerTy::iterator Last);
   /// Unlinks [First, Last) from their current position and inserts them at the
   /// end of default case child of switch.
-  void moveAsLastDefaultChildren(HLSwitch *Switch,
-                                 HLContainerTy::iterator First,
-                                 HLContainerTy::iterator Last);
+  static void moveAsLastDefaultChildren(HLSwitch *Switch,
+                                        HLContainerTy::iterator First,
+                                        HLContainerTy::iterator Last);
 
   /// Unlinks [First, Last) from their current position and inserts them at the
   /// beginning of CasNum case child of switch.
   /// Range of CaseNum is [1, getNumCases()].
-  void moveAsFirstChildren(HLSwitch *Switch, HLContainerTy::iterator First,
-                           HLContainerTy::iterator Last, unsigned CaseNum);
+  static void moveAsFirstChildren(HLSwitch *Switch,
+                                  HLContainerTy::iterator First,
+                                  HLContainerTy::iterator Last,
+                                  unsigned CaseNum);
   /// Unlinks [First, Last) from their current position and inserts them at the
   /// end of CasNum case child of switch.
   /// Range of CaseNum is [1, getNumCases()].
-  void moveAsLastChildren(HLSwitch *Switch, HLContainerTy::iterator First,
-                          HLContainerTy::iterator Last, unsigned CaseNum);
+  static void moveAsLastChildren(HLSwitch *Switch,
+                                 HLContainerTy::iterator First,
+                                 HLContainerTy::iterator Last,
+                                 unsigned CaseNum);
 
   /// Unlinks [First, Last) from their current position and inserts them at the
   /// beginning of Loop's preheader.
-  void moveAsFirstPreheaderNodes(HLLoop *Loop, HLContainerTy::iterator First,
-                                 HLContainerTy::iterator Last);
+  static void moveAsFirstPreheaderNodes(HLLoop *Loop,
+                                        HLContainerTy::iterator First,
+                                        HLContainerTy::iterator Last);
   /// Unlinks [First, Last) from their current position and inserts them at the
   /// end of Loop's preheader.
-  void moveAsLastPreheaderNodes(HLLoop *Loop, HLContainerTy::iterator First,
-                                HLContainerTy::iterator Last);
+  static void moveAsLastPreheaderNodes(HLLoop *Loop,
+                                       HLContainerTy::iterator First,
+                                       HLContainerTy::iterator Last);
 
   /// Unlinks [First, Last) from their current position and inserts them at the
   /// beginning of Loop's postexit.
-  void moveAsFirstPostexitNodes(HLLoop *Loop, HLContainerTy::iterator First,
-                                HLContainerTy::iterator Last);
+  static void moveAsFirstPostexitNodes(HLLoop *Loop,
+                                       HLContainerTy::iterator First,
+                                       HLContainerTy::iterator Last);
   /// Unlinks [First, Last) from their current position and inserts them at the
   /// end of Loop's postexit.
-  void moveAsLastPostexitNodes(HLLoop *Loop, HLContainerTy::iterator First,
-                               HLContainerTy::iterator Last);
+  static void moveAsLastPostexitNodes(HLLoop *Loop,
+                                      HLContainerTy::iterator First,
+                                      HLContainerTy::iterator Last);
 
   /// Unlinks Node from HIR.
   static void remove(HLNode *Node);
@@ -1042,7 +1057,7 @@ public:
   static void remove(HLContainerTy *Container, HLNode *First, HLNode *Last);
 
   /// Replaces OldNode by an unlinked NewNode.
-  void replace(HLNode *OldNode, HLNode *NewNode);
+  static void replace(HLNode *OldNode, HLNode *NewNode);
 
   /// Returns true if Node is in the top sort num range [\p FirstNode, \p
   /// LastNode]. The \p FirstNode could be a nullptr, the method will return
@@ -1210,14 +1225,6 @@ public:
   /// Will take innermost loop for now.
   /// Used mostly for blocking / interchange.
   static bool hasNonUnitStrideRefs(const HLLoop *Loop);
-
-  /// Find node receiving the load
-  /// e.g.   t0 = a[i] ;
-  ///         ...
-  ///        t1 = t0
-  ///  returns t1 = t0
-  HLInst *findForwardSubInst(const DDRef *LRef,
-                             SmallVectorImpl<HLInst *> &ForwardSubInsts);
 
   /// Returns the lowest common ancestor loop of Lp1 and Lp2. Returns null if
   /// there is no such parent loop.
