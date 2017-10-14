@@ -86,8 +86,18 @@ struct LoopStatistics::LoopStatisticsVisitor final : public HLNodeVisitorBase {
 
   void visit(const HLIf *If) { SelfLS.NumIfs++; }
   void visit(const HLSwitch *Switch) { SelfLS.NumSwitches++; }
-  void visit(const HLGoto *Goto) { SelfLS.NumGotos++; }
-  void visit(const HLLabel *Label) { SelfLS.NumLabels++; }
+
+  void visit(const HLGoto *Goto) {
+    if (!Goto->isUnknownLoopBackEdge()) {
+      SelfLS.NumForwardGotos++;
+    }
+  }
+
+  void visit(const HLLabel *Label) {
+    if (!Label->isUnknownLoopHeaderLabel()) {
+      SelfLS.NumLabels++;
+    }
+  }
 
   void visit(const HLInst *HInst) {
     auto Inst = HInst->getLLVMInstruction();
@@ -125,35 +135,23 @@ void LoopStatistics::print(formatted_raw_ostream &OS, const HLLoop *Lp) const {
   // Indent at one level more than the loop nesting level.
   unsigned Depth = Lp->getNestingLevel() + 1;
 
-  if (NumIfs) {
-    Lp->indent(OS, Depth);
-    OS << "Number of ifs: " << NumIfs << "\n";
-  }
+  Lp->indent(OS, Depth);
+  OS << "Number of ifs: " << NumIfs << "\n";
 
-  if (NumSwitches) {
-    Lp->indent(OS, Depth);
-    OS << "Number of switches: " << NumSwitches << "\n";
-  }
+  Lp->indent(OS, Depth);
+  OS << "Number of switches: " << NumSwitches << "\n";
 
-  if (NumGotos) {
-    Lp->indent(OS, Depth);
-    OS << "Number of gotos: " << NumGotos << "\n";
-  }
+  Lp->indent(OS, Depth);
+  OS << "Number of forward gotos: " << NumForwardGotos << "\n";
 
-  if (NumLabels) {
-    Lp->indent(OS, Depth);
-    OS << "Number of labels: " << NumLabels << "\n";
-  }
+  Lp->indent(OS, Depth);
+  OS << "Number of forward goto target labels: " << NumLabels << "\n";
 
-  if (NumUserCalls) {
-    Lp->indent(OS, Depth);
-    OS << "Number of user calls: " << NumUserCalls << "\n";
-  }
+  Lp->indent(OS, Depth);
+  OS << "Number of user calls: " << NumUserCalls << "\n";
 
-  if (NumIntrinsics) {
-    Lp->indent(OS, Depth);
-    OS << "Number of intrinsics: " << NumIntrinsics << "\n";
-  }
+  Lp->indent(OS, Depth);
+  OS << "Number of intrinsics: " << NumIntrinsics << "\n";
 }
 
 const LoopStatistics &

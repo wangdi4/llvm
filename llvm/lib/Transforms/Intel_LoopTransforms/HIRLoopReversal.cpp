@@ -504,7 +504,7 @@ bool HIRLoopReversal::doLoopPreliminaryChecks(const HLLoop *Lp) {
   const LoopStatistics &LS = HLS->getSelfLoopStatistics(Lp);
 
   // DEBUG(LS.dump(););
-  if (LS.hasCallsWithUnsafeSideEffects() || LS.hasGotos() || LS.hasLabels()) {
+  if (LS.hasCallsWithUnsafeSideEffects() || LS.hasForwardGotos()) {
     return false;
   }
 

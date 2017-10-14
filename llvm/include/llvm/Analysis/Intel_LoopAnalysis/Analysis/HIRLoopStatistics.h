@@ -36,7 +36,7 @@ struct LoopStatistics {
 private:
   unsigned NumIfs = 0;
   unsigned NumSwitches = 0;
-  unsigned NumGotos = 0;
+  unsigned NumForwardGotos = 0;
   unsigned NumLabels = 0;
   unsigned NumUserCalls = 0;
   unsigned NumIntrinsics = 0;
@@ -55,9 +55,10 @@ public:
   unsigned getNumSwitches() const { return NumSwitches; }
   bool hasSwitches() const { return getNumSwitches() > 0; }
 
-  unsigned getNumGotos() const { return NumGotos; }
-  bool hasGotos() const { return getNumGotos() > 0; }
+  unsigned getNumForwardGotos() const { return NumForwardGotos; }
+  bool hasForwardGotos() const { return getNumForwardGotos() > 0; }
 
+  // Only counts forward goto targets.
   unsigned getNumLabels() const { return NumLabels; }
   bool hasLabels() const { return getNumLabels() > 0; }
 
@@ -93,7 +94,7 @@ public:
   LoopStatistics &operator+=(const LoopStatistics &LS) {
     NumIfs += LS.NumIfs;
     NumSwitches += LS.NumSwitches;
-    NumGotos += LS.NumGotos;
+    NumForwardGotos += LS.NumForwardGotos;
     NumLabels += LS.NumLabels;
     NumUserCalls += LS.NumUserCalls;
     NumIntrinsics += LS.NumIntrinsics;

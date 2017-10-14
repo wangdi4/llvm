@@ -2236,7 +2236,7 @@ StructuredFlowChecker::StructuredFlowChecker(bool PDom, const HLNode *TNode,
 
       // Should we store statistics for multi-exit children loops to only
       // require self statistics?
-      if (!TLS.hasGotos()) {
+      if (!TLS.hasForwardGotos()) {
         IsDone = true;
       }
     } else {
