@@ -110,7 +110,7 @@ if(WIN32)
     )
 else(WIN32)
     target_link_libraries( ${TARGET_NAME}
-            ${LLVM_BINARY_DIR}/libcommon_clang${BUILD_PLATFORM}.so
+        ${LLVM_LIBRARY_DIR}/libcommon_clang${BUILD_PLATFORM}.so
     )
 endif(WIN32)
 
@@ -155,5 +155,5 @@ if(WIN32)
     endif(INSTALL_PDBS)
     install( FILES ${LLVM_BINARY_DIR_FOR_INSTALL}/common_clang${BUILD_PLATFORM}_stripped.pdb DESTINATION bin )
 else(WIN32)
-    install( FILES ${LLVM_BINARY_DIR}/libcommon_clang${BUILD_PLATFORM}.so DESTINATION bin )
+    install( FILES ${LLVM_LIBRARY_DIR}/libcommon_clang${BUILD_PLATFORM}.so DESTINATION bin )
 endif(WIN32)
