@@ -56,6 +56,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_kernel_arg_address_qualifier adressQualifier;    //!< Argument's address qualifier
         cl_kernel_arg_access_qualifier  accessQualifier;    //!< Argument's access qualifier
         cl_kernel_arg_type_qualifier    typeQualifier;      //!< Argument's type qualifier
+        cl_bool                         hostAccessible;     //!< Argument's host accessible flag
     };
 
     /**********************************************************************************************
@@ -187,6 +188,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
                                                               (CL_KRNL_ARG_PTR_CONST  == m_clKernelArgType.type)); }
         bool                IsImage()         const { return ((CL_KRNL_ARG_PTR_IMG_2D     <= m_clKernelArgType.type) &&
                                                               (CL_KRNL_ARG_PTR_IMG_1D_BUF >= m_clKernelArgType.type)); }
+        bool                IsPipe()          const { return (CL_KRNL_ARG_PTR_PIPE_T == m_clKernelArgType.type); }
         bool                IsSampler()       const { return (IsOpaqueSampler() || IsInt32Sampler()); }
 
         bool                IsOpaqueSampler() const { return (CL_KRNL_ARG_PTR_SAMPLER_T == m_clKernelArgType.type); }

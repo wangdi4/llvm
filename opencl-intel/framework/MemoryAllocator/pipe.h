@@ -67,6 +67,13 @@ class Pipe : public GenericMemObject
 	 */
 	cl_int GetPipeInfo(cl_pipe_info paramName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet);
 
+	/** Check if a pipe object was created with CL_MEM_HOST_READ_ONLY or
+	 *  CL_MEM_HOST_WRITE_ONLY, so it can be used for FPGA host-side pipes
+	 *  extension.
+	 */
+	bool IsHostAccessible() { return (GetFlags() & CL_MEM_HOST_WRITE_ONLY) ||
+	                                 (GetFlags() & CL_MEM_HOST_READ_ONLY); }
+
 	/**
 	 * Map pipe object for read or write (depending on a \p flags).
 	 * @param flags is for future use, and should currently be specified as 0

@@ -36,6 +36,7 @@
 #include "Context.h"
 #include "context_module.h"
 #include "framework_proxy.h"
+#include "pipe.h"
 
 #include <cl_sys_defines.h>
 #include <cl_objects_map.h>
@@ -783,6 +784,7 @@ cl_err_code Kernel::SetKernelArgumentInfo(const DeviceKernel* pDeviceKernel)
             argInfo.name            = pArgsInfo->getArgName(i);
             argInfo.typeName        = pArgsInfo->getArgTypeName(i);
             argInfo.typeQualifier   = pArgsInfo->getArgTypeQualifier(i);
+            argInfo.hostAccessible  = pArgsInfo->getArgHostAccessible(i);
         }
 
         pArgsInfo->Release();
@@ -1079,6 +1081,56 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pV
             return CL_INVALID_ARG_VALUE;
         }
 
+        if (clArg.IsPipe())
+        {
+            cl_mem clMemId = *((cl_mem*)(pValue));
+            const SharedPtr<MemoryObject>& pMemObj = pContext->GetMemObject(clMemId);
+            if (!pMemObj)
+            {
+                return CL_INVALID_ARG_VALUE;
+            }
+            const SharedPtr<Pipe>& pPipe = pMemObj.DynamicCast<Pipe>();
+            if (!pPipe)
+            {
+                return CL_INVALID_ARG_VALUE;
+            }
+
+            if (pPipe->IsHostAccessible() !=
+                m_vArgumentsInfo[uiIndex].hostAccessible)
+            {
+                return CL_INVALID_ARG_VALUE;
+            }
+
+            if (pPipe->IsHostAccessible())
+            {
+                cl_kernel_arg_access_qualifier argQual =
+                    m_vArgumentsInfo[uiIndex].accessQualifier;
+
+                //  The direction  indicated in the  clCreatePipe flag
+                //  must be opposite to the pipe access type specified
+                //  on the kernel argument.
+
+                if (argQual == CL_KERNEL_ARG_ACCESS_READ_ONLY &&
+                    !(pPipe->GetFlags() & CL_MEM_HOST_WRITE_ONLY))
+                {
+                    return CL_INVALID_ARG_VALUE;
+                }
+                if (argQual == CL_KERNEL_ARG_ACCESS_WRITE_ONLY &&
+                    !(pPipe->GetFlags() & CL_MEM_HOST_READ_ONLY))
+                {
+                    return CL_INVALID_ARG_VALUE;
+                }
+            }
+        }
+        else
+        {
+            if (m_vArgumentsInfo[uiIndex].hostAccessible)
+            {
+                // Only a pipe can be host accessible
+                return CL_INVALID_ARG_VALUE;
+            }
+        }
+
         clArg.SetValue(szSize, (void*)pValue);
     }
 
@@ -1189,6 +1241,14 @@ cl_err_code Kernel::GetKernelArgInfo (    cl_uint argIndx,
         pValue = &(m_vArgumentsInfo[argIndx].typeQualifier);
         stParamSize = sizeof(cl_kernel_arg_type_qualifier);      
         break;
+    case CL_KERNEL_ARG_HOST_ACCESSIBLE_PIPE_INTEL:
+        if (GetContext()->IsFPGAEmulator())
+        {
+            pValue = &(m_vArgumentsInfo[argIndx].hostAccessible);
+            stParamSize = sizeof(cl_bool);
+            break;
+        }
+        // FALL THROUGH
     default:
         return CL_INVALID_VALUE;        
     }

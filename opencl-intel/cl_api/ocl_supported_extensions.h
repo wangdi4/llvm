@@ -45,3 +45,7 @@
 #define OCL_EXT_KHR_SPIR                    "cl_khr_spir"
 
 #define OCL_EXT_KHR_IMAGE2D_FROM_BUFFER     "cl_khr_image2d_from_buffer"
+
+#define OCL_EXT_INTEL_CHANNELS              "cl_intel_channels"
+#define OCL_EXT_ALTERA_CHANNELS             "cl_altera_channels"
+#define OCL_EXT_INTEL_FPGA_HOST_PIPE        "cl_intel_fpga_host_pipe"

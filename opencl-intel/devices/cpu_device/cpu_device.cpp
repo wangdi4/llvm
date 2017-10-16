@@ -1650,6 +1650,20 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
                 }
                 return CL_DEV_SUCCESS;
             }
+#ifdef BUILD_FPGA_EMULATOR
+        case CL_DEVICE_MAX_HOST_READ_PIPES_INTEL: // FALL THROUGH
+        case CL_DEVICE_MAX_HOST_WRITE_PIPES_INTEL:
+            *pinternalRetunedValueSize = sizeof(size_t);
+            if (NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            {
+                return CL_DEV_INVALID_VALUE;
+            }
+            if (NULL != paramVal)
+            {
+                *(size_t*)paramVal = 64;
+            }
+            return CL_DEV_SUCCESS;
+#endif
         default:
             return CL_DEV_INVALID_VALUE;
     };

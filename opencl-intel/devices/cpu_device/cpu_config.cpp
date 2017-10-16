@@ -178,6 +178,12 @@ const char* CPUDeviceConfig::GetExtensions() const
         }
 
         m_extensions += OCL_INTEL_VEC_LEN_HINT " ";
+
+#ifdef BUILD_FPGA_EMULATOR
+        m_extensions += OCL_EXT_INTEL_CHANNELS " ";
+        m_extensions += OCL_EXT_INTEL_FPGA_HOST_PIPE " ";
+        m_extensions += OCL_EXT_ALTERA_CHANNELS " ";
+#endif
     }
 
     return m_extensions.c_str();

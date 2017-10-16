@@ -10,6 +10,7 @@
 
 #include <gtest/gtest.h>
 #include <CL/cl.h>
+#include <CL/cl_ext.h>
 
 #include <algorithm>
 #include <cstdlib>
@@ -43,16 +44,17 @@ protected:
     const int m_maxBufferSize = 128;
 };
 
-const char* HostSidePipesTest::m_program_source = "\n\
-__kernel void loopback(read_only pipe int pin,     \n\
-                       write_only pipe int pout,   \n\
-                       int iters) {                \n\
-    for (int i = 0; i < iters; ++i) {              \n\
-      int val = 0;                                 \n\
-      while (read_pipe(pin, &val)) {}              \n\
-      while (write_pipe(pout, &val)) {}            \n\
-    }                                              \n\
-  }                                                \n\
+const char* HostSidePipesTest::m_program_source = "                                     \n\
+#pragma OPENCL EXTENSION cl_intel_fpga_host_pipe : enable                               \n\
+__kernel void loopback(read_only pipe int pin __attribute__((intel_host_accessible)),   \n\
+                       write_only pipe int pout __attribute__((intel_host_accessible)), \n\
+                       int iters) {                                                     \n\
+    for (int i = 0; i < iters; ++i) {                                                   \n\
+      int val = 0;                                                                      \n\
+      while (read_pipe(pin, &val)) {}                                                   \n\
+      while (write_pipe(pout, &val)) {}                                                 \n\
+    }                                                                                   \n\
+  }                                                                                     \n\
 ";
 
 void HostSidePipesTest::SetUp()
@@ -387,4 +389,93 @@ TEST_F(HostSidePipesTest, MapMulti)
 
         ASSERT_EQ(i, got) << "Verification failed";
     }
+}
+
+TEST_F(HostSidePipesTest, QueryMaxPipes)
+{
+    size_t maxReadPipes = 0;
+    size_t maxWritePipes = 0;
+
+    size_t valueSizeRet = 0;
+
+    cl_int err = clGetDeviceInfo(m_device, CL_DEVICE_MAX_HOST_READ_PIPES_INTEL,
+                                 sizeof(maxReadPipes), &maxReadPipes,
+                                 &valueSizeRet);
+    ASSERT_EQ(CL_SUCCESS, err) << "clGetDeviceInfo failed";
+    ASSERT_EQ(sizeof(maxReadPipes), valueSizeRet);
+    ASSERT_GT(maxReadPipes, 0);
+
+    err = clGetDeviceInfo(m_device, CL_DEVICE_MAX_HOST_WRITE_PIPES_INTEL,
+                          sizeof(maxWritePipes), &maxWritePipes,
+                          &valueSizeRet);
+    ASSERT_EQ(CL_SUCCESS, err) << "clGetDeviceInfo failed";
+    ASSERT_EQ(sizeof(maxWritePipes), valueSizeRet);
+    ASSERT_GT(maxWritePipes, 0);
+}
+
+TEST_F(HostSidePipesTest, KernelArgType)
+{
+    cl_bool expectedAttrs[] = { CL_TRUE, CL_TRUE, CL_FALSE };
+    for (size_t i = 0; i < sizeof(expectedAttrs)/sizeof(*expectedAttrs); ++i)
+    {
+        size_t valueSizeRet = 0;
+        cl_bool gotAttr = CL_FALSE;
+        cl_int err = clGetKernelArgInfo(m_loopback, i,
+                                        CL_KERNEL_ARG_HOST_ACCESSIBLE_PIPE_INTEL,
+                                        sizeof(gotAttr), &gotAttr,
+                                        &valueSizeRet);
+
+        ASSERT_EQ(CL_SUCCESS, err) << "clGetKernelArgInfo failed";
+        ASSERT_EQ(sizeof(gotAttr), valueSizeRet);
+        ASSERT_EQ(expectedAttrs[i], gotAttr)
+            << "host accessible attribute mismatches";
+    }
+}
+
+TEST_F(HostSidePipesTest, KernelArgMismatchNegative)
+{
+    //  The direction indicated in the clCreatePipe flag must be
+    //  opposite to the pipe access type specified on the kernel
+    //  argument.
+    cl_int error;
+    error = clSetKernelArg(m_loopback, 0,
+                           sizeof(m_pipeRead), &m_pipeRead);
+    EXPECT_EQ( CL_INVALID_ARG_VALUE, error);
+
+    error = clSetKernelArg(m_loopback, 1,
+                           sizeof(m_pipeWrite), &m_pipeWrite);
+    EXPECT_EQ( CL_INVALID_ARG_VALUE, error);
+}
+
+TEST_F(HostSidePipesTest, KernelArgNoAttrNegative)
+{
+    const char* programSrc = "                     \n\
+__kernel void no_attr(read_only pipe int pin,      \n\
+                      write_only pipe int pout) {} \n\
+";
+
+    cl_int error;
+    cl_program program = clCreateProgramWithSource(m_context, /*count=*/1,
+                                                   &programSrc,
+                                                   /*length=*/nullptr,
+                                                   &error);
+    ASSERT_EQ(CL_SUCCESS, error) << "clCreateProgramWithSource failed.";
+
+    error = clBuildProgram(program, /*num_devices=*/0, /*device_list=*/nullptr,
+                           /*options=*/"-cl-std=CL2.0", /*pfn_notify*/nullptr,
+                           /*user_data=*/nullptr);
+    ASSERT_EQ(CL_SUCCESS, error) << "clBuildProgram failed.";
+
+    // Host-side pipe can only be bound to a kernel argument with
+    // __attribute__((intel_host_accessible))
+    cl_kernel noAttrKernel = clCreateKernel(program, "no_attr", &error);
+    ASSERT_EQ(CL_SUCCESS, error) << "clCreateKernel failed.";
+
+    error = clSetKernelArg(noAttrKernel, 0,
+                           sizeof(m_pipeWrite), &m_pipeWrite);
+    EXPECT_EQ( CL_INVALID_ARG_VALUE, error);
+
+    error = clSetKernelArg(noAttrKernel, 1,
+                           sizeof(m_pipeRead), &m_pipeRead);
+    EXPECT_EQ( CL_INVALID_ARG_VALUE, error);
 }
