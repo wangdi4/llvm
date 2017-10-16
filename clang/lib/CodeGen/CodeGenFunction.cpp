@@ -734,8 +734,11 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
                     llvm::MDNode::get(Context, attrMDArgs));
   }
 
-  if (FD->getAttr<TaskAttr>())
-    Fn->setMetadata("task", llvm::MDNode::get(Context, None));
+  if (FD->getAttr<TaskAttr>()) {
+    llvm::Metadata *attrMDArgs[] = {
+        llvm::ConstantAsMetadata::get(Builder.getTrue())};
+    Fn->setMetadata("task", llvm::MDNode::get(Context, attrMDArgs));
+  }
 
   if (const NumComputeUnitsAttr *A = FD->getAttr<NumComputeUnitsAttr>()) {
     llvm::Metadata *attrMDArgs[] = {llvm::ConstantAsMetadata::get(
