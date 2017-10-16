@@ -408,47 +408,47 @@ CSAInstrInfo::getPickanyOpcode(const TargetRegisterClass *RC) const {
   }
 }
 
-bool CSAInstrInfo::isLoad(MachineInstr *MI) const {
+bool CSAInstrInfo::isLoad(const MachineInstr *MI) const {
 	return MI->getOpcode() >= CSA::LD1 && MI->getOpcode() <= CSA::LD8X;
 }
 
-bool CSAInstrInfo::isStore(MachineInstr *MI) const {
+bool CSAInstrInfo::isStore(const MachineInstr *MI) const {
 	return MI->getOpcode() >= CSA::ST1 && MI->getOpcode() <= CSA::ST8X;
 }
 
-bool CSAInstrInfo::isMul(MachineInstr *MI) const {
+bool CSAInstrInfo::isMul(const MachineInstr *MI) const {
 	return MI->getOpcode() >= CSA::MUL16 && MI->getOpcode() <= CSA::MULF64;
 }
 
 
-bool CSAInstrInfo::isDiv(MachineInstr *MI) const {
+bool CSAInstrInfo::isDiv(const MachineInstr *MI) const {
 	return MI->getOpcode() >= CSA::DIVF16 && MI->getOpcode() <= CSA::DIVU8;
 }
 
-bool CSAInstrInfo::isFMA(MachineInstr *MI) const {
+bool CSAInstrInfo::isFMA(const MachineInstr *MI) const {
 	return MI->getOpcode() >= CSA::FMAF16 && MI->getOpcode() <= CSA::FMAF64;
 }
 
-bool CSAInstrInfo::isAdd(MachineInstr *MI) const {
+bool CSAInstrInfo::isAdd(const MachineInstr *MI) const {
 	return MI->getOpcode() >= CSA::ADD16 && MI->getOpcode() <= CSA::ADDF64;
 }
 
-bool CSAInstrInfo::isSub(MachineInstr *MI) const {
+bool CSAInstrInfo::isSub(const MachineInstr *MI) const {
 	return MI->getOpcode() >= CSA::SUB16 && MI->getOpcode() <= CSA::SUBF64;
 }
 
-bool CSAInstrInfo::isShift(MachineInstr *MI) const {
+bool CSAInstrInfo::isShift(const MachineInstr *MI) const {
         return (MI->getOpcode() >= CSA::SLL16 && MI->getOpcode() <= CSA::SLL8) ||
           (MI->getOpcode() >= CSA::SRA16 && MI->getOpcode() <= CSA::SRL8);
 }
 
-bool CSAInstrInfo::isCmp(MachineInstr *MI) const {
+bool CSAInstrInfo::isCmp(const MachineInstr *MI) const {
     return ((MI->getOpcode() >= CSA::CMPEQ16) &&
             (MI->getOpcode() <= CSA::CMPUOF64));
 }
 
 
-bool CSAInstrInfo::isSwitch(MachineInstr *MI) const {
+bool CSAInstrInfo::isSwitch(const MachineInstr *MI) const {
 	return MI->getOpcode() == CSA::SWITCH1 ||
          MI->getOpcode() == CSA::SWITCH8 ||
          MI->getOpcode() == CSA::SWITCH16 ||
@@ -456,7 +456,7 @@ bool CSAInstrInfo::isSwitch(MachineInstr *MI) const {
          MI->getOpcode() == CSA::SWITCH64;
 }
 
-bool CSAInstrInfo::isPick(MachineInstr *MI) const {
+bool CSAInstrInfo::isPick(const MachineInstr *MI) const {
         return MI->getOpcode() == CSA::PICK1 ||
 		MI->getOpcode() == CSA::PICK8 ||
 		MI->getOpcode() == CSA::PICK16 ||
@@ -464,7 +464,7 @@ bool CSAInstrInfo::isPick(MachineInstr *MI) const {
 		MI->getOpcode() == CSA::PICK64;
 }
 
-bool CSAInstrInfo::isPickany(MachineInstr *MI) const {
+bool CSAInstrInfo::isPickany(const MachineInstr *MI) const {
   return MI->getOpcode() == CSA::PICKANY1 ||
     MI->getOpcode() == CSA::PICKANY8 ||
     MI->getOpcode() == CSA::PICKANY16 ||
@@ -472,7 +472,7 @@ bool CSAInstrInfo::isPickany(MachineInstr *MI) const {
     MI->getOpcode() == CSA::PICKANY64;
 }
 
-bool CSAInstrInfo::isCopy(MachineInstr *MI) const {
+bool CSAInstrInfo::isCopy(const MachineInstr *MI) const {
   return
     MI->getOpcode() == CSA::COPY0 ||
     MI->getOpcode() == CSA::COPY1 ||
@@ -482,7 +482,7 @@ bool CSAInstrInfo::isCopy(MachineInstr *MI) const {
     MI->getOpcode() == CSA::COPY64;
 }
 
-bool CSAInstrInfo::isMOV(MachineInstr *MI) const {
+bool CSAInstrInfo::isMOV(const MachineInstr *MI) const {
   return MI->getOpcode() == CSA::MOV1 ||
     MI->getOpcode() == CSA::MOV8 ||
     MI->getOpcode() == CSA::MOV16 ||
@@ -491,7 +491,7 @@ bool CSAInstrInfo::isMOV(MachineInstr *MI) const {
 }
 
 
-bool CSAInstrInfo::isInit(MachineInstr *MI) const {
+bool CSAInstrInfo::isInit(const MachineInstr *MI) const {
   return MI->getOpcode() == CSA::INIT1 ||
     MI->getOpcode() == CSA::INIT8 ||
     MI->getOpcode() == CSA::INIT16 ||
@@ -499,11 +499,11 @@ bool CSAInstrInfo::isInit(MachineInstr *MI) const {
     MI->getOpcode() == CSA::INIT64;
 }
 
-bool CSAInstrInfo::isAtomic(MachineInstr *MI) const {
+bool CSAInstrInfo::isAtomic(const MachineInstr *MI) const {
     return MI->getOpcode() >= CSA::ATMADD16 && MI->getOpcode() <= CSA::ATMXOR8;
 }
 
-bool CSAInstrInfo::isSeqOT(MachineInstr *MI) const {
+bool CSAInstrInfo::isSeqOT(const MachineInstr *MI) const {
     return ((MI->getOpcode() >= CSA::SEQOTGE) &&
             (MI->getOpcode() <= CSA::SEQOTNE8));
 }
@@ -512,7 +512,7 @@ unsigned CSAInstrInfo::getMemTokenMOVOpcode() const {
   return CSA::MOV0;
 }
 
-bool CSAInstrInfo::isMemTokenMOV(MachineInstr* MI) const {
+bool CSAInstrInfo::isMemTokenMOV(const MachineInstr* MI) const {
   return MI->getOpcode() == CSA::MOV0;
 }
 
@@ -1084,7 +1084,7 @@ convertPickToRepeatOp(unsigned pick_opcode,
 
 bool
 CSAInstrInfo::
-isCommutingReductionTransform(MachineInstr* MI) const {
+isCommutingReductionTransform(const MachineInstr* MI) const {
   unsigned opcode = MI->getOpcode();
   // NOTE: we are leaving out AND1, OR1, and XOR1.
   // We don't have a 1-bit reduction op...

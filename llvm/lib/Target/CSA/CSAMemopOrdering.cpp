@@ -83,9 +83,6 @@ const TargetRegisterClass* MemopRC = &CSA::I1RegClass;
 // TODO: memop ordering statistics?
 //STATISTIC(NumInlineAsmExpansions, "Number of asm()s expanded into MIs");
 //STATISTIC(NumInlineAsmInstrs,     "Number of machine instructions resulting from asm()s");
-STATISTIC(DisconnectedCacheSize,    "Number of results stored in disconnectedCache");
-STATISTIC(DisconnectedCacheQueries, "Number of checks into the disconnectedCache");
-STATISTIC(DisconnectedCacheHits, "Number of hits in the disconnectedCache");
 
 namespace {
 
@@ -355,10 +352,6 @@ namespace {
     bool should_assign_ordering(const MachineInstr& MI) const;
 
 
-    // Cache for isRegDerivedFromReg. For each input register, it gives a set
-    // of any registers known NOT to be ancestors.
-    DenseMap<unsigned, DenseSet<unsigned> > disconnectedCache;
-
     // Determine if a val is trivially derived from an ancestor vreg,
     // accounting for PHI, MOV0, and MERGE1 dataflow. COPY/COPYN transforms are
     // not currently accounted for. if 'mergeOnly' is true, then only merge
@@ -366,11 +359,6 @@ namespace {
     // it's filled with the dataflow path found. Note that there may be
     // multiple paths.
     bool isRegDerivedFromReg(unsigned val, unsigned ancestor, bool mergeOnly, SmallVector<MachineOperand*, MEMDEP_VEC_WIDTH> *flow) {
-      DisconnectedCacheQueries++;
-      if (disconnectedCache[val].count(ancestor)) {
-        DisconnectedCacheHits++;
-        return false;
-      }
       DenseSet<unsigned> visited;
       return isRegDerivedFromReg(val, ancestor, mergeOnly, flow, &visited);
     }
@@ -418,7 +406,6 @@ bool CSAMemopOrdering::runOnMachineFunction(MachineFunction &MF) {
   parRegions.clear();
   depchains.clear();
   orderedMemops.clear();
-  disconnectedCache.clear();
 
   TII = static_cast<const CSAInstrInfo*>(MF.getSubtarget().getInstrInfo());
   MRI = &MF.getRegInfo();
@@ -905,19 +892,7 @@ bool CSAMemopOrdering::isRegDerivedFromReg(unsigned val, unsigned ancestor, bool
     return true;
   }
 
-  DisconnectedCacheQueries++;
-  if (disconnectedCache[val].count(ancestor)) {
-    DisconnectedCacheHits++;
-    // We already know the answer in this case.
-    return false;
-  }
-
   if (visited->count(val)) {
-    // In the general case, cache this negative result.
-    if (!mergeOnly) {
-      disconnectedCache[val].insert(ancestor);
-      DisconnectedCacheSize++;
-    }
     // refuse to recurse further.
     return false;
   }
@@ -966,11 +941,6 @@ bool CSAMemopOrdering::isRegDerivedFromReg(unsigned val, unsigned ancestor, bool
     }
   }
 
-  // In the general case, cache this negative result.
-  if (!mergeOnly) {
-    disconnectedCache[val].insert(ancestor);
-    DisconnectedCacheSize++;
-  }
   return false;
 }
 

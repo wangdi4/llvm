@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "CSA.h"
+#include "CSAInstrInfo.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
@@ -60,7 +61,7 @@ namespace {
 
     const TargetRegisterInfo  *TRI;
     const MachineRegisterInfo *MRI;
-    const TargetInstrInfo     *TII;
+    const CSAInstrInfo        *TII;
     BitVector                 LivePhysRegs; // Set of live registers
 
   public:
@@ -109,8 +110,10 @@ bool CSADeadInstructionElim::isDead(const MachineInstr& MI) const {
     return false;
 
   // Don't delete instructions with side effects.
+  // (A few exceptions apply.)
   bool SawStore = false;
-  if (!MI.isSafeToMove(nullptr, SawStore) && !MI.isPHI())
+  if (!MI.isSafeToMove(nullptr, SawStore) &&
+      !MI.isPHI() && !TII->isInit(&MI))
     return false;
 
   // Examine each operand.
@@ -212,7 +215,7 @@ bool CSADeadInstructionElim::runOnMachineFunction(MachineFunction &MF) {
   bool AnyChanges = false;
   MRI = &MF.getRegInfo();
   TRI = MF.getSubtarget().getRegisterInfo();
-  TII = MF.getSubtarget().getInstrInfo();
+  TII = static_cast< const CSAInstrInfo* >(MF.getSubtarget().getInstrInfo());
 
   bool SubpassChanges;
   do {

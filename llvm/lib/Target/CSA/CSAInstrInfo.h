@@ -155,30 +155,30 @@ public:
                         int *BytesAdded) const override;
 
   unsigned getPickSwitchOpcode(const TargetRegisterClass *RC, bool isPick) const;
-  bool isSwitch(MachineInstr *) const;
-  bool isCopy(MachineInstr *) const;
-  bool isMOV(MachineInstr *) const;
-  bool isPick(MachineInstr *) const;
-  bool isPickany(MachineInstr *) const;
-  bool isInit(MachineInstr *) const;
-  bool isLoad(MachineInstr *) const;
-  bool isStore(MachineInstr *) const;
-  bool isAdd(MachineInstr *) const;
-  bool isSub(MachineInstr *) const;
-  bool isMul(MachineInstr *) const;
-  bool isDiv(MachineInstr *) const;
-  bool isFMA(MachineInstr *) const;
-  bool isShift(MachineInstr *) const;
-  bool isCmp(MachineInstr *) const;
-  bool isAtomic(MachineInstr *) const;
-  bool isSeqOT(MachineInstr *) const;
+  bool isSwitch(const MachineInstr *) const;
+  bool isCopy(const MachineInstr *) const;
+  bool isMOV(const MachineInstr *) const;
+  bool isPick(const MachineInstr *) const;
+  bool isPickany(const MachineInstr *) const;
+  bool isInit(const MachineInstr *) const;
+  bool isLoad(const MachineInstr *) const;
+  bool isStore(const MachineInstr *) const;
+  bool isAdd(const MachineInstr *) const;
+  bool isSub(const MachineInstr *) const;
+  bool isMul(const MachineInstr *) const;
+  bool isDiv(const MachineInstr *) const;
+  bool isFMA(const MachineInstr *) const;
+  bool isShift(const MachineInstr *) const;
+  bool isCmp(const MachineInstr *) const;
+  bool isAtomic(const MachineInstr *) const;
+  bool isSeqOT(const MachineInstr *) const;
 
   // Gets the opcode for a memory token MOV.  This method is defined
   // here so that all the places which need to know which opcode is a
   // MOV of a memory token agree upon the answer.
   unsigned getMemTokenMOVOpcode()const;
   // Returns true if this instruction is a MOV of a memory token.  
-  bool isMemTokenMOV(MachineInstr *) const;
+  bool isMemTokenMOV(const MachineInstr *) const;
   
   unsigned getCopyOpcode(const TargetRegisterClass *RC) const;
   unsigned getMoveOpcode(const TargetRegisterClass *RC) const;
@@ -272,7 +272,7 @@ public:
   // corresponds to a 3-operand commuting reduction.
   //
   //  ADD, MUL, AND, OR, XOR
-  bool isCommutingReductionTransform(MachineInstr* ) const;
+  bool isCommutingReductionTransform(const MachineInstr* ) const;
 
   // Convert an ADD/SUB/FMA code into a matching reduction opcode of
   // the same size. TBD(jsukha): Not implemented yet!

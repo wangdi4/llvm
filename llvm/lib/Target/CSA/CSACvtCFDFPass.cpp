@@ -99,6 +99,7 @@ namespace llvm {
     void insertSWITCHForOperand(MachineOperand& MO, MachineBasicBlock* mbb, MachineInstr* phiIn = nullptr);
     void insertSWITCHForIf();
     void renameOnLoopEntry();
+    void sequenceOPT();
     void renameAcrossLoopForRepeat(MachineLoop *);
     void insertSWITCHForRepeat();
     void insertSWITCHForRepeat(MachineLoop* mloop);
@@ -234,6 +235,27 @@ void CSACvtCFDFPass::releaseMemory() {
 }
 
 
+void CSACvtCFDFPass::sequenceOPT() {
+  CSASSAGraph csaSSAGraph;
+  csaSSAGraph.BuildCSASSAGraph(*thisMF);
+  for (scc_iterator<CSASSANode*> I = scc_begin(csaSSAGraph.getRoot()), IE = scc_end(csaSSAGraph.getRoot()); I != IE; ++I) {
+    const std::vector<CSASSANode *> &SCCNodes = *I;
+    if (SCCNodes.size() > 1) {
+      for (std::vector<CSASSANode *>::const_iterator nodeI = SCCNodes.begin(), nodeIE = SCCNodes.end(); nodeI != nodeIE; ++nodeI) {
+        CSASSANode* sccn = *nodeI;
+        MachineInstr* minstr = sccn->minstr;
+        MachineBasicBlock* mbb = minstr->getParent();
+        //loop header phi
+        if (minstr->isPHI() && MLI->getLoopFor(mbb) && MLI->getLoopFor(mbb)->getHeader() == mbb) {
+          
+        }
+      }
+    }
+  }
+}
+
+
+
 void CSACvtCFDFPass::replacePhiWithPICK() {
 #if 0
   replacePhiForUnstructed();
@@ -364,6 +386,9 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
 
   //renaming using switch to seal all down rang of each definition within loop
   renameOnLoopEntry();
+
+  //sequenceOPT();
+
   if (needDynamicPreds() || UseDynamicPred) {
     generateDynamicPreds();
   } else {
