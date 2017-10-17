@@ -619,6 +619,33 @@ multiclass StOp<string opStr, CSAOpInfo t,
   }
 }
 
+multiclass StreamLdOp<string opStr, CSAOpInfo t,
+           InstrItinClass itin = IILD> {
+  let mayLoad = 1, Itinerary = itin in {
+    def I : FMTGEN<  // e.g. ld of literal address - ld rx,sym
+      (outs t.RC:$dst, MemOrdDef:$issued),
+      (ins ADDR_I:$addr, CI64:$len, CI64:$stride, MEMLVL:$lvl, MemOrdUse:$ready),
+      !strconcat(opStr, "\t$dst, $addr, $len, $stride, $issued, $ready, $lvl"),
+      []>;
+    def "" : FMTGEN< // normal basereg form
+      (outs t.RC:$dst, MemOrdDef:$issued),
+      (ins ADDR_R:$addr, CI64:$len, CI64:$stride, MEMLVL:$lvl, MemOrdUse:$ready),
+      !strconcat(opStr, "\t$dst, $addr, $len, $stride, $issued, $ready, $lvl"),
+      []>;
+    }
+}
+
+multiclass StreamStOp<string opStr, CSAOpInfo t,
+           InstrItinClass itin = IIST> {
+  let mayStore = 1, Itinerary = itin in {
+    def "" : FMTGEN<
+      (outs MemOrdDef:$issued),
+      (ins ADDR_R:$addr, CI64:$len, CI64:$stride, t.RCL:$data, MEMLVL:$lvl, MemOrdUse:$ready),
+      !strconcat(opStr, "\t$addr, $len, $stride, $data, $issued, $ready, $lvl"),
+      []>;
+  }
+}
+
 class MullohiOp<GenericOp gen, CSAOpInfo oi,
                InstrItinClass itin = IIALU, list<Predicate> preds = []> :
   FMTGEN <
@@ -1525,6 +1552,24 @@ defm ST32     : StOp<    "st32",  Ti32>;
 defm ST32f    : StOp<    "st32",  Tf32>;
 defm ST64     : StOp<    "st64",  Ti64>;
 defm ST64f    : StOp<    "st64",  Tf64>;
+
+defm SLD1     : StreamLdOp<"sld8",   Ti1>;
+defm SLD8     : StreamLdOp<"sld8",   Ti8>;
+defm SLD16    : StreamLdOp<"sld16",  Ti16>;
+defm SLD16f   : StreamLdOp<"sld16",  Tf16>;
+defm SLD32    : StreamLdOp<"sld32",  Ti32>;
+defm SLD32f   : StreamLdOp<"sld32",  Tf32>;
+defm SLD64    : StreamLdOp<"sld64",  Ti64>;
+defm SLD64f   : StreamLdOp<"sld64",  Tf64>;
+
+defm SST1     : StreamStOp<"sst8",   Ti1>;
+defm SST8     : StreamStOp<"sst8",   Ti8>;
+defm SST16    : StreamStOp<"sst16",  Ti16>;
+defm SST16f   : StreamStOp<"sst16",  Tf16>;
+defm SST32    : StreamStOp<"sst32",  Ti32>;
+defm SST32f   : StreamStOp<"sst32",  Tf32>;
+defm SST64    : StreamStOp<"sst64",  Ti64>;
+defm SST64f   : StreamStOp<"sst64",  Tf64>;
 
 // Extended multiplication
 def MULLOHI   : GenericOp<"mullohi">;
