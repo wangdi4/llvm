@@ -1253,6 +1253,7 @@ def COPY32    : CopyOp<  GCOPY, Ti32>;
 def COPY64    : CopyOp<  GCOPY, Ti64>;
 
 def MERGE     : GenericOp<"merge">;
+def MERGE0    : MergeOp< "merge0",  Ti0,  [HasI0],  IIVir>;
 def MERGE1    : MergeOp< "merge1",  Ti1,  [HasI1],  IIVir>;
 def MERGE8    : MergeOp< "merge8",  Ti8,  [HasI8],  IIVir>;
 def MERGE16   : MergeOp< "merge16", Ti16, [HasI16], IIVir>;
@@ -1263,6 +1264,7 @@ def MERGE64   : MergeOp< "merge64", Ti64, [HasI64], IIVir>;
 def MERGE64f  : MergeOp< "merge64", Tf64, [HasI64], IIVir>;
 
 def SWITCH    : GenericOp<"switch">;
+def SWITCH0   : SwitchOp<SWITCH, Ti0,  IIVir>;
 def SWITCH1   : SwitchOp<SWITCH, Ti1,  IIVir>;
 def SWITCH8   : SwitchOp<SWITCH, Ti8,  IIVir>;
 def SWITCH16  : SwitchOp<SWITCH, Ti16, IIVir>;
@@ -1270,6 +1272,7 @@ def SWITCH32  : SwitchOp<SWITCH, Ti32, IIVir>;
 def SWITCH64  : SwitchOp<SWITCH, Ti64, IIVir>;
 
 def SWITCHANY : GenericOp<"switchany">;
+def SWITCHANY0  : SwitchAnyOp<SWITCHANY, Ti0,  IIVir>;
 def SWITCHANY1  : SwitchAnyOp<SWITCHANY, Ti1,  IIVir>;
 def SWITCHANY8  : SwitchAnyOp<SWITCHANY, Ti8,  IIVir>;
 def SWITCHANY16 : SwitchAnyOp<SWITCHANY, Ti16, IIVir>;
@@ -1277,6 +1280,7 @@ def SWITCHANY32 : SwitchAnyOp<SWITCHANY, Ti32, IIVir>;
 def SWITCHANY64 : SwitchAnyOp<SWITCHANY, Ti64, IIVir>;
 
 def PICK      : GenericOp<"pick">;
+def PICK0     : PickOp<PICK, Ti0,  IIVir>;
 def PICK1     : PickOp<PICK, Ti1,  IIVir>;
 def PICK8     : PickOp<PICK, Ti8,  IIVir>;
 def PICK16    : PickOp<PICK, Ti16, IIVir>;
@@ -1284,6 +1288,7 @@ def PICK32    : PickOp<PICK, Ti32, IIVir>;
 def PICK64    : PickOp<PICK, Ti64, IIVir>;
 
 def PICKANY   : GenericOp<"pickany">;
+def PICKANY0  : PickAnyOp<PICKANY, Ti0,  IIVir>;
 def PICKANY1  : PickAnyOp<PICKANY, Ti1,  IIVir>;
 def PICKANY8  : PickAnyOp<PICKANY, Ti8,  IIVir>;
 def PICKANY16 : PickAnyOp<PICKANY, Ti16, IIVir>;
@@ -1447,6 +1452,7 @@ def SEQOTGEU32  : SeqSOp<  SEQOTGE, Tu32, IIALU>;
 def SEQOTGEU64  : SeqSOp<  SEQOTGE, Tu64, IIALU>;
 
 def REPEAT    : GenericOp<"repeat">;
+def REPEAT0   : RepeatOp<REPEAT, Ti0,  IIALU>;
 def REPEAT1   : RepeatOp<REPEAT, Ti1,  IIALU>;
 def REPEAT8   : RepeatOp<REPEAT, Ti8,  IIALU>;
 def REPEAT16  : RepeatOp<REPEAT, Ti16, IIALU>;
