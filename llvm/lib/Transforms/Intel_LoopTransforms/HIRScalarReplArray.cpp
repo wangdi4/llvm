@@ -62,7 +62,36 @@
 // Note:
 // the t1 = A[UB+1] is not needed in prehdr in this case.
 //
+// 3. In the given example (scalarrepl.compute.maxIdxLoad1.ll), the load on
+// %scalarepl = (@A)[0][0] is NOT needed.
 //
+// IR Dump Before HIR Scalar Repl:
+//
+// BEGIN REGION{};
+// +DO i1 = 0, 100, 1 < DO_LOOP > ;
+// | (@A)[0][i1 + 1] = i1;
+// | (@A)[0][i1] = (@A)[0][i1 + 1];
+// +END LOOP;
+// END REGION
+//
+// IR Dump After HIR Scalar Repl:
+//
+// BEGIN REGION { modified }
+//  %scalarepl = (@A)[0][0];
+//  + DO i1 = 0, 100, 1   <DO_LOOP>
+//  |   %scalarepl1 = i1;
+//  |   %scalarepl = %scalarepl1;
+//  |   (@A)[0][i1] = %scalarepl;
+//  |   %scalarepl = %scalarepl1;
+//  + END LOOP
+//  (@A)[0][101] = %scalarepl;
+// END REGION
+//
+// In general, a load (in preheader) is not required if store dominates load(s)
+// in the curren group.
+//
+//
+
 // -------------------------------------------------------------------
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/Triple.h"
@@ -369,20 +398,34 @@ bool MemRefGroup::areDDEdgesInSameMRG(DDGraph &DDG) const {
   return true;
 }
 
+// Note:
+// The logic is contrived because the current MemRefTuples are sorted that all
+// write(s) appear before all read(s) after the collection from
+// HIRLocaltyAnalysis, instead of the default (expected) sort by Topological
+// numbers over the MemRefs.
+//
+// This makes the logic is bit difficult to understand.
+//
+// Once HIRLocalityAnalysis relaxes this behavior, the code can be simplified
+// with easy-to-understand logic.
+//
 void MemRefGroup::markMaxLoad(void) {
+  // Sanity: expect at least 1 Load
   if (NumLoads == 0) {
     return;
   }
 
-  // may find the MaxLoad if there is 1+ load(s)
-  unsigned Size = RefTupleVec.size();
-  unsigned MinTopNum = -1; // will shrink
-  RegDDRef *FirstRef = RefTupleVec[0].getMemRef();
+  // *MAY* find the MaxLoad if there is 1+ load(s)
   int64_t MaxDepDist = getMaxDepDist();
-  bool DepDistExist = false;
+  unsigned Size = RefTupleVec.size();
+  unsigned MinTopNum = unsigned(-1); // may shrink
+  RegDDRef *FirstRef = RefTupleVec[0].getMemRef();
+  bool DepDistExist = false, MaxIndexIsRVal = false;
   int64_t DepDist = 0;
+  unsigned TheIdx = 0;
 
-  for (signed I = Size - 1; I >= 0; --I) { // search high index only
+  // Search from highest index (== MaxDepDist) only (in all available MemRefs):
+  for (signed I = Size - 1; I >= 0; --I) {
     RefTuple *RT = &RefTupleVec[I];
     RegDDRef *MemRef = RT->getMemRef();
     DepDistExist = DDRefUtils::getConstIterationDistance(MemRef, FirstRef,
@@ -391,22 +434,24 @@ void MemRefGroup::markMaxLoad(void) {
     (void)DepDistExist;
     DepDist = std::abs(DepDist);
 
-    // Only check those RefTuples with MaxDepDist
+    // Only check those MemRefs with MaxDepDist
     if (DepDist != MaxDepDist) {
       break;
     }
 
-    // Only check Load(s);
-    if (MemRef->isLval()) {
-      continue;
-    }
-
-    // Find the smallest TOPO#
+    // Find the minimal TOPO#: + record its matching Index
     unsigned CurTopNum = MemRef->getHLDDNode()->getTopSortNum();
     if (CurTopNum < MinTopNum) {
-      MaxIdxLoadRT = I; // save the MaxIdxLoadRT index
       MinTopNum = CurTopNum;
+      // Set flag based on whether MemRef is Rval or not
+      MaxIndexIsRVal = MemRef->isRval();
+      TheIdx = I;
     }
+  }
+
+  // Set MaxIdxLoadRT only if the MinIndex (TopoNumber) is on a Rval (Load):
+  if (MaxIndexIsRVal) {
+    MaxIdxLoadRT = TheIdx; // save the MaxIdxLoadRT index
   }
 }
 
@@ -631,7 +676,8 @@ void MemRefGroup::generateStoreFromTmps(HLLoop *Lp) {
   signed AdjustIdx = isCompleteStoreOnly() ? 0 : (-1);
   HLInst *StoreInst = nullptr;
 
-  // For each unique index in [MinStoreOffset+1 .. MinStoreOffset+MaxStoreDist]:
+  // For each unique index in [MinStoreOffset+1 ..
+  // MinStoreOffset+MaxStoreDist]:
   // - generate a store in Postexit regardless of gap situation;
   // - temp associated with the store:
   //   . use normally mapped temp for a CompleteStoreOnly group;
@@ -1060,7 +1106,7 @@ bool HIRScalarReplArray::checkIV(const RegDDRef *Ref,
 }
 
 bool HIRScalarReplArray::doCollection(HLLoop *Lp) {
-  // Collect and group RegDDRefs:
+  // Collect and group RegDDRefs:Don't sort the groups
   RefGroupVecTy Groups;
   HLA->populateTemporalLocalityGroups(Lp, ScalarReplArrayMaxDepDist, Groups);
   DEBUG(DDRefGrouping::dump(Groups));

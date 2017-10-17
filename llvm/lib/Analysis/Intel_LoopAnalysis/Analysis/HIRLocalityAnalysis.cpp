@@ -40,8 +40,8 @@
 
 #include "llvm/Pass.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLocalityAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"
@@ -123,8 +123,9 @@ void HIRLocalityAnalysis::print(raw_ostream &OS, const Module *M) const {
 
     for (auto Lp : OutermostLoops) {
 
-      if (Lp->isInnermost() || !HLNodeUtils::isPerfectLoopNest(
-                                   Lp, nullptr, false, false, true, nullptr)) {
+      if (Lp->isInnermost() ||
+          !HLNodeUtils::isPerfectLoopNest(Lp, nullptr, false, false, true,
+                                          nullptr)) {
         continue;
       }
 

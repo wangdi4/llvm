@@ -12,9 +12,9 @@
 #ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_SCALARREPL_ARRAY_H
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_SCALARREPL_ARRAY_H
 
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGrouping.h"
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGrouping.h"
 
 namespace llvm {
 class Function;
@@ -135,7 +135,7 @@ struct MemRefGroup {
   bool belongs(RegDDRef *Ref) const;
 
   // Inside the loop's body, within the MRG, mark if there is 1 MemRef(R) that
-  // needs to generate a load right before the MemRef.
+  // needs to generate a load right before the MemRef (MaxIndexLoad).
   //
   // Mark the Max-index load with MIN TOPO#: may find if #Loads >0
   // E.g. .., A[i+3](.), A[i+4](R) .. A[i+4](R) ...
