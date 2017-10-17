@@ -127,9 +127,6 @@ private:
   const int NO_SCC = -1;
 
 private:
-  /// Returns true if Phi forms a recurrence of the form (t = t * constant).
-  bool isMulByConstRecurrence(const PHINode *Phi) const;
-
   /// Returns true if this is a potential root of a new SCC.
   bool isCandidateRootNode(const NodeTy *Node) const;
 
@@ -172,6 +169,10 @@ private:
 
   /// Sets RegIt as the current region being processed.
   void setRegion(HIRRegionIdentification::const_iterator RegIt);
+
+  /// Returns true if this SCC represents a recurrence of the form:
+  /// (t = t * constant).
+  bool isMulByConstRecurrence(const SCC &CurSCC) const;
 
   /// Returns true if forming this SCC results in a cleaner HIR.
   bool isProfitableSCC(const SCC &CurSCC) const;
