@@ -5,6 +5,8 @@ all: bbanalysis bbprofile
 bbanalysis: bbanalysis.C bbanalysis.H bbprofile.cpp bbinscountanalysis.C
 	csa-clang -target x86_64-unknown-linux-gnu -g -I $(BOOST_ROOT)/include -emit-llvm bbanalysis.C -c -o bbanalysis.bc
 	csa-clang -target x86_64-unknown-linux-gnu -g -I $(BOOST_ROOT)/include -emit-llvm bbinscountanalysis.C -c -o bbinscountanalysis.bc
+	csa-clang -target x86_64-unknown-linux-gnu -g -I $(BOOST_ROOT)/include -emit-llvm bbinscountmarkerhandler.C -c -o bbinscountmarkerhandler.bc
+	csa-clang -target x86_64-unknown-linux-gnu -g -c bbanalysis.bc
 	csa-clang -target x86_64-unknown-linux-gnu -g -c bbanalysis.bc
 
 bbprofile: bbprofile.cpp
