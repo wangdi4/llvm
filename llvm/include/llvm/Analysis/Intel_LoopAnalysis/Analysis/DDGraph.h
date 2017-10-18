@@ -99,12 +99,15 @@ public:
     return preventsParallelization(Level) && !isForwardDep() &&
            (getSrc() != getSink());
   }
+
   // Proxy to isDVCrossIterDepAtLevel().
   bool hasCrossIterDepAtLevel(unsigned Level) const {
     return DV.isCrossIterDepAtLevel(Level);
   }
+
   // Proxy to isDVRefinableAtLevel().
   bool isRefinableDepAtLevel(unsigned Level) const {
+    // Cut down compile time for now by adding  more condition
     return DV.isRefinableAtLevel(Level);
   }
 
@@ -245,7 +248,7 @@ public:
 
   void dump() const { print(dbgs()); }
 };
-}
-}
+} // namespace loopopt
+} // namespace llvm
 
 #endif

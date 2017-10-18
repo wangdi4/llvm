@@ -422,9 +422,43 @@ void HIRDDAnalysis::buildGraph(const HLNode *Node, bool BuildInputEdges) {
   Node->getHLNodeUtils().visit(Visitor, Node);
 }
 
+bool HIRDDAnalysis::isRefinableDepAtLevel(const DDEdge *Edge,
+                                          unsigned Level) const {
+
+  const DirectionVector *DV = &Edge->getDV();
+  if (!DV->isRefinableAtLevel(Level)) {
+    return false;
+  }
+
+  const RegDDRef *SrcDDRef = dyn_cast<RegDDRef>(Edge->getSrc());
+  if (!SrcDDRef) {
+    return false;
+  }
+  const RegDDRef *DstDDRef = dyn_cast<RegDDRef>(Edge->getSink());
+  if (!DstDDRef) {
+    return false;
+  }
+
+  if (!SrcDDRef->isMemRef()) {
+    return false;
+  }
+
+  assert(DstDDRef->isMemRef() && "MemRef expected");
+
+  // There are very few cases that the first DD build, testing for all *,
+  // do not produce a precise DV.  Restrict it to limited cases to save
+  // compile time
+  // We can extend to more cases as needed.
+  if (!DDTest::isDelinearizeCandidate(SrcDDRef) ||
+      !DDTest::isDelinearizeCandidate(DstDDRef)) {
+    return false;
+  }
+  return true;
+}
+
 RefinedDependence HIRDDAnalysis::refineDV(DDRef *SrcDDRef, DDRef *DstDDRef,
-                                          unsigned InnermostNestingLevel,
-                                          unsigned OutermostNestingLevel,
+                                          unsigned StartNestingLevel,
+                                          unsigned DeepestNestingLevel,
                                           bool ForFusion) {
 
   RefinedDependence Dep;
@@ -435,16 +469,14 @@ RefinedDependence HIRDDAnalysis::refineDV(DDRef *SrcDDRef, DDRef *DstDDRef,
     DDTest DT(*AAR, RegDDref->getHLDDNode()->getHLNodeUtils(), *HLS);
 
     DirectionVector &InputDV = Dep.getDV();
-    InputDV.setAsInput(InnermostNestingLevel, OutermostNestingLevel);
+    //  For Start = 3, Deepest = 3, when testing for innermost loop dep,
+    //  DV constructed: (= = *)
+    InputDV.setAsInput(StartNestingLevel, DeepestNestingLevel);
 
-    auto Result = DT.depends(SrcDDRef, DstDDRef, InputDV, ForFusion);
+    auto Result = DT.depends(SrcDDRef, DstDDRef, InputDV, false, ForFusion);
 
     if (Result != nullptr) {
       Dep.setRefined();
-
-      if (Result->isReversed()) {
-        Dep.setReversed();
-      }
 
       DirectionVector &RefinedDV = Dep.getDV();
       DistanceVector &RefinedDistV = Dep.getDist();

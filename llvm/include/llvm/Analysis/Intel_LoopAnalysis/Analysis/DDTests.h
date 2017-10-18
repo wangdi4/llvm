@@ -122,7 +122,7 @@ struct DirectionVector : public std::array<DVKind, MaxLoopNestLevel> {
   /// Be sure to also call isIndepFromLevel() before attempting to refine.
   bool isRefinableAtLevel(unsigned Level) const {
     auto &DV = *this;
-    for (unsigned L = 1; L < Level - 1; ++L) {
+    for (unsigned L = 1; L < Level; ++L) {
       // DV::NE would result in indep after refinement. Should be
       // handled by isDVIndepFromLevel() instead.
       if (DV[L - 1] == DVKind::GE || DV[L - 1] == DVKind::LE ||
@@ -131,6 +131,9 @@ struct DirectionVector : public std::array<DVKind, MaxLoopNestLevel> {
     }
     return false;
   }
+
+  ///  DV in this form (= = *)
+  bool isTestingForInnermostLoop(unsigned InnermostLoopLevel) const;
 
   // Returns last level in DV .e.g.  (= = =) return 3
   unsigned getLastLevel() const;
@@ -270,7 +273,7 @@ class DDTest {
   /// FullDependence) with as much information as can be gleaned.
   std::unique_ptr<Dependences> depends(DDRef *SrcDDRef, DDRef *DstDDRef,
                                        const DirectionVector &InputDV,
-                                       bool ForFusion = false);
+                                       bool ForDDGBuild, bool ForFusion);
 
   /// findDependences  - return true if there is a dependence, otherwise INDEP
   /// for Srce and Dest DDRefs
@@ -634,8 +637,7 @@ class DDTest {
   /// If there might be a dependence, returns false.
   /// If the dependence isn't proven to exist,
   /// marks the Result as inconsistent.
-  bool testZIV(const CanonExpr *Src, const CanonExpr *Dst,
-               Dependences &Result);
+  bool testZIV(const CanonExpr *Src, const CanonExpr *Dst, Dependences &Result);
 
   /// testSIV - Tests the SIV subscript pair (Src and Dst) for dependence.
   /// Things of the form [c1 + a1*i] and [c2 + a2*j], where
@@ -661,9 +663,8 @@ class DDTest {
   /// Returns true if any possible dependence is disproved.
   /// If there might be a dependence, returns false.
   /// Marks the Result as inconsistent.
-  bool testRDIV(const CanonExpr *Src, const CanonExpr *Dst,
-                Dependences &Result, const HLLoop *SrcParentLoop,
-                const HLLoop *DstParentLoop);
+  bool testRDIV(const CanonExpr *Src, const CanonExpr *Dst, Dependences &Result,
+                const HLLoop *SrcParentLoop, const HLLoop *DstParentLoop);
 
   /// testMIV - Tests the MIV subscript pair (Src and Dst) for dependence.
   /// Returns true if dependence disproved.
@@ -971,10 +972,29 @@ class DDTest {
   void updateDirection(Dependences::DVEntry &Level,
                        const Constraint &CurConstraint) const;
 
-  bool tryDelinearize(const CanonExpr *SrcCanonExpr,
-                      const CanonExpr *DstCanonExpr,
-                      SmallVectorImpl<Subscript> &Pair,
-                      const CanonExpr *ElementSize);
+  /// tryDelinearize - Delinearize subscripts into multiple dims
+  /// when it is legal. Removing the symbolic stride helps DD Test.
+  /// For example,  A[n * i +j] is mapped as A[i][j]
+  bool tryDelinearize(const RegDDRef *SrcDDRef, const RegDDRef *DstDDRef,
+                      const DirectionVector &InputDV,
+                      SmallVectorImpl<Subscript> &Pair, bool ForDDGBuild);
+
+  /// General way to handle symbolic MIV. Not implemented yet
+  bool delinearizeToMultiDim(const RegDDRef *DDRef, const CanonExpr *CE,
+                             SmallVectorImpl<const CanonExpr *> &Subscripts,
+                             SmallVectorImpl<unsigned> &IVLevels,
+                             bool RelaxChecking);
+  /// delinearizeTo2Dim  - a fast way to delinearize subscripts
+  /// with 2 IVs into a 2-dim array
+  /// For Example,  A[4 * N * i + 2 *j]
+  bool delinearizeTo2Dim(const RegDDRef *DDRef, const CanonExpr *CE,
+                         SmallVectorImpl<const CanonExpr *> &Subscripts,
+                         SmallVectorImpl<unsigned> &IVLevels,
+                         bool RelaxChecking);
+
+  ///  Select CE of this form:    .. + N * i2 + i3 + ..
+  ///  Can extend it later for more cases
+  static bool isDelinearizeCandidate(const RegDDRef *Ref);
 
 public:
 }; // class DDtest

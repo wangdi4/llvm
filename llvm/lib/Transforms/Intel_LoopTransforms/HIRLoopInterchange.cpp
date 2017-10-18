@@ -586,8 +586,8 @@ struct HIRLoopInterchange::CollectDDInfo final : public HLNodeVisitorBase {
           DDRef *DstDDRef = DDref;
 
           RefinedDep =
-              LIP.DDA->refineDV(SrcDDRef, DstDDRef, LIP.InnermostNestingLevel,
-                                LIP.OutmostNestingLevel, false);
+              LIP.DDA->refineDV(SrcDDRef, DstDDRef, LIP.OutmostNestingLevel,
+                                LIP.InnermostNestingLevel, false);
 
           if (RefinedDep.isIndependent()) {
             continue;
