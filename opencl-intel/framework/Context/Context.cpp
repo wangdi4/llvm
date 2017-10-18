@@ -210,9 +210,7 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
     m_fpgaEmulator = ext != pEnd && CL_TRUE == *(ext + 1);
 
 #ifdef BUILD_FPGA_EMULATOR
-    if (getenv("OCL_FPGA_EMU")) {
-      m_fpgaEmulator = true;
-    }
+    m_fpgaEmulator = true;
 #endif
 
     m_pfnNotify = pfnNotify;

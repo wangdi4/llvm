@@ -269,6 +269,12 @@ void Compiler::InitGlobalState( const IGlobalCompilerConfig& config )
         args.push_back(ss.str());
     }
 
+    // Split the options by space and push back to args
+    std::istringstream llvmOptsStream(config.LLVMOptions());
+    std::copy(std::istream_iterator<string>(llvmOptsStream),
+              std::istream_iterator<string>(),
+              std::back_inserter(args));
+
     // Generate the argc/argv parameters for the llvm::ParsecommandLineOptions
     std::vector<char*> argv;
 

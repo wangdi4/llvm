@@ -39,11 +39,13 @@ public:
     bool EnableTiming() const { return m_enableTiming;  }
     bool DisableStackDump() const { return m_disableStackDump; }
     std::string InfoOutputFile() const { return m_infoOutputFile; }
+    std::string LLVMOptions() const { return m_LLVMOptions; }
 
 private:
     bool m_enableTiming;
     bool m_disableStackDump;
     std::string m_infoOutputFile;
+    std::string m_LLVMOptions;
 };
 
 

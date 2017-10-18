@@ -34,6 +34,7 @@ void GlobalCompilerConfig::LoadDefaults()
     m_enableTiming = false;
     m_disableStackDump = false;
     m_infoOutputFile = "";
+    m_LLVMOptions = "";
 }
 
 static bool parseBool(const char *val) {
@@ -84,6 +85,16 @@ void GlobalCompilerConfig::LoadConfig()
     }
 #endif // OCLT
 #endif // NDEBUG
+#ifdef BUILD_FPGA_EMULATOR
+    m_LLVMOptions = "-vector-library=SVML ";
+#ifndef NDEBUG
+    m_LLVMOptions = "";
+#endif
+    if (const char *pEnv = getenv("VOLCANO_LLVM_OPTIONS"))
+    {
+        m_LLVMOptions += pEnv;
+    }
+#endif
 }
 
 void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions)

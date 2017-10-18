@@ -48,6 +48,10 @@ public:
      * usually for SDE tracing support.
      */
     virtual bool DisableStackDump() const = 0;
+    /**
+     * Pass command line options to LLVM
+     */
+    virtual std::string LLVMOptions() const = 0;
 };
 
 /**

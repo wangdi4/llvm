@@ -211,6 +211,28 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
     optionsEx << " -D__IMAGE_SUPPORT__=1";
   }
 
+#ifdef BUILD_FPGA_EMULATOR
+  // TODO: Add default options after VPO merge
+  std::string optionsClangString = "";
+  if (getenv("VOLCANO_CLANG_OPTIONS")) {
+    optionsClangString += getenv("VOLCANO_CLANG_OPTIONS");
+  }
+  const char *optionsClangStr = optionsClangString.c_str();
+#ifndef NDEBUG
+  optionsClangStr = getenv("VOLCANO_CLANG_OPTIONS");
+#endif
+  if (optionsClangStr) {
+    std::string optionsClang(optionsClangStr);
+    if (!optionsClang.empty()) {
+      std::stringstream optionsSS(optionsClang);
+      std::string buf;
+      while (getline(optionsSS, buf,' ')) {
+        optionsEx << " " << buf;
+      }
+    }
+  }
+#endif
+
   IOCLFEBinaryResultPtr spBinaryResult;
 
   int res = ::Compile(m_pProgDesc->pProgramSource, m_pProgDesc->pInputHeaders,
