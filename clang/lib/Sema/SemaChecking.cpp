@@ -800,6 +800,15 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
     if (SemaBuiltinFPClassification(TheCall, 6))
       return ExprError();
     break;
+#if INTEL_CUSTOMIZATION
+  case Builtin::BI__builtin_isnanf:
+  case Builtin::BI__builtin_isnanl:
+  case Builtin::BI__builtin_isinff:
+  case Builtin::BI__builtin_isinfl:
+  case Builtin::BI__builtin_finite:
+  case Builtin::BI__builtin_finitef:
+  case Builtin::BI__builtin_finitel:
+#endif  // INTEL_CUSTOMIZATION
   case Builtin::BI__builtin_isfinite:
   case Builtin::BI__builtin_isinf:
   case Builtin::BI__builtin_isinf_sign:

@@ -7714,18 +7714,31 @@ bool IntExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
            Success(Val.isInfinity() ? (Val.isNegative() ? -1 : 1) : 0, E);
   }
 
+#if INTEL_CUSTOMIZATION
+  case Builtin::BI__builtin_isinfl:
+  case Builtin::BI__builtin_isinff:
+#endif  // INTEL_CUSTOMIZATION
   case Builtin::BI__builtin_isinf: {
     APFloat Val(0.0);
     return EvaluateFloat(E->getArg(0), Val, Info) &&
            Success(Val.isInfinity() ? 1 : 0, E);
   }
 
+#if INTEL_CUSTOMIZATION
+  case Builtin::BI__builtin_finite:
+  case Builtin::BI__builtin_finitef:
+  case Builtin::BI__builtin_finitel:
+#endif  // INTEL_CUSTOMIZATION
   case Builtin::BI__builtin_isfinite: {
     APFloat Val(0.0);
     return EvaluateFloat(E->getArg(0), Val, Info) &&
            Success(Val.isFinite() ? 1 : 0, E);
   }
 
+#if INTEL_CUSTOMIZATION
+  case Builtin::BI__builtin_isnanf:
+  case Builtin::BI__builtin_isnanl:
+#endif  // INTEL_CUSTOMIZATION
   case Builtin::BI__builtin_isnan: {
     APFloat Val(0.0);
     return EvaluateFloat(E->getArg(0), Val, Info) &&

@@ -1193,12 +1193,23 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
     // ZExt bool to int type.
     return RValue::get(Builder.CreateZExt(LHS, ConvertType(E->getType())));
   }
+#if INTEL_CUSTOMIZATION
+  case Builtin::BI__builtin_isnanf:
+  case Builtin::BI__builtin_isnanl:
+#endif  // INTEL_CUSTOMIZATION
   case Builtin::BI__builtin_isnan: {
     Value *V = EmitScalarExpr(E->getArg(0));
     V = Builder.CreateFCmpUNO(V, V, "cmp");
     return RValue::get(Builder.CreateZExt(V, ConvertType(E->getType())));
   }
 
+#if INTEL_CUSTOMIZATION
+  case Builtin::BI__builtin_isinff:
+  case Builtin::BI__builtin_isinfl:
+  case Builtin::BI__builtin_finite:
+  case Builtin::BI__builtin_finitef:
+  case Builtin::BI__builtin_finitel:
+#endif  // INTEL_CUSTOMIZATION
   case Builtin::BIfinite:
   case Builtin::BI__finite:
   case Builtin::BIfinitef:
@@ -1213,7 +1224,13 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
     Value *V = EmitScalarExpr(E->getArg(0));
     Value *Fabs = EmitFAbs(*this, V);
     Constant *Infinity = ConstantFP::getInfinity(V->getType());
+#if INTEL_CUSTOMIZATION
+    CmpInst::Predicate Pred = (BuiltinID == Builtin::BI__builtin_isinf
+                           || BuiltinID == Builtin::BI__builtin_isinff
+                           || BuiltinID == Builtin::BI__builtin_isinfl)
+#else
     CmpInst::Predicate Pred = (BuiltinID == Builtin::BI__builtin_isinf)
+#endif   // INTEL_CUSTOMIZATION
                                   ? CmpInst::FCMP_OEQ
                                   : CmpInst::FCMP_ONE;
     Value *FCmp = Builder.CreateFCmp(Pred, Fabs, Infinity, "cmpinf");
