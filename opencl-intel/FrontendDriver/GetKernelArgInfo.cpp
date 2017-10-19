@@ -9,7 +9,6 @@
 // ===-----------------------------------------------------------------------===
 
 #include "cache_binary_handler.h"
-#include "common_clang.h"
 #include "elf_binary.h"
 #include "frontend_api.h"
 #include "GetKernelArgInfo.h"
@@ -47,7 +46,135 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(
     pIRBuffer = pBin;
     uiIRBufferSize = uiBinarySize;
   }
-  return ::GetKernelArgInfo((const void *)pIRBuffer, uiIRBufferSize,
-                            szKernelName, ppResult);
+  try {
+    llvm::StringRef sBin(static_cast<const char *>(pIRBuffer), uiIRBufferSize);
+    auto pBinBuff(llvm::MemoryBuffer::getMemBuffer(sBin, "", false));
 
+    std::unique_ptr<llvm::LLVMContext> context(new llvm::LLVMContext());
+    auto ModuleOr =
+        parseBitcodeFile(pBinBuff.get()->getMemBufferRef(), *context);
+    if (!ModuleOr)
+      throw ModuleOr.takeError();
+
+    std::unique_ptr<llvm::Module> pModule = std::move(ModuleOr.get());
+    if (!pModule)
+      throw std::bad_alloc();
+
+    auto Func = pModule->getFunction(szKernelName);
+    if (!Func)
+      throw std::string("Can't find ") + szKernelName + " in the module.";
+    if (Func->getCallingConv() != llvm::CallingConv::SPIR_KERNEL)
+      throw std::string("Function \"") + szKernelName +
+          "\" is not an OpenCL kernel.";
+
+    llvm::MDNode *pAddressQualifiers =
+        Func->getMetadata("kernel_arg_addr_space");
+    llvm::MDNode *pAccessQualifiers =
+        Func->getMetadata("kernel_arg_access_qual");
+    llvm::MDNode *pTypeNames = Func->getMetadata("kernel_arg_type");
+    llvm::MDNode *pTypeQualifiers = Func->getMetadata("kernel_arg_type_qual");
+    llvm::MDNode *pArgNames = Func->getMetadata("kernel_arg_name");
+    llvm::MDNode *pHostAccessible =
+        Func->getMetadata("kernel_arg_host_accessible");
+    assert(pAddressQualifiers && pAccessQualifiers && pTypeNames &&
+           pTypeQualifiers && "invalid kernel metadata");
+
+    std::unique_ptr<OCLFEKernelArgInfo> pResult(new OCLFEKernelArgInfo);
+    for (unsigned int i = 0; i < pAddressQualifiers->getNumOperands(); ++i) {
+      CachedArgInfo argInfo;
+
+      // Address qualifier
+      llvm::ConstantInt *pAddressQualifier =
+          llvm::mdconst::dyn_extract<llvm::ConstantInt>(
+              pAddressQualifiers->getOperand(i));
+      assert(pAddressQualifier &&
+             "pAddressQualifier is not a valid ConstantInt*");
+
+      uint64_t uiAddressQualifier = pAddressQualifier->getZExtValue();
+      switch (uiAddressQualifier) {
+      case 0:
+        argInfo.adressQualifier = CL_KERNEL_ARG_ADDRESS_PRIVATE;
+        break;
+      case 1:
+        argInfo.adressQualifier = CL_KERNEL_ARG_ADDRESS_GLOBAL;
+        break;
+      case 2:
+        argInfo.adressQualifier = CL_KERNEL_ARG_ADDRESS_CONSTANT;
+        break;
+      case 3:
+        argInfo.adressQualifier = CL_KERNEL_ARG_ADDRESS_LOCAL;
+        break;
+      }
+
+      // Access qualifier
+      llvm::MDString *pAccessQualifier =
+          llvm::dyn_cast<llvm::MDString>(pAccessQualifiers->getOperand(i));
+      assert(pAccessQualifier && "pAccessQualifier is not a valid MDString");
+
+      argInfo.accessQualifier =
+          llvm::StringSwitch<cl_kernel_arg_access_qualifier>(
+              pAccessQualifier->getString())
+              .Case("read_only", CL_KERNEL_ARG_ACCESS_READ_ONLY)
+              .Case("write_only", CL_KERNEL_ARG_ACCESS_WRITE_ONLY)
+              .Case("read_write", CL_KERNEL_ARG_ACCESS_READ_ONLY)
+              .Default(CL_KERNEL_ARG_ACCESS_NONE);
+
+      // Type qualifier
+      llvm::MDString *pTypeQualifier =
+          llvm::dyn_cast<llvm::MDString>(pTypeQualifiers->getOperand(i));
+      assert(pTypeQualifier && "pTypeQualifier is not a valid MDString*");
+      argInfo.typeQualifier = 0;
+      llvm::StringRef typeQualStr = pTypeQualifier->getString();
+      if (typeQualStr.find("const") != llvm::StringRef::npos)
+        argInfo.typeQualifier |= CL_KERNEL_ARG_TYPE_CONST;
+      if (typeQualStr.find("restrict") != llvm::StringRef::npos)
+        argInfo.typeQualifier |= CL_KERNEL_ARG_TYPE_RESTRICT;
+      if (typeQualStr.find("volatile") != llvm::StringRef::npos)
+        argInfo.typeQualifier |= CL_KERNEL_ARG_TYPE_VOLATILE;
+      if (typeQualStr.find("pipe") != llvm::StringRef::npos)
+        argInfo.typeQualifier |= CL_KERNEL_ARG_TYPE_PIPE;
+
+      // Type name
+      llvm::MDString *pTypeName =
+          llvm::dyn_cast<llvm::MDString>(pTypeNames->getOperand(i));
+      assert(pTypeName && "pTypeName is not a valid MDString*");
+      argInfo.typeName = pTypeName->getString().str();
+
+      if (pArgNames) {
+        // Parameter name
+        llvm::MDString *pArgName =
+            llvm::dyn_cast<llvm::MDString>(pArgNames->getOperand(i));
+        assert(pArgName && "pArgName is not a valid MDString*");
+
+        argInfo.name = pArgName->getString().str();
+      }
+      if (pHostAccessible) {
+        auto *pHostAccessibleFlag = llvm::dyn_cast<llvm::ConstantAsMetadata>(
+            pHostAccessible->getOperand(i));
+
+        argInfo.hostAccessible =
+            pHostAccessibleFlag &&
+            llvm::cast<llvm::ConstantInt>(pHostAccessibleFlag->getValue())
+                ->isOne();
+      } else {
+        argInfo.hostAccessible = false;
+      }
+
+      pResult->addInfo(argInfo);
+    }
+
+    if (ppResult)
+      *ppResult = pResult.release();
+
+    return CL_SUCCESS;
+  } catch (std::bad_alloc &) {
+    return CL_OUT_OF_HOST_MEMORY;
+  } catch (std::string &) {
+    return CL_KERNEL_ARG_INFO_NOT_AVAILABLE;
+  } catch (llvm::Error &err) {
+    std::string Message;
+    handleAllErrors(std::move(err),
+                    [&](llvm::ErrorInfoBase &EIB) { Message = EIB.message(); });
+    return CL_KERNEL_ARG_INFO_NOT_AVAILABLE;
+  }
 }

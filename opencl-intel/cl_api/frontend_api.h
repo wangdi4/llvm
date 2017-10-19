@@ -15,7 +15,23 @@
 
 namespace Intel { namespace OpenCL { namespace ClangFE {
     struct IOCLFEBinaryResult;
-    struct IOCLFEKernelArgInfo;
+    struct IOCLFEKernelArgInfo {
+        virtual size_t getNumArgs() const = 0;
+        virtual const char *getArgName(size_t index) const = 0;
+        virtual const char *getArgTypeName(size_t index) const = 0;
+        virtual cl_kernel_arg_address_qualifier
+        getArgAdressQualifier(size_t index) const = 0;
+        virtual cl_kernel_arg_access_qualifier
+        getArgAccessQualifier(size_t index) const = 0;
+        virtual cl_kernel_arg_type_qualifier
+        getArgTypeQualifier(size_t index) const = 0;
+        virtual cl_bool
+        getArgHostAccessible(size_t index) const = 0;
+        // release result
+        virtual void Release() = 0;
+    protected:
+        virtual ~IOCLFEKernelArgInfo() {}
+    };
 }}}
 
 using namespace Intel::OpenCL::ClangFE;
