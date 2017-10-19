@@ -59,6 +59,11 @@ StrictTermination("csa-strict-term", cl::Hidden,
                   cl::desc("CSA Specific: Turn on strict termination mode"),
                   cl::init(false));
 
+static cl::opt<bool>
+ImplicitLicDefs("csa-implicit-lics", cl::Hidden,
+                  cl::desc("CSA Specific: Define LICs implicitly"),
+                  cl::init(false));
+
 namespace {
   class LineReader {
   private:
@@ -455,6 +460,7 @@ void CSAAsmPrinter::EmitStartOfAsmFile(Module &M) {
   // This should probably be replaced by code to handle externs
   //  writeAsmLine("\t.set implicitextern");
   if (not StrictTermination) writeAsmLine("\t.set relaxed");
+  if (ImplicitLicDefs) writeAsmLine("\t.set implicit");
   writeAsmLine("\t.unit sxu");
 }
 
@@ -542,31 +548,33 @@ void CSAAsmPrinter::EmitFunctionBodyStart() {
   MRI = &MF->getRegInfo();
   const CSAMachineFunctionInfo *LMFI = MF->getInfo<CSAMachineFunctionInfo>();
 
-  // Generate declarations for each LIC by looping over the LIC classes,
-  // and over each lic in the class, outputting a decl if needed.
-  // Note: If we start allowing parameters and results in LICs for
-  // HybridDataFlow, this may need to be revisited to make sure they
-  // are in order.
-  for (TargetRegisterClass::iterator ri = CSA::ANYCRegClass.begin();
-                                     ri != CSA::ANYCRegClass.end(); ++ri) {
-    MCPhysReg reg = *ri;
-    // A decl is needed if we allocated this LIC and it is has a using/defining
-    // instruction. (Sometimes all such instructions are cleaned up by DIE.)
-    if (LMFI->isAllocated(reg) && !MRI->reg_empty(reg)) {
-      SmallString<128> Str;
-      raw_svector_ostream O(Str);
-      O << CSAInstPrinter::WrapCsaAsmLinePrefix();
-      O << "\t.lic ";
-      // Output type based on regclass
-      if      (CSA::CI64RegClass.contains(reg)) O << ".i64";
-      else if (CSA::CI32RegClass.contains(reg)) O << ".i32";
-      else if (CSA::CI16RegClass.contains(reg)) O << ".i16";
-      else if (CSA::CI8RegClass.contains(reg))  O << ".i8";
-      else if (CSA::CI1RegClass.contains(reg))  O << ".i1";
-      else if (CSA::CI0RegClass.contains(reg))  O << ".i0";
-      O << " %" << CSAInstPrinter::getRegisterName(reg);
-      O << CSAInstPrinter::WrapCsaAsmLineSuffix();
-      OutStreamer->EmitRawText(O.str());
+  if (not ImplicitLicDefs) {
+    // Generate declarations for each LIC by looping over the LIC classes,
+    // and over each lic in the class, outputting a decl if needed.
+    // Note: If we start allowing parameters and results in LICs for
+    // HybridDataFlow, this may need to be revisited to make sure they
+    // are in order.
+    for (TargetRegisterClass::iterator ri = CSA::ANYCRegClass.begin();
+                                      ri != CSA::ANYCRegClass.end(); ++ri) {
+      MCPhysReg reg = *ri;
+      // A decl is needed if we allocated this LIC and it is has a using/defining
+      // instruction. (Sometimes all such instructions are cleaned up by DIE.)
+      if (LMFI->isAllocated(reg) && !MRI->reg_empty(reg)) {
+        SmallString<128> Str;
+        raw_svector_ostream O(Str);
+        O << CSAInstPrinter::WrapCsaAsmLinePrefix();
+        O << "\t.lic ";
+        // Output type based on regclass
+        if      (CSA::CI64RegClass.contains(reg)) O << ".i64";
+        else if (CSA::CI32RegClass.contains(reg)) O << ".i32";
+        else if (CSA::CI16RegClass.contains(reg)) O << ".i16";
+        else if (CSA::CI8RegClass.contains(reg))  O << ".i8";
+        else if (CSA::CI1RegClass.contains(reg))  O << ".i1";
+        else if (CSA::CI0RegClass.contains(reg))  O << ".i0";
+        O << " %" << CSAInstPrinter::getRegisterName(reg);
+        O << CSAInstPrinter::WrapCsaAsmLineSuffix();
+        OutStreamer->EmitRawText(O.str());
+      }
     }
   }
 
