@@ -56,7 +56,8 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
   W->populateBBSet();
 
   codeExtractorPrepare(W);
-  resetValueInIfClause(W);
+  resetValueInIntelClauseGeneric(W, W->getIf());
+  resetValueInIsDevicePtrClause(W);
   resetValueInPrivateClause(W);
 
   bool Changed = false;
@@ -133,7 +134,19 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
   return Changed;
 }
 
-// Return the size_t type for 32/bit architecture
+// Reset the expression value in IsDevicePtr clause to be empty.
+void VPOParoptTransform::resetValueInIsDevicePtrClause(WRegionNode *W) {
+
+  IsDevicePtrClause IDevicePtrClause = W->getIsDevicePtr();
+  if (IDevicePtrClause.empty())
+    return;
+
+  for (auto *I : IDevicePtrClause.items()) {
+    resetValueInIntelClauseGeneric(W, I->getOrig());
+  }
+}
+
+// Return the size_t type for 32/64 bit architecture
 Type *VPOParoptTransform::getSizeTTy() {
   LLVMContext &C = F->getContext();
 
@@ -147,6 +160,74 @@ Type *VPOParoptTransform::getSizeTTy() {
   return IntTy;
 }
 
+// Returns the corresponding flag for a given map clause modifier.
+unsigned VPOParoptTransform::getMapTypeFlag(MapItem *MpI, bool IsFirstExprFlag,
+                                            bool IsFirstComponentFlag) {
+  unsigned Res = 0u;
+
+  if (MpI->getIsMapTofrom())
+    Res = TGT_MAP_TO | TGT_MAP_FROM;
+  else if (MpI->getIsMapTo())
+    Res = TGT_MAP_TO;
+  else if (MpI->getIsMapFrom())
+    Res = TGT_MAP_FROM;
+  else if (MpI->getIsMapDelete())
+    Res = TGT_MAP_DELETE;
+
+  // WRNMapAlloc and WRNMapRelease are the default behavior in the runtime.
+
+  if (MpI->getIsMapAlways())
+    Res |= TGT_MAP_ALWAYS;
+
+  if (IsFirstExprFlag)
+    Res |= TGT_MAP_IS_PTR;
+  if (IsFirstComponentFlag)
+    Res |= TGT_MAP_FIRST_REF;
+  return Res;
+}
+
+// Generate the sizes and map type flags for the given map type, map
+// modifier and the expression V.
+void VPOParoptTransform::GenTgtInformationForPtrs(
+    WRegionNode *W, Value *V, SmallVectorImpl<Constant *> &ConstSizes,
+    SmallVectorImpl<uint32_t> &MapTypes) {
+  const DataLayout DL = F->getParent()->getDataLayout();
+
+  bool IsFirstExprFlag = true;
+  bool IsFirstComponentFlag = true;
+
+  MapClause MpClause = W->getMap();
+  for (MapItem *MpI : MpClause.items()) {
+    if (MpI->getNew() != V)
+      continue;
+    Type *T = MpI->getOrig()->getType()->getPointerElementType();
+    ConstSizes.push_back(
+        ConstantInt::get(getSizeTTy(), DL.getTypeAllocSize(T)));
+    MapTypes.push_back(
+        getMapTypeFlag(MpI, !IsFirstExprFlag, IsFirstComponentFlag));
+    IsFirstExprFlag = false;
+  }
+
+  FirstprivateClause &FprivClause = W->getFpriv();
+  for (FirstprivateItem *FprivI : FprivClause.items()) {
+    if (FprivI->getNew() != V)
+      continue;
+    Type *T = FprivI->getOrig()->getType()->getPointerElementType();
+    ConstSizes.push_back(
+        ConstantInt::get(getSizeTTy(), DL.getTypeAllocSize(T)));
+    MapTypes.push_back(TGT_MAP_TO);
+  }
+
+  IsDevicePtrClause IDevicePtrClause = W->getIsDevicePtr();
+  for (IsDevicePtrItem *IsDevicePtrI : IDevicePtrClause.items()) {
+    if (IsDevicePtrI->getNew() != V)
+      continue;
+    Type *T = getSizeTTy();
+    ConstSizes.push_back(ConstantInt::get(T, DL.getTypeAllocSize(T)));
+    MapTypes.push_back(TGT_MAP_PRIVATE_VAL | TGT_MAP_FIRST_REF);
+  }
+}
+
 // Generate the initialization code for the directive omp target.
 CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
                                                 Instruction *InsertPt) {
@@ -154,7 +235,7 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
   TgDataInfo Info;
 
   MapClause MpClause = W->getMap();
-  Info.NumberOfPtrs = MpClause.size();
+  Info.NumberOfPtrs = Call->getNumArgOperands();
 
   if (Info.NumberOfPtrs) {
 
@@ -166,14 +247,14 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
         ArrayType::get(Builder.getInt8PtrTy(), Info.NumberOfPtrs), nullptr,
         ".offload_ptrs");
 
-    SmallVector<llvm::Constant *, 16> ConstSizes;
+    SmallVector<Constant *, 16> ConstSizes;
+    SmallVector<uint32_t, 16> MapTypes;
 
-    const DataLayout DL = F->getParent()->getDataLayout();
-    for (MapItem *MpI : MpClause.items()) {
-      Type *T = MpI->getOrig()->getType()->getPointerElementType();
-      ConstSizes.push_back(
-          ConstantInt::get(getSizeTTy(), DL.getTypeAllocSize(T)));
+    for (unsigned II = 0; II < Call->getNumArgOperands(); ++II) {
+      Value *BPVal = Call->getArgOperand(II);
+      GenTgtInformationForPtrs(W, BPVal, ConstSizes, MapTypes);
     }
+
     auto *SizesArrayInit = ConstantArray::get(
         ArrayType::get(getSizeTTy(), ConstSizes.size()), ConstSizes);
 
@@ -182,8 +263,6 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
         GlobalValue::PrivateLinkage, SizesArrayInit, ".offload_sizes", nullptr);
     SizesArrayGbl->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
 
-    SmallVector<uint32_t, 16> MapTypes;
-    getMapTypes(W, MapTypes);
     Constant *MapTypesArrayInit =
         ConstantDataArray::get(Builder.getContext(), MapTypes);
     auto *MapTypesArrayGbl =
@@ -205,22 +284,13 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
   GlobalVariable *OffloadRegionId = getOMPOffloadRegionId();
 
   return VPOParoptUtils::genTgtTarget(
-      W, OffloadRegionId, Info.NumberOfPtrs, Info.BaseDataPtrs,
+      W, W->getDevice(), OffloadRegionId, Info.NumberOfPtrs, Info.BaseDataPtrs,
       Info.DataPtrs, Info.DataSizes, Info.DataMapTypes, InsertPt);
-}
-
-// Return the map type for the data clause.
-void VPOParoptTransform::getMapTypes(WRegionNode *W,
-                                     SmallVectorImpl<uint32_t> &MapTypes) {
-  MapClause MpClause = W->getMap();
-  for (MapItem *MpI : MpClause.items())
-    MapTypes.push_back(MpI->getMapKind() | 0x20);
 }
 
 // Pass the data to the array of base pointer as well as  array of
 // section pointers.
-void VPOParoptTransform::genOffloadArraysInit(WRegionNode *W,
-                                              TgDataInfo *Info,
+void VPOParoptTransform::genOffloadArraysInit(WRegionNode *W, TgDataInfo *Info,
                                               CallInst *Call,
                                               Instruction *InsertPt) {
   IRBuilder<> Builder(InsertPt);
@@ -345,10 +415,9 @@ StructType *VPOParoptTransform::getTgDeviceImageTy() {
   if (TgDeviceImageTy)
     return TgDeviceImageTy;
   LLVMContext &C = F->getContext();
-  Type *TyArgs[] = { Type::getInt8PtrTy(C),
-                     Type::getInt8PtrTy(C),
-                     PointerType::getUnqual(getTgOffloadEntryTy()),
-                     PointerType::getUnqual(getTgOffloadEntryTy()) };
+  Type *TyArgs[] = {Type::getInt8PtrTy(C), Type::getInt8PtrTy(C),
+                    PointerType::getUnqual(getTgOffloadEntryTy()),
+                    PointerType::getUnqual(getTgOffloadEntryTy())};
   TgDeviceImageTy =
       StructType::create(C, TyArgs, "struct.__tgt_device_image", false);
   return TgDeviceImageTy;
@@ -373,10 +442,10 @@ StructType *VPOParoptTransform::getTgBinaryDescriptorTy() {
     return TgBinaryDescriptorTy;
 
   LLVMContext &C = F->getContext();
-  Type *TyArgs[] = { Type::getInt32Ty(C),
-                     PointerType::getUnqual(getTgDeviceImageTy()),
-                     PointerType::getUnqual(getTgOffloadEntryTy()),
-                     PointerType::getUnqual(getTgOffloadEntryTy()) };
+  Type *TyArgs[] = {Type::getInt32Ty(C),
+                    PointerType::getUnqual(getTgDeviceImageTy()),
+                    PointerType::getUnqual(getTgOffloadEntryTy()),
+                    PointerType::getUnqual(getTgOffloadEntryTy())};
   TgBinaryDescriptorTy =
       StructType::create(C, TyArgs, "struct.__tgt_bin_desc", false);
   return TgBinaryDescriptorTy;
@@ -471,8 +540,7 @@ VPOParoptTransform::genOffloadingBinaryDescriptorRegistration(WRegionNode *W) {
   DevInitBuffer.push_back(HostEntriesBegin);
   DevInitBuffer.push_back(HostEntriesEnd);
 
-  Constant *DevInit =
-      ConstantStruct::get(getTgDeviceImageTy(), DevInitBuffer);
+  Constant *DevInit = ConstantStruct::get(getTgDeviceImageTy(), DevInitBuffer);
 
   DevInitBuffer.clear();
   DevInitBuffer.push_back(DevInit);
@@ -507,7 +575,7 @@ VPOParoptTransform::genOffloadingBinaryDescriptorRegistration(WRegionNode *W) {
 
 // Create the function .omp_offloading.descriptor_unreg.
 Function *VPOParoptTransform::createTgDescUnregisterLib(WRegionNode *W,
-                                                         GlobalVariable *Desc) {
+                                                        GlobalVariable *Desc) {
   LLVMContext &C = F->getContext();
   Module *M = F->getParent();
 
@@ -534,8 +602,8 @@ Function *VPOParoptTransform::createTgDescUnregisterLib(WRegionNode *W,
 
 // Create the function .omp_offloading.descriptor_reg
 Function *VPOParoptTransform::createTgDescRegisterLib(WRegionNode *W,
-                                                       Function *TgDescUnregFn,
-                                                       GlobalVariable *Desc) {
+                                                      Function *TgDescUnregFn,
+                                                      GlobalVariable *Desc) {
   LLVMContext &C = F->getContext();
   Module *M = F->getParent();
 
@@ -586,7 +654,38 @@ bool VPOParoptTransform::genMapPrivationCode(WRegionNode *W) {
       Store->insertAfter(Load);
       IRBuilder<> Builder(NextExitBB->getTerminator());
       Builder.CreateStore(Builder.CreateLoad(NewPrivInst), Orig);
+      MpI->setNew(NewPrivInst);
       Changed = true;
+    } else
+      MpI->setNew(Orig);
+  }
+  if (Changed)
+    W->resetBBSet();
+  return Changed;
+}
+
+// Pass the value of the DevicePtr to the outlined function.
+bool VPOParoptTransform::genDevicePtrPrivationCode(WRegionNode *W) {
+  bool Changed = false;
+  IsDevicePtrClause IDevicePtrClause = W->getIsDevicePtr();
+  if (!IDevicePtrClause.empty()) {
+    W->populateBBSet();
+    BasicBlock *EntryBB = W->getEntryBBlock();
+    BasicBlock *PrivInitEntryBB = nullptr;
+    Changed = true;
+    IRBuilder<> Builder(W->getPredBBlock()->getTerminator());
+    for (IsDevicePtrItem *IsDevicePtrI : IDevicePtrClause.items()) {
+      Value *Orig = IsDevicePtrI->getOrig();
+      Value *NewPrivInst = genPrivatizationAlloca(
+          W, Orig, EntryBB->getFirstNonPHI(), ".isdeviceptr");
+      genPrivatizationReplacement(W, Orig, NewPrivInst, IsDevicePtrI);
+      IsDevicePtrI->setNew(NewPrivInst);
+      createEmptyPrvInitBB(W, PrivInitEntryBB);
+      Builder.SetInsertPoint(W->getPredBBlock()->getTerminator());
+      LoadInst *Load = Builder.CreateLoad(IsDevicePtrI->getOrig());
+      Builder.SetInsertPoint(PrivInitEntryBB->getTerminator());
+      Builder.CreateStore(Load, NewPrivInst);
+      IsDevicePtrI->setNew(Load);
     }
   }
   return Changed;

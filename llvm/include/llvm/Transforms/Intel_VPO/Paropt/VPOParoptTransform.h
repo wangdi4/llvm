@@ -218,8 +218,8 @@ private:
       NumberOfPtrs = 0u;
     }
     bool isValid() {
-      return BaseDataPtrs && DataPtrs && DataSizes &&
-             DataMapTypes && NumberOfPtrs;
+      return BaseDataPtrs && DataPtrs && DataSizes && DataMapTypes &&
+             NumberOfPtrs;
     }
   };
 
@@ -456,14 +456,17 @@ private:
                                          BasicBlock *NextBB,
                                          bool ForTask = false);
 
-  /// \brief Reset the expression value of task if clause to be empty.
-  void resetValueInIfClause(WRegionNode *W);
+  /// \brief Reset the expression value in the bundle to be empty.
+  void resetValueInBundle(WRegionNode *W, Value *V);
 
   /// \brief Reset the expression value of task depend clause to be empty.
   void resetValueInTaskDependClause(WRegionNode *W);
 
   /// \brief Reset the expression value in private clause to be empty.
   void resetValueInPrivateClause(WRegionNode *W);
+
+  /// \brief Reset the expression value in IsDevicePtr clause to be empty.
+  void resetValueInIsDevicePtrClause(WRegionNode *W);
 
   /// \brief Reset the expression value of Intel clause to be empty.
   void resetValueInIntelClauseGeneric(WRegionNode *W, Value *V);
@@ -481,11 +484,8 @@ private:
 
   /// \brief Pass the data to the array of base pointer as well as  array of
   /// section pointers.
-  void genOffloadArraysInit(WRegionNode *W, TgDataInfo *Info,
-                            CallInst *Call, Instruction *InsertPt);
-
-  /// \breif Return the map type for the data clause.
-  void getMapTypes(WRegionNode *W, SmallVectorImpl<uint32_t> &MapTypes);
+  void genOffloadArraysInit(WRegionNode *W, TgDataInfo *Info, CallInst *Call,
+                            Instruction *InsertPt);
 
   /// \brief Register the offloading descriptors as well the offloading binary
   /// descriptors.
@@ -522,7 +522,7 @@ private:
 
   /// \brief Create the function .omp_offloading.descriptor_reg
   Function *createTgDescRegisterLib(WRegionNode *W, Function *TgDescUnregFn,
-                                     GlobalVariable *Desc);
+                                    GlobalVariable *Desc);
 
   /// \brief Create the function .omp_offloading.descriptor_unreg
   Function *createTgDescUnregisterLib(WRegionNode *W, GlobalVariable *Desc);
@@ -531,9 +531,18 @@ private:
   /// replace the the global variable with the stack variable.
   bool genMapPrivationCode(WRegionNode *W);
 
+  /// \brief Pass the value of the DevicePtr to the outlined function.
+  bool genDevicePtrPrivationCode(WRegionNode *W);
+
   /// \brief build the CFG for if clause.
   void buildCFGForIfClause(Value *Cmp, TerminatorInst *&ThenTerm,
                            TerminatorInst *&ElseTerm, Instruction *InsertPt);
+
+  /// \brief Generate the sizes and map type flags for the given map type, map
+  /// modifier and the expression V.
+  void GenTgtInformationForPtrs(WRegionNode *W, Value *V,
+                                SmallVectorImpl<Constant *> &ConstSizes,
+                                SmallVectorImpl<uint32_t> &MapTypes);
 
   /// \brief Generate multithreaded for a given WRegion
   bool genMultiThreadedCode(WRegionNode *W);
@@ -580,8 +589,33 @@ private:
   /// \brief Clean up the intrinsic @llvm.codemotion.fence and replace the use
   /// of the intrinsic with the its operand.
   bool clearCodemotionFenceIntrinsic(WRegionNode *W);
-};
 
+  enum TgtOffloadMappingFlags {
+    TGT_MAP_TO =
+        0x01, // instructs the runtime to copy the host data to the device.
+    TGT_MAP_FROM =
+        0x02, // instructs the runtime to copy the device data to the host.
+    TGT_MAP_ALWAYS = 0x04, // forces the copying regardless of the reference
+                           // count associated with the map.
+    TGT_MAP_DELETE =
+        0x08, // forces the unmapping of the object in a target data.
+    TGT_MAP_IS_PTR = 0x10, // forces the runtime to map the pointer variable as
+                           // well as the pointee variable.
+    TGT_MAP_FIRST_REF = 0x20,  // instructs the runtime that it is the first
+                               // occurrence of this mapped variable within this
+                               // construct.
+    TGT_MAP_RETURN_PTR = 0x40, // instructs the runtime to return the base
+                               // device address of the mapped variable.
+    TGT_MAP_PRIVATE_PTR =
+        0x80, // informs the runtime that the variable is a private variable.
+    TGT_MAP_PRIVATE_VAL = 0x100, // instructs the runtime to forward the value
+                                 // to target construct.
+  };
+
+  /// \brief Returns the corresponding flag for a given map clause modifier.
+  unsigned getMapTypeFlag(MapItem *MpI, bool IsFirstExprFlag,
+                          bool IsFirstComponentFlag);
+};
 } /// namespace vpo
 } /// namespace llvm
 

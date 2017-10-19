@@ -1100,7 +1100,7 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
 
   codeExtractorPrepare(W);
 
-  resetValueInIfClause(W);
+  resetValueInIntelClauseGeneric(W, W->getIf());
 
   resetValueInTaskDependClause(W);
 

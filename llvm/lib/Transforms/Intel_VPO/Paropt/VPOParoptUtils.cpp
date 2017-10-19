@@ -365,8 +365,8 @@ CallInst *VPOParoptUtils::genKmpcTaskWait(WRegionNode *W, StructType *IdentTy,
 //                                   size_t *arg_sizes,
 //                                   int32_t *arg_types)
 //
-CallInst *VPOParoptUtils::genTgtTarget(WRegionNode *W, Value *OffloadRegionId,
-                                       int NumberOfPtrs,
+CallInst *VPOParoptUtils::genTgtTarget(WRegionNode *W, Value *DeviceId,
+                                       Value *OffloadRegionId, int NumberOfPtrs,
                                        Value *BasePointersArray,
                                        Value *PointersArray, Value *SizesArray,
                                        Value *MapTypesArray,
@@ -377,18 +377,17 @@ CallInst *VPOParoptUtils::genTgtTarget(WRegionNode *W, Value *OffloadRegionId,
   Module *M = F->getParent();
   LLVMContext &C = F->getContext();
 
-  Value *Args[] = {
-    Builder.getInt32(-1),                                OffloadRegionId,
-    ConstantInt::get(Type::getInt32Ty(C), NumberOfPtrs), BasePointersArray,
-    PointersArray,                                       SizesArray,
-    MapTypesArray,                                       Builder.getInt32(0),
-    Builder.getInt32(0)
-  };
-  Type *TypeParams[] = { Type::getInt32Ty(C),      OffloadRegionId->getType(),
-                         Type::getInt32Ty(C),      BasePointersArray->getType(),
-                         PointersArray->getType(), SizesArray->getType(),
-                         MapTypesArray->getType(), Type::getInt32Ty(C),
-                         Type::getInt32Ty(C) };
+  Value *Args[] = {DeviceId == nullptr ? Builder.getInt32(-1) : DeviceId,
+                   OffloadRegionId,
+                   ConstantInt::get(Type::getInt32Ty(C), NumberOfPtrs),
+                   BasePointersArray,
+                   PointersArray,
+                   SizesArray,
+                   MapTypesArray};
+  Type *TypeParams[] = {Type::getInt32Ty(C),      OffloadRegionId->getType(),
+                        Type::getInt32Ty(C),      BasePointersArray->getType(),
+                        PointersArray->getType(), SizesArray->getType(),
+                        MapTypesArray->getType()};
   FunctionType *FnTy =
       FunctionType::get(Type::getInt32Ty(C), TypeParams, false);
 

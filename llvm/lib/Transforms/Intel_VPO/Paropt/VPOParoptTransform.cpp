@@ -322,7 +322,9 @@ bool VPOParoptTransform::paroptTransforms() {
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed = clearCodemotionFenceIntrinsic(W);
           Changed |= genPrivatizationCode(W);
+          Changed |= genFirstPrivatizationCode(W);
           Changed |= genMapPrivationCode(W);
+          Changed |= genDevicePtrPrivationCode(W);
           Changed |= genTargetOffloadingCode(W);
           RemoveDirectives = true;
         }
@@ -1344,6 +1346,7 @@ bool VPOParoptTransform::clearCodemotionFenceIntrinsic(WRegionNode *W) {
           Changed = true;
         }
       }
+  W->resetBBSet();
   return Changed;
 }
 
@@ -2905,31 +2908,28 @@ bool VPOParoptTransform::genBarrier(WRegionNode *W, bool IsExplicit) {
   return true;
 }
 
-// Set the the arguments in the if clause to be empty.
-void VPOParoptTransform::resetValueInIfClause(WRegionNode *W) {
-  Value *V = W->getIf();
-  if (!V)
-    return;
-  resetValueInIntelClauseGeneric(W, V);
-}
-
 // Set the values in the private clause to be empty.
 void VPOParoptTransform::resetValueInPrivateClause(WRegionNode *W) {
+
   if (!W->hasPrivate())
     return;
 
   PrivateClause &PrivClause = W->getPriv();
+
   if (PrivClause.empty())
     return;
 
-  for (PrivateItem *PrivI : PrivClause.items()) {
-    resetValueInIntelClauseGeneric(W, PrivI->getOrig());
+  for (auto *I : PrivClause.items()) {
+    resetValueInIntelClauseGeneric(W, I->getOrig());
   }
 }
 
 // Set the the arguments in the Intel compiler generated clause to be empty.
 void VPOParoptTransform::resetValueInIntelClauseGeneric(WRegionNode *W,
                                                         Value *V) {
+  if (!V)
+    return;
+
   SmallVector<Instruction *, 8> IfUses;
   for (auto IB = V->user_begin(), IE = V->user_end(); IB != IE; ++IB) {
     if (Instruction *User = dyn_cast<Instruction>(*IB))

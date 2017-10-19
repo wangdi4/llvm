@@ -498,8 +498,9 @@ public:
     ///                                   size_t *arg_sizes,
     ///                                   int32_t *arg_types)
     ///
-    static CallInst *genTgtTarget(WRegionNode *W, Value *OffloadRegionId,
-                                  int NumberOfPtrs, Value *BasePointersArray,
+    static CallInst *genTgtTarget(WRegionNode *W, Value *DeviceId,
+                                  Value *OffloadRegionId, int NumberOfPtrs,
+                                  Value *BasePointersArray,
                                   Value *PointersArray, Value *SizesArray,
                                   Value *MapTypesArray, Instruction *InsertPt);
     /// \brief This function generates a call as follows.
