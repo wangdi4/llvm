@@ -990,8 +990,6 @@ bool MemopCFG::RequireOrdering::operator()(
   const Memop& a_memop, const Memop& b_memop, bool looped
 ) const {
 
-  const unsigned bogus_access_size = looped ? 1<<24 : 0;
-
   // Grab the memory operands of both inputs and use those.
   const MachineMemOperand*const a = a_memop.mem_operand();
   const MachineMemOperand*const b = b_memop.mem_operand();
@@ -1020,8 +1018,16 @@ bool MemopCFG::RequireOrdering::operator()(
   // analysis.
   if (a_value and b_value) {
     return IgnoreAliasInfo or not AA->isNoAlias(
-      MemoryLocation{a_value, a->getSize() + bogus_access_size, a->getAAInfo()},
-      MemoryLocation{b_value, b->getSize() + bogus_access_size, b->getAAInfo()}
+      MemoryLocation{
+        a_value,
+        looped ? MemoryLocation::UnknownSize : a->getSize(),
+        a->getAAInfo()
+      },
+      MemoryLocation{
+        b_value,
+        looped ? MemoryLocation::UnknownSize : b->getSize(),
+        b->getAAInfo()
+      }
     );
   }
 

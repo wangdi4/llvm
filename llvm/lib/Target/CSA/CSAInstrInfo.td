@@ -619,6 +619,33 @@ multiclass StOp<string opStr, CSAOpInfo t,
   }
 }
 
+multiclass StreamLdOp<string opStr, CSAOpInfo t,
+           InstrItinClass itin = IILD> {
+  let mayLoad = 1, Itinerary = itin in {
+    def I : FMTGEN<  // e.g. ld of literal address - ld rx,sym
+      (outs t.RC:$dst, MemOrdDef:$issued),
+      (ins ADDR_I:$addr, CI64:$len, CI64:$stride, MEMLVL:$lvl, MemOrdUse:$ready),
+      !strconcat(opStr, "\t$dst, $addr, $len, $stride, $issued, $ready, $lvl"),
+      []>;
+    def "" : FMTGEN< // normal basereg form
+      (outs t.RC:$dst, MemOrdDef:$issued),
+      (ins ADDR_R:$addr, CI64:$len, CI64:$stride, MEMLVL:$lvl, MemOrdUse:$ready),
+      !strconcat(opStr, "\t$dst, $addr, $len, $stride, $issued, $ready, $lvl"),
+      []>;
+    }
+}
+
+multiclass StreamStOp<string opStr, CSAOpInfo t,
+           InstrItinClass itin = IIST> {
+  let mayStore = 1, Itinerary = itin in {
+    def "" : FMTGEN<
+      (outs MemOrdDef:$issued),
+      (ins ADDR_R:$addr, CI64:$len, CI64:$stride, t.RCL:$data, MEMLVL:$lvl, MemOrdUse:$ready),
+      !strconcat(opStr, "\t$addr, $len, $stride, $data, $issued, $ready, $lvl"),
+      []>;
+  }
+}
+
 class MullohiOp<GenericOp gen, CSAOpInfo oi,
                InstrItinClass itin = IIALU, list<Predicate> preds = []> :
   FMTGEN <
@@ -1226,6 +1253,7 @@ def COPY32    : CopyOp<  GCOPY, Ti32>;
 def COPY64    : CopyOp<  GCOPY, Ti64>;
 
 def MERGE     : GenericOp<"merge">;
+def MERGE0    : MergeOp< "merge0",  Ti0,  [HasI0],  IIVir>;
 def MERGE1    : MergeOp< "merge1",  Ti1,  [HasI1],  IIVir>;
 def MERGE8    : MergeOp< "merge8",  Ti8,  [HasI8],  IIVir>;
 def MERGE16   : MergeOp< "merge16", Ti16, [HasI16], IIVir>;
@@ -1236,6 +1264,7 @@ def MERGE64   : MergeOp< "merge64", Ti64, [HasI64], IIVir>;
 def MERGE64f  : MergeOp< "merge64", Tf64, [HasI64], IIVir>;
 
 def SWITCH    : GenericOp<"switch">;
+def SWITCH0   : SwitchOp<SWITCH, Ti0,  IIVir>;
 def SWITCH1   : SwitchOp<SWITCH, Ti1,  IIVir>;
 def SWITCH8   : SwitchOp<SWITCH, Ti8,  IIVir>;
 def SWITCH16  : SwitchOp<SWITCH, Ti16, IIVir>;
@@ -1243,6 +1272,7 @@ def SWITCH32  : SwitchOp<SWITCH, Ti32, IIVir>;
 def SWITCH64  : SwitchOp<SWITCH, Ti64, IIVir>;
 
 def SWITCHANY : GenericOp<"switchany">;
+def SWITCHANY0  : SwitchAnyOp<SWITCHANY, Ti0,  IIVir>;
 def SWITCHANY1  : SwitchAnyOp<SWITCHANY, Ti1,  IIVir>;
 def SWITCHANY8  : SwitchAnyOp<SWITCHANY, Ti8,  IIVir>;
 def SWITCHANY16 : SwitchAnyOp<SWITCHANY, Ti16, IIVir>;
@@ -1250,6 +1280,7 @@ def SWITCHANY32 : SwitchAnyOp<SWITCHANY, Ti32, IIVir>;
 def SWITCHANY64 : SwitchAnyOp<SWITCHANY, Ti64, IIVir>;
 
 def PICK      : GenericOp<"pick">;
+def PICK0     : PickOp<PICK, Ti0,  IIVir>;
 def PICK1     : PickOp<PICK, Ti1,  IIVir>;
 def PICK8     : PickOp<PICK, Ti8,  IIVir>;
 def PICK16    : PickOp<PICK, Ti16, IIVir>;
@@ -1257,6 +1288,7 @@ def PICK32    : PickOp<PICK, Ti32, IIVir>;
 def PICK64    : PickOp<PICK, Ti64, IIVir>;
 
 def PICKANY   : GenericOp<"pickany">;
+def PICKANY0  : PickAnyOp<PICKANY, Ti0,  IIVir>;
 def PICKANY1  : PickAnyOp<PICKANY, Ti1,  IIVir>;
 def PICKANY8  : PickAnyOp<PICKANY, Ti8,  IIVir>;
 def PICKANY16 : PickAnyOp<PICKANY, Ti16, IIVir>;
@@ -1420,6 +1452,7 @@ def SEQOTGEU32  : SeqSOp<  SEQOTGE, Tu32, IIALU>;
 def SEQOTGEU64  : SeqSOp<  SEQOTGE, Tu64, IIALU>;
 
 def REPEAT    : GenericOp<"repeat">;
+def REPEAT0   : RepeatOp<REPEAT, Ti0,  IIALU>;
 def REPEAT1   : RepeatOp<REPEAT, Ti1,  IIALU>;
 def REPEAT8   : RepeatOp<REPEAT, Ti8,  IIALU>;
 def REPEAT16  : RepeatOp<REPEAT, Ti16, IIALU>;
@@ -1525,6 +1558,24 @@ defm ST32     : StOp<    "st32",  Ti32>;
 defm ST32f    : StOp<    "st32",  Tf32>;
 defm ST64     : StOp<    "st64",  Ti64>;
 defm ST64f    : StOp<    "st64",  Tf64>;
+
+defm SLD1     : StreamLdOp<"sld8",   Ti1>;
+defm SLD8     : StreamLdOp<"sld8",   Ti8>;
+defm SLD16    : StreamLdOp<"sld16",  Ti16>;
+defm SLD16f   : StreamLdOp<"sld16",  Tf16>;
+defm SLD32    : StreamLdOp<"sld32",  Ti32>;
+defm SLD32f   : StreamLdOp<"sld32",  Tf32>;
+defm SLD64    : StreamLdOp<"sld64",  Ti64>;
+defm SLD64f   : StreamLdOp<"sld64",  Tf64>;
+
+defm SST1     : StreamStOp<"sst8",   Ti1>;
+defm SST8     : StreamStOp<"sst8",   Ti8>;
+defm SST16    : StreamStOp<"sst16",  Ti16>;
+defm SST16f   : StreamStOp<"sst16",  Tf16>;
+defm SST32    : StreamStOp<"sst32",  Ti32>;
+defm SST32f   : StreamStOp<"sst32",  Tf32>;
+defm SST64    : StreamStOp<"sst64",  Ti64>;
+defm SST64f   : StreamStOp<"sst64",  Tf64>;
 
 // Extended multiplication
 def MULLOHI   : GenericOp<"mullohi">;
