@@ -184,6 +184,7 @@ public:
   void visitInstruction(Instruction &I);
 
   int get_basic_block_instance_count(BasicBlock *BB);
+  std::string getBasicBlockSourceLocation(BasicBlock *BB);
   void set_basic_block_instance_count(BasicBlock *BB, int value);
   void adjust_all_thread_pool_resource_tables(BasicBlock *BB, int value);
   void set_all_thread_pool_basic_block_instance_counts(BasicBlock *BB,

@@ -80,7 +80,6 @@
 
 #include <exception>
 #include <fstream>
-#include <fstream>
 #include <map>
 #include <queue>
 #include <regex>
@@ -1933,9 +1932,11 @@ bool AdvisorAnalysis::find_maximal_configuration_for_module(
   for (auto itRT = resourceTable.begin(); itRT != resourceTable.end(); itRT++) {
     int blockCount = itRT->second.size();
     BasicBlock *BB = itRT->first;
+    std::string s = getBasicBlockSourceLocation(BB);
 
     std::cerr << " For Block " << BB->getName().str() << " from function "
               << BB->getParent()->getName().str()
+              << "():" << s 
               << " (area: " << ModuleAreaEstimator::getBasicBlockArea(*AT, BB)
               << ")"
               << " count is " << blockCount << std::endl;
@@ -2051,8 +2052,10 @@ bool AdvisorAnalysis::find_maximal_configuration_for_all_calls(
   for (auto itRT = resourceTable.begin(); itRT != resourceTable.end(); itRT++) {
     int blockCount = itRT->second.size();
     BasicBlock *BB = itRT->first;
+    std::string s = getBasicBlockSourceLocation(BB);
 
     std::cerr << " For Block " << BB->getName().str()
+              << "():" << s 
               << " (area: " << ModuleAreaEstimator::getBasicBlockArea(*AT, BB)
               << ")"
               << " count is " << blockCount << std::endl;
@@ -5839,6 +5842,22 @@ int AdvisorAnalysis::get_basic_block_instance_count(BasicBlock *BB) {
   return bbInstanceCounts[BB];
 }
 
+std::string AdvisorAnalysis::getBasicBlockSourceLocation(BasicBlock *BB)
+{
+  Instruction *I = BB->getTerminator();
+  std::stringstream ss;
+  const DebugLoc &DL = I->getDebugLoc();
+  if (!DL) {
+    ss << "nofile:0";
+  } else {
+    unsigned Lin = DL.getLine();
+    DIScope *Scope = cast<DIScope>(DL.getScope());
+    StringRef File = Scope->getFilename();
+    ss << File.str() << ":" << std::dec << Lin;
+  }
+  return ss.str();
+}
+
 // Function: decrement_basic_block_instance_count
 // Return: false if decrement not successful
 // Modify basic block metadata to denote the number of basic block instances
@@ -6304,26 +6323,16 @@ bool AdvisorAnalysis::prune_basic_block_configuration_to_device_area_global(
   return true;
 }
 
+
 void AdvisorAnalysis::dumpImplementationCounts(Function *F) {
   for (auto &BB : *F) {
     int repFactor = get_basic_block_instance_count(&BB);
-    Instruction *I = BB.getTerminator();
-    std::stringstream ss;
-
-    const DebugLoc &DL = I->getDebugLoc();
-    if (!DL) {
-      ss << "nofile:0";
-    } else {
-      unsigned Lin = DL.getLine();
-      DIScope *Scope = cast<DIScope>(DL.getScope());
-      StringRef File = Scope->getFilename();
-      ss << File.str() << ":" << std::dec << Lin;
-    }
 
     if (repFactor > 0) {
+      std::string s = getBasicBlockSourceLocation(&BB);
       std::cerr << "Implementation for block : " << BB.getName().str()
                 << " function " << BB.getParent()->getName().str()
-                << "():" << ss.str() << " (area: "
+                << "():" << s << " (area: "
                 << ModuleAreaEstimator::getBasicBlockArea(*AT, &BB)
                 << ") count is " << repFactor << std::endl;
     }
