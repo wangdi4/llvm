@@ -35,6 +35,7 @@ void ProgramConfig::InitFromCpuConfig(const CPUDeviceConfig& cpuConfig)
     m_vectorizerMode = cpuConfig.GetVectorizerMode();
     m_rtLoopUnrollFactor   = cpuConfig.GetRTLoopUnrollFactor();
     m_useVTune       = cpuConfig.UseVTune();
+    m_forcedPrivateMemorySize = cpuConfig.GetForcedPrivateMemSize();
 }
 
 void ProgramDumpConfig::InitFromString(const char* options)

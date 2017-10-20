@@ -132,6 +132,10 @@ void Kernel::CreateWorkDescription(cl_uniform_kernel_args *UniformImplicitArgs, 
     const {
   // assumption: LocalWorkSize GlobalSize and minWorkGroup already initialized
 
+  size_t max_wg_private_size = m_pProps->GetMaxPrivateMemorySize()
+                               ? m_pProps->GetMaxPrivateMemorySize()
+                               : MAX_WG_PRIVATE_SIZE;
+
   bool UseAutoGroupSize = true;
   for (unsigned int i = 0; i < UniformImplicitArgs->WorkDim; ++i) {
     UseAutoGroupSize = UseAutoGroupSize && ((UniformImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][i]) == 0);
@@ -148,7 +152,7 @@ void Kernel::CreateWorkDescription(cl_uniform_kernel_args *UniformImplicitArgs, 
     size_t globalWorkSizeX = UniformImplicitArgs->GlobalSize[vectorizeOnDim];
     // Compute the maximum WG size given that there are N threads to run on.
     unsigned int localSizeUpperLimit = min(globalWorkSizeX / numOfComputeUnits,
-             m_pProps->GetMaxWorkGroupSize(MAX_WORK_GROUP_SIZE, MAX_WG_PRIVATE_SIZE));
+             m_pProps->GetMaxWorkGroupSize(MAX_WORK_GROUP_SIZE, max_wg_private_size));
     // Make WG size upper limit to be al least of vector size in case if local size set to 1
     unsigned int minMultiplyFactor = m_pProps->GetMinGroupSizeFactorial();
     size_t loopUpperLimit = min(minMultiplyFactor*localWorkSizeX, localSizeUpperLimit);
@@ -229,7 +233,7 @@ void Kernel::CreateWorkDescription(cl_uniform_kernel_args *UniformImplicitArgs, 
 
       unsigned int globalWorkSizeX = UniformImplicitArgs->GlobalSize[vectorizeOnDim];
       unsigned int localSizeUpperLimit = min(globalWorkSizeX,
-            m_pProps->GetMaxWorkGroupSize(MAX_WORK_GROUP_SIZE, MAX_WG_PRIVATE_SIZE));
+            m_pProps->GetMaxWorkGroupSize(MAX_WORK_GROUP_SIZE, max_wg_private_size));
       assert(0 < localSizeUpperLimit &&
              "clEnqueueNDRangeKernel must fail with CL_OUT_OF_RESOURCES earlier.");
 

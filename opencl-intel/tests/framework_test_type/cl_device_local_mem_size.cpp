@@ -33,29 +33,6 @@ cl_ulong trySetLocalMemSize(cl_ulong size)
     return size;
 }
 
-cl_ulong trySetStackSize(cl_ulong size)
-{
-#ifdef _WIN32
-    // on windows we cannot change stack size on runtime, so, just return
-    // predefined value
-    return STACK_SIZE;
-#else
-    // another way to set stack size on Linux is to use `ulimit -s stack_size`
-    rlimit tLimitStruct;
-    tLimitStruct.rlim_cur = size;
-    tLimitStruct.rlim_max = ULLONG_MAX;
-    if (setrlimit(RLIMIT_STACK, &tLimitStruct) != 0)
-    {
-        printf("Failed to set stack size. Error code: %d\n", errno);
-        return 0;
-    }
-    else
-    {
-        return tLimitStruct.rlim_cur;
-    }
-#endif
-}
-
 cl_platform_id platform = nullptr;
 cl_device_id device = nullptr;
 cl_context context = nullptr;
@@ -79,7 +56,7 @@ bool cl_device_local_mem_size_test()
     std::string programSources =
     "__kernel void test(__global int* o)\n"
     "{\n"
-    "    const int size = 7 * 1024 * 1024 / sizeof(int);\n" // 7 MB of local memory
+    "    const int size = (STACK_SIZE - 1024 * 1024) / sizeof(int);\n" // STACK_SIZE - 1 MB of local memory
     "    __local int buf[size];\n"
     "    int pwi = size / get_local_size(0);\n"
     "    int lid = get_local_id(0);\n"
@@ -162,7 +139,8 @@ bool cl_device_local_mem_size_test_body(cl_ulong expectedLocalMemSize, const std
     EXIT_IF_FAILED(Check("clCreateCommandQueueWithProperties", CL_SUCCESS, iRet));
 
     const char *ps = programSources.c_str();
-    EXIT_IF_FAILED(BuildProgramSynch(context, 1, (const char**)&ps, nullptr, "", &program));
+    std::string options = "-DSTACK_SIZE=" + std::to_string(expectedLocalMemSize);
+    EXIT_IF_FAILED(BuildProgramSynch(context, 1, (const char**)&ps, nullptr, options.c_str(), &program));
 
     const size_t global_work_size = 100;
     buffer = clCreateBuffer(context, CL_MEM_READ_WRITE, global_work_size * sizeof(cl_int), nullptr, &iRet);

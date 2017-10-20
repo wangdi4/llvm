@@ -104,6 +104,7 @@ protected:
     // pointer to the containers factory (not owned by this class)
     IAbstractBackendFactory* m_pBackendFactory;
     bool m_useVTune;
+    int m_forcedPrivateMemorySize;
 
 private:
     /// @brief Dump stats collected for module if requested

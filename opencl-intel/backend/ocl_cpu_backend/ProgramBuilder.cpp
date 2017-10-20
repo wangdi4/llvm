@@ -146,6 +146,7 @@ static void updateGlobalVariableTotalSize(Program *pProgram, Module *pModule) {
 ProgramBuilder::ProgramBuilder(IAbstractBackendFactory* pBackendFactory, const ICompilerConfig& config):
     m_pBackendFactory(pBackendFactory),
     m_useVTune(config.GetUseVTune()),
+    m_forcedPrivateMemorySize(config.GetForcedPrivateMemorySize()),
     m_statFileBaseName(config.GetStatFileBaseName())
 {
     // prepare default base file name for stat file in the following cases:
@@ -325,6 +326,7 @@ KernelJITProperties* ProgramBuilder::CreateKernelJITProperties( unsigned int vec
     KernelJITProperties* pProps = m_pBackendFactory->CreateKernelJITProperties();
     pProps->SetUseVTune(m_useVTune);
     pProps->SetVectorSize(vectorSize);
+    pProps->SetMaxPrivateMemorySize(m_forcedPrivateMemorySize);
     return pProps;
 }
 
@@ -500,6 +502,7 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
   //   GetPrivateMemorySize returns the min. required private memory
   //   size per work-item even if there are no work-group level built-ins.
   pProps->SetPrivateMemorySize(privateMemorySize);
+  pProps->SetMaxPrivateMemorySize(m_forcedPrivateMemorySize);
 
   // set isBlock property
   pProps->SetIsBlock(BlockUtils::IsBlockInvocationKernel(*func));

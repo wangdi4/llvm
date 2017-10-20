@@ -78,8 +78,9 @@ public:
     std::string GetCpuFeatures() const { return m_cpuFeatures; }
     ETransposeSize GetTransposeSize() const   { return m_transposeSize; }
     int GetRTLoopUnrollFactor() const         { return m_rtLoopUnrollFactor; }
-    bool  GetUseVTune() const                 { return m_useVTune; }
-    bool  GetLoadBuiltins() const             { return m_loadBuiltins; }
+    bool GetUseVTune() const                  { return m_useVTune; }
+    bool GetLoadBuiltins() const              { return m_loadBuiltins; }
+    size_t GetForcedPrivateMemorySize() const { return m_forcedPrivateMemorySize; }
     std::vector<int> GetIRDumpOptionsAfter() const
     {
         if(!m_DumpIROptionAfter){
@@ -120,6 +121,7 @@ protected:
     std::string m_dumpIRDir;
     bool m_dumpHeuristicIR;
     std::string m_statFileBaseName;
+    int m_forcedPrivateMemorySize;
 };
 
 }}}

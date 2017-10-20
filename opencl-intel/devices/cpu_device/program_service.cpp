@@ -730,7 +730,7 @@ cl_dev_err_code ProgramService::GetKernelInfo(cl_dev_kernel      IN  kernel,
         // TODO: Current implementation uses constants and it's OK with allocated on the stack dynamic local buffers.
         //       But take it into account if the available stack frame size is known at RT. I.e.:
         //          GetMaxWorkGroupSize(CPU_MAX_WORK_GROUP_SIZE, stackFrameSize - CPU_DEV_LCL_MEM_SIZE);
-        ullValue = pKernelProps->GetMaxWorkGroupSize(CPU_MAX_WORK_GROUP_SIZE, CPU_DEV_MAX_WG_PRIVATE_SIZE);
+        ullValue = pKernelProps->GetMaxWorkGroupSize(CPU_MAX_WORK_GROUP_SIZE, m_pCPUConfig->GetForcedPrivateMemSize());
         stValSize = (nullptr != value)? sizeof(size_t): 0;
         break;
 
@@ -799,7 +799,7 @@ cl_dev_err_code ProgramService::GetKernelInfo(cl_dev_kernel      IN  kernel,
             pValue = &vValues[0];
             if(1 == desiredSGCount)
             {
-                vValues[0] = pKernelProps->GetMaxWorkGroupSize(CPU_MAX_WORK_GROUP_SIZE, CPU_DEV_MAX_WG_PRIVATE_SIZE);
+                vValues[0] = pKernelProps->GetMaxWorkGroupSize(CPU_MAX_WORK_GROUP_SIZE, m_pCPUConfig->GetForcedPrivateMemSize());
                 for(size_t i = 1; i < dim; ++i)
                     vValues[i] = 1;
             }

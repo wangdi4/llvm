@@ -574,12 +574,23 @@ T GetRegistryKeyValue(const string& keyName, const string& valName, T defaultVal
 
             return ParseStringToSize(strForcedSize);
         }
-	
-	private:
-		BasicCLConfigWrapper(const BasicCLConfigWrapper&);
-		BasicCLConfigWrapper& operator=(const BasicCLConfigWrapper&);
-    
-	protected:
+
+        unsigned long GetForcedPrivateMemSize() const
+        {
+            std::string strForcedSize;
+            if (!m_pConfigFile->ReadInto(strForcedSize, "CL_CONFIG_CPU_FORCE_PRIVATE_MEM_SIZE"))
+            {
+                return 0;
+            }
+
+            return ParseStringToSize(strForcedSize);
+        }
+
+    private:
+        BasicCLConfigWrapper(const BasicCLConfigWrapper&);
+        BasicCLConfigWrapper& operator=(const BasicCLConfigWrapper&);
+
+    protected:
         ConfigFile * m_pConfigFile;
 
         unsigned long ParseStringToSize(const std::string& userStr) const;

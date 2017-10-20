@@ -52,6 +52,7 @@ KernelProperties::KernelProperties():
     m_totalImplSize(0),
     m_barrierBufferSize(0),
     m_privateMemorySize(0),
+    m_maxPrivateMemorySize(0),
     m_reqdNumSG(0),
     m_minGroupSizeFactorial(1),
     m_isVectorizedWithTail(false),
@@ -187,6 +188,11 @@ size_t KernelProperties::GetBarrierBufferSize() const
 size_t KernelProperties::GetPrivateMemorySize() const
 {
     return m_privateMemorySize;
+}
+
+size_t KernelProperties::GetMaxPrivateMemorySize() const
+{
+    return m_maxPrivateMemorySize;
 }
 
 size_t KernelProperties::GetRequiredNumSubGroups() const

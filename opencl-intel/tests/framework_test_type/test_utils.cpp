@@ -7,6 +7,11 @@
 #include <cstdio>
 #include <cstring>
 #include <algorithm>
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <sys/resource.h>
+#endif
 
 using namespace std;
 
@@ -758,4 +763,27 @@ bool compare_kernel_output(const string& expected, const string& actual)
     sort(actual_vec.begin(), actual_vec.end());
 
     return expected_vec == actual_vec;
+}
+
+cl_ulong trySetStackSize(cl_ulong size)
+{
+#ifdef _WIN32
+    // on windows we cannot change stack size on runtime, so, just return
+    // predefined value
+    return size;
+#else
+    // another way to set stack size on Linux is to use `ulimit -s stack_size`
+    rlimit tLimitStruct;
+    tLimitStruct.rlim_cur = size;
+    tLimitStruct.rlim_max = ULLONG_MAX;
+    if (setrlimit(RLIMIT_STACK, &tLimitStruct) != 0)
+    {
+        printf("Failed to set stack size. Error code: %d\n", errno);
+        return 0;
+    }
+    else
+    {
+        return tLimitStruct.rlim_cur;
+    }
+#endif
 }

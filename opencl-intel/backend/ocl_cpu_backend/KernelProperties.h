@@ -36,9 +36,11 @@ public:
 
     void SetVectorSize(unsigned int size){ m_vectorSize = size; }
     void SetUseVTune(bool value) { m_useVTune = value; }
+    void SetMaxPrivateMemorySize(size_t value) { m_maxPrivateMemorySize = value; }
 
     unsigned int GetVectorSize() const{ return m_vectorSize;}
     bool GetUseVTune() const          { return m_useVTune;}
+    size_t GetMaxPrivateMemorySize() const { return m_maxPrivateMemorySize; }
 
     /**
      * Serialization methods for the class (used by the serialization service)
@@ -49,6 +51,7 @@ public:
 protected:
     bool m_useVTune;
     unsigned int m_vectorSize;
+    size_t m_maxPrivateMemorySize;
 };
 
 
@@ -86,6 +89,7 @@ public:
      *          external functions called by the kernel.
      */
     virtual size_t GetPrivateMemorySize() const;
+    virtual size_t GetMaxPrivateMemorySize() const;
 
     /**
      * @param   wgSizeUpperBound - maximum possible WG size.
@@ -189,6 +193,7 @@ public:
     void SetHasGlobalSync(bool value) { m_hasGlobalSync = value; }
     void SetBarrierBufferSize(size_t size) { m_barrierBufferSize = size; }
     void SetPrivateMemorySize(size_t size) { m_privateMemorySize = size; }
+    void SetMaxPrivateMemorySize(size_t size) { m_maxPrivateMemorySize = size; }
     void SetCpuId( const Intel::CPUId &cpuId ) { m_cpuId = cpuId; }
     void SetMinGroupSizeFactorial(unsigned int size) { m_minGroupSizeFactorial = size; }
     void EnableVectorizedWithTail() { m_isVectorizedWithTail = true; }
@@ -229,6 +234,7 @@ protected:
     size_t m_totalImplSize;
     size_t m_barrierBufferSize;
     size_t m_privateMemorySize;
+    size_t m_maxPrivateMemorySize;
     size_t m_reqdNumSG;
     size_t m_kernelExecutionLength;
     std::string m_kernelAttributes;

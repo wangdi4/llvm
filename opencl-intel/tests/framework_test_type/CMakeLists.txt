@@ -31,7 +31,11 @@ else (NOT WIN32 OR BUILD_FPGA_EMULATOR)
   set( TARGET_LIBS ${TARGET_LIBS} intelocl${BUILD_PLATFORM} )
 endif (NOT WIN32 OR BUILD_FPGA_EMULATOR)
 
+# In test with local memory we allocate 7MB for array. And allocate additional stack size with size 8MB = 8388608
 set_source_files_properties( cl_device_local_mem_size.cpp PROPERTIES COMPILE_DEFINITIONS STACK_SIZE=8388608 )
+# In test with private memory we allocate 1MB for array. But due to vectorization stack size depends on width of SIMD.
+# Our compiler can works with maximum width equals to 16. So we have to allocate additional stack size equals to 16MB.
+set_source_files_properties( cl_device_private_mem_size.cpp PROPERTIES COMPILE_DEFINITIONS STACK_SIZE=16777216 )
 
 add_ocl_unittest( ${TARGET} SOURCE_FILES ${TARGET_SOURCES}
     LINK_LIBRARIES ${TARGET_LIBS} )

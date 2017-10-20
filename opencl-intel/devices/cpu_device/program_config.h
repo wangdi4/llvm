@@ -71,6 +71,10 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
               {
                 return std::max(1, std::min(16, m_rtLoopUnrollFactor));
               }
+              case CL_DEV_BACKEND_OPTION_FORCED_PRIVATE_MEMORY_SIZE:
+              {
+                return m_forcedPrivateMemorySize;
+              }
               default:
                 return defaultValue;
             }
@@ -91,6 +95,7 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
         int  m_vectorizerMode;
         int  m_rtLoopUnrollFactor;
         bool m_useVTune;
+        int m_forcedPrivateMemorySize;
 
     };
 

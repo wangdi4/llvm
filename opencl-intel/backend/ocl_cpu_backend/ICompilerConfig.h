@@ -66,11 +66,12 @@ public:
 
     virtual std::string GetCpuArch() const = 0;
     virtual std::string GetCpuFeatures() const = 0;
-    virtual ETransposeSize GetTransposeSize() const  = 0;
+    virtual ETransposeSize GetTransposeSize() const = 0;
     virtual int GetRTLoopUnrollFactor() const = 0;
-    virtual bool  GetUseVTune() const = 0;
+    virtual bool GetUseVTune() const = 0;
+    virtual size_t GetForcedPrivateMemorySize() const = 0;
     // sets whether we need built-in module to be loaded for current compiler
-    virtual bool  GetLoadBuiltins() const = 0;
+    virtual bool GetLoadBuiltins() const = 0;
     virtual std::vector<int> GetIRDumpOptionsAfter() const = 0;
     virtual std::vector<int> GetIRDumpOptionsBefore() const = 0;
     virtual std::string GetDumpIRDir() const = 0;
