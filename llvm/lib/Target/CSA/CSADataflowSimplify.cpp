@@ -184,7 +184,7 @@ bool CSADataflowSimplifyPass::makeStreamMemOp(MachineInstr *MI) {
   }
 
   // The input order needs to be a repeat.
-  MachineInstr *repeat_in = getDefinition(MI->getOperand(isLoad ? 4 : 3));
+  MachineInstr *repeat_in = getDefinition(MI->getOperand(4));
   if (!repeat_in || repeat_in->getOpcode() != CSA::REPEAT1) {
     return false;
   }
