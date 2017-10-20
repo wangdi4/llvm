@@ -102,8 +102,10 @@ class JumpThreadingPass : public PassInfoMixin<JumpThreadingPass> {
   bool HasGuards = false;
 #ifdef NDEBUG
   SmallPtrSet<const BasicBlock *, 16> LoopHeaders;
+  SmallPtrSet<const BasicBlock *, 16> CountableLoopLatches; // INTEL
 #else
   SmallSet<AssertingVH<const BasicBlock>, 16> LoopHeaders;
+  SmallSet<AssertingVH<const BasicBlock>, 16> CountableLoopLatches; // INTEL
 #endif
   DenseSet<std::pair<Value *, BasicBlock *>> RecursionSet;
 

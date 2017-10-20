@@ -247,6 +247,7 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
         DEBUG(dbgs() << "  JT: Deleting dead block '" << BB->getName()
               << "' with terminator: " << *BB->getTerminator() << '\n');
         LoopHeaders.erase(BB);
+        CountableLoopLatches.erase(BB);   // INTEL
         LVI->eraseBlock(BB);
         DeleteDeadBlock(BB);
         Changed = true;
@@ -273,6 +274,7 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
         // awesome, but it allows us to use AssertingVH to prevent nasty
         // dangling pointer issues within LazyValueInfo.
         LVI->eraseBlock(BB);
+        CountableLoopLatches.erase(BB); // INTEL
         if (TryToSimplifyUncondBranchFromEmptyBlock(BB))
           Changed = true;
       }
@@ -281,6 +283,7 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
   } while (Changed);
 
   LoopHeaders.clear();
+  CountableLoopLatches.clear(); // INTEL
   return EverChanged;
 }
 
@@ -392,6 +395,58 @@ static unsigned getJumpThreadDuplicationCost(
 
   return Size > Bonus ? Size - Bonus : 0;
 }
+
+// Approximates checks for common countable loop structure-
+// 1) Header has two predecessors.
+// 2) Latch ends in a conditional branch.
+// 3) Latch condition is a ICmp instruction.
+// 4) One of the compare operands looks like an IV.
+//
+// Example IR-
+// latch:
+// %inc = add %iv, 1
+// %cmp = icmp lt %inc, 5
+// br %cmp, %header, %exit
+static bool isCountableLoop(const BasicBlock *HeaderBB,
+                            const BasicBlock *LatchBB) {
+
+  if (std::distance(pred_begin(HeaderBB), pred_end(HeaderBB)) != 2)
+    return false;
+
+  auto *BrTerm = dyn_cast<BranchInst>(LatchBB->getTerminator());
+
+  if (!BrTerm || BrTerm->isUnconditional())
+    return false;
+
+  auto *CmpInst = dyn_cast<ICmpInst>(BrTerm->getCondition());
+
+  if (!CmpInst)
+    return false;
+
+  for (const Value *Op : CmpInst->operands()) {
+    auto *OpInst = dyn_cast<Instruction>(Op);
+
+    if (!OpInst)
+      continue;
+
+    auto ParentBB = OpInst->getParent();
+    bool DefinedInHeader = (ParentBB == HeaderBB);
+    bool DefinedInHeaderOrLatch = (DefinedInHeader || (ParentBB == LatchBB));
+
+    // If instruction is defined in the header or latch and is among the most
+    // common instruction types for an IV (add, sub, GEP and phi), assume it
+    // is an IV.
+    if (DefinedInHeaderOrLatch &&
+        ((OpInst->getOpcode() == Instruction::Add) ||
+        (OpInst->getOpcode() == Instruction::Sub) ||
+        (OpInst->getOpcode() == Instruction::GetElementPtr) ||
+        (DefinedInHeader && isa<PHINode>(OpInst))))
+      return true;
+  }
+
+  return false;
+}
+
 #endif // INTEL_CUSTOMIZATION
 
 /// FindLoopHeaders - We do not want jump threading to turn proper loop
@@ -415,6 +470,12 @@ void JumpThreadingPass::FindLoopHeaders(Function &F) {
 
   for (const auto &Edge : Edges)
     LoopHeaders.insert(Edge.second);
+#if INTEL_CUSTOMIZATION
+  if (F.isPreLoopOpt())
+    for (const auto &Edge : Edges)
+      if (isCountableLoop(Edge.second, Edge.first))
+        CountableLoopLatches.insert(Edge.first);
+#endif // INTEL_CUSTOMIZATION
 }
 
 /// getKnownConstant - Helper method to determine if we can thread over a
@@ -974,6 +1035,7 @@ bool JumpThreadingPass::ProcessBlock(BasicBlock *BB) {
       if (LoopHeaders.erase(SinglePred))
         LoopHeaders.insert(BB);
 
+      CountableLoopLatches.erase(SinglePred);   // INTEL
       LVI->eraseBlock(SinglePred);
       MergeBasicBlockIntoOnlyPred(BB);
 
@@ -1556,7 +1618,7 @@ bool JumpThreadingPass::ProcessThreadableEdges(Value *Cond, BasicBlock *BB,
   BasicBlock *MultipleDestSentinel = (BasicBlock*)(intptr_t)~0ULL;
   Constant *OnlyVal = nullptr;
   Constant *MultipleVal = (Constant *)(intptr_t)~0ULL;
-
+  bool ThreadingBackedge = false;    // INTEL
   unsigned PredWithKnownDest = 0;
   for (const auto &PredValue : PredValues) {
     BasicBlock *Pred = PredValue.second;
@@ -1602,12 +1664,27 @@ bool JumpThreadingPass::ProcessThreadableEdges(Value *Cond, BasicBlock *BB,
     if (isa<IndirectBrInst>(Pred->getTerminator()))
       continue;
 
+    if (CountableLoopLatches.count(BB) && LoopHeaders.count(DestBB)) // INTEL
+      ThreadingBackedge = true;                             // INTEL
     PredToDestList.push_back(std::make_pair(Pred, DestBB));
   }
 
   // If all edges were unthreadable, we fail.
   if (PredToDestList.empty())
     return false;
+
+#if INTEL_CUSTOMIZATION
+  // Allow threading of backedge only if we can thread all predecessors of latch
+  // otherwise we may turn countable loop into non-countable loop by adding
+  // additional backedges to it.
+  if (ThreadingBackedge) {
+    if (PredToDestList.size() == (unsigned)std::distance(pred_begin(BB),
+                                                         pred_end(BB)))
+      CountableLoopLatches.erase(BB);
+    else
+      return false;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // If all the predecessors go to a single known successor, we want to fold,
   // not thread. By doing so, we do not need to duplicate the current block and
