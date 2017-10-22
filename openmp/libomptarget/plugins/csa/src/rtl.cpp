@@ -97,7 +97,7 @@
 // is run
 #define ENV_DUMP_STATS "CSA_DUMP_STATS"
 
-// If defined, leave the temporary files on disk
+// If defined, leave the temporary files on disk in the user's directory
 #define ENV_SAVE_TEMPS "CSA_SAVE_TEMPS"
 
 // If defined, specifies temporary file prefix. If not defined, defaults
@@ -236,6 +236,8 @@ static RTLDeviceInfoTy DeviceInfo(NUMBER_OF_DEVICES);
 
 // How noisy we should be
 static int32_t verbosity = 0;
+
+static std::string tmp_prefix;
 
 #ifdef __cplusplus
 extern "C" {
@@ -821,6 +823,21 @@ bool build_csa_assembly(const char *tmp_name,
                         const Elf_Data *bitcode_data,
                         std::string &csaAsmFile) {
 
+  // If the user wants to save temporaries, name them after the process name
+  //
+  // Note that tmp_prefix is a global variable. We'll use it for naming
+  // the stats file when we run
+  if (getenv(ENV_SAVE_TEMPS)) {
+    const char* prefix = getenv(ENV_TEMP_PREFIX);
+    if (prefix) {
+      tmp_prefix = prefix;
+    } else {
+      tmp_prefix = get_process_name() + "-csa";
+    }
+  } else {
+    tmp_prefix = tmp_name;
+  }
+
   // If the user is using his own assembly file, don't bother. Do not fill
   // in csaAsmFile since we don't want to delete it when the shared object
   // unloads.
@@ -852,19 +869,6 @@ bool build_csa_assembly(const char *tmp_name,
       fprintf(stderr, "Failed to find LLVMgold.so.\n");
       return false;
     }
-  }
-
-  // If the user wants to save temporaries, name them after the process name
-  std::string tmp_prefix;
-  if (getenv(ENV_SAVE_TEMPS)) {
-    const char* prefix = getenv(ENV_TEMP_PREFIX);
-    if (prefix) {
-      tmp_prefix = prefix;
-    } else {
-      tmp_prefix = get_process_name() + "-csa";
-    }
-  } else {
-    tmp_prefix = tmp_name;
   }
 
   std::string bcFile = tmp_prefix + ".bc";
@@ -1130,6 +1134,7 @@ int32_t __tgt_rtl_run_target_team_region(int32_t device_id, void *tgt_entry_ptr,
     int32_t thread_limit, uint64_t loop_tripcount /*not used*/) {
   // ignore team num and thread limit.
   int32_t status = OFFLOAD_SUCCESS;
+  static uint32_t run_count = 0;
 
   // Normally this would be the code, but since we're loading assembly into
   // the simulator, the compilation gave us the address of the function name.
@@ -1170,7 +1175,8 @@ int32_t __tgt_rtl_run_target_team_region(int32_t device_id, void *tgt_entry_ptr,
         status = checkForExitOnError(OFFLOAD_FAIL, err.c_str());
       } else {
         if (verbosity) {
-          fprintf(stderr, "\nRunning %s on the CSA simulator..\n", functionName);
+          fprintf(stderr, "\nRun %u: Running %s on the CSA simulator..\n",
+                  run_count, functionName);
         }
 
         std::vector<void *> ptrs(arg_num);
@@ -1187,17 +1193,20 @@ int32_t __tgt_rtl_run_target_team_region(int32_t device_id, void *tgt_entry_ptr,
 
         // Dump the statistics, if requested
         if (getenv (ENV_DUMP_STATS)) {
-          csa_dump_statistics(processor);
+          std::stringstream ss;
+          ss << tmp_prefix << "-" << run_count;
+          csa_dump_statistics(processor, ss.str().c_str());
         }
 
         if (verbosity) {
-          fprintf(stderr, "\n%s ran on the CSA simulator in %llu cycles\n\n",
-                  functionName, cycles);
+          fprintf(stderr, "\nRun %u: %s ran on the CSA simulator in %llu cycles\n\n",
+                  run_count, functionName, cycles);
         }
       }
     }
   }
   csa_free(processor);
+  run_count++;
 
   return status;
 }
