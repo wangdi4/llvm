@@ -100,6 +100,11 @@
 // If defined, leave the temporary files on disk
 #define ENV_SAVE_TEMPS "CSA_SAVE_TEMPS"
 
+// If defined, specifies temporary file prefix. If not defined, defaults
+// to process name with "-csa" appended. No effect if CSA_SAVE_TEMPS is
+// not defined
+#define ENV_TEMP_PREFIX "CSA_TEMP_PREFIX"
+
 // Bitcode bounds struct built by the compiler. WARNING! This struct MUST
 // match the struct written to the .csa.bc.bounds section in CSAAsmPrinter.cpp!
 struct BitcodeBounds {
@@ -781,6 +786,35 @@ bool fixup_bc_file(const char* tmp_name,
   return true;
 }
 
+#ifdef _MSC_BUILD
+static
+std::string get_process_name() {
+  char buf[MAX_PATH];
+  char name[_MAX_FNAME];
+  GetModuleFileName(NULL, buf, MAX_PATH);
+  _splitpath_s(buf, NULL, 0, NULL, 0, name, _MAX_FNAME, NULL, 0);
+  return name;
+#else
+static
+std::string get_process_name() {
+  char buf[2048];
+
+  int ret = readlink("/proc/self/exe", buf, sizeof(buf)-1);
+  if (-1 == ret) {
+    fprintf(stderr, "Failed to get image name");
+    return "unknown-process";
+  }
+
+  buf[ret] = '\0';
+  char* name = strrchr(buf, '/');
+  if (NULL == name) {
+    return buf;
+  } else {
+    return name+1;
+  }
+}
+#endif
+
 static
 bool build_csa_assembly(const char *tmp_name,
                         const Elf_Data *bitcode_bounds,
@@ -820,13 +854,25 @@ bool build_csa_assembly(const char *tmp_name,
     }
   }
 
-  std::string bcFile(tmp_name);
-  bcFile += ".bc";
+  // If the user wants to save temporaries, name them after the process name
+  std::string tmp_prefix;
+  if (getenv(ENV_SAVE_TEMPS)) {
+    const char* prefix = getenv(ENV_TEMP_PREFIX);
+    if (prefix) {
+      tmp_prefix = prefix;
+    } else {
+      tmp_prefix = get_process_name() + "-csa";
+    }
+  } else {
+    tmp_prefix = tmp_name;
+  }
+
+  std::string bcFile = tmp_prefix + ".bc";
 
   // Extract the bitcode from the image. If there are multiple bitcode
   // files in the image, use llvm-link to contcatenate them into a
   // single bitcode file
-  if (! extract_bc_file(tmp_name, bcFile, csa_clang,
+  if (! extract_bc_file(tmp_prefix.c_str(), bcFile, csa_clang,
                         bitcode_bounds, bitcode_data)) {
     return false;
   }
@@ -834,17 +880,17 @@ bool build_csa_assembly(const char *tmp_name,
   // If the user gave us ld options, use ld.gold to build the final
   // .bc file
   if (! ldGold.empty()) {
-    if (! link_bc_file(tmp_name, bcFile, ldGold, goldPlugin, goldOptions)) {
+    if (! link_bc_file(tmp_prefix.c_str(), bcFile, ldGold, goldPlugin, goldOptions)) {
       return false;
     }
 
-    if (! fixup_bc_file(tmp_name, bcFile, csa_clang)) {
+    if (! fixup_bc_file(tmp_prefix.c_str(), bcFile, csa_clang)) {
       return false;
     }
   }
 
   // Generate a name for the target file
-  csaAsmFile = tmp_name;
+  csaAsmFile = tmp_prefix;
   csaAsmFile += ".s";
 
   // Build the csa-clang command to convert the bitcode to an CSA assembly file
