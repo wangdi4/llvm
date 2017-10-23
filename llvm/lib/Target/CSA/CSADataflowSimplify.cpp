@@ -55,10 +55,10 @@ namespace llvm {
     /// strides into streaming loads and stores.
     bool makeStreamMemOp(MachineInstr *MI);
 
-    MachineInstr *getDefinition(MachineOperand &MO) const;
-    void getUses(MachineOperand &MO,
+    MachineInstr *getDefinition(const MachineOperand &MO) const;
+    void getUses(const MachineOperand &MO,
         SmallVectorImpl<MachineInstr *> &uses) const;
-    MachineInstr *getSingleUse(MachineOperand &MO) const;
+    MachineInstr *getSingleUse(const MachineOperand &MO) const;
   };
 }
 
@@ -102,7 +102,7 @@ bool CSADataflowSimplifyPass::runOnMachineFunction(MachineFunction &MF) {
   return changed;
 }
 
-MachineInstr *CSADataflowSimplifyPass::getDefinition(MachineOperand &MO) const {
+MachineInstr *CSADataflowSimplifyPass::getDefinition(const MachineOperand &MO) const {
   assert(MO.isReg() && "LICs to search for can only be registers");
   for (auto &MBB : *MF) {
     for (auto &MI : MBB) {
@@ -116,7 +116,7 @@ MachineInstr *CSADataflowSimplifyPass::getDefinition(MachineOperand &MO) const {
   return nullptr;
 }
 
-void CSADataflowSimplifyPass::getUses(MachineOperand &MO,
+void CSADataflowSimplifyPass::getUses(const MachineOperand &MO,
     SmallVectorImpl<MachineInstr *> &uses) const {
   assert(MO.isReg() && "LICs to search for can only be registers");
   for (auto &MBB : *MF) {
@@ -129,10 +129,15 @@ void CSADataflowSimplifyPass::getUses(MachineOperand &MO,
   }
 }
 
-MachineInstr *CSADataflowSimplifyPass::getSingleUse(MachineOperand &MO) const {
+MachineInstr *CSADataflowSimplifyPass::getSingleUse(
+    const MachineOperand &MO) const {
   SmallVector<MachineInstr *, 4> uses;
   getUses(MO, uses);
   return uses.size() == 1 ? uses[0] : nullptr;
+}
+
+bool isImm(const MachineOperand &MO, int64_t immValue) {
+  return MO.isImm() && MO.getImm() == immValue;
 }
 
 bool CSADataflowSimplifyPass::eliminateNotPicks(MachineInstr *MI) {
@@ -164,110 +169,221 @@ bool CSADataflowSimplifyPass::eliminateNotPicks(MachineInstr *MI) {
   return false;
 }
 
+// This pass takes a load or a store controlled by a sequence operator and
+// converts it into a streaming load and store. The requirements for legality
+// are as follows:
+// 1. The address is calculated as a strided offset, with base and stride
+//    known. The stride may be limited to 1 for CSA v1. (TODO: implementation
+//    not yet considered).
+// 2. The length of the stride must be constant, at least in a SCEV-style
+//    sense.
+// 3. The input and output memory orders must consume/produce a single memory
+//    order for the entire loop and not be used otherwise. This is effectively
+//    saying that the input is a repeat guarded by a loop stream and the
+//    output is a switch where all but the last value are ignored, but it's
+//    possible that earlier optimizations do aggregation on a different level.
+//
+// The biggest constraint on the valid operations is the second one. For now,
+// we accept only sequence operators, since calculating length is easy:
+// * SEQOTNE64 0, %lic, 1  => length = %lic [TODO]
+// * SEQOTNE64 %lic, 0, -1 => length = %lic
+// Note that the pred output here is the %stream we consider.
+//
+// The source of the address computations is more complicated. The following
+// patterns should be okay:
+// * LD (STRIDE %stream, %base, %stride) => base = %base, stride = %stride
+// * TODO: Uh, is this right?
+// * LDX (REPEAT %stream, %base), (SEQOTNE64_index 0, %N, %stride) [TODO]
+// TODO: Investigate LDD utility.
+
 bool CSADataflowSimplifyPass::makeStreamMemOp(MachineInstr *MI) {
-  bool isLoad;
+  const MachineOperand *base, *stride, *value;
+  const MachineOperand *inOrder, *outOrder, *memOrder;
+  MachineInstr *stream;
   switch (MI->getOpcode()) {
   case CSA::LD8: case CSA::LD16: case CSA::LD32: case CSA::LD64:
-    isLoad = true;
-    break;
+  case CSA::LD1: case CSA::LD16f: case CSA::LD32f: case CSA::LD64f:
   case CSA::ST8: case CSA::ST16: case CSA::ST32: case CSA::ST64:
-    isLoad = false;
-    break;
+  case CSA::ST1: case CSA::ST16f: case CSA::ST32f: case CSA::ST64f:
+    {
+      // The address here must be a STRIDE.
+      bool isLoad = MI->mayLoad();
+      MachineInstr *memAddr = getDefinition(MI->getOperand(isLoad ? 2 : 1));
+      if (!memAddr || memAddr->getOpcode() != CSA::STRIDE64) {
+        return false;
+      }
+
+      base = &memAddr->getOperand(2);
+      stride = &memAddr->getOperand(3); 
+
+      // The STRIDE's stream parameter defines the stream.
+      // TODO: assert that we use the seq predecessor output.
+      stream = getDefinition(memAddr->getOperand(1));
+      memOrder = &MI->getOperand(3);
+      inOrder = &MI->getOperand(4);
+      outOrder = &MI->getOperand(isLoad ? 1 : 0);
+      value = &MI->getOperand(isLoad ? 0 : 2);
+      break;
+    }
+  case CSA::LD8X: case CSA::LD16X: case CSA::LD32X: case CSA::LD64X:
+  case CSA::LD1X: case CSA::LD16fX: case CSA::LD32fX: case CSA::LD64fX:
+  case CSA::ST8X: case CSA::ST16X: case CSA::ST32X: case CSA::ST64X:
+  case CSA::ST1X: case CSA::ST16fX: case CSA::ST32fX: case CSA::ST64fX:
+    {
+      bool isLoad = MI->mayLoad();
+      // The base address needs to be repeated
+      MachineInstr *memBase = getDefinition(MI->getOperand(isLoad ? 2 : 1));
+      MachineInstr *memIndex = getDefinition(MI->getOperand(isLoad ? 3 : 2));
+      if (!memBase || memBase->getOpcode() != CSA::REPEAT64) {
+        return false;
+      }
+
+      // The stream controls the base REPEAT--they should be the same
+      // instruction.
+      stream = getDefinition(memBase->getOperand(1));
+      if (stream != memIndex) {
+        return false;
+      }
+
+      if (memIndex->getOpcode() != CSA::SEQOTNE64) {
+        DEBUG(dbgs() << "Candidate indexed memory store failed to have valid "
+            << "stream parameter. It may yet be valid.\n");
+        DEBUG(MI->dump());
+        DEBUG(dbgs() << "Failed operator: ");
+        DEBUG(memIndex->dump());
+        return false;
+      }
+
+      base = &memBase->getOperand(2);
+      stride = &memIndex->getOperand(6);
+      memOrder = &MI->getOperand(4);
+      inOrder = &MI->getOperand(5);
+      outOrder = &MI->getOperand(isLoad ? 1 : 0);
+      value = &MI->getOperand(isLoad ? 0 : 3);
+      break;
+    }
   default:
     return false;
   }
 
-  // The address needs to be a stride.
-  MachineInstr *address = getDefinition(MI->getOperand(isLoad ? 2 : 1));
-  if (!address || address->getOpcode() != CSA::STRIDE64) {
-    return false;
-  }
-
-  // The input order needs to be a repeat.
-  MachineInstr *repeat_in = getDefinition(MI->getOperand(4));
-  if (!repeat_in || repeat_in->getOpcode() != CSA::REPEAT1) {
-    return false;
-  }
-
-  // The output order needs to be a switch.
-  MachineInstr *switch_out = getSingleUse(MI->getOperand(isLoad ? 1 : 0));
-  if (!switch_out || !TII->isSwitch(switch_out)) {
-    return false;
-  }
-  // Furthermore, the other output of the switch needs to be ignored.
-  if (switch_out->getOperand(0).getReg() != 2) {
-    return false;
-  }
-
-  // Next check: all three must be controlled by the same sequence operator.
-  // The predicate must control the repeat and the stride, and the last must
-  // control the switch.
-  MachineInstr *ctrl_addr = getDefinition(address->getOperand(1));
-  MachineInstr *ctrl_in = getDefinition(repeat_in->getOperand(1));
-  MachineInstr *ctrl_out = getDefinition(switch_out->getOperand(2));
-  if (ctrl_addr != ctrl_in || ctrl_addr != ctrl_out) {
-    return false;
-  }
-  unsigned pred_reg = ctrl_addr->getOperand(1).getReg();
-  unsigned last_reg = ctrl_addr->getOperand(3).getReg();
-  if (address->getOperand(1).getReg() != pred_reg ||
-      repeat_in->getOperand(1).getReg() != pred_reg ||
-      switch_out->getOperand(2).getReg() != last_reg) {
-    return false;
-  }
-
-  DEBUG(errs() << "Candidate memory op for turning into streaming access: ");
+  DEBUG(dbgs() << "Identified candidate for streaming memory conversion: ");
   DEBUG(MI->dump());
+  DEBUG(dbgs() << "Base: " << *base << "; stride: " << *stride <<
+      "; controlling stream: ");
+  DEBUG(stream->dump());
 
-  // Now that the load is legal, we have to make the transform:
-  // * The base address and stride comes from the stride operator.
-  // * The length is computed from the sequence operator and the base address.
-  // * The in memory order becomes the consumed value from the repeat.
-  // * The out memory order replaces the output of the switch.
+  // Verify that the memory orders are properly constrained by the stream.
+  MachineInstr *inSource = getDefinition(*inOrder);
+  if (!inSource || inSource->getOpcode() != CSA::REPEAT1 ||
+      getDefinition(inSource->getOperand(1)) != stream) {
+    DEBUG(dbgs() << "Conversion failed due to bad in memory order.\n");
+    return false;
+  }
+
+  MachineInstr *outSink = getSingleUse(*outOrder);
+  if (!outSink || !TII->isSwitch(outSink)) {
+    DEBUG(dbgs() << "Conversion failed because out memory order is not a switch.\n");
+    return false;
+  }
+
+  // The output memory order should be a switch that ignores the signal unless
+  // it's the last iteration of the stream.
+  MachineInstr *sinkControl = getDefinition(outSink->getOperand(2));
+  if (!sinkControl) {
+    DEBUG(dbgs() << "Cannot found the definition of the output order switch");
+    return false;
+  }
+
+  // TODO: check that we are using the last output of the stream.
+  const MachineOperand *realOutSink;
+  if (outSink->getOperand(0).getReg() == CSA::IGN) {
+    if (sinkControl != stream) {
+      DEBUG(dbgs() << "Output memory order is not controlled by the stream\n");
+      return false;
+    }
+    realOutSink = &outSink->getOperand(1);
+  } else if (outSink->getOperand(1).getReg() == CSA::IGN) {
+    // The control structure should be a not (stream control)
+    if (outSink->getOpcode() != CSA::NOT1 ||
+        getDefinition(outSink->getOperand(1)) == stream) {
+      DEBUG(dbgs() << "Output memory order is not controlled by the stream\n");
+      return false;
+    }
+    realOutSink = &outSink->getOperand(0);
+  } else {
+    // The output memory order is not ignored...
+    DEBUG(dbgs() << "Output memory order is not controlled by the stream\n");
+    return false;
+  }
+
+  // Compute the length of the stream from the stream parameter.
+  const MachineOperand *length;
+  const MachineOperand &seqStart = stream->getOperand(4);
+  const MachineOperand &seqEnd = stream->getOperand(5);
+  const MachineOperand &seqStep = stream->getOperand(6);
+  if (stream->getOpcode() == CSA::SEQOTNE64 && isImm(seqEnd, 0) &&
+      isImm(seqStep, -1)) {
+    length = &seqStart;
+  } else if (stream->getOpcode() == CSA::SEQOTNE64 && isImm(seqStep, 1)) {
+    // TODO: This isn't really right. Hopefully this will be fixed by a better
+    // pattern-matching language for this stuff...
+    if (isImm(seqStart, 0) ||
+        (getDefinition(seqStart)->getOpcode() == CSA::MOV64 &&
+        isImm(getDefinition(seqStart)->getOperand(1), 0))) {
+      length = &seqEnd;
+    } else {
+      DEBUG(dbgs() << "Stream operand is of unknown form.\n");
+      return false;
+    }
+  } else {
+    DEBUG(dbgs() << "Stream operand is of unknown form.\n");
+    return false;
+  }
+
+  DEBUG(dbgs() << "No reason to disqualify the memory operation found, converting\n");
+
+  // Actually build the new instruction now.
   unsigned opcode;
   switch (MI->getOpcode()) {
-  case CSA::LD8: opcode = CSA::SLD8; break;
-  case CSA::LD16: opcode = CSA::SLD16; break;
-  case CSA::LD32: opcode = CSA::SLD32; break;
-  case CSA::LD64: opcode = CSA::SLD64; break;
-  case CSA::ST8: opcode = CSA::SST8; break;
-  case CSA::ST16: opcode = CSA::SST16; break;
-  case CSA::ST32: opcode = CSA::SST32; break;
-  case CSA::ST64: opcode = CSA::SST64; break;
+  case CSA::LD8: case CSA::LD8X: opcode = CSA::SLD8; break;
+  case CSA::LD16: case CSA::LD16X: opcode = CSA::SLD16; break;
+  case CSA::LD32: case CSA::LD32X: opcode = CSA::SLD32; break;
+  case CSA::LD64: case CSA::LD64X: opcode = CSA::SLD64; break;
+  case CSA::LD1: case CSA::LD1X: opcode = CSA::SLD1; break;
+  case CSA::LD16f: case CSA::LD16fX: opcode = CSA::SLD16f; break;
+  case CSA::LD32f: case CSA::LD32fX: opcode = CSA::SLD32f; break;
+  case CSA::LD64f: case CSA::LD64fX: opcode = CSA::SLD64f; break;
+  case CSA::ST8: case CSA::ST8X: opcode = CSA::SST8; break;
+  case CSA::ST16: case CSA::ST16X: opcode = CSA::SST16; break;
+  case CSA::ST32: case CSA::ST32X: opcode = CSA::SST32; break;
+  case CSA::ST64: case CSA::ST64X: opcode = CSA::SST64; break;
+  case CSA::ST1: case CSA::ST1X: opcode = CSA::SST1; break;
+  case CSA::ST16f: case CSA::ST16fX: opcode = CSA::SST16f; break;
+  case CSA::ST32f: case CSA::ST32fX: opcode = CSA::SST32f; break;
+  case CSA::ST64f: case CSA::ST64fX: opcode = CSA::SST64f; break;
   default:
-    assert(false && "Unknown opcode for streaming IR load");
-  }
-
-  // Compute the length of the stride.
-  unsigned lengthRegister;
-  if (ctrl_addr->getOpcode() == CSA::SEQOTNE64) {
-    assert(ctrl_addr->getOperand(5).getImm() == 0 && "Expected count to 0");
-    assert(ctrl_addr->getOperand(6).getImm() == -1 && "Expected count to 0");
-    lengthRegister = ctrl_addr->getOperand(4).getReg();
-  } else {
-    DEBUG(errs() << "Not handling instruction\n");
-    DEBUG(ctrl_addr->dump());
-    return false;
+    assert(false && "We should have an opcode mapping for these opcodes");
   }
 
   auto builder = BuildMI(*MI->getParent(), MI, MI->getDebugLoc(),
       TII->get(opcode));
-  if (isLoad)
-    builder.addReg(MI->getOperand(0).getReg(), RegState::Define);
-  builder.addReg(switch_out->getOperand(1).getReg(), RegState::Define);
-  builder.add(address->getOperand(2)); // Address
-  builder.addReg(lengthRegister); // Length
-  builder.add(address->getOperand(3)); // Stride
-  if (!isLoad)
-    builder.add(MI->getOperand(4)); // Data
-  builder.add(MI->getOperand(3)); // Memory level
-  builder.add(repeat_in->getOperand(2)); // In memory order
-  builder->setFlag(MachineInstr::NonSequential);
+  if (MI->mayLoad())
+    builder.addReg(value->getReg(), RegState::Define); // Value (for load)
+  builder.add(*realOutSink); // Output memory order
+  builder.add(*base); // Address
+  builder.add(*length); // Length
+  builder.add(*stride); // Stride
+  if (!MI->mayLoad())
+    builder.add(*value); // Value (for store)
+  builder.add(*memOrder); // Memory ordering
+  builder.add(inSource->getOperand(2)); // Input memory order
+  builder->setFlag(MachineInstr::NonSequential); // Don't run on the SXU
 
-  // Remove the old switch and the old load. Dead elimination should remove the
-  // rest.
+  // Delete the old instruction. Also delete the old output switch, since we
+  // added a second definition of its input. Dead instruction elimination should
+  // handle the rest.
   to_delete.push_back(MI);
-  to_delete.push_back(switch_out);
+  to_delete.push_back(outSink);
 
   return true;
 }
