@@ -92,7 +92,7 @@ public:
     }
 
 protected:
-    bool m_immediate;    
+    bool m_immediate;
     SharedPtr<IThreadLibTaskGroup> m_ndrangeChildrenTaskGroup;
 
     InPlaceTaskList(const SharedPtr<IThreadLibTaskGroup>& ndrangeChildrenTaskGroup, bool bImmediate = true);
@@ -258,10 +258,10 @@ cl_dev_err_code TaskDispatcher::init()
 
     const size_t numMasters = 1;
 
-    // create root device in flat mode with maximum threads, support for masters joining and 
+    // create root device in flat mode with maximum threads, support for masters joining and
     // one reserved position for master in device
-    m_pRootDevice = m_pTaskExecutor->CreateRootDevice( 
-                    RootDeviceCreationParam(TE_AUTO_THREADS, TE_ENABLE_MASTERS_JOIN, numMasters), 
+    m_pRootDevice = m_pTaskExecutor->CreateRootDevice(
+                    RootDeviceCreationParam(TE_AUTO_THREADS, TE_ENABLE_MASTERS_JOIN, numMasters),
                     nullptr, this );
 
     m_bTEActivated = (0 != m_pRootDevice);
@@ -315,7 +315,7 @@ cl_dev_err_code TaskDispatcher::init()
     pTaskList->Enqueue(pAffinitizeThreads);
     pTaskList->Flush();
     pTaskList->WaitForCompletion(nullptr);
- //  pAffinitizeThreads->WaitForEndOfTask();   
+ //  pAffinitizeThreads->WaitForEndOfTask();
 
     return CL_DEV_SUCCESS;
 }
@@ -327,7 +327,7 @@ bool TaskDispatcher::isDestributedAllocationRequired()
 
 bool TaskDispatcher::isThreadAffinityRequired()
 {
-#if ( defined(WIN32) || defined(__ANDROID__) ) //Not pinning threads for Windows or Android
+#if ( defined(WIN32) ) // Not pinning threads for Windows
     return false;
 #else
     return true;
@@ -485,7 +485,7 @@ cl_dev_err_code TaskDispatcher::SubmitTaskArray(ITaskList* pList, cl_dev_cmd_des
             pCommand->IncRefCnt();
             cmds[i]->device_agent_data = static_cast<ITaskBase*>(pCommand.GetPtr());
             pList->Enqueue(SharedPtr<ITaskBase>(pCommand));
-        } 
+        }
         else
         {
             // Try to notify about the error in the same list
@@ -596,7 +596,7 @@ void AffinitizeThreads::WaitForEndOfTask() const
 
 int AffinitizeThreads::Init(size_t region[], unsigned int &dimCount, size_t numberOfThreads)
 {
-    m_uiMasterHWId = Intel::OpenCL::Utils::GetCpuId(); 
+    m_uiMasterHWId = Intel::OpenCL::Utils::GetCpuId();
     // copy execution parameters
     unsigned int i;
     for (i = 1; i < MAX_WORK_DIM; ++i)
@@ -635,7 +635,7 @@ bool AffinitizeThreads::ExecuteIteration(size_t x, size_t y, size_t z, void* pWg
     if ( !pTaskExecutor->IsMaster() )
     {
         m_pObserver->NotifyAffinity(clMyThreadId() , (uiPositionInDevice == m_uiMasterHWId) ? 0 : uiPositionInDevice);
-        // Set NUMA node 
+        // Set NUMA node
         clNUMASetLocalNodeAlloc();
     }
 

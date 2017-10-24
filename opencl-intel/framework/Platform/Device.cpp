@@ -508,11 +508,6 @@ cl_err_code FissionableDevice::FissionDevice(const cl_device_partition_property*
     //identify the partition mode and translate to device enum
     cl_dev_partition_prop partitionMode;
 
-    // Disable device fission on Android
-#if defined __ANDROID__
-    return CL_INVALID_VALUE;
-#endif
-
     switch (props[0])
     {
     case CL_DEVICE_PARTITION_EQUALLY:

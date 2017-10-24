@@ -440,11 +440,6 @@ void FrameworkProxy::Initialize()
     LOG_INFO(TEXT("Initialize context module: m_pExecutionModule = new ExecutionModule(%d,%d)"), m_pPlatformModule, m_pContextModule);
     m_pExecutionModule = new ExecutionModule(m_pPlatformModule, m_pContextModule);
     m_pExecutionModule->Initialize(&OclEntryPoints, m_pConfig, &m_GPAData);
-
-#ifdef __ANDROID__
-    // Init task executor and load TBB immediately
-    GetTaskExecutor();
-#endif
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

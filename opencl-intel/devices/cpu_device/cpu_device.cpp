@@ -638,12 +638,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             //if OUT paramVal is NULL it should be ignored
             if(nullptr != paramVal)
             {
-#ifndef __ANDROID__
                 *(cl_uint*)paramVal = GetNumberOfProcessors();
-#else
-                // Disable device partition on android
-                *(cl_uint*)paramVal = 0;
-#endif
             }
             return CL_DEV_SUCCESS;
         }
@@ -1463,7 +1458,6 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
 
 
         case CL_DEVICE_PARTITION_PROPERTIES:
-#ifndef __ANDROID__
             {
                 const cl_device_partition_property* pSupportedProperties;
                 pSupportedProperties       = CPU_SUPPORTED_FISSION_MODES;
@@ -1480,22 +1474,6 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
                 }
                 return CL_DEV_SUCCESS;
             }
-#else
-            // Disable device partition on android
-            {
-                *pinternalRetunedValueSize = sizeof(cl_device_partition_property);
-                if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
-                {
-                    return CL_DEV_INVALID_VALUE;
-                }
-                //if OUT paramVal is NULL it should be ignored
-                if(nullptr != paramVal)
-                {
-                    *(cl_device_partition_property*)paramVal = (cl_device_partition_property)0;
-                }
-                return CL_DEV_SUCCESS;
-            }
-#endif
 
         case CL_DEVICE_PARTITION_AFFINITY_DOMAIN:
             {

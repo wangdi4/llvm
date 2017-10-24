@@ -94,11 +94,6 @@ bool CPUDeviceConfig::IsGLDirectXSupported() const
 
 bool CPUDeviceConfig::IsDoubleSupported() const
 {
-    // disabled on Android
-#ifdef __ANDROID__
-    return false;
-#endif
-
 #if WIN32
     if(CPUDetect::GetInstance()->isBroxton())
         return true;

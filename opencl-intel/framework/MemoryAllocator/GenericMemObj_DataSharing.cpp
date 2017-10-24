@@ -286,17 +286,6 @@ void GenericMemObject::data_sharing_bring_data_to_sharing_group( unsigned int gr
     drive_copy_between_groups( starting_state, copy_from, group_id, returned_event);
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////
-//
-// Data Sharing Finite State Machine is described in the "docs\design\mic\MIC OpenCL Device Agent.pdf" 
-// document in the top level documents repository, paragraph 
-//   "4.6.3. Memory Object Data Validity in the Multiple Devices Case"
-//
-// Sharing Groups and Backing Store terms are described in the same document in the paragraph
-//   "4.6.2. Sharing memory objects between different devices."
-//
-//////////////////////////////////////////////////////////////////////////////////////////////////////
-
 //
 //  Implement data sharing graph 
 //

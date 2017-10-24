@@ -13,30 +13,13 @@ using namespace Intel::OpenCL::Utils;
 // First device is a default device 
 #if defined (_WIN32)
     #if defined (_M_X64)
-    static const char* DEFAULT_DEVICES_LIST = "cpu_device64" OPENCL_BINARIES_POSTFIX
+    static const char* DEFAULT_DEVICES_LIST = "cpu_device64" OPENCL_BINARIES_POSTFIX;
     #else //_M_X64
-    static const char* DEFAULT_DEVICES_LIST = "cpu_device32" OPENCL_BINARIES_POSTFIX
+    static const char* DEFAULT_DEVICES_LIST = "cpu_device32" OPENCL_BINARIES_POSTFIX;
     #endif //_M_X64
 #else // _WIN32
-    static const char* DEFAULT_DEVICES_LIST = "cpu_device" OPENCL_BINARIES_POSTFIX
+    static const char* DEFAULT_DEVICES_LIST = "cpu_device" OPENCL_BINARIES_POSTFIX;
 #endif // _WIN32
-
-#ifdef INCLUDE_MIC_DEVICE
-                                          ";mic_device"
-#endif
-
-#ifdef INCLUDE_ISP_DEVICE
-#if defined (_WIN32)
-#if defined (_M_X64)
-                                          ";isp_device64" 
-#else
-                                          ";isp_device32" 
-#endif
-#else
-                                          ";isp_device" 
-#endif
-#endif
-                                          ;
 
 OCLConfig::OCLConfig()
 {
@@ -72,11 +55,6 @@ FrameworkUserLogger& FrameworkUserLogger::Instance()
 
 namespace Intel { namespace OpenCL { namespace Utils {
 
-#ifdef __ANROID__
-    
-    FrameworkUserLogger* g_pUserLogger = nullptr;
-#else        
-    FrameworkUserLogger* g_pUserLogger = &FrameworkUserLogger::Instance();
-#endif
+FrameworkUserLogger* g_pUserLogger = &FrameworkUserLogger::Instance();
 
 }}}
