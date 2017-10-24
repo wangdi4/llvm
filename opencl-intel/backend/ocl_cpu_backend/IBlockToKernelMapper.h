@@ -25,18 +25,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   class ICLDevBackendKernel_;
 
   /// interface for mapping OCL20 block at runtime to ICLDevBackendKernel object
-  /// TODO: For MIC there should separate from CPU implementation of this interface
-  /// Reason is MIC does not have entry point to block funciton i.e. it cannot
-  /// be used as key. 
-  /// For MIC we propose to write special LLVM pass which will use as key
-  /// unique number of Block function instead of entry address point as in CPU
-  /// We also propose to implement MICMapper inheritant which will resolve this key to 
-  /// Kernel object
   class IBlockToKernelMapper {
   public:
     /// @brief map key to ICLDevBackendKernel object
     /// @param key - unique block id. For CPU supposed to be block function entry point
-    ///                               For MIC need to define. Offset, Block number
     /// @return pointer to constant ICLDevBackendKernel_  object. 
     virtual const ICLDevBackendKernel_ * Map(const void * key) const = 0;
 

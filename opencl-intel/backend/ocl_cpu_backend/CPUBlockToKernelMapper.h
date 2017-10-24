@@ -28,9 +28,9 @@ class Program;
 
   /// CPU mapping OCL20 block at runtime to ICLDevBackendKernel object
   /// Trick here is that there are block_invoke function and kernel cloned from block_invoke function
-  /// This separation is needed since kernel's code is modified in optimization Passes 
+  /// This separation is needed since kernel's code is modified in optimization Passes
   /// However code uses block_literal structure pointer to original block_invoke function
-  /// This mapper maps original block_invoke function ptr 
+  /// This mapper maps original block_invoke function ptr
   /// to Kernel object cloned from original block_invoke function
   class CPUBlockToKernelMapper : public IBlockToKernelMapper {
   public:
@@ -38,12 +38,11 @@ class Program;
     /// kernel should have JIT
     /// @param pProgram - Program object
     /// @param pModule - LLVM compiled module
-    /// return 
+    /// return
     CPUBlockToKernelMapper(Program* pProgram, const llvm::Module* pModule);
 
     /// @brief map key to ICLDevBackendKernel object
     /// @param key - unique block id. For CPU supposed to be block function entry point
-    ///                               For MIC need to define. Offset, Block number
     /// @return pointer to ICLDevBackendKernel_  object
     virtual const ICLDevBackendKernel_ * Map(const void * key) const;
 

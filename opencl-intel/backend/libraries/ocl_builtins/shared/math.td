@@ -306,21 +306,21 @@ OclBuiltinImpl trunc_f64_promote = OclBuiltinImpl<trunc, [v1f64], 0, Promote1>;
 OclBuiltinImpl trunc_f64_expand = OclBuiltinImpl<trunc, [v3f64, v16f64], 0, Expand1>;
 
 // half_recip
-// route call to native. Specific to CPU(not-MIC) implementation.
+// route call to native.
 // Assuming native_ version gives needed accuracy
 OclBuiltinImpl half_recip_impl = OclBuiltinImpl<half_recip, half_recip.Types, 0, [{
     return native_recip($Arg0VarName);
   }]>;
 
 // half_rsqrt
-// route call to native. Specific to CPU(not-MIC) implementation.
+// route call to native.
 // Assuming native_ version gives needed accuracy
 OclBuiltinImpl half_rsqrt_impl = OclBuiltinImpl<half_rsqrt, half_rsqrt.Types, 0, [{
     return native_rsqrt($Arg0VarName);
   }]>;
 
 // half_sqrt
-// route call to native. Specific to CPU(not-MIC) implementation.
+// route call to native.
 // Assuming native_ version gives needed accuracy
 OclBuiltinImpl half_sqrt_impl = OclBuiltinImpl<half_sqrt, half_sqrt.Types, 0, [{
     return native_sqrt($Arg0VarName);

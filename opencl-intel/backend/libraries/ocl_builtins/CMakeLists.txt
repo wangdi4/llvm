@@ -57,8 +57,6 @@ endif ()
 
 if (WIN32)
   set (PLATFORM Win${PLATFORM})
-elseif (ANDROID)
-  set (PLATFORM Android${PLATFORM})
 else ()
   set (PLATFORM Linux${PLATFORM})
 endif()
@@ -185,12 +183,6 @@ foreach( LLVM_INCLUDE_DIR_ITEM ${LLVM_INCLUDE_DIRS} )
   set(CLANG_LLVM_INCLUDE_DIRS ${CLANG_LLVM_INCLUDE_DIRS} -I ${LLVM_INCLUDE_DIR_ITEM})
 endforeach( LLVM_INCLUDE_DIR_ITEM)
 
-# Adding include path for "micintrin.h", "micintrin_mici64ext.h"
-if(INCLUDE_MIC_DEVICE)
-  set(MIC_HEADERS_DIR ${LLVM_LIBRARY_DIRS}/clang/3.4/include)
-  set(CLANG_LLVM_INCLUDE_DIRS ${CLANG_LLVM_INCLUDE_DIRS} -I ${MIC_HEADERS_DIR})
-endif(INCLUDE_MIC_DEVICE)
-
 set (CLANG_OCL_20_COMPILER_FLAGS
   -cl-std=CL2.0 -D __OPENCL_C_VERSION__=200
   )
@@ -221,7 +213,7 @@ set (CLANG_C_COMPILER_PARAMS
 set (CLANG_CL20_COMPILER_PARAMS
   ${CLANG_CL_COMMON_COMPILER_FLAGS} ${CLANG_OCL_20_COMPILER_FLAGS}
   )
-  
+
 # llvm-opt
 set (LLVM_OPT_PARAMS -verify -sroa -functionattrs)
 
@@ -308,12 +300,12 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR TARGET_NAM
     compile( "${CLANG_CL20_COMPILER_PARAMS}" TMP_RTL ${PROC} ${FILE} ${OUTPUT_DIR})
     list (APPEND TMP_FILES ${TMP_RTL})
   endforeach (FILE)
-  
+
   if(NOT ("${C_FILES}" STREQUAL "IGNORE"))
     foreach (FILE ${C_FILES})
       compile( "${CLANG_C_COMPILER_PARAMS}" TMP_RTL ${PROC} ${FILE} ${OUTPUT_DIR})
       list (APPEND TMP_FILES ${TMP_RTL})
-    endforeach (FILE)   
+    endforeach (FILE)
   endif()
 
   if(${USE_OPT})
@@ -324,23 +316,19 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR TARGET_NAM
       DEPENDS ${LLVM_LINK} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/GENERIC/ll_intrinsics.ll
       VERBATIM
       )
-    if(ARCH STREQUAL b2)
-      set (RTL_TO_LINK ${BUILTINS_INSTALL_DIR}/${BI_LIB_NAME}${OCL_OUTPUT_EXTENSION})
-    else()
-      # link shared rtl and particular BI rtl
-      # image callback rtl must be linked with built-ins RTL statically, we have two built-ins rtls: shared (clbltfnshared.rtl)
-      # and particular lib (for  example, clbltfnl9.rtl), but image optimizer takes only one runtime lib as argument, so we have to
-      # link clbltfnshared.rtl and particular (clbltfnl9.rtl, for instance) together to temporary TMP_LINKED_RTL_OUTPUT and then
-      # link image callback rtl (${OUTPUT_FILE}_noopt) with this TMP_LINKED_RTL_OUTPUT
-      # 
-      add_custom_command (OUTPUT ${TMP_LINKED_RTL_OUTPUT}
-        COMMENT "Linking tmp rtl ${TMP_LINKED_RTL}"
-        COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${TMP_LINKED_RTL_OUTPUT} ${BUILTINS_INSTALL_DIR}/${BI_LIB_NAME}${OCL_OUTPUT_EXTENSION} ${BUILTINS_INSTALL_DIR}/${TARGET_NAME_SHARED}${OCL_OUTPUT_EXTENSION}
-        DEPENDS ${LLVM_LINK} ${BUILTINS_INSTALL_DIR}/${BI_LIB_NAME}${OCL_OUTPUT_EXTENSION} ${TARGET_NAME_SHARED}
-        VERBATIM
-        )
-      set (RTL_TO_LINK ${TMP_LINKED_RTL_OUTPUT})
-    endif()
+    # link shared rtl and particular BI rtl
+    # image callback rtl must be linked with built-ins RTL statically, we have two built-ins rtls: shared (clbltfnshared.rtl)
+    # and particular lib (for  example, clbltfnl9.rtl), but image optimizer takes only one runtime lib as argument, so we have to
+    # link clbltfnshared.rtl and particular (clbltfnl9.rtl, for instance) together to temporary TMP_LINKED_RTL_OUTPUT and then
+    # link image callback rtl (${OUTPUT_FILE}_noopt) with this TMP_LINKED_RTL_OUTPUT
+    #
+    add_custom_command (OUTPUT ${TMP_LINKED_RTL_OUTPUT}
+      COMMENT "Linking tmp rtl ${TMP_LINKED_RTL}"
+      COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${TMP_LINKED_RTL_OUTPUT} ${BUILTINS_INSTALL_DIR}/${BI_LIB_NAME}${OCL_OUTPUT_EXTENSION} ${BUILTINS_INSTALL_DIR}/${TARGET_NAME_SHARED}${OCL_OUTPUT_EXTENSION}
+      DEPENDS ${LLVM_LINK} ${BUILTINS_INSTALL_DIR}/${BI_LIB_NAME}${OCL_OUTPUT_EXTENSION} ${TARGET_NAME_SHARED}
+      VERBATIM
+      )
+    set (RTL_TO_LINK ${TMP_LINKED_RTL_OUTPUT})
 
     add_custom_command(OUTPUT ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}
       COMMENT "Optimizing ${OUTPUT_FILE}_noopt"
@@ -398,48 +386,20 @@ endfunction( add_ocl_library )
 
 function( install_svml ARCH )
 
-  set(IS_MIC OFF)
-  if(ARCH STREQUAL b2)
-    set(IS_MIC ON)
-  endif()
-  if(ENABLE_SDE AND IS_MIC)
-    set (SDE_DLL ${SVML_DLL_DIR}/sdesvml.so)
-  endif ()
-
   # SVML binary
-  if(IS_MIC)
-    set (SVML_DLL ${SVML_DLL_DIR}/libsvml.so)
-  else()
-    set (SVML_DLL ${SVML_DLL_DIR}/${SVML_NAME_PREFIX}${ARCH}${CMAKE_SHARED_LIBRARY_SUFFIX}${ADDITIONAL_SHARED_LIBRARY_SUFFIX})
-  endif()
+  set (SVML_DLL ${SVML_DLL_DIR}/${SVML_NAME_PREFIX}${ARCH}${CMAKE_SHARED_LIBRARY_SUFFIX}${ADDITIONAL_SHARED_LIBRARY_SUFFIX})
   if (NOT EXISTS ${SVML_DLL})
     message( FATAL_ERROR "Cannot find ${SVML_DLL}!")
   endif()
 
   # install SVML (and SDE) libraries
-  if(ENABLE_SDE AND IS_MIC)
-    add_custom_command (OUTPUT ${BUILTINS_INSTALL_DIR}/sdesvml.so
-      COMMAND ${CMAKE_COMMAND} -E copy ${SDE_DLL} ${BUILTINS_INSTALL_DIR}
-      VERBATIM
-    )
-  endif()
-  if(IS_MIC)
-    add_custom_command (OUTPUT ${BUILTINS_INSTALL_DIR}/libsvml.so
+  add_custom_command (
+      OUTPUT ${BUILTINS_INSTALL_DIR}/${SVML_NAME_PREFIX}${ARCH}${CMAKE_SHARED_LIBRARY_SUFFIX}${ADDITIONAL_SHARED_LIBRARY_SUFFIX}
       COMMAND ${CMAKE_COMMAND} -E copy ${SVML_DLL} ${BUILTINS_INSTALL_DIR}
       VERBATIM
-    )
-  else()
-    add_custom_command (OUTPUT ${BUILTINS_INSTALL_DIR}/${SVML_NAME_PREFIX}${ARCH}${CMAKE_SHARED_LIBRARY_SUFFIX}${ADDITIONAL_SHARED_LIBRARY_SUFFIX}
-      COMMAND ${CMAKE_COMMAND} -E copy ${SVML_DLL} ${BUILTINS_INSTALL_DIR}
-      VERBATIM
-    )
-  endif()
+  )
 
   install( FILES ${SVML_DLL} DESTINATION bin )
-
-  if(ENABLE_SDE AND IS_MIC)
-    install( FILES ${SDE_DLL} DESTINATION bin )
-  endif()
 
 endfunction( install_svml )
 
@@ -496,11 +456,7 @@ function( create_target PROC ARCH TARGET_DIR PREBUILD_IMAGE_LIBRARY)
   install_svml( ${ARCH} )
 
   # Unconditional dependent targets
-  if(ARCH STREQUAL b2)
-    set (TARGET_DEPENDENCIES ${BUILTINS_INSTALL_DIR}/${OUTPUT_OCL_LIB} ${BUILTINS_INSTALL_DIR}/${OUTPUT_OCL_IMAGE_CALLBACK_LIB} ${BUILTINS_INSTALL_DIR}/libsvml.so)
-  else ()
-    set (TARGET_DEPENDENCIES ${BUILTINS_INSTALL_DIR}/${OUTPUT_OCL_LIB} ${BUILTINS_INSTALL_DIR}/${OUTPUT_OCL_IMAGE_CALLBACK_LIB} ${BUILTINS_INSTALL_DIR}/${SVML_NAME_PREFIX}${ARCH}${CMAKE_SHARED_LIBRARY_SUFFIX}${ADDITIONAL_SHARED_LIBRARY_SUFFIX})
-  endif ()
+  set (TARGET_DEPENDENCIES ${BUILTINS_INSTALL_DIR}/${OUTPUT_OCL_LIB} ${BUILTINS_INSTALL_DIR}/${OUTPUT_OCL_IMAGE_CALLBACK_LIB} ${BUILTINS_INSTALL_DIR}/${SVML_NAME_PREFIX}${ARCH}${CMAKE_SHARED_LIBRARY_SUFFIX}${ADDITIONAL_SHARED_LIBRARY_SUFFIX})
 
   # If prebuilt library is built, depend on it so it gets built.
   if( PREBUILD_IMAGE_LIBRARY )
@@ -599,7 +555,4 @@ add_subdirectory (shared)
 if (ENABLE_KNL AND BUILD_X64 AND NOT WIN32)
     # includes AVX-512 F, CD, ER, PF.
   add_subdirectory (avx512phi)
-endif()
-if (INCLUDE_MIC_DEVICE)
-  add_subdirectory (KNCni)
 endif()

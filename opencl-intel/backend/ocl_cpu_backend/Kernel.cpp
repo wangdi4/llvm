@@ -23,15 +23,9 @@ File Name:  Kernel.cpp
 #include "exceptions.h"
 #include "Serializer.h"
 
-#if defined (__MIC__) || defined(__MIC2__)
-  #include "mic_dev_limits.h"
-  #define MAX_WORK_GROUP_SIZE      MIC_MAX_WORK_GROUP_SIZE
-  #define MAX_WG_PRIVATE_SIZE      MIC_DEV_MAX_WG_PRIVATE_SIZE
-#else
-  #include "cpu_dev_limits.h"
-  #define MAX_WORK_GROUP_SIZE      CPU_MAX_WORK_GROUP_SIZE
-  #define MAX_WG_PRIVATE_SIZE      CPU_DEV_MAX_WG_PRIVATE_SIZE
-#endif
+#include "cpu_dev_limits.h"
+#define MAX_WORK_GROUP_SIZE      CPU_MAX_WORK_GROUP_SIZE
+#define MAX_WG_PRIVATE_SIZE      CPU_DEV_MAX_WG_PRIVATE_SIZE
 
 #include <cstring>
 #include <cmath>
@@ -394,7 +388,6 @@ cl_dev_err_code Kernel::InitRunner(void *pKernelUniformArgs) const {
   cl_uniform_kernel_args *pKernelUniformImplicitArgs =
       static_cast<cl_uniform_kernel_args *>(pKernelUniformImplicitArgsPosition);
 
-  // FIXME [OpenCL 2.0]: This may be not OK then OpenCL 2.0 support is enabled for MIC.
   pKernelUniformImplicitArgs->pUniformJITEntryPoint =
       ResolveEntryPointHandle(pKernelUniformImplicitArgs->pUniformJITEntryPoint);
   pKernelUniformImplicitArgs->pNonUniformJITEntryPoint =
@@ -492,13 +485,10 @@ Kernel::PrepareKernelArguments(void *pKernelUniformArgs,
     }
   }
 
-#if !defined (__MIC__) && !defined(__MIC2__) // ocl20 is not supported on MIC so far
   // FIXME: CSSD1000?????: add a check for OpenCL 2.0
   if (true ) { // ocl20
     pKernelUniformImplicitArgs->Block2KernelMapper = m_RuntimeService->GetBlockToKernelMapper();
   }
-#endif
-
 
 #ifdef OCL_DEV_BACKEND_PLUGINS
 

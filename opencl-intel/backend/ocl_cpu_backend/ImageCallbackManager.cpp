@@ -23,7 +23,6 @@ File Name:  ImageCallbackManager.cpp
 #include "ImageCallbackLibrary.h"
 #include "Compiler.h"
 #include "CPUCompiler.h"
-#include "MICCompiler.h"
 #include "CompilationUtils.h"
 
 
@@ -68,18 +67,16 @@ ImageCallbackManager* ImageCallbackManager::GetInstance()
 
 bool ImageCallbackManager::InitLibrary(const ICompilerConfig& config, bool isCpu, Intel::CPUId& cpuId)
 {
-  // MIC is not supported currently. Return.
-  if(!isCpu)
-      return true;
   std::auto_ptr<CPUCompiler> spCompiler;
 
   // Initialize compiler first to get archId and CPUFeatures
-  if(isCpu){
+  if (isCpu) {
       spCompiler = std::auto_ptr<CPUCompiler>(new CPUCompiler(config));
   } else {
-      // TODO: enable with MIC is support
-      //spCompiler = std::auto_ptr<Compiler>(new MICCompiler(config));
+    // Nothing but CPU is supported
+    return true;
   }
+
   // Retrieve CPU ID
   cpuId = spCompiler->GetCpuId();
   // KNL is not supported

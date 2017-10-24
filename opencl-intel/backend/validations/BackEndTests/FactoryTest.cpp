@@ -178,41 +178,6 @@ TEST_F(BackEndTests_FactoryMethods, ExecutionServiceFailure)
 }
 
 
-#if defined(INCLUDE_MIC_DEVICE)
-
-TEST_F(BackEndTests_FactoryMethods, SerializationServiceCreation)
-{
-    // get the Backend service factory
-    ICLDevBackendServiceFactory* funcGetFactory = BackendWrapper::GetInstance().GetBackendServiceFactory();
-    ASSERT_TRUE(funcGetFactory);
-    // get Serialization service pointer
-    ICLDevBackendSerializationServicePtr spSerializationService(NULL);
-    ASSERT_TRUE(spSerializationService.get() == NULL);
-    // init the jit allocator and get instance
-    JITAllocator::Init();
-    JITAllocator* pJITAllocator = JITAllocator::GetInstance();
-    ASSERT_TRUE(pJITAllocator);
-    void* pJITAllocatorTemp;
-    size_t size;
-    SerializationServiceOptions options;
-    cl_dev_err_code ret;
-
-    //-----------------------------------------------------------------
-    // create valid set of options
-    options.InitFromTestConfiguration(BW_MIC_DEVICE, MIC_ARCH, pJITAllocator);
-    EXPECT_TRUE(STRING_EQ(MIC_ARCH,options.GetStringValue(CL_DEV_BACKEND_OPTION_SUBDEVICE, "")));
-    pJITAllocatorTemp = NULL;
-    size = 0;
-    options.GetValue(CL_DEV_BACKEND_OPTION_JIT_ALLOCATOR, &pJITAllocatorTemp, &size);
-    EXPECT_EQ(pJITAllocator,pJITAllocatorTemp);
-    // call GetSerializationService with valid parameters - should success
-    ret = funcGetFactory->GetSerializationService(&options, spSerializationService.getOutPtr());
-    EXPECT_EQ(CL_DEV_SUCCESS, ret);
-}
-
-#endif
-
-
 TEST_F(BackEndTests_FactoryMethods, SerializationServiceFailure)
 {
     // get the Backend service factory
@@ -254,20 +219,6 @@ TEST_F(BackEndTests_FactoryMethods, SerializationServiceFailure)
     // call GetSerializationService with Options invalid - should fail with no crash
     ret = funcGetFactory->GetSerializationService(&options, spSerializationService.getOutPtr());
     EXPECT_NE(CL_DEV_SUCCESS, ret);
-
-
-#if defined(INCLUDE_MIC_DEVICE)
-    //-----------------------------------------------------------------
-    // create another set of options - invalid jit allocator pointer
-    options.InitFromTestConfiguration(BW_MIC_DEVICE,MIC_ARCH, NULL);
-    pJITAllocatorTemp = NULL;
-    size = 0;
-    options.GetValue(CL_DEV_BACKEND_OPTION_JIT_ALLOCATOR, &pJITAllocatorTemp, &size);
-    EXPECT_EQ(NULL, pJITAllocatorTemp);
-    //call GetSerializationService with Options invalid - should fail
-    ret = funcGetFactory->GetSerializationService(&options, spSerializationService.getOutPtr());
-    EXPECT_NE(CL_DEV_SUCCESS, ret);
-#endif
 
     //-----------------------------------------------------------------
     // test invalid parameters to the actuall GetSerializationService

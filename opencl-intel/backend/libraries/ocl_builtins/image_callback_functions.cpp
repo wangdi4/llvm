@@ -18,8 +18,6 @@
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
-#if !defined (__MIC__) && !defined(__MIC2__)
-
 #define __OPENCL__
 #include <intrin.h>
 
@@ -2822,6 +2820,3 @@ void trap_function()
     printf ("***Runtime error: reached an uninitialized image function***\n");
     __builtin_debugtrap();
 }
-
-#endif // defined (__MIC__) || defined(__MIC2__)
-

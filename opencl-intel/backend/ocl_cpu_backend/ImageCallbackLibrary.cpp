@@ -297,7 +297,6 @@ void ImageCallbackLibrary::Build()
 }
 
 // For CPU this should be left empty
-// TODO: Add implementation for MIC support
 bool ImageCallbackLibrary::LoadExecutable()
 {
     return true;

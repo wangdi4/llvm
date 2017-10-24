@@ -23,15 +23,13 @@ File Name:  ServiceFactory.h
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 // Backend Operation Modes enumeration
+// TODO: we support nothing but CPU, so refactor this redundant enumeration
 enum DEVICE_TYPE
 {
     CPU_MODE = 0,
-    MIC_MODE
 };
 
-
 class ICLDebuggingService;
-
 
 // Internal backend service factory interface. Adds another method on top of
 // the backend service factory interface - to get a debugging service.
@@ -69,12 +67,12 @@ public:
      *  options (target arch, target description , etc ..)
      * @param pBackendCompilationService will be modified to contain the generated object
      *
-     * @returns 
+     * @returns
      *  CL_DEV_SUCCESS in case of success, otherwise:
      *  CL_DEV_OUT_OF_MEMORY in case of lack of memory
      *  CL_DEV_ERROR_FAIL in any other failure
      */
-    virtual cl_dev_err_code GetCompilationService( 
+    virtual cl_dev_err_code GetCompilationService(
         const ICLDevBackendOptions* pBackendOptions,
         ICLDevBackendCompilationService** pBackendCompilationService);
 
@@ -85,14 +83,14 @@ public:
      *  options (like printf handler address, alloc\dealloc program JIT handler address, etc ..)
      * @param pBackendExecutionService will be modified to contain the generated object
      *
-     * @returns 
+     * @returns
      *  CL_DEV_SUCCESS in case of success, otherwise:
      *  CL_DEV_OUT_OF_MEMORY in case of lack of memory
-     *  CL_DEV_NOT_SUPPORTED in case of requesting ACCELERATOR (e.g. MIC) execution service on the host.
+     *  CL_DEV_NOT_SUPPORTED in case of requesting ACCELERATOR execution service on the host.
      *  CL_DEV_ERROR_FAIL in any other failure
      */
     virtual cl_dev_err_code GetExecutionService(
-        const ICLDevBackendOptions* pBackendOptions, 
+        const ICLDevBackendOptions* pBackendOptions,
         ICLDevBackendExecutionService** pBackendExecutionService);
 
     /**
@@ -102,13 +100,13 @@ public:
      *  options (alloc\dealloc program JIT handler address, etc ..)
      * @param pBackendSerializationService will be modified to contain the generated object
      *
-     * @returns 
+     * @returns
      *  CL_DEV_SUCCESS in case of success, otherwise:
      *  CL_DEV_OUT_OF_MEMORY in case of lack of memory
      *  CL_DEV_ERROR_FAIL in any other failure
      */
     virtual cl_dev_err_code GetSerializationService(
-        const ICLDevBackendOptions* pBackendOptions, 
+        const ICLDevBackendOptions* pBackendOptions,
         ICLDevBackendSerializationService** pBackendSerializationService);
 
     /**
@@ -118,22 +116,22 @@ public:
      *  options (alloc\dealloc program JIT handler address, etc ..)
      * @param pBackendImageService [OUT] will be modified to contain the generated object
      *
-     * @returns 
+     * @returns
      *  CL_DEV_SUCCESS in case of success, otherwise:
      *  CL_DEV_OUT_OF_MEMORY in case of lack of memory
      *  CL_DEV_ERROR_FAIL in any other failure
      */
     virtual cl_dev_err_code GetImageService(
-      const ICLDevBackendOptions* pBackendOptions, 
+      const ICLDevBackendOptions* pBackendOptions,
       ICLDevBackendImageService** ppBackendImageService);
-    
+
     /**
      * Creates a Debugging Service object
      *
-     * @ param pDebuggingService will be modified to contain the generated 
+     * @ param pDebuggingService will be modified to contain the generated
      *         object.
      *
-     * @returns 
+     * @returns
      *  CL_DEV_SUCCESS in case of success, otherwise:
      *  CL_DEV_ERROR_FAIL in case of failure
      */

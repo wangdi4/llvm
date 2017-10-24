@@ -24,9 +24,6 @@ File Name:  OpenCLFactory.cpp
 #include "OpenCLRunConfiguration.h"
 #include "OpenCLBackendWrapper.h"
 #include "OpenCLComparator.h"
-#if defined(SATEST_INCLUDE_MIC_DEVICE)
-#include "OpenCLMICBackendRunner.h"
-#endif
 
 #define DEBUG_TYPE "OpenCLFactory"
 // debug macros
@@ -67,18 +64,6 @@ IRunConfiguration * OpenCLFactory::CreateRunConfiguration()
 IProgramRunner * OpenCLFactory::CreateProgramRunner(const IRunComponentConfiguration* pRunConfiguration)
 {
     const BERunOptions *runConfig = static_cast<const BERunOptions*>(pRunConfiguration);
-#if defined(SATEST_INCLUDE_MIC_DEVICE)
-    std::string cpuArch = runConfig->GetValue<std::string>(RC_BR_CPU_ARCHITECTURE, "auto");
-    bool isSDEmode = runConfig->GetValue<bool>(RC_BR_USE_SDE, false);
-    if ((std::string("auto-remote") == cpuArch ||
-        std::string("knc") == cpuArch) &&
-        !isSDEmode
-        )
-    {
-        DEBUG(llvm::dbgs() << "CreateProgramRunner created back-end runner for MIC!" << "\n");
-        return new OpenCLMICBackendRunner(*runConfig);
-    }
-#endif
     return new OpenCLCPUBackendRunner(*runConfig);
 }
 

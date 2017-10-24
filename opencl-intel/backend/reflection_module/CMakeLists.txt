@@ -7,9 +7,9 @@ project (${TARGET_NAME})
 #enables compound initialization literals
 remove_definitions("-pedantic")
 
-if( BACKEND_BUILD_VERIFICATION_LIB AND (NOT ANDROID) )
+if( BACKEND_BUILD_VERIFICATION_LIB )
     add_subdirectory(unittest)
-endif( BACKEND_BUILD_VERIFICATION_LIB AND (NOT ANDROID) )
+endif( BACKEND_BUILD_VERIFICATION_LIB )
 
 add_custom_command(
   OUTPUT BuiltinList.h

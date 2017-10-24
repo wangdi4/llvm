@@ -19,7 +19,6 @@ File Name:  ModuleJITHolder.cpp
 #include "ModuleJITHolder.h"
 #include "IDynamicFunctionsResolver.h"
 
-#include "MICSerializationService.h"
 #include "Serializer.h"
 
 #include "malloc.h"

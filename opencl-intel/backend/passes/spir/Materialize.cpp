@@ -36,7 +36,6 @@ namespace intel {
 
 // Supported target triples.
 const char *PC_LIN64 = "x86_64-pc-linux";          // Used for RH64/SLES64.
-const char *PC_LIN32 = "i686-pc-linux";            // Used for Android.
 const char *PC_WIN32 = "i686-pc-win32-msvc-elf";   // Win 32 bit.
 const char *PC_WIN64 = "x86_64-pc-win32-msvc-elf"; // Win 64 bit.
 
@@ -261,8 +260,6 @@ void materializeSpirDataLayout(llvm::Module &M) {
       intel::PC_LIN64;
 #elif defined(_WIN32)
       intel::PC_WIN32;
-#elif defined(__ANDROID__)
-      intel::PC_LIN32;
 #else
 #error "Unsupported host platform"
 #endif

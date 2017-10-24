@@ -21,9 +21,6 @@ File Name:  BuiltinModuleManager.cpp
 #include <memory>
 #include "BuiltinModuleManager.h"
 #include "BuiltinModules.h"
-#if defined(INCLUDE_MIC_DEVICE)
-#include "MICBuiltinLibrary.h"
-#endif
 #include "CPUBuiltinLibrary.h"
 
 void RegisterCPUBIFunctions(void);
@@ -82,18 +79,5 @@ BuiltinLibrary* BuiltinModuleManager::GetOrLoadCPULibrary(Intel::CPUId cpuId)
     m_BuiltinLibs[key] = pLibrary.get();
     return pLibrary.release();
 }
-
-#if defined(INCLUDE_MIC_DEVICE)
-// TODO: Make this method re-entrable
-BuiltinLibrary* BuiltinModuleManager::GetOrLoadMICLibrary(unsigned int targetID, Intel::CPUId cpuId,
-     const void* targetContext)
-{
-    std::auto_ptr<BuiltinLibrary> pLibrary( new MICBuiltinLibrary(cpuId) );
-    pLibrary->SetContext(targetContext);
-    pLibrary->Load();
-
-    return pLibrary.release();
-}
-#endif
 
 }}}

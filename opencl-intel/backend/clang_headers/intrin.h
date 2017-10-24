@@ -33,10 +33,6 @@
 #define __OCL_PRIVATE_ADDR_SPACE
 #endif
 
-#if defined (__MIC__) || defined(__MIC2__)
-#include <micintrin.h>
-#include <micintrin_mici64ext.h>
-#else
 #ifdef __MMX__
 #include <mmintrin.h>
 #endif
@@ -85,5 +81,4 @@
 #include <avx512dqintrin.h>
 #endif
 
-#endif
 #endif

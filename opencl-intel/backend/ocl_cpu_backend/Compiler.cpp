@@ -230,12 +230,6 @@ void Compiler::Init()
     LLVMInitializeX86Target();
     LLVMInitializeX86AsmPrinter();
     LLVMInitializeX86TargetMC();
-#if defined(INCLUDE_MIC_DEVICE)
-    LLVMInitializeY86TargetInfo();
-    LLVMInitializeY86Target();
-    LLVMInitializeY86AsmPrinter();
-    LLVMInitializeY86TargetMC();
-#endif
 }
 
 /**
@@ -440,7 +434,6 @@ llvm::Module* Compiler::ParseModuleIR(llvm::MemoryBuffer* pIRBuffer)
 // RTL builtin modules consist of two libraries.
 // The first is shared across all HW architectures and the second one
 // is optimized for a specific HW architecture.
-// NOTE: There is no shared library for KNC so it has the optimized one only.
 void Compiler::LoadBuiltinModules(BuiltinLibrary* pLibrary,
                    llvm::SmallVector<llvm::Module*, 2>& builtinsModules) const
 {
@@ -471,28 +464,25 @@ void Compiler::LoadBuiltinModules(BuiltinLibrary* pLibrary,
     auto* pModule = spModuleOrErr.get().release();
     builtinsModules.push_back(pModule);
 
-    // on KNC we don't have shared (common) library, so skip loading
-    if (pLibrary->GetCPU() != MIC_KNC) {
-        // the shared RTL is loaded here
-        std::unique_ptr<llvm::MemoryBuffer> RtlBufferSvmlShared(std::move(
-                                          pLibrary->GetRtlBufferSvmlShared()));
-        llvm::Expected<std::unique_ptr<llvm::Module>> spModuleSvmlSharedOrErr(
-            llvm::getOwningLazyBitcodeModule(std::move(RtlBufferSvmlShared),
-                *m_pLLVMContext));
+    // the shared RTL is loaded here
+    std::unique_ptr<llvm::MemoryBuffer> RtlBufferSvmlShared(std::move(
+                                      pLibrary->GetRtlBufferSvmlShared()));
+    llvm::Expected<std::unique_ptr<llvm::Module>> spModuleSvmlSharedOrErr(
+        llvm::getOwningLazyBitcodeModule(std::move(RtlBufferSvmlShared),
+            *m_pLLVMContext));
 
-        if ( !spModuleSvmlSharedOrErr ) {
-            throw Exceptions::CompilerException(
-              "Failed to allocate/parse buitin module");
-        }
-
-        llvm::Module* pModuleSvmlShared = spModuleSvmlSharedOrErr.get().release();
-        // on both 64-bit and 32-bit platform the same shared RTL contatinig platform independent byte code is used,
-        // so set triple and data layout for shared RTL from particular RTL in order to avoid warnings from linker.
-        pModuleSvmlShared->setTargetTriple(pModule->getTargetTriple());
-        pModuleSvmlShared->setDataLayout(pModule->getDataLayout());
-
-        builtinsModules.push_back(pModuleSvmlShared);
+    if ( !spModuleSvmlSharedOrErr ) {
+        throw Exceptions::CompilerException(
+          "Failed to allocate/parse buitin module");
     }
+
+    llvm::Module* pModuleSvmlShared = spModuleSvmlSharedOrErr.get().release();
+    // on both 64-bit and 32-bit platform the same shared RTL contatinig platform independent byte code is used,
+    // so set triple and data layout for shared RTL from particular RTL in order to avoid warnings from linker.
+    pModuleSvmlShared->setTargetTriple(pModule->getTargetTriple());
+    pModuleSvmlShared->setDataLayout(pModule->getDataLayout());
+
+    builtinsModules.push_back(pModuleSvmlShared);
 }
 
 bool Compiler::isProgramValid(llvm::Module* pModule, ProgramBuildResult* pResult) const
@@ -500,7 +490,7 @@ bool Compiler::isProgramValid(llvm::Module* pModule, ProgramBuildResult* pResult
     // Check for the limitation: "Images are not supported on Xeon Phi".
     // TODO: Reimplement the check as utility function to correctly provide
     // an information about images support on a given device
-    if(m_CpuId.GetCPU() != MIC_KNC && m_CpuId.GetCPU() != CPU_KNL)
+    if(m_CpuId.GetCPU() != CPU_KNL)
       return true;
     if (llvm::NamedMDNode* pNode = pModule->getNamedMetadata("opencl.used.optional.core.features"))
     {

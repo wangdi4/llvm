@@ -162,7 +162,7 @@ static void  testFindSamplers(std::string sourceIn, std::vector<unsigned int >& 
 
     try {
         pBinary = builder.withSource(source).withLibrary(clangLib.c_str()).build();
-#if !defined(_WIN32) && !defined(__ANDROID__)
+#if !defined(_WIN32)
         builder.close();
 #endif
     } catch (Validation::Exception::OperationFailed ex){
@@ -339,7 +339,7 @@ TEST(DataVersionTest, DISABLED_ConvertData) /* CSSD100018373 */ {
 
     try {
         pBinary = builder.withSource(source.c_str()).withLibrary(clangLib.c_str()).build();
-#if !defined(_WIN32) && !defined(__ANDROID__)
+#if !defined(_WIN32)
         builder.close();
 #endif
     } catch (Validation::Exception::OperationFailed ex){

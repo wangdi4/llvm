@@ -55,11 +55,6 @@ if (NOT WIN32)
     set (ADD_LINKER_FLAGS_DEBUG   )
     set (ADD_LINKER_FLAGS_RELEASE )
 
-    # if we are cross-compiling for Android, let cmake know that execution of pthread test will fail on the host.
-    if (ANDROID)
-      set ( THREADS_PTHREAD_ARG "ANDROID-FAILED_TO_RUN" )
-    endif (ANDROID)
-
     find_package(Threads)
     set( INIT_LINKER_FLAGS "${INIT_LINKER_FLAGS} ${CMAKE_THREAD_LIBS_INIT} -l${CMAKE_DL_LIBS} ${RT_LIB}" )
 
@@ -200,52 +195,6 @@ set (OCL_CPU_BACKEND_SOURCE_FILES
     shared_builtin_functions.cpp
   )
 
-if (INCLUDE_MIC_DEVICE)
-  list(APPEND OCL_CPU_BACKEND_INCLUDE_FILES
-    IMICCompilerConfig.h
-    MICBuiltinLibrary.h
-    MICCompileService.h
-    MICCompiler.h
-    MICCompilerConfig.h
-    MICDeviceBackendFactory.h
-    MICJITContainer.h
-    MICKernel.h
-    MICProgram.h
-    MICProgramBuilder.h
-    MICSerializationService.h
-    ModuleJITHolder.h
-  )
-
-  list(APPEND OCL_CPU_BACKEND_SOURCE_FILES
-    MICBuiltinLibrary.cpp
-    MICCompileService.cpp
-    MICCompiler.cpp
-    MICCompilerConfig.cpp
-    MICDeviceBackendFactory.cpp
-    MICJITContainer.cpp
-    MICKernel.cpp
-    MICProgram.cpp
-    MICProgramBuilder.cpp
-    MICSerializationService.cpp
-    ModuleJITHolder.cpp
-    mic_builtin_functions.cpp
-    opencl_mic_printf_ext.cpp
-  )
-endif (INCLUDE_MIC_DEVICE)
-
-if (ENABLE_SDE AND INCLUDE_MIC_DEVICE)
-  set(OCL_CPU_BACKEND_INCLUDE_FILES ${OCL_CPU_BACKEND_INCLUDE_FILES}
-    ../ocl_mic_executor/MICDetect.h
-    ../ocl_mic_executor/DynamicLibraryLoader.h
-    MICExecutionService.h
-  )
-  set(OCL_CPU_BACKEND_SOURCE_FILES ${OCL_CPU_BACKEND_SOURCE_FILES}
-    ../ocl_mic_executor/MICDetect.cpp
-    ../ocl_mic_executor/DynamicLibraryLoader.cpp
-    MICExecutionService.cpp
-  )
-endif()
-
 if (WIN32)
     if (CMAKE_SIZEOF_VOID_P EQUAL 8)
         add_definitions( -DRESOURCE_X64 )
@@ -289,11 +238,6 @@ include_directories(
     ${CMAKE_BINARY_DIR}/include/
     ${OCL_BINARY_DIR}
 )
-if (INCLUDE_MIC_DEVICE)
-  include_directories(
-    ${BACKEND_ROOT_DIR}/ocl_mic_executor
-  )
-endif (INCLUDE_MIC_DEVICE)
 
 # Add additional link directories
 if( LLVM_USE_INTEL_JITEVENTS )
@@ -366,9 +310,6 @@ set(UTILS_LIBS
     OclPluginManager
     OclOptimizer
 )
-if (INCLUDE_MIC_DEVICE)
-  list (APPEND UTILS_LIBS LLVMMICCodeGenerationEngine)
-endif (INCLUDE_MIC_DEVICE)
 
 target_link_libraries (${TARGET_NAME}
     ${UTILS_LIBS}
@@ -389,17 +330,9 @@ target_link_libraries (${TARGET_NAME}
     ${LLVM_MODULE_LIBS}
     )
 
-if(ANDROID)
-    # dynamic link with STL library
-     target_link_libraries(${TARGET_NAME} c++)
-endif(ANDROID)
-
 set( CMAKE_CXX_FLAGS_DEBUG "-DOCL_DEV_BACKEND_PLUGINS ${CMAKE_CXX_FLAGS_DEBUG}")
 
 add_definitions( -DOclCpuBackEnd_EXPORTS )
-if (KNC_CARD)
-  add_definitions( -DKNC_CARD )
-endif (KNC_CARD)
 
 if (ENABLE_SDE)
     message(STATUS "-- Enabling SDE version ... ")
@@ -409,21 +342,12 @@ endif (ENABLE_SDE)
 if (WIN32)
     get_target_property(RT_OUTPUT_DIRECTORY ${TARGET_NAME} RUNTIME_OUTPUT_DIRECTORY)
     file(TO_NATIVE_PATH ${RT_OUTPUT_DIRECTORY}/${CMAKE_CFG_INTDIR}/${TARGET_NAME}_stripped.pdb PDB_NAME)
-    if (${MSVC_VERSION} EQUAL 1500)
-        # Visual Studio 2008
-        set_target_properties(${TARGET_NAME} PROPERTIES
-                                LINK_FLAGS_RELEASE  "${LINK_FLAGS_RELEASE} /PDBSTRIPPED:${PDB_NAME}"
-                                LINK_FLAGS_DEBUG    "${LINK_FLAGS_DEBUG} /PDBSTRIPPED:${PDB_NAME}"
-                             )
-    else (${MSVC_VERSION} EQUAL 1500)
-        # Visual Studio 2010 (assumed if not Visual Studio 2008)
-        # This is a fix due to a bug in CMake, Does not add the flag /DEBUG to the linker flags in Release mode.
-        # The /DEBUG flag is required in order to create stripped pdbs.
-        set_target_properties(${TARGET_NAME} PROPERTIES
-                                LINK_FLAGS_RELEASE  "${LINK_FLAGS_RELEASE} /DEBUG /PDBSTRIPPED:${PDB_NAME}"
-                                LINK_FLAGS_DEBUG    "${LINK_FLAGS_DEBUG} /PDBSTRIPPED:${PDB_NAME}"
-                                )
-    endif (${MSVC_VERSION} EQUAL 1500)
+    # This is a fix due to a bug in CMake, Does not add the flag /DEBUG to the linker flags in Release mode.
+    # The /DEBUG flag is required in order to create stripped pdbs.
+    set_target_properties(${TARGET_NAME} PROPERTIES
+                                         LINK_FLAGS_RELEASE  "${LINK_FLAGS_RELEASE} /DEBUG /PDBSTRIPPED:${PDB_NAME}"
+                                         LINK_FLAGS_DEBUG    "${LINK_FLAGS_DEBUG} /PDBSTRIPPED:${PDB_NAME}"
+    )
     if (INSTALL_PDBS)
         install(FILES ${OCL_TOOLS_BINARY_DIR}/\${BUILD_TYPE}/${TARGET_NAME}.pdb DESTINATION bin)
     endif(INSTALL_PDBS)

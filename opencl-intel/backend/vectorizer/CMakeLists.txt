@@ -27,7 +27,6 @@ include_directories(
 )
 
 set(TARGET_EXTRA_SOURCE_FILES
-  Resolver/MICResolver.cpp
   Resolver/AVX512Resolver.cpp
   Utils/IRInjection.cpp
   Utils/Namer.cpp
@@ -35,7 +34,6 @@ set(TARGET_EXTRA_SOURCE_FILES
   Renderscript/RenderscriptDriver.cpp
 )
 set(TARGET_EXTRA_INCLUDE_FILES
-  Resolver/MICResolver.h
   Resolver/AVX512Resolver.h
   Utils/Namer.h
   Utils/PrintfAdder.h

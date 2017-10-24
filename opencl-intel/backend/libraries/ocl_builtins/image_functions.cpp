@@ -18,8 +18,6 @@
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
-#if !defined (__MIC__) && !defined(__MIC2__)
-
 #pragma OPENCL EXTENSION cl_khr_depth_images : enable
 
 #define __OPENCL__
@@ -2354,5 +2352,3 @@ void __attribute__((overloadable)) mask_soa8_read_imageui(int8 mask, __write_onl
 {
     mask_soa8_read_imageui(mask, __builtin_astype(image, __read_only image2d_t), coord_x, coord_y, res_x, res_y, res_z, res_w);
 }
-
-#endif // defined (__MIC__) || defined(__MIC2__)

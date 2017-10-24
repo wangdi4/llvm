@@ -1,5 +1,3 @@
-#if !defined(__MIC__) && !defined(__MIC2__)
-
 // This file contains implementation of all Extended Execution related built-in
 // functions except for those that are var-args.
 // The var-args built-ins that are not implemented here are
@@ -319,5 +317,3 @@ ADDR_SPACE_OVERLOADING(__local, __private)
 ADDR_SPACE_OVERLOADING(__local, __local)
 ADDR_SPACE_OVERLOADING(__local, __global)
 #undef ADDR_SPACE_OVERLOADING
-
-#endif

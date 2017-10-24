@@ -16,15 +16,9 @@ File Name:  opencl20_ext_execution.cpp
 
 \*****************************************************************************/
 
-#if defined (__MIC__) || defined(__MIC2__)
-  #include "mic_dev_limits.h"
-  #define MAX_WORK_GROUP_SIZE      MIC_MAX_WORK_GROUP_SIZE
-  #define MAX_WG_PRIVATE_SIZE      MIC_DEV_MAX_WG_PRIVATE_SIZE
-#else
-  #include "cpu_dev_limits.h"
-  #define MAX_WORK_GROUP_SIZE      CPU_MAX_WORK_GROUP_SIZE
-  #define MAX_WG_PRIVATE_SIZE      CPU_DEV_MAX_WG_PRIVATE_SIZE
-#endif
+#include "cpu_dev_limits.h"
+#define MAX_WORK_GROUP_SIZE      CPU_MAX_WORK_GROUP_SIZE
+#define MAX_WG_PRIVATE_SIZE      CPU_DEV_MAX_WG_PRIVATE_SIZE
 
 #include "cl_dev_backend_api.h"
 #include "ICLDevBackendServiceFactory.h"

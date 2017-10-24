@@ -31,12 +31,6 @@ include( cmake_utils/CMakeFuncs.txt )
 
 if (WIN32)
     include( CMake_windows_tools )
-elseif( ANDROID)
-    if ( BUILD_X64)
-        include( CMake_android_tools64 )
-    else ()
-       include( CMake_android_tools )
-    endif ()
 else()
   include( CMake_linux_tools )
 endif ()
@@ -55,11 +49,9 @@ set(CMAKE_CONFIGURATION_TYPES ${CMAKE_CONFIGURATION_TYPES} CACHE STRING "Availab
 
 
 # ITT/VTune integration
-if( NOT ANDROID )
-    add_definitions( -DUSE_ITT )
-    include_directories( ${CMAKE_SOURCE_DIR}/externals/itt/include
-       ${CMAKE_SOURCE_DIR}/externals/itt/ittnotify/ )
-endif( NOT ANDROID )
+add_definitions( -DUSE_ITT )
+include_directories( ${CMAKE_SOURCE_DIR}/externals/itt/include
+                     ${CMAKE_SOURCE_DIR}/externals/itt/ittnotify/ )
 
 if (NOT WIN32)
   # enable C++11 support in GCC 4.7 and above
@@ -163,6 +155,7 @@ else(CMAKE_CROSSCOMPILING)
     add_custom_target(ConfigureNativeTargets DEPENDS ${CMAKE_BINARY_DIR}/bin/ocloptimg ${CMAKE_BINARY_DIR}/bin/ocl-tblgen )
 endif(CMAKE_CROSSCOMPILING)
 
+# TODO: remove tools support
 if(INCLUDE_TOOLS)
     if(WIN32)
         if(BUILD_X64)
@@ -171,15 +164,7 @@ if(INCLUDE_TOOLS)
             set(BOOST_LIB_DIR_SUFFIX x86)
         endif(BUILD_X64)
     else(WIN32)
-        if(ANDROID)
-             if(BUILD_X64)
-                 set(BOOST_LIB_DIR_SUFFIX android64)
-             else(BUILD_X64)
-                 set(BOOST_LIB_DIR_SUFFIX android32)
-             endif(BUILD_X64)
-        else(ANDROID)
-            set(BOOST_LIB_DIR_SUFFIX x64)
-        endif(ANDROID)
+        set(BOOST_LIB_DIR_SUFFIX x64)
     endif(WIN32)
 
     set (BOOST_LIBRARYDIR ${BOOST_ROOT}/lib/${BOOST_LIB_DIR_SUFFIX})
@@ -188,19 +173,10 @@ if(INCLUDE_TOOLS)
     # To add new components for Boost simply add to BOOST_COMPONENTS below
     set (BOOST_COMPONENTS regex system filesystem date_time signals thread)
 
-    if(NOT ANDROID)
-        set(Boost_USE_STATIC_LIBS ON )
-        set(BOOST_ALL_DYN_LINK OFF)
-        set(Boost_USE_STATIC_RUNTIME ON)
-        FIND_PACKAGE(Boost 1.52.0 REQUIRED COMPONENTS ${BOOST_COMPONENTS})
-    else(NOT ANDROID)
-        set (CMAKE_FIND_LIBRARY_SUFFIXES ".a")
-        set (CMAKE_FIND_LIBRARY_PREFIXES "lib")
-        set (BOOST_LIBRARYDIR ${BOOST_ROOT}/lib/${BOOST_LIB_DIR_SUFFIX})
-        find_host_package(Boost 1.52.0 REQUIRED COMPONENTS ${BOOST_COMPONENTS})
-        set(Boost_USE_STATIC_RUNTIME ON)
-        set(BOOST_ALL_DYN_LINK OFF)
-    endif(NOT ANDROID)
+    set(Boost_USE_STATIC_LIBS ON )
+    set(BOOST_ALL_DYN_LINK OFF)
+    set(Boost_USE_STATIC_RUNTIME ON)
+    FIND_PACKAGE(Boost 1.52.0 REQUIRED COMPONENTS ${BOOST_COMPONENTS})
     add_definitions(-DBOOST_ALL_NO_LIB)  # Tell the compiler to undefine this boost macro
     add_definitions( -DBOOST_SYSTEM_NO_DEPRECATED )
     set(BOOST_INSTALL_LIBS ${Boost_SYSTEM_LIBRARY}
@@ -235,15 +211,12 @@ if(INCLUDE_TOOLS)
         INSTALL(FILES ${BOOST_INSTALL_LIBS_DEBUG} DESTINATION bin CONFIGURATIONS Debug)
 
     else(WIN32)
-        if(NOT ANDROID)
+        string(REPLACE ".a" ".so;" BOOST_INSTALL_LIBS ${BOOST_INSTALL_LIBS} )
+        SET(BOOST_VER ${Boost_MAJOR_VERSION}.${Boost_MINOR_VERSION}.${Boost_SUBMINOR_VERSION} )
+        string(REPLACE ".so" ".so.${BOOST_VER};" BOOST_INSTALL_LIBS_LINKS ${BOOST_INSTALL_LIBS} )
 
-            string(REPLACE ".a" ".so;" BOOST_INSTALL_LIBS ${BOOST_INSTALL_LIBS} )
-            SET(BOOST_VER ${Boost_MAJOR_VERSION}.${Boost_MINOR_VERSION}.${Boost_SUBMINOR_VERSION} )
-            string(REPLACE ".so" ".so.${BOOST_VER};" BOOST_INSTALL_LIBS_LINKS ${BOOST_INSTALL_LIBS} )
-
-            INSTALL(FILES ${BOOST_INSTALL_LIBS} DESTINATION bin)
-            INSTALL(FILES ${BOOST_INSTALL_LIBS_LINKS} DESTINATION bin)
-        endif(NOT ANDROID)
+        INSTALL(FILES ${BOOST_INSTALL_LIBS} DESTINATION bin)
+        INSTALL(FILES ${BOOST_INSTALL_LIBS_LINKS} DESTINATION bin)
 
     endif(WIN32)
 endif(INCLUDE_TOOLS)
@@ -251,7 +224,6 @@ endif(INCLUDE_TOOLS)
 # Project-wise options
 option(GIT_REVISIONS "Make package version from git revision"  ON)
 option(BUILD_QTGUI "Build the QT related projects"  OFF)
-option(INCLUDE_MIC_DEVICE "Include MIC device Into Build"  OFF)
 option(USE_ITT_INTERNAL "Report internal tasks start/stop to VTune" OFF)
 option(USE_HARD_TRAPPING "Use hard trapping for workers on CPU device"  ON)
 option(USE_COMMON_CLANG "Use VPG supplied common clang dll instead of internale implementation" OFF)
@@ -261,7 +233,7 @@ option(BUILD_LLVM_FROM_SOURCE "Build the llvm package from source instead of usi
 # find the used external packages
 
 # QTGUI
-if (BUILD_QTGUI AND NOT ANDROID)
+if (BUILD_QTGUI)
     set( QT_VERSION "4.8.5" )
     if(DEFINED QT_REVISION) # QT_REVISION is a variable that can be defined in Build.py. It is not defined by default.
        set( QT_VERSION ${QT_REVISION})
@@ -450,14 +422,6 @@ if (WIN32)
     set(IMPLIB_STATIC_SUFFIX .lib)
     set(DLL_SUFIX .dll)
     set(DYNAMIC_PREFIX dyn_ )
-elseif (ANDROID)
-    set(OS Android)
-    set(IMPLIB_SUBDIR bin)
-    set(IMPLIB_PREFIX lib)
-    set(IMPLIB_SUFFIX .so)
-    set(IMPLIB_STATIC_SUFFIX .a)
-    set(DLL_SUFIX .so)
-    set(DYNAMIC_PREFIX "" )
 else ()
     set(OS Lin)
     set(IMPLIB_SUBDIR bin)
@@ -491,7 +455,6 @@ else (WIN32)
 endif (WIN32)
 # END OF set OS-dependent source tree elements
 
-
 # Define the single binary directory where the Backend tools will be placed
 set(OCL_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
 set(OCL_TOOLS_BINARY_DIR ${OCL_BINARY_DIR}/bin)
@@ -504,38 +467,6 @@ set(OCL_TESTS_BINARY_DIR ${OCL_BINARY_DIR}/tests)
 
 
 SET_UNICODE_OFF()
-
-# define MIC directories
-if (INCLUDE_MIC_DEVICE)
-    if (WIN32)
-        set ( MPSS_PATH               "C:\\PROGRA~1\\Intel\\MPSS" )
-        set ( COI_SDK_PATH            "${MPSS_PATH}\\sdk" )
-        set ( COI_HOST_INCLUDE_PATH   "${COI_SDK_PATH}\\include" )
-        set ( COI_YOCTO_HOST_INCLUDE_PATH   "${COI_SDK_PATH}\\include\\intel-coi" )
-        set ( COI_HOST_LIB_PATH       "${COI_SDK_PATH}\\lib" )
-        set ( COI_YOCTO_HOST_LIB_PATH       ${COI_HOST_LIB_PATH} )
-        set ( COI_DEVICE_INCLUDE_PATH "${COI_SDK_PATH}\\include" )
-        set ( COI_YOCTO_DEVICE_INCLUDE_PATH "${COI_SDK_PATH}\\include\\intel-coi" )
-        set ( COI_DEVICE_LIB_PATH     "${COI_SDK_PATH}\\lib" )
-        set ( COI_YOCTO_DEVICE_LIB_PATH     "${MPSS_PATH}\\k1om-mpss-linux\\usr\\lib64" )
-    else (WIN32)
-        string(TOLOWER ${CMAKE_BUILD_TYPE} DEBUG_RELEASE)
-        set ( COI_SDK_PATH            /opt/intel/mic/coi )
-        set ( COI_HOST_INCLUDE_PATH   ${COI_SDK_PATH}/include )
-        set ( COI_YOCTO_HOST_INCLUDE_PATH /usr/include/intel-coi )
-        set ( COI_HOST_LIB_PATH       ${COI_SDK_PATH}/host-linux-${DEBUG_RELEASE}/lib )
-        set ( COI_YOCTO_HOST_LIB_PATH       /usr/lib64 )
-        set ( COI_DEVICE_INCLUDE_PATH ${COI_SDK_PATH}/include )
-        set ( COI_YOCTO_DEVICE_INCLUDE_PATH /usr/include/intel-coi )
-        set ( COI_DEVICE_LIB_PATH     ${COI_SDK_PATH}/device-linux-${DEBUG_RELEASE}/lib )
-        set ( COI_YOCTO_DEVICE_LIB_PATH     /opt/mpss/3.1/sysroots/k1om-mpss-linux/usr/lib64 )
-    endif (WIN32)
-
-    message ( STATUS "COI host include directory  : ${COI_HOST_INCLUDE_PATH}")
-    message ( STATUS "COI host lib directory      : ${COI_HOST_LIB_PATH}")
-    message ( STATUS "COI device include directory: ${COI_DEVICE_INCLUDE_PATH}")
-    message ( STATUS "COI device lib directory    : ${COI_DEVICE_LIB_PATH}")
-endif (INCLUDE_MIC_DEVICE)
 
 # paths
 
@@ -624,6 +555,6 @@ endif( INCLUDE_TOOLS )
 
 #Linux samples
 option(INCLUDE_SMPLS "Include Linux Samples into Build"  OFF)
-if (INCLUDE_SMPLS AND NOT WIN32 AND NOT ANDROID)
+if (INCLUDE_SMPLS AND NOT WIN32)
     add_subdirectory( samples )
-endif(INCLUDE_SMPLS AND NOT WIN32 AND NOT ANDROID)
+endif(INCLUDE_SMPLS AND NOT WIN32)

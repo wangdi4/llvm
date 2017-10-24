@@ -1206,8 +1206,7 @@ OclBuiltinDB::getOclBuiltin(const std::string& name) const
 std::string
 OclBuiltinDB::getSVMLRounding(const std::string& pat) const
 {
-  // New style SVML rounding name
-  // KNC and CPU switched to new style rounding name.
+  // Switched to new style SVML rounding name.
   if (pat.substr(0, 4) == "$rtn") return "rte" + pat.substr(4);
   if (pat.substr(0, 4) == "$rtz") return "rtz" + pat.substr(4);
   if (pat.substr(0, 3) == "$up") return "rtp" + pat.substr(3);

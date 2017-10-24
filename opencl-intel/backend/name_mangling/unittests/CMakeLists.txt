@@ -19,7 +19,7 @@ endif()
 
 add_custom_command(
   OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/MangledNames.h
-  COMMAND ${OCL_TBLGEN} -gen-ocl-biheader 
+  COMMAND ${OCL_TBLGEN} -gen-ocl-biheader
   -I ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins
   ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/GENERIC_CPU.td
   -o ${CMAKE_CURRENT_SOURCE_DIR}/MangledNames.h
@@ -34,11 +34,6 @@ add_executable(
   MangleTest.cpp
   TestRefCount.cpp
 )
-
-if( ANDROID ) 
-  target_link_libraries( ${TARGET_NAME} c++ )
-  set_property(TARGET ${TARGET_NAME} APPEND_STRING PROPERTY LINK_FLAGS " -pie")
-endif( ANDROID )
 
 target_link_libraries(
   ${TARGET_NAME}

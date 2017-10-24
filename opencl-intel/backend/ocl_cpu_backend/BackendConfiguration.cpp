@@ -63,15 +63,4 @@ CompilerConfig BackendConfiguration::GetCPUCompilerConfig(const ICLDevBackendOpt
     config.ApplyRuntimeOptions(pBackendOptions);
     return config;
 }
-#if defined(INCLUDE_MIC_DEVICE)
-MICCompilerConfig BackendConfiguration::GetMICCompilerConfig(const ICLDevBackendOptions* pBackendOptions ) const
-{
-    MICCompilerConfig config;
-    config.LoadDefaults();
-    config.LoadConfig();
-    config.ApplyRuntimeOptions(pBackendOptions);
-    return config;
-}
-#endif
-
 }}}

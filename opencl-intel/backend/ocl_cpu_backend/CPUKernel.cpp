@@ -38,8 +38,6 @@ static void Emit_VZeroUpper(void) {
 #endif
   }
 }
-#elif defined(__ANDROID__)
-static void Emit_VZeroUpper(void) {}
 #else
 #error Unsupported target
 #endif
@@ -58,13 +56,13 @@ CPUKernel::CPUKernel(const std::string& name,
     Kernel(name, args, memArgs, pProps)
 {
     m_hasAVX1 = m_pProps->GetCpuId().HasAVX1();
-    m_hasAVX2 = m_pProps->GetCpuId().HasAVX2();     
+    m_hasAVX2 = m_pProps->GetCpuId().HasAVX2();
 }
 
 cl_dev_err_code CPUKernel::PrepareThreadState(ICLDevExecutionState& state) const
 {
     // Use vzeroupper to avoid the AVX state transition penalty.
-    if(m_hasAVX1 && !m_hasAVX2) 
+    if(m_hasAVX1 && !m_hasAVX2)
     {
         Emit_VZeroUpper();
     }
@@ -72,19 +70,19 @@ cl_dev_err_code CPUKernel::PrepareThreadState(ICLDevExecutionState& state) const
     state.MXCSRstate = _mm_getcsr();
     unsigned int uiNewFlags = (state.MXCSRstate & ~m_CSRMask) | m_CSRFlags;
     _mm_setcsr( uiNewFlags);
-    return CL_DEV_SUCCESS;    
+    return CL_DEV_SUCCESS;
 }
 
 cl_dev_err_code CPUKernel::RestoreThreadState(ICLDevExecutionState& state) const
 {
     // Use vzeroupper to avoid the AVX state transition penalty.
-    if(m_hasAVX1 && !m_hasAVX2) 
+    if(m_hasAVX1 && !m_hasAVX2)
     {
         Emit_VZeroUpper();
     }
 
     _mm_setcsr(state.MXCSRstate);
-    return CL_DEV_SUCCESS; 
+    return CL_DEV_SUCCESS;
 }
 
 

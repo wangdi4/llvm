@@ -8,22 +8,6 @@ set (LLVM_FE_INCLUDE_DIRS ${LLVM_PATH_FE}/include)
 set(TARGET_NAME SATest)
 use_rtti(FALSE)
 
-if (NOT WIN32)
-    if (INCLUDE_MIC_DEVICE)
-        set (SATEST_INCLUDE_MIC_DEVICE INCLUDE_MIC_DEVICE)
-    endif (INCLUDE_MIC_DEVICE)
-endif (NOT WIN32)
-
-if (SATEST_INCLUDE_MIC_DEVICE)
-    if (KNC_CARD)
-        if ( NOT WIN32)
-            add_library(../../external/vtune/libknc/jitprofiling.a STATIC IMPORTED)
-        endif(NOT WIN32)
-    endif (KNC_CARD)
-
-    add_definitions ( -DCOI_LIBRARY_VERSION=2 )
-endif (SATEST_INCLUDE_MIC_DEVICE)
-
 if (WIN32)
     set (ICC_WIN32_PATH $ENV{ICPP_COMPILER16})
 
@@ -128,27 +112,6 @@ set (TARGET_SOURCE_FILES
     OpenCLStamp.cpp
     )
 
-if (SATEST_INCLUDE_MIC_DEVICE)
-    set (TARGET_HEADER_FILES
-        ${TARGET_HEADER_FILES}
-        OpenCLMICBackendRunner.h
-        OpenCLMICArgsBuffer.h
-        COIHelpers.h
-        )
-    set (TARGET_SOURCE_FILES
-        ${TARGET_SOURCE_FILES}
-        OpenCLMICBackendRunner.cpp
-        OpenCLMICArgsBuffer.cpp
-        COIHelpers.cpp
-        )
-    add_definitions( -DSATEST_INCLUDE_MIC_DEVICE )
-    set( SATEST_NATIVE_NAME     SATestNative.bin)
-    list (APPEND SATestMICDefs "SATEST_NATIVE_NAME=\"${SATEST_NATIVE_NAME}\"")
-    list (APPEND SATestMICDefs "SVML_LIBRARY_PATH=NULL") # SATest will look SVML library in paths defined in SINK_LD_LIBRARY_PATH.
-    include_directories(${COI_HOST_INCLUDE_PATH} ${COI_YOCTO_HOST_INCLUDE_PATH})
-    link_directories(${COI_HOST_LIB_PATH} ${COI_YOCTO_HOST_LIB_PATH})
-endif (SATEST_INCLUDE_MIC_DEVICE)
-
 add_executable(${TARGET_NAME}
     ${TARGET_HEADER_FILES}
     ${TARGET_SOURCE_FILES}
@@ -180,20 +143,6 @@ target_link_libraries(${TARGET_NAME}
 #if (NOT WIN32)
 #    SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} OCLBuiltins_linux_exports.txt )
 #endif (NOT WIN32)
-
-if (SATEST_INCLUDE_MIC_DEVICE)
-    add_subdirectory(MICNative)
-    add_dependencies(${TARGET_NAME}
-                     OclDeviceExecutor
-    )
-    set_target_properties(${TARGET_NAME} PROPERTIES COMPILE_DEFINITIONS "${SATestMICDefs}")
-    target_link_libraries(${TARGET_NAME} coi_host dynamic_load cl_sys_utils)
-
-    if (NOT WIN32)
-        get_target_property( CURR_RPATH ${TARGET_NAME} INSTALL_RPATH )
-        set_target_properties( ${TARGET_NAME} PROPERTIES INSTALL_RPATH "${CURR_RPATH};${COI_HOST_LIB_PATH}" )
-    endif (NOT WIN32)
-endif (SATEST_INCLUDE_MIC_DEVICE)
 
 if(NOT WIN32)
     add_dependencies(${TARGET_NAME} ImathLibd_wrapper)

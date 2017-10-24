@@ -27,9 +27,12 @@ File Name:  OpenCLArgsBuffer.cpp
 
 #include <algorithm>
 #include <functional>
-#include "MICNative/common.h"
 
 using namespace Validation;
+
+// must be a multiple of 64 to avoid alignment issues.
+const size_t  PaddingSize = 4096;
+const uint8_t PaddingVal  = 0xcc;
 
 OpenCLArgsBuffer::OpenCLArgsBuffer(const cl_kernel_argument * pKernelArgs, 
                                    cl_uint kernelNumArgs, 

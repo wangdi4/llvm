@@ -268,8 +268,6 @@ private:
     // Instance with all function pointers. Owned by this class
     ImageCallbackFunctions* m_ImageFunctions;
     // Pointer to Compiler. Owned by this class.
-    // TODO: this pointer should be changed to Compiler* instead of CPUCompiler
-    // to enable MICSupport
     CPUCompiler* m_Compiler;
     // pointer to library Rtl Buffer. Owned by this class
     std::unique_ptr<llvm::MemoryBuffer> m_pRtlBuffer;

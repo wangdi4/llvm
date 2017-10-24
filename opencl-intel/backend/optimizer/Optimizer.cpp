@@ -557,7 +557,6 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
     if (APFLevel != APFLEVEL_0_DISAPF) {
       if (pConfig->GetCpuId().RequirePrefetch())
         PM.add(createPrefetchPassLevel(pConfig->GetAPFLevel()));
-
       PM.add(llvm::createDeadCodeEliminationPass()); // Delete dead instructions
       PM.add(llvm::createInstructionCombiningPass()); // Instruction combining
       PM.add(createSmartGVNPass(false));

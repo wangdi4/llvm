@@ -17,9 +17,6 @@ File Name:  BackendConfiguration.h
 \*****************************************************************************/
 #pragma once
 #include "CompilerConfig.h"
-#if defined(INCLUDE_MIC_DEVICE)
-#include "MICCompilerConfig.h"
-#endif
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -52,12 +49,6 @@ public:
      * Returns the CPU compiler instance configuration.
      */
     CompilerConfig GetCPUCompilerConfig(const ICLDevBackendOptions* pBackendOptions) const;
-#if defined(INCLUDE_MIC_DEVICE)
-    /**
-     * Returns the MIC compiler instance configuration.
-     */
-    MICCompilerConfig GetMICCompilerConfig(const ICLDevBackendOptions* pBackendOptions) const;
-#endif
 
 private:
     BackendConfiguration(){}

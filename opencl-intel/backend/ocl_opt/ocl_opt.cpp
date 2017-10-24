@@ -36,7 +36,6 @@ void initializeOCLPasses(PassRegistry &Registry)
     intel::initializeSimplifyGEPPass(Registry);
     intel::initializePacketizeFunctionPass(Registry);
     intel::initializeX86ResolverPass(Registry);
-    intel::initializeMICResolverPass(Registry);
     intel::initializeAVX512ResolverPass(Registry);
     intel::initializeOCLBuiltinPreVectorizationPassPass(Registry);
     intel::initializeSpecialCaseBuiltinResolverPass(Registry);

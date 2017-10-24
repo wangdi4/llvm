@@ -21,10 +21,6 @@ File Name:  BackendOptions.h
 #include "OpenCLRunConfiguration.h"
 #include "Exception.h"
 
-#if defined(SATEST_INCLUDE_MIC_DEVICE)
-#include "MICNative/common.h"
-#endif
-
 #include "cl_dev_backend_api.h"
 #include <string.h>
 #include <stdio.h>
@@ -183,176 +179,6 @@ protected:
     bool m_dumpHeuristcIR;
 };
 
-#if defined(SATEST_INCLUDE_MIC_DEVICE)
-class MICBackendOptions: public ICLDevBackendOptions
-{
-public:
-    void InitFromRunConfiguration(const BERunOptions& runConfig)
-    {
-        m_transposeSize = runConfig.GetValue<Intel::OpenCL::DeviceBackend::ETransposeSize>(RC_BR_TRANSPOSE_SIZE, TRANSPOSE_SIZE_NOT_SET);
-        m_cpu           = runConfig.GetValue<std::string>(RC_BR_CPU_ARCHITECTURE, "knc");
-        m_cpuFeatures   = runConfig.GetValue<std::string>(RC_BR_CPU_FEATURES, "");
-        m_useVTune      = runConfig.GetValue<bool>(RC_BR_USE_VTUNE, false);
-        m_fileName      = runConfig.GetValue<std::string>(RC_BR_DUMP_OPTIMIZED_LLVM_IR, "-");
-
-        m_DumpIROptionAfter = runConfig.GetValue<const std::vector<IRDumpOptions> * >
-                                (RC_BR_DUMP_IR_AFTER, 0);
-        m_DumpIROptionBefore = runConfig.GetValue<const std::vector<IRDumpOptions> * >
-                                (RC_BR_DUMP_IR_BEFORE, 0);
-
-        m_DumpIRDir = runConfig.GetValue<std::string>(RC_BR_DUMP_IR_DIR, "");
-    }
-
-    bool GetBooleanValue(int optionId, bool defaultValue) const
-    {
-        switch(optionId)
-        {
-        case CL_DEV_BACKEND_OPTION_USE_VTUNE :
-            return m_useVTune;
-        default:
-            return defaultValue;
-        }
-    }
-
-    void InitTargetDescriptionSession(size_t targetDescriptionSize, const char* targetDescription)
-    {
-        if(!isMIC()) return;
-        m_targetDescSize = targetDescriptionSize;
-
-        if(0 != m_targetDescSize)
-        {
-            m_pTargetDesc.resize(m_targetDescSize);
-            memcpy(&(m_pTargetDesc[0]), targetDescription, m_targetDescSize);
-        }
-    }
-
-    virtual int GetIntValue( int optionId, int defaultValue) const
-    {
-        switch(optionId)
-        {
-        case CL_DEV_BACKEND_OPTION_TARGET_DESC_SIZE:
-            return (int)m_targetDescSize;
-        case CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE:
-            return (int)m_transposeSize;
-        default:
-            return defaultValue;
-        }
-    }
-
-    virtual const char* GetStringValue(int optionId, const char* defaultValue)const
-    {
-        switch(optionId)
-        {
-        case CL_DEV_BACKEND_OPTION_DEVICE :
-            return "mic";
-        case CL_DEV_BACKEND_OPTION_SUBDEVICE :
-            return m_cpu.c_str();
-        case CL_DEV_BACKEND_OPTION_SUBDEVICE_FEATURES:
-            return m_cpuFeatures.c_str();
-        //case CL_DEV_BACKEND_OPTION_DUMPFILE :
-        //    return m_fileName.c_str();
-        case CL_DEV_BACKEND_OPTION_DUMP_IR_DIR:
-            return m_DumpIRDir.c_str();
-        default:
-            return defaultValue;
-        }
-    }
-
-    virtual void SetStringValue(int optionId, const char* value)
-    {
-        switch(optionId)
-        {
-        case CL_DEV_BACKEND_OPTION_SUBDEVICE :
-            m_cpu = std::string(value);
-        case CL_DEV_BACKEND_OPTION_SUBDEVICE_FEATURES:
-            m_cpuFeatures = std::string(value);
-        default:
-            return;
-        }
-    }
-
-    virtual bool GetValue(int optionId, void* Value, size_t* pSize) const
-    {
-        if (Value == NULL)
-        {
-            throw Exception::InvalidArgument("Value is not initialized");
-        }
-        switch(optionId)
-        {
-        case OPTION_IR_DUMPTYPE_AFTER :
-            *(static_cast<const std::vector<IRDumpOptions>* * >(Value)) = m_DumpIROptionAfter;
-            return true;
-        case OPTION_IR_DUMPTYPE_BEFORE :
-            *(static_cast<const std::vector<IRDumpOptions>* * >(Value)) = m_DumpIROptionBefore;
-            return true;
-        case CL_DEV_BACKEND_OPTION_TARGET_DESC_BLOB:
-            if(*pSize < m_targetDescSize) return false;
-            memcpy(Value, &m_pTargetDesc[0], m_targetDescSize);
-            return true;
-        default:
-            return false;
-        }
-    }
-
-    // These two methods intended to serialize command line options only.
-    // Target data is not serialized because:
-    // 1. It will not be available at the moment of serialization.
-    // 2. It's not needed to pass to the device. Device already has this information.
-    // m_fileName member is not serialized because it's host-specific.
-    uint64_t GetSerializedSize() const
-    {
-        return 4 + // will pass m_transposeSize as uint32_t
-            m_cpu.size() + 1 + 4 + // 1 for termination symbol '\0', 4 for storing string size
-            m_cpuFeatures.size() + 1 + 4 +
-            1; // m_useVTune
-    }
-
-    char* GetSerializedData() const
-    {
-        uint64_t size = GetSerializedSize();
-        uint32_t offset = 0;
-        char* serialized = new char[size];
-        // transpose size
-        uint32_t transposeSize = (uint32_t)m_transposeSize;
-        memcpy(serialized+offset, &transposeSize, sizeof(uint32_t));
-        offset += sizeof(uint32_t);
-        // m_cpu
-        uint32_t cpuSize = (uint32_t)m_cpu.size();
-        memcpy(serialized+offset, &cpuSize, sizeof(uint32_t));
-        offset += sizeof(uint32_t);
-        memcpy(serialized+offset, m_cpu.c_str(), cpuSize);
-        offset += cpuSize;
-        // m_cpuFeatures
-        uint32_t cpuFeaturesSize = (uint32_t)m_cpuFeatures.size();
-        memcpy(serialized+offset, &cpuFeaturesSize, sizeof(uint32_t));
-        offset += sizeof(uint32_t);
-        memcpy(serialized+offset, m_cpuFeatures.c_str(), cpuFeaturesSize);
-        offset += cpuFeaturesSize;
-        // m_useVTune
-        uint8_t useVTune = (uint8_t)m_useVTune;
-        memcpy(serialized+offset, &useVTune, sizeof(uint8_t));
-        return serialized;
-    }
-
-private:
-    bool isMIC()
-    {
-        return m_cpu == "knc";
-    }
-
-    size_t              m_targetDescSize;
-    std::vector<char>   m_pTargetDesc;
-
-    const std::vector<IRDumpOptions>* m_DumpIROptionAfter;
-    const std::vector<IRDumpOptions>* m_DumpIROptionBefore;
-    std::string m_DumpIRDir;
-    Intel::OpenCL::DeviceBackend::ETransposeSize m_transposeSize;
-    std::string    m_cpu;
-    std::string    m_cpuFeatures;
-    bool           m_useVTune;
-    std::string    m_fileName;
-};
-#endif // SATEST_INCLUDE_MIC_DEVICE
 
 /**
  * Description of ENABLE_SDE mode for MIC:
@@ -388,7 +214,6 @@ public:
 
     virtual void InitTargetDescriptionSession(ICLDevBackendExecutionService* pExecutionService)
     {
-        if(!isMIC()) return ;
         m_targetDescSize = pExecutionService->GetTargetMachineDescriptionSize();
 
         if(0 != m_targetDescSize)
@@ -403,7 +228,7 @@ public:
         switch(optionId)
         {
         case CL_DEV_BACKEND_OPTION_DEVICE :
-            return isMIC() ? "mic" : "cpu";
+            return "cpu";
         default:
             return CPUBackendOptions::GetStringValue(optionId, defaultValue);
         }
@@ -440,11 +265,6 @@ public:
 
 
 private:
-    bool isMIC() const
-    {
-        return m_cpu == "knc";
-    }
-
     void copy(const SDEBackendOptions& options)
     {
         m_targetDescSize = options.m_targetDescSize;

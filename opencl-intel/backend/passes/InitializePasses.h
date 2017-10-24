@@ -27,7 +27,6 @@ void initializeScalarizeFunctionPass(llvm::PassRegistry&);
 void initializeSimplifyGEPPass(llvm::PassRegistry&);
 void initializePacketizeFunctionPass(llvm::PassRegistry&);
 void initializeX86ResolverPass(llvm::PassRegistry&);
-void initializeMICResolverPass(llvm::PassRegistry&);
 void initializeAVX512ResolverPass(llvm::PassRegistry&);
 void initializeOCLBuiltinPreVectorizationPassPass(llvm::PassRegistry&);
 void initializeSpecialCaseBuiltinResolverPass(llvm::PassRegistry&);

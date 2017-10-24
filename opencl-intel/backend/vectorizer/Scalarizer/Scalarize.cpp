@@ -1528,16 +1528,13 @@ void ScalarizeFunction::resolveDeferredInstructions()
 
 bool ScalarizeFunction::isScalarizableLoadStoreType(VectorType *type) {
   // Scalarize Load/Store worth doing only if:
-  //  1. KNC/KNL
+  //  1. KNL
   //  2. Load/Store type is a vector with less than 16 elements
 
   if(!type)
     return false;
 
   if(EnableScatterGather && (type->getNumElements() < 16))
-    return true;
-
-  if ((m_Cpu == Intel::MIC_KNC) && (type->getNumElements() < 16))
     return true;
 
   if ((m_Cpu == Intel::CPU_KNL || m_Cpu == Intel::CPU_SKX) &&

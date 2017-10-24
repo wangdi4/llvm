@@ -62,11 +62,5 @@ void PerformancePrinter::OnKernelSample(
               << vectorSize << "," // Actualy vector size
               << m_IRFilename << ","
               << m_JITFilename
-#ifdef SATEST_INCLUDE_MIC_DEVICE
-              << serializationTicks << ","
-              << serializationSDMean << ","
-              << deserializationTicks << ","
-              << deserializationSDMean << ","
-#endif
               << std::endl;
 }

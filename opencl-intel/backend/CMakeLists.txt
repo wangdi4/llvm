@@ -12,13 +12,8 @@ message( STATUS "Backend LLVM_INCLUDE_DIRS: ${LLVM_INCLUDE_DIRS}" )
 # define INTEL_CUSTOMIZATION xmain macro
 add_definitions( -DINTEL_CUSTOMIZATION )
 
-if( ANDROID )
-    set( BACKEND_BUILD_TESTS            OFF  CACHE STRING "")
-    set( BACKEND_BUILD_VERIFICATION_LIB OFF  CACHE STRING "")
-else( ANDROID )
-    set( BACKEND_BUILD_TESTS            ON  CACHE STRING "")
-    set( BACKEND_BUILD_VERIFICATION_LIB ON  CACHE STRING "")
-endif( ANDROID )
+set( BACKEND_BUILD_TESTS            ON  CACHE STRING "")
+set( BACKEND_BUILD_VERIFICATION_LIB ON  CACHE STRING "")
 
 set( OCL_BACKEND_STAND_ALONE      ON  CACHE STRING "")
 
@@ -40,12 +35,6 @@ endif (OCLT)
 set_directory_properties(PROPERTIES INCLUDE_DIRECTORIES "")
 
 remove_definitions( -D_UNICODE -DUNICODE )
-
-# Define a macro which can be used to hide MIC symbols when we do not want to
-# expose IP
-if (INCLUDE_MIC_DEVICE)
-  add_definitions( -DINCLUDE_MIC_DEVICE )
-endif (INCLUDE_MIC_DEVICE)
 
 #
 # Settings for Linux compilation
@@ -126,7 +115,7 @@ if (LLVM_BUILD_OCL_CPU_BACKEND)
     add_subdirectory(optimizer         "${CMAKE_CURRENT_BINARY_DIR}/optimizer")
     add_subdirectory(ocl_cpu_backend   "${CMAKE_CURRENT_BINARY_DIR}/ocl_cpu_backend")
 #    Disable until CORC-2317 is fixed
-    add_subdirectory(ocl_cpu_debugging "${CMAKE_CURRENT_BINARY_DIR}/ocl_cpu_debugging") 
+    add_subdirectory(ocl_cpu_debugging "${CMAKE_CURRENT_BINARY_DIR}/ocl_cpu_debugging")
     add_subdirectory(ocl_opt           "${CMAKE_CURRENT_BINARY_DIR}/ocl_opt")
     add_subdirectory(ocl_opt_img       "${CMAKE_CURRENT_BINARY_DIR}/ocl_opt_img")
     add_subdirectory(libraries/ocl_builtins "${CMAKE_CURRENT_BINARY_DIR}/ocl_builtins")
@@ -135,10 +124,6 @@ if (LLVM_BUILD_OCL_CPU_BACKEND)
     add_subdirectory(name_mangling     "${CMAKE_CURRENT_BINARY_DIR}/name_mangling")
     add_subdirectory(reflection_module "${CMAKE_CURRENT_BINARY_DIR}/reflection_module")
     add_subdirectory(stat_summary      "${CMAKE_CURRENT_BINARY_DIR}/stat_summary")
-    if (INCLUDE_MIC_DEVICE)
-        add_subdirectory(ocl_mic_executor "${CMAKE_CURRENT_BINARY_DIR}/ocl_mic_executor")
-        add_subdirectory(MICJITEngine     "${CMAKE_CURRENT_BINARY_DIR}/MICJITEngine")
-    endif ()
 endif (LLVM_BUILD_OCL_CPU_BACKEND)
 
 # Validation utilities
@@ -148,10 +133,6 @@ message(STATUS "Build OpenCL CPU backend validation tools: ${LLVM_BUILD_OCL_CPU_
 if (BACKEND_BUILD_VERIFICATION_LIB)
     add_subdirectory(external/tinyxml  "${CMAKE_CURRENT_BINARY_DIR}/tinyxml")
     add_subdirectory(validations       "${CMAKE_CURRENT_BINARY_DIR}/validations")
-
-    # copying MICRegression suite tests to install directory
-    install(DIRECTORY ${BACKEND_ROOT_DIR}/tests/MIC/satest/mic/
-            DESTINATION tests/MICRegression/)
 
     set_target_properties( DataVersion PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/validation )
     set_target_properties( Comparator PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/validation )

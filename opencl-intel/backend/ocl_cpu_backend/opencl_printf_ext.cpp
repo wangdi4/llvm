@@ -4,23 +4,23 @@
 // INTEL CONFIDENTIAL
 // Copyright 2007-2010 Intel Corporation All Rights Reserved.
 //
-// The source code contained or described herein and all documents related 
-// to the source code ("Material") are owned by Intel Corporation or its 
+// The source code contained or described herein and all documents related
+// to the source code ("Material") are owned by Intel Corporation or its
 // suppliers or licensors. Title to the Material remains with Intel Corporation
-// or its suppliers and licensors. The Material may contain trade secrets and 
-// proprietary and confidential information of Intel Corporation and its 
-// suppliers and licensors, and is protected by worldwide copyright and trade 
-// secret laws and treaty provisions. No part of the Material may be used, copied, 
-// reproduced, modified, published, uploaded, posted, transmitted, distributed, 
+// or its suppliers and licensors. The Material may contain trade secrets and
+// proprietary and confidential information of Intel Corporation and its
+// suppliers and licensors, and is protected by worldwide copyright and trade
+// secret laws and treaty provisions. No part of the Material may be used, copied,
+// reproduced, modified, published, uploaded, posted, transmitted, distributed,
 // or disclosed in any way without Intel's prior express written permission.
 //
 // No license under any patent, copyright, trade secret or other intellectual
-// property right is granted to or conferred upon you by disclosure or delivery 
-// of the Materials, either expressly, by implication, inducement, estoppel or 
+// property right is granted to or conferred upon you by disclosure or delivery
+// of the Materials, either expressly, by implication, inducement, estoppel or
 // otherwise. Any license under such intellectual property rights must be express
 // and approved by Intel in writing.
 //
-// Unless otherwise agreed by Intel in writing, you may not remove or alter this notice 
+// Unless otherwise agreed by Intel in writing, you may not remove or alter this notice
 // or any other notice embedded in Materials by Intel or Intel's suppliers or licensors
 // in any way.
 /////////////////////////////////////////////////////////////////////////
@@ -38,12 +38,6 @@
     #include <stdint.h>
 #endif
 
-#if defined(__ANDROID__)
-    #include <stdint.h>
-    typedef long long __int64;
-#endif
-
-
 using namespace std;
 using namespace Intel::OpenCL;
 
@@ -59,7 +53,7 @@ const size_t MAX_FORMAT_LEN = 128;
 const size_t MAX_CONVERSION_LEN = 1024; // <- was 4096;
 
 
-// These macros allow working with the packed args buffer similarly to the 
+// These macros allow working with the packed args buffer similarly to the
 // way the standard va_* macros work. Note that the minimal size of argument
 // taken off the buffer is sizeof(int) - this is guaranteed by the default
 // argument promotion rules of C99.
@@ -78,15 +72,15 @@ const char* CopyAndAdvance(const char* src, T& dest) {
 StreamOutputAccumulator::StreamOutputAccumulator(FILE* stream)
     : stream(stream), count(0)
 {
-    #if (defined(_WIN32) || defined(_WIN64)) 
+    #if (defined(_WIN32) || defined(_WIN64))
         hStdout=nullptr;
     #endif
 }
 
 void StreamOutputAccumulator::append(char c)
 {
-#if (defined(_WIN32) || defined(_WIN64)) 
-    //Windows 64 crash fix, ticket no. CSSD100006413 
+#if (defined(_WIN32) || defined(_WIN64))
+    //Windows 64 crash fix, ticket no. CSSD100006413
     if (!hStdout){
         hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
         if (INVALID_HANDLE_VALUE == hStdout){
@@ -96,13 +90,13 @@ void StreamOutputAccumulator::append(char c)
     }
     DWORD d;
     WriteFile(hStdout, &c, 1, &d, nullptr);
-#else 
+#else
     fputc(c, stream);
 #endif
     count++;
 }
 
-void StreamOutputAccumulator::finalize() 
+void StreamOutputAccumulator::finalize()
 {
 }
 
@@ -139,18 +133,18 @@ void StringOutputAccumulator::finalize()
 int StringOutputAccumulator::output_count()
 {
     // C99 says in "7.19.6.5 The snprintf function":
-    // 
-    //  The snprintf function returns the number of characters that 
-    //  would have been written had n been sufficiently large, not counting 
-    //  the terminating null character, or a negative value if an encoding 
-    //  error occurred. Thus, the null-terminated output has been  
-    //  completely written if and only if the returned value is nonnegative 
+    //
+    //  The snprintf function returns the number of characters that
+    //  would have been written had n been sufficiently large, not counting
+    //  the terminating null character, or a negative value if an encoding
+    //  error occurred. Thus, the null-terminated output has been
+    //  completely written if and only if the returned value is nonnegative
     //  and less than n.
     //
     return count;
 }
 
-// Conversion flags. 
+// Conversion flags.
 //
 enum ConversionFlag {
     FLAG_NONE       = 0x00,
@@ -162,7 +156,7 @@ enum ConversionFlag {
 };
 
 
-// Length modifier type. 
+// Length modifier type.
 //
 enum LengthModifier {
     MODIFIER_NONE,
@@ -190,7 +184,7 @@ inline int CHARDIGIT(char digit)
 // A C99 conformant wrapper around Microsoft's non-C99-compliant functions.
 // The thing this wrapper fixes are:
 // * Correct handling of a NULL str in case size = 0
-// * Always '\0'-terminate str, and if it's too short return the amount of 
+// * Always '\0'-terminate str, and if it's too short return the amount of
 //   chars that would've been written into it, instead of returning -1.
 //
 // For Linux/gcc, this should be made a trivial wrapper around vsnprintf.
@@ -238,7 +232,7 @@ void c99_fix_format_e()
 // If buf is too short, return -1 (it should happen only in case of a bug!).
 // Otherwise, return 0.
 //
-int build_format_string(char* buf, int buflen, 
+int build_format_string(char* buf, int buflen,
                         unsigned conversion_flags,
                         int width, int precision,
                         LengthModifier modifier,
@@ -276,7 +270,7 @@ int build_format_string(char* buf, int buflen,
     }
 
     // Buffer to hold length modifier: the longest is 2 chars
-    // 
+    //
     char modifier_buf[3] = {0};
     switch (modifier) {
         case MODIFIER_CHAR:
@@ -297,7 +291,7 @@ int build_format_string(char* buf, int buflen,
             modifier_buf[0] = 'l';
             modifier_buf[1] = 'l';
             break;
-        case MODIFIER_INTMAX:   
+        case MODIFIER_INTMAX:
             modifier_buf[0] = 'j';
             break;
         case MODIFIER_SIZE_T:
@@ -319,9 +313,9 @@ int build_format_string(char* buf, int buflen,
             break;
     }
 
-    count = c99_snprintf(buf, buflen, "%%%s%s%s%s%s%c", 
-        flags_buf, width_buf, 
-        dot_buf, precision_buf, 
+    count = c99_snprintf(buf, buflen, "%%%s%s%s%s%s%c",
+        flags_buf, width_buf,
+        dot_buf, precision_buf,
         modifier_buf,
         conversion_type);
 
@@ -339,7 +333,7 @@ inline bool is_unsigned_specifier(char c)
     return (c == 'X' || c == 'x' || c == 'o' || c == 'u');
 }
 
-#if defined(_WIN32) || defined(_WIN64) || defined (__ANDROID__)
+#if defined(_WIN32) || defined(_WIN64)
 //union for double bit operations
 static const __int64 MASK = 0x8000000000000000;
 static const __int64 dnan_min =  0x7FF0000000000000; // or numeric_limits<float>::quiet_NaN();
@@ -353,14 +347,14 @@ union DoubleUtil{
     bool isInf()const{ return (m_i & dnan_max) == dnan_min; }
     bool isNegative()const {return MASK == (m_i & MASK);}
 };
-#endif //WIN || ANDROID
+#endif //WIN
 
 //Purpose: appends a string to the output buffer, with respect to the value of
 //the given double value (d).
 static void purgeDouble(OutputAccumulator& output, const double& d,
                         char* buffer, bool capitalCase) {
 //window's sprintf does not conform with OpenCL when it comes to NAN and INF values
-#if defined(_WIN32) || defined(_WIN64) || defined (__ANDROID__)
+#if defined(_WIN32) || defined(_WIN64)
     DoubleUtil dutil(d);
     if (dutil.isNegative() && (dutil.isInf() || dutil.isNan()))
         output.append('-');
@@ -372,7 +366,7 @@ static void purgeDouble(OutputAccumulator& output, const double& d,
         output.append(capitalCase ? "INF" : "inf");
         return;
     }
-#endif //WIN || ANDROID
+#endif //WIN
     output.append(buffer);
 }
 // Does the heavy lifting of formatted printing - called by the interface
@@ -380,8 +374,8 @@ static void purgeDouble(OutputAccumulator& output, const double& d,
 // Return 0 if everything is OK and a negative value in case of an error.
 //
 // Terminology follows the C99 standard (section 7.19.6):
-//  
-//    A "conversion specification" is a '%' character followed by flags, width, 
+//
+//    A "conversion specification" is a '%' character followed by flags, width,
 //    precision, length and specifier (all optional except the last).
 //
 //
@@ -417,7 +411,7 @@ static int formatted_output(OutputAccumulator& output, const char* format, const
                 break;
         }
 
-        // Here we have a % char in c. Skip it and parse the conversion 
+        // Here we have a % char in c. Skip it and parse the conversion
         // specification
         //
         c = *++format;
@@ -472,7 +466,7 @@ static int formatted_output(OutputAccumulator& output, const char* format, const
             if (c == '*') {
                 args = CopyAndAdvance(args, precision);
                 c = *++format;
-            } 
+            }
             else {
                 while (c >= '0' && c <= '9') {
                     precision = precision * 10 + CHARDIGIT(c);
@@ -481,7 +475,7 @@ static int formatted_output(OutputAccumulator& output, const char* format, const
                     c = *++format;
                 }
             }
-        } 
+        }
         else {
             precision = -1;
         }
@@ -549,7 +543,7 @@ static int formatted_output(OutputAccumulator& output, const char* format, const
             default:
                 break;
         }
-        // At this point the following variables specify all the state parsed 
+        // At this point the following variables specify all the state parsed
         // prior to this specifier:
         //   unsigned conversion_flags
         //   int width
@@ -557,12 +551,12 @@ static int formatted_output(OutputAccumulator& output, const char* format, const
         //   LengthModifier modifier
         //   unsigned vector_len
         //
-        // We can now build the format string back in order to pass it to 
-        // c99_snprintf. This is a scalar format string (for vectors, the 
+        // We can now build the format string back in order to pass it to
+        // c99_snprintf. This is a scalar format string (for vectors, the
         // vector length specifier is removed).
         //
         char format_buf[MAX_FORMAT_LEN] = {0};
-        int rc = build_format_string(format_buf, sizeof(format_buf), 
+        int rc = build_format_string(format_buf, sizeof(format_buf),
             conversion_flags, width, precision, modifier, c);
 
         if (rc < 0)
@@ -574,7 +568,7 @@ static int formatted_output(OutputAccumulator& output, const char* format, const
         size_t cbuflen = sizeof(cbuf);
 
         // Now that we have the format string in format_buf, we will take an
-        // argument of the appropriate type off the stack and pass it for 
+        // argument of the appropriate type off the stack and pass it for
         // conversion to c99_snprintf.
         //
         // The following are temp vars for taking arguments from the args list
@@ -589,16 +583,16 @@ static int formatted_output(OutputAccumulator& output, const char* format, const
 
         // Parse the conversion specifier and perform the actual conversion.
         // Note that some of the conversions manually manipulate the "args"
-        // pointer, since vector types have to be supported, with their 
+        // pointer, since vector types have to be supported, with their
         // special alignment and spacing rules on the stack. So, we assume
-        // here that varargs are passed according to the Microsoft __cdecl 
+        // here that varargs are passed according to the Microsoft __cdecl
         // calling convention.
         //
         switch (c) {
             case '%':
                 output.append('%');
                 break;
-            case 'c': 
+            case 'c':
                 for (unsigned i = 0; i < vector_len; ++i) {
                     args = CopyAndAdvance(args, char_val);
 
@@ -634,9 +628,9 @@ static int formatted_output(OutputAccumulator& output, const char* format, const
                 break;
             case 'd': // fall-through
             case 'i':
-            case 'X': 
-            case 'x': 
-            case 'o': 
+            case 'X':
+            case 'x':
+            case 'o':
             case 'u':
                 for (unsigned i = 0; i < vector_len; ++i) {
                     switch (modifier) {
@@ -668,8 +662,8 @@ static int formatted_output(OutputAccumulator& output, const char* format, const
                         case MODIFIER_LONGLONG:
                         case MODIFIER_INTMAX:
                             // The OpenCL printf extension proposal requires
-                            // 64-bit integers with the 'l' modifier, so 
-                            // (u)int64_t is taken. intmax and longlong aren't 
+                            // 64-bit integers with the 'l' modifier, so
+                            // (u)int64_t is taken. intmax and longlong aren't
                             // supported, so we keep them as 'long'.
                             //
                             if (is_unsigned_specifier(c)){
@@ -721,10 +715,10 @@ static int formatted_output(OutputAccumulator& output, const char* format, const
                 }
                 break;
                 // case 'n':// XXX: Should this be supported in OpenCL at all??
-                            // it's unsafe and isn't supported by MSVC    
+                            // it's unsafe and isn't supported by MSVC
             case 'F': // fall-through
-            case 'E': 
-            case 'G': 
+            case 'E':
+            case 'G':
             case 'A':
               capitalCase = true;
               LLVM_FALLTHROUGH
@@ -734,8 +728,8 @@ static int formatted_output(OutputAccumulator& output, const char* format, const
             case 'a':
                 for (unsigned i = 0; i < vector_len; ++i) {
                     // Practically, the LONGDOUBLE modifier is ignored since OpenCL
-                    // has no such type. 
-                    // 
+                    // has no such type.
+                    //
                     args = CopyAndAdvance(args, float_val);
 
                     if (size_t(c99_snprintf(cbuf, cbuflen, format_buf, float_val)) >= cbuflen)

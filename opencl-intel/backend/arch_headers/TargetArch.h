@@ -23,9 +23,6 @@ enum ECPU {
     CPU_HASWELL,
     CPU_KNL,
     CPU_SKX,
-    // MIC Cards must appear last
-    MIC_KNC,
-    MIC_FIRST = MIC_KNC,
     DEVICE_INVALID // Always last
 };
 // CPU Features enumeration
@@ -96,7 +93,6 @@ public:
         std::string Name(CPUName);
         if (Name == "knl") return CPU_KNL;
         if (Name == "skx") return CPU_SKX;
-        if (Name == "knc") return MIC_KNC;
         if (Name == "core-avx2") return CPU_HASWELL;
         if (Name == "corei7-avx") return CPU_SANDYBRIDGE;
         if (Name == "corei7") return CPU_COREI7;
@@ -131,8 +127,6 @@ public:
             return "knl";
         case CPU_SKX:
             return "skx";
-        case MIC_KNC:
-            return "knc";
         }
         llvm_unreachable("Unknown CPU!");
     }
@@ -167,9 +161,6 @@ public:
                 return "d3";
             case CPU_SKX:
                 return "x0";
-            case MIC_KNC:
-                llvm_unreachable("No MIC SVML lib for 32-bit OS!");
-                return 0;
             }
         }
         switch(CPU) {
@@ -193,8 +184,6 @@ public:
             return "b3";
         case CPU_SKX:
             return "z0";
-        case MIC_KNC:
-            return "b2";
         }
     }
     unsigned GetLatestSupportedFeature() const {
@@ -213,16 +202,17 @@ public:
         return HasGatherScatter(m_CPU);
     }
     static bool HasGatherScatter(ECPU CPU) {
-        return (CPU == MIC_KNC || CPU == CPU_KNL || CPU == CPU_SKX);
+        return (CPU == CPU_KNL || CPU == CPU_SKX);
     }
     static bool HasGatherScatterPrefetch(ECPU CPU) {
-        return (CPU == MIC_KNC || CPU == CPU_KNL);
-    }
-    bool RequirePrefetch() const {
-        return m_CPU == MIC_KNC;
+        return (CPU == CPU_KNL);
     }
     static bool IsValidCPUName(const char* pCPUName) {
         return DEVICE_INVALID != GetCPUByName(pCPUName);
+    }
+    bool RequirePrefetch() const {
+        // There are no architectures that use prefetch by now
+        return false;
     }
     bool HasAVX1() const {
         return IsFeatureOn(CFS_AVX1);

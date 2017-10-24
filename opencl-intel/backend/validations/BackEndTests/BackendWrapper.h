@@ -66,11 +66,9 @@ using namespace Intel::OpenCL::DeviceBackend;
 #define TRANSPOSE_SIZE_UNSUPPORTED      -1
 #define ARCH_UNSUPPORTED                "arch"
 #define CPU_FEATURES_UNSUPPORTED        "cpu"
-#define MIC_ARCH                        "knc"
 
 /// @brief devices supported by the backend
 #define BW_CPU_DEVICE  "cpu"
-#define BW_MIC_DEVICE  "mic"
 
 /// @brief the plugin dll path environment variable
 #define PLUGIN_ENVIRONMENT_VAR          "OCLBACKEND_PLUGINS"

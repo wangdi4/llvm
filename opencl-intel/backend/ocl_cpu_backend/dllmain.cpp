@@ -32,10 +32,6 @@ File Name:  dllmain.cpp
 #include "CPUDetect.h"
 #include "cl_shutdown.h"
 #include "ocl_mutex.h"
-#if defined(INCLUDE_MIC_DEVICE)
-#include "MICDeviceBackendFactory.h"
-#include "MICSerializationService.h"
-#endif
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -154,14 +150,8 @@ extern "C"
             Compiler::InitGlobalState( BackendConfiguration::GetInstance().GetGlobalCompilerConfig(pBackendOptions));
             ServiceFactory::Init();
             CPUDeviceBackendFactory::Init();
-#if defined(INCLUDE_MIC_DEVICE)
-            MICDeviceBackendFactory::Init();
-#endif
             BuiltinModuleManager::Init();
             ImageCallbackManager::Init();
-#if defined(INCLUDE_MIC_DEVICE)
-            DefaultJITMemoryManager::Init();
-#endif
             // Attempt to initialize the debug service. If debugging is
             // disabled this is a no-op returning success.
             //
@@ -196,14 +186,8 @@ extern "C"
             return;
         }
 
-#if defined(INCLUDE_MIC_DEVICE)
-        DefaultJITMemoryManager::Terminate();
-#endif
         BuiltinModuleManager::Terminate();
         ImageCallbackManager::Terminate();
-#if defined(INCLUDE_MIC_DEVICE)
-        MICDeviceBackendFactory::Terminate();
-#endif
         CPUDeviceBackendFactory::Terminate();
         DebuggingServiceWrapper::GetInstance().Terminate();
         ServiceFactory::Terminate();

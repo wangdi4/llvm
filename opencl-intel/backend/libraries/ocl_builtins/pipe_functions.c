@@ -28,8 +28,6 @@
 
 #if __OPENCL_C_VERSION__ >= 200
 
-#if !defined(__MIC__) && !defined(__MIC2__)
-
 #define ALWAYS_INLINE __attribute__((always_inline))
 #define OVERLOADABLE __attribute__((overloadable))
 
@@ -548,7 +546,5 @@ void __work_group_commit_write_pipe(write_only pipe uchar p, reserve_id_t reserv
                                     uint alignment_of_packet) {
   __commit_write_pipe(p, reserve_id, size_of_packet, alignment_of_packet);
 }
-
-#endif // defined (__MIC__) || defined(__MIC2__)
 
 #endif // __OPENCL_C_VERSION__ >= 200

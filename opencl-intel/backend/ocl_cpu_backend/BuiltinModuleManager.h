@@ -56,13 +56,6 @@ public:
      * Returns the \see BuiltinsLibrary for the given cpu. Loads it if necessary
      */
     BuiltinLibrary* GetOrLoadCPULibrary(Intel::CPUId cpuId);
-#if defined(INCLUDE_MIC_DEVICE)
-    /**
-     * Returns the \see BuiltinsLibrary for the given mic. Loads it if necessary
-     */
-    BuiltinLibrary* GetOrLoadMICLibrary(unsigned int targetID, Intel::CPUId cpuId,
-        const void* targetContext);
-#endif
     /**
      * Creates the builtins module for the given cpu using the given LLVMContext
      */

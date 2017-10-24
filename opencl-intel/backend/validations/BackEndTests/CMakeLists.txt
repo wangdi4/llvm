@@ -6,7 +6,7 @@ endif()
 set(LLVM_PATH ${LLVM_PATH_FE})
 find_package(LLVM REQUIRED)
 
-if( CMAKE_CROSSCOMPILING OR LLVM_USE_NATIVE OR ANDROID )
+if( CMAKE_CROSSCOMPILING OR LLVM_USE_NATIVE )
    set(TOOLS_BINARY_DIR "${LLVM_BINARY_DIR}/../native/bin")
    set(SPIRV_CONVERTER  "${LLVM_PATH_BE}/native/bin/llvm-spirv")
 else()
@@ -58,10 +58,10 @@ ${BACKEND_ROOT_DIR}/../cl_api
 ${CL_API_HEADERS}
 ${BACKEND_ROOT_DIR}/utils
 ${BACKEND_ROOT_DIR}/ocl_cpu_backend
-${BACKEND_ROOT_DIR}/validations/Common      
-${BACKEND_ROOT_DIR}/dynamic_lib             
-${BACKEND_ROOT_DIR}/ocl_cpu_backend/export  
-${BACKEND_ROOT_DIR}/arch_headers            
+${BACKEND_ROOT_DIR}/validations/Common
+${BACKEND_ROOT_DIR}/dynamic_lib
+${BACKEND_ROOT_DIR}/ocl_cpu_backend/export
+${BACKEND_ROOT_DIR}/arch_headers
 ${BACKEND_ROOT_DIR}/plugin_manager
 ${CMAKE_SOURCE_DIR}/utils/cl_sys_utils/export
 )
