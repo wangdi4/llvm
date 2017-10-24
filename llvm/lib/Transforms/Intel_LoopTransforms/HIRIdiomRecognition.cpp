@@ -26,6 +26,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
@@ -84,6 +85,9 @@ class HIRIdiomRecognition : public HIRTransformPass {
   HIRFramework *HIR;
   HIRLoopStatistics *HLS;
   HIRDDAnalysis *DDA;
+
+  bool HasMemcopy;
+  bool HasMemset;
 
   // Track removed nodes to ignore obsolete dependencies.
   SmallPtrSet<HLNode *, 8> RemovedNodes;
@@ -146,6 +150,7 @@ public:
   bool runOnLoop(HLLoop *Loop);
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
+    AU.addRequiredTransitive<TargetLibraryInfoWrapperPass>();
     AU.addRequiredTransitive<HIRFramework>();
     AU.addRequiredTransitive<HIRLoopStatistics>();
     AU.addRequiredTransitive<HIRDDAnalysis>();
@@ -156,6 +161,7 @@ public:
 
 char HIRIdiomRecognition::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRIdiomRecognition, OPT_SWITCH, OPT_DESC, false, false)
+INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFramework)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatistics)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
@@ -365,14 +371,14 @@ bool HIRIdiomRecognition::analyzeStore(HLLoop *Loop, const RegDDRef *Ref,
     const CanonExpr *CE = RHS->getSingleCanonExpr();
     if (CE->isNonLinear()) {
       // Could be legal for memcopy
-      ForMemcpy = true;
+      ForMemcpy = HasMemcopy;
     } else {
       // Could be legal for memset
-      ForMemset = true;
+      ForMemset = HasMemset;
     }
   } else {
     // Could be legal for memcopy
-    ForMemcpy = true;
+    ForMemcpy = HasMemcopy;
   }
 
   if (ForMemset) {
@@ -724,6 +730,15 @@ bool HIRIdiomRecognition::runOnFunction(Function &F) {
   }
 
   DEBUG(dbgs() << OPT_DESC " for Function: " << F.getName() << "\n");
+
+  TargetLibraryInfo &TLI = getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
+  HasMemcopy = TLI.has(LibFunc_memcpy);
+  HasMemset = TLI.has(LibFunc_memset);
+
+  if (!HasMemcopy && !HasMemset) {
+    DEBUG(dbgs() << "Memcpy and Memset calls are not available\n");
+    return false;
+  }
 
   M = F.getParent();
   DL = &M->getDataLayout();
