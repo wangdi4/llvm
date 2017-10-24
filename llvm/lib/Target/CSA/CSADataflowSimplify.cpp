@@ -191,30 +191,39 @@ bool CSADataflowSimplifyPass::invertAllSwitch(MachineInstr *MI) {
   DEBUG(dbgs() << "Found a switch with an all input\n");
   const TargetRegisterClass *class0 =
     MF->getSubtarget().getRegisterInfo()->getRegClass(CSA::CI0RegClassID);
-  MachineInstr *newSwitches[4];
+  // Generate switches for each of the inputs, at least those that correspond
+  // to actual values.
+  unsigned switchOutputRegs[4][2];
   for (int i = 0; i < 4; i++) {
+    if (switched->getOperand(1 + i).getReg() == CSA::IGN) {
+      switchOutputRegs[i][0] = switchOutputRegs[i][1] = CSA::IGN;
+      continue;
+    }
     unsigned outL = MI->getOperand(0).getReg() == CSA::IGN ?
       (unsigned)CSA::IGN : LMFI->allocateLIC(class0);
     unsigned outR = MI->getOperand(1).getReg() == CSA::IGN ?
       (unsigned)CSA::IGN : LMFI->allocateLIC(class0);
-    newSwitches[i] = BuildMI(*MI->getParent(), MI, MI->getDebugLoc(),
+    MachineInstr *newSwitch = BuildMI(*MI->getParent(), MI, MI->getDebugLoc(),
         TII->get(CSA::SWITCH0))
       .addReg(outL, RegState::Define)
       .addReg(outR, RegState::Define)
       .add(MI->getOperand(2))
       .add(switched->getOperand(1 + i));
-    newSwitches[i]->setFlag(MachineInstr::NonSequential);
+    newSwitch->setFlag(MachineInstr::NonSequential);
+    switchOutputRegs[i][0] = outL;
+    switchOutputRegs[i][1] = outR;
   }
+
+  // Generate the two ALLs as output, unless the output is ignored.
   for (int i = 0; i < 2; i++) {
-    // Don't generate ignored switch outputs.
     if (MI->getOperand(i).getReg() == CSA::IGN)
       continue;
     BuildMI(*MI->getParent(), MI, switched->getDebugLoc(), TII->get(CSA::ALL0))
       .add(MI->getOperand(i))
-      .addReg(newSwitches[0]->getOperand(i).getReg())
-      .addReg(newSwitches[1]->getOperand(i).getReg())
-      .addReg(newSwitches[2]->getOperand(i).getReg())
-      .addReg(newSwitches[3]->getOperand(i).getReg())
+      .addReg(switchOutputRegs[0][i])
+      .addReg(switchOutputRegs[1][i])
+      .addReg(switchOutputRegs[2][i])
+      .addReg(switchOutputRegs[3][i])
       ->setFlag(MachineInstr::NonSequential);
   }
 
@@ -252,7 +261,8 @@ bool CSADataflowSimplifyPass::invertAllSwitch(MachineInstr *MI) {
 // TODO: Investigate LDD utility.
 
 bool CSADataflowSimplifyPass::makeStreamMemOp(MachineInstr *MI) {
-  const MachineOperand *base, *stride, *value;
+  const MachineOperand *base, *value;
+  unsigned stride;
   const MachineOperand *inOrder, *outOrder, *memOrder;
   MachineInstr *stream;
   switch (MI->getOpcode()) {
@@ -269,7 +279,26 @@ bool CSADataflowSimplifyPass::makeStreamMemOp(MachineInstr *MI) {
       }
 
       base = &memAddr->getOperand(2);
-      stride = &memAddr->getOperand(3); 
+      const MachineOperand &strideOp = memAddr->getOperand(3);
+      unsigned opcodeSize = 1;
+      unsigned opcode = MI->getOpcode();
+      if (opcode == CSA::LD16 || opcode == CSA::LD16f)
+        opcodeSize = 2;
+      else if (opcode == CSA::ST16 || opcode == CSA::ST16f)
+        opcodeSize = 2;
+      else if (opcode == CSA::LD32 || opcode == CSA::LD32f)
+        opcodeSize = 4;
+      else if (opcode == CSA::ST32 || opcode == CSA::ST32f)
+        opcodeSize = 4;
+      else if (opcode == CSA::LD64 || opcode == CSA::LD64f)
+        opcodeSize = 8;
+      else if (opcode == CSA::ST64 || opcode == CSA::ST64f)
+        opcodeSize = 8;
+      if (!strideOp.isImm()) {
+        DEBUG(dbgs() << "Stride is not an immediate, cannot compute stride\n");
+        return false;
+      }
+      stride = strideOp.getImm() / opcodeSize;
 
       // The STRIDE's stream parameter defines the stream.
       // TODO: assert that we use the seq predecessor output.
@@ -310,7 +339,12 @@ bool CSADataflowSimplifyPass::makeStreamMemOp(MachineInstr *MI) {
       }
 
       base = &memBase->getOperand(2);
-      stride = &memIndex->getOperand(6);
+      const MachineOperand &strideOp = memIndex->getOperand(6);
+      if (!strideOp.isImm()) {
+        DEBUG(dbgs() << "Candidate instruction has non-constrant stride.\n");
+        return false;
+      }
+      stride = strideOp.getImm();
       memOrder = &MI->getOperand(4);
       inOrder = &MI->getOperand(5);
       outOrder = &MI->getOperand(isLoad ? 1 : 0);
@@ -323,7 +357,7 @@ bool CSADataflowSimplifyPass::makeStreamMemOp(MachineInstr *MI) {
 
   DEBUG(dbgs() << "Identified candidate for streaming memory conversion: ");
   DEBUG(MI->dump());
-  DEBUG(dbgs() << "Base: " << *base << "; stride: " << *stride <<
+  DEBUG(dbgs() << "Base: " << *base << "; stride: " << stride <<
       "; controlling stream: ");
   DEBUG(stream->dump());
 
@@ -427,7 +461,7 @@ bool CSADataflowSimplifyPass::makeStreamMemOp(MachineInstr *MI) {
   builder.add(*realOutSink); // Output memory order
   builder.add(*base); // Address
   builder.add(*length); // Length
-  builder.add(*stride); // Stride
+  builder.addImm(stride); // Stride
   if (!MI->mayLoad())
     builder.add(*value); // Value (for store)
   builder.add(*memOrder); // Memory ordering
