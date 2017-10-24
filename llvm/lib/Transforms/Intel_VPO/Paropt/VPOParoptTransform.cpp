@@ -243,10 +243,13 @@ bool VPOParoptTransform::paroptTransforms() {
 
       case WRegionNode::WRNParallel:
       {
+        if (Mode & ParPrepare)
+          genCodemotionFenceforAggrData(W);
         DEBUG(dbgs() << "\n WRNParallel - Transformation \n\n");
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
+          Changed = clearCodemotionFenceIntrinsic(W);
           // Privatization is enabled for both Prepare and Transform passes
-          Changed = genPrivatizationCode(W);
+          Changed |= genPrivatizationCode(W);
           Changed |= genFirstPrivatizationCode(W);
           Changed |= genReductionCode(W);
           Changed |= genMultiThreadedCode(W);
@@ -317,7 +320,7 @@ bool VPOParoptTransform::paroptTransforms() {
         break;
       case WRegionNode::WRNTarget:
         if (Mode & ParPrepare)
-          genCodemotionFenceforPrivatizationAggr(W);
+          genCodemotionFenceforAggrData(W);
         DEBUG(dbgs() << "\n WRNTarget  - Transformation \n\n");
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed = clearCodemotionFenceIntrinsic(W);
@@ -1350,34 +1353,70 @@ bool VPOParoptTransform::clearCodemotionFenceIntrinsic(WRegionNode *W) {
   return Changed;
 }
 
+// Replace the occurrences of I within the region with the return value of the
+// intrinsic @llvm.codemotion.fence.
+void VPOParoptTransform::replaceValueWithinRegion(WRegionNode *W, Value *I) {
+  BasicBlock *EntryBB = W->getEntryBBlock();
+  IRBuilder<> Builder(EntryBB->getTerminator());
+  Instruction *NewI = Builder.CreateCodemotionFence(I);
+
+  for (auto IB = I->user_begin(), IE = I->user_end(); IB != IE; IB++) {
+    if (Instruction *User = dyn_cast<Instruction>(*IB))
+      if (User != NewI && !VPOAnalysisUtils::isIntelDirectiveOrClause(User) &&
+          W->contains(User->getParent()))
+        User->replaceUsesOfWith(I, NewI);
+  }
+}
+
+// Generate the intrinsic @llvm.codemotion.fence for local/global variable I.
+void VPOParoptTransform::genFenceIntrinsic(WRegionNode *W, Value *I) {
+
+  if (AllocaInst *AI = dyn_cast<AllocaInst>(I)) {
+    Type *AllocaTy = AI->getAllocatedType();
+
+    if (!AllocaTy->isSingleValueType())
+      replaceValueWithinRegion(W, I);
+
+  } else if (GlobalVariable *GV = dyn_cast<GlobalVariable>(I)) {
+    Type *Ty = GV->getValueType();
+    if (!Ty->isSingleValueType())
+      replaceValueWithinRegion(W, I);
+  }
+}
+
 // Generate the intrinsic @llvm.codemotion.fence to inhibit the cse
 // for the gep instruction related to array/struture which is marked
 // as private, firstprivate, lastprivate, reduction or shared.
-void
-VPOParoptTransform::genCodemotionFenceforPrivatizationAggr(WRegionNode *W) {
-  PrivateClause &PrivClause = W->getPriv();
+void VPOParoptTransform::genCodemotionFenceforAggrData(WRegionNode *W) {
+  W->populateBBSet();
+  if (W->hasPrivate()) {
+    PrivateClause &PrivClause = W->getPriv();
+    for (PrivateItem *PrivI : PrivClause.items())
+      genFenceIntrinsic(W, PrivI->getOrig());
+  }
 
-  if (!PrivClause.empty()) {
-    W->populateBBSet();
-    BasicBlock *EntryBB = W->getEntryBBlock();
-    IRBuilder<> Builder(EntryBB->getTerminator());
-    for (PrivateItem *PrivI : PrivClause.items()) {
-      Value *I = PrivI->getOrig();
-      AllocaInst *AI = dyn_cast<AllocaInst>(I);
-      Type *AllocaTy = AI->getAllocatedType();
+  if (W->hasFirstprivate()) {
+    FirstprivateClause &FprivClause = W->getFpriv();
+    for (FirstprivateItem *FprivI : FprivClause.items())
+      genFenceIntrinsic(W, FprivI->getOrig());
+  }
 
-      if (!AllocaTy->isSingleValueType()) {
-        Instruction *NewI = Builder.CreateCodemotionFence(I);
+  if (W->hasShared()) {
+    SharedClause &ShaClause = W->getShared();
+    for (SharedItem *ShaI : ShaClause.items())
+      genFenceIntrinsic(W, ShaI->getOrig());
+  }
 
-        for (auto IB = I->user_begin(), IE = I->user_end(); IB != IE; IB++) {
-          if (Instruction *User = dyn_cast<Instruction>(*IB))
-            if (User != NewI &&
-                !VPOAnalysisUtils::isIntelDirectiveOrClause(User) &&
-                W->contains(User->getParent()))
-              User->replaceUsesOfWith(I, NewI);
-        }
-      }
-    }
+  if (W->hasReduction()) {
+    ReductionClause &RedClause = W->getRed();
+    for (ReductionItem *RedI : RedClause.items())
+      genFenceIntrinsic(W, RedI->getOrig());
+  }
+
+  if (W->hasLastprivate()) {
+    LastprivateClause &LprivClause = W->getLpriv();
+    for (LastprivateItem *LprivI : LprivClause.items())
+      genFenceIntrinsic(W, LprivI->getOrig());
   }
 }
 

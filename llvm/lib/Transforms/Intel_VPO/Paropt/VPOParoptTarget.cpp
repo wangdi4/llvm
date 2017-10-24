@@ -210,7 +210,7 @@ void VPOParoptTransform::GenTgtInformationForPtrs(
 
   FirstprivateClause &FprivClause = W->getFpriv();
   for (FirstprivateItem *FprivI : FprivClause.items()) {
-    if (FprivI->getNew() != V)
+    if (FprivI->getOrig() != V)
       continue;
     Type *T = FprivI->getOrig()->getType()->getPointerElementType();
     ConstSizes.push_back(

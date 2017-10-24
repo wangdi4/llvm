@@ -584,7 +584,7 @@ private:
   /// \brief Generate the intrinsic @llvm.codemotion.fence to inhibit the cse
   /// for the gep instruction related to array/struture which is marked
   /// as private, firstprivate, lastprivate, reduction or shared.
-  void genCodemotionFenceforPrivatizationAggr(WRegionNode *W);
+  void genCodemotionFenceforAggrData(WRegionNode *W);
 
   /// \brief Clean up the intrinsic @llvm.codemotion.fence and replace the use
   /// of the intrinsic with the its operand.
@@ -615,6 +615,12 @@ private:
   /// \brief Returns the corresponding flag for a given map clause modifier.
   unsigned getMapTypeFlag(MapItem *MpI, bool IsFirstExprFlag,
                           bool IsFirstComponentFlag);
+  /// \brief Replace the occurrences of I within the region with the return
+  /// value of the intrinsic @llvm.codemotion.fence.
+  void replaceValueWithinRegion(WRegionNode *W, Value *Old);
+  /// \brief Generate the intrinsic @llvm.codemotion.fence for local/global
+  /// variable I.
+  void genFenceIntrinsic(WRegionNode *W, Value *I);
 };
 } /// namespace vpo
 } /// namespace llvm
