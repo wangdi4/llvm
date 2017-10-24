@@ -65,6 +65,7 @@ namespace llvm {
     void getUses(const MachineOperand &MO,
         SmallVectorImpl<MachineInstr *> &uses) const;
     MachineInstr *getSingleUse(const MachineOperand &MO) const;
+    bool isZero(const MachineOperand &MO) const;
   };
 }
 
@@ -146,6 +147,15 @@ MachineInstr *CSADataflowSimplifyPass::getSingleUse(
 
 bool isImm(const MachineOperand &MO, int64_t immValue) {
   return MO.isImm() && MO.getImm() == immValue;
+}
+
+bool CSADataflowSimplifyPass::isZero(const MachineOperand &MO) const {
+  if (MO.isReg()) {
+    const MachineInstr *def = getDefinition(MO);
+    if (def->getOpcode() == CSA::MOV64 && isImm(def->getOperand(1), 0))
+      return true;
+  }
+  return isImm(MO, 0);
 }
 
 bool CSADataflowSimplifyPass::eliminateNotPicks(MachineInstr *MI) {
@@ -329,7 +339,14 @@ bool CSADataflowSimplifyPass::makeStreamMemOp(MachineInstr *MI) {
         return false;
       }
 
-      if (memIndex->getOpcode() != CSA::SEQOTNE64) {
+      switch (memIndex->getOpcode()) {
+      case CSA::SEQOTNE64:
+      case CSA::SEQOTLTS64:
+      case CSA::SEQOTLTU64:
+      case CSA::SEQOTLES64:
+      case CSA::SEQOTLEU64:
+        break; // These are the valid ones.
+      default:
         DEBUG(dbgs() << "Candidate indexed memory store failed to have valid "
             << "stream parameter. It may yet be valid.\n");
         DEBUG(MI->dump());
@@ -416,9 +433,15 @@ bool CSADataflowSimplifyPass::makeStreamMemOp(MachineInstr *MI) {
   } else if (stream->getOpcode() == CSA::SEQOTNE64 && isImm(seqStep, 1)) {
     // TODO: This isn't really right. Hopefully this will be fixed by a better
     // pattern-matching language for this stuff...
-    if (isImm(seqStart, 0) ||
-        (getDefinition(seqStart)->getOpcode() == CSA::MOV64 &&
-        isImm(getDefinition(seqStart)->getOperand(1), 0))) {
+    if (isZero(seqStart)) {
+      length = &seqEnd;
+    } else {
+      DEBUG(dbgs() << "Stream operand is of unknown form.\n");
+      return false;
+    }
+  } else if ((stream->getOpcode() == CSA::SEQOTLTS64 ||
+        stream->getOpcode() == CSA::SEQOTLTU64) && isImm(seqStep, 1)) {
+    if (isZero(seqStart)) {
       length = &seqEnd;
     } else {
       DEBUG(dbgs() << "Stream operand is of unknown form.\n");
