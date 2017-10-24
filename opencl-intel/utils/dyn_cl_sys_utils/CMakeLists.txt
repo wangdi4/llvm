@@ -44,11 +44,11 @@ if( WIN32 )
     target_link_libraries( ${TARGET_NAME} Version.lib )
 endif( WIN32 ) 
 
-if( WIN32 OR ANDROID )
+if( WIN32 )
     target_link_libraries( ${TARGET_NAME} dyn_cl_hw_utils )
-else( WIN32 OR ANDROID )
+else( WIN32 )
     target_link_libraries( ${TARGET_NAME} dyn_cl_hw_utils numa )
-endif( WIN32 OR ANDROID )
+endif( WIN32 )
  
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${UTILS_FOLDER_NAME} )
 

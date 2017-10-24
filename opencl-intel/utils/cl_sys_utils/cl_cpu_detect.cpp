@@ -370,9 +370,6 @@ void CPUDetect::GetCPUInfo()
             mov XCRInfo[0], eax
             mov XCRInfo[1], edx
         }
-#elif defined(__ANDROID__)
-        // No support for AVX on android
-        XCRInfo[0] = XCRInfo[0] & ~0x00000006;
 #else
         xgetbv( XCRInfo )
 #endif
@@ -423,14 +420,7 @@ void CPUDetect::GetCPUInfo()
     CPUID(viCPUInfo, 0x80000000);
     unsigned int iValidExIDs = viCPUInfo[0];
 
-    if (iValidExIDs < 0x80000004)
-    {
-#if defined(__ANDROID__)
-        // Android is not supporting Brand String query
-        m_szCPUBrandString = STRDUP("Intel(R) Atom(TM)");
-#endif
-    }
-    else
+    if (iValidExIDs >= 0x80000004)
     {
         for (unsigned int i=0x80000000; i <= iValidExIDs; ++i)
         {

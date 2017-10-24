@@ -13,7 +13,6 @@
 #include "cache_binary_handler.h"
 #include "common_clang.h"
 #include "elf_binary.h"
-#include "mic_dev_limits.h"
 
 #include <Logger.h>
 #include <cl_autoptr_ex.h>
@@ -181,8 +180,7 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
 #if defined(_WIN64) || defined(__x86_64__) || defined(_M_AMD64) ||             \
     defined(_M_X64)
     options << " -triple spir64-unknown-unknown-intelfpga";
-#elif defined(_WIN32) || defined(i386) || defined(__i386__) ||                 \
-    defined(__x86__) || defined(__ANDROID__)
+#elif defined(_WIN32) || defined(i386) || defined(__i386__) || defined(__x86__)
     options << " -triple spir-unknown-unknown-intelfpga";
 #else
 #error "Can't define target triple: unknown architecture."

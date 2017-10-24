@@ -431,7 +431,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
     
     ///////////////////////////////////////////////////////////////////////////////////////
     // Basic ReadWriteLock implemenation
-    // Using standart OS mechanism, SLIM RreadWrite lock on Windows and pthread_rwlock on Linux/Android
+    // Using standart OS mechanism, SLIM RreadWrite lock on Windows and pthread_rwlock on Linux
     // The lock implementation in not recursive
     // Optimization of ReadRead path, in case of contention, waiting thread is scheduled out
     ///////////////////////////////////////////////////////////////////////////////////////

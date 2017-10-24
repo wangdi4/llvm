@@ -47,7 +47,6 @@ public:
      *  given kernel
      * @param contextSize context size in bytes
      */
-    // Issue: llvm::function can't passed on MIC device !
     virtual void OnCreateBinary(
         ICLDevBackendProgram_* pProgram,
         ICLDevBackendKernel_* pKernel,

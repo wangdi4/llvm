@@ -37,11 +37,7 @@
 #define MIN_PARAM(X,Y) ((X)<(Y)?(X):(Y))
 
 // Maximum number of arguments to be passed to the kernel
-#if defined(__ANDROID__)
-#define CPU_MAX_PARAMETER_SIZE          (1024)
-#else
 #define CPU_MAX_PARAMETER_SIZE          (4096-256)
-#endif
 #define CPU_MAX_PARAM_COUNT             (CPU_MAX_PARAMETER_SIZE/8)
 #define CPU_KERNEL_MAX_ARG_COUNT        (MIN_PARAM((CPU_MAX_PARAMETER_SIZE/sizeof(void*)), CPU_MAX_PARAM_COUNT))
 #define CPU_MAX_SAMPLERS                (MIN_PARAM((CPU_MAX_PARAMETER_SIZE/sizeof(void*)), CPU_MAX_PARAM_COUNT))
@@ -54,11 +50,7 @@
 #define GEN_IMAGE3D_MAX_DIM_SIZE        2048
 #define CPU_IMAGE3D_MAX_DIM_SIZE        GEN_IMAGE3D_MAX_DIM_SIZE
 // Maximum dimension size (in pixels) for 2D image. Taken from GEN. See comment above.
-#if defined(__ANDROID__)
-#define GEN_IMAGE2D_MAX_DIM_SIZE        8192
-#else
 #define GEN_IMAGE2D_MAX_DIM_SIZE        16384
-#endif
 #define CPU_IMAGE2D_MAX_DIM_SIZE        GEN_IMAGE2D_MAX_DIM_SIZE
 // Maximum image array size. Taken from GEN. See comment above.
 #define GEN_MAX_ARRAY_SIZE              2048

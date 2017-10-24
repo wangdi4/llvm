@@ -33,7 +33,7 @@
 #include <cassert>
 #ifdef _WIN32
 #include<Windows.h>
-#elif !defined (__ANDROID__)
+#else
 #include "hw_utils.h"
 #endif
 using namespace Intel::OpenCL::Utils;
@@ -136,7 +136,7 @@ OPENCL_VERSION GetOpenclVerByCpuModel()
     return OPENCL_VERSION_1_2;
 }
 
-#elif !defined (__ANDROID__)
+#else
 
 OPENCL_VERSION GetOpenclVerByCpuModel()
 {
@@ -157,19 +157,6 @@ OPENCL_VERSION GetOpenclVerByCpuModel()
 
     return OPENCL_VERSION_1_2;
 }
-#elif defined (__ANDROID__)
-OPENCL_VERSION GetOpenclVerByCpuModel()
-{
-    if(CPUDetect::GetInstance()->isBroxton())
-    {
-    //TODO. Replace next line with OPENCL_VERSION_2_0 as soon as VPG support OpenCL 2.0.
-        return OPENCL_VERSION_1_2;
-    }
-
-    return OPENCL_VERSION_1_2;
-}
-#else
-#error Unhandled OS!
 #endif
 
 }}}
@@ -509,11 +496,6 @@ OPENCL_VERSION BasicCLConfigWrapper::GetOpenCLVersion() const
     return OPENCL_VERSION_2_0;
 #endif // BUILD_FPGA_EMULATOR
 
-#if !defined (__ANDROID__)
     s_ver = GetOpenclVerByCpuModel();
     return s_ver;
-#else
-    s_ver = OPENCL_VERSION_1_2;
-    return OPENCL_VERSION_1_2;
-#endif
 }

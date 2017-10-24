@@ -40,9 +40,7 @@ using namespace Intel::OpenCL::Utils;
 #include <sys/resource.h>
 #include <sys/sysinfo.h>
 
-#ifndef __ANDROID__
 #include <sys/syscall.h>
-#endif
 
 #ifndef DISABLE_NUMA_SUPPORT
 #define DISABLE_NUMA_SUPPORT
@@ -409,14 +407,7 @@ unsigned int Intel::OpenCL::Utils::GetCpuId()
 	{
 		id = 0;
 	} else {
-#if defined(__ANDROID__)
-		if( syscall(__NR_getcpu, &id, nullptr, nullptr) < 0 )
-		{
-			return 0;
-		}
-#else
 		id = sched_getcpu();
-#endif
 	}
 	assert(id >= 0);
 	return (unsigned int)id;
@@ -445,9 +436,5 @@ bool Intel::OpenCL::Utils::GetModuleProductVersion(const void* someLocalFunc, in
 
 unsigned int Intel::OpenCL::Utils::GetThreadId()
 {
-#if defined(__ANDROID__) //we would like to use CONF but it's buggy on Android
-	return (unsigned int) gettid();
-#else
     return (unsigned int)syscall(SYS_gettid);
-#endif
 }

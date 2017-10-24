@@ -27,10 +27,8 @@
 #else
 #include <sys/types.h>
 #include <unistd.h>
-#ifndef __ANDROID__
 #include <pthread.h>
 #include <syscall.h>
-#endif
 #endif
 #include "cl_user_logger.h"
 #include "cl_sys_defines.h"
@@ -376,11 +374,7 @@ void ApiLogger::EndApiFuncEpilog()
 #ifdef _WIN32
         GetCurrentThreadId()
 #else
-#ifdef __ANDROID__
-        gettid()
-#else
         syscall(SYS_gettid)
-#endif
 #endif
         ;
     const unsigned long long ulStartTime = RDTSC();

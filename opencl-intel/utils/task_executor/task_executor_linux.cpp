@@ -19,7 +19,7 @@
 // problem reports or change requests be submitted to it directly
 #include "task_executor.h"
 
-#if ! defined( __THREAD_EXECUTOR__) && ! defined( __TBB_EXECUTOR__ ) && ! defined( __OMP_EXECUTOR__ )
+#if ! defined( __THREAD_EXECUTOR__) && ! defined( __TBB_EXECUTOR__ )
 #define __THREAD_EXECUTOR__
 #endif
 
@@ -30,10 +30,6 @@
 #ifdef __THREAD_EXECUTOR__
 #include "thread_executor.h"
 #define PTR_CAST	ThreadTaskExecutor
-#endif
-#ifdef __OMP_EXECUTOR__
-#include "omp_executor.h"
-#define PTR_CAST	OMPTaskExecutor
 #endif
 
 #include "cl_shared_ptr.h"
@@ -74,9 +70,6 @@ void dll_init(void)
 #endif
 #ifdef __THREAD_EXECUTOR__
 	g_pTaskExecutor = new ThreadTaskExecutor;
-#endif
-#ifdef __OMP_EXECUTOR__
-	g_pTaskExecutor = new OMPTaskExecutor;
 #endif
 }
 

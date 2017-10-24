@@ -260,14 +260,6 @@ int TBBTaskExecutor::Init(FrameworkUserLogger* pUserLogger, unsigned int uiNumOf
         return 0;
     }
 
-#ifdef __MIC__
-    // On MIC enable 2MB pages for tbb allocator, if exists
-    if(tbb::tbb_allocator<int>::allocator_type() == tbb::tbb_allocator<int>::scalable)
-    {
-        scalable_allocation_mode(USE_HUGE_PAGES, 1);
-    }
-#endif
-
     gWorker_threads = uiNumOfThreads;
     if (gWorker_threads == TE_AUTO_THREADS)
     {

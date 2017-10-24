@@ -124,7 +124,7 @@ typedef void*                            CONDITION_VAR;
 #define OS_DLL_POST(fileName) ((fileName) + ".dll")
 
 // -----------------------------------------------------------
-//         Not Windows (Linux / Android )
+//         Linux
 // -----------------------------------------------------------
 #else //LINUX
 
@@ -228,78 +228,6 @@ typedef pthread_rwlock_t            READ_WRITE_LOCK;
 
 #define OS_DLL_POST(fileName) ("lib" + (fileName) + ".so")
 
-// -----------------------------
-// Android Sched Utils
-// -----------------------------
-#if defined(__ANDROID__)
-inline void* ALIGNED_MALLOC( size_t size, size_t alignment )
-{
-    return memalign( alignment < sizeof(void*) ? sizeof(void*) : alignment, size);
-}
-typedef unsigned long long        affinityMask_t;
-#define GET_CURRENT_PROCESS_ID()        getpid()
-#define GET_CURRENT_THREAD_ID()  ((int)gettid())
-#ifdef CPU_ZERO
-#undef CPU_ZERO
-#endif
-#define CPU_ZERO(mask)          (*(mask)  =  0)
-#ifdef CPU_SET
-#undef CPU_SET
-#endif
-#define CPU_SET(cpu, mask)      (*(mask) |=  (1 << (cpu)))
-#ifdef CPU_CLR
-#undef CPU_CLR
-#endif
-#define CPU_CLR(cpu, mask)      (*(mask) &= ~(1 << (cpu)))
-#ifdef CPU_ISSET
-#undef CPU_ISSET
-#endif
-#define CPU_ISSET(cpu, mask)    (*(mask) & (1 << (cpu)))
-#ifdef CPU_EQUAL
-#undef CPU_EQUAL
-#endif
-#define CPU_EQUAL(maskA, maskB) (*(maskA) == *(maskB))
-
-static int sched_setaffinity(pid_t pid, size_t len, affinityMask_t const *cpusetp)
-{
-    return syscall(__NR_sched_setaffinity, pid, len, cpusetp);
-}
-
-static int sched_getaffinity(pid_t pid, size_t len, affinityMask_t const *cpusetp)
-{
-    return syscall(__NR_sched_getaffinity, pid, len, cpusetp);
-}
-
-#ifdef CPU_COUNT
-#undef CPU_COUNT
-#endif
-static int CPU_COUNT(affinityMask_t* set)
-{
-    // Pretend the data structure is opaque by using other CPU_ macros to implement
-    if (nullptr == set) return 0;
-    int cpu = 0;
-    int result = 0;
-    affinityMask_t  zero;
-    affinityMask_t* zeroSet = &zero;
-    CPU_ZERO(zeroSet);
-    while (!CPU_EQUAL(set, zeroSet))
-    {
-        if (CPU_ISSET(cpu, set))
-        {
-            ++result;
-        }
-        CPU_CLR(cpu, set);
-        ++cpu;
-    }
-    return result;
-}
-
-#define pthread_cancel(...)        assert(0 && "pthread_cancel isn't supported for android")
-
-    // -----------------------------
-    // Linux (Not Android) Sched Utils
-    // -----------------------------
-#else
 inline void* ALIGNED_MALLOC( size_t size, size_t alignment )
 {
     void* t = nullptr;
@@ -313,7 +241,6 @@ inline void* ALIGNED_MALLOC( size_t size, size_t alignment )
 #define GET_CURRENT_THREAD_ID() ((int)syscall(SYS_gettid))
 #include <sched.h>
 typedef cpu_set_t                      affinityMask_t;
-#endif
 
 #include "cl_secure_string_linux.h"
 

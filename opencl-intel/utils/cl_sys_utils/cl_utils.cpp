@@ -1285,11 +1285,7 @@ string GetTempDir()
     }
 #else // Linux
     char *EnvUser = getenv("USER");
-    #if defined(__ANDROID__)
-        TmpDir = "/data/local/tmp/";
-    #else
         TmpDir = "/tmp/";
-    #endif
         if (EnvUser)
           {
             TmpDir += EnvUser;

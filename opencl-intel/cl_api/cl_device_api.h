@@ -378,8 +378,6 @@ enum cl_dev_bs_update_state
 enum cl_dev_buffer_sharing_group_id
 {
     CL_DEV_CPU_BUFFER_SHARING_GROUP_ID = 0, //! All devices that may use the same Buffer IOCLDevMemoryObject implementation as CPU does
-    CL_DEV_MIC_BUFFER_SHARING_GROUP_ID,     //! All devices that may use the same Buffer IOCLDevMemoryObject implementation as MIC does
-    CL_DEV_ISP_BUFFER_SHARING_GROUP_ID,     //! All devices that may use the same Buffer IOCLDevMemoryObject implementation as ISP does
 
     CL_DEV_MAX_BUFFER_SHARING_GROUP_ID      //! Last id
 };
@@ -387,8 +385,6 @@ enum cl_dev_buffer_sharing_group_id
 enum cl_dev_image_sharing_group_id
 {
     CL_DEV_CPU_IMAGE_SHARING_GROUP_ID = 0,  //! All devices that may use the same Image IOCLDevMemoryObject implementation as CPU does
-    CL_DEV_MIC_IMAGE_SHARING_GROUP_ID,      //! All devices that may use the same Image IOCLDevMemoryObject implementation as MIC does
-    CL_DEV_ISP_IMAGE_SHARING_GROUP_ID,      //! All devices that may use the same Image IOCLDevMemoryObject implementation as ISP does
 
     CL_DEV_MAX_IMAGE_SHARING_GROUP_ID       //! Last id
 };

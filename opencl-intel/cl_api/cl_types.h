@@ -224,7 +224,7 @@ typedef struct _cl_uniform_kernel_args {
                                                        // LocalSize[0] contains unifrom local sizes
                                                        // LocalSize[1] contains non-unifrom local sizes
     size_t    WGCount[MAX_WORK_DIM];                   // Updated by the BE, based on GLOBAL/LOCAL
-    // For Opencl2.0: this is a IDeviceCommandManager, and for MIC: the printf interface thing
+    // For Opencl2.0: this is a IDeviceCommandManager: the printf interface thing
     void*     RuntimeInterface;                      // Updated by runtime
     /// reference to BlockToKernelMapper object. Class does not own it
     void*     Block2KernelMapper;                      // Updated by the BE

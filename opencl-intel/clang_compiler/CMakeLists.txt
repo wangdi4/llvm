@@ -114,7 +114,7 @@ else(WIN32)
     )
 endif(WIN32)
 
-if (NOT ANDROID AND NOT WIN32)
+if (NOT WIN32)
     list(APPEND LINK_LIBS pthread)
 endif ()
 
@@ -128,16 +128,10 @@ set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${FRONTEND_FOLDER_NAME} 
 if (WIN32)
     get_target_property(RT_OUTPUT_DIRECTORY ${TARGET_NAME} RUNTIME_OUTPUT_DIRECTORY)
     file(TO_NATIVE_PATH ${RT_OUTPUT_DIRECTORY}/${CMAKE_CFG_INTDIR}/${TARGET_NAME}_stripped.pdb PDB_NAME)
-    if (${MSVC_VERSION} EQUAL 1500)
-        # Visual Studio 2008
-        set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS    "${LINK_FLAGS} /PDBSTRIPPED:${PDB_NAME}")
-    else (${MSVC_VERSION} EQUAL 1500)
-        # Visual Studio 2010 (assumed if not Visual Studio 2008)
-        # This is a fix due to a bug in CMake, Does not add the flag /DEBUG to the linker flags in Release mode.
-        # The /DEBUG flag is required in order to create stripped pdbs.
-        set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS_DEBUG    "${LINK_FLAGS_DEBUG} /PDBSTRIPPED:${PDB_NAME}")
-        set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS_RELEASE    "${LINK_FLAGS_RELEASE} /DEBUG /PDBSTRIPPED:${PDB_NAME}")
-    endif (${MSVC_VERSION} EQUAL 1500)
+    # This is a fix due to a bug in CMake, Does not add the flag /DEBUG to the linker flags in Release mode.
+    # The /DEBUG flag is required in order to create stripped pdbs.
+    set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS_DEBUG    "${LINK_FLAGS_DEBUG} /PDBSTRIPPED:${PDB_NAME}")
+    set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS_RELEASE    "${LINK_FLAGS_RELEASE} /DEBUG /PDBSTRIPPED:${PDB_NAME}")
     if (INSTALL_PDBS)
         install(FILES ${RT_OUTPUT_DIRECTORY}/\${BUILD_TYPE}/${TARGET_NAME}.pdb DESTINATION bin)
     endif(INSTALL_PDBS)
