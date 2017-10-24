@@ -38,7 +38,10 @@ namespace clang {
   
   enum TypeSpecifiersPipe {
     TSP_unspecified,
-    TSP_pipe
+    TSP_pipe,
+#if INTEL_CUSTOMIZATION
+    TSP_channel,
+#endif // INTEL_CUSTOMIZATION
   };
 
   /// \brief Specifies the kind of type.
@@ -241,7 +244,7 @@ namespace clang {
     CC_X86ThisCall, // __attribute__((thiscall))
     CC_X86VectorCall, // __attribute__((vectorcall))
     CC_X86Pascal,   // __attribute__((pascal))
-    CC_X86_64Win64, // __attribute__((ms_abi))
+    CC_Win64,       // __attribute__((ms_abi))
     CC_X86_64SysV,  // __attribute__((sysv_abi))
     CC_X86RegCall, // __attribute__((regcall))
     CC_AAPCS,       // __attribute__((pcs("aapcs")))

@@ -43,7 +43,7 @@ struct StaticDiagInfoRec {
   unsigned SFINAE : 2;
   unsigned WarnNoWerror : 1;
   unsigned WarnShowInSystemHeader : 1;
-  unsigned Category : 5;
+  unsigned Category : 6; // INTEL
 
   uint16_t OptionGroupIndex;
 
@@ -508,6 +508,18 @@ StringRef DiagnosticIDs::getWarningOptionForDiag(unsigned DiagID) {
   if (const StaticDiagInfoRec *Info = GetDiagInfo(DiagID))
     return OptionTable[Info->getOptionGroupIndex()].getName();
   return StringRef();
+}
+
+std::vector<std::string> DiagnosticIDs::getDiagnosticFlags() {
+  std::vector<std::string> Res;
+  for (size_t I = 1; DiagGroupNames[I] != '\0';) {
+    std::string Diag(DiagGroupNames + I + 1, DiagGroupNames[I]);
+    I += DiagGroupNames[I] + 1;
+    Res.push_back("-W" + Diag);
+    Res.push_back("-Wno" + Diag);
+  }
+
+  return Res;
 }
 
 /// Return \c true if any diagnostics were found in this group, even if they

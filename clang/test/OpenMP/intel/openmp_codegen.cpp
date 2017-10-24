@@ -1,4 +1,5 @@
 // RUN: %clang_cc1 -emit-llvm -o - %s -fopenmp -fintel-compatibility -fintel-openmp -triple x86_64-unknown-linux-gnu | FileCheck %s
+// RUN: %clang_cc1 -emit-llvm -o - %s -fopenmp -fintel-compatibility -fintel-openmp-region -triple x86_64-unknown-linux-gnu | FileCheck %s -check-prefix=CHECK-REG
 struct S1 {
   ~S1() {}
 };
@@ -14,7 +15,14 @@ struct S3 {
   int i;
 };
 
+struct S4 {
+  int i;
+};
+
 void foo() {}
+
+int glob_int = 2;
+int *glob_ptr;
 
 // CHECK-LABEL: @main
 int main(int argc, char **argv) {
@@ -54,10 +62,21 @@ int main(int argc, char **argv) {
   int zarr[20];
 // CHECK: call void @llvm.intel.directive(metadata !"DIR.OMP.PARALLEL")
 // CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SHARED", i8*** [[ARGV_ADDR]])
-// CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE", metadata !"QUAL.OPND.NONPOD", %struct.S1* [[S1_ADDR]], %struct.S1* (%struct.S1*)* @_ZTS2S1.omp.def_constr, void (%struct.S1*)* @_ZTS2S1.omp.destr, metadata !"QUAL.OPND.NONPOD", %struct.S2* [[S2_ADDR]], %struct.S2* (%struct.S2*)* @_ZTS2S2.omp.def_constr, void (%struct.S2*)* @_ZTS2S2.omp.destr, metadata !"QUAL.OPND.NONPOD", [10 x %struct.S1]* [[ARR1_ADDR]], [10 x %struct.S1]* ([10 x %struct.S1]*)* @_ZTSA10_2S1.omp.def_constr, void ([10 x %struct.S1]*)* @_ZTSA10_2S1.omp.destr, metadata !"QUAL.OPND.NONPOD", [10 x %struct.S2]* [[ARR2_ADDR]], [10 x %struct.S2]* ([10 x %struct.S2]*)* @_ZTSA10_2S2.omp.def_constr, void ([10 x %struct.S2]*)* @_ZTSA10_2S2.omp.destr, double* [[ARR3_ADDR]])
-// CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.FIRSTPRIVATE", metadata !"QUAL.OPND.NONPOD", %struct.S3* [[S3_ADDR]], void (%struct.S3*, %struct.S3*)* @_ZTS2S3.omp.copy_constr, void (%struct.S3*)* @_ZTS2S3.omp.destr)
-// CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.FIRSTPRIVATE", metadata !"QUAL.OPND.NONPOD", [10 x %struct.S3]* [[S3ARR_ADDR]], void ([10 x %struct.S3]*, [10 x %struct.S3]*)* @_ZTSA10_2S3.omp.copy_constr, void ([10 x %struct.S3]*)* @_ZTSA10_2S3.omp.destr)
-// CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.FIRSTPRIVATE", i32* [[Z_ADDR]], [20 x i32]* [[ZARR_ADDR]])
+
+// CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE:NONPOD", %struct.S1* [[S1_ADDR]], %struct.S1* (%struct.S1*)* @_ZTS2S1.omp.def_constr, void (%struct.S1*)* @_ZTS2S1.omp.destr
+
+// CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE:NONPOD", %struct.S2* [[S2_ADDR]], %struct.S2* (%struct.S2*)* @_ZTS2S2.omp.def_constr, void (%struct.S2*)* @_ZTS2S2.omp.destr
+
+// CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE:NONPOD", [10 x %struct.S1]* [[ARR1_ADDR]], [10 x %struct.S1]* ([10 x %struct.S1]*)* @_ZTSA10_2S1.omp.def_constr, void ([10 x %struct.S1]*)* @_ZTSA10_2S1.omp.destr
+
+// CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE:NONPOD", [10 x %struct.S2]* [[ARR2_ADDR]], [10 x %struct.S2]* ([10 x %struct.S2]*)* @_ZTSA10_2S2.omp.def_constr, void ([10 x %struct.S2]*)* @_ZTSA10_2S2.omp.destr
+
+// CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE", double* [[ARR3_ADDR]])
+
+// CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.FIRSTPRIVATE:NONPOD", %struct.S3* [[S3_ADDR]], void (%struct.S3*, %struct.S3*)* @_ZTS2S3.omp.copy_constr, void (%struct.S3*)* @_ZTS2S3.omp.destr)
+// CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.FIRSTPRIVATE:NONPOD", [10 x %struct.S3]* [[S3ARR_ADDR]], void ([10 x %struct.S3]*, [10 x %struct.S3]*)* @_ZTSA10_2S3.omp.copy_constr, void ([10 x %struct.S3]*)* @_ZTSA10_2S3.omp.destr)
+// CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.FIRSTPRIVATE", i32* [[Z_ADDR]]
+// CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.FIRSTPRIVATE", [20 x i32]* [[ZARR_ADDR]])
 // CHECK: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 #pragma omp parallel shared(argv) private(s1, s2, arr1, arr2, arr3) \
                                   firstprivate(s3) firstprivate(s3arr) \
@@ -69,9 +88,12 @@ int main(int argc, char **argv) {
 
 // CHECK: call void @llvm.intel.directive(metadata !"DIR.OMP.PARALLEL.LOOP")
 // CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SHARED", i8*** [[ARGV_ADDR]])
-// CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE", metadata !"QUAL.OPND.NONPOD", %struct.S1* [[S1_ADDR]], %struct.S1* (%struct.S1*)* @_ZTS2S1.omp.def_constr, void (%struct.S1*)* @_ZTS2S1.omp.destr, metadata !"QUAL.OPND.NONPOD", %struct.S2* [[S2_ADDR]], %struct.S2* (%struct.S2*)* @_ZTS2S2.omp.def_constr, void (%struct.S2*)* @_ZTS2S2.omp.destr, metadata !"QUAL.OPND.NONPOD", [10 x %struct.S1]* [[ARR1_ADDR]], [10 x %struct.S1]* ([10 x %struct.S1]*)* @_ZTSA10_2S1.omp.def_constr, void ([10 x %struct.S1]*)* @_ZTSA10_2S1.omp.destr, metadata !"QUAL.OPND.NONPOD", [10 x %struct.S2]* [[ARR2_ADDR]], [10 x %struct.S2]* ([10 x %struct.S2]*)* @_ZTSA10_2S2.omp.def_constr, void ([10 x %struct.S2]*)* @_ZTSA10_2S2.omp.destr, double* [[ARR3_ADDR]])
-// CHECK: [[ARGC_VAL:%.+]] = load i32, i32* [[ARGC_ADDR]],
-// CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.LINEAR.VAL", i32* [[ARGC_ADDR]], i32 [[ARGC_VAL]])
+// CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE:NONPOD", %struct.S1* [[S1_ADDR]], %struct.S1* (%struct.S1*)* @_ZTS2S1.omp.def_constr, void (%struct.S1*)* @_ZTS2S1.omp.destr
+// CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE:NONPOD", %struct.S2* [[S2_ADDR]], %struct.S2* (%struct.S2*)* @_ZTS2S2.omp.def_constr, void (%struct.S2*)* @_ZTS2S2.omp.destr
+// CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE:NONPOD", [10 x %struct.S1]* [[ARR1_ADDR]], [10 x %struct.S1]* ([10 x %struct.S1]*)* @_ZTSA10_2S1.omp.def_constr, void ([10 x %struct.S1]*)* @_ZTSA10_2S1.omp.destr
+// CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE:NONPOD", [10 x %struct.S2]* [[ARR2_ADDR]], [10 x %struct.S2]* ([10 x %struct.S2]*)* @_ZTSA10_2S2.omp.def_constr, void ([10 x %struct.S2]*)* @_ZTSA10_2S2.omp.destr)
+// CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE", double* [[ARR3_ADDR]])
+// CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.LINEAR", i32* [[ARGC_ADDR]], i32
 // CHECK: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 #pragma omp parallel for shared(argv) private(s1, s2, arr1, arr2, arr3) linear(val(argc) : argc)
   for (int i = 0; i < argc; ++i)
@@ -80,11 +102,15 @@ int main(int argc, char **argv) {
 // CHECK: call void @llvm.intel.directive(metadata !"DIR.OMP.END.PARALLEL.LOOP")
 // CHECK: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 
-// CHECK: call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
-// CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE", metadata !"QUAL.OPND.NONPOD", %struct.S1* [[S1_ADDR]], %struct.S1* (%struct.S1*)* @_ZTS2S1.omp.def_constr, void (%struct.S1*)* @_ZTS2S1.omp.destr, metadata !"QUAL.OPND.NONPOD", %struct.S2* [[S2_ADDR]], %struct.S2* (%struct.S2*)* @_ZTS2S2.omp.def_constr, void (%struct.S2*)* @_ZTS2S2.omp.destr, metadata !"QUAL.OPND.NONPOD", [10 x %struct.S1]* [[ARR1_ADDR]], [10 x %struct.S1]* ([10 x %struct.S1]*)* @_ZTSA10_2S1.omp.def_constr, void ([10 x %struct.S1]*)* @_ZTSA10_2S1.omp.destr, metadata !"QUAL.OPND.NONPOD", [10 x %struct.S2]* [[ARR2_ADDR]], [10 x %struct.S2]* ([10 x %struct.S2]*)* @_ZTSA10_2S2.omp.def_constr, void ([10 x %struct.S2]*)* @_ZTSA10_2S2.omp.destr, double* [[ARR3_ADDR]])
 // CHECK: [[ARGCREF:%.+]] = load i32*, i32** [[ARGCREF_ADDR]],
-// CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.LINEAR.UVAL", i32* [[ARGCREF]], i32 1)
-// CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.LINEAR.VAL", i8*** [[ARGV_ADDR]], i32 1)
+// CHECK: call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
+// CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE:NONPOD", %struct.S1* [[S1_ADDR]], %struct.S1* (%struct.S1*)* @_ZTS2S1.omp.def_constr, void (%struct.S1*)* @_ZTS2S1.omp.destr
+// CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE:NONPOD", %struct.S2* [[S2_ADDR]], %struct.S2* (%struct.S2*)* @_ZTS2S2.omp.def_constr, void (%struct.S2*)* @_ZTS2S2.omp.destr
+// CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE:NONPOD", [10 x %struct.S1]* [[ARR1_ADDR]], [10 x %struct.S1]* ([10 x %struct.S1]*)* @_ZTSA10_2S1.omp.def_constr, void ([10 x %struct.S1]*)* @_ZTSA10_2S1.omp.destr
+// CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE:NONPOD", [10 x %struct.S2]* [[ARR2_ADDR]], [10 x %struct.S2]* ([10 x %struct.S2]*)* @_ZTSA10_2S2.omp.def_constr, void ([10 x %struct.S2]*)* @_ZTSA10_2S2.omp.destr)
+// CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE", double* [[ARR3_ADDR]])
+// CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.LINEAR", i32* [[ARGCREF]], i32 1)
+// CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.LINEAR", i8*** [[ARGV_ADDR]], i32 1)
 // CHECK: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 #pragma omp simd private(s1, s2, arr1, arr2, arr3) linear(uval(argcref)) linear(argv)
   for (int i = 0; i < argc; ++i)
@@ -233,12 +259,10 @@ int main(int argc, char **argv) {
 #pragma omp single
   n2 = n1;
 // CHECK: call void @llvm.intel.directive(metadata !"DIR.OMP.PARALLEL.LOOP")
-// CHECK: opndlist(metadata !"QUAL.OMP.PRIVATE", i32* %.omp.iv
-// CHECK: opndlist(metadata !"QUAL.OMP.PRIVATE", i32* %i
 // CHECK: opnd.i32(metadata !"QUAL.OMP.ORDERED", i32 1)
-// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+// CHECK: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 // CHECK: call void @llvm.intel.directive(metadata !"DIR.OMP.ORDERED")
-// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+// CHECK: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 // CHECK-NEXT: load i64, i64*
 // CHECK-NEXT: store i64
 // CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.END.ORDERED")
@@ -251,63 +275,78 @@ int main(int argc, char **argv) {
     n2 = n1;
   }
 
-//CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SCHEDULE.STATIC", metadata !"MODIFIERNONE", i32 0)
+//CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SCHEDULE.STATIC", i32 0)
+//CHECK-REG: region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.SCHEDULE.STATIC"(i32 0)
 #pragma omp parallel for schedule(static)
   for (int i = 0; i < 10; ++i) { }
 
-//CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SCHEDULE.STATIC", metadata !"MODIFIERNONE", i32 64)
+//CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SCHEDULE.STATIC", i32 64)
+//CHECK-REG: region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.SCHEDULE.STATIC"(i32 64)
 #pragma omp parallel for schedule(static, 64)
   for (int i = 0; i < 10; ++i) { }
 
-//CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SCHEDULE.DYNAMIC", metadata !"MODIFIERNONE", i32 1)
+//CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SCHEDULE.DYNAMIC", i32 1)
+//CHECK-REG: region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.SCHEDULE.DYNAMIC"(i32 1)
 #pragma omp parallel for schedule(dynamic)
   for (int i = 0; i < 10; ++i) { }
 
-//CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SCHEDULE.DYNAMIC", metadata !"MODIFIERNONE", i32 128)
+//CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SCHEDULE.DYNAMIC", i32 128)
+//CHECK-REG: region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.SCHEDULE.DYNAMIC"(i32 128)
 #pragma omp parallel for schedule(dynamic, 128)
   for (int i = 0; i < 10; ++i) { }
 
-//CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SCHEDULE.GUIDED", metadata !"MODIFIERNONE", i32 1)
+//CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SCHEDULE.GUIDED", i32 1)
+//CHECK-REG: region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.SCHEDULE.GUIDED"(i32 1)
 #pragma omp parallel for schedule(guided)
   for (int i = 0; i < 10; ++i) { }
 
-//CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SCHEDULE.GUIDED", metadata !"MODIFIERNONE", i32 256)
+//CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SCHEDULE.GUIDED", i32 256)
+//CHECK-REG: region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.SCHEDULE.GUIDED"(i32 256)
 #pragma omp parallel for schedule(guided, 256)
   for (int i = 0; i < 10; ++i) { }
 
-//CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SCHEDULE.AUTO", metadata !"MODIFIERNONE", i32 0)
+//CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SCHEDULE.AUTO", i32 0)
+//CHECK-REG: region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.SCHEDULE.AUTO"(i32 0)
 #pragma omp parallel for schedule(auto)
   for (int i = 0; i < 10; ++i) { }
 
-//CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SCHEDULE.RUNTIME", metadata !"MODIFIERNONE", i32 0)
+//CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SCHEDULE.RUNTIME", i32 0)
+//CHECK-REG: region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.SCHEDULE.RUNTIME"(i32 0)
 #pragma omp parallel for schedule(runtime)
   for (int i = 0; i < 10; ++i) { }
 
-//CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SCHEDULE.DYNAMIC", metadata !"MONOTONIC", i32 16)
+//CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SCHEDULE.DYNAMIC:MONOTONIC", i32 16)
+//CHECK-REG: region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.SCHEDULE.DYNAMIC:MONOTONIC"(i32 16)
 #pragma omp parallel for schedule(monotonic:dynamic, 16)
   for (int i = 0; i < 10; ++i) { }
 
-//CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SCHEDULE.DYNAMIC", metadata !"NONMONOTONIC", i32 16)
+//CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SCHEDULE.DYNAMIC:NONMONOTONIC", i32 16)
+//CHECK-REG: region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.SCHEDULE.DYNAMIC:NONMONOTONIC"(i32 16)
 #pragma omp parallel for schedule(nonmonotonic:dynamic,16)
   for (int i = 0; i < 10; ++i) { }
 
-//CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SCHEDULE.DYNAMIC", metadata !"SIMD", i32 16)
+//CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SCHEDULE.DYNAMIC:SIMD", i32 16)
+//CHECK-REG: region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.SCHEDULE.DYNAMIC:SIMD"(i32 16)
 #pragma omp parallel for schedule(simd:dynamic, 16)
   for (int i = 0; i < 10; ++i) { }
 
-//CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SCHEDULE.DYNAMIC", metadata !"SIMD.MONOTONIC", i32 16)
+//CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SCHEDULE.DYNAMIC:SIMD.MONOTONIC", i32 16)
+//CHECK-REG: region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.SCHEDULE.DYNAMIC:SIMD.MONOTONIC"(i32 16)
 #pragma omp parallel for schedule(simd,monotonic:dynamic, 16)
   for (int i = 0; i < 10; ++i) { }
 
-//CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SCHEDULE.DYNAMIC", metadata !"SIMD.NONMONOTONIC", i32 16)
+//CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SCHEDULE.DYNAMIC:SIMD.NONMONOTONIC", i32 16)
+//CHECK-REG: region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.SCHEDULE.DYNAMIC:SIMD.NONMONOTONIC"(i32 16)
 #pragma omp parallel for schedule(simd,nonmonotonic:dynamic, 16)
   for (int i = 0; i < 10; ++i) { }
 
-//CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SCHEDULE.DYNAMIC", metadata !"MONOTONIC.SIMD", i32 16)
+//CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SCHEDULE.DYNAMIC:MONOTONIC.SIMD", i32 16)
+//CHECK-REG: region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.SCHEDULE.DYNAMIC:MONOTONIC.SIMD"(i32 16)
 #pragma omp parallel for schedule(monotonic,simd:dynamic, 16)
   for (int i = 0; i < 10; ++i) { }
 
-//CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SCHEDULE.DYNAMIC", metadata !"NONMONOTONIC.SIMD", i32 16)
+//CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SCHEDULE.DYNAMIC:NONMONOTONIC.SIMD", i32 16)
+//CHECK-REG: region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.SCHEDULE.DYNAMIC:NONMONOTONIC.SIMD"(i32 16)
 #pragma omp parallel for schedule(nonmonotonic,simd:dynamic,16)
   for (int i = 0; i < 10; ++i) { }
 
@@ -316,36 +355,77 @@ int main(int argc, char **argv) {
   long input1[N];
   long **input2 = 0;
   long result[M][M][N];
-// CHECK: call void @llvm.intel.directive(metadata !"DIR.OMP.TARGET")
-// CHECK-NEXT: [[N:%.+]] = load i32, i32* [[N_ADDR:%.+]],
-// CHECK-NEXT: [[NS:%.+]] = sext i32 [[N]] to i64
-// CHECK-NEXT: [[N1:%.+]] = load i32, i32* [[N_ADDR]]
-// CHECK-NEXT: [[N1S:%.+]] = sext i32 [[N1]] to i64
-// CHECK-NEXT: [[N2:%.+]] = load i32, i32* [[N_ADDR]]
-// CHECK-NEXT: [[N2S:%.+]] = sext i32 [[N2]] to i64
-// CHECK-NEXT: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.MAP.TO", metadata !"QUAL.OPND.ARRSECT", i64* %{{.+}}, i64 1, metadata !"QUAL.OPND.ARRSIZE", i64 [[N1S]], i64 2, i64 [[NS]], i64 1, metadata !"QUAL.OPND.ARRSECT", i64*** %{{.+}}, i64 2, i64 0, i64 [[N2S]], i64 1, i64 0, i64 10, i64 1)
-// CHECK-NEXT: [[N:%.+]] = load i32, i32* [[N_ADDR]]
-// CHECK-NEXT: [[NS:%.+]] = sext i32 [[N]] to i64
-// CHECK-NEXT: [[SIZE:%.+]] = sub i64 [[NS]], 0
-// CHECK-NEXT: [[N1:%.+]] = load i32, i32* [[N_ADDR]]
-// CHECK-NEXT: [[N1S:%.+]] = sext i32 [[N1]] to i64
-// CHECK-NEXT: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.MAP.FROM", metadata !"QUAL.OPND.ARRSECT", i64* %{{.+}}, i64 3, metadata !"QUAL.OPND.ARRSIZE", i64 10, i64 10, i64 [[N1S]], i64 2, i64 8, i64 1, i64 0, i64 10, i64 1, i64 0, i64 [[SIZE]], i64 1)
-// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
-// CHECK: call void @llvm.intel.directive(metadata !"DIR.OMP.PARALLEL.LOOP")
-// CHECK: opndlist(metadata !"QUAL.OMP.PRIVATE", i32* %.omp.iv
-// CHECK: opndlist(metadata !"QUAL.OMP.PRIVATE", i32* %i
-// CHECK: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
-// CHECK: load i64, i64*
-// CHECK: store i64
-// CHECK: call void @llvm.intel.directive(metadata !"DIR.OMP.END.PARALLEL.LOOP")
-// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
-// CHECK: call void @llvm.intel.directive(metadata !"DIR.OMP.END.TARGET")
-// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+// DISABLE until we resolve ARRSIZE issue
+// NOCHECK: [[VLA1:%.+]] = alloca i64
+// NOCHECK: [[VLA2:%.+]] = alloca i64
+// NOCHECK-NEXT: [[N:%.+]] = load i32, i32* [[N_ADDR:%.+]],
+// NOCHECK-NEXT: [[NS:%.+]] = sext i32 [[N]] to i64
+// NOCHECK-NEXT: [[N1:%.+]] = load i32, i32* [[N_ADDR]]
+// NOCHECK-NEXT: [[N1S:%.+]] = sext i32 [[N1]] to i64
+// NOCHECK-NEXT: [[N2:%.+]] = load i32, i32* [[N_ADDR]]
+// NOCHECK-NEXT: [[N2S:%.+]] = sext i32 [[N2]] to i64
+// NOCHECK-NEXT: [[NA:%.+]] = load i32, i32* [[N_ADDR]]
+// NOCHECK-NEXT: [[NAS:%.+]] = sext i32 [[NA]] to i64
+// NOCHECK-NEXT: [[SIZE:%.+]] = sub i64 [[NAS]], 0
+// NOCHECK-NEXT: [[NA1:%.+]] = load i32, i32* [[N_ADDR]]
+// NOCHECK-NEXT: [[NA1S:%.+]] = sext i32 [[NA1]] to i64
+// NOCHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.TARGET")
+// NOCHECK-NEXT: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.MAP.TO", metadata !"QUAL.OPND.ARRSECT", i64* [[VLA1]], i64 1, metadata !"QUAL.OPND.ARRSIZE", i64 [[N1S]], i64 2, i64 [[NS]], i64 1, metadata !"QUAL.OPND.ARRSECT", i64*** %{{.+}}, i64 2, i64 0, i64 [[N2S]], i64 1, i64 0, i64 10, i64 1)
+// NOCHECK-NEXT: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.MAP.FROM", metadata !"QUAL.OPND.ARRSECT", i64* [[VLA2]], i64 3, metadata !"QUAL.OPND.ARRSIZE", i64 10, i64 10, i64 [[NA1S]], i64 2, i64 8, i64 1, i64 0, i64 10, i64 1, i64 0, i64 [[SIZE]], i64 1)
+// NOCHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+// NOCHECK: call void @llvm.intel.directive(metadata !"DIR.OMP.PARALLEL.LOOP")
+// NOCHECK: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+// NOCHECK: load i64, i64*
+// NOCHECK: store i64
+// NOCHECK: call void @llvm.intel.directive(metadata !"DIR.OMP.END.PARALLEL.LOOP")
+// NOCHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+// NOCHECK: call void @llvm.intel.directive(metadata !"DIR.OMP.END.TARGET")
+// NOCHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 #pragma omp target map(to : input1[2:N], input2[0:N][:M]) map(from : result[2:][:M][0:])
 #pragma omp parallel for
   for (int i = 0; i < N; i++)
     result[i][i][i] = input1[i] + input2[i][i];
-
+  {
+    int *a, *b;
+    int z = 3, y = 9;
+// CHECK-REG: [[TARG_TOKENVAL:%[0-9]+]] = call token{{.*}}region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.DEVICE"(i32 4), "QUAL.OMP.IS_DEVICE_PTR"(i32** %a{{.*}}, i32** %b{{.*}}), "QUAL.OMP.DEFAULTMAP.TOFROM.SCALAR"(), "QUAL.OMP.NOWAIT"() ]
+// CHECK-REG: region.exit(token [[TARG_TOKENVAL]]) [ "DIR.OMP.END.TARGET"() ]
+    #pragma omp target device(4) is_device_ptr(a,b) \
+                       defaultmap(tofrom:scalar) nowait
+    {
+    }
+// CHECK-REG: [[TARGD_TOKENVAL:%[0-9]+]] = call token{{.*}}region.entry() [ "DIR.OMP.TARGET.DATA"(), "QUAL.OMP.MAP.TOFROM"(i32* %z{{.*}}), "QUAL.OMP.USE_DEVICE_PTR"(i32** %a{{.*}}, i32** %b{{.*}}) ]
+// CHECK-REG: region.exit(token [[TARGD_TOKENVAL]]) [ "DIR.OMP.END.TARGET.DATA"() ]
+    #pragma omp target data map(tofrom:z) use_device_ptr(a,b)
+    {
+    }
+// CHECK-REG: [[TARGU_TOKENVAL:%[0-9]+]] = call token{{.*}}region.entry() [ "DIR.OMP.TARGET.UPDATE"(), "QUAL.OMP.TO"(i32* %z{{.*}}), "QUAL.OMP.FROM"(i32* %y{{.*}}) ]
+// CHECK-REG: region.exit(token [[TARGU_TOKENVAL]]) [ "DIR.OMP.END.TARGET.UPDATE"() ]
+    #pragma omp target update to(z) from(y)
+  }
+  {
+    int local_int = 1;
+// CHECK-REG: [[TARG2_TOKENVAL:%[0-9]+]] = call token{{.*}}TARGET{{.*}}IS_DEVICE_PTR{{.*}}glob_ptr{{.*}}FIRSTPRIVATE{{.*}}glob_int{{.*}}FIRSTPRIVATE{{.*}}local_int
+// CHECK-REG: region.exit(token [[TARG2_TOKENVAL]]) [ "DIR.OMP.END.TARGET"() ]
+    #pragma omp target is_device_ptr(glob_ptr)
+    {
+      glob_int = local_int + 1;
+      glob_ptr++;
+    }
+    S4 s4;
+// CHECK-REG: [[TARG3_TOKENVAL:%[0-9]+]] = call token{{.*}}TARGET{{.*}}MAP.TOFROM{{.*}}%struct.S4
+// CHECK-REG: region.exit(token [[TARG3_TOKENVAL]]) [ "DIR.OMP.END.TARGET"() ]
+    #pragma omp target
+    {
+      s4.i = 1;
+    }
+// CHECK-REG: [[TARG4_TOKENVAL:%[0-9]+]] = call token{{.*}}TARGET{{.*}}DEFAULTMAP.TOFROM.SCALAR{{.*}}MAP.TOFROM{{.*}}glob_int{{.*}}MAP.TOFROM{{.*}}local_int
+// CHECK-REG: region.exit(token [[TARG4_TOKENVAL]]) [ "DIR.OMP.END.TARGET"() ]
+    #pragma omp target defaultmap(tofrom:scalar)
+    {
+      glob_int = local_int + 1;
+    }
+  }
   return 0;
 }
 

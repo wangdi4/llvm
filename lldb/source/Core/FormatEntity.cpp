@@ -14,8 +14,7 @@
 #include "lldb/Core/ArchSpec.h"     // for ArchSpec
 #include "lldb/Core/Debugger.h"
 #include "lldb/Core/Module.h"
-#include "lldb/Core/RegisterValue.h"  // for RegisterValue
-#include "lldb/Core/StructuredData.h" // for StructuredData::O...
+#include "lldb/Core/RegisterValue.h" // for RegisterValue
 #include "lldb/Core/ValueObject.h"
 #include "lldb/Core/ValueObjectVariable.h"
 #include "lldb/DataFormatters/DataVisualization.h"
@@ -50,9 +49,10 @@
 #include "lldb/Utility/SharingPtr.h" // for SharingPtr
 #include "lldb/Utility/Stream.h"
 #include "lldb/Utility/StreamString.h"
-#include "lldb/Utility/StringList.h" // for StringList
-#include "lldb/lldb-defines.h"       // for LLDB_INVALID_ADDRESS
-#include "lldb/lldb-forward.h"       // for ValueObjectSP
+#include "lldb/Utility/StringList.h"     // for StringList
+#include "lldb/Utility/StructuredData.h" // for StructuredData::O...
+#include "lldb/lldb-defines.h"           // for LLDB_INVALID_ADDRESS
+#include "lldb/lldb-forward.h"           // for ValueObjectSP
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Triple.h"       // for Triple, Triple::O...
@@ -1040,24 +1040,24 @@ static bool FormatThreadExtendedInfoRecurse(
       thread_info_dictionary->GetObjectForDotSeparatedPath(path);
 
   if (value) {
-    if (value->GetType() == StructuredData::Type::eTypeInteger) {
+    if (value->GetType() == eStructuredDataTypeInteger) {
       const char *token_format = "0x%4.4" PRIx64;
       if (!entry.printf_format.empty())
         token_format = entry.printf_format.c_str();
       s.Printf(token_format, value->GetAsInteger()->GetValue());
       return true;
-    } else if (value->GetType() == StructuredData::Type::eTypeFloat) {
+    } else if (value->GetType() == eStructuredDataTypeFloat) {
       s.Printf("%f", value->GetAsFloat()->GetValue());
       return true;
-    } else if (value->GetType() == StructuredData::Type::eTypeString) {
+    } else if (value->GetType() == eStructuredDataTypeString) {
       s.Format("{0}", value->GetAsString()->GetValue());
       return true;
-    } else if (value->GetType() == StructuredData::Type::eTypeArray) {
+    } else if (value->GetType() == eStructuredDataTypeArray) {
       if (value->GetAsArray()->GetSize() > 0) {
         s.Printf("%zu", value->GetAsArray()->GetSize());
         return true;
       }
-    } else if (value->GetType() == StructuredData::Type::eTypeDictionary) {
+    } else if (value->GetType() == eStructuredDataTypeDictionary) {
       s.Printf("%zu",
                value->GetAsDictionary()->GetKeys()->GetAsArray()->GetSize());
       return true;
@@ -1346,7 +1346,7 @@ bool FormatEntity::Format(const Entry &entry, Stream &s,
       if (thread) {
         StructuredData::ObjectSP object_sp = thread->GetExtendedInfo();
         if (object_sp &&
-            object_sp->GetType() == StructuredData::Type::eTypeDictionary) {
+            object_sp->GetType() == eStructuredDataTypeDictionary) {
           if (FormatThreadExtendedInfoRecurse(entry, object_sp, sc, exe_ctx, s))
             return true;
         }

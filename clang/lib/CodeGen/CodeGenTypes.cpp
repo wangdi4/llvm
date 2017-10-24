@@ -646,6 +646,12 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
     }
     break;
   }
+#if INTEL_CUSTOMIZATION
+  case Type::Channel: {
+    ResultType = CGM.getOpenCLRuntime().getChannelType();
+    break;
+  }
+#endif // INTEL_CUSTOMIZATION
   case Type::Pipe: {
     ResultType = CGM.getOpenCLRuntime().getPipeType();
     break;

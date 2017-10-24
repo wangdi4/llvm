@@ -71,11 +71,18 @@ TypeResult Parser::ParseTypeName(SourceRange *Range,
   return Actions.ActOnTypeName(getCurScope(), DeclaratorInfo);
 }
 
+/// \brief Normalizes an attribute name by dropping prefixed and suffixed __.
+static StringRef normalizeAttrName(StringRef Name) {
+  if (Name.size() >= 4 && Name.startswith("__") && Name.endswith("__"))
+    return Name.drop_front(2).drop_back(2);
+  return Name;
+}
+
 /// isAttributeLateParsed - Return true if the attribute has arguments that
 /// require late parsing.
 static bool isAttributeLateParsed(const IdentifierInfo &II) {
 #define CLANG_ATTR_LATE_PARSED_LIST
-    return llvm::StringSwitch<bool>(II.getName())
+    return llvm::StringSwitch<bool>(normalizeAttrName(II.getName()))
 #include "clang/Parse/AttrParserStringSwitches.inc"
         .Default(false);
 #undef CLANG_ATTR_LATE_PARSED_LIST
@@ -204,13 +211,6 @@ void Parser::ParseGNUAttributes(ParsedAttributes &attrs,
     if (endLoc)
       *endLoc = Loc;
   }
-}
-
-/// \brief Normalizes an attribute name by dropping prefixed and suffixed __.
-static StringRef normalizeAttrName(StringRef Name) {
-  if (Name.size() >= 4 && Name.startswith("__") && Name.endswith("__"))
-    Name = Name.drop_front(2).drop_back(2);
-  return Name;
 }
 
 #if INTEL_CUSTOMIZATION
@@ -2702,6 +2702,7 @@ bool Parser::ParseImplicitInt(DeclSpec &DS, CXXScopeSpec *SS,
         }
       }
       // Fall through.
+      LLVM_FALLTHROUGH;
     }
     case tok::comma:
     case tok::equal:
@@ -2778,6 +2779,8 @@ Parser::getDeclSpecContextFromDeclaratorContext(unsigned Context) {
     return DSC_class;
   if (Context == Declarator::FileContext)
     return DSC_top_level;
+  if (Context == Declarator::TemplateParamContext)
+    return DSC_template_param;
   if (Context == Declarator::TemplateTypeArgContext)
     return DSC_template_type_arg;
   if (Context == Declarator::TrailingReturnContext)
@@ -3738,6 +3741,19 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       }
       isInvalid = DS.SetTypePipe(true, Loc, PrevSpec, DiagID, Policy);
       break;
+#if INTEL_CUSTOMIZATION
+    case tok::kw_channel:
+      if (!getLangOpts().OpenCL ||
+          !getTargetInfo().getSupportedOpenCLOpts()
+          .isSupported("cl_intel_channels", 100)) {
+        // 'channel' is a keyword only for OpenCL with cl_intel_channels
+        // extension
+        Tok.setKind(tok::identifier);
+        continue;
+      }
+      isInvalid = DS.SetTypeChannel(true, Loc, PrevSpec, DiagID, Policy);
+      break;
+#endif // INTEL_CUSTOMIZATION
 #define GENERIC_IMAGE_TYPE(ImgType, Id) \
   case tok::kw_##ImgType##_t: \
     isInvalid = DS.SetTypeSpecType(DeclSpec::TST_##ImgType##_t, Loc, PrevSpec, \
@@ -3867,6 +3883,7 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
         isInvalid = true;
         break;
       };
+      LLVM_FALLTHROUGH;
     case tok::kw___private:
     case tok::kw___global:
     case tok::kw___local:
@@ -4452,7 +4469,9 @@ void Parser::ParseEnumSpecifier(SourceLocation StartLoc, DeclSpec &DS,
                                    AS, DS.getModulePrivateSpecLoc(), TParams,
                                    Owned, IsDependent, ScopedEnumKWLoc,
                                    IsScopedUsingClassTag, BaseType,
-                                   DSC == DSC_type_specifier, &SkipBody);
+                                   DSC == DSC_type_specifier,
+                                   DSC == DSC_template_param ||
+                                   DSC == DSC_template_type_arg, &SkipBody);
 
   if (SkipBody.ShouldSkip) {
     assert(TUK == Sema::TUK_Definition && "can only skip a definition");
@@ -4506,8 +4525,15 @@ void Parser::ParseEnumSpecifier(SourceLocation StartLoc, DeclSpec &DS,
     return;
   }
 
-  if (Tok.is(tok::l_brace) && TUK != Sema::TUK_Reference)
-    ParseEnumBody(StartLoc, TagDecl);
+  if (Tok.is(tok::l_brace) && TUK != Sema::TUK_Reference) {
+    Decl *D = SkipBody.CheckSameAsPrevious ? SkipBody.New : TagDecl;
+    ParseEnumBody(StartLoc, D);
+    if (SkipBody.CheckSameAsPrevious &&
+        !Actions.ActOnDuplicateDefinition(DS, TagDecl, SkipBody)) {
+      DS.SetTypeSpecError();
+      return;
+    }
+  }
 
   if (DS.SetTypeSpecType(DeclSpec::TST_enum, StartLoc,
                          NameLoc.isValid() ? NameLoc : StartLoc,
@@ -4589,11 +4615,9 @@ void Parser::ParseEnumBody(SourceLocation StartLoc, Decl *EnumDecl) {
     }
 
     // Install the enumerator constant into EnumDecl.
-    Decl *EnumConstDecl = Actions.ActOnEnumConstant(getCurScope(), EnumDecl,
-                                                    LastEnumConstDecl,
-                                                    IdentLoc, Ident,
-                                                    attrs.getList(), EqualLoc,
-                                                    AssignedVal.get());
+    Decl *EnumConstDecl = Actions.ActOnEnumConstant(
+        getCurScope(), EnumDecl, LastEnumConstDecl, IdentLoc, Ident,
+        attrs.getList(), EqualLoc, AssignedVal.get());
     EnumAvailabilityDiags.back().done();
 
     EnumConstantDecls.push_back(EnumConstDecl);
@@ -4858,6 +4882,12 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
 
   case tok::kw_pipe:
     return getLangOpts().OpenCL && (getLangOpts().OpenCLVersion >= 200);
+#if INTEL_CUSTOMIZATION
+  case tok::kw_channel:
+    return getLangOpts().OpenCL &&
+      getTargetInfo().getSupportedOpenCLOpts().
+         isEnabled("cl_intel_channels");
+#endif // INTEL_CUSTOMIZATION
 
   case tok::identifier:   // foo::bar
     // Unfortunate hack to support "Class.factoryMethod" notation.
@@ -5263,6 +5293,7 @@ void Parser::ParseTypeQualifierListOpt(
         if (TryKeywordIdentFallback(false))
           continue;
       }
+      LLVM_FALLTHROUGH;
     case tok::kw___sptr:
     case tok::kw___w64:
     case tok::kw___ptr64:
@@ -5334,6 +5365,7 @@ void Parser::ParseTypeQualifierListOpt(
         continue; // do *not* consume the next token!
       }
       // otherwise, FALL THROUGH!
+      LLVM_FALLTHROUGH;
     default:
       DoneWithTypeQuals:
       // If this is not a type-qualifier token, we're done reading type
@@ -5361,13 +5393,20 @@ void Parser::ParseDeclarator(Declarator &D) {
   ParseDeclaratorInternal(D, &Parser::ParseDirectDeclarator);
 }
 
+#if INTEL_CUSTOMIZATION
 static bool isPtrOperatorToken(tok::TokenKind Kind, const LangOptions &Lang,
-                               unsigned TheContext) {
+                               const TargetInfo &Target, unsigned TheContext) {
+#endif // INTEL_CUSTOMIZATION
   if (Kind == tok::star || Kind == tok::caret)
     return true;
 
   if ((Kind == tok::kw_pipe) && Lang.OpenCL && (Lang.OpenCLVersion >= 200))
     return true;
+#if INTEL_CUSTOMIZATION
+  if ((Kind == tok::kw_channel) && Lang.OpenCL &&
+      Target.getSupportedOpenCLOpts().isEnabled("cl_intel_channels"))
+    return true;
+#endif // INTEL_CUSTOMIZATION
 
   if (!Lang.CPlusPlus)
     return false;
@@ -5397,6 +5436,19 @@ static bool isPipeDeclerator(const Declarator &D) {
 
   return false;
 }
+
+#if INTEL_CUSTOMIZATION
+// Indicates whether the given declarator is a channel declarator.
+static bool isChannelDeclarator(const Declarator &D) {
+  const unsigned NumTypes = D.getNumTypeObjects();
+
+  for (unsigned Idx = 0; Idx != NumTypes; ++Idx)
+    if (DeclaratorChunk::Channel == D.getTypeObject(Idx).Kind)
+      return true;
+
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
 
 /// ParseDeclaratorInternal - Parse a C or C++ declarator. The direct-declarator
 /// is parsed by the function passed to it. Pass null, and the direct-declarator
@@ -5484,12 +5536,29 @@ void Parser::ParseDeclaratorInternal(Declarator &D,
         DS.getAttributes(), SourceLocation());
   }
 
+#if INTEL_CUSTOMIZATION
   // Not a pointer, C++ reference, or block.
-  if (!isPtrOperatorToken(Kind, getLangOpts(), D.getContext())) {
+  if (!isPtrOperatorToken(Kind, getLangOpts(), getTargetInfo(),
+                          D.getContext())) {
     if (DirectDeclParser)
       (this->*DirectDeclParser)(D);
+
+    if (D.getDeclSpec().isTypeSpecChannel() && !isChannelDeclarator(D)) {
+      // Unlike Pipes, Channels handled here, because arrays of channels are
+      // allowed and we must parse further.
+      DeclSpec DS(AttrFactory);
+      ParseTypeQualifierListOpt(DS, AR_AllAttributesParsed,
+                                /*AtomicAllowed=*/true,
+                                /*IdentifierRequired=*/true);
+
+      D.AddTypeInfo(DeclaratorChunk::getChannel(DS.getTypeQualifiers(),
+                                                DS.getChannelLoc()),
+                    DS.getAttributes(), SourceLocation());
+    }
+
     return;
   }
+#endif // INTEL_CUSTOMIZATION
 
   // Otherwise, '*' -> pointer, '^' -> block, '&' -> lvalue reference,
   // '&&' -> rvalue reference
@@ -5702,7 +5771,10 @@ void Parser::ParseDirectDeclarator(Declarator &D) {
           !Actions.containsUnexpandedParameterPacks(D) &&
           D.getDeclSpec().getTypeSpecType() != TST_auto)) {
       SourceLocation EllipsisLoc = ConsumeToken();
-      if (isPtrOperatorToken(Tok.getKind(), getLangOpts(), D.getContext())) {
+#if INTEL_CUSTOMIZATION
+      if (isPtrOperatorToken(Tok.getKind(), getLangOpts(), getTargetInfo(),
+                             D.getContext())) {
+#endif // INTEL_CUSTOMIZATION
         // The ellipsis was put in the wrong place. Recover, and explain to
         // the user what they should have done.
         ParseDeclarator(D);
@@ -6792,6 +6864,9 @@ void Parser::ParseMisplacedBracketDeclarator(Declarator &D) {
       break;
     case DeclaratorChunk::Array:
     case DeclaratorChunk::Function:
+#if INTEL_CUSTOMIZATION
+    case DeclaratorChunk::Channel:
+#endif // INTEL_CUSTOMIZATION
     case DeclaratorChunk::Paren:
       break;
     }
@@ -6887,7 +6962,7 @@ void Parser::ParseTypeofSpecifier(DeclSpec &DS) {
     return;
   }
 
-  // If we get here, the operand to the typeof was an expresion.
+  // If we get here, the operand to the typeof was an expression.
   if (Operand.isInvalid()) {
     DS.SetTypeSpecError();
     return;

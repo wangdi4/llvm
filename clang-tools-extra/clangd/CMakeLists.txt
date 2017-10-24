@@ -14,9 +14,12 @@ add_clang_library(clangDaemon
   ProtocolHandlers.cpp
 
   LINK_LIBS
+  clangAST
   clangBasic
   clangFormat
   clangFrontend
+  clangIndex
+  clangLex
   clangSema
   clangTooling
   clangToolingCore

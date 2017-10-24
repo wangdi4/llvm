@@ -348,6 +348,9 @@ private:
   unsigned TypeAltiVecBool : 1;
   unsigned TypeSpecOwned : 1;
   unsigned TypeSpecPipe : 1;
+#if INTEL_CUSTOMIZATION
+  unsigned TypeSpecChannel : 1;
+#endif // INTEL_CUSTOMIZATION
 
   // type-qualifiers
   unsigned TypeQualifiers : 5;  // Bitwise OR of TQ.
@@ -399,6 +402,9 @@ private:
   SourceLocation FS_forceinlineLoc;
   SourceLocation FriendLoc, ModulePrivateLoc, ConstexprLoc, ConceptLoc;
   SourceLocation TQ_pipeLoc;
+#if INTEL_CUSTOMIZATION
+  SourceLocation TQ_channelLoc;
+#endif // INTEL_CUSTOMIZATION
 
   WrittenBuiltinSpecs writtenBS;
   void SaveWrittenBuiltinSpecs();
@@ -439,6 +445,9 @@ public:
       TypeAltiVecBool(false),
       TypeSpecOwned(false),
       TypeSpecPipe(false),
+#if INTEL_CUSTOMIZATION
+      TypeSpecChannel(false),
+#endif // INTEL_CUSTOMIZATION
       TypeQualifiers(TQ_unspecified),
       FS_inline_specified(false),
       FS_forceinline_specified(false),
@@ -493,6 +502,9 @@ public:
   bool isTypeSpecOwned() const { return TypeSpecOwned; }
   bool isTypeRep() const { return isTypeRep((TST) TypeSpecType); }
   bool isTypeSpecPipe() const { return TypeSpecPipe; }
+#if INTEL_CUSTOMIZATION
+  bool isTypeSpecChannel() const { return TypeSpecChannel; }
+#endif // INTEL_CUSTOMIZATION
 
   ParsedType getRepAsType() const {
     assert(isTypeRep((TST) TypeSpecType) && "DeclSpec does not store a type");
@@ -555,6 +567,9 @@ public:
   SourceLocation getAtomicSpecLoc() const { return TQ_atomicLoc; }
   SourceLocation getUnalignedSpecLoc() const { return TQ_unalignedLoc; }
   SourceLocation getPipeLoc() const { return TQ_pipeLoc; }
+#if INTEL_CUSTOMIZATION
+  SourceLocation getChannelLoc() const { return TQ_channelLoc; }
+#endif // INTEL_CUSTOMIZATION
 
   /// \brief Clear out all of the type qualifiers.
   void ClearTypeQualifiers() {
@@ -671,6 +686,11 @@ public:
   bool SetTypePipe(bool isPipe, SourceLocation Loc,
                        const char *&PrevSpec, unsigned &DiagID,
                        const PrintingPolicy &Policy);
+#if INTEL_CUSTOMIZATION
+  bool SetTypeChannel(bool isChannel, SourceLocation Loc,
+                      const char *&PrevSpec, unsigned &DiagID,
+                      const PrintingPolicy &Policy);
+#endif // INTEL_CUSTOMIZATION
   bool SetTypeSpecError();
   void UpdateDeclRep(Decl *Rep) {
     assert(isDeclRep((TST) TypeSpecType));
@@ -1141,7 +1161,9 @@ typedef SmallVector<Token, 4> CachedTokens;
 /// This is intended to be a small value object.
 struct DeclaratorChunk {
   enum {
-    Pointer, Reference, Array, Function, BlockPointer, MemberPointer, Paren, Pipe
+#if INTEL_CUSTOMIZATION
+    Pointer, Reference, Array, Function, BlockPointer, MemberPointer, Paren, Pipe, Channel
+#endif // INTEL_CUSTOMIZATION
   } Kind;
 
   /// Loc - The place where this type was defined.
@@ -1504,6 +1526,15 @@ struct DeclaratorChunk {
   void destroy() {}
   };
 
+#if INTEL_CUSTOMIZATION
+  struct ChannelTypeInfo : TypeInfoCommon {
+    /// The access writes.
+    unsigned AccessWrites : 3;
+
+    void destroy() {}
+  };
+#endif // INTEL_CUSTOMIZATION
+
   union {
     TypeInfoCommon        Common;
     PointerTypeInfo       Ptr;
@@ -1512,6 +1543,9 @@ struct DeclaratorChunk {
     FunctionTypeInfo      Fun;
     BlockPointerTypeInfo  Cls;
     MemberPointerTypeInfo Mem;
+#if INTEL_CUSTOMIZATION
+    ChannelTypeInfo       ChannelInfo;
+#endif // INTEL_CUSTOMIZATION
     PipeTypeInfo          PipeInfo;
   };
 
@@ -1524,6 +1558,9 @@ struct DeclaratorChunk {
     case DeclaratorChunk::Array:         return Arr.destroy();
     case DeclaratorChunk::MemberPointer: return Mem.destroy();
     case DeclaratorChunk::Paren:         return;
+#if INTEL_CUSTOMIZATION
+    case DeclaratorChunk::Channel:       return ChannelInfo.destroy();
+#endif // INTEL_CUSTOMIZATION
     case DeclaratorChunk::Pipe:          return PipeInfo.destroy();
     }
   }
@@ -1636,6 +1673,19 @@ struct DeclaratorChunk {
     I.Cls.AttrList  = nullptr;
     return I;
   }
+
+#if INTEL_CUSTOMIZATION
+  /// \brief Return a DeclaratorChunk for a block.
+  static DeclaratorChunk getChannel(unsigned TypeQuals,
+                                    SourceLocation Loc) {
+    DeclaratorChunk I;
+    I.Kind          = Channel;
+    I.Loc           = Loc;
+    I.Cls.TypeQuals = TypeQuals;
+    I.Cls.AttrList  = 0;
+    return I;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   static DeclaratorChunk getMemberPointer(const CXXScopeSpec &SS,
                                           unsigned TypeQuals,
@@ -2233,6 +2283,9 @@ public:
       case DeclaratorChunk::Array:
       case DeclaratorChunk::BlockPointer:
       case DeclaratorChunk::MemberPointer:
+#if INTEL_CUSTOMIZATION
+      case DeclaratorChunk::Channel:
+#endif // INTEL_CUSTOMIZATION
       case DeclaratorChunk::Pipe:
         return false;
       }

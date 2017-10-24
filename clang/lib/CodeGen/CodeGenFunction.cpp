@@ -240,6 +240,9 @@ TypeEvaluationKind CodeGenFunction::getEvaluationKind(QualType type) {
     case Type::FunctionNoProto:
     case Type::Enum:
     case Type::ObjCObjectPointer:
+#if INTEL_CUSTOMIZATION
+    case Type::Channel:
+#endif // INTEL_CUSTOMIZATION
     case Type::Pipe:
       return TEK_Scalar;
 
@@ -372,7 +375,7 @@ void CodeGenFunction::FinishFunction(SourceLocation EndLoc) {
 
   // Emit debug descriptor for function end.
   if (CGDebugInfo *DI = getDebugInfo())
-    DI->EmitFunctionEnd(Builder);
+    DI->EmitFunctionEnd(Builder, CurFn);
 
   // Reset the debug location to that of the simple 'return' expression, if any
   // rather than that of the end of the function's scope '}'.
@@ -697,6 +700,13 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
             llvm::APInt(32, (uint64_t)(IsSignedInteger ? 1 : 0))))};
     Fn->setMetadata("vec_type_hint", llvm::MDNode::get(Context, AttrMDArgs));
   }
+#if INTEL_CUSTOMIZATION
+  if (const VecLenHintAttr *A = FD->getAttr<VecLenHintAttr>()) {
+    llvm::Metadata *AttrMDArgs[] = {
+        llvm::ConstantAsMetadata::get(Builder.getInt32(A->getVecLen()))};
+    Fn->setMetadata(A->getSpelling(), llvm::MDNode::get(Context, AttrMDArgs));
+  }
+#endif // INTEL_CUSTOMIZATION
 
   if (const WorkGroupSizeHintAttr *A = FD->getAttr<WorkGroupSizeHintAttr>()) {
     llvm::Metadata *AttrMDArgs[] = {
@@ -713,6 +723,37 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
         llvm::ConstantAsMetadata::get(Builder.getInt32(A->getZDim()))};
     Fn->setMetadata("reqd_work_group_size", llvm::MDNode::get(Context, AttrMDArgs));
   }
+
+#if INTEL_CUSTOMIZATION
+  if (const MaxWorkGroupSizeAttr *A = FD->getAttr<MaxWorkGroupSizeAttr>()) {
+    llvm::Metadata *attrMDArgs[] = {
+        llvm::ConstantAsMetadata::get(Builder.getInt32(A->getXDim())),
+        llvm::ConstantAsMetadata::get(Builder.getInt32(A->getYDim())),
+        llvm::ConstantAsMetadata::get(Builder.getInt32(A->getZDim()))};
+    Fn->setMetadata("max_work_group_size",
+                    llvm::MDNode::get(Context, attrMDArgs));
+  }
+
+  if (FD->getAttr<TaskAttr>()) {
+    llvm::Metadata *attrMDArgs[] = {
+        llvm::ConstantAsMetadata::get(Builder.getTrue())};
+    Fn->setMetadata("task", llvm::MDNode::get(Context, attrMDArgs));
+  }
+
+  if (const NumComputeUnitsAttr *A = FD->getAttr<NumComputeUnitsAttr>()) {
+    llvm::Metadata *attrMDArgs[] = {llvm::ConstantAsMetadata::get(
+        Builder.getInt32(A->getNumComputeUnits()))};
+    Fn->setMetadata("num_compute_units",
+                    llvm::MDNode::get(Context, attrMDArgs));
+  }
+
+  if (const NumSimdWorkItemsAttr *A = FD->getAttr<NumSimdWorkItemsAttr>()) {
+    llvm::Metadata *attrMDArgs[] = {llvm::ConstantAsMetadata::get(
+        Builder.getInt32(A->getNumSimdWorkItems()))};
+    Fn->setMetadata("num_simd_work_items",
+                    llvm::MDNode::get(Context, attrMDArgs));
+  }
+#endif // INTEL_CUSTOMIZATION
 
   if (const OpenCLIntelReqdSubGroupSizeAttr *A =
           FD->getAttr<OpenCLIntelReqdSubGroupSizeAttr>()) {
@@ -884,6 +925,13 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
 
   Builder.SetInsertPoint(EntryBB);
 
+  // If we're checking the return value, allocate space for a pointer to a
+  // precise source location of the checked return statement.
+  if (requiresReturnValueCheck()) {
+    ReturnLocation = CreateDefaultAlignTempAlloca(Int8PtrTy, "return.sloc.ptr");
+    InitTempAlloca(ReturnLocation, llvm::ConstantPointerNull::get(Int8PtrTy));
+  }
+
   // Emit subprogram debug descriptor.
   if (CGDebugInfo *DI = getDebugInfo()) {
     // Reconstruct the type from the argument list so that implicit parameters,
@@ -921,8 +969,10 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
   if (CGM.getCodeGenOpts().InstrumentForProfiling) {
     if (CGM.getCodeGenOpts().CallFEntry)
       Fn->addFnAttr("fentry-call", "true");
-    else
-      Fn->addFnAttr("counting-function", getTarget().getMCountName());
+    else {
+      if (!CurFuncDecl || !CurFuncDecl->hasAttr<NoInstrumentFunctionAttr>())
+        Fn->addFnAttr("counting-function", getTarget().getMCountName());
+    }
   }
 
   if (RetTy->isVoidType()) {
@@ -1131,10 +1181,9 @@ QualType CodeGenFunction::BuildFunctionArgList(GlobalDecl GD,
       if (!Param->hasAttr<PassObjectSizeAttr>())
         continue;
 
-      IdentifierInfo *NoID = nullptr;
       auto *Implicit = ImplicitParamDecl::Create(
-          getContext(), Param->getDeclContext(), Param->getLocation(), NoID,
-          getContext().getSizeType());
+          getContext(), Param->getDeclContext(), Param->getLocation(),
+          /*Id=*/nullptr, getContext().getSizeType(), ImplicitParamDecl::Other);
       SizeArguments[Param] = Implicit;
       Args.push_back(Implicit);
     }
@@ -2101,6 +2150,12 @@ void CodeGenFunction::EmitVariablyModifiedType(QualType type) {
     case Type::Atomic:
       type = cast<AtomicType>(ty)->getValueType();
       break;
+
+#if INTEL_CUSTOMIZATION
+    case Type::Channel:
+      type = cast<ChannelType>(ty)->getElementType();
+      break;
+#endif // INTEL_CUSTOMIZATION
 
     case Type::Pipe:
       type = cast<PipeType>(ty)->getElementType();

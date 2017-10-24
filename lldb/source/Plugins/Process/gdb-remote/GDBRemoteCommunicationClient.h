@@ -23,8 +23,9 @@
 // Other libraries and framework includes
 // Project includes
 #include "lldb/Core/ArchSpec.h"
-#include "lldb/Core/StructuredData.h"
 #include "lldb/Target/Process.h"
+#include "lldb/Utility/StreamGDBRemote.h"
+#include "lldb/Utility/StructuredData.h"
 
 #include "llvm/ADT/Optional.h"
 
@@ -339,6 +340,8 @@ public:
 
   bool GetQXferAuxvReadSupported();
 
+  void EnableErrorStringInPacket();
+
   bool GetQXferLibrariesReadSupported();
 
   bool GetQXferLibrariesSVR4ReadSupported();
@@ -499,6 +502,21 @@ public:
   ConfigureRemoteStructuredData(const ConstString &type_name,
                                 const StructuredData::ObjectSP &config_sp);
 
+  lldb::user_id_t SendStartTracePacket(const TraceOptions &options,
+                                       Status &error);
+
+  Status SendStopTracePacket(lldb::user_id_t uid, lldb::tid_t thread_id);
+
+  Status SendGetDataPacket(lldb::user_id_t uid, lldb::tid_t thread_id,
+                           llvm::MutableArrayRef<uint8_t> &buffer,
+                           size_t offset = 0);
+
+  Status SendGetMetaDataPacket(lldb::user_id_t uid, lldb::tid_t thread_id,
+                               llvm::MutableArrayRef<uint8_t> &buffer,
+                               size_t offset = 0);
+
+  Status SendGetTraceConfigPacket(lldb::user_id_t uid, TraceOptions &options);
+
 protected:
   LazyBool m_supports_not_sending_acks;
   LazyBool m_supports_thread_suffix;
@@ -533,6 +551,7 @@ protected:
   LazyBool m_supports_jLoadedDynamicLibrariesInfos;
   LazyBool m_supports_jGetSharedCacheInfo;
   LazyBool m_supports_QPassSignals;
+  LazyBool m_supports_error_string_reply;
 
   bool m_supports_qProcessInfoPID : 1, m_supports_qfProcessInfo : 1,
       m_supports_qUserName : 1, m_supports_qGroupName : 1,
@@ -586,6 +605,11 @@ protected:
   PacketResult SendThreadSpecificPacketAndWaitForResponse(
       lldb::tid_t tid, StreamString &&payload,
       StringExtractorGDBRemote &response, bool send_async);
+
+  Status SendGetTraceDataPacket(StreamGDBRemote &packet, lldb::user_id_t uid,
+                                lldb::tid_t thread_id,
+                                llvm::MutableArrayRef<uint8_t> &buffer,
+                                size_t offset);
 
 private:
   DISALLOW_COPY_AND_ASSIGN(GDBRemoteCommunicationClient);

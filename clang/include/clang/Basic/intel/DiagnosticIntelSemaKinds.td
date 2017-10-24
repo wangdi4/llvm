@@ -157,6 +157,8 @@ def warn_arg_invalid_range_low_assumed : Warning<
 def warn_non_asm_stmt_in_naked_function : Warning<
   "attribute 'naked' ignored on function with non-ASM statements">,
   InGroup<IgnoredAttributes>;
+def err_attribute_argument_is_not_in_range : Error<
+  "invalid attribute value, possible values are: %0">;
 // endif INTEL_CUSTOMIZATION
 
 // if INTEL_SPECIFIC_CILKPLUS
@@ -536,4 +538,72 @@ def err_va_pack_not_last : Error<"__builtin_va_arg_pack must be the last "
                                  "parameter in a function call">;
 def err_va_pack_not_variadic : Error<"__builtin_va_arg_pack can only be used "
                                      "as a parameter to a variadic argument">;
+
+// Intel OpenCL FPGA extension
+def warn_opencl_attribute_only_for_local_address_space : Warning<
+  "%0 attribute can be aplied only for parameters that reside "
+  "in local address space, attribute ignored">,
+  InGroup<IgnoredAttributes>;
+def warn_opencl_attribute_only_for_global_address_space : Warning<
+  "%0 attribute can be aplied only for parameters that reside "
+  "in global address space, attribute ignored">,
+  InGroup<IgnoredAttributes>;
+def err_opencl_attributes_conflict : Error<
+  "%0 attribute conflicts with '%1' attribute">;
+def err_opencl_missing_actual_channel_type : Error<
+  "missing actual type specifier for channel">;
+def err_intel_opencl_attribute_argument_type : Error<
+  "%0 attribute requires %select{int or bool|an integer "
+  "constant|a string|an identifier|an unsigned integer}1">;
+def warn_intel_opencl_attribute_wrong_decl_type : Warning<
+  "%0 attribute only applies to %select{"
+  "functions"
+  "|unions"
+  "|variables and functions"
+  "|functions and global variables"
+  "|functions, variables, and Objective-C interfaces"
+  "|functions and methods"
+  "|parameters"
+  "|functions, methods and blocks"
+  "|functions, methods, and classes"
+  "|functions, methods, and parameters"
+  "|functions, methods, and global variables"
+  "|classes"
+  "|enums"
+  "|variables"
+  "|methods"
+  "|fields and global variables"
+  "|structs"
+  "|parameters and typedefs"
+  "|variables and typedefs"
+  "|thread-local variables"
+  "|variables and fields"
+  "|variables, data members and tag types"
+  "|types and namespaces"
+  "|Objective-C interfaces"
+  "|methods and properties"
+  "|struct or union"
+  "|struct, union or class"
+  "|types"
+  "|Objective-C instance methods"
+  "|init methods of interface or class extension declarations"
+  "|variables, functions and classes"
+  "|functions, variables, classes, and Objective-C interfaces"
+  "|Objective-C protocols"
+  "|variables with static or thread storage duration"
+  "|functions, methods, properties, and global variables"
+  "|structs, unions, and typedefs"
+  "|structs and typedefs"
+  "|interface or protocol declarations"
+  "|kernel functions"
+  "|non-K&R-style functions"
+  "|variables, enums, fields and typedefs"
+  "|functions, methods, enums, and classes"
+  "|structs, classes, variables, functions, and inline namespaces"
+  "|variables, functions, methods, types, enumerations, enumerators, labels, and non-static data members"
+  "|classes and enumerations"
+  "|named declarations"
+  "|OpenCL channels"
+  "|OpenCL pipes}1">,
+  InGroup<IgnoredAttributes>;
 } // end of sema component.

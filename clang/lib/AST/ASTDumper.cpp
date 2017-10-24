@@ -419,6 +419,11 @@ namespace  {
     void VisitPipeType(const PipeType *T) {
       dumpTypeAsChild(T->getElementType());
     }
+#if INTEL_CUSTOMIZATION
+    void VisitChannelType(const ChannelType *T) {
+      dumpTypeAsChild(T->getElementType());
+    }
+#endif // INTEL_CUSTOMIZATION
     void VisitAdjustedType(const AdjustedType *T) {
       dumpTypeAsChild(T->getOriginalType());
     }
@@ -1197,6 +1202,27 @@ void ASTDumper::VisitFunctionDecl(const FunctionDecl *D) {
                                                  E = C->init_end();
          I != E; ++I)
       dumpCXXCtorInitializer(*I);
+
+  if (const CXXMethodDecl *MD = dyn_cast<CXXMethodDecl>(D))
+    if (MD->size_overridden_methods() != 0) {
+      auto dumpOverride =
+        [=](const CXXMethodDecl *D) {
+          SplitQualType T_split = D->getType().split();
+          OS << D << " " << D->getParent()->getName() << "::"
+             << D->getNameAsString() << " '" << QualType::getAsString(T_split) << "'";
+        };
+
+      dumpChild([=] {
+        auto FirstOverrideItr = MD->begin_overridden_methods();
+        OS << "Overrides: [ ";
+        dumpOverride(*FirstOverrideItr);
+        for (const auto *Override :
+               llvm::make_range(FirstOverrideItr + 1,
+                                MD->end_overridden_methods()))
+          dumpOverride(Override);
+        OS << " ]";
+      });
+    }
 
   if (D->doesThisDeclarationHaveABody())
     dumpStmt(D->getBody());

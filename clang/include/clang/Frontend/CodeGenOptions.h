@@ -52,7 +52,8 @@ public:
   enum VectorLibrary {
     NoLibrary,  // Don't use any vector library.
     Accelerate, // Use the Accelerate framework.
-    SVML        // Intel short vector math library.
+    SVML,       // Intel short vector math library.
+    Libmvec     // Glibc vector math library.
   };
 
 
@@ -178,6 +179,11 @@ public:
 
   /// A list of command-line options to forward to the LLVM backend.
   std::vector<std::string> BackendOptions;
+
+#if INTEL_CUSTOMIZATION
+  /// OpenCL compile options to embed in the SPIR metadata
+  std::string SPIRCompileOptions;
+#endif // INTEL_CUSTOMIZATION
 
   /// A list of dependent libraries.
   std::vector<std::string> DependentLibraries;

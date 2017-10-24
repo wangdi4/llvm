@@ -81,13 +81,25 @@ void CodeGenFunction::EmitStmt(const Stmt *S) {
   EmitStopPoint(S);
 
 #if INTEL_SPECIFIC_OPENMP
-  if (CGM.getLangOpts().IntelCompat && CGM.getLangOpts().IntelOpenMP) {
+  if (CGM.getLangOpts().IntelCompat &&
+      (CGM.getLangOpts().IntelOpenMP || CGM.getLangOpts().IntelOpenMPRegion)) {
     if (S->getStmtClass() == Stmt::OMPSimdDirectiveClass)
       return EmitIntelOMPSimdDirective(cast<OMPSimdDirective>(*S));
-    else if (S->getStmtClass() == Stmt::OMPParallelForDirectiveClass)
+    if (S->getStmtClass() == Stmt::OMPForDirectiveClass)
+      return EmitIntelOMPForDirective(cast<OMPForDirective>(*S));
+    if (S->getStmtClass() == Stmt::OMPParallelForDirectiveClass)
       return EmitIntelOMPParallelForDirective(
                                 cast<OMPParallelForDirective>(*S));
-    else if (auto *Dir = dyn_cast<OMPExecutableDirective>(S))
+    if (S->getStmtClass() == Stmt::OMPParallelForSimdDirectiveClass)
+      return EmitIntelOMPParallelForSimdDirective(
+                                cast<OMPParallelForSimdDirective>(*S));
+    if (S->getStmtClass() == Stmt::OMPTaskLoopDirectiveClass)
+      return EmitIntelOMPTaskLoopDirective(
+                                cast<OMPTaskLoopDirective>(*S));
+    if (S->getStmtClass() == Stmt::OMPTaskLoopSimdDirectiveClass)
+      return EmitIntelOMPTaskLoopSimdDirective(
+                                cast<OMPTaskLoopSimdDirective>(*S));
+    if (auto *Dir = dyn_cast<OMPExecutableDirective>(S))
       return EmitIntelOpenMPDirective(*Dir);
   }
 #endif // INTEL_SPECIFIC_OPENMP
@@ -1146,6 +1158,18 @@ bool CodeGenFunction::EmitFakeLoadForRetPtr(const Expr *RV) {
 /// if the function returns void, or may be missing one if the function returns
 /// non-void.  Fun stuff :).
 void CodeGenFunction::EmitReturnStmt(const ReturnStmt &S) {
+  if (requiresReturnValueCheck()) {
+    llvm::Constant *SLoc = EmitCheckSourceLocation(S.getLocStart());
+    auto *SLocPtr =
+        new llvm::GlobalVariable(CGM.getModule(), SLoc->getType(), false,
+                                 llvm::GlobalVariable::PrivateLinkage, SLoc);
+    SLocPtr->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
+    CGM.getSanitizerMetadata()->disableSanitizerForGlobal(SLocPtr);
+    assert(ReturnLocation.isValid() && "No valid return location");
+    Builder.CreateStore(Builder.CreateBitCast(SLocPtr, Int8PtrTy),
+                        ReturnLocation);
+  }
+
   // Returning from an outlined SEH helper is UB, and we already warn on it.
   if (IsOutlinedSEHHelper) {
     Builder.CreateUnreachable();

@@ -1676,6 +1676,9 @@ public:
   bool isAggregateType() const;
   bool isFundamentalType() const;
   bool isCompoundType() const;
+#if INTEL_CUSTOMIZATION
+  bool isDoubleType() const;       // (double + long double)
+#endif // INTEL_CUSTOMIZATION
 
   // Type Predicates: Check to see if this type is structurally the specified
   // type, ignoring typedefs and qualifiers.
@@ -1766,6 +1769,9 @@ public:
   bool isQueueT() const;                        // OpenCL queue_t
   bool isReserveIDT() const;                    // OpenCL reserve_id_t
 
+#if INTEL_CUSTOMIZATION
+  bool isChannelType() const;                   // OpenCL channel type
+#endif // INTEL_CUSTOMIZATION
   bool isPipeType() const;                      // OpenCL pipe type
   bool isOpenCLSpecificType() const;            // Any OpenCL specific type
 
@@ -3903,6 +3909,7 @@ public:
     attr_sptr,
     attr_uptr,
     attr_nonnull,
+    attr_ns_returns_retained,
     attr_nullable,
     attr_null_unspecified,
     attr_objc_kindof,
@@ -5474,6 +5481,47 @@ public:
   bool isReadOnly() const { return isRead; }
 };
 
+#if INTEL_CUSTOMIZATION
+/// ChannelType - Intel OpenCL FPGA extension.
+class ChannelType : public Type, public llvm::FoldingSetNode {
+  QualType ElementType;
+
+  ChannelType(QualType elemType, QualType CanonicalPtr) :
+    Type(Channel, CanonicalPtr, elemType->isDependentType(),
+         elemType->isInstantiationDependentType(),
+         elemType->isVariablyModifiedType(),
+         elemType->containsUnexpandedParameterPack()),
+    ElementType(elemType) {}
+  friend class ASTContext;  // ASTContext creates these.
+
+public:
+
+  QualType getElementType() const { return ElementType; }
+
+  bool isIncompleteType(NamedDecl **Def) const {
+    return ElementType->isIncompleteType(Def);
+  }
+
+  bool isSugared() const { return false; }
+
+  QualType desugar() const { return QualType(this, 0); }
+
+  void Profile(llvm::FoldingSetNodeID &ID) {
+    Profile(ID, getElementType());
+  }
+
+  static void Profile(llvm::FoldingSetNodeID &ID, QualType T) {
+    ID.AddPointer(T.getAsOpaquePtr());
+  }
+
+
+  static bool classof(const Type *T) {
+    return T->getTypeClass() == Channel;
+  }
+
+};
+#endif // INTEL_CUSTOMIZATION
+
 /// A qualifier set is used to build a set of qualifiers.
 class QualifierCollector : public Qualifiers {
 public:
@@ -5883,6 +5931,12 @@ inline bool Type::isImageType() const {
 inline bool Type::isPipeType() const {
   return isa<PipeType>(CanonicalType);
 }
+
+#if INTEL_CUSTOMIZATION
+inline bool Type::isChannelType() const {
+  return isa<ChannelType>(CanonicalType);
+}
+#endif // INTEL_CUSTOMIZATION
 
 inline bool Type::isOpenCLSpecificType() const {
   return isSamplerT() || isEventT() || isImageType() || isClkEventT() ||

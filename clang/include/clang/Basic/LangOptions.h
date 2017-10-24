@@ -87,6 +87,7 @@ public:
   llvm::StringSet<> ImfFuncSet;
 #endif // INTEL_CUSTOMIZATION
 
+  // FIXME: Unify with TUKind.
   enum CompilingModuleKind {
     CMK_None,           ///< Not compiling a module interface at all.
     CMK_ModuleMap,      ///< Compiling a module from a module map.

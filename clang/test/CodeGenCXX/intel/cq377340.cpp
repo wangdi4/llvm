@@ -3,6 +3,6 @@
 
 void foo() {
   __memory_barrier();
-  // CHECK: fence singlethread seq_cst
+  // CHECK: fence syncscope("singlethread") seq_cst
 }
 

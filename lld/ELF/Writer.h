@@ -30,7 +30,7 @@ bool isRelroSection(const OutputSection *Sec);
 // Each contains type, access flags and range of output sections that will be
 // placed in it.
 struct PhdrEntry {
-  PhdrEntry(unsigned Type, unsigned Flags);
+  PhdrEntry(unsigned Type, unsigned Flags) : p_type(Type), p_flags(Flags) {}
   void add(OutputSection *Sec);
 
   uint64_t p_paddr = 0;
@@ -55,7 +55,7 @@ uint8_t getMipsFpAbiFlag(uint8_t OldFlag, uint8_t NewFlag,
                          llvm::StringRef FileName);
 
 bool isMipsN32Abi(const InputFile *F);
-}
-}
+} // namespace elf
+} // namespace lld
 
 #endif

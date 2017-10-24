@@ -1344,7 +1344,7 @@ Optional<ArrayRef<QualType>> Type::getObjCSubstitutions(
   } else if (getAs<BlockPointerType>()) {
     ASTContext &ctx = dc->getParentASTContext();
     objectType = ctx.getObjCObjectType(ctx.ObjCBuiltinIdTy, { }, { })
-                   ->castAs<ObjCObjectType>();;
+                   ->castAs<ObjCObjectType>();
   } else {
     objectType = getAs<ObjCObjectType>();
   }
@@ -1827,6 +1827,15 @@ bool Type::isFloatingType() const {
   return false;
 }
 
+#if INTEL_CUSTOMIZATION
+bool Type::isDoubleType() const {
+  if (const BuiltinType *BT = dyn_cast<BuiltinType>(CanonicalType))
+    return BT->getKind() >= BuiltinType::Double &&
+      BT->getKind() <= BuiltinType::LongDouble;
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
+
 bool Type::hasFloatingRepresentation() const {
   if (const VectorType *VT = dyn_cast<VectorType>(CanonicalType))
     return VT->getElementType()->isFloatingType();
@@ -1999,6 +2008,10 @@ bool Type::isIncompleteType(NamedDecl **Def) const {
       *Def = Interface;
     return !Interface->hasDefinition();
   }
+#if INTEL_CUSTOMIZATION
+  case Channel:
+    return cast<ChannelType>(CanonicalType)->isIncompleteType(Def);
+#endif // INTEL_CUSTOMIZATION
   }
 }
 
@@ -2634,7 +2647,7 @@ StringRef FunctionType::getNameForCallConv(CallingConv CC) {
   case CC_X86ThisCall: return "thiscall";
   case CC_X86Pascal: return "pascal";
   case CC_X86VectorCall: return "vectorcall";
-  case CC_X86_64Win64: return "ms_abi";
+  case CC_Win64: return "ms_abi";
   case CC_X86_64SysV: return "sysv_abi";
   case CC_X86RegCall : return "regcall";
   case CC_AAPCS: return "aapcs";
@@ -3045,6 +3058,7 @@ bool AttributedType::isQualifier() const {
   case AttributedType::attr_sptr:
   case AttributedType::attr_uptr:
   case AttributedType::attr_objc_kindof:
+  case AttributedType::attr_ns_returns_retained:
     return false;
   }
   llvm_unreachable("bad attributed type kind");
@@ -3078,6 +3092,7 @@ bool AttributedType::isCallingConv() const {
   case attr_objc_inert_unsafe_unretained:
   case attr_noreturn:
   case attr_nonnull:
+  case attr_ns_returns_retained:
   case attr_nullable:
   case attr_null_unspecified:
   case attr_objc_kindof:
@@ -3421,6 +3436,10 @@ static CachedProperties computeCachedProperties(const Type *T) {
     return Cache::get(cast<ObjCObjectPointerType>(T)->getPointeeType());
   case Type::Atomic:
     return Cache::get(cast<AtomicType>(T)->getValueType());
+#if INTEL_CUSTOMIZATION
+  case Type::Channel:
+    return Cache::get(cast<ChannelType>(T)->getElementType());
+#endif // INTEL_CUSTOMIZATION
   case Type::Pipe:
     return Cache::get(cast<PipeType>(T)->getElementType());
   }
@@ -3506,6 +3525,10 @@ static LinkageInfo computeLinkageInfo(const Type *T) {
     return computeLinkageInfo(cast<ObjCObjectPointerType>(T)->getPointeeType());
   case Type::Atomic:
     return computeLinkageInfo(cast<AtomicType>(T)->getValueType());
+#if INTEL_CUSTOMIZATION
+  case Type::Channel:
+    return computeLinkageInfo(cast<ChannelType>(T)->getElementType());
+#endif // INTEL_CUSTOMIZATION
   case Type::Pipe:
     return computeLinkageInfo(cast<PipeType>(T)->getElementType());
   }
@@ -3656,6 +3679,9 @@ bool Type::canHaveNullability(bool ResultIfUnknown) const {
   case Type::ObjCObject:
   case Type::ObjCInterface:
   case Type::Atomic:
+#if INTEL_CUSTOMIZATION
+  case Type::Channel:
+#endif // INTEL_CUSTOMIZATION
   case Type::Pipe:
     return false;
   }

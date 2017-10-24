@@ -1337,6 +1337,23 @@ ExprResult Parser::ParseCastExpression(bool isUnaryExpression,
     break;
   }
 
+#if INTEL_CUSTOMIZATION
+  case tok::kw_channel: {
+    if (!getLangOpts().OpenCL ||
+        !getTargetInfo().getSupportedOpenCLOpts().isEnabled(
+            "cl_intel_channels")) {
+      // 'channel' is a keyword only for OpenCL with cl_intel_channels
+      // extension
+      Tok.setKind(tok::identifier);
+      return ParseCastExpression(isUnaryExpression, isAddressOfOperand,
+                                 NotCastExpr, isTypeCast);
+    }
+
+    Diag(Tok, diag::err_expected_expression);
+    return ExprError();
+  }
+#endif // INTEL_CUSTOMIZATION
+
   case tok::annot_cxxscope: { // [C++] id-expression: qualified-id
     // If TryAnnotateTypeOrScopeToken annotates the token, tail recurse.
     // (We can end up in this situation after tentative parsing.)
@@ -1379,6 +1396,7 @@ ExprResult Parser::ParseCastExpression(bool isUnaryExpression,
     }
 
     // Fall through to treat the template-id as an id-expression.
+    LLVM_FALLTHROUGH;
   }
 
   case tok::kw_operator: // [C++] id-expression: operator/conversion-function-id
@@ -1565,9 +1583,9 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
                                              nullptr, LHS.get());
         break;
       }
-        
       // Fall through; this isn't a message send.
-                
+      LLVM_FALLTHROUGH;
+
     default:  // Not a postfix-expression suffix.
       return LHS;
     case tok::l_square: {  // postfix-expression: p-e '[' expression ']'
@@ -2061,7 +2079,7 @@ Parser::ParseExprAfterUnaryExprOrTypeTrait(const Token &OpTok,
     }
   }
 
-  // If we get here, the operand to the typeof/sizeof/alignof was an expresion.
+  // If we get here, the operand to the typeof/sizeof/alignof was an expression.
   isCastExpr = false;
   return Operand;
 }
@@ -2167,7 +2185,7 @@ ExprResult Parser::ParseUnaryExprOrTypeTraitExpression() {
   if (OpTok.isOneOf(tok::kw_alignof, tok::kw__Alignof))
     Diag(OpTok, diag::ext_alignof_expr) << OpTok.getIdentifierInfo();
 
-  // If we get here, the operand to the sizeof/alignof was an expresion.
+  // If we get here, the operand to the sizeof/alignof was an expression.
   if (!Operand.isInvalid())
     Operand = Actions.ActOnUnaryExprOrTypeTraitExpr(OpTok.getLocation(),
                                                     ExprKind,

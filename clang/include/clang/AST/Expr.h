@@ -3159,6 +3159,18 @@ public:
     return isShiftAssignOp(getOpcode());
   }
 
+#if INTEL_CUSTOMIZATION
+  // This change is cherry-picked from LLVM trunk r313666.
+  // When r313666 is merged with xmain, the INTEL_CUSTOMIZATION of this function
+  // can be deleted and the LLVM trunk change followed without modification.
+  //
+  // Return true if a binary operator using the specified opcode and operands
+  // would match the 'p = (i8*)nullptr + n' idiom for casting a pointer-sized
+  // integer to a pointer.
+  static bool isNullPointerArithmeticExtension(ASTContext &Ctx, Opcode Opc,
+                                               Expr *LHS, Expr *RHS);
+#endif // INTEL_CUSTOMIZATION
+
   static bool classof(const Stmt *S) {
     return S->getStmtClass() >= firstBinaryOperatorConstant &&
            S->getStmtClass() <= lastBinaryOperatorConstant;
@@ -4330,6 +4342,9 @@ public:
   }
 
   Designator *getDesignator(unsigned Idx) { return &designators()[Idx]; }
+  const Designator *getDesignator(unsigned Idx) const {
+    return &designators()[Idx];
+  }
 
   void setDesignators(const ASTContext &C, const Designator *Desigs,
                       unsigned NumDesigs);

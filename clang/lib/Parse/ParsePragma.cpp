@@ -49,6 +49,15 @@ struct PragmaPackHandler : public PragmaHandler {
                     Token &FirstToken) override;
 };
 
+struct PragmaClangSectionHandler : public PragmaHandler {
+  explicit PragmaClangSectionHandler(Sema &S)
+             : PragmaHandler("section"), Actions(S) {}
+  void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer,
+                    Token &FirstToken) override;
+private:
+  Sema &Actions;
+};
+
 struct PragmaMSStructHandler : public PragmaHandler {
   explicit PragmaMSStructHandler() : PragmaHandler("ms_struct") {}
   void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer,
@@ -230,6 +239,9 @@ void Parser::initializePragmaHandlers() {
   }
 #endif // INTEL_SPECIFIC_IL0_BACKEND
 
+  PCSectionHandler.reset(new PragmaClangSectionHandler(Actions));
+  PP.AddPragmaHandler("clang", PCSectionHandler.get());
+
   if (getLangOpts().OpenCL) {
     OpenCLExtensionHandler.reset(new PragmaOpenCLExtensionHandler());
     PP.AddPragmaHandler("OPENCL", OpenCLExtensionHandler.get());
@@ -349,6 +361,9 @@ void Parser::resetPragmaHandlers() {
     MSCommentHandler.reset();
   }
 
+  PP.RemovePragmaHandler("clang", PCSectionHandler.get());
+  PCSectionHandler.reset();
+
   if (getLangOpts().MicrosoftExt) {
     PP.RemovePragmaHandler(MSDetectMismatchHandler.get());
     MSDetectMismatchHandler.reset();
@@ -454,15 +469,20 @@ void Parser::HandlePragmaPack() {
   assert(Tok.is(tok::annot_pragma_pack));
   PragmaPackInfo *Info =
     static_cast<PragmaPackInfo *>(Tok.getAnnotationValue());
-  SourceLocation PragmaLoc = ConsumeAnnotationToken();
+  SourceLocation PragmaLoc = Tok.getLocation();
   ExprResult Alignment;
   if (Info->Alignment.is(tok::numeric_constant)) {
     Alignment = Actions.ActOnNumericConstant(Info->Alignment);
-    if (Alignment.isInvalid())
+    if (Alignment.isInvalid()) {
+      ConsumeAnnotationToken();
       return;
+    }
   }
   Actions.ActOnPragmaPack(PragmaLoc, Info->Action, Info->SlotLabel,
                           Alignment.get());
+  // Consume the token after processing the pragma to enable pragma-specific
+  // #include warnings.
+  ConsumeAnnotationToken();
 }
 
 void Parser::HandlePragmaMSStruct() {
@@ -620,6 +640,13 @@ void Parser::HandlePragmaOpenCLExtension() {
     PP.Diag(NameLoc, diag::warn_pragma_extension_is_core) << Ident;
   else
     PP.Diag(NameLoc, diag::warn_pragma_unsupported_extension) << Ident;
+
+#if INTEL_CUSTOMIZATION
+  // Also enable an extension alias
+  if (Opt.isSupportedExtension("cl_altera_channels", getLangOpts().OpenCLVersion)) {
+    Opt.enable("cl_intel_channels", State == Enable);
+  }
+#endif // INTEL_CUSTOMIZATION
 }
 
 void Parser::HandlePragmaMSPointersToMembers() {
@@ -1667,6 +1694,51 @@ void PragmaMSStructHandler::HandlePragma(Preprocessor &PP,
   Toks[0].setAnnotationValue(reinterpret_cast<void*>(
                              static_cast<uintptr_t>(Kind)));
   PP.EnterTokenStream(Toks, /*DisableMacroExpansion=*/true);
+}
+
+// #pragma clang section bss="abc" data="" rodata="def" text=""
+void PragmaClangSectionHandler::HandlePragma(Preprocessor &PP,
+             PragmaIntroducerKind Introducer, Token &FirstToken) {
+
+  Token Tok;
+  auto SecKind = Sema::PragmaClangSectionKind::PCSK_Invalid;
+
+  PP.Lex(Tok); // eat 'section'
+  while (Tok.isNot(tok::eod)) {
+    if (Tok.isNot(tok::identifier)) {
+      PP.Diag(Tok.getLocation(), diag::err_pragma_expected_clang_section_name) << "clang section";
+      return;
+    }
+
+    const IdentifierInfo *SecType = Tok.getIdentifierInfo();
+    if (SecType->isStr("bss"))
+      SecKind = Sema::PragmaClangSectionKind::PCSK_BSS;
+    else if (SecType->isStr("data"))
+      SecKind = Sema::PragmaClangSectionKind::PCSK_Data;
+    else if (SecType->isStr("rodata"))
+      SecKind = Sema::PragmaClangSectionKind::PCSK_Rodata;
+    else if (SecType->isStr("text"))
+      SecKind = Sema::PragmaClangSectionKind::PCSK_Text;
+    else {
+      PP.Diag(Tok.getLocation(), diag::err_pragma_expected_clang_section_name) << "clang section";
+      return;
+    }
+
+    PP.Lex(Tok); // eat ['bss'|'data'|'rodata'|'text']
+    if (Tok.isNot(tok::equal)) {
+      PP.Diag(Tok.getLocation(), diag::err_pragma_clang_section_expected_equal) << SecKind;
+      return;
+    }
+
+    std::string SecName;
+    if (!PP.LexStringLiteral(Tok, SecName, "pragma clang section", false))
+      return;
+
+    Actions.ActOnPragmaClangSection(Tok.getLocation(),
+      (SecName.size()? Sema::PragmaClangSectionAction::PCSA_Set :
+                       Sema::PragmaClangSectionAction::PCSA_Clear),
+       SecKind, SecName);
+  }
 }
 
 // #pragma 'align' '=' {'native','natural','mac68k','power','reset'}
