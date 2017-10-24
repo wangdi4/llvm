@@ -171,6 +171,12 @@ TEST(AddressSanitizer, MAYBE_StrNDupOOBTest) {
   // Overwrite the terminating '\0' and hit unallocated memory.
   str[size - 1] = 'z';
   EXPECT_DEATH(Ident(strndup(str, size + 13)), RightOOBReadMessage(0));
+  // Check handling of non 0 terminated strings.
+  Ident(new_str = strndup(str + size - 1, 0));
+  free(new_str);
+  Ident(new_str = strndup(str + size - 1, 1));
+  free(new_str);
+  EXPECT_DEATH(Ident(strndup(str + size - 1, 2)), RightOOBReadMessage(0));
   free(str);
 }
 #endif // SANITIZER_TEST_HAS_STRNDUP

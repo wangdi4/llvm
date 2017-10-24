@@ -28,20 +28,6 @@
 extern "C" {
 #endif
 
-/* General notes:
- *
- * All structures are reference counted to allow reuse without duplication.
- * A *_copy operation will increase the reference count, while a *_free
- * operation will decrease the reference count and only actually release
- * the structures when the reference count drops to zero.
- *
- * Functions that return an isa structure will in general _destroy_
- * all argument isa structures (the obvious execption begin the _copy
- * functions).  A pointer passed to such a function may therefore
- * never be used after the function call.  If you want to keep a
- * reference to the old structure(s), use the appropriate _copy function.
- */
-
 ISL_DEPRECATED
 unsigned isl_basic_map_n_in(__isl_keep const isl_basic_map *bmap);
 ISL_DEPRECATED
@@ -315,8 +301,8 @@ __isl_export
 __isl_give isl_map *isl_map_union(
 		__isl_take isl_map *map1,
 		__isl_take isl_map *map2);
-struct isl_map *isl_map_union_disjoint(
-			struct isl_map *map1, struct isl_map *map2);
+__isl_give isl_map *isl_map_union_disjoint(
+		__isl_take isl_map *map1, __isl_take isl_map *map2);
 __isl_export
 __isl_give isl_map *isl_map_intersect_domain(
 		__isl_take isl_map *map,
@@ -325,6 +311,10 @@ __isl_export
 __isl_give isl_map *isl_map_intersect_range(
 		__isl_take isl_map *map,
 		__isl_take isl_set *set);
+__isl_give isl_map *isl_map_intersect_domain_factor_range(
+	__isl_take isl_map *map, __isl_take isl_map *factor);
+__isl_give isl_map *isl_map_intersect_range_factor_range(
+	__isl_take isl_map *map, __isl_take isl_map *factor);
 __isl_export
 __isl_give isl_map *isl_map_apply_domain(
 		__isl_take isl_map *map1,
@@ -367,6 +357,7 @@ __isl_give isl_map *isl_map_flat_range_product(__isl_take isl_map *map1,
 	__isl_take isl_map *map2);
 isl_bool isl_map_domain_is_wrapping(__isl_keep isl_map *map);
 isl_bool isl_map_range_is_wrapping(__isl_keep isl_map *map);
+isl_bool isl_map_is_product(__isl_keep isl_map *map);
 __isl_give isl_map *isl_map_factor_domain(__isl_take isl_map *map);
 __isl_give isl_map *isl_map_factor_range(__isl_take isl_map *map);
 __isl_give isl_map *isl_map_domain_factor_domain(__isl_take isl_map *map);

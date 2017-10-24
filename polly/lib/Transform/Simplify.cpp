@@ -15,6 +15,7 @@
 #include "polly/ScopInfo.h"
 #include "polly/ScopPass.h"
 #include "polly/Support/GICHelper.h"
+#include "polly/Support/ISLOStream.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Support/Debug.h"
 #define DEBUG_TYPE "polly-simplify"
@@ -130,10 +131,11 @@ private:
   ///         one element in @p Targets.
   MemoryAccess *hasWriteBetween(ScopStmt *Stmt, MemoryAccess *From,
                                 MemoryAccess *To, isl::map Targets) {
-    auto TargetsSpace = give(isl_map_get_space(Targets.keep()));
+    auto TargetsSpace = Targets.get_space();
 
     bool Started = Stmt->isRegionStmt();
-    for (auto *Acc : *Stmt) {
+    auto Accesses = getAccessesInOrder(*Stmt);
+    for (auto *Acc : Accesses) {
       if (Acc->isLatestScalarKind())
         continue;
 
@@ -153,18 +155,16 @@ private:
         continue;
 
       auto AccRel = give(Acc->getAccessRelation());
-      auto AccRelSpace = give(isl_map_get_space(AccRel.keep()));
+      auto AccRelSpace = AccRel.get_space();
 
       // Spaces being different means that they access different arrays.
-      if (isl_space_has_equal_tuples(TargetsSpace.keep(), AccRelSpace.keep()) ==
-          isl_bool_false)
+      if (!TargetsSpace.has_equal_tuples(AccRelSpace))
         continue;
 
-      AccRel = give(isl_map_intersect_domain(AccRel.take(),
-                                             Acc->getStatement()->getDomain()));
-      AccRel = give(isl_map_intersect_params(AccRel.take(), S->getContext()));
-      auto CommonElt = give(isl_map_intersect(Targets.copy(), AccRel.copy()));
-      if (isl_map_is_empty(CommonElt.keep()) != isl_bool_true)
+      AccRel = AccRel.intersect_domain(give(Acc->getStatement()->getDomain()));
+      AccRel = AccRel.intersect_params(give(S->getContext()));
+      auto CommonElt = Targets.intersect(AccRel);
+      if (!CommonElt.is_empty())
         return Acc;
     }
     assert(Stmt->isRegionStmt() &&
@@ -207,9 +207,7 @@ private:
 
         // If all of a write's elements are overwritten, remove it.
         isl::union_map AccRelUnion = AccRel;
-        if (isl_union_map_is_subset(AccRelUnion.keep(),
-                                    WillBeOverwritten.keep()) ==
-            isl_bool_true) {
+        if (AccRelUnion.is_subset(WillBeOverwritten)) {
           DEBUG(dbgs() << "Removing " << MA
                        << " which will be overwritten anyway\n");
 
@@ -237,10 +235,17 @@ private:
           continue;
         if (!WA->isLatestArrayKind())
           continue;
-        if (!isa<StoreInst>(WA->getAccessInstruction()))
+        if (!isa<StoreInst>(WA->getAccessInstruction()) && !WA->isPHIKind())
           continue;
 
         auto ReadingValue = WA->getAccessValue();
+
+        if (WA->isPHIKind()) {
+          PHINode *PHI = cast<PHINode>(WA->getAccessValue());
+          BasicBlock *BB = Stmt.getBasicBlock();
+          ReadingValue = PHI->getIncomingValueForBlock(BB);
+        }
+
         if (!ReadingValue)
           continue;
 
@@ -251,15 +256,13 @@ private:
           continue;
 
         auto WARel = give(WA->getLatestAccessRelation());
-        WARel = give(isl_map_intersect_domain(WARel.take(),
-                                              WA->getStatement()->getDomain()));
-        WARel = give(isl_map_intersect_params(WARel.take(), S->getContext()));
+        WARel = WARel.intersect_domain(give(WA->getStatement()->getDomain()));
+        WARel = WARel.intersect_params(give(S->getContext()));
         auto RARel = give(RA->getLatestAccessRelation());
-        RARel = give(isl_map_intersect_domain(RARel.take(),
-                                              RA->getStatement()->getDomain()));
-        RARel = give(isl_map_intersect_params(RARel.take(), S->getContext()));
+        RARel = RARel.intersect_domain(give(RA->getStatement()->getDomain()));
+        RARel = RARel.intersect_params(give(S->getContext()));
 
-        if (isl_map_is_equal(RARel.keep(), WARel.keep()) != isl_bool_true) {
+        if (!RARel.is_equal(WARel)) {
           PairUnequalAccRels++;
           DEBUG(dbgs() << "Not cleaning up " << WA
                        << " because of unequal access relations:\n");
@@ -301,7 +304,7 @@ private:
   }
 
   /// Remove statements without side effects.
-  void removeUnnecessayStmts() {
+  void removeUnnecessaryStmts() {
     auto NumStmtsBefore = S->getSize();
     S->simplifySCoP(true);
     assert(NumStmtsBefore >= S->getSize());
@@ -357,7 +360,7 @@ public:
     removeRedundantWrites();
 
     DEBUG(dbgs() << "Removing statements without side effects...\n");
-    removeUnnecessayStmts();
+    removeUnnecessaryStmts();
 
     if (isModified())
       ScopsModified++;

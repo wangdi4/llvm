@@ -1860,12 +1860,14 @@ static void AddOrdinaryNameResults(Sema::ParserCompletionContext CCC,
 
     AddStaticAssertResult(Builder, Results, SemaRef.getLangOpts());
   }
+  LLVM_FALLTHROUGH;
 
   // Fall through (for statement expressions).
   case Sema::PCC_ForInit:
   case Sema::PCC_Condition:
     AddStorageSpecifiers(CCC, SemaRef.getLangOpts(), Results);
     // Fall through: conditions and statements can have expressions.
+    LLVM_FALLTHROUGH;
 
   case Sema::PCC_ParenthesizedExpression:
     if (SemaRef.getLangOpts().ObjCAutoRefCount &&
@@ -1895,6 +1897,7 @@ static void AddOrdinaryNameResults(Sema::ParserCompletionContext CCC,
       Results.AddResult(Result(Builder.TakeString()));      
     }
     // Fall through
+    LLVM_FALLTHROUGH;
 
   case Sema::PCC_Expression: {
     if (SemaRef.getLangOpts().CPlusPlus) {
@@ -2735,7 +2738,7 @@ CodeCompletionResult::CreateCodeCompletionString(ASTContext &Ctx,
     
     // Format a function-like macro with placeholders for the arguments.
     Result.AddChunk(CodeCompletionString::CK_LeftParen);
-    MacroInfo::arg_iterator A = MI->arg_begin(), AEnd = MI->arg_end();
+    MacroInfo::param_iterator A = MI->param_begin(), AEnd = MI->param_end();
     
     // C99 variadic macros add __VA_ARGS__ at the end. Skip it.
     if (MI->isC99Varargs()) {
@@ -2746,8 +2749,8 @@ CodeCompletionResult::CreateCodeCompletionString(ASTContext &Ctx,
       }
     }
     
-    for (MacroInfo::arg_iterator A = MI->arg_begin(); A != AEnd; ++A) {
-      if (A != MI->arg_begin())
+    for (MacroInfo::param_iterator A = MI->param_begin(); A != AEnd; ++A) {
+      if (A != MI->param_begin())
         Result.AddChunk(CodeCompletionString::CK_Comma);
 
       if (MI->isVariadic() && (A+1) == AEnd) {
@@ -4539,8 +4542,10 @@ void Sema::CodeCompleteQualifiedId(Scope *S, CXXScopeSpec &SS,
                                    bool EnteringContext) {
   if (!SS.getScopeRep() || !CodeCompleter)
     return;
-  
-  DeclContext *Ctx = computeDeclContext(SS, EnteringContext);
+
+  // Always pretend to enter a context to ensure that a dependent type
+  // resolves to a dependent record.
+  DeclContext *Ctx = computeDeclContext(SS, /*EnteringContext=*/true);
   if (!Ctx)
     return;
 
@@ -4570,7 +4575,9 @@ void Sema::CodeCompleteQualifiedId(Scope *S, CXXScopeSpec &SS,
   Results.ExitScope();  
   
   CodeCompletionDeclConsumer Consumer(Results, CurContext);
-  LookupVisibleDecls(Ctx, LookupOrdinaryName, Consumer);
+  LookupVisibleDecls(Ctx, LookupOrdinaryName, Consumer,
+                     /*IncludeGlobalScope=*/true,
+                     /*IncludeDependentBases=*/true);
 
   HandleCodeCompleteResults(this, CodeCompleter, 
                             Results.getCompletionContext(),

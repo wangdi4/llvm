@@ -336,8 +336,8 @@ kmp_int8 __kmp_test_then_and8(volatile kmp_int8 *p, kmp_int8 d) {
   return old_value;
 }
 
-kmp_int32 __kmp_test_then_or32(volatile kmp_int32 *p, kmp_int32 d) {
-  kmp_int32 old_value, new_value;
+kmp_uint32 __kmp_test_then_or32(volatile kmp_uint32 *p, kmp_uint32 d) {
+  kmp_uint32 old_value, new_value;
 
   old_value = TCR_4(*p);
   new_value = old_value | d;
@@ -350,8 +350,8 @@ kmp_int32 __kmp_test_then_or32(volatile kmp_int32 *p, kmp_int32 d) {
   return old_value;
 }
 
-kmp_int32 __kmp_test_then_and32(volatile kmp_int32 *p, kmp_int32 d) {
-  kmp_int32 old_value, new_value;
+kmp_uint32 __kmp_test_then_and32(volatile kmp_uint32 *p, kmp_uint32 d) {
+  kmp_uint32 old_value, new_value;
 
   old_value = TCR_4(*p);
   new_value = old_value & d;
@@ -394,8 +394,8 @@ kmp_int64 __kmp_test_then_add64(volatile kmp_int64 *p, kmp_int64 d) {
 }
 #endif /* KMP_ARCH_X86 */
 
-kmp_int64 __kmp_test_then_or64(volatile kmp_int64 *p, kmp_int64 d) {
-  kmp_int64 old_value, new_value;
+kmp_uint64 __kmp_test_then_or64(volatile kmp_uint64 *p, kmp_uint64 d) {
+  kmp_uint64 old_value, new_value;
 
   old_value = TCR_8(*p);
   new_value = old_value | d;
@@ -407,8 +407,8 @@ kmp_int64 __kmp_test_then_or64(volatile kmp_int64 *p, kmp_int64 d) {
   return old_value;
 }
 
-kmp_int64 __kmp_test_then_and64(volatile kmp_int64 *p, kmp_int64 d) {
-  kmp_int64 old_value, new_value;
+kmp_uint64 __kmp_test_then_and64(volatile kmp_uint64 *p, kmp_uint64 d) {
+  kmp_uint64 old_value, new_value;
 
   old_value = TCR_8(*p);
   new_value = old_value & d;
@@ -1280,6 +1280,23 @@ static void __kmp_atfork_child(void) {
 
   ++__kmp_fork_count;
 
+#if KMP_AFFINITY_SUPPORTED
+#if KMP_OS_LINUX
+  // reset the affinity in the child to the initial thread
+  // affinity in the parent
+  kmp_set_thread_affinity_mask_initial();
+#endif
+  // Set default not to bind threads tightly in the child (we’re expecting
+  // over-subscription after the fork and this can improve things for
+  // scripting languages that use OpenMP inside process-parallel code).
+  __kmp_affinity_type = affinity_none;
+#if OMP_40_ENABLED
+  if (__kmp_nested_proc_bind.bind_types != NULL) {
+    __kmp_nested_proc_bind.bind_types[0] = proc_bind_false;
+  }
+#endif // OMP_40_ENABLED
+#endif // KMP_AFFINITY_SUPPORTED
+
   __kmp_init_runtime = FALSE;
 #if KMP_USE_MONITOR
   __kmp_init_monitor = 0;
@@ -1443,7 +1460,7 @@ static inline void __kmp_suspend_template(int th_gtid, C *flag) {
         th->th.th_active = FALSE;
         if (th->th.th_active_in_pool) {
           th->th.th_active_in_pool = FALSE;
-          KMP_TEST_THEN_DEC32((kmp_int32 *)&__kmp_thread_pool_active_nth);
+          KMP_TEST_THEN_DEC32(&__kmp_thread_pool_active_nth);
           KMP_DEBUG_ASSERT(TCR_4(__kmp_thread_pool_active_nth) >= 0);
         }
         deactivated = TRUE;
@@ -1499,7 +1516,7 @@ static inline void __kmp_suspend_template(int th_gtid, C *flag) {
     if (deactivated) {
       th->th.th_active = TRUE;
       if (TCR_4(th->th.th_in_pool)) {
-        KMP_TEST_THEN_INC32((kmp_int32 *)&__kmp_thread_pool_active_nth);
+        KMP_TEST_THEN_INC32(&__kmp_thread_pool_active_nth);
         th->th.th_active_in_pool = TRUE;
       }
     }
@@ -1551,7 +1568,7 @@ static inline void __kmp_resume_template(int target_gtid, C *flag) {
   KMP_CHECK_SYSFAIL("pthread_mutex_lock", status);
 
   if (!flag) { // coming from __kmp_null_resume_wrapper
-    flag = (C *)th->th.th_sleep_loc;
+    flag = (C *)CCAST(void *, th->th.th_sleep_loc);
   }
 
   // First, check if the flag is null or its type has changed. If so, someone
@@ -1784,8 +1801,8 @@ static int __kmp_get_xproc(void) {
   mach_msg_type_number_t num = HOST_BASIC_INFO_COUNT;
   rc = host_info(mach_host_self(), HOST_BASIC_INFO, (host_info_t)&info, &num);
   if (rc == 0 && num == HOST_BASIC_INFO_COUNT) {
-// Cannot use KA_TRACE() here because this code works before trace support is
-// initialized.
+    // Cannot use KA_TRACE() here because this code works before trace support
+    // is initialized.
     r = info.avail_cpus;
   } else {
     KMP_WARNING(CantGetNumAvailCPU);
@@ -2298,7 +2315,8 @@ finish: // Clean up and exit.
 
 #endif // USE_LOAD_BALANCE
 
-#if !(KMP_ARCH_X86 || KMP_ARCH_X86_64 || KMP_MIC || ((KMP_OS_LINUX || KMP_OS_DARWIN) && KMP_ARCH_AARCH64) || KMP_ARCH_PPC64)
+#if !(KMP_ARCH_X86 || KMP_ARCH_X86_64 || KMP_MIC ||                            \
+      ((KMP_OS_LINUX || KMP_OS_DARWIN) && KMP_ARCH_AARCH64) || KMP_ARCH_PPC64)
 
 // we really only need the case with 1 argument, because CLANG always build
 // a struct of pointers to shared variables referenced in the outlined function

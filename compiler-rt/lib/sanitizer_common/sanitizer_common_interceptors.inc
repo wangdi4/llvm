@@ -40,6 +40,7 @@
 
 #include "interception/interception.h"
 #include "sanitizer_addrhashmap.h"
+#include "sanitizer_errno.h"
 #include "sanitizer_placement_new.h"
 #include "sanitizer_platform_interceptors.h"
 #include "sanitizer_tls_get_addr.h"
@@ -224,17 +225,16 @@ bool PlatformHasDifferentMemcpyAndMemmove();
 #endif
 
 #ifndef COMMON_INTERCEPTOR_STRNDUP_IMPL
-#define COMMON_INTERCEPTOR_STRNDUP_IMPL(ctx, s, size)                          \
-  COMMON_INTERCEPTOR_ENTER(ctx, strndup, s, size);                             \
-  uptr from_length = internal_strnlen(s, size);                                \
-  uptr copy_length = Min(size, from_length);                                   \
-  char *new_mem = (char *)WRAP(malloc)(copy_length + 1);                       \
-  if (common_flags()->intercept_strndup) {                                     \
-    COMMON_INTERCEPTOR_READ_RANGE(ctx, s, copy_length + 1);                    \
-  }                                                                            \
-  COMMON_INTERCEPTOR_COPY_STRING(ctx, new_mem, s, copy_length);                \
-  internal_memcpy(new_mem, s, copy_length);                                    \
-  new_mem[copy_length] = '\0';                                                 \
+#define COMMON_INTERCEPTOR_STRNDUP_IMPL(ctx, s, size)                         \
+  COMMON_INTERCEPTOR_ENTER(ctx, strndup, s, size);                            \
+  uptr copy_length = internal_strnlen(s, size);                               \
+  char *new_mem = (char *)WRAP(malloc)(copy_length + 1);                      \
+  if (common_flags()->intercept_strndup) {                                    \
+    COMMON_INTERCEPTOR_READ_STRING(ctx, s, Min(size, copy_length + 1));       \
+  }                                                                           \
+  COMMON_INTERCEPTOR_COPY_STRING(ctx, new_mem, s, copy_length);               \
+  internal_memcpy(new_mem, s, copy_length);                                   \
+  new_mem[copy_length] = '\0';                                                \
   return new_mem;
 #endif
 
@@ -3396,7 +3396,10 @@ INTERCEPTOR(char *, strerror_r, int errnum, char *buf, SIZE_T buflen) {
   // its metadata. See
   // https://github.com/google/sanitizers/issues/321.
   char *res = REAL(strerror_r)(errnum, buf, buflen);
-  COMMON_INTERCEPTOR_WRITE_RANGE(ctx, res, REAL(strlen)(res) + 1);
+  if (res == buf)
+    COMMON_INTERCEPTOR_WRITE_RANGE(ctx, res, REAL(strlen)(res) + 1);
+  else
+    COMMON_INTERCEPTOR_INITIALIZE_RANGE(res, REAL(strlen)(res) + 1);
   return res;
 }
 #endif //(_POSIX_C_SOURCE >= 200112L || _XOPEN_SOURCE >= 600) && !_GNU_SOURCE ||
@@ -6197,6 +6200,57 @@ INTERCEPTOR(int, mprobe, void *ptr) {
 }
 #endif
 
+INTERCEPTOR(SIZE_T, wcslen, const wchar_t *s) {
+  void *ctx;
+  COMMON_INTERCEPTOR_ENTER(ctx, wcslen, s);
+  SIZE_T res = REAL(wcslen)(s);
+  COMMON_INTERCEPTOR_READ_RANGE(ctx, s, sizeof(wchar_t) * (res + 1));
+  return res;
+}
+
+INTERCEPTOR(SIZE_T, wcsnlen, const wchar_t *s, SIZE_T n) {
+  void *ctx;
+  COMMON_INTERCEPTOR_ENTER(ctx, wcsnlen, s, n);
+  SIZE_T res = REAL(wcsnlen)(s, n);
+  COMMON_INTERCEPTOR_READ_RANGE(ctx, s, sizeof(wchar_t) * Min(res + 1, n));
+  return res;
+}
+#define INIT_WCSLEN                  \
+  COMMON_INTERCEPT_FUNCTION(wcslen); \
+  COMMON_INTERCEPT_FUNCTION(wcsnlen);
+
+#if SANITIZER_INTERCEPT_WCSCAT
+INTERCEPTOR(wchar_t *, wcscat, wchar_t *dst, const wchar_t *src) {
+  void *ctx;
+  COMMON_INTERCEPTOR_ENTER(ctx, wcscat, dst, src);
+  SIZE_T src_size = REAL(wcslen)(src);
+  SIZE_T dst_size = REAL(wcslen)(dst);
+  COMMON_INTERCEPTOR_READ_RANGE(ctx, src, (src_size + 1) * sizeof(wchar_t));
+  COMMON_INTERCEPTOR_READ_RANGE(ctx, dst, (dst_size + 1) * sizeof(wchar_t));
+  COMMON_INTERCEPTOR_WRITE_RANGE(ctx, dst + dst_size,
+                                 (src_size + 1) * sizeof(wchar_t));
+  return REAL(wcscat)(dst, src);  // NOLINT
+}
+
+INTERCEPTOR(wchar_t *, wcsncat, wchar_t *dst, const wchar_t *src, SIZE_T n) {
+  void *ctx;
+  COMMON_INTERCEPTOR_ENTER(ctx, wcsncat, dst, src, n);
+  SIZE_T src_size = REAL(wcsnlen)(src, n);
+  SIZE_T dst_size = REAL(wcslen)(dst);
+  COMMON_INTERCEPTOR_READ_RANGE(ctx, src,
+                                Min(src_size + 1, n) * sizeof(wchar_t));
+  COMMON_INTERCEPTOR_READ_RANGE(ctx, dst, (dst_size + 1) * sizeof(wchar_t));
+  COMMON_INTERCEPTOR_WRITE_RANGE(ctx, dst + dst_size,
+                                 (src_size + 1) * sizeof(wchar_t));
+  return REAL(wcsncat)(dst, src, n);  // NOLINT
+}
+#define INIT_WCSCAT                  \
+  COMMON_INTERCEPT_FUNCTION(wcscat); \
+  COMMON_INTERCEPT_FUNCTION(wcsncat);
+#else
+#define INIT_WCSCAT
+#endif
+
 static void InitializeCommonInterceptors() {
   static u64 metadata_mem[sizeof(MetadataHashMap) / sizeof(u64) + 1];
   interceptor_metadata_map = new((void *)&metadata_mem) MetadataHashMap();
@@ -6401,4 +6455,6 @@ static void InitializeCommonInterceptors() {
   INIT_UTMP;
   INIT_UTMPX;
   INIT_GETLOADAVG;
+  INIT_WCSLEN;
+  INIT_WCSCAT;
 }

@@ -93,11 +93,10 @@ Sema::Sema(Preprocessor &pp, ASTContext &ctxt, ASTConsumer &consumer,
       ValueWithBytesObjCTypeMethod(nullptr), NSArrayDecl(nullptr),
       ArrayWithObjectsMethod(nullptr), NSDictionaryDecl(nullptr),
       DictionaryWithObjectsMethod(nullptr), GlobalNewDeleteDeclared(false),
-      TUKind(TUKind), NumSFINAEErrors(0), CachedFakeTopLevelModule(nullptr),
-      AccessCheckingSFINAE(false), InNonInstantiationSFINAEContext(false),
-      NonInstantiationEntries(0), ArgumentPackSubstitutionIndex(-1),
-      CurrentInstantiationScope(nullptr), DisableTypoCorrection(false),
-      TyposCorrected(0), AnalysisWarnings(*this),
+      TUKind(TUKind), NumSFINAEErrors(0), AccessCheckingSFINAE(false),
+      InNonInstantiationSFINAEContext(false), NonInstantiationEntries(0),
+      ArgumentPackSubstitutionIndex(-1), CurrentInstantiationScope(nullptr),
+      DisableTypoCorrection(false), TyposCorrected(0), AnalysisWarnings(*this),
       ThreadSafetyDeclCache(nullptr), VarDataSharingAttributesStack(nullptr),
       CurScope(nullptr), Ident_super(nullptr), Ident___float128(nullptr) {
   TUScope = nullptr;
@@ -706,6 +705,18 @@ void Sema::emitAndClearUnusedLocalTypedefWarnings() {
   UnusedLocalTypedefNameCandidates.clear();
 }
 
+/// This is called before the very first declaration in the translation unit
+/// is parsed. Note that the ASTContext may have already injected some
+/// declarations.
+void Sema::ActOnStartOfTranslationUnit() {
+  if (getLangOpts().ModulesTS) {
+    // We start in the global module; all those declarations are implicitly
+    // module-private (though they do not have module linkage).
+    Context.getTranslationUnitDecl()->setModuleOwnershipKind(
+        Decl::ModuleOwnershipKind::ModulePrivate);
+  }
+}
+
 /// ActOnEndOfTranslationUnit - This is called at the very end of the
 /// translation unit when EOF is reached and all but the top-level scope is
 /// popped.
@@ -741,6 +752,9 @@ void Sema::ActOnEndOfTranslationUnit() {
       // Load pending instantiations from the external source.
       SmallVector<PendingImplicitInstantiation, 4> Pending;
       ExternalSource->ReadPendingInstantiations(Pending);
+      for (auto PII : Pending)
+        if (auto Func = dyn_cast<FunctionDecl>(PII.first))
+          Func->setInstantiationIsPending(true);
       PendingInstantiations.insert(PendingInstantiations.begin(),
                                    Pending.begin(), Pending.end());
     }
@@ -836,7 +850,8 @@ void Sema::ActOnEndOfTranslationUnit() {
     emitAndClearUnusedLocalTypedefWarnings();
 
     // Modules don't need any of the checking below.
-    TUScope = nullptr;
+    if (!PP.isIncrementalProcessingEnabled())
+      TUScope = nullptr;
     return;
   }
 
@@ -1686,7 +1701,8 @@ bool Sema::checkOpenCLDisabledTypeDeclSpec(const DeclSpec &DS, QualType QT) {
                                        QT, OpenCLTypeExtMap);
 }
 
-bool Sema::checkOpenCLDisabledDecl(const Decl &D, const Expr &E) {
-  return checkOpenCLDisabledTypeOrDecl(&D, E.getLocStart(), "",
+bool Sema::checkOpenCLDisabledDecl(const NamedDecl &D, const Expr &E) {
+  IdentifierInfo *FnName = D.getIdentifier();
+  return checkOpenCLDisabledTypeOrDecl(&D, E.getLocStart(), FnName,
                                        OpenCLDeclExtMap, 1, D.getSourceRange());
 }

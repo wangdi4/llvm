@@ -347,6 +347,12 @@ module DebugObjC {
   header "DebugObjC.h"
 }
 
+module DebugObjCImport {
+  module SubModule {
+    header "DebugObjCImport.h"
+  }
+}
+
 module ImportNameInDir {
   header "ImportNameInDir.h"
   export *
@@ -440,4 +446,8 @@ module DebugNestedA {
 module DebugNestedB {
   header "DebugNestedB.h"
   export *
+}
+
+module objcAtKeywordMissingEnd {
+  header "objcAtKeywordMissingEnd.h"
 }
