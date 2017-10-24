@@ -14,6 +14,7 @@
 
 #include "CSA.h"
 #include "CSAInstrInfo.h"
+#include "CSAMachineFunctionInfo.h"
 #include "CSATargetMachine.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/CodeGen/MachineFunction.h"
@@ -44,12 +45,17 @@ namespace llvm {
 
   private:
     MachineFunction *MF;
+    CSAMachineFunctionInfo *LMFI;
     const CSAInstrInfo *TII;
     std::vector<MachineInstr *> to_delete;
 
     /// The following mini pass implements a peephole pass that removes NOT
     /// operands from the control lines of picks and switches.
     bool eliminateNotPicks(MachineInstr *MI);
+
+    /// The following mini pass replaces an ALL that goes into a SWITCH with a
+    /// SWITCH that goes into ALL. This helps for memory ordering issues.
+    bool invertAllSwitch(MachineInstr *MI);
 
     /// The following mini pass converts loads and stores that are dependent on
     /// strides into streaming loads and stores.
@@ -74,6 +80,7 @@ MachineFunctionPass *llvm::createCSADataflowSimplifyPass() {
 
 bool CSADataflowSimplifyPass::runOnMachineFunction(MachineFunction &MF) {
   this->MF = &MF;
+  LMFI = MF.getInfo<CSAMachineFunctionInfo>();
   TII = static_cast<const CSAInstrInfo*>(MF.getSubtarget<CSASubtarget>().getInstrInfo());
 
   // Run several functions one at a time on the entire graph. There is probably
@@ -85,6 +92,7 @@ bool CSADataflowSimplifyPass::runOnMachineFunction(MachineFunction &MF) {
   bool changed = false;
   static auto functions = {
     &CSADataflowSimplifyPass::eliminateNotPicks,
+    &CSADataflowSimplifyPass::invertAllSwitch,
     &CSADataflowSimplifyPass::makeStreamMemOp
   };
   for (auto func : functions) {
@@ -169,6 +177,53 @@ bool CSADataflowSimplifyPass::eliminateNotPicks(MachineInstr *MI) {
   return false;
 }
 
+bool CSADataflowSimplifyPass::invertAllSwitch(MachineInstr *MI) {
+  if (!TII->isSwitch(MI))
+    return false;
+  MachineInstr *switched = getDefinition(MI->getOperand(3));
+  if (!switched || switched->getOpcode() != CSA::ALL0)
+    return false;
+
+  // TODO: should it be the case that we check for ALL0 dependent only on memory
+  // ordering issues? Or are we going to be more or less guaranteed that ALL0
+  // only happens with these?
+
+  DEBUG(dbgs() << "Found a switch with an all input\n");
+  const TargetRegisterClass *class0 =
+    MF->getSubtarget().getRegisterInfo()->getRegClass(CSA::CI0RegClassID);
+  MachineInstr *newSwitches[4];
+  for (int i = 0; i < 4; i++) {
+    unsigned outL = MI->getOperand(0).getReg() == CSA::IGN ?
+      (unsigned)CSA::IGN : LMFI->allocateLIC(class0);
+    unsigned outR = MI->getOperand(1).getReg() == CSA::IGN ?
+      (unsigned)CSA::IGN : LMFI->allocateLIC(class0);
+    newSwitches[i] = BuildMI(*MI->getParent(), MI, MI->getDebugLoc(),
+        TII->get(CSA::SWITCH0))
+      .addReg(outL, RegState::Define)
+      .addReg(outR, RegState::Define)
+      .add(MI->getOperand(2))
+      .add(switched->getOperand(1 + i));
+    newSwitches[i]->setFlag(MachineInstr::NonSequential);
+  }
+  for (int i = 0; i < 2; i++) {
+    // Don't generate ignored switch outputs.
+    if (MI->getOperand(i).getReg() == CSA::IGN)
+      continue;
+    BuildMI(*MI->getParent(), MI, switched->getDebugLoc(), TII->get(CSA::ALL0))
+      .add(MI->getOperand(i))
+      .addReg(newSwitches[0]->getOperand(i).getReg())
+      .addReg(newSwitches[1]->getOperand(i).getReg())
+      .addReg(newSwitches[2]->getOperand(i).getReg())
+      .addReg(newSwitches[3]->getOperand(i).getReg())
+      ->setFlag(MachineInstr::NonSequential);
+  }
+
+  to_delete.push_back(MI);
+  if (MI == getSingleUse(switched->getOperand(0)))
+    to_delete.push_back(switched);
+  return false;
+}
+
 // This pass takes a load or a store controlled by a sequence operator and
 // converts it into a streaming load and store. The requirements for legality
 // are as follows:
@@ -185,7 +240,7 @@ bool CSADataflowSimplifyPass::eliminateNotPicks(MachineInstr *MI) {
 //
 // The biggest constraint on the valid operations is the second one. For now,
 // we accept only sequence operators, since calculating length is easy:
-// * SEQOTNE64 0, %lic, 1  => length = %lic [TODO]
+// * SEQOTNE64 0, %lic, 1  => length = %lic
 // * SEQOTNE64 %lic, 0, -1 => length = %lic
 // Note that the pred output here is the %stream we consider.
 //
@@ -193,7 +248,7 @@ bool CSADataflowSimplifyPass::eliminateNotPicks(MachineInstr *MI) {
 // patterns should be okay:
 // * LD (STRIDE %stream, %base, %stride) => base = %base, stride = %stride
 // * TODO: Uh, is this right?
-// * LDX (REPEAT %stream, %base), (SEQOTNE64_index 0, %N, %stride) [TODO]
+// * LDX (REPEAT %stream, %base), (SEQOTNE64_index 0, %N, %stride)
 // TODO: Investigate LDD utility.
 
 bool CSADataflowSimplifyPass::makeStreamMemOp(MachineInstr *MI) {

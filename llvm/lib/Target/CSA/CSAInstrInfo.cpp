@@ -449,7 +449,8 @@ bool CSAInstrInfo::isCmp(const MachineInstr *MI) const {
 
 
 bool CSAInstrInfo::isSwitch(const MachineInstr *MI) const {
-	return MI->getOpcode() == CSA::SWITCH1 ||
+	return MI->getOpcode() == CSA::SWITCH0 ||
+	       MI->getOpcode() == CSA::SWITCH1 ||
          MI->getOpcode() == CSA::SWITCH8 ||
          MI->getOpcode() == CSA::SWITCH16 ||
          MI->getOpcode() == CSA::SWITCH32 ||
@@ -457,11 +458,12 @@ bool CSAInstrInfo::isSwitch(const MachineInstr *MI) const {
 }
 
 bool CSAInstrInfo::isPick(const MachineInstr *MI) const {
-        return MI->getOpcode() == CSA::PICK1 ||
-		MI->getOpcode() == CSA::PICK8 ||
-		MI->getOpcode() == CSA::PICK16 ||
-		MI->getOpcode() == CSA::PICK32 ||
-		MI->getOpcode() == CSA::PICK64;
+  return MI->getOpcode() == CSA::PICK0 ||
+         MI->getOpcode() == CSA::PICK1 ||
+         MI->getOpcode() == CSA::PICK8 ||
+         MI->getOpcode() == CSA::PICK16 ||
+         MI->getOpcode() == CSA::PICK32 ||
+         MI->getOpcode() == CSA::PICK64;
 }
 
 bool CSAInstrInfo::isPickany(const MachineInstr *MI) const {
