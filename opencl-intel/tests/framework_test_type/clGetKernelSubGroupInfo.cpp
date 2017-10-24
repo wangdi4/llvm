@@ -6,7 +6,7 @@ static const char* BC_FILE = "reqd_num_sub_groups_64.bc";
 static const char* BC_FILE = "reqd_num_sub_groups_32.bc";
 #endif
 
-#if defined(_WIN32) || defined (__ANDROID__)
+#if defined(_WIN32)
     #define SET_FPOS_T(var, val) (var) = (val)
     #define GET_FPOS_T(var) var
 #else

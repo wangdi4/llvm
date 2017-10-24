@@ -1,8 +1,8 @@
 // Copyright (c) 2006-2012 Intel Corporation
 // All rights reserved.
-// 
+//
 // WARRANTY DISCLAIMER
-// 
+//
 // THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -14,7 +14,7 @@
 // OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
 // MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
@@ -63,7 +63,7 @@ affinityMask_t* pMask = NULL;
 
 // Static variables for testing
 static TestKernel_param_t	gNativeKernelParam;
-volatile bool	gExecDone = true; 
+volatile bool	gExecDone = true;
 
 unsigned int gDeviceIdInType = 0;
 
@@ -90,7 +90,7 @@ void CPUTestCallbacks::clDevCmdStatusChanged(cl_dev_cmd_id  cmd_id, void* data, 
 			break;
 		}
 		profile_complete = timer;
-		printf("Elapsed time is %lu nano second\n", profile_complete - profile_run); 
+		printf("Elapsed time is %lu nano second\n", profile_complete - profile_run);
 	}
 	if(CL_RUNNING == cmd_status)
 	{
@@ -104,9 +104,9 @@ void CPUTestCallbacks::clDevCmdStatusChanged(cl_dev_cmd_id  cmd_id, void* data, 
 	}
 }
 
-Intel::OpenCL::TaskExecutor::ITaskExecutor* CPUTestCallbacks::clDevGetTaskExecutor() 
-{ 
-    return GetTaskExecutor(); 
+Intel::OpenCL::TaskExecutor::ITaskExecutor* CPUTestCallbacks::clDevGetTaskExecutor()
+{
+    return GetTaskExecutor();
 }
 
 //GetDeviceInfo with CL_DEVICE_TYPE test
@@ -114,7 +114,7 @@ bool clGetDeviceInfo_TypeTest()
 {
 	cl_device_type device_type;
 	size_t param_value_size;
-	
+
 	cl_int iRes = clDevGetDeviceInfo(gDeviceIdInType, CL_DEVICE_TYPE, sizeof(cl_device_type), NULL, &param_value_size);
 	if (CL_DEV_FAILED(iRes))
 	{
@@ -152,7 +152,7 @@ bool clGetDeviceInfo_TypeTest()
 
 bool clGetDeviceInfo_Test()
 {
-	
+
 	size_t param_value_size;
 	size_t image2DMaxWidth, image3DMaxDepth, profilingTimerResolution;
 	cl_uint maxWorkItemDimension, preferredVecortWidthShort, maxClockFreq, globalMemCacheLineSize;
@@ -302,8 +302,8 @@ bool clGetDeviceInfo_VendorIdTest()
 	cl_uint uVendorId;
 	size_t param_value_size;
 	cl_uint input_size = sizeof(cl_uint);
-	
-	
+
+
 	cl_int iRes = clDevGetDeviceInfo(gDeviceIdInType, CL_DEVICE_VENDOR_ID, input_size, &uVendorId, &param_value_size);
 	if (CL_DEV_FAILED(iRes))
 	{
@@ -329,8 +329,8 @@ bool clGetDeviceInfo_MaxComputeUnitTest()
 	cl_uint uCoreNum;
 	size_t param_value_size;
 	cl_uint input_size = sizeof(cl_uint);
-	
-	
+
+
 	cl_int iRes = clDevGetDeviceInfo(gDeviceIdInType, CL_DEVICE_MAX_COMPUTE_UNITS, input_size, &uCoreNum, &param_value_size);
 	if (CL_DEV_FAILED(iRes))
 	{
@@ -355,8 +355,8 @@ bool clGetDeviceInfo_DeviceAvilable()
 {
 	cl_bool bDevice;
 	cl_uint input_size = sizeof(cl_bool);
-	
-	
+
+
 	cl_int iRes = clDevGetDeviceInfo(gDeviceIdInType, CL_DEVICE_AVAILABLE, input_size, &bDevice, NULL);
 	if (CL_DEV_FAILED(iRes))
 	{
@@ -385,8 +385,8 @@ bool clGetDeviceInfo_DeviceExecutionProperties()
 {
 	cl_device_exec_capabilities capabilities;
 	cl_uint input_size = sizeof(cl_device_exec_capabilities);
-	
-	
+
+
 	cl_int iRes = clDevGetDeviceInfo(gDeviceIdInType, CL_DEVICE_EXECUTION_CAPABILITIES, input_size, &capabilities, NULL);
 	if (CL_DEV_FAILED(iRes))
 	{
@@ -395,7 +395,7 @@ bool clGetDeviceInfo_DeviceExecutionProperties()
 	}
 	else
 	{
-		
+
 		if(capabilities & CL_EXEC_NATIVE_KERNEL)
 		{
 			printf("Device has CL_EXEC_NATIVE_FN_AS_KERNEL capabilities\n");
@@ -422,8 +422,8 @@ bool clGetDeviceInfo_QueueProperties()
 {
 	cl_command_queue_properties queueProperties;
 	cl_uint input_size = sizeof(cl_command_queue_properties);
-	
-	
+
+
 	cl_int iRes = clDevGetDeviceInfo(gDeviceIdInType, CL_DEVICE_QUEUE_PROPERTIES, input_size, &queueProperties, NULL);
 	if (CL_DEV_FAILED(iRes))
 	{
@@ -432,7 +432,7 @@ bool clGetDeviceInfo_QueueProperties()
 	}
 	else
 	{
-		
+
 		if(queueProperties & CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE)
 		{
 			printf("Device has CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE queue properties\n");
@@ -458,7 +458,7 @@ bool clGetDeviceInfo_DeviceStrings()
 	char name[STR_LEN];
 
 	size_t str_size = 0;
-		
+
 	cl_int iRes = clDevGetDeviceInfo(gDeviceIdInType, CL_DEVICE_NAME, STR_LEN, name, &str_size);
 	if (CL_DEV_FAILED(iRes))
 	{
@@ -530,13 +530,13 @@ bool CommandList_Test()
 		printf("pclDevCreateCommandList failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
 	}
-							
+
 	iRes = dev_entry->clDevReleaseCommandList(list);
 	if (CL_DEV_FAILED(iRes))
 	{
 		printf("clDevReleaseCommandList failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
-	}	
+	}
 
 	return true;
 }
@@ -563,7 +563,7 @@ bool ExecuteNativeKernel_Test(bool profiling)
 	//Execute command
 	cl_dev_cmd_desc  cmds;
 	cl_uint count = 1;
-		
+
 	cmds.type = CL_DEV_CMD_EXEC_NATIVE;
 	cmds.id = (cl_dev_cmd_id)CL_DEV_CMD_EXEC_NATIVE;
 	cmds.params = &nativeParam;
@@ -578,7 +578,7 @@ bool ExecuteNativeKernel_Test(bool profiling)
 	{
 		printf("clDevCommandListExecute failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
 		return false;
-	}	
+	}
 
 	while(!gExecDone )
 	{
@@ -709,7 +709,7 @@ TEST(CpuDeviceTestType, Test_mapTest)
 	EXPECT_TRUE(mapTest());
 }
 
-// To run individual tests, use the --gtest_filter=<pattern> command-line 
+// To run individual tests, use the --gtest_filter=<pattern> command-line
 // option. For example, to only Test_EventCallbackTest, use:
 // --gtest_filter=Test_EventCallbackTest
 //
@@ -733,7 +733,7 @@ int CPUDeviceTest_Main()
 
 	//Create and Init the device
 	cl_uint						dev_id = 0;
-	
+
 	static CPUTestLogger		log_desc;
 
 	size_t numDevicesInDeviceType = 0;
@@ -766,11 +766,7 @@ int CPUDeviceTest_Main()
 #ifndef _WIN32
 void printAffinityMask(affinityMask_t* affinityMask)
 {
-  #if defined(__ANDROID__) //no CPU_SETSIZE in bionic
-    int max_cpus = 1024; //This is the value for other Linux distros
-  #else
     int max_cpus = CPU_SETSIZE;
-  #endif
 
     unsigned char aff;
     bool needPrint = false;
@@ -783,12 +779,12 @@ void printAffinityMask(affinityMask_t* affinityMask)
             {
                 aff |= (1 << (cpu - set + 8));
             }
-        }  
+        }
         needPrint |= (aff != 0);
         if (needPrint)
         {
             printf("%hhx", aff);
-        } 
+        }
     }
     printf("\n");
 }
@@ -796,7 +792,7 @@ void initAndPrintRandomMask(affinityMask_t* affinityMask)
 {
     CPU_ZERO(affinityMask);
     srand(time(NULL));
-    unsigned long numProcessors = Intel::OpenCL::Utils::GetNumberOfProcessors(); 
+    unsigned long numProcessors = Intel::OpenCL::Utils::GetNumberOfProcessors();
     for (unsigned long i = 0; i < numProcessors; ++i)
     {
         if (rand() & 0x1)
@@ -834,7 +830,7 @@ void translateAndPrintMask(affinityMask_t* affinityMask, unsigned long val)
 #endif
 
 int main(int argc, char* argv[])
-{	
+{
 	::testing::InitGoogleTest(&argc, argv);
 #ifndef _WIN32
     affinityMask_t affinityMask;
@@ -879,9 +875,9 @@ int main(int argc, char* argv[])
 		printf("\n==============\nTEST SUCCEDDED\n==============\n");
 	}
 	else {
-		printf("\n==============\nTEST FAILED\n==============\n");		
+		printf("\n==============\nTEST FAILED\n==============\n");
 	}
 	*/
-	
+
 	return rc;
 }

@@ -128,11 +128,7 @@ bool clGetPlatformInfoTest()
         {
             expectedString += "WINDOWS";
         }
-        #elif defined (__linux__) && !defined (__ANDROID__)
-        {
-            expectedString += "LINUX";
-        }
-        #elif defined (__ANDROID__)
+        #elif defined (__linux__)
         {
             expectedString += "LINUX";
         }

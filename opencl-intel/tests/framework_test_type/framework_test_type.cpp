@@ -756,69 +756,6 @@ TEST(FrameworkTestType, cl_device_local_mem_size_unlimited_stack_test)
 
 CommandLineOption<std::string> deviceOption("--device_type");
 
-#ifdef INCLUDE_MIC_DEVICE
-TEST(FrameworkTestType, Test_CPU_MIC_IntegerExecute)
-{
-    EXPECT_TRUE(cl_CPU_MIC_IntegerExecuteTest());
-}
-
-TEST(FrameworkTestType, Test_CPU_MIC_Migrate)
-{
-    EXPECT_TRUE(cl_CPU_MIC_MigrateTest());
-}
-
-TEST(FrameworkTestType, Test_CPU_MIC_MapUnmap_InOrder)
-{
-    EXPECT_TRUE(cl_CPU_MIC_MapUnmapTest_InOrder());
-}
-
-TEST(FrameworkTestType, Test_CPU_MIC_MapUnmap_OutOfOrder)
-{
-    EXPECT_TRUE(cl_CPU_MIC_MapUnmapTest_OutOfOrder());
-}
-
-TEST(FrameworkTestType, Test_CPU_MIC_CommonRT_SubBuffers_Async)
-{
-    EXPECT_TRUE(cl_CPU_MIC_Common_RT_SubBuffers_Async());
-}
-
-TEST(FrameworkTestType, Test_CPU_MIC_Common_RT_SubBuffers_Async_With_Buffer_Release)
-{
-    EXPECT_TRUE(cl_CPU_MIC_Common_RT_SubBuffers_Async_With_Buffer_Release());
-}
-
-TEST(FrameworkTestType, cl_CPU_MIC_Parallel_NDRange_Execution_With_Read_Of_Same_Buffer)
-{
-    EXPECT_TRUE(cl_CPU_MIC_Parallel_NDRange_Execution_With_Read_Of_Same_Buffer());
-}
-
-TEST(FrameworkTestType, cl_ALL_Devices_SubBuffer_Simple_Test)
-{
-    EXPECT_TRUE(cl_ALL_Devices_SubBuffer_Simple_Test());
-}
-
-TEST(FrameworkTestType, cl_ALL_Devices_Common_RT_SubBuffers_Async)
-{
-    EXPECT_TRUE(cl_ALL_Devices_Common_RT_SubBuffers_Async());
-}
-
-TEST(FrameworkTestType, cl_ALL_Devices_Common_RT_SubBuffers_Async_With_Buffer_Release)
-{
-    EXPECT_TRUE(cl_ALL_Devices_Common_RT_SubBuffers_Async_With_Buffer_Release());
-}
-
-TEST(FrameworkTestType, TEST_APFLevel)
-{
-    EXPECT_TRUE(cl_APFLevelForce());
-}
-
-TEST(FrameworkTestType, clAoSFieldScatterGather)
-{
-    EXPECT_TRUE(clAoSFieldScatterGather());
-}
-
-#endif
-
 // To run individual tests, use the --gtest_filter=<pattern> command-line
 // option. For example, to only Test_EventCallbackTest, use:
 // --gtest_filter=Test_EventCallbackTest

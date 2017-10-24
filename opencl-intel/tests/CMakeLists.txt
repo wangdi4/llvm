@@ -21,7 +21,7 @@ endif()
 set(LLVM_PATH ${LLVM_PATH_FE})
 find_package(LLVM REQUIRED)
 
-if( CMAKE_CROSSCOMPILING OR LLVM_USE_NATIVE OR ANDROID )
+if( CMAKE_CROSSCOMPILING OR LLVM_USE_NATIVE )
   set(TOOLS_BINARY_DIR "${LLVM_BINARY_DIR}/../native/bin")
   set(SPIRV_CONVERTER  "${LLVM_PATH_BE}/native/bin/llvm-spirv")
 else()
@@ -73,19 +73,15 @@ add_subdirectory( clang_compiler_test_type )
 add_subdirectory( task_executor_test_type )
 add_subdirectory( bi_test_type )
 
-if ( INCLUDE_MIC_DEVICE )
-  add_subdirectory( mic_device_test_type )
-endif( INCLUDE_MIC_DEVICE )
-
 if( USE_VALGRIND )
   add_subdirectory( valgrind )
 endif( USE_VALGRIND )
 
 if (INCLUDE_CMRT)
   message (STATUS "Adding Common runtime tests ...")
-  if (NOT ANDROID OR NOT BUILD_X64)
+  if (NOT BUILD_X64)
     add_subdirectory ( common_runtime_test_type ) # until compilation errors are resolved
-  endif (NOT ANDROID OR NOT BUILD_X64)
+  endif (NOT BUILD_X64)
 endif(INCLUDE_CMRT)
 
 #Samples

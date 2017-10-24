@@ -220,8 +220,6 @@ void vectorizerModeDeathTest( const char* mode )
 //
 ////////////////////////////////////////////////////////////////////////////////////////////
 
-#ifndef __ANDROID__
-
 TEST(FrameworkTestTypeDeathTest, Test_VectorizerMode_Default)
 {
     vectorizerModeDeathTest( "" );
@@ -261,5 +259,3 @@ TEST(FrameworkTestTypeDeathTest, Test_VectorizerMode_8)
 //{
 //    negativeVectorizerModeDeathTest( "16" );
 //}
-
-#endif // __ANDROID__

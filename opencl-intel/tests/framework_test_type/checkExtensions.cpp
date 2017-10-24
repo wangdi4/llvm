@@ -33,9 +33,7 @@ public:
 
 void CL::CheckExtensions()
 {
-#if defined (__ANDROID__)
-    std::string os("android.");
-#elif defined (_WIN32)
+#if defined (_WIN32)
     std::string os("windows.");
 #else
     std::string os("linux.");
@@ -90,23 +88,7 @@ void CL::CheckExtensions()
     ASSERT_TRUE(extensions.IsVecLenHintSupported())
         << " Expected that cl_intel_vec_len_hint  is supported on " << os;
 
-#if defined (__ANDROID__)
-    ASSERT_TRUE(extensions.IsLocalThreadSupported_INTEL())
-        << " Expected that cl_intel_exec_by_local_thread is supported on " << os;
-
-    ASSERT_FALSE(extensions.IsDX9Supported_INTEL())
-        << " Expected that cl_intel_dx9_media_sharing is not supported on " << os;
-
-    ASSERT_FALSE(extensions.IsDX9Supported())
-        << " Expected that cl_khr_dx9_media_sharing is not supported on " << os;
-
-    ASSERT_FALSE(extensions.IsDX11Supported())
-        << " Expected that cl_khr_d3d11_sharing is not supported on " << os;
-
-    ASSERT_FALSE(extensions.IsGLSupported())
-        << " Expected that cl_khr_gl_sharing is not supported on " << os;
-
-#elif defined (_WIN32)
+#if defined (_WIN32)
     ASSERT_TRUE(extensions.IsLocalThreadSupported_INTEL())
         << " Expected that cl_intel_exec_by_local_thread is supported on " << os;
 

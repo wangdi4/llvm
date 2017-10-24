@@ -141,13 +141,8 @@ void RunFunctionTest (const char* FuncName,const char* ocl_test_program,int vec,
 	cl_program program = nullptr;
 	cl_kernel kernel = nullptr;
 	cl_mem clBuff[MAX_BUFFS+1]; //+1 for clULP which is clBuff[numBuffs]
-#if defined (__ANDROID__)
-  char *kernelCode = new char[strlen(ocl_test_program) +10];
-  sprintf(kernelCode, "\n%s\n", ocl_test_program);
-#else
   char *kernelCode = new char[strlen(ocl_test_program) + 10];
   sprintf(kernelCode, "%s\n", ocl_test_program);
-#endif
 	try{
 	// create program with source
 	if ( !BuildProgramSynch(context, 1, (const char**)&kernelCode, NULL, NULL, &program) ){

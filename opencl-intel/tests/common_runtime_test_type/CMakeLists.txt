@@ -28,9 +28,9 @@ endif (WIN32)
 add_executable( ${TARGET} ${TARGET_SOURCES} )
 
 target_link_libraries( ${TARGET} OpenCL googletest)
-if (NOT WIN32 AND NOT ANDROID)
+if (NOT WIN32)
     target_link_libraries( ${TARGET} pthread)
-endif (NOT WIN32 AND NOT ANDROID)
+endif (NOT WIN32)
 
 set( CREATE_DIR_NAME tests/common_runtime_test_type )
 

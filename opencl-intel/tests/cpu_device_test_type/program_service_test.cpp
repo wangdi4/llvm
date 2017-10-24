@@ -37,7 +37,7 @@
 #include <iosfwd>
 #include <vector>
 
-#if ( defined(_WIN32) || defined(__ANDROID__) )
+#if ( defined(_WIN32) )
 #define SET_FPOS_T(var, val) (var) = (val)
 #define GET_FPOS_T(var) var
 #else

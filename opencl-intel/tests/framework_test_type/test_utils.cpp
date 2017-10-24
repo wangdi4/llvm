@@ -226,16 +226,16 @@ bool CheckBuildStatus(const char * name, cl_build_status expected, cl_build_stat
 	printf("\t\texpected = ");
 	switch(expected)
 	{
-	case CL_BUILD_IN_PROGRESS: 
+	case CL_BUILD_IN_PROGRESS:
 		printf("CL_BUILD_IN_PROGRESS");
 		break;
-	case CL_BUILD_SUCCESS: 
+	case CL_BUILD_SUCCESS:
 		printf("CL_BUILD_SUCCESS");
 		break;
-	case CL_BUILD_ERROR: 
+	case CL_BUILD_ERROR:
 		printf("CL_BUILD_ERROR");
 		break;
-	case CL_BUILD_NONE: 
+	case CL_BUILD_NONE:
 	default:
 		printf("CL_BUILD_NONE");
 		break;
@@ -243,16 +243,16 @@ bool CheckBuildStatus(const char * name, cl_build_status expected, cl_build_stat
 	printf(" result = ");
 	switch(result)
 	{
-	case CL_BUILD_IN_PROGRESS: 
+	case CL_BUILD_IN_PROGRESS:
 		printf("CL_BUILD_IN_PROGRESS");
 		break;
-	case CL_BUILD_SUCCESS: 
+	case CL_BUILD_SUCCESS:
 		printf("CL_BUILD_SUCCESS");
 		break;
-	case CL_BUILD_ERROR: 
+	case CL_BUILD_ERROR:
 		printf("CL_BUILD_ERROR");
 		break;
-	case CL_BUILD_NONE: 
+	case CL_BUILD_NONE:
 	default:
 		printf("CL_BUILD_NONE");
 		break;
@@ -271,16 +271,16 @@ bool SilentCheckBuildStatus(const char * name, cl_build_status expected, cl_buil
 		printf("\t\texpected = ");
 		switch(expected)
 		{
-		case CL_BUILD_IN_PROGRESS: 
+		case CL_BUILD_IN_PROGRESS:
 			printf("CL_BUILD_IN_PROGRESS");
 			break;
-		case CL_BUILD_SUCCESS: 
+		case CL_BUILD_SUCCESS:
 			printf("CL_BUILD_SUCCESS");
 			break;
-		case CL_BUILD_ERROR: 
+		case CL_BUILD_ERROR:
 			printf("CL_BUILD_ERROR");
 			break;
-		case CL_BUILD_NONE: 
+		case CL_BUILD_NONE:
 		default:
 			printf("CL_BUILD_NONE");
 			break;
@@ -288,16 +288,16 @@ bool SilentCheckBuildStatus(const char * name, cl_build_status expected, cl_buil
 		printf(" result = ");
 		switch(result)
 		{
-		case CL_BUILD_IN_PROGRESS: 
+		case CL_BUILD_IN_PROGRESS:
 			printf("CL_BUILD_IN_PROGRESS");
 			break;
-		case CL_BUILD_SUCCESS: 
+		case CL_BUILD_SUCCESS:
 			printf("CL_BUILD_SUCCESS");
 			break;
-		case CL_BUILD_ERROR: 
+		case CL_BUILD_ERROR:
 			printf("CL_BUILD_ERROR");
 			break;
-		case CL_BUILD_NONE: 
+		case CL_BUILD_NONE:
 		default:
 			printf("CL_BUILD_NONE");
 			break;
@@ -306,11 +306,11 @@ bool SilentCheckBuildStatus(const char * name, cl_build_status expected, cl_buil
 	}
 	return bRes;
 }
-bool BuildProgramSynch(cl_context	        context, 
-					   cl_uint              count, 
-					   const char **        strings, 
-					   const size_t *       lengths, 
-					   const char *         options, 
+bool BuildProgramSynch(cl_context	        context,
+					   cl_uint              count,
+					   const char **        strings,
+					   const size_t *       lengths,
+					   const char *         options,
 					   cl_program *         program_ret)
 {
 	bool bRes = true;
@@ -468,7 +468,7 @@ bool BuildProgramSynch(cl_context	        context,
 			delete[] devices;
 			return bRes;
 		}
-		
+
 		bRes = SilentCheckBuildStatus("check build status", CL_BUILD_SUCCESS, clBuildStatus);
 		if (!bRes)
 		{
@@ -586,11 +586,6 @@ static int CreateTemporaryFile(int fd, string& filename) {
         temp_file_path);
     filename = temp_file_path;
     return creat(temp_file_path, _S_IREAD | _S_IWRITE);
-#elif defined (__ANDROID__)
-    char temp_file_path[50];
-    sprintf(temp_file_path, "%s_%d_%d.out", "FrameworkTest", fd, gettid());
-    filename = temp_file_path;
-    return creat(temp_file_path, 0660);
 #else
     char temp_file_path[] = "/tmp/redirXXXXXX";
     int tmp_fd = mkstemp(temp_file_path);
@@ -598,15 +593,15 @@ static int CreateTemporaryFile(int fd, string& filename) {
     return tmp_fd;
 #endif
 }
-    
-  
+
+
 // Object that captures an output stream (stdout/stderr)
 //
-class CapturedStream 
+class CapturedStream
 {
 public:
     // The ctor redirects the stream to a temporary file.
-    CapturedStream(int fd) 
+    CapturedStream(int fd)
         : fd_(fd), uncaptured_fd_(dup(fd)), initialized(false) {}
     bool Initialize()
     {
@@ -624,13 +619,13 @@ public:
         return true;
     }
 
-    ~CapturedStream() 
+    ~CapturedStream()
     {
         if (initialized)
             remove(filename_.c_str());
     }
 
-    string GetCapturedString() 
+    string GetCapturedString()
     {
         if (uncaptured_fd_ != -1) {
             // Restores the original stream.
@@ -676,7 +671,7 @@ static bool CaptureStream(int fd, const char* stream_name, CapturedStream** stre
     return (*stream)->Initialize();
 }
 
-static string GetCapturedStream(CapturedStream** captured_stream) 
+static string GetCapturedStream(CapturedStream** captured_stream)
 {
     const string content = (*captured_stream)->GetCapturedString();
 
@@ -698,13 +693,13 @@ bool CaptureStderr()
    return CaptureStream(kStdErrFileno, "stderr", &g_captured_stderr);
 }
 
-string GetCapturedStdout() 
-{ 
+string GetCapturedStdout()
+{
     return GetCapturedStream(&g_captured_stdout);
 }
 
-string GetCapturedStderr() 
-{ 
+string GetCapturedStderr()
+{
     return GetCapturedStream(&g_captured_stderr);
 }
 

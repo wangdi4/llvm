@@ -100,7 +100,6 @@ bool clGetDeviceInfoTest()
 	QueryPerformanceFrequency(&freq);
 	szNativeCodeResolution = (size_t)(1e9/freq.QuadPart);
 #endif
-	// The above implementation does not suitable to MIC.
 	if (gDeviceType != CL_DEVICE_TYPE_ACCELERATOR)
 	{
 		bResult &= CheckSize("CL_DEVICE_PROFILING_TIMER_RESOLUTION", szNativeCodeResolution, szResolution);

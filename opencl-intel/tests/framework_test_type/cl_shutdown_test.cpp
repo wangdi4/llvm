@@ -313,8 +313,6 @@ void death_test_imp( TEST_CASE test_case, const char* name )
 //
 ////////////////////////////////////////////////////////////////////////////////////////////
 
-#ifndef __ANDROID__
-
 TEST(FrameworkTestTypeDeathTest, Test_NormalExit)
 {
     death_test( NORMAL_EXIT );
@@ -349,5 +347,3 @@ TEST(FrameworkTestTypeDeathTest, Test_NO_EVENTS_RELEASES)
 {
     death_test( NO_EVENTS_RELEASES );
 }
-
-#endif // __ANDROID__

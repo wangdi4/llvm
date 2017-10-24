@@ -201,11 +201,7 @@ bool AffinityRootDeviceTest(affinityMask_t* pMask)
     unsigned long numUsedProcessors = numProcessors; 
     unsigned long myCPU = 0;
 #ifndef _WIN32
-  #if defined(__ANDROID__) //we would like to use CONF but it's buggy on Android
-        numProcessors = sysconf(_SC_NPROCESSORS_ONLN);
-  #else
-        numProcessors = sysconf(_SC_NPROCESSORS_CONF);
-  #endif
+    numProcessors = sysconf(_SC_NPROCESSORS_CONF);
     numUsedProcessors = numProcessors;
     if (NULL != pMask) 
     {

@@ -18,15 +18,9 @@
 	#define RETURN_TYPE_ENTRY_POINT unsigned int
 	#define FPRINTF fprintf_s
 #else
-	#if defined(__ANDROID__)
-		#define SET_FPOS_T(var, val) (var) = (val)
-		#define GET_FPOS_T(var) var
-		#define STDCALL
-	#else
-		#define SET_FPOS_T(var, val) ((var).__pos = (val))
-		#define GET_FPOS_T(var) ((var).__pos)
-		#define STDCALL
-	#endif // __ANDROID__
+	#define SET_FPOS_T(var, val) ((var).__pos = (val))
+	#define GET_FPOS_T(var) ((var).__pos)
+	#define STDCALL
 	#define SLEEP(mili) usleep(mili * 1000)
 	#define FOPEN(file, name, mode) (file) = fopen((name), (mode))
 	#define ABS64(x) llabs(x)

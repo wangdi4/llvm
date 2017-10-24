@@ -75,7 +75,7 @@ static void TestSetKernelExecInfo(cl_context context, cl_device_id device, cl_co
 		if (i == szListSize - 1)
 		{
 			pNode->m_pNext = NULL;
-		}		
+		}
 		if (i > 0)
 		{
 			nodes[i - 1]->m_pNext = pNode;
@@ -84,7 +84,7 @@ static void TestSetKernelExecInfo(cl_context context, cl_device_id device, cl_co
 	}
 	cl_int* const piResult = (cl_int*)clSVMAlloc(context, CL_MEM_SVM_FINE_GRAIN_BUFFER, sizeof(cl_int), 0);
 	CheckException("clSVMAlloc", piResult != NULL, true);
-	
+
 	cl_int iRet;
 	cl_kernel kernel = clCreateKernel(prog, "SumIntsInLinkedList", &iRet);
 	CheckException("clCreateKernel", CL_SUCCESS, iRet);
@@ -104,14 +104,14 @@ static void TestSetKernelExecInfo(cl_context context, cl_device_id device, cl_co
 	iRet = clFinish(queue);
 	CheckException("clFinish",  CL_SUCCESS, iRet);
 
-	const cl_int iExpected = szListSize * (2 * nodes[0]->m_num + szListSize - 1) / 2;	// sum of arithmetic progression	
+	const cl_int iExpected = szListSize * (2 * nodes[0]->m_num + szListSize - 1) / 2;	// sum of arithmetic progression
 	if (iExpected != *piResult)
 	{
 		throw exception();
 	}
 
 	iRet = clReleaseKernel(kernel);
-	CheckException("clReleaseKernel", CL_SUCCESS, iRet);	
+	CheckException("clReleaseKernel", CL_SUCCESS, iRet);
 	for (std::vector<Node*>::iterator iter = nodes.begin(); iter != nodes.end(); iter++)
 	{
 		clSVMFree(context, *iter);
@@ -131,9 +131,9 @@ static void TestSetKernelArgSVMPointer(cl_context context, cl_device_id device, 
 	{
 		piArr[i] = i;
 	}
-		
+
 	const cl_int iStartIndex = BUF_SIZE / sizeof(cl_int) / 2, iNumElems = BUF_SIZE / sizeof(cl_int) / 2;
-	const cl_int iExpected = iNumElems * (2 * piArr[iStartIndex] + iNumElems - 1) / 2;	// sum of arithmetic progression	
+	const cl_int iExpected = iNumElems * (2 * piArr[iStartIndex] + iNumElems - 1) / 2;	// sum of arithmetic progression
 	cl_int iRet;
 	cl_kernel kernel = clCreateKernel(prog, "SumInts", &iRet);
 	CheckException("clCreateKernel", CL_SUCCESS, iRet);
@@ -153,7 +153,7 @@ static void TestSetKernelArgSVMPointer(cl_context context, cl_device_id device, 
 	if (iExpected != *piResult)
 	{
 		throw exception();
-	}    
+	}
 
 	iRet = clReleaseKernel(kernel);
 	CheckException("clReleaseKernel", CL_SUCCESS, iRet);
@@ -166,7 +166,7 @@ static void TestSetKernelArgSVMPointer(cl_context context, cl_device_id device, 
     {
 	    clSVMFree(context, piArr);
 	    clSVMFree(context, piResult);
-    }    
+    }
 }
 
 typedef void (CL_CALLBACK *pfnFreeFunc)(cl_command_queue queue, cl_uint uiNumSvmPtrs, void* pSvmPtrs[], void* pUserData);
@@ -245,11 +245,9 @@ static void TestEnqueueSVMCommands(cl_context context, cl_command_queue queue, I
 	cl_mem subBuf4ab = clCreateSubBuffer(buf4a, 0, CL_BUFFER_CREATE_TYPE_REGION, &regionB, &iRet);
 	CheckException("clCreateSubBuffer", CL_SUCCESS, iRet);
 
-	char* srcBuf 
+	char* srcBuf
 #ifdef WIN32
 		= (char*)_aligned_malloc(BUF_SIZE, sizeof(pattern));	// srcBuf is initialized using clEnqueueSVMMemFill
-#elif defined (__ANDROID__)
-        = (char*)memalign(sizeof(pattern), BUF_SIZE);
 #else
 		;
 		int res = posix_memalign((void**)&srcBuf, sizeof(pattern), BUF_SIZE);
@@ -267,7 +265,7 @@ static void TestEnqueueSVMCommands(cl_context context, cl_command_queue queue, I
 	iRet = clEnqueueWriteBuffer(queue, buf3, CL_FALSE, 0, BUF_SIZE, middleBuf, 0, NULL, NULL);
 	CheckException("clEnqueueWriteBuffer", CL_SUCCESS, iRet);
 	iRet = clEnqueueCopyBuffer(queue, buf3, buf4a, 0, 0, BUF_SIZE / 2, 0, NULL, NULL);
-	CheckException("clEnqueueCopyBuffer", CL_SUCCESS, iRet); 
+	CheckException("clEnqueueCopyBuffer", CL_SUCCESS, iRet);
 	iRet = clEnqueueCopyBuffer(queue, buf3, buf4b, BUF_SIZE / 2, 0, BUF_SIZE / 2, 0, NULL, NULL);
 	CheckException("clEnqueueCopyBuffer", CL_SUCCESS, iRet);
 	iRet = clEnqueueReadBuffer(queue, subBuf4aa, CL_FALSE, 0, BUF_SIZE / 4, dstBuf, 0, NULL, NULL);
@@ -313,7 +311,7 @@ static void TestEnqueueSVMCommands(cl_context context, cl_command_queue queue, I
 		iRet = clEnqueueSVMFree(queue, sizeof(pSvmPtrs) / sizeof(pSvmPtrs[0]), pSvmPtrs, freeFunc, pUserData, 0, NULL, NULL);
 		CheckException("clEnqueueSVMFree", CL_SUCCESS, iRet);
 		iRet = clFinish(queue);
-		CheckException("clFinish", CL_SUCCESS, iRet); 
+		CheckException("clFinish", CL_SUCCESS, iRet);
 	}
 #ifdef _WIN32
 	_aligned_free(srcBuf);
@@ -345,13 +343,13 @@ bool clSvmTest()
     try
     {
         iRet = clGetPlatformIDs(1, &platform, NULL);
-        CheckException("clGetPlatformIDs", CL_SUCCESS, iRet);        
+        CheckException("clGetPlatformIDs", CL_SUCCESS, iRet);
         iRet = clGetDeviceIDs(platform, gDeviceType, 1, &device, NULL);
         CheckException("clGetDeviceIDs", CL_SUCCESS, iRet);
         iRet = clGetDeviceInfo(device, CL_DEVICE_SVM_CAPABILITIES, sizeof(svm_caps), &svm_caps, &temp );
         CheckException("clGetDeviceInfo(CL_DEVICE_SVM_CAPABILITIES)", CL_SUCCESS, iRet);
 
-        const cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };    
+        const cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
         context = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);
 		CheckException("clCreateContextFromType", CL_SUCCESS, iRet);
 
@@ -360,7 +358,7 @@ bool clSvmTest()
     queue = clCreateCommandQueue(context, device, 0, &iRet);
 #else
     queue = clCreateCommandQueue(context, device, 0, &iRet);
-#endif		
+#endif
 		CheckException("clCreateCommandQueue", CL_SUCCESS, iRet);
 
 		TestEnqueueSVMCommands(context, queue, MEMCPY);
@@ -376,7 +374,7 @@ bool clSvmTest()
 		CheckException("clBuildProgram", CL_SUCCESS, iRet);
 		TestSetKernelArgSVMPointer(context, device, queue, prog, false);
         TestSetKernelArgSVMPointer(context, device, queue, prog, true);
-		TestSetKernelExecInfo(context, device, queue, prog);        
+		TestSetKernelExecInfo(context, device, queue, prog);
 
         cl_device_svm_capabilities svmCaps;
         iRet = clGetDeviceInfo(device, CL_DEVICE_SVM_CAPABILITIES, sizeof(svmCaps), &svmCaps, NULL);

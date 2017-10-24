@@ -153,11 +153,7 @@ void clFastRelaxedMathModeDeathTest()
 //
 ////////////////////////////////////////////////////////////////////////////////////////////
 
-#ifndef __ANDROID__
-
 TEST(FrameworkTestTypeDeathTest, Test_ClFastRelaxedMathModeTest_Basic)
 {
     clFastRelaxedMathModeDeathTest();
 }
-
-#endif // __ANDROID__
