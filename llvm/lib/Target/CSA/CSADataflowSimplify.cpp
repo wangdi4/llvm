@@ -174,8 +174,8 @@ bool CSADataflowSimplifyPass::eliminateNotPicks(MachineInstr *MI) {
 
   if (MachineInstr *selector = getDefinition(MI->getOperand(select_op))) {
     if (selector->getOpcode() == CSA::NOT1) {
-      // This means the selector is a not. Swap the two definitions on the
-      // output, and change the selector to be the not's inverse.
+      // This means the selector is a NOT. Swap the two definitions on the
+      // output, and change the selector to be the NOT's inverse.
       int reg_tmp = MI->getOperand(low_op).getReg();
       MI->getOperand(low_op).setReg(MI->getOperand(high_op).getReg());
       MI->getOperand(high_op).setReg(reg_tmp);
@@ -198,10 +198,9 @@ bool CSADataflowSimplifyPass::invertAllSwitch(MachineInstr *MI) {
   // ordering issues? Or are we going to be more or less guaranteed that ALL0
   // only happens with these?
 
-  DEBUG(dbgs() << "Found a switch with an all input\n");
   const TargetRegisterClass *class0 =
     MF->getSubtarget().getRegisterInfo()->getRegClass(CSA::CI1RegClassID);
-  // TODO: CI0 class is more accurate... but there's only 128 of those
+  // TODO: CI0 class is more accurate… but there's only 128 of those
   // Generate switches for each of the inputs, at least those that correspond
   // to actual values.
   unsigned switchOutputRegs[4][2];
@@ -262,12 +261,14 @@ bool CSADataflowSimplifyPass::invertAllSwitch(MachineInstr *MI) {
 // we accept only sequence operators, since calculating length is easy:
 // * SEQOTNE64 0, %lic, 1  => length = %lic
 // * SEQOTNE64 %lic, 0, -1 => length = %lic
+// * SEQOTLTS64 0, %lic, 1 => length = %lic
+// * SEQOTLTU64 0, %lic, 1 => length = %lic
 // Note that the pred output here is the %stream we consider.
 //
 // The source of the address computations is more complicated. The following
 // patterns should be okay:
 // * LD (STRIDE %stream, %base, %stride) => base = %base, stride = %stride
-// * LDX (REPEAT %stream, %base), (SEQOTNE64_index 0, %N, %stride)
+// * LDX (REPEAT %stream, %base), (SEQOT**64_index 0, %N, %stride)
 // TODO: Investigate LDD utility.
 
 bool CSADataflowSimplifyPass::makeStreamMemOp(MachineInstr *MI) {
@@ -358,7 +359,7 @@ bool CSADataflowSimplifyPass::makeStreamMemOp(MachineInstr *MI) {
       base = &memBase->getOperand(2);
       const MachineOperand &strideOp = memIndex->getOperand(6);
       if (!strideOp.isImm()) {
-        DEBUG(dbgs() << "Candidate instruction has non-constrant stride.\n");
+        DEBUG(dbgs() << "Candidate instruction has non-constant stride.\n");
         return false;
       }
       stride = strideOp.getImm();
