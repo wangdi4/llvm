@@ -87,14 +87,14 @@ WRegionNode::WRegionNode(unsigned SCID) : SubClassID(SCID), Attributes(0) {
 void WRegionNode::finalize(BasicBlock *ExitBB) {
   setExitBBlock(ExitBB);
   if (getIsOmpLoop()) {
-    LoopInfo *LI = getLoopInfo();
+    LoopInfo *LI = getWRNLoopInfo().getLoopInfo();
     assert(LI && "LoopInfo not present in a loop construct");
     BasicBlock *EntryBB = getEntryBBlock();
     Loop *Lp = IntelGeneralUtils::getLoopFromLoopInfo(LI, EntryBB, ExitBB);
 
     // Do not assert for loop-type constructs when Lp==NULL because transforms
     // before Paropt may have optimized away the loop.
-    setLoop(Lp);
+    getWRNLoopInfo().setLoop(Lp);
 
     if (Lp)
       DEBUG(dbgs() << "\n=== finalize WRN: found loop : " << *Lp << "\n");
@@ -382,7 +382,7 @@ void WRegionNode::printLoopBB(formatted_raw_ostream &OS, unsigned Depth,
 
   int Ind = 2*Depth;
 
-  Loop *L = getLoop();
+  Loop *L = getWRNLoopInfo().getLoop();
 
   if (!L) {
     OS.indent(Ind) << "Loop is missing; may be optimized away.\n";

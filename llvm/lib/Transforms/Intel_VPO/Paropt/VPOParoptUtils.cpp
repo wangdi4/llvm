@@ -1931,7 +1931,7 @@ Value *VPOParoptUtils::computeOmpUpperBound(WRegionNode *W,
                                             Instruction* InsertPt) {
   assert(W->getIsOmpLoop() && "computeOmpUpperBound: not a loop-type WRN");
 
-  Loop *L = W->getLoop();
+  Loop *L = W->getWRNLoopInfo().getLoop();
 
   Value *RightValue = WRegionUtils::getOmpLoopUpperBound(L);
   RightValue = VPOParoptUtils::cloneInstructions(RightValue, InsertPt);
@@ -2027,7 +2027,7 @@ void VPOParoptUtils::updateOmpPredicateAndUpperBound(WRegionNode *W,
 
   assert(W->getIsOmpLoop() && "computeOmpUpperBound: not a loop-type WRN");
 
-  Loop *L = W->getLoop();
+  Loop *L = W->getWRNLoopInfo().getLoop();
   ICmpInst* IC = WRegionUtils::getOmpLoopBottomTest(L);
   bool IsLeft = true;
   CmpInst::Predicate PD = WRegionUtils::getOmpPredicate(L, IsLeft);

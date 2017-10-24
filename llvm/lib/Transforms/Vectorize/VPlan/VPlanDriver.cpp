@@ -374,7 +374,7 @@ bool VPlanDriverBase::runOnFunction(Function &Fn) {
     for (auto WRNode : make_range(WRGraph->begin(), WRGraph->end())) {
 
       if (WRNVecLoopNode *WRLoop = dyn_cast<WRNVecLoopNode>(WRNode)) {
-        Loop *Lp = WRLoop->getLoop();
+        Loop *Lp = WRLoop->getWRNLoopInfo().getLoop();
         simplifyLoop(Lp, DT, LI, SE, AC, false /* PreserveLCSSA */);
         formLCSSARecursively(*Lp, *DT, LI, SE);
 

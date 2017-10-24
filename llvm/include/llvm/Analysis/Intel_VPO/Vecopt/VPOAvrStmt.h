@@ -854,7 +854,9 @@ protected:
 
 public:
   /// \brief Returns LoopInfo from WrnSimdNode
-  LoopInfo *getLoopInfo() { return WRegionSimdNode->getLoopInfo(); }
+  LoopInfo *getLoopInfo() { 
+    return WRegionSimdNode->getWRNLoopInfo().getLoopInfo();
+  }
 
   /// \brief Return WRegionSimdNode
   WRNVecLoopNode *getWrnNode() const { return WRegionSimdNode; }

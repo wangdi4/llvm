@@ -45,7 +45,7 @@ WRNParallelNode::WRNParallelNode(BasicBlock *BB)
 
 // constructor
 WRNParallelLoopNode::WRNParallelLoopNode(BasicBlock *BB, LoopInfo *Li)
-    : WRegionNode(WRegionNode::WRNParallelLoop, BB), LI(Li) {
+    : WRegionNode(WRegionNode::WRNParallelLoop, BB) {
   setIsPar();
   setIsOmpLoop();
   setIf(nullptr);
@@ -54,6 +54,7 @@ WRNParallelLoopNode::WRNParallelLoopNode(BasicBlock *BB, LoopInfo *Li)
   setProcBind(WRNProcBindAbsent);
   setCollapse(0);
   setOrdered(0);
+  getWRNLoopInfo().init(Li);
 
   DEBUG(dbgs() << "\nCreated WRNParallelLoopNode<" << getNumber() << ">\n");
 }
@@ -64,13 +65,14 @@ WRNParallelLoopNode::WRNParallelLoopNode(BasicBlock *BB, LoopInfo *Li)
 
 // constructor
 WRNParallelSectionsNode::WRNParallelSectionsNode(BasicBlock *BB, LoopInfo *Li)
-    : WRegionNode(WRegionNode::WRNParallelSections, BB), LI(Li) {
+    : WRegionNode(WRegionNode::WRNParallelSections, BB) {
   setIsPar();
   setIsOmpLoop();
   setIf(nullptr);
   setNumThreads(nullptr);
   setDefault(WRNDefaultAbsent);
   setProcBind(WRNProcBindAbsent);
+  getWRNLoopInfo().init(Li);
 
   DEBUG(dbgs() << "\nCreated WRNParallelSectionsNode<" << getNumber() << ">\n");
 }
@@ -81,13 +83,14 @@ WRNParallelSectionsNode::WRNParallelSectionsNode(BasicBlock *BB, LoopInfo *Li)
 
 // constructor
 WRNParallelWorkshareNode::WRNParallelWorkshareNode(BasicBlock *BB, LoopInfo *Li)
-    : WRegionNode(WRegionNode::WRNParallelWorkshare, BB), LI(Li) {
+    : WRegionNode(WRegionNode::WRNParallelWorkshare, BB) {
   setIsPar();
   setIsOmpLoop();
   setIf(nullptr);
   setNumThreads(nullptr);
   setDefault(WRNDefaultAbsent);
   setProcBind(WRNProcBindAbsent);
+  getWRNLoopInfo().init(Li);
   DEBUG(dbgs() << "\nCreated WRNParallelWorkshareNode<" << getNumber() 
                                                         << ">\n");
 }
@@ -113,7 +116,7 @@ WRNTeamsNode::WRNTeamsNode(BasicBlock *BB)
 
 // constructor
 WRNDistributeParLoopNode::WRNDistributeParLoopNode(BasicBlock *BB, LoopInfo *Li)
-    : WRegionNode(WRegionNode::WRNDistributeParLoop, BB), LI(Li) {
+    : WRegionNode(WRegionNode::WRNDistributeParLoop, BB) {
   setIsDistribute();
   setIsPar();
   setIsOmpLoop();
@@ -123,6 +126,7 @@ WRNDistributeParLoopNode::WRNDistributeParLoopNode(BasicBlock *BB, LoopInfo *Li)
   setProcBind(WRNProcBindAbsent);
   setCollapse(0);
   setOrdered(0);
+  getWRNLoopInfo().init(Li);
 
   DEBUG(dbgs() << "\nCreated WRNDistributeParLoopNode<" << getNumber() << ">\n");
 }
@@ -183,7 +187,7 @@ WRNTaskNode::WRNTaskNode(BasicBlock *BB)
 
 // constructor
 WRNTaskloopNode::WRNTaskloopNode(BasicBlock *BB, LoopInfo *Li)
-    : WRNTaskNode(BB), LI(Li) {
+    : WRNTaskNode(BB) {
   setWRegionKindID(WRegionNode::WRNTaskloop);
   setIsTask();
   setIsOmpLoop();
@@ -194,6 +198,7 @@ WRNTaskloopNode::WRNTaskloopNode(BasicBlock *BB, LoopInfo *Li)
   setCollapse(0);
   setNogroup(false);
   setTaskFlag(WRNTaskFlag::Tied);
+  getWRNLoopInfo().init(Li);
   // These are done in WRNTaskNode's constructor
   //   setFinal(nullptr);
   //   setPriority(nullptr);
@@ -210,12 +215,13 @@ WRNTaskloopNode::WRNTaskloopNode(BasicBlock *BB, LoopInfo *Li)
 
 // constructor for LLVM IR representation
 WRNVecLoopNode::WRNVecLoopNode(BasicBlock *BB, LoopInfo *Li)
-    : WRegionNode(WRegionNode::WRNVecLoop, BB), LI(Li) {
+    : WRegionNode(WRegionNode::WRNVecLoop, BB) {
   setIsOmpLoop();
   setSimdlen(0);
   setSafelen(0);
   setCollapse(0);
   setIsAutoVec(false);
+  getWRNLoopInfo().init(Li);
 
   DEBUG(dbgs() << "\nCreated WRNVecLoopNode<" << getNumber() << ">\n");
 }
@@ -264,11 +270,12 @@ void WRNVecLoopNode::printHIR(formatted_raw_ostream &OS, unsigned Depth,
 
 // constructor
 WRNWksLoopNode::WRNWksLoopNode(BasicBlock *BB, LoopInfo *Li)
-    : WRegionNode(WRegionNode::WRNWksLoop, BB), LI(Li) {
+    : WRegionNode(WRegionNode::WRNWksLoop, BB) {
   setIsOmpLoop();
   setCollapse(0);
   setOrdered(0);
   setNowait(false);
+  getWRNLoopInfo().init(Li);
 
   DEBUG(dbgs() << "\nCreated WRNWksLoopNode<" << getNumber() << ">\n");
 }
@@ -279,9 +286,10 @@ WRNWksLoopNode::WRNWksLoopNode(BasicBlock *BB, LoopInfo *Li)
 
 // constructor
 WRNSectionsNode::WRNSectionsNode(BasicBlock *BB, LoopInfo *Li)
-    : WRegionNode(WRegionNode::WRNSections, BB), LI(Li) {
+    : WRegionNode(WRegionNode::WRNSections, BB) {
   setIsOmpLoop();
   setNowait(false);
+  getWRNLoopInfo().init(Li);
 
   DEBUG(dbgs() << "\nCreated WRNSectionsNode<" << getNumber() << ">\n");
 }
@@ -292,9 +300,10 @@ WRNSectionsNode::WRNSectionsNode(BasicBlock *BB, LoopInfo *Li)
 
 // constructor
 WRNWorkshareNode::WRNWorkshareNode(BasicBlock *BB, LoopInfo *Li)
-    : WRegionNode(WRegionNode::WRNWorkshare, BB), LI(Li) {
+    : WRegionNode(WRegionNode::WRNWorkshare, BB) {
   setIsOmpLoop();
   setNowait(false);
+  getWRNLoopInfo().init(Li);
 
   DEBUG(dbgs() << "\nCreated WRNWorkshareNode<" << getNumber() << ">\n");
 }
@@ -305,11 +314,12 @@ WRNWorkshareNode::WRNWorkshareNode(BasicBlock *BB, LoopInfo *Li)
 
 // constructor
 WRNDistributeNode::WRNDistributeNode(BasicBlock *BB, LoopInfo *Li)
-    : WRegionNode(WRegionNode::WRNDistribute, BB), LI(Li) {
+    : WRegionNode(WRegionNode::WRNDistribute, BB) {
   setIsOmpLoop();
   setIsDistribute();
   setCollapse(0);
   setNowait(false);
+  getWRNLoopInfo().init(Li);
 
   DEBUG(dbgs() << "\nCreated WRNDistributeNode<" << getNumber() << ">\n");
 }

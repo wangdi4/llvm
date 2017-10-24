@@ -967,7 +967,7 @@ void VPlanHCFGBuilder::buildNonLoopRegions(VPRegionBlock *ParentRegion,
 void VPlanHCFGBuilder::buildHierarchicalCFG(Loop *TheLoop,
                                             const WRNVecLoopNode *WRLoop,
                                             IntelVPlan *Plan) {
-  assert((!WRLoop || WRLoop->getLoop() == TheLoop) &&
+  assert((!WRLoop || WRLoop->getWRNLoopInfo().getLoop() == TheLoop) &&
          "Inconsistent Loop information");
 
   // State used only to build this HCFG. It will be destroyed at the end of the

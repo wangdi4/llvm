@@ -230,7 +230,7 @@ bool VPOParoptTransform::paroptTransforms() {
     bool RemoveDirectives = false;
     bool RemovePrivateClauses = false;
 
-    if (W->getIsOmpLoop() && W->getLoop()==nullptr) {
+    if (W->getIsOmpLoop() && W->getWRNLoopInfo().getLoop()==nullptr) {
       // The WRN is a loop-type construct, but the loop is missing, most likely
       // because it has been optimized away. We skip the code transforms for
       // this WRN, and simply remove its directives.
@@ -1447,7 +1447,7 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
     // This should apply to all loop-type constructs; ie, WRNs whose
     // "IsOmpLoop" attribute is true.
     if (SE && W->getIsOmpLoop()) {
-        Loop *L = W->getLoop();
+        Loop *L = W->getWRNLoopInfo().getLoop();
         SE->forgetLoop(L);
     }
   }
@@ -1461,7 +1461,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
 
   assert(W->getIsOmpLoop() && "genLoopSchedulingCode: not a loop-type WRN");
 
-  Loop *L = W->getLoop();
+  Loop *L = W->getWRNLoopInfo().getLoop();
 
   assert(L && "genLoopSchedulingCode: Loop not found");
 
