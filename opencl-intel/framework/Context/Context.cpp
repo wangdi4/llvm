@@ -140,7 +140,7 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
         return;
     }
     m_pOriginalDeviceIds = new cl_device_id[uiNumDevices];
-    if (nullptr == m_pDeviceIds)
+    if (nullptr == m_pOriginalDeviceIds)
     {
         *pclErr = CL_OUT_OF_HOST_MEMORY;
         delete[] m_pDeviceIds;
