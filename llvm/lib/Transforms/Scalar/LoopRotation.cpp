@@ -486,10 +486,22 @@ bool LoopRotate::rotateLoop(Loop *L, bool SimplifiedLatch) {
           DomTreeNode *Node = HeaderChildren[I];
           BasicBlock *BB = Node->getBlock();
 
-          pred_iterator PI = pred_begin(BB);
-          BasicBlock *NearestDom = *PI;
-          for (pred_iterator PE = pred_end(BB); PI != PE; ++PI)
-            NearestDom = DT->findNearestCommonDominator(NearestDom, *PI);
+          BasicBlock *NearestDom = nullptr;
+          for (BasicBlock *Pred : predecessors(BB)) {
+            // Consider only reachable basic blocks.
+            if (!DT->getNode(Pred))
+              continue;
+
+            if (!NearestDom) {
+              NearestDom = Pred;
+              continue;
+            }
+
+            NearestDom = DT->findNearestCommonDominator(NearestDom, Pred);
+            assert(NearestDom && "No NearestCommonDominator found");
+          }
+
+          assert(NearestDom && "Nearest dominator not found");
 
           // Remember if this changes the DomTree.
           if (Node->getIDom()->getBlock() != NearestDom) {
@@ -691,10 +703,7 @@ public:
   static char ID; // Pass ID, replacement for typeid
   LoopRotateLegacyPass(int SpecifiedMaxHeaderSize = -1) : LoopPass(ID) {
     initializeLoopRotateLegacyPassPass(*PassRegistry::getPassRegistry());
-    if (SpecifiedMaxHeaderSize == -1)
-      MaxHeaderSize = DefaultRotationThreshold;
-    else
-      MaxHeaderSize = unsigned(SpecifiedMaxHeaderSize);
+    MaxHeaderSize = unsigned(SpecifiedMaxHeaderSize);  // INTEL
   }
 
   // LCSSA form makes instruction renaming easier.
@@ -718,6 +727,12 @@ public:
     auto *SEWP = getAnalysisIfAvailable<ScalarEvolutionWrapperPass>();
     auto *SE = SEWP ? &SEWP->getSE() : nullptr;
     const SimplifyQuery SQ = getBestSimplifyQuery(*this, F);
+#if INTEL_CUSTOMIZATION
+    if (MaxHeaderSize == (unsigned)-1)
+      MaxHeaderSize = DefaultRotationThreshold.getNumOccurrences() > 0 ?
+          DefaultRotationThreshold :
+          TTI->getLoopRotationDefaultThreshold(true);
+#endif //INTEL_CUSTOMIZATION
     LoopRotate LR(MaxHeaderSize, LI, TTI, AC, DT, SE, SQ);
     return LR.processLoop(L);
   }

@@ -207,7 +207,7 @@ define <1 x i128> @call_v1i128_increment_by_one() nounwind {
 ; CHECK-LE: blr
 
 ; CHECK-P9-LABEL: @call_v1i128_increment_by_one
-; CHECK-P9: lxvx
+; CHECK-P9: lxv
 ; CHECK-P9: bl v1i128_increment_by_one
 ; CHECK-P9: blr
 

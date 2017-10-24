@@ -16,7 +16,7 @@
 
 using namespace llvm;
 
-#define DEBUG_TYPE "misched"
+#define DEBUG_TYPE "machine-scheduler"
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 LLVM_DUMP_METHOD
@@ -211,9 +211,9 @@ static LaneBitmask getUsedRegMask(const MachineOperand &MO,
   return getLiveLaneMask(MO.getReg(), SI, LIS, MRI);
 }
 
-SmallVector<RegisterMaskPair, 8> collectVirtualRegUses(const MachineInstr &MI,
-                                              const LiveIntervals &LIS,
-                                              const MachineRegisterInfo &MRI) {
+static SmallVector<RegisterMaskPair, 8>
+collectVirtualRegUses(const MachineInstr &MI, const LiveIntervals &LIS,
+                      const MachineRegisterInfo &MRI) {
   SmallVector<RegisterMaskPair, 8> Res;
   for (const auto &MO : MI.operands()) {
     if (!MO.isReg() || !TargetRegisterInfo::isVirtualRegister(MO.getReg()))

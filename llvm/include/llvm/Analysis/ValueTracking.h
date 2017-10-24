@@ -60,7 +60,8 @@ template <typename T> class ArrayRef;
   KnownBits computeKnownBits(const Value *V, const DataLayout &DL,
                              unsigned Depth = 0, AssumptionCache *AC = nullptr,
                              const Instruction *CxtI = nullptr,
-                             const DominatorTree *DT = nullptr);
+                             const DominatorTree *DT = nullptr,
+                             OptimizationRemarkEmitter *ORE = nullptr);
   /// Compute known bits from the range metadata.
   /// \p KnownZero the set of bits that are known to be zero
   /// \p KnownOne the set of bits that are known to be one
@@ -84,6 +85,8 @@ template <typename T> class ArrayRef;
                               const Instruction *CxtI = nullptr,
                               const DominatorTree *DT = nullptr);
 
+  bool isOnlyUsedInZeroEqualityComparison(const Instruction *CxtI);
+  
   /// Return true if the given value is known to be non-zero when defined. For
   /// vectors, return true if every element is known to be non-zero when
   /// defined. For pointers, if the context instruction and dominator tree are
@@ -267,8 +270,8 @@ template <typename T> class ArrayRef;
   };
 
   /// Returns true if the value \p V is a pointer into a ContantDataArray.
-  /// If successfull \p Index will point to a ConstantDataArray info object
-  /// with an apropriate offset.
+  /// If successful \p Index will point to a ConstantDataArray info object
+  /// with an appropriate offset.
   bool getConstantDataArrayInfo(const Value *V, ConstantDataArraySlice &Slice,
                                 unsigned ElementSize, uint64_t Offset = 0);
 
@@ -529,6 +532,41 @@ template <typename T> class ArrayRef;
     return Result;
   }
 
+#if INTEL_CUSTOMIZATION
+  /// \brief Matches saturation downconvert idiom.
+  ///
+  /// The following pattern is matched:
+  ///   r = clamp(X, LowerBound, UpperBound)
+  ///   trunc r
+  ///
+  /// Lower and upper bounds of saturation should fit to the range of
+  /// signed or unsigned destination integer type of truncation.
+  ///
+  /// \returns true in case the idiom was matched and provides additional
+  /// information about the idiom in the parameters, false otherwise.
+  bool matchSaturationDownconvert(Value *V, Value *&X, const APInt *&LowerBound,
+                                  const APInt *&UpperBound, Type *&SrcTy,
+                                  Type *&DestTy, bool &Signed);
+
+  /// \brief Matches saturation add/sub idioms.
+  ///
+  /// Match the case when two input integer values are extended to a wider type,
+  /// then the result of add/sub is saturated with further truncation to a
+  /// source integer type. Lower and upper bounds of saturation should fit to
+  /// the range of signed or unsigned destination integer type of truncation.
+  ///
+  /// \param Ty Type of the result and input values.
+  /// \param ExtTy Type of input values after extension.
+  /// \param Opcode of operation (add or sub)
+  ///
+  /// \returns true in case the idiom was matched and provides additional
+  /// information about the idiom in the parameters, false otherwise.
+  bool matchSaturationAddSub(Value *V, Value *&A, Value *&B,
+                             const APInt *&LowerBound, const APInt *&UpperBound,
+                             Type *&Ty, Type *&ExtTy, bool &Signed,
+                             unsigned &Opcode);
+#endif // INTEL_CUSTOMIZATION
+
   /// Return true if RHS is known to be implied true by LHS.  Return false if
   /// RHS is known to be implied false by LHS.  Otherwise, return None if no
   /// implication can be made.
@@ -541,8 +579,7 @@ template <typename T> class ArrayRef;
   /// (A)
   Optional<bool> isImpliedCondition(const Value *LHS, const Value *RHS,
                                     const DataLayout &DL,
-                                    bool InvertAPred = false,
-                                    unsigned Depth = 0,
+                                    bool LHSIsFalse = false, unsigned Depth = 0,
                                     AssumptionCache *AC = nullptr,
                                     const Instruction *CxtI = nullptr,
                                     const DominatorTree *DT = nullptr);

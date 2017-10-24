@@ -127,6 +127,9 @@ def FeatureERI      : SubtargetFeature<"avx512er", "HasERI", "true",
 def FeatureCDI      : SubtargetFeature<"avx512cd", "HasCDI", "true",
                       "Enable AVX-512 Conflict Detection Instructions",
                                       [FeatureAVX512]>;
+def FeatureVPOPCNTDQ : SubtargetFeature<"avx512vpopcntdq", "HasVPOPCNTDQ",
+                       "true", "Enable AVX-512 Population Count Instructions",
+                                      [FeatureAVX512]>;
 def FeaturePFI      : SubtargetFeature<"avx512pf", "HasPFI", "true",
                       "Enable AVX-512 PreFetch Instructions",
                                       [FeatureAVX512]>;
@@ -297,8 +300,8 @@ def ProcIntelAtom : SubtargetFeature<"atom", "X86ProcFamily", "IntelAtom",
                     "Intel Atom processors">;
 def ProcIntelSLM  : SubtargetFeature<"slm", "X86ProcFamily", "IntelSLM",
                     "Intel Silvermont processors">;
-def ProcIntelGLM : SubtargetFeature<"glm", "X86ProcFamily", "IntelGLM",
-                                    "Intel Goldmont processors">; // INTEL
+def ProcIntelGLM  : SubtargetFeature<"glm", "X86ProcFamily", "IntelGLM",
+                    "Intel Goldmont processors">;
 
 class Proc<string Name, list<SubtargetFeature> Features>
  : ProcessorModel<Name, GenericModel, Features>;
@@ -429,10 +432,6 @@ class SilvermontProc<string Name> : ProcessorModel<Name, SLMModel, [
 def : SilvermontProc<"silvermont">;
 def : SilvermontProc<"slm">; // Legacy alias.
 
-// if INTEL_CUSTOMIZATION
-// FIXME: Goldmont inheritor most of his feature from Silvermont.
-//       Need to re-write SLM and GLM in the same way SandyBridge
-//       and IvyBridge defined, see lines: 455-501.
 class GoldmontProc<string Name> : ProcessorModel<Name, SLMModel, [
   ProcIntelGLM,
   FeatureX87,
@@ -444,26 +443,23 @@ class GoldmontProc<string Name> : ProcessorModel<Name, SLMModel, [
   FeaturePOPCNT,
   FeaturePCLMUL,
   FeatureAES,
-  FeatureSlowDivide64,
-  FeatureCallRegIndirect,
   FeaturePRFCHW,
+  FeatureCallRegIndirect,
   FeatureSlowLEA,
   FeatureSlowIncDec,
   FeatureSlowBTMem,
   FeatureLAHFSAHF,
   FeatureMPX,
   FeatureSHA,
+  FeatureRDRAND,
   FeatureRDSEED,
   FeatureXSAVE,
   FeatureXSAVEOPT,
   FeatureXSAVEC,
   FeatureXSAVES,
-  FeatureCLFLUSHOPT,
-  FeatureFSGSBase
+  FeatureCLFLUSHOPT
 ]>;
 def : GoldmontProc<"goldmont">;
-def : GoldmontProc<"glm">;
-// endif INTEL_CUSTOMIZATION
 
 // "Arrandale" along with corei3 and corei5
 class NehalemProc<string Name> : ProcessorModel<Name, SandyBridgeModel, [
@@ -818,10 +814,8 @@ def : Proc<"bdver4", [
   FeatureMWAITX
 ]>;
 
-// TODO: The scheduler model falls to BTVER2 model.
-// The znver1 model has to be put in place.
-// Zen
-def: ProcessorModel<"znver1", BtVer2Model, [
+// Znver1
+def: ProcessorModel<"znver1", Znver1Model, [
   FeatureADX,
   FeatureAES,
   FeatureAVX2,

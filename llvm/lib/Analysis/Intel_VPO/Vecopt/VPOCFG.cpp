@@ -29,11 +29,14 @@ using namespace vpo;
 
 const AvrCFGBase::NodeSetTy AvrCFGBase::EmptyNodeSet;
 
-template void llvm::Calculate<AvrCFGBase, AvrBasicBlock *>(
-    DominatorTreeBase<GraphTraits<AvrBasicBlock *>::NodeType> &DT, AvrCFGBase &F);
-template void llvm::Calculate<AvrCFGBase, Inverse<AvrBasicBlock *>>(
-    DominatorTreeBase<GraphTraits<Inverse<AvrBasicBlock *>>::NodeType> &DT,
-    AvrCFGBase &F);
+using AvrBBDomTree = DomTreeBase<AvrBasicBlock>;
+template void
+llvm::DomTreeBuilder::Calculate<AvrBBDomTree, AvrCFGBase>(AvrBBDomTree &DT,
+                                                          AvrCFGBase &F);
+
+using AvrBBPostDomTree = PostDomTreeBase<AvrBasicBlock>;
+template void llvm::DomTreeBuilder::Calculate<AvrBBPostDomTree, AvrCFGBase>(
+    AvrBBPostDomTree &DT, AvrCFGBase &F);
 
 unsigned long long AvrBasicBlock::NextId = 0;
 

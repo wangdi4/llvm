@@ -328,7 +328,7 @@ private:
   /// partition.
   uint64_t BeginOffset, EndOffset;
 
-  /// \brief The start end end iterators of this partition.
+  /// \brief The start and end iterators of this partition.
   iterator SI, SJ;
 
   /// \brief A collection of split slice tails overlapping the partition.
@@ -1106,6 +1106,62 @@ static Type *findCommonType(AllocaSlices::const_iterator B,
   return TyIsCommon ? Ty : ITy;
 }
 
+#if INTEL_CUSTOMIZATION
+/// \brief Returns true if \p Inst is live at \p PN. Here 'Inst' can either
+/// be a load or a load following a GEP with all zero indices.
+/// It finds Inst alive if:
+///  - Inst and PN are in the same block
+///  - And, there are no stores between PN and Inst.
+static bool isLiveAtPHI(const Instruction * Inst,
+                        const PHINode &PN,
+                        unsigned &MaxAlign) {
+  if (!Inst || Inst->getParent() != PN.getParent())
+    return false;
+
+  // For now, we only allow loads in the same block as the PHI.  This is
+  // a common case that happens when instcombine merges two loads through
+  // a PHI.
+  // TODO: Allow stores.
+  switch(Inst->getOpcode()) {
+  case Instruction::Load: {
+    const LoadInst * LI = cast<LoadInst>(Inst);
+    if (!LI || !LI->isSimple())
+      return false;
+
+    // Ensure that there are no instructions between the PHI and the load that
+    // could store.
+    for (BasicBlock::const_iterator BBI(PN); &*BBI != LI; ++BBI)
+      if (BBI->mayWriteToMemory())
+        return false;
+
+    MaxAlign = std::max(MaxAlign, LI->getAlignment());
+
+    return true;
+  }
+  case Instruction::GetElementPtr: {
+    bool HasUser = false;
+    const GetElementPtrInst * GEP = cast<GetElementPtrInst>(Inst);
+
+    // TODO: Support any indices
+    if (!GEP->hasAllZeroIndices())
+      return false;
+
+    for (const auto *U : GEP->users()) {
+      if (!isLiveAtPHI(dyn_cast<Instruction>(U), PN, MaxAlign))
+        return false;
+
+      HasUser = true;
+    }
+
+    return HasUser;
+  }
+  }
+
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
+
+
 /// PHI instructions that use an alloca and are subsequently loaded can be
 /// rewritten to load both input pointers in the pred blocks and then PHI the
 /// results, allowing the load of the alloca to be promoted.
@@ -1125,36 +1181,26 @@ static Type *findCommonType(AllocaSlices::const_iterator B,
 /// FIXME: This should be hoisted into a generic utility, likely in
 /// Transforms/Util/Local.h
 static bool isSafePHIToSpeculate(PHINode &PN) {
+#if INTEL_CUSTOMIZATION
   // For now, we can only do this promotion if the load is in the same block
   // as the PHI, and if there are no stores between the phi and load.
-  // TODO: Allow recursive phi users.
-  // TODO: Allow stores.
-  BasicBlock *BB = PN.getParent();
   unsigned MaxAlign = 0;
-  bool HaveLoad = false;
-  for (User *U : PN.users()) {
-    LoadInst *LI = dyn_cast<LoadInst>(U);
-    if (!LI || !LI->isSimple())
+  bool HasLoad = false;
+
+  for (const auto *U : PN.users()) {
+    // It is very common to have loads following GEPs. This code supports those
+    // cases (one such example can be found in intel-phi-gep.ll).
+    // It also supports recursive traversal of phi users.
+
+    if (!isLiveAtPHI(dyn_cast<Instruction>(U), PN, MaxAlign))
       return false;
 
-    // For now we only allow loads in the same block as the PHI.  This is
-    // a common case that happens when instcombine merges two loads through
-    // a PHI.
-    if (LI->getParent() != BB)
-      return false;
-
-    // Ensure that there are no instructions between the PHI and the load that
-    // could store.
-    for (BasicBlock::iterator BBI(PN); &*BBI != LI; ++BBI)
-      if (BBI->mayWriteToMemory())
-        return false;
-
-    MaxAlign = std::max(MaxAlign, LI->getAlignment());
-    HaveLoad = true;
+    HasLoad = true;
   }
 
-  if (!HaveLoad)
+  if (!HasLoad)
     return false;
+#endif // INTEL_CUSTOMIZATION
 
   const DataLayout &DL = PN.getModule()->getDataLayout();
 
@@ -1188,48 +1234,113 @@ static bool isSafePHIToSpeculate(PHINode &PN) {
   return true;
 }
 
+#if INTEL_CUSTOMIZATION
+/// \brief This updates the users of Inst with NewInst if Inst is a load.
+/// It also looks for GEPs along the way and traverses its users to
+/// get to the final load instruction.
+static void updateLoadUsers(Instruction *Inst, Instruction *NewInst) {
+  switch(Inst->getOpcode()) {
+  case Instruction::Load: {
+    Inst->replaceAllUsesWith(NewInst);
+    Inst->eraseFromParent();
+    break;
+  }
+  case Instruction::GetElementPtr: {
+    while (!Inst->use_empty())
+      updateLoadUsers(cast<Instruction>(Inst->user_back()), NewInst);
+
+    Inst->eraseFromParent();
+    break;
+  }
+  default:
+    llvm_unreachable("Unexpected Instruction!!!");
+  }
+}
+
+/// \brief Update \p Inst's load users with \p NewInst. If Inst happens to be
+/// a GEP, iterate through its users untill loads are met; return the GEPs.
+static void injectGEPsLoads(IRBuilderTy &IRB, Instruction *Inst, Value *Ptr,
+                            SmallPtrSet<LoadInst *, 4> &NewLoads) {
+  switch(Inst->getOpcode()) {
+  case Instruction::Load: {
+    LoadInst *NewLoad = IRB.CreateLoad(Ptr);
+    NewLoads.insert(NewLoad);
+    break;
+  }
+  case Instruction::GetElementPtr: {
+    GetElementPtrInst *GEP = cast<GetElementPtrInst>(Inst);
+    assert(GEP->hasAllZeroIndices() && "Expected all zero indices!!!");
+
+    SmallVector<Value*, 8> IdxList(GEP->idx_begin(), GEP->idx_end());
+    Value *NewGEP = GEP->isInBounds()
+          ? IRB.CreateInBoundsGEP(Ptr, IdxList)
+          : IRB.CreateGEP(Ptr, IdxList);
+
+    for (auto *U : Inst->users())
+      injectGEPsLoads(IRB, cast<Instruction>(U), NewGEP, NewLoads);
+
+    break;
+  }
+  default:
+    llvm_unreachable("Unexpected Instruction!!!");
+  }
+}
+
+/// speculatePHINodeLoads was significantly modified to support GEP in-between loads and PHIs.
+/// Not every line was changed, but the entire routine is under
+/// INTEL_CUSTOMIZATION, because any community changes to this routine will need
+/// to be manually merged.
 static void speculatePHINodeLoads(PHINode &PN) {
   DEBUG(dbgs() << "    original: " << PN << "\n");
 
-  Type *LoadTy = cast<PointerType>(PN.getType())->getElementType();
+  // Get the AA tags and alignment to use from one of the loads.  It doesn't
+  // matter which one we get and if any differ.
+  Instruction *I = &PN;
+  // Since there could be GEPs in between load and PN, keep iterating through
+  // the users until a load instruction is found.
+  while (!isa<LoadInst>(I))
+    I = cast<Instruction>(I->user_back());
+
+  LoadInst *SomeLoad = cast<LoadInst>(I);
+  Type *LoadTy = SomeLoad->getType();
   IRBuilderTy PHIBuilder(&PN);
   PHINode *NewPN = PHIBuilder.CreatePHI(LoadTy, PN.getNumIncomingValues(),
                                         PN.getName() + ".sroa.speculated");
-
-  // Get the AA tags and alignment to use from one of the loads.  It doesn't
-  // matter which one we get and if any differ.
-  LoadInst *SomeLoad = cast<LoadInst>(PN.user_back());
 
   AAMDNodes AATags;
   SomeLoad->getAAMetadata(AATags);
   unsigned Align = SomeLoad->getAlignment();
 
-  // Rewrite all loads of the PN to use the new PHI.
-  while (!PN.use_empty()) {
-    LoadInst *LI = cast<LoadInst>(PN.user_back());
-    LI->replaceAllUsesWith(NewPN);
-    LI->eraseFromParent();
-  }
-
-  // Inject loads into all of the pred blocks.
+  // Inject loads/GEP-loads into all of the pred blocks.
   for (unsigned Idx = 0, Num = PN.getNumIncomingValues(); Idx != Num; ++Idx) {
     BasicBlock *Pred = PN.getIncomingBlock(Idx);
     TerminatorInst *TI = Pred->getTerminator();
+
     Value *InVal = PN.getIncomingValue(Idx);
     IRBuilderTy PredBuilder(TI);
 
-    LoadInst *Load = PredBuilder.CreateLoad(
-        InVal, (PN.getName() + ".sroa.speculate.load." + Pred->getName()));
-    ++NumLoadsSpeculated;
-    Load->setAlignment(Align);
-    if (AATags)
-      Load->setAAMetadata(AATags);
-    NewPN->addIncoming(Load, Pred);
+    SmallPtrSet<LoadInst *, 4> NewLoads;
+    injectGEPsLoads(PredBuilder, cast<Instruction>(PN.user_back()), InVal, NewLoads);
+    for (auto *NewLoad : NewLoads) {
+      ++NumLoadsSpeculated;
+      NewLoad->setAlignment(Align);
+      if (AATags)
+        NewLoad->setAAMetadata(AATags);
+      NewPN->addIncoming(NewLoad, Pred);
+    }
+
+    NewLoads.clear();
   }
+
+  // Rewrite all loads/loads-following-GEPs of the PN to use the new PHI.
+  while (!PN.use_empty())
+    updateLoadUsers(cast<Instruction>(PN.user_back()), NewPN);
 
   DEBUG(dbgs() << "          speculated to: " << *NewPN << "\n");
   PN.eraseFromParent();
 }
+#endif // INTEL_CUSTOMIZATION
+
 
 /// Select instructions that use an alloca and are subsequently loaded can be
 /// rewritten to load both input pointers and then select between the result,
@@ -1291,7 +1402,7 @@ static bool isSafeSelectToSpeculate(SelectInst &SI) {
     if (!LI || !LI->isSimple())
       return false;
 
-    // Both operands to the select need to be dereferencable, either
+    // Both operands to the select need to be dereferenceable, either
     // absolutely (e.g. allocas) or at this point because we can see other
     // accesses to it.
     if (!isSafeToLoadUnconditionally(TValue, LI->getAlignment(), DL, LI))
@@ -1694,8 +1805,17 @@ static bool canConvertValue(const DataLayout &DL, Type *OldTy, Type *NewTy) {
       return cast<PointerType>(NewTy)->getPointerAddressSpace() ==
         cast<PointerType>(OldTy)->getPointerAddressSpace();
     }
-    if (NewTy->isIntegerTy() || OldTy->isIntegerTy())
-      return true;
+
+    // We can convert integers to integral pointers, but not to non-integral
+    // pointers.
+    if (OldTy->isIntegerTy())
+      return !DL.isNonIntegralPointerType(NewTy);
+
+    // We can convert integral pointers to integers, but non-integral pointers
+    // need to remain pointers.
+    if (!DL.isNonIntegralPointerType(OldTy))
+      return NewTy->isIntegerTy();
+
     return false;
   }
 
@@ -1721,8 +1841,7 @@ static Value *convertValue(const DataLayout &DL, IRBuilderTy &IRB, Value *V,
 
   // See if we need inttoptr for this type pair. A cast involving both scalars
   // and vectors requires and additional bitcast.
-  if (OldTy->getScalarType()->isIntegerTy() &&
-      NewTy->getScalarType()->isPointerTy()) {
+  if (OldTy->isIntOrIntVectorTy() && NewTy->isPtrOrPtrVectorTy()) {
     // Expand <2 x i32> to i8* --> <2 x i32> to i64 to i8*
     if (OldTy->isVectorTy() && !NewTy->isVectorTy())
       return IRB.CreateIntToPtr(IRB.CreateBitCast(V, DL.getIntPtrType(NewTy)),
@@ -1738,8 +1857,7 @@ static Value *convertValue(const DataLayout &DL, IRBuilderTy &IRB, Value *V,
 
   // See if we need ptrtoint for this type pair. A cast involving both scalars
   // and vectors requires and additional bitcast.
-  if (OldTy->getScalarType()->isPointerTy() &&
-      NewTy->getScalarType()->isIntegerTy()) {
+  if (OldTy->isPtrOrPtrVectorTy() && NewTy->isIntOrIntVectorTy()) {
     // Expand <2 x i8*> to i128 --> <2 x i8*> to <2 x i64> to i128
     if (OldTy->isVectorTy() && !NewTy->isVectorTy())
       return IRB.CreateBitCast(IRB.CreatePtrToInt(V, DL.getIntPtrType(OldTy)),
@@ -2448,11 +2566,22 @@ private:
       LoadInst *NewLI = IRB.CreateAlignedLoad(&NewAI, NewAI.getAlignment(),
                                               LI.isVolatile(), LI.getName());
       if (LI.isVolatile())
-        NewLI->setAtomic(LI.getOrdering(), LI.getSynchScope());
+        NewLI->setAtomic(LI.getOrdering(), LI.getSyncScopeID());
+
+      // Any !nonnull metadata or !range metadata on the old load is also valid
+      // on the new load. This is even true in some cases even when the loads
+      // are different types, for example by mapping !nonnull metadata to
+      // !range metadata by modeling the null pointer constant converted to the
+      // integer type.
+      // FIXME: Add support for range metadata here. Currently the utilities
+      // for this don't propagate range metadata in trivial cases from one
+      // integer load to another, don't handle non-addrspace-0 null pointers
+      // correctly, and don't have any support for mapping ranges as the
+      // integer type becomes winder or narrower.
+      if (MDNode *N = LI.getMetadata(LLVMContext::MD_nonnull))
+        copyNonnullMetadata(LI, N, *NewLI);
 
       // Try to preserve nonnull metadata
-      if (TargetTy->isPointerTy())
-        NewLI->copyMetadata(LI, LLVMContext::MD_nonnull);
       V = NewLI;
 
       // If this is an integer load past the end of the slice (which means the
@@ -2472,7 +2601,7 @@ private:
                                               getSliceAlign(TargetTy),
                                               LI.isVolatile(), LI.getName());
       if (LI.isVolatile())
-        NewLI->setAtomic(LI.getOrdering(), LI.getSynchScope());
+        NewLI->setAtomic(LI.getOrdering(), LI.getSyncScopeID());
 
       V = NewLI;
       IsPtrAdjusted = true;
@@ -2615,7 +2744,7 @@ private:
     }
     NewSI->copyMetadata(SI, LLVMContext::MD_mem_parallel_loop_access);
     if (SI.isVolatile())
-      NewSI->setAtomic(SI.getOrdering(), SI.getSynchScope());
+      NewSI->setAtomic(SI.getOrdering(), SI.getSyncScopeID());
     Pass.DeadInsts.insert(&SI);
     deleteIfTriviallyDead(OldOp);
 
@@ -3628,10 +3757,11 @@ bool SROA::presplitLoadsAndStores(AllocaInst &AI, AllocaSlices &AS) {
     int Idx = 0, Size = Offsets.Splits.size();
     for (;;) {
       auto *PartTy = Type::getIntNTy(Ty->getContext(), PartSize * 8);
-      auto *PartPtrTy = PartTy->getPointerTo(LI->getPointerAddressSpace());
+      auto AS = LI->getPointerAddressSpace();
+      auto *PartPtrTy = PartTy->getPointerTo(AS);
       LoadInst *PLoad = IRB.CreateAlignedLoad(
           getAdjustedPtr(IRB, DL, BasePtr,
-                         APInt(DL.getPointerSizeInBits(), PartOffset),
+                         APInt(DL.getPointerSizeInBits(AS), PartOffset),
                          PartPtrTy, BasePtr->getName() + "."),
           getAdjustedAlignment(LI, PartOffset, DL), /*IsVolatile*/ false,
           LI->getName());
@@ -3683,10 +3813,12 @@ bool SROA::presplitLoadsAndStores(AllocaInst &AI, AllocaSlices &AS) {
         auto *PartPtrTy =
             PLoad->getType()->getPointerTo(SI->getPointerAddressSpace());
 
+        auto AS = SI->getPointerAddressSpace();
         StoreInst *PStore = IRB.CreateAlignedStore(
-            PLoad, getAdjustedPtr(IRB, DL, StoreBasePtr,
-                                  APInt(DL.getPointerSizeInBits(), PartOffset),
-                                  PartPtrTy, StoreBasePtr->getName() + "."),
+            PLoad,
+            getAdjustedPtr(IRB, DL, StoreBasePtr,
+                           APInt(DL.getPointerSizeInBits(AS), PartOffset),
+                           PartPtrTy, StoreBasePtr->getName() + "."),
             getAdjustedAlignment(SI, PartOffset, DL), /*IsVolatile*/ false);
         PStore->copyMetadata(*LI, LLVMContext::MD_mem_parallel_loop_access);
         DEBUG(dbgs() << "      +" << PartOffset << ":" << *PStore << "\n");
@@ -3755,7 +3887,8 @@ bool SROA::presplitLoadsAndStores(AllocaInst &AI, AllocaSlices &AS) {
     int Idx = 0, Size = Offsets.Splits.size();
     for (;;) {
       auto *PartTy = Type::getIntNTy(Ty->getContext(), PartSize * 8);
-      auto *PartPtrTy = PartTy->getPointerTo(SI->getPointerAddressSpace());
+      auto *LoadPartPtrTy = PartTy->getPointerTo(LI->getPointerAddressSpace());
+      auto *StorePartPtrTy = PartTy->getPointerTo(SI->getPointerAddressSpace());
 
       // Either lookup a split load or create one.
       LoadInst *PLoad;
@@ -3763,20 +3896,23 @@ bool SROA::presplitLoadsAndStores(AllocaInst &AI, AllocaSlices &AS) {
         PLoad = (*SplitLoads)[Idx];
       } else {
         IRB.SetInsertPoint(LI);
+        auto AS = LI->getPointerAddressSpace();
         PLoad = IRB.CreateAlignedLoad(
             getAdjustedPtr(IRB, DL, LoadBasePtr,
-                           APInt(DL.getPointerSizeInBits(), PartOffset),
-                           PartPtrTy, LoadBasePtr->getName() + "."),
+                           APInt(DL.getPointerSizeInBits(AS), PartOffset),
+                           LoadPartPtrTy, LoadBasePtr->getName() + "."),
             getAdjustedAlignment(LI, PartOffset, DL), /*IsVolatile*/ false,
             LI->getName());
       }
 
       // And store this partition.
       IRB.SetInsertPoint(SI);
+      auto AS = SI->getPointerAddressSpace();
       StoreInst *PStore = IRB.CreateAlignedStore(
-          PLoad, getAdjustedPtr(IRB, DL, StoreBasePtr,
-                                APInt(DL.getPointerSizeInBits(), PartOffset),
-                                PartPtrTy, StoreBasePtr->getName() + "."),
+          PLoad,
+          getAdjustedPtr(IRB, DL, StoreBasePtr,
+                         APInt(DL.getPointerSizeInBits(AS), PartOffset),
+                         StorePartPtrTy, StoreBasePtr->getName() + "."),
           getAdjustedAlignment(SI, PartOffset, DL), /*IsVolatile*/ false);
 
       // Now build a new slice for the alloca.

@@ -93,7 +93,7 @@ for.end:                                          ; preds = %for.end.loopexit, %
 ; AUTO_VEC-NEXT:    [[TMP0:%.*]] = icmp sgt i64 %n, 1
 ; AUTO_VEC-NEXT:    [[SMAX:%.*]] = select i1 [[TMP0]], i64 %n, i64 1
 ; AUTO_VEC:         br i1 {{.*}}
-; AUTO_VEC:       min.iters.checked:
+; AUTO_VEC:       vector.ph:
 ; AUTO_VEC-NEXT:    [[N_VEC:%.*]] = and i64 {{.*}}, -16
 ; AUTO_VEC:         br i1 {{.*}}
 ; AUTO_VEC:       middle.block:

@@ -77,10 +77,6 @@ RunSLPVectorization("vectorize-slp", cl::Hidden,
                     cl::desc("Run the SLP vectorization passes"));
 
 static cl::opt<bool>
-RunBBVectorization("vectorize-slp-aggressive", cl::Hidden,
-                    cl::desc("Run the BB vectorization passes"));
-
-static cl::opt<bool>
 UseGVNAfterVectorization("use-gvn-after-vectorization",
   cl::init(false), cl::Hidden,
   cl::desc("Run GVN instead of Early CSE after vectorization passes"));
@@ -92,10 +88,6 @@ static cl::opt<bool> ExtraVectorizerPasses(
 static cl::opt<bool>
 RunLoopRerolling("reroll-loops", cl::Hidden,
                  cl::desc("Run the loop rerolling pass"));
-
-static cl::opt<bool> RunLoadCombine("combine-loads", cl::init(false),
-                                    cl::Hidden,
-                                    cl::desc("Run the load combining pass"));
 
 static cl::opt<bool> RunNewGVN("enable-newgvn", cl::init(false), cl::Hidden,
                                cl::desc("Run the NewGVN pass"));
@@ -124,9 +116,16 @@ static cl::opt<bool> EnableLoopInterchange(
     cl::desc("Enable the new, experimental LoopInterchange Pass"));
 
 #if INTEL_CUSTOMIZATION
+static cl::opt<bool> RunVPOOpt("vpoopt", cl::init(true), cl::Hidden,
+                               cl::desc("Runs all VPO passes"));
+
 static cl::opt<bool> RunVPOVecopt("vecopt",
   cl::init(false), cl::Hidden,
   cl::desc("Run VPO Vecopt Pass"));
+
+static cl::opt<bool> EnableVPlanDriver("vplan-driver", cl::init(false),
+                                       cl::Hidden,
+                                       cl::desc("Enable VPlan Driver"));
 
 // The user can use -mllvm -paropt=<mode> to enable various paropt 
 // transformations, where <mode> is a bit vector (see enum VPOParoptMode 
@@ -232,6 +231,10 @@ static cl::opt<int> PreInlineThreshold(
     cl::desc("Control the amount of inlining in pre-instrumentation inliner "
              "(default = 75)"));
 
+static cl::opt<bool> EnableEarlyCSEMemSSA(
+    "enable-earlycse-memssa", cl::init(true), cl::Hidden,
+    cl::desc("Enable the EarlyCSE w/ MemorySSA pass (default = on)"));
+
 static cl::opt<bool> EnableGVNHoist(
     "enable-gvn-hoist", cl::init(false), cl::Hidden,
     cl::desc("Enable the GVN hoisting pass (default = off)"));
@@ -246,6 +249,10 @@ static cl::opt<bool>
                              cl::Hidden,
                              cl::desc("Enable the simple loop unswitch pass."));
 
+static cl::opt<bool> EnableGVNSink(
+    "enable-gvn-sink", cl::init(false), cl::Hidden,
+    cl::desc("Enable the GVN sinking pass (default = off)"));
+
 PassManagerBuilder::PassManagerBuilder() {
     OptLevel = 2;
     SizeLevel = 0;
@@ -253,11 +260,9 @@ PassManagerBuilder::PassManagerBuilder() {
     Inliner = nullptr;
     DisableUnitAtATime = false;
     DisableUnrollLoops = false;
-    BBVectorize = RunBBVectorization;
     SLPVectorize = RunSLPVectorization;
     LoopVectorize = RunLoopVectorization;
     RerollLoops = RunLoopRerolling;
-    LoadCombine = RunLoadCombine;
     NewGVN = RunNewGVN;
     DisableGVNLoadPRE = false;
     VerifyInput = false;
@@ -281,6 +286,13 @@ PassManagerBuilder::~PassManagerBuilder() {
 static ManagedStatic<SmallVector<std::pair<PassManagerBuilder::ExtensionPointTy,
    PassManagerBuilder::ExtensionFn>, 8> > GlobalExtensions;
 
+/// Check if GlobalExtensions is constructed and not empty.
+/// Since GlobalExtensions is a managed static, calling 'empty()' will trigger
+/// the construction of the object.
+static bool GlobalExtensionsNotEmpty() {
+  return GlobalExtensions.isConstructed() && !GlobalExtensions->empty();
+}
+
 void PassManagerBuilder::addGlobalExtension(
     PassManagerBuilder::ExtensionPointTy Ty,
     PassManagerBuilder::ExtensionFn Fn) {
@@ -293,9 +305,12 @@ void PassManagerBuilder::addExtension(ExtensionPointTy Ty, ExtensionFn Fn) {
 
 void PassManagerBuilder::addExtensionsToPM(ExtensionPointTy ETy,
                                            legacy::PassManagerBase &PM) const {
-  for (unsigned i = 0, e = GlobalExtensions->size(); i != e; ++i)
-    if ((*GlobalExtensions)[i].first == ETy)
-      (*GlobalExtensions)[i].second(*this, PM);
+  if (GlobalExtensionsNotEmpty()) {
+    for (auto &Ext : *GlobalExtensions) {
+      if (Ext.first == ETy)
+        Ext.second(*this, PM);
+    }
+  }
   for (unsigned i = 0, e = Extensions.size(); i != e; ++i)
     if (Extensions[i].first == ETy)
       Extensions[i].second(*this, PM);
@@ -344,7 +359,14 @@ void PassManagerBuilder::populateFunctionPassManager(
     FPM.add(new TargetLibraryInfoWrapperPass(*LibraryInfo));
 
 #if INTEL_CUSTOMIZATION
-  if (RunVPOParopt) {
+  if (RunVPOOpt && RunVPOParopt) {
+    if (OptLevel == 0) {
+      FPM.add(createSROAPass());
+      FPM.add(createEarlyCSEPass());
+    }
+    // The value -1 indicates that the bottom test generation for 
+    // loop is always enabled.
+    FPM.add(createLoopRotatePass(-1));
     FPM.add(createVPOCFGRestructuringPass());
     FPM.add(createVPOParoptPreparePass(RunVPOParopt));
   }
@@ -362,11 +384,12 @@ void PassManagerBuilder::populateFunctionPassManager(
 
 // Do PGO instrumentation generation or use pass as the option specified.
 void PassManagerBuilder::addPGOInstrPasses(legacy::PassManagerBase &MPM) {
-  if (!EnablePGOInstrGen && PGOInstrUse.empty())
+  if (!EnablePGOInstrGen && PGOInstrUse.empty() && PGOSampleUse.empty())
     return;
   // Perform the preinline and cleanup passes for O1 and above.
   // And avoid doing them if optimizing for size.
-  if (OptLevel > 0 && SizeLevel == 0 && !DisablePreInliner) {
+  if (OptLevel > 0 && SizeLevel == 0 && !DisablePreInliner &&
+      PGOSampleUse.empty()) {
     // Create preinline pass. We construct an InlineParams object and specify
     // the threshold here to avoid the command line options of the regular
     // inliner to influence pre-inlining. The only fields of InlineParams we
@@ -390,6 +413,8 @@ void PassManagerBuilder::addPGOInstrPasses(legacy::PassManagerBase &MPM) {
     InstrProfOptions Options;
     if (!PGOInstrGen.empty())
       Options.InstrProfileOutput = PGOInstrGen;
+    Options.DoCounterPromotion = true;
+    MPM.add(createLoopRotatePass());
     MPM.add(createInstrProfilingLegacyPass(Options));
   }
   if (!PGOInstrUse.empty())
@@ -415,9 +440,14 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
 
   // Break up aggregate allocas, using SSAUpdater.
   MPM.add(createSROAPass());
-  MPM.add(createEarlyCSEPass());              // Catch trivial redundancies
+  MPM.add(createEarlyCSEPass(EnableEarlyCSEMemSSA)); // Catch trivial redundancies
   if (EnableGVNHoist)
     MPM.add(createGVNHoistPass());
+  if (EnableGVNSink) {
+    MPM.add(createGVNSinkPass());
+    MPM.add(createCFGSimplificationPass());
+  }
+
   // Speculative execution if the target has divergent branches; otherwise nop.
   MPM.add(createSpeculativeExecutionIfHasBranchDivergencePass());
   MPM.add(createJumpThreadingPass());         // Thread jumps.
@@ -479,33 +509,13 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   MPM.add(createCorrelatedValuePropagationPass());
   MPM.add(createDeadStoreEliminationPass());  // Delete dead stores
   MPM.add(createLICMPass());
+
   addExtensionsToPM(EP_ScalarOptimizerLate, MPM);
 
   if (RerollLoops)
     MPM.add(createLoopRerollPass());
-  if (!RunSLPAfterLoopVectorization) {
-    if (SLPVectorize)
-      MPM.add(createSLPVectorizerPass());   // Vectorize parallel scalar chains.
-
-    if (BBVectorize) {
-      MPM.add(createBBVectorizePass());
-      addInstructionCombiningPass(MPM);
-      addExtensionsToPM(EP_Peephole, MPM);
-      if (OptLevel > 1 && UseGVNAfterVectorization)
-        MPM.add(NewGVN
-                    ? createNewGVNPass()
-                    : createGVNPass(DisableGVNLoadPRE)); // Remove redundancies
-      else
-        MPM.add(createEarlyCSEPass());      // Catch trivial redundancies
-
-      // BBVectorize may have significantly shortened a loop body; unroll again.
-      if (!DisableUnrollLoops)
-        MPM.add(createLoopUnrollPass(OptLevel));
-    }
-  }
-
-  if (LoadCombine)
-    MPM.add(createLoadCombinePass());
+  if (!RunSLPAfterLoopVectorization && SLPVectorize)
+    MPM.add(createSLPVectorizerPass()); // Vectorize parallel scalar chains.
 
   MPM.add(createAggressiveDCEPass());         // Delete dead instructions
   MPM.add(createCFGSimplificationPass()); // Merge & remove BBs
@@ -540,7 +550,7 @@ void PassManagerBuilder::populateModulePassManager(
     // builds. The function merging pass is
     if (MergeFunctions)
       MPM.add(createMergeFunctionsPass());
-    else if (!GlobalExtensions->empty() || !Extensions.empty())
+    else if (GlobalExtensionsNotEmpty() || !Extensions.empty())
       MPM.add(createBarrierNoopPass());
 
     addExtensionsToPM(EP_EnabledOnOptLevel0, MPM);
@@ -552,18 +562,21 @@ void PassManagerBuilder::populateModulePassManager(
     if (PrepareForThinLTO)
       MPM.add(createNameAnonGlobalPass());
 #if INTEL_CUSTOMIZATION
-    if (RunVecClone) {
-      MPM.add(createVecClonePass());
+    if (RunVPOOpt) {
+      if (RunVecClone) {
+        MPM.add(createVecClonePass());
+      }
+      // Process OpenMP directives at -O0
+      addVPOPasses(MPM, true);
     }
-    // Process OpenMP directives at -O0
-    addVPOPasses(MPM, true);
 #endif // INTEL_CUSTOMIZATION
     return;
   }
 
 #if INTEL_CUSTOMIZATION
   // Process OpenMP directives at -O1 and above
-  addVPOPasses(MPM, false);
+  if (RunVPOOpt)
+    addVPOPasses(MPM, false);
 #endif // INTEL_CUSTOMIZATION
 
   // Add LibraryInfo if we have some.
@@ -781,28 +794,11 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createCFGSimplificationPass());
     addInstructionCombiningPass(MPM);
   }
-  if (RunSLPAfterLoopVectorization) {
-    if (SLPVectorize) {
-      MPM.add(createSLPVectorizerPass());   // Vectorize parallel scalar chains.
-      if (OptLevel > 1 && ExtraVectorizerPasses) {
-        MPM.add(createEarlyCSEPass());
-      }
-    }
 
-    if (BBVectorize) {
-      MPM.add(createBBVectorizePass());
-      addInstructionCombiningPass(MPM);
-      addExtensionsToPM(EP_Peephole, MPM);
-      if (OptLevel > 1 && UseGVNAfterVectorization)
-        MPM.add(NewGVN
-                    ? createNewGVNPass()
-                    : createGVNPass(DisableGVNLoadPRE)); // Remove redundancies
-      else
-        MPM.add(createEarlyCSEPass());      // Catch trivial redundancies
-
-      // BBVectorize may have significantly shortened a loop body; unroll again.
-      if (!DisableUnrollLoops)
-        MPM.add(createLoopUnrollPass(OptLevel));
+  if (RunSLPAfterLoopVectorization && SLPVectorize) {
+    MPM.add(createSLPVectorizerPass()); // Vectorize parallel scalar chains.
+    if (OptLevel > 1 && ExtraVectorizerPasses) {
+      MPM.add(createEarlyCSEPass());
     }
   }
   } // INTEL
@@ -1041,9 +1037,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   // alignments.
   PM.add(createAlignmentFromAssumptionsPass());
 
-  if (LoadCombine)
-    PM.add(createLoadCombinePass());
-
   // Cleanup and simplify the code after the scalar optimizations.
   addInstructionCombiningPass(PM);
   addExtensionsToPM(EP_Peephole, PM);
@@ -1106,7 +1099,9 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
   if (!RunLoopOptFrameworkOnly) {
     // TODO: refine cost model for individual transformations for code size.
     if (SizeLevel == 0) {
-      PM.add(createHIRParDirInsertPass());
+      // If VPO is disabled, we don't have to insert ParVec directives.
+      if (RunVPOOpt)
+        PM.add(createHIRParDirInsertPass());
       PM.add(createHIRRuntimeDDPass());
       PM.add(createHIRMVForConstUBPass());
     }
@@ -1131,8 +1126,10 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
       PM.add(createHIRUnrollAndJamPass());
       PM.add(createHIROptVarPredicatePass());
       PM.add(createHIROptPredicatePass());
-      PM.add(createHIRVecDirInsertPass(OptLevel == 3));
-      PM.add(createVPODriverHIRPass());
+      if (RunVPOOpt) {
+        PM.add(createHIRVecDirInsertPass(OptLevel == 3));
+        PM.add(createVPODriverHIRPass());
+      }
       PM.add(createHIRPostVecCompleteUnrollPass(OptLevel));
       PM.add(createHIRGeneralUnrollPass());
     }
@@ -1146,10 +1143,16 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
 }
 
 void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM,
-                                            bool RunVec) const {
+                                      bool RunVec) const {
   if (RunVPOParopt) {
     PM.add(createVPOCFGRestructuringPass());
     PM.add(createVPOParoptPass(RunVPOParopt));
+  }
+  // TODO: Temporal hook-up for VPlan VPO Vectorizer
+  if (EnableVPlanDriver && RunVec) {
+    PM.add(createLoopVectorizePass(true, LoopVectorize, true));
+    PM.add(createVPOCFGRestructuringPass());
+    PM.add(createVPlanDriverPass());
   }
   if (RunVPOVecopt && RunVec) {
     PM.add(createVPOCFGRestructuringPass());
@@ -1160,7 +1163,7 @@ void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM,
 void PassManagerBuilder::addLoopOptAndAssociatedVPOPasses(
      legacy::PassManagerBase &PM) const {
 
-  if (RunVecClone) {
+  if (RunVPOOpt && RunVecClone) {
     PM.add(createVecClonePass());
     // VecClonePass can generate redundant geps/loads for vector parameters when
     // accessing elem[i] within the inserted simd loop. This makes DD testing
@@ -1173,14 +1176,16 @@ void PassManagerBuilder::addLoopOptAndAssociatedVPOPasses(
   // Call with RunVec==true (2nd argument) to enable Vectorizer to catch
   // any vec directives that loopopt might have missed; may change it to 
   // false in the future when loopopt is fully implemented.
-  addVPOPasses(PM, true);
+  if (RunVPOOpt)
+    addVPOPasses(PM, true);
 
   // VPO directives are no longer useful after this point. Clean up so that
   // code gen process won't be confused.
   //
   // TODO: Issue a warning for any unprocessed directives. Change to
   // assetion failure as the feature matures.
-  PM.add(createVPODirectiveCleanupPass());
+  if (RunVPOOpt)
+    PM.add(createVPODirectiveCleanupPass());
 }
 
 #endif // INTEL_CUSTOMIZATION
@@ -1225,6 +1230,12 @@ void PassManagerBuilder::populateLTOPassManager(legacy::PassManagerBase &PM) {
 
   if (OptLevel != 0)
     addLTOOptimizationPasses(PM);
+  else {
+    // The whole-program-devirt pass needs to run at -O0 because only it knows
+    // about the llvm.type.checked.load intrinsic: it needs to both lower the
+    // intrinsic itself and handle it in the summary.
+    PM.add(createWholeProgramDevirtPass(ExportSummary, nullptr));
+  }
 
   // Create a function that performs CFI checks for cross-DSO calls with targets
   // in the current module.

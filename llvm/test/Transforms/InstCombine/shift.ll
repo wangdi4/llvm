@@ -1306,3 +1306,27 @@ define <2 x i8> @lshr_demanded_bits_splat(<2 x i8> %x) {
   ret <2 x i8> %shr
 }
 
+; Make sure known bits works correctly with non power of 2 bit widths.
+define i7 @test65(i7 %a, i7 %b) {
+; CHECK-LABEL: @test65(
+; CHECK-NEXT:    ret i7 0
+;
+  %shiftamt = and i7 %b, 6 ; this ensures the shift amount is even and less than the bit width.
+  %x = lshr i7 42, %shiftamt ; 42 has a zero in every even numbered bit and a one in every odd bit.
+  %y = and i7 %x, 1 ; this extracts the lsb which should be 0 because we shifted an even number of bits and all even bits of the shift input are 0.
+  ret i7 %y
+}
+
+; Check transformation (when X has type iN):
+; ashr (sub 0, X), N - 1 --> sext i1 (icmp X < 0) to iN
+; http://rise4fun.com/Alive/y0vK
+define i32 @fill_with_opposite_sign_bit(i32 %x) {
+; CHECK-LABEL: @fill_with_opposite_sign_bit(
+; CHECK-NEXT:    [[TMP1:%.*]] = icmp sgt i32 [[X:%.*]], 0
+; CHECK-NEXT:    [[B:%.*]] = sext i1 [[TMP1]] to i32
+; CHECK-NEXT:    ret i32 [[B]]
+;
+  %a = sub nsw i32 0, %x
+  %b = ashr i32 %a, 31
+  ret i32 %b
+}

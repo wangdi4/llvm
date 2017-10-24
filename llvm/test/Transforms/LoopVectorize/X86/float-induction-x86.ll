@@ -1,9 +1,9 @@
-; RUN: opt < %s  -O3 -mcpu=core-avx2 -mtriple=x86_64-unknown-linux-gnu -S | FileCheck --check-prefix AUTO_VEC %s
+; RUN: opt < %s  -O3 -latesimplifycfg -mcpu=core-avx2 -mtriple=x86_64-unknown-linux-gnu -S | FileCheck --check-prefix AUTO_VEC %s
 ; INTEL - This test started failing when the "external_use" functions were
-;         added. For now, we will treat this as an expected failure, but we
-;         should fix the test in open source to make it less sensitive to our
-;         xmain customizations. For example, we could change it to just run the
-;         loop vectorizer rather than the entire opt flow.
+;         added due to differences between the community vectorizer and the
+;         HIR vectorizer. We chose to mark this test as XFAIL and create an
+;         xmain-specific version of the test in
+;         test/Transforms/Intel_VPO/Vecopt/hir_autovec_float_induc.ll.
 ; XFAIL: *
 
 ; This test checks auto-vectorization with FP induction variable.
@@ -92,10 +92,10 @@ for.end:                                          ; preds = %for.end.loopexit, %
 ; AUTO_VEC-NEXT:  entry:
 ; AUTO_VEC-NEXT:    [[TMP0:%.*]] = icmp sgt i64 %n, 1
 ; AUTO_VEC-NEXT:    [[SMAX:%.*]] = select i1 [[TMP0]], i64 %n, i64 1
-; AUTO_VEC:         br i1 {{.*}}, label %for.body, label %min.iters.checked
-; AUTO_VEC:       min.iters.checked:
+; AUTO_VEC:         br i1 {{.*}}, label %for.body, label %vector.ph
+; AUTO_VEC:       vector.ph:
 ; AUTO_VEC-NEXT:    [[N_VEC:%.*]] = and i64 [[SMAX]], 9223372036854775792
-; AUTO_VEC:         br i1 {{.*}}, label %for.body, label %vector.body
+; AUTO_VEC:         br label %vector.body
 ; AUTO_VEC:       middle.block:
 ; AUTO_VEC:         [[TMP11:%.*]] = add nsw i64 [[N_VEC]], -1
 ; AUTO_VEC-NEXT:    [[CAST_CMO:%.*]] = sitofp i64 [[TMP11]] to double

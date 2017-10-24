@@ -13,7 +13,7 @@
 // that only has statically known control flow and can therefore be described
 // within the polyhedral model.
 //
-// Every Scop fullfills these restrictions:
+// Every Scop fulfills these restrictions:
 //
 // * It is a single entry single exit region
 //
@@ -52,6 +52,7 @@
 #include "llvm/ADT/SetVector.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/AliasSetTracker.h"
+#include "llvm/Analysis/OptimizationDiagnosticInfo.h"
 #include "llvm/Analysis/RegionInfo.h"
 #include "llvm/Pass.h"
 #include <map>
@@ -275,7 +276,7 @@ private:
   /// Check if all accesses to a given BasePointer are affine.
   ///
   /// @param Context     The current detection context.
-  /// @param basepointer the base pointer we are interested in.
+  /// @param BasePointer the base pointer we are interested in.
   /// @param Scope       The location where @p BasePointer is being used.
   /// @param True if consistent (multi-dimensional) array accesses could be
   ///        derived for this array.
@@ -306,8 +307,8 @@ private:
   /// Check if a region has sufficient compute instructions.
   ///
   /// This function checks if a region has a non-trivial number of instructions
-  /// in each loop. This can be used as an indicator if a loop is worth
-  /// optimising.
+  /// in each loop. This can be used as an indicator whether a loop is worth
+  /// optimizing.
   ///
   /// @param Context  The context of scop detection.
   /// @param NumLoops The number of loops in the region.
@@ -526,7 +527,8 @@ private:
 
 public:
   ScopDetection(Function &F, const DominatorTree &DT, ScalarEvolution &SE,
-                LoopInfo &LI, RegionInfo &RI, AliasAnalysis &AA);
+                LoopInfo &LI, RegionInfo &RI, AliasAnalysis &AA,
+                OptimizationRemarkEmitter &ORE);
 
   /// Get the RegionInfo stored in this pass.
   ///
@@ -607,6 +609,9 @@ public:
   static ScopDetection::LoopStats
   countBeneficialLoops(Region *R, ScalarEvolution &SE, LoopInfo &LI,
                        unsigned MinProfitableTrips);
+
+  /// OptimizationRemarkEmitter object used to emit diagnostic remarks
+  OptimizationRemarkEmitter &ORE;
 };
 
 struct ScopAnalysis : public AnalysisInfoMixin<ScopAnalysis> {

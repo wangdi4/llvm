@@ -256,13 +256,13 @@ static UT // unsigned 4- or 8-byte type
             void *obj) // Higher-level synchronization object, or NULL.
         ) {
   // note: we may not belong to a team at this point
-  register volatile UT *spin = spinner;
-  register UT check = checker;
-  register kmp_uint32 spins;
-  register kmp_uint32 (*f)(UT, UT) = pred;
-  register UT r;
+  volatile UT *spin = spinner;
+  UT check = checker;
+  kmp_uint32 spins;
+  kmp_uint32 (*f)(UT, UT) = pred;
+  UT r;
 
-  KMP_FSYNC_SPIN_INIT(obj, (void *)spin);
+  KMP_FSYNC_SPIN_INIT(obj, CCAST(UT *, spin));
   KMP_INIT_YIELD(spins);
   // main wait spin loop
   while (!f(r = *spin, check)) {
@@ -440,7 +440,7 @@ static void __kmp_dispatch_dxo(int *gtid_ref, int *cid_ref, ident_t *loc_ref) {
           th->th.th_dispatch->th_dispatch_pr_current);
     }
 
-    KMP_FSYNC_RELEASING(&sh->u.s.ordered_iteration);
+    KMP_FSYNC_RELEASING(CCAST(UT *, &sh->u.s.ordered_iteration));
 #if !defined(KMP_GOMP_COMPAT)
     if (__kmp_env_consistency_check) {
       if (pr->ordered_bumped != 0) {
@@ -681,6 +681,35 @@ __kmp_dispatch_init(ident_t *loc, int gtid, enum sched_type schedule, T lb,
       schedule = kmp_sch_guided_iterative_chunked;
       KMP_WARNING(DispatchManyThreads);
     }
+    if (schedule == kmp_sch_runtime_simd) {
+      // compiler provides simd_width in the chunk parameter
+      schedule = team->t.t_sched.r_sched_type;
+      // Detail the schedule if needed (global controls are differentiated
+      // appropriately)
+      if (schedule == kmp_sch_static || schedule == kmp_sch_auto ||
+          schedule == __kmp_static) {
+        schedule = kmp_sch_static_balanced_chunked;
+      } else {
+        if (schedule == kmp_sch_guided_chunked || schedule == __kmp_guided) {
+          schedule = kmp_sch_guided_simd;
+        }
+        chunk = team->t.t_sched.chunk * chunk;
+      }
+#if USE_ITT_BUILD
+      cur_chunk = chunk;
+#endif
+#ifdef KMP_DEBUG
+      {
+        const char *buff;
+        // create format specifiers before the debug output
+        buff = __kmp_str_format("__kmp_dispatch_init: T#%%d new: schedule:%%d"
+                                " chunk:%%%s\n",
+                                traits_t<ST>::spec);
+        KD_TRACE(10, (buff, gtid, schedule, chunk));
+        __kmp_str_free(&buff);
+      }
+#endif
+    }
     pr->u.p.parm1 = chunk;
   }
   KMP_ASSERT2((kmp_sch_lower < schedule && schedule < kmp_sch_upper),
@@ -878,7 +907,21 @@ __kmp_dispatch_init(ident_t *loc, int gtid, enum sched_type schedule, T lb,
     }
     break;
   } // case
-  case kmp_sch_guided_iterative_chunked: {
+  case kmp_sch_static_balanced_chunked: {
+    // similar to balanced, but chunk adjusted to multiple of simd width
+    T nth = th->th.th_team_nproc;
+    KD_TRACE(100, ("__kmp_dispatch_init: T#%d runtime(simd:static)"
+                   " -> falling-through to static_greedy\n",
+                   gtid));
+    schedule = kmp_sch_static_greedy;
+    if (nth > 1)
+      pr->u.p.parm1 = ((tc + nth - 1) / nth + chunk - 1) & ~(chunk - 1);
+    else
+      pr->u.p.parm1 = tc;
+    break;
+  } // case
+  case kmp_sch_guided_iterative_chunked:
+  case kmp_sch_guided_simd: {
     T nproc = th->th.th_team_nproc;
     KD_TRACE(100, ("__kmp_dispatch_init: T#%d kmp_sch_guided_iterative_chunked"
                    " case\n",
@@ -1119,7 +1162,8 @@ __kmp_dispatch_init(ident_t *loc, int gtid, enum sched_type schedule, T lb,
                    gtid, my_buffer_index, sh->buffer_index));
 
     th->th.th_dispatch->th_dispatch_pr_current = (dispatch_private_info_t *)pr;
-    th->th.th_dispatch->th_dispatch_sh_current = (dispatch_shared_info_t *)sh;
+    th->th.th_dispatch->th_dispatch_sh_current =
+        CCAST(dispatch_shared_info_t *, (volatile dispatch_shared_info_t *)sh);
 #if USE_ITT_BUILD
     if (pr->ordered) {
       __kmp_itt_ordered_init(gtid);
@@ -1140,6 +1184,7 @@ __kmp_dispatch_init(ident_t *loc, int gtid, enum sched_type schedule, T lb,
         break;
       case kmp_sch_guided_iterative_chunked:
       case kmp_sch_guided_analytical_chunked:
+      case kmp_sch_guided_simd:
         schedtype = 2;
         break;
       default:
@@ -1934,7 +1979,8 @@ static int __kmp_dispatch_next(ident_t *loc, int gtid, kmp_int32 *p_last,
               pr->u.p.parm2) { // compare with K*nproc*(chunk+1), K=2 by default
             // use dynamic-style shcedule
             // atomically inrement iterations, get old value
-            init = test_then_add<ST>((ST *)&sh->u.s.iteration, (ST)chunkspec);
+            init = test_then_add<ST>(
+                RCAST(volatile ST *, &sh->u.s.iteration), (ST)chunkspec);
             remaining = trip - init;
             if (remaining <= 0) {
               status = 0; // all iterations got by other threads
@@ -1951,8 +1997,92 @@ static int __kmp_dispatch_next(ident_t *loc, int gtid, kmp_int32 *p_last,
           } // if
           limit = init + (UT)(remaining *
                               *(double *)&pr->u.p.parm3); // divide by K*nproc
-          if (compare_and_swap<ST>((ST *)&sh->u.s.iteration, (ST)init,
-                                   (ST)limit)) {
+          if (compare_and_swap<ST>(RCAST(volatile ST *, &sh->u.s.iteration),
+                                   (ST)init, (ST)limit)) {
+            // CAS was successful, chunk obtained
+            status = 1;
+            --limit;
+            break;
+          } // if
+        } // while
+        if (status != 0) {
+          start = pr->u.p.lb;
+          incr = pr->u.p.st;
+          if (p_st != NULL)
+            *p_st = incr;
+          *p_lb = start + init * incr;
+          *p_ub = start + limit * incr;
+          if (pr->ordered) {
+            pr->u.p.ordered_lower = init;
+            pr->u.p.ordered_upper = limit;
+#ifdef KMP_DEBUG
+            {
+              const char *buff;
+              // create format specifiers before the debug output
+              buff = __kmp_str_format("__kmp_dispatch_next: T#%%d "
+                                      "ordered_lower:%%%s ordered_upper:%%%s\n",
+                                      traits_t<UT>::spec, traits_t<UT>::spec);
+              KD_TRACE(1000, (buff, gtid, pr->u.p.ordered_lower,
+                              pr->u.p.ordered_upper));
+              __kmp_str_free(&buff);
+            }
+#endif
+          } // if
+        } else {
+          *p_lb = 0;
+          *p_ub = 0;
+          if (p_st != NULL)
+            *p_st = 0;
+        } // if
+      } // case
+      break;
+
+      case kmp_sch_guided_simd: {
+        // same as iterative but curr-chunk adjusted to be multiple of given
+        // chunk
+        T chunk = pr->u.p.parm1;
+        KD_TRACE(100, ("__kmp_dispatch_next: T#%d kmp_sch_guided_simd case\n",
+                       gtid));
+        trip = pr->u.p.tc;
+        // Start atomic part of calculations
+        while (1) {
+          ST remaining; // signed, because can be < 0
+          init = sh->u.s.iteration; // shared value
+          remaining = trip - init;
+          if (remaining <= 0) { // AC: need to compare with 0 first
+            status = 0; // nothing to do, don't try atomic op
+            break;
+          }
+          KMP_DEBUG_ASSERT(init % chunk == 0);
+          // compare with K*nproc*(chunk+1), K=2 by default
+          if ((T)remaining < pr->u.p.parm2) {
+            // use dynamic-style shcedule
+            // atomically inrement iterations, get old value
+            init = test_then_add<ST>(
+                RCAST(volatile ST *, &sh->u.s.iteration), (ST)chunk);
+            remaining = trip - init;
+            if (remaining <= 0) {
+              status = 0; // all iterations got by other threads
+            } else {
+              // got some iterations to work on
+              status = 1;
+              if ((T)remaining > chunk) {
+                limit = init + chunk - 1;
+              } else {
+                last = 1; // the last chunk
+                limit = init + remaining - 1;
+              } // if
+            } // if
+            break;
+          } // if
+          // divide by K*nproc
+          UT span = remaining * (*(double *)&pr->u.p.parm3);
+          UT rem = span % chunk;
+          if (rem) // adjust so that span%chunk == 0
+            span += chunk - rem;
+          limit = init + span;
+          if (compare_and_swap<ST>(RCAST(volatile ST *, &sh->u.s.iteration),
+                                   (ST)init, (ST)limit)) {
             // CAS was successful, chunk obtained
             status = 1;
             --limit;
@@ -2264,10 +2394,10 @@ static void __kmp_dist_get_bounds(ident_t *loc, kmp_int32 gtid,
                                   typename traits_t<T>::signed_t incr) {
   typedef typename traits_t<T>::unsigned_t UT;
   typedef typename traits_t<T>::signed_t ST;
-  register kmp_uint32 team_id;
-  register kmp_uint32 nteams;
-  register UT trip_count;
-  register kmp_team_t *team;
+  kmp_uint32 team_id;
+  kmp_uint32 nteams;
+  UT trip_count;
+  kmp_team_t *team;
   kmp_info_t *th;
 
   KMP_DEBUG_ASSERT(plastiter && plower && pupper);
@@ -2339,17 +2469,17 @@ static void __kmp_dist_get_bounds(ident_t *loc, kmp_int32 gtid,
       *plastiter = (team_id == trip_count - 1);
   } else {
     if (__kmp_static == kmp_sch_static_balanced) {
-      register UT chunk = trip_count / nteams;
-      register UT extras = trip_count % nteams;
+      UT chunk = trip_count / nteams;
+      UT extras = trip_count % nteams;
       *plower +=
           incr * (team_id * chunk + (team_id < extras ? team_id : extras));
       *pupper = *plower + chunk * incr - (team_id < extras ? 0 : incr);
       if (plastiter != NULL)
         *plastiter = (team_id == nteams - 1);
     } else {
-      register T chunk_inc_count =
+      T chunk_inc_count =
           (trip_count / nteams + ((trip_count % nteams) ? 1 : 0)) * incr;
-      register T upper = *pupper;
+      T upper = *pupper;
       KMP_DEBUG_ASSERT(__kmp_static == kmp_sch_static_greedy);
       // Unknown static scheduling type.
       *plower += team_id * chunk_inc_count;
@@ -2583,13 +2713,13 @@ __kmp_wait_yield_4(volatile kmp_uint32 *spinner, kmp_uint32 checker,
                    void *obj // Higher-level synchronization object, or NULL.
                    ) {
   // note: we may not belong to a team at this point
-  register volatile kmp_uint32 *spin = spinner;
-  register kmp_uint32 check = checker;
-  register kmp_uint32 spins;
-  register kmp_uint32 (*f)(kmp_uint32, kmp_uint32) = pred;
-  register kmp_uint32 r;
+  volatile kmp_uint32 *spin = spinner;
+  kmp_uint32 check = checker;
+  kmp_uint32 spins;
+  kmp_uint32 (*f)(kmp_uint32, kmp_uint32) = pred;
+  kmp_uint32 r;
 
-  KMP_FSYNC_SPIN_INIT(obj, (void *)spin);
+  KMP_FSYNC_SPIN_INIT(obj, CCAST(kmp_uint32 *, spin));
   KMP_INIT_YIELD(spins);
   // main wait spin loop
   while (!f(r = TCR_4(*spin), check)) {
@@ -2613,10 +2743,10 @@ void __kmp_wait_yield_4_ptr(
     void *obj // Higher-level synchronization object, or NULL.
     ) {
   // note: we may not belong to a team at this point
-  register void *spin = spinner;
-  register kmp_uint32 check = checker;
-  register kmp_uint32 spins;
-  register kmp_uint32 (*f)(void *, kmp_uint32) = pred;
+  void *spin = spinner;
+  kmp_uint32 check = checker;
+  kmp_uint32 spins;
+  kmp_uint32 (*f)(void *, kmp_uint32) = pred;
 
   KMP_FSYNC_SPIN_INIT(obj, spin);
   KMP_INIT_YIELD(spins);

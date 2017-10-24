@@ -17,27 +17,27 @@
 #include "llvm-c/Initialization.h"
 #include "llvm-c/Transforms/Vectorize.h"
 #include "llvm/Analysis/Passes.h"
+#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/IR/LegacyPassManager.h"
 
 using namespace llvm;
 
 /// initializeVectorizationPasses - Initialize all passes linked into the
 /// Vectorization library.
 void llvm::initializeVectorization(PassRegistry &Registry) {
-  initializeBBVectorizePass(Registry);
   initializeLoopVectorizePass(Registry);
   initializeSLPVectorizerPass(Registry);
   initializeLoadStoreVectorizerPass(Registry);
+  initializeVPlanDriverPass(Registry);
 }
 
 void LLVMInitializeVectorization(LLVMPassRegistryRef R) {
   initializeVectorization(*unwrap(R));
 }
 
+// DEPRECATED: Remove after the LLVM 5 release.
 void LLVMAddBBVectorizePass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createBBVectorizePass());
 }
 
 void LLVMAddLoopVectorizePass(LLVMPassManagerRef PM) {
@@ -46,4 +46,8 @@ void LLVMAddLoopVectorizePass(LLVMPassManagerRef PM) {
 
 void LLVMAddSLPVectorizePass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createSLPVectorizerPass());
+}
+
+void LLVMAddVPlanDriverPass(LLVMPassManagerRef PM) {
+  unwrap(PM)->add(createVPlanDriverPass());
 }

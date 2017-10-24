@@ -131,13 +131,13 @@ PHINode *Loop::getCanonicalInductionVariable() const {
     PHINode *PN = cast<PHINode>(I);
     if (ConstantInt *CI =
         dyn_cast<ConstantInt>(PN->getIncomingValueForBlock(Incoming)))
-      if (CI->isNullValue())
+      if (CI->isZero())
         if (Instruction *Inc =
             dyn_cast<Instruction>(PN->getIncomingValueForBlock(Backedge)))
           if (Inc->getOpcode() == Instruction::Add &&
                 Inc->getOperand(0) == PN)
             if (ConstantInt *CI = dyn_cast<ConstantInt>(Inc->getOperand(1)))
-              if (CI->equalsInt(1))
+              if (CI->isOne())
                 return PN;
   }
   return nullptr;
@@ -344,6 +344,7 @@ Loop::LocRange Loop::getLocRange() const {
   return LocRange();
 }
 
+#ifndef INTEL_CUSTOMIZATION
 bool Loop::hasDedicatedExits() const {
   // Each predecessor of each exit block of a normal loop is contained
   // within the loop.
@@ -406,6 +407,7 @@ BasicBlock *Loop::getUniqueExitBlock() const {
     return UniqueExitBlocks[0];
   return nullptr;
 }
+#endif // INTEL_CUSTOMIZATION
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 LLVM_DUMP_METHOD void Loop::dump() const {
@@ -460,7 +462,7 @@ protected:
 void UnloopUpdater::updateBlockParents() {
   if (Unloop.getNumBlocks()) {
     // Perform a post order CFG traversal of all blocks within this loop,
-    // propagating the nearest loop from sucessors to predecessors.
+    // propagating the nearest loop from successors to predecessors.
     LoopBlocksTraversal Traversal(DFS, LI);
     for (BasicBlock *POI : Traversal) {
 
@@ -609,7 +611,7 @@ Loop *UnloopUpdater::getNearestLoop(BasicBlock *BB, Loop *BBLoop) {
   return NearLoop;
 }
 
-LoopInfo::LoopInfo(const DominatorTreeBase<BasicBlock> &DomTree) {
+LoopInfo::LoopInfo(const DomTreeBase<BasicBlock> &DomTree) {
   analyze(DomTree);
 }
 

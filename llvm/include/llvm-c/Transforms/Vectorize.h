@@ -33,7 +33,7 @@ extern "C" {
  * @{
  */
 
-/** See llvm::createBBVectorizePass function. */
+/** DEPRECATED - Use LLVMAddSLPVectorizePass */
 void LLVMAddBBVectorizePass(LLVMPassManagerRef PM);
 
 /** See llvm::createLoopVectorizePass function. */
@@ -41,6 +41,10 @@ void LLVMAddLoopVectorizePass(LLVMPassManagerRef PM);
 
 /** See llvm::createSLPVectorizerPass function. */
 void LLVMAddSLPVectorizePass(LLVMPassManagerRef PM);
+
+/** See llvm::createVPlanDriverPass function. */
+void LLVMAddVPlanDriverPass(LLVMPassManagerRef PM);
+
 
 /**
  * @}

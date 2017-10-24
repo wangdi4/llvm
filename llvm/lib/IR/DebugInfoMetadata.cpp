@@ -604,8 +604,7 @@ unsigned DIExpression::ExprOperand::getSize() const {
   case dwarf::DW_OP_LLVM_fragment:
     return 3;
   case dwarf::DW_OP_constu:
-  case dwarf::DW_OP_plus:
-  case dwarf::DW_OP_minus:
+  case dwarf::DW_OP_plus_uconst:
     return 2;
   default:
     return 1;
@@ -647,6 +646,7 @@ bool DIExpression::isValid() const {
       break;
     }
     case dwarf::DW_OP_constu:
+    case dwarf::DW_OP_plus_uconst:
     case dwarf::DW_OP_plus:
     case dwarf::DW_OP_minus:
     case dwarf::DW_OP_deref:
@@ -670,11 +670,12 @@ DIExpression::getFragmentInfo(expr_op_iterator Start, expr_op_iterator End) {
 void DIExpression::appendOffset(SmallVectorImpl<uint64_t> &Ops,
                                 int64_t Offset) {
   if (Offset > 0) {
-    Ops.push_back(dwarf::DW_OP_plus);
+    Ops.push_back(dwarf::DW_OP_plus_uconst);
     Ops.push_back(Offset);
   } else if (Offset < 0) {
-    Ops.push_back(dwarf::DW_OP_minus);
+    Ops.push_back(dwarf::DW_OP_constu);
     Ops.push_back(-Offset);
+    Ops.push_back(dwarf::DW_OP_minus);
   }
 }
 
@@ -683,16 +684,23 @@ bool DIExpression::extractIfOffset(int64_t &Offset) const {
     Offset = 0;
     return true;
   }
-  if (getNumElements() != 2)
-    return false;
-  if (Elements[0] == dwarf::DW_OP_plus) {
+
+  if (getNumElements() == 2 && Elements[0] == dwarf::DW_OP_plus_uconst) {
     Offset = Elements[1];
     return true;
   }
-  if (Elements[0] == dwarf::DW_OP_minus) {
-    Offset = -Elements[1];
-    return true;
+
+  if (getNumElements() == 3 && Elements[0] == dwarf::DW_OP_constu) {
+    if (Elements[2] == dwarf::DW_OP_plus) {
+      Offset = Elements[1];
+      return true;
+    }
+    if (Elements[2] == dwarf::DW_OP_minus) {
+      Offset = -Elements[1];
+      return true;
+    }
   }
+
   return false;
 }
 
@@ -758,12 +766,13 @@ DIObjCProperty *DIObjCProperty::getImpl(
 
 DIImportedEntity *DIImportedEntity::getImpl(LLVMContext &Context, unsigned Tag,
                                             Metadata *Scope, Metadata *Entity,
-                                            unsigned Line, MDString *Name,
-                                            StorageType Storage,
+                                            Metadata *File, unsigned Line,
+                                            MDString *Name, StorageType Storage,
                                             bool ShouldCreate) {
   assert(isCanonical(Name) && "Expected canonical MDString");
-  DEFINE_GETIMPL_LOOKUP(DIImportedEntity, (Tag, Scope, Entity, Line, Name));
-  Metadata *Ops[] = {Scope, Entity, Name};
+  DEFINE_GETIMPL_LOOKUP(DIImportedEntity,
+                        (Tag, Scope, Entity, File, Line, Name));
+  Metadata *Ops[] = {Scope, Entity, Name, File};
   DEFINE_GETIMPL_STORE(DIImportedEntity, (Tag, Line), Ops);
 }
 

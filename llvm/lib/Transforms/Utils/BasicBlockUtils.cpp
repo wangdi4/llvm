@@ -27,6 +27,9 @@
 #include "llvm/IR/ValueHandle.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Transforms/Scalar.h"
+#if INTEL_CUSTOMIZATION
+#include "llvm/Transforms/Utils/Intel_IntrinsicUtils.h"
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/Transforms/Utils/Local.h"
 #include <algorithm>
 using namespace llvm;
@@ -97,6 +100,11 @@ bool llvm::MergeBlockIntoPredecessor(BasicBlock *BB, DominatorTree *DT,
                                      MemoryDependenceResults *MemDep) {
   // Don't merge away blocks who have their address taken.
   if (BB->hasAddressTaken()) return false;
+
+#if INTEL_CUSTOMIZATION
+  if (IntelIntrinsicUtils::isIntelDirective(&(BB->front())))
+    return false;
+#endif // INTEL_CUSTOMIZATION
 
   // Can't merge if there are multiple predecessors, or no predecessors.
   BasicBlock *PredBB = BB->getUniquePredecessor();
@@ -646,7 +654,11 @@ llvm::SplitBlockAndInsertIfThen(Value *Cond, Instruction *SplitBefore,
   }
 
   if (LI) {
-    if (Loop *L = LI->getLoopFor(Head)) {
+    Loop *L = LI->getLoopFor(Head);
+#if INTEL_CUSTOMIZATION
+    if (L)
+#endif // INTEL_CUSTOMIZATION
+    {
       L->addBasicBlockToLoop(ThenBlock, *LI);
       L->addBasicBlockToLoop(Tail, *LI);
     }

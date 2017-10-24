@@ -45,21 +45,34 @@ bool VPOParoptAtomics::handleAtomic(WRNAtomicNode *AtomicNode,
   bool handled;
   assert(AtomicNode != nullptr && "AtomicNode is null.");
 
-  switch (AtomicNode->getAtomicKind()) {
-  case WRNAtomicRead:
-    handled = handleAtomicRW<WRNAtomicRead>(AtomicNode, IdentTy, TidPtr);
-    break;
-  case WRNAtomicWrite:
-    handled = handleAtomicRW<WRNAtomicWrite>(AtomicNode, IdentTy, TidPtr);
-    break;
-  case WRNAtomicUpdate:
-    handled = handleAtomicUpdate(AtomicNode, IdentTy, TidPtr);
-    break;
-  case WRNAtomicCapture:
-    handled = handleAtomicCapture(AtomicNode, IdentTy, TidPtr);
-    break;
-  default:
-    llvm_unreachable("Unexpected Atomic Kind");
+  assert(AtomicNode->isBBSetEmpty() &&
+         "handleAtomic: BBSET should start empty");
+
+  AtomicNode->populateBBSet();
+
+  if (AtomicNode->getBBSetSize() < 3) {
+    // It's possible that the middle BBlock is empty, in which case,
+    // we don't need to do anything.
+    DEBUG(dbgs() << __FUNCTION__
+                 << ": AtomicNode has less than 3 BBlocks. Skipping...\n");
+    handled = true;
+  } else {
+    switch (AtomicNode->getAtomicKind()) {
+    case WRNAtomicRead:
+      handled = handleAtomicRW<WRNAtomicRead>(AtomicNode, IdentTy, TidPtr);
+      break;
+    case WRNAtomicWrite:
+      handled = handleAtomicRW<WRNAtomicWrite>(AtomicNode, IdentTy, TidPtr);
+      break;
+    case WRNAtomicUpdate:
+      handled = handleAtomicUpdate(AtomicNode, IdentTy, TidPtr);
+      break;
+    case WRNAtomicCapture:
+      handled = handleAtomicCapture(AtomicNode, IdentTy, TidPtr);
+      break;
+    default:
+      llvm_unreachable("Unexpected Atomic Kind");
+    }
   }
 
   if (!handled)
@@ -69,11 +82,7 @@ bool VPOParoptAtomics::handleAtomic(WRNAtomicNode *AtomicNode,
   assert(handled == true && "Handling of AtomicNode failed.\n");
 
   if (handled) {
-    bool directivesCleared = VPOUtils::stripDirectives(AtomicNode);
-    (void)directivesCleared;
-    assert(directivesCleared &&
-           "Unable to strip directives from WRNAtomicNode.");
-
+    AtomicNode->resetBBSet(); // Invalidate BBSet if transformed
     DEBUG(dbgs() << __FUNCTION__ << ": Handling of AtomicNode successful.\n");
   }
   else
@@ -94,8 +103,12 @@ bool VPOParoptAtomics::handleAtomicRW(WRNAtomicNode *AtomicNode,
   assert(AtomicNode != nullptr && "AtomicNode is null.");
   assert(IdentTy != nullptr && "IdentTy is null.");
   assert(TidPtr != nullptr && "TidPtr is null.");
-  assert(AtomicNode->getBBSetSize() == 3 &&
-         "AtomicNode for Read/Write is expected to have 3 BBlocks.");
+
+  if (AtomicNode->getBBSetSize() != 3) {
+    DEBUG(dbgs() << __FUNCTION__
+                 << ": AtomicNode for Read/Write does not have 3 BBlocks.\n");
+    return false;
+  }
 
   bool AtomicRead = (AtomicKind == WRNAtomicRead);
 
@@ -105,14 +118,28 @@ bool VPOParoptAtomics::handleAtomicRW(WRNAtomicNode *AtomicNode,
 
   // We expect there to be one load/store inside this BBlock, followed by a
   // branch to the next BBlock. We're concerned with the first one.
-  assert(BB->size() == 2 && "Unexpected number of instructions in BBlock.");
+  if (BB->size() != 2) {
+    DEBUG(dbgs() << __FUNCTION__ << ": Atomic Read/Write BBlock has more than"
+                                    " 2 Instructions. Returning...\n");
+    return false; // Handle using critical section.
+  }
+
   Instruction *Inst = &(*(BB->begin()));
 
   assert(Inst != nullptr && "Inst is null.");
-  assert(((AtomicKind == WRNAtomicRead) ==  isa<LoadInst>(Inst)) &&
-         "Unexpected Instruction Type for AtomicRead");
-  assert(((AtomicKind == WRNAtomicWrite) == isa<StoreInst>(Inst)) &&
-         "Unexpected Instruction Type for AtomicWrite");
+
+  if ((AtomicKind == WRNAtomicRead) && !isa<LoadInst>(Inst)) {
+    DEBUG(dbgs() << __FUNCTION__ << ": First instruction is not a load "
+                 << "for AtomicRead. Returning...\n");
+    return false; // Handle using critical section.
+  };
+
+  if ((AtomicKind == WRNAtomicWrite) && !isa<StoreInst>(Inst)) {
+    DEBUG(dbgs() << __FUNCTION__ << ": First instruction is not a store "
+                 << "for AtomicWrite. Returning...\n");
+    return false; // Handle using critical section.
+  };
+
   DEBUG(dbgs() << __FUNCTION__ << ": Source Instruction: " << *Inst << "\n");
 
   // Now that we have the load/store instruction, we need to extract the
@@ -161,8 +188,11 @@ bool VPOParoptAtomics::handleAtomicUpdate(WRNAtomicNode *AtomicNode,
   assert(AtomicNode != nullptr && "AtomicNode is null.");
   assert(IdentTy != nullptr && "IdentTy is null.");
   assert(TidPtr != nullptr && "TidPtr is null.");
-  assert(AtomicNode->getBBSetSize() == 3 &&
-         "AtomicNode for Atomic Update is expected to have 3 BBlocks.");
+  if (AtomicNode->getBBSetSize() != 3) {
+    DEBUG(dbgs() << __FUNCTION__
+                 << ": AtomicNode for Update does not have 3 BBlocks.\n");
+    return false;
+  }
 
   // The first and last BasicBlocks contain directive intrinsic calls.
   // We're interested in only the middle one here.
@@ -172,12 +202,22 @@ bool VPOParoptAtomics::handleAtomicUpdate(WRNAtomicNode *AtomicNode,
   // KMPC call is added.
   SmallVector<Instruction*, ApproxNumInstsToDeleteForUpdate> InstsToDelete;
 
+  // Make sure that the BBlock has enough Instructions to start with.
+  if (BB->size() <= 3) {
+    DEBUG(dbgs() << __FUNCTION__ << ": Atomic update BBlock has less than 4"
+                 << " Instructions. Returning.\n");
+    return false; // Handle using critical section.
+  }
+
   // Now, the last instruction of the BBlock will be an unconditional branch to
   // the next BBlock, and its predecessor is the a store to the Atomic Operand.
   // We start off with this Instruction to get the atomic operand.
-  assert(BB->size() >= 4 && "Unexpected number of instructions in BBlock.");
   StoreInst *OpndStore = dyn_cast<StoreInst>(&*(++(BB->rbegin())));
-  assert(OpndStore != nullptr && "Unable to find store to atomic operand");
+  if (OpndStore == nullptr) {
+    DEBUG(dbgs() << __FUNCTION__
+                 << ": Unable to find store to atomic operand. Returning.\n");
+    return false; // Handle using critical section.
+  }
 
   // A call to atomic update intrinsic is of form:
   //     call void __kmpc_atomic_<...>(loc, tid, <type1*> atomic_opnd, <type2>
@@ -200,6 +240,11 @@ bool VPOParoptAtomics::handleAtomicUpdate(WRNAtomicNode *AtomicNode,
 
   if (!UpdateOpFound)
     return false; // Handle using critical sections.
+
+  removeDuplicateInstsFromList(InstsToDelete);
+
+  if (instructionsAreUsedOutsideBB(InstsToDelete, BB))
+    return false; // Handle using critical section.
 
   // At this point, we may need to generate a CastInst for ValueOpnd, in case
   // the types of AtomicOpnd and ValueOpnd are not the same.
@@ -240,10 +285,7 @@ bool VPOParoptAtomics::handleAtomicUpdate(WRNAtomicNode *AtomicNode,
   DEBUG(dbgs() << __FUNCTION__ << ": Intrinsic call inserted.\n");
 
   // And finally, delete the instructions that are no longer needed.
-  for (auto *Inst : InstsToDelete) {
-    Inst->replaceAllUsesWith(UndefValue::get(Inst->getType()));
-    Inst->eraseFromParent();
-  }
+  deleteInstructionsInList(InstsToDelete);
 
   return true;
 }
@@ -255,13 +297,24 @@ bool VPOParoptAtomics::handleAtomicCapture(WRNAtomicNode *AtomicNode,
   assert(AtomicNode != nullptr && "AtomicNode is null.");
   assert(IdentTy != nullptr && "IdentTy is null.");
   assert(TidPtr != nullptr && "TidPtr is null.");
-  assert(AtomicNode->getBBSetSize() == 3 &&
-         "AtomicNode for Atomic Capture is expected to have 3 BBlocks.");
+
+  if (AtomicNode->getBBSetSize() != 3) {
+    DEBUG(dbgs() << __FUNCTION__
+                 << ": AtomicNode for Capture does not have 3 BBlocks.\n");
+    return false;
+  }
 
   // The first and last BasicBlocks contain directive intrinsic calls.
   // We're interested in only the middle one here.
   BasicBlock *BB = *(AtomicNode->bbset_begin() + 1);
-  assert(BB->size() >= 4 && "Unexpected number of instructions in BBlock.");
+
+  // Make sure that the BBlock has enough Instructions to start with.
+  if (BB->size() <= 3) {
+    DEBUG(dbgs() << __FUNCTION__ << ": Atomic Capture BBlock has less than 4"
+                 << " Instructions. Returning.\n");
+    return false; // Handle using critical section.
+  }
+
   // We use the last statement of this BB as the anchor for new instructions.
   Instruction* Anchor = &*(BB->rbegin());
 
@@ -296,6 +349,11 @@ bool VPOParoptAtomics::handleAtomicCapture(WRNAtomicNode *AtomicNode,
                              InstsToDelete); // In, Out
 
   if (CaptureKind == CaptureUnknown)
+    return false; // Handle using critical section.
+
+  removeDuplicateInstsFromList(InstsToDelete);
+
+  if (instructionsAreUsedOutsideBB(InstsToDelete, BB))
     return false; // Handle using critical section.
 
   // At this point, we may need to generate a CastInst for ValueOpnd, in case
@@ -374,10 +432,7 @@ bool VPOParoptAtomics::handleAtomicCapture(WRNAtomicNode *AtomicNode,
   CaptureStore->insertBefore(Anchor);
 
   // And finally, delete the instructions that are no longer needed.
-  for (auto *Inst : InstsToDelete) {
-    Inst->replaceAllUsesWith(UndefValue::get(Inst->getType()));
-    Inst->eraseFromParent();
-  }
+  deleteInstructionsInList(InstsToDelete);
 
   return true;
 }
@@ -434,8 +489,8 @@ bool VPOParoptAtomics::extractAtomicUpdateOp(
 
   Op = dyn_cast<Instruction>(OpResult);
 
-  if (!isa<BinaryOperator>(Op)) {
-    DEBUG(dbgs() << __FUNCTION__ << ": Unexpected update Op:" << *Op << "\n");
+  if (Op == nullptr || !isa<BinaryOperator>(Op)) {
+    DEBUG(dbgs() << __FUNCTION__ << ": Unexpected update Op:" << *OpResult << "\n");
     InstsToDelete.clear();
     return false;
   }
@@ -526,11 +581,18 @@ VPOParoptAtomics::AtomicCaptureKind VPOParoptAtomics::extractAtomicCaptureOp(
     DEBUG(dbgs() << __FUNCTION__
                  << ": CaptureBeforeOp identified. Op: " << *OpInst << "\n");
     return CaptureKind;
+  } else if (UpdateOpFound) {
+    DEBUG(dbgs() << __FUNCTION__
+                 << ": Skipping processing as CaptureSwap/CaptureAfterOp since "
+                    "we found an Update Operation on the operand of the last "
+                    "store ("
+                 << *AtomicOpnd << ").\n");
+    return CaptureUnknown;
   }
 
   // (B) CaptureSwap
-  // Second, try to process CaptureSwap. Here again, first store of BB will be to v, and
-  // the last store to x.
+  // Second, try to process CaptureSwap. Here again, first store of BB will be
+  // to v, and the last store to x.
   DEBUG(dbgs() << __FUNCTION__ << ": Processing as CaptureSwap...\n");
   AtomicOpnd = (*StoreCandidates.rbegin())->getPointerOperand();
   CaptureOpnd = (*StoreCandidates.begin())->getPointerOperand();
@@ -627,9 +689,9 @@ VPOParoptAtomics::identifyNonSwapCaptureKind(
   auto *LoadX = dyn_cast<LoadInst>(ValV);
 
   if (LoadX != nullptr && LoadX->getPointerOperand() != AtomicOpnd) {
-    DEBUG(dbgs() << __FUNCTION__
-                 << ": Value stored to capture operand is not atomic operand: "
-                 << LoadX << " \n");
+    DEBUG(dbgs() << __FUNCTION__ << ": Value stored to capture operand ("
+                 << *(LoadX->getPointerOperand()) << ") is not atomic operand ("
+                 << *AtomicOpnd << ") \n");
     return CaptureUnknown;
   } else if (LoadX != nullptr) {
     // Match found for `v = x`. We mark the instructions which assign `x` to `v`
@@ -667,7 +729,7 @@ VPOParoptAtomics::identifyNonSwapCaptureKind(
     DEBUG(
         dbgs() << __FUNCTION__
                << ": Value stored to capture operand is not atomic operand: v: "
-               << ValV << "x: " << ValX << " \n");
+               << *ValV << "x: " << *ValX << " \n");
     return CaptureUnknown;
   }
 
@@ -681,7 +743,7 @@ VPOParoptAtomics::identifyNonSwapCaptureKind(
   return CaptureAfterOp;
 }
 
-// Usig a given AtomicOpnd and CaptureOpnd, try to find ValueOpnd assuming the
+// Using a given AtomicOpnd and CaptureOpnd, try to find ValueOpnd assuming the
 // capture operation is swap.
 // Example:
 //     v = x; x = expr;
@@ -948,6 +1010,60 @@ bool VPOParoptAtomics::isUIToFPCast(const Value &Val) {
     return true;
 
   return false;
+}
+
+// Remove duplicate Instructions from the input SmallVector.
+void VPOParoptAtomics::removeDuplicateInstsFromList(
+    SmallVectorImpl<Instruction *> &Insts) {
+
+  if (Insts.empty())
+    return;
+
+  std::sort(Insts.begin(), Insts.end());
+  auto last = std::unique(Insts.begin(), Insts.end());
+  Insts.erase(last, Insts.end());
+}
+
+// Check if any instruction in the list is used outside the given BB.
+bool VPOParoptAtomics::instructionsAreUsedOutsideBB(
+    SmallVectorImpl<Instruction *> &Insts, BasicBlock* &BB) {
+  for (auto *Inst : Insts) {
+    for (Use &Use : Inst->uses()) {
+      User *User = Use.getUser();
+      Instruction *UserInst = dyn_cast<Instruction>(User);
+      if (UserInst != nullptr && UserInst->getParent() != BB) {
+
+#ifndef NDEBUG
+        DEBUG(dbgs() << __FUNCTION__ << ": Instruction '" << *Inst
+                     << "' is used in '" << *UserInst
+                     << "', which is outside the given BB.\n");
+#endif
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+// Delete the Instructions in the vecor InstsToDelete.
+void VPOParoptAtomics::deleteInstructionsInList(
+    SmallVectorImpl<Instruction *> &InstsToDelete) {
+
+  if (InstsToDelete.empty())
+    return;
+
+#ifndef NDEBUG
+  DEBUG(dbgs() << __FUNCTION__ << ": Instructions to be deleted:\n");
+  for (auto *Inst: InstsToDelete) {
+    DEBUG(dbgs() << *Inst << "\n");
+  }
+#endif
+
+  // Now delete all Instructions in the list.
+  for (auto *Inst : InstsToDelete) {
+    Inst->replaceAllUsesWith(UndefValue::get(Inst->getType()));
+    Inst->eraseFromParent();
+  }
 }
 
 // Functions for intrinsic name lookup.

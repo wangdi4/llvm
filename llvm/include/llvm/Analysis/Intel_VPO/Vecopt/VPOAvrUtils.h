@@ -96,6 +96,10 @@ public:
   /// \brief Returns a new AVRLoop node.
   static AVRLoop *createAVRLoop(WRNVecLoopNode *WrnSimdNode);
 
+  /// \brief Finds and returns the AVR loop in the \p Region if the Region
+  /// contains exactly one AVRLoop'.
+  static AVRLoop *findAVRLoop(AVRWrn *Region);
+
   /// \brief Returns a new AVRWrn node.
   static AVRWrn *createAVRWrn(WRNVecLoopNode *WrnSimdNode);
 

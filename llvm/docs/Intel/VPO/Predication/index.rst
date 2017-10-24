@@ -239,9 +239,26 @@ The predication process proceeds as follows:
    The separate canonicalization step is done as follow, given a divergent loop
    with potentially multiple latches and/or exits:
 
+   * The loop is first transformed to have a single exit block :math:`f`, 
+     namely the multiple exits to single exit transformation or what also is 
+     dubbed mergeLoopExits.
+     The new merged exit-block is now the single exit-block of the loop which
+     acts as a focal exitting point. A new Phi is attached to this block for
+     the porpose of recording which exitting edge was engaged upon the exit
+     action. This information is encoded as an integer value belonging to the
+     new focacl exit point.
+     Next a series of cascading conditional branches are introduced. These 
+     cascaded branches leverge the recorded exit-code to direct the control
+     flow to the respective exit block.
+     .. Note: The canonicalization step was split after VPlan to two sperate
+     steps; the above step is the first transforming multiple exits into
+     a focal exit block, and the below step the second in the dual transforming
+     multiple exiting/latch blocks into a singular latch acting also as the only
+     exiting block of the loop.
+
    * The loop is transformed to have a new single latch :math:`l` which
      coincides with a single exit. The successors of :math:`l` are the header
-     of the loop and :math:`f` - the single successor of the loop.
+     of the loop and :math:`f` - the single exit-block of the loop.
 
      * The latch :math:`l` is based on a new
        boolean condition of the form ``all-zeros(v)`` where ``v`` is a newly
@@ -254,38 +271,15 @@ The predication process proceeds as follows:
          predecessor of the ``AVR-LOOP`` construct, and inherits the
          Instruction Mask of the previous predecessor.
 
-       * **at each loop exit**, :math:`v = 0` under the Edge Mask exiting the
-         loop.
-         This instruction executes on the path that remains inside the loop.
+       * **at each loop exit-edge**, :math:`v = 0` is introduced to a new 
+	 single block for all exit-edges. The exit-coded Phi is transferred 
+         to this new block as well. This block's single successor is no other
+         than the loops single resultant latch :math:`l`.
+         These instructions execute on the path that remains inside the loop.
 
-     * A new variable :math:`exit\_to` is created and a new `switch(exit\_to)`
-       Instruction is introduced into :math:`f`.
-       Note that if the original loop had a single exit or two exits, this
-       `switch` Instruction can be optimized.
-
-     * All edges from original latches to the header are redirected to
-       :math:`l`. Any lane that wishes to continue to next iteration must do
-       so together with other lanes having same wish.
-
-     * All edges from original exits that leave the loop are redirected to
-       :math:`l`. Any lane that wishes to exit the loop must wait until all
-       other lanes have same wish.
-
-   * Foreach exit :math:`j` from Instruction :math:`e_j` exiting the loop to
-     Instruction :math:`b_j`:
-
-     1. keep track of whether or not exit :math:`j`
-        was to be taken, by introducing a :math:`exit\_to = j` Def at the loop
-        exit.
-        The Def executes on the path that remains inside the loop,
-        under the Edge Mask exiting the loop.
-
-     #. Introduce Instruction :math:`b_j` as the :math:`j`'th successor of the
-        new `switch(exit\_to)` Instruction at :math:`f`, corresponding to
-        `exit\_to == j` case.
-
-     #. redirect the exit edge to the new single latch:
-        replace :math:`b_j` with :math:`l` as a successor of :math:`e_j`.
+       * All edges from original latches to the header are redirected to
+         :math:`l`. Any lane that wishes to continue to next iteration must do
+         so together with other lanes having the same wish.
 
    The following figure demonstrates this transformation:
 

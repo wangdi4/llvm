@@ -51,10 +51,10 @@ for.cond5:                                        ; preds = %for.body8, %for.bod
   br i1 %lnot.i, label %for.inc14, label %for.body8
 
 for.body8:                                        ; preds = %for.cond5
-; CHECK: %tmp4 = load i32, i32* %it.sroa.0.03, align 4, !tbaa !28, !std.container.ptr.iter !24
+; CHECK: %tmp4 = load i32, i32* %it.sroa.0.03, align 4, !tbaa !27, !std.container.ptr.iter !23
 ; CHECK-NEXT: %mul = mul nsw i32 %tmp5, %tmp4
 ; CHECK-NEXT: %add = add nsw i32 %tmp4, %mul
-; CHECK-NEXT: store i32 %add, i32* %it.sroa.0.03, align 4, !tbaa !28, !std.container.ptr.iter !24
+; CHECK-NEXT: store i32 %add, i32* %it.sroa.0.03, align 4, !tbaa !27, !std.container.ptr.iter !23
   %tmp4 = load i32, i32* %it.sroa.0.0, align 4, !tbaa !26
   %tmp5 = load i32, i32* %ita.sroa.0.0, align 4, !tbaa !26
   %mul = mul nsw i32 %tmp5, %tmp4
@@ -76,10 +76,10 @@ declare i32* @llvm.intel.std.container.ptr.iter.p0i32(i32*) #0
 
 attributes #0 = { nounwind readonly }
 
-!llvm.module.flags = !{!0, !6}
+!llvm.module.flags = !{!6}
 !llvm.ident = !{!7}
 
-!0 = !{i32 6, !"Linker Options", !1}
+!llvm.linker.options = !{!1}
 !1 = !{!2, !3, !4, !5}
 !2 = !{!"/FAILIFMISMATCH:\22_MSC_VER=1800\22"}
 !3 = !{!"/FAILIFMISMATCH:\22_ITERATOR_DEBUG_LEVEL=0\22"}

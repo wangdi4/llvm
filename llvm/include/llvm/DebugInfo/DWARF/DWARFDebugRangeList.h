@@ -10,12 +10,10 @@
 #ifndef LLVM_DEBUGINFO_DWARF_DWARFDEBUGRANGELIST_H
 #define LLVM_DEBUGINFO_DWARF_DWARFDEBUGRANGELIST_H
 
-#include "llvm/Support/DataExtractor.h"
+#include "llvm/DebugInfo/DWARF/DWARFDataExtractor.h"
 #include "llvm/DebugInfo/DWARF/DWARFRelocMap.h"
-
 #include <cassert>
 #include <cstdint>
-#include <utility>
 #include <vector>
 
 namespace llvm {
@@ -25,10 +23,11 @@ class raw_ostream;
 struct DWARFAddressRange {
   uint64_t LowPC;
   uint64_t HighPC;
+  uint64_t SectionIndex;
 };
 
 /// DWARFAddressRangesVector - represents a set of absolute address ranges.
-typedef std::vector<DWARFAddressRange> DWARFAddressRangesVector;
+using DWARFAddressRangesVector = std::vector<DWARFAddressRange>;
 
 class DWARFDebugRangeList {
 public:
@@ -44,6 +43,8 @@ public:
     /// address past the end of the address range. The ending address must
     /// be greater than or equal to the beginning address.
     uint64_t EndAddress;
+    /// A section index this range belongs to.
+    uint64_t SectionIndex;
 
     /// The end of any given range list is marked by an end of list entry,
     /// which consists of a 0 for the beginning address offset
@@ -78,7 +79,7 @@ public:
 
   void clear();
   void dump(raw_ostream &OS) const;
-  bool extract(DataExtractor data, uint32_t *offset_ptr, const RelocAddrMap& Relocs);
+  bool extract(const DWARFDataExtractor &data, uint32_t *offset_ptr);
   const std::vector<RangeListEntry> &getEntries() { return Entries; }
 
   /// getAbsoluteRanges - Returns absolute address ranges defined by this range

@@ -1,2 +1,4 @@
 /compiler-rt
 /openmp
+/opencl
+/cclang
