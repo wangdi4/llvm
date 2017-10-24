@@ -1252,3 +1252,9 @@ void RegDDRef::demoteIVs(unsigned StartLevel) {
     CE->demoteIVs(StartLevel);
   }
 }
+
+unsigned RegDDRef::getBasePtrSymbase() const {
+  assert(hasGEPInfo() && "Base CE accessed for non-GEP DDRef!");
+  return getBlobUtils().getTempBlobSymbase(getBasePtrBlobIndex());
+}
+

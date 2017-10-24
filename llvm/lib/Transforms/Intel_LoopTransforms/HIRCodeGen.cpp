@@ -1070,8 +1070,7 @@ Value *CGVisitor::visitRegion(HLRegion *Reg) {
     visit(*It);
   }
 
-  BasicBlock *RegionSuccessor =
-      !Reg->isFunctionLevel() ? Reg->getSuccBBlock() : nullptr;
+  BasicBlock *RegionSuccessor = Reg->getSuccBBlock();
 
   // current insertion point is at end of region, add jump to successor
   // and we are done
@@ -1088,8 +1087,9 @@ Value *CGVisitor::visitRegion(HLRegion *Reg) {
     if (!Reg->exitsFunction()) {
       Builder.CreateUnreachable();
     }
+
     assert((Reg->live_out_begin() == Reg->live_out_end()) &&
-           "Unsupported liveout for multiexit region!");
+           "Function level region cannot have liveouts!");
   } else {
     assert(Reg->exitsFunction() && "no successor block to region!");
     assert((Reg->live_out_begin() == Reg->live_out_end()) &&

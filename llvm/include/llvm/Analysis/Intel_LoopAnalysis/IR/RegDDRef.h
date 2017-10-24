@@ -342,6 +342,15 @@ public:
     return const_cast<RegDDRef *>(this)->getBaseCE();
   }
 
+  /// Returns the blob index of the base pointer.
+  unsigned getBasePtrBlobIndex() const {
+    assert(hasGEPInfo() && "Base CE accessed for non-GEP DDRef!");
+    return getBaseCE()->getSingleBlobIndex();
+  }
+
+  /// Returns the symbase of the base pointer.
+  unsigned getBasePtrSymbase() const;
+
   /// Sets the canonical form of the subscript base.
   void setBaseCE(CanonExpr *BaseCE) {
     createGEP();

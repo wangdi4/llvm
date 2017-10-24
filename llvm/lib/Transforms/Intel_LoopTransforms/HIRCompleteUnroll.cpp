@@ -244,6 +244,62 @@ struct HIRCompleteUnroll::CanonExprUpdater final : public HLNodeVisitorBase {
   void postVisit(HLNode *Node) {}
 };
 
+// Structure to hold info of blobs simplified to constant by unrolling.
+class SimplifiedTempBlob {
+  unsigned Index;
+  // Level of the simplified definition of the blob
+  unsigned DefLevel;
+  const HLInst *DefInst;
+  // If blob definition was simplified using a rem (%) operation, we store the
+  // constant factor here.
+  unsigned RemFactor;
+
+private:
+  void initBlobFactor();
+
+public:
+  SimplifiedTempBlob(unsigned Index, unsigned DefLevel, const HLInst *DefInst)
+      : Index(Index), DefLevel(DefLevel), DefInst(DefInst), RemFactor(0) {
+    initBlobFactor();
+  }
+
+  // Resets info for existing blob.
+  void reset(unsigned Level, const HLInst *HInst) {
+    DefInst = HInst;
+    DefLevel = Level;
+    initBlobFactor();
+  }
+
+  unsigned getIndex() const { return Index; }
+  unsigned getDefLevel() const { return DefLevel; }
+  unsigned getRemFactor() const { return RemFactor; }
+
+  const HLInst *getDefInst() const { return DefInst; }
+};
+
+void SimplifiedTempBlob::initBlobFactor() {
+  auto Inst = DefInst->getLLVMInstruction();
+
+  // Looking for something like this -
+  // tmp = i1 % 4;
+
+  auto OpCode = Inst->getOpcode();
+
+  if ((OpCode != Instruction::URem) && (OpCode != Instruction::SRem)) {
+    return;
+  }
+
+  auto RvalOp2 = DefInst->getOperandDDRef(2);
+
+  int64_t Factor;
+
+  if (!RvalOp2->isIntConstant(&Factor) || (Factor < 0) || (Factor > UINT_MAX)) {
+    return;
+  }
+
+  RemFactor = Factor;
+}
+
 /// Determines if unrolling the loop nest would be profitable.
 /// Profitability of the loopnest is determined by giving positive weight to
 /// simplification opportunities and negative weight to chance of increase in
@@ -307,6 +363,7 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
   const HLLoop *CurLoop;
   const HLLoop *OuterLoop;
 
+  const unsigned CurLevel;
   unsigned LoopNestTripCount;
 
   unsigned Cost;
@@ -334,9 +391,7 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
 
   // Keeps track of temp blob definitions which get simplified to a constant due
   // to unrolling. This can result in simplification of other instructions.
-  // Blobs which are simplified using rem (%) operation have their factor stored
-  // as the mapped value.
-  DenseMap<unsigned, unsigned> &SimplifiedTempBlobs;
+  SmallVector<SimplifiedTempBlob, 8> &SimplifiedTempBlobs;
 
   // Keep track of invariant GEP refs that have been visited to avoid
   // duplicating savings.
@@ -352,17 +407,32 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
   // Private constructor used for children loops.
   ProfitabilityAnalyzer(const HIRCompleteUnroll &HCU, const HLLoop *CurLp,
                         const HLLoop *OuterLp, unsigned ParentLoopNestTripCount,
-                        DenseMap<unsigned, unsigned> &SimplifiedBlobs,
+                        SmallVector<SimplifiedTempBlob, 8> &SimplifiedBlobs,
                         HIRCompleteUnroll::MemRefGatherer::MapTy &MemRefMap,
                         SmallPtrSet<const Value *, 16> &AllocaStoreBases)
-      : HCU(HCU), CurLoop(CurLp), OuterLoop(OuterLp), Cost(0), ScaledCost(0),
-        Savings(0), ScaledSavings(0), GEPCost(0), GEPSavings(0), NumMemRefs(0),
+      : HCU(HCU), CurLoop(CurLp), OuterLoop(OuterLp),
+        CurLevel(CurLp->getNestingLevel()), Cost(0), ScaledCost(0), Savings(0),
+        ScaledSavings(0), GEPCost(0), GEPSavings(0), NumMemRefs(0),
         NumDDRefs(0), SimplifiedTempBlobs(SimplifiedBlobs),
         OuterLoopMemRefMap(MemRefMap), AllocaStoreBases(AllocaStoreBases) {
     auto Iter = HCU.AvgTripCount.find(CurLp);
     assert((Iter != HCU.AvgTripCount.end()) && "Trip count of loop not found!");
     LoopNestTripCount = (ParentLoopNestTripCount * Iter->second);
   }
+
+  /// Inserts a simplified temp blob with \p Index. It overwrite the previous
+  /// entry for the same blob.
+  void insertSimplifiedTempBlob(unsigned Index, HLInst *DefInst);
+
+  /// Removes the ennry for the blob with \p Index;
+  void removeSimplifiedTempBlob(unsigned Index);
+
+  /// Returns true if a simplified blob exists with \p Index. \p
+  /// CurNodeBlobLevel indicates the blob level of the blob in \p CurNode.
+  /// Populates factor of simplified blob in \p Factor.
+  bool isSimplifiedTempBlob(unsigned Index, unsigned CurNodeBlobLevel,
+                            HLDDNode *CurNode,
+                            unsigned *Factor = nullptr) const;
 
   /// level of any non-rem blob.
   unsigned populateRemBlobs(
@@ -420,10 +490,6 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
   BlobInfo getBlobInfo(unsigned Index, int64_t Coeff, const RegDDRef *ParentRef,
                        bool CEIsLinear);
 
-  /// \p HInst represents a simplified blob. Returns the divisior if this is a
-  /// rem operation.
-  unsigned getBlobFactor(HLInst *HInst) const;
-
   /// Updates all the visited blobs which contain the temp represented by self
   /// blob \p Ref. \p Simplified indicates whether the blob definition was
   /// simplified to a constant.
@@ -462,7 +528,7 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
 
 public:
   ProfitabilityAnalyzer(const HIRCompleteUnroll &HCU, const HLLoop *CurLp,
-                        DenseMap<unsigned, unsigned> &SimplifiedTempBlobs,
+                        SmallVector<SimplifiedTempBlob, 8> &SimplifiedTempBlobs,
                         HIRCompleteUnroll::MemRefGatherer::MapTy &MemRefMap,
                         SmallPtrSet<const Value *, 16> &AllocaStoreBases)
       : ProfitabilityAnalyzer(HCU, CurLp, CurLp, 1, SimplifiedTempBlobs,
@@ -689,28 +755,74 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::visit(const HLLoop *Lp) {
   *this += PA;
 }
 
-unsigned
-HIRCompleteUnroll::ProfitabilityAnalyzer::getBlobFactor(HLInst *HInst) const {
-  auto Inst = HInst->getLLVMInstruction();
+void HIRCompleteUnroll::ProfitabilityAnalyzer::insertSimplifiedTempBlob(
+    unsigned Index, HLInst *DefInst) {
 
-  // Looking for something like this -
-  // tmp = i1 % 4;
-
-  auto OpCode = Inst->getOpcode();
-
-  if ((OpCode != Instruction::URem) && (OpCode != Instruction::SRem)) {
-    return 0;
+  for (auto &Blob : SimplifiedTempBlobs) {
+    if (Blob.getIndex() == Index) {
+      Blob.reset(CurLevel, DefInst);
+      return;
+    }
   }
 
-  auto RvalOp2 = HInst->getOperandDDRef(2);
+  SimplifiedTempBlobs.emplace_back(Index, CurLevel, DefInst);
+}
 
-  int64_t Factor;
+void HIRCompleteUnroll::ProfitabilityAnalyzer::removeSimplifiedTempBlob(
+    unsigned Index) {
+  for (auto It = SimplifiedTempBlobs.begin(), E = SimplifiedTempBlobs.end();
+       It != E; ++It) {
+    if (It->getIndex() == Index) {
+      SimplifiedTempBlobs.erase(It);
+      return;
+    }
+  }
+}
 
-  if (!RvalOp2->isIntConstant(&Factor) || (Factor < 0) || (Factor > UINT_MAX)) {
-    return 0;
+bool HIRCompleteUnroll::ProfitabilityAnalyzer::isSimplifiedTempBlob(
+    unsigned Index, unsigned CurNodeBlobLevel, HLDDNode *CurNode,
+    unsigned *Factor) const {
+  // Blob is considered to be simplified if the following two conditions hold
+  // true-
+  //
+  // 1) The simplified definition was found at current or deeper level than
+  // specified in the current node.
+  //
+  // In the example below 't' should not be considered simplified at the inner
+  // level as it is redefined.
+  //
+  // DO i1
+  //   t = 0;
+  //   DO i2
+  //     t = t + A[i1]
+  //   END DO
+  // END DO
+  //
+  // 2) Simplified definition dominates cureent node.
+  //
+  // In the example below 't' should not be considered simplified as 't = 50'
+  // doesn't dominate the use.
+  //
+  // DO i1
+  //   t = 0;
+  //   if () {
+  //     ...
+  //     t = 50;
+  //   }
+  //   t1 = t;
+  // END DO
+  for (auto &Blob : SimplifiedTempBlobs) {
+    if ((Blob.getIndex() == Index) &&
+        (Blob.getDefLevel() >= CurNodeBlobLevel) &&
+        HLNodeUtils::dominates(Blob.getDefInst(), CurNode, HCU.HLS)) {
+      if (Factor) {
+        *Factor = Blob.getRemFactor();
+      }
+      return true;
+    }
   }
 
-  return Factor;
+  return false;
 }
 
 void HIRCompleteUnroll::ProfitabilityAnalyzer::updateBlobs(
@@ -734,10 +846,9 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::updateBlobs(
   }
 
   if (Simplified) {
-    unsigned Factor = getBlobFactor(cast<HLInst>(LvalRef->getHLDDNode()));
-    SimplifiedTempBlobs.insert(std::make_pair(TempIndex, Factor));
+    insertSimplifiedTempBlob(TempIndex, cast<HLInst>(LvalRef->getHLDDNode()));
   } else {
-    SimplifiedTempBlobs.erase(TempIndex);
+    removeSimplifiedTempBlob(TempIndex);
   }
 }
 
@@ -781,7 +892,8 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::visit(const HLDDNode *Node) {
     // perform constant propagation/DCE after complete unroll we may mistakenly
     // identify it as savings in post vec complete unroll.
     if (HasNonConstRval) {
-      ++Savings;
+      // Add extra savings for ifs/switches.
+      Savings += HInst ? 1 : 2;
     }
   } else {
     // Account for ddrefs only if the node cannot be simplified.
@@ -818,7 +930,8 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::visit(const HLDDNode *Node) {
   }
 
   if (!CanSimplifyRvals || !CanSimplifyLval) {
-    ++Cost;
+    // Add extra cost for ifs/switches.
+    Cost += HInst ? 1 : 2;
   }
 }
 
@@ -828,7 +941,7 @@ unsigned HIRCompleteUnroll::ProfitabilityAnalyzer::populateRemBlobs(
   assert(Ref->hasGEPInfo() && "GEP ref expected!");
 
   unsigned MaxNonRemBlobLevel = 0;
-  unsigned CurLevel = CurLoop->getNestingLevel();
+  auto CurNode = Ref->getHLDDNode();
 
   for (auto BIt = Ref->blob_cbegin(), End = Ref->blob_cend(); BIt != End;
        ++BIt) {
@@ -836,11 +949,10 @@ unsigned HIRCompleteUnroll::ProfitabilityAnalyzer::populateRemBlobs(
     auto Index = Blob->getBlobIndex();
     unsigned BlobLevel =
         Blob->isNonLinear() ? CurLevel : Blob->getDefinedAtLevel();
+    unsigned Factor;
 
-    auto Iter = SimplifiedTempBlobs.find(Index);
-
-    if ((Iter != SimplifiedTempBlobs.end()) && Iter->second) {
-      RemBlobs.push_back(std::make_pair(BlobLevel, Iter->second));
+    if (isSimplifiedTempBlob(Index, BlobLevel, CurNode, &Factor) && Factor) {
+      RemBlobs.push_back(std::make_pair(BlobLevel, Factor));
     } else {
       MaxNonRemBlobLevel = std::max(MaxNonRemBlobLevel, BlobLevel);
     }
@@ -854,8 +966,7 @@ unsigned HIRCompleteUnroll::ProfitabilityAnalyzer::getMaxNonSimplifiedBlobLevel(
   assert(Ref->hasGEPInfo() && "GEP ref expected!");
 
   unsigned MaxNonSimplifiedBlobLevel = 0;
-
-  unsigned CurLevel = Ref->getParentLoop()->getNestingLevel();
+  auto CurNode = Ref->getHLDDNode();
 
   for (auto BIt = Ref->blob_cbegin(), End = Ref->blob_cend(); BIt != End;
        ++BIt) {
@@ -864,9 +975,7 @@ unsigned HIRCompleteUnroll::ProfitabilityAnalyzer::getMaxNonSimplifiedBlobLevel(
     unsigned BlobLevel =
         Blob->isNonLinear() ? CurLevel : Blob->getDefinedAtLevel();
 
-    auto Iter = SimplifiedTempBlobs.find(Index);
-
-    if (Iter == SimplifiedTempBlobs.end()) {
+    if (!isSimplifiedTempBlob(Index, BlobLevel, CurNode)) {
       MaxNonSimplifiedBlobLevel =
           std::max(MaxNonSimplifiedBlobLevel, BlobLevel);
     }
@@ -951,7 +1060,7 @@ HIRCompleteUnroll::ProfitabilityAnalyzer::computeGEPInfo(const RegDDRef *Ref,
 
   unsigned MaxNonRemBlobLevel = populateRemBlobs(Ref, RemBlobs);
 
-  if (MaxNonRemBlobLevel >= CurLoop->getNestingLevel()) {
+  if (MaxNonRemBlobLevel >= CurLevel) {
     return GEPRefInfo(LoopNestTripCount, LoopNestTripCount, false);
   }
 
@@ -1068,8 +1177,32 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::canEliminate(
 
   // Assume alloca load can be eliminated if we have encountered correspsonding
   // alloca store.
-  return (HCU.UnrolledAllocaStoreBases.count(BaseVal) ||
-          AllocaStoreBases.count(BaseVal));
+  // TODO: Refine the current check as it is too relaxed.
+  // It will return true for cases like this-
+  // A[i+1] =
+  //        = A[i]
+  if (HCU.UnrolledAllocaStoreBases.count(BaseVal) ||
+      AllocaStoreBases.count(BaseVal)) {
+    return true;
+  }
+
+  // If we can unconditionally reach alloca's parent bblock from the region
+  // predecessor bblock, assume there are dominating alloca stores.
+  auto CurRegion = CurLoop->getParentRegion();
+  unsigned BaseSymbase = MemRef->getBasePtrSymbase();
+
+  if (!CurRegion->isLiveIn(BaseSymbase)) {
+    return false;
+  }
+
+  auto AllocaBB = cast<AllocaInst>(BaseVal)->getParent();
+  auto PredBB = CurLoop->getParentRegion()->getPredBBlock();
+
+  while (PredBB && (PredBB != AllocaBB)) {
+    PredBB = PredBB->getSinglePredecessor();
+  }
+
+  return (PredBB == AllocaBB);
 }
 
 bool HIRCompleteUnroll::ProfitabilityAnalyzer::addGEPCost(
@@ -1378,12 +1511,11 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::processIVs(
     unsigned &NumUnrollableIVBlobs) {
 
   bool CanSimplifyIVs = true;
-  unsigned NodeLevel = CurLoop->getNestingLevel();
   unsigned OuterLevel = OuterLoop->getNestingLevel();
   bool IsLinear = CE->isLinearAtLevel();
   SmallSet<unsigned, 4> CurrentUnrollableIVBlobs;
 
-  for (unsigned Level = 1; Level <= NodeLevel; ++Level) {
+  for (unsigned Level = 1; Level <= CurLevel; ++Level) {
     unsigned BlobIndex;
     int64_t Coeff;
 
@@ -1501,9 +1633,21 @@ HIRCompleteUnroll::ProfitabilityAnalyzer::getBlobInfo(unsigned Index,
                                                       bool CEIsLinear) {
   BlobInfo BInfo;
 
-  BInfo.Simplified = SimplifiedTempBlobs.count(Index);
-
   BInfo.VisitedAsUnrollableIVBlob = VisitedUnrollableIVBlobs.count(Index);
+
+  unsigned DefLevel;
+  auto CurNode = ParentRef->getHLDDNode();
+
+  if (ParentRef->findTempBlobLevel(Index, &DefLevel)) {
+    if (DefLevel == NonLinearLevel) {
+      DefLevel = CurLevel;
+    }
+
+    BInfo.Simplified = isSimplifiedTempBlob(Index, DefLevel, CurNode);
+
+  } else {
+    BInfo.Simplified = false;
+  }
 
   if (CEIsLinear) {
     return BInfo;
@@ -1529,9 +1673,13 @@ HIRCompleteUnroll::ProfitabilityAnalyzer::getBlobInfo(unsigned Index,
     (void)Found;
     assert(Found && "Temp blob not found in Ref!");
 
-    if (SimplifiedTempBlobs.count(Idx)) {
+    if (DefLevel == NonLinearLevel) {
+      DefLevel = CurLevel;
+    }
+
+    if (isSimplifiedTempBlob(Idx, DefLevel, CurNode)) {
       ++NumSimplifiedTempBlobs;
-    } else if (DefLevel == NonLinearLevel) {
+    } else if (DefLevel == CurLevel) {
       Invariant = false;
       VisitedNonLinearBlobs.insert(
           std::make_pair(Idx, SmallVector<int64_t, 2>()));
@@ -1918,7 +2066,7 @@ HIRCompleteUnroll::performTripCountAnalysis(HLLoop *Loop) {
 }
 
 bool HIRCompleteUnroll::isProfitable(const HLLoop *Loop) {
-  DenseMap<unsigned, unsigned> SimplifiedTempBlobs;
+  SmallVector<SimplifiedTempBlob, 8> SimplifiedTempBlobs;
   MemRefGatherer::MapTy MemRefMap;
   SmallPtrSet<const Value *, 16> AllocaStoreBases;
 

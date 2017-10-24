@@ -448,6 +448,10 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBranchInst(
     return true;
   }
 
+  // Increase thresholds for small trip innermost loops so that we can unroll
+  // them.
+  bool UseO3Thresholds = (OptLevel > 2) || (IsInnermostLoop && IsSmallTripLoop);
+
   if (++IfCount > MaxIfThreshold) {
     DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loop throttled due to presence of too "
                     "many ifs.\n");
@@ -460,6 +464,7 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBranchInst(
   while (DomNode != HeaderDomNode) {
     assert(DomNode && "Dominator tree node of a loop bblock is null!");
 
+    auto DomBlock = DomNode->getBlock();
     // Consider this a nested if scenario only if the dominator has a single
     // predecessor otherwise sibling ifs may be counted as nested due to
     // merge/join bblocks.
@@ -478,7 +483,10 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBranchInst(
     // if() {
     // }
     //
-    if (DomNode->getBlock()->getSinglePredecessor()) {
+    // Ignore dominators whose terminator is not a branch. It can be a switch,
+    // for example.
+    if (DomBlock->getSinglePredecessor() &&
+        isa<BranchInst>(DomBlock->getTerminator())) {
       ++IfNestCount;
     }
 
@@ -487,7 +495,7 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBranchInst(
 
   // Add 1 to include reaching header node.
   if ((IfNestCount + 1) >
-      ((OptLevel > 2) ? O3MaxIfNestThreshold : O2MaxIfNestThreshold)) {
+      (UseO3Thresholds ? O3MaxIfNestThreshold : O2MaxIfNestThreshold)) {
     DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loop throttled due to presence of too "
                     "many nested ifs.\n");
     return false;
