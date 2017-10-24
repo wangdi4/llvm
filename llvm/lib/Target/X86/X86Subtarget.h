@@ -58,7 +58,7 @@ protected:
   };
 
   enum X86ProcFamilyEnum {
-    Others, IntelAtom, IntelSLM
+    Others, IntelAtom, IntelSLM, IntelGLM
   };
 
   /// X86 processor family: Intel Atom, and others
@@ -269,6 +269,9 @@ protected:
 
   /// Processor has AVX-512 Conflict Detection Instructions
   bool HasCDI;
+
+  /// Processor has AVX-512 population count Instructions
+  bool HasVPOPCNTDQ;
 
   /// Processor has AVX-512 Doubleword and Quadword instructions
   bool HasDQI;
@@ -494,6 +497,7 @@ public:
   bool slow3OpsLEA() const { return Slow3OpsLEA; }
   bool slowIncDec() const { return SlowIncDec; }
   bool hasCDI() const { return HasCDI; }
+  bool hasVPOPCNTDQ() const { return HasVPOPCNTDQ; }
   bool hasPFI() const { return HasPFI; }
   bool hasERI() const { return HasERI; }
   bool hasDQI() const { return HasDQI; }
@@ -593,7 +597,7 @@ public:
     case CallingConv::Intel_OCL_BI:
       return isTargetWin64();
     // This convention allows using the Win64 convention on other targets.
-    case CallingConv::X86_64_Win64:
+    case CallingConv::Win64:
       return true;
     // This convention allows using the SysV convention on Windows targets.
     case CallingConv::X86_64_SysV:

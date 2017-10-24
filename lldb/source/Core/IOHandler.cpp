@@ -58,7 +58,7 @@
 #include "llvm/ADT/StringRef.h" // for StringRef
 
 #ifdef _MSC_VER
-#include <windows.h>
+#include "lldb/Host/windows/windows.h"
 #endif
 
 #include <memory> // for shared_ptr
@@ -4640,7 +4640,7 @@ void IOHandlerCursesGUI::Activate() {
     WindowSP threads_window_sp(
         main_window_sp->CreateSubWindow("Threads", threads_bounds, false));
     WindowSP status_window_sp(
-        main_window_sp->CreateSubWindow("Error", status_bounds, false));
+        main_window_sp->CreateSubWindow("Status", status_bounds, false));
     status_window_sp->SetCanBeActive(
         false); // Don't let the status bar become the active window
     main_window_sp->SetDelegate(

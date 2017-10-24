@@ -178,6 +178,10 @@ void SetThreadName(const char *name) {
 }
 
 int OnExit() {
+  if (CAN_SANITIZE_LEAKS && common_flags()->detect_leaks &&
+      __lsan::HasReportedLeaks()) {
+    return common_flags()->exitcode;
+  }
   // FIXME: ask frontend whether we need to return failure.
   return 0;
 }
@@ -241,9 +245,8 @@ DECLARE_REAL_AND_INTERCEPTOR(void, free, void *)
     CheckNoDeepBind(filename, flag);                                           \
   } while (false)
 #define COMMON_INTERCEPTOR_ON_EXIT(ctx) OnExit()
-#define COMMON_INTERCEPTOR_LIBRARY_LOADED(filename, handle) \
-  CoverageUpdateMapping()
-#define COMMON_INTERCEPTOR_LIBRARY_UNLOADED() CoverageUpdateMapping()
+#define COMMON_INTERCEPTOR_LIBRARY_LOADED(filename, handle)
+#define COMMON_INTERCEPTOR_LIBRARY_UNLOADED()
 #define COMMON_INTERCEPTOR_NOTHING_IS_INITIALIZED (!asan_inited)
 #define COMMON_INTERCEPTOR_GET_TLS_RANGE(begin, end)                           \
   if (AsanThread *t = GetCurrentThread()) {                                    \
@@ -357,28 +360,22 @@ DEFINE_REAL_PTHREAD_FUNCTIONS
 
 #if SANITIZER_ANDROID
 INTERCEPTOR(void*, bsd_signal, int signum, void *handler) {
-  if (!IsHandledDeadlySignal(signum) ||
-      common_flags()->allow_user_segv_handler) {
+  if (GetHandleSignalMode(signum) != kHandleSignalExclusive)
     return REAL(bsd_signal)(signum, handler);
-  }
   return 0;
 }
 #endif
 
 INTERCEPTOR(void*, signal, int signum, void *handler) {
-  if (!IsHandledDeadlySignal(signum) ||
-      common_flags()->allow_user_segv_handler) {
+  if (GetHandleSignalMode(signum) != kHandleSignalExclusive)
     return REAL(signal)(signum, handler);
-  }
   return nullptr;
 }
 
 INTERCEPTOR(int, sigaction, int signum, const struct sigaction *act,
                             struct sigaction *oldact) {
-  if (!IsHandledDeadlySignal(signum) ||
-      common_flags()->allow_user_segv_handler) {
+  if (GetHandleSignalMode(signum) != kHandleSignalExclusive)
     return REAL(sigaction)(signum, act, oldact);
-  }
   return 0;
 }
 
@@ -586,17 +583,6 @@ INTERCEPTOR(char*, __strdup, const char *s) {
 }
 #endif // ASAN_INTERCEPT___STRDUP
 
-INTERCEPTOR(SIZE_T, wcslen, const wchar_t *s) {
-  void *ctx;
-  ASAN_INTERCEPTOR_ENTER(ctx, wcslen);
-  SIZE_T length = internal_wcslen(s);
-  if (!asan_init_is_running) {
-    ENSURE_ASAN_INITED();
-    ASAN_READ_RANGE(ctx, s, (length + 1) * sizeof(wchar_t));
-  }
-  return length;
-}
-
 INTERCEPTOR(char*, strncpy, char *to, const char *from, uptr size) {
   void *ctx;
   ASAN_INTERCEPTOR_ENTER(ctx, strncpy);
@@ -713,9 +699,7 @@ INTERCEPTOR(int, __cxa_atexit, void (*func)(void *), void *arg,
 #if ASAN_INTERCEPT_FORK
 INTERCEPTOR(int, fork, void) {
   ENSURE_ASAN_INITED();
-  if (common_flags()->coverage) CovBeforeFork();
   int pid = REAL(fork)();
-  if (common_flags()->coverage) CovAfterFork(pid);
   return pid;
 }
 #endif  // ASAN_INTERCEPT_FORK
@@ -731,7 +715,6 @@ void InitializeAsanInterceptors() {
   // Intercept str* functions.
   ASAN_INTERCEPT_FUNC(strcat);  // NOLINT
   ASAN_INTERCEPT_FUNC(strcpy);  // NOLINT
-  ASAN_INTERCEPT_FUNC(wcslen);
   ASAN_INTERCEPT_FUNC(strncat);
   ASAN_INTERCEPT_FUNC(strncpy);
   ASAN_INTERCEPT_FUNC(strdup);

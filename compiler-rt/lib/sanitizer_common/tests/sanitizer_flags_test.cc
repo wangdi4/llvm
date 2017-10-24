@@ -78,13 +78,15 @@ TEST(SanitizerCommon, HandleSignalMode) {
   TestFlag(kHandleSignalYes, "flag_name=0", kHandleSignalNo);
   TestFlag(kHandleSignalYes, "flag_name=no", kHandleSignalNo);
   TestFlag(kHandleSignalYes, "flag_name=false", kHandleSignalNo);
+  TestFlag(kHandleSignalNo, "flag_name=2", kHandleSignalExclusive);
+  TestFlag(kHandleSignalYes, "flag_name=exclusive", kHandleSignalExclusive);
 
   EXPECT_DEATH(TestFlag(kHandleSignalNo, "flag_name", kHandleSignalNo),
                "expected '='");
   EXPECT_DEATH(TestFlag(kHandleSignalNo, "flag_name=", kHandleSignalNo),
                "Invalid value for signal handler option: ''");
-  EXPECT_DEATH(TestFlag(kHandleSignalNo, "flag_name=2", kHandleSignalNo),
-               "Invalid value for signal handler option: '2'");
+  EXPECT_DEATH(TestFlag(kHandleSignalNo, "flag_name=3", kHandleSignalNo),
+               "Invalid value for signal handler option: '3'");
   EXPECT_DEATH(TestFlag(kHandleSignalNo, "flag_name=-1", kHandleSignalNo),
                "Invalid value for signal handler option: '-1'");
   EXPECT_DEATH(TestFlag(kHandleSignalNo, "flag_name=on", kHandleSignalNo),
@@ -165,13 +167,13 @@ TEST(SanitizerCommon, CommonFlags) {
 
   cf.symbolize = false;
   cf.coverage = true;
-  cf.coverage_direct = true;
+  cf.heap_profile = true;
   cf.log_path = "path/one";
 
-  parser.ParseString("symbolize=1:coverage_direct=false log_path='path/two'");
+  parser.ParseString("symbolize=1:heap_profile=false log_path='path/two'");
   EXPECT_TRUE(cf.symbolize);
   EXPECT_TRUE(cf.coverage);
-  EXPECT_FALSE(cf.coverage_direct);
+  EXPECT_FALSE(cf.heap_profile);
   EXPECT_STREQ("path/two", cf.log_path);
 }
 

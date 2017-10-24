@@ -53,7 +53,8 @@ set(GENERIC_SOURCES
   ashlti3.c
   ashrdi3.c
   ashrti3.c
-  clear_cache.c
+  bswapdi2.c
+  bswapsi2.c
   clzdi2.c
   clzsi2.c
   clzti2.c
@@ -77,7 +78,6 @@ set(GENERIC_SOURCES
   divti3.c
   divtf3.c
   divxc3.c
-  eprintf.c
   extendsfdf2.c
   extendhfsf2.c
   ffsdi2.c
@@ -174,8 +174,7 @@ set(GENERIC_SOURCES
   udivti3.c
   umoddi3.c
   umodsi3.c
-  umodti3.c
-  emutls.c)
+  umodti3.c)
 
 set(GENERIC_TF_SOURCES
   comparetf2.c
@@ -201,10 +200,12 @@ option(COMPILER_RT_EXCLUDE_ATOMIC_BUILTIN
   "Skip the atomic builtin (this may be needed if system headers are unavailable)"
   Off)
 
-if(NOT COMPILER_RT_BAREMETAL_BUILD)
+if(NOT FUCHSIA AND NOT COMPILER_RT_BAREMETAL_BUILD)
   set(GENERIC_SOURCES
     ${GENERIC_SOURCES}
-    enable_execute_stack.c)
+    emutls.c 
+    enable_execute_stack.c
+    eprintf.c)
 endif()
 
 if(COMPILER_RT_HAS_ATOMIC_KEYWORD AND NOT COMPILER_RT_EXCLUDE_ATOMIC_BUILTIN)
@@ -229,6 +230,12 @@ if (HAVE_UNWIND_H)
       ${GENERIC_SOURCES}
       gcc_personality_v0.c)
 endif ()
+
+if (NOT FUCHSIA)
+  set(GENERIC_SOURCES
+    ${GENERIC_SOURCES}
+    clear_cache.c)
+endif()
 
 if (NOT MSVC)
   set(x86_64_SOURCES

@@ -7,9 +7,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Support/TargetParser.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/ARMBuildAttributes.h"
-#include "llvm/Support/TargetParser.h"
 #include "gtest/gtest.h"
 #include <string>
 
@@ -319,7 +319,7 @@ TEST(TargetParserTest, testARMArch) {
       testARMArch("armv6-m", "cortex-m0", "v6m",
                           ARMBuildAttrs::CPUArch::v6_M));
   EXPECT_TRUE(
-      testARMArch("armv7-a", "cortex-a8", "v7",
+      testARMArch("armv7-a", "generic", "v7",
                           ARMBuildAttrs::CPUArch::v7));
   EXPECT_TRUE(
       testARMArch("armv7ve", "generic", "v7ve",
@@ -334,7 +334,7 @@ TEST(TargetParserTest, testARMArch) {
       testARMArch("armv7e-m", "cortex-m4", "v7em",
                           ARMBuildAttrs::CPUArch::v7E_M));
   EXPECT_TRUE(
-      testARMArch("armv8-a", "cortex-a53", "v8",
+      testARMArch("armv8-a", "generic", "v8",
                           ARMBuildAttrs::CPUArch::v8_A));
   EXPECT_TRUE(
       testARMArch("armv8.1-a", "generic", "v8.1a",
@@ -737,7 +737,7 @@ TEST(TargetParserTest, AArch64ExtensionFeatures) {
   unsigned Extensions = AArch64::AEK_CRC | AArch64::AEK_CRYPTO |
                         AArch64::AEK_FP | AArch64::AEK_SIMD |
                         AArch64::AEK_FP16 | AArch64::AEK_PROFILE |
-                        AArch64::AEK_RAS;
+                        AArch64::AEK_RAS | AArch64::AEK_SVE;
 
   for (unsigned i = 0; i <= Extensions; i++)
     EXPECT_TRUE(i == 0 ? !AArch64::getExtensionFeatures(i, Features)
@@ -762,7 +762,8 @@ TEST(TargetParserTest, AArch64ArchExtFeature) {
                               {"simd", "nosimd", "+neon", "-neon"},
                               {"fp16", "nofp16", "+fullfp16", "-fullfp16"},
                               {"profile", "noprofile", "+spe", "-spe"},
-                              {"ras", "noras", "+ras", "-ras"}};
+                              {"ras", "noras", "+ras", "-ras"},
+                              {"sve", "nosve", "+sve", "-sve"}};
 
   for (unsigned i = 0; i < array_lengthof(ArchExt); i++) {
     EXPECT_EQ(StringRef(ArchExt[i][2]),

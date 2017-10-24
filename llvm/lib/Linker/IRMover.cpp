@@ -1157,6 +1157,11 @@ Error IRLinker::linkModuleFlagsMetadata() {
         mdconst::extract<ConstantInt>(DstOp->getOperand(0));
     unsigned DstBehaviorValue = DstBehavior->getZExtValue();
 
+    auto overrideDstValue = [&]() {
+      DstModFlags->setOperand(DstIndex, SrcOp);
+      Flags[ID].first = SrcOp;
+    };
+
     // If either flag has override behavior, handle it first.
     if (DstBehaviorValue == Module::Override) {
       // Diagnose inconsistent flags which both have override behavior.
@@ -1167,8 +1172,7 @@ Error IRLinker::linkModuleFlagsMetadata() {
       continue;
     } else if (SrcBehaviorValue == Module::Override) {
       // Update the destination flag to that of the source.
-      DstModFlags->setOperand(DstIndex, SrcOp);
-      Flags[ID].first = SrcOp;
+      overrideDstValue();
       continue;
     }
 
@@ -1203,6 +1207,15 @@ Error IRLinker::linkModuleFlagsMetadata() {
                     "': IDs have conflicting values");
       }
       continue;
+    }
+    case Module::Max: {
+      ConstantInt *DstValue =
+          mdconst::extract<ConstantInt>(DstOp->getOperand(2));
+      ConstantInt *SrcValue =
+          mdconst::extract<ConstantInt>(SrcOp->getOperand(2));
+      if (SrcValue->getZExtValue() > DstValue->getZExtValue())
+        overrideDstValue();
+      break;
     }
     case Module::Append: {
       MDNode *DstValue = cast<MDNode>(DstOp->getOperand(2));
@@ -1243,6 +1256,18 @@ Error IRLinker::linkModuleFlagsMetadata() {
   return Error::success();
 }
 
+/// Return InlineAsm adjusted with target-specific directives if required.
+/// For ARM and Thumb, we have to add directives to select the appropriate ISA
+/// to support mixing module-level inline assembly from ARM and Thumb modules.
+static std::string adjustInlineAsm(const std::string &InlineAsm,
+                                   const Triple &Triple) {
+  if (Triple.getArch() == Triple::thumb || Triple.getArch() == Triple::thumbeb)
+    return ".text\n.balign 2\n.thumb\n" + InlineAsm;
+  if (Triple.getArch() == Triple::arm || Triple.getArch() == Triple::armeb)
+    return ".text\n.balign 4\n.arm\n" + InlineAsm;
+  return InlineAsm;
+}
+
 Error IRLinker::run() {
   // Ensure metadata materialized before value mapping.
   if (SrcM->getMaterializer())
@@ -1280,11 +1305,13 @@ Error IRLinker::run() {
 
   // Append the module inline asm string.
   if (!IsPerformingImport && !SrcM->getModuleInlineAsm().empty()) {
+    std::string SrcModuleInlineAsm = adjustInlineAsm(SrcM->getModuleInlineAsm(),
+                                                     SrcTriple);
     if (DstM.getModuleInlineAsm().empty())
-      DstM.setModuleInlineAsm(SrcM->getModuleInlineAsm());
+      DstM.setModuleInlineAsm(SrcModuleInlineAsm);
     else
       DstM.setModuleInlineAsm(DstM.getModuleInlineAsm() + "\n" +
-                              SrcM->getModuleInlineAsm());
+                              SrcModuleInlineAsm);
   }
 
   // Loop over all of the linked values to compute type mappings.

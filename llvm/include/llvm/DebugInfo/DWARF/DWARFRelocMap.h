@@ -12,11 +12,13 @@
 
 #include "llvm/ADT/DenseMap.h"
 #include <cstdint>
-#include <utility>
 
 namespace llvm {
 
+/// RelocAddrEntry contains relocated value and section index.
+/// Section index is -1LL if relocation points to absolute symbol.
 struct RelocAddrEntry {
+  uint64_t SectionIndex;
   uint64_t Value;
 };
 
@@ -25,7 +27,7 @@ struct RelocAddrEntry {
 /// dwarf where we expect relocated values. This adds a bit of complexity to the
 /// dwarf parsing/extraction at the benefit of not allocating memory for the
 /// entire size of the debug info sections.
-typedef DenseMap<uint64_t, RelocAddrEntry> RelocAddrMap;
+using RelocAddrMap = DenseMap<uint64_t, RelocAddrEntry>;
 
 } // end namespace llvm
 

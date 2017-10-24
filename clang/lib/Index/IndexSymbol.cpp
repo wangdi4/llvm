@@ -61,17 +61,21 @@ bool index::isFunctionLocalSymbol(const Decl *D) {
   if (isa<ObjCTypeParamDecl>(D))
     return true;
 
+  if (isa<UsingDirectiveDecl>(D))
+    return false;
   if (!D->getParentFunctionOrMethod())
     return false;
 
   if (const NamedDecl *ND = dyn_cast<NamedDecl>(D)) {
     switch (ND->getFormalLinkage()) {
       case NoLinkage:
-      case VisibleNoLinkage:
       case InternalLinkage:
         return true;
+      case VisibleNoLinkage:
       case UniqueExternalLinkage:
+      case ModuleInternalLinkage:
         llvm_unreachable("Not a sema linkage");
+      case ModuleLinkage:
       case ExternalLinkage:
         return false;
     }
@@ -297,6 +301,10 @@ SymbolInfo index::getSymbolInfo(const Decl *D) {
       break;
     case Decl::TypeAlias:
       Info.Kind = SymbolKind::TypeAlias;
+      Info.Lang = SymbolLanguage::CXX;
+      break;
+    case Decl::Binding:
+      Info.Kind = SymbolKind::Variable;
       Info.Lang = SymbolLanguage::CXX;
       break;
     default:
