@@ -97,23 +97,23 @@ class BasicBlock;
 
 namespace vpo {
 
-/// \brief This class contains a set of utility functions used by VPO Paropt 
+/// \brief This class contains a set of utility functions used by VPO Paropt
 /// Transformation passes.
 class VPOParoptUtils {
 
 public:
 
-    /// \brief Generate OpenMP runtime __kmpc_begin(&loc, flags) 
-    /// initialization code. The generated runtime routine call is invoked 
+    /// \brief Generate OpenMP runtime __kmpc_begin(&loc, flags)
+    /// initialization code. The generated runtime routine call is invoked
     /// (only once) right after entering the main function.
-    static CallInst* genKmpcBeginCall(Function *F, Instruction *InsertPt, 
+    static CallInst* genKmpcBeginCall(Function *F, Instruction *InsertPt,
                                       StructType *IdentTy);
 
-    /// \brief Generate OpenMP runtime __kmpc_end(&loc) termination code 
-    /// The generated runtime routine call is invoked (only once) right 
+    /// \brief Generate OpenMP runtime __kmpc_end(&loc) termination code
+    /// The generated runtime routine call is invoked (only once) right
     /// before exiting the main function.
-    static CallInst* genKmpcEndCall(Function *F, 
-                                    Instruction *InsertPt, 
+    static CallInst* genKmpcEndCall(Function *F,
+                                    Instruction *InsertPt,
                                     StructType *IdentTy);
 
     /// \brief Check whether the call __kmpc_global_thread_num() exists
@@ -123,13 +123,13 @@ public:
     /// \brief Check whether the given instruction is the call
     /// __kmpc_global_thread_num().
     static bool isKmpcGlobalThreadNumCall(Instruction *I);
-   
-    /// \brief Generate OpenMP runtime __kmpc_global_thread_num() call 
-    /// The generated runtime routine call is invoked (only once) to get 
-    /// runtime right 
-    /// after entering each function that contains OpenMP constructs 
-    static CallInst* genKmpcGlobalThreadNumCall(Function    *F, 
-                                                Instruction *InsertPt, 
+
+    /// \brief Generate OpenMP runtime __kmpc_global_thread_num() call
+    /// The generated runtime routine call is invoked (only once) to get
+    /// runtime right
+    /// after entering each function that contains OpenMP constructs
+    static CallInst* genKmpcGlobalThreadNumCall(Function    *F,
+                                                Instruction *InsertPt,
                                                 StructType  *IdentTy);
 
     /// \brief Generates OpenMP runtime __kmpc_threadprivate_cached call.
@@ -140,9 +140,9 @@ public:
                                                     Value *GV,
                                                     Value *GVSize,
                                                     Value *TpvGV);
-      
-    /// \brief Generate OpenMP runtime ForkTest = ___kmpc_ok_to_fork(&loc) 
-    static CallInst* genKmpcForkTest(WRegionNode *W, StructType *IdentTy, 
+
+    /// \brief Generate OpenMP runtime ForkTest = ___kmpc_ok_to_fork(&loc)
+    static CallInst* genKmpcForkTest(WRegionNode *W, StructType *IdentTy,
                                      Instruction *InsertPt);
 
     /// \brief Generate source location information from Instruction DebugLoc
@@ -151,8 +151,8 @@ public:
                                                   int Flags, BasicBlock *BS,
                                                   BasicBlock *BE);
 
-    
-    /// \brief This function generates a call to set num_threads for the 
+
+    /// \brief This function generates a call to set num_threads for the
     /// parallel region and parallel loop/sections
     ///
     /// call void @__kmpc_push_num_threads(%ident_t* %loc, i32 %tid, i32 %nths)
@@ -161,27 +161,27 @@ public:
                                       Value *Tid, Value *NumThreads,
                                       Instruction *InsertPt);
 
-    /// \brief Generate a call to notify the runtime system that the static 
-    /// loop scheduling is started 
+    /// \brief Generate a call to notify the runtime system that the static
+    /// loop scheduling is started
     /// call void @__kmpc_for_static_init_4(%ident_t* %loc, i32 %tid,
     ///             i32 schedtype, i32* %islast,i32* %lb, i32* %ub, i32* %st,
     ///             i32 inc, i32 chunk)
     static CallInst* genKmpcStaticInit(WRegionNode *W,
                                        StructType *IdentTy,
-                                       Value *Tid, Value *SchedType, 
-                                       Value *IsLastVal, Value *LB, Value *UB, 
+                                       Value *Tid, Value *SchedType,
+                                       Value *IsLastVal, Value *LB, Value *UB,
                                        Value *ST, Value *Inc, Value *Chunk,
                                        int Size, bool IsUnsigned,
                                        Instruction *InsertPt);
 
-    /// \brief Generate a call to notify the runtime system that the static 
-    /// loop scheduling is done 
+    /// \brief Generate a call to notify the runtime system that the static
+    /// loop scheduling is done
     ///   call void @__kmpc_for_static_fini(%ident_t* %loc, i32 %tid)
     static CallInst* genKmpcStaticFini(WRegionNode *W,
                                        StructType *IdentTy,
                                        Value *Tid, Instruction *InsertPt);
 
-    /// \brief Generate a call to pass all loop info to the runtime system 
+    /// \brief Generate a call to pass all loop info to the runtime system
     /// for guided/runtime/dynamic/auto loop scheduling
     ///
     ///   call void @__kmpc_for_dispatch_init_4{u}(%ident_t* %loc, i32 %tid,
@@ -207,27 +207,27 @@ public:
     ///               i32 *isLast, i64 *%lb, i64 *%ub, i64 *%st)
     static CallInst* genKmpcDispatchNext(WRegionNode *W,
                                          StructType *IdentTy,
-                                         Value *Tid, Value *IsLastVal, 
+                                         Value *Tid, Value *IsLastVal,
                                          Value *LB, Value *UB, Value *ST,
                                          int Size, bool IsUnsigned,
                                          Instruction *InsertPt);
 
-    /// \brief Generate a call to the runtime system that informs 
+    /// \brief Generate a call to the runtime system that informs
     /// guided/runtime/dynamic/auto scheduling is done.
     ///
     ///   call void @__kmpc_for_dispatch_fini_4{u}(%ident_t* %loc, i32 %tid)
     ///   call void @__kmpc_for_dispatch_fini_8{u}(%ident_t* %loc, i32 %tid)
     static CallInst* genKmpcDispatchFini(WRegionNode *W,
                                          StructType *IdentTy,
-                                         Value *Tid, int Size, bool IsUnsigned, 
+                                         Value *Tid, int Size, bool IsUnsigned,
                                          Instruction *InsertPt);
 
-    /// \Brief Update loop scheduling kind based on ordered clause and chunk 
+    /// \Brief Update loop scheduling kind based on ordered clause and chunk
     /// size information
-    static WRNScheduleKind genScheduleKind(WRNScheduleKind Kind, 
+    static WRNScheduleKind genScheduleKind(WRNScheduleKind Kind,
                                            int IsOrdered, int Chunk);
 
-    /// \Brief Query loop scheduling kind based on ordered clause and chunk 
+    /// \Brief Query loop scheduling kind based on ordered clause and chunk
     /// size information
     static WRNScheduleKind getLoopScheduleKind(WRegionNode *W);
 
@@ -395,18 +395,18 @@ public:
     static CallInst *genMemcpy(Value *D, Value *S, const DataLayout &DL,
                                unsigned Align, BasicBlock *BB);
 
-    /// \brief Computes the OpenMP loop upper bound so that the loop 
+    /// \brief Computes the OpenMP loop upper bound so that the loop
     //  iteration space can be closed interval.
     static CmpInst::Predicate computeOmpPredicate(CmpInst::Predicate PD);
 
-    /// \brief Returns the predicate which includes equal for the 
+    /// \brief Returns the predicate which includes equal for the
     //  zero trip test.
     static Value* computeOmpUpperBound(WRegionNode *W,
                                        Instruction* InsertPt);
 
     /// \brief Updates the bottom test predicate to include equal predicate.
     /// It also updates the loop upper bound.
-    static void updateOmpPredicateAndUpperBound(WRegionNode *W, 
+    static void updateOmpPredicateAndUpperBound(WRegionNode *W,
                                                 Value *Load,
                                                 Instruction *InsertPt);
 

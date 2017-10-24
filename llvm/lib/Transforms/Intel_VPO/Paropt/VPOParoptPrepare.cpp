@@ -18,7 +18,7 @@
 //===----------------------------------------------------------------------===//
 ///
 /// \file
-/// This file implements the ParOpt prepare pass interface to perform Prepare 
+/// This file implements the ParOpt prepare pass interface to perform Prepare
 /// transformation for OpenMP parallelization, simd and Offloading
 ///
 //===----------------------------------------------------------------------===//
@@ -44,11 +44,11 @@ using namespace llvm::vpo;
 
 #define DEBUG_TYPE "VPOParoptPrepare"
 
-INITIALIZE_PASS_BEGIN(VPOParoptPrepare, "vpo-paropt-prepare", 
+INITIALIZE_PASS_BEGIN(VPOParoptPrepare, "vpo-paropt-prepare",
                      "VPO Paropt Prepare Function Pass", false, false)
 INITIALIZE_PASS_DEPENDENCY(LoopSimplify)
 INITIALIZE_PASS_DEPENDENCY(WRegionInfo)
-INITIALIZE_PASS_END(VPOParoptPrepare, "vpo-paropt-prepare", 
+INITIALIZE_PASS_END(VPOParoptPrepare, "vpo-paropt-prepare",
                     "VPO Paropt Prepare Function Pass", false, false)
 
 char VPOParoptPrepare::ID = 0;
@@ -75,7 +75,7 @@ bool VPOParoptPrepare::runOnFunction(Function &F) {
 
   // TODO: need Front-End to set F.hasOpenMPDirective()
   if (F.isDeclaration()) { // if(!F.hasOpenMPDirective()))
-    DEBUG(dbgs() << "\n}=== VPOParoptPrepare End (no change): " 
+    DEBUG(dbgs() << "\n}=== VPOParoptPrepare End (no change): "
                                                      << F.getName() <<"\n");
     return Changed;
   }
@@ -98,7 +98,7 @@ bool VPOParoptPrepare::runOnFunction(Function &F) {
   DEBUG(dbgs() << "\n === VPOParoptPrepare Pass before Transformation === \n");
 
   // AUTOPAR | OPENMP | SIMD | OFFLOAD
-  VPOParoptTransform VP(&F, &WI, 
+  VPOParoptTransform VP(&F, &WI,
                         WI.getDomTree(), WI.getLoopInfo(), WI.getSE(), Mode);
   Changed = Changed | VP.paroptTransforms();
 

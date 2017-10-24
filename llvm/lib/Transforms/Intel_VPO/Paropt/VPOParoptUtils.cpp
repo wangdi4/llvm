@@ -110,7 +110,7 @@ CallInst *VPOParoptUtils::genKmpcEndCall(Function *F, Instruction *AI,
 
 
 // This function generates a runtime library call to __kmpc_ok_to_fork(&loc)
-CallInst *VPOParoptUtils::genKmpcForkTest(WRegionNode *W, StructType *IdentTy, 
+CallInst *VPOParoptUtils::genKmpcForkTest(WRegionNode *W, StructType *IdentTy,
                                           Instruction *InsertPt) {
   BasicBlock *B = W->getEntryBBlock();
   BasicBlock *E = W->getExitBBlock();
@@ -139,7 +139,7 @@ CallInst *VPOParoptUtils::genKmpcForkTest(WRegionNode *W, StructType *IdentTy,
   std::vector<Value *> FnForkTestArgs;
   FnForkTestArgs.push_back(Loc);
 
-  CallInst *ForkTestCall = CallInst::Create(FnForkTest, FnForkTestArgs, 
+  CallInst *ForkTestCall = CallInst::Create(FnForkTest, FnForkTestArgs,
                                             "fork.test", InsertPt);
   ForkTestCall->setCallingConv(CallingConv::C);
   ForkTestCall->setTailCall(true);
@@ -149,7 +149,7 @@ CallInst *VPOParoptUtils::genKmpcForkTest(WRegionNode *W, StructType *IdentTy,
 
 /// Update loop scheduling kind based on ordered clause and chunk
 /// size information
-WRNScheduleKind VPOParoptUtils::genScheduleKind(WRNScheduleKind Kind, 
+WRNScheduleKind VPOParoptUtils::genScheduleKind(WRNScheduleKind Kind,
                                                 int IsOrdered, int Chunk)
 {
   if (IsOrdered) {
@@ -191,7 +191,7 @@ WRNScheduleKind VPOParoptUtils::genScheduleKind(WRNScheduleKind Kind,
 
 // Query scheduling type based on ordered clause and chunk size information
 //
-// The values of the enums are used to invoke the RTL, so do not change 
+// The values of the enums are used to invoke the RTL, so do not change
 // them
 //
 // typedef enum WRNScheduleKind {
@@ -226,7 +226,7 @@ WRNScheduleKind VPOParoptUtils::genScheduleKind(WRNScheduleKind Kind,
 // } WRNScheduleKind;
 WRNScheduleKind VPOParoptUtils::getLoopScheduleKind(WRegionNode *W)
 {
-  if (W->hasSchedule()) { 
+  if (W->hasSchedule()) {
     // E.g., W could be WRNParallelLoop or WRNWksLoop
     auto IsOrdered = W->getOrdered();
     auto Schedule  = W->getSchedule();
@@ -303,9 +303,8 @@ CallInst *VPOParoptUtils::genKmpcRedGetNthData(WRegionNode *W, Value *TidPtr,
       FunctionType::get(Type::getInt8PtrTy(C), TypeParams, false);
 
   std::string FnName = UseTbb ? "__tbb_omp_task_reduction_get_th_data" :
-                                "__kmpc_task_reduction_get_th_data"; 
-                                
-                               
+                                "__kmpc_task_reduction_get_th_data";
+
   Function *FnRedGetNthData = M->getFunction(FnName);
 
   if (!FnRedGetNthData) {
@@ -750,7 +749,7 @@ CallInst *VPOParoptUtils::genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
                         Type::getInt32Ty(C),
                         Type::getInt32Ty(C),
                         Type::getInt64Ty(C),
-                        Type::getInt8PtrTy(C)}; 
+                        Type::getInt8PtrTy(C)};
   FunctionType *FnTy = FunctionType::get(Type::getVoidTy(C), TypeParams, false);
 
   std::string FnName = UseTbb ? "__tbb_omp_taskloop" : "__kmpc_taskloop";
@@ -790,7 +789,7 @@ CallInst *VPOParoptUtils::genKmpcTaskReductionInit(WRegionNode *W,
   FunctionType *FnTy =
       FunctionType::get(Type::getInt8PtrTy(C), TypeParams, false);
 
-  std::string FnName = UseTbb ? "__tbb_omp_task_reduction_init" : 
+  std::string FnName = UseTbb ? "__tbb_omp_task_reduction_init" :
                                 "__kmpc_task_reduction_init";
 
   Function *FnTaskRedInit = M->getFunction(FnName);
@@ -828,7 +827,7 @@ CallInst *VPOParoptUtils::genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy,
   GlobalVariable *Loc =
       genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
 
-  auto *TaskFlags = ConstantInt::get(Type::getInt32Ty(C), W->getTaskFlag()); 
+  auto *TaskFlags = ConstantInt::get(Type::getInt32Ty(C), W->getTaskFlag());
   auto *KmpTaskTWithPrivatesTySize =
       ConstantInt::get(Type::getInt64Ty(C), KmpTaskTTWithPrivatesTySz);
   auto *SharedsSize = ConstantInt::get(Type::getInt64Ty(C), KmpSharedTySz);
@@ -860,11 +859,11 @@ CallInst *VPOParoptUtils::genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy,
   return TaskAllocCall;
 }
 
-// This function generates a call to notify the runtime system that the static 
+// This function generates a call to notify the runtime system that the static
 // loop scheduling is started
 //
-//   call void @__kmpc_for_static_init_4(%ident_t* %loc, i32 %tid, 
-//               i32 schedtype, i32* %islast,i32* %lb, i32* %ub, i32* %st, 
+//   call void @__kmpc_for_static_init_4(%ident_t* %loc, i32 %tid,
+//               i32 schedtype, i32* %islast,i32* %lb, i32* %ub, i32* %st,
 //               i32 inc, i32 chunk)
 CallInst *VPOParoptUtils::genKmpcStaticInit(WRegionNode *W,
                                             StructType *IdentTy,
@@ -872,7 +871,7 @@ CallInst *VPOParoptUtils::genKmpcStaticInit(WRegionNode *W,
                                             Value *IsLastVal, Value *LB,
                                             Value *UB, Value *ST,
                                             Value *Inc, Value *Chunk,
-                                            int Size, bool IsUnsigned, 
+                                            int Size, bool IsUnsigned,
                                             Instruction *InsertPt) {
   BasicBlock *B = W->getEntryBBlock();
   BasicBlock *E = W->getExitBBlock();
@@ -896,17 +895,17 @@ CallInst *VPOParoptUtils::genKmpcStaticInit(WRegionNode *W,
   std::string FnName;
 
   if (IsUnsigned)
-    FnName = (Size == 32) ? "__kmpc_for_static_init_4u" :  
+    FnName = (Size == 32) ? "__kmpc_for_static_init_4u" :
                             "__kmpc_for_static_init_8u" ;
   else
     FnName = (Size == 32) ? "__kmpc_for_static_init_4" :
                             "__kmpc_for_static_init_8" ;
 
-  Type *ParamsTy[] = {PointerType::getUnqual(IdentTy), 
+  Type *ParamsTy[] = {PointerType::getUnqual(IdentTy),
                       Int32Ty, Int32Ty, PointerType::getUnqual(Int32Ty),
                       PointerType::getUnqual(IntArgTy),
                       PointerType::getUnqual(IntArgTy),
-                      PointerType::getUnqual(IntArgTy), 
+                      PointerType::getUnqual(IntArgTy),
                       IntArgTy, IntArgTy};
 
   FunctionType *FnTy = FunctionType::get(Type::getVoidTy(C), ParamsTy, false);
@@ -914,7 +913,7 @@ CallInst *VPOParoptUtils::genKmpcStaticInit(WRegionNode *W,
   Function *FnStaticInit = M->getFunction(FnName);
 
   if (!FnStaticInit) {
-    FnStaticInit = Function::Create(FnTy, GlobalValue::ExternalLinkage, 
+    FnStaticInit = Function::Create(FnTy, GlobalValue::ExternalLinkage,
                                     FnName, M);
     FnStaticInit->setCallingConv(CallingConv::C);
   }
@@ -931,7 +930,7 @@ CallInst *VPOParoptUtils::genKmpcStaticInit(WRegionNode *W,
   FnStaticInitArgs.push_back(Inc);
   FnStaticInitArgs.push_back(Chunk);
 
-  CallInst *StaticInitCall = CallInst::Create(FnStaticInit, 
+  CallInst *StaticInitCall = CallInst::Create(FnStaticInit,
                                               FnStaticInitArgs, "", InsertPt);
   StaticInitCall->setCallingConv(CallingConv::C);
   StaticInitCall->setTailCall(false);
@@ -986,20 +985,20 @@ CallInst *VPOParoptUtils::genKmpcStaticFini(WRegionNode *W,
   return StaticFiniCall;
 }
 
-// This function generates a call to notify the runtime system that the 
+// This function generates a call to notify the runtime system that the
 // guided/runtime/dynamic loop scheduling is started
 //
-//   call void @__kmpc_dispatch_init_4{u}(%ident_t* %loc, i32 %tid, 
+//   call void @__kmpc_dispatch_init_4{u}(%ident_t* %loc, i32 %tid,
 //               i32 schedtype, i32 %lb, i32 %ub, i32 %st, i32 chunk)
-// 
-//   call void @__kmpc_dispatch_init_8{u}4(%ident_t* %loc, i32 %tid, 
+//
+//   call void @__kmpc_dispatch_init_8{u}4(%ident_t* %loc, i32 %tid,
 //               i32 schedtype, i64 %lb, i64 %ub, i64 %st, i64 chunk)
 CallInst *VPOParoptUtils::genKmpcDispatchInit(WRegionNode *W,
                                               StructType *IdentTy,
                                               Value *Tid, Value *SchedType,
-                                              Value *LB, Value *UB, 
-                                              Value *ST, Value *Chunk, 
-                                              int Size, bool IsUnsigned, 
+                                              Value *LB, Value *UB,
+                                              Value *ST, Value *Chunk,
+                                              int Size, bool IsUnsigned,
                                               Instruction *InsertPt) {
   BasicBlock *B = W->getEntryBBlock();
   BasicBlock *E = W->getExitBBlock();
@@ -1024,13 +1023,13 @@ CallInst *VPOParoptUtils::genKmpcDispatchInit(WRegionNode *W,
   std::string FnName;
 
   if (IsUnsigned)
-    FnName = (Size == 32) ? "__kmpc_dispatch_init_4u" : 
+    FnName = (Size == 32) ? "__kmpc_dispatch_init_4u" :
                             "__kmpc_dispatch_init_8u" ;
-  else 
-    FnName = (Size == 32) ? "__kmpc_dispatch_init_4" : 
+  else
+    FnName = (Size == 32) ? "__kmpc_dispatch_init_4" :
                             "__kmpc_dispatch_init_8" ;
 
-  Type *ParamsTy[] = {PointerType::getUnqual(IdentTy), 
+  Type *ParamsTy[] = {PointerType::getUnqual(IdentTy),
                       Int32Ty, Int32Ty, IntArgTy, IntArgTy, IntArgTy, IntArgTy};
 
   FunctionType *FnTy = FunctionType::get(Type::getVoidTy(C), ParamsTy, false);
@@ -1067,16 +1066,16 @@ CallInst *VPOParoptUtils::genKmpcDispatchInit(WRegionNode *W,
 // This function generates a call to the runtime system that performs
 // loop partitioning for guided/runtime/dynamic/auto scheduling.
 //
-//   call void @__kmpc_dispatch_next_4{u}(%ident_t* %loc, i32 %tid, 
+//   call void @__kmpc_dispatch_next_4{u}(%ident_t* %loc, i32 %tid,
 //               i32 *isLast, i32 *%lb, i32 *%ub, i32 *%st)
-// 
-//   call void @__kmpc_dispatch_next_8{u}(%ident_t* %loc, i32 %tid, 
+//
+//   call void @__kmpc_dispatch_next_8{u}(%ident_t* %loc, i32 %tid,
 //               i32 *isLast, i64 *%lb, i64 *%ub, i64 *%st)
 CallInst *VPOParoptUtils::genKmpcDispatchNext(WRegionNode *W,
                                               StructType *IdentTy,
-                                              Value *Tid, Value *IsLastVal, 
+                                              Value *Tid, Value *IsLastVal,
                                               Value *LB, Value *UB, Value *ST,
-                                              int Size, bool IsUnsigned, 
+                                              int Size, bool IsUnsigned,
                                               Instruction *InsertPt) {
   BasicBlock *B = W->getEntryBBlock();
   BasicBlock *E = W->getExitBBlock();
@@ -1100,10 +1099,10 @@ CallInst *VPOParoptUtils::genKmpcDispatchNext(WRegionNode *W,
 
   std::string FnName;
 
-  if (IsUnsigned) 
+  if (IsUnsigned)
     FnName = (Size == 32) ? "__kmpc_dispatch_next_4u" :
                             "__kmpc_dispatch_next_8u" ;
-  else 
+  else
     FnName = (Size == 32) ? "__kmpc_dispatch_next_4" :
                             "__kmpc_dispatch_next_8" ;
 
@@ -1144,9 +1143,9 @@ CallInst *VPOParoptUtils::genKmpcDispatchNext(WRegionNode *W,
 //
 //   call void @__kmpc_dispatch_fini_4{u}(%ident_t* %loc, i32 %tid)
 //   call void @__kmpc_dispatch_fini_8{u}(%ident_t* %loc, i32 %tid)
-CallInst *VPOParoptUtils::genKmpcDispatchFini(WRegionNode *W, 
-                                              StructType *IdentTy, 
-                                              Value *Tid, int Size, 
+CallInst *VPOParoptUtils::genKmpcDispatchFini(WRegionNode *W,
+                                              StructType *IdentTy,
+                                              Value *Tid, int Size,
                                               bool IsUnsigned,
                                               Instruction *InsertPt) {
   BasicBlock  *B = W->getEntryBBlock();
@@ -1168,7 +1167,7 @@ CallInst *VPOParoptUtils::genKmpcDispatchFini(WRegionNode *W,
 
   int Flags = KMP_IDENT_KMPC;
 
-  GlobalVariable *Loc = 
+  GlobalVariable *Loc =
     genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
 
   DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
@@ -1177,7 +1176,7 @@ CallInst *VPOParoptUtils::genKmpcDispatchFini(WRegionNode *W,
 
   Type *RetTy = Type::getVoidTy(C);
 
-  // Generate __kmpc_dispatch_fini4{u}/8{u} in IR 
+  // Generate __kmpc_dispatch_fini4{u}/8{u} in IR
   CallInst *DispatchFini = genCall(M, FnName, RetTy, FnArgs);
   DispatchFini->insertBefore(InsertPt);
 
@@ -1236,11 +1235,11 @@ CallInst *VPOParoptUtils::genKmpcGlobalThreadNumCall(Function *F,
   Module *M = F->getParent();
   LLVMContext &C = F->getContext();
 
-  if (!IdentTy) 
+  if (!IdentTy)
     IdentTy = StructType::get(C, {Type::getInt32Ty(C),
-                                  Type::getInt32Ty(C),  
-                                  Type::getInt32Ty(C),  
-                                  Type::getInt32Ty(C),   
+                                  Type::getInt32Ty(C),
+                                  Type::getInt32Ty(C),
+                                  Type::getInt32Ty(C),
                                   Type::getInt8PtrTy(C)});
 
   BasicBlock &B = F->getEntryBlock();
@@ -1443,14 +1442,14 @@ CallInst *VPOParoptUtils::genKmpcBarrier(WRegionNode *W, Value *Tid,
   Type      *RetTy = Type::getVoidTy(C);
   StringRef FnName = "__kmpc_barrier";
 
-  // Create the arg for Loc  
+  // Create the arg for Loc
   GlobalVariable *Loc;
   if (IsExplicit)
     Loc = genKmpcLocforExplicitBarrier(InsertPt, IdentTy, B);
   else // Implicit
     Loc = genKmpcLocforImplicitBarrier(W, InsertPt, IdentTy, B);
-  
-  // Create the arg for Tid  
+
+  // Create the arg for Tid
   LoadInst *LoadTid = new LoadInst(Tid, "my.tid", InsertPt);
   LoadTid->setAlignment(4);
 
@@ -1903,7 +1902,7 @@ CallInst *VPOParoptUtils::genMemcpy(Value *D, Value *S, const DataLayout &DL,
   // The first two arguments of the memcpy expects the i8 operands.
   // The instruction bitcast is introduced if the incoming src or dest
   // operand in not in i8 type.
-  if (D->getType() != 
+  if (D->getType() !=
       Type::getInt8PtrTy(BB->getParent()->getContext())) {
     Dest = MemcpyBuilder.CreatePointerCast(D, MemcpyBuilder.getInt8PtrTy());
     Src = MemcpyBuilder.CreatePointerCast(S, MemcpyBuilder.getInt8PtrTy());
@@ -1937,7 +1936,7 @@ Value *VPOParoptUtils::computeOmpUpperBound(WRegionNode *W,
   RightValue = VPOParoptUtils::cloneInstructions(RightValue, InsertPt);
   bool IsLeft = true;
   CmpInst::Predicate PD = WRegionUtils::getOmpPredicate(L, IsLeft);
-  IntegerType *UpperBoundTy = 
+  IntegerType *UpperBoundTy =
     cast<IntegerType>(RightValue->getType());
   ConstantInt *ValueOne  = ConstantInt::get(UpperBoundTy, 1);
 
@@ -2006,7 +2005,7 @@ Value *VPOParoptUtils::computeOmpUpperBound(WRegionNode *W,
   }
 
   return Res;
-   
+
 }
 
 // Returns the predicate which includes equal for the zero trip test.
@@ -2022,7 +2021,7 @@ CmpInst::Predicate VPOParoptUtils::computeOmpPredicate(CmpInst::Predicate PD) {
 
 // Updates the bottom test predicate to include equal predicate.
 void VPOParoptUtils::updateOmpPredicateAndUpperBound(WRegionNode *W,
-                                                     Value *UB, 
+                                                     Value *UB,
                                                      Instruction* InsertPt) {
 
   assert(W->getIsOmpLoop() && "computeOmpUpperBound: not a loop-type WRN");
@@ -2034,10 +2033,10 @@ void VPOParoptUtils::updateOmpPredicateAndUpperBound(WRegionNode *W,
   Value *PredOperand;
   if (IsLeft)
     PredOperand = IC->getOperand(1);
-  else 
+  else
     PredOperand = IC->getOperand(0);
 
-  if (UB->getType()->getIntegerBitWidth() != 
+  if (UB->getType()->getIntegerBitWidth() !=
       PredOperand->getType()->getIntegerBitWidth()) {
     IRBuilder<> B(InsertPt);
     UB = B.CreateSExtOrTrunc(UB, PredOperand->getType());
@@ -2151,7 +2150,7 @@ Constant* VPOParoptUtils::getMinMaxIntVal(LLVMContext &C, Type *Ty,
                                              bool IsUnsigned, bool GetMax) {
   IntegerType *IntTy = dyn_cast<IntegerType>(Ty->getScalarType());
   assert(IntTy && "getMinMaxIntVal: Expected Interger type");
-  
+
   unsigned BitWidth = IntTy->getBitWidth();
   assert(BitWidth <= 64 && "getMinMaxIntVal: Expected BitWidth <= 64");
 

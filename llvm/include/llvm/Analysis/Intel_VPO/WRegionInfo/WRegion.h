@@ -93,7 +93,7 @@ public:
   BasicBlock *getZTTBB() const { return ZTTBB; }
 };
 
-/// WRN for 
+/// WRN for
 /// \code
 ///   #pragma omp parallel
 /// \endcode
@@ -136,7 +136,7 @@ public:
   }
 };
 
-/// WRN for 
+/// WRN for
 /// \code
 ///   #pragma omp parallel loop
 /// \endcode
@@ -193,7 +193,7 @@ public:
   }
 };
 
-/// WRN for 
+/// WRN for
 /// \code
 ///   #pragma omp parallel sections
 /// \endcode
@@ -238,7 +238,7 @@ public:
   }
 };
 
-/// WRN for 
+/// WRN for
 /// \code
 ///   !$omp parallel workshare
 /// \endcode
@@ -283,7 +283,7 @@ public:
   }
 };
 
-/// WRN for 
+/// WRN for
 /// \code
 ///   #pragma omp teams
 /// \endcode
@@ -321,7 +321,7 @@ public:
   }
 };
 
-/// WRN for 
+/// WRN for
 /// \code
 ///   #pragma omp distribute parallel for
 /// \endcode
@@ -380,7 +380,7 @@ public:
   }
 };
 
-/// WRN for 
+/// WRN for
 /// \code
 ///   #pragma omp target
 /// \endcode
@@ -478,7 +478,7 @@ enum WRNTaskFlag : uint32_t {
   // bits 26-32: reserved for library
 };
 
-/// WRN for 
+/// WRN for
 /// \code
 ///   #pragma omp task
 /// \endcode
@@ -530,7 +530,7 @@ public:
   }
 };
 
-/// WRN for 
+/// WRN for
 /// \code
 ///   #pragma omp taskloop
 /// \endcode
@@ -555,7 +555,7 @@ private:
   //   WRNDefaultKind Default;
   //   bool Untied;
   //   bool Mergeable;
-  //   unsigned TaskFlag; 
+  //   unsigned TaskFlag;
 
 public:
   WRNTaskloopNode(BasicBlock *BB, LoopInfo *L);
@@ -604,7 +604,7 @@ public:
   }
 };
 
-/// WRN for 
+/// WRN for
 /// \code
 ///   #pragma omp simd
 /// \endcode
@@ -667,7 +667,7 @@ public:
   }
 };
 
-/// WRN for 
+/// WRN for
 /// \code
 ///   #pragma omp for
 /// \endcode
@@ -711,7 +711,7 @@ public:
   }
 };
 
-/// WRN for 
+/// WRN for
 /// \code
 ///   #pragma omp sections
 /// \endcode
@@ -745,7 +745,7 @@ public:
   }
 };
 
-/// Fortran-only WRN for 
+/// Fortran-only WRN for
 /// \code
 ///   !$omp workshare
 /// \endcode
@@ -770,7 +770,7 @@ public:
   }
 };
 
-/// WRN for 
+/// WRN for
 /// \code
 ///   #pragma omp distribute
 /// \endcode
@@ -856,7 +856,7 @@ public:
   }
 };
 
-/// WRN for 
+/// WRN for
 /// \code
 ///   #pragma omp barrier
 /// \endcode
@@ -900,7 +900,7 @@ public:
   }
 };
 
-/// WRN for 
+/// WRN for
 /// \code
 ///   #pragma omp master
 /// \endcode
@@ -949,7 +949,7 @@ public:
   bool getIsThreads() const { assertDoacrossFalse(); return IsThreads; }
   bool getIsDepSource() const { assertDoacrossTrue(); return IsDepSource; }
 
-  const DepSinkClause &getDepSink() const {assertDoacrossTrue(); 
+  const DepSinkClause &getDepSink() const {assertDoacrossTrue();
                                            return DepSink; }
   DepSinkClause &getDepSink() { assertDoacrossTrue(); return DepSink; }
 
@@ -959,7 +959,7 @@ public:
   }
 };
 
-/// WRN for 
+/// WRN for
 /// \code
 ///   #pragma omp single
 /// \endcode
@@ -1009,7 +1009,7 @@ public:
 
   StringRef getUserLockName() const { return UserLockName.str(); }
 
-  void printExtra(formatted_raw_ostream &OS, unsigned Depth, 
+  void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                              bool Verbose=false) const;
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
@@ -1018,7 +1018,7 @@ public:
   }
 };
 
-/// WRN for 
+/// WRN for
 /// \code
 ///   #pragma omp taskgroup
 /// \endcode
@@ -1033,7 +1033,7 @@ public:
   }
 };
 
-/// WRN for 
+/// WRN for
 /// \code
 ///   #pragma omp taskwait
 /// \endcode
@@ -1048,7 +1048,7 @@ public:
   }
 };
 
-/// WRN for 
+/// WRN for
 /// \code
 ///   #pragma omp taskyield
 /// \endcode

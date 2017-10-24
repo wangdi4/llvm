@@ -854,7 +854,7 @@ protected:
 
 public:
   /// \brief Returns LoopInfo from WrnSimdNode
-  LoopInfo *getLoopInfo() { 
+  LoopInfo *getLoopInfo() {
     return WRegionSimdNode->getWRNLoopInfo().getLoopInfo();
   }
 
