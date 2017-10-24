@@ -31,6 +31,7 @@ File Name:  cl_device_api.h
 #include "common_dev_limits.h"
 
 #include <cassert>
+#include <climits>
 #include "CL/cl.h"
 
 #define IN
@@ -215,7 +216,7 @@ enum cl_dev_err_code
 {
     CL_DEV_SUCCESS              = 0,            //!< Function call or query call succeeded
     CL_DEV_BUSY,                                //!< Device is busy during function execution
-    CL_DEV_ERROR_FAIL           = 0x80000000,   //!< Internal unspecified error
+    CL_DEV_ERROR_FAIL           = INT_MIN,      //!< Internal unspecified error
     CL_DEV_INVALID_VALUE,                       //!< Invalid value was passed to the function.
     CL_DEV_INVALID_PROPERTIES,                  //!< Properties might be valid but not supported
     CL_DEV_OUT_OF_MEMORY,                       //!< Resource allocation failure
