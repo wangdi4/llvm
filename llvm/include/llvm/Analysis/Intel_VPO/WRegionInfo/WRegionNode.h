@@ -77,13 +77,13 @@ private:
   unsigned SubClassID;
 
   /// The OMP_DIRECTIVES enum representing the OMP construct. This is useful
-  /// for opt reporting, which can't use SubClassID because multiple 
-  /// OMP_DIRECTIVES may map to the same SubClassID. For example, 
-  ///   DIR_OMP_TARGET_DATA, DIR_OMP_TARGET_ENTER_DATA,  
-  ///   DIR_OMP_TARGET_EXIT_DATA, and DIR_OMP_TARGET_UPDATE 
+  /// for opt reporting, which can't use SubClassID because multiple
+  /// OMP_DIRECTIVES may map to the same SubClassID. For example,
+  ///   DIR_OMP_TARGET_DATA, DIR_OMP_TARGET_ENTER_DATA, and
+  ///   DIR_OMP_TARGET_EXIT_DATA
   /// all map to WRNTargetDataNode
   int DirID;
-  
+
   /// Bit vector for attributes such as WRNIsParLoop or WRNIsTask.
   /// The enum WRNAttributes lists the attributes.
   uint32_t Attributes;
@@ -157,7 +157,7 @@ protected:
 
   /// \brief Common code to parse a clause, used for both representations:
   /// llvm.intel.directive.qual* and directive.region.entry/exit.
-  void parseClause(const ClauseSpecifier &ClauseInfo, const Use *Args, 
+  void parseClause(const ClauseSpecifier &ClauseInfo, const Use *Args,
                    unsigned NumArgs);
 
   /// \brief Update WRN for clauses with no operands.
@@ -167,10 +167,10 @@ protected:
   void handleQualOpnd(int ClauseID, Value *V);
 
   /// \brief Update WRN for clauses with operand list.
-  void handleQualOpndList(const Use *Args, unsigned NumArgs, 
+  void handleQualOpndList(const Use *Args, unsigned NumArgs,
                           const ClauseSpecifier &ClauseInfo);
 
-  /// \brief Update WRN for clauses from the OperandBundles under the 
+  /// \brief Update WRN for clauses from the OperandBundles under the
   /// directive.region.entry/exit representation
   void getClausesFromOperandBundles();
 
@@ -193,11 +193,11 @@ public:
   bool hasDepSink() const;
   bool hasAligned() const;
   bool hasFlush() const;
-  
+
   // Below are virtual functions to get/set clause and other information of
   // the WRN. They should never be called; calling them indicates intention
-  // to access clause info for a WRN that does not allow such clause (eg, a 
-  // parallel construct does not take a collapse clause). These virtual 
+  // to access clause info for a WRN that does not allow such clause (eg, a
+  // parallel construct does not take a collapse clause). These virtual
   // functions defined in the base class will all emit an error message.
 
   void errorClause(StringRef ClauseName) const;
@@ -227,7 +227,7 @@ public:
        // ScheduleClause is not list-type, but has similar API so put here too
   virtual SharedClause &getShared()          {WRNERROR(QUAL_OMP_SHARED);      }
   virtual UniformClause &getUniform()        {WRNERROR(QUAL_OMP_UNIFORM);     }
-  virtual UseDevicePtrClause &getUseDevicePtr() 
+  virtual UseDevicePtrClause &getUseDevicePtr()
                                            {WRNERROR(QUAL_OMP_USE_DEVICE_PTR);}
 
   // list-type clauses (const getters)
@@ -365,31 +365,31 @@ public:
 
   /// \brief Default printer for WRegionNode. The derived WRegion can define
   /// its own print() routine to override this one.
-  virtual void print(formatted_raw_ostream &OS, unsigned Depth, 
+  virtual void print(formatted_raw_ostream &OS, unsigned Depth,
                      bool Verbose=false) const;
 
   /// \brief Prints "BEGIN  <DIRECTIVE_NAME> {"
   void printBegin(formatted_raw_ostream &OS, unsigned Depth) const;
 
-  /// \brief Prints "} END  <DIRECTIVE_NAME>" 
+  /// \brief Prints "} END  <DIRECTIVE_NAME>"
   void printEnd(formatted_raw_ostream &OS, unsigned Depth) const;
 
   /// \brief This virtual function is intended for derived WRNs to print
   /// additional information specific to the derived WRN not covered by
   /// printBody() below.
-  virtual void printExtra(formatted_raw_ostream &OS, unsigned Depth, 
+  virtual void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                           bool Verbose=false) const {}
 
-  /// \brief Prints content of the WRegionNode. 
-  void printBody(formatted_raw_ostream &OS, bool PrintChildren, unsigned Depth, 
+  /// \brief Prints content of the WRegionNode.
+  void printBody(formatted_raw_ostream &OS, bool PrintChildren, unsigned Depth,
                  bool Verbose=false) const;
 
   /// \brief Prints content of list-type clauses in the WRN
-  void printClauses(formatted_raw_ostream &OS, unsigned Depth, 
+  void printClauses(formatted_raw_ostream &OS, unsigned Depth,
                     bool Verbose=false) const;
 
   /// \brief Prints EntryBB, ExitBB, and BBlockSet
-  void printEntryExitBB(formatted_raw_ostream &OS, unsigned Depth, 
+  void printEntryExitBB(formatted_raw_ostream &OS, unsigned Depth,
                         bool Verbose=false) const;
 
   /// \brief When IsFromHIR==true, prints EntryHLNode, ExitHLNode, and HLLoop
@@ -403,7 +403,7 @@ public:
                    bool Verbose=false) const;
 
   /// \brief Prints WRegionNode children.
-  void printChildren(formatted_raw_ostream &OS, unsigned Depth, 
+  void printChildren(formatted_raw_ostream &OS, unsigned Depth,
                      bool Verbose=false) const;
 
   /// \brief Returns the predecessor bblock of this region.
@@ -431,7 +431,7 @@ public:
   wrn_const_reverse_iterator wrn_child_rend() const {
     return Children.rend();
   }
-  
+
   /// Children acess methods
 
   /// \brief Returns true if it has children.
@@ -474,7 +474,7 @@ public:
   bbset_const_iterator bbset_end() const { return BBlockSet.end(); }
 
   bbset_reverse_iterator bbset_rbegin() { return BBlockSet.rbegin(); }
-  bbset_const_reverse_iterator bbset_rbegin() const { 
+  bbset_const_reverse_iterator bbset_rbegin() const {
                                                   return BBlockSet.rbegin(); }
   bbset_reverse_iterator bbset_rend() { return BBlockSet.rend(); }
   bbset_const_reverse_iterator bbset_rend() const { return BBlockSet.rend(); }
@@ -536,7 +536,7 @@ public:
 
   // Derived Class Enumeration
 
-  /// \brief An enumeration to keep track of the concrete subclasses of 
+  /// \brief An enumeration to keep track of the concrete subclasses of
   /// WRegionNode
   enum WRegionNodeKind{
                                       // WRNAttribute:
@@ -550,6 +550,7 @@ public:
     WRNDistributeParLoop,             // IsPar, IsOmpLoop, IsDistribute
     WRNTarget,                        // IsTarget, IsTask (if depend/nowait)
     WRNTargetData,                    // IsTarget, IsTask (if depend/nowait)
+    WRNTargetUpdate,                  // IsTarget, IsTask (if depend/nowait)
     WRNTask,                          // IsTask
     WRNTaskloop,                      // IsTask, IsOmpLoop
 

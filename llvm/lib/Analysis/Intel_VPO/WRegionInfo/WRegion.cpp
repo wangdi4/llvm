@@ -88,7 +88,7 @@ WRNParallelWorkshareNode::WRNParallelWorkshareNode(BasicBlock *BB, LoopInfo *Li)
   setNumThreads(nullptr);
   setDefault(WRNDefaultAbsent);
   setProcBind(WRNProcBindAbsent);
-  DEBUG(dbgs() << "\nCreated WRNParallelWorkshareNode<" << getNumber() 
+  DEBUG(dbgs() << "\nCreated WRNParallelWorkshareNode<" << getNumber()
                                                         << ">\n");
 }
 
@@ -97,7 +97,7 @@ WRNParallelWorkshareNode::WRNParallelWorkshareNode(BasicBlock *BB, LoopInfo *Li)
 //
 
 // constructor
-WRNTeamsNode::WRNTeamsNode(BasicBlock *BB) 
+WRNTeamsNode::WRNTeamsNode(BasicBlock *BB)
     : WRegionNode(WRegionNode::WRNTeams, BB) {
   setIsTeams();
   setThreadLimit(nullptr);
@@ -132,7 +132,7 @@ WRNDistributeParLoopNode::WRNDistributeParLoopNode(BasicBlock *BB, LoopInfo *Li)
 //
 
 // constructor
-WRNTargetNode::WRNTargetNode(BasicBlock *BB) 
+WRNTargetNode::WRNTargetNode(BasicBlock *BB)
     : WRegionNode(WRegionNode::WRNTarget, BB) {
   setIsTarget();
   setIf(nullptr);
@@ -148,7 +148,7 @@ WRNTargetNode::WRNTargetNode(BasicBlock *BB)
 //
 
 // constructor
-WRNTargetDataNode::WRNTargetDataNode(BasicBlock *BB) 
+WRNTargetDataNode::WRNTargetDataNode(BasicBlock *BB)
     : WRegionNode(WRegionNode::WRNTargetData, BB) {
   setIsTarget();
   setIf(nullptr);
@@ -159,11 +159,27 @@ WRNTargetDataNode::WRNTargetDataNode(BasicBlock *BB)
 }
 
 //
+// Methods for WRNTargetUpdateNode
+//
+
+// constructor
+WRNTargetUpdateNode::WRNTargetUpdateNode(BasicBlock *BB)
+    : WRegionNode(WRegionNode::WRNTargetUpdate, BB) {
+  setIsTarget();
+  setIf(nullptr);
+  setDevice(nullptr);
+  setNowait(false);
+
+  DEBUG(dbgs() << "\nCreated WRNTargetUpdateNode<" << getNumber() << ">\n");
+}
+
+
+//
 // Methods for WRNTaskNode
 //
 
 // constructor
-WRNTaskNode::WRNTaskNode(BasicBlock *BB) 
+WRNTaskNode::WRNTaskNode(BasicBlock *BB)
     : WRegionNode(WRegionNode::WRNTask, BB) {
   setIsTask();
   setIf(nullptr);
@@ -333,7 +349,7 @@ void WRNAtomicNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
      << VPOAnalysisUtils::getClauseName(
             WRegionUtils::getClauseIdFromAtomicKind(getAtomicKind()))
      << "\n";
-  OS.indent(2*Depth) << "Seq_Cst Clause: " << 
+  OS.indent(2*Depth) << "Seq_Cst Clause: " <<
                         (getHasSeqCstClause() ? "Yes" : "No") << "\n";
 }
 

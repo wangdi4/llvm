@@ -62,8 +62,9 @@ WRegionNode *WRegionUtils::createWRegion(int DirID, BasicBlock *EntryBB,
     case DIR_OMP_TARGET_DATA:
     case DIR_OMP_TARGET_ENTER_DATA:
     case DIR_OMP_TARGET_EXIT_DATA:
-    case DIR_OMP_TARGET_UPDATE:
       W = new WRNTargetDataNode(EntryBB);
+    case DIR_OMP_TARGET_UPDATE:
+      W = new WRNTargetUpdateNode(EntryBB);
       break;
     case DIR_OMP_TASK:
       W = new WRNTaskNode(EntryBB);
@@ -124,7 +125,7 @@ WRegionNode *WRegionUtils::createWRegion(int DirID, BasicBlock *EntryBB,
       break;
     case DIR_OMP_THREADPRIVATE:
       // #pragma omp threadprivate can be a module-level directive so we
-      // handle it outside of the WRN framework 
+      // handle it outside of the WRN framework
       break;
   }
   if (W) {
@@ -165,7 +166,7 @@ void WRegionUtils::updateWRGraphFromHIR (
   IntrinsicInst   *Call,
   Intrinsic::ID   IntrinId,
   WRContainerImpl *WRGraph,
-  WRStack<WRegionNode*> &S, 
+  WRStack<WRegionNode*> &S,
   loopopt::HLNode *H
 )
 {
@@ -173,7 +174,7 @@ void WRegionUtils::updateWRGraphFromHIR (
   StringRef DirOrClauseStr = VPOAnalysisUtils::getDirectiveMetadataString(Call);
   if (IntrinId == Intrinsic::intel_directive) {
     int DirID = VPOAnalysisUtils::getDirectiveID(DirOrClauseStr);
-    // If the intrinsic represents a BEGIN directive for a construct 
+    // If the intrinsic represents a BEGIN directive for a construct
     // needed by the vectorizer (eg: DIR.OMP.SIMD), then
     // createWRegionHIR creates a WRN for it and returns its pointer.
     // Otherwise, the W returned is a nullptr.
@@ -219,10 +220,10 @@ void WRegionUtils::updateWRGraphFromHIR (
 /// \brief Visitor class to walk the HIR and build WRNs
 /// based on HIR. Main logic is in the visit() member function
 /// This visitor class is intended to be instantiated and used
-/// only by WRegionUtils::buildWRGraphFromHIR(). 
+/// only by WRegionUtils::buildWRGraphFromHIR().
 struct HIRVisitor final : public HLNodeVisitorBase {
   WRContainerImpl *WRGraph;
-  WRStack<WRegionNode*> S; 
+  WRStack<WRegionNode*> S;
   HIRVisitor() : WRGraph(new WRContainerTy){}
 
   WRContainerImpl *getWRGraph() const { return WRGraph; }
@@ -240,9 +241,9 @@ void HIRVisitor::visit(loopopt::HLNode *Node) {
       Intrinsic::ID IntrinId = Call->getIntrinsicID();
       if (VPOAnalysisUtils::isIntelDirectiveOrClause(IntrinId)) {
         // The intrinsic is one of these: intel_directive,
-        //                                intel_directive_qual, 
-        //                                intel_directive_qual_opnd, 
-        //                                intel_directive_qual_opndlist 
+        //                                intel_directive_qual,
+        //                                intel_directive_qual_opnd,
+        //                                intel_directive_qual_opndlist
         // Process them and create or update WRN accordingly
         WRegionUtils::updateWRGraphFromHIR(
                               Call, IntrinId, WRGraph, S, Node);
@@ -259,7 +260,7 @@ void HIRVisitor::visit(loopopt::HLNode *Node) {
         VLN->setHLLoop(L);
       }
     }
-  } 
+  }
 }
 
 WRContainerImpl *WRegionUtils::buildWRGraphFromHIR(HIRFramework &HIRF)
@@ -301,7 +302,7 @@ PHINode *WRegionUtils::getOmpCanonicalInductionVariable(Loop* L) {
   if (PI == pred_end(H))
     llvm_unreachable("Omp loop is dead loop");
   Incoming = *PI++;
-  if (PI != pred_end(H)) 
+  if (PI != pred_end(H))
     llvm_unreachable("Omp loop has multiple backedges");
 
   if (L->contains(Incoming)) {
@@ -338,7 +339,7 @@ Value *WRegionUtils::getOmpLoopStride(Loop *L, bool &IsNeg) {
   PHINode *PN = getOmpCanonicalInductionVariable(L);
   assert(PN != nullptr && "Omp loop must have induction variable!");
 
-  if (Instruction *Inc = 
+  if (Instruction *Inc =
       dyn_cast<Instruction>(PN->getIncomingValueForBlock(L->getLoopLatch())))
     if ((Inc->getOpcode() == Instruction::Add ||
          Inc->getOpcode() == Instruction::Sub) &&
@@ -359,7 +360,7 @@ void WRegionUtils::getLoopIndexPosInPredicate(Value *LoopIndex,
                                               Instruction *CondInst,
                                               bool& IsLeft) {
   Value *Operand = CondInst->getOperand(0);
-  if (isa<SExtInst>(Operand) || isa<ZExtInst>(Operand)) 
+  if (isa<SExtInst>(Operand) || isa<ZExtInst>(Operand))
     Operand = cast<Instruction>(Operand)->getOperand(0);
 
   if (Operand == LoopIndex) {
@@ -368,7 +369,7 @@ void WRegionUtils::getLoopIndexPosInPredicate(Value *LoopIndex,
   }
 
   Operand = CondInst->getOperand(1);
-  if (isa<SExtInst>(Operand) || isa<ZExtInst>(Operand)) 
+  if (isa<SExtInst>(Operand) || isa<ZExtInst>(Operand))
     Operand = cast<Instruction>(Operand)->getOperand(1);
 
   if (Operand == LoopIndex) {
@@ -385,15 +386,15 @@ Value *WRegionUtils::getOmpLoopUpperBound(Loop *L) {
 
   CondInst = getOmpLoopBottomTest(L);
   PHINode *PN = getOmpCanonicalInductionVariable(L);
-  Instruction *Inc = 
+  Instruction *Inc =
     dyn_cast<Instruction>(PN->getIncomingValueForBlock(L->getLoopLatch()));
   bool IsLeft;
   getLoopIndexPosInPredicate(Inc, CondInst, IsLeft);
-  if (IsLeft) 
+  if (IsLeft)
     Res = CondInst->getOperand(1);
   else
     Res = CondInst->getOperand(0);
-  
+
   return Res;
 }
 
@@ -420,7 +421,7 @@ ICmpInst *WRegionUtils::getOmpLoopZeroTripTest(Loop *L) {
   }
   llvm_unreachable("Omp loop with non-const \
     upper bound must have zero trip test!");
-  
+
 }
 
 // gets the bottom test of the OMP loop.
@@ -436,7 +437,7 @@ ICmpInst *WRegionUtils::getOmpLoopBottomTest(Loop *L) {
   ICmpInst *CondInst = dyn_cast<ICmpInst>(ExitBrInst->getCondition());
   if (CondInst && ICmpInst::isRelational(CondInst->getPredicate()))
     return CondInst;
-  
+
   llvm_unreachable("Omp loop must have bottom test!");
 }
 
@@ -448,7 +449,7 @@ BasicBlock *WRegionUtils::getOmpExitBlock(Loop* L) {
 
   ExitBrInst = dyn_cast<BranchInst>(&*L->getLoopLatch()->rbegin());
   for (unsigned I = 0; I < ExitBrInst->getNumSuccessors(); I++) {
-    if (ExitBrInst->getSuccessor(I) != L->getHeader()) 
+    if (ExitBrInst->getSuccessor(I) != L->getHeader())
       return ExitBrInst->getSuccessor(I);
   }
   llvm_unreachable("Omp loop must have one exit block");
@@ -461,7 +462,7 @@ CmpInst::Predicate WRegionUtils::getOmpPredicate(Loop* L, bool& IsLeft) {
   ICmpInst *CondInst = dyn_cast<ICmpInst>(ExitBrInst->getCondition());
   assert(CondInst && "Omp loop must have cmp instruction at the end!");
   PHINode *PN = getOmpCanonicalInductionVariable(L);
-  Instruction *Inc = 
+  Instruction *Inc =
     dyn_cast<Instruction>(PN->getIncomingValueForBlock(L->getLoopLatch()));
 
   getLoopIndexPosInPredicate(Inc, CondInst, IsLeft);

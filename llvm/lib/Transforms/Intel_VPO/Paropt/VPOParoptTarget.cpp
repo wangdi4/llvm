@@ -284,7 +284,7 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
   GlobalVariable *OffloadRegionId = getOMPOffloadRegionId();
 
   return VPOParoptUtils::genTgtTarget(
-      W, W->getDevice(), OffloadRegionId, Info.NumberOfPtrs, Info.BaseDataPtrs,
+      W, OffloadRegionId, Info.NumberOfPtrs, Info.BaseDataPtrs,
       Info.DataPtrs, Info.DataSizes, Info.DataMapTypes, InsertPt);
 }
 
@@ -594,7 +594,7 @@ Function *VPOParoptTransform::createTgDescUnregisterLib(WRegionNode *W,
   IRBuilder<> Builder(EntryBB);
 
   Builder.CreateRetVoid();
-  VPOParoptUtils::genTgtUnregisterLib(W, Desc, EntryBB->getTerminator());
+  VPOParoptUtils::genTgtUnregisterLib(Desc, EntryBB->getTerminator());
   Fn->setSection(".text.startup");
 
   return Fn;
@@ -622,8 +622,9 @@ Function *VPOParoptTransform::createTgDescRegisterLib(WRegionNode *W,
   IRBuilder<> Builder(EntryBB);
 
   Builder.CreateRetVoid();
-  VPOParoptUtils::genTgtRegisterLib(W, Desc, EntryBB->getTerminator());
-  VPOParoptUtils::genCxaAtExit(W, TgDescUnregFn, Desc, getDsoHandle(),
+
+  VPOParoptUtils::genTgtRegisterLib(Desc, EntryBB->getTerminator());
+  VPOParoptUtils::genCxaAtExit(TgDescUnregFn, Desc, getDsoHandle(),
                                EntryBB->getTerminator());
 
   Fn->setSection(".text.startup");
