@@ -190,7 +190,8 @@ bool CSADataflowSimplifyPass::invertAllSwitch(MachineInstr *MI) {
 
   DEBUG(dbgs() << "Found a switch with an all input\n");
   const TargetRegisterClass *class0 =
-    MF->getSubtarget().getRegisterInfo()->getRegClass(CSA::CI0RegClassID);
+    MF->getSubtarget().getRegisterInfo()->getRegClass(CSA::CI1RegClassID);
+  // TODO: CI0 class is more accurate... but there's only 128 of those
   // Generate switches for each of the inputs, at least those that correspond
   // to actual values.
   unsigned switchOutputRegs[4][2];
@@ -256,7 +257,6 @@ bool CSADataflowSimplifyPass::invertAllSwitch(MachineInstr *MI) {
 // The source of the address computations is more complicated. The following
 // patterns should be okay:
 // * LD (STRIDE %stream, %base, %stride) => base = %base, stride = %stride
-// * TODO: Uh, is this right?
 // * LDX (REPEAT %stream, %base), (SEQOTNE64_index 0, %N, %stride)
 // TODO: Investigate LDD utility.
 
