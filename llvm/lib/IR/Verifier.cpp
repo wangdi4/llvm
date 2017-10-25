@@ -3973,38 +3973,6 @@ void Verifier::visitIntrinsicCallSite(Intrinsic::ID ID, CallSite CS) {
            "constant int",
            CS);
     break;
-#if INTEL_CUSTOMIZATION
-  case Intrinsic::ssat_dcnv: // llvm.ssat_dcnv
-  case Intrinsic::usat_dcnv: // llvm.usat_dcnv
-  case Intrinsic::ssat_add:   // llvm.ssat_add
-  case Intrinsic::usat_add:   // llvm.usat_add
-  case Intrinsic::ssat_sub:   // llvm.ssat_sub
-  case Intrinsic::usat_sub:   // llvm.usat_sub
-    {
-      Type *CSTy = CS.getType();
-      Assert(CSTy->isIntOrIntVectorTy(),
-             "must be integer type", CS);
-      Assert(CSTy->isVectorTy(),
-             "scalar type not yet supported", CS);
-      unsigned Elems = CSTy->getVectorNumElements();
-      unsigned NumBits = CSTy->getScalarSizeInBits();
-      Assert(NumBits==8 || NumBits==16,
-             "must produce 8bit or 16bit results", CS);
-      Assert((Elems & (Elems-1)) == 0,
-             "must have power-of-2 vector elements", CS);
-      Assert(((NumBits==8  && Elems>=16) || 
-              (NumBits==16 && Elems>=8)),
-             "less than full vector not yet supported", CS);
-      Assert(isa<Constant>(CS.getArgOperand(2)),
-             "bound must be constant argument", CS);
-      int Pos = (ID == Intrinsic::ssat_dcnv ||
-                 ID == Intrinsic::usat_dcnv) ? 1 : 3;
-      Assert(isa<Constant>(CS.getArgOperand(Pos)),
-             "bound must be constant argument", CS);
-      break;
-    }
-    break;
-#endif // INTEL_CUSTOMIZATION
   case Intrinsic::experimental_constrained_fadd:
   case Intrinsic::experimental_constrained_fsub:
   case Intrinsic::experimental_constrained_fmul:

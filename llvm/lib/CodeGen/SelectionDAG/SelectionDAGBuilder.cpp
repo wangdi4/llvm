@@ -4829,58 +4829,6 @@ bool SelectionDAGBuilder::EmitFuncArgumentDbgValue(
   return true;
 }
 
-#if INTEL_CUSTOMIZATION
-void SelectionDAGBuilder::visitSatAddSub(const CallInst &I,
-                                         unsigned Intrinsic) {
-  const TargetLowering &TLI = DAG.getTargetLoweringInfo();
-  EVT DestVT = TLI.getValueType(DAG.getDataLayout(), I.getType());
-  SDLoc sdl = getCurSDLoc();
-
-  // llvm.ssat.add.*(Val1, Val2, Clip1, Clip2)
-  ISD::NodeType NT;
-  switch(Intrinsic) {
-  default:
-    assert(false && "Wrong intrinsic!");
-    return;
-  case Intrinsic::ssat_add:
-    NT = ISD::ADDS;
-    break;
-  case Intrinsic::usat_add:
-    NT = ISD::ADDUS;
-    break;
-  case Intrinsic::ssat_sub:
-    NT = ISD::SUBS;
-    break;
-  case Intrinsic::usat_sub:
-    NT = ISD::SUBUS;
-    break;
-  }
-  SDValue Res = DAG.getNode(NT, sdl, DestVT,
-                      getValue(I.getArgOperand(0)),
-                      getValue(I.getArgOperand(1)),
-                      getValue(I.getArgOperand(2)),
-                      getValue(I.getArgOperand(3)));
-  setValue(&I, Res);
-}
-
-void SelectionDAGBuilder::visitSatDcnv(const CallInst &I,
-                                       unsigned Intrinsic) {
-  const TargetLowering &TLI = DAG.getTargetLoweringInfo();
-  EVT DestVT = TLI.getValueType(DAG.getDataLayout(), I.getType());
-  SDLoc sdl = getCurSDLoc();
-
-  // llvm.ssat.dcnv.*(Val, Clip1, Clip2)
-  ISD::NodeType NT = Intrinsic == Intrinsic::ssat_dcnv ? ISD::SSATDCNV
-                                                       : ISD::USATDCNV;
-  SDValue Res = DAG.getNode(NT, sdl, DestVT,
-                            getValue(I.getArgOperand(0)),
-                            getValue(I.getArgOperand(0)), // Dummy Operand
-                            getValue(I.getArgOperand(1)),
-                            getValue(I.getArgOperand(2)));
-  setValue(&I, Res);
-}
-#endif // INTEL_CUSTOMIZATION
-
 /// Return the appropriate SDDbgValue based on N.
 SDDbgValue *SelectionDAGBuilder::getDbgValue(SDValue N,
                                              DILocalVariable *Variable,
@@ -5309,18 +5257,6 @@ SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I, unsigned Intrinsic) {
   case Intrinsic::masked_store:
     visitMaskedStore(I);
     return nullptr;
-#if INTEL_CUSTOMIZATION
-  case Intrinsic::ssat_add:
-  case Intrinsic::usat_add:
-  case Intrinsic::ssat_sub:
-  case Intrinsic::usat_sub:
-    visitSatAddSub(I, Intrinsic);
-    return nullptr;
-  case Intrinsic::ssat_dcnv:
-  case Intrinsic::usat_dcnv:
-    visitSatDcnv(I, Intrinsic);
-    return nullptr;
-#endif // INTEL_CUSTOMIZATION
   case Intrinsic::masked_expandload:
     visitMaskedLoad(I, true /* IsExpanding */);
     return nullptr;

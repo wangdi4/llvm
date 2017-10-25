@@ -39,9 +39,6 @@ class CallSite;
 class DataLayout;
 class DominatorTree;
 class TargetLibraryInfo;
-#if INTEL_CUSTOMIZATION
-class TargetTransformInfo;
-#endif // INTEL_CUSTOMIZATION
 class DbgDeclareInst;
 class MemIntrinsic;
 class MemSetInst;
@@ -224,9 +221,6 @@ private:
   AliasAnalysis *AA;
 
   // Required analyses.
-#if INTEL_CUSTOMIZATION
-  const TargetTransformInfo &TTI;
-#endif // INTEL_CUSTOMIZATION
   AssumptionCache &AC;
   TargetLibraryInfo &TLI;
   DominatorTree &DT;
@@ -241,17 +235,10 @@ private:
 public:
   InstCombiner(InstCombineWorklist &Worklist, BuilderTy &Builder,
                bool MinimizeSize, bool ExpensiveCombines, AliasAnalysis *AA,
-#if INTEL_CUSTOMIZATION
-               TargetTransformInfo &TTI,
-#endif
                AssumptionCache &AC, TargetLibraryInfo &TLI, DominatorTree &DT,
                const DataLayout &DL, LoopInfo *LI)
       : Worklist(Worklist), Builder(Builder), MinimizeSize(MinimizeSize),
-        ExpensiveCombines(ExpensiveCombines), AA(AA),
-#if INTEL_CUSTOMIZATION
-        TTI(TTI),
-#endif // INTEL_CUSTOMIZATION
-        AC(AC), TLI(TLI), DT(DT),
+        ExpensiveCombines(ExpensiveCombines), AA(AA), AC(AC), TLI(TLI), DT(DT),
         DL(DL), SQ(DL, &TLI, &DT, &AC), LI(LI), MadeIRChange(false) {}
 
   /// \brief Run the combiner over the entire worklist until it is empty.
@@ -268,10 +255,6 @@ public:
   LoopInfo *getLoopInfo() const { return LI; }
 
   TargetLibraryInfo &getTargetLibraryInfo() const { return TLI; }
-
-#if INTEL_CUSTOMIZATION
-  const TargetTransformInfo &getTargetTransformInfo() const { return TTI; }
-#endif // INTEL_CUSTOMIZATION
 
   // Visitation implementation - Implement instruction combining for different
   // instruction types.  The semantics are as follows:

@@ -869,10 +869,6 @@ private:
   void visitStore(const StoreInst &I);
   void visitMaskedLoad(const CallInst &I, bool IsExpanding = false);
   void visitMaskedStore(const CallInst &I, bool IsCompressing = false);
-#if INTEL_CUSTOMIZATION
-  void visitSatAddSub(const CallInst &I, unsigned Intrinsic);
-  void visitSatDcnv(const CallInst &I, unsigned Intrinsic);
-#endif // INTEL_CUSTOMIZATION
   void visitMaskedGather(const CallInst &I);
   void visitMaskedScatter(const CallInst &I);
   void visitAtomicCmpXchg(const AtomicCmpXchgInst &I);
