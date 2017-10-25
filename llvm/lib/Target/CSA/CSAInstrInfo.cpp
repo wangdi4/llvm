@@ -527,6 +527,39 @@ bool CSAInstrInfo::isSeqOT(const MachineInstr *MI) const {
             (MI->getOpcode() <= CSA::SEQOTNE8));
 }
 
+bool CSAInstrInfo::isPure(const MachineInstr *MI) const {
+  // TODO: This really should be generated from the tablegen. In theory, it
+  // could be the negation of (mayLoad | mayStore | hasUnmodeledSideEffects),
+  // but we don't set the latter at the moment, and it's not immediately clear
+  // that this is the right flag to use.
+  if (isAdd(MI) || isSub(MI) || isMul(MI) || isDiv(MI) || isFMA(MI))
+    return true;
+  unsigned opcode = MI->getOpcode();
+  // ALL0 is the only dataflow operation that is safe.
+  if (opcode == CSA::ALL0)
+    return true;
+  if (isShift(MI) || isCmp(MI))
+    return true;
+  if (CSA::NOT1 <= opcode && CSA::NOT64 <= opcode) return true;
+  if (CSA::NEG8 <= opcode && CSA::NEG64 <= opcode) return true;
+  if (CSA::CTLZ8 <= opcode && CSA::CTLZ64 <= opcode) return true;
+  if (CSA::CTTZ8 <= opcode && CSA::CTTZ64 <= opcode) return true;
+  if (CSA::CTPOP8 <= opcode && CSA::CTPOP64 <= opcode) return true;
+  if (CSA::PARITY8 <= opcode && CSA::PARITY64 <= opcode) return true;
+  if (CSA::AND1 <= opcode && CSA::AND64 <= opcode) return true;
+  if (CSA::OR1 <= opcode && CSA::OR64 <= opcode) return true;
+  if (CSA::XOR1 <= opcode && CSA::XOR64 <= opcode) return true;
+  if (CSA::ADC8 <= opcode && CSA::ADC64 <= opcode) return true;
+  if (CSA::SBB8 <= opcode && CSA::SBB64 <= opcode) return true;
+  if (CSA::SEXT8 <= opcode && CSA::SEXT64 <= opcode) return true;
+  if (CSA::SLADD8 <= opcode && CSA::SLADD64 <= opcode) return true;
+  if (CSA::COPY0 <= opcode && CSA::COPY64 <= opcode) return true;
+  if (CSA::NEGF32 <= opcode && CSA::NEGF64 <= opcode) return true;
+  if (CSA::ABSF32 <= opcode && CSA::ABSF64 <= opcode) return true;
+
+  return false;
+}
+
 unsigned CSAInstrInfo::getMemTokenMOVOpcode() const {
   return CSA::MOV0;
 }

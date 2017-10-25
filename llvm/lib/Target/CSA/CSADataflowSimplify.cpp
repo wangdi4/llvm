@@ -195,15 +195,20 @@ bool CSADataflowSimplifyPass::invertIgnoredSwitches(MachineInstr *MI) {
   if ((!MI->getOperand(0).isReg() || MI->getOperand(0).getReg() != CSA::IGN) &&
       (!MI->getOperand(1).isReg() || MI->getOperand(1).getReg() != CSA::IGN)) {
     return false;
+  } else if (!MI->getOperand(3).isReg()) {
+    // Switching a constant value... pass doesn't apply.
+    return false;
   }
 
   // In order for the transform to be legal, we need:
-  // 1. Not doing this transform every switch must not be observable.
+  // 1. Not doing the switched operation before the switch must not be
+  //    observable. Memory operations, SXU operations, and sequence operations
+  //    all fail this test.
   // 2. There must only be a single output to be switched.
   // 3. The output must only reach the SWITCH.
   MachineInstr *switched = getDefinition(MI->getOperand(3));
   if (!switched || switched->mayLoadOrStore() ||
-      switched->hasUnmodeledSideEffects() ||
+      switched->hasUnmodeledSideEffects() || !TII->isPure(switched) ||
       !switched->getFlag(MachineInstr::NonSequential))
     return false;
   if (switched->uses().begin() - switched->defs().begin() > 1)

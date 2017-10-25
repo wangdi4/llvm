@@ -173,6 +173,11 @@ public:
   bool isAtomic(const MachineInstr *) const;
   bool isSeqOT(const MachineInstr *) const;
 
+  /// Returns true if the machine operation is pure. Pure operations will
+  /// execute only when all LIC inputs have values and will output exactly one
+  /// value on each LIC output when that happens.
+  bool isPure(const MachineInstr *) const;
+
   // Gets the opcode for a memory token MOV.  This method is defined
   // here so that all the places which need to know which opcode is a
   // MOV of a memory token agree upon the answer.
