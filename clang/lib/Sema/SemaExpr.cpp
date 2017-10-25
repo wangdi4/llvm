@@ -12029,10 +12029,11 @@ ExprResult Sema::CreateBuiltinUnaryOp(SourceLocation OpLoc,
     QualType Ty = InputExpr->getType();
     // The only legal unary operation for atomics is '&'.
     if ((Opc != UO_AddrOf && Ty->isAtomicType()) ||
-    // OpenCL special types - image, sampler, pipe, and blocks are to be used
+#if INTEL_CUSTOMIZATION
+    // OpenCL special types - image, sampler and blocks are to be used
     // only with a builtin functions and therefore should be disallowed here.
-        (Ty->isImageType() || Ty->isSamplerT() || Ty->isPipeType()
-        || Ty->isBlockPointerType())) {
+        (Ty->isImageType() || Ty->isSamplerT() || Ty->isBlockPointerType())) {
+#endif // INTEL_CUSTOMIZATION
       return ExprError(Diag(OpLoc, diag::err_typecheck_unary_expr)
                        << InputExpr->getType()
                        << Input.get()->getSourceRange());
@@ -14316,9 +14317,10 @@ static bool captureInBlock(BlockScopeInfo *BSI, VarDecl *Var,
                                  Sema &S) {
   Expr *CopyExpr = nullptr;
   bool ByRef = false;
-      
-  // Blocks are not allowed to capture arrays.
-  if (CaptureType->isArrayType()) {
+
+#if INTEL_CUSTOMIZATION
+  // Blocks are not allowed to capture arrays, excepting OpenCL
+  if (!S.getLangOpts().OpenCL && CaptureType->isArrayType()) {
     if (BuildAndDiagnose) {
       S.Diag(Loc, diag::err_ref_array_type);
       S.Diag(Var->getLocation(), diag::note_previous_decl) 
@@ -14326,6 +14328,7 @@ static bool captureInBlock(BlockScopeInfo *BSI, VarDecl *Var,
     }
     return false;
   }
+#endif // INTEL_CUSTOMIZATION
 
   // Forbid the block-capture of autoreleasing variables.
   if (CaptureType.getObjCLifetime() == Qualifiers::OCL_Autoreleasing) {

@@ -45,6 +45,7 @@
 // CQ381541: IMF attributes support
 #include "clang/Basic/LangOptions.h"
 #include "llvm/ADT/StringSet.h"
+#include "intel/CGIntelStmtOpenMP.h"
 #endif // INTEL_CUSTOMIZATION
 using namespace clang;
 using namespace CodeGen;
@@ -4314,7 +4315,11 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
   // If the call doesn't return, finish the basic block and clear the
   // insertion point; this allows the rest of IRGen to discard
   // unreachable code.
-  if (CS.doesNotReturn()) {
+#if INTEL_CUSTOMIZATION
+  if (CS.doesNotReturn() && 
+            (!CapturedStmtInfo ||
+             !dyn_cast<CGIntelOpenMP::CGOpenMPRegionInfo>(CapturedStmtInfo))) {
+#endif // INTEL_CUSTOMIZATION
     if (UnusedReturnSize)
       EmitLifetimeEnd(llvm::ConstantInt::get(Int64Ty, UnusedReturnSize),
                       SRetPtr.getPointer());

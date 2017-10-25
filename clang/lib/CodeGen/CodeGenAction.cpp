@@ -809,7 +809,13 @@ GetOutputStream(CompilerInstance &CI, StringRef InFile, BackendAction Action) {
 std::unique_ptr<ASTConsumer>
 CodeGenAction::CreateASTConsumer(CompilerInstance &CI, StringRef InFile) {
   BackendAction BA = static_cast<BackendAction>(Act);
-  std::unique_ptr<raw_pwrite_stream> OS = GetOutputStream(CI, InFile, BA);
+
+#if INTEL_CUSTOMIZATION
+  std::unique_ptr<raw_pwrite_stream> OS = CI.GetOutputStream();
+  if (!OS)
+      OS = GetOutputStream(CI, InFile, BA);
+#endif // INTEL_CUSTOMIZATION
+
   if (BA != Backend_EmitNothing && !OS)
     return nullptr;
 

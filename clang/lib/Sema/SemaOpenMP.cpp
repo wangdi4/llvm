@@ -7981,7 +7981,9 @@ OMPClause *Sema::ActOnOpenMPVarListClause(
     const DeclarationNameInfo &ReductionId, OpenMPDependClauseKind DepKind,
     OpenMPLinearClauseKind LinKind, OpenMPMapClauseKind MapTypeModifier,
     OpenMPMapClauseKind MapType, bool IsMapTypeImplicit,
-    SourceLocation DepLinMapLoc) {
+#if INTEL_CUSTOMIZATION
+    bool IsLastprivateConditional, SourceLocation DepLinMapLoc) {
+#endif // INTEL_CUSTOMIZATION
   OMPClause *Res = nullptr;
   switch (Kind) {
   case OMPC_private:
@@ -7991,7 +7993,10 @@ OMPClause *Sema::ActOnOpenMPVarListClause(
     Res = ActOnOpenMPFirstprivateClause(VarList, StartLoc, LParenLoc, EndLoc);
     break;
   case OMPC_lastprivate:
-    Res = ActOnOpenMPLastprivateClause(VarList, StartLoc, LParenLoc, EndLoc);
+#if INTEL_CUSTOMIZATION
+    Res = ActOnOpenMPLastprivateClause(VarList, IsLastprivateConditional,
+#endif // INTEL_CUSTOMIZATION
+                                       StartLoc, LParenLoc, EndLoc);
     break;
   case OMPC_shared:
     Res = ActOnOpenMPSharedClause(VarList, StartLoc, LParenLoc, EndLoc);
@@ -8607,6 +8612,9 @@ OMPClause *Sema::ActOnOpenMPFirstprivateClause(ArrayRef<Expr *> VarList,
 }
 
 OMPClause *Sema::ActOnOpenMPLastprivateClause(ArrayRef<Expr *> VarList,
+#if INTEL_CUSTOMIZATION
+                                              bool IsConditional,
+#endif // INTEL_CUSTOMIZATION
                                               SourceLocation StartLoc,
                                               SourceLocation LParenLoc,
                                               SourceLocation EndLoc) {
@@ -8643,6 +8651,20 @@ OMPClause *Sema::ActOnOpenMPLastprivateClause(ArrayRef<Expr *> VarList,
                             diag::err_omp_lastprivate_incomplete_type))
       continue;
     Type = Type.getNonReferenceType();
+
+#if INTEL_CUSTOMIZATION
+    if (IsConditional) {
+      bool VectorTypeAllowed =
+          (getLangOpts().IntelOpenMP || getLangOpts().IntelOpenMPRegion);
+
+      if (!Type->isScalarType() &&
+          (!VectorTypeAllowed || !Type->isVectorType())) {
+        Diag(ELoc, diag::err_omp_unexpected_lastprivate_conditional)
+            << VectorTypeAllowed;
+        continue;
+      }
+    }
+#endif // INTEL_CUSTOMIZATION
 
     // OpenMP [2.14.1.1, Data-sharing Attribute Rules for Variables Referenced
     // in a Construct]
@@ -8761,7 +8783,10 @@ OMPClause *Sema::ActOnOpenMPLastprivateClause(ArrayRef<Expr *> VarList,
   return OMPLastprivateClause::Create(Context, StartLoc, LParenLoc, EndLoc,
                                       Vars, SrcExprs, DstExprs, AssignmentOps,
                                       buildPreInits(Context, ExprCaptures),
-                                      buildPostUpdate(*this, ExprPostUpdates));
+                                      buildPostUpdate(*this, ExprPostUpdates),
+#if INTEL_CUSTOMIZATION
+                                      IsConditional);
+#endif // INTEL_CUSTOMIZATION
 }
 
 OMPClause *Sema::ActOnOpenMPSharedClause(ArrayRef<Expr *> VarList,
@@ -9169,6 +9194,11 @@ static bool ActOnOMPReductionKindClause(
       Type = Type.getNonReferenceType();
     } else
       Type = Context.getBaseElementType(D->getType().getNonReferenceType());
+#if INTEL_CUSTOMIZATION
+    if ((S.getLangOpts().IntelOpenMP || S.getLangOpts().IntelOpenMPRegion) &&
+        Type->isVectorType())
+      Type = Type->getAs<VectorType>()->getElementType();
+#endif  // INTEL_CUSTOMIZATION
     auto *VD = dyn_cast<VarDecl>(D);
 
     // OpenMP [2.9.3.3, Restrictions, C/C++, p.3]

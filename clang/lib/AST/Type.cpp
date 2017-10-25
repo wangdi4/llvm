@@ -1827,6 +1827,15 @@ bool Type::isFloatingType() const {
   return false;
 }
 
+#if INTEL_CUSTOMIZATION
+bool Type::isDoubleType() const {
+  if (const BuiltinType *BT = dyn_cast<BuiltinType>(CanonicalType))
+    return BT->getKind() >= BuiltinType::Double &&
+      BT->getKind() <= BuiltinType::LongDouble;
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
+
 bool Type::hasFloatingRepresentation() const {
   if (const VectorType *VT = dyn_cast<VectorType>(CanonicalType))
     return VT->getElementType()->isFloatingType();
@@ -1999,6 +2008,10 @@ bool Type::isIncompleteType(NamedDecl **Def) const {
       *Def = Interface;
     return !Interface->hasDefinition();
   }
+#if INTEL_CUSTOMIZATION
+  case Channel:
+    return cast<ChannelType>(CanonicalType)->isIncompleteType(Def);
+#endif // INTEL_CUSTOMIZATION
   }
 }
 

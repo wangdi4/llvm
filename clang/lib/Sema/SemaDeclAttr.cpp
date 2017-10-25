@@ -2875,10 +2875,376 @@ static void handleWeakImportAttr(Sema &S, Decl *D, const AttributeList &Attr) {
                             Attr.getAttributeSpellingListIndex()));
 }
 
-// Handles reqd_work_group_size and work_group_size_hint.
+#if INTEL_CUSTOMIZATION
+// Checks correctness of mutual usage of different work_group_size attributes:
+// reqd_work_group_size, work_group_size_hint, max_work_group_size, task
+static bool checkWorkGroupSizeValues(Sema &S, Decl *D,
+                                     const AttributeList &Attr,
+                                     uint32_t WGSize[3]) {
+  if (Attr.getKind() == AttributeList::AT_Task) {
+    // in case of 'task' attribute we should be sure that
+    // if max_work_group_size and reqd_work_group_size attributes exist,
+    // then they are equal (1, 1, 1)
+    if (const MaxWorkGroupSizeAttr *A = D->getAttr<MaxWorkGroupSizeAttr>()) {
+      if (A->getXDim() != 1 || A->getYDim() != 1 || A->getZDim() != 1) {
+        S.Diag(Attr.getLoc(), diag::err_opencl_attributes_conflict)
+            << Attr.getName() << A->getSpelling();
+        D->setInvalidDecl();
+        return false;
+      }
+    }
+    if (const ReqdWorkGroupSizeAttr *A = D->getAttr<ReqdWorkGroupSizeAttr>()) {
+      if (A->getXDim() != 1 || A->getYDim() != 1 || A->getZDim() != 1) {
+        S.Diag(Attr.getLoc(), diag::err_opencl_attributes_conflict)
+            << Attr.getName() << A->getSpelling();
+        D->setInvalidDecl();
+        return false;
+      }
+    }
+  } else {
+    // in other cases we should check that attribute value
+    // >= reqd_work_group_size attribute value and
+    // <= max_work_group_size attribute value
+    if (const TaskAttr *A = D->getAttr<TaskAttr>()) {
+      if (!(WGSize[0] == 1 && WGSize[1] == 1 && WGSize[2] == 1)) {
+        S.Diag(Attr.getLoc(), diag::err_opencl_attributes_conflict)
+            << Attr.getName() << A->getSpelling();
+        D->setInvalidDecl();
+        return false;
+      }
+    } else if (const MaxWorkGroupSizeAttr *A =
+                   D->getAttr<MaxWorkGroupSizeAttr>()) {
+      if (!(WGSize[0] <= A->getXDim() && WGSize[1] <= A->getYDim() &&
+            WGSize[2] <= A->getZDim())) {
+        S.Diag(Attr.getLoc(), diag::err_opencl_attributes_conflict)
+            << Attr.getName() << A->getSpelling();
+        D->setInvalidDecl();
+        return false;
+      }
+    }
+
+    if (const ReqdWorkGroupSizeAttr *A = D->getAttr<ReqdWorkGroupSizeAttr>()) {
+      if (!(WGSize[0] >= A->getXDim() && WGSize[1] >= A->getYDim() &&
+            WGSize[2] >= A->getZDim())) {
+        S.Diag(Attr.getLoc(), diag::err_opencl_attributes_conflict)
+            << Attr.getName() << A->getSpelling();
+        D->setInvalidDecl();
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
+static void handleTaskAttribute(Sema &S, Decl *D, const AttributeList &Attr) {
+  if (D->isInvalidDecl())
+    return;
+
+  if (!S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
+    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
+        << Attr.getName();
+    return;
+  }
+
+  uint32_t WGSize[3] = {1, 1, 1};
+  if (!checkWorkGroupSizeValues(S, D, Attr, WGSize))
+    return;
+
+  D->addAttr(::new (S.Context) TaskAttr(Attr.getRange(), S.Context,
+                                        Attr.getAttributeSpellingListIndex()));
+}
+
+static void handleNumComputeUnitsAttr(Sema &S, Decl *D,
+                                      const AttributeList &Attr) {
+  if (D->isInvalidDecl())
+    return;
+
+  if (!S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
+    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
+        << Attr.getName();
+    return;
+  }
+
+  uint32_t NumComputeUnits;
+  const Expr *E = Attr.getArgAsExpr(0);
+  if (!checkUInt32Argument(S, Attr, E, NumComputeUnits, 0))
+    return;
+  if (NumComputeUnits == 0) {
+    S.Diag(Attr.getLoc(), diag::err_attribute_argument_is_zero)
+        << Attr.getName() << E->getSourceRange();
+    return;
+  }
+
+  D->addAttr(::new (S.Context) NumComputeUnitsAttr(
+      Attr.getRange(), S.Context, NumComputeUnits,
+      Attr.getAttributeSpellingListIndex()));
+}
+
+static void handleNumSimdWorkItemsAttr(Sema &S, Decl *D,
+                                       const AttributeList &Attr) {
+  if (D->isInvalidDecl())
+    return;
+
+  if (!S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
+    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
+        << Attr.getName();
+    return;
+  }
+
+  uint32_t NumSimdWorkItems;
+  const Expr *E = Attr.getArgAsExpr(0);
+  if (!checkUInt32Argument(S, Attr, E, NumSimdWorkItems, 0))
+    return;
+  if (NumSimdWorkItems == 0) {
+    S.Diag(Attr.getLoc(), diag::err_attribute_argument_is_zero)
+        << Attr.getName() << E->getSourceRange();
+    return;
+  }
+
+  ReqdWorkGroupSizeAttr *ReqdWorkGroupSize =
+      D->getAttr<ReqdWorkGroupSizeAttr>();
+  if (ReqdWorkGroupSize &&
+      !(ReqdWorkGroupSize->getXDim() % NumSimdWorkItems == 0 ||
+        ReqdWorkGroupSize->getYDim() % NumSimdWorkItems == 0 ||
+        ReqdWorkGroupSize->getZDim() % NumSimdWorkItems == 0)) {
+    S.Diag(Attr.getLoc(), diag::err_opencl_attributes_conflict)
+        << Attr.getName() << ReqdWorkGroupSize->getSpelling();
+    return;
+  }
+
+  D->addAttr(::new (S.Context) NumSimdWorkItemsAttr(
+      Attr.getRange(), S.Context, NumSimdWorkItems,
+      Attr.getAttributeSpellingListIndex()));
+}
+
+static void handleOpenCLBlockingAttr(Sema &S, Decl *D,
+                                     const AttributeList &Attr) {
+  if (D->isInvalidDecl())
+    return;
+
+  VarDecl *VD = cast<VarDecl>(D);
+  QualType Ty = VD->getType();
+
+  const Type *TypePtr = Ty.getTypePtr();
+  if (!TypePtr->isPipeType()) {
+    S.Diag(Attr.getLoc(), diag::warn_intel_opencl_attribute_wrong_decl_type)
+        << Attr.getName() << 47;
+    return;
+  }
+
+  D->addAttr(::new (S.Context) OpenCLBlockingAttr(
+      Attr.getRange(), S.Context, Attr.getAttributeSpellingListIndex()));
+}
+
+static void handleOpenCLChannelDepthAttr(Sema & S, Decl * D,
+                                         const AttributeList &Attr) {
+  if (D->isInvalidDecl())
+    return;
+
+  if (!S.getOpenCLOptions().isEnabled("cl_intel_channels")) {
+    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
+        << Attr.getName() << "cl_intel_channels";
+    return;
+  }
+
+  VarDecl *VD = cast<VarDecl>(D);
+  QualType Ty = VD->getType();
+  // Handle array of channels case
+  while (auto *ArrayTy = dyn_cast<ArrayType>(Ty.getTypePtr())) {
+    Ty = ArrayTy->getElementType();
+  }
+  const Type *TypePtr = Ty.getTypePtr();
+  if (!TypePtr->isChannelType()) {
+    S.Diag(Attr.getLoc(), diag::warn_intel_opencl_attribute_wrong_decl_type)
+        << Attr.getName() << 46;
+    return;
+  }
+
+  Expr *E = Attr.getArgAsExpr(0);
+  llvm::APSInt Depth;
+  if (!E->EvaluateAsInt(Depth, S.Context)) {
+    S.Diag(Attr.getLoc(), diag::err_intel_opencl_attribute_argument_type)
+        << Attr.getName() << 4;
+    return;
+  }
+
+  int depth = Depth.getExtValue();
+  if (depth < 0) {
+    S.Diag(Attr.getLoc(), diag::warn_attribute_argument_n_negative)
+        << Attr.getName() << "0";
+    return;
+  }
+
+  D->addAttr(::new (S.Context) OpenCLChannelDepthAttr(
+      Attr.getRange(), S.Context, depth, Attr.getAttributeSpellingListIndex()));
+}
+
+static void handleOpenCLChannelIOAttr(Sema & S, Decl * D,
+                                      const AttributeList &Attr) {
+  if (D->isInvalidDecl())
+    return;
+
+  if (!S.getOpenCLOptions().isEnabled("cl_intel_channels")) {
+    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
+        << Attr.getName() << "cl_intel_channels";
+    return;
+  }
+
+  VarDecl *VD = cast<VarDecl>(D);
+  QualType Ty = VD->getType();
+  // Handle array of channels case
+  while (auto *ArrayTy = dyn_cast<ArrayType>(Ty.getTypePtr())) {
+    Ty = ArrayTy->getElementType();
+  }
+  const Type *TypePtr = Ty.getTypePtr();
+  if (!TypePtr->isChannelType()) {
+    S.Diag(Attr.getLoc(), diag::warn_intel_opencl_attribute_wrong_decl_type)
+        << Attr.getName() << 46;
+    return;
+  }
+
+  StringRef Str;
+  if (!S.checkStringLiteralArgumentAttr(Attr, 0, Str))
+    llvm_unreachable("io channel attribute should be a string");
+
+  D->addAttr(::new (S.Context) OpenCLChannelIOAttr(
+      Attr.getRange(), S.Context, Str, Attr.getAttributeSpellingListIndex()));
+}
+
+static void handleOpenCLLocalMemSizeAttr(Sema & S, Decl * D,
+                                         const AttributeList &Attr) {
+  if (D->isInvalidDecl())
+    return;
+
+  if (!S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
+    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
+        << Attr.getName();
+    return;
+  }
+
+  ParmVarDecl *PVD = cast<ParmVarDecl>(D);
+  const QualType QT = PVD->getOriginalType();
+  const Type *TypePtr = QT.getTypePtr();
+  if (!TypePtr->isPointerType()) {
+    S.Diag(Attr.getLoc(), diag::warn_type_attribute_wrong_type)
+        << Attr.getName() << 1 << TypePtr->getTypeClassName();
+    return;
+  }
+
+  QualType pointeeType = TypePtr->getPointeeType();
+  if (pointeeType.getAddressSpace() != LangAS::opencl_local) {
+    S.Diag(Attr.getLoc(),
+           diag::warn_opencl_attribute_only_for_local_address_space)
+        << Attr.getName();
+    return;
+  }
+
+  Expr *E = Attr.getArgAsExpr(0);
+  llvm::APSInt LocalMemSize;
+  if (!E->EvaluateAsInt(LocalMemSize, S.Context)) {
+    S.Diag(Attr.getLoc(), diag::err_intel_opencl_attribute_argument_type)
+        << Attr.getName() << 4;
+    return;
+  }
+
+  int localMemSize = LocalMemSize.getExtValue();
+  if (localMemSize < 0) {
+    S.Diag(Attr.getLoc(), diag::warn_attribute_argument_n_negative)
+        << Attr.getName() << "0";
+    return;
+  }
+
+  D->addAttr(::new (S.Context) OpenCLLocalMemSizeAttr(
+      Attr.getRange(), S.Context, localMemSize,
+      Attr.getAttributeSpellingListIndex()));
+}
+
+static void handleOpenCLBufferLocationAttr(Sema & S, Decl * D,
+                                           const AttributeList &Attr) {
+
+  if (D->isInvalidDecl())
+    return;
+
+  if (!S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
+    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
+        << Attr.getName();
+    return;
+  }
+
+  ParmVarDecl *PVD = cast<ParmVarDecl>(D);
+  const QualType QT = PVD->getOriginalType();
+  const Type *TypePtr = QT.getTypePtr();
+  if (!TypePtr->isPointerType()) {
+    S.Diag(Attr.getLoc(), diag::warn_type_attribute_wrong_type)
+        << Attr.getName() << 1 << TypePtr->getTypeClassName();
+    return;
+  }
+
+  QualType pointeeType = TypePtr->getPointeeType();
+  if (pointeeType.getAddressSpace() != LangAS::opencl_global) {
+    S.Diag(Attr.getLoc(),
+           diag::warn_opencl_attribute_only_for_global_address_space)
+        << Attr.getName();
+    return;
+  }
+
+  StringRef Str;
+  if (!S.checkStringLiteralArgumentAttr(Attr, 0, Str))
+    llvm_unreachable(
+        "argument of buffer_location attribute should be a string");
+
+  D->addAttr(::new (S.Context) OpenCLBufferLocationAttr(
+      Attr.getRange(), S.Context, Str, Attr.getAttributeSpellingListIndex()));
+}
+
+static void handleVecLenHint(Sema &S, Decl *D, const AttributeList &Attr) {
+  if (!S.getOpenCLOptions().isEnabled("cl_intel_vec_len_hint")) {
+    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
+        << Attr.getName() << "cl_intel_vec_len_hint";
+    return;
+  }
+
+  uint32_t VecLen = 0;
+  const Expr *E = Attr.getArgAsExpr(0);
+  if (!checkUInt32Argument(S, Attr, E, VecLen, 0))
+    return;
+
+#define defineRange(...)                                                       \
+  std::vector<uint32_t> SupportedLengths = {__VA_ARGS__};                      \
+  std::string SupportedLengthsStr(#__VA_ARGS__);
+
+  defineRange(0, 1, 4, 8, 16);
+  if (std::find(SupportedLengths.begin(), SupportedLengths.end(), VecLen) ==
+      SupportedLengths.end()) {
+    S.Diag(Attr.getLoc(), diag::err_attribute_argument_is_not_in_range)
+        << SupportedLengthsStr << E->getSourceRange();
+    return;
+  }
+
+  D->addAttr(::new (S.Context)
+                 VecLenHintAttr(Attr.getRange(), S.Context, VecLen,
+                                Attr.getAttributeSpellingListIndex()));
+}
+
+// Handles reqd_work_group_size, work_group_size_hint and max_work_group_size
+// attributes
+#endif // INTEL_CUSTOMIZATION
 template <typename WorkGroupAttr>
 static void handleWorkGroupSize(Sema &S, Decl *D,
                                 const AttributeList &Attr) {
+#if INTEL_CUSTOMIZATION
+  if (D->isInvalidDecl())
+    return;
+
+  if (!S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment() &&
+      Attr.getKind() == AttributeList::AT_MaxWorkGroupSize) {
+    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
+        << Attr.getName();
+    return;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   uint32_t WGSize[3];
   for (unsigned i = 0; i < 3; ++i) {
     const Expr *E = Attr.getArgAsExpr(i);
@@ -2890,6 +3256,11 @@ static void handleWorkGroupSize(Sema &S, Decl *D,
       return;
     }
   }
+
+#if INTEL_CUSTOMIZATION
+  if (!checkWorkGroupSizeValues(S, D, Attr, WGSize))
+    return;
+#endif // INTEL_CUSTOMIZATION
 
   WorkGroupAttr *Existing = D->getAttr<WorkGroupAttr>();
   if (Existing && !(Existing->getXDim() == WGSize[0] &&
@@ -7119,6 +7490,39 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case AttributeList::AT_TypeTagForDatatype:
     handleTypeTagForDatatypeAttr(S, D, Attr);
     break;
+#if INTEL_CUSTOMIZATION
+  case AttributeList::AT_VecLenHint:
+    handleVecLenHint(S, D, Attr);
+    break;
+  // Intel FPGA OpenCL specific attributes
+  case AttributeList::AT_MaxWorkGroupSize:
+    handleWorkGroupSize<MaxWorkGroupSizeAttr>(S, D, Attr);
+    break;
+  case AttributeList::AT_Task:
+    handleTaskAttribute(S, D, Attr);
+    break;
+  case AttributeList::AT_NumComputeUnits:
+    handleNumComputeUnitsAttr(S, D, Attr);
+    break;
+  case AttributeList::AT_NumSimdWorkItems:
+    handleNumSimdWorkItemsAttr(S, D, Attr);
+    break;
+  case AttributeList::AT_OpenCLBlocking:
+    handleOpenCLBlockingAttr(S, D, Attr);
+    break;
+  case AttributeList::AT_OpenCLChannelDepth:
+    handleOpenCLChannelDepthAttr(S, D, Attr);
+    break;
+  case AttributeList::AT_OpenCLChannelIO:
+    handleOpenCLChannelIOAttr(S, D, Attr);
+    break;
+  case AttributeList::AT_OpenCLLocalMemSize:
+    handleOpenCLLocalMemSizeAttr(S, D, Attr);
+    break;
+  case AttributeList::AT_OpenCLBufferLocation:
+    handleOpenCLBufferLocationAttr(S, D, Attr);
+    break;
+#endif // INTEL_CUSTOMIZATION
 #if INTEL_SPECIFIC_CILKPLUS
   // Cilk Plus attributes.
   case AttributeList::AT_CilkElemental:
@@ -7210,6 +7614,20 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
     } else if (Attr *A = D->getAttr<VecTypeHintAttr>()) {
       Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
       D->setInvalidDecl();
+#if INTEL_CUSTOMIZATION
+    } else if (Attr *A = D->getAttr<TaskAttr>()) {
+      Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
+      D->setInvalidDecl();
+    } else if (Attr *A = D->getAttr<ReqdWorkGroupSizeAttr>()) {
+      Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
+      D->setInvalidDecl();
+    } else if (Attr *A = D->getAttr<NumSimdWorkItemsAttr>()) {
+      Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
+      D->setInvalidDecl();
+    } else if (Attr *A = D->getAttr<NumComputeUnitsAttr>()) {
+      Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
+      D->setInvalidDecl();
+#endif // INTEL_CUSTOMIZATION
     } else if (Attr *A = D->getAttr<AMDGPUFlatWorkGroupSizeAttr>()) {
       Diag(D->getLocation(), diag::err_attribute_wrong_decl_type)
         << A << ExpectedKernelFunction;

@@ -2236,6 +2236,13 @@ static LValue EmitGlobalVarDeclLValue(CodeGenFunction &CGF,
   LValue LV;
   // Emit reference to the private copy of the variable if it is an OpenMP
   // threadprivate variable.
+#if INTEL_CUSTOMIZATION
+  auto *GV = dyn_cast<llvm::GlobalValue>(V);
+  if (GV && CGF.getLangOpts().OpenMPThreadPrivateLegacy &&
+      VD->hasAttr<OMPThreadPrivateDeclAttr>())
+    GV->setThreadPrivate(true);
+  else
+#endif // INTEL_CUSTOMIZATION
   if (CGF.getLangOpts().OpenMP && VD->hasAttr<OMPThreadPrivateDeclAttr>())
     return EmitThreadPrivateVarDeclLValue(CGF, VD, T, Addr, RealVarTy,
                                           E->getExprLoc());
@@ -2475,6 +2482,9 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
 
 
     // Check for OpenMP threadprivate variables.
+#if INTEL_CUSTOMIZATION
+    if (!getLangOpts().OpenMPThreadPrivateLegacy)
+#endif // INTEL_CUSTOMIZATION
     if (getLangOpts().OpenMP && VD->hasAttr<OMPThreadPrivateDeclAttr>()) {
       return EmitThreadPrivateVarDeclLValue(
           *this, VD, T, addr, getTypes().ConvertTypeForMem(VD->getType()),

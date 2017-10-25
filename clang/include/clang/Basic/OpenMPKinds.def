@@ -226,6 +226,23 @@ OPENMP_DIRECTIVE_EXT(target_teams_distribute_parallel_for, "target teams distrib
 OPENMP_DIRECTIVE_EXT(target_teams_distribute_parallel_for_simd, "target teams distribute parallel for simd")
 OPENMP_DIRECTIVE_EXT(target_teams_distribute_simd, "target teams distribute simd")
 
+#if INTEL_CUSTOMIZATION
+// OpenMP directives in the -qopenmp-simd subset
+#ifndef OPENMP_DIRECTIVE_SIMD_SUBSET
+#define OPENMP_DIRECTIVE_SIMD_SUBSET(Name)
+#endif
+OPENMP_DIRECTIVE_SIMD_SUBSET(simd)
+OPENMP_DIRECTIVE_SIMD_SUBSET(declare_simd)
+
+// OpenMP directives in the -qopenmp-tbb subset
+#ifndef OPENMP_DIRECTIVE_TBB_SUBSET
+#define OPENMP_DIRECTIVE_TBB_SUBSET(Name)
+#endif
+OPENMP_DIRECTIVE_TBB_SUBSET(simd)
+OPENMP_DIRECTIVE_TBB_SUBSET(declare_simd)
+OPENMP_DIRECTIVE_TBB_SUBSET(taskloop)
+#endif // INTEL_CUSTOMIZATION
+
 // OpenMP clauses.
 OPENMP_CLAUSE(if, OMPIfClause)
 OPENMP_CLAUSE(final, OMPFinalClause)
@@ -866,6 +883,10 @@ OPENMP_TASKGROUP_CLAUSE(task_reduction)
 #undef OPENMP_DEFAULT_KIND
 #undef OPENMP_DIRECTIVE
 #undef OPENMP_DIRECTIVE_EXT
+#if INTEL_CUSTOMIZATION
+#undef OPENMP_DIRECTIVE_SIMD_SUBSET
+#undef OPENMP_DIRECTIVE_TBB_SUBSET
+#endif // INTEL_CUSTOMIZATION
 #undef OPENMP_CLAUSE
 #undef OPENMP_CRITICAL_CLAUSE
 #undef OPENMP_ORDERED_CLAUSE

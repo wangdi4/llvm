@@ -6082,6 +6082,35 @@ Sema::AddOverloadCandidate(FunctionDecl *Function,
     return;
   }
 
+#if INTEL_CUSTOMIZATION
+  // OpenCL: A candidate function that uses extentions that are not enabled or
+  // supported is not viable.
+  if (getLangOpts().OpenCL) {
+    bool HasHalf =
+      getOpenCLOptions().isSupported("cl_khr_fp16", getLangOpts().OpenCLVersion)
+      && getOpenCLOptions().isEnabled("cl_khr_fp16");
+    bool HasDouble =
+      getOpenCLOptions().isSupported("cl_khr_fp64", getLangOpts().OpenCLVersion)
+      && getOpenCLOptions().isEnabled("cl_khr_fp64");
+
+    if ((!HasHalf && Function->getReturnType()->isHalfType()) ||
+        (!HasDouble && Function->getReturnType()->isDoubleType())) {
+      Candidate.Viable = false;
+      Candidate.FailureKind = ovl_fail_ext_disabled;
+      return;
+    }
+    for (const auto *PI : Function->parameters()) {
+      QualType PTy = PI->getType();
+      if ((!HasHalf && PTy->isHalfType()) ||
+          (!HasDouble && PTy->isDoubleType())) {
+        Candidate.Viable = false;
+        Candidate.FailureKind = ovl_fail_ext_disabled;
+        return;
+      }
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
+
   // (CUDA B.1): Check for invalid calls between targets.
   if (getLangOpts().CUDA)
     if (const FunctionDecl *Caller = dyn_cast<FunctionDecl>(CurContext))
