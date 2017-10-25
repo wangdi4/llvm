@@ -1633,7 +1633,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
     // Generate __kmpc__for_static_init_4{u}/8{u} Call Instruction
     KmpcInitCI = VPOParoptUtils::genKmpcStaticInit(W, IdentTy,
                                LoadTid, SchedType, IsLastVal, LowerBnd,
-                               UpperBnd, Stride, StrideVal, ValueOne,
+                               UpperBnd, Stride, StrideVal, ChunkVal,
                                Size, IsUnsigned, InsertPt);
   }
   else {
