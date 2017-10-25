@@ -83,11 +83,10 @@ private:
   Loop       *Lp;
   BasicBlock *ZTTBB; // bblock with the zero-trip test
 public:
+  WRNLoopInfo(LoopInfo *L) { LI = L; Lp=nullptr; ZTTBB=nullptr; }
   void setLoopInfo(LoopInfo *L) { LI = L; }
   void setLoop(Loop *L) { Lp = L; }
   void setZTTBB(BasicBlock *BB) { ZTTBB = BB; }
-  void init(LoopInfo *Li) { setLoopInfo(Li); setLoop(nullptr);
-                            setZTTBB(nullptr); }
   LoopInfo *getLoopInfo() const { return LI; }
   Loop *getLoop() const { return Lp; }
   BasicBlock *getZTTBB() const { return ZTTBB; }
