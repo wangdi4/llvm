@@ -357,33 +357,50 @@ CSAInstrInfo::getPickSwitchOpcode(const TargetRegisterClass *RC,
   if (isPick) {
     switch (RC->getID()) {
     default: llvm_unreachable("Unknown Target register class!");
+    case CSA::I0RegClassID: return CSA::PICK0;
     case CSA::I1RegClassID: return CSA::PICK1;
     case CSA::I8RegClassID: return CSA::PICK8;
     case CSA::I16RegClassID: return CSA::PICK16;
     case CSA::I32RegClassID: return CSA::PICK32;
     case CSA::I64RegClassID: return CSA::PICK64;
+    case CSA::RI0RegClassID: return CSA::PICK0;
     case CSA::RI1RegClassID: return CSA::PICK1;
     case CSA::RI8RegClassID: return CSA::PICK8;
     case CSA::RI16RegClassID: return CSA::PICK16;
     case CSA::RI32RegClassID: return CSA::PICK32;
     case CSA::RI64RegClassID: return CSA::PICK64;
+    case CSA::CI0RegClassID: return CSA::PICK0;
+    case CSA::CI1RegClassID: return CSA::PICK1;
+    case CSA::CI8RegClassID: return CSA::PICK8;
+    case CSA::CI16RegClassID: return CSA::PICK16;
+    case CSA::CI32RegClassID: return CSA::PICK32;
+    case CSA::CI64RegClassID: return CSA::PICK64;
     }
   }
 
 
   switch (RC->getID()) {
   default: llvm_unreachable("Unknown Target register class!");
+  case CSA::I0RegClassID: return CSA::SWITCH0;
   case CSA::I1RegClassID: return CSA::SWITCH1;
   case CSA::I8RegClassID: return CSA::SWITCH8;
   case CSA::I16RegClassID: return CSA::SWITCH16;
   case CSA::I32RegClassID: return CSA::SWITCH32;
   case CSA::I64RegClassID: return CSA::SWITCH64;
 
+  case CSA::RI0RegClassID: return CSA::SWITCH0;
   case CSA::RI1RegClassID: return CSA::SWITCH1;
   case CSA::RI8RegClassID: return CSA::SWITCH8;
   case CSA::RI16RegClassID: return CSA::SWITCH16;
   case CSA::RI32RegClassID: return CSA::SWITCH32;
   case CSA::RI64RegClassID: return CSA::SWITCH64;
+
+  case CSA::CI0RegClassID: return CSA::SWITCH0;
+  case CSA::CI1RegClassID: return CSA::SWITCH1;
+  case CSA::CI8RegClassID: return CSA::SWITCH8;
+  case CSA::CI16RegClassID: return CSA::SWITCH16;
+  case CSA::CI32RegClassID: return CSA::SWITCH32;
+  case CSA::CI64RegClassID: return CSA::SWITCH64;
   }
 
 }
