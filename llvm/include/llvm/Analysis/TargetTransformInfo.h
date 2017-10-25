@@ -763,7 +763,6 @@ public:
   /// from the given intrinsic.
   Value *getOrCreateResultFromMemIntrinsic(IntrinsicInst *Inst,
                                            Type *ExpectedType) const;
-
 #if INTEL_CUSTOMIZATION
   // Returns true if AdvancedOptim is enabled.
   bool isAdvancedOptimEnabled() const;

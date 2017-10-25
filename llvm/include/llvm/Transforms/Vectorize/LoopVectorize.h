@@ -75,6 +75,11 @@ struct LoopVectorizePass : public PassInfoMixin<LoopVectorizePass> {
   /// considered.
   bool AlwaysVectorize = true;
 
+#if INTEL_CUSTOMIZATION
+  /// If true, only do legality checks and return
+  bool OnlyLegal = false;
+#endif
+
   ScalarEvolution *SE;
   LoopInfo *LI;
   TargetTransformInfo *TTI;

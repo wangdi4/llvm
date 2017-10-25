@@ -808,6 +808,9 @@ const char* MapIntrinToIml::findX86Variant(CallInst *CI, StringRef FuncName,
   StringRef ScalarFuncName = getScalarFunctionName(FuncName, LogicalVL);
   std::string TargetVLStr = APInt(32, TargetVL).toString(10, false);
   std::string TempFuncName = "__svml_" + ScalarFuncName.str() + TargetVLStr;
+  if (FuncName.find("mask") != StringRef::npos) {
+    TempFuncName += "_mask";
+  }
   char *ParentFuncName = new char[TempFuncName.size() + 1];
   std::strcpy(ParentFuncName, TempFuncName.c_str());
 
@@ -837,7 +840,8 @@ StringRef MapIntrinToIml::getScalarFunctionName(StringRef FuncName,
   // prefix and logical vl from the end yields the scalar lib name.
   StringRef Prefix = "__svml_";
   StringRef LogicalVLStr = APInt(32, LogicalVL).toString(10, false);
-  StringRef ScalarFuncName = FuncName.substr(Prefix.size());
+  StringRef TempName = FuncName.rtrim("_mask");
+  StringRef ScalarFuncName = TempName.substr(Prefix.size());
   ScalarFuncName = ScalarFuncName.drop_back(LogicalVLStr.size());
 
   return ScalarFuncName;

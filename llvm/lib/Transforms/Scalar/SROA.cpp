@@ -1106,6 +1106,62 @@ static Type *findCommonType(AllocaSlices::const_iterator B,
   return TyIsCommon ? Ty : ITy;
 }
 
+#if INTEL_CUSTOMIZATION
+/// \brief Returns true if \p Inst is live at \p PN. Here 'Inst' can either
+/// be a load or a load following a GEP with all zero indices.
+/// It finds Inst alive if:
+///  - Inst and PN are in the same block
+///  - And, there are no stores between PN and Inst.
+static bool isLiveAtPHI(const Instruction * Inst,
+                        const PHINode &PN,
+                        unsigned &MaxAlign) {
+  if (!Inst || Inst->getParent() != PN.getParent())
+    return false;
+
+  // For now, we only allow loads in the same block as the PHI.  This is
+  // a common case that happens when instcombine merges two loads through
+  // a PHI.
+  // TODO: Allow stores.
+  switch(Inst->getOpcode()) {
+  case Instruction::Load: {
+    const LoadInst * LI = cast<LoadInst>(Inst);
+    if (!LI || !LI->isSimple())
+      return false;
+
+    // Ensure that there are no instructions between the PHI and the load that
+    // could store.
+    for (BasicBlock::const_iterator BBI(PN); &*BBI != LI; ++BBI)
+      if (BBI->mayWriteToMemory())
+        return false;
+
+    MaxAlign = std::max(MaxAlign, LI->getAlignment());
+
+    return true;
+  }
+  case Instruction::GetElementPtr: {
+    bool HasUser = false;
+    const GetElementPtrInst * GEP = cast<GetElementPtrInst>(Inst);
+
+    // TODO: Support any indices
+    if (!GEP->hasAllZeroIndices())
+      return false;
+
+    for (const auto *U : GEP->users()) {
+      if (!isLiveAtPHI(dyn_cast<Instruction>(U), PN, MaxAlign))
+        return false;
+
+      HasUser = true;
+    }
+
+    return HasUser;
+  }
+  }
+
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
+
+
 /// PHI instructions that use an alloca and are subsequently loaded can be
 /// rewritten to load both input pointers in the pred blocks and then PHI the
 /// results, allowing the load of the alloca to be promoted.
@@ -1125,36 +1181,26 @@ static Type *findCommonType(AllocaSlices::const_iterator B,
 /// FIXME: This should be hoisted into a generic utility, likely in
 /// Transforms/Util/Local.h
 static bool isSafePHIToSpeculate(PHINode &PN) {
+#if INTEL_CUSTOMIZATION
   // For now, we can only do this promotion if the load is in the same block
   // as the PHI, and if there are no stores between the phi and load.
-  // TODO: Allow recursive phi users.
-  // TODO: Allow stores.
-  BasicBlock *BB = PN.getParent();
   unsigned MaxAlign = 0;
-  bool HaveLoad = false;
-  for (User *U : PN.users()) {
-    LoadInst *LI = dyn_cast<LoadInst>(U);
-    if (!LI || !LI->isSimple())
+  bool HasLoad = false;
+
+  for (const auto *U : PN.users()) {
+    // It is very common to have loads following GEPs. This code supports those
+    // cases (one such example can be found in intel-phi-gep.ll).
+    // It also supports recursive traversal of phi users.
+
+    if (!isLiveAtPHI(dyn_cast<Instruction>(U), PN, MaxAlign))
       return false;
 
-    // For now we only allow loads in the same block as the PHI.  This is
-    // a common case that happens when instcombine merges two loads through
-    // a PHI.
-    if (LI->getParent() != BB)
-      return false;
-
-    // Ensure that there are no instructions between the PHI and the load that
-    // could store.
-    for (BasicBlock::iterator BBI(PN); &*BBI != LI; ++BBI)
-      if (BBI->mayWriteToMemory())
-        return false;
-
-    MaxAlign = std::max(MaxAlign, LI->getAlignment());
-    HaveLoad = true;
+    HasLoad = true;
   }
 
-  if (!HaveLoad)
+  if (!HasLoad)
     return false;
+#endif // INTEL_CUSTOMIZATION
 
   const DataLayout &DL = PN.getModule()->getDataLayout();
 
@@ -1188,48 +1234,113 @@ static bool isSafePHIToSpeculate(PHINode &PN) {
   return true;
 }
 
+#if INTEL_CUSTOMIZATION
+/// \brief This updates the users of Inst with NewInst if Inst is a load.
+/// It also looks for GEPs along the way and traverses its users to
+/// get to the final load instruction.
+static void updateLoadUsers(Instruction *Inst, Instruction *NewInst) {
+  switch(Inst->getOpcode()) {
+  case Instruction::Load: {
+    Inst->replaceAllUsesWith(NewInst);
+    Inst->eraseFromParent();
+    break;
+  }
+  case Instruction::GetElementPtr: {
+    while (!Inst->use_empty())
+      updateLoadUsers(cast<Instruction>(Inst->user_back()), NewInst);
+
+    Inst->eraseFromParent();
+    break;
+  }
+  default:
+    llvm_unreachable("Unexpected Instruction!!!");
+  }
+}
+
+/// \brief Update \p Inst's load users with \p NewInst. If Inst happens to be
+/// a GEP, iterate through its users untill loads are met; return the GEPs.
+static void injectGEPsLoads(IRBuilderTy &IRB, Instruction *Inst, Value *Ptr,
+                            SmallPtrSet<LoadInst *, 4> &NewLoads) {
+  switch(Inst->getOpcode()) {
+  case Instruction::Load: {
+    LoadInst *NewLoad = IRB.CreateLoad(Ptr);
+    NewLoads.insert(NewLoad);
+    break;
+  }
+  case Instruction::GetElementPtr: {
+    GetElementPtrInst *GEP = cast<GetElementPtrInst>(Inst);
+    assert(GEP->hasAllZeroIndices() && "Expected all zero indices!!!");
+
+    SmallVector<Value*, 8> IdxList(GEP->idx_begin(), GEP->idx_end());
+    Value *NewGEP = GEP->isInBounds()
+          ? IRB.CreateInBoundsGEP(Ptr, IdxList)
+          : IRB.CreateGEP(Ptr, IdxList);
+
+    for (auto *U : Inst->users())
+      injectGEPsLoads(IRB, cast<Instruction>(U), NewGEP, NewLoads);
+
+    break;
+  }
+  default:
+    llvm_unreachable("Unexpected Instruction!!!");
+  }
+}
+
+/// speculatePHINodeLoads was significantly modified to support GEP in-between loads and PHIs.
+/// Not every line was changed, but the entire routine is under
+/// INTEL_CUSTOMIZATION, because any community changes to this routine will need
+/// to be manually merged.
 static void speculatePHINodeLoads(PHINode &PN) {
   DEBUG(dbgs() << "    original: " << PN << "\n");
 
-  Type *LoadTy = cast<PointerType>(PN.getType())->getElementType();
+  // Get the AA tags and alignment to use from one of the loads.  It doesn't
+  // matter which one we get and if any differ.
+  Instruction *I = &PN;
+  // Since there could be GEPs in between load and PN, keep iterating through
+  // the users until a load instruction is found.
+  while (!isa<LoadInst>(I))
+    I = cast<Instruction>(I->user_back());
+
+  LoadInst *SomeLoad = cast<LoadInst>(I);
+  Type *LoadTy = SomeLoad->getType();
   IRBuilderTy PHIBuilder(&PN);
   PHINode *NewPN = PHIBuilder.CreatePHI(LoadTy, PN.getNumIncomingValues(),
                                         PN.getName() + ".sroa.speculated");
-
-  // Get the AA tags and alignment to use from one of the loads.  It doesn't
-  // matter which one we get and if any differ.
-  LoadInst *SomeLoad = cast<LoadInst>(PN.user_back());
 
   AAMDNodes AATags;
   SomeLoad->getAAMetadata(AATags);
   unsigned Align = SomeLoad->getAlignment();
 
-  // Rewrite all loads of the PN to use the new PHI.
-  while (!PN.use_empty()) {
-    LoadInst *LI = cast<LoadInst>(PN.user_back());
-    LI->replaceAllUsesWith(NewPN);
-    LI->eraseFromParent();
-  }
-
-  // Inject loads into all of the pred blocks.
+  // Inject loads/GEP-loads into all of the pred blocks.
   for (unsigned Idx = 0, Num = PN.getNumIncomingValues(); Idx != Num; ++Idx) {
     BasicBlock *Pred = PN.getIncomingBlock(Idx);
     TerminatorInst *TI = Pred->getTerminator();
+
     Value *InVal = PN.getIncomingValue(Idx);
     IRBuilderTy PredBuilder(TI);
 
-    LoadInst *Load = PredBuilder.CreateLoad(
-        InVal, (PN.getName() + ".sroa.speculate.load." + Pred->getName()));
-    ++NumLoadsSpeculated;
-    Load->setAlignment(Align);
-    if (AATags)
-      Load->setAAMetadata(AATags);
-    NewPN->addIncoming(Load, Pred);
+    SmallPtrSet<LoadInst *, 4> NewLoads;
+    injectGEPsLoads(PredBuilder, cast<Instruction>(PN.user_back()), InVal, NewLoads);
+    for (auto *NewLoad : NewLoads) {
+      ++NumLoadsSpeculated;
+      NewLoad->setAlignment(Align);
+      if (AATags)
+        NewLoad->setAAMetadata(AATags);
+      NewPN->addIncoming(NewLoad, Pred);
+    }
+
+    NewLoads.clear();
   }
+
+  // Rewrite all loads/loads-following-GEPs of the PN to use the new PHI.
+  while (!PN.use_empty())
+    updateLoadUsers(cast<Instruction>(PN.user_back()), NewPN);
 
   DEBUG(dbgs() << "          speculated to: " << *NewPN << "\n");
   PN.eraseFromParent();
 }
+#endif // INTEL_CUSTOMIZATION
+
 
 /// Select instructions that use an alloca and are subsequently loaded can be
 /// rewritten to load both input pointers and then select between the result,

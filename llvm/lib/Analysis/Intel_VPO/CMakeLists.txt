@@ -13,9 +13,11 @@
 
 add_llvm_library(LLVMIntel_VPOAnalysis
   VPOAnalysis.cpp
+  Utils/GeneralUtils.cpp
 
   WRegionInfo/WRegionNode.cpp
   WRegionInfo/WRegion.cpp
+  WRegionInfo/WRegionClause.cpp
   WRegionInfo/WRegionCollection.cpp
   WRegionInfo/WRegionInfo.cpp
   WRegionInfo/WRegionUtils.cpp
@@ -52,6 +54,6 @@ add_llvm_library(LLVMIntel_VPOAnalysis
   Vecopt/VectorGraphPredicator.cpp
 )
 
-add_dependencies(LLVMIntel_VPOAnalysis intrinsics_gen)
+add_dependencies(LLVMIntel_VPOAnalysis intrinsics_gen intel_directives_gen)
 
 

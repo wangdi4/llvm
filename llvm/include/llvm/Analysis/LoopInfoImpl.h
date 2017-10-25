@@ -78,6 +78,90 @@ BlockT *LoopBase<BlockT, LoopT>::getExitBlock() const {
   return nullptr;
 }
 
+#ifdef INTEL_CUSTOMIZATION
+/// hasDedicatedExits - Return true if no exit block for the loop has a
+/// predecessor that is outside the loop.
+template <class BlockT, class LoopT>
+bool LoopBase<BlockT, LoopT>::hasDedicatedExits() const {
+  typedef GraphTraits<Inverse<BlockT *>> InvBlockTraits;
+  // Each predecessor of each exit block of a normal loop is contained
+  // within the loop.
+  SmallVector<BlockT *, 4> ExitBlocks;
+  getExitBlocks(ExitBlocks);
+  for (BlockT *EB : ExitBlocks)
+    // TODO: Use children
+    for (BlockT *Predecessor : make_range(InvBlockTraits::child_begin(EB),
+                                          InvBlockTraits::child_end(EB)))
+      if (!contains(Predecessor))
+        return false;
+  // All the requirements are met.
+  return true;
+}
+
+/// getUniqueExitBlocks - Return all unique successor blocks of this loop.
+/// These are the blocks _outside of the current loop_ which are branched to.
+/// This assumes that loop exits are in canonical form, i.e. all exits are
+/// dedicated exits.
+template <class BlockT, class LoopT>
+void LoopBase<BlockT, LoopT>::getUniqueExitBlocks(
+    SmallVectorImpl<BlockT *> &ExitBlocks) const {
+  typedef GraphTraits<BlockT *> BlockTraits;
+  typedef GraphTraits<Inverse<BlockT *>> InvBlockTraits;
+
+  assert(hasDedicatedExits() &&
+         "getUniqueExitBlocks assumes the loop has canonical form exits!");
+
+  SmallVector<BlockT *, 32> SwitchExitBlocks;
+  for (BlockT *Block : this->blocks()) {
+    SwitchExitBlocks.clear();
+    // TODO: Use inverse_children
+    for (BlockT *Successor : make_range(BlockTraits::child_begin(Block),
+                                        BlockTraits::child_end(Block))) {
+      // If block is inside the loop then it is not an exit block.
+      if (contains(Successor))
+        continue;
+
+      BlockT *FirstPred = *InvBlockTraits::child_begin(Successor);
+
+      // If current basic block is this exit block's first predecessor
+      // then only insert exit block in to the output ExitBlocks vector.
+      // This ensures that same exit block is not inserted twice into
+      // ExitBlocks vector.
+      if (Block != FirstPred)
+        continue;
+
+      // If a terminator has more then two successors, for example SwitchInst,
+      // then it is possible that there are multiple edges from current block
+      // to one exit block.
+      if (std::distance(BlockTraits::child_begin(Block),
+                        BlockTraits::child_end(Block)) <= 2) {
+        ExitBlocks.push_back(Successor);
+        continue;
+      }
+
+      // In case of multiple edges from current block to exit block, collect
+      // only one edge in ExitBlocks. Use switchExitBlocks to keep track of
+      // duplicate edges.
+      if (!is_contained(SwitchExitBlocks, Successor)) {
+        SwitchExitBlocks.push_back(Successor);
+        ExitBlocks.push_back(Successor);
+      }
+    }
+  }
+}
+
+/// getUniqueExitBlock - If getUniqueExitBlocks would return exactly one block,
+/// return that block. Otherwise return null.
+template <class BlockT, class LoopT>
+BlockT *LoopBase<BlockT, LoopT>::getUniqueExitBlock() const {
+  SmallVector<BlockT *, 8> UniqueExitBlocks;
+  getUniqueExitBlocks(UniqueExitBlocks);
+  if (UniqueExitBlocks.size() == 1)
+    return UniqueExitBlocks[0];
+  return nullptr;
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// getExitEdges - Return all pairs of (_inside_block_,_outside_block_).
 template<class BlockT, class LoopT>
 void LoopBase<BlockT, LoopT>::

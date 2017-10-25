@@ -82,11 +82,10 @@ bool WRegionCollection::isCandidateLoop(Loop &Lp) {
   return true;
 }
 
-/// \brief Visit the Dom Tree to identify all W-Regions
-void WRegionCollection::doPreOrderDomTreeVisit(BasicBlock *BB,
-                                               WRStack<WRegionNode *> *S) {
-  // DEBUG(dbgs() << "\ndoPreOrderDomTreeVisit: processing BB:\n" << *BB);
-  auto Root = DT->getNode(BB);
+/// \brief Inspect the BB to identify and create W-Regions
+void WRegionCollection::getWRegionFromBB(BasicBlock *BB,
+                                         WRStack<WRegionNode *> *S) {
+  DEBUG(dbgs() << "\n=== getWRegionFromBB is processing this BB: " << *BB);
   WRegionNode *W;
 
   //
@@ -99,104 +98,159 @@ void WRegionCollection::doPreOrderDomTreeVisit(BasicBlock *BB,
     if (Call) {
       Intrinsic::ID IntrinId = Call->getIntrinsicID();
 
-      if (!VPOAnalysisUtils::isIntelDirectiveOrClause(IntrinId))
-        // Intrin is not intel_directive or intel_directive_qual*
-        continue;
+      // Are we dealing with the directive.region.entry/exit representation?
+      bool IsRegion = VPOAnalysisUtils::isRegionDirective(IntrinId);
 
-      if (IntrinId == Intrinsic::intel_directive) {
-        StringRef DirString = 
-                            VPOAnalysisUtils::getDirectiveMetadataString(Call);
-        int DirID = VPOAnalysisUtils::getDirectiveID(DirString);
+      // Name of the directive or clause represented by this intrinsic
+      StringRef DirOrClause = VPOAnalysisUtils::getDirOrClauseString(Call);
+
+      DEBUG(dbgs() << "\n=== getWRegionFromBB found: " << DirOrClause << "\n");
+
+      if (VPOAnalysisUtils::isOpenMPDirective(DirOrClause)) {
+
+        int DirID = VPOAnalysisUtils::getDirectiveID(DirOrClause);
+
         // If the intrinsic represents an intel BEGIN directive, then
         // W is a pointer to an object for the corresponding WRN.
         // Otherwise, W is nullptr.
-        W = WRegionUtils::createWRegion(DirID, BB, LI, S->size());
+        W = WRegionUtils::createWRegion(DirID, BB, LI, S->size(), IsRegion);
         if (W) {
-          // DEBUG(dbgs() << "\n Starting New WRegion{\n");
+          // The intrinsic represents a BEGIN directive.
+          // W points to the WRN created for it.
 
-          // The intrinsic represents an intel BEGIN directive.
-          // W is a pointer to an object for the corresponding WRN.
+          assert((VPOAnalysisUtils::isBeginDirective(DirID) ||
+                  VPOAnalysisUtils::isStandAloneBeginDirective(DirID)) &&
+                 "An expected BEGIN directive is missing.");
 
-          if (S->empty())
+          if (S->empty()) {
             // Top-level WRegionNode
             WRGraph->push_back(W);
-          else {
+          } else {
             WRegionNode *Parent = S->top();
             Parent->getChildren().push_back(W);
             W->setParent(Parent);
           }
 
           S->push(W);
-          // DEBUG(dbgs() << "\nStacksize = " << S->size() << "\n");
-        } else if (VPOAnalysisUtils::isEndDirective(DirID)) {
-          // The intrinsic represents an intel END directive
+          DEBUG(dbgs() << "\n  === New WRegion. ");
+          DEBUG(dbgs() << "Stacksize after push = " << S->size() << "\n");
+        } else if (VPOAnalysisUtils::isEndDirective(DirID) ||
+                   VPOAnalysisUtils::isStandAloneEndDirective(DirID)) {
+          // The intrinsic represents the END directive for the WRN that is
+          // currently on S->top().
           // TODO: verify the END directive is the expected one
-
-          // DEBUG(dbgs() << "\n} Ending WRegion.\n");
 
           assert(!(S->empty()) &&
                  "Unexpected empty WRN stack when seeing an END directive");
 
           W = S->top();
-          W->setExitBBlock(BB);
-
-          // generate BB set;
-          // TODO: Remove this call later; the client should do it on demand
-          W->populateBBSet();
+          W->finalize(BB); // set the ExitBB and wrap up the WRN
 
           S->pop();
-          // DEBUG(dbgs() << "\nStacksize = " << S->size() << "\n");
-        }
-        else if (VPOAnalysisUtils::isListEndDirective(DirID) && 
+          DEBUG(dbgs() << "\n  === Closed WRegion. ");
+          DEBUG(dbgs() << "Stacksize after pop = " << S->size() << "\n");
+        } else if (VPOAnalysisUtils::isListEndDirective(DirID) && 
                  !(S->empty())) {
+          // We reach here only if using the intel_directive representation.
+          // Under this representation, stand-alone directives don't have a
+          // matchine end directive.
           W = S->top();
-          if (VPOAnalysisUtils::isStandAloneDirective(W->getDirID())) {
+          if (VPOAnalysisUtils::isStandAloneBeginDirective(W->getDirID())) {
             // Current WRN is for a stand-alone directive, so
             // pop the stack as soon as DIR_QUAL_LIST_END is seen
             S->pop();
+            DEBUG(dbgs() << "\n  === Closed WRegion (standalone dir). ");
+            DEBUG(dbgs() << "Stacksize after pop = " << S->size() << "\n");
           }
         }
-      } else { // Process clauses below
+      } else if (VPOAnalysisUtils::isIntelClause(IntrinId)) { 
+        // Process clauses from intel_directive_qual* intrinsics. We reach here
+        // only if using the intel_directive_qual* representation.
+        assert(!IsRegion && 
+               "Unexpected directive.region.entry/exit representation");
+
         assert(!(S->empty()) &&
                "Unexpected empty WRN stack when seeing a clause");
         W = S->top();
-        StringRef ClauseString = 
-                            VPOAnalysisUtils::getDirectiveMetadataString(Call);
-        int ClauseID = VPOAnalysisUtils::getClauseID(ClauseString);
-        if (IntrinId == Intrinsic::intel_directive_qual) {
-          // Handle clause with no arguments
-          assert(Call->getNumArgOperands() == 1 &&
-                 "Bad number of opnds for intel_directive_qual");
-          W->handleQual(ClauseID);
-        } else if (IntrinId == Intrinsic::intel_directive_qual_opnd) {
-          // Handle clause with one argument
-          assert(Call->getNumArgOperands() == 2 &&
-                 "Bad number of opnds for intel_directive_qual_opnd");
-          Value *V = Call->getArgOperand(1);
-          W->handleQualOpnd(ClauseID, V);
-        } else if (IntrinId == Intrinsic::intel_directive_qual_opndlist) {
-          // Handle clause with argument list
-          assert(Call->getNumArgOperands() >= 2 &&
-                 "Bad number of opnds for intel_directive_qual_opndlist");
-          W->handleQualOpndList(ClauseID, Call);
-        }
+
+        // Extract clause properties 
+        ClauseSpecifier ClauseInfo(DirOrClause);
+
+        // Parse the clause and update W
+        W->parseClause(ClauseInfo, Call);
       }
     } // if (Call)
-  }   // for
+  } // for
+  return;
+}
 
-  /// Walk over dominator children.
-  for (auto D = Root->begin(), E = Root->end(); D != E; ++D) {
-    auto DomChildBB = (*D)->getBlock();
-    doPreOrderDomTreeVisit(DomChildBB, S);
+/// \brief Invoking this routine with the entry BBs of a CFG puts all the BBs
+/// of the CFG in the BBStack in a topologically sorted manner (ignoring
+/// backedges). Popping BBStack gives BBs in sorted order. This ordering
+/// allows getWRegionFromBB() to build nested OMP constructs correctly,
+/// visiting all the inner constructs' directives before processing the END
+/// directive of an enclosing outer construct.
+void topSortBasicBlocks(
+  BasicBlock *BB,
+  WRStack<BasicBlock *> &BBStack,
+  SmallPtrSetImpl<BasicBlock *> &Visited,
+  bool DoVerifyBB
+)
+{
+  // DEBUG(dbgs() << "\n=== topSortBasicBlocks visiting this BB: " << *BB);
+
+  // Skip visited nodes.
+  if (Visited.count(BB))
+    return;
+
+  // Verify that the directives in BB, if any, follow design rules
+  if (DoVerifyBB) {
+    bool PassedVerify = VPOAnalysisUtils::verifyBB(*BB, true);
+    assert(PassedVerify && "Malformed directives in BBlock");
+    (void) PassedVerify;
   }
 
-  return;
+  // Mark BB as "visited".
+  Visited.insert(BB);
+
+  // Visit all the successors first
+  for (succ_iterator I = succ_begin(BB), E = succ_end(BB); I != E; ++I) {
+    topSortBasicBlocks(*I, BBStack, Visited, DoVerifyBB);
+  }
+
+  // We are only interested in BBs that start with OMP directives. Paying the
+  // cost now to look at BB's first instruction allows us to save memory by
+  // only pushing BBs with such directives onto BBStack. It will also save 
+  // compile time later in getWRegionFromBB, which no longer has to look at all
+  // the BBs in the CFG. For typical OpenMP programs where the percentage of
+  // BBs with OMP directives is small, this should result in net savings of
+  // compile time.
+  if (VPOAnalysisUtils::isIntelDirective(&(BB->front()))) {
+    // DEBUG(dbgs() << "\n=== topSortBasicBlocks pushed this BB: " << *BB);
+    BBStack.push(BB);
+  }
 }
 
 void WRegionCollection::buildWRGraphFromLLVMIR(Function &F) {
   WRGraph = new (WRContainerTy);
   WRStack<WRegionNode *> S;
-  doPreOrderDomTreeVisit(&F.getEntryBlock(), &S);
+
+  // First, sort the CFG's BBs in topological order (ignoring backedges)
+  // and put them in BBStack
+  BasicBlock *RootBB = &F.getEntryBlock();
+  WRStack<BasicBlock *> BBStack;
+  SmallPtrSet<BasicBlock *, 32> Visited;
+
+  // Having the last argument==true turns on the verifier by default.
+  // TODO: guard it under a flag (or debug mode) when VPO is more stable.
+  topSortBasicBlocks(RootBB, BBStack, Visited, true);
+
+  // Then, visit the BBs in sorted order (by popping BBStack) to build WRNs
+  while (!BBStack.empty()) {
+    BasicBlock *BB = BBStack.top();
+    getWRegionFromBB(BB, &S);
+    BBStack.pop();
+  }
   return;
 }
 

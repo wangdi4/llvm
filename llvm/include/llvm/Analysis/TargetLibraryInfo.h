@@ -29,6 +29,9 @@ struct VecDesc {
   StringRef ScalarFnName;
   StringRef VectorFnName;
   unsigned VectorizationFactor;
+#if INTEL_CUSTOMIZATION
+  bool Masked;
+#endif
 };
 
   enum LibFunc {
@@ -87,7 +90,8 @@ public:
   enum VectorLibrary {
     NoLibrary,  // Don't use any vector library.
     Accelerate, // Use Accelerate framework.
-    SVML        // Intel short vector math library.
+    SVML,       // Intel short vector math library.
+    Libmvec     // Glibc vector math library.
   };
 
   TargetLibraryInfoImpl();
@@ -159,7 +163,8 @@ public:
 
   /// Return the name of the equivalent of F, vectorized with factor VF. If no
   /// such mapping exists, return the empty string.
-  StringRef getVectorizedFunction(StringRef F, unsigned VF) const;
+  StringRef getVectorizedFunction(StringRef F, unsigned VF,
+                                  bool Masked=false) const;
 
   /// Return true if the function F has a scalar equivalent, and set VF to be
   /// the vectorization factor.
@@ -257,8 +262,9 @@ public:
   bool isFunctionVectorizable(StringRef F) const {
     return Impl->isFunctionVectorizable(F);
   }
-  StringRef getVectorizedFunction(StringRef F, unsigned VF) const {
-    return Impl->getVectorizedFunction(F, VF);
+  StringRef getVectorizedFunction(StringRef F, unsigned VF,
+                                  bool Masked=false) const { // INTEL
+    return Impl->getVectorizedFunction(F, VF, Masked);
   }
 
   /// Tests if the function is both available and a candidate for optimized code

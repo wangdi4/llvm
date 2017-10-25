@@ -32,7 +32,7 @@ class DbgDeclareInst;
 class DbgValueInst;
 class DbgInfoIntrinsic;
 class ConstantExpr;
-
+class Value;
 
 /// \brief This class provides a set of general utility functions that can be
 /// used for a variety of purposes.
@@ -44,8 +44,11 @@ public:
   template <typename T>
   static Constant* getConstantValue(Type *Ty, LLVMContext &Context, T Val);
 
-  /// \brief Returns Loop in LoopInfo corresponding to the WRN's EntryBB
-  static Loop* getLoopFromLoopInfo(LoopInfo* LI, BasicBlock *WRNEntryBB);
+  /// \brief Returns Loop in LoopInfo corresponding to the WRN.  The initial
+  /// call to this recursive DFS function should pass in the WRN's EntryBB and
+  /// ExitBB to prevent searching for the loop header outside of the region.
+  static Loop* getLoopFromLoopInfo(LoopInfo* LI, BasicBlock *EntryBB,
+                                                 BasicBlock *ExitBB);
 
   /// \brief Generates BB set in sub CFG for a given WRegionNode.
   /// The entry basic bblock 'EntryBB' and the exit basic
@@ -54,15 +57,25 @@ public:
   /// first item in BBSet is 'EntryBB' and the last item is 'ExitBB'.
   static void collectBBSet(BasicBlock *EntryBB, BasicBlock *ExitBB,
                            SmallVectorImpl<BasicBlock *> &BBSet);
-  /// Breaks up the instruction recursively for all the constant expression
-  /// operands.
+  /// \brief Breaks up the instruction recursively for all the constant 
+  /// expression operands.
   static void breakExpressions(Instruction *Inst);
-  /// Breaks up the instruction recursively for the gvien constant
+
+  /// \brief Breaks up the instruction recursively for the gvien constant
   /// expression operand.
   static void breakExpressionsHelper(ConstantExpr* Expr, 
                                      unsigned OperandIndex, 
                                      Instruction* User);
 
+  /// \brief Returns false if I's next instruction is terminator instruction.
+  /// Otherwise returns true.
+  static bool hasNextUniqueInstruction(Instruction *I);
+
+  /// \brief Returns instruction I's next instruction in the same basic block.
+  static Instruction* nextUniqueInstruction(Instruction *I);
+
+  /// \brief Returns true if the value V escapes.
+  static bool isEscaped(const Value *V);
 };
 
 } // end llvm namespace

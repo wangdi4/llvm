@@ -216,6 +216,22 @@ public:
   /// Otherwise return null.
   BlockT *getExitBlock() const;
 
+#ifdef INTEL_CUSTOMIZATION
+  /// Return true if no exit block for the loop has a predecessor that is
+  /// outside the loop.
+  bool hasDedicatedExits() const;
+
+  /// Return all unique successor blocks of this loop.
+  /// These are the blocks _outside of the current loop_ which are branched to.
+  /// This assumes that loop exits are in canonical form, i.e. all exits are
+  /// dedicated exits.
+  void getUniqueExitBlocks(SmallVectorImpl<BlockT *> &ExitBlocks) const;
+
+  /// If getUniqueExitBlocks would return exactly one block, return that block.
+  /// Otherwise return null.
+  BlockT *getUniqueExitBlock() const;
+#endif // INTEL_CUSTOMIZATION
+
   /// Edge type.
   typedef std::pair<const BlockT*, const BlockT*> Edge;
 
@@ -464,6 +480,7 @@ public:
   /// operand should be the node itself.
   void setLoopID(MDNode *LoopID) const;
 
+#ifndef INTEL_CUSTOMIZATION
   /// Return true if no exit block for the loop has a predecessor that is
   /// outside the loop.
   bool hasDedicatedExits() const;
@@ -477,6 +494,7 @@ public:
   /// If getUniqueExitBlocks would return exactly one block, return that block.
   /// Otherwise return null.
   BasicBlock *getUniqueExitBlock() const;
+#endif // INTEL_CUSTOMIZATION
 
   void dump() const;
   void dumpVerbose() const;
@@ -640,6 +658,11 @@ public:
     assert(!New->getParentLoop() && "Loop already in subloop!");
     TopLevelLoops.push_back(New);
   }
+
+#ifdef INTEL_CUSTOMIZATION
+  /// Return the number of top level loops.
+  size_t size() const { return TopLevelLoops.size(); }
+#endif
 
   /// This method completely removes BB from all data structures,
   /// including all of the Loop objects it is nested in and our mapping from

@@ -9,7 +9,7 @@
 
 ; Begin non-masked variant checking
 
-; CHECK-LABEL: @_ZGVxN4vv_vec_sum
+; CHECK-LABEL: @_ZGVbN4vv_vec_sum
 ; CHECK: simd.loop:
 ; CHECK: %vec.i.cast.gep = getelementptr i32, i32* %vec.i.cast, i32 %index
 ; CHECK: %vec.i.elem = load i32, i32* %vec.i.cast.gep
@@ -28,4 +28,4 @@ entry:
   ret i32 %add
 }
 
-attributes #0 = { nounwind readnone uwtable "_ZGVxM4vv_" "_ZGVxN4vv_" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #0 = { nounwind readnone uwtable "vector-variants"="_ZGVbM4vv_,_ZGVbN4vv_" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float"="false" }

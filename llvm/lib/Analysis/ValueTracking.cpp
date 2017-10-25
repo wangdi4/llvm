@@ -4353,6 +4353,166 @@ SelectPatternResult llvm::matchSelectPattern(Value *V, Value *&LHS, Value *&RHS,
                               LHS, RHS);
 }
 
+#if INTEL_CUSTOMIZATION
+bool llvm::matchSaturationDownconvert(Value *V, Value *&X,
+                                      const APInt *&LowerBound,
+                                      const APInt *&UpperBound, Type *&SrcTy,
+                                      Type *&DestTy, bool &Signed) {
+  TruncInst *TI = dyn_cast<TruncInst>(V);
+  if (!TI)
+    return false;
+  SrcTy = TI->getSrcTy();
+  DestTy = TI->getDestTy();
+
+  // Match the canonical clamp.
+  Value *LHS, *RHS;
+  auto SPF1 = matchSelectPattern(TI->getOperand(0), LHS, RHS).Flavor;
+  if (!SelectPatternResult::isMinOrMax(SPF1) || !match(RHS, m_APInt(LowerBound)))
+    return false;
+
+  auto SPF2 = matchSelectPattern(LHS, X, RHS).Flavor;
+  if (!SelectPatternResult::isMinOrMax(SPF2) || !match(RHS, m_APInt(UpperBound)))
+    return false;
+
+  switch (SPF1) {
+  case SPF_SMAX:
+    // Match:
+    // smax(smin(X, UpperBound), LowerBound)
+    if (!(SPF2 == SPF_SMIN && LowerBound->slt(*UpperBound)))
+      return false;
+    break;
+  case SPF_SMIN:
+    // Match:
+    // smin(smax(X, UpperBound), LowerBound)
+    if (!(SPF2 == SPF_SMAX && LowerBound->sgt(*UpperBound)))
+      return false;
+    std::swap(LowerBound, UpperBound);
+    break;
+  case SPF_UMIN:
+    // Match:
+    // umin(smax(x, NonNegative UpperBound), LowerBound) ~ smin(smax(x, NonNegative UpperBound), LowerBound)
+    if (!(SPF2 == SPF_SMAX && UpperBound->isNonNegative() && LowerBound->sgt(*UpperBound)))
+      return false;
+    std::swap(LowerBound, UpperBound);
+    break;
+  default:
+    // Nothing matched.
+    return false;
+  }
+
+  // The canonical form implies that cast operations are out of min/max.
+  assert(X->getType() == SrcTy &&
+         "Cast operations should be out of min/max idiom.");
+
+  // Check that lower and upper bounds of saturation fit to the range of
+  // signed or unsigned destination integer type of truncation.
+  unsigned DestNumBits = DestTy->getScalarSizeInBits();
+  unsigned SrcNumBits = SrcTy->getScalarSizeInBits();
+  if (LowerBound->sge(APInt::getMinValue(DestNumBits).zext(SrcNumBits)) &&
+      UpperBound->sle(APInt::getMaxValue(DestNumBits).zext(SrcNumBits))) {
+    // If saturation bounds fit to the range of destination usigned integer type
+    // then this is an unsigned saturation.
+    Signed = false;
+  } else if (LowerBound->sge(
+                 APInt::getSignedMinValue(DestNumBits).sext(SrcNumBits)) &&
+             UpperBound->sle(
+                 APInt::getSignedMaxValue(DestNumBits).sext(SrcNumBits))) {
+    // If saturation bounds fit to the range of destination signed integer type
+    // then this is a signed saturation.
+    Signed = true;
+  } else {
+    // In other case this is not a saturation downconvert pattern.
+    return false;
+  }
+
+  return true;
+}
+
+bool llvm::matchSaturationAddSub(Value *V, Value *&A, Value *&B,
+                                 const APInt *&LowerBound,
+                                 const APInt *&UpperBound, Type *&Ty,
+                                 Type *&ExtTy, bool &Signed, unsigned &Opcode) {
+  TruncInst *TI;
+  if (!(TI = dyn_cast<TruncInst>(V)))
+    return false;
+
+  Value *X;
+  if (!matchSaturationDownconvert(V, X, LowerBound, UpperBound, ExtTy, Ty,
+                                  Signed)) {
+    // This is not a saturation downconvert pattern, so try to match
+    // unsigned saturation add with implicit LowerBound = zero or unsigned
+    // saturation sub with implicit UpperBound = max unsigned value.
+    ExtTy = TI->getSrcTy();
+    Ty = TI->getDestTy();
+    Signed = false;
+    Value *RHS;
+    auto SPF = matchSelectPattern(TI->getOperand(0), X, RHS).Flavor;
+    unsigned NumBits = Ty->getScalarSizeInBits();
+    unsigned ExtNumBits = ExtTy->getScalarSizeInBits();
+    if (SPF == SPF_SMIN or SPF == SPF_UMIN) {
+      // Match:
+      // r = [S|U]MIN(X, UpperBound)
+      // trunc r
+      if (!match(RHS, m_APInt(UpperBound)) ||
+          !UpperBound->sle(APInt::getMaxValue(NumBits).zext(ExtNumBits)))
+        return false;
+
+      // LowerBound is implicitely equal to zero.
+      LowerBound =
+          &ConstantInt::get(X->getContext(), APInt::getMinValue(ExtNumBits))
+               ->getValue();
+    } else if (SPF == SPF_SMAX) {
+      // Match:
+      // r = SMAX(X, 0)
+      // trunc r
+      if (!match(RHS, m_APInt(LowerBound)) || !LowerBound->isNullValue())
+        return false;
+
+      // UpperBound is implicitly equal to maximum unsigned value.
+      UpperBound =
+          &ConstantInt::get(X->getContext(),
+                            APInt::getMaxValue(NumBits).zext(ExtNumBits))
+               ->getValue();
+    } else {
+      return false;
+    }
+  }
+
+  // Here we matched saturation downconvert pattern:
+  //   r = clamp(X, LowerBound, UpperBound)
+  //   trunc r
+  // or one of the following:
+  //   1. [S|U]MIN(X, UpperBound) with implicit LowerBound = 0
+  //   2. SMAX(X, 0) with implicit UpperBound = Unsigned Max Value.
+  Instruction *Inst;
+  if (!(Inst = dyn_cast<Instruction>(X)))
+    return false;
+
+  Opcode = Inst->getOpcode();
+  // Check that X = sub/add A, B
+  if (Opcode != Instruction::Add && Opcode != Instruction::Sub)
+    return false;
+
+  if (!Signed) {
+    // In case of unsigned saturation match:
+    // A = zext a
+    // B = zext b
+    if (match(Inst, m_BinOp(m_ZExt(m_Value(A)), m_ZExt(m_Value(B)))) &&
+        A->getType() == Ty && B->getType() == Ty)
+      return true;
+  } else {
+    // In case of unsigned saturation match:
+    // A = zext a
+    // B = zext b
+    if (match(Inst, m_BinOp(m_SExt(m_Value(A)), m_SExt(m_Value(B)))) &&
+        A->getType() == Ty && B->getType() == Ty)
+      return true;
+  }
+
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// Return true if "icmp Pred LHS RHS" is always true.
 static bool isTruePredicate(CmpInst::Predicate Pred,
                             const Value *LHS, const Value *RHS,

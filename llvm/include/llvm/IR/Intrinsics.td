@@ -760,6 +760,10 @@ def int_experimental_gc_result   : Intrinsic<[llvm_any_ty], [llvm_token_ty],
 def int_experimental_gc_relocate : Intrinsic<[llvm_any_ty],
                                 [llvm_token_ty, llvm_i32_ty, llvm_i32_ty],
                                 [IntrReadMem]>;
+//===------------------------ Directive Intrinsics ------------------------===//
+//
+def int_directive_region_entry : Intrinsic<[llvm_token_ty], [], []>;
+def int_directive_region_exit  : Intrinsic<[], [llvm_token_ty], []>;
 
 //===------------------------ Coroutine Intrinsics ---------------===//
 // These are documented in docs/Coroutines.rst

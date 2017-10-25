@@ -532,6 +532,41 @@ template <typename T> class ArrayRef;
     return Result;
   }
 
+#if INTEL_CUSTOMIZATION
+  /// \brief Matches saturation downconvert idiom.
+  ///
+  /// The following pattern is matched:
+  ///   r = clamp(X, LowerBound, UpperBound)
+  ///   trunc r
+  ///
+  /// Lower and upper bounds of saturation should fit to the range of
+  /// signed or unsigned destination integer type of truncation.
+  ///
+  /// \returns true in case the idiom was matched and provides additional
+  /// information about the idiom in the parameters, false otherwise.
+  bool matchSaturationDownconvert(Value *V, Value *&X, const APInt *&LowerBound,
+                                  const APInt *&UpperBound, Type *&SrcTy,
+                                  Type *&DestTy, bool &Signed);
+
+  /// \brief Matches saturation add/sub idioms.
+  ///
+  /// Match the case when two input integer values are extended to a wider type,
+  /// then the result of add/sub is saturated with further truncation to a
+  /// source integer type. Lower and upper bounds of saturation should fit to
+  /// the range of signed or unsigned destination integer type of truncation.
+  ///
+  /// \param Ty Type of the result and input values.
+  /// \param ExtTy Type of input values after extension.
+  /// \param Opcode of operation (add or sub)
+  ///
+  /// \returns true in case the idiom was matched and provides additional
+  /// information about the idiom in the parameters, false otherwise.
+  bool matchSaturationAddSub(Value *V, Value *&A, Value *&B,
+                             const APInt *&LowerBound, const APInt *&UpperBound,
+                             Type *&Ty, Type *&ExtTy, bool &Signed,
+                             unsigned &Opcode);
+#endif // INTEL_CUSTOMIZATION
+
   /// Return true if RHS is known to be implied true by LHS.  Return false if
   /// RHS is known to be implied false by LHS.  Otherwise, return None if no
   /// implication can be made.

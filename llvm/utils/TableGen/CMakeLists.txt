@@ -26,8 +26,9 @@ add_tablegen(llvm-tblgen LLVM
   InstrInfoEmitter.cpp
   IntrinsicEmitter.cpp
   Intel_DirectivesEmitter.cpp # INTEL
-  Intel_SVMLEmitter.cpp       # INTEL
+  Intel_LibmvecEmitter.cpp    # INTEL
   Intel_MAPatternsEmitter.cpp # INTEL
+  Intel_SVMLEmitter.cpp       # INTEL
   OptParserEmitter.cpp
   PseudoLoweringEmitter.cpp
   RegisterBankEmitter.cpp
