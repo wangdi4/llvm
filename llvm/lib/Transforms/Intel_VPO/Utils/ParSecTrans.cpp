@@ -13,7 +13,7 @@
 //
 // \file
 //
-// This file implements VPO pre-pass transformations for parallel sections, 
+// This file implements VPO pre-pass transformations for parallel sections,
 // which transforms OpenMP parallel sections to parallel do loop and OpenMP
 // work-sharing sections to work-sharing do loop:
 //
@@ -27,7 +27,7 @@
 //     Zdirection();
 // }
 //
-// is transformed to 
+// is transformed to
 //
 // #pragma omp parallel sections   // or #pragma omp sections
 //   for (int i = 0; i <= 2 ; i++) {
@@ -149,7 +149,7 @@ using namespace llvm::vpo;
 //    DIR_OMP_END_PARALLEL_SECTIONS  (or DIR_OMP_END_SECTIONS)
 //
 // 7) OMP_PARALLEL_SECTIONS can be nested, for example (presented in user
-// code): 
+// code):
 //
 // #pragma omp parallel sections                  (par1)
 // {
@@ -182,7 +182,7 @@ using namespace llvm::vpo;
 //                 |      |
 //               par2    par3
 //               / \     / \
-//            sec2sec3 sec5sec6  
+//            sec2sec3 sec5sec6
 //
 // (Note that, the order of children of each node does not matter.)
 //
@@ -217,7 +217,7 @@ bool VPOUtils::parSectTransformer(
 
   if (Counter)
     return true;
-  else 
+  else
     return false;
 }
 
@@ -234,15 +234,15 @@ ParSectNode *VPOUtils::buildParSectTree(Function *F, DominatorTree *DT)
 
   SectStack.push(Root);
 
-  buildParSectTreeRecursive(&F->getEntryBlock(), SectStack, DT); 
+  buildParSectTreeRecursive(&F->getEntryBlock(), SectStack, DT);
 
   return Root;
 }
 
-// Pre-order traversal on Dominator Tree with the use of a stack 
+// Pre-order traversal on Dominator Tree with the use of a stack
 // to build Section Tree.
 void VPOUtils::buildParSectTreeRecursive(
-  BasicBlock* BB, 
+  BasicBlock* BB,
   std::stack<ParSectNode *> &SectStack,
   DominatorTree *DT
 )
@@ -252,7 +252,7 @@ void VPOUtils::buildParSectTreeRecursive(
 
   for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I) {
 
-    if (IntrinsicInst *Call = dyn_cast<IntrinsicInst>(&*I)) { 
+    if (IntrinsicInst *Call = dyn_cast<IntrinsicInst>(&*I)) {
       Intrinsic::ID IntrinId = Call->getIntrinsicID();
       if (IntrinId == Intrinsic::intel_directive) {
 
@@ -306,16 +306,16 @@ void VPOUtils::printParSectTree(ParSectNode *Node)
   }
 
   if (Node->Children.size() == 0) {
-    DEBUG(dbgs() << "\nNo Children:\n"); 
+    DEBUG(dbgs() << "\nNo Children:\n");
     return;
   }
 
-  DEBUG(dbgs() << "\nStarting Chidren Printing:\n"); 
+  DEBUG(dbgs() << "\nStarting Chidren Printing:\n");
 
   for (auto *Child: Node->Children)
     printParSectTree(Child);
 
-  DEBUG(dbgs() << "\nEnding Chidren Printing:\n"); 
+  DEBUG(dbgs() << "\nEnding Chidren Printing:\n");
 }
 
 // Post-order traversal
@@ -336,10 +336,10 @@ void VPOUtils::parSectTransRecursive(
   // We only need to do transformations at OMP_PARALLEL_SECTIONS and
   // OMP_SECTIONS nodes, not OMP_SECTION nodes or the tree Root.
   //
-  if (Node->EntryBB && Node->ExitBB) 
+  if (Node->EntryBB && Node->ExitBB)
     if (Node->DirBeginID == DIR_OMP_SECTIONS ||
         Node->DirBeginID == DIR_OMP_PARALLEL_SECTIONS) {
-            
+
       // Just a check
       for (auto *Child: Node->Children) {
         assert(Child->EntryBB->getSinglePredecessor()
@@ -361,11 +361,11 @@ void VPOUtils::parSectTransRecursive(
 //
 //      OMP_PARALLEL_SECTIONS  (or OMP_SECTIONS)
 //                |
-//          OMP_SECTION    
+//          OMP_SECTION
 //                |
 //               X()
 //                |
-//          OMP_END_SECTION 
+//          OMP_END_SECTION
 //                |
 //          OMP_SECTION
 //                |
@@ -375,7 +375,7 @@ void VPOUtils::parSectTransRecursive(
 //                |
 //              .....
 //                |
-//    OMP_END_PARALLEL_SECTIONS  
+//    OMP_END_PARALLEL_SECTIONS
 //
 // the function transforms it to:
 //
@@ -391,7 +391,7 @@ void VPOUtils::parSectTransRecursive(
 //  OMP_SECTION OMP_SECTION..DefaultBB     |
 //       |        |             /          |
 //      X()      Y()           /           |
-//       |        |           /            | 
+//       |        |           /            |
 //  END_SECTION END_SECTION  /             |
 //       \         |        /              |
 //        \        |       /               |
@@ -399,14 +399,14 @@ void VPOUtils::parSectTransRecursive(
 //          SwitchEpilogBB                 |
 //                 |                       |
 //             SwitchSuccBB:               |
-//               i' = i + 1                | 
+//               i' = i + 1                |
 //          if (i' <= (NumSections-1))     |
 //                | |                      |
 //                | |----------------------|
 //                |
 //            Loop ExitBB
 //                |
-//    OMP_END_PARALLEL_SECTIONS  
+//    OMP_END_PARALLEL_SECTIONS
 //
 // Note that, the directives OMP_SECTION and OMP_END_SECTION will be deleted
 // although we show them here for illustration purpose.
@@ -428,7 +428,7 @@ void VPOUtils::doParSectTrans(
   //
   //      OMP_PARALLEL_SECTIONS  (or OMP_SECTIONS)
   //                |
-  //    OMP_END_PARALLEL_SECTIONS 
+  //    OMP_END_PARALLEL_SECTIONS
   //
   IRBuilder<> Builder(SectionsEntryBB);
   SectionsEntryBB->getTerminator()->eraseFromParent();
@@ -442,7 +442,7 @@ void VPOUtils::doParSectTrans(
   //                |
   //            Loop HeaderBB: <-------------|
   //             i = phi(0, i')              |
-  //             i' = i + 1                  | 
+  //             i' = i + 1                  |
   //          if (i' <= (NumSections-1))     |
   //                | |----------------------|
   //                |
@@ -481,14 +481,14 @@ void VPOUtils::doParSectTrans(
   //          SwitchEpilogBB                 |
   //                 |                       |
   //             SwitchSuccBB:               |
-  //               i' = i + 1                | 
+  //               i' = i + 1                |
   //          if (i' <= (NumSections-1))     |
   //                | |                      |
   //                | |----------------------|
   //                |
   //            Loop ExitBB
   //                |
-  //      OMP_END_PARALLEL_SECTIONS  
+  //      OMP_END_PARALLEL_SECTIONS
   //
   // We always generate an empty basic block for the default case, which does
   // not correspond to any OMP_SECTION since CreateSwitch needs it.
@@ -532,10 +532,10 @@ Value *VPOUtils::genNewLoop(
 
   BasicBlock *BeforeBB = Builder.GetInsertBlock();
 
-  BasicBlock *PreHeaderBB = 
+  BasicBlock *PreHeaderBB =
       BasicBlock::Create(Context, FName + ".sec.loop.preheader." + Twine(Counter), F);
 
-  BasicBlock *HeaderBB = 
+  BasicBlock *HeaderBB =
       BasicBlock::Create(Context, FName + ".sec.loop.header." + Twine(Counter), F);
 
   // The default insertion point is InsertBlock->end(), we need to move it one
@@ -543,7 +543,7 @@ Value *VPOUtils::genNewLoop(
   // SplitBlock to use to create ExitBB
   //
   Builder.SetInsertPoint(&*--Builder.GetInsertPoint());
-  BasicBlock *ExitBB = 
+  BasicBlock *ExitBB =
       SplitBlock(BeforeBB, &*Builder.GetInsertPoint(), DT, nullptr);
   ExitBB->setName(FName + ".sec.loop.exit." + Twine(Counter));
 
@@ -564,7 +564,7 @@ Value *VPOUtils::genNewLoop(
                     true/*HasNUW*/, true/*HasNSW*/);
   Value *LoopCondition = Builder.CreateICmp(ICmpInst::ICMP_SLE, IV, UB);
   LoopCondition->setName(FName + ".sec.loop.cond." + Twine(Counter));
-    
+
   // Loop latch
   Builder.CreateCondBr(LoopCondition, HeaderBB, ExitBB);
   IV->addIncoming(IncrementedIV, HeaderBB);
@@ -582,7 +582,7 @@ Value *VPOUtils::genNewLoop(
     DT->addNewBlock(HeaderBB, PreHeaderBB);
     DT->changeImmediateDominator(ExitBB, HeaderBB);
   }
-    
+
   // The loop body should be added here.
   Builder.SetInsertPoint(HeaderBB->getFirstNonPHI());
 
@@ -608,11 +608,11 @@ Value *VPOUtils::genNewLoop(
 //             |......            |
 //             |switch(i)         |
 //             --------------------
-//             /    |    ...  \                
-//        case1  case2    ... DefualtCase       
-//           \      |     ...  /                
-//             SwitchEpilogBB                 
-//                  |                       
+//             /    |    ...  \
+//        case1  case2    ... DefualtCase
+//           \      |     ...  /
+//             SwitchEpilogBB
+//                  |
 //             --------------------
 //             |SwitchsuccBB:     |
 //             |SwitchInsertPoint |
@@ -638,7 +638,7 @@ SwitchInst *VPOUtils::genParSectSwitch(
   unsigned NumCases = Node->Children.size();
 
   // Split SwitchBB at the SwitchInsertPoint
-  BasicBlock *SwitchSuccBB = 
+  BasicBlock *SwitchSuccBB =
       SplitBlock(SwitchBB, InsertPoint, DT, nullptr);
   SwitchSuccBB->setName(FName + ".sec.sw.succBB." + Twine(Counter));
 
@@ -647,7 +647,7 @@ SwitchInst *VPOUtils::genParSectSwitch(
 
   BasicBlock *Default = BasicBlock::Create(
           Context, FName + ".sec.sw.default." + Twine(Counter), F);
-  SwitchInst *SwitchInstruction = 
+  SwitchInst *SwitchInstruction =
       Builder.CreateSwitch(SwitchCond, Default, NumCases);
 
   BasicBlock *Epilog = BasicBlock::Create(
@@ -657,7 +657,7 @@ SwitchInst *VPOUtils::genParSectSwitch(
 
   for (unsigned i = 0, e = NumCases; i != e; ++i) {
 
-    ConstantInt *CaseValue = 
+    ConstantInt *CaseValue =
         ConstantInt::get(Type::getInt32Ty(Context), i);
 
     BasicBlock *SectionEntryBB = Node->Children[i]->EntryBB;
@@ -665,7 +665,7 @@ SwitchInst *VPOUtils::genParSectSwitch(
 
     SectionEntryBB->setName(
             FName + ".sec.sw.case" + Twine(i) + "." + Twine(Counter));
-    SwitchInstruction->addCase(CaseValue, SectionEntryBB); 
+    SwitchInstruction->addCase(CaseValue, SectionEntryBB);
 
     SectionExitBB->getTerminator()->eraseFromParent();
     Builder.SetInsertPoint(SectionExitBB);

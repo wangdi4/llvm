@@ -34,12 +34,12 @@ typedef Value* EXPR;
 typedef Value* RDECL;
 
 //
-// Classes below represent list items used in many OMP clauses 
+// Classes below represent list items used in many OMP clauses
 // The actual clause (a list of items) is then of type vector<item>
-//            
+//
 //   Item: base class NOT intended to be instantiated as is.
 //         Contains members common to most list items in OMP clauses
-//            
+//
 //   SharedItem:       derived class for an item in the SHARED       clause
 //   PrivateItem:      derived class for an item in the PRIVATE      clause
 //   FirstprivateItem: derived class for an item in the FIRSTPRIVATE clause
@@ -57,11 +57,11 @@ typedef Value* RDECL;
 //   Item: abstract base class NOT intended to be instantiated directly.
 //         Contains members common to list items in OMP clauses
 //
-class Item 
+class Item
 {
   friend class WRegionUtils;
   private:
-    VAR   OrigItem;  // original var 
+    VAR   OrigItem;  // original var
     VAR   NewItem;   // new version (eg private) of the var
     VAR   ParmItem;  // formal parm in outlined entry; usually holds &OrigItem
     bool  IsNonpod;  // true for a C++ NONPOD var
@@ -98,14 +98,14 @@ class Item
     MDNode *getNoAlias()    const { return NoAlias; }
 
     virtual void print(formatted_raw_ostream &OS, bool PrintType=true) const {
-      OS << "(" ; 
-      getOrig()->printAsOperand(OS, PrintType); 
+      OS << "(" ;
+      getOrig()->printAsOperand(OS, PrintType);
       OS << ") ";
     }
 
     // Conditional lastprivate:
     // Abort if these methods are invoked from anything but a LastprivateItem.
-    virtual void setIsConditional(bool B){ 
+    virtual void setIsConditional(bool B){
      llvm_unreachable("Unexpected keyword: CONDITIONAL");
     }
     virtual bool getIsConditional() const {
@@ -123,7 +123,7 @@ class SharedItem : public Item
     bool  IsPassedDirectly;
 
   public:
-    SharedItem(VAR Orig) : Item(Orig), IsPassedDirectly(false) {} 
+    SharedItem(VAR Orig) : Item(Orig), IsPassedDirectly(false) {}
     void setIsPassedDirectly(bool Flag) { IsPassedDirectly = Flag; }
     bool getIsPassedDirectly() const { return IsPassedDirectly; }
 };
@@ -133,7 +133,7 @@ class SharedItem : public Item
 //   PrivateItem: OMP PRIVATE clause item
 //   (cf PAROPT_OMP_PRIVATE_NODE)
 //
-class PrivateItem : public Item 
+class PrivateItem : public Item
 {
   private:
     RDECL Constructor;
@@ -141,7 +141,7 @@ class PrivateItem : public Item
 
   public:
     PrivateItem(VAR Orig) :
-      Item(Orig), Constructor(nullptr), Destructor(nullptr) {} 
+      Item(Orig), Constructor(nullptr), Destructor(nullptr) {}
     void setConstructor(RDECL Ctor) { Constructor = Ctor; }
     void setDestructor(RDECL Dtor)  { Destructor  = Dtor; }
     RDECL getConstructor() const { return Constructor; }
@@ -153,7 +153,7 @@ class PrivateItem : public Item
 //   FirstprivateItem: OMP FIRSTPRIVATE clause item
 //   (cf PAROPT_OMP_FIRSTPRIVATE_NODE)
 //
-class FirstprivateItem : public Item 
+class FirstprivateItem : public Item
 {
   private:
     RDECL CopyConstructor;
@@ -161,7 +161,7 @@ class FirstprivateItem : public Item
 
   public:
     FirstprivateItem(VAR Orig) :
-      Item(Orig), CopyConstructor(nullptr), Destructor(nullptr) {} 
+      Item(Orig), CopyConstructor(nullptr), Destructor(nullptr) {}
     void setCopyConstructor(RDECL Cctor) { CopyConstructor = Cctor; }
     void setDestructor(RDECL Dtor)       { Destructor  = Dtor;      }
     RDECL getCopyConstructor() const { return CopyConstructor; }
@@ -173,7 +173,7 @@ class FirstprivateItem : public Item
 //   LastprivateItem: OMP LASTPRIVATE clausclause item
 //   (cf PAROPT_OMP_LASTPRIVATE_NODE)
 //
-class LastprivateItem : public Item 
+class LastprivateItem : public Item
 {
   private:
     bool  IsConditional;    // conditional lastprivate
@@ -199,7 +199,7 @@ class LastprivateItem : public Item
 //   ReductionItem: OMP REDUCTION clause item
 //   (cf PAROPT_OMP_REDUCTION_NODE)
 //
-class ReductionItem : public Item 
+class ReductionItem : public Item
 {
 public:
   typedef enum WRNReductionKind {
@@ -212,8 +212,8 @@ public:
     WRNReductionBxor,
     WRNReductionBand,
     WRNReductionBor,
-    WRNReductionEqv,  // Fortran; currently unsupported 
-    WRNReductionNeqv, // Fortran; currently unsupported 
+    WRNReductionEqv,  // Fortran; currently unsupported
+    WRNReductionNeqv, // Fortran; currently unsupported
     WRNReductionMax,
     WRNReductionMin,
     WRNReductionUdr   // user-defined reduction
@@ -253,7 +253,7 @@ public:
           return WRNReductionMin;
         case QUAL_OMP_REDUCTION_UDR:
           return WRNReductionUdr;
-        default: 
+        default:
           llvm_unreachable("Unsupported Reduction Clause ID");
       }
     };
@@ -282,7 +282,7 @@ public:
           return QUAL_OMP_REDUCTION_MIN;
         case WRNReductionUdr:
           return QUAL_OMP_REDUCTION_UDR;
-        default: 
+        default:
           llvm_unreachable("Unsupported Reduction Kind ");
       }
     };
@@ -305,8 +305,8 @@ public:
     // Don't use the default print() from the base class "Item", because
     // we need to print the Reduction operation too.
     void print(formatted_raw_ostream &OS, bool PrintType=true) const {
-      OS << "(" << getOpName() << ": "; 
-      getOrig()->printAsOperand(OS, PrintType); 
+      OS << "(" << getOpName() << ": ";
+      getOrig()->printAsOperand(OS, PrintType);
       OS << ") ";
     }
 };
@@ -322,7 +322,7 @@ class CopyinItem : public Item
     RDECL Copy;
 
   public:
-    CopyinItem(VAR Orig) : Item(Orig), Copy(nullptr) {} 
+    CopyinItem(VAR Orig) : Item(Orig), Copy(nullptr) {}
     void setCopy(RDECL Cpy) { Copy = Cpy; }
     RDECL getCopy() const { return Copy; }
 };
@@ -337,7 +337,7 @@ class CopyprivateItem : public Item
     RDECL Copy;
 
   public:
-    CopyprivateItem(VAR Orig) : Item(Orig), Copy(nullptr) {} 
+    CopyprivateItem(VAR Orig) : Item(Orig), Copy(nullptr) {}
     void setCopy(RDECL Cpy) { Copy = Cpy; }
     RDECL getCopy() const { return Copy; }
 };
@@ -346,7 +346,7 @@ class CopyprivateItem : public Item
 //
 //   LinearItem: OMP LINEAR clause item
 //
-class LinearItem : public Item 
+class LinearItem : public Item
 {
   private:
     int Step;   // default is 1
@@ -354,14 +354,14 @@ class LinearItem : public Item
     // No need for ctor/dtor because OrigItem is either pointer or array base
 
   public:
-    LinearItem(VAR Orig) : Item(Orig), Step(1) {} 
+    LinearItem(VAR Orig) : Item(Orig), Step(1) {}
     void setStep(int S) { Step = S; }
     int getStep() const { return Step; }
 
     // Specialized print() to output the stride as well
     void print(formatted_raw_ostream &OS, bool PrintType=true) const {
-      OS << "("; 
-      getOrig()->printAsOperand(OS, PrintType); 
+      OS << "(";
+      getOrig()->printAsOperand(OS, PrintType);
       OS << ", " << getStep() << ") ";
     }
 };
@@ -379,7 +379,7 @@ class UniformItem : public Item
 //
 //   MapItem: OMP MAP clause item
 //
-class MapItem : public Item 
+class MapItem : public Item
 {
 private:
   unsigned MapKind;  // bit vector for map kind and modifiers
@@ -395,7 +395,7 @@ public:
     WRNMapRelease = 0x0020,
   } WRNMapKind;
 
-  MapItem(VAR Orig) : Item(Orig), MapKind(0) {} 
+  MapItem(VAR Orig) : Item(Orig), MapKind(0) {}
 
   static unsigned getMapKindFromClauseId(int Id) {
     switch(Id) {
@@ -425,7 +425,7 @@ public:
         return WRNMapRelease | WRNMapAlways;
       case QUAL_OMP_MAP_ALWAYS_DELETE:
         return WRNMapDelete | WRNMapAlways;
-      default: 
+      default:
         llvm_unreachable("Unsupported MAP Clause ID");
     }
   };
@@ -471,9 +471,9 @@ class UseDevicePtrItem : public Item
 
 
 //
-// These item classes for list-type clauses are not derived from the 
+// These item classes for list-type clauses are not derived from the
 // base "Item" class above.
-//            
+//
 //   DependItem    (for the depend  clause in task and target constructs)
 //   DepSinkItem   (for the depend(sink:<vec>) clause in ordered constructs)
 //   AlignedItem   (for the aligned clause in simd constructs)
@@ -481,7 +481,7 @@ class UseDevicePtrItem : public Item
 // TODO: we need a better array section representation;
 //       the one hard-coded in DependItem only handles 1-dim.
 //
-class DependItem 
+class DependItem
 {
   private:
     VAR   Base;           // scalar item or base of array section
@@ -510,13 +510,13 @@ class DependItem
     EXPR getStride()    const   { return Stride; }
 
     void print(formatted_raw_ostream &OS, bool PrintType=true) const {
-      OS << "(" ; 
-      getOrig()->printAsOperand(OS, PrintType); 
+      OS << "(" ;
+      getOrig()->printAsOperand(OS, PrintType);
       OS << ") ";
     }
 };
 
-class DepSinkItem 
+class DepSinkItem
 {
   private:
     EXPR  SinkExpr;       // LoopVar +/- Offset (eg: i-1)
@@ -534,13 +534,13 @@ class DepSinkItem
     EXPR getOffset()    const   { return Offset; }
 
     void print(formatted_raw_ostream &OS, bool PrintType=true) const {
-      OS << "(" ; 
-      getSinkExpr()->printAsOperand(OS, PrintType); 
+      OS << "(" ;
+      getSinkExpr()->printAsOperand(OS, PrintType);
       OS << ") ";
     }
 };
 
-class AlignedItem 
+class AlignedItem
 {
   private:
     VAR   Base;           // pointer or base of array
@@ -554,8 +554,8 @@ class AlignedItem
     int  getAlign() const { return Alignment; }
 
     void print(formatted_raw_ostream &OS, bool PrintType=true) const {
-      OS << "("; 
-      getOrig()->printAsOperand(OS, PrintType); 
+      OS << "(";
+      getOrig()->printAsOperand(OS, PrintType);
       OS << ", " << getAlign() << ") ";
     }
 };
@@ -563,7 +563,7 @@ class AlignedItem
 class FlushItem
 {
   private:
-    VAR  Var;  // global, static, volatile values 
+    VAR  Var;  // global, static, volatile values
 
   public:
     FlushItem(VAR V=nullptr) : Var(V) {}
@@ -571,8 +571,8 @@ class FlushItem
     VAR  getOrig()  const { return Var; }
 
     void print(formatted_raw_ostream &OS, bool PrintType=true) const {
-      OS << "(" ; 
-      getOrig()->printAsOperand(OS, PrintType); 
+      OS << "(" ;
+      getOrig()->printAsOperand(OS, PrintType);
       OS << ") ";
     }
 };
@@ -580,7 +580,7 @@ class FlushItem
 
 //
 // The list-type clauses are essentially vectors of the clause items above
-//            
+//
 template <typename ClauseItem> class Clause
 {
   friend class WRegionNode;
@@ -626,12 +626,12 @@ template <typename ClauseItem> class Clause
       return ConstItemsRange(begin(), end());
     }
 
-    void print(formatted_raw_ostream &OS, unsigned Depth=0, 
+    void print(formatted_raw_ostream &OS, unsigned Depth=0,
                                           bool Verbose=false) const;
-    // search the clause for 
-    ClauseItem *findOrig(const VAR V) { 
+    // search the clause for
+    ClauseItem *findOrig(const VAR V) {
       for (auto I : items())
-        if (I->getOrig() == V) 
+        if (I->getOrig() == V)
           return I;
       return nullptr;
     }
@@ -641,7 +641,7 @@ template <typename ClauseItem> class Clause
 template <typename ClauseItem> void Clause<ClauseItem>::
 print(formatted_raw_ostream &OS, unsigned Depth, bool Verbose) const {
 
-  if (!Verbose && !size()) 
+  if (!Verbose && !size())
     return;  // Don't print absent clause message if !Verbose
 
   StringRef Name = VPOAnalysisUtils::getClauseName(getClauseID());
@@ -709,7 +709,7 @@ typedef std::vector<FlushItem>::iterator        FlushIter;
 
 //
 // Support for other OMP clauses (not list-type)
-//            
+//
 
 typedef enum WRNDefaultKind {
     WRNDefaultAbsent = 0,     // default clause not present
@@ -782,7 +782,7 @@ typedef enum WRNScheduleKind {
 } WRNScheduleKind;
 
 
-class ScheduleClause 
+class ScheduleClause
 {
   private:
     WRNScheduleKind Kind;
@@ -802,8 +802,8 @@ class ScheduleClause
 
     // constructor: default schedule when clause is not specified is
     // STATIC with unspecified chunksize or modifiers
-    ScheduleClause(): Kind(WRNScheduleStaticEven), ChunkExpr(nullptr), 
-                      Chunk(0), IsSchedMonotonic(false), 
+    ScheduleClause(): Kind(WRNScheduleStaticEven), ChunkExpr(nullptr),
+                      Chunk(0), IsSchedMonotonic(false),
                       IsSchedNonmonotonic(false), IsSchedSimd(false) {}
     WRNScheduleKind getKind()      const   { return Kind; }
     EXPR getChunkExpr()            const   { return ChunkExpr; }
@@ -812,7 +812,7 @@ class ScheduleClause
     bool getIsSchedNonmonotonic()  const   { return IsSchedNonmonotonic; }
     bool getIsSchedSimd()          const   { return IsSchedSimd; }
 
-    void print(formatted_raw_ostream &OS, unsigned Depth=0, 
+    void print(formatted_raw_ostream &OS, unsigned Depth=0,
                                           bool Verbose=false) const;
 };
 

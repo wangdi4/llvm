@@ -87,21 +87,21 @@ WRegionNode::WRegionNode(unsigned SCID) : SubClassID(SCID), Attributes(0) {
 void WRegionNode::finalize(BasicBlock *ExitBB) {
   setExitBBlock(ExitBB);
   if (getIsOmpLoop()) {
-    LoopInfo *LI = getLoopInfo();
+    LoopInfo *LI = getWRNLoopInfo().getLoopInfo();
     assert(LI && "LoopInfo not present in a loop construct");
     BasicBlock *EntryBB = getEntryBBlock();
     Loop *Lp = IntelGeneralUtils::getLoopFromLoopInfo(LI, EntryBB, ExitBB);
 
     // Do not assert for loop-type constructs when Lp==NULL because transforms
     // before Paropt may have optimized away the loop.
-    setLoop(Lp);
+    getWRNLoopInfo().setLoop(Lp);
 
     if (Lp)
       DEBUG(dbgs() << "\n=== finalize WRN: found loop : " << *Lp << "\n");
     else
       DEBUG(dbgs() << "\n=== finalize WRN: loop not found. Optimized away?\n");
 
-    // For taskloop, the runtime has a parameter for either Grainsize or 
+    // For taskloop, the runtime has a parameter for either Grainsize or
     // NumTasks, which is chosen by the parameter SchedCode:
     //   SchedCode==1 means Grainsize is used
     //   SchedCode==2 means NumTasks is used
@@ -127,7 +127,7 @@ void WRegionNode::finalize(BasicBlock *ExitBB) {
       PrivateClause &PC = getPriv();
       populateBBSet();
       for (BasicBlock *BB : BBlockSet)
-        for (Instruction &I : *BB) 
+        for (Instruction &I : *BB)
           if (VPOAnalysisUtils::isCallOfName(&I, "__read_pipe_2_bl_intel")) {
             CallInst *Call = dyn_cast<CallInst>(&I);
             // DEBUG(dbgs() << "Found Call: " << *Call << "\n");
@@ -135,7 +135,7 @@ void WRegionNode::finalize(BasicBlock *ExitBB) {
                    "__read_pipe_2_bl_intel() is expected to have 2 operands");
             Value *V = Call->getArgOperand(1); // second operand
             AllocaInst *Alloca = VPOAnalysisUtils::findAllocaInst(V);
-            assert (Alloca && 
+            assert (Alloca &&
                     "Alloca not found for __read_pipe_2_bl_intel operand");
             if (Alloca) {
               // DEBUG(dbgs() << "Found Alloca: " << *Alloca << "\n");
@@ -224,18 +224,18 @@ void WRegionNode::print(formatted_raw_ostream &OS, unsigned Depth,
 }
 
 void WRegionNode::printBegin(formatted_raw_ostream &OS, unsigned Depth) const {
-  int Id = getDirID(); 
+  int Id = getDirID();
   StringRef DirName = VPOAnalysisUtils::getDirectiveName(Id);
   OS.indent(2*Depth) << "BEGIN " << DirName <<" ID=" << getNumber() << " {\n\n";
 }
 
 void WRegionNode::printEnd(formatted_raw_ostream &OS, unsigned Depth) const {
-  int Id = getDirID(); 
+  int Id = getDirID();
   StringRef DirName = VPOAnalysisUtils::getDirectiveName(Id);
   OS.indent(2*Depth) << "} END " << DirName <<" ID=" << getNumber() << "\n\n";
 }
 
-void WRegionNode::printBody(formatted_raw_ostream &OS, bool PrintChildren, 
+void WRegionNode::printBody(formatted_raw_ostream &OS, bool PrintChildren,
                                        unsigned Depth, bool Verbose) const {
   printClauses(OS, Depth, Verbose);
 
@@ -252,7 +252,7 @@ void WRegionNode::printBody(formatted_raw_ostream &OS, bool PrintChildren,
 }
 
 
-void WRegionNode::printClauses(formatted_raw_ostream &OS, 
+void WRegionNode::printClauses(formatted_raw_ostream &OS,
                                unsigned Depth, bool Verbose) const {
   bool PrintedSomething = false;
 
@@ -382,7 +382,7 @@ void WRegionNode::printLoopBB(formatted_raw_ostream &OS, unsigned Depth,
 
   int Ind = 2*Depth;
 
-  Loop *L = getLoop();
+  Loop *L = getWRNLoopInfo().getLoop();
 
   if (!L) {
     OS.indent(Ind) << "Loop is missing; may be optimized away.\n";
@@ -446,7 +446,7 @@ void WRegionNode::parseClause(const ClauseSpecifier &ClauseInfo,
   int ClauseID = ClauseInfo.getId();
 
   // Classify the clause based on the number of arguments allowed by the
-  // clause, which can be 0, 1, or a list. The utility getClauseType() 
+  // clause, which can be 0, 1, or a list. The utility getClauseType()
   // returns one of these:
   //    0: for clauses that take no arguments
   //    1: for clauses that take one argument only
@@ -660,7 +660,7 @@ void WRegionUtils::extractQualOpndList(const Use *Args, unsigned NumArgs,
   bool IsConditional = ClauseInfo.getIsConditional();
 
   if (IsConditional)
-    assert(ClauseID == QUAL_OMP_LASTPRIVATE && 
+    assert(ClauseID == QUAL_OMP_LASTPRIVATE &&
            "The CONDITIONAL keyword is for LASTPRIVATE clauses only");
 
   C.setClauseID(ClauseID);
@@ -684,7 +684,7 @@ void WRegionUtils::extractScheduleOpndList(ScheduleClause & Sched,
 
   Value *ChunkArg = Args[0];  // chunk size expr
 
-  // save the chunk size expr 
+  // save the chunk size expr
   Sched.setChunkExpr(ChunkArg);
 
   // If ChunkExpr is a constant expression, extract the constant and save it
@@ -699,13 +699,13 @@ void WRegionUtils::extractScheduleOpndList(ScheduleClause & Sched,
   // symbolic expr whose value is unkown at compile time.
   int64_t ChunkSize = -1;
   ConstantInt *CI = dyn_cast<ConstantInt>(ChunkArg);
-  if (CI != nullptr) { 
+  if (CI != nullptr) {
     ChunkSize = *((CI->getValue()).getRawData());
     DEBUG(dbgs() << " Schedule chunk size is constant: " << ChunkSize << "\n");
   }
   Sched.setChunk(ChunkSize);
 
-  // Save schedule modifier info 
+  // Save schedule modifier info
   Sched.setIsSchedMonotonic(ClauseInfo.getIsScheduleMonotonic());
   Sched.setIsSchedNonmonotonic(ClauseInfo.getIsScheduleNonmonotonic());
   Sched.setIsSchedSimd(ClauseInfo.getIsScheduleSimd());
@@ -723,13 +723,13 @@ void WRegionUtils::extractScheduleOpndList(ScheduleClause & Sched,
 void WRegionUtils::extractMapOpndList(const Use *Args, unsigned NumArgs,
                                       const ClauseSpecifier &ClauseInfo,
                                       MapClause &C, unsigned MapKind) {
-  C.setClauseID(QUAL_OMP_MAP_TO); // dummy map clause id; details are in 
+  C.setClauseID(QUAL_OMP_MAP_TO); // dummy map clause id; details are in
                                   // the MapKind of each list item
 
   if (ClauseInfo.getIsArraySection()) {
     //TODO: Parse array section arguments.
-  } 
-  else 
+  }
+  else
     for (unsigned I = 0; I < NumArgs; ++I) {
       Value *V = (Value*) Args[I];
       C.add(V);
@@ -741,11 +741,11 @@ void WRegionUtils::extractMapOpndList(const Use *Args, unsigned NumArgs,
 void WRegionUtils::extractDependOpndList(const Use *Args, unsigned NumArgs,
                                          const ClauseSpecifier &ClauseInfo,
                                          DependClause &C, bool IsIn) {
-  C.setClauseID(QUAL_OMP_DEPEND_IN); // dummy depend clause id; 
+  C.setClauseID(QUAL_OMP_DEPEND_IN); // dummy depend clause id;
 
   if (ClauseInfo.getIsArraySection()) {
     //TODO: Parse array section arguments.
-  } 
+  }
   else
     for (unsigned I = 0; I < NumArgs; ++I) {
       Value *V = (Value*) Args[I];
@@ -773,7 +773,7 @@ void WRegionUtils::extractLinearOpndList(const Use *Args, unsigned NumArgs,
     Value *V = (Value*) Args[I];
     C.add(V);
     LinearItem *LI = C.back();
-    LI->setStep(Step); 
+    LI->setStep(Step);
   }
 }
 
@@ -789,7 +789,7 @@ void WRegionUtils::extractReductionOpndList(const Use *Args, unsigned NumArgs,
 
   if (ClauseInfo.getIsArraySection()) {
     //TODO: Parse array section arguments.
-  } 
+  }
   else
     for (unsigned I = 0; I < NumArgs; ++I) {
       Value *V = (Value*) Args[I];
@@ -805,8 +805,8 @@ void WRegionUtils::extractReductionOpndList(const Use *Args, unsigned NumArgs,
 //
 // The code below was trying to get initializer and combiner from the LLVM IR.
 // However, only UDR requires initializer and combiner function pointers, and
-// the front-end has to provide them. 
-// For standard OpenMP reduction operations(ie, not UDR), the combiner and 
+// the front-end has to provide them.
+// For standard OpenMP reduction operations(ie, not UDR), the combiner and
 // initializer operations are implied by the reduction operation and type
 // of the reduction variable.
 // Therefore, we should never have to use the code below.
@@ -825,7 +825,7 @@ static void setReductionItem(ReductionItem *RI, IntrinsicInst *Call) {
     return Phi;
   };
 
-  Value *RedVarPtr = RI->getOrig();      
+  Value *RedVarPtr = RI->getOrig();
   assert(isa<PointerType>(RedVarPtr->getType()) &&
          "Variable specified in Reduction directive should be a pointer");
 
@@ -1026,7 +1026,7 @@ void WRegionNode::getClausesFromOperandBundles() {
     ArrayRef<llvm::Use> Args = BU.Inputs;
     unsigned NumArgs = Args.size();   // BU.Inputs.size()
 
-    const Use *ArgList = NumArgs==0 ? nullptr : &Args[0]; 
+    const Use *ArgList = NumArgs==0 ? nullptr : &Args[0];
 
     // Parse the clause and update the WRN
     parseClause(ClauseInfo, ArgList, NumArgs);
@@ -1085,7 +1085,7 @@ bool WRegionNode::hasPrivate() const {
 bool WRegionNode::hasFirstprivate() const {
   unsigned SubClassID = getWRegionKindID();
 
-  // similar to hasPrivate except for SIMD, 
+  // similar to hasPrivate except for SIMD,
   // which has Private but not Firstprivate
   if (SubClassID == WRNVecLoop)
     return false;
@@ -1116,7 +1116,7 @@ bool WRegionNode::hasReduction() const {
   case WRNParallelWorkshare:
   case WRNTeams:
   case WRNDistributeParLoop:
-  // TODO: support OMP5.0 task/taskloop reduction 
+  // TODO: support OMP5.0 task/taskloop reduction
   //  case WRNTask:
   //  case WRNTaskloop:
   case WRNVecLoop:

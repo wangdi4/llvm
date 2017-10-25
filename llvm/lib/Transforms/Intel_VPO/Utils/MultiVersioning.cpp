@@ -36,7 +36,7 @@ using namespace llvm::vpo;
 /// \brief The implementation is similar to cloneLoopWithPreheader() in
 /// lib/Transforms/Utils/CloneFunction.cpp
 /// and versionLoop() in lib/Transforms/Utils/LoopVersioning.cpp
-/// 
+///
 void VPOUtils::cloneBBSet(
   SmallVectorImpl<BasicBlock *> &BBSet,
   SmallVectorImpl<BasicBlock *> &ClonedBBSet,
@@ -62,7 +62,7 @@ void VPOUtils::cloneBBSet(
   remapInstructionsInBlocks(ClonedBBSet, VMap);
 }
 
-/// \brief The implementation is similar to  
+/// \brief The implementation is similar to
 /// findDefsUsedOutsideOfLoop in lib/Transforms/Utils/LoopUtils.cpp
 ///
 void VPOUtils::findDefsUsedOutsideOfRegion(
@@ -75,7 +75,7 @@ void VPOUtils::findDefsUsedOutsideOfRegion(
       auto Users = Inst.users();
       if (std::any_of(Users.begin(), Users.end(), [&](User *U) {
           auto *Use = cast<Instruction>(U);
-          return std::find(BBSet.begin(), BBSet.end(), Use->getParent()) 
+          return std::find(BBSet.begin(), BBSet.end(), Use->getParent())
                    == BBSet.end();
           }))
         // If any of the uses is outside the region (not in BBSet), push
@@ -85,9 +85,9 @@ void VPOUtils::findDefsUsedOutsideOfRegion(
 }
 
 /// \brief See addPHINodes() in lib/Transforms/Utils/LoopVersioning.cpp
-/// 
+///
 /// For example:
-/// 
+///
 /// ExitBB     ClonedExitBB
 ///   \              /
 ///    \            /
@@ -101,7 +101,7 @@ void VPOUtils::findDefsUsedOutsideOfRegion(
 /// We need to add PHI instructions for (t1_0, t1_1) and (t2_0, t2_1) in the
 /// PHIBlock, and change the following references to t1_0 and t2_0 with t1
 /// and t2.
-/// 
+///
 void VPOUtils::addPHINodes(
   ValueToValueMapTy &VMap,
   SmallVectorImpl<BasicBlock *> &BBSet,
@@ -115,7 +115,7 @@ void VPOUtils::addPHINodes(
 
   for (auto *Inst: LiveOut) {
     auto *ClonedInst = cast<Instruction>(VMap[Inst]);
-    PHINode *PH = 
+    PHINode *PH =
         PHINode::Create(Inst->getType(), 2, Inst->getName() + ".multi.phi",
                          &PHIBlock->front());
 
@@ -131,7 +131,7 @@ void VPOUtils::addPHINodes(
 
 /// \brief Given a single-entry and single-exit region represented by BBSet,
 /// generates the following code:
-/// 
+///
 /// if (Cond)
 ///   BBSet;
 /// else
@@ -151,7 +151,7 @@ void VPOUtils::addPHINodes(
 ///      |
 ///      | /
 ///    OldTail
-/// 
+///
 /// The function will first insert two empty basic blocks called NewHead and
 /// NewTail as below:
 ///
@@ -172,13 +172,13 @@ void VPOUtils::addPHINodes(
 ///      |
 ///      |  /
 ///    OldTail
-/// 
+///
 /// and then transforms the CFG to the following:
 ///
 ///           OldHead
 ///              |  \
 ///              |
-///           NewHead 
+///           NewHead
 ///            /    \
 ///           /      \
 ///  -----------   -----------------
@@ -198,7 +198,7 @@ void VPOUtils::addPHINodes(
 ///
 /// The function optionally maintains Dominator Tree information, however
 /// it does not maintain Loop information. The client needs to recompute loop
-/// information if needed. 
+/// information if needed.
 ///
 /// Also, the WRegion information may need to be updated depending on the
 /// client. For example, if the directives in the cloned WRegion is deleted,
@@ -222,7 +222,7 @@ void VPOUtils::singleRegionMultiVersioning(
   assert(ExitBB->getSingleSuccessor() && "Not a single-exit region");
 
   // 1) Add NewHead and NewTail
-  // 
+  //
   // EntryBB has a single predecessor, so split the top of the entryBB.
   // SplitBlock will return the bottom half of the original block as a new
   // block.
@@ -234,7 +234,7 @@ void VPOUtils::singleRegionMultiVersioning(
   // 2) Collect BasicBlock Set if it is empty, based on EntryBB and ExitBB.
   //
   if (BBSet.empty())
-    IntelGeneralUtils::collectBBSet(EntryBB, ExitBB, BBSet); 
+    IntelGeneralUtils::collectBBSet(EntryBB, ExitBB, BBSet);
 
   // 3) Clone BBSet into the same function F.
   //
@@ -245,13 +245,13 @@ void VPOUtils::singleRegionMultiVersioning(
   // DT and LT are not maintained, and the cloned basic blocks are attached
   // at the end of the function. The ClonedExitBB will branch to NewTail
   // automatically.
-  cloneBBSet(BBSet, ClonedBBSet, VMap, ".clone", F); 
+  cloneBBSet(BBSet, ClonedBBSet, VMap, ".clone", F);
 
   // Move the cloned blocks from the end of the basic block list to the
   // proper place, which is right before NewTail. This is to maintain code
   // or instruction locality. It does not affect CFG.
   BasicBlock *ClonedEntryBB = ClonedBBSet.front();
-  F->getBasicBlockList().splice(NewTail->getIterator(), 
+  F->getBasicBlockList().splice(NewTail->getIterator(),
                                 F->getBasicBlockList(),
                                 ClonedEntryBB->getIterator(),
                                 F->end());
@@ -272,11 +272,11 @@ void VPOUtils::singleRegionMultiVersioning(
   //
   VPOSmallVectorInst LiveOut;
   findDefsUsedOutsideOfRegion(BBSet, LiveOut);
-  addPHINodes(VMap, BBSet, LiveOut); 
+  addPHINodes(VMap, BBSet, LiveOut);
 
   // 6) Update Dominator Tree information
   if (DT) {
-    DT->addNewBlock(ClonedEntryBB, NewHead); 
+    DT->addNewBlock(ClonedEntryBB, NewHead);
 
     for (BasicBlock *BB : BBSet) {
       // ClonedEntryBB is dealt with already.
@@ -286,7 +286,7 @@ void VPOUtils::singleRegionMultiVersioning(
         BasicBlock *IDomBB = DT->getNode(BB)->getIDom()->getBlock();
         DT->addNewBlock(NewBB, cast<BasicBlock>(VMap[IDomBB]));
       }
-    }  
+    }
 
     // The two regions merge in the NewTail, dominated by the NewHead now.
     DT->changeImmediateDominator(NewTail, NewHead);

@@ -51,7 +51,7 @@ public:
   /// \brief ParoptPrepare object constructor
   /// \brief 0x5 is equivalent to ParPrepare | OmpPar
   explicit VPOParoptPrepare(unsigned MyMode =0x5);
-  ~VPOParoptPrepare() {}; 
+  ~VPOParoptPrepare() {};
 
   StringRef getPassName() const override { return "VPO Paropt Prepare Pass"; }
 

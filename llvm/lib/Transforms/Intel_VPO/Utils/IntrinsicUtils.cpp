@@ -102,7 +102,7 @@ bool VPOUtils::stripPrivateClauses(BasicBlock &BB) {
       Intrinsic::ID Id = Call->getIntrinsicID();
       if (Id == Intrinsic::directive_region_entry) {
         // TODO: add support for this representation
-        DEBUG(dbgs() << "** WARNING: stripPrivateClauses() support for the " 
+        DEBUG(dbgs() << "** WARNING: stripPrivateClauses() support for the "
                      << "OperandBundle representation will be done later.\n");
       }
       else if (Id == Intrinsic::intel_directive_qual_opndlist) {
