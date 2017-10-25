@@ -83,9 +83,6 @@ private:
   /// would be profitable.
   class CostModelAnalyzer;
 
-  /// Returns true if \p GEPOp contains a type not supported by HIR.
-  static bool containsUnsupportedTy(const GEPOperator *GEPOp);
-
   /// Returns true if \p Inst contains a type not supported by HIR.
   static bool containsUnsupportedTy(const Instruction *Inst);
 
@@ -196,9 +193,11 @@ public:
 
   unsigned getNumRegions() const { return IRRegions.size(); }
 
-  /// Returns true if this type is supported. Currently returns false for
-  /// structure and function types.
+  /// Returns true if this type is supported.
   static bool isSupported(Type *Ty);
+
+  /// Returns true if \p GEPOp contains a type not supported by HIR.
+  static bool containsUnsupportedTy(const GEPOperator *GEPOp);
 
   /// Returns the outermost parent loop of \p Lp.
   static const Loop *getOutermostParentLoop(const Loop *Lp);

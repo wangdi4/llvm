@@ -382,6 +382,9 @@ private:
   /// to be a pointer type.
   unsigned getElementSize(Type *Ty) const;
 
+  // Returns true if it is valid to parse this GEPOperator.
+  bool isValidGEPOp(const GEPOperator *GEPOp) const;
+
   /// Returns the base(earliest) GEP in case there are multiple GEPs associated
   /// with this load/store.
   const GEPOperator *getBaseGEPOp(const GEPOperator *GEPOp) const;

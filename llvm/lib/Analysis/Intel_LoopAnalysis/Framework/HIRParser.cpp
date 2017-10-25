@@ -2537,14 +2537,25 @@ bool HIRParser::representsStructOffset(const GEPOperator *GEPOp) {
   return (Offsets[GEPOp->getNumOperands() - 2] != -1);
 }
 
+bool HIRParser::isValidGEPOp(const GEPOperator *GEPOp) const {
+
+  auto GEPInst = dyn_cast<GetElementPtrInst>(GEPOp);
+
+  if (GEPInst &&
+      SE->getHIRMetadata(GEPInst, ScalarEvolution::HIRLiveKind::LiveRange)) {
+    return false;
+  }
+
+  // Unsupported types for instructions inside the region has already been
+  // checked by region identification pass.
+  return ((GEPInst && CurRegion->containsBBlock(GEPInst->getParent())) ||
+          !HIRRegionIdentification::containsUnsupportedTy(GEPOp));
+}
+
 const GEPOperator *HIRParser::getBaseGEPOp(const GEPOperator *GEPOp) const {
 
   while (auto TempGEPOp = dyn_cast<GEPOperator>(GEPOp->getPointerOperand())) {
-    const GetElementPtrInst *GEPInst;
-
-    if ((GEPInst = dyn_cast<GetElementPtrInst>(TempGEPOp)) &&
-        (SE->getHIRMetadata(GEPInst, ScalarEvolution::HIRLiveKind::LiveRange) ||
-         !RI->isSupported(GEPInst->getPointerOperand()->getType()))) {
+    if (!isValidGEPOp(TempGEPOp)) {
       break;
     }
 
@@ -2719,11 +2730,9 @@ HIRParser::getValidPhiBaseVal(const Value *PhiInitVal,
     return PhiInitVal;
   }
 
-  const Instruction *GEPInst = nullptr;
-
   // A phi init GEP representing an offset cannot be merged into the ref as it
   // represents an unconventional access.
-  if (representsStructOffset(GEPOp)) {
+  if (representsStructOffset(GEPOp) || !isValidGEPOp(GEPOp)) {
     // If this is an instruction, we can use it as the base.
     if (isa<GetElementPtrInst>(PhiInitVal)) {
       return PhiInitVal;
@@ -2732,11 +2741,6 @@ HIRParser::getValidPhiBaseVal(const Value *PhiInitVal,
     // PhiInitVal is a constant expr, return null to indicate that the phi
     // itself should act as the base.
     return nullptr;
-  } else if ((GEPInst = dyn_cast<Instruction>(PhiInitVal)) &&
-             SE->getHIRMetadata(GEPInst,
-                                ScalarEvolution::HIRLiveKind::LiveRange)) {
-    // Return the same value if it has live range metadata.
-    return PhiInitVal;
   }
 
   *InitGEPOp = GEPOp;
