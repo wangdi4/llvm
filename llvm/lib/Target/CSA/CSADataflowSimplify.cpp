@@ -53,9 +53,10 @@ namespace llvm {
     /// operands from the control lines of picks and switches.
     bool eliminateNotPicks(MachineInstr *MI);
 
-    /// The following mini pass replaces an ALL that goes into a SWITCH with a
-    /// SWITCH that goes into ALL. This helps for memory ordering issues.
-    bool invertAllSwitch(MachineInstr *MI);
+    /// The following mini pass replaces side-effect-free operations entering a
+    /// a SWITCH one of whose outputs is ignored with SWITCHes into those
+    /// operations. This helps for memory ordering issues.
+    bool invertIgnoredSwitches(MachineInstr *MI);
 
     /// The following mini pass converts loads and stores that are dependent on
     /// strides into streaming loads and stores.
@@ -93,7 +94,7 @@ bool CSADataflowSimplifyPass::runOnMachineFunction(MachineFunction &MF) {
   bool changed = false;
   static auto functions = {
     &CSADataflowSimplifyPass::eliminateNotPicks,
-    &CSADataflowSimplifyPass::invertAllSwitch,
+    &CSADataflowSimplifyPass::invertIgnoredSwitches,
     &CSADataflowSimplifyPass::makeStreamMemOp
   };
   for (auto func : functions) {
@@ -187,59 +188,59 @@ bool CSADataflowSimplifyPass::eliminateNotPicks(MachineInstr *MI) {
   return false;
 }
 
-bool CSADataflowSimplifyPass::invertAllSwitch(MachineInstr *MI) {
+bool CSADataflowSimplifyPass::invertIgnoredSwitches(MachineInstr *MI) {
+  // The value must be a switch, and one of its outputs must be ignored.
   if (!TII->isSwitch(MI))
     return false;
+  if ((!MI->getOperand(0).isReg() || MI->getOperand(0).getReg() != CSA::IGN) &&
+      (!MI->getOperand(1).isReg() || MI->getOperand(1).getReg() != CSA::IGN)) {
+    return false;
+  }
+
+  // In order for the transform to be legal, we need:
+  // 1. Not doing this transform every switch must not be observable.
+  // 2. There must only be a single output to be switched.
+  // 3. The output must only reach the SWITCH.
   MachineInstr *switched = getDefinition(MI->getOperand(3));
-  if (!switched || switched->getOpcode() != CSA::ALL0)
+  if (!switched || switched->mayLoadOrStore() ||
+      switched->hasUnmodeledSideEffects() ||
+      !switched->getFlag(MachineInstr::NonSequential))
+    return false;
+  if (switched->uses().begin() - switched->defs().begin() > 1)
+    return false;
+  if (getSingleUse(switched->getOperand(0)) != MI)
     return false;
 
-  // TODO: should it be the case that we check for ALL0 dependent only on memory
-  // ordering issues? Or are we going to be more or less guaranteed that ALL0
-  // only happens with these?
-
-  const TargetRegisterClass *class0 =
-    MF->getSubtarget().getRegisterInfo()->getRegClass(CSA::CI1RegClassID);
-  // TODO: CI0 class is more accurate… but there's only 128 of those
-  // Generate switches for each of the inputs, at least those that correspond
-  // to actual values.
-  unsigned switchOutputRegs[4][2];
-  for (int i = 0; i < 4; i++) {
-    if (switched->getOperand(1 + i).getReg() == CSA::IGN) {
-      switchOutputRegs[i][0] = switchOutputRegs[i][1] = CSA::IGN;
+  // Generate new SWITCH's for each operand of the switched operation. The
+  // operation itself is modified in-place, so we need to fix up all the LIC
+  // operands of the operation.
+  bool is0Dead = MI->getOperand(0).getReg() == CSA::IGN;
+  for (MachineOperand &MO : switched->operands()) {
+    if (!MO.isReg())
       continue;
+    if (MO.isDef()) {
+      // We asserted above that the switched operand has exactly one definition,
+      // so we only need to replace this with the output of the switch.
+      MO.setReg(MI->getOperand(is0Dead ? 1 : 0).getReg());
+    } else if (MO.getReg() != CSA::IGN && MO.getReg() != CSA::NA) {
+      // Non-ignored registers mean that we need to allocate a new SWITCH here.
+      // Insert the new SWITCH before the operand instruction to try to keep the
+      // operations in topological order.
+      auto licClass = TII->lookupLICRegClass(MO.getReg());
+      auto newParam = (decltype(CSA::IGN))LMFI->allocateLIC(licClass);
+      auto newSwitch = BuildMI(*MI->getParent(), switched, MI->getDebugLoc(),
+          TII->get(TII->getPickSwitchOpcode(licClass, false)))
+        .addReg(is0Dead ? CSA::IGN : newParam)
+        .addReg(is0Dead ? newParam : CSA::IGN)
+        .add(MI->getOperand(2))
+        .add(MO);
+      newSwitch->setFlag(MachineInstr::NonSequential);
+      MO.setReg(newParam);
     }
-    unsigned outL = MI->getOperand(0).getReg() == CSA::IGN ?
-      (unsigned)CSA::IGN : LMFI->allocateLIC(class0);
-    unsigned outR = MI->getOperand(1).getReg() == CSA::IGN ?
-      (unsigned)CSA::IGN : LMFI->allocateLIC(class0);
-    MachineInstr *newSwitch = BuildMI(*MI->getParent(), MI, MI->getDebugLoc(),
-        TII->get(CSA::SWITCH0))
-      .addReg(outL, RegState::Define)
-      .addReg(outR, RegState::Define)
-      .add(MI->getOperand(2))
-      .add(switched->getOperand(1 + i));
-    newSwitch->setFlag(MachineInstr::NonSequential);
-    switchOutputRegs[i][0] = outL;
-    switchOutputRegs[i][1] = outR;
   }
 
-  // Generate the two ALLs as output, unless the output is ignored.
-  for (int i = 0; i < 2; i++) {
-    if (MI->getOperand(i).getReg() == CSA::IGN)
-      continue;
-    BuildMI(*MI->getParent(), MI, switched->getDebugLoc(), TII->get(CSA::ALL0))
-      .add(MI->getOperand(i))
-      .addReg(switchOutputRegs[0][i])
-      .addReg(switchOutputRegs[1][i])
-      .addReg(switchOutputRegs[2][i])
-      .addReg(switchOutputRegs[3][i])
-      ->setFlag(MachineInstr::NonSequential);
-  }
-
+  // Delete the old switch.
   to_delete.push_back(MI);
-  if (MI == getSingleUse(switched->getOperand(0)))
-    to_delete.push_back(switched);
   return false;
 }
 
@@ -308,6 +309,10 @@ bool CSADataflowSimplifyPass::makeStreamMemOp(MachineInstr *MI) {
       if (!strideOp.isImm()) {
         DEBUG(dbgs() << "Stride is not an immediate, cannot compute stride\n");
         return false;
+      } else if (strideOp.getImm() % opcodeSize) {
+        DEBUG(dbgs() << "Stride " << strideOp.getImm() <<
+            " is not a multiple of opcode size\n");
+        return false;
       }
       stride = strideOp.getImm() / opcodeSize;
 
@@ -350,9 +355,9 @@ bool CSADataflowSimplifyPass::makeStreamMemOp(MachineInstr *MI) {
       default:
         DEBUG(dbgs() << "Candidate indexed memory store failed to have valid "
             << "stream parameter. It may yet be valid.\n");
-        DEBUG(MI->dump());
+        DEBUG(MI->print(dbgs()));
         DEBUG(dbgs() << "Failed operator: ");
-        DEBUG(memIndex->dump());
+        DEBUG(memIndex->print(dbgs()));
         return false;
       }
 
@@ -374,10 +379,10 @@ bool CSADataflowSimplifyPass::makeStreamMemOp(MachineInstr *MI) {
   }
 
   DEBUG(dbgs() << "Identified candidate for streaming memory conversion: ");
-  DEBUG(MI->dump());
+  DEBUG(MI->print(dbgs()));
   DEBUG(dbgs() << "Base: " << *base << "; stride: " << stride <<
       "; controlling stream: ");
-  DEBUG(stream->dump());
+  DEBUG(stream->print(dbgs()));
 
   // Verify that the memory orders are properly constrained by the stream.
   MachineInstr *inSource = getDefinition(*inOrder);
@@ -410,7 +415,7 @@ bool CSADataflowSimplifyPass::makeStreamMemOp(MachineInstr *MI) {
     }
     realOutSink = &outSink->getOperand(1);
   } else if (outSink->getOperand(1).getReg() == CSA::IGN) {
-    // The control structure should be a not (stream control)
+    // The control structure should be a NOT (stream control)
     if (outSink->getOpcode() != CSA::NOT1 ||
         getDefinition(outSink->getOperand(1)) == stream) {
       DEBUG(dbgs() << "Output memory order is not controlled by the stream\n");
