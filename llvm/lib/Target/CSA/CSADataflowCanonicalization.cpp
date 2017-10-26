@@ -17,6 +17,7 @@
 #include "CSAMachineFunctionInfo.h"
 #include "CSATargetMachine.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/Statistic.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
@@ -25,6 +26,10 @@
 #include "llvm/Support/Debug.h"
 
 using namespace llvm;
+
+#define DEBUG_TYPE "csa-dfcanon"
+
+STATISTIC(NumSwitchesAdded, "Number of switches added due to inversion");
 
 namespace llvm {
   class CSADataflowCanonicalizationPass : public MachineFunctionPass {
@@ -210,10 +215,16 @@ bool CSADataflowCanonicalizationPass::invertIgnoredSwitches(MachineInstr *MI) {
         .add(MO);
       newSwitch->setFlag(MachineInstr::NonSequential);
       MO.setReg(newParam);
+
+      // We added a new switch, which might be eligible for this optimization.
+      invertIgnoredSwitches(newSwitch);
+      NumSwitchesAdded++;
     }
   }
+  NumSwitchesAdded--;
 
   // Delete the old switch.
   to_delete.push_back(MI);
-  return false;
+
+  return true;
 }
