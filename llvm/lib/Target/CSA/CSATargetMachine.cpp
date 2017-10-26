@@ -182,8 +182,8 @@ public:
     Banner = std::string("After CSAOptDFPass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
 
-    addPass(createCSADataflowSimplifyPass(), false);
-    Banner = std::string("After CSADataflowSimplifyPass");
+    addPass(createCSAStreamingMemoryConversionPass(), false);
+    Banner = std::string("After CSAStreamingMemoryConversionPass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
 
     addPass(createCSARedundantMovElimPass(), false);

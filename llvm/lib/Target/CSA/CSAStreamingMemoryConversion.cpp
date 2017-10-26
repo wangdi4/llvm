@@ -1,4 +1,4 @@
-//===-- CSADataflowSimplify.cpp - CSA simplifications to dataflow ---------===//
+//===-- CSAStreamingMemoryConversion.cpp - Streaming memory operations ----===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,8 +7,8 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file implements a few optimizations that work on the dataflow graph of
-// the CSA representation.
+// This file implements a pass that converts memory operations to streaming
+// memory loads and stores where applicable.
 //
 //===----------------------------------------------------------------------===//
 
@@ -25,13 +25,13 @@
 
 using namespace llvm;
 
-#define DEBUG_TYPE "csa-df-simplify"
+#define DEBUG_TYPE "csa-streamem"
 
 namespace llvm {
-  class CSADataflowSimplifyPass : public MachineFunctionPass {
+  class CSAStreamingMemoryConversionPass : public MachineFunctionPass {
   public:
     static char ID;
-    CSADataflowSimplifyPass();
+    CSAStreamingMemoryConversionPass();
 
     StringRef getPassName() const override {
       return "CSA Dataflow simplification pass";
@@ -70,17 +70,17 @@ namespace llvm {
   };
 }
 
-char CSADataflowSimplifyPass::ID = 0;
+char CSAStreamingMemoryConversionPass::ID = 0;
 
-CSADataflowSimplifyPass::CSADataflowSimplifyPass() : MachineFunctionPass(ID) {
+CSAStreamingMemoryConversionPass::CSAStreamingMemoryConversionPass() : MachineFunctionPass(ID) {
 }
 
 
-MachineFunctionPass *llvm::createCSADataflowSimplifyPass() {
-  return new CSADataflowSimplifyPass();
+MachineFunctionPass *llvm::createCSAStreamingMemoryConversionPass() {
+  return new CSAStreamingMemoryConversionPass();
 }
 
-bool CSADataflowSimplifyPass::runOnMachineFunction(MachineFunction &MF) {
+bool CSAStreamingMemoryConversionPass::runOnMachineFunction(MachineFunction &MF) {
   this->MF = &MF;
   LMFI = MF.getInfo<CSAMachineFunctionInfo>();
   TII = static_cast<const CSAInstrInfo*>(MF.getSubtarget<CSASubtarget>().getInstrInfo());
@@ -93,9 +93,9 @@ bool CSADataflowSimplifyPass::runOnMachineFunction(MachineFunction &MF) {
   // pass.
   bool changed = false;
   static auto functions = {
-    &CSADataflowSimplifyPass::eliminateNotPicks,
-    &CSADataflowSimplifyPass::invertIgnoredSwitches,
-    &CSADataflowSimplifyPass::makeStreamMemOp
+    &CSAStreamingMemoryConversionPass::eliminateNotPicks,
+    &CSAStreamingMemoryConversionPass::invertIgnoredSwitches,
+    &CSAStreamingMemoryConversionPass::makeStreamMemOp
   };
   for (auto func : functions) {
     for (auto &MBB : MF) {
@@ -112,7 +112,7 @@ bool CSADataflowSimplifyPass::runOnMachineFunction(MachineFunction &MF) {
   return changed;
 }
 
-MachineInstr *CSADataflowSimplifyPass::getDefinition(const MachineOperand &MO) const {
+MachineInstr *CSAStreamingMemoryConversionPass::getDefinition(const MachineOperand &MO) const {
   assert(MO.isReg() && "LICs to search for can only be registers");
   for (auto &MBB : *MF) {
     for (auto &MI : MBB) {
@@ -126,7 +126,7 @@ MachineInstr *CSADataflowSimplifyPass::getDefinition(const MachineOperand &MO) c
   return nullptr;
 }
 
-void CSADataflowSimplifyPass::getUses(const MachineOperand &MO,
+void CSAStreamingMemoryConversionPass::getUses(const MachineOperand &MO,
     SmallVectorImpl<MachineInstr *> &uses) const {
   assert(MO.isReg() && "LICs to search for can only be registers");
   for (auto &MBB : *MF) {
@@ -139,7 +139,7 @@ void CSADataflowSimplifyPass::getUses(const MachineOperand &MO,
   }
 }
 
-MachineInstr *CSADataflowSimplifyPass::getSingleUse(
+MachineInstr *CSAStreamingMemoryConversionPass::getSingleUse(
     const MachineOperand &MO) const {
   SmallVector<MachineInstr *, 4> uses;
   getUses(MO, uses);
@@ -150,7 +150,7 @@ bool isImm(const MachineOperand &MO, int64_t immValue) {
   return MO.isImm() && MO.getImm() == immValue;
 }
 
-bool CSADataflowSimplifyPass::isZero(const MachineOperand &MO) const {
+bool CSAStreamingMemoryConversionPass::isZero(const MachineOperand &MO) const {
   if (MO.isReg()) {
     const MachineInstr *def = getDefinition(MO);
     if (def->getOpcode() == CSA::MOV64 && isImm(def->getOperand(1), 0))
@@ -159,7 +159,7 @@ bool CSADataflowSimplifyPass::isZero(const MachineOperand &MO) const {
   return isImm(MO, 0);
 }
 
-bool CSADataflowSimplifyPass::eliminateNotPicks(MachineInstr *MI) {
+bool CSAStreamingMemoryConversionPass::eliminateNotPicks(MachineInstr *MI) {
   unsigned select_op, low_op, high_op;
   if (TII->isSwitch(MI)) {
     select_op = 2;
@@ -188,7 +188,7 @@ bool CSADataflowSimplifyPass::eliminateNotPicks(MachineInstr *MI) {
   return false;
 }
 
-bool CSADataflowSimplifyPass::invertIgnoredSwitches(MachineInstr *MI) {
+bool CSAStreamingMemoryConversionPass::invertIgnoredSwitches(MachineInstr *MI) {
   // The value must be a switch, and one of its outputs must be ignored.
   if (!TII->isSwitch(MI))
     return false;
@@ -278,7 +278,7 @@ bool CSADataflowSimplifyPass::invertIgnoredSwitches(MachineInstr *MI) {
 // * LDX (REPEAT %stream, %base), (SEQOT**64_index 0, %N, %stride)
 // TODO: Investigate LDD utility.
 
-bool CSADataflowSimplifyPass::makeStreamMemOp(MachineInstr *MI) {
+bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
   const MachineOperand *base, *value;
   unsigned stride;
   const MachineOperand *inOrder, *outOrder, *memOrder;
