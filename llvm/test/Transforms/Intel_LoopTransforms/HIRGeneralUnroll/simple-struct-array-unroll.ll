@@ -1,7 +1,7 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-general-unroll -print-after=hir-general-unroll < %s 2>&1 | FileCheck %s
 
 ; HIR-
-; + DO i1 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>  <MAX_TC_EST = 100>
+; + DO i1 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>  <MAX_TC_EST = 100>
 ; |   (@arr)[0][i1].0 = i1;
 ; + END LOOP
 

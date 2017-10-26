@@ -5,11 +5,9 @@
 ; CHECK: Dump Before HIR Temp Cleanup
 
 ; CHECK: + DO i1 = 0, 56, 1   <DO_LOOP>
-; CHECK: |   %1 = zext.i32.i64(i1 + -54);
-; CHECK: |
 ; CHECK: |      %fs.promoted = (%fs)[0];
 ; CHECK: |      %add21136 = %fs.promoted;
-; CHECK: |   + DO i2 = 0, %1, 1   <DO_LOOP>  <MAX_TC_EST = 42>
+; CHECK: |   + DO i2 = 0, i1 + -54, 1   <DO_LOOP>  <MAX_TC_EST = 3>
 ; CHECK: |   |   %5 = (%ti)[0][-1 * i1 + 58][-1 * i1 + 57];
 ; CHECK: |   |   (%ti)[0][-1 * i1 + i2 + 58][-1 * i1 + i2 + 58] = %5;
 ; CHECK: |   |   %6 = (%n)[0][-1 * i1 + i2 + 58];
@@ -21,7 +19,7 @@
 ; CHECK: |      %arrayidx35.promoted = (%ti)[0][-1 * i1 + 57][-1 * i1 + 57];
 ; CHECK: |      %n1.promoted = (%n1)[0];
 ; CHECK: |      %8 = %arrayidx35.promoted;
-; CHECK: |   + DO i2 = 0, %1, 1   <DO_LOOP>  <MAX_TC_EST = 42>
+; CHECK: |   + DO i2 = 0, i1 + -54, 1   <DO_LOOP>  <MAX_TC_EST = 3>
 ; CHECK: |   |   %10 = (%ep)[0][-1 * i1 + i2 + 58][-1 * i1 + i2 + 57];
 ; CHECK: |   |   %8 = %8  +  %10;
 ; CHECK: |   |   (%a)[0][-1 * i1 + i2 + 58] = -1 * i2 + %n1.promoted;
@@ -37,10 +35,8 @@
 ; CHECK: Dump After HIR Temp Cleanup
 
 ; CHECK: + DO i1 = 0, 56, 1   <DO_LOOP>
-; CHECK: |   %1 = zext.i32.i64(i1 + -54);
-; CHECK: |
 ; CHECK: |      %add21136 = (%fs)[0];
-; CHECK: |   + DO i2 = 0, %1, 1   <DO_LOOP>  <MAX_TC_EST = 42>
+; CHECK: |   + DO i2 = 0, i1 + -54, 1   <DO_LOOP>  <MAX_TC_EST = 3>
 ; CHECK: |   |   (%ti)[0][-1 * i1 + i2 + 58][-1 * i1 + i2 + 58] = (%ti)[0][-1 * i1 + 58][-1 * i1 + 57];
 ; CHECK: |   |   %6 = (%n)[0][-1 * i1 + i2 + 58];
 ; CHECK: |   |   %add21136 = -1 * i1 + i2 + %6 + 58  +  %add21136;
@@ -50,7 +46,7 @@
 ; CHECK: |
 ; CHECK: |      %n1.promoted = (%n1)[0];
 ; CHECK: |      %8 = (%ti)[0][-1 * i1 + 57][-1 * i1 + 57];
-; CHECK: |   + DO i2 = 0, %1, 1   <DO_LOOP>  <MAX_TC_EST = 42>
+; CHECK: |   + DO i2 = 0, i1 + -54, 1   <DO_LOOP>  <MAX_TC_EST = 3>
 ; CHECK: |   |   %8 = %8  +  (%ep)[0][-1 * i1 + i2 + 58][-1 * i1 + i2 + 57];
 ; CHECK: |   |   (%a)[0][-1 * i1 + i2 + 58] = -1 * i2 + %n1.promoted;
 ; CHECK: |   |   %11 = (%x)[0][-1 * i1 + i2 + 58];

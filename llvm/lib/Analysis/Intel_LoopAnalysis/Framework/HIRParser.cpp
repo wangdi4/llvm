@@ -2112,7 +2112,7 @@ void HIRParser::populateBlobDDRefs(RegDDRef *Ref, unsigned Level) {
 }
 
 RegDDRef *HIRParser::createUpperDDRef(const SCEV *BETC, unsigned Level,
-                                      Type *IVType) {
+                                      Type *IVType, bool IsNSW) {
   const Value *Val;
   unsigned Symbase = 0;
   clearTempBlobLevelMap();
@@ -2140,7 +2140,8 @@ RegDDRef *HIRParser::createUpperDDRef(const SCEV *BETC, unsigned Level,
   if (!BETCType->isPointerTy() && (BETCType != IVType)) {
 
     if (IVType->getPrimitiveSizeInBits() > BETCType->getPrimitiveSizeInBits()) {
-      BETC = SE->getZeroExtendExpr(BETC, IVType);
+      BETC = IsNSW ? SE->getSignExtendExpr(BETC, IVType)
+                   : SE->getZeroExtendExpr(BETC, IVType);
     } else {
       BETC = SE->getTruncateExpr(BETC, IVType);
     }
@@ -2210,7 +2211,7 @@ void HIRParser::parse(HLLoop *HLoop) {
     HLoop->setStrideDDRef(StrideRef);
 
     // Set the upper bound
-    auto UpperRef = createUpperDDRef(BETC, CurLevel, IVType);
+    auto UpperRef = createUpperDDRef(BETC, CurLevel, IVType, HLoop->isNSW());
     HLoop->setUpperDDRef(UpperRef);
 
     unsigned MaxTC;

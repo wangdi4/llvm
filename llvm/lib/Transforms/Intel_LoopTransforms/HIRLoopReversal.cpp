@@ -91,17 +91,17 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopReversal.h"
 
-#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 
 #define DEBUG_TYPE "hir-loop-reversal"
 
@@ -428,7 +428,7 @@ bool HIRLoopReversal::runOnFunction(Function &F) {
                      true, // always do profit test when running as a pass
                      true, // always do legal test when running as a pass
                      false // short-circuit off when running as a pass
-                     );
+        );
 
     // *** Do HIR Loop Reversal Transformation if suitable ***
     // Skip the loop if it is not suitable
@@ -780,8 +780,8 @@ bool HIRLoopReversal::doHIRReversalTransform(HLLoop *Lp) {
     int64_t Coeff;
     CE->getIVCoeff(LoopLevel, &BlobIndex, &Coeff);
 
-    bool ReplaceIVByCE =
-        CanonExprUtils::replaceIVByCanonExpr(CE, LoopLevel, UBCE, true);
+    bool ReplaceIVByCE = CanonExprUtils::replaceIVByCanonExpr(
+        CE, LoopLevel, UBCE, Lp->isNSW(), true);
     (void)ReplaceIVByCE;
     assert(ReplaceIVByCE && "replaceIVByCanonExpr(.) failed\n");
 

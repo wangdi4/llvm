@@ -1,7 +1,7 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-cost-model-throttling=0 | opt -analyze -hir-parser -hir-cost-model-throttling=0 | FileCheck %s
 
 ; Check parsing output for the loop verifying that the gep operator argument of printf is parsed correctly.
-; CHECK: DO i1 = 0, zext.i32.i64((-1 + %n))
+; CHECK: DO i1 = 0, sext.i32.i64((-1 + %n))
 ; CHECK-NEXT: %0 = (@A)[0][i1]
 ; CHECK-NEXT: %call = @printf(&((@.str)[0][0]),  %0)
 ; CHECK-NEXT: END LOOP

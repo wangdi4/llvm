@@ -123,7 +123,7 @@ public:
   }
 
   CGVisitor(Function *CurFunc, ScalarEvolution *SE, HIRFramework *HIRF)
-      : F(CurFunc), HIRF(HIRF), CurRegion(nullptr),
+      : F(CurFunc), HIRF(HIRF), CurRegion(nullptr), CurLoopIsNSW(false),
         Builder(CurFunc->getContext()),
         Expander(*SE, CurFunc->getParent()->getDataLayout(), "i", *this) {}
 
@@ -322,6 +322,7 @@ private:
   Function *F;
   HIRFramework *HIRF;
   HLRegion *CurRegion;
+  bool CurLoopIsNSW;
   IRBuilder<> Builder;
   HIRSCEVExpander Expander;
 
@@ -1216,6 +1217,9 @@ Value *CGVisitor::visitLoop(HLLoop *Lp) {
          "Preheader/Postexit should have been extracted!");
 
   bool IsUnknownLoop = Lp->isUnknown();
+  bool IsNSW = Lp->isNSW();
+
+  CurLoopIsNSW = IsNSW;
 
   // set up IV, I think we can reuse the IV allocation across
   // multiple loops of same depth
@@ -1273,8 +1277,6 @@ Value *CGVisitor::visitLoop(HLLoop *Lp) {
   assert(StepVal->getType() == Lp->getIVType() &&
          "IVtype does not match stepval type");
 
-  bool IsNSW = Lp->isNSW();
-
   // NUW flag is applicable either if loop is not unknown or we could deduce
   // NSW.
   // NOTE: We do not try to deduce NUW flag for unknown loops so we may be
@@ -1292,7 +1294,7 @@ Value *CGVisitor::visitLoop(HLLoop *Lp) {
 
     // generate bottom test.
     Value *EndCond =
-        Builder.CreateICmp(Lp->isNSW() ? CmpInst::ICMP_SLE : CmpInst::ICMP_ULE,
+        Builder.CreateICmp(IsNSW ? CmpInst::ICMP_SLE : CmpInst::ICMP_ULE,
                            NextVar, Upper, "cond" + LName);
 
     BasicBlock *AfterBB =
@@ -1707,11 +1709,12 @@ Value *CGVisitor::IVPairCG(CanonExpr *CE, CanonExpr::iv_iterator IVIt,
   // Load IV at given level from this loop nest
   Value *IV = Builder.CreateLoad(CurIVValues[CE->getLevel(IVIt)]);
 
-  // IV type and Ty(CE src type) may not match, zext or trunc as needed
+  // If IV type and Ty(CE src type) do not match, convert as needed.
   if (IV->getType() != Ty) {
     if (Ty->getPrimitiveSizeInBits() >
         IV->getType()->getPrimitiveSizeInBits()) {
-      IV = Builder.CreateZExt(IV, Ty);
+      IV = CurLoopIsNSW ? Builder.CreateSExt(IV, Ty)
+                        : Builder.CreateZExt(IV, Ty);
     } else {
       IV = Builder.CreateTrunc(IV, Ty);
     }

@@ -324,7 +324,8 @@ void IVSegment::replaceIVByBound(RegDDRef *Ref, const HLLoop *Loop,
     // negative
     assert(!BoundCE->isTrunc() && "Truncations are not supported");
 
-    bool Ret = CanonExprUtils::replaceIVByCanonExpr(CE, Level, BoundCE, true);
+    bool Ret = CanonExprUtils::replaceIVByCanonExpr(CE, Level, BoundCE,
+                                                    Loop->isNSW(), true);
     assert(Ret &&
            "Assuming replace will always succeed as we already checked if both "
            "are mergeable.");

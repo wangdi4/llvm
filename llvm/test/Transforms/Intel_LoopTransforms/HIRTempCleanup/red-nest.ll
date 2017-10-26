@@ -4,8 +4,8 @@
 
 ; CHECK: Dump Before HIR Temp Cleanup
 
-; CHECK: + DO i1 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>
-; CHECK: |   + DO i2 = 0, zext.i32.i64((-1 + %m)), 1   <DO_LOOP>
+; CHECK: + DO i1 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>
+; CHECK: |   + DO i2 = 0, sext.i32.i64((-1 + %m)), 1   <DO_LOOP>
 ; CHECK: |   |   %0 = (@A)[0][i2][i1];
 ; CHECK: |   |   %t.034 = %0  +  %t.034;
 ; CHECK: |   |   %t.034.out = %t.034;
@@ -22,8 +22,8 @@
 
 ; CHECK: Dump After HIR Temp Cleanup
 
-; CHECK: + DO i1 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>  <MAX_TC_EST = 1000>
-; CHECK: |   + DO i2 = 0, zext.i32.i64((-1 + %m)), 1   <DO_LOOP>  <MAX_TC_EST = 1000>
+; CHECK: + DO i1 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>  <MAX_TC_EST = 1000>
+; CHECK: |   + DO i2 = 0, sext.i32.i64((-1 + %m)), 1   <DO_LOOP>  <MAX_TC_EST = 1000>
 ; CHECK: |   |   %t.034 = (@A)[0][i2][i1]  +  %t.034;
 ; CHECK: |   |   %t.034.out = %t.034;
 ; CHECK: |   |   %t.034 = %t.034  +  (@B)[0][i2][i1];

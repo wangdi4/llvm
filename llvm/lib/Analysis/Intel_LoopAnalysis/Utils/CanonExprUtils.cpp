@@ -13,8 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/IR/Constants.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/CanonExpr.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/IR/LLVMContext.h"
 
 #include "llvm/Support/Debug.h"
@@ -520,11 +520,13 @@ bool CanonExprUtils::canReplaceIVByCanonExpr(const CanonExpr *CE1,
 
   std::unique_ptr<CanonExpr> CE1Clone(CE1->clone());
 
-  return replaceIVByCanonExpr(CE1Clone.get(), Level, CE2, RelaxedMode);
+  // IsNSW flag has no bearing on whether the replacement can be performed so we
+  // can always pass it as false.
+  return replaceIVByCanonExpr(CE1Clone.get(), Level, CE2, false, RelaxedMode);
 }
 
 bool CanonExprUtils::replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
-                                          const CanonExpr *CE2,
+                                          const CanonExpr *CE2, bool IsNSW,
                                           bool RelaxedMode) {
 
   // CE1 = C1*B1*i1 + C3*i2 + ..., Level 1
@@ -554,7 +556,7 @@ bool CanonExprUtils::replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
 
   if (!Mergeable) {
     // Not meargeable but could be casted to a blob with a correspondent type.
-    Term->castStandAloneBlob(CE1->getSrcType(), false);
+    Term->castStandAloneBlob(CE1->getSrcType(), IsNSW);
   }
 
   // It's safe to change the Term type as CE1 and CE2 are mergeable.

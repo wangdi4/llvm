@@ -376,7 +376,8 @@ private:
   }
 
   /// Returns a RegDDRef representing loop upper.
-  RegDDRef *createUpperDDRef(const SCEV *BETC, unsigned Level, Type *IVType);
+  RegDDRef *createUpperDDRef(const SCEV *BETC, unsigned Level, Type *IVType,
+                             bool IsNSW);
 
   /// Returns the size of the contained type in bytes. Incoming type is expected
   /// to be a pointer type.

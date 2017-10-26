@@ -292,11 +292,9 @@ public:
 
   /// Returns the innermost level at which some blob present in this canon expr
   /// is defined. The canon expr in linear in all the inner loop levels w.r.t
-  /// this level. 
+  /// this level.
   /// It returns NonLinearLevel for non-linear canon exprs.
-  unsigned getDefinedAtLevel() const {
-    return DefinedAtLevel;
-  }
+  unsigned getDefinedAtLevel() const { return DefinedAtLevel; }
   /// Sets non-negative defined at level.
   void setDefinedAtLevel(unsigned DefLvl) {
     assert((DefLvl <= MaxLoopNestLevel) && "DefLvl exceeds max level!");
@@ -712,9 +710,9 @@ public:
   const DebugLoc &getDebugLoc() const { return DbgLoc; }
 };
 
-} // End loopopt namespace
+} // namespace loopopt
 
-} // End llvm namespace
+} // namespace llvm
 
 namespace std {
 
@@ -723,6 +721,6 @@ namespace std {
 template <> struct default_delete<llvm::loopopt::CanonExpr> {
   void operator()(llvm::loopopt::CanonExpr *CE) const;
 };
-}
+} // namespace std
 
 #endif

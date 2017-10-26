@@ -5,7 +5,7 @@
 
 ; Check parsing output for the loop
 
-; CHECK: + DO i1 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>
+; CHECK: + DO i1 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>
 ; CHECK: |   %a.addr.014.out = %a.addr.014;
 ; CHECK: |   %output.1 = %b;
 ; CHECK: |   if (i1 > 77)

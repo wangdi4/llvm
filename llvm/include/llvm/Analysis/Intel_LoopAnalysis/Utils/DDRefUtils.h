@@ -267,7 +267,7 @@ public:
   ///
   /// See Also: CanonExprUtils::replaceIVByCanonExpr().
   static void replaceIVByCanonExpr(RegDDRef *Ref, unsigned LoopLevel,
-                                   const CanonExpr *CE,
+                                   const CanonExpr *CE, bool IsNSW,
                                    bool RelaxedMode = true);
 };
 

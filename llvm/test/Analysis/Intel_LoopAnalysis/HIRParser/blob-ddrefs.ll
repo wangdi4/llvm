@@ -3,7 +3,7 @@
 ; CHECK: NSW: Yes
 
 ; Check parsing output for the temp blobs
-; CHECK: DO i64 i1 = 0, zext.i32.i64((-1 + %n))
+; CHECK: DO i64 i1 = 0, sext.i32.i64((-1 + %n))
 ; CHECK: <BLOB> LINEAR i32 %n
 ; CHECK: <BLOB> LINEAR i32* %B
 ; CHECK: <BLOB> LINEAR i32* %C

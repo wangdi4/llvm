@@ -2,7 +2,7 @@
 
 ; Check parsing output for the loop verifying that the && condition is successfully propagated to the if condition.
 
-; CHECK: + DO i1 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>
+; CHECK: + DO i1 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>
 ; CHECK: |   %0 = (%A)[i1];
 ; CHECK: |   %2 = (%A)[i1 + 1];
 ; CHECK: |   if (%0 > 5 && %2 < 10)

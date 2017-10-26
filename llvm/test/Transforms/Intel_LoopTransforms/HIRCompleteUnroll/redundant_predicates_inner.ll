@@ -18,7 +18,7 @@
 ; }
 
 ; CHECK: BEGIN REGION { modified }
-; CHECK:  + DO i1 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>
+; CHECK:  + DO i1 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>
 ; CHECK-NOT:  if (0 < 5)
 ; CHECK:  |   (%p)[0] = 0;
 ; CHECK:  |   (%p)[1] = 1;

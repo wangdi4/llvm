@@ -911,7 +911,7 @@ void HLLoop::replaceByFirstIteration() {
           if (!ExplicitLB) {
             // Create explicit copy statement
             HLInst *LBCopy = HNU.createCopyInst(getLowerDDRef()->clone(), "lb");
-            HNU.insertBefore(this, LBCopy);
+            HLNodeUtils::insertBefore(this, LBCopy);
             ExplicitLB = LBCopy->getLvalDDRef();
             Aux.push_back(ExplicitLB);
           }
@@ -920,7 +920,8 @@ void HLLoop::replaceByFirstIteration() {
         }
 
         // Expected to be always successful.
-        DDRefUtils::replaceIVByCanonExpr(Ref, Level, IVReplacement, false);
+        DDRefUtils::replaceIVByCanonExpr(Ref, Level, IVReplacement, IsNSW,
+                                         false);
 
         if (!IsInnermost) {
           // Innermost loops doesn't contain IVs deeper than Level.
@@ -933,10 +934,10 @@ void HLLoop::replaceByFirstIteration() {
   // To minimize the possibility of topsort numbers re-computation, detach the
   // loop before moving the body nodes.
   HLNode *Marker = HNU.getOrCreateMarkerNode();
-  HNU.replace(this, Marker);
+  HLNodeUtils::replace(this, Marker);
 
-  HNU.moveAfter(Marker, child_begin(), child_end());
-  HNU.remove(Marker);
+  HLNodeUtils::moveAfter(Marker, child_begin(), child_end());
+  HLNodeUtils::remove(Marker);
 }
 
 void HLLoop::verify() const {
@@ -1176,12 +1177,13 @@ bool HLLoop::normalize() {
   UpperCE->simplify(true);
 
   unsigned Level = getNestingLevel();
-
+  
   // NewIV = S * IV + L
   std::unique_ptr<CanonExpr> NewIV(LowerCE->clone());
   NewIV->addIV(Level, InvalidBlobIndex, Stride, false);
 
-  auto UpdateCE = [&NewIV, Level](CanonExpr *CE) {
+  bool IsNSW = isNSW();
+  auto UpdateCE = [&NewIV, Level, IsNSW](CanonExpr *CE) {
     if (!CE->hasIV(Level)) {
       return;
     }
@@ -1196,7 +1198,8 @@ bool HLLoop::normalize() {
     // correct src type to the NewIV.
     NewIV->setSrcType(CE->getSrcType());
 
-    if (!CanonExprUtils::replaceIVByCanonExpr(CE, Level, NewIV.get(), true)) {
+    if (!CanonExprUtils::replaceIVByCanonExpr(CE, Level, NewIV.get(), IsNSW,
+                                              true)) {
       llvm_unreachable("[HIR-NORMALIZE] Can not replace IV by Lower");
     }
   };

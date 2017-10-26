@@ -26,10 +26,10 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
@@ -157,7 +157,7 @@ public:
     AU.setPreservesAll();
   }
 };
-}
+} // namespace
 
 char HIRIdiomRecognition::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRIdiomRecognition, OPT_SWITCH, OPT_DESC, false, false)
@@ -340,7 +340,7 @@ bool HIRIdiomRecognition::isUnitStrideRef(const RegDDRef *Ref,
   }
 
   int64_t Stride;
-  
+
   if (!Ref->getConstStrideAtLevel(Loop->getNestingLevel(), &Stride)) {
     return false;
   }
@@ -436,7 +436,8 @@ bool HIRIdiomRecognition::makeStartRef(RegDDRef *Ref, HLLoop *Loop,
       const CanonExpr *OrigUpperCE = Loop->getUpperCanonExpr();
 
       // Try to merge upper bound with CE
-      if (!CanonExprUtils::replaceIVByCanonExpr(CE, Level, OrigUpperCE, true)) {
+      if (!CanonExprUtils::replaceIVByCanonExpr(CE, Level, OrigUpperCE,
+                                                Loop->isNSW(), true)) {
         DEBUG(dbgs() << "Unable to replace i" << Level << " with UB.");
         return false;
       }

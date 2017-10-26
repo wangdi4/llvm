@@ -2,11 +2,11 @@
 
 ; HIR-
 ; + DO i1 = 0, %n + -1, 1   <DO_LOOP>
-; |   + DO i2 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>
+; |   + DO i2 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>
 ; |   |   %0 = (%A)[i2];
 ; |   |   %t1.035 = %0  +  %t1.035;
 ; |   + END LOOP
-; |   + DO i2 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>
+; |   + DO i2 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>
 ; |   |   %1 = (%B)[i2];
 ; |   |   (%B)[i2] = %1 + %t1.035;
 ; |   + END LOOP
@@ -24,7 +24,7 @@
 ; CHECK: LiveIn symbases: [[SCCSYMBASE]]
 ; CHECK: LiveOut symbases: [[SCCSYMBASE]]
 
-; CHECK: DO i64 i2 = 0, zext.i32.i64((-1 + %n))
+; CHECK: DO i64 i2 = 0, sext.i32.i64((-1 + %n))
 ; CHECK: %t1.035 = %0  +  %t1.035
 ; CHECK: END LOOP
 
@@ -32,7 +32,7 @@
 ; Check that scc symbase is live into the second i2 loop. 
 ; CHECK: LiveIn symbases: [[SCCSYMBASE]]
 
-; CHECK: DO i64 i2 = 0, zext.i32.i64((-1 + %n))
+; CHECK: DO i64 i2 = 0, sext.i32.i64((-1 + %n))
 ; CHECK: (%B)[i2] = %1 + %t1.035
 
 ; Blob t1 should be linear, defined at level 1

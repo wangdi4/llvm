@@ -6,7 +6,7 @@
 ; CHECK-NEXT: %k.020 = %k.020  +  i1
 ; CHECK-NEXT: if (%k.020 > 0)
 ; CHECK-NEXT: {
-; CHECK-NEXT: DO i2 = 0, zext.i32.i64((-1 + %indvars.iv23.out)),
+; CHECK-NEXT: DO i2 = 0, sext.i32.i64((-1 + %indvars.iv23.out)),
 ; CHECK-NEXT: (%A)[i2] = i2;
 ; CHECK-NEXT: END LOOP
 ; CHECK-NEXT: }
