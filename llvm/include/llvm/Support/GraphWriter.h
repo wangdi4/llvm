@@ -169,6 +169,21 @@ public:
     if (!NodeAttributes.empty()) O << NodeAttributes << ",";
     O << "label=\"{";
 
+    if (!DTraits.renderGraphFromBottomUp() && DTraits.hasEdgeDestLabels()) {
+      O << "{";
+
+      unsigned i = 0, e = DTraits.numEdgeDestLabels(Node);
+      for (; i != e && i != 64; ++i) {
+        if (i) O << "|";
+        O << "<d" << i << ">"
+          << DOT::EscapeString(DTraits.getEdgeDestLabel(Node, i));
+      }
+
+      if (i != e)
+        O << "|<d64>truncated...";
+      O << "}|";
+    }
+
     if (!DTraits.renderGraphFromBottomUp()) {
       O << DOT::EscapeString(DTraits.getNodeLabel(Node, G));
 
@@ -207,7 +222,7 @@ public:
         O << "|" << DOT::EscapeString(NodeDesc);
     }
 
-    if (DTraits.hasEdgeDestLabels()) {
+    if (DTraits.renderGraphFromBottomUp() && DTraits.hasEdgeDestLabels()) {
       O << "|{";
 
       unsigned i = 0, e = DTraits.numEdgeDestLabels(Node);

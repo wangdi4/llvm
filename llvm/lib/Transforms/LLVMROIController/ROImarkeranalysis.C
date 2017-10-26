@@ -108,7 +108,7 @@ void ROIMarker(int marker, const char * funcName)
         init_done = true;
     }
     // lookup marker in markerInfoMap; add if absent
-    // incrment markerCurrentCount
+    // increment markerCurrentCount
     mInfoIterator mit = markerInfoMap.find(marker);
     if (mit == markerInfoMap.end()) {
       struct markerInfo *mi = new struct markerInfo;
@@ -142,19 +142,13 @@ VOID ROIMarkerProgramEnd() //ANALYSIS
 {
   // print marker trigger stats
   cerr << "\t **** ROIMarkerProgramEnd() " << endl;
-  for( mROIInfoIterator it=markerROIInfoMap.begin(); 
-        it!=markerROIInfoMap.end(); ++it)
+  cerr << "\t      Marker Execution Report " << endl;
+  for( mInfoIterator it=markerInfoMap.begin(); 
+        it!=markerInfoMap.end(); ++it)
   {
     int marker = it->first;
-    for (std::list<struct markerROIInfo *>::iterator mrit=it->second.begin();
-      mrit != it->second.end(); ++mrit)
-    {
-      struct markerROIInfo * mri = *mrit;
-      bool isStart = mri->isStart;
-      cerr << (isStart?"start":"stop") 
-        << "\t **** marker " << marker << " trigger-count " << mri->triggerCount
-        << " triggered? " << mri->isTriggered << endl; 
-    }
+      cerr << "\t\t  marker 0x" << hex << marker << " execution-count " 
+          << dec << it->second->currentCount<< endl; 
   }
   cerr << std::flush;
   return;

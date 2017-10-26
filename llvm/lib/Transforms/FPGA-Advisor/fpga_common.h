@@ -82,6 +82,7 @@
 #include <map>
 #include <mutex>
 #include <string>
+#include <fstream>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
