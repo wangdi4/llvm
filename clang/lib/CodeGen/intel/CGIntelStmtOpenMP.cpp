@@ -1335,6 +1335,8 @@ namespace CGIntelOpenMP {
   OpenMPCodeOutliner &OpenMPCodeOutliner::operator<<(
                                          ArrayRef<OMPClause *> Clauses) {
     for (auto *C : Clauses) {
+      if (C->isImplicit())
+        continue;
       CurrentClauseKind = C->getClauseKind();
       switch (CurrentClauseKind) {
 #define OPENMP_CLAUSE(Name, Class)                                             \
