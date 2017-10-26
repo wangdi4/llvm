@@ -15,7 +15,7 @@
 #include "llvm/ADT/STLExtras.h"
 #include <iterator>
 #include <list>
-#include <map>
+#include <unordered_map>
 
 namespace llvm {
 namespace loopopt {
@@ -26,8 +26,8 @@ template <typename GraphNode, typename GraphEdge> class HIRGraph {
   // It is assumed the common operation is to iterate over in/out edges
   // As such, we keep edge vectors for each node, with each edge stored
   // (as a struct vs ptr) twice; once in inEdges and once in outEdges
-  mutable std::map<const GraphNode *, GraphEdgeContainerTy> InEdges;
-  mutable std::map<const GraphNode *, GraphEdgeContainerTy> OutEdges;
+  mutable std::unordered_map<const GraphNode *, GraphEdgeContainerTy> InEdges;
+  mutable std::unordered_map<const GraphNode *, GraphEdgeContainerTy> OutEdges;
   std::list<GraphEdge> EdgesList;
 
   void addEdgeImpl(GraphEdge &EdgePtr) {
