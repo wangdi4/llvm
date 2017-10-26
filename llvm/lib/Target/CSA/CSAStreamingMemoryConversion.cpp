@@ -49,15 +49,6 @@ namespace llvm {
     const CSAInstrInfo *TII;
     std::vector<MachineInstr *> to_delete;
 
-    /// The following mini pass implements a peephole pass that removes NOT
-    /// operands from the control lines of picks and switches.
-    bool eliminateNotPicks(MachineInstr *MI);
-
-    /// The following mini pass replaces side-effect-free operations entering a
-    /// a SWITCH one of whose outputs is ignored with SWITCHes into those
-    /// operations. This helps for memory ordering issues.
-    bool invertIgnoredSwitches(MachineInstr *MI);
-
     /// The following mini pass converts loads and stores that are dependent on
     /// strides into streaming loads and stores.
     bool makeStreamMemOp(MachineInstr *MI);
@@ -93,8 +84,6 @@ bool CSAStreamingMemoryConversionPass::runOnMachineFunction(MachineFunction &MF)
   // pass.
   bool changed = false;
   static auto functions = {
-    &CSAStreamingMemoryConversionPass::eliminateNotPicks,
-    &CSAStreamingMemoryConversionPass::invertIgnoredSwitches,
     &CSAStreamingMemoryConversionPass::makeStreamMemOp
   };
   for (auto func : functions) {
@@ -157,97 +146,6 @@ bool CSAStreamingMemoryConversionPass::isZero(const MachineOperand &MO) const {
       return true;
   }
   return isImm(MO, 0);
-}
-
-bool CSAStreamingMemoryConversionPass::eliminateNotPicks(MachineInstr *MI) {
-  unsigned select_op, low_op, high_op;
-  if (TII->isSwitch(MI)) {
-    select_op = 2;
-    low_op = 0;
-    high_op = 1;
-  } else if (TII->isPick(MI)) {
-    select_op = 1;
-    low_op = 2;
-    high_op = 3;
-  } else {
-    return false;
-  }
-
-  if (MachineInstr *selector = getDefinition(MI->getOperand(select_op))) {
-    if (selector->getOpcode() == CSA::NOT1) {
-      // This means the selector is a NOT. Swap the two definitions on the
-      // output, and change the selector to be the NOT's inverse.
-      int reg_tmp = MI->getOperand(low_op).getReg();
-      MI->getOperand(low_op).setReg(MI->getOperand(high_op).getReg());
-      MI->getOperand(high_op).setReg(reg_tmp);
-      MI->getOperand(select_op).setReg(
-          selector->getOperand(1).getReg());
-      return true;
-    }
-  }
-  return false;
-}
-
-bool CSAStreamingMemoryConversionPass::invertIgnoredSwitches(MachineInstr *MI) {
-  // The value must be a switch, and one of its outputs must be ignored.
-  if (!TII->isSwitch(MI))
-    return false;
-  if ((!MI->getOperand(0).isReg() || MI->getOperand(0).getReg() != CSA::IGN) &&
-      (!MI->getOperand(1).isReg() || MI->getOperand(1).getReg() != CSA::IGN)) {
-    return false;
-  } else if (!MI->getOperand(3).isReg()) {
-    // Switching a constant value... pass doesn't apply.
-    return false;
-  }
-
-  // In order for the transform to be legal, we need:
-  // 1. Not doing the switched operation before the switch must not be
-  //    observable. Memory operations, SXU operations, and sequence operations
-  //    all fail this test.
-  // 2. There must only be a single output to be switched.
-  // 3. The output must only reach the SWITCH.
-  MachineInstr *switched = getDefinition(MI->getOperand(3));
-  if (!switched || switched->mayLoadOrStore() ||
-      switched->hasUnmodeledSideEffects() || !TII->isPure(switched) ||
-      !switched->getFlag(MachineInstr::NonSequential))
-    return false;
-  if (switched->uses().begin() - switched->defs().begin() > 1)
-    return false;
-  if (getSingleUse(switched->getOperand(0)) != MI)
-    return false;
-
-  // Generate new SWITCH's for each operand of the switched operation. The
-  // operation itself is modified in-place, so we need to fix up all the LIC
-  // operands of the operation.
-  bool is0Dead = MI->getOperand(0).getReg() == CSA::IGN;
-  for (MachineOperand &MO : switched->operands()) {
-    if (!MO.isReg())
-      continue;
-    if (MO.isDef()) {
-      // We asserted above that the switched operand has exactly one definition,
-      // so we only need to replace this with the output of the switch.
-      MO.setReg(MI->getOperand(is0Dead ? 1 : 0).getReg());
-    } else if (MO.getReg() != CSA::IGN && MO.getReg() != CSA::NA) {
-      // Non-ignored registers mean that we need to allocate a new SWITCH here.
-      // Insert the new SWITCH before the operand instruction to try to keep the
-      // operations in topological order.
-      auto licClass = TII->lookupLICRegClass(MO.getReg());
-      auto newParam = (decltype(CSA::IGN))LMFI->allocateLIC(licClass);
-      auto newSwitch = BuildMI(*switched->getParent(), switched,
-          MI->getDebugLoc(),
-          TII->get(TII->getPickSwitchOpcode(licClass, false)))
-        .addReg(is0Dead ? CSA::IGN : newParam, RegState::Define)
-        .addReg(is0Dead ? newParam : CSA::IGN, RegState::Define)
-        .add(MI->getOperand(2))
-        .add(MO);
-      newSwitch->setFlag(MachineInstr::NonSequential);
-      MO.setReg(newParam);
-    }
-  }
-
-  // Delete the old switch.
-  to_delete.push_back(MI);
-  return false;
 }
 
 // This pass takes a load or a store controlled by a sequence operator and

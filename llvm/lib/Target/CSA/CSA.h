@@ -40,6 +40,7 @@ namespace llvm {
   MachineFunctionPass *createCSAMemopOrderingPass();
   MachineFunctionPass *createCSAIndependentMemopOrderingPass();
   MachineFunctionPass *createCSANormalizeDebugPass();
+  MachineFunctionPass *createCSADataflowCanonicalizationPass();
   MachineFunctionPass *createCSAStreamingMemoryConversionPass();
   //FunctionPass *createCSALowerStructArgsPass();
 
