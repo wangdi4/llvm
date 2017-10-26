@@ -540,22 +540,22 @@ bool CSAInstrInfo::isPure(const MachineInstr *MI) const {
     return true;
   if (isShift(MI) || isCmp(MI))
     return true;
-  if (CSA::NOT1 <= opcode && CSA::NOT64 <= opcode) return true;
-  if (CSA::NEG8 <= opcode && CSA::NEG64 <= opcode) return true;
-  if (CSA::CTLZ8 <= opcode && CSA::CTLZ64 <= opcode) return true;
-  if (CSA::CTTZ8 <= opcode && CSA::CTTZ64 <= opcode) return true;
-  if (CSA::CTPOP8 <= opcode && CSA::CTPOP64 <= opcode) return true;
-  if (CSA::PARITY8 <= opcode && CSA::PARITY64 <= opcode) return true;
-  if (CSA::AND1 <= opcode && CSA::AND64 <= opcode) return true;
-  if (CSA::OR1 <= opcode && CSA::OR64 <= opcode) return true;
-  if (CSA::XOR1 <= opcode && CSA::XOR64 <= opcode) return true;
-  if (CSA::ADC8 <= opcode && CSA::ADC64 <= opcode) return true;
-  if (CSA::SBB8 <= opcode && CSA::SBB64 <= opcode) return true;
-  if (CSA::SEXT8 <= opcode && CSA::SEXT64 <= opcode) return true;
-  if (CSA::SLADD8 <= opcode && CSA::SLADD64 <= opcode) return true;
-  if (CSA::COPY0 <= opcode && CSA::COPY64 <= opcode) return true;
-  if (CSA::NEGF32 <= opcode && CSA::NEGF64 <= opcode) return true;
-  if (CSA::ABSF32 <= opcode && CSA::ABSF64 <= opcode) return true;
+  if (CSA::NOT1 <= opcode && opcode <= CSA::NOT64) return true;
+  if (CSA::NEG8 <= opcode && opcode <= CSA::NEG64) return true;
+  if (CSA::CTLZ8 <= opcode && opcode <= CSA::CTLZ64) return true;
+  if (CSA::CTTZ8 <= opcode && opcode <= CSA::CTTZ64) return true;
+  if (CSA::CTPOP8 <= opcode && opcode <= CSA::CTPOP64) return true;
+  if (CSA::PARITY8 <= opcode && opcode <= CSA::PARITY64) return true;
+  if (CSA::AND1 <= opcode && opcode <= CSA::AND64) return true;
+  if (CSA::OR1 <= opcode && opcode <= CSA::OR64) return true;
+  if (CSA::XOR1 <= opcode && opcode <= CSA::XOR64) return true;
+  if (CSA::ADC8 <= opcode && opcode <= CSA::ADC64) return true;
+  if (CSA::SBB8 <= opcode && opcode <= CSA::SBB64) return true;
+  if (CSA::SEXT8 <= opcode && opcode <= CSA::SEXT64) return true;
+  if (CSA::SLADD8 <= opcode && opcode <= CSA::SLADD64) return true;
+  if (CSA::COPY0 <= opcode && opcode <= CSA::COPY64) return true;
+  if (CSA::NEGF32 <= opcode && opcode <= CSA::NEGF64) return true;
+  if (CSA::ABSF32 <= opcode && opcode <= CSA::ABSF64) return true;
 
   return false;
 }
