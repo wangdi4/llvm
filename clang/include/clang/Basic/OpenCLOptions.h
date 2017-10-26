@@ -57,15 +57,22 @@ public:
 
   // Is supported OpenCL extension for OpenCL version \p CLVer.
   // For supported (optional) core feature, return false.
- bool isSupportedExtension(llvm::StringRef Ext, unsigned CLVer) const {
+  bool isSupportedExtension(llvm::StringRef Ext, unsigned CLVer) const {
     auto I = OptMap.find(Ext)->getValue();
     return I.Supported && I.Avail <= CLVer &&
       (I.Core == ~0U || CLVer < I.Core);
   }
 
-  void enable(llvm::StringRef Ext, bool V = true) {
-    OptMap[Ext].Enabled = V;
+#if INTEL_CUSTOMIZATION
+  // Is \pExt an (optional) OpenCL core feature for OpenCL version \p CLVer.
+  bool isCore(llvm::StringRef Ext, unsigned CLVer) const {
+    auto It = OptMap.find(Ext);
+    if (It == OptMap.end())
+      return false; // unknown feature
+    Info I = It->getValue();
+    return I.Core != ~0U && CLVer >= I.Core;
   }
+#endif // INTEL_CUSTOMIZATION
 
   /// \brief Enable or disable support for OpenCL extensions
   /// \param Ext name of the extension optionally prefixed with
@@ -74,16 +81,7 @@ public:
   void support(llvm::StringRef Ext, bool V = true) {
     assert(!Ext.empty() && "Extension is empty.");
 
-    switch (Ext[0]) {
-    case '+':
-      V = true;
-      Ext = Ext.drop_front();
-      break;
-    case '-':
-      V = false;
-      Ext = Ext.drop_front();
-      break;
-    }
+    Ext = split(Ext, V); // INTEL
 
     if (Ext.equals("all")) {
       supportAll(V);
@@ -116,11 +114,59 @@ public:
       I->second.Supported = On;
   }
 
-  void disableAll() {
+#if INTEL_CUSTOMIZATION
+  llvm::StringRef split(llvm::StringRef Ext, bool& V) {
+    switch (Ext[0]) {
+    case '+':
+      V = true;
+      Ext = Ext.drop_front();
+      break;
+    case '-':
+      V = false;
+      Ext = Ext.drop_front();
+      break;
+    }
+    return Ext;
+  }
+
+  void enable(llvm::StringRef Ext, bool V = true) {
+    assert(!Ext.empty() && "Extension is empty.");
+
+    Ext = split(Ext, V);
+
+    if (Ext.equals("all")) {
+      enableAll(V);
+      return;
+    }
+    OptMap[Ext].Enabled = V;
+  }
+
+  void enableAll(bool On = true) {
     for (llvm::StringMap<Info>::iterator I = OptMap.begin(),
          E = OptMap.end(); I != E; ++I)
-      I->second.Enabled = false;
+      I->second.Enabled = On;
   }
+
+  void disableAll() {
+    enableAll(false);
+  }
+
+  /// \brief Enable or disable OpenCL core features only, ignoring extensions
+  /// \param Ext name of the feature optionally prefixed with '+' or '-'
+  /// \param V used when \p Ext is not prefixed by '+' or '-'
+  void toggleCoreFeatureIsEnabled(llvm::StringRef Ext, unsigned CLVer,
+                                  bool V = true) {
+    assert(!Ext.empty() && "Extension is empty.");
+    Ext = split(Ext, V);
+    if (Ext.equals("all")) {
+      for (auto &I : OptMap)
+        if (isCore(I.getKey(), CLVer))
+          I.second.Enabled = V;
+    }
+    else if (isCore(Ext, CLVer))
+      OptMap[Ext].Enabled = V;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   void enableSupportedCore(unsigned CLVer) {
     for (llvm::StringMap<Info>::iterator I = OptMap.begin(),

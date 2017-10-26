@@ -3452,7 +3452,8 @@ public:
                                       Scope *S);
 
 #if INTEL_CUSTOMIZATION
-  void DeclareOCLChannelBuiltins(QualType ChannelQTy, Scope *S);
+  void DeclareOCLChannelBuiltins(QualType ChannelQTy, Scope *S,
+                                 bool UseLegacyAlteraNames);
 #endif // INTEL_CUSTOMIZATION
 
   void AddKnownFunctionAttributes(FunctionDecl *FD);
@@ -9382,7 +9383,9 @@ public:
       const DeclarationNameInfo &ReductionId, OpenMPDependClauseKind DepKind,
       OpenMPLinearClauseKind LinKind, OpenMPMapClauseKind MapTypeModifier,
       OpenMPMapClauseKind MapType, bool IsMapTypeImplicit,
-      SourceLocation DepLinMapLoc);
+#if INTEL_CUSTOMIZATION
+      bool IsLastprivateConditional, SourceLocation DepLinMapLoc);
+#endif // INTEL_CUSTOMIZATION
   /// \brief Called on well-formed 'private' clause.
   OMPClause *ActOnOpenMPPrivateClause(ArrayRef<Expr *> VarList,
                                       SourceLocation StartLoc,
@@ -9395,6 +9398,9 @@ public:
                                            SourceLocation EndLoc);
   /// \brief Called on well-formed 'lastprivate' clause.
   OMPClause *ActOnOpenMPLastprivateClause(ArrayRef<Expr *> VarList,
+#if INTEL_CUSTOMIZATION
+                                          bool IsConditional,
+#endif // INTEL_CUSTOMIZATION
                                           SourceLocation StartLoc,
                                           SourceLocation LParenLoc,
                                           SourceLocation EndLoc);

@@ -157,6 +157,8 @@ def warn_arg_invalid_range_low_assumed : Warning<
 def warn_non_asm_stmt_in_naked_function : Warning<
   "attribute 'naked' ignored on function with non-ASM statements">,
   InGroup<IgnoredAttributes>;
+def err_attribute_argument_is_not_in_range : Error<
+  "invalid attribute value, possible values are: %0">;
 // endif INTEL_CUSTOMIZATION
 
 // if INTEL_SPECIFIC_CILKPLUS
@@ -601,6 +603,7 @@ def warn_intel_opencl_attribute_wrong_decl_type : Warning<
   "|variables, functions, methods, types, enumerations, enumerators, labels, and non-static data members"
   "|classes and enumerations"
   "|named declarations"
-  "|OpenCL channels}1">,
+  "|OpenCL channels"
+  "|OpenCL pipes}1">,
   InGroup<IgnoredAttributes>;
 } // end of sema component.

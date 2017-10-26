@@ -641,6 +641,13 @@ void Parser::HandlePragmaOpenCLExtension() {
     PP.Diag(NameLoc, diag::warn_pragma_extension_is_core) << Ident;
   else
     PP.Diag(NameLoc, diag::warn_pragma_unsupported_extension) << Ident;
+
+#if INTEL_CUSTOMIZATION
+  // Also enable an extension alias
+  if (Opt.isSupportedExtension("cl_altera_channels", getLangOpts().OpenCLVersion)) {
+    Opt.enable("cl_intel_channels", State == Enable);
+  }
+#endif // INTEL_CUSTOMIZATION
 }
 
 void Parser::HandlePragmaMSPointersToMembers() {

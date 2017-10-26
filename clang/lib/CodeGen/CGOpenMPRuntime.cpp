@@ -7554,10 +7554,18 @@ emitX86DeclareSimdFunction(const FunctionDecl *FD, llvm::Function *Fn,
     Masked.push_back('M');
     break;
   }
+
+  std::string Buffer;
+  if (Fn->hasFnAttribute("vector-variants")) {
+    llvm::Attribute Attr = Fn->getFnAttribute("vector-variants");
+    Buffer = Attr.getValueAsString().str();
+  }
+  llvm::raw_string_ostream Out(Buffer);
+
   for (auto Mask : Masked) {
     for (auto &Data : ISAData) {
-      SmallString<256> Buffer;
-      llvm::raw_svector_ostream Out(Buffer);
+      if (!Buffer.empty())
+        Out << ",";
       Out << "_ZGV" << Data.ISA << Mask;
       if (!VLENVal) {
         Out << llvm::APSInt::getUnsigned(Data.VecRegSize /
@@ -7585,9 +7593,11 @@ emitX86DeclareSimdFunction(const FunctionDecl *FD, llvm::Function *Fn,
           Out << 'a' << ParamAttr.Alignment;
       }
       Out << '_' << Fn->getName();
-      Fn->addFnAttr(Out.str());
+      Out.flush();
     }
   }
+
+  Fn->addFnAttr("vector-variants", Out.str());
 }
 
 void CGOpenMPRuntime::emitDeclareSimdFunction(const FunctionDecl *FD,
@@ -7675,7 +7685,12 @@ void CGOpenMPRuntime::emitDeclareSimdFunction(const FunctionDecl *FD,
       VLENVal = VLEN->EvaluateKnownConstInt(C);
     OMPDeclareSimdDeclAttr::BranchStateTy State = Attr->getBranchState();
     if (CGM.getTriple().getArch() == llvm::Triple::x86 ||
-        CGM.getTriple().getArch() == llvm::Triple::x86_64)
+        CGM.getTriple().getArch() == llvm::Triple::x86_64
+#if INTEL_OPENCL
+        || CGM.getTriple().getArch() == llvm::Triple::spir
+        || CGM.getTriple().getArch() == llvm::Triple::spir64
+#endif
+       )
       emitX86DeclareSimdFunction(FD, Fn, VLENVal, ParamAttrs, State);
   }
 }

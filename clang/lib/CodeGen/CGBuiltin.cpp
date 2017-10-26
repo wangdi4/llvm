@@ -712,6 +712,22 @@ Value *CodeGenFunction::EmitCheckedArgForBuiltin(const Expr *E,
             None);
   return ArgValue;
 }
+#if INTEL_CUSTOMIZATION
+const char * ChangeBuiltinToBL(const CallExpr *E, unsigned BuiltinID, const char *Name) {
+  if (auto *DR = dyn_cast<DeclRefExpr>(E->getArg(0))) {
+    auto DRDecl = DR->getDecl();
+    if (DRDecl->hasAttr<OpenCLBlockingAttr>()) {
+      if (E->getNumArgs() == 2)
+        return (BuiltinID == Builtin::BIread_pipe) ? "__read_pipe_2_bl"
+                                                   : "__write_pipe_2_bl";
+      if (E->getNumArgs() == 4)
+        return (BuiltinID == Builtin::BIread_pipe) ? "__read_pipe_4_bl"
+                                                   : "__write_pipe_4_bl";
+    }
+  }
+  return Name;
+}
+#endif // INTEL_CUSTOMIZATION
 
 RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
                                         unsigned BuiltinID, const CallExpr *E,
@@ -2682,6 +2698,10 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
     return EmitCoroutineIntrinsic(E, Intrinsic::coro_param);
 
   // OpenCL v2.0 s6.13.16.2, Built-in pipe read and write functions
+#if INTEL_CUSTOMIZATION
+  // https://www.altera.com/en_US/pdfs/literature/hb/opencl-sdk/aocl_programming_guide.pdf
+  // s1.6.5.2, Pipe Data Behavior
+#endif // INTEL_CUSTOMIZATION
   case Builtin::BIread_pipe:
   case Builtin::BIwrite_pipe: {
     Value *Arg0 = EmitScalarExpr(E->getArg(0)),
@@ -2700,6 +2720,10 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
     if (2U == E->getNumArgs()) {
       const char *Name = (BuiltinID == Builtin::BIread_pipe) ? "__read_pipe_2"
                                                              : "__write_pipe_2";
+#if INTEL_CUSTOMIZATION
+      Name = ChangeBuiltinToBL(E, BuiltinID, Name);
+#endif // INTEL_CUSTOMIZATION
+
       // Creating a generic function type to be able to call with any builtin or
       // user defined type.
       llvm::Type *ArgTys[] = {Arg0->getType(), I8PTy, Int32Ty, Int32Ty};
@@ -2714,6 +2738,9 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
              "Illegal number of parameters to pipe function");
       const char *Name = (BuiltinID == Builtin::BIread_pipe) ? "__read_pipe_4"
                                                              : "__write_pipe_4";
+#if INTEL_CUSTOMIZATION
+      Name = ChangeBuiltinToBL(E, BuiltinID, Name);
+#endif // INTEL_CUSTOMIZATION
 
       llvm::Type *ArgTys[] = {Arg0->getType(), Arg1->getType(), Int32Ty, I8PTy,
                               Int32Ty, Int32Ty};

@@ -3048,14 +3048,33 @@ static void handleNumSimdWorkItemsAttr(Sema &S, Decl *D,
       Attr.getAttributeSpellingListIndex()));
 }
 
+static void handleOpenCLBlockingAttr(Sema &S, Decl *D,
+                                     const AttributeList &Attr) {
+  if (D->isInvalidDecl())
+    return;
+
+  VarDecl *VD = cast<VarDecl>(D);
+  QualType Ty = VD->getType();
+
+  const Type *TypePtr = Ty.getTypePtr();
+  if (!TypePtr->isPipeType()) {
+    S.Diag(Attr.getLoc(), diag::warn_intel_opencl_attribute_wrong_decl_type)
+        << Attr.getName() << 47;
+    return;
+  }
+
+  D->addAttr(::new (S.Context) OpenCLBlockingAttr(
+      Attr.getRange(), S.Context, Attr.getAttributeSpellingListIndex()));
+}
+
 static void handleOpenCLChannelDepthAttr(Sema & S, Decl * D,
                                          const AttributeList &Attr) {
   if (D->isInvalidDecl())
     return;
 
-  if (!S.getOpenCLOptions().isEnabled("cl_altera_channels")) {
+  if (!S.getOpenCLOptions().isEnabled("cl_intel_channels")) {
     S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
-        << Attr.getName() << "cl_altera_channels";
+        << Attr.getName() << "cl_intel_channels";
     return;
   }
 
@@ -3096,9 +3115,9 @@ static void handleOpenCLChannelIOAttr(Sema & S, Decl * D,
   if (D->isInvalidDecl())
     return;
 
-  if (!S.getOpenCLOptions().isEnabled("cl_altera_channels")) {
+  if (!S.getOpenCLOptions().isEnabled("cl_intel_channels")) {
     S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
-        << Attr.getName() << "cl_altera_channels";
+        << Attr.getName() << "cl_intel_channels";
     return;
   }
 
@@ -3207,6 +3226,35 @@ static void handleOpenCLBufferLocationAttr(Sema & S, Decl * D,
 
   D->addAttr(::new (S.Context) OpenCLBufferLocationAttr(
       Attr.getRange(), S.Context, Str, Attr.getAttributeSpellingListIndex()));
+}
+
+static void handleVecLenHint(Sema &S, Decl *D, const AttributeList &Attr) {
+  if (!S.getOpenCLOptions().isEnabled("cl_intel_vec_len_hint")) {
+    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
+        << Attr.getName() << "cl_intel_vec_len_hint";
+    return;
+  }
+
+  uint32_t VecLen = 0;
+  const Expr *E = Attr.getArgAsExpr(0);
+  if (!checkUInt32Argument(S, Attr, E, VecLen, 0))
+    return;
+
+#define defineRange(...)                                                       \
+  std::vector<uint32_t> SupportedLengths = {__VA_ARGS__};                      \
+  std::string SupportedLengthsStr(#__VA_ARGS__);
+
+  defineRange(0, 1, 4, 8, 16);
+  if (std::find(SupportedLengths.begin(), SupportedLengths.end(), VecLen) ==
+      SupportedLengths.end()) {
+    S.Diag(Attr.getLoc(), diag::err_attribute_argument_is_not_in_range)
+        << SupportedLengthsStr << E->getSourceRange();
+    return;
+  }
+
+  D->addAttr(::new (S.Context)
+                 VecLenHintAttr(Attr.getRange(), S.Context, VecLen,
+                                Attr.getAttributeSpellingListIndex()));
 }
 
 // Handles reqd_work_group_size, work_group_size_hint and max_work_group_size
@@ -7484,6 +7532,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     handleTypeTagForDatatypeAttr(S, D, Attr);
     break;
 #if INTEL_CUSTOMIZATION
+  case AttributeList::AT_VecLenHint:
+    handleVecLenHint(S, D, Attr);
+    break;
   // Intel FPGA OpenCL specific attributes
   case AttributeList::AT_MaxWorkGroupSize:
     handleWorkGroupSize<MaxWorkGroupSizeAttr>(S, D, Attr);
@@ -7496,6 +7547,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     break;
   case AttributeList::AT_NumSimdWorkItems:
     handleNumSimdWorkItemsAttr(S, D, Attr);
+    break;
+  case AttributeList::AT_OpenCLBlocking:
+    handleOpenCLBlockingAttr(S, D, Attr);
     break;
   case AttributeList::AT_OpenCLChannelDepth:
     handleOpenCLChannelDepthAttr(S, D, Attr);

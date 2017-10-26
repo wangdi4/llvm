@@ -371,6 +371,13 @@ def IntelInline : Attr {
   let Documentation = [Undocumented];
 }
 
+def OpenCLBlocking : Attr {
+  let Spellings = [GNU<"blocking">];
+  let Subjects = SubjectList<[Var]>;
+  let Documentation = [OpenCLBlockingDocs];
+  let LangOpts = [OpenCL];
+}
+
 def OpenCLChannelDepth : Attr {
   let Spellings = [GNU<"depth">];
   let Args = [UnsignedArgument<"Depth">];
@@ -437,4 +444,11 @@ def NumSimdWorkItems : InheritableAttr {
   let Subjects = SubjectList<[Function]>;
 // FIXME: Add documentation
   let Documentation = [Undocumented];
+}
+
+def VecLenHint : InheritableAttr {
+  let Spellings = [GNU<"intel_vec_len_hint">];
+  let Args = [UnsignedArgument<"VecLen">];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Documentation = [VecLenHintDocs];
 }

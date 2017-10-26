@@ -1342,8 +1342,8 @@ ExprResult Parser::ParseCastExpression(bool isUnaryExpression,
   case tok::kw_channel: {
     if (!getLangOpts().OpenCL ||
         !getTargetInfo().getSupportedOpenCLOpts().isEnabled(
-            "cl_altera_channels")) {
-      // 'channel' is a keyword only for OpenCL with cl_altera_channels
+            "cl_intel_channels")) {
+      // 'channel' is a keyword only for OpenCL with cl_intel_channels
       // extension
       Tok.setKind(tok::identifier);
       return ParseCastExpression(isUnaryExpression, isAddressOfOperand,

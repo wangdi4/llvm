@@ -6482,8 +6482,20 @@ static FunctionDecl *createOCLBuiltinDecl(ASTContext &Context, DeclContext *DC,
   return FD;
 }
 
-void Sema::DeclareOCLChannelBuiltins(QualType ChannelTy, Scope *S) {
+void Sema::DeclareOCLChannelBuiltins(QualType ChannelTy, Scope *S,
+                                     bool UseLegacyAlteraNames) {
   assert(ChannelTy->isChannelType() && "Argument should be a channel.");
+
+  StringRef ReadChannelName =
+    UseLegacyAlteraNames ? "read_channel_altera" : "read_channel_intel";
+  StringRef WriteChannelName =
+    UseLegacyAlteraNames ? "write_channel_altera" : "write_channel_intel";
+
+  StringRef NBReadChannelName =
+    UseLegacyAlteraNames ? "read_channel_nb_altera" : "read_channel_nb_intel";
+  StringRef NBWriteChannelName =
+    UseLegacyAlteraNames ? "write_channel_nb_altera" : "write_channel_nb_intel";
+
 
   SmallVector<FunctionDecl *, 4> &FDs = OCLChannelBIs[ChannelTy.getTypePtr()];
   if (!FDs.empty())
@@ -6494,12 +6506,12 @@ void Sema::DeclareOCLChannelBuiltins(QualType ChannelTy, Scope *S) {
       cast<ChannelType>(ChannelTy.getTypePtr())->getElementType();
 
   QualType ReadArgs[] = {ChannelTy};
-  FDs.push_back(createOCLBuiltinDecl(Context, Parent, "read_channel_altera",
+  FDs.push_back(createOCLBuiltinDecl(Context, Parent, ReadChannelName,
                                      ElementTy, ReadArgs));
 
   QualType ConstElementTy = ElementTy.withConst();
   QualType WriteArgs[] = {ChannelTy, ConstElementTy};
-  FDs.push_back(createOCLBuiltinDecl(Context, Parent, "write_channel_altera",
+  FDs.push_back(createOCLBuiltinDecl(Context, Parent, WriteChannelName,
                                      Context.VoidTy, WriteArgs));
 
   auto createNBReadChannelBuiltinDecl = [&](LangAS::ID addrSpace) {
@@ -6508,7 +6520,7 @@ void Sema::DeclareOCLChannelBuiltins(QualType ChannelTy, Scope *S) {
     QualType NBReadArgs[] = {ChannelTy, BoolPtrTy};
 
     FDs.push_back(createOCLBuiltinDecl(
-        Context, Parent, "read_channel_nb_altera", ElementTy, NBReadArgs));
+        Context, Parent, NBReadChannelName, ElementTy, NBReadArgs));
   };
 
   if (getLangOpts().OpenCLVersion >= 200) {
@@ -6520,7 +6532,7 @@ void Sema::DeclareOCLChannelBuiltins(QualType ChannelTy, Scope *S) {
   }
 
   QualType NBWriteArgs[] = {ChannelTy, ConstElementTy};
-  FDs.push_back(createOCLBuiltinDecl(Context, Parent, "write_channel_nb_altera",
+  FDs.push_back(createOCLBuiltinDecl(Context, Parent, NBWriteChannelName,
                                      Context.BoolTy, NBWriteArgs));
 
   for (auto *FD : FDs) {
@@ -6606,12 +6618,16 @@ NamedDecl *Sema::ActOnVariableDeclarator(
 #if INTEL_CUSTOMIZATION
     // Intel OpenCL FPGA channels
     if (Context.getBaseElementType(R)->isChannelType()) {
-      if (!getOpenCLOptions().isEnabled("cl_altera_channels")) {
+      if (!getOpenCLOptions().isEnabled("cl_intel_channels")) {
         Diag(D.getIdentifierLoc(), diag::err_opencl_requires_extension)
-            << 0 << R << "cl_altera_channels";
+            << 0 << R << "cl_intel_channels";
         D.setInvalidType();
-      } else
-        DeclareOCLChannelBuiltins(Context.getBaseElementType(R), S);
+      } else {
+        bool UseLegacyAlteraNames =
+          PP.isMacroDefined("__IHC_USE_DEPRECATED_NAMES");
+        DeclareOCLChannelBuiltins(Context.getBaseElementType(R), S,
+                                  UseLegacyAlteraNames);
+      }
     }
 #endif // INTEL_CUSTOMIZATION
 

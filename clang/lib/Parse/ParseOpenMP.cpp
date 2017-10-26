@@ -902,6 +902,36 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
   bool HasAssociatedStatement = true;
   bool FlushHasClause = false;
 
+#if INTEL_CUSTOMIZATION
+  bool DisallowedDirective = false;
+  auto InSimdSubset = isAllowedInSimdSubset(DKind);
+  auto InTBBSubset = isAllowedInTBBSubset(DKind);
+  if (getLangOpts().OpenMPSimdOnly || getLangOpts().OpenMPTBBOnly) {
+    // If any subset flags are used the directive must be covered here  
+    if (getLangOpts().OpenMPSimdOnly && InSimdSubset) {
+      // SIMD subset
+    } else if (getLangOpts().OpenMPTBBOnly && InTBBSubset) {
+      // TBB subset
+    } else {
+      // Not in any of the subsets
+      DisallowedDirective = true;
+    }
+  }
+  if ((InSimdSubset && getLangOpts().OpenMPSimdDisabled) ||
+      (InTBBSubset && getLangOpts().OpenMPTBBDisabled)) {
+    DisallowedDirective = true;
+  }
+  if (DisallowedDirective) {
+    if (!Diags.isIgnored(diag::warn_pragma_omp_ignored, Loc)) {
+      Diag(Tok, diag::warn_pragma_omp_ignored);
+      Diags.setSeverity(diag::warn_pragma_omp_ignored,
+                        diag::Severity::Ignored, SourceLocation());
+    }
+    SkipUntil(tok::annot_pragma_openmp_end);
+    return Directive;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   switch (DKind) {
   case OMPD_threadprivate: {
     if (Allowed != ACK_Any) {
@@ -1823,6 +1853,19 @@ bool Parser::ParseOpenMPVarList(OpenMPDirectiveKind DKind,
       Data.ColonLoc = ConsumeToken();
     else if (ColonExpected)
       Diag(Tok, diag::warn_pragma_expected_colon) << "map type";
+#if INTEL_CUSTOMIZATION
+  } else if (Kind == OMPC_lastprivate) {
+    // Handle the lastprivate modifier.
+    ColonProtectionRAIIObject ColonRAII(*this);
+    if (Tok.is(tok::identifier) && PP.LookAhead(0).is(tok::colon)) {
+      if (PP.getSpelling(Tok) == "conditional")
+        Data.IsLastprivateConditional = true;
+      else
+        Diag(Tok, diag::err_omp_unknown_lastprivate_modifier);
+      ConsumeToken();
+      ConsumeToken();
+    }
+#endif // INTEL_CUSTOMIZATION
   }
 
   bool IsComma =
@@ -1909,7 +1952,9 @@ bool Parser::ParseOpenMPVarList(OpenMPDirectiveKind DKind,
 ///    firstprivate-clause:
 ///       'firstprivate' '(' list ')'
 ///    lastprivate-clause:
-///       'lastprivate' '(' list ')'
+#if INTEL_CUSTOMIZATION
+///       'lastprivate' '(' [ conditional ':' ] list ')'
+#endif // INTEL_CUSTOMIZATION
 ///    shared-clause:
 ///       'shared' '(' list ')'
 ///    linear-clause:
@@ -1958,6 +2003,8 @@ OMPClause *Parser::ParseOpenMPVarListClause(OpenMPDirectiveKind DKind,
       Kind, Vars, Data.TailExpr, Loc, LOpen, Data.ColonLoc, Tok.getLocation(),
       Data.ReductionIdScopeSpec, Data.ReductionId, Data.DepKind, Data.LinKind,
       Data.MapTypeModifier, Data.MapType, Data.IsMapTypeImplicit,
-      Data.DepLinMapLoc);
+#if INTEL_CUSTOMIZATION
+      Data.IsLastprivateConditional, Data.DepLinMapLoc);
+#endif // INTEL_CUSTOMIZATION
 }
 
