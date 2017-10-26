@@ -8,6 +8,7 @@ VPO Vectorizer
 .. toctree::
    :hidden:
 
+   VPlanHCFGBuilder/index
    SIMDLaneEvolution/index
    Predication/index
    Misc/index

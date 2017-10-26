@@ -240,7 +240,7 @@ static void process_error()
 // The basic memory ops are failing to compile because they are marked deprecated
 static size_t move_bytes(unsigned char * to, unsigned char * from, size_t len)
 {
-    int i;
+    size_t i;
     for (i = 0;i < len; i ++) {
         to[i] = from[i];
     }

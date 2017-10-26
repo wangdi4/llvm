@@ -1,5 +1,4 @@
 ; TODO: upstream to llvm.org.
-; REQUIRES: intel_opencl
 ; RUN: llc < %s -filetype=asm -mtriple x86_64
 
 ; Check if AsmPrinter doesn't produce llvm error

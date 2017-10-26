@@ -344,6 +344,7 @@ Loop::LocRange Loop::getLocRange() const {
   return LocRange();
 }
 
+#ifndef INTEL_CUSTOMIZATION
 bool Loop::hasDedicatedExits() const {
   // Each predecessor of each exit block of a normal loop is contained
   // within the loop.
@@ -406,6 +407,7 @@ BasicBlock *Loop::getUniqueExitBlock() const {
     return UniqueExitBlocks[0];
   return nullptr;
 }
+#endif // INTEL_CUSTOMIZATION
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 LLVM_DUMP_METHOD void Loop::dump() const { print(dbgs()); }

@@ -18,8 +18,8 @@ entry:
 for.body:                                         ; preds = %for.inc, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.inc ]
   %0 = trunc i64 %indvars.iv to i32
-  %rem = srem i32 %0, %N1
-  %tobool = icmp eq i32 %rem, 0
+  %add = add i32 %0, %N1
+  %tobool = icmp eq i32 %add, 0
   br i1 %tobool, label %for.inc, label %if.then
 
 if.then:                                          ; preds = %for.body

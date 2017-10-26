@@ -29,7 +29,7 @@ class AVRLoopIR : public AVRLoop {
 
 private:
   /// Pointer to original LLVM loop.
-  const Loop *LLVMLoop;
+  Loop *LLVMLoop;
 
   // TODO: Currently investigating the best way to represent and maintain loop
   //      info. Some loop info can simply be computed using existing LLVM
@@ -55,7 +55,7 @@ protected:
   virtual ~AVRLoopIR() override {}
 
   /// \brief Set Orig LLVM Loop
-  void setLoop(const Loop *Lp) { LLVMLoop = Lp; }
+  void setLoop(Loop *Lp) { LLVMLoop = Lp; }
 
   /// \brief Set loop lower bound
   void setLowerBound(SCEV *Lb) { LowerBound = Lb; }
@@ -75,7 +75,7 @@ public:
   }
 
   /// \brief Returns Original LLVM Loop
-  const Loop *getLoop() const { return LLVMLoop; }
+  Loop *getLoop() const { return LLVMLoop; }
 
   /// \brief Get loop lower bound
   SCEV *getLowerBound(Value *Lb) { return LowerBound; }

@@ -63,6 +63,9 @@
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#if INTEL_CUSTOMIZATION
+#include "llvm/Transforms/Utils/Intel_IntrinsicUtils.h"
+#endif
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include <algorithm>
@@ -1281,6 +1284,12 @@ static bool HoistThenElseCodeToIf(BranchInst *BI,
     if (!TTI.isProfitableToHoist(I1) || !TTI.isProfitableToHoist(I2))
       return Changed;
 
+#if INTEL_CUSTOMIZATION
+    // Do not hoist llvm intrinsics that represent OpenMP directives.
+    if (IntelIntrinsicUtils::isIntelDirective(I1))
+      return Changed;
+#endif // INTEL_CUSTOMIZATION
+
     // For a normal instruction, we just move one to right before the branch,
     // then replace all uses of the other with the first.  Finally, we remove
     // the now redundant second instruction.
@@ -2106,8 +2115,15 @@ static bool BlockIsSimpleEnoughToThreadThrough(BasicBlock *BB) {
   for (BasicBlock::iterator BBI = BB->begin(); &*BBI != BI; ++BBI) {
     if (isa<DbgInfoIntrinsic>(BBI))
       continue;
+
     if (Size > 10)
       return false; // Don't clone large BB's.
+
+#if INTEL_CUSTOMIZATION
+    if (IntelIntrinsicUtils::isIntelDirective(&*BBI))
+      return false;
+#endif // INTEL_CUSTOMIZATION
+
     ++Size;
 
     // We can only support instructions that do not define values that are

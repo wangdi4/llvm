@@ -31,6 +31,7 @@
 #define LLVM_TRANSFORMS_VPO_VPODRIVER_H
 
 #include "llvm/IR/Function.h"
+#include "llvm/IR/DataLayout.h"
 #include "llvm/Pass.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolution.h"
@@ -63,6 +64,7 @@ protected:
   /// Handle to Target Information 
   const TargetTransformInfo *TTI;
   TargetLibraryInfo *TLI;
+  const DataLayout *DL;
 
   /// Handle to AVR Generate Pass
   AVRGenerateBase *AV;

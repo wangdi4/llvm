@@ -29,6 +29,7 @@
 #include "llvm/Analysis/Intel_AggInline.h"          // INTEL
 #include "llvm/Analysis/Intel_Andersens.h"          // INTEL
 #include "llvm/Analysis/LazyValueInfo.h"
+#include "llvm/Transforms/Utils/Intel_IntrinsicUtils.h" // INTEL
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
@@ -506,6 +507,9 @@ static unsigned getJumpThreadDuplicationCost(
       // won't include it.
       if (isa<TerminatorInst>(I) && BB == RegionBottom)
         continue;
+
+      if (IntelIntrinsicUtils::isIntelDirective(const_cast<Instruction *>(&*I)))
+        return Threshold + 1;
 
       // Stop scanning the block if we've reached the threshold.
       if (Size > Threshold)
@@ -2038,8 +2042,14 @@ static bool collectThreadRegionBlocks(const ThreadRegionInfo &RegionInfo,
     BasicBlock *BBTop = SubRegion.first;
     BasicBlock *BBBottom = SubRegion.second;
 
+    // If we already visited BBBottom in a previous subregion, we need to stop
+    // because the remapping logic can't handle the same block being in two
+    // subregions. It may be possible to thread such a case, but it would
+    // probably require duplicating the shared block.
+    if (!Visited.insert(BBBottom).second)
+      return false;
+
     WorkStack.push_back(BBBottom);
-    Visited.insert(BBBottom);
 
     while (!WorkStack.empty()) {
       BasicBlock *BB = WorkStack.back();

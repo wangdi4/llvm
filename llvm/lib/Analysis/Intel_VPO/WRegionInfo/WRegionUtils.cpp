@@ -28,13 +28,13 @@ using namespace vpo;
 /// If the string corrensponds to a BEGIN directive, then create
 /// a WRN node of WRegionNodeKind corresponding to the directive,
 /// and return a pointer to it. Otherwise; return nullptr.
-WRegionNode *WRegionUtils::createWRegion(
-  int        DirID,
-  BasicBlock *EntryBB,
-  LoopInfo   *LI,
-  unsigned   NestingLevel
-)
-{
+///
+/// When dealing with the llvm.directive.region.entry representation
+/// (IsRegionIntrinsic==true) we call W->handleOperandBundles() to extract
+/// the clause info from the OperandBundles and update WRN accordingly.
+WRegionNode *WRegionUtils::createWRegion(int DirID, BasicBlock *EntryBB,
+                                         LoopInfo *LI, unsigned NestingLevel,
+                                         bool IsRegionIntrinsic) {
   WRegionNode *W = nullptr;
 
   switch(DirID) {
@@ -130,6 +130,9 @@ WRegionNode *WRegionUtils::createWRegion(
   if (W) {
     W->setLevel(NestingLevel);
     W->setDirID(DirID);
+    if (IsRegionIntrinsic) {
+      W->getClausesFromOperandBundles();
+    }
   }
   return W;
 }
@@ -150,8 +153,10 @@ WRegionNode *WRegionUtils::createWRegionHIR(
       W = new WRNVecLoopNode(EntryHLNode);
       break;
   }
-  if (W)
+  if (W) {
     W->setLevel(NestingLevel);
+    W->setDirID(DirID);
+  }
   return W;
 }
 
@@ -166,7 +171,6 @@ void WRegionUtils::updateWRGraphFromHIR (
 {
   WRegionNode *W = nullptr;
   StringRef DirOrClauseStr = VPOAnalysisUtils::getDirectiveMetadataString(Call);
-
   if (IntrinId == Intrinsic::intel_directive) {
     int DirID = VPOAnalysisUtils::getDirectiveID(DirOrClauseStr);
     // If the intrinsic represents a BEGIN directive for a construct 
@@ -199,28 +203,15 @@ void WRegionUtils::updateWRGraphFromHIR (
         }
       }
     }
-  } else { //process clauses
+  } else if (VPOAnalysisUtils::isIntelClause(IntrinId)) {
+    //process clauses
     W = S.top();
-    int ClauseID = VPOAnalysisUtils::getClauseID(DirOrClauseStr);
-    if (IntrinId == Intrinsic::intel_directive_qual) {
-      // Handle clause with no arguments
-      assert (Call->getNumArgOperands()==1 && 
-              "Bad number of opnds for intel_directive_qual");
-      W->handleQual(ClauseID);
-    }
-    else if (IntrinId == Intrinsic::intel_directive_qual_opnd) {
-      // Handle clause with one argument
-      assert (Call->getNumArgOperands()==2 && 
-              "Bad number of opnds for intel_directive_qual_opnd");
-      Value *V = Call->getArgOperand(1);
-      W->handleQualOpnd(ClauseID, V);
-    }
-    else if (IntrinId == Intrinsic::intel_directive_qual_opndlist) {
-      // Handle clause with argument list
-      assert (Call->getNumArgOperands()>=2 && 
-              "Bad number of opnds for intel_directive_qual_opndlist");
-      W->handleQualOpndList(ClauseID, Call);
-    }
+
+    // Extract clause properties
+    ClauseSpecifier ClauseInfo(DirOrClauseStr);
+
+    // Parse the clause and update W
+    W->parseClause(ClauseInfo, Call);
   }
 }
 
@@ -293,4 +284,187 @@ int WRegionUtils::getClauseIdFromAtomicKind(WRNAtomicKind Kind) {
   default:
     llvm_unreachable("Unsupported Atomic Kind");
   }
+}
+
+// gets the induction variable of the OMP loop.
+PHINode *WRegionUtils::getOmpCanonicalInductionVariable(Loop* L) {
+  assert(L && "getOmpCanonicalInductionVariable: null loop");
+  BasicBlock *H = L->getHeader();
+  assert(L && "getOmpCanonicalInductionVariable: null loop header");
+
+  BasicBlock *Incoming = nullptr, *Backedge = nullptr;
+  pred_iterator PI = pred_begin(H);
+  // TBD: messages will become warnings or opt report messages.
+  assert(PI != pred_end(H) &&
+         "Omp loop must have at least one backedge!");
+  Backedge = *PI++;
+  if (PI == pred_end(H))
+    llvm_unreachable("Omp loop is dead loop");
+  Incoming = *PI++;
+  if (PI != pred_end(H)) 
+    llvm_unreachable("Omp loop has multiple backedges");
+
+  if (L->contains(Incoming)) {
+    if (L->contains(Backedge))
+      llvm_unreachable("Omp loop cannot have both incoming and backedge BB!");
+    std::swap(Incoming, Backedge);
+  } else if (!L->contains(Backedge))
+    llvm_unreachable("Omp loop cannot have neither incoming nor backedge BB");
+
+  for (BasicBlock::iterator I = H->begin(); isa<PHINode>(I); ++I) {
+    PHINode *PN = cast<PHINode>(I);
+    if (Instruction *Inc =
+        dyn_cast<Instruction>(PN->getIncomingValueForBlock(Backedge)))
+      if ((Inc->getOpcode() == Instruction::Add ||
+           Inc->getOpcode() == Instruction::Sub) &&
+          (Inc->getOperand(0) == PN || Inc->getOperand(1) == PN))
+        return PN;
+  }
+  llvm_unreachable("Omp loop must have induction variable!");
+
+}
+
+// gets the loop lower bound of the OMP loop.
+Value *WRegionUtils::getOmpLoopLowerBound(Loop *L) {
+  PHINode *PN = getOmpCanonicalInductionVariable(L);
+  assert(PN != nullptr && "Omp loop must have induction variable!");
+  assert(L->getLoopPreheader() && "Omp loop must have preheader!");
+
+  return PN->getIncomingValueForBlock(L->getLoopPreheader());
+}
+
+// gets the loop stride of the OMP loop.
+Value *WRegionUtils::getOmpLoopStride(Loop *L, bool &IsNeg) {
+  PHINode *PN = getOmpCanonicalInductionVariable(L);
+  assert(PN != nullptr && "Omp loop must have induction variable!");
+
+  if (Instruction *Inc = 
+      dyn_cast<Instruction>(PN->getIncomingValueForBlock(L->getLoopLatch())))
+    if ((Inc->getOpcode() == Instruction::Add ||
+         Inc->getOpcode() == Instruction::Sub) &&
+        (Inc->getOperand(0) == PN || Inc->getOperand(1) == PN)) {
+      if (Inc->getOpcode() == Instruction::Sub)
+        IsNeg = true;
+      else
+        IsNeg = false;
+      if (Inc->getOperand(0) == PN)
+        return Inc->getOperand(1);
+      else
+        return Inc->getOperand(0);
+    }
+  llvm_unreachable("Omp loop must have stride!");
+}
+
+void WRegionUtils::getLoopIndexPosInPredicate(Value *LoopIndex,
+                                              Instruction *CondInst,
+                                              bool& IsLeft) {
+  Value *Operand = CondInst->getOperand(0);
+  if (isa<SExtInst>(Operand) || isa<ZExtInst>(Operand)) 
+    Operand = cast<Instruction>(Operand)->getOperand(0);
+
+  if (Operand == LoopIndex) {
+      IsLeft = true;
+      return;
+  }
+
+  Operand = CondInst->getOperand(1);
+  if (isa<SExtInst>(Operand) || isa<ZExtInst>(Operand)) 
+    Operand = cast<Instruction>(Operand)->getOperand(1);
+
+  if (Operand == LoopIndex) {
+      IsLeft = false;
+      return;
+  }
+  llvm_unreachable("Omp loop bottom test must have loop index!");
+}
+
+// gets the loop upper bound of the OMP loop.
+Value *WRegionUtils::getOmpLoopUpperBound(Loop *L) {
+  ICmpInst *CondInst;
+  Value *Res;
+
+  CondInst = getOmpLoopBottomTest(L);
+  PHINode *PN = getOmpCanonicalInductionVariable(L);
+  Instruction *Inc = 
+    dyn_cast<Instruction>(PN->getIncomingValueForBlock(L->getLoopLatch()));
+  bool IsLeft;
+  getLoopIndexPosInPredicate(Inc, CondInst, IsLeft);
+  if (IsLeft) 
+    Res = CondInst->getOperand(1);
+  else
+    Res = CondInst->getOperand(0);
+  
+  return Res;
+}
+
+// gets the zero trip test of the OMP loop if the zero trip
+// test exists.
+ICmpInst *WRegionUtils::getOmpLoopZeroTripTest(Loop *L) {
+
+  BasicBlock *PB = L->getLoopPreheader();
+  assert(std::distance(pred_begin(PB), pred_end(PB))==1);
+  do {
+    PB = *(pred_begin(PB));
+    if (std::distance(succ_begin(PB), succ_end(PB))==2)
+      break;
+  }while (PB);
+  assert(PB && "Expect to see zero trip test block.");
+  for (BasicBlock::reverse_iterator J = PB->rbegin();
+       J != PB->rend(); ++J) {
+    ICmpInst *CondInst = dyn_cast<ICmpInst>(&*J);
+    if (CondInst && ICmpInst::isRelational(CondInst->getPredicate())) {
+      bool IsLeft;
+      getLoopIndexPosInPredicate(getOmpLoopLowerBound(L), CondInst, IsLeft);
+      return CondInst;
+    }
+  }
+  llvm_unreachable("Omp loop with non-const \
+    upper bound must have zero trip test!");
+  
+}
+
+// gets the bottom test of the OMP loop.
+ICmpInst *WRegionUtils::getOmpLoopBottomTest(Loop *L) {
+  PHINode *PN = getOmpCanonicalInductionVariable(L);
+  assert(PN != nullptr && "Omp loop must have induction variable!");
+  (void) PN;
+  assert(L->isLoopExiting(L->getLoopLatch()) &&
+         "Omp loop must have been rotated!");
+
+  BranchInst *ExitBrInst;
+  ExitBrInst = dyn_cast<BranchInst>(&*L->getLoopLatch()->rbegin());
+  ICmpInst *CondInst = dyn_cast<ICmpInst>(ExitBrInst->getCondition());
+  if (CondInst && ICmpInst::isRelational(CondInst->getPredicate()))
+    return CondInst;
+  
+  llvm_unreachable("Omp loop must have bottom test!");
+}
+
+// gets the exit block of the OMP loop. The OMP loop may contain exit
+// call. The existing LoopInfo returns two exit blocks. The utility
+// is to handle this situation.
+BasicBlock *WRegionUtils::getOmpExitBlock(Loop* L) {
+  BranchInst *ExitBrInst;
+
+  ExitBrInst = dyn_cast<BranchInst>(&*L->getLoopLatch()->rbegin());
+  for (unsigned I = 0; I < ExitBrInst->getNumSuccessors(); I++) {
+    if (ExitBrInst->getSuccessor(I) != L->getHeader()) 
+      return ExitBrInst->getSuccessor(I);
+  }
+  llvm_unreachable("Omp loop must have one exit block");
+}
+
+// gets the predicate for the bottom test.
+CmpInst::Predicate WRegionUtils::getOmpPredicate(Loop* L, bool& IsLeft) {
+  BranchInst *ExitBrInst;
+  ExitBrInst = dyn_cast<BranchInst>(&*L->getLoopLatch()->rbegin());
+  ICmpInst *CondInst = dyn_cast<ICmpInst>(ExitBrInst->getCondition());
+  assert(CondInst && "Omp loop must have cmp instruction at the end!");
+  PHINode *PN = getOmpCanonicalInductionVariable(L);
+  Instruction *Inc = 
+    dyn_cast<Instruction>(PN->getIncomingValueForBlock(L->getLoopLatch()));
+
+  getLoopIndexPosInPredicate(Inc, CondInst, IsLeft);
+
+  return CondInst->getPredicate();
 }

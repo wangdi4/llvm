@@ -864,6 +864,18 @@ Instruction *InstCombiner::visitAShr(BinaryOperator &I) {
       return new SExtInst(NewSh, Ty);
     }
 
+#if INTEL_CUSTOMIZATION
+    // If X has type iN, then we can perform transformation:
+    // ashr (sub 0, X), N - 1 --> select i1 (icmp X < 0), iN 0, iN -1
+    if (match(Op0, m_Neg(m_Value(X))) &&
+        (ShAmt == (X->getType()->getScalarSizeInBits() - 1))) {
+      Constant *Zero = Constant::getNullValue(X->getType());
+      Constant *AllOnes = Constant::getAllOnesValue(X->getType());
+      Value *Cond = Builder.CreateICmpSGT(X, Zero);
+      return SelectInst::Create(Cond, AllOnes, Zero);
+    }
+#endif // INTEL_CUSTOMIZATION
+
     // If the shifted-out value is known-zero, then this is an exact shift.
     if (!I.isExact() &&
         MaskedValueIsZero(Op0, APInt::getLowBitsSet(BitWidth, ShAmt), 0, &I)) {

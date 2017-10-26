@@ -385,6 +385,22 @@ Value *InstCombiner::SimplifyDemandedUseBits(Value *V, APInt DemandedMask,
       return InsertNewInstWith(NewCast, *I);
      }
 
+#if INTEL_CUSTOMIZATION
+    // If we extend boolean value and we know that some extended bits are not
+    // demanded then replace SExt with Select instruction.
+    if (SrcBitWidth == 1 &&
+        DemandedMask.getActiveBits() < I->getType()->getScalarSizeInBits()) {
+      Constant *Zero = ConstantInt::getNullValue(I->getType());
+      const APInt MaxDemandedValue = APInt::getLowBitsSet(
+          I->getType()->getScalarSizeInBits(), DemandedMask.getActiveBits());
+      Constant *DemandedConstant =
+          ConstantInt::get(I->getType(), MaxDemandedValue);
+      SelectInst *NewSelect =
+          SelectInst::Create(I->getOperand(0), DemandedConstant, Zero);
+      return InsertNewInstWith(NewSelect, *I);
+    }
+#endif // INTEL_CUSTOMIZATION
+
     // If the sign bit of the input is known set or clear, then we know the
     // top bits of the result.
     Known = InputKnown.sext(BitWidth);

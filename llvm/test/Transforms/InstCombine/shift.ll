@@ -1332,3 +1332,17 @@ define i7 @test65(i7 %a, i7 %b) {
   %y = and i7 %x, 1 ; this extracts the lsb which should be 0 because we shifted an even number of bits and all even bits of the shift input are 0.
   ret i7 %y
 }
+
+; Check transformation (when X has type iN):
+; ashr (sub 0, X), N - 1 --> sext i1 (icmp X < 0) to iN
+; http://rise4fun.com/Alive/y0vK
+define i32 @fill_with_opposite_sign_bit(i32 %x) {
+; CHECK-LABEL: @fill_with_opposite_sign_bit(
+; CHECK-NEXT:    [[TMP1:%.*]] = icmp sgt i32 [[X:%.*]], 0
+; CHECK-NEXT:    [[B:%.*]] = sext i1 [[TMP1]] to i32
+; CHECK-NEXT:    ret i32 [[B]]
+;
+  %a = sub nsw i32 0, %x
+  %b = ashr i32 %a, 31
+  ret i32 %b
+}

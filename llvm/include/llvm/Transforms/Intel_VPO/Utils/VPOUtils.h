@@ -109,6 +109,12 @@ public:
     /// stripped from \p F; \b false otherwise.
     static bool stripDirectives(Function &F);
 
+    /// \brief Removes OpenMP PRIVATE clauses if present.
+    /// \returns \b true if removal happened.
+    static bool stripPrivateClauses(WRegionNode *WRN);
+    static bool stripPrivateClauses(BasicBlock &BB);
+
+
     ////////////////// MultiVersioning Transformation ////////////////////////
     //
     /// \brief Given a single-entry and single-exit region represented by

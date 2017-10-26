@@ -1010,7 +1010,12 @@ int64_t llvm::getPtrStride(PredicatedScalarEvolution &PSE, Value *Ptr,
   if (Lp != AR->getLoop()) {
     DEBUG(dbgs() << "LAA: Bad stride - Not striding over innermost loop " <<
           *Ptr << " SCEV: " << *AR << "\n");
-    return 0;
+#ifdef INTEL_CUSTOMIZATION
+    PtrScev = PSE.getSE()->getSCEVAtScope(Ptr, Lp);
+    AR = dyn_cast<SCEVAddRecExpr>(PtrScev);
+    if (!AR)
+#endif
+      return 0;
   }
 
   // The address calculation must not wrap. Otherwise, a dependence could be
