@@ -20,6 +20,7 @@
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
+#include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
 
@@ -45,14 +46,12 @@ namespace llvm {
 
   private:
     MachineFunction *MF;
+    const MachineRegisterInfo *MRI;
     CSAMachineFunctionInfo *LMFI;
     const CSAInstrInfo *TII;
     std::vector<MachineInstr *> to_delete;
 
-    /// The following mini pass converts loads and stores that are dependent on
-    /// strides into streaming loads and stores.
     bool makeStreamMemOp(MachineInstr *MI);
-
     MachineInstr *getDefinition(const MachineOperand &MO) const;
     void getUses(const MachineOperand &MO,
         SmallVectorImpl<MachineInstr *> &uses) const;
@@ -73,6 +72,7 @@ MachineFunctionPass *llvm::createCSAStreamingMemoryConversionPass() {
 
 bool CSAStreamingMemoryConversionPass::runOnMachineFunction(MachineFunction &MF) {
   this->MF = &MF;
+  MRI = &MF.getRegInfo();
   LMFI = MF.getInfo<CSAMachineFunctionInfo>();
   TII = static_cast<const CSAInstrInfo*>(MF.getSubtarget<CSASubtarget>().getInstrInfo());
 
@@ -83,19 +83,14 @@ bool CSAStreamingMemoryConversionPass::runOnMachineFunction(MachineFunction &MF)
   // fly due to how iteration works, but we do clean them up after every mini
   // pass.
   bool changed = false;
-  static auto functions = {
-    &CSAStreamingMemoryConversionPass::makeStreamMemOp
-  };
-  for (auto func : functions) {
-    for (auto &MBB : MF) {
-      for (auto &MI : MBB) {
-        changed |= (this->*func)(&MI);
-      }
-      for (auto MI : to_delete)
-        MI->eraseFromParent();
-      to_delete.clear();
+  for (auto &MBB : MF) {
+    for (auto &MI : MBB) {
+      changed |= makeStreamMemOp(&MI);
     }
   }
+  for (auto MI : to_delete)
+    MI->eraseFromParent();
+  to_delete.clear();
 
   this->MF = nullptr;
   return changed;
@@ -103,28 +98,14 @@ bool CSAStreamingMemoryConversionPass::runOnMachineFunction(MachineFunction &MF)
 
 MachineInstr *CSAStreamingMemoryConversionPass::getDefinition(const MachineOperand &MO) const {
   assert(MO.isReg() && "LICs to search for can only be registers");
-  for (auto &MBB : *MF) {
-    for (auto &MI : MBB) {
-      for (auto &def : MI.defs()) {
-        if (def.isReg() && def.getReg() == MO.getReg())
-          return &MI;
-      }
-    }
-  }
-
-  return nullptr;
+  return MRI->getUniqueVRegDef(MO.getReg());
 }
 
 void CSAStreamingMemoryConversionPass::getUses(const MachineOperand &MO,
     SmallVectorImpl<MachineInstr *> &uses) const {
   assert(MO.isReg() && "LICs to search for can only be registers");
-  for (auto &MBB : *MF) {
-    for (auto &MI : MBB) {
-      for (auto &use : MI.uses()) {
-        if (use.isReg() && use.getReg() == MO.getReg())
-          uses.push_back(&MI);
-      }
-    }
+  for (auto &use : MRI->use_instructions(MO.getReg())) {
+    uses.push_back(&use);
   }
 }
 
@@ -148,7 +129,7 @@ bool CSAStreamingMemoryConversionPass::isZero(const MachineOperand &MO) const {
   return isImm(MO, 0);
 }
 
-// This pass takes a load or a store controlled by a sequence operator and
+// This takes a load or a store controlled by a sequence operator and
 // converts it into a streaming load and store. The requirements for legality
 // are as follows:
 // 1. The address is calculated as a strided offset, with base and stride
@@ -341,8 +322,6 @@ bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
       isImm(seqStep, -1)) {
     length = &seqStart;
   } else if (stream->getOpcode() == CSA::SEQOTNE64 && isImm(seqStep, 1)) {
-    // TODO: This isn't really right. Hopefully this will be fixed by a better
-    // pattern-matching language for this stuff...
     if (isZero(seqStart)) {
       length = &seqEnd;
     } else {
