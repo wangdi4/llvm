@@ -458,7 +458,7 @@ void CSAAsmPrinter::EmitStartOfAsmFile(Module &M) {
 
   writeAsmLine("\t.version 0,6,0");
   // This should probably be replaced by code to handle externs
-  //  writeAsmLine("\t.set implicitextern");
+  writeAsmLine("\t.set implicitextern");
   if (not StrictTermination) writeAsmLine("\t.set relaxed");
   if (ImplicitLicDefs) writeAsmLine("\t.set implicit");
   writeAsmLine("\t.unit sxu");
