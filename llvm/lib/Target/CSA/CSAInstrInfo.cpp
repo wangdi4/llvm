@@ -341,6 +341,26 @@ unsigned CSAInstrInfo::GetInstSizeInBytes(const MachineInstr *MI) const {
 }
 */
 
+struct OpcGenericMap {
+  CSA::Generic genericOpcode;
+  unsigned opSize;
+  unsigned opClassification;
+};
+enum OpClassification {
+  INT = 0,
+  FLOAT = 1,
+  SIGNED = 2,
+  UNSIGNED = 3
+};
+#define GET_OPC_GENERIC_MAP
+#include "CSAGenCSAOpInfo.inc"
+
+CSA::Generic CSAInstrInfo::getGenericOpcode(unsigned opcode) const {
+  assert(opcode < CSA::INSTRUCTION_LIST_END && "Illegal opcode");
+  return opcode_to_generic_map[opcode].genericOpcode;
+}
+
+
 // This should probably be set up differently:
 // Have a generic operation enum (e.g. PICK, SWITCH, CMPLEU, ADD, ... etc.)
 // Then have
@@ -464,43 +484,6 @@ bool CSAInstrInfo::isCmp(const MachineInstr *MI) const {
             (MI->getOpcode() <= CSA::CMPUOF64));
 }
 
-
-bool CSAInstrInfo::isSwitch(const MachineInstr *MI) const {
-	return MI->getOpcode() == CSA::SWITCH0 ||
-	       MI->getOpcode() == CSA::SWITCH1 ||
-         MI->getOpcode() == CSA::SWITCH8 ||
-         MI->getOpcode() == CSA::SWITCH16 ||
-         MI->getOpcode() == CSA::SWITCH32 ||
-         MI->getOpcode() == CSA::SWITCH64;
-}
-
-bool CSAInstrInfo::isPick(const MachineInstr *MI) const {
-  return MI->getOpcode() == CSA::PICK0 ||
-         MI->getOpcode() == CSA::PICK1 ||
-         MI->getOpcode() == CSA::PICK8 ||
-         MI->getOpcode() == CSA::PICK16 ||
-         MI->getOpcode() == CSA::PICK32 ||
-         MI->getOpcode() == CSA::PICK64;
-}
-
-bool CSAInstrInfo::isPickany(const MachineInstr *MI) const {
-  return MI->getOpcode() == CSA::PICKANY1 ||
-    MI->getOpcode() == CSA::PICKANY8 ||
-    MI->getOpcode() == CSA::PICKANY16 ||
-    MI->getOpcode() == CSA::PICKANY32 ||
-    MI->getOpcode() == CSA::PICKANY64;
-}
-
-bool CSAInstrInfo::isCopy(const MachineInstr *MI) const {
-  return
-    MI->getOpcode() == CSA::COPY0 ||
-    MI->getOpcode() == CSA::COPY1 ||
-    MI->getOpcode() == CSA::COPY8 ||
-    MI->getOpcode() == CSA::COPY16 ||
-    MI->getOpcode() == CSA::COPY32 ||
-    MI->getOpcode() == CSA::COPY64;
-}
-
 bool CSAInstrInfo::isMOV(const MachineInstr *MI) const {
   return MI->getOpcode() == CSA::MOV1 ||
     MI->getOpcode() == CSA::MOV8 ||
@@ -508,7 +491,6 @@ bool CSAInstrInfo::isMOV(const MachineInstr *MI) const {
     MI->getOpcode() == CSA::MOV32 ||
     MI->getOpcode() == CSA::MOV64;
 }
-
 
 bool CSAInstrInfo::isInit(const MachineInstr *MI) const {
   return MI->getOpcode() == CSA::INIT1 ||
@@ -523,7 +505,7 @@ bool CSAInstrInfo::isAtomic(const MachineInstr *MI) const {
 }
 
 bool CSAInstrInfo::isSeqOT(const MachineInstr *MI) const {
-    return ((MI->getOpcode() >= CSA::SEQOTGE) &&
+    return ((MI->getOpcode() >= CSA::SEQOTGES16) &&
             (MI->getOpcode() <= CSA::SEQOTNE8));
 }
 

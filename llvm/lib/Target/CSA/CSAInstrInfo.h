@@ -20,6 +20,9 @@
 #define GET_INSTRINFO_HEADER
 #include "CSAGenInstrInfo.inc"
 
+#define GET_CSAOPGENERIC_ENUM
+#include "CSAGenCSAOpInfo.inc"
+
 namespace llvm {
 
 namespace CSA {
@@ -155,11 +158,24 @@ public:
                         int *BytesAdded) const override;
 
   unsigned getPickSwitchOpcode(const TargetRegisterClass *RC, bool isPick) const;
-  bool isSwitch(const MachineInstr *) const;
-  bool isCopy(const MachineInstr *) const;
-  bool isMOV(const MachineInstr *) const;
-  bool isPick(const MachineInstr *) const;
-  bool isPickany(const MachineInstr *) const;
+
+  /// Return the generic opcode for the relevant opcode. If the opcode is not
+  /// valid, INVALID_OP is returned.
+  CSA::Generic getGenericOpcode(unsigned opcode) const;
+
+  bool isSwitch(const MachineInstr *MI) const {
+    return getGenericOpcode(MI->getOpcode()) == CSA::Generic::SWITCH;
+  }
+  bool isCopy(const MachineInstr *MI) const {
+    return getGenericOpcode(MI->getOpcode()) == CSA::Generic::GCOPY;
+  }
+  bool isMOV(const MachineInstr *MI) const;
+  bool isPick(const MachineInstr *MI) const {
+    return getGenericOpcode(MI->getOpcode()) == CSA::Generic::PICK;
+  }
+  bool isPickany(const MachineInstr *MI) const {
+    return getGenericOpcode(MI->getOpcode()) == CSA::Generic::PICKANY;
+  }
   bool isInit(const MachineInstr *) const;
   bool isLoad(const MachineInstr *) const;
   bool isStore(const MachineInstr *) const;

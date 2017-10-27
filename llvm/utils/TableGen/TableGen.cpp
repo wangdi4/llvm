@@ -28,6 +28,7 @@ enum ActionType {
   GenEmitter,
   GenRegisterInfo,
   GenInstrInfo,
+  GenCSAOpTypes,
   GenAsmWriter,
   GenAsmMatcher,
   GenDisassembler,
@@ -61,6 +62,8 @@ namespace {
                                "Generate registers and register classes info"),
                     clEnumValN(GenInstrInfo, "gen-instr-info",
                                "Generate instruction descriptions"),
+                    clEnumValN(GenCSAOpTypes, "gen-csa-op-size",
+                               "Generate op size matches for CSA"),
                     clEnumValN(GenCallingConv, "gen-callingconv",
                                "Generate calling convention descriptions"),
                     clEnumValN(GenAsmWriter, "gen-asm-writer",
@@ -120,6 +123,9 @@ bool LLVMTableGenMain(raw_ostream &OS, RecordKeeper &Records) {
     break;
   case GenInstrInfo:
     EmitInstrInfo(Records, OS);
+    break;
+  case GenCSAOpTypes:
+    EmitCSAOpTypes(Records, OS);
     break;
   case GenCallingConv:
     EmitCallingConv(Records, OS);
