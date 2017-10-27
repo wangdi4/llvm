@@ -431,19 +431,19 @@ private:
   /// parameter's definition is outside the region, the compiler
   /// generates the call __kmpc_global_thread_num() at the entry of
   /// of the region and replaces all tid uses with the new call.
-  /// It also generates the bid alloca instruciton in the region 
+  /// It also generates the bid alloca instruciton in the region
   /// if the region has outlined function.
   void codeExtractorPrepare(WRegionNode *W);
 
   /// \brief Cleans up the generated __kmpc_global_thread_num() in the
-  /// outlined function. It also cleans the genererated bid alloca 
+  /// outlined function. It also cleans the genererated bid alloca
   /// instruction in the outline function.
   void finiCodeExtractorPrepare(Function *F, bool ForTask = false);
 
   /// \brief Collects the bid alloca instructions used by the outline functions.
   void collectTidAndBidInstructionsForBB(BasicBlock *BB);
 
-  /// \brief Collects the instruction uses for the instructions 
+  /// \brief Collects the instruction uses for the instructions
   /// in the set TidAndBidInstructions.
   void collectInstructionUsesInRegion(WRegionNode *W);
 
@@ -565,7 +565,7 @@ private:
 
   /// \brief Finds the alloc stack variables where the tid stores.
   void getAllocFromTid(CallInst *Tid);
- 
+
   /// \brief Finds the function pointer type for the function
   /// void (*kmpc_micro)(kmp_int32 *global_tid, kmp_int32 *bound_tid, ...)
   FunctionType* getKmpcMicroTaskPointerTy();
@@ -584,7 +584,7 @@ private:
   /// \brief Generate the intrinsic @llvm.codemotion.fence to inhibit the cse
   /// for the gep instruction related to array/struture which is marked
   /// as private, firstprivate, lastprivate, reduction or shared.
-  void genCodemotionFenceforPrivatizationAggr(WRegionNode *W);
+  void genCodemotionFenceforAggrData(WRegionNode *W);
 
   /// \brief Clean up the intrinsic @llvm.codemotion.fence and replace the use
   /// of the intrinsic with the its operand.
@@ -615,6 +615,12 @@ private:
   /// \brief Returns the corresponding flag for a given map clause modifier.
   unsigned getMapTypeFlag(MapItem *MpI, bool IsFirstExprFlag,
                           bool IsFirstComponentFlag);
+  /// \brief Replace the occurrences of I within the region with the return
+  /// value of the intrinsic @llvm.codemotion.fence.
+  void replaceValueWithinRegion(WRegionNode *W, Value *Old);
+  /// \brief Generate the intrinsic @llvm.codemotion.fence for local/global
+  /// variable I.
+  void genFenceIntrinsic(WRegionNode *W, Value *I);
 };
 } /// namespace vpo
 } /// namespace llvm

@@ -10,7 +10,7 @@
 //===----------------------------------------------------------------------===//
 ///
 /// \file
-/// This file implements the threadprivate support for OpenMP and 
+/// This file implements the threadprivate support for OpenMP and
 //  Auto-parallelization.
 //
 //
@@ -46,7 +46,7 @@ private:
   /// Map table between threadprivate global and threadprivate local pointer
   DenseMap<Value*, Value *> TpvTable;
 
-  /// Map table between the theread-private globals and threadprivate local 
+  /// Map table between the theread-private globals and threadprivate local
   /// pointer dereference per function.
   DenseMap<std::pair<Value *, Function*>, Value *> TpvAcc;
 
@@ -54,12 +54,12 @@ private:
   DenseMap<Function*, Instruction *> TidTable;
 
   /// Returns the instruction which holds the value of global thread
-  /// id. It can be a call instruction __kmpc_global_thread_num or 
+  /// id. It can be a call instruction __kmpc_global_thread_num or
   /// a load instruction.
   Instruction* getThreadNum(Value *V, Function *F);
 
   /// Transforms the given threadprivate variable in legacy mode.
-  void processTpv(Value *V, 
+  void processTpv(Value *V,
       const DataLayout &DL);
 
   /// Returns the threadprivate local pointer dereference given a thread
@@ -67,7 +67,7 @@ private:
   Value *getTpvRef(Value *V, Instruction *I,
       const DataLayout &DL);
 
-  /// Returns the threadprivate local pointer given a threadprivate 
+  /// Returns the threadprivate local pointer given a threadprivate
   /// variable and the accessed function.
   Value *getTpvPtr(Value *V, Function *F, PointerType *GlobalType);
 
@@ -81,7 +81,7 @@ private:
 
 class VPOParoptTpv : public ModulePass {
 public:
-  static char ID; 
+  static char ID;
   VPOParoptTpv() : ModulePass(ID) {
     initializeVPOParoptTpvPass(*PassRegistry::getPassRegistry());
   }
@@ -91,7 +91,7 @@ public:
       return false;
 
     auto &DL = M.getDataLayout();
-    
+
     VPOParoptTpvLegacy Tpv;
     return Tpv.processTpvInModule(M, DL);
   }
@@ -104,10 +104,10 @@ public:
 };
 
 // For each theread private global, chooses intel compatible implementation.
-bool VPOParoptTpvLegacy::processTpvInModule(Module &M, 
+bool VPOParoptTpvLegacy::processTpvInModule(Module &M,
       const DataLayout &DL) {
   bool Changed = false;
-  for (Module::global_iterator GVI = M.global_begin(), 
+  for (Module::global_iterator GVI = M.global_begin(),
        E = M.global_end(); GVI != E;) {
     GlobalVariable *GV = &*(GVI++);
     if (GV && !GV->isThreadLocal() && GV->isThreadPrivate()) {
@@ -131,7 +131,7 @@ Instruction* VPOParoptTpvLegacy::getThreadNum(Value *V, Function *F) {
     Instruction *AI = &*I;
     BasicBlock *T = SplitBlock(EntryBB, AI);
     T->setName("tid.bb");
-    
+
     if (F->getFnAttribute("mt-func").getValueAsString() == "true") {
       IRBuilder<> Builder(EntryBB);
       Builder.SetInsertPoint(EntryBB->getTerminator());
@@ -141,16 +141,16 @@ Instruction* VPOParoptTpvLegacy::getThreadNum(Value *V, Function *F) {
     else {
       LLVMContext &C = F->getContext();
       StructType *IdentTy = StructType::get(C, {Type::getInt32Ty(C),
-                                Type::getInt32Ty(C),  
-                                Type::getInt32Ty(C),  
-                                Type::getInt32Ty(C),   
-                                Type::getInt8PtrTy(C)} 
+                                Type::getInt32Ty(C),
+                                Type::getInt32Ty(C),
+                                Type::getInt32Ty(C),
+                                Type::getInt8PtrTy(C)}
                             );
       CallInst *RI = VPOParoptUtils::genKmpcGlobalThreadNumCall(F, &*(EntryBB->getFirstInsertionPt()), IdentTy);
       TidTable[F] = RI;
       RI->insertBefore(EntryBB->getTerminator());
     }
-    
+
   }
 
   return TidTable[F];
@@ -184,13 +184,13 @@ void VPOParoptTpvLegacy::genTpvRef(Value *V,
 
   // Identifies the next instruction after the insruction tidV
   // There are two cases for the omp_tid.
-  // case 1: 
-  //  %tid.val = tail call i32 @__kmpc_global_thread_num(..}  
+  // case 1:
+  //  %tid.val = tail call i32 @__kmpc_global_thread_num(..}
   //
-  // case 2: 
+  // case 2:
   //  define void @foo(i32* %.global_tid)
   //  entry:
-  //     %0 = load i32, i32* %.global_tid         
+  //     %0 = load i32, i32* %.global_tid
   //
   while (dyn_cast<Instruction>(&*InstIt) != TidV) {
     LastInstIt = InstIt;
@@ -198,14 +198,14 @@ void VPOParoptTpvLegacy::genTpvRef(Value *V,
   }
   Instruction* LastI = dyn_cast<Instruction>(&*LastInstIt);
 
-  
+
   IRBuilder<> Builder(B);
   PointerType *Int8PtrTy = Builder.getInt8PtrTy();
   PointerType *Int8PtrPtrTy = Int8PtrTy->getPointerTo();
 
   // Generates a stack variable to store the dereference of threadprivate
   // local global pointer
-  // Example: 
+  // Example:
   //     %0 = alloca i8*
   //     ....
   //     %7 = call i8* @__kmpc_threadprivate_cached(...)
@@ -217,7 +217,7 @@ void VPOParoptTpvLegacy::genTpvRef(Value *V,
 
 
   // Generates the code to check whether threadprivate local global pointer is empty.
-  // Example: 
+  // Example:
   //   %2 = load i8**, i8*** @__tpv_ptr_a
   //   %3 = icmp ne i8** %2, null
   //
@@ -225,14 +225,14 @@ void VPOParoptTpvLegacy::genTpvRef(Value *V,
   Builder.SetInsertPoint(LastI);
   LoadInst *NewLoad = Builder.CreateLoad(TpvGV);
 
-  Value *PtrCompare = Builder.CreateICmp(ICmpInst::ICMP_NE, 
+  Value *PtrCompare = Builder.CreateICmp(ICmpInst::ICMP_NE,
                                          NewLoad,
          Constant::getNullValue(NewLoad->getType()));
 
-  // Geneates the if-then control flow structure 
+  // Geneates the if-then control flow structure
   TerminatorInst *ThenTerm =
-      SplitBlockAndInsertIfThen(PtrCompare, 
-                                LastI, 
+      SplitBlockAndInsertIfThen(PtrCompare,
+                                LastI,
                                 false,
                                 MDBuilder(F->getContext()).createBranchWeights(99999,100000));
   BasicBlock *ThenBB = ThenTerm->getParent();
@@ -242,7 +242,7 @@ void VPOParoptTpvLegacy::genTpvRef(Value *V,
   IRBuilder<> BuilderThen(ThenBB);
   BuilderThen.SetInsertPoint(ThenBB->getTerminator());
 
-  // Generates the dereference of the threadprivate local global and compares whether 
+  // Generates the dereference of the threadprivate local global and compares whether
   // it is empty or not.
   //
   // Example:
@@ -254,17 +254,17 @@ void VPOParoptTpvLegacy::genTpvRef(Value *V,
   // %5 = icmp eq i8* %ld.1, null
   unsigned PtrWidth = DL.getIntPtrType(Int8PtrTy)->getIntegerBitWidth();
   Value *MulV =
-      BuilderThen.CreateMul(TidV, 
-                            ConstantInt::get(TidV->getType(),PtrWidth/8), 
+      BuilderThen.CreateMul(TidV,
+                            ConstantInt::get(TidV->getType(),PtrWidth/8),
                             "mul."+Twine(count));
   cast<BinaryOperator>(MulV)->setHasNoSignedWrap(true);
 
   Value *ExtV = MulV;
   if (PtrWidth == 64) {
-    ExtV = 
+    ExtV =
       BuilderThen.CreateSExt(MulV, DL.getIntPtrType(Int8PtrTy));
   }
-  
+
   Value *OffsetV =
     BuilderThen.CreateGEP(NewLoad, ExtV, "gep."+Twine(count));
 
@@ -277,8 +277,8 @@ void VPOParoptTpvLegacy::genTpvRef(Value *V,
     BuilderThen.CreateICmp(ICmpInst::ICMP_EQ,
                            LV,
                            Constant::getNullValue(LV->getType()));
-                           
-  TerminatorInst *ElseTerm =  
+
+  TerminatorInst *ElseTerm =
     SplitBlockAndInsertIfThen(Cmp,
                               ThenTerm,
                               false,
@@ -301,22 +301,22 @@ void VPOParoptTpvLegacy::genTpvRef(Value *V,
   Instruction *AI = ElseBB->getTerminator();
   LLVMContext &C = F->getContext();
   StructType *IdentTy = StructType::get(C, {Type::getInt32Ty(C),
-                                Type::getInt32Ty(C),  
-                                Type::getInt32Ty(C),  
-                                Type::getInt32Ty(C),   
-                                Type::getInt8PtrTy(C)} 
+                                Type::getInt32Ty(C),
+                                Type::getInt32Ty(C),
+                                Type::getInt32Ty(C),
+                                Type::getInt8PtrTy(C)}
                             );
 
   PointerType *GVPtrType = cast<PointerType>(V->getType());
-  if (V->getType() != Type::getInt8PtrTy(C)) 
-    V = CastInst::CreatePointerCast(V, Type::getInt8PtrTy(C), 
+  if (V->getType() != Type::getInt8PtrTy(C))
+    V = CastInst::CreatePointerCast(V, Type::getInt8PtrTy(C),
                                     Twine(""), ElseBB->getTerminator());
-  
+
   CallInst *TC = VPOParoptUtils::genKmpcThreadPrivateCachedCall(
-      F, AI, 
-      IdentTy, 
-      TidV, 
-      V, 
+      F, AI,
+      IdentTy,
+      TidV,
+      V,
       BuilderElse.getInt32(DL.getTypeAllocSize(GVPtrType->getPointerElementType())),
       TpvGV);
   TC->insertBefore(AI);
@@ -332,11 +332,11 @@ Value *VPOParoptTpvLegacy::getTpvRef(Value *V, Instruction *I,
   if (TpvAcc.find(std::make_pair(V, F)) == TpvAcc.end()) {
     genTpvRef(V, F, TidV, DL);
   }
-  
+
   return TpvAcc[std::make_pair(V, F)];
 }
 
-// For each threadprivate globals, converts the reference into 
+// For each threadprivate globals, converts the reference into
 // the reference of threadprivate local global pointer.
 //
 void VPOParoptTpvLegacy::processTpv(Value *V,
@@ -365,7 +365,7 @@ void VPOParoptTpvLegacy::processTpv(Value *V,
 
   for (auto IB = V->user_begin(), IE = V->user_end();
        IB != IE; IB++) {
-    if (Instruction *User = dyn_cast<Instruction>(*IB)) 
+    if (Instruction *User = dyn_cast<Instruction>(*IB))
       RewriteIns.push_back(User);
   }
 
@@ -375,7 +375,7 @@ void VPOParoptTpvLegacy::processTpv(Value *V,
     IRBuilder<> BuilderCE(User->getParent());
     BuilderCE.SetInsertPoint(User);
     LoadI = BuilderCE.CreateLoad(New);
-    if (V->getType() != LoadI->getType()) 
+    if (V->getType() != LoadI->getType())
       CastI = CastInst::CreatePointerCast(LoadI, V->getType(), Twine(""), User);
     else
       CastI = LoadI;

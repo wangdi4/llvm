@@ -368,7 +368,7 @@ bool VPOParoptTransform::genTaskLoopInitCode(
 
   Loop *L;
   if (isLoop) {
-    L = W->getLoop();
+    L = W->getWRNLoopInfo().getLoop();
     assert(L && "genTaskLoopInitCode: Loop not found");
     genLoopInitCodeForTaskLoop(W, LBPtr, UBPtr, STPtr);
   }
@@ -693,7 +693,7 @@ void VPOParoptTransform::genLoopInitCodeForTaskLoop(WRegionNode *W,
   BasicBlock *NewEntryBB = SplitBlock(EntryBB, &*(EntryBB->begin()), DT, LI);
   W->setEntryBBlock(NewEntryBB);
   IRBuilder<> Builder(EntryBB->getTerminator());
-  Loop *L = W->getLoop();
+  Loop *L = W->getWRNLoopInfo().getLoop();
   Type *IndValTy = WRegionUtils::getOmpCanonicalInductionVariable(L)
                        ->getIncomingValue(0)
                        ->getType();

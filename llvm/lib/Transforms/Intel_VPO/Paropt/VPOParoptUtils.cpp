@@ -497,6 +497,8 @@ CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, Value *DeviceIDPtr,
   LLVMContext &C = F->getContext();
 
   Type *Int32Ty = Type::getInt32Ty(C);
+  Type *ReturnTy; // void for _tgt_target_data_*(); i32 otherwise
+
   Value *NumTeams = nullptr;
   Value *ThreadLimit = nullptr;
 
@@ -512,10 +514,12 @@ CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, Value *DeviceIDPtr,
   SmallVector<Type *, 9> FnArgTypes = { Int32Ty  };
 
   if (HostAddr) {
+    // HostAddr!=null means FnName is __tgt_target or __tgt_target_teams
+    ReturnTy = Int32Ty;
+
     // Handle the "void *host_addr" parm of __tgt_target and __tgt_target_teams
     FnArgs.push_back(HostAddr);
     FnArgTypes.push_back(HostAddr->getType());
-
     if (FnName == "__tgt_target_teams") {
       // __tgt_target_teams has two more parms: "int32_t num_teams" and
       // "int32_t thread_limit".  Initialize them here.
@@ -529,6 +533,9 @@ CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, Value *DeviceIDPtr,
       else
         ThreadLimit = new LoadInst(ThreadLimitPtr, "threadLimit", InsertPt);
     }
+  } else {
+    // HostAddr==null means FnName is not __tgt_target or __tgt_target_teams
+    ReturnTy = Type::getVoidTy(C);
   }
 
   // Five common parms needed by all __tgt_target* calls :
@@ -554,7 +561,7 @@ CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, Value *DeviceIDPtr,
   FnArgTypes.push_back(ArgsMaptype->getType());
 
   // Add the two parms for __tgt_target_teams
-  if (NumTeams) {
+  if (NumTeams != nullptr) {
     FnArgs.push_back(NumTeams);
     FnArgTypes.push_back(Int32Ty);
 
@@ -562,7 +569,9 @@ CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, Value *DeviceIDPtr,
     FnArgTypes.push_back(Int32Ty);
   }
 
-  CallInst *Call = genCall(FnName, Type::getVoidTy(C), FnArgs, FnArgTypes,
+  // DEBUG(dbgs() << "FnArgs.size= "<< FnArgs.size());
+  // DEBUG(dbgs() << "FnArgTypes.size() = "<< FnArgTypes.size());
+  CallInst *Call = genCall(FnName, ReturnTy, FnArgs, FnArgTypes,
                            InsertPt);
   return Call;
 }
@@ -921,7 +930,7 @@ CallInst *VPOParoptUtils::genKmpcTaskReductionInit(WRegionNode *W,
       FunctionType::get(Type::getInt8PtrTy(C), TypeParams, false);
 
   StringRef FnName = UseTbb ? "__tbb_omp_task_reduction_init" :
-                                "__kmpc_task_reduction_init";
+                              "__kmpc_task_reduction_init";
 
   Function *FnTaskRedInit = M->getFunction(FnName);
 
@@ -2089,7 +2098,7 @@ Value *VPOParoptUtils::computeOmpUpperBound(WRegionNode *W,
                                             Instruction* InsertPt) {
   assert(W->getIsOmpLoop() && "computeOmpUpperBound: not a loop-type WRN");
 
-  Loop *L = W->getLoop();
+  Loop *L = W->getWRNLoopInfo().getLoop();
 
   Value *RightValue = WRegionUtils::getOmpLoopUpperBound(L);
   RightValue = VPOParoptUtils::cloneInstructions(RightValue, InsertPt);
@@ -2185,7 +2194,7 @@ void VPOParoptUtils::updateOmpPredicateAndUpperBound(WRegionNode *W,
 
   assert(W->getIsOmpLoop() && "computeOmpUpperBound: not a loop-type WRN");
 
-  Loop *L = W->getLoop();
+  Loop *L = W->getWRNLoopInfo().getLoop();
   ICmpInst* IC = WRegionUtils::getOmpLoopBottomTest(L);
   bool IsLeft = true;
   CmpInst::Predicate PD = WRegionUtils::getOmpPredicate(L, IsLeft);

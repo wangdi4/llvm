@@ -71,10 +71,26 @@ namespace vpo {
 // Macro to define getters for list-type clauses. It creates two versions:
 //   1. a const version used primarily by dumpers
 //   2. a nonconst version used by parsing and other code
+// 20171023: Also use this for WRNLoopInfo's getter fns
 #define DEFINE_GETTER(CLAUSETYPE, GETTER, CLAUSEOBJ)       \
    const CLAUSETYPE &GETTER() const { return CLAUSEOBJ; }  \
          CLAUSETYPE &GETTER()       { return CLAUSEOBJ; }
 
+/// Loop information assoaciated with loop-type constructs
+class WRNLoopInfo{
+private:
+  LoopInfo   *LI;
+  Loop       *Lp;
+  BasicBlock *ZTTBB; // bblock with the zero-trip test
+public:
+  WRNLoopInfo(LoopInfo *L) { LI = L; Lp=nullptr; ZTTBB=nullptr; }
+  void setLoopInfo(LoopInfo *L) { LI = L; }
+  void setLoop(Loop *L) { Lp = L; }
+  void setZTTBB(BasicBlock *BB) { ZTTBB = BB; }
+  LoopInfo *getLoopInfo() const { return LI; }
+  Loop *getLoop() const { return Lp; }
+  BasicBlock *getZTTBB() const { return ZTTBB; }
+};
 
 /// WRN for
 /// \code
@@ -139,8 +155,7 @@ private:
   ScheduleClause Schedule;
   int Collapse;
   int Ordered;
-  LoopInfo *LI;
-  Loop *Lp;
+  WRNLoopInfo WRNLI;
 
 public:
   WRNParallelLoopNode(BasicBlock *BB, LoopInfo *L);
@@ -152,8 +167,6 @@ protected:
   void setProcBind(WRNProcBindKind P) { ProcBind = P; }
   void setCollapse(int N) { Collapse = N; }
   void setOrdered(int N) { Ordered = N; }
-  void setLoopInfo(LoopInfo *L) { LI = L; }
-  void setLoop(Loop *L) { Lp = L; }
 
 public:
   DEFINE_GETTER(SharedClause,       getShared, Shared)
@@ -164,6 +177,7 @@ public:
   DEFINE_GETTER(LinearClause,       getLinear, Linear)
   DEFINE_GETTER(CopyinClause,       getCopyin, Copyin)
   DEFINE_GETTER(ScheduleClause,     getSchedule, Schedule)
+  DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo, WRNLI)
 
   EXPR getIf() const { return IfExpr; }
   EXPR getNumThreads() const { return NumThreads; }
@@ -171,8 +185,6 @@ public:
   WRNProcBindKind getProcBind() const { return ProcBind; }
   int getCollapse() const { return Collapse; }
   int getOrdered() const { return Ordered; }
-  LoopInfo *getLoopInfo() const { return LI; }
-  Loop *getLoop() const { return Lp; }
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -195,8 +207,7 @@ private:
   EXPR NumThreads;
   WRNDefaultKind Default;
   WRNProcBindKind ProcBind;
-  LoopInfo *LI;
-  Loop *Lp;
+  WRNLoopInfo WRNLI;
 
 public:
   WRNParallelSectionsNode(BasicBlock *BB, LoopInfo *L);
@@ -206,8 +217,6 @@ protected:
   void setNumThreads(EXPR E) { NumThreads = E; }
   void setDefault(WRNDefaultKind D) { Default = D; }
   void setProcBind(WRNProcBindKind P) { ProcBind = P; }
-  void setLoopInfo(LoopInfo *L) { LI = L; }
-  void setLoop(Loop *L) { Lp = L; }
 
 public:
   DEFINE_GETTER(SharedClause,       getShared, Shared)
@@ -215,13 +224,12 @@ public:
   DEFINE_GETTER(FirstprivateClause, getFpriv,  Fpriv)
   DEFINE_GETTER(ReductionClause,    getRed,    Reduction)
   DEFINE_GETTER(CopyinClause,       getCopyin, Copyin)
+  DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo, WRNLI)
 
   EXPR getIf() const { return IfExpr; }
   EXPR getNumThreads() const { return NumThreads; }
   WRNDefaultKind getDefault() const { return Default; }
   WRNProcBindKind getProcBind() const { return ProcBind; }
-  LoopInfo *getLoopInfo() const { return LI; }
-  Loop *getLoop() const { return Lp; }
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -244,8 +252,7 @@ private:
   EXPR NumThreads;
   WRNDefaultKind Default;
   WRNProcBindKind ProcBind;
-  LoopInfo *LI;
-  Loop *Lp;
+  WRNLoopInfo WRNLI;
 
 public:
   WRNParallelWorkshareNode(BasicBlock *BB, LoopInfo *L);
@@ -255,8 +262,6 @@ protected:
   void setNumThreads(EXPR E) { NumThreads = E; }
   void setDefault(WRNDefaultKind D) { Default = D; }
   void setProcBind(WRNProcBindKind P) { ProcBind = P; }
-  void setLoopInfo(LoopInfo *L) { LI = L; }
-  void setLoop(Loop *L) { Lp = L; }
 
 public:
   DEFINE_GETTER(SharedClause,       getShared, Shared)
@@ -264,13 +269,12 @@ public:
   DEFINE_GETTER(FirstprivateClause, getFpriv,  Fpriv)
   DEFINE_GETTER(ReductionClause,    getRed,    Reduction)
   DEFINE_GETTER(CopyinClause,       getCopyin, Copyin)
+  DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo, WRNLI)
 
   EXPR getIf() const { return IfExpr; }
   EXPR getNumThreads() const { return NumThreads; }
   WRNDefaultKind getDefault() const { return Default; }
   WRNProcBindKind getProcBind() const { return ProcBind; }
-  LoopInfo *getLoopInfo() const { return LI; }
-  Loop *getLoop() const { return Lp; }
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -337,8 +341,7 @@ private:
   ScheduleClause DistSchedule;
   int Collapse;
   int Ordered;
-  LoopInfo *LI;
-  Loop *Lp;
+  WRNLoopInfo WRNLI;
 
 public:
   WRNDistributeParLoopNode(BasicBlock *BB, LoopInfo *L);
@@ -350,8 +353,6 @@ protected:
   void setProcBind(WRNProcBindKind P) { ProcBind = P; }
   void setCollapse(int N) { Collapse = N; }
   void setOrdered(int N) { Ordered = N; }
-  void setLoopInfo(LoopInfo *L) { LI = L; }
-  void setLoop(Loop *L) { Lp = L; }
 
 public:
   DEFINE_GETTER(SharedClause,       getShared, Shared)
@@ -363,6 +364,7 @@ public:
   DEFINE_GETTER(CopyinClause,       getCopyin, Copyin)
   DEFINE_GETTER(ScheduleClause,     getSchedule, Schedule)
   DEFINE_GETTER(ScheduleClause,     getDistSchedule, Schedule)
+  DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo, WRNLI)
 
   EXPR getIf() const { return IfExpr; }
   EXPR getNumThreads() const { return NumThreads; }
@@ -370,8 +372,6 @@ public:
   WRNProcBindKind getProcBind() const { return ProcBind; }
   int getCollapse() const { return Collapse; }
   int getOrdered() const { return Ordered; }
-  LoopInfo *getLoopInfo() const { return LI; }
-  Loop *getLoop() const { return Lp; }
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -574,8 +574,8 @@ private:
   int SchedCode; // 1 for Grainsize, 2 for num_tasks, 0 for none.
   int Collapse;
   bool Nogroup;
-  LoopInfo *LI;
-  Loop *Lp;
+  WRNLoopInfo WRNLI;
+
   // These taskloop clauses are also clauses in the parent class WRNTaskNode
   //   SharedClause Shared;
   //   PrivateClause Priv;
@@ -598,8 +598,6 @@ protected:
   void setSchedCode(int N) { SchedCode = N; }
   void setCollapse(int N) { Collapse = N; }
   void setNogroup(bool B) { Nogroup = B; }
-  void setLoopInfo(LoopInfo *L) { LI = L; }
-  void setLoop(Loop *L) { Lp = L; }
 
   // Defined in parent class WRNTaskNode
   //   void setFinal(EXPR E) { Final = E; }
@@ -612,13 +610,12 @@ protected:
 
 public:
   DEFINE_GETTER(LastprivateClause,  getLpriv,  Lpriv)
+  DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo, WRNLI)
   EXPR getGrainsize() const { return Grainsize; }
   EXPR getNumTasks() const { return NumTasks; }
   int getSchedCode() const { return SchedCode; }
   int getCollapse() const { return Collapse; }
   bool getNogroup() const { return Nogroup; }
-  LoopInfo *getLoopInfo() const { return LI; }
-  Loop *getLoop() const { return Lp; }
 
   // Defined in parent class WRNTaskNode
   //   DEFINE_GETTER(SharedClause,       getShared, Shared)
@@ -657,8 +654,7 @@ private:
   int Safelen;
   int Collapse;
   bool IsAutoVec;
-  LoopInfo *LI;                 // for LLVM IR only
-  Loop *Lp;                     // for LLVM IR only
+  WRNLoopInfo WRNLI;
   loopopt::HLNode *EntryHLNode; // for HIR only
   loopopt::HLNode *ExitHLNode;  // for HIR only
   loopopt::HLLoop *HLp;         // for HIR only
@@ -671,8 +667,6 @@ public:
   void setSafelen(int N) { Safelen = N; }
   void setCollapse(int N) { Collapse = N; }
   void setIsAutoVec(bool Flag) { IsAutoVec = Flag; }
-  void setLoopInfo(LoopInfo *L) { LI = L; }
-  void setLoop(Loop *L) { Lp = L; }
   void setEntryHLNode(loopopt::HLNode *E) { EntryHLNode = E; }
   void setExitHLNode(loopopt::HLNode *X) { ExitHLNode = X; }
   void setHLLoop(loopopt::HLLoop *L) { HLp = L; }
@@ -683,13 +677,12 @@ public:
   DEFINE_GETTER(LinearClause,      getLinear,  Linear)
   DEFINE_GETTER(AlignedClause,     getAligned, Aligned)
   DEFINE_GETTER(UniformClause,     getUniform, Uniform)
+  DEFINE_GETTER(WRNLoopInfo,       getWRNLoopInfo, WRNLI)
 
   int getSimdlen() const { return Simdlen; }
   int getSafelen() const { return Safelen; }
   int getCollapse() const { return Collapse; }
   bool getIsAutoVec() const { return IsAutoVec; }
-  LoopInfo *getLoopInfo() const { return LI; }
-  Loop *getLoop() const { return Lp; }
   loopopt::HLNode *getEntryHLNode() const { return EntryHLNode; }
   loopopt::HLNode *getExitHLNode() const { return ExitHLNode; }
   loopopt::HLLoop *getHLLoop() const { return HLp; }
@@ -721,8 +714,7 @@ private:
   int Collapse;
   int Ordered;
   bool Nowait;
-  LoopInfo *LI;
-  Loop *Lp;
+  WRNLoopInfo WRNLI;
 
 public:
   WRNWksLoopNode(BasicBlock *BB, LoopInfo *L);
@@ -731,8 +723,6 @@ protected:
   void setCollapse(int N) { Collapse = N; }
   void setOrdered(int N) { Ordered = N; }
   void setNowait(bool Flag) { Nowait = Flag; }
-  void setLoopInfo(LoopInfo *L) { LI = L; }
-  void setLoop(Loop *L) { Lp = L; }
 
 public:
   DEFINE_GETTER(PrivateClause,      getPriv,     Priv)
@@ -741,12 +731,11 @@ public:
   DEFINE_GETTER(ReductionClause,    getRed,      Reduction)
   DEFINE_GETTER(LinearClause,       getLinear,   Linear)
   DEFINE_GETTER(ScheduleClause,     getSchedule, Schedule)
+  DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo, WRNLI)
 
   int getCollapse() const { return Collapse; }
   int getOrdered() const { return Ordered; }
   bool getNowait() const { return Nowait; }
-  LoopInfo *getLoopInfo() const { return LI; }
-  Loop *getLoop() const { return Lp; }
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -765,26 +754,22 @@ private:
   LastprivateClause Lpriv;
   ReductionClause Reduction;
   bool Nowait;
-  LoopInfo *LI;
-  Loop *Lp;
+  WRNLoopInfo WRNLI;
 
 public:
   WRNSectionsNode(BasicBlock *BB, LoopInfo *L);
 
 protected:
   void setNowait(bool Flag) { Nowait = Flag; }
-  void setLoopInfo(LoopInfo *L) { LI = L; }
-  void setLoop(Loop *L) { Lp = L; }
 
 public:
   DEFINE_GETTER(PrivateClause,      getPriv,   Priv)
   DEFINE_GETTER(FirstprivateClause, getFpriv,  Fpriv)
   DEFINE_GETTER(LastprivateClause,  getLpriv,  Lpriv)
   DEFINE_GETTER(ReductionClause,    getRed,    Reduction)
+  DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo, WRNLI)
 
   bool getNowait() const { return Nowait; }
-  LoopInfo *getLoopInfo() const { return LI; }
-  Loop *getLoop() const { return Lp; }
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -799,21 +784,17 @@ public:
 class WRNWorkshareNode : public WRegionNode {
 private:
   bool Nowait;
-  LoopInfo *LI;
-  Loop *Lp;
+  WRNLoopInfo WRNLI;
 
 public:
   WRNWorkshareNode(BasicBlock *BB, LoopInfo *L);
 
 protected:
   void setNowait(bool Flag) { Nowait = Flag; }
-  void setLoopInfo(LoopInfo *L) { LI = L; }
-  void setLoop(Loop *L) { Lp = L; }
 
 public:
+  DEFINE_GETTER(WRNLoopInfo, getWRNLoopInfo, WRNLI)
   bool getNowait() const { return Nowait; }
-  LoopInfo *getLoopInfo() const { return LI; }
-  Loop *getLoop() const { return Lp; }
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -832,26 +813,22 @@ private:
   LastprivateClause Lpriv;
   ScheduleClause DistSchedule;
   int Collapse;
-  LoopInfo *LI;
-  Loop *Lp;
+  WRNLoopInfo WRNLI;
 
 public:
   WRNDistributeNode(BasicBlock *BB, LoopInfo *L);
 
 protected:
   void setCollapse(int N) { Collapse = N; }
-  void setLoopInfo(LoopInfo *L) { LI = L; }
-  void setLoop(Loop *L) { Lp = L; }
 
 public:
   DEFINE_GETTER(PrivateClause,      getPriv,         Priv)
   DEFINE_GETTER(FirstprivateClause, getFpriv,        Fpriv)
   DEFINE_GETTER(LastprivateClause,  getLpriv,        Lpriv)
   DEFINE_GETTER(ScheduleClause,     getDistSchedule, DistSchedule)
+  DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo,  WRNLI)
 
   int getCollapse() const { return Collapse; }
-  LoopInfo *getLoopInfo() const { return LI; }
-  Loop *getLoop() const { return Lp; }
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {

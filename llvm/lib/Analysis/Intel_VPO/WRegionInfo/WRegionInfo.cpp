@@ -28,10 +28,10 @@ using namespace llvm::vpo;
 
 #define DEBUG_TYPE "vpo-wrninfo"
 
-INITIALIZE_PASS_BEGIN(WRegionInfo, "vpo-wrninfo", 
+INITIALIZE_PASS_BEGIN(WRegionInfo, "vpo-wrninfo",
                                    "VPO Work-Region Information", false, true)
 INITIALIZE_PASS_DEPENDENCY(WRegionCollection)
-INITIALIZE_PASS_END(WRegionInfo, "vpo-wrninfo", 
+INITIALIZE_PASS_END(WRegionInfo, "vpo-wrninfo",
                                  "VPO Work-Region Information", false, true)
 
 char WRegionInfo::ID = 0;
@@ -49,7 +49,7 @@ void WRegionInfo::getAnalysisUsage(AnalysisUsage &AU) const {
 }
 
 bool WRegionInfo::runOnFunction(Function &F) {
-  DEBUG(dbgs() << "\nENTER WRegionInfo::runOnFunction: " 
+  DEBUG(dbgs() << "\nENTER WRegionInfo::runOnFunction: "
                << F.getName() << "{\n");
   Func = &F;
   WRC  = &getAnalysis<WRegionCollection>();
@@ -57,13 +57,13 @@ bool WRegionInfo::runOnFunction(Function &F) {
   LI   = WRC->getLoopInfo();
   SE   = WRC->getSE();
 
-  DEBUG(dbgs() << "\n}EXIT WRegionInfo::runOnFunction: " 
+  DEBUG(dbgs() << "\n}EXIT WRegionInfo::runOnFunction: "
                << F.getName() << "\n");
   return false;
 }
 
 void WRegionInfo::buildWRGraph(WRegionCollection::InputIRKind IR) {
-  DEBUG(dbgs() << "\nENTER WRegionInfo::buildWRGraph(InpuIR=" 
+  DEBUG(dbgs() << "\nENTER WRegionInfo::buildWRGraph(InpuIR="
                << IR <<"){\n");
 
   WRC->buildWRGraph(IR);

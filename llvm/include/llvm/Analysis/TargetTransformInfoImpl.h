@@ -256,17 +256,6 @@ public:
 
   bool isLegalMaskedGather(Type *DataType) { return false; }
 
-#if INTEL_CUSTOMIZATION
-  bool isLegalSatDcnv(Intrinsic::ID IID, Type *From, Type *To,
-                       Constant *LoClip, Constant *HiClip) {
-    return false;
-  }
-
-  bool isLegalSatAddSub(Intrinsic::ID IID, Type *Ty,
-                        Constant *LoClip, Constant *HiCLip) {
-    return false;
-  }
-#endif // INTEL_CUSTOMIZATION
   bool prefersVectorizedAddressing() { return true; }
 
   int getScalingFactorCost(Type *Ty, GlobalValue *BaseGV, int64_t BaseOffset,

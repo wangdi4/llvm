@@ -155,7 +155,7 @@ public:
     WRNVisitor<WV> V(Visitor);
     V.forwardVisit(Graph);
   }
-  
+
   /// \brief Visit all WRN nodes in the Graph in the backward direction
   template <typename WV>
   static void backwardVisit(WV &Visitor, WRContainerImpl *Graph) {
@@ -279,7 +279,7 @@ public:
   ///  test exists.
   static ICmpInst *getOmpLoopZeroTripTest(Loop *L);
 
-  /// \breif Get the positin of the given loop index at 
+  /// \breif Get the positin of the given loop index at
   /// the bottom/zero trip test expression.
   static void getLoopIndexPosInPredicate(Value *LoopIndex,
                                          Instruction *CondInst,

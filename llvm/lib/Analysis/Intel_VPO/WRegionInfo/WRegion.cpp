@@ -45,7 +45,7 @@ WRNParallelNode::WRNParallelNode(BasicBlock *BB)
 
 // constructor
 WRNParallelLoopNode::WRNParallelLoopNode(BasicBlock *BB, LoopInfo *Li)
-    : WRegionNode(WRegionNode::WRNParallelLoop, BB), LI(Li) {
+    : WRegionNode(WRegionNode::WRNParallelLoop, BB), WRNLI(Li) {
   setIsPar();
   setIsOmpLoop();
   setIf(nullptr);
@@ -64,7 +64,7 @@ WRNParallelLoopNode::WRNParallelLoopNode(BasicBlock *BB, LoopInfo *Li)
 
 // constructor
 WRNParallelSectionsNode::WRNParallelSectionsNode(BasicBlock *BB, LoopInfo *Li)
-    : WRegionNode(WRegionNode::WRNParallelSections, BB), LI(Li) {
+    : WRegionNode(WRegionNode::WRNParallelSections, BB), WRNLI(Li) {
   setIsPar();
   setIsOmpLoop();
   setIf(nullptr);
@@ -81,7 +81,7 @@ WRNParallelSectionsNode::WRNParallelSectionsNode(BasicBlock *BB, LoopInfo *Li)
 
 // constructor
 WRNParallelWorkshareNode::WRNParallelWorkshareNode(BasicBlock *BB, LoopInfo *Li)
-    : WRegionNode(WRegionNode::WRNParallelWorkshare, BB), LI(Li) {
+    : WRegionNode(WRegionNode::WRNParallelWorkshare, BB), WRNLI(Li) {
   setIsPar();
   setIsOmpLoop();
   setIf(nullptr);
@@ -113,7 +113,7 @@ WRNTeamsNode::WRNTeamsNode(BasicBlock *BB)
 
 // constructor
 WRNDistributeParLoopNode::WRNDistributeParLoopNode(BasicBlock *BB, LoopInfo *Li)
-    : WRegionNode(WRegionNode::WRNDistributeParLoop, BB), LI(Li) {
+    : WRegionNode(WRegionNode::WRNDistributeParLoop, BB), WRNLI(Li) {
   setIsDistribute();
   setIsPar();
   setIsOmpLoop();
@@ -173,7 +173,6 @@ WRNTargetUpdateNode::WRNTargetUpdateNode(BasicBlock *BB)
   DEBUG(dbgs() << "\nCreated WRNTargetUpdateNode<" << getNumber() << ">\n");
 }
 
-
 //
 // Methods for WRNTaskNode
 //
@@ -199,7 +198,7 @@ WRNTaskNode::WRNTaskNode(BasicBlock *BB)
 
 // constructor
 WRNTaskloopNode::WRNTaskloopNode(BasicBlock *BB, LoopInfo *Li)
-    : WRNTaskNode(BB), LI(Li) {
+    : WRNTaskNode(BB), WRNLI(Li) {
   setWRegionKindID(WRegionNode::WRNTaskloop);
   setIsTask();
   setIsOmpLoop();
@@ -226,7 +225,7 @@ WRNTaskloopNode::WRNTaskloopNode(BasicBlock *BB, LoopInfo *Li)
 
 // constructor for LLVM IR representation
 WRNVecLoopNode::WRNVecLoopNode(BasicBlock *BB, LoopInfo *Li)
-    : WRegionNode(WRegionNode::WRNVecLoop, BB), LI(Li) {
+    : WRegionNode(WRegionNode::WRNVecLoop, BB), WRNLI(Li) {
   setIsOmpLoop();
   setSimdlen(0);
   setSafelen(0);
@@ -238,7 +237,8 @@ WRNVecLoopNode::WRNVecLoopNode(BasicBlock *BB, LoopInfo *Li)
 
 // constructor for HIR representation
 WRNVecLoopNode::WRNVecLoopNode(loopopt::HLNode *EntryHLN)
-    : WRegionNode(WRegionNode::WRNVecLoop), EntryHLNode(EntryHLN) {
+                                      : WRegionNode(WRegionNode::WRNVecLoop),
+                                        WRNLI(nullptr), EntryHLNode(EntryHLN) {
   setIsOmpLoop();
   setSimdlen(0);
   setSafelen(0);
@@ -280,7 +280,7 @@ void WRNVecLoopNode::printHIR(formatted_raw_ostream &OS, unsigned Depth,
 
 // constructor
 WRNWksLoopNode::WRNWksLoopNode(BasicBlock *BB, LoopInfo *Li)
-    : WRegionNode(WRegionNode::WRNWksLoop, BB), LI(Li) {
+    : WRegionNode(WRegionNode::WRNWksLoop, BB), WRNLI(Li) {
   setIsOmpLoop();
   setCollapse(0);
   setOrdered(0);
@@ -295,7 +295,7 @@ WRNWksLoopNode::WRNWksLoopNode(BasicBlock *BB, LoopInfo *Li)
 
 // constructor
 WRNSectionsNode::WRNSectionsNode(BasicBlock *BB, LoopInfo *Li)
-    : WRegionNode(WRegionNode::WRNSections, BB), LI(Li) {
+    : WRegionNode(WRegionNode::WRNSections, BB), WRNLI(Li) {
   setIsOmpLoop();
   setNowait(false);
 
@@ -308,7 +308,7 @@ WRNSectionsNode::WRNSectionsNode(BasicBlock *BB, LoopInfo *Li)
 
 // constructor
 WRNWorkshareNode::WRNWorkshareNode(BasicBlock *BB, LoopInfo *Li)
-    : WRegionNode(WRegionNode::WRNWorkshare, BB), LI(Li) {
+    : WRegionNode(WRegionNode::WRNWorkshare, BB), WRNLI(Li) {
   setIsOmpLoop();
   setNowait(false);
 
@@ -321,7 +321,7 @@ WRNWorkshareNode::WRNWorkshareNode(BasicBlock *BB, LoopInfo *Li)
 
 // constructor
 WRNDistributeNode::WRNDistributeNode(BasicBlock *BB, LoopInfo *Li)
-    : WRegionNode(WRegionNode::WRNDistribute, BB), LI(Li) {
+    : WRegionNode(WRegionNode::WRNDistribute, BB), WRNLI(Li) {
   setIsOmpLoop();
   setIsDistribute();
   setCollapse(0);

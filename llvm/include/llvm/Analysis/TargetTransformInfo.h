@@ -443,19 +443,6 @@ public:
   bool isLegalMaskedScatter(Type *DataType) const;
   bool isLegalMaskedGather(Type *DataType) const;
 
-#if INTEL_CUSTOMIZATION
-  /// \brief Return true if the target supports the specified saturating
-  /// downconvert. Includes the target check for further clipping to
-  /// the narrower range if needed.
-  bool isLegalSatDcnv(Intrinsic::ID IID, Type *From, Type *To,
-                       Constant *LoClip, Constant *HiClip) const;
-
-  /// \brief Return true if the target supports the specified saturating
-  /// add/subtract. Includes the target check for further clipping to
-  /// the narrower range if needed.
-  bool isLegalSatAddSub(Intrinsic::ID IID, Type *Ty,
-                        Constant *LoClip, Constant *HiClip) const;
-#endif // INTEL_CUSTOMIZATION
   /// Return true if target doesn't mind addresses in vectors.
   bool prefersVectorizedAddressing() const;
 
@@ -918,12 +905,6 @@ public:
   virtual bool isLegalMaskedLoad(Type *DataType) = 0;
   virtual bool isLegalMaskedScatter(Type *DataType) = 0;
   virtual bool isLegalMaskedGather(Type *DataType) = 0;
-#if INTEL_CUSTOMIZATION
-  virtual bool isLegalSatDcnv(Intrinsic::ID IID, Type *From, Type *To,
-                               Constant *LoClip, Constant *HiClip) = 0;
-  virtual bool isLegalSatAddSub(Intrinsic::ID IID, Type *Ty,
-                                Constant *LoClip, Constant *HiClip) = 0;
-#endif // INTEL_CUSTOMIZATION
   virtual bool prefersVectorizedAddressing() = 0;
   virtual int getScalingFactorCost(Type *Ty, GlobalValue *BaseGV,
                                    int64_t BaseOffset, bool HasBaseReg,
@@ -1150,16 +1131,6 @@ public:
   bool isLegalMaskedGather(Type *DataType) override {
     return Impl.isLegalMaskedGather(DataType);
   }
-#if INTEL_CUSTOMIZATION
-  bool isLegalSatDcnv(Intrinsic::ID IID, Type *From, Type *To,
-                       Constant *LoClip, Constant *HiClip) override {
-    return Impl.isLegalSatDcnv(IID, From, To, LoClip, HiClip);
-  }
-  bool isLegalSatAddSub(Intrinsic::ID IID, Type *Ty,
-                        Constant *LoClip, Constant *HiClip) override {
-    return Impl.isLegalSatAddSub(IID, Ty, LoClip, HiClip);
-  }
-#endif // INTEL_CUSTOMIZATION
   bool prefersVectorizedAddressing() override {
     return Impl.prefersVectorizedAddressing();
   }

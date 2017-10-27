@@ -174,20 +174,6 @@ bool TargetTransformInfo::isLegalMaskedScatter(Type *DataType) const {
   return TTIImpl->isLegalMaskedGather(DataType);
 }
 
-#if INTEL_CUSTOMIZATION
-bool TargetTransformInfo::isLegalSatDcnv(Intrinsic::ID IID, Type *From,
-                                         Type *To, Constant *LoClip,
-                                         Constant *HiClip) const {
-  return TTIImpl->isLegalSatDcnv(IID, From, To, LoClip, HiClip);
-}
-
-bool TargetTransformInfo::isLegalSatAddSub(Intrinsic::ID IID, Type *Ty,
-                                           Constant *LoClip, Constant *HiClip)
-                                           const {
-  return TTIImpl->isLegalSatAddSub(IID, Ty, LoClip, HiClip);
-}
-#endif // INTEL_CUSTOMIZATION
-
 bool TargetTransformInfo::prefersVectorizedAddressing() const {
   return TTIImpl->prefersVectorizedAddressing();
 }

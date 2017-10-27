@@ -210,7 +210,7 @@ void VPOParoptTransform::GenTgtInformationForPtrs(
 
   FirstprivateClause &FprivClause = W->getFpriv();
   for (FirstprivateItem *FprivI : FprivClause.items()) {
-    if (FprivI->getNew() != V)
+    if (FprivI->getOrig() != V)
       continue;
     Type *T = FprivI->getOrig()->getType()->getPointerElementType();
     ConstSizes.push_back(
@@ -231,6 +231,7 @@ void VPOParoptTransform::GenTgtInformationForPtrs(
 // Generate the initialization code for the directive omp target.
 CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
                                                 Instruction *InsertPt) {
+  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genTargetInitCode\n");
   IRBuilder<> Builder(InsertPt);
   TgDataInfo Info;
 
@@ -283,9 +284,11 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
 
   GlobalVariable *OffloadRegionId = getOMPOffloadRegionId();
 
-  return VPOParoptUtils::genTgtTarget(
-      W, OffloadRegionId, Info.NumberOfPtrs, Info.BaseDataPtrs,
-      Info.DataPtrs, Info.DataSizes, Info.DataMapTypes, InsertPt);
+  CallInst *TgtCall = VPOParoptUtils::genTgtTarget(
+                 W, OffloadRegionId, Info.NumberOfPtrs, Info.BaseDataPtrs,
+                 Info.DataPtrs, Info.DataSizes, Info.DataMapTypes, InsertPt);
+  DEBUG(dbgs() << "\nExit VPOParoptTransform::genTargetInitCode\n");
+  return TgtCall;
 }
 
 // Pass the data to the array of base pointer as well as  array of

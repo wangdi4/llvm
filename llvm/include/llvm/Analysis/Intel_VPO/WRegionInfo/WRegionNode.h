@@ -52,6 +52,8 @@ typedef WRContainerTy::const_iterator         wrn_const_iterator;
 typedef WRContainerTy::reverse_iterator       wrn_reverse_iterator;
 typedef WRContainerTy::const_reverse_iterator wrn_const_reverse_iterator;
 
+class WRNLoopInfo;  // WRegion.h
+
 /// \brief WRegion Node base class
 class WRegionNode {
 
@@ -324,12 +326,11 @@ public:
   virtual void setUserLockName(StringRef LN)    {WRNERROR(QUAL_OMP_NAME);     }
   virtual StringRef getUserLockName()     const {WRNERROR(QUAL_OMP_NAME);     }
 
-  // Loop & LoopInfo
+  // WRNLoopInfo
 
-  virtual void setLoop(Loop *L)                 {WRNERROR("LOOP");            }
-  virtual Loop *getLoop()                 const {WRNERROR("LOOP");            }
-  virtual void setLoopInfo(LoopInfo *LI)        {WRNERROR("LoopInfo");        }
-  virtual LoopInfo *getLoopInfo()         const {WRNERROR("LoopInfo");        }
+  virtual WRNLoopInfo &getWRNLoopInfo()         {WRNERROR("WRNLoopInfo");     }
+  virtual const WRNLoopInfo &getWRNLoopInfo() const
+                                                {WRNERROR("WRNLoopInfo");     }
 
   // Task
 

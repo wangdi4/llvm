@@ -110,10 +110,6 @@ public:
   bool isLegalMaskedGather(Type *DataType);
   bool isLegalMaskedScatter(Type *DataType);
 #if INTEL_CUSTOMIZATION
-  bool isLegalSatDcnv(Intrinsic::ID IID, Type *From, Type *To,
-                      Constant *LoClip, Constant *HiClip);
-  bool isLegalSatAddSub(Intrinsic::ID IID, Type *Ty, Constant *LoClip,
-                        Constant *HiClip);
   bool isAdvancedOptimEnabled() const;
   bool adjustCallArgs(CallInst* CI);
   bool isTargetSpecificShuffleMask(SmallVectorImpl<int> &Mask) const;
