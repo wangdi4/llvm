@@ -374,7 +374,7 @@ CSA::OpcodeClass CSAInstrInfo::getOpcodeClass(unsigned opcode) const {
 }
 
 unsigned CSAInstrInfo::makeOpcode(CSA::Generic generic, unsigned size,
-    CSA::OpcodeClass opcodeClass) const {
+    CSA::OpcodeClass opcodeClass, bool *exists) const {
   unsigned startIndex = generic_index_map[static_cast<unsigned>(generic)];
   assert(startIndex != ~0U && "Generic opcode has no valid opcodes");
   for (unsigned index = startIndex;
@@ -384,11 +384,25 @@ unsigned CSAInstrInfo::makeOpcode(CSA::Generic generic, unsigned size,
     if (entry.opSize == size &&
         (opcodeClass == CSA::VARIANT_DONTCARE ||
          opcodeClass == entry.opClassification)) {
+      if (exists)
+        *exists = true;
       return entry.opcode;
     }
   }
-  assert(false && "No valid opcode could be found");
+
+  assert(exists && "No valid opcode could be found");
+  *exists = false;
   return 0;
+}
+
+unsigned
+CSAInstrInfo::adjustOpcode(unsigned oldOpcode, CSA::Generic opcode) const {
+  bool exists = false;
+  unsigned newOpcode = makeOpcode(opcode, getLicSize(oldOpcode),
+      getOpcodeClass(oldOpcode), &exists);
+  if (!exists)
+    newOpcode = oldOpcode;
+  return newOpcode;
 }
 
 unsigned
@@ -410,18 +424,8 @@ CSAInstrInfo::getSizeOfRegisterClass(const TargetRegisterClass *RC) const {
   }
 }
 
-// This should probably be set up differently:
-// Have a generic operation enum (e.g. PICK, SWITCH, CMPLEU, ADD, ... etc.)
-// Then have
-//  genop = genericOpcodeFromSpecific(opcode)
-//  VT = typeFromOpcode(opcode) - primary result type
-// and:
-// plus things like:
-//  opc = selectSeq(addOp, cmpOp)  // return a sequence based on add+
-
-unsigned
-CSAInstrInfo::getPickSwitchOpcode(const TargetRegisterClass *RC,
-				    bool isPick) const {
+unsigned CSAInstrInfo::getPickSwitchOpcode(const TargetRegisterClass *RC,
+                                           bool isPick) const {
   return makeOpcode(isPick ? CSA::Generic::PICK : CSA::Generic::SWITCH, RC);
 }
 
@@ -444,14 +448,6 @@ bool CSAInstrInfo::isMOV(const MachineInstr *MI) const {
     MI->getOpcode() == CSA::MOV16 ||
     MI->getOpcode() == CSA::MOV32 ||
     MI->getOpcode() == CSA::MOV64;
-}
-
-bool CSAInstrInfo::isInit(const MachineInstr *MI) const {
-  return MI->getOpcode() == CSA::INIT1 ||
-    MI->getOpcode() == CSA::INIT8 ||
-    MI->getOpcode() == CSA::INIT16 ||
-    MI->getOpcode() == CSA::INIT32 ||
-    MI->getOpcode() == CSA::INIT64;
 }
 
 bool CSAInstrInfo::isAtomic(const MachineInstr *MI) const {
@@ -701,286 +697,56 @@ unsigned CSAInstrInfo::commuteNegateCompareOpcode(unsigned cmp_opcode,
     }
 }
 
-
-unsigned CSAInstrInfo::
-convertCompareOpToSeqOTOp(unsigned cmp_opcode) const {
-    switch (cmp_opcode) {
-    // ">="
-    case CSA::CMPGES8:
-      return CSA::SEQOTGES8;
-    case CSA::CMPGES16:
-      return CSA::SEQOTGES16;
-    case CSA::CMPGES32:
-      return CSA::SEQOTGES32;
-    case CSA::CMPGES64:
-      return CSA::SEQOTGES64;
-    case CSA::CMPGEU8:
-      return CSA::SEQOTGEU8;
-    case CSA::CMPGEU16:
-      return CSA::SEQOTGEU16;
-    case CSA::CMPGEU32:
-      return CSA::SEQOTGEU32;
-    case CSA::CMPGEU64:
-      return CSA::SEQOTGEU64;
-
-    // ">" 
-    case CSA::CMPGTS8:
-      return CSA::SEQOTGTS8;
-    case CSA::CMPGTS16:
-      return CSA::SEQOTGTS16;
-    case CSA::CMPGTS32:
-      return CSA::SEQOTGTS32;
-    case CSA::CMPGTS64:
-      return CSA::SEQOTGTS64;
-    case CSA::CMPGTU8:
-      return CSA::SEQOTGTU8;
-    case CSA::CMPGTU16:
-      return CSA::SEQOTGTU16;
-    case CSA::CMPGTU32:
-      return CSA::SEQOTGTU32;
-    case CSA::CMPGTU64:
-      return CSA::SEQOTGTU64;
-
-    // "<=" 
-    case CSA::CMPLES8:
-      return CSA::SEQOTLES8;
-    case CSA::CMPLES16:
-      return CSA::SEQOTLES16;
-    case CSA::CMPLES32:
-      return CSA::SEQOTLES32;
-    case CSA::CMPLES64:
-      return CSA::SEQOTLES64;
-    case CSA::CMPLEU8:
-      return CSA::SEQOTLEU8;
-    case CSA::CMPLEU16:
-      return CSA::SEQOTLEU16;
-    case CSA::CMPLEU32:
-      return CSA::SEQOTLEU32;
-    case CSA::CMPLEU64:
-      return CSA::SEQOTLEU64;
-
-    // "<" 
-    case CSA::CMPLTS8:
-      return CSA::SEQOTLTS8;
-    case CSA::CMPLTS16:
-      return CSA::SEQOTLTS16;
-    case CSA::CMPLTS32:
-      return CSA::SEQOTLTS32;
-    case CSA::CMPLTS64:
-      return CSA::SEQOTLTS64;
-    case CSA::CMPLTU8:
-      return CSA::SEQOTLTU8;
-    case CSA::CMPLTU16:
-      return CSA::SEQOTLTU16;
-    case CSA::CMPLTU32:
-      return CSA::SEQOTLTU32;
-    case CSA::CMPLTU64:
-      return CSA::SEQOTLTU64;
-
-    // !=
-    case CSA::CMPNE8:
-      return CSA::SEQOTNE8;
-    case CSA::CMPNE16:
-      return CSA::SEQOTNE16;
-    case CSA::CMPNE32:
-      return CSA::SEQOTNE32;
-    case CSA::CMPNE64:
-      return CSA::SEQOTNE64;
-      
-
-    // By default, return the same opcode. 
-    default:
-      return cmp_opcode;
-    }
-}
-
-
-unsigned CSAInstrInfo::
-promoteSeqOTOpBitwidth(unsigned seq_opcode,
-                       int bitwidth) const {
-    switch (seq_opcode) {
-      // This code is relying on the fall-through of switch, to end up
-      // picking the smallest size that is both larger than the size
-      // specified in seq_opcode and >= bitwidth.
-
-    //">="
-    case CSA::SEQOTGES8:
-      if (bitwidth <= 8) { return CSA::SEQOTGES8; }
-    case CSA::SEQOTGES16:
-      if (bitwidth <= 16) { return CSA::SEQOTGES16; }      
-    case CSA::SEQOTGES32:
-      if (bitwidth <= 32) { return CSA::SEQOTGES32; }            
-    case CSA::SEQOTGES64:
-      return CSA::SEQOTGES64;
-
-    case CSA::SEQOTGEU8:
-      if (bitwidth <= 8) { return CSA::SEQOTGEU8; }
-    case CSA::SEQOTGEU16:
-      if (bitwidth <= 16) { return CSA::SEQOTGEU16; }      
-    case CSA::SEQOTGEU32:
-      if (bitwidth <= 32) { return CSA::SEQOTGEU32; }            
-    case CSA::SEQOTGEU64:
-      return CSA::SEQOTGEU64;
-
-    // ">"
-    case CSA::SEQOTGTS8:
-      if (bitwidth <= 8) { return CSA::SEQOTGTS8; }
-    case CSA::SEQOTGTS16:
-      if (bitwidth <= 16) { return CSA::SEQOTGTS16; }      
-    case CSA::SEQOTGTS32:
-      if (bitwidth <= 32) { return CSA::SEQOTGTS32; }            
-    case CSA::SEQOTGTS64:
-      return CSA::SEQOTGTS64;
-
-    case CSA::SEQOTGTU8:
-      if (bitwidth <= 8) { return CSA::SEQOTGTU8; }
-    case CSA::SEQOTGTU16:
-      if (bitwidth <= 16) { return CSA::SEQOTGTU16; }      
-    case CSA::SEQOTGTU32:
-      if (bitwidth <= 32) { return CSA::SEQOTGTU32; }            
-    case CSA::SEQOTGTU64:
-      return CSA::SEQOTGTU64;
-
-
-    // "<="
-    case CSA::SEQOTLES8:
-      if (bitwidth <= 8) { return CSA::SEQOTLES8; }
-    case CSA::SEQOTLES16:
-      if (bitwidth <= 16) { return CSA::SEQOTLES16; }      
-    case CSA::SEQOTLES32:
-      if (bitwidth <= 32) { return CSA::SEQOTLES32; }            
-    case CSA::SEQOTLES64:
-      return CSA::SEQOTLES64;
-
-    case CSA::SEQOTLEU8:
-      if (bitwidth <= 8) { return CSA::SEQOTLEU8; }
-    case CSA::SEQOTLEU16:
-      if (bitwidth <= 16) { return CSA::SEQOTLEU16; }      
-    case CSA::SEQOTLEU32:
-      if (bitwidth <= 32) { return CSA::SEQOTLEU32; }            
-    case CSA::SEQOTLEU64:
-      return CSA::SEQOTLEU64;
-
-    // "<"
-    case CSA::SEQOTLTS8:
-      if (bitwidth <= 8) { return CSA::SEQOTLTS8; }
-    case CSA::SEQOTLTS16:
-      if (bitwidth <= 16) { return CSA::SEQOTLTS16; }      
-    case CSA::SEQOTLTS32:
-      if (bitwidth <= 32) { return CSA::SEQOTLTS32; }            
-    case CSA::SEQOTLTS64:
-      return CSA::SEQOTLTS64;
-
-    case CSA::SEQOTLTU8:
-      if (bitwidth <= 8) { return CSA::SEQOTLTU8; }
-    case CSA::SEQOTLTU16:
-      if (bitwidth <= 16) { return CSA::SEQOTLTU16; }      
-    case CSA::SEQOTLTU32:
-      if (bitwidth <= 32) { return CSA::SEQOTLTU32; }            
-    case CSA::SEQOTLTU64:
-      return CSA::SEQOTLTU64;
-
-    // !=
-    case CSA::SEQOTNE8:
-      if (bitwidth <= 8) { return CSA::SEQOTNE8; }
-    case CSA::SEQOTNE16:
-      if (bitwidth <= 16) { return CSA::SEQOTNE16; }      
-    case CSA::SEQOTNE32:
-      if (bitwidth <= 32) { return CSA::SEQOTNE32; }            
-    case CSA::SEQOTNE64:
-      return CSA::SEQOTNE64;
-      
-    // By default, return the same opcode. 
-    default:
-      return seq_opcode;
-    }
-}
-
-
-bool
-CSAInstrInfo::
-convertAddToStrideOp(unsigned add_opcode,
-                     unsigned* strideOpcode) const {
-  switch (add_opcode) {
-  case CSA::ADD64:
-    *strideOpcode = CSA::STRIDE64;
-    return true;
-
-  case CSA::ADD32:
-    *strideOpcode = CSA::STRIDE32;
-    return true;
-    
-  case CSA::ADD16:
-    *strideOpcode = CSA::STRIDE16;
-    return true;
-
-  case CSA::ADD8:
-    *strideOpcode = CSA::STRIDE8;
-    return true;
-    
-  default:
-    // No match. return false. 
-    return false;
+unsigned CSAInstrInfo::convertCompareOpToSeqOTOp(unsigned cmp_opcode) const {
+  CSA::Generic seq_opcode;
+  switch (getGenericOpcode(cmp_opcode)) {
+  case CSA::Generic::CMPGE: seq_opcode = CSA::Generic::SEQOTGE; break;
+  case CSA::Generic::CMPGT: seq_opcode = CSA::Generic::SEQOTGT; break;
+  case CSA::Generic::CMPLE: seq_opcode = CSA::Generic::SEQOTLE; break;
+  case CSA::Generic::CMPLT: seq_opcode = CSA::Generic::SEQOTLT; break;
+  case CSA::Generic::CMPNE: seq_opcode = CSA::Generic::SEQOTNE; break;
+  default: return cmp_opcode;
   }
+  return adjustOpcode(cmp_opcode, seq_opcode);
 }
 
-bool
-CSAInstrInfo::
-convertSubToStrideOp(unsigned sub_opcode,
-                     unsigned* strideOpcode) const {
-  switch (sub_opcode) {
-  case CSA::SUB64:
-    *strideOpcode = CSA::STRIDE64;
-    return true;
-
-  case CSA::SUB32:
-    *strideOpcode = CSA::STRIDE32;
-    return true;
-    
-  case CSA::SUB16:
-    *strideOpcode = CSA::STRIDE16;
-    return true;
-
-  case CSA::SUB8:
-    *strideOpcode = CSA::STRIDE8;
-    return true;
-    
-  default:
-    // No match. return false. 
-    return false;
-  }
+unsigned CSAInstrInfo::promoteSeqOTOpBitwidth(unsigned seq_opcode,
+                                              int bitwidth) const {
+  // Pick the larger of the sequence opcode and the bitwidth.
+  unsigned licSize = std::max(getLicSize(seq_opcode), (unsigned)bitwidth);
+  return makeOpcode(getGenericOpcode(seq_opcode), licSize,
+      getOpcodeClass(seq_opcode));
 }
 
-bool
-CSAInstrInfo::
-negateOpForStride(unsigned strideOpcode,
-                  unsigned* negOpcode) const {
-  switch (strideOpcode) {
-  case CSA::STRIDE64:
-    *negOpcode = CSA::NEG64;
+bool CSAInstrInfo::convertAddToStrideOp(unsigned add_opcode,
+                                        unsigned* strideOpcode) const {
+  if (getGenericOpcode(add_opcode) == CSA::Generic::ADD) {
+    *strideOpcode = adjustOpcode(add_opcode, CSA::Generic::STRIDE);
     return true;
-
-  case CSA::STRIDE32:
-    *negOpcode = CSA::NEG32;
-    return true;
-    
-  case CSA::STRIDE16:
-    *negOpcode = CSA::NEG16;
-    return true;
-
-  case CSA::STRIDE8:
-    *negOpcode = CSA::NEG8;
-    return true;
-
-  default:
-    // No match. return false. 
-    return false;
   }
+  return false;
+}
+
+bool CSAInstrInfo::convertSubToStrideOp(unsigned sub_opcode,
+                                        unsigned* strideOpcode) const {
+  if (getGenericOpcode(sub_opcode) == CSA::Generic::SUB) {
+    *strideOpcode = adjustOpcode(sub_opcode, CSA::Generic::STRIDE);
+    return true;
+  }
+  return false;
+}
+
+bool CSAInstrInfo::negateOpForStride(unsigned strideOpcode,
+                                     unsigned* negOpcode) const {
+  if (getGenericOpcode(strideOpcode) == CSA::Generic::STRIDE) {
+    *negOpcode = adjustOpcode(strideOpcode, CSA::Generic::NEG);
+    return true;
+  }
+  return false;
 }
 
 const TargetRegisterClass*
-CSAInstrInfo::
-getStrideInputRC(unsigned strideOpcode) const {
+CSAInstrInfo::getStrideInputRC(unsigned strideOpcode) const {
   switch (strideOpcode) {
   case CSA::STRIDE64:
     return &CSA::CI64RegClass;
@@ -996,153 +762,45 @@ getStrideInputRC(unsigned strideOpcode) const {
   }
 }
 
-
-bool
-CSAInstrInfo::
-convertPickToRepeatOp(unsigned pick_opcode,
-                      unsigned* repeat_opcode) const {
-  switch (pick_opcode) {
-  case CSA::PICK64:
-    *repeat_opcode = CSA::REPEAT64;
-    return true;
-  case CSA::PICK32:
-    *repeat_opcode = CSA::REPEAT32;
-    return true;
-  case CSA::PICK16:
-    *repeat_opcode = CSA::REPEAT16;
-    return true;
-  case CSA::PICK8:
-    *repeat_opcode = CSA::REPEAT8;
-    return true;
-  case CSA::PICK1:
-    *repeat_opcode = CSA::REPEAT1;    
-    return true;
-  default:
-    // No match. return false. 
-    return false;
-  }
+bool CSAInstrInfo::convertPickToRepeatOp(unsigned pick_opcode,
+                                         unsigned* repeat_opcode) const {
+  assert(getGenericOpcode(pick_opcode) == CSA::Generic::PICK &&
+      "Input must be a PICK");
+  *repeat_opcode = adjustOpcode(pick_opcode, CSA::Generic::REPEAT);
+  return true;
 }
 
 bool
-CSAInstrInfo::
-isCommutingReductionTransform(const MachineInstr* MI) const {
-  unsigned opcode = MI->getOpcode();
+CSAInstrInfo::isCommutingReductionTransform(const MachineInstr* MI) const {
+  using namespace CSA;
   // NOTE: we are leaving out AND1, OR1, and XOR1.
   // We don't have a 1-bit reduction op...
-  return (isAdd(MI) ||
-          isMul(MI) ||
-          ((CSA::AND16 <= opcode) && (opcode <= CSA::AND8)) ||
-          ((CSA::OR16 <= opcode) && (opcode <= CSA::OR8)) ||
-          ((CSA::XOR16 <= opcode) && (opcode <= CSA::XOR8)));
-}
-
-
-bool
-CSAInstrInfo::
-convertTransformToReductionOp(unsigned transform_opcode,
-                              unsigned* reduction_opcode) const {
-  switch (transform_opcode) {
-
-  case CSA::FMAF64:
-    *reduction_opcode = CSA::FMSREDAF64;
+  switch (getGenericOpcode(MI->getOpcode())) {
+  case Generic::ADD: case Generic::MUL:
     return true;
-  case CSA::FMAF32:
-    *reduction_opcode = CSA::FMSREDAF32;
-    return true;
-
-  case CSA::ADDF64:
-    *reduction_opcode = CSA::SREDADDF64;
-    return true;
-  case CSA::ADDF32:
-    *reduction_opcode = CSA::SREDADDF32;
-    return true;    
-  case CSA::ADD64:
-    *reduction_opcode = CSA::SREDADD64;
-    return true;
-  case CSA::ADD32:
-    *reduction_opcode = CSA::SREDADD32;
-    return true;
-  case CSA::ADD16:
-    *reduction_opcode = CSA::SREDADD16;
-    return true;
-
-  case CSA::SUBF64:
-    *reduction_opcode = CSA::SREDSUBF64;
-    return true;
-  case CSA::SUBF32:
-    *reduction_opcode = CSA::SREDSUBF32;
-    return true;    
-  case CSA::SUB64:
-    *reduction_opcode = CSA::SREDSUB64;
-    return true;
-  case CSA::SUB32:
-    *reduction_opcode = CSA::SREDSUB32;
-    return true;
-  case CSA::SUB16:
-    *reduction_opcode = CSA::SREDSUB16;
-    return true;
-
-  case CSA::MULF64:
-    *reduction_opcode = CSA::SREDMULF64;
-    return true;
-  case CSA::MULF32:
-    *reduction_opcode = CSA::SREDMULF32;
-    return true;    
-  case CSA::MUL64:
-    *reduction_opcode = CSA::SREDMUL64;
-    return true;
-  case CSA::MUL32:
-    *reduction_opcode = CSA::SREDMUL32;
-    return true;
-  case CSA::MUL16:
-    *reduction_opcode = CSA::SREDMUL16;
-    return true;
-
-  case CSA::AND64:
-    *reduction_opcode = CSA::SREDAND64;
-    return true;
-  case CSA::AND32:
-    *reduction_opcode = CSA::SREDAND32;
-    return true;
-  case CSA::AND16:
-    *reduction_opcode = CSA::SREDAND16;
-    return true;
-  case CSA::AND8:
-    *reduction_opcode = CSA::SREDAND8;
-    return true;
-
-  case CSA::OR64:
-    *reduction_opcode = CSA::SREDOR64;
-    return true;
-  case CSA::OR32:
-    *reduction_opcode = CSA::SREDOR32;
-    return true;
-  case CSA::OR16:
-    *reduction_opcode = CSA::SREDOR16;
-    return true;
-  case CSA::OR8:
-    *reduction_opcode = CSA::SREDOR8;
-    return true;
-
-  case CSA::XOR64:
-    *reduction_opcode = CSA::SREDXOR64;
-    return true;
-  case CSA::XOR32:
-    *reduction_opcode = CSA::SREDXOR32;
-    return true;
-  case CSA::XOR16:
-    *reduction_opcode = CSA::SREDXOR16;
-    return true;
-  case CSA::XOR8:
-    *reduction_opcode = CSA::SREDXOR8;
-    return true;
-    
+  case Generic::AND: case Generic::OR: case Generic::XOR:
+    return getLicSize(MI->getOpcode()) > 1;
   default:
-    // No match. return false. 
     return false;
   }
 }
 
+bool CSAInstrInfo::convertTransformToReductionOp(unsigned transform_opcode,
+                                             unsigned* reduction_opcode) const {
+  CSA::Generic reductGeneric;
+  switch (getGenericOpcode(transform_opcode)) {
+  case CSA::Generic::FMA: reductGeneric = CSA::Generic::FMSREDA; break;
+  case CSA::Generic::ADD: reductGeneric = CSA::Generic::SREDADD; break;
+  case CSA::Generic::SUB: reductGeneric = CSA::Generic::SREDSUB; break;
+  case CSA::Generic::MUL: reductGeneric = CSA::Generic::SREDMUL; break;
+  case CSA::Generic::AND: reductGeneric = CSA::Generic::SREDAND; break;
+  case CSA::Generic::OR:  reductGeneric = CSA::Generic::SREDOR;  break;
+  case CSA::Generic::XOR: reductGeneric = CSA::Generic::SREDXOR; break;
+  default: return false;
+  }
+  *reduction_opcode = adjustOpcode(transform_opcode, reductGeneric);
+  return *reduction_opcode != transform_opcode;
+}
 
 // TBD(jsukha): My initial attempt at the implementation was to call
 // TargetRegisterClass::getMinimalPhysRegClass.  But this method seems
@@ -1169,29 +827,4 @@ CSAInstrInfo::lookupLICRegClass(unsigned reg) const {
     return &CSA::CI0RegClass;    
   }
   return nullptr;
-}
-
-
-int
-CSAInstrInfo::
-getMOVBitwidth(unsigned mov_opcode) const {
-  switch (mov_opcode) {
-  // Ordered from largest to smallest, under the assumption that
-  // larger sizes are more common, and that the first cases are
-  // faster.
-  case CSA::MOV64:
-    return 64;
-  case CSA::MOV32:
-    return 32;
-  case CSA::MOV16:
-    return 16;
-  case CSA::MOV8:
-    return 8;
-  case CSA::MOV1:
-    return 1;
-  case CSA::MOV0:
-    return 0;
-  default:
-    return -1;
-  }
 }

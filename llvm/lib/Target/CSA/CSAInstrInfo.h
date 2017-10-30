@@ -199,7 +199,8 @@ public:
   /// desired licSize. If such an operation cannot be constructed, then the
   /// result is an assertion. TODO: good idea?
   unsigned makeOpcode(CSA::Generic genericOpcode, unsigned licSize,
-    CSA::OpcodeClass opcodeClass = CSA::VARIANT_DONTCARE) const;
+    CSA::OpcodeClass opcodeClass = CSA::VARIANT_DONTCARE,
+    bool *exists = nullptr) const;
 
   /// Variant of makeOpcode that works on register classes instead of fixed
   /// bit sizes.
@@ -207,6 +208,10 @@ public:
       CSA::OpcodeClass opcodeClass = CSA::VARIANT_DONTCARE) const {
     return makeOpcode(genericOpcode, getSizeOfRegisterClass(RC), opcodeClass);
   }
+
+  /// This returns a new opcode with the same bitwidth and classification as the
+  /// input opcode. If no such opcode exists, the original opcode is returned.
+  unsigned adjustOpcode(unsigned opcode, CSA::Generic newOpcode) const;
 
   /// Get the lic size for the given register class.
   unsigned getSizeOfRegisterClass(const TargetRegisterClass *RC) const;
@@ -224,7 +229,9 @@ public:
   bool isPickany(const MachineInstr *MI) const {
     return getGenericOpcode(MI->getOpcode()) == CSA::Generic::PICKANY;
   }
-  bool isInit(const MachineInstr *) const;
+  bool isInit(const MachineInstr *MI) const {
+    return getGenericOpcode(MI->getOpcode()) == CSA::Generic::INIT;
+  }
   bool isLoad(const MachineInstr *) const;
   bool isStore(const MachineInstr *) const;
   bool isAdd(const MachineInstr *MI) const {
@@ -380,10 +387,6 @@ public:
   //  fall into a valid range). 
   const TargetRegisterClass*
   lookupLICRegClass(unsigned lic_reg) const;
-
-  // Returns the bitwidth of a MOV opcode.
-  // Returns -1 if something is wrong.  
-  int getMOVBitwidth(unsigned mov_opcode) const;
 };
 
 }
