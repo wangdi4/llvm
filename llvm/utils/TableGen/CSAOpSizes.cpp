@@ -71,7 +71,7 @@ void CSAOpSizes::run(raw_ostream &OS) {
 
   CodeGenTarget &Target = CDP.getTargetInfo();
   auto Namespace = Target.getInstNamespace();
-  typedef std::tuple<size_t, const CodeGenInstruction *, unsigned, unsigned> ReverseMapTy;
+  typedef std::tuple<size_t, unsigned, unsigned, const CodeGenInstruction *> ReverseMapTy;
   std::vector<ReverseMapTy> ReverseMap;
 
   OS << "static OpcGenericMap opcode_to_generic_map[] = {\n";
@@ -97,7 +97,7 @@ void CSAOpSizes::run(raw_ostream &OS) {
         classification = 0;
       ReverseMap.emplace_back(
         std::find(GenericOps.begin(), GenericOps.end(), genOp) - GenericOps.begin(),
-        II, size, classification);
+        size, classification, II);
       OS << genOp->getName() << ", ";
       OS << size << ", " << classification;
     } else {
@@ -113,9 +113,9 @@ void CSAOpSizes::run(raw_ostream &OS) {
   for (auto &val : ReverseMap) {
     OS << "  { " << Namespace << "::Generic::" <<
       GenericOps[std::get<0>(val)]->getName();
-    auto II = std::get<1>(val);
+    auto II = std::get<3>(val);
     OS << ", " << II->Namespace << "::" << II->TheDef->getName();
-    OS << ", " << std::get<2>(val) << ", " << std::get<3>(val) << " },\n";
+    OS << ", " << std::get<1>(val) << ", " << std::get<2>(val) << " },\n";
   }
   // An invalid operation at the end to prevent reading off the end of the
   // array.

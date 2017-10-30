@@ -353,12 +353,7 @@ struct GenericOpcMap {
   unsigned opSize;
   unsigned opClassification;
 };
-enum OpClassification {
-  INT = 0,
-  FLOAT = 1,
-  SIGNED = 2,
-  UNSIGNED = 3
-};
+
 #define GET_OPC_GENERIC_MAP
 #include "CSAGenCSAOpInfo.inc"
 
@@ -372,15 +367,23 @@ unsigned CSAInstrInfo::getLicSize(unsigned opcode) const {
   return opcode_to_generic_map[opcode].opSize;
 }
 
-unsigned CSAInstrInfo::makeOpcode(CSA::Generic generic, unsigned size) const {
-  // TODO: take into account classification.
+CSA::OpcodeClass CSAInstrInfo::getOpcodeClass(unsigned opcode) const {
+  assert(opcode < CSA::INSTRUCTION_LIST_END && "Illegal opcode");
+  return static_cast<CSA::OpcodeClass>(
+      opcode_to_generic_map[opcode].opClassification);
+}
+
+unsigned CSAInstrInfo::makeOpcode(CSA::Generic generic, unsigned size,
+    CSA::OpcodeClass opcodeClass) const {
   unsigned startIndex = generic_index_map[static_cast<unsigned>(generic)];
   assert(startIndex != ~0U && "Generic opcode has no valid opcodes");
   for (unsigned index = startIndex;
       generic_to_opcode_map[index].genericOpcode == generic;
       index++) {
     auto &entry = generic_to_opcode_map[index];
-    if (entry.opSize == size) {
+    if (entry.opSize == size &&
+        (opcodeClass == CSA::VARIANT_DONTCARE ||
+         opcodeClass == entry.opClassification)) {
       return entry.opcode;
     }
   }
@@ -393,17 +396,17 @@ CSAInstrInfo::getSizeOfRegisterClass(const TargetRegisterClass *RC) const {
   switch (RC->getID()) {
     default: llvm_unreachable("Unknown Target register class!");
     case CSA::CI0RegClassID: case CSA::I0RegClassID: case CSA::RI0RegClassID:
-             return 0;
+      return 0;
     case CSA::CI1RegClassID: case CSA::I1RegClassID: case CSA::RI1RegClassID:
-             return 1;
+      return 1;
     case CSA::CI8RegClassID: case CSA::I8RegClassID: case CSA::RI8RegClassID:
-             return 8;
+      return 8;
     case CSA::CI16RegClassID: case CSA::I16RegClassID: case CSA::RI16RegClassID:
-             return 16;
+      return 16;
     case CSA::CI32RegClassID: case CSA::I32RegClassID: case CSA::RI32RegClassID:
-             return 32;
+      return 32;
     case CSA::CI64RegClassID: case CSA::I64RegClassID: case CSA::RI64RegClassID:
-             return 64;
+      return 64;
   }
 }
 
@@ -416,18 +419,10 @@ CSAInstrInfo::getSizeOfRegisterClass(const TargetRegisterClass *RC) const {
 // plus things like:
 //  opc = selectSeq(addOp, cmpOp)  // return a sequence based on add+
 
-unsigned 
-CSAInstrInfo::getPickSwitchOpcode(const TargetRegisterClass *RC, 
-				    bool isPick) const {
-  return makeOpcode(isPick ? CSA::Generic::PICK : CSA::Generic::SWITCH,
-      getSizeOfRegisterClass(RC));
-}
-
-
-
 unsigned
-CSAInstrInfo::getPickanyOpcode(const TargetRegisterClass *RC) const {
-  return makeOpcode(CSA::Generic::PICKANY, getSizeOfRegisterClass(RC));
+CSAInstrInfo::getPickSwitchOpcode(const TargetRegisterClass *RC,
+				    bool isPick) const {
+  return makeOpcode(isPick ? CSA::Generic::PICK : CSA::Generic::SWITCH, RC);
 }
 
 bool CSAInstrInfo::isLoad(const MachineInstr *MI) const {
@@ -508,35 +503,6 @@ unsigned CSAInstrInfo::getMemTokenMOVOpcode() const {
 bool CSAInstrInfo::isMemTokenMOV(const MachineInstr* MI) const {
   return MI->getOpcode() == CSA::MOV0;
 }
-
-
-unsigned
-CSAInstrInfo::getCopyOpcode(const TargetRegisterClass *RC) const {
-  return makeOpcode(CSA::Generic::GCOPY, getSizeOfRegisterClass(RC));
-}
-
-unsigned
-CSAInstrInfo::getMoveOpcode(const TargetRegisterClass *RC) const {
-  return makeOpcode(CSA::Generic::MOV, getSizeOfRegisterClass(RC));
-}
-
-unsigned
-CSAInstrInfo::getRepeatOpcode(const TargetRegisterClass *RC) const {
-  return makeOpcode(CSA::Generic::REPEAT, getSizeOfRegisterClass(RC));
-}
-
-
-unsigned
-CSAInstrInfo::getInitOpcode(const TargetRegisterClass *RC) const {
-  if (RC == &CSA::I1RegClass || RC == &CSA::CI1RegClass || RC == &CSA::RI1RegClass)  return CSA::INIT1;
-  else if (RC == &CSA::I8RegClass || RC == &CSA::CI8RegClass || RC == &CSA::RI8RegClass)  return CSA::INIT8;
-  else if (RC == &CSA::I16RegClass || RC == &CSA::CI16RegClass || RC == &CSA::RI16RegClass) return CSA::INIT16;
-  else if (RC == &CSA::I32RegClass || RC == &CSA::CI32RegClass || RC == &CSA::RI32RegClass) return CSA::INIT32;
-  else if (RC == &CSA::I64RegClass || RC == &CSA::CI64RegClass || RC == &CSA::RI64RegClass) return CSA::INIT64;
-  else
-    llvm_unreachable("Unknown Target LIC class!");
-}
-
 
 // TBD(jsukha): This table lookup works for now, but there must be a
 // better way to implement this matching operation...

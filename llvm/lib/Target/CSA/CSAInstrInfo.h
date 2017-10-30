@@ -72,6 +72,26 @@ namespace CSA {
     MEMLEVEL_T1,
     MEMLEVEL_T0
   };
+
+  /// This indicates the kind of output when distinguishing between different
+  /// opcodes that generate the same generic opcode.
+  enum OpcodeClass {
+    /// This is an opcode that doesn't distinguish itself in anyway. Usually,
+    /// the operands are integers (as distinguished from floats). In effect,
+    /// this refers to TiN classes in the tablegen.
+    VARIANT_INT = 0,
+    /// This is an opcode that specifically refers to floats, for example a
+    /// ADDF operation. This means that the corresponding operand use
+    VARIANT_FLOAT = 1,
+    /// This is an opcode that refers specifically to a signed integer.
+    VARIANT_SIGNED = 2,
+    /// This is an opcode that refers specifically to an unsigned integer.
+    VARIANT_UNSIGNED = 3,
+    /// This is used in some function calls to indicate that the desired class
+    /// doesn't matter and any opcode suffices. This is the default argument,
+    /// so it generally only matters if this doesn't appear.
+    VARIANT_DONTCARE = ~0U
+  };
 }
 
 class CSASubtarget;
@@ -168,10 +188,25 @@ public:
   /// to their destination value. TODO: good idea?
   unsigned getLicSize(unsigned opcode) const;
 
+  /// Return whether or not this opcode is a variant that operates on floats,
+  /// signed integers, unsigned integers, or integers. This returns a value that
+  /// is one of the first 4 entries of the CSA::OpcodeClas enumeration, and is
+  /// used to distinguish between different operations that reuse the same
+  /// generic opcode.
+  CSA::OpcodeClass getOpcodeClass(unsigned opcode) const;
+
   /// Construct an opcode for a MachineInstr given the generic opcode and a
   /// desired licSize. If such an operation cannot be constructed, then the
   /// result is an assertion. TODO: good idea?
-  unsigned makeOpcode(CSA::Generic genericOpcode, unsigned licSize) const;
+  unsigned makeOpcode(CSA::Generic genericOpcode, unsigned licSize,
+    CSA::OpcodeClass opcodeClass = CSA::VARIANT_DONTCARE) const;
+
+  /// Variant of makeOpcode that works on register classes instead of fixed
+  /// bit sizes.
+  unsigned makeOpcode(CSA::Generic genericOpcode, const TargetRegisterClass *RC,
+      CSA::OpcodeClass opcodeClass = CSA::VARIANT_DONTCARE) const {
+    return makeOpcode(genericOpcode, getSizeOfRegisterClass(RC), opcodeClass);
+  }
 
   /// Get the lic size for the given register class.
   unsigned getSizeOfRegisterClass(const TargetRegisterClass *RC) const;
@@ -228,11 +263,21 @@ public:
   // Returns true if this instruction is a MOV of a memory token.  
   bool isMemTokenMOV(const MachineInstr *) const;
   
-  unsigned getCopyOpcode(const TargetRegisterClass *RC) const;
-  unsigned getMoveOpcode(const TargetRegisterClass *RC) const;
-  unsigned getInitOpcode(const TargetRegisterClass *RC) const;
-  unsigned getRepeatOpcode(const TargetRegisterClass *RC) const;
-  unsigned getPickanyOpcode(const TargetRegisterClass *RC) const;
+  unsigned getCopyOpcode(const TargetRegisterClass *RC) const {
+    return makeOpcode(CSA::Generic::GCOPY, RC);
+  }
+  unsigned getMoveOpcode(const TargetRegisterClass *RC) const {
+    return makeOpcode(CSA::Generic::MOV, RC);
+  }
+  unsigned getInitOpcode(const TargetRegisterClass *RC) const {
+    return makeOpcode(CSA::Generic::INIT, RC);
+  }
+  unsigned getRepeatOpcode(const TargetRegisterClass *RC) const {
+    return makeOpcode(CSA::Generic::REPEAT, RC);
+  }
+  unsigned getPickanyOpcode(const TargetRegisterClass *RC) const {
+    return makeOpcode(CSA::Generic::PICKANY, RC);
+  }
 
 
 
