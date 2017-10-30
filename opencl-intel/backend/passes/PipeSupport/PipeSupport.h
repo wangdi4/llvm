@@ -42,13 +42,11 @@ public:
   static char ID;
   PipeSupport();
 
-  virtual llvm::StringRef getPassName() const {
-    return "PipeSupport";
-  }
+  llvm::StringRef getPassName() const override { return "PipeSupport"; }
 
   bool runOnModule(llvm::Module &M);
 
-  virtual void getAnalysisUsage(llvm::AnalysisUsage &AU) const;
+  void getAnalysisUsage(llvm::AnalysisUsage &AU) const override;
 };
 
 } // namespace intel

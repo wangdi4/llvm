@@ -254,7 +254,6 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
 
   if (isFpgaEmulator) {
       PM.add(createChannelPipeTransformationPass());
-      PM.add(createPipeSupportPass());
   }
 
   // Adding module passes.
@@ -315,7 +314,8 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
                             unsigned OptLevel,
                             const intel::OptimizerConfig *pConfig,
                             std::vector<std::string> &UndefinedExternals,
-                            bool isOcl20, bool UnrollLoops) {
+                            bool isOcl20, bool isFpgaEmulator,
+                            bool UnrollLoops) {
   bool isProfiling = pConfig->GetProfilingFlag();
   bool HasGatherScatter = pConfig->GetCpuId().HasGatherScatter();
   // Tune the maximum size of the basic block for memory dependency analysis
@@ -426,6 +426,10 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
     PM.add(createGenericAddressDynamicResolutionPass());
     // No need to run function inlining pass here, because if there are still
     // non-inlined functions left - then we don't have to inline new ones.
+  }
+
+  if (isFpgaEmulator) {
+    PM.add(createPipeSupportPass());
   }
 
   // Get Some info about the kernel should be called before BarrierPass and
@@ -602,7 +606,8 @@ Optimizer::Optimizer(llvm::Module *pModule,
   // hasRecursion() will return false
   populatePassesPostFailCheck(
       m_PostFailCheckPM, pModule, m_pRtlModuleList, OptLevel,
-      pConfig, m_undefinedExternalFunctions, isOcl20, UnrollLoops);
+      pConfig, m_undefinedExternalFunctions, isOcl20, isFpgaEmulator,
+      UnrollLoops);
 }
 
 void Optimizer::Optimize() {
