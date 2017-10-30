@@ -438,9 +438,10 @@ class RSqrtAppOp<GenericOp gen, CSAOpInfo oi,
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $pred, $op2"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin>;
 
+def MERGE     : GenericOp<"merge">;
 class MergeOp<string opStr, CSAOpInfo t,
               list<Predicate> preds, InstrItinClass itin> :
-  FMTGEN<?, t,
+  FMTGEN<MERGE, t,
     (outs t.RC:$dst),
     (ins I1:$sel, t.RCL:$v0, t.RCL:$v1),
     !strconcat(opStr, "\t$dst, $sel, $v0, $v1"),
@@ -545,10 +546,15 @@ class FMSReduceOp<GenericOp gen, CSAOpInfo oi,
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$result, $each, $init, $inval1, $inval2, $ctl, $rm"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin> { }
 
+def LDX : GenericOp<"ldx">;
+def LDD : GenericOp<"ldd">;
+def LDR : GenericOp<"ldd">;
+def LDI : GenericOp<"ld">;
+def LD  : GenericOp<"ld">;
 multiclass LdOp<string opStr, CSAOpInfo t,
            InstrItinClass itin = IILD> {
   let Predicates = [HasIndex], Itinerary = itin in {
-    def X : FMTGEN<?, t, // indexed reg+reg
+    def X : FMTGEN<LDX, t, // indexed reg+reg
       (outs t.RC:$dst, MemOrdDef:$issued),
       (ins ADDR_RX:$addr, MEMLVL:$lvl, MemOrdUse:$ready),
       !strconcat(opStr, "x\t$dst, $addr, $issued, $ready, $lvl"),
@@ -556,12 +562,12 @@ multiclass LdOp<string opStr, CSAOpInfo t,
   }
 
   let Predicates = [HasDispl], Itinerary = itin in {
-    def D : FMTGEN<?, t, // normal literal displacement form (val+k)
+    def D : FMTGEN<LDD, t, // normal literal displacement form (val+k)
       (outs t.RC:$dst, MemOrdDef:$issued),
       (ins ADDR_RI:$addr, MEMLVL:$lvl, MemOrdUse:$ready),
       !strconcat(opStr, "d\t$dst, $addr, $issued, $ready, $lvl"),
       [(set t.VT:$dst, (load ADDR_RI:$addr))]>;
-    def R : FMTGEN<?, t, // non-indexed reg+reg
+    def R : FMTGEN<LDR, t, // non-indexed reg+reg
       (outs t.RC:$dst, MemOrdDef:$issued),
       (ins ADDR_RR:$addr, MEMLVL:$lvl, MemOrdUse:$ready),
       !strconcat(opStr, "d\t$dst, $addr, $issued, $ready, $lvl"),
@@ -569,12 +575,12 @@ multiclass LdOp<string opStr, CSAOpInfo t,
   }
 
   let Itinerary = itin in {
-    def I : FMTGEN<?, t,  // e.g. ld of literal address - ld rx,sym
+    def I : FMTGEN<LDI, t,  // e.g. ld of literal address - ld rx,sym
       (outs t.RC:$dst, MemOrdDef:$issued),
       (ins ADDR_I:$addr, MEMLVL:$lvl, MemOrdUse:$ready),
       !strconcat(opStr, "\t$dst, $addr, $issued, $ready, $lvl"),
       [(set t.VT:$dst, (load ADDR_I:$addr))]>;
-    def "" : FMTGEN<?, t, // normal basereg form
+    def "" : FMTGEN<LD, t, // normal basereg form
       (outs t.RC:$dst, MemOrdDef:$issued),
       (ins ADDR_R:$addr, MEMLVL:$lvl, MemOrdUse:$ready),
       !strconcat(opStr, "\t$dst, $addr, $issued, $ready, $lvl"),
@@ -583,6 +589,10 @@ multiclass LdOp<string opStr, CSAOpInfo t,
 }
 
 // Ugly combinatorial issue between literal store data and addressing modes
+def STX : GenericOp<"stx">;
+def STD : GenericOp<"std">;
+def STR : GenericOp<"std">;
+def ST  : GenericOp<"st">;
 multiclass StOp<string opStr, CSAOpInfo t,
            InstrItinClass itin = IIST> {
 
@@ -591,7 +601,7 @@ multiclass StOp<string opStr, CSAOpInfo t,
   // See CSATargetLowering::AdjustInstrPostInstrSelection for more details
   let mayStore = 1, Itinerary = itin, hasPostISelHook = 1 in {
     let Predicates = [HasIndex] in {
-      def X : FMTGEN<?, t,
+      def X : FMTGEN<STX, t,
         (outs MemOrdDef:$issued),
         (ins ADDR_RX:$addr, t.RCL:$data, MEMLVL:$lvl, MemOrdUse:$ready),
         !strconcat(opStr, "x\t$addr, $data, $issued, $ready, $lvl"),
@@ -599,19 +609,19 @@ multiclass StOp<string opStr, CSAOpInfo t,
     }
 
     let Predicates = [HasDispl] in {
-      def D : FMTGEN<?, t,
+      def D : FMTGEN<STD, t,
         (outs MemOrdDef:$issued),
         (ins ADDR_RI:$addr, t.RCL:$data, MEMLVL:$lvl, MemOrdUse:$ready),
         !strconcat(opStr, "d\t$addr, $data, $issued, $ready, $lvl"),
         [(store (t.VT t.RCL:$data), ADDR_RI:$addr)]>;
-      def R : FMTGEN<?, t,
+      def R : FMTGEN<STR, t,
         (outs MemOrdDef:$issued),
         (ins ADDR_RR:$addr, t.RCL:$data, MEMLVL:$lvl, MemOrdUse:$ready),
         !strconcat(opStr, "d\t$addr, $data, $issued, $ready, $lvl"),
         [(store (t.VT t.RCL:$data), ADDR_RR:$addr)]>;
     }
 
-    def "" : FMTGEN<?, t,
+    def "" : FMTGEN<ST, t,
       (outs MemOrdDef:$issued),
       (ins ADDR_R:$addr, t.RCL:$data, MEMLVL:$lvl, MemOrdUse:$ready),
       !strconcat(opStr, "\t$addr, $data, $issued, $ready, $lvl"),
@@ -619,15 +629,17 @@ multiclass StOp<string opStr, CSAOpInfo t,
   }
 }
 
+def SLDI : GenericOp<"sld">;
+def SLD  : GenericOp<"sld">;
 multiclass StreamLdOp<string opStr, CSAOpInfo t,
            InstrItinClass itin = IILD> {
   let mayLoad = 1, Itinerary = itin in {
-    def I : FMTGEN<?, t,  // e.g. ld of literal address - ld rx,sym
+    def I : FMTGEN<SLDI, t,  // e.g. ld of literal address - ld rx,sym
       (outs t.RC:$dst, MemOrdDef:$issued),
       (ins ADDR_I:$addr, CI64:$len, CI64:$stride, MEMLVL:$lvl, MemOrdUse:$ready),
       !strconcat(opStr, "\t$dst, $addr, $len, $stride, $issued, $ready, $lvl"),
       []>;
-    def "" : FMTGEN<?, t, // normal basereg form
+    def "" : FMTGEN<SLD, t, // normal basereg form
       (outs t.RC:$dst, MemOrdDef:$issued),
       (ins ADDR_R:$addr, CI64:$len, CI64:$stride, MEMLVL:$lvl, MemOrdUse:$ready),
       !strconcat(opStr, "\t$dst, $addr, $len, $stride, $issued, $ready, $lvl"),
@@ -635,10 +647,11 @@ multiclass StreamLdOp<string opStr, CSAOpInfo t,
     }
 }
 
+def SST : GenericOp<"sst">;
 multiclass StreamStOp<string opStr, CSAOpInfo t,
            InstrItinClass itin = IIST> {
   let mayStore = 1, Itinerary = itin in {
-    def "" : FMTGEN<?, t,
+    def "" : FMTGEN<SST, t,
       (outs MemOrdDef:$issued),
       (ins ADDR_R:$addr, CI64:$len, CI64:$stride, t.RCL:$data, MEMLVL:$lvl, MemOrdUse:$ready),
       !strconcat(opStr, "\t$addr, $len, $stride, $data, $issued, $ready, $lvl"),
@@ -1252,7 +1265,6 @@ def COPY16    : CopyOp<  GCOPY, Ti16>;
 def COPY32    : CopyOp<  GCOPY, Ti32>;
 def COPY64    : CopyOp<  GCOPY, Ti64>;
 
-def MERGE     : GenericOp<"merge">;
 def MERGE0    : MergeOp< "merge0",  Ti0,  [HasI0],  IIVir>;
 def MERGE1    : MergeOp< "merge1",  Ti1,  [HasI1],  IIVir>;
 def MERGE8    : MergeOp< "merge8",  Ti8,  [HasI8],  IIVir>;
@@ -1295,31 +1307,36 @@ def PICKANY16 : PickAnyOp<PICKANY, Ti16, IIVir>;
 def PICKANY32 : PickAnyOp<PICKANY, Ti32, IIVir>;
 def PICKANY64 : PickAnyOp<PICKANY, Ti64, IIVir>;
 
-def LAND1 : FMTGEN<?, ?,
+def LAND : GenericOp<"land">;
+def LAND1 : FMTGEN<LAND, Ti1,
   (outs I1:$dst),
   (ins RCLi1:$op1, RCLi1:$op2, RCLi1:$op3, RCLi1:$op4),
   "land1\t$dst, $op1, $op2, $op3, $op4",
   [], [], IIALU>;
 
-def LOR1 : FMTGEN<?, ?,
+def LOR : GenericOp<"lor">;
+def LOR1 : FMTGEN<LOR, Ti1,
   (outs I1:$dst),
   (ins RCLi1:$op1, RCLi1:$op2, RCLi1:$op3, RCLi1:$op4),
   "lor1\t$dst, $op1, $op2, $op3, $op4",
   [], [], IIALU>;
 
-def ANY0 : FMTGEN<?, ?,
+def ANY : GenericOp<"any">;
+def ANY0 : FMTGEN<ANY, Ti0,
   (outs I8:$dst),
   (ins RCLi0:$op1, RCLi0:$op2, RCLi0:$op3, RCLi0:$op4),
   "any0\t$dst, $op1, $op2, $op3, $op4",
   [], [], IIVir>;
 
-def ALL0 : FMTGEN<?, ?,
+def ALL : GenericOp<"all">;
+def ALL0 : FMTGEN<ALL, Ti0,
   (outs I0:$dst),
   (ins RCLi0:$op1, RCLi0:$op2, RCLi0:$op3, RCLi0:$op4),
   "all0\t$dst, $op1, $op2, $op3, $op4",
   [], [], IIVir>;
 
-def ONCOUNT0 : FMTGEN<?, ?,  // TODO: something to reflect state
+def ONCOUNT : GenericOp<"oncount">;
+def ONCOUNT0 : FMTGEN<ONCOUNT, Ti0,  // TODO: something to reflect state
   (outs I0:$dst),
   (ins RCLi64:$cnt, RCLi0:$op2, RCLi0:$op3, RCLi0:$op4, RCLi0:$op5),
   "oncount0\t$dst, $cnt, $op2, $op3, $op4, $op5",
@@ -1524,12 +1541,17 @@ def ONEND : FMTGEN<?, ?,  // TODO: something to reflect state
   []> { let Itinerary = IIVir; }
 
 // Not clear that "hasSideEffects" is a good description of static initialization...
+def INIT : GenericOp<"init">;
 class Init<CSAOpInfo t, list<Predicate> preds, InstrItinClass itin> :
   PseudoInstCSA<
       (outs t.RC:$dst),
       (ins t.L:$imm),
       ".curr\t$dst;\t.value $imm;\t.avail 0",
-      [], preds, itin> { let hasSideEffects = 1; }
+      [], preds, itin> {
+  let hasSideEffects = 1;
+  let GenOp = INIT;
+  let OpInfo = t;
+}
 
 let isCodeGenOnly=1 in {
   def INIT0  : Init<Ti0,  [HasI0],  IIVir>;
