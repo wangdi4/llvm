@@ -17,6 +17,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/ADT/SetVector.h"
+#include <string>
 #include <vector>
 #include <map>
 
@@ -38,26 +39,54 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static const unsigned CL_VER_1_1 = 110;
     static const unsigned CL_VER_1_2 = 120;
     static const unsigned CL_VER_2_0 = 200;
-    /// Convenience constants for OpenCL spec revisions
-    static const unsigned CL_VER_VALS[] = {CL_VER_1_0, CL_VER_1_1, CL_VER_1_2, CL_VER_2_0};
-    // The possible values that can be passed to be -cl-std compile option
-    static StringRef CL_VER_STRINGS[] = { "CL1.0", "CL1.1", "CL1.2", "CL2.0" };
     // The default revision defined by OpenCL spec
     static const unsigned CL_VER_DEFAULT = CL_VER_1_2;
 
-    static unsigned CLStrToVal(const char* S) {
-      const StringRef* B = OclVersion::CL_VER_STRINGS;
-      const StringRef* E = B + sizeof(CL_VER_VALS)/sizeof(CL_VER_VALS[0]);
-      const StringRef* I = std::find(B, E, S);
-      if (I == E)
-        assert(false && "Bad Value for -cl-std option");
-      return CL_VER_VALS[I-B];
+    unsigned CLStrToVal(const char* S);
+    unsigned CLVersionToVal(uint64_t major, uint64_t minor);
+  }
+
+  struct PipeKind {
+    enum ScopeKind {
+      WORK_ITEM,
+      WORK_GROUP,
+      SUB_GROUP
+    };
+
+    /// Access direction: read or write. Note that this direction also applies
+    /// to 'commit' and 'reserve' operations.
+    enum AccessKind {
+      READ,
+      WRITE
+    };
+
+    /// Operation which is performed on a pipe object.
+    enum OpKind {
+      NONE,              ///< not a pipe built-in
+      READWRITE,         ///< actual read or write
+      READWRITE_RESERVE, ///< read or write with reserve_id
+      RESERVE,           ///< reserve operation
+      COMMIT             ///< commit operation
+    };
+
+    ScopeKind Scope;
+    AccessKind Access;
+    OpKind Op;
+    bool Blocking;
+    std::string SimdSuffix;
+
+    bool operator == (const PipeKind &LHS) {
+      return Scope      == LHS.Scope    &&
+             Access     == LHS.Access   &&
+             Op         == LHS.Op       &&
+             Blocking   == LHS.Blocking &&
+             SimdSuffix == LHS.SimdSuffix;
     }
 
-    static unsigned CLVersionToVal(uint64_t major, uint64_t minor) {
-      return major * 100 + minor * 10;
+    operator bool () {
+      return Op != OpKind::NONE;
     }
-  }
+  };
 
   /// @brief  CompilationUtils class used to provide helper utilies that are
   ///         used by several other classes.
@@ -204,6 +233,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static bool isPipeBuiltin(const std::string&);
     static bool isReadPipeBuiltin(const std::string&);
     static bool isWritePipeBuiltin(const std::string&);
+    static PipeKind getPipeKind(const std::string&);
+    static std::string getPipeName(PipeKind);
 
     static const std::string NAME_GET_GID;
     static const std::string NAME_GET_LID;

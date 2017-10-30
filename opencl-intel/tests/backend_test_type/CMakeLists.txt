@@ -71,6 +71,7 @@ add_ocl_unittest( ${TARGET_NAME}
     PluginsTest.cpp
     BlockLiteralTest.cpp
     KernelSubGroupInfoTest.cpp
+    CompilationUtilsTest.cpp
 
   LINK_LIBRARIES
     OclBackendUtils

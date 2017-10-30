@@ -123,6 +123,28 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   //Type qualifiers
   const std::string CompilationUtils::SAMPLER   = "sampler_t";
 
+  unsigned OclVersion::CLStrToVal(const char* S) {
+    // Constants for OpenCL spec revisions
+    const unsigned VersionValues[] = {
+      CL_VER_1_0, CL_VER_1_1, CL_VER_1_2, CL_VER_2_0
+    };
+    // The possible values that can be passed to be -cl-std compile option
+    const StringRef VersionStrings[] = {
+      "CL1.0", "CL1.1", "CL1.2", "CL2.0"
+    };
+
+    auto B = std::begin(VersionStrings);
+    auto E = std::end(VersionStrings);
+    auto I = std::find(B, E, S);
+    assert(I == E && "Bad Value for -cl-std option");
+
+    return VersionValues[std::distance(B, I)];
+  }
+
+  unsigned OclVersion::CLVersionToVal(uint64_t major, uint64_t minor) {
+    return major * 100 + minor * 10;
+  }
+
   BasicBlock::iterator CompilationUtils::removeInstruction(BasicBlock* pBB, BasicBlock::iterator it) {
     BasicBlock::InstListType::iterator prev;
 
@@ -1058,12 +1080,8 @@ bool CompilationUtils::isAtomicBuiltin(const std::string& funcName){
 }
 
 bool CompilationUtils::isWorkItemPipeBuiltin(const std::string& funcName){
-  // S is work item pipe built-in name if
-  // - it doesn't start w\ "work_group" and ends with "_pipe"
-  StringRef name(funcName);
-  return !name.startswith("__work_group") &&
-         (name.endswith("_pipe") || name.endswith("_pipe_2") ||
-          name.endswith("_pipe_4"));
+  auto Kind = getPipeKind(funcName);
+  return Kind && Kind.Scope == PipeKind::WORK_ITEM;
 }
 
 bool CompilationUtils::isAtomicWorkItemFenceBuiltin(const std::string& funcName){
@@ -1076,58 +1094,158 @@ bool CompilationUtils::isAtomicWorkItemFenceBuiltin(const std::string& funcName)
 
 }
 
+bool CompilationUtils::isReadPipeBuiltin(const std::string& funcName) {
+  auto Kind = getPipeKind(funcName);
+  return Kind &&
+    Kind.Scope == PipeKind::WORK_ITEM &&
+    Kind.Access == PipeKind::READ &&
+    (Kind.Op == PipeKind::READWRITE ||
+     Kind.Op == PipeKind::READWRITE_RESERVE);
+}
+
+bool CompilationUtils::isWritePipeBuiltin(const std::string& funcName) {
+  auto Kind = getPipeKind(funcName);
+  return Kind &&
+    Kind.Scope == PipeKind::WORK_ITEM &&
+    Kind.Access == PipeKind::WRITE &&
+    (Kind.Op == PipeKind::READWRITE ||
+     Kind.Op == PipeKind::READWRITE_RESERVE);
+}
+
+PipeKind CompilationUtils::getPipeKind(const std::string &Name) {
+  PipeKind Kind;
+  Kind.Op = PipeKind::NONE;
+
+  llvm::StringRef N(Name);
+  if (!N.consume_front("__")) {
+    return Kind;
+  }
+
+  if (N.consume_front("sub_group_")) {
+    Kind.Scope = PipeKind::SUB_GROUP;
+  } else if (N.consume_front("work_group_")) {
+    Kind.Scope = PipeKind::WORK_GROUP;
+  } else {
+     Kind.Scope = PipeKind::WORK_ITEM;
+  }
+
+  if (N.consume_front("commit_")) {
+    Kind.Op = PipeKind::COMMIT;
+  } else if (N.consume_front("reserve_")) {
+    Kind.Op = PipeKind::RESERVE;
+  }
+
+  if (N.consume_front("read_")) {
+    Kind.Access = PipeKind::READ;
+  } else if (N.consume_front("write_")) {
+    Kind.Access = PipeKind::WRITE;
+  } else {
+    Kind.Op = PipeKind::NONE;
+    return Kind; // not a pipe built-in
+  }
+
+  if (!N.consume_front("pipe")) {
+    Kind.Op = PipeKind::NONE;
+    return Kind; // not a pipe built-in
+  }
+
+  if (Kind.Op == PipeKind::COMMIT || Kind.Op == PipeKind::RESERVE) {
+    // rest for the modifiers only appliy to read/write built-ins
+    return Kind;
+  }
+
+  if (N.consume_front("_2")) {
+    Kind.Op = PipeKind::READWRITE;
+  } else if (N.consume_front("_4")) {
+    Kind.Op = PipeKind::READWRITE_RESERVE;
+  }
+
+  // FPGA extension.
+  if (N.consume_front("_bl")) {
+    Kind.Blocking = true;
+  } else {
+    Kind.Blocking = false;
+  }
+
+#ifdef BUILD_FPGA_EMULATOR
+  // TODO: drop this case when built-ins would be aligned b/w fpga
+  // and non-fpga.
+  if (!N.consume_front("_intel")) {
+    Kind.Op = PipeKind::NONE;
+    return Kind;
+  }
+#endif
+  if (N.consume_front("_") && N.startswith("v")) {
+    Kind.SimdSuffix = N;
+  }
+
+  assert(Name == getPipeName(Kind) &&
+         "getPipeKind() and getPipeName() are not aligned!");
+
+  return Kind;
+}
+
+std::string CompilationUtils::getPipeName(PipeKind Kind) {
+  assert(Kind.Op != PipeKind::NONE && "Invalid pipe kind.");
+
+  std::string Name("__");
+
+  switch (Kind.Scope) {
+  case PipeKind::WORK_GROUP:
+    Name += "work_group_"; break;
+  case PipeKind::SUB_GROUP:
+    Name += "sub_group_"; break;
+  case PipeKind::WORK_ITEM:
+    break;
+  }
+
+  switch (Kind.Op) {
+  case PipeKind::COMMIT:
+    Name += "commit_"; break;
+  case PipeKind::RESERVE:
+    Name += "reserve_"; break;
+  default:
+    break;
+  }
+
+  switch (Kind.Access) {
+  case PipeKind::READ:
+    Name += "read_"; break;
+  case PipeKind::WRITE:
+    Name += "write_"; break;
+  }
+  Name += "pipe";
+
+  switch (Kind.Op) {
+  case PipeKind::READWRITE:
+    Name += "_2"; break;
+  case PipeKind::READWRITE_RESERVE:
+    Name += "_4"; break;
+  default:
+    return Name; // rest for the modifiers only appliy to read/write
+                 // built-ins
+  }
+
+  if (Kind.Blocking) {
+     Name += "_bl";
+  }
+
+#ifdef BUILD_FPGA_EMULATOR
+  // TODO: drop this case when built-ins would be aligned b/w fpga
+  // and non-fpga.
+  Name += "_intel";
+#endif
+
+  if (!Kind.SimdSuffix.empty()) {
+    Name += "_";
+    Name += Kind.SimdSuffix;
+  }
+
+  return Name;
+}
+
 bool CompilationUtils::isPipeBuiltin(const std::string &Name) {
-  return llvm::StringSwitch<bool>(Name)
-#ifdef BUILD_FPGA_EMULATOR
-    .StartsWith("__read_pipe_2_intel", true)
-    .StartsWith("__read_pipe_4_intel", true)
-    .StartsWith("__read_pipe_2_bl_intel", true)
-    .StartsWith("__write_pipe_2_intel", true)
-    .StartsWith("__write_pipe_4_intel", true)
-    .StartsWith("__write_pipe_2_bl_intel", true)
-#else
-    .StartsWith("__read_pipe_2", true)
-    .StartsWith("__read_pipe_4", true)
-    .StartsWith("__write_pipe_2", true)
-    .StartsWith("__write_pipe_4", true)
-#endif
-    .Case("__sub_group_commit_read_pipe", true)
-    .Case("__sub_group_reserve_read_pipe", true)
-    .Case("__work_group_commit_read_pipe", true)
-    .Case("__work_group_reserve_read_pipe", true)
-    .Case("__commit_write_pipe", true)
-    .Case("__reserve_write_pipe", true)
-    .Case("__sub_group_commit_write_pipe", true)
-    .Case("__sub_group_reserve_write_pipe", true)
-    .Case("__work_group_commit_write_pipe", true)
-    .Case("__work_group_reserve_write_pipe", true)
-    .Default(false);
-}
-
-bool CompilationUtils::isReadPipeBuiltin(const std::string &Name) {
-  return llvm::StringSwitch<bool>(Name)
-#ifdef BUILD_FPGA_EMULATOR
-    .StartsWith("__read_pipe_2_intel", true)
-    .StartsWith("__read_pipe_4_intel", true)
-    .StartsWith("__read_pipe_2_bl_intel", true)
-#else
-    .StartsWith("__read_pipe_2", true)
-    .StartsWith("__read_pipe_4", true)
-#endif
-    .Default(false);
-}
-
-bool CompilationUtils::isWritePipeBuiltin(const std::string &Name) {
-  return llvm::StringSwitch<bool>(Name)
-#ifdef BUILD_FPGA_EMULATOR
-    .StartsWith("__write_pipe_2_intel", true)
-    .StartsWith("__write_pipe_4_intel", true)
-    .StartsWith("__write_pipe_2_bl_intel", true)
-#else
-    .StartsWith("__write_pipe_2", true)
-    .StartsWith("__write_pipe_4", true)
-#endif
-    .Default(false);
+  return getPipeKind(Name);
 }
 
 Constant *CompilationUtils::importFunctionDecl(Module *Dst,

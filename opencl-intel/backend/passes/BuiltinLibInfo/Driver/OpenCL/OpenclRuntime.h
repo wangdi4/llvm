@@ -121,9 +121,6 @@ public:
   /// @brief returns true if this name of atomic built-in.
   bool isAtomicBuiltin(const std::string &func_name) const;
 
-  /// @brief returns true if this name of pipe built-in.
-  bool isWorkItemPipeBuiltin(const std::string &func_name) const;
-
   /// @brief checks if funcName is mangled scalar min\max name.
   /// @param funcName input mangled name.
   /// @param isMin will be true if it is min builtin.

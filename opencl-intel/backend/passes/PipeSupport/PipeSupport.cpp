@@ -68,8 +68,8 @@ static void findPipeCalls(Function &F,
     for (auto &I : BB) {
       if (auto *Call = dyn_cast<CallInst>(&I)) {
         StringRef Name = Call->getCalledFunction()->getName();
-        if (CompilationUtils::isReadPipeBuiltin(Name) ||
-            CompilationUtils::isWritePipeBuiltin(Name)) {
+        PipeKind Kind = CompilationUtils::getPipeKind(Name);
+        if (Kind && Kind.Op == PipeKind::READWRITE) {
           Calls.push_back(Call);
         }
       }
@@ -81,14 +81,21 @@ static bool insertFlushCall(Module &M, CallInst *PipeCall,
                             Function *FlushRead, Function *FlushWrite,
                             Function *FlushReadArray,
                             Function *FlushWriteArray) {
-  Function *ReqFlush = CompilationUtils::isReadPipeBuiltin(
-      PipeCall->getCalledFunction()->getName()) ? FlushRead
-                                                : FlushWrite;
+  PipeKind Kind = CompilationUtils::getPipeKind(
+      PipeCall->getCalledFunction()->getName());
+  assert(Kind && "PipeCall is not a pipe call!");
+  assert(Kind.Op == PipeKind::READWRITE && "PipeCall is not a pipe call!");
 
-  Function *ReqFlushArray =
-      CompilationUtils::isReadPipeBuiltin(
-          PipeCall->getCalledFunction()->getName()) ? FlushReadArray
-                                                    : FlushWriteArray;
+  Function *ReqFlush = nullptr;
+  Function *ReqFlushArray = nullptr;
+
+  if (Kind.Access == PipeKind::READ) {
+    ReqFlush = FlushRead;
+    ReqFlushArray = FlushReadArray;
+  } else {
+    ReqFlush = FlushWrite;
+    ReqFlushArray = FlushWriteArray;
+  }
 
   bool Changed = false;
 

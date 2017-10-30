@@ -5,8 +5,9 @@ Agreement between Intel and Apple dated August 26, 2005; under the Category 2 In
 OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
 ==================================================================================*/
 
-#include "OpenclRuntime.h"
+#include "CompilationUtils.h"
 #include "LoopUtils.h"
+#include "OpenclRuntime.h"
 
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
@@ -197,7 +198,8 @@ void fillWorkItemPipeBuiltinUsers(Module &m, const OpenclRuntime *rt,
   std::set<Function *> pipeFuncs;
   for (Module::iterator fit = m.begin(), fe = m.end(); fit != fe; ++fit) {
     std::string name = fit->getName().str();
-    if (rt->isWorkItemPipeBuiltin(name))
+    using namespace Intel::OpenCL::DeviceBackend;
+    if (CompilationUtils::isWorkItemPipeBuiltin(name))
       pipeFuncs.insert(&*fit);
   }
   fillFuncUsersSet(pipeFuncs, userFuncs);
