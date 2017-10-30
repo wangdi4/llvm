@@ -1,10 +1,11 @@
-
-//==--- DiagnosticSemaKinds.td - libsema diagnostics ----------------------===//
+//===--- DiagnosticIntelSemaKinds.td - Intel libsema diagnostics ----------===//
 //
-//                     The LLVM Compiler Infrastructure
+// Copyright (C) 2017 Intel Corporation. All rights reserved.
 //
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// The information and source code contained herein is the exclusive
+// property of Intel Corporation and may not be disclosed, examined
+// or reproduced in whole or in part without explicit written authorization
+// from the company.
 //
 //===----------------------------------------------------------------------===//
 
@@ -14,7 +15,6 @@
 
 let Component = "Sema" in {
 let CategoryName = "Semantic Issue" in {
-// if INTEL_CUSTOMIZATION
 // CQ#364268
 def warn_main_arg_wrong : Warning<"%select{first|second|third|fourth}0 "
     "parameter of 'main' (%select{argument count|argument array|environment|"
@@ -70,9 +70,7 @@ def warn_ident_list_in_fn_declaration: Warning<
 def warn_default_arg_makes_ctor_special : Warning<
   "addition of default argument on redeclaration makes this constructor a "
   "%select{default|copy|move}0 constructor">, InGroup<IntelCompat>;
-// endif INTEL_CUSTOMIZATION
 
-// if INTEL_CUSTOMIZATION
 // CQ#373258 - allow class member typedef redefinition in IntelCompat mode.
 def ext_intel_member_typedef_redefinition : ExtWarn<
   "class member typedef redefinition is an Intel extension">,
@@ -159,7 +157,6 @@ def warn_non_asm_stmt_in_naked_function : Warning<
   InGroup<IgnoredAttributes>;
 def err_attribute_argument_is_not_in_range : Error<
   "invalid attribute value, possible values are: %0">;
-// endif INTEL_CUSTOMIZATION
 
 // if INTEL_SPECIFIC_CILKPLUS
 def warn_empty_cilk_for_body : Warning<
@@ -462,7 +459,6 @@ def err_cean_arg_not_lvalue : Error<
   "argument expression must be an l-value">;
 // endif INTEL_SPECIFIC_CILKPLUS
 
-// if INTEL_CUSTOMIZATION
 // CQ#373129 - support for __assume_aligned builtin.
 def err_assume_aligned_first_arg_not_pointer : Error<
   "first argument to '__assume_aligned' must be a pointer">;
@@ -474,7 +470,6 @@ def warn_bad_cxx_cast_unrelated_class : Warning<
   "%select{const_cast|static_cast|reinterpret_cast|dynamic_cast|C-style cast|"
   "functional-style cast}0 from %1 to %2, which are not related by "
   "inheritance, is allowed in Intel/GCC compatibility mode only">, InGroup<IntelCompat>;
-// endif INTEL_CUSTOMIZATION
 }
 // if INTEL_SPECIFIC_IL0_BACKEND
 let CategoryName = "IL0 Issue" in {
