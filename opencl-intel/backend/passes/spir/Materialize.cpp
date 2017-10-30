@@ -96,11 +96,11 @@ public:
     if (!PipeBI)
       return false;
 
-    auto m_runtimeModuleList = BLI.getBuiltinModules();
+    auto RTLs = BLI.getBuiltinModules();
 
     llvm::StructType *InternalPipeTy = nullptr;
     llvm::Module *PipesModule = nullptr;
-    for (auto *M : m_runtimeModuleList) {
+    for (auto *M : RTLs) {
       if ((InternalPipeTy = M->getTypeByName("struct.__pipe_t"))) {
         PipesModule = M;
         break;
@@ -130,10 +130,30 @@ public:
     llvm::SmallString<256> NewFName(FName);
     NewFName.append("_intel");
 
-    llvm::Function *NewF = cast<Function>(
-        CompilationUtils::importFunctionDecl(CI->getParent()->getModule(),
-                                             PipesModule->getFunction(
-                                                 NewFName)));
+    llvm::Module *M = CI->getModule();
+
+    llvm::Function *NewF = M->getFunction(NewFName);
+    if (!NewF) {
+      PipeKind Kind = CompilationUtils::getPipeKind(NewFName.str());
+      if (Kind.Blocking) {
+        // Blocking built-ins are not declared in RTL, they are resolved
+        // in PipeSupport instead.
+        PipeKind NonBlockingKind = Kind;
+        NonBlockingKind.Blocking = false;
+
+        // Blocking built-ins differ from non blocking only by name, so we
+        // import a non-blocking function to get a declaration ...
+        NewF = cast<Function>(
+            CompilationUtils::importFunctionDecl(
+                M, PipesModule->getFunction(
+                    CompilationUtils::getPipeName(NonBlockingKind))));
+        // ... and change it's name.
+        NewF->setName(CompilationUtils::getPipeName(Kind));
+      } else {
+        NewF = cast<Function>(CompilationUtils::importFunctionDecl(
+                                  M, PipesModule->getFunction(NewFName)));
+      }
+    }
 
     llvm::CallInst *NewCI = llvm::CallInst::Create(NewF, NewArgs, "", CI);
 

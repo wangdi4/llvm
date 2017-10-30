@@ -375,11 +375,8 @@ bool insertFlushCalls(Function &F, Function *ReadFlush, Function *WriteFlush) {
   // If non-blocking pipe built-in returned -1, we must flush all pipes, because
   // keeping elements in cache may cause a deadlock.
   //
-  // NOTE: we rely on the two facts:
-  //  - that *blocking* builins are implemented as a loop around non-blocking
-  //    builtins
-  //  - built-in import and inliner passes are done - we only have non-blocking
-  //    calls
+  // NOTE: we rely on the fact that blocking built-ins have already been
+  // resolved, and we only have non-blocking built-ins.
   //
   assert(!hasBlockingPipeBIs(F) &&
          "Blocking pipe BIs should already be inlined!");
@@ -419,12 +416,103 @@ addImplicitFlushCalls(Module &M,
   return Changed;
 }
 
+static void createSpinlockAroundPipeCall(CallInst *Call) {
+  BasicBlock *Body = llvm::SplitBlock(Call->getParent(), Call);
+  Body->setName("pipe_bl.body");
+
+  assert(Call->getNextNode() && "Ill-formed BasicBlock.");
+  BasicBlock *Exit = llvm::SplitBlock(Call->getParent(), Call->getNextNode());
+  Exit->setName("pipe_bl.exit");
+
+  IRBuilder<> Builder(Call->getNextNode());
+
+  auto *CallSuccessRetcode = Builder.getInt32(0);
+  auto *IsCallFailed =
+    Builder.CreateICmpNE(getNonBlockingPipeCallRetcode(Call, Builder),
+                         CallSuccessRetcode,
+                         "pipe.failed");
+
+  auto *BodyBr = Body->getTerminator();
+  assert(BodyBr && isa<BranchInst>(BodyBr) && "Ill-formed BasicBlock.");
+
+  llvm::ReplaceInstWithInst(
+    BodyBr, BranchInst::Create(Body, Exit, IsCallFailed));
+}
+
+static bool replaceBlockingWithNonBlocking(Function *BlockingFun,
+                                           Function *NonBlockingFun) {
+  SmallVector<CallInst *, 64> BlockingCalls;
+  for (auto *U : BlockingFun->users()) {
+    auto *Call = cast<CallInst>(U);
+    BlockingCalls.push_back(Call);
+  }
+
+  for (auto *Call : BlockingCalls) {
+    SmallVector<Value *, 2> NewArgs;
+    std::copy(Call->arg_begin(), Call->arg_end(),
+              std::back_inserter(NewArgs));
+
+    PipeKind Kind =
+      CompilationUtils::getPipeKind(Call->getCalledFunction()->getName());
+
+    if (Kind.Access == PipeKind::READ && !Kind.SimdSuffix.empty()) {
+      // Blocking SIMD read does not have a retcode, allocate it.
+      IRBuilder<> Builder(Call);
+
+      auto *NonBlockingFTy = NonBlockingFun->getFunctionType();
+
+      assert(NonBlockingFTy->getNumParams() == 2
+             && "Unexpected number of function parameters");
+
+      auto *RetcodePtrTy = cast<PointerType>(
+        NonBlockingFTy->getParamType(NonBlockingFTy->getNumParams() - 1));
+
+      NewArgs.push_back(
+        Builder.CreatePointerBitCastOrAddrSpaceCast(
+          Builder.CreateAlloca(RetcodePtrTy->getElementType()),
+          RetcodePtrTy,
+          "retcode"));
+    }
+
+    auto *NonBlockingCall = CallInst::Create(NonBlockingFun, NewArgs);
+    llvm::ReplaceInstWithInst(Call, NonBlockingCall);
+
+    createSpinlockAroundPipeCall(NonBlockingCall);
+  }
+
+  return BlockingCalls.size();
+}
+
+static bool
+resolveBlockingBuiltins(Module &M,
+                        const SmallVectorImpl<Module *> &BuiltinModules) {
+  bool Changed = false;
+
+  for (auto &F : M) {
+    PipeKind Kind = CompilationUtils::getPipeKind(F.getName());
+    if (!Kind || !Kind.Blocking) {
+      continue;
+    }
+
+    PipeKind NonBlockingKind = Kind;
+    NonBlockingKind.Blocking = false;
+
+    Changed |= replaceBlockingWithNonBlocking(
+      &F,
+      importBIDecl(M, BuiltinModules,
+                   CompilationUtils::getPipeName(NonBlockingKind)));
+  }
+
+  return Changed;
+}
+
 bool PipeSupport::runOnModule(Module &M) {
   bool Changed = false;
 
   BuiltinLibInfo &BLI = getAnalysis<BuiltinLibInfo>();
   SmallVector<Module *, 2> BuiltinModules = BLI.getBuiltinModules();
 
+  Changed |= resolveBlockingBuiltins(M, BuiltinModules);
   Changed |= addImplicitFlushCalls(M, BuiltinModules);
 
   return Changed;

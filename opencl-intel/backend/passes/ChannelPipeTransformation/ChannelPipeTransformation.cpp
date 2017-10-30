@@ -701,6 +701,20 @@ static bool replaceWriteChannel(Function &F, Function &WritePipe,
   return Changed;
 }
 
+static Function *declareBlockingBuiltin(Module &M, Function *NonBlockingFun) {
+  PipeKind Kind = CompilationUtils::getPipeKind(NonBlockingFun->getName());
+  assert(Kind && !Kind.Blocking &&
+         "Argument should be a non-blocking pipe built-in.");
+
+  PipeKind BlockingKind = Kind;
+  BlockingKind.Blocking = true;
+
+  FunctionType *BlockingFTy = NonBlockingFun->getFunctionType();
+
+  return cast<Function>(M.getOrInsertFunction(
+    CompilationUtils::getPipeName(BlockingKind), BlockingFTy));
+}
+
 static bool replaceChannelBuiltins(Module &M,
                                    ValueToValueMap ChannelToPipeMap,
                                    SmallVectorImpl<Module *> &BuiltinModules) {
@@ -709,38 +723,31 @@ static bool replaceChannelBuiltins(Module &M,
   Function *NBReadPipe = nullptr;
   Function *NBWritePipe = nullptr;
   for (auto *BIModule : BuiltinModules) {
-    if (!ReadPipe) {
-      ReadPipe = cast<Function>(
-        CompilationUtils::importFunctionDecl(
-            &M, BIModule->getFunction("__read_pipe_2_bl_intel")));
-    }
-
-    if (!WritePipe) {
-      WritePipe = cast<Function>(
-        CompilationUtils::importFunctionDecl(
-            &M, BIModule->getFunction("__write_pipe_2_bl_intel")));
-    }
-
     if (!NBReadPipe) {
       NBReadPipe = cast<Function>(
         CompilationUtils::importFunctionDecl(
             &M, BIModule->getFunction("__read_pipe_2_intel")));
+
+      ReadPipe = declareBlockingBuiltin(M, NBReadPipe);
     }
 
     if (!NBWritePipe) {
       NBWritePipe = cast<Function>(
         CompilationUtils::importFunctionDecl(
             &M, BIModule->getFunction("__write_pipe_2_intel")));
+
+      WritePipe = declareBlockingBuiltin(M, NBWritePipe);
     }
 
-    if (ReadPipe && WritePipe && NBReadPipe && NBWritePipe)
+    if (NBReadPipe && NBWritePipe)
         break;
   }
 
-  assert(ReadPipe && "no '__read_pipe_2_bl_intel' built-in declared in RTL");
-  assert(WritePipe && "no '__write_pipe_2_bl_intel' built-in declared in RTL");
-  assert(NBReadPipe && "no '__read_pipe_2_intel' built-in declared in RTL");
-  assert(NBWritePipe && "no '__write_pipe_2_intel' built-in declared in RTL");
+  assert(NBReadPipe && "No '__read_pipe_2_intel' built-in declared in RTL");
+  assert(NBWritePipe && "No '__write_pipe_2_intel' built-in declared in RTL");
+
+  assert(ReadPipe && "Couldn't declare '__read_pipe_2_bl_intel' built-in");
+  assert(WritePipe && "Couldn't declare '__write_pipe_2_bl_intel' built-in");
 
   SmallVector<Function *, 8> FunctionsToDelete;
 

@@ -278,15 +278,3 @@ int __write_pipe_2_intel(__global struct __pipe_t* p, void* src) {
 
   return 0;
 }
-
-int __read_pipe_2_bl_intel(__global struct __pipe_t* p, void* dst) {
-  while(__read_pipe_2_intel(p, dst)) {
-  }
-  return 0;
-}
-
-int __write_pipe_2_bl_intel(__global struct __pipe_t* p, void* src) {
-  while(__write_pipe_2_intel(p, src)) {
-  }
-  return 0;
-}
