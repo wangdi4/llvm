@@ -163,6 +163,19 @@ public:
   /// valid, INVALID_OP is returned.
   CSA::Generic getGenericOpcode(unsigned opcode) const;
 
+  /// Return the lic size, in bits, of the opcode. If the opcode is not valid,
+  /// 0 is returned. The lic size of convert and sign-extend operations refers
+  /// to their destination value. TODO: good idea?
+  unsigned getLicSize(unsigned opcode) const;
+
+  /// Construct an opcode for a MachineInstr given the generic opcode and a
+  /// desired licSize. If such an operation cannot be constructed, then the
+  /// result is an assertion. TODO: good idea?
+  unsigned makeOpcode(CSA::Generic genericOpcode, unsigned licSize) const;
+
+  /// Get the lic size for the given register class.
+  unsigned getSizeOfRegisterClass(const TargetRegisterClass *RC) const;
+
   bool isSwitch(const MachineInstr *MI) const {
     return getGenericOpcode(MI->getOpcode()) == CSA::Generic::SWITCH;
   }
@@ -179,12 +192,26 @@ public:
   bool isInit(const MachineInstr *) const;
   bool isLoad(const MachineInstr *) const;
   bool isStore(const MachineInstr *) const;
-  bool isAdd(const MachineInstr *) const;
-  bool isSub(const MachineInstr *) const;
-  bool isMul(const MachineInstr *) const;
-  bool isDiv(const MachineInstr *) const;
-  bool isFMA(const MachineInstr *) const;
-  bool isShift(const MachineInstr *) const;
+  bool isAdd(const MachineInstr *MI) const {
+    return getGenericOpcode(MI->getOpcode()) == CSA::Generic::ADD;
+  }
+  bool isSub(const MachineInstr *MI) const {
+    return getGenericOpcode(MI->getOpcode()) == CSA::Generic::SUB;
+  }
+  bool isMul(const MachineInstr *MI) const {
+    return getGenericOpcode(MI->getOpcode()) == CSA::Generic::MUL;
+  }
+  bool isDiv(const MachineInstr *MI) const {
+    return getGenericOpcode(MI->getOpcode()) == CSA::Generic::DIV;
+  }
+  bool isFMA(const MachineInstr *MI) const {
+    return getGenericOpcode(MI->getOpcode()) == CSA::Generic::FMA;
+  }
+  bool isShift(const MachineInstr *MI) const {
+    auto opcode = getGenericOpcode(MI->getOpcode());
+    return opcode == CSA::Generic::SLL || opcode == CSA::Generic::SRL ||
+      opcode == CSA::Generic::SRA;
+  }
   bool isCmp(const MachineInstr *) const;
   bool isAtomic(const MachineInstr *) const;
   bool isSeqOT(const MachineInstr *) const;
