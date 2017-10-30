@@ -775,15 +775,23 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
                     llvm::MDNode::get(Context, attrMDArgs));
   }
 
-  if (FD->getAttr<TaskAttr>()) {
+  if (FD->hasAttr<TaskAttr>() || FD->hasAttr<MaxGlobalWorkDimAttr>()) {
     llvm::Metadata *attrMDArgs[] = {
         llvm::ConstantAsMetadata::get(Builder.getTrue())};
     Fn->setMetadata("task", llvm::MDNode::get(Context, attrMDArgs));
   }
 
+  if (FD->hasAttr<AutorunAttr>()) {
+    llvm::Metadata *attrMDArgs[] = {
+        llvm::ConstantAsMetadata::get(Builder.getTrue())};
+    Fn->setMetadata("autorun", llvm::MDNode::get(Context, attrMDArgs));
+  }
+
   if (const NumComputeUnitsAttr *A = FD->getAttr<NumComputeUnitsAttr>()) {
-    llvm::Metadata *attrMDArgs[] = {llvm::ConstantAsMetadata::get(
-        Builder.getInt32(A->getNumComputeUnits()))};
+    llvm::Metadata *attrMDArgs[] = {
+        llvm::ConstantAsMetadata::get(Builder.getInt32(A->getXDim())),
+        llvm::ConstantAsMetadata::get(Builder.getInt32(A->getYDim())),
+        llvm::ConstantAsMetadata::get(Builder.getInt32(A->getZDim()))};
     Fn->setMetadata("num_compute_units",
                     llvm::MDNode::get(Context, attrMDArgs));
   }
