@@ -123,6 +123,21 @@ void LogHasRecursion( llvm::raw_ostream& logs, const std::vector<std::string>& e
     }
 }
 
+/**
+ * Generates the log record (to the given stream) enumerating function names
+   with unresolved pipe accesses.
+ */
+void LogHasFpgaPipeDynamicAccess( llvm::raw_ostream& logs,
+                                  const std::vector<std::string>& functions)
+{
+    logs << "Error: dynamic pipe or channel access in function(s):\n";
+
+    for(const auto& fun : functions)
+    {
+        logs << fun << "\n";
+    }
+}
+
 bool TerminationBlocker::s_released = false;
 } //namespace Utils
 
@@ -369,16 +384,33 @@ llvm::Module* Compiler::BuildProgram(llvm::Module* pModule,
 
     if( optimizer.hasFunctionPtrCalls())
     {
-      Utils::LogFuncPtrCalls( pResult->LogS(), optimizer.GetFuncNames(true));
+      Utils::LogFuncPtrCalls(
+          pResult->LogS(), optimizer.GetInvalidFunctions(
+              Optimizer::InvalidFunctionType::FUNCTION_PTR_CALLS));
+
       throw Exceptions::CompilerException( "Dynamic block variable call detected.",
                                             CL_DEV_INVALID_BINARY);
     }
 
     if( optimizer.hasRecursion())
     {
-      Utils::LogHasRecursion( pResult->LogS(), optimizer.GetFuncNames(false));
+      Utils::LogHasRecursion(
+          pResult->LogS(), optimizer.GetInvalidFunctions(
+              Optimizer::InvalidFunctionType::RECURSION));
+
       throw Exceptions::CompilerException( "Recursive call detected.",
                                             CL_DEV_INVALID_BINARY);
+    }
+
+    if( optimizer.hasFpgaPipeDynamicAccess())
+    {
+      Utils::LogHasFpgaPipeDynamicAccess(
+          pResult->LogS(), optimizer.GetInvalidFunctions(
+              Optimizer::InvalidFunctionType::FPGA_PIPE_DYNAMIC_ACCESS));
+
+      throw Exceptions::CompilerException(
+          "Dynamic access to FPGA pipe or channel detected.",
+          CL_DEV_INVALID_BINARY);
     }
     //
     // Populate the build results

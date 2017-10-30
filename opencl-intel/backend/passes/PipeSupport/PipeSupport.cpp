@@ -23,6 +23,7 @@
 #include <BuiltinLibInfo.h>
 #include <CompilationUtils.h>
 #include <InitializePasses.h>
+#include <MetadataAPI.h>
 #include <OCLAddressSpace.h>
 #include <OCLPassSupport.h>
 
@@ -344,7 +345,9 @@ bool insertFlushCalls(Function &F, Function *ReadFlush, Function *WriteFlush) {
     } else if (auto *Local = Pipe.findLocal()) {
       FlushAllArgs.push_back(Local);
     } else {
-      llvm_unreachable("Couldn't resolve pipe access");
+      Intel::MetadataAPI::FunctionMetadataAPI(&F)
+        .FpgaPipeDynamicAccess.set(true);
+      return false;
     }
   }
 

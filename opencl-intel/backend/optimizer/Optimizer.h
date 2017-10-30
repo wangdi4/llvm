@@ -52,12 +52,20 @@ public:
     /// @return true if recursion was detected
     bool hasRecursion();
 
-    /// @brief obtain functions names with function ptr calls/recursion detected
-    /// @param funcsWithFuncPtrCalls true indicates to return function names with
-    ///        function pointer calls detected, false indicates to return function
-    ///        names with recursion detected
-    /// @return reference to std::vector with function names
-    std::vector<std::string> GetFuncNames(bool funcsWithFuncPtrCalls);
+    /// @brief checks if some pipes access were not resolved statically
+    bool hasFpgaPipeDynamicAccess();
+
+
+    enum InvalidFunctionType {
+        RECURSION,
+        FUNCTION_PTR_CALLS,
+        FPGA_PIPE_DYNAMIC_ACCESS
+    };
+
+    /// @brief obtain functions names wich are not valid for OpenCL
+    /// @param Ty is a type of invalid function
+    /// @return std::vector with function names
+    std::vector<std::string> GetInvalidFunctions(InvalidFunctionType Ty);
 
 private:
 

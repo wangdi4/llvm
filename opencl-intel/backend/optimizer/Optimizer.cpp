@@ -306,6 +306,12 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
   PM.add(createDetectFuncPtrCalls());
   // check there is no recursion, if there is fail compilation
   PM.add(createDetectRecursionPass());
+
+  // PipeSupport can fail if dynamic pipe access is discovered after LLVM
+  // optimizations
+  if (isFpgaEmulator) {
+    PM.add(createPipeSupportPass());
+  }
 }
 
 static void
@@ -426,10 +432,6 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
     PM.add(createGenericAddressDynamicResolutionPass());
     // No need to run function inlining pass here, because if there are still
     // non-inlined functions left - then we don't have to inline new ones.
-  }
-
-  if (isFpgaEmulator) {
-    PM.add(createPipeSupportPass());
   }
 
   // Get Some info about the kernel should be called before BarrierPass and
@@ -632,6 +634,11 @@ void Optimizer::Optimize() {
     return;
   }
 
+  // if not all pipe access were resolved statically.
+  if (hasFpgaPipeDynamicAccess()) {
+    return;
+  }
+
   m_PostFailCheckPM.run(*m_pModule);
 }
 
@@ -643,34 +650,47 @@ const std::vector<std::string> &Optimizer::GetUndefinedExternals() const {
   return m_undefinedExternalFunctions;
 }
 
-bool Optimizer::hasFunctionPtrCalls() { return !GetFuncNames(true).empty(); }
+bool Optimizer::hasFunctionPtrCalls() {
+  return !GetInvalidFunctions(InvalidFunctionType::FUNCTION_PTR_CALLS).empty();
+}
 
-bool Optimizer::hasRecursion() { return !GetFuncNames(false).empty(); }
+bool Optimizer::hasRecursion() {
+  return !GetInvalidFunctions(InvalidFunctionType::RECURSION).empty();
+}
 
-std::vector<std::string> Optimizer::GetFuncNames(bool funcsWithFuncPtrCalls) {
-  using namespace Intel::MetadataAPI;
+bool Optimizer::hasFpgaPipeDynamicAccess() {
+  return !GetInvalidFunctions(
+      InvalidFunctionType::FPGA_PIPE_DYNAMIC_ACCESS).empty();
+}
 
-  bool returnFunc = false;
+std::vector<std::string>
+Optimizer::GetInvalidFunctions(InvalidFunctionType Ty) {
   assert(m_pModule && "Module is NULL");
-  std::vector<std::string> res;
+  std::vector<std::string> Res;
 
   for (auto &F : *m_pModule) {
-    auto kimd = FunctionMetadataAPI(&F);
-    // If additional else-ifs are needed in order to examine other function
-    // properties, better change the "bool callingFunc" to an enum and use
-    // switch-case.
-    if (funcsWithFuncPtrCalls == true) { // if calling func = hasFunctionPtrCall
-      returnFunc = kimd.FuncPtrCall.hasValue() && kimd.FuncPtrCall.get();
-    } else { // if calling func = hasRecursion
-      returnFunc = kimd.RecursiveCall.hasValue() && kimd.RecursiveCall.get();
+    auto KMD = MetadataAPI::FunctionMetadataAPI(&F);
+
+    bool Invalid = false;
+
+    switch (Ty) {
+    case RECURSION:
+      Invalid = KMD.RecursiveCall.hasValue() && KMD.RecursiveCall.get();
+      break;
+    case FUNCTION_PTR_CALLS:
+      Invalid = KMD.FuncPtrCall.hasValue() && KMD.FuncPtrCall.get();
+      break;
+    case FPGA_PIPE_DYNAMIC_ACCESS:
+      Invalid = KMD.FpgaPipeDynamicAccess.hasValue() &&
+        KMD.FpgaPipeDynamicAccess.get();
     }
-    if (returnFunc) {
-      res.push_back(F.getName());
-      returnFunc = false;
+
+    if (Invalid) {
+      Res.push_back(F.getName());
     }
   }
 
-  return res;
+  return Res;
 }
 
 }}}
