@@ -737,6 +737,9 @@ public:
   int getOrdered() const { return Ordered; }
   bool getNowait() const { return Nowait; }
 
+  void printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                                             bool Verbose=false) const;
+
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
     return W->getWRegionKindID() == WRegionNode::WRNWksLoop;

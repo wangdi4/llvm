@@ -1624,7 +1624,8 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
   CallInst* KmpcFiniCI;
   CallInst* KmpcNextCI;
 
-  Value *ChunkVal = (SchedKind == WRNScheduleStaticEven) ?
+  Value *ChunkVal = (SchedKind == WRNScheduleStaticEven ||
+                     SchedKind == WRNScheduleOrderedStaticEven) ?
                                   ValueOne : W->getSchedule().getChunkExpr();
 
   DEBUG(dbgs() << "--- Schedule Chunk Value: " << *ChunkVal << "\n\n");

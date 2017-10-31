@@ -289,6 +289,11 @@ WRNWksLoopNode::WRNWksLoopNode(BasicBlock *BB, LoopInfo *Li)
   DEBUG(dbgs() << "\nCreated WRNWksLoopNode<" << getNumber() << ">\n");
 }
 
+void WRNWksLoopNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                                bool Verbose) const {
+  OS.indent(2*Depth) << "ORDERED: " << getOrdered() << "\n";
+}
+
 //
 // Methods for WRNSectionsNode
 //
