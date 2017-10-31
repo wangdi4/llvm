@@ -189,6 +189,19 @@ bool CSADataflowCanonicalizationPass::invertIgnoredSwitches(MachineInstr *MI) {
   if (getSingleUse(switched->getOperand(0)) != MI)
     return false;
 
+  // For performance reasons, we need the SWITCH to be filtering out a large
+  // fraction of its input values. In lieu of a performance analysis pass, we
+  // use the first/last of the sequence of the operator being a high confidence
+  // of being such an operation.
+  auto switchCtl = MI->getOperand(2);
+  const MachineInstr *switchCtlDef = getDefinition(switchCtl);
+  switchCtlDef->dump();
+  if (!switchCtlDef || !TII->isSeqOT(switchCtlDef))
+    return false;
+  if (switchCtlDef->getOperand(2).getReg() == switchCtl.getReg() &&
+      switchCtlDef->getOperand(3).getReg() == switchCtl.getReg())
+    return false;
+
   // Generate new SWITCH's for each operand of the switched operation. The
   // operation itself is modified in-place, so we need to fix up all the LIC
   // operands of the operation.
