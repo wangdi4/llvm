@@ -8090,6 +8090,9 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   case X86::BI__builtin_csa_parallel_loop: {
     return UndefValue::get(ConvertType(E->getType())); // noop
   }
+  case X86::BI__builtin_csa_spmdization: {
+    return UndefValue::get(ConvertType(E->getType())); // noop
+  }
   case X86::BI__ud2:
     // llvm.trap makes a ud2a instruction on x86.
     return EmitTrapCall(Intrinsic::trap);
@@ -8145,7 +8148,13 @@ Value *CodeGenFunction::EmitCSABuiltinExpr(unsigned BuiltinID,
     Value *Callee = CGM.getIntrinsic(Intrinsic::csa_parallel_loop);
     return Builder.CreateCall(Callee);
   }
-
+  case CSA::BI__builtin_csa_spmdization: {
+    Value *X = EmitScalarExpr(E->getArg(0));
+    Value *Callee = CGM.getIntrinsic(Intrinsic::csa_spmdization,
+                                     X->getType());
+    return Builder.CreateCall(Callee, X);
+  }
+    
   default:
     return nullptr;
   }
