@@ -90,6 +90,7 @@ add_llvm_library(LLVMCodeGen
   MachineTraceMetrics.cpp
   MachineVerifier.cpp
   PatchableFunction.cpp
+  MIRMatcher.cpp
   MIRPrinter.cpp
   MIRPrintingPass.cpp
   MacroFusion.cpp
