@@ -293,7 +293,6 @@ set( BACKEND_PASSES
     LinearIdResolver
     Materialize
     ReduceAlignment
-    DetectFunctionPtrCalls
     CloneBlockInvokeFuncToKernel
     ResolveBlockToStaticCall
     PatchCallbackArgs

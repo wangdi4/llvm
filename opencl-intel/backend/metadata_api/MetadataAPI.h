@@ -26,11 +26,9 @@ struct FunctionMetadataAPI {
   typedef NamedMDValue<bool, MDValueGlobalObjectStrategy> BoolTy;
 
   FunctionMetadataAPI(llvm::Function *Func)
-      : FuncPtrCall(Func, "func_ptr_call"),
-        RecursiveCall(Func, "recursive_call"),
+      : RecursiveCall(Func, "recursive_call"),
         FpgaPipeDynamicAccess(Func, "fpga_pipe_dynamic_access") {}
 
-  NamedMDValueAccessor<BoolTy> FuncPtrCall;
   NamedMDValueAccessor<BoolTy> RecursiveCall;
   NamedMDValueAccessor<BoolTy> FpgaPipeDynamicAccess;
 };

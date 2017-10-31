@@ -44,10 +44,6 @@ public:
 
     const std::vector<std::string>& GetUndefinedExternals() const;
 
-    /// @brief function pointer calls were detected after standard LLVM optimizations
-    /// @return true if function pointer calls were detected
-    bool hasFunctionPtrCalls();
-
     /// @brief recursion was detected after standard LLVM optimizations
     /// @return true if recursion was detected
     bool hasRecursion();
@@ -58,7 +54,6 @@ public:
 
     enum InvalidFunctionType {
         RECURSION,
-        FUNCTION_PTR_CALLS,
         FPGA_PIPE_DYNAMIC_ACCESS
     };
 

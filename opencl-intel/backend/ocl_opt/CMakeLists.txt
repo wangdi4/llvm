@@ -22,7 +22,6 @@ set(OCL_BE_PASSES
     ChannelPipeTransformation
     CloneBlockInvokeFuncToKernel
     DebugInfoPass
-    DetectFunctionPtrCalls
     DetectRecursion
     GenericAddressResolution
     ImplicitArgsAnalysis

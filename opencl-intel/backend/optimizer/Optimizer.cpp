@@ -91,7 +91,6 @@ llvm::Pass *createSmartGVNPass(bool);
 
 llvm::ModulePass *createSinCosFoldPass();
 llvm::ModulePass *createResolveWICallPass();
-llvm::ModulePass *createDetectFuncPtrCalls();
 llvm::ModulePass *createDetectRecursionPass();
 llvm::ModulePass *createCloneBlockInvokeFuncToKernelPass();
 llvm::Pass *createResolveBlockToStaticCallPass();
@@ -301,9 +300,7 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
       &PM, OptLevel,
       UnitAtATime, UnrollLoops, rtLoopUnrollFactor, allowAllocaModificationOpt,
       debugType != intel::None, HasGatherScatter);
-  // check function pointers calls are gone after standard optimizations
-  // if not compilation will fail
-  PM.add(createDetectFuncPtrCalls());
+
   // check there is no recursion, if there is fail compilation
   PM.add(createDetectRecursionPass());
 
@@ -619,15 +616,6 @@ void Optimizer::Optimize() {
   materializerPM.run(*m_pModule);
   m_PreFailCheckPM.run(*m_pModule);
 
-  // if there are still unresolved functon pointer calls
-  // after standard LLVM optimizations applied
-  // it means blocks variable call cannot be resolved to static call
-  // Interrupt optimizations and return.
-  // Compilation will report failure
-  if (hasFunctionPtrCalls()) {
-    return;
-  }
-
   // if there are still recursive calls  after standard
   // LLVM optimizations applied  Compilation will report failure
   if (hasRecursion()) {
@@ -648,10 +636,6 @@ bool Optimizer::hasUndefinedExternals() const {
 
 const std::vector<std::string> &Optimizer::GetUndefinedExternals() const {
   return m_undefinedExternalFunctions;
-}
-
-bool Optimizer::hasFunctionPtrCalls() {
-  return !GetInvalidFunctions(InvalidFunctionType::FUNCTION_PTR_CALLS).empty();
 }
 
 bool Optimizer::hasRecursion() {
@@ -676,9 +660,6 @@ Optimizer::GetInvalidFunctions(InvalidFunctionType Ty) {
     switch (Ty) {
     case RECURSION:
       Invalid = KMD.RecursiveCall.hasValue() && KMD.RecursiveCall.get();
-      break;
-    case FUNCTION_PTR_CALLS:
-      Invalid = KMD.FuncPtrCall.hasValue() && KMD.FuncPtrCall.get();
       break;
     case FPGA_PIPE_DYNAMIC_ACCESS:
       Invalid = KMD.FpgaPipeDynamicAccess.hasValue() &&

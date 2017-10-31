@@ -97,20 +97,6 @@ void LogUndefinedExternals( llvm::raw_ostream& logs, const std::vector<std::stri
 
 /**
  * Generates the log record (to the given stream) enumerating function names
-   with unresolved function pointer calls
- */
-void LogFuncPtrCalls( llvm::raw_ostream& logs, const std::vector<std::string>& externals)
-{
-    logs << "Error: unresolved pointer calls in function(s):\n";
-
-    for( std::vector<std::string>::const_iterator i = externals.begin(), e = externals.end(); i != e; ++i)
-    {
-        logs << *i << "\n";
-    }
-}
-
-/**
- * Generates the log record (to the given stream) enumerating function names
    with recursive calls
  */
 void LogHasRecursion( llvm::raw_ostream& logs, const std::vector<std::string>& externals)
@@ -380,16 +366,6 @@ llvm::Module* Compiler::BuildProgram(llvm::Module* pModule,
     {
         Utils::LogUndefinedExternals( pResult->LogS(), optimizer.GetUndefinedExternals());
         throw Exceptions::CompilerException( "Failed to parse IR", CL_DEV_INVALID_BINARY);
-    }
-
-    if( optimizer.hasFunctionPtrCalls())
-    {
-      Utils::LogFuncPtrCalls(
-          pResult->LogS(), optimizer.GetInvalidFunctions(
-              Optimizer::InvalidFunctionType::FUNCTION_PTR_CALLS));
-
-      throw Exceptions::CompilerException( "Dynamic block variable call detected.",
-                                            CL_DEV_INVALID_BINARY);
     }
 
     if( optimizer.hasRecursion())

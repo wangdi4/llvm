@@ -74,7 +74,6 @@ void initializeSubGroupAdaptationPass(llvm::PassRegistry&);
 void initializeLinearIdResolverPass(llvm::PassRegistry&);
 void initializePrepareKernelArgsPass(llvm::PassRegistry&);
 void initializeReduceAlignmentPass(llvm::PassRegistry&);
-void initializeDetectFuncPtrCallsPass(llvm::PassRegistry&);
 void initializeResolveWICallPass(llvm::PassRegistry&);
 void initializeCloneBlockInvokeFuncToKernelPass(llvm::PassRegistry&);
 void initializeResolveBlockToStaticCallPass(llvm::PassRegistry&);

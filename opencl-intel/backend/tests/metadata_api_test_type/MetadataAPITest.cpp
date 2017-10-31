@@ -29,22 +29,6 @@
 using namespace Intel;
 using namespace MetadataAPI;
 
-TEST_F(MetadataTest, Test_FunctionPointerCallMetadata) {
-  auto pModule = GetTestModule();
-
-  for (auto &F : *pModule) {
-    FunctionMetadataAPI mdApi(&F);
-
-    mdApi.FuncPtrCall.set(true);
-  }
-
-  for (auto &F : *pModule) {
-    FunctionMetadataAPI mdApi(&F);
-
-    EXPECT_EQ(true, mdApi.FuncPtrCall.get());
-  }
-}
-
 TEST_F(MetadataTest, Test_RecursiveCallMetadata) {
   auto pModule = GetTestModule();
 
