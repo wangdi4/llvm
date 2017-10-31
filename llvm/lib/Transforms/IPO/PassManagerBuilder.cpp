@@ -369,6 +369,7 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   }
   if (!DisableUnrollLoops)
     MPM.add(createSimpleLoopUnrollPass(OptLevel));    // Unroll small loops
+  MPM.add(createLoopSPMDizationPass());
   addExtensionsToPM(EP_LoopOptimizerEnd, MPM);
 
   if (OptLevel > 1) {
@@ -641,6 +642,8 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createLateCFGSimplificationPass()); // Switches to lookup tables
   addInstructionCombiningPass(MPM);
 
+  MPM.add(createLoopSPMDizationPass());
+  
   if (!DisableUnrollLoops) {
     MPM.add(createLoopUnrollPass(OptLevel));    // Unroll small loops
 
