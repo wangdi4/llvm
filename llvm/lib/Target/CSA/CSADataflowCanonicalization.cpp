@@ -31,6 +31,9 @@ using namespace llvm;
 
 STATISTIC(NumSwitchesAdded, "Number of switches added due to inversion");
 
+static cl::opt<bool> DisableSwitchInversion("csa-disable-swi", cl::Hidden,
+    cl::desc("CSA Specific: Disable switch inversion"));
+
 namespace llvm {
   class CSADataflowCanonicalizationPass : public MachineFunctionPass {
   public:
@@ -98,6 +101,9 @@ bool CSADataflowCanonicalizationPass::runOnMachineFunction(MachineFunction &MF) 
     &CSADataflowCanonicalizationPass::invertIgnoredSwitches
   };
   for (auto func : functions) {
+    if (func == &CSADataflowCanonicalizationPass::invertIgnoredSwitches &&
+        DisableSwitchInversion)
+      continue;
     for (auto &MBB : MF) {
       for (auto &MI : MBB) {
         changed |= (this->*func)(&MI);
