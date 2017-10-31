@@ -509,10 +509,12 @@ bool LLParser::ParseUnnamedGlobal() {
 #if INTEL_CUSTOMIZATION
   bool IsThreadPrivate = false;
   bool IsTargetDeclare = false;
-  ParseOptionalThreadPrivate(IsThreadPrivate);
-  ParseOptionalTargetDeclare(IsTargetDeclare);
 #endif // INTEL_CUSTOMIZATION
   if (ParseOptionalLinkage(Linkage, HasLinkage, Visibility, DLLStorageClass) ||
+#if INTEL_CUSTOMIZATION
+      ParseOptionalThreadPrivate(IsThreadPrivate) ||
+      ParseOptionalTargetDeclare(IsTargetDeclare) ||
+#endif // INTEL_CUSTOMIZATION
       ParseOptionalThreadLocal(TLM) || ParseOptionalUnnamedAddr(UnnamedAddr))
     return true;
 
@@ -543,11 +545,13 @@ bool LLParser::ParseNamedGlobal() {
 #if INTEL_CUSTOMIZATION
   bool IsThreadPrivate = false;
   bool IsTargetDeclare = false;
-  ParseOptionalThreadPrivate(IsThreadPrivate);
-  ParseOptionalTargetDeclare(IsTargetDeclare);
 #endif // INTEL_CUSTOMIZATION
   if (ParseToken(lltok::equal, "expected '=' in global variable") ||
       ParseOptionalLinkage(Linkage, HasLinkage, Visibility, DLLStorageClass) ||
+#if INTEL_CUSTOMIZATION
+      ParseOptionalThreadPrivate(IsThreadPrivate) ||
+      ParseOptionalTargetDeclare(IsTargetDeclare) ||
+#endif // INTEL_CUSTOMIZATION
       ParseOptionalThreadLocal(TLM) || ParseOptionalUnnamedAddr(UnnamedAddr))
     return true;
 
@@ -1380,16 +1384,20 @@ bool LLParser::ParseOptionalThreadLocal(GlobalVariable::ThreadLocalMode &TLM) {
 #if INTEL_CUSTOMIZATION
 /// ParseOptionalThreadPrivate
 ///   := 'thread_private'
-void LLParser::ParseOptionalThreadPrivate(bool &IsThreadPrivate) {
-  if (EatIfPresent(lltok::kw_thread_private))
-    IsThreadPrivate = true;
+bool LLParser::ParseOptionalThreadPrivate(bool &IsThreadPrivate) {
+  if (!EatIfPresent(lltok::kw_thread_private))
+    return false;
+  IsThreadPrivate = true;
+  return false;
 }
 
 /// ParseOptionalTargetDeclare
 ///   := 'target_declare'
-void LLParser::ParseOptionalTargetDeclare(bool &IsTargetDeclare) {
-  if (EatIfPresent(lltok::kw_target_declare))
-    IsTargetDeclare = true;
+bool LLParser::ParseOptionalTargetDeclare(bool &IsTargetDeclare) {
+  if (!EatIfPresent(lltok::kw_target_declare))
+    return false;
+  IsTargetDeclare = true;
+  return false;
 }
 #endif // INTEL_CUSTOMIZATION
 
