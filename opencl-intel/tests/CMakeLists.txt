@@ -72,6 +72,7 @@ add_subdirectory( clang_compiler_test_type )
 
 add_subdirectory( task_executor_test_type )
 add_subdirectory( bi_test_type )
+add_subdirectory( backend_test_type )
 
 if( USE_VALGRIND )
   add_subdirectory( valgrind )
@@ -97,6 +98,7 @@ list(APPEND RUNTIME_UNITTESTS
   task_executor_test_type
   clang_compiler_test_type
   cpu_device_test_type
+  backend_test_type
 )
 
 list(APPEND RT_TEST_DEPS
