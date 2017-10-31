@@ -55,6 +55,11 @@ PARAM_TYPE##8 __attribute__((overloadable)) __attribute__((const)) soa8_##FUNC_N
 {\
     __private image_aux_data *pImage = __builtin_astype(img, __private image_aux_data*);\
     return (PARAM_TYPE##8)(pImage->PARAM);\
+}\
+PARAM_TYPE##16 __attribute__((overloadable)) __attribute__((const)) soa16_##FUNC_NAME(ACCESS_QUAL IMG_TYPE img)\
+{\
+   __private image_aux_data *pImage = __builtin_astype(img, __private image_aux_data*);\
+   return (PARAM_TYPE##16)(pImage->PARAM);\
 }
 
 /// image properties functions
@@ -2190,6 +2195,7 @@ void __attribute__((overloadable)) write_imageui(__read_write image3d_t image, i
 // linked from tblgen generated file
 int __attribute__((const)) __attribute__((overloadable)) intel_movemask(int4);
 int __attribute__((const)) __attribute__((overloadable)) intel_movemask(int8);
+int __attribute__((const)) __attribute__((overloadable)) intel_movemask(int16);
 
 void __attribute__((overloadable)) mask_soa4_write_imageui(int4 mask, __write_only image2d_t image, int4 coord_x, int4 coord_y, uint4 val_x, uint4 val_y, uint4 val_z, uint4 val_w)
 {
@@ -2277,15 +2283,88 @@ void __attribute__((overloadable)) mask_soa8_write_imageui(int8 mask, __read_wri
     return mask_soa8_write_imageui(mask, __builtin_astype(image, __write_only image2d_t), coord_x, coord_y, val_x, val_y, val_z, val_w);
 }
 
+void __attribute__((overloadable)) mask_soa16_write_imageui(int16 mask, __write_only image2d_t image, int16 coord_x, int16 coord_y, uint16 val_x,
+                                                            uint16 val_y, uint16 val_z, uint16 val_w)
+{
+  const int rescmp = intel_movemask(mask);
+
+  // ALL elements in mask are -1
+  if (rescmp == 0xFF) {
+    soa16_write_imageui(image, coord_x, coord_y, val_x, val_y, val_z, val_w);
+  }
+  // ALL elements in mask are zero
+  else if (rescmp == 0) {
+    // do nothing
+  }
+  // from current implementation of intel_movemask for int16 we can't optimize
+  // for processing of low/high parts of 16-vector only - the v16 splits into
+  // 2 v8, then _mm256_movemask_ps is applied to each and result are or'ed, which
+  // is obviously wrong. So, we process the mask:
+  else {
+    // process scalar
+    if (mask.s0 != 0)
+      write_imageui(image, (int2)(coord_x.s0, coord_y.s0), (uint4)(val_x.s0, val_y.s0, val_z.s0, val_w.s0));
+
+    if (mask.s1 != 0)
+      write_imageui(image, (int2)(coord_x.s1, coord_y.s1), (uint4)(val_x.s1, val_y.s1, val_z.s1, val_w.s1));
+
+    if (mask.s2 != 0)
+      write_imageui(image, (int2)(coord_x.s2, coord_y.s2), (uint4)(val_x.s2, val_y.s2, val_z.s2, val_w.s2));
+
+    if (mask.s3 != 0)
+      write_imageui(image, (int2)(coord_x.s3, coord_y.s3), (uint4)(val_x.s3, val_y.s3, val_z.s3, val_w.s3));
+
+    if (mask.s4 != 0)
+      write_imageui(image, (int2)(coord_x.s4, coord_y.s4), (uint4)(val_x.s4, val_y.s4, val_z.s4, val_w.s4));
+
+    if (mask.s5 != 0)
+      write_imageui(image, (int2)(coord_x.s5, coord_y.s5), (uint4)(val_x.s5, val_y.s5, val_z.s5, val_w.s5));
+
+    if (mask.s6 != 0)
+      write_imageui(image, (int2)(coord_x.s6, coord_y.s6), (uint4)(val_x.s6, val_y.s6, val_z.s6, val_w.s6));
+
+    if (mask.s7 != 0)
+      write_imageui(image, (int2)(coord_x.s7, coord_y.s7), (uint4)(val_x.s7, val_y.s7, val_z.s7, val_w.s7));
+
+    if (mask.s8 != 0)
+      write_imageui(image, (int2)(coord_x.s8, coord_y.s8), (uint4)(val_x.s8, val_y.s8, val_z.s8, val_w.s8));
+
+    if (mask.s9 != 0)
+      write_imageui(image, (int2)(coord_x.s9, coord_y.s9), (uint4)(val_x.s9, val_y.s9, val_z.s9, val_w.s9));
+
+    if (mask.sa != 0)
+      write_imageui(image, (int2)(coord_x.sa, coord_y.sa), (uint4)(val_x.sa, val_y.sa, val_z.sa, val_w.sa));
+
+    if (mask.sb != 0)
+      write_imageui(image, (int2)(coord_x.sb, coord_y.sb), (uint4)(val_x.sb, val_y.sb, val_z.sb, val_w.sb));
+
+    if (mask.sc != 0)
+      write_imageui(image, (int2)(coord_x.sc, coord_y.sc), (uint4)(val_x.sc, val_y.sc, val_z.sc, val_w.sc));
+
+    if (mask.sd != 0)
+      write_imageui(image, (int2)(coord_x.sd, coord_y.sd), (uint4)(val_x.sd, val_y.sd, val_z.sd, val_w.sd));
+
+    if (mask.se != 0)
+      write_imageui(image, (int2)(coord_x.se, coord_y.se), (uint4)(val_x.se, val_y.se, val_z.se, val_w.se));
+
+    if (mask.sf != 0)
+      write_imageui(image, (int2)(coord_x.sf, coord_y.sf), (uint4)(val_x.sf, val_y.sf, val_z.sf, val_w.sf));
+  }
+}
+
+void __attribute__((overloadable)) mask_soa16_write_imageui(int16 mask, __read_write image2d_t image, int16 coord_x, int16 coord_y, uint16 val_x, uint16 val_y, uint16 val_z, uint16 val_w)
+{
+    return mask_soa16_write_imageui(mask, __builtin_astype(image, __write_only image2d_t), coord_x, coord_y, val_x, val_y, val_z, val_w);
+}
+
 // SOA versions of masked read_imageui that have unmasked counterparts
 void __attribute__((overloadable)) mask_soa4_read_imageui(int4 mask, __read_only image2d_t image, sampler_t sampler, int4 coord_x, int4 coord_y,
                                                          __private uint4* res_x, __private uint4* res_y, __private uint4* res_z, __private uint4* res_w)
 {
     const int rescmp = intel_movemask(mask);
     // ALL elements in mask are zero
-    if(rescmp == 0){
+    if(rescmp == 0)
         return;
-    }
 
     // If addressing mode isn't set then set clamp to edge to avoid out of bounds memory accesses
     if(__builtin_astype(sampler, size_t) & __ADDRESS_MASK) {
@@ -2321,9 +2400,8 @@ void __attribute__((overloadable)) mask_soa8_read_imageui(int8 mask, __read_only
 {
     const int rescmp = intel_movemask(mask);
     // ALL elements in mask are zero
-    if(rescmp == 0){
+    if(rescmp == 0)
         return;
-    }
     // If addressing mode isn't set then set clamp to edge to avoid out of bounds memory accesses
     if(__builtin_astype(sampler, size_t) & __ADDRESS_MASK) {
         sampler_t maskSampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
@@ -2352,3 +2430,40 @@ void __attribute__((overloadable)) mask_soa8_read_imageui(int8 mask, __write_onl
 {
     mask_soa8_read_imageui(mask, __builtin_astype(image, __read_only image2d_t), coord_x, coord_y, res_x, res_y, res_z, res_w);
 }
+
+void __attribute__((overloadable)) mask_soa16_read_imageui(int16 mask, __read_only image2d_t image, sampler_t sampler, int16 coord_x, int16 coord_y,
+                                                           __private uint16 *res_x, __private uint16 *res_y, __private uint16 *res_z, __private uint16 *res_w)
+{
+  const int rescmp = intel_movemask(mask);
+  // ALL elements in mask are zero
+  if (rescmp == 0)
+    return;
+  // If addressing mode isn't set then set clamp to edge to avoid out of bounds memory accesses
+  if (__builtin_astype(sampler, size_t) & __ADDRESS_MASK) {
+    sampler_t maskSampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
+    soa16_read_imageui(image, maskSampler, coord_x, coord_y, res_x, res_y, res_z, res_w);
+  } else {
+    soa16_read_imageui(image, sampler, coord_x, coord_y, res_x, res_y, res_z, res_w);
+  }
+}
+
+void __attribute__((overloadable)) mask_soa16_read_imageui(int16 mask, __write_only image2d_t image, sampler_t sampler, int16 coord_x, int16 coord_y,
+                                                           __private uint16 *res_x, __private uint16 *res_y, __private uint16 *res_z, __private uint16 *res_w)
+{
+  mask_soa16_read_imageui(mask, __builtin_astype(image, __read_only image2d_t), sampler, coord_x, coord_y, res_x, res_y, res_z, res_w);
+}
+
+void __attribute__((overloadable)) mask_soa16_read_imageui(int16 mask, __read_only image2d_t image, int16 coord_x, int16 coord_y,
+                                                           __private uint16 *res_x, __private uint16 *res_y, __private uint16 *res_z, __private uint16 *res_w)
+{
+  // Use clamp to edge addressing mode to avoid out of bounds memory accesses
+  sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
+  mask_soa16_read_imageui(mask, image, sampler, coord_x, coord_y, res_x, res_y, res_z, res_w);
+}
+
+void __attribute__((overloadable)) mask_soa16_read_imageui(int16 mask, __write_only image2d_t image, int16 coord_x, int16 coord_y,
+                                                           __private uint16 *res_x, __private uint16 *res_y, __private uint16 *res_z, __private uint16 *res_w)
+{
+  mask_soa16_read_imageui(mask, __builtin_astype(image, __read_only image2d_t), coord_x, coord_y, res_x, res_y, res_z, res_w);
+}
+

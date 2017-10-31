@@ -1124,6 +1124,7 @@ foreach qual = [ "ro", "wo", "rw" ] in {
       Attrs = [CONSTFUNC, OVERLOADABLE] in {
   def soa4_get_image_height_#qual : OclBuiltin<"soa4_get_image_height", (outs v4i32:$ret), (ins gentype:$image), [], [], 0, 0>;
   def soa8_get_image_height_#qual : OclBuiltin<"soa8_get_image_height", (outs v8i32:$ret), (ins gentype:$image), [], [], 0, 0>;
+  def soa16_get_image_height_#qual : OclBuiltin<"soa16_get_image_height", (outs v16i32:$ret), (ins gentype:$image), [], [], 0, 0>;
   }
 }
 
@@ -1137,10 +1138,13 @@ foreach qual = [ "ro", "wo", "rw" ] in {
       Attrs = [CONSTFUNC, OVERLOADABLE] in {
   def soa4_get_image_width_#qual : OclBuiltin<"soa4_get_image_width", (outs v4i32:$ret), (ins gentype:$image), [], [], 0, 0>;
   def soa8_get_image_width_#qual : OclBuiltin<"soa8_get_image_width", (outs v8i32:$ret), (ins gentype:$image), [], [], 0, 0>;
+  def soa16_get_image_width_#qual : OclBuiltin<"soa16_get_image_width", (outs v16i32:$ret), (ins gentype:$image), [], [], 0, 0>;
   def soa4_get_image_channel_order_#qual : OclBuiltin<"soa4_get_image_channel_order", (outs v4i32:$ret), (ins gentype:$image), [], [], 0, 0>;
   def soa8_get_image_channel_order_#qual : OclBuiltin<"soa8_get_image_channel_order", (outs v8i32:$ret), (ins gentype:$image), [], [], 0, 0>;
+  def soa16_get_image_channel_order_#qual : OclBuiltin<"soa16_get_image_channel_order", (outs v16i32:$ret), (ins gentype:$image), [], [], 0, 0>;
   def soa4_get_image_channel_data_type_#qual : OclBuiltin<"soa4_get_image_channel_data_type", (outs v4i32:$ret), (ins gentype:$image), [], [], 0, 0>;
   def soa8_get_image_channel_data_type_#qual : OclBuiltin<"soa8_get_image_channel_data_type", (outs v8i32:$ret), (ins gentype:$image), [], [], 0, 0>;
+  def soa16_get_image_channel_data_type_#qual : OclBuiltin<"soa16_get_image_channel_data_type", (outs v16i32:$ret), (ins gentype:$image), [], [], 0, 0>;
   }
 }
 
@@ -1149,6 +1153,7 @@ foreach qual = [ "ro", "wo", "rw" ] in {
       Attrs = [CONSTFUNC, OVERLOADABLE] in {
   def soa4_get_image_depth_#qual : OclBuiltin<"soa4_get_image_depth", (outs v4i32:$ret), (ins !cast<OclType>("image3d_"#qual):$image), [], [], 0, 0>;
   def soa8_get_image_depth_#qual : OclBuiltin<"soa8_get_image_depth", (outs v8i32:$ret), (ins !cast<OclType>("image3d_"#qual):$image), [], [], 0, 0>;
+  def soa16_get_image_depth_#qual : OclBuiltin<"soa16_get_image_depth", (outs v16i32:$ret), (ins !cast<OclType>("image3d_"#qual):$image), [], [], 0, 0>;
   }
 }
 
@@ -1179,12 +1184,18 @@ foreach qual = [ "ro", "rw" ] in {
   def mask_soa8_read_imageui_2d_#qual : OclBuiltin<"mask_soa8_read_imageui", (outs),
                 (ins v8i32:$mask, !cast<OclType>("image2d_"#qual):$image, sampler_t:$sampler, v8i32:$coord_x, v8i32:$coord_y,
                      pv8u32:$res_x, pv8u32:$res_y, pv8u32:$res_z, pv8u32:$res_w), [], [], 0, 0>, PRIVATE;
+  def mask_soa16_read_imageui_2d_#qual : OclBuiltin<"mask_soa16_read_imageui", (outs),
+                (ins v16i32:$mask, !cast<OclType>("image2d_"#qual):$image, sampler_t:$sampler, v16i32:$coord_x, v16i32:$coord_y,
+                     pv16u32:$res_x, pv16u32:$res_y, pv16u32:$res_z, pv16u32:$res_w), [], [], 0, 0>, PRIVATE;
   def mask_soa4_read_imageui_2d_#qual#_no_sampler : OclBuiltin<"mask_soa4_read_imageui", (outs),
                 (ins v4i32:$mask, !cast<OclType>("image2d_"#qual):$image, v4i32:$coord_x, v4i32:$coord_y,
                      pv4u32:$res_x, pv4u32:$res_y, pv4u32:$res_z, pv4u32:$res_w), [], [], 0, 0>, PRIVATE;
   def mask_soa8_read_imageui_2d_#qual#_no_sampler : OclBuiltin<"mask_soa8_read_imageui", (outs),
                 (ins v8i32:$mask, !cast<OclType>("image2d_"#qual):$image, v8i32:$coord_x, v8i32:$coord_y,
                      pv8u32:$res_x, pv8u32:$res_y, pv8u32:$res_z, pv8u32:$res_w), [], [], 0, 0>, PRIVATE;
+  def mask_soa16_read_imageui_2d_#qual#_no_sampler : OclBuiltin<"mask_soa16_read_imageui", (outs),
+                (ins v16i32:$mask, !cast<OclType>("image2d_"#qual):$image, v16i32:$coord_x, v16i32:$coord_y,
+                     pv16u32:$res_x, pv16u32:$res_y, pv16u32:$res_z, pv16u32:$res_w), [], [], 0, 0>, PRIVATE;
   }
 }
 
@@ -1206,6 +1217,9 @@ foreach qual = [ "wo", "rw" ] in {
   def mask_soa8_write_imageui_2d_#qual : OclBuiltin<"mask_soa8_write_imageui", (outs),
                 (ins v8i32:$mask, !cast<OclType>("image2d_"#qual):$image, v8i32:$coord_x, v8i32:$coord_y,
                      v8u32:$val_x, v8u32:$val_y, v8u32:$val_z, v8u32:$val_w), [], [], 0, 0>;
+  def mask_soa16_write_imageui_2d_#qual : OclBuiltin<"mask_soa16_write_imageui", (outs),
+                (ins v16i32:$mask, !cast<OclType>("image2d_"#qual):$image, v16i32:$coord_x, v16i32:$coord_y,
+                     v16u32:$val_x, v16u32:$val_y, v16u32:$val_z, v16u32:$val_w), [], [], 0, 0>;
   }
 }
 
@@ -1262,12 +1276,13 @@ foreach qual = [ "ro", "rw"] in {
   def mask_read_imageui_2d_#qual#_i_cell : MapCell<!cast<OclBuiltin>("mask_read_imageui_2d_"#qual), v4i32>;
   def mask_soa4_read_imageui_2d_#qual#_i_cell : MapCell<!cast<OclBuiltin>("mask_soa4_read_imageui_2d_"#qual), !cast<OclType>("image2d_"#qual)>;
   def mask_soa8_read_imageui_2d_#qual#_i_cell : MapCell<!cast<OclBuiltin>("mask_soa8_read_imageui_2d_"#qual), !cast<OclType>("image2d_"#qual)>;
+  def mask_soa16_read_imageui_2d_#qual#_i_cell : MapCell<!cast<OclBuiltin>("mask_soa16_read_imageui_2d_"#qual), !cast<OclType>("image2d_"#qual)>;
   def mask_read_imageui_2d_#qual#_i_vectorized : MapRow<[
     !cast<MapCell>("mask_read_imageui_2d_"#qual#"_i_cell"), //scalar
     nullCell,      //v2
     !cast<MapCell>("mask_soa4_read_imageui_2d_"#qual#"_i_cell"),      //v4
     !cast<MapCell>("mask_soa8_read_imageui_2d_"#qual#"_i_cell"),      //v8
-    nullCell,      //16
+    !cast<MapCell>("mask_soa16_read_imageui_2d_"#qual#"_i_cell"),     //16
     nullCell],     //3
     0,1>;          //not scalarizable, packetizable
 }
@@ -1276,12 +1291,13 @@ foreach qual = [ "ro", "rw"] in {
   def mask_read_imageui_2d_#qual#_no_sampler_i_cell : MapCell<!cast<OclBuiltin>("mask_read_imageui_2d_"#qual#"_no_sampler"), v4i32>;
   def mask_soa4_read_imageui_2d_#qual#_no_sampler_i_cell : MapCell<!cast<OclBuiltin>("mask_soa4_read_imageui_2d_"#qual#"_no_sampler"), !cast<OclType>("image2d_"#qual)>;
   def mask_soa8_read_imageui_2d_#qual#_no_sampler_i_cell : MapCell<!cast<OclBuiltin>("mask_soa8_read_imageui_2d_"#qual#"_no_sampler"), !cast<OclType>("image2d_"#qual)>;
+  def mask_soa16_read_imageui_2d_#qual#_no_sampler_i_cell : MapCell<!cast<OclBuiltin>("mask_soa16_read_imageui_2d_"#qual#"_no_sampler"), !cast<OclType>("image2d_"#qual)>;
   def mask_read_imageui_2d_#qual#_no_sampler_i_vectorized : MapRow<[
     !cast<MapCell>("mask_read_imageui_2d_"#qual#"_no_sampler_i_cell"), //scalar
     nullCell,      //v2
     !cast<MapCell>("mask_soa4_read_imageui_2d_"#qual#"_no_sampler_i_cell"),      //v4
     !cast<MapCell>("mask_soa8_read_imageui_2d_"#qual#"_no_sampler_i_cell"),      //v8
-    nullCell,      //16
+    !cast<MapCell>("mask_soa16_read_imageui_2d_"#qual#"_no_sampler_i_cell"),     //16
     nullCell],     //3
     0,1>;          //not scalarizable, packetizable
 }
@@ -1290,12 +1306,13 @@ foreach qual = [ "wo", "rw"] in {
   def mask_write_imageui_2d_#qual#_i_cell : MapCell<!cast<OclBuiltin>("mask_write_imageui_2d_"#qual), v4i32>;
   def mask_soa4_write_imageui_2d_#qual#_i_cell : MapCell<!cast<OclBuiltin>("mask_soa4_write_imageui_2d_"#qual), !cast<OclType>("image2d_"#qual)>;
   def mask_soa8_write_imageui_2d_#qual#_i_cell : MapCell<!cast<OclBuiltin>("mask_soa8_write_imageui_2d_"#qual), !cast<OclType>("image2d_"#qual)>;
+  def mask_soa16_write_imageui_2d_#qual#_i_cell : MapCell<!cast<OclBuiltin>("mask_soa16_write_imageui_2d_"#qual), !cast<OclType>("image2d_"#qual)>;
   def mask_write_imageui_2d_#qual#_i_vectorized : MapRow<[
     !cast<MapCell>("mask_write_imageui_2d_"#qual#"_i_cell"), //scalar
     nullCell,      //v2
     !cast<MapCell>("mask_soa4_write_imageui_2d_"#qual#"_i_cell"),      //v4
     !cast<MapCell>("mask_soa8_write_imageui_2d_"#qual#"_i_cell"),      //v8
-    nullCell,      //16
+    !cast<MapCell>("mask_soa16_write_imageui_2d_"#qual#"_i_cell"),     //16
     nullCell],     //3
     0,1>;          //not scalarizable, packetizable
 }
@@ -1306,12 +1323,13 @@ foreach qual = [ "ro", "wo", "rw" ] in {
     def imagebi#qual#_get_image_height_cell : MapCell<!cast<OclBuiltin>("get_image_height_"#qual), !cast<OclType>(imagebi#qual)>;
     def imagebi#qual#_soa4_get_image_height_cell : MapCell<!cast<OclBuiltin>("soa4_get_image_height_"#qual), !cast<OclType>(imagebi#qual)>;
     def imagebi#qual#_soa8_get_image_height_cell : MapCell<!cast<OclBuiltin>("soa8_get_image_height_"#qual), !cast<OclType>(imagebi#qual)>;
+    def imagebi#qual#_soa16_get_image_height_cell : MapCell<!cast<OclBuiltin>("soa16_get_image_height_"#qual), !cast<OclType>(imagebi#qual)>;
     def imagebi#qual#_get_image_height_vectorized : MapRow<[
       !cast<MapCell>(imagebi#qual#"_get_image_height_cell"), //scalar
       nullCell,      //v2
       !cast<MapCell>(imagebi#qual#"_soa4_get_image_height_cell"),      //v4
       !cast<MapCell>(imagebi#qual#"_soa8_get_image_height_cell"),      //v8
-      nullCell,      //16
+      !cast<MapCell>(imagebi#qual#"_soa16_get_image_height_cell"),     //16
       nullCell],     //3
       0,1>;          //not scalarizable, packetizable
   }
@@ -1320,36 +1338,39 @@ foreach qual = [ "ro", "wo", "rw" ] in {
     def imagebi#qual#_get_image_width_cell : MapCell<!cast<OclBuiltin>("get_image_width_"#qual), !cast<OclType>(imagebi#qual)>;
     def imagebi#qual#_soa4_get_image_width_cell : MapCell<!cast<OclBuiltin>("soa4_get_image_width_"#qual), !cast<OclType>(imagebi#qual)>;
     def imagebi#qual#_soa8_get_image_width_cell : MapCell<!cast<OclBuiltin>("soa8_get_image_width_"#qual), !cast<OclType>(imagebi#qual)>;
+    def imagebi#qual#_soa16_get_image_width_cell : MapCell<!cast<OclBuiltin>("soa16_get_image_width_"#qual), !cast<OclType>(imagebi#qual)>;
     def imagebi#qual#_get_image_width_vectorized : MapRow<[
       !cast<MapCell>(imagebi#qual#_get_image_width_cell), //scalar
       nullCell,      //v2
       !cast<MapCell>(imagebi#qual#_soa4_get_image_width_cell),      //v4
       !cast<MapCell>(imagebi#qual#_soa8_get_image_width_cell),      //v8
-      nullCell,      //16
+      !cast<MapCell>(imagebi#qual#_soa16_get_image_width_cell),     //16
       nullCell],     //3
       0,1>;          //not scalarizable, packetizable
 
     def imagebi#qual#_get_image_channel_order_cell : MapCell<!cast<OclBuiltin>("get_image_channel_order_"#qual), !cast<OclType>(imagebi#qual)>;
     def imagebi#qual#_soa4_get_image_channel_order_cell : MapCell<!cast<OclBuiltin>("soa4_get_image_channel_order_"#qual), !cast<OclType>(imagebi#qual)>;
     def imagebi#qual#_soa8_get_image_channel_order_cell : MapCell<!cast<OclBuiltin>("soa8_get_image_channel_order_"#qual), !cast<OclType>(imagebi#qual)>;
+    def imagebi#qual#_soa16_get_image_channel_order_cell : MapCell<!cast<OclBuiltin>("soa16_get_image_channel_order_"#qual), !cast<OclType>(imagebi#qual)>;
     def imagebi#qual#_get_image_channel_order_vectorized : MapRow<[
       !cast<MapCell>(imagebi#qual#_get_image_channel_order_cell), //scalar
       nullCell,      //v2
       !cast<MapCell>(imagebi#qual#_soa4_get_image_channel_order_cell),      //v4
       !cast<MapCell>(imagebi#qual#_soa8_get_image_channel_order_cell),      //v8
-      nullCell,      //16
+      !cast<MapCell>(imagebi#qual#_soa16_get_image_channel_order_cell),     //16
       nullCell],     //3
       0,1>;          //not scalarizable, packetizable
 
     def imagebi#qual#_get_image_channel_data_type_cell : MapCell<!cast<OclBuiltin>("get_image_channel_data_type_"#qual), !cast<OclType>(imagebi#qual)>;
     def imagebi#qual#_soa4_get_image_channel_data_type_cell : MapCell<!cast<OclBuiltin>("soa4_get_image_channel_data_type_"#qual), !cast<OclType>(imagebi#qual)>;
     def imagebi#qual#_soa8_get_image_channel_data_type_cell : MapCell<!cast<OclBuiltin>("soa8_get_image_channel_data_type_"#qual), !cast<OclType>(imagebi#qual)>;
+    def imagebi#qual#_soa16_get_image_channel_data_type_cell : MapCell<!cast<OclBuiltin>("soa16_get_image_channel_data_type_"#qual), !cast<OclType>(imagebi#qual)>;
     def imagebi#qual#_get_image_channel_data_type_vectorized : MapRow<[
       !cast<MapCell>(imagebi#qual#_get_image_channel_data_type_cell), //scalar
       nullCell,      //v2
       !cast<MapCell>(imagebi#qual#_soa4_get_image_channel_data_type_cell),      //v4
       !cast<MapCell>(imagebi#qual#_soa8_get_image_channel_data_type_cell),      //v8
-      nullCell,      //16
+      !cast<MapCell>(imagebi#qual#_soa16_get_image_channel_data_type_cell),     //16
       nullCell],     //3
       0,1>;          //not scalarizable, packetizable
   }
@@ -1357,12 +1378,13 @@ foreach qual = [ "ro", "wo", "rw" ] in {
   def get_image_depth_cell_#qual : MapCell<!cast<OclBuiltin>("get_image_depth_"#qual), !cast<OclType>("image3d_"#qual)>;
   def soa4_get_image_depth_cell_#qual : MapCell<!cast<OclBuiltin>("soa4_get_image_depth_"#qual), !cast<OclType>("image3d_"#qual)>;
   def soa8_get_image_depth_cell_#qual : MapCell<!cast<OclBuiltin>("soa8_get_image_depth_"#qual), !cast<OclType>("image3d_"#qual)>;
+  def soa16_get_image_depth_cell_#qual : MapCell<!cast<OclBuiltin>("soa16_get_image_depth_"#qual), !cast<OclType>("image3d_"#qual)>;
   def get_image_depth_vectorized_#qual : MapRow<[
     !cast<MapCell>("get_image_depth_cell_"#qual), //scalar
     nullCell,      //v2
     !cast<MapCell>("soa4_get_image_depth_cell_"#qual),      //v4
     !cast<MapCell>("soa8_get_image_depth_cell_"#qual),      //v8
-    nullCell,      //16
+    !cast<MapCell>("soa16_get_image_depth_cell_"#qual),     //16
     nullCell],     //3
     0,1>;          //not scalarizable, packetizable
 }
