@@ -590,20 +590,8 @@ namespace llvm {
         // If we have a matching sequence op, then check that the
         // transforming op matches as well.
 
-        switch(tOp) {
-        case CSA::ADD8:
-          *indvar_opcode = TII.promoteSeqOTOpBitwidth(seqOp, 8);
-          return true;
-        case CSA::ADD16:
-          *indvar_opcode = TII.promoteSeqOTOpBitwidth(seqOp, 16);
-          return true;
-        case CSA::ADD32:
-          *indvar_opcode = TII.promoteSeqOTOpBitwidth(seqOp, 32);
-          return true;
-        case CSA::ADD64:
-          *indvar_opcode = TII.promoteSeqOTOpBitwidth(seqOp, 64);
-          return true;
-        }
+        *indvar_opcode = TII.promoteSeqOTOpBitwidth(seqOp, TII.getLicSize(tOp));
+        return true;
       }
       return false;
     }
