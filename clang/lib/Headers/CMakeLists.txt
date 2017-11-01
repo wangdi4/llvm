@@ -76,8 +76,9 @@ set(special_files
 set(orig_files
   altivec.h
   ammintrin.h
-  armintr.h
   arm_acle.h
+  armintr.h
+  arm64intr.h
   __clang_cuda_builtin_vars.h
   __clang_cuda_cmath.h
   __clang_cuda_complex_builtins.h

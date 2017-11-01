@@ -138,6 +138,7 @@ class OpenMPCodeOutliner {
   void emitOMPUseDevicePtrClause(const OMPUseDevicePtrClause *);
   void emitOMPIsDevicePtrClause(const OMPIsDevicePtrClause *);
   void emitOMPTaskReductionClause(const OMPTaskReductionClause *);
+  void emitOMPInReductionClause(const OMPInReductionClause *);
 
   llvm::Value *emitIntelOpenMPDefaultConstructor(const Expr *IPriv);
   llvm::Value *emitIntelOpenMPDestructor(QualType Ty);

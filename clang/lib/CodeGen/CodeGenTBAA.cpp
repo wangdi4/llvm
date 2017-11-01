@@ -139,17 +139,23 @@ CodeGenTBAA::getTBAAInfo(QualType QTy) {
     }
   }
 
-  // Handle pointers.
+  // C++1z [basic.lval]p10: "If a program attempts to access the stored value of
+  // an object through a glvalue of other than one of the following types the
+  // behavior is undefined: [...] a char, unsigned char, or std::byte type."
+  if (Ty->isStdByteType())
+    return MetadataCache[Ty] = getChar();
+
+  // Handle pointers and references.
 #if INTEL_CUSTOMIZATION
   // CQ#379144 TBAA for pointers.
   if (Features.IntelCompat) {
     if (const PointerType *PTy = dyn_cast<PointerType>(Ty))
       return MetadataCache[Ty] = createTBAAPointerType(PTy);
-  } else
+  }
 #endif // INTEL_CUSTOMIZATION
   // TODO: Implement C++'s type "similarity" and consider dis-"similar"
   // pointers distinct.
-  if (Ty->isPointerType())
+  if (Ty->isPointerType() || Ty->isReferenceType())
     return MetadataCache[Ty] = createTBAAScalarType("any pointer",
                                                     getChar());
 
