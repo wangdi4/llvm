@@ -277,13 +277,15 @@ public:
 
   /// \brief Get the zero trip test of the OMP loop if the zero trip
   ///  test exists.
-  static ICmpInst *getOmpLoopZeroTripTest(Loop *L);
+  static ICmpInst *getOmpLoopZeroTripTest(Loop *L, BasicBlock *EntryBB);
 
   /// \breif Get the positin of the given loop index at
   /// the bottom/zero trip test expression.
   static void getLoopIndexPosInPredicate(Value *LoopIndex,
                                          Instruction *CondInst,
                                          bool &IsLeft);
+  static FirstprivateItem *wrnSeenAsFirstPrivate(WRegionNode *W, Value *V);
+  static LastprivateItem *wrnSeenAsLastPrivate(WRegionNode *W, Value *V);
 };
 
 

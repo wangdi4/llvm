@@ -369,6 +369,9 @@ bool VPOParoptTransform::genTaskLoopInitCode(
   Loop *L;
   if (isLoop) {
     L = W->getWRNLoopInfo().getLoop();
+    W->getWRNLoopInfo().setZTTBB(
+        WRegionUtils::getOmpLoopZeroTripTest(L, W->getEntryBBlock())
+            ->getParent());
     assert(L && "genTaskLoopInitCode: Loop not found");
     genLoopInitCodeForTaskLoop(W, LBPtr, UBPtr, STPtr);
   }

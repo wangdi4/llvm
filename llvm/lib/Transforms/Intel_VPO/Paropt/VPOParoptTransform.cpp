@@ -1050,10 +1050,33 @@ void VPOParoptTransform::createEmptyPrvInitBB(WRegionNode *W,
 void VPOParoptTransform::createEmptyPrivFiniBB(WRegionNode *W,
                                                BasicBlock *&PrivEntryBB) {
   BasicBlock *ExitBlock = W->getExitBBlock();
-  BasicBlock *PrivExitBB = SplitBlock(
-      ExitBlock, dyn_cast<Instruction>(&*ExitBlock->begin()), DT, LI);
-  W->setExitBBlock(PrivExitBB);
-  PrivEntryBB = ExitBlock;
+  BasicBlock *PrivExitBB;
+  if (W->getIsOmpLoop()) {
+    // If the loop has ztt block, the compiler has to generate the lastprivate
+    // update code at the exit block of the loop.
+    BasicBlock *ZttBlock = W->getWRNLoopInfo().getZTTBB();
+    assert(ZttBlock &&
+           "Expected non-empty ztt bblock after loop is normalized in clang");
+    assert(std::distance(pred_begin(ExitBlock), pred_end(ExitBlock)) == 2 &&
+           "Expect two predecessors for the omp loop region exit.");
+    auto PI = pred_begin(ExitBlock);
+    auto Pred1 = *PI++;
+    auto Pred2 = *PI++;
+
+    BasicBlock *LoopExitBB;
+    if (Pred1 == ZttBlock && Pred2 != ZttBlock)
+      LoopExitBB = Pred2;
+    else if (Pred2 == ZttBlock && Pred1 != ZttBlock)
+      LoopExitBB = Pred1;
+    else
+      llvm_unreachable("createEmptyPrivFiniBB: unsupported exit block");
+    PrivExitBB = SplitBlock(LoopExitBB, LoopExitBB->getTerminator(), DT, LI);
+    PrivEntryBB = PrivExitBB;
+  } else {
+    PrivExitBB = SplitBlock(ExitBlock, ExitBlock->getFirstNonPHI(), DT, LI);
+    W->setExitBBlock(PrivExitBB);
+    PrivEntryBB = ExitBlock;
+  }
 }
 
 // Generate the reduction code for reduction clause.
@@ -1224,8 +1247,7 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
              "genFirstPrivatizationCode: Unexpected firstprivate variable");
 */
       if (W->hasLastprivate()) {
-        LastprivateClause &LprivClause = W->getLpriv();
-        auto LprivI = LprivClause.findOrig(Orig);
+        auto LprivI = WRegionUtils::wrnSeenAsLastPrivate(W, Orig);
         if (!LprivI) {
           NewPrivInst = genPrivatizationAlloca(
               W, Orig, EntryBB->getFirstNonPHI(), ".fpriv");
@@ -1288,6 +1310,22 @@ bool VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
   LastprivateClause &LprivClause = W->getLpriv();
   if (!LprivClause.empty()) {
     W->populateBBSet();
+    FirstprivateItem *FprivI;
+    if (W->hasFirstprivate()) {
+      FirstprivateItem *FprivI = nullptr;
+      for (LastprivateItem *LprivI : LprivClause.items()) {
+        FprivI = WRegionUtils::wrnSeenAsFirstPrivate(W, LprivI->getOrig());
+        if (FprivI)
+          break;
+      }
+    }
+    // If a variable is marked as firstprivate and lastprivate, the
+    // compiler has to generate the barrier. Please note that it is
+    // unnecessary to generate the barrier if the firstprivate is
+    // scalar and it is passed by value.
+    if (FprivI) {
+      genBarrier(W, true);
+    }
     bool ForTask = W->getWRegionKindID() == WRegionNode::WRNTaskloop ||
                    W->getWRegionKindID() == WRegionNode::WRNTask;
     BasicBlock *EntryBB = W->getEntryBBlock();
@@ -1516,6 +1554,9 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
 #endif
 
   assert(L->isLoopSimplifyForm() && "should follow from addRequired<>");
+  W->getWRNLoopInfo().setZTTBB(
+      WRegionUtils::getOmpLoopZeroTripTest(L, W->getEntryBBlock())
+          ->getParent());
 
   //
   // This is initial implementation of parallel loop scheduling to get
@@ -1680,10 +1721,10 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
   BasicBlock *LoopRegionExitBB = nullptr;
 
   if (LoopExitBB != W->getExitBBlock()) {
-    InsertPt = dyn_cast<Instruction>(&*LoopExitBB->rbegin());
+    InsertPt = LoopExitBB->getTerminator();
   }
   else {
-    InsertPt = dyn_cast<Instruction>(&*LoopExitBB->begin());
+    InsertPt = LoopExitBB->getFirstNonPHI();
     LoopRegionExitBB = SplitBlock(LoopExitBB, InsertPt, DT, LI);
     LoopRegionExitBB->setName("loop.region.exit");
 
@@ -1692,7 +1733,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
 
     // After split LoopExitBB block, InsertPt is null, so we get
     // branch instruction
-    InsertPt = dyn_cast<Instruction>(&*LoopExitBB->rbegin());
+    InsertPt = LoopExitBB->getTerminator();
 
     W->setExitBBlock(LoopRegionExitBB);
   }
@@ -2714,7 +2755,7 @@ bool VPOParoptTransform::genMasterThreadCode(WRegionNode *W) {
   BasicBlock *EntryBB = W->getEntryBBlock();
   BasicBlock *ExitBB = W->getExitBBlock();
 
-  Instruction *InsertPt = dyn_cast<Instruction>(&*EntryBB->rbegin());
+  Instruction *InsertPt = EntryBB->getTerminator();
 
   // Generate __kmpc_master Call Instruction
   CallInst* MasterCI = VPOParoptUtils::genKmpcMasterOrEndMasterCall(W,
@@ -2723,7 +2764,7 @@ bool VPOParoptTransform::genMasterThreadCode(WRegionNode *W) {
 
   //DEBUG(dbgs() << " MasterCI: " << *MasterCI << "\n\n");
 
-  Instruction *InsertEndPt = dyn_cast<Instruction>(&*ExitBB->rbegin());
+  Instruction *InsertEndPt = ExitBB->getTerminator();
 
   // Generate __kmpc_end_master Call Instruction
   CallInst* EndMasterCI = VPOParoptUtils::genKmpcMasterOrEndMasterCall(W,
@@ -2781,7 +2822,7 @@ bool VPOParoptTransform::genSingleThreadCode(WRegionNode *W) {
   DEBUG(dbgs() << "\nEnter VPOParoptTransform::genSingleThreadCode\n");
   BasicBlock *EntryBB = W->getEntryBBlock();
 
-  Instruction *InsertPt = dyn_cast<Instruction>(&*EntryBB->rbegin());
+  Instruction *InsertPt = EntryBB->getTerminator();
 
   // Generate __kmpc_single Call Instruction
   CallInst* SingleCI = VPOParoptUtils::genKmpcSingleOrEndSingleCall(W,
@@ -2871,14 +2912,14 @@ bool VPOParoptTransform::genOrderedThreadCode(WRegionNode *W) {
   //         \    /
   //      EndOrderedBB
 
-  Instruction *InsertPt = dyn_cast<Instruction>(&*EntryBB->rbegin());
+  Instruction *InsertPt = EntryBB->getTerminator();
 
   // Generate __kmpc_ordered Call Instruction
   CallInst* OrderedCI = VPOParoptUtils::genKmpcOrderedOrEndOrderedCall(W,
                           IdentTy, TidPtr, InsertPt, true);
   OrderedCI->insertBefore(InsertPt);
 
-  Instruction *InsertEndPt = dyn_cast<Instruction>(&*ExitBB->rbegin());
+  Instruction *InsertEndPt = ExitBB->getTerminator();
 
   // Generate __kmpc_end_ordered Call Instruction
   CallInst* EndOrderedCI = VPOParoptUtils::genKmpcOrderedOrEndOrderedCall(W,

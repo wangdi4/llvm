@@ -400,7 +400,7 @@ Value *WRegionUtils::getOmpLoopUpperBound(Loop *L) {
 
 // gets the zero trip test of the OMP loop if the zero trip
 // test exists.
-ICmpInst *WRegionUtils::getOmpLoopZeroTripTest(Loop *L) {
+ICmpInst *WRegionUtils::getOmpLoopZeroTripTest(Loop *L, BasicBlock *EntryBB) {
 
   BasicBlock *PB = L->getLoopPreheader();
   assert(std::distance(pred_begin(PB), pred_end(PB))==1);
@@ -408,6 +408,10 @@ ICmpInst *WRegionUtils::getOmpLoopZeroTripTest(Loop *L) {
     PB = *(pred_begin(PB));
     if (std::distance(succ_begin(PB), succ_end(PB))==2)
       break;
+    // The basic block should have only one successor.
+    if (std::distance(succ_begin(PB), succ_end(PB)) != 1 || PB == EntryBB)
+      llvm_unreachable(
+          "Expect ztt block after the loop is normalized in the clang");
   }while (PB);
   assert(PB && "Expect to see zero trip test block.");
   for (BasicBlock::reverse_iterator J = PB->rbegin();
@@ -468,4 +472,15 @@ CmpInst::Predicate WRegionUtils::getOmpPredicate(Loop* L, bool& IsLeft) {
   getLoopIndexPosInPredicate(Inc, CondInst, IsLeft);
 
   return CondInst->getPredicate();
+}
+
+FirstprivateItem *WRegionUtils::wrnSeenAsFirstPrivate(WRegionNode *W,
+                                                      Value *V) {
+  FirstprivateClause &FprivClause = W->getFpriv();
+  return FprivClause.findOrig(V);
+}
+
+LastprivateItem *WRegionUtils::wrnSeenAsLastPrivate(WRegionNode *W, Value *V) {
+  LastprivateClause &LprivClause = W->getLpriv();
+  return LprivClause.findOrig(V);
 }
