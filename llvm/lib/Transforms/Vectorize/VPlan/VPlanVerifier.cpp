@@ -19,12 +19,11 @@
 #define DEBUG_TYPE "vplan-verifier"
 
 using namespace llvm;
-using namespace vpo;
+using namespace llvm::vpo;
 
 static cl::opt<bool> DisableHCFGVerification(
     "vplan-disable-verification", cl::init(false),
     cl::desc("Disable VPlan HCFG verification"));
-
 
 // Verify that Block is contained in the right VPLoop.
 void VPlanVerifier::verifyContainerLoop(const VPBlockBase *Block,
@@ -288,4 +287,3 @@ void VPlanVerifier::verifyHierarchicalCFG(
 
   verifyRegions(TopRegion);
 }
-

@@ -21,18 +21,15 @@
 #include "llvm/ADT/DenseMap.h"
 
 namespace llvm {
-
 class Loop;
 class ScalarEvolution;
 class TargetLibraryInfo;
 class TargetTransformInfo;
+
+namespace vpo {
 class VPOCodeGen;
 class VPOVectorizationLegality;
-namespace vpo {
 class WRNVecLoopNode;
-}
-
-using namespace vpo;
 
 /// LoopVectorizationPlanner - builds and optimizes the Vectorization Plans
 /// which record the decisions how to vectorize the given loop.
@@ -260,7 +257,8 @@ private:
 
 
 
-
-} // End LLVM Namespace
+} // end vpo namespace
+} // end llvm namespace
 
 #endif //LLVM_TRANSFORMS_VECTORIZE_VPLAN_LOOPVECTORIZATIONPLANNER_H
+

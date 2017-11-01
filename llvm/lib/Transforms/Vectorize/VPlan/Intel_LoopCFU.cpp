@@ -67,9 +67,8 @@
 
 #define DEBUG_TYPE "LoopCFU"
 
+using namespace llvm;
 using namespace llvm::vpo;
-
-namespace llvm {
 
 void VPLoopCFU::getLoopProperties(VPLoop *Lp, Value **LoopIdx,
                                   Value **LoopIdxInc, Value **LoopLB,
@@ -561,5 +560,3 @@ void VPLoopCFU::makeInnerLoopControlFlowUniform() {
     }
   }
 }
-
-} // end llvm namespace

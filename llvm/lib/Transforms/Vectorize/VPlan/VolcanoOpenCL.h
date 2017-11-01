@@ -20,8 +20,7 @@
 #define LLVM_TRANSFORMS_VECTORIZE_VPLAN_VOLCANOOPENCL_H
 #if INTEL_OPENCL
 
-namespace llvm { // LLVM Namespace
-namespace vpo {  // VPO Namespace
+namespace llvm {
 
 // Scalar select functions in Volcano OpenCL
 const char *volcanoScalarSelect[] = {
@@ -33,8 +32,7 @@ const char *volcanoScalarSelect[] = {
     "_Z6selectmmm", "_Z6selectffi", "_Z6selectffj",
     "_Z6selectddl", "_Z6selectddm"};
 
-} // End VPO Namespace
-} // End LLVM Namespace
+} // end llvm namespace
 
 #endif // INTEL_OPENCL
 #endif // LLVM_TRANSFORMS_VECTORIZE_VPLAN_VOLCANOOPENCL_H

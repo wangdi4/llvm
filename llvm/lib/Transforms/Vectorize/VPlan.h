@@ -6,689 +6,251 @@
 // License. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
-//
-// This file contains the declarations of the Vectorization Plan base classes:
-// 1. VPBasicBlock and VPRegionBlock that inherit from a common pure virtual
-//    VPBlockBase, together implementing a Hierarchical CFG;
-// 2. Specializations of GraphTraits that allow VPBlockBase graphs to be treated
-//    as proper graphs for generic algorithms;
-// 3. Pure virtual VPRecipeBase and its pure virtual sub-classes
-//    VPConditionBitRecipeBase and VPOneByOneRecipeBase that
-//    represent base classes for recipes contained within VPBasicBlocks;
-// 4. The VPlan class holding a candidate for vectorization;
-// 5. The VPlanUtils class providing methods for building plans;
-// 6. The VPlanPrinter class providing a way to print a plan in dot format.
-// These are documented in docs/VectorizationPlan.rst.
-//
+///
+/// \file
+/// This file contains the declarations of the Vectorization Plan base classes:
+/// 1. VPBasicBlock and VPRegionBlock that inherit from a common pure virtual
+///    VPBlockBase, together implementing a Hierarchical CFG;
+/// 2. Specializations of GraphTraits that allow VPBlockBase graphs to be
+///    treated as proper graphs for generic algorithms;
+/// 3. Pure virtual VPRecipeBase serving as the base class for recipes contained
+///    within VPBasicBlocks;
+/// 4. The VPlan class holding a candidate for vectorization;
+/// 5. The VPlanPrinter class providing a way to print a plan in dot format.
+/// These are documented in docs/VectorizationPlan.rst.
+///
 //===----------------------------------------------------------------------===//
 
 #ifndef LLVM_TRANSFORMS_VECTORIZE_VPLAN_H
 #define LLVM_TRANSFORMS_VECTORIZE_VPLAN_H
 
 #include "llvm/ADT/GraphTraits.h"
+#include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/ilist.h"
 #include "llvm/ADT/ilist_node.h"
-#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/IRBuilder.h"
-#if INTEL_CUSTOMIZATION
-#include "llvm/ADT/DepthFirstIterator.h"
-#include "llvm/Support/FormattedStream.h"
-#include "llvm/IR/Dominators.h"
-#else
 #include "llvm/Support/raw_ostream.h"
-#endif
-#include <vector>
 
 // The (re)use of existing LoopVectorize classes is subject to future VPlan
 // refactoring.
-//namespace {
-class InnerLoopVectorizer;
+namespace {
+// Forward declarations.
+//class InnerLoopVectorizer;
 class LoopVectorizationLegality;
-//}
+class LoopVectorizationCostModel;
+} // namespace
 
 namespace llvm {
 
-class VPBasicBlock;
-#if INTEL_CUSTOMIZATION
-
-class VPOCodeGen;
-class VPOVectorizationLegality;
-// Class names mapping to minimize the diff:
-#define InnerLoopVectorizer VPOCodeGen
-#define LoopVectorizationLegality VPOVectorizationLegality
-#endif
-/// VPRecipeBase is a base class describing one or more instructions that will
-/// appear consecutively in the vectorized version, based on Instructions from
-/// the given IR. These Instructions are referred to as the "Ingredients" of
-/// the Recipe. A Recipe specifies how its ingredients are to be vectorized:
-/// e.g., copy or reuse them as uniform, scalarize or vectorize them according
-/// to an enclosing loop dimension, vectorize them according to internal SLP
-/// dimension.
-///
-/// **Design principle:** in order to reason about how to vectorize an
-/// Instruction or how much it would cost, one has to consult the VPRecipe
-/// holding it.
-///
-/// **Design principle:** when a sequence of instructions conveys additional
-/// information as a group, we use a VPRecipe to encapsulate them and attach
-/// this information to the VPRecipe. For instance a VPRecipe can model an
-/// interleave group of loads or stores with additional information for
-/// calculating their cost and for performing IR code generation, as a group.
-///
-/// **Design principle:** a VPRecipe should reuse existing containers of its
-/// ingredients, i.e., iterators of basic blocks, to be lightweight. A new
-/// containter should be opened on-demand, e.g., to avoid excessive recipes
-/// each holding an interval of ingredients.
-class VPRecipeBase : public ilist_node_with_parent<VPRecipeBase, VPBasicBlock> {
-  friend class VPlanUtils;
-  friend class VPBasicBlock;
-
-private:
-  const unsigned char VRID; // Subclass identifier (for isa/dyn_cast)
-  
-  /// Each VPRecipe is contained in a single VPBasicBlock.
-  class VPBasicBlock *Parent;
-
-  /// Record which Instructions would require generating their complementing
-  /// form as well, providing a vector-to-scalar or scalar-to-vector conversion.
-  SmallPtrSet<Instruction *, 1> AlsoPackOrUnpack;
-
-public:
-  /// An enumeration for keeping track of the concrete subclass of VPRecipeBase
-  /// that is actually instantiated. Values of this enumeration are kept in the
-  /// VPRecipe classes VRID field. They are used for concrete type
-  /// identification.
-  typedef enum {
-    VPVectorizeOneByOneSC,
-    VPScalarizeOneByOneSC,
-    VPWidenIntInductionSC,
-    VPBuildScalarStepsSC,
-    VPInterleaveSC,
-    VPExtractMaskBitSC,
-	VPMergeScalarizeBranchSC,
-
-	// predicates
-	VPBlockPredicatesRecipeSC,
-	VPIfTruePredicateRecipeSC,
-	VPIfFalsePredicateRecipeSC,
-    VPEdgePredicateRecipeSC,
-#if INTEL_CUSTOMIZATION
-    VPUniformBranchSC,
-    VPLiveInBranchSC,
-    VPVectorizeBooleanSC,
-    VPUniformBooleanSC,
-    VPCmpBitSC,
-    VPPhiValueSC,
-    VPConstantSC,
-
-#endif
-    VPBranchIfNotAllZeroRecipeSC,
-    VPMaskGenerationRecipeSC,
-    VPNonUniformBranchSC,
-  } VPRecipeTy;
-
-  VPRecipeBase(const unsigned char SC) : VRID(SC), Parent(nullptr) {}
-
-  virtual ~VPRecipeBase() {}
-
-  /// \return an ID for the concrete type of this object.
-  /// This is used to implement the classof checks. This should not be used
-  /// for any other purpose, as the values may change as LLVM evolves.
-  unsigned getVPRecipeID() const { return VRID; }
-
-  /// \return the VPBasicBlock which this VPRecipe belongs to.
-  class VPBasicBlock *getParent() {
-    return Parent;
-  }
-
-  /// The method which generates the new IR instructions that correspond to
-  /// this VPRecipe in the vectorized version, thereby "executing" the VPlan.
-  virtual void vectorize(struct VPTransformState &State) = 0;
-
-  /// Each recipe prints itself.
-  virtual void print(raw_ostream &O) const = 0;
-
-  /// Add an instruction to the set of instructions for which a vector-to-
-  /// scalar or scalar-to-vector conversion is needed, in addition to
-  /// vectorizing or scalarizing the instruction itself, respectively.
-  void addAlsoPackOrUnpack(Instruction *I) { AlsoPackOrUnpack.insert(I); }
-
-  /// Indicates if a given instruction requires vector-to-scalar or scalar-to-
-  /// vector conversion.
-  bool willAlsoPackOrUnpack(Instruction *I) const {
-    return AlsoPackOrUnpack.count(I);
-  }
-};
-
-
-/// A VPPredicateRecipeBase is a pure virtual recipe which supports predicate
-/// generation/modeling. Concrete sub-classes represent block & edge predicates
-/// and their relations to one another.
-/// The predicate value and its generating VPPredicateRecipe are considered as 
-/// one (in a similar manner to a value and its instruction in LLVM-IR).
-/// Moreover, a concrete predicate-recipe exists with the main purpose of 
-/// generating a specific portion of the predicate generation sequence in the 
-/// output-IR. While some recipe instances serve as the actual predicates for 
-/// predicating instructions in a predicated VP-BB, other recipe instances may
-/// only exist as an intermediate recipe in the predicate generation process.
-///
-/// Predicate relations are defined as listed below:
-/// *** A predicate/edge-condition is represented in the definition as the set 
-/// *** of active lanes.
-/// (a) Predicate(VP-BB): Either (1) the union across all incoming 
-///     edge-predicates. Or (2) the \phi between them, this kind of case serves
-///     inner-loop predicate handling in the header of the loop.
-/// (b) Predicate(edge): the intersection between the source-BB predicate and 
-///     the condition-predicate (where a condition-predicate is defined as
-///     the set of lanes choosing to traverse a given edge). E.g. given the 
-///     true-edge of an if-statement, its condition-predicate is the set of 
-///     lanes traversing it across all lanes (rather than only considering the 
-///     active lanes). When the condition is void, the source-BB has only a 
-///     single edge and its condition-predicate is set to all lanes.
-class VPPredicateRecipeBase : public VPRecipeBase {
-  friend class VPlanUtils;
-
-public:
-  /// Type definition for an array of vectorized masks. One per unroll
-  /// iteration.
-  typedef SmallVector<Value*, 2> VectorParts;
-
-  /// Temporary, should be removed.
-  BasicBlock* SourceBB;
-
-protected:
-
-  /// The result after vectorizing. used for feeding future v-instructions.
-  VectorParts VectorizedPredicate;
-
-  /// Construct a VPPredicateRecipeBase.
-  VPPredicateRecipeBase(const unsigned char SC)
-    : VPRecipeBase(SC), VectorizedPredicate() {}
-
-  /// Predicate's name.
-  std::string Name;
-
-  #if INTEL_CUSTOMIZATION
-  /// The predicate inputs - for debugging
-  std::string Inputs;
-  #endif
-
-public:
-  /// Get the vectorized value. Must be used after vectorizing the concrete
-  /// recipe.
-  const VectorParts &getVectorizedPredicate() const { 
-    return VectorizedPredicate; 
-  }
-
-  /// Method to support type inquiry through isa, cast, and dyn_cast.
-  static inline bool classof(const VPRecipeBase *V) {
-    return V->getVPRecipeID() == VPRecipeBase::VPBlockPredicatesRecipeSC  ||
-           V->getVPRecipeID() == VPRecipeBase::VPIfTruePredicateRecipeSC  ||
-           V->getVPRecipeID() == VPRecipeBase::VPIfFalsePredicateRecipeSC;
-  }
-
-  // Get predicate's name.
-  std::string getName() const { return Name; }
-
-  // Set predicate's name.
-  void setName(std::string Name) { this->Name = Name; }
-};
-
-/// A VPBlockPredicateRecipe is a concrete VPPredicateRecipe recipe which
-/// models a block predicate. As defined above in Predicate relations (a.1.),
-/// this predicate is the union of all IncomingPredicates.
-class VPBlockPredicateRecipe : public VPPredicateRecipeBase {
-  friend class VPlanUtils;
-
-private:
-  /// The list of incoming edges to the block
-  SmallVector<VPPredicateRecipeBase*, 2> IncomingPredicates;
-
-  /// \brief Add Incoming Predicate.
-  void appendIncomingPredicate(VPPredicateRecipeBase *Incoming) {
-    assert(Incoming && "Cannot add nullptr incoming predicate!");
-    IncomingPredicates.push_back(Incoming);
-  }
-
-  /// \brief Remove Incoming Predicate.
-  void removeIncomingPredicate(VPPredicateRecipeBase *Incoming) {
-    assert(Incoming && "Cannot add nullptr incoming predicate!");
-    auto Pos = std::find(IncomingPredicates.begin(), IncomingPredicates.end(),
-                         Incoming);
-    assert(Pos && "Incoming does not exist!");
-    IncomingPredicates.erase(Pos);
-  }
-
-  /// \brief Clear list of incoming predicates
-  void clearIncomingPredicates() {
-    IncomingPredicates.clear();
-  }
-
-public:
-  /// Construct a VPPredicateRecipeBase.
-  VPBlockPredicateRecipe()
-    : VPPredicateRecipeBase(VPBlockPredicatesRecipeSC), IncomingPredicates() {}
-
-  /// Method to support type inquiry through isa, cast, and dyn_cast.
-  static inline bool classof(const VPRecipeBase *V) {
-    return V->getVPRecipeID() == VPRecipeBase::VPBlockPredicatesRecipeSC;
-  }
-
-  const SmallVectorImpl<VPPredicateRecipeBase *> &
-  getIncomingPredicates(void) const {
-    return const_cast<VPBlockPredicateRecipe *>(this)->getIncomingPredicates();
-  }
-
-  SmallVectorImpl<VPPredicateRecipeBase *> &getIncomingPredicates(void) {
-    return IncomingPredicates;
-  }
-
-  void vectorize(VPTransformState &State) override;
-
-  void print(raw_ostream &O) const override;
-};
-
-#if INTEL_CUSTOMIZATION
-/// A VPBooleanRecipe is an abstract recipe which works as a container for the
-/// condition value.
-class VPBooleanRecipe : public VPRecipeBase {
-  friend class VPlanUtils;
-
-protected:
-  /// The actual condition value.
-  Value *ConditionValue;
-
-  /// Name
-  std::string Name;
-
-public:
-  /// Construct a VPVectorizeBooleanRecipe
-  VPBooleanRecipe(const unsigned char SC, Value *CV)
-      : VPRecipeBase(SC), ConditionValue(CV) {}
-
-  /// Method to support type inquiry through isa, cast, and dyn_cast.
-  static inline bool classof(const VPRecipeBase *V) {
-    return V->getVPRecipeID() == VPRecipeBase::VPVectorizeBooleanSC ||
-           V->getVPRecipeID() == VPRecipeBase::VPUniformBooleanSC;
-  }
-
-  /// Getter
-  Value *getConditionValue(void) { return ConditionValue; }
-
-  // Get name.
-  std::string getName() const { return Name; }
-
-  // Set name.
-  void setName(std::string Name) { this->Name = Name; }
-
-  /// Printer.
-  void print(raw_ostream &OS) const override;
-
-};
-
-/// A VPVectorizeBooleanRecipe is a concrete recipe which works as a container
-/// for the condition value that needs to be vectorized.
-class VPVectorizeBooleanRecipe : public VPBooleanRecipe {
-public:
-  /// Construct a VPVectorizeBooleanRecipe
-  VPVectorizeBooleanRecipe(const unsigned char SC, Value *CV)
-      : VPBooleanRecipe(SC, CV) {}
-
-  /// Method to support type inquiry through isa, cast, and dyn_cast.
-  static inline bool classof(const VPRecipeBase *V) {
-    return V->getVPRecipeID() == VPRecipeBase::VPVectorizeBooleanSC;
-  }
-
-  void vectorize(VPTransformState &State) override;
-};
-
-// TODO: Remove this class. When we preserve uniform control flow, we won't
-// vectorize live-in CBRs and this class won't be necessary.
-/// A VPUniformBooleanRecipe is a concrete recipe which works as a container
-/// for the condition value that is uniform and doesn't need to be
-/// vectorized.
-class VPUniformBooleanRecipe : public VPBooleanRecipe {
-public:
-  /// Construct a VPVectorizeBooleanRecipe
-  VPUniformBooleanRecipe(const unsigned char SC, Value *CV)
-      : VPBooleanRecipe(SC, CV) {}
-
-  /// Method to support type inquiry through isa, cast, and dyn_cast.
-  static inline bool classof(const VPRecipeBase *V) {
-    return V->getVPRecipeID() == VPRecipeBase::VPUniformBooleanSC;
-  }
-
-  void vectorize(VPTransformState &State) override {};
-};
-
-#endif
-
-/// A VPEdgePredicateRecipeBase is a pure virtual recipe which supports 
-/// predicate generation/modeling on edges. Concrete sub-classes represent 
-/// if-statement edge predicates and select-statement edge predicates in the
-/// future.
-/// A VPEdgePredicateRecipeBase holds reference to edge's source-BB predicate
-/// and condition-predicate as illustrated in Predicate relations (b).
-class VPEdgePredicateRecipeBase : public VPPredicateRecipeBase {
-  friend class VPlanUtils;
-
-protected:
-  #if INTEL_CUSTOMIZATION
-  /// A pointer to the recipe closest to the condition value
-  VPBooleanRecipe *ConditionRecipe;
-  #else
-  /// A pointer to the source-IR condition value.
-  Value *ConditionValue;
-  #endif
-
-  /// A pointer to the predecessor block's predicate.
-  VPPredicateRecipeBase* PredecessorPredicate;
-
-  /// Construct a VPEdgePredicateRecipeBase.
-  #if INTEL_CUSTOMIZATION
-  VPEdgePredicateRecipeBase(const unsigned char SC,
-    VPBooleanRecipe* CR,
-    VPPredicateRecipeBase* PredecessorPredicate)
-    : VPPredicateRecipeBase(SC), ConditionRecipe(CR),
-    PredecessorPredicate(PredecessorPredicate){}
-  #else
-  VPEdgePredicateRecipeBase(const unsigned char SC, Value* ConditionValue,
-    VPPredicateRecipeBase* PredecessorPredicate)
-    : VPPredicateRecipeBase(SC), ConditionValue(ConditionValue),
-    PredecessorPredicate(PredecessorPredicate){}
-  #endif
-
-  /// A helper function which prints out the details of an edge predicate.
-  void printDetails(raw_ostream &O) const;
-
-public:
-  const VPPredicateRecipeBase *getPredecessorPredicate() const {
-    return const_cast<VPEdgePredicateRecipeBase *>(this)
-        ->getPredecessorPredicate();
-  }
-  VPPredicateRecipeBase *getPredecessorPredicate() {
-    return PredecessorPredicate;
-  }
-
-  // TODO: Private + utility
-  void setPredecessorPredicate(VPPredicateRecipeBase *Predicate) {
-    PredecessorPredicate = Predicate;
-  }
-
-  /// Method to support type inquiry through isa, cast, and dyn_cast.
-  static inline bool classof(const VPRecipeBase *V) {
-    return V->getVPRecipeID() == VPRecipeBase::VPIfTruePredicateRecipeSC ||
-           V->getVPRecipeID() == VPRecipeBase::VPIfFalsePredicateRecipeSC ||
-           V->getVPRecipeID() == VPRecipeBase::VPEdgePredicateRecipeSC;
-  }
-};
-
-class VPEdgePredicateRecipe : public VPEdgePredicateRecipeBase {
-  friend class VPlanUtils;
-
-public:
-  /// Construct a VPIfTruePredicateRecipe.
-  VPEdgePredicateRecipe(VPPredicateRecipeBase *PredecessorPredicate,
-                        BasicBlock *From, BasicBlock *To)
-      : VPEdgePredicateRecipeBase(VPEdgePredicateRecipeSC, nullptr,
-                                  PredecessorPredicate),
-        FromBB(From), ToBB(To) {}
-  /// Method to support type inquiry through isa, cast, and dyn_cast.
-  static inline bool classof(const VPRecipeBase *V) {
-    return V->getVPRecipeID() == VPRecipeBase::VPBlockPredicatesRecipeSC;
-  }
-
-  void vectorize(VPTransformState &State) override;
-
-  void print(raw_ostream &O) const override;
-
-private:
-  BasicBlock *FromBB;
-  BasicBlock *ToBB;
-};
-
-/// A VPIfTruePredicateRecipe is a concrete recipe which represents the 
-/// edge-predicate of the true-edged if-statement case.
-class VPIfTruePredicateRecipe : public VPEdgePredicateRecipeBase {
-
-public:
-  /// Construct a VPIfTruePredicateRecipe.
-  #if INTEL_CUSTOMIZATION
- VPIfTruePredicateRecipe(VPBooleanRecipe* BR, 
-                         VPPredicateRecipeBase* PredecessorPredicate,
-                         BasicBlock *From, BasicBlock *To)
-    : VPEdgePredicateRecipeBase(VPIfTruePredicateRecipeSC, 
-      BR, PredecessorPredicate), FromBB(From), ToBB(To) {}
-  #else
-  VPIfTruePredicateRecipe(Value* ConditionValue, 
-    VPPredicateRecipeBase* PredecessorPredicate)
-    : VPEdgePredicateRecipeBase(VPIfTruePredicateRecipeSC, 
-      ConditionValue, PredecessorPredicate) {}
-  #endif
-  /// Method to support type inquiry through isa, cast, and dyn_cast.
-  static inline bool classof(const VPRecipeBase *V) {
-    return V->getVPRecipeID() == VPRecipeBase::VPIfTruePredicateRecipeSC;
-  }
-
-  void vectorize(VPTransformState &State) override;
-
-  void print(raw_ostream &O) const override;
-
-private:
-  BasicBlock *FromBB;
-  BasicBlock *ToBB;
-};
-
-/// A VPIfFalsePredicateRecipe is a concrete recipe which represents the 
-/// edge-predicate of the false-edged if-statement case.
-class VPIfFalsePredicateRecipe : public VPEdgePredicateRecipeBase {
-  friend class VPlanUtils;
-
-public:
-  /// Construct a VPIfFalsePredicateRecipe.
-  #if INTEL_CUSTOMIZATION
-  VPIfFalsePredicateRecipe(VPBooleanRecipe *BR,
-                           VPPredicateRecipeBase *PredecessorPredicate,
-                           BasicBlock *From, BasicBlock *To)
-      : VPEdgePredicateRecipeBase(VPIfFalsePredicateRecipeSC, BR,
-                                  PredecessorPredicate),
-        FromBB(From), ToBB(To) {}
-  #else
-  VPIfFalsePredicateRecipe(Value* ConditionValue,
-    VPPredicateRecipeBase* PredecessorPredicate)
-    : VPEdgePredicateRecipeBase(VPIfFalsePredicateRecipeSC, 
-      ConditionValue, PredecessorPredicate) {}
-  #endif
-
-  /// Method to support type inquiry through isa, cast, and dyn_cast.
-  static inline bool classof(const VPRecipeBase *V) {
-    return V->getVPRecipeID() == VPRecipeBase::VPIfFalsePredicateRecipeSC;
-  }
-
-  void vectorize(VPTransformState &State) override;
-
-  void print(raw_ostream &O) const override;
-
-private:
-  BasicBlock *FromBB;
-  BasicBlock *ToBB;
-};
-
-/// A VPConditionBitRecipeBase is a pure virtual VPRecipe which supports a
-/// conditional branch. Concrete sub-classes of this recipe are in charge of
-/// generating the instructions that compute the condition for this branch in
-/// the vectorized version.
-class VPConditionBitRecipeBase : public VPRecipeBase {
-protected:
-  /// The actual condition bit that was generated. Holds null until the
-  /// value/instuctions are generated by the vectorize() method.
-  Value *ConditionBit;
-
-public:
-  /// Construct a VPConditionBitRecipeBase, simply propating its concrete type.
-  VPConditionBitRecipeBase(const unsigned char SC)
-      : VPRecipeBase(SC), ConditionBit(nullptr) {}
-
-  /// \return the actual bit that was generated, to be plugged into the IR
-  /// conditional branch, or null if the code computing the actual bit has not
-  /// been generated yet.
-  Value *getConditionBit() { return ConditionBit; }
-
-  virtual StringRef getName() const = 0;
-};
-
-/// VPOneByOneRecipeBase is a VPRecipeBase which handles each Instruction in its
-/// ingredients independently, in order. The ingredients are either all
-/// vectorized, or all scalarized.
-/// A VPOneByOneRecipeBase is a virtual base recipe which can be materialized
-/// by one of two sub-classes, namely VPVectorizeOneByOneRecipe or
-/// VPScalarizeOneByOneRecipe for Vectorizing or Scalarizing all ingredients,
-/// respectively.
-/// The ingredients are held as a sub-sequence of original Instructions, which
-/// reside in the same IR BasicBlock and in the same order. The Ingredients are
-/// accessed by a pointer to the first and last Instruction.
-class VPOneByOneRecipeBase : public VPRecipeBase {
-  friend class VPlanUtilsLoopVectorizer;
-
-public:
-  /// Hold the ingredients by pointing to their original BasicBlock location.
-  BasicBlock::iterator Begin;
-  BasicBlock::iterator End;
-
-protected:
-  VPOneByOneRecipeBase() = delete;
-
-  VPOneByOneRecipeBase(unsigned char SC, const BasicBlock::iterator B,
-                       const BasicBlock::iterator E, class VPlan *Plan);
-
-  /// Do the actual code generation for a single instruction.
-  /// This function is to be implemented and specialized by the respective
-  /// sub-class.
-  virtual void transformIRInstruction(Instruction *I,
-                                      struct VPTransformState &State) = 0;
-
-public:
-  ~VPOneByOneRecipeBase() {}
-
-  /// Method to support type inquiry through isa, cast, and dyn_cast.
-  static inline bool classof(const VPRecipeBase *V) {
-    return V->getVPRecipeID() == VPRecipeBase::VPScalarizeOneByOneSC ||
-           V->getVPRecipeID() == VPRecipeBase::VPVectorizeOneByOneSC;
-  }
-
-  bool isScalarizing() {
-    return getVPRecipeID() == VPRecipeBase::VPScalarizeOneByOneSC;
-  }
-
-  /// The method which generates all new IR instructions that correspond to
-  /// this VPOneByOneRecipeBase in the vectorized version, thereby
-  /// "executing" the VPlan.
-  /// VPOneByOneRecipeBase may either scalarize or vectorize all Instructions.
-  void vectorize(struct VPTransformState &State) override {
-    for (auto It = Begin; It != End; ++It)
-      transformIRInstruction(&*It, State);
-  }
-
-  const BasicBlock::iterator &begin() { return Begin; }
-
-  const BasicBlock::iterator &end() { return End; }
-};
-
-/// Hold the indices of a specific scalar instruction. The VPIterationInstance
-/// span the iterations of the original loop, that correspond to a single
-/// iteration of the vectorized loop.
-struct VPIterationInstance {
-  unsigned Part;
-  unsigned Lane;
-};
-
-// Forward declaration.
+// Forward declarations.
 class BasicBlock;
+class InnerLoopVectorizer;
+class VPBasicBlock;
 
-/// Hold additional information passed down when "executing" a VPlan, that is
-/// needed for generating IR. Also facilitates reuse of existing LV
-/// functionality.
+/// In what follows, the term "input IR" refers to code that is fed into the
+/// vectorizer whereas the term "output IR" refers to code that is generated by
+/// the vectorizer.
+
+/// VPIteration represents a single point in the iteration space of the output
+/// (vectorized and/or unrolled) IR loop.
+struct VPIteration {
+  unsigned Part; ///< in [0..UF)
+  unsigned Lane; ///< in [0..VF)
+};
+
+/// This is a helper struct for maintaining vectorization state. It's used for
+/// mapping values from the original loop to their corresponding values in
+/// the new loop. Two mappings are maintained: one for vectorized values and
+/// one for scalarized values. Vectorized values are represented with UF
+/// vector values in the new loop, and scalarized values are represented with
+/// UF x VF scalar values in the new loop. UF and VF are the unroll and
+/// vectorization factors, respectively.
+///
+/// Entries can be added to either map with setVectorValue and setScalarValue,
+/// which assert that an entry was not already added before. If an entry is to
+/// replace an existing one, call resetVectorValue and resetScalarValue. This is
+/// currently needed to modify the mapped values during "fix-up" operations that
+/// occur once the first phase of widening is complete. These operations include
+/// type truncation and the second phase of recurrence widening.
+///
+/// Entries from either map can be retrieved using the getVectorValue and
+/// getScalarValue functions, which assert that the desired value exists.
+
+struct VectorizerValueMap {
+private:
+  /// The unroll factor. Each entry in the vector map contains UF vector values.
+  unsigned UF;
+
+  /// The vectorization factor. Each entry in the scalar map contains UF x VF
+  /// scalar values.
+  unsigned VF;
+
+  /// The vector and scalar map storage. We use std::map and not DenseMap
+  /// because insertions to DenseMap invalidate its iterators.
+  typedef SmallVector<Value *, 2> VectorParts;
+  typedef SmallVector<SmallVector<Value *, 4>, 2> ScalarParts;
+  std::map<Value *, VectorParts> VectorMapStorage;
+  std::map<Value *, ScalarParts> ScalarMapStorage;
+
+public:
+  /// Construct an empty map with the given unroll and vectorization factors.
+  VectorizerValueMap(unsigned UF, unsigned VF) : UF(UF), VF(VF) {}
+
+  /// \return True if the map has any vector entry for \p Key.
+  bool hasAnyVectorValue(Value *Key) const {
+    return VectorMapStorage.count(Key);
+  }
+
+  /// \return True if the map has a vector entry for \p Key and \p Part.
+  bool hasVectorValue(Value *Key, unsigned Part) const {
+    assert(Part < UF && "Queried Vector Part is too large.");
+    if (!hasAnyVectorValue(Key))
+      return false;
+    const VectorParts &Entry = VectorMapStorage.find(Key)->second;
+    assert(Entry.size() == UF && "VectorParts has wrong dimensions.");
+    return Entry[Part] != nullptr;
+  }
+
+  /// \return True if the map has any scalar entry for \p Key.
+  bool hasAnyScalarValue(Value *Key) const {
+    return ScalarMapStorage.count(Key);
+  }
+
+  /// \return True if the map has a scalar entry for \p Key and \p Instance.
+  bool hasScalarValue(Value *Key, const VPIteration &Instance) const {
+    assert(Instance.Part < UF && "Queried Scalar Part is too large.");
+    assert(Instance.Lane < VF && "Queried Scalar Lane is too large.");
+    if (!hasAnyScalarValue(Key))
+      return false;
+    const ScalarParts &Entry = ScalarMapStorage.find(Key)->second;
+    assert(Entry.size() == UF && "ScalarParts has wrong dimensions.");
+    assert(Entry[Instance.Part].size() == VF &&
+           "ScalarParts has wrong dimensions.");
+    return Entry[Instance.Part][Instance.Lane] != nullptr;
+  }
+
+  /// Retrieve the existing vector value that corresponds to \p Key and
+  /// \p Part.
+  Value *getVectorValue(Value *Key, unsigned Part) {
+    assert(hasVectorValue(Key, Part) && "Getting non-existent value.");
+    return VectorMapStorage[Key][Part];
+  }
+
+  /// Retrieve the existing scalar value that corresponds to \p Key and
+  /// \p Instance.
+  Value *getScalarValue(Value *Key, const VPIteration &Instance) {
+    assert(hasScalarValue(Key, Instance) && "Getting non-existent value.");
+    return ScalarMapStorage[Key][Instance.Part][Instance.Lane];
+  }
+
+  /// Set a vector value associated with \p Key and \p Part. Assumes such a
+  /// value is not already set. If it is, use resetVectorValue() instead.
+  void setVectorValue(Value *Key, unsigned Part, Value *Vector) {
+    assert(!hasVectorValue(Key, Part) && "Vector value already set for part");
+    if (!VectorMapStorage.count(Key)) {
+      VectorParts Entry(UF);
+      VectorMapStorage[Key] = Entry;
+    }
+    VectorMapStorage[Key][Part] = Vector;
+  }
+
+  /// Set a scalar value associated with \p Key and \p Instance. Assumes such a
+  /// value is not already set.
+  void setScalarValue(Value *Key, const VPIteration &Instance, Value *Scalar) {
+    assert(!hasScalarValue(Key, Instance) && "Scalar value already set");
+    if (!ScalarMapStorage.count(Key)) {
+      ScalarParts Entry(UF);
+      // TODO: Consider storing uniform values only per-part, as they occupy
+      //       lane 0 only, keeping the other VF-1 redundant entries null.
+      for (unsigned Part = 0; Part < UF; ++Part)
+        Entry[Part].resize(VF, nullptr);
+      ScalarMapStorage[Key] = Entry;
+    }
+    ScalarMapStorage[Key][Instance.Part][Instance.Lane] = Scalar;
+  }
+
+  /// Reset the vector value associated with \p Key for the given \p Part.
+  /// This function can be used to update values that have already been
+  /// vectorized. This is the case for "fix-up" operations including type
+  /// truncation and the second phase of recurrence vectorization.
+  void resetVectorValue(Value *Key, unsigned Part, Value *Vector) {
+    assert(hasVectorValue(Key, Part) && "Vector value not set for part");
+    VectorMapStorage[Key][Part] = Vector;
+  }
+
+  /// Reset the scalar value associated with \p Key for \p Part and \p Lane.
+  /// This function can be used to update values that have already been
+  /// scalarized. This is the case for "fix-up" operations including scalar phi
+  /// nodes for scalarized and predicated instructions.
+  void resetScalarValue(Value *Key, const VPIteration &Instance,
+                        Value *Scalar) {
+    assert(hasScalarValue(Key, Instance) &&
+           "Scalar value not set for part and lane");
+    ScalarMapStorage[Key][Instance.Part][Instance.Lane] = Scalar;
+  }
+};
+
+/// VPTransformState holds information passed down when "executing" a VPlan,
+/// needed for generating the output IR.
 struct VPTransformState {
 
   VPTransformState(unsigned VF, unsigned UF, class LoopInfo *LI,
                    class DominatorTree *DT, IRBuilder<> &Builder,
-                   InnerLoopVectorizer *ILV, LoopVectorizationLegality *Legal)
-      : VF(VF), UF(UF), Instance(nullptr), LI(LI), DT(DT), Builder(Builder),
-        ILV(ILV), Legal(Legal) {}
+                   VectorizerValueMap &ValueMap, InnerLoopVectorizer *ILV)
+      : VF(VF), UF(UF), Instance(), LI(LI), DT(DT), Builder(Builder),
+        ValueMap(ValueMap), ILV(ILV) {}
 
-  /// Record the selected vectorization and unroll factors of the single loop
-  /// being vectorized.
+  /// The chosen Vectorization and Unroll Factors of the loop being vectorized.
   unsigned VF;
   unsigned UF;
 
-  /// Hold the indices to generate a specific scalar instruction. Null indicates
+  /// Hold the indices to generate specific scalar instructions. Null indicates
   /// that all instances are to be generated, using either scalar or vector
   /// instructions.
-  VPIterationInstance *Instance;
+  Optional<VPIteration> Instance;
 
-  /// Hold state information used when constructing the CFG of the vectorized
-  /// Loop, traversing the VPBasicBlocks and generating corresponding IR
-  /// BasicBlocks.
+  /// Hold state information used when constructing the CFG of the output IR,
+  /// traversing the VPBasicBlocks and generating corresponding IR BasicBlocks.
   struct CFGState {
-    // The previous VPBasicBlock visited. In the beginning set to null.
+    /// The previous VPBasicBlock visited. Initially set to null.
     VPBasicBlock *PrevVPBB;
-    // The previous IR BasicBlock created or reused. In the beginning set to
-    // the new header BasicBlock.
+    /// The previous IR BasicBlock created or used. Initially set to the new
+    /// header BasicBlock.
     BasicBlock *PrevBB;
-    // The last IR BasicBlock of the loop body. Set to the new latch BasicBlock,
-    // used for placing the newly created BasicBlocks.
+    /// The last IR BasicBlock in the output IR. Set to the new latch
+    /// BasicBlock, used for placing the newly created BasicBlocks.
     BasicBlock *LastBB;
-    // A mapping of each VPBasicBlock to the corresponding BasicBlock. In case
-    // of replication, maps the BasicBlock of the last replica created.
-    SmallDenseMap<class VPBasicBlock *, class BasicBlock *> VPBB2IRBB;
+    /// A mapping of each VPBasicBlock to the corresponding BasicBlock. In case
+    /// of replication, maps the BasicBlock of the last replica created.
+    SmallDenseMap<VPBasicBlock *, BasicBlock *> VPBB2IRBB;
 
-    SmallDenseMap<class VPBasicBlock *, class BasicBlock *> EdgesToFix;
     CFGState() : PrevVPBB(nullptr), PrevBB(nullptr), LastBB(nullptr) {}
   } CFG;
 
-  /// Hold pointer to LoopInfo to register new basic blocks in the loop.
+  /// Hold a pointer to LoopInfo to register new basic blocks in the loop.
   class LoopInfo *LI;
 
-  /// Hold pointer to Dominator Tree to register new basic blocks in the loop.
+  /// Hold a pointer to Dominator Tree to register new basic blocks in the loop.
   class DominatorTree *DT;
 
-  /// Hold a reference to the IRBuilder used to generate IR code.
+  /// Hold a reference to the IRBuilder used to generate output IR code.
   IRBuilder<> &Builder;
+
+  /// Hold a reference to the Value state information used when generating the
+  /// Values of the output IR.
+  VectorizerValueMap &ValueMap;
 
   /// Hold a pointer to InnerLoopVectorizer to reuse its IR generation methods.
   class InnerLoopVectorizer *ILV;
-
-  /// Hold a pointer to LoopVectorizationLegality to access its
-  /// IsUniformAfterVectorization method.
-  class LoopVectorizationLegality *Legal;
 };
 
-/// VPBlockBase is the building block of the Hierarchical CFG. A VPBlockBase
-/// can be either a VPBasicBlock or a VPRegionBlock.
-///
-/// The Hierarchical CFG is a control-flow graph whose nodes are basic-blocks
-/// or Hierarchical CFG's. The Hierarchical CFG data structure we use is similar
-/// to the Tile Tree [1], where cross-Tile edges are lifted to connect Tiles
-/// instead of the original basic-blocks as in Sharir [2], promoting the Tile
-/// encapsulation. We use the terms Region and Block rather than Tile [1] to
-/// avoid confusion with loop tiling.
-///
-/// [1] "Register Allocation via Hierarchical Graph Coloring", David Callahan
-/// and Brian Koblenz, PLDI 1991
-///
-/// [2] "Structural analysis: A new approach to flow analysis in optimizing
-/// compilers", M. Sharir, Journal of Computer Languages, Jan. 1980
-///
-/// Note that in contrast to the IR BasicBlock, a VPBlockBase models its
-/// control-flow edges with successor and predecessor VPBlockBase directly,
-/// rather than through a Terminator branch or through predecessor branches that
-/// Use the VPBlockBase.
+/// VPBlockBase is the building block of the Hierarchical Control-Flow Graph.
+/// A VPBlockBase can be either a VPBasicBlock or a VPRegionBlock.
 class VPBlockBase {
-  friend class VPlanUtils;
-
 private:
-  const unsigned char VBID; // Subclass identifier (for isa/dyn_cast).
+  const unsigned char SubclassID; ///< Subclass identifier (for isa/dyn_cast).
 
+  /// An optional name for the block.
   std::string Name;
 
   /// The immediate VPRegionBlock which this VPBlockBase belongs to, or null if
@@ -696,37 +258,31 @@ private:
   class VPRegionBlock *Parent;
 
   /// List of predecessor blocks.
-  SmallVector<VPBlockBase *, 2> Predecessors;
+  SmallVector<VPBlockBase *, 1> Predecessors;
 
   /// List of successor blocks.
-  SmallVector<VPBlockBase *, 2> Successors;
+  SmallVector<VPBlockBase *, 1> Successors;
 
-  /// \brief Successor selector, null for zero or single successor blocks.
-  VPConditionBitRecipeBase *ConditionBitRecipe;
-
-  /// holds a predicate for a VPBlock. 
-  VPPredicateRecipeBase* PredicateRecipe;
-
-  /// \brief Add \p Successor as the last successor to this block.
+  /// Add \p Successor as the last successor to this block.
   void appendSuccessor(VPBlockBase *Successor) {
     assert(Successor && "Cannot add nullptr successor!");
     Successors.push_back(Successor);
   }
 
-  /// \brief Add \p Predecessor as the last predecessor to this block.
+  /// Add \p Predecessor as the last predecessor to this block.
   void appendPredecessor(VPBlockBase *Predecessor) {
     assert(Predecessor && "Cannot add nullptr predecessor!");
     Predecessors.push_back(Predecessor);
   }
 
-  /// \brief Remove \p Predecessor from the predecessors of this block.
+  /// Remove \p Predecessor from the predecessors of this block.
   void removePredecessor(VPBlockBase *Predecessor) {
     auto Pos = std::find(Predecessors.begin(), Predecessors.end(), Predecessor);
     assert(Pos && "Predecessor does not exist");
     Predecessors.erase(Pos);
   }
 
-  /// \brief Remove \p Successor from the successors of this block.
+  /// Remove \p Successor from the successors of this block.
   void removeSuccessor(VPBlockBase *Successor) {
     auto Pos = std::find(Successors.begin(), Successors.end(), Successor);
     assert(Pos && "Successor does not exist");
@@ -735,73 +291,49 @@ private:
 
 protected:
   VPBlockBase(const unsigned char SC, const std::string &N)
-      : VBID(SC), Name(N), Parent(nullptr), ConditionBitRecipe(nullptr),
-        PredicateRecipe(nullptr) {}
+      : SubclassID(SC), Name(N), Parent(nullptr) {}
 
 public:
   /// An enumeration for keeping track of the concrete subclass of VPBlockBase
-  /// that is actually instantiated. Values of this enumeration are kept in the
-  /// VPBlockBase classes VBID field. They are used for concrete type
-  /// identification.
-#if INTEL_CUSTOMIZATION
-  typedef enum { VPBasicBlockSC, VPRegionBlockSC, VPLoopRegionSC } VPBlockTy;
-#else
+  /// that are actually instantiated. Values of this enumeration are kept in the
+  /// SubclassID field of the VPBlockBase objects. They are used for concrete
+  /// type identification.
   typedef enum { VPBasicBlockSC, VPRegionBlockSC } VPBlockTy;
-#endif
+
+  typedef SmallVectorImpl<VPBlockBase *> VPBlocksTy;
+
   virtual ~VPBlockBase() {}
 
   const std::string &getName() const { return Name; }
 
+  void setName(const Twine &newName) { Name = newName.str(); }
+
   /// \return an ID for the concrete type of this object.
   /// This is used to implement the classof checks. This should not be used
   /// for any other purpose, as the values may change as LLVM evolves.
-  unsigned getVPBlockID() const { return VBID; }
+  unsigned getVPBlockID() const { return SubclassID; }
 
-  const class VPRegionBlock *getParent() const { return Parent; }
-  class VPRegionBlock *getParent() { return Parent; }
+  const VPRegionBlock *getParent() const { return Parent; }
+
+  void setParent(VPRegionBlock *P) { Parent = P; }
 
   /// \return the VPBasicBlock that is the entry of this VPBlockBase,
   /// recursively, if the latter is a VPRegionBlock. Otherwise, if this
   /// VPBlockBase is a VPBasicBlock, it is returned.
-  const class VPBasicBlock *getEntryBasicBlock() const;
+  const VPBasicBlock *getEntryBasicBlock() const;
+  VPBasicBlock *getEntryBasicBlock();
 
   /// \return the VPBasicBlock that is the exit of this VPBlockBase,
   /// recursively, if the latter is a VPRegionBlock. Otherwise, if this
   /// VPBlockBase is a VPBasicBlock, it is returned.
-  const class VPBasicBlock *getExitBasicBlock() const;
-  class VPBasicBlock *getExitBasicBlock();
+  const VPBasicBlock *getExitBasicBlock() const;
+  VPBasicBlock *getExitBasicBlock();
 
-  const SmallVectorImpl<VPBlockBase *> &getSuccessors() const {
-    return Successors;
-  }
+  const VPBlocksTy &getSuccessors() const { return Successors; }
+  VPBlocksTy &getSuccessors() { return Successors; }
 
-  const SmallVectorImpl<VPBlockBase *> &getPredecessors() const {
-    return Predecessors;
-  }
-
-  SmallVectorImpl<VPBlockBase *> &getSuccessors() { return Successors; }
-
-  SmallVectorImpl<VPBlockBase *> &getPredecessors() { return Predecessors; }
-
-#if INTEL_CUSTOMIZATION
-  bool isInsideLoop();
-
-  VPBlockBase *getSingleSuccessor() {
-    if (Successors.size() != 1)
-      return nullptr;
-    return *Successors.begin();
-  }
-
-  VPBlockBase *getSinglePredecessor() {
-    if (Predecessors.size() != 1)
-      return nullptr;
-    return *Predecessors.begin();
-  }
-
-  size_t getNumSuccessors() const { return Successors.size(); }
-
-  size_t getNumPredecessors() const { return Predecessors.size(); }
-#endif // INTEL_CUSTOMIZATION
+  const VPBlocksTy &getPredecessors() const { return Predecessors; }
+  VPBlocksTy &getPredecessors() { return Predecessors; }
 
   /// \return the successor of this VPBlockBase if it has a single successor.
   /// Otherwise return a null pointer.
@@ -815,13 +347,16 @@ public:
     return (Predecessors.size() == 1 ? *Predecessors.begin() : nullptr);
   }
 
-  /// Returns the closest ancestor starting from "this", which has successors.
-  /// Returns the root ancestor if all ancestors have no successors.
-  VPBlockBase *getAncestorWithSuccessors();
+  /// An Enclosing Block of a block B is any block containing B, including B
+  /// itself. \return the closest enclosing block starting from "this", which
+  /// has successors. \return the root enclosing block if all enclosing blocks
+  /// have no successors.
+  VPBlockBase *getEnclosingBlockWithSuccessors();
 
-  /// Returns the closest ancestor starting from "this", which has predecessors.
-  /// Returns the root ancestor if all ancestors have no predecessors.
-  VPBlockBase *getAncestorWithPredecessors();
+  /// \return the closest enclosing block starting from "this", which has
+  /// predecessors. \return the root enclosing block if all enclosing blocks
+  /// have no predecessors.
+  VPBlockBase *getEnclosingBlockWithPredecessors();
 
   /// \return the successors either attached directly to this VPBlockBase or, if
   /// this VPBlockBase is the exit block of a VPRegionBlock and has no
@@ -829,14 +364,14 @@ public:
   /// VPRegionBlock that has successors and return them. If no such
   /// VPRegionBlock exists, return the (empty) successors of the topmost
   /// VPBlockBase reached.
-  const SmallVectorImpl<VPBlockBase *> &getHierarchicalSuccessors() {
-    return getAncestorWithSuccessors()->getSuccessors();
+  const VPBlocksTy &getHierarchicalSuccessors() {
+    return getEnclosingBlockWithSuccessors()->getSuccessors();
   }
 
   /// \return the hierarchical successor of this VPBlockBase if it has a single
   /// hierarchical successor. Otherwise return a null pointer.
   VPBlockBase *getSingleHierarchicalSuccessor() {
-    return getAncestorWithSuccessors()->getSingleSuccessor();
+    return getEnclosingBlockWithSuccessors()->getSingleSuccessor();
   }
 
   /// \return the predecessors either attached directly to this VPBlockBase or,
@@ -845,90 +380,110 @@ public:
   /// VPRegionBlock that has predecessors and return them. If no such
   /// VPRegionBlock exists, return the (empty) predecessors of the topmost
   /// VPBlockBase reached.
-  const SmallVectorImpl<VPBlockBase *> &getHierarchicalPredecessors() {
-    return getAncestorWithPredecessors()->getPredecessors();
+  const VPBlocksTy &getHierarchicalPredecessors() {
+    return getEnclosingBlockWithPredecessors()->getPredecessors();
   }
 
   /// \return the hierarchical predecessor of this VPBlockBase if it has a
   /// single hierarchical predecessor. Otherwise return a null pointer.
   VPBlockBase *getSingleHierarchicalPredecessor() {
-    return getAncestorWithPredecessors()->getSinglePredecessor();
+    return getEnclosingBlockWithPredecessors()->getSinglePredecessor();
   }
 
-  /// If a VPBlockBase has two successors, this is the Recipe that will generate
-  /// the condition bit selecting the successor, and feeding the terminating
-  /// conditional branch. Otherwise this is null.
-  VPConditionBitRecipeBase *getConditionBitRecipe() {
-    return ConditionBitRecipe;
+  /// Sets a given VPBlockBase \p Successor as the single successor and \return
+  /// \p Successor. The parent of this Block is copied to be the parent of
+  /// \p Successor.
+  VPBlockBase *setOneSuccessor(VPBlockBase *Successor) {
+    assert(Successors.empty() && "Setting one successor when others exist.");
+    appendSuccessor(Successor);
+    Successor->appendPredecessor(this);
+    Successor->Parent = Parent;
+    return Successor;
   }
 
-  const VPConditionBitRecipeBase *getConditionBitRecipe() const {
-    return ConditionBitRecipe;
+  /// Sets two given VPBlockBases \p IfTrue and \p IfFalse to be the two
+  /// successors. The parent of this Block is copied to be the parent of both
+  /// \p IfTrue and \p IfFalse.
+  void setTwoSuccessors(VPBlockBase *IfTrue, VPBlockBase *IfFalse) {
+    assert(Successors.empty() && "Setting two successors when others exist.");
+    appendSuccessor(IfTrue);
+    appendSuccessor(IfFalse);
+    IfTrue->appendPredecessor(this);
+    IfFalse->appendPredecessor(this);
+    IfTrue->Parent = Parent;
+    IfFalse->Parent = Parent;
   }
 
-  void setConditionBitRecipe(VPConditionBitRecipeBase *R, VPlan *Plan);
-
-  VPPredicateRecipeBase *getPredicateRecipe() const {
-    return PredicateRecipe;
+  void disconnectSuccessor(VPBlockBase *Successor) {
+    assert(Successor && "Successor to disconnect is null.");
+    removeSuccessor(Successor);
+    Successor->removePredecessor(this);
   }
 
-  void setPredicateRecipe(VPPredicateRecipeBase *R) {
-    PredicateRecipe = R;
-  }
+  /// The method which generates the output IR that correspond to this
+  /// VPBlockBase, thereby "executing" the VPlan.
+  virtual void execute(struct VPTransformState *State) = 0;
 
-  /// The method which generates all new IR instructions that correspond to
-  /// this VPBlockBase in the vectorized version, thereby "executing" the VPlan.
-  virtual void vectorize(struct VPTransformState *State) = 0;
-
-  // Delete all blocks reachable from a given VPBlockBase, inclusive.
+  /// Delete all blocks reachable from a given VPBlockBase, inclusive.
   static void deleteCFG(VPBlockBase *Entry);
-
-  // Quick hack to get pulldown to compile. This needs more serious
-  // consideration.
-  bool isLegalToHoistInto() {
-    return true;
-  }
-
-#if INTEL_CUSTOMIZATION
-  void printAsOperand(raw_ostream &OS, bool PrintType) const {
-    formatted_raw_ostream FOS(OS);
-    print(FOS, 0);
-  }
-
-  void print(raw_ostream &OS) const {
-    formatted_raw_ostream FOS(OS);
-    print(FOS, 0);
-  }
-
-  // TODO: Improve implementation for debugging
-  void print(formatted_raw_ostream &OS, unsigned Depth) const {
-    std::string Indent((Depth * 4), ' ');
-    OS << Indent << getName();// << "\n";
-  }
-#endif
 };
 
-/// VPBasicBlock serves as the leaf of the Hierarchical CFG. It represents a
-/// sequence of instructions that will appear consecutively in a basic block
-/// of the vectorized version. The VPBasicBlock takes care of the control-flow
-/// relations with other VPBasicBlock's and Regions. It holds a sequence of zero
-/// or more VPRecipe's that take care of representing the instructions.
-/// A VPBasicBlock that holds no VPRecipe's represents no instructions; this
-/// may happen, e.g., to support disjoint Regions and to ensure Regions have a
-/// single exit, possibly an empty one.
-///
-/// Note that in contrast to the IR BasicBlock, a VPBasicBlock models its
-/// control-flow edges with successor and predecessor VPBlockBase directly,
-/// rather than through a Terminator branch or through predecessor branches that
-/// "use" the VPBasicBlock.
-class VPBasicBlock : public VPBlockBase {
-  friend class VPlanUtils;
+/// VPRecipeBase is a base class modeling a sequence of one or more output IR
+/// instructions.
+class VPRecipeBase : public ilist_node_with_parent<VPRecipeBase, VPBasicBlock> {
+  friend VPBasicBlock;
 
+private:
+  const unsigned char SubclassID; ///< Subclass identifier (for isa/dyn_cast).
+
+  /// Each VPRecipe belongs to a single VPBasicBlock.
+  VPBasicBlock *Parent;
+
+public:
+  /// An enumeration for keeping track of the concrete subclass of VPRecipeBase
+  /// that is actually instantiated. Values of this enumeration are kept in the
+  /// SubclassID field of the VPRecipeBase objects. They are used for concrete
+  /// type identification.
+  typedef enum {
+    VPBranchOnMaskSC,
+    VPInterleaveSC,
+    VPPredInstPHISC,
+    VPReplicateSC,
+    VPWidenIntOrFpInductionSC,
+    VPWidenPHISC,
+    VPWidenSC,
+  } VPRecipeTy;
+
+  VPRecipeBase(const unsigned char SC) : SubclassID(SC), Parent(nullptr) {}
+
+  virtual ~VPRecipeBase() {}
+
+  /// \return an ID for the concrete type of this object.
+  /// This is used to implement the classof checks. This should not be used
+  /// for any other purpose, as the values may change as LLVM evolves.
+  unsigned getVPRecipeID() const { return SubclassID; }
+
+  /// \return the VPBasicBlock which this VPRecipe belongs to.
+  VPBasicBlock *getParent() { return Parent; }
+  const VPBasicBlock *getParent() const { return Parent; }
+
+  /// The method which generates the output IR instructions that correspond to
+  /// this VPRecipe, thereby "executing" the VPlan.
+  virtual void execute(struct VPTransformState &State) = 0;
+
+  /// Each recipe prints itself.
+  virtual void print(raw_ostream &O, const Twine &Indent) const = 0;
+};
+
+/// VPBasicBlock serves as the leaf of the Hierarchical Control-Flow Graph. It
+/// holds a sequence of zero or more VPRecipe's each representing a sequence of
+/// output IR instructions.
+class VPBasicBlock : public VPBlockBase {
 public:
   typedef iplist<VPRecipeBase> RecipeListTy;
 
 private:
-  /// The list of VPRecipes, held in order of instructions to generate.
+  /// The VPRecipes held in the order of output instructions to generate.
   RecipeListTy Recipes;
 
 public:
@@ -958,21 +513,16 @@ public:
   inline const VPRecipeBase &back() const { return Recipes.back(); }
   inline VPRecipeBase &back() { return Recipes.back(); }
 
-  /// \brief Return the underlying instruction list container.
-  ///
-  /// Currently you need to access the underlying instruction list container
-  /// directly if you want to modify it.
-  const RecipeListTy &getInstList() const { return Recipes; }
-  RecipeListTy &getInstList() { return Recipes; }
-
-  /// \brief Returns a pointer to a member of the instruction list.
+  /// \brief Returns a pointer to a member of the recipe list.
   static RecipeListTy VPBasicBlock::*getSublistAccess(VPRecipeBase *) {
     return &VPBasicBlock::Recipes;
   }
 
-  VPBasicBlock(const std::string &Name) 
-    : VPBlockBase(VPBasicBlockSC, Name), CBlock(nullptr), TBlock(nullptr),
-	  FBlock(nullptr), OriginalBB(nullptr) {}
+  VPBasicBlock(const Twine &Name = "", VPRecipeBase *Recipe = nullptr)
+      : VPBlockBase(VPBasicBlockSC, Name.str()) {
+    if (Recipe)
+      appendRecipe(Recipe);
+  }
 
   ~VPBasicBlock() { Recipes.clear(); }
 
@@ -982,82 +532,204 @@ public:
   }
 
   /// Augment the existing recipes of a VPBasicBlock with an additional
-  /// \p Recipe at a position given by an existing recipe \p Before. If
-  /// \p Before is null, \p Recipe is appended as the last recipe.
-  void addRecipe(VPRecipeBase *Recipe, VPRecipeBase *Before = nullptr) {
+  /// \p Recipe as the last recipe.
+  void appendRecipe(VPRecipeBase *Recipe) {
+    assert(Recipe && "No recipe to append.");
+    assert(!Recipe->Parent && "Recipe already in VPlan");
     Recipe->Parent = this;
-    if (!Before) {
-      Recipes.push_back(Recipe);
-      return;
-    }
-    assert(Before->Parent == this &&
-           "Insertion before point not in this basic block.");
-    Recipes.insert(Before->getIterator(), Recipe);
+    return Recipes.push_back(Recipe);
   }
 
-  #if INTEL_CUSTOMIZATION
-  /// Add \p Recipe after \p After. If \p After is null, \p Recipe will be
-  /// inserted as the first recipe.
-  void addRecipeAfter(VPRecipeBase *Recipe, VPRecipeBase *After) {
-    Recipe->Parent = this;
-    if (! After) {
-        Recipes.insert(Recipes.begin(), Recipe);
-    } else {
-        Recipes.insertAfter(After->getIterator(), Recipe);
-    }
-  }
+  /// The method which generates the output IR instructions that correspond to
+  /// this VPBasicBlock, thereby "executing" the VPlan.
+  void execute(struct VPTransformState *State) override;
 
-  void moveConditionalEOBTo(VPBasicBlock *ToBB, VPlan *Plan);
-  #endif
-
-  /// Remove the recipe from VPBasicBlock's recipes.
-  // TODO: Please, note that this is actually destroying Recipe object. We
-  // should replace 'erase' by 'remove' and revisit algorithms using
-  // 'removeRecipe'.
-  void removeRecipe(VPRecipeBase *Recipe) { Recipes.erase(Recipe); }
-
-  /// Remove the recipe from VPBasicBlock's recipes and destroy Recipe object.
-  void eraseRecipe(VPRecipeBase *Recipe) { Recipes.erase(Recipe); }
-
-  /// The method which generates all new IR instructions that correspond to
-  /// this VPBasicBlock in the vectorized version, thereby "executing" the
-  /// VPlan.
-  void vectorize(struct VPTransformState *State) override;
-
-  /// Retrieve the list of VPRecipes that belong to this VPBasicBlock.
-  const RecipeListTy &getRecipes() const { return Recipes; }
-  RecipeListTy &getRecipes() { return Recipes; }
-#if INTEL_CUSTOMIZATION
-  void setCBlock(BasicBlock *CB) { CBlock = CB; }
-  void setFBlock(BasicBlock *FB) { FBlock = FB; }
-  void setTBlock(BasicBlock *TB) { TBlock = TB; }
-  BasicBlock *getCBlock() { return CBlock; }
-  BasicBlock *getTBlock() { return TBlock; }
-  BasicBlock *getFBlock() { return FBlock; }
-
-  bool hasTrueEdge()  { return CBlock && TBlock; }
-  bool hasFalseEdge() { return CBlock && FBlock; }
-
-  void setOriginalBB(BasicBlock *BB) { OriginalBB = BB; }
-  BasicBlock *getOriginalBB() { return OriginalBB;  }
 private:
-  BasicBlock *CBlock;
-  BasicBlock *TBlock;
-  BasicBlock *FBlock;
-  BasicBlock *OriginalBB;
-#endif
-  /// Create an IR BasicBlock to hold the instructions vectorized from this
+  /// Create an IR BasicBlock to hold the output instructions generated by this
   /// VPBasicBlock, and return it. Update the CFGState accordingly.
   BasicBlock *createEmptyBasicBlock(VPTransformState::CFGState &CFG);
 };
 
-#if !INTEL_CUSTOMIZATION // Opensource version
+/// VPRegionBlock represents a collection of VPBasicBlocks and VPRegionBlocks
+/// which form a Single-Entry-Single-Exit subgraph of the output IR CFG.
+/// A VPRegionBlock may indicate that its contents are to be replicated several
+/// times. This is designed to support predicated scalarization, in which a
+/// scalar if-then code structure needs to be generated VF * UF times. Having
+/// this replication indicator helps to keep a single model for multiple
+/// candidate VF's. The actual replication takes place only once the desired VF
+/// and UF have been determined.
+class VPRegionBlock : public VPBlockBase {
+private:
+  /// Hold the Single Entry of the SESE region modelled by the VPRegionBlock.
+  VPBlockBase *Entry;
+
+  /// Hold the Single Exit of the SESE region modelled by the VPRegionBlock.
+  VPBlockBase *Exit;
+
+  /// An indicator whether this region is to generate multiple replicated
+  /// instances of output IR corresponding to its VPBlockBases.
+  bool IsReplicator;
+
+public:
+  VPRegionBlock(VPBlockBase *Entry, VPBlockBase *Exit,
+                const std::string &Name = "", bool IsReplicator = false)
+      : VPBlockBase(VPRegionBlockSC, Name), Entry(Entry), Exit(Exit),
+        IsReplicator(IsReplicator) {
+    assert(Entry->getPredecessors().empty() && "Entry block has predecessors.");
+    assert(Exit->getSuccessors().empty() && "Exit block has successors.");
+    Entry->setParent(this);
+    Exit->setParent(this);
+  }
+
+  ~VPRegionBlock() {
+    if (Entry)
+      deleteCFG(Entry);
+  }
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPBlockBase *V) {
+    return V->getVPBlockID() == VPBlockBase::VPRegionBlockSC;
+  }
+
+  const VPBlockBase *getEntry() const { return Entry; }
+  VPBlockBase *getEntry() { return Entry; }
+
+  const VPBlockBase *getExit() const { return Exit; }
+  VPBlockBase *getExit() { return Exit; }
+
+  /// An indicator whether this region is to generate multiple replicated
+  /// instances of output IR corresponding to its VPBlockBases.
+  bool isReplicator() const { return IsReplicator; }
+
+  /// The method which generates the output IR instructions that correspond to
+  /// this VPRegionBlock, thereby "executing" the VPlan.
+  void execute(struct VPTransformState *State) override;
+};
+
+/// VPlan models a candidate for vectorization, encoding various decisions take
+/// to produce efficient output IR, including which branches, basic-blocks and
+/// output IR instructions to generate, and their cost. VPlan holds a
+/// Hierarchical-CFG of VPBasicBlocks and VPRegionBlocks rooted at an Entry
+/// VPBlock.
+class VPlan {
+private:
+  /// Hold the single entry to the Hierarchical CFG of the VPlan.
+  VPBlockBase *Entry;
+
+  /// Holds the VFs applicable to this VPlan.
+  SmallSet<unsigned, 2> VFs;
+
+  /// Holds the name of the VPlan, for printing.
+  std::string Name;
+
+public:
+  VPlan(VPBlockBase *Entry = nullptr) : Entry(Entry) {}
+
+  ~VPlan() {
+    if (Entry)
+      VPBlockBase::deleteCFG(Entry);
+  }
+
+  /// Generate the IR code for this VPlan.
+  void execute(struct VPTransformState *State);
+
+  VPBlockBase *getEntry() { return Entry; }
+  const VPBlockBase *getEntry() const { return Entry; }
+
+  VPBlockBase *setEntry(VPBlockBase *Block) { return Entry = Block; }
+
+  void addVF(unsigned VF) { VFs.insert(VF); }
+
+  bool hasVF(unsigned VF) { return VFs.count(VF); }
+
+  const std::string &getName() const { return Name; }
+
+  void setName(const Twine &newName) { Name = newName.str(); }
+
+private:
+  /// Add to the given dominator tree the header block and every new basic block
+  /// that was created between it and the latch block, inclusive.
+  static void updateDominatorTree(class DominatorTree *DT,
+                                  BasicBlock *LoopPreHeaderBB,
+                                  BasicBlock *LoopLatchBB);
+};
+
+/// VPlanPrinter prints a given VPlan to a given output stream. The printing is
+/// indented and follows the dot format.
+class VPlanPrinter {
+  friend inline raw_ostream &operator<<(raw_ostream &OS, VPlan &Plan);
+  friend inline raw_ostream &operator<<(raw_ostream &OS,
+                                        const struct VPlanIngredient &I);
+
+private:
+  raw_ostream &OS;
+  VPlan &Plan;
+  unsigned Depth;
+  unsigned TabWidth = 2;
+  std::string Indent;
+
+  unsigned BID = 0;
+
+  SmallDenseMap<const VPBlockBase *, unsigned> BlockID;
+
+  /// Handle indentation.
+  void bumpIndent(int b) { Indent = std::string((Depth += b) * TabWidth, ' '); }
+
+  /// Print a given \p Block of the Plan.
+  void dumpBlock(const VPBlockBase *Block);
+
+  /// Print the information related to the CFG edges going out of a given
+  /// \p Block, followed by printing the successor blocks themselves.
+  void dumpEdges(const VPBlockBase *Block);
+
+  /// Print a given \p BasicBlock, including its VPRecipes, followed by printing
+  /// its successor blocks.
+  void dumpBasicBlock(const VPBasicBlock *BasicBlock);
+
+  /// Print a given \p Region of the Plan.
+  void dumpRegion(const VPRegionBlock *Region);
+
+  unsigned getOrCreateBID(const VPBlockBase *Block) {
+    return BlockID.count(Block) ? BlockID[Block] : BlockID[Block] = BID++;
+  }
+
+  const Twine getOrCreateName(const VPBlockBase *Block);
+
+  const Twine getUID(const VPBlockBase *Block);
+
+  /// Print the information related to a CFG edge between two VPBlockBases.
+  void drawEdge(const VPBlockBase *From, const VPBlockBase *To, bool Hidden,
+                const Twine &Label);
+
+  VPlanPrinter(raw_ostream &O, VPlan &P) : OS(O), Plan(P) {}
+
+  void dump();
+
+  static void printAsIngredient(raw_ostream &O, Value *V);
+};
+
+struct VPlanIngredient {
+  Value *V;
+  VPlanIngredient(Value *V) : V(V) {}
+};
+
+inline raw_ostream &operator<<(raw_ostream &OS, const VPlanIngredient &I) {
+  VPlanPrinter::printAsIngredient(OS, I.V);
+  return OS;
+}
+
+inline raw_ostream &operator<<(raw_ostream &OS, VPlan &Plan) {
+  VPlanPrinter Printer(OS, Plan);
+  Printer.dump();
+  return OS;
+}
+
 //===--------------------------------------------------------------------===//
 // GraphTraits specializations for VPlan/VPRegionBlock Control-Flow Graphs  //
 //===--------------------------------------------------------------------===//
 
-// Provide specializations of GraphTraits to be able to treat a VPRegionBlock
-// as a graph of VPBlockBases...
+// Provide specializations of GraphTraits to be able to treat a VPBlockBase as a
+// graph of VPBlockBase nodes...
 
 template <> struct GraphTraits<VPBlockBase *> {
   typedef VPBlockBase *NodeRef;
@@ -1089,10 +761,11 @@ template <> struct GraphTraits<const VPBlockBase *> {
   }
 };
 
-// Provide specializations of GraphTraits to be able to treat a VPRegionBlock as
-// a graph of VPBasicBlocks... and to walk it in inverse order. Inverse order
-// for a VPRegionBlock is considered to be when traversing the predecessor edges
-// of a VPBlockBase instead of the successor edges.
+// Provide specializations of GraphTraits to be able to treat a VPBlockBase as a
+// graph of VPBlockBase nodes... and to walk it in inverse order. Inverse order
+// for a VPBlockBase is considered to be when traversing the predecessors of a
+// VPBlockBase instead of its successors.
+//
 
 template <> struct GraphTraits<Inverse<VPBlockBase *>> {
   typedef VPBlockBase *NodeRef;
@@ -1110,886 +783,6 @@ template <> struct GraphTraits<Inverse<VPBlockBase *>> {
     return N->getPredecessors().end();
   }
 };
-
-#else // VPO version (Experimental)
-
-//===--------------------------------------------------------------------===//
-// GraphTraits specializations for VPlan/VPRegionBlock Control-Flow Graphs  //
-//===--------------------------------------------------------------------===//
-
-template <class GraphT, class GT = GraphTraits<GraphT>>
-class standard_df_iterator
-    : public std::iterator<std::forward_iterator_tag, typename GT::NodeType> {
-private:
-  df_iterator<GraphT> impl;
-
-  standard_df_iterator() {}
-
-public:
-  typedef std::iterator<std::forward_iterator_tag, typename GT::NodeType> super;
-
-  standard_df_iterator(const GraphT &G, bool Begin)
-      : impl(Begin ? df_iterator<GraphT>::begin(G)
-                   : df_iterator<GraphT>::end(G)) {}
-
-  typename super::pointer operator*() const { return *impl; }
-
-  bool operator==(const standard_df_iterator &x) const {
-    return impl == x.impl;
-  }
-
-  bool operator!=(const standard_df_iterator &x) const { return !(*this == x); }
-
-  standard_df_iterator &operator++() { // Preincrement
-    impl++;
-    return *this;
-  }
-
-  standard_df_iterator operator++(int) { // Postincrement
-    standard_df_iterator tmp = *this;
-    ++*this;
-    return tmp;
-  }
-};
-
-//
-// Provide specializations of GraphTraits to be able to treat a VPRegionBlock
-// as a graph of VPBlockBases...
-
-template <> struct GraphTraits<VPBlockBase *> {
-  typedef VPBlockBase NodeType;
-  typedef NodeType *NodeRef;
-  typedef SmallVectorImpl<NodeRef>::iterator ChildIteratorType;
-
-  static NodeRef getEntryNode(NodeRef N) { return N; }
-
-  static inline ChildIteratorType child_begin(NodeRef N) {
-    return N->getSuccessors().begin();
-  }
-
-  static inline ChildIteratorType child_end(NodeRef N) {
-    return N->getSuccessors().end();
-  }
-};
-
-template <> struct GraphTraits<const VPBlockBase *> {
-  typedef const VPBlockBase NodeType;
-  typedef const NodeType *NodeRef;
-  typedef SmallVectorImpl<NodeRef>::const_iterator ChildIteratorType;
-
-  static NodeRef getEntryNode(const VPBlockBase *N) { return N; }
-
-  static inline ChildIteratorType child_begin(NodeRef N) {
-    return N->getSuccessors().begin();
-  }
-
-  static inline ChildIteratorType child_end(NodeRef N) {
-    return N->getSuccessors().end();
-  }
-};
-
-//
-// Provide specializations of GraphTraits to be able to treat a VPRegionBlock as
-// a graph of VPBasicBlocks... and to walk it in inverse order. Inverse order
-// for a VPRegionBlock is considered to be when traversing the predecessor edges
-// of a VPBlockBase instead of the successor edges.
-
-template <> struct GraphTraits<Inverse<VPBlockBase *>> {
-  typedef VPBlockBase NodeType;
-  typedef NodeType *NodeRef;
-  typedef SmallVectorImpl<VPBlockBase *>::iterator ChildIteratorType;
-
-  static NodeRef getEntryNode(Inverse<VPBlockBase *> B) {
-    return B.Graph;
-  }
-
-  static inline ChildIteratorType child_begin(NodeRef N) {
-    return N->getPredecessors().begin();
-  }
-
-  static inline ChildIteratorType child_end(NodeRef N) {
-    return N->getPredecessors().end();
-  }
-};
-
-#endif // INTEL_CUSTOMIZATION
-
-class VPDominatorTree : public DomTreeBase<VPBlockBase> {
-public:
-  VPDominatorTree() : DomTreeBase<VPBlockBase>() {}
-};
-
-class VPPostDominatorTree : public PostDomTreeBase<VPBlockBase> {
-public:
-  VPPostDominatorTree() : PostDomTreeBase<VPBlockBase>() {}
-};
-
-/// VPRegionBlock represents a collection of VPBasicBlocks and VPRegionBlocks
-/// which form a single-entry-single-exit subgraph of the CFG in the vectorized
-/// code.
-///
-/// A VPRegionBlock may indicate that its contents are to be replicated several
-/// times. This is designed to support predicated scalarization, in which a
-/// scalar if-then code structure needs to be generated VF * UF times. Having
-/// this replication indicator helps to keep a single VPlan for multiple
-/// candidate VF's; the actual replication takes place only once the desired VF
-/// and UF have been determined.
-///
-/// **Design principle:** when some additional information relates to an SESE
-/// set of VPBlockBase, we use a VPRegionBlock to wrap them and attach the
-/// information to it. For example, a VPRegionBlock can be used to indicate that
-/// a scalarized SESE region is to be replicated, and that a vectorized SESE
-/// region can retain its internal control-flow, independent of the control-flow
-/// external to the region.
-class VPRegionBlock : public VPBlockBase {
-  friend class VPlanUtils;
-
-private:
-  /// Hold the Single Entry of the SESE region represented by the VPRegionBlock.
-  VPBlockBase *Entry;
-
-  /// Hold the Single Exit of the SESE region represented by the VPRegionBlock.
-  VPBlockBase *Exit;
-
-#if INTEL_CUSTOMIZATION
-  /// Holds the number of VPBasicBlocks within the region. It is necessary for
-  /// dominator tree
-  unsigned Size;
-
-  /// Holds whether the control flow within the region is divergent or uniform.
-  bool IsDivergent; 
-#endif
-  /// A VPRegionBlock can represent either a single instance of its
-  /// VPBlockBases, or multiple (VF * UF) replicated instances. The latter is
-  /// used when the internal SESE region handles a single scalarized lane.
-  bool IsReplicator;
-
-#if INTEL_CUSTOMIZATION
-  /// Traverse all the region VPBasicBlocks to recompute Size
-  void recomputeSize();
-
-  void setDivergent(bool IsDiv) { IsDivergent = IsDiv; }
-#endif
-
-#if INTEL_CUSTOMIZATION
-  /// Dominator Tree for the region
-  VPDominatorTree *RegionDT;
-  /// Post-Dominator Tree for the region
-  VPPostDominatorTree *RegionPDT;
-#endif
-
-public:
-  /// An enumeration for keeping track of the concrete subclass of VPRegionBlock
-  /// that is actually instantiated. Values of this enumeration are kept in the
-  /// VPRegionBlock classes VRID field. They are used for concrete type
-  /// identification.
-#if INTEL_CUSTOMIZATION
-  VPRegionBlock(const unsigned char SC, const std::string &Name)
-      : VPBlockBase(SC, Name), Entry(nullptr), Exit(nullptr), Size(0),
-        IsDivergent(true), IsReplicator(false), RegionDT(nullptr),
-        RegionPDT(nullptr) {}
-#else
-  VPRegionBlock(const std::string &Name)
-      : VPBlockBase(VPRegionBlockSC, Name), Entry(nullptr), Exit(nullptr),
-        IsReplicator(false) {}
-#endif
-
-  ~VPRegionBlock() {
-    if (Entry)
-      deleteCFG(Entry);
-#if INTEL_CUSTOMIZATION
-    if (RegionDT)
-      delete RegionDT;
-    if (RegionPDT)
-      delete RegionPDT;
-#endif
-  }
-
-  /// Method to support type inquiry through isa, cast, and dyn_cast.
-  static inline bool classof(const VPBlockBase *V) {
-#if INTEL_CUSTOMIZATION
-    return V->getVPBlockID() == VPBlockBase::VPRegionBlockSC ||
-           V->getVPBlockID() == VPBlockBase::VPLoopRegionSC;
-#else
-    return V->getVPBlockID() == VPBlockBase::VPRegionBlockSC;
-#endif
-  }
-  
-  VPBlockBase *getEntry() { return Entry; }
-
-  VPBlockBase *getExit() { return Exit; }
-
-  const VPBlockBase *getEntry() const { return Entry; }
-
-  const VPBlockBase *getExit() const { return Exit; }
-
-  void setEntry(VPBlockBase* NewEntry) { Entry = NewEntry; }
-
-#if INTEL_CUSTOMIZATION
-  unsigned getSize() const { return Size; }
-
-  bool isDivergent() const { return IsDivergent; }
-
-  // TODO: This is weird. For some reason, DominatorTreeBase is using
-  // A->getParent()->front() instead of using GraphTraints::getEntry. We may
-  // need to report it.
-  VPBlockBase &front() const { return *Entry; }
-#endif
-  /// An indicator if the VPRegionBlock represents single or multiple instances.
-  bool isReplicator() const { return IsReplicator; }
-
-  void setReplicator(bool ToReplicate) { IsReplicator = ToReplicate; }
-
-#if INTEL_CUSTOMIZATION
-  /// Getter for Dominator Tree
-  VPDominatorTree *getDT(void) { return RegionDT; }
-  /// Getter for Post-Dominator Tree
-  VPPostDominatorTree *getPDT(void) { return RegionPDT; }
-
-  /// Compute the Dominator Tree for this region
-  void computeDT(void) {
-    assert(!RegionDT && "Null expected");
-    RegionDT = new VPDominatorTree();
-    RegionDT->recalculate(*this);
-  }
-  /// Compute the Post-Dominator Tree for this region
-  void computePDT(void) {
-    assert(!RegionPDT && "Null expected");
-    RegionPDT = new VPPostDominatorTree();
-    RegionPDT->recalculate(*this);
-  }
-#endif
-
-  /// The method which generates the new IR instructions that correspond to
-  /// this VPRegionBlock in the vectorized version, thereby "executing" the
-  /// VPlan.
-  void vectorize(struct VPTransformState *State) override;
-};
-
-template <>
-struct GraphTraits<VPRegionBlock *> : public GraphTraits<VPBlockBase *> {
-  typedef VPRegionBlock GraphType;
-  typedef GraphType *GraphRef;
-  typedef standard_df_iterator<NodeRef> nodes_iterator;
-
-  static NodeRef getEntryNode(GraphRef N) { return N->getEntry(); }
-
-  static nodes_iterator nodes_begin(GraphRef N) {
-    return nodes_iterator(N->getEntry(), true);
-  }
-
-  static nodes_iterator nodes_end(GraphRef N) {
-    // When 'false' is used in nodes_iterator, it returns and empty iterator, so
-    // the node used doesn't matter
-    return nodes_iterator(N, false);
-  }
-  
-  static unsigned size(GraphRef N) {
-    return N->getSize();
-  }
-};
-
-template <>
-struct GraphTraits<const VPRegionBlock *>
-    : public GraphTraits<const VPBlockBase *> {
-  typedef const VPRegionBlock GraphType;
-  typedef GraphType *GraphRef;
-  typedef standard_df_iterator<NodeRef> nodes_iterator;
-
-  static NodeRef getEntryNode(GraphRef N) { return N->getEntry(); }
-
-  static nodes_iterator nodes_begin(GraphRef N) {
-    return nodes_iterator(N->getEntry(), true);
-  }
-
-  static nodes_iterator nodes_end(GraphRef N) {
-    // When 'false' is used in nodes_iterator, it returns and empty iterator, so
-    // the node used doesn't matter
-    return nodes_iterator(N, false);
-  }
-  
-  static unsigned size(GraphRef N) {
-    return N->getSize();
-  }
-};
-
-template <>
-struct GraphTraits<Inverse<VPRegionBlock *>>
-    : public GraphTraits<Inverse<VPBlockBase *>> {
-  typedef VPRegionBlock GraphType;
-  typedef GraphType *GraphRef;
-  typedef standard_df_iterator<NodeRef> nodes_iterator;
-
-  static NodeRef getEntryNode(Inverse<GraphRef> N) {
-    return N.Graph->getExit();
-  }
-
-  static nodes_iterator nodes_begin(GraphRef N) {
-    return nodes_iterator(N->getExit(), true);
-  }
-
-  static nodes_iterator nodes_end(GraphRef N) {
-    // When 'false' is used in nodes_iterator, it returns and empty iterator, so
-    // the node used doesn't matter
-    return nodes_iterator(N, false);
-  }
-  
-  static unsigned size(GraphRef N) {
-    return N->getSize();
-  }
-};
-
-/// A VPlan represents a candidate for vectorization, encoding various decisions
-/// taken to produce efficient vector code, including: which instructions are to
-/// vectorized or scalarized, which branches are to appear in the vectorized
-/// version. It models the control-flow of the candidate vectorized version
-/// explicitly, and holds prescriptions for generating the code for this version
-/// from a given IR code.
-/// VPlan takes a "senario-based approach" to vectorization planning - different
-/// scenarios, corresponding to making different decisions, can be modeled using
-/// different VPlans.
-/// The corresponding IR code is required to be SESE.
-/// The vectorized version is represented using a Hierarchical CFG.
-class VPlan {
-  friend class VPlanUtils;
-  friend class VPlanUtilsLoopVectorizer;
-#if INTEL_CUSTOMIZATION
-private:
-  const unsigned char VPID;
-protected:
-#else
-private:
-#endif
-  /// Hold the single entry to the Hierarchical CFG of the VPlan.
-  VPBlockBase *Entry;
-
-  /// The IR instructions which are to be transformed to fill the vectorized
-  /// version are held as ingredients inside the VPRecipe's of the VPlan. Hold a
-  /// reverse mapping to locate the VPRecipe an IR instruction belongs to. This
-  /// serves optimizations that operate on the VPlan.
-  DenseMap<Instruction *, VPRecipeBase *> Inst2Recipe;
-
-  /// Keep track of the VPBasicBlock users of a ConditionBitRecipe.
-  DenseMap<VPConditionBitRecipeBase*, std::set<const VPBlockBase*>> RecipeUsers;
-
-public:
-#if INTEL_CUSTOMIZATION
-  typedef enum {
-    IntelVPlanSC,
-  } VPlanTy;
-
-  VPlan(const unsigned char SC) : VPID(SC), Entry(nullptr) {}
-#else
-  VPlan() : Entry(nullptr) {}
-#endif
-
-  ~VPlan() {
-    if (Entry)
-      VPBlockBase::deleteCFG(Entry);
-  }
-
-  /// Generate the IR code for this VPlan.
-#if INTEL_CUSTOMIZATION
-  unsigned getVPlanID() const { return VPID; }
-  virtual void vectorize(struct VPTransformState *State);
-#else
-  void vectorize(struct VPTransformState *State);
-#endif
-
-  VPBlockBase *getEntry() { return Entry; }
-  const VPBlockBase *getEntry() const { return Entry; }
-
-  void setEntry(VPBlockBase *Block) { Entry = Block; }
-
-  /// Retrieve the VPRecipe a given instruction \p Inst belongs to in the VPlan.
-  /// Returns null if it belongs to no VPRecipe.
-  VPRecipeBase *getRecipe(Instruction *Inst) {
-    auto It = Inst2Recipe.find(Inst);
-    if (It == Inst2Recipe.end())
-      return nullptr;
-    return It->second;
-  }
-
-  void setInst2Recipe(Instruction *I, VPRecipeBase *R) { Inst2Recipe[I] = R; }
-
-  void resetInst2Recipe(Instruction *I) { Inst2Recipe.erase(I); }
-
-  void resetInst2RecipeRange(BasicBlock::iterator B, BasicBlock::iterator E) {
-    for (auto It = B; It != E; ++It) {
-      resetInst2Recipe(&*It);
-    }
-  }
-
-  std::set<const VPBlockBase*>& getRecipeUsers(
-    VPConditionBitRecipeBase* Recipe) {
-    return RecipeUsers[Recipe];
-  }
-
-  void removeRecipeUsers(VPConditionBitRecipeBase *Recipe) {
-    RecipeUsers[Recipe].clear();
-  }
-
-  void setConditionBitRecipeUser(VPConditionBitRecipeBase* Recipe,
-                                 const VPBlockBase *Block) {
-    RecipeUsers[Recipe].insert(Block);
-  }
-
-  void printInst2Recipe();
-
-  /// Retrieve the VPBasicBlock a given instruction \p Inst belongs to in the
-  /// VPlan. Returns null if it belongs to no VPRecipe.
-  VPBasicBlock *getBasicBlock(Instruction *Inst) {
-    VPRecipeBase *Recipe = getRecipe(Inst);
-    if (!Recipe)
-      return nullptr;
-    return Recipe->getParent();
-  }
-
-private:
-  /// Add to the given dominator tree the header block and every new basic block
-  /// that was created between it and the latch block, inclusive.
-  void updateDominatorTree(class DominatorTree *DT, BasicBlock *LoopPreHeaderBB,
-                           BasicBlock *LoopLatchBB);
-};
-
-/// The VPlanUtils class provides interfaces for the construction and
-/// manipulation of a VPlan.
-class VPlanUtils {
-private:
-  /// Unique ID generator.
-  static unsigned NextOrdinal;
-
-protected:
-  VPlan *Plan;
-
-  typedef iplist<VPRecipeBase> RecipeListTy;
-  RecipeListTy *getRecipes(VPBasicBlock *Block) { return &Block->Recipes; }
-
-public:
-  VPlanUtils(VPlan *Plan) : Plan(Plan) {}
-
-  ~VPlanUtils() {}
-
-  /// Create a unique name for a new VPlan entity such as a VPBasicBlock or
-  /// VPRegionBlock.
-  std::string createUniqueName(const char *Prefix) {
-    std::string S;
-    raw_string_ostream RSO(S);
-    RSO << Prefix << NextOrdinal++;
-    return RSO.str();
-  }
-
-#if INTEL_CUSTOMIZATION
-//  VPlan *getVPlan() { return Plan; }
-
-#endif
-
-  /// Add a given \p Recipe as the last recipe of a given VPBasicBlock.
-  void appendRecipeToBasicBlock(VPRecipeBase *Recipe, VPBasicBlock *ToVPBB) {
-    assert(Recipe && "No recipe to append.");
-    assert(!Recipe->Parent && "Recipe already in VPlan");
-    ToVPBB->addRecipe(Recipe);
-  }
-
-  /// Create a new empty VPBasicBlock and return it.
-  VPBasicBlock *createBasicBlock() {
-    VPBasicBlock *BasicBlock = new VPBasicBlock(createUniqueName("BB"));
-    return BasicBlock;
-  }
-
-  /// Create a new VPBasicBlock with a single \p Recipe and return it.
-  VPBasicBlock *createBasicBlock(VPRecipeBase *Recipe) {
-    VPBasicBlock *BasicBlock = new VPBasicBlock(createUniqueName("BB"));
-    appendRecipeToBasicBlock(Recipe, BasicBlock);
-    return BasicBlock;
-  }
-
-  /// Create a new, empty VPRegionBlock, with no blocks.
-  VPRegionBlock *createRegion(bool IsReplicator) {
-#if INTEL_CUSTOMIZATION
-    VPRegionBlock *Region = new VPRegionBlock(VPBlockBase::VPRegionBlockSC,
-                                              createUniqueName("region"));
-#else
-    VPRegionBlock *Region = new VPRegionBlock(createUniqueName("region"));
-#endif
-    setReplicator(Region, IsReplicator);
-    return Region;
-  }
-
-  /// Set the entry VPBlockBase of a given VPRegionBlock to a given \p Block.
-  /// Block is to have no predecessors.
-  void setRegionEntry(VPRegionBlock *Region, VPBlockBase *Block) {
-    assert(Block->Predecessors.empty() &&
-           "Entry block cannot have predecessors.");
-    Region->Entry = Block;
-    Block->Parent = Region;
-  }
-
-  /// Set the exit VPBlockBase of a given VPRegionBlock to a given \p Block.
-  /// Block is to have no successors.
-  void setRegionExit(VPRegionBlock *Region, VPBlockBase *Block) {
-    assert(Block->Successors.empty() && "Exit block cannot have successors.");
-    Region->Exit = Block;
-    Block->Parent = Region;
-  }
-
-  void setReplicator(VPRegionBlock *Region, bool ToReplicate) {
-    Region->setReplicator(ToReplicate);
-  }
-
-#if INTEL_CUSTOMIZATION
-  void setRegionSize(VPRegionBlock *Region, unsigned Size) {
-    Region->Size = Size;
-  }
-
-  void setRegionDivergent(VPRegionBlock *Region, bool IsDivergent) {
-    Region->IsDivergent = IsDivergent;
-  }
-#endif
-
-#if INTEL_CUSTOMIZATION
-// Please, do not use setSuccessor and setTwoSuccessors in VPO Vectorizer.
-// Depending on what you need, you may want to use connectBlocks or
-// insertBlockBefore and insertBlockAfter. appendBlockSuccessor,
-// appendBlockPredecessor, setBlockSuccessor and setBlockTwoSuccessors are also
-// available but their use should be less common.
-// Original setSuccessor and setTwoSuccessors are also setting predecessors and
-// parent, which is known to cause problems:
-//  1. Predecessors for original LLVM CFG must be appended in the right order
-//  and not following successors' order.
-//  2. If Block's parent is wrong, it will be propagated to Successor anyway.
-#endif
-#if !INTEL_CUSTOMIZATION
-  /// Sets a given VPBlockBase \p Successor as the single successor of another
-  /// VPBlockBase \p Block. The parent of \p Block is copied to be the parent of
-  /// \p Successor.
-  void setSuccessor(VPBlockBase *Block, VPBlockBase *Successor) {
-    assert(Block->getSuccessors().empty() && "Block successors already set.");
-    Block->appendSuccessor(Successor);
-    Successor->appendPredecessor(Block);
-    Successor->Parent = Block->Parent;
-  }
-
-  /// Sets two given VPBlockBases \p IfTrue and \p IfFalse to be the two
-  /// successors of another VPBlockBase \p Block. A given
-  /// VPConditionBitRecipeBase provides the control selector. The parent of
-  /// \p Block is copied to be the parent of \p IfTrue and \p IfFalse.
-  void setTwoSuccessors(VPBlockBase *Block, VPConditionBitRecipeBase *R,
-                        VPBlockBase *IfTrue, VPBlockBase *IfFalse) {
-    assert(Block->getSuccessors().empty() && "Block successors already set.");
-    Block->setConditionBitRecipe(R, Plan);
-    Block->appendSuccessor(IfTrue);
-    Block->appendSuccessor(IfFalse);
-    IfTrue->appendPredecessor(Block);
-    IfFalse->appendPredecessor(Block);
-    IfTrue->Parent = Block->Parent;
-    IfFalse->Parent = Block->Parent;
-  }
-#endif
-
-  /// Given two VPBlockBases \p From and \p To, disconnect them from each other.
-  void disconnectBlocks(VPBlockBase *From, VPBlockBase *To) {
-    From->removeSuccessor(To);
-    To->removePredecessor(From);
-  }
-
-#if INTEL_CUSTOMIZATION
-  /// \brief Add \p Successor as the last successor to this block.
-  void appendBlockSuccessor(VPBlockBase *Block, VPBlockBase *Successor) {
-    assert(Successor && "Cannot add nullptr successor!");
-    Block->appendSuccessor(Successor);
-  }
-
-  /// \brief Add \p Predecessor as the last predecessor to this block.
-  void appendBlockPredecessor(VPBlockBase *Block, VPBlockBase *Predecessor) {
-    assert(Predecessor && "Cannot add nullptr successor!");
-    Block->appendPredecessor(Predecessor);
-  }
-
-  /// connectBlocks should be used instead of this function when possible. 
-  /// Set a given VPBlockBase \p Successor as the single successor of another
-  /// VPBlockBase \p Block. Block's successor list must be empty. Block is not
-  /// added as Successor's predecessor.
-  void setBlockSuccessor(VPBlockBase *Block, VPBlockBase *Successor) {
-    assert(Block->getSuccessors().empty() && "Block successors already set.");
-    appendBlockSuccessor(Block, Successor);
-  }
-
-  /// connectBlocks should be used instead of this function when possible.
-  /// Set two given VPBlockBases \p IfTrue and \p IfFalse to be the two
-  /// successors of another VPBlockBase \p Block. A given
-  /// VPConditionBitRecipeBase provides the control selector. Block is not added
-  /// as IfTrue/IfFalse's predecessor.
-  void setBlockTwoSuccessors(VPBlockBase *Block, VPConditionBitRecipeBase *R,
-                             VPBlockBase *IfTrue, VPBlockBase *IfFalse) {
-    assert(Block->getSuccessors().empty() && "Block successors already set.");
-    Block->setConditionBitRecipe(R, Plan);
-    appendBlockSuccessor(Block, IfTrue);
-    appendBlockSuccessor(Block, IfFalse);
-  }
-
-  /// Connect \p From and \p To VPBlockBases bi-directionally. To is set as
-  /// successor of From. From is set as predecessor of To. From must have no
-  /// successors.
-  void connectBlocks(VPBlockBase *From, VPBlockBase *To) {
-    setBlockSuccessor(From, To);
-    appendBlockPredecessor(To, From);
-  }
-
-  /// Connect \p From to \p IfTrue and \p IfFalse bi-directionally. IfTrue and
-  /// IfFalse are set as successors of From. From is set as predecessor of
-  /// IfTrue and IfFalse. From must have no successors.
-  void connectBlocks(VPBlockBase *From, VPConditionBitRecipeBase *Condition,
-                             VPBlockBase *IfTrue, VPBlockBase *IfFalse) {
-    setBlockTwoSuccessors(From, Condition, IfTrue, IfFalse);
-    appendBlockPredecessor(IfTrue, From);
-    appendBlockPredecessor(IfFalse, From);
-  }
-
-  /// Insert NewBlock in the HCFG before BlockPtr and update parent region
-  /// accordingly
-  void insertBlockBefore(VPBlockBase *NewBlock, VPBlockBase *BlockPtr) {
-    VPRegionBlock *ParentRegion = BlockPtr->getParent();
-
-    movePredecessors(BlockPtr, NewBlock);
-    setBlockParent(NewBlock, ParentRegion);
-    connectBlocks(NewBlock, BlockPtr);
-    ++BlockPtr->Parent->Size;
-
-    // If BlockPtr is parent region's entry, set BlockPtr as parent region's
-    // entry
-    if (ParentRegion->getEntry() == BlockPtr) {
-      setRegionEntry(ParentRegion, NewBlock);
-    }
-  }
-
-  /// Insert NewBlock in the HCFG after BlockPtr and update parent region
-  /// accordingly. If BlockPtr has more that two successors, its
-  /// ConditionBitRecipe is propagated to NewBlock.
-  void insertBlockAfter(VPBlockBase *NewBlock, VPBlockBase *BlockPtr) {
-    
-    if (isa<VPBasicBlock>(BlockPtr) && isa<VPBasicBlock>(NewBlock)) {
-      VPBasicBlock *ThisBB = cast<VPBasicBlock>(BlockPtr);
-      VPBasicBlock *ToBB = cast<VPBasicBlock>(NewBlock);
-      ThisBB->moveConditionalEOBTo(ToBB, Plan);
-    }
-
-    VPRegionBlock *ParentRegion = BlockPtr->getParent();
-    moveSuccessors(BlockPtr, NewBlock);
-    setBlockParent(NewBlock, ParentRegion);
-    connectBlocks(BlockPtr, NewBlock);
-    ++BlockPtr->Parent->Size;
-
-    // If BlockPtr is parent region's exit, set BlockPtr as parent region's
-    // exit
-    if (ParentRegion->getExit() == BlockPtr) {
-      setRegionExit(ParentRegion, NewBlock);
-    }
-  }
-
-  void setBlockParent(VPBlockBase *Block, VPRegionBlock *Parent) {
-    Block->Parent = Parent;
-  }
-
-  /// \brief Remove all the predecessor of this block.
-  void clearPredecessors(VPBlockBase *Block) {
-    Block->Predecessors.clear();
-  }
-
-  /// \brief Remove all the successors of this block and set to null its
-  /// condition bit recipe.
-  void clearSuccessors(VPBlockBase *Block) {
-    Block->Successors.clear();
-    Block->ConditionBitRecipe = nullptr;
-  }
-
-  // Replace \p OldSuccessor by \p NewSuccessor in Block's successor list.
-  // \p NewSuccessor will be inserted in the same position as \p OldSuccessor.
-  void replaceBlockSuccessor(VPBlockBase *Block, VPBlockBase *OldSuccessor,
-                        VPBlockBase *NewSuccessor) {
-    // Replace successor
-    // TODO: Add VPBlockBase::replaceSuccessor. Let's not modify VPlan.h too
-    // much by now
-    auto &Successors = Block->getSuccessors();
-    auto SuccIt = std::find(Successors.begin(), Successors.end(), OldSuccessor);
-    assert(SuccIt != Successors.end() && "Successor not found");
-    SuccIt = Successors.erase(SuccIt);
-    Successors.insert(SuccIt, NewSuccessor);
-  }
-
-  // Replace \p OldPredecessor by \p NewPredecessor in Block's predecessor list.
-  // \p NewPredecessor will be inserted in the same position as \p OldPredecessor.
-  void replaceBlockPredecessor(VPBlockBase *Block, VPBlockBase *OldPredecessor,
-                        VPBlockBase *NewPredecessor) {
-    // Replace predecessor
-    // TODO: Add VPBlockBase::replacePredecessor. Let's not modify VPlan.h too
-    // much by now
-    auto &Predecessors = Block->getPredecessors();
-    auto PredIt =
-        std::find(Predecessors.begin(), Predecessors.end(), OldPredecessor);
-    assert(PredIt != Predecessors.end() && "Predecessor not found");
-    PredIt = Predecessors.erase(PredIt);
-    Predecessors.insert(PredIt, NewPredecessor);
-  }
-
-  void movePredecessor(VPBlockBase *Pred, VPBlockBase *From, VPBlockBase *To) {
-    replaceBlockSuccessor(Pred, From /*OldSuccessor*/, To /*NewSuccessor*/);
-    To->appendPredecessor(Pred);
-    From->removePredecessor(Pred);
-  }
-
-  void movePredecessors(VPBlockBase *From, VPBlockBase *To) {
-    auto &Predecessors = From->getPredecessors();
-
-    for (auto &Pred : Predecessors) {
-      replaceBlockSuccessor(Pred, From, To);
-      To->appendPredecessor(Pred);
-    }
-
-    // Remove predecessors from From
-    Predecessors.clear();
-  }
-
-  void moveSuccessors(VPBlockBase *From, VPBlockBase *To) {
-    auto &Successors = From->getSuccessors();
-
-    for (auto &Succ : Successors) {
-      replaceBlockPredecessor(Succ, From, To);
-      To->appendSuccessor(Succ);
-    }
-
-    // Remove successors from From
-    Successors.clear();
-  }
-
-  /// Insert a Region in a HCFG using Entry and Exit blocks as Region's single
-  /// entry and single exit. Entry and Exit blocks must be part of the HCFG and
-  /// be in the same region. Region cannot be part of a HCFG.
-  void insertRegion(VPRegionBlock *Region, VPBlockBase *Entry,
-                    VPBlockBase *Exit, bool RecomputeSize = true) {
-
-    assert(Entry->getNumSuccessors() != 0 && "Entry must be in a HCFG");
-    assert(Entry->getNumPredecessors() != 0 && "Exit must be in a HCFG");
-    assert(Entry->getParent() && Exit->getParent() &&
-           "Entry and Exit must have a parent region");
-    assert(Entry->getParent() == Exit->getParent() &&
-           "Entry and Exit must have the same parent region");
-    assert(Exit->getParent()->getExit() != Exit &&
-           "Exit node cannot be an exit node in another region");
-    assert(!Region->getEntry() && "Region's entry must be null");
-    assert(!Region->getExit() && "Region's exit must be null");
-    assert(!Region->getNumSuccessors() && "Region cannot have successors");
-    assert(!Region->getNumPredecessors() && "Region cannot have predecessors");
-
-    VPRegionBlock *ParentRegion = Entry->getParent();
-
-    // If Entry is parent region's entry, set Region as parent region's entry
-    if (ParentRegion->getEntry() == Entry) {
-      setRegionEntry(ParentRegion, Region);
-    } else {
-      movePredecessors(Entry, Region);
-    }
-
-    // moveSuccessors is propagating Exit's parent to Region
-    moveSuccessors(Exit, Region);
-    setRegionEntry(Region, Entry);
-    setRegionExit(Region, Exit);
-
-    // Recompute region size and update parent
-    if (RecomputeSize) {
-      Region->recomputeSize();
-      ParentRegion->Size -= Region->Size + 1 /*Region*/;
-    }
-  }
-
-
-  /// \brief Add Incoming Predicate to BlockPredicate.
-  void appendIncomingToBlockPred(VPBlockPredicateRecipe *BlockPred,
-                                 VPPredicateRecipeBase *Incoming) {
-    if (Incoming)
-      BlockPred->appendIncomingPredicate(Incoming);
-  }
-
-  /// \brief Remove Incoming Predicate from BlockPredicate.
-  void removeIncomingFromBlockPred(VPBlockPredicateRecipe *BlockPred,
-                                   VPPredicateRecipeBase *Incoming) {
-    if (Incoming)
-      BlockPred->removeIncomingPredicate(Incoming);
-  }
-
-  /// \brief Clear list of incoming predicates from BlockPredicate.
-  void clearIncomingsFromBlockPred(VPBlockPredicateRecipe *BlockPred) {
-    BlockPred->clearIncomingPredicates();
-  }
-#endif // INTEL_CUSTOMIZATION
-};
-
-/// VPlanPrinter prints a given VPlan to a given output stream. The printing is
-/// indented and follows the dot format.
-class VPlanPrinter {
-private:
-  raw_ostream &OS;
-  const VPlan &Plan;
-  unsigned Depth;
-  unsigned TabLength = 2;
-  std::string Indent;
-
-  /// Handle indentation.
-  void buildIndent() { Indent = std::string(Depth * TabLength, ' '); }
-  void resetDepth() {
-    Depth = 1;
-    buildIndent();
-  }
-  void increaseDepth() {
-    ++Depth;
-    buildIndent();
-  }
-  void decreaseDepth() {
-    --Depth;
-    buildIndent();
-  }
-
-  /// Dump each element of VPlan.
-  void dumpBlock(const VPBlockBase *Block);
-  void dumpEdges(const VPBlockBase *Block);
-  void dumpBasicBlock(const VPBasicBlock *BasicBlock);
-  void dumpRegion(const VPRegionBlock *Region);
-
-  const char *getNodePrefix(const VPBlockBase *Block);
-  const std::string &getReplicatorString(const VPRegionBlock *Region);
-  void drawEdge(const VPBlockBase *From, const VPBlockBase *To, bool Hidden,
-                const Twine &Label);
-
-public:
-  VPlanPrinter(raw_ostream &O, const VPlan &P) : OS(O), Plan(P) {}
-  void dump(const std::string &Title = "");
-};
-
-#if INTEL_CUSTOMIZATION
-typedef DomTreeNodeBase<VPBlockBase> VPDomTreeNode;
-
-template <>
-struct GraphTraits<VPDomTreeNode *>
-    : public DomTreeGraphTraitsBase<VPDomTreeNode, VPDomTreeNode::iterator> {};
-
-template <>
-struct GraphTraits<const VPDomTreeNode *>
-    : public DomTreeGraphTraitsBase<const VPDomTreeNode,
-                                    VPDomTreeNode::const_iterator> {};
-
-inline bool VPBlockBase::isInsideLoop() {
-  if (auto *ParentRegion = getParent()) {
-    // TODO: Use VPLoopRegion
-    if (ParentRegion->getVPBlockID() == VPLoopRegionSC) {
-      if (/*ParentRegion->getEntry() != this &&*/
-        ParentRegion->getExit() != this)
-        return true;
-    }
-    return ParentRegion->isInsideLoop();
-  }
-  return false;
-}
-#endif // INTEL_CUSTOMIZATION
 
 } // namespace llvm
 

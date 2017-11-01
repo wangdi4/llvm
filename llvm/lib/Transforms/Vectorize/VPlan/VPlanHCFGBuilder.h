@@ -26,7 +26,6 @@
                                       //TODO: Move Legal to an independent file
 
 namespace llvm {
-
 class ScalarEvolution;
 class Loop;
 
@@ -103,6 +102,6 @@ private:
 };
 
 } // End vpo namespace
-} // End LLVM namespace
+} // end llvm namespace
 
 #endif //LLVM_TRANSFORMS_VECTORIZE_VPLAN_VPLANHCFGBUILDER_H

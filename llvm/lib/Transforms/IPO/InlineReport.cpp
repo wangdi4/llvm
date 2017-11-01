@@ -15,6 +15,7 @@
 
 #include "llvm/Transforms/IPO/InlineReport.h"
 #include "llvm/Transforms/IPO/Inliner.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
 

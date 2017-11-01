@@ -290,7 +290,7 @@ public:
 
   /// Return true if the given shuffle mask can be codegen'd directly, or if it
   /// should be stack expanded.
-  bool isShuffleMaskLegal(const SmallVectorImpl<int> &M, EVT VT) const override;
+  bool isShuffleMaskLegal(ArrayRef<int> M, EVT VT) const override;
 
   /// Return the ISD::SETCC ValueType.
   EVT getSetCCResultType(const DataLayout &DL, LLVMContext &Context,
@@ -338,7 +338,8 @@ public:
   /// Return true if the addressing mode represented by AM is legal for this
   /// target, for a load/store of the specified type.
   bool isLegalAddressingMode(const DataLayout &DL, const AddrMode &AM, Type *Ty,
-                             unsigned AS) const override;
+                             unsigned AS,
+                             Instruction *I = nullptr) const override;
 
   /// \brief Return the cost of the scaling factor used in the addressing
   /// mode represented by AM for this target, for a load/store
@@ -470,6 +471,9 @@ public:
 
   MachineMemOperand::Flags getMMOFlags(const Instruction &I) const override;
 
+  bool functionArgumentNeedsConsecutiveRegisters(Type *Ty,
+                                                 CallingConv::ID CallConv,
+                                                 bool isVarArg) const override;
 private:
   bool isExtFreeImpl(const Instruction *Ext) const override;
 
@@ -638,10 +642,6 @@ private:
 
   void ReplaceNodeResults(SDNode *N, SmallVectorImpl<SDValue> &Results,
                           SelectionDAG &DAG) const override;
-
-  bool functionArgumentNeedsConsecutiveRegisters(Type *Ty,
-                                                 CallingConv::ID CallConv,
-                                                 bool isVarArg) const override;
 
   bool shouldNormalizeToSelectSequence(LLVMContext &, EVT) const override;
 };
