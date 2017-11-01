@@ -424,11 +424,6 @@ CSAInstrInfo::getSizeOfRegisterClass(const TargetRegisterClass *RC) const {
   }
 }
 
-unsigned CSAInstrInfo::getPickSwitchOpcode(const TargetRegisterClass *RC,
-                                           bool isPick) const {
-  return makeOpcode(isPick ? CSA::Generic::PICK : CSA::Generic::SWITCH, RC);
-}
-
 bool CSAInstrInfo::isLoad(const MachineInstr *MI) const {
 	return MI->getOpcode() >= CSA::LD1 && MI->getOpcode() <= CSA::LD8X;
 }
@@ -442,11 +437,10 @@ bool CSAInstrInfo::isCmp(const MachineInstr *MI) const {
 }
 
 bool CSAInstrInfo::isMOV(const MachineInstr *MI) const {
-  return MI->getOpcode() == CSA::MOV1 ||
-    MI->getOpcode() == CSA::MOV8 ||
-    MI->getOpcode() == CSA::MOV16 ||
-    MI->getOpcode() == CSA::MOV32 ||
-    MI->getOpcode() == CSA::MOV64;
+  // TODO: There is a pass that fails if we mark MOV0 as a MOV. This is a bug in
+  // that pass, but we disable it here for now.
+  return getGenericOpcode(MI->getOpcode()) == CSA::Generic::MOV &&
+    MI->getOpcode() != CSA::MOV0;
 }
 
 bool CSAInstrInfo::isAtomic(const MachineInstr *MI) const {

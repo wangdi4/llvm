@@ -177,8 +177,6 @@ public:
                         const DebugLoc &DL,
                         int *BytesAdded) const override;
 
-  unsigned getPickSwitchOpcode(const TargetRegisterClass *RC, bool isPick) const;
-
   /// Return the generic opcode for the relevant opcode. If the opcode is not
   /// valid, INVALID_OP is returned.
   CSA::Generic getGenericOpcode(unsigned opcode) const;
