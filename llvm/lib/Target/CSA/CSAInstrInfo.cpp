@@ -438,8 +438,7 @@ bool CSAInstrInfo::isStore(const MachineInstr *MI) const {
 }
 
 bool CSAInstrInfo::isCmp(const MachineInstr *MI) const {
-    return ((MI->getOpcode() >= CSA::CMPEQ16) &&
-            (MI->getOpcode() <= CSA::CMPUOF64));
+  return MI->isCompare();
 }
 
 bool CSAInstrInfo::isMOV(const MachineInstr *MI) const {
@@ -505,196 +504,76 @@ bool CSAInstrInfo::isMemTokenMOV(const MachineInstr* MI) const {
 unsigned CSAInstrInfo::commuteNegateCompareOpcode(unsigned cmp_opcode,
                                                   bool commute_compare_operands,
                                                   bool negate_eq) const {
+  // We need to a switch a "<" to a ">=" if we swap the operands,
+  // and if we negate the output.  If we do both, then they cancel
+  // each other out.
+  bool swap_ltgt = commute_compare_operands ^ negate_eq;
 
-    // We need to a switch a "<" to a ">=" if we swap the operands,
-    // and if we negate the output.  If we do both, then they cancel
-    // each other out.
-    bool swap_ltgt = commute_compare_operands ^ negate_eq;
-      
-    switch (cmp_opcode) {
-      // == maps to == (self)
-    case CSA::CMPEQ8:
-      return negate_eq ? CSA::CMPNE8 :  CSA::CMPEQ8;
-    case CSA::CMPEQ16:
-      return negate_eq ? CSA::CMPNE16 :  CSA::CMPEQ16;      
-    case CSA::CMPEQ32:
-      return negate_eq ? CSA::CMPNE32 :  CSA::CMPEQ32;            
-    case CSA::CMPEQ64:
-      return negate_eq ? CSA::CMPNE64 :  CSA::CMPEQ64;
-      
-    // ">=" maps to "<"
-    case CSA::CMPGES8:
-      return swap_ltgt ? CSA::CMPLTS8 : CSA::CMPGES8;
-    case CSA::CMPGES16:
-      return swap_ltgt ? CSA::CMPLTS16 : CSA::CMPGES16;      
-    case CSA::CMPGES32:
-      return swap_ltgt ? CSA::CMPLTS32 : CSA::CMPGES32;      
-    case CSA::CMPGES64:
-      return swap_ltgt ? CSA::CMPLTS64 : CSA::CMPGES64;      
-    case CSA::CMPGEU8:
-      return swap_ltgt ? CSA::CMPLTU8 : CSA::CMPGEU8;
-    case CSA::CMPGEU16:
-      return swap_ltgt ? CSA::CMPLTU16 : CSA::CMPGEU16;      
-    case CSA::CMPGEU32:
-      return swap_ltgt ? CSA::CMPLTU32 : CSA::CMPGEU32;
-    case CSA::CMPGEU64:
-      return swap_ltgt ? CSA::CMPLTU64 : CSA::CMPGEU64;
+  CSA::Generic new_generic;
+  switch (getGenericOpcode(cmp_opcode)) {
+  case CSA::Generic::CMPEQ: // "==" maps to "=="
+    new_generic = negate_eq ? CSA::Generic::CMPNE : CSA::Generic::CMPEQ;
+    break;
+  case CSA::Generic::CMPGE: // ">=" maps to "<"
+    new_generic = swap_ltgt ? CSA::Generic::CMPLT : CSA::Generic::CMPGE;
+    break;
+  case CSA::Generic::CMPGT: // ">" maps to "<="
+    new_generic = swap_ltgt ? CSA::Generic::CMPLE : CSA::Generic::CMPGT;
+    break;
+  case CSA::Generic::CMPLE: // "<=" maps to ">"
+    new_generic = swap_ltgt ? CSA::Generic::CMPGT : CSA::Generic::CMPLE;
+    break;
+  case CSA::Generic::CMPLT: // "<" maps to ">="
+    new_generic = swap_ltgt ? CSA::Generic::CMPGE : CSA::Generic::CMPLT;
+    break;
+  case CSA::Generic::CMPNE: // "!=" maps to "!="
+    new_generic = negate_eq ? CSA::Generic::CMPEQ : CSA::Generic::CMPNE;
+    break;
 
-    // ">" maps to "<="
-    case CSA::CMPGTS8:
-      return swap_ltgt ? CSA::CMPLES8 : CSA::CMPGTS8;
-    case CSA::CMPGTS16:
-      return swap_ltgt ? CSA::CMPLES16 : CSA::CMPGTS16;      
-    case CSA::CMPGTS32:
-      return swap_ltgt ? CSA::CMPLES32 : CSA::CMPGTS32;      
-    case CSA::CMPGTS64:
-      return swap_ltgt ? CSA::CMPLES64 : CSA::CMPGTS64;      
-    case CSA::CMPGTU8:
-      return swap_ltgt ? CSA::CMPLEU8 : CSA::CMPGTU8;
-    case CSA::CMPGTU16:
-      return swap_ltgt ? CSA::CMPLEU16 : CSA::CMPGTU16;      
-    case CSA::CMPGTU32:
-      return swap_ltgt ? CSA::CMPLEU32 : CSA::CMPGTU32;      
-    case CSA::CMPGTU64:
-      return swap_ltgt ? CSA::CMPLEU64 : CSA::CMPGTU64;      
+  // Floating point comparisons.
+  // TODO: These are probably wrong, when NaNs are introduced.
+  case CSA::Generic::CMPOEQ: // "==" maps to "=="
+    new_generic = negate_eq ? CSA::Generic::CMPONE : CSA::Generic::CMPOEQ;
+    break;
+  case CSA::Generic::CMPOGE: // ">=" maps to "<"
+    new_generic = swap_ltgt ? CSA::Generic::CMPOLT : CSA::Generic::CMPOGE;
+    break;
+  case CSA::Generic::CMPOGT: // ">" maps to "<="
+    new_generic = swap_ltgt ? CSA::Generic::CMPOLE : CSA::Generic::CMPOGT;
+    break;
+  case CSA::Generic::CMPOLE: // "<=" maps to ">"
+    new_generic = swap_ltgt ? CSA::Generic::CMPOGT : CSA::Generic::CMPOLE;
+    break;
+  case CSA::Generic::CMPOLT: // "<" maps to ">="
+    new_generic = swap_ltgt ? CSA::Generic::CMPOGE : CSA::Generic::CMPOLT;
+    break;
+  case CSA::Generic::CMPONE: // "!=" maps to "!="
+    new_generic = negate_eq ? CSA::Generic::CMPOEQ : CSA::Generic::CMPONE;
+    break;
+  case CSA::Generic::CMPUEQ: // "==" maps to "=="
+    new_generic = negate_eq ? CSA::Generic::CMPUNE : CSA::Generic::CMPUEQ;
+    break;
+  case CSA::Generic::CMPUGE: // ">=" maps to "<"
+    new_generic = swap_ltgt ? CSA::Generic::CMPULT : CSA::Generic::CMPUGE;
+    break;
+  case CSA::Generic::CMPUGT: // ">" maps to "<="
+    new_generic = swap_ltgt ? CSA::Generic::CMPULE : CSA::Generic::CMPUGT;
+    break;
+  case CSA::Generic::CMPULE: // "<=" maps to ">"
+    new_generic = swap_ltgt ? CSA::Generic::CMPUGT : CSA::Generic::CMPULE;
+    break;
+  case CSA::Generic::CMPULT: // "<" maps to ">="
+    new_generic = swap_ltgt ? CSA::Generic::CMPUGE : CSA::Generic::CMPULT;
+    break;
+  case CSA::Generic::CMPUNE: // "!=" maps to "!="
+    new_generic = negate_eq ? CSA::Generic::CMPUEQ : CSA::Generic::CMPUNE;
+    break;
+  default:
+    llvm_unreachable("This method should only be called on compare opcodes");
+    return cmp_opcode;
+  }
 
-    // "<=" maps to ">"
-    case CSA::CMPLES8:
-      return swap_ltgt ? CSA::CMPGTS8 : CSA::CMPLES8;
-    case CSA::CMPLES16:
-      return swap_ltgt ? CSA::CMPGTS16 : CSA::CMPLES16;      
-    case CSA::CMPLES32:
-      return swap_ltgt ? CSA::CMPGTS32 : CSA::CMPLES32;      
-    case CSA::CMPLES64:
-      return swap_ltgt ? CSA::CMPGTS64 : CSA::CMPLES64;      
-    case CSA::CMPLEU8:
-      return swap_ltgt ? CSA::CMPGTU8 : CSA::CMPLEU8;
-    case CSA::CMPLEU16:
-      return swap_ltgt ? CSA::CMPGTU16 : CSA::CMPLEU16;
-    case CSA::CMPLEU32:
-      return swap_ltgt ? CSA::CMPGTU32 : CSA::CMPLEU32;      
-    case CSA::CMPLEU64:
-      return swap_ltgt ? CSA::CMPGTU64 : CSA::CMPLEU64;            
-
-    // "<" maps to ">="
-    case CSA::CMPLTS8:
-      return swap_ltgt ? CSA::CMPGES8 : CSA::CMPLTS8;
-    case CSA::CMPLTS16:
-      return swap_ltgt ? CSA::CMPGES16 : CSA::CMPLTS16;      
-    case CSA::CMPLTS32:
-      return swap_ltgt ? CSA::CMPGES32 : CSA::CMPLTS32;      
-    case CSA::CMPLTS64:
-      return swap_ltgt ? CSA::CMPGES64 : CSA::CMPLTS64;      
-    case CSA::CMPLTU8:
-      return swap_ltgt ? CSA::CMPGEU8 : CSA::CMPLTU8;
-    case CSA::CMPLTU16:
-      return swap_ltgt ? CSA::CMPGEU16 : CSA::CMPLTU16;
-    case CSA::CMPLTU32:
-      return swap_ltgt ? CSA::CMPGEU32 : CSA::CMPLTU32;      
-    case CSA::CMPLTU64:
-      return swap_ltgt ? CSA::CMPGEU64 : CSA::CMPLTU64;      
-
-    // != maps to !=  (self)
-    case CSA::CMPNE8:
-      return negate_eq ? CSA::CMPEQ8 : CSA::CMPNE8;
-    case CSA::CMPNE16:
-      return negate_eq ? CSA::CMPEQ16 : CSA::CMPNE16;      
-    case CSA::CMPNE32:
-      return negate_eq ? CSA::CMPEQ32 : CSA::CMPNE32;      
-    case CSA::CMPNE64:
-      return negate_eq ? CSA::CMPEQ64 : CSA::CMPNE64;      
-
-    // Floating-point equal: maps to self. 
-    // == maps to ==
-    case CSA::CMPOEQF16:
-      return negate_eq ? CSA::CMPONEF16 : CSA::CMPOEQF16;
-    case CSA::CMPOEQF32:
-      return negate_eq ? CSA::CMPONEF32 : CSA::CMPOEQF32;      
-    case CSA::CMPOEQF64:
-      return negate_eq ? CSA::CMPONEF64 : CSA::CMPOEQF64;
-    case CSA::CMPUEQF16:
-      return negate_eq ? CSA::CMPUNEF16 : CSA::CMPUEQF16;
-    case CSA::CMPUEQF32:
-      return negate_eq ? CSA::CMPUNEF32 : CSA::CMPUEQF32;      
-    case CSA::CMPUEQF64:
-      return negate_eq ? CSA::CMPUNEF64 : CSA::CMPUEQF64;      
-
-    // >= to <
-    case CSA::CMPOGEF16:
-      return swap_ltgt ? CSA::CMPOLTF16 : CSA::CMPOGEF16;
-    case CSA::CMPOGEF32:
-      return swap_ltgt ? CSA::CMPOLTF32 : CSA::CMPOGEF32;      
-    case CSA::CMPOGEF64:
-      return swap_ltgt ? CSA::CMPOLTF64 : CSA::CMPOGEF64;      
-    case CSA::CMPUGEF16:
-      return swap_ltgt ? CSA::CMPULTF16 : CSA::CMPUGEF16;
-    case CSA::CMPUGEF32:
-      return swap_ltgt ? CSA::CMPULTF32 : CSA::CMPUGEF32;
-    case CSA::CMPUGEF64:
-      return swap_ltgt ? CSA::CMPULTF64 : CSA::CMPUGEF64;      
-      
-    // > to <=
-    case CSA::CMPOGTF16:
-      return swap_ltgt ? CSA::CMPOLEF16 : CSA::CMPOGTF16;
-    case CSA::CMPOGTF32:
-      return swap_ltgt ? CSA::CMPOLEF32 : CSA::CMPOGTF32;      
-    case CSA::CMPOGTF64:
-      return swap_ltgt ? CSA::CMPOLEF64 : CSA::CMPOGTF64;      
-    case CSA::CMPUGTF16:
-      return swap_ltgt ? CSA::CMPULEF16 : CSA::CMPUGTF16;
-    case CSA::CMPUGTF32:
-      return swap_ltgt ? CSA::CMPULEF32 : CSA::CMPUGTF32;      
-    case CSA::CMPUGTF64:
-      return swap_ltgt ? CSA::CMPULEF64 : CSA::CMPUGTF64;      
-      
-    // <= to >
-    case CSA::CMPOLEF16:
-      return swap_ltgt ? CSA::CMPOGTF16 : CSA::CMPOLEF16;
-    case CSA::CMPOLEF32:
-      return swap_ltgt ? CSA::CMPOGTF32 : CSA::CMPOLEF32;
-    case CSA::CMPOLEF64:
-      return swap_ltgt ? CSA::CMPOGTF64 : CSA::CMPOLEF64;      
-    case CSA::CMPULEF16:
-      return swap_ltgt ? CSA::CMPUGTF16 : CSA::CMPULEF16;
-    case CSA::CMPULEF32:
-      return swap_ltgt ? CSA::CMPUGTF32 : CSA::CMPULEF32;      
-    case CSA::CMPULEF64:
-      return swap_ltgt ? CSA::CMPUGTF64 : CSA::CMPULEF64;            
-      
-    // < to >=
-    case CSA::CMPOLTF16:
-      return swap_ltgt ? CSA::CMPOGEF16 : CSA::CMPOLTF16;
-    case CSA::CMPOLTF32:
-      return swap_ltgt ? CSA::CMPOGEF32 : CSA::CMPOLTF32;
-    case CSA::CMPOLTF64:
-      return swap_ltgt ? CSA::CMPOGEF64 : CSA::CMPOLTF64;      
-    case CSA::CMPULTF16:
-      return swap_ltgt ? CSA::CMPUGEF16 : CSA::CMPULTF16;
-    case CSA::CMPULTF32:
-      return swap_ltgt ? CSA::CMPUGEF32 : CSA::CMPULTF32;      
-    case CSA::CMPULTF64:
-      return swap_ltgt ? CSA::CMPUGEF64 : CSA::CMPULTF64;            
-
-    // != maps to !=
-    case CSA::CMPONEF16:
-      return negate_eq ? CSA::CMPOEQF16 : CSA::CMPONEF16;
-    case CSA::CMPONEF32:
-      return negate_eq ? CSA::CMPOEQF32 : CSA::CMPONEF32;
-    case CSA::CMPONEF64:
-      return negate_eq ? CSA::CMPOEQF64 : CSA::CMPONEF64;
-    case CSA::CMPUNEF16:
-      return negate_eq ? CSA::CMPUEQF16 : CSA::CMPUNEF16;
-    case CSA::CMPUNEF32:
-      return negate_eq ? CSA::CMPUEQF32 : CSA::CMPUNEF32;      
-    case CSA::CMPUNEF64:
-      return negate_eq ? CSA::CMPUEQF64 : CSA::CMPUNEF64;      
-
-    // Die by default.  We should never call this method on any opcode
-    // which is not a compare.
-    default:
-      assert(0);
-      return cmp_opcode;
-    }
+  return adjustOpcode(cmp_opcode, new_generic);
 }
 
 unsigned CSAInstrInfo::convertCompareOpToSeqOTOp(unsigned cmp_opcode) const {

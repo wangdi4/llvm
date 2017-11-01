@@ -370,7 +370,9 @@ class CmpOp<GenericOp gen, PatFrag opNode, CSAOpInfo oi,
     (ins oi.RCL:$op1, oi.RCL:$op2),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $op1, $op2"),
     [(set I1:$dst, (opNode (oi.VT oi.RCL:$op1), (oi.VT oi.RCL:$op2)))],
-    !listconcat(preds,gen.Preds,oi.Preds), itin>;
+    !listconcat(preds,gen.Preds,oi.Preds), itin> {
+  let isCompare = 1;
+}
 
 class ShAdd<GenericOp gen, SDNode inner, SDNode outer, CSAOpInfo oi,
             InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
@@ -1090,141 +1092,86 @@ def ATAN2F16  : BinOp<   ATAN2,  fatan2, Tf16, IIMathF16>;
 def ATAN2F32  : BinOp<   ATAN2,  fatan2, Tf32, IIMathF32>;
 def ATAN2F64  : BinOp<   ATAN2,  fatan2, Tf64, IIMathF64>;
 
-def CMPLT     : GenericOp<"cmplt">;
-def CMPLTS8   : CmpOp<   CMPLT,  setlt,  Ts8,  IIALU>;
-def CMPLTS16  : CmpOp<   CMPLT,  setlt,  Ts16, IIALU>;
-def CMPLTS32  : CmpOp<   CMPLT,  setlt,  Ts32, IIALU>;
-def CMPLTS64  : CmpOp<   CMPLT,  setlt,  Ts64, IIALU>;
-def CMPLTF16  : CmpOp<   CMPLT,  setlt,  Tf16, IICmpF>;
-def CMPLTF32  : CmpOp<   CMPLT,  setlt,  Tf32, IICmpF>;
-def CMPLTF64  : CmpOp<   CMPLT,  setlt,  Tf64, IICmpF>;
+multiclass SignedCmp<GenericOp generic, PatFrag frag> {
+  def S8  : CmpOp<generic, frag, Ts8,  IIALU>;
+  def S16 : CmpOp<generic, frag, Ts16, IIALU>;
+  def S32 : CmpOp<generic, frag, Ts32, IIALU>;
+  def S64 : CmpOp<generic, frag, Ts64, IIALU>;
+}
+multiclass UnsignedCmp<GenericOp generic, PatFrag frag> {
+  def U8  : CmpOp<generic, frag, Tu8,  IIALU>;
+  def U16 : CmpOp<generic, frag, Tu16, IIALU>;
+  def U32 : CmpOp<generic, frag, Tu32, IIALU>;
+  def U64 : CmpOp<generic, frag, Tu64, IIALU>;
+}
+multiclass FloatCmp<GenericOp generic, PatFrag frag> {
+  def F16 : CmpOp<generic, frag, Tf16, IICmpF>;
+  def F32 : CmpOp<generic, frag, Tf32, IICmpF>;
+  def F64 : CmpOp<generic, frag, Tf64, IICmpF>;
+}
 
-def CMPLTU8   : CmpOp<   CMPLT,  setult, Tu8,  IIALU>;
-def CMPLTU16  : CmpOp<   CMPLT,  setult, Tu16, IIALU>;
-def CMPLTU32  : CmpOp<   CMPLT,  setult, Tu32, IIALU>;
-def CMPLTU64  : CmpOp<   CMPLT,  setult, Tu64, IIALU>;
+def CMPLT  :   GenericOp<"cmplt">;
+defm CMPLT :   SignedCmp<CMPLT, setlt>;
+defm CMPLT : UnsignedCmp<CMPLT, setult>;
+def CMPLE  :   GenericOp<"cmple">;
+defm CMPLE :   SignedCmp<CMPLE, setle>;
+defm CMPLE : UnsignedCmp<CMPLE, setule>;
+def CMPGT  :   GenericOp<"cmpgt">;
+defm CMPGT :   SignedCmp<CMPGT, setgt>;
+defm CMPGT : UnsignedCmp<CMPGT, setugt>;
+def CMPGE  :   GenericOp<"cmpge">;
+defm CMPGE :   SignedCmp<CMPGE, setge>;
+defm CMPGE : UnsignedCmp<CMPGE, setuge>;
+def CMPEQ  :   GenericOp<"cmpeq">;
+def CMPNE  :   GenericOp<"cmpne">;
 
-def CMPOLTF16 : CmpOp<   CMPLT,  setolt, Tf16, IICmpF>;
-def CMPOLTF32 : CmpOp<   CMPLT,  setolt, Tf32, IICmpF>;
-def CMPOLTF64 : CmpOp<   CMPLT,  setolt, Tf64, IICmpF>;
+// TODO: Fix the issue of unordered versus ordered floating point comparisons.
+// Until there is a clearer story from the hardware side as to which comparisons
+// are actually to exist, we'll generate both ordered and unordered variants
+// that map to the same assembly string.
+def CMPOLT :   GenericOp<"cmplt">;
+def CMPOLE :   GenericOp<"cmple">;
+def CMPOGT :   GenericOp<"cmpgt">;
+def CMPOGE :   GenericOp<"cmpge">;
+def CMPOEQ :   GenericOp<"cmpeq">;
+def CMPONE :   GenericOp<"cmpne">;
+def CMPULT :   GenericOp<"cmplt">;
+def CMPULE :   GenericOp<"cmple">;
+def CMPUGT :   GenericOp<"cmpgt">;
+def CMPUGE :   GenericOp<"cmpge">;
+def CMPUEQ :   GenericOp<"cmpeq">;
+def CMPUNE :   GenericOp<"cmpne">;
+defm CMPOLT:    FloatCmp<CMPOLT, setolt>;
+defm CMPOLE:    FloatCmp<CMPOLE, setole>;
+defm CMPOGT:    FloatCmp<CMPOGT, setogt>;
+defm CMPOGE:    FloatCmp<CMPOGE, setoge>;
+defm CMPOEQ:    FloatCmp<CMPOEQ, setoeq>;
+defm CMPONE:    FloatCmp<CMPONE, setone>;
+defm CMPULT:    FloatCmp<CMPULT, setult>;
+defm CMPULE:    FloatCmp<CMPULE, setule>;
+defm CMPUGT:    FloatCmp<CMPUGT, setugt>;
+defm CMPUGE:    FloatCmp<CMPUGE, setuge>;
+defm CMPUEQ:    FloatCmp<CMPUEQ, setueq>;
+defm CMPUNE:    FloatCmp<CMPUNE, setune>;
 
-def CMPULTF16 : CmpOp<   CMPLT,  setult, Tf16, IICmpF>;
-def CMPULTF32 : CmpOp<   CMPLT,  setult, Tf32, IICmpF>;
-def CMPULTF64 : CmpOp<   CMPLT,  setult, Tf64, IICmpF>;
-
-def CMPLE     : GenericOp<"cmple">;
-def CMPLES8   : CmpOp<   CMPLE,  setle,  Ts8,  IIALU>;
-def CMPLES16  : CmpOp<   CMPLE,  setle,  Ts16, IIALU>;
-def CMPLES32  : CmpOp<   CMPLE,  setle,  Ts32, IIALU>;
-def CMPLES64  : CmpOp<   CMPLE,  setle,  Ts64, IIALU>;
-def CMPLEF16  : CmpOp<   CMPLE,  setle,  Tf16, IICmpF>;
-def CMPLEF32  : CmpOp<   CMPLE,  setle,  Tf32, IICmpF>;
-def CMPLEF64  : CmpOp<   CMPLE,  setle,  Tf64, IICmpF>;
-
-def CMPLEU8   : CmpOp<   CMPLE,  setule, Tu8,  IIALU>;
-def CMPLEU16  : CmpOp<   CMPLE,  setule, Tu16, IIALU>;
-def CMPLEU32  : CmpOp<   CMPLE,  setule, Tu32, IIALU>;
-def CMPLEU64  : CmpOp<   CMPLE,  setule, Tu64, IIALU>;
-
-def CMPOLEF16 : CmpOp<   CMPLE,  setole, Tf16, IICmpF>;
-def CMPOLEF32 : CmpOp<   CMPLE,  setole, Tf32, IICmpF>;
-def CMPOLEF64 : CmpOp<   CMPLE,  setole, Tf64, IICmpF>;
-
-def CMPULEF16 : CmpOp<   CMPLE,  setule, Tf16, IICmpF>;
-def CMPULEF32 : CmpOp<   CMPLE,  setule, Tf32, IICmpF>;
-def CMPULEF64 : CmpOp<   CMPLE,  setule, Tf64, IICmpF>;
+def CMPO   :   GenericOp<"cmpo">;
+def CMPUO  :   GenericOp<"cmpuo">;
+defm CMPO  :    FloatCmp<CMPO, seto>;
+defm CMPUO :    FloatCmp<CMPUO, setuo>;
 
 // Note - there is no cmpeq1.  As long as operands are clean, cmpeq8
 // suffices
-def CMPEQ     : GenericOp<"cmpeq">;
 def CMPEQ8    : CmpOp<   CMPEQ,  seteq,  Ti8,  IIALU>;
 def CMPEQ16   : CmpOp<   CMPEQ,  seteq,  Ti16, IIALU>;
 def CMPEQ32   : CmpOp<   CMPEQ,  seteq,  Ti32, IIALU>;
 def CMPEQ64   : CmpOp<   CMPEQ,  seteq,  Ti64, IIALU>;
-def CMPEQF16  : CmpOp<   CMPEQ,  seteq,  Tf16, IICmpF>;
-def CMPEQF32  : CmpOp<   CMPEQ,  seteq,  Tf32, IICmpF>;
-def CMPEQF64  : CmpOp<   CMPEQ,  seteq,  Tf64, IICmpF>;
-
-def CMPOEQF16 : CmpOp<   CMPEQ,  setoeq, Tf16, IICmpF>;
-def CMPOEQF32 : CmpOp<   CMPEQ,  setoeq, Tf32, IICmpF>;
-def CMPOEQF64 : CmpOp<   CMPEQ,  setoeq, Tf64, IICmpF>;
-
-def CMPUEQF16 : CmpOp<   CMPEQ,  setueq, Tf16, IICmpF>;
-def CMPUEQF32 : CmpOp<   CMPEQ,  setueq, Tf32, IICmpF>;
-def CMPUEQF64 : CmpOp<   CMPEQ,  setueq, Tf64, IICmpF>;
-
-def CMPGT     : GenericOp<"cmpgt">;
-def CMPGTS8   : CmpOp<   CMPGT,  setgt,  Ts8,  IIALU>;
-def CMPGTS16  : CmpOp<   CMPGT,  setgt,  Ts16, IIALU>;
-def CMPGTS32  : CmpOp<   CMPGT,  setgt,  Ts32, IIALU>;
-def CMPGTS64  : CmpOp<   CMPGT,  setgt,  Ts64, IIALU>;
-def CMPGTF16  : CmpOp<   CMPGT,  setgt,  Tf16, IICmpF>;
-def CMPGTF32  : CmpOp<   CMPGT,  setgt,  Tf32, IICmpF>;
-def CMPGTF64  : CmpOp<   CMPGT,  setgt,  Tf64, IICmpF>;
-
-def CMPGTU8   : CmpOp<   CMPGT,  setugt, Tu8,  IIALU>;
-def CMPGTU16  : CmpOp<   CMPGT,  setugt, Tu16, IIALU>;
-def CMPGTU32  : CmpOp<   CMPGT,  setugt, Tu32, IIALU>;
-def CMPGTU64  : CmpOp<   CMPGT,  setugt, Tu64, IIALU>;
-
-def CMPOGTF16 : CmpOp<   CMPGT,  setogt, Tf16, IICmpF>;
-def CMPOGTF32 : CmpOp<   CMPGT,  setogt, Tf32, IICmpF>;
-def CMPOGTF64 : CmpOp<   CMPGT,  setogt, Tf64, IICmpF>;
-
-def CMPUGTF16 : CmpOp<   CMPGT,  setugt, Tf16, IICmpF>;
-def CMPUGTF32 : CmpOp<   CMPGT,  setugt, Tf32, IICmpF>;
-def CMPUGTF64 : CmpOp<   CMPGT,  setugt, Tf64, IICmpF>;
-
-def CMPGE     : GenericOp<"cmpge">;
-def CMPGES8   : CmpOp<   CMPGE,  setge,  Ts8,  IIALU>;
-def CMPGES16  : CmpOp<   CMPGE,  setge,  Ts16, IIALU>;
-def CMPGES32  : CmpOp<   CMPGE,  setge,  Ts32, IIALU>;
-def CMPGES64  : CmpOp<   CMPGE,  setge,  Ts64, IIALU>;
-def CMPGEF16  : CmpOp<   CMPGE,  setge,  Tf16, IICmpF>;
-def CMPGEF32  : CmpOp<   CMPGE,  setge,  Tf32, IICmpF>;
-def CMPGEF64  : CmpOp<   CMPGE,  setge,  Tf64, IICmpF>;
-
-def CMPGEU8   : CmpOp<   CMPGE,  setuge, Tu8,  IIALU>;
-def CMPGEU16  : CmpOp<   CMPGE,  setuge, Tu16, IIALU>;
-def CMPGEU32  : CmpOp<   CMPGE,  setuge, Tu32, IIALU>;
-def CMPGEU64  : CmpOp<   CMPGE,  setuge, Tu64, IIALU>;
-
-def CMPOGEF16 : CmpOp<   CMPGE,  setoge, Tf16, IICmpF>;
-def CMPOGEF32 : CmpOp<   CMPGE,  setoge, Tf32, IICmpF>;
-def CMPOGEF64 : CmpOp<   CMPGE,  setoge, Tf64, IICmpF>;
-
-def CMPUGEF16 : CmpOp<   CMPGE,  setuge, Tf16, IICmpF>;
-def CMPUGEF32 : CmpOp<   CMPGE,  setuge, Tf32, IICmpF>;
-def CMPUGEF64 : CmpOp<   CMPGE,  setuge, Tf64, IICmpF>;
 
 def : Pat<(i1 (setne i1:$op1, i1:$op2)), (XOR1 $op1,$op2)>;
 def : Pat<(i1 (setne i1:$op1, (i1 imm:$imm))), (XOR1 $op1,$imm)>;
-def CMPNE     : GenericOp<"cmpne">;
 def CMPNE8    : CmpOp<   CMPNE,  setne,  Ti8,  IIALU>;
 def CMPNE16   : CmpOp<   CMPNE,  setne,  Ti16, IIALU>;
 def CMPNE32   : CmpOp<   CMPNE,  setne,  Ti32, IIALU>;
 def CMPNE64   : CmpOp<   CMPNE,  setne,  Ti64, IIALU>;
-def CMPNEF16  : CmpOp<   CMPNE,  setne,  Tf16, IICmpF>;
-def CMPNEF32  : CmpOp<   CMPNE,  setne,  Tf32, IICmpF>;
-def CMPNEF64  : CmpOp<   CMPNE,  setne,  Tf64, IICmpF>;
-
-def CMPONEF16 : CmpOp<   CMPNE,  setone, Tf16, IICmpF>;
-def CMPONEF32 : CmpOp<   CMPNE,  setone, Tf32, IICmpF>;
-def CMPONEF64 : CmpOp<   CMPNE,  setone, Tf64, IICmpF>;
-
-def CMPUNEF16 : CmpOp<   CMPNE,  setune, Tf16, IICmpF>;
-def CMPUNEF32 : CmpOp<   CMPNE,  setune, Tf32, IICmpF>;
-def CMPUNEF64 : CmpOp<   CMPNE,  setune, Tf64, IICmpF>;
-
-def CMPO      : GenericOp<"cmpo">;
-def CMPOF16   : CmpOp<   CMPO,   seto,   Tf16, IICmpF>;
-def CMPOF32   : CmpOp<   CMPO,   seto,   Tf32, IICmpF>;
-def CMPOF64   : CmpOp<   CMPO,   seto,   Tf64, IICmpF>;
-
-def CMPUO     : GenericOp<"cmpuo">;
-def CMPUOF16  : CmpOp<   CMPUO,  setuo,  Tf16, IICmpF>;
-def CMPUOF32  : CmpOp<   CMPUO,  setuo,  Tf32, IICmpF>;
-def CMPUOF64  : CmpOp<   CMPUO,  setuo,  Tf64, IICmpF>;
 
 // Shift/add - itinerary depends on constant small shift amt - else IShft...
 def SLADD     : GenericOp<"sladd", [HasShAdd]>;
