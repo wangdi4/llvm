@@ -38,6 +38,9 @@ def int_csa_parallel_section_entry : GCCBuiltin<"__builtin_csa_parallel_section_
 def int_csa_parallel_section_exit : GCCBuiltin<"__builtin_csa_parallel_section_exit">,
     Intrinsic<[], [llvm_i32_ty], [IntrInaccessibleMemOrArgMemOnly] /* , "llvm.csa.parallel_section_exit" */>;
 
+def int_csa_spmdization : GCCBuiltin<"__builtin_csa_spmdization">,
+    Intrinsic<[], [llvm_i32_ty], [IntrArgMemOnly] /* , "llvm.csa.spmdization" */>;
+
 }
 
 

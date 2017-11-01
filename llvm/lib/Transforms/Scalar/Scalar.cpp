@@ -189,6 +189,10 @@ void LLVMAddLoopUnrollPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createLoopUnrollPass());
 }
 
+void LLVMAddLoopSPMDizationPass(LLVMPassManagerRef PM) {
+  unwrap(PM)->add(createLoopSPMDizationPass());
+}
+
 void LLVMAddLoopUnswitchPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createLoopUnswitchPass());
 }
