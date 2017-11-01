@@ -157,6 +157,8 @@ namespace llvm {
     bool hasAllConstantInputs(MachineInstr*);
     void releaseMemory() override;
     bool replaceUndefWithIgn();
+    unsigned getPhiInitReg(MachineInstr* lhdrPhi);
+    unsigned getPhiBackedgeReg(MachineInstr* lhdrPhi);
 
   private:
     MachineFunction *thisMF;
@@ -235,19 +237,142 @@ void CSACvtCFDFPass::releaseMemory() {
 }
 
 
+
+unsigned CSACvtCFDFPass::getPhiInitReg(MachineInstr* lhdrPhi) {
+  assert(MLI->getLoopFor(lhdrPhi->getParent()));
+  for (unsigned i = 0; i = lhdrPhi->getNumOperands(); i++) {
+    MachineOperand& mop = lhdrPhi->getOperand(i);
+    if (mop.isMBB()) {
+      MachineBasicBlock* mbb = mop.getMBB();
+      if (DT->dominates(mbb, lhdrPhi->getParent())) {
+        assert(lhdrPhi->getOperand(i - 1).isReg());
+        return lhdrPhi->getOperand(i - 1).getReg();
+      }
+    }
+  }
+  assert(false);
+  return 0;
+}
+
+//return 0 if multiple backedge inputs
+unsigned CSACvtCFDFPass::getPhiBackedgeReg(MachineInstr* lhdrPhi) {
+  MachineLoop* mloop = MLI->getLoopFor(lhdrPhi->getParent());
+  assert(mloop);
+  unsigned backedgeReg = 0;
+  for (unsigned i = 0; i = lhdrPhi->getNumOperands(); i++) {
+    MachineOperand& mop = lhdrPhi->getOperand(i);
+    if (mop.isMBB()) {
+      MachineBasicBlock* mbb = mop.getMBB();
+      if (mloop->isLoopLatch(mbb)) {
+        if (backedgeReg)
+          return 0;
+        else
+          backedgeReg = lhdrPhi->getOperand(i - 1).getReg();
+      }
+    }
+  }
+  return backedgeReg;
+}
+
 void CSACvtCFDFPass::sequenceOPT() {
   CSASSAGraph csaSSAGraph;
-  csaSSAGraph.BuildCSASSAGraph(*thisMF);
+  csaSSAGraph.BuildCSASSAGraph(*thisMF, MLI);
   for (scc_iterator<CSASSANode*> I = scc_begin(csaSSAGraph.getRoot()), IE = scc_end(csaSSAGraph.getRoot()); I != IE; ++I) {
     const std::vector<CSASSANode *> &SCCNodes = *I;
-    if (SCCNodes.size() > 1) {
-      for (std::vector<CSASSANode *>::const_iterator nodeI = SCCNodes.begin(), nodeIE = SCCNodes.end(); nodeI != nodeIE; ++nodeI) {
+    if (SCCNodes.size() >1) {
+      MachineInstr* lhdrPhi = nullptr;
+      unsigned iPhi = 0;
+      MachineInstr* cmp = nullptr;
+      unsigned iCmp = 0;
+      MachineInstr* indec = nullptr;
+      unsigned iInDec = 0;
+      MachineInstr* switchInstr = nullptr;
+      unsigned iSwitch = 0;
+      bool isIDVCandidate = true;
+      bool isAddBeforeCmp = false;
+      unsigned i = 0;
+      for (std::vector<CSASSANode *>::const_iterator nodeI = SCCNodes.begin(), nodeIE = SCCNodes.end(); nodeI != nodeIE; ++nodeI, ++i) {
         CSASSANode* sccn = *nodeI;
         MachineInstr* minstr = sccn->minstr;
         MachineBasicBlock* mbb = minstr->getParent();
+        assert(MLI->getLoopFor(mbb));
+        MachineLoop* mloop = MLI->getLoopFor(mbb);
+        //skip loop with multiple exits/backedges, or latch is not an exiting blk
+        if (!mloop->getExitingBlock() || !mloop->getLoopLatch() ||
+          mloop->getExitingBlock() != mloop->getLoopLatch()) {
+          isIDVCandidate = true;
+          break;
+        }
+
         //loop header phi
-        if (minstr->isPHI() && MLI->getLoopFor(mbb) && MLI->getLoopFor(mbb)->getHeader() == mbb) {
-          
+        if (minstr->isPHI() && mloop->getHeader() == mbb && !iPhi) {
+          lhdrPhi = minstr;
+          iPhi = i;
+        } else if ((TII->isAdd(minstr) || TII->isSub(minstr)) && !iInDec) {
+          indec = minstr;
+          iInDec = i;
+        } else if (TII->isCmp(minstr) && !iCmp) {
+          cmp = minstr;
+          iCmp = i;
+        } else if (TII->isSwitch(minstr) && !iSwitch) {
+          switchInstr = minstr;
+          iSwitch = i;
+        } else if (TII->isMOV(minstr)) {
+          //skip MOV
+        } else {
+          isIDVCandidate = false;
+          break;
+        }
+      }
+      if (isIDVCandidate && cmp && switchInstr && indec && lhdrPhi)  {
+        //induction 
+        unsigned cmpRes = cmp->getOperand(0).getReg();
+        unsigned ctrlSwitch = switchInstr->getOperand(2).getReg();
+        if (cmpRes == ctrlSwitch) {
+          if ((iCmp < iSwitch && iSwitch < iInDec) ||
+              (iCmp > iSwitch && iSwitch > iInDec)) {
+            //switch is between add ->... cmp
+            //swap their order
+            unsigned tmp = iCmp;
+            iCmp = iInDec;
+            iInDec = tmp;
+          }
+          //SCC is in reverse order of DU chain
+          if (iCmp < iInDec) 
+            isAddBeforeCmp = true;
+        }
+      } else if (lhdrPhi && switchInstr && !cmp && !indec) {
+        //repeat
+        unsigned phiInitReg = getPhiInitReg(lhdrPhi);
+        unsigned phiBackedgeReg = getPhiBackedgeReg(lhdrPhi);
+        unsigned switchOutReg = switchInstr->getOperand(0).getReg() == phiBackedgeReg ?
+                                switchInstr->getOperand(1).getReg() :
+                                switchInstr->getOperand(0).getReg();
+        if (MRI->use_empty(switchOutReg)) {
+          const TargetRegisterClass *TRC = MRI->getRegClass(lhdrPhi->getOperand(0).getReg());
+          const unsigned repeatOP = TII->getRepeatOpcode(TRC);
+          MachineInstr* repinst = BuildMI(*lhdrPhi->getParent(), lhdrPhi->getParent()->getFirstNonPHI(), DebugLoc(),
+            TII->get(repeatOP),
+            lhdrPhi->getOperand(0).getReg()).
+            addReg(switchInstr->getOperand(2).getReg()).
+            addReg(phiInitReg);
+          repinst->setFlag(MachineInstr::NonSequential);
+
+          for (std::vector<CSASSANode *>::const_iterator nodeI = SCCNodes.begin(), nodeIE = SCCNodes.end(); nodeI != nodeIE; ++nodeI, ++i) {
+            CSASSANode* sccn = *nodeI;
+            MachineInstr* minstr = sccn->minstr;
+            if (TII->isMOV(minstr)) {
+              unsigned Reg = minstr->getOperand(0).getReg();
+              if (!MRI->hasOneUse(Reg)) {
+                MachineRegisterInfo::use_iterator UI = MRI->use_begin(Reg);
+                while (UI != MRI->use_end()) {
+                  MachineOperand &UseMO = *UI;
+                  UseMO.setReg(lhdrPhi->getOperand(0).getReg());
+                }
+              }
+            }
+            minstr->removeFromParent();
+          }
         }
       }
     }
