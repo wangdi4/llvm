@@ -6397,7 +6397,11 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
       // NOTE: This is effectively duplicating this logic from getSignExtend:
       //   sext((A + B + ...)<nsw>) --> (sext(A) + sext(B) + ...)<nsw>
       // but by that point the NSW information has potentially been lost.
-      if (BO->Opcode == Instruction::Sub && BO->IsNSW) {
+#if INTEL_CUSTOMIZATION // HIR parsing
+      Instruction *OpInst = dyn_cast<Instruction>(U->getOperand(0));
+      if (BO->Opcode == Instruction::Sub && BO->IsNSW && (!OpInst ||
+          !getHIRMetadata(OpInst, HIRLiveKind::LiveRange))) {
+#endif // INTEL_CUSTOMIZATION
         Type *Ty = U->getType();
         auto *V1 = getSignExtendExpr(getSCEV(BO->LHS), Ty);
         auto *V2 = getSignExtendExpr(getSCEV(BO->RHS), Ty);
