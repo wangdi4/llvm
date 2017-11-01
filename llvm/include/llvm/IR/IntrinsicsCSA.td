@@ -41,6 +41,12 @@ def int_csa_parallel_section_exit : GCCBuiltin<"__builtin_csa_parallel_section_e
 def int_csa_spmdization : GCCBuiltin<"__builtin_csa_spmdization">,
     Intrinsic<[], [llvm_i32_ty], [IntrArgMemOnly] /* , "llvm.csa.spmdization" */>;
 
+def int_csa_spmdization_entry : GCCBuiltin<"__builtin_csa_spmdization_entry">,
+    Intrinsic<[llvm_i32_ty], [llvm_i32_ty], [IntrInaccessibleMemOrArgMemOnly] /* , "llvm.csa.spmdization_entry" */>;
+
+def int_csa_spmdization_exit : GCCBuiltin<"__builtin_csa_spmdization_exit">,
+    Intrinsic<[], [llvm_i32_ty], [IntrInaccessibleMemOrArgMemOnly] /* , "llvm.csa.spmdization_exit" */>;
+
 }
 
 
