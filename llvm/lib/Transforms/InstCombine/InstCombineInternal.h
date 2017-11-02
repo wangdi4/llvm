@@ -296,6 +296,7 @@ public:
   Instruction *visitFCmpInst(FCmpInst &I);
   Instruction *visitICmpInst(ICmpInst &I);
 #if INTEL_CUSTOMIZATION
+  Instruction *recognizePopcnt(BinaryOperator &I);
   Instruction *OptimizeICmpInstSize(ICmpInst &ICI, Value *Op0, Value *Op1);
 #endif // INTEL_CUSTOMIZATION
   Instruction *FoldShiftByConstant(Value *Op0, Constant *Op1,
