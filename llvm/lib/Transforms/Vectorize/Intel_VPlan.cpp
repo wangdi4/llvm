@@ -481,7 +481,7 @@ void VPlanPrinter::dump() {
   OS << "edge [fontname=Courier, fontsize=30]\n";
   OS << "compound=true\n";
 
-  for (VPBlockBase *Block : depth_first(Plan.getEntry()))
+  for (const VPBlockBase *Block : depth_first(Plan.getEntry()))
     dumpBlock(Block);
 
   OS << "}\n";

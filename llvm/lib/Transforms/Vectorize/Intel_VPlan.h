@@ -2196,13 +2196,13 @@ public:
 /// VPlanPrinter prints a given VPlan to a given output stream. The printing is
 /// indented and follows the dot format.
 class VPlanPrinter {
-  friend inline raw_ostream &operator<<(raw_ostream &OS, VPlan &Plan);
+  friend inline raw_ostream &operator<<(raw_ostream &OS, const VPlan &Plan);
   friend inline raw_ostream &operator<<(raw_ostream &OS,
                                         const struct VPlanIngredient &I);
 
 private:
   raw_ostream &OS;
-  VPlan &Plan;
+  const VPlan &Plan;
   unsigned Depth;
   unsigned TabWidth = 2;
   std::string Indent;
@@ -2240,7 +2240,7 @@ private:
   void drawEdge(const VPBlockBase *From, const VPBlockBase *To, bool Hidden,
                 const Twine &Label);
 
-  VPlanPrinter(raw_ostream &O, VPlan &P) : OS(O), Plan(P) {}
+  VPlanPrinter(raw_ostream &O, const VPlan &P) : OS(O), Plan(P) {}
 
   void dump();
 
@@ -2254,7 +2254,7 @@ inline raw_ostream &operator<<(raw_ostream &OS, const VPlanIngredient &I) {
 }
 #endif
 
-inline raw_ostream &operator<<(raw_ostream &OS, VPlan &Plan) {
+inline raw_ostream &operator<<(raw_ostream &OS, const VPlan &Plan) {
   VPlanPrinter Printer(OS, Plan);
   Printer.dump();
   return OS;
