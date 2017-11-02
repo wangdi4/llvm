@@ -15,6 +15,7 @@
 #define LLVM_COV_SOURCECOVERAGEVIEW_H
 
 #include "CoverageViewOptions.h"
+#include "CoverageSummaryInfo.h"
 #include "llvm/ProfileData/Coverage/CoverageMapping.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include <vector>
@@ -61,30 +62,6 @@ struct InstantiationView {
   friend bool operator<(const InstantiationView &LHS,
                         const InstantiationView &RHS) {
     return LHS.Line < RHS.Line;
-  }
-};
-
-/// \brief Coverage statistics for a single line.
-struct LineCoverageStats {
-  uint64_t ExecutionCount;
-  unsigned RegionCount;
-  bool Mapped;
-
-  LineCoverageStats() : ExecutionCount(0), RegionCount(0), Mapped(false) {}
-
-  bool isMapped() const { return Mapped; }
-
-  bool hasMultipleRegions() const { return RegionCount > 1; }
-
-  void addRegionStartCount(uint64_t Count) {
-    // The max of all region starts is the most interesting value.
-    addRegionCount(RegionCount ? std::max(ExecutionCount, Count) : Count);
-    ++RegionCount;
-  }
-
-  void addRegionCount(uint64_t Count) {
-    Mapped = true;
-    ExecutionCount = Count;
   }
 };
 
@@ -246,7 +223,7 @@ protected:
   static std::string formatCount(uint64_t N);
 
   /// \brief Check if region marker output is expected for a line.
-  bool shouldRenderRegionMarkers(bool LineHasMultipleRegions) const;
+  bool shouldRenderRegionMarkers(CoverageSegmentArray Segments) const;
 
   /// \brief Check if there are any sub-views attached to this view.
   bool hasSubViews() const;
