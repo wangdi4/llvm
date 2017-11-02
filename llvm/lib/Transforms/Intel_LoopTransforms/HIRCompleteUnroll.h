@@ -80,8 +80,11 @@ private:
   SmallPtrSet<const Value *, 16> UnrolledAllocaStoreBases;
 
 private:
-  // Returns true if loop is eligible for complete unrolling.
+  /// Returns true if loop is eligible for complete unrolling.
   bool isApplicable(const HLLoop *Loop) const;
+
+  /// Returns true if we cannot handle loop liveouts after unrolling.
+  bool cannotHandleLiveouts(const HLLoop *Loop, int64_t MinUpper) const;
 
   /// Computes and returns average trip count and dependence level of the loop
   /// for profitability analysis.

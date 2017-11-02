@@ -1903,6 +1903,39 @@ bool HIRCompleteUnroll::isApplicable(const HLLoop *Loop) const {
   return true;
 }
 
+bool HIRCompleteUnroll::cannotHandleLiveouts(const HLLoop *Loop,
+                                            int64_t MinUpper) const {
+  // There are some corner cases where during unroll of triangular loops, the
+  // inner needs to be removed and its liveout temp uses need to be elliminated
+  // otherwise we would leave uninitialized temps in HIR. This is problematic
+  // to handle during the transformation because it requires dead code
+  // elimination functionality. It also requires correctly handling the cases
+  // where we eliminate the loop's next node as HLNodeVisitor does not work in
+  // those cases. Therefore, we detect this case in the analysis phase and
+  // suppress the transformation.
+  //
+  // TODO: Remove this check when we have reasonably robust dead code
+  // elimination in HIR.
+
+  // If the loop has ztt, we simply eliminate the postexit during
+  // transformation. Loop temps cannot dominate anything else outside the loop
+  // so we cannot leave uninitialized temp after unrolling.
+  if ((MinUpper >= 0) || Loop->hasZtt()) {
+    return false;
+  }
+
+  // Check whether the loop has liveouts which are not livein to the loop.
+  // This indicates a temp which dominates use(s) outside the loop.
+  for (auto It = Loop->live_out_begin(), E = Loop->live_out_end(); It != E;
+       ++It) {
+    if (!Loop->isLiveIn(*It)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 std::pair<int64_t, unsigned>
 HIRCompleteUnroll::computeAvgTripCount(const HLLoop *Loop) {
 
@@ -1973,6 +2006,10 @@ HIRCompleteUnroll::computeAvgTripCount(const HLLoop *Loop) {
   bool HasMin = HLNodeUtils::getExactMinValue(UpperCE, Loop, MinUpper);
   (void)HasMin;
   assert(HasMin && "Could not compute min value of upper!");
+
+  if (cannotHandleLiveouts(Loop, MinUpper)) {
+    return std::make_pair(-1, DepLevel);
+  }
 
   // MinUpper can evaluate to a negative value. For purposes of calculating
   // average trip count for profitability analysis, we take the absolute
