@@ -1,3 +1,4 @@
+; XFAIL: *
 ; RUN: SATest -VAL -config=%s.cfg -neat=1 --force_ref > %t
 ; RUN: FileCheck %s <%t
 ;CHECK: 11.000000

@@ -1,5 +1,6 @@
 ; RUN: SATest -REF -config=%s.cfg -neat=1
 ; RUN: NEATChecker -r %s -a %s.neat -t 0
+; XFAIL: *
 ;CHECKNEAT: UNKNOWN UNKNOWN
 ;CHECKNEAT: UNKNOWN UNKNOWN
 ;CHECKNEAT: UNKNOWN UNKNOWN

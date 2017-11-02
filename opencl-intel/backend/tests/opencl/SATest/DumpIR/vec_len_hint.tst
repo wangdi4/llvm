@@ -4,7 +4,7 @@
 
 ; Check that unsupported vectorization width is handled properly:
 ; RUN: SATest -BUILD -cpuarch=corei7 -build-log -dump-llvm-file=%t -config=%s.cfg > %t.build_log
-; RUN: FileCheck %s --input-file=%t --check-prefix=UNSUPPORTED
+; RUN: FileCheck %s --input-file=%t --check-prefix=UN_SUPPORTED
 ; RUN: FileCheck %s --input-file=%t.build_log --check-prefix=UNSUPPORTED_LOG
 
 ; CHECK: define void @kernel1{{.*}}!vectorized_width ![[MD1:[0-9]+]]
@@ -20,11 +20,11 @@
 ; CHECK: [[MD8]] = !{i32 8}
 ; CHECK: [[MD16]] = !{i32 16}
 
-; UNSUPPORTED: define void @kernel8{{.*}}!vectorized_width ![[MD8:[0-9]+]]
-; UNSUPPORTED: define void @kernel16{{.*}}!vectorized_width ![[MD16:[0-9]+]]
+; UN_SUPPORTED: define void @kernel8{{.*}}!vectorized_width ![[MD8:[0-9]+]]
+; UN_SUPPORTED: define void @kernel16{{.*}}!vectorized_width ![[MD16:[0-9]+]]
 
-; UNSUPPORTED-NOT: [[MD8]] = !{i32 8}
-; UNSUPPORTED-NOT: [[MD16]] = !{i32 16}
+; UN_SUPPORTED-NOT: [[MD8]] = !{i32 8}
+; UN_SUPPORTED-NOT: [[MD16]] = !{i32 16}
 
 ; UNSUPPORTED_LOG: Warning! Specified vectorization width for kernel <kernel8> is not supported by the architecture. Fall back to autovectorization mode.
 ; UNSUPPORTED_LOG-NEXT: Kernel <kernel8> was successfully vectorized (4)

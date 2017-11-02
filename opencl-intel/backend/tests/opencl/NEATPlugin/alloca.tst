@@ -1,5 +1,5 @@
-; XFAIL:
-; R UN: SATest -REF -config=%s.cfg -neat=1
+; XFAIL: *
+; RUN: SATest -REF -config=%s.cfg -neat=1
 
 ;CHECKNEAT: ACCURATE 41.00
 ;CHECKNEAT: ACCURATE 1 

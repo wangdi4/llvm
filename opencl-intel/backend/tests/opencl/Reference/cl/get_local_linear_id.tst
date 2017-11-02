@@ -1,3 +1,4 @@
+; XFAIL: *
 ; RUN: SATest -REF -config=%s.cfg -neat=1 | FileCheck %s
 ; CHECK: 0
 ; CHECK: 1

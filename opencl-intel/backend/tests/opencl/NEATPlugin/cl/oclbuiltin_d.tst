@@ -1,2 +1,2 @@
-;XFAIL: all
-; R UN: SATest -VAL --force_ref --neat -config=%s.cfg
+; XFAIL: *
+; RUN: SATest -VAL --force_ref --neat -config=%s.cfg
