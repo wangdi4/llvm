@@ -760,10 +760,13 @@ def int_experimental_gc_result   : Intrinsic<[llvm_any_ty], [llvm_token_ty],
 def int_experimental_gc_relocate : Intrinsic<[llvm_any_ty],
                                 [llvm_token_ty, llvm_i32_ty, llvm_i32_ty],
                                 [IntrReadMem]>;
+
+// INTEL_CUSTOMIZATION
 //===------------------------ Directive Intrinsics ------------------------===//
 //
 def int_directive_region_entry : Intrinsic<[llvm_token_ty], [], []>;
 def int_directive_region_exit  : Intrinsic<[], [llvm_token_ty], []>;
+// end INTEL_CUSTOMIZATION
 
 //===------------------------ Coroutine Intrinsics ---------------===//
 // These are documented in docs/Coroutines.rst
@@ -879,7 +882,7 @@ def int_masked_compressstore: Intrinsic<[],
 def int_type_test : Intrinsic<[llvm_i1_ty], [llvm_ptr_ty, llvm_metadata_ty],
                               [IntrNoMem]>;
 
-// if INTEL_CUSTOMIZATION
+// INTEL_CUSTOMIZATION
 //===--------------------- Intel Directive Intrinsics ---------------------===//
 
 def int_intel_directive : Intrinsic<[], [llvm_metadata_ty],
@@ -1047,4 +1050,4 @@ include "llvm/IR/IntrinsicsAMDGPU.td"
 include "llvm/IR/IntrinsicsBPF.td"
 include "llvm/IR/IntrinsicsSystemZ.td"
 include "llvm/IR/IntrinsicsWebAssembly.td"
-include "llvm/IR/IntrinsicsNios2.td"
+include "llvm/IR/IntrinsicsNios2.td" // INTEL
