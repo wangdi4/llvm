@@ -265,18 +265,21 @@ bool HIRCreation::isCrossLinked(const SwitchInst *SI,
   return RI->isReachableFrom(SuccessorBB, EndBBs, FromBBs);
 }
 
-void HIRCreation::sortDomChildren(
+bool HIRCreation::sortDomChildren(
     DomTreeNode *Node, SmallVectorImpl<BasicBlock *> &SortedChildren) const {
 
-  auto NodeBB = Node->getBlock();
-
-  for (auto &I : (*Node)) {
+  for (auto *I : (*Node)) {
     auto BB = I->getBlock();
     if (CurRegion->containsBBlock(BB)) {
       SortedChildren.push_back(BB);
     }
   }
 
+  if (SortedChildren.empty()) {
+    return false;
+  }
+
+  auto NodeBB = Node->getBlock();
   SmallPtrSet<const BasicBlock *, 2> EndBBs;
   EndBBs.insert(NodeBB);
 
@@ -295,6 +298,8 @@ void HIRCreation::sortDomChildren(
   };
 
   std::sort(SortedChildren.begin(), SortedChildren.end(), ReverseLexOrder);
+
+  return true;
 }
 
 HLNode *HIRCreation::doPreOrderRegionWalk(BasicBlock *BB,
@@ -311,67 +316,76 @@ HLNode *HIRCreation::doPreOrderRegionWalk(BasicBlock *BB,
     InsertionPos = populateInstSequence(BB, InsertionPos);
   }
 
-  auto Root = DT->getNode(BB);
-  auto TermNode = InsertionPos;
-  auto IfTerm = dyn_cast<HLIf>(TermNode);
-  auto SwitchTerm = IfTerm ? nullptr : dyn_cast<HLSwitch>(TermNode);
   SmallVector<BasicBlock *, 8> DomChildren;
 
   // Sort dominator children.
-  sortDomChildren(Root, DomChildren);
+  if (!sortDomChildren(DT->getNode(BB), DomChildren)) {
+    // No children to process.
+    return InsertionPos;
+  }
+
+  auto TermNode = InsertionPos;
+  auto IfTerm = dyn_cast<HLIf>(TermNode);
+  auto SwitchTerm = IfTerm ? nullptr : dyn_cast<HLSwitch>(TermNode);
 
   auto Lp = LI->getLoopFor(BB);
   bool IsMultiExitLoop = (Lp && !Lp->getExitingBlock());
+  bool IsLoopLatch = (IfTerm && Lp && (Lp->getLoopLatch() == BB));
 
-  // Walk over dominator children in reverse order since post-dominating
-  // children preceed the children they dominate.
+  // The only two cases where a dominator child can be a multi-exit loop latch
+  // are:
+  // 1) BB belongs to multi-exit loop, Or
+  // 2) BB is a loop latch which dominates outer multi-exit loop's latch bblock.
+  bool DomChildMayBeMultiExitLoopLatch = (IsMultiExitLoop || IsLoopLatch);
+
+  // Walk over dominator children in reverse since they are sorted in reverse
+  // lexical order.
   for (auto RI = DomChildren.rbegin(), RE = DomChildren.rend(); RI != RE;
        ++RI) {
 
     auto DomChildBB = (*RI);
+    Loop *DomChildLp = nullptr;
 
-    if (IsMultiExitLoop) {
-      auto ChildLp = LI->getLoopFor(DomChildBB);
+    // Loop latch should be processed at the same lexical level as the loop
+    // header. This happens automatically for single-exit loops but for
+    // multi-exit loops we delay it for when we encounter the corresponding loop
+    // header up the call chain.
+    if (DomChildMayBeMultiExitLoopLatch &&
+        (DomChildLp = LI->getLoopFor(DomChildBB)) &&
+        !DomChildLp->getExitingBlock() && DomChildLp->isLoopLatch(DomChildBB)) {
+      continue;
+    }
 
-      // Loop latch should be processed at the same lexical level as the loop
-      // header. We delay it for when we encounter the corresponding loop header
-      // up the call chain.
-      if ((ChildLp == Lp) && Lp->isLoopLatch(DomChildBB)) {
-        continue;
-      }
-
-      // DomChildBB is an early exit. We should link it after the loop latch.
-      if (!Lp->contains(ChildLp) && (Lp->getLoopLatch() != BB)) {
-        EarlyExits[Lp].push_back(DomChildBB);
-        continue;
-      }
+    // DomChildBB is an early exit. We should link it after the loop latch.
+    if (IsMultiExitLoop && !IsLoopLatch && !Lp->contains(DomChildBB)) {
+      EarlyExits[Lp].push_back(DomChildBB);
+      continue;
     }
 
     // Link if's then/else children.
     if (IfTerm) {
-      auto BI = cast<BranchInst>(BB->getTerminator());
+      // We need to keep the bottom test empty so that loop formation can get
+      // rid of it. Therefore, we link the successor after the if instead of
+      // inside it.
+      if (!IsLoopLatch) {
+        auto BI = cast<BranchInst>(BB->getTerminator());
 
-      if ((DomChildBB == BI->getSuccessor(0)) &&
-          // Other successor is a backedge, which makes BB a loop latch/bottom
-          // test. We need to keep the bottom test empty so that loop
-          // formation can get rid of it. Therefore, we link the successor
-          // after the if.
-          !DT->dominates(BI->getSuccessor(1), BB) &&
-          // This if successor is reachable from the other successor, link it
-          // after the 'if' to prevent jumps between the then and else case.
-          // There are couple of issues if we allow this jump-
-          // 1) If it is from the else to then case it will look like a
-          // backedge.
-          // 2) It is harder for predicate related optimizations to deal with
-          // such jumps.
-          !isCrossLinked(BI, DomChildBB)) {
-        doPreOrderRegionWalk(DomChildBB, IfTerm->getLastThenChild());
-        continue;
-      } else if ((DomChildBB == BI->getSuccessor(1)) &&
-                 !DT->dominates(BI->getSuccessor(0), BB) &&
-                 !isCrossLinked(BI, DomChildBB)) {
-        doPreOrderRegionWalk(DomChildBB, IfTerm->getLastElseChild());
-        continue;
+        if ((DomChildBB == BI->getSuccessor(0)) &&
+            // This if successor is reachable from the other successor, link it
+            // after the 'if' to prevent jumps between the then and else case.
+            // There are couple of issues if we allow this jump-
+            // 1) If it is from the else to then case it will look like a
+            // backedge.
+            // 2) It is harder for predicate related optimizations to deal with
+            // such jumps.
+            !isCrossLinked(BI, DomChildBB)) {
+          doPreOrderRegionWalk(DomChildBB, IfTerm->getLastThenChild());
+          continue;
+        } else if ((DomChildBB == BI->getSuccessor(1)) &&
+                   !isCrossLinked(BI, DomChildBB)) {
+          doPreOrderRegionWalk(DomChildBB, IfTerm->getLastElseChild());
+          continue;
+        }
       }
 
     } else if (SwitchTerm) {
