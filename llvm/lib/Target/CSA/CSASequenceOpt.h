@@ -585,11 +585,9 @@ namespace llvm {
 
       // Find a sequence opcode that matches our compare opcode.
       unsigned seqOp = TII.convertCompareOpToSeqOTOp(compareOp);
-      if (seqOp != compareOp) {
-
+      if (seqOp != compareOp && TII.getGenericOpcode(tOp) == CSA::Generic::ADD) {
         // If we have a matching sequence op, then check that the
         // transforming op matches as well.
-
         *indvar_opcode = TII.promoteSeqOTOpBitwidth(seqOp, TII.getLicSize(tOp));
         return true;
       }
