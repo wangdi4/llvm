@@ -48,9 +48,11 @@
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/MemoryBuiltins.h"
+#include "llvm/Analysis/OptimizationDiagnosticInfo.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/CFG.h"
+#include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
@@ -59,6 +61,7 @@
 #include "llvm/IR/ValueHandle.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/DebugCounter.h"
 #include "llvm/Support/KnownBits.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/InstCombine/InstCombine.h"
@@ -78,6 +81,8 @@ STATISTIC(NumSunkInst , "Number of instructions sunk");
 STATISTIC(NumExpand,    "Number of expansions");
 STATISTIC(NumFactor   , "Number of factorizations");
 STATISTIC(NumReassoc  , "Number of reassociations");
+DEBUG_COUNTER(VisitCounter, "instcombine-visit",
+              "Controls which instructions are visited");
 
 static cl::opt<bool>
 EnableExpensiveCombines("expensive-combines",
@@ -86,6 +91,16 @@ EnableExpensiveCombines("expensive-combines",
 static cl::opt<unsigned>
 MaxArraySize("instcombine-maxarray-size", cl::init(1024),
              cl::desc("Maximum array size considered when doing a combine"));
+
+// FIXME: Remove this flag when it is no longer necessary to convert
+// llvm.dbg.declare to avoid inaccurate debug info. Setting this to false
+// increases variable availability at the cost of accuracy. Variables that
+// cannot be promoted by mem2reg or SROA will be described as living in memory
+// for their entire lifetime. However, passes like DSE and instcombine can
+// delete stores to the alloca, leading to misleading and inaccurate debug
+// information. This flag can be removed when those passes are fixed.
+static cl::opt<unsigned> ShouldLowerDbgDeclare("instcombine-lower-dbg-declare",
+                                               cl::Hidden, cl::init(true));
 
 Value *InstCombiner::EmitGEPOffset(User *GEP) {
   return llvm::EmitGEPOffset(&Builder, DL, GEP);
@@ -704,36 +719,37 @@ Value *InstCombiner::SimplifyUsingDistributiveLaws(BinaryOperator &I) {
     }
   }
 
-  // (op (select (a, c, b)), (select (a, d, b))) -> (select (a, (op c, d), 0))
-  // (op (select (a, b, c)), (select (a, b, d))) -> (select (a, 0, (op c, d)))
-  if (auto *SI0 = dyn_cast<SelectInst>(LHS)) {
-    if (auto *SI1 = dyn_cast<SelectInst>(RHS)) {
-      if (SI0->getCondition() == SI1->getCondition()) {
-        Value *SI = nullptr;
-        if (Value *V =
-                SimplifyBinOp(TopLevelOpcode, SI0->getFalseValue(),
-                              SI1->getFalseValue(), SQ.getWithInstruction(&I)))
-          SI = Builder.CreateSelect(SI0->getCondition(),
-                                    Builder.CreateBinOp(TopLevelOpcode,
-                                                        SI0->getTrueValue(),
-                                                        SI1->getTrueValue()),
-                                    V);
-        if (Value *V =
-                SimplifyBinOp(TopLevelOpcode, SI0->getTrueValue(),
-                              SI1->getTrueValue(), SQ.getWithInstruction(&I)))
-          SI = Builder.CreateSelect(
-              SI0->getCondition(), V,
-              Builder.CreateBinOp(TopLevelOpcode, SI0->getFalseValue(),
-                                  SI1->getFalseValue()));
-        if (SI) {
-          SI->takeName(&I);
-          return SI;
-        }
-      }
-    }
+  return SimplifySelectsFeedingBinaryOp(I, LHS, RHS);
+}
+
+Value *InstCombiner::SimplifySelectsFeedingBinaryOp(BinaryOperator &I,
+                                                    Value *LHS, Value *RHS) {
+  Instruction::BinaryOps Opcode = I.getOpcode();
+  // (op (select (a, b, c)), (select (a, d, e))) -> (select (a, (op b, d), (op
+  // c, e)))
+  Value *A, *B, *C, *D, *E;
+  Value *SI = nullptr;
+  if (match(LHS, m_Select(m_Value(A), m_Value(B), m_Value(C))) &&
+      match(RHS, m_Select(m_Specific(A), m_Value(D), m_Value(E)))) {
+    bool SelectsHaveOneUse = LHS->hasOneUse() && RHS->hasOneUse();
+    BuilderTy::FastMathFlagGuard Guard(Builder);
+    if (isa<FPMathOperator>(&I))
+      Builder.setFastMathFlags(I.getFastMathFlags());
+
+    Value *V1 = SimplifyBinOp(Opcode, C, E, SQ.getWithInstruction(&I));
+    Value *V2 = SimplifyBinOp(Opcode, B, D, SQ.getWithInstruction(&I));
+    if (V1 && V2)
+      SI = Builder.CreateSelect(A, V2, V1);
+    else if (V2 && SelectsHaveOneUse)
+      SI = Builder.CreateSelect(A, V2, Builder.CreateBinOp(Opcode, C, E));
+    else if (V1 && SelectsHaveOneUse)
+      SI = Builder.CreateSelect(A, Builder.CreateBinOp(Opcode, B, D), V1);
+
+    if (SI)
+      SI->takeName(&I);
   }
 
-  return nullptr;
+  return SI;
 }
 
 /// Given a 'sub' instruction, return the RHS of the instruction if the LHS is a
@@ -2053,8 +2069,6 @@ static bool isAllocSiteRemovable(Instruction *AI,
               return false;
             LLVM_FALLTHROUGH;
           }
-          case Intrinsic::dbg_declare:
-          case Intrinsic::dbg_value:
           case Intrinsic::invariant_start:
           case Intrinsic::invariant_end:
           case Intrinsic::lifetime_start:
@@ -2090,6 +2104,16 @@ Instruction *InstCombiner::visitAllocSite(Instruction &MI) {
   // to null and free calls, delete the calls and replace the comparisons with
   // true or false as appropriate.
   SmallVector<WeakTrackingVH, 64> Users;
+
+  // If we are removing an alloca with a dbg.declare, insert dbg.value calls
+  // before each store.
+  TinyPtrVector<DbgInfoIntrinsic *> DIIs;
+  std::unique_ptr<DIBuilder> DIB;
+  if (isa<AllocaInst>(MI)) {
+    DIIs = FindDbgAddrUses(&MI);
+    DIB.reset(new DIBuilder(*MI.getModule(), /*AllowUnresolved=*/false));
+  }
+
   if (isAllocSiteRemovable(&MI, Users, &TLI)) {
     for (unsigned i = 0, e = Users.size(); i != e; ++i) {
       // Lowering all @llvm.objectsize calls first because they may
@@ -2122,6 +2146,9 @@ Instruction *InstCombiner::visitAllocSite(Instruction &MI) {
       } else if (isa<BitCastInst>(I) || isa<GetElementPtrInst>(I) ||
                  isa<AddrSpaceCastInst>(I)) {
         replaceInstUsesWith(*I, UndefValue::get(I->getType()));
+      } else if (auto *SI = dyn_cast<StoreInst>(I)) {
+        for (auto *DII : DIIs)
+          ConvertDebugDeclareToDebugValue(DII, SI, *DIB);
       }
       eraseInstFromFunction(*I);
     }
@@ -2133,6 +2160,10 @@ Instruction *InstCombiner::visitAllocSite(Instruction &MI) {
       InvokeInst::Create(F, II->getNormalDest(), II->getUnwindDest(),
                          None, "", II->getParent());
     }
+
+    for (auto *DII : DIIs)
+      eraseInstFromFunction(*DII);
+
     return eraseInstFromFunction(MI);
   }
   return nullptr;
@@ -2258,10 +2289,9 @@ Instruction *InstCombiner::visitBranchInst(BranchInst &BI) {
 
   // If the condition is irrelevant, remove the use so that other
   // transforms on the condition become more effective.
-  if (BI.isConditional() &&
-      BI.getSuccessor(0) == BI.getSuccessor(1) &&
-      !isa<UndefValue>(BI.getCondition())) {
-    BI.setCondition(UndefValue::get(BI.getCondition()->getType()));
+  if (BI.isConditional() && !isa<ConstantInt>(BI.getCondition()) &&
+      BI.getSuccessor(0) == BI.getSuccessor(1)) {
+    BI.setCondition(ConstantInt::getFalse(BI.getCondition()->getType()));
     return &BI;
   }
 
@@ -2881,6 +2911,9 @@ bool InstCombiner::run() {
       continue;
     }
 
+    if (!DebugCounter::shouldExecute(VisitCounter))
+      continue;
+
     // Instruction isn't dead, see if we can constant propagate it.
     if (!I->use_empty() &&
         (I->getNumOperands() == 0 || isa<Constant>(I->getOperand(0)))) {
@@ -3162,12 +3195,11 @@ static bool prepareICWorklistFromFunction(Function &F, const DataLayout &DL,
   return MadeIRChange;
 }
 
-static bool
-combineInstructionsOverFunction(Function &F, InstCombineWorklist &Worklist,
-                                AliasAnalysis *AA, AssumptionCache &AC,
-                                TargetLibraryInfo &TLI, DominatorTree &DT,
-                                bool ExpensiveCombines = true,
-                                LoopInfo *LI = nullptr) {
+static bool combineInstructionsOverFunction(
+    Function &F, InstCombineWorklist &Worklist, AliasAnalysis *AA,
+    AssumptionCache &AC, TargetLibraryInfo &TLI, DominatorTree &DT,
+    OptimizationRemarkEmitter &ORE, bool ExpensiveCombines = true,
+    LoopInfo *LI = nullptr) {
   auto &DL = F.getParent()->getDataLayout();
   ExpensiveCombines |= EnableExpensiveCombines;
 
@@ -3185,7 +3217,9 @@ combineInstructionsOverFunction(Function &F, InstCombineWorklist &Worklist,
 
   // Lower dbg.declare intrinsics otherwise their value may be clobbered
   // by instcombiner.
-  bool MadeIRChange = LowerDbgDeclare(F);
+  bool MadeIRChange = false;
+  if (ShouldLowerDbgDeclare)
+    MadeIRChange = LowerDbgDeclare(F);
 
   // Iterate while there is work to do.
   int Iteration = 0;
@@ -3196,8 +3230,8 @@ combineInstructionsOverFunction(Function &F, InstCombineWorklist &Worklist,
 
     MadeIRChange |= prepareICWorklistFromFunction(F, DL, &TLI, Worklist);
 
-    InstCombiner IC(Worklist, Builder, F.optForMinSize(), ExpensiveCombines,
-                    AA, AC, TLI, DT, DL, LI);
+    InstCombiner IC(Worklist, Builder, F.optForMinSize(), ExpensiveCombines, AA,
+                    AC, TLI, DT, ORE, DL, LI);
     IC.MaxArraySizeForCombine = MaxArraySize;
 
     if (!IC.run())
@@ -3212,11 +3246,12 @@ PreservedAnalyses InstCombinePass::run(Function &F,
   auto &AC = AM.getResult<AssumptionAnalysis>(F);
   auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
   auto &TLI = AM.getResult<TargetLibraryAnalysis>(F);
+  auto &ORE = AM.getResult<OptimizationRemarkEmitterAnalysis>(F);
 
   auto *LI = AM.getCachedResult<LoopAnalysis>(F);
 
   // FIXME: The AliasAnalysis is not yet supported in the new pass manager
-  if (!combineInstructionsOverFunction(F, Worklist, nullptr, AC, TLI, DT,
+  if (!combineInstructionsOverFunction(F, Worklist, nullptr, AC, TLI, DT, ORE,
                                        ExpensiveCombines, LI))
     // No changes, all analyses are preserved.
     return PreservedAnalyses::all();
@@ -3235,6 +3270,7 @@ void InstructionCombiningPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<AssumptionCacheTracker>();
   AU.addRequired<TargetLibraryInfoWrapperPass>();
   AU.addRequired<DominatorTreeWrapperPass>();
+  AU.addRequired<OptimizationRemarkEmitterWrapperPass>();
   AU.addPreserved<DominatorTreeWrapperPass>();
   AU.addPreserved<AAResultsWrapperPass>();
   AU.addPreserved<BasicAAWrapperPass>();
@@ -3250,12 +3286,13 @@ bool InstructionCombiningPass::runOnFunction(Function &F) {
   auto &AC = getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
   auto &TLI = getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
   auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+  auto &ORE = getAnalysis<OptimizationRemarkEmitterWrapperPass>().getORE();
 
   // Optional analyses.
   auto *LIWP = getAnalysisIfAvailable<LoopInfoWrapperPass>();
   auto *LI = LIWP ? &LIWP->getLoopInfo() : nullptr;
 
-  return combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, DT,
+  return combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, DT, ORE,
                                          ExpensiveCombines, LI);
 }
 
@@ -3267,6 +3304,7 @@ INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(GlobalsAAWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(OptimizationRemarkEmitterWrapperPass)
 INITIALIZE_PASS_END(InstructionCombiningPass, "instcombine",
                     "Combine redundant instructions", false, false)
 

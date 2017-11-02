@@ -2705,6 +2705,9 @@ ExprResult Sema::BuildInstanceMessage(Expr *Receiver,
     }
   }
 
+  if (ReceiverType->isObjCIdType() && !isImplicit)
+    Diag(Receiver->getExprLoc(), diag::warn_messaging_unqualified_id);
+
   // There's a somewhat weird interaction here where we assume that we
   // won't actually have a method unless we also don't need to do some
   // of the more detailed type-checking on the receiver.
@@ -4319,7 +4322,7 @@ static Expr *maybeUndoReclaimObject(Expr *e) {
   // problems here.  To catch them all, we'd need to rebuild arbitrary
   // value-propagating subexpressions --- we can't reliably rebuild
   // in-place because of expression sharing.
-  if (ImplicitCastExpr *ice = dyn_cast<ImplicitCastExpr>(e))
+  if (auto *ice = dyn_cast<ImplicitCastExpr>(e->IgnoreParens()))
     if (ice->getCastKind() == CK_ARCReclaimReturnedObject)
       return ice->getSubExpr();
 
