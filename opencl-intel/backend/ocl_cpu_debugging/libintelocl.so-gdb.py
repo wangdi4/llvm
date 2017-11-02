@@ -19,16 +19,16 @@ class OCLWIBreakpoint(gdb.Breakpoint):
             ### GDB crashes when asked to set a breakpoint in code that has
             ### been elimited due to dead-code-elimination (if the line number
             ### is at the end of the file.)
-            print "WARNING: Unable to set OpenCL breakpoint at location " \
-              + location + ". Reason: " + str(e)
+            print("WARNING: Unable to set OpenCL breakpoint at location " +
+                  location + ". Reason: " + str(e))
             return
 
         self.gid_x = str(x)
         self.gid_y = str(y)
         self.gid_z = str(z)
         # TODO: remove
-        print "OpenCL Breakpoint set at: " + location + " for work item (" \
-          + self.gid_x + ", " + self.gid_y + ", " + self.gid_z + ")"
+        print("OpenCL Breakpoint set at: " + location + " for work item (" +
+              self.gid_x + ", " + self.gid_y + ", " + self.gid_z + ")")
 
         # According to the docs it should be possible to make a conditional
         # breakpoint in GDB by setting the 'condition' field. However,
@@ -59,8 +59,8 @@ class OCLWIBreakpoint(gdb.Breakpoint):
                 # OpenCL Breakpoint stops on the specified GID
                 return True
         except gdb.error as e:
-            print "WARNING: OpenCL Breakpoint unable to evaluate work-item ID." \
-                + " Stopping at " + str(self.location) + "."
+            print("WARNING: OpenCL Breakpoint unable to evaluate work-item ID." +
+                  " Stopping at " + str(self.location) + ".")
             return True
 
         # OpenCL Breakpoint not stopping
@@ -87,7 +87,7 @@ class OCLBreakpointCommand(gdb.Command):
     def invoke(self, argument, from_tty):
         params = argument.rsplit(' ', 3)
         if len(params) > 4:
-            print self.usage()
+            print(self.usage())
             raise gdb.error("Too many parameters to "
                 + OCLBreakpointCommand.NAME + ": " + str(params))
 
