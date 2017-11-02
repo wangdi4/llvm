@@ -3713,6 +3713,10 @@ public:
                                              const llvm::Twine &Name = "");
   llvm::Value *EmitARMBuiltinExpr(unsigned BuiltinID, const CallExpr *E);
 
+#if INTEL_CUSTOMIZATION
+  llvm::Value *EmitIntelFPGABuiltinExpr(unsigned BuiltinID, const CallExpr *E);
+#endif // INTEL_CUSTOMIZATION
+
   llvm::Value *EmitCommonNeonBuiltinExpr(unsigned BuiltinID,
                                          unsigned LLVMIntrinsic,
                                          unsigned AltLLVMIntrinsic,
