@@ -61,6 +61,17 @@ void Sema::AddAlignmentAttributesForRecord(RecordDecl *RD) {
       RD->addAttr(MaxFieldAlignmentAttr::CreateImplicit(Context,
                                                         Alignment * 8));
   }
+  if (PackIncludeStack.empty())
+    return;
+  // The #pragma pack affected a record in an included file,  so Clang should
+  // warn when that pragma was written in a file that included the included
+  // file.
+  for (auto &PackedInclude : llvm::reverse(PackIncludeStack)) {
+    if (PackedInclude.CurrentPragmaLocation != PackStack.CurrentPragmaLocation)
+      break;
+    if (PackedInclude.HasNonDefaultValue)
+      PackedInclude.ShouldWarnOnInclude = true;
+  }
 }
 
 void Sema::AddMsStructLayoutForRecord(RecordDecl *RD) {
@@ -214,22 +225,29 @@ void Sema::DiagnoseNonDefaultPragmaPack(PragmaPackDiagnoseKind Kind,
     SourceLocation PrevLocation = PackStack.CurrentPragmaLocation;
     // Warn about non-default alignment at #includes (without redundant
     // warnings for the same directive in nested includes).
-    if (PackStack.hasValue() &&
+    // The warning is delayed until the end of the file to avoid warnings
+    // for files that don't have any records that are affected by the modified
+    // alignment.
+    bool HasNonDefaultValue =
+        PackStack.hasValue() &&
         (PackIncludeStack.empty() ||
-         PackIncludeStack.back().second != PrevLocation)) {
-      Diag(IncludeLoc, diag::warn_pragma_pack_non_default_at_include);
-      Diag(PrevLocation, diag::note_pragma_pack_here);
-    }
+         PackIncludeStack.back().CurrentPragmaLocation != PrevLocation);
     PackIncludeStack.push_back(
         {PackStack.CurrentValue,
-         PackStack.hasValue() ? PrevLocation : SourceLocation()});
+         PackStack.hasValue() ? PrevLocation : SourceLocation(),
+         HasNonDefaultValue, /*ShouldWarnOnInclude*/ false});
     return;
   }
 
   assert(Kind == PragmaPackDiagnoseKind::ChangedStateAtExit && "invalid kind");
-  unsigned PreviousValue = PackIncludeStack.pop_back_val().first;
+  PackIncludeState PrevPackState = PackIncludeStack.pop_back_val();
+  if (PrevPackState.ShouldWarnOnInclude) {
+    // Emit the delayed non-default alignment at #include warning.
+    Diag(IncludeLoc, diag::warn_pragma_pack_non_default_at_include);
+    Diag(PrevPackState.CurrentPragmaLocation, diag::note_pragma_pack_here);
+  }
   // Warn about modified alignment after #includes.
-  if (PreviousValue != PackStack.CurrentValue) {
+  if (PrevPackState.CurrentValue != PackStack.CurrentValue) {
     Diag(IncludeLoc, diag::warn_pragma_pack_modified_after_include);
     Diag(PackStack.CurrentPragmaLocation, diag::note_pragma_pack_here);
   }
@@ -238,8 +256,22 @@ void Sema::DiagnoseNonDefaultPragmaPack(PragmaPackDiagnoseKind Kind,
 void Sema::DiagnoseUnterminatedPragmaPack() {
   if (PackStack.Stack.empty())
     return;
-  for (const auto &StackSlot : llvm::reverse(PackStack.Stack))
+  bool IsInnermost = true;
+  for (const auto &StackSlot : llvm::reverse(PackStack.Stack)) {
     Diag(StackSlot.PragmaPushLocation, diag::warn_pragma_pack_no_pop_eof);
+    // The user might have already reset the alignment, so suggest replacing
+    // the reset with a pop.
+    if (IsInnermost && PackStack.CurrentValue == PackStack.DefaultValue) {
+      DiagnosticBuilder DB = Diag(PackStack.CurrentPragmaLocation,
+                                  diag::note_pragma_pack_pop_instead_reset);
+      SourceLocation FixItLoc = Lexer::findLocationAfterToken(
+          PackStack.CurrentPragmaLocation, tok::l_paren, SourceMgr, LangOpts,
+          /*SkipTrailing=*/false);
+      if (FixItLoc.isValid())
+        DB << FixItHint::CreateInsertion(FixItLoc, "pop");
+    }
+    IsInnermost = false;
+  }
 }
 
 void Sema::ActOnPragmaMSStruct(PragmaMSStructKind Kind) { 
@@ -742,6 +774,7 @@ void Sema::ActOnPragmaFPContract(LangOptions::FPContractModeKind FPC) {
     break;
   case LangOptions::FPC_Off:
     FPFeatures.setDisallowFPContract();
+    Context.disableFPContract(); // INTEL
     break;
   }
 }

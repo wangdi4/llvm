@@ -243,7 +243,8 @@ static unsigned getDeclShowContexts(const NamedDecl *ND,
   
   uint64_t Contexts = 0;
   if (isa<TypeDecl>(ND) || isa<ObjCInterfaceDecl>(ND) || 
-      isa<ClassTemplateDecl>(ND) || isa<TemplateTemplateParmDecl>(ND)) {
+      isa<ClassTemplateDecl>(ND) || isa<TemplateTemplateParmDecl>(ND) ||
+      isa<TypeAliasTemplateDecl>(ND)) {
     // Types can appear in these contexts.
     if (LangOpts.CPlusPlus || !isa<TagDecl>(ND))
       Contexts |= (1LL << CodeCompletionContext::CCC_TopLevel)
@@ -541,6 +542,9 @@ private:
 
     // Initialize the ASTContext
     Context->InitBuiltinTypes(*Target);
+
+    // Adjust printing policy based on language options.
+    Context->setPrintingPolicy(PrintingPolicy(LangOpt));
 
     // We didn't have access to the comment options when the ASTContext was
     // constructed, so register them now.
@@ -1005,6 +1009,24 @@ static void checkAndSanitizeDiags(SmallVectorImpl<StoredDiagnostic> &
   }
 }
 
+static IntrusiveRefCntPtr<vfs::FileSystem> createVFSOverlayForPreamblePCH(
+    StringRef PCHFilename,
+    IntrusiveRefCntPtr<vfs::FileSystem> RealFS,
+    IntrusiveRefCntPtr<vfs::FileSystem> VFS) {
+  // We want only the PCH file from the real filesystem to be available,
+  // so we create an in-memory VFS with just that and overlay it on top.
+  auto Buf = RealFS->getBufferForFile(PCHFilename);
+  if (!Buf)
+    return VFS;
+  IntrusiveRefCntPtr<vfs::InMemoryFileSystem>
+      PCHFS(new vfs::InMemoryFileSystem());
+  PCHFS->addFile(PCHFilename, 0, std::move(*Buf));
+  IntrusiveRefCntPtr<vfs::OverlayFileSystem>
+      Overlay(new vfs::OverlayFileSystem(VFS));
+  Overlay->pushOverlay(PCHFS);
+  return Overlay;
+}
+
 /// Parse the source file into a translation unit using the given compiler
 /// invocation, replacing the current translation unit.
 ///
@@ -1024,6 +1046,24 @@ bool ASTUnit::Parse(std::shared_ptr<PCHContainerOperations> PCHContainerOps,
            "VFS passed to Parse and VFS in FileMgr are different");
   } else if (VFS) {
     Clang->setVirtualFileSystem(VFS);
+  }
+
+  // Make sure we can access the PCH file even if we're using a VFS
+  if (!VFS && FileMgr)
+    VFS = FileMgr->getVirtualFileSystem();
+  IntrusiveRefCntPtr<vfs::FileSystem> RealFS = vfs::getRealFileSystem();
+  if (OverrideMainBuffer && VFS && RealFS && VFS != RealFS &&
+      !VFS->exists(Preamble->GetPCHPath())) {
+    // We have a slight inconsistency here -- we're using the VFS to
+    // read files, but the PCH was generated in the real file system.
+    VFS = createVFSOverlayForPreamblePCH(Preamble->GetPCHPath(), RealFS, VFS);
+    if (FileMgr) {
+      FileMgr = new FileManager(FileMgr->getFileSystemOpts(), VFS);
+      Clang->setFileManager(FileMgr.get());
+    }
+    else {
+      Clang->setVirtualFileSystem(VFS);
+    }
   }
 
   // Recover resources if we crash before exiting this method.
@@ -2399,7 +2439,7 @@ SourceLocation ASTUnit::getLocation(const FileEntry *File,
 /// \brief If \arg Loc is a loaded location from the preamble, returns
 /// the corresponding local location of the main file, otherwise it returns
 /// \arg Loc.
-SourceLocation ASTUnit::mapLocationFromPreamble(SourceLocation Loc) {
+SourceLocation ASTUnit::mapLocationFromPreamble(SourceLocation Loc) const {
   FileID PreambleID;
   if (SourceMgr)
     PreambleID = SourceMgr->getPreambleFileID();
@@ -2420,7 +2460,7 @@ SourceLocation ASTUnit::mapLocationFromPreamble(SourceLocation Loc) {
 /// \brief If \arg Loc is a local location of the main file but inside the
 /// preamble chunk, returns the corresponding loaded location from the
 /// preamble, otherwise it returns \arg Loc.
-SourceLocation ASTUnit::mapLocationToPreamble(SourceLocation Loc) {
+SourceLocation ASTUnit::mapLocationToPreamble(SourceLocation Loc) const {
   FileID PreambleID;
   if (SourceMgr)
     PreambleID = SourceMgr->getPreambleFileID();
@@ -2438,7 +2478,7 @@ SourceLocation ASTUnit::mapLocationToPreamble(SourceLocation Loc) {
   return Loc;
 }
 
-bool ASTUnit::isInPreambleFileID(SourceLocation Loc) {
+bool ASTUnit::isInPreambleFileID(SourceLocation Loc) const {
   FileID FID;
   if (SourceMgr)
     FID = SourceMgr->getPreambleFileID();
@@ -2449,7 +2489,7 @@ bool ASTUnit::isInPreambleFileID(SourceLocation Loc) {
   return SourceMgr->isInFileID(Loc, FID);
 }
 
-bool ASTUnit::isInMainFileID(SourceLocation Loc) {
+bool ASTUnit::isInMainFileID(SourceLocation Loc) const {
   FileID FID;
   if (SourceMgr)
     FID = SourceMgr->getMainFileID();
@@ -2460,7 +2500,7 @@ bool ASTUnit::isInMainFileID(SourceLocation Loc) {
   return SourceMgr->isInFileID(Loc, FID);
 }
 
-SourceLocation ASTUnit::getEndOfPreambleFileID() {
+SourceLocation ASTUnit::getEndOfPreambleFileID() const {
   FileID FID;
   if (SourceMgr)
     FID = SourceMgr->getPreambleFileID();
@@ -2471,7 +2511,7 @@ SourceLocation ASTUnit::getEndOfPreambleFileID() {
   return SourceMgr->getLocForEndOfFile(FID);
 }
 
-SourceLocation ASTUnit::getStartOfMainFileID() {
+SourceLocation ASTUnit::getStartOfMainFileID() const {
   FileID FID;
   if (SourceMgr)
     FID = SourceMgr->getMainFileID();
@@ -2547,7 +2587,7 @@ const FileEntry *ASTUnit::getPCHFile() {
   return nullptr;
 }
 
-bool ASTUnit::isModuleFile() {
+bool ASTUnit::isModuleFile() const {
   return isMainFileAST() && getLangOpts().isCompilingModule();
 }
 

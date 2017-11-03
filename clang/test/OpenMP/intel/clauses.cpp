@@ -31,9 +31,9 @@ void bar(int if_val, int num_threads_val) {
   #pragma omp parallel private(if1) if(1)
   { foo(); }
 
-  // CHECK: opndlist(metadata !"QUAL.OMP.PRIVATE", i32* [[IF2_ADDR]])
-  // CHECK-NEXT: [[ILOAD1:%.+]] = load i32, i32* [[IF_VAL_ADDR]]
+  // CHECK: [[ILOAD1:%.+]] = load i32, i32* [[IF_VAL_ADDR]]
   // CHECK-NEXT: [[TOBOOL:%.+]] = icmp ne i32 [[ILOAD1]], 0
+  // CHECK: opndlist(metadata !"QUAL.OMP.PRIVATE", i32* [[IF2_ADDR]])
   // CHECK-NEXT: opnd.i1(metadata !"QUAL.OMP.IF", i1 [[TOBOOL]])
   #pragma omp parallel private(if2) if(if_val)
   { foo(); }
@@ -60,8 +60,8 @@ void bar(int if_val, int num_threads_val) {
   #pragma omp parallel private(nt1) num_threads(8)
   { foo(); }
 
+  // CHECK: [[ILOAD2:%.*]] = load i32, i32* [[NUM_THREADS_VAL_ADDR]]
   // CHECK: opndlist(metadata !"QUAL.OMP.PRIVATE", i32* [[NT2_ADDR]])
-  // CHECK-NEXT: [[ILOAD2:%.*]] = load i32, i32* [[NUM_THREADS_VAL_ADDR]]
   // CHECK-NEXT: opnd.i32(metadata !"QUAL.OMP.NUM_THREADS", i32 [[ILOAD2]])
   #pragma omp parallel private(nt2) num_threads(num_threads_val)
   { foo(); }

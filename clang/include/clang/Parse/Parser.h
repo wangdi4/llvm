@@ -433,6 +433,10 @@ class Parser : public CodeCompletionHandler {
   /// be NULL.
   bool ParsingInObjCContainer;
 
+  /// Whether to skip parsing of function bodies.
+  ///
+  /// This option can be used, for example, to speed up searches for
+  /// declarations/definitions when indexing.
   bool SkipFunctionBodies;
 
   /// The location of the expression statement that is being parsed right now.
@@ -1747,9 +1751,11 @@ private:
   typedef SmallVector<SourceLocation, 20> CommaLocsTy;
 
   /// ParseExpressionList - Used for C/C++ (argument-)expression-list.
-  bool ParseExpressionList(SmallVectorImpl<Expr *> &Exprs,
-                           SmallVectorImpl<SourceLocation> &CommaLocs,
-                           std::function<void()> Completer = nullptr);
+  bool ParseExpressionList(
+      SmallVectorImpl<Expr *> &Exprs,
+      SmallVectorImpl<SourceLocation> &CommaLocs,
+      llvm::function_ref<void()> Completer = llvm::function_ref<void()>());
+
 #if INTEL_SPECIFIC_CILKPLUS
   /// ParseSecReduceExpressionList - Used for reducer (argument-)expression-list
   bool ParseSecReduceExpressionList(SmallVectorImpl<Expr*> &Exprs,
@@ -1760,6 +1766,7 @@ private:
                                                    ArrayRef<Expr *> Args) = 0,
                            Expr *Data = 0);
 #endif // INTEL_SPECIFIC_CILKPLUS
+
   /// ParseSimpleExpressionList - A simple comma-separated list of expressions,
   /// used for misc language extensions.
   bool ParseSimpleExpressionList(SmallVectorImpl<Expr*> &Exprs,
@@ -2910,6 +2917,9 @@ private:
       Decl *TagDecl = nullptr);
   /// \brief Parse 'omp declare reduction' construct.
   DeclGroupPtrTy ParseOpenMPDeclareReductionDirective(AccessSpecifier AS);
+  /// Parses initializer for provided omp_priv declaration inside the reduction
+  /// initializer.
+  void ParseOpenMPReductionInitializerForDecl(VarDecl *OmpPrivParm);
 
   /// \brief Parses simple list of variables.
   ///
@@ -2986,6 +2996,9 @@ public:
     OpenMPMapClauseKind MapTypeModifier = OMPC_MAP_unknown;
     OpenMPMapClauseKind MapType = OMPC_MAP_unknown;
     bool IsMapTypeImplicit = false;
+#if INTEL_CUSTOMIZATION
+    bool IsLastprivateConditional = false;
+#endif // INTEL_CUSTOMIZATION
     SourceLocation DepLinMapLoc;
   };
 
@@ -3022,11 +3035,11 @@ private:
                                        AccessSpecifier AS=AS_none,
                                        AttributeList *AccessAttrs = nullptr);
   bool ParseTemplateParameters(unsigned Depth,
-                               SmallVectorImpl<Decl*> &TemplateParams,
+                               SmallVectorImpl<NamedDecl *> &TemplateParams,
                                SourceLocation &LAngleLoc,
                                SourceLocation &RAngleLoc);
   bool ParseTemplateParameterList(unsigned Depth,
-                                  SmallVectorImpl<Decl*> &TemplateParams);
+                                  SmallVectorImpl<NamedDecl*> &TemplateParams);
   bool isStartOfTemplateTypeParameter();
   Decl *ParseTemplateParameter(unsigned Depth, unsigned Position);
   Decl *ParseTypeParameter(unsigned Depth, unsigned Position);

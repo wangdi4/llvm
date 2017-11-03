@@ -33,7 +33,7 @@ class Baserel;
 class Defined;
 class DefinedImportData;
 class DefinedRegular;
-class ObjectFile;
+class ObjFile;
 class OutputSection;
 class SymbolBody;
 
@@ -62,7 +62,6 @@ public:
 
   // The writer sets and uses the addresses.
   uint64_t getRVA() const { return RVA; }
-  uint32_t getAlign() const { return Align; }
   void setRVA(uint64_t V) { RVA = V; }
 
   // Returns true if this has non-zero data. BSS chunks return
@@ -82,7 +81,7 @@ public:
   // An output section has pointers to chunks in the section, and each
   // chunk has a back pointer to an output section.
   void setOutputSection(OutputSection *O) { Out = O; }
-  OutputSection *getOutputSection() { return Out; }
+  OutputSection *getOutputSection() const { return Out; }
 
   // Windows-specific.
   // Collect all locations that contain absolute addresses for base relocations.
@@ -92,23 +91,22 @@ public:
   // bytes, so this is used only for logging or debugging.
   virtual StringRef getDebugName() { return ""; }
 
+  // The alignment of this chunk. The writer uses the value.
+  uint32_t Alignment = 1;
+
 protected:
   Chunk(Kind K = OtherKind) : ChunkKind(K) {}
   const Kind ChunkKind;
 
-  // The alignment of this chunk. The writer uses the value.
-  uint32_t Align = 1;
-
   // The RVA of this chunk in the output. The writer sets a value.
   uint64_t RVA = 0;
+
+  // The output section for this chunk.
+  OutputSection *Out = nullptr;
 
 public:
   // The offset from beginning of the output section. The writer sets a value.
   uint64_t OutputSectionOff = 0;
-
-protected:
-  // The output section for this chunk.
-  OutputSection *Out = nullptr;
 };
 
 // A chunk corresponding a section of an input file.
@@ -122,9 +120,9 @@ public:
                               std::random_access_iterator_tag, SymbolBody *> {
     friend SectionChunk;
 
-    ObjectFile *File;
+    ObjFile *File;
 
-    symbol_iterator(ObjectFile *File, const coff_relocation *I)
+    symbol_iterator(ObjFile *File, const coff_relocation *I)
         : symbol_iterator::iterator_adaptor_base(I), File(File) {}
 
   public:
@@ -135,7 +133,7 @@ public:
     }
   };
 
-  SectionChunk(ObjectFile *File, const coff_section *Header);
+  SectionChunk(ObjFile *File, const coff_section *Header);
   static bool classof(const Chunk *C) { return C->kind() == SectionKind; }
   size_t getSize() const override { return Header->SizeOfRawData; }
   ArrayRef<uint8_t> getContents() const;
@@ -213,7 +211,7 @@ public:
   const coff_section *Header;
 
   // The file that this chunk was created from.
-  ObjectFile *File;
+  ObjFile *File;
 
 private:
   StringRef SectionName;
@@ -368,6 +366,9 @@ public:
   uint32_t RVA;
   uint8_t Type;
 };
+
+void applyMOV32T(uint8_t *Off, uint32_t V);
+void applyBranch24T(uint8_t *Off, int32_t V);
 
 } // namespace coff
 } // namespace lld

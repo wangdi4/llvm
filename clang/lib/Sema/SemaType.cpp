@@ -1354,12 +1354,17 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
         // errors.
         declarator.setInvalidType(true);
       } else if (S.getLangOpts().OpenCLVersion >= 200 && DS.isTypeSpecPipe()){
-        // #if INTEL_CUSTOMIZATION
-        // TODO: asavonic: add channel diagnostic
-        // #endif // INTEL_CUSTOMIZATION
         S.Diag(DeclLoc, diag::err_missing_actual_pipe_type)
           << DS.getSourceRange();
         declarator.setInvalidType(true);
+#if INTEL_CUSTOMIZATION
+      } else if (S.getLangOpts().OpenCL &&
+                 S.getOpenCLOptions().isEnabled("cl_intel_channels") &&
+                 DS.isTypeSpecChannel()){
+        S.Diag(DeclLoc, diag::err_opencl_missing_actual_channel_type)
+          << DS.getSourceRange();
+        declarator.setInvalidType(true);
+#endif // INTEL_CUSTOMIZATION
       } else {
         S.Diag(DeclLoc, diag::ext_missing_type_specifier)
           << DS.getSourceRange();
@@ -1418,8 +1423,9 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
     else
       Result = Context.Int128Ty;
     break;
-  case DeclSpec::TST_half: Result = Context.HalfTy; break;
-  case DeclSpec::TST_float: Result = Context.FloatTy; break;
+  case DeclSpec::TST_float16: Result = Context.Float16Ty; break;
+  case DeclSpec::TST_half:    Result = Context.HalfTy; break;
+  case DeclSpec::TST_float:   Result = Context.FloatTy; break;
   case DeclSpec::TST_double:
     if (DS.getTypeSpecWidth() == DeclSpec::TSW_long)
       Result = Context.LongDoubleTy;
@@ -4585,6 +4591,11 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
             HasAnyInterestingExtParameterInfos = true;
           }
 
+          if (Param->hasAttr<NoEscapeAttr>()) {
+            ExtParameterInfos[i] = ExtParameterInfos[i].withIsNoEscape(true);
+            HasAnyInterestingExtParameterInfos = true;
+          }
+
           ParamTys.push_back(ParamTy);
         }
 
@@ -7496,11 +7507,15 @@ bool Sema::RequireCompleteTypeImpl(SourceLocation Loc, QualType T,
 
     // Give the external AST source a chance to complete the type.
     if (auto *Source = Context.getExternalSource()) {
-      if (Tag)
-        Source->CompleteType(Tag->getDecl());
-      else
-        Source->CompleteType(IFace->getDecl());
-
+      if (Tag) {
+        TagDecl *TagD = Tag->getDecl();
+        if (TagD->hasExternalLexicalStorage())
+          Source->CompleteType(TagD);
+      } else {
+        ObjCInterfaceDecl *IFaceD = IFace->getDecl();
+        if (IFaceD->hasExternalLexicalStorage())
+          Source->CompleteType(IFace->getDecl());
+      }
       // If the external source completed the type, go through the motions
       // again to ensure we're allowed to use the completed type.
       if (!T->isIncompleteType())

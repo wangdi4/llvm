@@ -39,6 +39,7 @@
 #include "clang/Basic/SanitizerBlacklist.h"
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/Specifiers.h"
+#include "clang/Basic/TargetInfo.h"
 #include "clang/Basic/XRayLists.h"
 #include "llvm/ADT/APSInt.h"
 #include "llvm/ADT/ArrayRef.h"
@@ -89,7 +90,6 @@ class DiagnosticsEngine;
 class Expr;
 class MangleNumberingContext;
 class MaterializeTemporaryExpr;
-class TargetInfo;
 // Decls
 class MangleContext;
 class ObjCIvarDecl;
@@ -468,12 +468,17 @@ private:
   mutable BuiltinTemplateDecl *MakeIntegerSeqDecl;
   mutable BuiltinTemplateDecl *TypePackElementDecl;
 
-  /// \brief The associated SourceManager object.a
+  /// \brief The associated SourceManager object.
   SourceManager &SourceMgr;
 
   /// \brief The language options used to create the AST associated with
   ///  this ASTContext object.
   LangOptions &LangOpts;
+
+#if INTEL_CUSTOMIZATION
+  /// \brief The flag specifies status of "fp_contract" feature
+  bool DisabledFPContract;
+#endif // INTEL_CUSTOMIZATION
 
   /// \brief Blacklist object that is used by sanitizers to decide which
   /// entities should not be instrumented.
@@ -668,6 +673,12 @@ public:
   const XRayFunctionFilter &getXRayFilter() const {
     return *XRayFilter;
   }
+
+#if INTEL_CUSTOMIZATION
+  void disableFPContract() { DisabledFPContract = true; }
+
+  bool isFPContractDisabled() const { return DisabledFPContract; }
+#endif // INTEL_CUSTOMIZATION
 
   DiagnosticsEngine &getDiagnostics() const;
 
@@ -976,6 +987,7 @@ public:
   CanQualType UnsignedLongLongTy, UnsignedInt128Ty;
   CanQualType FloatTy, DoubleTy, LongDoubleTy, Float128Ty;
   CanQualType HalfTy; // [OpenCL 6.1.1.1], ARM NEON
+  CanQualType Float16Ty; // C11 extension ISO/IEC TS 18661-3
   CanQualType FloatComplexTy, DoubleComplexTy, LongDoubleComplexTy;
   CanQualType Float128ComplexTy;
   CanQualType VoidPtrTy, NullPtrTy;
@@ -1594,6 +1606,24 @@ public:
     }
 
     return NSCopyingName;
+  }
+
+  CanQualType getNSUIntegerType() const {
+    assert(Target && "Expected target to be initialized");
+    const llvm::Triple &T = Target->getTriple();
+    // Windows is LLP64 rather than LP64
+    if (T.isOSWindows() && T.isArch64Bit())
+      return UnsignedLongLongTy;
+    return UnsignedLongTy;
+  }
+
+  CanQualType getNSIntegerType() const {
+    assert(Target && "Expected target to be initialized");
+    const llvm::Triple &T = Target->getTriple();
+    // Windows is LLP64 rather than LP64
+    if (T.isOSWindows() && T.isArch64Bit())
+      return LongLongTy;
+    return LongTy;
   }
 
   /// Retrieve the identifier 'bool'.
@@ -2424,9 +2454,30 @@ public:
 
   QualType mergeObjCGCQualifiers(QualType, QualType);
 
-  bool doFunctionTypesMatchOnExtParameterInfos(
-         const FunctionProtoType *FromFunctionType,
-         const FunctionProtoType *ToFunctionType);
+  /// This function merges the ExtParameterInfo lists of two functions. It
+  /// returns true if the lists are compatible. The merged list is returned in
+  /// NewParamInfos.
+  ///
+  /// \param FirstFnType The type of the first function.
+  ///
+  /// \param SecondFnType The type of the second function.
+  ///
+  /// \param CanUseFirst This flag is set to true if the first function's
+  /// ExtParameterInfo list can be used as the composite list of
+  /// ExtParameterInfo.
+  ///
+  /// \param CanUseSecond This flag is set to true if the second function's
+  /// ExtParameterInfo list can be used as the composite list of
+  /// ExtParameterInfo.
+  ///
+  /// \param NewParamInfos The composite list of ExtParameterInfo. The list is
+  /// empty if none of the flags are set.
+  ///
+  bool mergeExtParameterInfo(
+      const FunctionProtoType *FirstFnType,
+      const FunctionProtoType *SecondFnType,
+      bool &CanUseFirst, bool &CanUseSecond,
+      SmallVectorImpl<FunctionProtoType::ExtParameterInfo> &NewParamInfos);
 
   void ResetObjCLayout(const ObjCContainerDecl *CD);
 

@@ -21,7 +21,7 @@ class SymbolBody;
 class InputSection;
 class InputSectionBase;
 class OutputSection;
-struct OutputSectionCommand;
+class OutputSection;
 
 // List of target-independent relocation types. Relocations read
 // from files are converted to these types so that the main code
@@ -125,7 +125,7 @@ class Thunk;
 class ThunkCreator {
 public:
   // Return true if Thunks have been added to OutputSections
-  bool createThunks(ArrayRef<OutputSectionCommand *> OutputSections);
+  bool createThunks(ArrayRef<OutputSection *> OutputSections);
 
   // The number of completed passes of createThunks this permits us
   // to do one time initialization on Pass 0 and put a limit on the
@@ -134,12 +134,12 @@ public:
 
 private:
   void mergeThunks();
-  ThunkSection *getOSThunkSec(OutputSectionCommand *Cmd,
+  ThunkSection *getOSThunkSec(OutputSection *OS,
                               std::vector<InputSection *> *ISR);
-  ThunkSection *getISThunkSec(InputSection *IS, OutputSection *OS);
+  ThunkSection *getISThunkSec(InputSection *IS);
   void forEachExecInputSection(
-      ArrayRef<OutputSectionCommand *> OutputSections,
-      std::function<void(OutputSectionCommand *, std::vector<InputSection *> *,
+      ArrayRef<OutputSection *> OutputSections,
+      std::function<void(OutputSection *, std::vector<InputSection *> *,
                          InputSection *)>
           Fn);
   std::pair<Thunk *, bool> getThunk(SymbolBody &Body, uint32_t Type);

@@ -99,7 +99,19 @@ def analyzer_stats : Flag<["-"], "analyzer-stats">,
   HelpText<"Print internal analyzer statistics.">;
 
 def analyzer_checker : Separate<["-"], "analyzer-checker">,
-  HelpText<"Choose analyzer checkers to enable">;
+  HelpText<"Choose analyzer checkers to enable">,
+  ValuesCode<[{
+    const char *Values =
+    #define GET_CHECKERS
+    #define CHECKER(FULLNAME, CLASS, DESCFILE, HT, G, H)  FULLNAME ","
+    #include "clang/StaticAnalyzer/Checkers/Checkers.inc"
+    #undef GET_CHECKERS
+    #define GET_PACKAGES
+    #define PACKAGE(FULLNAME, G, D)  FULLNAME ","
+    #include "clang/StaticAnalyzer/Checkers/Checkers.inc"
+    #undef GET_PACKAGES
+    ;
+  }]>;
 def analyzer_checker_EQ : Joined<["-"], "analyzer-checker=">,
   Alias<analyzer_checker>;
 
@@ -245,6 +257,8 @@ def menable_unsafe_fp_math : Flag<["-"], "menable-unsafe-fp-math">,
            "precision">;
 def mfloat_abi : Separate<["-"], "mfloat-abi">,
   HelpText<"The float ABI to use">;
+def mtp : Separate<["-"], "mtp">,
+  HelpText<"Mode for reading thread pointer">;
 def mlimit_float_precision : Separate<["-"], "mlimit-float-precision">,
   HelpText<"Limit float precision to the given value">;
 def split_stacks : Flag<["-"], "split-stacks">,
@@ -295,6 +309,9 @@ def fsanitize_coverage_8bit_counters
 def fsanitize_coverage_inline_8bit_counters
     : Flag<["-"], "fsanitize-coverage-inline-8bit-counters">,
       HelpText<"Enable inline 8-bit counters in sanitizer coverage">;
+def fsanitize_coverage_pc_table
+    : Flag<["-"], "fsanitize-coverage-pc-table">,
+      HelpText<"Create a table of coverage-instrumented PCs">;
 def fsanitize_coverage_trace_pc
     : Flag<["-"], "fsanitize-coverage-trace-pc">,
       HelpText<"Enable PC tracing in sanitizer coverage">;
@@ -304,6 +321,9 @@ def fsanitize_coverage_trace_pc_guard
 def fsanitize_coverage_no_prune
     : Flag<["-"], "fsanitize-coverage-no-prune">,
       HelpText<"Disable coverage pruning (i.e. instrument all blocks/edges)">;
+def fsanitize_coverage_stack_depth
+    : Flag<["-"], "fsanitize-coverage-stack-depth">,
+      HelpText<"Enable max stack depth tracing">;
 def fprofile_instrument_EQ : Joined<["-"], "fprofile-instrument=">,
     HelpText<"Enable PGO instrumentation. The accepted value is clang, llvm, "
              "or none">, Values<"none,clang,llvm">;
@@ -729,6 +749,18 @@ def fintel_imf_attr_EQ : Joined<["-"], "mGLOB_imf_attr=">;
 // if INTEL_SPECIFIC_OPENMP
 def fintel_openmp : Flag<["-"], "fintel-openmp">,
   HelpText<"Enable emitting of Intel specific OpenMP code">;
+def fintel_openmp_region : Flag<["-"], "fintel-openmp-region">,
+  HelpText<"Enable emitting of Intel specific OpenMP code with regions">;
+def fopenmp_threadprivate_legacy : Flag<["-"], "fopenmp-threadprivate-legacy">,
+  HelpText<"Generate legacy OpenMP threadprivates">;
+def fintel_openmp_simd : Flag<["-"], "fopenmp-simd">,
+  HelpText<"Enable OpenMP SIMD directives">;
+def fnointel_openmp_simd : Flag<["-"], "fnoopenmp-simd">,
+  HelpText<"Disable OpenMP SIMD directives">;
+def fintel_openmp_tbb : Flag<["-"], "fopenmp-tbb">,
+  HelpText<"Enable OpenMP TBB directives">;
+def fnointel_openmp_tbb : Flag<["-"], "fnoopenmp-tbb">,
+  HelpText<"Disable OpenMP TBB directives">;
 def fintel_driver_tempfile_name_EQ : Joined<["-"], "fintel-driver-tempfile-name=">,
   HelpText<"Name of the file for communication between front-end and driver.">;
 // endif INTEL_SPECIFIC_OPENMP
