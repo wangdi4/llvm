@@ -55,14 +55,19 @@ INITIALIZE_PASS_END(VPOParopt, "vpo-paropt", "VPO Paropt Module Pass", false,
 
 char VPOParopt::ID = 0;
 
-ModulePass *llvm::createVPOParoptPass(unsigned Mode) {
+ModulePass *llvm::createVPOParoptPass(unsigned Mode,
+    const std::vector<std::string> &OffloadTargets) {
   return new VPOParopt(
-      (ParTrans | OmpPar | OmpVec | OmpTpv | OmpOffload | OmpTbb) & Mode);
+      (ParTrans | OmpPar | OmpVec | OmpTpv | OmpOffload | OmpTbb) & Mode,
+      OffloadTargets);
 }
 
-VPOParopt::VPOParopt(unsigned MyMode)
+VPOParopt::VPOParopt(unsigned MyMode,
+      const std::vector<std::string> &MyOffloadTargets)
     : ModulePass(ID), Mode(MyMode) {
   DEBUG(dbgs() << "\n\n====== Start VPO Paropt Pass ======\n\n");
+  for (const auto &T : MyOffloadTargets)
+    OffloadTargets.emplace_back(Triple{T});
   initializeVPOParoptPass(*PassRegistry::getPassRegistry());
 }
 
@@ -118,7 +123,7 @@ bool VPOParopt::runOnModule(Module &M) {
 
     // AUTOPAR | OPENMP | SIMD | OFFLOAD
     VPOParoptTransform VP(F, &WI, WI.getDomTree(), WI.getLoopInfo(), WI.getSE(),
-                          Mode);
+                          Mode, OffloadTargets);
     Changed = Changed | VP.paroptTransforms();
 
     DEBUG(dbgs() << "\n}=== VPOParopt after ParoptTransformer\n");

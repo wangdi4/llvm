@@ -50,7 +50,8 @@ public:
 
   /// \brief ParoptPrepare object constructor
   /// \brief 0x5 is equivalent to ParPrepare | OmpPar
-  explicit VPOParoptPrepare(unsigned MyMode =0x5);
+  explicit VPOParoptPrepare(unsigned MyMode = 0x5u,
+    const std::vector<std::string> &OffloadTargets = {});
   ~VPOParoptPrepare() {};
 
   StringRef getPassName() const override { return "VPO Paropt Prepare Pass"; }
@@ -62,9 +63,12 @@ public:
 private:
   /// \brief W-Region information holder
   WRegionInfo *WI;
+
   // VPO-mode
   unsigned Mode;
 
+  // List of target triples for offloading.
+  SmallVector<Triple, 16> OffloadTargets;
 };
 
 } // end namespace vpo

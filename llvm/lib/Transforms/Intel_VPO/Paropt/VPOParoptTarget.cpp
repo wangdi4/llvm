@@ -529,26 +529,31 @@ VPOParoptTransform::genOffloadingBinaryDescriptorRegistration(WRegionNode *W) {
       *M, OffloadEntryTy, /*isConstant=*/true,
       llvm::GlobalValue::ExternalLinkage, /*Initializer=*/nullptr,
       ".omp_offloading.entries_end");
-  StringRef T = "x86_64-mic";
-  auto *ImgBegin = new GlobalVariable(
+
+  SmallVector<Constant*, 16> DeviceImagesInit;
+  for (const auto &T : OffloadTargets) {
+    const auto &N = T.getTriple();
+
+    auto *ImgBegin = new GlobalVariable(
       *M, Type::getInt8Ty(C), /*isConstant=*/true, GlobalValue::ExternalLinkage,
-      /*Initializer=*/nullptr, Twine(".omp_offloading.img_start.") + Twine(T));
-  auto *ImgEnd = new GlobalVariable(
+      /*Initializer=*/nullptr, Twine(".omp_offloading.img_start.") + Twine(N));
+    auto *ImgEnd = new GlobalVariable(
       *M, Type::getInt8Ty(C), /*isConstant=*/true, GlobalValue::ExternalLinkage,
-      /*Initializer=*/nullptr, Twine(".omp_offloading.img_end.") + Twine(T));
+      /*Initializer=*/nullptr, Twine(".omp_offloading.img_end.") + Twine(N));
 
-  SmallVector<Constant *, 16> DevInitBuffer;
-  DevInitBuffer.push_back(ImgBegin);
-  DevInitBuffer.push_back(ImgEnd);
-  DevInitBuffer.push_back(HostEntriesBegin);
-  DevInitBuffer.push_back(HostEntriesEnd);
+    SmallVector<Constant*, 4> DevInitBuffer;
+    DevInitBuffer.push_back(ImgBegin);
+    DevInitBuffer.push_back(ImgEnd);
+    DevInitBuffer.push_back(HostEntriesBegin);
+    DevInitBuffer.push_back(HostEntriesEnd);
 
-  Constant *DevInit = ConstantStruct::get(getTgDeviceImageTy(), DevInitBuffer);
+    Constant *DevInit = ConstantStruct::get(getTgDeviceImageTy(), DevInitBuffer);
+    DeviceImagesInit.push_back(DevInit);
+  }
 
-  DevInitBuffer.clear();
-  DevInitBuffer.push_back(DevInit);
   Constant *DevArrayInit = ConstantArray::get(
-      ArrayType::get(getTgDeviceImageTy(), 1), DevInitBuffer);
+      ArrayType::get(getTgDeviceImageTy(), DeviceImagesInit.size()),
+      DeviceImagesInit);
 
   GlobalVariable *DeviceImages =
       new GlobalVariable(*M, DevArrayInit->getType(),

@@ -53,13 +53,17 @@ INITIALIZE_PASS_END(VPOParoptPrepare, "vpo-paropt-prepare",
 
 char VPOParoptPrepare::ID = 0;
 
-FunctionPass *llvm::createVPOParoptPreparePass(unsigned Mode) {
-  return new VPOParoptPrepare(ParPrepare & Mode);
+FunctionPass *llvm::createVPOParoptPreparePass(unsigned Mode,
+    const std::vector<std::string> &OffloadTargets) {
+  return new VPOParoptPrepare(Mode & ParPrepare, OffloadTargets);
 }
 
-VPOParoptPrepare::VPOParoptPrepare(unsigned MyMode)
+VPOParoptPrepare::VPOParoptPrepare(unsigned MyMode,
+    const std::vector<std::string> &MyOffloadTargets)
     : FunctionPass(ID), Mode(MyMode) {
   DEBUG(dbgs() << "\n\n====== Enter VPO Paropt Prepare Pass ======\n\n");
+  for (const auto &T : MyOffloadTargets)
+    OffloadTargets.emplace_back(Triple{T});
   initializeVPOParoptPreparePass(*PassRegistry::getPassRegistry());
 }
 
@@ -98,8 +102,8 @@ bool VPOParoptPrepare::runOnFunction(Function &F) {
   DEBUG(dbgs() << "\n === VPOParoptPrepare Pass before Transformation === \n");
 
   // AUTOPAR | OPENMP | SIMD | OFFLOAD
-  VPOParoptTransform VP(&F, &WI,
-                        WI.getDomTree(), WI.getLoopInfo(), WI.getSE(), Mode);
+  VPOParoptTransform VP(&F, &WI, WI.getDomTree(), WI.getLoopInfo(), WI.getSE(),
+                        Mode, OffloadTargets);
   Changed = Changed | VP.paroptTransforms();
 
   DEBUG(dbgs() << "\n === VPOParoptPrepare Pass after Transformation === \n");

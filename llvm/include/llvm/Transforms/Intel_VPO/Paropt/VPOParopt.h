@@ -73,7 +73,8 @@ public:
   /// Pass Identification
   static char ID;
 
-  explicit VPOParopt(unsigned MyMode = ParTrans | OmpPar | OmpVec );
+  explicit VPOParopt(unsigned MyMode = ParTrans | OmpPar | OmpVec,
+    const std::vector<std::string> &OffloadTargets = {});
   ~VPOParopt(){};
 
   StringRef getPassName() const override { return "VPO Paropt Pass"; }
@@ -92,7 +93,12 @@ private:
   /// \brief Remove routines and global variables which has no target declare
   /// attribute.
   void removeTargetUndeclaredGlobals(Module &M);
+
+  // Paropt mode.
   unsigned Mode;
+
+  // List of target triples for offloading.
+  SmallVector<Triple, 16> OffloadTargets;
 };
 
 } // end namespace vpo

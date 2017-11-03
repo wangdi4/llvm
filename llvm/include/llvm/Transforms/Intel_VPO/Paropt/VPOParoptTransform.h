@@ -76,14 +76,17 @@ class VPOParoptTransform {
 public:
   /// \brief ParoptTransform object constructor
   VPOParoptTransform(Function *F, WRegionInfo *WI, DominatorTree *DT,
-                     LoopInfo *LI, ScalarEvolution *SE, int Mode)
-      : F(F), WI(WI), DT(DT), LI(LI), SE(SE), Mode(Mode), IdentTy(nullptr),
-        TidPtr(nullptr), BidPtr(nullptr), KmpcMicroTaskTy(nullptr),
-        KmpRoutineEntryPtrTy(nullptr), KmpTaskTTy(nullptr),
-        KmpTaskTRedTy(nullptr), KmpTaskDependInfoTy(nullptr),
-        TgOffloadRegionId(nullptr), TgOffloadEntryTy(nullptr),
-        TgDeviceImageTy(nullptr), TgBinaryDescriptorTy(nullptr),
-        DsoHandle(nullptr) {}
+                     LoopInfo *LI, ScalarEvolution *SE, int Mode,
+                     const SmallVectorImpl<Triple> &OffloadTargets)
+      : F(F), WI(WI), DT(DT), LI(LI), SE(SE), Mode(Mode),
+        OffloadTargets(OffloadTargets.begin(), OffloadTargets.end()),
+        IdentTy(nullptr), TidPtr(nullptr), BidPtr(nullptr),
+        KmpcMicroTaskTy(nullptr), KmpRoutineEntryPtrTy(nullptr),
+        KmpTaskTTy(nullptr), KmpTaskTRedTy(nullptr),
+        KmpTaskDependInfoTy(nullptr), TgOffloadRegionId(nullptr),
+        TgOffloadEntryTy(nullptr), TgDeviceImageTy(nullptr),
+        TgBinaryDescriptorTy(nullptr), DsoHandle(nullptr)
+  {}
 
   /// \brief Top level interface for parallel and prepare transformation
   bool paroptTransforms();
@@ -106,6 +109,9 @@ private:
 
   /// \brief Paropt compilation mode
   int Mode;
+
+  /// \brief List of target triples for offloading.
+  SmallVector<Triple, 16> OffloadTargets;
 
   /// \brief Contain all parallel/sync/offload constructs to be transformed
   WRegionListTy WRegionList;
