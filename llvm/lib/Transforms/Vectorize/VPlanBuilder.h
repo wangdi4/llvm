@@ -170,7 +170,7 @@ public:
   VPValue *createNaryOp(unsigned Opcode, ArrayRef<VPValue *> Operands,
                         Instruction *Inst) {
     VPInstruction *NewVPInst = createInstruction(Opcode, Operands);
-    NewVPInst->setInstructionData(new VPInstructionDataIR(Inst));
+    NewVPInst->setInstruction(Inst);
     return NewVPInst;
   }
   VPValue *createNaryOp(unsigned Opcode,

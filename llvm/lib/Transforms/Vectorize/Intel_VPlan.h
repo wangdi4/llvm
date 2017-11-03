@@ -424,19 +424,37 @@ private:
   OpcodeTy Opcode;
 
 #if INTEL_CUSTOMIZATION
-  // Hold information regarding the underlying IR (if any) that this
-  // VPInstruction represents.
-  VPInstructionData *InstData = nullptr;
+  // Hold the underlying Instruction, if any, attached to this VPInstruction.
+  Instruction * Inst = nullptr;
+
+  // Hold the underlying HIR information, if any, attached to this
+  // VPInstruction.
+  // For VPO, we decided to pay the memory cost of having Inst and HIRData
+  // pointers in this class in favor of minimizing divergence with the
+  // community. If memory footprint becomes a problem, we can always move Inst
+  // to a VPInstructionData subclass.
+  VPInstructionData *HIRData = nullptr;
 #endif
 
   /// Utility method serving execute(): generates a single instance of the
   /// modeled instruction.
   void generateInstruction(VPTransformState &State, unsigned Part);
 
-protected:
 #if INTEL_CUSTOMIZATION
-  VPInstructionData *getInstructionData() { return InstData; }
-  void setInstructionData(VPInstructionData *ID) { InstData = ID; }
+protected:
+  Value *getValue() override { return Inst; }
+  /// Return the underlying Instruction attached to this VPInstruction. If there
+  /// is no Instruction attached, it returns null. This interface is similar to
+  /// getValue() but allows to avoid the cast when we are working with
+  /// VPInstruction pointers.
+  Instruction *getInstruction() { return Inst; }
+
+  /// Return the underlying HIR data attached to this VPInstruction. If there
+  /// is no HIR data attached, it returns null.
+  VPInstructionData *getHIRData() { return HIRData; }
+
+  void setInstruction(Instruction *I) { Inst = I; }
+  void setHIRData(VPInstructionData *HD) { HIRData = HD; }
 #endif
 
 public:

@@ -50,11 +50,20 @@ private:
 protected:
   VPValue(const unsigned char SC) : SubclassID(SC) {}
 
-public:
-  /// An enumeration for keeping track of the concrete subclass of VPValue that
-  /// are actually instantiated. Values of this enumeration are kept in the
-  /// SubclassID field of the VPValue objects. They are used for concrete
-  /// type identification.
+  /// Return the underlying Value attached to this VPInstruction. If there
+  /// is no Value attached, it returns null.
+  virtual Value *getValue() {
+    // FIXME: We are currently creating VPValue objects to wrap some unknown
+    // LLVM Values. Make this method pure when VPValue is turned into an
+    // abstract class.
+    return nullptr;
+   }
+
+  public:
+    /// An enumeration for keeping track of the concrete subclass of VPValue
+    /// that are actually instantiated. Values of this enumeration are kept in
+    /// the SubclassID field of the VPValue objects. They are used for concrete
+    /// type identification.
 #if INTEL_CUSTOMIZATION
   enum { VPValueSC, VPUserSC, VPInstructionSC, VPConstantSC };
 #else
@@ -200,6 +209,12 @@ private:
 
 protected:
   VPConstant(Constant *Const) : VPValue(VPValue::VPConstantSC), Const(Const) {}
+
+  Value *getValue() override { return Const; }
+  /// Return the underlying Constant attached to this VPConstant. This interface
+  /// is similar to getValue() but allows to avoid the cast when we are working
+  /// with VPConstant pointers.
+  Constant *getConstant() { return Const; }
 
 public:
   VPConstant(const VPConstant &) = delete;

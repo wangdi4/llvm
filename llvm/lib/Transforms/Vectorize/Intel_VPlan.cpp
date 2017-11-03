@@ -256,9 +256,7 @@ void VPRegionBlock::execute(VPTransformState *State) {
 void VPInstruction::generateInstruction(VPTransformState &State,
                                         unsigned Part) {
 #if INTEL_CUSTOMIZATION
-  auto VPInstData = cast<VPInstructionDataIR>(InstData);
-  auto Inst = VPInstData->getInstruction();
-
+  assert(Inst && "There is no underlying Instruction.");
   State.ILV->vectorizeInstruction(Inst);
   return;
 #endif
