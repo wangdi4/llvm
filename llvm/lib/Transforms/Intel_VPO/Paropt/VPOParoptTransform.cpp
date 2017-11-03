@@ -636,7 +636,9 @@ Value* VPOParoptTransform::genReductionFiniForBoolOps(ReductionItem *RedI,
 
   Builder.SetInsertPoint(RhsBB->getTerminator());
   PHINode *PN = Builder.CreatePHI(Type::getInt1Ty(C), 2, "");
-  PN->addIncoming(ConstantInt::getFalse(C), EntryBB);
+  auto PhiEntryBBVal = IsAnd ? ConstantInt::getFalse(C) :
+                               ConstantInt::getTrue(C);
+  PN->addIncoming(PhiEntryBBVal, EntryBB);
   PN->addIncoming(IsTrueRed, ContBB);
   auto Ext = Builder.CreateZExtOrBitCast(PN, Type::getInt32Ty(C));
   auto ConvFini = Builder.CreateSExtOrTrunc(Ext, ScalarTy);
