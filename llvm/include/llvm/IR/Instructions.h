@@ -1757,6 +1757,9 @@ public:
       !hasFnAttrImpl(Attribute::Builtin);
   }
 
+  /// Determine if the call requires strict floating point semantics.
+  bool isStrictFP() const { return hasFnAttr(Attribute::StrictFP); }
+
   /// Return true if the call should not be inlined.
   bool isNoInline() const { return hasFnAttr(Attribute::NoInline); }
   void setIsNoInline() {
@@ -3844,6 +3847,9 @@ public:
       !hasFnAttrImpl(Attribute::Builtin);
   }
 
+  /// Determine if the call requires strict floating point semantics.
+  bool isStrictFP() const { return hasFnAttr(Attribute::StrictFP); }
+
   /// Return true if the call should not be inlined.
   bool isNoInline() const { return hasFnAttr(Attribute::NoInline); }
   void setIsNoInline() {
@@ -4195,11 +4201,10 @@ private:
   }
 
 public:
-  using DerefFnTy = std::pointer_to_unary_function<Value *, BasicBlock *>;
+  using DerefFnTy = BasicBlock *(*)(Value *);
   using handler_iterator = mapped_iterator<op_iterator, DerefFnTy>;
   using handler_range = iterator_range<handler_iterator>;
-  using ConstDerefFnTy =
-      std::pointer_to_unary_function<const Value *, const BasicBlock *>;
+  using ConstDerefFnTy = const BasicBlock *(*)(const Value *);
   using const_handler_iterator =
       mapped_iterator<const_op_iterator, ConstDerefFnTy>;
   using const_handler_range = iterator_range<const_handler_iterator>;

@@ -668,7 +668,7 @@ public:
   virtual api_type get_api_type() const {
     KMP_ASSERT(0);
     return NATIVE_OS;
-  };
+  }
 
 private:
   static bool picked_api;
@@ -920,6 +920,8 @@ extern int __kmp_hws_abs_flag; // absolute or per-item number requested
   (((blocktime) + (KMP_BLOCKTIME_MULTIPLIER / (monitor_wakeups)) - 1) /        \
    (KMP_BLOCKTIME_MULTIPLIER / (monitor_wakeups)))
 #else
+#define KMP_BLOCKTIME(team, tid)                                               \
+  (get__bt_set(team, tid) ? get__blocktime(team, tid) : __kmp_dflt_blocktime)
 #if KMP_OS_UNIX && (KMP_ARCH_X86 || KMP_ARCH_X86_64)
 // HW TSC is used to reduce overhead (clock tick instead of nanosecond).
 extern kmp_uint64 __kmp_ticks_per_msec;
@@ -929,14 +931,16 @@ extern kmp_uint64 __kmp_ticks_per_msec;
 #define KMP_NOW() __kmp_hardware_timestamp()
 #endif
 #define KMP_NOW_MSEC() (KMP_NOW() / __kmp_ticks_per_msec)
-#define KMP_BLOCKTIME_INTERVAL() (__kmp_dflt_blocktime * __kmp_ticks_per_msec)
+#define KMP_BLOCKTIME_INTERVAL(team, tid)                                      \
+  (KMP_BLOCKTIME(team, tid) * __kmp_ticks_per_msec)
 #define KMP_BLOCKING(goal, count) ((goal) > KMP_NOW())
 #else
 // System time is retrieved sporadically while blocking.
 extern kmp_uint64 __kmp_now_nsec();
 #define KMP_NOW() __kmp_now_nsec()
 #define KMP_NOW_MSEC() (KMP_NOW() / KMP_USEC_PER_SEC)
-#define KMP_BLOCKTIME_INTERVAL() (__kmp_dflt_blocktime * KMP_USEC_PER_SEC)
+#define KMP_BLOCKTIME_INTERVAL(team, tid)                                      \
+  (KMP_BLOCKTIME(team, tid) * KMP_USEC_PER_SEC)
 #define KMP_BLOCKING(goal, count) ((count) % 1000 != 0 || (goal) > KMP_NOW())
 #endif
 #define KMP_YIELD_NOW()                                                        \
@@ -1040,7 +1044,11 @@ extern void __kmp_x86_cpuid(int mode, int mode2, struct kmp_cpuid *p);
 #if KMP_ARCH_X86
 extern void __kmp_x86_pause(void);
 #elif KMP_MIC
-static void __kmp_x86_pause(void) { _mm_delay_32(100); }
+// Performance testing on KNC (C0QS-7120 P/A/X/D, 61-core, 16 GB Memory) showed
+// regression after removal of extra PAUSE from KMP_YIELD_SPIN(). Changing
+// the delay from 100 to 300 showed even better performance than double PAUSE
+// on Spec OMP2001 and LCPC tasking tests, no regressions on EPCC.
+static void __kmp_x86_pause(void) { _mm_delay_32(300); }
 #else
 static void __kmp_x86_pause(void) { _mm_pause(); }
 #endif
@@ -1076,7 +1084,7 @@ static void __kmp_x86_pause(void) { _mm_pause(); }
     KMP_CPU_PAUSE();                                                           \
     (count) -= 2;                                                              \
     if (!(count)) {                                                            \
-      KMP_YIELD(cond);                                                         \
+      __kmp_yield(cond);                                                       \
       (count) = __kmp_yield_next;                                              \
     }                                                                          \
   }
@@ -1085,7 +1093,7 @@ static void __kmp_x86_pause(void) { _mm_pause(); }
     KMP_CPU_PAUSE();                                                           \
     (count) -= 2;                                                              \
     if (!(count)) {                                                            \
-      KMP_YIELD(1);                                                            \
+      __kmp_yield(1);                                                          \
       (count) = __kmp_yield_next;                                              \
     }                                                                          \
   }
@@ -1188,28 +1196,6 @@ typedef struct kmp_cpuinfo {
   char name[3 * sizeof(kmp_cpuid_t)]; // CPUID(0x80000002,0x80000003,0x80000004)
 } kmp_cpuinfo_t;
 #endif
-
-#ifdef BUILD_TV
-
-struct tv_threadprivate {
-  /* Record type #1 */
-  void *global_addr;
-  void *thread_addr;
-};
-
-struct tv_data {
-  struct tv_data *next;
-  void *type;
-  union tv_union {
-    struct tv_threadprivate tp;
-  } u;
-};
-
-extern kmp_key_t __kmp_tv_key;
-
-#endif /* BUILD_TV */
-
-/* ------------------------------------------------------------------------ */
 
 #if USE_ITT_BUILD
 // We cannot include "kmp_itt.h" due to circular dependency. Declare the only
@@ -1957,10 +1943,6 @@ typedef struct kmp_local {
 #endif /* ! USE_CMP_XCHG_FOR_BGET */
 #endif /* KMP_USE_BGET */
 
-#ifdef BUILD_TV
-  struct tv_data *tv_data;
-#endif
-
   PACKED_REDUCTION_METHOD_T
   packed_reduction_method; /* stored by __kmpc_reduce*(), used by
                               __kmpc_end_reduce*() */
@@ -2554,7 +2536,7 @@ typedef struct KMP_ALIGN_CACHE kmp_base_team {
   KMP_ALIGN_CACHE kmp_ordered_team_t t_ordered;
   kmp_balign_team_t t_bar[bs_last_barrier];
   volatile int t_construct; // count of single directive encountered by team
-  kmp_lock_t t_single_lock; // team specific lock
+  char pad[sizeof(kmp_lock_t)]; // padding to maintain performance on big iron
 
   // Master only
   // ---------------------------------------------------------------------------
@@ -2685,6 +2667,7 @@ typedef struct kmp_base_root {
   kmp_lock_t r_begin_lock;
   volatile int r_begin;
   int r_blocktime; /* blocktime for this root and descendants */
+  int r_cg_nthreads; // count of active threads in a contention group
 } kmp_base_root_t;
 
 typedef union KMP_ALIGN_CACHE kmp_root {
@@ -2829,16 +2812,10 @@ extern int __kmp_stkpadding; /* Should we pad root thread(s) stack */
 
 extern size_t
     __kmp_malloc_pool_incr; /* incremental size of pool for kmp_malloc() */
-extern int __kmp_env_chunk; /* was KMP_CHUNK specified?     */
 extern int __kmp_env_stksize; /* was KMP_STACKSIZE specified? */
-extern int __kmp_env_omp_stksize; /* was OMP_STACKSIZE specified? */
-extern int __kmp_env_all_threads; /* was KMP_ALL_THREADS or KMP_MAX_THREADS
-                                     specified? */
-extern int __kmp_env_omp_all_threads; /* was OMP_THREAD_LIMIT specified? */
 extern int __kmp_env_blocktime; /* was KMP_BLOCKTIME specified? */
 extern int __kmp_env_checks; /* was KMP_CHECKS specified?    */
-extern int
-    __kmp_env_consistency_check; /* was KMP_CONSISTENCY_CHECK specified?    */
+extern int __kmp_env_consistency_check; // was KMP_CONSISTENCY_CHECK specified?
 extern int __kmp_generate_warnings; /* should we issue warnings? */
 extern int __kmp_reserve_warn; /* have we issued reserve_threads warning? */
 
@@ -2865,8 +2842,11 @@ extern int __kmp_xproc; /* number of processors in the system */
 extern int __kmp_avail_proc; /* number of processors available to the process */
 extern size_t __kmp_sys_min_stksize; /* system-defined minimum stack size */
 extern int __kmp_sys_max_nth; /* system-imposed maximum number of threads */
-extern int
-    __kmp_max_nth; /* maximum total number of concurrently-existing threads */
+// maximum total number of concurrently-existing threads on device
+extern int __kmp_max_nth;
+// maximum total number of concurrently-existing threads in a contention group
+extern int __kmp_cg_max_nth;
+extern int __kmp_teams_max_nth; // max threads used in a teams construct
 extern int __kmp_threads_capacity; /* capacity of the arrays __kmp_threads and
                                       __kmp_root */
 extern int __kmp_dflt_team_nth; /* default number of threads in a parallel
@@ -3055,17 +3035,12 @@ extern void __kmp_parallel_dxo(int *gtid_ref, int *cid_ref, ident_t *loc_ref);
 extern int __kmp_get_load_balance(int);
 #endif
 
-#ifdef BUILD_TV
-extern void __kmp_tv_threadprivate_store(kmp_info_t *th, void *global_addr,
-                                         void *thread_addr);
-#endif
-
 extern int __kmp_get_global_thread_id(void);
 extern int __kmp_get_global_thread_id_reg(void);
 extern void __kmp_exit_thread(int exit_status);
 extern void __kmp_abort(char const *format, ...);
 extern void __kmp_abort_thread(void);
-extern void __kmp_abort_process(void);
+KMP_NORETURN extern void __kmp_abort_process(void);
 extern void __kmp_warn(char const *format, ...);
 
 extern void __kmp_set_num_threads(int new_nth, int gtid);

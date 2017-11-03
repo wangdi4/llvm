@@ -14,17 +14,19 @@
 
 #include "sanitizer_platform.h"
 
-#if SANITIZER_FREEBSD || SANITIZER_LINUX
+#if SANITIZER_FREEBSD || SANITIZER_LINUX || SANITIZER_NETBSD
 
 #include "sanitizer_allocator_internal.h"
 #include "sanitizer_atomic.h"
 #include "sanitizer_common.h"
+#include "sanitizer_file.h"
 #include "sanitizer_flags.h"
 #include "sanitizer_freebsd.h"
 #include "sanitizer_linux.h"
 #include "sanitizer_placement_new.h"
 #include "sanitizer_procmaps.h"
 #include "sanitizer_stacktrace.h"
+#include "sanitizer_symbolizer.h"
 
 #include <dlfcn.h>  // for dlsym()
 #include <link.h>
@@ -148,7 +150,8 @@ bool SanitizerGetThreadName(char *name, int max_len) {
 #endif
 }
 
-#if !SANITIZER_FREEBSD && !SANITIZER_ANDROID && !SANITIZER_GO
+#if !SANITIZER_FREEBSD && !SANITIZER_ANDROID && !SANITIZER_GO && \
+    !SANITIZER_NETBSD
 static uptr g_tls_size;
 
 #ifdef __i386__
@@ -176,7 +179,8 @@ void InitTlsSize() {
 }
 #else
 void InitTlsSize() { }
-#endif  // !SANITIZER_FREEBSD && !SANITIZER_ANDROID && !SANITIZER_GO
+#endif  // !SANITIZER_FREEBSD && !SANITIZER_ANDROID && !SANITIZER_GO &&
+        // !SANITIZER_NETBSD
 
 #if (defined(__x86_64__) || defined(__i386__) || defined(__mips__) \
     || defined(__aarch64__) || defined(__powerpc64__) || defined(__s390__) \
@@ -331,7 +335,9 @@ static void **ThreadSelfSegbase() {
 uptr ThreadSelf() {
   return (uptr)ThreadSelfSegbase()[2];
 }
-#endif  // SANITIZER_FREEBSD
+#elif SANITIZER_NETBSD
+uptr ThreadSelf() { return (uptr)pthread_self(); }
+#endif  // SANITIZER_NETBSD
 
 #if !SANITIZER_GO
 static void GetTls(uptr *addr, uptr *size) {
@@ -362,7 +368,7 @@ static void GetTls(uptr *addr, uptr *size) {
     *addr = (uptr) dtv[2];
     *size = (*addr == 0) ? 0 : ((uptr) segbase[0] - (uptr) dtv[2]);
   }
-#elif SANITIZER_ANDROID
+#elif SANITIZER_ANDROID || SANITIZER_NETBSD
   *addr = 0;
   *size = 0;
 #else
@@ -373,7 +379,7 @@ static void GetTls(uptr *addr, uptr *size) {
 
 #if !SANITIZER_GO
 uptr GetTlsSize() {
-#if SANITIZER_FREEBSD || SANITIZER_ANDROID
+#if SANITIZER_FREEBSD || SANITIZER_ANDROID || SANITIZER_NETBSD
   uptr addr, size;
   GetTls(&addr, &size);
   return size;
@@ -419,7 +425,7 @@ typedef ElfW(Phdr) Elf_Phdr;
 # endif
 
 struct DlIteratePhdrData {
-  InternalMmapVector<LoadedModule> *modules;
+  InternalMmapVectorNoCtor<LoadedModule> *modules;
   bool first;
 };
 
@@ -457,21 +463,37 @@ extern "C" __attribute__((weak)) int dl_iterate_phdr(
     int (*)(struct dl_phdr_info *, size_t, void *), void *);
 #endif
 
-void ListOfModules::init() {
-  clear();
+static bool requiresProcmaps() {
 #if SANITIZER_ANDROID && __ANDROID_API__ <= 22
-  u32 api_level = AndroidGetApiLevel();
   // Fall back to /proc/maps if dl_iterate_phdr is unavailable or broken.
   // The runtime check allows the same library to work with
   // both K and L (and future) Android releases.
-  if (api_level <= ANDROID_LOLLIPOP_MR1) { // L or earlier
-    MemoryMappingLayout memory_mapping(false);
-    memory_mapping.DumpListOfModules(&modules_);
-    return;
-  }
+  return AndroidGetApiLevel() <= ANDROID_LOLLIPOP_MR1;
+#else
+  return false;
 #endif
-  DlIteratePhdrData data = {&modules_, true};
-  dl_iterate_phdr(dl_iterate_phdr_cb, &data);
+}
+
+static void procmapsInit(InternalMmapVectorNoCtor<LoadedModule> *modules) {
+  MemoryMappingLayout memory_mapping(false);
+  memory_mapping.DumpListOfModules(modules);
+}
+
+void ListOfModules::init() {
+  clearOrInit();
+  if (requiresProcmaps()) {
+    procmapsInit(&modules_);
+  } else {
+    DlIteratePhdrData data = {&modules_, true};
+    dl_iterate_phdr(dl_iterate_phdr_cb, &data);
+  }
+}
+
+// When a custom loader is used, dl_iterate_phdr may not contain the full
+// list of modules. Allow callers to fall back to using procmaps.
+void ListOfModules::fallbackInit() {
+  clearOrInit();
+  if (!requiresProcmaps()) procmapsInit(&modules_);
 }
 
 // getrusage does not give us the current RSS, only the max RSS.
@@ -548,9 +570,11 @@ void LogMessageOnPrintf(const char *str) {
     WriteToSyslog(str);
 }
 
-#if SANITIZER_ANDROID && __ANDROID_API__ >= 21
-extern "C" void android_set_abort_message(const char *msg);
-void SetAbortMessage(const char *str) { android_set_abort_message(str); }
+#if SANITIZER_ANDROID
+extern "C" __attribute__((weak)) void android_set_abort_message(const char *);
+void SetAbortMessage(const char *str) {
+  if (&android_set_abort_message) android_set_abort_message(str);
+}
 #else
 void SetAbortMessage(const char *str) {}
 #endif

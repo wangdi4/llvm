@@ -10,7 +10,7 @@
 //  This file defines the code-completion semantic actions.
 //
 //===----------------------------------------------------------------------===//
-#include "clang/Sema/SemaInternal.h"
+#include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclObjC.h"
 #include "clang/AST/ExprCXX.h"
 #include "clang/AST/ExprObjC.h"
@@ -23,6 +23,7 @@
 #include "clang/Sema/Overload.h"
 #include "clang/Sema/Scope.h"
 #include "clang/Sema/ScopeInfo.h"
+#include "clang/Sema/SemaInternal.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/SmallBitVector.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -741,8 +742,18 @@ unsigned ResultBuilder::getBasePriority(const NamedDecl *ND) {
   }
 
   const DeclContext *DC = ND->getDeclContext()->getRedeclContext();
-  if (DC->isRecord() || isa<ObjCContainerDecl>(DC))
+  if (DC->isRecord() || isa<ObjCContainerDecl>(DC)) {
+    // Explicit destructor calls are very rare.
+    if (isa<CXXDestructorDecl>(ND))
+      return CCP_Unlikely;
+    // Explicit operator and conversion function calls are also very rare.
+    auto DeclNameKind = ND->getDeclName().getNameKind();
+    if (DeclNameKind == DeclarationName::CXXOperatorName ||
+        DeclNameKind == DeclarationName::CXXLiteralOperatorName ||
+        DeclNameKind == DeclarationName::CXXConversionFunctionName)
+      return CCP_Unlikely;
     return CCP_MemberDeclaration;
+  }
 
   // Content-based decisions.
   if (isa<EnumConstantDecl>(ND))
@@ -2398,6 +2409,34 @@ formatBlockPlaceholder(const PrintingPolicy &Policy, const NamedDecl *BlockDecl,
   return Result;
 }
 
+static std::string GetDefaultValueString(const ParmVarDecl *Param,
+                                         const SourceManager &SM,
+                                         const LangOptions &LangOpts) {
+  const SourceRange SrcRange = Param->getDefaultArgRange();
+  CharSourceRange CharSrcRange = CharSourceRange::getTokenRange(SrcRange);
+  bool Invalid = CharSrcRange.isInvalid();
+  if (Invalid)
+    return "";
+  StringRef srcText = Lexer::getSourceText(CharSrcRange, SM, LangOpts, &Invalid);
+  if (Invalid)
+    return "";
+
+  if (srcText.empty() || srcText == "=") {
+    // Lexer can't determine the value.
+    // This happens if the code is incorrect (for example class is forward declared).
+    return "";
+  }
+  std::string DefValue(srcText.str());
+  // FIXME: remove this check if the Lexer::getSourceText value is fixed and
+  // this value always has (or always does not have) '=' in front of it
+  if (DefValue.at(0) != '=') {
+    // If we don't have '=' in front of value.
+    // Lexer returns built-in types values without '=' and user-defined types values with it.
+    return " = " + DefValue;
+  }
+  return " " + DefValue;
+}
+
 /// \brief Add function parameter chunks to the given code completion string.
 static void AddFunctionParameterChunks(Preprocessor &PP,
                                        const PrintingPolicy &Policy,
@@ -2431,6 +2470,8 @@ static void AddFunctionParameterChunks(Preprocessor &PP,
     
     // Format the placeholder string.
     std::string PlaceholderStr = FormatFunctionParameter(Policy, Param);
+    if (Param->hasDefaultArg())
+      PlaceholderStr += GetDefaultValueString(Param, PP.getSourceManager(), PP.getLangOpts());
 
     if (Function->isVariadic() && P == N - 1)
       PlaceholderStr += ", ...";
@@ -3012,10 +3053,14 @@ static void AddOverloadParameterChunks(ASTContext &Context,
 
     // Format the placeholder string.
     std::string Placeholder;
-    if (Function)
-      Placeholder = FormatFunctionParameter(Policy, Function->getParamDecl(P));
-    else
+    if (Function) {
+      const ParmVarDecl *Param = Function->getParamDecl(P);
+      Placeholder = FormatFunctionParameter(Policy, Param);
+      if (Param->hasDefaultArg())
+        Placeholder += GetDefaultValueString(Param, Context.getSourceManager(), Context.getLangOpts());
+    } else {
       Placeholder = Prototype->getParamType(P).getAsString(Policy);
+    }
 
     if (P == CurrentArg)
       Result.AddCurrentParameterChunk(
@@ -4248,13 +4293,17 @@ static void mergeCandidatesWithResults(Sema &SemaRef,
     std::stable_sort(
         CandidateSet.begin(), CandidateSet.end(),
         [&](const OverloadCandidate &X, const OverloadCandidate &Y) {
-          return isBetterOverloadCandidate(SemaRef, X, Y, Loc);
+          return isBetterOverloadCandidate(SemaRef, X, Y, Loc,
+                                           CandidateSet.getKind());
         });
 
     // Add the remaining viable overload candidates as code-completion results.
-    for (auto &Candidate : CandidateSet)
+    for (auto &Candidate : CandidateSet) {
+      if (Candidate.Function && Candidate.Function->isDeleted())
+        continue;
       if (Candidate.Viable)
         Results.push_back(ResultCandidate(Candidate.Function));
+    }
   }
 }
 
