@@ -360,10 +360,18 @@ SVal SimpleSValBuilder::evalBinOpNN(ProgramStateRef state,
       Loc lhsL = lhs.castAs<nonloc::LocAsInteger>().getLoc();
       switch (rhs.getSubKind()) {
         case nonloc::LocAsIntegerKind:
+          // FIXME: at the moment the implementation
+          // of modeling "pointers as integers" is not complete.
+          if (!BinaryOperator::isComparisonOp(op))
+            return UnknownVal();
           return evalBinOpLL(state, op, lhsL,
                              rhs.castAs<nonloc::LocAsInteger>().getLoc(),
                              resultTy);
         case nonloc::ConcreteIntKind: {
+          // FIXME: at the moment the implementation
+          // of modeling "pointers as integers" is not complete.
+          if (!BinaryOperator::isComparisonOp(op))
+            return UnknownVal();
           // Transform the integer into a location and compare.
           // FIXME: This only makes sense for comparisons. If we want to, say,
           // add 1 to a LocAsInteger, we'd better unpack the Loc and add to it,
@@ -718,9 +726,11 @@ SVal SimpleSValBuilder::evalBinOpLL(ProgramStateRef state,
     if (Optional<loc::ConcreteInt> rInt = rhs.getAs<loc::ConcreteInt>()) {
       // If one of the operands is a symbol and the other is a constant,
       // build an expression for use by the constraint manager.
-      if (SymbolRef lSym = lhs.getAsLocSymbol(true))
-        return MakeSymIntVal(lSym, op, rInt->getValue(), resultTy);
-
+      if (SymbolRef lSym = lhs.getAsLocSymbol(true)) {
+        if (BinaryOperator::isComparisonOp(op))
+          return MakeSymIntVal(lSym, op, rInt->getValue(), resultTy);
+        return UnknownVal();
+      }
       // Special case comparisons to NULL.
       // This must come after the test if the LHS is a symbol, which is used to
       // build constraints. The address of any non-symbolic region is guaranteed
@@ -1016,7 +1026,8 @@ SVal SimpleSValBuilder::simplifySVal(ProgramStateRef State, SVal V) {
               SVB.getKnownValue(State, nonloc::SymbolVal(S)))
         return Loc::isLocType(S->getType()) ? (SVal)SVB.makeIntLocVal(*I)
                                             : (SVal)SVB.makeIntVal(*I);
-      return nonloc::SymbolVal(S);
+      return Loc::isLocType(S->getType()) ? (SVal)SVB.makeLoc(S) 
+                                          : nonloc::SymbolVal(S);
     }
 
     // TODO: Support SymbolCast. Support IntSymExpr when/if we actually

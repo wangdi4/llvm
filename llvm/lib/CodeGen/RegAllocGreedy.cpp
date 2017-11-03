@@ -546,14 +546,17 @@ void RAGreedy::getAnalysisUsage(AnalysisUsage &AU) const {
 //===----------------------------------------------------------------------===//
 
 bool RAGreedy::LRE_CanEraseVirtReg(unsigned VirtReg) {
+  LiveInterval &LI = LIS->getInterval(VirtReg);
   if (VRM->hasPhys(VirtReg)) {
-    LiveInterval &LI = LIS->getInterval(VirtReg);
     Matrix->unassign(LI);
     aboutToRemoveInterval(LI);
     return true;
   }
   // Unassigned virtreg is probably in the priority queue.
   // RegAllocBase will erase it after dequeueing.
+  // Nonetheless, clear the live-range so that the debug
+  // dump will show the right state for that VirtReg.
+  LI.clear();
   return false;
 }
 
@@ -2082,7 +2085,7 @@ RAGreedy::mayRecolorAllInterferences(unsigned PhysReg, LiveInterval &VirtReg,
       if ((getStage(*Intf) == RS_Done &&
            MRI->getRegClass(Intf->reg) == CurRC) ||
           FixedRegisters.count(Intf->reg)) {
-        DEBUG(dbgs() << "Early abort: the inteference is not recolorable.\n");
+        DEBUG(dbgs() << "Early abort: the interference is not recolorable.\n");
         return false;
       }
       RecoloringCandidates.insert(Intf);
@@ -2170,7 +2173,7 @@ unsigned RAGreedy::tryLastChanceRecoloring(LiveInterval &VirtReg,
     // It is only possible to recolor virtual register interference.
     if (Matrix->checkInterference(VirtReg, PhysReg) >
         LiveRegMatrix::IK_VirtReg) {
-      DEBUG(dbgs() << "Some inteferences are not with virtual registers.\n");
+      DEBUG(dbgs() << "Some interferences are not with virtual registers.\n");
 
       continue;
     }
@@ -2179,7 +2182,7 @@ unsigned RAGreedy::tryLastChanceRecoloring(LiveInterval &VirtReg,
     // the interferences.
     if (!mayRecolorAllInterferences(PhysReg, VirtReg, RecoloringCandidates,
                                     FixedRegisters)) {
-      DEBUG(dbgs() << "Some inteferences cannot be recolored.\n");
+      DEBUG(dbgs() << "Some interferences cannot be recolored.\n");
       continue;
     }
 
