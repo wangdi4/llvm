@@ -84,7 +84,7 @@ ExecutionEngine *InterpreterPluggable::create(std::unique_ptr<Module> M, std::st
 /// except calling our own run() function
 GenericValue
 InterpreterPluggable::runFunction(Function *F,
-                                  const std::vector<GenericValue> &ArgValues)
+                                  ArrayRef<GenericValue> ArgValues)
 {
     assert (F && "Function *F was null at entry to run()");
 

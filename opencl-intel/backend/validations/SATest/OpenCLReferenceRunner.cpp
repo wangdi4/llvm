@@ -153,6 +153,27 @@ OpenCLReferenceRunner::~OpenCLReferenceRunner(void)
     m_ClMemObjScratchMemList.clear();
 }
 
+static void UpdateOpenclKernelsMetadata(llvm::Module *M)
+{
+  // Remove SPIR1.2-style Metadata,
+  // then create Kernel Metadata in the new format
+  // (see MetadataAPI.h for more details).
+  auto *OldMDKernels = M->getNamedMetadata("opencl.kernels");
+  if (OldMDKernels)
+    M->eraseNamedMetadata(OldMDKernels);
+
+  llvm::SmallVector<llvm::Metadata*, 8> KernelsMDList;
+
+  for (auto &Func : *M) {
+    if ((Func.getCallingConv() == CallingConv::SPIR_KERNEL)
+      && (!Func.isDeclaration())) {
+      KernelsMDList.push_back(llvm::ValueAsMetadata::get(&Func));
+    }
+  }
+
+  auto *Root = M->getOrInsertNamedMetadata("opencl.kernels");
+  Root->addOperand(llvm::MDNode::get(M->getContext(), KernelsMDList));
+}
 
 void OpenCLReferenceRunner::Run(IRunResult* runResult,
                                 const IProgram* program,
@@ -163,6 +184,8 @@ void OpenCLReferenceRunner::Run(IRunResult* runResult,
     const ReferenceRunOptions *pRunConfig = static_cast<const ReferenceRunOptions *>(runConfig);
 
     m_pModule = static_cast<const OpenCLProgram*>(program)->ParseToModule();
+
+    UpdateOpenclKernelsMetadata(m_pModule);
 
     // if FP_CONTRACT is on, use fma in NEAT
     m_bUseFmaNEAT = m_pModule->getNamedMetadata("opencl.enable.FP_CONTRACT");

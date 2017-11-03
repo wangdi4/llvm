@@ -53,8 +53,8 @@ public:
     }
     /// run - Start execution with the specified function and arguments.
     ///
-    virtual GenericValue runFunction(Function *F,
-        const std::vector<GenericValue> &ArgValues);
+    GenericValue runFunction(Function *F,
+                             ArrayRef<GenericValue> ArgValues) override;
 
     // return codes
     enum RETCODE
