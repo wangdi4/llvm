@@ -485,7 +485,7 @@ Value *VPOParoptTransform::genReductionScalarInit(ReductionItem *RedI,
                                                   Type *ScalarTy) {
   Value *V;
   switch (RedI->getType()) {
-  case ReductionItem::WRNReductionSum:
+  case ReductionItem::WRNReductionAdd:
   case ReductionItem::WRNReductionSub:
     V = ScalarTy->isIntOrIntVectorTy() ? ConstantInt::get(ScalarTy, 0)
                                        : ConstantFP::get(ScalarTy, 0.0);
@@ -683,7 +683,7 @@ Value *VPOParoptTransform::genReductionScalarFini(ReductionItem *RedI,
   Value *Res;
 
   switch (RedI->getType()) {
-  case ReductionItem::WRNReductionSum:
+  case ReductionItem::WRNReductionAdd:
   case ReductionItem::WRNReductionSub:
     Res = ScalarTy->isIntOrIntVectorTy() ? Builder.CreateAdd(Rhs1, Rhs2)
                                          : Builder.CreateFAdd(Rhs1, Rhs2);

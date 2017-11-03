@@ -162,9 +162,9 @@ void LoopVectorizationPlanner::EnterExplicitData(WRNVecLoopNode *WRLoop,
       case ReductionItem::WRNReductionMax:
         LVL.addReductionMax(V, !RedItem->getIsUnsigned());
         break;
-      case ReductionItem::WRNReductionSum:
+      case ReductionItem::WRNReductionAdd:
       case ReductionItem::WRNReductionSub:
-        LVL.addReductionSum(V);
+        LVL.addReductionAdd(V);
         break;
       case ReductionItem::WRNReductionMult:
         LVL.addReductionMult(V);

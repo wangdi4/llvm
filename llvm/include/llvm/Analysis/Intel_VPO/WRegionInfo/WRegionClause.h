@@ -204,7 +204,7 @@ class ReductionItem : public Item
 public:
   typedef enum WRNReductionKind {
     WRNReductionError = 0,
-    WRNReductionSum,
+    WRNReductionAdd,
     WRNReductionSub,
     WRNReductionMult,
     WRNReductionAnd,
@@ -232,7 +232,7 @@ public:
     static WRNReductionKind getKindFromClauseId(int Id) {
       switch(Id) {
         case QUAL_OMP_REDUCTION_ADD:
-          return WRNReductionSum;
+          return WRNReductionAdd;
         case QUAL_OMP_REDUCTION_SUB:
           return WRNReductionSub;
         case QUAL_OMP_REDUCTION_MUL:
@@ -241,7 +241,7 @@ public:
           return WRNReductionAnd;
         case QUAL_OMP_REDUCTION_OR:
           return WRNReductionOr;
-        case QUAL_OMP_REDUCTION_XOR:
+        case QUAL_OMP_REDUCTION_BXOR:
           return WRNReductionBxor;
         case QUAL_OMP_REDUCTION_BAND:
           return WRNReductionBand;
@@ -260,7 +260,7 @@ public:
 
     static int getClauseIdFromKind(WRNReductionKind Kind) {
       switch(Kind) {
-        case WRNReductionSum:
+        case WRNReductionAdd:
           return QUAL_OMP_REDUCTION_ADD;
         case WRNReductionSub:
           return QUAL_OMP_REDUCTION_SUB;
@@ -271,7 +271,7 @@ public:
         case WRNReductionOr:
           return QUAL_OMP_REDUCTION_OR;
         case WRNReductionBxor:
-          return QUAL_OMP_REDUCTION_XOR;
+          return QUAL_OMP_REDUCTION_BXOR;
         case WRNReductionBand:
           return QUAL_OMP_REDUCTION_BAND;
         case WRNReductionBor:

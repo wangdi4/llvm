@@ -207,7 +207,7 @@ public:
   /// Register explicit reduction variables provided from outside.
   void addReductionMin(Value *V, bool IsSigned);
   void addReductionMax(Value *V, bool IsSigned);
-  void addReductionSum(Value *V);
+  void addReductionAdd(Value *V);
   void addReductionMult(Value *V);
   void addReductionAnd(Value *V) {
     return parseExplicitReduction(V, RecurrenceDescriptor::RK_IntegerAnd);

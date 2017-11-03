@@ -464,7 +464,7 @@ bool VPOAnalysisUtils::isReductionClause(int ClauseID) {
     case QUAL_OMP_REDUCTION_MUL:
     case QUAL_OMP_REDUCTION_AND:
     case QUAL_OMP_REDUCTION_OR:
-    case QUAL_OMP_REDUCTION_XOR:
+    case QUAL_OMP_REDUCTION_BXOR:
     case QUAL_OMP_REDUCTION_BAND:
     case QUAL_OMP_REDUCTION_BOR:
     case QUAL_OMP_REDUCTION_MAX:
