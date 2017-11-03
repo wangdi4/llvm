@@ -34,73 +34,98 @@ using namespace llvm::vpo;
 
 #define DEBUG_TYPE "vpo-cfgrestructuring"
 
-// This function puts "directive_begin" and "directive_end" into standalone
-// basic blocks. This is required by WRegion Construction.
+/// \brief Auxiliary routine to split a BB at SplitPoint
+static void splitBB(Instruction *SplitPoint, DominatorTree *DT, LoopInfo *LI,
+                    StringRef &NewName, unsigned &Counter) {
+  BasicBlock *OrigBB = SplitPoint->getParent();
+  BasicBlock *NewBB = SplitBlock(OrigBB, SplitPoint, DT, LI);
+  NewBB->setName(NewName + "." + Twine(++Counter));
+}
+
+/// \brief This function isolates sequences of intrinsic calls representing a
+/// directive (such as an OpenMP directive) by putting them into separate BB
+/// that contains only those intrinsic calls (plus the necessary terminating 
+/// unconditional branch instr). This is required by WRegion Construction.
+///
+/// Currently, it supports two forms of directive representations. In the
+/// following examples, we use this OpenMP parallel construct for illustration:
+///
+///   #pragma omp parallel shared(x) private(i)
+///   { /* Parallel code region here */ }
 //
-// Each "directive_begin" or "directive_end" has a "directive_qual_list_end"
-// associated to indicate the end of this directive. Here are some examples,
-// where the strings are represented by metadata in the real code:
-//
-// Example 1:
-//
-// call void @llvm.intel.directive("DIR_BEGIN")
-// ...
-// call void @llvm.intel.directive("DIR_QUAL_LIST_END")
-//
-//
-// Example 2:
-//
-// call void @llvm.intel.directive("DIR_END")
-// ...
-// call void @llvm.intel.directive("DIR_QUAL_LIST_END")
-//
+/// The first form uses a sequence of llvm.intel.directive* intrinsics to 
+/// represent the begin or the end of the construct. 
+///
+/// Example 1a: This sequence of intrinsics begins the construct:
+///   call void @llvm.intel.directive("DIR.OMP.PARALLEL")
+///   call void @llvm.intel.directive.qual.opndlist("QUAL.OMP.SHARED", i32* %x)
+///   call void @llvm.intel.directive.qual.opndlist("QUAL.OMP.PRIVATE", i32* %i)
+///   call void @llvm.intel.directive("DIR.QUAL.LIST.END")
+///
+/// Example 1b: This sequence of intrinsics ends the construct:
+///   call void @llvm.intel.directive("DIR.OMP.END.PARALLEL")
+///   call void @llvm.intel.directive("DIR.QUAL.LIST.END")
+///
+/// The second form uses a single intrinsic in both cases. It uses the
+/// llvm.directive.region.entry intrinsic to start a construct, and the
+/// llvm.directive.region.exit intrinsic to end it.
+///
+/// Example 2a: This intrinsic begins the construct in Example 1a:
+///   %0 = call token @llvm.directive.region.entry()["DIR.OMP.PARALLEL"(),
+///                    "QUAL.OMP.SHARED"(i32* %x), "QUAL.OMP.PRIVATE"(i32* %i)]
+///
+/// Example 2b: And this intrinsic ends it:
+///   call void @llvm.directive.region.exit(token %0)["DIR.OMP.END.PARALLEL"()]
+///
+/// This function splits BBs containing these intrinsics using these rules:
+///   1a: Split before llvm.intel.directive if it's not "DIR.QUAL.LIST.END"
+///   1b: Split after  llvm.intel.directive("DIR.QUAL.LIST.END")
+///   2a: Split before and after llvm.directive.region.entry
+///   2b: Split before and after llvm.directive.region.exit
+///
 void VPOUtils::CFGRestructuring(Function &F, DominatorTree *DT, LoopInfo *LI) {
 
   DEBUG(dbgs() << "VPO CFG Restructuring \n");
 
-  // Find all the intrinsic instructions, including directive_begin,
-  // directive_end, directive_qual_list_end, and bookkeep them in
-  // InstructionsToSplit.
+  // Find all the intrinsic calls representing directive begin/end, and store
+  // them in the set InstructionsToSplit.
   std::set<Instruction *> InstructionsToSplit;
   InstructionsToSplit.clear();
   for (Function::iterator B = F.begin(), BE = F.end(); B != BE; ++B)
     for (BasicBlock::iterator I = B->begin(), IE = B->end(); I != IE; ++I)
-      if (IntrinsicInst *Inst = dyn_cast<IntrinsicInst>(&*I))
-        if (Inst->getIntrinsicID() == Intrinsic::intel_directive) {
-          StringRef DirString = 
-                            VPOAnalysisUtils::getDirectiveMetadataString(Inst);
-          if (VPOAnalysisUtils::isBeginOrEndDirective(DirString) || 
-              VPOAnalysisUtils::isListEndDirective(DirString))
-            InstructionsToSplit.insert(Inst);
-        }
+      if (VPOAnalysisUtils::isIntelDirective(&*I))
+        InstructionsToSplit.insert(&*I);
 
-  // Now, go through InstructionsToSplit and do the splitting around
-  // directive_begin or directive_end, or the next instruction right after
-  // directive_qual_list_end.
+  unsigned Counter = 0; // Used to create unique names for newly created BBs
 
-  unsigned Counter = 0;
-
+  // Go through InstructionsToSplit to split the BBs according to the
+  // aforementioned rules.
   for (Instruction *I : InstructionsToSplit) {
-    Counter++;
 
-    // Get the basic block of this instruction first.
+    StringRef DirString = VPOAnalysisUtils::getDirectiveString(I);
+    assert(VPOAnalysisUtils::isOpenMPDirective(DirString) &&
+           "CFGRestructuring: unknown directive.");
+    bool isListEnd = VPOAnalysisUtils::isListEndDirective(DirString);
+    bool isRegionDir = VPOAnalysisUtils::isRegionDirective(I);
+
+    // Get the basic block where this instruction resides in.
     BasicBlock *BB = I->getParent();
 
-    // If directive_begin or directive_end is the first instruction of a basic
-    // block, we can just skip splitting around it. Note that,
-    // directive_qual_list_end will never be the first instruction of a basic
-    // block, since it is always paired with directive_begin or directive_end.
-    if (I != &*(BB->begin())) {
-      Instruction *SplitPoint = I;
-      StringRef DirString =
-       VPOAnalysisUtils::getDirectiveMetadataString(dyn_cast<IntrinsicInst>(I));
-      if (VPOAnalysisUtils::isListEndDirective(DirString)) {
-        //        BasicBlock::iterator Inst = I;
-        BasicBlock::iterator Inst(I);
-        SplitPoint = &*(++Inst);
-      }
-      BasicBlock *newBB = SplitBlock(BB, SplitPoint, DT, LI);
-      newBB->setName(DirString + "." + Twine(Counter));
+    // Split before I (rules 1a, 2a, 2b).
+    // Optimization: skip this if I is BB's first instruction.
+    if (!isListEnd && I != &(BB->front()))
+      splitBB(I, DT, LI, DirString, Counter);
+
+    // Split after I (rules 1b, 2a, 2b).
+    if (isListEnd || isRegionDir) {
+      BasicBlock::iterator Inst(I);
+      Instruction *SplitPoint = &*(++Inst);
+      // Optimization: skip this if I's successor is an unconditional branch
+      // instruction.
+      BranchInst *BI = dyn_cast<BranchInst>(SplitPoint);
+      if (BI && BI->isUnconditional()) 
+        continue; // skip; don't split
+      splitBB(SplitPoint, DT, LI, DirString, Counter);
     }
   }
 }

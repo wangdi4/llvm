@@ -38,13 +38,16 @@ entry.split:
   tail call void @llvm.dbg.value(metadata float* %x, i64 0, metadata !16, metadata !14), !dbg !17
   call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !41, float* nonnull %x), !dbg !18
   call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END"), !dbg !18
+  br label %DIR.QUAL.LIST.END.2
+
+DIR.QUAL.LIST.END.2:
   call void @llvm.dbg.value(metadata i32 0, i64 0, metadata !19, metadata !14), !dbg !21
   %x.promoted = load float, float* %x, align 4, !dbg !22
   br label %for.body, !dbg !26
 
-for.body:                                         ; preds = %for.body, %entry.split
-  %indvars.iv = phi i64 [ 0, %entry.split ], [ %indvars.iv.next, %for.body ], !dbg !27
-  %add7 = phi float [ %x.promoted, %entry.split ], [ %add, %for.body ], !dbg !27
+for.body:                                         ; preds = %for.body, %DIR.QUAL.LIST.END.2
+  %indvars.iv = phi i64 [ 0, %DIR.QUAL.LIST.END.2 ], [ %indvars.iv.next, %for.body ], !dbg !27
+  %add7 = phi float [ %x.promoted, %DIR.QUAL.LIST.END.2 ], [ %add, %for.body ], !dbg !27
   %0 = trunc i64 %indvars.iv to i32, !dbg !30
   %conv2 = sitofp i32 %0 to double, !dbg !30
   %mul = fmul double %conv2, 1.800000e+00, !dbg !31
@@ -60,8 +63,14 @@ for.body:                                         ; preds = %for.body, %entry.sp
 
 for.end:                                          ; preds = %for.body
   store float %add, float* %x, align 4, !dbg !22
+  br label %DIR.OMP.END.SIMD.2
+
+DIR.OMP.END.SIMD.2:
   call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD"), !dbg !35
   call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END"), !dbg !35
+  br label %DIR.QUAL.LIST.END.3
+
+DIR.QUAL.LIST.END.3:
   call void @llvm.dbg.value(metadata float* %x, i64 0, metadata !16, metadata !14), !dbg !17
   %conv6 = fpext float %add to double, !dbg !36
   %call = call i32 (i8*, ...) @printf(i8* nonnull getelementptr inbounds ([8 x i8], [8 x i8]* @.str, i64 0, i64 0), double %conv6) #4, !dbg !37

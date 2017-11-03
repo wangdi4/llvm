@@ -143,18 +143,45 @@ std::vector<Attribute> getVectorVariantAttributes(Function& F);
 /// specified according to the vector function ABI.
 Type* calcCharacteristicType(Function& F, VectorVariant& Variant);
 
-/// @brief Get all functions marked for vectorization in module.
-/// @param M Module to query
-/// @param funcVars Data structure to hold the declared vector variants
-/// (in string form) for each function.
-void getFunctionsToVectorize(Module &M, FunctionVariants& funcVars);
+/// \brief Get all functions marked for vectorization in module and their
+/// list of variants.
+void getFunctionsToVectorize(
+  Module &M, std::map<Function*, std::vector<StringRef> > &FuncVars);
 
-/// \brief Widens the Function \p F using a vector length of \p VL and
-/// inserts the appropriate function declaration if not already created.
-Function* getOrInsertVectorFunction(Function *F, unsigned VL,
+/// \brief Widens the function call \p Call using a vector length of \p VL and
+/// inserts the appropriate function declaration if not already created. This
+/// function will insert functions for library calls, intrinsics, and simd
+/// functions.
+Function* getOrInsertVectorFunction(const CallInst *Call, unsigned VL,
                                     SmallVectorImpl<Type*> &ArgTys,
-                                    TargetLibraryInfo *TLI);
+                                    TargetLibraryInfo *TLI,
+                                    Intrinsic::ID ID,
+                                    VectorVariant *VecVariant,
+                                    bool Masked);
+
 #endif // INTEL_CUSTOMIZATION
+
+#if INTEL_OPENCL
+/// \brief Return true if \p FnName is an OpenCL read channel function
+bool isOpenCLReadChannel(StringRef FnName);
+
+/// \brief Return true if \p FnName is an OpenCL write channel function
+bool isOpenCLWriteChannel(StringRef FnName);
+
+/// \brief Return true if the argument at \p Idx is the read destination for
+/// an OpenCL read channel call.
+bool isOpenCLReadChannelDest(StringRef FnName, unsigned Idx);
+
+/// \brief Return true if the argument at \p Idx is the write source for an
+/// OpenCL write channel call.
+bool isOpenCLWriteChannelSrc(StringRef FnName, unsigned Idx);
+
+/// \brief Returns the alloca associated with an OpenCL read/write channel call.
+Value* getOpenCLReadWriteChannelAlloc(const CallInst *Call);
+
+/// \brief Returns a string representation of Type \p Ty.
+std::string typeToString(Type *Ty);
+#endif // INTEL_OPENCL
     
 /// Specifically, let Kinds = [MD_tbaa, MD_alias_scope, MD_noalias, MD_fpmath,
 /// MD_nontemporal].  For K in Kinds, we get the MDNode for K from each of the

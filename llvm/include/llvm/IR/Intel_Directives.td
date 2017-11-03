@@ -63,6 +63,7 @@ def "DIR.OMP.PARALLEL.WORKSHARE" : Directive;
 def "DIR.OMP.END.PARALLEL.WORKSHARE" : Directive;
 
 def "DIR.OMP.SECTION" : Directive;
+def "DIR.OMP.END.SECTION" : Directive;
 
 def "DIR.OMP.SINGLE" : Directive;
 def "DIR.OMP.END.SINGLE" : Directive;
@@ -77,15 +78,19 @@ def "DIR.OMP.CRITICAL" : Directive;
 def "DIR.OMP.END.CRITICAL" : Directive;
 
 def "DIR.OMP.BARRIER" : Directive;
+def "DIR.OMP.END.BARRIER" : Directive;
 
 def "DIR.OMP.TASKWAIT" : Directive;
+def "DIR.OMP.END.TASKWAIT" : Directive;
 
 def "DIR.OMP.TASKYIELD" : Directive;
+def "DIR.OMP.END.TASKYIELD" : Directive;
 
 def "DIR.OMP.ATOMIC" : Directive;
 def "DIR.OMP.END.ATOMIC" : Directive;
 
 def "DIR.OMP.FLUSH" : Directive;
+def "DIR.OMP.END.FLUSH" : Directive;
 
 def "DIR.OMP.THREADPRIVATE" : Directive;
 
@@ -108,6 +113,7 @@ def "DIR.OMP.TARGET.DATA" : Directive;
 def "DIR.OMP.END.TARGET.DATA" : Directive;
 
 def "DIR.OMP.TARGET.UPDATE" : Directive;
+def "DIR.OMP.END.TARGET.UPDATE" : Directive;
 
 def "DIR.OMP.TEAMS" : Directive;
 def "DIR.OMP.END.TEAMS" : Directive;
@@ -119,10 +125,16 @@ def "DIR.OMP.DISTRIBUTE.PARLOOP" : Directive;
 def "DIR.OMP.END.DISTRIBUTE.PARLOOP" : Directive;
 
 def "DIR.OMP.TARGET.ENTER.DATA" : Directive;
+def "DIR.OMP.END.TARGET.ENTER.DATA" : Directive;
+
 def "DIR.OMP.TARGET.EXIT.DATA" : Directive;
+def "DIR.OMP.END.TARGET.EXIT.DATA" : Directive;
 
 def "DIR.OMP.CANCEL" : Directive;
+def "DIR.OMP.END.CANCEL" : Directive;
+
 def "DIR.OMP.CANCELLATION.POINT" : Directive;
+def "DIR.OMP.END.CANCELLATION.POINT" : Directive;
 
 // *** Begin OpenMP Clauses ***
 
@@ -178,6 +190,8 @@ def "QUAL.OMP.REDUCTION.OR" : Clause;
 def "QUAL.OMP.REDUCTION.XOR" : Clause;
 def "QUAL.OMP.REDUCTION.BAND" : Clause;
 def "QUAL.OMP.REDUCTION.BOR" : Clause;
+def "QUAL.OMP.REDUCTION.MAX" : Clause;
+def "QUAL.OMP.REDUCTION.MIN" : Clause;
 def "QUAL.OMP.REDUCTION.UDR" : Clause;
 def "QUAL.OMP.TO" : Clause;
 def "QUAL.OMP.FROM" : Clause;

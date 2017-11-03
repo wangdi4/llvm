@@ -37,30 +37,41 @@ bool VPOUtils::stripDirectives(WRegionNode *WRN) {
   BasicBlock *EntryBB = WRN->getEntryBBlock();
   BasicBlock *ExitBB = WRN->getExitBBlock();
 
-  success = success && VPOUtils::stripDirectives(*EntryBB);
+  // Under the new region representation:
+  //   %1 = call token @llvm.directive.region.entry() [...]
+  //     ...
+  //   call void @llvm.directive.region.exit(token %1) [...]
+  // We have to remove the END dir before the BEGIN dir. If not, when removing
+  // the BEGIN it will first remove the END (which is a use of the token
+  // defined by the BEGIN intrinsic) and then later stripDirectives(*ExitBB)
+  // would return false because there's nothing left in the ExitBB to remove.
   success = success && VPOUtils::stripDirectives(*ExitBB);
-
+  success = success && VPOUtils::stripDirectives(*EntryBB);
   return success;
 }
 
 bool VPOUtils::stripDirectives(BasicBlock &BB) {
-  SmallVector<IntrinsicInst *, 4> IntrinsicsToRemove;
-  IntrinsicInst *IntrinCall = nullptr;
+  SmallVector<Instruction *, 4> IntrinsicsToRemove;
 
   for (Instruction &I : BB) {
-    if ((IntrinCall = dyn_cast<IntrinsicInst>(&I))) {
-      Intrinsic::ID Id = IntrinCall->getIntrinsicID();
-      if (VPOAnalysisUtils::isIntelDirectiveOrClause(Id)) {
-        IntrinsicsToRemove.push_back(IntrinCall);
-      }
-    }
+    if (VPOAnalysisUtils::isIntelDirectiveOrClause(&I))
+      IntrinsicsToRemove.push_back(&I);
   }
 
   // Remove the directive intrinsics.
   // SimplifyCFG will remove any blocks that become empty.
   unsigned Idx = 0;
   for (Idx = 0; Idx < IntrinsicsToRemove.size(); ++Idx) {
-    IntrinsicsToRemove[Idx]->eraseFromParent();
+    Instruction *I = IntrinsicsToRemove[Idx];
+    // Under the region representation, the BEGIN directive writes to a token
+    // that is used by the matching END directive. Therefore, before removing
+    // I, we must first remove all its uses, if any. Failing to do that
+    // will result in this assertion: "Uses remain when a value is destroyed!"
+    for (User *U : I->users())
+      if (Instruction *UI = dyn_cast<Instruction>(U)) {
+        UI->eraseFromParent();
+      }
+    I->eraseFromParent();
   }
 
   // Returns true if any elimination happens.
@@ -75,6 +86,41 @@ bool VPOUtils::stripDirectives(Function &F) {
   }
 
   return changed;
+}
+
+bool VPOUtils::stripPrivateClauses(WRegionNode *WRN) {
+  BasicBlock *EntryBB = WRN->getEntryBBlock();
+  return VPOUtils::stripPrivateClauses(*EntryBB);
+}
+
+bool VPOUtils::stripPrivateClauses(BasicBlock &BB) {
+  SmallVector<Instruction *, 4> IntrinsicsToRemove;
+
+  for (Instruction &I : BB) {
+    IntrinsicInst *Call = dyn_cast<IntrinsicInst>(&I);
+    if (Call) {
+      Intrinsic::ID Id = Call->getIntrinsicID();
+      if (Id == Intrinsic::directive_region_entry) {
+        // TODO: add support for this representation
+        DEBUG(dbgs() << "** WARNING: stripPrivateClauses() support for the " 
+                     << "OperandBundle representation will be done later.\n");
+      }
+      else if (Id == Intrinsic::intel_directive_qual_opndlist) {
+        StringRef ClauseString = VPOAnalysisUtils::getDirOrClauseString(Call);
+        ClauseSpecifier ClauseInfo(ClauseString);
+        int ClauseID = ClauseInfo.getId();
+        if (ClauseID == QUAL_OMP_PRIVATE)
+          IntrinsicsToRemove.push_back(&I);
+      }
+    }
+  }
+
+  unsigned Idx = 0;
+  for (Idx = 0; Idx < IntrinsicsToRemove.size(); ++Idx) {
+    Instruction *I = IntrinsicsToRemove[Idx];
+    I->eraseFromParent();
+  }
+  return Idx > 0;
 }
 
 CallInst *VPOUtils::createMaskedGatherCall(Value *VecPtr,

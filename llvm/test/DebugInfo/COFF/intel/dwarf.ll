@@ -47,7 +47,7 @@
 ;
 ; Test
 ; ----
-; RUN: llc -filetype=obj -o - %s | llvm-dwarfdump -debug-dump=info - | FileCheck %s
+; RUN: llc -filetype=obj -o - %s | llvm-dwarfdump -debug-info - | FileCheck %s
 ;
 ; CHECK: DW_TAG_subprogram
 ; CHECK:   DW_AT_name{{.*}}erase

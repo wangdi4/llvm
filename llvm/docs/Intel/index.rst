@@ -13,6 +13,7 @@ Xmain
    XmainProcesses
    PulldownProcess
    JIRA
+   IRSuppression
    LoopAnalysis/index
    LoopTransforms/index
    VPO/index
@@ -80,6 +81,10 @@ process change requests to them.
 
 :doc:`LLVM Specific JIRA Usage <JIRA>`
    Describes JIRA usage policies specific to LLVM development.
+
+:doc:`IR Suppression in Product Executables <IRSuppression>`
+   Describes the rationale behind suppressing IR output in released products
+   and the implementation used to do so.
 
 Major Components
 ================

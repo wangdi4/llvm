@@ -28,6 +28,8 @@ static cl::opt<unsigned> DefaultVF("default-vpo-vf", cl::init(0),
                                    cl::desc("Default vector length"));
 static cl::opt<unsigned> EnableVectVLS("enable-vect-vls", cl::init(0),
                              cl::desc("Enable VLS group analysis by default"));
+static cl::opt<bool> EnableCastCost("enable-cast-cost", cl::init(false),
+     cl::desc("Enable TTI cost analysis for cast instructions zext/sext"));
 
 static cl::opt<float> TweakVPOCostFactor("tweak-vpo-cost-factor", cl::init(0.0),
     cl::Hidden, cl::desc("For VF > 1, multiply calculated cost by this factor"));
@@ -109,24 +111,15 @@ VPOVecContextBase VPOScenarioEvaluationBase::getBestCandidate(AVRWrn *AWrn) {
   }
   int initialVF = ForceVF ? ForceVF : 1;
   //DEBUG(errs() << "Set dummy vectCand with VF = " << initialVF << "\n");
-  VPOVecContextBase VectCand(initialVF); 
+  VPOVecContextBase VectCand(initialVF);
 
 #if 1
   // FORNOW: An AVRWrn node is expected to have only one AVRLoop child
-  AVRLoop *AvrLoop = nullptr;
-  for (auto Itr = AWrn->child_begin(), End = AWrn->child_end(); Itr != End;
-       ++Itr) {
-    if (AVRLoop *TempALoop = dyn_cast<AVRLoop>(Itr)) {
-      if (AvrLoop)
-        return VectCand;
-
-      AvrLoop = TempALoop;
-    }
-  }
+  AVRLoop *AvrLoop = AVRUtils::findAVRLoop(AWrn);
 
   // Check that we have an AVRLoop
   if (!AvrLoop)
-    return VectCand; 
+    return VectCand;
 #endif
 
   // Loop over search space of candidates within AWrn. In the future this will
@@ -150,7 +143,7 @@ VPOVecContextBase VPOScenarioEvaluationBase::getBestCandidate(AVRWrn *AWrn) {
       // isLoopHandled will not check if a remainder loop is needed.
       // FORNOW: If this loop is not supported, return a dummy VC; In the 
       // future we should continue to next candidate loop in region.
-      if (!loopIsHandled(ForceVF))
+      if (!loopIsHandled(ForceVF, AvrLoop))
         return VectCand;
 
       // Decomposition of AVRValueHIRs happens here
@@ -165,8 +158,12 @@ VPOVecContextBase VPOScenarioEvaluationBase::getBestCandidate(AVRWrn *AWrn) {
       // the rest of the code in the region will remain the same between the
       // scalar and vector versions.
       if (ForceVF == 0) {
-        BestCostForALoop = getCM()->getCost(ALoop, 1, nullptr,
-                                            &MinBitWidth, &MaxBitWidth);
+        HIRSafeReductionAnalysis *SRA = nullptr;
+        if (VPOScenarioEvaluationHIR *HIRSE =
+            dyn_cast<VPOScenarioEvaluationHIR>(this)) {
+          SRA = HIRSE->getSRA();
+        }
+        BestCostForALoop = getCM()->getCost(ALoop, 1, nullptr, SRA);
       }
       VectCand = processLoop(AvrLoop, &BestCostForALoop);
 
@@ -188,26 +185,71 @@ VPOVecContextBase VPOScenarioEvaluationBase::getBestCandidate(AVRWrn *AWrn) {
   return VectCand;
 }
 
-// FORNOW: A trivial implementation.
-// TODO: Should really be based on the data-types used in the loop and the
-// vector regsiters supported by the target.
-void VPOScenarioEvaluationBase::findVFCandidates(
-    VFsVector &VFCandidates) const {
+void VPOScenarioEvaluationBase::findVFCandidates(VFsVector &VFCandidates) {
+
   unsigned int MinVF, MaxVF;
-  unsigned WidestRegister = TTI.getRegisterBitWidth(true);
+  unsigned VecRegWidth;
 
   if (ForceVF == 0) {
-#if 0
-    errs() << "Max: " << MaxBitWidth << " Min: " << MinBitWidth <<
-      " Widest: " << WidestRegister << "\n"; 
-#endif
-    MinVF = WidestRegister / MaxBitWidth;
-    MaxVF = WidestRegister / MinBitWidth;
+
+    // The user has not explicitly requested a specific vector length, so use
+    // the maximum vector register width of the target and the data types used
+    // in the loop to select an appropriate vector length. The VF candidate
+    // ranges will be between the VFs based on the smallest and largest types
+    // found in the loop. Type frequency information can be used later to weight
+    // the VF candidates.
+
+    unsigned SmallestTySize = 0;
+    unsigned LargestTySize = 0;
+    for (int I = 0; I < NUM_TYPE_SIZE; I++) {
+      LoopTypeSizes[I] = 0;
+    }
+
+    VecRegWidth = TTI.getRegisterBitWidth(true);
+    VPOScenarioEvaluationBase *VSE =
+      const_cast<VPOScenarioEvaluationBase*>(this);
+    AVRVisitor<VPOScenarioEvaluationBase> AVisitor(*VSE);
+    // No need to recurse inside values. See comments in the visit function.
+    AVisitor.visit(ALoop, true, true, false /*RecursiveInsideValues*/, true);
+
+    int Idx = I8_TYPE_SIZE;
+    while (Idx < NUM_TYPE_SIZE) {
+      if (LoopTypeSizes[Idx] > 0) {
+        SmallestTySize = (0x1 << Idx) & 0xFF;
+        break;
+      }
+      Idx++;
+    }
+
+    Idx = NUM_TYPE_SIZE - 1;
+    while (Idx >= I8_TYPE_SIZE) {
+      if (LoopTypeSizes[Idx] > 0) {
+        LargestTySize = (0x1 << Idx) & 0xFF;
+        break;
+      }
+      Idx--;
+    }
+    MinVF = VecRegWidth / LargestTySize;
+    MaxVF = VecRegWidth / SmallestTySize;
+
+    DEBUG(errs() << "Type Frequencies: \n");
+    DEBUG(errs() << " i1 Types: " << LoopTypeSizes[I1_TYPE_SIZE] << "\n");
+    DEBUG(errs() << " i8 Types: " << LoopTypeSizes[I8_TYPE_SIZE] << "\n");
+    DEBUG(errs() << "i16 Types: " << LoopTypeSizes[I16_TYPE_SIZE] << "\n");
+    DEBUG(errs() << "i32 Types: " << LoopTypeSizes[I32_TYPE_SIZE] << "\n");
+    DEBUG(errs() << "i64 Types: " << LoopTypeSizes[I64_TYPE_SIZE] << "\n");
+    DEBUG(errs() << "Target register width: " << VecRegWidth << "\n");
   } else {
     MinVF = ForceVF;
     MaxVF = ForceVF;
   }
 
+  std::string MinVFStr = APInt(32, MinVF).toString(10, false);
+  std::string MaxVFStr = APInt(32, MaxVF).toString(10, false);
+  StringRef VFRange = MinVF == MaxVF ? MinVFStr :
+                                       MinVFStr + " - " + MaxVFStr;
+  DEBUG(errs() << "VF Candidates are: " << VFRange << "\n");
+  (void) VFRange;
   assert(MinVF && MaxVF && "Unexpected zero min/max VF");
 
   for (unsigned int VF = MinVF; VF <= MaxVF; VF *= 2) {
@@ -349,7 +391,12 @@ uint64_t VPOScenarioEvaluationBase::processCandidate(AVRLoop *ALoop,
   //
   uint64_t Cost = 0; 
   if (ForceVF == 0) { 
-    Cost = getCM()->getCost(ALoop, VF, VLSInfo);
+    HIRSafeReductionAnalysis *SRA = nullptr;
+    if (VPOScenarioEvaluationHIR *HIRSE =
+        dyn_cast<VPOScenarioEvaluationHIR>(this)) {
+      SRA = HIRSE->getSRA();
+    }
+    Cost = getCM()->getCost(ALoop, VF, VLSInfo, SRA);
   } 
 
   // Cleaups.
@@ -541,6 +588,58 @@ void VPOCostGathererBase::postVisit(AVRExpression *Expr) {
   }
 }
 
+void VPOCostGathererBase::calculateReductionCost(
+  AVRExpression *Expr,
+  TargetTransformInfo::OperandValueKind Op1VK,
+  TargetTransformInfo::OperandValueKind Op2VK,
+  TargetTransformInfo::OperandValueProperties Op1VP,
+  TargetTransformInfo::OperandValueProperties Op2VP) {
+
+  // Account for additional shuffle overhead introduced outside of loop for
+  // reduction live-out values. Namely, we incur two additional shuffles and
+  // one reduction operation for each half of VF down to 1.
+
+  AVRLoopHIR *ALoopHIR = dyn_cast<AVRLoopHIR>(ALoop);
+
+  // Reduction cost modeling assumes simple 3 address code format, w/o
+  // nested expressions from decomposition. i.e., the parent of this
+  // incoming expression Expr is an assignment and not another expression.
+  HLInst *ParentInst = nullptr;
+  if (Expr->getParent()) {
+    AVRAssignHIR *AssignStmt = dyn_cast<AVRAssignHIR>(Expr->getParent());
+    if (AssignStmt) {
+      ParentInst = AssignStmt->getHIRInstruction();
+    }
+  }
+
+  if (VF > 1 && ALoopHIR && ParentInst) {
+    HLLoop *HIRLoop = ALoopHIR->getLoop();
+    for (unsigned i = 0; i < Expr->getNumOperands(); i++) {
+      if (AVRValueHIR *HIRVal = dyn_cast<AVRValueHIR>(Expr->getOperand(i))) {
+        if (getSRA() && HIRVal->getValue()) {
+          if (getSRA()->isSafeReduction(ParentInst) &&
+              HIRLoop->isLiveOut(HIRVal->getValue()->getSymbase())) {
+
+            for (unsigned RedVF = VF / 2; RedVF > 1; RedVF /= 2) {
+              VectorType *ShuffleTy = VectorType::get(HIRVal->getType(),
+                                                      RedVF);
+              ReductionCost +=
+                TTI.getShuffleCost(TargetTransformInfo::SK_ExtractSubvector,
+                                   ShuffleTy, 0);
+              ReductionCost +=
+                TTI.getShuffleCost(TargetTransformInfo::SK_ExtractSubvector,
+                                   ShuffleTy, RedVF);
+              ReductionCost +=
+                TTI.getArithmeticInstrCost(Expr->getOperation(), ShuffleTy,
+                                           Op1VK, Op2VK, Op1VP, Op2VP);
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
 void VPOCostGathererBase::visit(AVRExpression *Expr) {
   unsigned Cost = 0;
   Type *VectorTy;
@@ -691,8 +790,21 @@ void VPOCostGathererBase::visit(AVRExpression *Expr) {
       Op2VK = TargetTransformInfo::OK_UniformConstantValue;
     }
 #endif
+    calculateReductionCost(Expr, Op1VK, Op2VK, Op1VP, Op2VP);
+
     Cost = TTI.getArithmeticInstrCost(Expr->getOperation(), VectorTy, Op1VK,
                                       Op2VK, Op1VP, Op2VP);
+
+    // TODO: CodeGen is scalarizing srem and introducing a lot of overhead using
+    // pshufd and punpck instructions. This is causing a 6-7% perf regression
+    // for denbench/aes where several small loops with srem were being
+    // "vectorized" inefficiently. For now, make srem costly, but we need a more
+    // accurate assessment of what is going on. Previous srem cost was found to
+    // be 1, which doesn't accurately represent what code is actually being
+    // generated. Possible TTI problem.
+    if (Expr->getOperation() == Instruction::SRem && VF > 1) {
+      Cost += VF * 10;
+    }
     break;
   }
 
@@ -700,12 +812,44 @@ void VPOCostGathererBase::visit(AVRExpression *Expr) {
   case Instruction::ZExt: {
     auto Op0 = dyn_cast<AVRValueHIR>(Expr->getOperand(0));
     
-    // Do a better job when we know we have an AVRValueHIR to avoid big
-    // performance regressions - workaround until casts are handled properly.
+    // How do we account for "double pumping" in this cost model? In icc, we
+    // introduced double pumped instructions, but in LLVM we use logical vector
+    // lengths and let CodeGen decide what to do. Take for example the case of
+    // networking/tcpjumbo when we have the following code within a loop in
+    // function tcp_checksum. Target machine is xmm, VF=8. To reproduce, use:
+    //
+    // tc -t networking/tcpjumbo -l opt_speed -r none 
+    //
+    // %t18. = load <8 x i16>, <8 x i16>* %t18
+    // %41 = zext <8 x i16> %t18. to <8 x i32>
+    // %t19. = load <8 x i32>, <8 x i32>* %t19 (this is zero initialized)
+    // %42 = add <8 x i32> %41, %t19.
+    //
+    // CodeGen generates the following:
+    //
+    // pxor  %xmm0
+    // pxor  %xmm1
+    // ...
+    // punpckhwd  %xmm2, %xmm4
+    // punpcklwd  %xmm2, %xmm3
+    // paddd   %xmm0, %xmm3
+    // paddd   %xmm1, %xmm4
+    //
+    // In this case, choosing VF=4 results in a significant performance
+    // degradation (~16%) because then only a single interleave/add will result.
+    //
+    // For now, a flag has been introduced to turn off TTI querying of cast
+    // cost. We ultimately need to figure out a long term solution to this
+    // problem, as well as taking unrolling into account (this test also
+    // gets unrolled by 4).
     if (Op0 && !Op0->getConstant()) {
       Type *SrcScalarTy = Op0->getType();
       Type *SrcVecTy = ToVectorTy(SrcScalarTy, VF);
-      Cost =  TTI.getCastInstrCost(Expr->getOperation(), VectorTy, SrcVecTy);
+      if (EnableCastCost) {
+        Cost =  TTI.getCastInstrCost(Expr->getOperation(), VectorTy, SrcVecTy);
+      } else {
+        Cost = 1;
+      }
     } else {
       DEBUG(errs() << "TODO: Query cost of cast instruction\n");
       Cost = 10;
@@ -727,10 +871,12 @@ void VPOCostGathererBase::visit(AVRExpression *Expr) {
     Cost = 10;
 #if 0 // TODO
     // TODO: Look at special cases
-    AVR *Op0 = Expr->getOperand(0);
-    Type *SrcScalarTy = Op0->getType();
-    Type *SrcVecTy = ToVectorTy(SrcScalarTy, VF);
-    Cost =  TTI.getCastInstrCost(Expr->getOperation(), VectorTy, SrcVecTy);
+    auto Op0 = dyn_cast<AVRValueHIR>(Expr->getOperand(0));
+    if (Op0 && !Op0->getConstant()) {
+      Type *SrcScalarTy = Op0->getType();
+      Type *SrcVecTy = ToVectorTy(SrcScalarTy, VF);
+      Cost =  TTI.getCastInstrCost(Expr->getOperation(), VectorTy, SrcVecTy);
+    }
 #endif
     break;
   }
@@ -748,18 +894,6 @@ void VPOCostGathererBase::visit(AVRExpression *Expr) {
     } else {
       assert(isa<AVRValue>(Expr->getOperand(0)) && "Not a Value?");
       ValTy = cast<AVRValue>(Expr->getOperand(0))->getType();
-    }
-
-
-    // Use the type of load/store values to setup minimum and maximum
-    // bit width. Only need to do this during scalar cost computation.
-    if (VF == 1) {
-      auto Ty = ValTy->getScalarType();
-
-      MinBitWidth = std::min(MinBitWidth,
-                             (unsigned)DL.getTypeSizeInBits(Ty));
-      MaxBitWidth = std::max(MaxBitWidth,
-                             (unsigned)DL.getTypeSizeInBits(Ty));
     }
 
     AVR *Op;
@@ -844,19 +978,14 @@ void VPOCostGathererBase::visit(AVRExpression *Expr) {
 #endif
 
     bool isMaskRequired = false;
-    // TODO: add support for subexpression trees coming from the nested blob
-    // decomposer. This is needed because the parent for the expression visited
-    // here may be another expression and predicates currently only exist at
-    // the statement level. There are two possible solutions to handle these
-    // cases:
-    //
-    // 1) Propagate predicates to the subexpressions in the decomposed tree.
-    // 2) Search up in the decomposed tree to get to the actual statement level
-    //    parent of all subexpressions.
-    AVRPredicate *Pred = Expr->getParent()->getPredicate();
-    assert(!isa<AVRExpression>(Expr->getParent()) &&
-           "Parent of an expr is an expr");
-
+    // Search up in the decomposed tree to get to the actual statement level
+    // parent of all subexpressions.
+    AVR *Parent = Expr->getParent();
+    assert(Parent && "Expr should always have a parent");
+    while (isa<AVRExpression>(Parent)) {
+      Parent = Parent->getParent(); 
+    }
+    AVRPredicate *Pred = Parent->getPredicate();
     if (Pred) {
       isMaskRequired = true;
     }
@@ -880,12 +1009,7 @@ void VPOCostGathererBase::visit(AVRExpression *Expr) {
           cast<AVRValueHIR>(Expr->getParent()));
     }
 
-    // FIXME: There has to be some interface to get the basic type of a
-    // recursive SequentialType. Example: 'pointer to multidimensional array of
-    // floats' would return 'float'
-    Type *DataTy = PtrType->getPointerElementType();
-    while (isa<SequentialType>(DataTy))
-      DataTy = DataTy->getSequentialElementType();
+    Type *DataTy = Expr->getType();
 
 #ifdef USE_EXPERIMENTAL_CODE 
     ConsecutiveStride = getConsecutiveStride(Op);
@@ -959,6 +1083,19 @@ void VPOCostGathererBase::visit(AVRExpression *Expr) {
       // The cost of extracting from the value vector and pointer vector.
       Type *PtrsVecTy = ToVectorTy(PtrType, VF);
       for (unsigned i = 0; i < VF; ++i) {
+        // Add the cost of extracting the mask bit, icmp to check mask bit, and
+        // br instruction.
+        if (!UseGatherOrScatter && isMaskRequired) {
+          for (unsigned i = 0; i < VF; ++i) {
+            Type *CmpTy = Type::getInt1Ty(Expr->getType()->getContext());
+            VectorType *VecCmpTy = VectorType::get(CmpTy, VF);
+            Cost += TTI.getVectorInstrCost(Instruction::ExtractElement,
+                                           VecCmpTy, i);
+            Cost += TTI.getCmpSelInstrCost(Instruction::ICmp, CmpTy);
+            Cost += TTI.getCFInstrCost(Instruction::Br);
+          }
+        }
+
         //  The cost of extracting the pointer operand.
         Cost +=
             TTI.getVectorInstrCost(Instruction::ExtractElement, PtrsVecTy, i);
@@ -1040,32 +1177,94 @@ void VPOCostGathererBase::postVisit(AVRValue *AValue) {
   //DEBUG(errs() << "Post-visiting value!\n");
 }
 
+// This function visits all AVRValues and obtains the type information from each
+// one so that this information can later be used to select an appropriate VF.
+void VPOScenarioEvaluationBase::visit(AVRValue *AValue) {
+
+  Type *Ty;
+
+  DEBUG(errs() << "AValue: "; AValue->dump(); errs() << "\n");
+  DEBUG(errs() << "AValue Parent: "; AValue->getParent()->dump();
+        errs() << "\n");
+  DEBUG(errs() << "AValue Parent Parent: ";
+        AValue->getParent()->getParent()->dump();
+        errs() << "\n");
+
+  if (isa<AVRPredicate>(AValue->getParent()->getParent())) {
+    // Just skip gathering type information from predicate nodes.
+    return;
+  }
+
+  if (AVRValueHIR *Val = dyn_cast<AVRValueHIR>(AValue)) {
+    assert(isa<RegDDRef>(Val->getValue()) && "Expected RegDDRef");
+    const RegDDRef *Ref = cast<RegDDRef>(Val->getValue());
+    if (Ref->hasGEPInfo() && Ref->isAddressOf()) {
+      // address of computations should be pointer types.
+      Ty = cast<PointerType>(Ref->getBaseDestType());
+    } else {
+      // otherwise, things like "a[i] = ..." and "... = a[i]" should be the
+      // element type and not the base type since they imply load/store of
+      // an element.
+      Ty = Ref->getDestType();
+      if (Ref->hasGEPInfo()) {
+        DEBUG(errs() << " (implicit load/store)");
+      }
+      DEBUG(errs() << "\n");
+    }
+  } else if (isa<AVRValueIR>(AValue)) {
+    Ty = AValue->getType();
+  }
+
+  // Ignore types such as 'metadata', etc.
+  if (Ty->isSized()) {
+    uint64_t Size = DL.getTypeSizeInBits(Ty);
+    TypeSizes TySizeIdx = I32_TYPE_SIZE;
+    switch (Size) {
+      case 1:
+        TySizeIdx = I1_TYPE_SIZE; break;
+      case 8:
+        TySizeIdx = I8_TYPE_SIZE; break;
+      case 16:
+        TySizeIdx = I16_TYPE_SIZE; break;
+      case 32:
+        TySizeIdx = I32_TYPE_SIZE; break;
+      case 64:
+        TySizeIdx = I64_TYPE_SIZE; break;
+    }
+    LoopTypeSizes[TySizeIdx]++;
+  }
+}
+
 // CHECKME: getCost() operates on a single AvrLoop. In the future will be
 // called several times per scenario, if the region contains several candidate
 // AvrLoops.
 // TODO: What additional information will the costModel need?:
 // - a Map of Memrefs to the VLS Group they belong to (if any).
 // - ?
+// TODO: A fix was made to return uint64_t here because this function was
+// previously computing cost based on uint64_t and returning int. This
+// caused a signed int overflow, but the remaining question that needs to
+// be answered is why such a high cost was being computed in the first place.
 uint64_t VPOCostModelBase::getCost(AVRLoop *ALoop, unsigned int VF,
                                    VPOVLSInfoBase *VLSInfo,
-                                   unsigned int *MinBitWidthP,
-                                   unsigned int *MaxBitWidthP) {
+                                   HIRSafeReductionAnalysis *SRA) {
   DEBUG(errs() << "\nEvaluating Loop Cost for VF = " << VF << "\n");
   uint64_t Cost;
 
-  // Calculate LoopBody Cost 
-  VPOCostGathererBase *CostGatherer = getCostGatherer(VF, ALoop, VLSInfo);
+  // Calculate LoopBody Cost
+  if (AVRLoopHIR *ALoopHIR = dyn_cast<AVRLoopHIR>(ALoop)) {
+    assert(SRA && "Expected existence of HIRSafeReductionAnalysis");
+    HLLoop *HIRLoop = ALoopHIR->getLoop();
+    SRA->computeSafeReductionChains(HIRLoop);
+  }
+
+  VPOCostGathererBase *CostGatherer = getCostGatherer(VF, ALoop, VLSInfo, SRA);
   assert(CostGatherer && "Invalid CostGatherer");
   AVRVisitor<VPOCostGathererBase> AVisitor(*CostGatherer);
   // Enabling RecursiveInsideValues to visit AVRValueHIR's sub-tree
   // decomposition.
   AVisitor.visit(ALoop, true, true, true /*RecursiveInsideValues*/, true);
   unsigned int LoopBodyCost = CostGatherer->getLoopBodyCost();
-
-  if (MinBitWidthP)
-    *MinBitWidthP = CostGatherer->getMinBitWidth();
-  if (MaxBitWidthP)
-    *MaxBitWidthP = CostGatherer->getMaxBitWidth();
 
   // Used to play around with calculated cost to favor/disallow vectorization
   if (VF > 1 && TweakVPOCostFactor != 0.0)
@@ -1078,8 +1277,10 @@ uint64_t VPOCostModelBase::getCost(AVRLoop *ALoop, unsigned int VF,
                << " LoopCount = " << LoopCount << "\n");
   CostGatherer->addOutOfLoopCost(RemainderLoopCost);
   unsigned int OutOfLoopCost = CostGatherer->getOutOfLoopCost();
+  unsigned int ReductionCost = CostGatherer->getReductionCost();
   DEBUG(errs() << "LoopBodyCost = " << LoopBodyCost
-               << " OutOfLoopCost = " << OutOfLoopCost << "\n");
+               << " OutOfLoopCost = " << OutOfLoopCost
+               << " Reduction Cost = " << ReductionCost << "\n");
 
   if (LoopCount <= 0) {
     // Use max trip count estimate if available
@@ -1087,7 +1288,7 @@ uint64_t VPOCostModelBase::getCost(AVRLoop *ALoop, unsigned int VF,
   }
 
   if (LoopCount <= 0) LoopCount = 100;
-  Cost = (LoopBodyCost * LoopCount / VF) + OutOfLoopCost;
+  Cost = (LoopBodyCost * LoopCount / VF) + OutOfLoopCost + ReductionCost;
 
   DEBUG(ALoop->dump(PrintCost));
   if (VF == 1) {
@@ -1097,7 +1298,8 @@ uint64_t VPOCostModelBase::getCost(AVRLoop *ALoop, unsigned int VF,
   DEBUG(errs() << "Cost for candidate Loop = " << Cost << "\n");
   DEBUG(errs() << "(" << LoopBodyCost << "(Loop Body) * " << LoopCount
                << "(Loop Count) / " << VF << "(VF)) + " << OutOfLoopCost
-               << "(Remainder Loop Cost)" << "\n");
+               << "(Remainder Loop Cost) + " << ReductionCost
+               << "(Reduction Cost)\n");
 
 
   delete CostGatherer;

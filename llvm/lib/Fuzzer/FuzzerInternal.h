@@ -60,6 +60,7 @@ public:
 
   static void StaticAlarmCallback();
   static void StaticCrashSignalCallback();
+  static void StaticExitCallback();
   static void StaticInterruptCallback();
   static void StaticFileSizeExceedCallback();
 
@@ -91,6 +92,7 @@ public:
 private:
   void AlarmCallback();
   void CrashCallback();
+  void ExitCallback();
   void CrashOnOverwrittenData();
   void InterruptCallback();
   void MutateAndTestOne();
@@ -116,6 +118,10 @@ private:
   size_t TotalNumberOfRuns = 0;
   size_t NumberOfNewUnitsAdded = 0;
 
+  size_t LastCorpusUpdateRun = 0;
+  system_clock::time_point LastCorpusUpdateTime = system_clock::now();
+
+
   bool HasMoreMallocsThanFrees = false;
   size_t NumberOfLeakDetectionAttempts = 0;
 
@@ -131,6 +137,7 @@ private:
 
   size_t MaxInputLen = 0;
   size_t MaxMutationLen = 0;
+  size_t TmpMaxMutationLen = 0;
 
   std::vector<uint32_t> UniqFeatureSetTmp;
 

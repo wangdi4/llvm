@@ -1,6 +1,6 @@
 //===-- VPOAvrHIRCodeGen.cpp ----------------------------------------------===//
 //
-//   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -26,9 +26,11 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/HIRVisitor.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
+#include "llvm/Transforms/Utils/Intel_GeneralUtils.h"
 
 #define DEBUG_TYPE "VPODriver"
 
@@ -54,6 +56,7 @@ static RegDDRef *getConstantSplatDDRef(DDRefUtils &DDRU, Constant *ConstVal,
 
 namespace llvm {
 namespace vpo {
+
 class AVRCGVisit {
 private:
   AVRCodeGenHIR *ACG;
@@ -89,8 +92,8 @@ public:
   bool isDone() { return false; }
   bool skipRecursion(AVR *ANode) { return false; }
 };
-} // namespace vpo
-} // namespace llvm
+} // End vpo namespace
+} // End llvm namespace
 
 void AVRCGVisit::visit(AVRValueHIR *AVal) {
   if (ACG->findWideAvrRef(AVal->getNumber()))
@@ -272,10 +275,8 @@ static RegDDRef *getConstantSplatDDRef(const RegDDRef *Op, unsigned VL) {
 }
 
 ReductionHIRMngr::ReductionHIRMngr(AVR *Avr) {
-  ReductionClause *RC = cast<AVRWrn>(Avr)->getWrnNode()->getRed();
-  if (!RC)
-    return;
-  for (ReductionItem *Ri : RC->items()) {
+  ReductionClause &RC = cast<AVRWrn>(Avr)->getWrnNode()->getRed();
+  for (ReductionItem *Ri : RC.items()) {
 
     auto usedInOnlyOnePhiNode = [](Value *V) {
       PHINode *Phi = 0;
@@ -420,7 +421,7 @@ private:
   bool IsHandled;
   const HLLoop *OrigLoop;
   TargetLibraryInfo *TLI;
-  int VL;
+  unsigned VL;
   bool UnitStrideRefSeen;
   bool MemRefSeen;
   unsigned LoopLevel;
@@ -460,20 +461,37 @@ void HandledCheck::visit(HLDDNode *Node) {
     return;
   }
 
-  // Calls are not supported for now unless they are svml.
+  // Calls supported are masked/non-masked svml and non-masked intrinsics.
   if (HLInst *Inst = dyn_cast<HLInst>(Node)) {
     if (Inst->isCallInst()) {
       const CallInst *Call = cast<CallInst>(Inst->getLLVMInstruction());
       StringRef CalledFunc = Call->getCalledFunction()->getName();
 
-      if (Inst->getParent() != OrigLoop) {
+      if (Inst->getParent() != OrigLoop &&
+          (VL > 1 && !TLI->isFunctionVectorizable(CalledFunc, VL))) {
+        // Masked svml calls are supported, but masked intrinsics are not at
+        // the moment.
         DEBUG(Inst->dump());
-        DEBUG(errs() << "VPO_OPTREPORT: Loop not handled - masked call\n");
+        DEBUG(errs() << "VPO_OPTREPORT: Loop not handled - masked intrinsic\n");
         IsHandled = false;
         return;
       }
 
-      if (VL > 1 && !TLI->isFunctionVectorizable(CalledFunc, VL)) {
+      // Quick hack to avoid loops containing fabs in 447.dealII from becoming
+      // vectorized due to bug in unrolling. The problem involves loop index
+      // variable that spans outside the array range, resulting in segfault. 
+      // floor calls are also temporarily disabled until FeatureOutlining is
+      // fixed (CQ410864)
+      if (CalledFunc == "fabs" || CalledFunc == "floor") {
+        DEBUG(Inst->dump());
+        DEBUG(errs() <<
+          "VPO_OPTREPORT: Loop not handled - fabs/floor call disabled\n");
+        IsHandled = false;
+        return;
+      }
+
+      Intrinsic::ID ID = getVectorIntrinsicIDForCall(Call, TLI);
+      if ((VL > 1 && !TLI->isFunctionVectorizable(CalledFunc, VL)) && !ID) {
         DEBUG(errs()
               << "VPO_OPTREPORT: Loop not handled - call not vectorizable\n");
         IsHandled = false;
@@ -545,7 +563,6 @@ void HandledCheck::visitCanonExpr(CanonExpr *CExpr) {
 // the same AVRLoop that the vecScenarioEvaluation had "selected".
 bool AVRCodeGenHIR::loopIsHandled(unsigned int VF) {
   AVRWrn *AWrn = nullptr;
-  AVRLoop *ALoop = nullptr;
   WRNVecLoopNode *WVecNode;
   HLLoop *Loop = nullptr;
 
@@ -557,20 +574,8 @@ bool AVRCodeGenHIR::loopIsHandled(unsigned int VF) {
 
   WVecNode = AWrn->getWrnNode();
 
-  // An AVRWrn node is expected to have only one AVRLoop child
-  // FIXME?: This expectation was already checked by the VecScenarioEvaluation.
-  for (auto Itr = AWrn->child_begin(), End = AWrn->child_end(); Itr != End;
-       ++Itr) {
-    if (AVRLoop *TempALoop = dyn_cast<AVRLoop>(Itr)) {
-      if (ALoop) {
-        DEBUG(errs() << "VPO_OPTREPORT: Loop not handled - expected one "
-                        "AVRLoop child\n");
-        return false;
-      }
-
-      ALoop = TempALoop;
-    }
-  }
+  if (!ALoop)
+    ALoop = AVRUtils::findAVRLoop(AWrn);
 
   // Check that we have an AVRLoop
   if (!ALoop) {
@@ -781,6 +786,33 @@ bool AVRCodeGenHIR::vectorize(unsigned int VL) {
 
   DEBUG(errs() << "\n\n\nHandled loop after: \n");
   DEBUG(MainLoop->dump());
+  if (!MainLoop->hasChildren()) {
+    DEBUG(errs() << "\n\n\nRemoving empty loop\n");
+    MainLoop->getHLNodeUtils().remove(MainLoop);
+  } else {
+    // Prevent LLVM from possibly unrolling vectorized loops with non-constant
+    // trip counts. See loop in function fxpAutoCorrelation() that is part of
+    // telecom/autcor00data_1 (opt_base_st_64_hsw). Inner loop has max trip
+    // count estimate of 16, VPO vectorizer chooses VF=4, and LLVM unrolls by 4.
+    // However, the inner loop does not always have a constant 16 trip count,
+    // leading to a performance degradation caused by entering the scalar code
+    // path.
+    if (!MainLoop->isConstTripLoop()) {
+      const Loop *Lp = MainLoop->getLLVMLoop();
+      LLVMContext &Context = Lp->getHeader()->getContext();
+      SmallVector<Metadata *, 4> MDs;
+      MDs.push_back(nullptr);
+      SmallVector<Metadata *, 1> DisableOperands;
+      DisableOperands.push_back(MDString::get(Context,
+                                "llvm.loop.unroll.disable"));
+      MDNode *DisableUnroll = MDNode::get(Context, DisableOperands);
+      MDs.push_back(DisableUnroll);
+      MDNode *NewLoopID = MDNode::get(Context, MDs);
+      NewLoopID->replaceOperandWith(0, NewLoopID);
+      MainLoop->setLoopMetadata(NewLoopID);
+    }
+  }
+
   if (NeedRemainderLoop)
     DEBUG(OrigLoop->dump());
 
@@ -848,6 +880,208 @@ void AVRCodeGenHIR::eraseLoopIntrins() {
   eraseLoopIntrinsImpl(false /* Intrinsics before loop */);
 }
 
+// This function replaces scalar math lib calls in the remainder loop with
+// the svml version used in the main vector loop in order to maintain 
+// consistency of precision. See the example below:
+//
+// Original remainder loop:
+//
+// <14>  + DO i1 = 128, 130, 1   <DO_LOOP>
+// <5>   |   %call = @sinf((%b)[i1]);
+// <7>   |   (%a)[i1] = %call;
+// <14>  + END LOOP
+//
+// Transformed remainder loop:
+//
+// <14>  + DO i1 = 128, 130, 1   <DO_LOOP>
+// <15>  |   %load = (%b)[i1];
+// <16>  |   %__svml_sinf48 = @__svml_sinf4(%load);
+// <17>  |   %call = extractelement %__svml_sinf48,  0;
+// <7>   |   (%a)[i1] = %call;
+// <14>  + END LOOP
+//
+// Detailed HIR:
+//
+// <14>  + DO i64 i1 = 128, 130, 1   <DO_LOOP>
+// <15>  |   %load = (%b)[i1];
+// <15>  |   <LVAL-REG> NON-LINEAR float %load {sb:15}
+// <15>  |   <RVAL-REG> {al:4}(LINEAR float* %b)[LINEAR i64 i1] !tbaa !5 {sb:12}
+// <15>  |      <BLOB> LINEAR float* %b {sb:6}
+// <15>  |
+// <16>  |   %__svml_sinf48 = @__svml_sinf4(%load);
+// <16>  |   <LVAL-REG> NON-LINEAR <4 x float> %__svml_sinf48 {sb:16}
+// <16>  |   <RVAL-REG> NON-LINEAR bitcast.float.<4 x float>(%load) {sb:15}
+// <16>  |      <BLOB> NON-LINEAR float %load {sb:15}
+// <16>  |
+// <17>  |   %call = extractelement %__svml_sinf48,  0;
+// <17>  |   <LVAL-REG> NON-LINEAR float %call {sb:7}
+// <17>  |   <RVAL-REG> NON-LINEAR <4 x float> %__svml_sinf48 {sb:16}
+// <17>  |
+// <7>   |   (%a)[i1] = %call;
+// <7>   |   <LVAL-REG> {al:4}(LINEAR float* %a)[LINEAR i64 i1] !tbaa !5 {sb:13}
+// <7>   |      <BLOB> LINEAR float* %a {sb:9}
+// <7>   |   <RVAL-REG> NON-LINEAR float %call {sb:7}
+// <7>   |
+// <14>  + END LOOP
+
+void AVRCodeGenHIR::replaceLibCallsInRemainderLoop(HLInst *HInst) {
+
+  // Used to remove the original math calls after iterating over them.
+  SmallVector<HLInst*, 1> InstsToRemove;
+
+  const CallInst *Call = cast<CallInst>(HInst->getLLVMInstruction());
+  Function *F = Call->getCalledFunction();
+  StringRef FnName = F->getName();
+
+  // Check to see if the call was vectorized in the main loop.
+  if (TLI->isFunctionVectorizable(FnName, VL)) {
+    unsigned ArgIdx = 0;
+    if (!F->getReturnType()->isVoidTy()) {
+      // In HIR, call argument operands for non-void functions begin at
+      // index position 1 in the DDRef operand list.
+      ArgIdx = 1;
+    }
+
+    SmallVector<RegDDRef *, 1> CallArgs;
+    SmallVector<Type*, 1> ArgTys;
+    int NumOps = HInst->getNumOperands();
+
+    // For each call argument, insert a scalar load of the element,
+    // broadcast it to a vector.
+    for (int I = ArgIdx; I < NumOps; I++) {
+
+      // TODO: it is assumed that call arguments need to become vector.
+      // In the future, some vectorizable calls may contain scalar
+      // arguments. Additional checking is needed for these cases.
+
+      // The DDRef of the original scalar call instruction.
+      RegDDRef *Ref = HInst->getOperandDDRef(I);
+
+      // The resulting type of the widened ref/broadcast.
+      auto VecDestTy = VectorType::get(Ref->getDestType(), VL);
+
+      RegDDRef *WideRef = nullptr;
+      HLInst *LoadInst = nullptr;
+
+      // Create the scalar load of the call argument. This is done so that
+      // we can clone the new LvalDDRef and change its type to force the
+      // broadcast. See %load in the example above. Essentially, the original
+      // scalar %load becomes bitcast.float.<4 x float>, which is how HIRCG
+      // knows to do the broadcast.
+      if (Ref->isMemRef() && !Ref->isAddressOf()) {
+        // Ref is a memory reference: %t = sinf(a[i]);
+        LoadInst = HInst->getHLNodeUtils().createLoad(Ref->clone(), "load");
+      } else {
+        // Ref in this case is a temp from a previous load: %r = sinf(%t).
+        // Create a new temp and broadcast it for the call argument.
+        LoadInst = HInst->getHLNodeUtils().createCopyInst(Ref->clone(), "copy");
+      }
+
+      // Construct the new RegDDRef for the call argument. Set the dest
+      // type to the vector type required to do a broadcast. So, for
+      // example, source type is float, and dest type becomes <4 x float>.
+      // This causes the RegDDRef to obtain a bitcast. Because of this,
+      // the ref is no longer a self blob and we must copy the BlobDDRef
+      // from the original reference to this one. This is what the call
+      // to makeConsistent() does.
+      //
+      // e.g., %load is a self blob, bitcast.float.<4 x float>(%load) is
+      // no longer a self blob due to the existence of the bitcast. So,
+      // copy BlobDDRef from %load to bitcast.float.<4 x float>(%load).
+      HInst->getHLNodeUtils().insertBefore(HInst, LoadInst);
+      WideRef = LoadInst->getLvalDDRef()->clone();
+      auto CE = WideRef->getSingleCanonExpr();
+      CE->setDestType(VecDestTy);
+      const SmallVector<const RegDDRef*, 1> AuxRefs =
+        { LoadInst->getLvalDDRef() }; 
+      WideRef->makeConsistent(&AuxRefs, OrigLoop->getNestingLevel());
+
+      // Collect call arguments and types so that the function declaration
+      // and call instruction can be generated.
+      CallArgs.push_back(WideRef);
+      ArgTys.push_back(VecDestTy);
+    }
+
+    // Using the newly created vector call arguments, generate the vector
+    // call instruction and extract the low element.
+    Function *VectorF =
+      getOrInsertVectorFunction(Call, VL, ArgTys, TLI,
+                                Intrinsic::not_intrinsic,
+                                nullptr/*simd function*/,
+                                false/*non-masked*/);
+    assert(VectorF && "Can't create vector function.");
+
+    HLInst *WideCall =
+      HInst->getHLNodeUtils().createCall(VectorF, CallArgs, VectorF->getName(),
+                                       nullptr);
+    HInst->getHLNodeUtils().insertBefore(HInst, WideCall);
+
+    if (FnName.find("sincos") != StringRef::npos) {
+      // Since we're in the remainder loop and scalarizing for now,
+      // then set the call argument strides for the sin/cos results
+      // to indirect to force scalarization in MapIntrinToIml. Later,
+      // when we support remainder loop vectorization, swap out the
+      // following loop with the call to analyzeCallArgMemoryReferences().
+      Instruction *WideInst =
+        const_cast<Instruction *>(WideCall->getLLVMInstruction());
+      CallInst *VecCall = cast<CallInst>(WideInst);
+      for (unsigned I = 1; I < 3; I++) {
+        AttrBuilder AttrList;
+        AttrList.addAttribute("stride", "indirect");
+        VecCall->setAttributes(VecCall->getAttributes().addAttributes(
+          VecCall->getContext(), I + 1, AttrList));
+      }
+      //analyzeCallArgMemoryReferences(HInst, WideCall, CallArgs);
+    }
+
+    InstsToRemove.push_back(HInst);
+
+    if (!F->getReturnType()->isVoidTy()) {
+      HLInst *ExtractInst = HInst->getHLNodeUtils().createExtractElementInst(
+        WideCall->getLvalDDRef()->clone(), 0, "elem",
+        HInst->getLvalDDRef()->clone());
+      HInst->getHLNodeUtils().insertAfter(WideCall, ExtractInst);
+    }
+  }
+
+  // Remove the original scalar call(s) to clean up the IR.
+  for (unsigned Idx = 0; Idx < InstsToRemove.size(); Idx++) {
+    HLInst *Inst = InstsToRemove[Idx];
+    Inst->getHLNodeUtils().remove(Inst);
+  }
+}
+
+void AVRCodeGenHIR::HIRLoopVisitor::replaceCalls() {
+  for (unsigned i = 0; i < CallInsts.size(); i++) {
+    CG->replaceLibCallsInRemainderLoop(CallInsts[i]);
+  }
+}
+
+void AVRCodeGenHIR::HIRLoopVisitor::visitInst(HLInst *I) {
+  // Check for function calls.
+  if (I->isCallInst()) {
+    CallInsts.push_back(I);
+  }
+}
+
+void AVRCodeGenHIR::HIRLoopVisitor::visitIf(HLIf *If) {
+  for (auto ThenIt = If->then_begin(), ThenEnd = If->then_end();
+       ThenIt != ThenEnd; ++ThenIt) {
+    visit(*ThenIt);
+  }
+  for (auto ElseIt = If->else_begin(), ElseEnd = If->else_end();
+       ElseIt != ElseEnd; ++ElseIt) {
+    visit(*ElseIt);
+  }
+}
+
+void AVRCodeGenHIR::HIRLoopVisitor::visitLoop(HLLoop *L) {
+  for (auto Iter = L->child_begin(), EndItr = L->child_end();
+       Iter != EndItr; ++Iter) {
+    visit(*Iter);
+  }
+}
+
 void AVRCodeGenHIR::processLoop() {
   LoopsVectorized++;
   eraseLoopIntrins();
@@ -863,9 +1097,12 @@ void AVRCodeGenHIR::processLoop() {
   for (auto Iter = ALoop->child_begin(), EndItr = ALoop->child_end();
        Iter != EndItr; ++Iter) {
     if (auto AvrAssign = dyn_cast<AVRAssignHIR>(Iter)) {
-      auto VecInst = widenNode(AvrAssign);
+      RegDDRef *MaskDDRef = nullptr; 
       if (auto APred = AvrAssign->getPredicate()) {
-        auto MaskDDRef = getWideAvrRef(APred->getNumber());
+        MaskDDRef = getWideAvrRef(APred->getNumber());
+      }
+      auto VecInst = widenNode(AvrAssign, MaskDDRef);
+      if (MaskDDRef) {
         VecInst->setMaskDDRef(MaskDDRef->clone());
       }
     } else if (auto APredicate = dyn_cast<AVRPredicate>(Iter)) {
@@ -902,6 +1139,8 @@ void AVRCodeGenHIR::processLoop() {
 
   // If a remainder loop is not needed get rid of the OrigLoop at this point.
   if (NeedRemainderLoop) {
+    HIRLoopVisitor LV(OrigLoop, this);
+    LV.replaceCalls();
     OrigLoop->markDoNotVectorize();
   } else {
     MainLoop->getHLNodeUtils().remove(OrigLoop);
@@ -1014,7 +1253,7 @@ RegDDRef *AVRCodeGenHIR::widenRef(const RegDDRef *Ref) {
 
       CE->getIVCoeff(OrigLoop->getNestingLevel(), nullptr, &IVConstCoeff);
 
-      for (int i = 0; i < VL; ++i) {
+      for (unsigned i = 0; i < VL; ++i) {
         CA.push_back(ConstantInt::getSigned(Int64Ty, IVConstCoeff * i));
       }
       ArrayRef<Constant *> AR(CA);
@@ -1261,43 +1500,51 @@ void AVRCodeGenHIR::analyzeCallArgMemoryReferences(
 
   CallInst *VecCall = cast<CallInst>(Inst);
 
-  HLLoop *L = cast<HLLoop>(OrigCall->getParent());
+  HLLoop *L = cast<HLLoop>(OrigCall->getParentLoop());
   unsigned LoopLevel = L->getNestingLevel();
 
   // Analyze memory references for the arguments used to store sin/cos
   // results. This information will later be used to generate appropriate
   // store instructions.
 
-  for (unsigned I = 1; I < Args.size(); I++) {
+  for (unsigned I = 0; I < Args.size(); I++) {
 
-    AttrBuilder AttrList;
-    int64_t ByteStride;
+    // Only consider call arguments that involve address computations.
+    // For example, this is limited at the moment to call arguments like:
+    // sincos(..., &a[i], &b[i], ...). In order to extend to other memory
+    // references, the type derivations below will need to change. Some
+    // assumptions are made for addressOf references.
+    if (Args[I]->hasGEPInfo() && Args[I]->isAddressOf()) {
+      AttrBuilder AttrList;
+      int64_t ByteStride;
+      CanonExpr *CE = Args[I]->getStrideAtLevel(LoopLevel);
 
-    if (Args[I]->getConstStrideAtLevel(LoopLevel, &ByteStride)) {
-      // Type of the argument will be something like <4 x double*>
-      // The following code will yield a type of double. This type is used
-      // to determine the stride in elements.
-      Type *ArgTy = Args[I]->getDestType();
-      PointerType *PtrTy = cast<PointerType>(ArgTy);
-      VectorType *VecTy = cast<VectorType>(PtrTy->getElementType());
-      PointerType *ElemPtrTy = cast<PointerType>(VecTy->getElementType());
-      Type *ElemTy = ElemPtrTy->getElementType();
-      unsigned ElemSize = ElemTy->getPrimitiveSizeInBits() / 8;
-      unsigned ElemStride = ByteStride / ElemSize;
-      AttrList.addAttribute("stride",
-                            APInt(32, ElemStride).toString(10, false));
-    } else {
-      AttrList.addAttribute("stride", "indirect");
-    }
+      if (CE->isLinearAtLevel() && CE->isIntConstant(&ByteStride)) {
+        // Type of the argument will be something like <4 x double*>
+        // The following code will yield a type of double. This type is used
+        // to determine the stride in elements.
+        Type *ArgTy = Args[I]->getDestType();
+        PointerType *PtrTy = cast<PointerType>(ArgTy);
+        VectorType *VecTy = cast<VectorType>(PtrTy->getElementType());
+        PointerType *ElemPtrTy = cast<PointerType>(VecTy->getElementType());
+        Type *ElemTy = ElemPtrTy->getElementType();
+        unsigned ElemSize = ElemTy->getPrimitiveSizeInBits() / 8;
+        unsigned ElemStride = ByteStride / ElemSize;
+        AttrList.addAttribute("stride",
+                              APInt(32, ElemStride).toString(10, false));
+      } else {
+        AttrList.addAttribute("stride", "indirect");
+      }
 
-    if (AttrList.hasAttributes()) {
-      VecCall->setAttributes(VecCall->getAttributes().addAttributes(
-          VecCall->getContext(), I + 1, AttrList));
+      if (AttrList.hasAttributes()) {
+        VecCall->setAttributes(VecCall->getAttributes().addAttributes(
+            VecCall->getContext(), I + 1, AttrList));
+      }
     }
   }
 }
 
-HLInst *AVRCodeGenHIR::widenNode(AVRAssignHIR *AvrNode) {
+HLInst *AVRCodeGenHIR::widenNode(AVRAssignHIR *AvrNode, RegDDRef *Mask) {
   const HLNode *Node = AvrNode->getHIRInstruction();
   const HLInst *INode;
   INode = dyn_cast<HLInst>(Node);
@@ -1365,10 +1612,15 @@ HLInst *AVRCodeGenHIR::widenNode(AVRAssignHIR *AvrNode) {
     Function *Fn = Call->getCalledFunction();
     StringRef FnName = Fn->getName();
 
-    // HandleCheck class ensures that this call is vectorizable, but assert
-    // just in case something changes.
-    assert(TLI->isFunctionVectorizable(FnName, VL) &&
-           "Function assumed to be vectorizable.");
+    // Default to svml. If svml is not available, try the intrinsic.
+    Intrinsic::ID ID = Intrinsic::not_intrinsic;
+    if (!TLI->isFunctionVectorizable(FnName, VL)) {
+      ID = getVectorIntrinsicIDForCall(Call, TLI);
+      if (ID && (ID == Intrinsic::assume || ID == Intrinsic::lifetime_end ||
+                 ID == Intrinsic::lifetime_start)) {
+        return const_cast<HLInst*>(INode);
+      }
+    }
 
     unsigned ArgOffset = 0;
     if (!Fn->getReturnType()->isVoidTy()) {
@@ -1381,8 +1633,17 @@ HLInst *AVRCodeGenHIR::widenNode(AVRAssignHIR *AvrNode) {
       ArgTys.push_back(WideOps[i]->getDestType());
     }
 
-    Function *VectorF = getOrInsertVectorFunction(Fn, VL, ArgTys, TLI);
-    // assert(VectorF && "Can't create vector function.");
+    bool Masked = false;
+    if (Mask) {
+      auto CE = Mask->getSingleCanonExpr();
+      ArgTys.push_back(CE->getDestType());
+      CallArgs.push_back(Mask->clone());
+      Masked = true;
+    }
+
+    Function *VectorF = getOrInsertVectorFunction(Call, VL, ArgTys, TLI, ID,
+                                                  nullptr, Masked);
+    assert(VectorF && "Can't create vector function.");
 
     WideInst = Node->getHLNodeUtils().createCall(
         VectorF, CallArgs, VectorF->getName(), WideOps[0]);
@@ -1394,8 +1655,6 @@ HLInst *AVRCodeGenHIR::widenNode(AVRAssignHIR *AvrNode) {
     }
 
     if (FnName.find("sincos") != StringRef::npos) {
-      assert(isa<HLLoop>(INode->getParent()) &&
-             "Expected call parent to be a loop");
       analyzeCallArgMemoryReferences(INode, WideInst, CallArgs);
     }
 

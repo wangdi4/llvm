@@ -26,6 +26,7 @@
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrDecomposeHIR.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOSIMDLaneEvolution.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOVecContext.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Transforms/Intel_VPO/Vecopt/VPOAvrLLVMCodeGen.h"
 #include "llvm/Transforms/Intel_VPO/Vecopt/VPOAvrHIRCodeGen.h"
@@ -207,12 +208,8 @@ private:
   /// @{
   unsigned int LoopBodyCost;
   unsigned int OutOfLoopCost;
+  unsigned int ReductionCost;
   /// @}
-
-  /// The minimum/maximum bit widths of types of values loaded/stored in the
-  /// loop. We only look at loads/stores for now.
-  unsigned int MinBitWidth;
-  unsigned int MaxBitWidth;
 
 protected:
   /// \brief A handle to Target Information
@@ -241,17 +238,7 @@ public:
     : TTI(TTI), TLI(TLI), DL(DL), VF(VF), ALoop(ALoop) {
     LoopBodyCost = 0;
     OutOfLoopCost = 0;
-
-    // Initialize to reasonable values - a loop may not see a
-    // load/store. This avoids issues such as divide by zero.
-    // Consider the loop
-    //    DO i2 = 
-    //        %incdec.ptr = &((%workarea)[0][i2 + 1]);
-    //    END LOOP
-    // LHS exprs are currently being skipped and RHS is an address
-    // computation
-    MinBitWidth = 64;
-    MaxBitWidth = 8;
+    ReductionCost = 0;
   }
   virtual ~VPOCostGathererBase() {}
 
@@ -259,11 +246,9 @@ public:
   /// under consideration.
   /// @{
   unsigned int getLoopBodyCost() { return LoopBodyCost; }
-
-  unsigned int getMinBitWidth() const { return MinBitWidth; }
-  unsigned int getMaxBitWidth() const { return MaxBitWidth; }
-
   unsigned int getOutOfLoopCost() { return OutOfLoopCost; }
+  unsigned int getReductionCost() { return ReductionCost; }
+
   void addOutOfLoopCost(unsigned int AddCost) { OutOfLoopCost += AddCost; }
   /// @}
 
@@ -321,10 +306,21 @@ public:
   /// cost of vectorizing each of them seperately using gathers/scatters. 
   virtual VPOVLSInfoBase *getVLSInfo() const = 0;
 
+  virtual HIRSafeReductionAnalysis *getSRA() const = 0;
+
   /// \brief Return a handle to the TTI cost-model utility that provides
   /// the costs for the building blocks of the optimized code sequences
   /// for vectorizing a VLS Group (Group of neighbouring loads/stores).
   virtual OVLSTTICostModel *getVLSCostModel() const = 0;
+
+  /// \brief Take into account the overhead of shuffles and reduction
+  /// operation for reduction live-out values.
+  void calculateReductionCost(
+    AVRExpression *Expr,
+    TargetTransformInfo::OperandValueKind Op1VK,
+    TargetTransformInfo::OperandValueKind Op2VK,
+    TargetTransformInfo::OperandValueProperties Op1VP,
+    TargetTransformInfo::OperandValueProperties Op2VP);
 };
 
 /// LLVMIR CostGatherer
@@ -334,9 +330,9 @@ public:
                   const TargetLibraryInfo &TLI,
                   const DataLayout &DL, unsigned int VF,
                   AVRLoop *ALoop, OVLSTTICostModelLLVMIR *TTICM, 
-                  VPOVLSInfo *VLSInfo)
+                  VPOVLSInfo *VLSInfo, HIRSafeReductionAnalysis *SRA)
     : VPOCostGathererBase(TTI, TLI, DL, VF, ALoop), TTICM(TTICM),
-                            VLSInfo(VLSInfo) {
+                            VLSInfo(VLSInfo), SRA(SRA) {
     assert(isa<AVRLoopIR>(*ALoop) && "Loop not set.");
   }
   ~VPOCostGatherer() {}
@@ -360,6 +356,7 @@ public:
   }
 
   VPOVLSInfoBase *getVLSInfo() const { return VLSInfo; }
+  HIRSafeReductionAnalysis *getSRA() const { return SRA; }
 
   OVLSTTICostModel *getVLSCostModel() const override {
     assert(TTICM && "No CostModel set for VLS");
@@ -369,6 +366,7 @@ public:
 private:
   OVLSTTICostModelLLVMIR *TTICM;
   VPOVLSInfo *VLSInfo;
+  HIRSafeReductionAnalysis *SRA;
 };
 
 /// HIR CostGatherer
@@ -378,9 +376,9 @@ public:
                      const TargetLibraryInfo &TLI,
                      const DataLayout &DL, unsigned int VF,
                      AVRLoop *ALoop, OVLSTTICostModelHIR *TTICM, 
-                     VPOVLSInfoHIR *VLSInfo)
+                     VPOVLSInfoHIR *VLSInfo, HIRSafeReductionAnalysis *SRA)
     : VPOCostGathererBase(TTI, TLI, DL, VF, ALoop), TTICM(TTICM),
-                            VLSInfo(VLSInfo) {
+                            VLSInfo(VLSInfo), SRA(SRA) {
     assert(isa<AVRLoopHIR>(*ALoop) && "Loop not set.");
   }
   ~VPOCostGathererHIR() {}
@@ -423,6 +421,7 @@ public:
   }
 
   VPOVLSInfoBase *getVLSInfo() const { return VLSInfo; }
+  HIRSafeReductionAnalysis *getSRA() const { return SRA; }
 
   OVLSTTICostModel *getVLSCostModel() const override {
     assert(TTICM && "No CostModel set for VLS");
@@ -432,6 +431,7 @@ public:
 private:
   OVLSTTICostModelHIR *TTICM;
   VPOVLSInfoHIR *VLSInfo;
+  HIRSafeReductionAnalysis *SRA;
 };
 
 
@@ -468,14 +468,12 @@ public:
   // want to encode the results of the CostModel, namely, which ALoops in the
   // region to vectorize and using which VFs (directly/explicitely in the
   // AVR?...)
-  // The minimum/maximum bit width of values loaded/stored are returned in
-  // MinBitWidthP/MaxBitWidthP when non-null. 
   uint64_t getCost(AVRLoop *ALoop, unsigned int VF, VPOVLSInfoBase *VLSInfo,
-                   unsigned int *MinBitWidthP = nullptr,
-                   unsigned int *MaxBitWidthP = nullptr);
+                   HIRSafeReductionAnalysis *SRA);
 
   virtual VPOCostGathererBase *getCostGatherer(unsigned int VF, AVRLoop *ALoop, 
-                                               VPOVLSInfoBase *VLSInfo) = 0;
+                                               VPOVLSInfoBase *VLSInfo,
+                                               HIRSafeReductionAnalysis *SRA) = 0;
 
   // \brief Obtain the cost of aligning the loop trip count to the \p VF
   virtual int getRemainderLoopCost(unsigned int VF, uint64_t &ConstTripCount) = 0;
@@ -494,7 +492,8 @@ public:
   void setCG(AVRCodeGen *LLVMIRCG) { CG = LLVMIRCG; } 
 
   VPOCostGathererBase *getCostGatherer(unsigned int VF, AVRLoop *ALoop, 
-                                       VPOVLSInfoBase *VLSInfo) override {
+                                       VPOVLSInfoBase *VLSInfo,
+                                       HIRSafeReductionAnalysis *SRA) override {
     // FIXME: Find a better way to get DL! We also need to look into avoiding
     // such duplicated code.
     const DataLayout &DL =
@@ -505,14 +504,14 @@ public:
 
     if (VLSInfo == nullptr) {
       CostGatherer = new VPOCostGatherer(TTI, TLI, DL, VF, ALoop,
-                                         nullptr, nullptr);
+                                         nullptr, nullptr, SRA);
       return CostGatherer;
     }
     assert(isa<VPOVLSInfo>(*VLSInfo) && "VLSInfo not an LLVMIR VLSInfo");
     VPOVLSInfo *VLSInfoLLVMIR = cast<VPOVLSInfo>(VLSInfo);
     // Pass the underlying LLVMIR Loop instead
     CostGatherer = new VPOCostGatherer(TTI, TLI, DL, VF, ALoop, &VLSCostModel, 
-                                       VLSInfoLLVMIR);
+                                       VLSInfoLLVMIR, SRA);
     return CostGatherer;
   }
 
@@ -549,7 +548,8 @@ public:
   void setCG(AVRCodeGenHIR *HIRCG) { CG = HIRCG; } 
 
   VPOCostGathererBase *getCostGatherer(unsigned int VF, AVRLoop *ALoop,
-                                       VPOVLSInfoBase *VLSInfo) override {
+                                       VPOVLSInfoBase *VLSInfo,
+                                       HIRSafeReductionAnalysis *SRA) override {
     // FIXME: Find a better way to get DL! We also need to look into avoiding
     // such duplicated code.
     const DataLayout &DL =
@@ -560,7 +560,7 @@ public:
 
     if (VLSInfo == nullptr) {
       CostGatherer = new VPOCostGathererHIR(TTI, TLI, DL, VF, ALoop, nullptr,
-                                            nullptr);
+                                            nullptr, SRA);
       return CostGatherer;
     }
     assert(isa<VPOVLSInfoHIR>(*VLSInfo) && "VLSInfo not a VLSInfoHIR");
@@ -568,7 +568,7 @@ public:
     // Pass the underlying HLLoop instead
     CostGatherer = new VPOCostGathererHIR(TTI, TLI, DL, VF, ALoop,
                                           &VLSCostModel, 
-                                          VLSInfoHIR);
+                                          VLSInfoHIR, SRA);
     return CostGatherer;
   }
 
@@ -628,6 +628,17 @@ public:
     SCEK_HIR
   };
 
+  enum TypeSizes {
+    I1_TYPE_SIZE = 0,
+    UNUSED_TYPE1,
+    UNUSED_TYPE2,
+    I8_TYPE_SIZE,
+    I16_TYPE_SIZE,
+    I32_TYPE_SIZE,
+    I64_TYPE_SIZE,
+    NUM_TYPE_SIZE
+  };
+
 private:
   const ScenarioEvaluationKind Kind;
 
@@ -635,6 +646,7 @@ protected:
   /// Handle to Target Information
   const TargetTransformInfo &TTI;
   const TargetLibraryInfo &TLI;
+  const DataLayout &DL;
 
   /// AVR Region at hand.
   AVRWrn *AWrn;
@@ -647,10 +659,8 @@ protected:
   // CHECKME: per ALoop or per region?
   unsigned int ForceVF;
 
-  /// The minimum/maximum bit widths of types of values loaded/stored in the
-  /// loop. We only look at loads/stores for now.
-  unsigned int MinBitWidth;
-  unsigned int MaxBitWidth;
+  /// Maintain a frequency of type sizes to determine VF selection.
+  unsigned LoopTypeSizes[NUM_TYPE_SIZE];
 
 private:
   /// AVRLoop in AVR region.
@@ -661,9 +671,10 @@ private:
 public:
   VPOScenarioEvaluationBase(ScenarioEvaluationKind K, AVRWrn *AWrn, 
                             const TargetTransformInfo &TTI, 
-                            const TargetLibraryInfo &TLI, LLVMContext &C)
-    : Kind(K), TTI(TTI), TLI(TLI), AWrn(AWrn), LLVMCntxt(C), ForceVF(0),
-      MinBitWidth(64), MaxBitWidth(8) {}
+                            const TargetLibraryInfo &TLI,
+                            const DataLayout &DL, LLVMContext &C)
+      : Kind(K), TTI(TTI), TLI(TLI), DL(DL), AWrn(AWrn), LLVMCntxt(C),
+        ForceVF(0) {}
 
   virtual ~VPOScenarioEvaluationBase() {}
 
@@ -706,12 +717,12 @@ public:
 
   /// \brief Analyze which Vectorization Factors make sense for the loop (in
   /// terms of target support and data-types operated on in the loop).
-  void findVFCandidates(VFsVector &VFCandidates) const;
+  void findVFCandidates(VFsVector &VFCandidates);
 
   // Functions to be implemented at the underlying IR level
 
   virtual void setLoop(AVRLoop *ALoop) = 0;
-  virtual bool loopIsHandled(unsigned int ForceVF) = 0;
+  virtual bool loopIsHandled(unsigned int ForceVF, AVRLoop *ALoop) = 0;
   virtual void gatherMemrefsInLoop() = 0;
   virtual VPODataDepInfoBase getDataDepInfoForLoop() = 0;
   virtual VPOVLSInfoBase *getVLSInfoForCandidate() = 0;
@@ -724,6 +735,25 @@ public:
   virtual void prepareLoop(AVRLoop * ALoop) = 0;
 
   ScenarioEvaluationKind getKind() const { return Kind; }
+
+  bool isDone() { return false; }
+  bool skipRecursion(AVR *ANode) { return false; }
+
+  void visit(AVR *ANode) {}
+  void postVisit(AVR *ANode) {}
+
+  void visit(AVRLoop *Loop) {}
+  void postVisit(AVRLoop *Loop) {}
+
+  void visit(AVRAssign *Assign) {}
+  void postVisit(AVRAssign *Assign) {}
+
+  void visit(AVRExpression *Expr) {}
+  void postVisit(AVRExpression *Expr) {}
+
+  // TODO: For HIR, this visitor will need to handle BlobDDRefs and IVs.
+  void visit(AVRValue *AValue);
+  void postVisit(AVRValue *AValue) {}
 };
 
 /// LLVMIR ScenarioEvaluation. Currently an empty implementation.
@@ -742,9 +772,9 @@ private:
 
 public:
   VPOScenarioEvaluation(AVRWrn *AvrWrn, const TargetTransformInfo &TTI, 
-                        const TargetLibraryInfo &TLI,
+                        const TargetLibraryInfo &TLI, const DataLayout &DL,
                         LLVMContext &C, AvrDefUse &DU)
-      : VPOScenarioEvaluationBase(SCEK_LLVMIR, AvrWrn, TTI, TLI, C),
+      : VPOScenarioEvaluationBase(SCEK_LLVMIR, AvrWrn, TTI, TLI, DL, C),
                                   SLEVUtil(DU), CM(AWrn, TTI, TLI, C),
                                   CG(nullptr) {}
 
@@ -761,7 +791,8 @@ public:
   /// loop is supportable before having selected a VF. So normally a \p VF is
   /// provided only when the user requested a specific Vectorization Factor via 
   /// directives or compiler switch. 
-  bool loopIsHandled(unsigned int VF) override {
+  bool loopIsHandled(unsigned int VF, AVRLoop *ALoop) override {
+    CG->setALoop(ALoop);
     return CG->loopIsHandled(VF);
   }
 
@@ -814,6 +845,8 @@ private:
   /// Obtain a handle to AVRCodeGen utilities
   AVRCodeGenHIR *CG;
 
+  HIRSafeReductionAnalysis *SRA;
+
   /// \name Information about the loop currently under consideration.
   /// These data-structures are initially empty. We set them per loop.
   /// @{
@@ -838,13 +871,15 @@ public:
   VPOScenarioEvaluationHIR(AVRWrn *AvrWrn, HIRDDAnalysis *DDA,
                            HIRVectVLSAnalysis *VLS, AvrDefUseHIR &DU,
                            const TargetTransformInfo &TTI, 
-                           const TargetLibraryInfo &TLI, LLVMContext &C)
-      : VPOScenarioEvaluationBase(SCEK_HIR, AvrWrn, TTI, TLI, C), DDA(DDA),
+                           const TargetLibraryInfo &TLI, const DataLayout &DL,
+                           LLVMContext &C)
+      : VPOScenarioEvaluationBase(SCEK_HIR, AvrWrn, TTI, TLI, DL, C), DDA(DDA),
                                   VLS(VLS), SLEVUtil(DU), CM(AWrn, TTI, TLI, C),
                                   CG(nullptr), Loop(nullptr) {}
   ~VPOScenarioEvaluationHIR() {}
 
   void setCG(AVRCodeGenHIR *HIRCG) { CG = HIRCG; } 
+  void setSRA(HIRSafeReductionAnalysis *HIRSRA) { SRA = HIRSRA; } 
 
   /// Return true of we can widen this loop (i.e. if AVRCodegen can support
   /// this loop). If \p VF is provided, it will be considered as well as the 
@@ -853,9 +888,12 @@ public:
   /// loop is supportable before having selected a VF. So normally a \p VF is
   /// provided only when the user requested a specific Vectorization Factor via 
   /// directives or compiler switch. 
-  bool loopIsHandled(unsigned int VF) override {
+  bool loopIsHandled(unsigned int VF, AVRLoop *ALoop) override {
+    CG->setALoop(ALoop);
     return CG->loopIsHandled(VF);
   }
+
+  HIRSafeReductionAnalysis* getSRA() { return SRA; }
 
   void setLoop(AVRLoop *ALoop) override {
     assert(isa<AVRLoopHIR>(*ALoop) && "Loop not set.");
@@ -916,12 +954,6 @@ public:
   /// later processing.
   void prepareLoop(AVRLoop * ALoop) override {
     AVRDecomposeHIR Decomposer;
-    // FIXME: Find a better way to get DL!
-    const DataLayout &DL =
-        (*cast<AVRLoopHIR>(ALoop)->getLoop()->getLLVMLoop()->block_begin())
-            ->getParent()
-            ->getParent()
-            ->getDataLayout();
     Decomposer.runOnAvr(ALoop, DL);
   }
 

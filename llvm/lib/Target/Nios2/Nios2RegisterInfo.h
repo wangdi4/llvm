@@ -1,4 +1,4 @@
-//===-- Nios2RegisterInfo.h - Nios2 Register Information Impl -----*- C++ -*-===//
+//===-- Nios2RegisterInfo.h - Nios2 Register Information Impl ---*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -32,33 +32,21 @@ protected:
 public:
   Nios2RegisterInfo(const Nios2Subtarget &Subtarget);
 
-  /// Code Generation virtual methods...
-  const TargetRegisterClass *getPointerRegClass(const MachineFunction &MF,
-                                                unsigned Kind) const override;
-
   const MCPhysReg *getCalleeSavedRegs(const MachineFunction *MF) const override;
-
-  const uint32_t *getCallPreservedMask(const MachineFunction &MF,
-                                       CallingConv::ID) const override;
 
   BitVector getReservedRegs(const MachineFunction &MF) const override;
 
-  bool requiresRegisterScavenging(const MachineFunction &MF) const override;
-
-  bool trackLivenessAfterRegAlloc(const MachineFunction &MF) const override;
-
   /// Stack Frame Processing Methods
-  void eliminateFrameIndex(MachineBasicBlock::iterator II,
-                           int SPAdj, unsigned FIOperandNum,
+  void eliminateFrameIndex(MachineBasicBlock::iterator II, int SPAdj,
+                           unsigned FIOperandNum,
                            RegScavenger *RS = nullptr) const override;
 
   /// Debug information queries.
   unsigned getFrameRegister(const MachineFunction &MF) const override;
 
-  /// \brief Return GPR register class.
-  virtual const TargetRegisterClass *intRegClass(unsigned Size) const = 0;
+  /// Return GPR register class.
+  const TargetRegisterClass *intRegClass(unsigned Size) const;
 };
 
 } // end namespace llvm
-
 #endif
