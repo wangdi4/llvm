@@ -40,6 +40,7 @@ namespace {
     bool TransformLoopInitandStep(Loop *L, ScalarEvolution *SE, int PE, int NPEs);
     bool AddParallelIntrinsicstoLoop(Loop *L, LLVMContext& context, Module *M, BasicBlock *OrigPH, BasicBlock *E);
     IntrinsicInst* detectSPMDIntrinsic(Loop *L, LoopInfo *LI);
+    IntrinsicInst* detectSPMDExitIntrinsic(Loop *L, LoopInfo *LI);
 
     bool runOnLoop(Loop *L, LPPassManager &) override {
       LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
@@ -53,12 +54,16 @@ namespace {
       ValueToValueMapTy VMap;
       BasicBlock *OrigPH = L->getLoopPreheader();
       Loop *OrigL = L;
-      //return true;
+      
       IntrinsicInst* found_spmd = detectSPMDIntrinsic(L, LI);
       if (found_spmd) {
 	Value *NPEs_val = found_spmd->getOperand(0);
 	int NPEs = (dyn_cast<ConstantInt>(NPEs_val))->getZExtValue();
-	found_spmd->eraseFromParent();
+	IntrinsicInst* found_spmd_exit = detectSPMDExitIntrinsic(L, LI);
+	if(found_spmd_exit){
+	  found_spmd_exit->eraseFromParent();
+	  found_spmd->eraseFromParent();
+	}
 	
 	//Fix me: We assume a maximum of 16 reductions in the loop
 	std::vector<PHINode *> Reductions(16);
@@ -235,11 +240,30 @@ IntrinsicInst* LoopSPMDization::detectSPMDIntrinsic(Loop *L, LoopInfo *LI) {
     // Look for intrinsic calls with the right ID.
     for (Instruction& inst : *cur_block)
       if (IntrinsicInst *intr_inst = dyn_cast<IntrinsicInst>(&inst))
-	if (intr_inst->getIntrinsicID() == Intrinsic::csa_spmdization)//|| intr_inst->getIntrinsicID() == Intrinsic::x86_spmdization)
+	if (intr_inst->getIntrinsicID() == Intrinsic::csa_spmdization_entry)//|| intr_inst->getIntrinsicID() == Intrinsic::x86_spmdization)
 	  return intr_inst;
   }
   return nullptr;
 }
+IntrinsicInst* LoopSPMDization::detectSPMDExitIntrinsic(Loop *L, LoopInfo *LI) {
+  SmallVector<BasicBlock*, 2> exits;
+  L->getExitBlocks(exits);
+  for (BasicBlock *const exit : exits) {
+    for (Instruction& inst : *exit)
+      if (IntrinsicInst *intr_inst = dyn_cast<IntrinsicInst>(&inst))
+	if (intr_inst->getIntrinsicID() == Intrinsic::csa_spmdization_exit)//|| intr_inst->getIntrinsicID() == Intrinsic::x86_spmdization)
+	  return intr_inst;
+    
+    BasicBlock *afterexit = exit->getSingleSuccessor();
+    //Optimizations might move theexit intrinsic to the next exit
+    for (Instruction& inst : *afterexit)
+      if (IntrinsicInst *intr_inst = dyn_cast<IntrinsicInst>(&inst))
+	if (intr_inst->getIntrinsicID() == Intrinsic::csa_spmdization_exit)//|| intr_inst->getIntrinsicID() == Intrinsic::x86_spmdization)
+	  return intr_inst;
+  }
+  return nullptr;
+}
+
 
 /* This routine has been copied from LoopInterchange.cpp where it is declared static */
 PHINode *LoopSPMDization::getInductionVariable(Loop *L, ScalarEvolution *SE) {
@@ -350,8 +374,8 @@ bool LoopSPMDization::AddParallelIntrinsicstoLoop(Loop *L, LLVMContext& context,
     "parallel_section_entry"
   );
   
-  IRBuilder<>{preheader_terminator}.CreateCall(
-	      Intrinsic::getDeclaration(M, Intrinsic::csa_parallel_loop));
+  //IRBuilder<>{preheader_terminator}.CreateCall(
+  //	      Intrinsic::getDeclaration(M, Intrinsic::csa_parallel_loop));
   
   // The csa.parallel.region.exit intrinsic goes at the beginning of the loop exit.
   SmallVector<BasicBlock*, 2> exits;
