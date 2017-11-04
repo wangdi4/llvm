@@ -426,6 +426,12 @@ int main(int argc, char **argv) {
       glob_int = local_int + 1;
     }
   }
+// CHECK-REG: [[BARRIER_TOKENVAL:%[0-9]+]] = call token{{.*}}DIR.OMP.BARRIER
+// CHECK-REG: region.exit(token [[BARRIER_TOKENVAL]]) [ "DIR.OMP.END.BARRIER"
+  #pragma omp barrier
+// CHECK-REG: [[FLUSH_TOKENVAL:%[0-9]+]] = call token{{.*}}DIR.OMP.FLUSH
+// CHECK-REG: region.exit(token [[FLUSH_TOKENVAL]]) [ "DIR.OMP.END.FLUSH"
+  #pragma omp flush
   return 0;
 }
 
