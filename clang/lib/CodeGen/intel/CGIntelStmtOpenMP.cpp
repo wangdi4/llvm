@@ -1101,6 +1101,48 @@ namespace CGIntelOpenMP {
     emitListClause();
   }
 
+  void OpenMPCodeOutliner::emitOMPNumTeamsClause(const OMPNumTeamsClause *Cl) {
+    addArg("QUAL.OMP.NUM_TEAMS");
+    auto SavedIP = CGF.Builder.saveIP();
+    setOutsideInsertPoint();
+    addArg(CGF.EmitScalarExpr(Cl->getNumTeams()));
+    CGF.Builder.restoreIP(SavedIP);
+    emitOpndClause();
+  }
+
+  void OpenMPCodeOutliner::emitOMPThreadLimitClause(
+                                              const OMPThreadLimitClause *Cl) {
+    addArg("QUAL.OMP.THREAD_LIMIT");
+    auto SavedIP = CGF.Builder.saveIP();
+    setOutsideInsertPoint();
+    addArg(CGF.EmitScalarExpr(Cl->getThreadLimit()));
+    CGF.Builder.restoreIP(SavedIP);
+    emitOpndClause();
+  }
+
+  void OpenMPCodeOutliner::emitOMPDistScheduleClause(
+                                             const OMPDistScheduleClause *Cl) {
+    int DefaultChunkSize = 0;
+    SmallString<64> SchedString;
+    switch (Cl->getDistScheduleKind()) {
+    case OMPC_DIST_SCHEDULE_static:
+      SchedString = "QUAL.OMP.DIST.SCHEDULE.STATIC";
+      break;
+    case OMPC_DIST_SCHEDULE_unknown:
+      llvm_unreachable("Unknown schedule clause");
+    }
+
+    addArg(SchedString);
+    auto SavedIP = CGF.Builder.saveIP();
+    setOutsideInsertPoint();
+    if (auto *E = Cl->getChunkSize())
+      addArg(CGF.EmitScalarExpr(E));
+    else
+      addArg(CGF.Builder.getInt32(DefaultChunkSize));
+    CGF.Builder.restoreIP(SavedIP);
+    emitListClause();
+  }
+
   void OpenMPCodeOutliner::emitOMPCopyprivateClause(
                                         const OMPCopyprivateClause *) {}
   void OpenMPCodeOutliner::emitOMPFlushClause(const OMPFlushClause *) {}
@@ -1111,12 +1153,7 @@ namespace CGIntelOpenMP {
   void OpenMPCodeOutliner::emitOMPSeqCstClause(const OMPSeqCstClause *) {}
   void OpenMPCodeOutliner::emitOMPThreadsClause(const OMPThreadsClause *) {}
   void OpenMPCodeOutliner::emitOMPSIMDClause(const OMPSIMDClause *) {}
-  void OpenMPCodeOutliner::emitOMPNumTeamsClause(const OMPNumTeamsClause *) {}
-  void OpenMPCodeOutliner::emitOMPThreadLimitClause(
-                                              const OMPThreadLimitClause *) {}
   void OpenMPCodeOutliner::emitOMPHintClause(const OMPHintClause *) {}
-  void OpenMPCodeOutliner::emitOMPDistScheduleClause(
-                                              const OMPDistScheduleClause *) {}
   void OpenMPCodeOutliner::emitOMPTaskReductionClause(
                                               const OMPTaskReductionClause *) {}
   void OpenMPCodeOutliner::emitOMPInReductionClause(
@@ -1338,6 +1375,12 @@ namespace CGIntelOpenMP {
   void OpenMPCodeOutliner::emitOMPFlushDirective() {
     startDirectiveIntrinsicSet("DIR.OMP.FLUSH", "DIR.OMP.END.FLUSH");
   }
+  void OpenMPCodeOutliner::emitOMPTeamsDirective() {
+    startDirectiveIntrinsicSet("DIR.OMP.TEAMS", "DIR.OMP.END.TEAMS");
+  }
+  void OpenMPCodeOutliner::emitOMPDistributeDirective() {
+    startDirectiveIntrinsicSet("DIR.OMP.DISTRIBUTE", "DIR.OMP.END.DISTRIBUTE");
+  }
   OpenMPCodeOutliner &OpenMPCodeOutliner::operator<<(
                                          ArrayRef<OMPClause *> Clauses) {
     for (auto *C : Clauses) {
@@ -1534,9 +1577,11 @@ void CodeGenFunction::EmitIntelOpenMPDirective(
   case OMPD_flush:
     Outliner.emitOMPFlushDirective();
     break;
+  case OMPD_teams:
+    Outliner.emitOMPTeamsDirective();
+    break;
   case OMPD_sections:
   case OMPD_section:
-  case OMPD_teams:
   case OMPD_teams_distribute:
   case OMPD_teams_distribute_simd:
   case OMPD_teams_distribute_parallel_for:
@@ -1545,7 +1590,6 @@ void CodeGenFunction::EmitIntelOpenMPDirective(
   case OMPD_parallel_sections:
   case OMPD_for_simd:
   case OMPD_cancellation_point:
-  case OMPD_distribute:
   case OMPD_target_enter_data:
   case OMPD_target_exit_data:
   case OMPD_target_parallel:
@@ -1568,6 +1612,7 @@ void CodeGenFunction::EmitIntelOpenMPDirective(
   case OMPD_declare_simd:
   case OMPD_unknown:
     llvm_unreachable("Wrong OpenMP directive");
+  case OMPD_distribute:
   case OMPD_simd:
   case OMPD_for:
   case OMPD_parallel_for:
