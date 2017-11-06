@@ -1,4 +1,8 @@
 
+#ifndef NO_RECORD_1
+struct ReceivesPragma { };
+#endif
+
 #ifdef SET_FIRST_HEADER
 #pragma pack (16)
 #ifndef SET_SECOND_HEADER
@@ -6,7 +10,7 @@
 #else
 // expected-note@-4 1 {{previous '#pragma pack' directive that modifies alignment is here}}
 #endif
-// expected-warning@+3 {{non-default #pragma pack value might change the alignment of struct or union members in the included file}}
+// expected-warning@+3 {{non-default #pragma pack value changes the alignment of struct or union members in the included file}}
 #endif
 
 #include "pragma-pack2.h"

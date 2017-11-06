@@ -45,6 +45,30 @@ const char *clang::getOpenMPDirectiveName(OpenMPDirectiveKind Kind) {
   llvm_unreachable("Invalid OpenMP directive kind");
 }
 
+#if INTEL_CUSTOMIZATION
+bool clang::isAllowedInSimdSubset(OpenMPDirectiveKind DKind) {
+  switch (DKind) {
+#define OPENMP_DIRECTIVE_SIMD_SUBSET(Name)                                     \
+  case OMPD_##Name:                                                            \
+    return true;
+#include "clang/Basic/OpenMPKinds.def"
+  default:
+    return false;
+  }
+}
+
+bool clang::isAllowedInTBBSubset(OpenMPDirectiveKind DKind) {
+  switch (DKind) {
+#define OPENMP_DIRECTIVE_TBB_SUBSET(Name)                                     \
+  case OMPD_##Name:                                                            \
+    return true;
+#include "clang/Basic/OpenMPKinds.def"
+  default:
+    return false;
+  }
+}
+#endif // INTEL_CUSTOMIZATION
+
 OpenMPClauseKind clang::getOpenMPClauseKind(StringRef Str) {
   // 'flush' clause cannot be specified explicitly, because this is an implicit
   // clause for 'flush' directive. If the 'flush' clause is explicitly specified
@@ -139,6 +163,7 @@ unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind,
   case OMPC_shared:
   case OMPC_reduction:
   case OMPC_task_reduction:
+  case OMPC_in_reduction:
   case OMPC_aligned:
   case OMPC_copyin:
   case OMPC_copyprivate:
@@ -279,6 +304,7 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
   case OMPC_shared:
   case OMPC_reduction:
   case OMPC_task_reduction:
+  case OMPC_in_reduction:
   case OMPC_aligned:
   case OMPC_copyin:
   case OMPC_copyprivate:
@@ -851,8 +877,8 @@ bool clang::isOpenMPDistributeDirective(OpenMPDirectiveKind Kind) {
 bool clang::isOpenMPPrivate(OpenMPClauseKind Kind) {
   return Kind == OMPC_private || Kind == OMPC_firstprivate ||
          Kind == OMPC_lastprivate || Kind == OMPC_linear ||
-         Kind == OMPC_reduction ||
-         Kind == OMPC_task_reduction; // TODO add next clauses like 'reduction'.
+         Kind == OMPC_reduction || Kind == OMPC_task_reduction ||
+         Kind == OMPC_in_reduction; // TODO add next clauses like 'reduction'.
 }
 
 bool clang::isOpenMPThreadPrivate(OpenMPClauseKind Kind) {

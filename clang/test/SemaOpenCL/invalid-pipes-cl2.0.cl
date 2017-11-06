@@ -22,8 +22,10 @@ void test4() {
 void test5(pipe int p) {
   p+p; // expected-error{{invalid operands to binary expression ('read_only pipe int' and 'read_only pipe int')}}
   p=p; // expected-error{{invalid operands to binary expression ('read_only pipe int' and 'read_only pipe int')}}
-  &p; // expected-error{{invalid argument type 'read_only pipe int' to unary expression}}
-  *p; // expected-error{{invalid argument type 'read_only pipe int' to unary expression}}
+// if INTEL_CUSTOMIZATION
+  (void)&p;
+  (void)*p; // expected-error{{indirection requires pointer operand ('read_only pipe int' invalid)}}
+// endif INTEL_CUSTOMIZATION
 }
 
 typedef pipe int pipe_int_t;

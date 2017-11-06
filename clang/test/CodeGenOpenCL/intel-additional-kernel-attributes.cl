@@ -27,7 +27,7 @@ __kernel void k7() __attribute__((num_simd_work_items(4))) {}
 // CHECK: define spir_kernel void @k7{{[^{]+}} !num_simd_work_items ![[MD7:[0-9]+]]
 
 // CHECK-DAG: [[MD1]] = !{i32 1024, i32 1, i32 1}
-// CHECK-DAG: [[MD2]] = !{}
+// CHECK-DAG: [[MD2]] = !{i1 true}
 // CHECK-DAG: [[MD3]] = !{i32 16, i32 16, i32 16}
 // CHECK-DAG: [[MD4]] = !{i32 16, i32 16, i32 16}
 // CHECK-DAG: [[MD5]] = !{i32 64, i32 64, i32 64}

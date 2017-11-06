@@ -1,3 +1,5 @@
+// INTEL This test is marked as XFAIL (while making decision on deleting)
+// XFAIL: *
 // RUN: %clang_cc1 -fintel-compatibility -fcilkplus -fsyntax-only -verify -std=c++11 %s
 // REQUIRES: cilkplus
 

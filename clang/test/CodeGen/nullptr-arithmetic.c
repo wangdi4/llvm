@@ -1,11 +1,3 @@
-#if INTEL_CUSTOMIZATION
-// This entire file is cherry picked from LLVM r31366, as amended by r313684
-// and r313784.
-// When r313666 is merged with xmain, the INTEL_CUSTOMIZATION of this file 
-// can be deleted and the LLVM trunk change followed without modification.
-// The test will fail if tested with a 32-bit target triple, but the failure
-// will be fixed by r313684.
-#endif // INTEL_CUSTOMIZATION
 // RUN: %clang_cc1 -S %s -emit-llvm -o - | FileCheck %s
 // RUN: %clang_cc1 -S %s -emit-llvm -triple i686-unknown-unknown -o - | FileCheck %s
 // RUN: %clang_cc1 -S %s -emit-llvm -triple x86_64-unknown-unknown -o - | FileCheck %s

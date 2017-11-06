@@ -15,12 +15,10 @@
 #include "AMDGPUSubtarget.h"
 #include "AMDGPU.h"
 #include "AMDGPUTargetMachine.h"
-#ifdef LLVM_BUILD_GLOBAL_ISEL
 #include "AMDGPUCallLowering.h"
 #include "AMDGPUInstructionSelector.h"
 #include "AMDGPULegalizerInfo.h"
 #include "AMDGPURegisterBankInfo.h"
-#endif
 #include "SIMachineFunctionInfo.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/CodeGen/MachineScheduler.h"
@@ -52,7 +50,7 @@ AMDGPUSubtarget::initializeSubtargetDependencies(const Triple &TT,
 
   SmallString<256> FullFS("+promote-alloca,+fp64-fp16-denormals,+dx10-clamp,+load-store-opt,");
   if (isAmdHsaOS()) // Turn on FlatForGlobal for HSA.
-    FullFS += "+flat-for-global,+unaligned-buffer-access,+trap-handler,";
+    FullFS += "+flat-address-space,+flat-for-global,+unaligned-buffer-access,+trap-handler,";
 
   FullFS += FS;
 
@@ -77,33 +75,20 @@ AMDGPUSubtarget::initializeSubtargetDependencies(const Triple &TT,
   if (MaxPrivateElementSize == 0)
     MaxPrivateElementSize = 4;
 
+  if (LDSBankCount == 0)
+    LDSBankCount = 32;
+
+  if (TT.getArch() == Triple::amdgcn) {
+    if (LocalMemorySize == 0)
+      LocalMemorySize = 32768;
+
+    // Do something sensible for unspecified target.
+    if (!HasMovrel && !HasVGPRIndexMode)
+      HasMovrel = true;
+  }
+
   return *this;
 }
-
-#ifdef LLVM_BUILD_GLOBAL_ISEL
-namespace {
-
-struct SIGISelActualAccessor : public GISelAccessor {
-  std::unique_ptr<AMDGPUCallLowering> CallLoweringInfo;
-  std::unique_ptr<InstructionSelector> InstSelector;
-  std::unique_ptr<LegalizerInfo> Legalizer;
-  std::unique_ptr<RegisterBankInfo> RegBankInfo;
-  const AMDGPUCallLowering *getCallLowering() const override {
-    return CallLoweringInfo.get();
-  }
-  const InstructionSelector *getInstructionSelector() const override {
-    return InstSelector.get();
-  }
-  const LegalizerInfo *getLegalizerInfo() const override {
-    return Legalizer.get();
-  }
-  const RegisterBankInfo *getRegBankInfo() const override {
-    return RegBankInfo.get();
-  }
-};
-
-} // end anonymous namespace
-#endif
 
 AMDGPUSubtarget::AMDGPUSubtarget(const Triple &TT, StringRef GPU, StringRef FS,
                                  const TargetMachine &TM)
@@ -144,13 +129,13 @@ AMDGPUSubtarget::AMDGPUSubtarget(const Triple &TT, StringRef GPU, StringRef FS,
 
     FP64(false),
     IsGCN(false),
-    GCN1Encoding(false),
     GCN3Encoding(false),
     CIInsts(false),
     GFX9Insts(false),
     SGPRInitBug(false),
     HasSMemRealTime(false),
     Has16BitInsts(false),
+    HasIntClamp(false),
     HasVOP3PInsts(false),
     HasMovrel(false),
     HasVGPRIndexMode(false),
@@ -167,6 +152,7 @@ AMDGPUSubtarget::AMDGPUSubtarget(const Triple &TT, StringRef GPU, StringRef FS,
     FlatInstOffsets(false),
     FlatGlobalInsts(false),
     FlatScratchInsts(false),
+    AddNoCarryInsts(false),
 
     R600ALUInst(false),
     CaymanISA(false),
@@ -357,18 +343,12 @@ SISubtarget::SISubtarget(const Triple &TT, StringRef GPU, StringRef FS,
     : AMDGPUSubtarget(TT, GPU, FS, TM), InstrInfo(*this),
       FrameLowering(TargetFrameLowering::StackGrowsUp, getStackAlignment(), 0),
       TLInfo(TM, *this) {
-#ifndef LLVM_BUILD_GLOBAL_ISEL
-  GISelAccessor *GISel = new GISelAccessor();
-#else
-  SIGISelActualAccessor *GISel = new SIGISelActualAccessor();
-  GISel->CallLoweringInfo.reset(new AMDGPUCallLowering(*getTargetLowering()));
-  GISel->Legalizer.reset(new AMDGPULegalizerInfo());
+  CallLoweringInfo.reset(new AMDGPUCallLowering(*getTargetLowering()));
+  Legalizer.reset(new AMDGPULegalizerInfo());
 
-  GISel->RegBankInfo.reset(new AMDGPURegisterBankInfo(*getRegisterInfo()));
-  GISel->InstSelector.reset(new AMDGPUInstructionSelector(
-      *this, *static_cast<AMDGPURegisterBankInfo *>(GISel->RegBankInfo.get())));
-#endif
-  setGISelAccessor(*GISel);
+  RegBankInfo.reset(new AMDGPURegisterBankInfo(*getRegisterInfo()));
+  InstSelector.reset(new AMDGPUInstructionSelector(
+      *this, *static_cast<AMDGPURegisterBankInfo *>(RegBankInfo.get())));
 }
 
 void SISubtarget::overrideSchedPolicy(MachineSchedPolicy &Policy,
@@ -543,4 +523,58 @@ unsigned SISubtarget::getMaxNumVGPRs(const MachineFunction &MF) const {
   }
 
   return MaxNumVGPRs - getReservedNumVGPRs(MF);
+}
+
+struct MemOpClusterMutation : ScheduleDAGMutation {
+  const SIInstrInfo *TII;
+
+  MemOpClusterMutation(const SIInstrInfo *tii) : TII(tii) {}
+
+  void apply(ScheduleDAGInstrs *DAGInstrs) override {
+    ScheduleDAGMI *DAG = static_cast<ScheduleDAGMI*>(DAGInstrs);
+
+    SUnit *SUa = nullptr;
+    // Search for two consequent memory operations and link them
+    // to prevent scheduler from moving them apart.
+    // In DAG pre-process SUnits are in the original order of
+    // the instructions before scheduling.
+    for (SUnit &SU : DAG->SUnits) {
+      MachineInstr &MI2 = *SU.getInstr();
+      if (!MI2.mayLoad() && !MI2.mayStore()) {
+        SUa = nullptr;
+        continue;
+      }
+      if (!SUa) {
+        SUa = &SU;
+        continue;
+      }
+
+      MachineInstr &MI1 = *SUa->getInstr();
+      if ((TII->isVMEM(MI1) && TII->isVMEM(MI2)) ||
+          (TII->isFLAT(MI1) && TII->isFLAT(MI2)) ||
+          (TII->isSMRD(MI1) && TII->isSMRD(MI2)) ||
+          (TII->isDS(MI1)   && TII->isDS(MI2))) {
+        SU.addPredBarrier(SUa);
+
+        for (const SDep &SI : SU.Preds) {
+          if (SI.getSUnit() != SUa)
+            SUa->addPred(SDep(SI.getSUnit(), SDep::Artificial));
+        }
+
+        if (&SU != &DAG->ExitSU) {
+          for (const SDep &SI : SUa->Succs) {
+            if (SI.getSUnit() != &SU)
+              SI.getSUnit()->addPred(SDep(&SU, SDep::Artificial));
+          }
+        }
+      }
+
+      SUa = &SU;
+    }
+  }
+};
+
+void SISubtarget::getPostRAMutations(
+    std::vector<std::unique_ptr<ScheduleDAGMutation>> &Mutations) const {
+  Mutations.push_back(llvm::make_unique<MemOpClusterMutation>(&InstrInfo));
 }
