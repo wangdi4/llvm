@@ -7,7 +7,6 @@ add_llvm_library(LLVMTransformUtils
   BypassSlowDivision.cpp
   CloneFunction.cpp
   CloneModule.cpp
-  CmpInstAnalysis.cpp
   CodeExtractor.cpp
   CtorUtils.cpp
   DemoteRegToStack.cpp
@@ -67,5 +66,5 @@ add_llvm_library(LLVMTransformUtils
 
   DEPENDS
   intrinsics_gen
-  intel_directives_gen
+  intel_directives_gen  #INTEL
   )

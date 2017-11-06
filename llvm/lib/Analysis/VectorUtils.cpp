@@ -578,50 +578,195 @@ Type* llvm::calcCharacteristicType(Function& F, VectorVariant& Variant)
   return CharacteristicDataType;
 }
 
-void llvm::getFunctionsToVectorize(llvm::Module &M,
-                                   FunctionVariants& FuncVars) {
+void llvm::getFunctionsToVectorize(
+  llvm::Module &M, std::map<Function*, std::vector<StringRef> > &FuncVars) {
+
+  // FuncVars will contain a 1-many mapping between the original scalar
+  // function and the vector variant encoding strings (represented as
+  // attributes). The encodings correspond to functions that will be created by
+  // the caller of this function as vector versions of the original function.
+  // For example, if foo() is a function marked as a simd function, it will have
+  // several vector variant encodings like: "_ZGVbM4_foo", "_ZGVbN4_foo",
+  // "_ZGVcM8_foo", "_ZGVcN8_foo", "_ZGVdM8_foo", "_ZGVdN8_foo", "_ZGVeM16_foo",
+  // "_ZGVeN16_foo". The caller of this function will then clone foo() and name
+  // the clones using the above name manglings. The variant encodings correspond
+  // to differences in masked/non-masked execution, vector length, and target
+  // vector register size, etc. For more details, please refer to the following
+  // reference for details on the vector function encodings.
+  // https://www.cilkplus.org/sites/default/files/open_specifications/
+  // Intel-ABI-Vector-Function-2012-v0.9.5.pdf
+
   for (auto It = M.begin(), End = M.end(); It != End; ++It) {
-    Function& F = *It;
-    auto VariantAttributes = getVectorVariantAttributes(F);
-    if (VariantAttributes.empty())
-      continue;
-    FuncVars[&F] = DeclaredVariants();
-    DeclaredVariants& DeclaredFuncVariants = FuncVars[&F];
-    for (auto Attr : VariantAttributes)
-      DeclaredFuncVariants.push_back(Attr.getKindAsString());
+    Function &F = *It;
+    if (F.hasFnAttribute("vector-variants")) {
+      Attribute Attr = F.getFnAttribute("vector-variants");
+      StringRef VariantsStr = Attr.getValueAsString();
+      SmallVector<StringRef, 8> Variants;
+      VariantsStr.split(Variants, ',');
+      for (unsigned i = 0; i < Variants.size(); i++) {
+        FuncVars[&F].push_back(Variants[i]);
+      }
+    }
   }
 }
 
-Function* llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,
-                                          SmallVectorImpl<Type*> &ArgTys,
-                                          TargetLibraryInfo *TLI) {
+#if INTEL_OPENCL
+bool llvm::isOpenCLReadChannel(StringRef FnName) {
+  return (FnName == "__read_pipe_2_bl_intel");
+}
 
-  // OrigF is the original scalar function being called. Widen the scalar
-  // call to a vector call if it is known to be vectorizable as SVML.
-  StringRef FnName = OrigF->getName();
-  if (!TLI->isFunctionVectorizable(FnName, VL)) {
-    return nullptr;
+bool llvm::isOpenCLWriteChannel(StringRef FnName) {
+  return (FnName == "__write_pipe_2_bl_intel");
+}
+
+bool llvm::isOpenCLReadChannelDest(StringRef FnName, unsigned i) {
+  return (isOpenCLReadChannel(FnName) && i == 1);
+}
+
+bool llvm::isOpenCLWriteChannelSrc(StringRef FnName, unsigned i) {
+  return (isOpenCLWriteChannel(FnName) && i == 1);
+}
+
+Value* llvm::getOpenCLReadWriteChannelAlloc(const CallInst *Call) {
+
+  AddrSpaceCastInst *Arg = dyn_cast<AddrSpaceCastInst>(Call->getArgOperand(1));
+
+  assert(Arg && "Expected addrspacecast in traceback of __read_pipe argument");
+
+  BitCastInst *ArgCast = dyn_cast<BitCastInst>(Arg->getOperand(0));
+  AllocaInst *ReadDst = nullptr;
+
+  if (!ArgCast) {
+    ReadDst = dyn_cast<AllocaInst>(Arg->getOperand(0));
+  } else {
+    ReadDst = dyn_cast<AllocaInst>(ArgCast->getOperand(0));
   }
 
-  StringRef VFnName = TLI->getVectorizedFunction(FnName, VL);
+  assert(ReadDst && "Expected alloca in traceback of __read_pipe argument");
+  return ReadDst;
+}
+
+std::string llvm::typeToString(Type *Ty) {
+  if (Ty->isFloatTy())
+    // need to return "f32" instead of "float"
+    return "f32";
+  if (Ty->isDoubleTy())
+    // need to return "f64" instead of "double"
+    return "f64";
+  if (Ty->isIntegerTy() && Ty->getPrimitiveSizeInBits() >= 8 &&
+      Ty->getPrimitiveSizeInBits() <= 64) {
+    // return i8, i16, i32, i64
+    std::string typeStr;
+    raw_string_ostream OS(typeStr);
+    Ty->print(OS);
+    return OS.str();
+  }
+  llvm_unreachable("Unsupported type for converting type to string");
+}
+#endif // INTEL_OPENCL
+
+Function* llvm::getOrInsertVectorFunction(const CallInst *Call, unsigned VL,
+                                          SmallVectorImpl<Type*> &ArgTys,
+                                          TargetLibraryInfo *TLI,
+                                          Intrinsic::ID ID,
+                                          VectorVariant *VecVariant,
+                                          bool Masked) {
+
+  // OrigF is the original scalar function being called. Widen the scalar
+  // call to a vector call if it is known to be vectorizable as SVML or
+  // an intrinsic.
+  Function *OrigF = Call->getCalledFunction();
+  assert(OrigF && "Function not found for call instruction");
+  StringRef FnName = OrigF->getName();
+  if (!TLI->isFunctionVectorizable(FnName, VL) && !ID && !VecVariant
+#if INTEL_OPENCL
+      && !isOpenCLReadChannel(FnName) && !isOpenCLWriteChannel(FnName)
+#endif
+     )
+    return nullptr;
 
   Module *M = OrigF->getParent();
+  Function *VectorF = nullptr;
   Type *RetTy = OrigF->getReturnType();
   Type *VecRetTy = RetTy;
-
   if (!RetTy->isVoidTy()) {
     VecRetTy = VectorType::get(RetTy, VL);
   }
 
-  Function *VectorF = M->getFunction(VFnName);
-  if (!VectorF) {
-    // isFunctionVectorizable() returned true, so it is guaranteed that
-    // the svml function exists and the call is legal. Generate a declaration
-    // for it if one does not already exist.
-    FunctionType *FTy = FunctionType::get(VecRetTy, ArgTys, false);
-    VectorF =
-      Function::Create(FTy, Function::ExternalLinkage, VFnName, M);
-    VectorF->copyAttributesFrom(OrigF);
+  if (VecVariant) {
+    std::string VFnName = VecVariant->encode() + FnName.str();
+    VectorF = M->getFunction(VFnName);
+    if (!VectorF) {
+      FunctionType *FTy = FunctionType::get(VecRetTy, ArgTys, false);
+      VectorF =
+        Function::Create(FTy, Function::ExternalLinkage, VFnName, M);
+      VectorF->copyAttributesFrom(OrigF);
+    }
+  } else if (ID) {
+    // Generate a vector intrinsic. Remember, all intrinsics defined in
+    // Intrinsics.td that can be vectorized are those for which the return
+    // type matches the call arguments. Thus, TysForDecl should only contain
+    // 1 type in order to be able to generate the right declaration. Inserting
+    // multiple instances of this type will cause assertions when attempting
+    // to generate the declaration. This code will need to be changed to
+    // support different types of function signatures.
+    assert(!RetTy->isVoidTy() && "Expected non-void function");
+    for (unsigned i = 0; i < ArgTys.size(); i++) {
+      assert(VecRetTy == ArgTys[i] && "Expected return type to match arg type");
+    }
+    SmallVector<Type*, 1> TysForDecl;
+    TysForDecl.push_back(VecRetTy);
+    VectorF = Intrinsic::getDeclaration(M, ID, TysForDecl);
+#if INTEL_OPENCL
+  } else if (isOpenCLReadChannel(FnName) || isOpenCLWriteChannel(FnName)) {
+      Value *Alloca = getOpenCLReadWriteChannelAlloc(Call);
+      std::string VLStr = APInt(32, VL).toString(10, false);
+      std::string TyStr =
+        typeToString(Alloca->getType()->getPointerElementType());
+      std::string VFnName = FnName.str() + "_v" + VLStr + TyStr;
+
+      if (isOpenCLReadChannel(FnName)) {
+        // The return type of the vector read channel call is a vector of the
+        // pointer element type of the read destination pointer alloca. The
+        // function call below traces back through bitcast instructions to
+        // find the alloca.
+        VecRetTy =
+          VectorType::get(Alloca->getType()->getPointerElementType(), VL);
+      }
+      if (isOpenCLWriteChannel(FnName)) {
+        VecRetTy = RetTy;
+      }
+
+      VectorF = M->getFunction(VFnName);
+      if (!VectorF) {
+        FunctionType *FTy = FunctionType::get(VecRetTy, ArgTys, false);
+        VectorF =
+          Function::Create(FTy, Function::ExternalLinkage, VFnName, M);
+      }
+      // Note: The function signature is different for the vector version of
+      // these functions. E.g., in the case of __read_pipe the 2nd parameter
+      // is dropped, and for __write_pipe the 2nd parameter becomes a vector
+      // of instead of a pointer. Thus, the attributes cannot blindly be
+      // copied because some attributes for the parameters on the original
+      // scalar call will be incompatible with the vector parameter types.
+      // Or, in the case of __read_pipe, the attribute for the 2nd parameter
+      // will still be copied to the vector call site and will result in an
+      // assert in the verifier because there is no longer a 2nd parameter.
+      // TODO: determine if attributes really need to be copied for those
+      // parameters that still match the scalar version.
+#endif // INTEL_OPENCL
+  } else {
+    // Generate a vector library call.
+    StringRef VFnName = TLI->getVectorizedFunction(FnName, VL, Masked);
+    VectorF = M->getFunction(VFnName);
+    if (!VectorF) {
+      // isFunctionVectorizable() returned true, so it is guaranteed that
+      // the svml function exists and the call is legal. Generate a declaration
+      // for it if one does not already exist.
+      FunctionType *FTy = FunctionType::get(VecRetTy, ArgTys, false);
+      VectorF = Function::Create(FTy, Function::ExternalLinkage, VFnName, M);
+      VectorF->copyAttributesFrom(OrigF);
+    }
   }
 
   assert(VectorF && "Can't create vector function.");

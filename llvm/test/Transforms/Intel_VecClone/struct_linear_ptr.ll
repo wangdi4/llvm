@@ -2,7 +2,7 @@
 
 ; RUN: opt -vec-clone -S < %s | FileCheck %s
 
-; CHECK-LABEL: @_ZGVxN4l_foo
+; CHECK-LABEL: @_ZGVbN4l_foo
 ; CHECK: simd.loop:
 ; CHECK: %0 = load %struct.my_struct*, %struct.my_struct** %s.addr, align 8
 ; CHECK: %stride.mul{{.*}} = mul i32 1, %index
@@ -37,4 +37,4 @@ entry:
   ret float %add
 }
 
-attributes #0 = { nounwind uwtable "_ZGVxM4l_" "_ZGVxN4l_" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float "="false" }
+attributes #0 = { nounwind uwtable "vector-variants"="_ZGVbM4l_,_ZGVbN4l_" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float "="false" }

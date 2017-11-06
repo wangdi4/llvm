@@ -171,7 +171,8 @@ public:
   /// \brief Returns a new node derived from WRegionNode node that
   /// matches the construct type based on DirID.
   static WRegionNode *createWRegion(int DirID, BasicBlock *EntryBB,
-                                    LoopInfo *LI, unsigned NestingLevel);
+                                    LoopInfo *LI, unsigned NestingLevel,
+                                    bool IsRegionIntrinsic);
 
   /// \brief Similar to createWRegion, but for HIR vectorizer support
   static WRegionNode *createWRegionHIR(int DirID,
@@ -193,22 +194,6 @@ public:
 
   /// \brief Driver routine to build WRGraph based on HIR representation
   static WRContainerImpl *buildWRGraphFromHIR(loopopt::HIRFramework &HIRF);
-
-  /// \brief Extract the operands for a list-type clause.
-  /// This is called by WRegionNode::handleQualOpndList()
-  template <typename ClauseTy>
-  static ClauseTy *extractQualOpndList(IntrinsicInst *Call, ClauseTy *C);
-  static MapClause *extractMapOpndList(IntrinsicInst *Call, MapClause *C, 
-                                       unsigned MapKind);
-  static DependClause *extractDependOpndList(IntrinsicInst *Call,
-                                             DependClause *C, bool IsIn);
-  static ReductionClause *extractReductionOpndList(IntrinsicInst *Call,
-                                       ReductionClause *C, int ReductionKind);
-
-  /// \brief Extract operands from a schedule clause
-  static void extractScheduleOpndList(ScheduleClause & Sched,
-                                      IntrinsicInst *Call, 
-                                      WRNScheduleKind Kind);
 
   /// Removal Utilities
 
@@ -233,7 +218,72 @@ public:
   /// \brief get the Clause Id for the WRNAtomicKind \p kind.
   static int getClauseIdFromAtomicKind(WRNAtomicKind Kind);
 
+  /// \brief Extract the operands for a list-type clause.
+  /// This is called by WRegionNode::handleQualOpndList()
+  template <typename ClauseTy>
+  static void extractQualOpndList(const Use *Args, unsigned NumArgs,
+                                  int ClauseID, ClauseTy &C);
+  template <typename ClauseTy>
+  static void extractQualOpndList(const Use *Args, unsigned NumArgs,
+                                  const ClauseSpecifier &ClauseInfo,
+                                  ClauseTy &C);
+
+  /// \brief Extract operands from a map clause
+  static void extractMapOpndList(const Use *Args, unsigned NumArgs,
+                                 const ClauseSpecifier &ClauseInfo,
+                                 MapClause &C, unsigned MapKind);
+
+  /// \brief Extract operands from a depend clause
+  static void extractDependOpndList(const Use *Args, unsigned NumArgs,
+                                    const ClauseSpecifier &ClauseInfo,
+                                    DependClause &C, bool IsIn);
+
+  /// \brief Extract operands from a linear clause
+  static void extractLinearOpndList(const Use *Args, unsigned NumArgs,
+                                    LinearClause &C);
+
+  /// \brief Extract operands from a reduction clause
+  static void extractReductionOpndList(const Use *Args, unsigned NumArgs,
+                                      const ClauseSpecifier &ClauseInfo,
+                                      ReductionClause &C, int ReductionKind);
+
+  /// \brief Extract operands from a schedule clause
+  static void extractScheduleOpndList(ScheduleClause & Sched,
+                                      const Use *Args,
+                                      const ClauseSpecifier &ClauseInfo,
+                                      WRNScheduleKind Kind);
   /// @}
+
+  /// \brief Get the induction variable of the OMP loop.
+  static PHINode *getOmpCanonicalInductionVariable(Loop *L);
+
+  /// \brief Get the loop lower bound of the OMP loop.
+  static Value *getOmpLoopLowerBound(Loop *L);
+
+  /// \brief Get the loop stride of the OMP loop.
+  static Value *getOmpLoopStride(Loop *L, bool &IsNeg);
+
+  /// \brief Get the loop upper bound of the OMP loop.
+  static Value *getOmpLoopUpperBound(Loop *L);
+
+  /// \brief Get the exit block of the OMP loop.
+  static BasicBlock *getOmpExitBlock(Loop *L);
+
+  /// \brief Get the predicate for the bottom test.
+  static CmpInst::Predicate getOmpPredicate(Loop *L, bool& IsLeft);
+
+  /// \brief Get the bottom test of the OMP loop.
+  static ICmpInst* getOmpLoopBottomTest(Loop *L);
+
+  /// \brief Get the zero trip test of the OMP loop if the zero trip
+  ///  test exists.
+  static ICmpInst *getOmpLoopZeroTripTest(Loop *L);
+
+  /// \breif Get the positin of the given loop index at 
+  /// the bottom/zero trip test expression.
+  static void getLoopIndexPosInPredicate(Value *LoopIndex,
+                                         Instruction *CondInst,
+                                         bool &IsLeft);
 };
 
 

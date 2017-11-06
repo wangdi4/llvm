@@ -77,8 +77,10 @@ public:
   /// \brief ParoptTransform object constructor
   VPOParoptTransform(Function *F, WRegionInfo *WI, DominatorTree *DT,
                      LoopInfo *LI, ScalarEvolution *SE, int Mode)
-      : F(F), WI(WI), DT(DT), LI(LI), SE(SE), Mode(Mode), IdentTy(nullptr), 
-        TidPtr(nullptr), BidPtr(nullptr) {}
+      : F(F), WI(WI), DT(DT), LI(LI), SE(SE), Mode(Mode), IdentTy(nullptr),
+        TidPtr(nullptr), BidPtr(nullptr), KmpcMicroTaskTy(nullptr),
+        KmpRoutineEntryPtrTy(nullptr), KmpTaskTTy(nullptr),
+        KmpTaskTRedTy(nullptr), KmpTaskDependInfoTy(nullptr) {}
 
   /// \brief Top level interface for parallel and prepare transformation
   bool paroptTransforms();
@@ -114,15 +116,208 @@ private:
   /// \brief Hold the pointer to Bid (binding thread id) Value
   AllocaInst *BidPtr;
 
+  /// \brief Hold the function type for the function
+  /// void (*kmpc_micro)(kmp_int32 *global_tid, kmp_int32 *bound_tid, ...)
+  FunctionType *KmpcMicroTaskTy;
+
+  /// \brief Hold the function type for the taskloop outlined function in the
+  /// form of void @RoutineEntry (i32 %tid, %struct.kmp_task_t_with_privates*
+  /// %taskt.withprivates)
+  PointerType *KmpRoutineEntryPtrTy;
+
+  /// \brief Hold the struct type in the form of %struct.kmp_task_t = type {
+  /// i8*, i32 (i32, i8*)*, i32, %union.kmp_cmplrdata_t, %union.kmp_cmplrdata_t,
+  /// i64, i64, i64, i32}
+  StructType *KmpTaskTTy;
+
+  /// \brief Hold the struct type in the form of %struct.kmp_task_t_red_item =
+  /// type { i8*, i64, i8*, i8*, i8*, i32 }
+  StructType *KmpTaskTRedTy;
+
+  /// \brief Hold the struct type as follows.
+  ///           struct kmp_depend_info {
+  ///              void* arg_addr;
+  ///              size_t arg_size;
+  ///              char   depend_type;
+  ///           };
+  StructType *KmpTaskDependInfoTy;
+
   /// \brief Use the WRNVisitor class (in WRegionUtils.h) to walk the
   /// W-Region Graph in DFS order and perform outlining transformation.
-  void gatherWRegionNodeList();
+  /// \param[out] NeedTID : 'true' if any W visited has W->needsTID()==true
+  /// \param[out] NeedBID : 'true' if any W visited has W->needsBID()==true
+  void gatherWRegionNodeList(bool &NeedTID, bool &NeedBID);
 
-  /// \brief Generate code for privatization 
+  /// \brief Generate code for private variables
   bool genPrivatizationCode(WRegionNode *W);
 
-  /// \brief Generate loop schdudeling code
-  bool genLoopSchedulingCode(WRegionNode *W);
+  /// \brief Generate code for firstprivate variables
+  bool genFirstPrivatizationCode(WRegionNode *W);
+
+  /// \brief Generate code for lastprivate variables
+  bool genLastPrivatizationCode(WRegionNode *W, Value *IsLastVal);
+
+  /// \brief A utility to privatize a variable within the region.
+  /// It creates and returns an AllocaInst for \p PrivValue.
+  Value *genPrivatizationAlloca(WRegionNode *W, Value *PrivValue,
+                                Instruction *InsertPt,
+                                const StringRef VarNameSuff);
+
+  /// \brief Replace the variable with the privatized variable
+  void genPrivatizationReplacement(WRegionNode *W, Value *PrivValue,
+                                   Value *NewPrivInst, Item *IT);
+
+  /// \brief Generate the reduction initialization code.
+  void genReductionInit(ReductionItem *RedI, Instruction *InsertPt);
+
+  /// \brief Generate the reduction update code.
+  void genReductionFini(ReductionItem *RedI, Value *OldV,
+                        Instruction *InsertPt);
+
+  /// \brief Generate the reduction initialization code for Min/Max.
+  Value *genReductionMinMaxInit(ReductionItem *RedI, Type *Ty, bool IsMax);
+
+  /// \brief Generate the reduction intialization instructions.
+  Value *genReductionScalarInit(ReductionItem *RedI, Type *ScalarTy);
+
+  /// \brief Generate the reduction code for reduction clause.
+  bool genReductionCode(WRegionNode *W);
+
+  /// \brief Prepare the empty basic block for the array
+  /// reduction or firstprivate initialization.
+  void createEmptyPrvInitBB(WRegionNode *W, BasicBlock *&RedBB);
+
+  /// \brief Prepare the empty basic block for the array
+  /// reduction or lastprivate update.
+  void createEmptyPrivFiniBB(WRegionNode *W, BasicBlock *&RedEntryBB);
+
+  /// \brief Generate the reduction update instructions for min/max.
+  Value* genReductionMinMaxFini(ReductionItem *RedI, Value *Rhs1, Value *Rhs2,
+                             Type *ScalarTy, IRBuilder<> &Builder, bool IsMax);
+
+  /// \brief Generate the reduction update instructions.
+  Value *genReductionScalarFini(ReductionItem *RedI, Value *Rhs1, Value *Rhs2,
+                                Value *Lhs, Type *ScalarTy,
+                                IRBuilder<> &Builder);
+
+  /// \brief Generate the reduction initialization/update for array.
+  void genRedAggregateInitOrFini(ReductionItem *RedI, AllocaInst *AI,
+                                 Value *OldV, Instruction *InsertPt,
+                                 bool IsInit);
+
+  /// \brief Generate the reduction fini code for bool and/or.
+  Value *genReductionFiniForBoolOps(ReductionItem *RedI, Value *Rhs1,
+                                    Value *Rhs2, Type *ScalarTy,
+                                    IRBuilder<> &Builder, bool IsAnd);
+
+  /// \brief Generate the firstprivate initialization code.
+  void genFprivInit(FirstprivateItem *FprivI, Instruction *InsertPt);
+
+  /// \brief Generate the lastprivate update code.
+  void genLprivFini(LastprivateItem *LprivI, Instruction *InsertPt);
+
+  /// \brief Generate the lastprivate update code for taskloop
+  void genLprivFiniForTaskLoop(Value *Dst, Value *Src, Instruction *InsertPt);
+
+  /// \brief Generate loop schdudeling code.
+  /// \p IsLastVal is an output from this routine and is used to emit
+  /// lastprivate code.
+  bool genLoopSchedulingCode(WRegionNode *W, AllocaInst *&IsLastVal);
+
+  /// \brief Generate the code to replace the variables in the task loop with
+  /// the thunk field dereferences
+  bool genTaskLoopInitCode(WRegionNode *W, StructType *&KmpTaskTTWithPrivatesTy,
+                           StructType *&KmpSharedTy, Value *&LBPtr,
+                           Value *&UBPtr, Value *&STPtr, Value *&LastIterGep,
+                           bool isLoop = true);
+  bool genTaskInitCode(WRegionNode *W, StructType *&KmpTaskTTWithPrivatesTy,
+                       StructType *&KmpSharedTy, Value *&LastIterGep);
+
+  /// \brief Generate the call __kmpc_omp_task_alloc, __kmpc_taskloop and the
+  /// corresponding outlined function
+  bool genTaskGenericCode(WRegionNode *W, StructType *KmpTaskTTWithPrivatesTy,
+                          StructType *KmpSharedTy, Value *LBPtr, Value *UBPtr,
+                          Value *STPtr, bool isLoop = true);
+
+  /// \brief Generate the call __kmpc_omp_task_alloc, __kmpc_omp_task and the
+  /// corresponding outlined function.
+  bool genTaskCode(WRegionNode *W, StructType *KmpTaskTTWithPrivatesTy,
+                   StructType *KmpSharedTy);
+
+  /// \brief Generate the call __kmpc_omp_taskwait.
+  bool genTaskWaitCode(WRegionNode *W);
+
+  /// \brief Replace the shared variable reference with the thunk field
+  /// derefernce
+  bool genSharedCodeForTaskGeneric(WRegionNode *W);
+
+  /// \brief Replace the reduction variable reference with the dereference of
+  /// the return pointer __kmpc_task_reduction_get_th_data
+  bool genRedCodeForTaskGeneric(WRegionNode *W);
+
+  /// \brief Generate the struct type kmp_task_red_input
+  void genTaskTRedType();
+
+  /// breif Generate the struct type kmp_depend_info
+  void genKmpTaskDependInfo();
+
+  /// \brief Generate the call __kmpc_task_reduction_init and the corresponding
+  /// preparation.
+  void genRedInitForTaskLoop(WRegionNode *W, Instruction *InsertBefore);
+
+  /// \brief Generate the initialization code for the depend clause
+  AllocaInst *genDependInitForTask(WRegionNode *W, Instruction *InsertBefore);
+
+  /// \brief The wrapper routine to generate the call __kmpc_omp_task_with_deps
+  void genTaskDeps(WRegionNode *W, StructType *IdentTy, Value *TidPtr,
+                   Value *TaskAlloc, AllocaInst *DummyTaskTDependRec,
+                   Instruction *InsertPt, bool IsTaskWait);
+
+  /// \brief Set up the mapping between the variables (firstprivate,
+  /// lastprivate, reduction and shared) and the counterparts in the thunk.
+  AllocaInst *genTaskPrivateMapping(WRegionNode *W, Instruction *InsertPt,
+                                    StructType *KmpSharedTy);
+
+  /// \brief Initialize the data in the shared data area inside the thunk
+  void genSharedInitForTaskLoop(WRegionNode *W, AllocaInst *Src, Value *Dst,
+                                StructType *KmpSharedTy,
+                                StructType *KmpTaskTTWithPrivatesTy,
+                                Instruction *InsertPt);
+
+  /// \brief Save the loop lower upper bound, upper bound and stride for the use
+  /// by the call __kmpc_taskloop
+  void genLoopInitCodeForTaskLoop(WRegionNode *W, Value *&LBPtr, Value *&UBPtr,
+                                  Value *&STPtr);
+
+  /// \brief Generate the outline function of reduction initilaization
+  Function *genTaskLoopRedInitFunc(WRegionNode *W, ReductionItem *RedI);
+
+  /// \brief Generate the outline function for the reduction update
+  Function *genTaskLoopRedCombFunc(WRegionNode *W, ReductionItem *RedI);
+
+  /// \brief Generate the outline function to set the last iteration
+  //  flag at runtime.
+  Function *genLastPrivateTaskDup(WRegionNode *W,
+                                  StructType *KmpTaskTTWithPrivatesTy);
+
+  /// \brief Generate the function type void @routine_entry(i32 %tid, i8*)
+  void genKmpRoutineEntryT();
+
+  /// \brief Generate the struct type %struct.kmp_task_t = type { i8*, i32 (i32,
+  /// i8*)*, i32, %union.kmp_cmplrdata_t, %union.kmp_cmplrdata_t, i64, i64, i64,
+  /// i32 }
+  void genKmpTaskTRecordDecl();
+
+  /// \brief Generate the struct type kmpc_task_t as well as its private data
+  /// area. One example is as follows.
+  /// %struct.kmp_task_t_with_privates = type { %struct.kmp_task_t,
+  /// %struct..kmp_privates.t }
+  /// %struct.kmp_task_t = type { i8*, i32 (i32, i8*)*, i32,
+  /// %union.kmp_cmplrdata_t, %union.kmp_cmplrdata_t, i64, i64, i64, i32}
+  /// %struct..kmp_privates.t = type { i64, i64, i32 }
+  StructType *genKmpTaskTWithPrivatesRecordDecl(WRegionNode *W,
+                                                StructType *&KmpSharedTy,
+                                                StructType *&KmpPrivatesTy);
 
   /// \brief Generate the actual parameters in the outlined function
   /// for copyin variables.
@@ -144,12 +339,50 @@ private:
                     Function *NFn);
 
   /// \brief Finalize extracted MT-function argument list for runtime
-  Function *finalizeExtractedMTFunction(WRegionNode *W,
-                                        Function *Fn, 
-                                        bool IsTidArg, unsigned int TidArgNo);
+  Function *finalizeExtractedMTFunction(WRegionNode *W, Function *Fn,
+                                        bool IsTidArg, unsigned int TidArgNo,
+                                        bool hasBid = true);
 
   /// \brief Generate __kmpc_fork_call Instruction after CodeExtractor
   CallInst* genForkCallInst(WRegionNode *W, CallInst *CI);
+
+  /// \brief If the IR in the WRegion has some kmpc_call_* and the tid
+  /// parameter's definition is outside the region, the compiler
+  /// generates the call __kmpc_global_thread_num() at the entry of
+  /// of the region and replaces all tid uses with the new call.
+  /// It also generates the bid alloca instruciton in the region 
+  /// if the region has outlined function.
+  void codeExtractorPrepare(WRegionNode *W);
+
+  /// \brief Cleans up the generated __kmpc_global_thread_num() in the
+  /// outlined function. It also cleans the genererated bid alloca 
+  /// instruction in the outline function.
+  void finiCodeExtractorPrepare(Function *F, bool ForTask = false);
+
+  /// \brief Collects the bid alloca instructions used by the outline functions.
+  void collectTidAndBidInstructionsForBB(BasicBlock *BB);
+
+  /// \brief Collects the instruction uses for the instructions 
+  /// in the set TidAndBidInstructions.
+  void collectInstructionUsesInRegion(WRegionNode *W);
+
+  /// \brief Generates the new tid/bid alloca instructions at the entry of the
+  /// region and replaces the uses of tid/bid with the new value.
+  void codeExtractorPrepareTransform(WRegionNode *W, bool IsTid);
+
+  /// \brief Replaces the use of tid/bid with the outlined function arguments.
+  void finiCodeExtractorPrepareTransform(Function *F, bool IsTid,
+                                         BasicBlock *NextBB,
+                                         bool ForTask = false);
+
+  /// \brief Reset the expression value of task if clause to be empty.
+  void resetValueInTaskIfClause(WRegionNode *W);
+
+  /// \brief Reset the expression value of task depend clause to be empty.
+  void resetValueInTaskDependClause(WRegionNode *W);
+
+  /// \brief Reset the expression value of Intel clause to be empty.
+  void resetValueInIntelClauseGeneric(WRegionNode *W, Value *V);
 
   /// \brief Generate multithreaded for a given WRegion
   bool genMultiThreadedCode(WRegionNode *W);
@@ -169,6 +402,24 @@ private:
   /// \brief Generates code for the OpenMP critical construct:
   /// #pragma omp critical [(name)]
   bool genCriticalCode(WRNCriticalNode *CriticalNode);
+
+  /// \brief Finds the alloc stack variables where the tid stores.
+  void getAllocFromTid(CallInst *Tid);
+ 
+  /// \brief Finds the function pointer type for the function
+  /// void (*kmpc_micro)(kmp_int32 *global_tid, kmp_int32 *bound_tid, ...)
+  FunctionType* getKmpcMicroTaskPointerTy();
+
+  /// \brief The data structure which builds the map between the
+  /// alloc/tid and the uses instruction in the WRegion.
+  SmallDenseMap<Instruction *, std::vector<Instruction *> > IdMap;
+
+  /// \brief The data structure that is used to store the alloca or tid call
+  ///  instruction that are used in the WRegion.
+  SmallPtrSet<Instruction*, 8> TidAndBidInstructions;
+
+  /// \brief Insert a barrier at the end of the construct
+  bool genBarrier(WRegionNode *W, bool IsExplicit);
 };
 
 } /// namespace vpo

@@ -18,6 +18,7 @@
 #include "llvm/Analysis/CallGraphSCCPass.h"
 #include "llvm/Analysis/Intel_AggInline.h"    // INTEL
 #include "llvm/Analysis/LoopInfo.h"           // INTEL
+#include "llvm/Analysis/OptimizationDiagnosticInfo.h"
 #include <cassert>
 #include <climits>
 
@@ -239,6 +240,12 @@ public:
     return Cost;
   }
 
+  /// \brief Get the threshold against which the cost was computed
+  int getThreshold() const {
+    assert(isVariable() && "Invalid access of InlineCost");
+    return Threshold;
+  }
+
   /// \brief Get the cost delta from the threshold for inlining.
   /// Only valid if the cost is of the variable kind. Returns a negative
   /// value if the cost is too high to inline.
@@ -287,8 +294,15 @@ struct InlineParams {
   bool PrepareForLTO;
 #endif // INTEL_CUSTOMIZATION
 
+  /// Threshold to use when the callsite is considered hot relative to function
+  /// entry.
+  Optional<int> LocallyHotCallSiteThreshold;
+
   /// Threshold to use when the callsite is considered cold.
   Optional<int> ColdCallSiteThreshold;
+
+  /// Compute inline cost even when the cost has exceeded the threshold.
+  Optional<bool> ComputeFullInlineCost;
 };
 
 /// Generate the parameters to tune the inline cost analysis based only on the
@@ -339,7 +353,8 @@ getInlineCost(CallSite CS, const InlineParams &Params,
               Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI,
               InliningLoopInfoCache *ILIC,     // INTEL
               InlineAggressiveInfo *AggI,      // INTEL
-              ProfileSummaryInfo *PSI);
+              ProfileSummaryInfo *PSI,
+              OptimizationRemarkEmitter *ORE = nullptr);
 
 /// \brief Get an InlineCost with the callee explicitly specified.
 /// This allows you to calculate the cost of inlining a function via a
@@ -353,7 +368,7 @@ getInlineCost(CallSite CS, Function *Callee, const InlineParams &Params,
               Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI,
               InliningLoopInfoCache *ILIC,           // INTEL
               InlineAggressiveInfo *AggI,            // INTEL
-              ProfileSummaryInfo *PSI);
+              ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE);
 
 /// \brief Minimal filter to detect invalid constructs for inlining.
 bool isInlineViable(Function &Callee,                         // INTEL

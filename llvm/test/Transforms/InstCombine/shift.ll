@@ -221,6 +221,22 @@ define i32 @test12(i32 %A) {
   ret i32 %C
 }
 
+;; ((A >>s 6) << 6 === (A & FFFFFFC0)
+define i8 @shishi(i8 %x) {
+; CHECK-LABEL: @shishi(
+; CHECK-NEXT:    [[A:%.*]] = ashr i8 [[X:%.*]], 6
+; CHECK-NEXT:    [[B:%.*]] = and i8 [[X]], -64
+; CHECK-NEXT:    [[EXTRA_USE_OF_A:%.*]] = mul nsw i8 [[A]], 5
+; CHECK-NEXT:    [[R:%.*]] = sdiv i8 [[EXTRA_USE_OF_A]], [[B]]
+; CHECK-NEXT:    ret i8 [[R]]
+;
+  %a = ashr i8 %x, 6
+  %b = shl i8 %a, 6
+  %extra_use_of_a = mul i8 %a, 5
+  %r = sdiv i8 %extra_use_of_a, %b
+  ret i8 %r
+}
+
 ;; This transformation is deferred to DAGCombine:
 ;; (A >> 3) << 4 === (A & -8) * 2
 ;; The shl may be valuable to scalar evolution.
@@ -1315,4 +1331,18 @@ define i7 @test65(i7 %a, i7 %b) {
   %x = lshr i7 42, %shiftamt ; 42 has a zero in every even numbered bit and a one in every odd bit.
   %y = and i7 %x, 1 ; this extracts the lsb which should be 0 because we shifted an even number of bits and all even bits of the shift input are 0.
   ret i7 %y
+}
+
+; Check transformation (when X has type iN):
+; ashr (sub 0, X), N - 1 --> sext i1 (icmp X < 0) to iN
+; http://rise4fun.com/Alive/y0vK
+define i32 @fill_with_opposite_sign_bit(i32 %x) {
+; CHECK-LABEL: @fill_with_opposite_sign_bit(
+; CHECK-NEXT:    [[TMP1:%.*]] = icmp sgt i32 [[X:%.*]], 0
+; CHECK-NEXT:    [[B:%.*]] = sext i1 [[TMP1]] to i32
+; CHECK-NEXT:    ret i32 [[B]]
+;
+  %a = sub nsw i32 0, %x
+  %b = ashr i32 %a, 31
+  ret i32 %b
 }

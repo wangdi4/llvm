@@ -14,14 +14,22 @@
 ///
 // ===--------------------------------------------------------------------=== //
 
-#include <queue>
 #include "llvm/Transforms/Utils/Intel_GeneralUtils.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/BasicBlock.h"
-#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/CallSite.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/GlobalVariable.h"
+#include "llvm/IR/IntrinsicInst.h"
+#include <queue>
 
 using namespace llvm;
+
+#if INTEL_CUSTOMIZATION
+cl::opt<bool> Usei1MaskForSimdFunctions(
+  "use-i1-mask-for-simd-funcs", cl::init(false),
+  cl::desc("Use vector of i1 as mask for simd functions"));
+#endif
 
 template Constant *
 IntelGeneralUtils::getConstantValue<int>(Type *Ty, LLVMContext &Context,
@@ -37,18 +45,11 @@ Constant *IntelGeneralUtils::getConstantValue(Type *Ty, LLVMContext &Context,
                                               T Val) {
   Constant *ConstVal = nullptr;
 
-  if (Ty->isIntegerTy(8))
-    ConstVal = ConstantInt::get(Type::getInt8Ty(Context), Val);
-  else if (Ty->isIntegerTy(16))
-    ConstVal = ConstantInt::get(Type::getInt16Ty(Context), Val);
-  else if (Ty->isIntegerTy(32))
-    ConstVal = ConstantInt::get(Type::getInt32Ty(Context), Val);
-  else if (Ty->isIntegerTy(64))
-    ConstVal = ConstantInt::get(Type::getInt64Ty(Context), Val);
-  else if (Ty->isFloatTy())
-    ConstVal = ConstantFP::get(Type::getFloatTy(Context), Val);
-  else if (Ty->isDoubleTy())
-    ConstVal = ConstantFP::get(Type::getDoubleTy(Context), Val);
+  if (Ty->isIntegerTy()) {
+    ConstVal = ConstantInt::get(Ty, Val);
+  } else if (Ty->isFloatTy()) {
+    ConstVal = ConstantFP::get(Ty, Val);
+  }
 
   assert(ConstVal && "Could not generate constant for type");
 
@@ -56,20 +57,31 @@ Constant *IntelGeneralUtils::getConstantValue(Type *Ty, LLVMContext &Context,
 }
 
 Loop *IntelGeneralUtils::getLoopFromLoopInfo(LoopInfo *LI,
-                                             BasicBlock *WRNEntryBB) {
+                                             BasicBlock *BB,
+                                             BasicBlock *ExitBB) {
+  Loop *Lp = nullptr;
 
-  // The loop pre-header BB is the successor BB of the WRN's entry BB
-  BasicBlock *LoopPreheaderBB = *(succ_begin(WRNEntryBB));
-  BasicBlock *LoopHeaderBB = *(succ_begin(LoopPreheaderBB));
+  // If DFS reached the region's ExitBB, go back
+  if (BB == ExitBB)
+    return nullptr;
 
-  Loop *Lp = LI->getLoopFor(LoopHeaderBB);
+  // The first BB with 2 predecessors found in the DFS is the loop header.
+  // Return the loop associated with this BB.
+  if (std::distance(pred_begin(BB), pred_end(BB))==2) {
+    Lp = LI->getLoopFor(BB);
+    assert(Lp && "The first BB with 2 predecessors should be the loop header");
+    // dbgs() << "\n=== getLoopFromLoopInfo found loop : " << *Lp << "\n";
+    return Lp;
+  }
+    
+  // BB is not a loop header; continue DFS with BB's successors recursively
+  for (succ_iterator I = succ_begin(BB), E = succ_end(BB); I != E; ++I) {
+    Lp = getLoopFromLoopInfo(LI, *I, ExitBB);
+    if (Lp)   
+      return Lp;
+  }
 
-#if 0
-  dbgs() << "Checking BB for Loop:\n" << *LoopHeaderBB << "\n";
-  if (Lp)
-    dbgs() << "Found Loop: " << *Lp << "\n";
-#endif
-  return Lp;
+  return nullptr;
 }
 
 /// \brief This function ensures that EntryBB is the first item in BBSet and
@@ -173,4 +185,95 @@ void IntelGeneralUtils::breakExpressionsHelper(ConstantExpr* Expr,
       if( InnerExpr )
         breakExpressionsHelper(InnerExpr, I, NewInst);
     }
+}
+
+// Checks instruction I has unique next instruction or not.
+// If I is terminator instruction, checks whether it has unique succ BB.
+bool IntelGeneralUtils::hasNextUniqueInstruction(Instruction *I) {
+  if (!I->isTerminator())
+    return true;
+
+  BasicBlock *nextBB = I->getParent()->getUniqueSuccessor();
+  return nextBB && (nextBB->getUniquePredecessor() != nullptr);
+}
+
+// Returns I's next unique instruciton, which could be in the same 
+// basic block or the first instruciotn of the unique succ BB.
+Instruction* IntelGeneralUtils::nextUniqueInstruction(Instruction *I) {
+  assert(hasNextUniqueInstruction(I) &&
+         "first check if there is a next instruction!");
+
+  if (I->isTerminator())
+    return &I->getParent()->getUniqueSuccessor()->front();
+  return &*++I->getIterator();
+}
+
+// Recursively checks whether V escapes or not.
+static bool analyzeEscapeAux(const Value *V,
+                             SmallPtrSetImpl<const PHINode *> &PhiUsers) {
+  if (isa<GlobalVariable>(V))
+    return true;
+
+  const ConstantExpr *CE;
+  for (const Use &U : V->uses()) {
+    const User *UR = U.getUser();
+    CE = dyn_cast<ConstantExpr>(UR);
+    if (CE) {
+
+      if (!isa<PointerType>(CE->getType()))
+        return true;
+
+      if (analyzeEscapeAux(CE, PhiUsers))
+        return true;
+    } else if (const Instruction *I = dyn_cast<Instruction>(UR)) {
+      if (const LoadInst *LI = dyn_cast<LoadInst>(I)) {
+        if (LI->isVolatile())
+          return true;
+        CE = dyn_cast<ConstantExpr>(V);
+        if (LI->getOperand(0) == V && CE) {
+          if (analyzeEscapeAux(LI, PhiUsers))
+            return true;
+        }
+      } else if (const StoreInst *SI = dyn_cast<StoreInst>(I)) {
+        if (SI->getOperand(0) == V)
+          return true;
+
+        if (SI->isVolatile())
+          return true;
+
+      } else if (isa<BitCastInst>(I) || isa<GetElementPtrInst>(I) ||
+                 isa<SelectInst>(I)) {
+        if (analyzeEscapeAux(I, PhiUsers))
+          return true;
+      } else if (const PHINode *PN = dyn_cast<PHINode>(I)) {
+        // The return value of the insert() method is std::pair.If the second
+        // element of the pair is true, it means that the incoming PN is new. If
+        // it is false, it means that the PN eixsts in the set PhiUses. By this
+        // way it avoids cycling issue.
+        if (PhiUsers.insert(PN).second)
+          if (analyzeEscapeAux(I, PhiUsers))
+            return true;
+      } else if (const MemTransferInst *MTI = dyn_cast<MemTransferInst>(I)) {
+        if (MTI->isVolatile())
+          return true;
+      } else if (const MemSetInst *MSI = dyn_cast<MemSetInst>(I)) {
+        assert(MSI->getArgOperand(0) == V && "Memset only takes one pointer!");
+        if (MSI->isVolatile())
+          return true;
+      } else if (auto C = ImmutableCallSite(I)) {
+        if (!C.isCallee(&U))
+          return true;
+      } else
+        return true;
+    } else
+      return true;
+  }
+
+  return false;
+}
+
+// Returns true if the value V escapes.
+bool IntelGeneralUtils::isEscaped(const Value *V) {
+  SmallPtrSet<const PHINode *, 16> PhiUsers;
+  return analyzeEscapeAux(V, PhiUsers);
 }

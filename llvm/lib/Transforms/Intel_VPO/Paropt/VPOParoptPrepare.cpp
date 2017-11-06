@@ -47,7 +47,6 @@ using namespace llvm::vpo;
 INITIALIZE_PASS_BEGIN(VPOParoptPrepare, "vpo-paropt-prepare", 
                      "VPO Paropt Prepare Function Pass", false, false)
 INITIALIZE_PASS_DEPENDENCY(LoopSimplify)
-INITIALIZE_PASS_DEPENDENCY(LCSSAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(WRegionInfo)
 INITIALIZE_PASS_END(VPOParoptPrepare, "vpo-paropt-prepare", 
                     "VPO Paropt Prepare Function Pass", false, false)
@@ -66,7 +65,6 @@ VPOParoptPrepare::VPOParoptPrepare(unsigned MyMode)
 
 void VPOParoptPrepare::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredID(LoopSimplifyID);
-  AU.addRequiredID(LCSSAID);
   AU.addRequired<WRegionInfo>();
 }
 
@@ -76,15 +74,17 @@ bool VPOParoptPrepare::runOnFunction(Function &F) {
   DEBUG(dbgs() << "\n=== VPOParoptPrepare Start: " << F.getName() <<" {\n");
 
   // TODO: need Front-End to set F.hasOpenMPDirective()
-  if (F.isDeclaration()) // if(!F.hasOpenMPDirective()))
+  if (F.isDeclaration()) { // if(!F.hasOpenMPDirective()))
+    DEBUG(dbgs() << "\n}=== VPOParoptPrepare End (no change): " 
+                                                     << F.getName() <<"\n");
     return Changed;
-
+  }
 
   // Walk the W-Region Graph top-down, and create W-Region List
   WRegionInfo &WI = getAnalysis<WRegionInfo>();
   WI.buildWRGraph(WRegionCollection::LLVMIR);
 
-  DEBUG(dbgs() << "\n=== VPOParoptPrepare get here ...... " << F.getName() <<" {\n");
+  DEBUG(dbgs() << "\n=== W-Region Graph Build Done: " << F.getName() <<"\n");
 
   if (WI.WRGraphIsEmpty()) {
     DEBUG(dbgs() << "\nNo WRegion Candidates for Parallelization \n");
@@ -109,7 +109,6 @@ bool VPOParoptPrepare::runOnFunction(Function &F) {
   // VPOUtils::stripDirectives(F);
 
   DEBUG(dbgs() << "\n}=== VPOParoptPrepare End: " << F.getName() <<"\n");
-
   DEBUG(dbgs() << "\n====== Exit VPO Paropt Prepare Pass ======\n\n");
   return Changed;
 }

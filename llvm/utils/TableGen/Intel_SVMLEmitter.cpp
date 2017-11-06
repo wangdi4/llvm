@@ -1,5 +1,5 @@
 //
-//      Copyright (c) 2016 Intel Corporation.
+//      Copyright (c) 2016-2017 Intel Corporation.
 //      All rights reserved.
 //
 //        INTEL CORPORATION PROPRIETARY INFORMATION
@@ -24,12 +24,11 @@
 #include "llvm/TableGen/Error.h"
 #include "llvm/TableGen/Record.h"
 #include "llvm/TableGen/TableGenBackend.h"
-#include <set>
+#include <vector>
 
 using namespace llvm;
 
 #define DEBUG_TYPE "SVMLVariants"
-#include "llvm/Support/Debug.h"
 
 namespace {
 
@@ -43,7 +42,6 @@ private:
 public:
   SVMLVariantsEmitter(RecordKeeper &R) : Records(R) {}
 
-  // Output the directives and clauses to an enum and enum to string map.
   void run(raw_ostream &OS);
 };
 } // End anonymous namespace
@@ -51,13 +49,9 @@ public:
 /// \brief Emit the set of SVML variant function names.
 void SVMLVariantsEmitter::emitSVMLVariants(raw_ostream &OS) {
 
-  // These math functions may appear in intrinsic form in LLVM IR and can
-  // be translated to SVML.
-  std::set<std::string> Intrinsics = { "pow", "exp", "log" };
-
   // largest logical vector length that is supported for svml translation.
   // Can increase if necessary.
-  unsigned MaxVL = 32;
+  unsigned MaxVL = 64;
 
 #if INTEL_CUSTOMIZATION
   unsigned MinSinglePrecVL = 2;
@@ -78,47 +72,124 @@ void SVMLVariantsEmitter::emitSVMLVariants(raw_ostream &OS) {
   unsigned MaxDoublePrecVL = 8;
 #endif // INTEL_CUSTOMIZATION
 
-  Record *SvmlVariantClass = Records.getClass("SvmlVariant");
-  assert(SvmlVariantClass &&
-         "SvmlVariant class not found in target description file!");
+  Record *SvmlVariantsClass = Records.getClass("SvmlVariants");
+  (void) SvmlVariantsClass;
+  assert(SvmlVariantsClass &&
+         "SvmlVariants class not found in target description file!");
+
+  std::vector<Record*> SvmlVariants =
+      Records.getAllDerivedDefinitions("SvmlVariants");
 
   OS << "#ifdef GET_SVML_VARIANTS\n";
 
-  for (const auto &S : Records.getDefs()) {
-    if (S.second->isSubClassOf(SvmlVariantClass)) {
-      std::string SvmlVariantNameStr = S.first;
-
-      // Emit double precision variants.
-      for (unsigned VL = MinDoublePrecVL; VL <= MaxDoublePrecVL; VL *= 2) {
-        OS << "{\"" << SvmlVariantNameStr << "\", ";
-        OS << "\"" << "__svml_" << SvmlVariantNameStr << VL << "\", "
-           << VL << "},\n";
-      }
-
-      // Emit single precision variants.
-      for (unsigned VL = MinSinglePrecVL; VL <= MaxSinglePrecVL; VL *= 2) {
-        OS << "{\"" << SvmlVariantNameStr << "f" << "\", ";
-        OS << "\"" << "__svml_" << SvmlVariantNameStr << "f" << VL << "\", "
-           << VL << "},\n";
-      }
-
-      // Some functions can be in scalar intrinsic form, so a mapping between
-      // the intrinsic and svml variants is needed.
-      std::set<std::string>::iterator It = Intrinsics.find(SvmlVariantNameStr);
-      if (It != Intrinsics.end()) {
-        for (unsigned VL = MinDoublePrecVL; VL <= MaxDoublePrecVL; VL *= 2) {
-          OS << "{\"" << "llvm." << SvmlVariantNameStr << ".f64" << "\", ";
-          OS << "\"" << "__svml_" << SvmlVariantNameStr << VL << "\", " << VL
-             << "},\n";
-        }
+  for (auto SvmlVariant : SvmlVariants) {
+    std::vector<Record*> VList = SvmlVariant->getValueAsListOfDefs("VList");
+    std::string SvmlVariantNameStr = SvmlVariant->getName();
+    for (unsigned i = 0; i < VList.size(); i++) {
+      bool isMasked = VList[i]->getValueAsBit("isMasked");
+      bool hasSingle = VList[i]->getValueAsBit("hasSingle");
+      bool hasDouble = VList[i]->getValueAsBit("hasDouble");
+      bool hasIntrinsic = VList[i]->getValueAsBit("hasIntrinsic");
+      if (hasSingle) {
         for (unsigned VL = MinSinglePrecVL; VL <= MaxSinglePrecVL; VL *= 2) {
-          OS << "{\"" << "llvm." << SvmlVariantNameStr << ".f32" << "\", ";
+          OS << "{\"" << SvmlVariantNameStr << "f" << "\", ";
           OS << "\"" << "__svml_" << SvmlVariantNameStr << "f" << VL << "\", "
-             << VL << "},\n";
+             << VL << ", false},\n";
+          if (isMasked) {
+            OS << "{\"" << SvmlVariantNameStr << "f" << "\", ";
+            OS << "\"" << "__svml_" << SvmlVariantNameStr << "f" << VL
+               << "_mask" << "\", " << VL << ", true},\n";
+          }
+          if (hasIntrinsic) {
+            OS << "{\"" << "llvm." << SvmlVariantNameStr << ".f32" << "\", ";
+            OS << "\"" << "__svml_" << SvmlVariantNameStr << "f" << VL
+               << "\", " << VL << ", false},\n";
+            if (isMasked) {
+              OS << "{\"" << "llvm." << SvmlVariantNameStr << ".f32"
+                 << "\", ";
+              OS << "\"" << "__svml_" << SvmlVariantNameStr << "f" << VL
+                 << "_mask" << "\", " << VL << ", true},\n";
+            }
+          }
+        }
+      }
+      if (hasDouble) {
+        for (unsigned VL = MinDoublePrecVL; VL <= MaxDoublePrecVL; VL *= 2) {
+          OS << "{\"" << SvmlVariantNameStr << "\", ";
+          OS << "\"" << "__svml_" << SvmlVariantNameStr << VL << "\", "
+             << VL << ", false},\n";
+          if (isMasked) {
+            OS << "{\"" << SvmlVariantNameStr << "\", ";
+            OS << "\"" << "__svml_" << SvmlVariantNameStr << VL << "_mask"
+               << "\", " << VL << ", true},\n";
+          }
+          if (hasIntrinsic) {
+            OS << "{\"" << "llvm." << SvmlVariantNameStr << ".f64" << "\", ";
+            OS << "\"" << "__svml_" << SvmlVariantNameStr << VL << "\", "
+               << VL << ", false},\n";
+            if (isMasked) {
+              OS << "{\"" << "llvm." << SvmlVariantNameStr << ".f64"
+                 << "\", ";
+              OS << "\"" << "__svml_" << SvmlVariantNameStr << VL << "_mask"
+                 << "\", " << VL << ", true},\n";
+            }
+          }
         }
       }
     }
   }
+
+  OS << "{\"_Z5floorf\", \"_Z5floorDv4_f\", 4, false},\n";
+  OS << "{\"_Z5floorf\", \"_Z5floorDv8_f\", 8, false},\n";
+  OS << "{\"_Z5floorf\", \"_Z5floorDv16_f\", 16, false},\n";
+
+  OS << "{\"_Z5hypotff\", \"_Z5hypotDv4_fS_\", 4, false},\n";
+  OS << "{\"_Z5hypotff\", \"_Z5hypotDv8_fS_\", 8, false},\n";
+  OS << "{\"_Z5hypotff\", \"_Z5hypotDv16_fS_\", 16, false},\n";
+
+  OS << "{\"_Z5atan2ff\", \"_Z5atan2Dv4_fS_\", 4, false},\n";
+  OS << "{\"_Z5atan2ff\", \"_Z5atan2Dv8_fS_\", 8, false},\n";
+  OS << "{\"_Z5atan2ff\", \"_Z5atan2Dv16_fS_\", 16, false},\n";
+
+  OS << "{\"_Z15convert_int_rtef\", \"_Z16convert_int4_rteDv4_f\", 4, false},\n";
+  OS << "{\"_Z15convert_int_rtef\", \"_Z16convert_int8_rteDv8_f\", 8, false},\n";
+  OS << "{\"_Z15convert_int_rtef\", \"_Z17convert_int16_rteDv16_f\", 16, false},\n";
+
+  OS << "{\"_Z5clampiii\", \"_Z5clampDv4_iS_S_\", 4, false},\n";
+  OS << "{\"_Z5clampiii\", \"_Z5clampDv8_iS_S_\", 8, false},\n";
+  OS << "{\"_Z5clampiii\", \"_Z5clampDv16_iS_S_\", 16, false},\n";
+
+  OS << "{\"_Z5clampfff\", \"_Z5clampDv4_fS_S_\", 4, false},\n";
+  OS << "{\"_Z5clampfff\", \"_Z5clampDv8_fS_S_\", 8, false},\n";
+  OS << "{\"_Z5clampfff\", \"_Z5clampDv16_fS_S_\", 16, false},\n";
+
+  OS << "{\"_Z6selectffi\", \"_Z6selectDv4_fS_Dv4_i\", 4, false},\n";
+  OS << "{\"_Z6selectffi\", \"_Z6selectDv8_fS_Dv8_i\", 8, false},\n";
+  OS << "{\"_Z6selectffi\", \"_Z6selectDv16_fS_Dv16_i\", 16, false},\n";
+
+  OS << "{\"_Z10native_sinf\", \"_Z10native_sinDv4_f\", 4, false},\n";
+  OS << "{\"_Z10native_sinf\", \"_Z10native_sinDv8_f\", 8, false},\n";
+  OS << "{\"_Z10native_sinf\", \"_Z10native_sinDv16_f\", 16, false},\n";
+
+  OS << "{\"_Z10native_cosf\", \"_Z10native_cosDv4_f\", 4, false},\n";
+  OS << "{\"_Z10native_cosf\", \"_Z10native_cosDv8_f\", 8, false},\n";
+  OS << "{\"_Z10native_cosf\", \"_Z10native_cosDv16_f\", 16, false},\n";
+
+  OS << "{\"_Z3minii\", \"_Z3minDv4_iS_\", 4, false},\n";
+  OS << "{\"_Z3minii\", \"_Z3minDv8_iS_\", 8, false},\n";
+  OS << "{\"_Z3minii\", \"_Z3minDv16_iS_\", 16, false},\n";
+
+  OS << "{\"_Z3minff\", \"_Z3minDv4_fS_\", 4, false},\n";
+  OS << "{\"_Z3minff\", \"_Z3minDv8_fS_\", 8, false},\n";
+  OS << "{\"_Z3minff\", \"_Z3minDv16_fS_\", 16, false},\n";
+
+  OS << "{\"_Z3maxii\", \"_Z3maxDv4_iS_\", 4, false},\n";
+  OS << "{\"_Z3maxii\", \"_Z3maxDv8_iS_\", 8, false},\n";
+  OS << "{\"_Z3maxii\", \"_Z3maxDv16_iS_\", 16, false},\n";
+
+  OS << "{\"_Z3maxff\", \"_Z3maxDv4_fS_\", 4, false},\n";
+  OS << "{\"_Z3maxff\", \"_Z3maxDv8_fS_\", 8, false},\n";
+  OS << "{\"_Z3maxff\", \"_Z3maxDv16_fS_\", 16, false},\n";
 
   OS << "#endif // GET_SVML_VARIANTS\n\n";
 }

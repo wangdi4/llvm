@@ -18,6 +18,7 @@ add_llvm_library(LLVMAnalysis
   CallGraphSCCPass.cpp
   CallPrinter.cpp
   CaptureTracking.cpp
+  CmpInstAnalysis.cpp
   CostModel.cpp
   CodeMetrics.cpp
   ConstantFolding.cpp
@@ -95,6 +96,7 @@ add_llvm_library(LLVMAnalysis
   TypeBasedAliasAnalysis.cpp
   TypeMetadataUtils.cpp
   ScopedNoAliasAA.cpp
+  ValueLattice.cpp
   ValueTracking.cpp
   VectorUtils.cpp
 
@@ -103,9 +105,10 @@ add_llvm_library(LLVMAnalysis
 
   DEPENDS
   intrinsics_gen
-  intel_directives_gen
-  intel_svml_gen
+  intel_directives_gen    #INTEL
+  intel_svml_gen          #INTEL
+  intel_libmvec_gen       #INTEL
   )
 
-add_subdirectory(Intel_LoopAnalysis)
-add_subdirectory(Intel_VPO)
+add_subdirectory(Intel_LoopAnalysis)  #INTEL
+add_subdirectory(Intel_VPO)           #INTEL

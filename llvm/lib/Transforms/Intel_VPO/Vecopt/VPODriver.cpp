@@ -79,8 +79,8 @@ public:
 
   VPOScenarioEvaluationBase &getScenariosEngine(AVRWrn *AvrWrn,
                                                 Function &F) override {
-    ScenariosEngine =
-        new VPOScenarioEvaluation(AvrWrn, *TTI, *TLI, F.getContext(), *DefUse);
+    ScenariosEngine = new VPOScenarioEvaluation(AvrWrn, *TTI, *TLI, *DL,
+                                                F.getContext(), *DefUse);
     return *ScenariosEngine;
   }
 
@@ -125,7 +125,7 @@ public:
   VPOScenarioEvaluationBase &getScenariosEngine(AVRWrn *AvrWrn,
                                                 Function &F) override {
     ScenariosEngine = new VPOScenarioEvaluationHIR(AvrWrn, DDA, VLS, *DefUse,
-                                                   *TTI, *TLI, F.getContext());
+                                                   *TTI, *TLI, *DL, F.getContext());
     return *ScenariosEngine;
   }
 
@@ -200,6 +200,7 @@ bool VPODriverBase::runOnFunction(Function &Fn) {
   SC = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
   TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(Fn);
   TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
+  DL = &Fn.getParent()->getDataLayout();
 
   // TODO - driver should not invoke VPODriver for non-vector target
   // Until then - bail out. This should be changed to an assert later.
@@ -217,7 +218,9 @@ bool VPODriverBase::runOnFunction(Function &Fn) {
     VPOScenarioEvaluationBase &ScenariosEngine = getScenariosEngine(AvrWrn, Fn);
 
     if (AvrWrn->getWrnNode()->getIsFromHIR() == false) {
-      AVRCodeGen AvrCGNode(Avr, SC, LI, TLI, &Fn);
+      DominatorTree *DT =
+        &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+      AVRCodeGen AvrCGNode(Avr, DT, SC, LI, TLI, &Fn);
       assert(isa<VPOScenarioEvaluation>(ScenariosEngine));
       VPOScenarioEvaluation *LLVMIRScenariosEngine =
           cast<VPOScenarioEvaluation>(&ScenariosEngine);
@@ -242,6 +245,7 @@ bool VPODriverBase::runOnFunction(Function &Fn) {
       VPOScenarioEvaluationHIR *HIRScenariosEngine =
           cast<VPOScenarioEvaluationHIR>(&ScenariosEngine);
       HIRScenariosEngine->setCG(&AvrCGNode);
+      HIRScenariosEngine->setSRA(SRA);
 
       // Decide if/how to vectorize in terms of profitability.
       VPOVecContextBase VC = ScenariosEngine.getBestCandidate(AvrWrn);
@@ -306,6 +310,7 @@ void VPODriver::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<ScalarEvolutionWrapperPass>();
   AU.addRequired<TargetTransformInfoWrapperPass>();
   AU.addRequired<TargetLibraryInfoWrapperPass>();
+  AU.addRequired<DominatorTreeWrapperPass>();
   AU.addRequired<AvrDefUse>();
 
   AU.addPreserved<AVRGenerate>();

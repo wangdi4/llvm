@@ -15,6 +15,7 @@ add_llvm_library(LLVMIntel_VPOTransforms
   Paropt/VPOParoptAtomics.cpp
   Paropt/VPOParoptPrepare.cpp
   Paropt/VPOParoptTpv.cpp
+  Paropt/VPOParoptTask.cpp
   Paropt/VPOParoptTransform.cpp
   Paropt/VPOParoptUtils.cpp
 )
