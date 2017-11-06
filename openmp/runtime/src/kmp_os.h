@@ -294,6 +294,15 @@ extern "C" {
 #define KMP_ALIGN(bytes) __declspec(align(bytes))
 #endif
 
+// Define attribute that indicates a function does not return
+#if __cplusplus >= 201103L
+#define KMP_NORETURN [[noreturn]]
+#elif KMP_OS_WINDOWS
+#define KMP_NORETURN __declspec(noreturn)
+#else
+#define KMP_NORETURN __attribute__((noreturn))
+#endif
+
 /* General purpose fence types for memory operations */
 enum kmp_mem_fence_type {
   kmp_no_fence, /* No memory fence */
@@ -834,7 +843,8 @@ typedef void (*microtask_t)(int *gtid, int *npr, ...);
 #define KMP_USE_DYNAMIC_LOCK 1
 #endif
 
-// Enable TSX if dynamic user lock is turned on
+// Enable Intel(R) Transactional Synchronization Extensions (Intel(R) TSX) if
+// dynamic user lock is turned on
 #if KMP_USE_DYNAMIC_LOCK
 // Visual studio can't handle the asm sections in this code
 #define KMP_USE_TSX (KMP_ARCH_X86 || KMP_ARCH_X86_64) && !KMP_COMPILER_MSVC

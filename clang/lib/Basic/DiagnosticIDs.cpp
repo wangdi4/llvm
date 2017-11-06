@@ -68,6 +68,29 @@ struct StaticDiagInfoRec {
   }
 };
 
+#define STRINGIFY_NAME(NAME) #NAME
+#define VALIDATE_DIAG_SIZE(NAME)                                               \
+  static_assert(                                                               \
+      static_cast<unsigned>(diag::NUM_BUILTIN_##NAME##_DIAGNOSTICS) <          \
+          static_cast<unsigned>(diag::DIAG_START_##NAME) +                     \
+              static_cast<unsigned>(diag::DIAG_SIZE_##NAME),                   \
+      STRINGIFY_NAME(                                                          \
+          DIAG_SIZE_##NAME) " is insufficient to contain all "                 \
+                            "diagnostics, it may need to be made larger in "   \
+                            "DiagnosticIDs.h.");
+VALIDATE_DIAG_SIZE(COMMON)
+VALIDATE_DIAG_SIZE(DRIVER)
+VALIDATE_DIAG_SIZE(FRONTEND)
+VALIDATE_DIAG_SIZE(SERIALIZATION)
+VALIDATE_DIAG_SIZE(LEX)
+VALIDATE_DIAG_SIZE(PARSE)
+VALIDATE_DIAG_SIZE(AST)
+VALIDATE_DIAG_SIZE(COMMENT)
+VALIDATE_DIAG_SIZE(SEMA)
+VALIDATE_DIAG_SIZE(ANALYSIS)
+#undef VALIDATE_DIAG_SIZE
+#undef STRINGIFY_NAME
+
 } // namespace anonymous
 
 static const StaticDiagInfoRec StaticDiagInfo[] = {
@@ -86,6 +109,7 @@ static const StaticDiagInfoRec StaticDiagInfo[] = {
 #include "clang/Basic/DiagnosticParseKinds.inc"
 #include "clang/Basic/DiagnosticASTKinds.inc"
 #include "clang/Basic/DiagnosticCommentKinds.inc"
+#include "clang/Basic/DiagnosticCrossTUKinds.inc"
 #include "clang/Basic/DiagnosticSemaKinds.inc"
 #include "clang/Basic/DiagnosticAnalysisKinds.inc"
 #undef DIAG
@@ -96,18 +120,6 @@ static const unsigned StaticDiagInfoSize = llvm::array_lengthof(StaticDiagInfo);
 /// GetDiagInfo - Return the StaticDiagInfoRec entry for the specified DiagID,
 /// or null if the ID is invalid.
 static const StaticDiagInfoRec *GetDiagInfo(unsigned DiagID) {
-  // If assertions are enabled, verify that the StaticDiagInfo array is sorted.
-#ifndef NDEBUG
-  static bool IsFirst = true; // So the check is only performed on first call.
-  if (IsFirst) {
-    assert(std::is_sorted(std::begin(StaticDiagInfo),
-                          std::end(StaticDiagInfo)) &&
-           "Diag ID conflict, the enums at the start of clang::diag (in "
-           "DiagnosticIDs.h) probably need to be increased");
-    IsFirst = false;
-  }
-#endif
-
   // Out of bounds diag. Can't be in the table.
   using namespace diag;
   if (DiagID >= DIAG_UPPER_LIMIT || DiagID <= DIAG_START_COMMON)
@@ -135,7 +147,8 @@ CATEGORY(LEX, SERIALIZATION)
 CATEGORY(PARSE, LEX)
 CATEGORY(AST, PARSE)
 CATEGORY(COMMENT, AST)
-CATEGORY(SEMA, COMMENT)
+CATEGORY(CROSSTU, COMMENT)
+CATEGORY(SEMA, CROSSTU)
 CATEGORY(ANALYSIS, SEMA)
 #undef CATEGORY
 
@@ -516,7 +529,7 @@ std::vector<std::string> DiagnosticIDs::getDiagnosticFlags() {
     std::string Diag(DiagGroupNames + I + 1, DiagGroupNames[I]);
     I += DiagGroupNames[I] + 1;
     Res.push_back("-W" + Diag);
-    Res.push_back("-Wno" + Diag);
+    Res.push_back("-Wno-" + Diag);
   }
 
   return Res;

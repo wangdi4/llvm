@@ -1387,30 +1387,9 @@ Instruction *InstCombiner::visitFAdd(BinaryOperator &I) {
     }
   }
 
-  // select C, 0, B + select C, A, 0 -> select C, A, B
-  {
-    Value *A1, *B1, *C1, *A2, *B2, *C2;
-    if (match(LHS, m_Select(m_Value(C1), m_Value(A1), m_Value(B1))) &&
-        match(RHS, m_Select(m_Value(C2), m_Value(A2), m_Value(B2)))) {
-      if (C1 == C2) {
-        Constant *Z1=nullptr, *Z2=nullptr;
-        Value *A, *B, *C=C1;
-        if (match(A1, m_AnyZero()) && match(B2, m_AnyZero())) {
-            Z1 = dyn_cast<Constant>(A1); A = A2;
-            Z2 = dyn_cast<Constant>(B2); B = B1;
-        } else if (match(B1, m_AnyZero()) && match(A2, m_AnyZero())) {
-            Z1 = dyn_cast<Constant>(B1); B = B2;
-            Z2 = dyn_cast<Constant>(A2); A = A1;
-        }
-
-        if (Z1 && Z2 &&
-            (I.hasNoSignedZeros() ||
-             (Z1->isNegativeZeroValue() && Z2->isNegativeZeroValue()))) {
-          return SelectInst::Create(C, A, B);
-        }
-      }
-    }
-  }
+  // Handle specials cases for FAdd with selects feeding the operation
+  if (Value *V = SimplifySelectsFeedingBinaryOp(I, LHS, RHS))
+    return replaceInstUsesWith(I, V);
 
   if (I.hasUnsafeAlgebra()) {
     if (Value *V = FAddCombine(Builder).simplify(&I))
@@ -1465,11 +1444,30 @@ Value *InstCombiner::OptimizePointerDifference(Value *LHS, Value *RHS,
     }
   }
 
-  // Avoid duplicating the arithmetic if GEP2 has non-constant indices and
-  // multiple users.
-  if (!GEP1 ||
-      (GEP2 && !GEP2->hasAllConstantIndices() && !GEP2->hasOneUse()))
+  if (!GEP1)
+    // No GEP found.
     return nullptr;
+
+  if (GEP2) {
+    // (gep X, ...) - (gep X, ...)
+    //
+    // Avoid duplicating the arithmetic if there are more than one non-constant
+    // indices between the two GEPs and either GEP has a non-constant index and
+    // multiple users. If zero non-constant index, the result is a constant and
+    // there is no duplication. If one non-constant index, the result is an add
+    // or sub with a constant, which is no larger than the original code, and
+    // there's no duplicated arithmetic, even if either GEP has multiple
+    // users. If more than one non-constant indices combined, as long as the GEP
+    // with at least one non-constant index doesn't have multiple users, there
+    // is no duplication.
+    unsigned NumNonConstantIndices1 = GEP1->countNonConstantIndices();
+    unsigned NumNonConstantIndices2 = GEP2->countNonConstantIndices();
+    if (NumNonConstantIndices1 + NumNonConstantIndices2 > 1 &&
+        ((NumNonConstantIndices1 > 0 && !GEP1->hasOneUse()) ||
+         (NumNonConstantIndices2 > 0 && !GEP2->hasOneUse()))) {
+      return nullptr;
+    }
+  }
 
   // Emit the offset of the GEP and an intptr_t.
   Value *Result = EmitGEPOffset(GEP1);
@@ -1600,7 +1598,7 @@ Instruction *InstCombiner::visitSub(BinaryOperator &I) {
       return BinaryOperator::CreateNeg(Y);
   }
 
-  // (sub (or A, B) (xor A, B)) --> (and A, B)
+  // (sub (or A, B), (xor A, B)) --> (and A, B)
   {
     Value *A, *B;
     if (match(Op1, m_Xor(m_Value(A), m_Value(B))) &&
@@ -1740,6 +1738,10 @@ Instruction *InstCombiner::visitFSub(BinaryOperator &I) {
       return NewI;
     }
   }
+
+  // Handle specials cases for FSub with selects feeding the operation
+  if (Value *V = SimplifySelectsFeedingBinaryOp(I, Op0, Op1))
+    return replaceInstUsesWith(I, V);
 
   if (I.hasUnsafeAlgebra()) {
     if (Value *V = FAddCombine(Builder).simplify(&I))
