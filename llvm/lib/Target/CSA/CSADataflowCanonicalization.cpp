@@ -167,6 +167,13 @@ bool CSADataflowCanonicalizationPass::eliminateNotPicks(MachineInstr *MI) {
   return false;
 }
 
+// This will transform a switch of the form:
+//   %val = [simple op] %arg1, %arg2
+//   %out, %ign = SWITCH %ctl, %val
+// into:
+//   %swarg1, %ign = SWITCH %ctl, %arg1
+//   %swarg2, %ign = SWITCH %ctl, %arg2
+//   %val = [simple op] %swarg1, %swarg2
 bool CSADataflowCanonicalizationPass::invertIgnoredSwitches(MachineInstr *MI) {
   // The value must be a switch, and one of its outputs must be ignored.
   if (!TII->isSwitch(MI))
