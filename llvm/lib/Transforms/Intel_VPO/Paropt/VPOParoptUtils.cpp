@@ -1003,8 +1003,44 @@ CallInst *VPOParoptUtils::genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy,
 // loop scheduling is started
 //
 //   call void @__kmpc_for_static_init_4(%ident_t* %loc, i32 %tid,
-//               i32 schedtype, i32* %islast,i32* %lb, i32* %ub, i32* %st,
+//               i32 schedtype, i32* %islast, i32* %lb, i32* %ub, i32* %st,
 //               i32 inc, i32 chunk)
+//   call void @__kmpc_for_static_init_8(%ident_t* %loc, i32 %tid,
+//               i32 schedtype, i64* %islast, i64* %lb, i64* %ub, i64* %st,
+//               i64 inc, i64 chunk)
+//
+// Note: The type of the LCV (i32/i64) determines if the 4- or 8-byte version
+// is used. The parameter 'Chunk' has to be cast to the matching type when
+// needed. For example, in
+//
+//     int chksize;
+//     long long jjj;
+//     #pragma omp for schedule(static, chksize)
+//       for (jjj=1; jjj<100; jjj++) ...
+//
+// the LCV jjj is i64, so chksize is cast from i32 to i64 in the call:
+//
+//     %chunk.cast = sext i32 %chksize to i64
+//     call void @__kmpc_for_static_init_8( ... , i64 %chunk.cast)
+//
+// The cast instruction is not needed if the type is already matching. For
+// example, if "long long jjj" above is changed to "int jjj", then we get
+//
+//     ; no casting of "i32 %chksize" as it is the correct type
+//     call void @__kmpc_for_static_init_4( ... , i32 %chksize)
+//
+// The cast instruction is not emitted if chunk is a constant and the compiler
+// can convert it directly. For example, given:
+//
+//     long long jjj;
+//     #pragma omp for schedule(static, 17)
+//       for (jjj=1; jjj<100; jjj++) ...
+//
+// The original "i32 17" is directly converted to "i64 17" by the compiler
+// without needing a sext instruction:
+//
+//     call void @__kmpc_for_static_init_8( ... , i64 17)
+//
 CallInst *VPOParoptUtils::genKmpcStaticInit(WRegionNode *W,
                                             StructType *IdentTy,
                                             Value *Tid, Value *SchedType,
@@ -1031,6 +1067,10 @@ CallInst *VPOParoptUtils::genKmpcStaticInit(WRegionNode *W,
   Type *Int64Ty = Type::getInt64Ty(C);
 
   Type *IntArgTy = (Size == 32) ? Int32Ty : Int64Ty;
+
+  // If Chunk's type != IntArgTy, cast it to IntArgTy
+  IRBuilder<> Builder(InsertPt);
+  Chunk = Builder.CreateSExtOrTrunc(Chunk, IntArgTy, "chunk.cast");
 
   StringRef FnName;
 
@@ -1131,7 +1171,7 @@ CallInst *VPOParoptUtils::genKmpcStaticFini(WRegionNode *W,
 //   call void @__kmpc_dispatch_init_4{u}(%ident_t* %loc, i32 %tid,
 //               i32 schedtype, i32 %lb, i32 %ub, i32 %st, i32 chunk)
 //
-//   call void @__kmpc_dispatch_init_8{u}4(%ident_t* %loc, i32 %tid,
+//   call void @__kmpc_dispatch_init_8{u}(%ident_t* %loc, i32 %tid,
 //               i32 schedtype, i64 %lb, i64 %ub, i64 %st, i64 chunk)
 CallInst *VPOParoptUtils::genKmpcDispatchInit(WRegionNode *W,
                                               StructType *IdentTy,
@@ -1152,6 +1192,10 @@ CallInst *VPOParoptUtils::genKmpcDispatchInit(WRegionNode *W,
   Type *Int64Ty = Type::getInt64Ty(C);
 
   Type *IntArgTy = (Size == 32) ? Int32Ty : Int64Ty;
+
+  // If Chunk's type != IntArgTy, cast it to IntArgTy
+  IRBuilder<> Builder(InsertPt);
+  Chunk = Builder.CreateSExtOrTrunc(Chunk, IntArgTy, "chunk.cast");
 
   int Flags = KMP_IDENT_KMPC;
 
@@ -1190,9 +1234,6 @@ CallInst *VPOParoptUtils::genKmpcDispatchInit(WRegionNode *W,
   FnDispatchInitArgs.push_back(LB);
   FnDispatchInitArgs.push_back(UB);
   FnDispatchInitArgs.push_back(ST);
-
-  IRBuilder<> Builder(InsertPt);
-  Chunk = Builder.CreateSExtOrTrunc(Chunk, IntArgTy);
   FnDispatchInitArgs.push_back(Chunk);
 
   CallInst *DispatchInitCall = CallInst::Create(FnDispatchInit,

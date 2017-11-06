@@ -1310,9 +1310,8 @@ bool VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
   LastprivateClause &LprivClause = W->getLpriv();
   if (!LprivClause.empty()) {
     W->populateBBSet();
-    FirstprivateItem *FprivI;
+    FirstprivateItem *FprivI = nullptr;
     if (W->hasFirstprivate()) {
-      FirstprivateItem *FprivI = nullptr;
       for (LastprivateItem *LprivI : LprivClause.items()) {
         FprivI = WRegionUtils::wrnSeenAsFirstPrivate(W, LprivI->getOrig());
         if (FprivI)
