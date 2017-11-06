@@ -330,9 +330,10 @@ AliasResult TypeBasedAAResult::alias(const MemoryLocation &LocA,
   const Value *Ptr2 = LocB.Ptr;
 
   // Consider ptr as a direct reference if ptr is a Select node and one of the
-  // arms of it is a global value.
+  // arms of it is a global Scalar value.
   if (Ptr1) {
-    if (isa<GlobalValue>(Ptr1))
+    Type *Ptr1ElementType = Ptr1->getType()->getPointerElementType();
+    if (isa<GlobalValue>(Ptr1) && !(Ptr1ElementType->isAggregateType()))
       DirectRefA = true;
     else if (const SelectInst *S1 = dyn_cast<SelectInst>(Ptr1))
       if (isa<GlobalValue>(S1->getTrueValue()) ||
@@ -340,7 +341,8 @@ AliasResult TypeBasedAAResult::alias(const MemoryLocation &LocA,
         DirectRefA = true;
   }
   if (Ptr2) {
-    if (isa<GlobalValue>(Ptr2))
+    Type *Ptr2ElementType = Ptr2->getType()->getPointerElementType();
+    if (isa<GlobalValue>(Ptr2) && !(Ptr2ElementType->isAggregateType()))
       DirectRefB = true;
     else if (const SelectInst *S2 = dyn_cast<SelectInst>(Ptr2))
       if (isa<GlobalValue>(S2->getTrueValue()) ||
