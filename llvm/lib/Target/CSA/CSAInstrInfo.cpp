@@ -357,33 +357,50 @@ CSAInstrInfo::getPickSwitchOpcode(const TargetRegisterClass *RC,
   if (isPick) {
     switch (RC->getID()) {
     default: llvm_unreachable("Unknown Target register class!");
+    case CSA::I0RegClassID: return CSA::PICK0;
     case CSA::I1RegClassID: return CSA::PICK1;
     case CSA::I8RegClassID: return CSA::PICK8;
     case CSA::I16RegClassID: return CSA::PICK16;
     case CSA::I32RegClassID: return CSA::PICK32;
     case CSA::I64RegClassID: return CSA::PICK64;
+    case CSA::RI0RegClassID: return CSA::PICK0;
     case CSA::RI1RegClassID: return CSA::PICK1;
     case CSA::RI8RegClassID: return CSA::PICK8;
     case CSA::RI16RegClassID: return CSA::PICK16;
     case CSA::RI32RegClassID: return CSA::PICK32;
     case CSA::RI64RegClassID: return CSA::PICK64;
+    case CSA::CI0RegClassID: return CSA::PICK0;
+    case CSA::CI1RegClassID: return CSA::PICK1;
+    case CSA::CI8RegClassID: return CSA::PICK8;
+    case CSA::CI16RegClassID: return CSA::PICK16;
+    case CSA::CI32RegClassID: return CSA::PICK32;
+    case CSA::CI64RegClassID: return CSA::PICK64;
     }
   }
 
 
   switch (RC->getID()) {
   default: llvm_unreachable("Unknown Target register class!");
+  case CSA::I0RegClassID: return CSA::SWITCH0;
   case CSA::I1RegClassID: return CSA::SWITCH1;
   case CSA::I8RegClassID: return CSA::SWITCH8;
   case CSA::I16RegClassID: return CSA::SWITCH16;
   case CSA::I32RegClassID: return CSA::SWITCH32;
   case CSA::I64RegClassID: return CSA::SWITCH64;
 
+  case CSA::RI0RegClassID: return CSA::SWITCH0;
   case CSA::RI1RegClassID: return CSA::SWITCH1;
   case CSA::RI8RegClassID: return CSA::SWITCH8;
   case CSA::RI16RegClassID: return CSA::SWITCH16;
   case CSA::RI32RegClassID: return CSA::SWITCH32;
   case CSA::RI64RegClassID: return CSA::SWITCH64;
+
+  case CSA::CI0RegClassID: return CSA::SWITCH0;
+  case CSA::CI1RegClassID: return CSA::SWITCH1;
+  case CSA::CI8RegClassID: return CSA::SWITCH8;
+  case CSA::CI16RegClassID: return CSA::SWITCH16;
+  case CSA::CI32RegClassID: return CSA::SWITCH32;
+  case CSA::CI64RegClassID: return CSA::SWITCH64;
   }
 
 }
@@ -449,7 +466,8 @@ bool CSAInstrInfo::isCmp(const MachineInstr *MI) const {
 
 
 bool CSAInstrInfo::isSwitch(const MachineInstr *MI) const {
-	return MI->getOpcode() == CSA::SWITCH1 ||
+	return MI->getOpcode() == CSA::SWITCH0 ||
+	       MI->getOpcode() == CSA::SWITCH1 ||
          MI->getOpcode() == CSA::SWITCH8 ||
          MI->getOpcode() == CSA::SWITCH16 ||
          MI->getOpcode() == CSA::SWITCH32 ||
@@ -457,11 +475,12 @@ bool CSAInstrInfo::isSwitch(const MachineInstr *MI) const {
 }
 
 bool CSAInstrInfo::isPick(const MachineInstr *MI) const {
-        return MI->getOpcode() == CSA::PICK1 ||
-		MI->getOpcode() == CSA::PICK8 ||
-		MI->getOpcode() == CSA::PICK16 ||
-		MI->getOpcode() == CSA::PICK32 ||
-		MI->getOpcode() == CSA::PICK64;
+  return MI->getOpcode() == CSA::PICK0 ||
+         MI->getOpcode() == CSA::PICK1 ||
+         MI->getOpcode() == CSA::PICK8 ||
+         MI->getOpcode() == CSA::PICK16 ||
+         MI->getOpcode() == CSA::PICK32 ||
+         MI->getOpcode() == CSA::PICK64;
 }
 
 bool CSAInstrInfo::isPickany(const MachineInstr *MI) const {
@@ -506,6 +525,39 @@ bool CSAInstrInfo::isAtomic(const MachineInstr *MI) const {
 bool CSAInstrInfo::isSeqOT(const MachineInstr *MI) const {
     return ((MI->getOpcode() >= CSA::SEQOTGE) &&
             (MI->getOpcode() <= CSA::SEQOTNE8));
+}
+
+bool CSAInstrInfo::isPure(const MachineInstr *MI) const {
+  // TODO: This really should be generated from the tablegen. In theory, it
+  // could be the negation of (mayLoad | mayStore | hasUnmodeledSideEffects),
+  // but we don't set the latter at the moment, and it's not immediately clear
+  // that this is the right flag to use.
+  if (isAdd(MI) || isSub(MI) || isMul(MI) || isDiv(MI) || isFMA(MI))
+    return true;
+  unsigned opcode = MI->getOpcode();
+  // ALL0 is the only dataflow operation that is safe.
+  if (opcode == CSA::ALL0)
+    return true;
+  if (isShift(MI) || isCmp(MI))
+    return true;
+  if (CSA::NOT1 <= opcode && opcode <= CSA::NOT64) return true;
+  if (CSA::NEG8 <= opcode && opcode <= CSA::NEG64) return true;
+  if (CSA::CTLZ8 <= opcode && opcode <= CSA::CTLZ64) return true;
+  if (CSA::CTTZ8 <= opcode && opcode <= CSA::CTTZ64) return true;
+  if (CSA::CTPOP8 <= opcode && opcode <= CSA::CTPOP64) return true;
+  if (CSA::PARITY8 <= opcode && opcode <= CSA::PARITY64) return true;
+  if (CSA::AND1 <= opcode && opcode <= CSA::AND64) return true;
+  if (CSA::OR1 <= opcode && opcode <= CSA::OR64) return true;
+  if (CSA::XOR1 <= opcode && opcode <= CSA::XOR64) return true;
+  if (CSA::ADC8 <= opcode && opcode <= CSA::ADC64) return true;
+  if (CSA::SBB8 <= opcode && opcode <= CSA::SBB64) return true;
+  if (CSA::SEXT8 <= opcode && opcode <= CSA::SEXT64) return true;
+  if (CSA::SLADD8 <= opcode && opcode <= CSA::SLADD64) return true;
+  if (CSA::COPY0 <= opcode && opcode <= CSA::COPY64) return true;
+  if (CSA::NEGF32 <= opcode && opcode <= CSA::NEGF64) return true;
+  if (CSA::ABSF32 <= opcode && opcode <= CSA::ABSF64) return true;
+
+  return false;
 }
 
 unsigned CSAInstrInfo::getMemTokenMOVOpcode() const {
