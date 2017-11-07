@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This pass implements ...
+// This pass implements Loop SPMDization transformation that generates multiple loops out of one loop. These loops can run in parallel. The approach implemented here is the vector lane approach where each loop has a stride of k.
 //
 //===----------------------------------------------------------------------===//
 
@@ -76,13 +76,10 @@ namespace {
 	PH->setName(L->getHeader()->getName() + ".ph");
 	
 	BasicBlock *OrigE = L->getExitBlock();
-	//Fixme: should return all successors
 	BasicBlock *AfterLoop = OrigE->getSingleSuccessor();
 	Instruction *i = dyn_cast<Instruction>(OrigE->begin());
 	BasicBlock *E = SplitBlock(OrigE, i, DT, LI);
 	OrigE->setName(L->getHeader()->getName() + ".e");
-	//TODO: I need to update the other phi nodes in F->blocks to point to OrigE
-	 
 	
 	//Add CSA parallel intrinsics:
 	AddParallelIntrinsicstoLoop(L, context, M, OrigPH, E);
@@ -265,7 +262,7 @@ IntrinsicInst* LoopSPMDization::detectSPMDExitIntrinsic(Loop *L, LoopInfo *LI) {
 }
 
 
-/* This routine has been copied from LoopInterchange.cpp where it is declared static */
+/* This routine has been copied from LoopInterchange.cpp. It has then been modified to accomodate the type of induction variables we are insterested in handling for SPMDization  */
 PHINode *LoopSPMDization::getInductionVariable(Loop *L, ScalarEvolution *SE) {
   PHINode *InnerIndexVar = L->getCanonicalInductionVariable();
   if (InnerIndexVar)
@@ -298,7 +295,6 @@ PHINode *LoopSPMDization::getInductionVariable(Loop *L, ScalarEvolution *SE) {
 }
 
 bool LoopSPMDization::TransformLoopInitandStep(Loop *L, ScalarEvolution *SE, int PE, int NPEs) {
-  
   PHINode *InductionPHI = getInductionVariable(L, SE);
   BasicBlock *PreHeader = L->getLoopPreheader();
   BranchInst *PreHeaderBR = cast<BranchInst>(PreHeader->getTerminator());
@@ -318,6 +314,7 @@ bool LoopSPMDization::TransformLoopInitandStep(Loop *L, ScalarEvolution *SE, int
     InitVar = InductionPHI->getIncomingValue(1);
   }
   IRBuilder<> B2(InnerIndexVar);
+  //fixme: add newinc=i+oldinc+NPEs
   Value *NewInc = B2.CreateAdd(InductionPHI,
 			       ConstantInt::get(InductionPHI->getType(), NPEs), 
 			       InductionPHI->getName()+".newnext");
