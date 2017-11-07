@@ -2,15 +2,14 @@
 //
 //===----------------------------------------------------------------===//
 //
-// This pass locates loops marked with llvm.csa.parallel.loop and
-// converts them to use llvm.csa.parallel.region/section.entry/exit
-// instead. This pass must be run before any passes that could move the
-// parallel loop intrinsic around, but must also run after loop
-// simplification (since it expects normal form loops), memory to
-// register promotion (so that it can identify real memory operations
-// rather than ones that just access local variables), and the Fortran
-// intrinsic converter pass (so that it recognizes Fortran "intrinsics"
-// too).
+// This pass locates loops marked with CSA-specific loop intrinsics and
+// expands them into their underlying representations. It must be run
+// before any passes that could move the intrinsics around, but must also
+// run after loop simplification (since it expects normal form loops),
+// memory to register promotion (so that it can identify real memory
+// operations rather than ones that just access local variables), and the
+// Fortran intrinsic converter pass (so that it recognizes Fortran
+// "intrinsics" too).
 //
 //===----------------------------------------------------------------===//
 
@@ -32,6 +31,7 @@
 #define DEBUG_TYPE "csa-loop-intrinsic-expander"
 
 STATISTIC(NumLoopIntrinsicExpansions, "Number of parallel loop intrinsics expanded");
+STATISTIC(NumSPMDIntrinsicExpansions, "Number of SPMD intrinsics expanded");
 
 using namespace llvm;
 
@@ -124,7 +124,7 @@ struct CSALoopIntrinsicExpander : FunctionPass {
   bool runOnFunction(Function&) override;
 
   StringRef getPassName() const override {
-    return "Expand CSA parallel loop intrinsics";
+    return "Expand CSA-specific loop intrinsics";
   }
 
 private:
@@ -149,8 +149,9 @@ private:
   // true if any loops were expanded; false otherwise.
   bool recurseLoops(Loop*, BasicBlock* dummy_exit);
 
-  // Looks for a parallel loop intrinsic in the blocks before the loop. If none is
-  // found this will return nullptr and this loop should probably be left alone.
+  // Looks for a parallel loop/SPMD intrinsic in the blocks before the loop. If
+  // none is found this will return nullptr and this loop should probably be
+  // left alone.
   IntrinsicInst* detectIntrinsic(Loop*) const;
 
   // Locates any iteration-scoped storage declared in a loop. If there is some,
@@ -291,12 +292,16 @@ IntrinsicInst* CSALoopIntrinsicExpander::detectIntrinsic(Loop* L) const {
     cur_block and LI->getLoopFor(cur_block) == LI->getLoopFor(L->getLoopPreheader());
     cur_block = cur_block->getSinglePredecessor()
   ) {
-  
-    // Look for intrinsic calls with the right ID.
-    for (Instruction& inst : *cur_block)
-      if (IntrinsicInst*const intr_inst = dyn_cast<IntrinsicInst>(&inst))
-        if (intr_inst->getIntrinsicID() == Intrinsic::csa_parallel_loop)
-          return intr_inst;
+
+    // Look for intrinsic calls with one of the right IDs.
+    for (Instruction& inst : *cur_block) {
+      if (IntrinsicInst*const intr_inst = dyn_cast<IntrinsicInst>(&inst)) {
+        if (
+          intr_inst->getIntrinsicID() == Intrinsic::csa_parallel_loop
+            or intr_inst->getIntrinsicID() == Intrinsic::csa_spmdization
+        ) return intr_inst;
+      }
+    }
   }
 
   return nullptr;
@@ -319,7 +324,7 @@ const IntrinsicInst* CSALoopIntrinsicExpander::locateScopedStorage(
 }
 
 bool CSALoopIntrinsicExpander::expandLoop(
-  Loop* L, IntrinsicInst* parloop, BasicBlock* dummy_exit
+  Loop* L, IntrinsicInst* intr, BasicBlock* dummy_exit
 ) {
   using namespace std;
 
@@ -364,12 +369,42 @@ bool CSALoopIntrinsicExpander::expandLoop(
     }
   }
 
-  // If no section has been found, it looks like none is needed though we should
-  // probably warn the user.
-  if (not cur_section_begin or not cur_section_end) {
+  LLVMContext& context = L->getHeader()->getContext();
+  Module* module = L->getHeader()->getParent()->getParent();
+
+  // If this is an SPMDization intrinsic, it needs to have its own entry and
+  // exit inserted for the SPMDization pass later.
+  if (intr->getIntrinsicID() == Intrinsic::csa_spmdization) {
+    Instruction*const preheader_terminator =
+      L->getLoopPreheader()->getTerminator();
+    assert(intr->getNumArgOperands() == 1 && "Bad SPMDization intrinsic?");
+    CallInst*const spmdization_entry = IRBuilder<>{
+      preheader_terminator
+    }.CreateCall(
+      Intrinsic::getDeclaration(module, Intrinsic::csa_spmdization_entry),
+      intr->getArgOperand(0),
+      "spmdization_entry"
+    );
+    SmallVector<BasicBlock*, 2> exits;
+    L->getExitBlocks(exits);
+    for (BasicBlock*const exit : exits) {
+      IRBuilder<>{exit->getFirstNonPHI()}.CreateCall(
+        Intrinsic::getDeclaration(module, Intrinsic::csa_spmdization_exit),
+        spmdization_entry
+      );
+    }
+
+    // If there wasn't any memory use in the loop, the parallel region/section
+    // expansion can just be ignored.
+    if (not cur_section_begin or not cur_section_end) return true;
+  }
+
+  // If this is a parallel loop intrinsic, it doesn't make much sense to expand
+  // it if there weren't any memory references. Just emit a warning about that.
+  else if (not cur_section_begin or not cur_section_end) {
 
     errs() << "\n!! WARNING: NO MEMORY OPERATIONS IN LOOP !!";
-    const DebugLoc& loc = parloop->getDebugLoc();
+    const DebugLoc& loc = intr->getDebugLoc();
     if (loc) {
       errs() << "\nThe loop at:\n  ";
       loc.print(errs());
@@ -387,18 +422,19 @@ Re-run with -g to see more location information.
 )help";
     }
 
-    parloop->eraseFromParent();
+    intr->eraseFromParent();
     return true;
   }
 
   // Go ahead and delete the original intrinsic; there should be enough information
   // at this point to finish the expansion. Now is also a good time to update the
   // statistic.
-  parloop->eraseFromParent();
-  ++NumLoopIntrinsicExpansions;
-
-  LLVMContext& context = L->getHeader()->getContext();
-  Module* module = L->getHeader()->getParent()->getParent();
+  ++(
+    intr->getIntrinsicID() == Intrinsic::csa_parallel_loop
+      ? NumLoopIntrinsicExpansions
+      : NumSPMDIntrinsicExpansions
+  );
+  intr->eraseFromParent();
 
   // The csa.parallel.region.entry intrinsic goes at the end of the preheader.
   Instruction*const preheader_terminator = L->getLoopPreheader()->getTerminator();

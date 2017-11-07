@@ -731,18 +731,37 @@ void llvm::remapInstructionsInBlocks(
                        RF_NoModuleLevelChanges | RF_IgnoreMissingLocals);
 }
 
+/// \brief Clones the original loop \p OrigLoop structure
+/// and keeps it ready to add the basic blocks.
+static void createNewLoops(Loop *OrigLoop, LoopInfo *LI, Loop *ParentLoop,
+   std::map<Loop*, Loop*>  &ClonedLoopMap) {
+  if (OrigLoop->empty()) return;
+
+  for (auto CurrLoop :  OrigLoop->getSubLoops()) {
+    Loop *NewLoop = new Loop();
+    ParentLoop->addChildLoop(NewLoop);
+    ClonedLoopMap[CurrLoop] = NewLoop;
+
+    // Recursively add the new loops.
+    createNewLoops(CurrLoop, LI, NewLoop, ClonedLoopMap);
+  }
+}
+
 /// \brief Clones a loop \p OrigLoop.  Returns the loop and the blocks in \p
 /// Blocks.
 ///
 /// Updates LoopInfo and DominatorTree assuming the loop is dominated by block
 /// \p LoopDomBB.  Insert the new blocks before block specified in \p Before.
+//// This version of routine has a better handling of nested loops 
+//// This version has been copied from 
+//// https://reviews.llvm.org/D25868
 Loop *llvm::cloneLoopWithPreheader(BasicBlock *Before, BasicBlock *LoopDomBB,
                                    Loop *OrigLoop, ValueToValueMapTy &VMap,
                                    const Twine &NameSuffix, LoopInfo *LI,
                                    DominatorTree *DT,
                                    SmallVectorImpl<BasicBlock *> &Blocks) {
-  assert(OrigLoop->getSubLoops().empty() && 
-         "Loop to be cloned cannot have inner loop");
+
+
   Function *F = OrigLoop->getHeader()->getParent();
   Loop *ParentLoop = OrigLoop->getParentLoop();
 
@@ -751,6 +770,14 @@ Loop *llvm::cloneLoopWithPreheader(BasicBlock *Before, BasicBlock *LoopDomBB,
     ParentLoop->addChildLoop(NewLoop);
   else
     LI->addTopLevelLoop(NewLoop);
+
+  // Map each old Loop with new one.
+  std::map<Loop*, Loop*> ClonedLoopMap;
+  // Add the top level loop provided for cloning.
+  ClonedLoopMap[OrigLoop] = NewLoop;
+
+  // Recursively clone the loop structure.
+  createNewLoops(OrigLoop, LI, NewLoop, ClonedLoopMap);
 
   BasicBlock *OrigPH = OrigLoop->getLoopPreheader();
   assert(OrigPH && "No preheader");
@@ -770,8 +797,13 @@ Loop *llvm::cloneLoopWithPreheader(BasicBlock *Before, BasicBlock *LoopDomBB,
     BasicBlock *NewBB = CloneBasicBlock(BB, VMap, NameSuffix, F);
     VMap[BB] = NewBB;
 
+    // Get the innermost loop for the BB.
+    Loop* L = LI->getLoopFor(BB);
+    // Get the corresponding cloned loop.
+    Loop* NewClonedLoop = ClonedLoopMap[L];
+    assert(NewClonedLoop && "Could not find the corresponding cloned loop");
     // Update LoopInfo.
-    NewLoop->addBasicBlockToLoop(NewBB, *LI);
+    NewClonedLoop->addBasicBlockToLoop(NewBB, *LI);
 
     // Add DominatorTree node. After seeing all blocks, update to correct IDom.
     DT->addNewBlock(NewBB, NewPH);
