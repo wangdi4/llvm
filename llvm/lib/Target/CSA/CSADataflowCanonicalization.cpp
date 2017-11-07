@@ -208,7 +208,6 @@ bool CSADataflowCanonicalizationPass::invertIgnoredSwitches(MachineInstr *MI) {
   // of being such an operation.
   auto switchCtl = MI->getOperand(2);
   const MachineInstr *switchCtlDef = getDefinition(switchCtl);
-  switchCtlDef->dump();
   if (!switchCtlDef || !TII->isSeqOT(switchCtlDef))
     return false;
   if (switchCtlDef->getOperand(2).getReg() == switchCtl.getReg() &&
