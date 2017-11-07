@@ -183,6 +183,11 @@ bool VPOParoptTransform::paroptTransforms() {
   // BID, respectively.
   gatherWRegionNodeList(NeedTID, NeedBID);
 
+  if (isTargetCSA()) {
+    NeedTID = false;
+    NeedBID = false;
+  }
+
   Type *Int32Ty = Type::getInt32Ty(C);
 
   if (NeedTID) {
@@ -259,6 +264,12 @@ bool VPOParoptTransform::paroptTransforms() {
         DEBUG(dbgs() << "\n WRNParallelLoop - Transformation \n\n");
 
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
+          if (isTargetCSA()) {
+            Changed |= genCSAParallelLoop(W);
+            RemoveDirectives = true;
+            break;
+          }
+
           AllocaInst *IsLastVal = nullptr;
           Changed = genLoopSchedulingCode(W, IsLastVal);
           // Privatization is enabled for both Prepare and Transform passes

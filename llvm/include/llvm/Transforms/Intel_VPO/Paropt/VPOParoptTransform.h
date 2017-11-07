@@ -77,7 +77,8 @@ public:
   /// \brief ParoptTransform object constructor
   VPOParoptTransform(Function *F, WRegionInfo *WI, DominatorTree *DT,
                      LoopInfo *LI, ScalarEvolution *SE, int Mode)
-      : F(F), WI(WI), DT(DT), LI(LI), SE(SE), Mode(Mode), IdentTy(nullptr),
+      : F(F), WI(WI), DT(DT), LI(LI), SE(SE), Mode(Mode),
+        TargetTriple(F->getParent()->getTargetTriple()), IdentTy(nullptr),
         TidPtr(nullptr), BidPtr(nullptr), KmpcMicroTaskTy(nullptr),
         KmpRoutineEntryPtrTy(nullptr), KmpTaskTTy(nullptr),
         KmpTaskTRedTy(nullptr), KmpTaskDependInfoTy(nullptr) {}
@@ -103,6 +104,9 @@ private:
 
   /// \brief Paropt compilation mode
   int Mode;
+
+  /// \brief Target triple that we are compiling for.
+  Triple TargetTriple;
 
   /// \brief Contain all parallel/sync/offload constructs to be transformed
   WRegionListTy WRegionList;
@@ -141,6 +145,11 @@ private:
   ///              char   depend_type;
   ///           };
   StructType *KmpTaskDependInfoTy;
+
+  /// \brief Returns true if we are compiling for CSA target.
+  bool isTargetCSA() const {
+    return TargetTriple.getArch() == Triple::ArchType::csa;
+  }
 
   /// \brief Use the WRNVisitor class (in WRegionUtils.h) to walk the
   /// W-Region Graph in DFS order and perform outlining transformation.
@@ -420,6 +429,13 @@ private:
 
   /// \brief Insert a barrier at the end of the construct
   bool genBarrier(WRegionNode *W, bool IsExplicit);
+
+  /// \brief Insert CSA parallel region entry/exit calls to the work region
+  /// and return region id.
+  Value* genCSAParallelRegion(WRegionNode *W);
+
+  /// \brief Transform "omp parallel for" work region for CSA target.
+  bool genCSAParallelLoop(WRegionNode *W);
 };
 
 } /// namespace vpo
