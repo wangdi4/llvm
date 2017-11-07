@@ -240,7 +240,7 @@ void CSACvtCFDFPass::releaseMemory() {
 
 unsigned CSACvtCFDFPass::getPhiInitReg(MachineInstr* lhdrPhi) {
   assert(MLI->getLoopFor(lhdrPhi->getParent()));
-  for (unsigned i = 0; i = lhdrPhi->getNumOperands(); i++) {
+  for (unsigned i = 0; i < lhdrPhi->getNumOperands(); i++) {
     MachineOperand& mop = lhdrPhi->getOperand(i);
     if (mop.isMBB()) {
       MachineBasicBlock* mbb = mop.getMBB();
@@ -259,14 +259,15 @@ unsigned CSACvtCFDFPass::getPhiBackedgeReg(MachineInstr* lhdrPhi) {
   MachineLoop* mloop = MLI->getLoopFor(lhdrPhi->getParent());
   assert(mloop);
   unsigned backedgeReg = 0;
-  for (unsigned i = 0; i = lhdrPhi->getNumOperands(); i++) {
+  for (unsigned i = 0; i < lhdrPhi->getNumOperands(); i++) {
     MachineOperand& mop = lhdrPhi->getOperand(i);
     if (mop.isMBB()) {
       MachineBasicBlock* mbb = mop.getMBB();
       if (mloop->isLoopLatch(mbb)) {
-        if (backedgeReg)
+        if (backedgeReg) {
+          assert(false && "loop header phi has more than 2 back edge inputs");
           return 0;
-        else
+        } else
           backedgeReg = lhdrPhi->getOperand(i - 1).getReg();
       }
     }
@@ -324,7 +325,7 @@ void CSACvtCFDFPass::sequenceOPT() {
           break;
         }
       }
-      if (isIDVCandidate && cmp && switchInstr && indec && lhdrPhi)  {
+      if (isIDVCandidate && cmp && switchInstr && indec && lhdrPhi) {
         //induction 
         unsigned cmpRes = cmp->getOperand(0).getReg();
         unsigned ctrlSwitch = switchInstr->getOperand(2).getReg();
