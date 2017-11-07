@@ -1,16 +1,19 @@
-//===-- CSACvtCFDFPass.cpp - CSA convert control flow to data flow --------===//
+//==--- CSACvtCFDFPass.cpp - Table CSA convert control flow to data flow --==//
 //
-//                     The LLVM Compiler Infrastructure
+// Copyright (C) 2017-2017 Intel Corporation. All rights reserved.
 //
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// The information and source code contained herein is the exclusive property
+// of Intel Corporation and may not be disclosed, examined or reproduced in
+// whole or in part without explicit written authorization from the company.
 //
-//===----------------------------------------------------------------------===//
-//
-// This file "reexpresses" the code containing traditional control flow
-// into a basically data flow representation suitable for the CSA.
-//
-//===----------------------------------------------------------------------===//
+//===---------------------------------------------------------------------===//
+///
+/// \file
+/// This file "reexpresses" the code containing traditional control flow
+/// into a basically data flow representation suitable for the CSA.
+///
+//===---------------------------------------------------------------------===//
+
 #include <stack>
 #include "CSA.h"
 #include "InstPrinter/CSAInstPrinter.h"
@@ -21,6 +24,7 @@
 #include "llvm/ADT/SparseSet.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Analysis/AliasSetTracker.h"
+#include "llvm/Analysis/OptimizationDiagnosticInfo.h"
 #include "llvm/CodeGen/LiveVariables.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
@@ -28,6 +32,7 @@
 #include "llvm/CodeGen/MachineDominators.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
+#include "llvm/CodeGen/MachineOptimizationRemarkEmitter.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/MachineSSAUpdater.h"
 #include "llvm/CodeGen/SlotIndexes.h"
@@ -92,6 +97,7 @@ namespace llvm {
       AU.addRequired<MachineDominatorTree>();
       AU.addRequired<MachinePostDominatorTree>();
       AU.addRequired<AAResultsWrapperPass>();
+      AU.addRequired<MachineOptimizationRemarkEmitterPass>();
       AU.setPreservesAll();
       MachineFunctionPass::getAnalysisUsage(AU);
     }
@@ -182,6 +188,23 @@ namespace llvm {
     DenseMap<MachineBasicBlock*, unsigned> bb2rpo;
     DenseMap<MachineInstr *, MachineBasicBlock *> multiInputsPick;
     std::set<MachineBasicBlock *> dcgBBs;
+
+    //
+    // Optimization report analysis for CF-to-DF conversion pass.
+    //
+    MachineOptimizationRemarkEmitter *ORE;
+
+    //
+    // A method for printing the optimization report, once
+    // CF-to-DF conversion finishes.  The first parameter
+    // is false, if the conversion was not possible due to
+    // the reasons described by the second string parameter;
+    // if the first parameter is true, then the second
+    // parameter is not used, and the optimization report
+    // states a successful conversion, while it may be possible
+    // that some operations are still in SXU.
+    //
+    bool conversion_status(bool status, const char *message);
   };
 }
 
@@ -191,6 +214,7 @@ char CSACvtCFDFPass::ID = 0;
 //declare CSACvtCFDFPass Pass
 INITIALIZE_PASS_BEGIN(CSACvtCFDFPass, "csa-cvt-cfdf", "CSA Convert Control Flow to Data Flow", true, true)
 INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(MachineOptimizationRemarkEmitterPass)
 INITIALIZE_PASS_END(CSACvtCFDFPass, "csa-cvt-cfdf", "CSA Convert Control Flow to Data Flow", true, true)
 
 CSACvtCFDFPass::CSACvtCFDFPass() : MachineFunctionPass(ID) {
@@ -416,6 +440,42 @@ ControlDependenceNode* CSACvtCFDFPass::getNonLatchParent(ControlDependenceNode* 
   return pcdn;
 }
 
+bool CSACvtCFDFPass::conversion_status(bool status, const char *message)
+{
+  const char *remark_name = "ConversionStatus";
+  DiagnosticInfoMIROptimization *remark;
+
+  if (status) {
+    remark =
+      new MachineOptimizationRemarkAnalysis(DEBUG_TYPE,
+                                            remark_name,
+                                            thisMF->getFunction()->
+                                            getSubprogram(),
+                                            &thisMF->front());
+
+    (*remark) << "Control flow is converted to data flow operations.";
+  }
+  else {
+    remark =
+      new MachineOptimizationRemarkMissed(DEBUG_TYPE,
+                                          remark_name,
+                                          thisMF->getFunction()->
+                                          getSubprogram(),
+                                          &thisMF->front());
+
+    (*remark) <<
+      "Control flow is not converted to data flow operations because ";
+
+    assert(message != nullptr);
+    (*remark) << message;
+  }
+
+  ORE->emit(*remark);
+
+  delete remark;
+
+  return status;
+}
 
 bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
 
@@ -432,6 +492,7 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   if (PDT->getRootNode() == nullptr) return false;
   CDG = &getAnalysis<ControlDependenceGraph>();
   MLI = &getAnalysis<MachineLoopInfo>();
+  ORE = &getAnalysis<MachineOptimizationRemarkEmitterPass>().getORE();
 
 #if 1
   //exception handling code creates multiple exits from a function
@@ -439,24 +500,23 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
     if (BB->succ_empty()) exitBlks.push_back(&*BB);
   }
-  if (exitBlks.size() > 1) return false;
+  if (exitBlks.size() > 1)
+    return conversion_status(false, "Multiple exit blocks detected.");
 #endif
 
   // Give up and run on SXU if there is dynamic stack activity we don't handle.
   if (thisMF->getFrameInfo().hasVarSizedObjects()) {
     errs() << "WARNING: dataflow conversion not attempting to handle dynamic stack allocation.\n";
     errs() << "Function \"" << thisMF->getName() << "\" will run on the SXU.\n";
-    return false;
+    return conversion_status(false, "Dynamic stack allocation detected.");
   }
-
-  bool Modified = false;
 
 #if 0
   // for now only well formed innermost loop regions are processed in this pass
   MachineLoopInfo *MLI = &getAnalysis<MachineLoopInfo>();
   if (!MLI) {
     DEBUG(errs() << "no loop info.\n");
-    return false;
+    return conversion_failed(false, "No loop info.");
   }
 #endif
 
@@ -543,8 +603,7 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   releaseMemory();
 
   RunSXU = false;
-
-  return Modified;
+  return conversion_status(true, nullptr);
 
 }
 
