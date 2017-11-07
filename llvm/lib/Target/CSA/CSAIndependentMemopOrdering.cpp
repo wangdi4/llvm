@@ -2158,7 +2158,7 @@ void MemopCFG::Node::emit_memops() {
     else {
 
       // If is_start is set, it goes at the beginning of the block or after the
-      // call.
+      // call. RA is used as an input to make sure that it doesn't get hoisted.
       if (memop.is_start) {
         const MachineBasicBlock::iterator where = memop.call_mi
           ? (
@@ -2169,7 +2169,7 @@ void MemopCFG::Node::emit_memops() {
           : BB->getFirstNonPHI();
         BuildMI(
           *BB, where, DebugLoc{}, TII->get(mov_opcode), memop.reg_no
-        ).addImm(0);
+        ).addUse(CSA::RA);
       }
 
       // Otherwise, it goes at the end or before the call.
