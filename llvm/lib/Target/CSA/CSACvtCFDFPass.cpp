@@ -542,6 +542,8 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   //after branches are removed, BB pointer are no longer valid
   releaseMemory();
 
+  RunSXU = false;
+
   return Modified;
 
 }
