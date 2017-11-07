@@ -2092,6 +2092,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
 #if INTEL_SPECIFIC_OPENMP
   Opts.IntelOpenMP = Args.hasArg(OPT_fintel_openmp);
   Opts.IntelOpenMPRegion = Args.hasArg(OPT_fintel_openmp_region);
+  Opts.IntelOpenMPOffload = Args.hasArg(OPT_fintel_openmp_offload);
   Opts.OpenMPThreadPrivateLegacy =
       Args.hasArg(OPT_fopenmp_threadprivate_legacy);
   Opts.IntelDriverTempfileName =

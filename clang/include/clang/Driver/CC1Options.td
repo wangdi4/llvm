@@ -731,6 +731,8 @@ def fintel_openmp : Flag<["-"], "fintel-openmp">,
   HelpText<"Enable emitting of Intel specific OpenMP code">;
 def fintel_openmp_region : Flag<["-"], "fintel-openmp-region">,
   HelpText<"Enable emitting of Intel specific OpenMP code with regions">;
+def fintel_openmp_offload : Flag<["-"], "fintel-openmp-offload">,
+  HelpText<"Enable emitting of Intel specific OpenMP offload code">;
 def fopenmp_threadprivate_legacy : Flag<["-"], "fopenmp-threadprivate-legacy">,
   HelpText<"Generate legacy OpenMP threadprivates">;
 def fintel_openmp_simd : Flag<["-"], "fopenmp-simd">,

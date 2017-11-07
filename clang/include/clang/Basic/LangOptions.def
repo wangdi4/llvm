@@ -89,6 +89,7 @@ LANGOPT(CilkPlus, 1, 0, "Intel Cilk Plus extensions to C/C++")
 #if INTEL_SPECIFIC_OPENMP
 LANGOPT(IntelOpenMP, 1, 0, "Intel specific OpenMP codegen")
 LANGOPT(IntelOpenMPRegion, 1, 0, "Intel specific OpenMP codegen with regions")
+LANGOPT(IntelOpenMPOffload, 1, 0, "Intel specific OpenMP offload codegen")
 LANGOPT(OpenMPThreadPrivateLegacy, 1, 0, "Use legacy OpenMP threadprivate")
 LANGOPT(OpenMPSimdOnly,     1, 0, "Enable OpenMP SIMD only")
 LANGOPT(OpenMPSimdDisabled, 1, 0, "Disable OpenMP SIMD only")
