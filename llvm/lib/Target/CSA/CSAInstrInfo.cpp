@@ -374,7 +374,7 @@ CSA::OpcodeClass CSAInstrInfo::getOpcodeClass(unsigned opcode) const {
 }
 
 unsigned CSAInstrInfo::makeOpcode(CSA::Generic generic, unsigned size,
-    CSA::OpcodeClass opcodeClass, bool *exists) const {
+    CSA::OpcodeClass opcodeClass) const {
   unsigned startIndex = generic_index_map[static_cast<unsigned>(generic)];
   assert(startIndex != ~0U && "Generic opcode has no valid opcodes");
   for (unsigned index = startIndex;
@@ -384,25 +384,16 @@ unsigned CSAInstrInfo::makeOpcode(CSA::Generic generic, unsigned size,
     if (entry.opSize == size &&
         (opcodeClass == CSA::VARIANT_DONTCARE ||
          opcodeClass == entry.opClassification)) {
-      if (exists)
-        *exists = true;
       return entry.opcode;
     }
   }
 
-  assert(exists && "No valid opcode could be found");
-  *exists = false;
-  return 0;
+  return CSA::INVALID_OPCODE;
 }
 
 unsigned
 CSAInstrInfo::adjustOpcode(unsigned oldOpcode, CSA::Generic opcode) const {
-  bool exists = false;
-  unsigned newOpcode = makeOpcode(opcode, getLicSize(oldOpcode),
-      getOpcodeClass(oldOpcode), &exists);
-  if (!exists)
-    newOpcode = oldOpcode;
-  return newOpcode;
+  return makeOpcode(opcode, getLicSize(oldOpcode), getOpcodeClass(oldOpcode));
 }
 
 unsigned
@@ -591,33 +582,6 @@ unsigned CSAInstrInfo::promoteSeqOTOpBitwidth(unsigned seq_opcode,
       getOpcodeClass(seq_opcode));
 }
 
-bool CSAInstrInfo::convertAddToStrideOp(unsigned add_opcode,
-                                        unsigned* strideOpcode) const {
-  if (getGenericOpcode(add_opcode) == CSA::Generic::ADD) {
-    *strideOpcode = adjustOpcode(add_opcode, CSA::Generic::STRIDE);
-    return true;
-  }
-  return false;
-}
-
-bool CSAInstrInfo::convertSubToStrideOp(unsigned sub_opcode,
-                                        unsigned* strideOpcode) const {
-  if (getGenericOpcode(sub_opcode) == CSA::Generic::SUB) {
-    *strideOpcode = adjustOpcode(sub_opcode, CSA::Generic::STRIDE);
-    return true;
-  }
-  return false;
-}
-
-bool CSAInstrInfo::negateOpForStride(unsigned strideOpcode,
-                                     unsigned* negOpcode) const {
-  if (getGenericOpcode(strideOpcode) == CSA::Generic::STRIDE) {
-    *negOpcode = adjustOpcode(strideOpcode, CSA::Generic::NEG);
-    return true;
-  }
-  return false;
-}
-
 const TargetRegisterClass*
 CSAInstrInfo::getStrideInputRC(unsigned strideOpcode) const {
   switch (strideOpcode) {
@@ -635,14 +599,6 @@ CSAInstrInfo::getStrideInputRC(unsigned strideOpcode) const {
   }
 }
 
-bool CSAInstrInfo::convertPickToRepeatOp(unsigned pick_opcode,
-                                         unsigned* repeat_opcode) const {
-  assert(getGenericOpcode(pick_opcode) == CSA::Generic::PICK &&
-      "Input must be a PICK");
-  *repeat_opcode = adjustOpcode(pick_opcode, CSA::Generic::REPEAT);
-  return true;
-}
-
 bool
 CSAInstrInfo::isCommutingReductionTransform(const MachineInstr* MI) const {
   using namespace CSA;
@@ -658,8 +614,8 @@ CSAInstrInfo::isCommutingReductionTransform(const MachineInstr* MI) const {
   }
 }
 
-bool CSAInstrInfo::convertTransformToReductionOp(unsigned transform_opcode,
-                                             unsigned* reduction_opcode) const {
+unsigned
+CSAInstrInfo::convertTransformToReductionOp(unsigned transform_opcode) const {
   CSA::Generic reductGeneric;
   switch (getGenericOpcode(transform_opcode)) {
   case CSA::Generic::FMA: reductGeneric = CSA::Generic::FMSREDA; break;
@@ -669,10 +625,9 @@ bool CSAInstrInfo::convertTransformToReductionOp(unsigned transform_opcode,
   case CSA::Generic::AND: reductGeneric = CSA::Generic::SREDAND; break;
   case CSA::Generic::OR:  reductGeneric = CSA::Generic::SREDOR;  break;
   case CSA::Generic::XOR: reductGeneric = CSA::Generic::SREDXOR; break;
-  default: return false;
+  default: return CSA::INVALID_OPCODE;
   }
-  *reduction_opcode = adjustOpcode(transform_opcode, reductGeneric);
-  return *reduction_opcode != transform_opcode;
+  return adjustOpcode(transform_opcode, reductGeneric);
 }
 
 // TBD(jsukha): My initial attempt at the implementation was to call

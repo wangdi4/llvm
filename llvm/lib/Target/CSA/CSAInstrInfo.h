@@ -183,22 +183,21 @@ public:
 
   /// Return the lic size, in bits, of the opcode. If the opcode is not valid,
   /// 0 is returned. The lic size of convert and sign-extend operations refers
-  /// to their destination value. TODO: good idea?
+  /// to their destination value.
   unsigned getLicSize(unsigned opcode) const;
 
   /// Return whether or not this opcode is a variant that operates on floats,
   /// signed integers, unsigned integers, or integers. This returns a value that
-  /// is one of the first 4 entries of the CSA::OpcodeClas enumeration, and is
+  /// is one of the first 4 entries of the CSA::OpcodeClass enumeration, and is
   /// used to distinguish between different operations that reuse the same
   /// generic opcode.
   CSA::OpcodeClass getOpcodeClass(unsigned opcode) const;
 
   /// Construct an opcode for a MachineInstr given the generic opcode and a
   /// desired licSize. If such an operation cannot be constructed, then the
-  /// result is an assertion. TODO: good idea?
+  /// result is CSA::INVALID_OPCODE.
   unsigned makeOpcode(CSA::Generic genericOpcode, unsigned licSize,
-    CSA::OpcodeClass opcodeClass = CSA::VARIANT_DONTCARE,
-    bool *exists = nullptr) const;
+    CSA::OpcodeClass opcodeClass = CSA::VARIANT_DONTCARE) const;
 
   /// Variant of makeOpcode that works on register classes instead of fixed
   /// bit sizes.
@@ -208,7 +207,7 @@ public:
   }
 
   /// This returns a new opcode with the same bitwidth and classification as the
-  /// input opcode. If no such opcode exists, the original opcode is returned.
+  /// input opcode. If no such opcode exists, then INVALID_OPCODE is returned.
   unsigned adjustOpcode(unsigned opcode, CSA::Generic newOpcode) const;
 
   /// Get the lic size for the given register class.
@@ -337,34 +336,10 @@ public:
   //     SEQOTGTS16, 32  --> SEQOTGTS32
   unsigned promoteSeqOTOpBitwidth(unsigned seq_opcode, int bitwidth) const;
 
-
-  // Convert an add opcode to the corresponding stride opcode.
-  // Returns true if we did a successful conversion, false otherwise.
-  // Saves output into *strideOpcode when returning true.
-  bool
-  convertAddToStrideOp(unsigned add_opcode,
-                       unsigned* strideOpcode) const;
-  bool
-  convertSubToStrideOp(unsigned sub_opcode,
-                       unsigned* strideOpcode) const;
-
-  // Get the corresponding "neg" statement which matches a given
-  // stride.
-  bool
-  negateOpForStride(unsigned strideOpcode,
-                    unsigned* negateOpcode) const;
-
   // Get channel register class that is the same size as this stride
   // operation.
   const TargetRegisterClass*
   getStrideInputRC(unsigned stride_opcode) const;
-
-  // Convert a pick opcode into a matching repeat opcode (of the same
-  // size).
-  bool
-  convertPickToRepeatOp(unsigned pick_opcode,
-                        unsigned* repeat_opcode) const;
-
 
   // Returns true if this op is one of the transform ops that
   // corresponds to a 3-operand commuting reduction.
@@ -374,9 +349,7 @@ public:
 
   // Convert an ADD/SUB/FMA code into a matching reduction opcode of
   // the same size. TBD(jsukha): Not implemented yet!
-  bool
-  convertTransformToReductionOp(unsigned transform_opcode,
-                                unsigned* reduction_opcode) const;
+  unsigned convertTransformToReductionOp(unsigned transform_opcode) const;
 
 
 

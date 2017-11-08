@@ -582,10 +582,13 @@ namespace llvm {
       compareOp = TII.commuteNegateCompareOpcode(compareOp,
                                                  commute_compare_operands,
                                                  negate_compare);
+      if (compareOp == CSA::INVALID_OPCODE)
+        return false;
 
       // Find a sequence opcode that matches our compare opcode.
       unsigned seqOp = TII.convertCompareOpToSeqOTOp(compareOp);
-      if (seqOp != compareOp && TII.getGenericOpcode(tOp) == CSA::Generic::ADD) {
+      if (seqOp != CSA::INVALID_OPCODE &&
+          TII.getGenericOpcode(tOp) == CSA::Generic::ADD) {
         // If we have a matching sequence op, then check that the
         // transforming op matches as well.
         *indvar_opcode = TII.promoteSeqOTOpBitwidth(seqOp, TII.getLicSize(tOp));
