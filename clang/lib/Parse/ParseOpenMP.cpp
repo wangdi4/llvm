@@ -679,12 +679,23 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
     if (!Actions.ActOnStartOpenMPDeclareTargetDirective(DTLoc))
       return DeclGroupPtrTy();
 
+#if INTEL_CUSTOMIZATION // Under community review: D38798
+    SmallVector<Decl *, 32> Decls;
+#endif // INTEL_CUSTOMIZATION
     DKind = ParseOpenMPDirectiveKind(*this);
     while (DKind != OMPD_end_declare_target && DKind != OMPD_declare_target &&
            Tok.isNot(tok::eof) && Tok.isNot(tok::r_brace)) {
-      ParsedAttributesWithRange attrs(AttrFactory);
-      MaybeParseCXX11Attributes(attrs);
-      ParseExternalDeclaration(attrs);
+      DeclGroupPtrTy Ptr;
+      // Here we expect to see some function declaration.
+      if (AS == AS_none) {
+        assert(TagType == DeclSpec::TST_unspecified);
+        MaybeParseCXX11Attributes(Attrs);
+        ParsingDeclSpec PDS(*this);
+        Ptr = ParseExternalDeclaration(Attrs, &PDS);
+      } else {
+        Ptr =
+            ParseCXXClassMemberDeclarationWithPragmas(AS, Attrs, TagType, Tag);
+      }
       if (Tok.isAnnotation() && Tok.is(tok::annot_pragma_openmp)) {
         TentativeParsingAction TPA(*this);
         ConsumeAnnotationToken();
@@ -694,6 +705,14 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
         else
           TPA.Commit();
       }
+#if INTEL_CUSTOMIZATION // Under community review: D38798
+
+      // Save the declarations so that we can create the declare target group
+      // later on.
+      if (Ptr)
+        for (auto *V : Ptr.get())
+          Decls.push_back(V);
+#endif // INTEL_CUSTOMIZATION
     }
 
     if (DKind == OMPD_end_declare_target) {
@@ -708,8 +727,21 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
     } else {
       Diag(Tok, diag::err_expected_end_declare_target);
       Diag(DTLoc, diag::note_matching) << "'#pragma omp declare target'";
+#if INTEL_CUSTOMIZATION // Under community review: D38798
+      // We have an error, so we don't have to attempt to generate code for the
+      // declarations.
+      Decls.clear();
+#endif // INTEL_CUSTOMIZATION
     }
     Actions.ActOnFinishOpenMPDeclareTargetDirective();
+#if INTEL_CUSTOMIZATION // Under community review: D38798
+
+    // If we have decls generate the group so that code can be generated for it
+    // later on.
+    if (!Decls.empty())
+      return Actions.BuildDeclaratorGroup(Decls);
+
+#endif // INTEL_CUSTOMIZATION
     return DeclGroupPtrTy();
   }
   case OMPD_unknown:

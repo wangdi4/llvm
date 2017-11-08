@@ -19,6 +19,9 @@
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclOpenMP.h"
+#if INTEL_CUSTOMIZATION // Under community review: D38798
+#include "clang/AST/RecursiveASTVisitor.h"
+#endif // INTEL_CUSTOMIZATION
 #include "clang/AST/StmtCXX.h"
 #include "clang/AST/StmtOpenMP.h"
 #include "clang/AST/StmtVisitor.h"
@@ -931,6 +934,127 @@ bool DSAStackTy::hasDirective(
   return false;
 }
 
+#if INTEL_CUSTOMIZATION // Under community review: D38798
+namespace {
+/// Visit actual function body and its associated nested functions bodies.
+class ImplicitDeviceFunctionChecker
+    : public RecursiveASTVisitor<ImplicitDeviceFunctionChecker> {
+  Sema &SemaRef;
+
+public:
+  ImplicitDeviceFunctionChecker(Sema &SemaReference) : SemaRef(SemaReference){};
+
+  /// Traverse body of lambda, and mark it the with OMPDeclareTargetDeclAttr
+  bool TraverseLambdaCapture(LambdaExpr *LE, const LambdaCapture *C,
+                             Expr *Init);
+
+  /// Traverse FunctionDecl and mark it the with OMPDeclareTargetDeclAttr
+  bool VisitFunctionDecl(FunctionDecl *F);
+
+  /// Traverse Callee of Calexpr and mark it the with OMPDeclareTargetDeclAttr
+  bool VisitCallExpr(CallExpr *Call);
+
+  /// Traverse Constructs and mark it the with OMPDeclareTargetDeclAttr
+  bool VisitCXXConstructExpr(CXXConstructExpr *E);
+
+  /// Traverse Destructor and mark it the with OMPDeclareTargetDeclAttr
+  bool VisitCXXDestructorDecl(CXXDestructorDecl *D);
+};
+}
+
+/// Traverse declaration of /param D to check whether it has
+/// OMPDeclareTargetDeclAttr or not. If so, it marks definition with
+/// OMPDeclareTargetDeclAttr.
+static void ImplicitDeclareTargetCheck(Sema &SemaRef, Decl *D) {
+  if (SemaRef.getLangOpts().OpenMPImplicitDeclareTarget) {
+    // Structured block of target region is visited to catch function call.
+    // Revealed function calls are marked with OMPDeclareTargetDeclAttr
+    // attribute,
+    // in case -fopenmp-implicit-declare-target extension is enabled.
+    ImplicitDeviceFunctionChecker FunctionCallChecker(SemaRef);
+    FunctionCallChecker.TraverseDecl(D);
+  }
+}
+
+/// Traverse declaration of /param D to check whether it has
+/// OMPDeclareTargetDeclAttr or not. If so, it marks definition with
+/// OMPDeclareTargetDeclAttr.
+void Sema::checkDeclImplicitlyUsedOpenMPTargetContext(Decl *D) {
+  if (!D || D->isInvalidDecl())
+    return;
+
+  if (FunctionDecl *FD = dyn_cast<FunctionDecl>(D)) {
+    if (FD->hasBody()) {
+      for (auto RI : FD->redecls()) {
+        if (RI->hasAttr<OMPDeclareTargetDeclAttr>() &&
+            !D->hasAttr<OMPDeclareTargetDeclAttr>()) {
+          Attr *A = OMPDeclareTargetDeclAttr::CreateImplicit(
+              Context, OMPDeclareTargetDeclAttr::MT_To);
+          D->addAttr(A);
+
+          ImplicitDeclareTargetCheck(*this, FD);
+          return;
+        }
+      }
+    }
+  }
+  return;
+}
+
+bool ImplicitDeviceFunctionChecker::TraverseLambdaCapture(
+    LambdaExpr *LE, const LambdaCapture *C, Expr *Init) {
+  if (CXXRecordDecl *Class = LE->getLambdaClass())
+    if (!Class->hasAttr<OMPDeclareTargetDeclAttr>()) {
+      Attr *A = OMPDeclareTargetDeclAttr::CreateImplicit(
+          SemaRef.Context, OMPDeclareTargetDeclAttr::MT_To);
+      Class->addAttr(A);
+    }
+
+  TraverseStmt(LE->getBody());
+  return true;
+}
+
+bool ImplicitDeviceFunctionChecker::VisitFunctionDecl(FunctionDecl *F) {
+  assert(F);
+  if (!F->hasAttr<OMPDeclareTargetDeclAttr>()) {
+    Attr *A = OMPDeclareTargetDeclAttr::CreateImplicit(
+        SemaRef.Context, OMPDeclareTargetDeclAttr::MT_To);
+    F->addAttr(A);
+    TraverseDecl(F);
+  }
+  return true;
+}
+
+bool ImplicitDeviceFunctionChecker::VisitCallExpr(CallExpr *Call) {
+  if (FunctionDecl *Callee = Call->getDirectCallee()) {
+    return VisitFunctionDecl(Callee);
+  }
+  return true;
+}
+
+bool ImplicitDeviceFunctionChecker::VisitCXXConstructExpr(CXXConstructExpr *E) {
+  CXXConstructorDecl *Constructor = E->getConstructor();
+  // When constructor is invoked, it is checked whether the object has
+  // destructor or not. In case it has destructor, destructor is automatically
+  // marked with declare target attribute since it is needed to emit for device,
+  QualType Ty = E->getType();
+  const RecordType *RT =
+      SemaRef.Context.getBaseElementType(Ty)->getAs<RecordType>();
+  CXXRecordDecl *RD = cast<CXXRecordDecl>(RT->getDecl());
+
+  if (auto *Destructor = RD->getDestructor())
+    VisitCXXDestructorDecl(Destructor);
+
+  return VisitFunctionDecl(Constructor);
+}
+
+bool ImplicitDeviceFunctionChecker::VisitCXXDestructorDecl(
+    CXXDestructorDecl *D) {
+  assert(D);
+  return VisitFunctionDecl(D);
+}
+#endif // INTEL_CUSTOMIZATION
+
 void Sema::InitDataSharingAttributesStack() {
   VarDataSharingAttributesStack = new DSAStackTy(*this);
 }
@@ -1094,12 +1218,15 @@ VarDecl *Sema::IsOpenMPCapturedDecl(ValueDecl *D) {
   // If we are attempting to capture a global variable in a directive with
   // 'target' we return true so that this global is also mapped to the device.
   //
-  // FIXME: If the declaration is enclosed in a 'declare target' directive,
-  // then it should not be captured. Therefore, an extra check has to be
-  // inserted here once support for 'declare target' is added.
-  //
+#if INTEL_CUSTOMIZATION // Under community review: D38798
+  // If the variable is enclosed in a declare target directive, that is not
+  // required.
+#endif // INTEL_CUSTOMIZATION
   auto *VD = dyn_cast<VarDecl>(D);
-  if (VD && !VD->hasLocalStorage()) {
+#if INTEL_CUSTOMIZATION // Under community review: D38798
+  if (VD && !VD->hasLocalStorage() &&
+      !VD->hasAttr<OMPDeclareTargetDeclAttr>()) {
+#endif // INTEL_CUSTOMIZATION
     if (DSAStack->getCurrentDirective() == OMPD_target &&
         !DSAStack->isClauseParsingMode())
       return VD;
@@ -5945,6 +6072,10 @@ StmtResult Sema::ActOnOpenMPTargetDirective(ArrayRef<OMPClause *> Clauses,
 
   getCurFunction()->setHasBranchProtectedScope();
 
+#if INTEL_CUSTOMIZATION // Under community review: D38798
+  ImplicitDeclareTargetCheck(*this, CS->getCapturedDecl());
+#endif // INTEL_CUSTOMIZATION
+
   return OMPTargetDirective::Create(Context, StartLoc, EndLoc, Clauses, AStmt);
 }
 
@@ -5964,6 +6095,10 @@ Sema::ActOnOpenMPTargetParallelDirective(ArrayRef<OMPClause *> Clauses,
   CS->getCapturedDecl()->setNothrow();
 
   getCurFunction()->setHasBranchProtectedScope();
+
+#if INTEL_CUSTOMIZATION // Under community review: D38798
+  ImplicitDeclareTargetCheck(*this, CS->getCapturedDecl());
+#endif // INTEL_CUSTOMIZATION
 
   return OMPTargetParallelDirective::Create(Context, StartLoc, EndLoc, Clauses,
                                             AStmt);
@@ -6009,6 +6144,11 @@ StmtResult Sema::ActOnOpenMPTargetParallelForDirective(
   }
 
   getCurFunction()->setHasBranchProtectedScope();
+
+#if INTEL_CUSTOMIZATION // Under community review: D38798
+  ImplicitDeclareTargetCheck(*this, CS->getCapturedDecl());
+#endif // INTEL_CUSTOMIZATION
+
   return OMPTargetParallelForDirective::Create(Context, StartLoc, EndLoc,
                                                NestedLoopCount, Clauses, AStmt,
                                                B, DSAStack->isCancelRegion());
@@ -6453,6 +6593,11 @@ StmtResult Sema::ActOnOpenMPTargetParallelForSimdDirective(
     return StmtError();
 
   getCurFunction()->setHasBranchProtectedScope();
+
+#if INTEL_CUSTOMIZATION // Under community review: D38798
+  ImplicitDeclareTargetCheck(*this, CS->getCapturedDecl());
+#endif // INTEL_CUSTOMIZATION
+
   return OMPTargetParallelForSimdDirective::Create(
       Context, StartLoc, EndLoc, NestedLoopCount, Clauses, AStmt, B);
 }
@@ -6500,6 +6645,11 @@ StmtResult Sema::ActOnOpenMPTargetSimdDirective(
     return StmtError();
 
   getCurFunction()->setHasBranchProtectedScope();
+
+#if INTEL_CUSTOMIZATION // Under community review: D38798
+  ImplicitDeclareTargetCheck(*this, CS->getCapturedDecl());
+#endif // INTEL_CUSTOMIZATION
+
   return OMPTargetSimdDirective::Create(Context, StartLoc, EndLoc,
                                         NestedLoopCount, Clauses, AStmt, B);
 }
@@ -6581,6 +6731,11 @@ StmtResult Sema::ActOnOpenMPTeamsDistributeSimdDirective(
     return StmtError();
 
   getCurFunction()->setHasBranchProtectedScope();
+
+#if INTEL_CUSTOMIZATION // Under community review: D38798
+  ImplicitDeclareTargetCheck(*this, CS->getCapturedDecl());
+#endif // INTEL_CUSTOMIZATION
+
   return OMPTeamsDistributeSimdDirective::Create(
       Context, StartLoc, EndLoc, NestedLoopCount, Clauses, AStmt, B);
 }
@@ -6695,6 +6850,10 @@ StmtResult Sema::ActOnOpenMPTargetTeamsDirective(ArrayRef<OMPClause *> Clauses,
 
   getCurFunction()->setHasBranchProtectedScope();
 
+#if INTEL_CUSTOMIZATION // Under community review: D38798
+  ImplicitDeclareTargetCheck(*this, CS->getCapturedDecl());
+#endif // INTEL_CUSTOMIZATION
+
   return OMPTargetTeamsDirective::Create(Context, StartLoc, EndLoc, Clauses,
                                          AStmt);
 }
@@ -6729,6 +6888,11 @@ StmtResult Sema::ActOnOpenMPTargetTeamsDistributeDirective(
          "omp target teams distribute loop exprs were not built");
 
   getCurFunction()->setHasBranchProtectedScope();
+
+#if INTEL_CUSTOMIZATION // Under community review: D38798
+  ImplicitDeclareTargetCheck(*this, CS->getCapturedDecl());
+#endif // INTEL_CUSTOMIZATION
+
   return OMPTargetTeamsDistributeDirective::Create(
       Context, StartLoc, EndLoc, NestedLoopCount, Clauses, AStmt, B);
 }
@@ -6774,6 +6938,11 @@ StmtResult Sema::ActOnOpenMPTargetTeamsDistributeParallelForDirective(
   }
 
   getCurFunction()->setHasBranchProtectedScope();
+
+#if INTEL_CUSTOMIZATION // Under community review: D38798
+  ImplicitDeclareTargetCheck(*this, CS->getCapturedDecl());
+#endif // INTEL_CUSTOMIZATION
+
   return OMPTargetTeamsDistributeParallelForDirective::Create(
       Context, StartLoc, EndLoc, NestedLoopCount, Clauses, AStmt, B);
 }
@@ -6820,6 +6989,11 @@ StmtResult Sema::ActOnOpenMPTargetTeamsDistributeParallelForSimdDirective(
   }
 
   getCurFunction()->setHasBranchProtectedScope();
+
+#if INTEL_CUSTOMIZATION // Under community review: D38798
+  ImplicitDeclareTargetCheck(*this, CS->getCapturedDecl());
+#endif // INTEL_CUSTOMIZATION
+
   return OMPTargetTeamsDistributeParallelForSimdDirective::Create(
       Context, StartLoc, EndLoc, NestedLoopCount, Clauses, AStmt, B);
 }
@@ -6853,6 +7027,11 @@ StmtResult Sema::ActOnOpenMPTargetTeamsDistributeSimdDirective(
          "omp target teams distribute simd loop exprs were not built");
 
   getCurFunction()->setHasBranchProtectedScope();
+
+#if INTEL_CUSTOMIZATION // Under community review: D38798
+  ImplicitDeclareTargetCheck(*this, CS->getCapturedDecl());
+#endif // INTEL_CUSTOMIZATION
+
   return OMPTargetTeamsDistributeSimdDirective::Create(
       Context, StartLoc, EndLoc, NestedLoopCount, Clauses, AStmt, B);
 }
@@ -11599,7 +11778,11 @@ bool Sema::ActOnStartOpenMPDeclareTargetDirective(SourceLocation Loc) {
   DeclContext *CurLexicalContext = getCurLexicalContext();
   if (!CurLexicalContext->isFileContext() &&
       !CurLexicalContext->isExternCContext() &&
-      !CurLexicalContext->isExternCXXContext()) {
+      !CurLexicalContext->isExternCXXContext() &&
+      !isa<CXXRecordDecl>(CurLexicalContext) &&
+      !isa<ClassTemplateDecl>(CurLexicalContext) &&
+      !isa<ClassTemplatePartialSpecializationDecl>(CurLexicalContext) &&
+      !isa<ClassTemplateSpecializationDecl>(CurLexicalContext)) {
     Diag(Loc, diag::err_omp_region_not_file_context);
     return false;
   }
@@ -11695,17 +11878,22 @@ static void checkDeclInTargetContext(SourceLocation SL, SourceRange SR,
     // target region (it can be e.g. a lambda) that is legal and we do not need
     // to do anything else.
     if (LD == D) {
-      Attr *A = OMPDeclareTargetDeclAttr::CreateImplicit(
-          SemaRef.Context, OMPDeclareTargetDeclAttr::MT_To);
-      D->addAttr(A);
-      if (ASTMutationListener *ML = SemaRef.Context.getASTMutationListener())
-        ML->DeclarationMarkedOpenMPDeclareTarget(D, A);
+#if INTEL_CUSTOMIZATION // Under community review: D38798
+      if (!SemaRef.getLangOpts().OpenMPImplicitDeclareTarget)
+        if (!D->hasAttr<OMPDeclareTargetDeclAttr>())
+          SemaRef.Diag(LD->getLocation(), diag::warn_omp_not_in_target_context);
+
+#endif // INTEL_CUSTOMIZATION
       return;
     }
   }
   if (!LD)
     LD = D;
-  if (LD && !LD->hasAttr<OMPDeclareTargetDeclAttr>() &&
+#if INTEL_CUSTOMIZATION // Under community review: D38798
+  // The parameters of a function are considered 'declare target' declarations
+  // if the function itself is 'declare target'.
+  if (LD && !LD->hasAttr<OMPDeclareTargetDeclAttr>() && !isa<ParmVarDecl>(LD) &&
+#endif // INTEL_CUSTOMIZATION
       (isa<VarDecl>(LD) || isa<FunctionDecl>(LD))) {
     // Outlined declaration is not declared target.
     if (LD->isOutOfLine()) {
@@ -11774,6 +11962,18 @@ void Sema::checkDeclIsAllowedInOpenMPTarget(Expr *E, Decl *D) {
       return;
     }
   }
+#if INTEL_CUSTOMIZATION // Under community review: D38798
+  if (TemplateDecl *TD = dyn_cast<TemplateDecl>(D)) {
+    // Mark template declarations as declare target so that they can propagate
+    // that information to their instances.
+    Attr *A = OMPDeclareTargetDeclAttr::CreateImplicit(
+        Context, OMPDeclareTargetDeclAttr::MT_To);
+    TD->addAttr(A);
+    if (ASTMutationListener *ML = Context.getASTMutationListener())
+      ML->DeclarationMarkedOpenMPDeclareTarget(TD, A);
+    return;
+  }
+#endif // INTEL_CUSTOMIZATION
   if (!E) {
     // Checking declaration inside declare target region.
     if (!D->hasAttr<OMPDeclareTargetDeclAttr>() &&

@@ -60,6 +60,18 @@ inline bool DeclAttrsMatchCUDAMode(const LangOptions &LangOpts, Decl *D) {
   return isDeviceSideDecl == LangOpts.CUDAIsDevice;
 }
 
+#if INTEL_CUSTOMIZATION // Under community review: D38798
+// Helper function to check whether D's attributes match current offloading
+// mode.
+inline bool DeclAttrsMatchOffloadMode(const LangOptions &LangOpts, Decl *D,
+                                      bool InOpenMPDeviceRegion) {
+  if (LangOpts.OpenMPIsDevice)
+    return InOpenMPDeviceRegion;
+
+  return DeclAttrsMatchCUDAMode(LangOpts, D);
+}
+
+#endif // INTEL_CUSTOMIZATION
 // Directly mark a variable odr-used. Given a choice, prefer to use 
 // MarkVariableReferenced since it does additional checks and then 
 // calls MarkVarDeclODRUsed.

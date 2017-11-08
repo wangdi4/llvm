@@ -2574,6 +2574,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
     if (Opts.OpenMPSimdOnly || Opts.OpenMPTBBOnly)
       Opts.OpenMP = true;
   }
+  Opts.OpenMPImplicitDeclareTarget = true;
 #endif //INTEL_CUSTOMIZATION
 
   Opts.OpenMPUseTLS =
