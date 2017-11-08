@@ -43,6 +43,8 @@
 #define GETNAME2(name) #name
 #define GETNAME(name) GETNAME2(name)
 
+//#define OMPTARGET_DEBUG 1
+
 #ifdef OMPTARGET_DEBUG
 #define DP(...)                                                            \
   {                                                                        \
@@ -54,6 +56,7 @@
 #define DP(...)                                                            \
   {}
 #endif
+
 
 #define NUMBER_OF_DEVICES 4
 #define OFFLOADSECTIONNAME ".omp_offloading.entries"
@@ -250,7 +253,7 @@ int32_t __tgt_rtl_is_valid_binary(__tgt_device_image *image) {
 #else
   // Is the library version incompatible with the header file?
   if (elf_version(EV_CURRENT) == EV_NONE) {
-    DP("Incompatible ELF library!\n");
+    fprintf(stderr, "CSA OFFLOAD ERROR: Incompatible ELF library!\n");
     return 0;
   }
 
@@ -261,20 +264,20 @@ int32_t __tgt_rtl_is_valid_binary(__tgt_device_image *image) {
   // Obtain elf handler
   Elf *e = elf_memory(img_begin, img_size);
   if (!e) {
-    DP("Unable to get ELF handle: %s!\n", elf_errmsg(-1));
+    fprintf(stderr, "CSA OFFLOAD ERROR: Unable to get ELF handle: %s!\n", elf_errmsg(-1));
     return 0;
   }
 
   // Check if ELF is the right kind
   if (elf_kind(e) != ELF_K_ELF) {
-    DP("Unexpected ELF type!\n");
+    fprintf(stderr, "CSA OFFLOAD ERROR: Unexpected ELF type!\n");
     return 0;
   }
   Elf64_Ehdr *eh64 = elf64_getehdr(e);
   Elf32_Ehdr *eh32 = elf32_getehdr(e);
 
   if (!eh64 && !eh32) {
-    DP("Unable to get machine ID from ELF file!\n");
+    fprintf(stderr, "CSA OFFLOAD ERROR: Unable to get machine ID from ELF file!\n");
     elf_end(e);
     return 0;
   }
@@ -285,7 +288,7 @@ int32_t __tgt_rtl_is_valid_binary(__tgt_device_image *image) {
   else if (eh32 && !eh64)
     MachineID = eh32->e_machine;
   else {
-    DP("Ambiguous ELF header!\n");
+    fprintf(stderr, "CSA OFFLOAD ERROR: Ambiguous ELF header!\n");
     elf_end(e);
     return 0;
   }
@@ -331,8 +334,9 @@ int32_t checkForExitOnError(int32_t error, const char* errorText) {
     return error;
   }
   if (errorText) {
-    fprintf(stderr, "%s\n", errorText);
+    fprintf(stderr, "\nCSA OFFLOAD ERROR: %s\n", errorText);
   }
+  fprintf(stderr, "Application aborted by " ENV_EXIT_ON_ERROR "\n");
   exit(error);
 }
 
@@ -586,7 +590,7 @@ int execute_command(const char *command) {
   // Create the process to execute the command
   FILE *fCommandOut = popen(command, "r");
   if (NULL == fCommandOut) {
-    DP("Failed to create process to execute command\n");
+    fprintf(stderr, "CSA OFFLOAD ERROR: Failed to create process to execute command\n");
     return 1;
   }
 
@@ -948,7 +952,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   // Obtain elf handler
   Elf *e = elf_memory((char *)image->ImageStart, ImageSize);
   if (!e) {
-    DP("Unable to get ELF handle: %s!\n", elf_errmsg(-1));
+    fprintf(stderr, "CSA OFFLOAD ERROR: Unable to get ELF handle: %s!\n", elf_errmsg(-1));
     checkForExitOnError(1, NULL);
     return NULL;
   }
@@ -997,21 +1001,20 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   }
 
   if (!entries_offset) {
-    DP("Entries Section Offset Not Found\n");
     elf_end(e);
-    checkForExitOnError(1, NULL);
+    checkForExitOnError(1, OFFLOADSECTIONNAME " section offset not found");
     return NULL;
   }
 
   if (!bitcode_bounds) {
     elf_end(e);
-    checkForExitOnError(1, "CSA bitcode bounds section Not Found");
+    checkForExitOnError(1, CSA_BITCODE_BOUNDS_SECTION " section not found");
     return NULL;
   }
 
   if (!bitcode_data) {
     elf_end(e);
-    checkForExitOnError(1, "CSA bitcode data section Not Found");
+    checkForExitOnError(1, CSA_BITCODE_DATA_SECTION " section not found");
     return NULL;
   }
 
