@@ -113,52 +113,52 @@
 
 ; CG:
 ; CHECK-CG: Module
-; CHECK-CG-DAG: call void @llvm.dbg.declare(metadata float* %t26, metadata !22, metadata !24), !dbg !25
-; CHECK-CG-DAG: call void @llvm.dbg.declare(metadata float* %t24, metadata !19, metadata !24), !dbg !26
-; CHECK-CG-DAG: call void @llvm.dbg.declare(metadata float* %t3, metadata !15, metadata !24), !dbg !27
+; CHECK-CG-DAG: call void @llvm.dbg.declare(metadata float* {{.*}}, metadata !22, metadata {{.*}}), !dbg ![[m24:.*]]
+; CHECK-CG-DAG: call void @llvm.dbg.declare(metadata float* {{.*}}, metadata !19, metadata {{.*}}), !dbg ![[m26:.*]]
+; CHECK-CG-DAG: call void @llvm.dbg.declare(metadata float* {{.*}}, metadata !15, metadata {{.*}}), !dbg ![[m27:.*]]
 ; CHECK-CG: region.0: 
 
 ; Call + float instructions
-; CHECK-CG:  %5 = sitofp i32 %4 to float, !dbg !33
-; CHECK-CG:  %6 = tail call float bitcast (float (...)* @bar to float ()*)() #3, !dbg !33
-; CHECK-CG:  %7 = fmul float %t5., %t6., !dbg !33
-; CHECK-CG:  %8 = fadd float %t3., %t7., !dbg !33
-; CHECK-CG:  store float %8, float* %t3, !dbg !33
+; CHECK-CG:  {{.*}} = sitofp i32 {{.*}} to float, !dbg ![[m33:.*]]
+; CHECK-CG:  {{.*}} = tail call float bitcast (float (...)* @bar to float ()*)() #3, !dbg ![[m33]]
+; CHECK-CG:  {{.*}} = fmul float {{.*}}, {{.*}}, !dbg ![[m33]]
+; CHECK-CG:  {{.*}} = fadd float {{.*}}, {{.*}}, !dbg ![[m33]]
+; CHECK-CG:  store float {{.*}}, float* {{.*}}, !dbg ![[m33]]
   
 ; IF + complex predicate
-; CHECK-CG:  %hir.cmp.7 = fcmp ogt float %t3.2, 1.000000e+01, !dbg !35
-; CHECK-CG:  %hir.cmp.8 = icmp slt i32 %9, 10, !dbg !37
-; CHECK-CG:  %hir.cmp.10 = icmp ne i1 %t10., false, !dbg !35
-; CHECK-CG:  br i1 %hir.cmp.10, label %then.10, label %ifmerge.10, !dbg !35 
+; CHECK-CG:  %hir.cmp.7 = fcmp ogt float {{.*}}, 1.000000e+01, !dbg ![[m35:.*]]
+; CHECK-CG:  %hir.cmp.8 = icmp slt i32 {{.*}}, 10, !dbg ![[m37:.*]]
+; CHECK-CG:  %hir.cmp.10 = icmp ne i1 {{.*}}, false, !dbg ![[m35]]
+; CHECK-CG:  br i1 %hir.cmp.10, label %then.10, label %ifmerge.10, !dbg ![[m35]]
 
 ; IF + multiple predicates
-; CHECK-CG:  %hir.cmp.22 = icmp sgt i32 %15, 0, !dbg !47
-; CHECK-CG:  %t15. = load i32, i32* %t15, !dbg !45
-; CHECK-CG:  %hir.cmp.225 = icmp ne i32 %t15., 0, !dbg !45
-; CHECK-CG:  %16 = and i1 %hir.cmp.22, %hir.cmp.225, !dbg !45
-; CHECK-CG:  br i1 %16, label %then.22, label %ifmerge.22, !dbg !45
+; CHECK-CG:  %hir.cmp.22 = icmp sgt i32 {{.*}}, 0, !dbg ![[m47:.*]]
+; CHECK-CG:  {{.*}} = load i32, i32* {{.*}}, !dbg ![[m45:.*]]
+; CHECK-CG:  %hir.cmp.225 = icmp ne i32 {{.*}}, 0, !dbg ![[m45]]
+; CHECK-CG:  {{.*}} = and i1 %hir.cmp.22, %hir.cmp.225, !dbg ![[m45]]
+; CHECK-CG:  br i1 {{.*}}, label %then.22, label %ifmerge.22, !dbg ![[m45]]
 
 ; Load ref + CE
-; CHECK-CG:  %20 = load i32, i32* %i1.i32, !dbg !26
-; CHECK-CG:  %21 = add i32 %20, 1, !dbg !26
-; CHECK-CG:  %arrayIdx10 = getelementptr inbounds float, float* %a, i32 %21, !dbg !26
-; CHECK-CG:  %gepload11 = load float, float* %arrayIdx10, align 4, !dbg !26
+; CHECK-CG:  {{.*}} = load i32, i32* %i1.i32, !dbg ![[m26]]
+; CHECK-CG:  {{.*}} = add i32 {{.*}}, 1, !dbg ![[m26]]
+; CHECK-CG:  %arrayIdx10 = getelementptr inbounds float, float* %a, i32 {{.*}}, !dbg ![[m26]]
+; CHECK-CG:  %gepload11 = load float, float* %arrayIdx10, align 4, !dbg ![[m26]]
 
 ; Scalar store
-; CHECK-CG:  store float %22, float* %t24, !dbg !26
+; CHECK-CG:  store float {{.*}}, float* {{.*}}, !dbg ![[m26]]
 
 ; Select
-; CHECK-CG:  %hir.selcmp.37 = fcmp une float %t23.12, 0.000000e+00, !dbg !25
-; CHECK-CG:  %23 = select i1 %hir.selcmp.37, float 1.000000e+01, float -1.000000e+01, !dbg !25
+; CHECK-CG:  %hir.selcmp.37 = fcmp une float {{.*}}, 0.000000e+00, !dbg ![[m25:.*]]
+; CHECK-CG:  {{.*}} = select i1 %hir.selcmp.37, float 1.000000e+01, float -1.000000e+01, !dbg ![[m25]]
 
 ; Store ref
-; CHECK-CG:  %arrayIdx13 = getelementptr inbounds float, float* %c, i32 %25, !dbg !52
-; CHECK-CG:  %t27. = load float, float* %t27, !dbg !52
-; CHECK-CG:  store float %t27., float* %arrayIdx13, align 4, !dbg !52
+; CHECK-CG:  %arrayIdx13 = getelementptr inbounds float, float* %c, i32 {{.*}}, !dbg ![[m52:.*]]
+; CHECK-CG:  {{.*}} = load float, float* {{.*}}, !dbg ![[m52]]
+; CHECK-CG:  store float {{.*}}, float* %arrayIdx13, align 4, !dbg ![[m52]]
 
 ; Switch
-; CHECK-CG:  switch i32 %t30., label %hir.sw.43.default [
-; CHECK-CG:  ], !dbg !53
+; CHECK-CG:  switch i32 {{.*}}, label %hir.sw.43.default [
+; CHECK-CG:  ], !dbg ![[m53:.*]]
  
 
 ;Module Before HIR; ModuleID = 'debug-nodes.c'

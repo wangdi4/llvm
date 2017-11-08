@@ -31,12 +31,12 @@ const AvrCFGBase::NodeSetTy AvrCFGBase::EmptyNodeSet;
 
 using AvrBBDomTree = DomTreeBase<AvrBasicBlock>;
 template void
-llvm::DomTreeBuilder::Calculate<AvrBBDomTree, AvrCFGBase>(AvrBBDomTree &DT,
-                                                          AvrCFGBase &F);
+llvm::DomTreeBuilder::Calculate<AvrBBDomTree>(AvrBBDomTree &DT);
 
 using AvrBBPostDomTree = PostDomTreeBase<AvrBasicBlock>;
-template void llvm::DomTreeBuilder::Calculate<AvrBBPostDomTree, AvrCFGBase>(
-    AvrBBPostDomTree &DT, AvrCFGBase &F);
+template void llvm::DomTreeBuilder::Calculate<AvrBBPostDomTree>(
+    AvrBBPostDomTree &DT);
+
 
 unsigned long long AvrBasicBlock::NextId = 0;
 

@@ -132,13 +132,14 @@ consideration is clarity & readability.
   +  }
   +#endif
 
-- Some files, e.g. tablegen (.td) files, are not run through the preprocessor,
-  so the #if INTEL_CUSTOMIZATION method does not work. For those types of files,
-  multi-line additions should be enclosed in comments like this.
+- Some files, e.g. CMakeLists.txt, are not run through the preprocessor.
+  Use # INTEL_CUSTOMIZATION, # end INTEL_CUSTOMIZATION pair. In situations
+  where # INTEL_CUSTOMIZATION does not work, e.g. tablegen (.td), additions
+  should be enclosed in comments like this.
 
 .. code-block:: c++
 
-  // if INTEL_CUSTOMIZATION
+  // INTEL_CUSTOMIZATION
   // X86_RegCall return-value convention.
   multiclass RetCC_X86_RegCall<RC_X86_RegCall RC, CallingConv CC> :
     X86_RegCall_base<RC, CC>;
@@ -149,7 +150,7 @@ consideration is clarity & readability.
        RetCC_X86_RegCall<RC_X86_64_RegCall_Win, RetCC_X86_Win64_C>;
   defm RetCC_X86_64_RegCall_Lin :
        RetCC_X86_RegCall<RC_X86_64_RegCall_Lin, RetCC_X86Common>;
-  // endif INTEL_CUSTOMIZATION
+  // end INTEL_CUSTOMIZATION
 
 - For small additions or modifications, it is often clearer to add a comment at
   the end of **each** modified line like this.

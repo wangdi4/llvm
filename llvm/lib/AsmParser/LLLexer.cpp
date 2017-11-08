@@ -664,6 +664,7 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(ssp);
   KEYWORD(sspreq);
   KEYWORD(sspstrong);
+  KEYWORD(strictfp);
   KEYWORD(safestack);
   KEYWORD(sanitize_address);
   KEYWORD(sanitize_thread);

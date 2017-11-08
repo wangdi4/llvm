@@ -3,10 +3,10 @@
 #include "LoopVectorizationCodeGen.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
+#define DEBUG_TYPE "intel-vplan"
+
 using namespace llvm;
 using namespace llvm::vpo;
-
-#define DEBUG_TYPE "intel-vplan"
 
 //Replicated from LoopVectorize.cpp
 
@@ -272,17 +272,15 @@ void VPBasicBlock::vectorize(VPTransformState *State) {
   DEBUG(dbgs() << "LV: filled BB:" << *NewBB);
 }
 
-using VPDomTree = DomTreeBase<VPBlockBase>;
-template void llvm::DomTreeBuilder::Calculate<VPDomTree, VPRegionBlock>(
-    VPDomTree &DT, VPRegionBlock &VPR);
-
-using VPPostDomTree = PostDomTreeBase<VPBlockBase>;
-template void llvm::DomTreeBuilder::Calculate<VPPostDomTree, VPRegionBlock>(
-    VPPostDomTree &PDT, VPRegionBlock &VPR);
-
 void VPUniformConditionBitRecipe::vectorize(VPTransformState &State) {
   if (isa<Instruction>(ScConditionBit)) {
     State.ILV->serializeInstruction(cast<Instruction>(ScConditionBit));
     ConditionBit = State.ILV->getScalarValue(ScConditionBit, 0);
   }
 }
+
+using VPDomTree = DomTreeBase<vpo::VPBlockBase>;
+template void llvm::DomTreeBuilder::Calculate<VPDomTree>(VPDomTree &DT);
+
+using VPPostDomTree = PostDomTreeBase<vpo::VPBlockBase>;
+template void llvm::DomTreeBuilder::Calculate<VPPostDomTree>(VPPostDomTree &PDT);

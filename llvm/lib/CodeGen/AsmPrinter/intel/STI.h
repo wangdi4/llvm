@@ -20,7 +20,7 @@ formats are supported.
 #ifndef LLVM_LIB_CODEGEN_ASMPRINTER_STI_H
 #define LLVM_LIB_CODEGEN_ASMPRINTER_STI_H
 
-#define INVALID 0
+#define STI_INVALID 0
 //===----------------------------------------------------------------------===//
 // STIMachineID
 //===----------------------------------------------------------------------===//
@@ -405,11 +405,11 @@ typedef enum STICompositePropertyEnum STICompositeProperty;
 #define         S_ENDARG        0x000a          /* End of arguments */
 #define         S_RETURN        0x000d          /* Function return desription */
 
-#define S_CEXMODEL32    (IS_CV5 ? INVALID : S_CEXMODEL32_CV7)
+#define S_CEXMODEL32    (IS_CV5 ? STI_INVALID : S_CEXMODEL32_CV7)
 
 #define S_VFTABLE32     0x100c          /* Virtual function table path descriptor 16:32 */
-#define S_FRAMEPROC     (IS_CV5 ? INVALID : S_FRAMEPROC_CV7)
-#define S_ANNOTATION    (IS_CV5 ? INVALID : S_ANNOTATION_CV7)
+#define S_FRAMEPROC     (IS_CV5 ? STI_INVALID : S_FRAMEPROC_CV7)
+#define S_ANNOTATION    (IS_CV5 ? STI_INVALID : S_ANNOTATION_CV7)
 #define S_OBJNAME       (IS_CV5 ? S_OBJNAME_CV5         : S_OBJNAME_CV7)
 #define S_THUNK32       (IS_CV5 ? S_THUNK32_CV5                 : S_THUNK32_CV7)
 #define S_BLOCK32       (IS_CV5 ? S_BLOCK32_CV5                 : S_BLOCK32_CV7)
@@ -417,7 +417,7 @@ typedef enum STICompositePropertyEnum STICompositeProperty;
 #define S_REGISTER      (IS_CV5 ? S_REGISTER_CV5        : S_REGISTER_CV7)
 #define S_CONSTANT      (IS_CV5 ? S_CONSTANT_CV5        : S_CONSTANT_CV7)
 #define S_UDT           (IS_CV5 ? S_UDT_CV5             : S_UDT_CV7)
-#define S_COBOLUDT      (IS_CV5 ? INVALID : S_COBOLUDT_CV7)
+#define S_COBOLUDT      (IS_CV5 ? STI_INVALID : S_COBOLUDT_CV7)
 #define S_MANYREG       (IS_CV5 ? S_MANYREG_CV5                 : S_MANYREG_CV7)
 #define S_BPREL32       (IS_CV5 ? S_BPREL32_CV5         : S_BPREL32_CV7)
 #define S_LDATA32       (IS_CV5 ? S_LDATA32_CV5         : S_LDATA32_CV7)
@@ -428,37 +428,37 @@ typedef enum STICompositePropertyEnum STICompositeProperty;
 #define S_REGREL32      (IS_CV5 ? S_REGREL32_CV5        : S_REGREL32_CV7)
 #define S_LTHREAD32     (IS_CV5 ? S_LTHREAD32_CV5       : S_LTHREAD32_CV7)
 #define S_GTHREAD32     (IS_CV5 ? S_GTHREAD32_CV5       : S_GTHREAD32_CV7)
-#define S_LPROCMIPS     (IS_CV5 ? INVALID : S_LPROCMIPS_CV7)
-#define S_GPROCMIPS     (IS_CV5 ? INVALID : S_GPROCMIPS_CV7)
-#define S_COMPILE2      (IS_CV5 ? INVALID : S_COMPILE2_CV7)
-#define S_MANYREG2      (IS_CV5 ? INVALID : S_MANYREG2_CV7)
+#define S_LPROCMIPS     (IS_CV5 ? STI_INVALID : S_LPROCMIPS_CV7)
+#define S_GPROCMIPS     (IS_CV5 ? STI_INVALID : S_GPROCMIPS_CV7)
+#define S_COMPILE2      (IS_CV5 ? STI_INVALID : S_COMPILE2_CV7)
+#define S_MANYREG2      (IS_CV5 ? STI_INVALID : S_MANYREG2_CV7)
 
-#define S_LMANDATA      (IS_CV5 ? INVALID : S_LMANDATA_CV7)
-#define S_GMANDATA      (IS_CV5 ? INVALID : S_GMANDATA_CV7)
-#define S_MANSLOT       (IS_CV5 ? INVALID : S_MANSLOT_CV7)
+#define S_LMANDATA      (IS_CV5 ? STI_INVALID : S_LMANDATA_CV7)
+#define S_GMANDATA      (IS_CV5 ? STI_INVALID : S_GMANDATA_CV7)
+#define S_MANSLOT       (IS_CV5 ? STI_INVALID : S_MANSLOT_CV7)
 
-#define S_UNAMESPACE    (IS_CV5 ? INVALID : S_UNAMESPACE_CV7)
+#define S_UNAMESPACE    (IS_CV5 ? STI_INVALID : S_UNAMESPACE_CV7)
 
-#define S_GMANPROC      (IS_CV5 ? INVALID : S_GMANPROC_CV7)
-#define S_LMANPROC      (IS_CV5 ? INVALID : S_LMANPROC_CV7)
-#define S_TRAMPOLINE    (IS_CV5 ? INVALID : S_TRAMPOLINE_CV7)
-#define S_MANCONSTANT   (IS_CV5 ? INVALID : S_MANCONSTANT_CV7)
-#define S_ATTR_FRAMEREL (IS_CV5 ? INVALID : S_ATTR_FRAMEREL_CV7)
-#define S_ATTR_REGISTER (IS_CV5 ? INVALID : S_ATTR_REGISTESR_CV7)
-#define S_ATTR_REGREL   (IS_CV5 ? INVALID : S_ATTR_REGREL_CV7)
-#define S_ATTR_MANYREG  (IS_CV5 ? INVALID : S_ATTR_MANYREG_CV7)
-#define S_SEPCODE       (IS_CV5 ? INVALID : S_SEPCODE_CV7)
-#define S_LOCAL         (IS_CV5 ? INVALID : S_LOCAL_CV7)
-#define S_DEFRANGE      (IS_CV5 ? INVALID : S_DEFRANGE_CV7)
-#define S_DEFRANGE2     (IS_CV5 ? INVALID : S_DEFRANGE2_CV7)
+#define S_GMANPROC      (IS_CV5 ? STI_INVALID : S_GMANPROC_CV7)
+#define S_LMANPROC      (IS_CV5 ? STI_INVALID : S_LMANPROC_CV7)
+#define S_TRAMPOLINE    (IS_CV5 ? STI_INVALID : S_TRAMPOLINE_CV7)
+#define S_MANCONSTANT   (IS_CV5 ? STI_INVALID : S_MANCONSTANT_CV7)
+#define S_ATTR_FRAMEREL (IS_CV5 ? STI_INVALID : S_ATTR_FRAMEREL_CV7)
+#define S_ATTR_REGISTER (IS_CV5 ? STI_INVALID : S_ATTR_REGISTESR_CV7)
+#define S_ATTR_REGREL   (IS_CV5 ? STI_INVALID : S_ATTR_REGREL_CV7)
+#define S_ATTR_MANYREG  (IS_CV5 ? STI_INVALID : S_ATTR_MANYREG_CV7)
+#define S_SEPCODE       (IS_CV5 ? STI_INVALID : S_SEPCODE_CV7)
+#define S_LOCAL         (IS_CV5 ? STI_INVALID : S_LOCAL_CV7)
+#define S_DEFRANGE      (IS_CV5 ? STI_INVALID : S_DEFRANGE_CV7)
+#define S_DEFRANGE2     (IS_CV5 ? STI_INVALID : S_DEFRANGE2_CV7)
 
 /* CV5-only */
-#define S_COMPILE       (IS_CV5 ? S_COMPILE_CV5       : INVALID)
-#define S_ENTRYTHIS     (IS_CV5 ? S_ENTRYTHIS_CV5     : INVALID)
-#define         S_VFTPATH32     (IS_CV5 ? S_VFTPATH32_CV5     : INVALID)
-#define S_PROCREF       (IS_CV5 ? S_PROCREF_CV5       : INVALID)
-#define S_DATAREF       (IS_CV5 ? S_DATAREF_CV5       : INVALID)
-#define S_ALIGN         (IS_CV5 ? S_ALIGN_CV5         : INVALID)
+#define S_COMPILE       (IS_CV5 ? S_COMPILE_CV5       : STI_INVALID)
+#define S_ENTRYTHIS     (IS_CV5 ? S_ENTRYTHIS_CV5     : STI_INVALID)
+#define         S_VFTPATH32     (IS_CV5 ? S_VFTPATH32_CV5     : STI_INVALID)
+#define S_PROCREF       (IS_CV5 ? S_PROCREF_CV5       : STI_INVALID)
+#define S_DATAREF       (IS_CV5 ? S_DATAREF_CV5       : STI_INVALID)
+#define S_ALIGN         (IS_CV5 ? S_ALIGN_CV5         : STI_INVALID)
 
 /**************************************************************************/
 #define S_REGTAHOE      0x0500          /* Tahoe register variable */
@@ -611,8 +611,8 @@ typedef enum STICompositePropertyEnum STICompositeProperty;
 #define         LF_PROCEDURE    0x1008          /* Procedure type */
 #define         LF_MFUNCTION    0x1009          /* Procedure type */
 #define         LF_VTSHAPE      0x000a          /* Virtual shape */
-#define LF_COBOL0       (IS_CV5 ? INVALID            : LF_COBOL0_CV7)
-#define LF_COBOL1       (IS_CV5 ? INVALID            : LF_COBOL1_CV7)
+#define LF_COBOL0       (IS_CV5 ? STI_INVALID            : LF_COBOL0_CV7)
+#define LF_COBOL1       (IS_CV5 ? STI_INVALID            : LF_COBOL1_CV7)
 #define LF_BARRAY       (IS_CV5 ? LF_BARRAY_CV5      : LF_BARRAY_CV7)
 #define LF_LABEL        (IS_CV5 ? LF_LABEL_CV5               : LF_LABEL_CV7)
 #define LF_NULL         (IS_CV5 ? LF_NULL_CV5        : LF_NULL_CV7)
@@ -622,11 +622,11 @@ typedef enum STICompositePropertyEnum STICompositeProperty;
 #define LF_PRECOMP      (IS_CV5 ? LF_PRECOMP_CV5     : LF_PRECOMP_CV7)
 #define LF_ENDPRECOMP   (IS_CV5 ? LF_ENDPRECOMP_CV5  : LF_ENDPRECOMP_CV7)
 #define LF_OEM          (IS_CV5 ? LF_OEM_CV5         : LF_OEM_CV7)
-#define LF_OEM2                 (IS_CV5 ? INVALID            : LF_OEM2_CV7)
-#define LF_TYPESERVER   (IS_CV5 ? INVALID            : LF_TYPESERVER_CV7)
-#define LF_ALIAS        (IS_CV5 ? INVALID            : LF_ALIAS_CV7)
-#define LF_MANAGED      (IS_CV5 ? INVALID            : LF_MANAGED_CV7)
-#define LF_TYPESERVER2  (IS_CV5 ? INVALID            : LF_TYPESERVER2_CV7)
+#define LF_OEM2                 (IS_CV5 ? STI_INVALID            : LF_OEM2_CV7)
+#define LF_TYPESERVER   (IS_CV5 ? STI_INVALID            : LF_TYPESERVER_CV7)
+#define LF_ALIAS        (IS_CV5 ? STI_INVALID            : LF_ALIAS_CV7)
+#define LF_MANAGED      (IS_CV5 ? STI_INVALID            : LF_MANAGED_CV7)
+#define LF_TYPESERVER2  (IS_CV5 ? STI_INVALID            : LF_TYPESERVER2_CV7)
 
 /***** Intel OEM records. Supported by EDB and IDB v7. No longer supported
  in 9.0. Need to be deleted. */
@@ -691,7 +691,7 @@ typedef enum STICompositePropertyEnum STICompositeProperty;
 #define LF_DIMVARLU     0x120a                  /* Variable lower & upper bound */
 #define LF_REFSYM       0x020c          /* Referenced symbol */
 /* CV5 only */
-#define         LF_LIST         (IS_CV5 ? LF_LIST_CV5   : INVALID)
+#define         LF_LIST         (IS_CV5 ? LF_LIST_CV5   : STI_INVALID)
 
 /*
   Leaf indices for fields of complex lists
@@ -748,8 +748,8 @@ typedef enum STICompositePropertyEnum STICompositeProperty;
 #define LF_FRIENDCLS    0x140a  /*  */
 #define LF_ONEMETHOD    (IS_CV5 ? LF_ONEMETHOD_CV5  : LF_ONEMETHOD_CV7)
 #define LF_VFUNCOFF     0x140c
-#define LF_NESTTYPEEX   (IS_CV5 ? INVALID           : LF_NESTTYPEEX_CV7)
-#define LF_MEMBERMODIFY (IS_CV5 ? INVALID           : LF_MEMBERMODIFY_CV7)
+#define LF_NESTTYPEEX   (IS_CV5 ? STI_INVALID           : LF_NESTTYPEEX_CV7)
+#define LF_MEMBERMODIFY (IS_CV5 ? STI_INVALID           : LF_MEMBERMODIFY_CV7)
 
 /* Access attribute bit field values */
         /* access are bit 1 and 2 */

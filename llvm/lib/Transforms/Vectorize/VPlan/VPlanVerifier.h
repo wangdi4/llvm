@@ -91,6 +91,6 @@ public:
 };
 
 } // End vpo namespace
-} // End LLVM namespace
+} // end llvm namespace
 
 #endif //LLVM_TRANSFORMS_VECTORIZE_VPLAN_VPLANVERIFIER_H

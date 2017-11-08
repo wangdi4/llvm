@@ -217,7 +217,20 @@ def quote_windows_command(seq):
 # cmd is export or env
 def updateEnv(env, cmd):
     arg_idx = 1
+    unset_next_env_var = False
     for arg_idx, arg in enumerate(cmd.args[1:]):
+        # Support for the -u flag (unsetting) for env command
+        # e.g., env -u FOO -u BAR will remove both FOO and BAR
+        # from the environment.
+        if arg == '-u':
+            unset_next_env_var = True
+            continue
+        if unset_next_env_var:
+            unset_next_env_var = False
+            if arg in env.env:
+                del env.env[arg]
+            continue
+
         # Partition the string into KEY=VALUE.
         key, eq, val = arg.partition('=')
         # Stop if there was no equals.
@@ -238,6 +251,7 @@ def executeBuiltinEcho(cmd, shenv):
     # Some tests have un-redirected echo commands to help debug test failures.
     # Buffer our output and return it to the caller.
     is_redirected = True
+    encode = lambda x : x
     if stdout == subprocess.PIPE:
         is_redirected = False
         stdout = StringIO()
@@ -245,6 +259,9 @@ def executeBuiltinEcho(cmd, shenv):
         # Reopen stdout in binary mode to avoid CRLF translation. The versions
         # of echo we are replacing on Windows all emit plain LF, and the LLVM
         # tests now depend on this.
+        # When we open as binary, however, this also means that we have to write
+        # 'bytes' objects to stdout instead of 'str' objects.
+        encode = lit.util.to_bytes
         stdout = open(stdout.name, stdout.mode + 'b')
         opened_files.append((None, None, stdout, None))
 
@@ -265,17 +282,18 @@ def executeBuiltinEcho(cmd, shenv):
     def maybeUnescape(arg):
         if not interpret_escapes:
             return arg
-        # Python string escapes and "echo" escapes are obviously different, but
-        # this should be enough for the LLVM test suite.
-        return arg.decode('string_escape')
+
+        arg = lit.util.to_bytes(arg)
+        codec = 'string_escape' if sys.version_info < (3,0) else 'unicode_escape'
+        return arg.decode(codec)
 
     if args:
         for arg in args[:-1]:
-            stdout.write(maybeUnescape(arg))
-            stdout.write(' ')
-        stdout.write(maybeUnescape(args[-1]))
+            stdout.write(encode(maybeUnescape(arg)))
+            stdout.write(encode(' '))
+        stdout.write(encode(maybeUnescape(args[-1])))
     if write_newline:
-        stdout.write('\n')
+        stdout.write(encode('\n'))
 
     for (name, mode, f, path) in opened_files:
         f.close()
@@ -313,7 +331,7 @@ def processRedirects(cmd, stdin_source, cmd_shenv, opened_files):
         elif op == ('<',):
             redirects[0] = [filename, 'r', None]
         else:
-            raise InternalShellError(cmd, "Unsupported redirect: %r" % (r,))
+            raise InternalShellError(cmd, "Unsupported redirect: %r" % ((op, filename),))
 
     # Open file descriptors in a second pass.
     std_fds = [None, None, None]
@@ -711,6 +729,7 @@ def executeScript(test, litConfig, tmpBase, commands, cwd):
       mode += 'b'  # Avoid CRLFs when writing bash scripts.
     f = open(script, mode)
     if isWin32CMDEXE:
+        f.write('@echo off\n')
         f.write('\nif %ERRORLEVEL% NEQ 0 EXIT\n'.join(commands))
     else:
         if test.config.pipefail:
@@ -792,9 +811,13 @@ def parseIntegratedTestScriptCommands(source_path, keywords):
             # command. Note that we take care to return regular strings in
             # Python 2, to avoid other code having to differentiate between the
             # str and unicode types.
+            #
+            # Opening the file in binary mode prevented Windows \r newline
+            # characters from being converted to Unix \n newlines, so manually
+            # strip those from the yielded lines.
             keyword,ln = match.groups()
             yield (line_number, to_string(keyword.decode('utf-8')),
-                   to_string(ln.decode('utf-8')))
+                   to_string(ln.decode('utf-8').rstrip('\r')))
     finally:
         f.close()
 

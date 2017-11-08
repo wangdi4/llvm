@@ -46,7 +46,7 @@
 // - Edge Predicates are emitted in the same BB as the condition they point to.
 
 #include "VPlanPredicator.h"
-#include "VPlan.h"
+#include "../Intel_VPlan.h"
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/GraphTraits.h"
 #include "llvm/ADT/PostOrderIterator.h"
@@ -57,7 +57,7 @@
 #define DEBUG_TYPE "VPlanPredicator"
 
 using namespace llvm;
-using namespace vpo;
+using namespace llvm::vpo;
 
 static cl::opt<bool>
     VPlanPredicatorReport("vplan-predicator-report", cl::init(false),

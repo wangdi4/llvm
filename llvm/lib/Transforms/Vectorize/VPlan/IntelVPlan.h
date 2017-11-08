@@ -1,17 +1,17 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_VPLAN_INTELVPLAN_H 
 #define LLVM_TRANSFORMS_VECTORIZE_VPLAN_INTELVPLAN_H
 
-#include "../VPlan.h" // FIXME
+#include "../Intel_VPlan.h"
 #include "VPInstruction.h"
 #include "VPLoopInfo.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/Support/GenericDomTreeConstruction.h"
 
 namespace llvm {
-
 namespace vpo {
 
 class VPOneByOneIRRecipeBase : public VPRecipeBase {
+
   friend class VPlanUtilsLoopVectorizer;
 
 private:
@@ -794,8 +794,7 @@ public:
 //   
 
 //} // End VPO Vectorizer Namespace 
-}  // namespace llvm
-
+} // namespace llvm
   
 #endif // LLVM_TRANSFORMS_VECTORIZE_VPLAN_INTELVPLAN_H 
 

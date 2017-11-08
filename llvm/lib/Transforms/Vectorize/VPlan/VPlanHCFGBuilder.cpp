@@ -9,7 +9,7 @@
 #define DEBUG_TYPE "VPlanHCFGBuilder"
 
 using namespace llvm;
-using namespace vpo;
+using namespace llvm::vpo;
 
 static cl::opt<bool> DisableNonLoopSubRegions(
     "disable-vplan-subregions", cl::init(false), cl::Hidden,

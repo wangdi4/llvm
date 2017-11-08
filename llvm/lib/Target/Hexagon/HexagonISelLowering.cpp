@@ -381,7 +381,6 @@ static bool CC_HexagonVector(unsigned ValNo, MVT ValVT,
     State.addLoc(CCValAssign::getMem(ValNo, ValVT, Offset, LocVT, LocInfo));
     return false;
   }
-  // 128B Mode
   if ((UseHVX && UseHVXDbl) &&
       (LocVT == MVT::v32i64 || LocVT == MVT::v64i32 || LocVT == MVT::v128i16 ||
        LocVT == MVT::v256i8)) {
@@ -1191,14 +1190,14 @@ SDValue HexagonTargetLowering::LowerFormalArguments(
       } else if ((RegVT == MVT::v8i64 || RegVT == MVT::v16i32 ||
                   RegVT == MVT::v32i16 || RegVT == MVT::v64i8)) {
         unsigned VReg =
-          RegInfo.createVirtualRegister(&Hexagon::VectorRegsRegClass);
+          RegInfo.createVirtualRegister(&Hexagon::HvxVRRegClass);
         RegInfo.addLiveIn(VA.getLocReg(), VReg);
         InVals.push_back(DAG.getCopyFromReg(Chain, dl, VReg, RegVT));
     } else if (UseHVX && UseHVXDbl &&
                ((RegVT == MVT::v16i64 || RegVT == MVT::v32i32 ||
                  RegVT == MVT::v64i16 || RegVT == MVT::v128i8))) {
         unsigned VReg =
-          RegInfo.createVirtualRegister(&Hexagon::VectorRegs128BRegClass);
+          RegInfo.createVirtualRegister(&Hexagon::HvxVRRegClass);
         RegInfo.addLiveIn(VA.getLocReg(), VReg);
         InVals.push_back(DAG.getCopyFromReg(Chain, dl, VReg, RegVT));
 
@@ -1206,20 +1205,20 @@ SDValue HexagonTargetLowering::LowerFormalArguments(
       } else if ((RegVT == MVT::v16i64 || RegVT == MVT::v32i32 ||
                   RegVT == MVT::v64i16 || RegVT == MVT::v128i8)) {
         unsigned VReg =
-          RegInfo.createVirtualRegister(&Hexagon::VecDblRegsRegClass);
+          RegInfo.createVirtualRegister(&Hexagon::HvxWRRegClass);
         RegInfo.addLiveIn(VA.getLocReg(), VReg);
         InVals.push_back(DAG.getCopyFromReg(Chain, dl, VReg, RegVT));
       } else if (UseHVX && UseHVXDbl &&
                 ((RegVT == MVT::v32i64 || RegVT == MVT::v64i32 ||
                   RegVT == MVT::v128i16 || RegVT == MVT::v256i8))) {
         unsigned VReg =
-          RegInfo.createVirtualRegister(&Hexagon::VecDblRegs128BRegClass);
+          RegInfo.createVirtualRegister(&Hexagon::HvxWRRegClass);
         RegInfo.addLiveIn(VA.getLocReg(), VReg);
         InVals.push_back(DAG.getCopyFromReg(Chain, dl, VReg, RegVT));
       } else if (RegVT == MVT::v512i1 || RegVT == MVT::v1024i1) {
         assert(0 && "need to support VecPred regs");
         unsigned VReg =
-          RegInfo.createVirtualRegister(&Hexagon::VecPredRegsRegClass);
+          RegInfo.createVirtualRegister(&Hexagon::HvxQRRegClass);
         RegInfo.addLiveIn(VA.getLocReg(), VReg);
         InVals.push_back(DAG.getCopyFromReg(Chain, dl, VReg, RegVT));
       } else {
@@ -1364,10 +1363,44 @@ HexagonTargetLowering::LowerVSELECT(SDValue Op, SelectionDAG &DAG) const {
   return SDValue();
 }
 
+static Constant *convert_i1_to_i8(const Constant *ConstVal) {
+  SmallVector<Constant *, 128> NewConst;
+  const ConstantVector *CV = dyn_cast<ConstantVector>(ConstVal);
+  if (!CV)
+    return nullptr;
+
+  LLVMContext &Ctx = ConstVal->getContext();
+  IRBuilder<> IRB(Ctx);
+  unsigned NumVectorElements = CV->getNumOperands();
+  assert(isPowerOf2_32(NumVectorElements) &&
+         "conversion only supported for pow2 VectorSize!");
+
+  for (unsigned i = 0; i < NumVectorElements / 8; ++i) {
+    uint8_t x = 0;
+    for (unsigned j = 0; j < 8; ++j) {
+      uint8_t y = CV->getOperand(i * 8 + j)->getUniqueInteger().getZExtValue();
+      x |= y << (7 - j);
+    }
+    assert((x == 0 || x == 255) && "Either all 0's or all 1's expected!");
+    NewConst.push_back(IRB.getInt8(x));
+  }
+  return ConstantVector::get(NewConst);
+}
+
 SDValue
 HexagonTargetLowering::LowerConstantPool(SDValue Op, SelectionDAG &DAG) const {
   EVT ValTy = Op.getValueType();
   ConstantPoolSDNode *CPN = cast<ConstantPoolSDNode>(Op);
+  Constant *CVal = nullptr;
+  bool isVTi1Type = false;
+  if (const Constant *ConstVal = dyn_cast<Constant>(CPN->getConstVal())) {
+    Type *CValTy = ConstVal->getType();
+    if (CValTy->isVectorTy() &&
+        CValTy->getVectorElementType()->isIntegerTy(1)) {
+      CVal = convert_i1_to_i8(ConstVal);
+      isVTi1Type = (CVal != nullptr);
+    }
+  }
   unsigned Align = CPN->getAlignment();
   bool IsPositionIndependent = isPositionIndependent();
   unsigned char TF = IsPositionIndependent ? HexagonII::MO_PCREL : 0;
@@ -1377,6 +1410,8 @@ HexagonTargetLowering::LowerConstantPool(SDValue Op, SelectionDAG &DAG) const {
   if (CPN->isMachineConstantPoolEntry())
     T = DAG.getTargetConstantPool(CPN->getMachineCPVal(), ValTy, Align, Offset,
                                   TF);
+  else if (isVTi1Type)
+    T = DAG.getTargetConstantPool(CVal, ValTy, Align, Offset, TF);
   else
     T = DAG.getTargetConstantPool(CPN->getConstVal(), ValTy, Align, Offset,
                                   TF);
@@ -1723,25 +1758,25 @@ HexagonTargetLowering::HexagonTargetLowering(const TargetMachine &TM,
 
   if (Subtarget.hasV60TOps()) {
     if (Subtarget.useHVXSglOps()) {
-      addRegisterClass(MVT::v64i8,  &Hexagon::VectorRegsRegClass);
-      addRegisterClass(MVT::v32i16, &Hexagon::VectorRegsRegClass);
-      addRegisterClass(MVT::v16i32, &Hexagon::VectorRegsRegClass);
-      addRegisterClass(MVT::v8i64,  &Hexagon::VectorRegsRegClass);
-      addRegisterClass(MVT::v128i8, &Hexagon::VecDblRegsRegClass);
-      addRegisterClass(MVT::v64i16, &Hexagon::VecDblRegsRegClass);
-      addRegisterClass(MVT::v32i32, &Hexagon::VecDblRegsRegClass);
-      addRegisterClass(MVT::v16i64, &Hexagon::VecDblRegsRegClass);
-      addRegisterClass(MVT::v512i1, &Hexagon::VecPredRegsRegClass);
+      addRegisterClass(MVT::v64i8,  &Hexagon::HvxVRRegClass);
+      addRegisterClass(MVT::v32i16, &Hexagon::HvxVRRegClass);
+      addRegisterClass(MVT::v16i32, &Hexagon::HvxVRRegClass);
+      addRegisterClass(MVT::v8i64,  &Hexagon::HvxVRRegClass);
+      addRegisterClass(MVT::v128i8, &Hexagon::HvxWRRegClass);
+      addRegisterClass(MVT::v64i16, &Hexagon::HvxWRRegClass);
+      addRegisterClass(MVT::v32i32, &Hexagon::HvxWRRegClass);
+      addRegisterClass(MVT::v16i64, &Hexagon::HvxWRRegClass);
+      addRegisterClass(MVT::v512i1, &Hexagon::HvxQRRegClass);
     } else if (Subtarget.useHVXDblOps()) {
-      addRegisterClass(MVT::v128i8,  &Hexagon::VectorRegs128BRegClass);
-      addRegisterClass(MVT::v64i16,  &Hexagon::VectorRegs128BRegClass);
-      addRegisterClass(MVT::v32i32,  &Hexagon::VectorRegs128BRegClass);
-      addRegisterClass(MVT::v16i64,  &Hexagon::VectorRegs128BRegClass);
-      addRegisterClass(MVT::v256i8,  &Hexagon::VecDblRegs128BRegClass);
-      addRegisterClass(MVT::v128i16, &Hexagon::VecDblRegs128BRegClass);
-      addRegisterClass(MVT::v64i32,  &Hexagon::VecDblRegs128BRegClass);
-      addRegisterClass(MVT::v32i64,  &Hexagon::VecDblRegs128BRegClass);
-      addRegisterClass(MVT::v1024i1, &Hexagon::VecPredRegs128BRegClass);
+      addRegisterClass(MVT::v128i8,  &Hexagon::HvxVRRegClass);
+      addRegisterClass(MVT::v64i16,  &Hexagon::HvxVRRegClass);
+      addRegisterClass(MVT::v32i32,  &Hexagon::HvxVRRegClass);
+      addRegisterClass(MVT::v16i64,  &Hexagon::HvxVRRegClass);
+      addRegisterClass(MVT::v256i8,  &Hexagon::HvxWRRegClass);
+      addRegisterClass(MVT::v128i16, &Hexagon::HvxWRRegClass);
+      addRegisterClass(MVT::v64i32,  &Hexagon::HvxWRRegClass);
+      addRegisterClass(MVT::v32i64,  &Hexagon::HvxWRRegClass);
+      addRegisterClass(MVT::v1024i1, &Hexagon::HvxQRRegClass);
     }
   }
 
@@ -2278,8 +2313,8 @@ static StridedLoadKind isStridedLoad(const ArrayRef<int> &Mask) {
   return StridedLoadKind::NoPattern;
 }
 
-bool HexagonTargetLowering::isShuffleMaskLegal(const SmallVectorImpl<int> &Mask,
-      EVT VT) const {
+bool HexagonTargetLowering::isShuffleMaskLegal(ArrayRef<int> Mask,
+                                               EVT VT) const {
   if (Subtarget.useHVXOps())
     return isStridedLoad(Mask) != StridedLoadKind::NoPattern;
   return true;
@@ -2923,7 +2958,11 @@ HexagonTargetLowering::getConstraintType(StringRef Constraint) const {
       case 'q':
       case 'v':
         if (Subtarget.useHVXOps())
-          return C_Register;
+          return C_RegisterClass;
+        break;
+      case 'a':
+        return C_RegisterClass;
+      default:
         break;
     }
   }
@@ -2951,29 +2990,33 @@ HexagonTargetLowering::getRegForInlineAsmConstraint(
       case MVT::f64:
         return std::make_pair(0U, &Hexagon::DoubleRegsRegClass);
       }
+      break;
+    case 'a': // M0-M1
+      return std::make_pair(0U, &Hexagon::ModRegsRegClass);
     case 'q': // q0-q3
       switch (VT.getSizeInBits()) {
       default:
         llvm_unreachable("getRegForInlineAsmConstraint Unhandled vector size");
       case 512:
-        return std::make_pair(0U, &Hexagon::VecPredRegsRegClass);
+        return std::make_pair(0U, &Hexagon::HvxQRRegClass);
       case 1024:
-        return std::make_pair(0U, &Hexagon::VecPredRegs128BRegClass);
+        return std::make_pair(0U, &Hexagon::HvxQRRegClass);
       }
+      break;
     case 'v': // V0-V31
       switch (VT.getSizeInBits()) {
       default:
         llvm_unreachable("getRegForInlineAsmConstraint Unhandled vector size");
       case 512:
-        return std::make_pair(0U, &Hexagon::VectorRegsRegClass);
+        return std::make_pair(0U, &Hexagon::HvxVRRegClass);
       case 1024:
         if (Subtarget.hasV60TOps() && UseHVX && UseHVXDbl)
-          return std::make_pair(0U, &Hexagon::VectorRegs128BRegClass);
-        return std::make_pair(0U, &Hexagon::VecDblRegsRegClass);
+          return std::make_pair(0U, &Hexagon::HvxVRRegClass);
+        return std::make_pair(0U, &Hexagon::HvxWRRegClass);
       case 2048:
-        return std::make_pair(0U, &Hexagon::VecDblRegs128BRegClass);
+        return std::make_pair(0U, &Hexagon::HvxWRRegClass);
       }
-
+      break;
     default:
       llvm_unreachable("Unknown asm register class");
     }
@@ -2993,7 +3036,7 @@ bool HexagonTargetLowering::isFPImmLegal(const APFloat &Imm, EVT VT) const {
 /// AM is legal for this target, for a load/store of the specified type.
 bool HexagonTargetLowering::isLegalAddressingMode(const DataLayout &DL,
                                                   const AddrMode &AM, Type *Ty,
-                                                  unsigned AS) const {
+                                                  unsigned AS, Instruction *I) const {
   if (Ty->isSized()) {
     // When LSR detects uses of the same base address to access different
     // types (e.g. unions), it will assume a conservative type for these
@@ -3163,7 +3206,7 @@ HexagonTargetLowering::findRepresentativeClass(const TargetRegisterInfo *TRI,
   case MVT::v32i16:
   case MVT::v16i32:
   case MVT::v8i64:
-    RRC = &Hexagon::VectorRegsRegClass;
+    RRC = &Hexagon::HvxVRRegClass;
     break;
   case MVT::v128i8:
   case MVT::v64i16:
@@ -3171,15 +3214,15 @@ HexagonTargetLowering::findRepresentativeClass(const TargetRegisterInfo *TRI,
   case MVT::v16i64:
     if (Subtarget.hasV60TOps() && Subtarget.useHVXOps() &&
         Subtarget.useHVXDblOps())
-      RRC = &Hexagon::VectorRegs128BRegClass;
+      RRC = &Hexagon::HvxVRRegClass;
     else
-      RRC = &Hexagon::VecDblRegsRegClass;
+      RRC = &Hexagon::HvxWRRegClass;
     break;
   case MVT::v256i8:
   case MVT::v128i16:
   case MVT::v64i32:
   case MVT::v32i64:
-    RRC = &Hexagon::VecDblRegs128BRegClass;
+    RRC = &Hexagon::HvxWRRegClass;
     break;
   }
   return std::make_pair(RRC, Cost);

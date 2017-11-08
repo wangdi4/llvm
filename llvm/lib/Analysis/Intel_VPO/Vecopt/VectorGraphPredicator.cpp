@@ -172,10 +172,9 @@ public:
 
 } // End namespace llvm
 
-using VGBBDomTree = DomTreeBase<VGBlock>;
+using VGBBDomTree = DomTreeBase<llvm::VGBlock>;
 template void
-llvm::DomTreeBuilder::Calculate<VGBBDomTree, VGLoop>(VGBBDomTree &DT,
-                                                     VGLoop &VGL);
+llvm::DomTreeBuilder::Calculate<VGBBDomTree>(VGBBDomTree &DT);
 
 INITIALIZE_PASS_BEGIN(VectorGraphPredicator, "vec-graph-predicator", "Vector Graph Predicator", false, true)
 INITIALIZE_PASS_DEPENDENCY(VectorGraphInfo)

@@ -1,4 +1,4 @@
-//===- llvm/InitializePasses.h -------- Initialize All Passes ---*- C++ -*-===//
+//===- llvm/InitializePasses.h - Initialize All Passes ----------*- C++ -*-===//
 //
 //                      The LLVM Compiler Infrastructure
 //
@@ -67,7 +67,7 @@ void initializeIntel_LoopAnalysis(PassRegistry&);
 /// Intel_LoopTransforms library.
 void initializeIntel_LoopTransforms(PassRegistry&);
 
-// initializeIntel_VPOAnaylsis - Initialize all passes linked into the 
+// initializeIntel_VPOAnaylsis - Initialize all passes linked into the
 // Intel_VPOAnalysis library
 void initializeIntel_VPOAnalysis(PassRegistry&);
 
@@ -98,7 +98,6 @@ void initializeBasicAAWrapperPassPass(PassRegistry&);
 void initializeBlockExtractorPassPass(PassRegistry&);
 void initializeBlockFrequencyInfoWrapperPassPass(PassRegistry&);
 void initializeBoundsCheckingPass(PassRegistry&);
-void initializeBranchCoalescingPass(PassRegistry&);
 void initializeBranchFolderPassPass(PassRegistry&);
 void initializeBranchProbabilityInfoWrapperPassPass(PassRegistry&);
 void initializeBranchRelaxationPass(PassRegistry&);
@@ -135,6 +134,7 @@ void initializeDependenceAnalysisPass(PassRegistry&);
 void initializeDependenceAnalysisWrapperPassPass(PassRegistry&);
 void initializeDetectDeadLanesPass(PassRegistry&);
 void initializeDivergenceAnalysisPass(PassRegistry&);
+void initializeDivRemPairsLegacyPassPass(PassRegistry&);
 void initializeDomOnlyPrinterPass(PassRegistry&);
 void initializeDomOnlyViewerPass(PassRegistry&);
 void initializeDomPrinterPass(PassRegistry&);
@@ -173,9 +173,9 @@ void initializeGlobalSplitPass(PassRegistry&);
 void initializeGlobalsAAWrapperPassPass(PassRegistry&);
 void initializeGuardWideningLegacyPassPass(PassRegistry&);
 void initializeIPCPPass(PassRegistry&);
+void initializeIPSCCPLegacyPassPass(PassRegistry&);
+void initializeIRTranslatorPass(PassRegistry&);
 void initializeIPCloningLegacyPassPass(PassRegistry&);             // INTEL
-void initializeIPSCCPLegacyPassPass(PassRegistry &);
-void initializeIRTranslatorPass(PassRegistry &);
 void initializeIVUsersWrapperPassPass(PassRegistry&);
 void initializeIfConverterPass(PassRegistry&);
 void initializeImplicitNullChecksPass(PassRegistry&);
@@ -280,6 +280,7 @@ void initializeMemorySSAPrinterLegacyPassPass(PassRegistry&);
 void initializeMemorySSAWrapperPassPass(PassRegistry&);
 void initializeMemorySanitizerPass(PassRegistry&);
 void initializeMergeFunctionsPass(PassRegistry&);
+void initializeMergeICmpsPass(PassRegistry&);
 void initializeMergedLoadStoreMotionLegacyPassPass(PassRegistry&);
 void initializeMetaRenamerPass(PassRegistry&);
 void initializeModuleDebugInfoPrinterPass(PassRegistry&);
@@ -327,7 +328,7 @@ void initializeProfileSummaryInfoWrapperPassPass(PassRegistry&);
 void initializePromoteLegacyPassPass(PassRegistry&);
 void initializePruneEHPass(PassRegistry&);
 void initializeRABasicPass(PassRegistry&);
-void initializeRAFastPass(PassRegistry&);
+void initializeRegAllocFastPass(PassRegistry&);
 void initializeRAGreedyPass(PassRegistry&);
 void initializeReassociateLegacyPassPass(PassRegistry&);
 void initializeRegBankSelectPass(PassRegistry&);
@@ -488,19 +489,11 @@ void initializeVPODriverHIRPass(PassRegistry&);
 void initializeVPODirectiveCleanupPass(PassRegistry&);
 void initializeVectorGraphInfoPass(PassRegistry&);
 void initializeVectorGraphPredicatorPass(PassRegistry&);
+void initializeWholeProgramWrapperPassPass(PassRegistry&);
 // VPO VPlan Vectorizer Passes
 void initializeVPlanDriverPass(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION
-void initializeLoopDistributePass(PassRegistry&);
-void initializeSjLjEHPreparePass(PassRegistry&);
-void initializeDemandedBitsWrapperPassPass(PassRegistry&);
-void initializeFuncletLayoutPass(PassRegistry &);
-void initializeLoopLoadEliminationPass(PassRegistry&);
-void initializeFunctionImportPassPass(PassRegistry &);
-void initializeLoopVersioningPassPass(PassRegistry &);
-void initializeWholeProgramWrapperPassPass(PassRegistry&); // INTEL
-void initializeWholeProgramDevirtPass(PassRegistry &);
-void initializePatchableFunctionPass(PassRegistry &);
-}
 
-#endif
+} // end namespace llvm
+
+#endif // LLVM_INITIALIZEPASSES_H

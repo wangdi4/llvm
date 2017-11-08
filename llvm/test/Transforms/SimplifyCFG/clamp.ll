@@ -1,17 +1,13 @@
-; RUN: opt < %s -simplifycfg -S | FileCheck %s
-; INTEL - This test is marked as XFAIL because the change set from
-; the community that it was testing (LLVM revision 229099 - changing the
-; phi-node-folding-threshold from 1 to 2)) was #ifndefed out for xmain.
-; XFAIL: *
-; INTEL
+; INTEL added phi-node-folding-threshold=2 because xmain defaults that option to 1.
+; RUN: opt < %s -simplifycfg -phi-node-folding-threshold=2 -S | FileCheck %s ;INTEL
 
 define float @clamp(float %a, float %b, float %c) {
 ; CHECK-LABEL: @clamp
 ; CHECK:  %cmp = fcmp ogt float %a, %c
 ; CHECK:  %cmp1 = fcmp olt float %a, %b
 ; CHECK:  %cond = select i1 %cmp1, float %b, float %a
-; CHECK:  %cond5 = select i1 %cmp, float %c, float %cond
-; CHECK:  ret float %cond5
+; CHECK:  [[COND5:%.*]] = select i1 %cmp, float %c, float %cond ;INTEL
+; CHECK:  ret float [[COND5]] ;INTEL
 entry:
   %cmp = fcmp ogt float %a, %c
   br i1 %cmp, label %cond.end4, label %cond.false

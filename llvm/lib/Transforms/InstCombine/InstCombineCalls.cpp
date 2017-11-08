@@ -1209,72 +1209,6 @@ static Value *simplifyX86vpermv(const IntrinsicInst &II,
   return Builder.CreateShuffleVector(V1, V2, ShuffleMask);
 }
 
-/// The shuffle mask for a perm2*128 selects any two halves of two 256-bit
-/// source vectors, unless a zero bit is set. If a zero bit is set,
-/// then ignore that half of the mask and clear that half of the vector.
-static Value *simplifyX86vperm2(const IntrinsicInst &II,
-                                InstCombiner::BuilderTy &Builder) {
-  auto *CInt = dyn_cast<ConstantInt>(II.getArgOperand(2));
-  if (!CInt)
-    return nullptr;
-
-  VectorType *VecTy = cast<VectorType>(II.getType());
-  ConstantAggregateZero *ZeroVector = ConstantAggregateZero::get(VecTy);
-
-  // The immediate permute control byte looks like this:
-  //    [1:0] - select 128 bits from sources for low half of destination
-  //    [2]   - ignore
-  //    [3]   - zero low half of destination
-  //    [5:4] - select 128 bits from sources for high half of destination
-  //    [6]   - ignore
-  //    [7]   - zero high half of destination
-
-  uint8_t Imm = CInt->getZExtValue();
-
-  bool LowHalfZero = Imm & 0x08;
-  bool HighHalfZero = Imm & 0x80;
-
-  // If both zero mask bits are set, this was just a weird way to
-  // generate a zero vector.
-  if (LowHalfZero && HighHalfZero)
-    return ZeroVector;
-
-  // If 0 or 1 zero mask bits are set, this is a simple shuffle.
-  unsigned NumElts = VecTy->getNumElements();
-  unsigned HalfSize = NumElts / 2;
-  SmallVector<uint32_t, 8> ShuffleMask(NumElts);
-
-  // The high bit of the selection field chooses the 1st or 2nd operand.
-  bool LowInputSelect = Imm & 0x02;
-  bool HighInputSelect = Imm & 0x20;
-
-  // The low bit of the selection field chooses the low or high half
-  // of the selected operand.
-  bool LowHalfSelect = Imm & 0x01;
-  bool HighHalfSelect = Imm & 0x10;
-
-  // Determine which operand(s) are actually in use for this instruction.
-  Value *V0 = LowInputSelect ? II.getArgOperand(1) : II.getArgOperand(0);
-  Value *V1 = HighInputSelect ? II.getArgOperand(1) : II.getArgOperand(0);
-
-  // If needed, replace operands based on zero mask.
-  V0 = LowHalfZero ? ZeroVector : V0;
-  V1 = HighHalfZero ? ZeroVector : V1;
-
-  // Permute low half of result.
-  unsigned StartIndex = LowHalfSelect ? HalfSize : 0;
-  for (unsigned i = 0; i < HalfSize; ++i)
-    ShuffleMask[i] = StartIndex + i;
-
-  // Permute high half of result.
-  StartIndex = HighHalfSelect ? HalfSize : 0;
-  StartIndex += NumElts;
-  for (unsigned i = 0; i < HalfSize; ++i)
-    ShuffleMask[i + HalfSize] = StartIndex + i;
-
-  return Builder.CreateShuffleVector(V0, V1, ShuffleMask);
-}
-
 /// Decode XOP integer vector comparison intrinsics.
 static Value *simplifyX86vpcom(const IntrinsicInst &II,
                                InstCombiner::BuilderTy &Builder,
@@ -2363,6 +2297,52 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
     }
     break;
 
+  case Intrinsic::x86_bmi_bextr_32:
+  case Intrinsic::x86_bmi_bextr_64:
+  case Intrinsic::x86_tbm_bextri_u32:
+  case Intrinsic::x86_tbm_bextri_u64:
+    // If the RHS is a constant we can try some simplifications.
+    if (auto *C = dyn_cast<ConstantInt>(II->getArgOperand(1))) {
+      uint64_t Shift = C->getZExtValue();
+      uint64_t Length = (Shift >> 8) & 0xff;
+      Shift &= 0xff;
+      unsigned BitWidth = II->getType()->getIntegerBitWidth();
+      // If the length is 0 or the shift is out of range, replace with zero.
+      if (Length == 0 || Shift >= BitWidth)
+        return replaceInstUsesWith(CI, ConstantInt::get(II->getType(), 0));
+      // If the LHS is also a constant, we can completely constant fold this.
+      if (auto *InC = dyn_cast<ConstantInt>(II->getArgOperand(0))) {
+        uint64_t Result = InC->getZExtValue() >> Shift;
+        if (Length > BitWidth)
+          Length = BitWidth;
+        Result &= maskTrailingOnes<uint64_t>(Length);
+        return replaceInstUsesWith(CI, ConstantInt::get(II->getType(), Result));
+      }
+      // TODO should we turn this into 'and' if shift is 0? Or 'shl' if we
+      // are only masking bits that a shift already cleared?
+    }
+    break;
+
+  case Intrinsic::x86_bmi_bzhi_32:
+  case Intrinsic::x86_bmi_bzhi_64:
+    // If the RHS is a constant we can try some simplifications.
+    if (auto *C = dyn_cast<ConstantInt>(II->getArgOperand(1))) {
+      uint64_t Index = C->getZExtValue() & 0xff;
+      unsigned BitWidth = II->getType()->getIntegerBitWidth();
+      if (Index >= BitWidth)
+        return replaceInstUsesWith(CI, II->getArgOperand(0));
+      if (Index == 0)
+        return replaceInstUsesWith(CI, ConstantInt::get(II->getType(), 0));
+      // If the LHS is also a constant, we can completely constant fold this.
+      if (auto *InC = dyn_cast<ConstantInt>(II->getArgOperand(0))) {
+        uint64_t Result = InC->getZExtValue();
+        Result &= maskTrailingOnes<uint64_t>(Index);
+        return replaceInstUsesWith(CI, ConstantInt::get(II->getType(), Result));
+      }
+      // TODO should we convert this to an AND if the RHS is constant?
+    }
+    break;
+
   case Intrinsic::x86_vcvtph2ps_128:
   case Intrinsic::x86_vcvtph2ps_256: {
     auto Arg = II->getArgOperand(0);
@@ -3087,14 +3067,6 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
     }
     break;
 
-  case Intrinsic::x86_avx_vperm2f128_pd_256:
-  case Intrinsic::x86_avx_vperm2f128_ps_256:
-  case Intrinsic::x86_avx_vperm2f128_si_256:
-  case Intrinsic::x86_avx2_vperm2i128:
-    if (Value *V = simplifyX86vperm2(*II, Builder))
-      return replaceInstUsesWith(*II, V);
-    break;
-
   case Intrinsic::x86_avx_maskload_ps:
   case Intrinsic::x86_avx_maskload_pd:
   case Intrinsic::x86_avx_maskload_ps_256:
@@ -3812,7 +3784,7 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
         return replaceInstUsesWith(*II, ConstantPointerNull::get(PT));
 
       // isKnownNonNull -> nonnull attribute
-      if (isKnownNonNullAt(DerivedPtr, II, &DT))
+      if (isKnownNonZero(DerivedPtr, DL, 0, &AC, II, &DT))
         II->addAttribute(AttributeList::ReturnIndex, Attribute::NonNull);
     }
 
@@ -3899,7 +3871,7 @@ Instruction *InstCombiner::tryOptimizeCall(CallInst *CI) {
   auto InstCombineRAUW = [this](Instruction *From, Value *With) {
     replaceInstUsesWith(*From, With);
   };
-  LibCallSimplifier Simplifier(DL, &TLI, InstCombineRAUW);
+  LibCallSimplifier Simplifier(DL, &TLI, ORE, InstCombineRAUW);
   if (Value *With = Simplifier.optimizeCall(CI)) {
     ++NumSimplified;
     return CI->use_empty() ? CI : replaceInstUsesWith(*CI, With);
@@ -4001,7 +3973,7 @@ Instruction *InstCombiner::visitCallSite(CallSite CS) {
   for (Value *V : CS.args()) {
     if (V->getType()->isPointerTy() &&
         !CS.paramHasAttr(ArgNo, Attribute::NonNull) &&
-        isKnownNonNullAt(V, CS.getInstruction(), &DT))
+        isKnownNonZero(V, DL, 0, &AC, CS.getInstruction(), &DT))
       ArgNos.push_back(ArgNo);
     ArgNo++;
   }
