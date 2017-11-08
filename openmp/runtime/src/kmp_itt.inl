@@ -154,8 +154,9 @@ LINKAGE void __kmp_itt_region_forking(int gtid, int team_size, int barriers) {
     } else { // Region domain exists for this location
       // Check if team size was changed. Then create new region domain for this
       // location
-      int frm = (loc->reserved_2 & 0x0000FFFF) - 1;
-      if (__kmp_itt_region_team_size[frm] != team_size) {
+      unsigned int frm = (loc->reserved_2 & 0x0000FFFF) - 1;
+      if ((frm < KMP_MAX_FRAME_DOMAINS) &&
+          (__kmp_itt_region_team_size[frm] != team_size)) {
         const char *buff = NULL;
         kmp_str_loc_t str_loc = __kmp_str_loc_init(loc->psource, 1);
         buff = __kmp_str_format("%s$omp$parallel:%d@%s:%d:%d", str_loc.func,
@@ -231,8 +232,9 @@ LINKAGE void __kmp_itt_frame_submit(int gtid, __itt_timestamp begin,
     } else { // Region domain exists for this location
       // Check if team size was changed. Then create new region domain for this
       // location
-      int frm = (loc->reserved_2 & 0x0000FFFF) - 1;
-      if (__kmp_itt_region_team_size[frm] != team_size) {
+      unsigned int frm = (loc->reserved_2 & 0x0000FFFF) - 1;
+      if ((frm < KMP_MAX_FRAME_DOMAINS) &&
+          (__kmp_itt_region_team_size[frm] != team_size)) {
         const char *buff = NULL;
         kmp_str_loc_t str_loc = __kmp_str_loc_init(loc->psource, 1);
         buff = __kmp_str_format("%s$omp$parallel:%d@%s:%d:%d", str_loc.func,
@@ -443,7 +445,7 @@ LINKAGE void __kmp_itt_region_joined(int gtid) {
   }
   ident_t *loc = __kmp_thread_from_gtid(gtid)->th.th_ident;
   if (loc && loc->reserved_2) {
-    int frm = (loc->reserved_2 & 0x0000FFFF) - 1;
+    unsigned int frm = (loc->reserved_2 & 0x0000FFFF) - 1;
     if (frm < KMP_MAX_FRAME_DOMAINS) {
       KMP_ITT_DEBUG_LOCK();
       __itt_frame_end_v3(__kmp_itt_region_domains[frm], NULL);
@@ -531,7 +533,7 @@ void *__kmp_itt_barrier_object(int gtid, int bt, int set_name,
           src = loc->psource;
           expl = (loc->flags & KMP_IDENT_BARRIER_EXPL) != 0;
           impl = (loc->flags & KMP_IDENT_BARRIER_IMPL) != 0;
-        }; // if
+        }
         if (impl) {
           switch (loc->flags & KMP_IDENT_BARRIER_IMPL_MASK) {
           case KMP_IDENT_BARRIER_IMPL_FOR: {
@@ -549,11 +551,11 @@ void *__kmp_itt_barrier_object(int gtid, int bt, int set_name,
           default: {
             type = "OMP Implicit Barrier";
             KMP_DEBUG_ASSERT(0);
-          };
-          }; /* switch */
+          }
+          }
         } else if (expl) {
           type = "OMP Explicit Barrier";
-        }; /* if */
+        }
       } break;
       case bs_forkjoin_barrier: {
         // In case of fork/join barrier we can read thr->th.th_ident, because it
@@ -567,18 +569,17 @@ void *__kmp_itt_barrier_object(int gtid, int bt, int set_name,
         loc = team->t.t_ident;
         if (loc != NULL) {
           src = loc->psource;
-        }; // if
+        }
         type = "OMP Join Barrier";
       } break;
-      }; // switch
+      }
       KMP_ITT_DEBUG_LOCK();
       __itt_sync_create(object, type, src, __itt_attr_barrier);
       KMP_ITT_DEBUG_PRINT(
           "[bar sta] scre( %p, \"%s\", \"%s\", __itt_attr_barrier )\n", object,
           type, src);
-    }; // if
-
-  }; // if
+    }
+  }
 #endif
   return object;
 } // __kmp_itt_barrier_object
@@ -590,7 +591,7 @@ void __kmp_itt_barrier_starting(int gtid, void *object) {
     KMP_ITT_DEBUG_LOCK();
     __itt_sync_releasing(object);
     KMP_ITT_DEBUG_PRINT("[bar sta] srel( %p )\n", object);
-  }; // if
+  }
   KMP_ITT_DEBUG_LOCK();
   __itt_sync_prepare(object);
   KMP_ITT_DEBUG_PRINT("[bar sta] spre( %p )\n", object);
@@ -608,7 +609,7 @@ void __kmp_itt_barrier_middle(int gtid, void *object) {
     __itt_sync_releasing(object);
     KMP_ITT_DEBUG_PRINT("[bar mid] srel( %p )\n", object);
   } else {
-  }; // if
+  }
 #endif
 } // __kmp_itt_barrier_middle
 
@@ -620,7 +621,7 @@ void __kmp_itt_barrier_finished(int gtid, void *object) {
     KMP_ITT_DEBUG_LOCK();
     __itt_sync_acquired(object);
     KMP_ITT_DEBUG_PRINT("[bar end] sacq( %p )\n", object);
-  }; // if
+  }
 #endif
 } // __kmp_itt_barrier_finished
 
@@ -637,7 +638,7 @@ void *__kmp_itt_taskwait_object(int gtid) {
     object = reinterpret_cast<void *>(kmp_uintptr_t(taskdata) +
                                       taskdata->td_taskwait_counter %
                                           sizeof(kmp_taskdata_t));
-  }; // if
+  }
 #endif
   return object;
 } // __kmp_itt_taskwait_object
@@ -682,7 +683,7 @@ void __kmp_itt_task_starting(
     KMP_ITT_DEBUG_LOCK();
     __itt_sync_cancel(object);
     KMP_ITT_DEBUG_PRINT("[tsk sta] scan( %p )\n", object);
-  }; // if
+  }
 #endif
 } // __kmp_itt_task_starting
 
@@ -740,7 +741,7 @@ __kmp_inline void ___kmp_itt_lock_init(kmp_user_lock_p lock, char const *type) {
     __itt_sync_create(lock, type, src, 0);
     KMP_ITT_DEBUG_PRINT("[lck ini] scre( %p, \"%s\", \"%s\", 0 )\n", lock, type,
                         src);
-  }; // if
+  }
 #endif
 } // ___kmp_itt_lock_init
 #endif // KMP_USE_DYNAMIC_LOCK
@@ -881,7 +882,7 @@ void __kmp_itt_single_start(int gtid) {
     __itt_mark(thr->th.th_itt_mark_single, NULL);
     KMP_ITT_DEBUG_PRINT("[sin sta] mark( %d, NULL )\n",
                         thr->th.th_itt_mark_single);
-  }; // if
+  }
 #endif
 } // __kmp_itt_single_start
 
@@ -915,7 +916,7 @@ void __kmp_itt_ordered_init(int gtid) {
     char const *src = (loc == NULL ? NULL : loc->psource);
     __itt_sync_create(thr->th.th_dispatch->th_dispatch_sh_current,
                       "OMP Ordered", src, 0);
-  }; // if
+  }
 #endif
 } // __kmp_itt_ordered_init
 
@@ -926,8 +927,8 @@ void __kmp_itt_ordered_prep(int gtid) {
     if (!t->t.t_serialized) {
       kmp_info_t *th = __kmp_thread_from_gtid(gtid);
       __itt_sync_prepare(th->th.th_dispatch->th_dispatch_sh_current);
-    }; // if
-  }; // if
+    }
+  }
 #endif
 } // __kmp_itt_ordered_prep
 
@@ -938,8 +939,8 @@ void __kmp_itt_ordered_start(int gtid) {
     if (!t->t.t_serialized) {
       kmp_info_t *th = __kmp_thread_from_gtid(gtid);
       __itt_sync_acquired(th->th.th_dispatch->th_dispatch_sh_current);
-    }; // if
-  }; // if
+    }
+  }
 #endif
 } // __kmp_itt_ordered_start
 
@@ -950,8 +951,8 @@ void __kmp_itt_ordered_end(int gtid) {
     if (!t->t.t_serialized) {
       kmp_info_t *th = __kmp_thread_from_gtid(gtid);
       __itt_sync_releasing(th->th.th_dispatch->th_dispatch_sh_current);
-    }; // if
-  }; // if
+    }
+  }
 #endif
 } // __kmp_itt_ordered_end
 
@@ -975,7 +976,7 @@ void __kmp_itt_thread_name(int gtid) {
     __itt_thr_name_set(name.str, name.used);
     KMP_ITT_DEBUG_PRINT("[thr nam] name( \"%s\")\n", name.str);
     __kmp_str_buf_free(&name);
-  }; // if
+  }
 #endif
 } // __kmp_itt_thread_name
 
