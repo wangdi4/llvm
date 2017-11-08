@@ -464,19 +464,34 @@ void HandledCheck::visit(HLDDNode *Node) {
   // Calls supported are masked/non-masked svml and non-masked intrinsics.
   if (HLInst *Inst = dyn_cast<HLInst>(Node)) {
     if (Inst->isCallInst()) {
+      const CallInst *Call = cast<CallInst>(Inst->getLLVMInstruction());
+      StringRef CalledFunc = Call->getCalledFunction()->getName();
 
-     if (Inst->getParent() != OrigLoop) {
+      if (Inst->getParent() != OrigLoop &&
+          (VL > 1 && !TLI->isFunctionVectorizable(CalledFunc, VL))) {
+        // Masked svml calls are supported, but masked intrinsics are not at
+        // the moment.
         DEBUG(Inst->dump());
-        DEBUG(errs() << "VPO_OPTREPORT: Loop not handled - masked call\n");
+        DEBUG(errs() << "VPO_OPTREPORT: Loop not handled - masked intrinsic\n");
         IsHandled = false;
         return;
       }
 
-      const CallInst *Call = cast<CallInst>(Inst->getLLVMInstruction());
-      auto CalledFunc = Call->getCalledFunction();
+      // Quick hack to avoid loops containing fabs in 447.dealII from becoming
+      // vectorized due to bug in unrolling. The problem involves loop index
+      // variable that spans outside the array range, resulting in segfault. 
+      // floor calls are also temporarily disabled until FeatureOutlining is
+      // fixed (CQ410864)
+      if (CalledFunc == "fabs" || CalledFunc == "floor") {
+        DEBUG(Inst->dump());
+        DEBUG(errs() <<
+          "VPO_OPTREPORT: Loop not handled - fabs/floor call disabled\n");
+        IsHandled = false;
+        return;
+      }
 
-      if ((VL > 1) && (!CalledFunc || !TLI->isFunctionVectorizable(
-                                          CalledFunc->getName(), VL))) {
+      Intrinsic::ID ID = getVectorIntrinsicIDForCall(Call, TLI);
+      if ((VL > 1 && !TLI->isFunctionVectorizable(CalledFunc, VL)) && !ID) {
         DEBUG(errs()
               << "VPO_OPTREPORT: Loop not handled - call not vectorizable\n");
         IsHandled = false;
@@ -484,6 +499,7 @@ void HandledCheck::visit(HLDDNode *Node) {
       }
     }
   }
+
 
   for (auto Iter = Node->ddref_begin(), End = Node->ddref_end(); Iter != End;
        ++Iter) {
