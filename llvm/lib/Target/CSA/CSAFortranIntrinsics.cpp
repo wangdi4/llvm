@@ -51,7 +51,8 @@ namespace {
 //  call builtin_thing()
 //
 constexpr std::pair<const char*, Intrinsic::ID> intrinsic_table[] = {
-  {"builtin_csa_parallel_loop_",  Intrinsic::csa_parallel_loop}
+  {"builtin_csa_parallel_loop_",  Intrinsic::csa_parallel_loop},
+  {"builtin_csa_spmdization_",  Intrinsic::csa_spmdization}
 };
 
 struct CSAFortranIntrinsics : FunctionPass {
@@ -101,14 +102,56 @@ bool CSAFortranIntrinsics::runOnFunction(Function &F) {
     );
     if (found == end(intrinsic_table)) continue;
 
+    // Get the arguments too.
+    SmallVector<Value*, 2> args;
+    bool bad_args = false;
+    string err_name = proc_name;
+    err_name.pop_back();
+    for (Value*const arg : call_inst->arg_operands()) {
+      GlobalVariable*const glob_arg = dyn_cast<GlobalVariable>(arg);
+      if (glob_arg and glob_arg->isConstant() and glob_arg->getInitializer()) {
+        args.push_back(glob_arg->getInitializer());
+      } else {
+        errs() << "\n";
+        errs().changeColor(raw_ostream::BLUE);
+        errs() << "!! WARNING: BAD CSA FORTRAN INTRINSIC !!";
+        errs().resetColor();
+        errs() << "\n\nA call to " << err_name
+          << " was found with non-constant arguments.\n"
+          "This call will be ignored.\n\n";
+
+        bad_args = true;
+        break;
+      }
+    }
+    if (bad_args) continue;
+
+
+    // Grab the intrinsic declaration and check the parameters.
+    Function*const intrinsic = Intrinsic::getDeclaration(
+      F.getParent(), found->second
+    );
+    const FunctionType*const intr_sig = intrinsic->getFunctionType();
+    if (args.size() != intr_sig->getNumParams()) {
+      errs() << "\n";
+      errs().changeColor(raw_ostream::BLUE);
+      errs() << "!! WARNING: BAD CSA FORTRAN INTRINSIC !!";
+      errs().resetColor();
+      errs() << "\n\nA call to " << err_name
+        << " was found with the wrong number of arguments (expected "
+        << intr_sig->getNumParams() << ", got " << args.size() << ").\n"
+        "This call will be ignored.\n\n";
+      continue;
+    }
+
     //replace with the correct intrinsic if there is a match
-    Function*const intrinsic = Intrinsic::getDeclaration(F.getParent(), found->second);
     DEBUG(
       errs() << "in function " << F.getName() << ":\n"
         << "replacing:" << *II << "\n"
         << "with intrinsic: " << intrinsic->getName() << "\n"
     );
-    IRBuilder<>{&*II}.CreateCall(intrinsic);
+    IRBuilder<>{&*II}.CreateCall(intrinsic, args);
+
     II = II->eraseFromParent();
     --II;
     ++NumReplaces;
