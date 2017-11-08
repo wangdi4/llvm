@@ -410,13 +410,15 @@ def OpenCLChannelIO : Attr {
   let LangOpts = [OpenCL];
 }
 
+def HLS : LangOpt<"HLS">;
+
 def OpenCLLocalMemSize : Attr {
   let Spellings = [GNU<"local_mem_size">];
   let Args = [UnsignedArgument<"LocalMemSize">];
   let Subjects = SubjectList<[ParmVar], ErrorDiag>;
 // FIXME: Add documentation
   let Documentation = [Undocumented];
-  let LangOpts = [OpenCL];
+  let LangOpts = [OpenCL, HLS];
 }
 
 def OpenCLBufferLocation : Attr {
@@ -490,4 +492,97 @@ def VecLenHint : InheritableAttr {
   let Args = [UnsignedArgument<"VecLen">];
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [VecLenHintDocs];
+}
+
+// HLS function attributes
+def Component : InheritableAttr {
+  let Spellings = [GNU<"ihc_component">];
+  let LangOpts = [HLS];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Documentation = [Undocumented];
+}
+
+def ComponentInterface : InheritableAttr {
+  let Spellings = [GNU<"component_interface">];
+  // If adding to the end of enum, modify generateValidStrings as well.
+  let Args = [EnumArgument<"Type", "ComponentInterfaceType",
+                           ["avalon_streaming", "avalon_mm_slave",
+                            "always_run"],
+                           ["Streaming", "Slave", "AlwaysRun"]>];
+  let LangOpts = [HLS];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Documentation = [Undocumented];
+  let AdditionalMembers = [{
+    static void generateValidStrings(SmallString<256> &Str) {
+      auto Last = AlwaysRun;
+      for (int I = 0; I <= Last; ++I) {
+        Str += ConvertComponentInterfaceTypeToStr(
+                static_cast<ComponentInterfaceType>(I));
+        if (I != Last) Str += " ";
+      }
+    }
+  }];
+}
+
+def MaxConcurrency : InheritableAttr {
+  let Spellings = [GNU<"max_concurrency">];
+  let Args = [UnsignedArgument<"Max">];
+  let LangOpts = [HLS];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Documentation = [Undocumented];
+  let AdditionalMembers = [{
+    static unsigned getMaxValue() {
+      return 1024*1024;
+    }
+  }];
+}
+
+def StallFreeReturn : InheritableAttr {
+  let Spellings = [GNU<"stall_free_return">];
+  let LangOpts = [HLS];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Documentation = [Undocumented];
+}
+
+def UseSingleClock : InheritableAttr {
+  let Spellings = [GNU<"__hls_component_use_single_clock__">];
+  let LangOpts = [HLS];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Documentation = [Undocumented];
+}
+
+// HLS parameter attributes
+def ArgumentInterface : Attr {
+  let Spellings = [GNU<"argument_interface">];
+  // If adding to the end of enum, modify generateValidStrings as well.
+  let Args = [EnumArgument<"Type", "ArgumentInterfaceType",
+                           ["wire","avalon_mm_slave", "avalon_streaming"],
+                           ["Wire", "Slave", "Streaming"]>];
+  let Subjects = SubjectList<[ParmVar], ErrorDiag>;
+  let LangOpts = [HLS];
+  let Documentation = [Undocumented];
+  let AdditionalMembers = [{
+    static void generateValidStrings(SmallString<256> &Str) {
+      auto Last = Streaming;
+      for (int I = 0; I <= Last; ++I) {
+        Str += ConvertArgumentInterfaceTypeToStr(
+                static_cast<ArgumentInterfaceType>(I));
+        if (I != Last) Str += " ";
+      }
+    }
+  }];
+}
+
+def StableArgument : Attr {
+  let Spellings = [GNU<"stable_argument">];
+  let Subjects = SubjectList<[ParmVar], ErrorDiag>;
+  let LangOpts = [HLS];
+  let Documentation = [Undocumented];
+}
+
+def SlaveMemoryArgument : Attr {
+  let Spellings = [GNU<"slave_memory_argument">];
+  let Subjects = SubjectList<[ParmVar], ErrorDiag>;
+  let LangOpts = [HLS];
+  let Documentation = [Undocumented];
 }

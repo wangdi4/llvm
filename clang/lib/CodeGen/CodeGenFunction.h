@@ -1772,6 +1772,9 @@ private:
                                 llvm::Function *Fn);
 
 #if INTEL_CUSTOMIZATION
+  /// Add metadata for HLS component functions.
+  void EmitHLSComponentMetadata(const FunctionDecl *FD, llvm::Function *Fn);
+
   // Table recording the mapping between the return pointer and
   // the correspoind tbaa for the pointer dereference.
   llvm::DenseMap<llvm::Value *, llvm::MDNode *> RetPtrMap;

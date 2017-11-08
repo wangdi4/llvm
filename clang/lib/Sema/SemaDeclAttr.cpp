@@ -3225,7 +3225,8 @@ static void handleOpenCLLocalMemSizeAttr(Sema & S, Decl * D,
   if (D->isInvalidDecl())
     return;
 
-  if (!S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
+  if (!S.getLangOpts().HLS &&
+      !S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
     S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
         << Attr.getName();
     return;
@@ -3241,7 +3242,8 @@ static void handleOpenCLLocalMemSizeAttr(Sema & S, Decl * D,
   }
 
   QualType pointeeType = TypePtr->getPointeeType();
-  if (pointeeType.getAddressSpace() != LangAS::opencl_local) {
+  if (!S.getLangOpts().HLS &&
+      pointeeType.getAddressSpace() != LangAS::opencl_local) {
     S.Diag(Attr.getLoc(),
            diag::warn_opencl_attribute_only_for_local_address_space)
         << Attr.getName();
@@ -3266,6 +3268,144 @@ static void handleOpenCLLocalMemSizeAttr(Sema & S, Decl * D,
   D->addAttr(::new (S.Context) OpenCLLocalMemSizeAttr(
       Attr.getRange(), S.Context, localMemSize,
       Attr.getAttributeSpellingListIndex()));
+}
+
+static void setComponentDefaults(Sema &S, Decl *D) {
+  if (!D->hasAttr<ComponentAttr>())
+    D->addAttr(ComponentAttr::CreateImplicit(S.Context));
+  if (!D->hasAttr<ComponentInterfaceAttr>())
+    D->addAttr(ComponentInterfaceAttr::CreateImplicit(
+        S.Context, ComponentInterfaceAttr::Streaming));
+}
+
+static void handleComponentAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+
+  if (!checkAttributeNumArgs(S, Attr, /*NumArgsExpected=*/0))
+    return;
+
+  // We are adding a user attribute, drop any implicit default.
+  if (auto *CA = D->getAttr<ComponentAttr>())
+    if (CA->isImplicit())
+      D->dropAttr<ComponentAttr>();
+
+  handleSimpleAttribute<ComponentAttr>(S, D, Attr);
+  setComponentDefaults(S, D);
+}
+
+static void handleStallFreeReturnAttr(Sema &S, Decl *D,
+                                      const AttributeList &Attr) {
+
+  if (!checkAttributeNumArgs(S, Attr, /*NumArgsExpected=*/0))
+    return;
+
+  handleSimpleAttribute<StallFreeReturnAttr>(S, D, Attr);
+  setComponentDefaults(S, D);
+}
+
+static void handleUseSingleClockAttr(Sema &S, Decl *D,
+                                      const AttributeList &Attr) {
+
+  if (!checkAttributeNumArgs(S, Attr, /*NumArgsExpected=*/0))
+    return;
+
+  handleSimpleAttribute<UseSingleClockAttr>(S, D, Attr);
+  setComponentDefaults(S, D);
+}
+
+static void handleComponentInterfaceAttr(Sema &S, Decl *D,
+                                         const AttributeList &Attr) {
+
+  if (!checkAttributeNumArgs(S, Attr, /*NumArgsExpected=*/1))
+    return;
+
+  StringRef Str;
+  if (!S.checkStringLiteralArgumentAttr(Attr, 0, Str))
+    return;
+
+  ComponentInterfaceAttr::ComponentInterfaceType Type;
+  if (!ComponentInterfaceAttr::ConvertStrToComponentInterfaceType(Str, Type)) {
+    SmallString<256> ValidStrings;
+    ComponentInterfaceAttr::generateValidStrings(ValidStrings);
+    S.Diag(D->getLocation(), diag::err_attribute_interface_invalid_type)
+        << Attr.getName() << ValidStrings;
+    return;
+  }
+
+  // We are adding a user attribute, drop any implicit default.
+  if (auto *CIA = D->getAttr<ComponentInterfaceAttr>())
+    if (CIA->isImplicit())
+      D->dropAttr<ComponentInterfaceAttr>();
+
+  D->addAttr(::new (S.Context) ComponentInterfaceAttr(
+      Attr.getRange(), S.Context, Type, Attr.getAttributeSpellingListIndex()));
+
+  setComponentDefaults(S, D);
+}
+
+static void handleMaxConcurrencyAttr(Sema &S, Decl *D,
+                                     const AttributeList &Attr) {
+  if (!checkAttributeNumArgs(S, Attr, /*NumArgsExpected=*/1))
+    return;
+
+  Expr *E = Attr.getArgAsExpr(0);
+  llvm::APSInt MaxVal;
+  int64_t Max;
+  bool IsValidInt = E->EvaluateAsInt(MaxVal, S.Context);
+
+  if (IsValidInt) {
+    Max = MaxVal.getExtValue();
+    if (Max < 0 || Max > MaxConcurrencyAttr::getMaxValue())
+      IsValidInt = false;
+  }
+
+  if (!IsValidInt) {
+    S.Diag(Attr.getLoc(), diag::err_attribute_argument_outof_range)
+        << Attr.getName() << 0 << MaxConcurrencyAttr::getMaxValue();
+    return;
+  }
+
+  D->addAttr(::new (S.Context)
+                 MaxConcurrencyAttr(Attr.getRange(), S.Context, (unsigned)Max,
+                                    Attr.getAttributeSpellingListIndex()));
+  setComponentDefaults(S, D);
+}
+
+static void handleArgumentInterfaceAttr(Sema & S, Decl * D,
+                                        const AttributeList &Attr) {
+  if (!checkAttributeNumArgs(S, Attr, /*Num=*/1))
+    return;
+
+  StringRef Str;
+  if (!S.checkStringLiteralArgumentAttr(Attr, 0, Str))
+    return;
+
+  ArgumentInterfaceAttr::ArgumentInterfaceType Type;
+  if (!ArgumentInterfaceAttr::ConvertStrToArgumentInterfaceType(Str, Type)) {
+    SmallString<256> ValidStrings;
+    ArgumentInterfaceAttr::generateValidStrings(ValidStrings);
+    S.Diag(D->getLocation(), diag::err_attribute_interface_invalid_type)
+        << Attr.getName() << ValidStrings;
+    return;
+  }
+
+  D->addAttr(::new (S.Context) ArgumentInterfaceAttr(
+      Attr.getRange(), S.Context, Type, Attr.getAttributeSpellingListIndex()));
+}
+
+static void handleStableArgumentAttr(Sema &S, Decl *D,
+                                     const AttributeList &Attr) {
+  if (!checkAttributeNumArgs(S, Attr, /*Num=*/0))
+    return;
+
+  handleSimpleAttribute<StableArgumentAttr>(S, D, Attr);
+}
+
+static void handleSlaveMemoryArgumentAttr(Sema &S, Decl *D,
+                                          const AttributeList &Attr) {
+  if (!checkAttributeNumArgs(S, Attr, /*Num=*/0))
+    return;
+
+  handleSimpleAttribute<SlaveMemoryArgumentAttr>(S, D, Attr);
 }
 
 static void handleOpenCLBufferLocationAttr(Sema & S, Decl * D,
@@ -7679,6 +7819,31 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     break;
   case AttributeList::AT_OpenCLHostAccessible:
     handleOpenCLHostAccessible(S, D, Attr);
+    break;
+  // Intel HLS specific attributes
+  case AttributeList::AT_Component:
+    handleComponentAttr(S, D, Attr);
+    break;
+  case AttributeList::AT_StallFreeReturn:
+    handleStallFreeReturnAttr(S, D, Attr);
+    break;
+  case AttributeList::AT_UseSingleClock:
+    handleUseSingleClockAttr(S, D, Attr);
+    break;
+  case AttributeList::AT_ComponentInterface:
+    handleComponentInterfaceAttr(S, D, Attr);
+    break;
+  case AttributeList::AT_MaxConcurrency:
+    handleMaxConcurrencyAttr(S, D, Attr);
+    break;
+  case AttributeList::AT_ArgumentInterface:
+    handleArgumentInterfaceAttr(S, D, Attr);
+    break;
+  case AttributeList::AT_StableArgument:
+    handleStableArgumentAttr(S, D, Attr);
+    break;
+  case AttributeList::AT_SlaveMemoryArgument:
+    handleSlaveMemoryArgumentAttr(S, D, Attr);
     break;
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_SPECIFIC_CILKPLUS

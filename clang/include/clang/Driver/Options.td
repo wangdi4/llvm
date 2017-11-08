@@ -538,6 +538,8 @@ def cl_fp32_correctly_rounded_divide_sqrt : Flag<["-"], "cl-fp32-correctly-round
 // if INTEL_CUSTOMIZATION
 def cl_spir_compile_options : Separate<["-"], "cl-spir-compile-options">, Group<opencl_Group>, Flags<[CC1Option]>,
   HelpText<"SPIR compilation options to record in metadata">;
+def fhls : Flag<["-"], "fhls">, Group<f_Group>, Flags<[CC1Option]>,
+  HelpText<"Enable Intel FPGA High Level Synthesis extensions">;
 // endif INTEL_CUSTOMIZATION
 def client__name : JoinedOrSeparate<["-"], "client_name">;
 def combine : Flag<["-", "--"], "combine">, Flags<[DriverOption, Unsupported]>;

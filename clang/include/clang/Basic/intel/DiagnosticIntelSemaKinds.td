@@ -534,6 +534,10 @@ def err_va_pack_not_last : Error<"__builtin_va_arg_pack must be the last "
 def err_va_pack_not_variadic : Error<"__builtin_va_arg_pack can only be used "
                                      "as a parameter to a variadic argument">;
 
+// Intel HLS extensions
+def err_attribute_interface_invalid_type : Error<
+  "string passed to %0 attribute is not a valid interface type. Valid component invocation interface types are: %1">;
+
 // Intel OpenCL FPGA extension
 def warn_opencl_attribute_only_for_local_address_space : Warning<
   "%0 attribute can be aplied only for parameters that reside "
