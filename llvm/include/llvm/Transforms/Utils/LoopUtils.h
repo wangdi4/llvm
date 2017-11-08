@@ -386,8 +386,14 @@ bool formDedicatedExitBlocks(Loop *L, DominatorTree *DT, LoopInfo *LI,
 /// changes to CFG, preserved.
 ///
 /// Returns true if any modifications are made.
-bool formLCSSAForInstructions(SmallVectorImpl<Instruction *> &Worklist,
-                              DominatorTree &DT, LoopInfo &LI);
+#if INTEL_CUSTOMIZATION
+/// The parameter ValueToLiveinMap is used to update the phis which need the
+/// live-in value.
+bool formLCSSAForInstructions(
+    SmallVectorImpl<Instruction *> &Worklist, DominatorTree &DT, LoopInfo &LI,
+    DenseMap<Value *, std::pair<Value *, BasicBlock *>> *ValueToLiveinMap =
+        nullptr);
+#endif // INTEL_CUSTOMIZATION
 
 /// \brief Put loop into LCSSA form.
 ///
@@ -400,7 +406,11 @@ bool formLCSSAForInstructions(SmallVectorImpl<Instruction *> &Worklist,
 /// If ScalarEvolution is passed in, it will be preserved.
 ///
 /// Returns true if any modifications are made to the loop.
-bool formLCSSA(Loop &L, DominatorTree &DT, LoopInfo *LI, ScalarEvolution *SE);
+#if INTEL_CUSTOMIZATION
+bool formLCSSA(Loop &L, DominatorTree &DT, LoopInfo *LI, ScalarEvolution *SE,
+               DenseMap<Value *, std::pair<Value *, BasicBlock *>>
+                   *ValueToLiveinMap = nullptr);
+#endif // INTEL_CUSTOMIZATION
 
 /// \brief Put a loop nest into LCSSA form.
 ///
@@ -411,8 +421,12 @@ bool formLCSSA(Loop &L, DominatorTree &DT, LoopInfo *LI, ScalarEvolution *SE);
 /// If ScalarEvolution is passed in, it will be preserved.
 ///
 /// Returns true if any modifications are made to the loop.
+#if INTEL_CUSTOMIZATION
 bool formLCSSARecursively(Loop &L, DominatorTree &DT, LoopInfo *LI,
-                          ScalarEvolution *SE);
+                          ScalarEvolution *SE,
+                          DenseMap<Value *, std::pair<Value *, BasicBlock *>>
+                              *ValueToLiveinMap = nullptr);
+#endif // INTEL_CUSTOMIZATION
 
 /// \brief Walk the specified region of the CFG (defined by all blocks
 /// dominated by the specified block, and that are in the current loop) in
