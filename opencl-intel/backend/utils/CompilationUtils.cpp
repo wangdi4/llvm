@@ -136,7 +136,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     auto B = std::begin(VersionStrings);
     auto E = std::end(VersionStrings);
     auto I = std::find(B, E, S);
-    assert(I == E && "Bad Value for -cl-std option");
+    assert(I != E && "Bad Value for -cl-std option");
 
     return VersionValues[std::distance(B, I)];
   }
