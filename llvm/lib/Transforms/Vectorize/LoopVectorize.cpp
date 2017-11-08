@@ -1569,16 +1569,12 @@ public:
       OptimizationRemarkEmitter *ORE, LoopVectorizationRequirements *R,
 #if INTEL_CUSTOMIZATION
       LoopVectorizeHints *H, bool OnlyLegal)
-#else
-      LoopVectorizeHints *H)
 #endif
       : NumPredStores(0), TheLoop(L), PSE(PSE), TLI(TLI), TTI(TTI), DT(DT),
         GetLAA(GetLAA), LAI(nullptr), ORE(ORE), InterleaveInfo(PSE, L, DT, LI),
         PrimaryInduction(nullptr), WidestIndTy(nullptr), HasFunNoNaNAttr(false),
 #if INTEL_CUSTOMIZATION
         Requirements(R), Hints(H), OnlyLegal(OnlyLegal) {}
-#else
-        Requirements(R), Hints(H) {}
 #endif
 
   /// ReductionList contains the reduction descriptors for all
@@ -2339,8 +2335,6 @@ struct LoopVectorize : public FunctionPass {
 #if INTEL_CUSTOMIZATION
   explicit LoopVectorize(bool NoUnrolling = false, bool AlwaysVectorize = true, 
                          bool OnlyLegal = false)
-#else
-  explicit LoopVectorize(bool NoUnrolling = false, bool AlwaysVectorize = true)
 #endif
       : FunctionPass(ID) {
     Impl.DisableUnrolling = NoUnrolling;
@@ -7611,10 +7605,6 @@ Pass *createLoopVectorizePass(bool NoUnrolling, bool AlwaysVectorize,
                               bool OnlyLegal) {
   return new LoopVectorize(NoUnrolling, AlwaysVectorize, OnlyLegal);
 }
-#else
-Pass *createLoopVectorizePass(bool NoUnrolling, bool AlwaysVectorize) {
-  return new LoopVectorize(NoUnrolling, AlwaysVectorize);
-}
 #endif
 }
 
@@ -7880,11 +7870,6 @@ bool LoopVectorizePass::processLoop(Loop *L) {
   LoopVectorizationLegality LVL(L, PSE, DT, TLI, AA, F, TTI, GetLAA, LI, ORE,
 #if INTEL_CUSTOMIZATION
                                 &Requirements, &Hints, OnlyLegal);
-#else
-                                &Requirements, &Hints);
-#endif
-
-#if INTEL_CUSTOMIZATION
   if (OnlyLegal) {
     if (LVL.canVectorize()) {
       if (const DebugLoc LoopDbgLoc = L->getStartLoc()) {

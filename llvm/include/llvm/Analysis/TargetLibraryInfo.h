@@ -91,7 +91,9 @@ public:
     NoLibrary,  // Don't use any vector library.
     Accelerate, // Use Accelerate framework.
     SVML,       // Intel short vector math library.
+#if INTEL_CUSTOMIZATION
     Libmvec     // Glibc vector math library.
+#endif
   };
 
   TargetLibraryInfoImpl();
@@ -164,7 +166,7 @@ public:
   /// Return the name of the equivalent of F, vectorized with factor VF. If no
   /// such mapping exists, return the empty string.
   StringRef getVectorizedFunction(StringRef F, unsigned VF,
-                                  bool Masked=false) const;
+                                  bool Masked=false) const; // INTEL
 
   /// Return true if the function F has a scalar equivalent, and set VF to be
   /// the vectorization factor.

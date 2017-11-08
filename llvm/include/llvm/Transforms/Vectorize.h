@@ -114,8 +114,6 @@ Pass *createLoopVectorizePass(bool NoUnrolling = false,
 #if INTEL_CUSTOMIZATION
                               bool AlwaysVectorize = true,
                               bool OnlyLegal = false);
-#else
-                              bool AlwaysVectorize = true);
 #endif
 
 //===----------------------------------------------------------------------===//

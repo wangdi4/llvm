@@ -29,7 +29,7 @@ void llvm::initializeVectorization(PassRegistry &Registry) {
   initializeLoopVectorizePass(Registry);
   initializeSLPVectorizerPass(Registry);
   initializeLoadStoreVectorizerPass(Registry);
-  initializeVPlanDriverPass(Registry);
+  initializeVPlanDriverPass(Registry); // INTEL
 }
 
 void LLVMInitializeVectorization(LLVMPassRegistryRef R) {
@@ -48,6 +48,8 @@ void LLVMAddSLPVectorizePass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createSLPVectorizerPass());
 }
 
+#if INTEL_CUSTOMIZATION
 void LLVMAddVPlanDriverPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createVPlanDriverPass());
 }
+#endif

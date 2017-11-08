@@ -1317,6 +1317,7 @@ define i7 @test65(i7 %a, i7 %b) {
   ret i7 %y
 }
 
+; begin INTEL_CUSTOMIZATION
 ; Check transformation (when X has type iN):
 ; ashr (sub 0, X), N - 1 --> sext i1 (icmp X < 0) to iN
 ; http://rise4fun.com/Alive/y0vK
@@ -1330,3 +1331,4 @@ define i32 @fill_with_opposite_sign_bit(i32 %x) {
   %b = ashr i32 %a, 31
   ret i32 %b
 }
+; end INTEL_CUSTOMIZATION

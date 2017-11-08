@@ -499,6 +499,7 @@ define float @clamp_float_unordered_nonstrict_minmax2(float %x) {
   ret float %r
 }
 
+; begin INTEL_CUSTOMIZATION
 ; Check recognition of saturation donwconvert pattern
 ; http://rise4fun.com/Alive/Puh
 define zeroext i8 @saturation_downconvert(i32 %x) {
@@ -534,3 +535,4 @@ define zeroext i32 @no_saturation_without_downconvert(i32 %x) {
   %cond = select i1 %tobool, i32 %shr, i32 %x
   ret i32 %cond
 }
+; end INTEL_CUSTOMIZATION
