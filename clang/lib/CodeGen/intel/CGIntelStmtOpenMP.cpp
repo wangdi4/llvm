@@ -1119,6 +1119,8 @@ namespace CGIntelOpenMP {
                                               const OMPDistScheduleClause *) {}
   void OpenMPCodeOutliner::emitOMPTaskReductionClause(
                                               const OMPTaskReductionClause *) {}
+  void OpenMPCodeOutliner::emitOMPInReductionClause(
+                                              const OMPInReductionClause *) {}
 
   OpenMPCodeOutliner::OpenMPCodeOutliner(CodeGenFunction &CGF,
                                          const OMPExecutableDirective &D)
@@ -1333,6 +1335,8 @@ namespace CGIntelOpenMP {
   OpenMPCodeOutliner &OpenMPCodeOutliner::operator<<(
                                          ArrayRef<OMPClause *> Clauses) {
     for (auto *C : Clauses) {
+      if (C->isImplicit())
+        continue;
       CurrentClauseKind = C->getClauseKind();
       switch (CurrentClauseKind) {
 #define OPENMP_CLAUSE(Name, Class)                                             \

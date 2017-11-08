@@ -92,44 +92,46 @@ IdentifierTable::IdentifierTable(const LangOptions &LangOpts,
 
 // Constants for TokenKinds.def
 namespace {
-enum {
-  KEYC99 = 0x1,
-  KEYCXX = 0x2,
-  KEYCXX11 = 0x4,
-  KEYGNU = 0x8,
-  KEYMS = 0x10,
-  BOOLSUPPORT = 0x20,
-  KEYALTIVEC = 0x40,
-  KEYNOCXX = 0x80,
-  KEYBORLAND = 0x100,
-  KEYOPENCL = 0x200,
-  KEYC11 = 0x400,
-  KEYARC = 0x800,
-  KEYNOMS18 = 0x01000,
-  KEYNOOPENCL = 0x02000,
-  WCHARSUPPORT = 0x04000,
-  HALFSUPPORT = 0x08000,
-  KEYCONCEPTS = 0x10000,
-  KEYOBJC2 = 0x20000,
-  KEYZVECTOR = 0x40000,
-  KEYCOROUTINES = 0x80000,
-  KEYMODULES = 0x100000,
-  KEYALL = (0x1fffffff & ~KEYNOMS18 & // INTEL_CUSTOMIZATION 0x1fffffff
-            ~KEYNOOPENCL), // KEYNOMS18 and KEYNOOPENCL are used to exclude.
+  enum {
+    KEYC99 = 0x1,
+    KEYCXX = 0x2,
+    KEYCXX11 = 0x4,
+    KEYGNU = 0x8,
+    KEYMS = 0x10,
+    BOOLSUPPORT = 0x20,
+    KEYALTIVEC = 0x40,
+    KEYNOCXX = 0x80,
+    KEYBORLAND = 0x100,
+    KEYOPENCL = 0x200,
+    KEYC11 = 0x400,
+    KEYARC = 0x800,
+    KEYNOMS18 = 0x01000,
+    KEYNOOPENCL = 0x02000,
+    WCHARSUPPORT = 0x04000,
+    HALFSUPPORT = 0x08000,
+    KEYCONCEPTS = 0x10000,
+    KEYOBJC2    = 0x20000,
+    KEYZVECTOR  = 0x40000,
+    KEYCOROUTINES = 0x80000,
+    KEYMODULES = 0x100000,
+    KEYCXX2A = 0x200000,
+    KEYALLCXX = KEYCXX | KEYCXX11 | KEYCXX2A,
+    KEYALL = (0x3fffffff & ~KEYNOMS18 & // INTEL_CUSTOMIZATION 0x3fffffff
+              ~KEYNOOPENCL), // KEYNOMS18 and KEYNOOPENCL are used to exclude.
 #if INTEL_CUSTOMIZATION || INTEL_SPECIFIC_CILKPLUS
-  KEYCILKPLUS = 0x200000,
-  KEYFLOAT128 = 0x400000,
-  KEYRESTRICT = 0x800000,
-  KEYMSASM = 0x1000000,
-  KEYBASES = 0x2000000,
-  KEYNOINT128 = 0x4000000,
-  KEYDECIMAL = 0x8000000,
-  KEYMSCOMPAT = 0x10000000,
-  KEYINTELALL = KEYCILKPLUS | KEYFLOAT128 | KEYRESTRICT | KEYMSASM | KEYBASES |
-                KEYNOINT128 | KEYDECIMAL | KEYMSCOMPAT,
-  KEYNOINTELALL = KEYALL & ~KEYINTELALL,
+    KEYCILKPLUS = 0x400000,
+    KEYFLOAT128 = 0x800000,
+    KEYRESTRICT = 0x1000000,
+    KEYMSASM = 0x2000000,
+    KEYBASES = 0x4000000,
+    KEYNOINT128 = 0x8000000,
+    KEYDECIMAL = 0x10000000,
+    KEYMSCOMPAT = 0x20000000,
+    KEYINTELALL = KEYCILKPLUS | KEYFLOAT128 | KEYRESTRICT | KEYMSASM |
+                  KEYBASES | KEYNOINT128 | KEYDECIMAL | KEYMSCOMPAT,
+    KEYNOINTELALL = KEYALL & ~KEYINTELALL,
 #endif // INTEL_CUSTOMIZATION || INTEL_SPECIFIC_CILKPLUS
-};
+  };
 
   /// \brief How a keyword is treated in the selected standard.
   enum KeywordStatus {
@@ -187,6 +189,7 @@ static KeywordStatus getKeywordStatus(const LangOptions &LangOpts,
 #endif // INTEL_CUSTOMIZATION
   if (LangOpts.CPlusPlus && (Flags & KEYCXX)) return KS_Enabled;
   if (LangOpts.CPlusPlus11 && (Flags & KEYCXX11)) return KS_Enabled;
+  if (LangOpts.CPlusPlus2a && (Flags & KEYCXX2A)) return KS_Enabled;
   if (LangOpts.C99 && (Flags & KEYC99)) return KS_Enabled;
   if (LangOpts.GNUKeywords && (Flags & KEYGNU)) return KS_Extension;
   if (LangOpts.MicrosoftExt && (Flags & KEYMS)) return KS_Extension;
@@ -205,7 +208,7 @@ static KeywordStatus getKeywordStatus(const LangOptions &LangOpts,
   if (LangOpts.ConceptsTS && (Flags & KEYCONCEPTS)) return KS_Enabled;
   if (LangOpts.CoroutinesTS && (Flags & KEYCOROUTINES)) return KS_Enabled;
   if (LangOpts.ModulesTS && (Flags & KEYMODULES)) return KS_Enabled;
-  if (LangOpts.CPlusPlus && (Flags & KEYCXX11)) return KS_Future;
+  if (LangOpts.CPlusPlus && (Flags & KEYALLCXX)) return KS_Future;
   return KS_Disabled;
 }
 
@@ -324,6 +327,7 @@ bool IdentifierInfo::isCPlusPlusKeyword(const LangOptions &LangOpts) const {
   LangOptions LangOptsNoCPP = LangOpts;
   LangOptsNoCPP.CPlusPlus = false;
   LangOptsNoCPP.CPlusPlus11 = false;
+  LangOptsNoCPP.CPlusPlus2a = false;
   return !isKeyword(LangOptsNoCPP);
 }
 

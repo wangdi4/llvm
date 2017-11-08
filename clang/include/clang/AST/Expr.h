@@ -24,6 +24,7 @@
 #include "clang/AST/Type.h"
 #include "clang/Basic/CharInfo.h"
 #include "clang/Basic/LangOptions.h"
+#include "clang/Basic/SyncScope.h"
 #include "clang/Basic/TypeTraits.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/APSInt.h"
@@ -288,6 +289,7 @@ public:
     MLV_LValueCast,           // Specialized form of MLV_InvalidExpression.
     MLV_IncompleteType,
     MLV_ConstQualified,
+    MLV_ConstQualifiedField,
     MLV_ConstAddrSpace,
     MLV_ArrayType,
     MLV_NoSetterProperty,
@@ -337,6 +339,7 @@ public:
       CM_LValueCast, // Same as CM_RValue, but indicates GCC cast-as-lvalue ext
       CM_NoSetterProperty,// Implicit assignment to ObjC property without setter
       CM_ConstQualified,
+      CM_ConstQualifiedField,
       CM_ConstAddrSpace,
       CM_ArrayType,
       CM_IncompleteType
@@ -2392,6 +2395,13 @@ public:
   SourceLocation getCilkSpawnLoc() const LLVM_READONLY { return CilkSpawnLoc; }
   bool isCilkSpawnCall() const { return CilkSpawnLoc.isValid(); }
 #endif // INTEL_SPECIFIC_CILKPLUS
+
+  bool isCallToStdMove() const {
+    const FunctionDecl* FD = getDirectCallee();
+    return getNumArgs() == 1 && FD && FD->isInStdNamespace() &&
+           FD->getIdentifier() && FD->getIdentifier()->isStr("move");
+  }
+
   static bool classof(const Stmt *T) {
     return T->getStmtClass() >= firstCallExprConstant &&
            T->getStmtClass() <= lastCallExprConstant;
@@ -2818,6 +2828,16 @@ public:
   path_const_iterator path_begin() const { return path_buffer(); }
   path_const_iterator path_end() const { return path_buffer() + path_size(); }
 
+  const FieldDecl *getTargetUnionField() const {
+    assert(getCastKind() == CK_ToUnion);
+    return getTargetFieldForToUnionCast(getType(), getSubExpr()->getType());
+  }
+
+  static const FieldDecl *getTargetFieldForToUnionCast(QualType unionType,
+                                                       QualType opType);
+  static const FieldDecl *getTargetFieldForToUnionCast(const RecordDecl *RD,
+                                                       QualType opType);
+
   static bool classof(const Stmt *T) {
     return T->getStmtClass() >= firstCastExprConstant &&
            T->getStmtClass() <= lastCastExprConstant;
@@ -3159,17 +3179,11 @@ public:
     return isShiftAssignOp(getOpcode());
   }
 
-#if INTEL_CUSTOMIZATION
-  // This change is cherry-picked from LLVM trunk r313666.
-  // When r313666 is merged with xmain, the INTEL_CUSTOMIZATION of this function
-  // can be deleted and the LLVM trunk change followed without modification.
-  //
   // Return true if a binary operator using the specified opcode and operands
   // would match the 'p = (i8*)nullptr + n' idiom for casting a pointer-sized
   // integer to a pointer.
   static bool isNullPointerArithmeticExtension(ASTContext &Ctx, Opcode Opc,
                                                Expr *LHS, Expr *RHS);
-#endif // INTEL_CUSTOMIZATION
 
   static bool classof(const Stmt *S) {
     return S->getStmtClass() >= firstBinaryOperatorConstant &&
@@ -5157,9 +5171,11 @@ public:
 
 /// AtomicExpr - Variadic atomic builtins: __atomic_exchange, __atomic_fetch_*,
 /// __atomic_load, __atomic_store, and __atomic_compare_exchange_*, for the
-/// similarly-named C++11 instructions, and __c11 variants for <stdatomic.h>.
-/// All of these instructions take one primary pointer and at least one memory
-/// order.
+/// similarly-named C++11 instructions, and __c11 variants for <stdatomic.h>,
+/// and corresponding __opencl_atomic_* for OpenCL 2.0.
+/// All of these instructions take one primary pointer, at least one memory
+/// order. The instructions for which getScopeModel returns non-null value
+/// take one synch scope.
 class AtomicExpr : public Expr {
 public:
   enum AtomicOp {
@@ -5171,14 +5187,16 @@ public:
   };
 
 private:
+  /// \brief Location of sub-expressions.
+  /// The location of Scope sub-expression is NumSubExprs - 1, which is
+  /// not fixed, therefore is not defined in enum.
   enum { PTR, ORDER, VAL1, ORDER_FAIL, VAL2, WEAK, END_EXPR };
-  Stmt* SubExprs[END_EXPR];
+  Stmt *SubExprs[END_EXPR + 1];
   unsigned NumSubExprs;
   SourceLocation BuiltinLoc, RParenLoc;
   AtomicOp Op;
 
   friend class ASTStmtReader;
-
 public:
   AtomicExpr(SourceLocation BLoc, ArrayRef<Expr*> args, QualType t,
              AtomicOp op, SourceLocation RP);
@@ -5196,8 +5214,12 @@ public:
   Expr *getOrder() const {
     return cast<Expr>(SubExprs[ORDER]);
   }
+  Expr *getScope() const {
+    assert(getScopeModel() && "No scope");
+    return cast<Expr>(SubExprs[NumSubExprs - 1]);
+  }
   Expr *getVal1() const {
-    if (Op == AO__c11_atomic_init)
+    if (Op == AO__c11_atomic_init || Op == AO__opencl_atomic_init)
       return cast<Expr>(SubExprs[ORDER]);
     assert(NumSubExprs > VAL1);
     return cast<Expr>(SubExprs[VAL1]);
@@ -5216,6 +5238,7 @@ public:
     assert(NumSubExprs > WEAK);
     return cast<Expr>(SubExprs[WEAK]);
   }
+  QualType getValueType() const;
 
   AtomicOp getOp() const { return Op; }
   unsigned getNumSubExprs() const { return NumSubExprs; }
@@ -5232,6 +5255,8 @@ public:
   bool isCmpXChg() const {
     return getOp() == AO__c11_atomic_compare_exchange_strong ||
            getOp() == AO__c11_atomic_compare_exchange_weak ||
+           getOp() == AO__opencl_atomic_compare_exchange_strong ||
+           getOp() == AO__opencl_atomic_compare_exchange_weak ||
            getOp() == AO__atomic_compare_exchange ||
 #if INTEL_CUSTOMIZATION
           getOp() == AO__atomic_compare_exchange_weak_explicit ||
@@ -5250,6 +5275,11 @@ public:
            getOp() == AO__atomic_compare_exchange_n;
   }
 
+  bool isOpenCL() const {
+    return getOp() >= AO__opencl_atomic_init &&
+           getOp() <= AO__opencl_atomic_fetch_max;
+  }
+
   SourceLocation getBuiltinLoc() const { return BuiltinLoc; }
   SourceLocation getRParenLoc() const { return RParenLoc; }
 
@@ -5266,6 +5296,24 @@ public:
   }
   const_child_range children() const {
     return const_child_range(SubExprs, SubExprs + NumSubExprs);
+  }
+
+  /// \brief Get atomic scope model for the atomic op code.
+  /// \return empty atomic scope model if the atomic op code does not have
+  ///   scope operand.
+  static std::unique_ptr<AtomicScopeModel> getScopeModel(AtomicOp Op) {
+    auto Kind =
+        (Op >= AO__opencl_atomic_load && Op <= AO__opencl_atomic_fetch_max)
+            ? AtomicScopeModelKind::OpenCL
+            : AtomicScopeModelKind::None;
+    return AtomicScopeModel::create(Kind);
+  }
+
+  /// \brief Get atomic scope model.
+  /// \return empty atomic scope model if this atomic expression does not have
+  ///   scope operand.
+  std::unique_ptr<AtomicScopeModel> getScopeModel() const {
+    return getScopeModel(getOp());
   }
 };
 

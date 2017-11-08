@@ -3,7 +3,7 @@
 // The number of supported attributes should never go down!
 
 // if INTEL_CUSTOMIZATION
-// CHECK: #pragma clang attribute supports 64 attributes:
+// CHECK: #pragma clang attribute supports 67 attributes:
 // endif INTEL_CUSTOMIZATION
 // CHECK-NEXT: AMDGPUFlatWorkGroupSize (SubjectMatchRule_function)
 // CHECK-NEXT: AMDGPUNumSGPR (SubjectMatchRule_function)
@@ -33,8 +33,11 @@
 // CHECK-NEXT: InternalLinkage (SubjectMatchRule_variable, SubjectMatchRule_function, SubjectMatchRule_record)
 // CHECK-NEXT: LTOVisibilityPublic (SubjectMatchRule_record)
 // CHECK-NEXT: MicroMips (SubjectMatchRule_function)
+// CHECK-NEXT: MipsLongCall (SubjectMatchRule_function)
+// CHECK-NEXT: MipsShortCall (SubjectMatchRule_function)
 // CHECK-NEXT: NoDebug (SubjectMatchRule_hasType_functionType, SubjectMatchRule_objc_method, SubjectMatchRule_variable_not_is_parameter)
 // CHECK-NEXT: NoDuplicate (SubjectMatchRule_function)
+// CHECK-NEXT: NoEscape (SubjectMatchRule_variable_is_parameter)
 // CHECK-NEXT: NoMicroMips (SubjectMatchRule_function)
 // CHECK-NEXT: NoSanitize (SubjectMatchRule_function, SubjectMatchRule_objc_method, SubjectMatchRule_variable_is_global)
 // CHECK-NEXT: NoSanitizeSpecific (SubjectMatchRule_function, SubjectMatchRule_variable_is_global)
