@@ -516,9 +516,9 @@ void Preprocessor::EnterMainSourceFile() {
     // If we've been asked to skip bytes in the main file (e.g., as part of a
     // precompiled preamble), do so now.
     if (SkipMainFilePreamble.first > 0)
-      CurLexer->SkipBytes(SkipMainFilePreamble.first, 
-                          SkipMainFilePreamble.second);
-    
+      CurLexer->SetByteOffset(SkipMainFilePreamble.first,
+                              SkipMainFilePreamble.second);
+
     // Tell the header info that the main file was entered.  If the file is later
     // #imported, it won't be re-entered.
     if (const FileEntry *FE = SourceMgr.getFileEntryForID(MainFileID))
@@ -540,6 +540,8 @@ void Preprocessor::EnterMainSourceFile() {
 void Preprocessor::replayPreambleConditionalStack() {
   // Restore the conditional stack from the preamble, if there is one.
   if (PreambleConditionalStack.isReplaying()) {
+    assert(CurPPLexer &&
+           "CurPPLexer is null when calling replayPreambleConditionalStack.");
     CurPPLexer->setConditionalLevels(PreambleConditionalStack.getStack());
     PreambleConditionalStack.doneReplaying();
   }
@@ -630,6 +632,8 @@ static diag::kind getFutureCompatDiagKind(const IdentifierInfo &II,
     return llvm::StringSwitch<diag::kind>(II.getName())
 #define CXX11_KEYWORD(NAME, FLAGS)                                             \
         .Case(#NAME, diag::warn_cxx11_keyword)
+#define CXX2A_KEYWORD(NAME, FLAGS)                                             \
+        .Case(#NAME, diag::warn_cxx2a_keyword)
 #include "clang/Basic/TokenKinds.def"
         ;
 

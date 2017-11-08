@@ -266,7 +266,10 @@ public:
   /// \brief Hook called when a source range is skipped.
   /// \param Range The SourceRange that was skipped. The range begins at the
   /// \#if/\#else directive and ends after the \#endif/\#else directive.
-  virtual void SourceRangeSkipped(SourceRange Range) {
+  /// \param EndifLoc The end location of the 'endif' token, which may precede
+  /// the range skipped by the directive (e.g excluding comments after an
+  /// 'endif').
+  virtual void SourceRangeSkipped(SourceRange Range, SourceLocation EndifLoc) {
   }
 
   enum ConditionValueKind {
@@ -381,6 +384,12 @@ public:
     Second->Ident(Loc, str);
   }
 
+  void PragmaDirective(SourceLocation Loc,
+                       PragmaIntroducerKind Introducer) override {
+    First->PragmaDirective(Loc, Introducer);
+    Second->PragmaDirective(Loc, Introducer);
+  }
+
   void PragmaComment(SourceLocation Loc, const IdentifierInfo *Kind,
                      StringRef Str) override {
     First->PragmaComment(Loc, Kind, Str);
@@ -462,9 +471,9 @@ public:
     Second->Defined(MacroNameTok, MD, Range);
   }
 
-  void SourceRangeSkipped(SourceRange Range) override {
-    First->SourceRangeSkipped(Range);
-    Second->SourceRangeSkipped(Range);
+  void SourceRangeSkipped(SourceRange Range, SourceLocation EndifLoc) override {
+    First->SourceRangeSkipped(Range, EndifLoc);
+    Second->SourceRangeSkipped(Range, EndifLoc);
   }
 
   /// \brief Hook called whenever an \#if is seen.
