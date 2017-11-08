@@ -337,7 +337,12 @@ int32_t checkForExitOnError(int32_t error, const char* errorText) {
     fprintf(stderr, "\nCSA OFFLOAD ERROR: %s\n", errorText);
   }
   fprintf(stderr, "Application aborted by " ENV_EXIT_ON_ERROR "\n");
-  exit(error);
+
+  // Terminate the process, do not run the exit handlers. Running the
+  // exit handlers may result in a hang since omptarget may have taken
+  // out a lock, and it's exit handler will wait for the lock. Since
+  // we're killing the process, just die and don't worry about cleaning up
+  _Exit(error);
 }
 
 static
