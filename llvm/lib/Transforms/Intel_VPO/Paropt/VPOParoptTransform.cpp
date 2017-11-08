@@ -39,18 +39,21 @@
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Dominators.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PatternMatch.h"
+#include "llvm/IR/PredIteratorCache.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetSubtargetInfo.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/CodeExtractor.h"
+#include "llvm/Transforms/Utils/LoopUtils.h"
+#include "llvm/Transforms/Utils/SSAUpdater.h"
 
 #include "llvm/PassAnalysisSupport.h"
 
@@ -1531,6 +1534,76 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
   return Changed;
 }
 
+// Replace the live-in value of the phis at the loop header with
+// the loop carried value.
+void VPOParoptTransform::wrnUpdateSSAPreprocessForOuterLoop(
+    Loop *L,
+    DenseMap<Value *, std::pair<Value *, BasicBlock *>> &ValueToLiveinMap) {
+  BasicBlock *BB = L->getHeader();
+
+  for (Instruction &I : *BB) {
+    if (!isa<PHINode>(I))
+      break;
+    PHINode *PN = dyn_cast<PHINode>(&I);
+    unsigned NumPHIValues = PN->getNumIncomingValues();
+    unsigned II;
+    Value *V;
+    for (II = 0; II < NumPHIValues; II++) {
+      V = PN->getIncomingValue(II);
+      if (ValueToLiveinMap.count(V))
+        break;
+    }
+    if (V) {
+      for (II = 0; II < NumPHIValues; II++) {
+        if (PN->getIncomingValue(II) != V)
+          PN->setIncomingValue(II, V);
+      }
+    }
+  }
+}
+
+// Collect the live-in value for the phis at the loop header.
+void VPOParoptTransform::wrnUpdateSSAPreprocess(
+    Loop *L,
+    DenseMap<Value *, std::pair<Value *, BasicBlock *>> &ValueToLiveinMap) {
+  BasicBlock *PreheaderBB = L->getLoopPreheader();
+  assert(PreheaderBB && "wrnUpdateSSAPreprocess: Loop preheader not found");
+  BasicBlock *BB = L->getHeader();
+
+  Value *LiveInV = nullptr;
+  for (Instruction &I : *BB) {
+    if (!isa<PHINode>(I))
+      break;
+    PHINode *PN = dyn_cast<PHINode>(&I);
+    unsigned NumPHIValues = PN->getNumIncomingValues();
+    unsigned II;
+    BasicBlock *InBB;
+    for (II = 0; II < NumPHIValues; ++II) {
+      InBB = PN->getIncomingBlock(II);
+      if (InBB == PreheaderBB) {
+        LiveInV = PN->getIncomingValue(II);
+        break;
+      }
+    }
+    if (LiveInV) {
+      for (II = 0; II < NumPHIValues; ++II) {
+        BasicBlock *InBB = PN->getIncomingBlock(II);
+        if (InBB != PreheaderBB) {
+          Value *V = PN->getIncomingValue(II);
+          ValueToLiveinMap[V] = {LiveInV, PreheaderBB};
+        }
+      }
+    }
+  }
+}
+
+// Update the SSA form in the region using SSA Updater.
+void VPOParoptTransform::wrnUpdateSSAForLoop(
+    Loop *L,
+    DenseMap<Value *, std::pair<Value *, BasicBlock *>> &ValueToLiveinMap) {
+  formLCSSA(*L, *DT, LI, SE, &ValueToLiveinMap);
+}
+
 bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
                                                AllocaInst *&IsLastVal) {
   DEBUG(dbgs() << "\nEnter VPOParoptTransform::genLoopSchedulingCode\n");
@@ -1556,6 +1629,9 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
   W->getWRNLoopInfo().setZTTBB(
       WRegionUtils::getOmpLoopZeroTripTest(L, W->getEntryBBlock())
           ->getParent());
+
+  DenseMap<Value *, std::pair<Value *, BasicBlock *>> ValueToLiveinMap;
+  wrnUpdateSSAPreprocess(L, ValueToLiveinMap);
 
   //
   // This is initial implementation of parallel loop scheduling to get
@@ -1745,6 +1821,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
                                         IdentTy, LoadTid, InsertPt);
     KmpcFiniCI->setCallingConv(CallingConv::C);
 
+    wrnUpdateSSAForLoop(L, ValueToLiveinMap);
     if (DT)
       DT->changeImmediateDominator(LoopExitBB, StaticInitBB);
   }
@@ -1843,6 +1920,8 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
     TermInst = DispatchBodyBB->getTerminator();
     TermInst->setSuccessor(1, DispatchLatchBB);
 
+    wrnUpdateSSAPreprocessForOuterLoop(L, ValueToLiveinMap);
+    wrnUpdateSSAForLoop(L, ValueToLiveinMap);
     if (DT) {
       DT->changeImmediateDominator(DispatchHeaderBB, StaticInitBB);
 
@@ -1911,6 +1990,9 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
     TermInst->setSuccessor(1, DispatchFiniBB);
 
     KmpcFiniCI->eraseFromParent();
+
+    wrnUpdateSSAPreprocessForOuterLoop(L, ValueToLiveinMap);
+    wrnUpdateSSAForLoop(L, ValueToLiveinMap);
 
     if (DT) {
       DT->changeImmediateDominator(DispatchHeaderBB, DispatchInitBB);
