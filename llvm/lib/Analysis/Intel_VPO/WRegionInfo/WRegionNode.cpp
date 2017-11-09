@@ -973,7 +973,11 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
                                           WRNScheduleRuntime);
     break;
   }
-  case QUAL_OMP_DIST_SCHEDULE_STATIC:
+  case QUAL_OMP_DIST_SCHEDULE_STATIC: {
+    WRegionUtils::extractScheduleOpndList(getSchedule(), Args, ClauseInfo,
+                                          WRNScheduleDistributeStatic);
+    break;
+  }
   case QUAL_OMP_SCHEDULE_STATIC: {
     WRegionUtils::extractScheduleOpndList(getSchedule(), Args, ClauseInfo,
                                           WRNScheduleStatic);
@@ -1040,6 +1044,7 @@ bool WRegionNode::hasSchedule() const {
   case WRNParallelLoop:
   case WRNDistributeParLoop:
   case WRNWksLoop:
+  case WRNDistribute:
     return true;
   }
   return false;

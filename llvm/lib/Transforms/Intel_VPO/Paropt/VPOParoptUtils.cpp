@@ -228,17 +228,25 @@ WRNScheduleKind VPOParoptUtils::getLoopScheduleKind(WRegionNode *W)
 {
   if (W->hasSchedule()) {
     // E.g., W could be WRNParallelLoop or WRNWksLoop
-    auto IsOrdered = W->getOrdered();
     auto Schedule  = W->getSchedule();
 
     auto Kind   = Schedule.getKind();
     auto Chunk  = Schedule.getChunk();
 
-    return VPOParoptUtils::genScheduleKind(Kind, IsOrdered, Chunk);
+    if (W->getIsDistribute()) {
+      if (Chunk == 0)
+        return WRNScheduleDistributeStaticEven;
+      else 
+        return Kind;
+    }
+    else {
+      auto IsOrdered = W->getOrdered();
+      return VPOParoptUtils::genScheduleKind(Kind, IsOrdered, Chunk);
+    } 
   }
-
-  // else W could be WRNParallelSections or WRNSections
-  return WRNScheduleOrderedStaticEven;
+  else 
+    // else W could be WRNParallelSections or WRNSections
+    return WRNScheduleStaticEven;
 }
 
 // This function generates a call to set num_threads for the parallel

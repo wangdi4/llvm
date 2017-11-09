@@ -367,8 +367,12 @@ bool VPOParoptTransform::paroptTransforms() {
       }
       case WRegionNode::WRNSections:
       case WRegionNode::WRNWksLoop:
+      case WRegionNode::WRNDistribute:
       {
-        DEBUG(dbgs() << "\n WRNWksLoop - Transformation \n\n");
+        if (W->getIsDistribute())
+          DEBUG(dbgs() << "\n WRNDistribute - Transformation \n\n");
+        else 
+          DEBUG(dbgs() << "\n WRNWksLoop - Transformation \n\n");
 
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           AllocaInst *IsLastVal = nullptr;
@@ -376,9 +380,13 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= genPrivatizationCode(W);
           Changed |= genLastPrivatizationCode(W, IsLastVal);
           Changed |= genFirstPrivatizationCode(W);
-          Changed |= genReductionCode(W);
-          if (!W->getNowait())
-            Changed |= genBarrier(W, false);
+
+          if (!W->getIsDistribute()) {
+            Changed |= genReductionCode(W);
+            if (!W->getNowait())
+              Changed |= genBarrier(W, false);
+          }
+
           RemoveDirectives = true;
         }
 
