@@ -8398,7 +8398,8 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   case X86::BI__builtin_csa_parallel_region_exit:
   case X86::BI__builtin_csa_parallel_section_entry:
   case X86::BI__builtin_csa_parallel_section_exit:
-  case X86::BI__builtin_csa_parallel_loop: {
+  case X86::BI__builtin_csa_parallel_loop: 
+  case X86::BI__builtin_csa_spmdization: {
     return UndefValue::get(ConvertType(E->getType())); // noop
   }
 #endif // INTEL_CUSTOMIZATION
@@ -8458,7 +8459,13 @@ Value *CodeGenFunction::EmitCSABuiltinExpr(unsigned BuiltinID,
     Value *Callee = CGM.getIntrinsic(Intrinsic::csa_parallel_loop);
     return Builder.CreateCall(Callee);
   }
-
+  case CSA::BI__builtin_csa_spmdization: {
+    Value *X = EmitScalarExpr(E->getArg(0));
+    Value *Callee = CGM.getIntrinsic(Intrinsic::csa_spmdization,
+                                     X->getType());
+    return Builder.CreateCall(Callee, X);
+  }
+    
   default:
     return nullptr;
   }

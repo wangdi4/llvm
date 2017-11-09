@@ -1852,7 +1852,8 @@ BUILTIN(__builtin_csa_parallel_region_entry,  "ii", "n")
 BUILTIN(__builtin_csa_parallel_region_exit,   "vi", "n")
 BUILTIN(__builtin_csa_parallel_section_entry, "ii", "n")
 BUILTIN(__builtin_csa_parallel_section_exit,  "vi", "n")
-#endif
+BUILTIN(__builtin_csa_spmdization, "vi", "n")
+#endif // INTEL_CUSTOMIZATION
 
 #undef BUILTIN
 #undef TARGET_BUILTIN
