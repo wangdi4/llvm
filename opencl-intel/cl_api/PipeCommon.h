@@ -21,38 +21,12 @@
 #ifndef __PIPE_COMMON_H__
 #define __PIPE_COMMON_H__
 
+#include "../backend/libraries/ocl_builtins/pipes.h"
+
 #ifdef BUILD_FPGA_EMULATOR
 
-#include "../backend/libraries/ocl_builtins/pipes.h"
-#include <algorithm>
-
 static size_t pipe_get_total_size(cl_uint packet_size, cl_uint depth) {
-  size_t total = sizeof(__pipe_t)       // header
-    + packet_size * __pipe_get_max_packets(depth);
-  return total;
-}
-
-static void pipe_init(void* mem, cl_uint packet_size, cl_uint depth) {
-  __pipe_t* p = (__pipe_t*) mem;
-
-  memset((char*)p, 0, sizeof(__pipe_t));
-
-  p->packet_size = packet_size;
-  p->max_packets = __pipe_get_max_packets(depth);
-
-  p->read_buf.size = -1;
-  p->read_buf.limit = PIPE_READ_BUF_PREFERRED_LIMIT;
-
-  p->write_buf.size = -1;
-
-  // Count write buffer limit for a pipe
-  // Note: write buffer limit should be at least 1 element less then
-  // pipe max_packets to write buffer can be reserved
-  int write_buf_limit = std::min((int)(p->max_packets - 1),
-                                 PIPE_WRITE_BUF_PREFERRED_LIMIT);
-  // Ensure that write buffer limit is a multiple of max supported vector length
-  p->write_buf.limit =
-             write_buf_limit - (write_buf_limit % MAX_VL_SUPPORTED_BY_PIPES);
+  return __pipe_get_total_size(packet_size, depth);
 }
 
 #else // BUILD_FPGA_EMULATOR

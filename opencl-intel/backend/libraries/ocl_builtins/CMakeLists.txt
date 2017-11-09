@@ -149,15 +149,19 @@ endif()
 # adding "-elf" postfix to the triple for Win32 to codegen ELF with llc later (to be consistent with Backend Materializer)
 if (WIN32)
   if (CMAKE_SIZEOF_VOID_P EQUAL 4)
-    set (TRIPLE i686-pc-win32-gnu-elf)
+    set (DEVICE_TRIPLE i686-pc-win32-gnu-elf)
+    set (HOST_TRIPLE   i686-pc-win32-gnu)
   else ()
-    set (TRIPLE x86_64-pc-win32-gnu-elf)
+    set (DEVICE_TRIPLE x86_64-pc-win32-gnu-elf)
+    set (HOST_TRIPLE   x86_64-pc-win32-gnu)
   endif (CMAKE_SIZEOF_VOID_P EQUAL 4)
 else (WIN32)
   if (CMAKE_SIZEOF_VOID_P EQUAL 4)
-    set (TRIPLE i686-pc-linux)
+    set (DEVICE_TRIPLE i686-pc-linux)
+    set (HOST_TRIPLE   i686-pc-linux)
   else ()
-    set (TRIPLE x86_64-pc-linux)
+    set (DEVICE_TRIPLE x86_64-pc-linux)
+    set (HOST_TRIPLE   x86_64-pc-linux)
   endif (CMAKE_SIZEOF_VOID_P EQUAL 4)
 endif (WIN32)
 
@@ -169,7 +173,7 @@ message (STATUS "CLANG:     ${CLANG}")
 message (STATUS "LLVM_OPT:  ${OPT}")
 message (STATUS "LLVM_LINK: ${LLVM_LINK}")
 message (STATUS "LLC:       ${LLC}")
-message (STATUS "TRIPLE:    ${TRIPLE}")
+message (STATUS "DEVICE_TRIPLE:    ${DEVICE_TRIPLE}")
 
 #
 # Tool environment and options
@@ -200,13 +204,13 @@ set (CLANG_OCL_12_COMPILER_FLAGS
 # add opencl.enable.FP_CONTRACT metadata and they will eventually appear in the
 # user's program.
 set (CLANG_CL_COMMON_COMPILER_FLAGS
-  -cc1 -triple ${TRIPLE} -mllvm -loopopt=false -emit-llvm-bc -fwrapv -O3
+  -cc1 -triple ${DEVICE_TRIPLE} -mllvm -loopopt=false -emit-llvm-bc -fwrapv -O3
   -x cl -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -I ${LLVM_INCLUDE_DIRS}/cclang/ -I ${CL_BUILTIN_SOURCE_DIR} ${CLANG_LLVM_INCLUDE_DIRS} -include opencl-c.h
   -fblocks -ffake-address-space-map -faddress-space-map-mangling=yes -mstackrealign -ffp-contract=off
   )
 
 set (CLANG_C_COMPILER_PARAMS
-  -cc1 -triple ${TRIPLE} -mllvm -loopopt=false -emit-llvm-bc -fwrapv -O3
+  -cc1 -triple ${DEVICE_TRIPLE} -mllvm -loopopt=false -emit-llvm-bc -fwrapv -O3
   -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -I ${LLVM_INCLUDE_DIRS}/cclang/ -I ${CL_BUILTIN_SOURCE_DIR} ${CLANG_LLVM_INCLUDE_DIRS} -mstackrealign
   # Pretend we use LTO as Intel's clang version doesn't allows emitting LLVM
   # bytecode for C/C++ files w/o LTO flag.
@@ -560,3 +564,49 @@ if (ENABLE_KNL AND BUILD_X64 AND NOT WIN32)
     # includes AVX-512 F, CD, ER, PF.
   add_subdirectory (avx512phi)
 endif()
+
+add_custom_target(clbltpipe_target
+  DEPENDS clbltpipe.obj)
+
+if (CMAKE_SIZEOF_VOID_P EQUAL 4)
+  set(MINIMAL_SUFFIX n8)
+else ()
+  set(MINIMAL_SUFFIX h8)
+endif()
+
+set(RTL_MINIMAL
+    ${BUILTINS_INSTALL_DIR}/${TARGET_NAME_PREFIX}${MINIMAL_SUFFIX}.rtl)
+set(TARGET_NAME_MINIMAL ${TARGET_NAME_PREFIX}${MINIMAL_SUFFIX})
+
+set(RTL_SHARED ${BUILTINS_INSTALL_DIR}/${TARGET_NAME_PREFIX}shared.rtl)
+
+add_custom_command(OUTPUT clbltpipe.obj
+  DEPENDS ${TARGET_NAME_MINIMAL} ${TARGET_NAME_SHARED}
+  DEPENDS pipes.cl pipes.h pipes-internal.h
+  COMMAND ${CLANG} -cc1 -cl-std=CL2.0 -triple ${HOST_TRIPLE}
+  -ffake-address-space-map -faddress-space-map-mangling=yes
+  -I ${LLVM_INCLUDE_DIRS}/cclang/
+  ${CMAKE_CURRENT_SOURCE_DIR}/pipes.cl
+  -include opencl-c.h
+  -emit-llvm-bc -o pipes.bc
+
+  COMMAND ${CLANG} -cc1 -cl-std=CL2.0 -triple ${DEVICE_TRIPLE}
+  -ffake-address-space-map -faddress-space-map-mangling=yes
+  -I ${LLVM_INCLUDE_DIRS}/cclang/
+  ${CMAKE_CURRENT_SOURCE_DIR}/pipes.cl
+  -include opencl-c.h
+  -emit-llvm-bc -o pipes.bc
+
+  COMMAND ${OPT} -runtimelib=${RTL_MINIMAL},${RTL_SHARED}
+  -builtin-import pipes.bc
+  -o pipes-opt.bc
+
+  COMMAND ${LLC} ${LLC_PARAMS} -mcpu=corei7 pipes-opt.bc
+  -o clbltpipe.obj
+  )
+
+add_library(clbltpipe STATIC IMPORTED GLOBAL)
+add_dependencies(clbltpipe clbltpipe_target)
+set_target_properties(clbltpipe
+  PROPERTIES
+  IMPORTED_LOCATION ${CMAKE_CURRENT_BINARY_DIR}/clbltpipe.obj)

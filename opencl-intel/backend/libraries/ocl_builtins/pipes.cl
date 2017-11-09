@@ -93,6 +93,7 @@
 
 
 #include "pipes.h"
+#include "pipes-internal.h"
 
 // There are no declarations of OpenCL 2.0 builtins in opencl-c.h for named
 // address space but in the library they has to be called directly because the
@@ -120,11 +121,64 @@ void __ovld atomic_store_explicit(__global volatile atomic_int *object,
 #define ASSERT(cond) do {} while(0);
 #endif
 
-static bool is_buffer_full(const struct __pipe_internal_buf* b) {
+static void __pipe_dump(__global struct __pipe_t* p) {
+  struct __pipe_internal_buf* rb = &p->read_buf;
+  struct __pipe_internal_buf* wb = &p->write_buf;
+
+  printf("pipe %p dump:\n"
+         "  >> packet_size = %d\n"
+         "  >> max_packets = %d\n"
+         "  >> head = %d\n"
+         "  >> tail = %d\n"
+         "  >> read_buf = {\n"
+         "  >>   end   = %d\n"
+         "  >>   size  = %d\n"
+         "  >>   limit = %d\n"
+         "  >> }\n"
+         "  >> write_buf = {\n"
+         "  >>   end   = %d\n"
+         "  >>   size  = %d\n"
+         "  >>   limit = %d\n"
+         "  >> }\n",
+         p,
+         p->packet_size, p->max_packets,
+         atomic_load_explicit(&p->head, memory_order_acquire),
+         atomic_load_explicit(&p->tail, memory_order_acquire),
+         rb->end, rb->size, rb->limit,
+         wb->end, wb->size, wb->limit);
+}
+
+int __pipe_get_max_packets(int depth) {
+  // pipe max_packets should be more than maximum of supported VL
+  int max_packets = max(depth, MAX_VL_SUPPORTED_BY_PIPES);
+
+  // reserve one extra element b/w head and tail to distinguish full/empty
+  // conditions
+  max_packets += 1;
+
+  // We must ensure that at least 'depth' packets can be written without
+  // blocking. Write cache can block us doing so, because we try to reserve at
+  // least 'limit' packets for writing, before performing an actual write.
+  //
+  // If we have 'depth - 1' packets written, and max_packets == 'depth + 1' (see
+  // above), we cannot write last packet, because we wait until 'limit' packets
+  // would be available.
+  max_packets += PIPE_WRITE_BUF_PREFERRED_LIMIT - 1;
+
+  return max_packets;
+}
+
+int __pipe_get_total_size(int packet_size, int depth) {
+  size_t total = sizeof(struct __pipe_t)       // header
+    + packet_size * __pipe_get_max_packets(depth);
+  return total;
+}
+
+static bool is_buffer_full(__global const struct __pipe_internal_buf* b) {
   return b->size >= b->limit;
 }
 
-int get_buffer_capacity(const struct __pipe_internal_buf* b) {
+int get_buffer_capacity(const __global struct __pipe_internal_buf* b) {
     return b->limit - b->size;
 }
 
@@ -134,7 +188,7 @@ __global void* get_packet_ptr(__global struct __pipe_t* p, int index) {
   return packets_begin + index * p->packet_size;
 }
 
-bool reserve_write_buffer(struct __pipe_internal_buf* b, int capacity) {
+bool reserve_write_buffer(__global struct __pipe_internal_buf* b, int capacity) {
   if (!(capacity >= b->limit))
     return false; // pipe is full
 
@@ -142,7 +196,7 @@ bool reserve_write_buffer(struct __pipe_internal_buf* b, int capacity) {
   return true;
 }
 
-bool reserve_read_buffer(struct __pipe_internal_buf* b, int capacity) {
+bool reserve_read_buffer(__global struct __pipe_internal_buf* b, int capacity) {
   b->limit = min(capacity, PIPE_READ_BUF_PREFERRED_LIMIT);
   if (!(b->limit))
     return false; // pipe doesn't contain enough elements to read
@@ -152,7 +206,7 @@ bool reserve_read_buffer(struct __pipe_internal_buf* b, int capacity) {
 }
 
 /// Return next nth item from circular buffer
-int advance(__global const struct __pipe_t* p, int index, int offset) {
+int advance(const __global struct __pipe_t* p, int index, int offset) {
   ASSERT(offset < p->max_packets);
   ASSERT(offset >= 0);
   int new = index + offset;
@@ -263,7 +317,7 @@ int __read_pipe_2_intel(__global struct __pipe_t* p, void* dst) {
   return 0;
 }
 
-int __write_pipe_2_intel(__global struct __pipe_t* p, void* src) {
+int __write_pipe_2_intel(__global struct __pipe_t* p, const void* src) {
   __global struct __pipe_internal_buf* buf = &p->write_buf;
 
   if (buf->size < 0) {

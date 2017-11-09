@@ -21,4 +21,7 @@ CALCULATE_TARGET_SOURCES()
 
 # add a target named ${TARGET_NAME}
 add_library (${TARGET_NAME} STATIC ${TARGET_SOURCES})
+
+target_link_libraries(${TARGET_NAME} clbltpipe)
+
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${RUNTIME_FOLDER_NAME} )
