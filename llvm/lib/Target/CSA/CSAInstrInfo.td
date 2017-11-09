@@ -1195,13 +1195,13 @@ def FMRSF16   : TriOp1<FMRS, fmrs, Tf16, IIFMAF16>;
 def FMRSF32   : TriOp1<FMRS, fmrs, Tf32, IIFMAF32>;
 def FMRSF64   : TriOp1<FMRS, fmrs, Tf64, IIFMAF64>;
 
-def RCPA      : GenericOp<"rcpa", [HasRcpA]>;
-def RCPAF32   : RAppOp<RCPA,             Tf32, IIRcpAF32>;
-def RCPAF64   : RAppOp<RCPA,             Tf64, IIRcpAF64>;
+def RCP14     : GenericOp<"rcp14", [HasRcpA]>;
+def RCP14F32  : RAppOp<RCP14, Tf32, IIRcpAF32>;
+def RCP14F64  : RAppOp<RCP14, Tf64, IIRcpAF64>;
 
-def RSQRTA    : GenericOp<"rsqrta", [HasRSqrtA]>;
-def RSQRTAF32 : RSqrtAppOp<RSQRTA,       Tf32, IIRSqrtAF32>;
-def RSQRTAF64 : RSqrtAppOp<RSQRTA,       Tf64, IIRSqrtAF64>;
+def RSQRT14   : GenericOp<"rsqrt14", [HasRSqrtA]>;
+def RSQRT14F32: RSqrtAppOp<RSQRT14, Tf32, IIRSqrtAF32>;
+def RSQRT14F64: RSqrtAppOp<RSQRT14, Tf64, IIRSqrtAF64>;
 
 // Unfortunately, "COPY" is already defined...
 def GCOPY     : GenericOp<"copy">;
@@ -1611,6 +1611,113 @@ def ATMMAXF64 : AtomicOp<ATMMAX,  null_frag, Tf64, IIATM>;
 // Prefetch operations
 defm PREFETCH  : PrefetchOp<"prefetch",  0>;
 defm PREFETCHW : PrefetchOp<"prefetchw", 1>;
+
+////////////////////////////////////////////////////////////////////////////////
+// Math lib helper functions (these have no patterns to match.                //
+////////////////////////////////////////////////////////////////////////////////
+
+foreach Kind = [ "Interval", "Signctl" ] in {
+  def Kind ## AsmOperand : AsmOperandClass {
+    let Name = Kind;
+  }
+  def Kind ## Operand : OperandWithDefaultOps<i64, (ops (i64 0))> {
+    let ParserMatchClass = !cast<AsmOperandClass>(Kind ## AsmOperand);
+    let PrintMethod = !strconcat("print", Kind, "Operand");
+  }
+}
+
+class UnaryNoPatOp<GenericOp op, CSAOpInfo oi, InstrItinClass itin> : FMTGEN<
+  op, oi,
+  (outs oi.RC:$result),
+  (ins oi.RCL:$value),
+  !strconcat(op.AsmString, oi.InstrSuffix, "\t$result, $value"),
+  [], // No pattern
+  [], // No predicates
+  itin>;
+
+class GetmantOp<GenericOp op, CSAOpInfo oi, InstrItinClass itin> : FMTGEN<
+  op, oi,
+  (outs oi.RC:$result),
+  (ins oi.RCL:$value, SignctlOperand:$signctl, IntervalOperand:$interval),
+  !strconcat(op.AsmString, oi.InstrSuffix, "\t$result, $value, $signctl, $interval"),
+  [], // No pattern
+  [], // No predicates
+  itin>;
+
+class BinaryNoPatOpR<GenericOp op, CSAOpInfo oi, InstrItinClass itin> : FMTGEN<
+  op, oi,
+  (outs oi.RC:$result),
+  (ins oi.RCL:$op1, oi.RCL:$op2, RMODE:$rndmode),
+  !strconcat(op.AsmString, oi.InstrSuffix, "\t$result, $op1, $op2, $rndmode"),
+  [], // No pattern
+  [], // No predicates
+  itin>;
+
+class ScaleisrOp<GenericOp op, CSAOpInfo oi, InstrItinClass itin> : FMTGEN<
+  op, oi,
+  (outs oi.RC:$result),
+  (ins oi.RCL:$op1, oi.RCL:$op2, I1:$rndbit, I1:$scalebit, RMODE:$rndmode),
+  !strconcat(op.AsmString, oi.InstrSuffix, "\t$result, $op1, $op2, $rndbit, $scalebit, $rndmode"),
+  [], // No pattern
+  [], // No predicates
+  itin>;
+
+class DivcheckOp<GenericOp op, CSAOpInfo oi, InstrItinClass itin> : FMTGEN<
+  op, oi,
+  (outs oi.RC:$result, I1:$special),
+  (ins oi.RCL:$op1, oi.RCL:$op2),
+  !strconcat(op.AsmString, oi.InstrSuffix, "\t$result, $special, $op1, $op2"),
+  [], // No pattern
+  [], // No predicates
+  itin>;
+
+class SqrtcheckOp<GenericOp op, CSAOpInfo oi, InstrItinClass itin> : FMTGEN<
+  op, oi,
+  (outs oi.RC:$result, I1:$special),
+  (ins oi.RCL:$op),
+  !strconcat(op.AsmString, oi.InstrSuffix, "\t$result, $special, $op"),
+  [], // No pattern
+  [], // No predicates
+  itin>;
+
+class ThreeArgRSOpR<GenericOp op, CSAOpInfo oi, InstrItinClass itin> : FMTGEN<
+  op, oi,
+  (outs oi.RC:$result, I1:$rndbit, I1:$stickybit),
+  (ins oi.RCL:$op1, oi.RCL:$op2, oi.RCL:$op3, RMODE:$rndmode),
+  !strconcat(op.AsmString, oi.InstrSuffix,
+    "\t$result, $rndbit, $stickybit, $op1, $op2, $op3, $rndmode"),
+  [], // No pattern
+  [], // No predicates
+  itin>;
+
+def GETEXP       : GenericOp<"getexp">;
+def GETEXPF32    : UnaryNoPatOp<GETEXP, Tf32, IIMathF32>;
+def GETEXPF64    : UnaryNoPatOp<GETEXP, Tf64, IIMathF64>;
+def GETMANT      : GenericOp<"getmant">;
+def GETMANTF32   : GetmantOp<GETMANT, Tf32, IIMathF32>;
+def GETMANTF64   : GetmantOp<GETMANT, Tf64, IIMathF64>;
+def SCALE        : GenericOp<"scale">;
+def SCALEF32     : BinaryNoPatOpR<SCALE, Tf32, IIMathF32>;
+def SCALEF64     : BinaryNoPatOpR<SCALE, Tf64, IIMathF64>;
+def SCALEISR     : GenericOp<"scalendr">;
+def SCALEISRF32  : ScaleisrOp<SCALEISR, Tf32, IIMathF32>;
+def SCALEISRF64  : ScaleisrOp<SCALEISR, Tf64, IIMathF64>;
+def DIVCHECK     : GenericOp<"divcheck">;
+def DIVCHECKF32  : DivcheckOp<DIVCHECK, Tf32, IIMathF32>;
+def DIVCHECKF64  : DivcheckOp<DIVCHECK, Tf64, IIMathF64>;
+def SQRTCHECK    : GenericOp<"sqrtcheck">;
+def SQRTCHECKF32 : SqrtcheckOp<SQRTCHECK, Tf32, IIMathF32>;
+def SQRTCHECKF64 : SqrtcheckOp<SQRTCHECK, Tf64, IIMathF64>;
+def FMAORS       : GenericOp<"fmaors">;
+def FMAORSF32    : ThreeArgRSOpR<FMAORS, Tf32, IIMathF32>;
+def FMAORSF64    : ThreeArgRSOpR<FMAORS, Tf64, IIMathF64>;
+def FMSORS       : GenericOp<"fmsors">;
+def FMSORSF32    : ThreeArgRSOpR<FMSORS, Tf32, IIMathF32>;
+def FMSORSF64    : ThreeArgRSOpR<FMSORS, Tf64, IIMathF64>;
+def FMRSORS      : GenericOp<"fmrsors">;
+def FMRSORSF32    : ThreeArgRSOpR<FMRSORS, Tf32, IIMathF32>;
+def FMRSORSF64    : ThreeArgRSOpR<FMRSORS, Tf64, IIMathF64>;
+
 
 // Unit - type only
 def UNIT : PseudoInstCSA<

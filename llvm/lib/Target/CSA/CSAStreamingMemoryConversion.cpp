@@ -28,6 +28,9 @@ using namespace llvm;
 
 #define DEBUG_TYPE "csa-streamem"
 
+static cl::opt<bool> DisableMemoryConversion("csa-disable-streammem", cl::Hidden,
+    cl::desc("CSA Specific: Disable streaming memory conversion"));
+
 namespace llvm {
   class CSAStreamingMemoryConversionPass : public MachineFunctionPass {
   public:
@@ -71,6 +74,9 @@ MachineFunctionPass *llvm::createCSAStreamingMemoryConversionPass() {
 }
 
 bool CSAStreamingMemoryConversionPass::runOnMachineFunction(MachineFunction &MF) {
+  if (DisableMemoryConversion)
+    return false;
+
   this->MF = &MF;
   MRI = &MF.getRegInfo();
   LMFI = MF.getInfo<CSAMachineFunctionInfo>();

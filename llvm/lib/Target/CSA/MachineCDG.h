@@ -19,6 +19,7 @@
 #include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
+#include "llvm/CodeGen/MachineLoopInfo.h"
 #include "llvm/Target/TargetSubtargetInfo.h"
 #include "llvm/Target/TargetRegisterInfo.h"
 #include <map>
@@ -466,7 +467,7 @@ namespace llvm {
     CSASSANode* getRoot() {
       return root;
     }
-    void BuildCSASSAGraph(MachineFunction &F);
+    void BuildCSASSAGraph(MachineFunction &F, MachineLoopInfo *MLI);
     ~CSASSAGraph() {
       delete root;
       for (DenseMap<MachineInstr*, CSASSANode*>::iterator i2n = instr2ssan.begin(), i2nEnd = instr2ssan.end(); i2n != i2nEnd; ++i2n) {

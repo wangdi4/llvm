@@ -3,8 +3,8 @@
 //===----------------------------------------------------------------------===//
 //
 // This file contains the declaration for the CSALoopIntrinsicExpander pass,
-// which expands llvm.csa.parallel.loop intrinsics into their corresponding
-// region/section representations.
+// which expands CSA-specific loop intrinsics into their underlying
+// representations.
 //
 //===----------------------------------------------------------------------===//
 

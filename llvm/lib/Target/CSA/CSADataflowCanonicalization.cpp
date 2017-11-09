@@ -31,6 +31,9 @@ using namespace llvm;
 
 STATISTIC(NumSwitchesAdded, "Number of switches added due to inversion");
 
+static cl::opt<bool> DisableSwitchInversion("csa-disable-swi", cl::Hidden,
+    cl::desc("CSA Specific: Disable switch inversion"));
+
 namespace llvm {
   class CSADataflowCanonicalizationPass : public MachineFunctionPass {
   public:
@@ -98,6 +101,9 @@ bool CSADataflowCanonicalizationPass::runOnMachineFunction(MachineFunction &MF) 
     &CSADataflowCanonicalizationPass::invertIgnoredSwitches
   };
   for (auto func : functions) {
+    if (func == &CSADataflowCanonicalizationPass::invertIgnoredSwitches &&
+        DisableSwitchInversion)
+      continue;
     for (auto &MBB : MF) {
       for (auto &MI : MBB) {
         changed |= (this->*func)(&MI);
@@ -161,6 +167,13 @@ bool CSADataflowCanonicalizationPass::eliminateNotPicks(MachineInstr *MI) {
   return false;
 }
 
+// This will transform a switch of the form:
+//   %val = [simple op] %arg1, %arg2
+//   %out, %ign = SWITCH %ctl, %val
+// into:
+//   %swarg1, %ign = SWITCH %ctl, %arg1
+//   %swarg2, %ign = SWITCH %ctl, %arg2
+//   %val = [simple op] %swarg1, %swarg2
 bool CSADataflowCanonicalizationPass::invertIgnoredSwitches(MachineInstr *MI) {
   // The value must be a switch, and one of its outputs must be ignored.
   if (!TII->isSwitch(MI))
@@ -187,6 +200,18 @@ bool CSADataflowCanonicalizationPass::invertIgnoredSwitches(MachineInstr *MI) {
   if (switched->uses().begin() - switched->defs().begin() > 1)
     return false;
   if (getSingleUse(switched->getOperand(0)) != MI)
+    return false;
+
+  // For performance reasons, we need the SWITCH to be filtering out a large
+  // fraction of its input values. In lieu of a performance analysis pass, we
+  // use the first/last of the sequence of the operator being a high confidence
+  // of being such an operation.
+  auto switchCtl = MI->getOperand(2);
+  const MachineInstr *switchCtlDef = getDefinition(switchCtl);
+  if (!switchCtlDef || !TII->isSeqOT(switchCtlDef))
+    return false;
+  if (switchCtlDef->getOperand(2).getReg() == switchCtl.getReg() &&
+      switchCtlDef->getOperand(3).getReg() == switchCtl.getReg())
     return false;
 
   // Generate new SWITCH's for each operand of the switched operation. The
