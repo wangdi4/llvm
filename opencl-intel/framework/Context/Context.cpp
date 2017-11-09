@@ -1717,18 +1717,44 @@ bool Context::IsSVMPointer(const void* ptr) const
     return false;
 }
 
-cl_err_code Context::CreatePipe(cl_uint uiPipePacketSize, cl_uint uiPipeMaxPackets, SharedPtr<MemoryObject>& pPipe, void* pHostPtr)
+cl_err_code Context::CreatePipe(cl_mem_flags flags, cl_uint uiPipePacketSize,
+                                cl_uint uiPipeMaxPackets,
+                                SharedPtr<MemoryObject>& pPipe,
+                                void* pHostPtr)
 {
 	cl_err_code err = MemoryObjectFactory::GetInstance()->CreateMemoryObject(m_devTypeMask, CL_MEM_OBJECT_PIPE, CL_MEMOBJ_GFX_SHARE_NONE, this, &pPipe);
 	if (CL_FAILED(err))
 	{
 		return err;
 	}
-	err = pPipe.StaticCast<Pipe>()->Initialize(uiPipePacketSize, uiPipeMaxPackets, pHostPtr);
+	err = pPipe.StaticCast<Pipe>()->Initialize(flags, uiPipePacketSize, uiPipeMaxPackets, pHostPtr);
 	if (CL_FAILED(err))
 	{
 		return err;
 	}
 	m_mapMemObjects.AddObject(pPipe);
 	return CL_SUCCESS;
+}
+
+void* Context::MapPipe(SharedPtr<Pipe>& pPipe, cl_map_flags flags,
+                       size_t requestedSize, size_t* pMappedSize,
+                       cl_err_code* pError)
+{
+    return pPipe->Map(flags, requestedSize, pMappedSize, pError);
+}
+
+cl_err_code Context::UnmapPipe(SharedPtr<Pipe>& pPipe, void* pMappedPtr,
+                               size_t sizeToUnmap, size_t* pUnmappedSize)
+{
+    return pPipe->Unmap(pMappedPtr, sizeToUnmap, pUnmappedSize);
+}
+
+cl_err_code Context::ReadPipe(SharedPtr<Pipe>& pPipe, void* pDst)
+{
+    return pPipe->ReadPacket(pDst);
+}
+
+cl_err_code Context::WritePipe(SharedPtr<Pipe>& pPipe, const void* pSrc)
+{
+    return pPipe->WritePacket(pSrc);
 }

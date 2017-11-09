@@ -136,3 +136,7 @@ EXPORTS
 	clCloneKernel
 	clEnqueueSVMMigrateMem
 	clGetKernelSubGroupInfo
+	clReadPipeIntelFPGA
+	clWritePipeIntelFPGA
+	clMapHostPipeIntelFPGA
+	clUnmapHostPipeIntelFPGA

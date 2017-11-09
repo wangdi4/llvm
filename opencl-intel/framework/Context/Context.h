@@ -53,6 +53,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     class MemoryObject;
     class ContextModule;
     class SVMBuffer;
+    class Pipe;
 
     typedef std::set<SharedPtr<Device> > tSetOfDevices;
 
@@ -384,7 +385,18 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         void SVMFree(void* pSvmPtr);
 
-        cl_err_code CreatePipe(cl_uint uiPipePacketSize, cl_uint uiPipeMaxPackets, SharedPtr<MemoryObject>& pPipe, void* pHostPtr);
+        cl_err_code CreatePipe(cl_mem_flags flags, cl_uint uiPipePacketSize,
+                               cl_uint uiPipeMaxPackets,
+                               SharedPtr<MemoryObject>& pPipe,
+                               void* pHostPtr);
+
+        void* MapPipe(SharedPtr<Pipe>& pPipe, cl_map_flags flags,
+                      size_t requestedSize, size_t* pMappedSize,
+                      cl_err_code* pError);
+        cl_err_code UnmapPipe(SharedPtr<Pipe>& pPipe, void* pMappedPtr,
+                              size_t sizeToUnmap, size_t* pUnmappedSize);
+        cl_err_code ReadPipe(SharedPtr<Pipe>& pPipe, void* pDst);
+        cl_err_code WritePipe(SharedPtr<Pipe>& pPipe, const void* pSrc);
 
         // return access to context-specific OS event pool
 #if OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_OS_DEPENDENT

@@ -3332,3 +3332,82 @@ cl_int CL_API_CALL clGetKernelSubGroupInfo(cl_kernel kernel,
     }
 }
 SET_ALIAS(clGetKernelSubGroupInfo);
+
+void* CL_API_CALL
+clMapHostPipeIntelFPGA(cl_mem pipe, cl_map_flags flags,
+                       size_t requestedSize, size_t* pMappedSize,
+                       cl_int* pError)
+{
+    if (g_pUserLogger->IsApiLoggingEnabled())
+    {
+        START_LOG_API(clMapHostPipeIntelFPGA);
+        apiLogger << "cl_mem pipe " << pipe
+                  << ", cl_map_flags flags " << flags
+                  << ", size_t requestedSize " << requestedSize
+                  << ", size_t* pMappedSize " << pMappedSize;
+        CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, void*,
+            MapHostPipeIntelFPGA(pipe, flags, requestedSize,
+                                 pMappedSize, pError));
+    }
+    else
+    {
+        CALL_INSTRUMENTED_API(CONTEXT_MODULE, void*,
+            MapHostPipeIntelFPGA(pipe, flags, requestedSize,
+                                 pMappedSize, pError));
+    }
+}
+SET_ALIAS(clMapHostPipeIntelFPGA);
+
+cl_int CL_API_CALL
+clUnmapHostPipeIntelFPGA(cl_mem pipe, void* pMappedPtr,
+                         size_t sizeToUnmap,
+                         size_t* pUnmappedSize)
+
+{
+    if (g_pUserLogger->IsApiLoggingEnabled())
+    {
+        START_LOG_API(clUnmapHostPipeIntelFPGA);
+        apiLogger << "cl_mem pipe " << pipe
+                  << ", void* pMappedPtr " << pMappedPtr
+                  << ", size_t sizeToUnmap"
+                  << ", size_t* pUnmappedSize" << pUnmappedSize;
+        CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int,
+            UnmapHostPipeIntelFPGA(pipe, pMappedPtr, sizeToUnmap, pUnmappedSize));
+    }
+    else
+    {
+        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int,
+            UnmapHostPipeIntelFPGA(pipe, pMappedPtr, sizeToUnmap, pUnmappedSize));
+    }
+}
+SET_ALIAS(clUnmapHostPipeIntelFPGA);
+
+cl_int CL_API_CALL clReadPipeIntelFPGA(cl_mem pipe, void* ptr)
+{
+    if (g_pUserLogger->IsApiLoggingEnabled())
+    {
+        START_LOG_API(clReadPipeIntelFPGA);
+        apiLogger << "cl_mem pipe " << pipe << ", void* ptr " << ptr;
+        CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int, ReadPipeIntelFPGA(pipe, ptr));
+    }
+    else
+    {
+        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, ReadPipeIntelFPGA(pipe, ptr));
+    }
+}
+SET_ALIAS(clReadPipeIntelFPGA);
+
+cl_int CL_API_CALL clWritePipeIntelFPGA(cl_mem pipe, const void* ptr)
+{
+    if (g_pUserLogger->IsApiLoggingEnabled())
+    {
+        START_LOG_API(clWritePipeIntelFPGA);
+        apiLogger << "cl_mem pipe " << pipe << ", const void* ptr " << ptr;
+        CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int, WritePipeIntelFPGA(pipe, ptr));
+    }
+    else
+    {
+        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, WritePipeIntelFPGA(pipe, ptr));
+    }
+}
+SET_ALIAS(clWritePipeIntelFPGA);

@@ -257,6 +257,19 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         cl_int GetPipeInfo(cl_mem pipe, cl_pipe_info paramName, size_t szParamValueSize, void *pParamValue, size_t* pszParamValueSizeRet);
 
+      ///////////////////////////////////////////////////////////////////////
+      // IntelFPGA functions
+      ///////////////////////////////////////////////////////////////////////
+
+      void* MapHostPipeIntelFPGA(cl_mem pipe, cl_map_flags flags,
+                                 size_t requestedSize, size_t* pMappedSize,
+                                 cl_int* pError);
+      cl_int UnmapHostPipeIntelFPGA( cl_mem pipe, void* pMappedPtr,
+                                     size_t sizeToUnmap,
+                                     size_t* pUnmappedSize);
+      cl_int ReadPipeIntelFPGA( cl_mem pipe, void* pDst );
+      cl_int WritePipeIntelFPGA( cl_mem pipe, const void* pSrc);
+
         ///////////////////////////////////////////////////////////////////////
         // Utility functions
         ///////////////////////////////////////////////////////////////////////

@@ -108,6 +108,10 @@
         clCreatePipe;
         clCreatePipeINTEL;
         clGetPipeInfo;
+        clMapHostPipeIntelFPGA;
+        clUnmapHostPipeIntelFPGA;
+        clReadPipeIntelFPGA;
+        clWritePipeIntelFPGA;
 
         clCreateCommandQueueWithProperties;
         clCreateSamplerWithProperties;

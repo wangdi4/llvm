@@ -52,10 +52,11 @@ class Pipe : public GenericMemObject
 	 * Initialize this Pipe
 	 * @param uiPacketSize the size in byte of this Pipe's packet
 	 * @param uiMaxPackets the maximum number of packets this Pipe can hold
-     * @param pHostPtr     optional pointer coming from CRT
+	 * @param pHostPtr optional pointer coming from CRT
 	 * @return CL_SUCCESS in case of success or error code in case of failure
 	 */
-	cl_err_code Initialize(cl_uint uiPacketSize, cl_uint uiMaxPackets, void* pHostPtr);
+	cl_err_code Initialize(cl_mem_flags flags, cl_uint uiPacketSize,
+	                       cl_uint uiMaxPackets, void* pHostPtr);
 
 	/**
 	 * @param paramName				specifies the information to query
@@ -66,6 +67,37 @@ class Pipe : public GenericMemObject
 	 */
 	cl_int GetPipeInfo(cl_pipe_info paramName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet);
 
+	/**
+	 * Map pipe object for read or write (depending on a \p flags).
+	 * @param flags is for future use, and should currently be specified as 0
+	 * @param requestedSize  is a number of bytes to read or write
+	 * @param pMappedSizeRet is an actual size of returned memory buffer
+	 * @returns a valid pointer for memory map or nullptr
+	 */
+	void* Map(cl_mem_flags flags, size_t requestedSize,
+                  size_t* pMappedSizeRet, cl_err_code* pError);
+
+	/**
+	 * Unmap a memory returned by a Map call.
+	 * @param pMappedMem is a memory to unmap
+	 * @param sizeToUnmap is a number of bytes to unmap
+	 * @param pUnmappedSizeRet is a number of bytes that actually was
+	 *    unmapped. Runtime can unmap less than requested for performance
+	 *    reasons.
+	 */
+	cl_err_code Unmap(void* pMappedMem, size_t sizeToUnmap,
+	                  size_t* pUnmappedSizeRet);
+
+	/**
+	 * Read a single packet into \p pDst.
+	 */
+	cl_err_code ReadPacket(void* pDst);
+
+	/**
+	 * Write a single packet into \p pDst.
+	 */
+	cl_err_code WritePacket(const void* pSrc);
+
 private:
 
 	Pipe(const SharedPtr<Context>& pContext, cl_mem_object_type clObjType) : GenericMemObject(pContext, clObjType)
@@ -73,9 +105,24 @@ private:
 		assert(CL_MEM_OBJECT_PIPE == clObjType && "CL_MEM_OBJECT_PIPE != clObjType");
 	}
 
+	struct MapSegment {
+		char* ptr;
+		size_t size;
+		size_t sizeToUnmap;
+	};
+
+	void MapRead(MapSegment seg);
+	void MapWrite(MapSegment seg);
+	void UnmapRead(MapSegment seg);
+	void UnmapWrite(MapSegment seg);
+	void FlushRead();
+	void FlushWrite();
+
 	cl_uint m_uiPacketSize;
 	cl_uint m_uiMaxPackets;
 
+	std::vector<char> m_mapBuffer;
+	std::deque<MapSegment> m_mapSegments;
 };
 
 }}}

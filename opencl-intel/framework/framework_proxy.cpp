@@ -256,6 +256,11 @@ void FrameworkProxy::InitOCLEntryPoints()
 	ICDDispatchTable.clCreatePipe = (KHRpfn_clCreatePipe)GET_ALIAS(clCreatePipe);
 	ICDDispatchTable.clGetPipeInfo = (KHRpfn_clGetPipeInfo)GET_ALIAS(clGetPipeInfo);
 
+	ICDDispatchTable.clMapHostPipeIntelFPGA = (KHRpfn_clMapHostPipeIntelFPGA)GET_ALIAS(clMapHostPipeIntelFPGA);
+	ICDDispatchTable.clUnmapHostPipeIntelFPGA = (KHRpfn_clUnmapHostPipeIntelFPGA)GET_ALIAS(clUnmapHostPipeIntelFPGA);
+	ICDDispatchTable.clReadPipeIntelFPGA = (KHRpfn_clReadPipeIntelFPGA)GET_ALIAS(clReadPipeIntelFPGA);
+	ICDDispatchTable.clWritePipeIntelFPGA = (KHRpfn_clWritePipeIntelFPGA)GET_ALIAS(clWritePipeIntelFPGA);
+
 
     /// Extra functions for Common Runtime
     CRTDispatchTable.clGetKernelArgInfo = (KHRpfn_clGetKernelArgInfo)GET_ALIAS(clGetKernelArgInfo);

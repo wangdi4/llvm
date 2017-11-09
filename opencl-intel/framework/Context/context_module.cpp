@@ -1586,7 +1586,7 @@ cl_mem ContextModule::CreatePipe(cl_context context, cl_mem_flags flags, cl_uint
     }
 
     SharedPtr<MemoryObject> pPipe;
-    err = pContext->CreatePipe(uiPipePacketSize, uiPipeMaxPackets, pPipe, pHostPtr);
+    err = pContext->CreatePipe(flags, uiPipePacketSize, uiPipeMaxPackets, pPipe, pHostPtr);
     if (CL_FAILED(err))
     {
         if (nullptr != piErrcodeRet)
@@ -3070,11 +3070,17 @@ cl_err_code ContextModule::CheckMemObjectParameters(cl_mem_flags clMemFlags,
         }
     }
 
+    cl_mem_flags fpgaHostSideFlags = 0;
+    if (pContext->IsFPGAEmulator())
+    {
+        fpgaHostSideFlags = CL_MEM_HOST_READ_ONLY | CL_MEM_HOST_WRITE_ONLY;
+    }
     if (CL_MEM_OBJECT_PIPE == clMemObjType &&
         (clMemFlags & ~(CL_MEM_READ_WRITE |
                     CL_MEM_WRITE_ONLY |
                     CL_MEM_READ_ONLY |
-                    CL_MEM_HOST_NO_ACCESS)) != 0)
+                    CL_MEM_HOST_NO_ACCESS |
+                    fpgaHostSideFlags)) != 0)
     {
         return CL_INVALID_VALUE;
     }
@@ -3419,6 +3425,68 @@ void ContextModule::SVMFree(cl_context context, void* pSvmPtr)
     }
     pContext->SVMFree(pSvmPtr);
     m_mapSVMBuffers.erase(pSvmPtr);
+}
+
+void*
+ContextModule::MapHostPipeIntelFPGA(cl_mem pipe, cl_map_flags flags,
+                                    size_t requestedSize, size_t* pMappedSize,
+                                    cl_int* pError)
+{
+    SharedPtr<Pipe> pPipe =
+        m_mapMemObjects.GetOCLObject((_cl_mem_int*)pipe).StaticCast<Pipe>();
+
+    if (!pPipe)
+    {
+        if (pError)
+        {
+            *pError = CL_INVALID_MEM_OBJECT;
+        }
+        return nullptr;
+    }
+
+    SharedPtr<Context> pContext = pPipe->GetContext();
+    return pContext->MapPipe(pPipe, flags, requestedSize, pMappedSize, pError);
+}
+
+cl_int ContextModule::UnmapHostPipeIntelFPGA(cl_mem pipe, void* pMappedPtr,
+                                             size_t sizeToUnmap,
+                                             size_t* pUnmappedSize)
+{
+    SharedPtr<Pipe> pPipe =
+        m_mapMemObjects.GetOCLObject((_cl_mem_int*)pipe).StaticCast<Pipe>();
+
+    if (!pPipe)
+    {
+        return CL_INVALID_MEM_OBJECT;
+    }
+    SharedPtr<Context> pContext = pPipe->GetContext();
+    return pContext->UnmapPipe(pPipe, pMappedPtr, sizeToUnmap, pUnmappedSize);
+}
+
+cl_int ContextModule::ReadPipeIntelFPGA(cl_mem pipe, void *pDst)
+{
+    SharedPtr<Pipe> pPipe =
+        m_mapMemObjects.GetOCLObject((_cl_mem_int*)pipe).StaticCast<Pipe>();
+
+    if (!pPipe)
+    {
+        return CL_INVALID_MEM_OBJECT;
+    }
+    SharedPtr<Context> pContext = pPipe->GetContext();
+    return pContext->ReadPipe(pPipe, pDst);
+}
+
+cl_int ContextModule::WritePipeIntelFPGA(cl_mem pipe, const void *pSrc)
+{
+    SharedPtr<Pipe> pPipe =
+        m_mapMemObjects.GetOCLObject((_cl_mem_int*)pipe).StaticCast<Pipe>();
+
+    if (!pPipe)
+    {
+        return CL_INVALID_MEM_OBJECT;
+    }
+    SharedPtr<Context> pContext = pPipe->GetContext();
+    return pContext->WritePipe(pPipe, pSrc);
 }
 
 //////////////////////////////////////////////////////////////////////////////
