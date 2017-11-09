@@ -13,6 +13,7 @@ add_llvm_target(CSACodeGen
   CSAAllocUnitPass.cpp
   CSAAsmPrinter.cpp
   CSACvtCFDFPass.cpp
+  CSADataflowCanonicalization.cpp
   CSADeadInstructionElim.cpp
   CSAFrameLowering.cpp
   CSAISelDAGToDAG.cpp
@@ -28,6 +29,7 @@ add_llvm_target(CSACodeGen
   CSARegisterInfo.cpp
   CSASelectionDAGInfo.cpp
   CSAStatistics.cpp
+  CSAStreamingMemoryConversion.cpp
   CSASubtarget.cpp
   CSATargetMachine.cpp
   MachineCDG.cpp

@@ -67,6 +67,7 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeLoopStrengthReducePass(Registry);
   initializeLoopRerollPass(Registry);
   initializeLoopUnrollPass(Registry);
+  initializeLoopSPMDizationPass(Registry);
   initializeLoopUnswitchPass(Registry);
   initializeLoopVersioningLICMPass(Registry);
   initializeLoopIdiomRecognizeLegacyPassPass(Registry);
@@ -196,6 +197,10 @@ void LLVMAddLoopSimplifyCFGPass(LLVMPassManagerRef PM) {
 
 void LLVMAddLoopUnrollPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createLoopUnrollPass());
+}
+
+void LLVMAddLoopSPMDizationPass(LLVMPassManagerRef PM) {
+  unwrap(PM)->add(createLoopSPMDizationPass());
 }
 
 void LLVMAddLoopUnswitchPass(LLVMPassManagerRef PM) {

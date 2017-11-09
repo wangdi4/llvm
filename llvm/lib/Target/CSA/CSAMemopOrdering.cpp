@@ -1291,7 +1291,7 @@ void MachineAliasSetTracker::add(MachineMemOperand *mop) {
    * the real AliasSetTracker. */
   Value *v = const_cast<Value*>(mop->getValue());
   if (v) {
-    AST.add(v, mop->getSize(), mop->getAAInfo());
+    AST.add(v, MemoryLocation::UnknownSize, mop->getAAInfo());
     return;
   }
 
@@ -1340,7 +1340,7 @@ unsigned MachineAliasSetTracker::getAliasSetNumForMemop(const MachineMemOperand 
 
   Value *v = const_cast<Value*>(mop->getValue());
   if (mop->getValue()) {
-    AliasSet *as = AST.getAliasSetForPointerIfExists(v, mop->getSize(), mop->getAAInfo());
+    AliasSet *as = AST.getAliasSetForPointerIfExists(v, MemoryLocation::UnknownSize, mop->getAAInfo());
     assert(as && "Memop must be added to MachineAliasSetTracker before querying");
     unsigned pos = 0;
     for (const AliasSet &s : AST.getAliasSets()) {

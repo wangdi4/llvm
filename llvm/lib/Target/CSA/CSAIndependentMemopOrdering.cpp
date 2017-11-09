@@ -16,6 +16,7 @@
 #include "llvm/CodeGen/MachineLoopInfo.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/GraphWriter.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include <algorithm>
@@ -35,6 +36,14 @@ IgnoreAliasInfo(
   "csa-memop-ordering-ignore-aa",
   cl::Hidden,
   cl::desc("CSA-specific: ignore alias analysis results when constructing ordering chains and assume everything aliases."),
+  cl::init(false)
+);
+
+static cl::opt<bool>
+ViewMemopCFG(
+  "csa-view-memop-cfg",
+  cl::Hidden,
+  cl::desc("CSA-specific: view memop CFG"),
   cl::init(false)
 );
 
@@ -269,6 +278,15 @@ struct MemopCFG {
 
     // The original instruction.
     MachineInstr* MI = nullptr;
+
+    // Information about where to emit a fence-like sxu mov if MI is nullptr. If
+    // is_start is set, this sxu mov produces an ordering token and should be
+    // placed at the beginning of the basic block or after a call. Otherwise, it
+    // consumes a token and should be placed at the end of the basic block or
+    // before the call. call_mi indicates the call that this sxu mov should be
+    // placed relative to, or is nullptr if there isn't one.
+    bool is_start;
+    MachineInstr* call_mi = nullptr;
 
     // The token for the ready signal for this memory operation, or <none> if
     // the ordering chain for it hasn't been built yet.
@@ -760,9 +778,39 @@ raw_ostream& operator<<(
   return out << "}";
 }
 
+// Writes the body of node to out, starting each line with line_start and ending
+// each line with line_end. This is broken out into a separate function so that
+// it can be shared between operator<< and the DOTGraphTraits specialization.
+void print_body(
+  raw_ostream& out, const MemopCFG::Node& node,
+  const char* line_start, const char* line_end
+) {
+  using OrdToken = MemopCFG::OrdToken;
+  for (int phi_idx = 0; phi_idx != int(node.phis.size()); ++phi_idx) {
+    out << line_start << OrdToken{&node, OrdToken::phi, phi_idx} << " = "
+      << node.phis[phi_idx] << line_end;
+  }
+  auto cur_intr = node.section_intrinsics.begin();
+  for (int memop_idx = 0; memop_idx <= int(node.memops.size()); ++memop_idx) {
+    while (
+      cur_intr != node.section_intrinsics.end()
+        and cur_intr->memop_idx == memop_idx
+    ) out << line_start << *cur_intr++ << line_end;
+    for (int merge_idx = 0; merge_idx != int(node.merges.size()); ++merge_idx) {
+      if (node.merges[merge_idx].memop_idx == memop_idx) {
+        out << line_start << OrdToken{&node, OrdToken::merge, merge_idx}
+          << " = " << node.merges[merge_idx] << line_end;
+      }
+    }
+    if (memop_idx != int(node.memops.size())) {
+      out << line_start << OrdToken{&node, OrdToken::memop, memop_idx} << " = "
+        << node.memops[memop_idx] << line_end;
+    }
+  }
+}
+
 raw_ostream& operator<<(raw_ostream& out, const MemopCFG::Node& node) {
   using Node = MemopCFG::Node;
-  using OrdToken = MemopCFG::OrdToken;
   out << node.BB->getNumber();
   if (node.BB->getBasicBlock()) {
     out << " (" << node.BB->getBasicBlock()->getName() << ")";
@@ -770,27 +818,7 @@ raw_ostream& operator<<(raw_ostream& out, const MemopCFG::Node& node) {
   out << ":\npreds:";
   for (const Node*const pred : node.preds) out << " " << pred->BB->getNumber();
   out << "\n";
-  for (int phi_idx = 0; phi_idx != int(node.phis.size()); ++phi_idx) {
-    out << "  " << OrdToken{&node, OrdToken::phi, phi_idx} << " = "
-      << node.phis[phi_idx] << "\n";
-  }
-  auto cur_intr = node.section_intrinsics.begin();
-  for (int memop_idx = 0; memop_idx <= int(node.memops.size()); ++memop_idx) {
-    while (
-      cur_intr != node.section_intrinsics.end()
-        and cur_intr->memop_idx == memop_idx
-    ) out << "  " << *cur_intr++ << "\n";
-    for (int merge_idx = 0; merge_idx != int(node.merges.size()); ++merge_idx) {
-      if (node.merges[merge_idx].memop_idx == memop_idx) {
-        out << "  " << OrdToken{&node, OrdToken::merge, merge_idx} << " = "
-          << node.merges[merge_idx] << "\n";
-      }
-    }
-    if (memop_idx != int(node.memops.size())) {
-      out << "  " << OrdToken{&node, OrdToken::memop, memop_idx} << " = "
-        << node.memops[memop_idx] << "\n";
-    }
-  }
+  print_body(out, node, "  ", "\n");
   out << "succs:";
   for (const Node*const succ : node.succs) out << " " << succ->BB->getNumber();
   return out << "\n";
@@ -805,6 +833,134 @@ raw_ostream& operator<<(raw_ostream& out, const MemopCFG& cfg) {
   }
   return out;
 }
+
+// A simple iterator adaptor which basically forwards all of its operations to
+// its base type except that it calls base->get() to dereference instead of just
+// doing *base. This allows a range<unique_ptr<T>> to be exposed as a range<T*>.
+template <typename BaseIt>
+class GetAdaptorIterator {
+  BaseIt base;
+public:
+  GetAdaptorIterator(const BaseIt& base_in) : base{base_in} {}
+  decltype(base->get()) operator*() const { return base->get(); }
+  decltype(base->get()) operator->() const { return base->get(); }
+  GetAdaptorIterator& operator++() { ++base; return *this; }
+  friend bool operator==(
+    const GetAdaptorIterator& a, const GetAdaptorIterator& b
+  ) {
+    return a.base == b.base;
+  }
+  friend bool operator!=(
+    const GetAdaptorIterator& a, const GetAdaptorIterator& b
+  ) {
+    return a.base != b.base;
+  }
+};
+
+}
+
+namespace llvm {
+
+// A specialization of llvm::GraphTraits for MemopCFG so that LLVM knows how to
+// traverse a MemopCFG.
+template <> struct GraphTraits<const MemopCFG> {
+  using NodeRef = MemopCFG::Node*;
+  using ChildIteratorType = decltype(MemopCFG::Node::succs)::const_iterator;
+  static NodeRef getEntryNode(const MemopCFG& mopcfg) {
+    return mopcfg.nodes.empty() ? nullptr : mopcfg.nodes.front().get();
+  }
+  static ChildIteratorType child_begin(NodeRef N) { return N->succs.begin(); }
+  static ChildIteratorType child_end(NodeRef N) { return N->succs.end(); }
+
+  using nodes_iterator
+    = GetAdaptorIterator<decltype(MemopCFG::nodes)::const_iterator>;
+
+  static nodes_iterator nodes_begin(const MemopCFG& mopcfg) {
+    return mopcfg.nodes.begin();
+  }
+  static nodes_iterator nodes_end(const MemopCFG& mopcfg) {
+    return mopcfg.nodes.end();
+  }
+
+  static unsigned size(const MemopCFG& mopcfg) {
+    return mopcfg.nodes.size();
+  }
+};
+template <> struct GraphTraits<MemopCFG> : GraphTraits<const MemopCFG> {};
+
+// Another specialization for llvm::DOTGraphTraits to tell LLVM how to write a
+// MemopCFG as a dot graph.
+template <> struct DOTGraphTraits<const MemopCFG> : DefaultDOTGraphTraits {
+
+  using DefaultDOTGraphTraits::DefaultDOTGraphTraits;
+
+  // The title of the graph as a whole.
+  static std::string getGraphName(const MemopCFG& mopcfg) {
+    if (mopcfg.nodes.empty()) return "";
+    return "MemopCFG for '"
+      + mopcfg.nodes.front()->BB->getParent()->getName().str() + "' function";
+  }
+
+  // The label for each node with its number and corresponding IR name.
+  static std::string getNodeLabel(
+    const MemopCFG::Node* node, const MemopCFG& mopcfg
+  ) {
+    using namespace std;
+    return to_string(node->BB->getNumber())
+      + " (" + node->BB->getBasicBlock()->getName().str() + ")";
+  }
+
+  // The description for each node with the code inside of it.
+  static std::string getNodeDescription(
+    const MemopCFG::Node* node, const MemopCFG& mopcfg
+  ) {
+    using namespace std;
+    string conts;
+    raw_string_ostream sout {conts};
+    print_body(sout, *node, "", "\\l");
+    return sout.str();
+  }
+
+  // Output port labels with successor block numbers.
+  template <typename EdgeIter>
+  static std::string getEdgeSourceLabel(
+    const MemopCFG::Node* node, EdgeIter it
+  ) {
+    using namespace std;
+    return to_string((*it)->BB->getNumber());
+  }
+
+  // Input port labels with predecessor block numbers (in the correct order for
+  // reading phis)
+  static bool hasEdgeDestLabels() { return true; }
+  static unsigned numEdgeDestLabels(const MemopCFG::Node* node) {
+    return node->preds.size();
+  }
+  static std::string getEdgeDestLabel(
+    const MemopCFG::Node* node, unsigned pred_idx
+  ) {
+    using namespace std;
+    return to_string(node->preds[pred_idx]->BB->getNumber());
+  }
+
+  // This is a truly bizarre interface, but this does seem to be the correct way
+  // to specify which input ports to map each output port to on its successor
+  // node.
+  template <typename EdgeIter>
+  static bool edgeTargetsEdgeSource(const void*, EdgeIter) {
+    return true;
+  }
+  template <typename EdgeIter>
+  static EdgeIter getEdgeTarget(const MemopCFG::Node* node, EdgeIter it) {
+    using namespace std;
+    const auto found = find((*it)->preds, node);
+    assert(found != end((*it)->preds));
+    return next(begin((*it)->succs), distance(begin((*it)->preds), found));
+  }
+};
+template <> struct DOTGraphTraits<MemopCFG> : DOTGraphTraits<const MemopCFG> {
+  using DOTGraphTraits<const MemopCFG>::DOTGraphTraits;
+};
 
 }
 
@@ -859,12 +1015,9 @@ sections correctly.
 
   mopcfg.prune_chains();
 
-  if (DumpMemopCFG) {
-    errs() << mopcfg;
-  }
-  if (DumpOrderingChains) {
-    mopcfg.dump_ordering_chains(errs());
-  }
+  if (DumpMemopCFG) errs() << mopcfg;
+  if (DumpOrderingChains) mopcfg.dump_ordering_chains(errs());
+  if (ViewMemopCFG) ViewGraph(mopcfg, MF.getName());
 
   mopcfg.emit_chains();
 
@@ -1244,13 +1397,16 @@ MemopCFG::Node::Node(
 
   // If there are no predecessors, add in a fence-like memop for the initial
   // mov0.
-  if (BB->pred_empty()) memops.emplace_back();
+  if (BB->pred_empty()) {
+    memops.emplace_back();
+    memops.back().is_start = true;
+  }
 
   // Go through all of the instructions and find the ones that need ordering.
   // Also take care of locating and adding parallel section intrinsics here.
   for (MachineInstr& MI : BB->instrs()) {
     if (Memop::should_assign_ordering(MI)) memops.emplace_back(&MI);
-    if (
+    else if (
       use_parallel_sections
         and (MI.getOpcode() == CSA::CSA_PARALLEL_SECTION_ENTRY
           or MI.getOpcode() == CSA::CSA_PARALLEL_SECTION_EXIT)
@@ -1261,10 +1417,21 @@ MemopCFG::Node::Node(
         MI.getOpcode() == CSA::CSA_PARALLEL_SECTION_ENTRY
       });
     }
+    else if (MI.getOpcode() == CSA::JSR or MI.getOpcode() == CSA::JSRi) {
+      memops.emplace_back();
+      memops.back().call_mi = &MI;
+      memops.back().is_start = false;
+      memops.emplace_back();
+      memops.back().call_mi = &MI;
+      memops.back().is_start = true;
+    }
   }
 
   // If there are no successors, add in a fence-like memop for the final mov0.
-  if (BB->succ_empty()) memops.emplace_back();
+  if (BB->succ_empty()) {
+    memops.emplace_back();
+    memops.back().is_start = false;
+  }
 }
 
 bool MemopCFG::Node::dominated_by(const Node* possi_dom) const {
@@ -1990,20 +2157,30 @@ void MemopCFG::Node::emit_memops() {
     // Otherwise, a new sxu mov0 should be emitted.
     else {
 
-      // If there's a ready signal, it goes at the end of the block.
-      if (memop.ready) {
+      // If is_start is set, it goes at the beginning of the block or after the
+      // call. RA is used as an input to make sure that it doesn't get hoisted.
+      if (memop.is_start) {
+        const MachineBasicBlock::iterator where = memop.call_mi
+          ? (
+            memop.call_mi->getNextNode()
+              ? memop.call_mi->getNextNode()
+              : BB->getFirstTerminator()
+          )
+          : BB->getFirstNonPHI();
         BuildMI(
-          *BB, BB->getFirstTerminator(), DebugLoc{}, TII->get(mov_opcode),
-          memop.reg_no
-        ).addUse(memop.ready.reg_no());
+          *BB, where, DebugLoc{}, TII->get(mov_opcode), memop.reg_no
+        ).addUse(CSA::RA);
       }
 
-      // Otherwise, it goes at the beginning.
+      // Otherwise, it goes at the end or before the call.
       else {
+        const MachineBasicBlock::iterator where = memop.call_mi
+          ? memop.call_mi
+          : BB->getFirstTerminator();
         BuildMI(
-          *BB, BB->getFirstNonPHI(), DebugLoc{}, TII->get(mov_opcode),
+          *BB, where, DebugLoc{}, TII->get(mov_opcode),
           memop.reg_no
-        ).addImm(0);
+        ).addUse(memop.ready.reg_no());
       }
     }
   }
@@ -2112,9 +2289,9 @@ bool MemopCFG::construct_chains() {
   // out their intra-node dependencies.
   for (const unique_ptr<Node>& node : nodes) {
     for (int memop_idx = 0; memop_idx != int(node->memops.size()); ++memop_idx) {
-      if (memop_idx == 0 and node->preds.empty()) continue;
       Memop& memop = node->memops[memop_idx];
       OrdToken memop_val {node.get(), OrdToken::memop, memop_idx};
+      if (not memop.MI and memop.is_start) continue;
 
       // Prepare the section states.
       memop.in_node_states.states.resize(region_count);
@@ -2148,9 +2325,9 @@ bool MemopCFG::construct_chains() {
   queue<LoopQueueEntry> loop_queue;
   for (const unique_ptr<Node>& node : nodes) {
     for (int memop_idx = 0; memop_idx != int(node->memops.size()); ++memop_idx) {
-      if (memop_idx == 0 and node->preds.empty()) continue;
       Memop& memop = node->memops[memop_idx];
       OrdToken memop_val {node.get(), OrdToken::memop, memop_idx};
+      if (not memop.MI and memop.is_start) continue;
       if (memop.ready) continue;
 
       // Collect the back edges first to make sure that the loop nesting is in
@@ -2318,7 +2495,7 @@ void MemopCFG::emit_chains() {
 
       // Terminating mov0 memops need registers with a special class in order
       // to make sure they're on the SXU.
-      if (not memop.MI and memop.ready) {
+      if (not memop.MI and not memop.is_start) {
           memop.reg_no = MRI->createVirtualRegister(&CSA::RI1RegClass);
       } else memop.reg_no = MRI->createVirtualRegister(MemopRC);
     }

@@ -496,6 +496,7 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   }
   if (!DisableUnrollLoops)
     MPM.add(createSimpleLoopUnrollPass(OptLevel));    // Unroll small loops
+  MPM.add(createLoopSPMDizationPass());
   addExtensionsToPM(EP_LoopOptimizerEnd, MPM);
 
   if (OptLevel > 1) {
@@ -818,9 +819,8 @@ void PassManagerBuilder::populateModulePassManager(
   addInstructionCombiningPass(MPM);
 
 #if INTEL_CUSTOMIZATION
-  // Disable unroll in LTO mode if loopopt is enabled so it only gets triggered
-  // in link phase after loopopt.
-  if (!DisableUnrollLoops && (!PrepareForLTO || !isLoopOptEnabled())) { 
+  MPM.add(createLoopSPMDizationPass());
+  if (!DisableUnrollLoops) {
 #endif // INTEL_CUSTOMIZATION
     MPM.add(createLoopUnrollPass(OptLevel));    // Unroll small loops
 

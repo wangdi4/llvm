@@ -611,7 +611,7 @@ void ControlDependenceGraph::writeDotGraph(StringRef fname) {
 #endif
 }
 
-void CSASSAGraph::BuildCSASSAGraph(MachineFunction &F) {
+void CSASSAGraph::BuildCSASSAGraph(MachineFunction &F, MachineLoopInfo *MLI) {
   MachineRegisterInfo* MRI = &F.getRegInfo();
   for (MachineFunction::iterator BB = F.begin(), E = F.end(); BB != E; ++BB) {
     for (MachineBasicBlock::iterator I = BB->begin(); I != BB->end(); ++I) {
@@ -644,8 +644,14 @@ void CSASSAGraph::BuildCSASSAGraph(MachineFunction &F) {
     }
   }
   root = new CSASSANode(nullptr);
+
   for (DenseMap<MachineInstr*, CSASSANode*>::iterator i2n = instr2ssan.begin(), i2nEnd = instr2ssan.end(); i2n != i2nEnd; ++i2n) {
-    root->children.push_back(i2n->second);
+    MachineInstr* childInstr = i2n->first;
+    MachineBasicBlock* childBB = childInstr->getParent();
+    if (MachineLoop* mloop = MLI->getLoopFor(childBB)) {
+      if (mloop->getHeader() == childBB && childInstr->isPHI())
+      root->children.push_back(i2n->second);
+    }
   }
 }
 
