@@ -36,6 +36,9 @@ class CSAAsmParser : public MCTargetAsmParser {
 
   std::unique_ptr<CSAOperand> defaultOptionalRegOperands();
   std::unique_ptr<CSAOperand> defaultMemLvlOperands();
+  std::unique_ptr<CSAOperand> defaultRModeOperands();
+  std::unique_ptr<CSAOperand> defaultSignctlOperands();
+  std::unique_ptr<CSAOperand> defaultIntervalOperands();
 
   bool parsePrePost(StringRef Type, int *OffsetValue);
 
@@ -165,6 +168,8 @@ public:
 
   bool isMemLvl() const { return isImm(); }
 
+  bool isRMode() const { return isImm(); }
+
   bool isInterval() const { return isImm(); }
 
   bool isSignctl() const { return isImm(); }
@@ -251,6 +256,11 @@ public:
   }
 
   void addMemLvlOperands(MCInst& Inst, unsigned N) const {
+    assert(N == 1 && "Invalid number of operands!");
+    addExpr(Inst, getImm());
+  }
+
+  void addRModeOperands(MCInst& Inst, unsigned N) const {
     assert(N == 1 && "Invalid number of operands!");
     addExpr(Inst, getImm());
   }
@@ -439,6 +449,30 @@ std::unique_ptr<CSAOperand> CSAAsmParser::defaultMemLvlOperands() {
   SMLoc loc = Parser.getTok().getLoc();
   return CSAOperand::createImm(
     MCConstantExpr::create(CSA::MEMLEVEL_T0, getContext()),
+    loc, loc
+  );
+}
+
+std::unique_ptr<CSAOperand> CSAAsmParser::defaultRModeOperands() {
+  SMLoc loc = Parser.getTok().getLoc();
+  return CSAOperand::createImm(
+    MCConstantExpr::create(CSA::ROUND_NEAREST, getContext()),
+    loc, loc
+  );
+}
+
+std::unique_ptr<CSAOperand> CSAAsmParser::defaultSignctlOperands() {
+  SMLoc loc = Parser.getTok().getLoc();
+  return CSAOperand::createImm(
+    MCConstantExpr::create(CSA::SIGNCTL_PROP, getContext()),
+    loc, loc
+  );
+}
+
+std::unique_ptr<CSAOperand> CSAAsmParser::defaultIntervalOperands() {
+  SMLoc loc = Parser.getTok().getLoc();
+  return CSAOperand::createImm(
+    MCConstantExpr::create(CSA::INTERVAL0, getContext()),
     loc, loc
   );
 }

@@ -87,11 +87,15 @@ class RegImmOperand<ValueType vt> : Operand<vt>, ComplexPattern<vt,1,"SelectRegI
 // printed and parsed as their symbolic names. The default numerically matches
 // the simulator's default value in csa.h. (This is CSA::ROUND_NEAREST.)
 // Note that RMODE operands are optional in the sense that the compiler doesn't
-// need to add them to MachineInstrs. However, the parser needs them to be
-// explicitly provided.
+// need to add them to MachineInstrs.
+def RmodeAsmOperand : AsmOperandClass {
+  let Name = "RMode";
+  let IsOptional = 1;
+}
 def RMODE : OperandWithDefaultOps <i64, (ops (i64 0))>
 {
   let PrintMethod = "printRModeOperand";
+  let ParserMatchClass = RmodeAsmOperand;
 }
 
 // Memory level operands. For simplicity these use numeric values that match
@@ -1623,6 +1627,7 @@ defm PREFETCHW : PrefetchOp<"prefetchw", 1>;
 foreach Kind = [ "Interval", "Signctl" ] in {
   def Kind ## AsmOperand : AsmOperandClass {
     let Name = Kind;
+    let IsOptional = 1;
   }
   def Kind ## Operand : OperandWithDefaultOps<i64, (ops (i64 0))> {
     let ParserMatchClass = !cast<AsmOperandClass>(Kind ## AsmOperand);
