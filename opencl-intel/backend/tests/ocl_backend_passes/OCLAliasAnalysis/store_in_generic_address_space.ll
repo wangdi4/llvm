@@ -53,7 +53,7 @@ scalar_kernel_entry:                              ; preds = %helperFunction.exit
   br i1 %switch.i.i, label %if.end.i, label %helperFunction.exit
 
 if.end.i:                                         ; preds = %scalar_kernel_entry
-  %7 = load float, float addrspace(1)* @testKernel.val, align 4
+  %7 = load volatile float, float addrspace(1)* @testKernel.val, align 4
   %8 = load float, float addrspace(4)* %5, align 4
   %not.cmp.i = fcmp oeq float %8, %7
   br label %helperFunction.exit
