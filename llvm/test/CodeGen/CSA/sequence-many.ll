@@ -25,7 +25,7 @@ loop:
   %indvar.next = add nuw i64 %indvar, 1
   %exitcond = icmp eq i64 %indvar.next, %N
   br i1 %exitcond, label %exit, label %loop
-; CHECK-DAG: mov0 %[[INORD:[a-z0-9_]+]], 0
+; CHECK-DAG: mov0 %[[INORD:[a-z0-9_]+]], %ra
 ; CHECK-DAG: mov64 %[[ADDRA:[a-z0-9_]+]], %r2
 ; CHECK-DAG: mov64 %[[ADDRB:[a-z0-9_]+]], %r3
 ; CHECK-DAG: mov64 %[[ADDRC:[a-z0-9_]+]], %r4

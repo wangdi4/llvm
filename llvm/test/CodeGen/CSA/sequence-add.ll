@@ -18,7 +18,7 @@ loop:
   %indvar.next = add nuw i64 %indvar, 1
   %exitcond = icmp eq i64 %indvar.next, %N
   br i1 %exitcond, label %exit, label %loop
-; CHECK: mov0 %[[INORD:[a-z0-9_]+]], 0
+; CHECK: mov0 %[[INORD:[a-z0-9_]+]], %ra
 ; CHECK: mov64 %[[LEN:[a-z0-9_]+]], %r3
 ; CHECK: mov64 %[[ADDR:[a-z0-9_]+]], %r2
 ; CHECK: sld8 %[[VAL:[a-z0-9_]+]], %[[ADDR]], %[[LEN]], 1, %[[OUTORD:[a-z0-9_]+]], %[[INORD]], MEMLEVEL_T0
