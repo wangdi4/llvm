@@ -27,6 +27,7 @@
 #include <tuple>
 
 using namespace llvm;
+using namespace llvm::vpo;
 
 #if INTEL_OPENCL
 static cl::opt<bool> UseSimdChannels(
@@ -824,7 +825,7 @@ void VPOCodeGen::createEmptyLoop() {
     LoopMiddleBlock->splitBasicBlock(LoopMiddleBlock->getTerminator(),
                                      "scalar.ph");
 
-  Loop *Lp = new Loop();
+  Loop *Lp = LI->AllocateLoop();
 
   // Initialize NewLoop member
   NewLoop = Lp;

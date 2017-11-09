@@ -1,3 +1,8 @@
+|
+.. raw:: html
+
+	 <p><b><center><font color="red" size=6">INTEL CONFIDENTIAL</font></center></b></p>
+|
 ======================
 Open Source Guidelines
 ======================
@@ -64,7 +69,7 @@ that we seek and maintain a significant lead in SPEC2017 on Intel Architectures
 against AMD, as stated in the table above.
 
 It is also important to improve CPU2017 performance in LLVM Open Source to
-achieve goal (E) above, that is, to encourage CSPs to switch from GCC to LLVM.
+achieve goal (F) above, that is, to encourage CSPs to switch from GCC to LLVM.
 
 These two goals can sometimes work against each other. For more guidance,
 please see :doc:`CPU2017 Performance Guidelines <SPECOpenSourceGuidelines>`
@@ -225,8 +230,22 @@ Open Source Guide
 |                      |              |           | raising all boats, based on|
 |                      |              |           | principle #7.              |
 +----------------------+--------------+-----------+----------------------------+
-| OpenMP, CilkPlus BE  | No           | 6/9/2015  | BE outlining proprietary   |
-|                      |              |           | based on principle #1.     |
+| OpenMP BE            | Yes          | 9/20/2017 | Supports Intel Parallel    |
+| (generate threaded   |              |           | initiatives, helps         |
+| functionality        |              |           | everyone equally, doesn't  |
+| and offloading code) |              |           | hurt core differentiation  |
+|                      |              |           | without advanced           |
+|                      |              |           | optimization technique,    |
+|                      |              |           | saves resources on         |
+|                      |              |           | maintenance, builds        |
+|                      |              |           | community goodwill if open |
+|                      |              |           | sourced, based on          |
+|                      |              |           | principle #7.              |
++----------------------+--------------+-----------+----------------------------+
+| OpenMP BE performance| No           | 9/20/2017 | BE threaded code           |
+| for IA               |              |           | optimizations for IA       |
+|                      |              |           | proprietary based on       |
+|                      |              |           | principle #1.              |
 +----------------------+--------------+-----------+----------------------------+
 | GEN Code Generation  | Yes          | 6/9/2015  | Already open source by VPG,|
 |                      |              |           | based on principle #4.     |

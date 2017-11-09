@@ -22,7 +22,9 @@
 
 #define DEBUG_TYPE "LoopVectorizationPlanner"
 
+
 using namespace llvm;
+using namespace llvm::vpo;
 
 unsigned LoopVectorizationPlannerBase::buildInitialVPlans(unsigned MinVF,
                                                           unsigned MaxVF) {

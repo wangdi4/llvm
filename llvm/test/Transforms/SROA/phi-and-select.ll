@@ -600,3 +600,36 @@ if.then5:                                         ; preds = %if.then2, %if.end
   store %struct.S undef, %struct.S* %f1, align 4
   ret void
 }
+
+; verifies whether if the load (after PHI) following a GEP gets promoted by SROA.
+define i32 @intel_testGEP() {
+; CHECK-LABEL: @intel_testGEP(
+entry:
+	%a = alloca [2 x i32]
+        %b = alloca [2 x i32]
+
+        %a1 = getelementptr [2 x i32], [2 x i32]* %a, i64 0, i32 0
+	store i32 0, i32* %a1
+
+	%b1 = getelementptr [2 x i32], [2 x i32]* %b, i64 0, i32 0
+	store i32 5, i32* %b1
+
+	%v0 = load i32, i32* %a1
+	%v1 = load i32, i32* %b1
+	%cond = icmp sle i32 %v0, %v1
+	br i1 %cond, label %then, label %exit
+
+then:
+        %a2 = getelementptr [2 x i32], [2 x i32]* %a, i64 0, i32 0
+	store i32 6, i32* %a2
+	br label %exit
+
+exit:
+	%phi = phi [2 x i32]* [ %a, %then ], [ %b, %entry ]
+        %loadptr = getelementptr [2 x i32], [2 x i32]* %phi, i64 0, i32 0
+
+	%result = load i32, i32* %loadptr
+; CHECK-NOT: load
+	ret i32 %result
+}
+

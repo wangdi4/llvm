@@ -57,6 +57,16 @@ public:
   InlineCost getInlineCost(CallSite CS) override {
     Function *Callee = CS.getCalledFunction();
     TargetTransformInfo &TTI = TTIWP->getTTI(*Callee);
+
+    bool RemarksEnabled = false;
+    const auto &BBs = CS.getCaller()->getBasicBlockList();
+    if (!BBs.empty()) {
+      auto DI = OptimizationRemark(DEBUG_TYPE, "", DebugLoc(), &BBs.front());
+      if (DI.isEnabled())
+        RemarksEnabled = true;
+    }
+    OptimizationRemarkEmitter ORE(CS.getCaller());
+
     std::function<AssumptionCache &(Function &)> GetAssumptionCache =
         [&](Function &F) -> AssumptionCache & {
       return ACT->getAssumptionCache(F);
@@ -67,8 +77,9 @@ public:
     InlineAggressiveInfo *AggI = Agg ? &Agg->getResult() : nullptr;
 #endif // INTEL_CUSTOMIZATION
 
-    return llvm::getInlineCost(CS, Params, TTI, GetAssumptionCache, 
-                               /*GetBFI=*/None, ILIC, AggI, PSI); // INTEL 
+    return llvm::getInlineCost(CS, Params, TTI, GetAssumptionCache,
+                               /*GetBFI=*/None, ILIC, AggI,           // INTEL
+                               PSI, RemarksEnabled ? &ORE : nullptr); // INTEL
   }
 
   bool runOnSCC(CallGraphSCC &SCC) override;

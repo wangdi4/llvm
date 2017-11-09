@@ -28,7 +28,8 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
 
-namespace llvm { // LLVM Namespace
+namespace llvm {
+namespace vpo {
 
 class VPOVectorizationLegality {
 public:
@@ -719,6 +720,7 @@ private:
   DenseMap<AllocaInst *, Value *> ReductionVecInitVal;
 };
 
-} // End LLVM Namespace
+} // end vpo namespace
+} // end llvm namespace
 
 #endif // LLVM_TRANSFORMS_VECTORIZE_VPLAN_LOOPVECTORIZERCODEGEN_H

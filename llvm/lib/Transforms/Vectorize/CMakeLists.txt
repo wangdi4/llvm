@@ -4,6 +4,7 @@ add_llvm_library(LLVMVectorize
   SLPVectorizer.cpp
   Vectorize.cpp
   VPlan.cpp
+  Intel_VPlan.cpp
 # INTEL_CUSTOMIZATION
   VPlan/Intel_LoopCFU.cpp
   VPlan/IntelVPlan.cpp

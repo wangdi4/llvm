@@ -1,7 +1,7 @@
 #ifndef VPLAN_VPDOMINATORTREE_H
 #define VPLAN_VPDOMINATORTREE_H
 
-#include "../VPlan.h"
+#include "../Intel_VPlan.h"
 #include "llvm/ADT/GraphTraits.h"
 #include "llvm/IR/Dominators.h"
 

@@ -6,9 +6,8 @@
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 
-using namespace llvm::vpo;
-
 namespace llvm {
+namespace vpo {
 
 class VPLoopCFU { 
   
@@ -56,6 +55,7 @@ public:
     Value *Cond);
 };
 
+} // end vpo namespace
 } // end llvm namespace
 
 #endif // LLVM_TRANSFORMS_VECTORIZE_VPLAN_INTEL_LOOPCFU_H 

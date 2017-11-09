@@ -1,7 +1,7 @@
 #ifndef VPLAN_PREDICATOR_H
 #define VPLAN_PREDICATOR_H
 
-#include "../VPlan.h"
+#include "../Intel_VPlan.h"
 #include "IntelVPlan.h"
 #include "llvm/IR/Dominators.h"
 
@@ -52,6 +52,6 @@ public:
   /// The driver function for the predicator
   void predicate(void);
 };
-} // namespace vpo
-} // namespace llvm
+} // end namespace vpo
+} // end namespace llvm
 #endif

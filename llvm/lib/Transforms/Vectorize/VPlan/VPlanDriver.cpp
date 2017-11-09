@@ -33,8 +33,7 @@
 #define DEBUG_TYPE "VPlanDriver"
 
 using namespace llvm;
-using namespace llvm::vpo; //Needed for WRegionInfo
-
+using namespace llvm::vpo;
 
 //static cl::opt<bool>
 //    DisableVPODirectiveCleanup("disable-vpo-directive-cleanup", cl::init(false),
@@ -73,8 +72,6 @@ static cl::opt<unsigned> VPlanVectCand(
 
 STATISTIC(CandLoopsVectorized, "Number of candidate loops vectorized");
 
-
-namespace {
 // TODO: Not sure where to place this functions. There are utils but they are
 // BB-based not VPBB-based
 /// Check whether the edge (\p SrcBB, \p DestBB) is a backedge according to LI.
@@ -229,8 +226,6 @@ public:
 //  AvrDefUseHIR *DefUse;
 //  VPOScenarioEvaluationHIR *ScenariosEngine;
 //};
-
-} // anonymous namespace
 
 //INITIALIZE_PASS_BEGIN(VPODirectiveCleanup, "VPODirectiveCleanup",
 //                      "VPO Directive Cleanup", false, false)
@@ -445,10 +440,8 @@ void VPlanDriver::getAnalysisUsage(AnalysisUsage &AU) const {
 }
 
 bool VPlanDriver::runOnFunction(Function &F) {
-#if INTEL_CUSTOMIZATION
   if (skipFunction(F))
     return false;
-#endif
 
   bool ret_val = false;
 

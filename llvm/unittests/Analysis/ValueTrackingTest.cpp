@@ -64,6 +64,37 @@ protected:
   Instruction *A, *B;
 };
 
+#if INTEL_CUSTOMIZATION
+// Correct way of inheritance here is to create base class with only
+// parseAssembly method and 3 children: MatchSelectPatternTest,
+// MatchSaturationDownconvertTest and MatchSaturationAddSubTest. But this
+// approach will cause conflicts during pulldown. So inherit new classes from
+// MatchSelectPattern.
+class MatchSaturationDownconvertTest : public MatchSelectPatternTest {
+protected:
+  void expectPattern(bool P) {
+    const APInt *C1, *C2;
+    bool Signed;
+    Value *X;
+    Type *SrcTy, *DestTy;
+    bool R = matchSaturationDownconvert(A, X, C1, C2, SrcTy, DestTy, Signed);
+    EXPECT_EQ(P, R);
+  }
+};
+
+class MatchSaturationAddSubTest : public MatchSelectPatternTest {
+protected:
+  void expectPattern(bool P) {
+    const APInt *C1, *C2;
+    bool Signed;
+    unsigned InstCode;
+    Value *X1, *X2;
+    Type *SrcTy, *DestTy;
+    bool R = matchSaturationAddSub(A, X1, X2, C1, C2, SrcTy, DestTy, Signed, InstCode);
+    EXPECT_EQ(P, R);
+  }
+};
+#endif // INTEL_CUSTOMIZATION
 }
 
 TEST_F(MatchSelectPatternTest, SimpleFMin) {
@@ -188,6 +219,254 @@ TEST_F(MatchSelectPatternTest, DoubleCastBad) {
   // The cast types here aren't the same, so we cannot match an UMIN.
   expectPattern({SPF_UNKNOWN, SPNB_NA, false});
 }
+
+#if INTEL_CUSTOMIZATION
+TEST_F(MatchSaturationAddSubTest, SignedSatAddi8) {
+  parseAssembly(
+      "define signext i8 @test(i8 signext %a, i8 signext %b) {\n"
+      "  %conv = sext i8 %a to i32\n"
+      "  %conv1 = sext i8 %b to i32\n"
+      "  %add = add nsw i32 %conv1, %conv\n"
+      "  %tmp = icmp slt i32 %add, 127\n"
+      "  %.phitmp3132 = select i1 %tmp, i32 %add, i32 127\n"
+      "  %tmp1 = icmp sgt i32 %.phitmp3132, -128\n"
+      "  %retval33 = select i1 %tmp1, i32 %.phitmp3132, i32 -128\n"
+      "  %A = trunc i32 %retval33 to i8\n"
+      "  ret i8 %A\n"
+      "}\n");
+  expectPattern(true);
+}
+
+TEST_F(MatchSaturationAddSubTest, SignedSatAddi16) {
+  parseAssembly(
+      "define signext i16 @test(i16 signext %a, i16 signext %b) {\n"
+      "  %conv = sext i16 %a to i32\n"
+      "  %conv1 = sext i16 %b to i32\n"
+      "  %add = add nsw i32 %conv1, %conv\n"
+      "  %tmp = icmp slt i32 %add, 32767\n"
+      "  %.phitmp3132 = select i1 %tmp, i32 %add, i32 32767\n"
+      "  %tmp1 = icmp sgt i32 %.phitmp3132, -32768\n"
+      "  %retval33 = select i1 %tmp1, i32 %.phitmp3132, i32 -32768\n"
+      "  %A = trunc i32 %retval33 to i16\n"
+      "  ret i16 %A\n"
+      "}\n");
+  expectPattern(true);
+}
+
+TEST_F(MatchSaturationAddSubTest, SignedSatSubi8) {
+  parseAssembly(
+      "define signext i8 @test(i8 signext %a, i8 signext %b) {\n"
+      "  %conv = sext i8 %a to i32\n"
+      "  %conv1 = sext i8 %b to i32\n"
+      "  %sub = sub nsw i32 %conv, %conv1\n"
+      "  %tmp = icmp slt i32 %sub, 127\n"
+      "  %.phitmp3132 = select i1 %tmp, i32 %sub, i32 127\n"
+      "  %tmp1 = icmp sgt i32 %.phitmp3132, -128\n"
+      "  %retval33 = select i1 %tmp1, i32 %.phitmp3132, i32 -128\n"
+      "  %A = trunc i32 %retval33 to i8\n"
+      "  ret i8 %A\n"
+      "}\n");
+  expectPattern(true);
+}
+
+TEST_F(MatchSaturationAddSubTest, SignedSatSubi16) {
+  parseAssembly(
+      "define signext i16 @test(i16 signext %a, i16 signext %b) {\n"
+      "  %conv = sext i16 %a to i32\n"
+      "  %conv1 = sext i16 %b to i32\n"
+      "  %sub = sub nsw i32 %conv, %conv1\n"
+      "  %tmp = icmp slt i32 %sub, 32767\n"
+      "  %.phitmp3132 = select i1 %tmp, i32 %sub, i32 32767\n"
+      "  %tmp1 = icmp sgt i32 %.phitmp3132, -32768\n"
+      "  %retval33 = select i1 %tmp1, i32 %.phitmp3132, i32 -32768\n"
+      "  %A = trunc i32 %retval33 to i16\n"
+      "  ret i16 %A\n"
+      "}\n");
+  expectPattern(true);
+}
+
+TEST_F(MatchSaturationAddSubTest, ShortPatternUnsignedSatAddi8) {
+  parseAssembly(
+      "define zeroext i8 @test(i8 zeroext %a, i8 zeroext %b) {\n"
+      "entry:\n"
+      "  %conv = zext i8 %a to i32\n"
+      "  %conv1 = zext i8 %b to i32\n"
+      "  %add = add nuw nsw i32 %conv1, %conv\n"
+      "  %tmp = icmp ult i32 %add, 255\n"
+      "  %cond2331 = select i1 %tmp, i32 %add, i32 255\n"
+      "  %A = trunc i32 %cond2331 to i8\n"
+      "  ret i8 %A\n"
+      "}\n");
+  expectPattern(true);
+}
+
+TEST_F(MatchSaturationAddSubTest, ShortPatternUnsignedSatAddi16) {
+  parseAssembly(
+      "define zeroext i16 @test(i16 zeroext %a, i16 zeroext %b) {\n"
+      "entry:\n"
+      "  %conv = zext i16 %a to i32\n"
+      "  %conv1 = zext i16 %b to i32\n"
+      "  %add = add nuw nsw i32 %conv1, %conv\n"
+      "  %tmp = icmp ult i32 %add, 65535\n"
+      "  %cond2331 = select i1 %tmp, i32 %add, i32 65535\n"
+      "  %A = trunc i32 %cond2331 to i16\n"
+      "  ret i16 %A\n"
+      "}\n");
+  expectPattern(true);
+}
+
+TEST_F(MatchSaturationAddSubTest, ShortPatternUnsignedSatSubi8) {
+  parseAssembly(
+      "define zeroext i8 @test(i8 zeroext %a, i8 zeroext %b) {\n"
+      "entry:\n"
+      "  %conv = zext i8 %a to i32\n"
+      "  %conv1 = zext i8 %b to i32\n"
+      "  %sub = sub nsw i32 %conv1, %conv\n"
+      "  %tmp = icmp sgt i32 %sub, 0\n"
+      "  %cond2331 = select i1 %tmp, i32 %sub, i32 0\n"
+      "  %A = trunc i32 %cond2331 to i8\n"
+      "  ret i8 %A\n"
+      "}\n");
+  expectPattern(true);
+}
+
+TEST_F(MatchSaturationAddSubTest, ShortPatternUnsignedSatSubi16) {
+  parseAssembly(
+      "define zeroext i16 @test(i16 zeroext %a, i16 zeroext %b) {\n"
+      "entry:\n"
+      "  %conv = zext i16 %a to i32\n"
+      "  %conv1 = zext i16 %b to i32\n"
+      "  %sub = sub nsw i32 %conv1, %conv\n"
+      "  %tmp = icmp sgt i32 %sub, 0\n"
+      "  %cond2331 = select i1 %tmp, i32 %sub, i32 0\n"
+      "  %A = trunc i32 %cond2331 to i16\n"
+      "  ret i16 %A\n"
+      "}\n");
+  expectPattern(true);
+}
+
+TEST_F(MatchSaturationAddSubTest, UnsignedSatSubi8) {
+  parseAssembly(
+      "define zeroext i8 @test(i8 zeroext %a, i8 zeroext %b) {\n"
+      "entry:\n"
+      "  %conv = zext i8 %a to i32\n"
+      "  %conv1 = zext i8 %b to i32\n"
+      "  %sub = sub nsw i32 %conv, %conv1\n"
+      "  %tmp = icmp slt i32 %sub, 255\n"
+      "  %.phitmp3132 = select i1 %tmp, i32 %sub, i32 255\n"
+      "  %tmp1 = icmp sgt i32 %.phitmp3132, 0\n"
+      "  %retval33 = select i1 %tmp1, i32 %.phitmp3132, i32 0\n"
+      "  %A = trunc i32 %retval33 to i8\n"
+      "  ret i8 %A\n"
+      "}\n");
+  expectPattern(true);
+}
+
+TEST_F(MatchSaturationAddSubTest, UnsignedSatSubi16) {
+  parseAssembly(
+      "define zeroext i16 @test(i16 zeroext %a, i16 zeroext %b) {\n"
+      "entry:\n"
+      "  %conv = zext i16 %a to i32\n"
+      "  %conv1 = zext i16 %b to i32\n"
+      "  %sub = sub nsw i32 %conv, %conv1\n"
+      "  %tmp = icmp slt i32 %sub, 65535\n"
+      "  %.phitmp3132 = select i1 %tmp, i32 %sub, i32 65535\n"
+      "  %tmp1 = icmp sgt i32 %.phitmp3132, 0\n"
+      "  %retval33 = select i1 %tmp1, i32 %.phitmp3132, i32 0\n"
+      "  %A = trunc i32 %retval33 to i16\n"
+      "  ret i16 %A\n"
+      "}\n");
+  expectPattern(true);
+}
+
+TEST_F(MatchSaturationDownconvertTest, SignedSatDcnvi8) {
+  parseAssembly(
+      "define signext i8 @test(i16 signext %a) {\n"
+      "  %conv = sext i16 %a to i32\n"
+      "  %tmp = icmp slt i32 %conv, 127\n"
+      "  %cond = select i1 %tmp, i32 %conv, i32 127\n"
+      "  %tmp1 = icmp sgt i32 %cond, -128\n"
+      "  %.phitmp21 = select i1 %tmp1, i32 %cond, i32 -128\n"
+      "  %A = trunc i32 %.phitmp21 to i8\n"
+      "  ret i8 %A\n"
+      "}\n");
+  expectPattern(true);
+}
+
+TEST_F(MatchSaturationDownconvertTest, SignedSatDcnvi16) {
+  parseAssembly(
+      "define signext i16 @test(i32 %a) {\n"
+      "  %tmp = icmp slt i32 %a, 32767\n"
+      "  %cond = select i1 %tmp, i32 %a, i32 32767\n"
+      "  %tmp1 = icmp sgt i32 %cond, -32768\n"
+      "  %.phitmp14 = select i1 %tmp1, i32 %cond, i32 -32768\n"
+      "  %A = trunc i32 %.phitmp14 to i16\n"
+      "  ret i16 %A\n"
+      "}\n");
+  expectPattern(true);
+}
+
+TEST_F(MatchSaturationDownconvertTest, UnsignedSatDcnvi8) {
+  parseAssembly(
+      "define zeroext i8 @test(i16 signext %a) {\n"
+      "entry:\n"
+      "  %conv = sext i16 %a to i32\n"
+      "  %tmp = icmp slt i32 %conv, 255\n"
+      "  %cond = select i1 %tmp, i32 %conv, i32 255\n"
+      "  %tmp1 = icmp sgt i32 %cond, 0\n"
+      "  %.phitmp21 = select i1 %tmp1, i32 %cond, i32 0\n"
+      "  %A = trunc i32 %.phitmp21 to i8\n"
+      "  ret i8 %A\n"
+      "}\n");
+  expectPattern(true);
+}
+
+TEST_F(MatchSaturationDownconvertTest, UnsignedSatDcnvi16) {
+  parseAssembly(
+      "define zeroext i16 @test(i32 %a) {\n"
+      "entry:\n"
+      "  %tmp = icmp slt i32 %a, 65535\n"
+      "  %cond = select i1 %tmp, i32 %a, i32 65535\n"
+      "  %tmp1 = icmp sgt i32 %cond, 0\n"
+      "  %.phitmp14 = select i1 %tmp1, i32 %cond, i32 0\n"
+      "  %A = trunc i32 %.phitmp14 to i16\n"
+      "  ret i16 %A\n"
+      "}\n");
+  expectPattern(true);
+}
+
+TEST_F(MatchSaturationAddSubTest, SignedSatAddv2i8) {
+  parseAssembly(
+    "define signext <2 x i8> @test(<2 x i8> signext %a, <2 x i8> signext %b) {\n"
+      "  %tmp6 = sext <2 x i8> %a to <2 x i32>\n"
+      "  %tmp9 = sext <2 x i8> %b to <2 x i32>\n"
+      "  %tmp10 = add nsw <2 x i32> %tmp9, %tmp6\n"
+      "  %tmp11 = icmp slt <2 x i32> %tmp10, <i32 127, i32 127>\n"
+      "  %tmp12 = select <2 x i1> %tmp11, <2 x i32> %tmp10, <2 x i32> <i32 127, i32 127>\n"
+      "  %tmp13 = icmp sgt <2 x i32> %tmp12, <i32 -128, i32 -128>\n"
+      "  %tmp14 = select <2 x i1> %tmp13, <2 x i32> %tmp12, <2 x i32> <i32 -128, i32 -128>\n"
+      "  %A = trunc <2 x i32> %tmp14 to <2 x i8>\n"
+      "  ret <2 x i8> %A\n"
+    "}\n");
+  expectPattern(true);
+}
+
+TEST_F(MatchSaturationAddSubTest, OutOfRangeSignedSatAddv2i8) {
+  parseAssembly(
+    "define signext <2 x i8> @test(<2 x i8> signext %a, <2 x i8> signext %b) {\n"
+      "  %tmp6 = sext <2 x i8> %a to <2 x i32>\n"
+      "  %tmp9 = sext <2 x i8> %b to <2 x i32>\n"
+      "  %tmp10 = add nsw <2 x i32> %tmp9, %tmp6\n"
+      "  %tmp11 = icmp slt <2 x i32> %tmp10, <i32 200, i32 200>\n"
+      "  %tmp12 = select <2 x i1> %tmp11, <2 x i32> %tmp10, <2 x i32> <i32 200, i32 200>\n"
+      "  %tmp13 = icmp sgt <2 x i32> %tmp12, <i32 -128, i32 -128>\n"
+      "  %tmp14 = select <2 x i1> %tmp13, <2 x i32> %tmp12, <2 x i32> <i32 -128, i32 -128>\n"
+      "  %A = trunc <2 x i32> %tmp14 to <2 x i8>\n"
+      "  ret <2 x i8> %A\n"
+    "}\n");
+  expectPattern(false);
+}
+#endif // INTEL_CUSTOMIZATION
 
 TEST(ValueTracking, GuaranteedToTransferExecutionToSuccessor) {
   StringRef Assembly =

@@ -728,7 +728,8 @@ const MachineOperand *SIFoldOperands::isClamp(const MachineInstr &MI) const {
   switch (Op) {
   case AMDGPU::V_MAX_F32_e64:
   case AMDGPU::V_MAX_F16_e64:
-  case AMDGPU::V_MAX_F64: {
+  case AMDGPU::V_MAX_F64:
+  case AMDGPU::V_PK_MAX_F16: {
     if (!TII->getNamedOperand(MI, AMDGPU::OpName::clamp)->getImm())
       return nullptr;
 
@@ -741,9 +742,18 @@ const MachineOperand *SIFoldOperands::isClamp(const MachineInstr &MI) const {
       return nullptr;
 
     // Can't fold up if we have modifiers.
-    if (TII->hasModifiersSet(MI, AMDGPU::OpName::src0_modifiers) ||
-        TII->hasModifiersSet(MI, AMDGPU::OpName::src1_modifiers) ||
-        TII->hasModifiersSet(MI, AMDGPU::OpName::omod))
+    if (TII->hasModifiersSet(MI, AMDGPU::OpName::omod))
+      return nullptr;
+
+    unsigned Src0Mods
+      = TII->getNamedOperand(MI, AMDGPU::OpName::src0_modifiers)->getImm();
+    unsigned Src1Mods
+      = TII->getNamedOperand(MI, AMDGPU::OpName::src1_modifiers)->getImm();
+
+    // Having a 0 op_sel_hi would require swizzling the output in the source
+    // instruction, which we can't do.
+    unsigned UnsetMods = (Op == AMDGPU::V_PK_MAX_F16) ? SISrcMods::OP_SEL_1 : 0;
+    if (Src0Mods != UnsetMods && Src1Mods != UnsetMods)
       return nullptr;
     return Src0;
   }
@@ -765,14 +775,18 @@ static bool hasOneNonDBGUseInst(const MachineRegisterInfo &MRI, unsigned Reg) {
   return true;
 }
 
+// FIXME: Clamp for v_mad_mixhi_f16 handled during isel.
 bool SIFoldOperands::tryFoldClamp(MachineInstr &MI) {
   const MachineOperand *ClampSrc = isClamp(MI);
   if (!ClampSrc || !hasOneNonDBGUseInst(*MRI, ClampSrc->getReg()))
     return false;
 
   MachineInstr *Def = MRI->getVRegDef(ClampSrc->getReg());
-  if (!TII->hasFPClamp(*Def))
+
+  // The type of clamp must be compatible.
+  if (TII->getClampMask(*Def) != TII->getClampMask(MI))
     return false;
+
   MachineOperand *DefClamp = TII->getNamedOperand(*Def, AMDGPU::OpName::clamp);
   if (!DefClamp)
     return false;

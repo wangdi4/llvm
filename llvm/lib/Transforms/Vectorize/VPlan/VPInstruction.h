@@ -4,7 +4,7 @@
 #include "llvm/ADT/ilist.h"
 #include "llvm/ADT/ilist_node.h"
 
-namespace llvm { // LLVM Namespace
+namespace llvm {
 namespace vpo {  // VPO Vectorizer Namespace
 
 class VPValue {
@@ -70,6 +70,7 @@ public:
 
 typedef iplist<VPInstruction> VPInstructionContainerTy;
 } // End VPO Vectorizer Namespace
+} // end llvm namespace
 
 #if 0
 using namespace vpo;
@@ -89,6 +90,5 @@ struct ilist_traits<VPInstruction>
   static void deleteNode(VPInstruction *) {}
 };
 #endif
-} // End LLVM Namespace
 
 #endif // LLVM_ANALYSIS_VPO_VPINSTRUCTION_H

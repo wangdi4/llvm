@@ -23,8 +23,8 @@
 #include "llvm/Analysis/LoopInfoImpl.h"
 
 namespace llvm {
-class VPBlockBase;
 namespace vpo {
+class VPBlockBase;
 
 /// A VPLoop holds analysis information for every loop detected by VPLoopInfo.
 /// It is an instantiation of LoopBase.
@@ -39,7 +39,7 @@ private:
 typedef LoopInfoBase<VPBlockBase, VPLoop> VPLoopInfo;
 
 } // End VPO Vectorizer Namespace
-} // namespace llvm
+} // end llvm namespace
 
 #endif // LLVM_TRANSFORMS_VECTORIZE_VPLAN_VPLOOPINFO_H 
 
