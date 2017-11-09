@@ -34,7 +34,7 @@ namespace {
       initializeLoopSPMDizationPass(*PassRegistry::getPassRegistry());
     }
   private:
-    bool FixReductionsIfAny(Loop *L, BasicBlock *AfterLoop, int PE, int NPEs, std::vector<PHINode *> *Reductions, std::vector<Value *> *ReduceVarExitOrig, std::vector<Instruction *> *ReduceVarOrig, std::vector<Instruction *> *OldInst);
+    bool FixReductionsIfAny(Loop *L, Loop *OrigL, BasicBlock *E, BasicBlock *AfterLoop, int PE, int NPEs, std::vector<PHINode *> *Reductions, std::vector<Value *> *ReduceVarExitOrig, std::vector<Instruction *> *ReduceVarOrig, std::vector<Instruction *> *OldInst);
     bool FindReductionVariables(Loop *L, std::vector<PHINode *> *Reductions, std::vector<Value *> *ReduceVarExitOrig, std::vector<Instruction *> *ReduceVarOrig);
     PHINode *getInductionVariable(Loop *L, ScalarEvolution *SE);
     bool TransformLoopInitandStep(Loop *L, ScalarEvolution *SE, int PE, int NPEs);
@@ -101,24 +101,32 @@ namespace {
 	  remapInstructionsInBlocks(NewLoopBlocks, VMap);
 	  // Update LoopInfo.
 	  if(OrigL->getParentLoop())
-	    OrigL->getParentLoop()->addBasicBlockToLoop(NewE, *LI);
+	   OrigL->getParentLoop()->addBasicBlockToLoop(NewE, *LI);
 	  // Add DominatorTree node, update to correct IDom.
 	  DT->addNewBlock(NewE, NewLoop->getLoopPreheader());
 	  Instruction *ExitTerm = Exit->getTerminator();
 	  BranchInst::Create(NewLoop->getLoopPreheader(), Exit);
 	  ExitTerm->eraseFromParent();
-	  
+	   
 	  TransformLoopInitandStep(NewLoop, SE, 1, NPEs);
        
 	  L = NewLoop;
 	  
-	  FixReductionsIfAny(L, AfterLoop, PE, NPEs, &Reductions, &ReduceVarExitOrig, &ReduceVarOrig, &OldInsts);	  
+	  FixReductionsIfAny(L, OrigL, E, AfterLoop, PE, NPEs, &Reductions, &ReduceVarExitOrig, &ReduceVarOrig, &OldInsts);	  
 	}
       }
       return true;
     }
     void getAnalysisUsage(AnalysisUsage &AU) const override {
-      getLoopAnalysisUsage(AU);
+      //getLoopAnalysisUsage(AU);
+      AU.addRequired<DominatorTreeWrapperPass>();
+      AU.addPreserved<DominatorTreeWrapperPass>();
+      AU.addRequired<LoopInfoWrapperPass>();
+      AU.addPreserved<LoopInfoWrapperPass>();
+      AU.addRequired<ScalarEvolutionWrapperPass>();
+      AU.addRequired<AAResultsWrapperPass>();
+      AU.addRequiredID(LoopSimplifyID);
+      AU.addRequiredID(LCSSAID);
     }
   };
 }
@@ -132,6 +140,7 @@ INITIALIZE_PASS_DEPENDENCY(LoopAccessLegacyAnalysis)
 INITIALIZE_PASS_DEPENDENCY(LoopPass)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(LoopSimplify)
 INITIALIZE_PASS_END(LoopSPMDization, DEBUG_TYPE, "Loop SPMDization", false, false)
 
 Pass *llvm::createLoopSPMDizationPass() {
@@ -147,20 +156,49 @@ bool LoopSPMDization::FindReductionVariables(Loop *L, std::vector<PHINode *> *Re
     RecurrenceDescriptor RedDes;
     if (RecurrenceDescriptor::isReductionPHI(Phi, L, RedDes)) {
       (*Reductions)[r] = Phi; 
-      if (Phi->getIncomingBlock(0) == L->getLoopPreheader()){
-	(*ReduceVarOrig)[r] = dyn_cast<Instruction>(Phi->getIncomingValue(1));
+      Value *ReduceVar;
+      PHINode *Phiop = Phi;
+      PHINode *redoperation;
+      if (Phi->getIncomingBlock(0) == L->getLoopPreheader()) {
+	ReduceVar = dyn_cast<Value>(Phi->getIncomingValue(1));
+	redoperation = dyn_cast<PHINode>(Phiop->getIncomingValue(1));
+	(*ReduceVarOrig)[r]= dyn_cast<Instruction>(Phiop->getIncomingValue(1));
+	while(redoperation) {
+	  Phiop = redoperation;
+	  //we could choose 0 or 1 values but we test both to avoid cyclic Phis
+	  redoperation = dyn_cast<PHINode>(dyn_cast<Instruction>(Phiop->getIncomingValue(0)));
+	  if(redoperation){ 
+	    redoperation = dyn_cast<PHINode>(dyn_cast<Instruction>(Phiop->getIncomingValue(1)));
+	    (*ReduceVarOrig)[r]= dyn_cast<Instruction>(Phiop->getIncomingValue(1));
+	  }
+	  else
+	    (*ReduceVarOrig)[r]= dyn_cast<Instruction>(Phiop->getIncomingValue(0));
+	}
       }
       else {
-	(*ReduceVarOrig)[r] = dyn_cast<Instruction>(Phi->getIncomingValue(0));
+	ReduceVar = dyn_cast<Value>(Phi->getIncomingValue(0));
+	redoperation = dyn_cast<PHINode>(Phiop->getIncomingValue(0));
+	(*ReduceVarOrig)[r]= dyn_cast<Instruction>(Phiop->getIncomingValue(0));
+	while(redoperation) {
+	  Phiop = redoperation;
+	  //we could choose 0 or 1 values but we test both to avoid cyclic Phis
+	  redoperation = dyn_cast<PHINode>(dyn_cast<Instruction>(Phiop->getIncomingValue(0)));
+	  if(redoperation){ 
+	    redoperation = dyn_cast<PHINode>(dyn_cast<Instruction>(Phiop->getIncomingValue(1)));
+	    (*ReduceVarOrig)[r]= dyn_cast<Instruction>(Phiop->getIncomingValue(1));
+	  }
+	  else
+	    (*ReduceVarOrig)[r]= dyn_cast<Instruction>(Phiop->getIncomingValue(0));
+	}
       }
-      
       BasicBlock::iterator i, ie; 
       for (i = L->getExitBlock()->begin(), ie = L->getExitBlock()->end();  (i != ie); ++i) {
 	PHINode *PhiExit = dyn_cast<PHINode>(&*i);
 	if (!PhiExit)
 	  continue;
 	Instruction *ReduceVarExit = dyn_cast<Instruction>(PhiExit->getIncomingValue(0));
-	if(dyn_cast<Value>(ReduceVarExit) == dyn_cast<Value>((*ReduceVarOrig)[r])) {
+	if(dyn_cast<Value>(ReduceVarExit) == dyn_cast<Value>(ReduceVar)) {
+	  
 	  (*ReduceVarExitOrig)[r] = dyn_cast<Value>(PhiExit);
 	}
       }
@@ -171,7 +209,7 @@ bool LoopSPMDization::FindReductionVariables(Loop *L, std::vector<PHINode *> *Re
 }
 
 //Handling of reductions
-bool LoopSPMDization::FixReductionsIfAny(Loop *L, BasicBlock *AfterLoop, int PE, int NPEs, std::vector<PHINode *> *Reductions, std::vector<Value *> *ReduceVarExitOrig, std::vector<Instruction *> *ReduceVarOrig, std::vector<Instruction *> *OldInsts) {
+bool LoopSPMDization::FixReductionsIfAny(Loop *L, Loop *OrigL, BasicBlock *E, BasicBlock *AfterLoop, int PE, int NPEs, std::vector<PHINode *> *Reductions, std::vector<Value *> *ReduceVarExitOrig, std::vector<Instruction *> *ReduceVarOrig, std::vector<Instruction *> *OldInsts) {
   for (Instruction &I : *L->getHeader()) {
     PHINode *Phi = dyn_cast<PHINode>(&I);
     if (!Phi)
@@ -210,7 +248,6 @@ bool LoopSPMDization::FixReductionsIfAny(Loop *L, BasicBlock *AfterLoop, int PE,
 	    }
 	    else
 	      B.SetInsertPoint((*OldInsts)[r]->getNextNode());
-	    
 	    Instruction *NewInst = (*ReduceVarOrig)[r]->clone();
 	    (*OldInsts)[r]->replaceAllUsesWith(NewInst);
 	    NewInst->setOperand(1, dyn_cast<Value>((*OldInsts)[r]));
@@ -252,7 +289,7 @@ IntrinsicInst* LoopSPMDization::detectSPMDExitIntrinsic(Loop *L, LoopInfo *LI) {
 	  return intr_inst;
     
     BasicBlock *afterexit = exit->getSingleSuccessor();
-    //Optimizations might move theexit intrinsic to the next exit
+    //Optimizations might move the exit intrinsic to the next exit
     for (Instruction& inst : *afterexit)
       if (IntrinsicInst *intr_inst = dyn_cast<IntrinsicInst>(&inst))
 	if (intr_inst->getIntrinsicID() == Intrinsic::csa_spmdization_exit)//|| intr_inst->getIntrinsicID() == Intrinsic::x86_spmdization)
