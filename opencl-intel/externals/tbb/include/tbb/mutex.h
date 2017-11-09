@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2017 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -34,9 +34,8 @@
 
 namespace tbb {
 
-//! Wrapper around the platform's native reader-writer lock.
-/** For testing purposes only.
-    @ingroup synchronization */
+//! Wrapper around the platform's native lock.
+/** @ingroup synchronization */
 class mutex : internal::mutex_copy_deprecated_and_disabled {
 public:
     //! Construct unacquired mutex.
@@ -61,7 +60,7 @@ public:
   #if _WIN32||_WIN64
         DeleteCriticalSection(&impl);
   #else
-        pthread_mutex_destroy(&impl); 
+        pthread_mutex_destroy(&impl);
 
   #endif /* _WIN32||_WIN64 */
 #endif /* TBB_USE_ASSERT */
@@ -75,7 +74,7 @@ public:
         It also nicely provides the "node" for queuing locks. */
     class scoped_lock : internal::no_copy {
     public:
-        //! Construct lock that has not acquired a mutex. 
+        //! Construct lock that has not acquired a mutex.
         scoped_lock() : my_mutex(NULL) {};
 
         //! Acquire lock on given mutex.
@@ -85,7 +84,7 @@ public:
 
         //! Release lock (if lock is held).
         ~scoped_lock() {
-            if( my_mutex ) 
+            if( my_mutex )
                 release();
         }
 
@@ -208,7 +207,7 @@ public:
     };
 private:
 #if _WIN32||_WIN64
-    CRITICAL_SECTION impl;    
+    CRITICAL_SECTION impl;
     enum state_t state;
 #else
     pthread_mutex_t impl;
@@ -229,6 +228,6 @@ public:
 
 __TBB_DEFINE_PROFILING_SET_NAME(mutex)
 
-} // namespace tbb 
+} // namespace tbb
 
 #endif /* __TBB_mutex_H */

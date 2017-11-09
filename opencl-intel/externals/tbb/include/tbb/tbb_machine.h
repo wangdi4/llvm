@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2017 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -34,11 +34,11 @@
     __TBB_USE_GENERIC_DWORD_FETCH_ADD
     __TBB_USE_GENERIC_DWORD_FETCH_STORE
     __TBB_USE_GENERIC_HALF_FENCED_LOAD_STORE
-    __TBB_USE_GENERIC_FULL_FENCED_LOAD_STORE
+    __TBB_USE_GENERIC_SEQUENTIAL_CONSISTENCY_LOAD_STORE
     __TBB_USE_GENERIC_RELAXED_LOAD_STORE
     __TBB_USE_FETCHSTORE_AS_FULL_FENCED_STORE
 
-    In this case tbb_machine.h will add missing functionality based on a minimal set 
+    In this case tbb_machine.h will add missing functionality based on a minimal set
     of APIs that are required to be implemented by all plug-n headers as described
     further.
     Note that these generic implementations may be sub-optimal for a particular
@@ -102,7 +102,7 @@
         data-dependent, and will then make subsequent code behave as if the
         original data dependency were acquired.
         It needs only a compiler fence where implied by the architecture
-        either specifically (like IA-64 architecture) or because generally stronger 
+        either specifically (like IA-64 architecture) or because generally stronger
         "acquire" semantics are enforced (like x86).
         It is always valid, though potentially suboptimal, to replace
         control with acquire on the load and then remove the helper.
@@ -208,10 +208,8 @@ template<> struct atomic_selector<8> {
         #include "machine/icc_generic.h"
     #elif defined(_M_IX86) && !defined(__TBB_WIN32_USE_CL_BUILTINS)
         #include "machine/windows_ia32.h"
-    #elif defined(_M_X64) 
+    #elif defined(_M_X64)
         #include "machine/windows_intel64.h"
-    #elif defined(_XBOX)
-        #include "machine/xbox360_ppc.h"
     #elif defined(_M_ARM) || defined(__TBB_WIN32_USE_CL_BUILTINS)
         #include "machine/msvc_armv7.h"
     #endif
@@ -243,7 +241,7 @@ template<> struct atomic_selector<8> {
         #include "machine/linux_ia64.h"
     #elif __powerpc__
         #include "machine/mac_ppc.h"
-    #elif __arm__
+    #elif __ARM_ARCH_7A__
         #include "machine/gcc_armv7.h"
     #elif __TBB_GCC_BUILTIN_ATOMICS_PRESENT
         #include "machine/gcc_generic.h"
@@ -254,9 +252,9 @@ template<> struct atomic_selector<8> {
     //TODO:  TBB_USE_GCC_BUILTINS is not used for Mac, Sun, Aix
     #if (TBB_USE_ICC_BUILTINS && __TBB_ICC_BUILTIN_ATOMICS_PRESENT)
         #include "machine/icc_generic.h"
-    #elif __i386__
+    #elif __TBB_x86_32
         #include "machine/linux_ia32.h"
-    #elif __x86_64__
+    #elif __TBB_x86_64
         #include "machine/linux_intel64.h"
     #elif __POWERPC__
         #include "machine/mac_ppc.h"
@@ -351,7 +349,7 @@ namespace internal { //< @cond INTERNAL
 class atomic_backoff : no_copy {
     //! Time delay, in units of "pause" instructions.
     /** Should be equal to approximately the number of "pause" instructions
-        that take the same time as an context switch. */
+        that take the same time as an context switch. Must be a power of two.*/
     static const int32_t LOOPS_BEFORE_YIELD = 16;
     int32_t count;
 public:
@@ -374,10 +372,10 @@ public:
         }
     }
 
-    // pause for a few times and then return false immediately.
+    //! Pause for a few times and return false if saturated.
     bool bounded_pause() {
-        if( count<=LOOPS_BEFORE_YIELD ) {
-            __TBB_Pause(count);
+        __TBB_Pause(count);
+        if( count<LOOPS_BEFORE_YIELD ) {
             // Pause twice as long the next time.
             count*=2;
             return true;
@@ -751,7 +749,16 @@ inline void __TBB_store_relaxed ( volatile size_t& location, size_t value ) {
 // strictest alignment is 64.
 #ifndef __TBB_TypeWithAlignmentAtLeastAsStrict
 
-#if __TBB_ATTRIBUTE_ALIGNED_PRESENT
+#if __TBB_ALIGNAS_PRESENT
+
+// Use C++11 keywords alignas and alignof
+#define __TBB_DefineTypeWithAlignment(PowerOf2)       \
+struct alignas(PowerOf2) __TBB_machine_type_with_alignment_##PowerOf2 { \
+    uint32_t member[PowerOf2/sizeof(uint32_t)];       \
+};
+#define __TBB_alignof(T) alignof(T)
+
+#elif __TBB_ATTRIBUTE_ALIGNED_PRESENT
 
 #define __TBB_DefineTypeWithAlignment(PowerOf2)       \
 struct __TBB_machine_type_with_alignment_##PowerOf2 { \
@@ -850,9 +857,9 @@ inline intptr_t __TBB_Log2( uintptr_t x ) {
     if( x==0 ) return -1;
     intptr_t result = 0;
 
-#if !defined(_M_ARM) 
-    uintptr_t tmp;
-    if( sizeof(x)>4 && (tmp = ((uint64_t)x)>>32) ) { x=tmp; result += 32; }
+#if !defined(_M_ARM)
+    uintptr_t tmp_;
+    if( sizeof(x)>4 && (tmp_ = ((uint64_t)x)>>32) ) { x=tmp_; result += 32; }
 #endif
     if( uintptr_t tmp = x>>16 ) { x=tmp; result += 16; }
     if( uintptr_t tmp = x>>8 )  { x=tmp; result += 8; }
@@ -916,7 +923,7 @@ inline __TBB_Flag __TBB_LockByte( __TBB_atomic_flag& flag ) {
 #define __TBB_UnlockByte(addr) __TBB_store_with_release((addr),0)
 #endif
 
-// lock primitives with TSX
+// lock primitives with Intel(R) Transactional Synchronization Extensions (Intel(R) TSX)
 #if ( __TBB_x86_32 || __TBB_x86_64 )  /* only on ia32/intel64 */
 inline void __TBB_TryLockByteElidedCancel() { __TBB_machine_try_lock_elided_cancel(); }
 

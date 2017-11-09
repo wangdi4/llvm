@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2017 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -46,6 +46,7 @@
 #define __TBB_ENDIANNESS __TBB_ENDIAN_LITTLE
 
 //__TBB_compiler_fence() defined just in case, as it seems not to be used on its own anywhere else
+#ifndef __TBB_compiler_fence
 #if _MSC_VER
     //TODO: any way to use same intrinsics on windows and linux?
     #pragma intrinsic(_ReadWriteBarrier)
@@ -53,9 +54,10 @@
 #else
     #define __TBB_compiler_fence()    __asm__ __volatile__("": : :"memory")
 #endif
+#endif
 
 #ifndef __TBB_full_memory_fence
-#if _MSC_VER 
+#if _MSC_VER
     //TODO: any way to use same intrinsics on windows and linux?
     #pragma intrinsic(_mm_mfence)
     #define __TBB_full_memory_fence() _mm_mfence()
@@ -64,7 +66,9 @@
 #endif
 #endif
 
+#ifndef __TBB_control_consistency_helper
 #define __TBB_control_consistency_helper() __TBB_compiler_fence()
+#endif
 
 namespace tbb { namespace internal {
 //TODO: is there any way to reuse definition of memory_order enum from ICC instead of copy paste.

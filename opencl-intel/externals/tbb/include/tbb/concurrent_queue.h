@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2017 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -31,7 +31,7 @@ namespace strict_ppl {
 /** Multiple threads may each push and pop concurrently.
     Assignment construction is not allowed.
     @ingroup containers */
-template<typename T, typename A = cache_aligned_allocator<T> > 
+template<typename T, typename A = cache_aligned_allocator<T> >
 class concurrent_queue: public internal::concurrent_queue_base_v3<T> {
     template<typename Container, typename Value> friend class internal::concurrent_queue_iterator;
 
@@ -40,15 +40,15 @@ class concurrent_queue: public internal::concurrent_queue_base_v3<T> {
     page_allocator_type my_allocator;
 
     //! Allocates a block of size n (bytes)
-    /*override*/ virtual void *allocate_block( size_t n ) {
+    virtual void *allocate_block( size_t n ) __TBB_override {
         void *b = reinterpret_cast<void*>(my_allocator.allocate( n ));
         if( !b )
-            internal::throw_exception(internal::eid_bad_alloc); 
+            internal::throw_exception(internal::eid_bad_alloc);
         return b;
     }
 
     //! Deallocates block created by allocate_block.
-    /*override*/ virtual void deallocate_block( void *b, size_t n ) {
+    virtual void deallocate_block( void *b, size_t n ) __TBB_override {
         my_allocator.deallocate( reinterpret_cast<char*>(b), n );
     }
 
@@ -185,10 +185,8 @@ concurrent_queue<T,A>::~concurrent_queue() {
 
 template<typename T, class A>
 void concurrent_queue<T,A>::clear() {
-    while( !empty() ) {
-        T value;
-        this->internal_try_pop(&value);
-    }
+    T value;
+    while( !empty() ) try_pop(value);
 }
 
 } // namespace strict_ppl
@@ -223,41 +221,41 @@ class concurrent_bounded_queue: public internal::concurrent_queue_base_v8 {
         return (&static_cast<padded_page*>(static_cast<void*>(&p))->last)[index];
     }
 
-    /*override*/ virtual void copy_item( page& dst, size_t index, const void* src ) {
+    virtual void copy_item( page& dst, size_t index, const void* src ) __TBB_override {
         new( &get_ref(dst,index) ) T(*static_cast<const T*>(src));
     }
 
 #if __TBB_CPP11_RVALUE_REF_PRESENT
-    /*override*/ virtual void move_item( page& dst, size_t index, const void* src ) {
+    virtual void move_item( page& dst, size_t index, const void* src ) __TBB_override {
         new( &get_ref(dst,index) ) T( std::move(*static_cast<T*>(const_cast<void*>(src))) );
     }
 #else
-    /*override*/ virtual void move_item( page&, size_t, const void* ) {
+    virtual void move_item( page&, size_t, const void* ) __TBB_override {
         __TBB_ASSERT( false, "Unreachable code" );
     }
 #endif
 
-    /*override*/ virtual void copy_page_item( page& dst, size_t dindex, const page& src, size_t sindex ) {
+    virtual void copy_page_item( page& dst, size_t dindex, const page& src, size_t sindex ) __TBB_override {
         new( &get_ref(dst,dindex) ) T( get_ref( const_cast<page&>(src), sindex ) );
     }
 
 #if __TBB_CPP11_RVALUE_REF_PRESENT
-    /*override*/ virtual void move_page_item( page& dst, size_t dindex, const page& src, size_t sindex ) {
+    virtual void move_page_item( page& dst, size_t dindex, const page& src, size_t sindex ) __TBB_override {
         new( &get_ref(dst,dindex) ) T( std::move(get_ref( const_cast<page&>(src), sindex )) );
     }
 #else
-    /*override*/ virtual void move_page_item( page&, size_t, const page&, size_t ) {
+    virtual void move_page_item( page&, size_t, const page&, size_t ) __TBB_override {
         __TBB_ASSERT( false, "Unreachable code" );
     }
 #endif
 
-    /*override*/ virtual void assign_and_destroy_item( void* dst, page& src, size_t index ) {
+    virtual void assign_and_destroy_item( void* dst, page& src, size_t index ) __TBB_override {
         T& from = get_ref(src,index);
         destroyer d(from);
         *static_cast<T*>(dst) = tbb::internal::move( from );
     }
 
-    /*override*/ virtual page *allocate_page() {
+    virtual page *allocate_page() __TBB_override {
         size_t n = sizeof(padded_page) + (items_per_page-1)*sizeof(T);
         page *p = reinterpret_cast<page*>(my_allocator.allocate( n ));
         if( !p )
@@ -265,7 +263,7 @@ class concurrent_bounded_queue: public internal::concurrent_queue_base_v8 {
         return p;
     }
 
-    /*override*/ virtual void deallocate_page( page *p ) {
+    virtual void deallocate_page( page *p ) __TBB_override {
         size_t n = sizeof(padded_page) + (items_per_page-1)*sizeof(T);
         my_allocator.deallocate( reinterpret_cast<char*>(p), n );
     }
@@ -292,7 +290,7 @@ public:
     typedef std::ptrdiff_t difference_type;
 
     //! Construct empty queue
-    explicit concurrent_bounded_queue(const allocator_type& a = allocator_type()) : 
+    explicit concurrent_bounded_queue(const allocator_type& a = allocator_type()) :
         concurrent_queue_base_v8( sizeof(T) ), my_allocator( a )
     {
     }
@@ -402,8 +400,8 @@ public:
     }
 
     //! Return number of pushes minus number of pops.
-    /** Note that the result can be negative if there are pops waiting for the 
-        corresponding pushes.  The result can also exceed capacity() if there 
+    /** Note that the result can be negative if there are pops waiting for the
+        corresponding pushes.  The result can also exceed capacity() if there
         are push operations in flight. */
     size_type size() const {return internal_size();}
 
@@ -439,7 +437,7 @@ public:
     const_iterator unsafe_begin() const {return const_iterator(*this);}
     const_iterator unsafe_end() const {return const_iterator();}
 
-}; 
+};
 
 template<typename T, class A>
 concurrent_bounded_queue<T,A>::~concurrent_bounded_queue() {
@@ -449,10 +447,8 @@ concurrent_bounded_queue<T,A>::~concurrent_bounded_queue() {
 
 template<typename T, class A>
 void concurrent_bounded_queue<T,A>::clear() {
-    while( !empty() ) {
-        T value;
-        internal_pop_if_present(&value);
-    }
+    T value;
+    while( try_pop(value) ) /*noop*/;
 }
 
 using strict_ppl::concurrent_queue;

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2017 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -32,7 +32,7 @@
 #include <iterator>
 #include <utility>      // Need std::pair
 #include <cstring>      // Need std::memset
-#include <algorithm>    // Need std::swap
+#include __TBB_STD_SWAP_HEADER
 
 #if !TBB_USE_EXCEPTIONS && _MSC_VER
     #pragma warning (pop)
@@ -44,7 +44,7 @@
 #include "atomic.h"
 #include "tbb_exception.h"
 #include "tbb_profiling.h"
-#include "internal/_concurrent_unordered_impl.h" // Need tbb_hasher
+#include "internal/_tbb_hash_compare_impl.h"
 #if __TBB_INITIALIZER_LISTS_PRESENT
 #include <initializer_list>
 #endif
@@ -56,13 +56,6 @@
 #endif
 
 namespace tbb {
-
-//! hash_compare that is default argument for concurrent_hash_map
-template<typename Key>
-struct tbb_hash_compare {
-    static size_t hash( const Key& a ) { return tbb_hasher(a); }
-    static bool equal( const Key& a, const Key& b ) { return a == b; }
-};
 
 namespace interface5 {
 
@@ -340,9 +333,10 @@ namespace interface5 {
 
         void advance_to_next_bucket() { // TODO?: refactor to iterator_base class
             size_t k = my_index+1;
-            while( my_bucket && k <= my_map->my_mask ) {
+            __TBB_ASSERT( my_bucket, "advancing an invalid iterator?");
+            while( k <= my_map->my_mask ) {
                 // Following test uses 2's-complement wizardry
-                if( k& (k-2) ) // not the beginning of a segment
+                if( k&(k-2) ) // not the beginning of a segment
                     ++my_bucket;
                 else my_bucket = my_map->get_bucket( k );
                 my_node = static_cast<node*>( my_bucket->node_list );
@@ -375,7 +369,7 @@ namespace interface5 {
 
     public:
         //! Construct undefined iterator
-        hash_map_iterator() {}
+        hash_map_iterator(): my_map(), my_index(), my_bucket(), my_node() {}
         hash_map_iterator( const hash_map_iterator<Container,typename Container::value_type> &other ) :
             my_map(other.my_map),
             my_index(other.my_index),
@@ -772,7 +766,7 @@ public:
     };
 
     //! Construct empty table.
-    concurrent_hash_map( const allocator_type &a = allocator_type() )
+    explicit concurrent_hash_map( const allocator_type &a = allocator_type() )
         : internal::hash_map_base(), my_allocator(a)
     {}
 
@@ -798,7 +792,7 @@ public:
         swap(table);
     }
 
-    //! Move constructor 
+    //! Move constructor
     concurrent_hash_map( concurrent_hash_map &&table, const allocator_type &a )
         : internal::hash_map_base(), my_allocator(a)
     {
@@ -1356,7 +1350,12 @@ void concurrent_hash_map<Key,T,HashCompare,A>::rehash(size_type sz) {
     if( !reported && buckets >= 512 && ( 2*empty_buckets > current_size || 2*overpopulated_buckets > current_size ) ) {
         tbb::internal::runtime_warning(
             "Performance is not optimal because the hash function produces bad randomness in lower bits in %s.\nSize: %d  Empties: %d  Overlaps: %d",
-            typeid(*this).name(), current_size, empty_buckets, overpopulated_buckets );
+#if __TBB_USE_OPTIONAL_RTTI
+            typeid(*this).name(),
+#else
+            "concurrent_hash_map",
+#endif
+            current_size, empty_buckets, overpopulated_buckets );
         reported = true;
     }
 #endif
@@ -1407,7 +1406,12 @@ void concurrent_hash_map<Key,T,HashCompare,A>::clear() {
     if( !reported && buckets >= 512 && ( 2*empty_buckets > current_size || 2*overpopulated_buckets > current_size ) ) {
         tbb::internal::runtime_warning(
             "Performance is not optimal because the hash function produces bad randomness in lower bits in %s.\nSize: %d  Empties: %d  Overlaps: %d",
-            typeid(*this).name(), current_size, empty_buckets, overpopulated_buckets );
+#if __TBB_USE_OPTIONAL_RTTI
+            typeid(*this).name(),
+#else
+            "concurrent_hash_map",
+#endif
+            current_size, empty_buckets, overpopulated_buckets );
         reported = true;
     }
 #endif

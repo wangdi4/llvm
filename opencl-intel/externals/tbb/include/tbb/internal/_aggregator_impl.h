@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2017 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -36,7 +36,9 @@ using namespace tbb::internal;
 template <typename Derived>
 class aggregated_operation {
  public:
+    //! Zero value means "wait" status, all other values are "user" specified values and are defined into the scope of a class which uses "status".
     uintptr_t status;
+
     Derived *next;
     aggregated_operation() : status(0), next(NULL) {}
 };
@@ -52,19 +54,21 @@ class aggregator_generic {
 public:
     aggregator_generic() : handler_busy(false) { pending_operations = NULL; }
 
-    //! Place operation in list
-    /** Place operation in list and either handle list or wait for operation to
-        complete.
-        long_life_time specifies life time of an operation inserting in an aggregator.
-        "Long" (long_life_time == true) life time operation can be accessed
-        even after executing it.
-        "Short" (long_life_time == false) life time operations can be destroyed
-        during executing so any access to it after executing is invalid.*/
+    //! Execute an operation
+    /** Places an operation into the waitlist (pending_operations), and either handles the list,
+        or waits for the operation to complete, or returns.
+        The long_life_time parameter specifies the life time of the given operation object.
+        Operations with long_life_time == true may be accessed after execution.
+        A "short" life time operation (long_life_time == false) can be destroyed
+        during execution, and so any access to it after it was put into the waitlist,
+        including status check, is invalid. As a consequence, waiting for completion
+        of such operation causes undefined behavior.
+    */
     template < typename handler_type >
     void execute(operation_type *op, handler_type &handle_operations, bool long_life_time = true) {
         operation_type *res;
-        // op->status should be read before inserting the operation in the
-        // aggregator queue since it can become invalid after executing a
+        // op->status should be read before inserting the operation into the
+        // aggregator waitlist since it can become invalid after executing a
         // handler (if the operation has 'short' life time.)
         const uintptr_t status = op->status;
 
@@ -76,7 +80,7 @@ public:
         call_itt_notify(releasing, &(op->status));
         // insert the operation in the queue.
         do {
-            // ITT may flag the following line as a race; it is a false positive:
+            // Tools may flag the following line as a race; it is a false positive:
             // This is an atomic read; we don't provide itt_hide_load_word for atomics
             op->next = res = pending_operations; // NOT A RACE
         } while (pending_operations.compare_and_swap(op, res) != res);
@@ -92,7 +96,7 @@ public:
         }
         // not first; wait for op to be ready.
         else if (!status) { // operation is blocking here.
-            __TBB_ASSERT(long_life_time, "The blocking operation cannot have 'short' life time. Since it can already be destroyed.");
+            __TBB_ASSERT(long_life_time, "Waiting for an operation object that might be destroyed during processing.");
             call_itt_notify(prepare, &(op->status));
             spin_wait_while_eq(op->status, uintptr_t(0));
             itt_load_word_with_acquire(op->status);

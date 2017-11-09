@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2017 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -22,6 +22,7 @@
 #define __TBB_template_helpers_H
 
 #include <utility>
+#include <cstddef>
 
 namespace tbb { namespace internal {
 
@@ -38,6 +39,8 @@ template<typename T> struct strip<T&>                 { typedef T type; };
 template<typename T> struct strip<const T&>           { typedef T type; };
 template<typename T> struct strip<volatile T&>        { typedef T type; };
 template<typename T> struct strip<const volatile T&>  { typedef T type; };
+//! Specialization for function pointers
+template<typename T> struct strip<T(&)()>             { typedef T(*type)(); };
 #if __TBB_CPP11_RVALUE_REF_PRESENT
 template<typename T> struct strip<T&&>                { typedef T type; };
 template<typename T> struct strip<const T&&>          { typedef T type; };
@@ -45,14 +48,22 @@ template<typename T> struct strip<volatile T&&>       { typedef T type; };
 template<typename T> struct strip<const volatile T&&> { typedef T type; };
 #endif
 //! Specialization for arrays converts to a corresponding pointer
-template<typename T, size_t N> struct strip<T(&)[N]>                { typedef T* type; };
-template<typename T, size_t N> struct strip<const T(&)[N]>          { typedef const T* type; };
-template<typename T, size_t N> struct strip<volatile T(&)[N]>       { typedef volatile T* type; };
-template<typename T, size_t N> struct strip<const volatile T(&)[N]> { typedef const volatile T* type; };
+template<typename T, std::size_t N> struct strip<T(&)[N]>                { typedef T* type; };
+template<typename T, std::size_t N> struct strip<const T(&)[N]>          { typedef const T* type; };
+template<typename T, std::size_t N> struct strip<volatile T(&)[N]>       { typedef volatile T* type; };
+template<typename T, std::size_t N> struct strip<const volatile T(&)[N]> { typedef const volatile T* type; };
 
 //! Detects whether two given types are the same
 template<class U, class V> struct is_same_type      { static const bool value = false; };
 template<class W>          struct is_same_type<W,W> { static const bool value = true; };
+
+template<typename T> struct is_ref { static const bool value = false; };
+template<typename U> struct is_ref<U&> { static const bool value = true; };
+
+#if __TBB_CPP11_VARIADIC_TEMPLATES_PRESENT
+//! std::void_t internal implementation (to avoid GCC < 4.7 "template aliases" absence)
+template<typename...> struct void_t { typedef void type; };
+#endif
 
 #if __TBB_CPP11_RVALUE_REF_PRESENT && __TBB_CPP11_VARIADIC_TEMPLATES_PRESENT
 
@@ -102,6 +113,13 @@ struct stored_pack<T, Types...> : stored_pack<Types...>
     template< typename Ret, typename F, typename Pack > friend Ret call_and_return( F&& f, Pack&& p );
 
 protected:
+    template< typename Ret, typename F, typename... Preceding >
+    static Ret call( F&& f, pack_type& pack, Preceding&&... params ) {
+        return pack_remainder::template call<Ret>(
+            std::forward<F>(f), static_cast<pack_remainder&>(pack),
+            std::forward<Preceding>(params)... , pack.leftmost_value
+        );
+    }
     template< typename Ret, typename F, typename... Preceding >
     static Ret call( F&& f, const pack_type& pack, Preceding&&... params ) {
         return pack_remainder::template call<Ret>(

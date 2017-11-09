@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2017 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -22,11 +22,11 @@
 #define __TBB_tbb_stddef_H
 
 // Marketing-driven product version
-#define TBB_VERSION_MAJOR 4
-#define TBB_VERSION_MINOR 3
+#define TBB_VERSION_MAJOR 2017
+#define TBB_VERSION_MINOR 0
 
 // Engineering-focused interface version
-#define TBB_INTERFACE_VERSION 8006
+#define TBB_INTERFACE_VERSION 9108
 #define TBB_INTERFACE_VERSION_MAJOR TBB_INTERFACE_VERSION/1000
 
 // The oldest major interface version still supported
@@ -175,8 +175,8 @@ namespace tbb {
 //! The namespace tbb contains all components of the library.
 namespace tbb {
 
-#if _MSC_VER && _MSC_VER<1600
     namespace internal {
+#if _MSC_VER && _MSC_VER<1600
         typedef __int8 int8_t;
         typedef __int16 int16_t;
         typedef __int32 int32_t;
@@ -185,9 +185,7 @@ namespace tbb {
         typedef unsigned __int16 uint16_t;
         typedef unsigned __int32 uint32_t;
         typedef unsigned __int64 uint64_t;
-    } // namespace internal
 #else /* Posix */
-    namespace internal {
         using ::int8_t;
         using ::int16_t;
         using ::int32_t;
@@ -196,8 +194,8 @@ namespace tbb {
         using ::uint16_t;
         using ::uint32_t;
         using ::uint64_t;
-    } // namespace internal
 #endif /* Posix */
+    } // namespace internal
 
     using std::size_t;
     using std::ptrdiff_t;
@@ -241,6 +239,12 @@ const size_t NFS_MaxLineSize = 128;
 
     TODO: apply wherever relevant **/
 #define __TBB_atomic // intentionally empty, see above
+
+#if __TBB_OVERRIDE_PRESENT
+#define __TBB_override override
+#else
+#define __TBB_override // formal comment only
+#endif
 
 template<class T, size_t S, size_t R>
 struct padded_base : T {
@@ -351,20 +355,18 @@ inline bool is_power_of_two(integer_type arg) {
 //! A function to compute arg modulo divisor where divisor is a power of 2.
 template<typename argument_integer_type, typename divisor_integer_type>
 inline argument_integer_type modulo_power_of_two(argument_integer_type arg, divisor_integer_type divisor) {
-    // Divisor is assumed to be a power of two (which is valid for current uses).
     __TBB_ASSERT( is_power_of_two(divisor), "Divisor should be a power of two" );
     return (arg & (divisor - 1));
 }
 
 
-//! A function to determine if "arg is a multiplication of a number and a power of 2".
-// i.e. for strictly positive i and j, with j a power of 2,
+//! A function to determine if arg is a power of 2 at least as big as another power of 2.
+// i.e. for strictly positive i and j, with j being a power of 2,
 // determines whether i==j<<k for some nonnegative k (so i==j yields true).
-template<typename argument_integer_type, typename divisor_integer_type>
-inline bool is_power_of_two_factor(argument_integer_type arg, divisor_integer_type divisor) {
-    // Divisor is assumed to be a power of two (which is valid for current uses).
-    __TBB_ASSERT( is_power_of_two(divisor), "Divisor should be a power of two" );
-    return 0 == (arg & (arg - divisor));
+template<typename argument_integer_type, typename power2_integer_type>
+inline bool is_power_of_two_at_least(argument_integer_type arg, power2_integer_type power2) {
+    __TBB_ASSERT( is_power_of_two(power2), "Divisor should be a power of two" );
+    return 0 == (arg & (arg - power2));
 }
 
 //! Utility template function to prevent "unused" warnings by various compilers.
@@ -499,7 +501,7 @@ T& forward( T& x ) { return x; }
 #define __TBB_PARAMETER_PACK ...
 #define __TBB_PACK_EXPANSION(A) A...
 #else
-#define __TBB_PARAMETER_PACK 
+#define __TBB_PARAMETER_PACK
 #define __TBB_PACK_EXPANSION(A) A
 #endif /* __TBB_CPP11_VARIADIC_TEMPLATES_PRESENT */
 
@@ -532,7 +534,7 @@ struct STATIC_ASSERTION_FAILED<true>; //intentionally left undefined to cause co
     enum {static_assert_on_line_##line = tbb::internal::STATIC_ASSERTION_FAILED<!(condition)>::value}
 
 #define __TBB_STATIC_ASSERT_IMPL(condition,msg,line) __TBB_STATIC_ASSERT_IMPL1(condition,msg,line)
-//! Verify at compile time that passed in condition is hold
+//! Verify condition, at compile time
 #define __TBB_STATIC_ASSERT(condition,msg) __TBB_STATIC_ASSERT_IMPL(condition,msg,__LINE__)
 #endif
 

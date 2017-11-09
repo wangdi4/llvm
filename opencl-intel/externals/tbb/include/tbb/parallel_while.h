@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2017 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -41,11 +41,11 @@ namespace internal {
     class while_iteration_task: public task {
         const Body& my_body;
         typename Body::argument_type my_value;
-        /*override*/ task* execute() {
-            my_body(my_value); 
+        task* execute() __TBB_override {
+            my_body(my_value);
             return NULL;
         }
-        while_iteration_task( const typename Body::argument_type& value, const Body& body ) : 
+        while_iteration_task( const typename Body::argument_type& value, const Body& body ) :
             my_body(body), my_value(value)
         {}
         template<typename Body_> friend class while_group_task;
@@ -57,19 +57,19 @@ namespace internal {
         @ingroup algorithms */
     template<typename Body>
     class while_group_task: public task {
-        static const size_t max_arg_size = 4;         
+        static const size_t max_arg_size = 4;
         const Body& my_body;
         size_t size;
         typename Body::argument_type my_arg[max_arg_size];
-        while_group_task( const Body& body ) : my_body(body), size(0) {} 
-        /*override*/ task* execute() {
+        while_group_task( const Body& body ) : my_body(body), size(0) {}
+        task* execute() __TBB_override {
             typedef while_iteration_task<Body> iteration_type;
             __TBB_ASSERT( size>0, NULL );
             task_list list;
-            task* t; 
-            size_t k=0; 
+            task* t;
+            size_t k=0;
             for(;;) {
-                t = new( allocate_child() ) iteration_type(my_arg[k],my_body); 
+                t = new( allocate_child() ) iteration_type(my_arg[k],my_body);
                 if( ++k==size ) break;
                 list.push_back(*t);
             }
@@ -80,7 +80,7 @@ namespace internal {
         }
         template<typename Stream, typename Body_> friend class while_task;
     };
-    
+
     //! For internal use only.
     /** Gets block of iterations from a stream and packages them into a while_group_task.
         @ingroup algorithms */
@@ -89,10 +89,10 @@ namespace internal {
         Stream& my_stream;
         const Body& my_body;
         empty_task& my_barrier;
-        /*override*/ task* execute() {
+        task* execute() __TBB_override {
             typedef while_group_task<Body> block_type;
             block_type& t = *new( allocate_additional_child_of(my_barrier) ) block_type(my_body);
-            size_t k=0; 
+            size_t k=0;
             while( my_stream.pop_if_present(t.my_arg[k]) ) {
                 if( ++k==block_type::max_arg_size ) {
                     // There might be more iterations.
@@ -108,11 +108,11 @@ namespace internal {
                 return &t;
             }
         }
-        while_task( Stream& stream, const Body& body, empty_task& barrier ) : 
+        while_task( Stream& stream, const Body& body, empty_task& barrier ) :
             my_stream(stream),
             my_body(body),
             my_barrier(barrier)
-        {} 
+        {}
         friend class tbb::parallel_while<Body>;
     };
 
@@ -134,7 +134,7 @@ public:
     //! Destructor cleans up data members before returning.
     ~parallel_while() {
         if( my_barrier ) {
-            my_barrier->destroy(*my_barrier);    
+            my_barrier->destroy(*my_barrier);
             my_barrier = NULL;
         }
     }
@@ -181,6 +181,6 @@ void parallel_while<Body>::add( const value_type& item ) {
     task::self().spawn( i );
 }
 
-} // namespace 
+} // namespace
 
 #endif /* __TBB_parallel_while */

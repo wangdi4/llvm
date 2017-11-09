@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2017 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -24,7 +24,7 @@
 #include "task.h"
 
 #if __TBB_VARIADIC_PARALLEL_INVOKE
-    #include <utility>
+    #include <utility> // std::forward
 #endif
 
 namespace tbb {
@@ -43,8 +43,7 @@ namespace internal {
         function_invoker(const function& _function) : my_function(_function) {}
     private:
         const function &my_function;
-        /*override*/
-        task* execute()
+        task* execute() __TBB_override
         {
             my_function();
             return NULL;
@@ -60,7 +59,7 @@ namespace internal {
         const function3& my_func3;
         bool is_recycled;
 
-        task* execute (){
+        task* execute () __TBB_override {
             if(is_recycled){
                 return NULL;
             }else{

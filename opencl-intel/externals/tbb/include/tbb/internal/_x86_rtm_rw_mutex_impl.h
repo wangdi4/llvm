@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2017 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -58,7 +58,7 @@ public:
 private:
 #endif
     friend class interface7::internal::padded_mutex<x86_rtm_rw_mutex,true>;
-    class scoped_lock;   // should be private 
+    class scoped_lock;   // should be private
     friend class scoped_lock;
 private:
     //! @cond INTERNAL

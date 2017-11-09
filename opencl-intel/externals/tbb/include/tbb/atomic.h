@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2017 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -31,8 +31,8 @@
 
 #include "tbb_machine.h"
 
-#if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
-    // Workaround for overzealous compiler warnings
+#if _MSC_VER && !__INTEL_COMPILER
+    // Suppress overzealous compiler warnings till the end of the file
     #pragma warning (push)
     #pragma warning (disable: 4244 4267 4512)
 #endif
@@ -54,7 +54,9 @@ enum memory_semantics {
 //! @cond INTERNAL
 namespace internal {
 
-#if __TBB_ATTRIBUTE_ALIGNED_PRESENT
+#if __TBB_ALIGNAS_PRESENT
+    #define __TBB_DECL_ATOMIC_FIELD(t,f,a) alignas(a) t f;
+#elif __TBB_ATTRIBUTE_ALIGNED_PRESENT
     #define __TBB_DECL_ATOMIC_FIELD(t,f,a) t f  __attribute__ ((aligned(a)));
 #elif __TBB_DECLSPEC_ALIGN_PRESENT
     #define __TBB_DECL_ATOMIC_FIELD(t,f,a) __declspec(align(a)) t f;
@@ -551,6 +553,6 @@ inline atomic<T>& as_atomic( T& t ) {
 
 #if _MSC_VER && !__INTEL_COMPILER
     #pragma warning (pop)
-#endif // warnings 4244, 4267 are back
+#endif // warnings are restored
 
 #endif /* __TBB_atomic_H */

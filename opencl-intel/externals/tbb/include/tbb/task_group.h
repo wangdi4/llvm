@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2017 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -69,7 +69,7 @@ namespace internal {
 template<typename F>
 class task_handle_task : public task {
     task_handle<F>& my_handle;
-    /*override*/ task* execute() {
+    task* execute() __TBB_override {
         my_handle();
         return NULL;
     }
@@ -111,7 +111,7 @@ public:
     ~task_group_base() __TBB_NOEXCEPT(false) {
         if( my_root->ref_count() > 1 ) {
             bool stack_unwinding_in_progress = std::uncaught_exception();
-            // Always attempt to do proper cleanup to avoid inevitable memory corruption 
+            // Always attempt to do proper cleanup to avoid inevitable memory corruption
             // in case of missing wait (for the sake of better testability & debuggability)
             if ( !is_canceling() )
                 cancel();
@@ -143,6 +143,7 @@ public:
             __TBB_RETHROW();
         }
         if ( my_context.is_group_execution_cancelled() ) {
+            // TODO: the reset method is not thread-safe. Ensure the correct behavior.
             my_context.reset();
             return canceled;
         }
@@ -205,7 +206,7 @@ public:
     }
 }; // class structured_task_group
 
-inline 
+inline
 bool is_current_task_group_canceling() {
     return task::self().is_cancelled();
 }

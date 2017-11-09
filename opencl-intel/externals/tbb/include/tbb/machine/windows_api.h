@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2017 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -23,17 +23,7 @@
 
 #if _WIN32 || _WIN64
 
-#if _XBOX
-
-#define NONET
-#define NOD3D
-#include <xtl.h>
-
-#else // Assume "usual" Windows
-
 #include <windows.h>
-
-#endif // _XBOX
 
 #if _WIN32_WINNT < 0x0600
 // The following Windows API function is declared explicitly;

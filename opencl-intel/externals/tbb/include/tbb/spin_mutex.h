@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2017 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -173,7 +173,7 @@ public:
         s.my_mutex = this;
         s.internal_release();
 #else
-        __TBB_store_with_release(flag, 0);
+        __TBB_UnlockByte(flag);
 #endif /* TBB_USE_THREADING_TOOLS */
     }
 

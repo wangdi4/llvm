@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2017 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -85,13 +85,13 @@ public:
 #endif /* (choice of OS) */
         }
     };
-    
+
     //! Construct an absolute timestamp initialized to zero.
     tick_count() : my_count(0) {};
 
     //! Return current time.
     static tick_count now();
-    
+
     //! Subtract two timestamps to get the time interval between
     friend interval_t operator-( const tick_count& t1, const tick_count& t0 );
 

@@ -18,39 +18,40 @@
     writing.
 */
 
-#ifndef __TBB_null_rw_mutex_H
-#define __TBB_null_rw_mutex_H
-
-#include "tbb_stddef.h"
+#ifndef __TBB_flow_graph_abstractions_H
+#define __TBB_flow_graph_abstractions_H
 
 namespace tbb {
+namespace flow {
+namespace interface9 {
 
-//! A rw mutex which does nothing
-/** A null_rw_mutex is a rw mutex that does nothing and simulates successful operation.
-    @ingroup synchronization */
-class null_rw_mutex : internal::mutex_copy_deprecated_and_disabled {
+//! Pure virtual template classes that define interfaces for async communication
+class graph_proxy {
 public:
-    //! Represents acquisition of a mutex.
-    class scoped_lock : internal::no_copy {
-    public:
-        scoped_lock() {}
-        scoped_lock( null_rw_mutex& , bool = true ) {}
-        ~scoped_lock() {}
-        void acquire( null_rw_mutex& , bool = true ) {}
-        bool upgrade_to_writer() { return true; }
-        bool downgrade_to_reader() { return true; }
-        bool try_acquire( null_rw_mutex& , bool = true ) { return true; }
-        void release() {}
-    };
+    //! Inform a graph that messages may come from outside, to prevent premature graph completion
+    virtual void reserve_wait() = 0;
 
-    null_rw_mutex() {}
+    //! Inform a graph that a previous call to reserve_wait is no longer in effect
+    virtual void release_wait() = 0;
 
-    // Mutex traits
-    static const bool is_rw_mutex = true;
-    static const bool is_recursive_mutex = true;
-    static const bool is_fair_mutex = true;
+    virtual ~graph_proxy() {}
 };
 
-}
+template <typename Input>
+class receiver_gateway : public graph_proxy {
+public:
+    //! Type of inputing data into FG.
+    typedef Input input_type;
 
-#endif /* __TBB_null_rw_mutex_H */
+    //! Submit signal from an asynchronous activity to FG.
+    virtual bool try_put(const input_type&) = 0;
+};
+
+} //interface9
+
+using interface9::graph_proxy;
+using interface9::receiver_gateway;
+
+} //flow
+} //tbb
+#endif

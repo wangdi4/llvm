@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2017 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -129,6 +129,7 @@ namespace rml {
 class MemoryPool;
 
 typedef void *(*rawAllocType)(intptr_t pool_id, size_t &bytes);
+// returns non-zero in case of error
 typedef int   (*rawFreeType)(intptr_t pool_id, void* raw_ptr, size_t raw_bytes);
 
 /*
@@ -191,6 +192,7 @@ void *pool_aligned_malloc(MemoryPool* mPool, size_t size, size_t alignment);
 void *pool_aligned_realloc(MemoryPool* mPool, void *ptr, size_t size, size_t alignment);
 bool  pool_reset(MemoryPool* memPool);
 bool  pool_free(MemoryPool *memPool, void *object);
+MemoryPool *pool_identify(void *object);
 }
 
 #include <new>      /* To use new with the placement argument */
@@ -280,18 +282,18 @@ public:
     template<typename U, typename... Args>
     void construct(U *p, Args&&... args)
         { ::new((void *)p) U(std::forward<Args>(args)...); }
-#else // __TBB_ALLOCATOR_CONSTRUCT_VARIADIC
+#else /* __TBB_ALLOCATOR_CONSTRUCT_VARIADIC */
 #if __TBB_CPP11_RVALUE_REF_PRESENT
     void construct( pointer p, value_type&& value ) { ::new((void*)(p)) value_type( std::move( value ) ); }
 #endif
     void construct( pointer p, const value_type& value ) {::new((void*)(p)) value_type(value);}
-#endif // __TBB_ALLOCATOR_CONSTRUCT_VARIADIC
+#endif /* __TBB_ALLOCATOR_CONSTRUCT_VARIADIC */
     void destroy( pointer p ) {p->~value_type();}
 };
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
     #pragma warning (pop)
-#endif // warning 4100 is back
+#endif /* warning 4100 is back */
 
 //! Analogous to std::allocator<void>, as defined in ISO C++ Standard, Section 20.4.1
 /** @ingroup memory_allocation */
@@ -334,6 +336,6 @@ inline bool operator!=( const scalable_allocator<T>&, const scalable_allocator<U
 
 #if !defined(__cplusplus) && __ICC==1100
     #pragma warning (pop)
-#endif // ICC 11.0 warning 991 is back
+#endif /* ICC 11.0 warning 991 is back */
 
 #endif /* __TBB_scalable_allocator_H */

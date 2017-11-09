@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2017 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -33,7 +33,7 @@
 #include "../tbb_exception.h"
 #include "../tbb_profiling.h"
 #include <new>
-#include <utility>
+#include __TBB_STD_SWAP_HEADER
 
 #if !TBB_USE_EXCEPTIONS && _MSC_VER
     // Suppress "C++ exception handler used, but unwind semantics are not enabled" warning in STL headers
@@ -281,15 +281,15 @@ bool micro_queue<T>::pop( void* dst, ticket k, concurrent_queue_base_v3<T>& base
     call_itt_notify(acquired, &head_counter);
     if( tail_counter==k ) spin_wait_while_eq( tail_counter, k );
     call_itt_notify(acquired, &tail_counter);
-    page& p = *head_page;
-    __TBB_ASSERT( &p, NULL );
+    page *p = head_page;
+    __TBB_ASSERT( p, NULL );
     size_t index = modulo_power_of_two( k/concurrent_queue_rep_base::n_queue, base.my_rep->items_per_page );
     bool success = false;
     {
-        micro_queue_pop_finalizer<T> finalizer( *this, base, k+concurrent_queue_rep_base::n_queue, index==base.my_rep->items_per_page-1 ? &p : NULL );
-        if( p.mask & uintptr_t(1)<<index ) {
+        micro_queue_pop_finalizer<T> finalizer( *this, base, k+concurrent_queue_rep_base::n_queue, index==base.my_rep->items_per_page-1 ? p : NULL );
+        if( p->mask & uintptr_t(1)<<index ) {
             success = true;
-            assign_and_destroy_item( dst, p, index );
+            assign_and_destroy_item( dst, *p, index );
         } else {
             --base.my_rep->n_invalid_entries;
         }
@@ -450,13 +450,13 @@ private:
     typedef typename micro_queue<T>::padded_page padded_page;
     typedef typename micro_queue<T>::item_constructor_t item_constructor_t;
 
-    /* override */ virtual page *allocate_page() {
+    virtual page *allocate_page() __TBB_override {
         concurrent_queue_rep<T>& r = *my_rep;
         size_t n = sizeof(padded_page) + (r.items_per_page-1)*sizeof(T);
         return reinterpret_cast<page*>(allocate_block ( n ));
     }
 
-    /* override */ virtual void deallocate_page( concurrent_queue_rep_base::page *p ) {
+    virtual void deallocate_page( concurrent_queue_rep_base::page *p ) __TBB_override {
         concurrent_queue_rep<T>& r = *my_rep;
         size_t n = sizeof(padded_page) + (r.items_per_page-1)*sizeof(T);
         deallocate_block( reinterpret_cast<void*>(p), n );
@@ -471,7 +471,7 @@ private:
 protected:
     concurrent_queue_base_v3();
 
-    /* override */ virtual ~concurrent_queue_base_v3() {
+    virtual ~concurrent_queue_base_v3() {
 #if TBB_USE_ASSERT
         size_t nq = my_rep->n_queue;
         for( size_t i=0; i<nq; i++ )
@@ -764,7 +764,7 @@ class concurrent_queue_iterator: public concurrent_queue_iterator_base_v3<typena
 public:
 #endif
     //! Construct iterator pointing to head of queue.
-    concurrent_queue_iterator( const concurrent_queue_base_v3<Value>& queue ) :
+    explicit concurrent_queue_iterator( const concurrent_queue_base_v3<typename tbb_remove_cv<Value>::type>& queue ) :
         concurrent_queue_iterator_base_v3<typename tbb_remove_cv<Value>::type>(queue)
     {
     }
@@ -772,6 +772,8 @@ public:
 public:
     concurrent_queue_iterator() {}
 
+    /** If Value==Container::value_type, then this routine is the copy constructor.
+        If Value==const Container::value_type, then this routine is a conversion constructor. */
     concurrent_queue_iterator( const concurrent_queue_iterator<Container,typename Container::value_type>& other ) :
         concurrent_queue_iterator_base_v3<typename tbb_remove_cv<Value>::type>(other)
     {}
@@ -1023,7 +1025,7 @@ public:
 #endif
 
     //! Construct iterator pointing to head of queue.
-    concurrent_queue_iterator( const concurrent_queue_base_v3& queue ) :
+    explicit concurrent_queue_iterator( const concurrent_queue_base_v3& queue ) :
         concurrent_queue_iterator_base_v3(queue,__TBB_offsetof(concurrent_queue_base_v3::padded_page<Value>,last))
     {
     }

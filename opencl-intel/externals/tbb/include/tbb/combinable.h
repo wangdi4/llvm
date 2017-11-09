@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2017 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -31,27 +31,40 @@ namespace tbb {
 //! Thread-local storage with optional reduction
 /** @ingroup containers */
     template <typename T>
-        class combinable {
+    class combinable {
+
     private:
         typedef typename tbb::cache_aligned_allocator<T> my_alloc;
-
         typedef typename tbb::enumerable_thread_specific<T, my_alloc, ets_no_key> my_ets_type;
-        my_ets_type my_ets; 
- 
+        my_ets_type my_ets;
+
     public:
 
         combinable() { }
 
         template <typename finit>
-        combinable( finit _finit) : my_ets(_finit) { }
+        explicit combinable( finit _finit) : my_ets(_finit) { }
 
         //! destructor
-        ~combinable() { 
+        ~combinable() { }
+
+        combinable( const combinable& other) : my_ets(other.my_ets) { }
+
+#if __TBB_ETS_USE_CPP11
+        combinable( combinable&& other) : my_ets( std::move(other.my_ets)) { }
+#endif
+
+        combinable & operator=( const combinable & other) {
+            my_ets = other.my_ets;
+            return *this;
         }
 
-        combinable(const combinable& other) : my_ets(other.my_ets) { }
-
-        combinable & operator=( const combinable & other) { my_ets = other.my_ets; return *this; }
+#if __TBB_ETS_USE_CPP11
+        combinable & operator=( combinable && other) {
+            my_ets=std::move(other.my_ets);
+            return *this;
+        }
+#endif
 
         void clear() { my_ets.clear(); }
 

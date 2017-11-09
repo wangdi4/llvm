@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2017 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -21,7 +21,7 @@
 #ifndef __TBB_machine_gcc_ia32_common_H
 #define __TBB_machine_gcc_ia32_common_H
 
-//TODO: Add a higher-level function, e.g. tbb::interal::log2(), into tbb_stddef.h, which
+//TODO: Add a higher-level function, e.g. tbb::internal::log2(), into tbb_stddef.h, which
 //uses __TBB_Log2 and contains the assert and remove the assert from here and all other
 //platform-specific headers.
 //TODO: Check if use of gcc intrinsic gives a better chance for cross call optimizations
@@ -52,6 +52,18 @@ static inline void __TBB_machine_pause( int32_t delay ) {
 }
 #define __TBB_Pause(V) __TBB_machine_pause(V)
 #endif /* !__TBB_Pause */
+
+namespace tbb { namespace internal { typedef uint64_t machine_tsc_t; } }
+static inline tbb::internal::machine_tsc_t __TBB_machine_time_stamp() {
+#if __INTEL_COMPILER
+    return _rdtsc();
+#else
+    tbb::internal::uint32_t hi, lo;
+    __asm__ __volatile__("rdtsc" : "=d"(hi), "=a"(lo));
+    return (tbb::internal::machine_tsc_t( hi ) << 32) | lo;
+#endif
+}
+#define __TBB_time_stamp() __TBB_machine_time_stamp()
 
 // API to retrieve/update FPU control setting
 #ifndef __TBB_CPU_CTL_ENV_PRESENT

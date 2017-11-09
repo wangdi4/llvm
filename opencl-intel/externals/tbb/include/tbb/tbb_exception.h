@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2017 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -42,34 +42,34 @@ namespace tbb {
 //! Exception for concurrent containers
 class bad_last_alloc : public std::bad_alloc {
 public:
-    /*override*/ const char* what() const throw();
+    const char* what() const throw() __TBB_override;
 #if __TBB_DEFAULT_DTOR_THROW_SPEC_BROKEN
-    /*override*/ ~bad_last_alloc() throw() {}
+    ~bad_last_alloc() throw() __TBB_override {}
 #endif
 };
 
 //! Exception for PPL locks
 class improper_lock : public std::exception {
 public:
-    /*override*/ const char* what() const throw();
+    const char* what() const throw() __TBB_override;
 };
 
 //! Exception for user-initiated abort
 class user_abort : public std::exception {
 public:
-    /*override*/ const char* what() const throw();
+    const char* what() const throw() __TBB_override;
 };
 
 //! Exception for missing wait on structured_task_group
 class missing_wait : public std::exception {
 public:
-    /*override*/ const char* what() const throw();
+    const char* what() const throw() __TBB_override;
 };
 
 //! Exception for repeated scheduling of the same task_handle
 class invalid_multiple_scheduling : public std::exception {
 public:
-    /*override*/ const char* what() const throw();
+    const char* what() const throw() __TBB_override;
 };
 
 namespace internal {
@@ -97,9 +97,9 @@ enum exception_id {
     eid_user_abort,
     eid_reserved1,
 #if __TBB_SUPPORTS_WORKERS_WAITING_IN_TERMINATE
-    // This id is used only inside library and only for support of CPF functionality.
+    // This id is used only from inside the library and only for support of CPF functionality.
     // So, if we drop the functionality, eid_reserved1 can be safely renamed and reused.
-    eid_blocking_sch_init = eid_reserved1,
+    eid_blocking_thread_join_impossible = eid_reserved1,
 #endif
     eid_bad_tagged_msg_cast,
     //! The last enumerator tracks the number of defined IDs. It must remain the last one.
@@ -182,7 +182,7 @@ public:
     virtual const char* name() const throw() = 0;
 
     //! Returns the result of originally intercepted exception's what() method.
-    virtual const char* what() const throw() = 0;
+    virtual const char* what() const throw() __TBB_override = 0;
 
     /** Operator delete is provided only to allow using existing smart pointers
         with TBB exception objects obtained as the result of applying move()
@@ -225,20 +225,15 @@ public:
         return *this;
     }
 
-    /*override*/
-    captured_exception* __TBB_EXPORTED_METHOD move () throw();
+    captured_exception* __TBB_EXPORTED_METHOD move () throw() __TBB_override;
 
-    /*override*/
-    void __TBB_EXPORTED_METHOD destroy () throw();
+    void __TBB_EXPORTED_METHOD destroy () throw() __TBB_override;
 
-    /*override*/
-    void throw_self () { __TBB_THROW(*this); }
+    void throw_self () __TBB_override { __TBB_THROW(*this); }
 
-    /*override*/
-    const char* __TBB_EXPORTED_METHOD name() const throw();
+    const char* __TBB_EXPORTED_METHOD name() const throw() __TBB_override;
 
-    /*override*/
-    const char* __TBB_EXPORTED_METHOD what() const throw();
+    const char* __TBB_EXPORTED_METHOD what() const throw() __TBB_override;
 
     void __TBB_EXPORTED_METHOD set ( const char* name, const char* info ) throw();
     void __TBB_EXPORTED_METHOD clear () throw();
@@ -299,12 +294,11 @@ public:
 
     const ExceptionData& data () const throw() { return my_exception_data; }
 
-    /*override*/ const char* name () const throw() { return my_exception_name; }
+    const char* name () const throw() __TBB_override { return my_exception_name; }
 
-    /*override*/ const char* what () const throw() { return "tbb::movable_exception"; }
+    const char* what () const throw() __TBB_override { return "tbb::movable_exception"; }
 
-    /*override*/
-    movable_exception* move () throw() {
+    movable_exception* move () throw() __TBB_override {
         void* e = internal::allocate_via_handler_v3(sizeof(movable_exception));
         if ( e ) {
             ::new (e) movable_exception(*this);
@@ -312,16 +306,14 @@ public:
         }
         return (movable_exception*)e;
     }
-    /*override*/
-    void destroy () throw() {
+    void destroy () throw() __TBB_override {
         __TBB_ASSERT ( my_dynamic, "Method destroy can be called only on dynamically allocated movable_exceptions" );
         if ( my_dynamic ) {
             this->~movable_exception();
             internal::deallocate_via_handler_v3(this);
         }
     }
-    /*override*/
-    void throw_self () { __TBB_THROW( *this ); }
+    void throw_self () __TBB_override { __TBB_THROW( *this ); }
 
 protected:
     //! User data

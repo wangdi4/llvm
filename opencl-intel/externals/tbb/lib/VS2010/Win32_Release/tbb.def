@@ -1,5 +1,4 @@
-
-; Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
+; Copyright 2005-2017 Intel Corporation.  All Rights Reserved.
 ;
 ; The source code contained or described herein and all documents related
 ; to the source code ("Material") are owned by Intel Corporation or its
@@ -24,23 +23,6 @@ EXPORTS
 
 
 
-; Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
-;
-; The source code contained or described herein and all documents related
-; to the source code ("Material") are owned by Intel Corporation or its
-; suppliers or licensors.  Title to the Material remains with Intel
-; Corporation or its suppliers and licensors.  The Material is protected
-; by worldwide copyright laws and treaty provisions.  No part of the
-; Material may be used, copied, reproduced, modified, published, uploaded,
-; posted, transmitted, distributed, or disclosed in any way without
-; Intel's prior express written permission.
-;
-; No license under any patent, copyright, trade secret or other
-; intellectual property right is granted to or conferred upon you by
-; disclosure or delivery of the Materials, either expressly, by
-; implication, inducement, estoppel or otherwise.  Any license under such
-; intellectual property rights must be express and approved by Intel in
-; writing.
 
 
 
@@ -54,6 +36,7 @@ EXPORTS
 
 
 
+ 
 
 
 
@@ -62,10 +45,14 @@ EXPORTS
 
 
 
+ 
 
 
 
+ 
 
+ 
+ 
 
 
 
@@ -77,11 +64,14 @@ EXPORTS
 
 
 
+ 
 
+ 
 
 
 
 
+ 
 
 
 
@@ -94,523 +84,13 @@ EXPORTS
 
 
 
+ 
 
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+ 
     
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    
-
-
-    
-    
-
-
-
-
-
-    
-    
-
-
-
-
-
-
-
-
-
-
-        
-    
-
-
-
-
-
-
-
-
-    
-    
-        
-    
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    
-
-
-
-
-
-
-
-
-
-
-
-    
-
-
-
-    
-
-
-
-    
-
-
-
-    
-
-
-
-
-
-
-
-    
-
-
-    
-    
-
-
-
-
-
-    
-
-
-
-    
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    
-
-
-
-
-
-
-
-    
-
-
-
-    
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    
-
-
-
-
-        
-    
-
-
-
-
-
-
-
-    
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -634,6 +114,105 @@ EXPORTS
 
 
 
+
+
+
+ 
+ 
+ 
+     
+
+     
+
+
+ 
+
+
+
+
+ 
+
+
+
+
+
+
+ 
+
+
+
+
+
+
+ 
+
+ 
+     
+
+ 
+
+ 
+
+ 
+
+ 
+
+
+
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+
+
+
+
+
+ 
+
+
+
+
+
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+
+    
+    
+    
     
 
 
@@ -645,71 +224,8 @@ EXPORTS
 
 
 
-    
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    
-
-
-
-    
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    
-    
-
-
-
-
-
-
+ 
 
 
 
@@ -768,25 +284,21 @@ __TBB_machine_is_in_transaction
 ?initialize@task_scheduler_init@tbb@@QAEXHI@Z
 ?initialize@task_scheduler_init@tbb@@QAEXH@Z
 ?terminate@task_scheduler_init@tbb@@QAEXXZ
-
+?internal_blocking_terminate@task_scheduler_init@tbb@@AAE_N_N@Z
 ?observe@task_scheduler_observer_v3@internal@tbb@@QAEX_N@Z
 
-
-
-
+ 
+?internal_max_concurrency@task_arena_base@internal@interface7@tbb@@KAHPBVtask_arena@34@@Z
 ?internal_current_slot@task_arena_base@internal@interface7@tbb@@KAHXZ
 ?internal_initialize@task_arena_base@internal@interface7@tbb@@IAEXXZ
 ?internal_terminate@task_arena_base@internal@interface7@tbb@@IAEXXZ
+?internal_attach@task_arena_base@internal@interface7@tbb@@IAEXXZ
 ?internal_enqueue@task_arena_base@internal@interface7@tbb@@IBEXAAVtask@4@H@Z
 ?internal_execute@task_arena_base@internal@interface7@tbb@@IBEXAAVdelegate_base@234@@Z
 ?internal_wait@task_arena_base@internal@interface7@tbb@@IBEXXZ
 
 
-
-
 ?destroy@task@tbb@@QAEXAAV12@@Z
-
-
 
 
 ?allocate@allocate_root_with_context_proxy@internal@tbb@@QBEAAVtask@3@I@Z
@@ -799,10 +311,8 @@ __TBB_machine_is_in_transaction
 ?init@task_group_context@tbb@@IAEXXZ
 ?register_pending_exception@task_group_context@tbb@@QAEXXZ
 ??1task_group_context@tbb@@QAE@XZ
-
 ?set_priority@task_group_context@tbb@@QAEXW4priority_t@2@@Z
 ?priority@task_group_context@tbb@@QBE?AW4priority_t@2@XZ
-
 ?name@captured_exception@tbb@@UBEPBDXZ
 ?what@captured_exception@tbb@@UBEPBDXZ
 ??1captured_exception@tbb@@UAE@XZ
@@ -810,7 +320,6 @@ __TBB_machine_is_in_transaction
 ?destroy@captured_exception@tbb@@UAEXXZ
 ?set@captured_exception@tbb@@QAEXPBD0@Z
 ?clear@captured_exception@tbb@@QAEXXZ
-
 
 
 ?throw_bad_last_alloc_exception_v4@internal@tbb@@YAXXZ
@@ -833,18 +342,8 @@ TBB_runtime_interface_version
 ?itt_load_pointer_with_acquire_v3@internal@tbb@@YAPAXPBX@Z
 ?itt_store_pointer_with_release_v3@internal@tbb@@YAXPAX0@Z
 ?call_itt_notify_v5@internal@tbb@@YAXHPAX@Z
-
-
-
 ?itt_set_sync_name_v3@internal@tbb@@YAXPAXPB_W@Z
 ?itt_load_pointer_v3@internal@tbb@@YAPAXPBX@Z
-
-
-
-
-
-
-
 
 
 ??0pipeline@tbb@@QAE@XZ
@@ -855,9 +354,7 @@ TBB_runtime_interface_version
 ?clear@pipeline@tbb@@QAEXXZ
 ?inject_token@pipeline@tbb@@AAEXAAVtask@2@@Z
 ?run@pipeline@tbb@@QAEXI@Z
-
 ?run@pipeline@tbb@@QAEXIAAVtask_group_context@2@@Z
-
 ?process_item@thread_bound_filter@tbb@@QAE?AW4result_type@12@XZ
 ?try_process_item@thread_bound_filter@tbb@@QAE?AW4result_type@12@XZ
 ?set_end_of_input@filter@tbb@@IAEXXZ
@@ -884,7 +381,6 @@ TBB_runtime_interface_version
 ?internal_destroy@scoped_lock_read@reader_writer_lock@interface5@tbb@@AAEXXZ
 
 
-
 ?internal_acquire_reader@spin_rw_mutex@tbb@@CAXPAV12@@Z
 ?internal_acquire_writer@spin_rw_mutex@tbb@@CA_NPAV12@@Z
 ?internal_downgrade@spin_rw_mutex@tbb@@CAXPAV12@@Z
@@ -894,7 +390,6 @@ TBB_runtime_interface_version
 ?internal_upgrade@spin_rw_mutex@tbb@@CA_NPAV12@@Z
 ?internal_try_acquire_writer@spin_rw_mutex@tbb@@CA_NPAV12@@Z
 ?internal_try_acquire_reader@spin_rw_mutex@tbb@@CA_NPAV12@@Z
-
 
 
 ?internal_construct@spin_rw_mutex_v3@tbb@@AAEXXZ
@@ -946,7 +441,6 @@ TBB_runtime_interface_version
 ?internal_construct@critical_section_v4@internal@tbb@@QAEXXZ
 
 
-
 ?internal_grow_predicate@hash_map_segment_base@internal@tbb@@QBE_NXZ
 
 
@@ -962,7 +456,6 @@ TBB_runtime_interface_version
 ?internal_push@concurrent_queue_base@internal@tbb@@IAEXPBX@Z
 ?internal_push_if_not_full@concurrent_queue_base@internal@tbb@@IAE_NPBX@Z
 ?internal_set_capacity@concurrent_queue_base@internal@tbb@@IAEXHI@Z
-
 
 
 ??1concurrent_queue_iterator_base_v3@internal@tbb@@IAE@XZ
@@ -988,7 +481,6 @@ TBB_runtime_interface_version
 ?move_content@concurrent_queue_base_v8@internal@tbb@@IAEXAAV123@@Z
 
 
-
 ?internal_assign@concurrent_vector_base@internal@tbb@@IAEXABV123@IP6AXPAXI@ZP6AX1PBXI@Z4@Z
 ?internal_capacity@concurrent_vector_base@internal@tbb@@IBEIXZ
 ?internal_clear@concurrent_vector_base@internal@tbb@@IAEXP6AXPAXI@Z_N@Z
@@ -997,7 +489,6 @@ TBB_runtime_interface_version
 ?internal_grow_to_at_least@concurrent_vector_base@internal@tbb@@IAEXIIP6AXPAXI@Z@Z
 ?internal_push_back@concurrent_vector_base@internal@tbb@@IAEPAXIAAI@Z
 ?internal_reserve@concurrent_vector_base@internal@tbb@@IAEXIII@Z
-
 
 
 ??1concurrent_vector_base_v3@internal@tbb@@IAE@XZ
@@ -1038,9 +529,6 @@ TBB_runtime_interface_version
 ?active_value@global_control@interface9@tbb@@CAIH@Z
 ?internal_create@global_control@interface9@tbb@@AAEXXZ
 ?internal_destroy@global_control@interface9@tbb@@AAEXXZ
-
-
-
 
 
 

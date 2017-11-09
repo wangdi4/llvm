@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2017 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -107,14 +107,14 @@ public:
         typedef memory_pool_allocator<U, P> other;
     };
 
-    memory_pool_allocator(pool_type &pool) throw() : my_pool(&pool) {}
+    explicit memory_pool_allocator(pool_type &pool) throw() : my_pool(&pool) {}
     memory_pool_allocator(const memory_pool_allocator& src) throw() : my_pool(src.my_pool) {}
     template<typename U>
     memory_pool_allocator(const memory_pool_allocator<U,P>& src) throw() : my_pool(src.my_pool) {}
 
     pointer address(reference x) const { return &x; }
     const_pointer address(const_reference x) const { return &x; }
-    
+
     //! Allocate space for n objects.
     pointer allocate( size_type n, const void* /*hint*/ = 0) {
         pointer p = static_cast<pointer>( my_pool->malloc( n*sizeof(value_type) ) );
@@ -154,7 +154,7 @@ public:
 
 //! Analogous to std::allocator<void>, as defined in ISO C++ Standard, Section 20.4.1
 /** @ingroup memory_allocation */
-template<typename P> 
+template<typename P>
 class memory_pool_allocator<void, P> {
 public:
     typedef P pool_type;
@@ -165,7 +165,7 @@ public:
         typedef memory_pool_allocator<U, P> other;
     };
 
-    memory_pool_allocator( pool_type &pool) throw() : my_pool(&pool) {}
+    explicit memory_pool_allocator( pool_type &pool) throw() : my_pool(&pool) {}
     memory_pool_allocator( const memory_pool_allocator& src) throw() : my_pool(src.my_pool) {}
     template<typename U>
     memory_pool_allocator(const memory_pool_allocator<U,P>& src) throw() : my_pool(src.my_pool) {}
@@ -196,7 +196,7 @@ class memory_pool : public internal::pool_base {
 
 public:
     //! construct pool with underlying allocator
-    memory_pool(const Alloc &src = Alloc());
+    explicit memory_pool(const Alloc &src = Alloc());
 
     //! destroy pool
     ~memory_pool() { destroy(); } // call the callbacks first and destroy my_alloc latter

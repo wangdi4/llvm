@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2017 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -126,8 +126,8 @@ private:
         }
         static handle_move_t move(handle_object& h){
             __TBB_ASSERT(h.my_cache_pointer,"move from the same object twice ?");
-            concurrent_lru_cache * cache_pointer = NULL;
-            std::swap(cache_pointer,h.my_cache_pointer);
+            concurrent_lru_cache * cache_pointer = h.my_cache_pointer;
+            h.my_cache_pointer = NULL;
             return handle_move_t(*cache_pointer,h.my_map_record_ref);
         }
     private:

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2017 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -29,7 +29,7 @@
 
 namespace tbb {
 
-namespace interface7 {
+namespace interface9 {
 //! @cond INTERNAL
 namespace internal {
 
@@ -62,7 +62,7 @@ namespace internal {
             if( has_right_zombie )
                 zombie_space.begin()->~Body();
         }
-        task* execute() {
+        task* execute() __TBB_override {
             if( has_right_zombie ) {
                 // Right child was stolen.
                 Body* s = zombie_space.begin();
@@ -89,9 +89,9 @@ namespace internal {
         Range my_range;
         typename Partitioner::task_partition_type my_partition;
         reduction_context my_context;
-        /*override*/ task* execute();
+        task* execute() __TBB_override;
         //! Update affinity info, if any
-        /*override*/ void note_affinity( affinity_id id ) {
+        void note_affinity( affinity_id id ) __TBB_override {
             my_partition.note_affinity( id );
         }
         template<typename Body_>
@@ -209,7 +209,7 @@ public:
             my_right_body( body, split() )
         {
         }
-        task* execute() {
+        task* execute() __TBB_override {
             my_left_body.join( my_right_body );
             return NULL;
         }
@@ -224,7 +224,7 @@ public:
         typedef finish_deterministic_reduce<Body> finish_type;
         Body &my_body;
         Range my_range;
-        /*override*/ task* execute();
+        task* execute() __TBB_override;
 
         //! Constructor used for root task
         start_deterministic_reduce( const Range& range, Body& body ) :
@@ -281,8 +281,8 @@ public:
 
 //! @cond INTERNAL
 namespace internal {
-    using interface7::internal::start_reduce;
-    using interface7::internal::start_deterministic_reduce;
+    using interface9::internal::start_reduce;
+    using interface9::internal::start_deterministic_reduce;
     //! Auxiliary class for parallel_reduce; for internal use only.
     /** The adaptor class that implements \ref parallel_reduce_body_req "parallel_reduce Body"
         using given \ref parallel_reduce_lambda_req "anonymous function objects".
@@ -374,6 +374,13 @@ void parallel_reduce( const Range& range, Body& body, const auto_partitioner& pa
     internal::start_reduce<Range,Body,const auto_partitioner>::run( range, body, partitioner );
 }
 
+//! Parallel iteration with reduction and static_partitioner
+/** @ingroup algorithms **/
+template<typename Range, typename Body>
+void parallel_reduce( const Range& range, Body& body, const static_partitioner& partitioner ) {
+    internal::start_reduce<Range,Body,const static_partitioner>::run( range, body, partitioner );
+}
+
 //! Parallel iteration with reduction and affinity_partitioner
 /** @ingroup algorithms **/
 template<typename Range, typename Body>
@@ -394,6 +401,13 @@ void parallel_reduce( const Range& range, Body& body, const simple_partitioner& 
 template<typename Range, typename Body>
 void parallel_reduce( const Range& range, Body& body, const auto_partitioner& partitioner, task_group_context& context ) {
     internal::start_reduce<Range,Body,const auto_partitioner>::run( range, body, partitioner, context );
+}
+
+//! Parallel iteration with reduction, static_partitioner and user-supplied context
+/** @ingroup algorithms **/
+template<typename Range, typename Body>
+void parallel_reduce( const Range& range, Body& body, const static_partitioner& partitioner, task_group_context& context ) {
+    internal::start_reduce<Range,Body,const static_partitioner>::run( range, body, partitioner, context );
 }
 
 //! Parallel iteration with reduction, affinity_partitioner and user-supplied context
@@ -439,6 +453,17 @@ Value parallel_reduce( const Range& range, const Value& identity, const RealBody
     return body.result();
 }
 
+//! Parallel iteration with reduction and static_partitioner
+/** @ingroup algorithms **/
+template<typename Range, typename Value, typename RealBody, typename Reduction>
+Value parallel_reduce( const Range& range, const Value& identity, const RealBody& real_body, const Reduction& reduction,
+                       const static_partitioner& partitioner ) {
+    internal::lambda_reduce_body<Range,Value,RealBody,Reduction> body(identity, real_body, reduction);
+    internal::start_reduce<Range,internal::lambda_reduce_body<Range,Value,RealBody,Reduction>,const static_partitioner>
+                                        ::run( range, body, partitioner );
+    return body.result();
+}
+
 //! Parallel iteration with reduction and affinity_partitioner
 /** @ingroup algorithms **/
 template<typename Range, typename Value, typename RealBody, typename Reduction>
@@ -470,6 +495,17 @@ Value parallel_reduce( const Range& range, const Value& identity, const RealBody
     internal::lambda_reduce_body<Range,Value,RealBody,Reduction> body(identity, real_body, reduction);
     internal::start_reduce<Range,internal::lambda_reduce_body<Range,Value,RealBody,Reduction>,const auto_partitioner>
                           ::run( range, body, partitioner, context );
+    return body.result();
+}
+
+//! Parallel iteration with reduction, static_partitioner and user-supplied context
+/** @ingroup algorithms **/
+template<typename Range, typename Value, typename RealBody, typename Reduction>
+Value parallel_reduce( const Range& range, const Value& identity, const RealBody& real_body, const Reduction& reduction,
+                       const static_partitioner& partitioner, task_group_context& context ) {
+    internal::lambda_reduce_body<Range,Value,RealBody,Reduction> body(identity, real_body, reduction);
+    internal::start_reduce<Range,internal::lambda_reduce_body<Range,Value,RealBody,Reduction>,const static_partitioner>
+                                        ::run( range, body, partitioner, context );
     return body.result();
 }
 

@@ -1,5 +1,4 @@
-
-; Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
+; Copyright 2005-2017 Intel Corporation.  All Rights Reserved.
 ;
 ; The source code contained or described herein and all documents related
 ; to the source code ("Material") are owned by Intel Corporation or its
@@ -46,3 +45,4 @@ __TBB_malloc_safer_aligned_realloc
 ?pool_realloc@rml@@YAPEAXPEAVMemoryPool@1@PEAX_K@Z
 ?pool_aligned_realloc@rml@@YAPEAXPEAVMemoryPool@1@PEAX_K2@Z
 ?pool_aligned_malloc@rml@@YAPEAXPEAVMemoryPool@1@_K1@Z
+?pool_identify@rml@@YAPEAVMemoryPool@1@PEAX@Z

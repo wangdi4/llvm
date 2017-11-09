@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2017 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -27,7 +27,7 @@
 
 #include "tbb/internal/_flow_graph_types_impl.h"  // for aligned_pair
 
-// in namespace tbb::flow::interface7 (included in _flow_graph_node_impl.h)
+// in namespace tbb::flow::interfaceX (included in _flow_graph_node_impl.h)
 
     //! Expandable buffer of items.  The possible operations are push, pop,
     //* tests for empty and so forth.  No mutual exclusion is built in.
@@ -56,7 +56,7 @@ namespace internal {
         size_type my_head;
         size_type my_tail;
 
-        bool buffer_empty() { return my_head == my_tail; }
+        bool buffer_empty() const { return my_head == my_tail; }
 
         buffer_item_type &item(size_type i) {
             __TBB_ASSERT(!(size_type(&(my_array[i&(my_array_size-1)].second))%alignment_of<buffer_item_state>::value),NULL);
@@ -64,18 +64,24 @@ namespace internal {
             return my_array[i & (my_array_size - 1) ];
         }
 
-        bool my_item_valid(size_type i) { return (i < my_tail) && (i >= my_head) && (item(i).second != no_item); }
-        bool my_item_reserved(size_type i) { return item(i).second == reserved_item; }
+        const buffer_item_type &item(size_type i) const {
+            __TBB_ASSERT(!(size_type(&(my_array[i&(my_array_size-1)].second))%alignment_of<buffer_item_state>::value), NULL);
+            __TBB_ASSERT(!(size_type(&(my_array[i&(my_array_size-1)].first))%alignment_of<item_type>::value), NULL);
+            return my_array[i & (my_array_size-1)];
+        }
+
+        bool my_item_valid(size_type i) const { return (i < my_tail) && (i >= my_head) && (item(i).second != no_item); }
+        bool my_item_reserved(size_type i) const { return item(i).second == reserved_item; }
 
         // object management in buffer
-        const item_type &get_my_item(size_t i) {
+        const item_type &get_my_item(size_t i) const {
             __TBB_ASSERT(my_item_valid(i),"attempt to get invalid item");
             item_type *itm = (tbb::internal::punned_cast<item_type *>(&(item(i).first)));
             return *(const item_type *)itm;
         }
 
         // may be called with an empty slot or a slot that has already been constructed into.
-        void set_my_item(size_t i, const item_type &o) { 
+        void set_my_item(size_t i, const item_type &o) {
             if(item(i).second != no_item) {
                 destroy_item(i);
             }
@@ -124,18 +130,21 @@ namespace internal {
             item(i).second = no_item;
         }
 
-        // returns a copy of the front
-        void copy_front(item_type &v) {
+        // returns the front element
+        const item_type& front() const
+        {
             __TBB_ASSERT(my_item_valid(my_head), "attempt to fetch head non-item");
-            v = get_my_item(my_head);
-        }
-        // returns a copy of the back
-        void copy_back(item_type &v) {
-            __TBB_ASSERT(my_item_valid(my_tail-1), "attempt to fetch head non-item");
-            v = get_my_item(my_tail-1);
+            return get_my_item(my_head);
         }
 
-        // following methods are for reservation of the front of a bufffer. 
+        // returns  the back element
+        const item_type& back() const
+        {
+            __TBB_ASSERT(my_item_valid(my_tail - 1), "attempt to fetch head non-item");
+            return get_my_item(my_tail - 1);
+        }
+
+        // following methods are for reservation of the front of a bufffer.
         void reserve_item(size_type i) { __TBB_ASSERT(my_item_valid(i) && !my_item_reserved(i), "item cannot be reserved"); item(i).second = reserved_item; }
         void release_item(size_type i) { __TBB_ASSERT(my_item_reserved(i), "item is not reserved"); item(i).second = has_item; }
 
@@ -146,7 +155,7 @@ namespace internal {
         // grow_array doesn't work if we change my_tail when the old array is too small
         size_type size(size_t new_tail = 0) { return (new_tail ? new_tail : my_tail) - my_head; }
         size_type capacity() { return my_array_size; }
-        // sequencer_node does not use this method, so we don't 
+        // sequencer_node does not use this method, so we don't
         // need a version that passes in the new_tail value.
         bool buffer_full() { return size() >= capacity(); }
 
@@ -191,7 +200,7 @@ namespace internal {
             if (!my_item_valid(my_tail-1)) {
                 return false;
             }
-            copy_back(v);
+            v = this->back();
             destroy_back();
             return true;
         }
@@ -200,7 +209,7 @@ namespace internal {
             if(!my_item_valid(my_head)) {
                 return false;
             }
-            copy_front(v);
+            v = this->front();
             destroy_front();
             return true;
         }
@@ -213,7 +222,7 @@ namespace internal {
                     if(my_item_valid(i))
                         destroy_item(i);
                 }
-                allocator_type().deallocate(my_array,my_array_size); 
+                allocator_type().deallocate(my_array,my_array_size);
             }
             my_array = NULL;
             if(reset_pointers) {
@@ -237,7 +246,7 @@ namespace internal {
     };
 
     //! item_buffer with reservable front-end.  NOTE: if reserving, do not
-    //* complete operation with pop_front(); use consume_front().  
+    //* complete operation with pop_front(); use consume_front().
     //* No synchronization built-in.
     template<typename T, typename A=cache_aligned_allocator<T> >
     class reservable_item_buffer : public item_buffer<T, A> {
@@ -251,10 +260,10 @@ namespace internal {
     protected:
 
         bool reserve_front(T &v) {
-            if(my_reserved || !my_item_valid(my_head)) return false;
+            if(my_reserved || !my_item_valid(this->my_head)) return false;
             my_reserved = true;
             // reserving the head
-            this->copy_front(v);
+            v = this->front();
             this->reserve_item(this->my_head);
             return true;
         }

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2017 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -121,6 +121,12 @@ namespace internal {
     //! An id as used for specifying affinity.
     typedef unsigned short affinity_id;
 
+#if __TBB_TASK_ISOLATION
+    //! A tag for task isolation.
+    typedef intptr_t isolation_tag;
+    const isolation_tag no_isolation = 0;
+#endif /* __TBB_TASK_ISOLATION */
+
 #if __TBB_TASK_GROUP_CONTEXT
     class generic_scheduler;
 
@@ -160,7 +166,9 @@ namespace internal {
     /** This class is internal to the library.
         Do not reference it directly, except within the library itself.
         Fields are ordered in way that preserves backwards compatibility and yields
-        good packing on typical 32-bit and 64-bit platforms.
+        good packing on typical 32-bit and 64-bit platforms. New fields should be
+        added at the beginning for backward compatibility with accesses to the task
+        prefix inlined into application code.
 
         In case task prefix size exceeds 32 or 64 bytes on IA32 and Intel64
         architectures correspondingly, consider dynamic setting of task_alignment
@@ -178,6 +186,11 @@ namespace internal {
         friend class internal::allocate_child_proxy;
         friend class internal::allocate_continuation_proxy;
         friend class internal::allocate_additional_child_of_proxy;
+
+#if __TBB_TASK_ISOLATION
+        //! The tag used for task isolation.
+        isolation_tag isolation;
+#endif /* __TBB_TASK_ISOLATION */
 
 #if __TBB_TASK_GROUP_CONTEXT
         //! Shared context that is used to communicate asynchronous state changes
@@ -443,9 +456,9 @@ public:
         introduced in the currently unused padding areas and these fields are updated
         by inline methods. **/
     task_group_context ( kind_type relation_with_parent = bound,
-                         uintptr_t traits = default_traits )
+                         uintptr_t t = default_traits )
         : my_kind(relation_with_parent)
-        , my_version_and_traits(2 | traits)
+        , my_version_and_traits(2 | t)
     {
         init();
     }
@@ -504,6 +517,9 @@ public:
     //! Retrieves current priority of the current task group
     priority_t priority () const;
 #endif /* __TBB_TASK_PRIORITY */
+
+    //! Returns the context's trait
+    uintptr_t traits() const { return my_version_and_traits & traits_mask; }
 
 protected:
     //! Out-of-line part of the constructor.
@@ -892,7 +908,7 @@ private:
 //! task that does nothing.  Useful for synchronization.
 /** @ingroup task_scheduling */
 class empty_task: public task {
-    /*override*/ task* execute() {
+    task* execute() __TBB_override {
         return NULL;
     }
 };
@@ -901,8 +917,12 @@ class empty_task: public task {
 namespace internal {
     template<typename F>
     class function_task : public task {
+#if __TBB_ALLOW_MUTABLE_FUNCTORS
         F my_func;
-        /*override*/ task* execute() {
+#else
+        const F my_func;
+#endif
+        task* execute() __TBB_override {
             my_func();
             return NULL;
         }
