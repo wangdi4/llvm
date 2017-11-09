@@ -42,7 +42,13 @@ if (NOT WIN32)
     add_definitions( "-Wno-unused-function" )
 endif(NOT WIN32)
 
-add_definitions( -DTASK_EXECUTOR_EXPORTS -D__TBB_EXECUTOR__ -D_USRDLL -DTBB_PREVIEW_LOCAL_OBSERVER=1 -DTBB_PREVIEW_TASK_ARENA=1 -D__TBB_NO_IMPLICIT_LINKAGE=1)
+add_definitions(-DTASK_EXECUTOR_EXPORTS
+                -D__TBB_EXECUTOR__
+                -D_USRDLL
+                -DTBB_PREVIEW_LOCAL_OBSERVER=1
+                -DTBB_PREVIEW_TASK_ARENA=1
+                -D__TBB_NO_IMPLICIT_LINKAGE=1
+                -D__TBB_ALLOW_MUTABLE_FUNCTORS=1)
 
 SET_UNICODE_OFF()
 
