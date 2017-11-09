@@ -340,17 +340,17 @@ bool LoopSPMDization::TransformLoopInitandStep(Loop *L, ScalarEvolution *SE, int
     DEBUG(dbgs() << "Failed to find the loop induction variable \n");
     return false;
   }
-  Instruction *InnerIndexVar;
+  Instruction *OldInc;
   Value *InitVar;
   if (InductionPHI->getIncomingBlock(0) == PreHeader){
-    InnerIndexVar = dyn_cast<Instruction>(InductionPHI->getIncomingValue(1));
+    OldInc = dyn_cast<Instruction>(InductionPHI->getIncomingValue(1));
     InitVar = InductionPHI->getIncomingValue(0);
   }
   else {
-    InnerIndexVar = dyn_cast<Instruction>(InductionPHI->getIncomingValue(0));
+    OldInc = dyn_cast<Instruction>(InductionPHI->getIncomingValue(0));
     InitVar = InductionPHI->getIncomingValue(1);
   }
-  IRBuilder<> B2(InnerIndexVar);
+  IRBuilder<> B2(OldInc);
   //fixme: add newinc=i+oldinc+NPEs
   Value *NewInc = B2.CreateAdd(InductionPHI,
 			       ConstantInt::get(InductionPHI->getType(), NPEs), 
@@ -359,21 +359,22 @@ bool LoopSPMDization::TransformLoopInitandStep(Loop *L, ScalarEvolution *SE, int
   BranchInst *LatchBR = cast<BranchInst>(Latch->getTerminator());
   Value *Cond = LatchBR->getCondition();
   Instruction *CondI = dyn_cast<Instruction>(Cond);
-  Value *TripCount = CondI->getOperand(1);
-  Value *IdxCmp;
-  if (LatchBR->getSuccessor(0) == L->getHeader())
-    IdxCmp = CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_ULT, 
-			     NewInc,
-			     TripCount, 
-			     Cond->getName());
-  
-  else
-    IdxCmp = CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_UGE, 
-			     NewInc,
-			     TripCount, 
-			     Cond->getName());
-  ReplaceInstWithInst(CondI, dyn_cast<Instruction>(IdxCmp));
-
+  if(CondI->getOperand(0) == dyn_cast<Value>(OldInc)){
+    Value *TripCount = CondI->getOperand(1);
+    Value *IdxCmp;
+    if (LatchBR->getSuccessor(0) == L->getHeader())
+      IdxCmp = CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_ULT, 
+			       NewInc,
+			       TripCount, 
+			       Cond->getName());
+    
+    else
+      IdxCmp = CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_UGE, 
+			       NewInc,
+			       TripCount, 
+			       Cond->getName());
+    ReplaceInstWithInst(CondI, dyn_cast<Instruction>(IdxCmp));
+  }
   IRBuilder<> B(PreHeaderBR);
   Value *NewInitV = B.CreateAdd(InitVar,
 				ConstantInt::get(InductionPHI->getType(), PE), 
@@ -387,7 +388,6 @@ bool LoopSPMDization::TransformLoopInitandStep(Loop *L, ScalarEvolution *SE, int
     InductionPHI->setIncomingValue(1, NewInitV );
     InductionPHI->setIncomingValue(0, NewInc );
   }
- 
   return true;
 }
 
