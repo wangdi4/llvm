@@ -69,6 +69,20 @@ namespace CSA {
     MEMLEVEL_T1,
     MEMLEVEL_T0
   };
+
+  // These enums are used for the getmant instruction.
+  enum Signctl {
+    SIGNCTL_PROP,
+    SIGNCTL_FORCE,
+    SIGNCTL_FORCE_AND_CHECK
+  };
+
+  enum Interval {
+    INTERVAL0,
+    INTERVAL1,
+    INTERVAL2,
+    INTERVAL3
+  };
 }
 
 class CSASubtarget;

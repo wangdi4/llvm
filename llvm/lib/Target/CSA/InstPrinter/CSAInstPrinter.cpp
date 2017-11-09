@@ -20,6 +20,9 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/CommandLine.h"
+
+#include <array>
+
 using namespace llvm;
 
 #define DEBUG_TYPE "asm-printer"
@@ -169,3 +172,37 @@ void CSAInstPrinter::printMemLvlOperand(const MCInst *MI, unsigned OpNo,
   else
     printOperand(MI, OpNo, O, Modifier);
 }
+
+void CSAInstPrinter::printSignctlOperand(const MCInst *MI, unsigned OpNo,
+                                         raw_ostream &O, const char *Modifier) {
+  assert((Modifier == nullptr || Modifier[0] == 0) && "No modifiers supported");
+
+  int64_t immV = MI->getOperand(OpNo).getImm();
+  static const std::array<const char *, 3> names = {
+    "SIGNCTL_PROP",
+    "SIGNCTL_FORCE",
+    "SIGNCTL_FORCE_AND_CHECK"
+  };
+  if (immV >= 0 && immV < (int64_t)names.size())
+    O << names[immV];
+  else
+    printOperand(MI, OpNo, O, Modifier);
+}
+
+void CSAInstPrinter::printIntervalOperand(const MCInst *MI, unsigned OpNo,
+                                          raw_ostream &O, const char *Modifier) {
+  assert((Modifier == nullptr || Modifier[0] == 0) && "No modifiers supported");
+
+  int64_t immV = MI->getOperand(OpNo).getImm();
+  static const std::array<const char *, 4> names = {
+    "INTERVAL0",
+    "INTERVAL1",
+    "INTERVAL2",
+    "INTERVAL3",
+  };
+  if (immV >= 0 && immV < (int64_t)names.size())
+    O << names[immV];
+  else
+    printOperand(MI, OpNo, O, Modifier);
+}
+

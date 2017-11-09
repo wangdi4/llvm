@@ -165,6 +165,10 @@ public:
 
   bool isMemLvl() const { return isImm(); }
 
+  bool isInterval() const { return isImm(); }
+
+  bool isSignctl() const { return isImm(); }
+
   bool isMem() const { llvm_unreachable("No isMem"); }
 
   void print(raw_ostream &OS) const override {
@@ -247,6 +251,16 @@ public:
   }
 
   void addMemLvlOperands(MCInst& Inst, unsigned N) const {
+    assert(N == 1 && "Invalid number of operands!");
+    addExpr(Inst, getImm());
+  }
+
+  void addIntervalOperands(MCInst& Inst, unsigned N) const {
+    assert(N == 1 && "Invalid number of operands!");
+    addExpr(Inst, getImm());
+  }
+
+  void addSignctlOperands(MCInst& Inst, unsigned N) const {
     assert(N == 1 && "Invalid number of operands!");
     addExpr(Inst, getImm());
   }
@@ -359,6 +373,23 @@ static int memLvlToInt(StringRef T) {
     .Default(-1);
 }
 
+static int SignctlToInt(StringRef T) {
+  return StringSwitch<int>(T)
+    .Case("SIGNCTL_PROP", CSA::SIGNCTL_PROP)
+    .Case("SIGNCTL_FORCE", CSA::SIGNCTL_FORCE)
+    .Case("SIGNCTL_FORCE_AND_CHECK", CSA::SIGNCTL_FORCE_AND_CHECK)
+    .Default(-1);
+}
+
+static int IntervalToInt(StringRef T) {
+  return StringSwitch<int>(T)
+    .Case("INTERVAL0", CSA::INTERVAL0)
+    .Case("INTERVAL1", CSA::INTERVAL1)
+    .Case("INTERVAL2", CSA::INTERVAL2)
+    .Case("INTERVAL3", CSA::INTERVAL3)
+    .Default(-1);
+}
+
 std::unique_ptr<CSAOperand> CSAAsmParser::parseImmediate() {
   SMLoc Start = Parser.getTok().getLoc();
   SMLoc End = SMLoc::getFromPointer(Parser.getTok().getLoc().getPointer() - 1);
@@ -367,20 +398,22 @@ std::unique_ptr<CSAOperand> CSAAsmParser::parseImmediate() {
   switch (Lexer.getKind()) {
   case AsmToken::Identifier:
     {
-      int rm, memlvl;
       StringRef Identifier;
       if (Parser.parseIdentifier(Identifier))
         return 0;
-      rm = roundingModeToInt(Identifier);
-      if (rm >= 0) {
-        const MCConstantExpr *rmExp = MCConstantExpr::create(rm, getContext());
-        return CSAOperand::createImm(rmExp, Start, End);
+
+      // Check for one of the enum words
+      auto funcs = { roundingModeToInt, memLvlToInt, SignctlToInt,
+        IntervalToInt };
+      for (auto func : funcs) {
+        int value = func(Identifier);
+        if (value >= 0) {
+          const MCConstantExpr *exp = MCConstantExpr::create(value, getContext());
+          return CSAOperand::createImm(exp, Start, End);
+        }
       }
-      memlvl = memLvlToInt(Identifier);
-      if (memlvl >= 0) {
-        const MCConstantExpr *mlExp = MCConstantExpr::create(memlvl, getContext());
-        return CSAOperand::createImm(mlExp, Start, End);
-      }
+
+      // Otherwise, it's a symbol of some kind.
       MCSymbol *Sym = getContext().getOrCreateSymbol(Identifier);
       const MCExpr *Res = MCSymbolRefExpr::create(Sym, MCSymbolRefExpr::VK_None,
           getContext());
