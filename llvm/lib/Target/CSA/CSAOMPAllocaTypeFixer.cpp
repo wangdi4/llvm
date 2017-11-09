@@ -101,9 +101,7 @@ void initializeCSAOMPAllocaTypeFixerPass(PassRegistry&);
 
 static RegisterPass<CSAOMPAllocaTypeFixer> rpinst {
   "csa-omp-alloca-type-fixer",
-  "Fix OpenMP bitcasted allocas",
-  true, // (Does not modify the CFG)
-  false // (Not an analysis pass)
+  "Fix OpenMP bitcasted allocas"
 };
 
 Pass* llvm::createCSAOMPAllocaTypeFixerPass() {

@@ -19,6 +19,7 @@ add_llvm_target(CSACodeGen
   CSAISelDAGToDAG.cpp
   CSAISelLowering.cpp
   CSAInstrInfo.cpp
+  CSAIntrinsicCleaner.cpp
   CSALowerAggrCopies.cpp
   CSALoopIntrinsicExpander.cpp
   CSAMCInstLower.cpp

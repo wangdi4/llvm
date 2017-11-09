@@ -158,11 +158,6 @@ private:
   // probably be left alone.
   IntrinsicInst* detectIntrinsic(Loop*) const;
 
-  // Locates any iteration-scoped storage declared in a loop. If there is some,
-  // the lifetime start intrinsic is returned and the loop really shouldn't be
-  // parallelized.
-  const IntrinsicInst* locateScopedStorage(Loop*) const;
-
   // Attempts to expand a given loop. Returns true if it succeeded, false if it
   // ran into issues.
   bool expandLoop(Loop*, IntrinsicInst* parloop, BasicBlock* dummy_exit);
@@ -231,40 +226,6 @@ void CSALoopIntrinsicExpander::recurseLoops(Loop* L, BasicBlock* dummy_exit) {
   IntrinsicInst*const found_parloop = detectIntrinsic(L);
   if (not found_parloop) return;
 
-  // Make sure that the loop does not have any iteration-scoped storage in it.
-  const IntrinsicInst* found_storage = locateScopedStorage(L);
-  if (found_storage) {
-    errs() << "\n";
-    errs().changeColor(raw_ostream::BLUE, true);
-    const DebugLoc& parloop_loc = found_parloop->getDebugLoc();
-    if (parloop_loc) {
-      errs() << "!! WARNING: IGNORING LOOP BUILTIN AT ";
-      parloop_loc.print(errs());
-      errs() << " !!";
-    } else {
-      errs() << "!! WARNING: IGNORING LOOP BUILTIN !!";
-    }
-    errs().resetColor();
-    const DebugLoc& loc = found_storage->getDebugLoc();
-    if (loc) {
-      errs() << R"help(
-Iteration-private storage was detected at )help";
-      loc.print(errs());
-      errs() << ".";
-    } else {
-      errs() << R"help(
-Iteration-private storage was detected inside of the loop. Run with -g for
-location information.)help";
-    }
-    errs() << R"help(
-
-Consider moving the storage allocation outside of the loop in order to
-parallelize it.
-
-)help";
-    return;
-  }
-
   // If the loop should be expanded, expand it or complain if there's something
   // wrong with it.
   if (not expandLoop(L, found_parloop, dummy_exit)) {
@@ -321,22 +282,6 @@ IntrinsicInst* CSALoopIntrinsicExpander::detectIntrinsic(Loop* L) const {
       if (IntrinsicInst*const intr_inst = asLoopIntrinsic(inst)) {
         return intr_inst;
       }
-    }
-  }
-
-  return nullptr;
-}
-
-const IntrinsicInst* CSALoopIntrinsicExpander::locateScopedStorage(
-  Loop* L
-) const {
-
-  // Look for lifetime start intrinsic calls inside of the loop this time.
-  for (const BasicBlock*const cur_block : L->blocks()) {
-    for (const Instruction& inst : *cur_block) {
-      if (const IntrinsicInst*const intr_inst = dyn_cast<IntrinsicInst>(&inst))
-        if (intr_inst->getIntrinsicID() == Intrinsic::lifetime_start)
-          return intr_inst;
     }
   }
 
@@ -437,7 +382,10 @@ bool CSALoopIntrinsicExpander::expandLoop(
   // it if there weren't any memory references. Just emit a warning about that.
   else if (not cur_section_begin or not cur_section_end) {
 
-    errs() << "\n!! WARNING: NO MEMORY OPERATIONS IN LOOP !!";
+    errs() << "\n";
+    errs().changeColor(raw_ostream::BLUE, true);
+    errs() << "!! WARNING: NO MEMORY OPERATIONS IN LOOP !!";
+    errs().resetColor();
     const DebugLoc& loc = intr->getDebugLoc();
     if (loc) {
       errs() << "\nThe loop at:\n  ";
@@ -562,9 +510,7 @@ void initializeCSALoopIntrinsicExpanderPass(PassRegistry&);
 
 static RegisterPass<CSALoopIntrinsicExpander> rpinst {
   "csa-loop-intrinsic-expander",
-  "Expand CSA parallel loop intrinsics",
-  true, // (Does not modify the CFG)
-  false // (Not an analysis pass)
+  "Expand CSA parallel loop intrinsics"
 };
 
 Pass* llvm::createCSALoopIntrinsicExpanderPass() {
