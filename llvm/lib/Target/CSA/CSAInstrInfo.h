@@ -265,7 +265,9 @@ public:
     return opcode == CSA::Generic::SLL || opcode == CSA::Generic::SRL ||
       opcode == CSA::Generic::SRA;
   }
-  bool isCmp(const MachineInstr *) const;
+  bool isCmp(const MachineInstr *MI) const {
+    return MI->isCompare();
+  }
   bool isAtomic(const MachineInstr *) const;
   bool isSeqOT(const MachineInstr *) const;
 

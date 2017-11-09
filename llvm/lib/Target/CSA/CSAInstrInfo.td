@@ -1289,19 +1289,22 @@ def ONCOUNT0 : FMTGEN<ONCOUNT, Ti0,  // TODO: something to reflect state
   "oncount0\t$dst, $cnt, $op2, $op3, $op4, $op5",
   [], [], IIVir>;
 
-def PREDPROP : FMTGEN<?, ?,
+def PREDPROP_G : GenericOp<"predprop">;
+def PREDPROP : FMTGEN<PREDPROP_G, Ti1,
   (outs I1:$efalse, I1:$etrue),
   (ins RCLi1:$pb, RCLi1:$sb),
   "predprop\t$efalse, $etrue, $pb, $sb",
   [], [], IIALU>;
 
-def PREDMERGE : FMTGEN<?, ?,
+def PREDMERGE_G : GenericOp<"predmerge">;
+def PREDMERGE : FMTGEN<PREDMERGE_G, Ti1,
   (outs I1:$predres, I1:$index),
   (ins RCLi1:$e0, RCLi1:$e1),
   "predmerge\t$predres, $index, $e0, $e1",
   [], [], IIALU>;
 
-def PREDFILTER : FMTGEN<?, ?,
+def PREDFILTER_G : GenericOp<"predfilter">;
+def PREDFILTER : FMTGEN<PREDFILTER_G, Ti1,
   (outs I1:$ctlout),
   (ins RCLi1:$ctl, RCLi1:$pred),
   "predfilter\t$ctlout, $ctl, $pred",
@@ -1481,7 +1484,8 @@ def SREDXOR64 : SReduceOp<SREDXOR,  Ti64, IIALU>;
 
 // TBD(jsukha): This info probably needs predicates
 // Also, the input can probably be an I0 channel.
-def ONEND : FMTGEN<?, ?,  // TODO: something to reflect state
+def ONEND_G : GenericOp<"onend">;
+def ONEND : FMTGEN<ONEND_G, Ti0,  // TODO: something to reflect state
   (outs I0:$dst),
   (ins I1:$ctrl, I0:$in),
   "onend\t$dst, $ctrl, $in",

@@ -416,15 +416,23 @@ CSAInstrInfo::getSizeOfRegisterClass(const TargetRegisterClass *RC) const {
 }
 
 bool CSAInstrInfo::isLoad(const MachineInstr *MI) const {
-	return MI->getOpcode() >= CSA::LD1 && MI->getOpcode() <= CSA::LD8X;
+  switch (getGenericOpcode(MI->getOpcode())) {
+  case CSA::Generic::LD: case CSA::Generic::LDD: case CSA::Generic::LDI:
+  case CSA::Generic::LDR: case CSA::Generic::LDX:
+    return true;
+  default:
+    return false;
+  }
 }
 
 bool CSAInstrInfo::isStore(const MachineInstr *MI) const {
-	return MI->getOpcode() >= CSA::ST1 && MI->getOpcode() <= CSA::ST8X;
-}
-
-bool CSAInstrInfo::isCmp(const MachineInstr *MI) const {
-  return MI->isCompare();
+  switch (getGenericOpcode(MI->getOpcode())) {
+  case CSA::Generic::ST: case CSA::Generic::STD:
+  case CSA::Generic::STR: case CSA::Generic::STX:
+    return true;
+  default:
+    return false;
+  }
 }
 
 bool CSAInstrInfo::isMOV(const MachineInstr *MI) const {
