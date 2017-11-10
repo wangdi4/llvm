@@ -14,6 +14,7 @@
 ;     }
 ; }
 
+; REQUIRES: fpga-emulator
 ; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -spir-materializer -verify -S %s | FileCheck %s
 
 %opencl.pipe_t = type opaque
