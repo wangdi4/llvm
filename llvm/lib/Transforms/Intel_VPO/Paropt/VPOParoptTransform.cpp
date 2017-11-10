@@ -1335,9 +1335,9 @@ bool VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
     // compiler has to generate the barrier. Please note that it is
     // unnecessary to generate the barrier if the firstprivate is
     // scalar and it is passed by value.
-    if (FprivI) {
+    if (FprivI) 
       genBarrier(W, true);
-    }
+    
     bool ForTask = W->getWRegionKindID() == WRegionNode::WRNTaskloop ||
                    W->getWRegionKindID() == WRegionNode::WRNTask;
     BasicBlock *EntryBB = W->getEntryBBlock();
