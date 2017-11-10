@@ -168,11 +168,8 @@ bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
   unsigned stride;
   const MachineOperand *inOrder, *outOrder, *memOrder;
   MachineInstr *stream;
-  switch (MI->getOpcode()) {
-  case CSA::LD8: case CSA::LD16: case CSA::LD32: case CSA::LD64:
-  case CSA::LD1: case CSA::LD16f: case CSA::LD32f: case CSA::LD64f:
-  case CSA::ST8: case CSA::ST16: case CSA::ST32: case CSA::ST64:
-  case CSA::ST1: case CSA::ST16f: case CSA::ST32f: case CSA::ST64f:
+  switch (TII->getGenericOpcode(MI->getOpcode())) {
+  case CSA::Generic::LD: case CSA::Generic::ST:
     {
       // The address here must be a STRIDE.
       bool isLoad = MI->mayLoad();
@@ -183,20 +180,7 @@ bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
 
       base = &memAddr->getOperand(2);
       const MachineOperand &strideOp = memAddr->getOperand(3);
-      unsigned opcodeSize = 1;
-      unsigned opcode = MI->getOpcode();
-      if (opcode == CSA::LD16 || opcode == CSA::LD16f)
-        opcodeSize = 2;
-      else if (opcode == CSA::ST16 || opcode == CSA::ST16f)
-        opcodeSize = 2;
-      else if (opcode == CSA::LD32 || opcode == CSA::LD32f)
-        opcodeSize = 4;
-      else if (opcode == CSA::ST32 || opcode == CSA::ST32f)
-        opcodeSize = 4;
-      else if (opcode == CSA::LD64 || opcode == CSA::LD64f)
-        opcodeSize = 8;
-      else if (opcode == CSA::ST64 || opcode == CSA::ST64f)
-        opcodeSize = 8;
+      unsigned opcodeSize = TII->getLicSize(MI->getOpcode()) / 8;
       if (!strideOp.isImm()) {
         DEBUG(dbgs() << "Stride is not an immediate, cannot compute stride\n");
         return false;
@@ -216,10 +200,7 @@ bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
       value = &MI->getOperand(isLoad ? 0 : 2);
       break;
     }
-  case CSA::LD8X: case CSA::LD16X: case CSA::LD32X: case CSA::LD64X:
-  case CSA::LD1X: case CSA::LD16fX: case CSA::LD32fX: case CSA::LD64fX:
-  case CSA::ST8X: case CSA::ST16X: case CSA::ST32X: case CSA::ST64X:
-  case CSA::ST1X: case CSA::ST16fX: case CSA::ST32fX: case CSA::ST64fX:
+  case CSA::Generic::LDX: case CSA::Generic::STX:
     {
       bool isLoad = MI->mayLoad();
       // The base address needs to be repeated
@@ -350,28 +331,8 @@ bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
   DEBUG(dbgs() << "No reason to disqualify the memory operation found, converting\n");
 
   // Actually build the new instruction now.
-  unsigned opcode;
-  switch (MI->getOpcode()) {
-  case CSA::LD8: case CSA::LD8X: opcode = CSA::SLD8; break;
-  case CSA::LD16: case CSA::LD16X: opcode = CSA::SLD16; break;
-  case CSA::LD32: case CSA::LD32X: opcode = CSA::SLD32; break;
-  case CSA::LD64: case CSA::LD64X: opcode = CSA::SLD64; break;
-  case CSA::LD1: case CSA::LD1X: opcode = CSA::SLD1; break;
-  case CSA::LD16f: case CSA::LD16fX: opcode = CSA::SLD16f; break;
-  case CSA::LD32f: case CSA::LD32fX: opcode = CSA::SLD32f; break;
-  case CSA::LD64f: case CSA::LD64fX: opcode = CSA::SLD64f; break;
-  case CSA::ST8: case CSA::ST8X: opcode = CSA::SST8; break;
-  case CSA::ST16: case CSA::ST16X: opcode = CSA::SST16; break;
-  case CSA::ST32: case CSA::ST32X: opcode = CSA::SST32; break;
-  case CSA::ST64: case CSA::ST64X: opcode = CSA::SST64; break;
-  case CSA::ST1: case CSA::ST1X: opcode = CSA::SST1; break;
-  case CSA::ST16f: case CSA::ST16fX: opcode = CSA::SST16f; break;
-  case CSA::ST32f: case CSA::ST32fX: opcode = CSA::SST32f; break;
-  case CSA::ST64f: case CSA::ST64fX: opcode = CSA::SST64f; break;
-  default:
-    assert(false && "We should have an opcode mapping for these opcodes");
-  }
-
+  unsigned opcode = TII->adjustOpcode(MI->getOpcode(),
+      MI->mayLoad() ? CSA::Generic::SLD : CSA::Generic::SST);
   auto builder = BuildMI(*MI->getParent(), MI, MI->getDebugLoc(),
       TII->get(opcode));
   if (MI->mayLoad())

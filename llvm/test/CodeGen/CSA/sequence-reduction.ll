@@ -16,7 +16,7 @@ loop:
   %indvar.next = add nuw i64 %indvar, 1
   %exitcond = icmp slt i64 %indvar.next, %N
   br i1 %exitcond, label %loop, label %exit
-; CHECK: mov0 %[[INORD:[a-z0-9_]+]], 0
+; CHECK: mov0 %[[INORD:[a-z0-9_]+]], %ra
 ; CHECK: mov64 %[[LEN:[a-z0-9_]+]], %r3
 ; CHECK: mov64 %[[SRC:[a-z0-9_]+]], %r2
 ; CHECK: mov64 %[[INITA:[a-z0-9_]+]], 0

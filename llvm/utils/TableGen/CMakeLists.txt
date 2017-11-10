@@ -13,6 +13,7 @@ add_tablegen(llvm-tblgen LLVM
   CodeGenRegisters.cpp
   CodeGenSchedule.cpp
   CodeGenTarget.cpp
+  CSAOpSizes.cpp
   DAGISelEmitter.cpp
   DAGISelMatcherEmitter.cpp
   DAGISelMatcherGen.cpp

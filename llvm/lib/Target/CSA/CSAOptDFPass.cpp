@@ -1048,10 +1048,9 @@ seq_classify_repeat_or_reduction(CSASeqCandidate& x) {
     // there is no transform body.  We have a repeat.
     if (def_bottom == x.pickInst) {
       assert(top_channel == bottom_channel);
-      bool matched_opcode =
-        TII.convertPickToRepeatOp(x.pickInst->getOpcode(),
-                                  &x.opcode);
-      assert(matched_opcode);
+      x.opcode = TII.adjustOpcode(x.pickInst->getOpcode(),
+        CSA::Generic::REPEAT);
+      assert(x.opcode != CSA::INVALID_OPCODE);
       x.stype = CSASeqCandidate::SeqType::REPEAT;
       x.transformInst = NULL;
       x.top = top_channel;
@@ -1127,9 +1126,9 @@ seq_classify_repeat_or_reduction(CSASeqCandidate& x) {
           }
 
 
-          unsigned reduction_opcode;
-          if (!TII.convertTransformToReductionOp(def_bottom->getOpcode(),
-                                                 &reduction_opcode)) {
+          unsigned reduction_opcode = TII.convertTransformToReductionOp(
+            def_bottom->getOpcode());
+          if (reduction_opcode == CSA::INVALID_OPCODE) {
             DEBUG(errs() << "WARNING: Potential reduction with transform "
                   << *def_bottom << " invalid or not implemented.\n");
             return CSASeqCandidate::SeqType::UNKNOWN;
@@ -1210,8 +1209,9 @@ seq_classify_stride(CSASeqCandidate& x,
             return x.stype;
           }
 
-          if (!TII.convertAddToStrideOp(def_bottom->getOpcode(),
-                                        &stride_opcode)) {
+          stride_opcode = TII.adjustOpcode(def_bottom->getOpcode(),
+              CSA::Generic::STRIDE);
+          if (stride_opcode == CSA::INVALID_OPCODE) {
             DEBUG(errs() << "WARNING: stride operation for add transform "
                   << *def_bottom  << " not implemented yet...\n");
             return x.stype;
@@ -1231,8 +1231,9 @@ seq_classify_stride(CSASeqCandidate& x,
                   << " doesn't match sequence we expect.\n");
             return x.stype;
           }
-          if (!TII.convertSubToStrideOp(def_bottom->getOpcode(),
-                                        &stride_opcode)) {
+          stride_opcode = TII.adjustOpcode(def_bottom->getOpcode(),
+            CSA::Generic::STRIDE);
+          if (stride_opcode == CSA::INVALID_OPCODE) {
             DEBUG(errs() << "WARNING: stride operation for sub transform "
                   << *def_bottom  << " not implemented yet...\n");
             return x.stype;
@@ -1981,9 +1982,9 @@ seq_add_negate_stride_op(MachineOperand* in_stride_op,
                          MachineInstr* prev_inst) {
   const TargetRegisterClass* myRC = TII.getStrideInputRC(stride_opcode);
   unsigned new_input_reg = LMFI->allocateLIC(myRC);
-  unsigned neg_opcode;
-  bool matched = TII.negateOpForStride(stride_opcode, &neg_opcode);
-  assert(matched);
+  assert(TII.getGenericOpcode(stride_opcode) == CSA::Generic::STRIDE);
+  unsigned neg_opcode = TII.adjustOpcode(stride_opcode, CSA::Generic::NEG);
+  assert(neg_opcode != CSA::INVALID_OPCODE);
 
   MachineInstr* neg_inst =
     BuildMI(BB,

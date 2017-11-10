@@ -2,6 +2,7 @@ set(LLVM_TARGET_DEFINITIONS CSA.td)
 
 tablegen(LLVM CSAGenAsmMatcher.inc -gen-asm-matcher)
 tablegen(LLVM CSAGenRegisterInfo.inc -gen-register-info)
+tablegen(LLVM CSAGenCSAOpInfo.inc -gen-csa-op-size)
 tablegen(LLVM CSAGenInstrInfo.inc -gen-instr-info)
 tablegen(LLVM CSAGenAsmWriter.inc -gen-asm-writer)
 tablegen(LLVM CSAGenDAGISel.inc -gen-dag-isel)
