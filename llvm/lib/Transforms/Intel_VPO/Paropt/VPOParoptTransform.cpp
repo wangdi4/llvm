@@ -244,11 +244,17 @@ bool VPOParoptTransform::paroptTransforms() {
       // 1. Constructs that need to perform outlining:
       //      Parallel [for|sections], task, taskloop, etc.
 
+      case WRegionNode::WRNTeams:
       case WRegionNode::WRNParallel:
       {
         if (Mode & ParPrepare)
           genCodemotionFenceforAggrData(W);
-        DEBUG(dbgs() << "\n WRNParallel - Transformation \n\n");
+
+        if (isa<WRNTeamsNode>(W))
+          DEBUG(dbgs() << "\n WRNTeams - Transformation \n\n");
+        else 
+          DEBUG(dbgs() << "\n WRNParallel - Transformation \n\n");
+
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed = clearCodemotionFenceIntrinsic(W);
           // Privatization is enabled for both Prepare and Transform passes
@@ -2573,11 +2579,18 @@ CallInst* VPOParoptTransform::genForkCallInst(WRegionNode *W, CallInst *CI) {
 
   FunctionType *FnTy = FunctionType::get(Type::getVoidTy(C), ForkParams, true);
 
-  Function *ForkCallFn = M->getFunction("__kmpc_fork_call");
+  Function *ForkCallFn = (!isa<WRNTeamsNode>(W)) ?  
+                         M->getFunction("__kmpc_fork_call") : 
+                         M->getFunction("__kmpc_fork_teams");
 
   if (!ForkCallFn) {
-    ForkCallFn = Function::Create(FnTy, GlobalValue::ExternalLinkage,
-                                  "__kmpc_fork_call", M);
+    if (isa<WRNTeamsNode>(W))   
+      ForkCallFn = Function::Create(FnTy, GlobalValue::ExternalLinkage,
+                                    "__kmpc_fork_teams", M);
+    else 
+      ForkCallFn = Function::Create(FnTy, GlobalValue::ExternalLinkage,
+                                    "__kmpc_fork_call", M);
+
     ForkCallFn->setCallingConv(CallingConv::C);
   }
 
