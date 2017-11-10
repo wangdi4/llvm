@@ -1638,6 +1638,15 @@ class BinaryNoPatOpR<GenericOp op, CSAOpInfo oi, InstrItinClass itin> : FMTGEN<
   [], // No predicates
   itin>;
 
+class RndscaleOp<GenericOp op, CSAOpInfo oi, InstrItinClass itin> : FMTGEN<
+  op, oi,
+  (outs oi.RC:$result),
+  (ins oi.RCL:$op1, oi.RCL:$op2, i8imm:$fract, RMODE:$rndmode),
+  !strconcat(op.AsmString, oi.InstrSuffix, "\t$result, $op1, $op2, $fract, $rndmode"),
+  [], // No pattern
+  [], // No predicates
+  itin>;
+
 class ScaleirsOp<GenericOp op, CSAOpInfo oi, InstrItinClass itin> : FMTGEN<
   op, oi,
   (outs oi.RC:$result),
@@ -1684,6 +1693,12 @@ def GETMANTF64   : GetmantOp<GETMANT, Tf64, IIMathF64>;
 def SCALE        : GenericOp<"scale">;
 def SCALEF32     : BinaryNoPatOpR<SCALE, Tf32, IIMathF32>;
 def SCALEF64     : BinaryNoPatOpR<SCALE, Tf64, IIMathF64>;
+def RNDSCALE     : GenericOp<"rndscale">;
+def RNDSCALEF32  : RndscaleOp<RNDSCALE, Tf32, IIMathF32>;
+def RNDSCALEF64  : RndscaleOp<RNDSCALE, Tf64, IIMathF64>;
+def RNDSCALESPE  : GenericOp<"rndscalespe">;
+def RNDSCALESPEF32:RndscaleOp<RNDSCALESPE, Tf32, IIMathF32>;
+def RNDSCALESPEF64:RndscaleOp<RNDSCALESPE, Tf64, IIMathF64>;
 def SCALEIRS     : GenericOp<"scaleirs">;
 def SCALEIRSF32  : ScaleirsOp<SCALEIRS, Tf32, IIMathF32>;
 def SCALEIRSF64  : ScaleirsOp<SCALEIRS, Tf64, IIMathF64>;
