@@ -366,9 +366,13 @@ BUILTIN(__builtin_calloc,     "v*zz",   "Fnc")
 BUILTIN(__builtin_malloc,     "v*z",    "Fn")
 // We use here 'void *' instead of 'FILE *' due to icc/gcc compatibility.
 BUILTIN(__builtin_fwrite,     "zvC*zzv*","Fn")
+BUILTIN(__builtin_fwrite_unlocked,     "zvC*zzv*","Fn")
 BUILTIN(__builtin_fputs,      "icC*v*", "Fn")
+BUILTIN(__builtin_fputs_unlocked,      "icC*v*", "Fn")
 BUILTIN(__builtin_fputc,      "iiv*",   "Fn")
+BUILTIN(__builtin_fputc_unlocked,      "iiv*",   "Fn")
 BUILTIN(__builtin_puts,       "icC*",   "Fn")
+BUILTIN(__builtin_puts_unlocked,       "icC*",   "Fn")
 BUILTIN(__builtin_exit,       "vi",     "Fnc")
 // '__builtin_constant_p' is defined further, in group titled 'Random GCC
 // builtins'
@@ -388,6 +392,15 @@ BUILTIN(__builtin_isfinite,   "i.", "Fnc")
 BUILTIN(__builtin_isinf,      "i.", "Fnc")
 BUILTIN(__builtin_isinf_sign, "i.", "Fnc")
 BUILTIN(__builtin_isnan,      "i.", "Fnc")
+#if INTEL_CUSTOMIZATION
+BUILTIN(__builtin_isnanf,      "i.", "Fnc")
+BUILTIN(__builtin_isnanl,      "i.", "Fnc")
+BUILTIN(__builtin_isinff,      "i.", "Fnc")
+BUILTIN(__builtin_isinfl,      "i.", "Fnc")
+BUILTIN(__builtin_finite,   "i.", "Fnc")
+BUILTIN(__builtin_finitef,   "i.", "Fnc")
+BUILTIN(__builtin_finitel,   "i.", "Fnc")
+#endif // INTEL_CUSTOMIZATION
 BUILTIN(__builtin_isnormal,   "i.", "Fnc")
 
 // FP signbit builtins
@@ -932,6 +945,21 @@ BUILTIN(__sec_implicit_index, "ii", "t")
 BUILTIN(__assume_aligned, "v.", "tn")
 #endif // INTEL_CUSTOMIZATION
 
+// OpenCL 2.0 atomic builtins.
+ATOMIC_BUILTIN(__opencl_atomic_init, "v.", "t")
+ATOMIC_BUILTIN(__opencl_atomic_load, "v.", "t")
+ATOMIC_BUILTIN(__opencl_atomic_store, "v.", "t")
+ATOMIC_BUILTIN(__opencl_atomic_exchange, "v.", "t")
+ATOMIC_BUILTIN(__opencl_atomic_compare_exchange_strong, "v.", "t")
+ATOMIC_BUILTIN(__opencl_atomic_compare_exchange_weak, "v.", "t")
+ATOMIC_BUILTIN(__opencl_atomic_fetch_add, "v.", "t")
+ATOMIC_BUILTIN(__opencl_atomic_fetch_sub, "v.", "t")
+ATOMIC_BUILTIN(__opencl_atomic_fetch_and, "v.", "t")
+ATOMIC_BUILTIN(__opencl_atomic_fetch_or, "v.", "t")
+ATOMIC_BUILTIN(__opencl_atomic_fetch_xor, "v.", "t")
+ATOMIC_BUILTIN(__opencl_atomic_fetch_min, "v.", "t")
+ATOMIC_BUILTIN(__opencl_atomic_fetch_max, "v.", "t")
+
 #undef ATOMIC_BUILTIN
 
 // Non-overloaded atomic builtins.
@@ -961,6 +989,7 @@ BUILTIN(__debugbreak, "v",   "n")
 // CQ#373187: __assume is always enabled in ICC mode.
 LANGBUILTIN(__assume, "vb",  "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
 #endif // INTEL_CUSTOMIZATION
+LANGBUILTIN(__annotation,     "wC*.","n", ALL_MS_LANGUAGES)
 LIBBUILTIN(_byteswap_ushort, "UsUs",     "fnc", "stdlib.h", ALL_MS_LANGUAGES)
 LIBBUILTIN(_byteswap_ulong,  "UNiUNi",   "fnc", "stdlib.h", ALL_MS_LANGUAGES)
 LIBBUILTIN(_byteswap_uint64, "ULLiULLi", "fnc", "stdlib.h", ALL_MS_LANGUAGES)
@@ -1674,13 +1703,21 @@ LANGBUILTIN(get_pipe_max_packets, "Ui.", "tn", OCLC20_LANG)
 // OpenCL v2.0 s6.13.17 - Enqueue kernel functions.
 // Custom builtin check allows to perform special check of passed block arguments.
 LANGBUILTIN(enqueue_kernel, "i.", "tn", OCLC20_LANG)
-LANGBUILTIN(get_kernel_work_group_size, "i.", "tn", OCLC20_LANG)
-LANGBUILTIN(get_kernel_preferred_work_group_size_multiple, "i.", "tn", OCLC20_LANG)
+LANGBUILTIN(get_kernel_work_group_size, "Ui.", "tn", OCLC20_LANG)
+LANGBUILTIN(get_kernel_preferred_work_group_size_multiple, "Ui.", "tn", OCLC20_LANG)
+LANGBUILTIN(get_kernel_max_sub_group_size_for_ndrange, "Ui.", "tn", OCLC20_LANG)
+LANGBUILTIN(get_kernel_sub_group_count_for_ndrange, "Ui.", "tn", OCLC20_LANG)
 
 // OpenCL v2.0 s6.13.9 - Address space qualifier functions.
 LANGBUILTIN(to_global, "v*v*", "tn", OCLC20_LANG)
 LANGBUILTIN(to_local, "v*v*", "tn", OCLC20_LANG)
 LANGBUILTIN(to_private, "v*v*", "tn", OCLC20_LANG)
+
+// OpenCL half load/store builtin
+LANGBUILTIN(__builtin_store_half, "vdh*", "n", ALL_OCLC_LANGUAGES)
+LANGBUILTIN(__builtin_store_halff, "vfh*", "n", ALL_OCLC_LANGUAGES)
+LANGBUILTIN(__builtin_load_half, "dhC*", "nc", ALL_OCLC_LANGUAGES)
+LANGBUILTIN(__builtin_load_halff, "fhC*", "nc", ALL_OCLC_LANGUAGES)
 
 // Builtins for os_log/os_trace
 BUILTIN(__builtin_os_log_format_buffer_size, "zcC*.", "p:0:nut")

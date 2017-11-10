@@ -26,10 +26,20 @@ __kernel void k6() __attribute__((num_compute_units(3))) {}
 __kernel void k7() __attribute__((num_simd_work_items(4))) {}
 // CHECK: define spir_kernel void @k7{{[^{]+}} !num_simd_work_items ![[MD7:[0-9]+]]
 
+__kernel void k8() __attribute__((num_compute_units(3, 2, 4))) {}
+// CHECK: define spir_kernel void @k8{{[^{]+}} !num_compute_units ![[MD8:[0-9]+]]
+
+__kernel void k9() __attribute__((max_global_work_dim(0))) {}
+// CHECK: define spir_kernel void @k9{{[^{]+}} !task ![[MD2:[0-9]+]]
+
+__kernel void k10() __attribute__((max_global_work_dim(0))) __attribute__((autorun)) {}
+// CHECK: define spir_kernel void @k10{{[^{]+}} !task ![[MD2]] !autorun ![[MD2]]
+
 // CHECK-DAG: [[MD1]] = !{i32 1024, i32 1, i32 1}
-// CHECK-DAG: [[MD2]] = !{}
+// CHECK-DAG: [[MD2]] = !{i1 true}
 // CHECK-DAG: [[MD3]] = !{i32 16, i32 16, i32 16}
 // CHECK-DAG: [[MD4]] = !{i32 16, i32 16, i32 16}
 // CHECK-DAG: [[MD5]] = !{i32 64, i32 64, i32 64}
-// CHECK-DAG: [[MD6]] = !{i32 3}
+// CHECK-DAG: [[MD6]] = !{i32 3, i32 1, i32 1}
 // CHECK-DAG: [[MD7]] = !{i32 4}
+// CHECK-DAG: [[MD8]] = !{i32 3, i32 2, i32 4}

@@ -426,7 +426,6 @@ int main(int argc, char **argv) {
       glob_int = local_int + 1;
     }
   }
-  
 // CHECK-REG: [[TARGTE_TV:%[0-9]+]] = call token{{.*}}region.entry() [ "DIR.OMP.TARGET"()
 // CHECK-REG: [[TE_TV:%[0-9]+]] = call token{{.*}}region.entry() [ "DIR.OMP.TEAMS"(){{.*}}"QUAL.OMP.NUM_TEAMS"(i32 16), "QUAL.OMP.THREAD_LIMIT"(i32 4)
 // CHECK-REG: [[DIST_TV:%[0-9]+]] = call token{{.*}}region.entry() [ "DIR.OMP.DISTRIBUTE"(){{.*}}"QUAL.OMP.DIST.SCHEDULE.STATIC"(i32 8)
@@ -440,6 +439,13 @@ int main(int argc, char **argv) {
 // CHECK-REG: region.exit(token [[DIST_TV]]) [ "DIR.OMP.END.DISTRIBUTE"() ]
 // CHECK-REG: region.exit(token [[TE_TV]]) [ "DIR.OMP.END.TEAMS"() ]
 // CHECK-REG: region.exit(token [[TARGTE_TV]]) [ "DIR.OMP.END.TARGET"() ]
+
+// CHECK-REG: [[BARRIER_TOKENVAL:%[0-9]+]] = call token{{.*}}DIR.OMP.BARRIER
+// CHECK-REG: region.exit(token [[BARRIER_TOKENVAL]]) [ "DIR.OMP.END.BARRIER"
+  #pragma omp barrier
+// CHECK-REG: [[FLUSH_TOKENVAL:%[0-9]+]] = call token{{.*}}DIR.OMP.FLUSH
+// CHECK-REG: region.exit(token [[FLUSH_TOKENVAL]]) [ "DIR.OMP.END.FLUSH"
+  #pragma omp flush
 
   return 0;
 }

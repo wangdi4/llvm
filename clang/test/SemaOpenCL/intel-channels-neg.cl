@@ -1,8 +1,8 @@
-// RUN: %clang_cc1 -x cl -cl-std=CL2.0 -fsyntax-only -verify -cl-ext=-cl_altera_channels %s
-// RUN: %clang_cc1 -x cl -cl-std=CL2.0 -fsyntax-only -verify -cl-ext=-cl_altera_channels -D __KERNEL %s
-// RUN: %clang_cc1 -x cl -cl-std=CL2.0 -fsyntax-only -verify -cl-ext=-cl_altera_channels -D __FUNCTION %s
+// RUN: %clang_cc1 -x cl -cl-std=CL2.0 -fsyntax-only -verify -cl-ext=-cl_intel_channels %s
+// RUN: %clang_cc1 -x cl -cl-std=CL2.0 -fsyntax-only -verify -cl-ext=-cl_intel_channels -D __KERNEL %s
+// RUN: %clang_cc1 -x cl -cl-std=CL2.0 -fsyntax-only -verify -cl-ext=-cl_intel_channels -D __FUNCTION %s
 
-// 'channel' should be treated as an identifier if cl_altera_channels extension
+// 'channel' should be treated as an identifier if cl_intel_channels extension
 // is not supported
 
 #ifdef __KERNEL

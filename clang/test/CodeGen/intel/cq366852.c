@@ -1,4 +1,5 @@
 // RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -emit-llvm -o - %s | FileCheck %s
+// expected-no-diagnostics
 
 void test_MCU_builtins() {
   unsigned size = 23, count = 10;
@@ -9,12 +10,20 @@ void test_MCU_builtins() {
   // CHECK: call i8* @calloc(i64 %{{.*}}, i64 %{{.*}})
   __builtin_fwrite(buf1, size, count, stdout);
   // CHECK: call i64 @fwrite(i8* %{{.*}}, i64 %{{.*}}, i64 %{{.*}}, i8* %{{.*}})
+  __builtin_fwrite_unlocked(buf1, size, count, stdout);
+  // CHECK: call i64 @fwrite_unlocked(i8* %{{.*}}, i64 %{{.*}}, i64 %{{.*}}, i8* %{{.*}})
   __builtin_fputc(str[0], stdout);
   // CHECK: call i32 @fputc(i32 %{{.*}}, i8* %{{.*}})
+  __builtin_fputc_unlocked(str[0], stdout);
+  // CHECK: call i32 @fputc_unlocked(i32 %{{.*}}, i8* %{{.*}})
   __builtin_puts(str);
   // CHECK: call i32 @puts(i8* %{{.*}})
   __builtin_fputs(str, stdout);
   // CHECK: call i32 @fputs(i8* %{{.*}}, i8* %{{.*}})
+  __builtin_fputs_unlocked(str, stdout);
+  // CHECK: call i32 @fputs_unlocked(i8* %{{.*}}, i8* %{{.*}})
+  __builtin_puts_unlocked(str);
+  // CHECK: call i32 @puts_unlocked(i8* %{{.*}})
   int is_const = __builtin_constant_p(2 * (8 - 3) + size);
   __builtin_exit(is_const);
   // CHECK: call void @exit(i32 %{{.*}})

@@ -1,6 +1,6 @@
 // RUN: %clang_cc1 -x cl -cl-std=CL2.0 -triple spir-unknown-unknown -fsyntax-only -verify %s
 
-#pragma OPENCL EXTENSION cl_altera_channels : enable
+#pragma OPENCL EXTENSION cl_intel_channels : enable
 
 struct st {
   int i1;
@@ -21,8 +21,8 @@ __kernel void k1() __attribute__((depth(100))) { // expected-warning{{'depth' at
 }
 
 __kernel void k2() {
-  int i1 = read_channel_altera(arr[1]);
-  int i2 = read_channel_altera(multiarr[1][2]);
+  int i1 = read_channel_intel(arr[1]);
+  int i2 = read_channel_intel(multiarr[1][2]);
 }
 
 channel foo; // expected-error{{missing actual type specifier for channel}}

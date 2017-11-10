@@ -573,6 +573,34 @@ void OMPClauseProfiler::VisitOMPTaskReductionClause(
       Profiler->VisitStmt(E);
   }
 }
+void OMPClauseProfiler::VisitOMPInReductionClause(
+    const OMPInReductionClause *C) {
+  Profiler->VisitNestedNameSpecifier(
+      C->getQualifierLoc().getNestedNameSpecifier());
+  Profiler->VisitName(C->getNameInfo().getName());
+  VisitOMPClauseList(C);
+  VistOMPClauseWithPostUpdate(C);
+  for (auto *E : C->privates()) {
+    if (E)
+      Profiler->VisitStmt(E);
+  }
+  for (auto *E : C->lhs_exprs()) {
+    if (E)
+      Profiler->VisitStmt(E);
+  }
+  for (auto *E : C->rhs_exprs()) {
+    if (E)
+      Profiler->VisitStmt(E);
+  }
+  for (auto *E : C->reduction_ops()) {
+    if (E)
+      Profiler->VisitStmt(E);
+  }
+  for (auto *E : C->taskgroup_descriptors()) {
+    if (E)
+      Profiler->VisitStmt(E);
+  }
+}
 void OMPClauseProfiler::VisitOMPLinearClause(const OMPLinearClause *C) {
   VisitOMPClauseList(C);
   VistOMPClauseWithPostUpdate(C);
@@ -774,6 +802,8 @@ void StmtProfiler::VisitOMPTaskwaitDirective(const OMPTaskwaitDirective *S) {
 
 void StmtProfiler::VisitOMPTaskgroupDirective(const OMPTaskgroupDirective *S) {
   VisitOMPExecutableDirective(S);
+  if (const Expr *E = S->getReductionRef())
+    VisitStmt(E);
 }
 
 void StmtProfiler::VisitOMPFlushDirective(const OMPFlushDirective *S) {
@@ -1433,6 +1463,15 @@ static Stmt::StmtClass DecodeOperatorCall(const CXXOperatorCallExpr *S,
   llvm_unreachable("Invalid overloaded operator expression");
 }
 
+#if defined(_MSC_VER)
+#if _MSC_VER == 1911
+// Work around https://developercommunity.visualstudio.com/content/problem/84002/clang-cl-when-built-with-vc-2017-crashes-cause-vc.html
+// MSVC 2017 update 3 miscompiles this function, and a clang built with it
+// will crash in stage 2 of a bootstrap build.
+#pragma optimize("", off)
+#endif
+#endif
+
 void StmtProfiler::VisitCXXOperatorCallExpr(const CXXOperatorCallExpr *S) {
   if (S->isTypeDependent()) {
     // Type-dependent operator calls are profiled like their underlying
@@ -1464,6 +1503,12 @@ void StmtProfiler::VisitCXXOperatorCallExpr(const CXXOperatorCallExpr *S) {
   VisitCallExpr(S);
   ID.AddInteger(S->getOperator());
 }
+
+#if defined(_MSC_VER)
+#if _MSC_VER == 1911
+#pragma optimize("", on)
+#endif
+#endif
 
 void StmtProfiler::VisitCXXMemberCallExpr(const CXXMemberCallExpr *S) {
   VisitCallExpr(S);
@@ -1701,6 +1746,7 @@ void StmtProfiler::VisitCXXUnresolvedConstructExpr(
     const CXXUnresolvedConstructExpr *S) {
   VisitExpr(S);
   VisitType(S->getTypeAsWritten());
+  ID.AddInteger(S->isListInitialization());
 }
 
 void StmtProfiler::VisitCXXDependentScopeMemberExpr(

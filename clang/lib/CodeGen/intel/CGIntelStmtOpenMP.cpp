@@ -1156,6 +1156,8 @@ namespace CGIntelOpenMP {
   void OpenMPCodeOutliner::emitOMPHintClause(const OMPHintClause *) {}
   void OpenMPCodeOutliner::emitOMPTaskReductionClause(
                                               const OMPTaskReductionClause *) {}
+  void OpenMPCodeOutliner::emitOMPInReductionClause(
+                                              const OMPInReductionClause *) {}
 
   OpenMPCodeOutliner::OpenMPCodeOutliner(CodeGenFunction &CGF,
                                          const OMPExecutableDirective &D)
@@ -1367,6 +1369,12 @@ namespace CGIntelOpenMP {
   void OpenMPCodeOutliner::emitOMPTaskYieldDirective() {
     startDirectiveIntrinsicSet("DIR.OMP.TASKYIELD", "DIR.OMP.END.TASKYIELD");
   }
+  void OpenMPCodeOutliner::emitOMPBarrierDirective() {
+    startDirectiveIntrinsicSet("DIR.OMP.BARRIER", "DIR.OMP.END.BARRIER");
+  }
+  void OpenMPCodeOutliner::emitOMPFlushDirective() {
+    startDirectiveIntrinsicSet("DIR.OMP.FLUSH", "DIR.OMP.END.FLUSH");
+  }
   void OpenMPCodeOutliner::emitOMPTeamsDirective() {
     startDirectiveIntrinsicSet("DIR.OMP.TEAMS", "DIR.OMP.END.TEAMS");
   }
@@ -1376,6 +1384,8 @@ namespace CGIntelOpenMP {
   OpenMPCodeOutliner &OpenMPCodeOutliner::operator<<(
                                          ArrayRef<OMPClause *> Clauses) {
     for (auto *C : Clauses) {
+      if (C->isImplicit())
+        continue;
       CurrentClauseKind = C->getClauseKind();
       switch (CurrentClauseKind) {
 #define OPENMP_CLAUSE(Name, Class)                                             \
@@ -1564,10 +1574,14 @@ void CodeGenFunction::EmitIntelOpenMPDirective(
   case OMPD_teams:
     Outliner.emitOMPTeamsDirective();
     break;
+  case OMPD_barrier:
+    Outliner.emitOMPBarrierDirective();
+    break;
+  case OMPD_flush:
+    Outliner.emitOMPFlushDirective();
+    break;
   case OMPD_sections:
   case OMPD_section:
-  case OMPD_barrier:
-  case OMPD_flush:
   case OMPD_teams_distribute:
   case OMPD_teams_distribute_simd:
   case OMPD_teams_distribute_parallel_for:

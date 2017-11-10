@@ -62,11 +62,13 @@ static bool CheckAsmLValue(const Expr *E, Sema &S) {
 
 /// isOperandMentioned - Return true if the specified operand # is mentioned
 /// anywhere in the decomposed asm string.
-static bool isOperandMentioned(unsigned OpNo,
-                         ArrayRef<GCCAsmStmt::AsmStringPiece> AsmStrPieces) {
+static bool
+isOperandMentioned(unsigned OpNo,
+                   ArrayRef<GCCAsmStmt::AsmStringPiece> AsmStrPieces) {
   for (unsigned p = 0, e = AsmStrPieces.size(); p != e; ++p) {
     const GCCAsmStmt::AsmStringPiece &Piece = AsmStrPieces[p];
-    if (!Piece.isOperand()) continue;
+    if (!Piece.isOperand())
+      continue;
 
     // If this is a reference to the input and if the input was the smaller
     // one, then we have to reject this asm.
@@ -702,22 +704,33 @@ bool Sema::LookupInlineAsmField(StringRef Base, StringRef Member,
   SmallVector<StringRef, 2> Members;
   Member.split(Members, ".");
 
-  LookupResult BaseResult(*this, &Context.Idents.get(Base), SourceLocation(),
-                          LookupOrdinaryName);
+  NamedDecl *FoundDecl = nullptr;
 
-  if (!LookupName(BaseResult, getCurScope()))
+  // MS InlineAsm uses 'this' as a base
+  if (getLangOpts().CPlusPlus && Base.equals("this")) {
+    if (const Type *PT = getCurrentThisType().getTypePtrOrNull())
+      FoundDecl = PT->getPointeeType()->getAsTagDecl();
+  } else {
+    LookupResult BaseResult(*this, &Context.Idents.get(Base), SourceLocation(),
+                            LookupOrdinaryName);
+    if (LookupName(BaseResult, getCurScope()) && BaseResult.isSingleResult())
+      FoundDecl = BaseResult.getFoundDecl();
+  }
+
+  if (!FoundDecl)
     return true;
-  
-  if(!BaseResult.isSingleResult())
-    return true;
-  NamedDecl *FoundDecl = BaseResult.getFoundDecl();
+
   for (StringRef NextMember : Members) {
     const RecordType *RT = nullptr;
     if (VarDecl *VD = dyn_cast<VarDecl>(FoundDecl))
       RT = VD->getType()->getAs<RecordType>();
     else if (TypedefNameDecl *TD = dyn_cast<TypedefNameDecl>(FoundDecl)) {
       MarkAnyDeclReferenced(TD->getLocation(), TD, /*OdrUse=*/false);
-      RT = TD->getUnderlyingType()->getAs<RecordType>();
+      // MS InlineAsm often uses struct pointer aliases as a base
+      QualType QT = TD->getUnderlyingType();
+      if (const auto *PT = QT->getAs<PointerType>())
+        QT = PT->getPointeeType();
+      RT = QT->getAs<RecordType>();
     } else if (TypeDecl *TD = dyn_cast<TypeDecl>(FoundDecl))
       RT = TD->getTypeForDecl()->getAs<RecordType>();
     else if (FieldDecl *TD = dyn_cast<FieldDecl>(FoundDecl))
