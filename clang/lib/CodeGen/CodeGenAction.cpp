@@ -287,7 +287,9 @@ namespace clang {
       if (LinkInModules())
         return;
 
+#if !INTEL_PRODUCT_RELEASE
       EmbedBitcode(getModule(), CodeGenOpts, llvm::MemoryBufferRef());
+#endif // !INTEL_PRODUCT_RELEASE
 
       EmitBackendOutput(Diags, HeaderSearchOpts, CodeGenOpts, TargetOpts,
                         LangOpts, C.getTargetInfo().getDataLayout(),
@@ -1011,8 +1013,10 @@ void CodeGenAction::ExecuteAction() {
       TheModule->setTargetTriple(TargetOpts.Triple);
     }
 
+#if !INTEL_PRODUCT_RELEASE
     EmbedBitcode(TheModule.get(), CI.getCodeGenOpts(),
                  MainFile->getMemBufferRef());
+#endif // !INTEL_PRODUCT_RELEASE
 
     LLVMContext &Ctx = TheModule->getContext();
     Ctx.setInlineAsmDiagnosticHandler(BitcodeInlineAsmDiagHandler,

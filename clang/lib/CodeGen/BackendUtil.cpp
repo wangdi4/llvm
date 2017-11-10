@@ -1152,6 +1152,20 @@ void clang::EmitBackendOutput(DiagnosticsEngine &Diags,
                               const llvm::DataLayout &TDesc, Module *M,
                               BackendAction Action,
                               std::unique_ptr<raw_pwrite_stream> OS) {
+#if INTEL_PRODUCT_RELEASE
+  if (Action == Backend_EmitLL) {
+    unsigned DiagID = Diags.getCustomDiagID(
+        DiagnosticsEngine::Error, "IR output is not supported.");
+    Diags.Report(DiagID);
+    return;
+  }
+  if (Action == Backend_EmitBC && !CGOpts.PrepareForLTO && !LOpts.OpenCL) {
+    unsigned DiagID = Diags.getCustomDiagID(
+        DiagnosticsEngine::Error, "Bitcode output is only supported with LTO.");
+    Diags.Report(DiagID);
+    return;
+  }
+#endif // INTEL_PRODUCT_RELEASE
   if (!CGOpts.ThinLTOIndexFile.empty()) {
     // If we are performing a ThinLTO importing compile, load the function index
     // into memory and pass it into runThinLTOBackend, which will run the
@@ -1197,6 +1211,7 @@ void clang::EmitBackendOutput(DiagnosticsEngine &Diags,
   }
 }
 
+#if !INTEL_PRODUCT_RELEASE
 static const char* getSectionNameForBitcode(const Triple &T) {
   switch (T.getObjectFormat()) {
   case Triple::MachO:
@@ -1317,3 +1332,4 @@ void clang::EmbedBitcode(llvm::Module *M, const CodeGenOptions &CGOpts,
       llvm::ConstantArray::get(ATy, UsedArray), "llvm.compiler.used");
   NewUsed->setSection("llvm.metadata");
 }
+#endif // !INTEL_PRODUCT_RELEASE
