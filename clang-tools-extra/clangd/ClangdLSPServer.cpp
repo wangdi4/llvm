@@ -51,7 +51,8 @@ class ClangdLSPServer::LSPProtocolCallbacks : public ProtocolCallbacks {
 public:
   LSPProtocolCallbacks(ClangdLSPServer &LangServer) : LangServer(LangServer) {}
 
-  void onInitialize(StringRef ID, JSONOutput &Out) override;
+  void onInitialize(StringRef ID, InitializeParams IP,
+                    JSONOutput &Out) override;
   void onShutdown(JSONOutput &Out) override;
   void onDocumentDidOpen(DidOpenTextDocumentParams Params,
                          JSONOutput &Out) override;
@@ -70,13 +71,16 @@ public:
   void onCompletion(TextDocumentPositionParams Params, StringRef ID,
                     JSONOutput &Out) override;
   void onGoToDefinition(TextDocumentPositionParams Params, StringRef ID,
-                            JSONOutput &Out) override;
+                        JSONOutput &Out) override;
+  void onSwitchSourceHeader(TextDocumentIdentifier Params, StringRef ID,
+                        JSONOutput &Out) override;                      
 
 private:
   ClangdLSPServer &LangServer;
 };
 
 void ClangdLSPServer::LSPProtocolCallbacks::onInitialize(StringRef ID,
+                                                         InitializeParams IP,
                                                          JSONOutput &Out) {
   Out.writeMessage(
       R"({"jsonrpc":"2.0","id":)" + ID +
@@ -86,9 +90,13 @@ void ClangdLSPServer::LSPProtocolCallbacks::onInitialize(StringRef ID,
           "documentRangeFormattingProvider": true,
           "documentOnTypeFormattingProvider": {"firstTriggerCharacter":"}","moreTriggerCharacter":[]},
           "codeActionProvider": true,
-          "completionProvider": {"resolveProvider": false, "triggerCharacters": [".",">"]},
+          "completionProvider": {"resolveProvider": false, "triggerCharacters": [".",">",":"]},
           "definitionProvider": true
         }}})");
+  if (IP.rootUri && !IP.rootUri->file.empty())
+    LangServer.Server.setRootPath(IP.rootUri->file);
+  else if (IP.rootPath && !IP.rootPath->empty())
+    LangServer.Server.setRootPath(*IP.rootPath);
 }
 
 void ClangdLSPServer::LSPProtocolCallbacks::onShutdown(JSONOutput &Out) {
@@ -181,9 +189,11 @@ void ClangdLSPServer::LSPProtocolCallbacks::onCodeAction(
 void ClangdLSPServer::LSPProtocolCallbacks::onCompletion(
     TextDocumentPositionParams Params, StringRef ID, JSONOutput &Out) {
 
-  auto Items = LangServer.Server.codeComplete(
-      Params.textDocument.uri.file,
-      Position{Params.position.line, Params.position.character}).Value;
+  auto Items = LangServer.Server
+                   .codeComplete(Params.textDocument.uri.file,
+                                 Position{Params.position.line,
+                                          Params.position.character})
+                   .Value;
 
   std::string Completions;
   for (const auto &Item : Items) {
@@ -200,9 +210,11 @@ void ClangdLSPServer::LSPProtocolCallbacks::onCompletion(
 void ClangdLSPServer::LSPProtocolCallbacks::onGoToDefinition(
     TextDocumentPositionParams Params, StringRef ID, JSONOutput &Out) {
 
-  auto Items = LangServer.Server.findDefinitions(
-      Params.textDocument.uri.file,
-      Position{Params.position.line, Params.position.character}).Value;
+  auto Items = LangServer.Server
+                   .findDefinitions(Params.textDocument.uri.file,
+                                    Position{Params.position.line,
+                                             Params.position.character})
+                   .Value;
 
   std::string Locations;
   for (const auto &Item : Items) {
@@ -216,9 +228,27 @@ void ClangdLSPServer::LSPProtocolCallbacks::onGoToDefinition(
       R"(,"result":[)" + Locations + R"(]})");
 }
 
-ClangdLSPServer::ClangdLSPServer(JSONOutput &Out, bool RunSynchronously)
-    : Out(Out), DiagConsumer(*this),
-      Server(CDB, DiagConsumer, FSProvider, RunSynchronously) {}
+void ClangdLSPServer::LSPProtocolCallbacks::onSwitchSourceHeader(
+    TextDocumentIdentifier Params, StringRef ID, JSONOutput &Out) {
+  llvm::Optional<Path> Result =
+      LangServer.Server.switchSourceHeader(Params.uri.file);
+  std::string ResultUri;
+  if (Result)
+    ResultUri = URI::unparse(URI::fromFile(*Result));
+  else
+    ResultUri = "\"\"";
+
+  Out.writeMessage(
+      R"({"jsonrpc":"2.0","id":)" + ID.str() +
+      R"(,"result":)" + ResultUri + R"(})");
+}
+
+ClangdLSPServer::ClangdLSPServer(JSONOutput &Out, unsigned AsyncThreadsCount,
+                                 bool SnippetCompletions,
+                                 llvm::Optional<StringRef> ResourceDir)
+    : Out(Out), CDB(/*Logger=*/Out), DiagConsumer(*this),
+      Server(CDB, DiagConsumer, FSProvider, AsyncThreadsCount,
+             SnippetCompletions, /*Logger=*/Out, ResourceDir) {}
 
 void ClangdLSPServer::run(std::istream &In) {
   assert(!IsDone && "Run was called before");
