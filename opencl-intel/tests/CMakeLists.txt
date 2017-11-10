@@ -73,6 +73,7 @@ add_subdirectory( FrontendDriver_test_type )
 add_subdirectory( task_executor_test_type )
 add_subdirectory( bi_test_type )
 add_subdirectory( backend_test_type )
+add_subdirectory( openmp_test_type )
 
 if( USE_VALGRIND )
   add_subdirectory( valgrind )
@@ -99,6 +100,7 @@ list(APPEND RUNTIME_UNITTESTS
   FrontendDriver_test_type
   cpu_device_test_type
   backend_test_type
+  openmp_test_type
 )
 
 list(APPEND RT_TEST_DEPS
