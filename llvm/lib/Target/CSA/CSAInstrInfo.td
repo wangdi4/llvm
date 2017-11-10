@@ -428,22 +428,6 @@ class CopyOp<GenericOp gen, CSAOpInfo oi,
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$op0, $op1, $op2, $op3, $op4"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin>;
 
-class RAppOp<GenericOp gen, CSAOpInfo oi,
-             InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
-  FMTGEN<gen, oi,
-    (outs oi.RC:$dst, I1:$pred),
-    (ins  oi.RCL:$op2, oi.RCL:$op3),
-    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $pred, $op2, $op3"),
-    [], !listconcat(preds,gen.Preds,oi.Preds), itin>;
-
-class RSqrtAppOp<GenericOp gen, CSAOpInfo oi,
-             InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
-  FMTGEN<gen, oi,
-    (outs oi.RC:$dst, I1:$pred),
-    (ins  oi.RCL:$op2),
-    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $pred, $op2"),
-    [], !listconcat(preds,gen.Preds,oi.Preds), itin>;
-
 def MERGE     : GenericOp<"merge">;
 class MergeOp<string opStr, CSAOpInfo t,
               list<Predicate> preds, InstrItinClass itin> :
@@ -1199,14 +1183,6 @@ def FMRSF16   : TriOp1<FMRS, fmrs, Tf16, IIFMAF16>;
 def FMRSF32   : TriOp1<FMRS, fmrs, Tf32, IIFMAF32>;
 def FMRSF64   : TriOp1<FMRS, fmrs, Tf64, IIFMAF64>;
 
-def RCP14     : GenericOp<"rcp14", [HasRcpA]>;
-def RCP14F32  : RAppOp<RCP14, Tf32, IIRcpAF32>;
-def RCP14F64  : RAppOp<RCP14, Tf64, IIRcpAF64>;
-
-def RSQRT14   : GenericOp<"rsqrt14", [HasRSqrtA]>;
-def RSQRT14F32: RSqrtAppOp<RSQRT14, Tf32, IIRSqrtAF32>;
-def RSQRT14F64: RSqrtAppOp<RSQRT14, Tf64, IIRSqrtAF64>;
-
 // Unfortunately, "COPY" is already defined...
 def GCOPY     : GenericOp<"copy">;
 def COPY0     : CopyOp<  GCOPY, Ti0>;
@@ -1662,7 +1638,7 @@ class BinaryNoPatOpR<GenericOp op, CSAOpInfo oi, InstrItinClass itin> : FMTGEN<
   [], // No predicates
   itin>;
 
-class ScaleisrOp<GenericOp op, CSAOpInfo oi, InstrItinClass itin> : FMTGEN<
+class ScaleirsOp<GenericOp op, CSAOpInfo oi, InstrItinClass itin> : FMTGEN<
   op, oi,
   (outs oi.RC:$result),
   (ins oi.RCL:$op1, oi.RCL:$op2, I1:$rndbit, I1:$scalebit, RMODE:$rndmode),
@@ -1708,9 +1684,9 @@ def GETMANTF64   : GetmantOp<GETMANT, Tf64, IIMathF64>;
 def SCALE        : GenericOp<"scale">;
 def SCALEF32     : BinaryNoPatOpR<SCALE, Tf32, IIMathF32>;
 def SCALEF64     : BinaryNoPatOpR<SCALE, Tf64, IIMathF64>;
-def SCALEISR     : GenericOp<"scalendr">;
-def SCALEISRF32  : ScaleisrOp<SCALEISR, Tf32, IIMathF32>;
-def SCALEISRF64  : ScaleisrOp<SCALEISR, Tf64, IIMathF64>;
+def SCALEIRS     : GenericOp<"scaleirs">;
+def SCALEIRSF32  : ScaleirsOp<SCALEIRS, Tf32, IIMathF32>;
+def SCALEIRSF64  : ScaleirsOp<SCALEIRS, Tf64, IIMathF64>;
 def DIVCHECK     : GenericOp<"divcheck">;
 def DIVCHECKF32  : DivcheckOp<DIVCHECK, Tf32, IIMathF32>;
 def DIVCHECKF64  : DivcheckOp<DIVCHECK, Tf64, IIMathF64>;
@@ -1724,8 +1700,15 @@ def FMSORS       : GenericOp<"fmsors">;
 def FMSORSF32    : ThreeArgRSOpR<FMSORS, Tf32, IIMathF32>;
 def FMSORSF64    : ThreeArgRSOpR<FMSORS, Tf64, IIMathF64>;
 def FMRSORS      : GenericOp<"fmrsors">;
-def FMRSORSF32    : ThreeArgRSOpR<FMRSORS, Tf32, IIMathF32>;
-def FMRSORSF64    : ThreeArgRSOpR<FMRSORS, Tf64, IIMathF64>;
+def FMRSORSF32   : ThreeArgRSOpR<FMRSORS, Tf32, IIMathF32>;
+def FMRSORSF64   : ThreeArgRSOpR<FMRSORS, Tf64, IIMathF64>;
+def RCP14        : GenericOp<"rcp14", [HasRcpA]>;
+def RCP14F32     : UnaryNoPatOp<RCP14, Tf32, IIRcpAF32>;
+def RCP14F64     : UnaryNoPatOp<RCP14, Tf64, IIRcpAF64>;
+def RSQRT14      : GenericOp<"rsqrt14", [HasRSqrtA]>;
+def RSQRT14F32   : UnaryNoPatOp<RSQRT14, Tf32, IIRSqrtAF32>;
+def RSQRT14F64   : UnaryNoPatOp<RSQRT14, Tf64, IIRSqrtAF64>;
+
 
 
 // Unit - type only
