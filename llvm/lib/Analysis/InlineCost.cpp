@@ -160,7 +160,9 @@ class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
 
   /// INTEL The cost and the threshold used for early exit during usual
   /// inlining process. Under IntelInlineReportLevel=64  we compute both
-  /// "early exit" and real cost of inlining.
+  /// "early exit" and real cost of inlining.  A value of INT_MAX indicates
+  /// that a value has not yet been seen for these.  They are expected to
+  /// be set at the same time, so we only need to test for EarlyExitCost.
   int EarlyExitThreshold;             // INTEL
   int EarlyExitCost;                  // INTEL
 
@@ -305,9 +307,13 @@ public:
       : TTI(TTI), GetAssumptionCache(GetAssumptionCache), GetBFI(GetBFI),
         PSI(PSI), F(Callee), DL(F.getParent()->getDataLayout()), ORE(ORE),
         CandidateCS(CSArg), Params(Params), Threshold(Params.DefaultThreshold),
+#if INTEL_CUSTOMIZATION
         Cost(0), ComputeFullInlineCost(OptComputeFullInlineCost ||
-                                       Params.ComputeFullInlineCost || ORE),
-        ILIC(ILIC), AI(AI),                // INTEL
+                                       Params.ComputeFullInlineCost || ORE ||
+                                       (IntelInlineReportLevel
+                                         & InlineReportOptions::RealCost) != 0),
+        ILIC(ILIC), AI(AI),
+#endif // INTEL_CUSTOMIZATION
         IsCallerRecursive(false), IsRecursiveCall(false),
         ExposesReturnsTwice(false), HasDynamicAlloca(false),
         ContainsNoDuplicateCall(false), HasReturn(false), HasIndirectBr(false),
@@ -1350,10 +1356,18 @@ bool CallAnalyzer::visitSwitchInst(SwitchInst &SI) {
       std::min((int64_t)CostUpperBound,
                (int64_t)SI.getNumCases() * InlineConstants::InstrCost + Cost);
 
-  if (CostLowerBound > Threshold && !ComputeFullInlineCost) {
-    Cost = CostLowerBound;
-    return false;
+#if INTEL_CUSTOMIZATION
+  if (CostLowerBound > Threshold) {
+    if (!ComputeFullInlineCost) {
+      Cost = CostLowerBound;
+      return false;
+    }
+    if (EarlyExitCost == INT_MAX) {
+      EarlyExitCost = Cost;
+      EarlyExitThreshold = Threshold;
+    }
   }
+#endif // INTEL_CUSTOMIZATION
 
   unsigned JumpTableSize = 0;
   unsigned NumCaseCluster =
@@ -1539,20 +1553,16 @@ bool CallAnalyzer::analyzeBlock(BasicBlock *BB,
 
     // Check if we've past the maximum possible threshold so we don't spin in
     // huge basic blocks that will never inline.
-    if (Cost >= Threshold && !ComputeFullInlineCost) { // INTEL
 #if INTEL_CUSTOMIZATION
-      if (IntelInlineReportLevel & InlineReportOptions::RealCost) {
-        // Remember "early exit" cost of inlining during computation of a
-        // real cost.
-        if (!EarlyExitCost) {
-          EarlyExitCost = Cost;
-          EarlyExitThreshold = Threshold;
-        }
+    if (Cost >= Threshold) {
+      if (!ComputeFullInlineCost)
+         return false;
+      if (EarlyExitCost == INT_MAX) {
+         EarlyExitCost = Cost;
+         EarlyExitThreshold = Threshold;
       }
-      else
+    }
 #endif // INTEL_CUSTOMIZATION
-      return false;
-    } // INTEL
   }
 
   return true;
@@ -1631,8 +1641,7 @@ static void countGlobalsAndConstants(Value* Op, unsigned& GlobalCount,
     Value *GV = LILHS->getPointerOperand();
     if (GV && isa<GlobalValue>(GV))
       GlobalCount++;
-  }
-  else if (isa<ConstantInt>(Op))
+  } else if (isa<ConstantInt>(Op))
     ConstantCount++;
 }
 
@@ -1975,6 +1984,8 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
   InlineReasonVector YesReasonVector; // INTEL
   InlineReasonVector NoReasonVector; // INTEL
   TempReason = NinlrNoReason; // INTEL
+  EarlyExitCost = INT_MAX; // INTEL
+  EarlyExitThreshold = INT_MAX; // INTEL
 
   // Perform some tweaks to the cost and threshold based on the direct
   // callsite information.
@@ -2052,23 +2063,18 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
     NoReasonVector.push_back(NinlrColdCC); // INTEL
   } // INTEL
 
-  // Check if we're done. This can happen due to bonuses and penalties.
 #if INTEL_CUSTOMIZATION
-  if ((IntelInlineReportLevel & InlineReportOptions::RealCost) &&
-      (Cost > Threshold)) {
-    // Remember "early exit" cost of inlining during computation of a
-    // real cost.
-    if (!EarlyExitCost) {
+  if (Cost >= Threshold) {
+    if (!ComputeFullInlineCost) {
+      *ReasonAddr = bestInlineReason(NoReasonVector, NinlrNotProfitable);
+      return false;
+    }
+    if (EarlyExitCost == INT_MAX) {
       EarlyExitCost = Cost;
       EarlyExitThreshold = Threshold;
     }
-  }
-  else
-#endif // INTEL_CUSTOMIZiATION
-  if (Cost >= Threshold && !ComputeFullInlineCost) { // INTEL
-    *ReasonAddr = bestInlineReason(NoReasonVector, NinlrNotProfitable); // INTEL
-    return false;
-  } // INTEL
+ }
+#endif // INTEL_CUSTOMIZATION
 
   if (F.empty()) { // INTEL
     *ReasonAddr = InlrEmptyFunction; // INTEL
@@ -2135,20 +2141,16 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
   for (unsigned Idx = 0; Idx != BBWorklist.size(); ++Idx) {
     // Bail out the moment we cross the threshold. This means we'll under-count
     // the cost, but only when undercounting doesn't matter.
-    if (Cost >= Threshold && !ComputeFullInlineCost) { // INTEL
 #if INTEL_CUSTOMIZATION
-    if (IntelInlineReportLevel & InlineReportOptions::RealCost) {
-      // Remember "early exit" cost of inlining during computation of a
-      // real cost.
-      if (!EarlyExitCost) {
+    if (Cost >= Threshold) {
+      if (!ComputeFullInlineCost)
+        break;
+      if (EarlyExitCost == INT_MAX) {
         EarlyExitCost = Cost;
         EarlyExitThreshold = Threshold;
       }
     }
-    else
 #endif // INTEL_CUSTOMIZATION
-      break;
-    } // INTEL
 
     BasicBlock *BB = BBWorklist[Idx];
     if (BB->empty())
@@ -2185,7 +2187,16 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
       if (HasFrameEscape) {
         *ReasonAddr = NinlrCallsLocalEscape;
       }
-      return false;
+      if (IsCallerRecursive &&
+          AllocatedSize > InlineConstants::TotalAllocaSizeRecursiveCaller) {
+        *ReasonAddr = NinlrTooMuchStack;
+      }
+      if (!ComputeFullInlineCost || (*ReasonAddr) != NinlrNotProfitable)
+        return false;
+      if (EarlyExitCost == INT_MAX) {
+        EarlyExitCost = Cost;
+        EarlyExitThreshold = Threshold;
+      }
     }
 #endif // INTEL_CUSTOMIZATION
 
@@ -2249,12 +2260,10 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
   }
 
 #if INTEL_CUSTOMIZATION
-  if (SingleBB) {
+  if (SingleBB)
     YesReasonVector.push_back(InlrSingleBasicBlock);
-  }
-  else if (FoundForgivable) {
+  else if (FoundForgivable)
     YesReasonVector.push_back(InlrAlmostSingleBasicBlock);
-  }
 #endif // INTEL_CUSTOMIZATION
 
   bool OnlyOneCallAndLocalLinkage =
@@ -2278,7 +2287,7 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
     Threshold -= VectorBonus/2;
 
 #if INTEL_CUSTOMIZATION
-  if (VectorBonus > 0) {
+  if (NumVectorInstructions > NumInstructions / 10) {
     YesReasonVector.push_back(InlrVectorBonus);
   }
   bool IsProfitable = Cost < std::max(1, Threshold);

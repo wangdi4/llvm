@@ -22,6 +22,8 @@
 #include "llvm/Analysis/InlineCost.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
+#include <climits>
+
 namespace llvm {
 
 class InlineReportCallSite;
@@ -63,7 +65,7 @@ public:
     InlineReportTypes::InlineReason Reason, Module* Module, DebugLoc* DLoc,
     Instruction* I) : IRCallee(IRCallee), IsInlined(IsInlined), Reason(Reason),
     InlineCost(-1), OuterInlineCost (-1), InlineThreshold (-1),
-    EarlyExitInlineCost(-1), EarlyExitInlineThreshold(-1), Call (I),
+    EarlyExitInlineCost(INT_MAX), EarlyExitInlineThreshold(INT_MAX), Call (I),
     M (Module) {
     Line = DLoc && DLoc->get() ? DLoc->getLine() : 0;
     Col = DLoc && DLoc->get() ? DLoc->getCol() : 0;
@@ -89,7 +91,7 @@ public:
   /// \brief Return true if in the original inlining process there would be
   /// early exit due to high cost.
   bool isEarlyExit() const {
-    return EarlyExitInlineCost > EarlyExitInlineThreshold;
+    return EarlyExitInlineCost != INT_MAX;
   }
 
   /// \brief Return the vector of InlineReportCallSites which represent

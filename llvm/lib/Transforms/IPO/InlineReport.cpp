@@ -267,7 +267,7 @@ void InlineReportCallSite::printCostAndThreshold(unsigned Level) {
     llvm::errs() << ">";
   }
   llvm::errs() << getInlineThreshold();
-  if ((Level && InlineReportOptions::RealCost) &&
+  if (((Level & InlineReportOptions::RealCost) != 0) &&
       isEarlyExit() && !getIsInlined()) {
     // Under RealCost flag we compute both real and "early exit" costs and
     // thresholds of inlining.

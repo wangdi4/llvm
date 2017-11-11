@@ -193,7 +193,9 @@ class InlineCost {
 
 #if INTEL_CUSTOMIZATION
   /// \brief The cost and the threshold used for early exit from usual inlining
-  /// process.
+  /// process. A value of INT_MAX for either of these indicates that no value
+  /// has been seen yet. They are expected to be set at the same time, so we
+  /// need test only EarlyExitCost to see if the value of either is set yet.
   const int EarlyExitCost;
   const int EarlyExitThreshold;
 #endif // INTEL_CUSTOMIZATION
@@ -202,8 +204,8 @@ class InlineCost {
 
 #if INTEL_CUSTOMIZATION
   InlineCost(int Cost, int Threshold, InlineReportTypes::InlineReason Reason
-    = InlineReportTypes::NinlrNoReason, int EarlyExitCost = 0,
-    int EarlyExitThreshold = 1) :
+    = InlineReportTypes::NinlrNoReason, int EarlyExitCost = INT_MAX,
+    int EarlyExitThreshold = INT_MAX) :
     Cost(Cost), Threshold(Threshold), Reason(Reason),
     EarlyExitCost(EarlyExitCost),
     EarlyExitThreshold(EarlyExitThreshold) {}
