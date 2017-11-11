@@ -252,7 +252,7 @@ bool VPOParoptTransform::paroptTransforms() {
 
         if (isa<WRNTeamsNode>(W))
           DEBUG(dbgs() << "\n WRNTeams - Transformation \n\n");
-        else 
+        else
           DEBUG(dbgs() << "\n WRNParallel - Transformation \n\n");
 
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
@@ -2579,15 +2579,15 @@ CallInst* VPOParoptTransform::genForkCallInst(WRegionNode *W, CallInst *CI) {
 
   FunctionType *FnTy = FunctionType::get(Type::getVoidTy(C), ForkParams, true);
 
-  Function *ForkCallFn = (!isa<WRNTeamsNode>(W)) ?  
-                         M->getFunction("__kmpc_fork_call") : 
+  Function *ForkCallFn = (!isa<WRNTeamsNode>(W)) ?
+                         M->getFunction("__kmpc_fork_call") :
                          M->getFunction("__kmpc_fork_teams");
 
   if (!ForkCallFn) {
-    if (isa<WRNTeamsNode>(W))   
+    if (isa<WRNTeamsNode>(W))
       ForkCallFn = Function::Create(FnTy, GlobalValue::ExternalLinkage,
                                     "__kmpc_fork_teams", M);
-    else 
+    else
       ForkCallFn = Function::Create(FnTy, GlobalValue::ExternalLinkage,
                                     "__kmpc_fork_call", M);
 
