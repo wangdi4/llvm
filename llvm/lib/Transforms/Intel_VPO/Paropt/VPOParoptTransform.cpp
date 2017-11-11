@@ -1246,7 +1246,7 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
   assert(W->isBBSetEmpty() &&
          "genFirstPrivatizationCode: BBSET should start empty");
 
-  assert(W->hasFirstprivate() &&
+  assert(W->canHaveFirstprivate() &&
          "genFirstPrivatizationCode: WRN doesn't take a firstprivate var");
 
   FirstprivateClause &FprivClause = W->getFpriv();
@@ -1265,7 +1265,7 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
       assert((isa<GlobalVariable>(Orig) || isa<AllocaInst>(Orig)) &&
              "genFirstPrivatizationCode: Unexpected firstprivate variable");
 */
-      if (W->hasLastprivate()) {
+      if (W->canHaveLastprivate()) {
         auto LprivI = WRegionUtils::wrnSeenAsLastPrivate(W, Orig);
         if (!LprivI) {
           NewPrivInst = genPrivatizationAlloca(
@@ -1323,14 +1323,14 @@ bool VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
   assert(W->isBBSetEmpty() &&
          "genLastPrivatizationCode: BBSET should start empty");
 
-  if (!W->hasLastprivate())
+  if (!W->canHaveLastprivate())
     return Changed;
 
   LastprivateClause &LprivClause = W->getLpriv();
   if (!LprivClause.empty()) {
     W->populateBBSet();
     FirstprivateItem *FprivI = nullptr;
-    if (W->hasFirstprivate()) {
+    if (W->canHaveFirstprivate()) {
       for (LastprivateItem *LprivI : LprivClause.items()) {
         FprivI = WRegionUtils::wrnSeenAsFirstPrivate(W, LprivI->getOrig());
         if (FprivI)
@@ -1342,7 +1342,7 @@ bool VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
     // unnecessary to generate the barrier if the firstprivate is
     // scalar and it is passed by value.
     if (FprivI)
-      genBarrier(W, true);
+      genBarrier(W, false); // implicit barrier
 
     bool ForTask = W->getWRegionKindID() == WRegionNode::WRNTaskloop ||
                    W->getWRegionKindID() == WRegionNode::WRNTask;
@@ -1445,31 +1445,31 @@ void VPOParoptTransform::genFenceIntrinsic(WRegionNode *W, Value *I) {
 // as private, firstprivate, lastprivate, reduction or shared.
 void VPOParoptTransform::genCodemotionFenceforAggrData(WRegionNode *W) {
   W->populateBBSet();
-  if (W->hasPrivate()) {
+  if (W->canHavePrivate()) {
     PrivateClause &PrivClause = W->getPriv();
     for (PrivateItem *PrivI : PrivClause.items())
       genFenceIntrinsic(W, PrivI->getOrig());
   }
 
-  if (W->hasFirstprivate()) {
+  if (W->canHaveFirstprivate()) {
     FirstprivateClause &FprivClause = W->getFpriv();
     for (FirstprivateItem *FprivI : FprivClause.items())
       genFenceIntrinsic(W, FprivI->getOrig());
   }
 
-  if (W->hasShared()) {
+  if (W->canHaveShared()) {
     SharedClause &ShaClause = W->getShared();
     for (SharedItem *ShaI : ShaClause.items())
       genFenceIntrinsic(W, ShaI->getOrig());
   }
 
-  if (W->hasReduction()) {
+  if (W->canHaveReduction()) {
     ReductionClause &RedClause = W->getRed();
     for (ReductionItem *RedI : RedClause.items())
       genFenceIntrinsic(W, RedI->getOrig());
   }
 
-  if (W->hasLastprivate()) {
+  if (W->canHaveLastprivate()) {
     LastprivateClause &LprivClause = W->getLpriv();
     for (LastprivateItem *LprivI : LprivClause.items())
       genFenceIntrinsic(W, LprivI->getOrig());
@@ -2724,7 +2724,7 @@ CallInst* VPOParoptTransform::genForkCallInst(WRegionNode *W, CallInst *CI) {
 // copyin variables.
 void VPOParoptTransform::genThreadedEntryActualParmList(WRegionNode *W,
                                           std::vector<Value *>& MTFnArgs) {
-  if (!W->hasCopyin())
+  if (!W->canHaveCopyin())
     return;
   CopyinClause &CP = W->getCopyin();
   for (auto C : CP.items())
@@ -2736,7 +2736,7 @@ void VPOParoptTransform::genThreadedEntryActualParmList(WRegionNode *W,
 // firstprivate, shared, etc.
 void VPOParoptTransform::genThreadedEntryFormalParmList(WRegionNode *W,
                                           std::vector<Type *>& ParamsTy) {
-  if (!W->hasCopyin())
+  if (!W->canHaveCopyin())
     return;
   CopyinClause &CP = W->getCopyin();
   for (auto C : CP.items())
@@ -2746,7 +2746,7 @@ void VPOParoptTransform::genThreadedEntryFormalParmList(WRegionNode *W,
 // Fix the name of copyin formal parameters for outlined function.
 void VPOParoptTransform::fixThreadedEntryFormalParmName(WRegionNode *W,
                                                         Function *NFn) {
-  if (!W->hasCopyin())
+  if (!W->canHaveCopyin())
     return;
   CopyinClause &CP = W->getCopyin();
   if (!CP.empty()) {
@@ -2775,7 +2775,7 @@ void VPOParoptTransform::fixThreadedEntryFormalParmName(WRegionNode *W,
 //
 void VPOParoptTransform::genTpvCopyIn(WRegionNode *W,
                                       Function *NFn) {
-  if (!W->hasCopyin())
+  if (!W->canHaveCopyin())
     return;
   CopyinClause &CP = W->getCopyin();
   if (!CP.empty()) {
@@ -3175,7 +3175,7 @@ bool VPOParoptTransform::genBarrier(WRegionNode *W, bool IsExplicit) {
 // Set the values in the private clause to be empty.
 void VPOParoptTransform::resetValueInPrivateClause(WRegionNode *W) {
 
-  if (!W->hasPrivate())
+  if (!W->canHavePrivate())
     return;
 
   PrivateClause &PrivClause = W->getPriv();
