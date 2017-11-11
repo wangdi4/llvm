@@ -26,8 +26,6 @@
 #include <set>
 #include <vector>
 
-#include <time.h>
-
 using namespace llvm;
 using namespace csa_memop_ordering_shared_options;
 
@@ -180,8 +178,8 @@ struct MemopCFG {
 
     // The final inputs to this merge. These are filled out after phi_val
     // pruning but before merge expansion; until then the inputs will be found
-    // in must_merge and phi_val. The inputs are always in a particular order
-    // with the phi_val input first and the in-node inputs afterwards in order.
+    // in must_merge and phi_val. The order of these inputs doesn't matter, but
+    // they should be unique.
     SmallVector<OrdToken, MERGE_ARITY> inputs;
 
     // The phi-equivalent input to this merge.
@@ -200,10 +198,9 @@ struct MemopCFG {
     // this will be the number of memops in the node.
     int memop_idx;
 
-    // Whether this merge doesn't actually connect to a memory operation; this
-    // is initially set, but it is cleared during dead code elimination for
-    // merges that are connected.
-    mutable bool dead = true;
+    // How many users this merge has, as set by OrdToken::mark_not_dead. If it
+    // has zero it can be eliminated and if it has one it might be sinkable.
+    mutable unsigned use_count = 0;
 
     // This merge's virtual register.
     unsigned reg_no;
@@ -1047,9 +1044,8 @@ void MemopCFG::OrdToken::mark_not_dead() const {
     } return;
     case Type::merge: {
       const Merge& merge = node->merges[idx];
-      if (not merge.dead) return;
-      merge.dead = false;
-      merge.phi_val.mark_not_dead();
+      ++merge.use_count;
+      if (merge.use_count == 1) merge.phi_val.mark_not_dead();
     } return;
   }
 }
@@ -1959,8 +1955,9 @@ MemopCFG::OrdToken MemopCFG::Node::wire_phis(int mergephi_idx) {
 }
 
 void MemopCFG::Node::finalize_merges() {
+  using namespace std;
   for (Merge& merge : merges) {
-    if (merge.phi_val) merge.inputs.push_back(merge.phi_val);
+    if (merge.phi_val) merge.inputs.insert(begin(merge.inputs), merge.phi_val);
     merge.inputs.reserve(merge.inputs.size() + merge.must_merge.size());
     for (int merged : merge.must_merge) {
       merge.inputs.emplace_back(this, OrdToken::memop, merged);
@@ -2394,6 +2391,7 @@ bool MemopCFG::construct_chains() {
 }
 
 void MemopCFG::prune_chains() {
+  using namespace std;
 
   bool did_something;
   do {
@@ -2446,15 +2444,102 @@ void MemopCFG::prune_chains() {
 
   DEBUG(errs() << "after pruning:\n\n" << *this);
 
+  // Mark all of the merges and phis that are reachable from memops.
   for (const std::unique_ptr<Node>& node : nodes) {
     for (const Memop& memop : node->memops) memop.ready.mark_not_dead();
   }
+
+  // Iteratively sink single-user merges when appropriate.
+  bool sunk_merge;
+  do {
+    sunk_merge = false;
+    for (const std::unique_ptr<Node>& node : nodes) {
+      for (Merge& merge : node->merges) {
+        if (
+          merge.use_count == 0 or merge.phi_val.type != OrdToken::merge
+        ) continue;
+        const Merge& in_merge = merge.phi_val.node->merges[merge.phi_val.idx];
+        if (in_merge.use_count != 1) continue;
+        merge.inputs.reserve(
+          merge.inputs.size() + in_merge.inputs.size()
+            + in_merge.must_merge.size()
+        );
+        merge.inputs.append(begin(in_merge.inputs), end(in_merge.inputs));
+        for (const int merged : in_merge.must_merge) {
+          merge.inputs.emplace_back(
+            merge.phi_val.node, OrdToken::memop, merged
+          );
+        }
+        merge.phi_val = in_merge.phi_val;
+        in_merge.use_count = 0;
+        sunk_merge = true;
+      }
+      for (
+        int memop_idx = 0; memop_idx != int(node->memops.size()); ++memop_idx
+      ) {
+        OrdToken& ready = node->memops[memop_idx].ready;
+        if (ready.type != OrdToken::merge or ready.node == node.get()) continue;
+        const Merge& in_merge = ready.node->merges[ready.idx];
+        if (in_merge.use_count != 1) continue;
+        Merge new_merge;
+        new_merge.inputs.reserve(
+          in_merge.inputs.size() + in_merge.must_merge.size()
+        );
+        new_merge.inputs.append(begin(in_merge.inputs), end(in_merge.inputs));
+        for (const int merged : in_merge.must_merge) {
+          new_merge.inputs.emplace_back(ready.node, OrdToken::memop, merged);
+        }
+        new_merge.phi_val = in_merge.phi_val;
+        new_merge.memop_idx = memop_idx;
+        new_merge.use_count = 1;
+        const int new_merge_idx = node->merges.size();
+        node->merges.push_back(new_merge);
+        ready.node = node.get();
+        ready.idx = new_merge_idx;
+        in_merge.use_count = 0;
+        sunk_merge = true;
+      }
+      for (PHI& phi : node->phis) {
+        if (phi.dead) continue;
+        for (
+          int pred_idx = 0; pred_idx != int(node->preds.size()); ++pred_idx
+        ) {
+          OrdToken& phi_in = phi.inputs[pred_idx];
+          Node* pred = node->preds[pred_idx];
+          if (
+            phi_in.type != OrdToken::merge or phi_in.node == pred
+          ) continue;
+          const Merge& in_merge = phi_in.node->merges[phi_in.idx];
+          if (in_merge.use_count != 1) continue;
+          Merge new_merge;
+          new_merge.inputs.reserve(
+            in_merge.inputs.size() + in_merge.must_merge.size()
+          );
+          new_merge.inputs.append(begin(in_merge.inputs), end(in_merge.inputs));
+          for (const int merged : in_merge.must_merge) {
+            new_merge.inputs.emplace_back(phi_in.node, OrdToken::memop, merged);
+          }
+          new_merge.phi_val = in_merge.phi_val;
+          new_merge.memop_idx = pred->memops.size();
+          new_merge.use_count = 1;
+          const int new_merge_idx = pred->merges.size();
+          pred->merges.push_back(new_merge);
+          phi_in.node = pred;
+          phi_in.idx = new_merge_idx;
+          in_merge.use_count = 0;
+          sunk_merge = true;
+        }
+      }
+    }
+  } while (sunk_merge);
+
+  // Remove any merges and phis marked as dead.
   for (const std::unique_ptr<Node>& node : nodes) {
     for (
       int merge_idx = 0; merge_idx != int(node->merges.size()); ++merge_idx
     ) {
       const OrdToken merge_val {node.get(), OrdToken::merge, merge_idx};
-      if (node->merges[merge_idx].dead) {
+      if (node->merges[merge_idx].use_count == 0) {
         DEBUG(errs() << "removing dead merge " << merge_val << "\n");
         replace_and_shift(merge_val, {});
         --merge_idx;
@@ -2472,6 +2557,8 @@ void MemopCFG::prune_chains() {
 
   DEBUG(errs() << "after DCE:\n\n" << *this);
 
+  // Pull all of the merge inputs into the inputs field from must_merge and
+  // phi_val.
   for (const std::unique_ptr<Node>& node : nodes) node->finalize_merges();
 }
 
