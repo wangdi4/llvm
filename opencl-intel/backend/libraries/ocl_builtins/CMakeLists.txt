@@ -207,6 +207,9 @@ set (CLANG_CL_COMMON_COMPILER_FLAGS
 set (CLANG_C_COMPILER_PARAMS
   -cc1 -triple ${TRIPLE} -mllvm -loopopt=false -emit-llvm-bc -fwrapv -O3
   -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -I ${LLVM_INCLUDE_DIRS}/cclang/ -I ${CL_BUILTIN_SOURCE_DIR} ${CLANG_LLVM_INCLUDE_DIRS} -mstackrealign
+  # Pretend we use LTO as Intel's clang version doesn't allows emitting LLVM
+  # bytecode for C/C++ files w/o LTO flag.
+  -flto
   )
 
 # options for clang to compile OpenCL 1.2 & 2.0 code
