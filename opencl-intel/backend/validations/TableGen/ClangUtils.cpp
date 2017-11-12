@@ -37,7 +37,7 @@ void build(const std::string& code, std::string fileName){
   const char* include_dir = XSTR(CLANG_INCLUDE_PATH);
 
   std::stringstream options;
-  options << "-cc1 -emit-llvm -include opencl-c.h -opencl-builtins -cl-std=CL2.0";
+  options << "-cc1 -emit-llvm-bc -include opencl-c.h -mllvm -loopopt=false -cl-std=CL2.0";
   options <<  " " << "-triple" << " "
       << ((sizeof(size_t)*8 == 64) ? "spir64-unknown-unknown" : "spir-unknown-unknown") << " ";
 
