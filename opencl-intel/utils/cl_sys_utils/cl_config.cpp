@@ -434,7 +434,7 @@ OPENCL_VERSION BasicCLConfigWrapper::GetOpenCLVersion() const
     {
         return s_ver;
     }
-#ifndef NDEBUG
+#ifndef INTEL_PRODUCT_RELEASE
     // first look in environment variable or configuration file
     string ver = m_pConfigFile->Read("ForceOCLCPUVersion", string(""));   // we are using this name to be aligned with GEN
     if ("1.2" == ver)
