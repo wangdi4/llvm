@@ -47,10 +47,10 @@
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 
+std::string PlatformModule::m_vPlatformVersionStr;
 const char PlatformModule::m_vPlatformInfoStr[] = "FULL_PROFILE";
 const unsigned int PlatformModule::m_uiPlatformInfoStrSize = sizeof(m_vPlatformInfoStr) / sizeof(char);
 
-const char* PlatformModule::m_vPlatformVersionStr = nullptr;
 #ifdef BUILD_EXPERIMENTAL_21
 const char PlatformModule::m_vPlatformNameStr[] = "Experimental OpenCL 2.1 CPU Only Platform";
 #elif defined(BUILD_FPGA_EMULATOR)
@@ -182,30 +182,26 @@ cl_err_code    PlatformModule::Initialize(ocl_entry_points * pOclEntryPoints, OC
     }
 
     m_oclVersion = pConfig->GetOpenCLVersion();
-    switch(pConfig->GetOpenCLVersion())
+    switch(m_oclVersion)
     {
-        case OPENCL_VERSION_2_0:
-#ifdef _WIN32
-        m_vPlatformVersionStr = "OpenCL 2.0 WINDOWS";
-#else
-        m_vPlatformVersionStr = "OpenCL 2.0 LINUX";
-#endif
+        case OPENCL_VERSION_2_2:
+            m_vPlatformVersionStr = "OpenCL 2.2";
         break;
         case OPENCL_VERSION_2_1:
-#ifdef _WIN32
-        m_vPlatformVersionStr = "OpenCL 2.1 WINDOWS";
-#else
-        m_vPlatformVersionStr = "OpenCL 2.1 LINUX";
-#endif
+            m_vPlatformVersionStr = "OpenCL 2.1";
+        break;
+        case OPENCL_VERSION_2_0:
+            m_vPlatformVersionStr = "OpenCL 2.0";
         break;
         default:
-#ifdef _WIN32
-        m_vPlatformVersionStr = "OpenCL 1.2 WINDOWS";
-#else
-        m_vPlatformVersionStr = "OpenCL 1.2 LINUX";
-#endif
+            m_vPlatformVersionStr = "OpenCL 1.2";
         break;
     }
+#ifdef _WIN32
+    m_vPlatformVersionStr += " WINDOWS";
+#else // LINUX
+    m_vPlatformVersionStr += " LINUX";
+#endif
 
     return clErr;
 
@@ -314,8 +310,9 @@ cl_int    PlatformModule::GetPlatformInfo(cl_platform_id clPlatform,
         pValue = (void*)m_vPlatformInfoStr;
         break;
     case CL_PLATFORM_VERSION:
-        szParamSize = strlen(m_vPlatformVersionStr) + 1;	// it must include the terminating null character
-        pValue = (void*)m_vPlatformVersionStr;
+        // it must include the terminating null character
+        szParamSize = m_vPlatformVersionStr.size() + 1;
+        pValue = (void*)m_vPlatformVersionStr.c_str();
         break;
     case CL_PLATFORM_NAME:
         szParamSize = m_uiPlatformNameStrSize;
