@@ -19,6 +19,11 @@ link_directories( ${TBB_LIB_DIR} )
 
 add_executable( ${TARGET} ${TARGET_SOURCES} )
 
+set_target_properties(${TARGET} PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${OCL_BINARY_DIR}/tests/tbb_native_test_type
+    LIBRARY_OUTPUT_DIRECTORY ${OCL_BINARY_DIR}/tests/tbb_native_test_type
+    ARCHIVE_OUTPUT_DIRECTORY ${OCL_BINARY_DIR}/tests/tbb_native_test_type)
+
 if (WIN32)
     # This is a fix due to a bug in CMake, Does not add the flag /DEBUG to the linker flags in Release mode.
     # The /DEBUG flag is required in order to create stripped pdbs.
@@ -38,11 +43,6 @@ link_directories( ${TBB_LIB_DIR} )
 
 # Additional link libraries
 target_link_libraries( ${TARGET} ${LINK_LIBS} )
-
-set( CREATE_DIR_NAME tests/tbb_native_test_type)
-
-# Copy generated executable to appropriate test directory in 'Release' area.
-install(TARGETS ${TARGET} DESTINATION ${CREATE_DIR_NAME})
 
 set_target_properties( ${TARGET} PROPERTIES FOLDER "validation" )
 

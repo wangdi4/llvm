@@ -1,4 +1,5 @@
-install( DIRECTORY ${CL_API_HEADERS}/CL/ DESTINATION include/CL/ PATTERN ".git" EXCLUDE PATTERN *.h )
+file (GLOB CL_API_HEADER_FILES ${CL_API_HEADERS}/CL/*.h ${CL_API_HEADERS}/CL/*.hpp)
+copy_to (${CL_API_HEADER_FILES} DESTINATION include/CL/)
 
 if (NOT WIN32)
   set( CMAKE_CXX_FLAGS_RELEASE                "${CMAKE_CXX_FLAGS_RELEASE} -D_FORTIFY_SOURCE=2")
@@ -7,4 +8,3 @@ if (NOT WIN32)
   add_definitions(-Wno-attributes)
   add_definitions(-Wno-missing-braces)
 endif (NOT WIN32)
-

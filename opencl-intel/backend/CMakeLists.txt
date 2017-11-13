@@ -148,6 +148,5 @@ if (LLVM_BUILD_OCL_CPU_BACKEND)
 endif(LLVM_BUILD_OCL_CPU_BACKEND)
 
 # copy the Clang conformance tests to the validation directory
-install(FILES ${BACKEND_ROOT_DIR}/tests/Conformance.7z
-        DESTINATION tests)
+copy_to (${BACKEND_ROOT_DIR}/tests/Conformance.7z DESTINATION tests)
 

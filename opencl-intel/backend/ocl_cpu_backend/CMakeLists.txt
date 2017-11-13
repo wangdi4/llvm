@@ -247,7 +247,7 @@ if( LLVM_USE_OPROFILE )
 endif( LLVM_USE_OPROFILE )
 
 # Create DLL
-add_library (${TARGET_NAME} SHARED
+add_opencl_library (${TARGET_NAME} SHARED
     ${OCL_CPU_BACKEND_INCLUDE_FILES}
     ${OCL_CPU_BACKEND_SOURCE_FILES}
     ${OCL_CPU_BACKEND_RESOURCE_FILES}
@@ -338,24 +338,4 @@ if (ENABLE_SDE)
     add_definitions( -DENABLE_SDE )
 endif (ENABLE_SDE)
 
-if (WIN32)
-    get_target_property(RT_OUTPUT_DIRECTORY ${TARGET_NAME} RUNTIME_OUTPUT_DIRECTORY)
-    file(TO_NATIVE_PATH ${RT_OUTPUT_DIRECTORY}/${CMAKE_CFG_INTDIR}/${TARGET_NAME}_stripped.pdb PDB_NAME)
-    # This is a fix due to a bug in CMake, Does not add the flag /DEBUG to the linker flags in Release mode.
-    # The /DEBUG flag is required in order to create stripped pdbs.
-    set_target_properties(${TARGET_NAME} PROPERTIES
-                                         LINK_FLAGS_RELEASE  "${LINK_FLAGS_RELEASE} /DEBUG /PDBSTRIPPED:${PDB_NAME}"
-                                         LINK_FLAGS_DEBUG    "${LINK_FLAGS_DEBUG} /PDBSTRIPPED:${PDB_NAME}"
-    )
-    if (INSTALL_PDBS)
-        install(FILES ${OCL_TOOLS_BINARY_DIR}/\${BUILD_TYPE}/${TARGET_NAME}.pdb DESTINATION bin)
-    endif(INSTALL_PDBS)
-    install(FILES ${OCL_TOOLS_BINARY_DIR}/\${BUILD_TYPE}/${TARGET_NAME}_stripped.pdb DESTINATION bin)
-endif(WIN32)
-
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME} )
-
-install( TARGETS ${TARGET_NAME}
-    RUNTIME DESTINATION bin
-    ARCHIVE DESTINATION lib
-    LIBRARY DESTINATION bin)

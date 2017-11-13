@@ -1,4 +1,5 @@
 set (TARGET_NAME "ImathLibd")
+SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 #------------------ Main -----------------------
 # C source code
@@ -29,15 +30,11 @@ set ( CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   ${ICC_AUXILIARY_C_FLAGS}" )
 
 if (WIN32)
 
-    add_library( ${TARGET_NAME} SHARED
+    add_opencl_library(${TARGET_NAME} SHARED
         ${TARGET_SOURCE_FILES}
         ${TARGET_HEADER_FILES}
     )
 
-    install(TARGETS ${TARGET_NAME}
-        RUNTIME DESTINATION bin
-        ARCHIVE DESTINATION lib
-        LIBRARY DESTINATION bin)
     set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_VALIDATION_FOLDER_NAME} )
 
 else (WIN32)
@@ -83,9 +80,8 @@ else (WIN32)
     # remember imathLibd source dir
     set (IMATHLIBD_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
-    # target directory for .dll/.so
-    set(IMATHLIBD_INSTALL_DIR ${OCL_BINARY_DIR}/lib/${CMAKE_CFG_INTDIR})
-    set(IMATHLIBD_LIB_DIR ${OCL_BINARY_DIR}/lib/${CMAKE_CFG_INTDIR})
+    # target directory for .so
+    set(IMATHLIBD_INSTALL_DIR ${OCL_OUTPUT_LIBRARY_DIR})
 
     #
     # Compile single C source file
@@ -136,9 +132,6 @@ else (WIN32)
         set (OUTPUT_FILE ${CMAKE_SHARED_LIBRARY_PREFIX}${TARGET_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX})
         set (IMPLIB_FILE ${CMAKE_STATIC_LIBRARY_PREFIX}${TARGET_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX})
 
-        # PDB file will be generated for Win32
-        set (PDB_FILE ${TARGET_NAME}.pdb)
-
         # Compile all files and prepare a 'TMP_FILES' list of object files
         foreach (FILE ${ARGN})
             compile_c( ${COMPILER_SCRIPT} TMP_OBJ ${FILE} ${OUTPUT_DIR})
@@ -149,7 +142,7 @@ else (WIN32)
         # link C library
         add_custom_command (
           OUTPUT ${IMATHLIBD_INSTALL_DIR}/${OUTPUT_FILE}
-          COMMAND ${LINKER_SCRIPT} $<CONFIGURATION> ${IMATHLIBD_INSTALL_DIR}/${OUTPUT_FILE} ${IMATHLIBD_INSTALL_DIR}/${PDB_FILE} ${IMATHLIBD_LIB_DIR}/${IMPLIB_FILE} ${TMP_FILES}
+          COMMAND ${LINKER_SCRIPT} $<CONFIGURATION> ${IMATHLIBD_INSTALL_DIR}/${OUTPUT_FILE} ${IMATHLIBD_INSTALL_DIR}/${PDB_FILE} ${IMATHLIBD_INSTALL_DIR}/${IMPLIB_FILE} ${TMP_FILES}
           DEPENDS ${LINKER_SCRIPT} ${TMP_FILES_DEPEND}
           COMMENT "C Linking ${CMAKE_SHARED_LIBRARY_PREFIX}${TARGET_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}"
           VERBATIM
@@ -191,7 +184,6 @@ else (WIN32)
 
     # build DLL/.so file out of C code (by ICC) and copy it to install directory
     add_c_library( ${ICC_CPU_LINKER_SCRIPT} ${ICC_CPU_COMPILER_SCRIPT} OUTPUT_C_LIB ${TARGET_NAME} ${INTERMEDIATE_OUTPUT_DIR} ${TARGET_SOURCE_FILES})
-
     set (TARGET_NAME_WRAPPER "ImathLibd_wrapper")
 
     # top-level target for C target
@@ -202,7 +194,5 @@ else (WIN32)
         SOURCES ${TARGET_SOURCE_FILES} ${TARGET_HEADER_FILES}
     )
 
-    install( FILES ${IMATHLIBD_LIB_DIR}/${OUTPUT_C_LIB} DESTINATION bin)
-
+    install_to (${IMATHLIBD_INSTALL_DIR}/libImathLibd.so DESTINATION lib)
 endif (WIN32)
-

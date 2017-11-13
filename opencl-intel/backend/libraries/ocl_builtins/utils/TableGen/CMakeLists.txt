@@ -27,8 +27,7 @@ include_directories(
 )
 
 
-add_executable(
-  ${TARGET_NAME}
+add_opencl_executable(${TARGET_NAME}
   OclBuiltinEmitter.cpp
   OclBuiltinsHeaderGen.cpp
   VectorizerTableGen.cpp
@@ -36,13 +35,10 @@ add_executable(
   CodeFormatter.cpp
   ConversionParser.cpp
   ClangUtils.cpp
-)
 
-target_link_libraries(${TARGET_NAME}
+  LINK_LIBS
   name_mangle
   ${LLVM_MODULE_LIBS}
 )
-
-install(TARGETS ${TARGET_NAME} RUNTIME DESTINATION tests/LITTests)
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME} )

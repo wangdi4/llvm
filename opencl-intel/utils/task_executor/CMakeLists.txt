@@ -20,12 +20,6 @@ if (WIN32 AND NOT BUILD_X64)
     string( REPLACE /Ob2  "/Ob1" CMAKE_CXX_FLAGS_RELEASE   ${CMAKE_CXX_FLAGS_RELEASE} )
 endif (WIN32 AND NOT BUILD_X64)
 
-include_directories( BEFORE 
-        .
-        ${CL_API_HEADERS}
-        ${OCL_BINARY_DIR}
- )
-
 if (WIN32)
     if (CMAKE_SIZEOF_VOID_P EQUAL 8)
         add_definitions( -DRESOURCE_X64 )
@@ -52,7 +46,6 @@ add_definitions(-DTASK_EXECUTOR_EXPORTS
 
 SET_UNICODE_OFF()
 
-
 # only tbb executor is supported on Linux
 if (NOT WIN32)
     set( IGNORE_FILES thread_executor|xn_ )
@@ -62,40 +55,35 @@ FIND_SOURCES( ${IGNORE_FILES} )
 CALCULATE_TARGET_SOURCES()
 
 # add a target named ${TARGET_NAME}
-add_library (${TARGET_NAME} SHARED 
-        ${TARGET_SOURCES})
+add_opencl_library (${TARGET_NAME} SHARED
+    ${TARGET_SOURCES}
 
-install(TARGETS ${TARGET_NAME} 
-		RUNTIME DESTINATION bin
-		ARCHIVE DESTINATION lib
-		LIBRARY DESTINATION bin)
+    INCLUDE_DIRS
+    ${CMAKE_CURRENT_SOURCE_DIR} # keep it here for windows
+    ${CL_API_HEADERS}
+    ${OCL_BINARY_DIR})
 
 if (WIN32)
-    list( APPEND LINK_LIBS delayimp.lib legacy_stdio_definitions.lib )
+    list (APPEND LINK_LIBS delayimp.lib legacy_stdio_definitions.lib)
 else (WIN32)
-    SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} task_executor_linux_exports.txt )
+    if (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
+        list (APPEND LINK_LIBS ${IMPLIB_PREFIX}tbb_debug${IMPLIB_SUFFIX})
+        list (APPEND LINK_LIBS ${IMPLIB_PREFIX}tbbmalloc_debug${IMPLIB_SUFFIX})
+    else ()
+        list (APPEND LINK_LIBS ${IMPLIB_PREFIX}tbb${IMPLIB_SUFFIX})
+        list (APPEND LINK_LIBS ${IMPLIB_PREFIX}tbbmalloc${IMPLIB_SUFFIX})
+    endif (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
 endif(WIN32)
 
-if (WIN32)
-    get_target_property(RT_OUTPUT_DIRECTORY ${TARGET_NAME} RUNTIME_OUTPUT_DIRECTORY)
-    file(TO_NATIVE_PATH ${RT_OUTPUT_DIRECTORY}/${CMAKE_CFG_INTDIR}/${TARGET_NAME}_stripped.pdb PDB_NAME)
-    # This is a fix due to a bug in CMake, Does not add the flag /DEBUG to the linker flags in Release mode.
-    # The /DEBUG flag is required in order to create stripped pdbs.	
-    set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS_DEBUG "${LINK_FLAGS_DEBUG} tbbmalloc_debug.lib tbb_debug${TBB_BINARIES_POSTFIX}.lib /DELAYLOAD:tbbmalloc_debug.dll /DELAYLOAD:tbb_debug${TBB_BINARIES_POSTFIX}.dll /PDBSTRIPPED:${PDB_NAME}")
-    set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS_RELEASE "${LINK_FLAGS_RELEASE} tbbmalloc.lib tbb${TBB_BINARIES_POSTFIX}.lib /DELAYLOAD:tbbmalloc.dll  /DELAYLOAD:tbb${TBB_BINARIES_POSTFIX}.dll /DEBUG /PDBSTRIPPED:${PDB_NAME}")
-	install(FILES ${RT_OUTPUT_DIRECTORY}/\${BUILD_TYPE}/${TARGET_NAME}_stripped.pdb DESTINATION bin)
-    if (INSTALL_PDBS)
-        install(FILES ${RT_OUTPUT_DIRECTORY}/\${BUILD_TYPE}/${TARGET_NAME}.pdb DESTINATION bin)
-    endif(INSTALL_PDBS)
-else (WIN32)
-	if ( ${CMAKE_BUILD_TYPE} STREQUAL "Debug" )
-		list(APPEND LINK_LIBS ${IMPLIB_PREFIX}tbb_debug${IMPLIB_SUFFIX} )
-		list(APPEND LINK_LIBS ${IMPLIB_PREFIX}tbbmalloc_debug${IMPLIB_SUFFIX} )
-	else ()
-		list(APPEND LINK_LIBS ${IMPLIB_PREFIX}tbb${IMPLIB_SUFFIX} )
-		list(APPEND LINK_LIBS ${IMPLIB_PREFIX}tbbmalloc${IMPLIB_SUFFIX} )
-	endif ( ${CMAKE_BUILD_TYPE} STREQUAL "Debug" )
-endif (WIN32)
+target_link_libraries (${TARGET_NAME} ${LINK_LIBS} cl_logger${OPENCL_BINARIES_POSTFIX} cl_sys_utils cl_hw_utils)
+set_target_properties (${TARGET_NAME} PROPERTIES FOLDER ${UTILS_FOLDER_NAME})
 
-target_link_libraries( ${TARGET_NAME} ${LINK_LIBS} cl_logger${OPENCL_BINARIES_POSTFIX} cl_sys_utils cl_hw_utils )
-set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${UTILS_FOLDER_NAME} )
+if (WIN32)
+    get_target_property(LK_FLAGS_DEBUG ${TARGET_NAME} LINK_FLAGS_DEBUG)
+    get_target_property(LK_FLAGS_RELEASE ${TARGET_NAME} LINK_FLAGS_RELEASE)
+    set_target_properties (${TARGET_NAME} PROPERTIES
+        LINK_FLAGS_DEBUG "${LK_FLAGS_DEBUG} tbbmalloc_debug.lib tbb_debug${TBB_BINARIES_POSTFIX}.lib /DELAYLOAD:tbbmalloc_debug.dll /DELAYLOAD:tbb_debug${TBB_BINARIES_POSTFIX}.dll"
+        LINK_FLAGS_RELEASE "${LK_FLAGS_RELEASE} tbbmalloc.lib tbb${TBB_BINARIES_POSTFIX}.lib /DELAYLOAD:tbbmalloc.dll  /DELAYLOAD:tbb${TBB_BINARIES_POSTFIX}.dll")
+else ()
+    SET_LINUX_EXPORTS_FILE (${TARGET_NAME} task_executor_linux_exports.txt)
+endif(WIN32)

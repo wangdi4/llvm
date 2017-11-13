@@ -39,8 +39,6 @@ if(WIN32)
         )
 endif(WIN32)
 
-set(FILES_TO_COPY ${CMAKE_SHARED_LIBRARY_PREFIX}${TARGET_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX} )
-
 link_directories(   ${TBB_LIB_DIR}
                     ${OCL_SOURCE_DIR}/externals/gpa/libs/${TAL_LIB_DIR_SUFFIX}
                 )
@@ -93,7 +91,7 @@ CALCULATE_TARGET_SOURCES()
 include( ../../cmake_utils/itt.cmake )
                 
 #add a target named ${TARGET_NAME}
-add_library (${TARGET_NAME} SHARED ${TARGET_SOURCES})
+add_opencl_library (${TARGET_NAME} SHARED ${TARGET_SOURCES})
 
 if(WIN32)
     list(APPEND LINK_LIBS delayimp.lib)
@@ -111,41 +109,17 @@ if (INCLUDE_MKL)
     target_link_libraries( ${TARGET_NAME} LINK_PRIVATE ${MKL_LINK_LIBS})
 endif(INCLUDE_MKL)
 
-install( TARGETS ${TARGET_NAME}     
-            RUNTIME DESTINATION bin
-            ARCHIVE DESTINATION lib
-            LIBRARY DESTINATION bin)
-
-#COPY_GENERATED_FILES_POST_BUILD( ${TARGET_NAME} ${FILES_TO_COPY} )
-
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${DEVICES_FOLDER_NAME} )
 
 if (WIN32)
-    get_target_property(RT_OUTPUT_DIRECTORY ${TARGET_NAME} RUNTIME_OUTPUT_DIRECTORY)
-    file(TO_NATIVE_PATH ${RT_OUTPUT_DIRECTORY}/${CMAKE_CFG_INTDIR}/${TARGET_NAME}_stripped.pdb PDB_NAME)
-    if (${MSVC_VERSION} EQUAL 1500)
-        # Visual Studio 2008     
-        set_target_properties( ${TARGET_NAME} PROPERTIES
-            LINK_FLAGS_RELEASE    "${LINK_FLAGS_RELEASE} /DELAYLOAD:tbbmalloc.dll /DELAYLOAD:task_executor${BUILD_PLATFORM}.dll"
-            LINK_FLAGS_DEBUG    "${LINK_FLAGS_DEBUG} /DELAYLOAD:tbbmalloc_debug.dll /NODEFAULTLIB:MSVCRT /DELAYLOAD:task_executor${BUILD_PLATFORM}.dll"
-        )
-        set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS    "${LINK_FLAGS} /PDBSTRIPPED:${PDB_NAME}")
-    else(${MSVC_VERSION} EQUAL 1500)
-        # Visual Studio 2010 (assumed if not Visual Studio 2008)
-        # This is a fix due to a bug in CMake, Does not add the flag /DEBUG to the linker flags in Release mode.
-        # The /DEBUG flag is required in order to create stripped pdbs.    
-        set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS_DEBUG    "${LINK_FLAGS_DEBUG} /NODEFAULTLIB:MSVCRT /DELAYLOAD:tbbmalloc_debug.dll /DELAYLOAD:task_executor${BUILD_PLATFORM}.dll /PDBSTRIPPED:${PDB_NAME}")
-        set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS_RELEASE    "${LINK_FLAGS_RELEASE} /DELAYLOAD:tbbmalloc.dll /DELAYLOAD:task_executor${BUILD_PLATFORM}.dll /DEBUG /PDBSTRIPPED:${PDB_NAME}")
-    endif (${MSVC_VERSION} EQUAL 1500)
-    install(FILES ${RT_OUTPUT_DIRECTORY}/\${BUILD_TYPE}/${TARGET_NAME}_stripped.pdb DESTINATION bin)
-    
-    if (INSTALL_PDBS)    
-        install(FILES ${RT_OUTPUT_DIRECTORY}/\${BUILD_TYPE}/${TARGET_NAME}.pdb DESTINATION bin)
-    endif(INSTALL_PDBS)
-else(WIN32)
-    if ( INCLUDE_MKL )
+    get_target_property(LK_FLAGS_DEBUG ${TARGET_NAME} LINK_FLAGS_DEBUG)
+    get_target_property(LK_FLAGS_RELEASE ${TARGET_NAME} LINK_FLAGS_RELEASE)
+    set_target_properties (${TARGET_NAME} PROPERTIES
+        LINK_FLAGS_DEBUG "${LK_FLAGS_DEBUG} /NODEFAULTLIB:MSVCRT /DELAYLOAD:tbbmalloc_debug.dll /DELAYLOAD:task_executor${BUILD_PLATFORM}.dll"
+        LINK_FLAGS_RELEASE  "${LK_FLAGS_RELEASE} /DELAYLOAD:tbbmalloc.dll /DELAYLOAD:task_executor${BUILD_PLATFORM}.dll")
+else (WIN32)
+    if (INCLUDE_MKL)
         #need explicitly set the full path to prevent failure in cpu_device_type compilation
-        set_property( TARGET ${TARGET_NAME} APPEND_STRING PROPERTY LINK_FLAGS " -Wl,-z,defs" )
-    endif( INCLUDE_MKL )
-endif(WIN32)
-
+        set_property (TARGET ${TARGET_NAME} APPEND_STRING PROPERTY LINK_FLAGS " -Wl,-z,defs")
+    endif (INCLUDE_MKL)
+endif (WIN32)

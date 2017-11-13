@@ -118,40 +118,23 @@ link_directories( ${TBB_LIB_DIR} )
 include( ../cmake_utils/itt.cmake )
 
 # add a target named ${TARGET_NAME}
-add_library (${TARGET_NAME} SHARED ${TARGET_SOURCES})
+add_opencl_library (${TARGET_NAME} SHARED ${TARGET_SOURCES})
 
-install(TARGETS ${TARGET_NAME} 
-		RUNTIME DESTINATION bin
-		LIBRARY DESTINATION bin
-		ARCHIVE DESTINATION lib
-		)
-
-install(FILES ${CONFIG_FILES} DESTINATION bin )
+copy_to (${CONFIG_FILES} DESTINATION lib)
 
 if (WIN32)
-    get_target_property(RT_OUTPUT_DIRECTORY ${TARGET_NAME} RUNTIME_OUTPUT_DIRECTORY)
-	file(TO_NATIVE_PATH ${RT_OUTPUT_DIRECTORY}/${CMAKE_CFG_INTDIR}/${TARGET_NAME}_stripped.pdb PDB_NAME)	
-    # This is a fix due to a bug in CMake, Does not add the flag /DEBUG to the linker flags in Release mode.
-    # The /DEBUG flag is required in order to create stripped pdbs.
-    set_target_properties(${TARGET_NAME} PROPERTIES
-	    LINK_FLAGS_RELEASE	"${LINK_FLAGS_RELEASE} /DEBUG /PDBSTRIPPED:${PDB_NAME}"
-	    LINK_FLAGS_DEBUG	"${LINK_FLAGS_DEBUG} /NODEFAULTLIB:MSVCRT /PDBSTRIPPED:${PDB_NAME}"
-        )
-	install(FILES ${RT_OUTPUT_DIRECTORY}/\${BUILD_TYPE}/${TARGET_NAME}_stripped.pdb DESTINATION bin)
-    if (INSTALL_PDBS)    
-        install(FILES ${RT_OUTPUT_DIRECTORY}/\${BUILD_TYPE}/${TARGET_NAME}.pdb DESTINATION bin)
-    endif(INSTALL_PDBS)   
-    
-	list( APPEND LINK_LIBS delayimp.lib )
+    get_target_property(LK_FLAGS_DEBUG ${TARGET_NAME} LINK_FLAGS_DEBUG)
+    set_target_properties (${TARGET_NAME} PROPERTIES
+        LINK_FLAGS_DEBUG  "${LK_FLAGS_DEBUG} /NODEFAULTLIB:MSVCRT")
+    list( APPEND LINK_LIBS delayimp.lib )
 else (WIN32)
     SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} cl_framework_linux_exports.txt )
 endif (WIN32)
 
-
 target_link_libraries( ${TARGET_NAME} Context
                                       Execution
                                       Platform
-									  MemoryAllocator
+                                      MemoryAllocator
                                       cl_logger${OPENCL_BINARIES_POSTFIX}
                                       cl_sys_utils
                                       task_executor${BUILD_PLATFORM}${OPENCL_BINARIES_POSTFIX}

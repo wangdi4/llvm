@@ -8,7 +8,7 @@ set (LLVM_FE_INCLUDE_DIRS ${LLVM_PATH_FE}/include)
 set (TARGET_NAME ValidationTests)
 
 # to be shure that ICC compiler uses the correct presentation of 80-bit long doubles
-# we have to set proper compiler options, for win32 only, for linux gcc(g++) is used and 
+# we have to set proper compiler options, for win32 only, for linux gcc(g++) is used and
 # we dont need to set such options
 if (WIN32)
     set ( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ICC_AUXILIARY_CXX_FLAGS}" )
@@ -19,31 +19,8 @@ if (WIN32)
     )
 else(WIN32)
     # remove the restriction of warning as error for this component
-    remove_definitions( -Werror )                                  
+    remove_definitions( -Werror )
 endif(WIN32)
-
-
-set(TARGET_SOURCE_FILES
-    DVTest.cpp
-    DMTest.cpp
-    DMImageTest.cpp
-    CMPTest.cpp
-    OpenCLKernelArgumentsParserTest.cpp
-    DGTest.cpp
-    Float16Test.cpp
-    NEATALUUtils.cpp
-    NEATALUTest.cpp
-    NEATALUCommonTest.cpp
-    NEATALUConversionTest.cpp
-    NEATALUVLoadStoreTest.cpp
-    NEATValueTest.cpp
-    NEATMathTest.cpp
-    OCLBuiltinParserTest.cpp
-    NEATALUImageTest.cpp
-    SourceRecorder.cpp
-    ClangSA.cpp
-    OCLKernelDataGeneratorTest.cpp
-)
 
 include_directories(
     ${LLVM_INCLUDE_DIRS}
@@ -69,16 +46,34 @@ include_directories(
     ${VALIDATIONS_ROOT}/OCLRecorder
     ${VALIDATIONS_ROOT}/OCLKernelDataGenerator
     ${VALIDATIONS_ROOT}/OpenCLKernelArgumentsParser
-    ${CMAKE_CURRENT_SOURCE_DIR}/Common 
+    ${CMAKE_CURRENT_SOURCE_DIR}/Common
     ${CMAKE_SOURCE_DIR}/utils/cl_sys_utils/export
 )
 
 link_directories(
-    ${OCL_BINARY_DIR}/lib/${CMAKE_CFG_INTDIR}
+    ${OCL_OUTPUT_LIBRARY_DIR}
 )
 
-add_executable(${TARGET_NAME}
-  ${TARGET_SOURCE_FILES}
+add_opencl_executable(${TARGET_NAME}
+    DVTest.cpp
+    DMTest.cpp
+    DMImageTest.cpp
+    CMPTest.cpp
+    OpenCLKernelArgumentsParserTest.cpp
+    DGTest.cpp
+    Float16Test.cpp
+    NEATALUUtils.cpp
+    NEATALUTest.cpp
+    NEATALUCommonTest.cpp
+    NEATALUConversionTest.cpp
+    NEATALUVLoadStoreTest.cpp
+    NEATValueTest.cpp
+    NEATMathTest.cpp
+    OCLBuiltinParserTest.cpp
+    NEATALUImageTest.cpp
+    SourceRecorder.cpp
+    ClangSA.cpp
+    OCLKernelDataGeneratorTest.cpp
 )
 
 target_link_libraries(${TARGET_NAME}
@@ -87,12 +82,12 @@ target_link_libraries(${TARGET_NAME}
     OCLBuilder
     OCLKernelDataGenerator
     OpenCLKernelArgumentsParser
-    DataManager 
+    DataManager
     Comparator
     DataGenerator
-    NEAT 
+    NEAT
     REFALU
-    PlugInNEAT 
+    PlugInNEAT
     OCLBuiltins
     googletest
     ImathLibd
@@ -103,15 +98,8 @@ target_link_libraries(${TARGET_NAME}
     ${LLVM_MODULE_LIBS}
 )
 
-if(NOT WIN32)
-    add_dependencies(${TARGET_NAME} ImathLibd_wrapper)
-endif(NOT WIN32)
-
 add_dependencies( ${TARGET_NAME} cl_sys_utils)
 
 set_target_properties(${TARGET_NAME} PROPERTIES FOLDER "Tests")
-
-install(FILES ValidationTests.pm DESTINATION tests/LITTests)
-install(TARGETS ${TARGET_NAME} RUNTIME DESTINATION tests/LITTests)
 
 add_subdirectory(fe_plugin_mock)

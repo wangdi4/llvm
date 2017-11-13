@@ -28,7 +28,10 @@ set(CMAKE_MODULE_PATH
     "${CMAKE_SOURCE_DIR}/cmake/Modules/"
     "${CMAKE_SOURCE_DIR}/cmake_utils/"
 )
-include( cmake_utils/CMakeFuncs.txt )
+include (cmake_utils/CMakeFuncs.txt)
+
+# Include functions for opencl targets
+include (AddOpenCL)
 
 if (WIN32)
   include( CMake_windows_tools )
@@ -237,14 +240,14 @@ file(WRITE ${OCL_BINARY_DIR}/buildversion.h.txt
 
 if(WIN32)
     file(WRITE ${OCL_BINARY_DIR}/version.ini "[Version]\nPackVer=${PRODUCTVER_MAJOR}.${PRODUCTVER_MINOR}.${BUILDVER_WC_REVISION}\n")
-    install(FILES ${OCL_BINARY_DIR}/version.ini DESTINATION ./)
+    install_to(${OCL_BINARY_DIR}/version.ini DESTINATION ./)
 endif()
 file(WRITE ${OCL_BINARY_DIR}/version.txt "Version=${PRODUCTVER_MAJOR}.${PRODUCTVER_MINOR}.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}\nInternalVersion=${GIT_REVISION}\n")
 file(WRITE ${OCL_BINARY_DIR}/revision.txt "BUILD=${GIT_VERSION}\nREVISION=${GIT_REVISION}\nLLVM_REVISION_FE=${LLVM_REVISION_FE}\nLLVM_REVISION_BE=${LLVM_REVISION_BE}\nLLVM_PATH_BE=${LLVM_PATH_BE}\nLLVM_PATH_FE=${LLVM_PATH_FE}\n")
-install(FILES ${OCL_BINARY_DIR}/revision.txt DESTINATION ./)
+install_to(${OCL_BINARY_DIR}/revision.txt DESTINATION ./)
 
 #copy the version file to install folder
-install(FILES ${OCL_BINARY_DIR}/version.txt DESTINATION ./)
+install_to(${OCL_BINARY_DIR}/version.txt DESTINATION ./)
 # copy the file to the final header only if the version changes
 # reduces needless rebuilds
 execute_process(COMMAND ${CMAKE_COMMAND} -E copy_if_different ${OCL_BINARY_DIR}/buildversion.h.txt ${OCL_BINARY_DIR}/buildversion.h)
@@ -308,16 +311,6 @@ else (WIN32)
 endif (WIN32)
 # END OF set OS-dependent source tree elements
 
-# Define the single binary directory where the Backend tools will be placed
-set(OCL_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
-set(OCL_TOOLS_BINARY_DIR ${OCL_BINARY_DIR}/bin)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${OCL_TOOLS_BINARY_DIR})
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${OCL_BINARY_DIR}/lib)
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${OCL_BINARY_DIR}/lib)
-set(OCL_RUNTIME_BINARY_DIR ${OCL_BINARY_DIR}/bin)
-set(OCL_RUNTIME_LIBS_DIR  ${OCL_BINARY_DIR}/lib)
-set(OCL_TESTS_BINARY_DIR ${OCL_BINARY_DIR}/tests)
-
 SET_UNICODE_OFF()
 
 # paths
@@ -373,7 +366,6 @@ endif (OPENCL_RT_INCLUDE_TESTS)
 include_directories( BEFORE ${OCL_GLOBAL_INCLUDE} )
 
 add_definitions(-D__TBB_NO_IMPLICIT_LINKAGE=1)
-
 
 # externals
 add_subdirectory( externals )

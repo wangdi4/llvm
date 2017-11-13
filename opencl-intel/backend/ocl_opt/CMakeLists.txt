@@ -6,7 +6,7 @@ include_directories(${LLVM_INCLUDE_DIRS}
                     ${BACKEND_ROOT_DIR}/arch_headers)
 link_directories(${LLVM_LIBRARY_DIRS})
 
-add_executable(${TARGET_NAME}
+add_opencl_executable(${TARGET_NAME}
     ocl_opt.cpp
     ${BACKEND_ROOT_DIR}/passes/InitializePasses.h
     ${BACKEND_ROOT_DIR}/passes/OCLPassSupport.h
@@ -74,6 +74,4 @@ target_link_libraries(${TARGET_NAME}
     ${LLVM_MODULE_LIBS}
 )
 
-set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME})
-
-install( TARGETS ${TARGET_NAME} RUNTIME DESTINATION tests/LITTests )
+set_target_properties (${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME})

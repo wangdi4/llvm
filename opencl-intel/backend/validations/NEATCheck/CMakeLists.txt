@@ -1,4 +1,3 @@
-set (CMP_INCLUDE_FILES)
 set (TARGET_NAME NEATChecker)
 
 include_directories(
@@ -9,7 +8,7 @@ include_directories(
 )
 
 link_directories (
-  ${OCL_BINARY_DIR}/lib/${CMAKE_CFG_INTDIR}
+  ${OCL_OUTPUT_LIBRARY_DIR}
 )
 
 add_executable(${TARGET_NAME}

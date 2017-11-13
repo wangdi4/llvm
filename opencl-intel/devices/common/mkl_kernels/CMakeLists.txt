@@ -13,28 +13,24 @@ endif (NOT WIN32)
 
 add_definitions(-DMKL_ILP64)
 
-include_directories( AFTER
-    ${MKL_DIR}/include
-    ${HW_UTILS_HEADERS}
-    ../builtin_kernels
-)
-
 get_directory_property(OUT_VAR LINK_DIRECTORIES)
 
 FIND_SOURCES()
 CALCULATE_TARGET_SOURCES()
 
 #add a target named ${TARGET_NAME}
-add_library (${TARGET_NAME} STATIC ${TARGET_SOURCES})
+add_opencl_library (${TARGET_NAME} STATIC
+    ${TARGET_SOURCES}
 
-install( TARGETS ${TARGET_NAME}
-            RUNTIME DESTINATION bin
-            ARCHIVE DESTINATION lib
-            LIBRARY DESTINATION bin)
+    INCLUDE_DIRS
+    ${MKL_DIR}/include
+    ${HW_UTILS_HEADERS}
+    ../builtin_kernels
 
-target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
-                                      cl_sys_utils
-                                      cl_logger
-                                      ${LINK_LIBS} )
+    LINK_LIBS
+    ${HW_UTILS_PROJ_NAME}
+    cl_sys_utils
+    cl_logger
+)
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${DEVICES_FOLDER_NAME} )

@@ -84,56 +84,12 @@ if (NOT WIN32)
 
 endif (NOT WIN32)
 
-#
-# Settings for Windows compilation
-#
-
-
 # Create target project
-
-set (OCL_CPU_DEBUGGING_INCLUDE_FILES
-    export/icldebuggingservice.h
-    debug_communicator.h
-    debug_server.h
-    debuginfo_utils.h
-    debugservermessages.pb.h
-    protobufpackedmessage.h
-    resource.h
-)
-
-set (OCL_CPU_DEBUGGING_SOURCE_FILES
-    dllmain.cpp
-    debug_communicator.cpp
-    debug_server.cpp
-    debuginfo_utils.cpp
-    debugservermessages.pb.cc
-    protobufpackedmessage.cpp
-)
-
-set (OCL_CPU_DEBUGGING_RC_FILES
-    OclCpuDebugging.rc
-)
-
-
-include_directories(
-  ${LLVM_INCLUDE_DIRS}
-  ${CL_API_HEADERS}
-  ${OCL_CPU_DEBUGGING_IMPORT_DIRS}
-  ${OCL_SOURCE_DIR}/externals/tbb/include
-)
 
 # Add additional lib direcories
 link_directories (
     ${TBB_LIB_DIR}
 )
-
-# Create DLL
-add_library (${TARGET_NAME} SHARED
-    ${OCL_CPU_DEBUGGING_INCLUDE_FILES}
-    ${OCL_CPU_DEBUGGING_SOURCE_FILES}
-    ${OCL_CPU_DEBUGGING_RC_FILES}
-)
-
 # Link with appropriate libs
 if (WIN32)
     set( SOCKETLIB ws2_32 )
@@ -141,7 +97,24 @@ else (WIN32)
     set( SOCKETLIB "" )
 endif (WIN32)
 
-target_link_libraries (${TARGET_NAME}
+
+# Create DLL
+add_opencl_library (${TARGET_NAME} SHARED
+    dllmain.cpp
+    debug_communicator.cpp
+    debug_server.cpp
+    debuginfo_utils.cpp
+    debugservermessages.pb.cc
+    protobufpackedmessage.cpp
+    OclCpuDebugging.rc
+
+    INCLUDE_DIRS
+    ${LLVM_INCLUDE_DIRS}
+    ${CL_API_HEADERS}
+    ${OCL_CPU_DEBUGGING_IMPORT_DIRS}
+    ${OCL_SOURCE_DIR}/externals/tbb/include
+
+    LINK_LIBS
     ${SOCKETLIB}
     cl_sys_utils
     protobuf
@@ -152,29 +125,8 @@ if (NOT WIN32)
     SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} ${TARGET_NAME}_linux_exports.txt)
 endif (NOT WIN32)
 
-if (WIN32)
-    get_target_property(RT_OUTPUT_DIRECTORY ${TARGET_NAME} RUNTIME_OUTPUT_DIRECTORY)
-    file(TO_NATIVE_PATH ${RT_OUTPUT_DIRECTORY}/${CMAKE_CFG_INTDIR}/${TARGET_NAME}_stripped.pdb PDB_NAME)
-    # This is a fix due to a bug in CMake, Does not add the flag /DEBUG to the linker flags in Release mode.
-    # The /DEBUG flag is required in order to create stripped pdbs.
-    set_target_properties(${TARGET_NAME} PROPERTIES
-                            LINK_FLAGS_RELEASE  "${LINK_FLAGS_RELEASE} /DEBUG /PDBSTRIPPED:${PDB_NAME}"
-                            LINK_FLAGS_DEBUG    "${LINK_FLAGS_DEBUG} /PDBSTRIPPED:${PDB_NAME}"
-                            )
-    if (INSTALL_PDBS)
-        install(FILES ${OCL_TOOLS_BINARY_DIR}/\${BUILD_TYPE}/${TARGET_NAME}.pdb DESTINATION bin)
-    endif(INSTALL_PDBS)
-    install(FILES ${OCL_TOOLS_BINARY_DIR}/\${BUILD_TYPE}/${TARGET_NAME}_stripped.pdb DESTINATION bin)
-endif(WIN32)
-
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME} )
-
-install( TARGETS ${TARGET_NAME}
-    RUNTIME DESTINATION bin
-    ARCHIVE DESTINATION lib
-    LIBRARY DESTINATION bin)
 
 # Install the (GPL'd) GDB OCL plugin. The name and location is important, as
 # GDB will auto-load it if it has the same name as a loaded shared object.
-set (GDB_PLUGIN libintelocl.so-gdb.py)
-install( FILES ${GDB_PLUGIN} DESTINATION bin)
+copy_to (libintelocl.so-gdb.py DESTINATION lib)

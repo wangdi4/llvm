@@ -23,36 +23,29 @@ endif()
 
 add_subdirectory( utils )
 
-include_directories( BEFORE
-        ${CMAKE_CURRENT_SOURCE_DIR}/utils
-        ${CL_API_HEADERS}
-        ${CMAKE_CURRENT_SOURCE_DIR}
-        ${OCL_BINARY_DIR}
-        )
-
-
 if (WIN32)
-    set( CONFIG_FILES register_vendor32.reg register_vendor64.reg unregister_vendor32.reg unregister_vendor64.reg)
+    copy_to(register_vendor32.reg register_vendor64.reg unregister_vendor32.reg unregister_vendor64.reg
+        DESTINATION lib)
 endif (WIN32)
 
 FIND_SOURCES()
 CALCULATE_TARGET_SOURCES()
 
 # add a target named ${TARGET_NAME}
-add_library (${TARGET_NAME} SHARED ${TARGET_SOURCES})
+add_opencl_library (${TARGET_NAME} SHARED
+    ${TARGET_SOURCES}
 
-install( FILES ${CONFIG_FILES} DESTINATION bin)
+    INCLUDE_DIRS
+    ${CMAKE_CURRENT_SOURCE_DIR}/utils
+    ${CL_API_HEADERS}
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${OCL_BINARY_DIR}
+)
 
 if (NOT WIN32 AND NOT ANDROID)
     target_link_libraries( ${TARGET_NAME} pthread)
 endif (NOT WIN32 AND NOT ANDROID)
 target_link_libraries( ${TARGET_NAME} common_runtime_utils)
-
-
-install( TARGETS ${TARGET_NAME}
-    RUNTIME DESTINATION bin
-    LIBRARY DESTINATION bin
-    ARCHIVE DESTINATION lib)
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER common_runtime )
 
@@ -63,10 +56,6 @@ endif (NOT WIN32)
 if (WIN32)
     file(TO_NATIVE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/${TARGET_NAME}.pdb PDB_NAME)
     set_target_properties(${TARGET_NAME} PROPERTIES
-        LINK_FLAGS_DEBUG    "${LINK_FLAGS_DEBUG} /PDB:${PDB_NAME}"
-        LINK_FLAGS_RELEASE  "${LINK_FLAGS_RELEASE} /DEBUG /PDB:${PDB_NAME}"
-    )
-    if (INSTALL_PDBS)
-        install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/${TARGET_NAME}.pdb DESTINATION bin)
-    endif(INSTALL_PDBS)
+       LINK_FLAGS_DEBUG    "${LINK_FLAGS_DEBUG} /PDB:${PDB_NAME}"
+       LINK_FLAGS_RELEASE  "${LINK_FLAGS_RELEASE} /PDB:${PDB_NAME}"
 endif(WIN32)

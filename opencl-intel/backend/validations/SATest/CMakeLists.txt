@@ -24,11 +24,10 @@ if (WIN32)
     link_directories( "${ICC_WIN32_PATH}/compiler/lib/${ICC_PLATFORM}" )
 endif(WIN32)
 
-if( NOT WIN32 )
-    link_directories(${OCL_BINARY_DIR}/lib/${CMAKE_CFG_INTDIR})
-endif( NOT WIN32)
-
-link_directories(${LLVM_LIBRARY_DIRS})
+link_directories(
+    ${OCL_OUTPUT_LIBRARY_DIR}
+    ${LLVM_LIBRARY_DIRS}
+)
 
 include_directories(
   ${LLVM_INCLUDE_DIRS}
@@ -60,37 +59,7 @@ include_directories(
   ${VALIDATIONS_ROOT}/ProgramConfiguration
 )
 
-set (TARGET_HEADER_FILES
-    IRunnerFactory.h
-    IProgram.h
-    IProgramRunner.h
-    IRunConfiguration.h
-    IRunResult.h
-    IRunResultComparator.h
-    IPerformance.h
-    OpenCLProgram.h
-    OpenCLReferenceRunner.h
-    OpenCLRunConfiguration.h
-    OpenCLBackendWrapper.h
-    OpenCLComparator.h
-    RunResult.h
-    Performance.h
-    PerformancePrinter.h
-    RunnerFactoryGenerator.h
-    SATest.h
-    SATestException.h
-    WorkItemStorage.h
-    WorkGroupStorage.h
-    OpenCLArgsBuffer.h
-    OpenCLCPUBackendRunner.h
-    OpenCLFactory.h
-    BackendOptions.h
-    OpenCLBackendRunner.h
-    ${VALIDATIONS_ROOT}/Common/md5.h
-    OpenCLStamp.h
-)
-
-set (TARGET_SOURCE_FILES
+add_opencl_executable(${TARGET_NAME}
     mem_utils.cpp
     dbg_utils.cpp
     main.cpp
@@ -110,11 +79,6 @@ set (TARGET_SOURCE_FILES
     OpenCLBackendRunner.cpp
     ${VALIDATIONS_ROOT}/Common/md5.cpp
     OpenCLStamp.cpp
-    )
-
-add_executable(${TARGET_NAME}
-    ${TARGET_HEADER_FILES}
-    ${TARGET_SOURCE_FILES}
 )
 
 target_link_libraries(${TARGET_NAME}
@@ -140,12 +104,6 @@ target_link_libraries(${TARGET_NAME}
     ${LLVM_MODULE_LIBS}
     )
 
-#if (NOT WIN32)
-#    SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} OCLBuiltins_linux_exports.txt )
-#endif (NOT WIN32)
-
 if(NOT WIN32)
     add_dependencies(${TARGET_NAME} ImathLibd_wrapper)
 endif(NOT WIN32)
-
-install(TARGETS ${TARGET_NAME} RUNTIME DESTINATION tests/LITTests)

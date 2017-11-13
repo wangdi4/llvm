@@ -72,12 +72,7 @@ else()
 endif(WIN32)
 
 #add a target named ${TARGET_NAME}
-add_library (${TARGET_NAME} SHARED ${TARGET_SOURCES})
-
-install( TARGETS ${TARGET_NAME}
-            RUNTIME DESTINATION bin
-            ARCHIVE DESTINATION lib
-            LIBRARY DESTINATION bin)
+add_opencl_library (${TARGET_NAME} SHARED ${TARGET_SOURCES})
 
 if (WIN32)
     list(APPEND LINK_LIBS delayimp.lib )
@@ -86,23 +81,7 @@ else (WIN32)
 endif(WIN32)
 
 if (WIN32)
-    get_target_property(RT_OUTPUT_DIRECTORY ${TARGET_NAME} RUNTIME_OUTPUT_DIRECTORY)
-    file(TO_NATIVE_PATH ${RT_OUTPUT_DIRECTORY}/${CMAKE_CFG_INTDIR}/${TARGET_NAME}_stripped.pdb PDB_NAME)
-    # This is a fix due to a bug in CMake, Does not add the flag /DEBUG to the linker flags in Release mode.
-    # The /DEBUG flag is required in order to create stripped pdbs.
-    set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS_DEBUG    "${LINK_FLAGS_DEBUG} tbb_debug.lib /DELAYLOAD:tbb_debug.dll /PDBSTRIPPED:${PDB_NAME}")
-    set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS_RELEASE    "${LINK_FLAGS_RELEASE} tbb.lib /DELAYLOAD:tbb.dll /DEBUG /PDBSTRIPPED:${PDB_NAME}")
-    install(FILES ${RT_OUTPUT_DIRECTORY}/\${BUILD_TYPE}/${TARGET_NAME}_stripped.pdb DESTINATION bin)
-    if (INSTALL_PDBS)
-        install(FILES ${RT_OUTPUT_DIRECTORY}/\${BUILD_TYPE}/${TARGET_NAME}.pdb DESTINATION bin)
-    endif(INSTALL_PDBS)
-else (WIN32)
-    if ( ${CMAKE_BUILD_TYPE} STREQUAL "Debug" )
-        list(APPEND LINK_LIBS ${IMPLIB_PREFIX}tbb_debug${IMPLIB_SUFFIX} )
-        list(APPEND LINK_LIBS ${IMPLIB_PREFIX}tbbmalloc_debug${IMPLIB_SUFFIX} )
-    else ()
-        list(APPEND LINK_LIBS ${IMPLIB_PREFIX}tbb${IMPLIB_SUFFIX} )
-        list(APPEND LINK_LIBS ${IMPLIB_PREFIX}tbbmalloc${IMPLIB_SUFFIX} )
-    endif ( ${CMAKE_BUILD_TYPE} STREQUAL "Debug" )
-endif (WIN32)
+    set_target_properties (${TARGET_NAME} PROPERTIES
+        LINK_FLAGS_RELEASE "${LINK_FLAGS_RELEASE} tbb_debug.lib /DELAYLOAD:tbb_debug.dll"
+        LINK_FLAGS_DEBUG  "${LINK_FLAGS_DEBUG} tbb.lib /DELAYLOAD:tbb.dll")
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${DEVICES_FOLDER_NAME} )

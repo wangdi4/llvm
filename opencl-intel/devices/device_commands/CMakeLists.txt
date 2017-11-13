@@ -1,14 +1,18 @@
 # set that name of the main output file as a target name
-set( TARGET_NAME device_commands)
- 
+set (TARGET_NAME device_commands)
+
 include( ../../cmake_utils/itt.cmake )
- 
+
 FIND_SOURCES()
 CALCULATE_TARGET_SOURCES()
-include_directories( ${CL_API_HEADERS} )
 
 # add a target named ${TARGET_NAME}
-add_library (${TARGET_NAME} STATIC ${TARGET_SOURCES})
+add_opencl_library (${TARGET_NAME} STATIC
+    ${TARGET_SOURCES}
+
+    INCLUDE_DIRS
+    ${CL_API_HEADERS}
+    )
 
 # [LLVM 3.6 UPGRADE] Disable Linux warning about unused function
 # this warning occur when processing externals/itt/include/ittnotify.h
@@ -21,7 +25,3 @@ if (NOT WIN32)
 endif(NOT WIN32)
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${DEVICES_FOLDER_NAME} )
-
-install( TARGETS ${TARGET_NAME}
-    ARCHIVE DESTINATION lib
-    LIBRARY DESTINATION lib)

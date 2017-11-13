@@ -12,14 +12,9 @@ include_directories(
   ${CMAKE_SOURCE_DIR}/utils/cl_sys_utils/export
 )
 
-add_library( ${TARGET_NAME} STATIC
+add_opencl_library( ${TARGET_NAME} STATIC
   OCLBuilder.h
   OCLBuilder.cpp
 )
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/plugins )
-
-install(TARGETS ${TARGET_NAME} ${TARGET_NAME}
-            RUNTIME DESTINATION bin
-            LIBRARY DESTINATION bin
-            ARCHIVE DESTINATION bin)

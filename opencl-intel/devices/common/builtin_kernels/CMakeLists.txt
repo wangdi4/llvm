@@ -5,7 +5,7 @@
 #
 
 # set that name of the main output file as a target name
-set( TARGET_NAME builtin_kernels )
+set (TARGET_NAME builtin_kernels)
 if (NOT WIN32)
     set(HW_UTILS_HEADERS ../../utils/cl_hw_utils/export)
     set(HW_UTILS_PROJ_NAME cl_hw_utils)
@@ -20,19 +20,15 @@ if (NOT WIN32)
     add_definitions( "-Wno-attributes" )
 endif (NOT WIN32)
 
-include_directories( BEFORE ${HW_UTILS_HEADERS} 
-                     ${CL_API_HEADERS}
-					)
-
-					FIND_SOURCES()
+FIND_SOURCES()
 CALCULATE_TARGET_SOURCES()
-				
-#add a target named ${TARGET_NAME}
-add_library (${TARGET_NAME} STATIC ${TARGET_SOURCES})
 
-install( TARGETS ${TARGET_NAME}     
-			RUNTIME DESTINATION bin
-			ARCHIVE DESTINATION lib
-			LIBRARY DESTINATION bin)
+add_opencl_library (${TARGET_NAME} STATIC
+    ${TARGET_SOURCES}
 
-set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${DEVICES_FOLDER_NAME} )
+    INCLUDE_DIRS
+    ${HW_UTILS_HEADERS}
+    ${CL_API_HEADERS}
+    )
+
+set_target_properties (${TARGET_NAME} PROPERTIES FOLDER ${DEVICES_FOLDER_NAME})

@@ -81,7 +81,7 @@ if(WIN32)
 endif()
 
 # Create DLL
-add_library (${TARGET_NAME} SHARED
+add_opencl_library (${TARGET_NAME} SHARED
     ${OCL_RECORDER_INCLUDE_FILES}
     ${OCL_RECORDER_SOURCE_FILES}
     ${OCL_RECORDER_RESOURCE_FILES}
@@ -89,7 +89,7 @@ add_library (${TARGET_NAME} SHARED
 )
 
 # Create static library for unit tests
-add_library (OCLRecorderStat STATIC
+add_opencl_library (OCLRecorderStat STATIC
     ${OCL_RECORDER_SOURCE_FILES}
 )
 
@@ -111,13 +111,3 @@ endif(WIN32)
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/plugins )
 set_target_properties( OCLRecorderStat PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/plugins )
-
-install(TARGETS ${TARGET_NAME}
-    RUNTIME DESTINATION bin
-    ARCHIVE DESTINATION lib
-    LIBRARY DESTINATION bin)
-
-install(TARGETS OCLRecorderStat
-    RUNTIME DESTINATION bin
-    ARCHIVE DESTINATION lib
-    LIBRARY DESTINATION bin)
