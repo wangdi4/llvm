@@ -1,9 +1,0 @@
-<TestType Name="cpu_device_test_type">
-    <Cmd>
-        <Launch>cpu_device_test_type.py cfg.xml</Launch>
-        <OSType>Windows</OSType>
-    </Cmd>
-    <Description>
-    This is a framework test type
-    </Description>
-</TestType>
