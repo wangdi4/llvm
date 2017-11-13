@@ -117,7 +117,7 @@ static std::vector<unsigned int> FindSamplers(llvm::NamedMDNode* metadata, std::
                     continue;
                 }
 
-                llvm::MDString* pName = llvm::cast<llvm::MDString>(pNode->getOperand(0));
+                llvm::MDString* pName = llvm::dyn_cast<llvm::MDString>(pNode->getOperand(0));
                 if (NULL == pName) {
                     continue;
                 }
