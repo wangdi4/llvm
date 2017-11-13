@@ -84,10 +84,29 @@ void ImplicitGlobalIdPass::runOnBasicBlock(unsigned i, Instruction *pGIDAlloca, 
 void ImplicitGlobalIdPass::insertComputeGlobalIds(Function* pFunc)
 {
     const bool functionHasBarriers = m_pSyncInstSet != 0;
+    DIScope *scope = nullptr;
+    DebugLoc loc;
+
+    // Find the first basic block that has an instruction with debug
+    // metadata attached to it (usually a "call void @llvm.dbg.declare"
+    // or an LLVM instruction with a suffix like "!dbg !27").
+    //
+    auto func = [&](const BasicBlock& b) {
+      return getBBScope(b, &scope, loc);
+    };
+    auto I = std::find_if(pFunc->begin(), pFunc->end(), func);
+
+    assert( I != pFunc->end() &&
+            "Failed to find at least one instruction with debug metadata attached to it. "
+            "The gid variables require a valid scope and location information in order "
+            "to be inserted into the function." );
+    (void)I;
+
     // Find the first and second instructions in the function
     //
     BasicBlock& entry_block = pFunc->getEntryBlock();
     Instruction* first_instr = &(entry_block.front());
+
     // Insert after first instruction in the case of barrier calls otherwise
     // this breaks barrier pass (need to investigate why). In this case, expect
     // basic block to have more then 1 IR instruction.
@@ -96,13 +115,6 @@ void ImplicitGlobalIdPass::insertComputeGlobalIds(Function* pFunc)
       dyn_cast<Instruction>(&*(++BasicBlock::iterator(first_instr))) :
       first_instr;
     assert( insert_before && "There is only one instruction in the current basic block!" );
-
-    // Prepare to create debug metadata for implicit gid variables
-    //
-    DIScope *scope = nullptr;
-    DebugLoc loc;
-    bool res = getBBScope(entry_block, &scope, loc); (void)res;
-    assert(res && "Failed to get scope and debug location!");
 
     for (unsigned i = 0; i <= 2; ++i) {
       // Create implicit local variables to hold the gids
