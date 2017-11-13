@@ -30,15 +30,14 @@ set(CMAKE_MODULE_PATH
 include( cmake_utils/CMakeFuncs.txt )
 
 if (WIN32)
-    include( CMake_windows_tools )
+  include( CMake_windows_tools )
 else()
   include( CMake_linux_tools )
 endif ()
 
 if( INTEL_PRODUCT_RELEASE )
-    add_definitions( -DINTEL_PRODUCT_RELEASE )
+  add_definitions( -DINTEL_PRODUCT_RELEASE )
 endif( INTEL_PRODUCT_RELEASE )
-
 
 # Supported configurations
 set(CMAKE_CONFIGURATION_TYPES
@@ -55,7 +54,7 @@ include_directories( ${CMAKE_SOURCE_DIR}/externals/itt/include
 
 if (NOT WIN32)
   # enable C++11 support in GCC 4.7 and above
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
   add_custom_target(strip
     ${CMAKE_SOURCE_DIR}/cmake_utils/separate_linux_symbols.sh
@@ -154,72 +153,6 @@ if(CMAKE_CROSSCOMPILING)
 else(CMAKE_CROSSCOMPILING)
     add_custom_target(ConfigureNativeTargets DEPENDS ${CMAKE_BINARY_DIR}/bin/ocloptimg ${CMAKE_BINARY_DIR}/bin/ocl-tblgen )
 endif(CMAKE_CROSSCOMPILING)
-
-# TODO: remove tools support
-if(INCLUDE_TOOLS)
-    if(WIN32)
-        if(BUILD_X64)
-            set(BOOST_LIB_DIR_SUFFIX x64)
-        else(BUILD_X64)
-            set(BOOST_LIB_DIR_SUFFIX x86)
-        endif(BUILD_X64)
-    else(WIN32)
-        set(BOOST_LIB_DIR_SUFFIX x64)
-    endif(WIN32)
-
-    set (BOOST_LIBRARYDIR ${BOOST_ROOT}/lib/${BOOST_LIB_DIR_SUFFIX})
-    set (Boost_NO_SYSTEM_PATHS ON) # Don't search PATH
-
-    # To add new components for Boost simply add to BOOST_COMPONENTS below
-    set (BOOST_COMPONENTS regex system filesystem date_time signals thread)
-
-    set(Boost_USE_STATIC_LIBS ON )
-    set(BOOST_ALL_DYN_LINK OFF)
-    set(Boost_USE_STATIC_RUNTIME ON)
-    FIND_PACKAGE(Boost 1.52.0 REQUIRED COMPONENTS ${BOOST_COMPONENTS})
-    add_definitions(-DBOOST_ALL_NO_LIB)  # Tell the compiler to undefine this boost macro
-    add_definitions( -DBOOST_SYSTEM_NO_DEPRECATED )
-    set(BOOST_INSTALL_LIBS ${Boost_SYSTEM_LIBRARY}
-                           ${Boost_FILESYSTEM_LIBRARY}
-                           ${Boost_DATE_TIME_LIBRARY}
-                           ${Boost_REGEX_LIBRARY}
-                           ${Boost_SIGNALS_LIBRARY}
-                           ${Boost_THREAD_LIBRARY}
-                           )
-    list(REMOVE_ITEM BOOST_INSTALL_LIBS debug optimized)
-
-    if(WIN32)
-        # craete boost liberaroes for dynamic compilation ( used by KernelBuilder
-        foreach(boost_comp ${BOOST_COMPONENTS})
-            string(TOUPPER ${boost_comp} boost_comp )
-            list( GET Boost_${boost_comp}_LIBRARY 1 REL_LIB )
-            string( REPLACE "libboost" "boost" REL_LIB ${REL_LIB} )
-            string( REPLACE "-s-" "-" REL_LIB ${REL_LIB} )
-            list( GET Boost_${boost_comp}_LIBRARY 3 DEBUG_LIB )
-            string( REPLACE "libboost" "boost" DEBUG_LIB ${DEBUG_LIB} )
-            string( REPLACE "-sgd" "-gd" DEBUG_LIB ${DEBUG_LIB} )
-            set( dyn_Boost_${boost_comp}_LIBRARY optimized ${REL_LIB} debug ${DEBUG_LIB} )
-
-            string( REPLACE ".lib" ".dll" REL_LIB ${REL_LIB} )
-            string( REPLACE ".lib" ".dll" DEBUG_LIB ${DEBUG_LIB} )
-
-            list( APPEND BOOST_INSTALL_LIBS_RELEASE ${REL_LIB} )
-            list( APPEND BOOST_INSTALL_LIBS_DEBUG ${DEBUG_LIB} )
-        endforeach(boost_comp)
-
-        INSTALL(FILES ${BOOST_INSTALL_LIBS_RELEASE} DESTINATION bin CONFIGURATIONS Release)
-        INSTALL(FILES ${BOOST_INSTALL_LIBS_DEBUG} DESTINATION bin CONFIGURATIONS Debug)
-
-    else(WIN32)
-        string(REPLACE ".a" ".so;" BOOST_INSTALL_LIBS ${BOOST_INSTALL_LIBS} )
-        SET(BOOST_VER ${Boost_MAJOR_VERSION}.${Boost_MINOR_VERSION}.${Boost_SUBMINOR_VERSION} )
-        string(REPLACE ".so" ".so.${BOOST_VER};" BOOST_INSTALL_LIBS_LINKS ${BOOST_INSTALL_LIBS} )
-
-        INSTALL(FILES ${BOOST_INSTALL_LIBS} DESTINATION bin)
-        INSTALL(FILES ${BOOST_INSTALL_LIBS_LINKS} DESTINATION bin)
-
-    endif(WIN32)
-endif(INCLUDE_TOOLS)
 
 # Project-wise options
 option(GIT_REVISIONS "Make package version from git revision"  ON)
@@ -488,7 +421,6 @@ set( API_FOLDER_NAME            ${FRAMEWORK_FOLDER_NAME}/API )
 set( DEVICES_FOLDER_NAME        ${FRAMEWORK_FOLDER_NAME}/Devices )
 set( RUNTIME_FOLDER_NAME        ${FRAMEWORK_FOLDER_NAME}/Runtime )
 set( UTILS_FOLDER_NAME          ${FRAMEWORK_FOLDER_NAME}/utils )
-set( TOOLS_FOLDER_NAME          ${FRAMEWORK_FOLDER_NAME}/Tools )
 set( FRONTEND_FOLDER_NAME       Frontend )
 set( EXTERNAL_FOLDER_NAME       External )
 
@@ -544,14 +476,6 @@ add_subdirectory( framework )
 if ( INCLUDE_CMRT )
     add_subdirectory ( common_runtime )
 endif( INCLUDE_CMRT )
-
-# Tools
-if( INCLUDE_TOOLS )
-    add_subdirectory ( tools )
-endif( INCLUDE_TOOLS )
-
-#workloads
-#add_subdirectory( workloads )
 
 #Linux samples
 option(INCLUDE_SMPLS "Include Linux Samples into Build"  OFF)
