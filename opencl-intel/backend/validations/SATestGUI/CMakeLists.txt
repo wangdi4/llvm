@@ -1,5 +1,78 @@
 cmake_minimum_required(VERSION 2.8)
 
+# QAGUI
+set( QT_VERSION "4.8.5" )
+if(DEFINED QT_REVISION) # QT_REVISION is a variable that can be defined in Build.py. It is not defined by default.
+   set( QT_VERSION ${QT_REVISION})
+endif()
+
+#install the QT and boost libraries themselfs
+if(WIN32)
+    # special processing for QT library on windows:
+    # the problem is that QT doesn't naturally supports installing
+    # both 32 and 64 bits libraries on the same machine (there is
+    # only a single registry settings for QT library per machine )
+    # this makes it difficult to rely on default QT Cmake support
+    # to find the appropriate version.
+    # The trick is to set the correct installation directory on the fly
+    # by changing the registry information and removing the default paths
+    remove_path("c:\\Qt\\4.8.1\\VS2010-64\\bin")
+    remove_path("c:\\Qt\\4.8.1\\VS2010\\bin")
+    execute_process(COMMAND "reg" add HKCU\\Software\\Trolltech\\Versions /v DefaultQtVersion /d ${QT_VERSION} /f)
+    if(BUILD_X64)
+        execute_process(COMMAND "reg" add HKCU\\Software\\Trolltech\\Versions\\${QT_VERSION} /v InstallDir /d c:\\qt\\${QT_VERSION}\\vs2012-64 /f)
+    else(BUILD_X64)
+        execute_process(COMMAND "reg" add HKCU\\Software\\Trolltech\\Versions\\${QT_VERSION} /v InstallDir /d c:\\qt\\${QT_VERSION}\\vs2012 /f)
+    endif(BUILD_X64)
+else(WIN32)
+    add_path("/usr/local/DigiaQtCommercialSDK/Desktop/${QT_VERSION}/gcc-64/bin")
+endif(WIN32)
+
+find_package( Qt4 REQUIRED)
+
+if(WIN32)
+    SET( SHARED_DEBUG_LIBS
+        ${QT_BINARY_DIR}/QtGuid4.dll
+        ${QT_BINARY_DIR}/QtCored4.dll
+        ${QT_BINARY_DIR}/Qt3Supportd4.dll
+        ${QT_BINARY_DIR}/QtNetworkd4.dll
+        ${QT_BINARY_DIR}/QtXmld4.dll
+        ${QT_BINARY_DIR}/QtSqld4.dll
+    )
+    SET( SHARED_RELEASE_LIBS
+        ${QT_BINARY_DIR}/QtGui4.dll
+        ${QT_BINARY_DIR}/QtCore4.dll
+        ${QT_BINARY_DIR}/Qt3Support4.dll
+        ${QT_BINARY_DIR}/QtNetwork4.dll
+        ${QT_BINARY_DIR}/QtXml4.dll
+        ${QT_BINARY_DIR}/QtSql4.dll
+    )
+    SET( SHARED_DEBUG_LIBS ${SHARED_DEBUG_LIBS} ${QT_BINARY_DIR}/QtCommercialChartd.dll)
+    SET( SHARED_RELEASE_LIBS ${SHARED_RELEASE_LIBS} ${QT_BINARY_DIR}/QtCommercialChart.dll)
+    INSTALL(FILES ${SHARED_DEBUG_LIBS} DESTINATION bin CONFIGURATIONS Debug)
+    INSTALL(FILES ${SHARED_RELEASE_LIBS} DESTINATION bin CONFIGURATIONS Release)
+else(WIN32)
+    SET(QT_VERSION ${QT_VERSION_MAJOR}.${QT_VERSION_MINOR}.${QT_VERSION_PATCH} )
+    SET( SHARED_LIBS
+        ${QT_LIBRARY_DIR}/libQtCore.so.4
+        ${QT_LIBRARY_DIR}/libQtGui.so.4
+        ${QT_LIBRARY_DIR}/libQtCore.so.${QT_VERSION}
+        ${QT_LIBRARY_DIR}/libQtGui.so.${QT_VERSION}
+    )
+    SET( SQUISH_LIBS
+        ${QT_LIBRARY_DIR}/libQt3Support.so.4
+        ${QT_LIBRARY_DIR}/libQtNetwork.so.4
+        ${QT_LIBRARY_DIR}/libQtSql.so.4
+        ${QT_LIBRARY_DIR}/libQtXml.so.4
+        ${QT_LIBRARY_DIR}/libQt3Support.so.${QT_VERSION}
+        ${QT_LIBRARY_DIR}/libQtNetwork.so.${QT_VERSION}
+        ${QT_LIBRARY_DIR}/libQtSql.so.${QT_VERSION}
+        ${QT_LIBRARY_DIR}/libQtXml.so.${QT_VERSION}
+    )
+    INSTALL(FILES ${SHARED_LIBS} DESTINATION bin)
+    INSTALL(FILES ${SQUISH_LIBS} DESTINATION bin)
+endif(WIN32)
+
 set(TARGET_NAME SATestGUI)
 
 use_rtti(FALSE)
