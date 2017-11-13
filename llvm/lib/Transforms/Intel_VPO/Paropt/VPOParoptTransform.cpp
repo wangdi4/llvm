@@ -377,7 +377,7 @@ bool VPOParoptTransform::paroptTransforms() {
       {
         if (W->getIsDistribute())
           DEBUG(dbgs() << "\n WRNDistribute - Transformation \n\n");
-        else 
+        else
           DEBUG(dbgs() << "\n WRNWksLoop - Transformation \n\n");
 
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
@@ -1341,9 +1341,9 @@ bool VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
     // compiler has to generate the barrier. Please note that it is
     // unnecessary to generate the barrier if the firstprivate is
     // scalar and it is passed by value.
-    if (FprivI) 
+    if (FprivI)
       genBarrier(W, true);
-    
+
     bool ForTask = W->getWRegionKindID() == WRegionNode::WRNTaskloop ||
                    W->getWRegionKindID() == WRegionNode::WRNTask;
     BasicBlock *EntryBB = W->getEntryBBlock();
@@ -1554,7 +1554,8 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
 // the loop carried value.
 void VPOParoptTransform::wrnUpdateSSAPreprocessForOuterLoop(
     Loop *L,
-    DenseMap<Value *, std::pair<Value *, BasicBlock *>> &ValueToLiveinMap) {
+    DenseMap<Value *, std::pair<Value *, BasicBlock *>> &ValueToLiveinMap,
+    SmallSetVector<Instruction *, 8> &LiveOutVals) {
   BasicBlock *BB = L->getHeader();
 
   for (Instruction &I : *BB) {
@@ -1566,10 +1567,13 @@ void VPOParoptTransform::wrnUpdateSSAPreprocessForOuterLoop(
     Value *V;
     for (II = 0; II < NumPHIValues; II++) {
       V = PN->getIncomingValue(II);
-      if (ValueToLiveinMap.count(V))
-        break;
+      if (!ValueToLiveinMap.count(V))
+        continue;
+      if (Instruction *User = dyn_cast<Instruction>(V))
+        if (LiveOutVals.count(User))
+          break;
     }
-    if (V) {
+    if (V && II != NumPHIValues) {
       for (II = 0; II < NumPHIValues; II++) {
         if (PN->getIncomingValue(II) != V)
           PN->setIncomingValue(II, V);
@@ -1578,10 +1582,31 @@ void VPOParoptTransform::wrnUpdateSSAPreprocessForOuterLoop(
   }
 }
 
+// Collect the live-out value in the loop.
+static void
+wrnCollectLiveOutVals(Loop &L, BasicBlock &BB,
+                      SmallSetVector<Instruction *, 8> &LiveOutVals) {
+  for (Instruction &I : BB) {
+    if (I.getType()->isTokenTy())
+      continue;
+
+    for (const Use &U : I.uses()) {
+      const Instruction *UI = cast<Instruction>(U.getUser());
+      const BasicBlock *UserBB = UI->getParent();
+      if (const PHINode *P = dyn_cast<PHINode>(UI))
+        UserBB = P->getIncomingBlock(U);
+
+      if (!L.contains(UserBB))
+        LiveOutVals.insert(&I);
+    }
+  }
+}
+
 // Collect the live-in value for the phis at the loop header.
 void VPOParoptTransform::wrnUpdateSSAPreprocess(
     Loop *L,
-    DenseMap<Value *, std::pair<Value *, BasicBlock *>> &ValueToLiveinMap) {
+    DenseMap<Value *, std::pair<Value *, BasicBlock *>> &ValueToLiveinMap,
+    SmallSetVector<Instruction *, 8> &LiveOutVals) {
   BasicBlock *PreheaderBB = L->getLoopPreheader();
   assert(PreheaderBB && "wrnUpdateSSAPreprocess: Loop preheader not found");
   BasicBlock *BB = L->getHeader();
@@ -1611,13 +1636,66 @@ void VPOParoptTransform::wrnUpdateSSAPreprocess(
       }
     }
   }
+
+  for (auto BB : L->blocks())
+    wrnCollectLiveOutVals(*L, *BB, LiveOutVals);
 }
 
 // Update the SSA form in the region using SSA Updater.
+// The detail of the algorithm is as follows.
+// 1) collect the live-in and live-out information
+// 2) if outer loop is added during the transformation, the live-in
+//    value is replaced with the back edge value.
+// 3) call the SSA updater to generate the phi for the live-out values.
+//
+// Here is one example.
+//
+// omp.inner.for.body:
+//   %.omp.iv.0 = phi i32 [ %4, %omp.inner.for.body.lr.ph ], [ %add4,
+//   %omp.inner.for.inc ]
+//   %l.0 = phi i32 [ 0, %omp.inner.for.body.lr.ph ],
+//          [%inc, %omp.inner.for.inc ]
+//   %mul = mul nsw i32 %.omp.iv.0, %step
+//   %add2 = add nsw i32 -3, %mul store i32 %add2, i32* %i,
+//   align 4, !tbaa !2 i
+//   %inc = add nsw i32 %l.0, 1
+//   %cmp3 = icmp eq i32 %l.0, 0
+//   br i1 %cmp3, label %if.then, label %omp.inner.for.inc
+//   ....
+//   omp.loop.exit:
+//     %l.1 = phi i32 [ 0, %DIR.OMP.LOOP.126 ],
+//            [ %inc, %omp.loop.exit.loopexit ]
+//     br label %DIR.OMP.END.LOOP.2
+//
+//  The value %inc is live outside of the loop. After the compiler generates
+//  the dispatch loop for the above code. The output of SSA form is as
+//  follows.
+//
+//  dispatch.header:
+//    %inc27 = phi i32 [ %inc.lcssa, %dispatch.inc ],
+//                     [ 0, %omp.inner.for.body.lr.ph ]
+//    %ub.tmp = load i32, i32* %upper.bnd
+//    %ub.min = icmp sle i32 %ub.tmp, %.remat
+//    br i1 %ub.min, label %dispatch.body, label %dispatch.min.ub
+//
+//  omp.inner.for.body:
+//    ....
+//    %l.0 = phi i32 [ %inc27, %dispatch.body ], [ %inc, %omp.inner.for.inc ]
+//    ...
+//    %inc = add nsw i32 %l.0, 1
+//    ....
+//  dispatch.inc:
+//    %inc.lcssa = phi i32 [ %inc, %omp.inner.for.inc ]
+//    ...
+//  omp.loop.exit:
+//    %l.1 = phi i32 [ 0, %DIR.OMP.LOOP.126 ], [ %inc27, %dispatch.latch ]
+//
 void VPOParoptTransform::wrnUpdateSSAForLoop(
     Loop *L,
-    DenseMap<Value *, std::pair<Value *, BasicBlock *>> &ValueToLiveinMap) {
-  formLCSSA(*L, *DT, LI, SE, &ValueToLiveinMap);
+    DenseMap<Value *, std::pair<Value *, BasicBlock *>> &ValueToLiveinMap,
+    SmallSetVector<Instruction *, 8> &LiveOutVals) {
+  if (!LiveOutVals.empty())
+    formLCSSA(*L, *DT, LI, SE, &ValueToLiveinMap, &LiveOutVals);
 }
 
 bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
@@ -1647,7 +1725,8 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
           ->getParent());
 
   DenseMap<Value *, std::pair<Value *, BasicBlock *>> ValueToLiveinMap;
-  wrnUpdateSSAPreprocess(L, ValueToLiveinMap);
+  SmallSetVector<Instruction *, 8> LiveOutVals;
+  wrnUpdateSSAPreprocess(L, ValueToLiveinMap, LiveOutVals);
 
   //
   // This is initial implementation of parallel loop scheduling to get
@@ -1837,7 +1916,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
                                         IdentTy, LoadTid, InsertPt);
     KmpcFiniCI->setCallingConv(CallingConv::C);
 
-    wrnUpdateSSAForLoop(L, ValueToLiveinMap);
+    wrnUpdateSSAForLoop(L, ValueToLiveinMap, LiveOutVals);
     if (DT)
       DT->changeImmediateDominator(LoopExitBB, StaticInitBB);
   }
@@ -1936,8 +2015,8 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
     TermInst = DispatchBodyBB->getTerminator();
     TermInst->setSuccessor(1, DispatchLatchBB);
 
-    wrnUpdateSSAPreprocessForOuterLoop(L, ValueToLiveinMap);
-    wrnUpdateSSAForLoop(L, ValueToLiveinMap);
+    wrnUpdateSSAPreprocessForOuterLoop(L, ValueToLiveinMap, LiveOutVals);
+    wrnUpdateSSAForLoop(L, ValueToLiveinMap, LiveOutVals);
     if (DT) {
       DT->changeImmediateDominator(DispatchHeaderBB, StaticInitBB);
 
@@ -2007,8 +2086,8 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
 
     KmpcFiniCI->eraseFromParent();
 
-    wrnUpdateSSAPreprocessForOuterLoop(L, ValueToLiveinMap);
-    wrnUpdateSSAForLoop(L, ValueToLiveinMap);
+    wrnUpdateSSAPreprocessForOuterLoop(L, ValueToLiveinMap, LiveOutVals);
+    wrnUpdateSSAForLoop(L, ValueToLiveinMap, LiveOutVals);
 
     if (DT) {
       DT->changeImmediateDominator(DispatchHeaderBB, DispatchInitBB);

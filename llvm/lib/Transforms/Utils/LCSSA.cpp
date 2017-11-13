@@ -290,14 +290,18 @@ static void computeBlocksDominatingExits(
 #if INTEL_CUSTOMIZATION
 bool llvm::formLCSSA(
     Loop &L, DominatorTree &DT, LoopInfo *LI, ScalarEvolution *SE,
-    DenseMap<Value *, std::pair<Value *, BasicBlock *>> *ValueToLiveinMap) {
+    DenseMap<Value *, std::pair<Value *, BasicBlock *>> *ValueToLiveinMap,
+    SmallSetVector<Instruction *, 8> *LiveoutVals) {
 #endif  // INTEL_CUSTOMIZATION
   bool Changed = false;
 
   SmallVector<BasicBlock *, 8> ExitBlocks;
-  L.getExitBlocks(ExitBlocks);
-  if (ExitBlocks.empty())
-    return false;
+
+  if (LiveoutVals == nullptr) { // INTEL
+    L.getExitBlocks(ExitBlocks);
+    if (ExitBlocks.empty())
+      return false;
+  } // INTEL
 
   SmallSetVector<BasicBlock *, 8> BlocksDominatingExits;
 
@@ -306,7 +310,14 @@ bool llvm::formLCSSA(
   // defined in the loop can be used outside.
   // We compute the set of blocks fullfilling the conditions in advance
   // walking the dominator tree upwards until we hit a loop header.
-  computeBlocksDominatingExits(L, DT, ExitBlocks, BlocksDominatingExits);
+#if INTEL_CUSTOMIZATION
+  if (LiveoutVals == nullptr)
+    computeBlocksDominatingExits(L, DT, ExitBlocks, BlocksDominatingExits);
+  else {
+    for (Instruction *I : *LiveoutVals)
+      BlocksDominatingExits.insert(I->getParent());
+  }
+#endif // INTEL_CUSTOMIZATION
 
   SmallVector<Instruction *, 8> Worklist;
 
@@ -318,7 +329,8 @@ bool llvm::formLCSSA(
       // and instructions with one use that is in the same block as this.
       if (I.use_empty() ||
           (I.hasOneUse() && I.user_back()->getParent() == BB &&
-           !isa<PHINode>(I.user_back())))
+           !isa<PHINode>(I.user_back())) ||
+          (LiveoutVals && !LiveoutVals->count(&I)))
         continue;
 
       // Tokens cannot be used in PHI nodes, so we skip over them.
@@ -340,26 +352,24 @@ bool llvm::formLCSSA(
   if (SE && Changed)
     SE->forgetLoop(&L);
 
-  assert(L.isLCSSAForm(DT));
+#if INTEL_CUSTOMIZATION
+  if (LiveoutVals == nullptr)
+    assert(L.isLCSSAForm(DT));
+#endif // INTEL_CUSTOMIZATION
 
   return Changed;
 }
 
 /// Process a loop nest depth first.
-#if INTEL_CUSTOMIZATION
-bool llvm::formLCSSARecursively(
-    Loop &L, DominatorTree &DT, LoopInfo *LI, ScalarEvolution *SE,
-    DenseMap<Value *, std::pair<Value *, BasicBlock *>> *ValueToLiveinMap) {
-#endif  // INTEL_CUSTOMIZATION
+bool llvm::formLCSSARecursively(Loop &L, DominatorTree &DT, LoopInfo *LI,
+                                ScalarEvolution *SE) {
   bool Changed = false;
 
   // Recurse depth-first through inner loops.
   for (Loop *SubLoop : L.getSubLoops())
-    Changed |= formLCSSARecursively(*SubLoop, DT, LI, SE,
-                                    ValueToLiveinMap); // INTEL
+    Changed |= formLCSSARecursively(*SubLoop, DT, LI, SE);
 
-  Changed |= formLCSSA(L, DT, LI, SE,
-                       ValueToLiveinMap); // INTEL
+  Changed |= formLCSSA(L, DT, LI, SE);
   return Changed;
 }
 

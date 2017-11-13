@@ -631,17 +631,20 @@ private:
   /// \brief Collect the live-in value for the phis at the loop header.
   void wrnUpdateSSAPreprocess(
       Loop *L,
-      DenseMap<Value *, std::pair<Value *, BasicBlock *>> &ValueToLiveinMap);
+      DenseMap<Value *, std::pair<Value *, BasicBlock *>> &ValueToLiveinMap,
+      SmallSetVector<Instruction *, 8> &LiveoutVals);
   /// \brief Replace the live-in value of the phis at the loop header with
   /// the loop carried value.
   void wrnUpdateSSAPreprocessForOuterLoop(
       Loop *L,
-      DenseMap<Value *, std::pair<Value *, BasicBlock *>> &ValueToLiveinMap);
+      DenseMap<Value *, std::pair<Value *, BasicBlock *>> &ValueToLiveinMap,
+      SmallSetVector<Instruction *, 8> &LiveOutVals);
 
   /// \brief Update the SSA form in the region using SSA Updater.
   void wrnUpdateSSAForLoop(
       Loop *L,
-      DenseMap<Value *, std::pair<Value *, BasicBlock *>> &ValueToLiveinMap);
+      DenseMap<Value *, std::pair<Value *, BasicBlock *>> &ValueToLiveinMap,
+      SmallSetVector<Instruction *, 8> &LiveOutVals);
 };
 } /// namespace vpo
 } /// namespace llvm
