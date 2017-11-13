@@ -22,8 +22,8 @@ loop:
 ; CHECK: mov64 %[[DEST:[a-z0-9_]+]], %r2
 ; CHECK: sld64 %[[VAL:[a-z0-9_]+]], %[[SRC]], %[[LEN]], 1, %[[OUTORDL:[a-z0-9_]+]], %[[INORD]], MEMLEVEL_T0
 ; CHECK: sst64 %[[DEST]], %[[LEN]], 1, %[[VAL]], %[[OUTORDS:[a-z0-9_]+]], %[[INORD]], MEMLEVEL_T0
+; CHECK: .unit sxu
 ; CHECK: all0 %[[OUTORD:[a-z0-9_]+]], %[[OUTORDL]], %[[OUTORDS]], %ign, %ign
-; CHECK: mov0 %r0, %[[OUTORD]]
 
 exit:
   ret void
