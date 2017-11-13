@@ -373,6 +373,10 @@ include_directories( BEFORE ${OCL_GLOBAL_INCLUDE} )
 
 add_definitions(-D__TBB_NO_IMPLICIT_LINKAGE=1)
 
+# define INTEL_CUSTOMIZATION xmain macro
+add_definitions( -DINTEL_CUSTOMIZATION )
+
+
 # externals
 add_subdirectory( externals )
 
