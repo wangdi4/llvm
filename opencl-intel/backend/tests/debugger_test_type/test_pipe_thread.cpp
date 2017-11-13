@@ -78,4 +78,4 @@ RETURN_TYPE_ENTRY_POINT NamedPipeThread::Run()
     return 0;
 }
 
-#endif _WIN32
+#endif // _WIN32

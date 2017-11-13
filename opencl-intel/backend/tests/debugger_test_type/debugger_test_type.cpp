@@ -224,7 +224,7 @@ int main(int argc, char** argv)
 #ifdef _WIN32
     // Wait for thread to finish
     thread->Join();
-#endif _WIN32
+#endif // _WIN32
 
     DTT_LOG("debug_test_type done.");
     DTT_LOG("--------------------------------->");
