@@ -2,6 +2,7 @@ set(LLVM_TARGET_DEFINITIONS CSA.td)
 
 tablegen(LLVM CSAGenAsmMatcher.inc -gen-asm-matcher)
 tablegen(LLVM CSAGenRegisterInfo.inc -gen-register-info)
+tablegen(LLVM CSAGenCSAOpInfo.inc -gen-csa-op-size)
 tablegen(LLVM CSAGenInstrInfo.inc -gen-instr-info)
 tablegen(LLVM CSAGenAsmWriter.inc -gen-asm-writer)
 tablegen(LLVM CSAGenDAGISel.inc -gen-dag-isel)
@@ -19,6 +20,7 @@ add_llvm_target(CSACodeGen
   CSAISelDAGToDAG.cpp
   CSAISelLowering.cpp
   CSAInstrInfo.cpp
+  CSAIntrinsicCleaner.cpp
   CSALowerAggrCopies.cpp
   CSALoopIntrinsicExpander.cpp
   CSAMCInstLower.cpp
@@ -38,7 +40,6 @@ add_llvm_target(CSACodeGen
   CSAIndependentMemopOrdering.cpp
   CSALicAllocation.cpp
   CSAIfConversion.cpp
-  CSAConvertControlPass.cpp
   CSADFParLoopPass.cpp
   CSAFortranIntrinsics.cpp
   CSANormalizeDebugPass.cpp

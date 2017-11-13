@@ -145,19 +145,18 @@ private:
   // basic blocks are part of it.
   const Loop* cur_loop;
 
-  // Recursively iterates a loop and its subloops and attempts expansions. Returns
-  // true if any loops were expanded; false otherwise.
-  bool recurseLoops(Loop*, BasicBlock* dummy_exit);
+  // Recursively iterates a loop and its subloops and attempts expansions.
+  void recurseLoops(Loop*, BasicBlock* dummy_exit);
 
-  // Looks for a parallel loop/SPMD intrinsic in the blocks before the loop. If
-  // none is found this will return nullptr and this loop should probably be
-  // left alone.
+  // Checks whether a particular instruction is a loop intrinsic that might need
+  // expansion. Returns a pointer to it as an IntrinsicInst if so; otherwise
+  // returns nullptr.
+  IntrinsicInst* asLoopIntrinsic(Instruction&) const;
+
+  // Looks for a parallel loop/SPMDization intrinsic in the blocks before the
+  // loop. If none is found this will return nullptr and this loop should
+  // probably be left alone.
   IntrinsicInst* detectIntrinsic(Loop*) const;
-
-  // Locates any iteration-scoped storage declared in a loop. If there is some,
-  // the lifetime start intrinsic is returned and the loop really shouldn't be
-  // parallelized.
-  const IntrinsicInst* locateScopedStorage(Loop*) const;
 
   // Attempts to expand a given loop. Returns true if it succeeded, false if it
   // ran into issues.
@@ -176,82 +175,56 @@ private:
   // calls (which might contain loads) this function needs to check for those
   // explicitly.
   bool mayNeedOrdering(const Instruction*) const; 
+
+  // Removes all parallel loop/(unpaired) SPMDization intrinsics in a function.
+  // Returns true if any intrinsics were removed, false otherwise.
+  bool removeIntrinsics(Function&);
 };
 
 char CSALoopIntrinsicExpander::ID = 0;
 
 bool CSALoopIntrinsicExpander::runOnFunction(Function& F) {
 
-  LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-  DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-  PostDominatorTree local_pdt;
-  PDT = &local_pdt;
+  // Go ahead and expand intrinsics, but only if optimizations are enabled.
+  if (not skipFunction(F)) {
 
-  // The counter starts at 1000 for each function to reduce collisions with
-  // manually-added token values.
-  next_token = 1000;
+    LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+    DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+    PostDominatorTree local_pdt;
+    PDT = &local_pdt;
 
-  // Create a dummy exit here in anticipation of possible backedge rerouting.
-  DummyExitNode dummy_exit {F, DT, PDT};
+    // The counter starts at 1000 for each function to reduce collisions with
+    // manually-added token values.
+    next_token = 1000;
 
-  bool did_expansions = false;
-  for (Loop* L : *LI) did_expansions |= recurseLoops(L, dummy_exit);
+    // Create a dummy exit here in anticipation of possible backedge rerouting.
+    DummyExitNode dummy_exit {F, DT, PDT};
 
-  return did_expansions;
+    for (Loop* L : *LI) recurseLoops(L, dummy_exit);
+  }
+
+  // Make sure to clean up all of the loop intrinsics whether or not they've
+  // been expanded.
+  return removeIntrinsics(F);
 }
 
-bool CSALoopIntrinsicExpander::recurseLoops(Loop* L, BasicBlock* dummy_exit) {
-  bool did_expansions = false;
+void CSALoopIntrinsicExpander::recurseLoops(Loop* L, BasicBlock* dummy_exit) {
 
   // Handle the subloops here.
   for (Loop*const subloop : L->getSubLoops())
-    did_expansions |= recurseLoops(subloop, dummy_exit);
+    recurseLoops(subloop, dummy_exit);
 
   // This pass is only equipped to handle normal form loops. This shouldn't be an
   // issue if LoopSimplify is run before this pass, but this is a check just to
   // make sure.
   if (not L->isLoopSimplifyForm()) {
     DEBUG(errs() << "NON-LOOPSIMPLIFIED LOOP FOUND!\nDid LoopSimplify run?\n");
-    return did_expansions;
+    return;
   }
 
-  // Only handle loops marked with the parallel loop intrinsic.
+  // Only handle loops marked with a loop intrinsic.
   IntrinsicInst*const found_parloop = detectIntrinsic(L);
-  if (not found_parloop) return did_expansions;
-
-  // Make sure that the loop does not have any iteration-scoped storage in it.
-  const IntrinsicInst* found_storage = locateScopedStorage(L);
-  if (found_storage) {
-    errs() << "\n";
-    errs().changeColor(raw_ostream::BLUE, true);
-    const DebugLoc& parloop_loc = found_parloop->getDebugLoc();
-    if (parloop_loc) {
-      errs() << "!! WARNING: IGNORING PARALLEL LOOP BUILTIN AT ";
-      parloop_loc.print(errs());
-      errs() << " !!";
-    } else {
-      errs() << "!! WARNING: IGNORING PARALLEL LOOP BUILTIN !!";
-    }
-    errs().resetColor();
-    const DebugLoc& loc = found_storage->getDebugLoc();
-    if (loc) {
-      errs() << R"help(
-Iteration-private storage was detected at )help";
-      loc.print(errs());
-      errs() << ".";
-    } else {
-      errs() << R"help(
-Iteration-private storage was detected inside of the loop. Run with -g for
-location information.)help";
-    }
-    errs() << R"help(
-
-Consider moving the storage allocation outside of the loop in order to
-parallelize it.
-
-)help";
-    return did_expansions;
-  }
+  if (not found_parloop) return;
 
   // If the loop should be expanded, expand it or complain if there's something
   // wrong with it.
@@ -269,7 +242,7 @@ We were unable to automatically identify a unique section for the loop at
     } else {
       errs() << R"help(
 We were unable to automatically identify a unique section for a loop marked
-with __builtin_csa_parallel_loop(). Use -g for location information.)help";
+with a CSA loop builtin. Use -g for location information.)help";
     }
     errs() << R"help(
 
@@ -279,10 +252,21 @@ loop explicitly with __builtin_csa_parallel_{region,section}_{entry,exit}()
 instead.
 
 )help";
-    return did_expansions;
+    return;
   }
+}
 
-  return true;
+IntrinsicInst* CSALoopIntrinsicExpander::asLoopIntrinsic(
+  Instruction& inst
+) const {
+  IntrinsicInst*const intr_inst = dyn_cast<IntrinsicInst>(&inst);
+  if (
+    intr_inst and (
+      intr_inst->getIntrinsicID() == Intrinsic::csa_parallel_loop
+        or intr_inst->getIntrinsicID() == Intrinsic::csa_spmdization
+    )
+  ) return intr_inst;
+  return nullptr;
 }
 
 IntrinsicInst* CSALoopIntrinsicExpander::detectIntrinsic(Loop* L) const {
@@ -295,11 +279,8 @@ IntrinsicInst* CSALoopIntrinsicExpander::detectIntrinsic(Loop* L) const {
 
     // Look for intrinsic calls with one of the right IDs.
     for (Instruction& inst : *cur_block) {
-      if (IntrinsicInst*const intr_inst = dyn_cast<IntrinsicInst>(&inst)) {
-        if (
-          intr_inst->getIntrinsicID() == Intrinsic::csa_parallel_loop
-            or intr_inst->getIntrinsicID() == Intrinsic::csa_spmdization
-        ) return intr_inst;
+      if (IntrinsicInst*const intr_inst = asLoopIntrinsic(inst)) {
+        return intr_inst;
       }
     }
   }
@@ -307,20 +288,18 @@ IntrinsicInst* CSALoopIntrinsicExpander::detectIntrinsic(Loop* L) const {
   return nullptr;
 }
 
-const IntrinsicInst* CSALoopIntrinsicExpander::locateScopedStorage(
-  Loop* L
-) const {
-
-  // Look for lifetime start intrinsic calls inside of the loop this time.
-  for (const BasicBlock*const cur_block : L->blocks()) {
-    for (const Instruction& inst : *cur_block) {
-      if (const IntrinsicInst*const intr_inst = dyn_cast<IntrinsicInst>(&inst))
-        if (intr_inst->getIntrinsicID() == Intrinsic::lifetime_start)
-          return intr_inst;
+bool CSALoopIntrinsicExpander::removeIntrinsics(Function& F) {
+  using namespace std;
+  bool removed_any = false;
+  for (BasicBlock& cur_block : F) {
+    for (auto it = begin(cur_block); it != end(cur_block);) {
+      if (asLoopIntrinsic(*it)) {
+        it = it->eraseFromParent();
+        removed_any = true;
+      } else ++it;
     }
   }
-
-  return nullptr;
+  return removed_any;
 }
 
 bool CSALoopIntrinsicExpander::expandLoop(
@@ -403,7 +382,10 @@ bool CSALoopIntrinsicExpander::expandLoop(
   // it if there weren't any memory references. Just emit a warning about that.
   else if (not cur_section_begin or not cur_section_end) {
 
-    errs() << "\n!! WARNING: NO MEMORY OPERATIONS IN LOOP !!";
+    errs() << "\n";
+    errs().changeColor(raw_ostream::BLUE, true);
+    errs() << "!! WARNING: NO MEMORY OPERATIONS IN LOOP !!";
+    errs().resetColor();
     const DebugLoc& loc = intr->getDebugLoc();
     if (loc) {
       errs() << "\nThe loop at:\n  ";
@@ -422,19 +404,16 @@ Re-run with -g to see more location information.
 )help";
     }
 
-    intr->eraseFromParent();
     return true;
   }
 
-  // Go ahead and delete the original intrinsic; there should be enough information
-  // at this point to finish the expansion. Now is also a good time to update the
-  // statistic.
+  // There should be enough information at this point to finish the expansion;
+  // go ahead and update the statistic.
   ++(
     intr->getIntrinsicID() == Intrinsic::csa_parallel_loop
       ? NumLoopIntrinsicExpansions
       : NumSPMDIntrinsicExpansions
   );
-  intr->eraseFromParent();
 
   // The csa.parallel.region.entry intrinsic goes at the end of the preheader.
   Instruction*const preheader_terminator = L->getLoopPreheader()->getTerminator();
@@ -531,9 +510,7 @@ void initializeCSALoopIntrinsicExpanderPass(PassRegistry&);
 
 static RegisterPass<CSALoopIntrinsicExpander> rpinst {
   "csa-loop-intrinsic-expander",
-  "Expand CSA parallel loop intrinsics",
-  true, // (Does not modify the CFG)
-  false // (Not an analysis pass)
+  "Expand CSA parallel loop intrinsics"
 };
 
 Pass* llvm::createCSALoopIntrinsicExpanderPass() {

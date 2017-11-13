@@ -87,11 +87,15 @@ class RegImmOperand<ValueType vt> : Operand<vt>, ComplexPattern<vt,1,"SelectRegI
 // printed and parsed as their symbolic names. The default numerically matches
 // the simulator's default value in csa.h. (This is CSA::ROUND_NEAREST.)
 // Note that RMODE operands are optional in the sense that the compiler doesn't
-// need to add them to MachineInstrs. However, the parser needs them to be
-// explicitly provided.
+// need to add them to MachineInstrs.
+def RmodeAsmOperand : AsmOperandClass {
+  let Name = "RMode";
+  let IsOptional = 1;
+}
 def RMODE : OperandWithDefaultOps <i64, (ops (i64 0))>
 {
   let PrintMethod = "printRModeOperand";
+  let ParserMatchClass = RmodeAsmOperand;
 }
 
 // Memory level operands. For simplicity these use numeric values that match
@@ -269,7 +273,7 @@ def ADJCALLSTACKUP : PseudoInstCSA<(outs), (ins i64imm:$amt1, i64imm:$amt2),
 
 class MovOp<GenericOp gen, CSAOpInfo oi,
             InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
-  FMTGEN<
+  FMTGEN<gen, oi,
     (outs oi.RC:$dst),
     (ins oi.RC:$op1), // Reg or literal (e.g. either i32 or f32 for 32b)
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $op1"),
@@ -280,7 +284,7 @@ class MovOp<GenericOp gen, CSAOpInfo oi,
 
 class UnaryOp<GenericOp gen, SDNode opNode, CSAOpInfo oi,
               InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
-  FMTGEN<
+  FMTGEN<gen, oi,
     (outs oi.RC:$dst),
     (ins oi.RCL:$op1),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $op1"),
@@ -290,7 +294,7 @@ class UnaryOp<GenericOp gen, SDNode opNode, CSAOpInfo oi,
 // Separate pattern because not/ineg are PatFrags rather than SDNodes
 class UnaryOpP<GenericOp gen, PatFrag opNode, CSAOpInfo oi,
                InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
-  FMTGEN<
+  FMTGEN<gen, oi,
     (outs oi.RC:$dst),
     (ins oi.RCL:$op1),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $op1"),
@@ -302,7 +306,7 @@ class UnaryOpP<GenericOp gen, PatFrag opNode, CSAOpInfo oi,
 
 class SExtOp<GenericOp gen, CSAOpInfo oid, CSAOpInfo ois,
              InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
-  FMTGEN<
+  FMTGEN<gen, oid,
     (outs oid.RC:$dst),
     (ins ois.RCL:$op1, ois.RCL:$op2),
     !strconcat(gen.AsmString, oid.InstrSuffix, "\t$dst, $op1, $op2"),
@@ -311,7 +315,7 @@ class SExtOp<GenericOp gen, CSAOpInfo oid, CSAOpInfo ois,
 
 class CvtOp<GenericOp gen, SDNode opNode, CSAOpInfo oid, CSAOpInfo ois,
             InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
-  FMTGEN<
+  FMTGEN<gen, oid,
     (outs oid.RC:$dst),
     (ins ois.RCL:$src),
     !strconcat(gen.AsmString, oid.InstrSuffix, ois.InstrSuffix, "\t$dst, $src"),
@@ -322,7 +326,7 @@ class CvtOp<GenericOp gen, SDNode opNode, CSAOpInfo oid, CSAOpInfo ois,
 // appear to be an advantage.
 class BinOp<GenericOp gen, SDNode opNode, CSAOpInfo oi,
             InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
-  FMTGEN<
+  FMTGEN<gen, oi,
     (outs oi.RC:$dst),
     (ins oi.RCL:$op1, oi.RCL:$op2),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $op1, $op2"),
@@ -332,7 +336,7 @@ class BinOp<GenericOp gen, SDNode opNode, CSAOpInfo oi,
 // Same as BinOp, but with an optional rounding mode.
 class BinOpR<GenericOp gen, SDNode opNode, CSAOpInfo oi,
             InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
-  FMTGEN<
+  FMTGEN<gen, oi,
     (outs oi.RC:$dst),
     (ins oi.RCL:$op1, oi.RCL:$op2, RMODE:$rm),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $op1, $op2, $rm"),
@@ -344,7 +348,7 @@ class BinOpR<GenericOp gen, SDNode opNode, CSAOpInfo oi,
 // multi-output selection.
 class BinOpC<GenericOp gen, CSAOpInfo oi,
             InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
-  FMTGEN<
+  FMTGEN<gen, oi,
     (outs oi.RC:$dst, I1:$cout),
     (ins oi.RCL:$op1, oi.RCL:$op2, Ti1.RCL:$cin),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $cout, $op1, $op2, $cin"),
@@ -354,7 +358,7 @@ class BinOpC<GenericOp gen, CSAOpInfo oi,
 // Shift ops specifically have an i8 for the shift amount
 class ShiftOp<GenericOp gen, SDNode opNode, CSAOpInfo oi,
               InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
-  FMTGEN<
+  FMTGEN<gen, oi,
     (outs oi.RC:$dst),
     (ins oi.RCL:$op1, RCLi8:$op2),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $op1, $op2"),
@@ -365,16 +369,18 @@ class ShiftOp<GenericOp gen, SDNode opNode, CSAOpInfo oi,
 // an SDNode...
 class CmpOp<GenericOp gen, PatFrag opNode, CSAOpInfo oi,
             InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
-  FMTGEN<
+  FMTGEN<gen, oi,
     (outs I1:$dst),
     (ins oi.RCL:$op1, oi.RCL:$op2),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $op1, $op2"),
     [(set I1:$dst, (opNode (oi.VT oi.RCL:$op1), (oi.VT oi.RCL:$op2)))],
-    !listconcat(preds,gen.Preds,oi.Preds), itin>;
+    !listconcat(preds,gen.Preds,oi.Preds), itin> {
+  let isCompare = 1;
+}
 
 class ShAdd<GenericOp gen, SDNode inner, SDNode outer, CSAOpInfo oi,
             InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
-  FMTGEN<
+  FMTGEN<gen, oi,
     (outs oi.RC:$dst),
     (ins oi.RCL:$op1, RCLi8:$op2, oi.RCL:$op3),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $op1, $op2, $op3"),
@@ -389,7 +395,7 @@ def fmrs: TriOpFrag<(fma (fneg node:$LHS), node:$MHS, node:$RHS)>;
 
 class FusedOp1<GenericOp gen, SDNode inner, SDNode outer, CSAOpInfo oi,
                InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
-  FMTGEN<
+  FMTGEN<gen, oi,
     (outs oi.RC:$dst),
     (ins oi.RCL:$op1, oi.RCL:$op2, oi.RCL:$op3, RMODE:$rm),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $op1, $op2, $op3, $rm"),
@@ -398,7 +404,7 @@ class FusedOp1<GenericOp gen, SDNode inner, SDNode outer, CSAOpInfo oi,
 
 class FusedOp2<GenericOp gen, SDNode inner, SDNode outer, CSAOpInfo oi,
                InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
-  FMTGEN<
+  FMTGEN<gen, oi,
     (outs oi.RC:$dst),
     (ins oi.RCL:$op1, oi.RCL:$op2, oi.RCL:$op3, RMODE:$rm),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $op2, $op3, $op1, $rm"),
@@ -407,7 +413,7 @@ class FusedOp2<GenericOp gen, SDNode inner, SDNode outer, CSAOpInfo oi,
 
 class TriOp1<GenericOp gen, SDPatternOperator node, CSAOpInfo oi,
                InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
-  FMTGEN<
+  FMTGEN<gen, oi,
     (outs oi.RC:$dst),
     (ins oi.RCL:$op1, oi.RCL:$op2, oi.RCL:$op3, RMODE:$rm),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $op1, $op2, $op3, $rm"),
@@ -416,31 +422,16 @@ class TriOp1<GenericOp gen, SDPatternOperator node, CSAOpInfo oi,
 
 class CopyOp<GenericOp gen, CSAOpInfo oi,
              InstrItinClass itin = IIVir, list<Predicate> preds = []> :
-  FMTGEN<
+  FMTGEN<gen, oi,
     (outs oi.RC:$op0, oi.RC:$op1, oi.RC:$op2, oi.RC:$op3),
     (ins oi.RCL:$op4),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$op0, $op1, $op2, $op3, $op4"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin>;
 
-class RAppOp<GenericOp gen, CSAOpInfo oi,
-             InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
-  FMTGEN<
-    (outs oi.RC:$dst, I1:$pred),
-    (ins  oi.RCL:$op2, oi.RCL:$op3),
-    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $pred, $op2, $op3"),
-    [], !listconcat(preds,gen.Preds,oi.Preds), itin>;
-
-class RSqrtAppOp<GenericOp gen, CSAOpInfo oi,
-             InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
-  FMTGEN<
-    (outs oi.RC:$dst, I1:$pred),
-    (ins  oi.RCL:$op2),
-    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $pred, $op2"),
-    [], !listconcat(preds,gen.Preds,oi.Preds), itin>;
-
+def MERGE     : GenericOp<"merge">;
 class MergeOp<string opStr, CSAOpInfo t,
               list<Predicate> preds, InstrItinClass itin> :
-  FMTGEN<
+  FMTGEN<MERGE, t,
     (outs t.RC:$dst),
     (ins I1:$sel, t.RCL:$v0, t.RCL:$v1),
     !strconcat(opStr, "\t$dst, $sel, $v0, $v1"),
@@ -449,7 +440,7 @@ class MergeOp<string opStr, CSAOpInfo t,
 
 class SwitchOp<GenericOp gen, CSAOpInfo oi,
                InstrItinClass itin, list<Predicate> preds = []> :
-  FMTGEN<
+  FMTGEN<gen, oi,
     (outs oi.RC:$dst0, oi.RC:$dst1),
     (ins I1:$sel, oi.RCL:$v),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst0, $dst1, $sel, $v"),
@@ -457,7 +448,7 @@ class SwitchOp<GenericOp gen, CSAOpInfo oi,
 
 class SwitchAnyOp<GenericOp gen, CSAOpInfo oi,
                   InstrItinClass itin, list<Predicate> preds = []> :
-  FMTGEN<
+  FMTGEN<gen, oi,
     (outs oi.RC:$dst0, oi.RC:$dst1, I1:$sel),
     (ins oi.RCL:$v),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst0, $dst1, $sel, $v"),
@@ -465,7 +456,7 @@ class SwitchAnyOp<GenericOp gen, CSAOpInfo oi,
 
 class PickOp<GenericOp gen, CSAOpInfo oi,
              InstrItinClass itin, list<Predicate> preds = []>:
-  FMTGEN<
+  FMTGEN<gen, oi,
     (outs oi.RC:$dst),
     (ins I1:$sel, oi.RCL:$v0, oi.RCL:$v1),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $sel, $v0, $v1"),
@@ -473,7 +464,7 @@ class PickOp<GenericOp gen, CSAOpInfo oi,
 
 class PickAnyOp<GenericOp gen, CSAOpInfo oi,
                 InstrItinClass itin, list<Predicate> preds = []> :
-  FMTGEN<
+  FMTGEN<gen, oi,
     (outs oi.RC:$dst, I1:$sel),
     (ins oi.RCL:$v0, oi.RCL:$v1),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $sel, $v0, $v1"),
@@ -487,7 +478,7 @@ class PickAnyOp<GenericOp gen, CSAOpInfo oi,
 // instruction detection.
 class SeqCOp<GenericOp gen, CSAOpInfo oi,
              InstrItinClass itin, list<Predicate> preds = []> :
-  FMTGEN<  // TODO: something to reflect state
+  FMTGEN<gen, oi,  // TODO: something to reflect state
     (outs oi.RC:$val, I1:$pred, I1:$first, I1:$last),
     (ins oi.RCL:$base, oi.RCL:$count, oi.RCL:$stride),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$val, $pred, $first, $last, $base, $count, $stride"),
@@ -497,7 +488,7 @@ class SeqCOp<GenericOp gen, CSAOpInfo oi,
 // TODO: something to reflect state
 class SeqSOp<GenericOp gen, CSAOpInfo oi,
              InstrItinClass itin, list<Predicate> preds = []> :
-  FMTGEN<
+  FMTGEN<gen, oi,
     (outs oi.RC:$val, I1:$pred, I1:$first, I1:$last),
     (ins oi.RCL:$base, oi.RCL:$bound, oi.RCL:$stride),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$val, $pred, $first, $last, $base, $bound, $stride"),
@@ -506,7 +497,7 @@ class SeqSOp<GenericOp gen, CSAOpInfo oi,
 // See comment for SeqCOp, above, as to why hasSideEffects is not being set.
 class RepeatOp<GenericOp gen, CSAOpInfo oi,
                InstrItinClass itin, list<Predicate> preds = []> :
-  FMTGEN<  // TODO: something to reflect state
+  FMTGEN<gen, oi,  // TODO: something to reflect state
     (outs oi.RC:$out),
     (ins I1:$pred, oi.RCL:$in),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$out, $pred, $in"),
@@ -515,7 +506,7 @@ class RepeatOp<GenericOp gen, CSAOpInfo oi,
 // See comment for SeqCOp, above, as to why hasSideEffects is not being set.
 class StrideOp<GenericOp gen, CSAOpInfo oi,
                InstrItinClass itin, list<Predicate> preds = []> :
-  FMTGEN<  // TODO: something to reflect state
+  FMTGEN<gen, oi,  // TODO: something to reflect state
     (outs oi.RC:$out),
     (ins I1:$pred, oi.RCL:$base, oi.RCL:$stride),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$out, $pred, $base, $stride"),
@@ -523,7 +514,7 @@ class StrideOp<GenericOp gen, CSAOpInfo oi,
 
 class SReduceOp<GenericOp gen, CSAOpInfo oi,
                 InstrItinClass itin, list<Predicate> preds = []> :
-  FMTGEN<
+  FMTGEN<gen, oi,
     (outs oi.RC:$result, oi.RC:$each),
     (ins oi.RCL:$init, oi.RCL:$inval, I1:$ctl),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$result, $each, $init, $inval, $ctl"),
@@ -531,7 +522,7 @@ class SReduceOp<GenericOp gen, CSAOpInfo oi,
 
 class SReduceOpR<GenericOp gen, CSAOpInfo oi,
                 InstrItinClass itin, list<Predicate> preds = []> :
-  FMTGEN<
+  FMTGEN<gen, oi,
     (outs oi.RC:$result, oi.RC:$each),
     (ins oi.RCL:$init, oi.RCL:$inval, I1:$ctl, RMODE:$rm),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$result, $each, $init, $inval, $ctl, $rm"),
@@ -539,16 +530,21 @@ class SReduceOpR<GenericOp gen, CSAOpInfo oi,
 
 class FMSReduceOp<GenericOp gen, CSAOpInfo oi,
                   InstrItinClass itin, list<Predicate> preds = []> :
-  FMTGEN<
+  FMTGEN<gen, oi,
     (outs oi.RC:$result, oi.RC:$each),
     (ins oi.RCL:$init, oi.RCL:$inval1, oi.RCL:$inval2, I1:$ctl, RMODE:$rm),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$result, $each, $init, $inval1, $inval2, $ctl, $rm"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin> { }
 
+def LDX : GenericOp<"ldx">;
+def LDD : GenericOp<"ldd">;
+def LDR : GenericOp<"ldd">;
+def LDI : GenericOp<"ld">;
+def LD  : GenericOp<"ld">;
 multiclass LdOp<string opStr, CSAOpInfo t,
            InstrItinClass itin = IILD> {
   let Predicates = [HasIndex], Itinerary = itin in {
-    def X : FMTGEN< // indexed reg+reg
+    def X : FMTGEN<LDX, t, // indexed reg+reg
       (outs t.RC:$dst, MemOrdDef:$issued),
       (ins ADDR_RX:$addr, MEMLVL:$lvl, MemOrdUse:$ready),
       !strconcat(opStr, "x\t$dst, $addr, $issued, $ready, $lvl"),
@@ -556,12 +552,12 @@ multiclass LdOp<string opStr, CSAOpInfo t,
   }
 
   let Predicates = [HasDispl], Itinerary = itin in {
-    def D : FMTGEN< // normal literal displacement form (val+k)
+    def D : FMTGEN<LDD, t, // normal literal displacement form (val+k)
       (outs t.RC:$dst, MemOrdDef:$issued),
       (ins ADDR_RI:$addr, MEMLVL:$lvl, MemOrdUse:$ready),
       !strconcat(opStr, "d\t$dst, $addr, $issued, $ready, $lvl"),
       [(set t.VT:$dst, (load ADDR_RI:$addr))]>;
-    def R : FMTGEN< // non-indexed reg+reg
+    def R : FMTGEN<LDR, t, // non-indexed reg+reg
       (outs t.RC:$dst, MemOrdDef:$issued),
       (ins ADDR_RR:$addr, MEMLVL:$lvl, MemOrdUse:$ready),
       !strconcat(opStr, "d\t$dst, $addr, $issued, $ready, $lvl"),
@@ -569,12 +565,12 @@ multiclass LdOp<string opStr, CSAOpInfo t,
   }
 
   let Itinerary = itin in {
-    def I : FMTGEN<  // e.g. ld of literal address - ld rx,sym
+    def I : FMTGEN<LDI, t,  // e.g. ld of literal address - ld rx,sym
       (outs t.RC:$dst, MemOrdDef:$issued),
       (ins ADDR_I:$addr, MEMLVL:$lvl, MemOrdUse:$ready),
       !strconcat(opStr, "\t$dst, $addr, $issued, $ready, $lvl"),
       [(set t.VT:$dst, (load ADDR_I:$addr))]>;
-    def "" : FMTGEN< // normal basereg form
+    def "" : FMTGEN<LD, t, // normal basereg form
       (outs t.RC:$dst, MemOrdDef:$issued),
       (ins ADDR_R:$addr, MEMLVL:$lvl, MemOrdUse:$ready),
       !strconcat(opStr, "\t$dst, $addr, $issued, $ready, $lvl"),
@@ -583,6 +579,10 @@ multiclass LdOp<string opStr, CSAOpInfo t,
 }
 
 // Ugly combinatorial issue between literal store data and addressing modes
+def STX : GenericOp<"stx">;
+def STD : GenericOp<"std">;
+def STR : GenericOp<"std">;
+def ST  : GenericOp<"st">;
 multiclass StOp<string opStr, CSAOpInfo t,
            InstrItinClass itin = IIST> {
 
@@ -591,7 +591,7 @@ multiclass StOp<string opStr, CSAOpInfo t,
   // See CSATargetLowering::AdjustInstrPostInstrSelection for more details
   let mayStore = 1, Itinerary = itin, hasPostISelHook = 1 in {
     let Predicates = [HasIndex] in {
-      def X : FMTGEN<
+      def X : FMTGEN<STX, t,
         (outs MemOrdDef:$issued),
         (ins ADDR_RX:$addr, t.RCL:$data, MEMLVL:$lvl, MemOrdUse:$ready),
         !strconcat(opStr, "x\t$addr, $data, $issued, $ready, $lvl"),
@@ -599,19 +599,19 @@ multiclass StOp<string opStr, CSAOpInfo t,
     }
 
     let Predicates = [HasDispl] in {
-      def D : FMTGEN<
+      def D : FMTGEN<STD, t,
         (outs MemOrdDef:$issued),
         (ins ADDR_RI:$addr, t.RCL:$data, MEMLVL:$lvl, MemOrdUse:$ready),
         !strconcat(opStr, "d\t$addr, $data, $issued, $ready, $lvl"),
         [(store (t.VT t.RCL:$data), ADDR_RI:$addr)]>;
-      def R : FMTGEN<
+      def R : FMTGEN<STR, t,
         (outs MemOrdDef:$issued),
         (ins ADDR_RR:$addr, t.RCL:$data, MEMLVL:$lvl, MemOrdUse:$ready),
         !strconcat(opStr, "d\t$addr, $data, $issued, $ready, $lvl"),
         [(store (t.VT t.RCL:$data), ADDR_RR:$addr)]>;
     }
 
-    def "" : FMTGEN<
+    def "" : FMTGEN<ST, t,
       (outs MemOrdDef:$issued),
       (ins ADDR_R:$addr, t.RCL:$data, MEMLVL:$lvl, MemOrdUse:$ready),
       !strconcat(opStr, "\t$addr, $data, $issued, $ready, $lvl"),
@@ -619,15 +619,17 @@ multiclass StOp<string opStr, CSAOpInfo t,
   }
 }
 
+def SLDI : GenericOp<"sld">;
+def SLD  : GenericOp<"sld">;
 multiclass StreamLdOp<string opStr, CSAOpInfo t,
            InstrItinClass itin = IILD> {
   let mayLoad = 1, Itinerary = itin in {
-    def I : FMTGEN<  // e.g. ld of literal address - ld rx,sym
+    def I : FMTGEN<SLDI, t,  // e.g. ld of literal address - ld rx,sym
       (outs t.RC:$dst, MemOrdDef:$issued),
       (ins ADDR_I:$addr, CI64:$len, CI64:$stride, MEMLVL:$lvl, MemOrdUse:$ready),
       !strconcat(opStr, "\t$dst, $addr, $len, $stride, $issued, $ready, $lvl"),
       []>;
-    def "" : FMTGEN< // normal basereg form
+    def "" : FMTGEN<SLD, t, // normal basereg form
       (outs t.RC:$dst, MemOrdDef:$issued),
       (ins ADDR_R:$addr, CI64:$len, CI64:$stride, MEMLVL:$lvl, MemOrdUse:$ready),
       !strconcat(opStr, "\t$dst, $addr, $len, $stride, $issued, $ready, $lvl"),
@@ -635,10 +637,11 @@ multiclass StreamLdOp<string opStr, CSAOpInfo t,
     }
 }
 
+def SST : GenericOp<"sst">;
 multiclass StreamStOp<string opStr, CSAOpInfo t,
            InstrItinClass itin = IIST> {
   let mayStore = 1, Itinerary = itin in {
-    def "" : FMTGEN<
+    def "" : FMTGEN<SST, t,
       (outs MemOrdDef:$issued),
       (ins ADDR_R:$addr, CI64:$len, CI64:$stride, t.RCL:$data, MEMLVL:$lvl, MemOrdUse:$ready),
       !strconcat(opStr, "\t$addr, $len, $stride, $data, $issued, $ready, $lvl"),
@@ -648,7 +651,7 @@ multiclass StreamStOp<string opStr, CSAOpInfo t,
 
 class MullohiOp<GenericOp gen, CSAOpInfo oi,
                InstrItinClass itin = IIALU, list<Predicate> preds = []> :
-  FMTGEN <
+  FMTGEN <gen, oi,
     (outs oi.RC:$lo, oi.RC:$hi),
     (ins  oi.RCL:$op1, oi.RCL:$op2),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$lo, $hi, $op1, $op2"),
@@ -658,7 +661,7 @@ class MullohiOp<GenericOp gen, CSAOpInfo oi,
 
 class FModOp<GenericOp gen, CSAOpInfo oi,
                InstrItinClass itin = IIALU, list<Predicate> preds = []> :
-  FMTGEN <
+  FMTGEN <gen, oi,
     (outs oi.RC:$intp, oi.RC:$fracp),
     (ins  oi.RCL:$op1),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$intp, $fracp, $op1"),
@@ -668,7 +671,7 @@ class FModOp<GenericOp gen, CSAOpInfo oi,
 
 class AtomicOp<GenericOp gen, SDPatternOperator opNode, CSAOpInfo oi,
                InstrItinClass itin = IIATM, list<Predicate> preds = []> :
-  FMTGEN <
+  FMTGEN <gen, oi,
     (outs oi.RC:$dst, MemOrdDef:$issued),
     (ins ADDR_R:$addr, oi.RCL:$op3, MEMLVL:$lvl, MemOrdUse:$ready),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$issued, $dst, $addr, $op3, $ready, $lvl"),
@@ -678,7 +681,7 @@ class AtomicOp<GenericOp gen, SDPatternOperator opNode, CSAOpInfo oi,
 
 class AtomicOpR<GenericOp gen, SDPatternOperator opNode, CSAOpInfo oi,
                InstrItinClass itin = IIATM, list<Predicate> preds = []> :
-  FMTGEN <
+  FMTGEN <gen, oi,
     (outs oi.RC:$dst, MemOrdDef:$issued),
     (ins ADDR_R:$addr, oi.RCL:$op3, RMODE:$rm, MEMLVL:$lvl, MemOrdUse:$ready),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$issued, $dst, $addr, $op3, $ready, $rm, $lvl"),
@@ -688,7 +691,7 @@ class AtomicOpR<GenericOp gen, SDPatternOperator opNode, CSAOpInfo oi,
 
 class AtomicOp2<GenericOp gen, PatFrag opNode, CSAOpInfo oi,
                 InstrItinClass itin = IIATM, list<Predicate> preds = []> :
-  FMTGEN <
+  FMTGEN <gen, oi,
     (outs oi.RC:$dst, MemOrdDef:$issued),
     (ins ADDR_R:$addr, oi.RCL:$op3, oi.RCL:$op4, MEMLVL:$lvl, MemOrdUse:$ready),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$issued, $dst, $addr, $op3, $op4, $ready, $lvl"),
@@ -698,12 +701,12 @@ class AtomicOp2<GenericOp gen, PatFrag opNode, CSAOpInfo oi,
 
 multiclass PrefetchOp<string opStr, int rw, InstrItinClass itin = IILD> {
   let Itinerary = itin, hasPostISelHook = 1 in {
-    def I : FMTGEN <
+    def I : FMTGEN <?, ?,
       (outs MemOrdDef:$issued),
       (ins ADDR_I:$addr, MEMLVLExplicit:$lvl, MemOrdUse:$ready),
       !strconcat(opStr, "\t$addr, $issued, $ready, $lvl"),
       [(prefetch ADDR_I:$addr, (i32 rw), imm:$lvl, (i32 1))]>;
-    def "" : FMTGEN <
+    def "" : FMTGEN <?, ?,
       (outs MemOrdDef:$issued),
       (ins ADDR_R:$addr, MEMLVLExplicit:$lvl, MemOrdUse:$ready),
       !strconcat(opStr, "\t$addr, $issued, $ready, $lvl"),
@@ -713,16 +716,16 @@ multiclass PrefetchOp<string opStr, int rw, InstrItinClass itin = IILD> {
 
 let isBranch=1, isTerminator=1, Itinerary = IICtl in {
   // Branch true
-  def BT : FMTGEN<(outs), (ins I1:$cond, brtarget:$target),
+  def BT : FMTGEN<?, ?, (outs), (ins I1:$cond, brtarget:$target),
     "bt\t$cond, $target",
     [(brcond I1:$cond, bb:$target)]>;
   // Branch false
-  def BF : FMTGEN<(outs), (ins I1:$cond, brtarget:$target),
+  def BF : FMTGEN<?, ?, (outs), (ins I1:$cond, brtarget:$target),
     "bf\t$cond, $target",
     [(brcond (not I1:$cond), bb:$target)]>;
   // Unconditional branch
   let isBarrier=1 in {
-    def BR : FMTGEN<(outs), (ins brtarget:$target),
+    def BR : FMTGEN<?, ?, (outs), (ins brtarget:$target),
       "br\t$target",
       [(br bb:$target)]>;
   }
@@ -734,14 +737,14 @@ def : Pat<(brcond (i1 (setne I1:$cond, -1)), bb:$target),
           (BF I1:$cond, bb:$target)>;
 
 let isReturn=1, isTerminator=1, isBarrier=1, Itinerary = IICtl in
-def RET : FMTGEN<
+def RET : FMTGEN<?, ?,
     (outs),
     (ins),
     "ret\t%ra",         // implicit use of RA
     [(CSARet)]>;
 
 let isBranch=1, isTerminator=1, isBarrier=1, Itinerary = IICtl in
-def JMP : FMTGEN<
+def JMP : FMTGEN<?, ?,
   (outs),
   (ins I64:$target),
   "jmp\t$target",
@@ -758,13 +761,13 @@ let isCall=1, Itinerary = IICtl,
       R48, R49, R50, R51, R52, R53, R54, R55,
       R56, R57, R58, R59,/*FP, TP,  SP,*/RA  ] in {
 
-  def JSR : FMTGEN<
+  def JSR : FMTGEN<?, ?,
     (outs),
     (ins I64:$target, variable_ops),
     "jsr\t%ra, $target",        // implicit use of RA
     []>;
 
-  def JSRi : FMTGEN<
+  def JSRi : FMTGEN<?, ?,
     (outs),
     (ins calltarget:$target, variable_ops),
     "jsr\t%ra, $target",        // implicit use of RA
@@ -772,13 +775,13 @@ let isCall=1, Itinerary = IICtl,
 
   let isTerminator=1, isReturn=1, isBarrier=1, hasExtraSrcRegAllocReq=1,
     isCodeGenOnly=1 in {
-    def JTR : FMTGEN<
+    def JTR : FMTGEN<?, ?,
       (outs),
       (ins I64:$target, variable_ops),
       "jmp\t$target",
       []>;
 
-    def JTRi : FMTGEN<
+    def JTRi : FMTGEN<?, ?,
       (outs),
       (ins calltarget:$target, variable_ops),
       "jmp\t$target",
@@ -1077,141 +1080,86 @@ def ATAN2F16  : BinOp<   ATAN2,  fatan2, Tf16, IIMathF16>;
 def ATAN2F32  : BinOp<   ATAN2,  fatan2, Tf32, IIMathF32>;
 def ATAN2F64  : BinOp<   ATAN2,  fatan2, Tf64, IIMathF64>;
 
-def CMPLT     : GenericOp<"cmplt">;
-def CMPLTS8   : CmpOp<   CMPLT,  setlt,  Ts8,  IIALU>;
-def CMPLTS16  : CmpOp<   CMPLT,  setlt,  Ts16, IIALU>;
-def CMPLTS32  : CmpOp<   CMPLT,  setlt,  Ts32, IIALU>;
-def CMPLTS64  : CmpOp<   CMPLT,  setlt,  Ts64, IIALU>;
-def CMPLTF16  : CmpOp<   CMPLT,  setlt,  Tf16, IICmpF>;
-def CMPLTF32  : CmpOp<   CMPLT,  setlt,  Tf32, IICmpF>;
-def CMPLTF64  : CmpOp<   CMPLT,  setlt,  Tf64, IICmpF>;
+multiclass SignedCmp<GenericOp generic, PatFrag frag> {
+  def S8  : CmpOp<generic, frag, Ts8,  IIALU>;
+  def S16 : CmpOp<generic, frag, Ts16, IIALU>;
+  def S32 : CmpOp<generic, frag, Ts32, IIALU>;
+  def S64 : CmpOp<generic, frag, Ts64, IIALU>;
+}
+multiclass UnsignedCmp<GenericOp generic, PatFrag frag> {
+  def U8  : CmpOp<generic, frag, Tu8,  IIALU>;
+  def U16 : CmpOp<generic, frag, Tu16, IIALU>;
+  def U32 : CmpOp<generic, frag, Tu32, IIALU>;
+  def U64 : CmpOp<generic, frag, Tu64, IIALU>;
+}
+multiclass FloatCmp<GenericOp generic, PatFrag frag> {
+  def F16 : CmpOp<generic, frag, Tf16, IICmpF>;
+  def F32 : CmpOp<generic, frag, Tf32, IICmpF>;
+  def F64 : CmpOp<generic, frag, Tf64, IICmpF>;
+}
 
-def CMPLTU8   : CmpOp<   CMPLT,  setult, Tu8,  IIALU>;
-def CMPLTU16  : CmpOp<   CMPLT,  setult, Tu16, IIALU>;
-def CMPLTU32  : CmpOp<   CMPLT,  setult, Tu32, IIALU>;
-def CMPLTU64  : CmpOp<   CMPLT,  setult, Tu64, IIALU>;
+def CMPLT  :   GenericOp<"cmplt">;
+defm CMPLT :   SignedCmp<CMPLT, setlt>;
+defm CMPLT : UnsignedCmp<CMPLT, setult>;
+def CMPLE  :   GenericOp<"cmple">;
+defm CMPLE :   SignedCmp<CMPLE, setle>;
+defm CMPLE : UnsignedCmp<CMPLE, setule>;
+def CMPGT  :   GenericOp<"cmpgt">;
+defm CMPGT :   SignedCmp<CMPGT, setgt>;
+defm CMPGT : UnsignedCmp<CMPGT, setugt>;
+def CMPGE  :   GenericOp<"cmpge">;
+defm CMPGE :   SignedCmp<CMPGE, setge>;
+defm CMPGE : UnsignedCmp<CMPGE, setuge>;
+def CMPEQ  :   GenericOp<"cmpeq">;
+def CMPNE  :   GenericOp<"cmpne">;
 
-def CMPOLTF16 : CmpOp<   CMPLT,  setolt, Tf16, IICmpF>;
-def CMPOLTF32 : CmpOp<   CMPLT,  setolt, Tf32, IICmpF>;
-def CMPOLTF64 : CmpOp<   CMPLT,  setolt, Tf64, IICmpF>;
+// TODO: Fix the issue of unordered versus ordered floating point comparisons.
+// Until there is a clearer story from the hardware side as to which comparisons
+// are actually to exist, we'll generate both ordered and unordered variants
+// that map to the same assembly string.
+def CMPOLT :   GenericOp<"cmplt">;
+def CMPOLE :   GenericOp<"cmple">;
+def CMPOGT :   GenericOp<"cmpgt">;
+def CMPOGE :   GenericOp<"cmpge">;
+def CMPOEQ :   GenericOp<"cmpeq">;
+def CMPONE :   GenericOp<"cmpne">;
+def CMPULT :   GenericOp<"cmplt">;
+def CMPULE :   GenericOp<"cmple">;
+def CMPUGT :   GenericOp<"cmpgt">;
+def CMPUGE :   GenericOp<"cmpge">;
+def CMPUEQ :   GenericOp<"cmpeq">;
+def CMPUNE :   GenericOp<"cmpne">;
+defm CMPOLT:    FloatCmp<CMPOLT, setolt>;
+defm CMPOLE:    FloatCmp<CMPOLE, setole>;
+defm CMPOGT:    FloatCmp<CMPOGT, setogt>;
+defm CMPOGE:    FloatCmp<CMPOGE, setoge>;
+defm CMPOEQ:    FloatCmp<CMPOEQ, setoeq>;
+defm CMPONE:    FloatCmp<CMPONE, setone>;
+defm CMPULT:    FloatCmp<CMPULT, setult>;
+defm CMPULE:    FloatCmp<CMPULE, setule>;
+defm CMPUGT:    FloatCmp<CMPUGT, setugt>;
+defm CMPUGE:    FloatCmp<CMPUGE, setuge>;
+defm CMPUEQ:    FloatCmp<CMPUEQ, setueq>;
+defm CMPUNE:    FloatCmp<CMPUNE, setune>;
 
-def CMPULTF16 : CmpOp<   CMPLT,  setult, Tf16, IICmpF>;
-def CMPULTF32 : CmpOp<   CMPLT,  setult, Tf32, IICmpF>;
-def CMPULTF64 : CmpOp<   CMPLT,  setult, Tf64, IICmpF>;
-
-def CMPLE     : GenericOp<"cmple">;
-def CMPLES8   : CmpOp<   CMPLE,  setle,  Ts8,  IIALU>;
-def CMPLES16  : CmpOp<   CMPLE,  setle,  Ts16, IIALU>;
-def CMPLES32  : CmpOp<   CMPLE,  setle,  Ts32, IIALU>;
-def CMPLES64  : CmpOp<   CMPLE,  setle,  Ts64, IIALU>;
-def CMPLEF16  : CmpOp<   CMPLE,  setle,  Tf16, IICmpF>;
-def CMPLEF32  : CmpOp<   CMPLE,  setle,  Tf32, IICmpF>;
-def CMPLEF64  : CmpOp<   CMPLE,  setle,  Tf64, IICmpF>;
-
-def CMPLEU8   : CmpOp<   CMPLE,  setule, Tu8,  IIALU>;
-def CMPLEU16  : CmpOp<   CMPLE,  setule, Tu16, IIALU>;
-def CMPLEU32  : CmpOp<   CMPLE,  setule, Tu32, IIALU>;
-def CMPLEU64  : CmpOp<   CMPLE,  setule, Tu64, IIALU>;
-
-def CMPOLEF16 : CmpOp<   CMPLE,  setole, Tf16, IICmpF>;
-def CMPOLEF32 : CmpOp<   CMPLE,  setole, Tf32, IICmpF>;
-def CMPOLEF64 : CmpOp<   CMPLE,  setole, Tf64, IICmpF>;
-
-def CMPULEF16 : CmpOp<   CMPLE,  setule, Tf16, IICmpF>;
-def CMPULEF32 : CmpOp<   CMPLE,  setule, Tf32, IICmpF>;
-def CMPULEF64 : CmpOp<   CMPLE,  setule, Tf64, IICmpF>;
+def CMPO   :   GenericOp<"cmpo">;
+def CMPUO  :   GenericOp<"cmpuo">;
+defm CMPO  :    FloatCmp<CMPO, seto>;
+defm CMPUO :    FloatCmp<CMPUO, setuo>;
 
 // Note - there is no cmpeq1.  As long as operands are clean, cmpeq8
 // suffices
-def CMPEQ     : GenericOp<"cmpeq">;
 def CMPEQ8    : CmpOp<   CMPEQ,  seteq,  Ti8,  IIALU>;
 def CMPEQ16   : CmpOp<   CMPEQ,  seteq,  Ti16, IIALU>;
 def CMPEQ32   : CmpOp<   CMPEQ,  seteq,  Ti32, IIALU>;
 def CMPEQ64   : CmpOp<   CMPEQ,  seteq,  Ti64, IIALU>;
-def CMPEQF16  : CmpOp<   CMPEQ,  seteq,  Tf16, IICmpF>;
-def CMPEQF32  : CmpOp<   CMPEQ,  seteq,  Tf32, IICmpF>;
-def CMPEQF64  : CmpOp<   CMPEQ,  seteq,  Tf64, IICmpF>;
-
-def CMPOEQF16 : CmpOp<   CMPEQ,  setoeq, Tf16, IICmpF>;
-def CMPOEQF32 : CmpOp<   CMPEQ,  setoeq, Tf32, IICmpF>;
-def CMPOEQF64 : CmpOp<   CMPEQ,  setoeq, Tf64, IICmpF>;
-
-def CMPUEQF16 : CmpOp<   CMPEQ,  setueq, Tf16, IICmpF>;
-def CMPUEQF32 : CmpOp<   CMPEQ,  setueq, Tf32, IICmpF>;
-def CMPUEQF64 : CmpOp<   CMPEQ,  setueq, Tf64, IICmpF>;
-
-def CMPGT     : GenericOp<"cmpgt">;
-def CMPGTS8   : CmpOp<   CMPGT,  setgt,  Ts8,  IIALU>;
-def CMPGTS16  : CmpOp<   CMPGT,  setgt,  Ts16, IIALU>;
-def CMPGTS32  : CmpOp<   CMPGT,  setgt,  Ts32, IIALU>;
-def CMPGTS64  : CmpOp<   CMPGT,  setgt,  Ts64, IIALU>;
-def CMPGTF16  : CmpOp<   CMPGT,  setgt,  Tf16, IICmpF>;
-def CMPGTF32  : CmpOp<   CMPGT,  setgt,  Tf32, IICmpF>;
-def CMPGTF64  : CmpOp<   CMPGT,  setgt,  Tf64, IICmpF>;
-
-def CMPGTU8   : CmpOp<   CMPGT,  setugt, Tu8,  IIALU>;
-def CMPGTU16  : CmpOp<   CMPGT,  setugt, Tu16, IIALU>;
-def CMPGTU32  : CmpOp<   CMPGT,  setugt, Tu32, IIALU>;
-def CMPGTU64  : CmpOp<   CMPGT,  setugt, Tu64, IIALU>;
-
-def CMPOGTF16 : CmpOp<   CMPGT,  setogt, Tf16, IICmpF>;
-def CMPOGTF32 : CmpOp<   CMPGT,  setogt, Tf32, IICmpF>;
-def CMPOGTF64 : CmpOp<   CMPGT,  setogt, Tf64, IICmpF>;
-
-def CMPUGTF16 : CmpOp<   CMPGT,  setugt, Tf16, IICmpF>;
-def CMPUGTF32 : CmpOp<   CMPGT,  setugt, Tf32, IICmpF>;
-def CMPUGTF64 : CmpOp<   CMPGT,  setugt, Tf64, IICmpF>;
-
-def CMPGE     : GenericOp<"cmpge">;
-def CMPGES8   : CmpOp<   CMPGE,  setge,  Ts8,  IIALU>;
-def CMPGES16  : CmpOp<   CMPGE,  setge,  Ts16, IIALU>;
-def CMPGES32  : CmpOp<   CMPGE,  setge,  Ts32, IIALU>;
-def CMPGES64  : CmpOp<   CMPGE,  setge,  Ts64, IIALU>;
-def CMPGEF16  : CmpOp<   CMPGE,  setge,  Tf16, IICmpF>;
-def CMPGEF32  : CmpOp<   CMPGE,  setge,  Tf32, IICmpF>;
-def CMPGEF64  : CmpOp<   CMPGE,  setge,  Tf64, IICmpF>;
-
-def CMPGEU8   : CmpOp<   CMPGE,  setuge, Tu8,  IIALU>;
-def CMPGEU16  : CmpOp<   CMPGE,  setuge, Tu16, IIALU>;
-def CMPGEU32  : CmpOp<   CMPGE,  setuge, Tu32, IIALU>;
-def CMPGEU64  : CmpOp<   CMPGE,  setuge, Tu64, IIALU>;
-
-def CMPOGEF16 : CmpOp<   CMPGE,  setoge, Tf16, IICmpF>;
-def CMPOGEF32 : CmpOp<   CMPGE,  setoge, Tf32, IICmpF>;
-def CMPOGEF64 : CmpOp<   CMPGE,  setoge, Tf64, IICmpF>;
-
-def CMPUGEF16 : CmpOp<   CMPGE,  setuge, Tf16, IICmpF>;
-def CMPUGEF32 : CmpOp<   CMPGE,  setuge, Tf32, IICmpF>;
-def CMPUGEF64 : CmpOp<   CMPGE,  setuge, Tf64, IICmpF>;
 
 def : Pat<(i1 (setne i1:$op1, i1:$op2)), (XOR1 $op1,$op2)>;
 def : Pat<(i1 (setne i1:$op1, (i1 imm:$imm))), (XOR1 $op1,$imm)>;
-def CMPNE     : GenericOp<"cmpne">;
 def CMPNE8    : CmpOp<   CMPNE,  setne,  Ti8,  IIALU>;
 def CMPNE16   : CmpOp<   CMPNE,  setne,  Ti16, IIALU>;
 def CMPNE32   : CmpOp<   CMPNE,  setne,  Ti32, IIALU>;
 def CMPNE64   : CmpOp<   CMPNE,  setne,  Ti64, IIALU>;
-def CMPNEF16  : CmpOp<   CMPNE,  setne,  Tf16, IICmpF>;
-def CMPNEF32  : CmpOp<   CMPNE,  setne,  Tf32, IICmpF>;
-def CMPNEF64  : CmpOp<   CMPNE,  setne,  Tf64, IICmpF>;
-
-def CMPONEF16 : CmpOp<   CMPNE,  setone, Tf16, IICmpF>;
-def CMPONEF32 : CmpOp<   CMPNE,  setone, Tf32, IICmpF>;
-def CMPONEF64 : CmpOp<   CMPNE,  setone, Tf64, IICmpF>;
-
-def CMPUNEF16 : CmpOp<   CMPNE,  setune, Tf16, IICmpF>;
-def CMPUNEF32 : CmpOp<   CMPNE,  setune, Tf32, IICmpF>;
-def CMPUNEF64 : CmpOp<   CMPNE,  setune, Tf64, IICmpF>;
-
-def CMPO      : GenericOp<"cmpo">;
-def CMPOF16   : CmpOp<   CMPO,   seto,   Tf16, IICmpF>;
-def CMPOF32   : CmpOp<   CMPO,   seto,   Tf32, IICmpF>;
-def CMPOF64   : CmpOp<   CMPO,   seto,   Tf64, IICmpF>;
-
-def CMPUO     : GenericOp<"cmpuo">;
-def CMPUOF16  : CmpOp<   CMPUO,  setuo,  Tf16, IICmpF>;
-def CMPUOF32  : CmpOp<   CMPUO,  setuo,  Tf32, IICmpF>;
-def CMPUOF64  : CmpOp<   CMPUO,  setuo,  Tf64, IICmpF>;
 
 // Shift/add - itinerary depends on constant small shift amt - else IShft...
 def SLADD     : GenericOp<"sladd", [HasShAdd]>;
@@ -1235,14 +1183,6 @@ def FMRSF16   : TriOp1<FMRS, fmrs, Tf16, IIFMAF16>;
 def FMRSF32   : TriOp1<FMRS, fmrs, Tf32, IIFMAF32>;
 def FMRSF64   : TriOp1<FMRS, fmrs, Tf64, IIFMAF64>;
 
-def RCPA      : GenericOp<"rcpa", [HasRcpA]>;
-def RCPAF32   : RAppOp<RCPA,             Tf32, IIRcpAF32>;
-def RCPAF64   : RAppOp<RCPA,             Tf64, IIRcpAF64>;
-
-def RSQRTA    : GenericOp<"rsqrta", [HasRSqrtA]>;
-def RSQRTAF32 : RSqrtAppOp<RSQRTA,       Tf32, IIRSqrtAF32>;
-def RSQRTAF64 : RSqrtAppOp<RSQRTA,       Tf64, IIRSqrtAF64>;
-
 // Unfortunately, "COPY" is already defined...
 def GCOPY     : GenericOp<"copy">;
 def COPY0     : CopyOp<  GCOPY, Ti0>;
@@ -1252,7 +1192,6 @@ def COPY16    : CopyOp<  GCOPY, Ti16>;
 def COPY32    : CopyOp<  GCOPY, Ti32>;
 def COPY64    : CopyOp<  GCOPY, Ti64>;
 
-def MERGE     : GenericOp<"merge">;
 def MERGE0    : MergeOp< "merge0",  Ti0,  [HasI0],  IIVir>;
 def MERGE1    : MergeOp< "merge1",  Ti1,  [HasI1],  IIVir>;
 def MERGE8    : MergeOp< "merge8",  Ti8,  [HasI8],  IIVir>;
@@ -1295,49 +1234,57 @@ def PICKANY16 : PickAnyOp<PICKANY, Ti16, IIVir>;
 def PICKANY32 : PickAnyOp<PICKANY, Ti32, IIVir>;
 def PICKANY64 : PickAnyOp<PICKANY, Ti64, IIVir>;
 
-def LAND1 : FMTGEN<
+def LAND : GenericOp<"land">;
+def LAND1 : FMTGEN<LAND, Ti1,
   (outs I1:$dst),
   (ins RCLi1:$op1, RCLi1:$op2, RCLi1:$op3, RCLi1:$op4),
   "land1\t$dst, $op1, $op2, $op3, $op4",
   [], [], IIALU>;
 
-def LOR1 : FMTGEN<
+def LOR : GenericOp<"lor">;
+def LOR1 : FMTGEN<LOR, Ti1,
   (outs I1:$dst),
   (ins RCLi1:$op1, RCLi1:$op2, RCLi1:$op3, RCLi1:$op4),
   "lor1\t$dst, $op1, $op2, $op3, $op4",
   [], [], IIALU>;
 
-def ANY0 : FMTGEN<
+def ANY : GenericOp<"any">;
+def ANY0 : FMTGEN<ANY, Ti0,
   (outs I8:$dst),
   (ins RCLi0:$op1, RCLi0:$op2, RCLi0:$op3, RCLi0:$op4),
   "any0\t$dst, $op1, $op2, $op3, $op4",
   [], [], IIVir>;
 
-def ALL0 : FMTGEN<
+def ALL : GenericOp<"all">;
+def ALL0 : FMTGEN<ALL, Ti0,
   (outs I0:$dst),
   (ins RCLi0:$op1, RCLi0:$op2, RCLi0:$op3, RCLi0:$op4),
   "all0\t$dst, $op1, $op2, $op3, $op4",
   [], [], IIVir>;
 
-def ONCOUNT0 : FMTGEN<  // TODO: something to reflect state
+def ONCOUNT : GenericOp<"oncount">;
+def ONCOUNT0 : FMTGEN<ONCOUNT, Ti0,  // TODO: something to reflect state
   (outs I0:$dst),
   (ins RCLi64:$cnt, RCLi0:$op2, RCLi0:$op3, RCLi0:$op4, RCLi0:$op5),
   "oncount0\t$dst, $cnt, $op2, $op3, $op4, $op5",
   [], [], IIVir>;
 
-def PREDPROP : FMTGEN<
+def PREDPROP_G : GenericOp<"predprop">;
+def PREDPROP : FMTGEN<PREDPROP_G, Ti1,
   (outs I1:$efalse, I1:$etrue),
   (ins RCLi1:$pb, RCLi1:$sb),
   "predprop\t$efalse, $etrue, $pb, $sb",
   [], [], IIALU>;
 
-def PREDMERGE : FMTGEN<
+def PREDMERGE_G : GenericOp<"predmerge">;
+def PREDMERGE : FMTGEN<PREDMERGE_G, Ti1,
   (outs I1:$predres, I1:$index),
   (ins RCLi1:$e0, RCLi1:$e1),
   "predmerge\t$predres, $index, $e0, $e1",
   [], [], IIALU>;
 
-def PREDFILTER : FMTGEN<
+def PREDFILTER_G : GenericOp<"predfilter">;
+def PREDFILTER : FMTGEN<PREDFILTER_G, Ti1,
   (outs I1:$ctlout),
   (ins RCLi1:$ctl, RCLi1:$pred),
   "predfilter\t$ctlout, $ctl, $pred",
@@ -1517,19 +1464,25 @@ def SREDXOR64 : SReduceOp<SREDXOR,  Ti64, IIALU>;
 
 // TBD(jsukha): This info probably needs predicates
 // Also, the input can probably be an I0 channel.
-def ONEND : FMTGEN<  // TODO: something to reflect state
+def ONEND_G : GenericOp<"onend">;
+def ONEND : FMTGEN<ONEND_G, Ti0,  // TODO: something to reflect state
   (outs I0:$dst),
   (ins I1:$ctrl, I0:$in),
   "onend\t$dst, $ctrl, $in",
   []> { let Itinerary = IIVir; }
 
 // Not clear that "hasSideEffects" is a good description of static initialization...
+def INIT : GenericOp<"init">;
 class Init<CSAOpInfo t, list<Predicate> preds, InstrItinClass itin> :
   PseudoInstCSA<
       (outs t.RC:$dst),
       (ins t.L:$imm),
       ".curr\t$dst;\t.value $imm;\t.avail 0",
-      [], preds, itin> { let hasSideEffects = 1; }
+      [], preds, itin> {
+  let hasSideEffects = 1;
+  let GenOp = INIT;
+  let OpInfo = t;
+}
 
 let isCodeGenOnly=1 in {
   def INIT0  : Init<Ti0,  [HasI0],  IIVir>;
@@ -1642,6 +1595,136 @@ def ATMMAXF64 : AtomicOp<ATMMAX,  null_frag, Tf64, IIATM>;
 // Prefetch operations
 defm PREFETCH  : PrefetchOp<"prefetch",  0>;
 defm PREFETCHW : PrefetchOp<"prefetchw", 1>;
+
+////////////////////////////////////////////////////////////////////////////////
+// Math lib helper functions (these have no patterns to match.                //
+////////////////////////////////////////////////////////////////////////////////
+
+foreach Kind = [ "Interval", "Signctl" ] in {
+  def Kind ## AsmOperand : AsmOperandClass {
+    let Name = Kind;
+    let IsOptional = 1;
+  }
+  def Kind ## Operand : OperandWithDefaultOps<i64, (ops (i64 0))> {
+    let ParserMatchClass = !cast<AsmOperandClass>(Kind ## AsmOperand);
+    let PrintMethod = !strconcat("print", Kind, "Operand");
+  }
+}
+
+class UnaryNoPatOp<GenericOp op, CSAOpInfo oi, InstrItinClass itin> : FMTGEN<
+  op, oi,
+  (outs oi.RC:$result),
+  (ins oi.RCL:$value),
+  !strconcat(op.AsmString, oi.InstrSuffix, "\t$result, $value"),
+  [], // No pattern
+  [], // No predicates
+  itin>;
+
+class GetmantOp<GenericOp op, CSAOpInfo oi, InstrItinClass itin> : FMTGEN<
+  op, oi,
+  (outs oi.RC:$result),
+  (ins oi.RCL:$value, SignctlOperand:$signctl, IntervalOperand:$interval),
+  !strconcat(op.AsmString, oi.InstrSuffix, "\t$result, $value, $signctl, $interval"),
+  [], // No pattern
+  [], // No predicates
+  itin>;
+
+class BinaryNoPatOpR<GenericOp op, CSAOpInfo oi, InstrItinClass itin> : FMTGEN<
+  op, oi,
+  (outs oi.RC:$result),
+  (ins oi.RCL:$op1, oi.RCL:$op2, RMODE:$rndmode),
+  !strconcat(op.AsmString, oi.InstrSuffix, "\t$result, $op1, $op2, $rndmode"),
+  [], // No pattern
+  [], // No predicates
+  itin>;
+
+class RndscaleOp<GenericOp op, CSAOpInfo oi, InstrItinClass itin> : FMTGEN<
+  op, oi,
+  (outs oi.RC:$result),
+  (ins oi.RCL:$op1, oi.RCL:$op2, i8imm:$fract, RMODE:$rndmode),
+  !strconcat(op.AsmString, oi.InstrSuffix, "\t$result, $op1, $op2, $fract, $rndmode"),
+  [], // No pattern
+  [], // No predicates
+  itin>;
+
+class ScaleirsOp<GenericOp op, CSAOpInfo oi, InstrItinClass itin> : FMTGEN<
+  op, oi,
+  (outs oi.RC:$result),
+  (ins oi.RCL:$op1, oi.RCL:$op2, I1:$rndbit, I1:$scalebit, RMODE:$rndmode),
+  !strconcat(op.AsmString, oi.InstrSuffix, "\t$result, $op1, $op2, $rndbit, $scalebit, $rndmode"),
+  [], // No pattern
+  [], // No predicates
+  itin>;
+
+class DivcheckOp<GenericOp op, CSAOpInfo oi, InstrItinClass itin> : FMTGEN<
+  op, oi,
+  (outs oi.RC:$result, I1:$special),
+  (ins oi.RCL:$op1, oi.RCL:$op2),
+  !strconcat(op.AsmString, oi.InstrSuffix, "\t$result, $special, $op1, $op2"),
+  [], // No pattern
+  [], // No predicates
+  itin>;
+
+class SqrtcheckOp<GenericOp op, CSAOpInfo oi, InstrItinClass itin> : FMTGEN<
+  op, oi,
+  (outs oi.RC:$result, I1:$special),
+  (ins oi.RCL:$op),
+  !strconcat(op.AsmString, oi.InstrSuffix, "\t$result, $special, $op"),
+  [], // No pattern
+  [], // No predicates
+  itin>;
+
+class ThreeArgRSOpR<GenericOp op, CSAOpInfo oi, InstrItinClass itin> : FMTGEN<
+  op, oi,
+  (outs oi.RC:$result, I1:$rndbit, I1:$stickybit),
+  (ins oi.RCL:$op1, oi.RCL:$op2, oi.RCL:$op3, RMODE:$rndmode),
+  !strconcat(op.AsmString, oi.InstrSuffix,
+    "\t$result, $rndbit, $stickybit, $op1, $op2, $op3, $rndmode"),
+  [], // No pattern
+  [], // No predicates
+  itin>;
+
+def GETEXP       : GenericOp<"getexp">;
+def GETEXPF32    : UnaryNoPatOp<GETEXP, Tf32, IIMathF32>;
+def GETEXPF64    : UnaryNoPatOp<GETEXP, Tf64, IIMathF64>;
+def GETMANT      : GenericOp<"getmant">;
+def GETMANTF32   : GetmantOp<GETMANT, Tf32, IIMathF32>;
+def GETMANTF64   : GetmantOp<GETMANT, Tf64, IIMathF64>;
+def SCALE        : GenericOp<"scale">;
+def SCALEF32     : BinaryNoPatOpR<SCALE, Tf32, IIMathF32>;
+def SCALEF64     : BinaryNoPatOpR<SCALE, Tf64, IIMathF64>;
+def RNDSCALE     : GenericOp<"rndscale">;
+def RNDSCALEF32  : RndscaleOp<RNDSCALE, Tf32, IIMathF32>;
+def RNDSCALEF64  : RndscaleOp<RNDSCALE, Tf64, IIMathF64>;
+def RNDSCALESPE  : GenericOp<"rndscalespe">;
+def RNDSCALESPEF32:RndscaleOp<RNDSCALESPE, Tf32, IIMathF32>;
+def RNDSCALESPEF64:RndscaleOp<RNDSCALESPE, Tf64, IIMathF64>;
+def SCALEIRS     : GenericOp<"scaleirs">;
+def SCALEIRSF32  : ScaleirsOp<SCALEIRS, Tf32, IIMathF32>;
+def SCALEIRSF64  : ScaleirsOp<SCALEIRS, Tf64, IIMathF64>;
+def DIVCHECK     : GenericOp<"divcheck">;
+def DIVCHECKF32  : DivcheckOp<DIVCHECK, Tf32, IIMathF32>;
+def DIVCHECKF64  : DivcheckOp<DIVCHECK, Tf64, IIMathF64>;
+def SQRTCHECK    : GenericOp<"sqrtcheck">;
+def SQRTCHECKF32 : SqrtcheckOp<SQRTCHECK, Tf32, IIMathF32>;
+def SQRTCHECKF64 : SqrtcheckOp<SQRTCHECK, Tf64, IIMathF64>;
+def FMAORS       : GenericOp<"fmaors">;
+def FMAORSF32    : ThreeArgRSOpR<FMAORS, Tf32, IIMathF32>;
+def FMAORSF64    : ThreeArgRSOpR<FMAORS, Tf64, IIMathF64>;
+def FMSORS       : GenericOp<"fmsors">;
+def FMSORSF32    : ThreeArgRSOpR<FMSORS, Tf32, IIMathF32>;
+def FMSORSF64    : ThreeArgRSOpR<FMSORS, Tf64, IIMathF64>;
+def FMRSORS      : GenericOp<"fmrsors">;
+def FMRSORSF32   : ThreeArgRSOpR<FMRSORS, Tf32, IIMathF32>;
+def FMRSORSF64   : ThreeArgRSOpR<FMRSORS, Tf64, IIMathF64>;
+def RCP14        : GenericOp<"rcp14", [HasRcpA]>;
+def RCP14F32     : UnaryNoPatOp<RCP14, Tf32, IIRcpAF32>;
+def RCP14F64     : UnaryNoPatOp<RCP14, Tf64, IIRcpAF64>;
+def RSQRT14      : GenericOp<"rsqrt14", [HasRSqrtA]>;
+def RSQRT14F32   : UnaryNoPatOp<RSQRT14, Tf32, IIRSqrtAF32>;
+def RSQRT14F64   : UnaryNoPatOp<RSQRT14, Tf64, IIRSqrtAF64>;
+
+
 
 // Unit - type only
 def UNIT : PseudoInstCSA<
@@ -1816,7 +1899,7 @@ def : Pat<(f16 (bitconvert i16:$op1)), (COPY_TO_REGCLASS $op1, I16)>;
 
 // The debugprint instruction
 let hasSideEffects = 1 in {
-  def DEBUGPRINT : FMTGEN<
+  def DEBUGPRINT : FMTGEN<?, ?,
     (outs),
     (ins RCLi64:$op1),
     "debugprint\t$op1",

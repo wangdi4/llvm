@@ -32,6 +32,13 @@ Target &getTheCSATarget();
 #define GET_INSTRINFO_ENUM
 #include "CSAGenInstrInfo.inc"
 
+namespace llvm {
+  namespace CSA {
+    // Use INVALID_OPCODE as a more meaningful alias for INSTRUCtION_LIST_END
+    const decltype(INSTRUCTION_LIST_END) INVALID_OPCODE = INSTRUCTION_LIST_END;
+  }
+}
+
 #define GET_SUBTARGETINFO_ENUM
 #include "CSAGenSubtargetInfo.inc"
 

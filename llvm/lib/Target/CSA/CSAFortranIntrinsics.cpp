@@ -113,7 +113,7 @@ bool CSAFortranIntrinsics::runOnFunction(Function &F) {
         args.push_back(glob_arg->getInitializer());
       } else {
         errs() << "\n";
-        errs().changeColor(raw_ostream::BLUE);
+        errs().changeColor(raw_ostream::BLUE, true);
         errs() << "!! WARNING: BAD CSA FORTRAN INTRINSIC !!";
         errs().resetColor();
         errs() << "\n\nA call to " << err_name
@@ -134,7 +134,7 @@ bool CSAFortranIntrinsics::runOnFunction(Function &F) {
     const FunctionType*const intr_sig = intrinsic->getFunctionType();
     if (args.size() != intr_sig->getNumParams()) {
       errs() << "\n";
-      errs().changeColor(raw_ostream::BLUE);
+      errs().changeColor(raw_ostream::BLUE, true);
       errs() << "!! WARNING: BAD CSA FORTRAN INTRINSIC !!";
       errs().resetColor();
       errs() << "\n\nA call to " << err_name

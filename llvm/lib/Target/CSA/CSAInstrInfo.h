@@ -20,6 +20,9 @@
 #define GET_INSTRINFO_HEADER
 #include "CSAGenInstrInfo.inc"
 
+#define GET_CSAOPGENERIC_ENUM
+#include "CSAGenCSAOpInfo.inc"
+
 namespace llvm {
 
 namespace CSA {
@@ -68,6 +71,40 @@ namespace CSA {
     MEMLEVEL_T2,
     MEMLEVEL_T1,
     MEMLEVEL_T0
+  };
+
+  // These enums are used for the getmant instruction.
+  enum Signctl {
+    SIGNCTL_PROP,
+    SIGNCTL_FORCE,
+    SIGNCTL_FORCE_AND_CHECK
+  };
+
+  enum Interval {
+    INTERVAL0,
+    INTERVAL1,
+    INTERVAL2,
+    INTERVAL3
+  };
+
+  /// This indicates the kind of output when distinguishing between different
+  /// opcodes that generate the same generic opcode.
+  enum OpcodeClass {
+    /// This is an opcode that doesn't distinguish itself in anyway. Usually,
+    /// the operands are integers (as distinguished from floats). In effect,
+    /// this refers to TiN classes in the tablegen.
+    VARIANT_INT = 0,
+    /// This is an opcode that specifically refers to floats, for example a
+    /// ADDF operation. This means that the corresponding operand use
+    VARIANT_FLOAT = 1,
+    /// This is an opcode that refers specifically to a signed integer.
+    VARIANT_SIGNED = 2,
+    /// This is an opcode that refers specifically to an unsigned integer.
+    VARIANT_UNSIGNED = 3,
+    /// This is used in some function calls to indicate that the desired class
+    /// doesn't matter and any opcode suffices. This is the default argument,
+    /// so it generally only matters if this doesn't appear.
+    VARIANT_DONTCARE = ~0U
   };
 }
 
@@ -154,22 +191,83 @@ public:
                         const DebugLoc &DL,
                         int *BytesAdded) const override;
 
-  unsigned getPickSwitchOpcode(const TargetRegisterClass *RC, bool isPick) const;
-  bool isSwitch(const MachineInstr *) const;
-  bool isCopy(const MachineInstr *) const;
-  bool isMOV(const MachineInstr *) const;
-  bool isPick(const MachineInstr *) const;
-  bool isPickany(const MachineInstr *) const;
-  bool isInit(const MachineInstr *) const;
+  /// Return the generic opcode for the relevant opcode. If the opcode is not
+  /// valid, INVALID_OP is returned.
+  CSA::Generic getGenericOpcode(unsigned opcode) const;
+
+  /// Return the lic size, in bits, of the opcode. If the opcode is not valid,
+  /// 0 is returned. The lic size of convert and sign-extend operations refers
+  /// to their destination value.
+  unsigned getLicSize(unsigned opcode) const;
+
+  /// Return whether or not this opcode is a variant that operates on floats,
+  /// signed integers, unsigned integers, or integers. This returns a value that
+  /// is one of the first 4 entries of the CSA::OpcodeClass enumeration, and is
+  /// used to distinguish between different operations that reuse the same
+  /// generic opcode.
+  CSA::OpcodeClass getOpcodeClass(unsigned opcode) const;
+
+  /// Construct an opcode for a MachineInstr given the generic opcode and a
+  /// desired licSize. If such an operation cannot be constructed, then the
+  /// result is CSA::INVALID_OPCODE.
+  unsigned makeOpcode(CSA::Generic genericOpcode, unsigned licSize,
+    CSA::OpcodeClass opcodeClass = CSA::VARIANT_DONTCARE) const;
+
+  /// Variant of makeOpcode that works on register classes instead of fixed
+  /// bit sizes.
+  unsigned makeOpcode(CSA::Generic genericOpcode, const TargetRegisterClass *RC,
+      CSA::OpcodeClass opcodeClass = CSA::VARIANT_DONTCARE) const {
+    return makeOpcode(genericOpcode, getSizeOfRegisterClass(RC), opcodeClass);
+  }
+
+  /// This returns a new opcode with the same bitwidth and classification as the
+  /// input opcode. If no such opcode exists, then INVALID_OPCODE is returned.
+  unsigned adjustOpcode(unsigned opcode, CSA::Generic newOpcode) const;
+
+  /// Get the lic size for the given register class.
+  unsigned getSizeOfRegisterClass(const TargetRegisterClass *RC) const;
+
+  bool isSwitch(const MachineInstr *MI) const {
+    return getGenericOpcode(MI->getOpcode()) == CSA::Generic::SWITCH;
+  }
+  bool isCopy(const MachineInstr *MI) const {
+    return getGenericOpcode(MI->getOpcode()) == CSA::Generic::GCOPY;
+  }
+  bool isMOV(const MachineInstr *MI) const;
+  bool isPick(const MachineInstr *MI) const {
+    return getGenericOpcode(MI->getOpcode()) == CSA::Generic::PICK;
+  }
+  bool isPickany(const MachineInstr *MI) const {
+    return getGenericOpcode(MI->getOpcode()) == CSA::Generic::PICKANY;
+  }
+  bool isInit(const MachineInstr *MI) const {
+    return getGenericOpcode(MI->getOpcode()) == CSA::Generic::INIT;
+  }
   bool isLoad(const MachineInstr *) const;
   bool isStore(const MachineInstr *) const;
-  bool isAdd(const MachineInstr *) const;
-  bool isSub(const MachineInstr *) const;
-  bool isMul(const MachineInstr *) const;
-  bool isDiv(const MachineInstr *) const;
-  bool isFMA(const MachineInstr *) const;
-  bool isShift(const MachineInstr *) const;
-  bool isCmp(const MachineInstr *) const;
+  bool isAdd(const MachineInstr *MI) const {
+    return getGenericOpcode(MI->getOpcode()) == CSA::Generic::ADD;
+  }
+  bool isSub(const MachineInstr *MI) const {
+    return getGenericOpcode(MI->getOpcode()) == CSA::Generic::SUB;
+  }
+  bool isMul(const MachineInstr *MI) const {
+    return getGenericOpcode(MI->getOpcode()) == CSA::Generic::MUL;
+  }
+  bool isDiv(const MachineInstr *MI) const {
+    return getGenericOpcode(MI->getOpcode()) == CSA::Generic::DIV;
+  }
+  bool isFMA(const MachineInstr *MI) const {
+    return getGenericOpcode(MI->getOpcode()) == CSA::Generic::FMA;
+  }
+  bool isShift(const MachineInstr *MI) const {
+    auto opcode = getGenericOpcode(MI->getOpcode());
+    return opcode == CSA::Generic::SLL || opcode == CSA::Generic::SRL ||
+      opcode == CSA::Generic::SRA;
+  }
+  bool isCmp(const MachineInstr *MI) const {
+    return MI->isCompare();
+  }
   bool isAtomic(const MachineInstr *) const;
   bool isSeqOT(const MachineInstr *) const;
 
@@ -185,11 +283,21 @@ public:
   // Returns true if this instruction is a MOV of a memory token.  
   bool isMemTokenMOV(const MachineInstr *) const;
   
-  unsigned getCopyOpcode(const TargetRegisterClass *RC) const;
-  unsigned getMoveOpcode(const TargetRegisterClass *RC) const;
-  unsigned getInitOpcode(const TargetRegisterClass *RC) const;
-  unsigned getRepeatOpcode(const TargetRegisterClass *RC) const;
-  unsigned getPickanyOpcode(const TargetRegisterClass *RC) const;
+  unsigned getCopyOpcode(const TargetRegisterClass *RC) const {
+    return makeOpcode(CSA::Generic::GCOPY, RC);
+  }
+  unsigned getMoveOpcode(const TargetRegisterClass *RC) const {
+    return makeOpcode(CSA::Generic::MOV, RC);
+  }
+  unsigned getInitOpcode(const TargetRegisterClass *RC) const {
+    return makeOpcode(CSA::Generic::INIT, RC);
+  }
+  unsigned getRepeatOpcode(const TargetRegisterClass *RC) const {
+    return makeOpcode(CSA::Generic::REPEAT, RC);
+  }
+  unsigned getPickanyOpcode(const TargetRegisterClass *RC) const {
+    return makeOpcode(CSA::Generic::PICKANY, RC);
+  }
 
 
 
@@ -244,34 +352,10 @@ public:
   //     SEQOTGTS16, 32  --> SEQOTGTS32
   unsigned promoteSeqOTOpBitwidth(unsigned seq_opcode, int bitwidth) const;
 
-
-  // Convert an add opcode to the corresponding stride opcode.
-  // Returns true if we did a successful conversion, false otherwise.
-  // Saves output into *strideOpcode when returning true.
-  bool
-  convertAddToStrideOp(unsigned add_opcode,
-                       unsigned* strideOpcode) const;
-  bool
-  convertSubToStrideOp(unsigned sub_opcode,
-                       unsigned* strideOpcode) const;
-
-  // Get the corresponding "neg" statement which matches a given
-  // stride.
-  bool
-  negateOpForStride(unsigned strideOpcode,
-                    unsigned* negateOpcode) const;
-
   // Get channel register class that is the same size as this stride
   // operation.
   const TargetRegisterClass*
   getStrideInputRC(unsigned stride_opcode) const;
-
-  // Convert a pick opcode into a matching repeat opcode (of the same
-  // size).
-  bool
-  convertPickToRepeatOp(unsigned pick_opcode,
-                        unsigned* repeat_opcode) const;
-
 
   // Returns true if this op is one of the transform ops that
   // corresponds to a 3-operand commuting reduction.
@@ -281,9 +365,7 @@ public:
 
   // Convert an ADD/SUB/FMA code into a matching reduction opcode of
   // the same size. TBD(jsukha): Not implemented yet!
-  bool
-  convertTransformToReductionOp(unsigned transform_opcode,
-                                unsigned* reduction_opcode) const;
+  unsigned convertTransformToReductionOp(unsigned transform_opcode) const;
 
 
 
@@ -292,10 +374,6 @@ public:
   //  fall into a valid range). 
   const TargetRegisterClass*
   lookupLICRegClass(unsigned lic_reg) const;
-
-  // Returns the bitwidth of a MOV opcode.
-  // Returns -1 if something is wrong.  
-  int getMOVBitwidth(unsigned mov_opcode) const;
 };
 
 }

@@ -14,6 +14,7 @@
 #include "CSATargetMachine.h"
 #include "CSALowerAggrCopies.h"
 #include "CSAFortranIntrinsics.h"
+#include "CSAIntrinsicCleaner.h"
 #include "CSALoopIntrinsicExpander.h"
 #include "CSAOMPAllocaTypeFixer.h"
 #include "CSA.h"
@@ -149,6 +150,7 @@ public:
       //remove the single input phi and constant branch created from StructurizeCFG
       addPass(createInstructionCombiningPass());
     }
+    addPass(createCSAIntrinsicCleanerPass());
     return false;
   }
 

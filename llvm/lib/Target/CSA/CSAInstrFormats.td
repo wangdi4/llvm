@@ -11,21 +11,20 @@
 // Instruction format superclass
 //===----------------------------------------------------------------------===//
 
+include "llvm/TableGen/SearchableTable.td"
+
 // Generic operations
 // For now, this just declares generic opcodes.  In the long run, we may want
 // to have things like operands, type signatures
-class GenericOp<string opStr, list<Predicate> preds = []> : Instruction {
-  string Namespace = "CSA";
+class GenericOp<string opStr, list<Predicate> preds = []> {
   string AsmString = opStr;
-  // No description for generic ops currently
-  let OutOperandList = (outs);
-  let InOperandList = (ins);
   list<Predicate> Preds = preds;
 }
 
 class CSAOpInfo;
 
-class InstCSA<dag outs, dag ins, string asmstr, list<dag> pattern = [],
+class InstCSA<GenericOp genOp, CSAOpInfo opInfo, dag outs, dag ins,
+      string asmstr, list<dag> pattern = [],
       list<Predicate> preds = [], InstrItinClass itin = NoItinerary>
     : Instruction {
   // Actual encoding TBD.  Might be variable length.
@@ -39,22 +38,24 @@ class InstCSA<dag outs, dag ins, string asmstr, list<dag> pattern = [],
   let Predicates = preds;
   let Itinerary = itin;
 
-  GenericOp GenOp; // The generic operator for this operation (e.g. ADD for ADD64)
-  CSAOpInfo OpInfo;
+  // The generic operator for this operation (e.g. ADD for ADD64)
+  GenericOp GenOp = genOp;
+  CSAOpInfo OpInfo = opInfo;
 }
 
 // CSA pseudo instruction format
 class PseudoInstCSA<dag outs, dag ins, string asmstr, list<dag> pattern,
       list<Predicate> preds = [], InstrItinClass itin = IIPseudo>
-    : InstCSA<outs, ins, asmstr, pattern, preds, itin> {
+    : InstCSA<?, ?, outs, ins, asmstr, pattern, preds, itin> {
   let isPseudo = 1;
 }
 
 
 // Generic format for now
-class FMTGEN<dag outs, dag ins, string asmstr, list<dag> pattern,
+class FMTGEN<GenericOp genOp, CSAOpInfo opInfo, dag outs, dag ins,
+      string asmstr, list<dag> pattern,
       list<Predicate> preds = [], InstrItinClass itin = NoItinerary>
-    : InstCSA<outs, ins, asmstr, pattern, preds, itin> {
+    : InstCSA<genOp, opInfo, outs, ins, asmstr, pattern, preds, itin> {
 //let DecoderMethod = "DecodeFGENInstruction";
   let hasSideEffects = 0;
 }

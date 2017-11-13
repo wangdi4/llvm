@@ -233,7 +233,7 @@ bool CSADataflowCanonicalizationPass::invertIgnoredSwitches(MachineInstr *MI) {
       auto newParam = (decltype(CSA::IGN))LMFI->allocateLIC(licClass);
       auto newSwitch = BuildMI(*switched->getParent(), switched,
           MI->getDebugLoc(),
-          TII->get(TII->getPickSwitchOpcode(licClass, false)))
+          TII->get(TII->makeOpcode(CSA::Generic::SWITCH, licClass)))
         .addReg(is0Dead ? CSA::IGN : newParam, RegState::Define)
         .addReg(is0Dead ? newParam : CSA::IGN, RegState::Define)
         .add(MI->getOperand(2))
