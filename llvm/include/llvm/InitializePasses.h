@@ -67,6 +67,10 @@ void initializeIntel_LoopAnalysis(PassRegistry&);
 /// Intel_LoopTransforms library.
 void initializeIntel_LoopTransforms(PassRegistry&);
 
+// initializeIntel_OpenCLTransforms - Initialize all passes linked into the
+// Intel_OpenCLTransforms library
+void initializeIntel_OpenCLTransforms(PassRegistry&);
+
 // initializeIntel_VPOAnaylsis - Initialize all passes linked into the
 // Intel_VPOAnalysis library
 void initializeIntel_VPOAnalysis(PassRegistry&);
@@ -494,6 +498,8 @@ void initializeVectorGraphPredicatorPass(PassRegistry&);
 void initializeWholeProgramWrapperPassPass(PassRegistry&);
 // VPO VPlan Vectorizer Passes
 void initializeVPlanDriverPass(PassRegistry&);
+// OpenCL Passes
+void initializeFMASplitterPass(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION
 
 } // end namespace llvm

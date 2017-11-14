@@ -21,6 +21,7 @@ set(LLVM_LINK_COMPONENTS
   Intel_LoopAnalysis
   Intel_LoopTransforms
   Intel_MapIntrinToIml
+  Intel_OpenCLTransforms
   Intel_VPOAnalysis
   Intel_VPOTransforms
 # end INTEL_CUSTOMIZATION

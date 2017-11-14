@@ -145,6 +145,9 @@ required_tools = [
     'llvm-modextract', 'llvm-nm', 'llvm-objcopy', 'llvm-objdump',
     'llvm-pdbutil', 'llvm-profdata', 'llvm-ranlib', 'llvm-readobj',
     'llvm-rtdyld', 'llvm-size', 'llvm-split', 'llvm-strings', 'llvm-tblgen',
+    #ifdef INTEL_CUSTOMIZATION
+    "llvm-spirv",
+    #endif // INTEL_CUSTOMIZATION
     'llvm-c-test', 'llvm-cxxfilt', 'llvm-xray', 'yaml2obj', 'obj2yaml',
     'FileCheck', 'yaml-bench', 'verify-uselistorder',
     ToolFilter('bugpoint', post='-'),
