@@ -17,13 +17,13 @@ File Name:  CompilerConfig.cpp
 \*****************************************************************************/
 
 #include "CompilerConfig.h"
-
-#include "llvm/Support/Debug.h"
 #include "OclTune.h"
 
+#include "llvm/Support/Debug.h"
+
+#include <sstream>
 #include <stdlib.h> // getenv
 #include <string.h>
-#include <sstream>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -71,7 +71,8 @@ void GlobalCompilerConfig::LoadConfig()
     {
         m_infoOutputFile = pEnv;
     }
-#ifdef OCLT
+#endif // NDEBUG
+#ifndef INTEL_PRODUCT_RELEASE
     // Stat options are set as llvm options for 2 reasons
     // they are available also for opt
     // no need to fuse them all the way down to all passes
@@ -83,13 +84,12 @@ void GlobalCompilerConfig::LoadConfig()
             intel::Statistic::setCurrentStatType(pEnv);
         }
     }
-#endif // OCLT
-#endif // NDEBUG
+#endif // INTEL_PRODUCT_RELEASE
 #ifdef BUILD_FPGA_EMULATOR
     m_LLVMOptions = "-vector-library=SVML ";
 #ifndef NDEBUG
     m_LLVMOptions = "";
-#endif
+#endif // NDEBUG
     if (const char *pEnv = getenv("VOLCANO_LLVM_OPTIONS"))
     {
         m_LLVMOptions += pEnv;
@@ -149,15 +149,14 @@ void CompilerConfig::LoadConfig()
     {
       llvm::setCurrentDebugType(pEnv);
     }
-
-#ifdef OCLT
+#endif // NDEBUG
+#ifndef INTEL_PRODUCT_RELEASE
     if (const char *pEnv = getenv("VOLCANO_IR_FILE_BASE_NAME"))
     {
         // base name for stat files
         m_statFileBaseName = pEnv;
     }
-#endif // OCLT
-#endif // NDEBUG
+#endif // INTEL_PRODUCT_RELEASE
 }
 
 void CompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions)

@@ -24,7 +24,7 @@ File Name:  OclTune.h
 #include <string>
 #include <vector>
 
-#ifdef OCLT
+#ifndef INTEL_PRODUCT_RELEASE
 
 namespace intel {
 
@@ -177,7 +177,7 @@ private:
   do { if (Statistic::StatFlag && Statistic::isCurrentStatType(TYPE)) { X; } } \
   while (0)
 
-#else // OCLT
+#else // INTEL_PRODUCT_RELEASE
 
 namespace intel {
 
@@ -257,9 +257,7 @@ public:
 
   static void removeFunctionStats (llvm::Function &FromFunction) {}
 
-  static void enableStats (bool status = false) {
-    StatFlag = false;
-  }
+  static void enableStats (bool status = false) {}
 
   static bool isEnabled () { return false; }
 
@@ -284,6 +282,6 @@ public:
 
 #define OCLSTAT_GATHER_CHECK_TYPE(X,TYPE)
 
-#endif // OCLT
+#endif // INTEL_PRODUCT_RELEASE
 
 #endif // __OCL_TUNE_H__

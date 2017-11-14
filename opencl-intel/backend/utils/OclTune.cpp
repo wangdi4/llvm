@@ -16,7 +16,7 @@ File Name:  OclTune.cpp
 
 \*****************************************************************************/
 
-#ifdef OCLT
+#ifndef INTEL_PRODUCT_RELEASE
 
 #include "OclTune.h"
 #include "buildversion.h"
@@ -172,4 +172,4 @@ void Statistic::removeFunctionStats (llvm::Function &FromFunction)
 
 }
 
-#endif // OCLT
+#endif // INTEL_PRODUCT_RELEASE

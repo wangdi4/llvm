@@ -121,13 +121,13 @@ public:
   // insert a prefetch for a random access
   static void insertPF(Instruction *I);
 
-#ifdef OCLT
+#ifndef INTEL_PRODUCT_RELEASE
   static void statAccess(Instruction *I, bool isRandom, bool pfExclusive,
       PrefetchStats &s);
-#else
+#else // INTEL_PRODUCT_RELEASE
   static void statAccess(Instruction *I, bool isRandom, bool pfExclusive,
       PrefetchStats &s) {}
-#endif // OCLT
+#endif // INTEL_PRODUCT_RELEASE
 };
 
 
@@ -1827,7 +1827,7 @@ void PrefetchCandidateUtils::insertPF (Instruction *I) {
       " type " << (isExclusive ? "ScatterPF" : "GatherPF") << "\n");
 }
 
-#ifdef OCLT
+#ifndef INTEL_PRODUCT_RELEASE
 void PrefetchCandidateUtils::statAccess(Instruction *I, bool isRandom,
     bool pfExclusive, PrefetchStats &s) {
   CallInst *pCallInst = dyn_cast<CallInst>(I);
@@ -1859,7 +1859,7 @@ void PrefetchCandidateUtils::statAccess(Instruction *I, bool isRandom,
       s.PF_triggered_by_masked_random_gather++;
   }
 }
-#endif // OCLT
+#endif // INTEL_PRODUCT_RELEASE
 
 const std::string PrefetchCandidateUtils::m_intrinsicName = "llvm.x86.mic.";
 const std::string PrefetchCandidateUtils::m_prefetchIntrinsicName =
