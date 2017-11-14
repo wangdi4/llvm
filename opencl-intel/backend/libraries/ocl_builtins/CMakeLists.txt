@@ -583,27 +583,16 @@ set(RTL_SHARED ${BUILTINS_INSTALL_DIR}/${TARGET_NAME_PREFIX}shared.rtl)
 add_custom_command(OUTPUT clbltpipe.obj
   DEPENDS ${TARGET_NAME_MINIMAL} ${TARGET_NAME_SHARED}
   DEPENDS pipes.cl pipes.h pipes-internal.h
-  COMMAND ${CLANG} -cc1 -cl-std=CL2.0 -triple ${HOST_TRIPLE}
-  -ffake-address-space-map -faddress-space-map-mangling=yes
-  -I ${LLVM_INCLUDE_DIRS}/cclang/
-  ${CMAKE_CURRENT_SOURCE_DIR}/pipes.cl
-  -include opencl-c.h
-  -emit-llvm-bc -o pipes.bc
 
-  COMMAND ${CLANG} -cc1 -cl-std=CL2.0 -triple ${DEVICE_TRIPLE}
-  -ffake-address-space-map -faddress-space-map-mangling=yes
-  -I ${LLVM_INCLUDE_DIRS}/cclang/
-  ${CMAKE_CURRENT_SOURCE_DIR}/pipes.cl
-  -include opencl-c.h
-  -emit-llvm-bc -o pipes.bc
+  COMMAND ${CLANG} ${CLANG_CL20_COMPILER_PARAMS}
+  ${CMAKE_CURRENT_SOURCE_DIR}/pipes.cl -o pipes.bc
 
   COMMAND ${OPT} -runtimelib=${RTL_MINIMAL},${RTL_SHARED}
   -builtin-import pipes.bc
   -o pipes-opt.bc
 
   COMMAND ${LLC} ${LLC_PARAMS} -mcpu=corei7 pipes-opt.bc
-  -o clbltpipe.obj
-  )
+  -o clbltpipe.obj)
 
 add_library(clbltpipe STATIC IMPORTED GLOBAL)
 add_dependencies(clbltpipe clbltpipe_target)
