@@ -12,14 +12,6 @@
 #     OCL_HOST_LLVM_LINK            overrides 'llvm-link' tool selection. The default is to use 'llvm-link' tool from the same build
 #
 
-#
-# Global and platform settings
-#
-cmake_minimum_required(VERSION 2.8.7)
-cmake_policy(SET CMP0001 NEW)
-cmake_policy(SET CMP0011 OLD)
-cmake_policy(SET CMP0054 OLD)
-
 # In this project we use binaries from OpenCL prject (e.g. oclopt), LLVM for
 # front-end compiler (e.g. clang) and LLVM for back-end compiler (e.g. llc).
 # oclopt utility is built with LLVM version for the back-end compiler, so when

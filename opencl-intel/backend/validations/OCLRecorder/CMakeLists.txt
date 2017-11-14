@@ -12,8 +12,6 @@ set(TARGET_NAME OclRecorder)
 
 project(${TARGET_NAME})
 
-cmake_minimum_required(VERSION 2.8.7)
-
 #clang include directories, injected for the OCL source recorder
 add_definitions(-DCLANG_HEADERS="${BACKEND_ROOT_DIR}/clang_headers")
 

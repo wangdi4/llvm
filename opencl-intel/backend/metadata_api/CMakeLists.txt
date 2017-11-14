@@ -1,5 +1,3 @@
-cmake_minimum_required(VERSION 2.8.7)
-
 set(TARGET_NAME metadataapi)
 
 add_library(

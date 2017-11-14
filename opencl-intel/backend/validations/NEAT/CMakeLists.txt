@@ -1,6 +1,3 @@
-cmake_minimum_required(VERSION 2.8.7)
-cmake_policy(SET CMP0001 NEW)
-cmake_policy(SET CMP0011 OLD)
 use_eh(TRUE)
 
 set (TARGET_NAME "NEAT")

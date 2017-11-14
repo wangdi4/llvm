@@ -1,5 +1,3 @@
-cmake_minimum_required(VERSION 2.8)
-
 # QAGUI
 set( QT_VERSION "4.8.5" )
 if(DEFINED QT_REVISION) # QT_REVISION is a variable that can be defined in Build.py. It is not defined by default.

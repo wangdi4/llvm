@@ -1,5 +1,3 @@
-cmake_minimum_required(VERSION 2.8.7)
-
 set( BACKEND_BUILD_TESTS            ON  CACHE STRING "")
 set( BACKEND_BUILD_VERIFICATION_LIB ON  CACHE STRING "")
 

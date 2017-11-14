@@ -1,4 +1,3 @@
-cmake_minimum_required(VERSION 2.8.7)
 # LLVM
 
 if( NOT DEFINED LLVM_PATH_BE )

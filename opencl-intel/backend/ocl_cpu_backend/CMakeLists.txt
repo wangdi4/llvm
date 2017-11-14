@@ -1,5 +1,3 @@
-cmake_minimum_required(VERSION 2.8.7)
-
 if( NOT DEFINED LLVM_PATH_FE )
     message( FATAL_ERROR "LLVM_PATH_FE is not specified. Please specify LLVM library location for backend using LLVM_PATH_FE parameter to CMAKE" )
 endif()

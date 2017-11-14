@@ -1,5 +1,4 @@
 project(Validation)
-cmake_minimum_required(VERSION 2.8.7)
 
 # Variables for LLVM libraries
 set (VALIDATIONS_ROOT ${CMAKE_CURRENT_SOURCE_DIR})

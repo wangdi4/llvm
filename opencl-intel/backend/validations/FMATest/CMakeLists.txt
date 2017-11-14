@@ -1,7 +1,5 @@
 set(TARGET_NAME FMAtest)
 
-cmake_minimum_required(VERSION 2.8.7)
-
 # FusedMAtest has to use deprecated OpenCL API functions.
 if (WIN32)
     add_definitions(

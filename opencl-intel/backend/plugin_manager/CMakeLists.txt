@@ -2,9 +2,6 @@ set(TARGET_NAME OclPluginManager)
 
 project(${TARGET_NAME})
 
-
-cmake_minimum_required(VERSION 2.8.7)
-
 include_directories(
   ${LLVM_INCLUDE_DIRS}
   ${BACKEND_ROOT_DIR}/ocl_cpu_backend/export
