@@ -27,6 +27,7 @@ class Function;
 class Instruction;
 class Type;
 class CallInst;
+class Value;
 
 namespace dtrans {
 
@@ -52,6 +53,10 @@ const SafetyData NoIssues = 0;
 /// pointers from one type to another and casting of pointers to fields
 /// within a structure to other types.
 const SafetyData BadCasting = 0x0000000000000001;
+
+/// The size arguments passed to an allocation call could not be proven to
+/// be a multiple of the size of the type being allocated.
+const SafetyData BadAllocSizeArg = 0x0000000000000002;
 
 /// This is a catch-all flag that will be used to mark any usage pattern
 /// that we don't specifically recognize. The use might actually be safe
@@ -171,10 +176,11 @@ enum AllocKind {
 /// if so what kind of allocation function it is and the size of the allocation.
 AllocKind getAllocFnKind(Function *F, const TargetLibraryInfo &TLI);
 
-/// Determine the size of the allocation.  AllocCount is used for calloc
-/// allocations.  For all other allocation kinds it will be set to 1.
-bool determineAllocSize(AllocKind Kind, CallInst *CI, uint64_t &AllocSize,
-                        uint64_t &AllocCount);
+/// Get the size and count arguments for the allocation call. AllocCountiVal is
+/// used for calloc allocations.  For all other allocation kinds it will be set
+/// to nullptr.
+void getAllocSizeArgs(AllocKind Kind, CallInst *CI, Value* &AllocSizeVal,
+                      Value* &AllocCountVal);
 
 } // namespace dtrans
 

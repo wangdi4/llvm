@@ -43,40 +43,30 @@ AllocKind dtrans::getAllocFnKind(Function *F, const TargetLibraryInfo &TLI) {
   llvm_unreachable("Unexpected continuation past LibFunc switch.");
 }
 
-bool dtrans::determineAllocSize(AllocKind Kind, CallInst *CI,
-                                uint64_t &AllocSize, uint64_t &AllocCount) {
-  if (Kind == AK_NotAlloc || Kind == AK_UserAlloc) {
-    return false;
-  }
-
-  // FIXME: Implement compile-time evaluation.
+void dtrans::getAllocSizeArgs(AllocKind Kind, CallInst *CI,
+                              Value* &AllocSizeVal, Value* &AllocCountVal) {
+  assert(Kind != AK_NotAlloc && Kind != AK_UserAlloc &&
+         "Unexpected alloc kind passed to getAllocSizeArgs");
 
   if (Kind == AK_Malloc) {
-    if (!isa<ConstantInt>(CI->getArgOperand(0)))
-      return false;
-    AllocSize = cast<ConstantInt>(CI->getArgOperand(0))->getLimitedValue();
-    AllocCount = 1;
-    return true;
+    AllocSizeVal = CI->getArgOperand(0);
+    AllocCountVal = nullptr;
+    return;
   }
 
   if (Kind == AK_Calloc) {
-    if (!isa<ConstantInt>(CI->getArgOperand(0)) ||
-        !isa<ConstantInt>(CI->getArgOperand(1)))
-      return false;
-    AllocSize = cast<ConstantInt>(CI->getArgOperand(1))->getLimitedValue();
-    AllocCount = cast<ConstantInt>(CI->getArgOperand(0))->getLimitedValue();
-    return true;
+    AllocSizeVal = CI->getArgOperand(0);
+    AllocCountVal = CI->getArgOperand(1);
+    return;
   }
 
   if (Kind == AK_Realloc) {
-    if (!isa<ConstantInt>(CI->getArgOperand(1)))
-      return false;
-    AllocSize = cast<ConstantInt>(CI->getArgOperand(1))->getLimitedValue();
-    AllocCount = 1;
-    return true;
+    AllocSizeVal = CI->getArgOperand(1);
+    AllocCountVal = nullptr;
+    return;
   }
 
-  return false;
+  llvm_unreachable("Unexpected alloc kind passed to getAllocSizeArgs");
 }
 
 void dtrans::TypeInfo::printSafetyData() {
@@ -86,13 +76,15 @@ void dtrans::TypeInfo::printSafetyData() {
     return;
   }
   // TODO: As safety checks are implemented, add them here.
-  SafetyData ImplementedMask = dtrans::BadCasting | dtrans::UnhandledUse;
+  SafetyData ImplementedMask = dtrans::BadCasting | dtrans::BadAllocSizeArg |
+                               dtrans::UnhandledUse;
   std::vector<StringRef> SafetyIssues;
   if (SafetyInfo & dtrans::BadCasting)
     SafetyIssues.push_back("Bad casting");
+  if (SafetyInfo & dtrans::BadAllocSizeArg)
+    SafetyIssues.push_back("Bad alloc size");
   if (SafetyInfo & dtrans::UnhandledUse)
     SafetyIssues.push_back("Unhandled use");
-
   // Print the safety issues found
   size_t NumIssues = SafetyIssues.size();
   for (size_t i = 0; i < NumIssues; ++i) {
