@@ -2907,26 +2907,28 @@ static void handleWeakImportAttr(Sema &S, Decl *D, const AttributeList &Attr) {
 
 #if INTEL_CUSTOMIZATION
 // Checks correctness of mutual usage of different work_group_size attributes:
-// reqd_work_group_size, work_group_size_hint, max_work_group_size, task
+// reqd_work_group_size, work_group_size_hint, max_work_group_size, task,
+// max_global_work_dim
 static bool checkWorkGroupSizeValues(Sema &S, Decl *D,
                                      const AttributeList &Attr,
                                      uint32_t WGSize[3]) {
-  if (Attr.getKind() == AttributeList::AT_Task) {
+  if (Attr.getKind() == AttributeList::AT_Task ||
+      Attr.getKind() == AttributeList::AT_MaxGlobalWorkDim) {
     // in case of 'task' attribute we should be sure that
     // if max_work_group_size and reqd_work_group_size attributes exist,
     // then they are equal (1, 1, 1)
     if (const MaxWorkGroupSizeAttr *A = D->getAttr<MaxWorkGroupSizeAttr>()) {
       if (A->getXDim() != 1 || A->getYDim() != 1 || A->getZDim() != 1) {
-        S.Diag(Attr.getLoc(), diag::err_opencl_attributes_conflict)
-            << Attr.getName() << A->getSpelling();
+        S.Diag(A->getLocation(), diag::err_opencl_x_y_z_arguments_must_be_one)
+            << A << Attr.getName();
         D->setInvalidDecl();
         return false;
       }
     }
     if (const ReqdWorkGroupSizeAttr *A = D->getAttr<ReqdWorkGroupSizeAttr>()) {
       if (A->getXDim() != 1 || A->getYDim() != 1 || A->getZDim() != 1) {
-        S.Diag(Attr.getLoc(), diag::err_opencl_attributes_conflict)
-            << Attr.getName() << A->getSpelling();
+        S.Diag(A->getLocation(), diag::err_opencl_x_y_z_arguments_must_be_one)
+            << A << Attr.getName();
         D->setInvalidDecl();
         return false;
       }
@@ -2937,8 +2939,8 @@ static bool checkWorkGroupSizeValues(Sema &S, Decl *D,
     // <= max_work_group_size attribute value
     if (const TaskAttr *A = D->getAttr<TaskAttr>()) {
       if (!(WGSize[0] == 1 && WGSize[1] == 1 && WGSize[2] == 1)) {
-        S.Diag(Attr.getLoc(), diag::err_opencl_attributes_conflict)
-            << Attr.getName() << A->getSpelling();
+        S.Diag(Attr.getLoc(), diag::err_opencl_x_y_z_arguments_must_be_one)
+            << Attr.getName() << A;
         D->setInvalidDecl();
         return false;
       }
@@ -2987,28 +2989,47 @@ static void handleTaskAttribute(Sema &S, Decl *D, const AttributeList &Attr) {
 
 static void handleNumComputeUnitsAttr(Sema &S, Decl *D,
                                       const AttributeList &Attr) {
-  if (D->isInvalidDecl())
-    return;
-
   if (!S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
     S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
         << Attr.getName();
     return;
   }
 
-  uint32_t NumComputeUnits;
-  const Expr *E = Attr.getArgAsExpr(0);
-  if (!checkUInt32Argument(S, Attr, E, NumComputeUnits, 0))
-    return;
-  if (NumComputeUnits == 0) {
-    S.Diag(Attr.getLoc(), diag::err_attribute_argument_is_zero)
-        << Attr.getName() << E->getSourceRange();
-    return;
+  int NumComputeUnits[3];
+  for (unsigned i = 0; i < Attr.getNumArgs(); ++i) {
+    const Expr *E = Attr.getArgAsExpr(i);
+    llvm::APSInt ArgVal(32);
+
+    if (!E->isIntegerConstantExpr(ArgVal, S.Context)) {
+      S.Diag(Attr.getLoc(), diag::err_attribute_argument_type)
+          << Attr.getName() << AANT_ArgumentIntegerConstant
+          << E->getSourceRange();
+      return;
+    }
+
+    int Val = ArgVal.getSExtValue();
+
+    if (Val <= 0) {
+      S.Diag(Attr.getRange().getBegin(),
+             diag::err_attribute_requires_positive_integer)
+          << Attr.getName();
+      return;
+    }
+
+    NumComputeUnits[i] = Val;
   }
 
+  // TODO: Check that num_compute_units attribute is specified with valid
+  // number of arguments: CORC-2359
+
+  if (Attr.getNumArgs() < 2)
+    NumComputeUnits[1] = NumComputeUnitsAttr::DefaultYDim;
+  if (Attr.getNumArgs() < 3)
+    NumComputeUnits[2] = NumComputeUnitsAttr::DefaultZDim;
+
   D->addAttr(::new (S.Context) NumComputeUnitsAttr(
-      Attr.getRange(), S.Context, NumComputeUnits,
-      Attr.getAttributeSpellingListIndex()));
+      Attr.getRange(), S.Context, NumComputeUnits[0], NumComputeUnits[1],
+      NumComputeUnits[2], Attr.getAttributeSpellingListIndex()));
 }
 
 static void handleNumSimdWorkItemsAttr(Sema &S, Decl *D,
@@ -3045,6 +3066,63 @@ static void handleNumSimdWorkItemsAttr(Sema &S, Decl *D,
 
   D->addAttr(::new (S.Context) NumSimdWorkItemsAttr(
       Attr.getRange(), S.Context, NumSimdWorkItems,
+      Attr.getAttributeSpellingListIndex()));
+}
+
+static void handleMaxGlobalWorkDimAttr(Sema &S, Decl *D,
+                                       const AttributeList &Attr) {
+  if (!S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
+    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
+      << Attr.getName();
+    return;
+  }
+
+  uint32_t MaxGlobalWorkDim;
+  const Expr *E = Attr.getArgAsExpr(0);
+  if (!checkUInt32Argument(S, Attr, E, MaxGlobalWorkDim, 0))
+    return;
+  if (MaxGlobalWorkDim != 0) {
+    S.Diag(Attr.getLoc(), diag::err_intel_attribute_argument_is_not_zero)
+      << Attr.getName();
+    return;
+  }
+
+  uint32_t WGSize[3] = {1, 1, 1};
+  if (!checkWorkGroupSizeValues(S, D, Attr, WGSize))
+    return;
+
+  D->addAttr(::new (S.Context) MaxGlobalWorkDimAttr(
+      Attr.getRange(), S.Context, MaxGlobalWorkDim,
+      Attr.getAttributeSpellingListIndex()));
+}
+
+static void handleAutorunAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+  if (!S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
+    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
+        << Attr.getName();
+    return;
+  }
+
+  FunctionDecl *FD = cast<FunctionDecl>(D);
+  if (!FD->param_empty()) {
+    S.Diag(Attr.getLoc(),
+        diag::err_opencl_autorun_kernel_cannot_have_arguments);
+    return;
+  }
+
+  if (auto *A = D->getAttr<ReqdWorkGroupSizeAttr>()) {
+    long long int N = 1ll << 32ll;
+    if (N % A->getXDim() != 0 || N % A->getYDim() != 0 ||
+        N % A->getZDim() != 0) {
+      S.Diag(A->getLocation(),
+          diag::err_opencl_autorun_kernel_wrong_reqd_wg_size);
+      return;
+    }
+  }
+
+  // TODO: Check that kernel does not use I/O channels: CORC-2359
+
+  D->addAttr(::new (S.Context) AutorunAttr(Attr.getRange(), S.Context,
       Attr.getAttributeSpellingListIndex()));
 }
 
@@ -3228,6 +3306,31 @@ static void handleOpenCLBufferLocationAttr(Sema & S, Decl * D,
       Attr.getRange(), S.Context, Str, Attr.getAttributeSpellingListIndex()));
 }
 
+static void handleOpenCLHostAccessible(Sema &S, Decl *D,
+                                       const AttributeList &Attr) {
+  if (D->isInvalidDecl())
+    return;
+
+  QualType Ty = cast<VarDecl>(D)->getType();
+
+  if (!S.getOpenCLOptions().isEnabled("cl_intel_fpga_host_pipe")) {
+    S.Diag(D->getLocation(),
+           diag::err_intel_opencl_attribute_requires_extension)
+        << Attr.getName() << "cl_intel_fpga_host_pipe";
+    return;
+  }
+
+  const Type *TypePtr = Ty.getTypePtr();
+  if (!TypePtr->isPipeType()) {
+    S.Diag(Attr.getLoc(), diag::warn_intel_opencl_attribute_wrong_decl_type)
+        << Attr.getName() << 47;
+    return;
+  }
+
+  D->addAttr(::new (S.Context) OpenCLHostAccessibleAttr(
+      Attr.getRange(), S.Context, Attr.getAttributeSpellingListIndex()));
+}
+
 static void handleVecLenHint(Sema &S, Decl *D, const AttributeList &Attr) {
   if (!S.getOpenCLOptions().isEnabled("cl_intel_vec_len_hint")) {
     S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
@@ -3264,9 +3367,6 @@ template <typename WorkGroupAttr>
 static void handleWorkGroupSize(Sema &S, Decl *D,
                                 const AttributeList &Attr) {
 #if INTEL_CUSTOMIZATION
-  if (D->isInvalidDecl())
-    return;
-
   if (!S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment() &&
       Attr.getKind() == AttributeList::AT_MaxWorkGroupSize) {
     S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
@@ -3290,6 +3390,14 @@ static void handleWorkGroupSize(Sema &S, Decl *D,
 #if INTEL_CUSTOMIZATION
   if (!checkWorkGroupSizeValues(S, D, Attr, WGSize))
     return;
+
+  if (D->hasAttr<AutorunAttr>()) {
+    long long int N = 1ll << 32ll;
+    if (N % WGSize[0] != 0 || N % WGSize[1] != 0 || N % WGSize[2] != 0) {
+      S.Diag(Attr.getLoc(), diag::err_opencl_autorun_kernel_wrong_reqd_wg_size);
+      return;
+    }
+  }
 #endif // INTEL_CUSTOMIZATION
 
   WorkGroupAttr *Existing = D->getAttr<WorkGroupAttr>();
@@ -7563,6 +7671,15 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case AttributeList::AT_OpenCLBufferLocation:
     handleOpenCLBufferLocationAttr(S, D, Attr);
     break;
+  case AttributeList::AT_MaxGlobalWorkDim:
+    handleMaxGlobalWorkDimAttr(S, D, Attr);
+    break;
+  case AttributeList::AT_Autorun:
+    handleAutorunAttr(S, D, Attr);
+    break;
+  case AttributeList::AT_OpenCLHostAccessible:
+    handleOpenCLHostAccessible(S, D, Attr);
+    break;
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_SPECIFIC_CILKPLUS
   // Cilk Plus attributes.
@@ -7668,6 +7785,12 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
     } else if (Attr *A = D->getAttr<NumComputeUnitsAttr>()) {
       Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
       D->setInvalidDecl();
+    } else if (Attr *A = D->getAttr<MaxGlobalWorkDimAttr>()) {
+      Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
+      D->setInvalidDecl();
+    } else if (Attr *A = D->getAttr<AutorunAttr>()) {
+      Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
+      D->setInvalidDecl();
 #endif // INTEL_CUSTOMIZATION
     } else if (Attr *A = D->getAttr<AMDGPUFlatWorkGroupSizeAttr>()) {
       Diag(D->getLocation(), diag::err_attribute_wrong_decl_type)
@@ -7690,6 +7813,18 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
       D->setInvalidDecl();
     }
   }
+#if INTEL_CUSTOMIZATION
+  else {
+    if (D->hasAttr<AutorunAttr>() && !D->hasAttr<MaxGlobalWorkDimAttr>() &&
+        !D->hasAttr<ReqdWorkGroupSizeAttr>()) {
+      Attr *A = D->getAttr<AutorunAttr>();
+      Diag(A->getLocation(),
+          diag::err_opencl_attribute_requires_another_to_be_specified)
+          << A << "'reqd_work_group_size' or 'max_global_work_dim' attribute";
+      D->setInvalidDecl();
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
 }
 
 // Helper for delayed processing TransparentUnion attribute.

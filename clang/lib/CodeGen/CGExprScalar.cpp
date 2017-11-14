@@ -3058,12 +3058,10 @@ Value *ScalarExprEmitter::EmitShl(const BinOpInfo &Ops) {
   if (Ops.LHS->getType() != RHS->getType())
     RHS = Builder.CreateIntCast(RHS, Ops.LHS->getType(), false, "sh_prom");
 #if INTEL_CUSTOMIZATION
-#ifndef INTEL_SPECIFIC_IL0_BACKEND
-  // Fix for CQ375045: xmain's bitwise shift show results that are differ from
+  // Fix for CQ375045: xmain's bitwise shift show results that differ from
   // results of icc/gcc
   if (CGF.getLangOpts().IntelCompat)
     RHS = Builder.CreateAnd(RHS, RHS->getType()->getScalarSizeInBits() - 1);
-#endif // INTEL_SPECIFIC_IL0_BACKEND
 #endif // INTEL_CUSTOMIZATION
 
   bool SanitizeBase = CGF.SanOpts.has(SanitizerKind::ShiftBase) &&
@@ -3132,6 +3130,12 @@ Value *ScalarExprEmitter::EmitShr(const BinOpInfo &Ops) {
   Value *RHS = Ops.RHS;
   if (Ops.LHS->getType() != RHS->getType())
     RHS = Builder.CreateIntCast(RHS, Ops.LHS->getType(), false, "sh_prom");
+#if INTEL_CUSTOMIZATION
+  // Fix for CQ375045: xmain's bitwise shift show results that differ from
+  // results of icc/gcc
+  if (CGF.getLangOpts().IntelCompat)
+    RHS = Builder.CreateAnd(RHS, RHS->getType()->getScalarSizeInBits() - 1);
+#endif // INTEL_CUSTOMIZATION
 
   // OpenCL 6.3j: shift values are effectively % word size of LHS.
   if (CGF.getLangOpts().OpenCL)

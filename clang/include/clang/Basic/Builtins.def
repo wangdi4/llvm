@@ -366,9 +366,13 @@ BUILTIN(__builtin_calloc,     "v*zz",   "Fnc")
 BUILTIN(__builtin_malloc,     "v*z",    "Fn")
 // We use here 'void *' instead of 'FILE *' due to icc/gcc compatibility.
 BUILTIN(__builtin_fwrite,     "zvC*zzv*","Fn")
+BUILTIN(__builtin_fwrite_unlocked,     "zvC*zzv*","Fn")
 BUILTIN(__builtin_fputs,      "icC*v*", "Fn")
+BUILTIN(__builtin_fputs_unlocked,      "icC*v*", "Fn")
 BUILTIN(__builtin_fputc,      "iiv*",   "Fn")
+BUILTIN(__builtin_fputc_unlocked,      "iiv*",   "Fn")
 BUILTIN(__builtin_puts,       "icC*",   "Fn")
+BUILTIN(__builtin_puts_unlocked,       "icC*",   "Fn")
 BUILTIN(__builtin_exit,       "vi",     "Fnc")
 // '__builtin_constant_p' is defined further, in group titled 'Random GCC
 // builtins'
@@ -388,6 +392,15 @@ BUILTIN(__builtin_isfinite,   "i.", "Fnc")
 BUILTIN(__builtin_isinf,      "i.", "Fnc")
 BUILTIN(__builtin_isinf_sign, "i.", "Fnc")
 BUILTIN(__builtin_isnan,      "i.", "Fnc")
+#if INTEL_CUSTOMIZATION
+BUILTIN(__builtin_isnanf,      "i.", "Fnc")
+BUILTIN(__builtin_isnanl,      "i.", "Fnc")
+BUILTIN(__builtin_isinff,      "i.", "Fnc")
+BUILTIN(__builtin_isinfl,      "i.", "Fnc")
+BUILTIN(__builtin_finite,   "i.", "Fnc")
+BUILTIN(__builtin_finitef,   "i.", "Fnc")
+BUILTIN(__builtin_finitel,   "i.", "Fnc")
+#endif // INTEL_CUSTOMIZATION
 BUILTIN(__builtin_isnormal,   "i.", "Fnc")
 
 // FP signbit builtins

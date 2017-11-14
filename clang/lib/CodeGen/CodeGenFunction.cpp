@@ -585,6 +585,10 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
   // MDNode for the kernel argument names.
   SmallVector<llvm::Metadata *, 8> argNames;
 
+#if INTEL_CUSTOMIZATION
+  // MDNode for the intel_host_accessible attribute.
+  SmallVector<llvm::Metadata*, 8> argHostAccessible;
+#endif // INTEL_CUSTOMIZATION
   for (unsigned i = 0, e = FD->getNumParams(); i != e; ++i) {
     const ParmVarDecl *parm = FD->getParamDecl(i);
     QualType ty = parm->getType();
@@ -700,6 +704,15 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
 
     // Get argument name.
     argNames.push_back(llvm::MDString::get(Context, parm->getName()));
+#if INTEL_CUSTOMIZATION
+    bool IsHostAccessible = ty->isPipeType() &&
+      parm->getAttr<OpenCLHostAccessibleAttr>();
+
+    argHostAccessible.push_back(
+        llvm::ConstantAsMetadata::get(
+            (IsHostAccessible) ? llvm::ConstantInt::getTrue(Context)
+                               : llvm::ConstantInt::getFalse(Context)));
+#endif // INTEL_CUSTOMIZATION
   }
 
   Fn->setMetadata("kernel_arg_addr_space",
@@ -712,6 +725,11 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
                   llvm::MDNode::get(Context, argBaseTypeNames));
   Fn->setMetadata("kernel_arg_type_qual",
                   llvm::MDNode::get(Context, argTypeQuals));
+#if INTEL_CUSTOMIZATION
+  Fn->setMetadata("kernel_arg_host_accessible",
+                  llvm::MDNode::get(Context, argHostAccessible));
+#endif // INTEL_CUSTOMIZATION
+
   if (CGM.getCodeGenOpts().EmitOpenCLArgMetadata)
     Fn->setMetadata("kernel_arg_name",
                     llvm::MDNode::get(Context, argNames));
@@ -775,15 +793,23 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
                     llvm::MDNode::get(Context, attrMDArgs));
   }
 
-  if (FD->getAttr<TaskAttr>()) {
+  if (FD->hasAttr<TaskAttr>() || FD->hasAttr<MaxGlobalWorkDimAttr>()) {
     llvm::Metadata *attrMDArgs[] = {
         llvm::ConstantAsMetadata::get(Builder.getTrue())};
     Fn->setMetadata("task", llvm::MDNode::get(Context, attrMDArgs));
   }
 
+  if (FD->hasAttr<AutorunAttr>()) {
+    llvm::Metadata *attrMDArgs[] = {
+        llvm::ConstantAsMetadata::get(Builder.getTrue())};
+    Fn->setMetadata("autorun", llvm::MDNode::get(Context, attrMDArgs));
+  }
+
   if (const NumComputeUnitsAttr *A = FD->getAttr<NumComputeUnitsAttr>()) {
-    llvm::Metadata *attrMDArgs[] = {llvm::ConstantAsMetadata::get(
-        Builder.getInt32(A->getNumComputeUnits()))};
+    llvm::Metadata *attrMDArgs[] = {
+        llvm::ConstantAsMetadata::get(Builder.getInt32(A->getXDim())),
+        llvm::ConstantAsMetadata::get(Builder.getInt32(A->getYDim())),
+        llvm::ConstantAsMetadata::get(Builder.getInt32(A->getZDim()))};
     Fn->setMetadata("num_compute_units",
                     llvm::MDNode::get(Context, attrMDArgs));
   }

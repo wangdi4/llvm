@@ -127,18 +127,22 @@ public:
 #if INTEL_CUSTOMIZATION
 class LLVM_LIBRARY_VISIBILITY SPIR32INTELFpgaTargetInfo
     : public SPIR32TargetInfo {
+  static const Builtin::Info BuiltinInfo[];
 public:
   SPIR32INTELFpgaTargetInfo(const llvm::Triple &Triple,
                             const TargetOptions &Opts)
       : SPIR32TargetInfo(Triple, Opts) {}
+  ArrayRef<Builtin::Info> getTargetBuiltins() const override;
 };
 
 class LLVM_LIBRARY_VISIBILITY SPIR64INTELFpgaTargetInfo
     : public SPIR64TargetInfo {
+  static const Builtin::Info BuiltinInfo[];
 public:
   SPIR64INTELFpgaTargetInfo(const llvm::Triple &Triple,
                             const TargetOptions &Opts)
       : SPIR64TargetInfo(Triple, Opts) {}
+  ArrayRef<Builtin::Info> getTargetBuiltins() const override;
 };
 #endif // INTEL_CUSTOMIZATION
 } // namespace targets
