@@ -40,7 +40,7 @@
 ; CHECK: IR Dump Before HIR Loop Memory Motion
 ;
 ; CHECK:  BEGIN REGION { modified }
-; CHECK:           + DO i1 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>  <MAX_TC_EST = 40>
+; CHECK:           + DO i1 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>  <MAX_TC_EST = 40>
 ; CHECK:           |   + DO i2 = 0, %loop + -1, 1   <DO_LOOP>  <MAX_TC_EST = 999>
 ; CHECK:           |   |   + DO i3 = 0, 24, 1   <DO_LOOP>
 ; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
@@ -129,7 +129,7 @@
 ; CHECK: matmul
 ;
 ; CHECK:  BEGIN REGION { modified }
-; CHECK:           + DO i1 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>  <MAX_TC_EST = 40>
+; CHECK:           + DO i1 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>  <MAX_TC_EST = 40>
 ; CHECK:           |   + DO i2 = 0, %loop + -1, 1   <DO_LOOP>  <MAX_TC_EST = 999>
 ; CHECK:           |   |      %limm = (@px)[0][25 * i1];
 ; CHECK:           |   |      %limm4 = (@px)[0][25 * i1 + 1];

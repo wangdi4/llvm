@@ -18,6 +18,7 @@
 
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrDecomposeHIR.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrVisitor.h"
 #include "llvm/Analysis/VectorUtils.h"
@@ -26,7 +27,6 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/IR/HIRVisitor.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
@@ -69,7 +69,7 @@ private:
   void addInst(HLInst *Inst) {
     if (MaskDDRef)
       Inst->setMaskDDRef(MaskDDRef->clone());
-    HNU.insertAsLastChild(ACG->getMainLoop(), Inst);
+    HLNodeUtils::insertAsLastChild(ACG->getMainLoop(), Inst);
   }
 
 public:
@@ -445,7 +445,7 @@ public:
 
   void postVisit(HLNode *Node) {}
 
-  bool isDone() const override { return (!IsHandled); }
+  bool isDone() const { return (!IsHandled); }
   bool isHandled() { return IsHandled; }
   bool getUnitStrideRefSeen() { return UnitStrideRefSeen; }
   bool getMemRefSeen() { return MemRefSeen; }
@@ -499,6 +499,7 @@ void HandledCheck::visit(HLDDNode *Node) {
       }
     }
   }
+
 
   for (auto Iter = Node->ddref_begin(), End = Node->ddref_end(); Iter != End;
        ++Iter) {
@@ -851,7 +852,7 @@ void AVRCodeGenHIR::eraseLoopIntrinsImpl(bool BeginDir) {
     Intrinsic::ID IntrinID;
     if (HInst->isIntrinCall(IntrinID)) {
       if (vpo::VPOAnalysisUtils::isIntelClause(IntrinID)) {
-        OrigLoop->getHLNodeUtils().remove(HInst);
+        HLNodeUtils::remove(HInst);
         continue;
       }
 
@@ -863,9 +864,9 @@ void AVRCodeGenHIR::eraseLoopIntrinsImpl(bool BeginDir) {
         int DirID = vpo::VPOAnalysisUtils::getDirectiveID(DirStr);
 
         if (DirID == BeginOrEndDirID) {
-          OrigLoop->getHLNodeUtils().remove(HInst);
+          HLNodeUtils::remove(HInst);
         } else if (VPOAnalysisUtils::isListEndDirective(DirID)) {
-          OrigLoop->getHLNodeUtils().remove(HInst);
+          HLNodeUtils::remove(HInst);
           return;
         }
       }
@@ -1143,7 +1144,7 @@ void AVRCodeGenHIR::processLoop() {
     LV.replaceCalls();
     OrigLoop->markDoNotVectorize();
   } else {
-    MainLoop->getHLNodeUtils().remove(OrigLoop);
+    HLNodeUtils::remove(OrigLoop);
   }
 }
 
@@ -1488,7 +1489,7 @@ HLInst *AVRCodeGenHIR::widenReductionNode(const HLNode *Node) {
 
   buildReductionTail(Tail, BOp->getOpcode(), VecRef, InitValue, MainLoop,
                      RedOp);
-  Node->getHLNodeUtils().insertAfter(MainLoop, &Tail);
+  HLNodeUtils::insertAfter(MainLoop, &Tail);
   return WideInst;
 }
 
@@ -1556,7 +1557,7 @@ HLInst *AVRCodeGenHIR::widenNode(AVRAssignHIR *AvrNode, RegDDRef *Mask) {
   if (isa<BinaryOperator>(CurInst)) {
     if (RHM.isReductionVariable(CurInst)) {
       WideInst = widenReductionNode(Node);
-      Node->getHLNodeUtils().insertAsLastChild(MainLoop, WideInst);
+      HLNodeUtils::insertAsLastChild(MainLoop, WideInst);
       return WideInst;
     }
   }
@@ -1677,7 +1678,7 @@ HLInst *AVRCodeGenHIR::widenNode(AVRAssignHIR *AvrNode, RegDDRef *Mask) {
       WideInst->getLvalDDRef()->makeSelfBlob();
   }
 
-  Node->getHLNodeUtils().insertAsLastChild(MainLoop, WideInst);
+  HLNodeUtils::insertAsLastChild(MainLoop, WideInst);
   return WideInst;
 }
 
@@ -1685,7 +1686,7 @@ HLInst *AVRCodeGenHIR::insertReductionInitializer(Constant *Iden) {
   auto IdentityVec = getConstantSplatDDRef(MainLoop->getDDRefUtils(), Iden, VL);
   HLInst *RedOpVecInst =
       MainLoop->getHLNodeUtils().createCopyInst(IdentityVec, "RedOp");
-  MainLoop->getHLNodeUtils().insertBefore(MainLoop, RedOpVecInst);
+  HLNodeUtils::insertBefore(MainLoop, RedOpVecInst);
 
   auto LvalSymbase = RedOpVecInst->getLvalDDRef()->getSymbase();
   MainLoop->addLiveInTemp(LvalSymbase);
@@ -1717,7 +1718,7 @@ void AVRCodeGenHIR::addToMapAndHandleLiveOut(const RegDDRef *ScalRef,
     HLContainerTy Tail;
 
     buildReductionTail(Tail, OpCode, VecRef, ScalRef, MainLoop, ScalRef);
-    WideInst->getHLNodeUtils().insertAfter(MainLoop, &Tail);
+    HLNodeUtils::insertAfter(MainLoop, &Tail);
   } else {
     auto Extr = WideInst->getHLNodeUtils().createExtractElementInst(
         VecRef->clone(), VL - 1, "Last", ScalRef->clone());
@@ -1728,6 +1729,6 @@ void AVRCodeGenHIR::addToMapAndHandleLiveOut(const RegDDRef *ScalRef,
     if (Lval->getSingleCanonExpr()->hasIV(MainLoop->getNestingLevel()))
       Lval->makeSelfBlob();
 
-    WideInst->getHLNodeUtils().insertAfter(MainLoop, Extr);
+    HLNodeUtils::insertAfter(MainLoop, Extr);
   }
 }

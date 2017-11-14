@@ -1,7 +1,7 @@
 //===--- HIRScalarReplArray.cpp -Loop Scalar Replacement Impl -*- C++ -*---===//
 // Implement HIR Loop Scalar Replacement of Array Access Transformation
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -62,7 +62,36 @@
 // Note:
 // the t1 = A[UB+1] is not needed in prehdr in this case.
 //
+// 3. In the given example (scalarrepl.compute.maxIdxLoad1.ll), the load on
+// %scalarepl = (@A)[0][0] is NOT needed.
 //
+// IR Dump Before HIR Scalar Repl:
+//
+// BEGIN REGION{};
+// +DO i1 = 0, 100, 1 < DO_LOOP > ;
+// | (@A)[0][i1 + 1] = i1;
+// | (@A)[0][i1] = (@A)[0][i1 + 1];
+// +END LOOP;
+// END REGION
+//
+// IR Dump After HIR Scalar Repl:
+//
+// BEGIN REGION { modified }
+//  %scalarepl = (@A)[0][0];
+//  + DO i1 = 0, 100, 1   <DO_LOOP>
+//  |   %scalarepl1 = i1;
+//  |   %scalarepl = %scalarepl1;
+//  |   (@A)[0][i1] = %scalarepl;
+//  |   %scalarepl = %scalarepl1;
+//  + END LOOP
+//  (@A)[0][101] = %scalarepl;
+// END REGION
+//
+// In general, a load (in preheader) is not required if store dominates load(s)
+// in the curren group.
+//
+//
+
 // -------------------------------------------------------------------
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/Triple.h"
@@ -74,16 +103,16 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/DDGraph.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLocalityAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGatherer.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 
 #include "HIRScalarReplArray.h"
 
@@ -369,20 +398,34 @@ bool MemRefGroup::areDDEdgesInSameMRG(DDGraph &DDG) const {
   return true;
 }
 
+// Note:
+// The logic is contrived because the current MemRefTuples are sorted that all
+// write(s) appear before all read(s) after the collection from
+// HIRLocaltyAnalysis, instead of the default (expected) sort by Topological
+// numbers over the MemRefs.
+//
+// This makes the logic is bit difficult to understand.
+//
+// Once HIRLocalityAnalysis relaxes this behavior, the code can be simplified
+// with easy-to-understand logic.
+//
 void MemRefGroup::markMaxLoad(void) {
+  // Sanity: expect at least 1 Load
   if (NumLoads == 0) {
     return;
   }
 
-  // may find the MaxLoad if there is 1+ load(s)
-  unsigned Size = RefTupleVec.size();
-  unsigned MinTopNum = -1; // will shrink
-  RegDDRef *FirstRef = RefTupleVec[0].getMemRef();
+  // *MAY* find the MaxLoad if there is 1+ load(s)
   int64_t MaxDepDist = getMaxDepDist();
-  bool DepDistExist = false;
+  unsigned Size = RefTupleVec.size();
+  unsigned MinTopNum = unsigned(-1); // may shrink
+  RegDDRef *FirstRef = RefTupleVec[0].getMemRef();
+  bool DepDistExist = false, MaxIndexIsRVal = false;
   int64_t DepDist = 0;
+  unsigned TheIdx = 0;
 
-  for (signed I = Size - 1; I >= 0; --I) { // search high index only
+  // Search from highest index (== MaxDepDist) only (in all available MemRefs):
+  for (signed I = Size - 1; I >= 0; --I) {
     RefTuple *RT = &RefTupleVec[I];
     RegDDRef *MemRef = RT->getMemRef();
     DepDistExist = DDRefUtils::getConstIterationDistance(MemRef, FirstRef,
@@ -391,22 +434,24 @@ void MemRefGroup::markMaxLoad(void) {
     (void)DepDistExist;
     DepDist = std::abs(DepDist);
 
-    // Only check those RefTuples with MaxDepDist
+    // Only check those MemRefs with MaxDepDist
     if (DepDist != MaxDepDist) {
       break;
     }
 
-    // Only check Load(s);
-    if (MemRef->isLval()) {
-      continue;
-    }
-
-    // Find the smallest TOPO#
+    // Find the minimal TOPO#: + record its matching Index
     unsigned CurTopNum = MemRef->getHLDDNode()->getTopSortNum();
     if (CurTopNum < MinTopNum) {
-      MaxIdxLoadRT = I; // save the MaxIdxLoadRT index
       MinTopNum = CurTopNum;
+      // Set flag based on whether MemRef is Rval or not
+      MaxIndexIsRVal = MemRef->isRval();
+      TheIdx = I;
     }
+  }
+
+  // Set MaxIdxLoadRT only if the MinIndex (TopoNumber) is on a Rval (Load):
+  if (MaxIndexIsRVal) {
+    MaxIdxLoadRT = TheIdx; // save the MaxIdxLoadRT index
   }
 }
 
@@ -535,7 +580,7 @@ void MemRefGroup::generateTempRotation(HLLoop *Lp) {
     RegDDRef *RvalRef = TmpV[Idx + 1];
     HLInst *CopyInst = HNU->createCopyInst(RvalRef->clone(), ScalarReplCopyName,
                                            LvalRef->clone());
-    HNU->insertAsLastChild(Lp, CopyInst);
+    HLNodeUtils::insertAsLastChild(Lp, CopyInst);
   }
 
   DEBUG(FOS << "AFTER generateTempRotation(.): \n"; Lp->dump(); FOS << "\n");
@@ -592,12 +637,12 @@ void MemRefGroup::generateLoadInPrehdr(HLLoop *Lp, RegDDRef *MemRef,
   // Create a load from MemRef into Tmp
   RegDDRef *MemRef2 = IndepMemRef ? MemRef : MemRef->clone();
   RegDDRef *TmpRefClone = TmpRef->clone();
-  DDRefUtils::replaceIVByCanonExpr(MemRef2, LoopLevel, LBCE);
+  DDRefUtils::replaceIVByCanonExpr(MemRef2, LoopLevel, LBCE, Lp->isNSW());
 
   // Insert the load into the Lp's preheader
   HLNodeUtils *HNU = HSRA->HNU;
   HLInst *LoadInst = HNU->createLoad(MemRef2, ScalarReplTempName, TmpRefClone);
-  HNU->insertAsLastPreheaderNode(Lp, LoadInst);
+  HLNodeUtils::insertAsLastPreheaderNode(Lp, LoadInst);
 
   // Mark TempRefClone as Lp's LiveIn
   Lp->addLiveInTemp(TmpRefClone->getSymbase());
@@ -631,7 +676,8 @@ void MemRefGroup::generateStoreFromTmps(HLLoop *Lp) {
   signed AdjustIdx = isCompleteStoreOnly() ? 0 : (-1);
   HLInst *StoreInst = nullptr;
 
-  // For each unique index in [MinStoreOffset+1 .. MinStoreOffset+MaxStoreDist]:
+  // For each unique index in [MinStoreOffset+1 ..
+  // MinStoreOffset+MaxStoreDist]:
   // - generate a store in Postexit regardless of gap situation;
   // - temp associated with the store:
   //   . use normally mapped temp for a CompleteStoreOnly group;
@@ -660,15 +706,15 @@ HLInst *MemRefGroup::generateStoreInPostexit(HLLoop *Lp, RegDDRef *MemRef,
 
   // Simplify: Replace IV with UBCE
   HLNodeUtils *HNU = HSRA->HNU;
-  DDRefUtils::replaceIVByCanonExpr(MemRef, LoopLevel, UBCE);
+  DDRefUtils::replaceIVByCanonExpr(MemRef, LoopLevel, UBCE, Lp->isNSW());
 
   // Create a StoreInst
   HLInst *StoreInst = HNU->createStore(TmpRef, ScalarReplStoreName, MemRef);
 
   if (InsertAfter) {
-    HNU->insertAfter(InsertAfter, StoreInst);
+    HLNodeUtils::insertAfter(InsertAfter, StoreInst);
   } else {
-    HNU->insertAsFirstPostexitNode(Lp, StoreInst);
+    HLNodeUtils::insertAsFirstPostexitNode(Lp, StoreInst);
   }
 
   Lp->addLiveOutTemp(TmpRef->getSymbase());
@@ -994,7 +1040,7 @@ bool HIRScalarReplArray::doPreliminaryChecks(const HLLoop *Lp) {
   // - allow Label: label is harmless if there is no GOTO(s).
   const LoopStatistics &LS = HLS->getSelfLoopStatistics(Lp);
   // DEBUG(LS.dump(););
-  if (LS.hasCallsWithUnsafeSideEffects() || LS.hasGotos()) {
+  if (LS.hasCallsWithUnsafeSideEffects() || LS.hasForwardGotos()) {
     return false;
   }
 
@@ -1060,7 +1106,7 @@ bool HIRScalarReplArray::checkIV(const RegDDRef *Ref,
 }
 
 bool HIRScalarReplArray::doCollection(HLLoop *Lp) {
-  // Collect and group RegDDRefs:
+  // Collect and group RegDDRefs:Don't sort the groups
   RefGroupVecTy Groups;
   HLA->populateTemporalLocalityGroups(Lp, ScalarReplArrayMaxDepDist, Groups);
   DEBUG(DDRefGrouping::dump(Groups));
@@ -1212,7 +1258,7 @@ void HIRScalarReplArray::doInLoopProc(HLLoop *Lp, MemRefGroup &MRG) {
     HLInst *LoadInst =
         HNU->createLoad(MemRefClone, ScalarReplLoadName, TmpRefClone);
     HLDDNode *DDNode = MemRef->getHLDDNode();
-    HNU->insertBefore(DDNode, LoadInst);
+    HLNodeUtils::insertBefore(DDNode, LoadInst);
   }
 
   // Generate a store if MinIdxStoreRT is available
@@ -1225,7 +1271,7 @@ void HIRScalarReplArray::doInLoopProc(HLLoop *Lp, MemRefGroup &MRG) {
     HLInst *StoreInst =
         HNU->createStore(TmpRefClone, ScalarReplStoreName, MemRefClone);
     HLDDNode *DDNode = MemRef->getHLDDNode();
-    HNU->insertAfter(DDNode, StoreInst);
+    HLNodeUtils::insertAfter(DDNode, StoreInst);
   }
 
   // Replace each MemRef with its matching Temp
@@ -1264,17 +1310,23 @@ void HIRScalarReplArray::replaceMemRefWithTmp(RegDDRef *MemRef,
     HLInst *CopyInst = nullptr;
     RegDDRef *OtherRef = nullptr;
 
-    // StoreInst: replace with a CopyInst
+    // StoreInst: replace with a LoadInst or CopyInst depending on the rval.
     if (isa<StoreInst>(LLVMInst) && MemRef->isLval()) {
       OtherRef = HInst->removeOperandDDRef(1);
-      CopyInst = HNU->createCopyInst(OtherRef, ScalarReplCopyName, TmpRefClone);
-      HNU->replace(HInst, CopyInst);
+      if (OtherRef->isMemRef()) {
+        auto LInst = HNU->createLoad(OtherRef, ScalarReplCopyName, TmpRefClone);
+        HLNodeUtils::replace(HInst, LInst);
+      } else {
+        CopyInst =
+            HNU->createCopyInst(OtherRef, ScalarReplCopyName, TmpRefClone);
+        HLNodeUtils::replace(HInst, CopyInst);
+      }
     }
     // LoadInst: replace with a CopyInst
-    else if (isa<LoadInst>(LLVMInst) && MemRef->isRval()) {
+    else if (isa<LoadInst>(LLVMInst)) {
       OtherRef = HInst->removeOperandDDRef(0);
       CopyInst = HNU->createCopyInst(TmpRefClone, ScalarReplCopyName, OtherRef);
-      HNU->replace(HInst, CopyInst);
+      HLNodeUtils::replace(HInst, CopyInst);
     }
     // Neither a Load nor a Store: do regular replacement
     else {

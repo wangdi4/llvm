@@ -4,8 +4,8 @@
 ; CHECK: NSW: Yes
 
 ; Check that the upper for i2 loop is parsed as linear defined at level 1.
-; CHECK: DO i64 i2 = 0, zext.i32.i64((-1 + %0))
-; CHECK-NEXT: <RVAL-REG> LINEAR i64 zext.i32.i64((-1 + %0)){def@1}
+; CHECK: DO i64 i2 = 0, sext.i32.i64((-1 + %0))
+; CHECK-NEXT: <RVAL-REG> LINEAR i64 sext.i32.i64((-1 + %0)){def@1}
 ; CHECK-NEXT: <BLOB> LINEAR i32 %0{def@1}
 
 

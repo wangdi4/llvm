@@ -5350,6 +5350,100 @@ hashes of the 2 hottest target functions' names (this is the same hash used
 to represent function names in the profile database), and the 5th and 7th
 operands give the execution count that each of the respective prior target
 functions was called.
+.. INTEL_CUSTOMIZATION
+
+'``in.de.ssa``' Metadata
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+This metadata is used by loopopt framework for the deconstructed temp copies of
+phis. The framework uses them to recognize the temp copies as the same value
+(symbase in HIR terminology) during parsing phase. In the following code
+example, %phi, %phi.in0 and %phi.in1 will be represented by the same value
+'%phi' in HIR.
+
+.. code-block:: llvm
+
+    pred0:
+      %phi.in0 = bitcast i32 %a to i32, !in.de.ssa !1   ; inserted livein copy with metadata
+      br label %merge
+
+    pred1:
+      %phi.in1 = bitcast i32 %b to i32, !in.de.ssa !1   ; inserted livein copy with metadata
+      br label %merge
+
+    merge:
+      %phi = phi i32 [ %a, %pred0 ], [ %b, %pred1 ] !in.de.ssa !1
+
+'``out.de.ssa``' Metadata
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This metadata is used by loopopt framework to prevent 'live range' issues when
+deconstructing SSA form by suppressing ScalarEvolution instruction traceback.
+There are several causes of 'live range' issues. These are documented in HIR SSA
+Deconstruction pass. One of the most common cases is when the instructions
+belonging to the same SCC have uses outside the SCC. Consider the following
+incoming IR with a multiply recurrence-
+
+.. code-block:: llvm
+
+     loop:
+       %mul.rec = phi i32 [ %init, %preheader], [ %mul, %loop]
+       ...
+       %mul = mul i32 %mul.rec, %stride
+       ...
+       br i1 %loop, %exit
+
+     exit:
+       %mul.lcssa = phi i32 [ %mul.rec, %loop]  ; liveout use of %mul.rec
+
+In HIR, we form an SCC containing %mul.rec and %mul so they are represented
+using the same value (symbase). This is done primarily to identify safe
+reductions in the incoming code but it is also used to produce 'cleaner' HIR.
+'Clean HIR' is not a well-defined term. It can mean a few different things like:
+
+-  Smaller HIR (less copies required to deconstruct SSA form).
+-  HIR looks closer to source code representation which helps with
+   debugging/analysis.
+
+In HIR the 'mul' instruction appears like this-
+
+.. code-block:: llvm
+
+     %mul.rec = %mul.rec * %stride
+
+The issue with identifying the reduction is that the original %mul.rec phi
+is live out of the loop. After HIR construction, it would be incorrect to mark
+%mul.rec as live-out because it gets updated with the 'mul' instruction. We
+resolve this issue by introducing a live-out copy which replaces uses of
+%mul.rec outside the SCC. Here's the deconstructed IR for the above case-
+
+.. code-block:: llvm
+
+     loop:
+       %mul.rec = phi i32 [ %init, %preheader], [ %mul, %loop]
+       %mul.rec.out = bitcast i32 %mul.rec to i32, !out.de.ssa !1   ; inserted liveout copy with metadata
+       ...
+       %mul = mul i32 %mul.rec, %stride, !live.range.de.ssa !1      ; attached live range metadata, see '``live.range.de.ssa``'
+       ...
+       br i1 %loop, %exit
+
+     exit:
+       %mul.lcssa = phi i32 [ %mul.rec.out, %loop]
+
+This makes the instruction %mul.rec.out live out of the loop instead of
+%mul.rec. The metadata on the liveout copy is used to suppress ScalarEvolution
+traceback so that liveout copies are always parsed as SCEVUknown.
+
+'``live.range.de.ssa``' Metadata
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This metadata is also used to resolve live range issues by suppressing
+ScalarEvolution traceback just like ``out.de.ssa`` metadata. The difference is
+that this metadata is applied to instructions which are part of the SCC. This
+is shown in the example in ``out.de.ssa`` metadata section where
+``live.range.de.ssa`` metadata is applied to the 'mul' instruction.
+
+.. END INTEL_CUSTOMIZATION
 
 Module Flags Metadata
 =====================

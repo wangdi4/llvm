@@ -4,8 +4,8 @@
 
 ; CHECK: Dump Before HIR Unroll & Jam 
 
-; CHECK: + DO i1 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>  <MAX_TC_EST = 99>
-; CHECK: |   + DO i2 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>  <MAX_TC_EST = 100>
+; CHECK: + DO i1 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>  <MAX_TC_EST = 99>
+; CHECK: |   + DO i2 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>  <MAX_TC_EST = 100>
 ; CHECK: |   |   %1 = (@A)[0][i1 + 1][i2];
 ; CHECK: |   |   %2 = (@A)[0][i1][i2];
 ; CHECK: |   |   (@A)[0][i1][i2] = %1 + %2;
@@ -16,10 +16,10 @@
 ; CHECK: Dump After HIR Unroll & Jam 
 
 ; CHECK: BEGIN REGION { modified }
-; CHECK: %tgu = (zext.i32.i64((-1 + %n)) + 1)/u8;
+; CHECK: %tgu = (sext.i32.i64((-1 + %n)) + 1)/u8;
 
 ; CHECK: + DO i1 = 0, %tgu + -1, 1   <DO_LOOP>  <MAX_TC_EST = 12>
-; CHECK: |   + DO i2 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>  <MAX_TC_EST = 100>
+; CHECK: |   + DO i2 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>  <MAX_TC_EST = 100>
 ; CHECK: |   |   %1 = (@A)[0][8 * i1 + 1][i2];
 ; CHECK: |   |   %2 = (@A)[0][8 * i1][i2];
 ; CHECK: |   |   (@A)[0][8 * i1][i2] = %1 + %2;
@@ -47,8 +47,8 @@
 ; CHECK: |   + END LOOP
 ; CHECK: + END LOOP
 
-; CHECK: + DO i1 = 8 * %tgu, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>  <MAX_TC_EST = 7>
-; CHECK: |   + DO i2 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>  <MAX_TC_EST = 100>
+; CHECK: + DO i1 = 8 * %tgu, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>  <MAX_TC_EST = 7>
+; CHECK: |   + DO i2 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>  <MAX_TC_EST = 100>
 ; CHECK: |   |   %1 = (@A)[0][i1 + 1][i2];
 ; CHECK: |   |   %2 = (@A)[0][i1][i2];
 ; CHECK: |   |   (@A)[0][i1][i2] = %1 + %2;

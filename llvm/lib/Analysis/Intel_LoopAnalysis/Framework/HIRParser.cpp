@@ -687,10 +687,18 @@ public:
                     bool *IsTruncOrSExt, bool *IsZExt, bool *IsNegation,
                     SCEVConstant **ConstMultiplier, SCEV **Additive) const;
 
-  /// Returns constant multiplier which when applied to AddRec yields MulAddRec,
-  /// if possible, otherwise returns nullptr.
-  const SCEVConstant *getMultiplier(const SCEVAddRecExpr *AddRec,
-                                    const SCEVAddRecExpr *MulAddRec) const;
+  /// Returns the SCEVConstant representing signed division result of LHS and
+  /// RHS.
+  const SCEVConstant *getSDiv(const SCEVConstant *LHS,
+                              const SCEVConstant *RHS) const;
+
+  /// Returns constant multiplier which when applied to AddRec may yield
+  /// MulAddRec, otherwise returns nullptr. This function does not perform all
+  /// sanity checks so the returned result may be incorrect. Caller is
+  /// responsible for sanity checking.
+  const SCEVConstant *
+  getPossibleMultiplier(const SCEVAddRecExpr *AddRec,
+                        const SCEVAddRecExpr *MulAddRec) const;
 
   /// Implements AddRec specific checks for replacement.
   bool isReplacableAddRec(const SCEVAddRecExpr *OrigAddRec,
@@ -1116,37 +1124,74 @@ bool HIRParser::BlobProcessor::isReplacable(const SCEV *OrigSCEV,
 }
 
 const SCEVConstant *
-HIRParser::BlobProcessor::getMultiplier(const SCEVAddRecExpr *AddRec,
-                                        const SCEVAddRecExpr *MulAddRec) const {
+HIRParser::BlobProcessor::getSDiv(const SCEVConstant *LHS,
+                                  const SCEVConstant *RHS) const {
+  return cast<SCEVConstant>(HIRP->SE->getConstant(cast<ConstantInt>(
+      ConstantExpr::getSDiv(LHS->getValue(), RHS->getValue()))));
+}
 
+const SCEVConstant *HIRParser::BlobProcessor::getPossibleMultiplier(
+    const SCEVAddRecExpr *AddRec, const SCEVAddRecExpr *MulAddRec) const {
+  unsigned NumOperands = AddRec->getNumOperands();
+  assert((NumOperands == MulAddRec->getNumOperands()) && "Operand mismatch!");
+
+  // There may be cases where we still don't catch the multiplier.
+  // TODO: extend it when a test case is available.
   const SCEVConstant *Mul = nullptr;
 
-  auto Op = dyn_cast<SCEVConstant>(AddRec->getOperand(1));
-  auto MulOp = dyn_cast<SCEVConstant>(MulAddRec->getOperand(1));
+  // We use the last operand of the recurrences to find the multiplier as this
+  // operand represents a non-zero stride for the recurrence.
+  auto LastOp = AddRec->getOperand(NumOperands - 1);
+  auto LastMulOp = MulAddRec->getOperand(NumOperands - 1);
 
-  if (Op && MulOp) {
-    Mul = cast<SCEVConstant>(HIRP->SE->getConstant(cast<ConstantInt>(
-        ConstantExpr::getSDiv(MulOp->getValue(), Op->getValue()))));
+  auto ConstStride = dyn_cast<SCEVConstant>(LastOp);
+  auto MulConstStride = dyn_cast<SCEVConstant>(LastMulOp);
+
+  // Looking for this condition-
+  // AddRec: {0,+,1}
+  // MulAddRec: {0,+,2}
+  if (ConstStride && MulConstStride) {
+    assert(!ConstStride->getValue()->isZero() &&
+           "Stride of add recurrence is zero!");
+    assert(!MulConstStride->getValue()->isZero() &&
+           "Stride of add recurrence is zero!");
+
+    Mul = getSDiv(MulConstStride, ConstStride);
 
     if (Mul->isZero()) {
       return nullptr;
     }
 
     return Mul;
-  }
 
-  // Looking for this condition-
-  // AddRec: {0,+,%size_x}<%for.cond.47.preheader>
-  // MulAddRec: {0,+,(4 * %size_x)}<%for.cond.47.preheader>
-  auto MulSCEV = dyn_cast<SCEVMulExpr>(MulAddRec->getOperand(1));
-
-  if (!MulSCEV || (MulSCEV->getNumOperands() != 2) ||
-      !isa<SCEVConstant>(MulSCEV->getOperand(0)) ||
-      (MulSCEV->getOperand(1) != AddRec->getOperand(1))) {
+  } else if (ConstStride || MulConstStride) {
+    // No match if only one of them is a constant.
     return nullptr;
   }
 
-  Mul = cast<SCEVConstant>(MulSCEV->getOperand(0));
+  // Looking for this condition-
+  // AddRec: {0,+,%size_x} or {0,+,(2 * %size_x)}
+  // MulAddRec: {0,+,(4 * %size_x)}
+  auto MulStrideOp = dyn_cast<SCEVMulExpr>(LastMulOp);
+
+  if (!MulStrideOp || !isa<SCEVConstant>(MulStrideOp->getOperand(0))) {
+    return nullptr;
+  }
+
+  MulConstStride = cast<SCEVConstant>(MulStrideOp->getOperand(0));
+
+  auto StrideOp = dyn_cast<SCEVMulExpr>(LastOp);
+  if (!StrideOp || !isa<SCEVConstant>(StrideOp->getOperand(0))) {
+    Mul = MulConstStride;
+
+  } else {
+    ConstStride = cast<SCEVConstant>(StrideOp->getOperand(0));
+    Mul = getSDiv(MulConstStride, ConstStride);
+
+    if (Mul->isZero()) {
+      return nullptr;
+    }
+  }
 
   return Mul;
 }
@@ -1158,15 +1203,17 @@ bool HIRParser::BlobProcessor::isReplacableAddRec(
 
   const SCEVConstant *Mul = nullptr;
   const SCEV *Add = nullptr;
+  unsigned NumOperands = OrigAddRec->getNumOperands();
 
   // Get constant multiplier, if any.
-  if (NewAddRec->getOperand(1) != OrigAddRec->getOperand(1)) {
+  if (NewAddRec->getOperand(NumOperands - 1) !=
+      OrigAddRec->getOperand(NumOperands - 1)) {
 
     if (!ConstMultiplier) {
       return false;
     }
 
-    Mul = getMultiplier(NewAddRec, OrigAddRec);
+    Mul = getPossibleMultiplier(NewAddRec, OrigAddRec);
 
     if (!Mul) {
       return false;
@@ -1187,7 +1234,7 @@ bool HIRParser::BlobProcessor::isReplacableAddRec(
   }
 
   // Now match operands
-  for (unsigned I = 1, E = NewAddRec->getNumOperands(); I < E; ++I) {
+  for (unsigned I = 1; I < NumOperands; ++I) {
     if (NewAddRec->getOperand(I) != OrigAddRec->getOperand(I)) {
       return false;
     }
@@ -1892,7 +1939,7 @@ public:
   bool isDone() const { return found(); }
 };
 
-bool HIRParser::containsCastedAddRec(const CastInst *CI) const {
+bool HIRParser::containsCastedAddRec(const CastInst *CI, const SCEV *SC) const {
   // If the SCEV of this cast instruction contains an explicit cast for an
   // AddRec (outer loop IV), it is better to parse the cast explicitly otherwise
   // the outer loop IV will be parsed as a blob. Consider this cast-
@@ -1907,8 +1954,6 @@ bool HIRParser::containsCastedAddRec(const CastInst *CI) const {
   // Otherwise it will be parsed as: i2 + sext.i32.i64(%b), where %b represents
   // i1 (outer loop IV).
 
-  auto SC = getSCEV(const_cast<CastInst *>(CI));
-
   CastedAddRecChecker CARC(CI->getSrcTy());
   SCEVTraversal<CastedAddRecChecker> Checker(CARC);
   Checker.visitAll(SC);
@@ -1916,7 +1961,8 @@ bool HIRParser::containsCastedAddRec(const CastInst *CI) const {
   return CARC.found();
 }
 
-bool HIRParser::isCastedFromLoopIVType(const CastInst *CI) const {
+bool HIRParser::isCastedFromLoopIVType(const CastInst *CI,
+                                       const SCEV *SC) const {
   // For cast instructions which cast from loop IV's type to some other
   // type, we want to explicitly hide the cast and parse the value in IV's type.
   // This allows more opportunities for canon expr merging. Consider the
@@ -1928,6 +1974,13 @@ bool HIRParser::isCastedFromLoopIVType(const CastInst *CI) const {
   // {0,+,1}<nuw><nsw><%for.body> (i64 type)
   // We instead want %idxprom to be considered as a cast: sext i32
   // {0,+,1}<nuw><nsw><%for.body> to i64
+
+  // Ignore if SCEV form of CI is already a cast. Top cast can be handled by
+  // parseRecursive().
+  if (isa<SCEVCastExpr>(SC)) {
+    return false;
+  }
+
   auto ParentLoop = getCurNode()->getParentLoop();
   return (ParentLoop && (ParentLoop->getIVType() == CI->getSrcTy()));
 }
@@ -1941,7 +1994,9 @@ bool HIRParser::shouldParseWithoutCast(const CastInst *CI, bool IsTop) const {
     return false;
   }
 
-  if (isCastedFromLoopIVType(CI) || containsCastedAddRec(CI)) {
+  auto SC = getSCEV(const_cast<CastInst *>(CI));
+
+  if (isCastedFromLoopIVType(CI, SC) || containsCastedAddRec(CI, SC)) {
     return true;
   }
 
@@ -2057,7 +2112,7 @@ void HIRParser::populateBlobDDRefs(RegDDRef *Ref, unsigned Level) {
 }
 
 RegDDRef *HIRParser::createUpperDDRef(const SCEV *BETC, unsigned Level,
-                                      Type *IVType) {
+                                      Type *IVType, bool IsNSW) {
   const Value *Val;
   unsigned Symbase = 0;
   clearTempBlobLevelMap();
@@ -2085,7 +2140,8 @@ RegDDRef *HIRParser::createUpperDDRef(const SCEV *BETC, unsigned Level,
   if (!BETCType->isPointerTy() && (BETCType != IVType)) {
 
     if (IVType->getPrimitiveSizeInBits() > BETCType->getPrimitiveSizeInBits()) {
-      BETC = SE->getZeroExtendExpr(BETC, IVType);
+      BETC = IsNSW ? SE->getSignExtendExpr(BETC, IVType)
+                   : SE->getZeroExtendExpr(BETC, IVType);
     } else {
       BETC = SE->getTruncateExpr(BETC, IVType);
     }
@@ -2143,8 +2199,8 @@ void HIRParser::parse(HLLoop *HLoop) {
     CurOutermostLoop = Lp;
   }
 
-  if (SE->hasLoopInvariantBackedgeTakenCount(Lp)) {
-    auto BETC = SE->getBackedgeTakenCountForHIR(Lp, CurOutermostLoop);
+  auto BETC = SE->getBackedgeTakenCountForHIR(Lp, CurOutermostLoop);
+  if (!isa<SCEVCouldNotCompute>(BETC)) {
 
     // Initialize Lower to 0.
     auto LowerRef = createLowerDDRef(IVType);
@@ -2155,7 +2211,7 @@ void HIRParser::parse(HLLoop *HLoop) {
     HLoop->setStrideDDRef(StrideRef);
 
     // Set the upper bound
-    auto UpperRef = createUpperDDRef(BETC, CurLevel, IVType);
+    auto UpperRef = createUpperDDRef(BETC, CurLevel, IVType, HLoop->isNSW());
     HLoop->setUpperDDRef(UpperRef);
 
     unsigned MaxTC;
@@ -2315,8 +2371,8 @@ void HIRParser::postParse(HLIf *If) {
   // If 'then' is empty, move 'else' children to 'then' by inverting predicate.
   if (!If->hasThenChildren() && (If->getNumPredicates() == 1)) {
     If->invertPredicate(PredIter);
-    getHLNodeUtils().moveAsFirstChildren(If, If->else_begin(), If->else_end(),
-                                         true);
+    HLNodeUtils::moveAsFirstChildren(If, If->else_begin(), If->else_end(),
+                                     true);
   }
 }
 
@@ -2482,14 +2538,25 @@ bool HIRParser::representsStructOffset(const GEPOperator *GEPOp) {
   return (Offsets[GEPOp->getNumOperands() - 2] != -1);
 }
 
+bool HIRParser::isValidGEPOp(const GEPOperator *GEPOp) const {
+
+  auto GEPInst = dyn_cast<GetElementPtrInst>(GEPOp);
+
+  if (GEPInst &&
+      SE->getHIRMetadata(GEPInst, ScalarEvolution::HIRLiveKind::LiveRange)) {
+    return false;
+  }
+
+  // Unsupported types for instructions inside the region has already been
+  // checked by region identification pass.
+  return ((GEPInst && CurRegion->containsBBlock(GEPInst->getParent())) ||
+          !HIRRegionIdentification::containsUnsupportedTy(GEPOp));
+}
+
 const GEPOperator *HIRParser::getBaseGEPOp(const GEPOperator *GEPOp) const {
 
   while (auto TempGEPOp = dyn_cast<GEPOperator>(GEPOp->getPointerOperand())) {
-    const GetElementPtrInst *GEPInst;
-
-    if ((GEPInst = dyn_cast<GetElementPtrInst>(TempGEPOp)) &&
-        (SE->getHIRMetadata(GEPInst, ScalarEvolution::HIRLiveKind::LiveRange) ||
-         !RI->isSupported(GEPInst->getPointerOperand()->getType()))) {
+    if (!isValidGEPOp(TempGEPOp)) {
       break;
     }
 
@@ -2664,11 +2731,9 @@ HIRParser::getValidPhiBaseVal(const Value *PhiInitVal,
     return PhiInitVal;
   }
 
-  const Instruction *GEPInst = nullptr;
-
   // A phi init GEP representing an offset cannot be merged into the ref as it
   // represents an unconventional access.
-  if (representsStructOffset(GEPOp)) {
+  if (representsStructOffset(GEPOp) || !isValidGEPOp(GEPOp)) {
     // If this is an instruction, we can use it as the base.
     if (isa<GetElementPtrInst>(PhiInitVal)) {
       return PhiInitVal;
@@ -2677,11 +2742,6 @@ HIRParser::getValidPhiBaseVal(const Value *PhiInitVal,
     // PhiInitVal is a constant expr, return null to indicate that the phi
     // itself should act as the base.
     return nullptr;
-  } else if ((GEPInst = dyn_cast<Instruction>(PhiInitVal)) &&
-             SE->getHIRMetadata(GEPInst,
-                                ScalarEvolution::HIRLiveKind::LiveRange)) {
-    // Return the same value if it has live range metadata.
-    return PhiInitVal;
   }
 
   *InitGEPOp = GEPOp;
@@ -2809,33 +2869,81 @@ RegDDRef *HIRParser::createSingleElementGEPDDRef(const Value *GEPVal,
   return Ref;
 }
 
+void HIRParser::restructureOnePastTheEndRef(RegDDRef *Ref) const {
+  unsigned NumDims = Ref->getNumDimensions();
+
+  // We are looking for a reference of the form: A[1][-i1-1]. The highest index
+  // is the constant one and the second highest index yields a negative index.
+  // If so, we restructure it so it looks like A[0][-i1+9] assuming the
+  // dimension size of 10.
+  if (NumDims == 1) {
+    return;
+  }
+
+  auto HighestCE = Ref->getDimensionIndex(NumDims);
+
+  int64_t Val;
+  if (!HighestCE->isIntConstant(&Val) || (Val != 1)) {
+    return;
+  }
+
+  auto SecondHighestCE = Ref->getDimensionIndex(NumDims - 1);
+
+  if (!HLNodeUtils::getMinValue(SecondHighestCE, CurNode, Val)) {
+    return;
+  }
+
+  if (Val < 0) {
+    HighestCE->setConstant(0);
+    auto NumElem = Ref->getNumDimensionElements(NumDims - 1);
+    SecondHighestCE->addConstant(NumElem, true);
+  }
+}
+
 // NOTE: AddRec->delinearize() doesn't work with constant bound arrays.
 // TODO: handle struct GEPs.
 RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
                                     bool IsUse) {
   const PHINode *BasePhi = nullptr;
-  const GEPOperator *GEPOp = nullptr;
   const Value *OrigGEPVal = GEPVal;
   RegDDRef *Ref = nullptr;
-  Type *DestTy = nullptr;
+
+  // Incoming IR may be bitcasting the GEP before loading/storing into it. If so
+  // we store the type of the GEP in BaseCE src type and the eventual load/store
+  // type in BaseCE dest type.
+  Type *DestTy = GEPVal->getType();
+  bool HasDestTy = false;
 
   clearTempBlobLevelMap();
 
   ParsingScalarLval = false;
 
-  // In some cases float* is converted into i32* before loading/storing. This
-  // info is propagated into the BaseCE dest type.
-  if (auto BCOp = dyn_cast<BitCastOperator>(GEPVal)) {
-    if ((!isa<Instruction>(BCOp) ||
-         !SE->getHIRMetadata(cast<Instruction>(BCOp),
-                             ScalarEvolution::HIRLiveKind::LiveOut)) &&
-        RI->isSupported(BCOp->getOperand(0)->getType())) {
-      GEPVal = BCOp->getOperand(0);
-      DestTy = BCOp->getDestTy();
+  // Trace though consecutive bitcast operators until we hit something else.
+  while (auto BCOp = dyn_cast<BitCastOperator>(GEPVal)) {
+
+    if (auto BCInst = dyn_cast<Instruction>(BCOp)) {
+      if (SE->getHIRMetadata(BCInst, ScalarEvolution::HIRLiveKind::LiveOut)) {
+        break;
+      }
     }
+
+    auto Opnd = BCOp->getOperand(0);
+    auto OpTy = Opnd->getType();
+    if (!RI->isSupported(OpTy)) {
+      break;
+    }
+
+    // Suppress tracing back to a function pointer type.
+    if (OpTy->getPointerElementType()->isFunctionTy()) {
+      break;
+    }
+
+    HasDestTy = true;
+    GEPVal = Opnd;
   }
 
   auto GEPInst = dyn_cast<Instruction>(GEPVal);
+  const GEPOperator *GEPOp = nullptr;
 
   // Try to get to the phi associated with this GEP.
   // Do not cross the live range indicator for GEP uses (load/store/bitcast).
@@ -2857,11 +2965,13 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
     Ref = createSingleElementGEPDDRef(GEPVal, Level);
   }
 
-  if (DestTy) {
+  if (HasDestTy) {
     Ref->setBaseDestType(DestTy);
   }
 
   populateBlobDDRefs(Ref, Level);
+
+  restructureOnePastTheEndRef(Ref);
 
   // Add a mapping for getting the original pointer value for the Ref.
   GEPRefToPointerMap.insert(
@@ -2925,8 +3035,14 @@ RegDDRef *HIRParser::createRvalDDRef(const Instruction *Inst, unsigned OpNum,
                                      unsigned Level) {
   RegDDRef *Ref;
   auto OpVal = Inst->getOperand(OpNum);
+  auto OpTy = OpVal->getType();
 
-  if (auto LInst = dyn_cast<LoadInst>(Inst)) {
+  // Parse function pointer rvals as scalars. Pointer arithemetic (GEP) is not
+  // expected on them.
+  if (OpTy->isPointerTy() && OpTy->getPointerElementType()->isFunctionTy()) {
+    Ref = createScalarDDRef(OpVal, Level);
+
+  } else if (auto LInst = dyn_cast<LoadInst>(Inst)) {
     Ref = createGEPDDRef(LInst->getPointerOperand(), Level, true);
 
     Ref->setVolatile(LInst->isVolatile());
@@ -2940,8 +3056,7 @@ RegDDRef *HIRParser::createRvalDDRef(const Instruction *Inst, unsigned OpNum,
 
     parseMetadata(Inst, Ref);
 
-  } else if (OpVal->getType()->isPointerTy() &&
-             !isa<ConstantPointerNull>(OpVal)) {
+  } else if (OpTy->isPointerTy() && !isa<ConstantPointerNull>(OpVal)) {
     Ref = createGEPDDRef(OpVal, Level, true);
     Ref->setAddressOf(true);
 
@@ -2982,18 +3097,24 @@ bool HIRParser::isLiveoutCopy(const HLInst *HInst) {
                             ScalarEvolution::HIRLiveKind::LiveOut);
 }
 
-unsigned HIRParser::getNumRvalOperands(HLInst *HInst) {
-  unsigned NumRvalOp = HInst->getNumOperands();
+unsigned HIRParser::getNumRvalOperands(const Instruction *Inst) {
+  unsigned NumOp;
 
-  if (HInst->hasLval()) {
-    NumRvalOp--;
+  if (isa<GetElementPtrInst>(Inst)) {
+    // GEP is represented as an assignment of address: %t = &A[i];
+    NumOp = 1;
+  } else if (auto CInst = dyn_cast<CallInst>(Inst)) {
+    NumOp = CInst->getNumArgOperands();
+  } else {
+    NumOp = Inst->getNumOperands();
+
+    // One of the operands of store is an lval in HIR.
+    if (isa<StoreInst>(Inst)) {
+      --NumOp;
+    }
   }
 
-  if (isa<SelectInst>(HInst->getLLVMInstruction())) {
-    NumRvalOp--;
-  }
-
-  return NumRvalOp;
+  return NumOp;
 }
 
 FastMathFlags HIRParser::parseFMF(const CmpInst *Cmp) {
@@ -3074,7 +3195,7 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
     Level = CurLevel;
 
     if (parseDebugIntrinsic(HInst)) {
-      getHLNodeUtils().erase(HInst);
+      HLNodeUtils::erase(HInst);
       return;
     }
 
@@ -3098,7 +3219,7 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
     HInst->setLvalDDRef(createLvalDDRef(Inst, Level));
   }
 
-  unsigned NumRvalOp = getNumRvalOperands(HInst);
+  unsigned NumRvalOp = getNumRvalOperands(Inst);
   auto Call = dyn_cast<CallInst>(Inst);
 
   bool FakeDDRefsRequired = (Call && !Call->doesNotAccessMemory());
@@ -3134,6 +3255,12 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
       addFakeRef(HInst, Ref,
                  (IsReadOnly || Call->paramHasAttr(I, Attribute::ReadOnly)));
     }
+  }
+
+  // For indirect calls, set the function pointer as the last operand.
+  if (Call && !Call->getCalledFunction()) {
+    RegDDRef *Ref = createRvalDDRef(Call, Call->getNumOperands() - 1, Level);
+    HInst->setOperandDDRef(Ref, NumRvalOp + HasLval);
   }
 
   if (auto CInst = dyn_cast<CmpInst>(Inst)) {
@@ -3185,7 +3312,7 @@ void HIRParser::phase2Parse() {
        SymIt != E; ++SymIt) {
     for (auto InstIt = SymIt->second.begin(), EndIt = SymIt->second.end();
          InstIt != EndIt; ++InstIt) {
-      getHLNodeUtils().erase(InstIt->first);
+      HLNodeUtils::erase(InstIt->first);
     }
   }
 

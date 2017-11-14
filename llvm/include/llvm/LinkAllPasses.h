@@ -37,6 +37,7 @@
 #include "llvm/Analysis/Intel_VPO/Vecopt/Passes.h"   // INTEL
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionPasses.h" // INTEL
 #include "llvm/Analysis/Intel_StdContainerAA.h"  // INTEL
+#include "llvm/Analysis/Intel_XmainOptLevelPass.h" // INTEL
 #include "llvm/Analysis/ScopedNoAliasAA.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
@@ -77,13 +78,14 @@ namespace {
       (void) llvm::createBitTrackingDCEPass();
       (void) llvm::createArgumentPromotionPass();
       (void) llvm::createAlignmentFromAssumptionsPass();
-#if INTEL_CUSTOMIZATION 
-      (void) llvm::createAndersensAAWrapperPass(); 
-      (void) llvm::createNonLTOGlobalOptimizerPass(); 
-      (void) llvm::createTbaaMDPropagationPass();    
+#if INTEL_CUSTOMIZATION
+      (void) llvm::createAndersensAAWrapperPass();
+      (void) llvm::createNonLTOGlobalOptimizerPass();
+      (void) llvm::createTbaaMDPropagationPass();
       (void) llvm::createCleanupFakeLoadsPass();
-      (void) llvm::createStdContainerOptPass();      
-      (void) llvm::createStdContainerAAWrapperPass();  
+      (void) llvm::createStdContainerOptPass();
+      (void) llvm::createStdContainerAAWrapperPass();
+      (void) llvm::createXmainOptLevelPass();
 #endif // INTEL_CUSTOMIZATION
       (void) llvm::createBasicAAWrapperPass();
       (void) llvm::createSCEVAAWrapperPass();
@@ -241,9 +243,9 @@ namespace {
       (void) llvm::AreStatisticsEnabled();
       (void) llvm::sys::RunningOnValgrind();
 
-  #if INTEL_CUSTOMIZATION 
+  #if INTEL_CUSTOMIZATION
       (void) llvm::createSNodeAnalysisPass();
-      (void) llvm::createLoopOptMarkerPass(); 
+      (void) llvm::createLoopOptMarkerPass();
       // HIR passes
       (void) llvm::createHIRRegionIdentificationPass();
       (void) llvm::createHIRSCCFormationPass();
@@ -276,9 +278,11 @@ namespace {
       (void) llvm::createHIRLoopDistributionForLoopNestPass();
       (void) llvm::createHIRLoopReversalPass();
       (void) llvm::createHIRLMMPass();
+      (void) llvm::createHIRSymbolicTripCountCompleteUnrollPass();
       (void) llvm::createHIRScalarReplArrayPass();
       (void) llvm::createHIRIdiomRecognitionPass();
       (void) llvm::createHIRMVForConstUBPass();
+      (void) llvm::createHIRLoopConcatenationPass();
       (void) llvm::createHIRDummyTransformationPass();
       (void) llvm::createHIRCodeGenPass();
 

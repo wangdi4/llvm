@@ -1,10 +1,25 @@
-; REQUIRES: asserts
-; RUN: opt < %s -analyze -hir-region-identification -debug-only=hir-region-identification  2>&1 | FileCheck %s
+; Check that we are able to build an unknown loop for a countable loop which becomes non-countable due to throttling of parent loop.
 
-; Check that we suppress the inner loop which turns into a non-countable loop when the outer loop is suppressed.
+; Check that scalar evolution is able to compute the trip count in terms of parent loop IV.
+; RUN: opt < %s -analyze -scalar-evolution | FileCheck %s
 
-; CHECK: Cannot handle inner loopnest.
-; CHECK-NOT: Region 1
+; CHECK: Loop %while.body: backedge-taken count is ({-4,+,4}<nw><%for.body> /u 4)
+
+
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s -check-prefix=PARSE
+
+; PARSE: + UNKNOWN LOOP i1
+; PARSE: |   <i1 = 0>
+; PARSE: |   while.body:
+; PARSE: |   %cmp = &((%incdec.ptr)[-1 * i1 + -1]) != &((undef)[0]);
+; PARSE: |   %cmp.i = &((undef)[-1 * i1 + -1]) != &((undef)[0]);
+; PARSE: |   %lnot = %cmp.i  &&  %cmp;
+; PARSE: |   if (%lnot != 0)
+; PARSE: |   {
+; PARSE: |      <i1 = i1 + 1>
+; PARSE: |      goto while.body;
+; PARSE: |   }
+; PARSE: + END LOOP
 
 
 ; ModuleID = 'bugpoint-reduced-simplified.bc'
@@ -50,7 +65,7 @@ lpad252:                                          ; preds = %entry
 declare i32 @__gxx_personality_v0(...)
 
 ; Function Attrs: nobuiltin
-declare void @_Znwm() local_unnamed_addr 
+declare void @_Znwm() local_unnamed_addr
 
 
 !llvm.ident = !{!0}

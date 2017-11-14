@@ -1,6 +1,6 @@
 //===--- HLNodeMapper.h - High level IR node mapper interface ---*- C++ -*-===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -49,7 +49,11 @@ public:
 
   HLNode *getMappedImpl(const HLNode *Node) const override {
     auto Iter = NodeMap.find(Node);
-    assert(Iter != NodeMap.end() && "Requesting not mapped node");
+
+    if (Iter == NodeMap.end()) {
+      return nullptr;
+    }
+
     return Iter->getSecond();
   }
 };

@@ -20,8 +20,8 @@
 ; Check that loop statistics are calculated correctly.
 ; CHECK: + DO i1 = 0, %n + -1, 1   <DO_LOOP>
 ; CHECK:    Number of switches: 1
-; CHECK:    Number of gotos: 1
-; CHECK:    Number of labels: 1
+; CHECK:    Number of forward gotos: 1
+; CHECK:    Number of forward goto target labels: 1
 ; CHECK:    Number of user calls: 3
 ; CHECK: + END LOOP
 

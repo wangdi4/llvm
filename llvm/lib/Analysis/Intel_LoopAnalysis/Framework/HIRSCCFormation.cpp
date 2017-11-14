@@ -15,9 +15,9 @@
 
 #include "llvm/Pass.h"
 
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/IRRegion.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Dominators.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/IR/IRRegion.h"
 
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
@@ -105,6 +105,22 @@ bool HIRSCCFormation::isCandidateRootNode(const NodeTy *Node) const {
   // IVs.
   if (isConsideredLinear(Node)) {
     return false;
+  }
+
+  if (Node->getType()->isIntegerTy()) {
+
+    auto SC = SE->getSCEV(const_cast<NodeTy *>(Node));
+
+    // Do not form SCCs where root nodes have range info. This allows
+    // ScalarEvolution to optimize closed form expressions. For example if a 32
+    // bit value is within i8 range [0,256), zext.i8.i32(trunc.i32.i8(t)) can be
+    // simplified to t. This is problematic for parser which wants to substitute
+    // all occurences of temps in the SCC with the base/root temp. If such
+    // simplification occurs during substitution, we will form incorrect HIR.
+    // TODO: refine this logic?
+    if (!SE->getUnsignedRange(SC).isFullSet()) {
+      return false;
+    }
   }
 
   return true;
@@ -219,6 +235,28 @@ bool HIRSCCFormation::dependsOnSameBasicBlockPhi(const PHINode *Phi) const {
   return false;
 }
 
+bool HIRSCCFormation::hasEarlyExitPredecessor(const PHINode *Phi) const {
+
+  // Phis in innermost loops cannot have early exit predecessors.
+  if (CurLoop->empty()) {
+    return false;
+  }
+
+  auto PhiLp = LI->getLoopFor(Phi->getParent());
+
+  for (unsigned I = 0, E = Phi->getNumIncomingValues(); I < E; ++I) {
+    auto PredBB = Phi->getIncomingBlock(I);
+
+    auto PredLp = LI->getLoopFor(PredBB);
+
+    if ((PredLp != PhiLp) && (PredBB != PredLp->getLoopLatch())) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 bool HIRSCCFormation::isCandidateNode(const NodeTy *Node) const {
 
   // Use is outside the loop bring processed.
@@ -276,7 +314,10 @@ bool HIRSCCFormation::isCandidateNode(const NodeTy *Node) const {
     return (!isLoopLiveOut(Phi) || !dependsOnSameBasicBlockPhi(Phi));
   }
 
-  return usedInHeaderPhi(Phi);
+  // If phi has a predecessor which is an early exit from an inner loop, then it
+  // gets complicated to preserve loop simplify form if we want to split this
+  // edge during SSA deconstruction so we suppress the SCC formation.
+  return (usedInHeaderPhi(Phi) && !hasEarlyExitPredecessor(Phi));
 }
 
 HIRSCCFormation::NodeTy::user_iterator
@@ -438,6 +479,79 @@ bool HIRSCCFormation::isRegionLiveOut(
   return false;
 }
 
+bool HIRSCCFormation::isMulByConstRecurrence(const SCC &CurSCC) const {
+  // Looks for this pattern-
+  //
+  // L:
+  //  t1 = phi (t2, init)
+  //  ...
+  //  t2 = shl t1, constant; OR t2 = mul t1, constant;
+  //  ...
+  //  if () {
+  //    goto L:
+  //  }
+  //
+  // -where both t1 and t2 are NOT live out of the loop.
+  //
+  // Suppressing such recurrences results in cleaner HIR code. When the phi is
+  // deconstructed without SCC, the recurrence appears at the end of the loop so
+  // it cannot cause live range issues as opposed to keeping the original
+  // mul/shift instruction which can appear anywhere inside the loop. For
+  // example, in the case below multiplication appears at the beginning of the
+  // loop and both the old and new values are being used inside the loop.
+  //
+  // DO i1
+  //  t.out = t
+  //  t = t * 2
+  //
+  //    = t
+  //    = t.out
+  // END DO
+  //
+  // If we use non-SCC deconstruction, the code will look like the following
+  // without the copy which is cleaner.
+  //
+  // DO i1
+  //     = 2 * t
+  //     = t
+  //   t = t * 2
+  // END DO
+  //
+  // Perhaps it would have helped if SCEV had a concept of SCEVMulRecExpr
+  // similar to SCEVAddRecExpr.
+  //
+  // TODO: make the suppression logic more generic.
+
+  // Recurrences (reductions of interest) in innermost loops will most likely be
+  // live out of the loop which makes the suppression non-profitable.
+  if (CurLoop->empty()) {
+    return false;
+  }
+
+  // We only expect two instructions, one phi and one mul/shl inst.
+  if (CurSCC.size() != 2) {
+    return false;
+  }
+
+  auto Phi = cast<PHINode>(CurSCC.getRoot());
+
+  auto InstIt = CurSCC.begin();
+
+  const Instruction *MulInst = (*InstIt == Phi) ? *std::next(InstIt) : *InstIt;
+
+  if ((MulInst->getOpcode() != Instruction::Shl) &&
+      (MulInst->getOpcode() != Instruction::Mul)) {
+    return false;
+  }
+
+  if (!isa<ConstantInt>(MulInst->getOperand(0)) &&
+      !isa<ConstantInt>(MulInst->getOperand(1))) {
+    return false;
+  }
+
+  return (!isLoopLiveOut(Phi) && !isLoopLiveOut(MulInst));
+}
+
 bool HIRSCCFormation::isProfitableSCC(const SCC &CurSCC) const {
   bool LiveoutValueFound = false;
 
@@ -458,7 +572,7 @@ bool HIRSCCFormation::isProfitableSCC(const SCC &CurSCC) const {
     }
   }
 
-  return true;
+  return !isMulByConstRecurrence(CurSCC);
 }
 
 bool HIRSCCFormation::isCmpAndSelectPattern(Instruction *Inst1,

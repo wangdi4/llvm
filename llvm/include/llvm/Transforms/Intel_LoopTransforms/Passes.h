@@ -40,29 +40,30 @@ FunctionPass *createHIRCodeGenPass();
 /// transformation on HIR.
 FunctionPass *createHIROptPredicatePass();
 
-/// createHIRPreVecCompleteUnrollPass - This creates a pass that performs complete
-/// unrolling before vectorizer.
+/// createHIRPreVecCompleteUnrollPass - This creates a pass that performs
+/// complete unrolling before vectorizer.
 FunctionPass *createHIRPreVecCompleteUnrollPass(unsigned OptLevel = 0);
 
-/// createHIRPostVecCompleteUnrollPass - This creates a pass that performs complete
+/// createHIRPostVecCompleteUnrollPass - This creates a pass that performs
+/// complete
 /// unrolling after vectorizer.
 FunctionPass *createHIRPostVecCompleteUnrollPass(unsigned OptLevel = 0);
 
 /// createHIRDistributionForMemRecPass - This creates a pass that performs Loop
-/// Distribution for breaking memory recurrences
+/// Distribution for breaking memory recurrences.
 FunctionPass *createHIRLoopDistributionForMemRecPass();
 
-/// createHIRDistributionForLoopNestPass - This creates a pass that performs Loop
-/// Distribution for enabling perfect Loop Nests
+/// createHIRDistributionForLoopNestPass - This creates a pass that performs
+/// Loop
+/// Distribution for enabling perfect Loop Nests.
 FunctionPass *createHIRLoopDistributionForLoopNestPass();
 
-
 /// createHIRInterchangePass - This creates a pass that performs Loop
-/// Interchange
+/// Interchange.
 FunctionPass *createHIRLoopInterchangePass();
 
 /// createHIRRuntimeDDPass - This creates a HIR Loop pass that is used
-/// for Runtime DD transformation
+/// for Runtime DD transformation.
 FunctionPass *createHIRRuntimeDDPass();
 
 /// createHIRDummyTransformationPass - This creates a dummy pass that is used
@@ -78,12 +79,17 @@ FunctionPass *createHIRGeneralUnrollPass();
 FunctionPass *createHIRUnrollAndJamPass();
 
 /// createHIRLoopReversalPass - This creates a HIR Loop pass that performs Loop
-/// Reversal
+/// Reversal.
 FunctionPass *createHIRLoopReversalPass();
 
 /// createHIRLMMPass - This creates a HIR Loop pass that performs Loop
-/// Memory Motion 
+/// Memory Motion.
 FunctionPass *createHIRLMMPass();
+
+/// createHIRSymbolicTripCountCompleteUnrollPass - This creates a HIR Loop pass
+/// that
+/// performs Loop based pattern matching.
+FunctionPass *createHIRSymbolicTripCountCompleteUnrollPass();
 
 /// createHIRParDirInsertPass - This creates a pass that injects
 /// directives for auto parallelization loops.
@@ -93,8 +99,8 @@ FunctionPass *createHIRParDirInsertPass();
 /// directives for auto vectorization candidate loops.
 FunctionPass *createHIRVecDirInsertPass(bool OuterVec = true);
 
-/// createHIRScalarReplArrayPass - This creates a HIR Loop pass that performs 
-/// Scalar Replacement over Array access 
+/// createHIRScalarReplArrayPass - This creates a HIR Loop pass that performs
+/// Scalar Replacement over Array access
 FunctionPass *createHIRScalarReplArrayPass();
 
 /// Creates pass that splits loops based on variant predicates.
@@ -105,6 +111,9 @@ FunctionPass *createHIRIdiomRecognitionPass();
 
 /// Creates pass that multiversions loop for the probable trip count value.
 FunctionPass *createHIRMVForConstUBPass();
+
+/// Creates pass that performs loop concatenation.
+FunctionPass *createHIRLoopConcatenationPass();
 }
 
 #endif

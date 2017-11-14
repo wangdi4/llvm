@@ -59,8 +59,7 @@ void PiBlock::setPiBlockType(const std::vector<DistPPNode *> &SCCNodes) {
   }
 }
 
-void llvm::loopopt::PiGraph::createNodes() {
-
+void PiGraph::createNodes() {
   for (auto I = all_scc_begin(PPGraph), E = all_scc_end(PPGraph); I != E; ++I) {
     addPiBlock(*I);
   }
@@ -69,4 +68,40 @@ void llvm::loopopt::PiGraph::createNodes() {
   // reverse top sort order. Reverse piblock list to restore
   // top sort order
   std::reverse(PiBlocks.begin(), PiBlocks.end());
+}
+
+void PiGraph::createEdges() {
+  for (auto PiBlkIt = PiBlocks.begin(), PiEndIt = PiBlocks.end();
+       PiBlkIt != PiEndIt; ++PiBlkIt) {
+    PiBlock *SrcBlk = *PiBlkIt;
+    for (auto NodeIt = SrcBlk->dist_node_begin(),
+           EndIt = SrcBlk->dist_node_end();
+         NodeIt != EndIt; ++NodeIt) {
+      // Maps a sink piblock to a list of ddedges
+      DenseMap<PiBlock *, SmallVector<const DDEdge *, 16>> CurEdges;
+
+      // Go through all outgoing dist edges and add their dd edges
+      // to sink pi block's list in CurEdges
+      for (auto EdgeIt = PPGraph->outgoing_edges_begin(*NodeIt),
+             EndEdgeIt = PPGraph->outgoing_edges_end(*NodeIt);
+           EdgeIt != EndEdgeIt; ++EdgeIt) {
+        PiBlock *SinkPiBlk = DistPPNodeToPiBlock[(*EdgeIt)->getSink()];
+        assert(SinkPiBlk && "Invalid dist edge added");
+        if (SrcBlk == SinkPiBlk) {
+          // No cycles, not even self cycles
+          continue;
+        }
+        CurEdges[SinkPiBlk].append((*EdgeIt)->DDEdges.begin(),
+                                   (*EdgeIt)->DDEdges.end());
+      }
+
+      // Edges in graph cannot be modified once added.
+      // Once all edge lists for a given src piblock are fully created, create
+      // PiGraphEdges out of them
+      for (auto PiEdgeIt = CurEdges.begin(), PiEdgeEnd = CurEdges.end();
+           PiEdgeIt != PiEdgeEnd; ++PiEdgeIt) {
+        addEdge(PiGraphEdge(SrcBlk, PiEdgeIt->first, PiEdgeIt->second));
+      }
+    }
+  }
 }

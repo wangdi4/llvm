@@ -422,6 +422,8 @@ void initializeNonLTOGlobalOptPass(PassRegistry &);
 void initializeMapIntrinToImlPass(PassRegistry&);
 // Pass for indicating loopopt based throttling.
 void initializeLoopOptMarkerPass(PassRegistry&);
+// Pass to store the opt level.
+void initializeXmainOptLevelPassPass(PassRegistry&);
 // HIR Passes
 void initializeHIRRegionIdentificationPass(PassRegistry&);
 void initializeHIRSCCFormationPass(PassRegistry&);
@@ -455,12 +457,14 @@ void initializeHIROptPredicatePass(PassRegistry&);
 void initializeHIRRuntimeDDPass(PassRegistry&);
 void initializeHIRLoopReversalPass(PassRegistry&);
 void initializeHIRLMMPass(PassRegistry&);
+void initializeHIRSymbolicTripCountCompleteUnrollPass(PassRegistry&);
 void initializeHIRScalarReplArrayPass(PassRegistry&);
 void initializeHIRDummyTransformationPass(PassRegistry&);
 void initializeHIRCodeGenPass(PassRegistry&);
 void initializeHIROptVarPredicatePass(PassRegistry&);
 void initializeHIRIdiomRecognitionPass(PassRegistry&);
 void initializeHIRMVForConstUBPass(PassRegistry&);
+void initializeHIRLoopConcatenationPass(PassRegistry&);
 // VPO WRegion Passes
 void initializeWRegionCollectionPass(PassRegistry&);
 void initializeWRegionInfoPass(PassRegistry&);

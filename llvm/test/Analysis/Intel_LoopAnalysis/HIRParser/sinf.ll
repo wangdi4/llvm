@@ -2,7 +2,7 @@
 
 ; Check that we build HIR for loop containing vectorizble sinf() call.
 
-; CHECK: + DO i1 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>
+; CHECK: + DO i1 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>
 ; CHECK: |   %0 = (%A)[i1];
 ; CHECK: |   %call = @sinf(%0);
 ; CHECK: |   (%B)[i1] = %call;
