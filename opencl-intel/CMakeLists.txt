@@ -353,6 +353,9 @@ if(BUILD_LLVM_FROM_SOURCE)
     add_subdirectory(${LLVM_SRC_ROOT} "${CMAKE_CURRENT_BINARY_DIR}/llvm")
 endif()
 
+# define INTEL_CUSTOMIZATION xmain macro
+add_definitions( -DINTEL_CUSTOMIZATION )
+
 # validation
 # TODO: add 'master' option to disable all kinds of validation
 option( OPENCL_RT_INCLUDE_TESTS
@@ -372,9 +375,6 @@ endif (OPENCL_RT_INCLUDE_TESTS)
 include_directories( BEFORE ${OCL_GLOBAL_INCLUDE} )
 
 add_definitions(-D__TBB_NO_IMPLICIT_LINKAGE=1)
-
-# define INTEL_CUSTOMIZATION xmain macro
-add_definitions( -DINTEL_CUSTOMIZATION )
 
 
 # externals
