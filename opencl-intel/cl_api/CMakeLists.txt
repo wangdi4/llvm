@@ -1,4 +1,3 @@
-message( STATUS ${CL_API_HEADERS} )
 install( DIRECTORY ${CL_API_HEADERS}/CL/ DESTINATION include/CL/ PATTERN ".git" EXCLUDE PATTERN *.h )
 
 if (NOT WIN32)
@@ -8,3 +7,4 @@ if (NOT WIN32)
   add_definitions(-Wno-attributes)
   add_definitions(-Wno-missing-braces)
 endif (NOT WIN32)
+

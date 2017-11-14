@@ -72,8 +72,6 @@ include_directories(
   ${OCL_BINARY_DIR}
 )
 
-message (STATUS DEBUG: LLVM_PATH_FE=${LLVM_PATH_FE})
-
 if(WIN32)
     get_target_property( lib_dir NEAT_wrapper lib_dir )
 

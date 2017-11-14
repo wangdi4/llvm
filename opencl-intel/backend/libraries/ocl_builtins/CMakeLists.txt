@@ -61,7 +61,6 @@ if (WIN32)
 else ()
   set (PLATFORM Linux${PLATFORM})
 endif()
-message (STATUS "OCL Builtins build: ${PLATFORM}")
 
 add_subdirectory (utils/TableGen)
 
@@ -164,16 +163,6 @@ else (WIN32)
     set (HOST_TRIPLE   x86_64-pc-linux)
   endif (CMAKE_SIZEOF_VOID_P EQUAL 4)
 endif (WIN32)
-
-#
-# external tools
-#
-
-message (STATUS "CLANG:     ${CLANG}")
-message (STATUS "LLVM_OPT:  ${OPT}")
-message (STATUS "LLVM_LINK: ${LLVM_LINK}")
-message (STATUS "LLC:       ${LLC}")
-message (STATUS "DEVICE_TRIPLE:    ${DEVICE_TRIPLE}")
 
 #
 # Tool environment and options
@@ -357,8 +346,6 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR TARGET_NAM
 
   # compile the rtl file to native objects
   if(${ENABLE_PRECOMPILE})
-    message(STATUS "Building ${BUILTINS_INSTALL_DIR}/${PRECOMPILED_OUTPUT_FILE}")
-
     # Initialize the llc parameter "-mattr" based on PROC
     SET (MATTR "-mattr=")
     if (${PROC} MATCHES ".*avx2$")
@@ -375,8 +362,6 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR TARGET_NAM
       DEPENDS ${LLC} ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}
       VERBATIM
       )
-  else (${ENABLE_PRECOMPILE})
-    message (STATUS "Not pre-compiling library, outputting direct ${OUTPUT_FILE}")
   endif(${ENABLE_PRECOMPILE})
 
   set (${OUTPUT_FILE_VAR} ${OUTPUT_FILE} PARENT_SCOPE)

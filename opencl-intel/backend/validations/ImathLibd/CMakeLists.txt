@@ -61,13 +61,9 @@ else (WIN32)
     set (ICC_COMPILER_VARS compilervars.sh)
     string(REPLACE "${ICC_PLATFORM}/${ICC_CPU_CL}" ${ICC_COMPILER_VARS} ICC_CPU_ENV_SCRIPT "${ICC_CPU_COMPILER_PROGRAM}")
     string(REPLACE "${ICC_CPU_CL}" ${ICC_COMPILER_VARS} ICC_CPU_ENV_SCRIPT "${ICC_CPU_ENV_SCRIPT}")
-    if(EXISTS ${ICC_CPU_ENV_SCRIPT})
-        message (STATUS "ICC(CPU) ${ICC_CPU_ENV_SCRIPT} exists")
-    else()
-        message (STATUS "ICC(CPU) ${ICC_COMPILER_VARS} is not installed in the system")
-    # search for the iccvars script (intel compiler 11)
+    if(NOT EXISTS ${ICC_CPU_ENV_SCRIPT})
+        # search for the iccvars script (intel compiler 11)
         set (ICC_CPU_ENV_SCRIPT iccvars.sh)
-        message (STATUS "ICC(CPU) looking for ${ICC_CPU_ENV_SCRIPT}")
         find_program (ICC_CPU_COMPILER_SCRIPT ${ICC_CPU_ENV_SCRIPT} NO_CMAKE_PATH NO_CMAKE_ENVIRONMENT_PATH NO_CMAKE_SYSTEM_PATH NO_CMAKE_FIND_ROOT_PATH)
         if (${ICC_CPU_COMPILER_SCRIPT} STREQUAL "ICC_CPU_COMPILER_SCRIPT-NOTFOUND")
             set (ICC_CPU_ENV_SCRIPT iccvars_${ICC_PLATFORM}.sh)
@@ -78,10 +74,6 @@ else (WIN32)
         endif()
         set(ICC_CPU_ENV_SCRIPT ${ICC_CPU_COMPILER_SCRIPT})
     endif()
-
-    message (STATUS "ICC(CPU) ${ICC_CPU_ENV_SCRIPT}")
-    message (STATUS "ICC CPU Compiler: ${ICC_CPU_CL}")
-    message (STATUS "ICC CPU Linker: ${ICC_CPU_LD}")
 
     set (ICC_CPU_COMPILER_SCRIPT compile_linux.sh)
     set (ICC_CPU_LINKER_SCRIPT   link_linux.sh)
@@ -94,12 +86,10 @@ else (WIN32)
 
     # remember imathLibd source dir
     set (IMATHLIBD_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
-    message (STATUS " ${TARGET_NAME} sources are in: ${IMATHLIBD_SOURCE_DIR}")
 
     # target directory for .dll/.so
     set(IMATHLIBD_INSTALL_DIR ${OCL_BINARY_DIR}/lib/${CMAKE_CFG_INTDIR})
     set(IMATHLIBD_LIB_DIR ${OCL_BINARY_DIR}/lib/${CMAKE_CFG_INTDIR})
-    message (STATUS "IMATHLIBD library will be in: ${IMATHLIBD_INSTALL_DIR}")
 
     #
     # Compile single C source file

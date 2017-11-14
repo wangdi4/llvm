@@ -14,7 +14,6 @@ if (WIN32)
     if (CMAKE_SIZEOF_VOID_P EQUAL 4)
         file(GLOB ASM_SOURCES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} ../cl_hw_utils/win32Imp/bin32/*.asm )
     else ()
-	#	message(FATAL_ERROR "Windows 64 bit support not ready")	
         file(GLOB ASM_SOURCES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} ../cl_hw_utils/win32Imp/bin64/*.asm )
     endif (CMAKE_SIZEOF_VOID_P EQUAL 4)
 

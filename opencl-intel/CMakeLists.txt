@@ -179,9 +179,6 @@ else(NOT CMAKE_THREAD_LIBS_INIT)
   set(PTHREAD_LIB ${CMAKE_THREAD_LIBS_INIT})
 endif()
 
-message(STATUS "Pthread library: ${PTHREAD_LIB}")
-message(STATUS "Pthread include: ${PTHREAD_INC}")
-
 set( REVISION_ID $ENV{REVISION_ID} )
 set( GIT_VERSION $ENV{REVISION} )
 set( GIT_REVISION $ENV{RELEASE_BRANCH} )

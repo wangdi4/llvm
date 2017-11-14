@@ -2,7 +2,6 @@ set (TARGET_NAME "ref_cl_builtins")
 
 # remember OCL builtins source dir
 set (REF_CL_BUILTIN_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
-message (STATUS "Reference built-ins sources are in: ${REF_CL_BUILTIN_SOURCE_DIR}")
 
 #------------------- Utility functions ---------------------------
 function(tblgenrefoclblt OUTPUT_VAR OUTPUT_DIR IFN)

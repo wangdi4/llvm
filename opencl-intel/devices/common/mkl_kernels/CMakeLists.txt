@@ -20,15 +20,14 @@ include_directories( AFTER
 )
 
 get_directory_property(OUT_VAR LINK_DIRECTORIES)
-message(STATUS "DIR: ${OUT_VAR}")
 
 FIND_SOURCES()
 CALCULATE_TARGET_SOURCES()
-                
+
 #add a target named ${TARGET_NAME}
 add_library (${TARGET_NAME} STATIC ${TARGET_SOURCES})
 
-install( TARGETS ${TARGET_NAME}     
+install( TARGETS ${TARGET_NAME}
             RUNTIME DESTINATION bin
             ARCHIVE DESTINATION lib
             LIBRARY DESTINATION bin)
@@ -37,5 +36,5 @@ target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
                                       cl_sys_utils
                                       cl_logger
                                       ${LINK_LIBS} )
-                                      
+
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${DEVICES_FOLDER_NAME} )
