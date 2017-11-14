@@ -203,7 +203,6 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
 #ifdef BUILD_FPGA_EMULATOR
     optionsEx << " -cl-ext=+cl_intel_channels";
     optionsEx << " -cl-ext=+cl_altera_channels";
-    optionsEx << " -cl-extcl_intel_fpga_host_pipe";
 #endif // BUILD_FPGA_EMULATOR
   }
 
