@@ -183,9 +183,7 @@ code Stored_half_rtn8 = [{
 
 code Stored_half_rte8 = [{
     $Arg2VarName = $Arg2VarName + ($Arg1VarName*8);
-    float8 f8 = _mm512_cvt_roundpd_ps($Arg0VarName,
-                                      _MM_FROUND_NO_EXC | _MM_FROUND_TO_NEAREST_INT);
-    float4 f4 = as_float4(_mm256_cvtps_ph(f8, _MM_FROUND_TO_NEAREST_INT));
+    float4 f4 = __ocl_double8ToHalf8_rte($Arg0VarName);
     _mm_storeu_ps((__private float*)(float*)$Arg2VarName, f4);
   }];
 
