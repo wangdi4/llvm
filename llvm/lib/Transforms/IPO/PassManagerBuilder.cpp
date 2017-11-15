@@ -54,7 +54,7 @@
 #include "llvm/Transforms/Utils/Intel_VecClone.h" 
 #include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h"
 #include "llvm/Transforms/Intel_VPO/Paropt/VPOParopt.h"
-#include "llvm/Transforms/IPO/InlineLists.h"
+#include "llvm/Transforms/IPO/Intel_InlineLists.h"
 #endif //INTEL_CUSTOMIZATION
 
 using namespace llvm;

@@ -1,4 +1,4 @@
-//===----------------- InlineLists.cpp - [No]Inline Lists  ----------------===//
+//===----------- Intel_InlineLists.cpp - [No]Inline Lists  ----------------===//
 //
 // Copyright (C) 2017 Intel Corporation. All rights reserved.
 //
@@ -13,13 +13,13 @@
 //
 //===----------------------------------------------------------------------===//
 //
-#include "llvm/Pass.h"
-#include "llvm/Transforms/IPO.h"
-#include "llvm/Transforms/IPO/InlineLists.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/CallSite.h"
+#include "llvm/Transforms/IPO/Intel_InlineLists.h"
 #include "llvm/ADT/StringSet.h"
+#include "llvm/IR/CallSite.h"
+#include "llvm/IR/Function.h"
+#include "llvm/Pass.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/IPO.h"
 #include <set>
 
 #if INTEL_CUSTOMIZATION
@@ -37,12 +37,12 @@ using namespace llvm;
 // The option is used to force inlining of functions in the list.
 // Syntax: the list should be a sequence of <[caller,]callee[,linenum]>
 // separated by ';'
-cl::opt<std::string>
-IntelInlineList("inline-inline-list", cl::init(""), cl::Hidden);
+cl::opt<std::string> IntelInlineList("inline-inline-list", cl::init(""),
+                                     cl::Hidden);
 
 // The option is used to force not inlining of functions in the list
-cl::opt<std::string>
-IntelNoinlineList("inline-noinline-list", cl::init(""), cl::Hidden);
+cl::opt<std::string> IntelNoinlineList("inline-noinline-list", cl::init(""),
+                                       cl::Hidden);
 
 typedef llvm::StringSet<> CalleeSetTy;
 typedef llvm::StringMap<std::set<uint32_t>> CalleeMapTy;
@@ -51,7 +51,7 @@ typedef llvm::StringMap<CalleeMapTy> CallerCalleeMapTy;
 namespace {
 class InlineListsData {
 public:
-   InlineListsData() {}
+  InlineListsData() {}
   // functions to inline everywhere
   CalleeSetTy InlineCalleeList;
   // functions to inline on special occasions
@@ -64,17 +64,17 @@ public:
   // Returns true if no inline-[no]inline-list options
   bool isEmpty() {
     if (!InlineCalleeList.empty())
-        return false;
+      return false;
     if (!NoinlineCalleeList.empty())
-        return false;
+      return false;
     if (!InlineCallerList.empty())
-        return false;
+      return false;
     if (!NoinlineCallerList.empty())
-        return false;
+      return false;
     return true;
   }
 };
-}
+} // namespace
 
 /// \brief Print inline lists gathered from options.
 ///
@@ -82,7 +82,7 @@ public:
 /// \param CalleeList List to print.
 /// \param CallerList List to print.
 void printLists(raw_ostream &OS, CalleeSetTy &CalleeList,
-                      CallerCalleeMapTy &CallerList) {
+                CallerCalleeMapTy &CallerList) {
   OS << "\nIPO everywhere: ";
   for (auto &Member : CalleeList) {
     OS << "\n\t\t callee: " << Member.first() << "\n";
@@ -127,8 +127,9 @@ static void parseList(const StringRef &List, CalleeSetTy &CalleeList,
 
     // Record has too many fields.
     if (RecordItem.size() > 3) {
-      DEBUG(dbgs() << "IPO: error 1: record <" << ListRecord <<
-        "> has a wrong format. Should be <[caller,]callee[,line]>\n");
+      DEBUG(dbgs()
+            << "IPO: error 1: record <" << ListRecord
+            << "> has a wrong format. Should be <[caller,]callee[,line]>\n");
       return;
     }
 
@@ -145,8 +146,10 @@ static void parseList(const StringRef &List, CalleeSetTy &CalleeList,
         // <caller, callee, linenum> case
         // Inline specified callsites
         if (RecordItem[2].getAsInteger(10, LineNum)) {
-          DEBUG(dbgs() << "IPO: error 1: record <" << ListRecord <<
-            "> has a wrong format. Should be <[caller,]callee[,line]>\n");
+          DEBUG(
+              dbgs()
+              << "IPO: error 1: record <" << ListRecord
+              << "> has a wrong format. Should be <[caller,]callee[,line]>\n");
         }
       }
 
@@ -182,15 +185,14 @@ static void parseList(const StringRef &List, CalleeSetTy &CalleeList,
         if (LineNum >= 0)
           NewLineSet.insert(LineNum);
         CalleeMapTy NewCalleeMap;
-        NewCalleeMap.insert(
-              std::make_pair(Callee, std::move(NewLineSet)));
-        CallerList.insert(
-              std::make_pair(Caller, std::move(NewCalleeMap)));
+        NewCalleeMap.insert(std::make_pair(Callee, std::move(NewLineSet)));
+        CallerList.insert(std::make_pair(Caller, std::move(NewCalleeMap)));
       }
 
       if (Callee.empty())
-        DEBUG(dbgs() << "IPO: error 2: \t record <" << ListRecord <<
-            "> has a wrong format. Should be <[caller,]callee[,line]>\n");
+        DEBUG(dbgs()
+              << "IPO: error 2: \t record <" << ListRecord
+              << "> has a wrong format. Should be <[caller,]callee[,line]>\n");
     }
   }
 
@@ -202,13 +204,17 @@ static void parseOptions(InlineListsData &Data) {
   DEBUG(dbgs() << "IPO: Inline List: " << IntelInlineList << "\n");
   DEBUG(dbgs() << "IPO: Noinline List: " << IntelNoinlineList << "\n");
 
-  parseList(StringRef(IntelInlineList), Data.InlineCalleeList, Data.InlineCallerList);
-  parseList(StringRef(IntelNoinlineList), Data.NoinlineCalleeList, Data.NoinlineCallerList);
+  parseList(StringRef(IntelInlineList), Data.InlineCalleeList,
+            Data.InlineCallerList);
+  parseList(StringRef(IntelNoinlineList), Data.NoinlineCalleeList,
+            Data.NoinlineCallerList);
 }
 
-// The function checks if current triple <caller,callee,linenum> was in the list.
-static bool isCallsiteInList(StringRef Caller, StringRef Callee, int32_t LineNum,
-                             CalleeSetTy &CalleeList, CallerCalleeMapTy &CallerList) {
+// The function checks if current triple <caller,callee,linenum> was in the
+// list.
+static bool isCallsiteInList(StringRef Caller, StringRef Callee,
+                             int32_t LineNum, CalleeSetTy &CalleeList,
+                             CallerCalleeMapTy &CallerList) {
   if (Callee.empty())
     return false;
 
@@ -239,8 +245,8 @@ static bool isCallsiteInList(StringRef Caller, StringRef Callee, int32_t LineNum
   }
 
   if (LineNum < 0) {
-    DEBUG(dbgs() << "IPO warning: no line numbers available. " <<
-                    "Try compiling with -g.\n");
+    DEBUG(dbgs() << "IPO warning: no line numbers available. "
+                 << "Try compiling with -g.\n");
     return false;
   }
 
@@ -260,16 +266,14 @@ static bool addListAttributes(Function &F, InlineListsData &Data) {
   bool Changed = false;
 
   StringRef CallerName = F.getName();
-  bool CallerNeedsInlineListAttr = isCallsiteInList("", CallerName, -1,
-                                                    Data.InlineCalleeList,
-                                                    Data.InlineCallerList);
-  bool CallerNeedsNoinlineListAttr = isCallsiteInList("", CallerName, -1,
-                                                    Data.NoinlineCalleeList,
-                                                    Data.NoinlineCallerList);
+  bool CallerNeedsInlineListAttr = isCallsiteInList(
+      "", CallerName, -1, Data.InlineCalleeList, Data.InlineCallerList);
+  bool CallerNeedsNoinlineListAttr = isCallsiteInList(
+      "", CallerName, -1, Data.NoinlineCalleeList, Data.NoinlineCallerList);
   if (CallerNeedsInlineListAttr && CallerNeedsNoinlineListAttr) {
     // Function has both inline and noinline attributes: skip it.
-    DEBUG(dbgs() << "IPO warning: ignoring '" << CallerName <<
-                    "' since it is in both inline and noinline lists\n");
+    DEBUG(dbgs() << "IPO warning: ignoring '" << CallerName
+                 << "' since it is in both inline and noinline lists\n");
   } else if (CallerNeedsInlineListAttr) {
     // Assign InlineList attribute to function.
     F.addFnAttr(Attribute::InlineList);
@@ -288,27 +292,26 @@ static bool addListAttributes(Function &F, InlineListsData &Data) {
         InvokeInst *II = dyn_cast_or_null<InvokeInst>(&I);
         const DebugLoc DL = (dyn_cast<Instruction>(&I))->getDebugLoc();
         int64_t LineNum = DL ? DL.getLine() : -1;
-        auto CalleeFunc = CI ? CI->getCalledFunction() :
-                               II->getCalledFunction();
+        auto CalleeFunc =
+            CI ? CI->getCalledFunction() : II->getCalledFunction();
         if (!CalleeFunc)
           continue;
         auto CalleeName = CalleeFunc->getName();
 
-        bool NeedsInlineListAttr = isCallsiteInList(CallerName, CalleeName,
-                                                    LineNum,
-                                                    Data.InlineCalleeList,
-                                                    Data.InlineCallerList);
-        bool NeedsNoinlineListAttr = isCallsiteInList(CallerName, CalleeName,
-                                                      LineNum,
-                                                      Data.NoinlineCalleeList,
-                                                      Data.NoinlineCallerList);
+        bool NeedsInlineListAttr =
+            isCallsiteInList(CallerName, CalleeName, LineNum,
+                             Data.InlineCalleeList, Data.InlineCallerList);
+        bool NeedsNoinlineListAttr =
+            isCallsiteInList(CallerName, CalleeName, LineNum,
+                             Data.NoinlineCalleeList, Data.NoinlineCallerList);
 
         if (CallSite CS = CallSite(&I)) {
           if (NeedsInlineListAttr && NeedsNoinlineListAttr) {
             // Callsite has both inline and noinline attributes: skip it.
-            DEBUG(dbgs() << "IPO warning: ignoring triple <" << CallerName <<
-                            "," << CalleeName <<
-                            "> since it is in both inline and noinline lists\n");
+            DEBUG(
+                dbgs() << "IPO warning: ignoring triple <" << CallerName << ","
+                       << CalleeName
+                       << "> since it is in both inline and noinline lists\n");
           } else if (NeedsInlineListAttr) {
             // Assign InlineList attribute to callsite.
             CS.addAttribute(llvm::AttributeList::FunctionIndex,
@@ -357,15 +360,13 @@ struct InlineLists : public ModulePass {
     return setInlineListsAttributes(M);
   }
 };
-}
+} // namespace
 
 char InlineLists::ID = 0;
 INITIALIZE_PASS(InlineLists, "inlinelists",
-     "Set attributes for callsites in [no]inline list", false, false)
+                "Set attributes for callsites in [no]inline list", false, false)
 
-ModulePass *llvm::createInlineListsPass() {
-  return new InlineLists;
-}
+ModulePass *llvm::createInlineListsPass() { return new InlineLists; }
 
 PreservedAnalyses InlineListsPass::run(Module &M, ModuleAnalysisManager &AM) {
   if (!setInlineListsAttributes(M))

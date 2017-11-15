@@ -26,8 +26,15 @@
 #include "llvm/IR/Type.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/Inliner.h"
+#include "llvm/Transforms/IPO/InlineReport.h"          // INTEL
 
 using namespace llvm;
+
+#if INTEL_CUSTOMIZATION
+using namespace InlineReportTypes;
+
+extern cl::opt<unsigned> IntelInlineReportLevel;
+#endif // INTEL_CUSTOMIZATION
 
 #define DEBUG_TYPE "inline"
 
@@ -75,6 +82,8 @@ public:
 #if INTEL_CUSTOMIZATION
     auto *Agg = getAnalysisIfAvailable<InlineAggressiveWrapperPass>();
     InlineAggressiveInfo *AggI = Agg ? &Agg->getResult() : nullptr;
+    Params.ComputeFullInlineCost = IntelInlineReportLevel &
+                                   InlineReportOptions::RealCost;
 #endif // INTEL_CUSTOMIZATION
 
     return llvm::getInlineCost(CS, Params, TTI, GetAssumptionCache,

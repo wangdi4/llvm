@@ -1,4 +1,4 @@
-//===------------------- InlineLists.cpp - [No]Inline Lists  -------------===//
+//===---------------- Intel_InlineLists.h - [No]Inline Lists  -------------===//
 //
 // Copyright (C) 2017 Intel Corporation. All rights reserved.
 //
@@ -14,18 +14,18 @@
 //===----------------------------------------------------------------------===//
 //
 
-#ifndef LLVM_TRANSFORMS_IPO_INLINELISTS_H
-#define LLVM_TRANSFORMS_IPO_INLINELITST_H
+#ifndef LLVM_TRANSFORMS_IPO_INTEL_INLINELISTS_H
+#define LLVM_TRANSFORMS_IPO_INTEL_INLINELITST_H
 
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
 
 namespace llvm {
 
-class InlineListsPass :  public PassInfoMixin<InlineListsPass> {
+class InlineListsPass : public PassInfoMixin<InlineListsPass> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 };
-}
+} // namespace llvm
 
-#endif // LLVM_TRANSFORMS_IPO_INLINELISTS_H
+#endif // LLVM_TRANSFORMS_IPO_INTEL_INLINELISTS_H

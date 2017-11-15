@@ -11,7 +11,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/IPO/InlineReport.h"          // INTEL
 #include "llvm/Analysis/InlineCost.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SetVector.h"
@@ -66,8 +65,6 @@ static cl::opt<bool> InlineForXmain(
 static cl::opt<int> OptSizeThreshold(
     "inlineoptsize-threshold", cl::Hidden, cl::init(15),
     cl::desc("Threshold for inlining functions with -Os"));
-
-extern cl::opt<unsigned> IntelInlineReportLevel;
 #endif // INTEL_CUSTOMIZATION
 
 static cl::opt<int> InlineThreshold(
@@ -309,9 +306,7 @@ public:
         CandidateCS(CSArg), Params(Params), Threshold(Params.DefaultThreshold),
 #if INTEL_CUSTOMIZATION
         Cost(0), ComputeFullInlineCost(OptComputeFullInlineCost ||
-                                       Params.ComputeFullInlineCost || ORE ||
-                                       (IntelInlineReportLevel
-                                         & InlineReportOptions::RealCost) != 0),
+                                       Params.ComputeFullInlineCost || ORE),
         ILIC(ILIC), AI(AI),
 #endif // INTEL_CUSTOMIZATION
         IsCallerRecursive(false), IsRecursiveCall(false),
