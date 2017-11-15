@@ -269,29 +269,18 @@ static unsigned getMinClones() {
   return prod;
 }
 
-#ifndef NDEBUG
-// Return true if 'PTy' is pointer to array of chars. Sets 'SizeInBytes' to
-// size of array of char and 'NumElems' to number of elements in array.
-// 'DL' is used to get size of array.
+// Sets 'SizeInBytes' to size of array of char and 'NumElems'
+// to number of elements in array. 'DL' is used to get size of array.
 //
-static bool isPointerToArray(Type* PTy, unsigned& SizeInBytes,
+static void GetPointerToArrayDims(Type* PTy, unsigned& SizeInBytes,
                              unsigned& NumElems, const DataLayout &DL) {
-  // Not pointer?
-  if (!isa<PointerType>(PTy)) return false;
 
-  // Is it pointer to array?
+  if (!isPointerToCharArray(PTy)) return;
   auto ATy = cast<PointerType>(PTy)->getElementType();
-  if (!isa<ArrayType>(ATy)) return false;
-
-  // Is is pointer to array of char?
-  auto CTy = cast<ArrayType>(ATy)->getElementType();
-  if (!CTy->isIntegerTy(8)) return false;
 
   NumElems = cast<ArrayType>(ATy)->getNumElements(); 
   SizeInBytes = DL.getTypeSizeInBits(ATy);
-  return true;
 }
-#endif
 
 // Return true if 'V' is address of packed array (i.e int64 value) on
 // stack.
@@ -325,13 +314,11 @@ static Value* isStartAddressOfPackedArrayOnStack(Value *V) {
 
     if (isa<BitCastInst>(U)) {
       for (User *CI : U->users()) {
-        auto *CInst = dyn_cast<CallInst>(CI);
-        if (!CInst) return nullptr;
-        Function *Callee = CInst->getCalledFunction();
-        if (Callee == nullptr) return nullptr;
-        if (Callee->getName() == "llvm.lifetime.start" ||
-            Callee->getName() == "llvm.lifetime.end")
-          continue;
+        IntrinsicInst *Callee = dyn_cast<IntrinsicInst>(CI);
+        if (!Callee) return nullptr;
+        if (Callee->getIntrinsicID() != Intrinsic::lifetime_start &&
+            Callee->getIntrinsicID() != Intrinsic::lifetime_end)
+          return nullptr;
       }
       continue;
     }
@@ -448,19 +435,18 @@ static Value* isStartAddressOfGLobalArrayCopyOnStack(Value *V) {
   if (GEPType != MemCpySrc->getSourceElementType())
     return nullptr;
 
+  Value* GlobAddr = nullptr;
   for (const User *U : AUse->users()) {
     auto User = dyn_cast<CallInst>(U);
     if (!User)
       return nullptr;
-    Function *Callee = User->getCalledFunction();
-    if (Callee == nullptr)
-      return nullptr;
-    if (Callee->getName() == "llvm.lifetime.start" ||
-        Callee->getName() == "llvm.lifetime.end")
-      continue;
-    if (Callee->getName() != "llvm.memcpy.p0i8.p0i8.i64" &&
-        Callee->getName() != "llvm.memcpy.p0i8.p0i8.i32")
-      return nullptr;
+    const IntrinsicInst *Callee = dyn_cast<IntrinsicInst>(U);
+    if (!Callee) return nullptr;
+    if (Callee->getIntrinsicID() == Intrinsic::lifetime_start ||
+        Callee->getIntrinsicID() == Intrinsic::lifetime_end)
+       continue;
+    if (Callee->getIntrinsicID() != Intrinsic::memcpy)
+       return nullptr;
 
     // Process Memcpy here
     if (User->getArgOperand(0) != AUse)
@@ -477,7 +463,10 @@ static Value* isStartAddressOfGLobalArrayCopyOnStack(Value *V) {
       return nullptr;
     Value* MemCpySize = User->getArgOperand(2);
     
-    Value* GlobAddr = MemCpyDst->getOperand(0);
+    // Make sure there is only one memcpy
+    if (GlobAddr != nullptr) return nullptr;
+    GlobAddr = MemCpyDst->getOperand(0);
+
 
     if (!isSpecializationGVCandidate(GlobAddr, GEP))
       return nullptr;
@@ -485,14 +474,10 @@ static Value* isStartAddressOfGLobalArrayCopyOnStack(Value *V) {
     const DataLayout &DL = GEP->getModule()->getDataLayout(); 
     unsigned ArraySize = DL.getTypeSizeInBits(GEPType) / 8;
     ConstantInt *CI = dyn_cast<ConstantInt>(MemCpySize);
-    if (!CI)
-      return nullptr; 
-    if (!CI->equalsInt(ArraySize))
-      return nullptr;
-
-    return GlobAddr; 
+    if (!CI) return nullptr;
+    if (!CI->equalsInt(ArraySize)) return nullptr;
   }
-  return nullptr;
+  return GlobAddr;
 }
 
 // Returns true if 'V' is a special constant for specialization cloning.
@@ -514,8 +499,7 @@ static bool isSpecializationCloningSpecialConst(Value* V, Value* Arg) {
   else {
     return false;
   }
-  if (PropVal == nullptr)
-    return false;
+  if (PropVal == nullptr) return false;
 
   SpecialConstPropagatedValueMap[V] = PropVal;
   if (!SpecialConstGEPMap[V])
@@ -1185,9 +1169,8 @@ static Value* getReplacementValueForArg(Function* NewFn, Value *V,
   Value* Val = cast<StoreInst>(PropValue)->getOperand(0);
   ConstantInt* CI = cast<ConstantInt>(Val);
 
-
-  assert(isPointerToArray(Formal->getType(), SizeInBytes, NumElems, DL) &&
-         "Expects pointer to Array Type");
+  GetPointerToArrayDims(Formal->getType(), SizeInBytes, NumElems, DL);
+  assert((SizeInBytes > 0) && "Expects pointer to Array Type");
 
   // Create New GlobalVariable
   auto *NewGlobal = createGlobalVariableWithInit(NewFn,
