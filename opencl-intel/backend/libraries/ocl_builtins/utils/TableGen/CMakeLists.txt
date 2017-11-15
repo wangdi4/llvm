@@ -9,10 +9,16 @@ find_package(LLVM REQUIRED)
 
 set(TARGET_NAME ocl-tblgen)
 set(CLANG_BIN_PATH "${LLVM_BINARY_DIR}/clang")
-set(CLANG_INCLUDE_PATH "${LLVM_INCLUDE_DIRS}/cclang")
+if (NOT EXISTS ${CLANG_BIN_PATH})
+  message (FATAL_ERROR "There is no clang executable in LLVM binaries: ${CLANG_BIN_PATH}")
+endif()
+set(CCLANG_INCLUDE_PATH "${LLVM_INCLUDE_DIRS}/cclang")
+if (NOT EXISTS ${CCLANG_INCLUDE_PATH})
+  message (FATAL_ERROR "Common clang include directory is missing: ${CCLANG_INCLUDE_PATH}")
+endif()
 
 add_definitions(
-  -D CLANG_INCLUDE_PATH=${CLANG_INCLUDE_PATH}
+  -D CCLANG_INCLUDE_PATH=${CCLANG_INCLUDE_PATH}
   -D CLANG_BIN_PATH=${CLANG_BIN_PATH}
 )
 
@@ -36,10 +42,6 @@ add_executable(
   CodeFormatter.cpp
   ConversionParser.cpp
   ClangUtils.cpp
-)
-
-add_dependencies(${TARGET_NAME}
-  ${CLANG_BIN_PATH}
 )
 
 target_link_libraries(${TARGET_NAME}

@@ -34,7 +34,7 @@ static std::string getZeroLiteral(const std::string& type){
 //builds the given code to a file with a given name
 void build(const std::string& code, std::string fileName){
   const char* clangpath = XSTR(CLANG_BIN_PATH);
-  const char* include_dir = XSTR(CLANG_INCLUDE_PATH);
+  const char* include_dir = XSTR(CCLANG_INCLUDE_PATH);
 
   std::stringstream options;
   options << "-cc1 -emit-llvm-bc -include opencl-c.h -mllvm -loopopt=false -cl-std=CL2.0";
