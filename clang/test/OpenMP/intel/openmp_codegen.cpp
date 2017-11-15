@@ -447,6 +447,12 @@ int main(int argc, char **argv) {
 // CHECK-REG: region.exit(token [[FLUSH_TOKENVAL]]) [ "DIR.OMP.END.FLUSH"
   #pragma omp flush
 
+  {
+    int fli = 3, flj = 4;
+// CHECK-REG: [[FLUSH_TOKENVAL1:%[0-9]+]] = call token{{.*}}DIR.OMP.FLUSH{{.*}}QUAL.OMP.FLUSH{{.*}}fli{{.*}}flj
+// CHECK-REG: region.exit(token [[FLUSH_TOKENVAL1]]) [ "DIR.OMP.END.FLUSH"
+    #pragma omp flush(fli,flj)
+  }
   return 0;
 }
 

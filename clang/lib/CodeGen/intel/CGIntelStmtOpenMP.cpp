@@ -1143,9 +1143,15 @@ namespace CGIntelOpenMP {
     emitListClause();
   }
 
+  void OpenMPCodeOutliner::emitOMPFlushClause(const OMPFlushClause *Cl) {
+    addArg("QUAL.OMP.FLUSH");
+    for (auto *E : Cl->varlists())
+      addArg(E);
+    emitListClause();
+  }
+
   void OpenMPCodeOutliner::emitOMPCopyprivateClause(
                                         const OMPCopyprivateClause *) {}
-  void OpenMPCodeOutliner::emitOMPFlushClause(const OMPFlushClause *) {}
   void OpenMPCodeOutliner::emitOMPReadClause(const OMPReadClause *) {}
   void OpenMPCodeOutliner::emitOMPWriteClause(const OMPWriteClause *) {}
   void OpenMPCodeOutliner::emitOMPUpdateClause(const OMPUpdateClause *) {}
