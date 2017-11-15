@@ -474,7 +474,8 @@ private:
   DenseMap<Value *, VCMEntry *> m_VCM;
 
   DenseMap<Instruction *, SmallVector<ExtractElementInst *, 16> > m_loadTranspMap;
-  DenseMap<Instruction *, SmallVector<InsertElementInst *, 16> > m_storeTranspMap;
+  DenseMap<Instruction *, SmallVector<InsertElementInst *,
+      MAX_INPUT_VECTOR_WIDTH>> m_storeTranspMap;
 
   /// @brief An array of available VCMEntry's
   VCMEntry * m_VCMAllocationArray;

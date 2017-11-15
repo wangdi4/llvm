@@ -2836,7 +2836,8 @@ void PacketizeFunction::createTransposeAndStore(Instruction* I, Value* storePtrV
   obtainMultiScalarValues(inAddr, storePtrVal, I);
 
   // Obtain the vectorized version of the values need to be transposed and stored
-  SmallVector<InsertElementInst *, 16>& inserts = m_storeTranspMap[I];
+  SmallVector<InsertElementInst *, MAX_INPUT_VECTOR_WIDTH> &inserts
+      = m_storeTranspMap[I];
   SmallVector<Value *, MAX_PACKET_WIDTH> vectorizedInputs;
   vectorizedInputs.assign(numOrigVectors, nullptr);
   for (unsigned int i = 0; i < numOrigVectors; ++i) {

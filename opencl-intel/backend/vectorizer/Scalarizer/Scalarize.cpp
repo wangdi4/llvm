@@ -556,6 +556,9 @@ void ScalarizeFunction::scalarizeInstruction(ExtractElementInst *EI)
   if(!isa<ConstantInt>(scalarIndexVal)) return recoverNonScalarizableInst(EI);
 
   // Obtain the scalarized operands
+  V_ASSERT(dyn_cast<VectorType>(vectorValue->getType()) &&
+       dyn_cast<VectorType>(vectorValue->getType())->getNumElements() <=
+       MAX_INPUT_VECTOR_WIDTH && "Inst vector width larger than supported");
   Value *operand[MAX_INPUT_VECTOR_WIDTH] = {nullptr};
   obtainScalarizedValues(operand, NULL, vectorValue, EI);
 
@@ -589,7 +592,10 @@ void ScalarizeFunction::scalarizeInstruction(InsertElementInst *II)
 
   V_ASSERT(isa<ConstantInt>(scalarIndexVal) && "inst arguments error");
   uint64_t scalarIndex = cast<ConstantInt>(scalarIndexVal)->getZExtValue();
-  V_ASSERT(scalarIndex <= dyn_cast<VectorType>(II->getType())->getNumElements() && "index error");
+  V_ASSERT(scalarIndex <= dyn_cast<VectorType>(II->getType())->getNumElements()
+      && "index error");
+  V_ASSERT(dyn_cast<VectorType>(II->getType())->getNumElements() <=
+       MAX_INPUT_VECTOR_WIDTH && "Inst vector width larger than supported");
 
   // Obtain breakdown of input vector
   Value *scalarValues[MAX_INPUT_VECTOR_WIDTH];
@@ -636,6 +642,8 @@ void ScalarizeFunction::scalarizeInstruction(ShuffleVectorInst * SI)
   unsigned sourceVectorWidth = inputType->getNumElements();
 
   // generate an array of values (pre-shuffle), which concatenates both vectors
+  V_ASSERT(sourceVectorWidth <= MAX_INPUT_VECTOR_WIDTH &&
+      "Inst vector width larger than supported");
   Value *allValues[MAX_INPUT_VECTOR_WIDTH * 2] = {NULL};
 
   // Obtain scalarized input values (into concatenated array). if vector was Undef - keep NULL.
