@@ -20,12 +20,12 @@
 
 #include <CL/cl.h>
 #include <gtest/gtest.h>
-#include <clang_compiler.h>
+#include <FrontendDriver.h>
 #include <frontend_api.h>
 #include <clang_device_info.h>
 #include "common_clang.h"
 
-#include "ClangCompilerTestTypeFixture.h"
+#include "FrontendDriverFixture.h"
 
 #include <spirv/1.0/spirv.hpp>
 

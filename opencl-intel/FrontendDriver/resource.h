@@ -1,6 +1,6 @@
 //{{NO_DEPENDENCIES}}
 // Microsoft Visual C++ generated include file.
-// Used by clang_compiler.rc
+// Used by FrontendDriver.rc
 //
 
 

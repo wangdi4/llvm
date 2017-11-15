@@ -18,4 +18,3 @@ __kernel void test_hostptr(__global float *srcA, __global float *srcB, __global 
 
     dst[tid] = srcA[tid] + srcB[tid];
 }
-

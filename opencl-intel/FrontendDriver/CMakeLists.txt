@@ -19,24 +19,6 @@ set( TARGET_NAME clang_compiler${BUILD_PLATFORM} )
 include(../cmake_utils/embed.rpath.txt)
 
 #
-# Source code
-#
-set(TARGET_INCLUDE_FILES
-    clang_compiler.h
-    clang_device_info.h
-    clang_driver.h
-    SPIRMaterializer.h
-    resource.h
-)
-
-set(TARGET_SOURCE_FILES
-    clang_compiler.cpp
-    clang_compiler.rc
-    clang_driver.cpp
-    SPIRMaterializer.cpp
-)
-
-#
 # Compilation flags
 #
 set( CMAKE_CXX_FLAGS_DEBUG  "${CMAKE_CXX_FLAGS_DEBUG} -D OCL_DEV_BACKEND_PLUGINS -D OCLFRONTEND_PLUGINS")
@@ -73,8 +55,15 @@ if (WIN32)
 endif ()
 
 add_library(${TARGET_NAME} SHARED
-    ${TARGET_INCLUDE_FILES}
-    ${TARGET_SOURCE_FILES}
+    SPIRMaterializer.cpp
+    SPIRMaterializer.h
+    FrontendDriver.cpp
+    FrontendDriver.h
+    FrontendDriver.rc
+    clang_device_info.h
+    clang_driver.cpp
+    clang_driver.h
+    resource.h
 )
 
 install(TARGETS ${TARGET_NAME}
@@ -134,7 +123,7 @@ if (WIN32)
     endif(INSTALL_PDBS)
     install(FILES ${RT_OUTPUT_DIRECTORY}/\${BUILD_TYPE}/${TARGET_NAME}_stripped.pdb DESTINATION bin)
 else (WIN32)
-    SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} clang_compiler.map )
+    SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} FrontendDriver.map )
 endif(WIN32)
 
 

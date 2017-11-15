@@ -1,4 +1,4 @@
-//==---- clang_copmiler.cpp - OpenCL front-end compiler -------*- C++ -*---=
+//==---- FrontendDriver.cpp - OpenCL front-end compiler --------*- C++ -*---=
 //
 // Copyright (C) 2009-2017 Intel Corporation. All rights reserved.
 //
@@ -8,7 +8,7 @@
 //
 // ===--------------------------------------------------------------------===
 
-#include "clang_compiler.h"
+#include "FrontendDriver.h"
 #include "clang_driver.h"
 #include "common_clang.h"
 
@@ -166,4 +166,3 @@ CreateFrontEndInstance(const void *pDeviceInfo, size_t devInfoSize,
     return CL_OUT_OF_HOST_MEMORY;
   }
 }
-

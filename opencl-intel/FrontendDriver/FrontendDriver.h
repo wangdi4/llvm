@@ -1,4 +1,4 @@
-//==---- clang_copmiler.h --- OpenCL front-end compiler -------*- C++ -*---=
+//==---- FrontendDriver.h --- OpenCL front-end compiler --------*- C++ -*---=
 //
 // Copyright (C) 2009-2017 Intel Corporation. All rights reserved.
 //
@@ -61,4 +61,3 @@ protected:
 }
 }
 }
-

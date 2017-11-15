@@ -381,14 +381,14 @@ add_subdirectory( externals )
 add_subdirectory( cl_api )
 add_subdirectory( utils )
 
-# Backend
+# Compiler
+# Front-end compiler
+add_subdirectory( FrontendDriver )
+# Back-end compiler
 add_subdirectory( backend )
 
 #devices
 add_subdirectory( devices )
-
-# Front-end compiler
-add_subdirectory( clang_compiler )
 
 # Framework
 add_subdirectory( framework )

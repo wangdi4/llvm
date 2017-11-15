@@ -18,7 +18,7 @@
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly.
 
-#include "ClangCompilerTestTypeFixture.h"
+#include "FrontendDriverFixture.h"
 #include "common_clang.h"
 #include "common_utils.h"
 

@@ -23,7 +23,7 @@
 
 #include <CL/cl.h>
 #include <gtest/gtest.h>
-#include <clang_compiler.h>
+#include <FrontendDriver.h>
 #include <frontend_api.h>
 #include <clang_device_info.h>
 
@@ -38,7 +38,7 @@
 
 /**********************************************************************************************
 * Description:
-* Represents a test fixture for unit-testing clang_compiler in FE Compiler.
+* Represents a test fixture for unit-testing FE Compiler.
 * By gtest design it is being instantiated with SetUp() call in the beginning of a test
 * and destroyed with TearDown() call at the end of the test.
 **********************************************************************************************/

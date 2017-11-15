@@ -8,7 +8,7 @@ include_directories(
   ${BACKEND_ROOT_DIR}/plugin_manager
   ${CMAKE_SOURCE_DIR}/cl_api
   ${CL_API_HEADERS}
-  ${CMAKE_SOURCE_DIR}/clang_compiler
+  ${CMAKE_SOURCE_DIR}/FrontendDriver
   ${CMAKE_SOURCE_DIR}/utils/cl_sys_utils/export
 )
 
