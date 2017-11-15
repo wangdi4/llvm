@@ -27,10 +27,6 @@ else (NOT WIN32)
   set(LIBRARIES OclBackendUtils OpenCL googletest)
 endif (NOT WIN32)
 
-add_dependencies(${TARGET_NAME}
-   ${LIBRARIES}
-)
-
 target_link_libraries(${TARGET_NAME}
    ${LIBRARIES}
 )
