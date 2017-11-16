@@ -161,7 +161,8 @@ namespace llvm {
     unsigned getLHPhiBackedgeReg(MachineInstr* lhdrPhi, unsigned &idx);
     bool isIntegerReg(unsigned Reg);
     void SequenceOPT();
-    void CSACvtCFDFPass::SequenceIndv(CSASSANode* cmpNode, CSASSANode* switchNode, CSASSANode* indecNode, CSASSANode* lhdrPhiNode);
+    void SequenceIndv(CSASSANode* cmpNode, CSASSANode* switchNode, CSASSANode* indecNode, CSASSANode* lhdrPhiNode);
+    //void SequenceAddress(CSASSANode* switchNode, CSASSANode* indecNode, CSASSANode* lhdrPhiNode);
   private:
     MachineFunction *thisMF;
     const CSAInstrInfo* TII;
@@ -311,7 +312,7 @@ void CSACvtCFDFPass::SequenceIndv(CSASSANode* cmpNode, CSASSANode* switchNode, C
   isIDVCycle = isIDVCycle && 
                (MRI->getVRegDef(cmpNode->minstr->getOperand(idvIdx).getReg()) == lhdrPhiNode->minstr ||
                 MRI->getVRegDef(cmpNode->minstr->getOperand(idvIdx).getReg()) == indecNode->minstr);
-
+  
   MachineOperand& bndOpnd = cmpNode->minstr->getOperand(3 - idvIdx);
   //boundary must be integer value or integer register defined outside the loop
   bool isDefOutsideLoop = false;
@@ -360,9 +361,124 @@ void CSACvtCFDFPass::SequenceIndv(CSASSANode* cmpNode, CSASSANode* switchNode, C
     //1 means: false control sig loop back, true control sig exit loop
     unsigned switchSense = switchNode->minstr->getOperand(0).getReg() == phiBackedgeReg ? 1 : 0;
     unsigned switchOutIndex = switchNode->minstr->getOperand(0).getReg() == phiBackedgeReg ? 1 : 0;
+    
     //no use of switch outside the loop, only use is lhdrphi
     if (MRI->use_empty(switchNode->minstr->getOperand(switchOutIndex).getReg()) &&
         MRI->hasOneUse(switchNode->minstr->getOperand(1 - switchOutIndex).getReg())) {
+      
+      // Find a sequence opcode that matches our compare opcode.
+      unsigned seqOp;
+      if (!CSASeqLoopInfo::compute_matching_seq_opcode(cmpNode->minstr->getOpcode(),
+        indecNode->minstr->getOpcode(),
+        compareSense,
+        switchSense,
+        *TII,
+        &seqOp)) {
+        assert(false && "can't find matching sequence opcode\n");
+      }
+    
+
+      MachineOperand& initOpnd = lhdrPhiNode->minstr->getOperand(phiInitIdx);
+#if 0
+      MachineLoop* mloop = MLI->getLoopFor(lhdrPhiNode->minstr->getParent());
+      MachineBasicBlock* landingPad = mloop->getLoopPreheader();
+      //TODO:: create the landing pad if can't find one
+      //assert(landingPad && "can't find loop preheader as landing pad for renaming");
+      if (!landingPad) {
+        landingPad = DT->getNode(mloop->getHeader())->getIDom()->getBlock();
+        assert(landingPad && landingPad != mloop->getHeader());
+      }
+      //add is before cmp => need to adjust init value
+      if (MRI->getVRegDef(cmpNode->minstr->getOperand(idvIdx).getReg()) == indecNode->minstr) {
+        const TargetRegisterClass *TRC = MRI->getRegClass(cmpNode->minstr->getOperand(idvIdx).getReg());
+        unsigned adjInitVReg = MRI->createVirtualRegister(TRC);
+        MachineInstr* adjInitInstr = BuildMI(*landingPad,
+          landingPad->getFirstTerminator(), DebugLoc(),
+          TII->get(indecNode->minstr->getOpcode()),
+          adjInitVReg).
+          add(lhdrPhiNode->minstr->getOperand(phiInitIdx)).                   //init
+          add(indecNode->minstr->getOperand(strideIdx));                      //stride
+        initOpnd = adjInitInstr->getOperand(0);
+      }
+
+#endif 
+      //unsigned predReg = MRI->createVirtualRegister(&CSA::I1RegClass);
+      unsigned firstReg = MRI->createVirtualRegister(&CSA::I1RegClass);
+      unsigned lastReg = MRI->createVirtualRegister(&CSA::I1RegClass);
+      MachineInstr* seqInstr = BuildMI(*lhdrPhiNode->minstr->getParent(),
+        lhdrPhiNode->minstr->getParent()->getFirstNonPHI(), DebugLoc(),
+        TII->get(seqOp),
+        lhdrPhiNode->minstr->getOperand(0).getReg()).
+        addReg(cmpNode->minstr->getOperand(0).getReg(), RegState::Define).  //pred
+        addReg(firstReg, RegState::Define).
+        addReg(lastReg, RegState::Define).
+        add(initOpnd).                                                      //init
+        add(cmpNode->minstr->getOperand(3 - idvIdx)).                       //boundary
+        add(indecNode->minstr->getOperand(strideIdx));                      //stride
+      seqInstr->setFlag(MachineInstr::NonSequential);
+      //remove the instructions in the IDV cycle.
+      cmpNode->minstr->removeFromParent();
+      switchNode->minstr->removeFromParent();
+      indecNode->minstr->removeFromBundle();
+      lhdrPhiNode->minstr->removeFromParent();
+      //currently only the cmp instr can have usage outside the cycle
+      cmpNode->minstr = seqInstr;
+    }
+  }
+}
+
+
+
+#if 0
+void CSACvtCFDFPass::SequenceAddress(CSASSANode* switchNode, CSASSANode* indecNode, CSASSANode* lhdrPhiNode) {
+  //addNode has inputs phiNode, and an immediate input
+  bool isIDVCycle = indecNode->children.size() == 1 && indecNode->children[0] == lhdrPhiNode;
+  //switchNode has inputs addNode, and switch's control is SeqOT
+  isIDVCycle = isIDVCycle &&
+               TII->isSeqOT(MRI->getVRegDef(switchNode->minstr->getOperand(2).getReg())) &&
+               MRI->getVRegDef(switchNode->minstr->getOperand(3).getReg()) == indecNode->minstr;
+  
+  //handle only constant strip for now
+  unsigned strideIdx = indecNode->minstr->getOperand(1).isReg() ? 2 : 1;
+  isIDVCycle = isIDVCycle && indecNode->minstr->getOperand(strideIdx).isImm() &&
+               (indecNode->minstr->getOperand(strideIdx).getImm() == 1 ||
+                indecNode->minstr->getOperand(strideIdx).getImm() == -1);
+  //uses of phi can only be add or cmp
+  unsigned phidst = lhdrPhiNode->minstr->getOperand(0).getReg();
+  MachineRegisterInfo::use_iterator UI = MRI->use_begin(phidst);
+  while (UI != MRI->use_end()) {
+    MachineOperand &UseMO = *UI;
+    ++UI;
+    MachineInstr *UseMI = UseMO.getParent();
+    if (UseMI != indecNode->minstr && UseMI != cmpNode->minstr) {
+      isIDVCycle = false;
+      break;
+    }
+  }
+  //uses of add can only be switch or cmp
+  unsigned adddst = indecNode->minstr->getOperand(0).getReg();
+  UI = MRI->use_begin(adddst);
+  while (UI != MRI->use_end()) {
+    MachineOperand &UseMO = *UI;
+    ++UI;
+    MachineInstr *UseMI = UseMO.getParent();
+    if (UseMI != switchNode->minstr && UseMI != cmpNode->minstr) {
+      isIDVCycle = false;
+      break;
+    }
+  }
+
+  if (isIDVCycle) {
+    unsigned compareSense = idvIdx - 1;
+    unsigned phiInitIdx, phiBackedgeIdx;
+    getLHPhiInitReg(lhdrPhiNode->minstr, phiInitIdx);
+    unsigned phiBackedgeReg = getLHPhiBackedgeReg(lhdrPhiNode->minstr, phiBackedgeIdx);
+    //1 means: false control sig loop back, true control sig exit loop
+    unsigned switchSense = switchNode->minstr->getOperand(0).getReg() == phiBackedgeReg ? 1 : 0;
+    unsigned switchOutIndex = switchNode->minstr->getOperand(0).getReg() == phiBackedgeReg ? 1 : 0;
+    //no use of switch outside the loop, only use is lhdrphi
+    if (MRI->use_empty(switchNode->minstr->getOperand(switchOutIndex).getReg()) &&
+      MRI->hasOneUse(switchNode->minstr->getOperand(1 - switchOutIndex).getReg())) {
       // Find a sequence opcode that matches our compare opcode.
       unsigned seqOp;
       if (!CSASeqLoopInfo::compute_matching_seq_opcode(cmpNode->minstr->getOpcode(),
@@ -397,6 +513,13 @@ void CSACvtCFDFPass::SequenceIndv(CSASSANode* cmpNode, CSASSANode* switchNode, C
     }
   }
 }
+#endif 
+
+
+
+
+
+
 
 
 void CSACvtCFDFPass::SequenceOPT() {
@@ -440,57 +563,12 @@ void CSACvtCFDFPass::SequenceOPT() {
 
       if (isIDVCandidate && cmpNode && switchNode && indecNode && lhdrPhiNode) {
         SequenceIndv(cmpNode, switchNode, indecNode, lhdrPhiNode);
+      } else if (isIDVCandidate && switchNode && indecNode && lhdrPhiNode) {
+        //SequenceAddress(switchNode, indecNode, lhdrPhiNode);
       }
     }
   }
 }
-
-#if 0
-void CSACvtCFDFPass::SequenceOPT() {
-  CSASSAGraph csaSSAGraph;
-  csaSSAGraph.BuildCSASSAGraph(*thisMF, MLI);
-  SequenceIndv(csaSSAGraph);
-
-  if (lhdrPhi && switchInstr && !cmp && !indec) {
-        //repeat
-        unsigned phiInitReg = getPhiInitReg(lhdrPhi);
-        unsigned phiBackedgeReg = getPhiBackedgeReg(lhdrPhi);
-        //1 means: false control sig loop back, true control sig exit loop
-        switchSense = switchInstr->getOperand(0).getReg() == phiBackedgeReg ? 1 : 0;
-        unsigned switchOutReg = switchInstr->getOperand(0).getReg() == phiBackedgeReg ?
-                                switchInstr->getOperand(1).getReg() :
-                                switchInstr->getOperand(0).getReg();
-        if (MRI->use_empty(switchOutReg)) {
-          const TargetRegisterClass *TRC = MRI->getRegClass(lhdrPhi->getOperand(0).getReg());
-          const unsigned repeatOP = TII->getRepeatOpcode(TRC);
-          MachineInstr* repinst = BuildMI(*lhdrPhi->getParent(), lhdrPhi->getParent()->getFirstNonPHI(), DebugLoc(),
-            TII->get(repeatOP),
-            lhdrPhi->getOperand(0).getReg()).
-            addReg(switchInstr->getOperand(2).getReg()).
-            addReg(phiInitReg);
-          repinst->setFlag(MachineInstr::NonSequential);
-
-          for (std::vector<CSASSANode *>::const_iterator nodeI = SCCNodes.begin(), nodeIE = SCCNodes.end(); nodeI != nodeIE; ++nodeI, ++i) {
-            CSASSANode* sccn = *nodeI;
-            MachineInstr* minstr = sccn->minstr;
-            if (TII->isMOV(minstr)) {
-              unsigned Reg = minstr->getOperand(0).getReg();
-              if (!MRI->hasOneUse(Reg)) {
-                MachineRegisterInfo::use_iterator UI = MRI->use_begin(Reg);
-                while (UI != MRI->use_end()) {
-                  MachineOperand &UseMO = *UI;
-                  UseMO.setReg(lhdrPhi->getOperand(0).getReg());
-                }
-              }
-            }
-            minstr->removeFromParent();
-          }
-        }
-      }
-}
-#endif
-
-
 
 void CSACvtCFDFPass::replacePhiWithPICK() {
 #if 0
