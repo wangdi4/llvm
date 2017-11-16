@@ -51,9 +51,6 @@ endif (NOT WIN32)
 
 set( CMAKE_CXX_FLAGS_DEBUG "-D OCLFRONTEND_PLUGINS ${CMAKE_CXX_FLAGS_DEBUG}" )
 
-#adding dependency to the test subject
-add_dependencies(${TARGET_NAME} OclRecorder)
-
 #install the executable
 install(FILES OclRecorderTest.pm DESTINATION tests/recorder)
 install(TARGETS ${TARGET_NAME} RUNTIME DESTINATION tests/recorder)
