@@ -629,10 +629,6 @@ public:
   /// \brief Create a call to the llvm.intel.fakeload intrinsic
   /// to hold the tbaa informaiton for the return pointers.
   Instruction *CreateFakeLoad(Value *Ptr, MDNode *TbaaTag);
-
-  /// \breif Rename the incoming value Ptr to a new value to inhibit the code
-  /// motion of the instruction where the value Ptr sits.
-  Instruction *CreateCodemotionFence(Value *Ptr);
 #endif // INTEL_CUSTOMIZATION
 
   /// Create a call to intrinsic \p ID with 2 operands which is mangled on the

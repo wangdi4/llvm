@@ -1391,7 +1391,7 @@ bool VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
   return Changed;
 }
 
-// Clean up the intrinsic @llvm.codemotion.fence and replace the use
+// Clean up the intrinsic @llvm.invariant.group.barrier and replace the use
 // of the intrinsic with the its operand.
 bool VPOParoptTransform::clearCodemotionFenceIntrinsic(WRegionNode *W) {
   bool Changed = false;
@@ -1400,7 +1400,7 @@ bool VPOParoptTransform::clearCodemotionFenceIntrinsic(WRegionNode *W) {
     for (auto &I : **IB)
       if (CallInst *CI = dyn_cast<CallInst>(&I)) {
         const Function *Callee = CI->getCalledFunction();
-        if (Callee->getIntrinsicID() == Intrinsic::codemotion_fence) {
+        if (Callee->getIntrinsicID() == Intrinsic::invariant_group_barrier) {
           I.replaceAllUsesWith(cast<CallInst>(&I)->getOperand(0));
           Changed = true;
         }
@@ -1410,21 +1410,29 @@ bool VPOParoptTransform::clearCodemotionFenceIntrinsic(WRegionNode *W) {
 }
 
 // Replace the occurrences of I within the region with the return value of the
-// intrinsic @llvm.codemotion.fence.
+// intrinsic @llvm.invariant.group.barrier.
 void VPOParoptTransform::replaceValueWithinRegion(WRegionNode *W, Value *I) {
   BasicBlock *EntryBB = W->getEntryBBlock();
   IRBuilder<> Builder(EntryBB->getTerminator());
-  Instruction *NewI = Builder.CreateCodemotionFence(I);
+  Value *NewI = Builder.CreateInvariantGroupBarrier(I);
 
   for (auto IB = I->user_begin(), IE = I->user_end(); IB != IE; IB++) {
-    if (Instruction *User = dyn_cast<Instruction>(*IB))
+    if (Instruction *User = dyn_cast<Instruction>(*IB)) {
+      if (auto *BI = dyn_cast<BitCastInst>(User)) {
+        if (CallInst *CI = dyn_cast<CallInst>(BI->user_back()))
+          if (CI->getCalledFunction()->getIntrinsicID() ==
+              Intrinsic::invariant_group_barrier)
+            continue;
+      }
       if (User != NewI && !VPOAnalysisUtils::isIntelDirectiveOrClause(User) &&
           W->contains(User->getParent()))
         User->replaceUsesOfWith(I, NewI);
+    }
   }
 }
 
-// Generate the intrinsic @llvm.codemotion.fence for local/global variable I.
+// Generate the intrinsic @llvm.invariant.group.barrier for local/global
+// variable I.
 void VPOParoptTransform::genFenceIntrinsic(WRegionNode *W, Value *I) {
 
   if (AllocaInst *AI = dyn_cast<AllocaInst>(I)) {
@@ -1440,7 +1448,7 @@ void VPOParoptTransform::genFenceIntrinsic(WRegionNode *W, Value *I) {
   }
 }
 
-// Generate the intrinsic @llvm.codemotion.fence to inhibit the cse
+// Generate the intrinsic @llvm.invariant.group.barrier to inhibit the cse
 // for the gep instruction related to array/struture which is marked
 // as private, firstprivate, lastprivate, reduction or shared.
 void VPOParoptTransform::genCodemotionFenceforAggrData(WRegionNode *W) {
