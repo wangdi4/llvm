@@ -11,7 +11,7 @@ set(LLVM_BINARY_DIR ${LLVM_PATH}/bin)
 set(LLVM_EXTERNAL_LIT "${LLVM_BINARY_DIR}/llvm-lit")
 if (WIN32 AND NOT CYGWIN)
   set(LLVM_EXTERNAL_LIT "${LLVM_EXTERNAL_LIT}.py")
-endif (WIN32)
+endif (WIN32 AND NOT CYGWIN)
 
 # We need to pass some cmake variables into lit .cfg scripts
 configure_lit_site_cfg(
