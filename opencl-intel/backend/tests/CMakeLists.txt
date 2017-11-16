@@ -1,5 +1,4 @@
 add_subdirectory(type_conversion)
-add_subdirectory(recorder)
 add_subdirectory(debugger_test_type)
 add_subdirectory(metadata_api_test_type)
 
@@ -27,6 +26,7 @@ list(APPEND BE_TEST_DEPS
 
 if (BACKEND_BUILD_VERIFICATION_LIB)
   list(APPEND BE_TEST_DEPS SATest)
+  add_subdirectory(recorder)
 endif (BACKEND_BUILD_VERIFICATION_LIB)
 
 # It is used by lit.cfg to find lit.site.cfg when user launches LIT tests from a
