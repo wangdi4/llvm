@@ -38,6 +38,18 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 // #include "llvm/Transforms/Intel_OpenCLTransforms/Passes.h"
 llvm::FunctionPass* createFMASplitterPass();
 
+// INTEL VPO BEGIN
+#include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h"
+#include "llvm/Transforms/Intel_VPO/Paropt/VPOParopt.h"
+#include "llvm/Transforms/Intel_VPO/VPOPasses.h"
+#include "llvm/Transforms/Vectorize.h"
+#include "llvm/Transforms/Utils/Intel_VecClone.h"
+
+static cl::opt<bool> DisableVPlanVec("disable-vplan-vectorizer",
+                                     cl::init(false), cl::Hidden,
+                                     cl::desc("Disable VPlan Vectorizer"));
+// INTEL VPO END
+
 extern "C"{
 
 void *createInstToFuncCallPass(bool);
@@ -106,6 +118,9 @@ llvm::ModulePass *createPrintfArgumentsPromotionPass();
 }
 
 using namespace intel;
+// INTEL VPO BEGIN
+using namespace vpo;
+// INTEL VPO END
 namespace Intel {
 namespace OpenCL {
 namespace DeviceBackend {
@@ -117,7 +132,25 @@ static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
                                             bool UnrollLoops,
                                             int rtLoopUnrollFactor,
                                             bool allowAllocaModificationOpt,
-                                            bool isDBG, bool HasGatherScatter) {
+                                            bool isDBG, bool HasGatherScatter,
+                                            unsigned RunVPOParopt) {
+// INTEL VPO BEGIN
+  if (!DisableVPlanVec && (RunVPOParopt & VPOParoptMode::OmpVec))
+    PM->add(createVecClonePass());
+
+  if (RunVPOParopt) {
+    if (OptLevel == 0) {
+      PM->add(llvm::createSROAPass());
+      PM->add(llvm::createEarlyCSEPass());
+    }
+    PM->add(llvm::createLoopRotatePass(-1));
+    PM->add(llvm::createVPOCFGRestructuringPass());
+    PM->add(llvm::createVPOParoptPreparePass(RunVPOParopt));
+    PM->add(llvm::createVPOCFGRestructuringPass());
+    PM->add(llvm::createVPOParoptPass(RunVPOParopt));
+  }
+// INTEL VPO END
+
   if (OptLevel == 0) {
     return;
   }
@@ -158,6 +191,15 @@ static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
   PM->add(llvm::createInstructionSimplifierPass());
   PM->add(llvm::createIndVarSimplifyPass()); // Canonicalize indvars
   PM->add(llvm::createLoopDeletionPass());   // Delete dead loops
+
+// INTEL VPO BEGIN
+  // VPO Driver
+  if (!DisableVPlanVec && (RunVPOParopt & VPOParoptMode::OmpVec)) {
+    PM->add(llvm::createVPOCFGRestructuringPass());
+    PM->add(llvm::createVPlanDriverPass());
+  }
+// INTEL VPO END
+
   if (UnrollLoops) {
     PM->add(llvm::createLoopUnrollPass(OptLevel, 512, 0, 0)); // Unroll small loops
     // unroll loops with non-constant trip count
@@ -207,6 +249,11 @@ static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
       PM->add(llvm::createConstantMergePass()); // Merge dup global constants
   }
   PM->add(llvm::createUnifyFunctionExitNodesPass());
+// INTEL VPO BEGIN
+  if (!DisableVPlanVec && (RunVPOParopt & VPOParoptMode::OmpVec)) {
+    PM->add(createMapIntrinToImlPass());
+  }
+// INTEL VPO END
 }
 
 static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
@@ -304,10 +351,76 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
 
   int rtLoopUnrollFactor = pConfig->GetRTLoopUnrollFactor();
 
+  unsigned RunVPOParopt = 0;
+
+  if (isFpgaEmulator) {
+// INTEL VPO BEGIN
+    // TODO: This approach has the following issues:
+    //     1. We shouldn't be processing Clang's flags in LLVM.
+    //     2. If -fintel-openmp is passed by other means than the VOLCANO env
+    //        var (OpenCL source code, for example), this is not going to work.
+    //     3. Default value of optionsClang has to be aligned with
+    //        the clang_driver.
+    //
+    // The right implementation should process intel flags in Clang and then,
+    // Clang should pass the right LLVM flags to LLVM.
+    std::string optionsClang;
+
+    // FIXME: OpenMP is not enabled by default, because it requires
+    // -fintel-compatibility flag, which affects on clang behavior beyond
+    // OpenMP. Should be enabled back when this issue gets resolved.
+    //
+    // std::string optionsClang = "-fopenmp -fintel-openmp -fopenmp-tbb -fintel-compatibility";
+
+    if (getenv("VOLCANO_CLANG_OPTIONS")) {
+#ifdef NDEBUG
+      // Append user options to default options.
+      optionsClang += getenv("VOLCANO_CLANG_OPTIONS");
+#else
+      // Allow default to be overridden for debug purposes.
+
+      // FIXME: This is primarily needed to disable VPO, but overriding options
+      // in debug build is not obvious. There are better ways to do it:
+      //
+      //    1. Pass -fno-openmp and -fno-intel-openmp flags through
+      //    VOLCANO_CLANG_OPTIONS.
+      //
+      //    2. Pass -disable-vplan-vectorizer through
+      //    VOLCANO_LLVM_OPTIONS. Tricky part here is whether the IR produced by
+      //    the clang with -fopenmp and -fintel-openmp is compatible with our
+      //    backend without VPO.
+      optionsClang = getenv("VOLCANO_CLANG_OPTIONS");
+#endif
+    }
+    if (!optionsClang.empty()) {
+      std::stringstream optionsSS(optionsClang);
+      std::string buf;
+      while (getline(optionsSS, buf,' ')) {
+        if (buf.compare("-fintel-openmp") == 0) {
+          RunVPOParopt |= VPOParoptMode::ParPrepare;
+          RunVPOParopt |= VPOParoptMode::ParTrans;
+          RunVPOParopt |= VPOParoptMode::OmpPar;
+          RunVPOParopt |= VPOParoptMode::OmpVec;
+          RunVPOParopt |= VPOParoptMode::OmpTpv;
+        }
+        else if (buf.compare("-fopenmp-simd") == 0) {
+          RunVPOParopt |= VPOParoptMode::ParPrepare;
+          RunVPOParopt |= VPOParoptMode::ParTrans;
+          RunVPOParopt |= VPOParoptMode::OmpVec;
+        }
+        else if (buf.compare("-fopenmp-tbb") == 0) {
+          RunVPOParopt |= VPOParoptMode::OmpTbb;
+        }
+      }
+    }
+// INTEL VPO END
+  }
+
   createStandardLLVMPasses(
       &PM, OptLevel,
       UnitAtATime, UnrollLoops, rtLoopUnrollFactor, allowAllocaModificationOpt,
-      debugType != intel::None, HasGatherScatter);
+      debugType != intel::None, HasGatherScatter,
+      RunVPOParopt);  // INTEL VPO
 
   // check there is no recursion, if there is fail compilation
   PM.add(createDetectRecursionPass());

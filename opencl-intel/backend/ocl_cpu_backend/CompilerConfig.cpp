@@ -85,16 +85,15 @@ void GlobalCompilerConfig::LoadConfig()
         }
     }
 #endif // INTEL_PRODUCT_RELEASE
-#ifdef BUILD_FPGA_EMULATOR
+
+// INTEL VPO BEGIN
     m_LLVMOptions = "-vector-library=SVML ";
-#ifndef NDEBUG
-    m_LLVMOptions = "";
-#endif // NDEBUG
+// INTEL VPO END
+
     if (const char *pEnv = getenv("VOLCANO_LLVM_OPTIONS"))
     {
         m_LLVMOptions += pEnv;
     }
-#endif
 }
 
 void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions)
