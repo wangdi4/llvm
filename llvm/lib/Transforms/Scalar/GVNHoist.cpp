@@ -545,7 +545,10 @@ private:
 
   // Returns true when the values are flowing out to each edge.
   bool valueAnticipable(CHIArgs C, TerminatorInst *TI) const {
-    if (TI->getNumSuccessors() > std::distance(C.begin(), C.end()))
+#ifdef INTEL_CUSTOMIZATION
+    // INTEL cherry-picked community r318354 to enable x86win OpenCL build.
+    if (TI->getNumSuccessors() > (unsigned)std::distance(C.begin(), C.end()))
+#endif
       return false; // Not enough args in this CHI.
 
     for (auto CHI : C) {
