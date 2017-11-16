@@ -678,16 +678,52 @@ _mm_adds_epu16(__m128i a, __m128i b)
   return (__m128i)__builtin_ia32_paddusw128((__v8hi)a, (__v8hi)b);
 }
 
+/// \brief Computes the rounded avarages of corresponding elements of two
+///    128-bit unsigned [16 x i8] vectors, saving each result in the
+///    corresponding element of a 128-bit result vector of [16 x i8].
+///
+/// \headerfile <x86intrin.h>
+///
+/// This intrinsic corresponds to the <c> VPAVGB / PAVGB </c> instruction.
+///
+/// \param __a
+///    A 128-bit unsigned [16 x i8] vector.
+/// \param __b
+///    A 128-bit unsigned [16 x i8] vector.
+/// \returns A 128-bit unsigned [16 x i8] vector containing the rounded
+///    averages of both parameters.
 static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
-_mm_avg_epu8(__m128i a, __m128i b)
+_mm_avg_epu8(__m128i __a, __m128i __b)
 {
-  return (__m128i)__builtin_ia32_pavgb128((__v16qi)a, (__v16qi)b);
+  typedef unsigned short __v16hu __attribute__ ((__vector_size__ (32)));
+  return (__m128i)__builtin_convertvector(
+               ((__builtin_convertvector((__v16qu)__a, __v16hu) +
+                 __builtin_convertvector((__v16qu)__b, __v16hu)) + 1)
+                 >> 1, __v16qu);
 }
 
+/// \brief Computes the rounded avarages of corresponding elements of two
+///    128-bit unsigned [8 x i16] vectors, saving each result in the
+///    corresponding element of a 128-bit result vector of [8 x i16].
+///
+/// \headerfile <x86intrin.h>
+///
+/// This intrinsic corresponds to the <c> VPAVGW / PAVGW </c> instruction.
+///
+/// \param __a
+///    A 128-bit unsigned [8 x i16] vector.
+/// \param __b
+///    A 128-bit unsigned [8 x i16] vector.
+/// \returns A 128-bit unsigned [8 x i16] vector containing the rounded
+///    averages of both parameters.
 static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
-_mm_avg_epu16(__m128i a, __m128i b)
+_mm_avg_epu16(__m128i __a, __m128i __b)
 {
-  return (__m128i)__builtin_ia32_pavgw128((__v8hi)a, (__v8hi)b);
+  typedef unsigned int __v8su __attribute__ ((__vector_size__ (32)));
+  return (__m128i)__builtin_convertvector(
+               ((__builtin_convertvector((__v8hu)__a, __v8su) +
+                 __builtin_convertvector((__v8hu)__b, __v8su)) + 1)
+                 >> 1, __v8hu);
 }
 
 static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))

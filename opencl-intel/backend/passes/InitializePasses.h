@@ -87,7 +87,6 @@ void initializeOCLAliasAnalysisPass(llvm::PassRegistry&);
 void initializePrintfArgumentsPromotionPass(llvm::PassRegistry&);
 void initializeChannelPipeTransformationPass(llvm::PassRegistry&);
 void initializePipeSupportPass(llvm::PassRegistry&);
-void initializeFMASplitterPass(llvm::PassRegistry&);
 void initializePipeOrderingPass(llvm::PassRegistry&);
 void initializeInfiniteLoopCreatorPass(llvm::PassRegistry&);
 void initializeAutorunReplicatorPass(llvm::PassRegistry&);

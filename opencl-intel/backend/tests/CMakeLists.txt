@@ -7,8 +7,11 @@ include(${LLVM_PATH}/lib/cmake/llvm/AddLLVM.cmake)
 
 set(LLVM_BINARY_DIR ${LLVM_PATH}/bin)
 
-# Let's help CMake to find llvm/utils/lit/lit.py
-set(LLVM_MAIN_SRC_DIR "${OCL_SOURCE_DIR}/../../")
+# Let's help CMake to find llvm-lit
+set(LLVM_EXTERNAL_LIT "${LLVM_BINARY_DIR}/llvm-lit")
+if (WIN32 AND NOT CYGWIN)
+  set(LLVM_EXTERNAL_LIT "${LLVM_EXTERNAL_LIT}.py")
+endif (WIN32)
 
 # We need to pass some cmake variables into lit .cfg scripts
 configure_lit_site_cfg(

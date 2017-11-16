@@ -66,10 +66,9 @@ __m512i __attribute__((__always_inline__, __nodebug__))
 _mm512_maskz_set1_epi64(__mmask8 __M, long long __A)
 {
 #ifdef __x86_64__
-  return (__m512i)__builtin_ia32_pbroadcastq512_gpr_mask(__A,
-    (__v8di)
-    _mm512_setzero_si512(),
-    __M);
+  return (__m512i)__builtin_ia32_selectq_512(__M,
+                                             (__v8di)_mm512_set1_epi64(__A),
+                                             (__v8di)_mm512_setzero_si512());
 #else
   return (__m512i)__builtin_ia32_pbroadcastq512_mem_mask(__A,
     (__v8di)

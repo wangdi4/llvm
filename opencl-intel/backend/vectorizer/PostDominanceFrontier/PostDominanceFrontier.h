@@ -30,13 +30,12 @@ public:
   PostDominanceFrontierBase() : llvm::DominanceFrontierBase<BlockT, true>() {}
 
   void analyze(DomTreeT &DT) {
-    this->Roots = DT.getRoots();
     // This tree represents the post-dominance relations for a function, however,
     // this root may be a node with the block == NULL in the case when
     // there are multiple exit nodes from a particular function.
     // Here in Vectorizer such a case is anomaly since all exit basic blocks
     // are unified into one, hence we assert this case.
-    assert(this->Roots.size() == 1 &&
+    assert(DT.getRoots().size() == 1 &&
            "Only one entry block for post domfronts is expected!");
     calculate(DT, DT.getRootNode());
   }
@@ -46,7 +45,7 @@ public:
     // Loop over CFG successors to calculate DFlocal[Node]
     llvm::BasicBlock *BB = Node->getBlock();
     DomSetType &S = this->Frontiers[BB];       // The new set to fill in...
-    if (this->getRoots().empty()) return S;
+    if (DT.getRoots().empty()) return S;
 
     if (BB)
       for (llvm::pred_iterator SI = pred_begin(BB), SE = pred_end(BB);
@@ -90,10 +89,6 @@ public:
   PostDominanceFrontier();
 
   PostDominanceFrontierBase<llvm::BasicBlock> &getBase() { return Base; }
-
-  inline const std::vector<llvm::BasicBlock *> &getRoots() const {
-    return Base.getRoots();
-  }
 
   llvm::BasicBlock *getRoot() const { return Base.getRoot(); }
 

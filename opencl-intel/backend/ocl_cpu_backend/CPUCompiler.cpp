@@ -379,7 +379,6 @@ llvm::ExecutionEngine* CPUCompiler::CreateCPUExecutionEngine(llvm::Module* pModu
     builder.setEngineKind(llvm::EngineKind::JIT);
     builder.setErrorStr(&strErr);
     builder.setOptLevel(OLevel);
-    builder.setCodeModel(llvm::CodeModel::JITDefault);
     builder.setMArch(MArch);
     builder.setMCPU(MCPU);
     builder.setMAttrs(cpuFeatures);

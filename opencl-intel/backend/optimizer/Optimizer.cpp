@@ -6,33 +6,37 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 
 #include "Optimizer.h"
-#include "VecConfig.h"
 #include "CPUDetect.h"
-#include "debuggingservicetype.h"
 #include "CompilationUtils.h"
 #include "MetadataAPI.h"
 #include "OclTune.h"
+#include "VecConfig.h"
+#include "debuggingservicetype.h"
 
 #include "PrintIRPass.h"
 #include "mic_dev_limits.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/Function.h"
-#include "llvm/Pass.h"
-#include "llvm/IR/DerivedTypes.h"
+#include "llvm/Analysis/BasicAliasAnalysis.h"
+#include "llvm/Analysis/Passes.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/IRPrintingPasses.h"
+#include "llvm/IR/Metadata.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Verifier.h"
+#include "llvm/Pass.h"
+#include "llvm/Support/Casting.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/InferFunctionAttrs.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/GVN.h"
-#include "llvm/Analysis/Passes.h"
-#include "llvm/Analysis/BasicAliasAnalysis.h"
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
-#include "llvm/IR/Verifier.h"
-#include "llvm/IR/IRPrintingPasses.h"
-#include "llvm/IR/Metadata.h"
-#include "llvm/Support/Casting.h"
+
+// TODO: vromanov to fix:
+// #include "llvm/Transforms/Intel_OpenCLTransforms/Passes.h"
+llvm::FunctionPass* createFMASplitterPass();
 
 extern "C"{
 
@@ -80,7 +84,6 @@ llvm::ModulePass *createDuplicateCalledKernelsPass();
 llvm::ModulePass *createPatchCallbackArgsPass();
 llvm::ModulePass *createDeduceMaxWGDimPass();
 
-llvm::ModulePass *createFMASplitterPass();
 llvm::ModulePass *createSpirMaterializer();
 void materializeSpirDataLayout(llvm::Module &);
 llvm::FunctionPass *createPrefetchPassLevel(int level);

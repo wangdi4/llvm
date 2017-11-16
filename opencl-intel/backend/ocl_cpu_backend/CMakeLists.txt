@@ -302,7 +302,6 @@ set( BACKEND_PASSES
     PreLegalizeBools
     OCLAliasAnalysis
     PrintfArgumentsPromotion
-    FMASplitter
 )
 
 set(UTILS_LIBS

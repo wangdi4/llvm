@@ -55,7 +55,6 @@ set(OCL_BE_PASSES
     PreLegalizeBools
     OCLAliasAnalysis
     PrintfArgumentsPromotion
-    FMASplitter
 )
 
 # Dependencies of the passes

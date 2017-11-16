@@ -63,15 +63,6 @@ _mm512_setzero_si512(void)
   return (__m512i)(__v8di){ 0, 0, 0, 0, 0, 0, 0, 0 };
 }
 
-static __inline __m512i __attribute__ ((__always_inline__, __nodebug__))
-_mm512_maskz_set1_epi32(__mmask16 __M, int __A)
-{
-  return (__m512i) __builtin_ia32_pbroadcastd512_gpr_mask (__A,
-                 (__v16si)
-                 _mm512_setzero_si512 (),
-                 __M);
-}
-
 __m512i __attribute__ ((__always_inline__, __nodebug__))
 _mm512_maskz_set1_epi64(__mmask8 __M, long long __A);
 
@@ -106,6 +97,14 @@ _mm512_set1_epi32(int __s)
 {
   return (__m512i)(__v16si){ __s, __s, __s, __s, __s, __s, __s, __s,
                              __s, __s, __s, __s, __s, __s, __s, __s };
+}
+
+static __inline __m512i __attribute__ ((__always_inline__, __nodebug__))
+_mm512_maskz_set1_epi32(__mmask16 __M, int __A)
+{
+  return (__m512i)__builtin_ia32_selectd_512(__M,
+                                             (__v16si)_mm512_set1_epi32(__A),
+                                             (__v16si)_mm512_setzero_si512());
 }
 
 static __inline __m512i __attribute__((__always_inline__, __nodebug__))
