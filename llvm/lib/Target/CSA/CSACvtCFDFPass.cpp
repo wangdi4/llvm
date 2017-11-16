@@ -1955,7 +1955,12 @@ void CSACvtCFDFPass::handleAllConstantInputs() {
       bool allConst = true;
       for (MIOperands MO(*MI); MO.isValid(); ++MO) {
         if (MO->isReg() && MO->isDef()) continue;
-        if (!MO->isImm() && !MO->isCImm() && !MO->isFPImm()) {
+        // These are the known types of operands which will always be available
+        // to the instruction/operator.
+        bool isConst = MO->isImm() or MO->isCImm() or MO->isFPImm() or
+          MO->isGlobal() or MO->isSymbol();
+
+        if (not isConst) {
           allConst = false;
           break;
         }
@@ -1976,7 +1981,12 @@ bool CSACvtCFDFPass::hasAllConstantInputs(MachineInstr* MI) {
   bool allConst = true;
   for (MIOperands MO(*MI); MO.isValid(); ++MO) {
     if (MO->isReg() && MO->isDef()) continue;
-    if (!MO->isImm() && !MO->isCImm() && !MO->isFPImm()) {
+    // These are the known types of operands which will always be available
+    // to the instruction/operator.
+    bool isConst = MO->isImm() or MO->isCImm() or MO->isFPImm() or
+      MO->isGlobal() or MO->isSymbol();
+
+    if (not isConst) {
       allConst = false;
       break;
     }
