@@ -438,6 +438,12 @@ void CodeGenFunction::EmitStaticVarDecl(const VarDecl &D,
   if (D.hasAttr<AnnotateAttr>())
     CGM.AddGlobalAnnotations(&D, var);
 
+#if INTEL_CUSTOMIZATION
+  if (getLangOpts().OpenMPThreadPrivateLegacy &&
+      D.hasAttr<OMPThreadPrivateDeclAttr>())
+    var->setThreadPrivate(true);
+#endif // INTEL_CUSTOMIZATION
+
   if (auto *SA = D.getAttr<PragmaClangBSSSectionAttr>())
     var->addAttribute("bss-section", SA->getName());
   if (auto *SA = D.getAttr<PragmaClangDataSectionAttr>())
