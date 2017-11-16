@@ -3083,6 +3083,7 @@ bool Predicator::blockHasLoadStore(BasicBlock* BB) {
     // number of allones bypasses due to non-consecutive
     // store/loads.
     if (LoadInst* load = dyn_cast<LoadInst>(it)) {
+      (void)load;
       OCLSTAT_GATHER_CHECK(
         Value* operand = load->getPointerOperand();
         WIAnalysis::WIDependancy dep = m_WIA->whichDepend(operand);
@@ -3098,6 +3099,7 @@ bool Predicator::blockHasLoadStore(BasicBlock* BB) {
       return true;
     }
     if (StoreInst* store = dyn_cast<StoreInst>(it)) {
+      (void)store;
       OCLSTAT_GATHER_CHECK(
         Value* operand = store->getPointerOperand();
         WIAnalysis::WIDependancy dep = m_WIA->whichDepend(operand);
