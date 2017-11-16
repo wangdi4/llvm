@@ -561,7 +561,8 @@ add_custom_command(OUTPUT clbltpipe.obj
   DEPENDS ${TARGET_NAME_MINIMAL} ${TARGET_NAME_SHARED}
   DEPENDS pipes.cl pipes.h pipes-internal.h
 
-  COMMAND ${CLANG} ${CLANG_CL20_COMPILER_PARAMS}
+  # Use host triple to let llc produce object file in a native format.
+  COMMAND ${CLANG} ${CLANG_CL20_COMPILER_PARAMS} -triple ${HOST_TRIPLE}
   ${CMAKE_CURRENT_SOURCE_DIR}/pipes.cl -o pipes.bc
 
   COMMAND ${OPT} -runtimelib=${RTL_MINIMAL},${RTL_SHARED}
