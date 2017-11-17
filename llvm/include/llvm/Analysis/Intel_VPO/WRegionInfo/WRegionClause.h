@@ -33,6 +33,12 @@ typedef Value* VAR;
 typedef Value* EXPR;
 typedef Value* RDECL;
 
+// Tables used for debug printing
+extern std::unordered_map<int, StringRef> WRNDefaultName;
+extern std::unordered_map<int, StringRef> WRNAtomicName;
+extern std::unordered_map<int, StringRef> WRNCancelName;
+extern std::unordered_map<int, StringRef> WRNProcBindName;
+
 //
 // Classes below represent list items used in many OMP clauses
 // The actual clause (a list of items) is then of type vector<item>
@@ -626,8 +632,8 @@ template <typename ClauseItem> class Clause
       return ConstItemsRange(begin(), end());
     }
 
-    void print(formatted_raw_ostream &OS, unsigned Depth=0,
-                                          bool Verbose=false) const;
+    bool print(formatted_raw_ostream &OS, unsigned Depth=0,
+                                          unsigned Verbosity=1) const;
     // search the clause for
     ClauseItem *findOrig(const VAR V) {
       for (auto I : items())
@@ -637,25 +643,27 @@ template <typename ClauseItem> class Clause
     }
 };
 
-// print routine for template Clause classes
-template <typename ClauseItem> void Clause<ClauseItem>::
-print(formatted_raw_ostream &OS, unsigned Depth, bool Verbose) const {
+/// \brief Print routine for template list-type Clause classes.
+/// Returns true iff something is printed
+template <typename ClauseItem> bool Clause<ClauseItem>::
+print(formatted_raw_ostream &OS, unsigned Depth, unsigned Verbosity) const {
 
-  if (!Verbose && !size())
-    return;  // Don't print absent clause message if !Verbose
+  if (Verbosity==0 && !size())
+    return false;  // Don't print absent clause message if Verbosity==0
 
   StringRef Name = VPOAnalysisUtils::getClauseName(getClauseID());
-  OS.indent(2*Depth) << Name << " clause ";
+  OS.indent(2*Depth) << Name << " clause";
   if (!size()) {  // this clause was not used in the directive
-    OS << "is ABSENT\n";
-    return;
+    OS << ": UNSPECIFIED\n";
+    return true;
   }
-  OS << "(size=" << size() << "): " ;
+  OS << " (size=" << size() << "): " ;
 
   for (auto I: items())
     I->print(OS);
 
   OS << "\n";
+  return true;
 }
 
 /*
@@ -812,8 +820,12 @@ class ScheduleClause
     bool getIsSchedNonmonotonic()  const   { return IsSchedNonmonotonic; }
     bool getIsSchedSimd()          const   { return IsSchedSimd; }
 
-    void print(formatted_raw_ostream &OS, unsigned Depth=0,
-                                          bool Verbose=false) const;
+    bool isDistSchedule() const {
+      return Kind == WRNScheduleDistributeStatic ||
+             Kind == WRNScheduleDistributeStaticEven;
+    }
+    bool print(formatted_raw_ostream &OS, unsigned Depth=0,
+                                          unsigned Verbosity=1) const;
 };
 
 } // End namespace vpo

@@ -273,7 +273,7 @@ StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
     }
   }
 
-  if (W->hasLastprivate()) {
+  if (W->canHaveLastprivate()) {
     LastprivateClause &LprivClause = W->getLpriv();
     if (!LprivClause.empty()) {
       for (LastprivateItem *LprivI : LprivClause.items()) {
@@ -489,7 +489,7 @@ bool VPOParoptTransform::genTaskLoopInitCode(
     }
   }
 
-  if (W->hasLastprivate()) {
+  if (W->canHaveLastprivate()) {
     LastprivateClause &LprivClause = W->getLpriv();
     if (!LprivClause.empty()) {
       for (LastprivateItem *LprivI : LprivClause.items()) {
@@ -565,7 +565,7 @@ AllocaInst *VPOParoptTransform::genTaskPrivateMapping(WRegionNode *W,
     }
   }
 
-  if (W->hasLastprivate()) {
+  if (W->canHaveLastprivate()) {
     LastprivateClause &LprivClause = W->getLpriv();
     if (!LprivClause.empty()) {
       for (LastprivateItem *LprivI : LprivClause.items()) {
@@ -878,7 +878,7 @@ VPOParoptTransform::genLastPrivateTaskDup(WRegionNode *W,
 AllocaInst *
 VPOParoptTransform::genDependInitForTask(WRegionNode *W,
                                          Instruction *InsertBefore) {
-  if (!W->hasDepend())
+  if (!W->canHaveDepend())
     return nullptr;
 
   SmallVector<Type *, 4> KmpTaskTDependVecTyArgs;
@@ -1020,7 +1020,7 @@ bool VPOParoptTransform::genTaskCode(WRegionNode *W,
 
 // Set the the arguments in the depend clause to be empty.
 void VPOParoptTransform::resetValueInTaskDependClause(WRegionNode *W) {
-  if (!W->hasDepend())
+  if (!W->canHaveDepend())
     return;
 
   DependClause DepClause = W->getDepend();

@@ -178,23 +178,24 @@ protected:
 
 public:
   /// \brief Functions to check if the WRN allows a given clause type
-  bool hasSchedule() const;
-  bool hasShared() const;
-  bool hasPrivate() const;
-  bool hasFirstprivate() const;
-  bool hasLastprivate() const;
-  bool hasReduction() const;
-  bool hasCopyin() const;
-  bool hasCopyprivate() const;
-  bool hasLinear() const;
-  bool hasUniform() const;
-  bool hasMap() const;
-  bool hasIsDevicePtr() const;
-  bool hasUseDevicePtr() const;
-  bool hasDepend() const;
-  bool hasDepSink() const;
-  bool hasAligned() const;
-  bool hasFlush() const;
+  bool canHaveSchedule() const;
+  bool canHaveDistSchedule() const;
+  bool canHaveShared() const;
+  bool canHavePrivate() const;
+  bool canHaveFirstprivate() const;
+  bool canHaveLastprivate() const;
+  bool canHaveReduction() const;
+  bool canHaveCopyin() const;
+  bool canHaveCopyprivate() const;
+  bool canHaveLinear() const;
+  bool canHaveUniform() const;
+  bool canHaveMap() const;
+  bool canHaveIsDevicePtr() const;
+  bool canHaveUseDevicePtr() const;
+  bool canHaveDepend() const;
+  bool canHaveDepSink() const;
+  bool canHaveAligned() const;
+  bool canHaveFlush() const;
 
   // Below are virtual functions to get/set clause and other information of
   // the WRN. They should never be called; calling them indicates intention
@@ -312,7 +313,7 @@ public:
   virtual void setPriority(EXPR E)              {WRNERROR(QUAL_OMP_PRIORITY); }
   virtual EXPR getPriority()              const {WRNERROR(QUAL_OMP_PRIORITY); }
   virtual void setProcBind(WRNProcBindKind P)   {WRNERROR("PROC_BIND");       }
-  virtual WRNProcBindKind setProcBind()   const {WRNERROR("PROC_BIND");       }
+  virtual WRNProcBindKind getProcBind()   const {WRNERROR("PROC_BIND");       }
   virtual void setSafelen(int N)                {WRNERROR(QUAL_OMP_SAFELEN);  }
   virtual int getSafelen()                const {WRNERROR(QUAL_OMP_SAFELEN);  }
   virtual void setSchedCode(int N)              {WRNERROR("TAKSLOOP SCHED");  }
@@ -362,12 +363,12 @@ public:
   bool getIsFromHIR() const { return IsFromHIR; }
 
   /// \brief Dumps WRegionNode.
-  void dump(bool Verbose=false) const;
+  void dump(unsigned Verbosity=0) const;
 
   /// \brief Default printer for WRegionNode. The derived WRegion can define
   /// its own print() routine to override this one.
   virtual void print(formatted_raw_ostream &OS, unsigned Depth,
-                     bool Verbose=false) const;
+                     unsigned Verbosity=1) const;
 
   /// \brief Prints "BEGIN  <DIRECTIVE_NAME> {"
   void printBegin(formatted_raw_ostream &OS, unsigned Depth) const;
@@ -379,33 +380,33 @@ public:
   /// additional information specific to the derived WRN not covered by
   /// printBody() below.
   virtual void printExtra(formatted_raw_ostream &OS, unsigned Depth,
-                          bool Verbose=false) const {}
+                          unsigned Verbosity=1) const {}
 
   /// \brief Prints content of the WRegionNode.
   void printBody(formatted_raw_ostream &OS, bool PrintChildren, unsigned Depth,
-                 bool Verbose=false) const;
+                 unsigned Verbosity=1) const;
 
   /// \brief Prints content of list-type clauses in the WRN
   void printClauses(formatted_raw_ostream &OS, unsigned Depth,
-                    bool Verbose=false) const;
+                    unsigned Verbosity=1) const;
 
   /// \brief Prints EntryBB, ExitBB, and BBlockSet
   void printEntryExitBB(formatted_raw_ostream &OS, unsigned Depth,
-                        bool Verbose=false) const;
+                        unsigned Verbosity=1) const;
 
   /// \brief When IsFromHIR==true, prints EntryHLNode, ExitHLNode, and HLLoop
   /// This is virtual here; the derived WRNs supporting HIR have to provide the
   /// actual routine. Currently only WRNVecLoopNode uses HIR.
   virtual void printHIR(formatted_raw_ostream &OS, unsigned Depth,
-                        bool Verbose=false) const {}
+                        unsigned Verbosity=1) const {}
 
   /// \brief If IsOmpLoop==true, prints loop preheader, header, and latch BBs
   void printLoopBB(formatted_raw_ostream &OS, unsigned Depth,
-                   bool Verbose=false) const;
+                   unsigned Verbosity=1) const;
 
   /// \brief Prints WRegionNode children.
   void printChildren(formatted_raw_ostream &OS, unsigned Depth,
-                     bool Verbose=false) const;
+                     unsigned Verbosity=1) const;
 
   /// \brief Returns the predecessor bblock of this region.
   BasicBlock *getPredBBlock() const;
@@ -501,6 +502,7 @@ public:
   void setIsDistribute()         { Attributes |= WRNIsDistribute; }
   void setIsPar()                { Attributes |= WRNIsPar; }
   void setIsOmpLoop()            { Attributes |= WRNIsOmpLoop; }
+  void setIsSections()           { Attributes |= WRNIsSections; }
   void setIsTarget()             { Attributes |= WRNIsTarget; }
   void setIsTask()               { Attributes |= WRNIsTask; }
   void setIsTeams()              { Attributes |= WRNIsTeams; }
@@ -510,6 +512,7 @@ public:
   bool getIsDistribute()   const { return Attributes & WRNIsDistribute; }
   bool getIsPar()          const { return Attributes & WRNIsPar; }
   bool getIsOmpLoop()      const { return Attributes & WRNIsOmpLoop; }
+  bool getIsSections()     const { return Attributes & WRNIsSections; }
   bool getIsTarget()       const { return Attributes & WRNIsTarget; }
   bool getIsTask()         const { return Attributes & WRNIsTask; }
   bool getIsTeams()        const { return Attributes & WRNIsTeams; }
@@ -545,7 +548,7 @@ public:
 
     WRNParallel,                      // IsPar
     WRNParallelLoop,                  // IsPar, IsOmpLoop
-    WRNParallelSections,              // IsPar, IsOmpLoop
+    WRNParallelSections,              // IsPar, IsOmpLoop, IsSections
     WRNParallelWorkshare,             // IsPar, IsOmpLoop
     WRNTeams,                         // IsTeams
     WRNDistributeParLoop,             // IsPar, IsOmpLoop, IsDistribute
@@ -559,7 +562,7 @@ public:
 
     WRNVecLoop,                       // IsOmpLoop
     WRNWksLoop,                       // IsOmpLoop
-    WRNSections,                      // IsOmpLoop
+    WRNSections,                      // IsOmpLoop, IsSections
     WRNWorkshare,                     // IsOmpLoop
     WRNDistribute,                    // IsOmpLoop, IsDistribute
     WRNAtomic,
@@ -580,11 +583,58 @@ public:
     WRNIsDistribute = 0x00000001,
     WRNIsPar        = 0x00000002,
     WRNIsOmpLoop    = 0x00000004,
-    WRNIsTarget     = 0x00000008,
-    WRNIsTask       = 0x00000010,
-    WRNIsTeams      = 0x00000020
+    WRNIsSections   = 0x00000008,
+    WRNIsTarget     = 0x00000010,
+    WRNIsTask       = 0x00000020,
+    WRNIsTeams      = 0x00000040
   };
 }; // class WRegionNode
+
+// Printing routines to help dump WRN content
+
+/// \brief Auxiliary function to print a BB in a WRN dump
+/// If BB is null:
+///   Verbosity == 0: exit without printing anything
+///   Verbosity >= 1: print "Title: NULL BBlock"
+/// If BB is not null:
+///   Verbosity <= 1: : print BB->getName()
+///   Verbosity >= 2: : print *BB (dumps the Bblock content)
+extern void printBB(StringRef Title, BasicBlock *BB, formatted_raw_ostream &OS,
+                    int Indent, unsigned Verbosity=1);
+
+/// \brief Auxiliary function to print a Value in a WRN dump
+/// If Val is null:
+///   Verbosity == 0: exit without printing anything
+///   Verbosity >= 1: print "Title: NULL Value"
+/// If Val is not null:
+///   print *Val regardless of Verbosity
+extern void printVal(StringRef Title, Value *Val, formatted_raw_ostream &OS,
+                     int Indent, unsigned Verbosity=1);
+
+/// \brief Auxiliary function to print an Int in a WRN dump
+/// If Num is 0:
+///   Verbosity == 0: exit without printing anything
+///   Verbosity >= 1: print "Title: UNSPECIFIED"
+/// If Num is not 0:
+///   print "Title: <Num>"
+extern void printInt(StringRef Title, int Num, formatted_raw_ostream &OS,
+                     int Indent, unsigned Verbosity=1);
+
+/// \brief Auxiliary function to print a boolean in a WRN dump
+/// If Verbosity == 0, don't print anything if Flag is false;
+/// otherwise, print "Title: true/false"
+extern void printBool(StringRef Title, bool Flag, formatted_raw_ostream &OS,
+                      int Indent, unsigned Verbosity=1);
+
+/// \brief Auxiliary function to print a String for dumping certain clauses.
+/// E.g., for the DEFAULT clause we may print "NONE", "SHARED", "PRIVATE", etc.
+/// If <Str> == "UNSPECIFIED"  (happens when the clause is not specified)
+///   Verbosity == 0: exit without printing anything
+///   Verbosity >= 1: print "Title: UNSPECIFIED"
+/// Else
+///   print "Title: <Str>"
+extern void printStr(StringRef Title, StringRef Str, formatted_raw_ostream &OS,
+                     int Indent, unsigned Verbosity=1);
 
 } // End vpo namespace
 

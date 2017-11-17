@@ -226,7 +226,7 @@ WRNScheduleKind VPOParoptUtils::genScheduleKind(WRNScheduleKind Kind,
 // } WRNScheduleKind;
 WRNScheduleKind VPOParoptUtils::getLoopScheduleKind(WRegionNode *W)
 {
-  if (W->hasSchedule()) {
+  if (W->canHaveSchedule()) {
     // E.g., W could be WRNParallelLoop or WRNWksLoop
     auto Schedule  = W->getSchedule();
 
@@ -236,15 +236,15 @@ WRNScheduleKind VPOParoptUtils::getLoopScheduleKind(WRegionNode *W)
     if (W->getIsDistribute()) {
       if (Chunk == 0)
         return WRNScheduleDistributeStaticEven;
-      else 
+      else
         return Kind;
     }
     else {
-      auto IsOrdered = W->getOrdered();
+      int IsOrdered = W->getOrdered();
       return VPOParoptUtils::genScheduleKind(Kind, IsOrdered, Chunk);
-    } 
+    }
   }
-  else 
+  else
     // else W could be WRNParallelSections or WRNSections
     return WRNScheduleStaticEven;
 }

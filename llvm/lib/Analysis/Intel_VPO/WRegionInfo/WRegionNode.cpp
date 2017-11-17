@@ -209,16 +209,16 @@ WRegionNode *WRegionNode::getLastChild() {
 // Default print() routine for WRegionNode. This routine is invoked for
 // printing the WRN unless the specialized WRegion defines its own print().
 void WRegionNode::print(formatted_raw_ostream &OS, unsigned Depth,
-                                                   bool Verbose) const {
+                                                   unsigned Verbosity) const {
   // Print BEGIN <directive_name>
   printBegin(OS, Depth);
 
   // Print WRN contents specific to a given derived class. If the derived
   // class does not define printExtra(), then this does nothing.
-  printExtra(OS, Depth+1, Verbose);
+  printExtra(OS, Depth+1, Verbosity);
 
   // Print WRN contents: Clauses, BBlocks, Loop, Children, etc.
-  printBody(OS, true, Depth+1, Verbose);
+  printBody(OS, true, Depth+1, Verbosity);
 
   // Print END <directive_name>
   printEnd(OS, Depth);
@@ -237,115 +237,90 @@ void WRegionNode::printEnd(formatted_raw_ostream &OS, unsigned Depth) const {
 }
 
 void WRegionNode::printBody(formatted_raw_ostream &OS, bool PrintChildren,
-                                       unsigned Depth, bool Verbose) const {
-  printClauses(OS, Depth, Verbose);
+                            unsigned Depth, unsigned Verbosity) const {
+  printClauses(OS, Depth, Verbosity);
 
   if (getIsFromHIR())
-    printHIR(OS, Depth, Verbose); // defined by derived WRN
+    printHIR(OS, Depth, Verbosity); // defined by derived WRN
   else {
-    printEntryExitBB(OS, Depth, Verbose);
+    printEntryExitBB(OS, Depth, Verbosity);
     if (getIsOmpLoop())
-      printLoopBB(OS, Depth, Verbose);
+      printLoopBB(OS, Depth, Verbosity);
   }
 
   if (PrintChildren)
-    printChildren(OS, Depth, Verbose);
+    printChildren(OS, Depth, Verbosity);
 }
 
 
 void WRegionNode::printClauses(formatted_raw_ostream &OS,
-                               unsigned Depth, bool Verbose) const {
+                               unsigned Depth, unsigned Verbosity) const {
   bool PrintedSomething = false;
 
-  if (hasSchedule()) {
-    getSchedule().print(OS, Depth, Verbose);
-    PrintedSomething = true;
-  }
-  if (hasShared()) {
-    getShared().print(OS, Depth, Verbose);
-    PrintedSomething = true;
-  }
-  if (hasPrivate()) {
-    getPriv().print(OS, Depth, Verbose);
-    PrintedSomething = true;
-  }
-  if (hasFirstprivate()) {
-    getFpriv().print(OS, Depth, Verbose);
-    PrintedSomething = true;
-  }
-  if (hasLastprivate()) {
-    getLpriv().print(OS, Depth, Verbose);
-    PrintedSomething = true;
-  }
-  if (hasReduction()) {
-    getRed().print(OS, Depth, Verbose);
-    PrintedSomething = true;
-  }
-  if (hasCopyin()) {
-    getCopyin().print(OS, Depth, Verbose);
-    PrintedSomething = true;
-  }
-  if (hasCopyprivate()) {
-    getCpriv().print(OS, Depth, Verbose);
-    PrintedSomething = true;
-  }
-  if (hasLinear()) {
-    getLinear().print(OS, Depth, Verbose);
-    PrintedSomething = true;
-  }
-  if (hasUniform()) {
-    getUniform().print(OS, Depth, Verbose);
-    PrintedSomething = true;
-  }
-  if (hasMap()) {
-    getMap().print(OS, Depth, Verbose);
-    PrintedSomething = true;
-  }
-  if (hasIsDevicePtr()) {
-    getIsDevicePtr().print(OS, Depth, Verbose);
-    PrintedSomething = true;
-  }
-  if (hasUseDevicePtr()) {
-    getUseDevicePtr().print(OS, Depth, Verbose);
-    PrintedSomething = true;
-  }
-  if (hasDepend()) {
-    getDepend().print(OS, Depth, Verbose);
-    PrintedSomething = true;
-  }
-  if (hasDepSink()) {
-    getDepSink().print(OS, Depth, Verbose);
-    PrintedSomething = true;
-  }
-  if (hasAligned()) {
-    getAligned().print(OS, Depth, Verbose);
-    PrintedSomething = true;
-  }
-  if (hasFlush()) {
-    getFlush().print(OS, Depth, Verbose);
-    PrintedSomething = true;
-  }
+  if (canHaveSchedule())
+    PrintedSomething |= getSchedule().print(OS, Depth, Verbosity);
+
+  if (canHaveDistSchedule())
+    PrintedSomething |= getSchedule().print(OS, Depth, Verbosity);
+
+  if (canHaveShared())
+    PrintedSomething |= getShared().print(OS, Depth, Verbosity);
+
+  if (canHavePrivate())
+    PrintedSomething |= getPriv().print(OS, Depth, Verbosity);
+
+  if (canHaveFirstprivate())
+    PrintedSomething |= getFpriv().print(OS, Depth, Verbosity);
+
+  if (canHaveLastprivate())
+    PrintedSomething |= getLpriv().print(OS, Depth, Verbosity);
+
+  if (canHaveReduction())
+    PrintedSomething |= getRed().print(OS, Depth, Verbosity);
+
+  if (canHaveCopyin())
+    PrintedSomething |= getCopyin().print(OS, Depth, Verbosity);
+
+  if (canHaveCopyprivate())
+    PrintedSomething |= getCpriv().print(OS, Depth, Verbosity);
+
+  if (canHaveLinear())
+    PrintedSomething |= getLinear().print(OS, Depth, Verbosity);
+
+  if (canHaveUniform())
+    PrintedSomething |= getUniform().print(OS, Depth, Verbosity);
+
+  if (canHaveMap())
+    PrintedSomething |= getMap().print(OS, Depth, Verbosity);
+
+  if (canHaveIsDevicePtr())
+    PrintedSomething |= getIsDevicePtr().print(OS, Depth, Verbosity);
+
+  if (canHaveUseDevicePtr())
+    PrintedSomething |= getUseDevicePtr().print(OS, Depth, Verbosity);
+
+  if (canHaveDepend())
+    PrintedSomething |= getDepend().print(OS, Depth, Verbosity);
+
+  if (canHaveDepSink())
+    PrintedSomething |= getDepSink().print(OS, Depth, Verbosity);
+
+  if (canHaveAligned())
+    PrintedSomething |= getAligned().print(OS, Depth, Verbosity);
+
+  if (canHaveFlush())
+    PrintedSomething |= getFlush().print(OS, Depth, Verbosity);
+
   if (PrintedSomething)
     OS << "\n";
 }
 
-// Auxiliary function to print BB:
-//   Verbose == true:  print *BB
-//   Verbose == false: print BB->getName()
-void printBB(BasicBlock *BB, formatted_raw_ostream &OS, int Indent,
-                                                        bool Verbose) {
-  if (!BB)
-    OS << "NULL BBlock\n";
-
-  if (Verbose) {
-    OS << "\n";
-    OS.indent(Indent) << *BB << "\n";
-  } else
-    OS << BB->getName() << "\n";
-}
-
+// Verbosity <= 1:         print BB name for EntryBB/ExitBB
+// Verbosity == 2: above + print BB content for EntryBB/ExitBB
+// Verbosity == 3: above + print BB name for all BBs in BBSet
+// Verbosity >= 4: above + print BB content for all BBs in BBSet
 void WRegionNode::printEntryExitBB(formatted_raw_ostream &OS, unsigned Depth,
-                                   bool Verbose) const {
+                                   unsigned Verbosity) const {
   if (getIsFromHIR()) // HIR representation; no BBs to print
     return;
 
@@ -356,56 +331,35 @@ void WRegionNode::printEntryExitBB(formatted_raw_ostream &OS, unsigned Depth,
   assert (EntryBB && "Entry BB is null!");
   assert (ExitBB && "Exit BB is null!");
 
-  OS.indent(Ind) << "EntryBB: ";
-  printBB(EntryBB, OS, Ind, Verbose);
+  vpo::printBB("EntryBB", EntryBB, OS, Ind, Verbosity);
+  vpo::printBB("ExitBB",  ExitBB,  OS, Ind, Verbosity);
 
-  OS.indent(Ind) << "ExitBB: ";
-  printBB(ExitBB, OS, Ind, Verbose);
-
-  if (Verbose) {
+  if (Verbosity >=3) {
     OS.indent(Ind) << "BBSet";
     if (!isBBSetEmpty()) {
       OS << ":\n";
       for (BasicBlock *BB : BBlockSet ) {
-        OS.indent(Ind+2) << BB->getName() << "\n";
-        // OS.indent(Ind+2) << *BB << "\n";
+        if (Verbosity == 3)
+          OS.indent(Ind+2) << BB->getName() << "\n"; // print names only
+        else // Verbosity >=4
+          OS.indent(Ind+2) << *BB << "\n";           // print BB contents
       }
     } else
-      OS << "is empty\n";
+      OS << " is empty\n";
   }
   OS << "\n";
 }
 
 void WRegionNode::printLoopBB(formatted_raw_ostream &OS, unsigned Depth,
-                                                         bool Verbose) const {
-  if (!getIsOmpLoop())
-    return;
-
-  int Ind = 2*Depth;
-
-  Loop *L = getWRNLoopInfo().getLoop();
-
-  if (!L) {
-    OS.indent(Ind) << "Loop is missing; may be optimized away.\n";
-    return;
-  }
-
-  OS.indent(Ind) << "Loop Preheader: ";
-  printBB(L->getLoopPreheader(), OS, Ind, Verbose);
-
-  OS.indent(Ind) << "Loop Header: ";
-  printBB(L->getHeader(), OS, Ind, Verbose);
-
-  OS.indent(Ind) << "Loop Latch: ";
-  printBB(L->getLoopLatch(), OS, Ind, Verbose);
-
-  OS << "\n";
+                              unsigned Verbosity) const {
+  if (getIsOmpLoop())
+    getWRNLoopInfo().print(OS, Depth, Verbosity);
 }
 
 void WRegionNode::printChildren(formatted_raw_ostream &OS, unsigned Depth,
-                                bool Verbose) const {
+                                unsigned Verbosity) const {
   for (WRegionNode *W : Children)
-    W->print(OS, Depth, Verbose);
+    W->print(OS, Depth, Verbosity);
 }
 
 void WRegionNode::destroy() {
@@ -416,10 +370,10 @@ void WRegionNode::destroyAll() {
   // TODO: implement this by recursive walk from top
 }
 
-void WRegionNode::dump(bool Verbose) const {
+void WRegionNode::dump(unsigned Verbosity) const {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   formatted_raw_ostream OS(dbgs());
-  print(OS, 0, Verbose);
+  print(OS, 0, Verbosity);
 #endif
 }
 
@@ -1038,7 +992,7 @@ void WRegionNode::getClausesFromOperandBundles() {
   }
 }
 
-bool WRegionNode::hasSchedule() const {
+bool WRegionNode::canHaveSchedule() const {
   unsigned SubClassID = getWRegionKindID();
   switch (SubClassID) {
   case WRNParallelLoop:
@@ -1050,7 +1004,12 @@ bool WRegionNode::hasSchedule() const {
   return false;
 }
 
-bool WRegionNode::hasShared() const {
+bool WRegionNode::canHaveDistSchedule() const {
+  // true for WRNDistribute and WRNDistributeParLoop
+  return getIsDistribute();
+}
+
+bool WRegionNode::canHaveShared() const {
   unsigned SubClassID = getWRegionKindID();
   switch (SubClassID) {
   case WRNParallel:
@@ -1066,7 +1025,7 @@ bool WRegionNode::hasShared() const {
   return false;
 }
 
-bool WRegionNode::hasPrivate() const {
+bool WRegionNode::canHavePrivate() const {
   unsigned SubClassID = getWRegionKindID();
   switch (SubClassID) {
   case WRNParallel:
@@ -1088,17 +1047,17 @@ bool WRegionNode::hasPrivate() const {
   return false;
 }
 
-bool WRegionNode::hasFirstprivate() const {
+bool WRegionNode::canHaveFirstprivate() const {
   unsigned SubClassID = getWRegionKindID();
 
-  // similar to hasPrivate except for SIMD,
+  // similar to canHavePrivate except for SIMD,
   // which has Private but not Firstprivate
   if (SubClassID == WRNVecLoop)
     return false;
-  return hasPrivate();
+  return canHavePrivate();
 }
 
-bool WRegionNode::hasLastprivate() const {
+bool WRegionNode::canHaveLastprivate() const {
   unsigned SubClassID = getWRegionKindID();
   switch (SubClassID) {
   case WRNParallelLoop:
@@ -1113,7 +1072,7 @@ bool WRegionNode::hasLastprivate() const {
   return false;
 }
 
-bool WRegionNode::hasReduction() const {
+bool WRegionNode::canHaveReduction() const {
   unsigned SubClassID = getWRegionKindID();
   switch (SubClassID) {
   case WRNParallel:
@@ -1133,7 +1092,7 @@ bool WRegionNode::hasReduction() const {
   return false;
 }
 
-bool WRegionNode::hasCopyin() const {
+bool WRegionNode::canHaveCopyin() const {
   unsigned SubClassID = getWRegionKindID();
   switch (SubClassID) {
   case WRNParallel:
@@ -1146,13 +1105,13 @@ bool WRegionNode::hasCopyin() const {
   return false;
 }
 
-bool WRegionNode::hasCopyprivate() const {
+bool WRegionNode::canHaveCopyprivate() const {
   unsigned SubClassID = getWRegionKindID();
   // only SINGLE can have a Copyprivate clause
   return SubClassID==WRNSingle;
 }
 
-bool WRegionNode::hasLinear() const {
+bool WRegionNode::canHaveLinear() const {
   unsigned SubClassID = getWRegionKindID();
   switch (SubClassID) {
   case WRNParallelLoop:
@@ -1164,40 +1123,40 @@ bool WRegionNode::hasLinear() const {
   return false;
 }
 
-bool WRegionNode::hasUniform() const {
+bool WRegionNode::canHaveUniform() const {
   unsigned SubClassID = getWRegionKindID();
   // only SIMD can have a Uniform clause
   return SubClassID==WRNVecLoop;
 }
 
-bool WRegionNode::hasAligned() const {
+bool WRegionNode::canHaveAligned() const {
   // only SIMD can have an Aligned clause
-  return hasUniform();
+  return canHaveUniform();
 }
 
-bool WRegionNode::hasMap() const {
+bool WRegionNode::canHaveMap() const {
   // Only target-type constructs take map clauses
   return getIsTarget();
 }
 
-bool WRegionNode::hasIsDevicePtr() const {
+bool WRegionNode::canHaveIsDevicePtr() const {
   unsigned SubClassID = getWRegionKindID();
   // only WRNTargetNode can have a IsDevicePtr clause
   return SubClassID==WRNTarget;
 }
 
-bool WRegionNode::hasUseDevicePtr() const {
+bool WRegionNode::canHaveUseDevicePtr() const {
   unsigned SubClassID = getWRegionKindID();
   // only WRNTargetDataNode can have a UseDevicePtr clause
   return SubClassID==WRNTargetData;
 }
 
-bool WRegionNode::hasDepend() const {
+bool WRegionNode::canHaveDepend() const {
   // Only task-type constructs take depend clauses
   return getIsTask();
 }
 
-bool WRegionNode::hasDepSink() const {
+bool WRegionNode::canHaveDepSink() const {
   unsigned SubClassID = getWRegionKindID();
   // only WRNOrderedNode can have a depend(sink : vec) clause
   // but only if its "IsDoacross" field is true
@@ -1207,7 +1166,7 @@ bool WRegionNode::hasDepSink() const {
   return false;
 }
 
-bool WRegionNode::hasFlush() const {
+bool WRegionNode::canHaveFlush() const {
   unsigned SubClassID = getWRegionKindID();
   // only WRNFlushNode can have a flush set
   return SubClassID==WRNFlush;
@@ -1232,4 +1191,98 @@ void WRegionNode::errorClause(StringRef ClauseName) const {
 void WRegionNode::errorClause(int ClauseID) const {
   StringRef ClauseName = VPOAnalysisUtils::getClauseName(ClauseID);
   errorClause(ClauseName);
+}
+
+// Printing routines to help dump WRN content
+
+// Auxiliary function to print a BB in a WRN dump
+// If BB is null:
+//   Verbosity == 0: exit without printing anything
+//   Verbosity >= 1: print "Title: NULL BBlock"
+// If BB is not null:
+//   Verbosity <= 1: : print BB->getName()
+//   Verbosity >= 2: : print *BB (dumps the Bblock content)
+void vpo::printBB(StringRef Title, BasicBlock *BB, formatted_raw_ostream &OS,
+                  int Indent, unsigned Verbosity) {
+  if (Verbosity==0 && !BB)
+    return; // When Verbosity==0; print nothing if BB==nullptr
+
+  OS.indent(Indent) << Title << ": ";
+  if (!BB) {
+    OS << "NULL BBlock\n";
+    return;
+  }
+
+  if (Verbosity<=1) {
+    OS << BB->getName() << "\n";
+  } else { // Verbosity >= 2
+    OS << "\n";
+    OS.indent(Indent) << *BB << "\n";
+  }
+}
+
+// Auxiliary function to print a Value in a WRN dump
+// If Val is null:
+//   Verbosity == 0: exit without printing anything
+//   Verbosity >= 1: print "Title: UNSPECIFIED"
+// If Val is not null:
+//   print *Val regardless of Verbosity
+void vpo::printVal(StringRef Title, Value *Val, formatted_raw_ostream &OS,
+                   int Indent, unsigned Verbosity) {
+  if (Verbosity==0 && !Val)
+    return; // When Verbosity==0; print nothing if Val==nullptr
+
+  OS.indent(Indent) << Title << ": ";
+  if (!Val) {
+    OS << "UNSPECIFIED\n";
+    return;
+  }
+  OS << *Val << "\n";
+}
+
+// Auxiliary function to print an Int in a WRN dump
+// If Num is 0:
+//   Verbosity == 0: exit without printing anything
+//   Verbosity >= 1: print "Title: UNSPECIFIED"
+// If Num is not 0:
+//   print "Title: Num"
+void vpo::printInt(StringRef Title, int Num, formatted_raw_ostream &OS,
+                   int Indent, unsigned Verbosity) {
+  if (Verbosity==0 && Num==0)
+    return; // When Verbosity==0; print nothing if Num==0
+
+  OS.indent(Indent) << Title << ": ";
+  if (Num==0) {
+    OS << "UNSPECIFIED\n";
+    return;
+  }
+  OS << Num << "\n";
+}
+
+// Auxiliary function to print a boolean in a WRN dump
+// If Verbosity == 0, don't print anything if Flag is false;
+// otherwise, print "Title: true/false"
+void vpo::printBool(StringRef Title, bool Flag, formatted_raw_ostream &OS,
+                    int Indent, unsigned Verbosity) {
+  if (Verbosity==0 && Flag==false)
+    return; // When Verbosity==0; print nothing if Flag==false
+
+  OS.indent(Indent) << Title << ": ";
+  if (Flag)
+    OS <<  "true\n";
+  else
+    OS <<  "false\n";
+}
+
+// Auxiliary function to print a String for dumping certain clauses. E.g.,
+// for the DEFAULT clause we may print "NONE", "SHARED", "PRIVATE", etc.
+// If <Str> == "UNSPECIFIED"  (happens when the clause is not specified)
+//   Verbosity == 0: exit without printing anything
+//   Verbosity >= 1: print "Title: UNSPECIFIED"
+// Else
+//   print "Title: Str"
+void vpo::printStr(StringRef Title, StringRef Str, formatted_raw_ostream &OS,
+                   int Indent, unsigned Verbosity) {
+  if (Verbosity!=0 || Str!="UNSPECIFIED")
+    OS.indent(Indent) << Title << ": " << Str << "\n";
 }
