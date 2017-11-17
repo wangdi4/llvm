@@ -35,6 +35,8 @@ namespace {
     }
   private:
     int next_token;
+    Value *steptimesk; 
+    Value *StepPE0;
     bool FixReductionsIfAny(Loop *L, Loop *OrigL, BasicBlock *E, BasicBlock *AfterLoop, int PE, int NPEs, std::vector<PHINode *> *Reductions, std::vector<Value *> *ReduceVarExitOrig, std::vector<Instruction *> *ReduceVarOrig, std::vector<Instruction *> *OldInst);
     bool FindReductionVariables(Loop *L, std::vector<PHINode *> *Reductions, std::vector<Value *> *ReduceVarExitOrig, std::vector<Instruction *> *ReduceVarOrig);
     PHINode *getInductionVariable(Loop *L, ScalarEvolution *SE);
@@ -73,6 +75,10 @@ namespace {
         //there is OldInst foreach reduction variable
         std::vector<Instruction *> OldInsts(16);
         FindReductionVariables(L, &Reductions, &ReduceVarExitOrig, &ReduceVarOrig);
+        if(!TransformLoopInitandStep(L, SE, 0, NPEs)) {
+          return false;
+        } 
+
         BasicBlock *PH = SplitBlock(OrigPH, OrigPH->getTerminator(), DT, LI);
         PH->setName(L->getHeader()->getName() + ".ph");
         
@@ -87,7 +93,6 @@ namespace {
         //Add CSA parallel intrinsics:
         AddParallelIntrinsicstoLoop(L, context, M, OrigPH, E);
        
-        TransformLoopInitandStep(L, SE, 0, NPEs);
         SmallVector<Value *, 128> NewReducedValues;//should be equal to NPEs
         for(int PE=1; PE<NPEs; PE++) {
           SmallVector<BasicBlock *, 8> NewLoopBlocks;
@@ -358,6 +363,14 @@ bool LoopSPMDization::TransformLoopInitandStep(Loop *L, ScalarEvolution *SE, int
   BranchInst *PreHeaderBR = cast<BranchInst>(PreHeader->getTerminator());
   BasicBlock *Latch = L->getLoopLatch();
   if (!InductionPHI) {
+    errs() << "\n";
+    errs().changeColor(raw_ostream::BLUE, true);
+    errs() << "!! WARNING: COULD NOT PERFORM SPMDization !!\n";
+    errs().resetColor();
+    errs() << R"help(
+Failed to find the loop induction variable.
+
+)help";
     DEBUG(dbgs() << "Failed to find the loop induction variable \n");
     return false;
   }
@@ -372,32 +385,53 @@ bool LoopSPMDization::TransformLoopInitandStep(Loop *L, ScalarEvolution *SE, int
     InitVar = InductionPHI->getIncomingValue(1);
   }
   IRBuilder<> B2(OldInc);
+  if(PE == 0) {
+    StepPE0 = OldInc->getOperand(1);
+    steptimesk = B2.CreateMul(OldInc->getOperand(1),
+                              ConstantInt::get(InductionPHI->getType(), NPEs),
+                              InductionPHI->getName()+
+                              ".steptimesk"
+                              );
+  }
   Value *NewInc = B2.CreateAdd(InductionPHI,
-                               ConstantInt::get(InductionPHI->getType(), NPEs), 
-                               InductionPHI->getName()+".newnext");
-  
+                               steptimesk,
+                               InductionPHI->getName()+".next.spmd");
   BranchInst *LatchBR = cast<BranchInst>(Latch->getTerminator());
   Value *Cond = LatchBR->getCondition();
   Instruction *CondI = dyn_cast<Instruction>(Cond);
   if(CondI->getOperand(0) == dyn_cast<Value>(OldInc)) {
     Value *TripCount = CondI->getOperand(1);
     Value *IdxCmp;
-    if (LatchBR->getSuccessor(0) == L->getHeader())
-      IdxCmp = CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_SLT, 
-                               NewInc,
-                               TripCount, 
-                               Cond->getName());
+    CmpInst *CmpCond = dyn_cast<CmpInst>(Cond);
+    if (CmpCond->getPredicate() == CmpInst::ICMP_EQ || CmpCond->getPredicate() == CmpInst::ICMP_NE) {  
+      if(LatchBR->getSuccessor(0) == L->getHeader())
+        IdxCmp = CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_SLT, 
+                                 NewInc,
+                                 TripCount, 
+                                 Cond->getName());
     
-    else
-      IdxCmp = CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_SGE, 
-                               NewInc,
-                               TripCount, 
-                               Cond->getName());
-    ReplaceInstWithInst(CondI, dyn_cast<Instruction>(IdxCmp));
+      else 
+        IdxCmp = CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_SGE, 
+                                 NewInc,
+                                 TripCount, 
+                                 Cond->getName());
+      ReplaceInstWithInst(CondI, dyn_cast<Instruction>(IdxCmp));
+    }
+    else { //in other cases, we keep the same predicate
+      if(CondI->getOperand(0) == dyn_cast<Value>(OldInc)) 
+        CondI->setOperand(0, NewInc);
+      else
+        CondI->setOperand(1, NewInc);
+    }
   }
   IRBuilder<> B(PreHeaderBR);
+  Value *steptimespe = B.CreateMul(StepPE0,
+                                   ConstantInt::get(InductionPHI->getType(), PE),
+                                   InductionPHI->getName()+
+                                   ".steptimesPE"
+                                   );
   Value *NewInitV = B.CreateAdd(InitVar,
-                                ConstantInt::get(InductionPHI->getType(), PE), 
+                                steptimespe,
                                 InductionPHI->getName()+
                                 ".init", dyn_cast<Instruction>(NewInc));
   if (InductionPHI->getIncomingBlock(0) == PreHeader) {
@@ -408,6 +442,7 @@ bool LoopSPMDization::TransformLoopInitandStep(Loop *L, ScalarEvolution *SE, int
     InductionPHI->setIncomingValue(1, NewInitV );
     InductionPHI->setIncomingValue(0, NewInc );
   }
+  
   return true;
 }
 
