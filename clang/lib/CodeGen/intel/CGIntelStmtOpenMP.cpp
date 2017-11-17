@@ -1586,14 +1586,14 @@ void CodeGenFunction::EmitIntelOpenMPDirective(
   case OMPD_taskyield:
     Outliner.emitOMPTaskYieldDirective();
     break;
+  case OMPD_teams:
+    Outliner.emitOMPTeamsDirective();
+    break;
   case OMPD_barrier:
     Outliner.emitOMPBarrierDirective();
     break;
   case OMPD_flush:
     Outliner.emitOMPFlushDirective();
-    break;
-  case OMPD_teams:
-    Outliner.emitOMPTeamsDirective();
     break;
   case OMPD_sections:
     Outliner.emitOMPSectionsDirective();
