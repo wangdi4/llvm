@@ -62,15 +62,15 @@ _mm256_maskstore_pd(double *p, __m256i m, __m256d a)
 #endif
 
 #ifdef __AVX512F__
+#ifdef __x86_64__
 __m512i __attribute__((__always_inline__, __nodebug__))
 _mm512_maskz_set1_epi64(__mmask8 __M, long long __A)
 {
-#ifdef __x86_64__
   return (__m512i)__builtin_ia32_selectq_512(__M,
                                              (__v8di)_mm512_set1_epi64(__A),
                                              (__v8di)_mm512_setzero_si512());
-#endif
 }
+#endif
 
 __m512i __attribute__((__always_inline__, __nodebug__))
 _mm512_maskz_loadu_epi64(__mmask8 __U, void const *__P)
