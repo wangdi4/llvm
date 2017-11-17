@@ -215,7 +215,7 @@ set (LLVM_LINK_PARAMS -suppress-warnings)
 # llc parameters
 set (LLC_PARAMS -filetype=obj)
 if (CMAKE_SIZEOF_VOID_P EQUAL 4)
-  set (LLC_PARAMS ${LLC_PARAMS} -code-model=default -relocation-model=static)
+  set (LLC_PARAMS ${LLC_PARAMS} -relocation-model=static)
 else (CMAKE_SIZEOF_VOID_P EQUAL 4)
   set (LLC_PARAMS ${LLC_PARAMS} -code-model=large -relocation-model=pic)
 endif (CMAKE_SIZEOF_VOID_P EQUAL 4)
