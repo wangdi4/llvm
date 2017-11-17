@@ -1387,6 +1387,15 @@ namespace CGIntelOpenMP {
   void OpenMPCodeOutliner::emitOMPDistributeDirective() {
     startDirectiveIntrinsicSet("DIR.OMP.DISTRIBUTE", "DIR.OMP.END.DISTRIBUTE");
   }
+  void OpenMPCodeOutliner::emitOMPSectionsDirective() {
+    startDirectiveIntrinsicSet("DIR.OMP.SECTIONS", "DIR.OMP.END.SECTIONS");
+  }
+  void OpenMPCodeOutliner::emitOMPSectionDirective() {
+    startDirectiveIntrinsicSet("DIR.OMP.SECTION", "DIR.OMP.END.SECTION");
+  }
+  void OpenMPCodeOutliner::emitOMPParallelSectionsDirective() {
+    startDirectiveIntrinsicSet("DIR.OMP.PARALLEL.SECTIONS", "DIR.OMP.END.PARALLEL.SECTIONS");
+  }
   OpenMPCodeOutliner &OpenMPCodeOutliner::operator<<(
                                          ArrayRef<OMPClause *> Clauses) {
     for (auto *C : Clauses) {
@@ -1587,13 +1596,19 @@ void CodeGenFunction::EmitIntelOpenMPDirective(
     Outliner.emitOMPTeamsDirective();
     break;
   case OMPD_sections:
+    Outliner.emitOMPSectionsDirective();
+    break;
   case OMPD_section:
+    Outliner.emitOMPSectionDirective();
+    break;
+  case OMPD_parallel_sections:
+    Outliner.emitOMPParallelSectionsDirective();
+    break;
   case OMPD_teams_distribute:
   case OMPD_teams_distribute_simd:
   case OMPD_teams_distribute_parallel_for:
   case OMPD_teams_distribute_parallel_for_simd:
   case OMPD_cancel:
-  case OMPD_parallel_sections:
   case OMPD_for_simd:
   case OMPD_cancellation_point:
   case OMPD_target_enter_data:
