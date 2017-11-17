@@ -3082,10 +3082,9 @@ bool Predicator::blockHasLoadStore(BasicBlock* BB) {
     // want to gather statistics about
     // number of allones bypasses due to non-consecutive
     // store/loads.
-    if (LoadInst* load = dyn_cast<LoadInst>(it)) {
-      (void)load;
+    if (isa<LoadInst>(it)) {
       OCLSTAT_GATHER_CHECK(
-        Value* operand = load->getPointerOperand();
+        Value* operand = cast<LoadInst>(it)->getPointerOperand();
         WIAnalysis::WIDependancy dep = m_WIA->whichDepend(operand);
         if (dep == WIAnalysis::PTR_CONSECUTIVE) {
           AllOnes_Bypasses_Due_To_Non_Consecutive_Store_Load--; // statistics
@@ -3098,10 +3097,9 @@ bool Predicator::blockHasLoadStore(BasicBlock* BB) {
       );
       return true;
     }
-    if (StoreInst* store = dyn_cast<StoreInst>(it)) {
-      (void)store;
+    if (isa<StoreInst>(it)) {
       OCLSTAT_GATHER_CHECK(
-        Value* operand = store->getPointerOperand();
+        Value* operand = cast<StoreInst>(it)->getPointerOperand();
         WIAnalysis::WIDependancy dep = m_WIA->whichDepend(operand);
         if (dep == WIAnalysis::PTR_CONSECUTIVE) {
           AllOnes_Bypasses_Due_To_Non_Consecutive_Store_Load--; // statistics
