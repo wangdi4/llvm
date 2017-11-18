@@ -116,6 +116,7 @@ namespace llvm {
     void replaceLoopHdrPhi();
     void replaceLoopHdrPhi(MachineLoop* L);
     void replaceCanonicalLoopHdrPhi(MachineBasicBlock* lhdr);
+    void replaceCanonicalLoopHdrPhiPipelined(MachineBasicBlock* mbb, unsigned numTokens=1, bool waitForAllInner=false, bool waitForAllIncoming=false);
     bool hasStraightExitings(MachineLoop* mloop);
     void replaceStraightExitingsLoopHdrPhi(MachineBasicBlock* mbb);
     void generateCompletePickTreeForPhi(MachineBasicBlock *);
@@ -128,6 +129,7 @@ namespace llvm {
     bool parentsLinearInCDG(MachineBasicBlock* mbb);
     bool needDynamicPreds();
     bool needDynamicPreds(MachineLoop* L);
+    unsigned getInnerLoopPipeliningDegree(MachineLoop* L);
     void generateDynamicPreds();
     void generateDynamicPreds(MachineLoop* L);
     void replacePhiForUnstructed();
@@ -1484,13 +1486,13 @@ void CSACvtCFDFPass::replaceLoopHdrPhi(MachineLoop* L) {
   MachineLoop *mloop = L;
   MachineBasicBlock* lhdr = mloop->getHeader();
 
-  replaceCanonicalLoopHdrPhi(lhdr);
+  unsigned pipeliningDegree = getInnerLoopPipeliningDegree(L);
+  if (pipeliningDegree > 1) {
+    replaceCanonicalLoopHdrPhiPipelined(lhdr, pipeliningDegree);
+  } else {
+    replaceCanonicalLoopHdrPhi(lhdr);
+  }
 }
-
-
-
-
-
 
 //sequence OPT is targeting at this transform
 //single entry, single exiting, single latch, exiting blk post dominates loop hdr(always execute)
@@ -1613,6 +1615,199 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhi(MachineBasicBlock* mbb) {
       MI->RemoveOperand(backEdgeIndex);
     }
   }
+}
+
+// This version uses additional operators in order to allow multiple incoming
+// "gangs" of data to flow through the loop at once. The number of gangs
+// allowed to be in the pipeline at once is determined by the number of values
+// pre-initialized into the "sema" LIC. Currently this pass always just puts a
+// single value in, resulting in no actual pipelinling.
+void CSACvtCFDFPass::replaceCanonicalLoopHdrPhiPipelined(MachineBasicBlock* mbb, unsigned numTokens, bool waitForAllInner, bool waitForAllIncoming) {
+  MachineLoop* mloop = MLI->getLoopFor(mbb);
+  assert(mloop->getHeader() == mbb);
+  if (mbb->getFirstNonPHI() == mbb->begin())
+    return;
+  assert(numTokens >= 1);
+
+  assert(mloop->getExitingBlock() && "can't handle multi exiting blks in this funciton");
+  MachineBasicBlock *latchBB = mloop->getLoopLatch();
+  ControlDependenceNode *latchNode = CDG->getNode(latchBB);
+  MachineBasicBlock *exitingBB = mloop->getExitingBlock();
+  ControlDependenceNode *exitingNode = CDG->getNode(exitingBB);
+  MachineBasicBlock* exitBB = mloop->getExitBlock();
+  assert(exitBB);
+  assert(latchBB && exitingBB && (latchBB == exitingBB));
+  MachineInstr *bi = &*exitingBB->getFirstInstrTerminator();
+  MachineBasicBlock::iterator loc = exitingBB->getFirstTerminator();
+  unsigned predReg = bi->getOperand(0).getReg();
+
+  const TargetRegisterClass *TRC = MRI->getRegClass(predReg);
+  CSAMachineFunctionInfo *LMFI = thisMF->getInfo<CSAMachineFunctionInfo>();
+  // Look up target register class corresponding to this register.
+  const TargetRegisterClass* new_LIC_RC = LMFI->licRCFromGenRC(MRI->getRegClass(predReg));
+  assert(new_LIC_RC && "Can't determine register class for register");
+  unsigned cpyReg = LMFI->allocateLIC(new_LIC_RC);
+  assert(mloop->isLoopExiting(latchBB) || latchNode->isParent(exitingNode));
+  const unsigned moveOpcode = TII->getMoveOpcode(TRC);
+  MachineInstr *cpyInst = BuildMI(*exitingBB, loc, DebugLoc(), TII->get(moveOpcode), cpyReg).addReg(predReg);
+  cpyInst->setFlag(MachineInstr::NonSequential);
+  
+  MachineBasicBlock *lphdr = mloop->getHeader();
+  MachineBasicBlock::iterator hdrloc = lphdr->begin();
+  const unsigned InitOpcode = TII->getInitOpcode(TRC);
+  bool pickCtrlInverted = (CDG->getEdgeType(exitingBB, exitBB, true) != ControlDependenceNode::FALSE);
+
+  MachineInstr *initInst = nullptr;
+  if (pickCtrlInverted) {
+    initInst = BuildMI(*lphdr, hdrloc, DebugLoc(), TII->get(InitOpcode), cpyReg).addImm(1);
+  } else {
+    initInst = BuildMI(*lphdr, hdrloc, DebugLoc(), TII->get(InitOpcode), cpyReg).addImm(0);
+  }
+  initInst->setFlag(MachineInstr::NonSequential);
+
+  unsigned semaInitReg = LMFI->allocateLIC(&CSA::CI0RegClass);
+  for(unsigned i=0; i<numTokens; i++)
+    BuildMI(*lphdr, hdrloc, DebugLoc(), TII->get(InitOpcode),
+        semaInitReg).addImm(0).setMIFlag(MachineInstr::NonSequential);
+
+  repeatOperandInLoop(mloop, initInst, predReg);
+
+  SmallVector<MachineOperand*, 4> newGang, backGang;
+
+  MachineBasicBlock::iterator iterI = mbb->begin();
+  while (iterI != mbb->end()) {
+    MachineInstr *MI = &*iterI;
+    ++iterI;
+    if (!MI->isPHI()) continue;
+
+    unsigned numUse = 0;
+    MachineOperand* backEdgeInput = nullptr;
+    MachineOperand* initInput = nullptr;
+    unsigned numOpnd = 0;
+    unsigned backEdgeIndex = 0;
+    unsigned dst = MI->getOperand(0).getReg();
+
+    for (MIOperands MO(*MI); MO.isValid(); ++MO, ++numOpnd) {
+      if (!MO->isReg()) continue;
+      // process use at loop level
+      if (MO->isUse()) {
+        ++numUse;
+        MachineOperand& mOpnd = *MO;
+        ++MO;
+        ++numOpnd;
+        MachineBasicBlock* inBB = MO->getMBB();
+        if (inBB == latchBB) {
+          backEdgeInput = &mOpnd;
+          backEdgeIndex = numOpnd - 1;
+        } else {
+          initInput = &mOpnd;
+        }
+      }
+    } //end for MO
+    if (numUse > 2) {
+      //loop hdr phi has more than 2 init inputs, 
+      //remove backedge input reduce it to if-foot phi case to be handled by if-footer phi pass
+      initInput = &MI->getOperand(0);
+      const TargetRegisterClass *TRC = MRI->getRegClass(MI->getOperand(0).getReg());
+      unsigned renameReg = MRI->createVirtualRegister(TRC);
+      initInput->setReg(renameReg);
+    }
+
+    MachineOperand* pickFalse;
+    MachineOperand* pickTrue;
+    if (pickCtrlInverted) {
+      pickFalse = backEdgeInput;
+      pickTrue = initInput;
+    } else {
+      pickFalse = initInput;
+      pickTrue = backEdgeInput;
+    }
+    TRC = MRI->getRegClass(dst);
+    const unsigned pickOpcode = TII->makeOpcode(CSA::Generic::PICK, TRC);
+    //generate PICK, and insert before MI
+    MachineInstr *pickInst = nullptr;
+    if (pickFalse->isReg() && pickTrue->isReg()) {
+      pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII->get(pickOpcode), dst).addReg(cpyReg).
+        addReg(pickFalse->getReg()).addReg(pickTrue->getReg());
+    } else if (pickFalse->isReg()) {
+      pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII->get(pickOpcode), dst).addReg(cpyReg).
+        addReg(pickFalse->getReg()).add(*pickTrue);
+    } else if (pickTrue->isReg()) {
+      pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII->get(pickOpcode), dst).addReg(cpyReg).
+        add(*pickFalse).addReg(pickTrue->getReg());
+    } else {
+      pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII->get(pickOpcode), dst).addReg(cpyReg).
+        add(*pickFalse).add(*pickTrue);
+    }
+
+    newGang.push_back(&pickInst->getOperand(pickCtrlInverted ? 3 : 2));
+    backGang.push_back(&pickInst->getOperand(pickCtrlInverted ? 2 : 3));
+
+    pickInst->setFlag(MachineInstr::NonSequential);
+    MI->removeFromParent();
+    if (numUse > 2) {
+      //move phi before the pick
+      MachineBasicBlock::iterator tmpI = pickInst;
+      mbb->insert(tmpI, MI);
+      MI->RemoveOperand(backEdgeIndex);
+      MI->RemoveOperand(backEdgeIndex);
+    }
+  }
+
+  MachineOperand &newPulse = *newGang[0];
+  MachineOperand &backPulse = *backGang[0];
+
+  if(waitForAllIncoming) {
+    assert(newGang.size() <= 4);
+    MachineInstrBuilder newGangAll = BuildMI(*mbb, initInst, initInst->getDebugLoc(), TII->get(CSA::ALL0),
+        LMFI->allocateLIC(&CSA::CI0RegClass));
+    for(MachineOperand* g : newGang)
+      newGangAll.add(*g);
+    while(newGangAll->getNumOperands() < 5)
+      newGangAll.addReg(CSA::IGN);
+    newGangAll.setMIFlag(MachineInstr::NonSequential);
+    newGangAll->dump();
+    newPulse = newGangAll->getOperand(0);
+  }
+
+  if(waitForAllInner) {
+    assert(backGang.size() <= 4);
+    MachineInstrBuilder backGangAll = BuildMI(*mbb, initInst, initInst->getDebugLoc(), TII->get(CSA::ALL0),
+        LMFI->allocateLIC(&CSA::CI0RegClass));
+    for(MachineOperand* g : backGang)
+      backGangAll.add(*g);
+    while(backGangAll->getNumOperands() < 5)
+      backGangAll.addReg(CSA::IGN);
+    backGangAll.setMIFlag(MachineInstr::NonSequential);
+    backGangAll->dump();
+    backPulse = backGangAll->getOperand(0);
+  }
+
+  MachineInstrBuilder newGated = BuildMI(*mbb, initInst, initInst->getDebugLoc(), TII->get(CSA::PICK0),
+      LMFI->allocateLIC(&CSA::CI0RegClass)).addReg(semaInitReg).addReg(newPulse.getReg()).addReg(CSA::IGN).setMIFlag(MachineInstr::NonSequential);
+
+  unsigned firstPrio = newGated->getOperand(0).getReg();
+  unsigned secondPrio = backPulse.getReg();
+  MachineInstrBuilder pickany = BuildMI(*mbb, initInst, initInst->getDebugLoc(), TII->get(CSA::PICKANY0),
+      CSA::IGN).addDef(cpyReg).addReg(firstPrio).addReg(secondPrio).setMIFlag(MachineInstr::NonSequential);
+
+  if(pickCtrlInverted) {
+    pickany->getOperand(1).setReg(LMFI->allocateLIC(&CSA::CI1RegClass));
+    BuildMI(*mbb, initInst, initInst->getDebugLoc(), TII->get(CSA::NOT1),
+        cpyReg).addReg(pickany->getOperand(1).getReg()).setMIFlag(MachineInstr::NonSequential);
+  }
+
+  if(pickCtrlInverted) {
+    BuildMI(*mbb, initInst, initInst->getDebugLoc(), TII->get(CSA::SWITCH0),
+        CSA::IGN).addDef(semaInitReg).addReg(predReg).addReg(predReg).setMIFlag(MachineInstr::NonSequential);
+  } else {
+    BuildMI(*mbb, initInst, initInst->getDebugLoc(), TII->get(CSA::SWITCH0),
+        semaInitReg).addDef(CSA::IGN).addReg(predReg).addReg(predReg).setMIFlag(MachineInstr::NonSequential);
+  }
+
+  cpyInst->eraseFromParent();
+  initInst->eraseFromParent();
+
 }
 
 
@@ -2918,8 +3113,35 @@ bool CSACvtCFDFPass::needDynamicPreds(MachineLoop* L) {
   return false;
 }
 
+unsigned CSACvtCFDFPass::getInnerLoopPipeliningDegree(MachineLoop *L) {
+  // No pipelining if predprop/predmerge may be around. (At least until we
+  // are sure about how they interact.)
+  if (UseDynamicPred)
+    return 1;
 
+  // No pipelining if this loop requires dynamic predication.
+  if (needDynamicPreds(L))
+    return 1;
 
+  // Check if the ILPL prep pass has indicated that this loop is a target.
+  MachineBasicBlock *latch = L->getLoopLatch();
+  if (not latch)
+    return 1;
+
+  // Otherwise, try to get the degree indicated by the preparation pass.
+  for (MachineInstr &latchPred : *latch) {
+    if (latchPred.getOpcode() == CSA::CSA_PIPELINEABLE_LOOP) {
+      unsigned maxDOP = latchPred.getOperand(0).getImm();
+      // Remove the directive so that we know it was acted upon.
+      latchPred.eraseFromParentAndMarkDBGValuesForRemoval();
+      return maxDOP;
+    }
+  }
+
+  // Finally, if there's no indication from the prep pass that we can pipeline,
+  // don't.
+  return 1;
+}
 
 void CSACvtCFDFPass::generateDynamicPreds() {
   for (MachineLoopInfo::iterator LI = MLI->begin(), LE = MLI->end(); LI != LE; ++LI) {

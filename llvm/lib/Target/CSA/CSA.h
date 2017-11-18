@@ -43,6 +43,7 @@ namespace llvm {
   MachineFunctionPass *createCSADataflowCanonicalizationPass();
   MachineFunctionPass *createCSAStreamingMemoryConversionPass();
   //FunctionPass *createCSALowerStructArgsPass();
+  Pass *createCSAInnerLoopPrepPass();
 
 } // end namespace llvm;
 

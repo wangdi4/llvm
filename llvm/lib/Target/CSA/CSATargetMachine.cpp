@@ -71,6 +71,7 @@ static std::string computeDataLayout() {
 namespace llvm {
   void initializeCSALowerAggrCopiesPass(PassRegistry &);
   void initializeCSAFortranIntrinsicsPass(PassRegistry &);
+  void initializeCSAInnerLoopPrepPass(PassRegistry &);
 }
 
 extern "C" void LLVMInitializeCSATarget() {
@@ -80,6 +81,7 @@ extern "C" void LLVMInitializeCSATarget() {
   // The original comment in the CSA target says this optimization
   // is placed here because it is too target-specific.
   PassRegistry &PR = *PassRegistry::getPassRegistry();
+  initializeCSAInnerLoopPrepPass(PR);
   initializeCSALowerAggrCopiesPass(PR);
   initializeCSAFortranIntrinsicsPass(PR);
 }
@@ -150,7 +152,13 @@ public:
       //remove the single input phi and constant branch created from StructurizeCFG
       addPass(createInstructionCombiningPass());
     }
+
+    // Remove any remaining intrinsics which should not go through instruction selection
     addPass(createCSAIntrinsicCleanerPass());
+
+    // Add a pass to identify and prepare inner loops for pipelinling.
+    addPass(createCSAInnerLoopPrepPass());
+
     return false;
   }
 
