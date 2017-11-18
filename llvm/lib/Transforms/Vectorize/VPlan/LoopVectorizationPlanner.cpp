@@ -1,6 +1,6 @@
 //===-- LoopVectorizationPlanner.cpp --------------------------------------===//
 //
-//   Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
+//   Copyright (C) 2016-2017 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -10,8 +10,8 @@
 //===----------------------------------------------------------------------===//
 ///
 /// \file
-/// This file implements LoopVectorizationPlannerBase, LoopVectorizationPlanner
-/// and LoopVectorizationPlannerHIR
+/// This file implements LoopVectorizationPlannerBase and
+/// LoopVectorizationPlanner.
 ///
 //===----------------------------------------------------------------------===//
 
@@ -167,19 +167,5 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
 void LoopVectorizationPlanner::collectDeadInstructions() {
   VPOCodeGen::collectTriviallyDeadInstructions(TheLoop, Legal,
                                                DeadInstructions);
-}
-
-std::shared_ptr<IntelVPlan>
-LoopVectorizationPlannerHIR::buildInitialVPlan(unsigned StartRangeVF,
-                                               unsigned &EndRangeVF) {
-  // Create new empty VPlan
-  std::shared_ptr<IntelVPlan> SharedPlan = std::make_shared<IntelVPlan>();
-  IntelVPlan *Plan = SharedPlan.get();
-
-  // Build hierarchical CFG
-  VPlanHCFGBuilderHIR HCFGBuilder(WRLp, TheLoop, Plan, Legal, DDG);
-  HCFGBuilder.buildHierarchicalCFG();
-
-  return SharedPlan;
 }
 

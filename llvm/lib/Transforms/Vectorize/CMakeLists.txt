@@ -12,8 +12,10 @@ add_llvm_library(LLVMVectorize
   VPlan/LoopVectorizationPlanner.cpp
   VPlan/VPlanDriver.cpp
   VPlan/VPlanHCFGBuilder.cpp
+  VPlan/VPlanHCFGBuilderHIR.cpp
   VPlan/VPlanPredicator.cpp
   VPlan/VPlanVerifier.cpp
+  VPlan/VPlanVerifierHIR.cpp
 # end INTEL_CUSTOMIZATION
 
   ADDITIONAL_HEADER_DIRS

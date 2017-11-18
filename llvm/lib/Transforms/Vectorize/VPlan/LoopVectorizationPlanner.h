@@ -1,6 +1,6 @@
-//===-- LoopVectorizationPlanner.h -------------------------------*- C++ -*-===//
+//===-- LoopVectorizationPlanner.h ------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
+//   Copyright (C) 2016-2017 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -234,28 +234,6 @@ private:
   // Similarly, we create a new latch condition when setting up the structure
   // of the new loop, so the old one can become dead.
   SmallPtrSet<Instruction *, 4> DeadInstructions;
-};
-
-class LoopVectorizationPlannerHIR : public LoopVectorizationPlannerBase {
-
-private:
-  std::shared_ptr<IntelVPlan> buildInitialVPlan(unsigned StartRangeVF,
-                                                unsigned &EndRangeVF) override;
-
-  /// The loop that we evaluate.
-  HLLoop *TheLoop;
-
-  /// HIR DDGraph that contains DD information for the incoming loop nest.
-  const DDGraph &DDG;
-
-public:
-  LoopVectorizationPlannerHIR(WRNVecLoopNode *WRL, HLLoop *Lp,
-                              const TargetLibraryInfo *TLI,
-                              const TargetTransformInfo *TTI,
-                              VPOVectorizationLegality *Legal,
-                              const DDGraph &DDG)
-      : LoopVectorizationPlannerBase(WRL, TLI, TTI, Legal), TheLoop(Lp),
-        DDG(DDG) {}
 };
 
 } // namespace vpo

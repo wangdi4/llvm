@@ -15,8 +15,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "VPlanVerifier.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
 #define DEBUG_TYPE "vplan-verifier"
 
@@ -284,19 +282,5 @@ void VPlanVerifierBase::verifyHierarchicalCFG(
 
 unsigned VPlanVerifier::countLoopsInUnderlyingIR() const {
   return countLoopsInLoop<Loop>(TheLoop);
-}
-
-unsigned VPlanVerifierHIR::countLoopsInUnderlyingIR() const {
-  SmallVector<const HLLoop *, 8> Loops;
-  TheLoop->getHLNodeUtils().gatherAllLoops(TheLoop, Loops);
-  return Loops.size();
-}
-
-void VPlanVerifierHIR::verifyIRSpecificLoopRegion(
-    const VPRegionBlock *Region) const {
-
-  if (const auto *LoopRHIR = dyn_cast<VPLoopRegionHIR>(Region))
-    assert(LoopRHIR->getHLLoop() &&
-           "VPLoopRegionHIR must have a valid HLLoop.");
 }
 

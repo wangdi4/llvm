@@ -1,6 +1,6 @@
-//===-- VPlanVerifier.h --------------------------------------*- C++ -*-===//
+//===-- VPlanVerifier.h -----------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
+//   Copyright (C) 2016-2017 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -106,22 +106,7 @@ public:
       : VPlanVerifierBase(), TheLoop(Lp), LInfo(LInfo) {}
 };
 
-/// Specialization of VPlanVerifierBase for HIR. It uses HIR specific
-/// information such as HLLoop.
-class VPlanVerifierHIR : public VPlanVerifierBase {
-
-private:
-  // Outermost HIR loop to be vectorized.
-  const HLLoop *TheLoop;
-
-  unsigned countLoopsInUnderlyingIR() const;
-  void verifyIRSpecificLoopRegion(const VPRegionBlock *Region) const;
-
-public:
-  VPlanVerifierHIR(const HLLoop *HLLp) : VPlanVerifierBase(), TheLoop(HLLp) {}
-};
-
-} // End vpo namespace
-} // end llvm namespace
+} // namespace vpo
+} // namespace llvm
 
 #endif //LLVM_TRANSFORMS_VECTORIZE_VPLAN_VPLANVERIFIER_H

@@ -16,9 +16,6 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_VPLAN_BUILDER_H
 #define LLVM_TRANSFORMS_VECTORIZE_VPLAN_BUILDER_H
 
-#if INTEL_CUSTOMIZATION
-#include "VPlan/VPlanInstructionData.h"
-#endif
 #include "VPlan.h"
 
 namespace llvm {
@@ -157,10 +154,11 @@ public:
   };
 #endif // INTEL_CUSTOMIZATION
 };
+
 #if INTEL_CUSTOMIZATION
-//==========================//
-//== VPO-specific changes ==//
-//==========================//
+//===----------------------------------------------------------------------===//
+// VPO-specific changes
+//===----------------------------------------------------------------------===//
 using namespace llvm::vpo;
 
 class VPBuilderIR : public VPBuilder {
@@ -179,30 +177,7 @@ public:
     return createNaryOp(Opcode, ArrayRef<VPValue *>(Operands), Inst);
   }
 };
-
-class VPBuilderHIR : public VPBuilder {
-public:
-  /// Create an N-ary operation with \p Opcode and \p Operands and set \p HInst
-  /// as its VPInstructionData.
-  VPValue *createNaryOp(unsigned Opcode, ArrayRef<VPValue *> Operands,
-                        HLDDNode *DDNode) {
-    VPInstruction *NewVPInst = createInstruction(Opcode, Operands);
-    NewVPInst->setHIRData(new VPInstructionDataHIR(DDNode));
-    return NewVPInst;
-  }
-  VPValue *createNaryOp(unsigned Opcode,
-                        std::initializer_list<VPValue *> Operands,
-                        HLDDNode *DDNode) {
-    return createNaryOp(Opcode, ArrayRef<VPValue *>(Operands), DDNode);
-  }
-
-  /// Create a semi-phi operation with \p Operands as reaching definitions.
-  VPValue *createSemiPhiOp(ArrayRef<VPValue *> Operands) {
-    return createInstruction(VPInstruction::SemiPhi, Operands);
-  }
-};
-
-#endif
+#endif // INTEL_CUSTOMIZATION
 
 } // namespace vpo
 } // namespace vpo

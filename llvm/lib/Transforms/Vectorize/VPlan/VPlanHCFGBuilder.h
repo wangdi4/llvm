@@ -10,9 +10,9 @@
 //===----------------------------------------------------------------------===//
 ///
 /// \file
-/// This file defines VPlanHCFGBuilder class that is used build a hierarchical
-/// CFG in VPlan. Further documentation can be found in document 'VPlan
-/// Hierarchical CFG Builder'.
+/// This file defines VPlanHCFGBuilder class that is used to build a
+/// hierarchical CFG in VPlan. Further documentation can be found in document
+/// 'VPlan Hierarchical CFG Builder'.
 ///
 //===----------------------------------------------------------------------===//
 
@@ -23,16 +23,11 @@
 #include "LoopVectorizationCodeGen.h" //Only for Legal.
 #include "VPlanVerifier.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"
 
 namespace llvm {
 class ScalarEvolution;
 class Loop;
-
-namespace loopopt { // TODO
-class DDGraph;
-}
 
 namespace vpo {
 
@@ -134,37 +129,7 @@ public:
   }
 };
 
-using namespace loopopt;
-
-class VPlanHCFGBuilderHIR : public VPlanHCFGBuilderBase {
-
-private:
-  /// The outermost loop to be vectorized.
-  HLLoop *TheLoop;
-
-  /// HIR DDGraph that contains DD information for the incoming loop nest.
-  const DDGraph &DDG;
-
-  /// Loop header VPBasicBlock to HLLoop map. To be used when building loop
-  /// regions.
-  SmallDenseMap<VPBasicBlock *, HLLoop *, 4> Header2HLLoop;
-
-  VPRegionBlock *buildPlainCFG() override;
-
-public:
-  VPlanHCFGBuilderHIR(const WRNVecLoopNode *WRL, HLLoop *Lp, IntelVPlan *Plan,
-                      VPOVectorizationLegality *Legal, const DDGraph &DDG)
-      : VPlanHCFGBuilderBase(WRL, Plan, Legal), TheLoop(Lp), DDG(DDG) {
-
-    Verifier = new VPlanVerifierHIR(Lp);
-    assert((!WRLp || WRLp->getTheLoop<HLLoop>() == TheLoop) &&
-           "Inconsistent Loop information");
-  }
-
-  VPLoopRegion *createLoopRegion(VPLoop *VPLp) override;
-};
-
-} // End vpo namespace
-} // end llvm namespace
+} // namespace vpo
+} // namespace llvm
 
 #endif // LLVM_TRANSFORMS_VECTORIZE_VPLAN_VPLANHCFGBUILDER_H

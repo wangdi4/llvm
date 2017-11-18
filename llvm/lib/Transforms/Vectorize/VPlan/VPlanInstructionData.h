@@ -17,14 +17,14 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_VPLAN_INSTRUCTION_DATA_H
 #define LLVM_TRANSFORMS_VECTORIZE_VPLAN_INSTRUCTION_DATA_H
 
-namespace llvm { // LLVM Namespace
+namespace llvm {
 
 // Forward declarations
 namespace loopopt {
 class HLDDNode;
 }
 
-namespace vpo {  // VPO Namespace
+namespace vpo {
 
 // Base class
 class VPInstructionData {

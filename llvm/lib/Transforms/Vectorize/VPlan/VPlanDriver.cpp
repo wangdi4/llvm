@@ -15,6 +15,7 @@
 
 #include "LoopVectorizationCodeGen.h"
 #include "LoopVectorizationPlanner.h"
+#include "LoopVectorizationPlannerHIR.h"
 #include "VPOLoopAdapters.h"
 #include "VPlanPredicator.h"
 #include "VolcanoOpenCL.h"
