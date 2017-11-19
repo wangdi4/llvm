@@ -15,6 +15,8 @@ if (WIN32)
 else (WIN32)
   remove_definitions( -Werror -pedantic )
   add_definitions ( -DHAVE_PTHREAD )
+  # disable all warnings
+  add_definitions( -w )
 endif (WIN32)
 
 set(TARGET_SOURCE_FILES
