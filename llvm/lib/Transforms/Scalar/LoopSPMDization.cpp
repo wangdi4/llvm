@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This pass implements Loop SPMDization transformation that generates multiple loops out of one loop. These loops can run in parallel. The approach implemented here is the vector lane approach where each loop has a stride of k.
+// This pass implements the Loop SPMDization transformation that generates multiple loops from one loop. These loops can run in parallel. The approach implemented here is the cyclic approach where each loop has a stride of k.
 //
 //===----------------------------------------------------------------------===//
 
@@ -120,7 +120,7 @@ namespace {
           TransformLoopInitandStep(NewLoop, SE, 1, NPEs);
        
           L = NewLoop;
-          
+          //This assumes -ffp-contract=fast is set
           FixReductionsIfAny(L, OrigL, E, AfterLoop, PE, NPEs, &Reductions, &ReduceVarExitOrig, &ReduceVarOrig, &OldInsts);          
         }
       }
@@ -164,6 +164,14 @@ bool LoopSPMDization::FindReductionVariables(Loop *L, std::vector<PHINode *> *Re
       continue;
     RecurrenceDescriptor RedDes;
     if (RecurrenceDescriptor::isReductionPHI(Phi, L, RedDes)) {
+      /*errs() << "\n";
+      errs().changeColor(raw_ostream::BLUE, true);
+      errs() << "SPMDization detected thi reduction This Variable is  COULD NOT PERFORM SPMDization !!\n";
+      errs().resetColor();
+      errs() << R"help(
+Failed to find the loop induction variable.
+
+)help";*/
       (*Reductions)[r] = Phi; 
       Value *ReduceVar;
       PHINode *Phiop = Phi;
@@ -236,7 +244,7 @@ bool LoopSPMDization::FixReductionsIfAny(Loop *L, Loop *OrigL, BasicBlock *E, Ba
           //look for use of the reduced value
           if (!PhiExit) {
             for(unsigned m = 0; m < i->getNumOperands(); m++) {
-              if(dyn_cast<Value>(i->getOperand(m))== (*ReduceVarExitOrig)[r]) {
+              if(i->getOperand(m) == (*ReduceVarExitOrig)[r]) {
                 ReduceVarExit = dyn_cast<Instruction>(i->getOperand(m));
                 if(PE == 1) {
                   PhiExit = B.CreatePHI(ReduceVar->getType(), 1, Phi->getName() + "orig");
@@ -358,6 +366,7 @@ PHINode *LoopSPMDization::getInductionVariable(Loop *L, ScalarEvolution *SE) {
 }
 
 bool LoopSPMDization::TransformLoopInitandStep(Loop *L, ScalarEvolution *SE, int PE, int NPEs) {
+  
   PHINode *InductionPHI = getInductionVariable(L, SE);
   BasicBlock *PreHeader = L->getLoopPreheader();
   BranchInst *PreHeaderBR = cast<BranchInst>(PreHeader->getTerminator());
@@ -396,34 +405,7 @@ Failed to find the loop induction variable.
   Value *NewInc = B2.CreateAdd(InductionPHI,
                                steptimesk,
                                InductionPHI->getName()+".next.spmd");
-  BranchInst *LatchBR = cast<BranchInst>(Latch->getTerminator());
-  Value *Cond = LatchBR->getCondition();
-  Instruction *CondI = dyn_cast<Instruction>(Cond);
-  if(CondI->getOperand(0) == dyn_cast<Value>(OldInc)) {
-    Value *TripCount = CondI->getOperand(1);
-    Value *IdxCmp;
-    CmpInst *CmpCond = dyn_cast<CmpInst>(Cond);
-    if (CmpCond->getPredicate() == CmpInst::ICMP_EQ || CmpCond->getPredicate() == CmpInst::ICMP_NE) {  
-      if(LatchBR->getSuccessor(0) == L->getHeader())
-        IdxCmp = CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_SLT, 
-                                 NewInc,
-                                 TripCount, 
-                                 Cond->getName());
-    
-      else 
-        IdxCmp = CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_SGE, 
-                                 NewInc,
-                                 TripCount, 
-                                 Cond->getName());
-      ReplaceInstWithInst(CondI, dyn_cast<Instruction>(IdxCmp));
-    }
-    else { //in other cases, we keep the same predicate
-      if(CondI->getOperand(0) == dyn_cast<Value>(OldInc)) 
-        CondI->setOperand(0, NewInc);
-      else
-        CondI->setOperand(1, NewInc);
-    }
-  }
+  
   IRBuilder<> B(PreHeaderBR);
   Value *steptimespe = B.CreateMul(StepPE0,
                                    ConstantInt::get(InductionPHI->getType(), PE),
@@ -443,6 +425,77 @@ Failed to find the loop induction variable.
     InductionPHI->setIncomingValue(0, NewInc );
   }
   
+  BranchInst *LatchBR = cast<BranchInst>(Latch->getTerminator());
+  Value *Cond = LatchBR->getCondition();
+  Instruction *CondI = dyn_cast<Instruction>(Cond);
+  bool cond_found_p = false;
+  if(CondI->getOperand(0) == dyn_cast<Value>(OldInc) || CondI->getOperand(1) == dyn_cast<Value>(OldInc))
+    cond_found_p = true;
+  else if(CondI->getOperand(0) == dyn_cast<Value>(InductionPHI) || CondI->getOperand(1) == dyn_cast<Value>(InductionPHI)) {
+    cond_found_p = true;
+    OldInc = dyn_cast<Instruction>(InductionPHI); 
+    NewInc = dyn_cast<Value>(InductionPHI);
+  }
+  else {
+    for (auto UA = (dyn_cast<Value>(OldInc))->user_begin(), EA = (dyn_cast<Value>(OldInc))->user_end(); UA != EA;) {
+      Instruction *User_OldInc = cast<Instruction>(*UA++);
+      if(CondI->getOperand(0) == dyn_cast<Value>(User_OldInc) || CondI->getOperand(1) == dyn_cast<Value>(User_OldInc)) {
+        cond_found_p = true;
+        for(unsigned m = 0; m < User_OldInc->getNumOperands(); m++) 
+          if(User_OldInc->getOperand(m) == dyn_cast<Value>(OldInc)) { 
+            User_OldInc->setOperand(m, NewInc);
+            //OldInc->replaceAllUsesWith(NewInc);
+            NewInc = User_OldInc;
+            OldInc = User_OldInc;
+          } 
+      }
+    }
+  }
+  if(!cond_found_p) {
+    errs() << "\n";
+    errs().changeColor(raw_ostream::BLUE, true);
+    errs() << "!! WARNING: COULD NOT PERFORM SPMDization !!\n";
+    errs().resetColor();
+    errs() << R"help(
+Failed to find the loop latch condition.
+
+)help";
+    return false;
+  }
+  else {
+    Value *TripCount = CondI->getOperand(1);
+    Value *IdxCmp;
+    CmpInst *CmpCond = dyn_cast<CmpInst>(Cond);
+    Value *NewCondOp0, *NewCondOp1;
+    if(CondI->getOperand(0) == dyn_cast<Value>(OldInc)) {
+      NewCondOp0 = NewInc;
+      NewCondOp1 = TripCount;
+    }
+    else {
+      NewCondOp1 = NewInc;
+      NewCondOp0 = TripCount;
+    }   
+    if (CmpCond->getPredicate() == CmpInst::ICMP_EQ || CmpCond->getPredicate() == CmpInst::ICMP_NE) {  
+      if(LatchBR->getSuccessor(0) == L->getHeader())
+        IdxCmp = CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_SLT, 
+                                 NewCondOp0, 
+                                 NewCondOp1,  
+                                 Cond->getName());
+    
+      else 
+        IdxCmp = CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_SGE, 
+                                 NewCondOp0, 
+                                 NewCondOp1, 
+                                 Cond->getName());
+      ReplaceInstWithInst(CondI, dyn_cast<Instruction>(IdxCmp));
+    }
+    else { //in other cases, we keep the same predicate
+      if(CondI->getOperand(0) == dyn_cast<Value>(OldInc)) 
+        CondI->setOperand(0, NewInc);
+      else
+        CondI->setOperand(1, NewInc);
+    }
+  }
   return true;
 }
 
