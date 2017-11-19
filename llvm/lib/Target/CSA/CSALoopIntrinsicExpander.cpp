@@ -413,7 +413,7 @@ Re-run with -g to see more location information.
   CallInst*const region_entry = IRBuilder<>{preheader_terminator}.CreateCall(
     Intrinsic::getDeclaration(module, Intrinsic::csa_parallel_region_entry),
     ConstantInt::get(IntegerType::get(context, 32), 0),
-    "parallel_region_entry"
+    "clie_pre"
   );
   const int region_token = context.getMDKindID(region_entry->getName()) + 1000;
   region_entry->setOperand(
@@ -441,7 +441,7 @@ Re-run with -g to see more location information.
   CallInst*const section_entry = IRBuilder<>{&*first_mem}.CreateCall(
     Intrinsic::getDeclaration(module, Intrinsic::csa_parallel_section_entry),
     region_entry,
-    "parallel_section_entry"
+    "clie_pse"
   );
 
   // The csa.parallel.section.exit intrinsic goes after the last memory instruction

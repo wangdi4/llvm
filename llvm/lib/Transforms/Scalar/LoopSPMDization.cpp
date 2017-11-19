@@ -506,7 +506,7 @@ bool LoopSPMDization::AddParallelIntrinsicstoLoop(Loop *L, LLVMContext& context,
   CallInst *region_entry = IRBuilder<>{header_terminator}.CreateCall(
                            FIntr, 
                            ConstantInt::get(IntegerType::get(context, 32), 1), 
-                           "parallel_region_entry"
+                           "spmd_pre"
                            );
   std::string RegionName = region_entry->getName();
   next_token = context.getMDKindID(RegionName) + 1000;
@@ -514,7 +514,7 @@ bool LoopSPMDization::AddParallelIntrinsicstoLoop(Loop *L, LLVMContext& context,
   CallInst *section_entry = IRBuilder<>{preheader_terminator}.CreateCall(
          Intrinsic::getDeclaration(M, Intrinsic::csa_parallel_section_entry), 
          region_entry, 
-         "parallel_section_entry"
+         "spmd_pse"
          );
   
   //IRBuilder<>{preheader_terminator}.CreateCall(
