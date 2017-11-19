@@ -19,6 +19,7 @@
 #include <llvm/ADT/SmallPtrSet.h>
 #include <llvm/IR/InstIterator.h>
 #include <llvm/IR/Instructions.h>
+#include <llvm/Transforms/Utils/UnrollLoop.h>
 
 #include <algorithm>
 
@@ -76,6 +77,21 @@ namespace intel {
     return true;
   }
 
+  static bool requiresBarrier(const Loop* L) {
+    // When #pragma unroll is used on a loop, it states that the loop can be
+    // (and should be) unrolled without affecting a correctness of
+    // execution. Unrolled loop may not conform to the FPGA loop ordering
+    // (because it may no longer be a loop), so for this case we don't need a
+    // barrier.
+    if (MDNode *LoopID = L->getLoopID()) {
+      if (GetUnrollMetadata(LoopID, "llvm.loop.unroll.enable")) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
   void PipeOrdering::findCallersRequiringBarrier(
       Function *F, DenseMap<Function *, bool> &ProcessedFuncs,
       SmallPtrSetImpl<BasicBlock *> &BarrierRequired) {
@@ -90,11 +106,14 @@ namespace intel {
 
       LoopInfo &LI = getAnalysis<LoopInfoWrapperPass>(*Caller).getLoopInfo();
       if (auto Loop = LI.getLoopFor(Call->getParent())) {
-        auto BB = Loop->getHeader();
-        BarrierRequired.insert(BB);
-        continue;
+        if (requiresBarrier(Loop)) {
+          auto BB = Loop->getHeader();
+          BarrierRequired.insert(BB);
+          continue;
+        }
       }
-      // If we have't found a loop, let's go up on the callstack
+      // If we have't found a loop which requires a barrier, let's go up on the
+      // callstack
       findCallersRequiringBarrier(Caller, ProcessedFuncs, BarrierRequired);
     }
   }
