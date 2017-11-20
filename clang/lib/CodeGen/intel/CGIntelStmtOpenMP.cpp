@@ -1150,8 +1150,31 @@ namespace CGIntelOpenMP {
     emitListClause();
   }
 
-  void OpenMPCodeOutliner::emitOMPCopyprivateClause(
-                                        const OMPCopyprivateClause *) {}
+  void
+  OpenMPCodeOutliner::emitOMPCopyprivateClause(const OMPCopyprivateClause *Cl) {
+    auto ISrcExpr = Cl->source_exprs().begin();
+    auto IDestExpr = Cl->destination_exprs().begin();
+    auto IAssignOp = Cl->assignment_ops().begin();
+    for (auto *E : Cl->varlists()) {
+      auto *PVD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
+      addExplicit(PVD);
+      bool IsPODType = E->getType().isPODType(CGF.getContext());
+      if (IsPODType)
+        addArg("QUAL.OMP.COPYPRIVATE");
+      else
+        addArg("QUAL.OMP.COPYPRIVATE:NONPOD");
+      addArg(E);
+      if (!IsPODType) {
+        addArg(emitIntelOpenMPCopyAssign(E->getType(), *ISrcExpr, *IDestExpr,
+                                         *IAssignOp));
+      }
+      ++ISrcExpr;
+      ++IDestExpr;
+      ++IAssignOp;
+      emitListClause();
+    }
+  }
+
   void OpenMPCodeOutliner::emitOMPReadClause(const OMPReadClause *) {}
   void OpenMPCodeOutliner::emitOMPWriteClause(const OMPWriteClause *) {}
   void OpenMPCodeOutliner::emitOMPUpdateClause(const OMPUpdateClause *) {}
