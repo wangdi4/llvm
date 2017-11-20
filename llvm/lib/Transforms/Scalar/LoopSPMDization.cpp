@@ -164,14 +164,6 @@ bool LoopSPMDization::FindReductionVariables(Loop *L, std::vector<PHINode *> *Re
       continue;
     RecurrenceDescriptor RedDes;
     if (RecurrenceDescriptor::isReductionPHI(Phi, L, RedDes)) {
-      /*errs() << "\n";
-      errs().changeColor(raw_ostream::BLUE, true);
-      errs() << "SPMDization detected thi reduction This Variable is  COULD NOT PERFORM SPMDization !!\n";
-      errs().resetColor();
-      errs() << R"help(
-Failed to find the loop induction variable.
-
-)help";*/
       (*Reductions)[r] = Phi; 
       Value *ReduceVar;
       PHINode *Phiop = Phi;
