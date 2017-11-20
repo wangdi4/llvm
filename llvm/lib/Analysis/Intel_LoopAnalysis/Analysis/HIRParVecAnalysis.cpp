@@ -346,6 +346,18 @@ bool DDWalk::isSafeReductionFlowDep(const RegDDRef *SrcRef,
     if (SRI->OpCode == Instruction::Select) {
       return false;
     } else {
+      bool FPRedn = SrcRef->getDestType()->isFloatingPointTy();
+      auto FPInst = dyn_cast<FPMathOperator>(Inst->getLLVMInstruction());
+
+      // Return unsafe to vectorize if we are dealing with a Floating
+      // point reduction, and UnsafeAlgebra flag is off. FPInst can
+      // be NULL for a copy instruction.
+      if (FPRedn && (!FPInst || !FPInst->hasUnsafeAlgebra())) {
+        DEBUG(dbgs() << "\tis unsafe to vectorize/parallelize "
+                        "(FP reduction with UnsafeAlgebra flag off)\n");
+        return false;
+      }
+
       return true;
     }
   }
