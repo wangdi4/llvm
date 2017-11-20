@@ -694,12 +694,12 @@ static Value *transformToMinMax(Value *TrueVal, Value *FalseVal, ICmpInst *Cmp,
   ICmpInst::Predicate InnerPred;
   if (match(InnerCondVal, m_ICmp(InnerPred, m_Specific(X), m_One())) &&
       InnerPred == CmpInst::ICMP_SLT) {
-    if (!(match(InnerTrueVal, m_Zero()) && match(InnerFalseVal, m_APInt(C2)) &&
+    if (!(match(InnerTrueVal, m_Zero()) && match(InnerFalseVal, m_APInt(C2))&&
           (AdjustedC1 == *C2 || *C1 == *C2)))
       return nullptr;
-  } else if (match(InnerCondVal, m_ICmp(InnerPred, m_Specific(X), m_Zero())) &&
+  } else if (match(InnerCondVal, m_ICmp(InnerPred, m_Specific(X), m_Zero()))&&
              InnerPred == CmpInst::ICMP_SGT) {
-    if (!(match(InnerFalseVal, m_Zero()) && match(InnerTrueVal, m_APInt(C2)) &&
+    if (!(match(InnerFalseVal, m_Zero()) && match(InnerTrueVal, m_APInt(C2))&&
           (AdjustedC1 == *C2 || *C1 == *C2)))
       return nullptr;
   } else {

@@ -626,8 +626,8 @@ public:
   /// is true, it refers to the llvm.intel.std.container.ptr.iter intrinsic.
   Instruction *CreateStdContainerCall(Value *Ptr, bool ITER);
 
-/// \brief Create a call to the llvm.intel.fakeload intrinsic
-  // to hold the tbaa informaiton for the return pointers.
+  /// \brief Create a call to the llvm.intel.fakeload intrinsic
+  /// to hold the tbaa informaiton for the return pointers.
   Instruction *CreateFakeLoad(Value *Ptr, MDNode *TbaaTag);
 #endif // INTEL_CUSTOMIZATION
 

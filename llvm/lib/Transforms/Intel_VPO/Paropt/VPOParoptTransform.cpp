@@ -39,16 +39,21 @@
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Dominators.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/PatternMatch.h"
+#include "llvm/IR/PredIteratorCache.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetSubtargetInfo.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/CodeExtractor.h"
+#include "llvm/Transforms/Utils/LoopUtils.h"
+#include "llvm/Transforms/Utils/SSAUpdater.h"
 
 #include "llvm/PassAnalysisSupport.h"
 
@@ -82,13 +87,13 @@ public:
   bool &FoundNeedForTID; // found a WRN that needs TID
   bool &FoundNeedForBID; // found a WRN that needs BID
 
-  VPOWRegionVisitor(WRegionListTy &WL, bool &T, bool &B) : 
+  VPOWRegionVisitor(WRegionListTy &WL, bool &T, bool &B) :
                     WRNList(WL), FoundNeedForTID(T), FoundNeedForBID(B) {}
 
   void preVisit(WRegionNode *W) {}
 
   // use DFS visiting of WRegionNode
-  void postVisit(WRegionNode *W) { WRNList.push_back(W); 
+  void postVisit(WRegionNode *W) { WRNList.push_back(W);
                                    FoundNeedForTID |= W->needsTID();
                                    FoundNeedForBID |= W->needsBID(); }
 
@@ -107,10 +112,10 @@ void VPOParoptTransform::gatherWRegionNodeList(bool &NeedTID, bool &NeedBID) {
 }
 
 //
-// ParPrepare mode: 
+// ParPrepare mode:
 //   Paropt prepare transformations for lowering and privatizing
 //
-// ParTrans mode: 
+// ParTrans mode:
 //   Paropt transformations for loop partitioning and outlining
 //
 bool VPOParoptTransform::paroptTransforms() {
@@ -195,7 +200,7 @@ bool VPOParoptTransform::paroptTransforms() {
       RI = VPOParoptUtils::genKmpcGlobalThreadNumCall(F, AI, IdentTy);
       RI->insertBefore(AI);
     }
-    StoreInst *Tmp0 = new StoreInst(RI, TidPtr, false, 
+    StoreInst *Tmp0 = new StoreInst(RI, TidPtr, false,
                                     F->getEntryBlock().getTerminator());
     Tmp0->setAlignment(4);
   }
@@ -205,7 +210,7 @@ bool VPOParoptTransform::paroptTransforms() {
     BidPtr->setAlignment(4);
 
     ConstantInt *ValueZero = ConstantInt::get(Type::getInt32Ty(C), 0);
-    StoreInst *Tmp1 = new StoreInst(ValueZero, BidPtr, false, 
+    StoreInst *Tmp1 = new StoreInst(ValueZero, BidPtr, false,
                                     F->getEntryBlock().getTerminator());
     Tmp1->setAlignment(4);
   }
@@ -223,12 +228,12 @@ bool VPOParoptTransform::paroptTransforms() {
 
     // Init 'Changed' to false before processing W;
     // If W is transformed, set 'Changed' to true.
-    bool Changed = false;  
+    bool Changed = false;
 
     bool RemoveDirectives = false;
     bool RemovePrivateClauses = false;
 
-    if (W->getIsOmpLoop() && W->getLoop()==nullptr) {
+    if (W->getIsOmpLoop() && W->getWRNLoopInfo().getLoop()==nullptr) {
       // The WRN is a loop-type construct, but the loop is missing, most likely
       // because it has been optimized away. We skip the code transforms for
       // this WRN, and simply remove its directives.
@@ -239,13 +244,21 @@ bool VPOParoptTransform::paroptTransforms() {
       // 1. Constructs that need to perform outlining:
       //      Parallel [for|sections], task, taskloop, etc.
 
+      case WRegionNode::WRNTeams:
       case WRegionNode::WRNParallel:
       {
-        DEBUG(dbgs() << "\n WRNParallel - Transformation \n\n");
+        if (Mode & ParPrepare)
+          genCodemotionFenceforAggrData(W);
+
+        if (isa<WRNTeamsNode>(W))
+          DEBUG(dbgs() << "\n WRNTeams - Transformation \n\n");
+        else
+          DEBUG(dbgs() << "\n WRNParallel - Transformation \n\n");
 
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
+          Changed = clearCodemotionFenceIntrinsic(W);
           // Privatization is enabled for both Prepare and Transform passes
-          Changed = genPrivatizationCode(W);
+          Changed |= genPrivatizationCode(W);
           Changed |= genFirstPrivatizationCode(W);
           Changed |= genReductionCode(W);
           Changed |= genMultiThreadedCode(W);
@@ -314,6 +327,20 @@ bool VPOParoptTransform::paroptTransforms() {
           RemoveDirectives = true;
         }
         break;
+      case WRegionNode::WRNTarget:
+        if (Mode & ParPrepare)
+          genCodemotionFenceforAggrData(W);
+        DEBUG(dbgs() << "\n WRNTarget  - Transformation \n\n");
+        if ((Mode & OmpPar) && (Mode & ParTrans)) {
+          Changed = clearCodemotionFenceIntrinsic(W);
+          Changed |= genPrivatizationCode(W);
+          Changed |= genFirstPrivatizationCode(W);
+          Changed |= genMapPrivationCode(W);
+          Changed |= genDevicePtrPrivationCode(W);
+          Changed |= genTargetOffloadingCode(W);
+          RemoveDirectives = true;
+        }
+        break;
 
       // 2. Constructs that do not need to perform outlining. E.g., simd,
       //    taskgroup, atomic, for, sections, etc.
@@ -335,7 +362,7 @@ bool VPOParoptTransform::paroptTransforms() {
         break;
       }
       case WRegionNode::WRNAtomic:
-      { 
+      {
         DEBUG(dbgs() << "\n WRNAtomic - Transformation \n\n");
         if (Mode & ParPrepare) {
           Changed = VPOParoptAtomics::handleAtomic(dyn_cast<WRNAtomicNode>(W),
@@ -346,8 +373,12 @@ bool VPOParoptTransform::paroptTransforms() {
       }
       case WRegionNode::WRNSections:
       case WRegionNode::WRNWksLoop:
+      case WRegionNode::WRNDistribute:
       {
-        DEBUG(dbgs() << "\n WRNWksLoop - Transformation \n\n");
+        if (W->getIsDistribute())
+          DEBUG(dbgs() << "\n WRNDistribute - Transformation \n\n");
+        else
+          DEBUG(dbgs() << "\n WRNWksLoop - Transformation \n\n");
 
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           AllocaInst *IsLastVal = nullptr;
@@ -355,9 +386,13 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= genPrivatizationCode(W);
           Changed |= genLastPrivatizationCode(W, IsLastVal);
           Changed |= genFirstPrivatizationCode(W);
-          Changed |= genReductionCode(W);
-          if (!W->getNowait())
-            Changed |= genBarrier(W, false);
+
+          if (!W->getIsDistribute()) {
+            Changed |= genReductionCode(W);
+            if (!W->getNowait())
+              Changed |= genBarrier(W, false);
+          }
+
           RemoveDirectives = true;
         }
 
@@ -389,7 +424,7 @@ bool VPOParoptTransform::paroptTransforms() {
           RemoveDirectives = true;
         }
         break;
-      } 
+      }
       case WRegionNode::WRNOrdered:
       {
         DEBUG(dbgs() << "\n WRNOrdered - Transformation \n\n");
@@ -400,7 +435,7 @@ bool VPOParoptTransform::paroptTransforms() {
         break;
       }
       case WRegionNode::WRNBarrier:
-      { 
+      {
         DEBUG(dbgs() << "\n WRNBarrier - Transformation \n\n");
         if (Mode & ParPrepare) {
           Changed = genBarrier(W, true);
@@ -428,8 +463,8 @@ bool VPOParoptTransform::paroptTransforms() {
       RoutineChanged = true;
       DEBUG(dbgs() << "   === WRN #" << W->getNumber() << " transformed.\n\n");
     }
-    else 
-      DEBUG(dbgs() << "   === WRN #" << W->getNumber() 
+    else
+      DEBUG(dbgs() << "   === WRN #" << W->getNumber()
                                                    << " NOT transformed.\n\n");
   }
 
@@ -467,7 +502,7 @@ Value *VPOParoptTransform::genReductionScalarInit(ReductionItem *RedI,
                                                   Type *ScalarTy) {
   Value *V;
   switch (RedI->getType()) {
-  case ReductionItem::WRNReductionSum:
+  case ReductionItem::WRNReductionAdd:
   case ReductionItem::WRNReductionSub:
     V = ScalarTy->isIntOrIntVectorTy() ? ConstantInt::get(ScalarTy, 0)
                                        : ConstantFP::get(ScalarTy, 0.0);
@@ -591,7 +626,7 @@ Value *VPOParoptTransform::genReductionScalarInit(ReductionItem *RedI,
 Value* VPOParoptTransform::genReductionFiniForBoolOps(ReductionItem *RedI,
                                           Value *Rhs1, Value *Rhs2,
                                           Type *ScalarTy,
-                                          IRBuilder<> &Builder, 
+                                          IRBuilder<> &Builder,
                                           bool IsAnd) {
   LLVMContext &C = F->getContext();
   auto Conv = Builder.CreateSExtOrTrunc(Rhs1, Type::getInt32Ty(C));
@@ -615,18 +650,20 @@ Value* VPOParoptTransform::genReductionFiniForBoolOps(ReductionItem *RedI,
 
   Builder.SetInsertPoint(RhsBB->getTerminator());
   PHINode *PN = Builder.CreatePHI(Type::getInt1Ty(C), 2, "");
-  PN->addIncoming(ConstantInt::getFalse(C), EntryBB);
+  auto PhiEntryBBVal = IsAnd ? ConstantInt::getFalse(C) :
+                               ConstantInt::getTrue(C);
+  PN->addIncoming(PhiEntryBBVal, EntryBB);
   PN->addIncoming(IsTrueRed, ContBB);
   auto Ext = Builder.CreateZExtOrBitCast(PN, Type::getInt32Ty(C));
   auto ConvFini = Builder.CreateSExtOrTrunc(Ext, ScalarTy);
 
-  return ConvFini; 
+  return ConvFini;
 }
 
 Value* VPOParoptTransform::genReductionMinMaxFini(ReductionItem *RedI,
                                                   Value *Rhs1, Value *Rhs2,
                                                   Type *ScalarTy,
-                                                  IRBuilder<> &Builder, 
+                                                  IRBuilder<> &Builder,
                                                   bool IsMax) {
   Value *IsGT; // compares Rhs1 > Rhs2
 
@@ -642,7 +679,7 @@ Value* VPOParoptTransform::genReductionMinMaxFini(ReductionItem *RedI,
 
   Value *Op1, *Op2;
   const char* Name;
-  
+
   if (IsMax) {
     Op1  = Rhs1;
     Op2  = Rhs2;
@@ -654,7 +691,7 @@ Value* VPOParoptTransform::genReductionMinMaxFini(ReductionItem *RedI,
   }
 
   Value *minmax = Builder.CreateSelect(IsGT, Op1, Op2, Name);
-  return minmax; 
+  return minmax;
 }
 
 // Generate the reduction update instructions.
@@ -665,7 +702,7 @@ Value *VPOParoptTransform::genReductionScalarFini(ReductionItem *RedI,
   Value *Res;
 
   switch (RedI->getType()) {
-  case ReductionItem::WRNReductionSum:
+  case ReductionItem::WRNReductionAdd:
   case ReductionItem::WRNReductionSub:
     Res = ScalarTy->isIntOrIntVectorTy() ? Builder.CreateAdd(Rhs1, Rhs2)
                                          : Builder.CreateFAdd(Rhs1, Rhs2);
@@ -1032,10 +1069,33 @@ void VPOParoptTransform::createEmptyPrvInitBB(WRegionNode *W,
 void VPOParoptTransform::createEmptyPrivFiniBB(WRegionNode *W,
                                                BasicBlock *&PrivEntryBB) {
   BasicBlock *ExitBlock = W->getExitBBlock();
-  BasicBlock *PrivExitBB = SplitBlock(
-      ExitBlock, dyn_cast<Instruction>(&*ExitBlock->begin()), DT, LI);
-  W->setExitBBlock(PrivExitBB);
-  PrivEntryBB = ExitBlock;
+  BasicBlock *PrivExitBB;
+  if (W->getIsOmpLoop()) {
+    // If the loop has ztt block, the compiler has to generate the lastprivate
+    // update code at the exit block of the loop.
+    BasicBlock *ZttBlock = W->getWRNLoopInfo().getZTTBB();
+    assert(ZttBlock &&
+           "Expected non-empty ztt bblock after loop is normalized in clang");
+    assert(std::distance(pred_begin(ExitBlock), pred_end(ExitBlock)) == 2 &&
+           "Expect two predecessors for the omp loop region exit.");
+    auto PI = pred_begin(ExitBlock);
+    auto Pred1 = *PI++;
+    auto Pred2 = *PI++;
+
+    BasicBlock *LoopExitBB;
+    if (Pred1 == ZttBlock && Pred2 != ZttBlock)
+      LoopExitBB = Pred2;
+    else if (Pred2 == ZttBlock && Pred1 != ZttBlock)
+      LoopExitBB = Pred1;
+    else
+      llvm_unreachable("createEmptyPrivFiniBB: unsupported exit block");
+    PrivExitBB = SplitBlock(LoopExitBB, LoopExitBB->getTerminator(), DT, LI);
+    PrivEntryBB = PrivExitBB;
+  } else {
+    PrivExitBB = SplitBlock(ExitBlock, ExitBlock->getFirstNonPHI(), DT, LI);
+    W->setExitBBlock(PrivExitBB);
+    PrivEntryBB = ExitBlock;
+  }
 }
 
 // Generate the reduction code for reduction clause.
@@ -1108,7 +1168,7 @@ VPOParoptTransform::genPrivatizationAlloca(WRegionNode *W, Value *PrivValue,
   // Generate a new Alloca instruction as privatization action
   AllocaInst *NewPrivInst;
 
-  assert(!(W->isBBSetEmpty()) && 
+  assert(!(W->isBBSetEmpty()) &&
          "genPrivatizationAlloca: WRN has empty BBSet");
 
   if (auto PrivInst = dyn_cast<AllocaInst>(PrivValue)) {
@@ -1186,7 +1246,7 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
   assert(W->isBBSetEmpty() &&
          "genFirstPrivatizationCode: BBSET should start empty");
 
-  assert(W->hasFirstprivate() &&
+  assert(W->canHaveFirstprivate() &&
          "genFirstPrivatizationCode: WRN doesn't take a firstprivate var");
 
   FirstprivateClause &FprivClause = W->getFpriv();
@@ -1205,9 +1265,8 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
       assert((isa<GlobalVariable>(Orig) || isa<AllocaInst>(Orig)) &&
              "genFirstPrivatizationCode: Unexpected firstprivate variable");
 */
-      if (W->hasLastprivate()) {
-        LastprivateClause &LprivClause = W->getLpriv();
-        auto LprivI = LprivClause.findOrig(Orig);
+      if (W->canHaveLastprivate()) {
+        auto LprivI = WRegionUtils::wrnSeenAsLastPrivate(W, Orig);
         if (!LprivI) {
           NewPrivInst = genPrivatizationAlloca(
               W, Orig, EntryBB->getFirstNonPHI(), ".fpriv");
@@ -1222,7 +1281,7 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
             Builder.CreateStore(Builder.CreateLoad(NewPrivInst),
                                 FprivI->getNew());
           }
-        } else 
+        } else
           FprivI->setNew(LprivI->getNew());
       } else {
         NewPrivInst = genPrivatizationAlloca(W, Orig, EntryBB->getFirstNonPHI(),
@@ -1244,7 +1303,7 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
         createEmptyPrvInitBB(W, PrivInitEntryBB);
         genFprivInit(FprivI, PrivInitEntryBB->getTerminator());
       }
-      DEBUG(dbgs() << "genFirstPrivatizationCode: firstprivatized " 
+      DEBUG(dbgs() << "genFirstPrivatizationCode: firstprivatized "
                    << *Orig << "\n");
     }
     Changed = true;
@@ -1264,12 +1323,27 @@ bool VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
   assert(W->isBBSetEmpty() &&
          "genLastPrivatizationCode: BBSET should start empty");
 
-  if (!W->hasLastprivate())
+  if (!W->canHaveLastprivate())
     return Changed;
 
   LastprivateClause &LprivClause = W->getLpriv();
   if (!LprivClause.empty()) {
     W->populateBBSet();
+    FirstprivateItem *FprivI = nullptr;
+    if (W->canHaveFirstprivate()) {
+      for (LastprivateItem *LprivI : LprivClause.items()) {
+        FprivI = WRegionUtils::wrnSeenAsFirstPrivate(W, LprivI->getOrig());
+        if (FprivI)
+          break;
+      }
+    }
+    // If a variable is marked as firstprivate and lastprivate, the
+    // compiler has to generate the barrier. Please note that it is
+    // unnecessary to generate the barrier if the firstprivate is
+    // scalar and it is passed by value.
+    if (FprivI)
+      genBarrier(W, false); // implicit barrier
+
     bool ForTask = W->getWRegionKindID() == WRegionNode::WRNTaskloop ||
                    W->getWRegionKindID() == WRegionNode::WRNTask;
     BasicBlock *EntryBB = W->getEntryBBlock();
@@ -1317,6 +1391,99 @@ bool VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
   return Changed;
 }
 
+// Clean up the intrinsic @llvm.invariant.group.barrier and replace the use
+// of the intrinsic with the its operand.
+bool VPOParoptTransform::clearCodemotionFenceIntrinsic(WRegionNode *W) {
+  bool Changed = false;
+  W->populateBBSet();
+  for (auto IB = W->bbset_begin(); IB != W->bbset_end(); IB++)
+    for (auto &I : **IB)
+      if (CallInst *CI = dyn_cast<CallInst>(&I)) {
+        const Function *Callee = CI->getCalledFunction();
+        if (Callee->getIntrinsicID() == Intrinsic::invariant_group_barrier) {
+          I.replaceAllUsesWith(cast<CallInst>(&I)->getOperand(0));
+          Changed = true;
+        }
+      }
+  W->resetBBSet();
+  return Changed;
+}
+
+// Replace the occurrences of I within the region with the return value of the
+// intrinsic @llvm.invariant.group.barrier.
+void VPOParoptTransform::replaceValueWithinRegion(WRegionNode *W, Value *I) {
+  BasicBlock *EntryBB = W->getEntryBBlock();
+  IRBuilder<> Builder(EntryBB->getTerminator());
+  Value *NewI = Builder.CreateInvariantGroupBarrier(I);
+
+  for (auto IB = I->user_begin(), IE = I->user_end(); IB != IE; IB++) {
+    if (Instruction *User = dyn_cast<Instruction>(*IB)) {
+      if (auto *BI = dyn_cast<BitCastInst>(User)) {
+        if (CallInst *CI = dyn_cast<CallInst>(BI->user_back()))
+          if (CI->getCalledFunction()->getIntrinsicID() ==
+              Intrinsic::invariant_group_barrier)
+            continue;
+      }
+      if (User != NewI && !VPOAnalysisUtils::isIntelDirectiveOrClause(User) &&
+          W->contains(User->getParent()))
+        User->replaceUsesOfWith(I, NewI);
+    }
+  }
+}
+
+// Generate the intrinsic @llvm.invariant.group.barrier for local/global
+// variable I.
+void VPOParoptTransform::genFenceIntrinsic(WRegionNode *W, Value *I) {
+
+  if (AllocaInst *AI = dyn_cast<AllocaInst>(I)) {
+    Type *AllocaTy = AI->getAllocatedType();
+
+    if (!AllocaTy->isSingleValueType())
+      replaceValueWithinRegion(W, I);
+
+  } else if (GlobalVariable *GV = dyn_cast<GlobalVariable>(I)) {
+    Type *Ty = GV->getValueType();
+    if (!Ty->isSingleValueType())
+      replaceValueWithinRegion(W, I);
+  }
+}
+
+// Generate the intrinsic @llvm.invariant.group.barrier to inhibit the cse
+// for the gep instruction related to array/struture which is marked
+// as private, firstprivate, lastprivate, reduction or shared.
+void VPOParoptTransform::genCodemotionFenceforAggrData(WRegionNode *W) {
+  W->populateBBSet();
+  if (W->canHavePrivate()) {
+    PrivateClause &PrivClause = W->getPriv();
+    for (PrivateItem *PrivI : PrivClause.items())
+      genFenceIntrinsic(W, PrivI->getOrig());
+  }
+
+  if (W->canHaveFirstprivate()) {
+    FirstprivateClause &FprivClause = W->getFpriv();
+    for (FirstprivateItem *FprivI : FprivClause.items())
+      genFenceIntrinsic(W, FprivI->getOrig());
+  }
+
+  if (W->canHaveShared()) {
+    SharedClause &ShaClause = W->getShared();
+    for (SharedItem *ShaI : ShaClause.items())
+      genFenceIntrinsic(W, ShaI->getOrig());
+  }
+
+  if (W->canHaveReduction()) {
+    ReductionClause &RedClause = W->getRed();
+    for (ReductionItem *RedI : RedClause.items())
+      genFenceIntrinsic(W, RedI->getOrig());
+  }
+
+  if (W->canHaveLastprivate()) {
+    LastprivateClause &LprivClause = W->getLpriv();
+    for (LastprivateItem *LprivI : LprivClause.items())
+      genFenceIntrinsic(W, LprivI->getOrig());
+  }
+}
+
 bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
 
   bool Changed = false;
@@ -1337,7 +1504,7 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
     bool ForTask = W->getWRegionKindID() == WRegionNode::WRNTaskloop ||
                    W->getWRegionKindID() == WRegionNode::WRNTask;
 
-    // Walk through each PrivateItem list in the private clause to perform 
+    // Walk through each PrivateItem list in the private clause to perform
     // privatization for each Value item
     for (PrivateItem *PrivI : PrivClause.items()) {
       Value *Orig = PrivI->getOrig();
@@ -1372,7 +1539,7 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
 
         DEBUG(dbgs() << "genPrivatizationCode: privatized " << *Orig << "\n");
       } else
-        DEBUG(dbgs() << "genPrivatizationCode: " << *Orig 
+        DEBUG(dbgs() << "genPrivatizationCode: " << *Orig
                      << " is already private.\n");
     }
 
@@ -1383,7 +1550,7 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
     // This should apply to all loop-type constructs; ie, WRNs whose
     // "IsOmpLoop" attribute is true.
     if (SE && W->getIsOmpLoop()) {
-        Loop *L = W->getLoop();
+        Loop *L = W->getWRNLoopInfo().getLoop();
         SE->forgetLoop(L);
     }
   }
@@ -1391,13 +1558,161 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
   return Changed;
 }
 
-bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W, 
+// Replace the live-in value of the phis at the loop header with
+// the loop carried value.
+void VPOParoptTransform::wrnUpdateSSAPreprocessForOuterLoop(
+    Loop *L,
+    DenseMap<Value *, std::pair<Value *, BasicBlock *>> &ValueToLiveinMap,
+    SmallSetVector<Instruction *, 8> &LiveOutVals) {
+  BasicBlock *BB = L->getHeader();
+
+  for (Instruction &I : *BB) {
+    if (!isa<PHINode>(I))
+      break;
+    PHINode *PN = dyn_cast<PHINode>(&I);
+    unsigned NumPHIValues = PN->getNumIncomingValues();
+    unsigned II;
+    Value *V;
+    for (II = 0; II < NumPHIValues; II++) {
+      V = PN->getIncomingValue(II);
+      if (!ValueToLiveinMap.count(V))
+        continue;
+      if (Instruction *User = dyn_cast<Instruction>(V))
+        if (LiveOutVals.count(User))
+          break;
+    }
+    if (V && II != NumPHIValues) {
+      for (II = 0; II < NumPHIValues; II++) {
+        if (PN->getIncomingValue(II) != V)
+          PN->setIncomingValue(II, V);
+      }
+    }
+  }
+}
+
+// Collect the live-out value in the loop.
+static void
+wrnCollectLiveOutVals(Loop &L, BasicBlock &BB,
+                      SmallSetVector<Instruction *, 8> &LiveOutVals) {
+  for (Instruction &I : BB) {
+    if (I.getType()->isTokenTy())
+      continue;
+
+    for (const Use &U : I.uses()) {
+      const Instruction *UI = cast<Instruction>(U.getUser());
+      const BasicBlock *UserBB = UI->getParent();
+      if (const PHINode *P = dyn_cast<PHINode>(UI))
+        UserBB = P->getIncomingBlock(U);
+
+      if (!L.contains(UserBB))
+        LiveOutVals.insert(&I);
+    }
+  }
+}
+
+// Collect the live-in value for the phis at the loop header.
+void VPOParoptTransform::wrnUpdateSSAPreprocess(
+    Loop *L,
+    DenseMap<Value *, std::pair<Value *, BasicBlock *>> &ValueToLiveinMap,
+    SmallSetVector<Instruction *, 8> &LiveOutVals) {
+  BasicBlock *PreheaderBB = L->getLoopPreheader();
+  assert(PreheaderBB && "wrnUpdateSSAPreprocess: Loop preheader not found");
+  BasicBlock *BB = L->getHeader();
+
+  Value *LiveInV = nullptr;
+  for (Instruction &I : *BB) {
+    if (!isa<PHINode>(I))
+      break;
+    PHINode *PN = dyn_cast<PHINode>(&I);
+    unsigned NumPHIValues = PN->getNumIncomingValues();
+    unsigned II;
+    BasicBlock *InBB;
+    for (II = 0; II < NumPHIValues; ++II) {
+      InBB = PN->getIncomingBlock(II);
+      if (InBB == PreheaderBB) {
+        LiveInV = PN->getIncomingValue(II);
+        break;
+      }
+    }
+    if (LiveInV) {
+      for (II = 0; II < NumPHIValues; ++II) {
+        BasicBlock *InBB = PN->getIncomingBlock(II);
+        if (InBB != PreheaderBB) {
+          Value *V = PN->getIncomingValue(II);
+          ValueToLiveinMap[V] = {LiveInV, PreheaderBB};
+        }
+      }
+    }
+  }
+
+  for (auto BB : L->blocks())
+    wrnCollectLiveOutVals(*L, *BB, LiveOutVals);
+}
+
+// Update the SSA form in the region using SSA Updater.
+// The detail of the algorithm is as follows.
+// 1) collect the live-in and live-out information
+// 2) if outer loop is added during the transformation, the live-in
+//    value is replaced with the back edge value.
+// 3) call the SSA updater to generate the phi for the live-out values.
+//
+// Here is one example.
+//
+// omp.inner.for.body:
+//   %.omp.iv.0 = phi i32 [ %4, %omp.inner.for.body.lr.ph ], [ %add4,
+//   %omp.inner.for.inc ]
+//   %l.0 = phi i32 [ 0, %omp.inner.for.body.lr.ph ],
+//          [%inc, %omp.inner.for.inc ]
+//   %mul = mul nsw i32 %.omp.iv.0, %step
+//   %add2 = add nsw i32 -3, %mul store i32 %add2, i32* %i,
+//   align 4, !tbaa !2 i
+//   %inc = add nsw i32 %l.0, 1
+//   %cmp3 = icmp eq i32 %l.0, 0
+//   br i1 %cmp3, label %if.then, label %omp.inner.for.inc
+//   ....
+//   omp.loop.exit:
+//     %l.1 = phi i32 [ 0, %DIR.OMP.LOOP.126 ],
+//            [ %inc, %omp.loop.exit.loopexit ]
+//     br label %DIR.OMP.END.LOOP.2
+//
+//  The value %inc is live outside of the loop. After the compiler generates
+//  the dispatch loop for the above code. The output of SSA form is as
+//  follows.
+//
+//  dispatch.header:
+//    %inc27 = phi i32 [ %inc.lcssa, %dispatch.inc ],
+//                     [ 0, %omp.inner.for.body.lr.ph ]
+//    %ub.tmp = load i32, i32* %upper.bnd
+//    %ub.min = icmp sle i32 %ub.tmp, %.remat
+//    br i1 %ub.min, label %dispatch.body, label %dispatch.min.ub
+//
+//  omp.inner.for.body:
+//    ....
+//    %l.0 = phi i32 [ %inc27, %dispatch.body ], [ %inc, %omp.inner.for.inc ]
+//    ...
+//    %inc = add nsw i32 %l.0, 1
+//    ....
+//  dispatch.inc:
+//    %inc.lcssa = phi i32 [ %inc, %omp.inner.for.inc ]
+//    ...
+//  omp.loop.exit:
+//    %l.1 = phi i32 [ 0, %DIR.OMP.LOOP.126 ], [ %inc27, %dispatch.latch ]
+//
+void VPOParoptTransform::wrnUpdateSSAForLoop(
+    Loop *L,
+    DenseMap<Value *, std::pair<Value *, BasicBlock *>> &ValueToLiveinMap,
+    SmallSetVector<Instruction *, 8> &LiveOutVals) {
+  if (!LiveOutVals.empty())
+    formLCSSA(*L, *DT, LI, SE, &ValueToLiveinMap, &LiveOutVals);
+}
+
+bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
                                                AllocaInst *&IsLastVal) {
   DEBUG(dbgs() << "\nEnter VPOParoptTransform::genLoopSchedulingCode\n");
 
   assert(W->getIsOmpLoop() && "genLoopSchedulingCode: not a loop-type WRN");
 
-  Loop *L = W->getLoop();
+  Loop *L = W->getWRNLoopInfo().getLoop();
 
   assert(L && "genLoopSchedulingCode: Loop not found");
 
@@ -1413,12 +1728,19 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
 #endif
 
   assert(L->isLoopSimplifyForm() && "should follow from addRequired<>");
+  W->getWRNLoopInfo().setZTTBB(
+      WRegionUtils::getOmpLoopZeroTripTest(L, W->getEntryBBlock())
+          ->getParent());
 
-  // 
-  // This is initial implementation of parallel loop scheduling to get 
+  DenseMap<Value *, std::pair<Value *, BasicBlock *>> ValueToLiveinMap;
+  SmallSetVector<Instruction *, 8> LiveOutVals;
+  wrnUpdateSSAPreprocess(L, ValueToLiveinMap, LiveOutVals);
+
+  //
+  // This is initial implementation of parallel loop scheduling to get
   // a simple loop to work end-to-end.
-  // 
-  // TBD: handle all loop forms: Top test loop, bottom test loop, with 
+  //
+  // TBD: handle all loop forms: Top test loop, bottom test loop, with
   // PHI and without PHI nodes as SCEV bails out for many cases
   //
   LLVMContext &C = F->getContext();
@@ -1467,7 +1789,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
   ConstantInt *ValueOne  = ConstantInt::get(IndValTy, 1);
 
   // Get Schedule kind and chunk information from W-Region node
-  // Default: static_even.     
+  // Default: static_even.
   WRNScheduleKind SchedKind = VPOParoptUtils::getLoopScheduleKind(W);
 
   ConstantInt *SchedType = ConstantInt::getSigned(Int32Ty, SchedKind);
@@ -1482,13 +1804,13 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
 
   Value *UpperBndVal = VPOParoptUtils::computeOmpUpperBound(W, InsertPt);
 
-  if (UpperBndVal->getType()->getIntegerBitWidth() != 
-                              IndValTy->getIntegerBitWidth()) 
+  if (UpperBndVal->getType()->getIntegerBitWidth() !=
+                              IndValTy->getIntegerBitWidth())
     UpperBndVal = B.CreateSExtOrTrunc(UpperBndVal, IndValTy);
 
   StoreInst *Tmp1 = new StoreInst(UpperBndVal, UpperBnd, false, InsertPt);
   Tmp1->setAlignment(4);
- 
+
   bool IsNegStride;
   Value *StrideVal = WRegionUtils::getOmpLoopStride(L, IsNegStride);
   StrideVal = VPOParoptUtils::cloneInstructions(StrideVal, InsertPt);
@@ -1521,29 +1843,30 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
   CallInst* KmpcFiniCI;
   CallInst* KmpcNextCI;
 
-  Value *ChunkVal = (SchedKind == WRNScheduleStaticEven) ? 
+  Value *ChunkVal = (SchedKind == WRNScheduleStaticEven ||
+                     SchedKind == WRNScheduleOrderedStaticEven) ?
                                   ValueOne : W->getSchedule().getChunkExpr();
 
   DEBUG(dbgs() << "--- Schedule Chunk Value: " << *ChunkVal << "\n\n");
 
-  if (SchedKind == WRNScheduleStaticEven || SchedKind == WRNScheduleStatic) { 
+  if (SchedKind == WRNScheduleStaticEven || SchedKind == WRNScheduleStatic) {
     // Generate __kmpc__for_static_init_4{u}/8{u} Call Instruction
     KmpcInitCI = VPOParoptUtils::genKmpcStaticInit(W, IdentTy,
-                               LoadTid, SchedType, IsLastVal, LowerBnd, 
-                               UpperBnd, Stride, StrideVal, ValueOne, 
+                               LoadTid, SchedType, IsLastVal, LowerBnd,
+                               UpperBnd, Stride, StrideVal, ChunkVal,
                                Size, IsUnsigned, InsertPt);
   }
   else {
     // Generate __kmpc_dispatch_init_4{u}/8{u} Call Instruction
     KmpcInitCI = VPOParoptUtils::genKmpcDispatchInit(W, IdentTy,
-                               LoadTid, SchedType, InitVal, UpperBndVal,   
+                               LoadTid, SchedType, InitVal, UpperBndVal,
                                StrideVal, ChunkVal, Size, IsUnsigned, InsertPt);
 
     // Generate __kmpc_dispatch_next_4{u}/8{u} Call Instruction
     KmpcNextCI = VPOParoptUtils::genKmpcDispatchNext(W, IdentTy,
-                               LoadTid, IsLastVal, LowerBnd, 
+                               LoadTid, IsLastVal, LowerBnd,
                                UpperBnd, Stride, Size, IsUnsigned, InsertPt);
-  } 
+  }
 
   LoadInst *LoadLB = new LoadInst(LowerBnd, "lb.new", InsertPt);
   LoadLB->setAlignment(4);
@@ -1558,7 +1881,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
   BasicBlock *LoopExitBB = WRegionUtils::getOmpExitBlock(L);
 
   bool IsLeft;
-  CmpInst::Predicate PD = VPOParoptUtils::computeOmpPredicate( 
+  CmpInst::Predicate PD = VPOParoptUtils::computeOmpPredicate(
                                    WRegionUtils::getOmpPredicate(L, IsLeft));
   ICmpInst* CompInst;
   CompInst = new ICmpInst(InsertPt, PD, LoadLB, LoadUB, "");
@@ -1576,19 +1899,19 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
   BasicBlock *LoopRegionExitBB = nullptr;
 
   if (LoopExitBB != W->getExitBBlock()) {
-    InsertPt = dyn_cast<Instruction>(&*LoopExitBB->rbegin());
+    InsertPt = LoopExitBB->getTerminator();
   }
   else {
-    InsertPt = dyn_cast<Instruction>(&*LoopExitBB->begin());
+    InsertPt = LoopExitBB->getFirstNonPHI();
     LoopRegionExitBB = SplitBlock(LoopExitBB, InsertPt, DT, LI);
     LoopRegionExitBB->setName("loop.region.exit");
 
-    if (DT) 
+    if (DT)
       DT->changeImmediateDominator(LoopRegionExitBB, LoopExitBB);
 
     // After split LoopExitBB block, InsertPt is null, so we get
     // branch instruction
-    InsertPt = dyn_cast<Instruction>(&*LoopExitBB->rbegin());
+    InsertPt = LoopExitBB->getTerminator();
 
     W->setExitBBlock(LoopRegionExitBB);
   }
@@ -1597,21 +1920,22 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
 
     BasicBlock *StaticInitBB = KmpcInitCI->getParent();
 
-    KmpcFiniCI = VPOParoptUtils::genKmpcStaticFini(W, 
+    KmpcFiniCI = VPOParoptUtils::genKmpcStaticFini(W,
                                         IdentTy, LoadTid, InsertPt);
     KmpcFiniCI->setCallingConv(CallingConv::C);
 
-    if (DT) 
+    wrnUpdateSSAForLoop(L, ValueToLiveinMap, LiveOutVals);
+    if (DT)
       DT->changeImmediateDominator(LoopExitBB, StaticInitBB);
   }
   else if (SchedKind == WRNScheduleStatic) {
 
-    //// DEBUG(dbgs() << "Before Loop Scheduling : " 
+    //// DEBUG(dbgs() << "Before Loop Scheduling : "
     ////              << *(LoopExitBB->getParent()) << "\n\n");
 
     BasicBlock *StaticInitBB = KmpcInitCI->getParent();
 
-    KmpcFiniCI = VPOParoptUtils::genKmpcStaticFini(W, 
+    KmpcFiniCI = VPOParoptUtils::genKmpcStaticFini(W,
                                         IdentTy, LoadTid, InsertPt);
     KmpcFiniCI->setCallingConv(CallingConv::C);
 
@@ -1621,7 +1945,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
     //                       |   dispatch.min.ub           |
     //                       |       |                     |
     //   +---------------- dispatch.body                   |
-    //   |                      |                          | 
+    //   |                      |                          |
     //   |                  loop body <------+             |
     //   |                      |            |             |
     //   |                    .....          |             |
@@ -1632,7 +1956,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
     //   |                dispatch.inc                     |
     //   |                      |                          |
     //   |                      +--------------------------+
-    //   |                     
+    //   |
     //   +--------------> dispatch.latch
     //                          |
 
@@ -1640,7 +1964,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
     BasicBlock *DispatchHeaderBB = SplitBlock(StaticInitBB, LoadLB, DT, LI);
     DispatchHeaderBB->setName("dispatch.header");
 
-    // Generate a upper bound load instruction at top of DispatchHeaderBB 
+    // Generate a upper bound load instruction at top of DispatchHeaderBB
     LoadInst *TmpUB = new LoadInst(UpperBnd, "ub.tmp", LoadLB);
 
     BasicBlock *DispatchBodyBB = SplitBlock(DispatchHeaderBB, LoadLB, DT, LI);
@@ -1662,12 +1986,12 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
 
     TermInst = DispatchHeaderBB->getTerminator();
 
-    // Generate branch for dispatch.cond for get MIN upper bound   
-    TerminatorInst *NewTermInst = BranchInst::Create(DispatchBodyBB, 
+    // Generate branch for dispatch.cond for get MIN upper bound
+    TerminatorInst *NewTermInst = BranchInst::Create(DispatchBodyBB,
                                                      DispatchMinUBB, MinUB);
     ReplaceInstWithInst(TermInst, NewTermInst);
 
-    // Generate dispatch chunk increment BBlock 
+    // Generate dispatch chunk increment BBlock
     BasicBlock *DispatchLatchBB = SplitBlock(LoopExitBB, KmpcFiniCI, DT, LI);
 
     TermInst = LoopExitBB->getTerminator();
@@ -1699,7 +2023,9 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
     TermInst = DispatchBodyBB->getTerminator();
     TermInst->setSuccessor(1, DispatchLatchBB);
 
-    if (DT) { 
+    wrnUpdateSSAPreprocessForOuterLoop(L, ValueToLiveinMap, LiveOutVals);
+    wrnUpdateSSAForLoop(L, ValueToLiveinMap, LiveOutVals);
+    if (DT) {
       DT->changeImmediateDominator(DispatchHeaderBB, StaticInitBB);
 
       DT->changeImmediateDominator(DispatchBodyBB, DispatchHeaderBB);
@@ -1708,7 +2034,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
       DT->changeImmediateDominator(DispatchLatchBB, DispatchBodyBB);
     }
 
-    //// DEBUG(dbgs() << "After Loop Scheduling : " 
+    //// DEBUG(dbgs() << "After Loop Scheduling : "
     ////              << *(LoopExitBB->getParent()) << "\n\n");
   }
   else {
@@ -1717,8 +2043,8 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
     //             lb < ub                     |
     //              | |                        |
     //        +-----+ |                        |
-    //        |       |                        | 
-    //        |   Loop HeaderBB: <--+          | 
+    //        |       |                        |
+    //        |   Loop HeaderBB: <--+          |
     //        |  i = phi(lb,i')     |          |
     //        |    /  |  ...        |          |
     //        |   /   |  ...        |          |
@@ -1734,13 +2060,13 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
     //        |       |
     //        +-->Loop ExitBB
     //                |
-    KmpcFiniCI = VPOParoptUtils::genKmpcDispatchFini(W, 
+    KmpcFiniCI = VPOParoptUtils::genKmpcDispatchFini(W,
                           IdentTy, LoadTid, Size, IsUnsigned, InsertPt);
     KmpcFiniCI->setCallingConv(CallingConv::C);
 
     BasicBlock *DispatchInitBB = KmpcNextCI->getParent();
 
-    BasicBlock *DispatchHeaderBB = SplitBlock(DispatchInitBB, 
+    BasicBlock *DispatchHeaderBB = SplitBlock(DispatchInitBB,
                                               KmpcNextCI, DT, LI);
     DispatchHeaderBB->setName("dispatch.header" + Twine(W->getNumber()));
 
@@ -1749,11 +2075,11 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
 
     TerminatorInst *TermInst = DispatchHeaderBB->getTerminator();
 
-    ICmpInst* CondInst = new ICmpInst(TermInst, ICmpInst::ICMP_NE, 
-                               KmpcNextCI, ValueZero, 
+    ICmpInst* CondInst = new ICmpInst(TermInst, ICmpInst::ICMP_NE,
+                               KmpcNextCI, ValueZero,
                               "dispatch.cond" + Twine(W->getNumber()));
 
-    TerminatorInst *NewTermInst = BranchInst::Create(DispatchBodyBB, 
+    TerminatorInst *NewTermInst = BranchInst::Create(DispatchBodyBB,
                                                     LoopExitBB, CondInst);
     ReplaceInstWithInst(TermInst, NewTermInst);
 
@@ -1768,7 +2094,10 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
 
     KmpcFiniCI->eraseFromParent();
 
-    if (DT) { 
+    wrnUpdateSSAPreprocessForOuterLoop(L, ValueToLiveinMap, LiveOutVals);
+    wrnUpdateSSAForLoop(L, ValueToLiveinMap, LiveOutVals);
+
+    if (DT) {
       DT->changeImmediateDominator(DispatchHeaderBB, DispatchInitBB);
       DT->changeImmediateDominator(DispatchBodyBB, DispatchHeaderBB);
 
@@ -1777,8 +2106,8 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
       DT->changeImmediateDominator(LoopExitBB, DispatchHeaderBB);
     }
   }
-  
-  // There are new BBlocks generated, so we need to reset BBSet 
+
+  // There are new BBlocks generated, so we need to reset BBSet
   W->resetBBSet();
   DEBUG(dbgs() << "\nExit VPOParoptTransform::genLoopSchedulingCode\n");
   return true;
@@ -1798,24 +2127,24 @@ void VPOParoptTransform::getAllocFromTid(CallInst *Tid) {
         AllocaInst *AI = dyn_cast<AllocaInst>(V);
         if (AI)
           TidAndBidInstructions.insert(AI);
-        else 
+        else
           llvm_unreachable("Expect the stack alloca instruction.");
       }
     }
   }
 }
 
-// Collects the users instructions for the instructions 
+// Collects the users instructions for the instructions
 // in the set TidAndBidInstructions.
 void VPOParoptTransform::collectInstructionUsesInRegion(WRegionNode *W) {
-  for (Instruction *I : TidAndBidInstructions) 
+  for (Instruction *I : TidAndBidInstructions)
     for (auto IB = I->user_begin(), IE = I->user_end();
          IB != IE; IB++) {
       if (Instruction *User = dyn_cast<Instruction>(*IB)) {
         if (W->contains(User->getParent()))
           IdMap[I].push_back(User);
       }
-      else 
+      else
         llvm_unreachable("Expect the user is instruction.");
     }
 }
@@ -1853,7 +2182,7 @@ void VPOParoptTransform::codeExtractorPrepareTransform(WRegionNode *W,
   for (auto &I : IdMap) {
     for (auto &J : I.second) {
       if (IsTid && NewTid == nullptr) {
-        NewTid = VPOParoptUtils::genKmpcGlobalThreadNumCall(F, 
+        NewTid = VPOParoptUtils::genKmpcGlobalThreadNumCall(F,
                                 &*(WREntryBB->getFirstInsertionPt()),
                                 nullptr);
         NewTid->insertBefore(InsertBefore);
@@ -1867,11 +2196,11 @@ void VPOParoptTransform::codeExtractorPrepareTransform(WRegionNode *W,
           NewAI->setAlignment(4);
 
           ConstantInt *ValueZero;
-          if (IsTid == false) 
+          if (IsTid == false)
             ValueZero = ConstantInt::get(Type::getInt32Ty(F->getContext()), 0);
 
           Value *StValue;
-          if (IsTid) 
+          if (IsTid)
             StValue = NewTid;
           else
             StValue = ValueZero;
@@ -1888,25 +2217,25 @@ void VPOParoptTransform::codeExtractorPrepareTransform(WRegionNode *W,
 
 // Generates the tid call instruction at the entry of WRegion
 // if the IR in the WRegion uses the tid value at the entry of
-// the function. It also generates the bid alloca instruction in 
+// the function. It also generates the bid alloca instruction in
 // the region if the region has outlined function.
 // Here is one example compiled at -O3.
 //
 // Before:
 // entry:
 //   %tid.addr = alloca i32, align 4
-//   %tid.val = tail call i32 
+//   %tid.val = tail call i32
 //    @__kmpc_global_thread_num({ i32, i32, i32, i32, i8* }* @.kmpc_loc.0.0)
-// 
+//
 // for.body3:
 //   %j.0 = phi i32 [ %add12, %for.body3 ], [ %add, %for.body3.preheader ]
-//     call void @__kmpc_critical({ i32, i32, i32, i32, i8* }* 
+//     call void @__kmpc_critical({ i32, i32, i32, i32, i8* }*
 //      @.kmpc_loc.0.0.2, i32 %tid.val, [8 x i32]* @.gomp_critical_user_.var)
 //
 // After:
 // entry:
 //   %tid.addr = alloca i32, align 4
-//   %tid.val = tail call i32 
+//   %tid.val = tail call i32
 //    @__kmpc_global_thread_num({ i32, i32, i32, i32, i8* }* @.kmpc_loc.0.0)
 //
 // DIR.OMP.PARALLEL.1:
@@ -1918,7 +2247,7 @@ void VPOParoptTransform::codeExtractorPrepareTransform(WRegionNode *W,
 //
 // for.body3:
 //   %j.0 = phi i32 [ %add12, %for.body3 ], [ %add, %for.body3.preheader ]
-//   call void @__kmpc_critical({ i32, i32, i32, i32, i8* }* 
+//   call void @__kmpc_critical({ i32, i32, i32, i32, i8* }*
 //    @.kmpc_loc.0.0.2, i32 %tid.val38, [8 x i32]* @.gomp_critical_user_.var)
 //
 // Here is another example compiled at -O0.
@@ -1934,7 +2263,7 @@ void VPOParoptTransform::codeExtractorPrepareTransform(WRegionNode *W,
 //
 // for.body3:
 //   %my.tid = load i32, i32* %tid.addr, align 4
-//   call void @__kmpc_critical({ i32, i32, i32, i32, i8* }* 
+//   call void @__kmpc_critical({ i32, i32, i32, i32, i8* }*
 //    @.kmpc_loc.0.0.2, i32 %my.tid, [8 x i32]* @.gomp_critical_user_.var)
 //
 // After:
@@ -1948,21 +2277,21 @@ void VPOParoptTransform::codeExtractorPrepareTransform(WRegionNode *W,
 //   store i32 %tid.val24, i32* %new.tid.addr
 //   br label %DIR.QUAL.LIST.END.221
 //
-// for.body3: 
+// for.body3:
 //   %my.tid = load i32, i32* %new.tid.addr, align 4
-//   call void @__kmpc_critical({ i32, i32, i32, i32, i8* }* 
+//   call void @__kmpc_critical({ i32, i32, i32, i32, i8* }*
 //     @.kmpc_loc.0.0.2, i32 %my.tid, [8 x i32]* @.gomp_critical_user_.var)
 //   br label %DIR.QUAL.LIST.END.5
-// 
+//
 void VPOParoptTransform::codeExtractorPrepare(WRegionNode *W) {
-  // Generates the bid alloca instruction in the region 
+  // Generates the bid alloca instruction in the region
   // if the region has outlined function.
   TidAndBidInstructions.clear();
   IdMap.clear();
 
   assert(!(W->isBBSetEmpty()) && "codeExtractorPrepare: WRN has empty BBSet");
 
-  for (auto IB = W->bbset_begin(); IB != W->bbset_end(); IB++) 
+  for (auto IB = W->bbset_begin(); IB != W->bbset_end(); IB++)
     collectTidAndBidInstructionsForBB(*IB);
 
   collectInstructionUsesInRegion(W);
@@ -1999,9 +2328,9 @@ void VPOParoptTransform::codeExtractorPrepare(WRegionNode *W) {
 // Cleans up the generated __kmpc_global_thread_num() in the
 // outlined function. Replaces the use of the __kmpc_global_thread_num()
 // with the first argument of the outlined function.
-// 
+//
 // Here is one example compiled at -O3.
-// 
+//
 // Before:
 // DIR.OMP.PARALLEL.1:                               ; preds = %newFuncRoot
 //   call void @llvm.intel.directive(metadata !"DIR.OMP.PARALLEL")
@@ -2012,7 +2341,7 @@ void VPOParoptTransform::codeExtractorPrepare(WRegionNode *W) {
 //
 // for.body3:
 //   %j.0 = phi i32 [ %add12, %for.body3 ], [ %add, %for.body3.preheader ]
-//   call void @__kmpc_critical({ i32, i32, i32, i32, i8* }* 
+//   call void @__kmpc_critical({ i32, i32, i32, i32, i8* }*
 //     @.kmpc_loc.0.0.2, i32 %tid.val38, [8 x i32]* @.gomp_critical_user_.var)
 //
 //  After:
@@ -2024,7 +2353,7 @@ void VPOParoptTransform::codeExtractorPrepare(WRegionNode *W) {
 //
 //  for.body3:
 //   %j.0 = phi i32 [ %add12, %for.body3 ], [ %add, %for.body3.preheader ]
-//   call void @__kmpc_critical({ i32, i32, i32, i32, i8* }* 
+//   call void @__kmpc_critical({ i32, i32, i32, i32, i8* }*
 //     @.kmpc_loc.0.0.2, i32 %0, [8 x i32]* @.gomp_critical_user_.var)
 //
 // Another example is compiled at -O0.
@@ -2040,14 +2369,14 @@ void VPOParoptTransform::codeExtractorPrepare(WRegionNode *W) {
 //
 // for.body3:
 //   %my.tid = load i32, i32* %new.tid.addr, align 4
-//   call void @__kmpc_critical({ i32, i32, i32, i32, i8* }* 
+//   call void @__kmpc_critical({ i32, i32, i32, i32, i8* }*
 //     @.kmpc_loc.0.0.2, i32 %my.tid, [8 x i32]* @.gomp_critical_user_.var)
 //
 // After:
 //
 // for.body3:
 //   %my.tid = load i32, i32* %tid, align 4
-//   call void @__kmpc_critical({ i32, i32, i32, i32, i8* }* 
+//   call void @__kmpc_critical({ i32, i32, i32, i32, i8* }*
 //     @.kmpc_loc.0.0.2, i32 %my.tid, [8 x i32]* @.gomp_critical_user_.var)
 //   br label %DIR.QUAL.LIST.END.5
 //
@@ -2121,8 +2450,8 @@ void VPOParoptTransform::finiCodeExtractorPrepareTransform(Function *F,
     else if (IsTid)
       I->replaceAllUsesWith(NewLoad);
   }
-  
-  for (Instruction *I : TidAndBidInstructions) 
+
+  for (Instruction *I : TidAndBidInstructions)
     I->eraseFromParent();
 }
 
@@ -2186,11 +2515,11 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
 
     finiCodeExtractorPrepare(MTFn);
 
-    DEBUG(dbgs() << " New Call to MTFn: " << *NewCall << "\n"); 
+    DEBUG(dbgs() << " New Call to MTFn: " << *NewCall << "\n");
     // Pass all the same arguments of the extracted function.
     for (auto I = CS.arg_begin(), E = CS.arg_end(); I != E; ++I) {
       if (*I != TidPtr)  {
-        DEBUG(dbgs() << " NewF Arguments: " << *(*I) << "\n"); 
+        DEBUG(dbgs() << " NewF Arguments: " << *(*I) << "\n");
         MTFnArgs.push_back((*I));
       }
     }
@@ -2231,15 +2560,15 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
     // Generate __kmpc_ok_to_fork test Call Instruction
     CallInst* ForkTestCI = VPOParoptUtils::genKmpcForkTest(W, IdentTy, ForkCI);
 
-    // 
+    //
     // Genrerate __kmpc_ok_to_fork test for taking either __kmpc_fork_call
-    // or serial call branch, and update CFG and DomTree  
-    // 
+    // or serial call branch, and update CFG and DomTree
+    //
     //  ForkTestBB(codeRepl)
     //         /    \
     //        /      \
-    // ThenForkBB   ElseCallBB 
-    //        \       / 
+    // ThenForkBB   ElseCallBB
+    //        \       /
     //         \     /
     //  SuccessorOfThenForkBB
     //
@@ -2262,7 +2591,7 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
 
     TerminatorInst *TermInst = ForkTestBB->getTerminator();
 
-    ICmpInst* CondInst = new ICmpInst(TermInst, ICmpInst::ICMP_EQ, 
+    ICmpInst* CondInst = new ICmpInst(TermInst, ICmpInst::ICMP_EQ,
                                       ForkTestCI, ValueOne, "");
 
     TerminatorInst *NewTermInst = BranchInst::Create(ThenForkBB, ElseCallBB,
@@ -2281,11 +2610,11 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
 
     // Generate __kmpc_push_num_threads(...) Call Instruction
     Value *NumThreads = W->getNumThreads();
- 
+
     if (NumThreads) {
       LoadInst *Tid = new LoadInst(TidPtr, "my.tid", ForkCI);
       Tid->setAlignment(4);
-      VPOParoptUtils::genKmpcPushNumThreads(W, 
+      VPOParoptUtils::genKmpcPushNumThreads(W,
                                             IdentTy, Tid, NumThreads, ForkCI);
     }
 
@@ -2307,7 +2636,7 @@ FunctionType *VPOParoptTransform::getKmpcMicroTaskPointerTy() {
     LLVMContext &C = F->getContext();
     Type *MicroParams[] = {PointerType::getUnqual(Type::getInt32Ty(C)),
                            PointerType::getUnqual(Type::getInt32Ty(C))};
-    KmpcMicroTaskTy = FunctionType::get(Type::getVoidTy(C), 
+    KmpcMicroTaskTy = FunctionType::get(Type::getVoidTy(C),
                                     MicroParams, true);
   }
   return KmpcMicroTaskTy;
@@ -2324,8 +2653,8 @@ CallInst* VPOParoptTransform::genForkCallInst(WRegionNode *W, CallInst *CI) {
 
   // Get MicroTask Function for __kmpc_fork_call
   //
-  // Need to add global_tid and bound_tid to Micro Task Function, 
-  // finalizeExtractedMTFunction is implemented for adding Tid and Bid 
+  // Need to add global_tid and bound_tid to Micro Task Function,
+  // finalizeExtractedMTFunction is implemented for adding Tid and Bid
   // arguments :
   //   void (*kmpc_micro)(kmp_int32 global_tid, kmp_int32 bound_tid,...)
   //
@@ -2336,12 +2665,19 @@ CallInst* VPOParoptTransform::genForkCallInst(WRegionNode *W, CallInst *CI) {
                         PointerType::getUnqual(MicroTaskFnTy)};
 
   FunctionType *FnTy = FunctionType::get(Type::getVoidTy(C), ForkParams, true);
-  
-  Function *ForkCallFn = M->getFunction("__kmpc_fork_call");
+
+  Function *ForkCallFn = (!isa<WRNTeamsNode>(W)) ?
+                         M->getFunction("__kmpc_fork_call") :
+                         M->getFunction("__kmpc_fork_teams");
 
   if (!ForkCallFn) {
-    ForkCallFn = Function::Create(FnTy, GlobalValue::ExternalLinkage,
-                                  "__kmpc_fork_call", M);
+    if (isa<WRNTeamsNode>(W))
+      ForkCallFn = Function::Create(FnTy, GlobalValue::ExternalLinkage,
+                                    "__kmpc_fork_teams", M);
+    else
+      ForkCallFn = Function::Create(FnTy, GlobalValue::ExternalLinkage,
+                                    "__kmpc_fork_call", M);
+
     ForkCallFn->setCallingConv(CallingConv::C);
   }
 
@@ -2365,18 +2701,18 @@ CallInst* VPOParoptTransform::genForkCallInst(WRegionNode *W, CallInst *CI) {
       F, CI, IdentTy, KMP_IDENT_KMPC, EntryBB, ExitBB);
 
   CallSite CS(CI);
-  ConstantInt *NumArgs = ConstantInt::get(Type::getInt32Ty(C), 
+  ConstantInt *NumArgs = ConstantInt::get(Type::getInt32Ty(C),
                                           CS.getNumArgOperands()-2);
 
   std::vector<Value *> Params;
   Params.push_back(KmpcLoc);
   Params.push_back(NumArgs);
   IRBuilder<> Builder(EntryBB);
-  Value *Cast =Builder.CreateBitCast(MicroTaskFn, 
+  Value *Cast =Builder.CreateBitCast(MicroTaskFn,
                            PointerType::getUnqual(MicroTaskFnTy));
   Params.push_back(Cast);
 
-  auto InitArg = CS.arg_begin(); ++InitArg; ++InitArg; 
+  auto InitArg = CS.arg_begin(); ++InitArg; ++InitArg;
 
   for (auto I = InitArg, E = CS.arg_end(); I != E; ++I) {
     Params.push_back((*I));
@@ -2396,29 +2732,29 @@ CallInst* VPOParoptTransform::genForkCallInst(WRegionNode *W, CallInst *CI) {
 // copyin variables.
 void VPOParoptTransform::genThreadedEntryActualParmList(WRegionNode *W,
                                           std::vector<Value *>& MTFnArgs) {
-  if (!W->hasCopyin())
+  if (!W->canHaveCopyin())
     return;
   CopyinClause &CP = W->getCopyin();
   for (auto C : CP.items())
     MTFnArgs.push_back(C->getOrig());
 }
 
-// Generates the formal parameters in the outlined function for 
+// Generates the formal parameters in the outlined function for
 // copyin variables. It can be extended for other variables including
-// firstprivate, shared, etc. 
+// firstprivate, shared, etc.
 void VPOParoptTransform::genThreadedEntryFormalParmList(WRegionNode *W,
                                           std::vector<Type *>& ParamsTy) {
-  if (!W->hasCopyin())
+  if (!W->canHaveCopyin())
     return;
   CopyinClause &CP = W->getCopyin();
-  for (auto C : CP.items()) 
+  for (auto C : CP.items())
     ParamsTy.push_back(C->getOrig()->getType());
 }
 
 // Fix the name of copyin formal parameters for outlined function.
 void VPOParoptTransform::fixThreadedEntryFormalParmName(WRegionNode *W,
                                                         Function *NFn) {
-  if (!W->hasCopyin())
+  if (!W->canHaveCopyin())
     return;
   CopyinClause &CP = W->getCopyin();
   if (!CP.empty()) {
@@ -2439,7 +2775,7 @@ void VPOParoptTransform::fixThreadedEntryFormalParmName(WRegionNode *W,
 //
 // copyin.not.master:                                ; preds = %newFuncRoot
 //   %2 = bitcast i32* %tpv_a to i8*
-//   call void @llvm.memcpy.p0i8.p0i8.i32(i8* 
+//   call void @llvm.memcpy.p0i8.p0i8.i32(i8*
 //                bitcast (i32* @a to i8*), i8* %2, i32 4, i32 4, i1 false)
 //   br label %copyin.not.master.end
 //
@@ -2447,7 +2783,7 @@ void VPOParoptTransform::fixThreadedEntryFormalParmName(WRegionNode *W,
 //
 void VPOParoptTransform::genTpvCopyIn(WRegionNode *W,
                                       Function *NFn) {
-  if (!W->hasCopyin())
+  if (!W->canHaveCopyin())
     return;
   CopyinClause &CP = W->getCopyin();
   if (!CP.empty()) {
@@ -2474,7 +2810,7 @@ void VPOParoptTransform::genTpvCopyIn(WRegionNode *W,
                                         C->getOrig(),Builder.getIntPtrTy(NDL));
 
         // The instruction to compare between the address of tpv formal
-        // arugment and the tpv accessed in the outlined function. 
+        // arugment and the tpv accessed in the outlined function.
         // One example is as follows.
         //   %1 = icmp ne i64 %0, ptrtoint (i32* @a to i64)
         Value *PtrCompare = Builder.CreateICmpNE(TpvArg, OldTpv);
@@ -2525,7 +2861,7 @@ Function *VPOParoptTransform::finalizeExtractedMTFunction(WRegionNode *W,
        ArgTyI != ArgTyE; ++ArgTyI) {
 
     // Matching formal argument and actual argument for Thread ID
-    if (!IsTidArg || TidParmNo != TidArgNo) 
+    if (!IsTidArg || TidParmNo != TidArgNo)
       ParamsTy.push_back(*ArgTyI);
 
     ++TidParmNo;
@@ -2572,7 +2908,7 @@ Function *VPOParoptTransform::finalizeExtractedMTFunction(WRegionNode *W,
 
   // For each argument, move the name and users over to the new version.
   TidParmNo = 0;
-  for (Function::arg_iterator I = Fn->arg_begin(), 
+  for (Function::arg_iterator I = Fn->arg_begin(),
                               E = Fn->arg_end(); I != E; ++I) {
     // Matching formal argument and actual argument for Thread ID
     if (IsTidArg && TidParmNo == TidArgNo) {
@@ -2603,39 +2939,39 @@ Function *VPOParoptTransform::finalizeExtractedMTFunction(WRegionNode *W,
   return NFn;
 }
 
-// Generate code for master/end master construct and update LLVM control-flow 
-// and dominator tree accordingly 
+// Generate code for master/end master construct and update LLVM control-flow
+// and dominator tree accordingly
 bool VPOParoptTransform::genMasterThreadCode(WRegionNode *W) {
   DEBUG(dbgs() << "\nEnter VPOParoptTransform::genMasterThreadCode\n");
   BasicBlock *EntryBB = W->getEntryBBlock();
   BasicBlock *ExitBB = W->getExitBBlock();
 
-  Instruction *InsertPt = dyn_cast<Instruction>(&*EntryBB->rbegin());
+  Instruction *InsertPt = EntryBB->getTerminator();
 
   // Generate __kmpc_master Call Instruction
-  CallInst* MasterCI = VPOParoptUtils::genKmpcMasterOrEndMasterCall(W, 
+  CallInst* MasterCI = VPOParoptUtils::genKmpcMasterOrEndMasterCall(W,
                          IdentTy, TidPtr, InsertPt, true);
   MasterCI->insertBefore(InsertPt);
 
   //DEBUG(dbgs() << " MasterCI: " << *MasterCI << "\n\n");
 
-  Instruction *InsertEndPt = dyn_cast<Instruction>(&*ExitBB->rbegin());
+  Instruction *InsertEndPt = ExitBB->getTerminator();
 
   // Generate __kmpc_end_master Call Instruction
-  CallInst* EndMasterCI = VPOParoptUtils::genKmpcMasterOrEndMasterCall(W, 
+  CallInst* EndMasterCI = VPOParoptUtils::genKmpcMasterOrEndMasterCall(W,
                             IdentTy, TidPtr, InsertEndPt, false);
   EndMasterCI->insertBefore(InsertEndPt);
 
-  // Generate (int)__kmpc_master(&loc, tid) test for executing code using 
-  // Master thread. 
+  // Generate (int)__kmpc_master(&loc, tid) test for executing code using
+  // Master thread.
   //
-  // __kmpc_master return: 1: master thread, 0: non master thread 
-  // 
+  // __kmpc_master return: 1: master thread, 0: non master thread
+  //
   //      MasterBBTest
   //         /    \
   //        /      \
-  //   MasterBB   emptyBB 
-  //        \      / 
+  //   MasterBB   emptyBB
+  //        \      /
   //         \    /
   //   SuccessorOfMasterBB
   //
@@ -2654,10 +2990,10 @@ bool VPOParoptTransform::genMasterThreadCode(WRegionNode *W) {
 
   TerminatorInst *TermInst = MasterTestBB->getTerminator();
 
-  ICmpInst* CondInst = new ICmpInst(TermInst, ICmpInst::ICMP_EQ, 
+  ICmpInst* CondInst = new ICmpInst(TermInst, ICmpInst::ICMP_EQ,
                                     MasterCI, ValueOne, "");
 
-  TerminatorInst *NewTermInst = BranchInst::Create(ThenMasterBB, 
+  TerminatorInst *NewTermInst = BranchInst::Create(ThenMasterBB,
                                                    SuccEndMasterBB, CondInst);
   ReplaceInstWithInst(TermInst, NewTermInst);
 
@@ -2677,7 +3013,7 @@ bool VPOParoptTransform::genSingleThreadCode(WRegionNode *W) {
   DEBUG(dbgs() << "\nEnter VPOParoptTransform::genSingleThreadCode\n");
   BasicBlock *EntryBB = W->getEntryBBlock();
 
-  Instruction *InsertPt = dyn_cast<Instruction>(&*EntryBB->rbegin());
+  Instruction *InsertPt = EntryBB->getTerminator();
 
   // Generate __kmpc_single Call Instruction
   CallInst* SingleCI = VPOParoptUtils::genKmpcSingleOrEndSingleCall(W,
@@ -2688,7 +3024,7 @@ bool VPOParoptTransform::genSingleThreadCode(WRegionNode *W) {
   // that is split from the ExitBB to be used as InsertEndPt.
   // Reuse the util that does this for Reduction and Lastprivate fini code.
   //
-  // Note: InsertEndPt should not be ExitBB->rbegin() because the 
+  // Note: InsertEndPt should not be ExitBB->rbegin() because the
   // _kmpc_end_single() should be emitted above the END SINGLE directive, not
   // after it.
   BasicBlock *NewBB = nullptr;
@@ -2700,13 +3036,13 @@ bool VPOParoptTransform::genSingleThreadCode(WRegionNode *W) {
                             IdentTy, TidPtr, InsertEndPt, false);
   EndSingleCI->insertBefore(InsertEndPt);
 
-  // Generate (int)__kmpc_single(&loc, tid) test for executing code using 
-  // Single thread, the  __kmpc_single return: 
-  // 
-  //    1: the single region can be executed by the current encounting 
+  // Generate (int)__kmpc_single(&loc, tid) test for executing code using
+  // Single thread, the  __kmpc_single return:
+  //
+  //    1: the single region can be executed by the current encounting
   //       thread in the team.
-  // 
-  //    0: the single region can not be executed by the current encounting 
+  //
+  //    0: the single region can not be executed by the current encounting
   //       thread, as it has been executed by another thread in the team.
   //
   //      SingleBBTest
@@ -2755,7 +3091,7 @@ bool VPOParoptTransform::genOrderedThreadCode(WRegionNode *W) {
   BasicBlock *EntryBB = W->getEntryBBlock();
   BasicBlock *ExitBB = W->getExitBBlock();
 
-  // Generate (void)__kmpc_ordered(&loc, tid) and 
+  // Generate (void)__kmpc_ordered(&loc, tid) and
   //          (void)__kmpc_end_ordered(&loc, tid) calls
   // for executing the ordered code region
   //
@@ -2767,14 +3103,14 @@ bool VPOParoptTransform::genOrderedThreadCode(WRegionNode *W) {
   //         \    /
   //      EndOrderedBB
 
-  Instruction *InsertPt = dyn_cast<Instruction>(&*EntryBB->rbegin());
+  Instruction *InsertPt = EntryBB->getTerminator();
 
   // Generate __kmpc_ordered Call Instruction
   CallInst* OrderedCI = VPOParoptUtils::genKmpcOrderedOrEndOrderedCall(W,
                           IdentTy, TidPtr, InsertPt, true);
   OrderedCI->insertBefore(InsertPt);
 
-  Instruction *InsertEndPt = dyn_cast<Instruction>(&*ExitBB->rbegin());
+  Instruction *InsertEndPt = ExitBB->getTerminator();
 
   // Generate __kmpc_end_ordered Call Instruction
   CallInst* EndOrderedCI = VPOParoptUtils::genKmpcOrderedOrEndOrderedCall(W,
@@ -2829,7 +3165,7 @@ bool VPOParoptTransform::genCriticalCode(WRNCriticalNode *CriticalNode) {
 // Insert a call to __kmpc_barrier() at the end of the construct
 bool VPOParoptTransform::genBarrier(WRegionNode *W, bool IsExplicit) {
 
-  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genBarrier [explicit=" 
+  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genBarrier [explicit="
                << IsExplicit << "]\n");
 
   // Create a new BB split from W's ExitBB to be used as InsertPt.
@@ -2842,4 +3178,43 @@ bool VPOParoptTransform::genBarrier(WRegionNode *W, bool IsExplicit) {
 
   DEBUG(dbgs() << "\nExit VPOParoptTransform::genBarrier\n");
   return true;
+}
+
+// Set the values in the private clause to be empty.
+void VPOParoptTransform::resetValueInPrivateClause(WRegionNode *W) {
+
+  if (!W->canHavePrivate())
+    return;
+
+  PrivateClause &PrivClause = W->getPriv();
+
+  if (PrivClause.empty())
+    return;
+
+  for (auto *I : PrivClause.items()) {
+    resetValueInIntelClauseGeneric(W, I->getOrig());
+  }
+}
+
+// Set the the arguments in the Intel compiler generated clause to be empty.
+void VPOParoptTransform::resetValueInIntelClauseGeneric(WRegionNode *W,
+                                                        Value *V) {
+  if (!V)
+    return;
+
+  SmallVector<Instruction *, 8> IfUses;
+  for (auto IB = V->user_begin(), IE = V->user_end(); IB != IE; ++IB) {
+    if (Instruction *User = dyn_cast<Instruction>(*IB))
+      if (W->contains(User->getParent()))
+        IfUses.push_back(User);
+  }
+
+  while (!IfUses.empty()) {
+    Instruction *UI = IfUses.pop_back_val();
+    if (VPOAnalysisUtils::isIntelDirectiveOrClause(UI)) {
+      LLVMContext &C = F->getContext();
+      UI->replaceUsesOfWith(V, ConstantPointerNull::get(Type::getInt8PtrTy(C)));
+      break;
+    }
+  }
 }

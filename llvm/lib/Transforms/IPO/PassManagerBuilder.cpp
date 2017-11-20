@@ -136,6 +136,11 @@ static cl::opt<unsigned> RunVPOParopt("paropt",
   cl::init(0x00000000), cl::Hidden,
   cl::desc("Run VPO Paropt Pass"));
 
+static cl::list<std::string> VPOOffloadTargets("offload-targets",
+  cl::value_desc("target triples"),
+  cl::desc("Comma-separated list of target triples for offloading."),
+  cl::CommaSeparated, cl::Hidden);
+
 static cl::opt<bool> RunVecClone("enable-vec-clone",
   cl::init(false), cl::Hidden,
   cl::desc("Run Vector Function Cloning"));
@@ -276,6 +281,9 @@ PassManagerBuilder::PassManagerBuilder() {
     PrepareForThinLTO = EnablePrepareForThinLTO;
     PerformThinLTO = false;
     DivergentTarget = false;
+#if INTEL_CUSTOMIZATION
+    OffloadTargets = VPOOffloadTargets;
+#endif // INTEL_CUSTOMIZATION
 }
 
 PassManagerBuilder::~PassManagerBuilder() {
@@ -363,7 +371,7 @@ void PassManagerBuilder::populateFunctionPassManager(
   FPM.add(createXmainOptLevelPass(OptLevel));
   if (RunVPOParopt) {
     FPM.add(createVPOCFGRestructuringPass());
-    FPM.add(createVPOParoptPreparePass(RunVPOParopt));
+    FPM.add(createVPOParoptPreparePass(RunVPOParopt, OffloadTargets));
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -1186,7 +1194,7 @@ void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM,
                                       bool RunVec) const {
   if (RunVPOParopt) {
     PM.add(createVPOCFGRestructuringPass());
-    PM.add(createVPOParoptPass(RunVPOParopt));
+    PM.add(createVPOParoptPass(RunVPOParopt, OffloadTargets));
   }
   // TODO: Temporal hook-up for VPlan VPO Vectorizer
   if (EnableVPlanDriver && RunVec) {

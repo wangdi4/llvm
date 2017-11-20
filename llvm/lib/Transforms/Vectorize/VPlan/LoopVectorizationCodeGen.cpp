@@ -430,7 +430,7 @@ void VPOVectorizationLegality::addReductionMult(Value *V) {
     parseExplicitReduction(V, RecurrenceDescriptor::RK_FloatMult);
 }
 
-void VPOVectorizationLegality::addReductionSum(Value *V) {
+void VPOVectorizationLegality::addReductionAdd(Value *V) {
   if (V->getType()->getPointerElementType()->isIntegerTy())
     parseExplicitReduction(V, RecurrenceDescriptor::RK_IntegerAdd);
   else

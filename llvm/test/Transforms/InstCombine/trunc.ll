@@ -591,6 +591,7 @@ define <8 x i8> @wide_lengthening_splat(<4 x i16> %v) {
   ret <8 x i8> %tr
 }
  
+; begin INTEL_CUSTOMIZATION
 ; Check replacement of sext with select according to information about demanded bits
 ; http://rise4fun.com/Alive/SrK
 define zeroext i8 @replace_sext_with_select(i1 %a, i32 %x, i1 %cond) {
@@ -605,6 +606,7 @@ define zeroext i8 @replace_sext_with_select(i1 %a, i32 %x, i1 %cond) {
   %conv = trunc i32 %b to i8
   ret i8 %conv
 }
+; end INTEL_CUSTOMIZATION
 
 
 define <2 x i8> @narrow_add_vec_constant(<2 x i32> %x) {

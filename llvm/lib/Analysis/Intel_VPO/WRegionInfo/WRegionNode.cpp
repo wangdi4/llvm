@@ -42,6 +42,7 @@ std::unordered_map<int, StringRef> llvm::vpo::WRNName = {
     {WRegionNode::WRNDistributeParLoop, "distribute parallel loop"},
     {WRegionNode::WRNTarget, "target"},
     {WRegionNode::WRNTargetData, "target data"},
+    {WRegionNode::WRNTargetUpdate, "target update"},
     {WRegionNode::WRNTask, "task"},
     {WRegionNode::WRNTaskloop, "taskloop"},
     {WRegionNode::WRNVecLoop, "simd"},
@@ -87,21 +88,21 @@ WRegionNode::WRegionNode(unsigned SCID) : SubClassID(SCID), Attributes(0) {
 void WRegionNode::finalize(BasicBlock *ExitBB) {
   setExitBBlock(ExitBB);
   if (getIsOmpLoop()) {
-    LoopInfo *LI = getLoopInfo();
+    LoopInfo *LI = getWRNLoopInfo().getLoopInfo();
     assert(LI && "LoopInfo not present in a loop construct");
     BasicBlock *EntryBB = getEntryBBlock();
     Loop *Lp = IntelGeneralUtils::getLoopFromLoopInfo(LI, EntryBB, ExitBB);
 
     // Do not assert for loop-type constructs when Lp==NULL because transforms
     // before Paropt may have optimized away the loop.
-    setLoop(Lp);
+    getWRNLoopInfo().setLoop(Lp);
 
     if (Lp)
       DEBUG(dbgs() << "\n=== finalize WRN: found loop : " << *Lp << "\n");
     else
       DEBUG(dbgs() << "\n=== finalize WRN: loop not found. Optimized away?\n");
 
-    // For taskloop, the runtime has a parameter for either Grainsize or 
+    // For taskloop, the runtime has a parameter for either Grainsize or
     // NumTasks, which is chosen by the parameter SchedCode:
     //   SchedCode==1 means Grainsize is used
     //   SchedCode==2 means NumTasks is used
@@ -127,7 +128,7 @@ void WRegionNode::finalize(BasicBlock *ExitBB) {
       PrivateClause &PC = getPriv();
       populateBBSet();
       for (BasicBlock *BB : BBlockSet)
-        for (Instruction &I : *BB) 
+        for (Instruction &I : *BB)
           if (VPOAnalysisUtils::isCallOfName(&I, "__read_pipe_2_bl_intel")) {
             CallInst *Call = dyn_cast<CallInst>(&I);
             // DEBUG(dbgs() << "Found Call: " << *Call << "\n");
@@ -135,7 +136,7 @@ void WRegionNode::finalize(BasicBlock *ExitBB) {
                    "__read_pipe_2_bl_intel() is expected to have 2 operands");
             Value *V = Call->getArgOperand(1); // second operand
             AllocaInst *Alloca = VPOAnalysisUtils::findAllocaInst(V);
-            assert (Alloca && 
+            assert (Alloca &&
                     "Alloca not found for __read_pipe_2_bl_intel operand");
             if (Alloca) {
               // DEBUG(dbgs() << "Found Alloca: " << *Alloca << "\n");
@@ -208,143 +209,118 @@ WRegionNode *WRegionNode::getLastChild() {
 // Default print() routine for WRegionNode. This routine is invoked for
 // printing the WRN unless the specialized WRegion defines its own print().
 void WRegionNode::print(formatted_raw_ostream &OS, unsigned Depth,
-                                                   bool Verbose) const {
+                                                   unsigned Verbosity) const {
   // Print BEGIN <directive_name>
   printBegin(OS, Depth);
 
   // Print WRN contents specific to a given derived class. If the derived
   // class does not define printExtra(), then this does nothing.
-  printExtra(OS, Depth+1, Verbose);
+  printExtra(OS, Depth+1, Verbosity);
 
   // Print WRN contents: Clauses, BBlocks, Loop, Children, etc.
-  printBody(OS, true, Depth+1, Verbose);
+  printBody(OS, true, Depth+1, Verbosity);
 
   // Print END <directive_name>
   printEnd(OS, Depth);
 }
 
 void WRegionNode::printBegin(formatted_raw_ostream &OS, unsigned Depth) const {
-  int Id = getDirID(); 
+  int Id = getDirID();
   StringRef DirName = VPOAnalysisUtils::getDirectiveName(Id);
   OS.indent(2*Depth) << "BEGIN " << DirName <<" ID=" << getNumber() << " {\n\n";
 }
 
 void WRegionNode::printEnd(formatted_raw_ostream &OS, unsigned Depth) const {
-  int Id = getDirID(); 
+  int Id = getDirID();
   StringRef DirName = VPOAnalysisUtils::getDirectiveName(Id);
   OS.indent(2*Depth) << "} END " << DirName <<" ID=" << getNumber() << "\n\n";
 }
 
-void WRegionNode::printBody(formatted_raw_ostream &OS, bool PrintChildren, 
-                                       unsigned Depth, bool Verbose) const {
-  printClauses(OS, Depth, Verbose);
+void WRegionNode::printBody(formatted_raw_ostream &OS, bool PrintChildren,
+                            unsigned Depth, unsigned Verbosity) const {
+  printClauses(OS, Depth, Verbosity);
 
   if (getIsFromHIR())
-    printHIR(OS, Depth, Verbose); // defined by derived WRN
+    printHIR(OS, Depth, Verbosity); // defined by derived WRN
   else {
-    printEntryExitBB(OS, Depth, Verbose);
+    printEntryExitBB(OS, Depth, Verbosity);
     if (getIsOmpLoop())
-      printLoopBB(OS, Depth, Verbose);
+      printLoopBB(OS, Depth, Verbosity);
   }
 
   if (PrintChildren)
-    printChildren(OS, Depth, Verbose);
+    printChildren(OS, Depth, Verbosity);
 }
 
 
-void WRegionNode::printClauses(formatted_raw_ostream &OS, 
-                               unsigned Depth, bool Verbose) const {
+void WRegionNode::printClauses(formatted_raw_ostream &OS,
+                               unsigned Depth, unsigned Verbosity) const {
   bool PrintedSomething = false;
 
-  if (hasSchedule()) {
-    getSchedule().print(OS, Depth, Verbose);
-    PrintedSomething = true;
-  }
-  if (hasShared()) {
-    getShared().print(OS, Depth, Verbose);
-    PrintedSomething = true;
-  }
-  if (hasPrivate()) {
-    getPriv().print(OS, Depth, Verbose);
-    PrintedSomething = true;
-  }
-  if (hasFirstprivate()) {
-    getFpriv().print(OS, Depth, Verbose);
-    PrintedSomething = true;
-  }
-  if (hasLastprivate()) {
-    getLpriv().print(OS, Depth, Verbose);
-    PrintedSomething = true;
-  }
-  if (hasReduction()) {
-    getRed().print(OS, Depth, Verbose);
-    PrintedSomething = true;
-  }
-  if (hasCopyin()) {
-    getCopyin().print(OS, Depth, Verbose);
-    PrintedSomething = true;
-  }
-  if (hasCopyprivate()) {
-    getCpriv().print(OS, Depth, Verbose);
-    PrintedSomething = true;
-  }
-  if (hasLinear()) {
-    getLinear().print(OS, Depth, Verbose);
-    PrintedSomething = true;
-  }
-  if (hasUniform()) {
-    getUniform().print(OS, Depth, Verbose);
-    PrintedSomething = true;
-  }
-  if (hasMap()) {
-    getMap().print(OS, Depth, Verbose);
-    PrintedSomething = true;
-  }
-  if (hasIsDevicePtr()) {
-    getIsDevicePtr().print(OS, Depth, Verbose);
-    PrintedSomething = true;
-  }
-  if (hasUseDevicePtr()) {
-    getUseDevicePtr().print(OS, Depth, Verbose);
-    PrintedSomething = true;
-  }
-  if (hasDepend()) {
-    getDepend().print(OS, Depth, Verbose);
-    PrintedSomething = true;
-  }
-  if (hasDepSink()) {
-    getDepSink().print(OS, Depth, Verbose);
-    PrintedSomething = true;
-  }
-  if (hasAligned()) {
-    getAligned().print(OS, Depth, Verbose);
-    PrintedSomething = true;
-  }
-  if (hasFlush()) {
-    getFlush().print(OS, Depth, Verbose);
-    PrintedSomething = true;
-  }
+  if (canHaveSchedule())
+    PrintedSomething |= getSchedule().print(OS, Depth, Verbosity);
+
+  if (canHaveDistSchedule())
+    PrintedSomething |= getSchedule().print(OS, Depth, Verbosity);
+
+  if (canHaveShared())
+    PrintedSomething |= getShared().print(OS, Depth, Verbosity);
+
+  if (canHavePrivate())
+    PrintedSomething |= getPriv().print(OS, Depth, Verbosity);
+
+  if (canHaveFirstprivate())
+    PrintedSomething |= getFpriv().print(OS, Depth, Verbosity);
+
+  if (canHaveLastprivate())
+    PrintedSomething |= getLpriv().print(OS, Depth, Verbosity);
+
+  if (canHaveReduction())
+    PrintedSomething |= getRed().print(OS, Depth, Verbosity);
+
+  if (canHaveCopyin())
+    PrintedSomething |= getCopyin().print(OS, Depth, Verbosity);
+
+  if (canHaveCopyprivate())
+    PrintedSomething |= getCpriv().print(OS, Depth, Verbosity);
+
+  if (canHaveLinear())
+    PrintedSomething |= getLinear().print(OS, Depth, Verbosity);
+
+  if (canHaveUniform())
+    PrintedSomething |= getUniform().print(OS, Depth, Verbosity);
+
+  if (canHaveMap())
+    PrintedSomething |= getMap().print(OS, Depth, Verbosity);
+
+  if (canHaveIsDevicePtr())
+    PrintedSomething |= getIsDevicePtr().print(OS, Depth, Verbosity);
+
+  if (canHaveUseDevicePtr())
+    PrintedSomething |= getUseDevicePtr().print(OS, Depth, Verbosity);
+
+  if (canHaveDepend())
+    PrintedSomething |= getDepend().print(OS, Depth, Verbosity);
+
+  if (canHaveDepSink())
+    PrintedSomething |= getDepSink().print(OS, Depth, Verbosity);
+
+  if (canHaveAligned())
+    PrintedSomething |= getAligned().print(OS, Depth, Verbosity);
+
+  if (canHaveFlush())
+    PrintedSomething |= getFlush().print(OS, Depth, Verbosity);
+
   if (PrintedSomething)
     OS << "\n";
 }
 
-// Auxiliary function to print BB:
-//   Verbose == true:  print *BB
-//   Verbose == false: print BB->getName()
-void printBB(BasicBlock *BB, formatted_raw_ostream &OS, int Indent,
-                                                        bool Verbose) {
-  if (!BB)
-    OS << "NULL BBlock\n";
-
-  if (Verbose) {
-    OS << "\n";
-    OS.indent(Indent) << *BB << "\n";
-  } else
-    OS << BB->getName() << "\n";
-}
-
+// Verbosity <= 1:         print BB name for EntryBB/ExitBB
+// Verbosity == 2: above + print BB content for EntryBB/ExitBB
+// Verbosity == 3: above + print BB name for all BBs in BBSet
+// Verbosity >= 4: above + print BB content for all BBs in BBSet
 void WRegionNode::printEntryExitBB(formatted_raw_ostream &OS, unsigned Depth,
-                                   bool Verbose) const {
+                                   unsigned Verbosity) const {
   if (getIsFromHIR()) // HIR representation; no BBs to print
     return;
 
@@ -355,56 +331,35 @@ void WRegionNode::printEntryExitBB(formatted_raw_ostream &OS, unsigned Depth,
   assert (EntryBB && "Entry BB is null!");
   assert (ExitBB && "Exit BB is null!");
 
-  OS.indent(Ind) << "EntryBB: ";
-  printBB(EntryBB, OS, Ind, Verbose);
+  vpo::printBB("EntryBB", EntryBB, OS, Ind, Verbosity);
+  vpo::printBB("ExitBB",  ExitBB,  OS, Ind, Verbosity);
 
-  OS.indent(Ind) << "ExitBB: ";
-  printBB(ExitBB, OS, Ind, Verbose);
-
-  if (Verbose) {
+  if (Verbosity >=3) {
     OS.indent(Ind) << "BBSet";
     if (!isBBSetEmpty()) {
       OS << ":\n";
       for (BasicBlock *BB : BBlockSet ) {
-        OS.indent(Ind+2) << BB->getName() << "\n";
-        // OS.indent(Ind+2) << *BB << "\n";
+        if (Verbosity == 3)
+          OS.indent(Ind+2) << BB->getName() << "\n"; // print names only
+        else // Verbosity >=4
+          OS.indent(Ind+2) << *BB << "\n";           // print BB contents
       }
     } else
-      OS << "is empty\n";
+      OS << " is empty\n";
   }
   OS << "\n";
 }
 
 void WRegionNode::printLoopBB(formatted_raw_ostream &OS, unsigned Depth,
-                                                         bool Verbose) const {
-  if (!getIsOmpLoop())
-    return;
-
-  int Ind = 2*Depth;
-
-  Loop *L = getLoop();
-
-  if (!L) {
-    OS.indent(Ind) << "Loop is missing; may be optimized away.\n";
-    return;
-  }
-
-  OS.indent(Ind) << "Loop Preheader: ";
-  printBB(L->getLoopPreheader(), OS, Ind, Verbose);
-
-  OS.indent(Ind) << "Loop Header: ";
-  printBB(L->getHeader(), OS, Ind, Verbose);
-
-  OS.indent(Ind) << "Loop Latch: ";
-  printBB(L->getLoopLatch(), OS, Ind, Verbose);
-
-  OS << "\n";
+                              unsigned Verbosity) const {
+  if (getIsOmpLoop())
+    getWRNLoopInfo().print(OS, Depth, Verbosity);
 }
 
 void WRegionNode::printChildren(formatted_raw_ostream &OS, unsigned Depth,
-                                bool Verbose) const {
+                                unsigned Verbosity) const {
   for (WRegionNode *W : Children)
-    W->print(OS, Depth, Verbose);
+    W->print(OS, Depth, Verbosity);
 }
 
 void WRegionNode::destroy() {
@@ -415,10 +370,10 @@ void WRegionNode::destroyAll() {
   // TODO: implement this by recursive walk from top
 }
 
-void WRegionNode::dump(bool Verbose) const {
+void WRegionNode::dump(unsigned Verbosity) const {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   formatted_raw_ostream OS(dbgs());
-  print(OS, 0, Verbose);
+  print(OS, 0, Verbosity);
 #endif
 }
 
@@ -446,7 +401,7 @@ void WRegionNode::parseClause(const ClauseSpecifier &ClauseInfo,
   int ClauseID = ClauseInfo.getId();
 
   // Classify the clause based on the number of arguments allowed by the
-  // clause, which can be 0, 1, or a list. The utility getClauseType() 
+  // clause, which can be 0, 1, or a list. The utility getClauseType()
   // returns one of these:
   //    0: for clauses that take no arguments
   //    1: for clauses that take one argument only
@@ -660,7 +615,7 @@ void WRegionUtils::extractQualOpndList(const Use *Args, unsigned NumArgs,
   bool IsConditional = ClauseInfo.getIsConditional();
 
   if (IsConditional)
-    assert(ClauseID == QUAL_OMP_LASTPRIVATE && 
+    assert(ClauseID == QUAL_OMP_LASTPRIVATE &&
            "The CONDITIONAL keyword is for LASTPRIVATE clauses only");
 
   C.setClauseID(ClauseID);
@@ -684,7 +639,7 @@ void WRegionUtils::extractScheduleOpndList(ScheduleClause & Sched,
 
   Value *ChunkArg = Args[0];  // chunk size expr
 
-  // save the chunk size expr 
+  // save the chunk size expr
   Sched.setChunkExpr(ChunkArg);
 
   // If ChunkExpr is a constant expression, extract the constant and save it
@@ -699,13 +654,13 @@ void WRegionUtils::extractScheduleOpndList(ScheduleClause & Sched,
   // symbolic expr whose value is unkown at compile time.
   int64_t ChunkSize = -1;
   ConstantInt *CI = dyn_cast<ConstantInt>(ChunkArg);
-  if (CI != nullptr) { 
+  if (CI != nullptr) {
     ChunkSize = *((CI->getValue()).getRawData());
     DEBUG(dbgs() << " Schedule chunk size is constant: " << ChunkSize << "\n");
   }
   Sched.setChunk(ChunkSize);
 
-  // Save schedule modifier info 
+  // Save schedule modifier info
   Sched.setIsSchedMonotonic(ClauseInfo.getIsScheduleMonotonic());
   Sched.setIsSchedNonmonotonic(ClauseInfo.getIsScheduleNonmonotonic());
   Sched.setIsSchedSimd(ClauseInfo.getIsScheduleSimd());
@@ -723,13 +678,13 @@ void WRegionUtils::extractScheduleOpndList(ScheduleClause & Sched,
 void WRegionUtils::extractMapOpndList(const Use *Args, unsigned NumArgs,
                                       const ClauseSpecifier &ClauseInfo,
                                       MapClause &C, unsigned MapKind) {
-  C.setClauseID(QUAL_OMP_MAP_TO); // dummy map clause id; details are in 
+  C.setClauseID(QUAL_OMP_MAP_TO); // dummy map clause id; details are in
                                   // the MapKind of each list item
 
   if (ClauseInfo.getIsArraySection()) {
     //TODO: Parse array section arguments.
-  } 
-  else 
+  }
+  else
     for (unsigned I = 0; I < NumArgs; ++I) {
       Value *V = (Value*) Args[I];
       C.add(V);
@@ -741,11 +696,11 @@ void WRegionUtils::extractMapOpndList(const Use *Args, unsigned NumArgs,
 void WRegionUtils::extractDependOpndList(const Use *Args, unsigned NumArgs,
                                          const ClauseSpecifier &ClauseInfo,
                                          DependClause &C, bool IsIn) {
-  C.setClauseID(QUAL_OMP_DEPEND_IN); // dummy depend clause id; 
+  C.setClauseID(QUAL_OMP_DEPEND_IN); // dummy depend clause id;
 
   if (ClauseInfo.getIsArraySection()) {
     //TODO: Parse array section arguments.
-  } 
+  }
   else
     for (unsigned I = 0; I < NumArgs; ++I) {
       Value *V = (Value*) Args[I];
@@ -773,7 +728,7 @@ void WRegionUtils::extractLinearOpndList(const Use *Args, unsigned NumArgs,
     Value *V = (Value*) Args[I];
     C.add(V);
     LinearItem *LI = C.back();
-    LI->setStep(Step); 
+    LI->setStep(Step);
   }
 }
 
@@ -789,7 +744,7 @@ void WRegionUtils::extractReductionOpndList(const Use *Args, unsigned NumArgs,
 
   if (ClauseInfo.getIsArraySection()) {
     //TODO: Parse array section arguments.
-  } 
+  }
   else
     for (unsigned I = 0; I < NumArgs; ++I) {
       Value *V = (Value*) Args[I];
@@ -805,8 +760,8 @@ void WRegionUtils::extractReductionOpndList(const Use *Args, unsigned NumArgs,
 //
 // The code below was trying to get initializer and combiner from the LLVM IR.
 // However, only UDR requires initializer and combiner function pointers, and
-// the front-end has to provide them. 
-// For standard OpenMP reduction operations(ie, not UDR), the combiner and 
+// the front-end has to provide them.
+// For standard OpenMP reduction operations(ie, not UDR), the combiner and
 // initializer operations are implied by the reduction operation and type
 // of the reduction variable.
 // Therefore, we should never have to use the code below.
@@ -825,7 +780,7 @@ static void setReductionItem(ReductionItem *RI, IntrinsicInst *Call) {
     return Phi;
   };
 
-  Value *RedVarPtr = RI->getOrig();      
+  Value *RedVarPtr = RI->getOrig();
   assert(isa<PointerType>(RedVarPtr->getType()) &&
          "Variable specified in Reduction directive should be a pointer");
 
@@ -972,7 +927,11 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
                                           WRNScheduleRuntime);
     break;
   }
-  case QUAL_OMP_DIST_SCHEDULE_STATIC:
+  case QUAL_OMP_DIST_SCHEDULE_STATIC: {
+    WRegionUtils::extractScheduleOpndList(getSchedule(), Args, ClauseInfo,
+                                          WRNScheduleDistributeStatic);
+    break;
+  }
   case QUAL_OMP_SCHEDULE_STATIC: {
     WRegionUtils::extractScheduleOpndList(getSchedule(), Args, ClauseInfo,
                                           WRNScheduleStatic);
@@ -983,7 +942,7 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
   case QUAL_OMP_REDUCTION_MUL:
   case QUAL_OMP_REDUCTION_AND:
   case QUAL_OMP_REDUCTION_OR:
-  case QUAL_OMP_REDUCTION_XOR:
+  case QUAL_OMP_REDUCTION_BXOR:
   case QUAL_OMP_REDUCTION_BAND:
   case QUAL_OMP_REDUCTION_BOR:
   case QUAL_OMP_REDUCTION_MAX:
@@ -1026,25 +985,31 @@ void WRegionNode::getClausesFromOperandBundles() {
     ArrayRef<llvm::Use> Args = BU.Inputs;
     unsigned NumArgs = Args.size();   // BU.Inputs.size()
 
-    const Use *ArgList = NumArgs==0 ? nullptr : &Args[0]; 
+    const Use *ArgList = NumArgs==0 ? nullptr : &Args[0];
 
     // Parse the clause and update the WRN
     parseClause(ClauseInfo, ArgList, NumArgs);
   }
 }
 
-bool WRegionNode::hasSchedule() const {
+bool WRegionNode::canHaveSchedule() const {
   unsigned SubClassID = getWRegionKindID();
   switch (SubClassID) {
   case WRNParallelLoop:
   case WRNDistributeParLoop:
   case WRNWksLoop:
+  case WRNDistribute:
     return true;
   }
   return false;
 }
 
-bool WRegionNode::hasShared() const {
+bool WRegionNode::canHaveDistSchedule() const {
+  // true for WRNDistribute and WRNDistributeParLoop
+  return getIsDistribute();
+}
+
+bool WRegionNode::canHaveShared() const {
   unsigned SubClassID = getWRegionKindID();
   switch (SubClassID) {
   case WRNParallel:
@@ -1060,7 +1025,7 @@ bool WRegionNode::hasShared() const {
   return false;
 }
 
-bool WRegionNode::hasPrivate() const {
+bool WRegionNode::canHavePrivate() const {
   unsigned SubClassID = getWRegionKindID();
   switch (SubClassID) {
   case WRNParallel:
@@ -1082,17 +1047,17 @@ bool WRegionNode::hasPrivate() const {
   return false;
 }
 
-bool WRegionNode::hasFirstprivate() const {
+bool WRegionNode::canHaveFirstprivate() const {
   unsigned SubClassID = getWRegionKindID();
 
-  // similar to hasPrivate except for SIMD, 
+  // similar to canHavePrivate except for SIMD,
   // which has Private but not Firstprivate
   if (SubClassID == WRNVecLoop)
     return false;
-  return hasPrivate();
+  return canHavePrivate();
 }
 
-bool WRegionNode::hasLastprivate() const {
+bool WRegionNode::canHaveLastprivate() const {
   unsigned SubClassID = getWRegionKindID();
   switch (SubClassID) {
   case WRNParallelLoop:
@@ -1107,7 +1072,7 @@ bool WRegionNode::hasLastprivate() const {
   return false;
 }
 
-bool WRegionNode::hasReduction() const {
+bool WRegionNode::canHaveReduction() const {
   unsigned SubClassID = getWRegionKindID();
   switch (SubClassID) {
   case WRNParallel:
@@ -1116,7 +1081,7 @@ bool WRegionNode::hasReduction() const {
   case WRNParallelWorkshare:
   case WRNTeams:
   case WRNDistributeParLoop:
-  // TODO: support OMP5.0 task/taskloop reduction 
+  // TODO: support OMP5.0 task/taskloop reduction
   //  case WRNTask:
   //  case WRNTaskloop:
   case WRNVecLoop:
@@ -1127,7 +1092,7 @@ bool WRegionNode::hasReduction() const {
   return false;
 }
 
-bool WRegionNode::hasCopyin() const {
+bool WRegionNode::canHaveCopyin() const {
   unsigned SubClassID = getWRegionKindID();
   switch (SubClassID) {
   case WRNParallel:
@@ -1140,13 +1105,13 @@ bool WRegionNode::hasCopyin() const {
   return false;
 }
 
-bool WRegionNode::hasCopyprivate() const {
+bool WRegionNode::canHaveCopyprivate() const {
   unsigned SubClassID = getWRegionKindID();
   // only SINGLE can have a Copyprivate clause
   return SubClassID==WRNSingle;
 }
 
-bool WRegionNode::hasLinear() const {
+bool WRegionNode::canHaveLinear() const {
   unsigned SubClassID = getWRegionKindID();
   switch (SubClassID) {
   case WRNParallelLoop:
@@ -1158,40 +1123,40 @@ bool WRegionNode::hasLinear() const {
   return false;
 }
 
-bool WRegionNode::hasUniform() const {
+bool WRegionNode::canHaveUniform() const {
   unsigned SubClassID = getWRegionKindID();
   // only SIMD can have a Uniform clause
   return SubClassID==WRNVecLoop;
 }
 
-bool WRegionNode::hasAligned() const {
+bool WRegionNode::canHaveAligned() const {
   // only SIMD can have an Aligned clause
-  return hasUniform();
+  return canHaveUniform();
 }
 
-bool WRegionNode::hasMap() const {
+bool WRegionNode::canHaveMap() const {
   // Only target-type constructs take map clauses
   return getIsTarget();
 }
 
-bool WRegionNode::hasIsDevicePtr() const {
+bool WRegionNode::canHaveIsDevicePtr() const {
   unsigned SubClassID = getWRegionKindID();
   // only WRNTargetNode can have a IsDevicePtr clause
   return SubClassID==WRNTarget;
 }
 
-bool WRegionNode::hasUseDevicePtr() const {
+bool WRegionNode::canHaveUseDevicePtr() const {
   unsigned SubClassID = getWRegionKindID();
   // only WRNTargetDataNode can have a UseDevicePtr clause
   return SubClassID==WRNTargetData;
 }
 
-bool WRegionNode::hasDepend() const {
+bool WRegionNode::canHaveDepend() const {
   // Only task-type constructs take depend clauses
   return getIsTask();
 }
 
-bool WRegionNode::hasDepSink() const {
+bool WRegionNode::canHaveDepSink() const {
   unsigned SubClassID = getWRegionKindID();
   // only WRNOrderedNode can have a depend(sink : vec) clause
   // but only if its "IsDoacross" field is true
@@ -1201,7 +1166,7 @@ bool WRegionNode::hasDepSink() const {
   return false;
 }
 
-bool WRegionNode::hasFlush() const {
+bool WRegionNode::canHaveFlush() const {
   unsigned SubClassID = getWRegionKindID();
   // only WRNFlushNode can have a flush set
   return SubClassID==WRNFlush;
@@ -1226,4 +1191,98 @@ void WRegionNode::errorClause(StringRef ClauseName) const {
 void WRegionNode::errorClause(int ClauseID) const {
   StringRef ClauseName = VPOAnalysisUtils::getClauseName(ClauseID);
   errorClause(ClauseName);
+}
+
+// Printing routines to help dump WRN content
+
+// Auxiliary function to print a BB in a WRN dump
+// If BB is null:
+//   Verbosity == 0: exit without printing anything
+//   Verbosity >= 1: print "Title: NULL BBlock"
+// If BB is not null:
+//   Verbosity <= 1: : print BB->getName()
+//   Verbosity >= 2: : print *BB (dumps the Bblock content)
+void vpo::printBB(StringRef Title, BasicBlock *BB, formatted_raw_ostream &OS,
+                  int Indent, unsigned Verbosity) {
+  if (Verbosity==0 && !BB)
+    return; // When Verbosity==0; print nothing if BB==nullptr
+
+  OS.indent(Indent) << Title << ": ";
+  if (!BB) {
+    OS << "NULL BBlock\n";
+    return;
+  }
+
+  if (Verbosity<=1) {
+    OS << BB->getName() << "\n";
+  } else { // Verbosity >= 2
+    OS << "\n";
+    OS.indent(Indent) << *BB << "\n";
+  }
+}
+
+// Auxiliary function to print a Value in a WRN dump
+// If Val is null:
+//   Verbosity == 0: exit without printing anything
+//   Verbosity >= 1: print "Title: UNSPECIFIED"
+// If Val is not null:
+//   print *Val regardless of Verbosity
+void vpo::printVal(StringRef Title, Value *Val, formatted_raw_ostream &OS,
+                   int Indent, unsigned Verbosity) {
+  if (Verbosity==0 && !Val)
+    return; // When Verbosity==0; print nothing if Val==nullptr
+
+  OS.indent(Indent) << Title << ": ";
+  if (!Val) {
+    OS << "UNSPECIFIED\n";
+    return;
+  }
+  OS << *Val << "\n";
+}
+
+// Auxiliary function to print an Int in a WRN dump
+// If Num is 0:
+//   Verbosity == 0: exit without printing anything
+//   Verbosity >= 1: print "Title: UNSPECIFIED"
+// If Num is not 0:
+//   print "Title: Num"
+void vpo::printInt(StringRef Title, int Num, formatted_raw_ostream &OS,
+                   int Indent, unsigned Verbosity) {
+  if (Verbosity==0 && Num==0)
+    return; // When Verbosity==0; print nothing if Num==0
+
+  OS.indent(Indent) << Title << ": ";
+  if (Num==0) {
+    OS << "UNSPECIFIED\n";
+    return;
+  }
+  OS << Num << "\n";
+}
+
+// Auxiliary function to print a boolean in a WRN dump
+// If Verbosity == 0, don't print anything if Flag is false;
+// otherwise, print "Title: true/false"
+void vpo::printBool(StringRef Title, bool Flag, formatted_raw_ostream &OS,
+                    int Indent, unsigned Verbosity) {
+  if (Verbosity==0 && Flag==false)
+    return; // When Verbosity==0; print nothing if Flag==false
+
+  OS.indent(Indent) << Title << ": ";
+  if (Flag)
+    OS <<  "true\n";
+  else
+    OS <<  "false\n";
+}
+
+// Auxiliary function to print a String for dumping certain clauses. E.g.,
+// for the DEFAULT clause we may print "NONE", "SHARED", "PRIVATE", etc.
+// If <Str> == "UNSPECIFIED"  (happens when the clause is not specified)
+//   Verbosity == 0: exit without printing anything
+//   Verbosity >= 1: print "Title: UNSPECIFIED"
+// Else
+//   print "Title: Str"
+void vpo::printStr(StringRef Title, StringRef Str, formatted_raw_ostream &OS,
+                   int Indent, unsigned Verbosity) {
+  if (Verbosity!=0 || Str!="UNSPECIFIED")
+    OS.indent(Indent) << Title << ": " << Str << "\n";
 }

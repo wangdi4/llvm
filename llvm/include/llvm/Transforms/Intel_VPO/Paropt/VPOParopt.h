@@ -73,7 +73,8 @@ public:
   /// Pass Identification
   static char ID;
 
-  explicit VPOParopt(unsigned MyMode = ParTrans | OmpPar | OmpVec );
+  explicit VPOParopt(unsigned MyMode = ParTrans | OmpPar | OmpVec,
+    const std::vector<std::string> &OffloadTargets = {});
   ~VPOParopt(){};
 
   StringRef getPassName() const override { return "VPO Paropt Pass"; }
@@ -85,7 +86,19 @@ public:
 
 private:
   WRegionInfo *WI;
+  /// \brief Creates the global llvm.global_ctors initialized
+  /// with the function .omp_offloading.descriptor_reg
+  void genCtorList(Module &M);
+
+  /// \brief Remove routines and global variables which has no target declare
+  /// attribute.
+  void removeTargetUndeclaredGlobals(Module &M);
+
+  // Paropt mode.
   unsigned Mode;
+
+  // List of target triples for offloading.
+  SmallVector<Triple, 16> OffloadTargets;
 };
 
 } // end namespace vpo

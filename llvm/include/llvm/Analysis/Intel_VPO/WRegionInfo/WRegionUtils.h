@@ -155,7 +155,7 @@ public:
     WRNVisitor<WV> V(Visitor);
     V.forwardVisit(Graph);
   }
-  
+
   /// \brief Visit all WRN nodes in the Graph in the backward direction
   template <typename WV>
   static void backwardVisit(WV &Visitor, WRContainerImpl *Graph) {
@@ -277,13 +277,15 @@ public:
 
   /// \brief Get the zero trip test of the OMP loop if the zero trip
   ///  test exists.
-  static ICmpInst *getOmpLoopZeroTripTest(Loop *L);
+  static ICmpInst *getOmpLoopZeroTripTest(Loop *L, BasicBlock *EntryBB);
 
-  /// \breif Get the positin of the given loop index at 
+  /// \breif Get the positin of the given loop index at
   /// the bottom/zero trip test expression.
   static void getLoopIndexPosInPredicate(Value *LoopIndex,
                                          Instruction *CondInst,
                                          bool &IsLeft);
+  static FirstprivateItem *wrnSeenAsFirstPrivate(WRegionNode *W, Value *V);
+  static LastprivateItem *wrnSeenAsLastPrivate(WRegionNode *W, Value *V);
 };
 
 
