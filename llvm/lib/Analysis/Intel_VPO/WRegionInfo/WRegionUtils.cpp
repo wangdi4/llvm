@@ -484,3 +484,14 @@ LastprivateItem *WRegionUtils::wrnSeenAsLastPrivate(WRegionNode *W, Value *V) {
   LastprivateClause &LprivClause = W->getLpriv();
   return LprivClause.findOrig(V);
 }
+
+// The utility checks whether the given value is used at the region
+// entry directive.
+bool WRegionUtils::usedInRegionEntryDirective(WRegionNode *W, Value *I) {
+  for (auto IB = I->user_begin(), IE = I->user_end(); IB != IE; IB++)
+    if (Instruction *User = dyn_cast<Instruction>(*IB))
+      if (VPOAnalysisUtils::isIntelDirectiveOrClause(User) &&
+          User->getParent() == W->getEntryBBlock())
+        return true;
+  return false;
+}

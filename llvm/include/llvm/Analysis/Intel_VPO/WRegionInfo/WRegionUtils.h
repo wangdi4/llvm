@@ -286,6 +286,10 @@ public:
                                          bool &IsLeft);
   static FirstprivateItem *wrnSeenAsFirstPrivate(WRegionNode *W, Value *V);
   static LastprivateItem *wrnSeenAsLastPrivate(WRegionNode *W, Value *V);
+
+  /// \brief The utility checks whether the given value is used
+  /// at the region entry directive.
+  static bool usedInRegionEntryDirective(WRegionNode *W, Value *I);
 };
 
 

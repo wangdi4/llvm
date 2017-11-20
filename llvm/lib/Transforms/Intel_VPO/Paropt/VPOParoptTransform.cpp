@@ -1391,20 +1391,70 @@ bool VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
   return Changed;
 }
 
-// Clean up the intrinsic @llvm.invariant.group.barrier and replace the use
-// of the intrinsic with the its operand.
+//  Clean up the intrinsic @llvm.invariant.group.barrier and replace the use
+//  of the intrinsic with the its operand.
+//
+//  After the compiler generates the function call
+//  @llvm.invariant.group.barrier in the VPO Paropt Prepare pass, the Early
+//  CSE pass moves the bitcast instruction across the OMP region. Before
+//  the VPO Paropt pass, the compiler removes the intrinsic
+//  @llvm.invariant.group.barrier and propagates the result of the intrinsic
+//  to the user instructions. The compiler has to handle the bitcast
+//  instruction outside the OMP region by cloning that bitcast instruction
+//  and place it at the beginning of region entry.
+//
+//  *** IR Dump After VPO Paropt Prepare Pass ***
+//    %2 = call token @llvm.directive.region.entry()
+//    [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.PRIVATE"([10 x i32]* %pvtPtr) ]
+//    %3 = bitcast [10 x i32]* %pvtPtr to i8*
+//    %4 = call i8* @llvm.invariant.group.barrier(i8* %3)
+//
+//  *** IR Dump After Early CSE ***
+//    %0 = bitcast [10 x i32]* %pvtPtr to i8*
+//    ...
+//  DIR.OMP.PARALLEL.1:
+//    %1 = call token @llvm.directive.region.entry()
+//    [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.PRIVATE"([10 x i32]* %pvtPtr) ]
+//    %2 = call i8* @llvm.invariant.group.barrier(i8* %0)
+//
+//  *** IR Dump Before VPO Paropt Prepare Pass ***
+//    %0 = bitcast [10 x i32]* %pvtPtr to i8*
+//    ...
+//  DIR.OMP.PARALLEL.1:
+//    %1 = call token @llvm.directive.region.entry()
+//    [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.PRIVATE"([10 x i32]* %pvtPtr) ]
+//    %2 = bitcast [10 x i32]* %pvtPtr to i8*
+//    ....
+//
 bool VPOParoptTransform::clearCodemotionFenceIntrinsic(WRegionNode *W) {
   bool Changed = false;
   W->populateBBSet();
+  SmallVector<Instruction*, 8> DelIns;
+
   for (auto IB = W->bbset_begin(); IB != W->bbset_end(); IB++)
     for (auto &I : **IB)
       if (CallInst *CI = dyn_cast<CallInst>(&I)) {
         const Function *Callee = CI->getCalledFunction();
         if (Callee->getIntrinsicID() == Intrinsic::invariant_group_barrier) {
-          I.replaceAllUsesWith(cast<CallInst>(&I)->getOperand(0));
+          Value *V = CI->getOperand(0);
+          if (auto *BI = dyn_cast<BitCastInst>(V)) {
+            if (!W->contains(BI->getParent()) &&
+                WRegionUtils::usedInRegionEntryDirective(W, BI->getOperand(0))) {
+              Instruction *Ext = BI->clone();
+              Ext->insertBefore(CI);
+              CI->setOperand(0, Ext);
+              V = Ext;
+            }
+          }
+          I.replaceAllUsesWith(V);
+          DelIns.push_back(&I);
           Changed = true;
         }
       }
+  while (!DelIns.empty()) {
+    Instruction *I = DelIns.pop_back_val();
+    I->eraseFromParent();
+  }
   W->resetBBSet();
   return Changed;
 }
@@ -2823,6 +2873,7 @@ void VPOParoptTransform::genTpvCopyIn(WRegionNode *W,
   CopyinClause &CP = W->getCopyin();
   if (!CP.empty()) {
     Function::arg_iterator NewArgI = NFn->arg_begin();
+    Value *FirstArgOfOutlineFunc = &*NewArgI;
     ++NewArgI;
     ++NewArgI;
     const DataLayout NDL=NFn->getParent()->getDataLayout();
@@ -2855,8 +2906,13 @@ void VPOParoptTransform::genTpvCopyIn(WRegionNode *W,
 
         // Set the name for the newly generated basic blocks.
         Term->getParent()->setName("copyin.not.master");
-        NFn->getEntryBlock().getTerminator()
-            ->getSuccessor(1)->setName("copyin.not.master.end");
+        BasicBlock *CopyinEndBB = NFn->getEntryBlock().getTerminator()
+            ->getSuccessor(1);
+        CopyinEndBB->setName("copyin.not.master.end");
+        // Emit a barrier after copyin code for threadprivate variable.
+        VPOParoptUtils::genKmpcBarrier(W, FirstArgOfOutlineFunc,
+           CopyinEndBB->getTerminator(), IdentTy, true);
+
       }
       VPOParoptUtils::genMemcpy(
           C->getOrig(), &*NewArgI, NDL,
