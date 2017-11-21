@@ -94,6 +94,7 @@ bool printf_test();
 bool MultithreadedPrintf();
 bool clLocalStructTest();
 bool VecTypeHintTest();
+void intelVecTypeHintTest();
 bool VectorizerModeTest();
 bool EventCallbackTest();
 bool opencl_printf_test();
