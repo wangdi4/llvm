@@ -21,6 +21,7 @@ add_llvm_target(CSACodeGen
   CSAISelLowering.cpp
   CSAInstrInfo.cpp
   CSAIntrinsicCleaner.cpp
+  CSAIROpt.cpp
   CSALowerAggrCopies.cpp
   CSAInnerLoopPrep.cpp
   CSALoopIntrinsicExpander.cpp
