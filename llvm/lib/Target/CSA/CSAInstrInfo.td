@@ -1756,6 +1756,17 @@ def CSA_DIRECTIVE : PseudoInstCSA<
     ".csa_directive\t$md",
     [ (int_csa_directive (i32 imm:$md)) ]>;
 
+// This instruction serves to preserve the "pipelineable" intrinsic into MIR.
+// It is essentially a loop marker. Unlike the user-inserted intrinsics, it
+// does not have entry/exit bookends because 1) it's not capturing a region of
+// memory operations, and 2) it's generated late and thus doesn't need to
+// endure problematic optimizations.
+def CSA_PIPELINEABLE_LOOP : PseudoInstCSA<
+    (outs),
+    (ins I64:$md),
+    "# .csa_pipelineable_loop\t$md",
+    [ (int_csa_pipelineable_loop (i64 imm:$md)) ]>;
+
 // These four intrinsics are the ones that mark parallel loops/regions and the
 // parallel sections within.
 def CSA_PARALLEL_REGION_ENTRY : PseudoInstCSA<

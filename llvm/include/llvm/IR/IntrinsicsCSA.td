@@ -47,6 +47,11 @@ def int_csa_spmdization_entry : GCCBuiltin<"__builtin_csa_spmdization_entry">,
 def int_csa_spmdization_exit : GCCBuiltin<"__builtin_csa_spmdization_exit">,
     Intrinsic<[], [llvm_i32_ty], [IntrInaccessibleMemOrArgMemOnly] /* , "llvm.csa.spmdization_exit" */>;
 
+// This is an internal intrinsic not suitable for insertion by programmers.
+def int_csa_pipelineable_loop :
+    Intrinsic<[], [llvm_i64_ty], [IntrInaccessibleMemOrArgMemOnly]
+    /* , "llvm.csa.pipelineable_loop" */>;
+
 }
 
 

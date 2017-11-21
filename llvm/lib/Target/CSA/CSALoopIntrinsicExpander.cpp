@@ -133,9 +133,6 @@ private:
   DominatorTree* DT;
   PostDominatorTree* PDT;
 
-  // The next value that ought to be used for region tokens in expansions.
-  int next_token;
-
   // The current begin/end blocks for the section. These should be initialized to
   // nullptr at the beginning of each loop expansion and are updated by
   // makeSectionInclude.
@@ -192,10 +189,6 @@ bool CSALoopIntrinsicExpander::runOnFunction(Function& F) {
     DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
     PostDominatorTree local_pdt;
     PDT = &local_pdt;
-
-    // The counter starts at 1000 for each function to reduce collisions with
-    // manually-added token values.
-    next_token = 1000;
 
     // Create a dummy exit here in anticipation of possible backedge rerouting.
     DummyExitNode dummy_exit {F, DT, PDT};
@@ -419,8 +412,12 @@ Re-run with -g to see more location information.
   Instruction*const preheader_terminator = L->getLoopPreheader()->getTerminator();
   CallInst*const region_entry = IRBuilder<>{preheader_terminator}.CreateCall(
     Intrinsic::getDeclaration(module, Intrinsic::csa_parallel_region_entry),
-    ConstantInt::get(IntegerType::get(context, 32), next_token++),
-    "parallel_region_entry"
+    ConstantInt::get(IntegerType::get(context, 32), 0),
+    "clie_pre"
+  );
+  const int region_token = context.getMDKindID(region_entry->getName()) + 1000;
+  region_entry->setOperand(
+    0, ConstantInt::get(IntegerType::get(context, 32), region_token)
   );
 
   // The csa.parallel.region.exit intrinsic goes at the beginning of each exit.
@@ -444,7 +441,7 @@ Re-run with -g to see more location information.
   CallInst*const section_entry = IRBuilder<>{&*first_mem}.CreateCall(
     Intrinsic::getDeclaration(module, Intrinsic::csa_parallel_section_entry),
     region_entry,
-    "parallel_section_entry"
+    "clie_pse"
   );
 
   // The csa.parallel.section.exit intrinsic goes after the last memory instruction
