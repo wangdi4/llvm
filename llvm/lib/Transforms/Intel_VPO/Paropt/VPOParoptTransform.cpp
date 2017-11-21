@@ -2587,12 +2587,24 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
     Function *F = ForkTestBB->getParent();
     LLVMContext &C = F->getContext();
 
-    ConstantInt *ValueOne = ConstantInt::get(Type::getInt32Ty(C), 1);
+    ConstantInt *ValueZero = ConstantInt::get(Type::getInt32Ty(C), 0);
 
     TerminatorInst *TermInst = ForkTestBB->getTerminator();
 
-    ICmpInst* CondInst = new ICmpInst(TermInst, ICmpInst::ICMP_EQ,
-                                      ForkTestCI, ValueOne, "");
+    Value* IfClauseValue = W->getIf();
+
+    ICmpInst* CondInst = nullptr;
+
+    if (IfClauseValue) { 
+      Instruction *IfAndForkTestCI = BinaryOperator::CreateAnd(
+                     IfClauseValue, ForkTestCI, "and.if.clause", TermInst);
+      IfAndForkTestCI->setDebugLoc(TermInst->getDebugLoc());
+      CondInst = new ICmpInst(TermInst, ICmpInst::ICMP_NE,
+                              IfAndForkTestCI, ValueZero, "if.fork.test");
+    }
+    else 
+      CondInst = new ICmpInst(TermInst, ICmpInst::ICMP_NE,
+                              ForkTestCI, ValueZero, "fork.test");
 
     TerminatorInst *NewTermInst = BranchInst::Create(ThenForkBB, ElseCallBB,
                                                      CondInst);
