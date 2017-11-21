@@ -1763,8 +1763,29 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
   LoadInst *LoadTid = new LoadInst(TidPtr, "my.tid", InsertPt);
   LoadTid->setAlignment(4);
 
+  // Inserting the alloca of %is.last at InsertPt (=loop preheader) is wrong,
+  // as it may not dominate its use at loop exit, which is reachable from the
+  // ZTTBB above the preheader:
+  //
+  //   DIR.QUAL.LIST.END.2:        ; The ZTT
+  //     %5 = load i32, i32* %.omp.lb.fpriv, align 4, !tbaa !5
+  //     %6 = load i32, i32* %.omp.ub.fpriv, align 4, !tbaa !5
+  //     %cmp6 = icmp ugt i32 %5, %6
+  //     br i1 %cmp6, label %omp.loop.exit, label %omp.inner.for.body.lr.ph
+  //
+  //   omp.inner.for.body.lr.ph:   ; The loop preheader
+  //     %my.tid = load i32, i32* %new.tid.addr, align 4
+  //     %is.last = alloca i32, align 4 ; **ERROR: Doesn't dominate use!
+  //    ...
+  //
+  //   omp.loop.exit:  ; Reachable from the ZTT BB bypassing the preheader
+  //     %11 = load i32, i32* %is.last
+  //     %12 = icmp ne i32 %11, 0
+  //     br i1 %12, label %lastprivate.then, label %lastprivate.done
+  //
+  // The right insertion point for the def of %is.last is W's EntryBB.
   IsLastVal = new AllocaInst(Int32Ty, DL.getAllocaAddrSpace(), "is.last",
-                             InsertPt);
+                             &(W->getEntryBBlock()->front()));
   IsLastVal->setAlignment(4);
 
   AllocaInst *LowerBnd = new AllocaInst(IndValTy, DL.getAllocaAddrSpace(),
@@ -1830,7 +1851,9 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
   StoreInst *Tmp3 = new StoreInst(UpperBndVal, UpperD, false, InsertPt);
   Tmp3->setAlignment(4);
 
-  StoreInst *Tmp4 = new StoreInst(ValueZero, IsLastVal, false, InsertPt);
+  // Insert the initialization of %is.last right after its alloca
+  StoreInst *Tmp4 = new StoreInst(ValueZero, IsLastVal);
+  Tmp4->insertAfter(IsLastVal);
   Tmp4->setAlignment(4);
 
   ICmpInst* LoopBottomTest = WRegionUtils::getOmpLoopBottomTest(L);
@@ -2595,14 +2618,14 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
 
     ICmpInst* CondInst = nullptr;
 
-    if (IfClauseValue) { 
+    if (IfClauseValue) {
       Instruction *IfAndForkTestCI = BinaryOperator::CreateAnd(
                      IfClauseValue, ForkTestCI, "and.if.clause", TermInst);
       IfAndForkTestCI->setDebugLoc(TermInst->getDebugLoc());
       CondInst = new ICmpInst(TermInst, ICmpInst::ICMP_NE,
                               IfAndForkTestCI, ValueZero, "if.fork.test");
     }
-    else 
+    else
       CondInst = new ICmpInst(TermInst, ICmpInst::ICMP_NE,
                               ForkTestCI, ValueZero, "fork.test");
 

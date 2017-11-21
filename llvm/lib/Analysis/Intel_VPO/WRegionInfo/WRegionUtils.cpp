@@ -370,7 +370,7 @@ void WRegionUtils::getLoopIndexPosInPredicate(Value *LoopIndex,
 
   Operand = CondInst->getOperand(1);
   if (isa<SExtInst>(Operand) || isa<ZExtInst>(Operand))
-    Operand = cast<Instruction>(Operand)->getOperand(1);
+    Operand = cast<Instruction>(Operand)->getOperand(0);
 
   if (Operand == LoopIndex) {
       IsLeft = false;

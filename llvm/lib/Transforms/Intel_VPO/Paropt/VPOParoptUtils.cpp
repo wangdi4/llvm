@@ -2263,7 +2263,7 @@ void VPOParoptUtils::updateOmpPredicateAndUpperBound(WRegionNode *W,
     IC->setOperand(1, UB);
   else {
     IC->setOperand(0, UB);
-    cast<BinaryOperator>(IC)->swapOperands();
+    IC->swapOperands();
   }
 
   IC->setPredicate(computeOmpPredicate(PD));
