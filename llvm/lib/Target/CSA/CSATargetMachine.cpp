@@ -157,11 +157,11 @@ public:
     // Remove any remaining intrinsics which should not go through instruction selection
     addPass(createCSAIntrinsicCleanerPass());
 
+    // Add a pass to generate more candidates for reduction operations
+    addPass(createCSAIRReductionOptPass());
+
     // Add a pass to identify and prepare inner loops for pipelinling.
     addPass(createCSAInnerLoopPrepPass());
-
-	  // Add a pass to generate more candidates for reduction operations
-    addPass(createCSAIRReductionOptPass());
 
     return false;
   }
