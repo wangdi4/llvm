@@ -94,7 +94,7 @@ bool CSAIRReductionOpt::runOnLoop(Loop *L, LPPassManager &) {
     if (Phi->getNumIncomingValues() != 2) continue;
     RecurrenceDescriptor RedDes;
     // UnDef values mess up isReductionPHI(...)
-    if (!dyn_cast<UndefValue>(Phi->getIncomingValue(0)) || !dyn_cast<UndefValue>(Phi->getIncomingValue(1))) continue;
+    if (dyn_cast<UndefValue>(Phi->getIncomingValue(0)) || dyn_cast<UndefValue>(Phi->getIncomingValue(1))) continue;
     if (RecurrenceDescriptor::isReductionPHI(Phi, L, RedDes)) {
       Instruction *exitInst = RedDes.getLoopExitInstr();
       if (!exitInst) continue;
