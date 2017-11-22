@@ -1178,6 +1178,7 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
     if (OptLevel > 2) {
       PM.add(createHIRLoopConcatenationPass());
       PM.add(createHIRSymbolicTripCountCompleteUnrollPass());
+      PM.add(createHIRArrayTransposePass());
     }
     
     // TODO: refine cost model for individual transformations for code size.

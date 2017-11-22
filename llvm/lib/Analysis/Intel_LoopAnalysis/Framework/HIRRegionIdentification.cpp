@@ -1281,7 +1281,8 @@ bool HIRRegionIdentification::runOnFunction(Function &Func) {
   TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
   OptLevel = getAnalysis<XmainOptLevelPass>().getOptLevel();
 
-  if (CreateFunctionLevelRegion || isLoopConcatenationCandidate()) {
+  if (CreateFunctionLevelRegion || isLoopConcatenationCandidate() ||
+      Func.hasFnAttribute("may_have_huge_local_malloc")) {
     if (canFormFunctionLevelRegion(Func)) {
       createFunctionLevelRegion(Func);
     }

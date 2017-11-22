@@ -27,6 +27,7 @@ add_llvm_library(LLVMIntel_LoopTransforms
         HIRIdiomRecognition.cpp
         HIRMVForConstUB.cpp
         HIRLoopConcatenation.cpp
+        HIRArrayTranspose.cpp
         Utils/HIRTransformUtils.cpp
 
   ADDITIONAL_HEADER_DIRS

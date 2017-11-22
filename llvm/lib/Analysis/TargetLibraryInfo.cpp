@@ -1285,8 +1285,11 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(0)->isPointerTy() &&
             FTy.getParamType(1)->isPointerTy());
   case LibFunc_dunder_xstat64:
-    // __xstat64 (int vers, const char *file, struct stat64 *buf);
-    return (NumParams == 3 && FTy.getParamType(0)->isIntegerTy() &&
+  case LibFunc_dunder_xstat:
+    // int __xstat64 (int vers, const char *file, struct stat64 *buf);
+    // int __xstat(int vers, const char *file, struct stat *buf);
+    return (NumParams == 3 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy() &&
             FTy.getParamType(1)->isPointerTy() &&
             FTy.getParamType(2)->isPointerTy());
   case LibFunc_exit:

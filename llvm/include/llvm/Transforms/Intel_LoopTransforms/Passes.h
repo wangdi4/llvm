@@ -114,6 +114,9 @@ FunctionPass *createHIRMVForConstUBPass();
 
 /// Creates pass that performs loop concatenation.
 FunctionPass *createHIRLoopConcatenationPass();
+
+/// Creates pass that performs array transpose.
+FunctionPass *createHIRArrayTransposePass();
 }
 
 #endif

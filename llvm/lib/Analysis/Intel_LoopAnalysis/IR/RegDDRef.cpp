@@ -1255,6 +1255,14 @@ void RegDDRef::demoteIVs(unsigned StartLevel) {
 
 unsigned RegDDRef::getBasePtrSymbase() const {
   assert(hasGEPInfo() && "Base CE accessed for non-GEP DDRef!");
-  return getBlobUtils().getTempBlobSymbase(getBasePtrBlobIndex());
+
+  unsigned Index = getBasePtrBlobIndex();
+
+  if (!getBlobUtils().isTempBlob(Index)) {
+    // Base may be undef or null so we can return constant symbase.
+    return ConstantSymbase;
+  }
+
+  return getBlobUtils().getTempBlobSymbase(Index);
 }
 

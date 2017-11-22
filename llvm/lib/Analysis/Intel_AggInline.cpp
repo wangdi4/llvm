@@ -42,7 +42,7 @@ static cl::opt<unsigned> InlineAggressiveCSLimit("inline-agg-callsites-limit",
 // analysis.
 //
 static cl::opt<unsigned> InlineAggressiveMallocLimit("inline-agg-malloc-limit",
-                                    cl::init(0x60000000), cl::ReallyHidden);
+                                    cl::init(0x6000000), cl::ReallyHidden);
 
 // If number of instructions in entire application is greater than
 // this limit, it will not be considered for aggressive inline analysis.
@@ -625,6 +625,7 @@ bool InlineAggressiveInfo::analyzeModule(Module &M) {
     }
   }
 
+  MainRtn->addFnAttr("may_have_huge_local_malloc");
   return true;
 }
 

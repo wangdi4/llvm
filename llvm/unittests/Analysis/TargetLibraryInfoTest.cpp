@@ -458,7 +458,8 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
     "declare x86_fp80 @exp10l(x86_fp80)\n"
 #if INTEL_CUSTOMIZATION
     "declare i32 @__isoc99_fscanf(%struct*, i8*, ... )\n"
-    "declare void @__xstat64(i32, i8*, %struct*)\n"
+    "declare i32 @__xstat(i32, i8*, %struct*)\n"
+    "declare i32 @__xstat64(i32, i8*, %struct*)\n"
     "declare void @exit(i32)\n"
     "declare void @sincos(double, double*, double*)\n"
     "declare void @sincosf(float, float*, float*)\n"
