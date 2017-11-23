@@ -134,8 +134,7 @@ static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
                                             bool UnrollLoops,
                                             int rtLoopUnrollFactor,
                                             bool allowAllocaModificationOpt,
-                                            bool isDBG, bool HasGatherScatter,
-                                            unsigned RunVPOParopt) {
+                                            bool isDBG, unsigned RunVPOParopt) {
 // INTEL VPO BEGIN
   if (!DisableVPlanVec && (RunVPOParopt & VPOParoptMode::OmpVec))
     PM->add(createVecClonePass());
@@ -273,7 +272,8 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
   PrintIRPass::DumpIRConfig dumpIRBeforeConfig(
       pConfig->GetIRDumpOptionsBefore());
 
-  bool HasGatherScatter = pConfig->GetCpuId().HasGatherScatter();
+  bool HasGatherScatterPrefetch =
+    pConfig->GetCpuId().HasGatherScatterPrefetch();
 
   PM.add(createFMASplitterPass());
   PM.add(createOclSyncFunctionAttrsPass());
@@ -342,7 +342,7 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
   PM.add(createBuiltinCallToInstPass());
 
   bool allowAllocaModificationOpt = true;
-  if (!pConfig->GetLibraryModule() && HasGatherScatter) {
+  if (!pConfig->GetLibraryModule() && HasGatherScatterPrefetch) {
     allowAllocaModificationOpt = false;
   }
   // When running the standard optimization passes, do not change the
@@ -421,7 +421,7 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
   createStandardLLVMPasses(
       &PM, OptLevel,
       UnitAtATime, UnrollLoops, rtLoopUnrollFactor, allowAllocaModificationOpt,
-      debugType != intel::None, HasGatherScatter,
+      debugType != intel::None,
       RunVPOParopt);  // INTEL VPO
 
   // check there is no recursion, if there is fail compilation
@@ -451,6 +451,7 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
                             bool UnrollLoops) {
   bool isProfiling = pConfig->GetProfilingFlag();
   bool HasGatherScatter = pConfig->GetCpuId().HasGatherScatter();
+  bool HasGatherScatterPrefetch = pConfig->GetCpuId().HasGatherScatterPrefetch();
   // Tune the maximum size of the basic block for memory dependency analysis
   // utilized by GVN.
   DebuggingServiceType debugType =
@@ -515,6 +516,7 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
                                pConfig->GetDumpIRDir()));
     }
     if (!HasGatherScatter) {
+      // TODO: It is not clear if these passes make sense at all.
       PM.add(createReduceAlignmentPass());
       // no point to run for older CPU archs
       if (pConfig->GetCpuId().HasSSE41()) {
@@ -636,6 +638,12 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
 
   if (debugType == intel::None) {
     if (HasGatherScatter)
+      // Original motivation for this customization was a limitation of the
+      // vectorizer to vectorize only kernels without function calls.
+      // Missing vectorization caused huge performance loss on KNC,
+      // so inlining was done more agressively.
+      // This was transferred to AVX-512 SKX/CNL through HasGatherScatter flag.
+      // So far there's no data that would suggest dropping this customization.
       PM.add(llvm::createFunctionInliningPass(4096)); // Inline (not only small) functions.
     else
       PM.add(llvm::createFunctionInliningPass());     // Inline small functions
@@ -687,7 +695,7 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
   // Add prefetches if useful for micro-architecture, if not in debug mode,
   // and don't change libraries
   if (debugType == intel::None && !pConfig->GetLibraryModule() &&
-      HasGatherScatter) {
+      HasGatherScatterPrefetch) {
     int APFLevel = pConfig->GetAPFLevel();
     // do APF and following cleaning passes only if APF is not disabled
     if (APFLevel != APFLEVEL_0_DISAPF) {

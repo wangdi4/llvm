@@ -207,6 +207,9 @@ public:
     static bool HasGatherScatterPrefetch(ECPU CPU) {
         return (CPU == CPU_KNL);
     }
+    bool HasGatherScatterPrefetch() const {
+        return HasGatherScatterPrefetch(m_CPU);
+    }
     static bool IsValidCPUName(const char* pCPUName) {
         return DEVICE_INVALID != GetCPUByName(pCPUName);
     }
