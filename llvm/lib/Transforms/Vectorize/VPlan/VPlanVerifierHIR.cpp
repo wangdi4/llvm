@@ -32,8 +32,10 @@ unsigned VPlanVerifierHIR::countLoopsInUnderlyingIR() const {
 void VPlanVerifierHIR::verifyIRSpecificLoopRegion(
     const VPRegionBlock *Region) const {
 
-  if (const auto *LoopRHIR = dyn_cast<VPLoopRegionHIR>(Region))
+  if (const auto *LoopRHIR = dyn_cast<VPLoopRegionHIR>(Region)) {
     assert(LoopRHIR->getHLLoop() &&
            "VPLoopRegionHIR must have a valid HLLoop.");
+    (void)LoopRHIR;
+  }
 }
 
