@@ -315,6 +315,13 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
   // PipeSupport can fail if dynamic pipe access is discovered after LLVM
   // optimizations
   if (isFpgaEmulator) {
+    // LLVM inliner won't remove bodies of inlined functione due to specific
+    // of our implementation. All function in backend will have linkage type
+    // equals to ExternalLinkage. LLVM inliner doesn't remove function with
+    // this linkage type.
+    // TODO: Set correct linkage for all function, except kernels and
+    // vectorized versions and ModuleCleanup pass wouldn't be needed.
+    PM.add(createModuleCleanupPass(/*SpareOnlyWrappers=*/false));
     PM.add(createPipeSupportPass());
   }
 }
