@@ -6,6 +6,7 @@ config.opencl_binary_dir = "@OCL_OUTPUT_BINARY_DIR@"
 config.opencl_tests_binary_dir = "@OCL_TESTS_BINARY_DIR@"
 config.llvm_binary_dir = "@LLVM_BINARY_DIR@"
 config.build_fpga_emulator = "@BUILD_FPGA_EMULATOR@"
+config.operating_system = "@CMAKE_SYSTEM_NAME@"
 
 config.host_arch = "@HOST_ARCH@"
 

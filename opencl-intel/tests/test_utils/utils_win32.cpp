@@ -39,7 +39,7 @@ bool GetEnv(std::string& result, const std::string& name) {
 
 typedef std::vector< char > buffer_t;
 
-int const _size  = PATH_MAX + 1; // Initial buffer size for path.
+int const _size  = MAX_PATH + 1; // Initial buffer size for path.
 int const _count = 8; // How many times we will try to double buffer size.
 
 static std::string dir_sep() {
@@ -52,7 +52,7 @@ static std::string exe_path(unsigned int pid) {
 
   while (true) {
     DWORD len = 0;
-    if (!pid  {
+    if (!pid)  {
       len = GetModuleFileNameA(nullptr, &path.front(), DWORD(path.size()));
     } else {
       HANDLE hProcess =  OpenProcess(
@@ -80,7 +80,7 @@ static std::string exe_path(unsigned int pid) {
     }; // if
 
     // Buffer too small.
-    if (count > 0  {
+    if (count > 0)  {
       --count;
       path.resize(path.size() * 2);
     } else {
@@ -97,6 +97,9 @@ static std::string exe_path(unsigned int pid) {
 }
 
 std::string get_exe_dir(unsigned int pid) {
-  std::string exe = exe_path(pid);
-  return exe_dir(exe);
+  std::string path = exe_path(pid);
+  if (!path.empty()) {
+    size_t i = path.find_last_of("/\\");
+    return path.substr(0, i);
+  }
 }

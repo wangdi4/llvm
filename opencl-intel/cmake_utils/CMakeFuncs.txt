@@ -9,7 +9,7 @@ set (__MAKEFUNCS_INCLUDED__ 1)
 #
 macro( FILTER_SOURCES FILER_OUT_REGEXP )
       list(APPEND HEADER_FILES_1 ${EXPORT_HEADER_FILES_1})
-	  
+
       if ((WIN32) AND (NOT FORCE_LINUX))
             foreach(FILE ${HEADER_FILES_1})
                 if ( NOT FILE MATCHES _linux AND NOT FILE MATCHES ${FILER_OUT_REGEXP})
@@ -112,7 +112,7 @@ function ( FIND_SOURCES_IN_FOLDER )
     else()
         set( FOLDER_ARG ${ARGV0} )
     endif (${ARGC} EQUAL  0 )
-    
+
     file(GLOB HEADER_FILES_1 ${FOLDER_ARG}/*.h ${FOLDER_ARG}/*.hpp)
     file(GLOB EXPORT_HEADER_FILES_1 ${FOLDER_ARG}/export/*.h ${FOLDER_ARG}/export/*.hpp)
     file(GLOB SOURCE_FILES_1 ${FOLDER_ARG}/*.c ${FOLDER_ARG}/*.cpp ${FOLDER_ARG}/*.cc)
@@ -271,7 +271,7 @@ function( PRINT_TOOLS )
 endfunction( PRINT_TOOLS )
 
 #
-# Removes the given path from the PATH environment 
+# Removes the given path from the PATH environment
 # Usage: remove_path( PATH )
 #
 function( remove_path PATHARG )
@@ -289,14 +289,14 @@ function( remove_path PATHARG )
 endfunction( remove_path )
 
 #
-# Adds the given path to the PATH environment 
+# Adds the given path to the PATH environment
 # Usage: add_path( PATH )
 #
 function( add_path PATHARG )
     if(NOT WIN32)
         set(PATH_DELIMITER ":")
     endif(NOT WIN32)
-    
+
     set( NEW_PATH ${PATHARG}${PATH_DELIMITER} $ENV{PATH})
     set( ENV{PATH} "${NEW_PATH}")
 endfunction( add_path )
@@ -334,7 +334,7 @@ function(ocl_replace_compiler_option_to_dynamic)
     ocl_replace_compiler_option(CMAKE_EXE_LINKER_FLAGS_RELEASE "/NODEFAULTLIB:LIBCPMTD" "")
     ocl_replace_compiler_option(CMAKE_EXE_LINKER_FLAGS_DEBUG "/NODEFAULTLIB:LIBCMT" "")
     ocl_replace_compiler_option(CMAKE_EXE_LINKER_FLAGS_DEBUG "/NODEFAULTLIB:LIBCPMT" "")
-    
+
     set(CMAKE_C_FLAGS_RELEASE ${CMAKE_C_FLAGS_RELEASE} PARENT_SCOPE)
     set(CMAKE_C_FLAGS_DEBUG ${CMAKE_C_FLAGS_DEBUG} PARENT_SCOPE)
     set(CMAKE_CXX_FLAGS_RELEASE ${CMAKE_CXX_FLAGS_RELEASE} PARENT_SCOPE)
@@ -353,17 +353,17 @@ function(use_rtti val)
             ocl_replace_compiler_option(CMAKE_CXX_FLAGS "-fno-rtti" "-frtti")
         else()
             ocl_replace_compiler_option(CMAKE_CXX_FLAGS "-frtti" "-fno-rtti" )
-        endif()    
+        endif()
     else(MSVC)
         if( ${val} )
             ocl_replace_compiler_option(CMAKE_CXX_FLAGS "/GR-" "/GR")
         else()
             ocl_replace_compiler_option(CMAKE_CXX_FLAGS "/GR" "/GR-" )
-        endif()    
+        endif()
     endif()
     set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" PARENT_SCOPE )
 endfunction(use_rtti)
-    
+
 #
 # Set compiler Exception Handling options according to the given flag
 #
@@ -373,7 +373,7 @@ function(use_eh val)
             remove_definitions( -fno-exceptions )
         else()
             add_definitions( -fno-exceptions )
-        endif()    
+        endif()
     else(MSVC)
         if( ${val} )
               ocl_replace_compiler_option(CMAKE_CXX_FLAGS "/EHs-c-" "/EHsc" )
@@ -381,7 +381,7 @@ function(use_eh val)
         else()
               ocl_replace_compiler_option(CMAKE_CXX_FLAGS "/EHsc" "/EHs-c-")
               add_definitions( /D_HAS_EXCEPTIONS=0 )
-        endif()    
+        endif()
     endif()
 endfunction(use_eh)
 
@@ -409,10 +409,25 @@ function (add_ocl_unittest test_name)
     target_link_libraries(${test_name} ${ARG_LINK_LIBRARIES})
   endif (NOT ARG_LINK_LIBRARIES STREQUAL "")
 
-  set_target_properties(${test_name} PROPERTIES
+  if (WIN32)
+    # Explicitly define OUTPUT_DIRECTORY_${Configuration} for
+    # generators supports more than one configuration types to avoid
+    # output to ${OUTPUT_DIRECTORY}/${Configuration} subdirs
+    get_filename_component(FNAME ${CMAKE_CURRENT_SOURCE_DIR} NAME)
+    set_target_properties(${test_name} PROPERTIES
+      RUNTIME_OUTPUT_DIRECTORY_DEBUG ${OCL_BINARY_DIR}/tests/${FNAME}
+      LIBRARY_OUTPUT_DIRECTORY_DEBUG ${OCL_BINARY_DIR}/tests/${FNAME}
+      ARCHIVE_OUTPUT_DIRECTORY_DEBUG ${OCL_BINARY_DIR}/tests/${FNAME}
+      RUNTIME_OUTPUT_DIRECTORY_RELEASE ${OCL_BINARY_DIR}/tests/${FNAME}
+      LIBRARY_OUTPUT_DIRECTORY_RELEASE ${OCL_BINARY_DIR}/tests/${FNAME}
+      ARCHIVE_OUTPUT_DIRECTORY_RELEASE ${OCL_BINARY_DIR}/tests/${FNAME})
+  else (WIN32)
+    set_target_properties(${test_name} PROPERTIES
       RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
       LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
       ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+  endif (WIN32)
+
   set_target_properties(${test_name} PROPERTIES FOLDER "validation")
 
   string(TOLOWER ${test_name} test_name_lowercase)
