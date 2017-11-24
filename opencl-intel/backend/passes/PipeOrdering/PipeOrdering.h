@@ -25,7 +25,7 @@ namespace intel {
     static char ID;
 
     /// @brief Constructor
-    PipeOrdering() : ModulePass(ID) {}
+    PipeOrdering();
 
     /// @brief  LLVM Module pass entry
     /// @param  M  Module to transform

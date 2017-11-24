@@ -36,8 +36,15 @@ namespace intel {
   char PipeOrdering::ID = 0;
 
   /// Register pass to for opt
-  OCL_INITIALIZE_PASS(PipeOrdering, "pipe-ordering",
+  OCL_INITIALIZE_PASS_BEGIN(PipeOrdering, "pipe-ordering",
                "Add barriers to loops with pipe builtin calls", false, false)
+  OCL_INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
+  OCL_INITIALIZE_PASS_END(PipeOrdering, "pipe-ordering",
+               "Add barriers to loops with pipe builtin calls", false, false)
+
+  PipeOrdering::PipeOrdering() : ModulePass(ID) {
+      initializePipeOrderingPass(*PassRegistry::getPassRegistry());
+  }
 
   bool PipeOrdering::runOnModule(Module &M) {
     // We should add a barrier for all functions with loops and pipe BIs when
