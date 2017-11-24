@@ -48,12 +48,15 @@ bool ImplicitGlobalIdPass::runOnModule(Module& M)
 
 bool ImplicitGlobalIdPass::runOnFunction(Function& F)
 {
-  if (!F.isDeclaration()) {
-      m_pSyncInstSet = 0;
-      if (m_pDataPerBarrier->hasSyncInstruction(&F))
-        m_pSyncInstSet = &m_pDataPerBarrier->getSyncInstructions(&F);
-      insertComputeGlobalIds(&F);
-  }
+  // Skip all functions without debug info (including built-ins, externals, etc)
+  // We can't do anything for them
+  if (!F.getSubprogram())
+    return false;
+
+  m_pSyncInstSet = 0;
+  if (m_pDataPerBarrier->hasSyncInstruction(&F))
+    m_pSyncInstSet = &m_pDataPerBarrier->getSyncInstructions(&F);
+  insertComputeGlobalIds(&F);
   return true;
 }
 
