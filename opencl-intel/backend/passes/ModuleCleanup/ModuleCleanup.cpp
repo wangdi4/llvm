@@ -72,8 +72,10 @@ namespace intel{
 
       // TODO: replace by a check for globals initializers
       // keep pipes ctor, it is called by runStaticConstructorsDestructors
-      if (func->getName() == "__global_pipes_ctor")
+      if (func->getName() == "__global_pipes_ctor") {
+        m_neededFuncsSet.insert(func);
         continue;
+      }
 
       std::set<Value *> visited; // list to avoid infinite loops
       if (isNeededByKernel(func, visited)) continue; // skip needed functions
