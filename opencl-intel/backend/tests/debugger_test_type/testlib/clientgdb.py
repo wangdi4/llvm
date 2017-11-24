@@ -71,6 +71,7 @@ class ClientGDB(TestClient):
 
     def __init__(self,
                  debuggee_exe_path,
+                 device_type,
                  cl_dir_path,
                  server_port,
                  logfile):
@@ -82,6 +83,7 @@ class ClientGDB(TestClient):
         self.cl_dir_path = cl_dir_path
 
         self.logfile = logfile
+        self.device_type = device_type
         """
         # FIXME: Get this from some configuration object.
         ci_gdb_location = os.path.join('/opt', 'tools', 'bin', 'gdb')
@@ -136,10 +138,8 @@ class ClientGDB(TestClient):
         cl_file_fullpath = self.cl_abs_filename(cl_name)
         # GDB environment variable should be set to gdb path before start of test
         gdb_command = os.environ['GDB']+'/gdb'
-		
-        options_str = ','.join('%s=%s' % (k, v) for k, v in options.iteritems())
-        if not options_str:
-             options_str = 'none'
+        options_str = 'device=' + self.device_type + ','
+        options_str = options_str.join('%s=%s' % (k, v) for k, v in options.iteritems())
         args = [gdb_command,
 #                "localhost:12345",
                 "--args",

@@ -50,6 +50,10 @@ def parse_options():
                       dest="num_jobs",
                       default=cpu_count(),
                       help="number of tests to run in parallel")
+    parser.add_option("-d", "--device", action="store", type="string",
+                      dest="test_device",
+                      default="cpu",
+                      help="Run on the specified device type")
 
     (opts, positionals) = parser.parse_args()
 
@@ -149,6 +153,7 @@ def run_tests(names = None, options=None):
         for i in range(options.num_jobs):
             p = RunnerProcess(RunnerParams(
                              test_client=options.test_client,
+                             test_device=options.test_device,
                              test_dir=testcases_dir,
                              exe_path=exe_path,
                              cl_kernels_dir=cl_dir_path,

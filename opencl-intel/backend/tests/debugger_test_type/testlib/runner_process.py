@@ -16,6 +16,7 @@ class RunnerParams:
     """ Parameters used to initialize the testcase runner process """
     def __init__(self,
                  test_client,
+                 test_device,
                  test_dir,
                  exe_path,
                  cl_kernels_dir,
@@ -32,6 +33,7 @@ class RunnerParams:
         self.cl_kernels_dir = cl_kernels_dir
         self.port = port
         self.logfile = logfile
+        self.test_device = test_device
 
         # Function for testsuite discovery
         self.load_func = load_func
@@ -62,6 +64,7 @@ class RunnerProcess(Process):
     def make_client(self):
         return self.CLIENT_CLASS(
                         debuggee_exe_path=self.config.exe_path,
+                        device_type=self.config.test_device,
                         cl_dir_path=self.config.cl_kernels_dir,
                         server_port=self.config.port,
                         logfile=self.config.logfile)

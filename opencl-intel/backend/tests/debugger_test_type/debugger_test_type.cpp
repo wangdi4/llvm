@@ -168,7 +168,16 @@ int main(int argc, char** argv)
             CL_CONTEXT_PLATFORM, (cl_context_properties)(platforms[0])(), 0
         };
 
-        cl::Context context(CL_DEVICE_TYPE_CPU, properties);
+        cl_device_type deviceType = CL_DEVICE_TYPE_CPU;
+
+        if (options.get("device") == "fpga_fast_emu") {
+          deviceType = CL_DEVICE_TYPE_ACCELERATOR;
+          DTT_LOG("Device type: CL_DEVICE_TYPE_ACCELERATOR");
+        } else {
+          DTT_LOG("Device type: CL_DEVICE_TYPE_CPU");
+        }
+        cl::Context context(deviceType, properties);
+
         vector<cl::Device> devices = context.getInfo<CL_CONTEXT_DEVICES>();
         if (devices.size() == 0)
             throw runtime_error("0 devices found");
