@@ -639,10 +639,6 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
       PM.add(llvm::createFunctionInliningPass(4096)); // Inline (not only small) functions.
     else
       PM.add(llvm::createFunctionInliningPass());     // Inline small functions
-  } else {
-    // Functions with the alwaysinline attribute need to be inlined for
-    // functional purposes
-    PM.add(llvm::createAlwaysInlinerLegacyPass());
   }
   // Some built-in functions contain calls to external functions which take
   // arguments that are retrieved from the function's implicit arguments.
@@ -674,10 +670,13 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
     PM.add(llvm::createDeadStoreEliminationPass()); // Eliminated dead stores
     PM.add(llvm::createEarlyCSEPass());
     PM.add(createSmartGVNPass(true)); // GVN with "no load" heuristic
-
 #ifdef _DEBUG
     PM.add(llvm::createVerifierPass());
 #endif
+  } else {
+    // Functions with the alwaysinline attribute need to be inlined for
+    // functional purposes
+    PM.add(llvm::createAlwaysInlinerLegacyPass());
   }
 
   // Remove unneeded functions from the module.
