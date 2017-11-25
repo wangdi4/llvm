@@ -1,6 +1,6 @@
 //===---- HIRDDAnalysis.h - Provides Data Dependence Analysis --*-- C++--*-===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -59,109 +59,74 @@ enum DDVerificationLevel {
   Innermost
 };
 
-// HIRDDAnalysis returns instances of this to ensure clients can access graph,
-// but not modify it. Convenient places to reimplement iterators or filter
-// graph as well
-class DDGraph {
-private:
-  const HLNode *CurNode;
-  DDGraphTy *G;
+class RefinedDependence {
+  DirectionVector DV;
+  DistanceVector DistV;
+  bool Refined;
+  bool Reversed;
+  bool Independent;
 
 public:
-  class DDGraphFilter {
-    unsigned FirstChildNum;
-    unsigned LastChildNum;
-    bool IsIncoming;
+  RefinedDependence() : Refined(false), Reversed(false), Independent(false) {}
 
-    template <typename NodeTy> void init(const NodeTy *Node) {
-      FirstChildNum = Node->getFirstChild()->getMinTopSortNum();
-      LastChildNum = Node->getLastChild()->getMaxTopSortNum();
+  DirectionVector &getDV() {
+    return DV;
+  }
+
+  DistanceVector &getDist() {
+    return DistV;
+  }
+
+  bool isReversed() const {
+    return Reversed;
+  }
+
+  bool isRefined() const {
+    return Refined;
+  }
+
+  bool isIndependent() const {
+    return Independent;
+  }
+
+  void setIndependent() {
+    Independent = true;
+  }
+
+  void setRefined() {
+    Refined = true;
+  }
+
+  void setReversed() {
+    Reversed = true;
+  }
+
+  LLVM_DUMP_METHOD
+  void print(raw_ostream &OS) const {
+    if (!isIndependent()) {
+      DV.print(OS, false);
+      OS << " ";
+      DistV.print(OS, DV.getLastLevel());
     }
 
-  public:
-    DDGraphFilter(const HLNode *Node, bool IsIncoming)
-        : IsIncoming(IsIncoming) {
-      if (!Node) {
-        return;
-      }
-
-      if (const HLLoop *Loop = dyn_cast<HLLoop>(Node)) {
-        init(Loop);
-      } else {
-        const HLRegion *Region = cast<HLRegion>(Node);
-        init(Region);
-      }
+    OS << "< ";
+    if (isRefined()) {
+      OS << "refined ";
     }
-
-    bool operator()(const DDEdge *Edge) {
-      HLNode *ParentNode =
-          (IsIncoming ? Edge->getSrc() : Edge->getSink())->getHLDDNode();
-
-      if (!ParentNode) {
-        return false;
-      }
-
-      unsigned Num = ParentNode->getTopSortNum();
-      return (Num >= FirstChildNum && Num <= LastChildNum);
+    if (isIndependent()) {
+      OS << "independent ";
     }
-  };
-
-private:
-  DDGraphFilter IncomingFilter;
-  DDGraphFilter OutgoingFilter;
-
-  const DDGraphTy *getGraphImpl() const {
-    assert(G && "Trying to iterate over uninitialized graph!");
-    return G;
+    if (isReversed()) {
+      OS << "reversed ";
+    }
+    OS << ">";
   }
 
-public:
-  using FilterEdgeIterator =
-      filter_iterator<DDGraphTy::EdgeIterator, DDGraphFilter>;
-
-  DDGraph()
-      : CurNode(nullptr), G(nullptr), IncomingFilter(nullptr, true),
-        OutgoingFilter(nullptr, false) {}
-
-  DDGraph(const HLNode *Node, DDGraphTy *Graph)
-      : CurNode(Node), G(Graph), IncomingFilter(Node, true),
-        OutgoingFilter(Node, false) {}
-
-  iterator_range<FilterEdgeIterator> incoming(const DDRef *Ref) const {
-    return make_filter_range(
-        llvm::make_range(getGraphImpl()->incoming_edges_begin(Ref),
-                         getGraphImpl()->incoming_edges_end(Ref)),
-        IncomingFilter);
+  LLVM_DUMP_METHOD
+  void dump() const {
+    print(dbgs());
+    dbgs() << "\n";
   }
-
-  iterator_range<FilterEdgeIterator> outgoing(const DDRef *Ref) const {
-    return make_filter_range(
-        llvm::make_range(getGraphImpl()->outgoing_edges_begin(Ref),
-                         getGraphImpl()->outgoing_edges_end(Ref)),
-        OutgoingFilter);
-  }
-
-  FilterEdgeIterator incoming_edges_begin(const DDRef *Ref) const {
-    return incoming(Ref).begin();
-  }
-
-  FilterEdgeIterator incoming_edges_end(const DDRef *Ref) const {
-    return incoming(Ref).end();
-  }
-
-  FilterEdgeIterator outgoing_edges_begin(const DDRef *Ref) const {
-    return outgoing(Ref).begin();
-  }
-
-  FilterEdgeIterator outgoing_edges_end(const DDRef *Ref) const {
-    return outgoing(Ref).end();
-  }
-  /// Single edge going out of this DDRef.
-  bool singleEdgeGoingOut(const DDRef *LRef);
-
-  void print(raw_ostream &OS) const;
-
-  void dump() const { print(dbgs()); }
 };
 
 class HIRDDAnalysis final : public HIRAnalysisPass {
@@ -233,19 +198,16 @@ public:
     return getGraphImpl(static_cast<const HLNode *>(Loop), InputEdgesReq);
   }
 
-  /// \brief Refine DV by calling demand driven DD. Return true when RefineDV
-  /// is set.
-  bool refineDV(DDRef *SrcDDRef, DDRef *DstDDRef,
-                unsigned InnermostNestingLevel, unsigned OutermostNestingLevel,
-                DirectionVector &RefinedDV, DistanceVector &RefinedDistV,
-                bool *IsIndependent);
+  /// \brief Refine DV by calling demand driven DD.
+  RefinedDependence refineDV(DDRef *SrcDDRef, DDRef *DstDDRef,
+                             unsigned InnermostNestingLevel,
+                             unsigned OutermostNestingLevel, bool ForFusion);
 
   // TODO still needed? Call findDependences directly?
   // bool demandDrivenDD(DDRef* SrcRef, DDRef* SinkRef,
   //  DirectionVector* input_dv, DirectionVector* output_dv);
 
   // \brief Returns a new unused symbase ID.
-  unsigned getNewSymbase();
   void releaseMemory() override;
 
   void verifyAnalysis() const override;
@@ -324,7 +286,7 @@ private:
     void postVisit(HLNode *Node) {}
   };
 };
-}
-}
+} // namespace loopopt
+} // namespace llvm
 
 #endif

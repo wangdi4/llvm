@@ -1,6 +1,6 @@
 //===----------- HLLoop.h - High level IR loop node -------------*- C++ -*-===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -243,7 +243,10 @@ public:
 
   /// Hoists the Ztt out of the loop. It returns a handle to the Ztt or
   /// nullptr if it doesn't exist.
-  HLIf *extractZtt();
+  /// \p NewNestingLevel indicates the nesting level of the (possibly detached)
+  /// loop. If it is ommited, nesting level is obtained from attachement level
+  /// of the loop.
+  HLIf *extractZtt(unsigned NewNestingLevel = NonLinearLevel);
 
   /// ZTT Predicate iterator methods
   const_ztt_pred_iterator ztt_pred_begin() const {
@@ -398,10 +401,13 @@ public:
   }
 
   /// Returns true if this is a do loop.
-  bool isDo() const { return ((NumExits == 1) && !isUnknown()); }
+  bool isDo() const { return (!isMultiExit() && !isUnknown()); }
 
   /// Returns true if this is a do multi-exit loop.
-  bool isDoMultiExit() const { return ((NumExits > 1) && !isUnknown()); }
+  bool isDoMultiExit() const { return (isMultiExit() && !isUnknown()); }
+
+  /// Returns true if this is a multi-exit loop.
+  bool isMultiExit() const { return NumExits > 1; }
 
   /// Returns true if loop is normalized.
   /// This method checks if LB = 0 and StrideRef = 1. UB can be a DDRef or
@@ -514,6 +520,9 @@ public:
   /// Removes loop postexit nodes.
   void removePostexit();
 
+  /// Replaces the loop with its body and IVs with the lower bound.
+  void replaceByFirstIteration();
+
   /// Children iterator methods
   child_iterator child_begin() { return pre_end(); }
   const_child_iterator child_begin() const { return pre_end(); }
@@ -624,8 +633,14 @@ public:
   /// Returns true if loop has livein temps.
   bool hasLiveInTemps() const { return !LiveInSet.empty(); }
 
+  /// Returns number of livein temps.
+  unsigned getNumLiveInTemps() const { return LiveInSet.size(); }
+
   /// Returns true if loop has liveout temps.
   bool hasLiveOutTemps() const { return !LiveOutSet.empty(); }
+
+  /// Returns number of liveout temps.
+  unsigned getNumLiveOutTemps() const { return LiveOutSet.size(); }
 
   /// Returns true if this symbase is live in to this loop.
   bool isLiveIn(unsigned Symbase) const {

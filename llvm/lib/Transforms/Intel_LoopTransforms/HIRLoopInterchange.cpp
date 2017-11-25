@@ -1,6 +1,6 @@
 //===----- HIRLoopInterchange.cpp - Permutations of HIR loops -------------===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -46,16 +46,16 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLocalityAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 
-#define DEBUG_TYPE "hir-loopinterchange"
+#define DEBUG_TYPE "hir-loop-interchange"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -128,7 +128,7 @@ private:
   void printOptReport(HLLoop *Loop);
   bool isInPresentOrder(SmallVectorImpl<const HLLoop *> &LoopNests) const;
 };
-}
+} // namespace
 
 char HIRLoopInterchange::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRLoopInterchange, "hir-loop-interchange",
@@ -224,7 +224,7 @@ struct HIRLoopInterchange::CollectCandidateLoops final
   }
   void visit(HLNode *Node) {}
   void postVisit(HLNode *Node) {}
-  bool skipRecursion(const HLNode *Node) const override {
+  bool skipRecursion(const HLNode *Node) const {
     return Node == SkipNode;
   }
 };
@@ -579,23 +579,26 @@ struct HIRLoopInterchange::CollectDDInfo final : public HLNodeVisitorBase {
         const DirectionVector *TempDV = &Edge->getDV();
 
         // Calling Demand Driven DD to refine DV
-        DirectionVector RefinedDV;
+        RefinedDependence RefinedDep;
+
         if (RefineDV) {
           DDRef *SrcDDRef = Edge->getSrc();
           DDRef *DstDDRef = DDref;
-          DistanceVector RefinedDistV;
-          bool IsIndep;
-          bool IsDVRefined = LIP.DDA->refineDV(
-              SrcDDRef, DstDDRef, LIP.InnermostNestingLevel,
-              LIP.OutmostNestingLevel, RefinedDV, RefinedDistV, &IsIndep);
-          if (IsIndep) {
+
+          RefinedDep =
+              LIP.DDA->refineDV(SrcDDRef, DstDDRef, LIP.InnermostNestingLevel,
+                                LIP.OutmostNestingLevel, false);
+
+          if (RefinedDep.isIndependent()) {
             continue;
           }
-          if (IsDVRefined) {
-            if (ignoreEdge(Edge, CandidateLoop, &RefinedDV)) {
+
+          if (RefinedDep.isRefined()) {
+            if (ignoreEdge(Edge, CandidateLoop, &RefinedDep.getDV())) {
               continue;
             }
-            TempDV = &RefinedDV;
+
+            TempDV = &RefinedDep.getDV();
           }
         }
         if (ignoreDVWithNoLTGT(*TempDV, LIP.OutmostNestingLevel,

@@ -1,6 +1,6 @@
 //===--- HIROptPredicate.cpp - Implements OptPredicate class --------------===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -60,8 +60,8 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 
 #define OPT_SWITCH "hir-opt-predicate"
 #define OPT_DESC "HIR OptPredicate"
@@ -105,9 +105,7 @@ struct HoistCandidate {
 
   HoistCandidate() : Level(0) {}
 
-  HLIf *getPilotIf() const {
-    return PilotIf;
-  }
+  HLIf *getPilotIf() const { return PilotIf; }
 
 #ifndef NDEBUG
   LLVM_DUMP_METHOD
@@ -156,11 +154,7 @@ private:
   /// \brief This routine will loop through the candidate loop to look
   /// for HLIf candidates. If all conditions are met, it will transform
   /// the loop. Returns true if transformation happened.
-  bool processOptPredicate();
-
-  /// This routine involves checking if the loop is supported by this
-  /// transformation.
-  bool isLoopSupported(const HLLoop *Loop) const;
+  bool processOptPredicate(bool &HasMultiexitLoop);
 
   /// Returns the deepest level at which any of the If operands is defined.
   static unsigned getDefinedAtLevel(const HLIf *If);
@@ -260,14 +254,14 @@ struct HIROptPredicate::CandidateLookup final : public HLNodeVisitorBase {
   void visit(HLLoop *Loop);
   void visit(const HLLabel *) { HasLabel = true; }
 
-  bool skipRecursion(const HLNode *Node) const override {
+  bool skipRecursion(const HLNode *Node) const {
     return Node == SkipNode;
   }
 
   void visit(const HLNode *Node) {}
   void postVisit(const HLNode *Node) {}
 };
-}
+} // namespace
 
 bool HIROptPredicate::CandidateLookup::isCandidate(const RegDDRef *Ref) const {
   // Only handle scalar references.
@@ -323,6 +317,7 @@ void HIROptPredicate::CandidateLookup::visit(HLIf *If) {
   CandidateLookup Lookup(Pass, IsCandidate, Level);
   If->getHLNodeUtils().visitRange(Lookup, If->then_begin(), If->then_end());
   If->getHLNodeUtils().visitRange(Lookup, If->else_begin(), If->else_end());
+
   if (!IsCandidate || Lookup.HasLabel) {
     return;
   }
@@ -365,9 +360,6 @@ void HIROptPredicate::CandidateLookup::visit(HLLoop *Loop) {
   SkipNode = Loop;
 
   bool TransformLoop = true;
-  if (!Pass.isLoopSupported(Loop)) {
-    TransformLoop = false;
-  }
 
   if (!DisableCostModel && !Loop->isInnermost()) {
     TransformLoop = false;
@@ -386,18 +378,19 @@ INITIALIZE_PASS_END(HIROptPredicate, OPT_SWITCH, OPT_DESC, false, false)
 FunctionPass *llvm::createHIROptPredicatePass() { return new HIROptPredicate; }
 
 void HIROptPredicate::sortCandidates() {
-  std::sort(Candidates.begin(), Candidates.end(), [](const HoistCandidate &A,
-                                                     const HoistCandidate &B) {
-    auto SizeA = A.Ifs.size();
-    auto SizeB = B.Ifs.size();
+  std::sort(Candidates.begin(), Candidates.end(),
+            [](const HoistCandidate &A, const HoistCandidate &B) {
+              auto SizeA = A.Ifs.size();
+              auto SizeB = B.Ifs.size();
 
-    // Candidates with more If statements would be transformed first.
-    if (SizeA != SizeB) {
-      return SizeB < SizeA;
-    } else {
-      return B.getPilotIf()->getTopSortNum() < A.getPilotIf()->getTopSortNum();
-    }
-  });
+              // Candidates with more If statements would be transformed first.
+              if (SizeA != SizeB) {
+                return SizeB < SizeA;
+              } else {
+                return B.getPilotIf()->getTopSortNum() <
+                       A.getPilotIf()->getTopSortNum();
+              }
+            });
 }
 
 bool HIROptPredicate::runOnFunction(Function &F) {
@@ -420,9 +413,14 @@ bool HIROptPredicate::runOnFunction(Function &F) {
     DEBUG(dbgs() << "Candidates:\n");
     DEBUG(dumpCandidates());
 
-    if (processOptPredicate()) {
+    bool HasMultiexitLoop;
+    if (processOptPredicate(HasMultiexitLoop)) {
       Region->setGenCode();
       HLNodeUtils::removeRedundantNodes(Region, false);
+
+      if (HasMultiexitLoop) {
+        HLNodeUtils::updateNumLoopExits(Region);
+      }
     }
 
     Candidates.clear();
@@ -464,7 +462,7 @@ unsigned HIROptPredicate::getDefinedAtLevel(const HLIf *If) {
 }
 
 /// processOptPredicate - Main routine to perform opt predicate transformation.
-bool HIROptPredicate::processOptPredicate() {
+bool HIROptPredicate::processOptPredicate(bool &HasMultiexitLoop) {
   SmallPtrSet<HLLoop *, 8> ParentLoopsToInvalidate;
   SmallPtrSet<HLLoop *, 8> TargetLoopsToInvalidate;
 
@@ -524,8 +522,15 @@ bool HIROptPredicate::processOptPredicate() {
     DEBUG(dumpCandidates());
   }
 
+  HasMultiexitLoop = false;
+
   // Mark loop as modified in all the analysis.
   for (HLLoop *Loop : ParentLoopsToInvalidate) {
+    if (Loop->isMultiExit()) {
+      // It will be used in the caller to update exit counts.
+      HasMultiexitLoop = true;
+    }
+
     HIRInvalidationUtils::invalidateBody(Loop);
   }
   for (HLLoop *Loop : TargetLoopsToInvalidate) {
@@ -535,21 +540,11 @@ bool HIROptPredicate::processOptPredicate() {
   return !ParentLoopsToInvalidate.empty();
 }
 
-bool HIROptPredicate::isLoopSupported(const HLLoop *Loop) const {
-
-  if (!Loop->isDo()) {
-    return false;
-  }
-
-  return true;
-}
-
 // transformLoop - Perform the OptPredicate transformation for the given loop.
 // There will be two loops after the transformation. One loop inside the
 // If-Then and other inside the Else.
 void HIROptPredicate::transformCandidate(HLLoop *TargetLoop,
                                          HoistCandidate &Candidate) {
-  auto &HNU = TargetLoop->getHLNodeUtils();
 
   SmallDenseMap<HLIf *, std::pair<HLContainerTy, HLContainerTy>, 8> Containers;
   Containers.reserve(Candidate.Ifs.size());
@@ -574,29 +569,29 @@ void HIROptPredicate::transformCandidate(HLLoop *TargetLoop,
 
     // Insert then-case after the HLIf
     if (!ThenContainer.empty()) {
-      HNU.insertAfter(If, &ThenContainer);
+      HLNodeUtils::insertAfter(If, &ThenContainer);
     }
 
-    // Insert else-case afther the cloned HLIf
+    // Insert else-case after the cloned HLIf
     if (!ElseContainer.empty()) {
       // Update HLGotos to new cloned targets
       HIRTransformUtils::remapLabelsRange(CloneMapper, &ElseContainer.front(),
                                           &ElseContainer.back());
-      HNU.insertAfter(ClonnedIf, &ElseContainer);
+      HLNodeUtils::insertAfter(ClonnedIf, &ElseContainer);
     }
 
     if (If == PilotIf) {
       // Move the If condition outside.
       hoistIf(PilotIf, TargetLoop);
     } else {
-      HNU.remove(If);
+      HLNodeUtils::remove(If);
     }
 
-    HNU.remove(ClonnedIf);
+    HLNodeUtils::remove(ClonnedIf);
   }
 
-  HNU.moveAsFirstChild(PilotIf, TargetLoop, true);
-  HNU.insertAsFirstChild(PilotIf, NewElseLoop, false);
+  HLNodeUtils::moveAsFirstChild(PilotIf, TargetLoop, true);
+  HLNodeUtils::insertAsFirstChild(PilotIf, NewElseLoop, false);
 }
 
 bool HIROptPredicate::transformClones(HLLoop *TargetLoop,
@@ -633,14 +628,14 @@ void HIROptPredicate::removeThenElseChildren(HLIf *If,
 
   // Collect Then Children.
   if (If->hasThenChildren()) {
-    If->getHLNodeUtils().remove(ThenContainer, If->getFirstThenChild(),
-                                If->getLastThenChild());
+    HLNodeUtils::remove(ThenContainer, If->getFirstThenChild(),
+                        If->getLastThenChild());
   }
 
   // Collect Else Children.
   if (If->hasElseChildren()) {
-    If->getHLNodeUtils().remove(ElseContainer, If->getFirstElseChild(),
-                                If->getLastElseChild());
+    HLNodeUtils::remove(ElseContainer, If->getFirstElseChild(),
+                        If->getLastElseChild());
   }
 }
 
@@ -648,7 +643,7 @@ void HIROptPredicate::hoistIf(HLIf *If, HLLoop *OrigLoop) {
   // TODO: remove loop live-ins
 
   // Hoist the If outside the loop.
-  If->getHLNodeUtils().moveBefore(OrigLoop, If);
+  HLNodeUtils::moveBefore(OrigLoop, If);
 
   unsigned Level = OrigLoop->getNestingLevel();
 

@@ -273,7 +273,7 @@ StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
     }
   }
 
-  if (W->hasLastprivate()) {
+  if (W->canHaveLastprivate()) {
     LastprivateClause &LprivClause = W->getLpriv();
     if (!LprivClause.empty()) {
       for (LastprivateItem *LprivI : LprivClause.items()) {
@@ -368,7 +368,10 @@ bool VPOParoptTransform::genTaskLoopInitCode(
 
   Loop *L;
   if (isLoop) {
-    L = W->getLoop();
+    L = W->getWRNLoopInfo().getLoop();
+    W->getWRNLoopInfo().setZTTBB(
+        WRegionUtils::getOmpLoopZeroTripTest(L, W->getEntryBBlock())
+            ->getParent());
     assert(L && "genTaskLoopInitCode: Loop not found");
     genLoopInitCodeForTaskLoop(W, LBPtr, UBPtr, STPtr);
   }
@@ -486,7 +489,7 @@ bool VPOParoptTransform::genTaskLoopInitCode(
     }
   }
 
-  if (W->hasLastprivate()) {
+  if (W->canHaveLastprivate()) {
     LastprivateClause &LprivClause = W->getLpriv();
     if (!LprivClause.empty()) {
       for (LastprivateItem *LprivI : LprivClause.items()) {
@@ -562,7 +565,7 @@ AllocaInst *VPOParoptTransform::genTaskPrivateMapping(WRegionNode *W,
     }
   }
 
-  if (W->hasLastprivate()) {
+  if (W->canHaveLastprivate()) {
     LastprivateClause &LprivClause = W->getLpriv();
     if (!LprivClause.empty()) {
       for (LastprivateItem *LprivI : LprivClause.items()) {
@@ -693,7 +696,7 @@ void VPOParoptTransform::genLoopInitCodeForTaskLoop(WRegionNode *W,
   BasicBlock *NewEntryBB = SplitBlock(EntryBB, &*(EntryBB->begin()), DT, LI);
   W->setEntryBBlock(NewEntryBB);
   IRBuilder<> Builder(EntryBB->getTerminator());
-  Loop *L = W->getLoop();
+  Loop *L = W->getWRNLoopInfo().getLoop();
   Type *IndValTy = WRegionUtils::getOmpCanonicalInductionVariable(L)
                        ->getIncomingValue(0)
                        ->getType();
@@ -875,7 +878,7 @@ VPOParoptTransform::genLastPrivateTaskDup(WRegionNode *W,
 AllocaInst *
 VPOParoptTransform::genDependInitForTask(WRegionNode *W,
                                          Instruction *InsertBefore) {
-  if (!W->hasDepend())
+  if (!W->canHaveDepend())
     return nullptr;
 
   SmallVector<Type *, 4> KmpTaskTDependVecTyArgs;
@@ -1015,17 +1018,9 @@ bool VPOParoptTransform::genTaskCode(WRegionNode *W,
                             nullptr, nullptr, false);
 }
 
-// Set the the arguements in the if clause to be empty.
-void VPOParoptTransform::resetValueInTaskIfClause(WRegionNode *W) {
-  Value *V = W->getIf();
-  if (!V)
-    return;
-  resetValueInIntelClauseGeneric(W, V);
-}
-
 // Set the the arguments in the depend clause to be empty.
 void VPOParoptTransform::resetValueInTaskDependClause(WRegionNode *W) {
-  if (!W->hasDepend())
+  if (!W->canHaveDepend())
     return;
 
   DependClause DepClause = W->getDepend();
@@ -1033,26 +1028,6 @@ void VPOParoptTransform::resetValueInTaskDependClause(WRegionNode *W) {
     return;
   for (DependItem *DepI : DepClause.items()) {
     resetValueInIntelClauseGeneric(W, DepI->getOrig());
-  }
-}
-
-// Set the the arguements in the Intel compiler generated clause to be empty.
-void VPOParoptTransform::resetValueInIntelClauseGeneric(WRegionNode *W,
-                                                        Value *V) {
-  SmallVector<Instruction *, 8> IfUses;
-  for (auto IB = V->user_begin(), IE = V->user_end(); IB != IE; ++IB) {
-    if (Instruction *User = dyn_cast<Instruction>(*IB))
-      if (W->contains(User->getParent()))
-        IfUses.push_back(User);
-  }
-
-  while (!IfUses.empty()) {
-    Instruction *UI = IfUses.pop_back_val();
-    if (VPOAnalysisUtils::isIntelDirectiveOrClause(UI)) {
-      LLVMContext &C = F->getContext();
-      UI->replaceUsesOfWith(V, ConstantPointerNull::get(Type::getInt8PtrTy(C)));
-      break;
-    }
   }
 }
 
@@ -1128,7 +1103,7 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
 
   codeExtractorPrepare(W);
 
-  resetValueInTaskIfClause(W);
+  resetValueInIntelClauseGeneric(W, W->getIf());
 
   resetValueInTaskDependClause(W);
 
@@ -1232,27 +1207,14 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
           genTaskDeps(W, IdentTy, TidPtr, TaskAllocCI, DummyTaskTDependRec,
                       NewCall, false);
       } else {
-        BasicBlock *SplitBeforeBB = NewCall->getParent();
+
         TerminatorInst *ThenTerm, *ElseTerm;
-        SplitBlockAndInsertIfThenElse(Cmp, NewCall, &ThenTerm, &ElseTerm);
-        ThenTerm->getParent()->setName("task_if.then");
-        ElseTerm->getParent()->setName("task_if.else");
-        NewCall->getParent()->setName("task_if.end");
 
-        DT->addNewBlock(ThenTerm->getParent(), SplitBeforeBB);
-        DT->addNewBlock(ElseTerm->getParent(), SplitBeforeBB);
-        DT->addNewBlock(NewCall->getParent(), SplitBeforeBB);
-
-        DT->changeImmediateDominator(ThenTerm->getParent(), SplitBeforeBB);
-        DT->changeImmediateDominator(ElseTerm->getParent(), SplitBeforeBB);
-        DT->changeImmediateDominator(NewCall->getParent(), SplitBeforeBB);
-        BasicBlock *NextBB = NewCall->getParent()->getSingleSuccessor();
-        DT->changeImmediateDominator(NextBB, NewCall->getParent());
-
+        buildCFGForIfClause(Cmp, ThenTerm, ElseTerm, NewCall);
         IRBuilder<> ElseBuilder(ElseTerm);
         if (!DummyTaskTDependRec)
-          VPOParoptUtils::VPOParoptUtils::genKmpcTask(W, IdentTy, TidPtr,
-                                                      TaskAllocCI, ThenTerm);
+          VPOParoptUtils::genKmpcTask(W, IdentTy, TidPtr, TaskAllocCI,
+                                      ThenTerm);
         else
           genTaskDeps(W, IdentTy, TidPtr, TaskAllocCI, DummyTaskTDependRec,
                       ThenTerm, false);
@@ -1289,4 +1251,26 @@ bool VPOParoptTransform::genTaskWaitCode(WRegionNode *W) {
   VPOParoptUtils::genKmpcTaskWait(W, IdentTy, TidPtr,
                                   W->getEntryBBlock()->getTerminator());
   return true;
+}
+
+// build the CFG for if clause.
+void VPOParoptTransform::buildCFGForIfClause(Value *Cmp,
+                                             TerminatorInst *&ThenTerm,
+                                             TerminatorInst *&ElseTerm,
+                                             Instruction *InsertPt) {
+  BasicBlock *SplitBeforeBB = InsertPt->getParent();
+  SplitBlockAndInsertIfThenElse(Cmp, InsertPt, &ThenTerm, &ElseTerm);
+  ThenTerm->getParent()->setName("if.then");
+  ElseTerm->getParent()->setName("if.else");
+  InsertPt->getParent()->setName("if.end");
+
+  DT->addNewBlock(ThenTerm->getParent(), SplitBeforeBB);
+  DT->addNewBlock(ElseTerm->getParent(), SplitBeforeBB);
+  DT->addNewBlock(InsertPt->getParent(), SplitBeforeBB);
+
+  DT->changeImmediateDominator(ThenTerm->getParent(), SplitBeforeBB);
+  DT->changeImmediateDominator(ElseTerm->getParent(), SplitBeforeBB);
+  DT->changeImmediateDominator(InsertPt->getParent(), SplitBeforeBB);
+  BasicBlock *NextBB = InsertPt->getParent()->getSingleSuccessor();
+  DT->changeImmediateDominator(NextBB, InsertPt->getParent());
 }

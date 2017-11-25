@@ -52,6 +52,8 @@ typedef WRContainerTy::const_iterator         wrn_const_iterator;
 typedef WRContainerTy::reverse_iterator       wrn_reverse_iterator;
 typedef WRContainerTy::const_reverse_iterator wrn_const_reverse_iterator;
 
+class WRNLoopInfo;  // WRegion.h
+
 /// \brief WRegion Node base class
 class WRegionNode {
 
@@ -77,13 +79,13 @@ private:
   unsigned SubClassID;
 
   /// The OMP_DIRECTIVES enum representing the OMP construct. This is useful
-  /// for opt reporting, which can't use SubClassID because multiple 
-  /// OMP_DIRECTIVES may map to the same SubClassID. For example, 
-  ///   DIR_OMP_TARGET_DATA, DIR_OMP_TARGET_ENTER_DATA,  
-  ///   DIR_OMP_TARGET_EXIT_DATA, and DIR_OMP_TARGET_UPDATE 
+  /// for opt reporting, which can't use SubClassID because multiple
+  /// OMP_DIRECTIVES may map to the same SubClassID. For example,
+  ///   DIR_OMP_TARGET_DATA, DIR_OMP_TARGET_ENTER_DATA, and
+  ///   DIR_OMP_TARGET_EXIT_DATA
   /// all map to WRNTargetDataNode
   int DirID;
-  
+
   /// Bit vector for attributes such as WRNIsParLoop or WRNIsTask.
   /// The enum WRNAttributes lists the attributes.
   uint32_t Attributes;
@@ -157,7 +159,7 @@ protected:
 
   /// \brief Common code to parse a clause, used for both representations:
   /// llvm.intel.directive.qual* and directive.region.entry/exit.
-  void parseClause(const ClauseSpecifier &ClauseInfo, const Use *Args, 
+  void parseClause(const ClauseSpecifier &ClauseInfo, const Use *Args,
                    unsigned NumArgs);
 
   /// \brief Update WRN for clauses with no operands.
@@ -167,37 +169,38 @@ protected:
   void handleQualOpnd(int ClauseID, Value *V);
 
   /// \brief Update WRN for clauses with operand list.
-  void handleQualOpndList(const Use *Args, unsigned NumArgs, 
+  void handleQualOpndList(const Use *Args, unsigned NumArgs,
                           const ClauseSpecifier &ClauseInfo);
 
-  /// \brief Update WRN for clauses from the OperandBundles under the 
+  /// \brief Update WRN for clauses from the OperandBundles under the
   /// directive.region.entry/exit representation
   void getClausesFromOperandBundles();
 
 public:
   /// \brief Functions to check if the WRN allows a given clause type
-  bool hasSchedule() const;
-  bool hasShared() const;
-  bool hasPrivate() const;
-  bool hasFirstprivate() const;
-  bool hasLastprivate() const;
-  bool hasReduction() const;
-  bool hasCopyin() const;
-  bool hasCopyprivate() const;
-  bool hasLinear() const;
-  bool hasUniform() const;
-  bool hasMap() const;
-  bool hasIsDevicePtr() const;
-  bool hasUseDevicePtr() const;
-  bool hasDepend() const;
-  bool hasDepSink() const;
-  bool hasAligned() const;
-  bool hasFlush() const;
-  
+  bool canHaveSchedule() const;
+  bool canHaveDistSchedule() const;
+  bool canHaveShared() const;
+  bool canHavePrivate() const;
+  bool canHaveFirstprivate() const;
+  bool canHaveLastprivate() const;
+  bool canHaveReduction() const;
+  bool canHaveCopyin() const;
+  bool canHaveCopyprivate() const;
+  bool canHaveLinear() const;
+  bool canHaveUniform() const;
+  bool canHaveMap() const;
+  bool canHaveIsDevicePtr() const;
+  bool canHaveUseDevicePtr() const;
+  bool canHaveDepend() const;
+  bool canHaveDepSink() const;
+  bool canHaveAligned() const;
+  bool canHaveFlush() const;
+
   // Below are virtual functions to get/set clause and other information of
   // the WRN. They should never be called; calling them indicates intention
-  // to access clause info for a WRN that does not allow such clause (eg, a 
-  // parallel construct does not take a collapse clause). These virtual 
+  // to access clause info for a WRN that does not allow such clause (eg, a
+  // parallel construct does not take a collapse clause). These virtual
   // functions defined in the base class will all emit an error message.
 
   void errorClause(StringRef ClauseName) const;
@@ -227,7 +230,7 @@ public:
        // ScheduleClause is not list-type, but has similar API so put here too
   virtual SharedClause &getShared()          {WRNERROR(QUAL_OMP_SHARED);      }
   virtual UniformClause &getUniform()        {WRNERROR(QUAL_OMP_UNIFORM);     }
-  virtual UseDevicePtrClause &getUseDevicePtr() 
+  virtual UseDevicePtrClause &getUseDevicePtr()
                                            {WRNERROR(QUAL_OMP_USE_DEVICE_PTR);}
 
   // list-type clauses (const getters)
@@ -310,7 +313,7 @@ public:
   virtual void setPriority(EXPR E)              {WRNERROR(QUAL_OMP_PRIORITY); }
   virtual EXPR getPriority()              const {WRNERROR(QUAL_OMP_PRIORITY); }
   virtual void setProcBind(WRNProcBindKind P)   {WRNERROR("PROC_BIND");       }
-  virtual WRNProcBindKind setProcBind()   const {WRNERROR("PROC_BIND");       }
+  virtual WRNProcBindKind getProcBind()   const {WRNERROR("PROC_BIND");       }
   virtual void setSafelen(int N)                {WRNERROR(QUAL_OMP_SAFELEN);  }
   virtual int getSafelen()                const {WRNERROR(QUAL_OMP_SAFELEN);  }
   virtual void setSchedCode(int N)              {WRNERROR("TAKSLOOP SCHED");  }
@@ -324,12 +327,11 @@ public:
   virtual void setUserLockName(StringRef LN)    {WRNERROR(QUAL_OMP_NAME);     }
   virtual StringRef getUserLockName()     const {WRNERROR(QUAL_OMP_NAME);     }
 
-  // Loop & LoopInfo
+  // WRNLoopInfo
 
-  virtual void setLoop(Loop *L)                 {WRNERROR("LOOP");            }
-  virtual Loop *getLoop()                 const {WRNERROR("LOOP");            }
-  virtual void setLoopInfo(LoopInfo *LI)        {WRNERROR("LoopInfo");        }
-  virtual LoopInfo *getLoopInfo()         const {WRNERROR("LoopInfo");        }
+  virtual WRNLoopInfo &getWRNLoopInfo()         {WRNERROR("WRNLoopInfo");     }
+  virtual const WRNLoopInfo &getWRNLoopInfo() const
+                                                {WRNERROR("WRNLoopInfo");     }
 
   // Task
 
@@ -361,50 +363,50 @@ public:
   bool getIsFromHIR() const { return IsFromHIR; }
 
   /// \brief Dumps WRegionNode.
-  void dump(bool Verbose=false) const;
+  void dump(unsigned Verbosity=0) const;
 
   /// \brief Default printer for WRegionNode. The derived WRegion can define
   /// its own print() routine to override this one.
-  virtual void print(formatted_raw_ostream &OS, unsigned Depth, 
-                     bool Verbose=false) const;
+  virtual void print(formatted_raw_ostream &OS, unsigned Depth,
+                     unsigned Verbosity=1) const;
 
   /// \brief Prints "BEGIN  <DIRECTIVE_NAME> {"
   void printBegin(formatted_raw_ostream &OS, unsigned Depth) const;
 
-  /// \brief Prints "} END  <DIRECTIVE_NAME>" 
+  /// \brief Prints "} END  <DIRECTIVE_NAME>"
   void printEnd(formatted_raw_ostream &OS, unsigned Depth) const;
 
   /// \brief This virtual function is intended for derived WRNs to print
   /// additional information specific to the derived WRN not covered by
   /// printBody() below.
-  virtual void printExtra(formatted_raw_ostream &OS, unsigned Depth, 
-                          bool Verbose=false) const {}
+  virtual void printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                          unsigned Verbosity=1) const {}
 
-  /// \brief Prints content of the WRegionNode. 
-  void printBody(formatted_raw_ostream &OS, bool PrintChildren, unsigned Depth, 
-                 bool Verbose=false) const;
+  /// \brief Prints content of the WRegionNode.
+  void printBody(formatted_raw_ostream &OS, bool PrintChildren, unsigned Depth,
+                 unsigned Verbosity=1) const;
 
   /// \brief Prints content of list-type clauses in the WRN
-  void printClauses(formatted_raw_ostream &OS, unsigned Depth, 
-                    bool Verbose=false) const;
+  void printClauses(formatted_raw_ostream &OS, unsigned Depth,
+                    unsigned Verbosity=1) const;
 
   /// \brief Prints EntryBB, ExitBB, and BBlockSet
-  void printEntryExitBB(formatted_raw_ostream &OS, unsigned Depth, 
-                        bool Verbose=false) const;
+  void printEntryExitBB(formatted_raw_ostream &OS, unsigned Depth,
+                        unsigned Verbosity=1) const;
 
   /// \brief When IsFromHIR==true, prints EntryHLNode, ExitHLNode, and HLLoop
   /// This is virtual here; the derived WRNs supporting HIR have to provide the
   /// actual routine. Currently only WRNVecLoopNode uses HIR.
   virtual void printHIR(formatted_raw_ostream &OS, unsigned Depth,
-                        bool Verbose=false) const {}
+                        unsigned Verbosity=1) const {}
 
   /// \brief If IsOmpLoop==true, prints loop preheader, header, and latch BBs
   void printLoopBB(formatted_raw_ostream &OS, unsigned Depth,
-                   bool Verbose=false) const;
+                   unsigned Verbosity=1) const;
 
   /// \brief Prints WRegionNode children.
-  void printChildren(formatted_raw_ostream &OS, unsigned Depth, 
-                     bool Verbose=false) const;
+  void printChildren(formatted_raw_ostream &OS, unsigned Depth,
+                     unsigned Verbosity=1) const;
 
   /// \brief Returns the predecessor bblock of this region.
   BasicBlock *getPredBBlock() const;
@@ -431,7 +433,7 @@ public:
   wrn_const_reverse_iterator wrn_child_rend() const {
     return Children.rend();
   }
-  
+
   /// Children acess methods
 
   /// \brief Returns true if it has children.
@@ -474,7 +476,7 @@ public:
   bbset_const_iterator bbset_end() const { return BBlockSet.end(); }
 
   bbset_reverse_iterator bbset_rbegin() { return BBlockSet.rbegin(); }
-  bbset_const_reverse_iterator bbset_rbegin() const { 
+  bbset_const_reverse_iterator bbset_rbegin() const {
                                                   return BBlockSet.rbegin(); }
   bbset_reverse_iterator bbset_rend() { return BBlockSet.rend(); }
   bbset_const_reverse_iterator bbset_rend() const { return BBlockSet.rend(); }
@@ -500,6 +502,7 @@ public:
   void setIsDistribute()         { Attributes |= WRNIsDistribute; }
   void setIsPar()                { Attributes |= WRNIsPar; }
   void setIsOmpLoop()            { Attributes |= WRNIsOmpLoop; }
+  void setIsSections()           { Attributes |= WRNIsSections; }
   void setIsTarget()             { Attributes |= WRNIsTarget; }
   void setIsTask()               { Attributes |= WRNIsTask; }
   void setIsTeams()              { Attributes |= WRNIsTeams; }
@@ -509,6 +512,7 @@ public:
   bool getIsDistribute()   const { return Attributes & WRNIsDistribute; }
   bool getIsPar()          const { return Attributes & WRNIsPar; }
   bool getIsOmpLoop()      const { return Attributes & WRNIsOmpLoop; }
+  bool getIsSections()     const { return Attributes & WRNIsSections; }
   bool getIsTarget()       const { return Attributes & WRNIsTarget; }
   bool getIsTask()         const { return Attributes & WRNIsTask; }
   bool getIsTeams()        const { return Attributes & WRNIsTeams; }
@@ -536,7 +540,7 @@ public:
 
   // Derived Class Enumeration
 
-  /// \brief An enumeration to keep track of the concrete subclasses of 
+  /// \brief An enumeration to keep track of the concrete subclasses of
   /// WRegionNode
   enum WRegionNodeKind{
                                       // WRNAttribute:
@@ -544,12 +548,13 @@ public:
 
     WRNParallel,                      // IsPar
     WRNParallelLoop,                  // IsPar, IsOmpLoop
-    WRNParallelSections,              // IsPar, IsOmpLoop
+    WRNParallelSections,              // IsPar, IsOmpLoop, IsSections
     WRNParallelWorkshare,             // IsPar, IsOmpLoop
     WRNTeams,                         // IsTeams
     WRNDistributeParLoop,             // IsPar, IsOmpLoop, IsDistribute
     WRNTarget,                        // IsTarget, IsTask (if depend/nowait)
     WRNTargetData,                    // IsTarget, IsTask (if depend/nowait)
+    WRNTargetUpdate,                  // IsTarget, IsTask (if depend/nowait)
     WRNTask,                          // IsTask
     WRNTaskloop,                      // IsTask, IsOmpLoop
 
@@ -557,7 +562,7 @@ public:
 
     WRNVecLoop,                       // IsOmpLoop
     WRNWksLoop,                       // IsOmpLoop
-    WRNSections,                      // IsOmpLoop
+    WRNSections,                      // IsOmpLoop, IsSections
     WRNWorkshare,                     // IsOmpLoop
     WRNDistribute,                    // IsOmpLoop, IsDistribute
     WRNAtomic,
@@ -578,11 +583,58 @@ public:
     WRNIsDistribute = 0x00000001,
     WRNIsPar        = 0x00000002,
     WRNIsOmpLoop    = 0x00000004,
-    WRNIsTarget     = 0x00000008,
-    WRNIsTask       = 0x00000010,
-    WRNIsTeams      = 0x00000020
+    WRNIsSections   = 0x00000008,
+    WRNIsTarget     = 0x00000010,
+    WRNIsTask       = 0x00000020,
+    WRNIsTeams      = 0x00000040
   };
 }; // class WRegionNode
+
+// Printing routines to help dump WRN content
+
+/// \brief Auxiliary function to print a BB in a WRN dump
+/// If BB is null:
+///   Verbosity == 0: exit without printing anything
+///   Verbosity >= 1: print "Title: NULL BBlock"
+/// If BB is not null:
+///   Verbosity <= 1: : print BB->getName()
+///   Verbosity >= 2: : print *BB (dumps the Bblock content)
+extern void printBB(StringRef Title, BasicBlock *BB, formatted_raw_ostream &OS,
+                    int Indent, unsigned Verbosity=1);
+
+/// \brief Auxiliary function to print a Value in a WRN dump
+/// If Val is null:
+///   Verbosity == 0: exit without printing anything
+///   Verbosity >= 1: print "Title: NULL Value"
+/// If Val is not null:
+///   print *Val regardless of Verbosity
+extern void printVal(StringRef Title, Value *Val, formatted_raw_ostream &OS,
+                     int Indent, unsigned Verbosity=1);
+
+/// \brief Auxiliary function to print an Int in a WRN dump
+/// If Num is 0:
+///   Verbosity == 0: exit without printing anything
+///   Verbosity >= 1: print "Title: UNSPECIFIED"
+/// If Num is not 0:
+///   print "Title: <Num>"
+extern void printInt(StringRef Title, int Num, formatted_raw_ostream &OS,
+                     int Indent, unsigned Verbosity=1);
+
+/// \brief Auxiliary function to print a boolean in a WRN dump
+/// If Verbosity == 0, don't print anything if Flag is false;
+/// otherwise, print "Title: true/false"
+extern void printBool(StringRef Title, bool Flag, formatted_raw_ostream &OS,
+                      int Indent, unsigned Verbosity=1);
+
+/// \brief Auxiliary function to print a String for dumping certain clauses.
+/// E.g., for the DEFAULT clause we may print "NONE", "SHARED", "PRIVATE", etc.
+/// If <Str> == "UNSPECIFIED"  (happens when the clause is not specified)
+///   Verbosity == 0: exit without printing anything
+///   Verbosity >= 1: print "Title: UNSPECIFIED"
+/// Else
+///   print "Title: <Str>"
+extern void printStr(StringRef Title, StringRef Str, formatted_raw_ostream &OS,
+                     int Indent, unsigned Verbosity=1);
 
 } // End vpo namespace
 

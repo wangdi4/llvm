@@ -26,8 +26,10 @@ static cl::opt<TargetLibraryInfoImpl::VectorLibrary> ClVectorLibrary(
                           "Accelerate framework"),
                clEnumValN(TargetLibraryInfoImpl::SVML, "SVML",
                           "Intel SVML library"),
+#if INTEL_CUSTOMIZATION
                clEnumValN(TargetLibraryInfoImpl::Libmvec, "Libmvec",
                           "Glibc vector math library")));
+#endif
 
 StringRef const TargetLibraryInfoImpl::StandardNames[LibFunc::NumLibFuncs] = {
 #define TLI_DEFINE_STRING
@@ -1422,11 +1424,13 @@ bool TargetLibraryInfoImpl::isFunctionVectorizable(StringRef funcName) const {
   if (funcName.empty())
     return false;
 
+#if INTEL_CUSTOMIZATION
   // TODO: We must be able to distinguish between masked/non-masked entries,
   // so this function will need to move away from using lower_bound, as this
   // could be an entry for either the masked or non-masked version. For now,
   // assume that both the masked and non-masked variants are vectorizable as
   // long as lower_bound says so.
+#endif
   std::vector<VecDesc>::const_iterator I = std::lower_bound(
       VectorDescs.begin(), VectorDescs.end(), funcName,
       compareWithScalarFnName);

@@ -46,6 +46,7 @@ add_llvm_library(LLVMAnalysis
   Intel_OptVLSClientUtils.cpp
   Intel_VectorVariant.cpp
   Intel_WP.cpp
+  Intel_XmainOptLevelPass.cpp
   Intel_VPO/Utils/IntrinsicUtils.cpp             # TODO: Move to lib/Analysis
   Intel_VPO/Utils/OpenMPDirectivesAndClauses.cpp # TODO: Move to lib/Analysis
 # end INTEL_CUSTOMIZATION
@@ -109,5 +110,6 @@ add_llvm_library(LLVMAnalysis
   intel_libmvec_gen       #INTEL
   )
 
+add_subdirectory(Intel_DTrans)        #INTEL
 add_subdirectory(Intel_LoopAnalysis)  #INTEL
 add_subdirectory(Intel_VPO)           #INTEL

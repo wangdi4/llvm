@@ -1,6 +1,6 @@
 //===-------- DDRefUtils.h - Utilities for DDRef class ---*- C++ -*--------===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -18,12 +18,11 @@
 
 #include <map>
 
-#include "llvm/Support/Compiler.h"
-
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRScalarSymbaseAssignment.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/BlobDDRef.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/RegDDRef.h"
-
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"
+#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 
@@ -87,6 +86,10 @@ private:
   static bool getConstDistanceImpl(const RegDDRef *Ref1, const RegDDRef *Ref2,
                                    unsigned LoopLevel, int64_t *Distance);
 
+  /// Implements createMemRef()/createAddressOfRef().
+  RegDDRef *createGEPRef(unsigned BasePtrBlobIndex, unsigned Level, unsigned SB,
+                         bool IsMemRef);
+
 public:
   // Returns reference to CanonExprUtils object.
   CanonExprUtils &getCanonExprUtils() { return CEU; }
@@ -116,14 +119,30 @@ public:
   /// Creates a new DDRef with single canon expr CE.
   RegDDRef *createScalarRegDDRef(unsigned SB, CanonExpr *CE);
 
+  /// Create a memref using the \p BasePtrBlobIndex as the blob index of the
+  /// base pointer. \p Level is the defined at level of the base pointer. If no
+  /// symbase is supplied by the caller, a new one is assigned to the ref. No
+  /// dimensions are added to the ref. Caller is responsible for doing that
+  /// using RegDDRef::addDimension().
+  RegDDRef *createMemRef(unsigned BasePtrBlobIndex, unsigned Level = 0,
+                         unsigned SB = InvalidSymbase);
+
+  /// Create an addressOf ref using the \p BasePtrBlobIndex as the blob index of
+  /// the base pointer. \p Level is the defined at level of the base pointer. If
+  /// no symbase is supplied by the caller, a new one is assigned to the ref. No
+  /// dimensions are added to the ref. Caller is responsible for doing that
+  /// using RegDDRef::addDimension().
+  RegDDRef *createAddressOfRef(unsigned BasePtrBlobIndex, unsigned Level = 0,
+                               unsigned SB = InvalidSymbase);
+
   /// Returns a new constant RegDDRef from a int value.
   /// This routine will automatically create a single canon expr from the val
   /// and attach it to the new RegDDRef.
   RegDDRef *createConstDDRef(Type *Ty, int64_t Val);
 
-  /// Returns a new constant RegDDRef from a value representing some form of constant.
-  /// This routine will automatically create a single canon expr from metadata
-  /// and attach it to the new RegDDRef.
+  /// Returns a new constant RegDDRef from a value representing some form of
+  /// constant. This routine will automatically create a single canon expr from
+  /// metadata and attach it to the new RegDDRef.
   RegDDRef *createConstDDRef(Value *Val);
 
   /// Returns a new BlobDDRef representing blob with Index. Level is the defined
@@ -233,18 +252,22 @@ public:
   /// Return: bool
   /// - true: if replacIVByCanonExpr() succeeds on each loop-level IV in Ref
   /// -false: otherwise
+  ///
+  /// See Also: CanonExprUtils::canReplaceIVByCanonExpr()
   static bool canReplaceIVByCanonExpr(const RegDDRef *Ref, unsigned LoopLevel,
                                       const CanonExpr *CE,
                                       bool RelaxedMode = true);
 
   /// Replace any IV in the Ref with a given CanonExpr*.
-  ///(e.g. A[i]->A[CE], A[i+2]->A[CE+2] )
+  /// (e.g. A[i]->A[CE], A[i+2]->A[CE+2] )
   ///
   /// Note: The function asserts if the replacement fails as the Ref may be in
   /// an inconsistent state. Caller should call canReplaceIVByCanonExpr() first
   /// to make sure this is safe to do.
+  ///
+  /// See Also: CanonExprUtils::replaceIVByCanonExpr().
   static void replaceIVByCanonExpr(RegDDRef *Ref, unsigned LoopLevel,
-                                   const CanonExpr *CE,
+                                   const CanonExpr *CE, bool IsNSW,
                                    bool RelaxedMode = true);
 };
 

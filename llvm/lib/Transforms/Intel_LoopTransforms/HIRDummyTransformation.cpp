@@ -1,6 +1,6 @@
 //===- HIRDummyTransformation.cpp - Implements Dummy Transformation class -===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -29,9 +29,9 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h"
 
-#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
 #define DEBUG_TYPE "hir-dummy"
 
@@ -76,7 +76,7 @@ struct NodeVisitor final : public HLNodeVisitorBase {
   void insertLabel(HLInst *I) {
     HLLabel *Label =
         I->getHLNodeUtils().createHLLabel("L" + std::to_string(Num++));
-    I->getHLNodeUtils().insertBefore(I, Label);
+    HLNodeUtils::insertBefore(I, Label);
   }
 
   void visit(HLInst *I) {
@@ -96,7 +96,7 @@ struct NodeVisitor final : public HLNodeVisitorBase {
   void visit(HLNode *Node) {}
   void postVisit(HLNode *Node) {}
 };
-}
+} // namespace
 
 char HIRDummyTransformation::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRDummyTransformation, "hir-dummy",

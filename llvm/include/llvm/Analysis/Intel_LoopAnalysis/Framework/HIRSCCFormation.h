@@ -1,6 +1,6 @@
 //===----- HIRSCCFormation.h - Identifies SCC in IRRegions -----*- C++ --*-===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -140,6 +140,10 @@ private:
   /// another phi defined in the same bblock as itself.
   bool dependsOnSameBasicBlockPhi(const PHINode *Phi) const;
 
+  /// Returns true if \p Phi has a predecessor which is an early exit from an
+  /// inner loop.
+  bool hasEarlyExitPredecessor(const PHINode *Phi) const;
+
   /// Returns true if this is a node of the graph.
   bool isCandidateNode(const NodeTy *Node) const;
 
@@ -165,6 +169,10 @@ private:
 
   /// Sets RegIt as the current region being processed.
   void setRegion(HIRRegionIdentification::const_iterator RegIt);
+
+  /// Returns true if this SCC represents a recurrence of the form:
+  /// (t = t * constant).
+  bool isMulByConstRecurrence(const SCC &CurSCC) const;
 
   /// Returns true if forming this SCC results in a cleaner HIR.
   bool isProfitableSCC(const SCC &CurSCC) const;

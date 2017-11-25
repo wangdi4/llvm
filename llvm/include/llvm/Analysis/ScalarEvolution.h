@@ -734,8 +734,10 @@ public:
   const SCEV *getBackedgeTakenCountForHIR(const Loop *Lp, 
                                           const Loop *OutermostLoop);
 
-  /// Returns true if ZttInst represents the ztt of the loop. 
-  bool isLoopZtt(const Loop *Lp, const BranchInst *ZttInst, bool Inverse);
+  /// Returns true if ZttInst represents the ztt of the loop.
+  bool isLoopZtt(const Loop *Lp, const Loop *OutermostLoop,
+                 const BranchInst *ZttInst, bool Inverse);
+  
 #endif  // INTEL_CUSTOMIZATION
   /// Returns the upper bound of the loop trip count as a normal unsigned
   /// value.

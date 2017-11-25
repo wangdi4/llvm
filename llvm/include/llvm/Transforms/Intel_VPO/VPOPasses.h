@@ -26,9 +26,11 @@ FunctionPass *createVPODriverHIRPass();
 FunctionPass *createVPODirectiveCleanupPass();
 FunctionPass *createVPOCFGRestructuringPass();
 // 0x5 is equivalent to ParPrepare | OmpPar
-FunctionPass *createVPOParoptPreparePass(unsigned Mode = 0x5);
+FunctionPass *createVPOParoptPreparePass(unsigned Mode = 0x5u,
+  const std::vector<std::string> &OffloadTargets = {});
 // 0x6 is equivalent to ParTrans | OmpPar
-ModulePass   *createVPOParoptPass(unsigned Mode = 0x6);
+ModulePass   *createVPOParoptPass(unsigned Mode = 0x6u,
+  const std::vector<std::string> &OffloadTargets = {});
 }
 
 #endif // LLVM_TRANSFORMS_VPO_VPOPASSES_H

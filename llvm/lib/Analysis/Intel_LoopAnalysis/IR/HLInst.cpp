@@ -13,12 +13,12 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
 
 using namespace llvm;
@@ -166,7 +166,12 @@ void HLInst::printBeginOpcode(formatted_raw_ostream &OS,
       OS << "(";
     }
   } else if (auto FInst = dyn_cast<CallInst>(Inst)) {
-    FInst->getCalledValue()->printAsOperand(OS, false);
+    if (isIndirectCallInst()) {
+      // Use the last operand which is the function pointer.
+      (*op_ddref_rbegin())->print(OS, false);
+    } else {
+      FInst->getCalledValue()->printAsOperand(OS, false);
+    }
     OS << "(";
   } else if (isa<SelectInst>(Inst)) {
     OS << "(";
@@ -199,7 +204,14 @@ void HLInst::print(formatted_raw_ostream &OS, unsigned Depth,
     return;
   }
 
-  for (auto I = op_ddref_begin(), E = op_ddref_end(); I != E; ++I, ++Count) {
+  auto E = op_ddref_end();
+
+  // Do not print function pointer value of an indirect call as an argument.
+  if (isIndirectCallInst()) {
+    --E;
+  }
+
+  for (auto I = op_ddref_begin(); I != E; ++I, ++Count) {
     if ((Count > 1) || (!hasLval() && (Count > 0))) {
       checkSeparator(OS, true);
     }
@@ -347,21 +359,24 @@ unsigned HLInst::getNumOperandsInternal() const {
 
   if (isa<GetElementPtrInst>(Inst)) {
     // GEP is represented as an assignment of address: %t = &A[i];
-    // TODO: GEP accessing structure elements
     NumOp = 1;
   } else if (auto CInst = dyn_cast<CallInst>(Inst)) {
     NumOp = CInst->getNumArgOperands();
+    // For indirect calls, we add function pointer as an operand.
+    if (!CInst->getCalledFunction()) {
+      ++NumOp;
+    }
   } else {
     NumOp = Inst->getNumOperands();
   }
 
   if (hasLval() && !isa<StoreInst>(Inst)) {
-    NumOp++;
+    ++NumOp;
   }
   // Select instruction gains an extra operand due to inclusion of the
   // predicate.
   if (isa<SelectInst>(Inst)) {
-    NumOp++;
+    ++NumOp;
   }
 
   return NumOp;
@@ -410,21 +425,24 @@ void HLInst::verify() const {
            getOperandDDRef(2)->isStandAloneUndefBlob() &&
            "DDRefs for Select or Cmp Instruction with "
            "True or False predicate must be undefined");
-  }
 
-  if (isa<LoadInst>(Inst)) {
+  } else if (isa<LoadInst>(Inst)) {
     assert(getRvalDDRef()->isMemRef() &&
            "Rval of load instruction is not a memref!");
-  }
 
-  if (isa<StoreInst>(Inst)) {
+  } else if (isa<StoreInst>(Inst)) {
     assert(getLvalDDRef()->isMemRef() &&
            "Lval of store instruction is not a memref!");
-  }
 
-  if (isa<GetElementPtrInst>(Inst)) {
+  } else if (isa<GetElementPtrInst>(Inst)) {
     assert(getRvalDDRef()->isAddressOf() &&
            "Rval of GEP instruction is not an AddressOf ref!");
+
+  } else if (isCopyInst()) {
+    assert(getLvalDDRef()->isTerminalRef() &&
+           "Lval of copy instruction is not a terminal!");
+    assert((getRvalDDRef()->isTerminalRef() || getRvalDDRef()->isAddressOf()) &&
+           "Rval of copy instruction is not a terminal or an AddressOf ref!");
   }
 }
 

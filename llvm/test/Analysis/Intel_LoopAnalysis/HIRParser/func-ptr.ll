@@ -1,7 +1,7 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
 
 ; Check parsing output for the loop verifying that a dereference of function pointer argument is parsed correctly.
-; CHECK: DO i1 = 0, zext.i32.i64((-1 + %n))
+; CHECK: DO i1 = 0, sext.i32.i64((-1 + %n))
 ; CHECK-NEXT: %0 = (%A)[0]
 ; CHECK-NEXT: (%B)[i1] = %0
 ; CHECK-NEXT: END LOOP

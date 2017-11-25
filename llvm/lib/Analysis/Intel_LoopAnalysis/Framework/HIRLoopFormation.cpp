@@ -18,10 +18,10 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRRegionIdentification.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRCleanup.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRCreation.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRLoopFormation.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRRegionIdentification.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
@@ -74,7 +74,7 @@ struct LoopCompareEqual {
     return LP1.first == LP2.first;
   }
 };
-}
+} // namespace
 
 HLLoop *HIRLoopFormation::findOrInsertHLLoopImpl(const Loop *Lp, HLLoop *HLoop,
                                                  bool Insert) {
@@ -112,68 +112,124 @@ HLLoop *HIRLoopFormation::findHLLoop(const Loop *Lp) {
   return findOrInsertHLLoopImpl(Lp, nullptr, false);
 }
 
-bool HIRLoopFormation::isNonNegativeNSWIV(const Instruction *Inst) const {
-  auto SC = SE->getSCEV(const_cast<Instruction *>(Inst));
+APInt HIRLoopFormation::getAddRecRefinedSignedMax(
+    const SCEVAddRecExpr *AddRec) const {
+  // For a case like this-
+  //
+  // i = 0
+  // DO
+  //   ...
+  //   i += 2 <NSW>
+  // END DO
+  //
+  // ScalarEvolution can refine the max value of IV based on its initial value
+  // of 0 and stride of 2 to (SignedMax - 1). If an IV with a positive stride
+  // has NSW, its 'least' signed max value is (SignedMax - (Stride - 1)). This
+  // function returns this value.
+  APInt MaxVal =
+      APInt::getSignedMaxValue(AddRec->getType()->getPrimitiveSizeInBits());
 
-  auto AddRec = dyn_cast<SCEVAddRecExpr>(SC);
+  if (!AddRec->isAffine()) {
+    return MaxVal;
+  }
 
-  if (!AddRec) {
+  auto ConstStride = dyn_cast<SCEVConstant>(AddRec->getStepRecurrence(*SE));
+
+  if (!ConstStride) {
+    return MaxVal;
+  }
+
+  auto &Stride = ConstStride->getAPInt();
+
+  if (Stride.isNegative()) {
+    return MaxVal;
+  }
+
+  MaxVal -= Stride;
+  MaxVal += 1ULL;
+
+  return MaxVal;
+}
+
+bool HIRLoopFormation::isNonNegativeNSWIV(const Loop *Lp,
+                                          const PHINode *IVPhi) const {
+  auto SC = SE->getSCEVForHIR(const_cast<PHINode *>(IVPhi),
+                              getOutermostHIRParentLoop(Lp));
+
+  if (!isa<SCEVAddRecExpr>(SC)) {
     return false;
   }
 
-  if (AddRec->getNoWrapFlags(SCEV::FlagNSW) &&
-      SE->isKnownNonNegative(AddRec->getStart())) {
+  auto Range = SE->getSignedRange(SC);
+
+  if (!Range.getSignedMin().isNonNegative()) {
+    return false;
+  }
+
+  // Checking minimum signed value of IV is enough to deduce NSW for single-exit
+  // loops but we need more checks for multi-exit loops.
+  if (Lp->getExitingBlock()) {
     return true;
   }
 
-  return false;
+  // ScalarEvolution could have used an early exit to compute the range info on
+  // the IV. For example, the loop below has a max trip count of 2 due to the
+  // early exit so 'i' has a range of [5, 8). This doesn't mean we can use a
+  // signed comparison to generate the bottom test as 'N' may be big positive
+  // (negative signed) value.
+  // for(i = 5; i < N; i++) {
+  //   if (i == 7)
+  //     goto exit;
+  // }
+
+  APInt Max = Range.getSignedMax();
+  APInt RefinedMax = getAddRecRefinedSignedMax(cast<SCEVAddRecExpr>(SC));
+
+  // If no range refinement was done for the max value of IV based on loop exit,
+  // we can be sure it remains in non-negative range.
+  return Max.sge(RefinedMax);
 }
 
-bool HIRLoopFormation::hasNSWSemantics(const Loop *Lp,
-                                       const PHINode *IVPhi) const {
+bool HIRLoopFormation::hasNSWSemantics(const Loop *Lp, Type *IVType,
+                                       const SCEV *BECount) const {
+  assert(IVType->isIntegerTy() && "Integer IV type expected!");
 
-  auto IVType = IVPhi->getType();
+  // Loop has NSW if backedge taken count is in signed range.
+  if (!isa<SCEVCouldNotCompute>(BECount) && SE->isKnownNonNegative(BECount)) {
+    return true;
+  }
 
-  if (IVType->isIntegerTy()) {
-    if (isNonNegativeNSWIV(IVPhi)) {
-      return true;
+  // Set NSW if there is a non-negative integer IV in the loop header (less
+  // than or equal to the size of IVType).
+  // For example-
+  //
+  // %p.addr.07 = phi i32* [ %incdec.ptr, %for.body ], [ %p, %entry ] <<
+  // pointer IV
+  // %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 0, %entry ] <<
+  // NSW IV of same size as pointer
+  auto IVSize = IVType->getPrimitiveSizeInBits();
+  auto HeaderBB = Lp->getHeader();
+
+  for (auto &PhiInst : (*HeaderBB)) {
+    if (!isa<PHINode>(PhiInst)) {
+      break;
     }
 
-  } else if (IVType->isPointerTy()) {
+    auto PhiTy = PhiInst.getType();
 
-    // Set NSW if there is a non-negative integer IV in the loop header (less
-    // than or equal to the size of the pointer IV) which has NSW flag set.
-    // For example-
-    //
-    // %p.addr.07 = phi i32* [ %incdec.ptr, %for.body ], [ %p, %entry ] <<
-    // pointer IV
-    // %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 0, %entry ] <<
-    // NSW IV of same size as pointer
-    auto PtrSize = Func->getParent()->getDataLayout().getTypeSizeInBits(IVType);
-    auto HeaderBB = Lp->getHeader();
+    if (!PhiTy->isIntegerTy() || (PhiTy->getPrimitiveSizeInBits() > IVSize)) {
+      continue;
+    }
 
-    for (auto &PhiInst : (*HeaderBB)) {
-      if (!isa<PHINode>(PhiInst)) {
-        break;
-      }
-
-      auto PhiTy = PhiInst.getType();
-
-      if (!PhiTy->isIntegerTy() ||
-          (PhiTy->getPrimitiveSizeInBits() > PtrSize)) {
-        continue;
-      }
-
-      if (isNonNegativeNSWIV(&PhiInst)) {
-        return true;
-      }
+    if (isNonNegativeNSWIV(Lp, &cast<PHINode>(PhiInst))) {
+      return true;
     }
   }
 
   return false;
 }
 
-void HIRLoopFormation::setIVType(HLLoop *HLoop) const {
+void HIRLoopFormation::setIVType(HLLoop *HLoop, const SCEV *BECount) const {
   Value *Cond;
   auto Lp = HLoop->getLLVMLoop();
   auto Latch = Lp->getLoopLatch();
@@ -208,8 +264,7 @@ void HIRLoopFormation::setIVType(HLLoop *HLoop) const {
 
   HLoop->setIVType(IVType);
 
-  // Set NSW flag, if applicable.
-  auto IsNSW = hasNSWSemantics(Lp, IVNode);
+  auto IsNSW = hasNSWSemantics(Lp, IVType, BECount);
   HLoop->setNSW(IsNSW);
 }
 
@@ -224,22 +279,22 @@ bool HIRLoopFormation::populatedPreheaderPostexitNodes(
   auto PostEndIt =
       !PredicateInversion ? IfParent->then_end() : IfParent->else_end();
 
-  auto &HNU = HLoop->getHLNodeUtils();
-
   bool HasPreheader = (PreBegIt != PreEndIt);
   bool HasPostexit = (PostBegIt != PostEndIt);
 
-  if ((HasPreheader && !HNU.validPreheaderPostexitNodes(PreBegIt, PreEndIt)) ||
-      (HasPostexit && !HNU.validPreheaderPostexitNodes(PostBegIt, PostEndIt))) {
+  if ((HasPreheader &&
+       !HLNodeUtils::validPreheaderPostexitNodes(PreBegIt, PreEndIt)) ||
+      (HasPostexit &&
+       !HLNodeUtils::validPreheaderPostexitNodes(PostBegIt, PostEndIt))) {
     return false;
   }
 
   if (HasPreheader) {
-    HNU.moveAsFirstPreheaderNodes(HLoop, PreBegIt, PreEndIt);
+    HLNodeUtils::moveAsFirstPreheaderNodes(HLoop, PreBegIt, PreEndIt);
   }
 
   if (HasPostexit) {
-    HNU.moveAsFirstPostexitNodes(HLoop, PostBegIt, PostEndIt);
+    HLNodeUtils::moveAsFirstPostexitNodes(HLoop, PostBegIt, PostEndIt);
   }
 
   return true;
@@ -273,7 +328,8 @@ void HIRLoopFormation::setZtt(HLLoop *HLoop) {
   auto IfBB = HIR->getSrcBBlock(IfParent);
   auto IfBrInst = cast<BranchInst>(IfBB->getTerminator());
 
-  if (!SE->isLoopZtt(Lp, IfBrInst, PredicateInversion)) {
+  if (!SE->isLoopZtt(Lp, getOutermostHIRParentLoop(Lp), IfBrInst,
+                     PredicateInversion)) {
     return;
   }
 
@@ -289,8 +345,8 @@ void HIRLoopFormation::setZtt(HLLoop *HLoop) {
           (PredicateInversion && (IfParent->getNumElseChildren() == 1))) &&
          "Something went wrong during ztt recognition!");
 
-  HIR->getHLNodeUtils().moveBefore(IfParent, HLoop);
-  HIR->getHLNodeUtils().remove(IfParent);
+  HLNodeUtils::moveBefore(IfParent, HLoop);
+  HLNodeUtils::remove(IfParent);
 
   HLoop->setZtt(IfParent);
 
@@ -299,32 +355,120 @@ void HIRLoopFormation::setZtt(HLLoop *HLoop) {
   }
 }
 
+const Loop *HIRLoopFormation::getOutermostHIRParentLoop(const Loop *Lp) const {
+  const Loop *ParLp, *TmpLp;
+
+  ParLp = Lp;
+
+  while ((TmpLp = ParLp->getParentLoop()) &&
+         CurRegion->containsBBlock(TmpLp->getHeader())) {
+    ParLp = TmpLp;
+  }
+
+  return ParLp;
+}
+
+void HIRLoopFormation::processLoopExitGoto(HLIf *BottomTest, HLLabel *LoopLabel,
+                                           HLLoop *HLoop) const {
+  // If loop exit goto was not removed as redundant, it means that it is not the
+  // lexical successor of the loop. In this case we need to preserve the goto by
+  // moving it after the loop.
+  //
+  // Change from-
+  //
+  // + UNKNOWN LOOP i2
+  // |  L:
+  // |  ...
+  // |  if () {
+  // |    goto L;
+  // |  else {
+  // |    goto Exit;
+  // |  }
+  // + END LOOP
+  //
+  // OtherLabel:
+  //
+  // To-
+  //
+  // + UNKNOWN LOOP i2
+  // |  L:
+  // |  ...
+  // |  if () {
+  // |    goto L;
+  // }  }
+  // + END LOOP
+  // goto Exit;
+  //
+  // OtherLabel:
+  //
+  if (!BottomTest->hasThenChildren()) {
+    return;
+  }
+
+  assert(((BottomTest->getNumThenChildren() == 1) &&
+          isa<HLGoto>(BottomTest->getFirstThenChild())) &&
+         "Unexpected bottom test!");
+
+  if (!BottomTest->hasElseChildren()) {
+    return;
+  }
+
+  assert(((BottomTest->getNumElseChildren() == 1) &&
+          isa<HLGoto>(BottomTest->getFirstElseChild())) &&
+         "Unexpected bottom test!");
+
+  auto ThenGoto = cast<HLGoto>(BottomTest->getFirstThenChild());
+
+  // Check which goto represents backedge and move the other one after the loop.
+  if (ThenGoto->getTargetLabel() == LoopLabel) {
+    ThenGoto->getHLNodeUtils().moveAfter(HLoop,
+                                         BottomTest->getFirstElseChild());
+  } else {
+    ThenGoto->getHLNodeUtils().moveAfter(HLoop, ThenGoto);
+  }
+}
+
 void HIRLoopFormation::formLoops() {
+
+  HLRegion *PrevRegion = nullptr;
 
   // Traverse RequiredLabels set computed by HIRCleanup phase to form loops.
   for (auto I = HIRC->getRequiredLabels().begin(),
             E = HIRC->getRequiredLabels().end();
        I != E; ++I) {
-    BasicBlock *HeaderBB = (*I)->getSrcBBlock();
+    auto Label = *I;
+    BasicBlock *HeaderBB = Label->getSrcBBlock();
 
     if (!LI->isLoopHeader(HeaderBB)) {
       continue;
     }
 
+    CurRegion = Label->getParentRegion();
+
+    if (PrevRegion != CurRegion) {
+      // Since RequiredLabels is sorted by node number, this should work like
+      // lexical traversal of regions so we shouldn't be consuming extra compile
+      // time by unnecessarily switching between regions.
+      PrevRegion = CurRegion;
+      SE->clearHIRCache();
+    }
+
     // Found a loop
     Loop *Lp = LI->getLoopFor(HeaderBB);
 
-    auto BECount = SE->getBackedgeTakenCount(Lp);
+    auto BECount =
+        SE->getBackedgeTakenCountForHIR(Lp, getOutermostHIRParentLoop(Lp));
+
     bool IsUnknownLoop = isa<SCEVCouldNotCompute>(BECount);
     bool IsConstTripLoop = isa<SCEVConstant>(BECount);
 
     // Find HIR hook for the loop latch.
     auto LatchHook = HIRC->findHIRHook(Lp->getLoopLatch());
 
-    assert(((*I)->getParent() == LatchHook->getParent()) &&
+    assert((Label->getParent() == LatchHook->getParent()) &&
            "Wrong lexical links built!");
 
-    HLContainerTy::iterator LabelIter(*I);
+    HLContainerTy::iterator LabelIter(Label);
     HLContainerTy::iterator BottomTestIter(LatchHook);
 
     // Look for the bottom test.
@@ -332,30 +476,30 @@ void HIRLoopFormation::formLoops() {
       BottomTestIter = std::next(BottomTestIter);
     }
 
+    HLIf *BottomTest = cast<HLIf>(&*BottomTestIter);
+
     // Create a new loop and move its children inside.
     HLLoop *HLoop = HIR->getHLNodeUtils().createHLLoop(Lp);
-    setIVType(HLoop);
-    HLoop->setLoopMetadata(Lp->getLoopID());
+    HLNodeUtils::insertBefore(Label, HLoop);
 
-    HLIf *BottomTest = cast<HLIf>(&*BottomTestIter);
+    HLoop->setLoopMetadata(Lp->getLoopID());
     HLoop->setBranchDebugLoc(BottomTest->getDebugLoc());
     HLoop->setCmpTestDebugLoc(BottomTest->pred_begin()->DbgLoc);
 
-    // Hook loop into HIR.
-    HIR->getHLNodeUtils().insertBefore(&*LabelIter, HLoop);
+    processLoopExitGoto(BottomTest, Label, HLoop);
 
     // Include Label and bottom test as explicit nodes inside the unknown loop.
     auto FirstChildIter = IsUnknownLoop ? LabelIter : std::next(LabelIter);
     auto EndIter = IsUnknownLoop ? std::next(BottomTestIter) : BottomTestIter;
 
-    HIR->getHLNodeUtils().moveAsFirstChildren(HLoop, FirstChildIter, EndIter);
+    HLNodeUtils::moveAsFirstChildren(HLoop, FirstChildIter, EndIter);
+
+    setIVType(HLoop, BECount);
 
     if (!IsUnknownLoop) {
       // Remove label and bottom test.
-      HIR->getHLNodeUtils().erase(&*LabelIter);
-
-      // Can bottom test contain anything else??? Should probably assert on it.
-      HIR->getHLNodeUtils().erase(&*BottomTestIter);
+      HLNodeUtils::erase(Label);
+      HLNodeUtils::erase(BottomTest);
 
       // TODO: Look into whether setting ztt is beneficial for unknown loops.
       if (!IsConstTripLoop) {

@@ -706,8 +706,10 @@ void VPOCostGathererBase::visit(AVRExpression *Expr) {
 
     CallInst *Call = cast<CallInst>(Inst);
     Function *F = Call->getCalledFunction();
-    StringRef FnName = F->getName();
-    if (TLI.isFunctionVectorizable(FnName, VF)) {
+    if (!F) {
+      // Indirect call.
+      Cost = 20;
+    } else if (TLI.isFunctionVectorizable(F->getName(), VF)) {
       // SVML call
       DEBUG(errs()  << "SVML call cost = 2\n");
       Cost = 2;

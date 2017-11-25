@@ -1,6 +1,6 @@
 //===---------- HIRParser.h - Parses SCEVs into CanonExprs --*- C++ -*-----===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -220,8 +220,8 @@ private:
   /// Implements phase2 of parsing.
   void phase2Parse();
 
-  /// Returns the number of rval operands of HInst.
-  static unsigned getNumRvalOperands(HLInst *HInst);
+  /// Returns the number of rval operands of Inst w.r.t HIR setup.
+  static unsigned getNumRvalOperands(const Instruction *Inst);
 
   /// Returns true if this instruction has a user outside the region.
   bool isRegionLiveOut(const Instruction *Inst) const;
@@ -313,10 +313,11 @@ private:
 
   /// Returns true if \p CI's SCEV contains a SCEVCastExpr whose operand is an
   /// AddRec with the same type as \p CI's operand.
-  bool containsCastedAddRec(const CastInst *CI) const;
+  bool containsCastedAddRec(const CastInst *CI, const SCEV *SC) const;
 
-  /// Returns true if the src type of \p CI is same as parent loop's IV type.
-  bool isCastedFromLoopIVType(const CastInst *CI) const;
+  /// Returns true if the src type of \p CI is same as parent loop's IV type and
+  /// its SCEV form is not a cast.
+  bool isCastedFromLoopIVType(const CastInst *CI, const SCEV *SC) const;
 
   /// Returns true if we should parse \p CI by explicitly hiding the cast in the
   /// instruction and recursively parsing the cast operand.
@@ -375,11 +376,15 @@ private:
   }
 
   /// Returns a RegDDRef representing loop upper.
-  RegDDRef *createUpperDDRef(const SCEV *BETC, unsigned Level, Type *IVType);
+  RegDDRef *createUpperDDRef(const SCEV *BETC, unsigned Level, Type *IVType,
+                             bool IsNSW);
 
   /// Returns the size of the contained type in bytes. Incoming type is expected
   /// to be a pointer type.
   unsigned getElementSize(Type *Ty) const;
+
+  // Returns true if it is valid to parse this GEPOperator.
+  bool isValidGEPOp(const GEPOperator *GEPOp) const;
 
   /// Returns the base(earliest) GEP in case there are multiple GEPs associated
   /// with this load/store.
@@ -441,6 +446,11 @@ private:
 
   /// Creates a GEP RegDDRef for this GEPOperator.
   RegDDRef *createRegularGEPDDRef(const GEPOperator *GEPOp, unsigned Level);
+
+  /// For a var of type *[10 x i32], given a reference to one past the end
+  /// element like &A[0][10], instcombine can turn it into equivalent &A[1][0].
+  /// This is problematic for DD so parser reverts it into the original form.
+  void restructureOnePastTheEndRef(RegDDRef *Ref) const;
 
   /// Returns a RegDDRef containing GEPInfo. IsUse indicates whether this is a
   /// definition or a use of GEP.

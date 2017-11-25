@@ -136,7 +136,6 @@ void LTOCodeGenerator::initializeLTOPasses() {
   initializePostOrderFunctionAttrsLegacyPassPass(R);
   initializeReversePostOrderFunctionAttrsLegacyPassPass(R);
   initializeGlobalsAAWrapperPassPass(R);
-  initializeAndersensAAWrapperPassPass(R);   // INTEL
   initializeLegacyLICMPassPass(R);
   initializeMergedLoadStoreMotionLegacyPassPass(R);
   initializeGVNLegacyPassPass(R);
@@ -144,8 +143,13 @@ void LTOCodeGenerator::initializeLTOPasses() {
   initializeDCELegacyPassPass(R);
   initializeCFGSimplifyPassPass(R);
   initializeLateCFGSimplifyPassPass(R);
-  initializeWholeProgramWrapperPassPass(R);      // INTEL
-  initializeInlineAggressiveWrapperPassPass(R);  // INTEL
+#if INTEL_CUSTOMIZATION
+  initializeAndersensAAWrapperPassPass(R);
+  initializeDTransAnalysisWrapperPass(R);
+  initializeDTransOptWrapperPass(R);
+  initializeWholeProgramWrapperPassPass(R);
+  initializeInlineAggressiveWrapperPassPass(R);
+#endif // INTEL_CUSTOMIZATION
 }
 
 void LTOCodeGenerator::setAsmUndefinedRefs(LTOModule *Mod) {

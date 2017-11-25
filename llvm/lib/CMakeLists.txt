@@ -21,6 +21,9 @@ add_subdirectory(Target)
 add_subdirectory(AsmParser)
 add_subdirectory(LineEditor)
 add_subdirectory(ProfileData)
+#ifdef INTEL_CUSTOMIZATION
+add_subdirectory(SPIRV)
+#endif // INTEL_CUSTOMIZATION
 add_subdirectory(Passes)
 add_subdirectory(ToolDrivers)
 add_subdirectory(XRay)

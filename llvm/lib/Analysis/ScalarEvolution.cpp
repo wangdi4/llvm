@@ -3902,8 +3902,10 @@ const SCEV *ScalarEvolution::getSCEVAtScopeForHIR(const SCEV *SC,
 }
 
 
-bool ScalarEvolution::isLoopZtt(const Loop *Lp, const BranchInst *ZttInst, 
-                                bool Inverse) {
+bool ScalarEvolution::isLoopZtt(const Loop *Lp, const Loop *OutermostLoop,
+                                const BranchInst *ZttInst, bool Inverse) {
+
+  HIRInfo.set(OutermostLoop);
 
   auto ZttCond = ZttInst->getCondition();
 
@@ -3954,7 +3956,9 @@ bool ScalarEvolution::isLoopZtt(const Loop *Lp, const BranchInst *ZttInst,
       return (isImpliedCond(ICmpInst::ICMP_UGT, LHS, RHS, ZttCond, Inverse) ||
               isImpliedCond(ICmpInst::ICMP_SGT, LHS, RHS, ZttCond, Inverse));
     }
-  }      
+  }
+
+  HIRInfo.reset();
 
   return false;
 }
@@ -6623,7 +6627,9 @@ ScalarEvolution::getBackedgeTakenInfo(const Loop *L) {
   std::pair<DenseMap<const Loop *, BackedgeTakenInfo>::iterator, bool> Pair =
       BackedgeTakenCounts.insert({L, BackedgeTakenInfo()});
 
-#if INTEL_CUSTOMIZATION // HIR parsing 
+#if INTEL_CUSTOMIZATION // HIR parsing
+  bool RemoveDummyEntry = false;
+
   if (!Pair.second) {
     auto & BTI = Pair.first->second;
 
@@ -6633,8 +6639,11 @@ ScalarEvolution::getBackedgeTakenInfo(const Loop *L) {
 
     auto SC = BTI.getExact(this);
 
-    // If original cache entry is valid for HIR, return it.
-    if ((SC == getCouldNotCompute()) || isValidSCEVForHIR(SC)) {
+    // Ignore the original cache entry for multi-exit loops as it is always
+    // SCEVCouldNotCompute.
+    if (L->getExitingBlock() &&
+        // If original cache entry is valid for HIR, return it.
+        ((SC == getCouldNotCompute()) || isValidSCEVForHIR(SC))) {
       return BTI;
 
     } else {
@@ -6646,6 +6655,12 @@ ScalarEvolution::getBackedgeTakenInfo(const Loop *L) {
       if (!Pair.second)
         return Pair.first->second;
     }
+  } else if (HIRInfo.isValid()) {
+    // We are in HIR mode and even the original backedge count of this loop
+    // hasn't been computed yet. The dummy entry added to BackedgeTakenCounts at
+    // the beginning of this function to compute HIR backedge count should be
+    // deleted.
+    RemoveDummyEntry = true;
   }
 #endif // INTEL_CUSTOMIZATION
   // computeBackedgeTakenCount may allocate memory for its result. Inserting it
@@ -6723,8 +6738,12 @@ ScalarEvolution::getBackedgeTakenInfo(const Loop *L) {
   // loop), which would invalidate the iterator computed
   // earlier.
 #if INTEL_CUSTOMIZATION // HIR parsing
-  if (HIRInfo.isValid()) 
-    return HIRBackedgeTakenCounts.find(L)->second = std::move(Result);
+  if (HIRInfo.isValid()) {
+    if (RemoveDummyEntry) {
+      BackedgeTakenCounts.erase(L);
+    }
+    return HIRBackedgeTakenCounts[L] = std::move(Result);
+  }
 #endif // INTEL_CUSTOMIZATION
   return BackedgeTakenCounts.find(L)->second = std::move(Result);
 }
@@ -7004,6 +7023,28 @@ ScalarEvolution::computeBackedgeTakenCount(const Loop *L,
   const SCEV *MayExitMaxBECount = nullptr;
   bool MustExitMaxOrZero = false;
 
+#if INTEL_CUSTOMIZATION // HIR parsing
+  // Multi-exit loops in HIR are treated as single-exit loops with early exits.
+  // This means that the trip count information is computed only off of loop
+  // backedge(latch). We can ignore all the other exits.
+  if ((ExitingBlocks.size() > 1) && HIRInfo.isValid()) {
+    // Check whether latch is an exiting block. If it is, remove all the other
+    // exiting blocks. Latch may not be an exit if it is an unconditional
+    // branch.
+    bool LatchIsExit = false;
+    for (auto ExitingBB : ExitingBlocks) {
+      if (ExitingBB == Latch) {
+        LatchIsExit = true;
+        break;
+      }
+    }
+
+    if (LatchIsExit) {
+      ExitingBlocks.clear();
+      ExitingBlocks.push_back(Latch);
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
   // Compute the ExitLimit for each loop exit. Use this to populate ExitCounts
   // and compute maxBECount.
   // Do a union of all the predicates here.

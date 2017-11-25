@@ -4,7 +4,7 @@
 ;            A[j][i] = A[j][i+n] + 1; 
 ;
 ; REQUIRES: asserts
-; RUN: opt -debug -hir-ssa-deconstruction -hir-loop-interchange  < %s 2>&1 | FileCheck %s
+; RUN: opt -debug-only=hir-loop-interchange -hir-ssa-deconstruction -hir-loop-interchange  < %s 2>&1 | FileCheck %s
 ; CHECK: Interchanged:
 ; CHECK-SAME:  ( 2 1 )  
 ; 
