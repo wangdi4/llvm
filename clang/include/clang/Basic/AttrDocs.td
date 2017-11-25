@@ -2706,6 +2706,17 @@ kernel to exhibit blocking behavior, specify the blocking attribute
 (__attribute__((blocking))) when you declare the read and write pipes.
   }];
 }
+
+def OpenCLHostAccessibleDocs : Documentation {
+  let Category = DocCatVariable;
+  let Content = [{
+By default OpenCL pipes cannot be accessed from host. Optional
+__attribute__((intel_host_accessible)) may be applied to pipe kernel arguments
+to specify that a pipe kernel argument will be connected by the host to a
+host-accessible pipe, and therefore will not be connected to another kernel pipe
+argument.
+  }];
+}
 // endif INTEL_CUSTOMIZATION
 
 def OMPDeclareSimdDocs : Documentation {

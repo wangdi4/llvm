@@ -3380,6 +3380,18 @@ static Value *EmitTargetArchBuiltinExpr(CodeGenFunction *CGF,
   case llvm::Triple::wasm32:
   case llvm::Triple::wasm64:
     return CGF->EmitWebAssemblyBuiltinExpr(BuiltinID, E);
+#if INTEL_CUSTOMIZATION
+  case llvm::Triple::spir:
+  case llvm::Triple::spir64:
+    // We use environment part of triple to indicate that the target for
+    // compilation is fpga-emulator, i.e. spir64-unknown-unknown-intelfpga.
+    //
+    // Additional fpga built-ins are declared as target builtins for
+    // SPIR64INTELFpga and SPIR32INTELFpga targets, so, usual user will see an
+    // error message if it would try to use this ones and we can omit check
+    // of environment part of the triple.
+    return CGF->EmitIntelFPGABuiltinExpr(BuiltinID, E);
+#endif // INTEL_CUSTOMIZATION
   default:
     return nullptr;
   }
@@ -4829,6 +4841,26 @@ static bool HasExtraNeonArgument(unsigned BuiltinID) {
   }
   return true;
 }
+
+#if INTEL_CUSTOMIZATION
+Value *CodeGenFunction::EmitIntelFPGABuiltinExpr(unsigned BuiltinID,
+                                                 const CallExpr *E) {
+  if (BuiltinID == SPIRINTELFpga::BIget_compute_id) {
+    Value *Arg = EmitScalarExpr(E->getArg(0));
+    llvm::Type *ArgTys[] = {Arg->getType()};
+    llvm::Type *SizeTy = llvm::Type::getIntNTy(
+        getLLVMContext(), getTarget().getTypeWidth(getTarget().getSizeType()));
+    llvm::FunctionType *FTy = llvm::FunctionType::get(
+        SizeTy, llvm::ArrayRef<llvm::Type *>(ArgTys), false);
+    // Let's use the same name.
+    const char *Name = "get_compute_id";
+    CGOpenCLRuntime OpenCLRT(CGM);
+    return Builder.CreateCall(CGM.CreateRuntimeFunction(FTy, Name), {Arg});
+  }
+
+  return nullptr;
+}
+#endif // INTEL_CUSTOMIZATION
 
 Value *CodeGenFunction::EmitARMBuiltinExpr(unsigned BuiltinID,
                                            const CallExpr *E) {

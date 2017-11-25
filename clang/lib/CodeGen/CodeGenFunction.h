@@ -3347,6 +3347,7 @@ private:
                                     const OMPParallelForSimdDirective &S);
   void EmitIntelOMPTaskLoopDirective(const OMPTaskLoopDirective &S);
   void EmitIntelOMPTaskLoopSimdDirective(const OMPTaskLoopSimdDirective &S);
+  void EmitIntelOMPDistributeDirective(const OMPDistributeDirective &S);
 #endif // INTEL_SPECIFIC_OPENMP
 public:
 
@@ -3711,6 +3712,10 @@ public:
                                              const llvm::CmpInst::Predicate Ip,
                                              const llvm::Twine &Name = "");
   llvm::Value *EmitARMBuiltinExpr(unsigned BuiltinID, const CallExpr *E);
+
+#if INTEL_CUSTOMIZATION
+  llvm::Value *EmitIntelFPGABuiltinExpr(unsigned BuiltinID, const CallExpr *E);
+#endif // INTEL_CUSTOMIZATION
 
   llvm::Value *EmitCommonNeonBuiltinExpr(unsigned BuiltinID,
                                          unsigned LLVMIntrinsic,

@@ -20,6 +20,7 @@ struct S4 {
 };
 
 void foo() {}
+void bar(int);
 
 int glob_int = 2;
 int *glob_ptr;
@@ -424,6 +425,99 @@ int main(int argc, char **argv) {
     #pragma omp target defaultmap(tofrom:scalar)
     {
       glob_int = local_int + 1;
+    }
+  }
+// CHECK-REG: [[TARGTE_TV:%[0-9]+]] = call token{{.*}}region.entry() [ "DIR.OMP.TARGET"()
+// CHECK-REG: [[TE_TV:%[0-9]+]] = call token{{.*}}region.entry() [ "DIR.OMP.TEAMS"(){{.*}}"QUAL.OMP.NUM_TEAMS"(i32 16), "QUAL.OMP.THREAD_LIMIT"(i32 4)
+// CHECK-REG: [[DIST_TV:%[0-9]+]] = call token{{.*}}region.entry() [ "DIR.OMP.DISTRIBUTE"(){{.*}}"QUAL.OMP.DIST.SCHEDULE.STATIC"(i32 8)
+  #pragma omp target
+  #pragma omp teams num_teams(16) thread_limit(4)
+  {
+    #pragma omp distribute dist_schedule(static, 8)
+    for (int i = 0; i < N; i++)
+      foo();
+  }
+// CHECK-REG: region.exit(token [[DIST_TV]]) [ "DIR.OMP.END.DISTRIBUTE"() ]
+// CHECK-REG: region.exit(token [[TE_TV]]) [ "DIR.OMP.END.TEAMS"() ]
+// CHECK-REG: region.exit(token [[TARGTE_TV]]) [ "DIR.OMP.END.TARGET"() ]
+
+// CHECK-REG: [[BARRIER_TOKENVAL:%[0-9]+]] = call token{{.*}}DIR.OMP.BARRIER
+// CHECK-REG: region.exit(token [[BARRIER_TOKENVAL]]) [ "DIR.OMP.END.BARRIER"
+  #pragma omp barrier
+// CHECK-REG: [[FLUSH_TOKENVAL:%[0-9]+]] = call token{{.*}}DIR.OMP.FLUSH
+// CHECK-REG: region.exit(token [[FLUSH_TOKENVAL]]) [ "DIR.OMP.END.FLUSH"
+  #pragma omp flush
+
+  {
+    int fli = 3, flj = 4;
+// CHECK-REG: [[FLUSH_TOKENVAL1:%[0-9]+]] = call token{{.*}}DIR.OMP.FLUSH{{.*}}QUAL.OMP.FLUSH{{.*}}fli{{.*}}flj
+// CHECK-REG: region.exit(token [[FLUSH_TOKENVAL1]]) [ "DIR.OMP.END.FLUSH"
+    #pragma omp flush(fli,flj)
+  }
+
+// CHECK-REG: [[SECT1ATV:%[0-9]+]] = call token{{.*}}DIR.OMP.PARALLEL
+// CHECK-REG: [[SECT1BTV:%[0-9]+]] = call token{{.*}}DIR.OMP.SECTIONS{{.*}}NOWAIT{{.*}}PRIVATE{{.*}}sect1{{.*}}FIRSTPRIVATE{{.*}}sect2{{.*}}LASTPRIVATE{{.*}}sect3{{.*}}REDUCTION.ADD{{.*}}sect4
+// CHECK-REG: [[SECT1CTV:%[0-9]+]] = call token{{.*}}DIR.OMP.SECTION
+// CHECK-REG: call{{.*}}bari(i32 1)
+// CHECK-REG: region.exit(token [[SECT1CTV]]) [ "DIR.OMP.END.SECTION"
+// CHECK-REG: [[SECT1DTV:%[0-9]+]] = call token{{.*}}DIR.OMP.SECTION
+// CHECK-REG: call{{.*}}bari(i32 2)
+// CHECK-REG: region.exit(token [[SECT1DTV]]) [ "DIR.OMP.END.SECTION"
+// CHECK-REG: [[SECT1ETV:%[0-9]+]] = call token{{.*}}DIR.OMP.SECTION
+// CHECK-REG: call{{.*}}bari(i32 3)
+// CHECK-REG: region.exit(token [[SECT1ETV]]) [ "DIR.OMP.END.SECTION"
+// CHECK-REG: region.exit(token [[SECT1BTV]]) [ "DIR.OMP.END.SECTIONS"
+// CHECK-REG: region.exit(token [[SECT1ATV]]) [ "DIR.OMP.END.PARALLEL"
+  {
+    int sect1=0,sect2=0,sect3=0,sect4=0;
+    #pragma omp parallel
+    {
+      #pragma omp sections nowait private(sect1) firstprivate(sect2) \
+                           lastprivate(sect3) reduction(+:sect4)
+      {
+        #pragma omp section
+        {
+          bar(1);
+        }
+        #pragma omp section
+        {
+          bar(2);
+        }
+        #pragma omp section
+        {
+          bar(3);
+        }
+      }
+    }
+  }
+// CHECK-REG: [[SECT2BTV:%[0-9]+]] = call token{{.*}}DIR.OMP.PARALLEL.SECTIONS{{.*}}PRIVATE{{.*}}sect1{{.*}}FIRSTPRIVATE{{.*}}sect2{{.*}}LASTPRIVATE{{.*}}sect3{{.*}}REDUCTION.ADD{{.*}}sect4
+// CHECK-REG: [[SECT2CTV:%[0-9]+]] = call token{{.*}}DIR.OMP.SECTION
+// CHECK-REG: call{{.*}}bari(i32 1)
+// CHECK-REG: region.exit(token [[SECT2CTV]]) [ "DIR.OMP.END.SECTION"
+// CHECK-REG: [[SECT2DTV:%[0-9]+]] = call token{{.*}}DIR.OMP.SECTION
+// CHECK-REG: call{{.*}}bari(i32 2)
+// CHECK-REG: region.exit(token [[SECT2DTV]]) [ "DIR.OMP.END.SECTION"
+// CHECK-REG: [[SECT2ETV:%[0-9]+]] = call token{{.*}}DIR.OMP.SECTION
+// CHECK-REG: call{{.*}}bari(i32 3)
+// CHECK-REG: region.exit(token [[SECT2ETV]]) [ "DIR.OMP.END.SECTION"
+// CHECK-REG: region.exit(token [[SECT2BTV]]) [ "DIR.OMP.END.PARALLEL.SECTIONS"
+  {
+    int sect1=0,sect2=0,sect3=0,sect4=0;
+    #pragma omp parallel sections private(sect1) firstprivate(sect2) \
+                                  lastprivate(sect3) reduction(+:sect4)
+    {
+      #pragma omp section
+      {
+        bar(1);
+      }
+      #pragma omp section
+      {
+        bar(2);
+      }
+      #pragma omp section
+      {
+        bar(3);
+      }
     }
   }
   return 0;

@@ -274,6 +274,11 @@ public:
   /// \brief A list of all -fno-builtin-* function names (e.g., memset).
   std::vector<std::string> NoBuiltinFuncs;
 
+#if INTEL_CUSTOMIZATION
+  // List of target triples for offloading.
+  std::vector<std::string> OffloadTargets;
+#endif // INTEL_CUSTOMIZATION
+
 public:
   // Define accessors/mutators for code generation options of enumeration type.
 #define CODEGENOPT(Name, Bits, Default)
