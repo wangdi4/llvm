@@ -29,6 +29,7 @@
 #include <Windows.h>
 #endif
 
+#include <cl_env.h>
 #include <cl_sys_defines.h>
 #include <cl_sys_info.h>
 #include <cl_shutdown.h>
@@ -267,13 +268,17 @@ int TBBTaskExecutor::Init(FrameworkUserLogger* pUserLogger, unsigned int uiNumOf
     }
 
 #ifdef BUILD_FPGA_EMULATOR
-    if (const char* env_num_workers = getenv("OCL_TBB_NUM_WORKERS"))
+    // TODO: replace this variable with a variable from cl.cfg.
+    std::string env_num_workers;
+    cl_err_code err = Intel::OpenCL::Utils::GetEnvVar(
+        env_num_workers, "OCL_TBB_NUM_WORKERS");
+    if (CL_FAILED(err))
     {
-        gWorker_threads = std::stoi(env_num_workers);
+        gWorker_threads = 32;
     }
     else
     {
-        gWorker_threads = 32;
+        gWorker_threads = std::stoi(env_num_workers);
     }
 #endif
 
