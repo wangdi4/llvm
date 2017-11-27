@@ -16,7 +16,7 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_VPLAN_BUILDER_H
 #define LLVM_TRANSFORMS_VECTORIZE_VPLAN_BUILDER_H
 
-#include "VPlan.h"
+#include "Intel_VPlan.h"
 
 namespace llvm {
 namespace vpo {    
