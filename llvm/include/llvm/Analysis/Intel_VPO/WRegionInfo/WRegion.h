@@ -735,6 +735,10 @@ public:
   }
 };
 
+template <> Loop *WRNVecLoopNode::getTheLoop<Loop>() const;
+template <>
+loopopt::HLLoop *WRNVecLoopNode::getTheLoop<loopopt::HLLoop>() const;
+
 /// WRN for
 /// \code
 ///   #pragma omp for
