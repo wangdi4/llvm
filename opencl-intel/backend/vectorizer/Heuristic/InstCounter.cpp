@@ -143,7 +143,7 @@ bool WeightedInstCounter::is64BitArch() const {
   return m_cpuid.Is64BitOS();
 }
 
-bool WeightedInstCounter::hasV16Support() const {
+bool WeightedInstCounter::hasAVX512() const {
   return m_cpuid.HasAVX512();
 }
 
@@ -180,32 +180,13 @@ bool WeightedInstCounter::runOnFunction(Function &F) {
   //This is for safety - don't return 0.
   m_totalWeight = 1;
 
-  // If the request was only to check sanity, only set the desired
-  // with for 16 if supported, and finish.
-  // This used to also contain a "are we allowed to vectorize" check
-  // but that was moved elsewhere.
-  if (hasV16Support()) {
-    m_desiredWidth = 16;
-    return false;
-  }
-
   // Check if this is the "pre" stage.
   // If it is, compute things that are relevant only here.
   DenseMap<Instruction*, int> MemOpCostMap;
   if (m_preVec) {
-    // if v16 is supported always has vectorization width 16.
-    if (hasV16Support()) {
-      m_desiredWidth = 16;
-      return false;
-    }
-
     // Compute the "cost map" for stores and loads. This is only
     // done pre-vectorization. See function for extended explanation.
     estimateMemOpCosts(F, MemOpCostMap);
-  }
-  else if (hasV16Support()) {
-    //Do nothing for v16 in the post stage.
-    return false;
   }
 
   // First, estimate the total number of iterations each loop in the
@@ -286,8 +267,6 @@ bool WeightedInstCounter::runOnFunction(Function &F) {
 int WeightedInstCounter::getPreferredVectorizationWidth(Function &F, DenseMap<Loop*, int> &IterMap,
       DenseMap<BasicBlock*, float> &ProbMap)
 {
-  assert(!hasV16Support() && "Should not reach this for v16");
-
   // For SSE, this is always 4.
   if (!hasAVX())
     return 4;
@@ -306,12 +285,13 @@ int WeightedInstCounter::getPreferredVectorizationWidth(Function &F, DenseMap<Lo
   }
 
   // For AVX2, the logical choice would be always 8.
+  // For AVX512 the logical choice would be always 16
+  // (unless we run into the need of not using zmms on Client like ICC did).
   // Unfortunately, this fails for some corner cases, due to both
   // inherent reasons and compiler deficiencies.
   // The first corner case is <k x i16*> buffers. Since we don't have transpose
   // operations for i16, reading and writing from these buffers becomes
   // expensive.
-
   for (const auto &Arg : F) {
     Type* argType = Arg.getType();
 
@@ -333,7 +313,10 @@ int WeightedInstCounter::getPreferredVectorizationWidth(Function &F, DenseMap<Lo
       return 4;
   }
 
-  return 8;
+  if (!hasAVX512())
+    return 8;
+
+  return 16;
 }
 
 // This allows a consistent comparison between scalar and vector types.
@@ -473,6 +456,27 @@ int WeightedInstCounter::estimateCall(CallInst *Call)
       // TODO: if the vector is really large, still need to multiply...
     }
 
+    if (Mangler::isMangledGather(Name) || Mangler::isMangledScatter(Name)) {
+      // 16 x 32bit element gather/scatter with 64 bit indices will turn
+      // into 2 gathers/scatters, so adjust weight accordingly.
+
+      int Weight;
+      if (Mangler::isMangledGather(Name))
+        Weight = GATHER_WEIGHT;
+      else
+        Weight = SCATTER_WEIGHT;
+
+      Value *Index = Call->getArgOperand(2);
+      assert(isa<VectorType>(Index->getType()) &&
+        "Expect vector index in gather/scatter!");
+      auto Ty = cast<VectorType>(Index->getType());
+      if (Ty->getScalarSizeInBits() > 32)
+        // return doubled weight for 64 bit indices
+        return 2 * Weight;
+      else
+        return Weight;
+    }
+
     // vloads and vstores also count as loads/stores.
     if (Name.startswith("vload") || Name.startswith("_Z6vload") ||
         Name.startswith("vstore") || Name.startswith("_Z7vstore")) {
@@ -532,22 +536,23 @@ int WeightedInstCounter::estimateBinOp(BinaryOperator *I)
 
   VectorType* VecType = cast<VectorType>(OpType);
   int OpWidth = 0;
-  //SSE
-  if (!hasAVX())
-    OpWidth = getOpWidth(VecType, 4, 2, 2, 4);
 
-  // OK, we have AVX. Do we have AVX2?
-  if (hasAVX2())
+  if (hasAVX512())
+    OpWidth = getOpWidth(VecType, 16, 8, 8, 16);
+  else if (hasAVX2())
     OpWidth = getOpWidth(VecType, 8, 4, 4, 8);
-
-  // Only AVX, 4-wide on ints, 2-wide on i64
-  OpWidth = getOpWidth(VecType, 8, 4, 2, 4);
+  else if (hasAVX())
+    // Only AVX, 4-wide on ints, 2-wide on i64
+    OpWidth = getOpWidth(VecType, 8, 4, 2, 4);
+  else
+    // SSE
+    OpWidth = getOpWidth(VecType, 4, 2, 2, 4);
 
   return Weight * OpWidth;
 }
 
-int WeightedInstCounter::getOpWidth(VectorType* VecType, int Float,
-                                     int Double, int LongInt, int ShortInt)
+int WeightedInstCounter::getOpWidth(VectorType* VecType,
+      int Float, int Double, int LongInt, int ShortInt) const
 {
   Type* BaseType = VecType->getScalarType();
   int BaseWidth = VecType->getScalarSizeInBits();
@@ -587,6 +592,7 @@ int WeightedInstCounter::getInstructionWeight(Instruction *I, DenseMap<Instructi
   // of transposes.
   if (isa<ShuffleVectorInst>(I)) {
     // Shuffling from 4xi32, 8xi32, 4xfloat and 8xfloat is cheap,
+    // shuffling 16xi32, 16xfloat also should be cheap on AVX-512.
     // everything else is expensive.
     // (This is purely empirical, probably overfitting)
     Value* Vec = I->getOperand(0);
@@ -606,8 +612,11 @@ int WeightedInstCounter::getInstructionWeight(Instruction *I, DenseMap<Instructi
     if (ResType != OpType)
       return EXPENSIVE_SHUFFLE_WEIGHT;
 
+    // TODO: shuffles from <8 x i32> are not cheap on SSE,
+    // but it is not taken into account here.
     if (((OpType->getNumElements() == 4) ||
-         (OpType->getNumElements() == 8))
+         (OpType->getNumElements() == 8) ||
+         ((hasAVX512()) && (OpType->getNumElements() == 16)))
        &&
         ((OpType->getElementType()->isFloatTy()) ||
           OpType->getElementType()->isIntegerTy(32)))
@@ -623,7 +632,8 @@ int WeightedInstCounter::getInstructionWeight(Instruction *I, DenseMap<Instructi
     assert(OpType && "Extract from a non-vector type!");
 
     if (((OpType->getNumElements() == 4) ||
-         (OpType->getNumElements() == 8))
+         (OpType->getNumElements() == 8) ||
+         ((hasAVX512()) && (OpType->getNumElements() == 16)))
        &&
         ((OpType->getElementType()->isFloatTy()) ||
           OpType->getElementType()->isIntegerTy(32)))

@@ -76,12 +76,12 @@ namespace intel {
 
     // Indicates if its 64bit arch otherwise it's 32bit
     bool is64BitArch()const;
-    // Indicates whether the architecture supports Vector 16
-    bool hasV16Support()const;
     // Indicates whether the architecture supports AVX 256
     bool hasAVX()const;
     // Indicates whether the architecture supports AVX 2 (Haswell)
     bool hasAVX2()const;
+    // Indicates whether the architecture supports AVX 512
+    bool hasAVX512() const;
 
     // Estimate the number of iterations each loop runs.
     void estimateIterations(Function &F, DenseMap<Loop*, int> &IterMap) const;
@@ -112,7 +112,8 @@ namespace intel {
     int estimateBinOp(BinaryOperator *I);
 
     // Helper for estimateBinOp
-    int getOpWidth(VectorType* VecType, int Float, int Double, int LongInt, int ShortInt);
+    int getOpWidth(VectorType* VecType,
+          int Float, int Double, int LongInt, int ShortInt) const;
 
     // Estimate the relative cost of a call.
     // Some calls are expensive, some are cheap... how do we know which are which?
@@ -202,6 +203,10 @@ namespace intel {
     static const int MEM_OP_WEIGHT = 6;
     static const int CHEAP_MEMOP_WEIGHT = 2;
     static const int EXPENSIVE_MEMOP_WEIGHT = 30;
+    // scatter latency on SKX ~ 10
+    static const int SCATTER_WEIGHT = 10;
+    // gather latency on SKX 20-30
+    static const int GATHER_WEIGHT  = 20;
     // Conditional branches are potentially expensive...
     // misprediction penalty.
     static const int COND_BRANCH_WEIGHT = 4;

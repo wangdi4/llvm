@@ -21,6 +21,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/IR/DataLayout.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Scalar/GVN.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 
 #include <iomanip>
@@ -314,6 +315,9 @@ bool VectorizerCore::runOnFunction(Function &F) {
     // Register DCE
     FunctionPass *dce2 = createDeadCodeEliminationPass();
     fpm2.add(dce2);
+
+    // Register GVN to clean up duplicate indices for gather/scatter
+    fpm2.add(createGVNPass(/*NoLoads*/ true));
 
     if (m_pConfig->GetDumpHeuristicIRFlag())
       fpm2.add(createIRPrinterPass(m_pConfig->GetDumpIRDir(), "pre_resolver"));
