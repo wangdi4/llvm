@@ -33,15 +33,21 @@ using namespace Intel::OpenCL::Utils;
 
 cl_err_code Intel::OpenCL::Utils::GetEnvVar(std::string & strVarValue, const std::string strVarName)
 {
-	char * pBuffer;
-	size_t szBufferSizeRet = 0;
-	errno_t err = _dupenv_s(&pBuffer, &szBufferSizeRet, strVarName.c_str());
-	if ( err || (0 == szBufferSizeRet) || (nullptr == pBuffer))
-	{
-        strVarValue = std::string("");
-		return CL_ERR_FAILURE;
-	}
-    strVarValue = std::string(pBuffer);
-    free(pBuffer);
-	return CL_SUCCESS;
+    // An environment variable has a maximum size limit of 32,767 characters,
+    // including the null-terminating character (MSDN).
+    DWORD szBufferSize = 32767 * sizeof(CHAR);
+    strVarValue.resize(szBufferSize);
+    DWORD szWritten =
+        GetEnvironmentVariableA(strVarName.c_str(),
+                                &strVarValue[0], szBufferSize);
+    // szWritten - number of characters stored in the buffer pointed to by the
+    // second argument of GetEnvironmentVariableA, not including the terminating
+    // null character (MSDN).
+    strVarValue.resize(szWritten);
+    if (szWritten == 0)
+    {
+        return CL_ERR_FAILURE;
+    }
+
+    return CL_SUCCESS;
 }
