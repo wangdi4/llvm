@@ -159,8 +159,6 @@ public:
 //===----------------------------------------------------------------------===//
 // VPO-specific changes
 //===----------------------------------------------------------------------===//
-using namespace llvm::vpo;
-
 class VPBuilderIR : public VPBuilder {
 public:
   // Create an N-ary operation with \p Opcode and \p Operands and set \p Inst as
