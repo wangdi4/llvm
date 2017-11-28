@@ -128,9 +128,9 @@ VPPredicateRecipeBase *VPlanPredicator::genEdgeRecipe(VPBasicBlock *PredBB,
 VPPredicateRecipeBase *VPlanPredicator::genEdgeRecipe(VPBasicBlock *PredBB,
                                                       EdgeType ET) {
   VPValue *CBV = PredBB->getCondBitVPVal();
-  assert(CBV && "Broken getConditionRecipe() ?");
   // TODO: Add this assertion back when HIR fake condition bits are removed
   // assert(CBV->getValue() && "Even Live-Ins should have a value");
+  assert(CBV && "Broken getConditionRecipe() ?");
 
   // CurrBB is the True successor of PredBB
   if (ET == TRUE_EDGE) {

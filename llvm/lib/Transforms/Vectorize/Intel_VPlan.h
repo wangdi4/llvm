@@ -2026,8 +2026,9 @@ public:
   }
 
   /// \brief Set the CondBitVPVal of this block.
-  void setBlockCondBitVPVal(VPBlockBase *Block, VPInstruction *ConditionI) {
-    Block->setCondBitVPVal(ConditionI, Plan);
+  void setBlockCondBitVPVal(VPBlockBase *Block, VPValue *Condition) {
+    assert(Condition && "Don't allow NULL conditions.");
+    Block->setCondBitVPVal(Condition, Plan);
   }
 
   /// \brief Remove all the predecessor of this block.

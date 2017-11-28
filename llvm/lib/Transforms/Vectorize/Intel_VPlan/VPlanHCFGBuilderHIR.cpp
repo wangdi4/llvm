@@ -485,7 +485,7 @@ void PlainCFGBuilderHIR::visit(HLIf *HIf) {
   VPBasicBlock *ConditionVPBB = ActiveVPBB;
   // assert("HLIf condition generates more than one VPBB?");
   // TODO: Workaround. Setting a fake ConditionBitRecipe.
-  PlanUtils.setBlockCondBitVPVal(ActiveVPBB, nullptr);
+  PlanUtils.setBlockCondBitVPVal(ActiveVPBB, new VPValue());
 
   // - Then branch -
   // Force creation of a new VPBB for Then branch.
