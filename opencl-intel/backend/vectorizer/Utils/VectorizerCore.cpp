@@ -72,8 +72,9 @@ static raw_ostream &dbgPrint() {
 /// @returns False if we don't want to vectorize function due to some reasons
 /// like usage of channels or infinite loops.
 static bool isFunctionVectorizable(Function &F, LoopInfo &LI) {
-  // @TODO: Disable vectorizer on single work-item kernels
-  // @TODO: Disable vectorizer on kernels using channels
+  auto KMd = KernelMetadataAPI(&F);
+  if (KMd.Task.hasValue() && KMd.Task.get())
+    return false;
 
   Statistic::ActiveStatsT KernelStats;
 

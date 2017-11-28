@@ -26,6 +26,7 @@
 #include <MetadataAPI.h>
 #include <OCLAddressSpace.h>
 #include <OCLPassSupport.h>
+#include "ICLDevBackendOptions.h"
 
 #include <llvm/ADT/MapVector.h>
 #include <llvm/ADT/SmallString.h>
@@ -387,6 +388,11 @@ bool insertFlushCalls(Function &F, Function *ReadFlush, Function *WriteFlush) {
 
   // Ensure that nothing is cached upon exit from a function
   insertFlushAtExit(F, FlushAll, FlushAllArgs);
+
+  // OpenCL NDRange vectorizer is not able to handle non-blocking pipe
+  // operations. Disable vectorization of the functions with these operations by
+  // setting vector width to 1.
+  Intel::MetadataAPI::KernelMetadataAPI(&F).VecLenHint.set(TRANSPOSE_SIZE_1);
 
   return true;
 }
