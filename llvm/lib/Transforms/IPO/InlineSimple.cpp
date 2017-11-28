@@ -82,8 +82,8 @@ public:
 #if INTEL_CUSTOMIZATION
     auto *Agg = getAnalysisIfAvailable<InlineAggressiveWrapperPass>();
     InlineAggressiveInfo *AggI = Agg ? &Agg->getResult() : nullptr;
-    Params.ComputeFullInlineCost = IntelInlineReportLevel &
-                                   InlineReportOptions::RealCost;
+    Params.ComputeFullInlineCost = (IntelInlineReportLevel &
+                                    InlineReportOptions::RealCost) != 0;
 #endif // INTEL_CUSTOMIZATION
 
     return llvm::getInlineCost(CS, Params, TTI, GetAssumptionCache,

@@ -1375,8 +1375,6 @@ static bool isFuncOnlyAttr(Attribute::AttrKind Kind) {
 #if INTEL_CUSTOMIZATION
   case Attribute::InlineHintRecursive:
   case Attribute::AlwaysInlineRecursive:
-  case Attribute::InlineList:
-  case Attribute::NoinlineList:
 #endif // INTEL_CUSTOMIZATION
   case Attribute::StackAlignment:
   case Attribute::UWTable:

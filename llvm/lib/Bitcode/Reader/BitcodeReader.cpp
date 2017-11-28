@@ -1147,8 +1147,6 @@ static uint64_t getRawAttributeMask(Attribute::AttrKind Val) {
 #if INTEL_CUSTOMIZATION
   case Attribute::AlwaysInlineRecursive: return 1ULL << 56;
   case Attribute::InlineHintRecursive:   return 1ULL << 57;
-  case Attribute::InlineList:            return 1ULL << 57;
-  case Attribute::NoinlineList:          return 1ULL << 58;
 #endif // INTEL_CUSTOMIZATION
   case Attribute::Dereferenceable:
     llvm_unreachable("dereferenceable attribute not supported in raw format");
@@ -1290,12 +1288,6 @@ static Attribute::AttrKind getAttrFromCode(uint64_t Code) {
     return Attribute::InaccessibleMemOrArgMemOnly;
   case bitc::ATTR_KIND_INLINE_HINT:
     return Attribute::InlineHint;
-#if INTEL_CUSTOMIZATION
-  case bitc::ATTR_KIND_INLINE_LIST:
-    return Attribute::InlineList;
-  case bitc::ATTR_KIND_NOINLINE_LIST:
-    return Attribute::NoinlineList;
-#endif // INTEL_CUSTOMIZATION
   case bitc::ATTR_KIND_IN_REG:
     return Attribute::InReg;
   case bitc::ATTR_KIND_JUMP_TABLE:

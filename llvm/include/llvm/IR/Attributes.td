@@ -58,14 +58,6 @@ def InAlloca : EnumAttr<"inalloca">;
 /// Source said inlining was desirable.
 def InlineHint : EnumAttr<"inlinehint">;
 
-// if INTEL_CUSTOMIZATION
-/// Force inlining of the callsite under the flag.
-def InlineList : EnumAttr<"inlinelist">;
-
-/// Force no inlining of the callsite under the flag.
-def NoinlineList : EnumAttr<"noinlinelist">;
-// endif INTEL_CUSTOMIZATION
-
 /// Force argument to be passed in register.
 def InReg : EnumAttr<"inreg">;
 

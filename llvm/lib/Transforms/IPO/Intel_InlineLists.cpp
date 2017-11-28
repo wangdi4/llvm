@@ -37,12 +37,18 @@ using namespace llvm;
 // The option is used to force inlining of functions in the list.
 // Syntax: the list should be a sequence of <[caller,]callee[,linenum]>
 // separated by ';'
-cl::opt<std::string> IntelInlineList("inline-inline-list", cl::init(""),
-                                     cl::Hidden);
+cl::list<std::string>
+    IntelInlineLists("inline-inline-list",
+                     cl::desc("Force inlining of functions/callsites"),
+                     cl::Hidden);
 
 // The option is used to force not inlining of functions in the list
-cl::opt<std::string> IntelNoinlineList("inline-noinline-list", cl::init(""),
-                                       cl::Hidden);
+// Syntax: the list should be a sequence of <[caller,]callee[,linenum]>
+// separated by ';'
+cl::list<std::string>
+    IntelNoinlineLists("inline-noinline-list",
+                       cl::desc("Force not inlining of functions/callsites"),
+                       cl::Hidden);
 
 typedef llvm::StringSet<> CalleeSetTy;
 typedef llvm::StringMap<std::set<uint32_t>> CalleeMapTy;
@@ -201,13 +207,23 @@ static void parseList(const StringRef &List, CalleeSetTy &CalleeList,
 
 // Function to parse inline and noinline lists.
 static void parseOptions(InlineListsData &Data) {
-  DEBUG(dbgs() << "IPO: Inline List: " << IntelInlineList << "\n");
-  DEBUG(dbgs() << "IPO: Noinline List: " << IntelNoinlineList << "\n");
+  if (!IntelInlineLists.empty()) {
+    DEBUG(dbgs() << "IPO: Inline Lists \n");
+    for (auto &InlineList : IntelInlineLists) {
+      DEBUG(dbgs() << "\tList: " << InlineList << "\n");
+      parseList(StringRef(InlineList), Data.InlineCalleeList,
+                Data.InlineCallerList);
+    }
+  }
 
-  parseList(StringRef(IntelInlineList), Data.InlineCalleeList,
-            Data.InlineCallerList);
-  parseList(StringRef(IntelNoinlineList), Data.NoinlineCalleeList,
-            Data.NoinlineCallerList);
+  if (!IntelNoinlineLists.empty()) {
+    DEBUG(dbgs() << "IPO: Noinline Lists \n");
+    for (auto &NoinlineList : IntelNoinlineLists) {
+      DEBUG(dbgs() << "\tList: " << NoinlineList << "\n");
+      parseList(StringRef(NoinlineList), Data.NoinlineCalleeList,
+                Data.NoinlineCallerList);
+    }
+  }
 }
 
 // The function checks if current triple <caller,callee,linenum> was in the
@@ -246,7 +262,7 @@ static bool isCallsiteInList(StringRef Caller, StringRef Callee,
 
   if (LineNum < 0) {
     DEBUG(dbgs() << "IPO warning: no line numbers available. "
-                 << "Try compiling with -g.\n");
+                 << "Try compiling with -gline-tables-only.\n");
     return false;
   }
 
@@ -259,30 +275,129 @@ static bool isCallsiteInList(StringRef Caller, StringRef Callee,
   return false;
 }
 
-// Check the function itself and all callsites inside it. Assign corresponding
-// attributes.
-static bool addListAttributes(Function &F, InlineListsData &Data) {
+static void addForceNoinlineAttr(CallSite &CS, Function *Callee);
 
-  bool Changed = false;
+// Add AlwaysInline attribute to callsite.
+static void addForceInlineAttr(CallSite &CS, Function *Callee) {
+  // If Callee is noinline and we need to inline some of its calls then
+  // noinline attributes goes to callsites from function definition.
+  if (!Callee)
+    return;
 
-  StringRef CallerName = F.getName();
-  bool CallerNeedsInlineListAttr = isCallsiteInList(
-      "", CallerName, -1, Data.InlineCalleeList, Data.InlineCallerList);
-  bool CallerNeedsNoinlineListAttr = isCallsiteInList(
-      "", CallerName, -1, Data.NoinlineCalleeList, Data.NoinlineCallerList);
-  if (CallerNeedsInlineListAttr && CallerNeedsNoinlineListAttr) {
-    // Function has both inline and noinline attributes: skip it.
-    DEBUG(dbgs() << "IPO warning: ignoring '" << CallerName
-                 << "' since it is in both inline and noinline lists\n");
-  } else if (CallerNeedsInlineListAttr) {
-    // Assign InlineList attribute to function.
-    F.addFnAttr(Attribute::InlineList);
-    Changed = true;
-  } else if (CallerNeedsNoinlineListAttr) {
-    // Assign NoinlineList attribute to function.
-    F.addFnAttr(Attribute::NoinlineList);
-    Changed = true;
+  if (Callee->hasFnAttribute(Attribute::NoInline)) {
+    Callee->removeFnAttr(Attribute::AlwaysInline);
+    Callee->removeFnAttr(Attribute::NoInline);
+    if (Callee->hasFnAttribute(Attribute::OptimizeNone)) {
+      Callee->removeFnAttr(Attribute::OptimizeNone);
+    }
+    for (auto I = Callee->use_begin(), E = Callee->use_end(); I != E; ++I) {
+      CallInst *CI = dyn_cast_or_null<CallInst>(I->getUser());
+      InvokeInst *II = dyn_cast_or_null<InvokeInst>(I->getUser());
+
+      if (!(CI && CI->getCalledFunction() == Callee) &&
+          !(II && II->getCalledFunction() == Callee))
+        continue;
+
+      CallSite newCS(I->getUser());
+      addForceNoinlineAttr(newCS, Callee);
+    }
   }
+
+  if (CS.hasFnAttr(Attribute::NoInline)) {
+    CS.removeAttribute(llvm::AttributeList::FunctionIndex, Attribute::NoInline);
+  }
+  CS.addAttribute(llvm::AttributeList::FunctionIndex, Attribute::AlwaysInline);
+}
+
+// Add NoInline attribute to callsite.
+static void addForceNoinlineAttr(CallSite &CS, Function *Callee) {
+  // If Callee is alwaysinline and we need to not inline some of its calls then
+  // alwaysinline attributes goes to callsites from function definition.
+  if (!Callee)
+    return;
+
+  if (Callee->hasFnAttribute(Attribute::AlwaysInline)) {
+    Callee->removeFnAttr(Attribute::AlwaysInline);
+    for (auto I = Callee->use_begin(), E = Callee->use_end(); I != E; ++I) {
+      CallInst *CI = dyn_cast_or_null<CallInst>(I->getUser());
+      InvokeInst *II = dyn_cast_or_null<InvokeInst>(I->getUser());
+
+      if (!(CI && CI->getCalledValue() == Callee) &&
+          !(II && II->getCalledValue() == Callee))
+        continue;
+
+      CallSite newCS(I->getUser());
+      addForceInlineAttr(newCS, Callee);
+    }
+  }
+
+  if (CS.hasFnAttr(Attribute::AlwaysInline)) {
+    CS.removeAttribute(llvm::AttributeList::FunctionIndex,
+                       Attribute::AlwaysInline);
+  }
+  CS.addAttribute(llvm::AttributeList::FunctionIndex, Attribute::NoInline);
+}
+
+// Add AlwaysInline attribute to function.
+static bool addForceInlineAttr(Function &F) {
+  if (F.hasFnAttribute(Attribute::AlwaysInline)) {
+    return false;
+  }
+
+  if (F.hasFnAttribute(Attribute::NoInline)) {
+    F.removeFnAttr(Attribute::NoInline);
+    if (F.hasFnAttribute(Attribute::OptimizeNone)) {
+      F.removeFnAttr(Attribute::OptimizeNone);
+    }
+  }
+  F.addFnAttr(Attribute::AlwaysInline);
+  return true;
+}
+
+// Add NoInline attribute to function.
+static bool addForceNoinlineAttr(Function &F) {
+  if (F.hasFnAttribute(Attribute::NoInline)) {
+    return false;
+  }
+
+  if (F.hasFnAttribute(Attribute::AlwaysInline)) {
+    F.removeFnAttr(Attribute::AlwaysInline);
+  }
+  F.addFnAttr(Attribute::NoInline);
+  return true;
+}
+
+// First, assign AlwaysInline/NoInline attributes to functions.
+bool addListAttributesToFunction(Function &F, InlineListsData &Data) {
+  bool Changed = false;
+  StringRef FuncName = F.getName();
+  if (FuncName.empty())
+    return false;
+
+  bool inlineNeeded =
+      Data.InlineCalleeList.find(FuncName) != Data.InlineCalleeList.end();
+  bool noinlineNeeded =
+      Data.NoinlineCalleeList.find(FuncName) != Data.NoinlineCalleeList.end();
+  if (inlineNeeded && noinlineNeeded) {
+    // Function has both inline and noinline attributes: skip it.
+    DEBUG(dbgs() << "IPO warning: ignoring '" << FuncName
+                 << "' since it is in both inline and noinline lists\n");
+    return false;
+  } else if (inlineNeeded) {
+    Changed |= addForceInlineAttr(F);
+  } else if (noinlineNeeded) {
+    Changed |= addForceNoinlineAttr(F);
+  }
+
+  return Changed;
+}
+
+// Check all callsites inside the function and assign corresponding attributes.
+// Note: we do it after assigning attributes to functions to keep inline
+// attributes consistent.
+static bool addListAttributesToCallsites(Function &F, InlineListsData &Data) {
+  bool Changed = false;
+  StringRef CallerName = F.getName();
 
   // Go through each basic block and find all callsites.
   for (auto &BB : F) {
@@ -314,13 +429,11 @@ static bool addListAttributes(Function &F, InlineListsData &Data) {
                        << "> since it is in both inline and noinline lists\n");
           } else if (NeedsInlineListAttr) {
             // Assign InlineList attribute to callsite.
-            CS.addAttribute(llvm::AttributeList::FunctionIndex,
-                            Attribute::InlineList);
+            addForceInlineAttr(CS, CalleeFunc);
             Changed = true;
           } else if (NeedsNoinlineListAttr) {
             // Assign NoinlineList attribute to callsite.
-            CS.addAttribute(llvm::AttributeList::FunctionIndex,
-                            Attribute::NoinlineList);
+            addForceNoinlineAttr(CS, CalleeFunc);
             Changed = true;
           }
         }
@@ -342,8 +455,12 @@ static bool setInlineListsAttributes(Module &M) {
   }
 
   bool Changed = false;
+
   for (Function &F : M)
-    Changed |= addListAttributes(F, Data);
+    Changed |= addListAttributesToFunction(F, Data);
+
+  for (Function &F : M)
+    Changed |= addListAttributesToCallsites(F, Data);
   return Changed;
 }
 

@@ -193,8 +193,6 @@ enum Kind {
   kw_noinline,
   kw_inlinehint_recursive, // INTEL
   kw_alwaysinline_recursive, // INTEL
-  kw_inlinelist,   // INTEL
-  kw_noinlinelist,  // INTEL
   kw_norecurse,
   kw_nonlazybind,
   kw_nonnull,
