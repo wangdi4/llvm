@@ -16,10 +16,10 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_TRANSFORMS_VECTORIZE_VPLAN_VPLANHCFGBUILDER_H
-#define LLVM_TRANSFORMS_VECTORIZE_VPLAN_VPLANHCFGBUILDER_H
+#ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLANHCFGBUILDER_H
+#define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLANHCFGBUILDER_H
 
-#include "IntelVPlan.h"
+#include "VPlan.h"
 #include "LoopVectorizationCodeGen.h" //Only for Legal.
 #include "VPlanVerifier.h"
 #include "llvm/ADT/DenseMap.h"
@@ -132,4 +132,4 @@ public:
 } // namespace vpo
 } // namespace llvm
 
-#endif // LLVM_TRANSFORMS_VECTORIZE_VPLAN_VPLANHCFGBUILDER_H
+#endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLANHCFGBUILDER_H

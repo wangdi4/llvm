@@ -50,7 +50,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "VPlanHCFGBuilderHIR.h"
-#include "../VPlanBuilderHIR.h"
+#include "../Intel_VPlanBuilderHIR.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeVisitor.h"

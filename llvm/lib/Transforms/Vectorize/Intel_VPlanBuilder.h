@@ -13,8 +13,8 @@
 /// abstracting away the Recipe manipulation details.
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_TRANSFORMS_VECTORIZE_VPLAN_BUILDER_H
-#define LLVM_TRANSFORMS_VECTORIZE_VPLAN_BUILDER_H
+#ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_BUILDER_H
+#define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_BUILDER_H
 
 #include "Intel_VPlan.h"
 
@@ -180,4 +180,4 @@ public:
 } // namespace vpo
 } // namespace vpo
 
-#endif // LLVM_TRANSFORMS_VECTORIZE_VPLAN_BUILDER_H
+#endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_BUILDER_H

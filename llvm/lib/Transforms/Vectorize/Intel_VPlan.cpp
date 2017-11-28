@@ -17,7 +17,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "Intel_VPlan.h"
-#include "./VPlan/LoopVectorizationCodeGen.h"
+#include "./Intel_VPlan/LoopVectorizationCodeGen.h"
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Dominators.h"

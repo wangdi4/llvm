@@ -1,4 +1,4 @@
-//===-- Intel_LoopCFU.cpp -------------------------------------------------===//
+//===-------- LoopCFU.cpp -------------------------------------------------===//
 //
 //   Copyright (C) 2017 Intel Corporation. All rights reserved.
 //
@@ -62,7 +62,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "Intel_LoopCFU.h"
+#include "LoopCFU.h"
 #include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "LoopCFU"

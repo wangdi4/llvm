@@ -1,5 +1,15 @@
-#ifndef VPLAN_VPDOMINATORTREE_H
-#define VPLAN_VPDOMINATORTREE_H
+//===------------------------------------------------------------*- C++ -*-===//
+//
+//   Copyright (C) 2017 Intel Corporation. All rights reserved.
+//
+//   The information and source code contained herein is the exclusive
+//   property of Intel Corporation and may not be disclosed, examined
+//   or reproduced in whole or in part without explicit written authorization
+//   from the company.
+//
+//===----------------------------------------------------------------------===//
+#ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPDOMINATORTREE_H
+#define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPDOMINATORTREE_H
 
 #include "../Intel_VPlan.h"
 #include "llvm/ADT/GraphTraits.h"
@@ -34,4 +44,4 @@ struct GraphTraits<const VPDomTreeNode *>
     : public DomTreeGraphTraitsBase<const VPDomTreeNode,
                                     VPDomTreeNode::const_iterator> {};
 } // namespace llvm
-#endif
+#endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPDOMINATORTREE_H

@@ -17,8 +17,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "VPlanHCFGBuilder.h"
-#include "../VPlanBuilder.h"
-#include "Intel_LoopCFU.h"
+#include "../Intel_VPlanBuilder.h"
+#include "LoopCFU.h"
 #include "VPLoopInfo.h"
 #include "llvm/Analysis/LoopIterator.h"
 #include "llvm/Analysis/ScalarEvolution.h"

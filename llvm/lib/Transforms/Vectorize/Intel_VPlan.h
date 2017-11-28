@@ -22,10 +22,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_TRANSFORMS_VECTORIZE_VPLAN_H
-#define LLVM_TRANSFORMS_VECTORIZE_VPLAN_H
+#ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_H
+#define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_H
 
-#include "VPlanValue.h"
+#include "Intel_VPlanValue.h"
 #include "llvm/ADT/GraphTraits.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/ilist.h"
@@ -34,7 +34,7 @@
 #include "llvm/Support/raw_ostream.h"
 
 #if INTEL_CUSTOMIZATION
-#include "VPlan/VPlanInstructionData.h"
+#include "Intel_VPlan/VPlanInstructionData.h"
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/Support/FormattedStream.h"
@@ -2301,4 +2301,4 @@ inline bool VPBlockBase::isInsideLoop() {
 } // namespace vpo
 } // namespace llvm
 
-#endif // LLVM_TRANSFORMS_VECTORIZE_VPLAN_H
+#endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_H

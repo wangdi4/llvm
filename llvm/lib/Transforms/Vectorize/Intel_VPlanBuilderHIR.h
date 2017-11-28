@@ -13,11 +13,11 @@
 /// This file extends VPlanBuilder utility to create VPInstruction from HIR.
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_TRANSFORMS_VECTORIZE_VPLAN_BUILDER_HIR_H
-#define LLVM_TRANSFORMS_VECTORIZE_VPLAN_BUILDER_HIR_H
+#ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_BUILDER_HIR_H
+#define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_BUILDER_HIR_H
 
-#include "VPlan/VPlanInstructionData.h"
-#include "VPlanBuilder.h"
+#include "Intel_VPlan/VPlanInstructionData.h"
+#include "Intel_VPlanBuilder.h"
 
 namespace llvm {
 namespace vpo {
@@ -47,4 +47,4 @@ public:
 } // namespace vpo
 } // namespace llvm
 
-#endif // LLVM_TRANSFORMS_VECTORIZE_VPLAN_BUILDER_HIR_H
+#endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_BUILDER_HIR_H

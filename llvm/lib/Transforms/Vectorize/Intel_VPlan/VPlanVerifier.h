@@ -15,10 +15,10 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_TRANSFORMS_VECTORIZE_VPLAN_VPLANVERIFIER_H
-#define LLVM_TRANSFORMS_VECTORIZE_VPLAN_VPLANVERIFIER_H
+#ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLANVERIFIER_H
+#define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLANVERIFIER_H
 
-#include "IntelVPlan.h"
+#include "VPlan.h"
 
 namespace llvm {
 namespace vpo {
@@ -109,4 +109,4 @@ public:
 } // namespace vpo
 } // namespace llvm
 
-#endif //LLVM_TRANSFORMS_VECTORIZE_VPLAN_VPLANVERIFIER_H
+#endif //LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLANVERIFIER_H

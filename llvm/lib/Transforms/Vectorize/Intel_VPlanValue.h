@@ -18,8 +18,8 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_TRANSFORMS_VECTORIZE_VPLAN_VALUE_H
-#define LLVM_TRANSFORMS_VECTORIZE_VPLAN_VALUE_H
+#ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VALUE_H
+#define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VALUE_H
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallVector.h"
@@ -232,4 +232,4 @@ public:
 } // namespace vpo
 } // namespace llvm
 
-#endif // LLVM_TRANSFORMS_VECTORIZE_VPLAN_VALUE_H
+#endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VALUE_H

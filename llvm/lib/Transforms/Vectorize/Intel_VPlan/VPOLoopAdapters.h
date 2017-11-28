@@ -18,8 +18,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_TRANSFORMS_VECTORIZE_VPLAN_VPOLOOPADAPTERS_H
-#define LLVM_TRANSFORMS_VECTORIZE_VPLAN_VPOLOOPADAPTERS_H
+#ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPOLOOPADAPTERS_H
+#define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPOLOOPADAPTERS_H
 
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegion.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
@@ -52,4 +52,4 @@ template <> bool IRHIRLoopAdapter<HLLoop>::isInnermost() const {
 
 } // End VPO Namespace
 } // End LLVM Namespace
-#endif // LLVM_TRANSFORMS_VECTORIZE_VPLAN_VPOLOOPADAPTERS_H
+#endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPOLOOPADAPTERS_H
