@@ -65,7 +65,6 @@ void llvm::initializeAnalysis(PassRegistry &Registry) {
   initializeMemDerefPrinterPass(Registry);
   initializeMemoryDependenceWrapperPassPass(Registry);
 #if INTEL_CUSTOMIZATION
-  initializeDTransAnalysisWrapperPass(Registry);
   initializeSNodeAnalysisPass(Registry);
   initializeStdContainerAAWrapperPassPass(Registry);
 #endif // INTEL_CUSTOMIZATION

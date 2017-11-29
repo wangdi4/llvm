@@ -18,6 +18,7 @@ set(LLVM_LINK_COMPONENTS
   Vectorize
   Passes
 # INTEL_CUSTOMIZATION
+  Intel_DTransAnalysis
   Intel_DTrans
   Intel_LoopAnalysis
   Intel_LoopTransforms

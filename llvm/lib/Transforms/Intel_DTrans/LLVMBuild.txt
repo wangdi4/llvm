@@ -22,4 +22,4 @@ type = Library
 name = Intel_DTrans
 parent = Transforms
 
-required_libraries = Analysis Core Intel_DTransAnalysis
+required_libraries = Analysis Core Support Intel_DTransAnalysis

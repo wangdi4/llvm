@@ -417,6 +417,7 @@ int main(int argc, char **argv) {
   initializeIntel_OpenCLTransforms(Registry);
   initializeIntel_VPOAnalysis(Registry);
   initializeIntel_VPOTransforms(Registry);
+  initializeDTransAnalysisWrapperPass(Registry);
 #endif  // INTEL_CUSTOMIZATION
 
 #ifdef LINK_POLLY_INTO_TOOLS
