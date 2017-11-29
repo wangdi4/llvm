@@ -485,6 +485,11 @@ LastprivateItem *WRegionUtils::wrnSeenAsLastPrivate(WRegionNode *W, Value *V) {
   return LprivClause.findOrig(V);
 }
 
+MapItem *WRegionUtils::wrnSeenAsMap(WRegionNode *W, Value *V) {
+  MapClause &Map = W->getMap();
+  return Map.findOrig(V);
+}
+
 // The utility checks whether the given value is used at the region
 // entry directive.
 bool WRegionUtils::usedInRegionEntryDirective(WRegionNode *W, Value *I) {

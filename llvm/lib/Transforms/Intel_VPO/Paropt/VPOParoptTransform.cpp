@@ -1257,27 +1257,11 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
       assert((isa<GlobalVariable>(Orig) || isa<AllocaInst>(Orig)) &&
              "genFirstPrivatizationCode: Unexpected firstprivate variable");
 */
-      if (W->canHaveLastprivate()) {
-        auto LprivI = WRegionUtils::wrnSeenAsLastPrivate(W, Orig);
-        if (!LprivI) {
-          NewPrivInst = genPrivatizationAlloca(
-              W, Orig, EntryBB->getFirstNonPHI(), ".fpriv");
-          genPrivatizationReplacement(W, Orig, NewPrivInst, FprivI);
-          if (!ForTask)
-            FprivI->setNew(NewPrivInst);
-          else {
-            IRBuilder<> Builder(EntryBB->getTerminator());
-            Builder.CreateStore(Builder.CreateLoad(FprivI->getNew()),
-                                NewPrivInst);
-            Builder.SetInsertPoint(ExitBB->getTerminator());
-            Builder.CreateStore(Builder.CreateLoad(NewPrivInst),
-                                FprivI->getNew());
-          }
-        } else
-          FprivI->setNew(LprivI->getNew());
-      } else {
-        NewPrivInst = genPrivatizationAlloca(W, Orig, EntryBB->getFirstNonPHI(),
-                                             ".fpriv");
+      LastprivateItem *LprivI = FprivI->getInLastprivate();
+
+      if (!LprivI) {
+        NewPrivInst = genPrivatizationAlloca(
+            W, Orig, EntryBB->getFirstNonPHI(), ".fpriv");
         genPrivatizationReplacement(W, Orig, NewPrivInst, FprivI);
         if (!ForTask)
           FprivI->setNew(NewPrivInst);
@@ -1289,6 +1273,10 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
           Builder.CreateStore(Builder.CreateLoad(NewPrivInst),
                               FprivI->getNew());
         }
+      } else {
+        FprivI->setNew(LprivI->getNew());
+        DEBUG(dbgs() << "\n  genFirstPrivatizationCode: (" << *Orig
+                     << ") is also lastprivate\n");
       }
 
       if (!ForTask) {
@@ -1324,7 +1312,7 @@ bool VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
     FirstprivateItem *FprivI = nullptr;
     if (W->canHaveFirstprivate()) {
       for (LastprivateItem *LprivI : LprivClause.items()) {
-        FprivI = WRegionUtils::wrnSeenAsFirstPrivate(W, LprivI->getOrig());
+        FprivI = LprivI->getInFirstprivate();
         if (FprivI)
           break;
       }

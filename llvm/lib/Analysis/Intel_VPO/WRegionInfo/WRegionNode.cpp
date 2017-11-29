@@ -82,9 +82,13 @@ WRegionNode::WRegionNode(unsigned SCID) : SubClassID(SCID), Attributes(0) {
   setIsFromHIR(true);
 }
 
-/// \brief Wrap up the WRN creation now that we have the ExitBB. If the WRN is
-/// a loop construct, this routine also calls the associated Loop from the
-/// LoopInfo.
+/// \brief Wrap up the WRN creation now that we have the ExitBB. Perform other
+/// tasks to finalize the WRN construction:
+/// 1. If the WRN is for a loop construct, find the associated Loop from the
+///    LoopInfo.
+/// 2. If the WRN is a taskloop, set its SchedCode for grainsize/numtasks.
+/// 3. Some clause operands appear in multiple clauses (eg firstprivate and
+//     lastprivate). Mark the "IsIn..." flags for these clauses accordingly.
 void WRegionNode::finalize(BasicBlock *ExitBB) {
   setExitBBlock(ExitBB);
   if (getIsOmpLoop()) {
@@ -115,6 +119,38 @@ void WRegionNode::finalize(BasicBlock *ExitBB) {
         setSchedCode(2);
       else
         setSchedCode(0);
+    }
+
+    // Firstprivate and lastprivate clauses may have the same item X
+    // Firstprivate and map clauses may have the same item Y
+    // Update the IsInFirstprivate/Lastprivate/Map flags of the clauses
+    bool hasLastprivate = (canHaveLastprivate() && !getLpriv().empty());
+    bool hasMap = (canHaveMap() && !getMap().empty());
+    if ((hasLastprivate || hasMap) && canHaveFirstprivate()) {
+      for (FirstprivateItem *FprivI : getFpriv().items()) {
+        Value *Orig = FprivI->getOrig();
+        if (hasLastprivate) {
+          LastprivateItem *LprivI =
+                                WRegionUtils::wrnSeenAsLastPrivate(this, Orig);
+          if (LprivI != nullptr) {
+             // Orig appears in both firstprivate and lastprivate clauses
+             FprivI->setInLastprivate(LprivI);
+             LprivI->setInFirstprivate(FprivI);
+             DEBUG(dbgs() << "Found (" << *Orig 
+                          << ") in both Firstprivate and Lastprivate\n");
+          }
+        }
+        if (hasMap) {
+          MapItem *MapI = WRegionUtils::wrnSeenAsMap(this, Orig);
+          if (MapI != nullptr) {
+             // Orig appears in both firstprivate and map clauses
+             FprivI->setInMap(MapI);
+             MapI->setInFirstprivate(FprivI);
+             DEBUG(dbgs() << "Found (" << *Orig 
+                          << ") in both Firstprivate and Map\n");
+          }
+        }
+      }
     }
 
 #if VPO_FOR_OPENCL
