@@ -1569,6 +1569,7 @@ inline bool update_header_cmp_channels(CSASeqLoopInfo& current_loop,
   default:
     DEBUG(errs() << "ERROR: encountering bad bottom channel in loop...\n");
     assert(0);
+    return false;  // Should not be reached
   }
 }
 
@@ -1915,9 +1916,9 @@ seq_add_stride(CSASeqCandidate& sc,
     addReg(pred_reg).
     add(*sc.get_pick_input_op(loop_header));
   if (in_stride_op->isReg())
-	  MIB.addReg(in_stride_op->getReg());
+    MIB.addReg(in_stride_op->getReg());
   else
-	  MIB.add(*in_stride_op);
+    MIB.add(*in_stride_op);
   MachineInstr *strideInst = MIB;
 
   strideInst->setFlag(MachineInstr::NonSequential);
@@ -2817,4 +2818,3 @@ void CSAOptDFPass::SequenceOPT() {
     }
   }
 }
-

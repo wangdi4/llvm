@@ -25,6 +25,16 @@ namespace mirmatch {
 template <bool cond, class T = void>
 using enable_if_t = typename std::enable_if<cond, T>::type;
 
+#if defined(_MSC_VER) && _MSC_VER <= 1900
+// Workaround for MS VC 14 (2015) failure to recognize 'return {}' as a constexpr return.
+enum no_arg_t { no_arg };
+#define CONSTEXPR_DEFAULT_CTOR(classname) constexpr classname(no_arg_t = no_arg) {}
+#define EMPTY_CLASS_INITIALIZER no_arg
+#else
+#define CONSTEXPR_DEFAULT_CTOR(classname) constexpr classname() = default;
+#define EMPTY_CLASS_INITIALIZER {}
+#endif
+
 namespace internal {
 
 // Base class for a class that implements the interface for a
@@ -221,7 +231,7 @@ template <unsigned long Bits = 0UL>
 struct RegisterSet {
   static constexpr unsigned long value = Bits;
 
-  constexpr RegisterSet() = default;
+  CONSTEXPR_DEFAULT_CTOR(RegisterSet)
 
   constexpr operator bool()  const { return 0 != value; }
   constexpr bool operator!() const { return 0 == value; }
@@ -230,13 +240,13 @@ struct RegisterSet {
 template <unsigned long Bits1, unsigned long Bits2>
 constexpr RegisterSet<Bits1 | Bits2> operator|(RegisterSet<Bits1>,
                                                RegisterSet<Bits2>) {
-  return {};
+  return EMPTY_CLASS_INITIALIZER;
 }
 
 template <unsigned long Bits1, unsigned long Bits2>
 constexpr RegisterSet<Bits1 & Bits2> operator&(RegisterSet<Bits1>,
                                                RegisterSet<Bits2>) {
-  return {};
+  return EMPTY_CLASS_INITIALIZER;
 }
 
 // OperandMatcher Concept:
@@ -313,7 +323,7 @@ struct OperandMatcherList
   template <typename Op, typename Uses>
   constexpr InstructionMatcher<Op, ThisType, Uses>
   operator=(InstructionMatcher<Op, OperandMatcherList<>, Uses>) const
-    { return {}; }
+    { return EMPTY_CLASS_INITIALIZER; }
 
   static bool
   matchOperandRange(MatchResult&                     rslt,
@@ -339,18 +349,18 @@ struct OperandMatcherList<>
 // String operand matchers together using commas
 template <class Op1, class Op2>
 constexpr internal::MakeTypeList<OperandMatcherList, Op1, Op2>
-operator,(Op1, Op2) { return {}; }
+operator,(Op1, Op2) { return EMPTY_CLASS_INITIALIZER; }
 
 // Match any operand
 struct AnyOperand_t {
   static constexpr RegisterSet<> registers{};
 
-  constexpr AnyOperand_t() = default;
+  CONSTEXPR_DEFAULT_CTOR(AnyOperand_t)
 
   template <typename Op, typename Uses>
   constexpr InstructionMatcher<Op, OperandMatcherList<AnyOperand_t>, Uses>
   operator=(InstructionMatcher<Op, OperandMatcherList<>, Uses>) const
-    { return {}; }
+    { return EMPTY_CLASS_INITIALIZER; }
 
   static MachineInstr::const_mop_iterator
   matchOperand(MatchResult&                     rslt,
@@ -376,16 +386,16 @@ struct RegisterMatcher {
   static_assert(LocalId <= 64, "LocalId must be between 0 and 64");
 
   static constexpr
-  RegisterSet<LocalId == 0 ? 0 : 1UL << (LocalId-1)> registers{};
+  RegisterSet<LocalId ? 1UL << (LocalId ? LocalId - 1 : 0) : 0> registers{};
 
   static constexpr unsigned localId = LocalId;
 
-  constexpr RegisterMatcher() = default;
+  CONSTEXPR_DEFAULT_CTOR(RegisterMatcher)
 
   template <typename Op, typename Uses>
   constexpr InstructionMatcher<Op, OperandMatcherList<RegisterMatcher>, Uses>
   operator=(InstructionMatcher<Op, OperandMatcherList<>, Uses>) const
-    { return {}; }
+    { return EMPTY_CLASS_INITIALIZER; }
 
   static MachineInstr::const_mop_iterator
   matchOperand(MatchResult&                     rslt,
@@ -399,13 +409,16 @@ struct IsOperandMatcher<RegisterMatcher<LocalId>> : std::true_type { };
 
 constexpr RegisterMatcher<0> AnyRegister{};
 
+// MSVC workaround to force expansion variadic arguments before invoking macro.
+#define MIRMATCHER_EXPAND_MACRO(x) x
+
 // Declare a set of register names for use in matching patterns
 // The argument list is simply 1 to 20 identifiers, each of which becomes
 // a `constexpr` instance of the `RegisterMatcher` template, with the
 // ascending local IDs starting at 1.
-#define MIRMATCHER_REGS(...)  \
+#define MIRMATCHER_REGS(...)  MIRMATCHER_EXPAND_MACRO(                       \
   MIRMATCHER_REGS_IMP(__VA_ARGS__,(),(),(),(),(),(),(),(),(),(),(),(),(),(), \
-                     (),(),(),(),(),())
+                      (),(),(),(),(),()))
 
 // Implementation of `MIRMATCHER_REGS`.  1 to 20 identifiers are passed in
 // followed by 20 sets of empty parens.  For each real argument (identifier
@@ -419,7 +432,7 @@ constexpr RegisterMatcher<0> AnyRegister{};
 // arguments for real registers and four arguments for the empty parens. This
 // allows for very different expansions (see below).
 #define MIRMATCHER_REGS_IMP(R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11,     \
-                           R12, R13, R14, R15, R16, R17, R18, R19, R20, ...) \
+                            R12, R13, R14, R15, R16, R17, R18, R19, R20, ...) \
   MIRMATCHER_COND_DECL_REG(1, R1, MIRMATCHER_2_ARGS R1); \
   MIRMATCHER_COND_DECL_REG(2, R2, MIRMATCHER_2_ARGS R2); \
   MIRMATCHER_COND_DECL_REG(3, R3, MIRMATCHER_2_ARGS R3); \
@@ -447,8 +460,8 @@ constexpr RegisterMatcher<0> AnyRegister{};
 // Conditionally expand to either `MIRMATCHER_DECL_REG(N, R)` or to
 // `MIRMATCHER_NOP(N, R)` depending on whether it was expanded with three or
 // four arguments, respectively.
-#define MIRMATCHER_COND_DECL_REG(N, R, ...)                           \
-  MIRMATCHER_3RD_ARG(__VA_ARGS__, MIRMATCHER_NOP, MIRMATCHER_DECL_REG, x)(N, R)
+#define MIRMATCHER_COND_DECL_REG(N, R, ...) MIRMATCHER_EXPAND_MACRO( \
+  MIRMATCHER_3RD_ARG(__VA_ARGS__, MIRMATCHER_NOP, MIRMATCHER_DECL_REG, x))(N, R)
 
 // Expand to 3rd argument of argument list.
 #define MIRMATCHER_3RD_ARG(x, y, M, ...) M
@@ -467,7 +480,7 @@ struct LiteralMatcher {
   static constexpr T             value = val;
   static constexpr RegisterSet<> registers{};
 
-  constexpr LiteralMatcher() = default;
+  CONSTEXPR_DEFAULT_CTOR(LiteralMatcher)
 
   // Match a literal
   static MachineInstr::const_mop_iterator
@@ -488,7 +501,7 @@ struct IsOperandMatcher<LiteralMatcher<T, v>> : std::true_type { };
 struct AnyLiteralMatcher {
   static constexpr RegisterSet<> registers{};
 
-  constexpr AnyLiteralMatcher() = default;
+  CONSTEXPR_DEFAULT_CTOR(AnyLiteralMatcher)
 
   // Match a literal
   static MachineInstr::const_mop_iterator
@@ -519,7 +532,7 @@ struct InstructionMatcher
 
   static constexpr auto registers = (Defs::registers | Uses::registers);
 
-  constexpr InstructionMatcher() = default;
+  CONSTEXPR_DEFAULT_CTOR(InstructionMatcher)
 
   // Match the specified `MachineInstr` against the code pattern encoded
   // in this `InstrMatcher`. Return true on a succesful match and false
@@ -558,7 +571,7 @@ struct InstrGraphMatcher
 
   static constexpr auto registers = (First::registers | Rest::registers);
 
-  constexpr InstrGraphMatcher() = default;
+  CONSTEXPR_DEFAULT_CTOR(InstrGraphMatcher)
 
   // Match the graph if `mi` matches the first instruction listed in the graph
   // and if, by traversing register edges, every other instruction in the
@@ -577,7 +590,7 @@ struct InstrGraphMatcher<>
 
   static constexpr RegisterSet<> registers{};
 
-  constexpr InstrGraphMatcher() = default;
+  CONSTEXPR_DEFAULT_CTOR(InstrGraphMatcher)
 
   static constexpr bool matchInstr(MachineRegisterInfo& MRI,
                                    MatchResult& rslt, MachineInstr* mi)
@@ -600,7 +613,7 @@ using ConcatInstr =
 // will fail quickly.
 template <class... InstrMatchers>
 constexpr InstrGraphMatcher<InstrMatchers...>
-graph(InstrMatchers...) { return {}; }
+graph(InstrMatchers...) { return EMPTY_CLASS_INITIALIZER; }
 
 template <class... InstrMatchers>
 struct InstrAlternativeMatcher
@@ -613,7 +626,7 @@ struct InstrAlternativeMatcher
 
   static constexpr RegisterSet<> registers{};
 
-  constexpr InstrAlternativeMatcher() = default;
+  CONSTEXPR_DEFAULT_CTOR(InstrAlternativeMatcher)
 
   static constexpr bool matchInstr(MachineRegisterInfo& MRI,
                                    MatchResult& rslt, MachineInstr* mi)
@@ -638,7 +651,7 @@ struct InstrAlternativeMatcher<InstrMatcher1, InstrMatchers...>
 
   static constexpr auto registers = (First::registers & Rest::registers);
 
-  constexpr InstrAlternativeMatcher() = default;
+  CONSTEXPR_DEFAULT_CTOR(InstrAlternativeMatcher)
 
   static bool matchInstr(MachineRegisterInfo& MRI,
                          MatchResult& rslt, MachineInstr* mi) {
@@ -651,7 +664,7 @@ template <class InstrMatcher1>
 struct InstrAlternativeMatcher<InstrMatcher1> : InstrMatcher1
 {
   // Specialization of `InstrAlternativeMatcher` for only one InstrMatcher
-  constexpr InstrAlternativeMatcher() = default;
+  CONSTEXPR_DEFAULT_CTOR(InstrAlternativeMatcher)
 };
 
 template <class... InstrMatchers>
@@ -661,7 +674,7 @@ struct IsInstrMatcher<InstrAlternativeMatcher<InstrMatchers...>>
 template <class InstrMatcher1, class InstrMatcher2>
 constexpr
 internal::MakeTypeList<InstrAlternativeMatcher, InstrMatcher1, InstrMatcher2>
-operator||(InstrMatcher1, InstrMatcher2) { return {}; }
+operator||(InstrMatcher1, InstrMatcher2) { return EMPTY_CLASS_INITIALIZER; }
 
 // OpcodeMatcher Concept:
 //
@@ -687,13 +700,13 @@ operator||(InstrMatcher1, InstrMatcher2) { return {}; }
 // needs only define the `match` method.
 template <class OpcodeMatcher>
 struct OpcodeMatcherBase {
-  constexpr OpcodeMatcherBase() = default;
+  CONSTEXPR_DEFAULT_CTOR(OpcodeMatcherBase)
 
   // Matcher for a group of zero or more opcodes.
   template <typename... UseMatcher>
   constexpr InstructionMatcher<OpcodeMatcher, OperandMatcherList<>,
                                OperandMatcherList<UseMatcher...>>
-  operator()(UseMatcher...) const { return {}; }
+  operator()(UseMatcher...) const { return EMPTY_CLASS_INITIALIZER; }
 };
 
 // Trait to detect whether `T` is an `OpcodeMatcher`.
@@ -728,12 +741,12 @@ struct OpcodeMatcherList<> :
 template <class OpcodeMatcher1, class OpcodeMatcher2>
 constexpr internal::MakeTypeList<OpcodeMatcherList,
                                  OpcodeMatcher1, OpcodeMatcher2>
-operator|(OpcodeMatcher1, OpcodeMatcher2) { return {}; }
+operator|(OpcodeMatcher1, OpcodeMatcher2) { return EMPTY_CLASS_INITIALIZER; }
 
 template <unsigned Opcode1, unsigned... Opcodes>
 struct OpcodeGroup : OpcodeMatcherBase<OpcodeGroup<Opcode1, Opcodes...>>
 {
-  constexpr OpcodeGroup() = default;
+  CONSTEXPR_DEFAULT_CTOR(OpcodeGroup)
 
   static constexpr bool match(unsigned v)
     { return Opcode1 == v || OpcodeGroup<Opcodes...>::match(v); }
@@ -742,7 +755,7 @@ struct OpcodeGroup : OpcodeMatcherBase<OpcodeGroup<Opcode1, Opcodes...>>
 template <unsigned Opcode>
 struct OpcodeGroup<Opcode> : OpcodeMatcherBase<OpcodeGroup<Opcode>>
 {
-  constexpr OpcodeGroup() = default;
+  CONSTEXPR_DEFAULT_CTOR(OpcodeGroup)
 
   static constexpr bool match(unsigned v)
     { return Opcode == v; }
@@ -756,7 +769,7 @@ using Opcode = OpcodeGroup<Code>;
 template <unsigned OpcodeFirst, unsigned OpcodeLast>
 struct OpcodeRange : OpcodeMatcherBase<OpcodeRange<OpcodeFirst, OpcodeLast>>
 {
-  constexpr OpcodeRange() = default;
+  CONSTEXPR_DEFAULT_CTOR(OpcodeRange)
 
   static constexpr bool match(unsigned v)
     { return OpcodeFirst <= v && v <= OpcodeLast; }
