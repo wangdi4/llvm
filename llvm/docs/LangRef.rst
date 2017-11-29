@@ -677,6 +677,7 @@ Variables and aliases can have a
 
 .. INTEL_CUSTOMIZATION
 .. Added [ThreadPrivate] as a global variable attribute.
+
 Syntax::
 
       @<GlobalVarName> = [Linkage] [Visibility] [PreemptionSpecifier]
@@ -687,6 +688,7 @@ Syntax::
                          <global | constant> <Type> [<InitializerConstant>]
                          [, section "name"] [, comdat [($name)]]
                          [, align <Alignment>] (, !name !N)*
+
 .. END INTEL_CUSTOMIZATION
 
 For example, the following defines a global in a numbered address space
@@ -1372,7 +1374,9 @@ example:
     This attribute indicates that the inliner should attempt to inline
     this function into callers whenever possible, ignoring any active
     inlining size threshold for this caller.
+
 .. INTEL_CUSTOMIZATION
+
 ``alwaysinline_recursive``
     This attribute indicates that the inliner should attempt to inline
     the current called function and its callees whenever possible,
@@ -1380,7 +1384,9 @@ example:
     is propagated down the call chain, until either a call site marked by a
     noinline attibute, or a function declared with a noinline attribute. A
     callee marked with a noinline attribute, is not inlined.
+
 .. END INTEL_CUSTOMIZATION
+
 ``builtin``
     This indicates that the callee function at a call site should be
     recognized as a built-in function, even though the function's declaration
@@ -1426,7 +1432,9 @@ example:
     inlining this function is desirable (such as the "inline" keyword in
     C/C++). It is just a hint; it imposes no requirements on the
     inliner.
+
 .. INTEL_CUSTOMIZATION
+
 ``inlinehint_recursive``
     This attribute indicates that the source code contained a hint that
     inlining the current called function and its callees is desirable (such
@@ -1438,7 +1446,9 @@ example:
     precedence than the alwaysinline attribute. Meaning if it encounters a
     callsite with alwaysinline attribute, the alwaysinline attribute will
     override the inlinehint attribute.
+
 .. END INTEL_CUSTOMIZATION
+
 ``jumptable``
     This attribute indicates that the function should be added to a
     jump-instruction table at code-generation time, and that all address-taken
@@ -4632,28 +4642,36 @@ this section only pertain to TBAA nodes living under the same root.
 Semantics
 """""""""
 
+.. INTEL_CUSTOMIZATION TBAA enhancement was done to precisely model struct, array and pointer types.
+.. Semantics for the new metadata node types are added in this section.
+
 The TBAA metadata system, referred to as "struct path TBAA" (not to be
 confused with ``tbaa.struct``), consists of the following high level
 concepts: *Type Descriptors*, further subdivided into scalar type
-descriptors and struct type descriptors; and *Access Tags*.
+descriptors, pointer type descriptors, array type descriptors and
+struct type descriptors; and *Access Tags*.
 
 **Type descriptors** describe the type system of the higher level language
 being compiled.  **Scalar type descriptors** describe types that do not
 contain other types.  Each scalar type has a parent type, which must also
 be a scalar type or the TBAA root.  Via this parent relation, scalar types
-within a TBAA root form a tree.  **Struct type descriptors** denote types
-that contain a sequence of other type descriptors, at known offsets.  These
-contained type descriptors can either be struct type descriptors themselves
-or scalar type descriptors.
+within a TBAA root form a tree. **Pointer type descriptors** denote the
+pointer types that point to the other scalar type descriptors. Each pointer type
+has its type's parent type too, which must also be a scalar type.
+**Array type descriptors** describe array types of other scalar type, pointer
+type or struct type descriptors. **Struct type descriptors** denote types that
+contain a sequence of other type descriptors, at known offsets. These
+contained type descriptors can either be struct type descriptors themselves,
+scalar type, pointer type or array type descriptors.
 
 **Access tags** are metadata nodes attached to load and store instructions.
 Access tags use type descriptors to describe the *location* being accessed
 in terms of the type system of the higher level language.  Access tags are
 tuples consisting of a base type, an access type and an offset.  The base
-type is a scalar type descriptor or a struct type descriptor, the access
-type is a scalar type descriptor, and the offset is a constant integer.
+and access types can be any type descriptors (scalar, pointer, array or struct type),
+and the offset is a constant integer.
 
-The access tag ``(BaseTy, AccessTy, Offset)`` can describe one of two
+The access tag ``(BaseTy, AccessTy, Offset)`` can describe any of the following
 things:
 
  * If ``BaseTy`` is a struct type, the tag describes a memory access (load
@@ -4663,6 +4681,14 @@ things:
  * If ``BaseTy`` is a scalar type, ``Offset`` must be 0 and ``BaseTy`` and
    ``AccessTy`` must be the same; and the access tag describes a scalar
    access with scalar type ``AccessTy``.
+
+ * If ``BaseTy`` is a pointer type, ``BaseTy`` and ``AccessTy`` must be the
+   same; the access tag describes a pointer access with pointer type ``AccessTy``;
+   and the ``Offset`` must be 0.
+
+ * If ``BaseTy`` is an array type, the tag describes a memory access (load
+   or store) of a value of type ``AccessTy`` which is the element
+   of array type ``BaseTy``; and the ``Offset`` must be 0.
 
 We first define an ``ImmediateParent`` relation on ``(BaseTy, Offset)``
 tuples this way:
@@ -4677,12 +4703,22 @@ tuples this way:
    ``BaseTy`` at offset ``Offset`` and ``NewOffset`` is ``Offset`` adjusted
    to be relative within that inner type.
 
+ * If ``BaseTy`` is a pointer type then ``ImmediateParent(BaseTy, 0)``
+   is ``(CharScalarTy, 0)`` where ``CharScalarTy`` is the scalar node ``char``.
+
+ * If ``BaseTy`` is an array type then ``ImmediateParent(BaseTy, 0)``
+   is ``(NewTy, 0)`` where ``NewTy`` is the element type of ``BaseTy``.
+
+.. END INTEL_CUSTOMIZATION
+
 A memory access with an access tag ``(BaseTy1, AccessTy1, Offset1)``
 aliases a memory access with an access tag ``(BaseTy2, AccessTy2,
 Offset2)`` if either ``(BaseTy1, Offset1)`` is reachable from ``(Base2,
 Offset2)`` via the ``Parent`` relation or vice versa.
 
-As a concrete example, the type descriptor graph for the following program
+.. INTEL_CUSTOMIZATION specified the names of the types involved in the example.
+
+As a concrete example for scalar and struct types, the type descriptor graph for the following program
 
 .. code-block:: c
 
@@ -4723,6 +4759,72 @@ with (e.g.) ``ImmediateParent(OuterStructTy, 12)`` = ``(InnerStructTy,
 0)``, ``ImmediateParent(InnerStructTy, 0)`` = ``(IntScalarTy, 0)``, and
 ``ImmediateParent(IntScalarTy, 0)`` = ``(CharScalarTy, 0)``.
 
+.. INTEL_CUSTOMIZATION
+
+For pointer and array types, if the following program is considered:
+
+.. code-block:: c
+
+    int A[4];
+    float B[3];
+
+    void foo(int** p, float** q) {
+        *p = &A[0];     // tag0: (IntPointerTy, IntPointerTy, 0)
+        *q = &B[0];     // tag1: (FloatPointerTy, FloatPointerTy, 0)
+
+        A[0] = 1;       // tag2: (IntArrayTy, IntScalarTy, 0)
+        B[0] = 2.00;    // tag3: (FloatArrayTy, FloatScalarTy, 0)
+    }
+
+then the type descriptor graph for it will be:
+
+.. code-block:: text
+
+    Root = "TBAA Root"
+    CharScalarTy = ("char", Root, 0)
+    FloatScalarTy = ("float", CharScalarTy, 0)
+    IntScalarTy = ("int", CharScalarTy, 0)
+    IntArrayTy = ("array@int", IntScalarTy, 0)
+    FloatArrayTy = ("array@float", FloatScalarTy, 0)
+    IntPointerTy = ("pointer@int", CharScalarTy, 0)
+    FloatPointerTy = ("pointer@float", CharScalarTy, 0)
+
+with (e.g.) ``ImmediateParent(IntArrayTy, 0)`` = ``(IntScalarTy,
+0)``, ``ImmediateParent(IntScalarTy, 0)`` = ``(CharScalarTy, 0)``, and
+``ImmediateParent(FloatPointerTy, 0)`` = ``(CharScalarTy, 0)``.
+
+By supporting the pointer, array and struct type descriptors, TBAA can enable
+aggressive optimizations effectively. These types help distinguishing different
+array and pointer types which otherwise would alias with each other. Without the pointer
+and array type descriptors, the tags for the previous program would be like this:
+
+.. code-block:: c
+
+    int A[4];
+    float B[3];
+
+    void foo(int** p, float** q) {
+        *p = &A[0];     // tag0: (PointerTy, PointerTy, 0)
+        *q = &B[0];     // tag1: (PointerTy, PointerTy, 0)
+
+        A[0] = 1;       // tag2: (IntScalarTy, IntScalarTy, 0)
+        B[0] = 2.00;    // tag3: (FloatScalarTy, FloatScalarTy, 0)
+    }
+
+and the type descriptor graph for it would be:
+
+.. code-block:: text
+
+    Root = "TBAA Root"
+    CharScalarTy = ("char", Root, 0)
+    FloatScalarTy = ("float", CharScalarTy, 0)
+    IntScalarTy = ("int", CharScalarTy, 0)
+    PointerTy = ("any pointer", CharScalarTy, 0)
+
+Unlike the previous graph, different pointers would be aliasing with each other in this case.
+
+.. END INTEL_CUSTOMIZATION
+
 .. _tbaa_node_representation:
 
 Representation
@@ -4731,24 +4833,49 @@ Representation
 The root node of a TBAA type hierarchy is an ``MDNode`` with 0 operands or
 with exactly one ``MDString`` operand.
 
+.. INTEL_CUSTOMIZATION changed the representation of the scalar and struct type descriptor
+.. according to the new TBAA enhancement.
+
 Scalar type descriptors are represented as an ``MDNode`` s with two
 operands.  The first operand is an ``MDString`` denoting the name of the
 struct type.  LLVM does not assign meaning to the value of this operand, it
 only cares about it being an ``MDString``.  The second operand is an
 ``MDNode`` which points to the parent for said scalar type descriptor,
 which is either another scalar type descriptor or the TBAA root.  Scalar
-type descriptors can have an optional third argument, but that must be the
-constant integer zero.
+type descriptors can have an optional third integer argument. If it
+is equal to 1 then the type is "constant".
 
 Struct type descriptors are represented as ``MDNode`` s with an odd number
 of operands greater than 1.  The first operand is an ``MDString`` denoting
-the name of the struct type.  Like in scalar type descriptors the actual
-value of this name operand is irrelevant to LLVM.  After the name operand,
-the struct type descriptors have a sequence of alternating ``MDNode`` and
+the name of the struct type in the form of '``struct@name``'. After the name
+operand, the struct type descriptors have a sequence of alternating ``MDNode`` and
 ``ConstantInt`` operands.  With N starting from 1, the 2N - 1 th operand,
 an ``MDNode``, denotes a contained field, and the 2N th operand, a
 ``ConstantInt``, is the offset of the said contained field.  The offsets
 must be in non-decreasing order.
+
+.. INTEL_CUSTOMIZATION
+
+Pointer type descriptors are represented as an ``MDNode`` s with 3 or 4
+operands. The first operand is an ``MDString`` in the form of '``pointer@name``'.
+The second operand is the ``MDNode`` representing the parent of the pointed scalar
+node which is always the scalar node ``char``.
+The third operand is a ``ConstantInt`` that states the offset. The fourth
+operand is optional, it's an integer which if equal to 1 indicates that the
+type is a "constant".
+
+Array type descriptors are represented as an ``MDNode`` s with 3 or 4
+operands. The first operand is an ``MDString`` in the form of '``array@name``'.
+The second operand is the ``MDNode`` representing the element type node.
+The third operand is a ``ConstantInt`` that represents the offset value. The fourth
+operand is optional, it's an integer which if equal to 1 indicates that the
+type is a "constant".
+
+Like in scalar type descriptors the actual value of the name operand for the
+pointer type, array type and struct type nodes is irrelevant to LLVM. It only helps
+to improve program comprehension.
+
+.. END INTEL_CUSTOMIZATION
 
 Access tags are represented as ``MDNode`` s with either 3 or 4 operands.
 The first operand is an ``MDNode`` pointing to the node representing the
