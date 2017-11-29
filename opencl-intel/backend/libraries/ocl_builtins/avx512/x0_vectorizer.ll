@@ -815,7 +815,7 @@ define void @masked_scatter.v16i64_ind_v16i32 (<16 x i1> %mask, i64* %addr,
 }
 
 ;; ------------------------------------
-;;       MASK Operations 
+;;       MASK Operations
 ;; ------------------------------------
 
 define i1 @__ocl_allOne_v16(<16 x i1> %pred) nounwind readnone {
@@ -839,10 +839,26 @@ entry:
   ret i1 %res
 }
 
+define i1 @__ocl_allZero_v4(<4 x i1> %pred) nounwind readnone {
+entry:
+  %ipred = sext <4 x i1> %pred to <4 x i8>
+  %bpred = bitcast <4 x i8> %ipred to i32
+  %res = icmp eq i32 %bpred, 0
+  ret i1 %res
+}
+
 define i1 @__ocl_allOne_v8(<8 x i1> %pred) nounwind readnone {
 entry:
   %ipred = bitcast <8 x i1> %pred to i8
   %res = icmp eq i8 %ipred, -1
+  ret i1 %res
+}
+
+define i1 @__ocl_allOne_v4(<4 x i1> %pred) nounwind readnone {
+entry:
+  %t1 = sext <4 x i1> %pred to <4 x i8>
+  %t2 = bitcast <4 x i8> %t1 to i32
+  %res = icmp eq i32 %t2, -1
   ret i1 %res
 }
 
@@ -856,3 +872,4 @@ entry:
   %pred = xor i1 %t, true
   ret i1 %pred
 }
+
