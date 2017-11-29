@@ -533,9 +533,9 @@ private:
   /// \brief Create the function .omp_offloading.descriptor_unreg
   Function *createTgDescUnregisterLib(WRegionNode *W, GlobalVariable *Desc);
 
-  /// \brief If the map data is global variable, Create the stack variable and
-  /// replace the the global variable with the stack variable.
-  bool genMapPrivationCode(WRegionNode *W);
+  /// \brief If the incoming data is global variable, create the stack variable
+  /// and replace the the global variable with the stack variable.
+  bool genGlobalPrivatizationCode(WRegionNode *W);
 
   /// \brief Pass the value of the DevicePtr to the outlined function.
   bool genDevicePtrPrivationCode(WRegionNode *W);
@@ -645,6 +645,12 @@ private:
       Loop *L,
       DenseMap<Value *, std::pair<Value *, BasicBlock *>> &ValueToLiveinMap,
       SmallSetVector<Instruction *, 8> &LiveOutVals);
+
+  /// \brief The utility to generate the stack variable to pass the value of
+  /// global variable.
+  Value *genGlobalPrivatizationImpl(WRegionNode *W, GlobalVariable *G,
+                                    BasicBlock *EntryBB, BasicBlock *NextExitBB,
+                                    Item *IT);
 };
 } /// namespace vpo
 } /// namespace llvm

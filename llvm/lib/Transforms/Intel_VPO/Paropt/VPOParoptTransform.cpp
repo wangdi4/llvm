@@ -334,8 +334,8 @@ bool VPOParoptTransform::paroptTransforms() {
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed = clearCodemotionFenceIntrinsic(W);
           Changed |= genPrivatizationCode(W);
+          Changed |= genGlobalPrivatizationCode(W);
           Changed |= genFirstPrivatizationCode(W);
-          Changed |= genMapPrivationCode(W);
           Changed |= genDevicePtrPrivationCode(W);
           Changed |= genTargetOffloadingCode(W);
           RemoveDirectives = true;
@@ -1248,8 +1248,7 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
     BasicBlock *ExitBB = W->getExitBBlock();
     BasicBlock *PrivInitEntryBB = nullptr;
     Value *NewPrivInst = nullptr;
-    bool ForTask = W->getWRegionKindID() == WRegionNode::WRNTaskloop ||
-                   W->getWRegionKindID() == WRegionNode::WRNTask;
+    bool ForTask = W->getIsTask();
 
     for (FirstprivateItem *FprivI : FprivClause.items()) {
       Value *Orig = FprivI->getOrig();
@@ -1260,12 +1259,19 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
       LastprivateItem *LprivI = FprivI->getInLastprivate();
 
       if (!LprivI) {
-        NewPrivInst = genPrivatizationAlloca(
-            W, Orig, EntryBB->getFirstNonPHI(), ".fpriv");
-        genPrivatizationReplacement(W, Orig, NewPrivInst, FprivI);
-        if (!ForTask)
-          FprivI->setNew(NewPrivInst);
-        else {
+        NewPrivInst = genPrivatizationAlloca(W, Orig, EntryBB->getFirstNonPHI(),
+                                             ".fpriv");
+
+        // By this it can uniformly handle the global/local firstprivate.
+        // For the case of local firstprivate, the New is the same as the Orig.
+        Value *ValueToReplace = W->getIsTarget() ? FprivI->getNew() : Orig;
+        genPrivatizationReplacement(W, ValueToReplace, NewPrivInst, FprivI);
+
+        // For a given firstprivate variable, if it also occurs in a map
+        // clause with "from" attribute, the compiler needs to generate
+        // the code to copy the value back to the target memory.
+        if (ForTask || (W->getIsTarget() && FprivI->getInMap() &&
+                        FprivI->getInMap()->getIsMapFrom())) {
           IRBuilder<> Builder(EntryBB->getTerminator());
           Builder.CreateStore(Builder.CreateLoad(FprivI->getNew()),
                               NewPrivInst);
@@ -1273,6 +1279,8 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
           Builder.CreateStore(Builder.CreateLoad(NewPrivInst),
                               FprivI->getNew());
         }
+
+        FprivI->setNew(NewPrivInst);
       } else {
         FprivI->setNew(LprivI->getNew());
         DEBUG(dbgs() << "\n  genFirstPrivatizationCode: (" << *Orig

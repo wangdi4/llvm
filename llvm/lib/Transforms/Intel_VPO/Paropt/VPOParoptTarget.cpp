@@ -161,28 +161,29 @@ Type *VPOParoptTransform::getSizeTTy() {
 }
 
 // Returns the corresponding flag for a given map clause modifier.
-unsigned VPOParoptTransform::getMapTypeFlag(MapItem *MpI, bool IsFirstExprFlag,
+unsigned VPOParoptTransform::getMapTypeFlag(MapItem *MapI, bool IsFirstExprFlag,
                                             bool IsFirstComponentFlag) {
   unsigned Res = 0u;
 
-  if (MpI->getIsMapTofrom())
+  if (MapI->getIsMapTofrom())
     Res = TGT_MAP_TO | TGT_MAP_FROM;
-  else if (MpI->getIsMapTo())
+  else if (MapI->getIsMapTo() || MapI->getInFirstprivate())
     Res = TGT_MAP_TO;
-  else if (MpI->getIsMapFrom())
+  else if (MapI->getIsMapFrom())
     Res = TGT_MAP_FROM;
-  else if (MpI->getIsMapDelete())
+  else if (MapI->getIsMapDelete())
     Res = TGT_MAP_DELETE;
 
   // WRNMapAlloc and WRNMapRelease are the default behavior in the runtime.
 
-  if (MpI->getIsMapAlways())
+  if (MapI->getIsMapAlways())
     Res |= TGT_MAP_ALWAYS;
 
   if (IsFirstExprFlag)
     Res |= TGT_MAP_IS_PTR;
   if (IsFirstComponentFlag)
     Res |= TGT_MAP_FIRST_REF;
+
   return Res;
 }
 
@@ -197,20 +198,22 @@ void VPOParoptTransform::GenTgtInformationForPtrs(
   bool IsFirstComponentFlag = true;
 
   MapClause MpClause = W->getMap();
-  for (MapItem *MpI : MpClause.items()) {
-    if (MpI->getNew() != V)
+  for (MapItem *MapI : MpClause.items()) {
+    if (MapI->getNew() != V)
       continue;
-    Type *T = MpI->getOrig()->getType()->getPointerElementType();
+    Type *T = MapI->getOrig()->getType()->getPointerElementType();
     ConstSizes.push_back(
         ConstantInt::get(getSizeTTy(), DL.getTypeAllocSize(T)));
     MapTypes.push_back(
-        getMapTypeFlag(MpI, !IsFirstExprFlag, IsFirstComponentFlag));
+        getMapTypeFlag(MapI, !IsFirstExprFlag, IsFirstComponentFlag));
     IsFirstExprFlag = false;
   }
 
   FirstprivateClause &FprivClause = W->getFpriv();
   for (FirstprivateItem *FprivI : FprivClause.items()) {
     if (FprivI->getOrig() != V)
+      continue;
+    if (FprivI->getInMap())
       continue;
     Type *T = FprivI->getOrig()->getType()->getPointerElementType();
     ConstSizes.push_back(
@@ -640,9 +643,29 @@ Function *VPOParoptTransform::createTgDescRegisterLib(WRegionNode *W,
   return Fn;
 }
 
-// If the map data is global variable, Create the stack variable and
+// The utility to generate the stack variable to pass the value of
+// global variable.
+Value *VPOParoptTransform::genGlobalPrivatizationImpl(WRegionNode *W,
+                                                      GlobalVariable *G,
+                                                      BasicBlock *EntryBB,
+                                                      BasicBlock *NextExitBB,
+                                                      Item *IT) {
+  G->setTargetDeclare(true);
+  auto NewPrivInst =
+      genPrivatizationAlloca(W, G, EntryBB->getFirstNonPHI(), ".priv.mp");
+  genPrivatizationReplacement(W, G, NewPrivInst, IT);
+  LoadInst *Load = new LoadInst(G);
+  Load->insertAfter(cast<Instruction>(NewPrivInst));
+  StoreInst *Store = new StoreInst(Load, NewPrivInst);
+  Store->insertAfter(Load);
+  IRBuilder<> Builder(NextExitBB->getTerminator());
+  Builder.CreateStore(Builder.CreateLoad(NewPrivInst), G);
+  return NewPrivInst;
+}
+
+// If the incoming data is global variable, Create the stack variable and
 // replace the the global variable with the stack variable.
-bool VPOParoptTransform::genMapPrivationCode(WRegionNode *W) {
+bool VPOParoptTransform::genGlobalPrivatizationCode(WRegionNode *W) {
   MapClause MpClause = W->getMap();
   BasicBlock *EntryBB = &(F->getEntryBlock());
   BasicBlock *ExitBB = W->getExitBBlock();
@@ -650,24 +673,41 @@ bool VPOParoptTransform::genMapPrivationCode(WRegionNode *W) {
   W->populateBBSet();
 
   bool Changed = false;
-  for (MapItem *MpI : MpClause.items()) {
-    Value *Orig = MpI->getOrig();
+  for (MapItem *MapI : MpClause.items()) {
+    Value *Orig = MapI->getOrig();
     if (GlobalVariable *G = dyn_cast<GlobalVariable>(Orig)) {
-      G->setTargetDeclare(true);
-      auto NewPrivInst = genPrivatizationAlloca(
-          W, Orig, EntryBB->getFirstNonPHI(), ".priv.mp");
-      genPrivatizationReplacement(W, Orig, NewPrivInst, MpI);
-      LoadInst *Load = new LoadInst(Orig);
-      Load->insertAfter(cast<Instruction>(NewPrivInst));
-      StoreInst *Store = new StoreInst(Load, NewPrivInst);
-      Store->insertAfter(Load);
-      IRBuilder<> Builder(NextExitBB->getTerminator());
-      Builder.CreateStore(Builder.CreateLoad(NewPrivInst), Orig);
-      MpI->setNew(NewPrivInst);
+
+      Value *NewPrivInst =
+          genGlobalPrivatizationImpl(W, G, EntryBB, NextExitBB, MapI);
+
+      MapI->setNew(NewPrivInst);
       Changed = true;
     } else
-      MpI->setNew(Orig);
+      // The New is set to be the same as Orig for local firstprivate so that
+      // global/local firstprivate can be processed in a unified way in the
+      // later OMP code generation.
+      MapI->setNew(Orig);
   }
+
+  FirstprivateClause &FprivClause = W->getFpriv();
+  for (FirstprivateItem *FprivI : FprivClause.items()) {
+    Value *Orig = FprivI->getOrig();
+    MapItem *MapI = FprivI->getInMap();
+    if (MapI) {
+      FprivI->setNew(MapI->getNew());
+      continue;
+    }
+    if (GlobalVariable *G = dyn_cast<GlobalVariable>(Orig)) {
+
+      Value *NewPrivInst =
+          genGlobalPrivatizationImpl(W, G, EntryBB, NextExitBB, FprivI);
+
+      FprivI->setNew(NewPrivInst);
+      Changed = true;
+    } else
+      FprivI->setNew(Orig);
+  }
+
   if (Changed)
     W->resetBBSet();
   return Changed;
