@@ -420,6 +420,7 @@ if(MINGW)
       udivsi3.c
       umoddi3.c
       emutls.c)
+  filter_builtin_sources(arm_SOURCES EXCLUDE arm_SOURCES "${arm_SOURCES};${GENERIC_SOURCES}")
 elseif(NOT WIN32)
   # TODO the EABI sources should only be added to EABI targets
   set(arm_SOURCES
@@ -454,8 +455,12 @@ set(mips64_SOURCES ${GENERIC_TF_SOURCES}
 set(mips64el_SOURCES ${GENERIC_TF_SOURCES}
                      ${mips_SOURCES})
 
-set(wasm32_SOURCES ${GENERIC_SOURCES})
-set(wasm64_SOURCES ${GENERIC_SOURCES})
+set(wasm32_SOURCES
+  ${GENERIC_TF_SOURCES}
+  ${GENERIC_SOURCES})
+set(wasm64_SOURCES
+  ${GENERIC_TF_SOURCES}
+  ${GENERIC_SOURCES})
 
 add_custom_target(builtins)
 set_target_properties(builtins PROPERTIES FOLDER "Compiler-RT Misc")

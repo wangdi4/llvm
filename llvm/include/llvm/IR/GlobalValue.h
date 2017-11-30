@@ -81,7 +81,8 @@ protected:
         UnnamedAddrVal(unsigned(UnnamedAddr::None)),
         DllStorageClass(DefaultStorageClass), ThreadLocal(NotThreadLocal),
         ThreadPrivate(0), TargetDeclare(0), // INTEL
-        HasLLVMReservedName(false), IntID((Intrinsic::ID)0U), Parent(nullptr) {
+        HasLLVMReservedName(false), IsDSOLocal(false),
+        IntID((Intrinsic::ID)0U), Parent(nullptr) {
     setName(Name);
   }
 
@@ -90,7 +91,7 @@ protected:
   // INTEL - This needs to be two less than it is in the community version to
   // account for the ThreadPrivate bit and TargetDeclare bit.  See also
   // the comment at the SubClassData declaration.
-  static const unsigned GlobalValueSubClassDataBits = 16; // INTEL
+  static const unsigned GlobalValueSubClassDataBits = 15; // INTEL
 
   // All bitfields use unsigned as the underlying type so that MSVC will pack
   // them.
@@ -116,11 +117,15 @@ protected:
   /// Function::intrinsicID() returns Intrinsic::not_intrinsic.
   unsigned HasLLVMReservedName : 1;
 
+  /// If true then there is a definition within the same linkage unit and that
+  /// definition cannot be runtime preempted.
+  unsigned IsDSOLocal : 1;
+
 private:
   friend class Constant;
 
   // Give subclasses access to what otherwise would be wasted padding.
-  // INTEL - (16 + 4 + 2 + 2 + 2 + 3 + 1 + 1 + 1) == 32.  Extra two bits for
+  // INTEL - (15 + 4 + 2 + 2 + 2 + 3 + 1 + 1 + 1 + 1) == 32.  Extra two bits for
   // ThreadPrivate and TargetDeclare.
   unsigned SubClassData : GlobalValueSubClassDataBits;
 
@@ -282,6 +287,12 @@ public:
   PointerType *getType() const { return cast<PointerType>(User::getType()); }
 
   Type *getValueType() const { return ValueType; }
+
+  void setDSOLocal(bool Local) { IsDSOLocal = Local; }
+
+  bool isDSOLocal() const {
+    return IsDSOLocal;
+  }
 
   static LinkageTypes getLinkOnceLinkage(bool ODR) {
     return ODR ? LinkOnceODRLinkage : LinkOnceAnyLinkage;

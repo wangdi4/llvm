@@ -28,6 +28,7 @@ enum ActionType {
   GenEmitter,
   GenRegisterInfo,
   GenInstrInfo,
+  GenInstrDocs,
   GenAsmWriter,
   GenAsmMatcher,
   GenDisassembler,
@@ -51,6 +52,7 @@ enum ActionType {
   GenSearchableTables,
   GenGlobalISel,
   GenX86EVEX2VEXTables,
+  GenX86FoldTables,
   GenRegisterBank,
 };
 
@@ -65,6 +67,8 @@ namespace {
                                "Generate registers and register classes info"),
                     clEnumValN(GenInstrInfo, "gen-instr-info",
                                "Generate instruction descriptions"),
+                    clEnumValN(GenInstrDocs, "gen-instr-docs",
+                               "Generate instruction documentation"),
                     clEnumValN(GenCallingConv, "gen-callingconv",
                                "Generate calling convention descriptions"),
                     clEnumValN(GenAsmWriter, "gen-asm-writer",
@@ -114,6 +118,8 @@ namespace {
                                "Generate GlobalISel selector"),
                     clEnumValN(GenX86EVEX2VEXTables, "gen-x86-EVEX2VEX-tables",
                                "Generate X86 EVEX to VEX compress tables"),
+                    clEnumValN(GenX86FoldTables, "gen-x86-fold-tables",
+                               "Generate X86 fold tables"),
                     clEnumValN(GenRegisterBank, "gen-register-bank",
                                "Generate registers bank descriptions")));
 
@@ -135,6 +141,9 @@ bool LLVMTableGenMain(raw_ostream &OS, RecordKeeper &Records) {
     break;
   case GenInstrInfo:
     EmitInstrInfo(Records, OS);
+    break;
+  case GenInstrDocs:
+    EmitInstrDocs(Records, OS);
     break;
   case GenCallingConv:
     EmitCallingConv(Records, OS);
@@ -224,6 +233,9 @@ bool LLVMTableGenMain(raw_ostream &OS, RecordKeeper &Records) {
     break;
   case GenX86EVEX2VEXTables:
     EmitX86EVEX2VEXTables(Records, OS);
+    break;
+  case GenX86FoldTables:
+    EmitX86FoldTables(Records, OS);
     break;
   }
 

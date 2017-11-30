@@ -391,6 +391,7 @@ int main(int argc, char **argv) {
   initializeTarget(Registry);
   // For codegen passes, only passes that do IR to IR transformation are
   // supported.
+  initializeExpandMemCmpPassPass(Registry);
   initializeScalarizeMaskedMemIntrinPass(Registry);
   initializeCodeGenPreparePass(Registry);
   initializeAtomicExpandPass(Registry);
@@ -402,9 +403,11 @@ int main(int argc, char **argv) {
   initializePreISelIntrinsicLoweringLegacyPassPass(Registry);
   initializeGlobalMergePass(Registry);
   initializeInterleavedAccessPass(Registry);
-  initializeCountingFunctionInserterPass(Registry);
+  initializeEntryExitInstrumenterPass(Registry);
+  initializePostInlineEntryExitInstrumenterPass(Registry);
   initializeUnreachableBlockElimLegacyPassPass(Registry);
   initializeExpandReductionsPass(Registry);
+  initializeWriteBitcodePassPass(Registry);
 
 #if INTEL_CUSTOMIZATION
   initializeIntel_LoopAnalysis(Registry);
@@ -454,7 +457,8 @@ int main(int argc, char **argv) {
   }
 
   // Load the input module...
-  std::unique_ptr<Module> M = parseIRFile(InputFilename, Err, Context);
+  std::unique_ptr<Module> M =
+      parseIRFile(InputFilename, Err, Context, !NoVerify);
 
   if (!M) {
     Err.print(argv[0], errs());

@@ -100,9 +100,11 @@ public:
     MD_section_prefix = 20,           // "section_prefix"
     MD_absolute_symbol = 21,          // "absolute_symbol"
     MD_associated = 22,               // "associated"
+    MD_callees = 23,                  // "callees"
+    MD_irr_loop = 24,                 // "irr_loop"
 #if INTEL_CUSTOMIZATION
-    MD_std_container_ptr = 23,        // "std.container.ptr"
-    MD_std_container_ptr_iter = 24    // "std.container.ptr.iter"
+    MD_std_container_ptr = 25,        // "std.container.ptr"
+    MD_std_container_ptr_iter = 26    // "std.container.ptr.iter"
 #endif                                // INTEL_CUSTOMIZATION
   };
 

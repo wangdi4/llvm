@@ -12,11 +12,15 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/None.h"
+#include "llvm/ADT/Optional.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/ADT/iterator_range.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/BlockFrequencyInfo.h"
@@ -26,28 +30,49 @@
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
-#include "llvm/IR/Attributes.h"
+#include "llvm/IR/Argument.h"
+#include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/CallSite.h"
+#include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/DataLayout.h"
-#include "llvm/IR/DebugInfo.h"
+#include "llvm/IR/DebugInfoMetadata.h"
+#include "llvm/IR/DebugLoc.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Dominators.h"
+#include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/InstrTypes.h"
+#include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/MDBuilder.h"
+#include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/Type.h"
+#include "llvm/IR/User.h"
+#include "llvm/IR/Value.h"
+#include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/Local.h"
+#include "llvm/Transforms/Utils/ValueMapper.h"
 #include <algorithm>
+#include <cassert>
+#include <cstdint>
+#include <iterator>
+#include <limits>
+#include <string>
+#include <utility>
+#include <vector>
 
 using namespace llvm;
-using namespace InlineReportTypes; // INTEL 
+using namespace InlineReportTypes; // INTEL
 
 static cl::opt<bool>
 EnableNoAliasConversion("enable-noalias-to-md-conversion", cl::init(true),
@@ -66,8 +91,9 @@ bool llvm::InlineFunction(CallInst *CI, InlineFunctionInfo &IFI,
                           AAResults *CalleeAAR, bool InsertLifetime) {
   return InlineFunction(CallSite(CI), IFI, Reason, CalleeAAR, InsertLifetime);
 }
+
 bool llvm::InlineFunction(InvokeInst *II, InlineFunctionInfo &IFI,
-                          InlineReason* Reason, 
+                          InlineReason* Reason,
                           AAResults *CalleeAAR, bool InsertLifetime) {
   return InlineFunction(CallSite(II), IFI, Reason, CalleeAAR, InsertLifetime);
 }
@@ -86,22 +112,30 @@ bool llvm::InlineFunction(InvokeInst *II, InlineFunctionInfo &IFI,
 #endif // INTEL_CUSTOMIZATION
 
 namespace {
+
   /// A class for recording information about inlining a landing pad.
   class LandingPadInliningInfo {
-    BasicBlock *OuterResumeDest; ///< Destination of the invoke's unwind.
-    BasicBlock *InnerResumeDest; ///< Destination for the callee's resume.
-    LandingPadInst *CallerLPad;  ///< LandingPadInst associated with the invoke.
-    PHINode *InnerEHValuesPHI;   ///< PHI for EH values from landingpad insts.
+    /// Destination of the invoke's unwind.
+    BasicBlock *OuterResumeDest;
+
+    /// Destination for the callee's resume.
+    BasicBlock *InnerResumeDest = nullptr;
+
+    /// LandingPadInst associated with the invoke.
+    LandingPadInst *CallerLPad = nullptr;
+
+    /// PHI for EH values from landingpad insts.
+    PHINode *InnerEHValuesPHI = nullptr;
+
     SmallVector<Value*, 8> UnwindDestPHIValues;
 
   public:
     LandingPadInliningInfo(InvokeInst *II)
-      : OuterResumeDest(II->getUnwindDest()), InnerResumeDest(nullptr),
-        CallerLPad(nullptr), InnerEHValuesPHI(nullptr) {
+        : OuterResumeDest(II->getUnwindDest()) {
       // If there are PHI nodes in the unwind destination block, we need to keep
       // track of which values came into them from the invoke before removing
       // the edge from this block.
-      llvm::BasicBlock *InvokeBB = II->getParent();
+      BasicBlock *InvokeBB = II->getParent();
       BasicBlock::iterator I = OuterResumeDest->begin();
       for (; isa<PHINode>(I); ++I) {
         // Save the value to use for this edge.
@@ -144,7 +178,8 @@ namespace {
       }
     }
   };
-} // anonymous namespace
+
+} // end anonymous namespace
 
 /// Get or create a target for the branch from ResumeInsts.
 BasicBlock *LandingPadInliningInfo::getInnerResumeDest() {
@@ -207,7 +242,7 @@ static Value *getParentPad(Value *EHPad) {
   return cast<CatchSwitchInst>(EHPad)->getParentPad();
 }
 
-typedef DenseMap<Instruction *, Value *> UnwindDestMemoTy;
+using UnwindDestMemoTy = DenseMap<Instruction *, Value *>;
 
 /// Helper for getUnwindDestToken that does the descendant-ward part of
 /// the search.
@@ -635,7 +670,7 @@ static void HandleInlinedEHPad(InvokeInst *II, BasicBlock *FirstNewBlock,
   // track of which values came into them from the invoke before removing the
   // edge from this block.
   SmallVector<Value *, 8> UnwindDestPHIValues;
-  llvm::BasicBlock *InvokeBB = II->getParent();
+  BasicBlock *InvokeBB = II->getParent();
   for (Instruction &I : *UnwindDest) {
     // Save the value to use for this edge.
     PHINode *PHI = dyn_cast<PHINode>(&I);
@@ -770,7 +805,7 @@ static void PropagateParallelLoopAccessMetadata(CallSite CS,
       continue;
 #if INTEL_CUSTOMIZATION
     // CQ410950: Do not reassign M, use a temporary TM
-    if (MDNode *PM 
+    if (MDNode *PM
         = NI->getMetadata(LLVMContext::MD_mem_parallel_loop_access)) {
         MDNode* TM = MDNode::concatenate(PM, M);
       NI->setMetadata(LLVMContext::MD_mem_parallel_loop_access, TM);
@@ -1182,13 +1217,13 @@ static void UpdateCallGraphAfterInlining(CallSite CS,
 
     ValueToValueMapTy::iterator VMI = VMap.find(OrigCall);
     // Only copy the edge if the call was inlined!
-    if (VMI == VMap.end() || VMI->second == nullptr) 
+    if (VMI == VMap.end() || VMI->second == nullptr)
       continue;
-    
+
     // If the call was inlined, but then constant folded, there is no edge to
     // add.  Check for this case.
-    const Instruction *OldCall // INTEL 
-      = dyn_cast<const Instruction>(VMI->first); // INTEL 
+    const Instruction *OldCall // INTEL
+      = dyn_cast<const Instruction>(VMI->first); // INTEL
     Instruction *NewCall = dyn_cast<Instruction>(VMI->second);
     if (!NewCall)
       continue;
@@ -1197,17 +1232,17 @@ static void UpdateCallGraphAfterInlining(CallSite CS,
     // expect them to become inline code; do not add an edge for an intrinsic.
     CallSite CS = CallSite(NewCall);
 #ifdef INTEL_CUSTOMIZATION
-    if (CS && CS.getCalledFunction() 
-      && CS.getCalledFunction()->isIntrinsic()) { 
-      IFI.OriginalCalls.push_back(OldCall); 
+    if (CS && CS.getCalledFunction()
+      && CS.getCalledFunction()->isIntrinsic()) {
+      IFI.OriginalCalls.push_back(OldCall);
       IFI.InlinedCalls.push_back(NewCall);
       continue;
-    } 
+    }
 #endif // INTEL_CUSTOMIZATION
-    
+
     // Remember that this call site got inlined for the client of
     // InlineFunction.
-    IFI.OriginalCalls.push_back(OldCall); // INTEL 
+    IFI.OriginalCalls.push_back(OldCall); // INTEL
     IFI.InlinedCalls.push_back(NewCall);
 
     // It's possible that inlining the callsite will cause it to go from an
@@ -1225,7 +1260,7 @@ static void UpdateCallGraphAfterInlining(CallSite CS,
 
     CallerNode->addCalledFunction(CallSite(NewCall), I->second);
   }
-  
+
   // Update the call graph by deleting the edge from Callee to Caller.  We must
   // do this after the loop above in case Caller and Callee are the same.
   CallerNode->removeCallEdgeFor(CS);
@@ -1374,7 +1409,7 @@ static void fixupLineNumbers(Function *Fn, Function::iterator FI,
 
       if (CalleeHasDebugInfo)
         continue;
-      
+
       // If the inlined instruction has no line number, make it look as if it
       // originates from the call location. This is important for
       // ((__always_inline__, __nodebug__)) functions which must use caller
@@ -1389,6 +1424,7 @@ static void fixupLineNumbers(Function *Fn, Function::iterator FI,
     }
   }
 }
+
 /// Update the block frequencies of the caller after a callee has been inlined.
 ///
 /// Each block cloned into the caller has its block frequency scaled by the
@@ -1426,141 +1462,141 @@ static void updateCallerBFI(BasicBlock *CallSiteBlock,
 #ifdef INTEL_CUSTOMIZATION
 
 //
-// Return 'true' if 'F' is a varags functions which can be inlined. 
+// Return 'true' if 'F' is a varags functions which can be inlined.
 // (Note: Potentially we could make an attribute for this to save compile
 // time, but since it is only called for VarArgs functions, it may not be
-// worth it.) 
+// worth it.)
 //
 static bool TestVaArgPackAndLen(const Function &F)
 {
   for (const BasicBlock &BB : F) {
     for (const Instruction &I : BB) {
-      if (auto *II = dyn_cast<IntrinsicInst>(&I)) { 
+      if (auto *II = dyn_cast<IntrinsicInst>(&I)) {
         switch (II->getIntrinsicID()) {
-        case Intrinsic::vastart: 
-        case Intrinsic::vacopy: 
-        case Intrinsic::vaend: 
-          return false; 
+        case Intrinsic::vastart:
+        case Intrinsic::vacopy:
+        case Intrinsic::vaend:
+          return false;
         default:
           break;
-        } 
-      } 
-      else if (auto *CI = dyn_cast<CallInst>(&I)) { 
-        if (CI->isMustTailCall() && F.isVarArg()) { 
-          // 
-          // This is an unusual case of the varargs being implicitly 
+        }
+      }
+      else if (auto *CI = dyn_cast<CallInst>(&I)) {
+        if (CI->isMustTailCall() && F.isVarArg()) {
+          //
+          // This is an unusual case of the varargs being implicitly
           // forwarded from the caller to the callee.  Give up on this
           // for now, and handle it in a later change set.
           //
-          return false; 
-        } 
-      } 
+          return false;
+        }
+      }
     }
   }
-  return true;  
-} 
+  return true;
+}
 
 //
 // Handle varargs builtins "llvm.va_arg_pack" and "llvm.va_arg_pack_len".
 //
 static void HandleVaArgPackAndLen(CallSite& CS, Function::iterator FI)
 {
-  Function* Caller = CS.getCaller(); 
-  Function* CalledFunc = CS.getCalledFunction(); 
- 
+  Function* Caller = CS.getCaller();
+  Function* CalledFunc = CS.getCalledFunction();
+
   // Find all instances of "llvm.va_arg_pack" and "llvm.va_arg_pack_len"
-  SmallVector<Value*, 8> 
+  SmallVector<Value*, 8>
   VarArgs(CS.arg_begin() + CalledFunc->arg_size(), CS.arg_end());
-  SmallVector<CallInst*, 8> VaPkVec;         
-  SmallVector<CallInst*, 8> VaPkLnVec;         
+  SmallVector<CallInst*, 8> VaPkVec;
+  SmallVector<CallInst*, 8> VaPkLnVec;
   for (BasicBlock &BB : make_range(FI->getIterator(), Caller->end())) {
-    for (auto BBI = BB.begin(), E = BB.end(); BBI != E;) { 
+    for (auto BBI = BB.begin(), E = BB.end(); BBI != E;) {
       Instruction *I = &*BBI++;
-      if (auto *II = dyn_cast<IntrinsicInst>(I)) { 
+      if (auto *II = dyn_cast<IntrinsicInst>(I)) {
         switch (II->getIntrinsicID()) {
-        case Intrinsic::vaargpack: 
-           VaPkVec.push_back(II); 
-           break; 
-        case Intrinsic::vaargpacklen: 
-           VaPkLnVec.push_back(II); 
+        case Intrinsic::vaargpack:
+           VaPkVec.push_back(II);
+           break;
+        case Intrinsic::vaargpacklen:
+           VaPkLnVec.push_back(II);
            break;
         default:
           break;
-        } 
-      } 
+        }
+      }
     }
-  }  
+  }
 
   // Handle "llvm.va_arg_pack" by adding the varags args to each user
   // of this builtin.
   for (auto I = VaPkVec.begin(), E = VaPkVec.end(); I != E; I++) {
-    CallInst *II = *I; 
-    SmallSet<CallInst*, 8> CallVec;         
-    SmallSet<InvokeInst*, 8> InvokeVec;         
-    for (auto U : II->users()) { 
-      if (auto CI = dyn_cast<CallInst>(U)) { 
+    CallInst *II = *I;
+    SmallSet<CallInst*, 8> CallVec;
+    SmallSet<InvokeInst*, 8> InvokeVec;
+    for (auto U : II->users()) {
+      if (auto CI = dyn_cast<CallInst>(U)) {
         CallVec.insert(CI);
-      } 
+      }
       else if (auto CI = dyn_cast<InvokeInst>(U)) {
         InvokeVec.insert(CI);
       }
     }
-    for (auto I = CallVec.begin(), E = CallVec.end(); I != E; I++) { 
+    for (auto I = CallVec.begin(), E = CallVec.end(); I != E; I++) {
       CallInst* CI = *I;
-      SmallVector<Value*, 8> Args; 
-      for (auto AI = CI->arg_begin(), AE = CI->arg_end(); AI != AE; AI++) { 
-        if (*AI == II) { 
+      SmallVector<Value*, 8> Args;
+      for (auto AI = CI->arg_begin(), AE = CI->arg_end(); AI != AE; AI++) {
+        if (*AI == II) {
            Args.insert(Args.end(), VarArgs.begin(), VarArgs.end());
-        } 
+        }
         else {
            Args.insert(Args.end(), *AI);
-        } 
-      } 
+        }
+      }
       SmallVector<OperandBundleDef, 1> OpBundles;
       CI->getOperandBundlesAsDefs(OpBundles);
-      auto NewI = CallInst::Create(CI->getCalledValue(), Args, OpBundles, 
+      auto NewI = CallInst::Create(CI->getCalledValue(), Args, OpBundles,
         "", CI);
       NewI->takeName(CI);
       NewI->setCallingConv(CI->getCallingConv());
       NewI->setAttributes(CI->getAttributes());
       NewI->setDebugLoc(CI->getDebugLoc());
       CI->replaceAllUsesWith(NewI);
-      CI->eraseFromParent(); 
-    } 
-    for (auto I = InvokeVec.begin(), E = InvokeVec.end(); I != E; I++) { 
+      CI->eraseFromParent();
+    }
+    for (auto I = InvokeVec.begin(), E = InvokeVec.end(); I != E; I++) {
       InvokeInst* CI = *I;
-      SmallVector<Value*, 8> Args; 
-      for (auto AI = CI->arg_begin(), AE = CI->arg_end(); AI != AE; AI++) { 
-        if (*AI == II) { 
+      SmallVector<Value*, 8> Args;
+      for (auto AI = CI->arg_begin(), AE = CI->arg_end(); AI != AE; AI++) {
+        if (*AI == II) {
            Args.insert(Args.end(), VarArgs.begin(), VarArgs.end());
-        } 
+        }
         else {
            Args.insert(Args.end(), *AI);
-        } 
-      } 
+        }
+      }
       SmallVector<OperandBundleDef, 1> OpBundles;
       CI->getOperandBundlesAsDefs(OpBundles);
-      auto NewI = InvokeInst::Create(CI->getCalledValue(), 
+      auto NewI = InvokeInst::Create(CI->getCalledValue(),
         CI->getNormalDest(), CI->getUnwindDest(), Args, OpBundles, "", CI);
       NewI->takeName(CI);
       NewI->setCallingConv(CI->getCallingConv());
       NewI->setAttributes(CI->getAttributes());
       NewI->setDebugLoc(CI->getDebugLoc());
       CI->replaceAllUsesWith(NewI);
-      CI->eraseFromParent(); 
-    } 
-    II->eraseFromParent();  
-  } 
+      CI->eraseFromParent();
+    }
+    II->eraseFromParent();
+  }
 
   // Handle "llvm.va_arg_pack_len" by replacing it with the number of varags.
   for (auto I = VaPkLnVec.begin(), E = VaPkLnVec.end(); I != E; I++) {
-    CallInst *II = *I; 
+    CallInst *II = *I;
     uint64_t Ln = CS.arg_size() - CalledFunc->arg_size();
     auto VaPkLn = ConstantInt::get(II->getType(), Ln);
-    II->replaceAllUsesWith(VaPkLn); 
-    II->eraseFromParent(); 
-  }   
-} 
+    II->replaceAllUsesWith(VaPkLn);
+    II->eraseFromParent();
+  }
+}
 #endif // INTEL_CUSTOMIZATION
 
 /// Update the branch metadata for cloned call instructions.
@@ -1624,12 +1660,13 @@ static void updateCalleeCount(BlockFrequencyInfo *CallerBFI, BasicBlock *CallBB,
 /// exists in the instruction stream.  Similarly this will inline a recursive
 /// function by one level.
 ///
-/// INTEL The Intel version computes the principal reason the function was or 
+/// INTEL The Intel version computes the principal reason the function was or
 /// INTEL was not inlined at the call site.
 ///
-bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI, 
+bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
                           InlineReason* Reason, // INTEL
-                          AAResults *CalleeAAR, bool InsertLifetime) {
+                          AAResults *CalleeAAR, bool InsertLifetime,
+                          Function *ForwardVarArgsTo) {
   Instruction *TheCall = CS.getInstruction();
   assert(TheCall->getParent() && TheCall->getFunction()
          && "Instruction not in function!");
@@ -1639,29 +1676,30 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
 
   Function *CalledFunc = CS.getCalledFunction();
   if (!CalledFunc ||              // Can't inline external function or indirect
-      CalledFunc->isDeclaration() || // call, or call to a vararg function!
-      CalledFunc->getFunctionType()->isVarArg()) { // INTEL 
-#ifdef INTEL_CUSTOMIZATION 
-    if (!CalledFunc) { 
+      CalledFunc->isDeclaration() ||
+      (!ForwardVarArgsTo && CalledFunc->isVarArg())) // call, or call to a vararg function!
+#if INTEL_CUSTOMIZATION
+  {
+    if (!CalledFunc) {
       // Can't inline indirect call
       *Reason = NinlrIndirect;
       return false;
     }
-    if (CalledFunc->isDeclaration()) { 
-      // Can't inline external call 
-      *Reason = NinlrExtern; 
-      return false; 
+    if (CalledFunc->isDeclaration()) {
+      // Can't inline external call
+      *Reason = NinlrExtern;
+      return false;
     }
 
-    assert(CalledFunc->getFunctionType()->isVarArg()); 
+    assert(!ForwardVarArgsTo && CalledFunc->isVarArg());
 
-    if (!TestVaArgPackAndLen(*CalledFunc)) { 
+    if (!TestVaArgPackAndLen(*CalledFunc)) {
       // Can't inline certain varargs calls
-      *Reason = NinlrVarargs; 
-      return false; 
-    } 
+      *Reason = NinlrVarargs;
+      return false;
+    }
 #endif // INTEL_CUSTOMIZATION
-  } // INTEL 
+  } // INTEL
 
   // The inliner does not know how to inline through calls with operand bundles
   // in general ...
@@ -1674,8 +1712,8 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
       // ... and "funclet" operand bundles.
       if (Tag == LLVMContext::OB_funclet)
         continue;
-      *Reason = NinlrOpBundles; // INTEL 
-      return false; 
+      *Reason = NinlrOpBundles; // INTEL
+      return false;
     }
   }
 
@@ -1693,10 +1731,10 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
   if (CalledFunc->hasGC()) {
     if (!Caller->hasGC())
       Caller->setGC(CalledFunc->getGC());
-    else if (CalledFunc->getGC() != Caller->getGC()) {  // INTEL 
-      *Reason = NinlrMismatchedGC; // INTEL 
-      return false; 
-    } // INTEL 
+    else if (CalledFunc->getGC() != Caller->getGC()) {  // INTEL
+      *Reason = NinlrMismatchedGC; // INTEL
+      return false;
+    } // INTEL
   }
 
   // Get the personality function from the callee if it contains a landing pad.
@@ -1719,10 +1757,10 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
     // inlining. Otherwise, we can't inline.
     // TODO: This isn't 100% true. Some personality functions are proper
     //       supersets of others and can be used in place of the other.
-    else if (CalledPersonality != CallerPersonality) { // INTEL 
-      *Reason = NinlrMismatchedPersonality; // INTEL 
-      return false; 
-    } // INTEL 
+    else if (CalledPersonality != CallerPersonality) { // INTEL
+      *Reason = NinlrMismatchedPersonality; // INTEL
+      return false;
+    } // INTEL
   }
 
   // We need to figure out which funclet the callsite was in so that we may
@@ -1746,20 +1784,20 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
             // Ok, the call site is within a cleanuppad.  Let's check the callee
             // for catchpads.
             for (const BasicBlock &CalledBB : *CalledFunc) {
-              if (isa<CatchSwitchInst>(CalledBB.getFirstNonPHI())) { // INTEL 
+              if (isa<CatchSwitchInst>(CalledBB.getFirstNonPHI())) { // INTEL
                 *Reason = NinlrMSVCEH; // INTEL
-                return false; 
-              } // INTEL 
+                return false;
+              } // INTEL
             }
           }
         } else if (isAsynchronousEHPersonality(Personality)) {
           // SEH is even less tolerant, there may not be any sort of exceptional
           // funclet in the callee.
           for (const BasicBlock &CalledBB : *CalledFunc) {
-            if (CalledBB.isEHPad()) { // INTEL 
+            if (CalledBB.isEHPad()) { // INTEL
               *Reason = NinlrSEH; // INTEL
-              return false; 
-            } // INTEL 
+              return false;
+            } // INTEL
           }
         }
       }
@@ -1795,6 +1833,16 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
     SmallVector<std::pair<Value*, Value*>, 4> ByValInit;
 
     auto &DL = Caller->getParent()->getDataLayout();
+
+#if !INTEL_CUSTOMIZATION
+    // INTEL This assertion could be rewritten to use the condition:
+    // INTEL (CalledFunc->arg_size() == CS.arg_size() || ForwardVarArgsTo ||
+    // INTEL     TestVaArgPackAndLen(*CalledFunc))
+    // INTEL but that would involve calling TestVaArgPackAndLen(*CalledFunc)
+    // INTEL a second time, which would be compile-time expensive.
+    assert((CalledFunc->arg_size() == CS.arg_size() || ForwardVarArgsTo) &&
+           "Varargs calls can only be inlined if the Varargs are forwarded!");
+#endif // !INTEL_CUSTOMIZATION
 
     // Calculate the vector of arguments to pass into the function cloner, which
     // matches up the formal to the actual argument values.
@@ -1931,9 +1979,9 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
               (*IFI.GetAssumptionCache)(*Caller).registerAssumption(II);
         }
 
-    HandleVaArgPackAndLen(CS, FirstNewBlock); // INTEL 
-  } 
-    
+    HandleVaArgPackAndLen(CS, FirstNewBlock); // INTEL
+  }
+
   // If there are any alloca instructions in the block that used to be the entry
   // block for the callee, move them to the entry block of the caller.  First
   // calculate which instruction they should be inserted before.  We insert the
@@ -1944,7 +1992,7 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
          E = FirstNewBlock->end(); I != E; ) {
       AllocaInst *AI = dyn_cast<AllocaInst>(I++);
       if (!AI) continue;
-      
+
       // If the alloca is now dead, remove it.  This often occurs due to code
       // specialization.
       if (AI->use_empty()) {
@@ -1954,10 +2002,10 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
 
       if (!allocaWouldBeStaticInEntry(AI))
         continue;
-      
+
       // Keep track of the static allocas that we inline into the caller.
       IFI.StaticAllocas.push_back(AI);
-      
+
       // Scan for the block of allocas that we can move over, and move them
       // all at once.
       while (isa<AllocaInst>(I) &&
@@ -1978,6 +2026,11 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
       replaceDbgDeclareForAlloca(AI, AI, DIB, /*Deref=*/false);
   }
 
+  SmallVector<Value*,4> VarArgsToForward;
+  for (unsigned i = CalledFunc->getFunctionType()->getNumParams();
+       i < CS.getNumArgOperands(); i++)
+    VarArgsToForward.push_back(CS.getArgOperand(i));
+
   bool InlinedMustTailCalls = false, InlinedDeoptimizeCalls = false;
   if (InlinedFunctionInfo.ContainsCalls) {
     CallInst::TailCallKind CallSiteTailKind = CallInst::TCK_None;
@@ -1986,7 +2039,8 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
 
     for (Function::iterator BB = FirstNewBlock, E = Caller->end(); BB != E;
          ++BB) {
-      for (Instruction &I : *BB) {
+      for (auto II = BB->begin(); II != BB->end();) {
+        Instruction &I = *II++;
         CallInst *CI = dyn_cast<CallInst>(&I);
         if (!CI)
           continue;
@@ -2017,6 +2071,14 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
         // 'nounwind'.
         if (MarkNoUnwind)
           CI->setDoesNotThrow();
+
+        if (ForwardVarArgsTo && CI->getCalledFunction() == ForwardVarArgsTo) {
+          SmallVector<Value*, 6> Params(CI->arg_operands());
+          Params.append(VarArgsToForward.begin(), VarArgsToForward.end());
+          CallInst *Call = CallInst::Create(CI->getCalledFunction(), Params, "", CI);
+          CI->replaceAllUsesWith(Call);
+          CI->eraseFromParent();
+        }
       }
     }
   }
@@ -2051,8 +2113,9 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
 
         // Check that array size doesn't saturate uint64_t and doesn't
         // overflow when it's multiplied by type size.
-        if (AllocaArraySize != ~0ULL &&
-            UINT64_MAX / AllocaArraySize >= AllocaTypeSize) {
+        if (AllocaArraySize != std::numeric_limits<uint64_t>::max() &&
+            std::numeric_limits<uint64_t>::max() / AllocaArraySize >=
+                AllocaTypeSize) {
           AllocaSize = ConstantInt::get(Type::getInt64Ty(AI->getContext()),
                                         AllocaArraySize * AllocaTypeSize);
         }
@@ -2183,7 +2246,7 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
     // match the callee's return type, we also need to change the return type of
     // the intrinsic.
     if (Caller->getReturnType() == TheCall->getType()) {
-      auto NewEnd = remove_if(Returns, [](ReturnInst *RI) {
+      auto NewEnd = llvm::remove_if(Returns, [](ReturnInst *RI) {
         return RI->getParent()->getTerminatingDeoptimizeCall() != nullptr;
       });
       Returns.erase(NewEnd, Returns.end());
@@ -2319,8 +2382,8 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
     Returns[0]->eraseFromParent();
 
     // We are now done with the inlining.
-    *Reason = InlrNoReason; // INTEL 
-    return true; 
+    *Reason = InlrNoReason; // INTEL
+    return true;
   }
 
   // Otherwise, we have the normal case, of more than one block to inline or
@@ -2482,16 +2545,18 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
     }
   }
 
-  *Reason = InlrNoReason; // INTEL 
-  return true; 
+  *Reason = InlrNoReason; // INTEL
+  return true;
 }
 
 #if INTEL_CUSTOMIZATION
 
 bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
-                          AAResults *CalleeAAR, bool InsertLifetime) {
+                          AAResults *CalleeAAR, bool InsertLifetime,
+                          Function *ForwardVarArgsTo) {
   InlineReason Reason;
-  return llvm::InlineFunction(CS, IFI, &Reason, CalleeAAR, InsertLifetime);
+  return llvm::InlineFunction(CS, IFI, &Reason, CalleeAAR, InsertLifetime,
+                              ForwardVarArgsTo);
 }
 
 #endif // INTEL_CUSTOMIZATION

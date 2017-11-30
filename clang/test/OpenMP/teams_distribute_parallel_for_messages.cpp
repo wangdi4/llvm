@@ -94,7 +94,7 @@ L1:
   }
 
 #pragma omp target
-#pragma omp teams distribute parallel for copyin(pvt) // expected-error {{unexpected OpenMP clause 'copyin' in directive '#pragma omp teams distribute parallel for'}}
+#pragma omp teams distribute parallel for copyin(pvt)
   for (int n = 0; n < 100; ++n) {}
 
   return 0;
@@ -105,5 +105,14 @@ void test_ordered() {
 #pragma omp teams distribute parallel for ordered // expected-error {{unexpected OpenMP clause 'ordered' in directive '#pragma omp teams distribute parallel for'}}
   for (int i = 0; i < 16; ++i)
     ;
+}
+
+void test_cancel() {
+#pragma omp target
+#pragma omp teams distribute parallel for
+  for (int i = 0; i < 16; ++i) {
+#pragma omp cancel for
+    ;
+  }
 }
 

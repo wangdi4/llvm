@@ -107,22 +107,6 @@ bool HIRSCCFormation::isCandidateRootNode(const NodeTy *Node) const {
     return false;
   }
 
-  if (Node->getType()->isIntegerTy()) {
-
-    auto SC = SE->getSCEV(const_cast<NodeTy *>(Node));
-
-    // Do not form SCCs where root nodes have range info. This allows
-    // ScalarEvolution to optimize closed form expressions. For example if a 32
-    // bit value is within i8 range [0,256), zext.i8.i32(trunc.i32.i8(t)) can be
-    // simplified to t. This is problematic for parser which wants to substitute
-    // all occurences of temps in the SCC with the base/root temp. If such
-    // simplification occurs during substitution, we will form incorrect HIR.
-    // TODO: refine this logic?
-    if (!SE->getUnsignedRange(SC).isFullSet()) {
-      return false;
-    }
-  }
-
   return true;
 }
 
@@ -686,9 +670,54 @@ bool HIRSCCFormation::hasLoopLiveoutUseInSCC(const Instruction *Inst,
   return false;
 }
 
+bool HIRSCCFormation::isValidSCCRootNode(const NodeTy *Root) const {
+
+  if (!Root->getType()->isIntegerTy()) {
+    return true;
+  }
+
+  auto SC = SE->getSCEV(const_cast<NodeTy *>(Root));
+
+  auto AddRec = dyn_cast<SCEVAddRecExpr>(SC);
+  // Suppress SCC formation for polynomial AddRecs. The issue is that
+  // ScalarEvolution is very conservative with propagating nuw/nsw flags for
+  // them so they never contain any refined range information but after they get
+  // converted to SCEVUnknowns by SSA deconstruction, they might contain refined
+  // range information. This is because ScalaEvolution uses
+  // ValueTracking::computeKnownBits() for SCEVUnknowns which can come up with
+  // better info. This behavior is counterintuitive from the client's
+  // perspective as forming a more conservative SCEV leads to better range
+  // information. SclarEvolution has very limited support for polynomial
+  // AddRecs. I suspect they are ignored by all ScalarEvolution clients.
+  // TODO: Suppress creation of polynomial AddRecs in HIR mode and use HIR mode
+  // for getSCEV() calls in LoopOpt codebase.
+  if (AddRec && !AddRec->isAffine()) {
+    return false;
+  }
+
+  // Do not form SCCs where root nodes have range info. This allows
+  // ScalarEvolution to optimize closed form expressions. For example if a 32
+  // bit value is within i8 range [0,256), zext.i8.i32(trunc.i32.i8(t)) can be
+  // simplified to t. This is problematic for parser which wants to substitute
+  // all occurences of temps in the SCC with the base/root temp. If such
+  // simplification occurs during substitution, we will form incorrect HIR.
+  // TODO: refine this logic?
+  if (!SE->getUnsignedRange(SC).isFullSet()) {
+    return false;
+  }
+
+  return true;
+}
+
 bool HIRSCCFormation::isValidSCC(const SCC &CurSCC) const {
   SmallPtrSet<BasicBlock *, 12> BBlocks;
-  Type *RootTy = CurSCC.getRoot()->getType();
+  auto Root = CurSCC.getRoot();
+
+  if (!isValidSCCRootNode(Root)) {
+    return false;
+  }
+
+  Type *RootTy = Root->getType();
   unsigned NodeCount = CurSCC.size();
 
   for (auto Node : CurSCC) {
