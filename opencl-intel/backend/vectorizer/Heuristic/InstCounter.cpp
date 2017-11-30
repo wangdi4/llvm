@@ -75,12 +75,22 @@ WeightedInstCounter::FuncCostEntry WeightedInstCounter::CostDB64Bit[] = {
    { "__ocl_masked_transpose_store_float_4x8", 80},
    { "__ocl_masked_gather_transpose_float_4x8", 200},
    { "__ocl_masked_transpose_scatter_float_4x8", 200},
+   { "__ocl_load_transpose_char_4x16", 70 },
+   { "__ocl_gather_transpose_char_4x16", 150 },
+   { "__ocl_transpose_scatter_char_4x16", 150 },
+   { "__ocl_masked_gather_transpose_char_4x16", 200 },
+   { "__ocl_masked_transpose_scatter_char_4x16", 200 },
+   { "__ocl_gather_transpose_short_4x16", 150 },
+   { "__ocl_masked_gather_transpose_short_4x16", 200 },
+   { "__ocl_load_transpose_int_4x16", 70 },
+   { "__ocl_load_transpose_float_4x16", 70 },
+   { "__ocl_masked_load_transpose_float_4x16", 80 },
 
    // The line below must be the last line in the DB,
    // serving as a terminator.
    { 0, 0 }
 };
-   
+
 // Costs for transpose functions for 32bit systems
 WeightedInstCounter::FuncCostEntry WeightedInstCounter::CostDB32Bit[] = {
 
@@ -96,6 +106,16 @@ WeightedInstCounter::FuncCostEntry WeightedInstCounter::CostDB32Bit[] = {
    { "__ocl_masked_transpose_store_float_4x8", 80},
    { "__ocl_masked_gather_transpose_float_4x8", 90},
    { "__ocl_masked_transpose_scatter_float_4x8", 90},
+   { "__ocl_load_transpose_char_4x16", 70 },
+   { "__ocl_gather_transpose_char_4x16", 75 },
+   { "__ocl_transpose_scatter_char_4x16", 80 },
+   { "__ocl_masked_gather_transpose_char_4x16", 90 },
+   { "__ocl_masked_transpose_scatter_char_4x16", 90 },
+   { "__ocl_gather_transpose_short_4x16", 80 },
+   { "__ocl_masked_gather_transpose_short_4x16", 90 },
+   { "__ocl_load_transpose_int_4x16", 70 },
+   { "__ocl_load_transpose_float_4x16", 70 },
+   { "__ocl_masked_load_transpose_float_4x16", 80 },
 
    // The line below must be the last line in the DB,
    // serving as a terminator.
