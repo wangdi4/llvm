@@ -683,7 +683,11 @@ public:
                               bool MakeUnique = true) const;
 
   /// Simplifies canon expr by dividing numerator and denominator by gcd.
-  void simplify(bool SimplifyCast = false);
+  // \p SimpliyCast indicates whether we can simplify a constant CE of the form
+  // sext.i32.i64(4) into i64(4). This is currently not set by DD but should be
+  // set by everyone else.
+  // TODO: Can we set it for DD too?
+  void simplify(bool SimplifyCast);
 
   /// Multiplies the canon expr by Val. Returns false if the result expression
   /// can not be represented as a single CanonExpr.

@@ -108,12 +108,10 @@ static void propagateConstant(HLLoop *Loop, unsigned TempIndex,
       return;
     }
 
-    bool SimplifyCast = Ref->isTerminalRef();
-
     bool Changed = false;
     for (CanonExpr *CE : make_range(Ref->canon_begin(), Ref->canon_end())) {
       if (CE->replaceTempBlobByConstant(TempIndex, Constant)) {
-        CE->simplify(SimplifyCast);
+        CE->simplify(true);
         Changed = true;
       }
     }

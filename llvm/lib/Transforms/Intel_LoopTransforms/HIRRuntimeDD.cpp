@@ -331,7 +331,7 @@ void IVSegment::replaceIVByBound(RegDDRef *Ref, const HLLoop *Loop,
            "are mergeable.");
     (void)Ret;
 
-    CE->simplify(false);
+    CE->simplify(true);
   }
 }
 

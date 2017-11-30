@@ -231,7 +231,7 @@ struct HIRCompleteUnroll::CanonExprUpdater final : public HLNodeVisitorBase {
       : TopLoopLevel(TopLoopLevel), IVValues(IVValues) {}
 
   void processRegDDRef(RegDDRef *RegDD);
-  void processCanonExpr(CanonExpr *CExpr, bool IsTerminal);
+  void processCanonExpr(CanonExpr *CExpr);
 
   void visit(HLDDNode *Node);
   void visit(HLLoop *Loop);
@@ -581,19 +581,17 @@ void HIRCompleteUnroll::CanonExprUpdater::visit(HLDDNode *Node) {
 }
 
 void HIRCompleteUnroll::CanonExprUpdater::processRegDDRef(RegDDRef *RegDD) {
-  bool IsTerminal = RegDD->isTerminalRef();
 
   // Process CanonExprs inside the RegDDRefs
   for (auto Iter = RegDD->canon_begin(), End = RegDD->canon_end(); Iter != End;
        ++Iter) {
-    processCanonExpr(*Iter, IsTerminal);
+    processCanonExpr(*Iter);
   }
 
   RegDD->makeConsistent(nullptr, TopLoopLevel - 1);
 }
 
-void HIRCompleteUnroll::CanonExprUpdater::processCanonExpr(CanonExpr *CExpr,
-                                                           bool IsTerminal) {
+void HIRCompleteUnroll::CanonExprUpdater::processCanonExpr(CanonExpr *CExpr) {
 
   // Start replacing the IV's from TopLoopLevel to current loop level.
   auto LoopLevel = TopLoopLevel;
@@ -603,7 +601,7 @@ void HIRCompleteUnroll::CanonExprUpdater::processCanonExpr(CanonExpr *CExpr,
     LoopLevel++;
   }
 
-  CExpr->simplify(IsTerminal);
+  CExpr->simplify(true);
 }
 
 ///// CanonExpr Visitor End
