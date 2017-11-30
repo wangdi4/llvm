@@ -9,10 +9,13 @@
 
 #include "ClangdLSPServer.h"
 #include "JSONRPCDispatcher.h"
+#include "Path.h"
+#include "Trace.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Path.h"
 #include "llvm/Support/Program.h"
-
+#include "llvm/Support/raw_ostream.h"
 #include <iostream>
 #include <memory>
 #include <string>
@@ -20,6 +23,16 @@
 
 using namespace clang;
 using namespace clang::clangd;
+
+namespace {
+enum class PCHStorageFlag { Disk, Memory };
+}
+
+static llvm::cl::opt<Path> CompileCommandsDir(
+    "compile-commands-dir",
+    llvm::cl::desc("Specify a path to look for compile_commands.json. If path "
+                   "is invalid, clangd will look in the current directory and "
+                   "parent paths of each source file."));
 
 static llvm::cl::opt<unsigned>
     WorkerThreadsCount("j",
@@ -32,15 +45,40 @@ static llvm::cl::opt<bool> EnableSnippets(
         "Present snippet completions instead of plaintext completions"),
     llvm::cl::init(false));
 
+static llvm::cl::opt<bool>
+    PrettyPrint("pretty", llvm::cl::desc("Pretty-print JSON output"),
+                llvm::cl::init(false));
+
+static llvm::cl::opt<PCHStorageFlag> PCHStorage(
+    "pch-storage",
+    llvm::cl::desc("Storing PCHs in memory increases memory usages, but may "
+                   "improve performance"),
+    llvm::cl::values(
+        clEnumValN(PCHStorageFlag::Disk, "disk", "store PCHs on disk"),
+        clEnumValN(PCHStorageFlag::Memory, "memory", "store PCHs in memory")),
+    llvm::cl::init(PCHStorageFlag::Disk));
+
 static llvm::cl::opt<bool> RunSynchronously(
     "run-synchronously",
     llvm::cl::desc("Parse on main thread. If set, -j is ignored"),
     llvm::cl::init(false), llvm::cl::Hidden);
 
-static llvm::cl::opt<std::string>
+static llvm::cl::opt<Path>
     ResourceDir("resource-dir",
                 llvm::cl::desc("Directory for system clang headers"),
                 llvm::cl::init(""), llvm::cl::Hidden);
+
+static llvm::cl::opt<Path> InputMirrorFile(
+    "input-mirror-file",
+    llvm::cl::desc(
+        "Mirror all LSP input to the specified file. Useful for debugging."),
+    llvm::cl::init(""), llvm::cl::Hidden);
+
+static llvm::cl::opt<Path> TraceFile(
+    "trace",
+    llvm::cl::desc(
+        "Trace internal events and timestamps in chrome://tracing JSON format"),
+    llvm::cl::init(""), llvm::cl::Hidden);
 
 int main(int argc, char *argv[]) {
   llvm::cl::ParseCommandLineOptions(argc, argv, "clangd");
@@ -56,18 +94,74 @@ int main(int argc, char *argv[]) {
   if (RunSynchronously)
     WorkerThreadsCount = 0;
 
+  // Validate command line arguments.
+  llvm::Optional<llvm::raw_fd_ostream> InputMirrorStream;
+  if (!InputMirrorFile.empty()) {
+    std::error_code EC;
+    InputMirrorStream.emplace(InputMirrorFile, /*ref*/ EC, llvm::sys::fs::F_RW);
+    if (EC) {
+      InputMirrorStream.reset();
+      llvm::errs() << "Error while opening an input mirror file: "
+                   << EC.message();
+    }
+  }
+  llvm::Optional<llvm::raw_fd_ostream> TraceStream;
+  std::unique_ptr<trace::Session> TraceSession;
+  if (!TraceFile.empty()) {
+    std::error_code EC;
+    TraceStream.emplace(TraceFile, /*ref*/ EC, llvm::sys::fs::F_RW);
+    if (EC) {
+      TraceFile.reset();
+      llvm::errs() << "Error while opening trace file: " << EC.message();
+    } else {
+      TraceSession = trace::Session::create(*TraceStream);
+    }
+  }
+
   llvm::raw_ostream &Outs = llvm::outs();
   llvm::raw_ostream &Logs = llvm::errs();
-  JSONOutput Out(Outs, Logs);
+  JSONOutput Out(Outs, Logs,
+                 InputMirrorStream ? InputMirrorStream.getPointer() : nullptr,
+                 PrettyPrint);
 
-  // Change stdin to binary to not lose \r\n on windows.
-  llvm::sys::ChangeStdinToBinary();
+  // If --compile-commands-dir arg was invoked, check value and override default
+  // path.
+  llvm::Optional<Path> CompileCommandsDirPath;
+
+  if (CompileCommandsDir.empty()) {
+    CompileCommandsDirPath = llvm::None;
+  } else if (!llvm::sys::path::is_absolute(CompileCommandsDir) ||
+             !llvm::sys::fs::exists(CompileCommandsDir)) {
+    llvm::errs() << "Path specified by --compile-commands-dir either does not "
+                    "exist or is not an absolute "
+                    "path. The argument will be ignored.\n";
+    CompileCommandsDirPath = llvm::None;
+  } else {
+    CompileCommandsDirPath = CompileCommandsDir;
+  }
+
+  bool StorePreamblesInMemory;
+  switch (PCHStorage) {
+  case PCHStorageFlag::Memory:
+    StorePreamblesInMemory = true;
+    break;
+  case PCHStorageFlag::Disk:
+    StorePreamblesInMemory = false;
+    break;
+  }
 
   llvm::Optional<StringRef> ResourceDirRef = None;
   if (!ResourceDir.empty())
     ResourceDirRef = ResourceDir;
 
-  ClangdLSPServer LSPServer(Out, WorkerThreadsCount, EnableSnippets,
-                            ResourceDirRef);
-  LSPServer.run(std::cin);
+  // Change stdin to binary to not lose \r\n on windows.
+  llvm::sys::ChangeStdinToBinary();
+
+  // Initialize and run ClangdLSPServer.
+  ClangdLSPServer LSPServer(Out, WorkerThreadsCount, StorePreamblesInMemory,
+                            EnableSnippets, ResourceDirRef,
+                            CompileCommandsDirPath);
+  constexpr int NoShutdownRequestErrorCode = 1;
+  llvm::set_thread_name("clangd.main");
+  return LSPServer.run(std::cin) ? 0 : NoShutdownRequestErrorCode;
 }

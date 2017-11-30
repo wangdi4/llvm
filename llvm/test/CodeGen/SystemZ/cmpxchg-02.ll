@@ -13,8 +13,8 @@
 define i16 @f1(i16 %dummy, i16 *%src, i16 %cmp, i16 %swap) {
 ; CHECK-MAIN-LABEL: f1:
 ; CHECK-MAIN: risbg [[RISBG:%r[1-9]+]], %r3, 0, 189, 0{{$}}
-; CHECK-MAIN: sll %r3, 3
-; CHECK-MAIN: l [[OLD:%r[0-9]+]], 0([[RISBG]])
+; CHECK-MAIN-DAG: sll %r3, 3
+; CHECK-MAIN-DAG: l [[OLD:%r[0-9]+]], 0([[RISBG]])
 ; CHECK-MAIN: [[LOOP:\.[^ ]*]]:
 ; CHECK-MAIN: rll %r2, [[OLD]], 16(%r3)
 ; CHECK-MAIN: risbg %r4, %r2, 32, 47, 0
@@ -60,12 +60,13 @@ define i16 @f2(i16 *%src) {
 define i32 @f3(i16 %dummy, i16 *%src, i16 %cmp, i16 %swap) {
 ; CHECK-MAIN-LABEL: f3:
 ; CHECK-MAIN: risbg [[RISBG:%r[1-9]+]], %r3, 0, 189, 0{{$}}
-; CHECK-MAIN: sll %r3, 3
-; CHECK-MAIN: l [[OLD:%r[0-9]+]], 0([[RISBG]])
+; CHECK-MAIN-DAG: sll %r3, 3
+; CHECK-MAIN-DAG: l [[OLD:%r[0-9]+]], 0([[RISBG]])
 ; CHECK-MAIN: [[LOOP:\.[^ ]*]]:
 ; CHECK-MAIN: rll [[TMP:%r[0-9]+]], [[OLD]], 16(%r3)
 ; CHECK-MAIN: risbg %r4, [[TMP]], 32, 47, 0
-; CHECK-MAIN: crjlh [[TMP]], %r4, [[EXIT:\.[^ ]*]]
+; CHECK-MAIN: cr [[TMP]], %r4
+; CHECK-MAIN: jlh [[EXIT:\.[^ ]*]]
 ; CHECK-MAIN: risbg %r5, [[TMP]], 32, 47, 0
 ; CHECK-MAIN: rll [[NEW:%r[0-9]+]], %r5, -16({{%r[1-9]+}})
 ; CHECK-MAIN: cs [[OLD]], [[NEW]], 0([[RISBG]])

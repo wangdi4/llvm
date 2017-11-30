@@ -1755,7 +1755,8 @@ void ASTDeclReader::MergeDefinitionData(
   }
 
   if (DetectedOdrViolation)
-    Reader.PendingOdrMergeFailures[DD.Definition].push_back(MergeDD.Definition);
+    Reader.PendingOdrMergeFailures[DD.Definition].push_back(
+        {MergeDD.Definition, &MergeDD});
 }
 
 void ASTDeclReader::ReadCXXRecordDefinition(CXXRecordDecl *D, bool Update) {
@@ -1862,6 +1863,7 @@ ASTDeclReader::VisitCXXRecordDeclImpl(CXXRecordDecl *D) {
 
 void ASTDeclReader::VisitCXXDeductionGuideDecl(CXXDeductionGuideDecl *D) {
   VisitFunctionDecl(D);
+  D->IsCopyDeductionCandidate = Record.readInt();
 }
 
 void ASTDeclReader::VisitCXXMethodDecl(CXXMethodDecl *D) {
@@ -1900,9 +1902,12 @@ void ASTDeclReader::VisitCXXDestructorDecl(CXXDestructorDecl *D) {
 
   if (auto *OperatorDelete = ReadDeclAs<FunctionDecl>()) {
     auto *Canon = cast<CXXDestructorDecl>(D->getCanonicalDecl());
+    auto *ThisArg = Record.readExpr();
     // FIXME: Check consistency if we have an old and new operator delete.
-    if (!Canon->OperatorDelete)
+    if (!Canon->OperatorDelete) {
       Canon->OperatorDelete = OperatorDelete;
+      Canon->OperatorDeleteThisArg = ThisArg;
+    }
   }
 }
 
@@ -3982,6 +3987,8 @@ void ASTDeclReader::UpdateDecl(Decl *D,
       VarDecl *VD = cast<VarDecl>(D);
       VD->getMemberSpecializationInfo()->setPointOfInstantiation(
           ReadSourceLocation());
+      VD->NonParmVarDeclBits.IsInline = Record.readInt();
+      VD->NonParmVarDeclBits.IsInlineSpecified = Record.readInt();
       uint64_t Val = Record.readInt();
       if (Val && !VD->getInit()) {
         VD->setInit(Record.readExpr());
@@ -4112,9 +4119,12 @@ void ASTDeclReader::UpdateDecl(Decl *D,
       // record.
       auto *Del = ReadDeclAs<FunctionDecl>();
       auto *First = cast<CXXDestructorDecl>(D->getCanonicalDecl());
+      auto *ThisArg = Record.readExpr();
       // FIXME: Check consistency if we have an old and new operator delete.
-      if (!First->OperatorDelete)
+      if (!First->OperatorDelete) {
         First->OperatorDelete = Del;
+        First->OperatorDeleteThisArg = ThisArg;
+      }
       break;
     }
 

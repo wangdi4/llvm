@@ -36,7 +36,7 @@
 #endif
 
 // TLS is handled differently on different platforms
-#if SANITIZER_LINUX
+#if SANITIZER_LINUX || SANITIZER_NETBSD
 # define SANITIZER_TLS_INITIAL_EXEC_ATTRIBUTE \
     __attribute__((tls_model("initial-exec"))) thread_local
 #else
@@ -64,11 +64,13 @@
 
 // SANITIZER_SUPPORTS_WEAK_HOOKS means that we support real weak functions that
 // will evaluate to a null pointer when not defined.
+#ifndef SANITIZER_SUPPORTS_WEAK_HOOKS
 #if (SANITIZER_LINUX || SANITIZER_MAC) && !SANITIZER_GO
 # define SANITIZER_SUPPORTS_WEAK_HOOKS 1
 #else
 # define SANITIZER_SUPPORTS_WEAK_HOOKS 0
 #endif
+#endif // SANITIZER_SUPPORTS_WEAK_HOOKS
 // For some weak hooks that will be called very often and we want to avoid the
 // overhead of executing the default implementation when it is not necessary,
 // we can use the flag SANITIZER_SUPPORTS_WEAK_HOOKS to only define the default

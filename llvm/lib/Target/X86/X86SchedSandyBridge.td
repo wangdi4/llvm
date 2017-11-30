@@ -865,6 +865,7 @@ def SBWriteResGroup15 : SchedWriteRes<[SBPort0,SBPort015]> {
   let NumMicroOps = 2;
   let ResourceCycles = [1,1];
 }
+def: InstRW<[SBWriteResGroup15], (instregex "CWD")>;
 def: InstRW<[SBWriteResGroup15], (instregex "FNSTSW16r")>;
 
 def SBWriteResGroup16 : SchedWriteRes<[SBPort1,SBPort05]> {
@@ -1549,7 +1550,7 @@ def SBWriteResGroup49 : SchedWriteRes<[SBPort5,SBPort23]> {
   let ResourceCycles = [1,1];
 }
 def: InstRW<[SBWriteResGroup49], (instregex "JMP(16|32|64)m")>;
-def: InstRW<[SBWriteResGroup49], (instregex "MOV64sm")>;
+def: InstRW<[SBWriteResGroup49], (instregex "MOV16sm")>;
 
 def SBWriteResGroup50 : SchedWriteRes<[SBPort23,SBPort05]> {
   let Latency = 6;
@@ -2010,9 +2011,9 @@ def: InstRW<[SBWriteResGroup70], (instregex "SUB(16|32|64)mi8")>;
 def: InstRW<[SBWriteResGroup70], (instregex "SUB(16|32|64)mr")>;
 def: InstRW<[SBWriteResGroup70], (instregex "SUB8mi")>;
 def: InstRW<[SBWriteResGroup70], (instregex "SUB8mr")>;
-def: InstRW<[SBWriteResGroup70], (instregex "TEST(16|32|64)rm")>;
+def: InstRW<[SBWriteResGroup70], (instregex "TEST(16|32|64)mr")>;
 def: InstRW<[SBWriteResGroup70], (instregex "TEST8mi")>;
-def: InstRW<[SBWriteResGroup70], (instregex "TEST8rm")>;
+def: InstRW<[SBWriteResGroup70], (instregex "TEST8mr")>;
 def: InstRW<[SBWriteResGroup70], (instregex "XOR(16|32|64)mi8")>;
 def: InstRW<[SBWriteResGroup70], (instregex "XOR(16|32|64)mr")>;
 def: InstRW<[SBWriteResGroup70], (instregex "XOR8mi")>;
