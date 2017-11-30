@@ -13,7 +13,6 @@
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Threading.h"
 
-#include "lldb/Core/ArchSpec.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/ModuleList.h"
 #include "lldb/Core/ModuleSpec.h"
@@ -22,6 +21,7 @@
 #include "lldb/Core/Section.h"
 #include "lldb/Core/StreamFile.h"
 #include "lldb/Core/Value.h"
+#include "lldb/Utility/ArchSpec.h"
 #include "lldb/Utility/RegularExpression.h"
 #include "lldb/Utility/StreamString.h"
 #include "lldb/Utility/Timer.h"
@@ -30,6 +30,7 @@
 
 #include "lldb/Host/FileSystem.h"
 #include "lldb/Host/Host.h"
+#include "lldb/Host/Symbols.h"
 
 #include "lldb/Interpreter/OptionValueFileSpecList.h"
 #include "lldb/Interpreter/OptionValueProperties.h"
@@ -205,6 +206,10 @@ static const char *resolveCompDir(const char *path_from_dwarf) {
   if (error.Success())
     return resolved_local_path_spec.GetCString();
 
+  return nullptr;
+}
+
+DWARFCompileUnit *SymbolFileDWARF::GetBaseCompileUnit() {
   return nullptr;
 }
 
@@ -436,7 +441,7 @@ void SymbolFileDWARF::InitializeObject() {
   ModuleSP module_sp(m_obj_file->GetModule());
   if (module_sp) {
     const SectionList *section_list = module_sp->GetSectionList();
-    const Section *section =
+    Section *section =
         section_list->FindSectionByName(GetDWARFMachOSegmentName()).get();
 
     // Memory map the DWARF mach-o segment so we have everything mmap'ed
@@ -4352,7 +4357,11 @@ SymbolFileDWARF::GetLocationListFormat() const {
 
 SymbolFileDWARFDwp *SymbolFileDWARF::GetDwpSymbolFile() {
   llvm::call_once(m_dwp_symfile_once_flag, [this]() {
-    FileSpec dwp_filespec(m_obj_file->GetFileSpec().GetPath() + ".dwp", false);
+    ModuleSpec module_spec;
+    module_spec.GetFileSpec() = m_obj_file->GetFileSpec();
+    module_spec.GetSymbolFileSpec() =
+        FileSpec(m_obj_file->GetFileSpec().GetPath() + ".dwp", false);
+    FileSpec dwp_filespec = Symbols::LocateExecutableSymbolFile(module_spec);
     if (dwp_filespec.Exists()) {
       m_dwp_symfile = SymbolFileDWARFDwp::Create(GetObjectFile()->GetModule(),
                                                  dwp_filespec);

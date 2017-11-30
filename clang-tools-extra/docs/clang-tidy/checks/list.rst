@@ -7,9 +7,9 @@ Clang-Tidy Checks
    android-cloexec-accept
    android-cloexec-accept4
    android-cloexec-creat
+   android-cloexec-dup
    android-cloexec-epoll-create
    android-cloexec-epoll-create1
-   android-cloexec-dup
    android-cloexec-fopen
    android-cloexec-inotify-init
    android-cloexec-inotify-init1
@@ -17,6 +17,7 @@ Clang-Tidy Checks
    android-cloexec-open
    android-cloexec-socket
    boost-use-to-string
+   bugprone-copy-constructor-init
    bugprone-integer-division
    bugprone-suspicious-memset-usage
    bugprone-undefined-memory-manipulation
@@ -38,7 +39,7 @@ Clang-Tidy Checks
    cert-msc30-c (redirects to cert-msc50-cpp) <cert-msc30-c>
    cert-msc50-cpp
    cert-oop11-cpp (redirects to misc-move-constructor-init) <cert-oop11-cpp>
-   cppcoreguidelines-c-copy-assignment-signature
+   cppcoreguidelines-c-copy-assignment-signature (redirects to misc-unconventional-assign-operator) <cppcoreguidelines-c-copy-assignment-signature>
    cppcoreguidelines-interfaces-global-init
    cppcoreguidelines-no-malloc
    cppcoreguidelines-owning-memory
@@ -60,6 +61,8 @@ Clang-Tidy Checks
    google-default-arguments
    google-explicit-constructor
    google-global-names-in-headers
+   google-objc-avoid-throwing-exception
+   google-objc-global-variable-declaration
    google-readability-braces-around-statements (redirects to readability-braces-around-statements) <google-readability-braces-around-statements>
    google-readability-casting
    google-readability-function-size (redirects to readability-function-size) <google-readability-function-size>
@@ -76,8 +79,8 @@ Clang-Tidy Checks
    hicpp-explicit-conversions (redirects to google-explicit-constructor) <hicpp-explicit-conversions>
    hicpp-function-size (redirects to readability-function-size) <hicpp-function-size>
    hicpp-invalid-access-moved (redirects to misc-use-after-move) <hicpp-invalid-access-moved>
-   hicpp-move-const-arg (redirects to misc-move-const-arg) <hicpp-move-const-arg>
    hicpp-member-init (redirects to cppcoreguidelines-pro-type-member-init) <hicpp-member-init>
+   hicpp-move-const-arg (redirects to misc-move-const-arg) <hicpp-move-const-arg>
    hicpp-named-parameter (redirects to readability-named-parameter) <hicpp-named-parameter>
    hicpp-new-delete-operators (redirects to misc-new-delete-overloads) <hicpp-new-delete-operators>
    hicpp-no-array-decay (redirects to cppcoreguidelines-pro-bounds-array-to-pointer-decay) <hicpp-no-array-decay>
@@ -95,7 +98,7 @@ Clang-Tidy Checks
    hicpp-use-noexcept (redirects to modernize-use-noexcept) <hicpp-use-noexcept>
    hicpp-use-nullptr (redirects to modernize-use-nullptr) <hicpp-use-nullptr>
    hicpp-use-override (redirects to modernize-use-override) <hicpp-use-override>
-   hicpp-vararg (redirects to cppcoreguidelines-pro-type-varg) <hicpp-vararg>
+   hicpp-vararg (redirects to cppcoreguidelines-pro-type-vararg) <hicpp-vararg>
    llvm-header-guard
    llvm-include-order
    llvm-namespace-comment
@@ -172,6 +175,8 @@ Clang-Tidy Checks
    modernize-use-using
    mpi-buffer-deref
    mpi-type-mismatch
+   objc-forbidden-subclassing
+   objc-property-declaration
    performance-faster-string-find
    performance-for-range-copy
    performance-implicit-conversion-in-loop

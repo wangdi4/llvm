@@ -26,12 +26,14 @@ enum {
   InstFormatR = 1,
   InstFormatI = 2,
   InstFormatS = 3,
-  InstFormatSB = 4,
+  InstFormatB = 4,
   InstFormatU = 5,
-  InstFormatOther = 6,
+  InstFormatJ = 6,
+  InstFormatOther = 7,
 
   InstFormatMask = 15
 };
+
 enum {
   MO_None,
   MO_LO,
