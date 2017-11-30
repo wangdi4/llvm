@@ -30,6 +30,7 @@ set(modified_files
   clzerointrin.h
   cpuid.h
   clflushoptintrin.h
+  clwbintrin.h
   emmintrin.h
   f16cintrin.h
   fmaintrin.h

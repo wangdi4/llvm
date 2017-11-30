@@ -184,13 +184,15 @@ else()
               $<TARGET_OBJECTS:RTSanitizerCommon.${arch}>
               $<TARGET_OBJECTS:RTSanitizerCommonLibc.${arch}>
               $<TARGET_OBJECTS:RTUbsan.${arch}>
-      CFLAGS ${TSAN_RTL_CFLAGS})
+      CFLAGS ${TSAN_RTL_CFLAGS}
+      PARENT_TARGET tsan)
     add_compiler_rt_runtime(clang_rt.tsan_cxx
       STATIC
       ARCHS ${arch}
       SOURCES ${TSAN_CXX_SOURCES}
               $<TARGET_OBJECTS:RTUbsan_cxx.${arch}>
-      CFLAGS ${TSAN_RTL_CFLAGS})
+      CFLAGS ${TSAN_RTL_CFLAGS}
+      PARENT_TARGET tsan)
     list(APPEND TSAN_RUNTIME_LIBRARIES clang_rt.tsan-${arch}
                                        clang_rt.tsan_cxx-${arch})
     add_sanitizer_rt_symbols(clang_rt.tsan
@@ -222,7 +224,8 @@ endif()
 
 # Build libcxx instrumented with TSan.
 if(COMPILER_RT_HAS_LIBCXX_SOURCES AND
-   COMPILER_RT_TEST_COMPILER_ID STREQUAL "Clang")
+   COMPILER_RT_TEST_COMPILER_ID STREQUAL "Clang" AND
+   NOT ANDROID)
   set(libcxx_tsan_deps)
   foreach(arch ${TSAN_SUPPORTED_ARCH})
     get_target_flags_for_arch(${arch} TARGET_CFLAGS)

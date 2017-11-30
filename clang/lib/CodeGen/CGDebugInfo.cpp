@@ -840,6 +840,10 @@ CGDebugInfo::getOrCreateRecordFwdDecl(const RecordType *Ty,
   llvm::DICompositeType *RetTy = DBuilder.createReplaceableCompositeType(
       getTagForRecord(RD), RDName, Ctx, DefUnit, Line, 0, Size, Align,
       llvm::DINode::FlagFwdDecl, FullName);
+  if (CGM.getCodeGenOpts().DebugFwdTemplateParams)
+    if (auto *TSpecial = dyn_cast<ClassTemplateSpecializationDecl>(RD))
+      DBuilder.replaceArrays(RetTy, llvm::DINodeArray(),
+                             CollectCXXTemplateParams(TSpecial, DefUnit));
   ReplaceMap.emplace_back(
       std::piecewise_construct, std::make_tuple(Ty),
       std::make_tuple(static_cast<llvm::Metadata *>(RetTy)));
@@ -3730,9 +3734,9 @@ bool operator<(const BlockLayoutChunk &l, const BlockLayoutChunk &r) {
 }
 
 void CGDebugInfo::EmitDeclareOfBlockLiteralArgVariable(const CGBlockInfo &block,
-                                                       llvm::Value *Arg,
+                                                       StringRef Name,
                                                        unsigned ArgNo,
-                                                       llvm::Value *LocalAddr,
+                                                       llvm::AllocaInst *Alloca,
                                                        CGBuilderTy &Builder) {
   assert(DebugKind >= codegenoptions::LimitedDebugInfo);
   ASTContext &C = CGM.getContext();
@@ -3864,19 +3868,11 @@ void CGDebugInfo::EmitDeclareOfBlockLiteralArgVariable(const CGBlockInfo &block,
 
   // Create the descriptor for the parameter.
   auto *debugVar = DBuilder.createParameterVariable(
-      scope, Arg->getName(), ArgNo, tunit, line, type,
+      scope, Name, ArgNo, tunit, line, type,
       CGM.getLangOpts().Optimize, flags);
 
-  if (LocalAddr) {
-    // Insert an llvm.dbg.value into the current block.
-    DBuilder.insertDbgValueIntrinsic(
-        LocalAddr, debugVar, DBuilder.createExpression(),
-        llvm::DebugLoc::get(line, column, scope, CurInlinedAt),
-        Builder.GetInsertBlock());
-  }
-
   // Insert an llvm.dbg.declare into the current block.
-  DBuilder.insertDeclare(Arg, debugVar, DBuilder.createExpression(),
+  DBuilder.insertDeclare(Alloca, debugVar, DBuilder.createExpression(),
                          llvm::DebugLoc::get(line, column, scope, CurInlinedAt),
                          Builder.GetInsertBlock());
 }

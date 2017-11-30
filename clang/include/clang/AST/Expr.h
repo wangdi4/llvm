@@ -4058,6 +4058,10 @@ public:
   /// initializer)?
   bool isTransparent() const;
 
+  /// Is this the zero initializer {0} in a language which considers it
+  /// idiomatic?
+  bool isIdiomaticZeroInitializer(const LangOptions &LangOpts) const;
+
   SourceLocation getLBraceLoc() const { return LBraceLoc; }
   void setLBraceLoc(SourceLocation Loc) { LBraceLoc = Loc; }
   SourceLocation getRBraceLoc() const { return RBraceLoc; }
@@ -4066,6 +4070,9 @@ public:
   bool isSemanticForm() const { return AltForm.getInt(); }
   InitListExpr *getSemanticForm() const {
     return isSemanticForm() ? nullptr : AltForm.getPointer();
+  }
+  bool isSyntacticForm() const {
+    return !AltForm.getInt() || !AltForm.getPointer();
   }
   InitListExpr *getSyntacticForm() const {
     return isSemanticForm() ? AltForm.getPointer() : nullptr;
@@ -5343,7 +5350,6 @@ public:
   static bool classof(const Stmt *T) {
     return T->getStmtClass() == TypoExprClass;
   }
-
 };
 
 #if INTEL_SPECIFIC_CILKPLUS
@@ -5547,6 +5553,7 @@ public:
   }
 };
 #endif // INTEL_SPECIFIC_CILKPLUS
+
 } // end namespace clang
 
 #endif // LLVM_CLANG_AST_EXPR_H
