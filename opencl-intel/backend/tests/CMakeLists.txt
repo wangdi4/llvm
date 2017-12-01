@@ -51,9 +51,6 @@ add_lit_testsuite(check-ocl-backend "Running the OpenCL Backend LIT tests"
 )
 set_target_properties(check-ocl-backend PROPERTIES FOLDER "Tests")
 
-option(ADD_NICE_BE_LIT_TARGETS "Generate cmake targets for launching BE LIT
-  tests from each subdirectory separately" ON)
-
 if (ADD_NICE_BE_LIT_TARGETS)
   # Note: These targets are not generated during multi-configuration
   # generators (i.e. Xcode and Visual Studio) because target clutter impacts

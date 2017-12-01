@@ -87,10 +87,6 @@ project(Backend C CXX)
 add_definitions(${LLVM_DEFINITIONS})
 use_rtti(FALSE)
 
-# LLVM device backend library
-option(LLVM_BUILD_OCL_CPU_BACKEND "Build OpenCL CPU backend DLL." ON)
-message(STATUS "Build OpenCL CPU backend DLL: ${LLVM_BUILD_OCL_CPU_BACKEND}")
-
 if (LLVM_BUILD_OCL_CPU_BACKEND)
     add_subdirectory(vectorizer        "${CMAKE_CURRENT_BINARY_DIR}/vectorizer")
     add_subdirectory(barrier           "${CMAKE_CURRENT_BINARY_DIR}/barrier")
@@ -110,10 +106,6 @@ if (LLVM_BUILD_OCL_CPU_BACKEND)
     add_subdirectory(reflection_module "${CMAKE_CURRENT_BINARY_DIR}/reflection_module")
     add_subdirectory(stat_summary      "${CMAKE_CURRENT_BINARY_DIR}/stat_summary")
 endif (LLVM_BUILD_OCL_CPU_BACKEND)
-
-# Validation utilities
-option(BACKEND_BUILD_VERIFICATION_LIB "Build back-end validation tools." ON)
-message(STATUS "Build OpenCL CPU backend validation tools: ${LLVM_BUILD_OCL_CPU_BACKEND}")
 
 if (BACKEND_BUILD_VERIFICATION_LIB)
     add_subdirectory(external/tinyxml  "${CMAKE_CURRENT_BINARY_DIR}/tinyxml")

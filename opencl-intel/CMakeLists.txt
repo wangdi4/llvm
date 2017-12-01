@@ -6,6 +6,27 @@ cmake_policy(SET CMP0001 NEW)
 cmake_policy(SET CMP0011 OLD)
 cmake_policy(SET CMP0054 OLD)
 
+# Project-wise options
+option(GIT_REVISIONS "Make package version from git revision"  ON)
+option(BUILD_QTGUI "Build the QT related projects"  OFF)
+option(USE_ITT_INTERNAL "Report internal tasks start/stop to VTune" OFF)
+option(USE_HARD_TRAPPING "Use hard trapping for workers on CPU device"  ON)
+option(INCLUDE_CMRT "Include Common Runtime into Build"  OFF)
+option(BUILD_LLVM_FROM_SOURCE "Build the llvm package from source instead of using pre-installed binaries" OFF)
+option(LLVM_BUILD_OCL_CPU_BACKEND "Build OpenCL CPU backend DLL." ON)
+
+# validation
+# TODO: add 'master' option to disable all kinds of validation
+option(BACKEND_BUILD_VERIFICATION_LIB "Build back-end validation tools." ON)
+option(ADD_NICE_BE_LIT_TARGETS "Generate cmake targets for launching BE LIT
+  tests from each subdirectory separately" ON)
+option(OPENCL_RT_INCLUDE_TESTS
+  "Generate build targets for OpenCL RT unittest. Defaults to ON.
+  You can use this option to disable the generation of build targets
+  for OpenCL RT unittests." ON)
+option(OPENCL_RT_BUILD_TESTS "Build OpenCL RT unittests. Defaults to OFF.
+  Targets for building each unittest are generated in any case." OFF)
+
 # Set path to the CMAKE modules
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/")
 
@@ -99,13 +120,6 @@ if (NOT WIN32)
     COMMENT "Separating debug symbols from binaries...")
 endif (NOT WIN32)
 
-# Project-wise options
-option(GIT_REVISIONS "Make package version from git revision"  ON)
-option(BUILD_QTGUI "Build the QT related projects"  OFF)
-option(USE_ITT_INTERNAL "Report internal tasks start/stop to VTune" OFF)
-option(USE_HARD_TRAPPING "Use hard trapping for workers on CPU device"  ON)
-option(INCLUDE_CMRT "Include Common Runtime into Build"  OFF)
-option(BUILD_LLVM_FROM_SOURCE "Build the llvm package from source instead of using pre-installed binaries" OFF)
 
 #
 # Project defs
@@ -274,14 +288,6 @@ if(BUILD_LLVM_FROM_SOURCE)
     add_subdirectory(${LLVM_SRC_ROOT} "${CMAKE_CURRENT_BINARY_DIR}/llvm")
 endif()
 
-# validation
-# TODO: add 'master' option to disable all kinds of validation
-option( OPENCL_RT_INCLUDE_TESTS
-    "Generate build targets for OpenCL RT unittest. Defaults to ON.
-    You can use this option to disable the generation of build targets
-    for OpenCL RT unittests." ON )
-option( OPENCL_RT_BUILD_TESTS "Build OpenCL RT unittests. Defaults to OFF.
-    Targets for building each unittest are generated in any case." OFF )
 if (OPENCL_RT_INCLUDE_TESTS)
     add_subdirectory( tests )
 endif (OPENCL_RT_INCLUDE_TESTS)

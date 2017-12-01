@@ -78,12 +78,6 @@ if (INCLUDE_CMRT)
   endif (NOT BUILD_X64)
 endif(INCLUDE_CMRT)
 
-#Samples
-option(INCLUDE_SMPLS "Include Samples into Build"  OFF)
-if (INCLUDE_SMPLS)
-  add_subdirectory( samples )
-endif(INCLUDE_SMPLS)
-
 # Main unittests target
 
 list(APPEND RUNTIME_UNITTESTS
