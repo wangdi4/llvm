@@ -93,24 +93,11 @@ set(CMAKE_CONFIGURATION_TYPES
 set(CMAKE_CONFIGURATION_TYPES ${CMAKE_CONFIGURATION_TYPES} CACHE STRING "Available build configurations." FORCE)
 
 if (NOT WIN32)
-  # enable C++11 support in GCC 4.7 and above
-  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
-
   add_custom_target(strip
     ${OCL_SOURCE_DIR}/cmake/separate_linux_symbols.sh
     WORKING_DIRECTORY ${CMAKE_INSTALL_PREFIX}/bin
     COMMENT "Separating debug symbols from binaries...")
 endif (NOT WIN32)
-
-if (WIN32)
-    #C flags
-    set( CMAKE_C_FLAGS_DEBUG   "${CMAKE_C_FLAGS_DEBUG}   /MDd")
-    set( CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /MD")
-
-    # C++ flags
-    set( CMAKE_CXX_FLAGS_DEBUG   "${CMAKE_CXX_FLAGS_DEBUG}   /MDd")
-    set( CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MD")
-endif (WIN32)
 
 # Project-wise options
 option(GIT_REVISIONS "Make package version from git revision"  ON)

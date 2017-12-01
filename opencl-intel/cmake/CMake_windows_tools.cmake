@@ -15,13 +15,9 @@ endif (DEFINED INTEL_COMPILER)
 # Microsoft Assembler setup - use private rules
 if (BUILD_X64)
     set( CMAKE_ASM_COMPILER            ml64 ) #OLD changed due to issues in TFW (didn't find asm compiler on win 64
-else (BUILD_X64)
-    set( CMAKE_ASM_COMPILER            ml )
-endif (BUILD_X64)
-
-if (BUILD_X64)
     set( CMAKE_ASM_FLAGS               /nologo /c /Zi) # do not quote this!!!!
 else (BUILD_X64)
+    set( CMAKE_ASM_COMPILER            ml )
     set( CMAKE_ASM_FLAGS               /nologo /safeseh /c /coff /Zi) # do not quote this!!!!
 endif (BUILD_X64)
 
@@ -29,8 +25,8 @@ set( CMAKE_ASM_INCLUDE_DIR_FLAG    /I )
 
 # Compiler switches that CANNOT be modified during makefile generation
 set (ADD_C_FLAGS         "/Oi -D WINDOWS_ENABLE_CPLUSPLUS /GS")
-set (ADD_C_FLAGS_DEBUG   "-D _DEBUG /RTC1 /MTd")  #/MTd /Gm
-set (ADD_C_FLAGS_RELEASE "/Zi /Gy -D NDEBUG /MT")# /Ob0") #/GL") #MT
+set (ADD_C_FLAGS_DEBUG   "-D _DEBUG /RTC1")
+set (ADD_C_FLAGS_RELEASE "/Zi /Gy")
 
 if (NOT DEFINED INTEL_COMPILER)
     set (ADD_C_FLAGS_RELEASE "${ADD_C_FLAGS_RELEASE} /sdl")
@@ -55,19 +51,12 @@ else (BUILD_X64)
 endif (BUILD_X64)
 
 set (ADD_LINKER_FLAGS_DEBUG "/DEBUG /NODEFAULTLIB:LIBCMT /NODEFAULTLIB:LIBCPMT")
-set (ADD_LINKER_FLAGS_RELEASE "/OPT:REF /OPT:ICF /NODEFAULTLIB:LIBCMTD /NODEFAULTLIB:LIBCPMTD") #/LTCG")
-
+set (ADD_LINKER_FLAGS_RELEASE "/OPT:REF /OPT:ICF /NODEFAULTLIB:LIBCMTD /NODEFAULTLIB:LIBCPMTD")
 
 # setup
 set (CMAKE_CXX_COMPILER ${CMAKE_C_COMPILER} )
 enable_language( C )
 enable_language( CXX )
-
-# remove CRT DLL option from default C/C++ switches
-string( REPLACE /MDd "" CMAKE_C_FLAGS_DEBUG       ${CMAKE_C_FLAGS_DEBUG} )
-string( REPLACE /MD  "" CMAKE_C_FLAGS_RELEASE     ${CMAKE_C_FLAGS_RELEASE} )
-string( REPLACE /MDd "" CMAKE_CXX_FLAGS_DEBUG     ${CMAKE_CXX_FLAGS_DEBUG} )
-string( REPLACE /MD  "" CMAKE_CXX_FLAGS_RELEASE   ${CMAKE_CXX_FLAGS_RELEASE} )
 
 # remove /INCREMENTAL:YES option from DEBUG Linker switches
 string( REPLACE /INCREMENTAL:YES "" CMAKE_EXE_LINKER_FLAGS_DEBUG    ${CMAKE_EXE_LINKER_FLAGS_DEBUG} )
