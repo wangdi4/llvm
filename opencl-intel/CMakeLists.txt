@@ -100,53 +100,6 @@ if (WIN32)
     set( CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MD")
 endif (WIN32)
 
-if(CMAKE_CROSSCOMPILING)
-    set(CX_NATIVE_TG_DIR "${CMAKE_BINARY_DIR}/native")
-
-    add_custom_command(OUTPUT ${CX_NATIVE_TG_DIR}
-                            COMMAND ${CMAKE_COMMAND} -E make_directory ${CX_NATIVE_TG_DIR}
-                            COMMENT "Creating ${CX_NATIVE_TG_DIR}..."
-    )
-
-    add_custom_command(OUTPUT ${CX_NATIVE_TG_DIR}/CMakeCache.txt
-                            COMMAND ${CMAKE_COMMAND} -UCMAKE_TOOLCHAIN_FILE
-                            -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-                            # We are cross compiling when building for android, hence we are
-                            # dropping off all non required build components, such tests/verification
-                            -DBACKEND_BUILD_VERIFICATION_LIB=OFF
-                            -DLLVM_PATH_BE=${LLVM_PATH_BE}/native
-                            -DLLVM_PATH_FE=${LLVM_PATH_FE}/native
-                            -DBUILD_X64=True
-                            ${CMAKE_SOURCE_DIR}
-                            WORKING_DIRECTORY ${CX_NATIVE_TG_DIR}
-                            DEPENDS ${CX_NATIVE_TG_DIR}
-                            COMMENT "Configuring native targets..."
-    )
-
-    # Build 'native' tools required to build target binaries:
-    # ocloptimg - required to build OpenCL built-in library
-    # CMake can build one target at a time and we need only ocloptimg, so we
-    # just use it. If you need to build several targets, you should create
-    # custom target with dependencies from all the target you need to build.
-    # This will allow you to build them in parallel!
-    # NOTE: actually we cheat here, we also need table-gen, but ocloptimg has
-    # it in its depedencies, so we just check that it's built with ocloptimg.
-    add_custom_command(OUTPUT ${CX_NATIVE_TG_DIR}/bin/ocloptimg ${CX_NATIVE_TG_DIR}/bin/ocl-tblgen
-                            COMMAND ${CMAKE_COMMAND}
-                            --build ${CX_NATIVE_TG_DIR}
-                            --target ocloptimg
-                            --config ${CMAKE_BUILD_TYPE} -- -j
-                            WORKING_DIRECTORY ${CX_NATIVE_TG_DIR}
-                            DEPENDS ${CX_NATIVE_TG_DIR}/CMakeCache.txt
-                            COMMENT "Building native targets..."
-    )
-
-    add_custom_target(ConfigureNativeTargets DEPENDS ${CX_NATIVE_TG_DIR}/bin/ocloptimg ${CX_NATIVE_TG_DIR}/bin/ocl-tblgen )
-    set_directory_properties(PROPERTIES ADDITIONAL_MAKE_CLEAN_FILES ${CX_NATIVE_TG_DIR})
-else(CMAKE_CROSSCOMPILING)
-    add_custom_target(ConfigureNativeTargets DEPENDS ${CMAKE_BINARY_DIR}/bin/ocloptimg ${CMAKE_BINARY_DIR}/bin/ocl-tblgen )
-endif(CMAKE_CROSSCOMPILING)
-
 # Project-wise options
 option(GIT_REVISIONS "Make package version from git revision"  ON)
 option(BUILD_QTGUI "Build the QT related projects"  OFF)

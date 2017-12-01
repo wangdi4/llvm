@@ -18,21 +18,13 @@ add_custom_command(
   VERBATIM
 )
 
-if(CMAKE_CROSSCOMPILING)
-  set(OCL_TBLGEN_DEP ConfigureNativeTargets)
-  set(OCL_TBLGEN ${CMAKE_BINARY_DIR}/native/bin/ocl-tblgen)
-else()
-  set(OCL_TBLGEN_DEP ocl-tblgen)
-  set(OCL_TBLGEN ocl-tblgen)
-endif()
-
 add_custom_command(
   OUTPUT CustomMappings.gen
-  COMMAND ${OCL_TBLGEN} -gen-vectorizer-map
+  COMMAND ocl-tblgen -gen-vectorizer-map
   -I ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins
   ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/GENERIC_CPU.td
   -o ${CMAKE_CURRENT_BINARY_DIR}/CustomMappings.gen
-  DEPENDS ${OCL_TBLGEN_DEP}
+  DEPENDS ocl-tblgen
   ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/soa_relational.td
   ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/opencl-v1.2.td
   ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/opencl-v2.0.td

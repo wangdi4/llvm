@@ -18,15 +18,8 @@ endif()
 set(LLVM_PATH ${LLVM_PATH_FE})
 find_package(LLVM REQUIRED)
 
-if( CMAKE_CROSSCOMPILING OR LLVM_USE_NATIVE )
-  set(TOOLS_BINARY_DIR "${LLVM_BINARY_DIR}/../native/bin")
-  set(SPIRV_CONVERTER  "${LLVM_PATH_BE}/native/bin/llvm-spirv")
-else()
-  set(TOOLS_BINARY_DIR "${LLVM_BINARY_DIR}" )
-  set(SPIRV_CONVERTER  "${LLVM_PATH_BE}/bin/llvm-spirv")
-endif()
-
-set( CLANG "${TOOLS_BINARY_DIR}/clang" )
+set(CLANG "${LLVM_BINARY_DIR}/clang" )
+set(SPIRV_CONVERTER  "${LLVM_PATH_BE}/bin/llvm-spirv")
 
 include(itt)
 
