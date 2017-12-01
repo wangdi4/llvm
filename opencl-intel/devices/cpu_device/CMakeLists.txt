@@ -88,8 +88,8 @@ FIND_SOURCES()
 CALCULATE_TARGET_SOURCES()
 
 #include ITT notify sources
-include( ../../cmake_utils/itt.cmake )
-                
+include(itt)
+
 #add a target named ${TARGET_NAME}
 add_opencl_library (${TARGET_NAME} SHARED ${TARGET_SOURCES})
 

@@ -28,8 +28,7 @@ endif()
 
 set( CLANG "${TOOLS_BINARY_DIR}/clang" )
 
-include(${OCL_SOURCE_DIR}/cmake_utils/CMakeFuncs.txt)
-include(${OCL_SOURCE_DIR}/cmake_utils/itt.cmake)
+include(itt)
 
 # LIT infrastructure configuration
 include(${LLVM_PATH}/lib/cmake/llvm/AddLLVM.cmake)

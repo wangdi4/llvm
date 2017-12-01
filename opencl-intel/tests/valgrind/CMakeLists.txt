@@ -1,6 +1,3 @@
-#include helping functions of cmake.
-include (../../cmake_utils/CMakeFuncs.txt)
-
 set(TARGET valgrind )
 
 set(VALTEST_DIR_NAME tests/valgrind)

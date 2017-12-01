@@ -4,9 +4,6 @@ if (NOT WIN32)
     remove_definitions( -Werror )
 endif (NOT WIN32)
 
-#include helping functions of cmake.
-include (../../cmake_utils/CMakeFuncs.txt)
-
 set( TARGET common_runtime_test_type )
 
 include_directories( ../../externals/gtest/include

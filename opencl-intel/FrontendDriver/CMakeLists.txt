@@ -16,7 +16,7 @@ find_package(LLVM REQUIRED)
 set( TARGET_NAME clang_compiler${BUILD_PLATFORM} )
 
 # Embed RPATH/RUNPATH for libraries which dependencies aren't in the standard system library directories
-include(../cmake_utils/embed.rpath.txt)
+include(embed.rpath)
 
 #
 # Compilation flags

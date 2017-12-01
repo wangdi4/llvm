@@ -7,7 +7,7 @@
 # set that name of the main output file as a target name
 set( TARGET_NAME omp2tbb )
 
-include( ${OCL_SOURCE_DIR}/cmake_utils/itt.cmake )
+include(itt)
 
 include_directories( BEFORE
                         ${HW_UTILS_HEADERS}

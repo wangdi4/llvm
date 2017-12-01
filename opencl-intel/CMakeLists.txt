@@ -22,21 +22,16 @@ endif( BUILD_FPGA_EMULATOR )
 add_definitions( -DOPENCL_BINARIES_POSTFIX="${OPENCL_BINARIES_POSTFIX}" )
 add_definitions( -DTBB_BINARIES_POSTFIX="${TBB_BINARIES_POSTFIX}" )
 
-# CMAKE variables
-set(CMAKE_MODULE_PATH
-    ${CMAKE_MODULE_PATH}
-    "${CMAKE_SOURCE_DIR}/cmake/Modules/"
-    "${CMAKE_SOURCE_DIR}/cmake_utils/"
-)
-include (cmake_utils/CMakeFuncs.txt)
+# Set path to the CMAKE modules
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/")
 
 # Include functions for opencl targets
-include (AddOpenCL)
-
+include(CMakeFuncs)
+include(AddOpenCL)
 if (WIN32)
-  include( CMake_windows_tools )
+  include(CMake_windows_tools)
 else()
-  include( CMake_linux_tools )
+  include(CMake_linux_tools)
 endif ()
 
 if( INTEL_PRODUCT_RELEASE )
@@ -61,7 +56,7 @@ if (NOT WIN32)
   set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
   add_custom_target(strip
-    ${CMAKE_SOURCE_DIR}/cmake_utils/separate_linux_symbols.sh
+    ${OCL_SOURCE_DIR}/cmake/separate_linux_symbols.sh
     WORKING_DIRECTORY ${CMAKE_INSTALL_PREFIX}/bin
     COMMENT "Separating debug symbols from binaries...")
 endif (NOT WIN32)

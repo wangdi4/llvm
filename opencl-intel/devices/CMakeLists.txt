@@ -1,5 +1,5 @@
 # Embed RPATH/RUNPATH for libraries which dependencies aren't in the standard system library directories
-include(../cmake_utils/embed.rpath.txt)
+include(embed.rpath)
 
 # Add OpenMP on top TBB library
 if( INCLUDE_MKL )

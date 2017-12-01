@@ -1,6 +1,3 @@
-#include helping functions of cmake.
-include (${OCL_SOURCE_DIR}/cmake_utils/CMakeFuncs.txt)
-
 set(TARGET debugger_test_type)
 
 if (NOT WIN32)

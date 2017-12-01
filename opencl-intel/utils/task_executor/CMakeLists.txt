@@ -8,10 +8,8 @@
 set( TARGET_NAME task_executor${BUILD_PLATFORM}${OPENCL_BINARIES_POSTFIX} )
 
 # Embed RPATH/RUNPATH for libraries which dependencies aren't in the standard system library directories
-include(../../cmake_utils/embed.rpath.txt)
-
-
-include( ${CMAKE_SOURCE_DIR}/cmake_utils/itt.cmake )
+include(embed.rpath)
+include(itt)
 
 if (WIN32 AND NOT BUILD_X64)
     # the /Ob1 flag is set instead of /Ob2 flag in order to prevent aggressive inlining

@@ -12,7 +12,7 @@ endif (NOT WIN32)
 
 
 # Embed RPATH/RUNPATH for libraries which dependencies aren't in the standard system libarary directories
-include(../cmake_utils/embed.rpath.txt)
+include(embed.rpath)
 
 # this component has to use deprecated OpenCL API functions.
 if (WIN32)
@@ -34,7 +34,7 @@ include_directories ( BEFORE
         ${OCL_BINARY_DIR}
     )
 
-if (WIN32 AND (DEFINED ENV{DXSDK_DIR}) )	
+if (WIN32 AND (DEFINED ENV{DXSDK_DIR}) )
 	include_directories (BEFORE ${CMAKE_CURRENT_SOURCE_DIR}/d3d9_sharing)
 
 	if (${BUILD_X64} STREQUAL "ON")
@@ -89,7 +89,7 @@ if (WIN32)
     list( APPEND CONFIG_FILES register_vendor.reg unregister_vendor.reg)
 
     source_group( "API" FILES cl_framework.cpp cl_framework.h framework_proxy.cpp framework_proxy.h)
-    
+
     if (CMAKE_SIZEOF_VOID_P EQUAL 8)
         add_definitions( -DRESOURCE_X64 )
     endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
@@ -115,7 +115,7 @@ endif(NOT WIN32)
 
 link_directories( ${TBB_LIB_DIR} )
 
-include( ../cmake_utils/itt.cmake )
+include(itt)
 
 # add a target named ${TARGET_NAME}
 add_opencl_library (${TARGET_NAME} SHARED ${TARGET_SOURCES})

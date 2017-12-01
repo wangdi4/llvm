@@ -43,9 +43,9 @@ do
         #echo "Skipping non binary file $f"
         continue;
     fi
-    
+
     symbolsfile="${f}.${symbolsSuffix}"
-    
+
     # If there is already a debug symbols file, check if need to refresh.
     if [ -a ${symbolsfile} ] ; then
         # Does the strippped file contain a link to the debug?
@@ -63,7 +63,7 @@ do
             continue;
         fi
     fi
-    
+
     echo "Extracting debug info from ${f} --> ${symbolsfile}"
 
     # keep full bin+symbols file, not just symbols (objcopy --only-keep-debug)
@@ -71,10 +71,10 @@ do
 
     # Strip all (not just --strip-debug --strip-unneeded)
     strip -s "${f}"
-    
+
     # link stripped file to unstripped file
     objcopy --add-gnu-debuglink="${symbolsfile}" "${f}"
-    
+
     # (***) Make sure the last modified file is the symbols file, for future checks.
     touch "${symbolsfile}"
 
