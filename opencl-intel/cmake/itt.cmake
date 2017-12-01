@@ -2,6 +2,11 @@
 # This file adds ITT (former GPA) definitions to your cmake project.
 #
 
+# ITT/VTune integration
+add_definitions( -DUSE_ITT )
+include_directories( ${OCL_SOURCE_DIR}/externals/itt/include
+                     ${OCL_SOURCE_DIR}/externals/itt/ittnotify/ )
+
 # ITT libraries directory suffix
 if( WIN32 )
     if (BUILD_X64)

@@ -45,12 +45,6 @@ set(CMAKE_CONFIGURATION_TYPES
   )
 set(CMAKE_CONFIGURATION_TYPES ${CMAKE_CONFIGURATION_TYPES} CACHE STRING "Available build configurations." FORCE)
 
-
-# ITT/VTune integration
-add_definitions( -DUSE_ITT )
-include_directories( ${CMAKE_SOURCE_DIR}/externals/itt/include
-                     ${CMAKE_SOURCE_DIR}/externals/itt/ittnotify/ )
-
 if (NOT WIN32)
   # enable C++11 support in GCC 4.7 and above
   set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
