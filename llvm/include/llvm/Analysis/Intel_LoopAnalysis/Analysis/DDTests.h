@@ -848,8 +848,7 @@ class DDTest {
   const CanonExpr *getConstantfromAPInt(Type *Ty, APInt Value);
 
   /// return CE from int with type
-  const CanonExpr *getConstantWithType(Type *SrcTy, Type *DestTy, bool IsSExt,
-                                       int64_t Val);
+  const CanonExpr *getConstantWithType(Type *Ty, int64_t Val);
 
   /// CE1 / CE2
   const CanonExpr *getUDivExpr(const CanonExpr *CE1, const CanonExpr *CE2);
