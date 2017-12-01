@@ -194,12 +194,6 @@ install_to(${OCL_BINARY_DIR}/version.txt DESTINATION ./)
 # reduces needless rebuilds
 execute_process(COMMAND ${CMAKE_COMMAND} -E copy_if_different ${OCL_BINARY_DIR}/buildversion.h.txt ${OCL_BINARY_DIR}/buildversion.h)
 
-# vars
-
-if(CONFORMANCE_LIST)
-    string(REPLACE " " ";" CONFORMANCE_LIST ${CONFORMANCE_LIST})
-endif()
-
 add_definitions (-DCL_USE_DEPRECATED_OPENCL_1_1_APIS)
 
 if (WIN32 AND ((${CMAKE_CFG_INTDIR} STREQUAL $(OutDir)) OR (${CMAKE_CFG_INTDIR} STREQUAL $(Configuration))))
