@@ -6,22 +6,6 @@ cmake_policy(SET CMP0001 NEW)
 cmake_policy(SET CMP0011 OLD)
 cmake_policy(SET CMP0054 OLD)
 
-if( BUILD_EXPERIMENTAL_21 )
-    set( OPENCL_BINARIES_POSTFIX "_2_1" )
-    set( TBB_BINARIES_POSTFIX "_2_1" )
-
-    add_definitions( -DBUILD_EXPERIMENTAL_21 )
-endif( BUILD_EXPERIMENTAL_21 )
-
-if( BUILD_FPGA_EMULATOR )
-    set( OPENCL_BINARIES_POSTFIX "_emu" )
-
-    add_definitions( -DBUILD_FPGA_EMULATOR  )
-endif( BUILD_FPGA_EMULATOR )
-
-add_definitions( -DOPENCL_BINARIES_POSTFIX="${OPENCL_BINARIES_POSTFIX}" )
-add_definitions( -DTBB_BINARIES_POSTFIX="${TBB_BINARIES_POSTFIX}" )
-
 # Set path to the CMAKE modules
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/")
 
@@ -34,9 +18,72 @@ else()
   include(CMake_linux_tools)
 endif ()
 
+# Common defines
 if( INTEL_PRODUCT_RELEASE )
   add_definitions( -DINTEL_PRODUCT_RELEASE )
 endif( INTEL_PRODUCT_RELEASE )
+
+if( (NOT WIN32) AND USE_HARD_TRAPPING )
+  add_definitions(-D__HARD_TRAPPING__)
+endif((NOT WIN32) AND USE_HARD_TRAPPING)
+
+if( BUILD_EXPERIMENTAL_21 )
+  set( OPENCL_BINARIES_POSTFIX "_2_1" )
+  set( TBB_BINARIES_POSTFIX "_2_1" )
+
+  add_definitions( -DBUILD_EXPERIMENTAL_21 )
+endif( BUILD_EXPERIMENTAL_21 )
+
+if( BUILD_FPGA_EMULATOR )
+  set( OPENCL_BINARIES_POSTFIX "_emu" )
+
+  add_definitions( -DBUILD_FPGA_EMULATOR  )
+endif( BUILD_FPGA_EMULATOR )
+
+add_definitions( -DOPENCL_BINARIES_POSTFIX="${OPENCL_BINARIES_POSTFIX}"
+                 -DTBB_BINARIES_POSTFIX="${TBB_BINARIES_POSTFIX}"
+                 -D__TBB_NO_IMPLICIT_LINKAGE=1
+                 -DCL_USE_DEPRECATED_OPENCL_1_1_APIS)
+
+# define INTEL_CUSTOMIZATION xmain macro
+# TODO: consider to remove from OpenCL CMake scripts
+add_definitions( -DINTEL_CUSTOMIZATION )
+if (WIN32)
+  # Add definitions that make MSVC much less annoying.
+  add_definitions(
+    # For some reason MS wants to deprecate a bunch of standard functions...
+    -D_CRT_SECURE_NO_DEPRECATE
+    -D_CRT_SECURE_NO_WARNINGS
+    -D_CRT_NONSTDC_NO_DEPRECATE
+    -D_CRT_NONSTDC_NO_WARNINGS
+    -D_SCL_SECURE_NO_DEPRECATE
+    -D_SCL_SECURE_NO_WARNINGS
+
+    -wd4141 # Suppress ''modifier' : used more than once' (because of __forceinline combined with inline)
+    -wd4065 # Suppress 'switch statement contains 'default' but no 'case' labels'
+    -wd4090 # Suppress 'function : different 'const' qualifiers'
+    -wd4146 # Suppress 'unary minus operator applied to unsigned type, result still unsigned'
+    -wd4180 # Suppress 'qualifier applied to function type has no meaning; ignored'
+    -wd4190 # Suppress 'function has C linkage is specified, but returns type which is incompatible with C'
+    -wd4224 # Suppress 'nonstandard extension used : formal parameter 'identifier' was previously defined as a type'
+    -wd4244 # Suppress ''argument' : conversion from 'type1' to 'type2', possible loss of data'
+    -wd4267 # Suppress ''var' : conversion from 'size_t' to 'type', possible loss of data'
+    -wd4275 # Suppress 'An exported class was derived from a class that was not exported.'
+    -wd4291 # Suppress ''declaration' : no matching operator delete found; memory will not be freed if initialization throws an exception'
+    -wd4345 # Suppress 'behavior change: an object of POD type constructed with an initializer of the form () will be default-initialized'
+    -wd4351 # Suppress 'new behavior: elements of array 'array' will be default initialized'
+    -wd4355 # Suppress ''this' : used in base member initializer list'
+    -wd4503 # Suppress ''identifier' : decorated name length exceeded, name was truncated'
+    -wd4551 # Suppress 'function call missing argument list'
+    -wd4624 # Suppress ''derived class' : destructor could not be generated because a base class destructor is inaccessible'
+    -wd4715 # Suppress ''function' : not all control paths return a value'
+    -wd4800 # Suppress ''type' : forcing value to bool 'true' or 'false' (performance warning)'
+    -wd4065 # Suppress 'switch statement contains 'default' but no 'case' labels'
+    -wd4181 # Suppress 'qualifier applied to reference type; ignored'
+    -w14062 # Promote "enumerator in switch of enum is not handled" to level 1 warning.
+    -wd4985 # Supress 'MSVS9 Math.h "ceil": attributes not present on previous declaration'
+  )
+endif (WIN32)
 
 # Supported configurations
 set(CMAKE_CONFIGURATION_TYPES
@@ -56,41 +103,6 @@ if (NOT WIN32)
 endif (NOT WIN32)
 
 if (WIN32)
-    # Add definitions that make MSVC much less annoying.
-    add_definitions(
-        # For some reason MS wants to deprecate a bunch of standard functions...
-        -D_CRT_SECURE_NO_DEPRECATE
-        -D_CRT_SECURE_NO_WARNINGS
-        -D_CRT_NONSTDC_NO_DEPRECATE
-        -D_CRT_NONSTDC_NO_WARNINGS
-        -D_SCL_SECURE_NO_DEPRECATE
-        -D_SCL_SECURE_NO_WARNINGS
-
-        -wd4141 # Suppress ''modifier' : used more than once' (because of __forceinline combined with inline)
-        -wd4065 # Suppress 'switch statement contains 'default' but no 'case' labels'
-        -wd4090 # Suppress 'function : different 'const' qualifiers'
-        -wd4146 # Suppress 'unary minus operator applied to unsigned type, result still unsigned'
-        -wd4180 # Suppress 'qualifier applied to function type has no meaning; ignored'
-        -wd4190 # Suppress 'function has C linkage is specified, but returns type which is incompatible with C'
-        -wd4224 # Suppress 'nonstandard extension used : formal parameter 'identifier' was previously defined as a type'
-        -wd4244 # Suppress ''argument' : conversion from 'type1' to 'type2', possible loss of data'
-        -wd4267 # Suppress ''var' : conversion from 'size_t' to 'type', possible loss of data'
-        -wd4275 # Suppress 'An exported class was derived from a class that was not exported.'
-        -wd4291 # Suppress ''declaration' : no matching operator delete found; memory will not be freed if initialization throws an exception'
-        -wd4345 # Suppress 'behavior change: an object of POD type constructed with an initializer of the form () will be default-initialized'
-        -wd4351 # Suppress 'new behavior: elements of array 'array' will be default initialized'
-        -wd4355 # Suppress ''this' : used in base member initializer list'
-        -wd4503 # Suppress ''identifier' : decorated name length exceeded, name was truncated'
-        -wd4551 # Suppress 'function call missing argument list'
-        -wd4624 # Suppress ''derived class' : destructor could not be generated because a base class destructor is inaccessible'
-        -wd4715 # Suppress ''function' : not all control paths return a value'
-        -wd4800 # Suppress ''type' : forcing value to bool 'true' or 'false' (performance warning)'
-        -wd4065 # Suppress 'switch statement contains 'default' but no 'case' labels'
-        -wd4181 # Suppress 'qualifier applied to reference type; ignored'
-        -w14062 # Promote "enumerator in switch of enum is not handled" to level 1 warning.
-        -wd4985 # Supress 'MSVS9 Math.h "ceil": attributes not present on previous declaration'
-    )
-
     #C flags
     set( CMAKE_C_FLAGS_DEBUG   "${CMAKE_C_FLAGS_DEBUG}   /MDd")
     set( CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /MD")
@@ -194,7 +206,6 @@ install_to(${OCL_BINARY_DIR}/version.txt DESTINATION ./)
 # reduces needless rebuilds
 execute_process(COMMAND ${CMAKE_COMMAND} -E copy_if_different ${OCL_BINARY_DIR}/buildversion.h.txt ${OCL_BINARY_DIR}/buildversion.h)
 
-add_definitions (-DCL_USE_DEPRECATED_OPENCL_1_1_APIS)
 
 if (WIN32 AND ((${CMAKE_CFG_INTDIR} STREQUAL $(OutDir)) OR (${CMAKE_CFG_INTDIR} STREQUAL $(Configuration))))
     set( INSTALL_SUBDIR ${CMAKE_CFG_INTDIR} )
@@ -272,16 +283,9 @@ set( UTILS_FOLDER_NAME          ${FRAMEWORK_FOLDER_NAME}/utils )
 set( FRONTEND_FOLDER_NAME       Frontend )
 set( EXTERNAL_FOLDER_NAME       External )
 
-if( (NOT WIN32) AND USE_HARD_TRAPPING )
-    add_definitions(-D__HARD_TRAPPING__)
-endif((NOT WIN32) AND USE_HARD_TRAPPING)
-
 if(BUILD_LLVM_FROM_SOURCE)
     add_subdirectory(${LLVM_SRC_ROOT} "${CMAKE_CURRENT_BINARY_DIR}/llvm")
 endif()
-
-# define INTEL_CUSTOMIZATION xmain macro
-add_definitions( -DINTEL_CUSTOMIZATION )
 
 # validation
 # TODO: add 'master' option to disable all kinds of validation
@@ -301,33 +305,23 @@ endif (OPENCL_RT_INCLUDE_TESTS)
 # the tests subdirectory has been added.
 include_directories( BEFORE ${OCL_GLOBAL_INCLUDE} )
 
-add_definitions(-D__TBB_NO_IMPLICIT_LINKAGE=1)
-
-# externals
-add_subdirectory( externals )
-
-add_subdirectory( cl_api )
-add_subdirectory( utils )
-
 # Compiler
-# Front-end compiler
 add_subdirectory( FrontendDriver )
-# Back-end compiler
 add_subdirectory( backend )
-
-#devices
-add_subdirectory( devices )
 
 # Framework
 add_subdirectory( framework )
+add_subdirectory( devices )
+add_subdirectory( cl_api )
+add_subdirectory( utils )
+add_subdirectory( externals )
 
-# Common Runtime
 if ( INCLUDE_CMRT )
-    add_subdirectory ( common_runtime )
+  add_subdirectory ( common_runtime )
 endif( INCLUDE_CMRT )
 
 #Linux samples
 option(INCLUDE_SMPLS "Include Linux Samples into Build"  OFF)
 if (INCLUDE_SMPLS AND NOT WIN32)
-    add_subdirectory( samples )
+  add_subdirectory( samples )
 endif(INCLUDE_SMPLS AND NOT WIN32)
