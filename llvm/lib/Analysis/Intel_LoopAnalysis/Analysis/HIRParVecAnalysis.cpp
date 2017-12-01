@@ -350,11 +350,11 @@ bool DDWalk::isSafeReductionFlowDep(const RegDDRef *SrcRef,
       auto FPInst = dyn_cast<FPMathOperator>(Inst->getLLVMInstruction());
 
       // Return unsafe to vectorize if we are dealing with a Floating
-      // point reduction, and UnsafeAlgebra flag is off. FPInst can
+      // point reduction, and fast flag is off. FPInst can
       // be NULL for a copy instruction.
-      if (FPRedn && (!FPInst || !FPInst->hasUnsafeAlgebra())) {
+      if (FPRedn && (!FPInst || !FPInst->isFast())) {
         DEBUG(dbgs() << "\tis unsafe to vectorize/parallelize "
-                        "(FP reduction with UnsafeAlgebra flag off)\n");
+                        "(FP reduction with fast flag off)\n");
         return false;
       }
 
