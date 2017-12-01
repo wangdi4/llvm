@@ -82,15 +82,49 @@ WRegionNode::WRegionNode(unsigned SCID) : SubClassID(SCID), Attributes(0) {
   setIsFromHIR(true);
 }
 
-/// \brief Wrap up the WRN creation now that we have the ExitBB. Perform other
+/// \brief Wrap up the WRN creation now that we have the ExitBB. Perform these
 /// tasks to finalize the WRN construction:
-/// 1. If the WRN is for a loop construct, find the associated Loop from the
-///    LoopInfo.
-/// 2. If the WRN is a taskloop, set its SchedCode for grainsize/numtasks.
-/// 3. Some clause operands appear in multiple clauses (eg firstprivate and
-//     lastprivate). Mark the "IsIn..." flags for these clauses accordingly.
+/// 1. Update the WRN's ExitBB
+/// 2. Some clause operands appear in multiple clauses (eg firstprivate and
+//     lastprivate). Mark the affected ClauseItems accordingly.
+/// 3. If the WRN is for a loop construct:
+///    3a. Find the associated Loop from the LoopInfo.
+///    3b. If the WRN is a taskloop, set its SchedCode for grainsize/numtasks.
 void WRegionNode::finalize(BasicBlock *ExitBB) {
   setExitBBlock(ExitBB);
+
+  // Firstprivate and lastprivate clauses may have the same item X
+  // Firstprivate and map clauses may have the same item Y
+  // Update the IsInFirstprivate/Lastprivate/Map flags of the clauses
+  bool hasLastprivate = (canHaveLastprivate() && !getLpriv().empty());
+  bool hasMap = (canHaveMap() && !getMap().empty());
+  if ((hasLastprivate || hasMap) && canHaveFirstprivate()) {
+    for (FirstprivateItem *FprivI : getFpriv().items()) {
+      Value *Orig = FprivI->getOrig();
+      if (hasLastprivate) {
+        LastprivateItem *LprivI =
+                              WRegionUtils::wrnSeenAsLastPrivate(this, Orig);
+        if (LprivI != nullptr) {
+           // Orig appears in both firstprivate and lastprivate clauses
+           FprivI->setInLastprivate(LprivI);
+           LprivI->setInFirstprivate(FprivI);
+           DEBUG(dbgs() << "Found (" << *Orig
+                        << ") in both Firstprivate and Lastprivate\n");
+        }
+      }
+      if (hasMap) {
+        MapItem *MapI = WRegionUtils::wrnSeenAsMap(this, Orig);
+        if (MapI != nullptr) {
+           // Orig appears in both firstprivate and map clauses
+           FprivI->setInMap(MapI);
+           MapI->setInFirstprivate(FprivI);
+           DEBUG(dbgs() << "Found (" << *Orig
+                        << ") in both Firstprivate and Map\n");
+        }
+      }
+    }
+  }
+
   if (getIsOmpLoop()) {
     LoopInfo *LI = getWRNLoopInfo().getLoopInfo();
     assert(LI && "LoopInfo not present in a loop construct");
@@ -119,38 +153,6 @@ void WRegionNode::finalize(BasicBlock *ExitBB) {
         setSchedCode(2);
       else
         setSchedCode(0);
-    }
-
-    // Firstprivate and lastprivate clauses may have the same item X
-    // Firstprivate and map clauses may have the same item Y
-    // Update the IsInFirstprivate/Lastprivate/Map flags of the clauses
-    bool hasLastprivate = (canHaveLastprivate() && !getLpriv().empty());
-    bool hasMap = (canHaveMap() && !getMap().empty());
-    if ((hasLastprivate || hasMap) && canHaveFirstprivate()) {
-      for (FirstprivateItem *FprivI : getFpriv().items()) {
-        Value *Orig = FprivI->getOrig();
-        if (hasLastprivate) {
-          LastprivateItem *LprivI =
-                                WRegionUtils::wrnSeenAsLastPrivate(this, Orig);
-          if (LprivI != nullptr) {
-             // Orig appears in both firstprivate and lastprivate clauses
-             FprivI->setInLastprivate(LprivI);
-             LprivI->setInFirstprivate(FprivI);
-             DEBUG(dbgs() << "Found (" << *Orig 
-                          << ") in both Firstprivate and Lastprivate\n");
-          }
-        }
-        if (hasMap) {
-          MapItem *MapI = WRegionUtils::wrnSeenAsMap(this, Orig);
-          if (MapI != nullptr) {
-             // Orig appears in both firstprivate and map clauses
-             FprivI->setInMap(MapI);
-             MapI->setInFirstprivate(FprivI);
-             DEBUG(dbgs() << "Found (" << *Orig 
-                          << ") in both Firstprivate and Map\n");
-          }
-        }
-      }
     }
 
 #if VPO_FOR_OPENCL
@@ -188,7 +190,7 @@ void WRegionNode::finalize(BasicBlock *ExitBB) {
       resetBBSet();
     }
 #endif //VPO_FOR_OPENCL
-  }
+  } // if (getIsOmpLoop())
 }
 
 /// \brief Populates BBlockSet with BBs in the WRN from EntryBB to ExitBB.
