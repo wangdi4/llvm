@@ -75,7 +75,7 @@ namespace intel {
           continue;
         }
 
-        if (pFunc->getName() == "__global_pipes_ctor")
+        if (CompilationUtils::isGlobalConstructor(pFunc))
           continue;
 
         clearPerFunctionCache();

@@ -45,10 +45,10 @@ target triple = "spir64-unknown-unknown-intelfpga"
 @star = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4
 @bar_arr = common addrspace(1) global [5 x %opencl.channel_t addrspace(1)*] zeroinitializer, align 4
 
-; CHECK:      @[[PIPE_BAR:.*]] = common addrspace(1) global %opencl.pipe_t{{.*}} addrspace(1)*
-; CHECK-NEXT: @[[PIPE_FAR:.*]] = common addrspace(1) global %opencl.pipe_t{{.*}} addrspace(1)*
-; CHECK-NEXT: @[[PIPE_STAR:.*]] = common addrspace(1) global %opencl.pipe_t{{.*}} addrspace(1)*
-; CHECK-NEXT: @[[PIPE_BAR_ARR:.*]] = common addrspace(1) global [5 x %opencl.pipe_t{{.*}} addrspace(1)*] zeroinitializer, align 4
+; CHECK: @[[PIPE_BAR:.*]] = addrspace(1) global %opencl.pipe_t{{.*}} addrspace(1)*
+; CHECK: @[[PIPE_FAR:.*]] = addrspace(1) global %opencl.pipe_t{{.*}} addrspace(1)*
+; CHECK: @[[PIPE_STAR:.*]] = addrspace(1) global %opencl.pipe_t{{.*}} addrspace(1)*
+; CHECK: @[[PIPE_BAR_ARR:.*]] = addrspace(1) global [5 x %opencl.pipe_t{{.*}} addrspace(1)*]
 
 ; All calls to read/write_channel_nb_intel should be replaced by
 ; corresponding calls to pipe built-ins: check is done using --implicit-check-not

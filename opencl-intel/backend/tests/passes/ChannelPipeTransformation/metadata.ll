@@ -35,19 +35,19 @@ target triple = "spir64-unknown-unknown-intelfpga"
 @lch_arr = common addrspace(1) global [5 x [4 x %opencl.channel_t addrspace(1)*]] zeroinitializer, align 8
 @sch_arr = common addrspace(1) global [5 x [4 x [3 x %opencl.channel_t addrspace(1)*]]] zeroinitializer, align 16
 
-; CHECK-DAG: @pipe.ich.bs = {{.*}} global [{{[0-9]+}} x i8] {{.*}} align 4
-; CHECK-DAG: @pipe.lch.bs = {{.*}} global [{{[0-9]+}} x i8] {{.*}} align 8
-; CHECK-DAG: @pipe.sch.bs = {{.*}} global [{{[0-9]+}} x i8] {{.*}} align 16
-; CHECK-DAG: @pipe.sch_arr.bs = {{.*}} global [{{[0-9]+}} x i8] {{.*}} align 16
-; CHECK-DAG: @pipe.ich_arr.bs = {{.*}} global [{{[0-9]+}} x i8] {{.*}} align 4
-; CHECK-DAG: @pipe.lch_arr.bs = {{.*}} global [{{[0-9]+}} x i8] {{.*}} align 8
+; CHECK-DAG: @ich.pipe.bs = {{.*}} global [{{[0-9]+}} x i8] {{.*}} align 4
+; CHECK-DAG: @lch.pipe.bs = {{.*}} global [{{[0-9]+}} x i8] {{.*}} align 8
+; CHECK-DAG: @sch.pipe.bs = {{.*}} global [{{[0-9]+}} x i8] {{.*}} align 16
+; CHECK-DAG: @sch_arr.pipe.bs = {{.*}} global [{{[0-9]+}} x i8] {{.*}} align 16
+; CHECK-DAG: @ich_arr.pipe.bs = {{.*}} global [{{[0-9]+}} x i8] {{.*}} align 4
+; CHECK-DAG: @lch_arr.pipe.bs = {{.*}} global [{{[0-9]+}} x i8] {{.*}} align 8
 
-; CHECK-DAG: call {{.*}} @__pipe_init{{.*}} @pipe.ich.bs{{.*}} i32 4, i32 1)
-; CHECK-DAG: call {{.*}} @__pipe_init{{.*}} @pipe.lch.bs{{.*}} i32 8, i32 3)
-; CHECK-DAG: call {{.*}} @__pipe_init{{.*}} @pipe.sch.bs{{.*}} i32 16, i32 1)
-; CHECK-DAG: call {{.*}} @__pipe_init_array{{.*}}({{.*}} @pipe.ich_arr{{.*}} i32 5, i32 4, i32 1)
-; CHECK-DAG: call {{.*}} @__pipe_init_array{{.*}}({{.*}} @pipe.sch_arr{{.*}} i32 60, i32 16, i32 1)
-; CHECK-DAG: call {{.*}} @__pipe_init_array{{.*}}({{.*}} @pipe.lch_arr{{.*}} i32 20, i32 8, i32 3)
+; CHECK-DAG: call {{.*}} @__pipe_init{{.*}} @ich.pipe.bs {{.*}} i32 4, i32 1)
+; CHECK-DAG: call {{.*}} @__pipe_init{{.*}} @lch.pipe.bs {{.*}} i32 8, i32 3)
+; CHECK-DAG: call {{.*}} @__pipe_init{{.*}} @sch.pipe.bs {{.*}} i32 16, i32 1)
+; CHECK-DAG: call {{.*}} @__pipe_init_array{{.*}}({{.*}} @ich_arr.pipe {{.*}} i32 5, i32 4, i32 1)
+; CHECK-DAG: call {{.*}} @__pipe_init_array{{.*}}({{.*}} @sch_arr.pipe {{.*}} i32 60, i32 16, i32 1)
+; CHECK-DAG: call {{.*}} @__pipe_init_array{{.*}}({{.*}} @lch_arr.pipe {{.*}} i32 20, i32 8, i32 3)
 
 ; Function Attrs: nounwind
 define spir_kernel void @foo() #0 !kernel_arg_addr_space !16 !kernel_arg_access_qual !16 !kernel_arg_type !16 !kernel_arg_base_type !16 !kernel_arg_type_qual !16 {

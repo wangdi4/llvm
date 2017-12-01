@@ -53,55 +53,53 @@ target triple = "spir64-unknown-unknown-intelfpga"
 @bar_arr = common addrspace(1) global [5 x %opencl.channel_t addrspace(1)*] zeroinitializer, align 4
 @far_arr = common addrspace(1) global [5 x [4 x %opencl.channel_t addrspace(1)*]] zeroinitializer, align 4
 
-; CHECK:      @[[PIPE_BAR:.*]] = common addrspace(1) global %opencl.pipe_t{{.*}} addrspace(1)*
-; CHECK-NEXT: @[[PIPE_FAR:.*]] = common addrspace(1) global %opencl.pipe_t{{.*}} addrspace(1)*
-; CHECK-NEXT: @[[PIPE_STAR:.*]] = common addrspace(1) global %opencl.pipe_t{{.*}} addrspace(1)*
-; CHECK-NEXT: @[[PIPE_BAR_ARR:.*]] = common addrspace(1) global [5 x %opencl.pipe_t{{.*}} addrspace(1)*] zeroinitializer, align 4
-; CHECK-NEXT: @[[PIPE_FAR_ARR:.*]] = common addrspace(1) global [5 x [4 x %opencl.pipe_t{{.*}} addrspace(1)*]] zeroinitializer, align 4
+; CHECK: @[[PIPE_BAR:.*]] = addrspace(1) global %opencl.pipe_t{{.*}} addrspace(1)*
+; CHECK: @[[PIPE_FAR:.*]] = addrspace(1) global %opencl.pipe_t{{.*}} addrspace(1)*
+; CHECK: @[[PIPE_STAR:.*]] = addrspace(1) global %opencl.pipe_t{{.*}} addrspace(1)*
+; CHECK: @[[PIPE_BAR_ARR:.*]] = addrspace(1) global [5 x %opencl.pipe_t{{.*}} addrspace(1)*]
+; CHECK: @[[PIPE_FAR_ARR:.*]] = addrspace(1) global [5 x [4 x %opencl.pipe_t{{.*}} addrspace(1)*]]
 
 ; All calls to read/write_channel_nb_intel should be replaced by
 ; corresponding calls to pipe built-ins: check is done using --implicit-check-not
 ;
-; First check was added due to -O0 option passed to clang
-; CHECK: %[[TEMP_VALID:.*]] = addrspacecast {{.*}} %valid
-; CHECK: %[[VALID:.*]] = addrspacecast {{.*}} %valid
-;
 ; CHECK: %[[LOAD_BAR_PIPE:.*]] = load {{.*}} @[[PIPE_BAR]]
+; CHECK: %[[VALID:.*]] = addrspacecast {{.*}} %valid
 ; CHECK: %[[CAST_BAR_PIPE:.*]] = bitcast %opencl.pipe_t{{.*}} %[[LOAD_BAR_PIPE]]
 ; CHECK: %[[CALL_BAR_PIPE:.*]] = call i32 @__read_pipe_2{{.*}} %[[CAST_BAR_PIPE]]
 ; CHECK: %[[BOOL_CALL_BAR_PIPE:.*]] = icmp eq {{.*}} %[[CALL_BAR_PIPE]], 0
 ; CHECK: %[[ZEXT_BOOL_CALL_BAR_PIPE:.*]] = zext {{.*}} %[[BOOL_CALL_BAR_PIPE]]
 ; CHECK: store {{.*}} %[[ZEXT_BOOL_CALL_BAR_PIPE]], {{.*}}* %[[VALID]]
 ;
-; CHECK: %[[LOAD_P_TO_VALID:.*]] = load {{.*}} %p_to_valid
+
 ; CHECK: %[[LOAD_FAR_PIPE:.*]] = load {{.*}} @[[PIPE_FAR]]
+; CHECK: %[[LOAD_P_TO_VALID:.*]] = load {{.*}} %p_to_valid
 ; CHECK: %[[CAST_FAR_PIPE:.*]] = bitcast %opencl.pipe_t{{.*}} %[[LOAD_FAR_PIPE]]
 ; CHECK: %[[CALL_FAR_PIPE:.*]] = call i32 @__read_pipe_2{{.*}} %[[CAST_FAR_PIPE]]
 ; CHECK: %[[BOOL_CALL_FAR_PIPE:.*]] = icmp eq {{.*}} %[[CALL_FAR_PIPE]], 0
 ; CHECK: %[[ZEXT_BOOL_CALL_FAR_PIPE:.*]] = zext {{.*}} %[[BOOL_CALL_FAR_PIPE]]
 ; CHECK: store {{.*}} %[[ZEXT_BOOL_CALL_FAR_PIPE]], {{.*}}* %[[LOAD_P_TO_VALID]]
 ;
+; CHECK: %[[LOAD_STAR_PIPE:.*]] = load {{.*}} @[[PIPE_STAR]]
 ; CHECK: %[[LOAD_P_TO_G_VALID:.*]] = load {{.*}} %p_to_g_valid
 ; CHECK: %[[P_TO_G_VALID:.*]] = addrspacecast {{.*}} %[[LOAD_P_TO_G_VALID]]
-; CHECK: %[[LOAD_STAR_PIPE:.*]] = load {{.*}} @[[PIPE_STAR]]
 ; CHECK: %[[CAST_STAR_PIPE:.*]] = bitcast %opencl.pipe_t{{.*}} %[[LOAD_STAR_PIPE]]
 ; CHECK: %[[CALL_STAR_PIPE:.*]] = call i32 @__read_pipe_2{{.*}} %[[CAST_STAR_PIPE]]
 ; CHECK: %[[BOOL_CALL_STAR_PIPE:.*]] = icmp eq {{.*}} %[[CALL_STAR_PIPE]], 0
 ; CHECK: %[[ZEXT_BOOL_CALL_STAR_PIPE:.*]] = zext {{.*}} %[[BOOL_CALL_STAR_PIPE]]
 ; CHECK: store {{.*}} %[[ZEXT_BOOL_CALL_STAR_PIPE]], {{.*}}* %[[P_TO_G_VALID]]
 ;
+; CHECK: %[[LOAD_BAR_ARR_PIPE:.*]] = load {{.*}} @[[PIPE_BAR_ARR]]
 ; CHECK: %[[LOAD_P_TO_L_VALID:.*]] = load {{.*}} %p_to_l_valid
 ; CHECK: %[[P_TO_L_VALID:.*]] = addrspacecast {{.*}} %[[LOAD_P_TO_L_VALID]]
-; CHECK: %[[LOAD_BAR_ARR_PIPE:.*]] = load {{.*}} @[[PIPE_BAR_ARR]]
 ; CHECK: %[[CAST_BAR_ARR_PIPE:.*]] = bitcast %opencl.pipe_t{{.*}} %[[LOAD_BAR_ARR_PIPE]]
 ; CHECK: %[[CALL_BAR_ARR_PIPE:.*]] = call i32 @__read_pipe_2{{.*}} %[[CAST_BAR_ARR_PIPE]]
 ; CHECK: %[[BOOL_CALL_BAR_ARR_PIPE:.*]] = icmp eq {{.*}} %[[CALL_BAR_ARR_PIPE]], 0
 ; CHECK: %[[ZEXT_BOOL_CALL_BAR_ARR_PIPE:.*]] = zext {{.*}} %[[BOOL_CALL_BAR_ARR_PIPE]]
 ; CHECK: store {{.*}} %[[ZEXT_BOOL_CALL_BAR_ARR_PIPE]], {{.*}}* %[[P_TO_L_VALID]]
 ;
+; CHECK: %[[LOAD_FAR_ARR_PIPE:.*]] = load {{.*}} @[[PIPE_FAR_ARR]]
 ; CHECK: %[[LOAD_P_TO_P_VALID:.*]] = load {{.*}} %p_to_p_valid
 ; CHECK: %[[P_TO_P_VALID:.*]] = addrspacecast {{.*}} %[[LOAD_P_TO_P_VALID]]
-; CHECK: %[[LOAD_FAR_ARR_PIPE:.*]] = load {{.*}} @[[PIPE_FAR_ARR]]
 ; CHECK: %[[CAST_FAR_ARR_PIPE:.*]] = bitcast %opencl.pipe_t{{.*}} %[[LOAD_FAR_ARR_PIPE]]
 ; CHECK: %[[CALL_FAR_ARR_PIPE:.*]] = call i32 @__read_pipe_2{{.*}} %[[CAST_FAR_ARR_PIPE]]
 ; CHECK: %[[BOOL_CALL_FAR_ARR_PIPE:.*]] = icmp eq {{.*}} %[[CALL_FAR_ARR_PIPE]], 0

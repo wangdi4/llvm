@@ -34,28 +34,19 @@ target triple = "spir64-unknown-unknown-intelfpga"
 @far_arr = common addrspace(1) global [5 x [4 x %opencl.channel_t addrspace(1)*]] zeroinitializer, align 4
 @star_arr = common addrspace(1) global [5 x [4 x [3 x %opencl.channel_t addrspace(1)*]]] zeroinitializer, align 4
 
-; CHECK:      @[[PIPE_BAR:.*]] = common addrspace(1) global %opencl.pipe_t{{.*}} addrspace(1)*
-; CHECK-NEXT: @[[PIPE_FAR:.*]] = common addrspace(1) global %opencl.pipe_t{{.*}} addrspace(1)*
-; CHECK-NEXT: @[[PIPE_STAR:.*]] = common addrspace(1) global %opencl.pipe_t{{.*}} addrspace(1)*
-; CHECK-NEXT: @[[PIPE_BAR_ARR:.*]] = common addrspace(1) global [5 x %opencl.pipe_t{{.*}} addrspace(1)*] zeroinitializer, align 4
-; CHECK-NEXT: @[[PIPE_FAR_ARR:.*]] = common addrspace(1) global [5 x [4 x %opencl.pipe_t{{.*}} addrspace(1)*]] zeroinitializer, align 4
-; CHECK-NEXT: @[[PIPE_STAR_ARR:.*]] = common addrspace(1) global [5 x [4 x [3 x %opencl.pipe_t{{.*}} addrspace(1)*]]] zeroinitializer, align 4
-;
-
-; CHECK-DAG: @[[PIPE_BAR]].bs = common addrspace(1) global [{{[0-9]+}} x i8] zeroinitializer, align 4
-; CHECK-DAG: @[[PIPE_FAR]].bs = common addrspace(1) global [{{[0-9]+}} x i8] zeroinitializer, align 4
-; CHECK-DAG: @[[PIPE_STAR]].bs = common addrspace(1) global [{{[0-9]+}} x i8] zeroinitializer, align 4
-; CHECK-DAG: @[[PIPE_BAR_ARR]].bs = common addrspace(1) global [{{[0-9]+}} x i8] zeroinitializer, align 4
-; CHECK-DAG: @[[PIPE_FAR_ARR]].bs = common addrspace(1) global [{{[0-9]+}} x i8] zeroinitializer, align 4
-; CHECK-DAG: @[[PIPE_STAR_ARR]].bs = common addrspace(1) global [{{[0-9]+}} x i8] zeroinitializer, align 4
-
-; CHECK: @llvm.global_ctors = {{.*}} @__global_pipes_ctor
-;
-; CHECK: declare void @__pipe_init_intel(%struct.__pipe_t addrspace(1)*, i32, i32)
-;
-; CHECK: declare void @__pipe_init_array_intel(%struct.__pipe_t addrspace(1)* addrspace(1)*, i32, i32, i32)
-;
-; CHECK: define void @__global_pipes_ctor()
+; CHECK:      @llvm.global_ctors = {{.*}} @__pipe_global_ctor
+; CHECK:      @[[PIPE_BAR:.*]] = addrspace(1) global %opencl.pipe_t{{.*}} addrspace(1)* null, align 8
+; CHECK-NEXT: @[[PIPE_BAR]].bs = addrspace(1) global [{{[0-9]+}} x i8] zeroinitializer, align 4
+; CHECK-NEXT: @[[PIPE_FAR:.*]] = addrspace(1) global %opencl.pipe_t{{.*}} addrspace(1)* null, align 8
+; CHECK-NEXT: @[[PIPE_FAR]].bs = addrspace(1) global [{{[0-9]+}} x i8] zeroinitializer, align 4
+; CHECK-NEXT: @[[PIPE_STAR:.*]] = addrspace(1) global %opencl.pipe_t{{.*}} addrspace(1)* null, align 8
+; CHECK-NEXT: @[[PIPE_STAR]].bs = addrspace(1) global [{{[0-9]+}} x i8] zeroinitializer, align 4
+; CHECK-NEXT: @[[PIPE_BAR_ARR:.*]] = addrspace(1) global [5 x %opencl.pipe_t{{.*}} addrspace(1)*] zeroinitializer, align 16
+; CHECK-NEXT: @[[PIPE_BAR_ARR]].bs = addrspace(1) global [{{[0-9]+}} x i8] zeroinitializer, align 4
+; CHECK-NEXT: @[[PIPE_FAR_ARR:.*]] = addrspace(1) global [5 x [4 x %opencl.pipe_t{{.*}} addrspace(1)*]] zeroinitializer, align 16
+; CHECK-NEXT: @[[PIPE_FAR_ARR]].bs = addrspace(1) global [{{[0-9]+}} x i8] zeroinitializer, align 4
+; CHECK-NEXT: @[[PIPE_STAR_ARR:.*]] = addrspace(1) global [5 x [4 x [3 x %opencl.pipe_t{{.*}} addrspace(1)*]]] zeroinitializer, align 16
+; CHECK-NEXT: @[[PIPE_STAR_ARR]].bs = addrspace(1) global [{{[0-9]+}} x i8] zeroinitializer, align 4
 ;
 ; CHECK-DAG: call void @__pipe_init_intel({{.*}}* @[[PIPE_STAR]].bs {{.*}}, i32 4, i32 1)
 ; CHECK-DAG: store {{.*}}* @[[PIPE_STAR]].bs {{.*}}, {{.*}}* @[[PIPE_STAR]]

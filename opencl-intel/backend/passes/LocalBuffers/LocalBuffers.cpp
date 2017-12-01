@@ -21,6 +21,8 @@ extern "C"
   }
 }
 
+using namespace Intel::OpenCL::DeviceBackend;
+
 namespace intel{
 
   char LocalBuffers::ID = 0;
@@ -38,8 +40,8 @@ namespace intel{
     m_pLLVMContext = &M.getContext();
 
     // Get all kernels
-    Intel::OpenCL::DeviceBackend::CompilationUtils::FunctionSet kernelsFunctionSet;
-    Intel::OpenCL::DeviceBackend::CompilationUtils::getAllKernels(kernelsFunctionSet, &M);
+    CompilationUtils::FunctionSet kernelsFunctionSet;
+    CompilationUtils::getAllKernels(kernelsFunctionSet, &M);
 
     m_localBuffersAnalysis = &getAnalysis<LocalBuffAnalysis>();
 
@@ -52,7 +54,7 @@ namespace intel{
       }
 
       // pipes ctor is not a kernel
-      if (pFunc->getName() == "__global_pipes_ctor")
+      if (CompilationUtils::isGlobalConstructor(pFunc))
         continue;
 
       runOnFunction(pFunc);
@@ -349,7 +351,7 @@ namespace intel{
     // Getting the implicit arguments
     Argument *pLocalMem = 0;
 
-    Intel::OpenCL::DeviceBackend::CompilationUtils::getImplicitArgs(
+    CompilationUtils::getImplicitArgs(
         pFunc, &pLocalMem, nullptr, nullptr, nullptr, nullptr, nullptr);
 
     // Apple LLVM-IR workaround

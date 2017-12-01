@@ -11,10 +11,12 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "cl_kernel_arg_type.h"
 #include "exceptions.h"
 
-#include "llvm/IR/Constants.h"
+#include "llvm/ADT/SetVector.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/BasicBlock.h"
-#include "llvm/ADT/SetVector.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/Module.h"
 
 #include <string>
 #include <vector>
@@ -84,6 +86,26 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     operator bool () {
       return Op != OpKind::NONE;
+    }
+  };
+
+  struct ChannelKind {
+    enum AccessKind {
+      NONE, // not a channel
+      READ,
+      WRITE
+    };
+
+    AccessKind Access;
+    bool Blocking;
+
+    bool operator == (const ChannelKind &LHS) {
+      return Access   == LHS.Access   &&
+             Blocking == LHS.Blocking;
+    }
+
+    operator bool () {
+      return Access != AccessKind::NONE;
     }
   };
 
@@ -237,6 +259,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static bool isWritePipeBuiltin(const std::string&);
     static PipeKind getPipeKind(const std::string&);
     static std::string getPipeName(PipeKind);
+    static ChannelKind getChannelKind(const std::string&);
 
     static const std::string NAME_GET_GID;
     static const std::string NAME_GET_LID;
@@ -504,12 +527,45 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static Type* getArrayElementType(const ArrayType *ArrTy);
 
     static ArrayType * createMultiDimArray(
-        Type *Ty, const SmallVectorImpl<size_t> &Dimensions);
+        Type *Ty, const ArrayRef<size_t> &Dimensions);
 
     /// @brief Returns vector of numbers of elements in each dimension of the
     ///        ArrayType
     static void getArrayTypeDimensions(const ArrayType *ArrTy,
                                        SmallVectorImpl<size_t> &Dimensions);
+
+    /// @brief Returns true if the function is global constructor (listed in
+    //         @llvm.global_ctors variable)
+    //
+    //         NOTE: current implementation is *the only* workaround for global
+    //         constructor for pipes. See TODO inside the implementation
+    static bool isGlobalConstructor(Function *F);
+  };
+
+  class OCLBuiltins {
+  private:
+    Module &TargetModule;
+    SmallVector<Module *, 2> RTLs;
+
+  public:
+    OCLBuiltins(Module &TargetModule, const SmallVectorImpl<Module *> &RTLs)
+        : TargetModule(TargetModule), RTLs(RTLs.begin(), RTLs.end()) {}
+
+    Function *get(StringRef Name) {
+      if (auto F = TargetModule.getFunction(Name))
+        return F;
+
+      for (auto *BIModule : RTLs) {
+        if (auto *F = BIModule->getFunction(Name)) {
+          return cast<Function>(
+              CompilationUtils::importFunctionDecl(&TargetModule, F));
+        }
+      }
+
+      llvm_unreachable("Built-in not found.");
+    }
+
+    Module &getTargetModule() { return TargetModule; }
   };
 
   //

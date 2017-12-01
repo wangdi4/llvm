@@ -59,29 +59,6 @@ PipeSupport::PipeSupport() : ModulePass(ID) {}
 
 namespace {
 
-class OCLBuiltins {
-private:
-  Module &TargetModule;
-  SmallVector<Module *, 2> RTLs;
-
-public:
-  OCLBuiltins(Module &TargetModule, intel::BuiltinLibInfo &BLI) :
-      TargetModule(TargetModule), RTLs(BLI.getBuiltinModules()) {}
-
-  Function *get(StringRef Name) {
-    if (auto F = TargetModule.getFunction(Name))
-      return F;
-
-    for (auto *BIModule : RTLs) {
-      if (auto *F = BIModule->getFunction(Name))
-        return cast<Function>(
-          CompilationUtils::importFunctionDecl(&TargetModule, F));
-    }
-
-    llvm_unreachable("Built-in not found.");
-  }
-};
-
 struct PipeArrayView {
   Value *Ptr;
   Value *Size;
@@ -358,7 +335,7 @@ bool PipeSupport::runOnModule(Module &M) {
     PointerType::get(PipeImplTy, Utils::OCLAddressSpace::Global);
 
   BuiltinLibInfo &BLI = getAnalysis<BuiltinLibInfo>();
-  OCLBuiltins Builtins(M, BLI);
+  OCLBuiltins Builtins(M, BLI.getBuiltinModules());
 
   for (auto &F : M) {
     if (F.isDeclaration())

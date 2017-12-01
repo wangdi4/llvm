@@ -1264,6 +1264,24 @@ bool CompilationUtils::isPipeBuiltin(const std::string &Name) {
   return getPipeKind(Name);
 }
 
+ChannelKind CompilationUtils::getChannelKind(const std::string &Name) {
+  ChannelKind Kind;
+
+  std::tie(Kind.Access, Kind.Blocking)
+    = StringSwitch<std::pair<ChannelKind::AccessKind, bool>>(Name)
+    .StartsWith("_Z19read_channel_altera", {ChannelKind::READ, true})
+    .StartsWith("_Z18read_channel_intel",  {ChannelKind::READ, true})
+    .StartsWith("_Z22read_channel_nb_altera", {ChannelKind::READ, false})
+    .StartsWith("_Z21read_channel_nb_intel",  {ChannelKind::READ, false})
+    .StartsWith("_Z20write_channel_altera", {ChannelKind::WRITE, true})
+    .StartsWith("_Z19write_channel_intel",  {ChannelKind::WRITE, true})
+    .StartsWith("_Z23write_channel_nb_altera", {ChannelKind::WRITE, false})
+    .StartsWith("_Z22write_channel_nb_intel",  {ChannelKind::WRITE, false})
+    .Default({ChannelKind::NONE, false});
+
+  return Kind;
+}
+
 Constant *CompilationUtils::importFunctionDecl(Module *Dst,
                                                const Function *Orig) {
   assert(Dst && "Invalid module");
@@ -1393,7 +1411,7 @@ Type * CompilationUtils::getArrayElementType(const ArrayType *ArrTy) {
 }
 
 ArrayType * CompilationUtils::createMultiDimArray(
-    Type *Ty, const SmallVectorImpl<size_t> &Dimensions) {
+    Type *Ty, const ArrayRef<size_t> &Dimensions) {
   ArrayType *MDArrayTy = nullptr;
   for (int i = Dimensions.size() - 1; i >= 0; --i) {
     if (!MDArrayTy) {
@@ -1412,6 +1430,11 @@ void CompilationUtils::getArrayTypeDimensions(
   do {
     Dimensions.push_back(InnerArrTy->getNumElements());
   } while ((InnerArrTy = dyn_cast<ArrayType>(InnerArrTy->getElementType())));
+}
+
+bool CompilationUtils::isGlobalConstructor(Function *F) {
+  // TODO: implement good solution based on value of @llvm.global_ctors variable
+  return F->getName() == "__pipe_global_ctor";
 }
 
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
