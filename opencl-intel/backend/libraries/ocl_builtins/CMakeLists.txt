@@ -77,14 +77,10 @@ if (NOT EXISTS ${CLANG_HEADERS})
   message (FATAL_ERROR "Cannot find Clang headers (${CLANG_HEADERS})!")
 endif()
 
-if (DEFINED OCL_GLOBAL_INCLUDE)
-  set (IMPORT_DIR ${OCL_GLOBAL_INCLUDE})
-else ()
-  set (IMPORT_DIR ${BACKEND_ROOT_DIR}/../cl_api )
+if (NOT DEFINED OCL_GLOBAL_INCLUDE)
+  message (FATAL_ERROR "CL API directory path is not set!")
 endif ()
-if (NOT EXISTS ${IMPORT_DIR})
-  message (FATAL_ERROR "Cannot find OCL headers (${IMPORT_DIR})!")
-endif()
+set (IMPORT_DIR ${OCL_GLOBAL_INCLUDE})
 
 # svml directories
 set (SVML_DLL_DIR ${CL_BUILTIN_SOURCE_DIR}/bin/svml/${PLATFORM})
