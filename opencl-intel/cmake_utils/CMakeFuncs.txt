@@ -410,9 +410,9 @@ function (add_ocl_unittest test_name)
   endif (NOT ARG_LINK_LIBRARIES STREQUAL "")
 
   if (WIN32)
-    # Explicitly define OUTPUT_DIRECTORY_${Configuration} for
-    # generators supports more than one configuration types to avoid
-    # output to ${OUTPUT_DIRECTORY}/${Configuration} subdirs
+    # Explicitly define OUTPUT_DIRECTORY_${Configuration} for generators
+    # supporting more than one configuration type to avoid output to
+    # ${OUTPUT_DIRECTORY}/${Configuration} subdirs
     get_filename_component(FNAME ${CMAKE_CURRENT_SOURCE_DIR} NAME)
     set_target_properties(${test_name} PROPERTIES
       RUNTIME_OUTPUT_DIRECTORY_DEBUG ${OCL_BINARY_DIR}/tests/${FNAME}
