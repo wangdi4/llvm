@@ -37,10 +37,13 @@ namespace {
     int next_token;
     Value *steptimesk; 
     Value *StepPE0;
+    Value *NewInitV;
+    Value *Cond;
     bool FixReductionsIfAny(Loop *L, Loop *OrigL, BasicBlock *E, BasicBlock *AfterLoop, int PE, int NPEs, std::vector<PHINode *> *Reductions, std::vector<Value *> *ReduceVarExitOrig, std::vector<Instruction *> *ReduceVarOrig, std::vector<Instruction *> *OldInst);
     bool FindReductionVariables(Loop *L, std::vector<PHINode *> *Reductions, std::vector<Value *> *ReduceVarExitOrig, std::vector<Instruction *> *ReduceVarOrig);
     PHINode *getInductionVariable(Loop *L, ScalarEvolution *SE);
     bool TransformLoopInitandStep(Loop *L, ScalarEvolution *SE, int PE, int NPEs);
+    bool ZeroTripCountCheck(Loop *L, ScalarEvolution *SE, int PE, int NPEs, BasicBlock *AfterLoop, std::vector<PHINode *> *Reductions, std::vector<Value *> *ReduceVarExitOrig, std::vector<Instruction *> *ReduceVarOrig, DominatorTree *DT, LoopInfo *LI); 
     bool AddParallelIntrinsicstoLoop(Loop *L, LLVMContext& context, Module *M, BasicBlock *OrigPH, BasicBlock *E);
     IntrinsicInst* detectSPMDIntrinsic(Loop *L, LoopInfo *LI);
     IntrinsicInst* detectSPMDExitIntrinsic(Loop *L, LoopInfo *LI);
@@ -64,8 +67,23 @@ namespace {
         int NPEs = (dyn_cast<ConstantInt>(NPEs_val))->getZExtValue();
         IntrinsicInst* found_spmd_exit = detectSPMDExitIntrinsic(L, LI);
         if(found_spmd_exit) {
-          found_spmd_exit->eraseFromParent();
+          for (auto UA = (dyn_cast<Value>(found_spmd))->user_begin(), EA = (dyn_cast<Value>(found_spmd))->user_end(); UA != EA;) {
+            Instruction *spmd_use = cast<Instruction>(*UA++);
+            spmd_use->eraseFromParent();
+          }
           found_spmd->eraseFromParent();
+        }
+        if(!L->getExitBlock()) {
+          errs() << "\n";
+          errs().changeColor(raw_ostream::BLUE, true);
+          errs() << "!! WARNING: COULD NOT PERFORM SPMDization !!\n";
+          errs().resetColor();
+          errs() << R"help(The SPMDization loop body has unstructured code.
+
+Branches to or from an OpenMP structured block are illegal
+
+)help";
+            return false;
         }
         
         //Fix me: We assume a maximum of 16 reductions in the loop
@@ -81,8 +99,8 @@ namespace {
 
         BasicBlock *PH = SplitBlock(OrigPH, OrigPH->getTerminator(), DT, LI);
         PH->setName(L->getHeader()->getName() + ".ph");
-        
         BasicBlock *OrigE = L->getExitBlock();
+        
         BasicBlock *AfterLoop = OrigE->getSingleSuccessor();
         Instruction *i = dyn_cast<Instruction>(OrigE->begin());
         BasicBlock *E = SplitBlock(OrigE, i, DT, LI);
@@ -92,19 +110,18 @@ namespace {
         
         //Add CSA parallel intrinsics:
         AddParallelIntrinsicstoLoop(L, context, M, OrigPH, E);
-       
         SmallVector<Value *, 128> NewReducedValues;//should be equal to NPEs
-        for(int PE=1; PE<NPEs; PE++) {
+        for(int PE = 1; PE < NPEs; PE++) {
           SmallVector<BasicBlock *, 8> NewLoopBlocks;
           BasicBlock *Exit = L->getExitBlock();
           //clone the exit block, to be attached to the cloned loop
           BasicBlock *NewE = CloneBasicBlock(Exit, VMap, ".PE" + std::to_string(PE), F);
           VMap[Exit] = NewE;
+          
           Loop *NewLoop =
             cloneLoopWithPreheader(PH, OrigPH, L, VMap,
                                    ".PE" + std::to_string(PE), LI, 
                                    DT, NewLoopBlocks);
-          
           NewLoopBlocks.push_back(NewE);
           remapInstructionsInBlocks(NewLoopBlocks, VMap);
           // Update LoopInfo.
@@ -116,12 +133,34 @@ namespace {
           Instruction *ExitTerm = Exit->getTerminator();
           BranchInst::Create(NewLoop->getLoopPreheader(), Exit);
           ExitTerm->eraseFromParent();
-           
+          
+  
           TransformLoopInitandStep(NewLoop, SE, 1, NPEs);
-       
-          L = NewLoop;
+  
+          ZeroTripCountCheck(NewLoop, SE, PE, NPEs, AfterLoop, &Reductions, &ReduceVarExitOrig, &ReduceVarOrig, DT, LI);
           //This assumes -ffp-contract=fast is set
-          FixReductionsIfAny(L, OrigL, E, AfterLoop, PE, NPEs, &Reductions, &ReduceVarExitOrig, &ReduceVarOrig, &OldInsts);          
+          FixReductionsIfAny(NewLoop, OrigL, E, AfterLoop, PE, NPEs, &Reductions, &ReduceVarExitOrig, &ReduceVarOrig, &OldInsts); 
+
+          L = NewLoop;
+          
+        }
+        //Fix missed Phi operands in AfterLoop
+        BasicBlock::iterator bi, bie; 
+        for (bi = AfterLoop->begin(), bie = AfterLoop->end();  (bi != bie); ++bi) {
+          PHINode *RedPhi = dyn_cast<PHINode>(&*bi);
+          if(!RedPhi)
+            continue;
+          Value *RedV;
+          if(AfterLoop == L->getExitBlock()->getSingleSuccessor())
+            RedV = RedPhi->getIncomingValueForBlock(L->getExitBlock());
+          else
+            RedV = RedPhi->getIncomingValueForBlock(L->getExitBlock()->getSingleSuccessor());  
+          for (auto it = pred_begin(AfterLoop), et = pred_end(AfterLoop); it != et; ++it) {
+            BasicBlock* predecessor = *it;
+            if(RedPhi->getBasicBlockIndex(predecessor) == -1) {
+              RedPhi->addIncoming(RedV, predecessor);
+            }
+          }
         }
       }
       return true;
@@ -225,6 +264,8 @@ bool LoopSPMDization::FixReductionsIfAny(Loop *L, Loop *OrigL, BasicBlock *E, Ba
           ReduceVar = dyn_cast<Instruction>(Phi->getIncomingValue(1));
         else 
           ReduceVar = dyn_cast<Instruction>(Phi->getIncomingValue(0));
+        
+        
         BasicBlock::iterator i, ie;
         for (i = AfterLoop->begin(), ie = AfterLoop->end();  (i != ie); ++i) {
           PHINode *PhiExit = dyn_cast<PHINode>(&*i);
@@ -251,22 +292,71 @@ bool LoopSPMDization::FixReductionsIfAny(Loop *L, Loop *OrigL, BasicBlock *E, Ba
             }
           }
           else {// There is an actual Phi node for the reduction var
-            if(PhiExit->getNumIncomingValues() == 2)
+            if(PhiExit->getNumIncomingValues() >= 2)// == 2) zero trip change
               ReduceVarExit = dyn_cast<Instruction>(PhiExit->getIncomingValue(1));
             else
               ReduceVarExit = dyn_cast<Instruction>(PhiExit->getIncomingValue(0));
             if(dyn_cast<Value>(ReduceVarExit) == (*ReduceVarExitOrig)[r]) {
               NewInstPhi = PhiExit->clone();
               NewPhi = dyn_cast<PHINode>(NewInstPhi);
-              if(PhiExit->getNumIncomingValues() == 2)
+              
+              if(PhiExit->getNumIncomingValues() >= 2) // ==2
                 NewPhi->setIncomingValue(1, ReduceVar);
               else
                 NewPhi->setIncomingValue(0, ReduceVar);
+      
               AfterLoop->getInstList().insert(B.GetInsertPoint(), NewInstPhi);
               found_p = true;
             } 
           }
           if (found_p) {
+            // Handling of the new branches related to the zero trip count
+            BasicBlock* BB = AfterLoop;
+            for (auto it = pred_begin(BB), et = pred_end(BB); it != et; ++it) {
+              BasicBlock* predecessor = *it;
+              //if(predecessor == L->getLoopPreheader()->getSinglePredecessor()) 
+              {// this is the predecessor coming from the zero trip count gard block
+                if(NewPhi->getBasicBlockIndex(predecessor) == -1) {
+                  Value * Ident;
+                  Type *Ty = NewPhi->getType();
+                  switch ((*ReduceVarOrig)[r]->getOpcode()) {
+                  case Instruction::Add:
+                  case Instruction::FAdd:
+                    {
+                      Ident =  Constant::getNullValue(Ty);
+                      break;
+                    }
+                  case Instruction::Or:
+                  case Instruction::Xor:{
+                    Ident =  Constant::getNullValue(Ty);
+                    break;
+                  }
+                  case Instruction::Mul:{
+                    Ident = ConstantInt::get(Ty, 1);
+                    break;
+                  }
+                  case Instruction::And:{
+                    Ident =  Constant::getAllOnesValue(Ty);
+                    break;
+                  }
+                  default:{
+                    // Doesn't have an identity.
+                    errs() << "\n";
+                    errs().changeColor(raw_ostream::BLUE, true);
+                    errs() << "!! ERROR: COULD NOT PERFORM SPMDization !!\n";
+                    errs().resetColor();
+                    errs() << R"help(
+Failed to find the identity element of the reduction operation.
+
+)help";
+                    Ident =  nullptr;
+                    break;
+                  }
+                  }
+                  NewPhi->addIncoming(Ident, predecessor);
+                }
+              }
+            } 
             //Phi corresponding to first cloned loop is already there
             if(PE == 1) {
               (*OldInsts)[r] = PhiExit;
@@ -404,10 +494,10 @@ Failed to find the loop induction variable.
                                    InductionPHI->getName()+
                                    ".steptimesPE"
                                    );
-  Value *NewInitV = B.CreateAdd(InitVar,
-                                steptimespe,
-                                InductionPHI->getName()+
-                                ".init", dyn_cast<Instruction>(NewInc));
+  /*Value **/NewInitV = B.CreateAdd(InitVar,
+                                    steptimespe,
+                                    InductionPHI->getName()+
+                                    ".init", dyn_cast<Instruction>(NewInc));
   if (InductionPHI->getIncomingBlock(0) == PreHeader) {
     InductionPHI->setIncomingValue(0, NewInitV );
     InductionPHI->setIncomingValue(1, NewInc );
@@ -418,7 +508,7 @@ Failed to find the loop induction variable.
   }
   
   BranchInst *LatchBR = cast<BranchInst>(Latch->getTerminator());
-  Value *Cond = LatchBR->getCondition();
+  /*Value **/Cond = LatchBR->getCondition();
   Instruction *CondI = dyn_cast<Instruction>(Cond);
   bool cond_found_p = false;
   if(CondI->getOperand(0) == dyn_cast<Value>(OldInc) || CondI->getOperand(1) == dyn_cast<Value>(OldInc))
@@ -491,23 +581,99 @@ Failed to find the loop latch condition.
   return true;
 }
 
+
+bool LoopSPMDization::ZeroTripCountCheck(Loop *L, ScalarEvolution *SE, int PE, int NPEs, BasicBlock *AfterLoop, std::vector<PHINode *> *Reductions, std::vector<Value *> *ReduceVarExitOrig, std::vector<Instruction *> *ReduceVarOrig, DominatorTree *DT, LoopInfo *LI) {
+  
+  BasicBlock *PreHeader = L->getLoopPreheader();
+  BranchInst *PreHeaderBR = cast<BranchInst>(PreHeader->getTerminator());
+  BasicBlock *Latch = L->getLoopLatch();
+  IRBuilder<> B(PreHeaderBR);
+  BranchInst *LatchBR = cast<BranchInst>(Latch->getTerminator());
+  Instruction *CondI = dyn_cast<Instruction>(Cond);
+  
+  Value *TripCount = CondI->getOperand(1);
+  Value *IdxCmp;
+  CmpInst *CmpCond = dyn_cast<CmpInst>(Cond);
+  Instruction *CmpZeroTrip;
+  Value *NewCondOp0, *NewCondOp1;
+  if(dyn_cast<IntegerType>(NewInitV->getType())->getBitWidth() > dyn_cast<IntegerType>(TripCount->getType())->getBitWidth()){
+    auto *Trunc = B.CreateTrunc(NewInitV, TripCount->getType(), NewInitV->getName()+".trunk");
+    NewInitV = Trunc;  
+  }
+  else {
+    auto *Trunc = B.CreateSExt(NewInitV, TripCount->getType(), NewInitV->getName()+".sext");
+    NewInitV = Trunc;  
+  }
+  NewCondOp1 = NewInitV;
+  NewCondOp0 = TripCount;
+  if (CmpCond->getPredicate() == CmpInst::ICMP_EQ || CmpCond->getPredicate() == CmpInst::ICMP_NE) {  
+    if(LatchBR->getSuccessor(0) == L->getHeader())
+      IdxCmp = CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_SLT, 
+                               NewCondOp0, 
+                               NewCondOp1,  
+                               Cond->getName());
+    
+    else 
+      IdxCmp = CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_SGE, 
+                               NewCondOp0, 
+                               NewCondOp1, 
+                               Cond->getName());
+    CmpZeroTrip = dyn_cast<Instruction>(IdxCmp);
+  }
+  else { //in other cases, we keep the same predicate
+    CmpZeroTrip = CondI->clone();
+    IdxCmp = dyn_cast<Value>(CmpZeroTrip);
+    if(dyn_cast<Instruction>(IdxCmp)->getOperand(1) == TripCount){ 
+      dyn_cast<Instruction>(IdxCmp)->setOperand(0, NewInitV); 
+      dyn_cast<Instruction>(IdxCmp)->setOperand(1, TripCount); 
+    }
+    else {
+      dyn_cast<Instruction>(IdxCmp)->setOperand(1, NewInitV);
+      dyn_cast<Instruction>(IdxCmp)->setOperand(0, TripCount); 
+    }
+  }
+  PreHeader->getInstList().insert(B.GetInsertPoint(), dyn_cast<Instruction>(CmpZeroTrip));
+              
+  //need to distringuish cases
+  if(LatchBR->getSuccessor(0) == PreHeaderBR->getSuccessor(0))
+    B.CreateCondBr(IdxCmp, PreHeaderBR->getSuccessor(0), AfterLoop);
+  else
+    B.CreateCondBr(IdxCmp, AfterLoop, PreHeaderBR->getSuccessor(0));
+  
+  PreHeaderBR->eraseFromParent();
+  
+  BasicBlock *NewPH = InsertPreheaderForLoop(L, DT, LI, true);
+  // Move section entry from .e block to the  new preheader to avoid bad section placement
+  IRBuilder<> BPH(NewPH->getFirstNonPHI());
+  
+  for (Instruction& inst : *NewPH->getSinglePredecessor())
+    if (IntrinsicInst *intr_inst = dyn_cast<IntrinsicInst>(&inst))
+      if (intr_inst->getIntrinsicID() == Intrinsic::csa_parallel_section_entry) {
+        (&inst)->moveBefore(NewPH->getFirstNonPHI());
+        break;
+      }
+  
+  return true;
+}
+
+
 bool LoopSPMDization::AddParallelIntrinsicstoLoop(Loop *L, LLVMContext& context, Module *M, BasicBlock *OrigPH, BasicBlock *E) {
   Function* FIntr = Intrinsic::getDeclaration(M, Intrinsic::csa_parallel_region_entry); 
   Instruction*const header_terminator = OrigPH->getTerminator();
   Instruction*const preheader_terminator = L->getLoopPreheader()->getTerminator();
   CallInst *region_entry = IRBuilder<>{header_terminator}.CreateCall(
-                           FIntr, 
-                           ConstantInt::get(IntegerType::get(context, 32), 1), 
-                           "spmd_pre"
-                           );
+                                                                     FIntr, 
+                                                                     ConstantInt::get(IntegerType::get(context, 32), 1), 
+                                                                     "spmd_pre"
+                                                                     );
   std::string RegionName = region_entry->getName();
   next_token = context.getMDKindID(RegionName) + 1000;
   region_entry->setOperand(0, ConstantInt::get(IntegerType::get(context, 32), next_token));
   CallInst *section_entry = IRBuilder<>{preheader_terminator}.CreateCall(
-         Intrinsic::getDeclaration(M, Intrinsic::csa_parallel_section_entry), 
-         region_entry, 
-         "spmd_pse"
-         );
+                                                                         Intrinsic::getDeclaration(M, Intrinsic::csa_parallel_section_entry), 
+                                                                         region_entry, 
+                                                                         "spmd_pse"
+                                                                         );
   
   //IRBuilder<>{preheader_terminator}.CreateCall(
   //              Intrinsic::getDeclaration(M, Intrinsic::csa_parallel_loop));
@@ -519,12 +685,12 @@ bool LoopSPMDization::AddParallelIntrinsicstoLoop(Loop *L, LLVMContext& context,
     IRBuilder<>{exit->getFirstNonPHI()}.CreateCall(
             Intrinsic::getDeclaration(M, Intrinsic::csa_parallel_section_exit),
             section_entry
-            );
+                                                   );
   }
   IRBuilder<>{E->getFirstNonPHI()}.CreateCall(
-             Intrinsic::getDeclaration(M, Intrinsic::csa_parallel_region_exit), 
-             region_entry
-             );
+            Intrinsic::getDeclaration(M, Intrinsic::csa_parallel_region_exit), 
+            region_entry
+                                              );
   
   return true;
 }

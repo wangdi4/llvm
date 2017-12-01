@@ -15,6 +15,7 @@
 #include "CSALowerAggrCopies.h"
 #include "CSAFortranIntrinsics.h"
 #include "CSAIntrinsicCleaner.h"
+#include "CSAIROpt.h"
 #include "CSALoopIntrinsicExpander.h"
 #include "CSAOMPAllocaTypeFixer.h"
 #include "CSA.h"
@@ -155,6 +156,9 @@ public:
 
     // Remove any remaining intrinsics which should not go through instruction selection
     addPass(createCSAIntrinsicCleanerPass());
+
+    // Add a pass to generate more candidates for reduction operations
+    addPass(createCSAIRReductionOptPass());
 
     // Add a pass to identify and prepare inner loops for pipelinling.
     addPass(createCSAInnerLoopPrepPass());

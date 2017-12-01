@@ -621,10 +621,7 @@ void CSASSAGraph::BuildCSASSAGraph(MachineFunction &F, MachineLoopInfo *MLI) {
       if (instr2ssan.find(minstr) == instr2ssan.end()) {
         sn = new CSASSANode(minstr);
         instr2ssan[minstr] = sn;
-        if (MachineLoop* mloop = MLI->getLoopFor(minstr->getParent())) {
-          if (mloop->getHeader() == minstr->getParent() && minstr->isPHI())
-            root->children.push_back(sn);
-        }
+        root->children.push_back(sn);
       } else {
         sn = instr2ssan[minstr];
       }
@@ -632,15 +629,17 @@ void CSASSAGraph::BuildCSASSAGraph(MachineFunction &F, MachineLoopInfo *MLI) {
       for (MIOperands MO(*minstr); MO.isValid(); ++MO) {
         if (MO->isReg() && MO->isUse()) {
           unsigned reg = MO->getReg();
-          MachineInstr* dinstr = MRI->getVRegDef(reg);
-          CSASSANode* cnode;
-          if (instr2ssan.find(dinstr) == instr2ssan.end()) {
-            cnode = new CSASSANode(dinstr);
-            instr2ssan[dinstr] = cnode;
-          } else {
-            cnode = instr2ssan[dinstr];
+          for (MachineInstr &DefMI : MRI->def_instructions(reg)) {
+            MachineInstr* dinstr = &DefMI;
+            CSASSANode* cnode;
+            if (instr2ssan.find(dinstr) == instr2ssan.end()) {
+              cnode = new CSASSANode(dinstr);
+              instr2ssan[dinstr] = cnode;
+            } else {
+              cnode = instr2ssan[dinstr];
+            }
+            sn->children.push_back(cnode);
           }
-          sn->children.push_back(cnode);
         }
       }
     }
