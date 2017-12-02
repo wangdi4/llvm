@@ -2592,8 +2592,8 @@ void CSAOptDFPass::SequenceIndv(CSASSANode* cmpNode, CSASSANode* switchNode, CSA
         }
       }
 #endif 
-      //MachineOperand cpyInit(initOpnd);
-      //cpyInit.isDef = false;
+      MachineOperand cpyInit(initOpnd);
+      cpyInit.setIsDef(false);
       unsigned firstReg = LMFI->allocateLIC(&CSA:: CI1RegClass);
       unsigned lastReg = LMFI->allocateLIC(&CSA::CI1RegClass);
       MachineInstr* seqInstr = BuildMI(*lhdrPickNode->minstr->getParent(),
@@ -2603,7 +2603,7 @@ void CSAOptDFPass::SequenceIndv(CSASSANode* cmpNode, CSASSANode* switchNode, CSA
         addReg(cmpNode->minstr->getOperand(0).getReg(), RegState::Define).  //pred
         addReg(firstReg, RegState::Define).
         addReg(lastReg, RegState::Define).
-        add(initOpnd).                                                     //init
+        add(cpyInit).                                                     //init
         add(cmpNode->minstr->getOperand(3 - idvIdx)).                       //boundary
         add(addNode->minstr->getOperand(strideIdx));                      //stride
       seqInstr->setFlag(MachineInstr::NonSequential);
@@ -2644,7 +2644,7 @@ void CSAOptDFPass::SequenceAddress(CSASSANode* switchNode, CSASSANode* addNode, 
     MachineRegisterInfo::use_instr_iterator I = MRI->use_instr_begin(phidst);
     MachineRegisterInfo::use_instr_iterator Inext = std::next(I);
     //phi has exactly two uses
-    if (std::next(I) == MachineRegisterInfo::use_instr_end()) {
+    if (std::next(Inext) == MachineRegisterInfo::use_instr_end()) {
       if ((TII->isLoad(&*I) || TII->isStore(&*I)) &&
         &*Inext == addNode->minstr) {
         phiuseOK = true;
@@ -2657,18 +2657,17 @@ void CSAOptDFPass::SequenceAddress(CSASSANode* switchNode, CSASSANode* addNode, 
 
   bool adduseOK = false;
   unsigned adddst = addNode->minstr->getOperand(0).getReg();
-  if (MRI->hasOneUse(phidst)) {
+  if (MRI->hasOneUse(adddst)) {
     adduseOK = true;
   } else {
     MachineRegisterInfo::use_instr_iterator I = MRI->use_instr_begin(adddst);
     MachineRegisterInfo::use_instr_iterator Inext = std::next(I);
-    //phi has exactly two uses
-    if (std::next(I) == MachineRegisterInfo::use_instr_end()) {
+    //add has exactly two uses
+    if (std::next(Inext) == MachineRegisterInfo::use_instr_end()) {
       if ((TII->isLoad(&*I) || TII->isStore(&*I)) &&
         &*Inext == addNode->minstr) {
         adduseOK = true;
-      }
-      else if ((TII->isLoad(&*Inext) || TII->isStore(&*Inext)) &&
+      } else if ((TII->isLoad(&*Inext) || TII->isStore(&*Inext)) &&
         &*I == addNode->minstr) {
         adduseOK = true;
       }
@@ -2680,11 +2679,11 @@ void CSAOptDFPass::SequenceAddress(CSASSANode* switchNode, CSASSANode* addNode, 
   unsigned switchBackReg;
   unsigned switchFalse = switchNode->minstr->getOperand(0).getReg();
   unsigned switchTrue = switchNode->minstr->getOperand(1).getReg();
-  if (MRI->use_empty(switchFalse) && MRI->hasOneUse(switchTrue) &&
+  if (switchFalse == CSA::IGN && MRI->hasOneUse(switchTrue) &&
       &*MRI->use_instr_begin(switchTrue) == lhdrPickNode->minstr) {
     switchBackReg = switchFalse;
     switchuseOK = true;
-  } else if (MRI->use_empty(switchTrue) && MRI->hasOneUse(switchFalse) &&
+  } else if (switchTrue == CSA::IGN && MRI->hasOneUse(switchFalse) &&
              &*MRI->use_instr_begin(switchFalse) == lhdrPickNode->minstr) {
     switchBackReg = switchTrue;
     switchuseOK = true;
@@ -2731,7 +2730,7 @@ void CSAOptDFPass::SequenceAddress(CSASSANode* switchNode, CSASSANode* addNode, 
     //TODO: only compute trip-counter from NE comparison.
     assert(CSA::SEQOTNE16 < CSA::SEQOTNE32 && CSA::SEQOTNE32 < CSA::SEQOTNE64 && CSA::SEQOTNE64 < CSA::SEQOTNE8);
     assert(seqIndv->getOpcode() >= CSA::SEQOTNE16 && seqIndv->getOpcode() <= CSA::SEQOTNE8);
-    const TargetRegisterClass *TRC = MRI->getRegClass(addNode->minstr->getOperand(0).getReg());
+    const TargetRegisterClass *TRC = TII->lookupLICRegClass(addNode->minstr->getOperand(0).getReg());
     const unsigned FMAOp = TII->makeOpcode(CSA::Generic::FMA, TRC);
     MachineOperand& tripcountOpnd = initIndv.isImm() ? bndIndv : initIndv;
     unsigned fmaReg = LMFI->allocateLIC(addTRC);
@@ -2744,9 +2743,9 @@ void CSAOptDFPass::SequenceAddress(CSASSANode* switchNode, CSASSANode* addNode, 
       add(initOpnd);                                        //init
     fmaInstr->setFlag(MachineInstr::NonSequential);
 
-    unsigned firstReg = LMFI->allocateLIC(&CSA::I1RegClass);
-    unsigned lastReg = LMFI->allocateLIC(&CSA::I1RegClass);
-    unsigned predReg = LMFI->allocateLIC(&CSA::I1RegClass);
+    unsigned firstReg = LMFI->allocateLIC(&CSA::CI1RegClass);
+    unsigned lastReg = LMFI->allocateLIC(&CSA::CI1RegClass);
+    unsigned predReg = LMFI->allocateLIC(&CSA::CI1RegClass);
     MachineInstr* seqInstr = BuildMI(*lhdrPickNode->minstr->getParent(),
       lhdrPickNode->minstr, DebugLoc(),
       TII->get(seqIndv->getOpcode()),
