@@ -535,19 +535,6 @@ _mm512_cvttps_epi32(__m512 a)
                                             (__v8si)_mm256_setzero_si256(), \
                                             (__mmask8) -1, (R)); })
 
-/* Bit Test */
-
-static __inline __mmask16 __attribute__ ((__always_inline__, __nodebug__))
-_mm512_test_epi32_mask(__m512i __A, __m512i __B)
-{
-  return (__mmask16) __builtin_ia32_ptestmd512 ((__v16si) __A,
-            (__v16si) __B,
-            (__mmask16) -1);
-}
-
-__mmask8 __attribute__((__always_inline__, __nodebug__))
-_mm512_test_epi64_mask(__m512i __A, __m512i __B);
-
 /* SIMD load ops */
 
 static __inline __m512i __attribute__ ((__always_inline__, __nodebug__))

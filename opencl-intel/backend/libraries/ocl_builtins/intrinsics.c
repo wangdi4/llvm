@@ -220,15 +220,4 @@ _mm512_mask_blend_ps(__mmask16 __U, __m512 __A, __m512 __W)
                 (__v16sf) __W,
                 (__v16sf) __A);
 }
-
-/* Bit Test */
-
-__mmask8 __attribute__((__always_inline__, __nodebug__))
-_mm512_test_epi64_mask(__m512i __A, __m512i __B)
-{
-  return (__mmask8)__builtin_ia32_ptestmq512((__v8di)__A,
-    (__v8di)__B,
-    (__mmask8)-1);
-}
-
 #endif
