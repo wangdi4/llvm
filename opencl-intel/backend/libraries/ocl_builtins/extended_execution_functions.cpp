@@ -153,69 +153,6 @@ ndrange_t __attribute__((const)) __attribute__((overloadable))
   return T;
 }
 
-// This method computes the count of sub-groups accommodated
-// by a given kernel for requested work-group size.
-// For sub-groups emulation this query returns 'one' if a kernel can execute a requested work-group size and 'zero' otherwise.
-uint __attribute__((overloadable)) __attribute__((always_inline))
-get_kernel_sub_group_count_for_ndrange(const ndrange_t ndrange,
-                                        void(^block)(void)) {
-  uint maxWGSize = get_kernel_work_group_size(block);
-  size_t prod = 1;
-  for (unsigned int i = 0; i < ndrange.workDimension; ++i)
-      prod *= ndrange.localWorkSize[i];
-  if (prod > maxWGSize)
-      return 0;
-  else
-      return 1;
-}
-
-// This method computes the count of sub-groups accommodated
-// by a given kernel for requested work-group size.
-// For sub-groups emulation this query returns 'one' if a kernel can execute a requested work-group size and 'zero' otherwise.
-uint __attribute__((overloadable)) __attribute__((always_inline))
-  get_kernel_sub_group_count_for_ndrange(const ndrange_t ndrange,
-                                         void(^__block_)(local void *, ...)) {
-  uint maxWGSize = get_kernel_work_group_size(__block_);
-  size_t prod = 1;
-  for (unsigned int i = 0; i < ndrange.workDimension; ++i)
-      prod *= ndrange.localWorkSize[i];
-  if (prod > maxWGSize)
-      return 0;
-  else
-      return 1;
-}
-
-// This method returns product of local sizes
-// (aka work-group size) in all dimensions specified by ndrange argument.
-// If the work-group size is greater than maximum possible for a given kernel then result is zero.
-uint __attribute__((overloadable)) __attribute__((always_inline))
-  get_kernel_max_sub_group_size_for_ndrange(const ndrange_t ndrange,
-                                            void(^block)(void)) {
-  uint maxWGSize = get_kernel_work_group_size(block);
-  size_t prod = 1;
-  for (unsigned int i = 0; i < ndrange.workDimension; ++i)
-      prod *= ndrange.localWorkSize[i];
-  if (prod > maxWGSize)
-      return 0;
-  else
-      return prod;
-}
-
-// This method returns product of local sizes
-// (aka work-group size) in all dimensions specified by ndrange argument.
-// If the work-group size is greater than maximum possible for a given kernel then result is zero.
-uint __attribute__((overloadable)) __attribute__((always_inline))
-  get_kernel_max_sub_group_size_for_ndrange(const ndrange_t ndrange,
-                                            void(^__block_)(local void *, ...)) {
-  uint maxWGSize = get_kernel_work_group_size(__block_);
-  size_t prod = 1;
-  for (unsigned int i = 0; i < ndrange.workDimension; ++i)
-       prod *= ndrange.localWorkSize[i];
-  if (prod > maxWGSize)
-      return 0;
-  else
-      return prod;
-}
 ////////// - retain_event, release_event, create_user_event, set_user_event_status, capture_event_profiling_info, is_valid_event
 extern void ocl20_retain_event(clk_event_t event, void *DCM);
 void __attribute__((always_inline)) __attribute__((overloadable))
@@ -317,3 +254,36 @@ ADDR_SPACE_OVERLOADING(__local, __private)
 ADDR_SPACE_OVERLOADING(__local, __local)
 ADDR_SPACE_OVERLOADING(__local, __global)
 #undef ADDR_SPACE_OVERLOADING
+
+// This method computes the count of sub-groups accommodated
+// by a given kernel for requested work-group size.
+// For sub-groups emulation this query returns 'one' if a kernel can execute a
+// requested work-group size and 'zero' otherwise.
+uint __attribute__((always_inline)) __attribute__((const))
+__get_kernel_sub_group_count_for_ndrange_impl(const ndrange_t ndrange,
+                                              void *block, void *blockArgs) {
+  uint maxWGSize = __get_kernel_work_group_size_impl(block);
+  size_t prod = 1;
+  for (unsigned int i = 0; i < ndrange.workDimension; ++i)
+    prod *= ndrange.localWorkSize[i];
+  if (prod > maxWGSize)
+    return 0;
+  else
+    return 1;
+}
+
+// This method returns product of local sizes
+// (aka work-group size) in all dimensions specified by ndrange argument.
+// If the work-group size is greater than maximum possible for a given kernel then result is zero.
+uint __attribute__((always_inline)) __attribute__((const))
+__get_kernel_max_sub_group_size_for_ndrange_impl(const ndrange_t ndrange,
+                                              void *block, void *blockArgs) {
+  uint maxWGSize = __get_kernel_work_group_size_impl(block);
+  size_t prod = 1;
+  for (unsigned int i = 0; i < ndrange.workDimension; ++i)
+       prod *= ndrange.localWorkSize[i];
+  if (prod > maxWGSize)
+      return 0;
+  else
+      return prod;
+}
