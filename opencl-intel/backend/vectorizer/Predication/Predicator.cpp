@@ -1926,13 +1926,11 @@ void Predicator::markLoopsThatBeginsWithFullMaskAsZeroBypassed() {
     if (m_WIA->isDivergentBlock((*it)->getHeader()) &&
       !m_WIA->isDivergentBlock((*it)->getLoopPreheader())) {
       BasicBlock* header = (*it)->getHeader();
-      for (std::vector<BasicBlock*>::const_iterator
-        it2 = (*it)->getBlocks().begin(),
-        e2 = (*it)->getBlocks().end();
-        it2 != e2; ++it2) {
-        if (PDT->dominates(*it2, header)) {
+      for (unsigned i = 0; i < (*it)->getBlocks().size(); ++i) {
+        auto BB = (*it)->getBlocks()[i];
+        if (PDT->dominates(BB, header)) {
           // block will never be executed with a zero mask:
-          blockIsBeingZeroBypassed(*it2);
+          blockIsBeingZeroBypassed(BB);
         }
       }
     }
