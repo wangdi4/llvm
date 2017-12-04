@@ -48,7 +48,7 @@
 
 using namespace llvm;
 
-static cl::opt<bool> DisableIRReductionOpt{
+cl::opt<bool> DisableIRReductionOpt{
   "csa-disable-IR-reduction-opt", cl::Hidden,
   cl::desc("CSA Specific: disables IR level optimization to help in generating reduction operations")
 };
