@@ -72,11 +72,10 @@ class SizeClassAllocator64 {
   void Init(s32 release_to_os_interval_ms) {
     uptr TotalSpaceSize = kSpaceSize + AdditionalSize();
     if (kUsingConstantSpaceBeg) {
-      CHECK_EQ(kSpaceBeg, reinterpret_cast<uptr>(
-                              MmapFixedNoAccess(kSpaceBeg, TotalSpaceSize)));
+      CHECK_EQ(kSpaceBeg, address_range.Init(TotalSpaceSize, AllocatorName(),
+                                             kSpaceBeg));
     } else {
-      NonConstSpaceBeg =
-          reinterpret_cast<uptr>(MmapNoAccess(TotalSpaceSize));
+      NonConstSpaceBeg = address_range.Init(TotalSpaceSize, AllocatorName());
       CHECK_NE(NonConstSpaceBeg, ~(uptr)0);
     }
     SetReleaseToOSIntervalMs(release_to_os_interval_ms);
@@ -90,6 +89,13 @@ class SizeClassAllocator64 {
   void SetReleaseToOSIntervalMs(s32 release_to_os_interval_ms) {
     atomic_store(&release_to_os_interval_ms_, release_to_os_interval_ms,
                  memory_order_relaxed);
+  }
+
+  void ForceReleaseToOS() {
+    for (uptr class_id = 1; class_id < kNumClasses; class_id++) {
+      BlockingMutexLock l(&GetRegionInfo(class_id)->mutex);
+      MaybeReleaseToOS(class_id, true /*force*/);
+    }
   }
 
   static bool CanAllocate(uptr size, uptr alignment) {
@@ -116,7 +122,7 @@ class SizeClassAllocator64 {
     region->num_freed_chunks = new_num_freed_chunks;
     region->stats.n_freed += n_chunks;
 
-    MaybeReleaseToOS(class_id);
+    MaybeReleaseToOS(class_id, false /*force*/);
   }
 
   NOINLINE bool GetFromAllocator(AllocatorStats *stat, uptr class_id,
@@ -223,30 +229,39 @@ class SizeClassAllocator64 {
     uptr avail_chunks = region->allocated_user / ClassIdToSize(class_id);
     Printf(
         "%s %02zd (%6zd): mapped: %6zdK allocs: %7zd frees: %7zd inuse: %6zd "
-        "num_freed_chunks %7zd avail: %6zd rss: %6zdK releases: %6zd\n",
+        "num_freed_chunks %7zd avail: %6zd rss: %6zdK releases: %6zd "
+        "last released: %6zdK region: 0x%zx\n",
         region->exhausted ? "F" : " ", class_id, ClassIdToSize(class_id),
         region->mapped_user >> 10, region->stats.n_allocated,
         region->stats.n_freed, in_use, region->num_freed_chunks, avail_chunks,
-        rss >> 10, region->rtoi.num_releases);
+        rss >> 10, region->rtoi.num_releases,
+        region->rtoi.last_released_bytes >> 10,
+        SpaceBeg() + kRegionSize * class_id);
   }
 
   void PrintStats() {
-    uptr total_mapped = 0;
-    uptr n_allocated = 0;
-    uptr n_freed = 0;
-    for (uptr class_id = 1; class_id < kNumClasses; class_id++) {
-      RegionInfo *region = GetRegionInfo(class_id);
-      total_mapped += region->mapped_user;
-      n_allocated += region->stats.n_allocated;
-      n_freed += region->stats.n_freed;
-    }
-    Printf("Stats: SizeClassAllocator64: %zdM mapped in %zd allocations; "
-           "remains %zd\n",
-           total_mapped >> 20, n_allocated, n_allocated - n_freed);
     uptr rss_stats[kNumClasses];
     for (uptr class_id = 0; class_id < kNumClasses; class_id++)
       rss_stats[class_id] = SpaceBeg() + kRegionSize * class_id;
     GetMemoryProfile(FillMemoryProfile, rss_stats, kNumClasses);
+
+    uptr total_mapped = 0;
+    uptr total_rss = 0;
+    uptr n_allocated = 0;
+    uptr n_freed = 0;
+    for (uptr class_id = 1; class_id < kNumClasses; class_id++) {
+      RegionInfo *region = GetRegionInfo(class_id);
+      if (region->mapped_user != 0) {
+        total_mapped += region->mapped_user;
+        total_rss += rss_stats[class_id];
+      }
+      n_allocated += region->stats.n_allocated;
+      n_freed += region->stats.n_freed;
+    }
+
+    Printf("Stats: SizeClassAllocator64: %zdM mapped (%zdM rss) in "
+           "%zd allocations; remains %zd\n", total_mapped >> 20,
+           total_rss >> 20, n_allocated, n_allocated - n_freed);
     for (uptr class_id = 1; class_id < kNumClasses; class_id++)
       PrintStats(class_id, rss_stats[class_id]);
   }
@@ -528,6 +543,9 @@ class SizeClassAllocator64 {
  private:
   friend class MemoryMapper;
 
+  ReservedAddressRange address_range;
+  static const char *AllocatorName() { return "sanitizer_allocator"; }
+
   static const uptr kRegionSize = kSpaceSize / kNumClassesRounded;
   // FreeArray is the array of free-d chunks (stored as 4-byte offsets).
   // In the worst case it may reguire kRegionSize/SizeClassMap::kMinSize
@@ -563,6 +581,7 @@ class SizeClassAllocator64 {
     uptr n_freed_at_last_release;
     uptr num_releases;
     u64 last_release_at_ns;
+    u64 last_released_bytes;
   };
 
   struct RegionInfo {
@@ -579,18 +598,6 @@ class SizeClassAllocator64 {
     ReleaseToOsInfo rtoi;
   };
   COMPILER_CHECK(sizeof(RegionInfo) >= kCacheLineSize);
-
-  u32 Rand(u32 *state) {  // ANSI C linear congruential PRNG.
-    return (*state = *state * 1103515245 + 12345) >> 16;
-  }
-
-  u32 RandN(u32 *state, u32 n) { return Rand(state) % n; }  // [0, n)
-
-  void RandomShuffle(u32 *a, u32 n, u32 *rand_state) {
-    if (n <= 1) return;
-    for (u32 i = n - 1; i > 0; i--)
-      Swap(a[i], a[RandN(rand_state, i + 1)]);
-  }
 
   RegionInfo *GetRegionInfo(uptr class_id) const {
     CHECK_LT(class_id, kNumClasses);
@@ -620,7 +627,7 @@ class SizeClassAllocator64 {
   }
 
   bool MapWithCallback(uptr beg, uptr size) {
-    uptr mapped = reinterpret_cast<uptr>(MmapFixedOrDieOnFatalError(beg, size));
+    uptr mapped = address_range.Map(beg, size);
     if (UNLIKELY(!mapped))
       return false;
     CHECK_EQ(beg, mapped);
@@ -629,13 +636,13 @@ class SizeClassAllocator64 {
   }
 
   void MapWithCallbackOrDie(uptr beg, uptr size) {
-    CHECK_EQ(beg, reinterpret_cast<uptr>(MmapFixedOrDie(beg, size)));
+    CHECK_EQ(beg, address_range.MapOrDie(beg, size));
     MapUnmapCallback().OnMap(beg, size);
   }
 
   void UnmapWithCallbackOrDie(uptr beg, uptr size) {
     MapUnmapCallback().OnUnmap(beg, size);
-    UnmapOrDie(reinterpret_cast<void *>(beg), size);
+    address_range.Unmap(beg, size);
   }
 
   bool EnsureFreeArraySpace(RegionInfo *region, uptr region_beg,
@@ -664,8 +671,19 @@ class SizeClassAllocator64 {
 
     // Map more space for chunks, if necessary.
     if (new_space_end > region->mapped_user) {
-      if (!kUsingConstantSpaceBeg && region->mapped_user == 0)
-        region->rand_state = static_cast<u32>(region_beg >> 12);  // From ASLR.
+      if (UNLIKELY(region->mapped_user == 0)) {
+        if (!kUsingConstantSpaceBeg && kRandomShuffleChunks)
+          // The random state is initialized from ASLR.
+          region->rand_state = static_cast<u32>(region_beg >> 12);
+        // Postpone the first release to OS attempt for ReleaseToOSIntervalMs,
+        // preventing just allocated memory from being released sooner than
+        // necessary and also preventing extraneous ReleaseMemoryPagesToOS calls
+        // for short lived processes.
+        // Do it only when the feature is turned on, to avoid a potentially
+        // extraneous syscall.
+        if (ReleaseToOSIntervalMs() >= 0)
+          region->rtoi.last_release_at_ns = NanoTime();
+      }
       // Do the mmap for the user memory.
       uptr map_size = kUserMapSize;
       while (new_space_end > region->mapped_user + map_size)
@@ -739,11 +757,16 @@ class SizeClassAllocator64 {
     MemoryMapper(const ThisT& base_allocator, uptr class_id)
         : allocator(base_allocator),
           region_base(base_allocator.GetRegionBeginBySizeClass(class_id)),
-          released_ranges_count(0) {
+          released_ranges_count(0),
+          released_bytes(0) {
     }
 
     uptr GetReleasedRangesCount() const {
       return released_ranges_count;
+    }
+
+    uptr GetReleasedBytes() const {
+      return released_bytes;
     }
 
     uptr MapPackedCounterArrayBuffer(uptr buffer_size) {
@@ -761,21 +784,23 @@ class SizeClassAllocator64 {
 
     // Releases [from, to) range of pages back to OS.
     void ReleasePageRangeToOS(CompactPtrT from, CompactPtrT to) {
-      ReleaseMemoryPagesToOS(
-          allocator.CompactPtrToPointer(region_base, from),
-          allocator.CompactPtrToPointer(region_base, to));
+      const uptr from_page = allocator.CompactPtrToPointer(region_base, from);
+      const uptr to_page = allocator.CompactPtrToPointer(region_base, to);
+      ReleaseMemoryPagesToOS(from_page, to_page);
       released_ranges_count++;
+      released_bytes += to_page - from_page;
     }
 
    private:
     const ThisT& allocator;
     const uptr region_base;
     uptr released_ranges_count;
+    uptr released_bytes;
   };
 
   // Attempts to release RAM occupied by freed chunks back to OS. The region is
   // expected to be locked.
-  void MaybeReleaseToOS(uptr class_id) {
+  void MaybeReleaseToOS(uptr class_id, bool force) {
     RegionInfo *region = GetRegionInfo(class_id);
     const uptr chunk_size = ClassIdToSize(class_id);
     const uptr page_size = GetPageSizeCached();
@@ -788,12 +813,16 @@ class SizeClassAllocator64 {
       return;  // Nothing new to release.
     }
 
-    s32 interval_ms = ReleaseToOSIntervalMs();
-    if (interval_ms < 0)
-      return;
+    if (!force) {
+      s32 interval_ms = ReleaseToOSIntervalMs();
+      if (interval_ms < 0)
+        return;
 
-    if (region->rtoi.last_release_at_ns + interval_ms * 1000000ULL > NanoTime())
-      return;  // Memory was returned recently.
+      if (region->rtoi.last_release_at_ns + interval_ms * 1000000ULL >
+          NanoTime()) {
+        return;  // Memory was returned recently.
+      }
+    }
 
     MemoryMapper memory_mapper(*this, class_id);
 
@@ -805,6 +834,7 @@ class SizeClassAllocator64 {
     if (memory_mapper.GetReleasedRangesCount() > 0) {
       region->rtoi.n_freed_at_last_release = region->stats.n_freed;
       region->rtoi.num_releases += memory_mapper.GetReleasedRangesCount();
+      region->rtoi.last_released_bytes = memory_mapper.GetReleasedBytes();
     }
     region->rtoi.last_release_at_ns = NanoTime();
   }

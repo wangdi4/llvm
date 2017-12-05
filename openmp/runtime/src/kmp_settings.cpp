@@ -2,7 +2,6 @@
  * kmp_settings.cpp -- Initialize environment variables
  */
 
-
 //===----------------------------------------------------------------------===//
 //
 //                     The LLVM Compiler Infrastructure
@@ -11,7 +10,6 @@
 // Source Licenses. See LICENSE.txt for details.
 //
 //===----------------------------------------------------------------------===//
-
 
 #include "kmp.h"
 #include "kmp_affinity.h"
@@ -24,7 +22,7 @@
 #include "kmp_settings.h"
 #include "kmp_str.h"
 #include "kmp_wrapper_getpid.h"
-#include <ctype.h>   // toupper()
+#include <ctype.h> // toupper()
 
 static int __kmp_env_toPrint(char const *name, int flag);
 
@@ -336,13 +334,11 @@ static void __kmp_stg_parse_size(char const *name, char const *value,
   }
 } // __kmp_stg_parse_size
 
-#if KMP_AFFINITY_SUPPORTED
 static void __kmp_stg_parse_str(char const *name, char const *value,
-                                char const **out) {
+                                char **out) {
   __kmp_str_free(out);
   *out = __kmp_str_format("%s", value);
 } // __kmp_stg_parse_str
-#endif
 
 static void __kmp_stg_parse_int(
     char const
@@ -2184,7 +2180,7 @@ static void __kmp_parse_affinity_env(char const *name, char const *value,
 #undef set_respect
 #undef set_granularity
 
-  __kmp_str_free(CCAST(const char **, &buffer));
+  __kmp_str_free(&buffer);
 
   if (proclist) {
     if (!type) {
@@ -3302,15 +3298,15 @@ static void __kmp_stg_parse_schedule(char const *name, char const *value,
     if (length > INT_MAX) {
       KMP_WARNING(LongValue, name);
     } else {
-      char *semicolon;
+      const char *semicolon;
       if (value[length - 1] == '"' || value[length - 1] == '\'')
         KMP_WARNING(UnbalancedQuotes, name);
       do {
         char sentinel;
 
-        semicolon = CCAST(char *, strchr(value, ';'));
+        semicolon = strchr(value, ';');
         if (*value && semicolon != value) {
-          char *comma = CCAST(char *, strchr(value, ','));
+          const char *comma = strchr(value, ',');
 
           if (comma) {
             ++comma;
@@ -3375,7 +3371,7 @@ static void __kmp_stg_parse_omp_schedule(char const *name, char const *value,
   if (value) {
     length = KMP_STRLEN(value);
     if (length) {
-      char *comma = CCAST(char *, strchr(value, ','));
+      const char *comma = strchr(value, ',');
       if (value[length - 1] == '"' || value[length - 1] == '\'')
         KMP_WARNING(UnbalancedQuotes, name);
       /* get the specified scheduling style */
@@ -4114,14 +4110,13 @@ static void __kmp_stg_parse_hw_subset(char const *name, char const *value,
                                       void *data) {
   // Value example: 1s,5c@3,2T
   // Which means "use 1 socket, 5 cores with offset 3, 2 threads per core"
-  static int parsed = 0;
+  kmp_setting_t **rivals = (kmp_setting_t **)data;
   if (strcmp(name, "KMP_PLACE_THREADS") == 0) {
     KMP_INFORM(EnvVarDeprecated, name, "KMP_HW_SUBSET");
-    if (parsed == 1) {
-      return; // already parsed KMP_HW_SUBSET
-    }
   }
-  parsed = 1;
+  if (__kmp_stg_check_rivals(name, value, rivals)) {
+    return;
+  }
 
   char *components[MAX_T_LEVEL];
   char const *digits = "0123456789";
@@ -4357,7 +4352,31 @@ static void __kmp_stg_print_omp_cancellation(kmp_str_buf_t *buffer,
 
 #endif
 
-// -----------------------------------------------------------------------------
+#if OMP_50_ENABLED && OMPT_SUPPORT
+
+static char *__kmp_tool_libraries = NULL;
+
+static void __kmp_stg_parse_omp_tool_libraries(char const *name,
+                                               char const *value, void *data) {
+  __kmp_stg_parse_str(name, value, &__kmp_tool_libraries);
+} // __kmp_stg_parse_omp_tool_libraries
+
+static void __kmp_stg_print_omp_tool_libraries(kmp_str_buf_t *buffer,
+                                               char const *name, void *data) {
+  if (__kmp_tool_libraries)
+    __kmp_stg_print_str(buffer, name, __kmp_tool_libraries);
+  else {
+    if (__kmp_env_format) {
+      KMP_STR_BUF_PRINT_NAME;
+    } else {
+      __kmp_str_buf_print(buffer, "   %s", name);
+    }
+    __kmp_str_buf_print(buffer, ": %s\n", KMP_I18N_STR(NotDefined));
+  }
+} // __kmp_stg_print_omp_tool_libraries
+
+#endif
+
 // Table.
 
 static kmp_setting_t __kmp_stg_table[] = {
@@ -4601,6 +4620,12 @@ static kmp_setting_t __kmp_stg_table[] = {
     {"OMP_CANCELLATION", __kmp_stg_parse_omp_cancellation,
      __kmp_stg_print_omp_cancellation, NULL, 0, 0},
 #endif
+
+#if OMP_50_ENABLED && OMPT_SUPPORT
+    {"OMP_TOOL_LIBRARIES", __kmp_stg_parse_omp_tool_libraries,
+     __kmp_stg_print_omp_tool_libraries, NULL, 0, 0},
+#endif
+
     {"", NULL, NULL, NULL, 0, 0}}; // settings
 
 static int const __kmp_stg_count =
@@ -4729,6 +4754,24 @@ static void __kmp_stg_init(void) {
 
       kmp_device_thread_limit->data = CCAST(kmp_setting_t **, rivals);
       kmp_all_threads->data = CCAST(kmp_setting_t **, rivals);
+    }
+
+    { // Initialize KMP_HW_SUBSET and KMP_PLACE_THREADS
+      // 1st priority
+      kmp_setting_t *kmp_hw_subset = __kmp_stg_find("KMP_HW_SUBSET");
+      // 2nd priority
+      kmp_setting_t *kmp_place_threads = __kmp_stg_find("KMP_PLACE_THREADS");
+
+      // !!! volatile keyword is Intel (R) C Compiler bug CQ49908 workaround.
+      static kmp_setting_t *volatile rivals[3];
+      int i = 0;
+
+      rivals[i++] = kmp_hw_subset;
+      rivals[i++] = kmp_place_threads;
+      rivals[i++] = NULL;
+
+      kmp_hw_subset->data = CCAST(kmp_setting_t **, rivals);
+      kmp_place_threads->data = CCAST(kmp_setting_t **, rivals);
     }
 
 #if KMP_AFFINITY_SUPPORTED
@@ -4911,7 +4954,6 @@ static void __kmp_aux_env_initialize(kmp_env_blk_t *block) {
   if (value) {
     ompc_set_dynamic(__kmp_global.g.g_dynamic);
   }
-
 }
 
 void __kmp_env_initialize(char const *string) {
@@ -4943,7 +4985,7 @@ void __kmp_env_initialize(char const *string) {
     }
   }
 
-// We need to know if blocktime was set when processing OMP_WAIT_POLICY
+  // We need to know if blocktime was set when processing OMP_WAIT_POLICY
   blocktime_str = __kmp_env_blk_var(&block, "KMP_BLOCKTIME");
 
   // Special case. If we parse environment, not a string, process KMP_WARNINGS

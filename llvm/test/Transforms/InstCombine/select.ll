@@ -880,114 +880,129 @@ define void @truncs_before_selects(<4 x float> %f1, <4 x float> %f2, <4 x i64> %
 
 ; PR8575
 
-define i32 @test52(i32 %n, i32 %m) nounwind {
+define i32 @test52(i32 %n, i32 %m) {
 ; CHECK-LABEL: @test52(
+; CHECK-NEXT:    [[CMP:%.*]] = icmp sgt i32 %n, %m
+; CHECK-NEXT:    [[STOREMERGE:%.*]] = select i1 [[CMP]], i32 1, i32 6
+; CHECK-NEXT:    ret i32 [[STOREMERGE]]
+;
   %cmp = icmp sgt i32 %n, %m
   %. = select i1 %cmp, i32 1, i32 3
   %add = add nsw i32 %., 3
   %storemerge = select i1 %cmp, i32 %., i32 %add
-; CHECK: select i1 %cmp, i32 1, i32 6
   ret i32 %storemerge
 }
 
 ; PR9454
-define i32 @test53(i32 %x) nounwind {
+
+define i32 @test53(i32 %x) {
+; CHECK-LABEL: @test53(
+; CHECK-NEXT:    [[AND:%.*]] = and i32 %x, 2
+; CHECK-NEXT:    [[CMP:%.*]] = icmp eq i32 [[AND]], %x
+; CHECK-NEXT:    [[SEL:%.*]] = select i1 [[CMP]], i32 2, i32 1
+; CHECK-NEXT:    ret i32 [[SEL]]
+;
   %and = and i32 %x, 2
   %cmp = icmp eq i32 %and, %x
   %sel = select i1 %cmp, i32 2, i32 1
   ret i32 %sel
-; CHECK-LABEL: @test53(
-; CHECK: select i1 %cmp
-; CHECK: ret
 }
 
 define i32 @test54(i32 %X, i32 %Y) {
+; CHECK-LABEL: @test54(
+; CHECK-NEXT:    [[B:%.*]] = icmp ne i32 %X, 0
+; CHECK-NEXT:    [[C:%.*]] = zext i1 [[B]] to i32
+; CHECK-NEXT:    ret i32 [[C]]
+;
   %A = ashr exact i32 %X, %Y
   %B = icmp eq i32 %A, 0
   %C = select i1 %B, i32 %A, i32 1
   ret i32 %C
-; CHECK-LABEL: @test54(
-; CHECK-NOT: ashr
-; CHECK-NOT: select
-; CHECK: icmp ne i32 %X, 0
-; CHECK: zext
-; CHECK: ret
 }
 
 define i1 @test55(i1 %X, i32 %Y, i32 %Z) {
+; CHECK-LABEL: @test55(
+; CHECK-NEXT:    [[C:%.*]] = icmp eq i32 %Y, 0
+; CHECK-NEXT:    ret i1 [[C]]
+;
   %A = ashr exact i32 %Y, %Z
   %B = select i1 %X, i32 %Y, i32 %A
   %C = icmp eq i32 %B, 0
   ret i1 %C
-; CHECK-LABEL: @test55(
-; CHECK-NOT: ashr
-; CHECK-NOT: select
-; CHECK: icmp eq
-; CHECK: ret i1
 }
 
-define i32 @test56(i16 %x) nounwind {
+define i32 @test56(i16 %x) {
+; CHECK-LABEL: @test56(
+; CHECK-NEXT:    [[CONV:%.*]] = zext i16 %x to i32
+; CHECK-NEXT:    ret i32 [[CONV]]
+;
   %tobool = icmp eq i16 %x, 0
   %conv = zext i16 %x to i32
   %cond = select i1 %tobool, i32 0, i32 %conv
   ret i32 %cond
-; CHECK-LABEL: @test56(
-; CHECK-NEXT: zext
-; CHECK-NEXT: ret
 }
 
-define i32 @test57(i32 %x, i32 %y) nounwind {
+define i32 @test57(i32 %x, i32 %y) {
+; CHECK-LABEL: @test57(
+; CHECK-NEXT:    [[AND:%.*]] = and i32 %x, %y
+; CHECK-NEXT:    ret i32 [[AND]]
+;
   %and = and i32 %x, %y
   %tobool = icmp eq i32 %x, 0
   %.and = select i1 %tobool, i32 0, i32 %and
   ret i32 %.and
-; CHECK-LABEL: @test57(
-; CHECK-NEXT: and i32 %x, %y
-; CHECK-NEXT: ret
 }
 
-define i32 @test58(i16 %x) nounwind {
+define i32 @test58(i16 %x) {
+; CHECK-LABEL: @test58(
+; CHECK-NEXT:    [[CONV:%.*]] = zext i16 %x to i32
+; CHECK-NEXT:    ret i32 [[CONV]]
+;
   %tobool = icmp ne i16 %x, 1
   %conv = zext i16 %x to i32
   %cond = select i1 %tobool, i32 %conv, i32 1
   ret i32 %cond
-; CHECK-LABEL: @test58(
-; CHECK-NEXT: zext
-; CHECK-NEXT: ret
 }
 
-define i32 @test59(i32 %x, i32 %y) nounwind {
+define i32 @test59(i32 %x, i32 %y) {
+; CHECK-LABEL: @test59(
+; CHECK-NEXT:    [[AND:%.*]] = and i32 %x, %y
+; CHECK-NEXT:    ret i32 [[AND]]
+;
   %and = and i32 %x, %y
   %tobool = icmp ne i32 %x, %y
   %.and = select i1 %tobool, i32 %and, i32 %y
   ret i32 %.and
-; CHECK-LABEL: @test59(
-; CHECK-NEXT: and i32 %x, %y
-; CHECK-NEXT: ret
 }
 
-define i1 @test60(i32 %x, i1* %y) nounwind {
+define i1 @test60(i32 %x, i1* %y) {
+; CHECK-LABEL: @test60(
+; CHECK-NEXT:    [[CMP:%.*]] = icmp eq i32 %x, 0
+; CHECK-NEXT:    [[LOAD:%.*]] = load i1, i1* %y, align 1
+; CHECK-NEXT:    [[CMP1:%.*]] = icmp slt i32 %x, 1
+; CHECK-NEXT:    [[SEL:%.*]] = select i1 [[CMP]], i1 [[LOAD]], i1 [[CMP1]]
+; CHECK-NEXT:    ret i1 [[SEL]]
+;
   %cmp = icmp eq i32 %x, 0
   %load = load i1, i1* %y, align 1
   %cmp1 = icmp slt i32 %x, 1
   %sel = select i1 %cmp, i1 %load, i1 %cmp1
   ret i1 %sel
-; CHECK-LABEL: @test60(
-; CHECK: select
 }
 
 @glbl = constant i32 10
 define i32 @test61(i32* %ptr) {
+; CHECK-LABEL: @test61(
+; CHECK-NEXT:    ret i32 10
+;
   %A = load i32, i32* %ptr
   %B = icmp eq i32* %ptr, @glbl
   %C = select i1 %B, i32 %A, i32 10
   ret i32 %C
-; CHECK-LABEL: @test61(
-; CHECK: ret i32 10
 }
 
 ; PR14131
-define void @test64(i32 %p, i16 %b) noreturn nounwind {
+define void @test64(i32 %p, i16 %b) noreturn {
 entry:
   %p.addr.0.insert.mask = and i32 %p, -65536
   %conv2 = and i32 %p, 65535
@@ -1225,7 +1240,7 @@ define i8* @test83(i1 %flag) {
 ; CHECK:         %[[V:.*]] = load i64, i64* %[[X2]]
 ; CHECK-NEXT:    store i64 %[[V]], i64* %[[Y2]]
 ; CHECK-NEXT:    %[[C:.*]] = inttoptr i64 %[[V]] to i8*
-; CHECK-NEXT:    ret i8* %[[S]]
+; CHECK-NEXT:    ret i8* %[[C]]
 entry:
   %x = alloca i8*
   %y = alloca i64
@@ -1474,4 +1489,56 @@ entry:
   %0 = fcmp ole <4 x float> %w, zeroinitializer
   %1 = select <4 x i1> %0, <4 x float> <float 0xFFFFFFFFE0000000, float 0xFFFFFFFFE0000000, float 0xFFFFFFFFE0000000, float 0xFFFFFFFFE0000000>, <4 x float> zeroinitializer
   ret <4 x float> %1
+}
+
+; select(C, binop(select(C, X, Y), W), Z) -> select(C, binop(X, W), Z)
+define i8 @test87(i1 %cond, i8 %w, i8 %x, i8 %y, i8 %z) {
+; CHECK-LABEL: @test87(
+; CHECK-NEXT:    [[B:%.*]] = add i8 [[X:%.*]], [[W:%.*]]
+; CHECK-NEXT:    [[C:%.*]] = select i1 [[COND:%.*]], i8 [[B]], i8 [[Z:%.*]]
+; CHECK-NEXT:    ret i8 [[C]]
+;
+  %a = select i1 %cond, i8 %x, i8 %y
+  %b = add i8 %a, %w
+  %c = select i1 %cond, i8 %b, i8 %z
+  ret i8 %c
+}
+
+; select(C, binop(select(C, X, Y), W), Z) -> select(C, Z, binop(Y, W))
+define i8 @test88(i1 %cond, i8 %w, i8 %x, i8 %y, i8 %z) {
+; CHECK-LABEL: @test88(
+; CHECK-NEXT:    [[B:%.*]] = sub i8 [[Y:%.*]], [[W:%.*]]
+; CHECK-NEXT:    [[C:%.*]] = select i1 [[COND:%.*]], i8 [[Z:%.*]], i8 [[B]]
+; CHECK-NEXT:    ret i8 [[C]]
+;
+  %a = select i1 %cond, i8 %x, i8 %y
+  %b = sub i8 %a, %w
+  %c = select i1 %cond, i8 %z, i8 %b
+  ret i8 %c
+}
+
+; select(C, Z, binop(W, select(C, X, Y))) -> select(C, binop(X, W), Z)
+define i8 @test89(i1 %cond, i8 %w, i8 %x, i8 %y, i8 %z) {
+; CHECK-LABEL: @test89(
+; CHECK-NEXT:    [[B:%.*]] = and i8 [[X:%.*]], [[W:%.*]]
+; CHECK-NEXT:    [[C:%.*]] = select i1 [[COND:%.*]], i8 [[B]], i8 [[Z:%.*]]
+; CHECK-NEXT:    ret i8 [[C]]
+;
+  %a = select i1 %cond, i8 %x, i8 %y
+  %b = and i8 %w, %a
+  %c = select i1 %cond, i8 %b, i8 %z
+  ret i8 %c
+}
+
+; select(C, Z, binop(W, select(C, X, Y))) -> select(C, Z, binop(W, Y))
+define i8 @test90(i1 %cond, i8 %w, i8 %x, i8 %y, i8 %z) {
+; CHECK-LABEL: @test90(
+; CHECK-NEXT:    [[B:%.*]] = or i8 [[Y:%.*]], [[W:%.*]]
+; CHECK-NEXT:    [[C:%.*]] = select i1 [[COND:%.*]], i8 [[Z:%.*]], i8 [[B]]
+; CHECK-NEXT:    ret i8 [[C]]
+;
+  %a = select i1 %cond, i8 %x, i8 %y
+  %b = or i8 %w, %a
+  %c = select i1 %cond, i8 %z, i8 %b
+  ret i8 %c
 }

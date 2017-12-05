@@ -697,8 +697,8 @@ CXXABI *ASTContext::createCXXABI(const TargetInfo &T) {
   llvm_unreachable("Invalid CXXABI type!");
 }
 
-static const LangAS::Map *getAddressSpaceMap(const TargetInfo &T,
-                                             const LangOptions &LOpts) {
+static const LangASMap *getAddressSpaceMap(const TargetInfo &T,
+                                           const LangOptions &LOpts) {
   if (LOpts.FakeAddressSpaceMap) {
     // The fake address space map must have a distinct entry for each
     // language-specific address space.
@@ -707,6 +707,7 @@ static const LangAS::Map *getAddressSpaceMap(const TargetInfo &T,
       1, // opencl_global
       3, // opencl_local
       2, // opencl_constant
+      0, // opencl_private
       4, // opencl_generic
       5, // cuda_device
       6, // cuda_constant
@@ -2282,8 +2283,8 @@ ASTContext::getExtQualType(const Type *baseType, Qualifiers quals) const {
   return QualType(eq, fastQuals);
 }
 
-QualType
-ASTContext::getAddrSpaceQualType(QualType T, unsigned AddressSpace) const {
+QualType ASTContext::getAddrSpaceQualType(QualType T,
+                                          LangAS AddressSpace) const {
   QualType CanT = getCanonicalType(T);
   if (CanT.getAddressSpace() == AddressSpace)
     return T;
@@ -2300,6 +2301,27 @@ ASTContext::getAddrSpaceQualType(QualType T, unsigned AddressSpace) const {
   Quals.addAddressSpace(AddressSpace);
 
   return getExtQualType(TypeNode, Quals);
+}
+
+QualType ASTContext::removeAddrSpaceQualType(QualType T) const {
+  // If we are composing extended qualifiers together, merge together
+  // into one ExtQuals node.
+  QualifierCollector Quals;
+  const Type *TypeNode = Quals.strip(T);
+
+  // If the qualifier doesn't have an address space just return it.
+  if (!Quals.hasAddressSpace())
+    return T;
+
+  Quals.removeAddressSpace();
+
+  // Removal of the address space can mean there are no longer any
+  // non-fast qualifiers, so creating an ExtQualType isn't possible (asserts)
+  // or required.
+  if (Quals.hasNonFastQualifiers())
+    return getExtQualType(TypeNode, Quals);
+  else
+    return QualType(TypeNode, Quals.getFastQualifiers());
 }
 
 QualType ASTContext::getObjCGCQualType(QualType T,
@@ -2752,6 +2774,7 @@ QualType ASTContext::getVariableArrayDecayedType(QualType type) const {
   case Type::Vector:
   case Type::ExtVector:
   case Type::DependentSizedExtVector:
+  case Type::DependentAddressSpace:
   case Type::ObjCObject:
   case Type::ObjCInterface:
   case Type::ObjCObjectPointer:
@@ -3098,6 +3121,41 @@ ASTContext::getDependentSizedExtVectorType(QualType vecType,
 
   Types.push_back(New);
   return QualType(New, 0);
+}
+
+QualType ASTContext::getDependentAddressSpaceType(QualType PointeeType, 
+                                                  Expr *AddrSpaceExpr, 
+                                                  SourceLocation AttrLoc) const {
+  assert(AddrSpaceExpr->isInstantiationDependent()); 
+
+  QualType canonPointeeType = getCanonicalType(PointeeType);
+
+  void *insertPos = nullptr;
+  llvm::FoldingSetNodeID ID;
+  DependentAddressSpaceType::Profile(ID, *this, canonPointeeType,
+                                     AddrSpaceExpr);
+
+  DependentAddressSpaceType *canonTy =
+    DependentAddressSpaceTypes.FindNodeOrInsertPos(ID, insertPos);
+
+  if (!canonTy) {
+    canonTy = new (*this, TypeAlignment)
+      DependentAddressSpaceType(*this, canonPointeeType, 
+                                QualType(), AddrSpaceExpr, AttrLoc);
+    DependentAddressSpaceTypes.InsertNode(canonTy, insertPos);
+    Types.push_back(canonTy);
+  }
+    
+  if (canonPointeeType == PointeeType &&
+      canonTy->getAddrSpaceExpr() == AddrSpaceExpr)
+    return QualType(canonTy, 0);     
+
+  DependentAddressSpaceType *sugaredType
+    = new (*this, TypeAlignment)
+        DependentAddressSpaceType(*this, PointeeType, QualType(canonTy, 0), 
+                                  AddrSpaceExpr, AttrLoc);
+  Types.push_back(sugaredType);
+  return QualType(sugaredType, 0);  
 }
 
 /// \brief Determine whether \p T is canonical as the result type of a function.
@@ -4571,6 +4629,13 @@ QualType ASTContext::getPointerDiffType() const {
   return getFromTargetType(Target->getPtrDiffType(0));
 }
 
+/// \brief Return the unique unsigned counterpart of "ptrdiff_t"
+/// integer type. The standard (C11 7.21.6.1p7) refers to this type
+/// in the definition of %tu format specifier.
+QualType ASTContext::getUnsignedPointerDiffType() const {
+  return getFromTargetType(Target->getUnsignedPtrDiffType(0));
+}
+
 /// \brief Return the unique type for "pid_t" defined in
 /// <sys/types.h>. We need this to compute the correct type for vfork().
 QualType ASTContext::getProcessIDType() const {
@@ -5570,14 +5635,14 @@ ASTContext::getInlineVariableDefinitionKind(const VarDecl *VD) const {
 
   // In almost all cases, it's a weak definition.
   auto *First = VD->getFirstDecl();
-  if (!First->isConstexpr() || First->isInlineSpecified() ||
-      !VD->isStaticDataMember())
+  if (First->isInlineSpecified() || !First->isStaticDataMember())
     return InlineVariableDefinitionKind::Weak;
 
   // If there's a file-context declaration in this translation unit, it's a
   // non-discardable definition.
   for (auto *D : VD->redecls())
-    if (D->getLexicalDeclContext()->isFileContext())
+    if (D->getLexicalDeclContext()->isFileContext() &&
+        !D->isInlineSpecified() && (D->isConstexpr() || First->isConstexpr()))
       return InlineVariableDefinitionKind::Strong;
 
   // If we've not seen one yet, we don't know.
@@ -5607,7 +5672,6 @@ std::string ASTContext::getObjCEncodingForBlock(const BlockExpr *Expr) const {
   // Compute size of all parameters.
   // Start with computing size of a pointer in number of bytes.
   // FIXME: There might(should) be a better way of doing this computation!
-  SourceLocation Loc;
   CharUnits PtrSize = getTypeSizeInChars(VoidPtrTy);
   CharUnits ParmOffset = PtrSize;
   for (auto PI : Decl->parameters()) {
@@ -5715,7 +5779,6 @@ std::string ASTContext::getObjCEncodingForMethodDecl(const ObjCMethodDecl *Decl,
   // Compute size of all parameters.
   // Start with computing size of a pointer in number of bytes.
   // FIXME: There might(should) be a better way of doing this computation!
-  SourceLocation Loc;
   CharUnits PtrSize = getTypeSizeInChars(VoidPtrTy);
   // The first two arguments (self and _cmd) are pointers; account for
   // their size.
@@ -8807,8 +8870,8 @@ static QualType DecodeTypeFromStr(const char *&Str, const ASTContext &Context,
       char *End;
       unsigned AddrSpace = strtoul(Str, &End, 10);
       if (End != Str && AddrSpace != 0) {
-        Type = Context.getAddrSpaceQualType(
-            Type, AddrSpace + LangAS::FirstTargetAddressSpace);
+        Type = Context.getAddrSpaceQualType(Type,
+                                            getLangASFromTargetAS(AddrSpace));
         Str = End;
       }
       if (c == '*')
@@ -8899,6 +8962,12 @@ static GVALinkage basicGVALinkageForFunction(const ASTContext &Context,
                                              const FunctionDecl *FD) {
   if (!FD->isExternallyVisible())
     return GVA_Internal;
+
+  // Non-user-provided functions get emitted as weak definitions with every
+  // use, no matter whether they've been explicitly instantiated etc.
+  if (auto *MD = dyn_cast<CXXMethodDecl>(FD))
+    if (!MD->isUserProvided())
+      return GVA_DiscardableODR;
 
   GVALinkage External;
   switch (FD->getTemplateSpecializationKind()) {
@@ -9206,7 +9275,7 @@ CallingConv ASTContext::getDefaultCallingConvention(bool IsVariadic,
   case LangOptions::DCC_CDecl:
     return CC_C;
   case LangOptions::DCC_FastCall:
-    if (getTargetInfo().hasFeature("sse2"))
+    if (getTargetInfo().hasFeature("sse2") && !IsVariadic)
       return CC_X86FastCall;
     break;
   case LangOptions::DCC_StdCall:
@@ -9217,6 +9286,11 @@ CallingConv ASTContext::getDefaultCallingConvention(bool IsVariadic,
     // __vectorcall cannot be applied to variadic functions.
     if (!IsVariadic)
       return CC_X86VectorCall;
+    break;
+  case LangOptions::DCC_RegCall:
+    // __regcall cannot be applied to variadic functions.
+    if (!IsVariadic)
+      return CC_X86RegCall;
     break;
   }
   return Target->getDefaultCallingConv(TargetInfo::CCMT_Unknown);
@@ -9631,20 +9705,20 @@ ASTContext::ObjCMethodsAreEqual(const ObjCMethodDecl *MethodDecl,
 }
 
 uint64_t ASTContext::getTargetNullPointerValue(QualType QT) const {
-  unsigned AS;
+  LangAS AS;
   if (QT->getUnqualifiedDesugaredType()->isNullPtrType())
-    AS = 0;
+    AS = LangAS::Default;
   else
     AS = QT->getPointeeType().getAddressSpace();
 
   return getTargetInfo().getNullPointerValue(AS);
 }
 
-unsigned ASTContext::getTargetAddressSpace(unsigned AS) const {
-  if (AS >= LangAS::FirstTargetAddressSpace)
-    return AS - LangAS::FirstTargetAddressSpace;
+unsigned ASTContext::getTargetAddressSpace(LangAS AS) const {
+  if (isTargetAddressSpace(AS))
+    return toTargetAddressSpace(AS);
   else
-    return (*AddrSpaceMap)[AS];
+    return (*AddrSpaceMap)[(unsigned)AS];
 }
 
 // Explicitly instantiate this in case a Redeclarable<T> is used from a TU that
