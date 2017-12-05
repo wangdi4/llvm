@@ -16,6 +16,13 @@ extern cl_device_type gDeviceType;
 
 bool clMultipleExecutionTest()
 {
+    // TODO: CORC-2041 [FPGA] Do not serialize kernels without FPGA features
+    // FPGA Emulator serializes all kernels. Except of significant performance
+    // regression it doesn't allow to use IFP of work-groups even it is valid
+    if (gDeviceType == CL_DEVICE_TYPE_ACCELERATOR) {
+      printf("The case tested here isn't supported by FPGA Emulator yet. Failed\n");
+      return false;
+    }
 	printf("---------------------------------------\n");
 	printf("clMultipleExecutionTest\n");
 	printf("---------------------------------------\n");
@@ -27,7 +34,6 @@ bool clMultipleExecutionTest()
     "while (*b < bar) {};"\
 	"}"
 	};
-
 	bool bResult = true;
 	cl_device_id device_id;
 	cl_context context;
