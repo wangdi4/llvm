@@ -50,7 +50,7 @@ void OmpTestType::SetUp() {
   cl_uint numPlatforms;
   error = clGetPlatformIDs(0, NULL, &numPlatforms);
   ASSERT_EQ(CL_SUCCESS, error) << "clGetPlatformIDs failed";
-  ASSERT_GE(1, numPlatforms) << "clGetPlatformIDs failed";
+  ASSERT_GE(1u, numPlatforms) << "clGetPlatformIDs failed";
 
   error = clGetPlatformIDs(numPlatforms, &m_platform, NULL);
   ASSERT_EQ(CL_SUCCESS, error) << "clGetPlatformIDs failed";
@@ -58,7 +58,7 @@ void OmpTestType::SetUp() {
   cl_uint numDevices;
   error = clGetDeviceIDs(m_platform, gDeviceType, 0, NULL, &numDevices);
   ASSERT_EQ(CL_SUCCESS, error) << "clGetDeviceIDs failed";
-  ASSERT_GE(1, numPlatforms) << "clGetPlatformIDs failed";
+  ASSERT_GE(1u, numPlatforms) << "clGetPlatformIDs failed";
 
   error = clGetDeviceIDs(m_platform, gDeviceType, numDevices, &m_device, NULL);
   ASSERT_EQ(CL_SUCCESS, error) << "clGetDeviceIDs failed";
