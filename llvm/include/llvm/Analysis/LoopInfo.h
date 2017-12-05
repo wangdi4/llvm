@@ -46,7 +46,9 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
+#include "llvm/Support/Allocator.h"
 #include <algorithm>
+#include <utility>
 
 namespace llvm {
 
@@ -74,25 +76,16 @@ template <class BlockT, class LoopT> class LoopBase {
 
   SmallPtrSet<const BlockT *, 8> DenseBlockSet;
 
+#if LLVM_ENABLE_ABI_BREAKING_CHECKS
   /// Indicator that this loop is no longer a valid loop.
   bool IsInvalid = false;
+#endif
 
   LoopBase(const LoopBase<BlockT, LoopT> &) = delete;
   const LoopBase<BlockT, LoopT> &
   operator=(const LoopBase<BlockT, LoopT> &) = delete;
 
-  void clear() {
-    IsInvalid = true;
-    SubLoops.clear();
-    Blocks.clear();
-    DenseBlockSet.clear();
-    ParentLoop = nullptr;
-  }
-
 public:
-  /// This creates an empty loop.
-  LoopBase() : ParentLoop(nullptr) {}
-
   /// Return the nesting level of this loop.  An outer-most loop has depth 1,
   /// for consistency with loop depth values used for basic blocks, where depth
   /// 0 is used for blocks not inside any loops.
@@ -153,11 +146,11 @@ public:
   bool empty() const { return getSubLoops().empty(); }
 
   /// Get a list of the basic blocks which make up this loop.
-  const std::vector<BlockT *> &getBlocks() const {
+  ArrayRef<BlockT *> getBlocks() const {
     assert(!isInvalid() && "Loop not in a valid state!");
     return Blocks;
   }
-  typedef typename std::vector<BlockT *>::const_iterator block_iterator;
+  typedef typename ArrayRef<BlockT *>::const_iterator block_iterator;
   block_iterator block_begin() const { return getBlocks().begin(); }
   block_iterator block_end() const { return getBlocks().end(); }
   inline iterator_range<block_iterator> blocks() const {
@@ -172,8 +165,32 @@ public:
     return Blocks.size();
   }
 
-  /// Return true if this loop is no longer valid.
-  bool isInvalid() const { return IsInvalid; }
+  /// Return a direct, mutable handle to the blocks vector so that we can
+  /// mutate it efficiently with techniques like `std::remove`.
+  std::vector<BlockT *> &getBlocksVector() {
+    assert(!isInvalid() && "Loop not in a valid state!");
+    return Blocks;
+  }
+  /// Return a direct, mutable handle to the blocks set so that we can
+  /// mutate it efficiently.
+  SmallPtrSetImpl<const BlockT *> &getBlocksSet() {
+    assert(!isInvalid() && "Loop not in a valid state!");
+    return DenseBlockSet;
+  }
+
+  /// Return true if this loop is no longer valid.  The only valid use of this
+  /// helper is "assert(L.isInvalid())" or equivalent, since IsInvalid is set to
+  /// true by the destructor.  In other words, if this accessor returns true,
+  /// the caller has already triggered UB by calling this accessor; and so it
+  /// can only be called in a context where a return value of true indicates a
+  /// programmer error.
+  bool isInvalid() const {
+#if LLVM_ENABLE_ABI_BREAKING_CHECKS
+    return IsInvalid;
+#else
+    return false;
+#endif
+  }
 
   /// True if terminator in the block can branch to another block that is
   /// outside of the current loop.
@@ -310,6 +327,12 @@ public:
     return Child;
   }
 
+  /// This removes the specified child from being a subloop of this loop. The
+  /// loop is not deleted, as it will presumably be inserted into another loop.
+  LoopT *removeChildLoop(LoopT *Child) {
+    return removeChildLoop(llvm::find(*this, Child));
+  }
+
   /// This adds a basic block directly to the basic block list.
   /// This should only be used by transformations that create new loops.  Other
   /// transformations should use addBasicBlockToLoop.
@@ -370,6 +393,10 @@ public:
 
 protected:
   friend class LoopInfoBase<BlockT, LoopT>;
+
+  /// This creates an empty loop.
+  LoopBase() : ParentLoop(nullptr) {}
+
   explicit LoopBase(BlockT *BB) : ParentLoop(nullptr) {
     Blocks.push_back(BB);
     DenseBlockSet.insert(BB);
@@ -386,7 +413,15 @@ protected:
   // non-public.
   ~LoopBase() {
     for (auto *SubLoop : SubLoops)
-      delete SubLoop;
+      SubLoop->~LoopT();
+
+#if LLVM_ENABLE_ABI_BREAKING_CHECKS
+    IsInvalid = true;
+#endif
+    SubLoops.clear();
+    Blocks.clear();
+    DenseBlockSet.clear();
+    ParentLoop = nullptr;
   }
 };
 
@@ -421,8 +456,6 @@ public:
     ///
     explicit operator bool() const { return Start && End; }
   };
-
-  Loop() {}
 
   /// Return true if the specified value is loop invariant.
   bool isLoopInvariant(const Value *V) const;
@@ -506,6 +539,14 @@ public:
   /// operand should be the node itself.
   void setLoopID(MDNode *LoopID) const;
 
+  /// Add llvm.loop.unroll.disable to this loop's loop id metadata.
+  ///
+  /// Remove existing unroll metadata and add unroll disable metadata to
+  /// indicate the loop has already been unrolled.  This prevents a loop
+  /// from being unrolled more than is directed by a pragma if the loop
+  /// unrolling pass is run more than once (which it generally is).
+  void setLoopAlreadyUnrolled();
+
   /// Return true if no exit block for the loop has a predecessor that is
   /// outside the loop.
   bool hasDedicatedExits() const;
@@ -534,8 +575,6 @@ public:
   LocRange getLocRange() const;
 
   StringRef getName() const {
-    if (isInvalid())
-      return "<invalidated loop>";
     if (BasicBlock *Header = getHeader())
       if (Header->hasName())
         return Header->getName();
@@ -543,6 +582,8 @@ public:
   }
 
 private:
+  Loop() = default;
+
   friend class LoopInfoBase<BasicBlock, Loop>;
   friend class LoopBase<BasicBlock, Loop>;
   explicit Loop(BasicBlock *BB) : LoopBase<BasicBlock, Loop>(BB) {}
@@ -558,7 +599,7 @@ template <class BlockT, class LoopT> class LoopInfoBase {
   // BBMap - Mapping of basic blocks to the inner most loop they occur in
   DenseMap<const BlockT *, LoopT *> BBMap;
   std::vector<LoopT *> TopLevelLoops;
-  std::vector<LoopT *> RemovedLoops;
+  BumpPtrAllocator LoopAllocator;
 
   friend class LoopBase<BlockT, LoopT>;
   friend class LoopInfo;
@@ -572,7 +613,8 @@ public:
 
   LoopInfoBase(LoopInfoBase &&Arg)
       : BBMap(std::move(Arg.BBMap)),
-        TopLevelLoops(std::move(Arg.TopLevelLoops)) {
+        TopLevelLoops(std::move(Arg.TopLevelLoops)),
+        LoopAllocator(std::move(Arg.LoopAllocator)) {
     // We have to clear the arguments top level loops as we've taken ownership.
     Arg.TopLevelLoops.clear();
   }
@@ -580,8 +622,10 @@ public:
     BBMap = std::move(RHS.BBMap);
 
     for (auto *L : TopLevelLoops)
-      delete L;
+      L->~LoopT();
+
     TopLevelLoops = std::move(RHS.TopLevelLoops);
+    LoopAllocator = std::move(RHS.LoopAllocator);
     RHS.TopLevelLoops.clear();
     return *this;
   }
@@ -590,11 +634,14 @@ public:
     BBMap.clear();
 
     for (auto *L : TopLevelLoops)
-      delete L;
+      L->~LoopT();
     TopLevelLoops.clear();
-    for (auto *L : RemovedLoops)
-      delete L;
-    RemovedLoops.clear();
+    LoopAllocator.Reset();
+  }
+
+  template <typename... ArgsTy> LoopT *AllocateLoop(ArgsTy &&... Args) {
+    LoopT *Storage = LoopAllocator.Allocate<LoopT>();
+    return new (Storage) LoopT(std::forward<ArgsTy>(Args)...);
   }
 
   /// iterator/begin/end - The interface to the top-level loops in the current
@@ -716,8 +763,23 @@ public:
 
   void verify(const DominatorTreeBase<BlockT, false> &DomTree) const;
 
-protected:
-  static void clearLoop(LoopT &L) { L.clear(); }
+  /// Destroy a loop that has been removed from the `LoopInfo` nest.
+  ///
+  /// This runs the destructor of the loop object making it invalid to
+  /// reference afterward. The memory is retained so that the *pointer* to the
+  /// loop remains valid.
+  ///
+  /// The caller is responsible for removing this loop from the loop nest and
+  /// otherwise disconnecting it from the broader `LoopInfo` data structures.
+  /// Callers that don't naturally handle this themselves should probably call
+  /// `erase' instead.
+  void destroy(LoopT *L) {
+    L->~LoopT();
+
+    // Since LoopAllocator is a BumpPtrAllocator, this Deallocate only poisons
+    // \c L, but the pointer remains valid for non-dereferencing uses.
+    LoopAllocator.Deallocate(L);
+  }
 };
 
 // Implementation in LoopInfoImpl.h

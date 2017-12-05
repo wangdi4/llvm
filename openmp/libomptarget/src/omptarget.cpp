@@ -56,7 +56,7 @@ static const char *RTLNames[] = {
 
 // forward declarations
 struct RTLInfoTy;
-static int target(int32_t device_id, void *host_ptr, int32_t arg_num,
+static int target(int64_t device_id, void *host_ptr, int32_t arg_num,
     void **args_base, void **args, int64_t *arg_sizes, int64_t *arg_types,
     int32_t team_num, int32_t thread_limit, int IsTeamConstruct);
 
@@ -1450,7 +1450,7 @@ struct combined_entry_t {
 };
 
 static void translate_map(int32_t arg_num, void **args_base, void **args,
-    int64_t *arg_sizes, int32_t *arg_types, int32_t &new_arg_num,
+    int64_t *arg_sizes, int64_t *arg_types, int32_t &new_arg_num,
     void **&new_args_base, void **&new_args, int64_t *&new_arg_sizes,
     int64_t *&new_arg_types, bool is_target_construct) {
   if (arg_num <= 0) {
@@ -1469,7 +1469,7 @@ static void translate_map(int32_t arg_num, void **args_base, void **args,
   // old entry is member of member_of[old] cmb_entry
   int *member_of = (int *) alloca(arg_num * sizeof(int));
   // temporary storage for modifications of the original arg_types
-  int32_t *mod_arg_types = (int32_t *) alloca(arg_num  *sizeof(int32_t));
+  int64_t *mod_arg_types = (int64_t *) alloca(arg_num  *sizeof(int64_t));
 
   DP("Translating %d map entries\n", arg_num);
   for (int i = 0; i < arg_num; ++i) {
@@ -1758,8 +1758,8 @@ static int target_data_begin(DeviceTy &Device, int32_t arg_num,
   return rc;
 }
 
-EXTERN void __tgt_target_data_begin_nowait(int32_t device_id, int32_t arg_num,
-    void **args_base, void **args, int64_t *arg_sizes, int32_t *arg_types,
+EXTERN void __tgt_target_data_begin_nowait(int64_t device_id, int32_t arg_num,
+    void **args_base, void **args, int64_t *arg_sizes, int64_t *arg_types,
     int32_t depNum, void *depList, int32_t noAliasDepNum,
     void *noAliasDepList) {
   if (depNum + noAliasDepNum > 0)
@@ -1772,19 +1772,19 @@ EXTERN void __tgt_target_data_begin_nowait(int32_t device_id, int32_t arg_num,
 /// creates host-to-target data mapping, stores it in the
 /// libomptarget.so internal structure (an entry in a stack of data maps)
 /// and passes the data to the device.
-EXTERN void __tgt_target_data_begin(int32_t device_id, int32_t arg_num,
-    void **args_base, void **args, int64_t *arg_sizes, int32_t *arg_types) {
-  DP("Entering data begin region for device %d with %d mappings\n", device_id,
+EXTERN void __tgt_target_data_begin(int64_t device_id, int32_t arg_num,
+    void **args_base, void **args, int64_t *arg_sizes, int64_t *arg_types) {
+  DP("Entering data begin region for device %ld with %d mappings\n", device_id,
      arg_num);
 
   // No devices available?
   if (device_id == OFFLOAD_DEVICE_DEFAULT) {
     device_id = omp_get_default_device();
-    DP("Use default device id %d\n", device_id);
+    DP("Use default device id %ld\n", device_id);
   }
 
   if (CheckDevice(device_id) != OFFLOAD_SUCCESS) {
-    DP("Failed to get device %d ready\n", device_id);
+    DP("Failed to get device %ld ready\n", device_id);
     return;
   }
 
@@ -1917,8 +1917,8 @@ static int target_data_end(DeviceTy &Device, int32_t arg_num, void **args_base,
 /// passes data from the target, releases target memory and destroys
 /// the host-target mapping (top entry from the stack of data maps)
 /// created by the last __tgt_target_data_begin.
-EXTERN void __tgt_target_data_end(int32_t device_id, int32_t arg_num,
-    void **args_base, void **args, int64_t *arg_sizes, int32_t *arg_types) {
+EXTERN void __tgt_target_data_end(int64_t device_id, int32_t arg_num,
+    void **args_base, void **args, int64_t *arg_sizes, int64_t *arg_types) {
   DP("Entering data end region with %d mappings\n", arg_num);
 
   // No devices available?
@@ -1930,7 +1930,7 @@ EXTERN void __tgt_target_data_end(int32_t device_id, int32_t arg_num,
   size_t Devices_size = Devices.size();
   RTLsMtx.unlock();
   if (Devices_size <= (size_t)device_id) {
-    DP("Device ID  %d does not have a matching RTL.\n", device_id);
+    DP("Device ID  %ld does not have a matching RTL.\n", device_id);
     return;
   }
 
@@ -1958,8 +1958,8 @@ EXTERN void __tgt_target_data_end(int32_t device_id, int32_t arg_num,
       new_arg_types, arg_num, args_base);
 }
 
-EXTERN void __tgt_target_data_end_nowait(int32_t device_id, int32_t arg_num,
-    void **args_base, void **args, int64_t *arg_sizes, int32_t *arg_types,
+EXTERN void __tgt_target_data_end_nowait(int64_t device_id, int32_t arg_num,
+    void **args_base, void **args, int64_t *arg_sizes, int64_t *arg_types,
     int32_t depNum, void *depList, int32_t noAliasDepNum,
     void *noAliasDepList) {
   if (depNum + noAliasDepNum > 0)
@@ -1970,8 +1970,8 @@ EXTERN void __tgt_target_data_end_nowait(int32_t device_id, int32_t arg_num,
 }
 
 /// passes data to/from the target.
-EXTERN void __tgt_target_data_update(int32_t device_id, int32_t arg_num,
-    void **args_base, void **args, int64_t *arg_sizes, int32_t *arg_types) {
+EXTERN void __tgt_target_data_update(int64_t device_id, int32_t arg_num,
+    void **args_base, void **args, int64_t *arg_sizes, int64_t *arg_types) {
   DP("Entering data update with %d mappings\n", arg_num);
 
   // No devices available?
@@ -1980,7 +1980,7 @@ EXTERN void __tgt_target_data_update(int32_t device_id, int32_t arg_num,
   }
 
   if (CheckDevice(device_id) != OFFLOAD_SUCCESS) {
-    DP("Failed to get device %d ready\n", device_id);
+    DP("Failed to get device %ld ready\n", device_id);
     return;
   }
 
@@ -2048,8 +2048,8 @@ EXTERN void __tgt_target_data_update(int32_t device_id, int32_t arg_num,
 }
 
 EXTERN void __tgt_target_data_update_nowait(
-    int32_t device_id, int32_t arg_num, void **args_base, void **args,
-    int64_t *arg_sizes, int32_t *arg_types, int32_t depNum, void *depList,
+    int64_t device_id, int32_t arg_num, void **args_base, void **args,
+    int64_t *arg_sizes, int64_t *arg_types, int32_t depNum, void *depList,
     int32_t noAliasDepNum, void *noAliasDepList) {
   if (depNum + noAliasDepNum > 0)
     __kmpc_omp_taskwait(NULL, 0);
@@ -2064,7 +2064,7 @@ EXTERN void __tgt_target_data_update_nowait(
 /// performs the same action as data_update and data_end above. This function
 /// returns 0 if it was able to transfer the execution to a target and an
 /// integer different from zero otherwise.
-static int target(int32_t device_id, void *host_ptr, int32_t arg_num,
+static int target(int64_t device_id, void *host_ptr, int32_t arg_num,
     void **args_base, void **args, int64_t *arg_sizes, int64_t *arg_types,
     int32_t team_num, int32_t thread_limit, int IsTeamConstruct) {
   DeviceTy &Device = Devices[device_id];
@@ -2204,9 +2204,6 @@ static int target(int32_t device_id, void *host_ptr, int32_t arg_num,
     tgt_args.push_back(TgtPtrBegin);
     tgt_offsets.push_back(TgtBaseOffset);
   }
-  // Push omp handle.
-  tgt_args.push_back((void *)0);
-  tgt_offsets.push_back(0);
 
   assert(tgt_args.size() == tgt_offsets.size() &&
       "Size mismatch in arguments and offsets");
@@ -2254,9 +2251,9 @@ static int target(int32_t device_id, void *host_ptr, int32_t arg_num,
   return rc;
 }
 
-EXTERN int __tgt_target(int32_t device_id, void *host_ptr, int32_t arg_num,
-    void **args_base, void **args, int64_t *arg_sizes, int32_t *arg_types) {
-  DP("Entering target region with entry point " DPxMOD " and device Id %d\n",
+EXTERN int __tgt_target(int64_t device_id, void *host_ptr, int32_t arg_num,
+    void **args_base, void **args, int64_t *arg_sizes, int64_t *arg_types) {
+  DP("Entering target region with entry point " DPxMOD " and device Id %ld\n",
      DPxPTR(host_ptr), device_id);
 
   if (device_id == OFFLOAD_DEVICE_DEFAULT) {
@@ -2264,7 +2261,7 @@ EXTERN int __tgt_target(int32_t device_id, void *host_ptr, int32_t arg_num,
   }
 
   if (CheckDevice(device_id) != OFFLOAD_SUCCESS) {
-    DP("Failed to get device %d ready\n", device_id);
+    DP("Failed to get device %ld ready\n", device_id);
     return OFFLOAD_FAIL;
   }
 
@@ -2289,9 +2286,9 @@ EXTERN int __tgt_target(int32_t device_id, void *host_ptr, int32_t arg_num,
   return rc;
 }
 
-EXTERN int __tgt_target_nowait(int32_t device_id, void *host_ptr,
+EXTERN int __tgt_target_nowait(int64_t device_id, void *host_ptr,
     int32_t arg_num, void **args_base, void **args, int64_t *arg_sizes,
-    int32_t *arg_types, int32_t depNum, void *depList, int32_t noAliasDepNum,
+    int64_t *arg_types, int32_t depNum, void *depList, int32_t noAliasDepNum,
     void *noAliasDepList) {
   if (depNum + noAliasDepNum > 0)
     __kmpc_omp_taskwait(NULL, 0);
@@ -2300,10 +2297,10 @@ EXTERN int __tgt_target_nowait(int32_t device_id, void *host_ptr,
                       arg_types);
 }
 
-EXTERN int __tgt_target_teams(int32_t device_id, void *host_ptr,
+EXTERN int __tgt_target_teams(int64_t device_id, void *host_ptr,
     int32_t arg_num, void **args_base, void **args, int64_t *arg_sizes,
-    int32_t *arg_types, int32_t team_num, int32_t thread_limit) {
-  DP("Entering target region with entry point " DPxMOD " and device Id %d\n",
+    int64_t *arg_types, int32_t team_num, int32_t thread_limit) {
+  DP("Entering target region with entry point " DPxMOD " and device Id %ld\n",
      DPxPTR(host_ptr), device_id);
 
   if (device_id == OFFLOAD_DEVICE_DEFAULT) {
@@ -2311,7 +2308,7 @@ EXTERN int __tgt_target_teams(int32_t device_id, void *host_ptr,
   }
 
   if (CheckDevice(device_id) != OFFLOAD_SUCCESS) {
-    DP("Failed to get device %d ready\n", device_id);
+    DP("Failed to get device %ld ready\n", device_id);
     return OFFLOAD_FAIL;
   }
 
@@ -2337,9 +2334,9 @@ EXTERN int __tgt_target_teams(int32_t device_id, void *host_ptr,
   return rc;
 }
 
-EXTERN int __tgt_target_teams_nowait(int32_t device_id, void *host_ptr,
+EXTERN int __tgt_target_teams_nowait(int64_t device_id, void *host_ptr,
     int32_t arg_num, void **args_base, void **args, int64_t *arg_sizes,
-    int32_t *arg_types, int32_t team_num, int32_t thread_limit, int32_t depNum,
+    int64_t *arg_types, int32_t team_num, int32_t thread_limit, int32_t depNum,
     void *depList, int32_t noAliasDepNum, void *noAliasDepList) {
   if (depNum + noAliasDepNum > 0)
     __kmpc_omp_taskwait(NULL, 0);
@@ -2350,18 +2347,18 @@ EXTERN int __tgt_target_teams_nowait(int32_t device_id, void *host_ptr,
 
 
 // The trip count mechanism will be revised - this scheme is not thread-safe.
-EXTERN void __kmpc_push_target_tripcount(int32_t device_id,
+EXTERN void __kmpc_push_target_tripcount(int64_t device_id,
     uint64_t loop_tripcount) {
   if (device_id == OFFLOAD_DEVICE_DEFAULT) {
     device_id = omp_get_default_device();
   }
 
   if (CheckDevice(device_id) != OFFLOAD_SUCCESS) {
-    DP("Failed to get device %d ready\n", device_id);
+    DP("Failed to get device %ld ready\n", device_id);
     return;
   }
 
-  DP("__kmpc_push_target_tripcount(%d, %" PRIu64 ")\n", device_id,
+  DP("__kmpc_push_target_tripcount(%ld, %" PRIu64 ")\n", device_id,
       loop_tripcount);
   Devices[device_id].loopTripCnt = loop_tripcount;
 }
