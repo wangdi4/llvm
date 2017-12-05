@@ -16,6 +16,5 @@ __kernel void foo() {
 // expected-warning@6 {{unknown attribute 'max_global_work_dim' ignored}}
 // expected-warning@7 {{unknown attribute 'num_compute_units' ignored}}
 // expected-warning@8 {{unknown attribute 'autorun' ignored}}
-// expected-error@10 {{implicit declaration of function 'get_compute_id' is invalid in OpenCL}}
-// expected-error@10 {{function with no prototype cannot use the spir_function calling convention}}
+// expected-warning@10 {{implicit declaration of function 'get_compute_id' is invalid in OpenCL}}
 #endif

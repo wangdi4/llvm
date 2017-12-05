@@ -74,6 +74,7 @@ INLINE uptr GetPageSizeCached() {
 }
 uptr GetMmapGranularity();
 uptr GetMaxVirtualAddress();
+uptr GetMaxUserVirtualAddress();
 // Threads
 tid_t GetTid();
 uptr GetThreadSelf();
@@ -127,6 +128,21 @@ void DontDumpShadowMemory(uptr addr, uptr length);
 void CheckVMASize();
 void RunMallocHooks(const void *ptr, uptr size);
 void RunFreeHooks(const void *ptr);
+
+class ReservedAddressRange {
+ public:
+  uptr Init(uptr size, const char *name = nullptr, uptr fixed_addr = 0);
+  uptr Map(uptr fixed_addr, uptr size);
+  uptr MapOrDie(uptr fixed_addr, uptr size);
+  void Unmap(uptr addr, uptr size);
+  void *base() const { return base_; }
+  uptr size() const { return size_; }
+
+ private:
+  void* base_;
+  uptr size_;
+  const char* name_;
+};
 
 typedef void (*fill_profile_f)(uptr start, uptr rss, bool file,
                                /*out*/uptr *stats, uptr stats_size);
@@ -190,6 +206,8 @@ class LowLevelAllocator {
   char *allocated_end_;
   char *allocated_current_;
 };
+// Set the min alignment of LowLevelAllocator to at least alignment.
+void SetLowLevelAllocateMinAlignment(uptr alignment);
 typedef void (*LowLevelAllocateCallback)(uptr ptr, uptr size);
 // Allows to register tool-specific callbacks for LowLevelAllocator.
 // Passing NULL removes the callback.
@@ -211,10 +229,6 @@ void SetPrintfAndReportCallback(void (*callback)(const char *));
   do {                                                                   \
     if ((uptr)Verbosity() >= (level)) Printf(__VA_ARGS__); \
   } while (0)
-
-// Can be used to prevent mixing error reports from different sanitizers.
-// FIXME: Replace with ScopedErrorReportLock and hide.
-extern StaticSpinMutex CommonSanitizerReportMutex;
 
 // Lock sanitizer error reporting and protects against nested errors.
 class ScopedErrorReportLock {
@@ -727,9 +741,10 @@ class LoadedModule {
 // filling this information.
 class ListOfModules {
  public:
-  ListOfModules() : modules_(kInitialCapacity) {}
+  ListOfModules() : initialized(false) {}
   ~ListOfModules() { clear(); }
   void init();
+  void fallbackInit();  // Uses fallback init if available, otherwise clears
   const LoadedModule *begin() const { return modules_.begin(); }
   LoadedModule *begin() { return modules_.begin(); }
   const LoadedModule *end() const { return modules_.end(); }
@@ -745,10 +760,15 @@ class ListOfModules {
     for (auto &module : modules_) module.clear();
     modules_.clear();
   }
+  void clearOrInit() {
+    initialized ? clear() : modules_.Initialize(kInitialCapacity);
+    initialized = true;
+  }
 
-  InternalMmapVector<LoadedModule> modules_;
+  InternalMmapVectorNoCtor<LoadedModule> modules_;
   // We rarely have more than 16K loaded modules.
   static const uptr kInitialCapacity = 1 << 14;
+  bool initialized;
 };
 
 // Callback type for iterating over a set of memory ranges.
@@ -911,6 +931,15 @@ void CheckNoDeepBind(const char *filename, int flag);
 // Returns the requested amount of random data (up to 256 bytes) that can then
 // be used to seed a PRNG. Defaults to blocking like the underlying syscall.
 bool GetRandom(void *buffer, uptr length, bool blocking = true);
+
+// Returns the number of logical processors on the system.
+u32 GetNumberOfCPUs();
+extern u32 NumberOfCPUsCached;
+INLINE u32 GetNumberOfCPUsCached() {
+  if (!NumberOfCPUsCached)
+    NumberOfCPUsCached = GetNumberOfCPUs();
+  return NumberOfCPUsCached;
+}
 
 }  // namespace __sanitizer
 
