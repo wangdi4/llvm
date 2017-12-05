@@ -549,6 +549,16 @@ void CSAAsmPrinter::EmitFunctionBodyStart() {
   const CSAMachineFunctionInfo *LMFI = MF->getInfo<CSAMachineFunctionInfo>();
 
   if (not ImplicitLicDefs) {
+    auto printRegister = [&](unsigned reg) {
+      SmallString<128> Str;
+      raw_svector_ostream O(Str);
+      O << CSAInstPrinter::WrapCsaAsmLinePrefix();
+      O << "\t.lic .i" << LMFI->getLICSize(reg) << " ";
+      O << "%" << CSAInstPrinter::getRegisterName(reg);
+      O << CSAInstPrinter::WrapCsaAsmLineSuffix();
+      OutStreamer->EmitRawText(O.str());
+    };
+
     // Generate declarations for each LIC by looping over the LIC classes,
     // and over each lic in the class, outputting a decl if needed.
     // Note: If we start allowing parameters and results in LICs for
@@ -559,21 +569,8 @@ void CSAAsmPrinter::EmitFunctionBodyStart() {
       MCPhysReg reg = *ri;
       // A decl is needed if we allocated this LIC and it is has a using/defining
       // instruction. (Sometimes all such instructions are cleaned up by DIE.)
-      if (LMFI->isAllocated(reg) && !MRI->reg_empty(reg)) {
-        SmallString<128> Str;
-        raw_svector_ostream O(Str);
-        O << CSAInstPrinter::WrapCsaAsmLinePrefix();
-        O << "\t.lic ";
-        // Output type based on regclass
-        if      (CSA::CI64RegClass.contains(reg)) O << ".i64";
-        else if (CSA::CI32RegClass.contains(reg)) O << ".i32";
-        else if (CSA::CI16RegClass.contains(reg)) O << ".i16";
-        else if (CSA::CI8RegClass.contains(reg))  O << ".i8";
-        else if (CSA::CI1RegClass.contains(reg))  O << ".i1";
-        else if (CSA::CI0RegClass.contains(reg))  O << ".i0";
-        O << " %" << CSAInstPrinter::getRegisterName(reg);
-        O << CSAInstPrinter::WrapCsaAsmLineSuffix();
-        OutStreamer->EmitRawText(O.str());
+      if (reg != CSA::IGN && reg != CSA::NA && !MRI->reg_empty(reg)) {
+        printRegister(reg);
       }
     }
   }
