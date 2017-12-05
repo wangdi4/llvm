@@ -19,17 +19,24 @@
 
 #include "llvm/Transforms/IPO/ConstantMerge.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/PointerIntPair.h"
 #include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/Intel_WP.h"     // INTEL
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/GlobalValue.h"
+#include "llvm/IR/GlobalVariable.h"
+#include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
-#include "llvm/IR/Operator.h"
 #include "llvm/Pass.h"
+#include "llvm/Support/Casting.h"
 #include "llvm/Transforms/IPO.h"
+#include <algorithm>
+#include <cassert>
+#include <utility>
+
 using namespace llvm;
 
 #define DEBUG_TYPE "constmerge"
@@ -103,8 +110,7 @@ static bool mergeConstants(Module &M) {
   // constants together may allow us to merge other constants together if the
   // second level constants have initializers which point to the globals that
   // were just merged.
-  while (1) {
-
+  while (true) {
     // First: Find the canonical constants others will be merged with.
     for (Module::global_iterator GVI = M.global_begin(), E = M.global_end();
          GVI != E; ) {
@@ -230,8 +236,10 @@ PreservedAnalyses ConstantMergePass::run(Module &M, ModuleAnalysisManager &) {
 }
 
 namespace {
+
 struct ConstantMergeLegacyPass : public ModulePass {
   static char ID; // Pass identification, replacement for typeid
+
   ConstantMergeLegacyPass() : ModulePass(ID) {
     initializeConstantMergeLegacyPassPass(*PassRegistry::getPassRegistry());
   }
@@ -244,15 +252,17 @@ struct ConstantMergeLegacyPass : public ModulePass {
 
   // For this pass, process all of the globals in the module, eliminating
   // duplicate constants.
-  bool runOnModule(Module &M) {
+  bool runOnModule(Module &M) override {
     if (skipModule(M))
       return false;
     return mergeConstants(M);
   }
 };
-}
+
+} // end anonymous namespace
 
 char ConstantMergeLegacyPass::ID = 0;
+
 INITIALIZE_PASS(ConstantMergeLegacyPass, "constmerge",
                 "Merge Duplicate Global Constants", false, false)
 

@@ -142,6 +142,7 @@ int main(int argc, char **argv) {
   initializeMapIntrinToImlPass(Registry);
   initializeIntel_VPOAnalysis(Registry);
   initializeIntel_VPOTransforms(Registry);
+  initializeDTransAnalysisWrapperPass(Registry);
 #endif // INTEL_CUSTOMIZATION
 
 #ifdef LINK_POLLY_INTO_TOOLS

@@ -76,7 +76,7 @@ add_llvm_library(LLVMAnalysis
   ObjCARCAliasAnalysis.cpp
   ObjCARCAnalysisUtils.cpp
   ObjCARCInstKind.cpp
-  OptimizationDiagnosticInfo.cpp
+  OptimizationRemarkEmitter.cpp
   OrderedBasicBlock.cpp
   PHITransAddr.cpp
   PostDominators.cpp
@@ -89,7 +89,6 @@ add_llvm_library(LLVMAnalysis
   ScalarEvolutionAliasAnalysis.cpp
   ScalarEvolutionExpander.cpp
   ScalarEvolutionNormalization.cpp
-  SparsePropagation.cpp
   TargetLibraryInfo.cpp
   TargetTransformInfo.cpp
   Trace.cpp
@@ -97,6 +96,7 @@ add_llvm_library(LLVMAnalysis
   TypeMetadataUtils.cpp
   ScopedNoAliasAA.cpp
   ValueLattice.cpp
+  ValueLatticeUtils.cpp
   ValueTracking.cpp
   VectorUtils.cpp
 

@@ -17,10 +17,12 @@
 
 ; X86-LABEL:  __ZL3bariz:
 ; X86-NEXT:  [[BAR_BEGIN:^Lfunc_begin.*]]:{{$}}
+; X86-NEXT:  .cv_fpo_proc
 ; X86-NEXT:  # BB{{.*}}
 ; X86-NEXT:  L{{.*}}:
 ; X86-NEXT:  jmp "?foo@@YAXXZ"
 ; X86-NEXT:  L{{.*}}:
+; X86-NEXT:  .cv_fpo_endproc
 ; X86-NEXT:  [[BAR_END:^Lfunc_end.*]]:{{$}}
 ; X86-NOT:   ret
 
