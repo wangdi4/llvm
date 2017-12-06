@@ -265,6 +265,10 @@ ModulePass *createGlobalSplitPass();
 #if INTEL_CUSTOMIZATION
 /// \brief This pass implements IP Cloning
 ModulePass *createIPCloningLegacyPass(bool AfterInl = false);
+
+/// \brief This pass parses -[no]inline-list option and assigns corresponding
+/// attributes to callsites (for experimental purposes).
+ModulePass *createInlineListsPass();
 #endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//

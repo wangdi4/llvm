@@ -81,6 +81,7 @@
 #include "llvm/Transforms/IPO/InferFunctionAttrs.h"
 #include "llvm/Transforms/IPO/Inliner.h"
 #include "llvm/Transforms/IPO/Intel_IPCloning.h"       // INTEL
+#include "llvm/Transforms/IPO/Intel_InlineLists.h"       // INTEL
 #include "llvm/Transforms/IPO/Internalize.h"
 #include "llvm/Transforms/IPO/LowerTypeTests.h"
 #include "llvm/Transforms/IPO/PartialInlining.h"
@@ -492,6 +493,11 @@ void PassBuilder::addPGOInstrPasses(ModulePassManager &MPM, bool DebugLogging,
     // FIXME: this comment is cargo culted from the old pass manager, revisit).
     IP.HintThreshold = 325;
 
+#if INTEL_CUSTOMIZATION
+    // Parse -[no]inline-list option and set corresponding attributes.
+    MPM.addPass(InlineListsPass());
+#endif //INTEL_CUSTOMIZATION
+
     CGSCCPassManager CGPipeline(DebugLogging);
 
     CGPipeline.addPass(InlinerPass(IP));
@@ -635,7 +641,10 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   // Require the ProfileSummaryAnalysis for the module so we can query it within
   // the inliner pass.
   MPM.addPass(RequireAnalysisPass<ProfileSummaryAnalysis, Module>());
-
+#if INTEL_CUSTOMIZATION
+  // Parse -[no]inline-list option and set corresponding attributes.
+  MPM.addPass(InlineListsPass());
+#endif //INTEL_CUSTOMIZATION
   // Now begin the main postorder CGSCC pipeline.
   // FIXME: The current CGSCC pipeline has its origins in the legacy pass
   // manager and trying to emulate its precise behavior. Much of this doesn't
@@ -995,6 +1004,10 @@ ModulePassManager PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 
   MPM.addPass(createModuleToFunctionPassAdaptor(std::move(PeepholeFPM)));
 
+#if INTEL_CUSTOMIZATION
+  // Parse -[no]inline-list option and set corresponding attributes.
+  MPM.addPass(InlineListsPass());
+#endif // INTEL_CUSTOMIZATION
   // Note: historically, the PruneEH pass was run first to deduce nounwind and
   // generally clean up exception handling overhead. It isn't clear this is
   // valuable as the inliner doesn't currently care whether it is inlining an

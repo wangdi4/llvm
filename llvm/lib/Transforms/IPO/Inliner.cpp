@@ -98,8 +98,9 @@ STATISTIC(NumCallerCallersAnalyzed, "Number of caller-callers analyzed");
 ///    8: Print the line and column info for each call site if available
 ///   16: Print the file for each call site
 ///   32: Print linkage info for each function and call site
+///   64: Print both early exit and real inlining costs
 ///
-static cl::opt<unsigned>
+cl::opt<unsigned>
 IntelInlineReportLevel("inline-report", cl::Hidden, cl::init(0),
   cl::Optional, cl::desc("Print inline report"));
 #endif // INTEL_CUSTOMIZATION
@@ -425,7 +426,7 @@ shouldInline(CallSite CS, function_ref<InlineCost(CallSite CS)> GetInlineCost,
              << " because it should never be inlined (cost=never)";
     });
     if (IR != nullptr)                               // INTEL
-      IR->setReasonNotInlined(CS, NinlrNeverInline); // INTEL
+      IR->setReasonNotInlined(CS, IC.getInlineReason()); // INTEL
     return None;
   }
 

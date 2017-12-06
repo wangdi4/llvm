@@ -78,6 +78,8 @@ void initializeIntel_VPOAnalysis(PassRegistry&);
 // initializeIntel_VPOTransforms - Initialize all passes linked into the
 // Intel_VPOTransforms library
 void initializeIntel_VPOTransforms(PassRegistry&);
+
+void initializeInlineListsPass(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION
 
 void initializeAAEvalLegacyPassPass(PassRegistry&);
