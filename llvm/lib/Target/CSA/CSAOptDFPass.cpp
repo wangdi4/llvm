@@ -2135,10 +2135,12 @@ seq_do_transform_loop_seq(CSASeqLoopInfo& loop,
   // one dependent sequence.
   seqInfo->pred_reg = CSA::IGN;
   if (num_dependent_sequences > 0) {
-    seqInfo->pred_reg = LMFI->allocateLIC(SeqPredRC);
+    seqInfo->pred_reg = LMFI->allocateLIC(SeqPredRC,
+      Twine("seq_") + Twine(loop.loop_id) + "_pred");
   }
   seqInfo->first_reg = CSA::IGN;
-  seqInfo->last_reg =  LMFI->allocateLIC(SeqPredRC);
+  seqInfo->last_reg =  LMFI->allocateLIC(SeqPredRC,
+    Twine("seq_") + Twine(loop.loop_id) + "_last");
 
   seqInfo->seq_inst = BuildMI(*BB,
                               indvarCandidate.pickInst,
