@@ -1,223 +1,209 @@
 ================================================================================
 SUMMARY
 ================================================================================
-Intel(R) OpenCL(TM) FPGA Emulator is an OpenCL(TM) runtime and compiler, which
-runs on Intel(R) Core(TM) or Xeon(R). It is capable of compiling and running
-programs written with Intel(R) OpenCL(TM) FPGA extensions (e.g. with the FPGA
-'channels' extension).
+The Intel(R) FPGA Emulation Platform for OpenCL(TM) is an OpenCL(TM) runtime and
+compiler, which runs on an Intel(R) Core(TM) or Intel(R) Xeon(R). It is capable
+of compiling and running programs written with Intel(R) FPGA Emulation Platform
+for OpenCL(TM) extensions (e.g. with the FPGA channels extension).
 
 The emulator aims to provide:
-    - rapid compilation time (seconds)
-    - source code portability between emulator and FPGA
-    - reasonable performance (average benchmarks run at 5x-10x slowdown in
-      comparison with FPGA HW)
+    - Rapid compilation time (seconds)
+    - Source code portability between the emulator and FPGA
+    - Reasonable performance (the average benchmarks run at a 5x-10x slowdown in
+      comparison with FPGA hardware)
 
-This is preview version of emulator without functional parity towards FPGA
-device. It is provided for evaluation purposes without any warranties.
+This is a preview version of the emulator that comes without functional parity
+towards a FPGA device. It is provided for evaluation purposes only and does not
+come with any warranties.
 
 ================================================================================
 REQUIREMENTS
 ================================================================================
 Supported OS:
-  - Ubuntu 16.04 (64-bit)
-  - RedHat 7.x or CentOS 7.x (64-bit)
+  - Ubuntu* 16.04 (64-bit)
+  - RedHat* 7.x or CentOS 7.x (64-bit)
+  - Windows* 7, 8.1, 10 (64-bit)
 
-Supported HW:
-  - Intel (R) Core(TM) CPU 5th generation ( Intel(R) microarchitecture code name
+Supported hardware:
+  - Intel(R) Core(TM) CPU 5th generation ( Intel(R) microarchitecture code name
     Broadwell) or higher
-  - Intel (R) Xeon(R) CPU E5 v5 ( Intel(R) microarchitecture code name Broadwell)
+  - Intel(R) Xeon(R) CPU E5 v5 ( Intel(R) microarchitecture code name Broadwell)
     or higher
-
-NOTE:
-The runtime cannot create more than 4 threads per logical core (physical cores
-with Intel(R) HT Technology).
-For example, if application executes 32 kernels simultaneously it will require
-at least 8 logical cores (8 physical cores or 4 physical cores with HT option
-enabled).
 
 ================================================================================
 INSTALLATION
 ================================================================================
-To configure environment of current session for using OpenCL(TM) standalone
-binaries do the following steps:
 
-0. Unpack provided binaries to any working directory
+The emulator should be installed as part of the Intel(R) SDK for OpenCL(TM) SDK
+2017 R2 package installation when corresponding component is selected.
 
-1. Create new icd file with following content as shown below:
-    > echo /path/to/binaries/libintelocl_emu.so >> /etc/OpenCL/vendors/intel_fpga_fast_emu.icd
+If the installation succeeded, the following OpenCL(TM) platform will be
+available:
 
-2. Set INSTALLDIR variable in setupvars.sh script to the path where binaries
-   have been unpacked.
-
-If installation succeeded the following OpenCL(TM) platform will be available:
-
-    Platform                :
-        Profile             : FULL_PROFILE
-        Version             : OpenCL 2.0
-        Name                : Intel(R) OpenCL
-        Vendor              : Intel(R) Corporation
-        Device              :
-            Type            : CPU
-            Profile         : FULL_PROFILE
-            Version         : OpenCL 2.0 (Build 14)
-            Vendor          : Intel(R) Corporation
-            C version       : OpenCL C 2.0
-            Driver version  : 1.2.0.14
+    Profile             : FULL_PROFILE
+    Version             : OpenCL 2.0 LINUX
+    Name                : Intel(R) FPGA Emulation Platform for OpenCL(TM) (preview)
+    Vendor              : Intel(R) Corporation
+    Devices             : 1
+    Device [#1]         :
+        Type            : accelerator
+        Profile         : FULL_PROFILE
+        Version         : OpenCL 2.0 (Build <build number>)
+        Name            : Intel(R) FPGA Emulation Device (preview)
+        Vendor          : Intel(R) Corporation
+        C version       : OpenCL C 2.0
+        Driver version  : 1.2.0.<build number>
 
 ================================================================================
 DETAILS
 ================================================================================
 The emulator provides a separate OpenCL(TM) platform with one OpenCL(TM) CPU
-device. It supports Intel(R) FPGA OpenCL(TM) extensions when OCL_FPGA_EMU
-environment variable is set.
+device. It supports Intel(R) FPGA Emulation Platform for OpenCL(TM) extensions,
+such as channels, autorun kernels, etc.
 
-OpenCL(TM) programs written for FPGA device can be compiled and executed on this
-device, using standard OpenCL(TM) API (including clCreateProgramWithBinary(),
-see the "Offline Compilation" section).
+OpenCL(TM) programs written for FPGA device can be compiled and executed, using
+a standard OpenCL(TM) API (including clCreateProgramWithBinary(), see the
+"Offline Compilation" section below for additional information).
 
-There are sets of environment variable affecting emulator execution.
+The following sets of environment variable affect the emulator execution:
+    * OCL_TBB_NUM_WORKERS ([1..]): Indicate a maximum number of threads that can
+      be used by the emulator. The default value is 32, and maximum value
+      is 255. Each thread is capable of running a single kernel. If the
+      application requires several kernels to be executing simultaneously, the
+      OCL_TBB_NUM_WORKERS should be set appropriately (to the number of kernels
+      or a higher value).
 
-  - The set of emulator specific libraries:
-    * OCL_FPGA_EMU - should be set to enable FPGA style of channels. This
-      environment variable is mandatory to use FPGA specific extensions.
+    * VOLCANO_CPU_ARCH (core-avx2, skx): This variable can be set to force a
+      SIMD instruction set used for OpenCL(TM) kernel compilation where skx
+      corresponds to Intel(R) Advanced Vector Extensions 512 support.
 
-    * OCL_TBB_NUM_WORKERS ([1..]) - maximum number of threads which can be used
-      by TBB.
+    * VOLCANO_CLANG_OPTIONS: This internal environment variable allows you to
+      force some options to the OpenCL(TM) compiler:
 
-    * VOLCANO_CPU_ARCH (core-avx2, skx) - can be set to force SIMD instruction
-      set used for OpenCL(TM) kernel compilation where skx corresponds to AVX-512
-      support
+      + "-fopenmp -fintel-openmp -fopenmp-tbb -fintel-compatibility": all enable
+        OpenMP support
+      + "-ffast-math": forces fast math builtins
 
-    * VOLCANO_CLANG_OPTIONS - internal environment variable allowing to force
-      some options to OpenCL(TM) compiler. e.g.:
+  - The following are OpenCL(TM) related environment variables (see Intel(R)
+    OpenCL(TM) CPU RT documentation for more details):
 
-      + "-fopenmp -fintel-openmp -fopenmp-tbb" - enables OpenMP support
-      + "-ffast-math" - forces fast math builtins
-      + "-DINTEL_OCL_FPGA_CPU_EMU" - add corresponding define to OpenCL (TM)
-        kernel
+    * CL_CONFIG_USE_VECTORIZER (True, False): Enables or disables NDRange kernel
+      vectorizer. It does not have an effect on OpenMP pragma vectorization of
+      single work-item kernels.
 
-    * VOLCANO_LLVM_OPTIONS (-vector-library=SVML) - Internal option allowing to
-      force use of short vector math library. Must be set if OpenMP support is
-      enabled.
-
-  - OpenCL(TM) related environment variables (see Intel(R) OpenCL(TM) CPU RT
-    documentation for details):
-
-    * CL_CONFIG_USE_VECTORIZER (True, False) - NDRange vectorizer control. Does
-      not affect OpenMP pragma vectorization of single work-item kernels. Should
-      be set to False to speedup kernel compilation time.
-
-    * CL_CONFIG_CPU_FORCE_LOCAL_MEM_SIZE (e.g 256KB) - amount of available
+    * CL_CONFIG_CPU_FORCE_LOCAL_MEM_SIZE (e.g 256KB): Is the amount of available
       OpenCL(TM) local memory.
 
-  - OpenMP environment variables (see OpenMP documentation for details):
+    * CL_CONFIG_CPU_FORCE_PRIVATE_MEM_SIZE (e.g 256KB): Is the amount of
+      available OpenCL(TM) private memory.
 
-    * KMP_AFFINITY - affinity settings for OpenMP threads.
+  - The following are OpenMP environment variables (see OpenMP documentation for
+    details):
+
+    * KMP_AFFINITY: Is the affinity settings for OpenMP* threads.
       e.g. "norespect,physical,20"
 
-    * OMP_NUM_THREADS ([1..]) - Number of available OpenMP threads.
-      Optimization guide using OpenMP is available in the directory with
+    * OMP_NUM_THREADS ([1..]): Is the number of available OpenMP threads. The
+      optimization guide using OpenMP* is available in the directory with the
       binaries (Optimization_guide.pdf).
 
 ================================================================================
 OFFLINE COMPILATION
 ================================================================================
-Emulator supports OpenCL(TM) kernels compilation into binaries (similar to .aocx
-files used for FPGA device), which can be used in clCreateProgramWithBinary().
+The emulator supports OpenCL(TM) kernels compilation into binaries (this is
+similar to .aocx files used for a FPGA device), which can be used in
+clCreateProgramWithBinary().
 
-Use Intel(R) SDK for OpenCL(TM) - offline compiler ('ioc64' tool) to compile
-kernel binaries for the emulator from OpenCL(TM) C source code. This tool is
+Use the Intel(R) SDK for OpenCL(TM) - offline compiler ('ioc64' tool) to compile
+kernel binaries for the emulator from the OpenCL(TM) C source code. This tool is
 distributed as part of Intel(R) Code Builder for OpenCL(TM) API.
 
-  > ioc64 -bo='-cl-std=CL2.0' -device-cpu -input=source.cl -ir=kernel_binary.elf
+  > ioc64 -bo='-cl-std=CL2.0' -device=fpga_fast_emu -input=source.cl -ir=kernel_binary.aocx
 
-Name for the output file is arbitrary, and it can have .aocx extension to let a
-host program use the same names for both FPGA device and the emulator.
+The name for the output file is arbitrary, but it can have .aocx extension so
+the host program can use the same name for both the FPGA device and the
+emulator.
 
-Kernel binaries produced by the 'ioc' tool are NOT compatible with binaries
-compiled for FPGA device and vice versa.
-
-================================================================================
-EXECUTION
-================================================================================
-Set of environment variables mentioned in DETAILS section can affect the
-emulator's behavior.
-Bash script (setupvars.sh) distributed with binaries can be used to simplify the
-environment setting. Please uncomment/modify value for required variable in the
-script and run the command below:
-
-  > . /path/to/binaries/setupvars.sh
-
-After that all application running in current console will use environment
-variables set in the script.
-
+The kernel binaries that are produced by the 'ioc' tool are NOT compatible with
+binaries compiled for FPGA devices and vice versa.
 
 ================================================================================
 KNOWN ISSUES
 ================================================================================
-1. OpenCL(TM) builtins were renamed in Intel(R) FPGA SDK for OpenCL(TM) 2017 R1.
-   Intel(R) OpenCL(TM) FPGA Emulator still use old naming convention. If kernels
-   use such builtins the following definition can be used to workaround the
-   issue:
-   #define write_channel_intel write_channel_altera
-   #define read_channel_intel read_channel_altera
-   #define write_channel_nb_intel write_channel_nb_altera
-   #define read_channel_nb_intel read_channel_nb_altera
+1. The current release is for preview only and should not be used in full
+   production FPGA development. The complete FPGA features are not implemented
+   and not all of the features supported on the emulator are supported on FPGA
+   hardware.
 
-2. Current preview release is based on Intel(R) SDK for OpenCL(TM) - CPU only
-   runtime package and does not fully match features of FPGA device. It means
-   this release is for preview only and should not be used in full production
-   FPGA development since not all the FPGA features are implemented and vice
-   versa not all CPU supported features are disabled to match FPGA feature set
+2. The platform names and OpenCL(TM) properties differ between the OpenCL(TM)
+   platform for the FPGA device and the FPGA emulator.
+   | -------------- | --------------------------------- | --------------------  |
+   | Property       | Device                            | Emulator              |
+   | -------------- | --------------------------------- | --------------------  |
+   | Profile        | EMBEDDED_PROFILE                  | FULL_PROFILE          |
+   | Version        | OpenCL 1.0 Intel(R) FPGA SDK ...  | OpenCL 2.0 (Build 12) |
+   | Driver version | 16.1                              | 1.2.0.<build number>  |
+   | Name           | Intel(R) FPGA SDK for OpenCL(...  | Intel(R) FPGA Emu..   |
+   | C version      | OpenCL C 1.0                      | OpenCL C 2.0          |
+   | -------------- | --------------------------------- | --------------------  |
 
-3. Platform names and OpenCL(TM) properties differ between OpenCL(TM) platform
-   for FPGA device and FPGA emulator.
-   | -------------- | --------------------------------- | -------------------- |
-   | Property       |            Device                 |       Emulator       |
-   | -------------- | --------------------------------- | -------------------- |
-   | Profile        | EMBEDDED_PROFILE                  | FULL_PROFILE         |
-   | Version        | OpenCL 1.0 Intel(R) FPGA SDK ...  | OpenCL 2.0 (Build 12)|
-   | Driver version | 16.1                              | 1.2.0.12             |
-   | Name           | Intel(R) FPGA SDK for OpenCL(...  | Intel(R) OpenCL      |
-   | C version      | OpenCL C 1.0                      | OpenCL C 2.0         |
-   | -------------- | --------------------------------- | -------------------- |
+3. This emulator is not optimized for an NDRange model of kernel execution.
 
-4. The runtime can create not more than 4 threads per logical core (physican
-   cores with Intel(R) HT Technology). For example if an application executes 32
-   kernels simultaneously it will require at least 8 logical cores (8 physical
-   cores or 4 physical cores with HT option enabled).
+4. The build option '-cl-std=CL2.0' must be passed to the OpenCL(TM) compiler to
+   work with FPGA channels feature.
 
-5. This emulator is not optimized for NDRange model of kernel execution.
+5. Known issues with the Autorun kernels feature are:
+   - The NDRange kernels are not supported
+   - The autorun kernels shut down only after a host program exits, not after a
+     clReleaseProgram() call.
 
-6. 'Intel(R) OpenCL' platform name is used for Intel(R) OpenCL(TM) FPGA
-   Emulator. If Intel graphics driver with OpenCL (TM) support or Intel(R) SDK
-   for OpenCL(TM) - CPU only runtime package are installed on the system. Please
-   disable ICD files which coresponds to them to avoid possible conflicts.
-
-7. It is mandatory to have build option '-cl-std=CL2.0' passed to OpenCL
-   compiler to work with FPGA channels feature.
-
-8. Unsupported features:
-   - Autorun kernels
-   - Infinite loops in kernels
+6. The unsupported features:
    - FPGA library feature emulation
    - Half FP16 precision support
-   - Host side channels
-   - Channels diagnostics in OpenCL compiler
+   - Channels diagnostics in the OpenCL(TM) compiler
    - OpenCL(TM) kernel debugger
 
 ================================================================================
 ISSUE REPORTING
 ================================================================================
-Please report issues on Intel OpenCL forum:
-    https://software.intel.com/en-us/forums/opencl
+Please report issues on the Intel(R) OpenCL(TM) forum:
+https://software.intel.com/en-us/forums/opencl
+
+================================================================================
+CHANGELOG
+================================================================================
+
+Changes from the Intel(R) SDK for OpenCL(TM) 2017 R1 release:
+
+  - Windows* OS is supported.
+
+  - There is partial support for autorun kernels. Only single work-item kernels
+    are supported (kernels which have __attribute__((max_global_work_dim(0))).
+
+  - The get_compute_id() built-in function is supported for autorun kernels.
+
+  - The cl_intel_fpga_host_pipe extension is supported.
+
+  - The OpenCL(TM) platform name and device name were changed.
+
+  - The emulator now maintains a correct ordering for channel operations in a
+    loop. See "1.6.4.3.1 Work-Item Serial Execution of Channels: Channel
+    Execution in Loop with Multiple Work-Items" in "Intel FPGA SDK for OpenCL
+    Programming Guide" [1].
+
+  - Infinite loops in kernels are supported.
+
+  - The emulator now supports up to 255 kernels executing simultaneously on any
+    hardware.
+
+  - General stability improvements.
 
 ================================================================================
 REFERENCES
 ================================================================================
-1. Link to Intel(R) FPGA OpenCL(TM) documentation:
+1. Link to  Intel(R) FPGA SDK for OpenCL(TM):
     https://www.altera.com/products/design-software/embedded-software-developers/opencl/documentation.html
-2. OpenMP documentation:
+2. OpenMP* documentation:
     https://software.intel.com/en-us/node/695804
 3. KMP_AFFINITY interface documentation:
     https://software.intel.com/en-us/node/695817
