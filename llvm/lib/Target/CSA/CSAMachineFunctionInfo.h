@@ -30,7 +30,7 @@ namespace llvm {
 class CSAMachineFunctionInfo : public MachineFunctionInfo {
   /// A small structure to keep track of LIC information on a per-LIC basis.
   struct LICInfo {
-    std::string name;
+    mutable std::string name;
     std::vector<uint64_t> initValues;
     short licDepth;
 
@@ -116,6 +116,9 @@ public:
   StringRef getLICName(unsigned vreg) const {
     return getLICInfo(vreg).name;
   }
+
+  /// Set the name of the LIC to have the specified name.
+  void setLICName(unsigned vreg, const Twine &name) const;
 
   /// Get a list of initial values for LICs.
   std::vector<uint64_t> &getLICInit(unsigned vreg) {

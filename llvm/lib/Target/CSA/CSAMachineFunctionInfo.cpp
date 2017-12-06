@@ -69,13 +69,18 @@ unsigned CSAMachineFunctionInfo::allocateLIC(const TargetRegisterClass* RC,
 
 void CSAMachineFunctionInfo::noteNewLIC(unsigned vreg, unsigned size,
     const Twine &name) {
-  auto &licData = getLICInfo(vreg);
-  unsigned index = licInfo.size() + physicalLicInfo.size();
   if (name.isTriviallyEmpty()) {
-    licData.name = (Twine("ci") + Twine(size) + "_" + Twine(index)).str();
+    // Don't set empty names for physical registers.
+    //unsigned index = licInfo.size() + physicalLicInfo.size();
+    //setLICName(vreg, (Twine("cv") + Twine(size) + "_" + Twine(index)));
   } else {
-    licData.name = name.str();
+    setLICName(vreg, name);
   }
+}
+
+void CSAMachineFunctionInfo::setLICName(unsigned vreg, const Twine &name) const {
+  // TODO: guarantee uniqueness of names.
+  getLICInfo(vreg).name = name.str();
 }
 
 CSAMachineFunctionInfo::LICInfo &

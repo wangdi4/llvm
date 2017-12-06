@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "CSAMCInstLower.h"
+#include "CSAMachineFunctionInfo.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/CodeGen/AsmPrinter.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
@@ -28,6 +29,8 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetSubtargetInfo.h"
+#include "MCTargetDesc/CSAMCTargetExpr.h"
+
 using namespace llvm;
 
 MCSymbol *CSAMCInstLower::
@@ -124,11 +127,21 @@ void CSAMCInstLower::Lower(const MachineInstr *MI, MCInst &OutMI) const {
     default:
       MI->dump();
       llvm_unreachable("unknown operand type");
-    case MachineOperand::MO_Register:
+    case MachineOperand::MO_Register: {
       // Ignore all implicit register operands.
       if (MO.isImplicit()) continue;
-      MCOp = MCOperand::createReg(MO.getReg());
+      unsigned reg = MO.getReg();
+      const CSAMachineFunctionInfo &LMFI =
+        *MI->getParent()->getParent()->getInfo<CSAMachineFunctionInfo>();
+      if (TargetRegisterInfo::isVirtualRegister(reg) ||
+          !LMFI.getLICName(reg).empty()) {
+        MCOp = MCOperand::createExpr(
+          CSAMCExpr::create(reg, LMFI.getLICName(reg), Ctx));
+      } else {
+        MCOp = MCOperand::createReg(reg);
+      }
       break;
+    }
     case MachineOperand::MO_Immediate:
       MCOp = MCOperand::createImm(MO.getImm());
       break;
