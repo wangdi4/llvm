@@ -450,8 +450,7 @@ void PlainCFGBuilderHIR::visit(HLLoop *HLp) {
   // Connect Latch to Header and add ConditionBitRecipe.
   // TODO: Workaround. Setting a fake ConditionBitRecipe.
   PlanUtils.connectBlocks(ActiveVPBB /*Latch*/, Header);
-  PlanUtils.setBlockConditionBitRecipe(
-      ActiveVPBB /*Latch*/, PlanUtils.createUniformConditionBitRecipe(nullptr));
+  PlanUtils.setBlockCondBitVPVal(ActiveVPBB /*Latch*/, new VPValue());
 
   // - Loop Exits -
   // Force creation of a new VPBB for Exit.
@@ -486,8 +485,7 @@ void PlainCFGBuilderHIR::visit(HLIf *HIf) {
   VPBasicBlock *ConditionVPBB = ActiveVPBB;
   // assert("HLIf condition generates more than one VPBB?");
   // TODO: Workaround. Setting a fake ConditionBitRecipe.
-  PlanUtils.setBlockConditionBitRecipe(
-      ActiveVPBB, PlanUtils.createUniformConditionBitRecipe(nullptr));
+  PlanUtils.setBlockCondBitVPVal(ActiveVPBB, nullptr);
 
   // - Then branch -
   // Force creation of a new VPBB for Then branch.

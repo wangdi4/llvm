@@ -183,8 +183,11 @@ void VPlanHCFGBuilderBase::mergeLoopExits(VPLoop *VPL) {
     PhiRecipe->addIncomingValue(VPConstantRecipe(ExitID), ExittingBlock);
 
     VPBasicBlock *NewCascadedExit = PlanUtils.createBasicBlock();
-    VPCmpBitRecipe *CBR =
-        new VPCmpBitRecipe(PhiRecipe, VPConstantRecipe(ExitID));
+    llvm_unreachable("Fix CBR");
+    VPInstruction *CBR =
+        // new VPCmpInst(PhiRecipe, VPConstantRecipe(ExitID));
+        nullptr; // FIXME: This should be fixed once recipes are replaced by
+                 // VPInstructions
     VPRegionBlock *Parent = ExitBlock->getParent();
     PlanUtils.setBlockParent(NewCascadedExit, Parent);
     PlanUtils.setRegionSize(Parent, Parent->getSize() + 1);
@@ -591,12 +594,36 @@ void VPlanHCFGBuilderBase::buildNonLoopRegions(VPRegionBlock *ParentRegion) {
   DEBUG(dbgs() << "End of HCFG build for " << ParentRegion->getName() << "\n");
 }
 
+
+// Go through the blocks in Region, collecting uniforms.
+void VPlanHCFGBuilderBase::collectUniforms(VPRegionBlock *Region) {
+  for (VPBlockBase *Block :
+       make_range(df_iterator<VPRegionBlock *>::begin(Region),
+                  df_iterator<VPRegionBlock *>::end(Region))) {
+    if (auto *VPBB = dyn_cast<VPBasicBlock>(Block)) {
+      if (Block->getNumSuccessors() >= 2) {
+        // Multiple successors. Checking uniformity of Condition Bit
+        // Instruction.
+        VPValue *CBV = VPBB->getCondBitVPVal();
+        assert(CBV && "Expected condition bit value.");
+
+        bool isUniform = Legal->isUniformForTheLoop(CBV->getValue());
+        if (isUniform)
+          PlanUtils.getVPlan()->UniformCBVs.insert(CBV);
+      }
+    }
+  }
+}
+
 void VPlanHCFGBuilderBase::buildHierarchicalCFG() {
 
   IntelVPlan *Plan = PlanUtils.getVPlan();
 
   // Build Top Region enclosing the plain CFG
   VPRegionBlock *TopRegion = buildPlainCFG();
+
+  // Collecte divergence information
+  collectUniforms(TopRegion); 
 
   // Set Top Region as VPlan Entry
   Plan->setEntry(TopRegion);
@@ -739,8 +766,8 @@ bool VPlanHCFGBuilderBase::regionIsBackEdgeCompliant(
 
 // TODO
 // Return true if \p Block is a VPBasicBlock that contains a successor selector
-// (ConditionBitRecipe) that is not uniform. If Block is a VPRegionBlock, it
-// returns false since a region can only have a single successor (by now).
+// (CondBitVPVal) that is not uniform. If Block is a VPRegionBlock,
+// it returns false since a region can only have a single successor (by now).
 bool VPlanHCFGBuilderBase::isDivergentBlock(VPBlockBase *Block) {
   if (DisableUniformRegions)
     return true;
@@ -748,28 +775,16 @@ bool VPlanHCFGBuilderBase::isDivergentBlock(VPBlockBase *Block) {
   if (auto *VPBB = dyn_cast<VPBasicBlock>(Block)) {
     unsigned NumSuccs = Block->getNumSuccessors();
     if (NumSuccs < 2) {
-      assert(!VPBB->getConditionBitRecipe() &&
-             "Unexpected condition bit recipe");
+      assert(!VPBB->getCondBitVPVal() &&
+             "Unexpected condition bit instruction");
       return false;
     } else {
-      // Multiple successors. Checking uniformity of ConditionBitRecipe.
-      VPConditionBitRecipeBase *CBR = VPBB->getConditionBitRecipe();
-      assert(CBR && "Expected condition bit recipe.");
+      // Multiple successors. Checking uniformity of Condition Bit Instruction.
+      VPValue *CBV = VPBB->getCondBitVPVal();
+      assert(CBV && "Expected condition bit value.");
 
-      if (auto *CBRWS = dyn_cast<VPConditionBitRecipeWithScalar>(CBR)) {
-        // TODO: Temporal implementation for HIR
-        if (Legal)
-          return !Legal->isUniformForTheLoop(CBRWS->getScalarCondition());
-        else
-          return true;
-      } else if (isa<VPBranchIfNotAllZeroRecipe>(CBR))
-        // This recipe is uniform by definition.
-        return false;
-      else if (isa<VPNonUniformConditionBitRecipe>(CBR))
-        // This recipe is divergent by definition.
-        return true;
-      else
-        llvm_unreachable("Unsupported condition bit recipe.");
+      // TODO: Temporal implementation for HIR
+      return ! PlanUtils.getVPlan()->UniformCBVs.count(CBV);
     }
   }
 
@@ -787,6 +802,8 @@ private:
   Loop *TheLoop;
 
   LoopInfo *LI;
+  // TODO: This should be removed together with the UniformCBVs set.
+  LoopVectorizationLegality *Legal;
 
   /// Output TopRegion.
   VPRegionBlock *TopRegion = nullptr;
@@ -796,12 +813,14 @@ private:
   IntelVPlanUtils &PlanUtils;
   VPBuilderIR VPIRBuilder;
 
-  DenseMap<Value *, VPConditionBitRecipeBase *> BranchCondMap;
+  /// Map the branches to the condition VPInstruction they are controlled by
+  /// (Possibly at a different VPBB).
+  DenseMap<Value *, VPValue *> BranchCondMap;
   DenseMap<BasicBlock *, VPBasicBlock *> BB2VPBB;
   DenseMap<Value *, VPValue *> IRDef2VPValue;
 
   // Auxiliary functions
-  bool isConditionForUniformBranch(Instruction *I);
+  bool isConditionForBranch(Instruction *I);
   void setVPBBPredsFromBB(VPBasicBlock *VPBB, BasicBlock *BB);
   VPBasicBlock *createOrGetVPBB(BasicBlock *BB);
   void createRecipesForVPBB(VPBasicBlock *VPBB, BasicBlock *BB);
@@ -811,9 +830,11 @@ private:
                                     BasicBlock::iterator J,
                                     VPBasicBlock *InsertionPoint);
 
+
 public:
-  PlainCFGBuilder(Loop *Lp, LoopInfo *LI, IntelVPlanUtils &Utils)
-      : TheLoop(Lp), LI(LI), PlanUtils(Utils) {}
+  PlainCFGBuilder(Loop *Lp, LoopInfo *LI, LoopVectorizationLegality *Legal,
+                  IntelVPlanUtils &Utils)
+      : TheLoop(Lp), LI(LI), Legal(Legal), PlanUtils(Utils) {}
 
   VPRegionBlock *buildPlainCFG();
 };
@@ -821,14 +842,14 @@ public:
 static bool isInstructionToIgnore(Instruction *I) {
   // DeadInstructions are not taken into account at this point. IV update and
   // loop latch condition need to be part of HCFG to constitute a
-  // UniformConditionBitRecipe. If we treat them as dead instructions, we
+  // uniform conditionbit instruction. If we treat them as dead instructions, we
   // would create a LiveInConditionBitRecipe for the loop latch condition,
   // which is not correct.
   return /*DeadInstructions.count(I) ||*/ isa<BranchInst>(I) ||
          isa<DbgInfoIntrinsic>(I);
 }
 
-bool PlainCFGBuilder::isConditionForUniformBranch(Instruction *I) {
+bool PlainCFGBuilder::isConditionForBranch(Instruction *I) {
   auto isBranchInst = [&](User *U) -> bool {
     return isa<BranchInst>(U) && TheLoop->contains(cast<Instruction>(U));
   };
@@ -929,8 +950,11 @@ VPValue *PlainCFGBuilder::createOrGetVPOperand(Value *IROp) {
     // is processed.
     VPBuilder::InsertPointGuard Guard(VPIRBuilder);
     VPIRBuilder.clearInsertionPoint();
-    NewVPVal = VPIRBuilder.createNaryOp(InstOperand->getOpcode(),
-                                        {} /*No operands*/, InstOperand);
+    if (CmpInst *CI = dyn_cast<CmpInst>(InstOperand))
+      NewVPVal = VPIRBuilder.createCmpInst(nullptr, nullptr, CI);
+    else
+      NewVPVal = VPIRBuilder.createNaryOp(InstOperand->getOpcode(),
+                                          {} /*No operands*/, InstOperand);
     if (isExternalDef(InstOperand))
       PlanUtils.getVPlan()->addExternalDef(cast<VPInstruction>(NewVPVal));
   } else // C
@@ -947,16 +971,16 @@ VPValue *PlainCFGBuilder::createOrGetVPOperand(Value *IROp) {
 // VPInstructionRangeRecipe's are created automatically when necessary.
 void PlainCFGBuilder::createVPInstructionsForRange(
     BasicBlock::iterator I, BasicBlock::iterator J,
-    VPBasicBlock *InsertionPoint) {
+    VPBasicBlock *BBInsertionPoint) {
 
-  VPIRBuilder.setInsertPoint(InsertionPoint);
+  VPIRBuilder.setInsertPoint(BBInsertionPoint);
   for (Instruction &InstRef : make_range(I, J)) {
     Instruction *Inst = &InstRef;
     auto VPValIt = IRDef2VPValue.find(Inst);
 
     VPInstruction *NewVPInst;
     if (VPValIt != IRDef2VPValue.end()) {
-      // Inst is a definition with a user that has been previosly visited. We
+      // Inst is a definition with a user that has been previously visited. We
       // have to set its operands properly and insert it into the
       // VPBasicBlock/Recipe.
       assert(isa<VPInstruction>(VPValIt->second) &&
@@ -967,8 +991,11 @@ void PlainCFGBuilder::createVPInstructionsForRange(
       // Create new VPInstruction.
       // NOTE: We set operands later to factorize code in 'if' and 'else'
       // branches.
-      NewVPInst = cast<VPInstruction>(VPIRBuilder.createNaryOp(
-          Inst->getOpcode(), {} /*No operands*/, Inst));
+      if (CmpInst *CI = dyn_cast<CmpInst>(Inst))
+        NewVPInst = VPIRBuilder.createCmpInst(nullptr, nullptr, CI);
+      else
+        NewVPInst = cast<VPInstruction>(VPIRBuilder.createNaryOp(
+            Inst->getOpcode(), {} /*No operands*/, Inst));
       IRDef2VPValue[Inst] = NewVPInst;
     }
 
@@ -979,10 +1006,9 @@ void PlainCFGBuilder::createVPInstructionsForRange(
   }
 }
 
-// Create new OnyByOneRecipes and ConditionBitRecipes in a VPBasicBlock, given
-// its BasicBlock counterpart. This function must be invoked in RPO because
-// creation of UniformConditionBitRecipe assumes that all predecessors have
-// been visited.
+// Create new VPInstructions in a VPBasicBlock, given its BasicBlock
+// counterpart. This function must be invoked in RPO because creation of
+// ConditionBit assumes that all predecessors have been visited.
 void PlainCFGBuilder::createRecipesForVPBB(VPBasicBlock *VPBB, BasicBlock *BB) {
 
   BasicBlock::iterator I = BB->begin();
@@ -996,21 +1022,25 @@ void PlainCFGBuilder::createRecipesForVPBB(VPBasicBlock *VPBB, BasicBlock *BB) {
     if (I == E)
       break;
 
-    // If 'I' is a branch condition, create a UniformConditionBitRecipe.
-    // Note that we don't have to add the recipe as successor selector at
-    // this point. The branch using this conditiong might not be necessarily
+    // If 'I' is a branch condition, create a VPInstruction for the condition
+    // bit. Note that we don't have to add the recipe as successor selector at
+    // this point. The branch using this condition might not be necessarily
     // in this VPBB.
-    if (isConditionForUniformBranch(&*I)) {
-      Instruction *Instr = &*I;
-      VPUniformConditionBitRecipe *Recipe =
-          PlanUtils.createUniformConditionBitRecipe(Instr);
-      PlanUtils.appendRecipeToBasicBlock(Recipe, VPBB);
-      VPlan *Plan = PlanUtils.getVPlan();
-      Plan->setInst2Recipe(Instr, Recipe);
+    if (isConditionForBranch(&*I)) {
+      Instruction *Inst = &*I;
+      // This used to be a UniformConditionBitRecipe
+      VPInstruction *NewVPInst;
+      if (CmpInst *CI = dyn_cast<CmpInst>(Inst))
+        NewVPInst = VPIRBuilder.createCmpInst(nullptr, nullptr, CI);
+      else
+        NewVPInst = cast<VPInstruction>(VPIRBuilder.createNaryOp(
+            Inst->getOpcode(), {} /*No operands*/, Inst));
 
-      for (User *U : Instr->users()) {
+      IRDef2VPValue[Inst] = NewVPInst;
+
+      for (User *U : Inst->users()) {
         if (isa<BranchInst>(U) && TheLoop->contains(cast<Instruction>(U)))
-          BranchCondMap[cast<BranchInst>(U)->getCondition()] = Recipe;
+          BranchCondMap[cast<BranchInst>(U)] = NewVPInst;
       }
 
       // Move iterator forward to skip branch condition in next iteration
@@ -1024,13 +1054,21 @@ void PlainCFGBuilder::createRecipesForVPBB(VPBasicBlock *VPBB, BasicBlock *BB) {
     BasicBlock::iterator J = I;
     for (++J; J != E; ++J) {
       Instruction *Instr = &*J;
-      if (isInstructionToIgnore(Instr) || isConditionForUniformBranch(Instr))
+      if (isInstructionToIgnore(Instr) || isConditionForBranch(Instr))
         break; // Sequence of instructions not to ignore ended.
     }
 
     createVPInstructionsForRange(I, J, VPBB);
 
     I = J;
+  }
+
+  // The previous loop does not visit the Branch (not in VPBB).
+  // Although there should be no VPInstruction for the Branch, we do need
+  // VPInstructions for its operands.
+  // These may be used later on as live-ins (through the ExternalDefs map).
+  for (Value *Op : BB->getTerminator()->operands()) {
+    createOrGetVPOperand(Op);
   }
 }
 
@@ -1072,21 +1110,26 @@ VPRegionBlock *PlainCFGBuilder::buildPlainCFG() {
       VPBasicBlock *SuccVPBB1 = createOrGetVPBB(TI->getSuccessor(1));
       assert(SuccVPBB1 && "Successor 1 not found");
 
-      // Add ConditionBitRecipe to VPBB
+      // Set VPBB's ConditionBit Instruction
       BranchInst *Br = cast<BranchInst>(TI);
-      Value *Condition = Br->getCondition();
-      VPConditionBitRecipeBase *CondBitR = nullptr;
-
-      if (BranchCondMap.count(Condition)) {
-        // ConditionBitRecipe is a UniformConditionBitRecipe
-        CondBitR = BranchCondMap[Condition];
+      // Look up the BranchCondMap to get the corresponding condition
+      // VPInstruction (which may be in another BB).
+      VPValue *VPCondition = nullptr;
+      auto It = BranchCondMap.find(Br);
+      if (It != BranchCondMap.end()) {
+        VPCondition = It->second;
       } else {
-        // Branch condition is a live-in value. Create a
-        // LiveInConditionBitRecipe
-        CondBitR = PlanUtils.createLiveInConditionBitRecipe(Condition);
+        // Live-in value
+        Value *CondValue = Br->getCondition();
+        assert(isa<Instruction>(CondValue) && "ExternalDefs are instructions");
+        // Look for definition in 1)ExternalDefs, 2)InternalDefs
+        assert(IRDef2VPValue.count(CondValue) && "Missing from IRDef2VPValue");
+        VPCondition = IRDef2VPValue[CondValue];
       }
+      assert(VPCondition && "expected non-null VPValue");
+      VPBB->setCondBitVPVal(VPCondition, PlanUtils.getVPlan());
 
-      PlanUtils.setBlockTwoSuccessors(VPBB, CondBitR, SuccVPBB0, SuccVPBB1);
+      PlanUtils.setBlockTwoSuccessors(VPBB, VPCondition, SuccVPBB0, SuccVPBB1);
       VPBB->setCBlock(BB);
       VPBB->setTBlock(TI->getSuccessor(0));
       VPBB->setFBlock(TI->getSuccessor(1));
@@ -1166,7 +1209,7 @@ VPRegionBlock *PlainCFGBuilder::buildPlainCFG() {
 }
 
 VPRegionBlock *VPlanHCFGBuilder::buildPlainCFG() {
-  PlainCFGBuilder PCFGBuilder(TheLoop, LI, PlanUtils);
+  PlainCFGBuilder PCFGBuilder(TheLoop, LI, Legal, PlanUtils);
   VPRegionBlock *TopRegion = PCFGBuilder.buildPlainCFG();
   return TopRegion;
 }

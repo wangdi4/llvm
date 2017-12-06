@@ -52,6 +52,19 @@ private:
     return Instr;
   }
 
+
+
+#if INTEL_CUSTOMIZATION
+  /// \brief Create VPCmpInst with its two operands
+  VPCmpInst *createCmpInst(VPValue *LeftOp, VPValue *RightOp,
+                             CmpInst::Predicate Pred) {
+    VPCmpInst *Instr = new VPCmpInst(LeftOp, RightOp, Pred);
+    if (BB)
+      BB->insert(Instr, InsertPt);
+    return Instr;
+  }
+#endif
+
 public:
   VPBuilder() {}
 
@@ -165,6 +178,8 @@ public:
   // its VPInstructionData.
   VPValue *createNaryOp(unsigned Opcode, ArrayRef<VPValue *> Operands,
                         Instruction *Inst) {
+    assert(!isa<CmpInst>(Inst) &&
+           "CmpInsts should be handled by createCmpInst()");
     VPInstruction *NewVPInst = createInstruction(Opcode, Operands);
     NewVPInst->setInstruction(Inst);
     return NewVPInst;
@@ -173,6 +188,14 @@ public:
                         std::initializer_list<VPValue *> Operands,
                         Instruction *Inst) {
     return createNaryOp(Opcode, ArrayRef<VPValue *>(Operands), Inst);
+  }
+
+  // Create a VPCmpInst with its two operands
+  VPCmpInst *createCmpInst(VPValue *LeftOp, VPValue *RightOp, CmpInst *CI) {
+    VPCmpInst *VPCI =
+        VPBuilder::createCmpInst(LeftOp, RightOp, CI->getPredicate());
+    VPCI->setInstruction(CI);
+    return VPCI;
   }
 };
 #endif // INTEL_CUSTOMIZATION

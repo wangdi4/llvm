@@ -37,11 +37,35 @@ namespace vpo {
 // Forward declarations.
 class VPUser;
 
+#if INTEL_CUSTOMIZATION
+// Forward declaration (need them to friend them within VPInstruction)
+// TODO: This needs to be refactored
+class VPIfTruePredicateRecipe;
+class VPIfFalsePredicateRecipe;
+namespace vpo {
+class VPlanPredicator;
+class IntelVPlan;
+}
+#endif
+
 // This is the base class of the VPlan Def/Use graph, used for modeling the data
 // flow into, within and out of the VPlan. VPValues can stand for live-ins
 // coming from the input IR, instructions which VPlan will generate if executed
 // and live-outs which the VPlan will need to fix accordingly.
 class VPValue {
+#if INTEL_CUSTOMIZATION
+  // The following need access to the underlying IR Value
+  // TODO: This needs to be refactored. The VP*PredicateRecipe's will disappear
+  //       when they get represented with VPInstructions.
+  friend class VPIfTruePredicateRecipe;
+  friend class VPIfFalsePredicateRecipe;
+  friend class VPlan;
+  friend class VPBasicBlock;
+  friend class IntelVPlan;
+  friend class VPlanPredicator;
+  friend class VPlanHCFGBuilderBase;
+#endif
+
 private:
   const unsigned char SubclassID; ///< Subclass identifier (for isa/dyn_cast).
 
@@ -226,6 +250,11 @@ public:
 
   void printAsOperand(raw_ostream &OS) const override {
     Const->printAsOperand(OS);
+  }
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPValue *V) {
+    return V->getVPValueID() == VPConstantSC;
   }
 };
 #endif // INTEL_CUSTOMIZATION

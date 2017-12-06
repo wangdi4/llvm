@@ -155,6 +155,8 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
   State.CFG.PrevBB = ILV->getLoopVectorPH();
 
   VPlan *Plan = getVPlanForVF(BestVF);
+  // TODO: This should be removed once we get proper divergence analysis
+  State.UniformCBVs = &Plan->UniformCBVs;
 
   ILV->collectUniformsAndScalars(BestVF);
 

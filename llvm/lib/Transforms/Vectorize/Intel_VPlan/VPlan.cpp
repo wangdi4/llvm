@@ -20,21 +20,10 @@ using namespace llvm::vpo;
 
 #define DEBUG_TYPE "intel-vplan"
 
-VPBranchIfNotAllZeroRecipe *
-IntelVPlanUtils::createBranchIfNotAllZeroRecipe(Instruction *Cond) {
-  return new VPBranchIfNotAllZeroRecipe(Cond, Plan);
-}
-
 VPMaskGenerationRecipe *
 IntelVPlanUtils::createMaskGenerationRecipe(const Value *Pred,
                                             const Value *Backedge) {
   return new VPMaskGenerationRecipe(Pred, Backedge);
-}
-
-VPNonUniformConditionBitRecipe *
-IntelVPlanUtils::createNonUniformConditionBitRecipe(
-    const VPMaskGenerationRecipe *MaskRecipe) {
-  return new VPNonUniformConditionBitRecipe(MaskRecipe);
 }
 
 // It turns A->B into A->NewSucc->B and updates VPLoopInfo, DomTree and
@@ -157,9 +146,11 @@ void IntelVPlan::execute(VPTransformState *State) {
 
     BasicBlock *FirstSuccBB = FromBB->getSingleSuccessor();
     FromBB->getTerminator()->eraseFromParent();
-    Value *Bit = FromVPBB->getConditionBitRecipe()->getConditionBit();
+    Value *Bit = FromVPBB->getCondBitVPVal()->getValue();
     assert(Bit && "Cannot create conditional branch with empty bit.");
-    BranchInst::Create(FirstSuccBB, ToBB, Bit, FromBB);
+    Value *NCondBit = State->ILV->getScalarValue(Bit, 0);
+    assert(NCondBit && "Null scalar value for condition bit.");
+    BranchInst::Create(FirstSuccBB, ToBB, NCondBit, FromBB);
   }
 
   // 4. Merge the temporary latch created with the last basic block filled.
@@ -229,7 +220,11 @@ void VPBasicBlock::execute(VPTransformState *State) {
                PrevVPBB->getSingleHierarchicalSuccessor()) && /* C */
              !(Replica && getPredecessors().empty())) {       /* D */
 
+#if INTEL_CUSTOMIZATION
+    NewBB = createEmptyBasicBlock(State);
+#else
     NewBB = createEmptyBasicBlock(State->CFG);
+#endif
     State->Builder.SetInsertPoint(NewBB);
     // Temporarily terminate with unreachable until CFG is rewired.
     UnreachableInst *Terminator = State->Builder.CreateUnreachable();
@@ -260,15 +255,8 @@ void VPBasicBlock::execute(VPTransformState *State) {
   DEBUG(dbgs() << "LV: filled BB:" << *NewBB);
 }
 
-void VPUniformConditionBitRecipe::execute(VPTransformState &State) {
-  if (isa<Instruction>(ScConditionBit)) {
-    State.ILV->serializeInstruction(cast<Instruction>(ScConditionBit));
-    ConditionBit = State.ILV->getScalarValue(ScConditionBit, 0);
-  }
-}
-
-using VPDomTree = DomTreeBase<vpo::VPBlockBase>;
+using VPDomTree = DomTreeBase<VPBlockBase>;
 template void llvm::DomTreeBuilder::Calculate<VPDomTree>(VPDomTree &DT);
 
-using VPPostDomTree = PostDomTreeBase<vpo::VPBlockBase>;
+using VPPostDomTree = PostDomTreeBase<VPBlockBase>;
 template void llvm::DomTreeBuilder::Calculate<VPPostDomTree>(VPPostDomTree &PDT);

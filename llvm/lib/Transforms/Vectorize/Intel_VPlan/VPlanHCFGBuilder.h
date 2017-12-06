@@ -82,6 +82,7 @@ protected:
   void simplifyNonLoopRegions();
 
   void buildLoopRegions();
+  void collectUniforms(VPRegionBlock *Region);
   void buildNonLoopRegions(VPRegionBlock *ParentRegion);
 
   // Utility functions.
@@ -93,7 +94,6 @@ protected:
   bool isDivergentBlock(VPBlockBase *Block);
 
   virtual VPLoopRegion *createLoopRegion(VPLoop *VPLp) = 0;
-
 public:
   /// Build hierarchical CFG for TheLoop. Update Plan with the resulting H-CFG.
   void buildHierarchicalCFG();

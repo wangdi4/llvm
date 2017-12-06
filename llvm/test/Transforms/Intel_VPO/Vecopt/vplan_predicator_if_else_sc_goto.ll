@@ -139,11 +139,11 @@ attributes #1 = { argmemonly nounwind }
 ; NOOPT: [[region_17]]:
 ; NOOPT:   [[BB_14:BB[0-9]+]]:
 ; NOOPT:     [[BP_23:BP[0-9]+]] = [[BP_20]]
-; NOOPT:     [[IfT_29:IfT[0-9]+]] = [[BP_23]] && [[VBR_28:VBR[0-9]+]]
+; NOOPT:     [[IfT_29:IfT[0-9]+]] = [[BP_23]] && [[VBR_28:%vp[0-9]+]]
 ; NOOPT:     [[IfF_32:IfF[0-9]+]] = [[BP_23]] && ![[VBR_28]]
 ; NOOPT:   [[BB_4:BB[0-9]+]]:
 ; NOOPT:     [[BP_24:BP[0-9]+]] = [[IfT_29]]
-; NOOPT:     [[IfF_31:IfF[0-9]+]] = [[BP_24]] && ![[VBR_30:VBR[0-9]+]]
+; NOOPT:     [[IfF_31:IfF[0-9]+]] = [[BP_24]] && ![[VBR_30:%vp[0-9]+]]
 ; NOOPT:     [[IfT_33:IfT[0-9]+]] = [[BP_24]] && [[VBR_30]]
 ; NOOPT:   [[BB_7:BB[0-9]+]]:
 ; NOOPT:     [[BP_27:BP[0-9]+]] = [[IfF_31]]
@@ -156,11 +156,11 @@ attributes #1 = { argmemonly nounwind }
 ; OPT: [[region_17:region[0-9]+]]:
 ; OPT:   [[BB_14:BB[0-9]+]]:
 ; OPT-NOT: BP[0-9]+ = 
-; OPT:     [[IfT_29:IfT[0-9]+]] = [[VBR_28:VBR[0-9]+]]
+; OPT:     [[IfT_29:IfT[0-9]+]] = [[VBR_28:%vp[0-9]+]]
 ; OPT:     [[IfF_32:IfF[0-9]+]] = ![[VBR_28]]
 ; OPT:   [[BB_4:BB[0-9]+]]:
 ; OPT:     [[BP_24:BP[0-9]+]] = [[IfT_29]]
-; OPT:     [[IfF_31:IfF[0-9]+]] = [[BP_24]] && ![[VBR_30:VBR[0-9]+]]
+; OPT:     [[IfF_31:IfF[0-9]+]] = [[BP_24]] && ![[VBR_30:%vp[0-9]+]]
 ; OPT:     [[IfT_33:IfT[0-9]+]] = [[BP_24]] && [[VBR_30]]
 ; OPT:   [[BB_7:BB[0-9]+]]:
 ; OPT:     [[BP_27:BP[0-9]+]] = [[IfF_31]]

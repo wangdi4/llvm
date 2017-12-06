@@ -85,15 +85,31 @@ void VPBlockBase::deleteCFG(VPBlockBase *Entry) {
     delete Block;
 }
 
+#if INTEL_CUSTOMIZATION
+void VPBlockBase::setCondBitVPVal(VPValue *CV, VPlan *Plan) {
+  CondBitVPVal = CV;
+  if (CV)
+    Plan->setCondBitVPValUser(CV, this);
+}
+#else
 void VPBlockBase::setConditionBitRecipe(VPConditionBitRecipeBase *R,
                                         VPlan *Plan) {
   ConditionBitRecipe = R;
   if (R)
     Plan->setConditionBitRecipeUser(R, this);
 }
+#endif
 
 BasicBlock *
-VPBasicBlock::createEmptyBasicBlock(VPTransformState::CFGState &CFG) {
+#if INTEL_CUSTOMIZATION
+VPBasicBlock::createEmptyBasicBlock(VPTransformState *State)
+#else
+VPBasicBlock::createEmptyBasicBlock(VPTransformState::CFGState &CFG)
+#endif
+{
+#if INTEL_CUSTOMIZATION
+  VPTransformState::CFGState &CFG = State->CFG;
+#endif
   // BB stands for IR BasicBlocks. VPBB stands for VPlan VPBasicBlocks.
   // Pred stands for Predecessor. Prev stands for Previous, last
   // visited/created.
@@ -134,10 +150,16 @@ VPBasicBlock::createEmptyBasicBlock(VPTransformState::CFGState &CFG) {
         }
 
         PredBB->getTerminator()->eraseFromParent();
-        assert(PredVPBlock->getConditionBitRecipe() &&
-               "Expected ConditionBitRecipe.");
-        Value *Bit = PredVPBlock->getConditionBitRecipe()->getConditionBit();
+        VPValue *CBV = PredVPBlock->getCondBitVPVal();
+        assert(CBV && "Expected CondBitVPVal");
+        Value *Bit = nullptr;
+        if (State->CBVToConditionBitMap.count(CBV)) {
+          Bit = State->CBVToConditionBitMap[CBV];
+        } else {
+          Bit = CBV->getValue();
+        }
         assert(Bit && "Cannot create conditional branch with empty bit.");
+        assert(!Bit->getType()->isVectorTy() && "Should be 1-bit scalar");
         BranchInst::Create(FirstSuccBB, SecondSuccBB, Bit, PredBB);
       }
     }
@@ -200,16 +222,16 @@ void VPBasicBlock::execute(VPTransformState *State) {
 
 #if INTEL_CUSTOMIZATION
 void VPBasicBlock::moveConditionalEOBTo(VPBasicBlock *ToBB, VPlan *Plan) {
-  // Set ConditionBitRecipe in NewBlock. Note that we are only setting the
-  // successor selector pointer. The ConditionBitRecipe is kept in its
+  // Set CondBitVPVal in NewBlock. Note that we are only setting the
+  // successor selector pointer. The CondBitVPVal is kept in its
   // original VPBB recipe list.
   if (getNumSuccessors() > 1) {
-    assert(getConditionBitRecipe() && "Missing ConditionBitRecipe");
-    ToBB->setConditionBitRecipe(getConditionBitRecipe(), Plan);
+    assert(getCondBitVPVal() && "Missing CondBitVPVal");
+    ToBB->setCondBitVPVal(getCondBitVPVal(), Plan);
     ToBB->setCBlock(CBlock);
     ToBB->setTBlock(TBlock);
     ToBB->setFBlock(FBlock);
-    setConditionBitRecipe(nullptr, Plan);
+    setCondBitVPVal(nullptr, Plan);
     CBlock = TBlock = FBlock = nullptr;
   }
 }
@@ -299,6 +321,17 @@ void VPInstruction::generateInstruction(VPTransformState &State,
 }
 
 void VPInstruction::execute(VPTransformState &State) {
+  // TODO: Remove this block of code. Its purpose is to emulate the execute()
+  //       of the conditionbit recipies that have now been removed.
+  if (State.UniformCBVs->count(this)) {
+    Value *ScConditionBit = getValue();
+    State.ILV->serializeInstruction(cast<Instruction>(ScConditionBit));
+    Value *ConditionBit = State.ILV->getScalarValue(ScConditionBit, 0);
+    assert(!ConditionBit->getType()->isVectorTy() && "Bit should be scalar");
+    State.CBVToConditionBitMap[this] = ConditionBit;
+    return;
+  }
+
   assert(!State.Instance && "VPInstruction executing an Instance");
   for (unsigned Part = 0; Part < State.UF; ++Part)
     generateInstruction(State, Part);
@@ -391,7 +424,7 @@ void VPlan::execute(VPTransformState *State) {
 
     BasicBlock *FirstSuccBB = FromBB->getSingleSuccessor();
     FromBB->getTerminator()->eraseFromParent();
-    Value *Bit = FromVPBB->getConditionBitRecipe()->getConditionBit();
+    Value *Bit = FromVPBB->getCondBitVPVal()->getValue();
     assert(Bit && "Cannot create conditional branch with empty bit.");
     BranchInst::Create(FirstSuccBB, ToBB, Bit, FromBB);
   }
@@ -539,6 +572,21 @@ void VPlanPrinter::dumpBasicBlock(const VPBasicBlock *BasicBlock) {
   bumpIndent(1);
   for (const VPRecipeBase &Recipe : *BasicBlock)
     Recipe.print(OS, Indent);
+#if INTEL_CUSTOMIZATION
+  const VPValue *CBV = BasicBlock->getCondBitVPVal();
+  // Dump the CondBitVPVal
+  if (CBV) {
+    OS << " +\n"
+       << Indent << "\" ---- CondBitVPVal ---- \\l\" ";
+    OS << " +\n" << Indent << "\" ";
+    if (const VPInstruction *CBI = dyn_cast<VPInstruction>(CBV)) {
+      CBI->print(OS);
+      OS << " (" << DOT::EscapeString(CBI->getParent()->getName()) << ")\\l\"";
+    } else {
+      CBV->printAsOperand(OS);
+    }
+  }
+#endif
   bumpIndent(-2);
   OS << "\n" << Indent << "]\n";
   dumpEdges(BasicBlock);
@@ -648,8 +696,7 @@ void VPIfTruePredicateRecipe::execute(VPTransformState &State) {
                         : nullptr;
 
   // Get the vector mask value of the branch condition
-  auto VecCondMask =
-      State.ILV->getVectorValue(ConditionRecipe->getConditionValue());
+  auto VecCondMask = State.ILV->getVectorValue(ConditionValue->getValue());
 
   // Combine with the predecessor block mask if needed - a null predecessor
   // mask
@@ -688,7 +735,7 @@ void VPIfTruePredicateRecipe::print(raw_ostream &OS,
   if (PredecessorPredicate)
     OS << PredecessorPredicate->getName() << " && ";
 
-  OS << ConditionRecipe->getName();
+  ConditionValue->printAsOperand(OS);
 }
 
 void VPIfFalsePredicateRecipe::execute(VPTransformState &State) {
@@ -699,8 +746,7 @@ void VPIfFalsePredicateRecipe::execute(VPTransformState &State) {
   // Get the vector mask value of the branch condition - since this
   // edge is taken if the mask value is false we compute the negation
   // of this mask value.
-  auto VecCondMask =
-      State.ILV->getVectorValue(ConditionRecipe->getConditionValue());
+  auto VecCondMask = State.ILV->getVectorValue(ConditionValue->getValue());
   VecCondMask = State.Builder.CreateNot(VecCondMask);
 
   // Combine with the predecessor block mask if needed - a null predecessor
@@ -724,17 +770,8 @@ void VPIfFalsePredicateRecipe::print(raw_ostream &OS,
   if (PredecessorPredicate)
     OS << PredecessorPredicate->getName() << " && ";
 
-  OS << "!" << ConditionRecipe->getName();
-}
-
-void VPBooleanRecipe::print(raw_ostream &OS, const Twine &Indent) const {
-  OS << Name;
-  if (ConditionValue)
-    OS << " " << *ConditionValue;
-}
-
-void VPVectorizeBooleanRecipe::execute(VPTransformState &State) {
-  State.ILV->vectorizeInstruction(cast<Instruction>(ConditionValue));
+  OS << "!";
+  ConditionValue->printAsOperand(OS);
 }
 } // namespace vpo
 } // namespace llvm

@@ -212,9 +212,9 @@ void VPlanVerifierBase::verifyRegions(const VPRegionBlock *Region) const {
 
     // Check block's ConditionBitRecipe
     if (VPB->getNumSuccessors() > 1)
-      assert(VPB->getConditionBitRecipe() && "Missing ConditionBitRecipe");
+      assert(VPB->getCondBitVPVal() && "Missing CondBitVPVal");
     else
-      assert(!VPB->getConditionBitRecipe() && "Unexpected ConditionBitRecipe");
+      assert(!VPB->getCondBitVPVal() && "Unexpected CondBitVPVal");
 
     // Check block's successors
     const auto &Successors = VPB->getSuccessors();

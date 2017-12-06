@@ -26,21 +26,16 @@ private:
     FALSE_EDGE,
     EDGE_TYPE_MAX,
   };
-  
+
   IntelVPlan *Plan;
   VPLoopInfo *VPLI;
   IntelVPlanUtils PlanUtils;
 
   EdgeType getEdgeTypeBetween(VPBlockBase *FromBlock, VPBlockBase *ToBlock);
-  // Map to remember which BRs have already been generated
-  // for corresponding CBRs.
-  std::map<VPConditionBitRecipeWithScalar *, VPBooleanRecipe *> CBRtoBRMap;
-
-  int countSuccessorsNoBE(VPBlockBase *PredBlock, bool& HasBE);
+  int countSuccessorsNoBE(VPBlockBase *PredBlock, bool &HasBE);
   void getSuccessorsNoBE(VPBlockBase *PredBlock,
                          SmallVector<VPBlockBase *, 2> &Succs);
 
-  VPBooleanRecipe *getConditionRecipe(VPConditionBitRecipeBase *CBR);
   VPPredicateRecipeBase *genEdgeRecipe(VPBasicBlock *PredBB, EdgeType ET);
   VPPredicateRecipeBase *genEdgeRecipe(VPBasicBlock *PredBB,
                                        VPPredicateRecipeBase *R,

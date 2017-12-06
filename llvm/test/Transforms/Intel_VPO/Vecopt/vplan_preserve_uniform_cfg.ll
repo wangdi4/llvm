@@ -9,8 +9,8 @@
 ; REPORT: [[region_14:region[0-9]+]]:
 ; REPORT-NEXT:   [[BB_11:BB[0-9]+]]:
 ; REPORT-NOT:     [[BP_20:BP[0-9]+]] =
-; REPORT-NEXT:     [[IfF_24:IfF[0-9]+]] = {{!UBR[0-9]+}}
-; REPORT-NEXT:     [[IfT_25:IfT[0-9]+]] = {{UBR[0-9]+}}
+; REPORT-NEXT:     [[IfF_24:IfF[0-9]+]] = {{!%vp[0-9]+}}
+; REPORT-NEXT:     [[IfT_25:IfT[0-9]+]] = {{%vp[0-9]+}}
 ; REPORT-NEXT:   [[BB_4:BB[0-9]+]]:
 ; REPORT-NOT:     [[BP_22:BP[0-9]+]] = 
 ; REPORT-NEXT:   [[BB_3:BB[0-9]+]]:
