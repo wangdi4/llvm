@@ -52,7 +52,7 @@ def parse_options():
                       help="number of tests to run in parallel")
     parser.add_option("-d", "--device", action="store", type="string",
                       dest="test_device",
-                      default="cpu",
+                      default="",
                       help="Run on the specified device type")
 
     (opts, positionals) = parser.parse_args()

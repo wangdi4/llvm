@@ -138,8 +138,12 @@ class ClientGDB(TestClient):
         cl_file_fullpath = self.cl_abs_filename(cl_name)
         # GDB environment variable should be set to gdb path before start of test
         gdb_command = os.environ['GDB']+'/gdb'
-        options_str = 'device=' + self.device_type + ','
-        options_str = options_str.join('%s=%s' % (k, v) for k, v in options.iteritems())
+        options_str = ""
+        if self.device_type:
+            options_str = 'device=' + self.device_type + ','
+        options_str += ','.join('%s=%s' % (k, v) for k, v in options.iteritems())
+        if not options_str:
+            options_str = 'none'
         args = [gdb_command,
 #                "localhost:12345",
                 "--args",

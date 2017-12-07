@@ -168,19 +168,26 @@ int main(int argc, char** argv)
             CL_CONTEXT_PLATFORM, (cl_context_properties)(platforms[0])(), 0
         };
 
-        cl_device_type deviceType = CL_DEVICE_TYPE_CPU;
+        cl_device_type deviceType = CL_DEVICE_TYPE_DEFAULT;
 
-        if (options.get("device") == "fpga_fast_emu") {
-          deviceType = CL_DEVICE_TYPE_ACCELERATOR;
-          DTT_LOG("Device type: CL_DEVICE_TYPE_ACCELERATOR");
-        } else {
-          DTT_LOG("Device type: CL_DEVICE_TYPE_CPU");
-        }
+        if (options.get("device") == "fpga_fast_emu")
+            deviceType = CL_DEVICE_TYPE_ACCELERATOR;
+        else if (options.get("device") == "cpu")
+            deviceType = CL_DEVICE_TYPE_CPU;
+        else if (!options.get("device").empty())
+          throw runtime_error("Wrong device type specified."
+                              "Please, specify 'fpga_fast_emu' or 'cpu'");
+
         cl::Context context(deviceType, properties);
 
         vector<cl::Device> devices = context.getInfo<CL_CONTEXT_DEVICES>();
-        if (devices.size() == 0)
-            throw runtime_error("0 devices found");
+
+        // Ensure tests will be run on CPU or ACCELERATOR
+        devices[0].getInfo(CL_DEVICE_TYPE, &deviceType);
+        if (deviceType != CL_DEVICE_TYPE_CPU &&
+            deviceType != CL_DEVICE_TYPE_ACCELERATOR)
+            throw runtime_error("Wrong device type."
+                                "Only CPU or ACCELERATOR types supported");
 
         cl::Program::Sources sources(1,
             make_pair(cl_code.c_str(), cl_code.size()));
@@ -191,7 +198,8 @@ int main(int argc, char** argv)
         // failure from the build log.
         //
         try {
-            string build_flags = "";
+            // Make possible to pass any build options to tests
+            string build_flags = options.get("build_opts") + " ";
             if (options.get("debug_build") != "off") {
                 build_flags += "-g ";
             }
