@@ -1427,11 +1427,25 @@ def REPEAT16  : RepeatOp<REPEAT, Ti16, IIALU>;
 def REPEAT32  : RepeatOp<REPEAT, Ti32, IIALU>;
 def REPEAT64  : RepeatOp<REPEAT, Ti64, IIALU>;
 
+def REPEATO   : GenericOp<"repeato">;
+def REPEATO0  : RepeatOp<REPEATO, Ti0,  IIALU>;
+def REPEATO1  : RepeatOp<REPEATO, Ti1,  IIALU>;
+def REPEATO8  : RepeatOp<REPEATO, Ti8,  IIALU>;
+def REPEATO16 : RepeatOp<REPEATO, Ti16, IIALU>;
+def REPEATO32 : RepeatOp<REPEATO, Ti32, IIALU>;
+def REPEATO64 : RepeatOp<REPEATO, Ti64, IIALU>;
+
 def STRIDE    : GenericOp<"stride">;
 def STRIDE8   : StrideOp<STRIDE, Ti8,  IIALU>;
 def STRIDE16  : StrideOp<STRIDE, Ti16, IIALU>;
 def STRIDE32  : StrideOp<STRIDE, Ti32, IIALU>;
 def STRIDE64  : StrideOp<STRIDE, Ti64, IIALU>;
+
+def STRIDEO    : GenericOp<"strideo">;
+def STRIDEO8   : StrideOp<STRIDEO, Ti8,  IIALU>;
+def STRIDEO16  : StrideOp<STRIDEO, Ti16, IIALU>;
+def STRIDEO32  : StrideOp<STRIDEO, Ti32, IIALU>;
+def STRIDEO64  : StrideOp<STRIDEO, Ti64, IIALU>;
 
 // FMA reductions.
 
