@@ -22,6 +22,7 @@
 #include "llvm/CodeGen/MachineLoopInfo.h"
 #include "llvm/Target/TargetSubtargetInfo.h"
 #include "llvm/Target/TargetRegisterInfo.h"
+#include "CSAInstrInfo.h"
 #include <map>
 #include <set>
 #include <deque>
@@ -462,12 +463,17 @@ namespace llvm {
 
   class CSASSAGraph {
     CSASSANode* root;
+    MachineRegisterInfo* MRI;
+    const CSAInstrInfo* TII;
   public:
     DenseMap<MachineInstr *, CSASSANode *> instr2ssan;
     CSASSANode* getRoot() {
       return root;
     }
-    void BuildCSASSAGraph(MachineFunction &F, MachineLoopInfo *MLI);
+    MachineInstr* GetSingleDef(MachineOperand& opnd);
+    void AddInstructionToGraph(MachineInstr* mInstr, unsigned skipOpnd=0);
+    void AddChild(CSASSANode* sn, MachineInstr* childInstr);
+    void BuildCSASSAGraph(MachineFunction &F);
     ~CSASSAGraph() {
       delete root;
       for (DenseMap<MachineInstr*, CSASSANode*>::iterator i2n = instr2ssan.begin(), i2nEnd = instr2ssan.end(); i2n != i2nEnd; ++i2n) {
