@@ -8157,7 +8157,13 @@ Value *CodeGenFunction::EmitCSABuiltinExpr(unsigned BuiltinID,
                                      {X->getType(), Y->getType()});
     return Builder.CreateCall(Callee, {X, Builder.CreateBitCast(CGM.EmitAnnotationString(Str), Int8PtrTy)});
   }
-    
+  case CSA::BI__builtin_csa_pipeline_loop: {
+    Value *X = EmitScalarExpr(E->getArg(0));
+    Value *Callee = CGM.getIntrinsic(Intrinsic::csa_pipeline_loop,
+                                     X->getType());
+    return Builder.CreateCall(Callee, X);
+  }
+
   default:
     return nullptr;
   }

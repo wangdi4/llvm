@@ -1851,6 +1851,7 @@ BUILTIN(__builtin_csa_parallel_region_exit,   "vi", "n")
 BUILTIN(__builtin_csa_parallel_section_entry, "ii", "n")
 BUILTIN(__builtin_csa_parallel_section_exit,  "vi", "n")
 BUILTIN(__builtin_csa_spmdization, "vicC*", "n")
+BUILTIN(__builtin_csa_pipeline_loop, "vi", "n")
 
 #undef BUILTIN
 #undef TARGET_BUILTIN
