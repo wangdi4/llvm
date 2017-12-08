@@ -367,7 +367,14 @@ void PassManagerBuilder::populateFunctionPassManager(
 
 #if INTEL_CUSTOMIZATION
   FPM.add(createXmainOptLevelPass(OptLevel));
-  if (RunVPOParopt) {
+  if (RunVPOOpt && RunVPOParopt) {
+    if (OptLevel == 0) {
+      FPM.add(createSROAPass());
+      FPM.add(createEarlyCSEPass());
+    }
+    // The value -1 indicates that the bottom test generation for
+    // loop is always enabled.
+    FPM.add(createLoopRotatePass(-1));
     FPM.add(createVPOCFGRestructuringPass());
     FPM.add(createVPOParoptPreparePass(RunVPOParopt, OffloadTargets));
   }
