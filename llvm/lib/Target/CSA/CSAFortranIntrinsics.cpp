@@ -109,7 +109,15 @@ bool CSAFortranIntrinsics::runOnFunction(Function &F) {
     err_name.pop_back();
     for (Value*const arg : call_inst->arg_operands()) {
       GlobalVariable*const glob_arg = dyn_cast<GlobalVariable>(arg);
-      if (glob_arg and glob_arg->isConstant() and glob_arg->getInitializer()) {
+      if(dyn_cast<ConstantInt>(arg)) {
+        // this is the length of the string passed to the intrinsic
+        continue;
+      }
+      else if(dyn_cast<ConstantExpr>(arg)) {
+        args.push_back(arg);
+        // the next arg is the length of the string, to be ignored
+      }
+      else if (glob_arg and glob_arg->isConstant() and glob_arg->getInitializer()) {
         args.push_back(glob_arg->getInitializer());
       } else {
         errs() << "\n";
