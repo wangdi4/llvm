@@ -1,6 +1,6 @@
 //===------ CanonExprUtils.h - Utilities for CanonExpr class --*- C++ -*---===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -101,9 +101,15 @@ private:
                             bool RelaxedMode);
 
   /// Implements add() functionality.
-  /// This routine asserts on canAddOrSubtract(CE1, CE2) so the caller is
-  /// responsible for making sure they can be added.
+  /// This routine asserts on canAdd(CE1, CE2) so the caller is responsible for
+  /// making sure they can be added.
   static void addImpl(CanonExpr *CE1, const CanonExpr *CE2, bool RelaxedMode);
+
+  /// Implements subtract() functionality.
+  /// This routine asserts on canSubtract(CE1, CE2) so the caller is responsible
+  /// for making sure they can be added.
+  static void subtractImpl(CanonExpr *CE1, const CanonExpr *CE2,
+                           bool RelaxedMode);
 
 public:
   // Returns reference to BlobUtils object.
@@ -168,10 +174,14 @@ public:
   static bool areEqual(const CanonExpr *CE1, const CanonExpr *CE2,
                        bool RelaxedMode = false);
 
-  /// Returns true or false depending upon whether CE1 and CE2 can be added or
-  /// subtracted.
-  static bool canAddOrSubtract(const CanonExpr *CE1, const CanonExpr *CE2,
-                               bool RelaxedMode = false);
+  /// Returns true or false depending upon whether CE1 and CE2 can be added.
+  static bool canAdd(const CanonExpr *CE1, const CanonExpr *CE2,
+                     bool RelaxedMode = false);
+
+  /// Returns true or false depending upon whether CE2 can be subtracted from
+  /// CE1.
+  static bool canSubtract(const CanonExpr *CE1, const CanonExpr *CE2,
+                          bool RelaxedMode = false);
 
   /// Modifies and returns CE1 to reflect sum of CE1 and CE2.
   /// CE1 = CE1 + CE2
@@ -222,14 +232,18 @@ public:
   /// CE. NestingLevel is the level where the CE is attached to HIR.
   static bool hasNonLinearSemantics(unsigned DefLevel, unsigned NestingLevel);
 
-  // Returns true if IV in \p CE1 at the loop \p Level by the \p CE2.
+  /// Returns true if IV in \p CE1 at the loop \p Level by the \p CE2.
   static bool canReplaceIVByCanonExpr(const CanonExpr *CE1, unsigned Level,
                                       const CanonExpr *CE2,
                                       bool RelaxedMode = false);
 
   /// Replaces IV in \p CE1 at the loop \p Level by the \p CE2.
+  /// If CE2 is not mergeable with CE1 it will be converted to a standalone
+  /// blob and casted to CE1 src type using truncation or sign/zero extension
+  /// based on \p IsNSW flag. This flag can be obtained from the loop in
+  /// question.
   static bool replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
-                                   const CanonExpr *CE2,
+                                   const CanonExpr *CE2, bool IsNSW,
                                    bool RelaxedMode = false);
 
   /// Returns true if CE1 - CE2 is a constant and returns the diff in \p

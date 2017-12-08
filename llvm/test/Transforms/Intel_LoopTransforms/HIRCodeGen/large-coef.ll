@@ -21,7 +21,6 @@ target triple = "i386-unknown-linux-gnu"
 
 %struct.bignum_st = type { i32*, i32, i32, i32 }
 
-; Function Attrs: nounwind readonly
 define i32 @BN_mod_word(%struct.bignum_st* nocapture readonly %a, i32 %w) {
 entry:
   %top = getelementptr inbounds %struct.bignum_st, %struct.bignum_st* %a, i32 0, i32 1
@@ -35,7 +34,7 @@ for.body.lr.ph:                                   ; preds = %entry
   %conv1 = zext i32 %w to i64
   br label %for.body
 
-for.body:                                         ; preds = %for.body.lr.ph, %for.body
+for.body:                                         ; preds = %for.body, %for.body.lr.ph
   %i.012.in = phi i32 [ %0, %for.body.lr.ph ], [ %i.012, %for.body ]
   %ret.011 = phi i64 [ 0, %for.body.lr.ph ], [ %rem, %for.body ]
   %i.012 = add nsw i32 %i.012.in, -1
@@ -49,11 +48,13 @@ for.body:                                         ; preds = %for.body.lr.ph, %fo
   br i1 %cmp, label %for.body, label %for.end.loopexit
 
 for.end.loopexit:                                 ; preds = %for.body
-  %extract.t = trunc i64 %rem to i32
+  %rem.lcssa = phi i64 [ %rem, %for.body ]
+  %extract.t = trunc i64 %rem.lcssa to i32
   br label %for.end
 
 for.end:                                          ; preds = %for.end.loopexit, %entry
   %ret.0.lcssa.off0 = phi i32 [ 0, %entry ], [ %extract.t, %for.end.loopexit ]
   ret i32 %ret.0.lcssa.off0
 }
+
 

@@ -50,6 +50,36 @@ RegDDRef *DDRefUtils::createScalarRegDDRef(unsigned SB, CanonExpr *CE) {
   return RegDD;
 }
 
+RegDDRef *DDRefUtils::createGEPRef(unsigned BasePtrBlobIndex, unsigned Level,
+                                   unsigned SB, bool IsMemRef) {
+  if (SB == InvalidSymbase) {
+    SB = getNewSymbase();
+  }
+
+  RegDDRef *Ref = createRegDDRef(SB);
+  auto BaseCE =
+      getCanonExprUtils().createSelfBlobCanonExpr(BasePtrBlobIndex, Level);
+
+  Ref->setBaseCE(BaseCE);
+  Ref->addBlobDDRef(BasePtrBlobIndex, Level);
+
+  if (!IsMemRef) {
+    Ref->setAddressOf(true);
+  }
+
+  return Ref;
+}
+
+RegDDRef *DDRefUtils::createMemRef(unsigned BasePtrBlobIndex, unsigned Level,
+                                   unsigned SB) {
+  return createGEPRef(BasePtrBlobIndex, Level, SB, true);
+}
+
+RegDDRef *DDRefUtils::createAddressOfRef(unsigned BasePtrBlobIndex,
+                                         unsigned Level, unsigned SB) {
+  return createGEPRef(BasePtrBlobIndex, Level, SB, false);
+}
+
 RegDDRef *DDRefUtils::createConstDDRef(Type *Ty, int64_t Val) {
   RegDDRef *NewRegDD = createRegDDRef(ConstantSymbase);
   CanonExpr *CE = getCanonExprUtils().createCanonExpr(Ty, 0, Val);
@@ -193,16 +223,22 @@ bool DDRefUtils::areEqualImpl(const RegDDRef *Ref1, const RegDDRef *Ref2,
 
   bool HasGEPInfo = Ref1->hasGEPInfo();
 
-  // Check if one is memory ref and other is not.
+  // Check if one is GEP ref and other is not.
   if (HasGEPInfo != Ref2->hasGEPInfo()) {
     return false;
   }
 
-  // Check Base Canon Exprs.
-  if (HasGEPInfo &&
-      !CanonExprUtils::areEqual(Ref1->getBaseCE(), Ref2->getBaseCE(),
-                                RelaxedMode)) {
-    return false;
+  if (HasGEPInfo) {
+    // TODO: compare attributes like volatile, alignment etc.
+
+    if (Ref1->isMemRef() != Ref2->isMemRef()) {
+      return false;
+    }
+
+    if (!CanonExprUtils::areEqual(Ref1->getBaseCE(), Ref2->getBaseCE(),
+                                  RelaxedMode)) {
+      return false;
+    }
   }
 
   unsigned NumDims = Ref1->getNumDimensions();
@@ -479,16 +515,16 @@ bool DDRefUtils::canReplaceIVByCanonExpr(const RegDDRef *Ref,
 }
 
 void DDRefUtils::replaceIVByCanonExpr(RegDDRef *Ref, unsigned LoopLevel,
-                                      const CanonExpr *CE, bool RelaxedMode) {
+                                      const CanonExpr *CE, bool IsNSW,
+                                      bool RelaxedMode) {
 
   for (auto I = Ref->canon_begin(), E = Ref->canon_end(); I != E; ++I) {
     CanonExpr *CurCE = (*I);
 
-    auto Res =
-        CanonExprUtils::replaceIVByCanonExpr(CurCE, LoopLevel, CE, RelaxedMode);
+    auto Res = CanonExprUtils::replaceIVByCanonExpr(CurCE, LoopLevel, CE, IsNSW,
+                                                    RelaxedMode);
     (void)Res;
     assert(Res && "Replacement failed, caller should call "
                   "DDRefUtils::canReplaceIVByCanonExpr() first!");
   }
 }
-

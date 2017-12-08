@@ -83,6 +83,8 @@
 #include <clc/math/log2.h>
 #include <clc/math/logb.h>
 #include <clc/math/mad.h>
+#include <clc/math/maxmag.h>
+#include <clc/math/minmag.h>
 #include <clc/math/modf.h>
 #include <clc/math/nextafter.h>
 #include <clc/math/pow.h>
@@ -104,6 +106,7 @@
 #include <clc/math/native_exp10.h>
 #include <clc/math/native_exp2.h>
 #include <clc/math/native_log.h>
+#include <clc/math/native_log10.h>
 #include <clc/math/native_log2.h>
 #include <clc/math/native_powr.h>
 #include <clc/math/native_recip.h>
@@ -263,10 +266,5 @@
 /* 6.11.13 Image Read and Write Functions */
 #include <clc/image/image_defines.h>
 #include <clc/image/image.h>
-
-/* libclc internal defintions */
-#ifdef __CLC_INTERNAL
-#include <math/clc_nextafter.h>
-#endif
 
 #pragma OPENCL EXTENSION all : disable

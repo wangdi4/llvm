@@ -1,6 +1,6 @@
 //===----- HIRSSADeconstruction.cpp - Deconstructs SSA for HIR ------------===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -35,8 +35,6 @@
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Metadata.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/IR/IRRegion.h"
-
 #include "llvm/Support/CommandLine.h"
 
 #include "llvm/Analysis/Intel_Andersens.h"
@@ -46,6 +44,7 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRRegionIdentification.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRSCCFormation.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/IRRegion.h"
 
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
@@ -178,7 +177,7 @@ private:
   // Stores new bblocks which are sometimes created during deconstruction.
   SmallPtrSet<BasicBlock *, 8> NewRegBBlocks;
 };
-}
+} // namespace
 
 char HIRSSADeconstruction::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRSSADeconstruction, "hir-ssa-deconstruction",
@@ -210,8 +209,9 @@ Instruction *HIRSSADeconstruction::createCopy(Value *Val, StringRef Name,
   auto CInst = CastInst::Create(Instruction::BitCast, Val, Val->getType(),
                                 Name + (IsLivein ? ".in" : ".out"));
 
-  attachMetadata(CInst, Name, IsLivein ? ScalarEvolution::HIRLiveKind::LiveIn
-                                       : ScalarEvolution::HIRLiveKind::LiveOut);
+  attachMetadata(CInst, Name,
+                 IsLivein ? ScalarEvolution::HIRLiveKind::LiveIn
+                          : ScalarEvolution::HIRLiveKind::LiveOut);
 
   return CInst;
 }
@@ -690,8 +690,9 @@ bool HIRSSADeconstruction::processPhiLiveins(PHINode *Phi,
 
       // Split edge first, if required.
       if (edgeSplittingRequired(Phi, PredBB)) {
-        PredBB = SplitCriticalEdge(PredBB, Phi->getParent(),
-                                   CriticalEdgeSplittingOptions(DT, LI));
+        PredBB = SplitCriticalEdge(
+            PredBB, Phi->getParent(),
+            CriticalEdgeSplittingOptions(DT, LI).setPreserveLCSSA());
         assert(PredBB &&
                "Could not split edge, SplitCriticalEdge() returned null!");
 
@@ -862,7 +863,9 @@ void HIRSSADeconstruction::deconstructSSAForRegions() {
     for (auto BBIt = RegIt->bb_begin(), EndBBIt = RegIt->bb_end();
          BBIt != EndBBIt; ++BBIt) {
 
-      // Process instructions inside the basic blocks.
+      // TODO: patch non-phi liveout values in fused regions which are outside
+      // any loops by creating single operand phis in region exit block
+      // otherwise CG will not be able to handle them.
       for (auto Inst = (*BBIt)->begin(), EndI = (*BBIt)->end(); Inst != EndI;
            ++Inst) {
         auto Phi = dyn_cast<PHINode>(Inst);

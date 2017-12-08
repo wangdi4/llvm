@@ -83,16 +83,12 @@ static bool isSpecializationCloningSafeInst(Instruction* I) {
 //
 static bool isSpecializationCloningSafeArgument(Argument* Arg) {
 
-  // Non pointer is always safe.
-  if (!Arg->getType()->isPointerTy()) 
-    return true;
-
   auto PTy = Arg->getType();
-  // Is it pointer to array of char?
-  auto ATy = cast<PointerType>(PTy)->getElementType();
-  if (!isa<ArrayType>(ATy)) return false;
-  auto CTy = cast<ArrayType>(ATy)->getElementType();
-  if (!CTy->isIntegerTy(8)) return false;
+  // Non pointer is always safe.
+  if (!PTy->isPointerTy()) return true;
+
+  // Check for pointer to char array.
+  if (!isPointerToCharArray(PTy)) return false;
 
   // Returns true if no uses.
   if (Arg->use_empty()) return true;
@@ -386,6 +382,23 @@ static bool applyAllHeuristics(Value *V, LoopInfo* LI) {
 
 namespace llvm { 
 namespace llvm_cloning_analysis { 
+
+// Return true if 'PTy' is pointer to array of chars.
+//
+extern bool isPointerToCharArray(Type* PTy) {
+  // Not pointer?
+  if (!isa<PointerType>(PTy)) return false;
+
+  // Is it pointer to array?
+  auto ATy = cast<PointerType>(PTy)->getElementType();
+  if (!isa<ArrayType>(ATy)) return false;
+
+  // Is is pointer to array of char?
+  auto CTy = cast<ArrayType>(ATy)->getElementType();
+  if (!CTy->isIntegerTy(8)) return false;
+
+  return true;
+}
 
 // Returns any GEP operand of 'Phi' if it finds one. Otherwise, returns
 // nullptr.

@@ -1,6 +1,6 @@
 //===----- HIRLoopDistributionGraph.h - Forms Distribution Graph  --------===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -167,11 +167,12 @@ public:
 
   // TODO destruction needs to be handled carefully if we want
   // to reuse graph from inner loop dist in outer loop distribution
-  ~DistPPGraph() {
+  virtual ~DistPPGraph() {
     for (DistPPNode *Node : DistPPNodeList) {
       delete Node;
     }
   }
+
   void addNode(DistPPNode *NewNode) { DistPPNodeList.push_back(NewNode); }
 
 private:
@@ -193,7 +194,7 @@ struct DistributionNodeCreator final : public HLNodeVisitorBase {
   DistPPGraph *DGraph;
   DistPPNode *CurDistPPNode;
 
-  bool isDone() const override { return !DGraph->isGraphValid(); }
+  bool isDone() const { return !DGraph->isGraphValid(); }
 
   // establishes HLNode's corresponding DistPPNode
   void addToNodeMap(DistPPNode *DNode, HLNode *HNode) {

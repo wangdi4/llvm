@@ -76,7 +76,7 @@
 #include "ICF.h"
 #include "Config.h"
 #include "SymbolTable.h"
-#include "Threads.h"
+#include "lld/Common/Threads.h"
 #include "llvm/ADT/Hashing.h"
 #include "llvm/BinaryFormat/ELF.h"
 #include "llvm/Object/ELF.h"
@@ -155,7 +155,7 @@ private:
 // Returns a hash value for S. Note that the information about
 // relocation targets is not included in the hash value.
 template <class ELFT> static uint32_t getHash(InputSection *S) {
-  return hash_combine(S->Flags, S->getSize(), S->NumRelocations);
+  return hash_combine(S->Flags, S->getSize(), S->NumRelocations, S->Data);
 }
 
 // Returns true if section S is subject of ICF.
@@ -220,16 +220,16 @@ bool ICF<ELFT>::constantEq(const InputSection *SecA, ArrayRef<RelTy> RA,
     uint64_t AddA = getAddend<ELFT>(RA[I]);
     uint64_t AddB = getAddend<ELFT>(RB[I]);
 
-    SymbolBody &SA = SecA->template getFile<ELFT>()->getRelocTargetSym(RA[I]);
-    SymbolBody &SB = SecB->template getFile<ELFT>()->getRelocTargetSym(RB[I]);
+    Symbol &SA = SecA->template getFile<ELFT>()->getRelocTargetSym(RA[I]);
+    Symbol &SB = SecB->template getFile<ELFT>()->getRelocTargetSym(RB[I]);
     if (&SA == &SB) {
       if (AddA == AddB)
         continue;
       return false;
     }
 
-    auto *DA = dyn_cast<DefinedRegular>(&SA);
-    auto *DB = dyn_cast<DefinedRegular>(&SB);
+    auto *DA = dyn_cast<Defined>(&SA);
+    auto *DB = dyn_cast<Defined>(&SB);
     if (!DA || !DB)
       return false;
 
@@ -295,13 +295,13 @@ bool ICF<ELFT>::variableEq(const InputSection *SecA, ArrayRef<RelTy> RA,
 
   for (size_t I = 0; I < RA.size(); ++I) {
     // The two sections must be identical.
-    SymbolBody &SA = SecA->template getFile<ELFT>()->getRelocTargetSym(RA[I]);
-    SymbolBody &SB = SecB->template getFile<ELFT>()->getRelocTargetSym(RB[I]);
+    Symbol &SA = SecA->template getFile<ELFT>()->getRelocTargetSym(RA[I]);
+    Symbol &SB = SecB->template getFile<ELFT>()->getRelocTargetSym(RB[I]);
     if (&SA == &SB)
       continue;
 
-    auto *DA = cast<DefinedRegular>(&SA);
-    auto *DB = cast<DefinedRegular>(&SB);
+    auto *DA = cast<Defined>(&SA);
+    auto *DB = cast<Defined>(&SB);
 
     // We already dealt with absolute and non-InputSection symbols in
     // constantEq, and for InputSections we have already checked everything
@@ -366,7 +366,7 @@ template <class ELFT>
 void ICF<ELFT>::forEachClass(std::function<void(size_t, size_t)> Fn) {
   // If threading is disabled or the number of sections are
   // too small to use threading, call Fn sequentially.
-  if (!Config->Threads || Sections.size() < 1024) {
+  if (!ThreadsEnabled || Sections.size() < 1024) {
     forEachClassRange(0, Sections.size(), Fn);
     ++Cnt;
     return;
@@ -394,9 +394,10 @@ template <class ELFT> void ICF<ELFT>::run() {
         Sections.push_back(S);
 
   // Initially, we use hash values to partition sections.
-  for (InputSection *S : Sections)
+  parallelForEach(Sections, [&](InputSection *S) {
     // Set MSB to 1 to avoid collisions with non-hash IDs.
     S->Class[0] = getHash<ELFT>(S) | (1 << 31);
+  });
 
   // From now on, sections in Sections vector are ordered so that sections
   // in the same equivalence class are consecutive in the vector.

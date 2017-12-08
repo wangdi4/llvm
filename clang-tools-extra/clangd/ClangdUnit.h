@@ -10,9 +10,10 @@
 #ifndef LLVM_CLANG_TOOLS_EXTRA_CLANGD_CLANGDUNIT_H
 #define LLVM_CLANG_TOOLS_EXTRA_CLANGD_CLANGDUNIT_H
 
+#include "Function.h"
 #include "Path.h"
 #include "Protocol.h"
-#include "clang/Frontend/ASTUnit.h"
+#include "clang/Frontend/FrontendAction.h"
 #include "clang/Frontend/PrecompiledPreamble.h"
 #include "clang/Serialization/ASTBitCodes.h"
 #include "clang/Tooling/CompilationDatabase.h"
@@ -27,7 +28,6 @@ class raw_ostream;
 }
 
 namespace clang {
-class ASTUnit;
 class PCHContainerOperations;
 
 namespace vfs {
@@ -143,10 +143,12 @@ public:
   // deferRebuild will hold references to it.
   static std::shared_ptr<CppFile>
   Create(PathRef FileName, tooling::CompileCommand Command,
+         bool StorePreamblesInMemory,
          std::shared_ptr<PCHContainerOperations> PCHs, clangd::Logger &Logger);
 
 private:
   CppFile(PathRef FileName, tooling::CompileCommand Command,
+          bool StorePreamblesInMemory,
           std::shared_ptr<PCHContainerOperations> PCHs, clangd::Logger &Logger);
 
 public:
@@ -158,12 +160,11 @@ public:
   void cancelRebuild();
 
   /// Similar to deferRebuild, but sets both Preamble and AST to nulls instead
-  /// of doing an actual parsing. Returned future is a deferred computation that
-  /// will wait for any ongoing rebuilds to finish and actually set the AST and
-  /// Preamble to nulls. It can be run on a different thread.
-  /// This function is useful to cancel ongoing rebuilds, if any, before
-  /// removing CppFile.
-  std::future<void> deferCancelRebuild();
+  /// of doing an actual parsing. Returned function is a deferred computation
+  /// that will wait for any ongoing rebuilds to finish and actually set the AST
+  /// and Preamble to nulls. It can be run on a different thread. This function
+  /// is useful to cancel ongoing rebuilds, if any, before removing CppFile.
+  UniqueFunction<void()> deferCancelRebuild();
 
   /// Rebuild AST and Preamble synchronously on the calling thread.
   /// Returns a list of diagnostics or a llvm::None, if another rebuild was
@@ -176,8 +177,8 @@ public:
   /// rebuild, that can be called on a different thread.
   /// After calling this method, resources, available via futures returned by
   /// getPreamble() and getAST(), will be waiting for rebuild to finish. A
-  /// future fininshing rebuild, returned by this function, must be
-  /// computed(i.e. get() should be called on it) in order to make those
+  /// continuation fininshing rebuild, returned by this function, must be
+  /// computed(i.e., operator() must be called on it) in order to make those
   /// resources ready. If deferRebuild is called again before the rebuild is
   /// finished (either because returned future had not been called or because it
   /// had not returned yet), the previous rebuild request is cancelled and the
@@ -186,7 +187,7 @@ public:
   /// The future to finish rebuild returns a list of diagnostics built during
   /// reparse, or None, if another deferRebuild was called before this
   /// rebuild was finished.
-  std::future<llvm::Optional<std::vector<DiagWithFixIts>>>
+  UniqueFunction<llvm::Optional<std::vector<DiagWithFixIts>>()>
   deferRebuild(StringRef NewContents, IntrusiveRefCntPtr<vfs::FileSystem> VFS);
 
   /// Returns a future to get the most fresh PreambleData for a file. The
@@ -223,6 +224,7 @@ private:
 
   Path FileName;
   tooling::CompileCommand Command;
+  bool StorePreamblesInMemory;
 
   /// Mutex protects all fields, declared below it, FileName and Command are not
   /// mutated.
@@ -252,13 +254,66 @@ private:
   clangd::Logger &Logger;
 };
 
+struct CodeCompleteOptions {
+  CodeCompleteOptions() = default;
+
+  /// Uses default values for all flags, but sets EnableSnippets and
+  /// IncludeCodePatterns to the value of EnableSnippetsAndCodePatterns.
+  explicit CodeCompleteOptions(bool EnableSnippetsAndCodePatterns);
+
+  CodeCompleteOptions(bool EnableSnippets, bool IncludeCodePatterns,
+                      bool IncludeMacros, bool IncludeGlobals,
+                      bool IncludeBriefComments);
+
+  /// Returns options that can be passed to clang's completion engine.
+  clang::CodeCompleteOptions getClangCompleteOpts() const;
+
+  /// When true, completion items will contain expandable code snippets in
+  /// completion (e.g.  `return ${1:expression}` or `foo(${1:int a}, ${2:int
+  /// b})).
+  bool EnableSnippets = false;
+
+  /// Add code patterns to completion results.
+  /// If EnableSnippets is false, this options is ignored and code patterns will
+  /// always be omitted.
+  bool IncludeCodePatterns = false;
+
+  /// Add macros to code completion results.
+  bool IncludeMacros = true;
+
+  /// Add globals to code completion results.
+  bool IncludeGlobals = true;
+
+  /// Add brief comments to completion items, if available.
+  /// FIXME(ibiryukov): it looks like turning this option on significantly slows
+  /// down completion, investigate if it can be made faster.
+  bool IncludeBriefComments = true;
+
+  /// Limit the number of results returned (0 means no limit).
+  /// If more results are available, we set CompletionList.isIncomplete.
+  size_t Limit = 0;
+};
+
 /// Get code completions at a specified \p Pos in \p FileName.
-std::vector<CompletionItem>
-codeComplete(PathRef FileName, tooling::CompileCommand Command,
+CompletionList
+codeComplete(PathRef FileName, const tooling::CompileCommand &Command,
              PrecompiledPreamble const *Preamble, StringRef Contents,
              Position Pos, IntrusiveRefCntPtr<vfs::FileSystem> VFS,
              std::shared_ptr<PCHContainerOperations> PCHs,
-             bool SnippetCompletions, clangd::Logger &Logger);
+             clangd::CodeCompleteOptions Opts, clangd::Logger &Logger);
+
+/// Get signature help at a specified \p Pos in \p FileName.
+SignatureHelp signatureHelp(PathRef FileName,
+                            const tooling::CompileCommand &Command,
+                            PrecompiledPreamble const *Preamble,
+                            StringRef Contents, Position Pos,
+                            IntrusiveRefCntPtr<vfs::FileSystem> VFS,
+                            std::shared_ptr<PCHContainerOperations> PCHs,
+                            clangd::Logger &Logger);
+
+/// Get the beginning SourceLocation at a specified \p Pos.
+SourceLocation getBeginningOfIdentifier(ParsedAST &Unit, const Position &Pos,
+                                        const FileEntry *FE);
 
 /// Get definition of symbol at a specified \p Pos.
 std::vector<Location> findDefinitions(ParsedAST &AST, Position Pos,

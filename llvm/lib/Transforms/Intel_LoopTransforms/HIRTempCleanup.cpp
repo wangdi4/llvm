@@ -1,6 +1,6 @@
 //===------- HIRTempCleanup.cpp - Implements Temp Cleanup pass ------------===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -50,9 +50,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Function.h"
@@ -171,10 +171,23 @@ void TempInfo::substituteInUseRef() {
 
   if (auto UseRef = getUseRef()) {
     auto UseNode = UseRef->getHLDDNode();
+    auto UseInst = dyn_cast<HLInst>(UseNode);
+    RegDDRef *LvalRef = nullptr;
+    unsigned Index = getBlobIndex();
 
-    UseNode->replaceOperandDDRef(UseRef, getDefInst()->removeRvalDDRef());
+    // If use is in the copy, replace use inst by def inst by changing its lval.
+    // This is so that we don't add memref to copy insts.
+    if (UseInst && UseInst->isCopyInst()) {
+      LvalRef = UseInst->removeLvalDDRef();
+      DefInst->replaceOperandDDRef(DefInst->getLvalDDRef(), LvalRef);
+      HLNodeUtils::moveBefore(UseInst, DefInst);
+      HLNodeUtils::remove(UseInst);
 
-    auto LvalRef = UseNode->getLvalDDRef();
+    } else {
+      UseNode->replaceOperandDDRef(UseRef, DefInst->removeRvalDDRef());
+      HLNodeUtils::remove(DefInst);
+      LvalRef = UseNode->getLvalDDRef();
+    }
 
     // Rval blob could have been propagated to lval temp by parser. Since we now
     // have a load in the rval, we need to make lval as a self blob. For
@@ -185,9 +198,13 @@ void TempInfo::substituteInUseRef() {
     // becomes t2 = A[i]. t2 can no longer be in terms of t1. It should be
     // marked as a self-blob.
     if (LvalRef && LvalRef->isTerminalRef() &&
-        LvalRef->usesTempBlob(getBlobIndex())) {
+        LvalRef->usesTempBlob(Index)) {
       LvalRef->makeSelfBlob();
     }
+
+  } else {
+    // No uses, we can simply remove the instruction.
+    HLNodeUtils::remove(DefInst);
   }
 }
 
@@ -323,7 +340,7 @@ public:
     AU.addRequiredTransitive<HIRFramework>();
   }
 };
-}
+} // namespace
 
 char HIRTempCleanup::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRTempCleanup, "hir-temp-cleanup", "HIR Temp Cleanup",
@@ -514,6 +531,14 @@ bool TempSubstituter::isLoad(HLInst *HInst) const {
     return false;
   }
 
+  auto LvalTy = LvalRef->getDestType();
+
+  // Do not substitute function pointer temps.
+  if (LvalTy->isPointerTy() &&
+      LvalTy->getPointerElementType()->isFunctionTy()) {
+    return false;
+  }
+
   if (HInst->getRvalDDRef()->isVolatile()) {
     return false;
   }
@@ -556,6 +581,8 @@ void TempSubstituter::eliminateSubstitutedTemps(HLRegion *Reg) {
     if (!Temp.isValid()) {
       continue;
     }
+
+    auto Parent = Temp.getDefInst()->getParent();
 
     if (Temp.isLoad()) {
       // Suppress temp substitution for regions with simd loops as explicit
@@ -610,12 +637,10 @@ void TempSubstituter::eliminateSubstitutedTemps(HLRegion *Reg) {
           ParentLoop = ParentLoop->getParentLoop();
         }
       }
+
+      // Temp is deemed unnecessary.
+      HLNodeUtils::remove(Temp.getDefInst());
     }
-
-    auto Parent = Temp.getDefInst()->getParent();
-
-    // Temp is deemed unnecessary.
-    Reg->getHLNodeUtils().remove(Temp.getDefInst());
 
     if (isNodeEmpty(Parent)) {
       HasEmptyNodes = true;

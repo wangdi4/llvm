@@ -987,6 +987,10 @@ static bool NoAliasSpecialCaseCheckUsingRestrictAttr(Value *V1,
   Value* O1 = GetUnderlyingObject(V1, DL, 1);
   Value* O2 = GetUnderlyingObject(V2, DL, 1);
 
+  // If V1/V2 point to the same object, so we can't say NoAlias.
+  if (O1 == O2)
+    return false;
+
   if (isAllUsesOfNoAliasPtrTracked(O1, V2) ||
       isAllUsesOfNoAliasPtrTracked(O2, V1))
     return true;

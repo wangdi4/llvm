@@ -314,15 +314,6 @@ AliasResult TypeBasedAAResult::alias(const MemoryLocation &LocA,
   if (!EnableTBAA)
     return AAResultBase::alias(LocA, LocB);
 
-  // Get the attached MDNodes. If either value lacks a tbaa MDNode, we must
-  // be conservative.
-  const MDNode *AM = LocA.AATags.TBAA;
-  if (!AM)
-    return AAResultBase::alias(LocA, LocB);
-  const MDNode *BM = LocB.AATags.TBAA;
-  if (!BM)
-    return AAResultBase::alias(LocA, LocB);
-
 #if INTEL_CUSTOMIZATION
   bool DirectRefA, DirectRefB;
   DirectRefA = DirectRefB = false;
@@ -349,10 +340,9 @@ AliasResult TypeBasedAAResult::alias(const MemoryLocation &LocA,
           isa<GlobalValue>(S2->getFalseValue()))
         DirectRefB = true;
   }
+  // If accesses may alias, chain to the next AliasAnalysis.
+  if (Aliases(LocA.AATags.TBAA, LocB.AATags.TBAA, DirectRefA, DirectRefB))
 #endif // INTEL_CUSTOMIZATION
-
-  // If they may alias, chain to the next AliasAnalysis.
-  if (Aliases(AM, BM, DirectRefA, DirectRefB)) // INTEL
     return AAResultBase::alias(LocA, LocB);
 
   // Otherwise return a definitive result.
@@ -452,25 +442,25 @@ bool MDNode::isTBAAVtableAccess() const {
   return false;
 }
 
+static bool matchAccessTags(const MDNode *A, const MDNode *B,
+                            bool MaskCheckA, bool MaskCheckB,      // INTEL
+                            const MDNode **GenericTag = nullptr);
+
 MDNode *MDNode::getMostGenericTBAA(MDNode *A, MDNode *B) {
+  const MDNode *GenericTag;
+  matchAccessTags(A, B, true, true, &GenericTag); // INTEL
+  return const_cast<MDNode*>(GenericTag);
+}
+
+static const MDNode *getLeastCommonType(const MDNode *A, const MDNode *B) {
   if (!A || !B)
     return nullptr;
 
   if (A == B)
     return A;
 
-  // For struct-path aware TBAA, we use the access type of the tag.
-  assert(isStructPathTBAA(A) && isStructPathTBAA(B) &&
-         "Auto upgrade should have taken care of this!");
-  A = cast_or_null<MDNode>(MutableTBAAStructTagNode(A).getAccessType());
-  if (!A)
-    return nullptr;
-  B = cast_or_null<MDNode>(MutableTBAAStructTagNode(B).getAccessType());
-  if (!B)
-    return nullptr;
-
-  SmallSetVector<MDNode *, 4> PathA;
-  MutableTBAANode TA(A);
+  SmallSetVector<const MDNode *, 4> PathA;
+  TBAANode TA(A);
   while (TA.getNode()) {
     if (PathA.count(TA.getNode()))
       report_fatal_error("Cycle found in TBAA metadata.");
@@ -478,8 +468,8 @@ MDNode *MDNode::getMostGenericTBAA(MDNode *A, MDNode *B) {
     TA = TA.getParent();
   }
 
-  SmallSetVector<MDNode *, 4> PathB;
-  MutableTBAANode TB(B);
+  SmallSetVector<const MDNode *, 4> PathB;
+  TBAANode TB(B);
   while (TB.getNode()) {
     if (PathB.count(TB.getNode()))
       report_fatal_error("Cycle found in TBAA metadata.");
@@ -490,7 +480,7 @@ MDNode *MDNode::getMostGenericTBAA(MDNode *A, MDNode *B) {
   int IA = PathA.size() - 1;
   int IB = PathB.size() - 1;
 
-  MDNode *Ret = nullptr;
+  const MDNode *Ret = nullptr;
   while (IA >= 0 && IB >= 0) {
     if (PathA[IA] == PathB[IB])
       Ret = PathA[IA];
@@ -500,17 +490,7 @@ MDNode *MDNode::getMostGenericTBAA(MDNode *A, MDNode *B) {
     --IB;
   }
 
-  // We either did not find a match, or the only common base "type" is
-  // the root node.  In either case, we don't have any useful TBAA
-  // metadata to attach.
-  if (!Ret || Ret->getNumOperands() < 2)
-    return nullptr;
-
-  // We need to convert from a type node to a tag node.
-  Type *Int64 = IntegerType::get(A->getContext(), 64);
-  Metadata *Ops[3] = {Ret, Ret,
-                      ConstantAsMetadata::get(ConstantInt::get(Int64, 0))};
-  return MDNode::get(A->getContext(), Ops);
+  return Ret;
 }
 
 void Instruction::getAAMetadata(AAMDNodes &N, bool Merge) const {
@@ -539,11 +519,96 @@ void Instruction::getAAMetadata(AAMDNodes &N, bool Merge) const {
 #endif // INTEL_CUSTOMIZATION
 }
 
-/// Aliases - Test whether the type represented by A may alias the
-/// type represented by B.
+static bool findAccessType(TBAAStructTagNode BaseTag,
+                           const MDNode *AccessTypeNode,
+                           uint64_t &OffsetInBase) {
+  // Start from the base type, follow the edge with the correct offset in
+  // the type DAG and adjust the offset until we reach the access type or
+  // until we reach a root node.
+  TBAAStructTypeNode BaseType(BaseTag.getBaseType());
+  OffsetInBase = BaseTag.getOffset();
+
+  while (const MDNode *BaseTypeNode = BaseType.getNode()) {
+    if (BaseTypeNode == AccessTypeNode)
+      return true;
+
+    // Follow the edge with the correct offset, Offset will be adjusted to
+    // be relative to the field type.
+    BaseType = BaseType.getParent(OffsetInBase);
+  }
+  return false;
+}
+
+static const MDNode *createAccessTag(const MDNode *AccessType) {
+  // If there is no access type or the access type is the root node, then
+  // we don't have any useful access tag to return.
+  if (!AccessType || AccessType->getNumOperands() < 2)
+    return nullptr;
+
+  Type *Int64 = IntegerType::get(AccessType->getContext(), 64);
+  auto *ImmutabilityFlag = ConstantAsMetadata::get(ConstantInt::get(Int64, 0));
+  Metadata *Ops[] = {const_cast<MDNode*>(AccessType),
+                     const_cast<MDNode*>(AccessType), ImmutabilityFlag};
+  return MDNode::get(AccessType->getContext(), Ops);
+}
+
+/// matchTags - Return true if the given couple of accesses are allowed to
+/// overlap. If \arg GenericTag is not null, then on return it points to the
+/// most generic access descriptor for the given two.
+static bool matchAccessTags(const MDNode *A, const MDNode *B,
+                            bool MaskCheckA, bool MaskCheckB,      // INTEL
+                            const MDNode **GenericTag) {
+  if (A == B) {
+    if (GenericTag)
+      *GenericTag = A;
+    return true;
+  }
+
+  // Accesses with no TBAA information may alias with any other accesses.
+  if (!A || !B) {
+    if (GenericTag)
+      *GenericTag = nullptr;
+    return true;
+  }
+
+  // Verify that both input nodes are struct-path aware.  Auto-upgrade should
+  // have taken care of this.
+  assert(isStructPathTBAA(A) && "Access A is not struct-path aware!");
+  assert(isStructPathTBAA(B) && "Access B is not struct-path aware!");
+
+  TBAAStructTagNode TagA(A), TagB(B);
+  const MDNode *CommonType = getLeastCommonType(TagA.getAccessType(),
+                                                TagB.getAccessType());
+  if (GenericTag)
+    *GenericTag = createAccessTag(CommonType);
+
+  // TODO: We need to check if AccessType of TagA encloses AccessType of
+  // TagB to support aggregate AccessType. If yes, return true.
+
+  // Climb the type DAG from base type of A to see if we reach base type of B.
+  uint64_t OffsetA;
+  if (findAccessType(TagA, TagB.getBaseType(), OffsetA) && MaskCheckA) // INTEL
+    return OffsetA == TagB.getOffset();
+
+  // Climb the type DAG from base type of B to see if we reach base type of A.
+  uint64_t OffsetB;
+  if (findAccessType(TagB, TagA.getBaseType(), OffsetB) && MaskCheckB) // INTEL
+    return OffsetB == TagA.getOffset();
+
+  // If the final access types have different roots, they're part of different
+  // potentially unrelated type systems, so we must be conservative.
+  if (!CommonType)
+    return true;
+
+  // If they have the same root, then we've proved there's no alias.
+  return false;
+}
+
+/// Aliases - Test whether the access represented by tag A may alias the
+/// access represented by tag B.
+#if INTEL_CUSTOMIZATION
 bool TypeBasedAAResult::Aliases(const MDNode *A, const MDNode *B,
                                 bool DirectRefA, bool DirectRefB) const {
-#if INTEL_CUSTOMIZATION
   //
   // Given two memory references a and b, the type aliaser before the
   // following fix checks the following cases:
@@ -599,69 +664,9 @@ bool TypeBasedAAResult::Aliases(const MDNode *A, const MDNode *B,
   else if (!DirectRefA && DirectRefB)
     Mask = CheckB;
   else Mask = CheckBoth;
+  return matchAccessTags(A, B, (Mask & CheckA) == CheckA,
+                         (Mask & CheckB) == CheckB);
 #endif // INTEL_CUSTOMIZATION
-
-  // Verify that both input nodes are struct-path aware.  Auto-upgrade should
-  // have taken care of this.
-  assert(isStructPathTBAA(A) && "MDNode A is not struct-path aware.");
-  assert(isStructPathTBAA(B) && "MDNode B is not struct-path aware.");
-
-  // Keep track of the root node for A and B.
-  TBAAStructTypeNode RootA, RootB;
-  TBAAStructTagNode TagA(A), TagB(B);
-
-  // TODO: We need to check if AccessType of TagA encloses AccessType of
-  // TagB to support aggregate AccessType. If yes, return true.
-
-  // Start from the base type of A, follow the edge with the correct offset in
-  // the type DAG and adjust the offset until we reach the base type of B or
-  // until we reach the Root node.
-  // Compare the adjusted offset once we have the same base.
-
-  // Climb the type DAG from base type of A to see if we reach base type of B.
-  const MDNode *BaseA = TagA.getBaseType();
-  const MDNode *BaseB = TagB.getBaseType();
-  uint64_t OffsetA = TagA.getOffset(), OffsetB = TagB.getOffset();
-  for (TBAAStructTypeNode T(BaseA);;) {
-    if ((Mask & CheckA) == CheckA &&  // INTEL
-        T.getNode() == BaseB)         // INTEL
-      // Base type of A encloses base type of B, check if the offsets match.
-      return OffsetA == OffsetB;
-
-    RootA = T;
-    // Follow the edge with the correct offset, OffsetA will be adjusted to
-    // be relative to the field type.
-    T = T.getParent(OffsetA);
-    if (!T.getNode())
-      break;
-  }
-
-  // Reset OffsetA and climb the type DAG from base type of B to see if we reach
-  // base type of A.
-  OffsetA = TagA.getOffset();
-  for (TBAAStructTypeNode T(BaseB);;) {
-    if ((Mask & CheckB) == CheckB && // INTEL
-        T.getNode() == BaseA)        // INTEL
-      // Base type of B encloses base type of A, check if the offsets match.
-      return OffsetA == OffsetB;
-
-    RootB = T;
-    // Follow the edge with the correct offset, OffsetB will be adjusted to
-    // be relative to the field type.
-    T = T.getParent(OffsetB);
-    if (!T.getNode())
-      break;
-  }
-
-  // Neither node is an ancestor of the other.
-
-  // If they have different roots, they're part of different potentially
-  // unrelated type systems, so we must be conservative.
-  if (RootA.getNode() != RootB.getNode())
-    return true;
-
-  // If they have the same root, then we've proved there's no alias.
-  return false;
 }
 
 AnalysisKey TypeBasedAA::Key;

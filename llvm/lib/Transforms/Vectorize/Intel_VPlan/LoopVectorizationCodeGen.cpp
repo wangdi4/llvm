@@ -2253,7 +2253,7 @@ Value *VPOCodeGen::getStepVector(Value *Val, int StartIdx, Value *Step,
 
   // Floating point operations had to be 'fast' to enable the induction.
   FastMathFlags Flags;
-  Flags.setUnsafeAlgebra();
+  Flags.setFast();
 
   Value *MulOp = Builder.CreateFMul(Cv, Step);
   if (isa<Instruction>(MulOp))
@@ -2270,7 +2270,7 @@ Value *VPOCodeGen::getStepVector(Value *Val, int StartIdx, Value *Step,
 static Value *addFastMathFlag(Value *V) {
   if (isa<FPMathOperator>(V)) {
     FastMathFlags Flags;
-    Flags.setUnsafeAlgebra();
+    Flags.setFast();
     cast<Instruction>(V)->setFastMathFlags(Flags);
   }
   return V;

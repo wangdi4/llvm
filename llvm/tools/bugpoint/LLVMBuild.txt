@@ -30,6 +30,8 @@ required_libraries =
  Linker
  ObjCARC
  Scalar
+ Intel_DTransAnalysis
+ Intel_DTrans
  Intel_LoopAnalysis
  Intel_LoopTransforms
  Intel_MapIntrinToIml
@@ -37,5 +39,6 @@ required_libraries =
  Intel_VPOTransforms
  all-targets
 
-; ***INTEL: Intel_LoopAnalysis, Intel_LoopTransforms, Intel_MapIntrinToIml,
-;           Intel_VPOAnalysis, Intel_VPOTransforms
+; ***INTEL: Intel_DTransAnalysis, Intel_DTrans, Intel_LoopAnalysis,
+;           Intel_LoopTransforms, Intel_MapIntrinToIml, Intel_VPOAnalysis,
+;           Intel_VPOTransforms

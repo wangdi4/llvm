@@ -4,11 +4,11 @@
 
 ; CHECK: LiveOuts: %t.026.out
 
-; CHECK: + DO i1 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>
+; CHECK: + DO i1 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>
 ; CHECK: |   %0 = (%A)[i1];
 ; CHECK: |   %t.026 = %0  +  %t.026;
 ; CHECK: |   %t.026.out = %t.026;
-; CHECK: |   + DO i2 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>
+; CHECK: |   + DO i2 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>
 ; CHECK: |   |   %1 = (%B)[i2];
 ; CHECK: |   |   %t.026 = %1  +  %t.026;
 ; CHECK: |   + END LOOP

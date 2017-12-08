@@ -112,18 +112,18 @@ HLNode *HIRCreation::populateTerminator(BasicBlock *BB, HLNode *InsertionPos) {
       Ifs[If] = BB;
       If->setDebugLoc(BI->getDebugLoc());
 
-      HLGoto *ThenGoto = getHLNodeUtils().createHLGoto(BI->getSuccessor(0));
-      getHLNodeUtils().insertAsFirstChild(If, ThenGoto, true);
+      HLGoto *ThenGoto = getHLNodeUtils().createHLGoto(BB, BI->getSuccessor(0));
+      HLNodeUtils::insertAsFirstChild(If, ThenGoto, true);
       Gotos.push_back(ThenGoto);
 
-      HLGoto *ElseGoto = getHLNodeUtils().createHLGoto(BI->getSuccessor(1));
-      getHLNodeUtils().insertAsFirstChild(If, ElseGoto, false);
+      HLGoto *ElseGoto = getHLNodeUtils().createHLGoto(BB, BI->getSuccessor(1));
+      HLNodeUtils::insertAsFirstChild(If, ElseGoto, false);
       Gotos.push_back(ElseGoto);
 
       TermNode = If;
 
     } else {
-      auto Goto = getHLNodeUtils().createHLGoto(BI->getSuccessor(0));
+      auto Goto = getHLNodeUtils().createHLGoto(BB, BI->getSuccessor(0));
 
       Gotos.push_back(Goto);
       Goto->setDebugLoc(BI->getDebugLoc());
@@ -143,8 +143,8 @@ HLNode *HIRCreation::populateTerminator(BasicBlock *BB, HLNode *InsertionPos) {
 
     // Add gotos to all the cases. They are added for convenience in forming
     // lexical links and will be eliminated later.
-    auto DefaultGoto = getHLNodeUtils().createHLGoto(SI->getDefaultDest());
-    getHLNodeUtils().insertAsFirstDefaultChild(Switch, DefaultGoto);
+    auto DefaultGoto = getHLNodeUtils().createHLGoto(BB, SI->getDefaultDest());
+    HLNodeUtils::insertAsFirstDefaultChild(Switch, DefaultGoto);
     Gotos.push_back(DefaultGoto);
 
     const DebugLoc &DbgLoc = SI->getDebugLoc();
@@ -153,8 +153,8 @@ HLNode *HIRCreation::populateTerminator(BasicBlock *BB, HLNode *InsertionPos) {
     unsigned Count = 1;
 
     for (auto I = SI->case_begin(), E = SI->case_end(); I != E; ++I, ++Count) {
-      auto CaseGoto = getHLNodeUtils().createHLGoto(I->getCaseSuccessor());
-      getHLNodeUtils().insertAsFirstChild(Switch, CaseGoto, Count);
+      auto CaseGoto = getHLNodeUtils().createHLGoto(BB, I->getCaseSuccessor());
+      HLNodeUtils::insertAsFirstChild(Switch, CaseGoto, Count);
       Gotos.push_back(CaseGoto);
 
       CaseGoto->setDebugLoc(DbgLoc);
@@ -171,9 +171,9 @@ HLNode *HIRCreation::populateTerminator(BasicBlock *BB, HLNode *InsertionPos) {
 
   // Insert new node into the region.
   if (auto Region = dyn_cast<HLRegion>(InsertionPos)) {
-    getHLNodeUtils().insertAsFirstChild(Region, TermNode);
+    HLNodeUtils::insertAsFirstChild(Region, TermNode);
   } else {
-    getHLNodeUtils().insertAfter(InsertionPos, TermNode);
+    HLNodeUtils::insertAfter(InsertionPos, TermNode);
   }
 
   return TermNode;
@@ -186,9 +186,9 @@ HLNode *HIRCreation::populateInstSequence(BasicBlock *BB,
   Labels[BB] = Label;
 
   if (auto Region = dyn_cast<HLRegion>(InsertionPos)) {
-    getHLNodeUtils().insertAsFirstChild(Region, Label);
+    HLNodeUtils::insertAsFirstChild(Region, Label);
   } else {
-    getHLNodeUtils().insertAfter(InsertionPos, Label);
+    HLNodeUtils::insertAfter(InsertionPos, Label);
   }
 
   InsertionPos = Label;
@@ -196,7 +196,7 @@ HLNode *HIRCreation::populateInstSequence(BasicBlock *BB,
   for (auto I = BB->getFirstInsertionPt(), E = std::prev(BB->end()); I != E;
        ++I) {
     auto Inst = getHLNodeUtils().createHLInst(&*I);
-    getHLNodeUtils().insertAfter(InsertionPos, Inst);
+    HLNodeUtils::insertAfter(InsertionPos, Inst);
     InsertionPos = Inst;
   }
 
@@ -265,21 +265,21 @@ bool HIRCreation::isCrossLinked(const SwitchInst *SI,
   return RI->isReachableFrom(SuccessorBB, EndBBs, FromBBs);
 }
 
-void HIRCreation::sortDomChildren(
+bool HIRCreation::sortDomChildren(
     DomTreeNode *Node, SmallVectorImpl<BasicBlock *> &SortedChildren) const {
 
-  // Sort the dom children of Node using post dominator relationship. If child1
-  // post dominates child2, it should be visited after child2 otherwise forward
-  // edges can turn into back edges.
-
-  // TODO: look into dom child ordering for multi-exit loops.
-
-  auto NodeBB = Node->getBlock();
-
-  for (auto &I : (*Node)) {
-    SortedChildren.push_back(I->getBlock());
+  for (auto *I : (*Node)) {
+    auto BB = I->getBlock();
+    if (CurRegion->containsBBlock(BB)) {
+      SortedChildren.push_back(BB);
+    }
   }
 
+  if (SortedChildren.empty()) {
+    return false;
+  }
+
+  auto NodeBB = Node->getBlock();
   SmallPtrSet<const BasicBlock *, 2> EndBBs;
   EndBBs.insert(NodeBB);
 
@@ -298,6 +298,8 @@ void HIRCreation::sortDomChildren(
   };
 
   std::sort(SortedChildren.begin(), SortedChildren.end(), ReverseLexOrder);
+
+  return true;
 }
 
 HLNode *HIRCreation::doPreOrderRegionWalk(BasicBlock *BB,
@@ -305,61 +307,88 @@ HLNode *HIRCreation::doPreOrderRegionWalk(BasicBlock *BB,
 
   auto Reg = dyn_cast<HLRegion>(InsertionPos);
 
-  bool IsFunctionEntryBB = (Reg && Reg->isFunctionLevel());
-
-  if (!IsFunctionEntryBB && !CurRegion->containsBBlock(BB)) {
-    return InsertionPos;
-  }
-
-  SmallVector<BasicBlock *, 8> DomChildren;
-  auto Root = DT->getNode(BB);
-
-  if (IsFunctionEntryBB) {
+  if (Reg && Reg->isFunctionLevel()) {
     // Populate just the terminator of the function entry bblock.
     InsertionPos = populateTerminator(BB, InsertionPos);
   } else {
+    assert(CurRegion->containsBBlock(BB) && "Encountered non-region bblock!");
     // Visit(link) this bblock to HIR.
     InsertionPos = populateInstSequence(BB, InsertionPos);
   }
 
-  auto TermNode = InsertionPos;
+  SmallVector<BasicBlock *, 8> DomChildren;
 
   // Sort dominator children.
-  sortDomChildren(Root, DomChildren);
+  if (!sortDomChildren(DT->getNode(BB), DomChildren)) {
+    // No children to process.
+    return InsertionPos;
+  }
 
-  // Walk over dominator children in reverse order since post-dominating
-  // children preceed the children they dominate.
+  auto TermNode = InsertionPos;
+  auto IfTerm = dyn_cast<HLIf>(TermNode);
+  auto SwitchTerm = IfTerm ? nullptr : dyn_cast<HLSwitch>(TermNode);
+
+  auto Lp = LI->getLoopFor(BB);
+  bool IsMultiExitLoop = (Lp && !Lp->getExitingBlock());
+  bool IsLoopLatch = (IfTerm && Lp && (Lp->getLoopLatch() == BB));
+
+  // The only two cases where a dominator child can be a multi-exit loop latch
+  // are:
+  // 1) BB belongs to multi-exit loop, Or
+  // 2) BB is a loop latch which dominates outer multi-exit loop's latch bblock.
+  bool DomChildMayBeMultiExitLoopLatch = (IsMultiExitLoop || IsLoopLatch);
+
+  // Walk over dominator children in reverse since they are sorted in reverse
+  // lexical order.
   for (auto RI = DomChildren.rbegin(), RE = DomChildren.rend(); RI != RE;
        ++RI) {
 
     auto DomChildBB = (*RI);
+    Loop *DomChildLp = nullptr;
+
+    // Loop latch should be processed at the same lexical level as the loop
+    // header. This happens automatically for single-exit loops but for
+    // multi-exit loops we delay it for when we encounter the corresponding loop
+    // header up the call chain.
+    if (DomChildMayBeMultiExitLoopLatch &&
+        (DomChildLp = LI->getLoopFor(DomChildBB)) &&
+        !DomChildLp->getExitingBlock() && DomChildLp->isLoopLatch(DomChildBB)) {
+      continue;
+    }
+
+    // DomChildBB is an early exit. We should link it after the loop latch.
+    if (IsMultiExitLoop && !IsLoopLatch && !Lp->contains(DomChildBB)) {
+      EarlyExits[Lp].push_back(DomChildBB);
+      continue;
+    }
 
     // Link if's then/else children.
-    if (auto IfTerm = dyn_cast<HLIf>(TermNode)) {
-      auto BI = cast<BranchInst>(BB->getTerminator());
+    if (IfTerm) {
+      // We need to keep the bottom test empty so that loop formation can get
+      // rid of it. Therefore, we link the successor after the if instead of
+      // inside it.
+      if (!IsLoopLatch) {
+        auto BI = cast<BranchInst>(BB->getTerminator());
 
-      if ((DomChildBB == BI->getSuccessor(0)) &&
-          // Other successor is a backedge, link this one after the loop to be
-          // able to get rid of the bottom test during loop formation
-          !DT->dominates(BI->getSuccessor(1), BB) &&
-          // This if successor is reachable from the other successor, link it
-          // after the 'if' to prevent jumps between the then and else case.
-          // There are couple of issues if we allow this jump-
-          // 1) If it is from the else to then case it will look like a
-          // backedge.
-          // 2) It is harder for predicate related optimizations to deal with
-          // such jumps.
-          !isCrossLinked(BI, DomChildBB)) {
-        doPreOrderRegionWalk(DomChildBB, IfTerm->getLastThenChild());
-        continue;
-      } else if ((DomChildBB == BI->getSuccessor(1)) &&
-                 !DT->dominates(BI->getSuccessor(0), BB) &&
-                 !isCrossLinked(BI, DomChildBB)) {
-        doPreOrderRegionWalk(DomChildBB, IfTerm->getLastElseChild());
-        continue;
+        if ((DomChildBB == BI->getSuccessor(0)) &&
+            // This if successor is reachable from the other successor, link it
+            // after the 'if' to prevent jumps between the then and else case.
+            // There are couple of issues if we allow this jump-
+            // 1) If it is from the else to then case it will look like a
+            // backedge.
+            // 2) It is harder for predicate related optimizations to deal with
+            // such jumps.
+            !isCrossLinked(BI, DomChildBB)) {
+          doPreOrderRegionWalk(DomChildBB, IfTerm->getLastThenChild());
+          continue;
+        } else if ((DomChildBB == BI->getSuccessor(1)) &&
+                   !isCrossLinked(BI, DomChildBB)) {
+          doPreOrderRegionWalk(DomChildBB, IfTerm->getLastElseChild());
+          continue;
+        }
       }
 
-    } else if (auto SwitchTerm = dyn_cast<HLSwitch>(TermNode)) {
+    } else if (SwitchTerm) {
       // Link switch's case children.
       auto SI = cast<SwitchInst>(BB->getTerminator());
 
@@ -393,6 +422,15 @@ HLNode *HIRCreation::doPreOrderRegionWalk(BasicBlock *BB,
     InsertionPos = doPreOrderRegionWalk(DomChildBB, InsertionPos);
   }
 
+  // If BB is loop header of multi-exit loop, link its latch and early exits.
+  if (IsMultiExitLoop && (Lp->getHeader() == BB)) {
+    InsertionPos = doPreOrderRegionWalk(Lp->getLoopLatch(), InsertionPos);
+
+    for (auto ExitBB : EarlyExits[Lp]) {
+      InsertionPos = doPreOrderRegionWalk(ExitBB, InsertionPos);
+    }
+  }
+
   return InsertionPos;
 }
 
@@ -424,6 +462,8 @@ void HIRCreation::create() {
   for (auto &I : *RI) {
 
     CurRegion = getHLNodeUtils().createHLRegion(I);
+
+    EarlyExits.clear();
 
     HLNode *LastNode =
         doPreOrderRegionWalk(CurRegion->getEntryBBlock(), CurRegion);

@@ -15,9 +15,9 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Metadata.h" // needed for MetadataAsValue -> Value
@@ -85,8 +85,8 @@ HLLabel *HLNodeUtils::createHLLabel(const Twine &Name) {
   return new HLLabel(*this, Name);
 }
 
-HLGoto *HLNodeUtils::createHLGoto(BasicBlock *TargetBB) {
-  return new HLGoto(*this, TargetBB);
+HLGoto *HLNodeUtils::createHLGoto(BasicBlock *SrcBB, BasicBlock *TargetBB) {
+  return new HLGoto(*this, SrcBB, TargetBB);
 }
 
 HLGoto *HLNodeUtils::createHLGoto(HLLabel *TargetL) {
@@ -300,6 +300,32 @@ HLInst *HLNodeUtils::createCopyInst(RegDDRef *RvalRef, const Twine &Name,
   HInst->setRvalDDRef(RvalRef);
 
   return HInst;
+}
+
+unsigned HLNodeUtils::createAlloca(Type *Ty, HLRegion *Reg, const Twine &Name) {
+  // Adjust the intertion point to pointer before the first dummy instruction as
+  // we do not want alloca to be a dummy instruction.
+  auto SavedInsertPt = DummyIRBuilder->GetInsertPoint();
+  auto InsertBB = SavedInsertPt->getParent();
+
+  // If we have inserted dummy instructions before, insert before them.
+  if (FirstDummyInst) {
+    DummyIRBuilder->SetInsertPoint(FirstDummyInst);
+  }
+
+  auto Inst = DummyIRBuilder->CreateAlloca(Ty, nullptr, Name);
+
+  // Reset the insertion point.
+  DummyIRBuilder->SetInsertPoint(InsertBB, SavedInsertPt);
+
+  // Add a blob entry for the alloca instruction and return its index.
+  unsigned AllocaBlobIndex;
+  unsigned NewSymbase = getDDRefUtils().getNewSymbase();
+
+  getBlobUtils().createBlob(Inst, NewSymbase, true, &AllocaBlobIndex);
+  Reg->addLiveInTemp(NewSymbase, Inst);
+
+  return AllocaBlobIndex;
 }
 
 HLInst *HLNodeUtils::createLoad(RegDDRef *RvalRef, const Twine &Name,
@@ -952,7 +978,7 @@ struct HLNodeUtils::LoopFinderUpdater final : public HLNodeVisitorBase {
     if (FinderMode) {
       FoundLoop = true;
     } else {
-      Loop->getHLNodeUtils().updateLoopInfo(Loop);
+      updateLoopInfo(Loop);
     }
   }
 
@@ -960,7 +986,7 @@ struct HLNodeUtils::LoopFinderUpdater final : public HLNodeVisitorBase {
   void visit(HLNode *Node) {}
   void postVisit(HLNode *Node) {}
 
-  bool isDone() const override {
+  bool isDone() const {
     if (FinderMode && FoundLoop) {
       return true;
     }
@@ -1833,8 +1859,10 @@ HLNode *HLNodeUtils::getLinkListNodeImpl(HLNode *Node, bool Prev) {
 
   if (!Parent) {
     assert(isa<HLRegion>(Node) && "getPrev() called on detached node!");
-    auto FirstOrLastRegIter = Prev ? getHIRFramework().hir_begin()
-                                   : std::prev(getHIRFramework().hir_end());
+    auto &HIRF = Node->getHLNodeUtils().getHIRFramework();
+
+    auto FirstOrLastRegIter =
+        Prev ? HIRF.hir_begin() : std::prev(HIRF.hir_end());
     auto NodeIter = Node->getIterator();
 
     if (NodeIter != FirstOrLastRegIter) {
@@ -2024,7 +2052,7 @@ struct HLNodeUtils::TopSorter final : public HLNodeVisitorBase {
     visit(static_cast<HLNode *>(Region));
   }
 
-  bool isDone() const override { return Stop; }
+  bool isDone() const { return Stop; }
 
   void postVisit(HLNode *) {}
 };
@@ -2195,7 +2223,7 @@ struct StructuredFlowChecker final : public HLNodeVisitorBase {
 
   void postVisit(const HLNode *) {}
 
-  bool isDone() const override { return (IsDone || !isStructured()); }
+  bool isDone() const { return (IsDone || !isStructured()); }
   bool isStructured() const { return IsStructured; }
 };
 
@@ -2210,7 +2238,7 @@ StructuredFlowChecker::StructuredFlowChecker(bool PDom, const HLNode *TNode,
 
       // Should we store statistics for multi-exit children loops to only
       // require self statistics?
-      if (!TLS.hasGotos()) {
+      if (!TLS.hasForwardGotos()) {
         IsDone = true;
       }
     } else {
@@ -2646,13 +2674,14 @@ HLNodeUtils::VALType HLNodeUtils::getMinMaxBlobValue(unsigned BlobIdx,
 
   auto BoundCoeff = BoundCE->getSingleBlobCoeff();
   auto BoundBlobIdx = BoundCE->getSingleBlobIndex();
+  auto &BU = BoundCE->getBlobUtils();
 
-  BlobTy Blob = getBlobUtils().getBlob(BlobIdx);
+  BlobTy Blob = BU.getBlob(BlobIdx);
   // Strip sign extend cast from Blob
   while (BlobUtils::isSignExtendBlob(Blob, &Blob))
     ;
 
-  BlobTy BoundBlob = getBlobUtils().getBlob(BoundBlobIdx);
+  BlobTy BoundBlob = BU.getBlob(BoundBlobIdx);
 
   if (Blob != BoundBlob) {
     return VALType::IsUnknown;
@@ -2764,8 +2793,9 @@ HLNodeUtils::getMinMaxBlobValueFromPred(unsigned BlobIdx, PredicateTy Pred,
 
   // Lhs < Rhs
   // CE = Rhs - Lhs
-  std::unique_ptr<CanonExpr> ConditionCE(getCanonExprUtils().cloneAndSubtract(
-      Rhs->getSingleCanonExpr(), Lhs->getSingleCanonExpr(), true));
+  std::unique_ptr<CanonExpr> ConditionCE(
+      Lhs->getCanonExprUtils().cloneAndSubtract(
+          Rhs->getSingleCanonExpr(), Lhs->getSingleCanonExpr(), true));
 
   if (!ConditionCE.get()) {
     return VALType::IsUnknown;
@@ -3270,7 +3300,7 @@ public:
   void visit(const HLDDNode *Node);
   void postVisit(const HLNode *Node) {}
   void postVisit(const HLDDNode *Node) {}
-  bool isDone() const override { return (NumNonLinearLRefs > 0); }
+  bool isDone() const { return (NumNonLinearLRefs > 0); }
 };
 
 ///  Make a quick pass here to save compile time:
@@ -3329,23 +3359,6 @@ bool HLNodeUtils::hasNonUnitStrideRefs(const HLLoop *Loop) {
   NonUnitStrideMemRefs NUS(Loop);
   HLNodeUtils::visit(NUS, Loop);
   return NUS.HasNonUnitStride;
-}
-
-/// t0 = a[i1];     LRef =
-///  ...
-/// t1  = t0        Node
-/// Looking for Node (assuming  forward sub is not done)
-HLInst *
-HLNodeUtils::findForwardSubInst(const DDRef *LRef,
-                                SmallVectorImpl<HLInst *> &ForwardSubInsts) {
-
-  for (auto &Inst : ForwardSubInsts) {
-    const RegDDRef *RRef = Inst->getRvalDDRef();
-    if (RRef->getSymbase() == LRef->getSymbase()) {
-      return Inst;
-    }
-  }
-  return nullptr;
 }
 
 const HLLoop *HLNodeUtils::getLowestCommonAncestorLoop(const HLLoop *Lp1,
@@ -3417,13 +3430,12 @@ bool HLNodeUtils::areEqual(const HLIf *NodeA, const HLIf *NodeB) {
 }
 
 NodeRangeTy HLNodeUtils::replaceNodeWithBody(HLIf *If, bool ThenBody) {
-  HLNodeUtils &HNU = If->getHLNodeUtils();
 
   auto NodeRange = ThenBody ? std::make_pair(If->then_begin(), If->then_end())
                             : std::make_pair(If->else_begin(), If->else_end());
   auto LastNode = std::prev(NodeRange.second);
 
-  HNU.moveAfter(If, NodeRange.first, NodeRange.second);
+  HLNodeUtils::moveAfter(If, NodeRange.first, NodeRange.second);
   HLNodeUtils::remove(If);
 
   return make_range(NodeRange.first, std::next(LastNode));
@@ -3431,7 +3443,6 @@ NodeRangeTy HLNodeUtils::replaceNodeWithBody(HLIf *If, bool ThenBody) {
 
 NodeRangeTy HLNodeUtils::replaceNodeWithBody(HLSwitch *Switch,
                                              unsigned CaseNum) {
-  HLNodeUtils &HNU = Switch->getHLNodeUtils();
 
   auto NodeRange = (CaseNum == 0)
                        ? std::make_pair(Switch->default_case_child_begin(),
@@ -3440,7 +3451,7 @@ NodeRangeTy HLNodeUtils::replaceNodeWithBody(HLSwitch *Switch,
                                         Switch->case_child_end(CaseNum));
   auto LastNode = std::prev(NodeRange.second);
 
-  HNU.moveAfter(Switch, NodeRange.first, NodeRange.second);
+  HLNodeUtils::moveAfter(Switch, NodeRange.first, NodeRange.second);
   HLNodeUtils::remove(Switch);
 
   return make_range(NodeRange.first, std::next(LastNode));
@@ -3452,11 +3463,14 @@ STATISTIC(InvalidatedRegions, "Number of regions invalidated by utility");
 STATISTIC(InvalidatedLoops, "Number of loops invalidated by utility");
 STATISTIC(LoopsRemoved, "Number of empty Loops removed by utility");
 STATISTIC(IfsRemoved, "Number of empty Ifs removed by utility");
+STATISTIC(SwitchesRemoved, "Number of empty Switches removed by utility");
 STATISTIC(RedundantLoops, "Number of redundant loops removed by utility");
 STATISTIC(RedundantPredicates,
           "Number of redundant predicates removed by utility");
 STATISTIC(RedundantInstructions,
           "Number of redundant instructions removed by utility");
+STATISTIC(RedundantEarlyExitLoops,
+          "Number of loops with unconditional exit removed by the utility");
 
 class EmptyNodeRemoverVisitorImpl : public HLNodeVisitorBase {
 protected:
@@ -3507,6 +3521,22 @@ public:
     }
   }
 
+  void postVisit(HLSwitch *Switch) {
+    if (Switch->hasDefaultCaseChildren()) {
+      return;
+    }
+
+    for (unsigned I = 1, E = Switch->getNumCases(); I <= E; ++I) {
+      if (Switch->hasCaseChildren(I)) {
+        return;
+      }
+    }
+
+    HLNodeUtils::remove(Switch);
+    SwitchesRemoved++;
+    Changed = true;
+  }
+
   void visit(HLNode *) {}
   void postVisit(HLNode *) {}
 
@@ -3517,6 +3547,8 @@ public:
       postVisit(Loop);
     } else if (HLRegion *Region = dyn_cast<HLRegion>(Node)) {
       postVisit(Region);
+    } else if (HLSwitch *Switch = dyn_cast<HLSwitch>(Node)) {
+      postVisit(Switch);
     }
   }
 
@@ -3562,7 +3594,7 @@ class RedundantNodeRemoverVisitor final : public EmptyNodeRemoverVisitorImpl {
   HLNode *LastNodeToRemove;
 
   // The goto candidates to be removed.
-  SmallVector<HLGoto *, 4> GotosToRemove;
+  SmallPtrSet<HLGoto *, 4> GotosToRemove;
 
   // Flag that enables HLLabel removal logic.
   HLNode *LabelSafeContainer;
@@ -3573,10 +3605,14 @@ class RedundantNodeRemoverVisitor final : public EmptyNodeRemoverVisitorImpl {
   // Number of jumps for each label.
   SmallDenseMap<HLLabel *, unsigned, 8> LabelJumps;
 
+  // Indicates that the current node is in the junction point of multiple
+  // blocks.
+  bool IsJoinNode;
+
 public:
   RedundantNodeRemoverVisitor()
       : SkipNode(nullptr), LastNodeToRemove(nullptr),
-        LabelSafeContainer(nullptr) {}
+        LabelSafeContainer(nullptr), IsJoinNode(false) {}
 
   void visit(HLRegion *Region) {
     assert(LabelSafeContainer == nullptr &&
@@ -3659,12 +3695,17 @@ public:
     visit(static_cast<HLDDNode *>(Switch));
   }
 
-  void removeGotosIfPointTo(HLNode *Node) {
+  void removeSiblingGotosWithTarget(HLNode *Node) {
     SmallVector<HLGoto *, 4> FoundGotos;
 
+    // Collect all gotos pointing to Node which are either a direct siblings to
+    // the target label or a last node in their parent containers.
     std::for_each(GotosToRemove.begin(), GotosToRemove.end(),
                   [Node, &FoundGotos](HLGoto *Goto) {
-                    if (Goto->getTargetLabel() == Node) {
+                    if (Goto->getTargetLabel() == Node &&
+                        (Goto->getNextNode() == Node ||
+                         HLNodeUtils::getLastLexicalChild(Goto->getParent(),
+                                                          Goto) == Goto)) {
                       FoundGotos.push_back(Goto);
                     }
                   });
@@ -3673,6 +3714,7 @@ public:
       RedundantInstructions++;
       HLNodeUtils::remove(Goto);
       LabelJumps[Goto->getTargetLabel()]--;
+      GotosToRemove.erase(Goto);
     }
   }
 
@@ -3689,11 +3731,11 @@ public:
     }
 
     HLNode *ContainerLastNode =
-      HLNodeUtils::getLastLexicalChild(Goto->getParent(), Goto);
+        HLNodeUtils::getLastLexicalChild(Goto->getParent(), Goto);
+
+    GotosToRemove.insert(Goto);
 
     if (!Goto->isExternal()) {
-      GotosToRemove.push_back(Goto);
-
       if (LabelSafeContainer) {
         LabelJumps[Goto->getTargetLabel()]++;
       }
@@ -3719,9 +3761,8 @@ public:
       return;
     }
 
-    if (LastNodeToRemove == Label) {
-      removeGotosIfPointTo(Label);
-      GotosToRemove.clear();
+    if (LastNodeToRemove == Label || IsJoinNode) {
+      removeSiblingGotosWithTarget(Label);
     }
 
     auto MayRemoveLabel = [this](HLLabel *Label) {
@@ -3749,7 +3790,31 @@ public:
       LabelSafeContainer = nullptr;
     }
 
-    postVisitImpl(Loop);
+    HLGoto *LastGoto = dyn_cast_or_null<HLGoto>(Loop->getLastChild());
+    if (LastGoto) {
+      // If there is a goto left at the end of the loop we have to convert loop
+      // to a straight line code.
+
+      // Stop removing nodes.
+      LastNodeToRemove = nullptr;
+
+      assert((LastGoto->isExternal() ||
+              (LastGoto->getTargetLabel()->getTopSortNum() >
+               Loop->getMaxTopSortNum())) &&
+             "Non exit goto found at the end of the loop.");
+
+      Loop->replaceByFirstIteration();
+      RedundantEarlyExitLoops++;
+
+      // Have to handle the label again in the context of parent loop.
+      // But do not take into account previous jump;
+      LabelJumps[LastGoto->getTargetLabel()]--;
+
+      visit(LastGoto);
+    } else {
+      // The loop will stay attached - handle as regular node.
+      postVisitImpl(Loop);
+    }
   }
 
   template <typename NodeTy> void postVisit(NodeTy *Node) {
@@ -3757,10 +3822,7 @@ public:
   }
 
   template <typename NodeTy> void postVisitImpl(NodeTy *Node) {
-    if (HLNode *NextNode = Node->getNextNode()) {
-      removeGotosIfPointTo(NextNode);
-      GotosToRemove.clear();
-    }
+    IsJoinNode = true;
 
     LastNodeToRemove = nullptr;
 
@@ -3778,6 +3840,15 @@ public:
       if (Node == LastNodeToRemove) {
         LastNodeToRemove = nullptr;
       }
+    } else {
+      // Clear gotos as we are not able to remove any of them because there's a
+      // node between gotos and a label.
+      if (IsJoinNode) {
+        GotosToRemove.clear();
+      }
+
+      // Unable to remove node means this is not a join point now.
+      IsJoinNode = false;
     }
 
     EmptyNodeRemoverVisitorImpl::visit(Node);
@@ -3787,7 +3858,7 @@ public:
     return Node == SkipNode;
   }
 };
-}
+} // namespace
 
 template <typename VisitorTy>
 static bool removeNodesImpl(HLNode *Node, bool RemoveEmptyParentNodes) {
@@ -3845,4 +3916,49 @@ bool HLNodeUtils::removeRedundantNodesRange(HLContainerTy::iterator Begin,
                                             bool RemoveEmptyParentNodes) {
   return removeNodesRangeImpl<RedundantNodeRemoverVisitor>(
       Begin, End, RemoveEmptyParentNodes);
+}
+
+struct UpdateLoopExitsVisitor final : public HLNodeVisitorBase {
+  SmallVector<HLLoop *, MaxLoopNestLevel> Loops;
+
+  void visit(HLLoop *Loop) {
+    Loop->setNumExits(1);
+
+    assert(Loop->hasChildren() && "Empty loops are unexpected.");
+
+    Loops.push_back(Loop);
+  }
+
+  void postVisit(HLLoop *Loop) {
+    assert(Loops.back() == Loop &&
+           "Current loop is expected to be on top of the stack");
+    Loops.pop_back();
+  }
+
+  void visit(HLGoto *Goto) {
+    // Skip region level gotos.
+    if (Loops.empty()) {
+      return;
+    }
+
+    unsigned TargetTopsortNum =
+        Goto->isExternal() ? -1 : Goto->getTargetLabel()->getTopSortNum();
+
+    for (auto I = Loops.rbegin(), E = Loops.rend(); I != E; ++I) {
+      HLLoop *Loop = *I;
+      if (TargetTopsortNum > Loop->getMaxTopSortNum()) {
+        Loop->setNumExits(Loop->getNumExits() + 1);
+      } else {
+        break;
+      }
+    }
+  }
+
+  void visit(HLNode *) {}
+  void postVisit(HLNode *) {}
+};
+
+void HLNodeUtils::updateNumLoopExits(HLNode *Node) {
+  UpdateLoopExitsVisitor V;
+  HLNodeUtils::visit(V, Node);
 }

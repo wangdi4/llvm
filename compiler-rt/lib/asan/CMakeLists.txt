@@ -21,6 +21,7 @@ set(ASAN_SOURCES
   asan_memory_profile.cc
   asan_poisoning.cc
   asan_posix.cc
+  asan_premap_shadow.cc
   asan_report.cc
   asan_rtl.cc
   asan_shadow_setup.cc
@@ -39,6 +40,7 @@ set(ASAN_PREINIT_SOURCES
 include_directories(..)
 
 set(ASAN_CFLAGS ${SANITIZER_COMMON_CFLAGS})
+set(ASAN_COMMON_DEFINITIONS ${COMPILER_RT_ASAN_SHADOW_SCALE_DEFINITION})
 
 append_rtti_flag(OFF ASAN_CFLAGS)
 
@@ -67,15 +69,13 @@ append_list_if(COMPILER_RT_HAS_FTLS_MODEL_INITIAL_EXEC
   -ftls-model=initial-exec ASAN_DYNAMIC_CFLAGS)
 append_list_if(MSVC /DEBUG ASAN_DYNAMIC_LINK_FLAGS)
 
-set(ASAN_DYNAMIC_LIBS ${SANITIZER_COMMON_LINK_LIBS})
+set(ASAN_DYNAMIC_LIBS ${SANITIZER_CXX_ABI_LIBRARY} ${SANITIZER_COMMON_LINK_LIBS})
 
 append_list_if(COMPILER_RT_HAS_LIBDL dl ASAN_DYNAMIC_LIBS)
 append_list_if(COMPILER_RT_HAS_LIBRT rt ASAN_DYNAMIC_LIBS)
 append_list_if(COMPILER_RT_HAS_LIBM m ASAN_DYNAMIC_LIBS)
 append_list_if(COMPILER_RT_HAS_LIBPTHREAD pthread ASAN_DYNAMIC_LIBS)
 append_list_if(COMPILER_RT_HAS_LIBLOG log ASAN_DYNAMIC_LIBS)
-
-list(APPEND ASAN_DYNAMIC_LIBS ${SANITIZER_CXX_ABI_LIBRARY})
 
 # Compile ASan sources into an object library.
 
@@ -169,7 +169,7 @@ else()
     PARENT_TARGET asan)
 
   foreach(arch ${ASAN_SUPPORTED_ARCH})
-    if (UNIX AND NOT ${arch} STREQUAL "i386")
+    if (UNIX)
       add_sanitizer_rt_version_list(clang_rt.asan-dynamic-${arch}
                                     LIBS clang_rt.asan-${arch} clang_rt.asan_cxx-${arch}
                                     EXTRA asan.syms.extra)

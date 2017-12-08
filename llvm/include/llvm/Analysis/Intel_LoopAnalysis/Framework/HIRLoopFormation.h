@@ -1,6 +1,6 @@
 //===--------- HIRLoopFormation.h - Creates HIR loops ---------*-- C++ --*-===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -26,9 +26,13 @@ class Function;
 class Loop;
 class LoopInfo;
 class ScalarEvolution;
+class SCEV;
+class SCEVAddRecExpr;
+class APInt;
 
 namespace loopopt {
 
+class HLNode;
 class HLRegion;
 class HLLoop;
 class HLIf;
@@ -36,7 +40,7 @@ class HIRRegionIdentification;
 class HIRCreation;
 class HIRCleanup;
 
-/// \brief This analysis forms HIR loops within HIR regions created by the
+/// This analysis forms HIR loops within HIR regions created by the
 /// HIRCreation pass.
 class HIRLoopFormation : public FunctionPass {
 public:
@@ -61,36 +65,50 @@ private:
   /// HIRC - Pointer to HIRCleanup pass.
   HIRCleanup *HIRC;
 
+  // Region we are processing.
+  HLRegion *CurRegion;
+
   /// Loops - Sorted vector of Loops to HLLoops.
   SmallVector<LoopPairTy, 32> Loops;
 
   /// Contains loops which require inversion of ztt predicate.
   SmallPtrSet<HLLoop *, 16> InvertedZttLoops;
 
-  /// \brief Inserts (Lp, HLoop) pair in the map.
+  /// Inserts (Lp, HLoop) pair in the map.
   void insertHLLoop(const Loop *Lp, HLLoop *HLoop);
 
-  /// \brief Implements find()/insert() functionality.
+  /// Implements find()/insert() functionality.
   HLLoop *findOrInsertHLLoopImpl(const Loop *Lp, HLLoop *HLoop, bool Insert);
 
-  /// \brief Returns true if Inst represents a non-negative NSW SCEVAddRecExpr.
-  bool isNonNegativeNSWIV(const Instruction *Inst) const;
+  /// Returns the signed max of \p AddRec by analyzing its stride.
+  APInt getAddRecRefinedSignedMax(const SCEVAddRecExpr *AddRec) const;
 
-  /// \brief Returns true if normalized loop IV has NSW semantics.
-  bool hasNSWSemantics(const Loop *Lp, const PHINode *IVPhi) const;
+  /// Returns true if Inst represents a non-negative NSW SCEVAddRecExpr.
+  bool isNonNegativeNSWIV(const Loop *Loop, const PHINode *IVPhi) const;
 
-  /// \brief Sets the IV type for HLoop.
-  void setIVType(HLLoop *HLoop) const;
+  /// Returns true if normalized loop IV has NSW semantics.
+  bool hasNSWSemantics(const Loop *Lp, Type *IVType, const SCEV *BECount) const;
 
-  /// \brief Moves children of IfParent to loop's preheader/postexit if they are
+  /// Sets the IV type for HLoop.
+  void setIVType(HLLoop *HLoop, const SCEV *BECount) const;
+
+  /// Moves children of IfParent to loop's preheader/postexit if they are
   /// valid, else returns false.
   static bool populatedPreheaderPostexitNodes(HLLoop *HLoop, HLIf *IfParent,
                                               bool PredicateInversion);
 
-  /// \brief Sets the parent if node of the loop as its ztt.
+  /// Sets the parent if node of the loop as its ztt.
   void setZtt(HLLoop *HLoop);
 
-  /// \brief Forms loops in HIR.
+  /// Returns the outermost parent loop of \p Lp contained in the HIR region.
+  const Loop *getOutermostHIRParentLoop(const Loop *Lp) const;
+
+  /// Moves the loop exit goto after the loop if it is not removed as redundant
+  /// by HIRCleanup pass.
+  void processLoopExitGoto(HLIf *BottomTest, HLLabel *LoopLabel,
+                           HLLoop *HLoop) const;
+
+  /// Forms loops in HIR.
   void formLoops();
 
 public:
@@ -103,7 +121,7 @@ public:
   void print(raw_ostream &OS, const Module * = nullptr) const override;
   void verifyAnalysis() const override;
 
-  /// \brief Returns HLLoop corresponding to Lp.
+  /// Returns HLLoop corresponding to Lp.
   HLLoop *findHLLoop(const Loop *Lp);
 
   /// Returns true if this loop requires ztt predicate inversion.

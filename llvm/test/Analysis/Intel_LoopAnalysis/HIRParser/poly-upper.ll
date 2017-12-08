@@ -1,17 +1,19 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
 
 ; Check parsing output for the loop verifying that the polynomial upper of inenr loop is parsed correctly.
-; CHECK: DO i1 = 0, %n + -1
-; CHECK-NEXT: %indvars.iv23.out = %indvars.iv23
-; CHECK-NEXT: %k.020 = %k.020  +  i1
-; CHECK-NEXT: if (%k.020 > 0)
-; CHECK-NEXT: {
-; CHECK-NEXT: DO i2 = 0, zext.i32.i64((-1 + %indvars.iv23.out)),
-; CHECK-NEXT: (%A)[i2] = i2;
-; CHECK-NEXT: END LOOP
-; CHECK-NEXT: }
-; CHECK-NEXT: %indvars.iv23 = %indvars.iv23  +  i1 + 1
-; CHECK-NEXT: END LOOP
+
+; CHECK: + DO i1 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+; CHECK: |   %add = %k.020  +  i1;
+; CHECK: |
+; CHECK: |   + DO i2 = 0, sext.i32.i64((-1 + %indvars.iv23)), 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+; CHECK: |   |   (%A)[i2] = i2;
+; CHECK: |   + END LOOP
+; CHECK: |
+; CHECK: |   %indvars.iv.next24 = %add  +  i1 + 1;
+; CHECK: |   %k.020 = %add;
+; CHECK: |   %indvars.iv23 = %indvars.iv.next24;
+; CHECK: + END LOOP
+
 
 
 ; ModuleID = 'poly-upper.c'

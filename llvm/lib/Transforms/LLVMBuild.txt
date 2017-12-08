@@ -16,7 +16,7 @@
 ;===------------------------------------------------------------------------===;
 
 [common]
-subdirectories = Coroutines IPO InstCombine Instrumentation Scalar Utils Vectorize ObjCARC Intel_LoopTransforms Intel_MapIntrinToIml Intel_VPO
+subdirectories = Coroutines IPO InstCombine Instrumentation Scalar Utils Vectorize ObjCARC Intel_DTrans Intel_LoopTransforms Intel_MapIntrinToIml Intel_VPO Intel_OpenCLTransforms
 
 [component_0]
 type = Group

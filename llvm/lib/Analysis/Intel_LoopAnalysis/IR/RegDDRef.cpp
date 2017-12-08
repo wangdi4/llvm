@@ -15,11 +15,11 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/RegDDRef.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
-#include "llvm/IR/Instructions.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/CanonExpr.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLDDNode.h"
-#include "llvm/Support/Debug.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/Support/Debug.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -781,6 +781,17 @@ bool RegDDRef::replaceTempBlob(unsigned OldIndex, unsigned NewIndex) {
   return true;
 }
 
+bool RegDDRef::replaceTempBlobs(
+    SmallVectorImpl<std::pair<unsigned, unsigned>> &BlobMap) {
+  bool Res = false;
+
+  for (auto &Pair : BlobMap) {
+    Res = replaceTempBlob(Pair.first, Pair.second) || Res;
+  }
+
+  return Res;
+}
+
 void RegDDRef::removeAllBlobDDRefs() {
 
   while (!BlobDDRefs.empty()) {
@@ -1229,3 +1240,21 @@ void RegDDRef::shift(unsigned LoopLevel, int64_t Amount) {
     CE->shift(LoopLevel, Amount);
   }
 }
+
+void RegDDRef::demoteIVs(unsigned StartLevel) {
+  unsigned Dim = getNumDimensions();
+
+  // Examine every Dimension
+  for (unsigned I = 1; I <= Dim; ++I) {
+    CanonExpr *CE = getDimensionIndex(I);
+
+    // Shift to create target CE
+    CE->demoteIVs(StartLevel);
+  }
+}
+
+unsigned RegDDRef::getBasePtrSymbase() const {
+  assert(hasGEPInfo() && "Base CE accessed for non-GEP DDRef!");
+  return getBlobUtils().getTempBlobSymbase(getBasePtrBlobIndex());
+}
+

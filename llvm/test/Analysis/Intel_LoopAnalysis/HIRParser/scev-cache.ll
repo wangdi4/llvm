@@ -8,7 +8,7 @@
 ; CHECK: END REGION
 
 ; CHECK: BEGIN REGION
-; CHECK: + DO i1 = 0, zext.i32.i64((-2 + %indvars.iv266)), 1   <DO_LOOP>
+; CHECK: + DO i1 = 0, sext.i32.i64((-2 + %indvars.iv266)), 1   <DO_LOOP>
 ; CHECK: + END LOOP
 ; CHECK: END REGION
 

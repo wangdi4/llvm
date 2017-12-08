@@ -1,6 +1,6 @@
 //===- HIRRuntimeDD.h - Implements Multiversioning for Runtime DD *-- C++ --*-//
 //
-// Copyright (C) 2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2017 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -36,7 +36,7 @@ typedef DDRefGrouping::RefGroupTy<RegDDRef> RefGroupTy;
 typedef DDRefGrouping::RefGroupVecTy<RegDDRef> RefGroupVecTy;
 
 const unsigned ExpectedNumberOfTests = 8;
-const unsigned SmallTripCountTest = 16;
+const unsigned SmallTripCountTest = 4;
 
 enum RuntimeDDResult {
   OK,
@@ -49,7 +49,7 @@ enum RuntimeDDResult {
   ALREADY_MV,
   TOO_MANY_TESTS,
   UPPER_SUB_TYPE_MISMATCH,
-  BLOB_IV_COEFF,
+  NON_NORMALIZED_BLOB_IV_COEFF,
   SAME_BASE,
   NON_DO_LOOP,
   NON_PROFITABLE,
@@ -91,10 +91,10 @@ class IVSegment {
 
   bool IsWrite;
 
-  static void updateRefIVWithBounds(RegDDRef *Ref, unsigned Level,
-                                    const RegDDRef *MaxRef,
-                                    const RegDDRef *MinRef,
-                                    const HLLoop *InnerLoop);
+  static void replaceIVByBound(RegDDRef *Ref,
+                               const HLLoop *Loop,
+                               const HLLoop *InnerLoop,
+                               bool IsLowerBound);
 
 public:
   IVSegment(const RefGroupTy &Group);
@@ -106,8 +106,7 @@ public:
   RuntimeDDResult isSegmentSupported(const HLLoop *Loop,
                                      const HLLoop *InnermostLoop) const;
 
-  void updateIVWithBounds(unsigned Level, const RegDDRef *LowerBound,
-                          const RegDDRef *UpperBound, const HLLoop *InnerLoop);
+  void replaceIVWithBounds(const HLLoop *Loop, const HLLoop *InnerLoop);
 
   void makeConsistent(const SmallVectorImpl<const RegDDRef *> &AuxRefs,
                       unsigned Level);
@@ -136,7 +135,6 @@ struct LoopContext {
   HLLoop *Loop;
   RefGroupVecTy Groups;
   llvm::SmallVector<Segment, ExpectedNumberOfTests> SegmentList;
-  bool GenTripCountTest;
 
 #ifndef NDEBUG
   LLVM_DUMP_METHOD void dump() {
