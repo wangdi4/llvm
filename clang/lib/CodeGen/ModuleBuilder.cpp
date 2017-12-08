@@ -131,6 +131,20 @@ namespace {
       Ctx = &Context;
 
       M->setTargetTriple(Ctx->getTargetInfo().getTriple().getTriple());
+
+#if INTEL_CUSTOMIZATION
+      // The target device information is represented as module level
+      // attribute.
+      SmallString<128> Res;
+      for (auto &Device : Ctx->getLangOpts().OMPTargetTriples) {
+        if (!Res.empty())
+          Res += ",";
+        Res += Device.getTriple();
+      }
+      if (!Res.empty())
+        M->setTargetDevices(Res);
+#endif // INTEL_CUSTOMIZATION
+
       M->setDataLayout(Ctx->getTargetInfo().getDataLayout());
       Builder.reset(new CodeGen::CodeGenModule(Context, HeaderSearchOpts,
                                                PreprocessorOpts, CodeGenOpts,
