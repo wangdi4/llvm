@@ -1,8 +1,8 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-runtime-dd -disable-output -print-after=hir-runtime-dd < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
 
-; Check that the segment [ q[zext.i32.i64(i1 - 1)], q[i1] ]
-; is computed without assertions.
+; Check that the pair [ q[zext.i32.i64(i1 - 1)], q[i1] ] will not be placed into a single
+; group as the distance between them is not constant.
 
 ; BEGIN REGION { }
 ;      + DO i1 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP>
@@ -12,10 +12,7 @@
 ;      + END LOOP
 ; END REGION
 
-; CHECK: %mv.test = &((%p)[0]) >=u &((%q)[4294967295]);
-; CHECK: %mv.test1 = &((%q)[sext.i32.i64(%n) + -1]) >=u &((%p)[0]);
-; CHECK: %mv.and = %mv.test  &&  %mv.test1;
-; CHECK: if (%mv.and == 0)
+; CHECK-NOT: if (%mv.and == 0)
 
 source_filename = "diff-sext.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
