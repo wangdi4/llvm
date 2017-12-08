@@ -135,6 +135,33 @@ IntrusiveRefCntPtr<vfs::FileSystem> getTempOnlyFS() {
 namespace clangd {
 namespace {
 
+struct StringWithPos {
+  std::string Text;
+  clangd::Position MarkerPos;
+};
+
+/// Returns location of "{mark}" substring in \p Text and removes it from \p
+/// Text. Note that \p Text must contain exactly one occurence of "{mark}".
+///
+/// Marker name can be configured using \p MarkerName parameter.
+StringWithPos parseTextMarker(StringRef Text, StringRef MarkerName = "mark") {
+  SmallString<16> Marker;
+  Twine("{" + MarkerName + "}").toVector(/*ref*/ Marker);
+
+  std::size_t MarkerOffset = Text.find(Marker);
+  assert(MarkerOffset != StringRef::npos && "{mark} wasn't found in Text.");
+
+  std::string WithoutMarker;
+  WithoutMarker += Text.take_front(MarkerOffset);
+  WithoutMarker += Text.drop_front(MarkerOffset + Marker.size());
+  assert(StringRef(WithoutMarker).find(Marker) == StringRef::npos &&
+         "There were multiple occurences of {mark} inside Text");
+
+  clangd::Position MarkerPos =
+      clangd::offsetToPosition(WithoutMarker, MarkerOffset);
+  return {std::move(WithoutMarker), MarkerPos};
+}
+
 // Don't wait for async ops in clangd test more than that to avoid blocking
 // indefinitely in case of bugs.
 static const std::chrono::seconds DefaultFutureTimeout =
@@ -305,7 +332,8 @@ protected:
     ErrorCheckingDiagConsumer DiagConsumer;
     MockCompilationDatabase CDB(/*AddFreestandingFlag=*/true);
     ClangdServer Server(CDB, DiagConsumer, FS, getDefaultAsyncThreadsCount(),
-                        /*SnippetCompletions=*/false,
+                        /*StorePreamblesInMemory=*/true,
+                        clangd::CodeCompleteOptions(),
                         EmptyLogger::getInstance());
     for (const auto &FileWithContents : ExtraFiles)
       FS.Files[getVirtualTestFilePath(FileWithContents.first)] =
@@ -369,7 +397,9 @@ TEST_F(ClangdVFSTest, Reparse) {
   ErrorCheckingDiagConsumer DiagConsumer;
   MockCompilationDatabase CDB(/*AddFreestandingFlag=*/true);
   ClangdServer Server(CDB, DiagConsumer, FS, getDefaultAsyncThreadsCount(),
-                      /*SnippetCompletions=*/false, EmptyLogger::getInstance());
+                      /*StorePreamblesInMemory=*/true,
+                      clangd::CodeCompleteOptions(),
+                      EmptyLogger::getInstance());
 
   const auto SourceContents = R"cpp(
 #include "foo.h"
@@ -414,7 +444,9 @@ TEST_F(ClangdVFSTest, ReparseOnHeaderChange) {
   MockCompilationDatabase CDB(/*AddFreestandingFlag=*/true);
 
   ClangdServer Server(CDB, DiagConsumer, FS, getDefaultAsyncThreadsCount(),
-                      /*SnippetCompletions=*/false, EmptyLogger::getInstance());
+                      /*StorePreamblesInMemory=*/true,
+                      clangd::CodeCompleteOptions(),
+                      EmptyLogger::getInstance());
 
   const auto SourceContents = R"cpp(
 #include "foo.h"
@@ -461,7 +493,9 @@ TEST_F(ClangdVFSTest, CheckVersions) {
   MockCompilationDatabase CDB(/*AddFreestandingFlag=*/true);
   // Run ClangdServer synchronously.
   ClangdServer Server(CDB, DiagConsumer, FS,
-                      /*AsyncThreadsCount=*/0, /*SnippetCompletions=*/false,
+                      /*AsyncThreadsCount=*/0,
+                      /*StorePreamblesInMemory=*/true,
+                      clangd::CodeCompleteOptions(),
                       EmptyLogger::getInstance());
 
   auto FooCpp = getVirtualTestFilePath("foo.cpp");
@@ -473,13 +507,13 @@ TEST_F(ClangdVFSTest, CheckVersions) {
   // thread.
   FS.Tag = "123";
   Server.addDocument(FooCpp, SourceContents);
-  EXPECT_EQ(Server.codeComplete(FooCpp, Position{0, 0}).Tag, FS.Tag);
+  EXPECT_EQ(Server.codeComplete(FooCpp, Position{0, 0}).get().Tag, FS.Tag);
   EXPECT_EQ(DiagConsumer.lastVFSTag(), FS.Tag);
 
   FS.Tag = "321";
   Server.addDocument(FooCpp, SourceContents);
   EXPECT_EQ(DiagConsumer.lastVFSTag(), FS.Tag);
-  EXPECT_EQ(Server.codeComplete(FooCpp, Position{0, 0}).Tag, FS.Tag);
+  EXPECT_EQ(Server.codeComplete(FooCpp, Position{0, 0}).get().Tag, FS.Tag);
 }
 
 // Only enable this test on Unix
@@ -495,7 +529,9 @@ TEST_F(ClangdVFSTest, SearchLibDir) {
                               "-stdlib=libstdc++"});
   // Run ClangdServer synchronously.
   ClangdServer Server(CDB, DiagConsumer, FS,
-                      /*AsyncThreadsCount=*/0, /*SnippetCompletions=*/false,
+                      /*AsyncThreadsCount=*/0,
+                      /*StorePreamblesInMemory=*/true,
+                      clangd::CodeCompleteOptions(),
                       EmptyLogger::getInstance());
 
   // Just a random gcc version string
@@ -544,7 +580,9 @@ TEST_F(ClangdVFSTest, ForceReparseCompileCommand) {
   ErrorCheckingDiagConsumer DiagConsumer;
   MockCompilationDatabase CDB(/*AddFreestandingFlag=*/true);
   ClangdServer Server(CDB, DiagConsumer, FS,
-                      /*AsyncThreadsCount=*/0, /*SnippetCompletions=*/false,
+                      /*AsyncThreadsCount=*/0,
+                      /*StorePreamblesInMemory=*/true,
+                      clangd::CodeCompleteOptions(),
                       EmptyLogger::getInstance());
   // No need to sync reparses, because reparses are performed on the calling
   // thread to true.
@@ -589,11 +627,19 @@ struct bar { T x; };
 
 class ClangdCompletionTest : public ClangdVFSTest {
 protected:
-  bool ContainsItem(std::vector<CompletionItem> const &Items, StringRef Name) {
-    for (const auto &Item : Items) {
-      if (Item.insertText == Name)
+  template <class Predicate>
+  bool ContainsItemPred(CompletionList const &Items, Predicate Pred) {
+    for (const auto &Item : Items.items) {
+      if (Pred(Item))
         return true;
     }
+    return false;
+  }
+
+  bool ContainsItem(CompletionList const &Items, StringRef Name) {
+    return ContainsItemPred(Items, [Name](clangd::CompletionItem Item) {
+      return Item.insertText == Name;
+    });
     return false;
   }
 };
@@ -604,7 +650,9 @@ TEST_F(ClangdCompletionTest, CheckContentsOverride) {
   MockCompilationDatabase CDB(/*AddFreestandingFlag=*/true);
 
   ClangdServer Server(CDB, DiagConsumer, FS, getDefaultAsyncThreadsCount(),
-                      /*SnippetCompletions=*/false, EmptyLogger::getInstance());
+                      /*StorePreamblesInMemory=*/true,
+                      clangd::CodeCompleteOptions(),
+                      EmptyLogger::getInstance());
 
   auto FooCpp = getVirtualTestFilePath("foo.cpp");
   const auto SourceContents = R"cpp(
@@ -631,7 +679,7 @@ int b =   ;
 
   {
     auto CodeCompletionResults1 =
-        Server.codeComplete(FooCpp, CompletePos, None).Value;
+        Server.codeComplete(FooCpp, CompletePos, None).get().Value;
     EXPECT_TRUE(ContainsItem(CodeCompletionResults1, "aba"));
     EXPECT_FALSE(ContainsItem(CodeCompletionResults1, "cbc"));
   }
@@ -641,6 +689,7 @@ int b =   ;
         Server
             .codeComplete(FooCpp, CompletePos,
                           StringRef(OverridenSourceContents))
+            .get()
             .Value;
     EXPECT_TRUE(ContainsItem(CodeCompletionResultsOverriden, "cbc"));
     EXPECT_FALSE(ContainsItem(CodeCompletionResultsOverriden, "aba"));
@@ -648,10 +697,210 @@ int b =   ;
 
   {
     auto CodeCompletionResults2 =
-        Server.codeComplete(FooCpp, CompletePos, None).Value;
+        Server.codeComplete(FooCpp, CompletePos, None).get().Value;
     EXPECT_TRUE(ContainsItem(CodeCompletionResults2, "aba"));
     EXPECT_FALSE(ContainsItem(CodeCompletionResults2, "cbc"));
   }
+}
+
+TEST_F(ClangdCompletionTest, Limit) {
+  MockFSProvider FS;
+  MockCompilationDatabase CDB(/*AddFreestandingFlag=*/true);
+  CDB.ExtraClangFlags.push_back("-xc++");
+  ErrorCheckingDiagConsumer DiagConsumer;
+  clangd::CodeCompleteOptions Opts;
+  Opts.Limit = 2;
+  ClangdServer Server(CDB, DiagConsumer, FS, getDefaultAsyncThreadsCount(),
+                      /*StorePreamblesInMemory=*/true, Opts,
+                      EmptyLogger::getInstance());
+
+  auto FooCpp = getVirtualTestFilePath("foo.cpp");
+  FS.Files[FooCpp] = "";
+  FS.ExpectedFile = FooCpp;
+  StringWithPos Completion = parseTextMarker(R"cpp(
+struct ClassWithMembers {
+  int AAA();
+  int BBB();
+  int CCC();
+}
+int main() { ClassWithMembers().{complete} }
+      )cpp",
+                                             "complete");
+  Server.addDocument(FooCpp, Completion.Text);
+
+  /// For after-dot completion we must always get consistent results.
+  auto Results = Server
+                     .codeComplete(FooCpp, Completion.MarkerPos,
+                                   StringRef(Completion.Text))
+                     .get()
+                     .Value;
+
+  EXPECT_TRUE(Results.isIncomplete);
+  EXPECT_EQ(Opts.Limit, Results.items.size());
+  EXPECT_TRUE(ContainsItem(Results, "AAA"));
+  EXPECT_TRUE(ContainsItem(Results, "BBB"));
+  EXPECT_FALSE(ContainsItem(Results, "CCC"));
+}
+
+TEST_F(ClangdCompletionTest, CompletionOptions) {
+  MockFSProvider FS;
+  ErrorCheckingDiagConsumer DiagConsumer;
+  MockCompilationDatabase CDB(/*AddFreestandingFlag=*/true);
+  CDB.ExtraClangFlags.push_back("-xc++");
+
+  auto FooCpp = getVirtualTestFilePath("foo.cpp");
+  FS.Files[FooCpp] = "";
+  FS.ExpectedFile = FooCpp;
+
+  const auto GlobalCompletionSourceTemplate = R"cpp(
+#define MACRO X
+
+int global_var;
+int global_func();
+
+struct GlobalClass {};
+
+struct ClassWithMembers {
+  /// Doc for method.
+  int method();
+};
+
+int test() {
+  struct LocalClass {};
+
+  /// Doc for local_var.
+  int local_var;
+
+  {complete}
+}
+)cpp";
+  const auto MemberCompletionSourceTemplate = R"cpp(
+#define MACRO X
+
+int global_var;
+
+int global_func();
+
+struct GlobalClass {};
+
+struct ClassWithMembers {
+  /// Doc for method.
+  int method();
+
+  int field;
+};
+
+int test() {
+  struct LocalClass {};
+
+  /// Doc for local_var.
+  int local_var;
+
+  ClassWithMembers().{complete}
+}
+)cpp";
+
+  StringWithPos GlobalCompletion =
+      parseTextMarker(GlobalCompletionSourceTemplate, "complete");
+  StringWithPos MemberCompletion =
+      parseTextMarker(MemberCompletionSourceTemplate, "complete");
+
+  auto TestWithOpts = [&](clangd::CodeCompleteOptions Opts) {
+    ClangdServer Server(CDB, DiagConsumer, FS, getDefaultAsyncThreadsCount(),
+                        /*StorePreamblesInMemory=*/true, Opts,
+                        EmptyLogger::getInstance());
+    // No need to sync reparses here as there are no asserts on diagnostics (or
+    // other async operations).
+    Server.addDocument(FooCpp, GlobalCompletion.Text);
+
+    StringRef MethodItemText = Opts.EnableSnippets ? "method()" : "method";
+    StringRef GlobalFuncItemText =
+        Opts.EnableSnippets ? "global_func()" : "global_func";
+
+    /// For after-dot completion we must always get consistent results.
+    {
+      auto Results = Server
+                         .codeComplete(FooCpp, MemberCompletion.MarkerPos,
+                                       StringRef(MemberCompletion.Text))
+                         .get()
+                         .Value;
+
+      // Class members. The only items that must be present in after-dor
+      // completion.
+      EXPECT_TRUE(ContainsItem(Results, MethodItemText));
+      EXPECT_TRUE(ContainsItem(Results, "field"));
+      // Global items.
+      EXPECT_FALSE(ContainsItem(Results, "global_var"));
+      EXPECT_FALSE(ContainsItem(Results, GlobalFuncItemText));
+      EXPECT_FALSE(ContainsItem(Results, "GlobalClass"));
+      // A macro.
+      EXPECT_FALSE(ContainsItem(Results, "MACRO"));
+      // Local items.
+      EXPECT_FALSE(ContainsItem(Results, "LocalClass"));
+      // There should be no code patterns (aka snippets) in after-dot
+      // completion. At least there aren't any we're aware of.
+      EXPECT_FALSE(
+          ContainsItemPred(Results, [](clangd::CompletionItem const &Item) {
+            return Item.kind == clangd::CompletionItemKind::Snippet;
+          }));
+      // Check documentation.
+      EXPECT_EQ(
+          Opts.IncludeBriefComments,
+          ContainsItemPred(Results, [](clangd::CompletionItem const &Item) {
+            return !Item.documentation.empty();
+          }));
+    }
+    // Global completion differs based on the Opts that were passed.
+    {
+      auto Results = Server
+                         .codeComplete(FooCpp, GlobalCompletion.MarkerPos,
+                                       StringRef(GlobalCompletion.Text))
+                         .get()
+                         .Value;
+
+      // Class members. Should never be present in global completions.
+      EXPECT_FALSE(ContainsItem(Results, MethodItemText));
+      EXPECT_FALSE(ContainsItem(Results, "field"));
+      // Global items.
+      EXPECT_EQ(ContainsItem(Results, "global_var"), Opts.IncludeGlobals);
+      EXPECT_EQ(ContainsItem(Results, GlobalFuncItemText), Opts.IncludeGlobals);
+      EXPECT_EQ(ContainsItem(Results, "GlobalClass"), Opts.IncludeGlobals);
+      // A macro.
+      EXPECT_EQ(ContainsItem(Results, "MACRO"), Opts.IncludeMacros);
+      // Local items. Must be present always.
+      EXPECT_TRUE(ContainsItem(Results, "local_var"));
+      EXPECT_TRUE(ContainsItem(Results, "LocalClass"));
+      // FIXME(ibiryukov): snippets have wrong Item.kind now. Reenable this
+      // check after https://reviews.llvm.org/D38720 makes it in.
+      //
+      // Code patterns (aka snippets).
+      // EXPECT_EQ(
+      //     Opts.IncludeCodePatterns && Opts.EnableSnippets,
+      //     ContainsItemPred(Results, [](clangd::CompletionItem const &Item) {
+      //       return Item.kind == clangd::CompletionItemKind::Snippet;
+      //     }));
+
+      // Check documentation.
+      EXPECT_EQ(
+          Opts.IncludeBriefComments,
+          ContainsItemPred(Results, [](clangd::CompletionItem const &Item) {
+            return !Item.documentation.empty();
+          }));
+    }
+  };
+
+  for (bool IncludeMacros : {true, false})
+    for (bool IncludeGlobals : {true, false})
+      for (bool IncludeBriefComments : {true, false})
+        for (bool EnableSnippets : {true, false})
+          for (bool IncludeCodePatterns : {true, false}) {
+            TestWithOpts(clangd::CodeCompleteOptions(
+                /*EnableSnippets=*/EnableSnippets,
+                /*IncludeCodePatterns=*/IncludeCodePatterns,
+                /*IncludeMacros=*/IncludeMacros,
+                /*IncludeGlobals=*/IncludeGlobals,
+                /*IncludeBriefComments=*/IncludeBriefComments));
+          }
 }
 
 class ClangdThreadingTest : public ClangdVFSTest {};
@@ -752,7 +1001,8 @@ int d;
   {
     MockCompilationDatabase CDB(/*AddFreestandingFlag=*/true);
     ClangdServer Server(CDB, DiagConsumer, FS, getDefaultAsyncThreadsCount(),
-                        /*SnippetCompletions=*/false,
+                        /*StorePreamblesInMemory=*/true,
+                        clangd::CodeCompleteOptions(),
                         EmptyLogger::getInstance());
 
     // Prepare some random distributions for the test.
@@ -840,7 +1090,13 @@ int d;
         AddDocument(FileIndex);
 
       Position Pos{LineDist(RandGen), ColumnDist(RandGen)};
-      Server.codeComplete(FilePaths[FileIndex], Pos);
+      // FIXME(ibiryukov): Also test async completion requests.
+      // Simply putting CodeCompletion into async requests now would make
+      // tests slow, since there's no way to cancel previous completion
+      // requests as opposed to AddDocument/RemoveDocument, which are implicitly
+      // cancelled by any subsequent AddDocument/RemoveDocument request to the
+      // same file.
+      Server.codeComplete(FilePaths[FileIndex], Pos).wait();
     };
 
     auto FindDefinitionsRequest = [&]() {
@@ -850,7 +1106,7 @@ int d;
         AddDocument(FileIndex);
 
       Position Pos{LineDist(RandGen), ColumnDist(RandGen)};
-      Server.findDefinitions(FilePaths[FileIndex], Pos);
+      ASSERT_TRUE(!!Server.findDefinitions(FilePaths[FileIndex], Pos));
     };
 
     std::vector<std::function<void()>> AsyncRequests = {
@@ -906,7 +1162,9 @@ TEST_F(ClangdVFSTest, CheckSourceHeaderSwitch) {
   MockCompilationDatabase CDB(/*AddFreestandingFlag=*/true);
 
   ClangdServer Server(CDB, DiagConsumer, FS, getDefaultAsyncThreadsCount(),
-                      /*SnippetCompletions=*/false, EmptyLogger::getInstance());
+                      /*StorePreamblesInMemory=*/true,
+                      clangd::CodeCompleteOptions(),
+                      EmptyLogger::getInstance());
 
   auto SourceContents = R"cpp(
   #include "foo.h"
@@ -1031,7 +1289,8 @@ int d;
       std::move(StartSecondReparsePromise));
 
   MockCompilationDatabase CDB(/*AddFreestandingFlag=*/true);
-  ClangdServer Server(CDB, DiagConsumer, FS, 4, /*SnippetCompletions=*/false,
+  ClangdServer Server(CDB, DiagConsumer, FS, 4, /*StorePreamblesInMemory=*/true,
+                      clangd::CodeCompleteOptions(),
                       EmptyLogger::getInstance());
   Server.addDocument(FooCpp, SourceContentsWithErrors);
   StartSecondReparse.wait();

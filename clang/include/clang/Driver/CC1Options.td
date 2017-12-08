@@ -70,7 +70,7 @@ def analyzer_opt_analyze_nested_blocks : Flag<["-"], "analyzer-opt-analyze-neste
 def analyzer_display_progress : Flag<["-"], "analyzer-display-progress">,
   HelpText<"Emit verbose output about the analyzer's progress">;
 def analyze_function : Separate<["-"], "analyze-function">,
-  HelpText<"Run analysis on specific function">;
+  HelpText<"Run analysis on specific function (for C++ include parameters in name)">;
 def analyze_function_EQ : Joined<["-"], "analyze-function=">, Alias<analyze_function>;
 def analyzer_eagerly_assume : Flag<["-"], "analyzer-eagerly-assume">,
   HelpText<"Eagerly assume the truth/falseness of some symbolic constraints">;
@@ -200,6 +200,12 @@ def arange_sections : Flag<["-"], "arange_sections">,
 def dwarf_ext_refs : Flag<["-"], "dwarf-ext-refs">,
   HelpText<"Generate debug info with external references to clang modules"
            " or precompiled headers">;
+def dwarf_explicit_import : Flag<["-"], "dwarf-explicit-import">,
+  HelpText<"Generate explicit import from anonymous namespace to containing"
+           " scope">;
+def debug_forward_template_params : Flag<["-"], "debug-forward-template-params">,
+  HelpText<"Emit complete descriptions of template parameters in forward"
+           " declarations">;
 def fforbid_guard_variables : Flag<["-"], "fforbid-guard-variables">,
   HelpText<"Emit an error if a C++ static local initializer would need a guard variable">;
 def no_implicit_float : Flag<["-"], "no-implicit-float">,
@@ -238,6 +244,8 @@ def relaxed_aliasing : Flag<["-"], "relaxed-aliasing">,
   HelpText<"Turn off Type Based Alias Analysis">;
 def no_struct_path_tbaa : Flag<["-"], "no-struct-path-tbaa">,
   HelpText<"Turn off struct-path aware Type Based Alias Analysis">;
+def new_struct_path_tbaa : Flag<["-"], "new-struct-path-tbaa">,
+  HelpText<"Enable enhanced struct-path aware Type Based Alias Analysis">;
 def masm_verbose : Flag<["-"], "masm-verbose">,
   HelpText<"Generate verbose assembly output">;
 def mcode_model : Separate<["-"], "mcode-model">,
@@ -765,11 +773,17 @@ def fintel_driver_tempfile_name_EQ : Joined<["-"], "fintel-driver-tempfile-name=
   HelpText<"Name of the file for communication between front-end and driver.">;
 // endif INTEL_SPECIFIC_OPENMP
 def fdefault_calling_conv_EQ : Joined<["-"], "fdefault-calling-conv=">,
-  HelpText<"Set default MS calling convention">, Values<"cdecl,fastcall,stdcall,vectorcall">;
+  HelpText<"Set default calling convention">, Values<"cdecl,fastcall,stdcall,vectorcall,regcall">;
 def finclude_default_header : Flag<["-"], "finclude-default-header">,
   HelpText<"Include the default header file for OpenCL">;
 def fpreserve_vec3_type : Flag<["-"], "fpreserve-vec3-type">,
   HelpText<"Preserve 3-component vector type">;
+def fwchar_type_EQ : Joined<["-"], "fwchar-type=">,
+  HelpText<"Select underlying type for wchar_t">, Values<"char,short,int">;
+def fsigned_wchar : Flag<["-"], "fsigned-wchar">,
+  HelpText<"Use a signed type for wchar_t">;
+def fno_signed_wchar : Flag<["-"], "fno-signed-wchar">,
+  HelpText<"Use an unsigned type for wchar_t">;
 
 // FIXME: Remove these entirely once functionality/tests have been excised.
 def fobjc_gc_only : Flag<["-"], "fobjc-gc-only">, Group<f_Group>,

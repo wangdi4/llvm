@@ -8,6 +8,7 @@ add_clang_unittest(FrontendTests
   FrontendActionTest.cpp
   CodeGenActionTest.cpp
   IntelOutputStreamTest.cpp #INTEL
+  ParsedSourceLocationTest.cpp
   PCHPreambleTest.cpp
   )
 target_link_libraries(FrontendTests

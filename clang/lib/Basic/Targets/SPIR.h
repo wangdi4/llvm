@@ -27,6 +27,7 @@ static const unsigned SPIRAddrSpaceMap[] = {
     1, // opencl_global
     3, // opencl_local
     2, // opencl_constant
+    0, // opencl_private
     4, // opencl_generic
     0, // cuda_device
     0, // cuda_constant
@@ -45,6 +46,7 @@ public:
            "SPIR target must use unknown environment type");
 #endif // INTEL_CUSTOMIZATION
     TLSSupported = false;
+    VLASupported = false;
     LongWidth = LongAlign = 64;
     AddrSpaceMap = &SPIRAddrSpaceMap;
     UseAddrSpaceMapMangling = true;
@@ -127,18 +129,22 @@ public:
 #if INTEL_CUSTOMIZATION
 class LLVM_LIBRARY_VISIBILITY SPIR32INTELFpgaTargetInfo
     : public SPIR32TargetInfo {
+  static const Builtin::Info BuiltinInfo[];
 public:
   SPIR32INTELFpgaTargetInfo(const llvm::Triple &Triple,
                             const TargetOptions &Opts)
       : SPIR32TargetInfo(Triple, Opts) {}
+  ArrayRef<Builtin::Info> getTargetBuiltins() const override;
 };
 
 class LLVM_LIBRARY_VISIBILITY SPIR64INTELFpgaTargetInfo
     : public SPIR64TargetInfo {
+  static const Builtin::Info BuiltinInfo[];
 public:
   SPIR64INTELFpgaTargetInfo(const llvm::Triple &Triple,
                             const TargetOptions &Opts)
       : SPIR64TargetInfo(Triple, Opts) {}
+  ArrayRef<Builtin::Info> getTargetBuiltins() const override;
 };
 #endif // INTEL_CUSTOMIZATION
 } // namespace targets

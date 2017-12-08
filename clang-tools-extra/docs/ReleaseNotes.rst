@@ -57,6 +57,34 @@ The improvements are...
 Improvements to clang-tidy
 --------------------------
 
+- New `google-avoid-throwing-objc-exception
+  <http://clang.llvm.org/extra/clang-tidy/checks/google-objc-avoid-throwing-exception.html>`_ check
+
+  Add new check to detect throwing exceptions in Objective-C code, which should be avoided.
+
+- New `objc-property-declaration
+  <http://clang.llvm.org/extra/clang-tidy/checks/objc-property-declaration.html>`_ check
+
+  Add new check for Objective-C code to ensure property
+  names follow the naming convention of Apple's programming
+  guide.
+
+- New `google-objc-global-variable-declaration
+  <http://clang.llvm.org/extra/clang-tidy/checks/google-global-variable-declaration.html>`_ check
+
+  Add new check for Objective-C code to ensure global 
+  variables follow the naming convention of 'k[A-Z].*' (for constants) 
+  or 'g[A-Z].*' (for variables).
+
+- New module `objc` for Objective-C style checks.
+
+- New `objc-forbidden-subclassing
+  <http://clang.llvm.org/extra/clang-tidy/checks/objc-forbidden-subclassing.html>`_ check
+
+  Ensures Objective-C classes do not subclass any classes which are
+  not intended to be subclassed. Includes a list of classes from Foundation
+  and UIKit which are documented as not supporting subclassing.
+
 - Renamed checks to use correct term "implicit conversion" instead of "implicit
   cast" and modified messages and option names accordingly:
 
@@ -107,6 +135,11 @@ Improvements to clang-tidy
 
   Checks if the required file flag ``MFD_CLOEXEC`` is present in the argument
   of ``memfd_create()``.
+
+- New `bugprone-copy-constructor-init
+  <http://clang.llvm.org/extra/clang-tidy/checks/bugprone-copy-constructor-init.html>`_ check
+
+  Finds copy constructors which don't call the copy constructor of the base class.
 
 - New `bugprone-integer-division
   <http://clang.llvm.org/extra/clang-tidy/checks/bugprone-integer-division.html>`_ check

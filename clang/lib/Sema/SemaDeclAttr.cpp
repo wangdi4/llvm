@@ -3306,6 +3306,31 @@ static void handleOpenCLBufferLocationAttr(Sema & S, Decl * D,
       Attr.getRange(), S.Context, Str, Attr.getAttributeSpellingListIndex()));
 }
 
+static void handleOpenCLHostAccessible(Sema &S, Decl *D,
+                                       const AttributeList &Attr) {
+  if (D->isInvalidDecl())
+    return;
+
+  QualType Ty = cast<VarDecl>(D)->getType();
+
+  if (!S.getOpenCLOptions().isEnabled("cl_intel_fpga_host_pipe")) {
+    S.Diag(D->getLocation(),
+           diag::err_intel_opencl_attribute_requires_extension)
+        << Attr.getName() << "cl_intel_fpga_host_pipe";
+    return;
+  }
+
+  const Type *TypePtr = Ty.getTypePtr();
+  if (!TypePtr->isPipeType()) {
+    S.Diag(Attr.getLoc(), diag::warn_intel_opencl_attribute_wrong_decl_type)
+        << Attr.getName() << 47;
+    return;
+  }
+
+  D->addAttr(::new (S.Context) OpenCLHostAccessibleAttr(
+      Attr.getRange(), S.Context, Attr.getAttributeSpellingListIndex()));
+}
+
 static void handleVecLenHint(Sema &S, Decl *D, const AttributeList &Attr) {
   if (!S.getOpenCLOptions().isEnabled("cl_intel_vec_len_hint")) {
     S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
@@ -5308,7 +5333,7 @@ bool Sema::CheckCallingConvAttr(const AttributeList &Attrs, CallingConv &CC,
 static bool isValidSwiftContextType(QualType type) {
   if (!type->hasPointerRepresentation())
     return type->isDependentType();
-  return type->getPointeeType().getAddressSpace() == 0;
+  return type->getPointeeType().getAddressSpace() == LangAS::Default;
 }
 
 /// Pointers and references in the default address space.
@@ -5320,7 +5345,7 @@ static bool isValidSwiftIndirectResultType(QualType type) {
   } else {
     return type->isDependentType();
   }
-  return type.getAddressSpace() == 0;
+  return type.getAddressSpace() == LangAS::Default;
 }
 
 /// Pointers and references to pointers in the default address space.
@@ -7651,6 +7676,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     break;
   case AttributeList::AT_Autorun:
     handleAutorunAttr(S, D, Attr);
+    break;
+  case AttributeList::AT_OpenCLHostAccessible:
+    handleOpenCLHostAccessible(S, D, Attr);
     break;
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_SPECIFIC_CILKPLUS

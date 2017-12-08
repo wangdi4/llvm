@@ -476,6 +476,13 @@ def Autorun : InheritableAttr {
   let Documentation = [AutorunDocs];
 }
 
+def OpenCLHostAccessible : Attr {
+  let Spellings = [GNU<"intel_host_accessible">];
+  let Subjects = SubjectList<[Var]>;
+  let Documentation = [OpenCLHostAccessibleDocs];
+  let LangOpts = [OpenCL];
+}
+
 // End of FPGA-specific attributes
 
 def VecLenHint : InheritableAttr {

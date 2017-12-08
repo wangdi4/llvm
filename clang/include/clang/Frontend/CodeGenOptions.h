@@ -274,6 +274,7 @@ public:
   /// \brief A list of all -fno-builtin-* function names (e.g., memset).
   std::vector<std::string> NoBuiltinFuncs;
 
+  std::vector<std::string> Reciprocals;
 #if INTEL_CUSTOMIZATION
   // List of target triples for offloading.
   std::vector<std::string> OffloadTargets;

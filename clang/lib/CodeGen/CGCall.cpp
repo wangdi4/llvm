@@ -1777,10 +1777,10 @@ void CodeGenModule::ConstructDefaultFnAttrList(StringRef Name, bool HasOptnone,
         llvm::toStringRef(CodeGenOpts.CorrectlyRoundedDivSqrt));
 
     // TODO: Reciprocal estimate codegen options should apply to instructions?
-    std::vector<std::string> &Recips = getTarget().getTargetOpts().Reciprocals;
+    const std::vector<std::string> &Recips = CodeGenOpts.Reciprocals;
     if (!Recips.empty())
       FuncAttrs.addAttribute("reciprocal-estimates",
-                             llvm::join(Recips.begin(), Recips.end(), ","));
+                             llvm::join(Recips, ","));
 
     if (CodeGenOpts.StackRealignment)
       FuncAttrs.addAttribute("stackrealign");
@@ -1788,13 +1788,16 @@ void CodeGenModule::ConstructDefaultFnAttrList(StringRef Name, bool HasOptnone,
       FuncAttrs.addAttribute("backchain");
   }
 
-  if (getLangOpts().CUDA && getLangOpts().CUDAIsDevice) {
-    // Conservatively, mark all functions and calls in CUDA as convergent
-    // (meaning, they may call an intrinsically convergent op, such as
-    // __syncthreads(), and so can't have certain optimizations applied around
-    // them).  LLVM will remove this attribute where it safely can.
+  if (getLangOpts().assumeFunctionsAreConvergent()) {
+    // Conservatively, mark all functions and calls in CUDA and OpenCL as
+    // convergent (meaning, they may call an intrinsically convergent op, such
+    // as __syncthreads() / barrier(), and so can't have certain optimizations
+    // applied around them).  LLVM will remove this attribute where it safely
+    // can.
     FuncAttrs.addAttribute(llvm::Attribute::Convergent);
+  }
 
+  if (getLangOpts().CUDA && getLangOpts().CUDAIsDevice) {
     // Exceptions aren't supported in CUDA device code.
     FuncAttrs.addAttribute(llvm::Attribute::NoUnwind);
 
@@ -1890,6 +1893,16 @@ void CodeGenModule::ConstructAttributeList(
       !(TargetDecl && TargetDecl->hasAttr<NoSplitStackAttr>()))
     FuncAttrs.addAttribute("split-stack");
 
+  // Add NonLazyBind attribute to function declarations when -fno-plt
+  // is used.
+  if (TargetDecl && CodeGenOpts.NoPLT) {
+    if (auto *Fn = dyn_cast<FunctionDecl>(TargetDecl)) {
+      if (!Fn->isDefined() && !AttrOnCallSite) {
+        FuncAttrs.addAttribute(llvm::Attribute::NonLazyBind);
+      }
+    }
+  }
+
   if (!AttrOnCallSite) {
     bool DisableTailCalls =
         CodeGenOpts.DisableTailCalls ||
@@ -1920,15 +1933,16 @@ void CodeGenModule::ConstructAttributeList(
       // the function.
       const auto *TD = FD->getAttr<TargetAttr>();
       TargetAttr::ParsedTargetAttr ParsedAttr = TD->parse();
-      if (ParsedAttr.Architecture != "")
+      if (ParsedAttr.Architecture != "" &&
+          getTarget().isValidCPUName(ParsedAttr.Architecture))
         TargetCPU = ParsedAttr.Architecture;
       if (TargetCPU != "")
-        FuncAttrs.addAttribute("target-cpu", TargetCPU);
+         FuncAttrs.addAttribute("target-cpu", TargetCPU);
       if (!Features.empty()) {
         std::sort(Features.begin(), Features.end());
         FuncAttrs.addAttribute(
             "target-features",
-            llvm::join(Features.begin(), Features.end(), ","));
+            llvm::join(Features, ","));
       }
     } else {
       // Otherwise just add the existing target cpu and target features to the
@@ -1940,7 +1954,7 @@ void CodeGenModule::ConstructAttributeList(
         std::sort(Features.begin(), Features.end());
         FuncAttrs.addAttribute(
             "target-features",
-            llvm::join(Features.begin(), Features.end(), ","));
+            llvm::join(Features, ","));
       }
     }
   }

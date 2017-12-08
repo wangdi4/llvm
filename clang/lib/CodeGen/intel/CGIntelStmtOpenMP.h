@@ -184,6 +184,9 @@ public:
   void emitOMPFlushDirective();
   void emitOMPTeamsDirective();
   void emitOMPDistributeDirective();
+  void emitOMPSectionsDirective();
+  void emitOMPSectionDirective();
+  void emitOMPParallelSectionsDirective();
   OpenMPCodeOutliner &operator<<(ArrayRef<OMPClause *> Clauses);
   void emitImplicit(Expr *E, OpenMPClauseKind K);
   void emitImplicit(const VarDecl *VD, OpenMPClauseKind K);

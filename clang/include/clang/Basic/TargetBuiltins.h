@@ -210,6 +210,18 @@ namespace clang {
     };
   }
 
+#if INTEL_CUSTOMIZATION
+  /// \brief FPGA builtins
+  namespace SPIRINTELFpga {
+    enum {
+      LastTIBuiltin = clang::Builtin::FirstTSBuiltin-1,
+#define BUILTIN(ID, TYPE, ATTRS) BI##ID,
+#include "clang/Basic/intel/BuiltinsSPIRINTELFpga.def"
+      LastTSBuiltin
+    };
+  }
+#endif // INTEL_CUSTOMIZATION
+
 } // end namespace clang.
 
 #endif
