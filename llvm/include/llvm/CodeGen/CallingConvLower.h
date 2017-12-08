@@ -1,4 +1,4 @@
-//===-- llvm/CallingConvLower.h - Calling Conventions -----------*- C++ -*-===//
+//===- llvm/CallingConvLower.h - Calling Conventions ------------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -18,11 +18,12 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineFunction.h"
+#include "llvm/CodeGen/TargetCallingConv.h"
 #include "llvm/IR/CallingConv.h"
 #include "llvm/MC/MCRegisterInfo.h"
-#include "llvm/Target/TargetCallingConv.h"
 
 namespace llvm {
+
 class CCState;
 class MVT;
 class TargetMachine;
@@ -503,7 +504,7 @@ public:
   }
 
   // Get list of pending assignments
-  SmallVectorImpl<llvm::CCValAssign> &getPendingLocs() {
+  SmallVectorImpl<CCValAssign> &getPendingLocs() {
     return PendingLocs;
   }
 
@@ -564,8 +565,6 @@ private:
   void MarkAllocated(unsigned Reg);
 };
 
-
-
 } // end namespace llvm
 
-#endif
+#endif // LLVM_CODEGEN_CALLINGCONVLOWER_H

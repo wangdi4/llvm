@@ -8,8 +8,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "JSONRPCDispatcher.h"
+#include "JSONExpr.h"
 #include "ProtocolHandlers.h"
+#include "Trace.h"
 #include "llvm/ADT/SmallString.h"
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/YAMLParser.h"
 #include <istream>
@@ -17,58 +20,95 @@
 using namespace clang;
 using namespace clangd;
 
-void JSONOutput::writeMessage(const Twine &Message) {
-  llvm::SmallString<128> Storage;
-  StringRef M = Message.toStringRef(Storage);
+void JSONOutput::writeMessage(const json::Expr &Message) {
+  std::string S;
+  llvm::raw_string_ostream OS(S);
+  if (Pretty)
+    OS << llvm::formatv("{0:2}", Message);
+  else
+    OS << Message;
+  OS.flush();
 
   std::lock_guard<std::mutex> Guard(StreamMutex);
   // Log without headers.
-  Logs << "--> " << M << '\n';
+  Logs << "--> " << S << '\n';
   Logs.flush();
 
   // Emit message with header.
-  Outs << "Content-Length: " << M.size() << "\r\n\r\n" << M;
+  Outs << "Content-Length: " << S.size() << "\r\n\r\n" << S;
   Outs.flush();
 }
 
 void JSONOutput::log(const Twine &Message) {
+  trace::log(Message);
   std::lock_guard<std::mutex> Guard(StreamMutex);
   Logs << Message;
   Logs.flush();
 }
 
-void Handler::handleMethod(llvm::yaml::MappingNode *Params, StringRef ID) {
-  Output.log("Method ignored.\n");
-  // Return that this method is unsupported.
-  writeMessage(
-      R"({"jsonrpc":"2.0","id":)" + ID +
-      R"(,"error":{"code":-32601,"message":"method not found"}})");
+void JSONOutput::mirrorInput(const Twine &Message) {
+  if (!InputMirror)
+    return;
+
+  *InputMirror << Message;
+  InputMirror->flush();
 }
 
-void Handler::handleNotification(llvm::yaml::MappingNode *Params) {
-  Output.log("Notification ignored.\n");
+void RequestContext::reply(json::Expr &&Result) {
+  if (!ID) {
+    Out.log("Attempted to reply to a notification!\n");
+    return;
+  }
+  Out.writeMessage(json::obj{
+      {"jsonrpc", "2.0"},
+      {"id", *ID},
+      {"result", std::move(Result)},
+  });
 }
 
-void JSONRPCDispatcher::registerHandler(StringRef Method,
-                                        std::unique_ptr<Handler> H) {
+void RequestContext::replyError(ErrorCode code,
+                                const llvm::StringRef &Message) {
+  Out.log("Error " + Twine(static_cast<int>(code)) + ": " + Message + "\n");
+  if (ID) {
+    Out.writeMessage(json::obj{
+        {"jsonrpc", "2.0"},
+        {"id", *ID},
+        {"error",
+         json::obj{{"code", static_cast<int>(code)}, {"message", Message}}},
+    });
+  }
+}
+
+void RequestContext::call(StringRef Method, json::Expr &&Params) {
+  // FIXME: Generate/Increment IDs for every request so that we can get proper
+  // replies once we need to.
+  Out.writeMessage(json::obj{
+      {"jsonrpc", "2.0"},
+      {"id", 1},
+      {"method", Method},
+      {"params", std::move(Params)},
+  });
+}
+
+void JSONRPCDispatcher::registerHandler(StringRef Method, Handler H) {
   assert(!Handlers.count(Method) && "Handler already registered!");
   Handlers[Method] = std::move(H);
 }
 
 static void
-callHandler(const llvm::StringMap<std::unique_ptr<Handler>> &Handlers,
-            llvm::yaml::ScalarNode *Method, llvm::yaml::ScalarNode *Id,
-            llvm::yaml::MappingNode *Params, Handler *UnknownHandler) {
-  llvm::SmallString<10> MethodStorage;
-  auto I = Handlers.find(Method->getValue(MethodStorage));
-  auto *Handler = I != Handlers.end() ? I->second.get() : UnknownHandler;
-  if (Id)
-    Handler->handleMethod(Params, Id->getRawValue());
-  else
-    Handler->handleNotification(Params);
+callHandler(const llvm::StringMap<JSONRPCDispatcher::Handler> &Handlers,
+            llvm::yaml::ScalarNode *Method, llvm::Optional<json::Expr> ID,
+            llvm::yaml::MappingNode *Params,
+            const JSONRPCDispatcher::Handler &UnknownHandler, JSONOutput &Out) {
+  llvm::SmallString<64> MethodStorage;
+  llvm::StringRef MethodStr = Method->getValue(MethodStorage);
+  auto I = Handlers.find(MethodStr);
+  auto &Handler = I != Handlers.end() ? I->second : UnknownHandler;
+  trace::Span Tracer(MethodStr);
+  Handler(RequestContext(Out, std::move(ID)), Params);
 }
 
-bool JSONRPCDispatcher::call(StringRef Content) const {
+bool JSONRPCDispatcher::call(StringRef Content, JSONOutput &Out) const {
   llvm::SourceMgr SM;
   llvm::yaml::Stream YAMLStream(Content, SM);
 
@@ -76,20 +116,17 @@ bool JSONRPCDispatcher::call(StringRef Content) const {
   if (Doc == YAMLStream.end())
     return false;
 
-  auto *Root = Doc->getRoot();
-  if (!Root)
-    return false;
-
-  auto *Object = dyn_cast<llvm::yaml::MappingNode>(Root);
+  auto *Object = dyn_cast_or_null<llvm::yaml::MappingNode>(Doc->getRoot());
   if (!Object)
     return false;
 
   llvm::yaml::ScalarNode *Version = nullptr;
   llvm::yaml::ScalarNode *Method = nullptr;
   llvm::yaml::MappingNode *Params = nullptr;
-  llvm::yaml::ScalarNode *Id = nullptr;
+  llvm::Optional<json::Expr> ID;
   for (auto &NextKeyValue : *Object) {
-    auto *KeyString = dyn_cast<llvm::yaml::ScalarNode>(NextKeyValue.getKey());
+    auto *KeyString =
+        dyn_cast_or_null<llvm::yaml::ScalarNode>(NextKeyValue.getKey());
     if (!KeyString)
       return false;
 
@@ -107,7 +144,19 @@ bool JSONRPCDispatcher::call(StringRef Content) const {
     } else if (KeyValue == "method") {
       Method = dyn_cast<llvm::yaml::ScalarNode>(Value);
     } else if (KeyValue == "id") {
-      Id = dyn_cast<llvm::yaml::ScalarNode>(Value);
+      // ID may be either a string or a number.
+      if (auto *IdNode = dyn_cast<llvm::yaml::ScalarNode>(Value)) {
+        llvm::SmallString<32> S;
+        llvm::StringRef V = IdNode->getValue(S);
+        if (IdNode->getRawValue().startswith("\"")) {
+          ID.emplace(V.str());
+        } else {
+          double D;
+          // FIXME: this is locale-sensitive.
+          if (llvm::to_float(V, D))
+            ID.emplace(D);
+        }
+      }
     } else if (KeyValue == "params") {
       if (!Method)
         return false;
@@ -116,7 +165,7 @@ bool JSONRPCDispatcher::call(StringRef Content) const {
       // because it will break clients that put the id after params. A possible
       // fix would be to split the parsing and execution phases.
       Params = dyn_cast<llvm::yaml::MappingNode>(Value);
-      callHandler(Handlers, Method, Id, Params, UnknownHandler.get());
+      callHandler(Handlers, Method, std::move(ID), Params, UnknownHandler, Out);
       return true;
     } else {
       return false;
@@ -127,7 +176,7 @@ bool JSONRPCDispatcher::call(StringRef Content) const {
   // leftovers.
   if (!Method)
     return false;
-  callHandler(Handlers, Method, Id, nullptr, UnknownHandler.get());
+  callHandler(Handlers, Method, std::move(ID), nullptr, UnknownHandler, Out);
 
   return true;
 }
@@ -147,6 +196,14 @@ void clangd::runLanguageServerLoop(std::istream &In, JSONOutput &Out,
         continue;
       }
 
+      Out.mirrorInput(Line);
+      // Mirror '\n' that gets consumed by std::getline, but is not included in
+      // the resulting Line.
+      // Note that '\r' is part of Line, so we don't need to mirror it
+      // separately.
+      if (!In.eof())
+        Out.mirrorInput("\n");
+
       llvm::StringRef LineRef(Line);
 
       // We allow YAML-style comments in headers. Technically this isn't part
@@ -163,9 +220,8 @@ void clangd::runLanguageServerLoop(std::istream &In, JSONOutput &Out,
       if (LineRef.consume_front("Content-Length: ")) {
         if (ContentLength != 0) {
           Out.log("Warning: Duplicate Content-Length header received. "
-                  "The previous value for this message ("
-                  + std::to_string(ContentLength)
-                  + ") was ignored.\n");
+                  "The previous value for this message (" +
+                  std::to_string(ContentLength) + ") was ignored.\n");
         }
 
         llvm::getAsUnsignedInteger(LineRef.trim(), 0, ContentLength);
@@ -180,37 +236,50 @@ void clangd::runLanguageServerLoop(std::istream &In, JSONOutput &Out,
       }
     }
 
-    if (ContentLength > 0) {
-      // Now read the JSON. Insert a trailing null byte as required by the YAML
-      // parser.
-      std::vector<char> JSON(ContentLength + 1, '\0');
-      In.read(JSON.data(), ContentLength);
+    // Guard against large messages. This is usually a bug in the client code
+    // and we don't want to crash downstream because of it.
+    if (ContentLength > 1 << 30) { // 1024M
+      In.ignore(ContentLength);
+      Out.log("Skipped overly large message of " + Twine(ContentLength) +
+              " bytes.\n");
+      continue;
+    }
 
-      // If the stream is aborted before we read ContentLength bytes, In
-      // will have eofbit and failbit set.
-      if (!In) {
-        Out.log("Input was aborted. Read only "
-                + std::to_string(In.gcount())
-                + " bytes of expected "
-                + std::to_string(ContentLength)
-                + ".\n");
-        break;
+    if (ContentLength > 0) {
+      std::vector<char> JSON(ContentLength + 1, '\0');
+      llvm::StringRef JSONRef;
+      {
+        trace::Span Tracer("Reading request");
+        // Now read the JSON. Insert a trailing null byte as required by the
+        // YAML parser.
+        In.read(JSON.data(), ContentLength);
+        Out.mirrorInput(StringRef(JSON.data(), In.gcount()));
+
+        // If the stream is aborted before we read ContentLength bytes, In
+        // will have eofbit and failbit set.
+        if (!In) {
+          Out.log("Input was aborted. Read only " +
+                  std::to_string(In.gcount()) + " bytes of expected " +
+                  std::to_string(ContentLength) + ".\n");
+          break;
+        }
+
+        JSONRef = StringRef(JSON.data(), ContentLength);
       }
 
-      llvm::StringRef JSONRef(JSON.data(), ContentLength);
       // Log the message.
       Out.log("<-- " + JSONRef + "\n");
 
       // Finally, execute the action for this JSON message.
-      if (!Dispatcher.call(JSONRef))
+      if (!Dispatcher.call(JSONRef, Out))
         Out.log("JSON dispatch failed!\n");
 
       // If we're done, exit the loop.
       if (IsDone)
         break;
     } else {
-      Out.log( "Warning: Missing Content-Length header, or message has zero "
-               "length.\n" );
+      Out.log("Warning: Missing Content-Length header, or message has zero "
+              "length.\n");
     }
   }
 }
