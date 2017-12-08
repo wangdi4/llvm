@@ -201,6 +201,9 @@ private:
   /// \brief Create a variable that binds the atexit to this shared object.
   GlobalVariable *DsoHandle;
 
+  /// \brief A string to describe the device information.
+  SmallVector<Triple, 16> TgtDeviceTriples;
+
   /// \brief Struct that keeps all the information needed to pass to
   /// the runtime library.
   class TgDataInfo {
@@ -670,6 +673,9 @@ private:
 
   /// \brief Generate the helper function for copying the copyprivate data.
   Function *genCopyPrivateFunc(WRegionNode *W, StructType *KmpCopyPrivateTy);
+
+  /// \brief Process the device information into the triples.
+  void processDeviceTriples();
 };
 } /// namespace vpo
 } /// namespace llvm

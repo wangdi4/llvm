@@ -2082,6 +2082,27 @@ This information is passed along to the backend so that it generates
 code for the proper architecture. It's possible to override this on the
 command line with the ``-mtriple`` command line option.
 
+.. INTEL_CUSTOMIZATION
+.. _target_devices_triples:
+
+Devices Triples
+---------------
+A module may specify comma-separated list of triples that describes the
+OpenMP offloading targets to be supported. The list of triples is denoted
+as devices triple, whose syntax is simply:
+
+.. code-block:: llvm
+
+    target device_triples = "x86_64-mic,i386-pc-linux-gnu"
+
+The *devices triples* string consists of a series of substrings separated by
+','. Each substring which consists of a series of identifiers joined by the
+minus sign character ('-'), is in the same format of the *target triple*.
+
+This information is passed along to the backend so that it generates
+code for the proper architecture.
+.. END INTEL_CUSTOMIZATION
+
 .. _pointeraliasing:
 
 Pointer Aliasing Rules

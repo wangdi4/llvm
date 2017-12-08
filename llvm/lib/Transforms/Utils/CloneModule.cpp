@@ -53,15 +53,16 @@ std::unique_ptr<Module> llvm::CloneModule(
       llvm::make_unique<Module>(M->getModuleIdentifier(), M->getContext());
   New->setDataLayout(M->getDataLayout());
   New->setTargetTriple(M->getTargetTriple());
+  New->setTargetDevices(M->getTargetDevices());  // INTEL
   New->setModuleInlineAsm(M->getModuleInlineAsm());
-   
+
   // Loop over all of the global variables, making corresponding globals in the
   // new module.  Here we add them to the VMap and to the new Module.  We
   // don't worry about attributes or initializers, they will come later.
   //
   for (Module::const_global_iterator I = M->global_begin(), E = M->global_end();
        I != E; ++I) {
-    GlobalVariable *GV = new GlobalVariable(*New, 
+    GlobalVariable *GV = new GlobalVariable(*New,
                                             I->getValueType(),
                                             I->isConstant(), I->getLinkage(),
                                             (Constant*) nullptr, I->getName(),
@@ -110,7 +111,7 @@ std::unique_ptr<Module> llvm::CloneModule(
     GA->copyAttributesFrom(&*I);
     VMap[&*I] = GA;
   }
-  
+
   // Now that all of the things that global variable initializer can refer to
   // have been created, loop through and copy the global variable referrers
   // over...  We also set the attributes on the global now.

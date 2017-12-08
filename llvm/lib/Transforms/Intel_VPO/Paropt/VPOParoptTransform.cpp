@@ -124,6 +124,8 @@ bool VPOParoptTransform::paroptTransforms() {
   bool RoutineChanged = false;
   const DataLayout &DL = F->getParent()->getDataLayout();
 
+  processDeviceTriples();
+
   BasicBlock::iterator I = F->getEntryBlock().begin();
 
   // Setup Anchor Instuction Point

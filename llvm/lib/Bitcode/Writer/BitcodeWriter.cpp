@@ -1094,6 +1094,11 @@ void ModuleBitcodeWriter::writeModuleInfo() {
   if (!M.getTargetTriple().empty())
     writeStringRecord(Stream, bitc::MODULE_CODE_TRIPLE, M.getTargetTriple(),
                       0 /*TODO*/);
+#if INTEL_CUSTOMIZATION
+  if (!M.getTargetDevices().empty())
+    writeStringRecord(Stream, bitc::MODULE_CODE_DEVICES, M.getTargetDevices(),
+                      0 /*TODO*/);
+#endif // INTEL_CUSTOMIZATION
   const std::string &DL = M.getDataLayoutStr();
   if (!DL.empty())
     writeStringRecord(Stream, bitc::MODULE_CODE_DATALAYOUT, DL, 0 /*TODO*/);

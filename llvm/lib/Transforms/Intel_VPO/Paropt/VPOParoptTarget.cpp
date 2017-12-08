@@ -557,7 +557,7 @@ VPOParoptTransform::genOffloadingBinaryDescriptorRegistration(WRegionNode *W) {
       ".omp_offloading.entries_end");
 
   SmallVector<Constant*, 16> DeviceImagesInit;
-  for (const auto &T : OffloadTargets) {
+  for (const auto &T : TgtDeviceTriples) {
     const auto &N = T.getTriple();
 
     auto *ImgBegin = new GlobalVariable(
@@ -591,7 +591,8 @@ VPOParoptTransform::genOffloadingBinaryDescriptorRegistration(WRegionNode *W) {
                         Constant::getNullValue(Type::getInt32Ty(C)) };
 
   SmallVector<Constant *, 16> DescInitBuffer;
-  DescInitBuffer.push_back(ConstantInt::get(Type::getInt32Ty(C), 1));
+  DescInitBuffer.push_back(
+      ConstantInt::get(Type::getInt32Ty(C), TgtDeviceTriples.size()));
   DescInitBuffer.push_back(ConstantExpr::getGetElementPtr(
       DeviceImages->getValueType(), DeviceImages, Index));
   DescInitBuffer.push_back(HostEntriesBegin);
@@ -765,4 +766,18 @@ bool VPOParoptTransform::genDevicePtrPrivationCode(WRegionNode *W) {
     }
   }
   return Changed;
+}
+
+// Process the device information string into the triples.
+void VPOParoptTransform::processDeviceTriples() {
+  auto TargetDevicesStr = F->getParent()->getTargetDevices();
+  std::string::size_type Pos = 0;
+  while (true) {
+    std::string::size_type Next = TargetDevicesStr.find(',', Pos);
+    Triple TT(TargetDevicesStr.substr(Pos, Next - Pos));
+    TgtDeviceTriples.push_back(TT);
+    if (Next == std::string::npos)
+      break;
+    Pos = Next + 1;
+  }
 }

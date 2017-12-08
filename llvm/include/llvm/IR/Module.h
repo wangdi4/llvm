@@ -187,6 +187,8 @@ private:
   void *NamedMDSymTab;            ///< NamedMDNode names.
   DataLayout DL;                  ///< DataLayout associated with the module
 
+  std::string TargetDevices;      ///< Target devices    // INTEL
+
   friend class Constant;
 
 /// @}
@@ -232,6 +234,12 @@ public:
   /// @returns a string containing the target triple.
   const std::string &getTargetTriple() const { return TargetTriple; }
 
+#if INTEL_CUSTOMIZATION
+  /// Get the target device information which is a comma-separated string
+  /// describing one or more devices.
+  const std::string &getTargetDevices() const { return TargetDevices; }
+#endif // INTEL_CUSTOMIZATION
+
   /// Get the global data context.
   /// @returns LLVMContext - a container for LLVM's global information
   LLVMContext &getContext() const { return Context; }
@@ -267,6 +275,11 @@ public:
 
   /// Set the target triple.
   void setTargetTriple(StringRef T) { TargetTriple = T; }
+
+#if INTEL_CUSTOMIZATION
+  /// set the target device information.
+  void setTargetDevices(StringRef T) { TargetDevices = T; }
+#endif // INTEL_CUSTOMIZATION
 
   /// Set the module-scope inline assembly blocks.
   /// A trailing newline is added if the input doesn't have one.

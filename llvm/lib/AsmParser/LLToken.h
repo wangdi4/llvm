@@ -71,6 +71,7 @@ enum Kind {
 #if INTEL_CUSTOMIZATION
   kw_thread_private,
   kw_target_declare,
+  kw_device_triples,
 #endif // INTEL_CUSTOMIZATION
   kw_localdynamic,
   kw_initialexec,

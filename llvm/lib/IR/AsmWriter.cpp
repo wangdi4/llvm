@@ -2355,6 +2355,11 @@ void AssemblyWriter::printModule(const Module *M) {
   if (!M->getTargetTriple().empty())
     Out << "target triple = \"" << M->getTargetTriple() << "\"\n";
 
+#if INTEL_CUSTOMIZATION
+  if (!M->getTargetDevices().empty())
+    Out << "target device_triples = \"" << M->getTargetDevices() << "\"\n";
+#endif // INTEL_CUSTOMIZATION
+
   if (!M->getModuleInlineAsm().empty()) {
     Out << '\n';
 

@@ -520,6 +520,7 @@ lltok::Kind LLLexer::LexIdentifier() {
 #if INTEL_CUSTOMIZATION
   KEYWORD(thread_private);
   KEYWORD(target_declare);
+  KEYWORD(device_triples);
 #endif // INTEL_CUSTOMIZATION
   KEYWORD(localdynamic);
   KEYWORD(initialexec);
