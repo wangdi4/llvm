@@ -38,6 +38,16 @@ public:
     return createNaryOp(Opcode, ArrayRef<VPValue *>(Operands), DDNode);
   }
 
+  /// Create a VPCmpInst with \p LHS and \p RHS as operands, \p Pred as
+  /// predicate and set \p DDNode as its VPInstructionData.
+  VPCmpInst *createCmpInst(VPValue *LHS, VPValue *RHS, CmpInst::Predicate Pred,
+                           HLDDNode *DDNode) {
+    assert(DDNode && "DDNode can't be null.");
+    VPCmpInst *NewVPCmp = VPBuilder::createCmpInst(LHS, RHS, Pred);
+    NewVPCmp->setHIRData(new VPInstructionDataHIR(DDNode));
+    return NewVPCmp;
+  }
+
   /// Create a semi-phi operation with \p Operands as reaching definitions.
   VPValue *createSemiPhiOp(ArrayRef<VPValue *> Operands) {
     return createInstruction(VPInstruction::SemiPhi, Operands);
