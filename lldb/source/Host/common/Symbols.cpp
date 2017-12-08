@@ -8,11 +8,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "lldb/Host/Symbols.h"
-#include "lldb/Core/ArchSpec.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/ModuleSpec.h"
 #include "lldb/Symbol/ObjectFile.h"
 #include "lldb/Target/Target.h"
+#include "lldb/Utility/ArchSpec.h"
 #include "lldb/Utility/DataBuffer.h"
 #include "lldb/Utility/DataExtractor.h"
 #include "lldb/Utility/Log.h"
@@ -285,7 +285,12 @@ FileSpec Symbols::LocateExecutableSymbolFile(const ModuleSpec &module_spec) {
           if (num_specs == 1) {
             ModuleSpec mspec;
             if (specs.GetModuleSpecAtIndex(0, mspec)) {
-              if (mspec.GetUUID() == module_uuid)
+              // Skip the uuids check if module_uuid is invalid.
+              // For example, this happens for *.dwp files since
+              // at the moment llvm-dwp doesn't output build ids,
+              // nor does binutils dwp.
+              if (!module_uuid.IsValid() ||
+                  module_uuid == mspec.GetUUID())
                 return file_spec;
             }
           }

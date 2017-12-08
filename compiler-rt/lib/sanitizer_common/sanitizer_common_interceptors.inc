@@ -3828,6 +3828,15 @@ INTERCEPTOR(int, pthread_mutex_unlock, void *m) {
 #define INIT_PTHREAD_MUTEX_UNLOCK
 #endif
 
+#if SANITIZER_NETBSD
+INTERCEPTOR(int, __libc_mutex_lock, void *m) \
+  ALIAS(WRAPPER_NAME(pthread_mutex_lock));
+INTERCEPTOR(int, __libc_mutex_unlock, void *m) \
+  ALIAS(WRAPPER_NAME(pthread_mutex_unlock));
+INTERCEPTOR(int, __libc_thr_setcancelstate, int state, int *oldstate) \
+  ALIAS(WRAPPER_NAME(pthread_setcancelstate));
+#endif
+
 #if SANITIZER_INTERCEPT_GETMNTENT || SANITIZER_INTERCEPT_GETMNTENT_R
 static void write_mntent(void *ctx, __sanitizer_mntent *mnt) {
   COMMON_INTERCEPTOR_WRITE_RANGE(ctx, mnt, sizeof(*mnt));
@@ -4405,13 +4414,24 @@ INTERCEPTOR(char *, tempnam, char *dir, char *pfx) {
 #define INIT_TEMPNAM
 #endif
 
-#if SANITIZER_INTERCEPT_PTHREAD_SETNAME_NP
+#if SANITIZER_INTERCEPT_PTHREAD_SETNAME_NP && !SANITIZER_NETBSD
 INTERCEPTOR(int, pthread_setname_np, uptr thread, const char *name) {
   void *ctx;
   COMMON_INTERCEPTOR_ENTER(ctx, pthread_setname_np, thread, name);
   COMMON_INTERCEPTOR_READ_STRING(ctx, name, 0);
   COMMON_INTERCEPTOR_SET_PTHREAD_NAME(ctx, thread, name);
   return REAL(pthread_setname_np)(thread, name);
+}
+#define INIT_PTHREAD_SETNAME_NP COMMON_INTERCEPT_FUNCTION(pthread_setname_np);
+#elif SANITIZER_INTERCEPT_PTHREAD_SETNAME_NP && SANITIZER_NETBSD
+INTERCEPTOR(int, pthread_setname_np, uptr thread, const char *name, void *arg) {
+  void *ctx;
+  char newname[32]; // PTHREAD_MAX_NAMELEN_NP=32
+  COMMON_INTERCEPTOR_ENTER(ctx, pthread_setname_np, thread, name, arg);
+  COMMON_INTERCEPTOR_READ_STRING(ctx, name, 0);
+  internal_snprintf(newname, sizeof(newname), name, arg);
+  COMMON_INTERCEPTOR_SET_PTHREAD_NAME(ctx, thread, newname);
+  return REAL(pthread_setname_np)(thread, name, arg);
 }
 #define INIT_PTHREAD_SETNAME_NP COMMON_INTERCEPT_FUNCTION(pthread_setname_np);
 #else
@@ -5824,7 +5844,7 @@ INTERCEPTOR(int, pthread_setcancelstate, int state, int *oldstate) {
   void *ctx;
   COMMON_INTERCEPTOR_ENTER(ctx, pthread_setcancelstate, state, oldstate);
   int res = REAL(pthread_setcancelstate)(state, oldstate);
-  if (res == 0)
+  if (res == 0 && oldstate != nullptr)
     COMMON_INTERCEPTOR_WRITE_RANGE(ctx, oldstate, sizeof(*oldstate));
   return res;
 }
@@ -5833,7 +5853,7 @@ INTERCEPTOR(int, pthread_setcanceltype, int type, int *oldtype) {
   void *ctx;
   COMMON_INTERCEPTOR_ENTER(ctx, pthread_setcanceltype, type, oldtype);
   int res = REAL(pthread_setcanceltype)(type, oldtype);
-  if (res == 0)
+  if (res == 0 && oldtype != nullptr)
     COMMON_INTERCEPTOR_WRITE_RANGE(ctx, oldtype, sizeof(*oldtype));
   return res;
 }
@@ -6460,4 +6480,10 @@ static void InitializeCommonInterceptors() {
   INIT_GETLOADAVG;
   INIT_WCSLEN;
   INIT_WCSCAT;
+
+#if SANITIZER_NETBSD
+  COMMON_INTERCEPT_FUNCTION(__libc_mutex_lock);
+  COMMON_INTERCEPT_FUNCTION(__libc_mutex_unlock);
+  COMMON_INTERCEPT_FUNCTION(__libc_thr_setcancelstate);
+#endif
 }

@@ -16,31 +16,29 @@
 #ifndef LLVM_TRANSFORMS_UTILS_UNROLLLOOP_H
 #define LLVM_TRANSFORMS_UTILS_UNROLLLOOP_H
 
-// Needed because we can't forward-declare the nested struct
-// TargetTransformInfo::UnrollingPreferences
+#include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 
 namespace llvm {
 
-class StringRef;
 class AssumptionCache;
+class BasicBlock;
 class DominatorTree;
 class Loop;
 class LoopInfo;
-class LPPassManager;
 class MDNode;
-class Pass;
 class OptimizationRemarkEmitter;
 class ScalarEvolution;
 
-typedef SmallDenseMap<const Loop *, Loop *, 4> NewLoopsMap;
+using NewLoopsMap = SmallDenseMap<const Loop *, Loop *, 4>;
 
 const Loop* addClonedBlockToLoopInfo(BasicBlock *OriginalBB,
                                      BasicBlock *ClonedBB, LoopInfo *LI,
                                      NewLoopsMap &NewLoops);
 
 /// Represents the result of a \c UnrollLoop invocation.
-enum class LoopUnrollStatus {
+enum class LoopUnrollResult {
   /// The loop was not modified.
   Unmodified,
 
@@ -54,7 +52,7 @@ enum class LoopUnrollStatus {
   FullyUnrolled
 };
 
-LoopUnrollStatus UnrollLoop(Loop *L, unsigned Count, unsigned TripCount,
+LoopUnrollResult UnrollLoop(Loop *L, unsigned Count, unsigned TripCount,
                             bool Force, bool AllowRuntime,
                             bool AllowExpensiveTripCount, bool PreserveCondBr,
                             bool PreserveOnlyFirst, unsigned TripMultiple,
@@ -69,7 +67,6 @@ bool UnrollRuntimeLoopRemainder(Loop *L, unsigned Count,
                                 LoopInfo *LI,
                                 ScalarEvolution *SE, DominatorTree *DT,
                                 AssumptionCache *AC,
-                                OptimizationRemarkEmitter *ORE,
                                 bool PreserveLCSSA);
 
 void computePeelCount(Loop *L, unsigned LoopSize,
@@ -80,6 +77,7 @@ bool peelLoop(Loop *L, unsigned PeelCount, LoopInfo *LI, ScalarEvolution *SE,
               DominatorTree *DT, AssumptionCache *AC, bool PreserveLCSSA);
 
 MDNode *GetUnrollMetadata(MDNode *LoopID, StringRef Name);
-}
 
-#endif
+} // end namespace llvm
+
+#endif // LLVM_TRANSFORMS_UTILS_UNROLLLOOP_H

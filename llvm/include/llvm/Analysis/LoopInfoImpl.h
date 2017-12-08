@@ -400,7 +400,7 @@ static void discoverAndMapSubloop(LoopT *L, ArrayRef<BlockT *> Backedges,
       // Discover a subloop of this loop.
       Subloop->setParentLoop(L);
       ++NumSubloops;
-      NumBlocks += Subloop->getBlocks().capacity();
+      NumBlocks += Subloop->getBlocksVector().capacity();
       PredBB = Subloop->getHeader();
       // Continue traversal along predecessors that are not loop-back edges from
       // within this subloop tree itself. Note that a predecessor may directly
@@ -498,7 +498,7 @@ void LoopInfoBase<BlockT, LoopT>::analyze(const DomTreeBase<BlockT> &DomTree) {
     }
     // Perform a backward CFG traversal to discover and map blocks in this loop.
     if (!Backedges.empty()) {
-      LoopT *L = new LoopT(Header);
+      LoopT *L = AllocateLoop(Header);
       discoverAndMapSubloop(L, ArrayRef<BlockT *>(Backedges), this, DomTree);
     }
   }
