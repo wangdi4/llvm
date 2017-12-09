@@ -516,6 +516,10 @@ bool HIROptPredicate::processOptPredicate(bool &HasMultiexitLoop) {
 
     Candidates.pop_back();
     if (HasNewCandidate) {
+      DEBUG(dbgs() << "Found new candidate: ");
+      DEBUG(NewCandidate.getPilotIf()->dumpHeader());
+      DEBUG(dbgs() << "\n");
+
       Candidates.push_back(NewCandidate);
     }
 
@@ -547,23 +551,34 @@ void HIROptPredicate::transformCandidate(HLLoop *TargetLoop,
                                          HoistCandidate &Candidate) {
 
   SmallDenseMap<HLIf *, std::pair<HLContainerTy, HLContainerTy>, 8> Containers;
-  Containers.reserve(Candidate.Ifs.size());
+  Containers.reserve(Candidate.Ifs.size() + Candidate.Clones.size());
 
+  // Handle the If clones under the same TargetLoop. We only need to hoist
+  // PilotIf as the clones are equivalent to being sibling ifs inside the same
+  // loop.
+  for (HLIf *If : Candidate.Clones) {
+    if (HLNodeUtils::contains(TargetLoop, If, false)) {
+      Candidate.Ifs.insert(If);
+    }
+  }
+
+  // Remove the Then and Else block as they will be inserted after cloning.
+  // This is done to avoid cloning of children when creating the new loop.
   for (HLIf *If : Candidate.Ifs) {
-    // Remove the Then and Else block as they will be inserted after cloning.
-    // This is done to avoid cloning of children when creating the new loop.
-    removeThenElseChildren(If, &Containers[If].first, &Containers[If].second);
+    auto &Pair = Containers[If];
+    removeThenElseChildren(If, &Pair.first, &Pair.second);
   }
 
   // Create the else loop by cloning the main loop.
   LoopUnswitchNodeMapper CloneMapper(Candidate, Candidates, CloneOriginals);
   HLLoop *NewElseLoop = TargetLoop->clone(&CloneMapper);
 
-  HLIf *PilotIf = *Candidate.Ifs.begin();
+  HLIf *PilotIf = Candidate.getPilotIf();
 
   for (HLIf *If : Candidate.Ifs) {
-    auto &ThenContainer = Containers[If].first;
-    auto &ElseContainer = Containers[If].second;
+    auto &Pair = Containers[If];
+    auto &ThenContainer = Pair.first;
+    auto &ElseContainer = Pair.second;
 
     HLIf *ClonnedIf = CloneMapper.getMapped(If);
 
@@ -600,22 +615,20 @@ bool HIROptPredicate::transformClones(HLLoop *TargetLoop,
   HoistCandidate *NewCandidatePtr = nullptr;
 
   for (HLIf *Clone : Candidate.Clones) {
-    HLIf *PilotIf = Candidate.getPilotIf();
-    if (HLNodeUtils::contains(PilotIf, Clone, false)) {
-      HLNodeUtils::replaceNodeWithBody(Clone, PilotIf->isThenChild(Clone));
-    } else {
-      if (!NewCandidatePtr) {
-        DEBUG(dbgs() << "Found new candidate: ");
-        DEBUG(Clone->dumpHeader());
-        DEBUG(dbgs() << "\n");
+    if (Candidate.Ifs.count(Clone)) {
+      continue;
+    }
 
-        NewCandidate = std::move(HoistCandidate(Clone, Candidate.Level));
-        NewCandidatePtr = &NewCandidate;
-      } else {
-        // For all clones set the original node. There is only one HLIf.
-        CloneOriginals[Clone] = NewCandidate.getPilotIf();
-        NewCandidate.Clones.push_back(Clone);
-      }
+    assert(!HLNodeUtils::contains(Candidate.getPilotIf(), Clone, false) &&
+           "Found a clone inside PilotIf");
+
+    if (!NewCandidatePtr) {
+      NewCandidate = std::move(HoistCandidate(Clone, Candidate.Level));
+      NewCandidatePtr = &NewCandidate;
+    } else {
+      // For all clones set the original node. There is only one HLIf.
+      CloneOriginals[Clone] = NewCandidate.getPilotIf();
+      NewCandidate.Clones.push_back(Clone);
     }
   }
 
