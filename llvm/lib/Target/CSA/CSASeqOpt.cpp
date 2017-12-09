@@ -39,7 +39,9 @@ bool CSASeqOpt::repeatOpndInSameLoop(MachineOperand& opnd, MachineInstr* lpCmp) 
 
 void CSASeqOpt::SequenceIndv(CSASSANode* cmpNode, CSASSANode* switchNode, CSASSANode* addNode, CSASSANode* lhdrPickNode) {
   //addNode has inputs phiNode, and an immediate input
-  bool isIDVCycle = isIntegerOpcode(addNode->minstr->getOpcode()) && addNode->children[0] == lhdrPickNode;
+  bool isIDVCycle = TII->isAdd(addNode->minstr) &&
+                    isIntegerOpcode(addNode->minstr->getOpcode()) && 
+                    addNode->children[0] == lhdrPickNode;
   //switchNode has inputs mov->cmpNode, addNode
   isIDVCycle = isIDVCycle && MRI->getVRegDef(switchNode->minstr->getOperand(3).getReg()) == addNode->minstr;
   unsigned backedgeReg = 0;
@@ -149,7 +151,7 @@ void CSASeqOpt::SequenceIndv(CSASSANode* cmpNode, CSASSANode* switchNode, CSASSA
       add(bndOpnd).                                                     //boundary
       add(addNode->minstr->getOperand(strideIdx));                      //stride
     seqInstr->setFlag(MachineInstr::NonSequential);
-    //currently only the cmp instr can have usage outside the cycle
+    //handle last value live out of loop
     if (switchNode->minstr->getOperand(switchOutIndex).getReg() != CSA::IGN) {
       MachineInstr* lastValueSwitch = BuildMI(*lhdrPickNode->minstr->getParent(),
         lhdrPickNode->minstr, DebugLoc(), 
@@ -233,9 +235,64 @@ MachineOperand CSASeqOpt::tripCntForSeq(MachineInstr*seqIndv) {
 }
 
 
+void CSASeqOpt::MultiSequence(CSASSANode* switchNode, CSASSANode* addNode, CSASSANode* lhdrPickNode) {
+  unsigned phidst = lhdrPickNode->minstr->getOperand(0).getReg();
+  unsigned adddst = addNode->minstr->getOperand(0).getReg();
+  if (MRI->hasOneUse(phidst) && MRI->hasOneUse(adddst)) {
+    SequenceReduction(switchNode, addNode, lhdrPickNode);
+  } else {
+    SequenceAddress(switchNode, addNode, lhdrPickNode);
+  }
+}
+
+void CSASeqOpt::SequenceReduction(CSASSANode* switchNode, CSASSANode* addNode, CSASSANode* lhdrPickNode) {
+  //switchNode has inputs addNode, and switch's control is SeqOT
+  MachineInstr* seqOT = MRI->getVRegDef(switchNode->minstr->getOperand(2).getReg());
+  bool isIDVCycle = TII->isSeqOT(seqOT) && MRI->getVRegDef(switchNode->minstr->getOperand(3).getReg()) == addNode->minstr;
+  unsigned backedgeReg = 0;
+  MachineInstr* loopInit = lpInitForPickSwitchPair(lhdrPickNode->minstr, switchNode->minstr, backedgeReg, seqOT);
+  isIDVCycle = isIDVCycle && (loopInit != nullptr);
+  unsigned pickInitIdx = 2 + loopInit->getOperand(1).getImm();
+  MachineOperand& initOpnd = lhdrPickNode->minstr->getOperand(pickInitIdx);
+  unsigned switchOutIndex = switchNode->minstr->getOperand(0).getReg() == backedgeReg ? 1 : 0;
+  unsigned switchOutReg = switchNode->minstr->getOperand(switchOutIndex).getReg();
+  isIDVCycle = isIDVCycle &&
+    (switchNode->minstr->getOperand(1 - switchOutIndex).getReg() == backedgeReg) &&
+    MRI->hasOneUse(backedgeReg);
+
+  if (isIDVCycle) {
+    //build reduction seqeuence.
+    unsigned redOp = TII->convertTransformToReductionOp(addNode->minstr->getOpcode());
+    assert(redOp == CSA::INVALID_OPCODE);
+    MachineInstr* redInstr;
+    if (TII->isFMA(addNode->minstr)) {
+      //two input reduction besides init
+      redInstr = BuildMI(*lhdrPickNode->minstr->getParent(), lhdrPickNode->minstr, DebugLoc(),
+        TII->get(redOp),
+        switchOutReg).                          // result
+        addReg(backedgeReg, RegState::Define).  // each 
+        add(initOpnd).                         // initial value
+        add(addNode->minstr->getOperand(1)).   // input 1
+        add(addNode->minstr->getOperand(2)).   // input 2
+        addReg(seqOT->getOperand(1).getReg()); // control
+    }  else {
+      //normal one input reduciton besides init
+      redInstr = BuildMI(*lhdrPickNode->minstr->getParent(), lhdrPickNode->minstr, DebugLoc(),
+        TII->get(redOp),
+        switchOutReg).                          // result
+        addReg(backedgeReg, RegState::Define).  // each 
+        add(initOpnd).                         // initial value
+        add(addNode->minstr->getOperand(1)).   // input 1
+        addReg(seqOT->getOperand(1).getReg()); // control
+    }
+  }
+}
+
 void CSASeqOpt::SequenceAddress(CSASSANode* switchNode, CSASSANode* addNode, CSASSANode* lhdrPickNode) {
   //addNode has inputs phiNode
-  bool isIDVCycle = isIntegerOpcode(addNode->minstr->getOpcode()) && addNode->children[0] == lhdrPickNode;
+  bool isIDVCycle = TII->isAdd(addNode->minstr) &&
+                    isIntegerOpcode(addNode->minstr->getOpcode()) && 
+                    addNode->children[0] == lhdrPickNode;
   //switchNode has inputs addNode, and switch's control is SeqOT
   MachineInstr* seqOT = MRI->getVRegDef(switchNode->minstr->getOperand(2).getReg());
   isIDVCycle = isIDVCycle &&
@@ -344,10 +401,6 @@ void CSASeqOpt::SequenceAddress(CSASSANode* switchNode, CSASSANode* addNode, CSA
         }
       }
 
-      //use indv's trip count to compute new boundary for the new seqeunce instr
-      assert(CSA::SEQOTNE16 < CSA::SEQOTNE32 && CSA::SEQOTNE32 < CSA::SEQOTNE64 && CSA::SEQOTNE64 < CSA::SEQOTNE8);
-      assert(seqIndv->getOpcode() >= CSA::SEQOTNE16 && seqIndv->getOpcode() <= CSA::SEQOTNE8);
-      //const TargetRegisterClass *TRC = TII->lookupLICRegClass(addNode->minstr->getOperand(0).getReg());
       const TargetRegisterClass *TRC = TII->lookupLICRegClass(addNode->minstr->getOperand(0).getReg());
       const unsigned FMAOp = TII->makeOpcode(CSA::Generic::FMA, TRC);
       //MachineOperand& tripcountOpnd = initIndv.isImm() ? bndIndv : initIndv;
@@ -492,8 +545,10 @@ void CSASeqOpt::SequenceOPT() {
             } else
               isIDVCandidate = false;
           }
-        } else if (TII->isAdd(minstr) &&     //TODO: handle sub
-                   TII->adjustOpcode(minstr->getOpcode(), CSA::Generic::STRIDE) != CSA::INVALID_OPCODE && 
+        } else if ((TII->isAdd(minstr) ||                          //induction
+                    TII->isCommutingReductionTransform(minstr) ||  //reduction
+                    TII->isFMA(minstr) ||                          //reduction
+                    TII->isSub(minstr)) &&                         //reduction
                    !addNode) {
           addNode = sccn;
         } else if (TII->isCmp(minstr) && !cmpNode && (nodeI + 1 != nodeIE)) { //cmp can't be the first or last
