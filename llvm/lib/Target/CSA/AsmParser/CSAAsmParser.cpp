@@ -367,10 +367,14 @@ bool CSAAsmParser::ParseRegister(unsigned &RegNum, SMLoc &StartLoc,
 
 static int roundingModeToInt(StringRef T) {
   return StringSwitch<int>(T)
-    .Case("ROUND_NEAREST",    CSA::ROUND_NEAREST)
-    .Case("ROUND_DOWNWARD",   CSA::ROUND_DOWNWARD)
-    .Case("ROUND_UPWARD",     CSA::ROUND_UPWARD)
-    .Case("ROUND_TOWARDZERO", CSA::ROUND_TOWARDZERO)
+    .Case("ROUND_NEAREST",       CSA::ROUND_NEAREST)
+    .Case("ROUND_DOWNWARD",      CSA::ROUND_DOWNWARD)
+    .Case("ROUND_UPWARD",        CSA::ROUND_UPWARD)
+    .Case("ROUND_TOWARDZERO",    CSA::ROUND_TOWARDZERO)
+    .Case("ROUND_NEAREST_NW",    CSA::ROUND_NEAREST_NW)
+    .Case("ROUND_DOWNWARD_NW",   CSA::ROUND_DOWNWARD_NW)
+    .Case("ROUND_UPWARD_NW",     CSA::ROUND_UPWARD_NW)
+    .Case("ROUND_TOWARDZERO_NW", CSA::ROUND_TOWARDZERO_NW)
     .Default(-1);
 }
 

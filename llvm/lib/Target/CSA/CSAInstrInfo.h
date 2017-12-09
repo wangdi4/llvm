@@ -63,6 +63,10 @@ namespace CSA {
     ROUND_DOWNWARD,
     ROUND_UPWARD,
     ROUND_TOWARDZERO,
+    ROUND_NEAREST_NW,
+    ROUND_DOWNWARD_NW,
+    ROUND_UPWARD_NW,
+    ROUND_TOWARDZERO_NW,
   };
 
   // This is reversed from the simulator's convention to match the intrinsic.
