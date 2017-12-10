@@ -131,6 +131,7 @@ public:
   bool isTargetSpecificShuffleMask(SmallVectorImpl<int> &Mask) const;
 #endif // INTEL_CUSTOMIZATION
   bool hasDivRemOp(Type *DataType, bool IsSigned);
+  bool isFCmpOrdCheaperThanFCmpZero(Type *Ty);
   bool areInlineCompatible(const Function *Caller,
                            const Function *Callee) const;
   const TTI::MemCmpExpansionOptions *enableMemCmpExpansion(
