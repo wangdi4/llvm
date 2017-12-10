@@ -51,8 +51,9 @@ struct PrintingPolicy {
       TerseOutput(false), PolishForDeclaration(false),
       Half(LO.Half), MSWChar(LO.MicrosoftExt && !LO.WChar),
       IncludeNewlines(true), MSVCFormatting(false),
-      ConstantsAsWritten(false), SuppressImplicitBase(false), // INTEL
-      IntelCompat(LO.IntelCompat) { } // INTEL
+      ConstantsAsWritten(false), SuppressImplicitBase(false),
+      IntelCompat(LO.IntelCompat), // INTEL
+      FullyQualifiedName(false) { }
 
   /// Adjust this printing policy for cases where it's known that we're
   /// printing C++ code (for instance, if AST dumping reaches a C++-only
@@ -225,6 +226,9 @@ struct PrintingPolicy {
   /// \brief Whether to use Intel Compatability printing options
   bool IntelCompat : 1;
 #endif // INTEL_CUSTOMIZATION
+  /// When true, print the fully qualified name of function declarations.
+  /// This is the opposite of SuppressScope and thus overrules it.
+  bool FullyQualifiedName : 1;
 };
 
 } // end namespace clang

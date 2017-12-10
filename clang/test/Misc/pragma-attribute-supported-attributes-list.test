@@ -86,5 +86,5 @@
 // CHECK-NEXT: VecLenHint (SubjectMatchRule_function)
 // endif INTEL_CUSTOMIZATION
 // CHECK-NEXT: WarnUnusedResult (SubjectMatchRule_objc_method, SubjectMatchRule_enum, SubjectMatchRule_record, SubjectMatchRule_hasType_functionType)
-// CHECK-NEXT: XRayInstrument (SubjectMatchRule_function_is_member, SubjectMatchRule_objc_method, SubjectMatchRule_function)
-// CHECK-NEXT: XRayLogArgs (SubjectMatchRule_function_is_member, SubjectMatchRule_objc_method, SubjectMatchRule_function)
+// CHECK-NEXT: XRayInstrument (SubjectMatchRule_function, SubjectMatchRule_objc_method)
+// CHECK-NEXT: XRayLogArgs (SubjectMatchRule_function, SubjectMatchRule_objc_method)

@@ -1509,8 +1509,7 @@ void NamedDecl::printQualifiedName(raw_ostream &OS,
     if (const auto *Spec = dyn_cast<ClassTemplateSpecializationDecl>(DC)) {
       OS << Spec->getName();
       const TemplateArgumentList &TemplateArgs = Spec->getTemplateArgs();
-      TemplateSpecializationType::PrintTemplateArgumentList(
-          OS, TemplateArgs.asArray(), P);
+      printTemplateArgumentList(OS, TemplateArgs.asArray(), P);
     } else if (const auto *ND = dyn_cast<NamespaceDecl>(DC)) {
       if (P.SuppressUnwrittenScope &&
           (ND->isAnonymousNamespace() || ND->isInline()))
@@ -2559,8 +2558,7 @@ void FunctionDecl::getNameForDiagnostic(
   NamedDecl::getNameForDiagnostic(OS, Policy, Qualified);
   const TemplateArgumentList *TemplateArgs = getTemplateSpecializationArgs();
   if (TemplateArgs)
-    TemplateSpecializationType::PrintTemplateArgumentList(
-        OS, TemplateArgs->asArray(), Policy);
+    printTemplateArgumentList(OS, TemplateArgs->asArray(), Policy);
 }
 
 bool FunctionDecl::isVariadic() const {
