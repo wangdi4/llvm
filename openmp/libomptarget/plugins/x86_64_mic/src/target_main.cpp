@@ -35,12 +35,16 @@
 
 // Debugging messages. Note that it uses DeviceInfo.ID
 #ifdef OMPTARGET_DEBUG
+static int DebugLevel = 0;
+
 #define DP(...)                                                            \
-  {                                                                        \
-    fprintf(stderr, "x86_64_mic (MIC%d) --> ", DeviceInfo.ID);             \
-    fprintf(stderr, __VA_ARGS__);                                          \
-    fflush(nullptr);                                                       \
-  }
+  do { \
+    if (DebugLevel > 0) { \
+      fprintf(stderr, "x86_64_mic (MIC%d) --> ", DeviceInfo.ID);           \
+      fprintf(stderr, __VA_ARGS__);                                        \
+      fflush(nullptr);                                                     \
+    } \
+  } while (false)
 #else // OMPTARGET_DEBUG
 #define DP(...)                                                            \
   {}
@@ -62,6 +66,11 @@ struct DeviceInfoTy {
   uint32_t ID = -1;
 
   DeviceInfoTy() {
+#ifdef OMPTARGET_DEBUG
+    if (char *Str = getenv("LIBOMPTARGET_DEBUG")) {
+      DebugLevel = std::stoi(Str);
+    }
+#endif // OMPTARGET_DEBUG
     COI_ISA_TYPE IsaType;
     COIRESULT R = COIEngineGetIndex(&IsaType, &ID);
     if (R != COI_SUCCESS) {

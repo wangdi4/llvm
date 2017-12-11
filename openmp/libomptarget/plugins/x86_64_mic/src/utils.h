@@ -32,7 +32,12 @@ public:
   }
 
   ~DynLibTy() {
-    close();
+    // TODO: Do not close library handle for now because it is causing a
+    // segfault originating from libcoi_host.so at plugin cleanup (needs
+    // further investigation). This class is currently used only for loading
+    // COI on the host side. We will get rid of it once we start linking
+    // libcoi_host.so to the plugin instead of loading it at runtime.
+    //close();
   }
 
   DynLibTy& operator=(DynLibTy && That) {
