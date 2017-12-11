@@ -22,6 +22,7 @@
 
 #include <spirv/1.0/spirv.hpp>
 
+#include <llvm/ADT/SmallVector.h>
 #include <llvm/ADT/StringRef.h>
 #include <llvm/Bitcode/BitcodeReader.h>
 #include <llvm/Bitcode/BitcodeWriter.h>
@@ -134,18 +135,32 @@ static std::string getCPUSignatureMacro() {
 }
 
 int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
-  bool bProfiling = std::string(m_pProgDesc->pszOptions).find("-profiling") !=
-                    std::string::npos;
-  bool bRelaxedMath =
-      std::string(m_pProgDesc->pszOptions).find("-cl-fast-relaxed-math") !=
-      std::string::npos;
+  bool bProfiling   = false,
+       bDebug       = false,
+       bRelaxedMath = false,
+       bNoOpts      = false;
 
-  // Force the -profiling option if such was not supplied by user
+  llvm::SmallVector<llvm::StringRef, 8> splittedOptions;
+  llvm::StringRef(m_pProgDesc->pszOptions).split(splittedOptions, " ");
+  for (const auto opt : splittedOptions) {
+    if (opt.str() == "-profiling") bProfiling = true;
+    if (opt.str() == "-g") bDebug = true;
+    if (opt.str() == "-cl-fast-relaxed-math") bRelaxedMath = true;
+    if (opt.str() == "-cl-opt-disable") bNoOpts = true;
+  }
+
   std::stringstream options;
   options << m_pProgDesc->pszOptions;
 
-  if (m_sDeviceInfo.bEnableSourceLevelProfiling && !bProfiling) {
+  // Force the -profiling option if such was not supplied by user
+  if (m_sDeviceInfo.bEnableSourceLevelProfiling && !bProfiling)
     options << " -profiling";
+
+  // By default clang compiles OpenCL sources with '-O2' optimization level
+  // Force it to -O0 in case of compilation with debug information
+  if (bDebug && !bNoOpts) {
+    options << " -cl-opt-disable";
+    bNoOpts = true;
   }
 
   // Passing -cl-fast-relaxed-math option if specifed in the environment
@@ -210,6 +225,14 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
 
   if (m_sDeviceInfo.bImageSupport) {
     optionsEx << " -D__IMAGE_SUPPORT__=1";
+  }
+
+  // In case of compilation with '-cl-opt-disable' option clang generates
+  // 'optnone' attribute for all functions including kernels.
+  // It conflicts with some optimizations we need to keep functional correctness
+  // Pass '-disable-0O-optnone' to disable the implicit 'optnone'
+  if (bNoOpts) {
+    optionsEx << " -disable-O0-optnone";
   }
 
   if (m_pProgDesc->bFpgaEmulator) {
