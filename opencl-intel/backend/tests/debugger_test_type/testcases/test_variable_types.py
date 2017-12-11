@@ -9,24 +9,26 @@ class TestVariableTypes(DebuggerTestCase):
     CLNAME2 = 'all_types_declaration.cl'
     # these "defines" are for test_all_variable_types_are_available
     FUNCTION_ROW = 7
-    IF_BLOCK_ROW = 27
-    IF_BLOCK_ROW2 = 40
-    WHILE_BLOCK_ROW_BEFORE_FUNCTION = 36
-    WHILE_BLOCK_ROW_AFTER_FUNCTION = 37
-    MAIN_ROW = 43
+    IF_BLOCK_ROW = 26
+    IF_BLOCK_ROW2 = 38
+    WHILE_BLOCK_ROW_BEFORE_FUNCTION = 34
+    WHILE_BLOCK_ROW_AFTER_FUNCTION = 35
+    MAIN_ROW = 41
     MAIN_VARAIBLE_AMOUNT = 8
     BLOCK_VARAIBLE_AMOUNT = 6
     SECOND_BLOCK_VARAIBLE_AMOUNT = 6
     GLOBAL_VARAIBLE_AMOUNT = 1
     FUNCTION_VARAIBLE_AMOUNT = 7
     # these "defines" are for test_all_variable_types_are_available2
-    LAST_ROW = 141
+    LAST_ROW = 139
 
     def test_all_variable_types_are_available(self):
     #
     # Test - all variable types (global, local, arguments, volatile, restricted, private) in diffrent
     #        kind of blocks (in main, in an inner block in main, in a function)
     # TC-33, TC-34, TC-35, TC-40, TC-41, TC-42, TC-43
+    #
+    # Note: there are no image types here because they can not be local variables
         self.client.execute_debuggee(
             hostprog_name='ndrange_inout',
             cl_name=self.CLNAME)
@@ -313,9 +315,7 @@ class TestVariableTypes(DebuggerTestCase):
         self.assertEqual(self.client.var_query_value('p_double8'), '34')
         self.assertEqual(self.client.var_query_value('var_double16'), '2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0')
         self.assertEqual(self.client.var_query_value('p_double16'), '34')
-        self.assertEqual(self.client.var_query_value('p_image3d_t'), '34')
-        self.assertEqual(self.client.var_query_value('p_image2d_t'), '34')
-        self.assertEqual(self.client.var_query_value('var_sampler_t'), '28')
+        self.assertEqual(self.client.var_query_value('var_sampler_t'), '1')
         self.assertEqual(self.client.var_query_value('p_event_t'), '34')
         self.assertEqual(self.client.var_query_value('p_half'), '34')
         self.client.debug_run_finish()

@@ -132,9 +132,7 @@ __kernel void main_kernel(__global uchar* buf_in, __global uchar* buf_out)
 	double8* p_double8 = (double8*)34;
 	double16 var_double16 = (double16)(2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0);
 	double16* p_double16 = (double16*)34;
-	image3d_t* p_image3d_t = (image3d_t*)34;
-	image2d_t* p_image2d_t = (image2d_t*)34;
-	sampler_t var_sampler_t = 28;
+	sampler_t var_sampler_t = CLK_NORMALIZED_COORDS_TRUE;
 	event_t* p_event_t = (event_t*)34;
 	half* p_half = (half*)34;
 	int a = 1;

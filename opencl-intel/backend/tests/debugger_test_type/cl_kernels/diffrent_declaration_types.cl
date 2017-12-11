@@ -19,7 +19,6 @@ __kernel void main_kernel(__global uchar* buf_in, __global uchar* buf_out)
 	if (v>3)
 	{
 		int gb = 1;
-		__local int lb;
 		__private int pb = 3;
 		volatile int vb = 4;
 		int ab = 5;
@@ -28,7 +27,6 @@ __kernel void main_kernel(__global uchar* buf_in, __global uchar* buf_out)
 		while (vb>3)  //one iteration only
 		{
 			int gb2 = 1;
-			__local int lb2;
 			__private int pb2 = 3;
 			volatile int vb2 = 4;
 			int ab2 = 5;
