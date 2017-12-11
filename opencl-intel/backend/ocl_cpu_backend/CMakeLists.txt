@@ -190,7 +190,6 @@ set (OCL_CPU_BACKEND_SOURCE_FILES
     opencl20_ext_execution.cpp
     opencl_cpu_printf_ext.cpp
     opencl_printf_ext.cpp
-    shared_builtin_functions.cpp
   )
 
 if (WIN32)
