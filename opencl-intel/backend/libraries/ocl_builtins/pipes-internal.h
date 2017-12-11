@@ -63,5 +63,11 @@ int advance(__global const struct __pipe_t* p, int index, int offset);
 int get_read_capacity(__global struct __pipe_t* p);
 int get_write_capacity(__global struct __pipe_t* p);
 
+void __store_pipe_use(__global struct __pipe_t* __private* c,
+                      __private int* size, __global struct __pipe_t* p);
+void __flush_pipe_read_array(__global struct __pipe_t* __private* arr,
+                             __private int* size);
+void __flush_pipe_write_array(__global struct __pipe_t* __private* arr,
+                              __private int* size);
 
 #endif // __PIPES_INTERNAL_H__

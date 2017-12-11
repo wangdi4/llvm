@@ -35,11 +35,13 @@ entry:
   %1 = bitcast %opencl.pipe_t addrspace(1)* %0 to %struct.__pipe_t addrspace(1)*
   %2 = addrspacecast i32* %read.dst to i8 addrspace(4)*
   %3 = call i32 @__read_pipe_2_bl_intel(%struct.__pipe_t addrspace(1)* %1, i8 addrspace(4)* %2)
-  ; CHECK: [[body0:pipe_bl.body.*]]:
-  ; CHECK:   %[[ret0:[0-9]+]] = call i32 @__read_pipe_2_intel
-  ; CHECK:   %[[failed0:pipe.failed.*]] = icmp ne i32 %[[ret0]], 0
-  ; CHECK:   br i1 %[[failed0]], label %[[body0]], label %[[exit0:pipe_bl.exit.*]]
-  ; CHECK: [[exit0]]:
+  ; CHECK:      call void @__store_pipe_use
+  ; CHECK-NEXT: br label %[[BR0:.*]]
+  ; CHECK: [[BR0]]
+  ; CHECK-NEXT: call i32 @__read_pipe_2_intel
+  ; CHECK:      call void @__flush_pipe_read_array
+  ; CHECK-NEXT: call void @__flush_pipe_write_array
+  ; CHECK-NEXT: br label %[[BR0]]
 
   %4 = load i32, i32* %read.dst
   store i32 %4, i32* %write.src
@@ -47,11 +49,13 @@ entry:
   %6 = bitcast %opencl.pipe_t addrspace(1)* %5 to %struct.__pipe_t addrspace(1)*
   %7 = addrspacecast i32* %write.src to i8 addrspace(4)*
   %8 = call i32 @__write_pipe_2_bl_intel(%struct.__pipe_t addrspace(1)* %6, i8 addrspace(4)* %7)
-  ; CHECK: [[body1:pipe_bl.body.*]]:
-  ; CHECK:   %[[ret1:[0-9]+]] = call i32 @__write_pipe_2_intel
-  ; CHECK:   %[[failed1:pipe.failed.*]] = icmp ne i32 %[[ret1]], 0
-  ; CHECK:   br i1 %[[failed1]], label %[[body1]], label %[[exit1:pipe_bl.exit.*]]
-  ; CHECK: [[exit1]]:
+  ; CHECK:      call void @__store_pipe_use
+  ; CHECK-NEXT: br label %[[BR1:.*]]
+  ; CHECK: [[BR1]]
+  ; CHECK-NEXT: call i32 @__write_pipe_2_intel
+  ; CHECK:      call void @__flush_pipe_read_array
+  ; CHECK-NEXT: call void @__flush_pipe_write_array
+  ; CHECK-NEXT: br label %[[BR1]]
 
   ret void
 }

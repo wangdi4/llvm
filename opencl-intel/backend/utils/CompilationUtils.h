@@ -487,6 +487,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// Return a pointer to struct from a pointer to type
     static StructType* getStructFromTypePtr(Type *T);
 
+    /// Replaces innermost element type from a pointer to a given struct type
+    static PointerType *mutatePtrElementType(PointerType *SrcPTy, Type *DstTy);
+
     /// @brief Calculates the total number of elements contained by ArrayType
     ///
     /// Examples:

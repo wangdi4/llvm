@@ -1277,18 +1277,14 @@ Constant *CompilationUtils::importFunctionDecl(Module *Dst,
   for (auto *ArgTy : Orig->getFunctionType()->params()) {
     NewArgTypes.push_back(ArgTy);
 
-    auto *PtrSTy = dyn_cast<PointerType>(ArgTy);
-    if (!PtrSTy)
-      continue;
-
-    auto *STy = dyn_cast<StructType>(PtrSTy->getElementType());
+    auto *STy = getStructFromTypePtr(ArgTy);
     if (!STy)
       continue;
 
     for (auto *DstSTy : DstSTys) {
       if (isSameStructType(DstSTy, STy)) {
-        NewArgTypes.back() = PointerType::get(DstSTy,
-                                              PtrSTy->getAddressSpace());
+        NewArgTypes.back() =
+          mutatePtrElementType(cast<PointerType>(ArgTy), DstSTy);
         changed = true;
         break;
       }
@@ -1354,6 +1350,26 @@ StructType* CompilationUtils::getStructFromTypePtr(Type *Ty) {
     PtrTy = PtrTyNext;
 
   return dyn_cast<StructType>(PtrTy->getElementType());
+}
+
+PointerType * CompilationUtils::mutatePtrElementType(
+    PointerType *SrcPTy, Type *DstTy) {
+  // The function changes the base type of SrcPTy to DstTy
+  // SrcPTy = %struct.__pipe_t addrspace(1)**
+  // DstTy  = %struct.__pipe_t.1
+  // =>
+  // %struct.__pipe_t.1 addrspace(1)**
+
+  assert(SrcPTy && DstTy && "Invalid types!");
+
+  SmallVector<PointerType *, 2> Types { SrcPTy };
+  while ((SrcPTy = dyn_cast<PointerType>(SrcPTy->getElementType())))
+    Types.push_back(SrcPTy);
+
+  for (auto It = Types.rbegin(), E = Types.rend(); It != E; ++It)
+    DstTy = PointerType::get(DstTy, (*It)->getAddressSpace());
+
+  return cast<PointerType>(DstTy);
 }
 
 size_t CompilationUtils::getArrayNumElements(const ArrayType *ArrTy) {

@@ -336,3 +336,25 @@ int __write_pipe_2_intel(__global struct __pipe_t* p, const void* src) {
 
   return 0;
 }
+
+void __store_pipe_use(__global struct __pipe_t* __private* __private arr,
+                      __private int* size, __global struct __pipe_t* p) {
+  for (int i = 0; i < *size; i++) {
+    if (arr[i] == p)
+      return;
+  }
+  arr[*size] = p;
+  ++(*size);
+}
+
+void __flush_pipe_read_array(__global struct __pipe_t* __private* arr,
+                             __private int* size) {
+  for (int i = 0; i < *size; ++i)
+    __flush_read_pipe(arr[i]);
+}
+
+void __flush_pipe_write_array(__global struct __pipe_t* __private* arr,
+                              __private int* size) {
+  for (int i = 0; i < *size; ++i)
+    __flush_write_pipe(arr[i]);
+}
