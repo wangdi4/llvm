@@ -359,7 +359,17 @@ namespace intel{
         call->setDebugLoc(DebugLoc::get(SP->getScopeLine(), 0, SP));
     call->setCallingConv(WrappedKernel->getCallingConv());
 
-    builder.CreateRetVoid();
+    // Preserve debug info for a kernel return instruction
+    auto WrapperRet = builder.CreateRetVoid();
+    for (auto &BB : *WrappedKernel) {
+      auto *Term = BB.getTerminator();
+      assert(Term && "Ill-formed BasicBlock");
+      if (!isa<ReturnInst>(Term))
+        continue;
+
+      WrapperRet->setDebugLoc(Term->getDebugLoc());
+      break;
+    }
   }
 
   bool PrepareKernelArgs::runOnFunction(Function *pFunc) {

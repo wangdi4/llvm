@@ -20,6 +20,7 @@
 ;
 ; CHECK: @func{{.*}} !dbg ![[DMETA1:[0-9]+]]
 ; CHECK: @invoke_func{{.*}} !dbg ![[DMETA2:[0-9]+]]
+; CHECK: ret void, !dbg !{{[0-9]+}}
 ; CHECK-DAG: ![[DMETA1]] = {{.*}}!DISubprogram{{.*}}name: "func"
 ; CHECK-DAG: ![[DMETA2]] = {{.*}}!DISubprogram{{.*}}name: "invoke_func"
 
