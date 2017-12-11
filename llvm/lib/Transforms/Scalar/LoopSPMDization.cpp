@@ -128,7 +128,6 @@ namespace {
           errs().resetColor();
           return false;
         }
-
         int NPEs = (dyn_cast<ConstantInt>(NPEs_val))->getZExtValue();
         IntrinsicInst* found_spmd_exit = detectSPMDExitIntrinsic(L, LI);
         if(found_spmd_exit) {
@@ -238,10 +237,19 @@ Branches to or from an OpenMP structured block are illegal
           if(!RedPhi)
             continue;
           Value *RedV;
-          if(AfterLoop == L->getExitBlock()->getSingleSuccessor())
+          if(AfterLoop == L->getExitBlock()->getSingleSuccessor()) {
+            if(RedPhi->getBasicBlockIndex(L->getExitBlock()) == -1) 
+              //Afterloop did not have a phi node
+              RedPhi->setIncomingBlock(0, L->getExitBlock());
+            
             RedV = RedPhi->getIncomingValueForBlock(L->getExitBlock());
-          else
-            RedV = RedPhi->getIncomingValueForBlock(L->getExitBlock()->getSingleSuccessor());  
+          }
+          else {
+            //if(RedPhi->getBasicBlockIndex(L->getExitBlock()->getSinglePredecessor()) == -1) 
+            //Afterloop did not have a phi node
+            //RedPhi->setIncomingBlock(0, L->getExitBlock()->getSinglePredecessor());
+            RedV = RedPhi->getIncomingValueForBlock(L->getExitBlock()->getSingleSuccessor());
+          }
           for (auto it = pred_begin(AfterLoop), et = pred_end(AfterLoop); it != et; ++it) {
             BasicBlock* predecessor = *it;
             if(RedPhi->getBasicBlockIndex(predecessor) == -1) {
@@ -335,6 +343,12 @@ bool LoopSPMDization::FindReductionVariables(Loop *L, std::vector<PHINode *> *Re
 
 //Handling of reductions
 bool LoopSPMDization::FixReductionsIfAny(Loop *L, Loop *OrigL, BasicBlock *E, BasicBlock *AfterLoop, int PE, int NPEs, std::vector<PHINode *> *Reductions, std::vector<Value *> *ReduceVarExitOrig, std::vector<Instruction *> *ReduceVarOrig, std::vector<Instruction *> *OldInsts) {
+  BasicBlock *pred_AfterLoop;
+  if(AfterLoop == L->getExitBlock()->getSingleSuccessor())
+    pred_AfterLoop = L->getExitBlock();
+  else
+    pred_AfterLoop = L->getExitBlock()->getSinglePredecessor();  
+          
   for (Instruction &I : *L->getHeader()) {
     PHINode *Phi = dyn_cast<PHINode>(&I);
     if (!Phi)
@@ -360,7 +374,7 @@ bool LoopSPMDization::FixReductionsIfAny(Loop *L, Loop *OrigL, BasicBlock *E, Ba
           Instruction *NewInstPhi; 
           PHINode *NewPhi;
           Instruction *ReduceVarExit;
-          IRBuilder<> B(AfterLoop->getFirstNonPHI());
+           IRBuilder<> B(AfterLoop->getFirstNonPHI());
           bool found_p = false;
           //look for use of the reduced value
           if (!PhiExit) {
@@ -369,11 +383,11 @@ bool LoopSPMDization::FixReductionsIfAny(Loop *L, Loop *OrigL, BasicBlock *E, Ba
                 ReduceVarExit = dyn_cast<Instruction>(i->getOperand(m));
                 if(PE == 1) {
                   PhiExit = B.CreatePHI(ReduceVar->getType(), 1, Phi->getName() + "orig");
-                  PhiExit->addIncoming((*ReduceVarExitOrig)[r], AfterLoop->getSinglePredecessor());
+                  PhiExit->addIncoming((*ReduceVarExitOrig)[r], pred_AfterLoop);
                   i->setOperand(m, PhiExit);
                 }
                 NewPhi = B.CreatePHI(ReduceVar->getType(), 1, Phi->getName() + "red");
-                NewPhi->addIncoming(ReduceVar, AfterLoop->getSinglePredecessor());
+                NewPhi->addIncoming(ReduceVar, pred_AfterLoop);//->getSinglePredecessor());
                 NewInstPhi = dyn_cast<Instruction>(NewPhi);
                 found_p = true;
               }
@@ -404,8 +418,8 @@ bool LoopSPMDization::FixReductionsIfAny(Loop *L, Loop *OrigL, BasicBlock *E, Ba
               BasicBlock* predecessor = *it;
               //if(predecessor == L->getLoopPreheader()->getSinglePredecessor()) 
               {// this is the predecessor coming from the zero trip count gard block
-                if(NewPhi->getBasicBlockIndex(predecessor) == -1) {
-                  Value * Ident;
+                if(NewPhi->getBasicBlockIndex(predecessor) == -1 && predecessor != pred_AfterLoop) {
+                  Value *Ident;
                   Type *Ty = NewPhi->getType();
                   switch ((*ReduceVarOrig)[r]->getOpcode()) {
                   case Instruction::Add:
@@ -458,6 +472,7 @@ Failed to find the identity element of the reduction operation.
             NewInst->setOperand(0, dyn_cast<Value>(NewInstPhi));
             AfterLoop->getInstList().insert(B.GetInsertPoint(), NewInst);
             (*OldInsts)[r] = NewInst;
+            break;
           }
         }
       }
@@ -559,7 +574,7 @@ bool LoopSPMDization::TransformLoopInitandBound(Loop *L, ScalarEvolution *SE, in
     if(dyn_cast<IntegerType>(nbyk->getType())->getBitWidth() != dyn_cast<IntegerType>(LowerBound->getType())->getBitWidth())
       nbyk = B.CreateZExtOrTrunc(nbyk, LowerBound->getType(), nbyk->getName()+".trex"); 
   }
-  //i = i+PE ==> i+ (k-1)n/k ==> i+(k-1)*nbyk
+  //i = i+PE ==> i+ (k-1)n/NPEs ==> i+(k-1)*nbyNPEs
   Value *ktimesnbyk = B.CreateMul(ConstantInt::get(nbyk->getType(), PE),
                                   nbyk,
                                   InductionPHI->getName()+
@@ -568,7 +583,7 @@ bool LoopSPMDization::TransformLoopInitandBound(Loop *L, ScalarEvolution *SE, in
   Value *kplus1 = B.CreateAdd(ConstantInt::get(nbyk->getType(), PE),
                               ConstantInt::get(nbyk->getType(), 1), 
                               InductionPHI->getName()+
-                              ".kplus1");//, dyn_cast<Instruction>(Inc/*NewInc*/));
+                              ".kplus1");
   Value *kplus1timesnbyk = B.CreateMul(kplus1, 
                                        nbyk,
                                        InductionPHI->getName()+
@@ -825,9 +840,9 @@ bool LoopSPMDization::AddParallelIntrinsicstoLoop(Loop *L, LLVMContext& context,
   next_token = context.getMDKindID(RegionName) + 1000;
   region_entry->setOperand(0, ConstantInt::get(IntegerType::get(context, 32), next_token));
   CallInst *section_entry = IRBuilder<>{preheader_terminator}.CreateCall(
-                                                                         Intrinsic::getDeclaration(M, Intrinsic::csa_parallel_section_entry), 
-                                                                         region_entry, 
-                                                                         "spmd_pse"
+          Intrinsic::getDeclaration(M, Intrinsic::csa_parallel_section_entry), 
+          region_entry, 
+          "spmd_pse"
                                                                          );
   
   //IRBuilder<>{preheader_terminator}.CreateCall(
