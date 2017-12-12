@@ -1,4 +1,4 @@
-from testlib.debuggertestcase import DebuggerTestCase
+from testlib.debuggertestcase import DebuggerTestCase, expectedFailureGDB
 
 
 # Test a simple usage of steps for TC-10-24
@@ -286,13 +286,29 @@ class TestSteps(DebuggerTestCase):
         self.assertEqual(self.client.stack_query_func_name(1), 'main_kernel')
         self.client.debug_run_finish()
 
-
+    @expectedFailureGDB
     def test_simple_step_out(self):
     #
     # TC-24
     # test the usage of step out, first command in program is a function calls
     #
-
+    # The test is expected to fail due to an issue with 'finish' command
+    # in some cases. For example, in a simple program like:
+    #
+    # 1 void foo(char p) {
+    # 2   p = p + 1;
+    # 3 }
+    # 4 void __kernel k() {
+    # 5   char c = 1;
+    # 6   foo(c);
+    # 7   return;
+    # 8 }
+    #
+    # doing 'finish' command from 'foo()' we expect to stop on the
+    # '7' line - the next to the call, but actually it stops on the
+    # '6' line - the same as the call.
+    # In cases like in 'test_step_out' below it would work as expected.
+    # The root case of the issue is unknown.
         self.client.execute_debuggee(
             hostprog_name='ndrange_inout',
             cl_name=self.CLNAME3)
