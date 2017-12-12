@@ -17,6 +17,7 @@
 #include <Logger.h>
 #include <cl_autoptr_ex.h>
 #include <cl_cpu_detect.h>
+#include <cl_env.h>
 #include <cl_sys_info.h>
 
 #include <spirv/1.0/spirv.hpp>
@@ -222,13 +223,16 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
     // optionsClang = "-fopenmp -fintel-openmp -fopenmp-tbb -fintel-compatibility";
 // INTEL VPO END
 
-    if (getenv("VOLCANO_CLANG_OPTIONS")) {
+    std::string envVolcanoClangOptions;
+    cl_err_code err = GetEnvVar(envVolcanoClangOptions,
+        "VOLCANO_CLANG_OPTIONS");
+    if (!CL_FAILED(err)) {
 #ifdef NDEBUG
       // Append user options to default options.
-      optionsClang += getenv("VOLCANO_CLANG_OPTIONS");
+      optionsClang += envVolcanoClangOptions;
 #else
       // Allow default OpenMP flags to be overridden for debug purposes.
-      optionsClang = getenv("VOLCANO_CLANG_OPTIONS");
+      optionsClang = envVolcanoClangOptions;
 #endif
     }
 
