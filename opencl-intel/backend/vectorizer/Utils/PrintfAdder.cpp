@@ -323,7 +323,7 @@ void PrintfAdder::addDebugPrintImpl(Function *F, debug_print_args& print_args, I
   std::vector<Type*> arglist(1, strType);
   FunctionType * prtFuncType = FunctionType::get(Type::getInt32Ty(F->getContext()), arglist, true);
   Constant * printFuncConst = currentModule->getOrInsertFunction("printf", prtFuncType);
-  Function * printFunc = dyn_cast<Function>(printFuncConst);
+  Function * printFunc = cast<Function>(printFuncConst);
   std::vector<Value*> inputIters(2, ConstantInt::get(Type::getInt32Ty(F->getContext()), 0));
   // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual type
   // (not using type from pointer as this functionality is planned to be removed.

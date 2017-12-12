@@ -53,7 +53,11 @@ class FakeExtract : public FakeVectorOp {
     V_ASSERT(isFakeExtract(call) && "Not a fake extract");
   }
   /// Returns true if call is a call to a fake insert
-  static bool isFakeExtract(const CallInst &call) { return Mangler::isFakeExtract(call.getCalledFunction()->getName()); }
+  static bool isFakeExtract(const CallInst &call) {
+    V_ASSERT(call.getCalledFunction() &&
+             "Unexpected indirect function invocation");
+    return Mangler::isFakeExtract(call.getCalledFunction()->getName());
+  }
   /// Factory method
   /// vec - the base vector to insert element into.
   /// indConst - the constant index to mimic extract for.

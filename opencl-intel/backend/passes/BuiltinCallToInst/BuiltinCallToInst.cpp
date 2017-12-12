@@ -225,11 +225,12 @@ namespace intel{
 
   BuiltinCallToInst::BuiltinType BuiltinCallToInst::isSupportedBuiltin(CallInst* pCall) {
     BuiltinType builtinType = NOT_SUPPORTED;
+    Function *pCalledFunc = pCall->getCalledFunction();
     // In case of indirect function call
-    if (!pCall->getCalledFunction()) return builtinType;
+    if (!pCalledFunc) return builtinType;
 
     // Get function name
-    std::string calledFuncName = pCall->getCalledFunction()->getName().str();
+    std::string calledFuncName = pCalledFunc->getName().str();
     std::string strippedName;
     if (!isMangledName(calledFuncName.c_str()))
       return builtinType;

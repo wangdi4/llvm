@@ -309,7 +309,7 @@ namespace intel{
               if (m_isNativeDBG) {
                 // Get the next instruction so we can insert the copy to global
                 // after the Inst instruction.
-                Instruction *pNextInst = dyn_cast<Instruction>(&*(++BasicBlock::iterator(Inst)));
+                Instruction *pNextInst = cast<Instruction>(&*(++BasicBlock::iterator(Inst)));
                 builder.SetInsertPoint(pNextInst);
                 builder.CreateMemCpy(pLclBuff, pLocalAddr,
                         uiArraySize, pLclBuff->getAlignment(), false);
@@ -382,6 +382,7 @@ namespace intel{
       for (BasicBlock::iterator vii = pBB->begin(), vee = pBB->end(); vii != vee; ++vii) {
         if (CallInst* call_instr = dyn_cast<CallInst>(vii)) {
           Function* called_func = call_instr->getCalledFunction();
+          assert(called_func && "Unexpected indirect function invocation");
           if (called_func->getName() == "DebugCopy.") {
             // These are dummy calls so we know which blocks need special handling
             // for __locals. These calls are saved to a vector to be deleted later on.

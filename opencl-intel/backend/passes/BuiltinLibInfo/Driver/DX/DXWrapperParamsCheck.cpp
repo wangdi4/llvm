@@ -75,6 +75,7 @@ DXWrapperParamsCheck::DXWrapperRetType DXWrapperParamsCheck::checkRet
 }
 
 bool DXWrapperParamsCheck::isDXScalarWrapperMasked (CallInst* CI, const RuntimeServices* rtServices){
+  assert (CI->getCalledFunction() && "Unexpected indirect function invocation");
   std::string name = CI->getCalledFunction()->getName().str();
   bool isMangled = Mangler::isMangledCall(name);
   if (!isMangled){

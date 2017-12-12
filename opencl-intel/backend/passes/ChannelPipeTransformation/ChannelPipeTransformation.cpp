@@ -102,9 +102,9 @@ static void getPipesMetadata(const Module &M,
     ConstantAsMetadata *DepthMD = nullptr;
 
     for (unsigned i = 1; i < MD->getNumOperands(); ++i) {
-      MDNode *MDN = dyn_cast<MDNode>(MD->getOperand(i).get());
+      MDNode *MDN = cast<MDNode>(MD->getOperand(i).get());
 
-      auto *Key = dyn_cast<MDString>(MDN->getOperand(0).get());
+      auto *Key = cast<MDString>(MDN->getOperand(0).get());
       if (Key->getString() == "packet_size") {
         PacketSizeMD = dyn_cast<ConstantAsMetadata>(MDN->getOperand(1).get());
       } else if (Key->getString() == "packet_align") {

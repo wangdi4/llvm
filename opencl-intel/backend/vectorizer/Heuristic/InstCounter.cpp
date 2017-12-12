@@ -990,6 +990,8 @@ void WeightedInstCounter::estimateMemOpCosts(Function &F, DenseMap<Instruction*,
       if (CallInst* Call = dyn_cast<CallInst>(it)) {
         bool err = false;
         unsigned dim = 0;
+        assert(Call->getCalledFunction() &&
+               "Unexpected indirect function invocation");
         StringRef Name = Call->getCalledFunction()->getName();
         // get_group_id() is not a TID generator, but plays the same role here.
         if (services->isTIDGenerator(Call, &err, &dim) || Name.equals("get_group_id"))

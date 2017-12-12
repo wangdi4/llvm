@@ -39,6 +39,8 @@ bool OCLBuiltinPreVectorizationPass::runOnFunction(Function& F) {
   m_runtimeServices = static_cast<OpenclRuntime *>(getAnalysis<BuiltinLibInfo>().getRuntimeServices());
   for ( inst_iterator ii = inst_begin(&F), ie = inst_end(&F); ii != ie; ++ii ) {
     if (CallInst *CI = dyn_cast<CallInst>(&*ii)) {
+      V_ASSERT(CI->getCalledFunction() &&
+               "Unexpected indirect function invocation");
       std::string funcName = CI->getCalledFunction()->getName().str();
       if (unsigned opWidth = m_runtimeServices->isInlineDot(funcName)) {
         handleInlineDot(CI, opWidth);
@@ -143,6 +145,7 @@ void OCLBuiltinPreVectorizationPass::handleScalarSelect(CallInst *CI, std::strin
 
     std::string fakeFuncName = Mangler::getFakeBuiltinName(funcName);
     Function *origFunc = CI->getCalledFunction();
+    V_ASSERT(origFunc && "Unexpected indirect function invocation");
     Constant * funcConst = m_curModule->getOrInsertFunction(fakeFuncName,
     origFunc->getFunctionType(), origFunc->getAttributes());
     V_ASSERT(funcConst && "failed generating function in current module");

@@ -56,6 +56,7 @@ static Value* getConsecutiveConstantVector(Type* type, unsigned count) {
 
 bool AVX512Resolver::TargetSpecificResolve(CallInst* caller) {
   Function* called = caller->getCalledFunction();
+  V_ASSERT(called && "Unexpected indirect function invocation");
   std::string calledName = called->getName().str();
   V_PRINT(DEBUG_TYPE, "AVX512SpecificResolve Inspecting " << calledName << "\n");
 

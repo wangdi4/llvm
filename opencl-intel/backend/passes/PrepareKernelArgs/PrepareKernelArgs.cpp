@@ -142,15 +142,13 @@ namespace intel{
         AllocaInst *Allocation = builder.CreateAlloca(m_I8Ty, AllocaAddrSpace, BufferSize);
         // Set alignment of buffer to type size.
         unsigned Alignment = 16; // Cacheline
-        if (m_DL) {
-          Type* EltTy = callIt->getType()->getPointerElementType();
-          // If the kernel was vectorized, choose an alignment that is good for the *vectorized* type. This can
-          // be good for unaligned loads on targets that support instructions such as MOVUPS
-          unsigned VecSize = kimd.VectorizedWidth.hasValue() ? kimd.VectorizedWidth.get() : 1;
-          if (VecSize != 1 && VectorType::isValidElementType(EltTy))
-            EltTy = VectorType::get(EltTy, VecSize);
-          Alignment = llvm::NextPowerOf2(m_DL->getTypeAllocSize(EltTy) - 1);
-        }
+        Type* EltTy = callIt->getType()->getPointerElementType();
+        // If the kernel was vectorized, choose an alignment that is good for the *vectorized* type. This can
+        // be good for unaligned loads on targets that support instructions such as MOVUPS
+        unsigned VecSize = kimd.VectorizedWidth.hasValue() ? kimd.VectorizedWidth.get() : 1;
+        if (VecSize != 1 && VectorType::isValidElementType(EltTy))
+          EltTy = VectorType::get(EltTy, VecSize);
+        Alignment = llvm::NextPowerOf2(m_DL->getTypeAllocSize(EltTy) - 1);
         Allocation->setAlignment(Alignment);
         pArg = builder.CreatePointerCast(Allocation, callIt->getType());
       } else if (arg.type == CL_KRNL_ARG_PTR_BLOCK_LITERAL) {

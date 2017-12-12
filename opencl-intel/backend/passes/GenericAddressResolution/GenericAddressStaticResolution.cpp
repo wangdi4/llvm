@@ -306,9 +306,12 @@ namespace intel {
       }
     }
     // Special case: we should preserve GAS pointer on not overloadable BIs.
-    if (CallInst *pCallInstr = dyn_cast<CallInst>(pInstr))
+    if (CallInst *pCallInstr = dyn_cast<CallInst>(pInstr)) {
+      assert(pCallInstr->getCalledFunction() &&
+             "Unexpected indirect function invocation");
       if (needToSkipResolution(pCallInstr->getCalledFunction()))
         space = OCLAddressSpace::Generic;
+    }
 
     TPointerMap::iterator ptr_it = m_GASEstimate.find(pInstr);
     if (ptr_it == m_GASEstimate.end()) {

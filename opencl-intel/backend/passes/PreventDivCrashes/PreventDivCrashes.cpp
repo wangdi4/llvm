@@ -192,8 +192,8 @@ namespace intel {
 
     Value* divisor = divInst->getOperand(1);
     // do not optimize constants that may be replaced with shifts in the future
-    if (dyn_cast<Constant>(divisor)) {
-      Constant *constOp = dyn_cast<Constant>(divisor)->getSplatValue();
+    if (Constant *C = dyn_cast<Constant>(divisor)) {
+      Constant *constOp = C->getSplatValue();
       if (constOp) {
         const APInt &constIntVal = cast<ConstantInt>(constOp)->getValue();
         if (constIntVal.isPowerOf2() || (-constIntVal).isPowerOf2())

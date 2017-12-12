@@ -138,6 +138,7 @@ IOCLFECompiler* CommonOCLBuilder::createCompiler(const char* lib){
   m_dynamicLoader.Load(lib);
   fnCreateFECompilerInstance* factoryMethod =
     (fnCreateFECompilerInstance*)(intptr_t)m_dynamicLoader.GetFunctionPtrByName(fnFactoryName);
+  assert(factoryMethod && "GetFunctionPtrByName failed");
   int rc = factoryMethod(&sDeviceInfo, sizeof(sDeviceInfo), &ret, nullptr);
   if (rc || nullptr == ret)
     throw ocl_string_exception("factory method failed");

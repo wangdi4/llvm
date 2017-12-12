@@ -115,6 +115,7 @@ void FuncResolver::packPredicatedLoads(BasicBlock* BB) {
     bool load = false;
     if (CallInst* caller = dyn_cast<CallInst>(it)) {
       Function* called = caller->getCalledFunction();
+      V_ASSERT(called && "Unexpected indirect function invocation");
       std::string calledName = called->getName().str();
       V_PRINT(DEBUG_TYPE, "Inspecting "<<calledName<<"\n");
       if (Mangler::isMangledLoad(calledName)) {
@@ -198,6 +199,7 @@ void FuncResolver::toPredicate(Instruction* inst, Value* pred) {
 
 void FuncResolver::resolve(CallInst* caller) {
   Function* called = caller->getCalledFunction();
+  V_ASSERT(called && "Unexpected indirect function invocation");
   std::string calledName = called->getName().str();
   V_PRINT(DEBUG_TYPE, "Inspecting "<<calledName<<"\n");
 
@@ -284,6 +286,7 @@ void FuncResolver::CFInstruction(std::vector<Instruction*> insts, Value* pred) {
 
 void FuncResolver::resolveLoad(CallInst* caller) {
   Function* called = caller->getCalledFunction();
+  V_ASSERT(called && "Unexpected indirect function invocation");
   std::string calledName = called->getName().str();
   unsigned align = Mangler::getMangledLoadAlignment(calledName);
   V_PRINT(DEBUG_TYPE, "Inspecting load "<<calledName<<"\n");
@@ -411,6 +414,7 @@ bool FuncResolver::isResolvedMaskedLoad(CallInst* caller) {
 
 void FuncResolver::resolveStore(CallInst* caller) {
   Function* called = caller->getCalledFunction();
+  V_ASSERT(called && "Unexpected indirect function invocation");
   std::string calledName = called->getName().str();
   unsigned align = Mangler::getMangledStoreAlignment(calledName);
   V_PRINT(DEBUG_TYPE, "Inspecting store "<<calledName<<"\n");
@@ -550,6 +554,7 @@ void FuncResolver::resolveFunc(CallInst* caller) {
   FunctionType* funcType = FunctionType::get(caller->getType(), args, false);
 
   Function* called = caller->getCalledFunction();
+  V_ASSERT(called && "Unexpected indirect function invocation");
   std::string name = called->getName().str();
 
   // Obtain function
@@ -634,6 +639,7 @@ void FuncResolver::resolveRetByVectorBuiltin(CallInst* caller) {
   const auto AllocaAddrSpace = currFunc->getParent()->getDataLayout().getAllocaAddrSpace();
 
   Function *origFunc = caller->getCalledFunction();
+  V_ASSERT(origFunc && "Unexpected indirect function invocation");
   std::string fakeFuncName = origFunc->getName().str();
   std::string origFuncName = Mangler::get_original_scalar_name_from_retbyvector_builtin(fakeFuncName);
   const Function *LibFunc = m_rtServices->findInRuntimeModule(origFuncName);

@@ -197,7 +197,7 @@ namespace intel {
     }
 
     //Check if function is not declared inside "this" module
-    if ( !pInst->getCalledFunction()->isDeclaration() ) {
+    if ( !origFunc->isDeclaration() ) {
       //For functions defined (not declared) in this module - it is unsafe to assume anything
       //TODO: can we check the function and assure it is not related on WI-Id?
       return true;

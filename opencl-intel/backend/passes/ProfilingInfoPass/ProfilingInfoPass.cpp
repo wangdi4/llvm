@@ -76,6 +76,8 @@ void ProfilingInfoPass::runOnUserFunction(Function* pFunc)
              instr_iter != block_iter->end(); ++instr_iter) {
             if (CallInst* call_instr = dyn_cast<CallInst>(instr_iter)) {
                 Function* called_func = call_instr->getCalledFunction();
+                assert(called_func &&
+                       "Unexpected indirect function invocation");
                 string funcname = called_func->getName().str();
                 if (funcname == "llvm.dbg.declare" ||
                     funcname == "llvm.dbg.value") {

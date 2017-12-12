@@ -42,6 +42,7 @@ bool ScalarizeFunction::scanFunctionCall(CallInst *CI, funcRootsVect &rootVals)
   llvm::SmallVectorImpl<Value*> &args = getArgs(rootVals);
   // Look for the called function in the built-in functions hash
   Function *vectorFunc = CI->getCalledFunction();
+  V_ASSERT(vectorFunc && "Unexpected indirect function invocation");
   std::string vectorFuncName = vectorFunc->getName().str();
   V_PRINT(scalarizer, "\tRoot function scanning for function: " << vectorFuncName << "\n");
   const std::auto_ptr<VectorizerFunction> foundFunction =

@@ -152,6 +152,8 @@ unsigned CLStreamSampler::getTripCountUpperBound(Value *tripCount) {
     if (EVI->getNumIndices() == 1 &&
         *(EVI->idx_begin()) == CLWGBoundDecoder::getIndexOfSizeAtDim(0)) {
       if (CallInst *eeCall = dyn_cast<CallInst>(EVI->getAggregateOperand())) {
+        assert(eeCall->getCalledFunction() &&
+               "Unexpected indirect function invocation");
         std::string funcName = eeCall->getCalledFunction()->getName().str();
         if (CLWGBoundDecoder::isWGBoundFunction(funcName)) {
           // Trip is get_local_size(0) return known bound.

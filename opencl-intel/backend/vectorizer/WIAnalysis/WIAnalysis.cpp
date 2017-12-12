@@ -747,6 +747,8 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const CallInst* inst) {
   if (isTidGen && dim == m_vectorizedDim) return WIAnalysis::CONSECUTIVE;
 
   // Check if function is declared inside "this" module
+  V_ASSERT(inst->getCalledFunction() &&
+           "Unexpected indirect function invocation");
   if (!inst->getCalledFunction()->isDeclaration()) {
     // For functions defined in this module - it is unsafe to assume anything
     return WIAnalysis::RANDOM;
@@ -754,6 +756,7 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const CallInst* inst) {
 
   // Check if the function is in the table of functions
   Function *origFunc = inst->getCalledFunction();
+  V_ASSERT(origFunc && "Unexpected indirect function invocation");
   std::string origFuncName = origFunc->getName().str();
 
   if (CompilationUtils::isWorkGroupBuiltin(origFuncName)) {

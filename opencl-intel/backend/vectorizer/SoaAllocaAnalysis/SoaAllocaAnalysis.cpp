@@ -8,14 +8,13 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "SoaAllocaAnalysis.h"
 #include "Mangler.h"
 
-#include "OCLPassSupport.h"
 #include "InitializePasses.h"
+#include "OCLPassSupport.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
-
-#include <string>
 
 namespace intel {
 
@@ -51,7 +50,7 @@ OCL_INITIALIZE_PASS(SoaAllocaAnalysis, "SoaAllocaAnalysis", "SoaAllocaAnalysis p
         continue;
       }
       bool isVectorBasedType = allocaType->isVectorTy();
-      int width = isVectorBasedType ? (dyn_cast<VectorType>(allocaType))->getNumElements() : 0;
+      int width = isVectorBasedType ? (cast<VectorType>(allocaType))->getNumElements() : 0;
       // At this point the alloca type is supported for SOA-alloca
       // Need to check the all the derived usages of the alloca pointer are allowed
       std::set<const Value*> visited;
@@ -157,7 +156,7 @@ OCL_INITIALIZE_PASS(SoaAllocaAnalysis, "SoaAllocaAnalysis", "SoaAllocaAnalysis p
         continue;
       }
       else if (isa<BitCastInst>(usage) || isa<AddrSpaceCastInst>(usage)) {
-        const CastInst *BC = dyn_cast<CastInst>(usage);
+        const CastInst *BC = cast<CastInst>(usage);
         // Bitcast on alloca with vector based type is not supported.
         // Only Bitcast of alloca instruction is supported.
         if (!isVectorBasedType && BC->getOperand(0) == pAI) {
@@ -176,12 +175,15 @@ OCL_INITIALIZE_PASS(SoaAllocaAnalysis, "SoaAllocaAnalysis", "SoaAllocaAnalysis p
       }
       else {
         if (const CallInst *pCall = dyn_cast<CallInst>(usage)) {
-          if (Mangler::isMangledLoad(pCall->getCalledFunction()->getName())) {
+          Function *pCalledFunc = pCall->getCalledFunction();
+          V_ASSERT(pCalledFunc && "Unexpected indirect function invocation");
+          StringRef CalledFuncName = pCalledFunc->getName();
+          if (Mangler::isMangledLoad(CalledFuncName)) {
             // Load is allowed instructions that does not result in a pointer,
             // so only need to continue checking other usages.
             continue;
           }
-          else if (Mangler::isMangledStore(pCall->getCalledFunction()->getName())) {
+          else if (Mangler::isMangledStore(CalledFuncName)) {
             if (pCall->getArgOperand(2) == pAI) {
               V_PRINT(soa_alloca_stat, "SoaAllocaAnalysis: alloca with unsupported usage as store value (" << *usage << ")\n");
               return false;
@@ -210,6 +212,8 @@ OCL_INITIALIZE_PASS(SoaAllocaAnalysis, "SoaAllocaAnalysis", "SoaAllocaAnalysis p
     if (!CI) {
       return false;
     }
+    V_ASSERT(CI->getCalledFunction() &&
+             "Unexpected indirect function invocation");
     if (!CI->getCalledFunction()->isIntrinsic() ||
         CI->getCalledFunction()->getIntrinsicID() != Intrinsic::memset) {
       V_PRINT(soa_alloca_stat, "SoaAllocaAnalysis: alloca with unsupported CallInst usage (" << CI << ")\n");

@@ -117,9 +117,11 @@ namespace intel {
     assert((category == CallBuiltIn || category == CallIntrinsic) &&
            "Unexpected function category!");
 
-    StringRef funcName = pCallInstr->getCalledFunction()->getName();
+    Function *pCalledFunc = pCallInstr->getCalledFunction();
+    assert(pCalledFunc && "Unexpected indirect function invocation");
+    StringRef funcName = pCalledFunc->getName();
     // Skip BIs which do not need processing
-    if (needToSkipResolution(pCallInstr->getCalledFunction())) return;
+    if (needToSkipResolution(pCalledFunc)) return;
 
     // Address space enforcement: highest priority is 'global' for BI and
     // 'private' for intrinsic [we would like to have 'private' for all, however

@@ -694,6 +694,8 @@ void ScalarizeFunction::scalarizeInstruction(CallInst *CI)
   V_ASSERT(CI && "instruction type dynamic cast failed");
 
   // Find corresponding entry in functions hash (in runtimeServices)
+  V_ASSERT(CI->getCalledFunction() &&
+           "Unexpected indirect function invocation");
   llvm::StringRef funcName = CI->getCalledFunction()->getName();
   const std::auto_ptr<VectorizerFunction> foundFunction =
     m_rtServices->findBuiltinFunction(funcName);
@@ -1100,12 +1102,13 @@ void ScalarizeFunction::scalarizeInstruction(StoreInst *SI) {
 
 void ScalarizeFunction::scalarizeCallWithVecArgsToScalarCallsWithScalarArgs(CallInst* CI) {
   // obtaining sclarized and packetized funciton types
-  std::string name = CI->getCalledFunction()->getName().str();
+  Function *pCalledFunc = CI->getCalledFunction();
+  V_ASSERT(pCalledFunc && "Unexpected indirect function invocation");
+  std::string name = pCalledFunc->getName().str();
   const std::auto_ptr<VectorizerFunction> foundFunction =
     m_rtServices->findBuiltinFunction(name);
   V_ASSERT(!foundFunction->isNull() && "Unknown name");
-  const FunctionType* ScalarFunctionType =
-      CI->getCalledFunction()->getFunctionType();
+  const FunctionType* ScalarFunctionType = pCalledFunc->getFunctionType();
 
   // running over all params checking if parameter should be marked soa
   unsigned numScalarArgs = ScalarFunctionType->getNumParams();
@@ -1316,7 +1319,7 @@ void ScalarizeFunction::obtainVectorValueWhichMightBeScalarizedImpl(Value * vect
   }
 
   Value *assembledVector = UndefValue::get(vectorVal->getType());
-  unsigned width = dyn_cast<VectorType>(vectorVal->getType())->getNumElements();
+  unsigned width = cast<VectorType>(vectorVal->getType())->getNumElements();
   for (unsigned i = 0; i < width; i++)
   {
     V_ASSERT(NULL != valueEntry->scalarValues[i] && "SCM entry has NULL value");
@@ -1422,7 +1425,7 @@ void ScalarizeFunction::updateSCMEntryWithValues(ScalarizeFunction::SCMEntry *en
     "only SoaAlloca derived or Vector values are supported");
   unsigned width = isSoaAlloca ?
     m_soaAllocaAnalysis->getSoaAllocaVectorWidth(origValue) :
-    dyn_cast<VectorType>(origValue->getType())->getNumElements();
+    cast<VectorType>(origValue->getType())->getNumElements();
 
   entry->isOriginalVectorRemoved = isOrigValueRemoved;
 

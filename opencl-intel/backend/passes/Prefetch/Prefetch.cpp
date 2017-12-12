@@ -1478,6 +1478,8 @@ bool PrefetchCandidateUtils::isPrefetchCandidate (CallInst *pCallInst,
 
   Value *addr = nullptr;
 
+  assert(pCallInst->getCalledFunction() &&
+         "Unexpected indirect function invocation");
   StringRef Name = pCallInst->getCalledFunction()->getName();
 
   // ignore calls that are non intrinsic
@@ -1632,6 +1634,8 @@ bool PrefetchCandidateUtils::isPrefetchCandidate (CallInst *pCallInst,
 int PrefetchCandidateUtils::getIndexOperand(Instruction *I) {
   assert (isa<CallInst>(I) && "Call instruction expected");
   CallInst *pCallInst = cast<CallInst>(I);
+  assert(pCallInst->getCalledFucntion() &&
+         "Unexpected indirect function invocation");
   StringRef Name = pCallInst->getCalledFunction()->getName();
 
   if (Name.find(m_gatherIntrinsicName) != std::string::npos)
@@ -1665,6 +1669,8 @@ void PrefetchCandidateUtils::insertPF (Instruction *I) {
   bool isExclusive = false;
 
   CallInst *pCallInst = cast<CallInst>(I);
+  assert(pCallInst->getCalledFunction() &&
+         "Unexpected indirect function invocation");
   StringRef Name = pCallInst->getCalledFunction()->getName();
 
   Constant *hint = ConstantInt::get(i32, UarchInfo::defaultL1PFType);

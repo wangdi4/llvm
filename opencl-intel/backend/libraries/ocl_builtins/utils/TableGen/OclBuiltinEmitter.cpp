@@ -941,8 +941,9 @@ OclBuiltinImpl::appendImpl(const Record* R)
     const RecordVal* RV = R->getValue("Types");
     if (VarInit* FI = dyn_cast<VarInit>(RV->getValue())) {
       const RecordVal* IV = m_DB.getRecord()->getValue(FI->getName());
-      assert(dyn_cast<ListInit>(IV->getValue()) && "Invalid OclBuiltinImpl record.");
-      ListInit* List = dyn_cast<ListInit>(IV->getValue());
+      assert(IV && isa<ListInit>(IV->getValue()) &&
+             "Invalid OclBuiltinImpl record.");
+      ListInit* List = cast<ListInit>(IV->getValue());
       for (unsigned i = 0; i != List->size(); ++i) {
         DefInit* DI = dyn_cast<DefInit>(List->getElement(i));
         assert(DI && "Invalid OclBuiltinImpl record, list is not entirely DefInit.");

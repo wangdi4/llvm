@@ -564,6 +564,8 @@ void PacketizeFunction::obtainTranspose() {
       isStore = true;
     } else if (CallInst* CI = dyn_cast<CallInst>(I)) {
       // Handle masked versions of load and store
+      V_ASSERT(CI->getCalledFunction() &&
+               "Unexpected indirect function invocation");
       StringRef Name = CI->getCalledFunction()->getName();
       if (Mangler::isMangledLoad(Name)) {
         isTranspose = true;
@@ -833,6 +835,8 @@ void PacketizeFunction::fixSoaAllocaLoadStoreOperands(Instruction *I, unsigned i
   }
   else if (CallInst *inst = dyn_cast<CallInst>(I)) {
     // It can be a masked load/store instruction!
+    V_ASSERT(inst->getCalledFunction() &&
+             "Unexpected indirect function invocation");
     std::string origFuncName = inst->getCalledFunction()->getName().str();
     if (Mangler::isMangledLoad(origFuncName)) {
       ptrOpIndex = 1;
@@ -1230,6 +1234,8 @@ Instruction* PacketizeFunction::widenConsecutiveUnmaskedMemOp(MemoryOperation &M
     Value *NumOfElements[MAX_PACKET_WIDTH];
     obtainMultiScalarValues(NumOfElements, CI->getArgOperand(1), MO.Orig);
     args.push_back(obtainNumElemsForConsecutivePrefetch(NumOfElements[0], MO.Orig));
+    V_ASSERT(CI->getCalledFunction() &&
+             "Unexpected indirect function invocation");
     std::string vectorName = Mangler::getVectorizedPrefetchName(CI->getCalledFunction()->getName(), m_packetWidth);
     return VectorizerUtils::createFunctionCall(m_currFunc->getParent(), vectorName, MO.Orig->getType(), args,
         SmallVector<Attribute::AttrKind, 4>(), MO.Orig);
@@ -1296,6 +1302,8 @@ Instruction* PacketizeFunction::widenConsecutiveMaskedMemOp(MemoryOperation &MO)
       Value *NumOfElements[MAX_PACKET_WIDTH];
       obtainMultiScalarValues(NumOfElements, CI->getArgOperand(2), MO.Orig);
       args.push_back(obtainNumElemsForConsecutivePrefetch(NumOfElements[0], MO.Orig));
+      V_ASSERT(CI->getCalledFunction() &&
+               "Unexpected indirect function invocation");
       name = Mangler::getVectorizedPrefetchName(CI->getCalledFunction()->getName(), m_packetWidth);
       DT = MO.Orig->getType();
       break;
@@ -1565,6 +1573,7 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
   V_PRINT(packetizer, "\t\tCall Instruction\n");
   V_ASSERT(CI && "instruction type dynamic cast failed");
   Function *origFunc = CI->getCalledFunction();
+  V_ASSERT(origFunc && "Unexpected indirect function invocation");
   std::string origFuncName = origFunc->getName().str();
 
   // Avoid packetizing fake insert\extract that are used to
@@ -1647,6 +1656,8 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
     return packetizeMemoryOperand(MO);
   }
 
+  V_ASSERT(CI->getCalledFunction() &&
+           "Unexpected indirect function invocation");
   if (CI->getCalledFunction()->isIntrinsic() &&
       CI->getCalledFunction()->getIntrinsicID() == Intrinsic::memset &&
       m_soaAllocaAnalysis->isSoaAllocaScalarRelated(CI)) {
@@ -2173,15 +2184,15 @@ bool PacketizeFunction::obtainInsertElts(InsertElementInst *IEI, InsertElementIn
       // so that is irrelevant.
       bool badForTranspose = false;
 
-      if (isa<LoadInst>(insertedValue)) {
-        LoadInst *LI = cast<LoadInst>(insertedValue);
+      if (LoadInst *LI = dyn_cast<LoadInst>(insertedValue)) {
         Value *Address = LI->getPointerOperand();
         if (m_depAnalysis->whichDepend(Address) != WIAnalysis::PTR_CONSECUTIVE)
           badForTranspose = true;
-      } else if (isa<CallInst>(insertedValue)) {
+      } else if (CallInst *CI = dyn_cast<CallInst>(insertedValue)) {
         // Masked loads are represented as special call instructions,
         // handle them the same as normal loads.
-        CallInst *CI = cast<CallInst>(insertedValue);
+        V_ASSERT(CI->getCalledFunction() &&
+                 "Unexpected indirect function invocation");
         StringRef Name = CI->getCalledFunction()->getName();
         if (Mangler::isMangledLoad(Name)) {
           Value *Address = CI->getArgOperand(1);
@@ -3059,8 +3070,6 @@ void PacketizeFunction::packetizeInstruction(ReturnInst *RI)
   return useOriginalConstantInstruction(RI);
 }
 
-
-
 Constant *PacketizeFunction::createIndicesForShuffles(unsigned width, int *values)
 {
   // Generate a vector and fill with given values (as constant integers)
@@ -3087,23 +3096,28 @@ void PacketizeFunction::generateSequentialIndices(Instruction *I)
   Instruction *tidGenInst = I;
 
   // If the sequence generator is a masked instruction, need to unmask it first
-  CallInst * CI = dyn_cast<CallInst>(I);
-  if (CI && Mangler::isMangledCall(CI->getCalledFunction()->getName()))
+  CallInst *CI = dyn_cast<CallInst>(I);
+  if (CI)
   {
-    std::vector<Value*> params;
-    // Create arguments for new function call, ignoring the predicate operand
-    for (unsigned j = 1; j < CI->getNumArgOperands(); ++j)
+    Function *pCalledFunc = CI->getCalledFunction();
+    V_ASSERT(pCalledFunc && "Unexpected indirect function invocation");
+    if (Mangler::isMangledCall(pCalledFunc->getName()))
     {
-      params.push_back(CI->getArgOperand(j));
-    }
+      std::vector<Value*> params;
+      // Create arguments for new function call, ignoring the predicate operand
+      for (unsigned j = 1; j < CI->getNumArgOperands(); ++j)
+      {
+        params.push_back(CI->getArgOperand(j));
+      }
 
-    Function *origFunc = m_currFunc->getParent()->getFunction(
-      Mangler::demangle(CI->getCalledFunction()->getName()));
-    V_ASSERT(origFunc && "error finding unmasked function!");
-    tidGenInst = CallInst::Create(origFunc, ArrayRef<Value*>(params), "", I);
-    VectorizerUtils::SetDebugLocBy(tidGenInst, I);
-    // Remove original instruction
-    m_removedInsts.insert(I);
+      Function *origFunc = m_currFunc->getParent()->getFunction(
+        Mangler::demangle(pCalledFunc->getName()));
+      V_ASSERT(origFunc && "error finding unmasked function!");
+      tidGenInst = CallInst::Create(origFunc, ArrayRef<Value*>(params), "", I);
+      VectorizerUtils::SetDebugLocBy(tidGenInst, I);
+      // Remove original instruction
+      m_removedInsts.insert(I);
+    }
   }
 
   // Prepare: Obtain the used type of the ID, and make a vector for it

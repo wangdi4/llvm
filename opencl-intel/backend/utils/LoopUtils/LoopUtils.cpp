@@ -57,7 +57,7 @@ void getAllCallInFunc(StringRef funcName, Function *funcToSearch,
 
   for (Value::user_iterator useIt = F->user_begin(), useE = F->user_end();
        useIt != useE; ++useIt) {
-    CallInst *CI = dyn_cast<CallInst>(*useIt);
+    CallInst *CI = cast<CallInst>(*useIt);
     Function *parentFunc = CI->getParent()->getParent();
     if (parentFunc == funcToSearch)
       calls.push_back(CI);

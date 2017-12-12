@@ -601,7 +601,7 @@ void Predicator::convertPhiToSelect(BasicBlock* BB) {
   // Convert all PHI nodes collected
   for (SmallInstVector::iterator it = PhiInstrVector.begin();
                                  it != PhiInstrVector.end(); it++) {
-    PHINode *phi = dyn_cast<PHINode>(*it);
+    PHINode *phi = cast<PHINode>(*it);
     V_ASSERT(
       m_outMask.find(std::make_pair(phi->getIncomingBlock(0), BB)) !=
       m_outMask.end());
@@ -818,6 +818,8 @@ Instruction* Predicator::predicateInstruction(Instruction *inst, Value* pred) {
 
   // Replace function call with masked function call
   if (CallInst* call = dyn_cast<CallInst>(inst)) {
+    V_ASSERT(call->getCalledFunction() &&
+             "Unexpected indirect function invocation");
     std::string desc = call->getCalledFunction()->getName().str();
     std::string maskedName = Mangler::mangle(desc);
     //if the predicated is a faked one, we need to create it artificially.
@@ -1028,6 +1030,8 @@ void Predicator::collectInstructionsToPredicate(BasicBlock *BB) {
         m_toPredicate.push_back(I);
       }
       else if (CallInst *CI = dyn_cast<CallInst>(I)) {
+        V_ASSERT(CI->getCalledFunction() &&
+                 "Unexpected indirect function invocation");
         std::string funcname = CI->getCalledFunction()->getName().str();
         if (!m_rtServices->hasNoSideEffect(funcname))  {
           m_toPredicate.push_back(I);

@@ -111,6 +111,8 @@ namespace intel {
 
         CallInst *pCall = dyn_cast<CallInst>(*ii);
         assert(pCall && "Expected a CallInst");
+        assert(pCall->getCalledFunction() &&
+               "Unexpected indirect function invocation");
         std::string calledFuncName = pCall->getCalledFunction()->getName().str();
         TInternalCallType calledFuncType = getCallFunctionType(calledFuncName);
 

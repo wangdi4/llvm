@@ -300,6 +300,7 @@ namespace intel {
       // Info about this function call
       unsigned numArgs = pWgCallInst->getNumArgOperands();
       Function *pCallee = pWgCallInst->getCalledFunction();
+      assert(pCallee && "Unexpected indirect function invocation");
       std::string funcName = pCallee->getName().str();
       Type *pRetType = pWgCallInst->getType();
 
