@@ -386,11 +386,11 @@ class ClientGDB(TestClient):
         if stackframe is not None and stackframe != 0:
             self._frame(stackframe)
         return self._print("*"+str(start_addr))+self._print("*"+str(start_addr))
-        
+
     def var_set_value(self, varname, value, stackframe=None):
         if stackframe is not None and stackframe != 0:
             self._frame(stackframe)
-        output = self._command("set " + str(varname) + "=" + str(value))
+        output = self._command("set var " + str(varname) + "=" + str(value))
         logd("result of set command: " + output)
         return output
 
