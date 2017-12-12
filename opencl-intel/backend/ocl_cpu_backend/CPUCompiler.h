@@ -20,17 +20,11 @@ File Name: CPUCompiler.h
 #include "Compiler.h"
 #include "ICompilerConfig.h"
 
-#include "llvm/Support/raw_ostream.h"
-
-#include <assert.h>
 #include <string>
-#include <memory>
 
 namespace llvm {
     class ExecutionEngine;
     class Module;
-    class MemoryBuffer;
-    class Type;
     class JITEventListener;
 }
 
@@ -45,11 +39,12 @@ class BuiltinModules;
 class CPUCompiler: public Compiler
 {
 public:
-    /**
-     * Ctor
-     */
     CPUCompiler(const ICompilerConfig& pConfig);
     virtual ~CPUCompiler();
+
+    // Disable the copy ctor and assignment operator
+    CPUCompiler( const CPUCompiler& ) = delete;
+    bool operator = ( const CPUCompiler& ) = delete;
 
     // Returns pointer to jitted function if function hasn't been compiled
     // Otherwise function is jitted and pointer is returned
@@ -57,31 +52,27 @@ public:
 
     // Create execution engine for the given module
     // Execution engine depends on module configuration
-    virtual void CreateExecutionEngine( llvm::Module* pModule );
+    void CreateExecutionEngine( llvm::Module* pModule ) override;
 
     // Get execution engine
-    virtual void *GetExecutionEngine() { return m_pExecEngine; }
+    void *GetExecutionEngine() override { return m_pExecEngine; }
 
     void DumpJIT( llvm::Module* pModule, const std::string& filename) const;
 
-    virtual void SetObjectCache(ObjectCodeCache* pCache);
+    void SetObjectCache(ObjectCodeCache* pCache) override;
 
 protected:
-
     // Returns a list of pointers to the RTL library modules
-    llvm::SmallVector<llvm::Module*, 2> GetBuiltinModuleList() const;
+    llvm::SmallVector<llvm::Module*, 2> GetBuiltinModuleList() const override;
 
 private:
-    // Disable the copy ctor and assignment operator
-    CPUCompiler( const CPUCompiler& );
-    bool operator = ( const CPUCompiler& );
-
     void SelectCpu( const std::string& cpuName, const std::string& cpuFeatures );
 
     llvm::ExecutionEngine* CreateCPUExecutionEngine( llvm::Module* pModule ) const;
 
+private:
     BuiltinModules*         m_pBuiltinModule;
-    llvm::ExecutionEngine* m_pExecEngine;
+    llvm::ExecutionEngine*  m_pExecEngine;
 
     llvm::JITEventListener* m_pVTuneListener;
 };
