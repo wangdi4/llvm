@@ -18,8 +18,8 @@
 #define LLVM_ANALYSIS_INTEL_LOOPANALYSIS_REGIONIDENTIFICATION_H
 
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/SmallPtrSet.h" 
 
 #include "llvm/Pass.h"
 
@@ -164,12 +164,21 @@ private:
   /// Checks whether this loop basic block is loop concatenation candidate.
   static bool isLoopConcatenationCandidate(BasicBlock *BB);
 
-  // Checks whether the current function is loop concatenation candidate.
+  /// Checks whether the current function is loop concatenation candidate.
   bool isLoopConcatenationCandidate() const;
 
-  /// Returns true if metadata node \p Node contains only debug metadata or
-  /// equals null.
-  static bool isDebugMetadataOnly(MDNode *Node);
+  /// Returns true if \p Str refers to unroll related metadata.
+  static bool isUnrollMetadata(StringRef Str);
+
+  /// Returns true if \p Node refers to unroll related metadata.
+  static bool isUnrollMetadata(MDNode *Node);
+
+  /// Returns true if \p Node is a debug related metadata type.
+  static bool isDebugMetadata(MDNode *Node);
+
+  /// Returns true if metadata node \p Node only contains metadata supported in
+  /// HIR.
+  static bool isSupportedMetadata(MDNode *Node);
 
 public:
   static char ID; // Pass identification

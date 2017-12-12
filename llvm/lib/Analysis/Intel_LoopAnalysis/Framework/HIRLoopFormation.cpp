@@ -482,7 +482,6 @@ void HIRLoopFormation::formLoops() {
     HLLoop *HLoop = HIR->getHLNodeUtils().createHLLoop(Lp);
     HLNodeUtils::insertBefore(Label, HLoop);
 
-    HLoop->setLoopMetadata(Lp->getLoopID());
     HLoop->setBranchDebugLoc(BottomTest->getDebugLoc());
     HLoop->setCmpTestDebugLoc(BottomTest->pred_begin()->DbgLoc);
 

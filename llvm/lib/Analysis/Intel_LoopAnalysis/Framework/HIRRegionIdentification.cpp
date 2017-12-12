@@ -537,11 +537,38 @@ bool HIRRegionIdentification::shouldThrottleLoop(const Loop &Lp,
   return !CMA.isProfitable();
 }
 
-bool HIRRegionIdentification::isDebugMetadataOnly(MDNode *Node) {
-  unsigned Ops = Node->getNumOperands();
-  if (Ops == 1) {
-    return isa<DILocation>(Node) || isa<DINode>(Node);
+bool HIRRegionIdentification::isUnrollMetadata(StringRef Str) {
+  return (Str.equals("llvm.loop.unroll.count") ||
+          Str.equals("llvm.loop.unroll.enable") ||
+          Str.equals("llvm.loop.unroll.disable") ||
+          Str.equals("llvm.loop.unroll.runtime.disable") ||
+          Str.equals("llvm.loop.unroll.full"));
+}
+
+bool HIRRegionIdentification::isUnrollMetadata(MDNode *Node) {
+  assert(Node->getNumOperands() > 0 &&
+         "metadata should have at least one operand!");
+
+  MDString *Str = dyn_cast<MDString>(Node->getOperand(0));
+
+  if (!Str) {
+    return false;
   }
+
+  return isUnrollMetadata(Str->getString());
+}
+
+bool HIRRegionIdentification::isDebugMetadata(MDNode *Node) {
+  return isa<DILocation>(Node) || isa<DINode>(Node);
+}
+
+bool HIRRegionIdentification::isSupportedMetadata(MDNode *Node) {
+
+  if (isDebugMetadata(Node) || isUnrollMetadata(Node)) {
+    return true;
+  }
+
+  unsigned Ops = Node->getNumOperands();
 
   for (unsigned I = 0; I < Ops; ++I) {
     MDNode *OpNode = dyn_cast<MDNode>(Node->getOperand(I));
@@ -549,7 +576,7 @@ bool HIRRegionIdentification::isDebugMetadataOnly(MDNode *Node) {
       continue;
     }
 
-    if (!OpNode || !isDebugMetadataOnly(OpNode)) {
+    if (!OpNode || !isSupportedMetadata(OpNode)) {
       return false;
     }
   }
@@ -807,13 +834,11 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
     return false;
   }
 
-  // Skip loop with vectorize/unroll pragmas for now so that tests checking
-  // for these are not affected. Allow SIMD loops and dbg metadata.
+  // Skip loops with unsupported pragmas.
   MDNode *LoopID = Lp.getLoopID();
   if (!DisablePragmaBailOut && !isSIMDLoop(Lp) && LoopID &&
-      !isDebugMetadataOnly(LoopID)) {
-    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loops with pragmas currently not "
-                    "supported.\n");
+      !isSupportedMetadata(LoopID)) {
+    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loops has unsupported pragma.\n");
     return false;
   }
 

@@ -707,6 +707,8 @@ float HIRCompleteUnroll::ProfitabilityAnalyzer::getSavingsInPercentage() const {
 }
 
 bool HIRCompleteUnroll::ProfitabilityAnalyzer::isProfitable() const {
+  assert((CurLoop == OuterLoop) &&
+         "isProfitable() should only be called for top level loop!");
 
   auto SavingsPercentage = getSavingsInPercentage();
 
@@ -723,17 +725,33 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::isProfitable() const {
   DEBUG(dbgs() << "Number of ddrefs: " << NumDDRefs << "\n");
   DEBUG(dbgs() << "Loop: \n"; CurLoop->dump(); dbgs() << "\n");
 
-  if (SavingsPercentage < HCU.Limits.SavingsThreshold) {
-    return false;
+  float ScalingFactor;
+
+  if (CurLoop->hasCompleteUnrollEnablingPragma()) {
+    // Use max scaling factor in the presence of pragma unroll to use highest
+    // allowable code size limit for unrolled loops. We use the code size limit
+    // to ignore pragma on abusurdly big loops. This behavior is concsistent
+    // with clang's behavior described here-
+    // http://clang.llvm.org/docs/LanguageExtensions.html#extensions-for-loop-hint-optimizations
+    ScalingFactor = HCU.Limits.MaxThresholdScalingFactor;
+    DEBUG(
+        dbgs()
+        << "Using max scaling factor due to presence of unroll enabling pragma."
+        << "\n");
+  } else {
+
+    if (SavingsPercentage < HCU.Limits.SavingsThreshold) {
+      return false;
+    }
+
+    // Use postvec(smaller) savings threshold to derive consistent scaling
+    // factor for prevec and postvec passes.
+    ScalingFactor = (SavingsPercentage / PostVectorSavingsThreshold);
+    ScalingFactor =
+        std::min(ScalingFactor, HCU.Limits.MaxThresholdScalingFactor);
   }
 
-  // Use postvec(smaller) savings threshold to derive consistent scaling factor
-  // for prevec and postvec passes.
-  float ScalingFactor = (SavingsPercentage / PostVectorSavingsThreshold);
-
-  ScalingFactor = std::min(ScalingFactor, HCU.Limits.MaxThresholdScalingFactor);
-
-  auto Iter = HCU.TotalTripCount.find(OuterLoop);
+  auto Iter = HCU.TotalTripCount.find(CurLoop);
   assert((Iter != HCU.TotalTripCount.end()) && "Trip count of loop not found!");
 
   return (Iter->second <= (ScalingFactor * HCU.Limits.LoopnestTripThreshold)) &&
@@ -1878,16 +1896,25 @@ bool HIRCompleteUnroll::isApplicable(const HLLoop *Loop) const {
 
   // Throttle multi-exit/unknown loops.
   if (!Loop->isDo()) {
+    DEBUG(dbgs() << "Skipping complete unroll of non-DO loop!\n");
     return false;
   }
 
   // Ignore loops with SIMD directive.
   if (Loop->isSIMD()) {
+    DEBUG(dbgs() << "Skipping complete unroll of SIMD loop!\n");
     return false;
   }
 
   // Handle normalized loops only.
   if (!Loop->isNormalized()) {
+    DEBUG(dbgs() << "Skipping complete unroll of non-normalized loop!\n");
+    return false;
+  }
+
+  if (Loop->hasCompleteUnrollDisablingPragma()) {
+    DEBUG(dbgs() << "Skipping complete unroll due to presence of unroll "
+                    "disabling pragma!\n");
     return false;
   }
 
@@ -1895,6 +1922,8 @@ bool HIRCompleteUnroll::isApplicable(const HLLoop *Loop) const {
 
   // Cannot unroll loop if it has calls with noduplicate attribute.
   if (LS.hasCallsWithNoDuplicate()) {
+    DEBUG(dbgs() << "Skipping complete unroll of loop containing call(s) with "
+                    "NoDuplicate attribute!\n");
     return false;
   }
 
@@ -1902,7 +1931,7 @@ bool HIRCompleteUnroll::isApplicable(const HLLoop *Loop) const {
 }
 
 bool HIRCompleteUnroll::cannotHandleLiveouts(const HLLoop *Loop,
-                                            int64_t MinUpper) const {
+                                             int64_t MinUpper) const {
   // There are some corner cases where during unroll of triangular loops, the
   // inner needs to be removed and its liveout temp uses need to be elliminated
   // otherwise we would leave uninitialized temps in HIR. This is problematic

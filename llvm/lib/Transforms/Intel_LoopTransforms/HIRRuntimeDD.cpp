@@ -470,6 +470,8 @@ const char *HIRRuntimeDD::getResultString(RuntimeDDResult Result) {
     return "Multiple groups with the same base CE";
   case NON_DO_LOOP:
     return "Non DO loops are not supported";
+  case UNROLL_PRAGMA_LOOP:
+    return "Unroll pragma loops are not supported";
   case NON_PROFITABLE:
     return "Loop considered non-profitable";
   case NON_PROFITABLE_SUBS:
@@ -602,6 +604,11 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
 
   for (const HLLoop *LoopI = InnermostLoop, *LoopE = Loop->getParentLoop();
        LoopI != LoopE; LoopI = LoopI->getParentLoop()) {
+
+    if (LoopI->hasUnrollEnablingPragma()) {
+      return UNROLL_PRAGMA_LOOP;
+    }
+
     uint64_t TripCount;
     if (LoopI->isConstTripLoop(&TripCount)) {
       // TODO: Max trip count estimation could be used for the small trip test.

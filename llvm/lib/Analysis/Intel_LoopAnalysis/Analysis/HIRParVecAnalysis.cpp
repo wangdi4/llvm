@@ -478,6 +478,13 @@ void ParVecInfo::emitDiag() {
 
 void ParVecInfo::analyze(HLLoop *Loop, TargetLibraryInfo *TLI,
                          HIRDDAnalysis *DDA, HIRSafeReductionAnalysis *SRA) {
+
+  if (Loop->hasUnrollEnablingPragma()) {
+    setVecType(UNROLL_PRAGMA_LOOP);
+    emitDiag();
+    return;
+  }
+
   // DD Analysis is expensive. Be sure to run structural analysis first,
   // i.e., before coming here.
   if (isVectorMode() && Loop->isSIMD()) {

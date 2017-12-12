@@ -660,6 +660,11 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop) {
     return false;
   }
 
+  if (Loop->hasUnrollEnablingPragma()) {
+    DEBUG(dbgs() << "Loop with unroll pragma skipped\n");
+    return false;
+  }
+
   SmallVector<HLIf *, 4> Candidates;
 
   std::unique_ptr<CanonExpr> LowerCE(Loop->getLowerCanonExpr()->clone());

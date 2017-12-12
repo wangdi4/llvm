@@ -185,6 +185,16 @@ struct HIRLoopInterchange::CollectCandidateLoops final
         return;
       }
 
+      for (const HLLoop *TmpLoop = InnermostLoop,
+                        *EndLoop = Loop->getParentLoop();
+           TmpLoop != EndLoop; TmpLoop = TmpLoop->getParentLoop()) {
+        if (TmpLoop->hasUnrollEnablingPragma()) {
+          DEBUG(dbgs() << "Skipping loop with unroll pragma\n");
+          SkipNode = Loop;
+          return;
+        }
+      }
+
       DEBUG(dbgs() << "Is  Perfect loopnest\n");
 
       if (!IsNearPerfectLoop) {
@@ -224,9 +234,7 @@ struct HIRLoopInterchange::CollectCandidateLoops final
   }
   void visit(HLNode *Node) {}
   void postVisit(HLNode *Node) {}
-  bool skipRecursion(const HLNode *Node) const {
-    return Node == SkipNode;
-  }
+  bool skipRecursion(const HLNode *Node) const { return Node == SkipNode; }
 };
 
 FunctionPass *llvm::createHIRLoopInterchangePass() {
