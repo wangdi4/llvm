@@ -108,23 +108,28 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
     } else
       Call = genTargetInitCode(W, NewCall, InsertPt);
 
-    Builder.SetInsertPoint(InsertPt);
-    Builder.CreateStore(Call, OffloadError);
+    if (isa<WRNTargetNode>(W)) {
+      Builder.SetInsertPoint(InsertPt);
+      Builder.CreateStore(Call, OffloadError);
 
-    Builder.SetInsertPoint(NewCall);
-    LoadInst *LastLoad = Builder.CreateLoad(OffloadError);
-    ConstantInt *ValueZero =
-        ConstantInt::getSigned(Type::getInt32Ty(F->getContext()), 0);
-    Value *ErrorCompare = Builder.CreateICmpNE(LastLoad, ValueZero);
-    TerminatorInst *Term = SplitBlockAndInsertIfThen(ErrorCompare, NewCall,
-                                                     false, nullptr, DT, LI);
-    Term->getParent()->setName("omp_offload.failed");
-    LastLoad->getParent()->getTerminator()->getSuccessor(1)->setName(
-        "omp_offload.cont");
-    NewCall->removeFromParent();
-    NewCall->insertBefore(Term->getParent()->getTerminator());
+      Builder.SetInsertPoint(NewCall);
+      LoadInst *LastLoad = Builder.CreateLoad(OffloadError);
+      ConstantInt *ValueZero =
+          ConstantInt::getSigned(Type::getInt32Ty(F->getContext()), 0);
+      Value *ErrorCompare = Builder.CreateICmpNE(LastLoad, ValueZero);
+      TerminatorInst *Term = SplitBlockAndInsertIfThen(ErrorCompare, NewCall,
+                                                       false, nullptr, DT, LI);
+      Term->getParent()->setName("omp_offload.failed");
+      LastLoad->getParent()->getTerminator()->getSuccessor(1)->setName(
+          "omp_offload.cont");
+      NewCall->removeFromParent();
+      NewCall->insertBefore(Term->getParent()->getTerminator());
 
-    genRegistrationFunction(W, NewF);
+      genRegistrationFunction(W, NewF);
+    } else if (isa<WRNTargetDataNode>(W)) {
+      NewCall->removeFromParent();
+      NewCall->insertAfter(Call);
+    }
 
     W->resetBBSet(); // Invalidate BBSet after transformations
 
@@ -136,6 +141,8 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
 
 // Reset the expression value in IsDevicePtr clause to be empty.
 void VPOParoptTransform::resetValueInIsDevicePtrClause(WRegionNode *W) {
+  if (!W->canHaveIsDevicePtr())
+    return;
 
   IsDevicePtrClause IDevicePtrClause = W->getIsDevicePtr();
   if (IDevicePtrClause.empty())
@@ -209,25 +216,29 @@ void VPOParoptTransform::GenTgtInformationForPtrs(
     IsFirstExprFlag = false;
   }
 
-  FirstprivateClause &FprivClause = W->getFpriv();
-  for (FirstprivateItem *FprivI : FprivClause.items()) {
-    if (FprivI->getOrig() != V)
-      continue;
-    if (FprivI->getInMap())
-      continue;
-    Type *T = FprivI->getOrig()->getType()->getPointerElementType();
-    ConstSizes.push_back(
-        ConstantInt::get(getSizeTTy(), DL.getTypeAllocSize(T)));
-    MapTypes.push_back(TGT_MAP_TO);
+  if (W->canHaveFirstprivate()) {
+    FirstprivateClause &FprivClause = W->getFpriv();
+    for (FirstprivateItem *FprivI : FprivClause.items()) {
+      if (FprivI->getOrig() != V)
+        continue;
+      if (FprivI->getInMap())
+        continue;
+      Type *T = FprivI->getOrig()->getType()->getPointerElementType();
+      ConstSizes.push_back(
+          ConstantInt::get(getSizeTTy(), DL.getTypeAllocSize(T)));
+      MapTypes.push_back(TGT_MAP_TO);
+    }
   }
 
-  IsDevicePtrClause IDevicePtrClause = W->getIsDevicePtr();
-  for (IsDevicePtrItem *IsDevicePtrI : IDevicePtrClause.items()) {
-    if (IsDevicePtrI->getNew() != V)
-      continue;
-    Type *T = getSizeTTy();
-    ConstSizes.push_back(ConstantInt::get(T, DL.getTypeAllocSize(T)));
-    MapTypes.push_back(TGT_MAP_PRIVATE_VAL | TGT_MAP_FIRST_REF);
+  if (W->canHaveIsDevicePtr()) {
+    IsDevicePtrClause IDevicePtrClause = W->getIsDevicePtr();
+    for (IsDevicePtrItem *IsDevicePtrI : IDevicePtrClause.items()) {
+      if (IsDevicePtrI->getNew() != V)
+        continue;
+      Type *T = getSizeTTy();
+      ConstSizes.push_back(ConstantInt::get(T, DL.getTypeAllocSize(T)));
+      MapTypes.push_back(TGT_MAP_PRIVATE_VAL | TGT_MAP_FIRST_REF);
+    }
   }
 }
 
@@ -235,7 +246,7 @@ void VPOParoptTransform::GenTgtInformationForPtrs(
 CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
                                                 Instruction *InsertPt) {
   DEBUG(dbgs() << "\nEnter VPOParoptTransform::genTargetInitCode\n");
-  IRBuilder<> Builder(InsertPt);
+  IRBuilder<> Builder(F->getEntryBlock().getFirstNonPHI());
   TgDataInfo Info;
 
   MapClause MpClause = W->getMap();
@@ -287,9 +298,21 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
 
   GlobalVariable *OffloadRegionId = getOMPOffloadRegionId();
 
-  CallInst *TgtCall = VPOParoptUtils::genTgtTarget(
-                 W, OffloadRegionId, Info.NumberOfPtrs, Info.BaseDataPtrs,
-                 Info.DataPtrs, Info.DataSizes, Info.DataMapTypes, InsertPt);
+  CallInst *TgtCall;
+  if (isa<WRNTargetNode>(W))
+    TgtCall = VPOParoptUtils::genTgtTarget(
+        W, OffloadRegionId, Info.NumberOfPtrs, Info.ResBaseDataPtrs,
+        Info.ResDataPtrs, Info.ResDataSizes, Info.ResDataMapTypes, InsertPt);
+  else if (isa<WRNTargetDataNode>(W)) {
+    TgtCall = VPOParoptUtils::genTgtTargetDataBegin(
+        W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
+        Info.ResDataSizes, Info.ResDataMapTypes, InsertPt);
+    genOffloadArraysArgument(&Info, Call);
+    VPOParoptUtils::genTgtTargetDataEnd(
+        W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
+        Info.ResDataSizes, Info.ResDataMapTypes, Call);
+  }
+
   DEBUG(dbgs() << "\nExit VPOParoptTransform::genTargetInitCode\n");
   return TgtCall;
 }
@@ -358,24 +381,24 @@ void VPOParoptTransform::genOffloadArraysArgument(TgDataInfo *Info,
   IRBuilder<> Builder(InsertPt);
 
   if (Info->NumberOfPtrs) {
-    Info->BaseDataPtrs = Builder.CreateConstInBoundsGEP2_32(
+    Info->ResBaseDataPtrs = Builder.CreateConstInBoundsGEP2_32(
         ArrayType::get(Builder.getInt8PtrTy(), Info->NumberOfPtrs),
         Info->BaseDataPtrs, 0, 0);
-    Info->DataPtrs = Builder.CreateConstInBoundsGEP2_32(
+    Info->ResDataPtrs = Builder.CreateConstInBoundsGEP2_32(
         ArrayType::get(Builder.getInt8PtrTy(), Info->NumberOfPtrs),
         Info->DataPtrs, 0, 0);
-    Info->DataSizes = Builder.CreateConstInBoundsGEP2_32(
+    Info->ResDataSizes = Builder.CreateConstInBoundsGEP2_32(
         ArrayType::get(getSizeTTy(), Info->NumberOfPtrs), Info->DataSizes, 0,
         0);
-    Info->DataMapTypes = Builder.CreateConstInBoundsGEP2_32(
+    Info->ResDataMapTypes = Builder.CreateConstInBoundsGEP2_32(
         ArrayType::get(Type::getInt32Ty(F->getContext()), Info->NumberOfPtrs),
         Info->DataMapTypes, 0, 0);
   } else {
-    Info->BaseDataPtrs = ConstantPointerNull::get(Builder.getInt8PtrTy());
-    Info->DataPtrs = ConstantPointerNull::get(Builder.getInt8PtrTy());
-    Info->DataSizes =
+    Info->ResBaseDataPtrs = ConstantPointerNull::get(Builder.getInt8PtrTy());
+    Info->ResDataPtrs = ConstantPointerNull::get(Builder.getInt8PtrTy());
+    Info->ResDataSizes =
         ConstantPointerNull::get(PointerType::getUnqual(getSizeTTy()));
-    Info->DataMapTypes = ConstantPointerNull::get(
+    Info->ResDataMapTypes = ConstantPointerNull::get(
         PointerType::getUnqual(Type::getInt32Ty(F->getContext())));
   }
 }
@@ -689,23 +712,25 @@ bool VPOParoptTransform::genGlobalPrivatizationCode(WRegionNode *W) {
       MapI->setNew(Orig);
   }
 
-  FirstprivateClause &FprivClause = W->getFpriv();
-  for (FirstprivateItem *FprivI : FprivClause.items()) {
-    Value *Orig = FprivI->getOrig();
-    MapItem *MapI = FprivI->getInMap();
-    if (MapI) {
-      FprivI->setNew(MapI->getNew());
-      continue;
+  if (W->canHaveFirstprivate()) {
+    FirstprivateClause &FprivClause = W->getFpriv();
+    for (FirstprivateItem *FprivI : FprivClause.items()) {
+      Value *Orig = FprivI->getOrig();
+      MapItem *MapI = FprivI->getInMap();
+      if (MapI) {
+        FprivI->setNew(MapI->getNew());
+        continue;
+      }
+      if (GlobalVariable *G = dyn_cast<GlobalVariable>(Orig)) {
+
+        Value *NewPrivInst =
+            genGlobalPrivatizationImpl(W, G, EntryBB, NextExitBB, FprivI);
+
+        FprivI->setNew(NewPrivInst);
+        Changed = true;
+      } else
+        FprivI->setNew(Orig);
     }
-    if (GlobalVariable *G = dyn_cast<GlobalVariable>(Orig)) {
-
-      Value *NewPrivInst =
-          genGlobalPrivatizationImpl(W, G, EntryBB, NextExitBB, FprivI);
-
-      FprivI->setNew(NewPrivInst);
-      Changed = true;
-    } else
-      FprivI->setNew(Orig);
   }
 
   if (Changed)
@@ -716,6 +741,8 @@ bool VPOParoptTransform::genGlobalPrivatizationCode(WRegionNode *W) {
 // Pass the value of the DevicePtr to the outlined function.
 bool VPOParoptTransform::genDevicePtrPrivationCode(WRegionNode *W) {
   bool Changed = false;
+  if (!W->canHaveIsDevicePtr())
+    return Changed;
   IsDevicePtrClause IDevicePtrClause = W->getIsDevicePtr();
   if (!IDevicePtrClause.empty()) {
     W->populateBBSet();

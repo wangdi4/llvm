@@ -207,12 +207,16 @@ private:
   public:
     /// The array of base pointers passed to the runtime library.
     Value *BaseDataPtrs = nullptr;
+    Value *ResBaseDataPtrs;
     /// The array of data pointers passed to the runtime library.
     Value *DataPtrs = nullptr;
+    Value *ResDataPtrs;
     /// The array of data sizes passed to the runtime library.
     Value *DataSizes = nullptr;
+    Value *ResDataSizes;
     /// The array of data map types passed to the runtime library.
     Value *DataMapTypes = nullptr;
+    Value *ResDataMapTypes;
     /// The number of pointers passed to the runtime library.
     unsigned NumberOfPtrs = 0u;
     explicit TgDataInfo() {}

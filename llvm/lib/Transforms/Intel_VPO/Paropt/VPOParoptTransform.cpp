@@ -341,9 +341,21 @@ bool VPOParoptTransform::paroptTransforms() {
           RemoveDirectives = true;
         }
         break;
+      case WRegionNode::WRNTargetData:
+        if (Mode & ParPrepare)
+          genCodemotionFenceforAggrData(W);
+        DEBUG(dbgs() << "\n WRNTargetData  - Transformation \n\n");
+        if ((Mode & OmpPar) && (Mode & ParTrans)) {
+          Changed = clearCodemotionFenceIntrinsic(W);
+          Changed |= genGlobalPrivatizationCode(W);
+          Changed |= genDevicePtrPrivationCode(W);
+          Changed |= genTargetOffloadingCode(W);
+          RemoveDirectives = true;
+        }
+        break;
 
-      // 2. Constructs that do not need to perform outlining. E.g., simd,
-      //    taskgroup, atomic, for, sections, etc.
+        // 2. Constructs that do not need to perform outlining. E.g., simd,
+        //    taskgroup, atomic, for, sections, etc.
 
       case WRegionNode::WRNTaskgroup:
         break;

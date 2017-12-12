@@ -515,9 +515,11 @@ CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, Value *DeviceIDPtr,
   if (DeviceIDPtr == nullptr) {
     // user did not specify device; default is -1
     DeviceID = Builder.getInt32(-1);
-  } else {
+  } else if (isa<Constant>(DeviceIDPtr))
+    DeviceID = DeviceIDPtr;
+  else
     DeviceID = new LoadInst(DeviceIDPtr, "deviceID", InsertPt);
-  }
+
   SmallVector<Value *, 9> FnArgs    = { DeviceID };
   SmallVector<Type *, 9> FnArgTypes = { Int32Ty  };
 
