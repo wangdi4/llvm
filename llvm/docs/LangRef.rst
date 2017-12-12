@@ -4667,14 +4667,17 @@ this section only pertain to TBAA nodes living under the same root.
 Semantics
 """""""""
 
-.. INTEL_CUSTOMIZATION TBAA enhancement was done to precisely model struct, array and pointer types.
-.. Semantics for the new metadata node types are added in this section.
+.. INTEL_CUSTOMIZATION TBAA enhancement was done to precisely model struct,
+.. array and pointer types. Semantics for the new metadata node types are added
+.. in this section.
 
 The TBAA metadata system, referred to as "struct path TBAA" (not to be
 confused with ``tbaa.struct``), consists of the following high level
 concepts: *Type Descriptors*, further subdivided into scalar type
-descriptors, pointer type descriptors, array type descriptors and
-struct type descriptors; and *Access Tags*.
+descriptors and struct type descriptors; and *Access Tags*. Intel has extended
+the TBAA metadata system by adding two new type descriptors: pointer type
+descriptors and array type descriptors. See the
+`TBAA Extension page <Intel/Analysis/Intel_TBAAExtension.html>`_.
 
 **Type descriptors** describe the type system of the higher level language
 being compiled.  **Scalar type descriptors** describe types that do not
@@ -4743,7 +4746,8 @@ Offset2)`` via the ``Parent`` relation or vice versa.
 
 .. INTEL_CUSTOMIZATION specified the names of the types involved in the example.
 
-As a concrete example for scalar and struct types, the type descriptor graph for the following program
+As a concrete example for scalar and struct types, the type descriptor graph
+for the following program
 
 .. code-block:: c
 
@@ -4820,8 +4824,9 @@ with (e.g.) ``ImmediateParent(IntArrayTy, 0)`` = ``(IntScalarTy,
 
 By supporting the pointer, array and struct type descriptors, TBAA can enable
 aggressive optimizations effectively. These types help distinguishing different
-array and pointer types which otherwise would alias with each other. Without the pointer
-and array type descriptors, the tags for the previous program would be like this:
+array and pointer types which otherwise would alias with each other. Without
+the pointer and array type descriptors, the tags for the previous program would
+be like this:
 
 .. code-block:: c
 
@@ -4846,7 +4851,8 @@ and the type descriptor graph for it would be:
     IntScalarTy = ("int", CharScalarTy, 0)
     PointerTy = ("any pointer", CharScalarTy, 0)
 
-Unlike the previous graph, different pointers would be aliasing with each other in this case.
+Unlike the previous graph, different pointers would be aliasing with each other
+in this case.
 
 .. END INTEL_CUSTOMIZATION
 
@@ -4858,47 +4864,41 @@ Representation
 The root node of a TBAA type hierarchy is an ``MDNode`` with 0 operands or
 with exactly one ``MDString`` operand.
 
-.. INTEL_CUSTOMIZATION changed the representation of the scalar and struct type descriptor
-.. according to the new TBAA enhancement.
+.. INTEL_CUSTOMIZATION changed the representation of the scalar and struct
+.. type descriptor as well as added Pointer and Array type descriptor according
+.. to the new TBAA enhancement.
 
-Scalar type descriptors are represented as an ``MDNode`` s with two
+Scalar type descriptors are represented as an ``MDNode`` s with 3
 operands.  The first operand is an ``MDString`` denoting the name of the
 struct type.  LLVM does not assign meaning to the value of this operand, it
 only cares about it being an ``MDString``.  The second operand is an
 ``MDNode`` which points to the parent for said scalar type descriptor,
-which is either another scalar type descriptor or the TBAA root.  Scalar
-type descriptors can have an optional third integer argument. If it
-is equal to 1 then the type is "constant".
+which is either another scalar type descriptor or the TBAA root. The third
+operand must be the ``ConstantInt`` set to zero.
 
-Struct type descriptors are represented as ``MDNode`` s with an odd number
-of operands greater than 1.  The first operand is an ``MDString`` denoting
-the name of the struct type in the form of '``struct@name``'. After the name
-operand, the struct type descriptors have a sequence of alternating ``MDNode`` and
-``ConstantInt`` operands.  With N starting from 1, the 2N - 1 th operand,
+Struct type descriptors are represented as ``MDNode`` s with an odd number of
+operands greater than 1.  The first operand is an ``MDString`` denoting the
+name of the struct type in the form of '``struct@name``'. After the name
+operand, the struct type descriptors have a sequence of alternating ``MDNode``
+and ``ConstantInt`` operands.  With N starting from 1, the 2N - 1 th operand,
 an ``MDNode``, denotes a contained field, and the 2N th operand, a
-``ConstantInt``, is the offset of the said contained field.  The offsets
-must be in non-decreasing order.
+``ConstantInt``, is the offset of the said contained field.  The offsets must
+be in non-decreasing order.
 
-.. INTEL_CUSTOMIZATION
+Pointer type descriptors are represented as an ``MDNode`` s with 3 operands.
+The first operand is an ``MDString`` in the form of '``pointer@name``'.
+Similar to the ``Scalar`` type descriptors, the actual value of this
+``MDString`` operand is irrelevant to LLVM and it only helps to improve program
+comprehension.  The second operand is the ``MDNode`` representing the parent of
+the pointed scalar node which is always the scalar node ``char``. The third
+operand is a ``ConstantInt`` and it's always zero.
 
-Pointer type descriptors are represented as an ``MDNode`` s with 3 or 4
-operands. The first operand is an ``MDString`` in the form of '``pointer@name``'.
-The second operand is the ``MDNode`` representing the parent of the pointed scalar
-node which is always the scalar node ``char``.
-The third operand is a ``ConstantInt`` that states the offset. The fourth
-operand is optional, it's an integer which if equal to 1 indicates that the
-type is a "constant".
-
-Array type descriptors are represented as an ``MDNode`` s with 3 or 4
-operands. The first operand is an ``MDString`` in the form of '``array@name``'.
-The second operand is the ``MDNode`` representing the element type node.
-The third operand is a ``ConstantInt`` that represents the offset value. The fourth
-operand is optional, it's an integer which if equal to 1 indicates that the
-type is a "constant".
-
-Like in scalar type descriptors the actual value of the name operand for the
-pointer type, array type and struct type nodes is irrelevant to LLVM. It only helps
-to improve program comprehension.
+Array type descriptors are represented as an ``MDNode`` s with 3 operands. The
+first operand is an ``MDString`` in the form of '``array@name``'. Like in
+``Pointer`` type descriptors, the actual value of the name operand for the
+array type is irrelevant to LLVM. The second operand is the ``MDNode``
+representing the metadata node of the element type. The third operand is a
+``ConstantInt`` that must be zero.
 
 .. END INTEL_CUSTOMIZATION
 
