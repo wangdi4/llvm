@@ -3375,7 +3375,11 @@ CGOpenMPRuntime::createOffloadingBinaryDescriptorRegistration() {
 }
 
 void CGOpenMPRuntime::createOffloadEntry(llvm::Constant *ID,
-                                         llvm::Constant *Addr, uint64_t Size,
+                                         llvm::Constant *Addr,
+#if INTEL_CUSTOMIZATION
+                                         StringRef ParentName,
+#endif // INTEL_CUSTOMIZATION
+                                         uint64_t Size,
                                          int32_t Flags) {
   StringRef Name = Addr->getName();
   auto *TgtOffloadEntryType = cast<llvm::StructType>(
@@ -3408,8 +3412,17 @@ void CGOpenMPRuntime::createOffloadEntry(llvm::Constant *ID,
   EntryInit.addInt(CGM.SizeTy, Size);
   EntryInit.addInt(CGM.Int32Ty, Flags);
   EntryInit.addInt(CGM.Int32Ty, 0);
+#if INTEL_CUSTOMIZATION
+  // Create a name that includes the enclosing function name.
+  // The format is ".omp_offloading.<function name>.entry"
+  SmallString<64> EntryFnName;
+  llvm::raw_svector_ostream OS(EntryFnName);
+  OS << ".omp_offloading." << ParentName << ".entry";
+#endif  // INTEL_CUSTOMIZATION
   llvm::GlobalVariable *Entry =
-    EntryInit.finishAndCreateGlobal(".omp_offloading.entry",
+#if INTEL_CUSTOMIZATION
+    EntryInit.finishAndCreateGlobal(EntryFnName,
+#endif  // INTEL_CUSTOMIZATION
                                     Align,
                                     /*constant*/ true,
                                     llvm::GlobalValue::ExternalLinkage);
@@ -3448,6 +3461,10 @@ void CGOpenMPRuntime::createOffloadEntriesAndInfoMetadata() {
 
   auto getMDString = [&](StringRef v) { return llvm::MDString::get(C, v); };
 
+#if INTEL_CUSTOMIZATION
+  StringRef FunctionName;
+#endif // INTEL_CUSTOMIZATION
+
   // Create function that emits metadata for each target region entry;
   auto &&TargetRegionMetadataEmitter = [&](
       unsigned DeviceID, unsigned FileID, StringRef ParentName, unsigned Line,
@@ -3472,6 +3489,11 @@ void CGOpenMPRuntime::createOffloadEntriesAndInfoMetadata() {
     // Save this entry in the right position of the ordered entries array.
     OrderedEntries[E.getOrder()] = &E;
 
+#if INTEL_CUSTOMIZATION
+    // Save the ParentName in FunctionName to pass it later.
+    FunctionName = ParentName;
+#endif // INTEL_CUSTOMIZATION
+
     // Add metadata to the named metadata node.
     MD->addOperand(llvm::MDNode::get(C, Ops));
   };
@@ -3486,7 +3508,10 @@ void CGOpenMPRuntime::createOffloadEntriesAndInfoMetadata() {
                 E)) {
       assert(CE->getID() && CE->getAddress() &&
              "Entry ID and Addr are invalid!");
-      createOffloadEntry(CE->getID(), CE->getAddress(), /*Size=*/0);
+#if INTEL_CUSTOMIZATION
+      createOffloadEntry(CE->getID(), CE->getAddress(), FunctionName,
+                         /*Size=*/0);
+#endif // INTEL_CUSTOMIZATION
     } else
       llvm_unreachable("Unsupported entry kind.");
   }

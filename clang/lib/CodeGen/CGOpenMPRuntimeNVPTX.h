@@ -71,10 +71,14 @@ private:
   // Base class overrides.
   //
 
+#if INTEL_CUSTOMIZATION
   /// \brief Creates offloading entry for the provided entry ID \a ID,
-  /// address \a Addr, size \a Size, and flags \a Flags.
+  /// address \a Addr, function name \a ParentName, size \a Size, and
+  /// flags \a Flags.
   void createOffloadEntry(llvm::Constant *ID, llvm::Constant *Addr,
+                          StringRef ParentName,
                           uint64_t Size, int32_t Flags = 0) override;
+#endif // INTEL_CUSTOMIZATION
 
   /// \brief Emit outlined function specialized for the Fork-Join
   /// programming model for applicable target directives on the NVPTX device.
