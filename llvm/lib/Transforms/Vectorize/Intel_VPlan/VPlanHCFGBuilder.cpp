@@ -996,6 +996,18 @@ void PlainCFGBuilder::createVPInstructionsForRange(
       else
         NewVPInst = cast<VPInstruction>(VPIRBuilder.createNaryOp(
             Inst->getOpcode(), {} /*No operands*/, Inst));
+
+      // If 'Inst' is a branch condition, map the branches with the conditions.
+      // Note that we don't have to add the recipe as successor selector at this
+      // point. The branch using this condition might not be necessarily in this
+      // VPBB.
+      if (isConditionForBranch(Inst)) {
+        // NOTE: This used to be a UniformConditionBitRecipe
+        for (User *U : Inst->users()) {
+          if (isa<BranchInst>(U) && TheLoop->contains(cast<Instruction>(U)))
+            BranchCondMap[cast<BranchInst>(U)] = NewVPInst;
+        }
+      }
       IRDef2VPValue[Inst] = NewVPInst;
     }
 
@@ -1021,32 +1033,6 @@ void PlainCFGBuilder::createRecipesForVPBB(VPBasicBlock *VPBB, BasicBlock *BB) {
 
     if (I == E)
       break;
-
-    // If 'I' is a branch condition, create a VPInstruction for the condition
-    // bit. Note that we don't have to add the recipe as successor selector at
-    // this point. The branch using this condition might not be necessarily
-    // in this VPBB.
-    if (isConditionForBranch(&*I)) {
-      Instruction *Inst = &*I;
-      // This used to be a UniformConditionBitRecipe
-      VPInstruction *NewVPInst;
-      if (CmpInst *CI = dyn_cast<CmpInst>(Inst))
-        NewVPInst = VPIRBuilder.createCmpInst(nullptr, nullptr, CI);
-      else
-        NewVPInst = cast<VPInstruction>(VPIRBuilder.createNaryOp(
-            Inst->getOpcode(), {} /*No operands*/, Inst));
-
-      IRDef2VPValue[Inst] = NewVPInst;
-
-      for (User *U : Inst->users()) {
-        if (isa<BranchInst>(U) && TheLoop->contains(cast<Instruction>(U)))
-          BranchCondMap[cast<BranchInst>(U)] = NewVPInst;
-      }
-
-      // Move iterator forward to skip branch condition in next iteration
-      ++I;
-      continue;
-    }
 
     // - Create new VPInstructions add add them to VPBB. -
 
