@@ -21,35 +21,20 @@ File Name:  Compiler.cpp
 #include "Compiler.h"
 #include "Optimizer.h"
 #include "VecConfig.h"
-#include "CPUDetect.h"
 #include "BuiltinModules.h"
 #include "exceptions.h"
 #include "BuiltinModuleManager.h"
 #include "CompilationUtils.h"
 #include "MetadataAPI.h"
+
 #include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/PrettyStackTrace.h"
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/TargetRegistry.h"
-#include "llvm/Support/TargetSelect.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
-#include "llvm/IR/DerivedTypes.h"
 #include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/IR/Module.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/Argument.h"
-#include "llvm/IR/Type.h"
-#include "llvm/IR/BasicBlock.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/Instruction.h"
-#include "llvm/IR/LLVMContext.h"
 #include "llvm/CodeGen/CommandFlags.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/Linker/Linker.h"
 
-#include <memory>
 #include <vector>
 #include <string>
 #include <fstream>
