@@ -15,7 +15,9 @@ Copyright (c) Intel Corporation (2010).
 File Name:  Compiler.cpp
 
 \*****************************************************************************/
+
 #define NOMINMAX
+
 #include "cl_types.h"
 #include "cpu_dev_limits.h"
 #include "Compiler.h"
@@ -27,17 +29,18 @@ File Name:  Compiler.cpp
 #include "CompilationUtils.h"
 #include "MetadataAPI.h"
 
+#include "llvm/Bitcode/BitcodeReader.h"
+#include "llvm/CodeGen/CommandFlags.h"
+#include "llvm/ExecutionEngine/ExecutionEngine.h"
+#include "llvm/IR/Module.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/PrettyStackTrace.h"
 #include "llvm/Support/TargetRegistry.h"
-#include "llvm/ExecutionEngine/ExecutionEngine.h"
-#include "llvm/Bitcode/BitcodeReader.h"
-#include "llvm/IR/Module.h"
-#include "llvm/CodeGen/CommandFlags.h"
 
-#include <vector>
-#include <string>
 #include <sstream>
+#include <string>
+#include <vector>
+
 using std::string;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
@@ -45,7 +48,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 TargetOptions ExternInitTargetOptionsFromCodeGenFlags() {
   return InitTargetOptionsFromCodeGenFlags();
 }
-
 
 // Supported target triples.
 const char *PC_LIN64 = "x86_64-pc-linux";          // Used for RH64/SLES64.
@@ -319,34 +321,43 @@ static void materializeSpirTriple(llvm::Module *M) {
   M->setTargetTriple(Triple);
 }
 
-// Returns the TargetMachine instance or zero if no triple is provided.
 llvm::TargetMachine* Compiler::GetTargetMachine(
                            llvm::Module* pModule) const {
+  std::string ErrorString;
 
-  Triple moduleTriple(pModule->getTargetTriple());
-  std::string cpuStr = std::string(m_CpuId.GetCPUName());
-  std::vector<std::string> cpuFeaturesVec = m_forcedCpuFeatures;
-  std::string cpuFeatures =
-    llvm::join(cpuFeaturesVec.begin(), cpuFeaturesVec.end(), ",");
-  llvm::TargetOptions targetOpt = ExternInitTargetOptionsFromCodeGenFlags();
+  // Leaving MArch blank implies using auto-detect
+  llvm::StringRef MArch = "";
+  llvm::StringRef MCPU  = m_CpuId.GetCPUName();
+
+  llvm::Triple ModuleTriple(pModule->getTargetTriple());
+
+  // FP_CONTRACT defined in module
+  // Exclude FMA instructions when FP_CONTRACT is disabled
+  llvm::TargetOptions TargetOpts = ExternInitTargetOptionsFromCodeGenFlags();
   if (pModule->getNamedMetadata("opencl.enable.FP_CONTRACT")) {
-    targetOpt.AllowFPOpFusion = llvm::FPOpFusion::Fast;
-  }
-  else {
-    targetOpt.AllowFPOpFusion = llvm::FPOpFusion::Standard;
+    TargetOpts.AllowFPOpFusion = llvm::FPOpFusion::Fast;
+  } else {
+    TargetOpts.AllowFPOpFusion = llvm::FPOpFusion::Standard;
   }
 
-  std::string err;
-  const Target *pTarget =
-    TargetRegistry::lookupTarget(moduleTriple.getTriple(), err);
+  llvm::CodeGenOpt::Level CGOptLevel =
+    m_debug ? llvm::CodeGenOpt::None : llvm::CodeGenOpt::Default;
 
-  if (!err.empty() || pTarget == nullptr)
+  llvm::EngineBuilder Builder;
+
+  Builder.setErrorStr(&ErrorString);
+  Builder.setOptLevel(CGOptLevel);
+  Builder.setTargetOptions(TargetOpts);
+
+  auto *TargetMachine =
+    Builder.selectTarget(ModuleTriple, MArch, MCPU, m_forcedCpuFeatures);
+
+  if (nullptr == TargetMachine) {
     throw Exceptions::CompilerException(
-      std::string("Failed to retrieve the target for given module:") + err);
+      "Failed to create TargetMachine: " + ErrorString);
+  }
 
-  auto RM = Optional<Reloc::Model>();
-  return pTarget->createTargetMachine(
-      moduleTriple.getTriple(), cpuStr, cpuFeatures, targetOpt, RM);
+  return TargetMachine;
 }
 
 llvm::Module* Compiler::BuildProgram(llvm::Module* pModule,
@@ -369,12 +380,6 @@ llvm::Module* Compiler::BuildProgram(llvm::Module* pModule,
     materializeSpirTriple(pModule);
     // Create TargetMachine for X86.
     std::unique_ptr<TargetMachine> targetMachine(GetTargetMachine(pModule));
-
-    if (nullptr == targetMachine)
-    {
-      throw Exceptions::CompilerException(
-          "Failed to create TargetMachine object");
-    }
 
     // Materialize DataLayout from TargetMachine. It is being created inside
     // ExecutionEngine the same way as we do in Compiler, so this guarantees that

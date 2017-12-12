@@ -40,7 +40,6 @@ File Name:  CPUCompiler.cpp
 #include "llvm/Support/MemoryBuffer.h"
 
 #include <string>
-#include <vector>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -86,7 +85,7 @@ Intel::ECPU GetOrDetectCpuId(const std::string& cpuArch)
  * Splits the given string using the supplied delimiter
  * populates the given vector of strings
  */
-void SplitString( const std::string& s, const char* d, std::vector<std::string>& v )
+void SplitString( const std::string& s, const char* d, llvm::SmallVectorImpl<std::string>& v )
 {
     llvm::StringRef sr(s);
     llvm::SmallVector<llvm::StringRef,2> sv;
@@ -95,7 +94,9 @@ void SplitString( const std::string& s, const char* d, std::vector<std::string>&
     std::copy( sv.begin(), sv.end(), std::back_inserter( v ));
 }
 
-unsigned int SelectCpuFeatures( unsigned int cpuId, const std::vector<std::string>& forcedFeatures)
+unsigned int SelectCpuFeatures(
+  unsigned int cpuId,
+  const llvm::SmallVectorImpl<std::string>& forcedFeatures)
 {
     unsigned int  cpuFeatures = CFS_SSE2;
 
@@ -316,41 +317,18 @@ void CPUCompiler::CreateExecutionEngine(llvm::Module* pModule)
 
 llvm::ExecutionEngine* CPUCompiler::CreateCPUExecutionEngine(llvm::Module* pModule) const
 {
-    // Leaving MArch blank implies using auto-detect
-    llvm::StringRef MCPU  = m_CpuId.GetCPUName();
-    llvm::StringRef MArch = "";
-
     std::string strErr;
-    // [LLVM 3.6 UPGRADE] See below near the respective 'set' on why this is
-    // commented out.
-    // bool AllocateGVsWithCode = true;
-    CodeGenOpt::Level OLevel = llvm::CodeGenOpt::Default;
-
-    if (m_debug)
-      OLevel = llvm::CodeGenOpt::None;
-
-    // FP_CONTRACT defined in module
-    // Exclude FMA instructions when FP_CONTRACT is disabled
-    std::vector<std::string> cpuFeatures(m_forcedCpuFeatures);
 
     std::unique_ptr<llvm::Module> pModuleUniquePtr(pModule);
+
     llvm::EngineBuilder builder(std::move(pModuleUniquePtr));
     builder.setEngineKind(llvm::EngineKind::JIT);
     builder.setErrorStr(&strErr);
-    builder.setOptLevel(OLevel);
-    builder.setMArch(MArch);
-    builder.setMCPU(MCPU);
-    builder.setMAttrs(cpuFeatures);
     builder.setMCJITMemoryManager(std::unique_ptr<RTDyldMemoryManager>(
-        new SectionMemoryManager()));
-    llvm::TargetOptions targetOpt = ExternInitTargetOptionsFromCodeGenFlags();
-    if (pModule->getNamedMetadata("opencl.enable.FP_CONTRACT"))
-      targetOpt.AllowFPOpFusion = llvm::FPOpFusion::Fast;
-    else
-      targetOpt.AllowFPOpFusion = llvm::FPOpFusion::Standard;
-    builder.setTargetOptions(targetOpt);
+      new SectionMemoryManager()));
 
-    llvm::ExecutionEngine* pExecEngine = builder.create();
+    auto TargetMachine = GetTargetMachine(pModule);
+    llvm::ExecutionEngine* pExecEngine = builder.create(TargetMachine);
 
     if ( nullptr == pExecEngine )
     {

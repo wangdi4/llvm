@@ -202,7 +202,8 @@ protected:
 protected:
     llvm::LLVMContext*       m_pLLVMContext;
     Intel::CPUId             m_CpuId;
-    std::vector<std::string> m_forcedCpuFeatures;
+    llvm::SmallVector<std::string, 8>
+                             m_forcedCpuFeatures;
     ETransposeSize           m_transposeSize;
     int                      m_rtLoopUnrollFactor;
     std::vector<int>         m_IRDumpAfter;
