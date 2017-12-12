@@ -634,7 +634,9 @@ void CSASSAGraph::AddInstructionToGraph(MachineInstr* minstr, unsigned skipOpnd)
   } else {
     sn = instr2ssan[minstr];
   }
-  for (MIOperands MO(*minstr); MO.isValid(); ++MO) {
+  unsigned i = 0;
+  for (MIOperands MO(*minstr); MO.isValid(); ++MO, ++i) {
+    if (i == skipOpnd) continue;
     if (MO->isReg() && MO->isUse()) {
       unsigned reg = MO->getReg();
       if (reg == CSA::IGN || MRI->def_empty(reg)) continue;

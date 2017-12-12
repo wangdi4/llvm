@@ -16,7 +16,7 @@ namespace llvm
     MachineOperand CalculateTripCnt(MachineOperand& initOpnd, MachineOperand& bndOpnd);
     MachineOperand tripCntForSeq(MachineInstr*seqInstr);
     void MultiSequence(CSASSANode* switchNode, CSASSANode* addNode, CSASSANode* lhdrPickNode);
-    void SequenceAddress(CSASSANode* switchNode, CSASSANode* addNode, CSASSANode* lhdrPhiNode);
+    void SequenceApp(CSASSANode* switchNode, CSASSANode* addNode, CSASSANode* lhdrPhiNode);
     void SequenceReduction(CSASSANode* switchNode, CSASSANode* addNode, CSASSANode* lhdrPhiNode);
     void SequenceRepeat(CSASSANode* switchNode, CSASSANode* lhdrPhiNode);
     CSASeqOpt(MachineFunction *F);
