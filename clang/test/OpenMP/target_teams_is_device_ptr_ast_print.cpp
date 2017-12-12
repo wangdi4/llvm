@@ -48,6 +48,7 @@ struct SA {
 // CHECK-NEXT: int *&z = this->k;
 // CHECK-NEXT: int aa[10];
 // CHECK-NEXT: arr &raa = this->aa;
+// CHECK-NEXT: #pragma omp declare target
 // CHECK-NEXT: func(
 // CHECK-NEXT: #pragma omp target teams is_device_ptr(this->k)
 // CHECK-NEXT: {

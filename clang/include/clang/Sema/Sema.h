@@ -8943,6 +8943,12 @@ public:
   /// Check and mark declarations that are implicitly used inside OpenMP target
   /// regions.
   void checkDeclImplicitlyUsedOpenMPTargetContext(Decl *D);
+
+  /// Traverse declaration of /param D to check whether it has
+  /// OMPDeclareTargetDeclAttr or not. If so, it marks definition with
+  /// OMPDeclareTargetDeclAttr.  If /param FD is not a nullptr, it checks
+  /// if it has OpenMPDeclareTargetAttr and if not, marks it too with it.
+  void ImplicitDeclareTargetCheck(Decl *D, FunctionDecl *FD);
 #endif // INTEL_CUSTOMIZATION
 
   /// Return the number of captured regions created for an OpenMP directive.

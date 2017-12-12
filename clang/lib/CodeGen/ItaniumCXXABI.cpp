@@ -1484,6 +1484,13 @@ void ItaniumCXXABI::emitVTableDefinitions(CodeGenVTables &CGVT,
   llvm::GlobalVariable *VTable = getAddrOfVTable(RD, CharUnits());
   if (VTable->hasInitializer())
     return;
+#if INTEL_CUSTOMIZATION
+  // If this is OpenMP device and the vtable is for an entity that is
+  // not marked declare target, do not emit it.
+  if (CGM.getLangOpts().OpenMPIsDevice &&
+      !RD->hasAttr<OMPDeclareTargetDeclAttr>())
+    return;
+#endif // INTEL_CUSTOMIZATION
 
   ItaniumVTableContext &VTContext = CGM.getItaniumVTableContext();
   const VTableLayout &VTLayout = VTContext.getVTableLayout(RD);

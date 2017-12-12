@@ -1853,6 +1853,14 @@ void CodeGenModule::EmitGlobal(GlobalDecl GD) {
   }
 
   if (LangOpts.OpenMP) {
+#if INTEL_CUSTOMIZATION
+    if (const auto *FD = dyn_cast<FunctionDecl>(Global))
+      // If this is OpenMP device, and the routine is not the main function
+      // and it is not marked declare target, do not emit it.
+      if (LangOpts.OpenMPIsDevice &&
+          !FD->hasAttr<OMPDeclareTargetDeclAttr>() && !FD->isMain())
+        return;
+#endif // INTEL_CUSTOMIZATION
     // If this is OpenMP device, check if it is legal to emit this global
     // normally.
     if (OpenMPRuntime && OpenMPRuntime->emitTargetGlobal(GD))
