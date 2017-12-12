@@ -8,7 +8,7 @@ extern cl_device_type gDeviceType;
 
 /* The test checks that if we don't pass CL_CONTEXT_FPGA_EMULATOR_INTEL
  * to context properties we are not able to compile program with FPGA
- * stuff(channels, attrs), to create buffer with CL_MEM_BANK_5_ALTERA flag.
+ * stuff(channels, attrs), to create buffer with CL_CHANNEL_5_INTELFPGA flag.
 */
 void checkFPGAExtensionNEGATIVE()
 {
@@ -79,10 +79,10 @@ void checkFPGAExtensionNEGATIVE()
         << " Kernel with 'channel' identifier must be successfully compiled if"
         << " extension is not supported.";
 
-    clCreateBuffer(context, CL_MEM_BANK_5_ALTERA, /*size=*/20,
+    clCreateBuffer(context, CL_CHANNEL_5_INTELFPGA, /*size=*/20,
                    /*host_ptr=*/nullptr, &iRet);
     ASSERT_EQ(CL_INVALID_VALUE, iRet)
-        << " clCreateBuffer is not supposed to accept CL_MEM_BANK_5_ALTERA"
+        << " clCreateBuffer is not supposed to accept CL_CHANNEL_5_INTELFPGA"
         << " flag without CL_CONTEXT_FPGA_EMULATOR_INTEL property"
         << " passed during context creation.";
 

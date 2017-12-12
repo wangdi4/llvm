@@ -2989,13 +2989,13 @@ cl_err_code ContextModule::CheckMemObjectParameters(cl_mem_flags clMemFlags,
     cl_mem_flags extensions_flags = 0;
     if (pContext->IsFPGAEmulator())
     {
-        extensions_flags = CL_MEM_BANK_1_ALTERA |
-                           CL_MEM_BANK_2_ALTERA |
-                           CL_MEM_BANK_3_ALTERA |
-                           CL_MEM_BANK_4_ALTERA |
-                           CL_MEM_BANK_5_ALTERA |
-                           CL_MEM_BANK_6_ALTERA |
-                           CL_MEM_HETEROGENEOUS_ALTERA;
+        extensions_flags = CL_CHANNEL_1_INTELFPGA |
+                           CL_CHANNEL_2_INTELFPGA |
+                           CL_CHANNEL_3_INTELFPGA |
+                           CL_CHANNEL_4_INTELFPGA |
+                           CL_CHANNEL_5_INTELFPGA |
+                           CL_CHANNEL_6_INTELFPGA |
+                           CL_MEM_HETEROGENEOUS_INTELFPGA;
     }
     // check for illegal flags
     if ((clMemFlags & ~(

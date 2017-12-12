@@ -8,7 +8,7 @@ extern cl_device_type gDeviceType;
 
 /* The test checks that if we pass CL_CONTEXT_FPGA_EMULATOR_INTEL to context
  * properties we are able to compile program with FPGA stuff(channels, attrs),
- * to create buffer with CL_MEM_BANK_5_ALTERA flag.
+ * to create buffer with CL_CHANNEL_5_INTELFPGA flag.
 */
 void checkFPGAExtension()
 {
@@ -71,7 +71,8 @@ void checkFPGAExtension()
     cl_kernel kern = clCreateKernel(program, "dummy_kernel", &iRet);
     ASSERT_EQ(CL_SUCCESS, iRet) << " clCreateKernel failed.";
 
-    cl_mem buffer = clCreateBuffer(context, CL_MEM_BANK_5_ALTERA, /*size=*/20,
+    cl_mem buffer = clCreateBuffer(context, CL_CHANNEL_5_INTELFPGA,
+                                   /*size=*/20,
                                    /*host_ptr=*/nullptr, &iRet);
     ASSERT_EQ(CL_SUCCESS, iRet) << " clCreateBuffer failed.";
 

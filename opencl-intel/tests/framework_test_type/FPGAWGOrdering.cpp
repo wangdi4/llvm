@@ -76,13 +76,13 @@ void FPGAWGOrdering()
     size_t globalSize[] = {100, 1, 1};
     size_t localSize[]  = {1, 1, 1};
     size_t bufferSize = sizeof(int) * globalSize[0];
-    cl_mem buffer = clCreateBuffer(context, CL_MEM_BANK_5_ALTERA,
+    cl_mem buffer = clCreateBuffer(context, CL_MEM_READ_WRITE,
                                    /*size=*/bufferSize, /*host_ptr=*/nullptr,
                                    &iRet);
     ASSERT_EQ(CL_SUCCESS, iRet) << " clCreateBuffer failed.";
 
     int success = 0;
-    cl_mem succBuf = clCreateBuffer(context, CL_MEM_BANK_5_ALTERA,
+    cl_mem succBuf = clCreateBuffer(context, CL_MEM_READ_WRITE,
                                     /*size=*/sizeof(success),
                                     /*host_ptr=*/nullptr,
                                     &iRet);
