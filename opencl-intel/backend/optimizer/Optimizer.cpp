@@ -127,6 +127,11 @@ namespace Intel {
 namespace OpenCL {
 namespace DeviceBackend {
 
+// Several PMs are populated in the Optimizer flow:
+// Materializer, PreFail and PostFail PMs.
+// In order to dump IR for debug purposes one can schedule PrintModulePass
+// to a Pass Manager of choice.
+
 /// createStandardModulePasses - Add the standard module passes.  This is
 /// expected to be run after the standard function passes.
 static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,

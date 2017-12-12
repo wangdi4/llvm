@@ -37,27 +37,10 @@ File Name:  Compiler.cpp
 
 #include <vector>
 #include <string>
-#include <fstream>
-#include <iostream>
 #include <sstream>
 using std::string;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
-void dumpModule(llvm::Module& m){
-#ifndef NDEBUG
-  static unsigned counter=0;
-  std::string buffer;
-  llvm::raw_string_ostream stream(buffer);
-  std::stringstream fileName;
-  fileName << "kernel" << counter << ".ll";
-  std::ofstream outf(fileName.str().c_str());
-  stream << m;
-  std::cout << "dumped kernel" << counter << std::endl;
-  counter++;
-  stream.flush();
-  outf << buffer;
-#endif
-}
 
 TargetOptions ExternInitTargetOptionsFromCodeGenFlags() {
   return InitTargetOptionsFromCodeGenFlags();
@@ -451,8 +434,6 @@ llvm::Module* Compiler::BuildProgram(llvm::Module* pModule,
     // Populate the build results
     //
     m_debug = buildOptions.GetDebugInfoFlag();
-
-    //dumpModule(*(pModule));
 
     pResult->SetBuildResult( CL_DEV_SUCCESS );
 
