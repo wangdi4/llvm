@@ -4593,17 +4593,35 @@ void CodeGenFunction::EmitIntelOMPLoop(const OMPLoopDirective &S,
       // while (idx <= UB) { BODY; ++idx; }
       if (ThenBlock == nullptr)
         ThenBlock = Builder.GetInsertBlock();
-      EmitOMPInnerLoop(S, LoopScope.requiresCleanups(), S.getCond(),
-                       S.getInc(),
-                       [&S, LoopExit](CodeGenFunction &CGF) {
-                         CGF.EmitOMPLoopBody(S, LoopExit);
-                         CGF.EmitStopPoint(&S);
-                       },
-                       [](CodeGenFunction &) {}, ThenBlock,
-                       S.getIterationVariable());
+      EmitOMPInnerLoop(
+          S, LoopScope.requiresCleanups(), S.getCond(), S.getInc(),
+          [&S, LoopExit](CodeGenFunction &CGF) {
+            CGF.EmitOMPLoopBody(S, LoopExit);
+            CGF.EmitStopPoint(&S);
+          },
+          [&S](CodeGenFunction &CGF) {
+            // Emit final expressions for counters that are lastprivate.
+            llvm::DenseMap<const VarDecl *, const Expr *> Finals;
+            auto IC = S.counters().begin();
+            for (const auto *E : S.finals()) {
+              const auto *D = cast<VarDecl>(cast<DeclRefExpr>(*IC)->getDecl())
+                                  ->getCanonicalDecl();
+              Finals[D] = E;
+              ++IC;
+            }
+            for (const auto *C : S.getClausesOfKind<OMPLastprivateClause>()) {
+              for (const auto *E : C->varlists()) {
+                const auto *PVD =
+                    cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
+                if (const auto *FinalExpr = Finals.lookup(PVD))
+                  CGF.EmitIgnoredExpr(FinalExpr);
+              }
+            }
+          },
+          ThenBlock, S.getIterationVariable());
       EmitBlock(LoopExit.getBlock());
     }
-     
+
     // We're now done with the loop, so jump to the continuation block.
     if (ContBlock) {
       EmitBranch(ContBlock);
@@ -4623,6 +4641,7 @@ static void emitIntelDirective(CodeGenFunction &CGF,
 }
 
 void CodeGenFunction::EmitIntelOMPSimdDirective(const OMPSimdDirective &S) {
+  OMPLexicalScope Scope(*this, S, /*AsInlined=*/true);
   auto &&CodeGen = [&S](CodeGenFunction &CGF, PrePostActionTy &) {
     CGF.EmitIntelOMPLoop(S, OMPD_simd);
   };
@@ -4630,6 +4649,7 @@ void CodeGenFunction::EmitIntelOMPSimdDirective(const OMPSimdDirective &S) {
 }
 
 void CodeGenFunction::EmitIntelOMPForDirective(const OMPForDirective &S) {
+  OMPLexicalScope Scope(*this, S, /*AsInlined=*/true);
   auto &&CodeGen = [&S](CodeGenFunction &CGF, PrePostActionTy &) {
     CGF.EmitIntelOMPLoop(S, OMPD_for);
   };
@@ -4638,6 +4658,7 @@ void CodeGenFunction::EmitIntelOMPForDirective(const OMPForDirective &S) {
 
 void CodeGenFunction::EmitIntelOMPParallelForDirective(
                                       const OMPParallelForDirective &S) {
+  OMPLexicalScope Scope(*this, S, /*AsInlined=*/true);
   auto &&CodeGen = [&S](CodeGenFunction &CGF, PrePostActionTy &) {
     CGF.EmitIntelOMPLoop(S, OMPD_parallel_for);
   };
@@ -4645,6 +4666,7 @@ void CodeGenFunction::EmitIntelOMPParallelForDirective(
 }
 void CodeGenFunction::EmitIntelOMPParallelForSimdDirective(
                                       const OMPParallelForSimdDirective &S) {
+  OMPLexicalScope Scope(*this, S, /*AsInlined=*/true);
   auto &&CodeGen = [&S](CodeGenFunction &CGF, PrePostActionTy &) {
     CGF.EmitIntelOMPLoop(S, OMPD_parallel_for_simd);
   };
@@ -4652,6 +4674,7 @@ void CodeGenFunction::EmitIntelOMPParallelForSimdDirective(
 }
 void CodeGenFunction::EmitIntelOMPTaskLoopDirective(
                                              const OMPTaskLoopDirective &S) {
+  OMPLexicalScope Scope(*this, S, /*AsInlined=*/true);
   auto &&CodeGen = [&S](CodeGenFunction &CGF, PrePostActionTy &) {
     CGF.EmitIntelOMPLoop(S, OMPD_taskloop);
   };
@@ -4659,6 +4682,7 @@ void CodeGenFunction::EmitIntelOMPTaskLoopDirective(
 }
 void CodeGenFunction::EmitIntelOMPTaskLoopSimdDirective(
                                          const OMPTaskLoopSimdDirective &S) {
+  OMPLexicalScope Scope(*this, S, /*AsInlined=*/true);
   auto &&CodeGen = [&S](CodeGenFunction &CGF, PrePostActionTy &) {
     CGF.EmitIntelOMPLoop(S, OMPD_taskloop_simd);
   };
@@ -4666,6 +4690,7 @@ void CodeGenFunction::EmitIntelOMPTaskLoopSimdDirective(
 }
 void CodeGenFunction::EmitIntelOMPDistributeDirective(
                                          const OMPDistributeDirective &S) {
+  OMPLexicalScope Scope(*this, S, /*AsInlined=*/true);
   auto &&CodeGen = [&S](CodeGenFunction &CGF, PrePostActionTy &) {
     CGF.EmitIntelOMPLoop(S, OMPD_distribute);
   };
