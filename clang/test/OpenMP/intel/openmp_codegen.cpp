@@ -103,7 +103,9 @@ int main(int argc, char **argv) {
 // CHECK: call void @llvm.intel.directive(metadata !"DIR.OMP.END.PARALLEL.LOOP")
 // CHECK: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 
-// CHECK: [[ARGCREF:%.+]] = load i32*, i32** [[ARGCREF_ADDR]],
+// CHECK: [[TARGCREF:%.+]] = load i32*, i32** [[ARGCREF_ADDR]],
+// CHECK-NEXT: store i32* [[TARGCREF]], i32** [[ARGCREFTMP:%tmp]]
+// CHECK: [[ARGCREF:%.+]] = load i32*, i32** [[ARGCREFTMP]],
 // CHECK: call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
 // CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE:NONPOD", %struct.S1* [[S1_ADDR]], %struct.S1* (%struct.S1*)* @_ZTS2S1.omp.def_constr, void (%struct.S1*)* @_ZTS2S1.omp.destr
 // CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE:NONPOD", %struct.S2* [[S2_ADDR]], %struct.S2* (%struct.S2*)* @_ZTS2S2.omp.def_constr, void (%struct.S2*)* @_ZTS2S2.omp.destr
