@@ -242,7 +242,10 @@ void CSASeqOpt::SequenceReduction(CSASSANode* switchNode, CSASSANode* addNode, C
   bool isIDVCycle = TII->isSeqOT(seqOT) && MRI->getVRegDef(switchNode->minstr->getOperand(3).getReg()) == addNode->minstr;
   unsigned backedgeReg = 0;
   MachineInstr* loopInit = lpInitForPickSwitchPair(lhdrPickNode->minstr, switchNode->minstr, backedgeReg, seqOT);
-  isIDVCycle = isIDVCycle && (loopInit != nullptr);
+  unsigned idvIdx = MRI->getVRegDef(addNode->minstr->getOperand(1).getReg()) == lhdrPickNode->minstr ? 1 : 2;
+  unsigned strideIdx = 3 - idvIdx;
+  isIDVCycle = isIDVCycle && (loopInit != nullptr) && 
+               MRI->getVRegDef(addNode->minstr->getOperand(idvIdx).getReg()) == lhdrPickNode->minstr;
   unsigned pickInitIdx = 2 + loopInit->getOperand(1).getImm();
   MachineOperand& initOpnd = lhdrPickNode->minstr->getOperand(pickInitIdx);
   unsigned switchOutIndex = switchNode->minstr->getOperand(0).getReg() == backedgeReg ? 1 : 0;
@@ -275,9 +278,13 @@ void CSASeqOpt::SequenceReduction(CSASSANode* switchNode, CSASSANode* addNode, C
         switchOutReg).                          // result
         addReg(backedgeReg, RegState::Define).  // each 
         add(initOpnd).                         // initial value
-        add(addNode->minstr->getOperand(1)).   // input 1
+        add(addNode->minstr->getOperand(strideIdx)).   // input 1
         addReg(seqOT->getOperand(1).getReg()); // control
     }
+    //remove the instructions in the IDV cycle.
+    switchNode->minstr->removeFromParent();
+    addNode->minstr->removeFromBundle();
+    lhdrPickNode->minstr->removeFromParent();
   }
 }
 
@@ -416,18 +423,38 @@ void CSASeqOpt::MultiSequence(CSASSANode* switchNode, CSASSANode* addNode, CSASS
     MachineOperand tripcnt = tripCntForSeq(seqIndv);
     //got a valid trip counter, convert to squence; otherwise stride
     if (!(tripcnt.isImm() && tripcnt.getImm() < 0))  { 
-      const TargetRegisterClass *TRC = TII->lookupLICRegClass(addNode->minstr->getOperand(0).getReg());
-      const unsigned FMAOp = TII->makeOpcode(CSA::Generic::FMA, TRC);
+      //FMA only operates on register
       unsigned fmaReg = LMFI->allocateLIC(addTRC);
-      MachineInstr* fmaInstr = BuildMI(*lhdrPickNode->minstr->getParent(),
-        lhdrPickNode->minstr, DebugLoc(),
-        TII->get(FMAOp),
-        fmaReg).
-        add(tripcnt).                                   //trip count from indv
-        add(addNode->minstr->getOperand(strideIdx)).          //stride
-        add(initOpnd);                                        //init
-      fmaInstr->setFlag(MachineInstr::NonSequential);
+      if (addNode->minstr->getOperand(strideIdx).isImm()) {
+        const unsigned mulOp = TII->makeOpcode(CSA::Generic::MUL, addTRC);
+        unsigned mulReg = LMFI->allocateLIC(addTRC);
+        MachineInstr* mulInstr = BuildMI(*lhdrPickNode->minstr->getParent(),
+          lhdrPickNode->minstr, DebugLoc(),
+          TII->get(mulOp),
+          mulReg).
+          add(tripcnt).
+          add(addNode->minstr->getOperand(strideIdx));                                  //trip count from indv
+        mulInstr->setFlag(MachineInstr::NonSequential);
 
+        const unsigned addOp = TII->makeOpcode(CSA::Generic::ADD, addTRC);
+        MachineInstr* addInstr = BuildMI(*lhdrPickNode->minstr->getParent(),
+          lhdrPickNode->minstr, DebugLoc(),
+          TII->get(addOp),
+          fmaReg).
+          addReg(mulReg).
+          add(initOpnd);                                  //trip count from indv
+        addInstr->setFlag(MachineInstr::NonSequential);
+      } else {
+        const unsigned FMAOp = TII->makeOpcode(CSA::Generic::FMA, addTRC);
+        MachineInstr* fmaInstr = BuildMI(*lhdrPickNode->minstr->getParent(),
+          lhdrPickNode->minstr, DebugLoc(),
+          TII->get(FMAOp),
+          fmaReg).
+          add(tripcnt).                                   //trip count from indv
+          add(addNode->minstr->getOperand(strideIdx)).          //stride
+          add(initOpnd);                                        //init
+        fmaInstr->setFlag(MachineInstr::NonSequential);
+      }
       unsigned firstReg = LMFI->allocateLIC(&CSA::CI1RegClass);
       unsigned lastReg = LMFI->allocateLIC(&CSA::CI1RegClass);
       unsigned predReg = LMFI->allocateLIC(&CSA::CI1RegClass);

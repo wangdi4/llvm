@@ -2922,7 +2922,7 @@ void CSACvtCFDFPass::repeatOperandInLoop(MachineLoop* mloop, MachineInstr* initI
             if (flipBackedgePred) {
               switchInst = BuildMI(*latchBB, latchBB->getFirstTerminator(), DebugLoc(), TII->get(switchOpcode),
                   rptIReg).
-                addReg(CSA::IGN).
+                addReg(CSA::IGN, RegState::Define).
                 addReg(backedgePred).
                 addReg(rptOReg);
               switchInst->getOperand(0).setIsDef();
