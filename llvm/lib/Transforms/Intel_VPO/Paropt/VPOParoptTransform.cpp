@@ -444,8 +444,16 @@ bool VPOParoptTransform::paroptTransforms() {
         break;
       }
       case WRegionNode::WRNCancel:
-      case WRegionNode::WRNFlush:
         break;
+      case WRegionNode::WRNFlush:
+      {
+        DEBUG(dbgs() << "\n WRNFlush - Transformation \n\n");
+        if (Mode & ParPrepare) {
+          Changed = genFlush(W);
+          RemoveDirectives = true;
+        }
+        break;
+      }
       default: break;
     }
 
@@ -3256,6 +3264,19 @@ bool VPOParoptTransform::genBarrier(WRegionNode *W, bool IsExplicit) {
   VPOParoptUtils::genKmpcBarrier(W, TidPtr, InsertPt, IdentTy, IsExplicit);
 
   DEBUG(dbgs() << "\nExit VPOParoptTransform::genBarrier\n");
+  return true;
+}
+
+// Create a __kmpc_flush() call and insert it into W's EntryBB
+bool VPOParoptTransform::genFlush(WRegionNode *W) {
+
+  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genFlush\n");
+
+  BasicBlock *EntryBB = W->getEntryBBlock();
+  Instruction *InsertPt = EntryBB->getTerminator();
+  VPOParoptUtils::genKmpcFlush(W, IdentTy, InsertPt);
+
+  DEBUG(dbgs() << "\nExit VPOParoptTransform::genFlush\n");
   return true;
 }
 

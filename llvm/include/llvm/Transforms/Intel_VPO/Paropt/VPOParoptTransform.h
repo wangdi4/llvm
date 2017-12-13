@@ -587,6 +587,9 @@ private:
   /// \brief Insert a barrier at the end of the construct
   bool genBarrier(WRegionNode *W, bool IsExplicit);
 
+  /// \brief Insert a flush call
+  bool genFlush(WRegionNode *W);
+
   /// \brief Generate the intrinsic @llvm.codemotion.fence to inhibit the cse
   /// for the gep instruction related to array/struture which is marked
   /// as private, firstprivate, lastprivate, reduction or shared.

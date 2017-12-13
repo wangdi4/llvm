@@ -363,6 +363,12 @@ public:
                        StructType *IdentTy, Value *Tid,
                        Instruction *InsertPt, bool IsOrderedStart);
 
+    /// \Brief This function inserts a __kmpc_flush call at InsertPt:
+    ///
+    ///   call void @__kmpc_flush(%ident_t* %loc)
+    static CallInst *genKmpcFlush(WRegionNode *W, StructType *IdentTy,
+                                  Instruction *InsertPt);
+
     /// \brief Generate KMPC runtime call to the function \p IntrinsicName
     /// with arguments Loc(obtained using \p IdentTy), Tid (Obtained using \p
     /// TidPtr), and \p Args.
@@ -666,11 +672,13 @@ public:
     /// \param IntrinsicName is the name of the function.
     /// \param ReturnTy is the return type of the function.
     /// \param Args arguments for the function call.
+    /// \param Insert indicates whether to insert the call at InsertPt
     ///
     /// \returns the generated CallInst.
     static CallInst *genKmpcCall(WRegionNode *W, StructType *IdentTy,
                                  Instruction *InsertPt, StringRef IntrinsicName,
-                                 Type *ReturnTy, ArrayRef<Value *> Args);
+                                 Type *ReturnTy, ArrayRef<Value *> Args,
+                                 bool Insert=false);
 
     /// \brief Generates a call to the function \p FnName.
     /// If the function is not already declared in the module \p M, then it is

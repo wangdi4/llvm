@@ -1850,13 +1850,39 @@ CallInst *VPOParoptUtils::genKmpcOrderedOrEndOrderedCall(WRegionNode *W,
   return OrderedOrEndCall;
 }
 
+// Create this call
+//
+//   call void @__kmpc_flush(%ident_t* %loc)
+//
+// and insert it at InsertPt. Then, return it.
+CallInst *VPOParoptUtils::genKmpcFlush(WRegionNode *W, StructType *IdentTy,
+                                       Instruction *InsertPt) {
+  BasicBlock  *B = W->getEntryBBlock();
+  Function    *F = B->getParent();
+  LLVMContext &C = F->getContext();
+
+  Type *RetTy = Type::getVoidTy(C);
+
+  CallInst *Flush = VPOParoptUtils::genKmpcCall(W, IdentTy, InsertPt,
+                                                "__kmpc_flush", RetTy, {},
+                                                true /*insert call*/ );
+  return Flush;
+}
+
+
 // Private helper methods for generation of a KMPC call.
 
 // Generates KMPC calls to the intrinsic `IntrinsicName`.
+//
+// If \p Insert is true (default is false), then insert the call into the IR
+// at \p InsertPt
+//
+// Note: \p InsertPt is also used to get the Loc, so it cannot be nullptr
+// when calling genKmpcCall, even when \p Insert is false.
 CallInst *VPOParoptUtils::genKmpcCall(WRegionNode *W, StructType *IdentTy,
                                       Instruction *InsertPt,
                                       StringRef IntrinsicName, Type *ReturnTy,
-                                      ArrayRef<Value *> Args) {
+                                      ArrayRef<Value *> Args, bool Insert) {
   assert(W != nullptr && "WRegionNode is null.");
   assert(IdentTy != nullptr && "IdentTy is null.");
   assert(InsertPt != nullptr && "InsertPt is null.");
@@ -1886,7 +1912,10 @@ CallInst *VPOParoptUtils::genKmpcCall(WRegionNode *W, StructType *IdentTy,
   LLVMContext &C = F->getContext();
   ReturnTy = (ReturnTy != nullptr) ? ReturnTy : Type::getVoidTy(C);
 
-  return genCall(M, IntrinsicName, ReturnTy, FnArgs);
+  if (!Insert)
+    InsertPt = nullptr; // do not emit the call into the IR
+
+  return genCall(M, IntrinsicName, ReturnTy, FnArgs, InsertPt);
 }
 
 // Genetates a CallInst for a function with name `FnName`.
@@ -1910,6 +1939,7 @@ CallInst *VPOParoptUtils::genCall(Module *M, StringRef FnName, Type *ReturnTy,
 
   // We now  have the function declaration. Now generate a call to it.
   CallInst *FnCall = CallInst::Create(Fn, FnArgs, "", InsertPt);
+  // Note: if InsertPt!=nullptr, FnCall is emitted into the IR as well.
   assert(FnCall != nullptr && "Failed to generate Function Call");
 
   FnCall->setCallingConv(CallingConv::C);
