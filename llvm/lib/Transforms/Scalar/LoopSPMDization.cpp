@@ -185,12 +185,10 @@ Branches to or from an OpenMP structured block are illegal
         PH->setName(L->getHeader()->getName() + ".ph");
         BasicBlock *OrigE = L->getExitBlock();
         
-        BasicBlock *AfterLoop = OrigE->getSingleSuccessor();
         Instruction *i = dyn_cast<Instruction>(OrigE->begin());
         BasicBlock *E = SplitBlock(OrigE, i, DT, LI);
         OrigE->setName(L->getHeader()->getName() + ".e");
-        if(!AfterLoop)
-          AfterLoop = E;
+        BasicBlock *AfterLoop = E;
         
         //Add CSA parallel intrinsics:
         AddParallelIntrinsicstoLoop(L, context, M, OrigPH, E);
@@ -237,19 +235,11 @@ Branches to or from an OpenMP structured block are illegal
           if(!RedPhi)
             continue;
           Value *RedV;
-          if(AfterLoop == L->getExitBlock()->getSingleSuccessor()) {
-            if(RedPhi->getBasicBlockIndex(L->getExitBlock()) == -1) 
-              //Afterloop did not have a phi node
-              RedPhi->setIncomingBlock(0, L->getExitBlock());
-            
-            RedV = RedPhi->getIncomingValueForBlock(L->getExitBlock());
-          }
-          else {
-            //if(RedPhi->getBasicBlockIndex(L->getExitBlock()->getSinglePredecessor()) == -1) 
+          if(RedPhi->getBasicBlockIndex(L->getExitBlock()) == -1) 
             //Afterloop did not have a phi node
-            //RedPhi->setIncomingBlock(0, L->getExitBlock()->getSinglePredecessor());
-            RedV = RedPhi->getIncomingValueForBlock(L->getExitBlock()->getSingleSuccessor());
-          }
+            RedPhi->setIncomingBlock(0, L->getExitBlock());
+          
+          RedV = RedPhi->getIncomingValueForBlock(L->getExitBlock());
           for (auto it = pred_begin(AfterLoop), et = pred_end(AfterLoop); it != et; ++it) {
             BasicBlock* predecessor = *it;
             if(RedPhi->getBasicBlockIndex(predecessor) == -1) {
@@ -258,6 +248,7 @@ Branches to or from an OpenMP structured block are illegal
           }
         }
       }
+      
       return true;
     }
     void getAnalysisUsage(AnalysisUsage &AU) const override {
@@ -344,10 +335,7 @@ bool LoopSPMDization::FindReductionVariables(Loop *L, std::vector<PHINode *> *Re
 //Handling of reductions
 bool LoopSPMDization::FixReductionsIfAny(Loop *L, Loop *OrigL, BasicBlock *E, BasicBlock *AfterLoop, int PE, int NPEs, std::vector<PHINode *> *Reductions, std::vector<Value *> *ReduceVarExitOrig, std::vector<Instruction *> *ReduceVarOrig, std::vector<Instruction *> *OldInsts) {
   BasicBlock *pred_AfterLoop;
-  if(AfterLoop == L->getExitBlock()->getSingleSuccessor())
-    pred_AfterLoop = L->getExitBlock();
-  else
-    pred_AfterLoop = L->getExitBlock()->getSinglePredecessor();  
+  pred_AfterLoop = L->getExitBlock();
           
   for (Instruction &I : *L->getHeader()) {
     PHINode *Phi = dyn_cast<PHINode>(&I);
@@ -366,7 +354,6 @@ bool LoopSPMDization::FixReductionsIfAny(Loop *L, Loop *OrigL, BasicBlock *E, Ba
           ReduceVar = dyn_cast<Instruction>(Phi->getIncomingValue(1));
         else 
           ReduceVar = dyn_cast<Instruction>(Phi->getIncomingValue(0));
-        
         
         BasicBlock::iterator i, ie;
         for (i = AfterLoop->begin(), ie = AfterLoop->end();  (i != ie); ++i) {
@@ -387,38 +374,53 @@ bool LoopSPMDization::FixReductionsIfAny(Loop *L, Loop *OrigL, BasicBlock *E, Ba
                   i->setOperand(m, PhiExit);
                 }
                 NewPhi = B.CreatePHI(ReduceVar->getType(), 1, Phi->getName() + "red");
-                NewPhi->addIncoming(ReduceVar, pred_AfterLoop);//->getSinglePredecessor());
+                NewPhi->addIncoming(ReduceVar, pred_AfterLoop);
                 NewInstPhi = dyn_cast<Instruction>(NewPhi);
                 found_p = true;
               }
             }
+            
           }
           else {// There is an actual Phi node for the reduction var
             if(PhiExit->getNumIncomingValues() >= 2)// == 2) zero trip change
               ReduceVarExit = dyn_cast<Instruction>(PhiExit->getIncomingValue(1));
             else
               ReduceVarExit = dyn_cast<Instruction>(PhiExit->getIncomingValue(0));
-            if(dyn_cast<Value>(ReduceVarExit) == (*ReduceVarExitOrig)[r]) {
-              NewInstPhi = PhiExit->clone();
-              NewPhi = dyn_cast<PHINode>(NewInstPhi);
-              
-              if(PhiExit->getNumIncomingValues() >= 2) // ==2
-                NewPhi->setIncomingValue(1, ReduceVar);
-              else
-                NewPhi->setIncomingValue(0, ReduceVar);
-      
-              AfterLoop->getInstList().insert(B.GetInsertPoint(), NewInstPhi);
-              found_p = true;
-            } 
+            if(ReduceVarExit) { 
+              if(dyn_cast<Value>(ReduceVarExit) == (*ReduceVarExitOrig)[r]) {
+                NewInstPhi = PhiExit->clone();
+                NewPhi = dyn_cast<PHINode>(NewInstPhi);
+                
+                if(PhiExit->getNumIncomingValues() >= 2) // ==2
+                  NewPhi->setIncomingValue(1, ReduceVar);
+                else
+                  NewPhi->setIncomingValue(0, ReduceVar);
+                
+                AfterLoop->getInstList().insert(B.GetInsertPoint(), NewInstPhi);
+                found_p = true;
+              } 
+            }
+          }
+          // AfterLoop does not contain a use or a phi of use
+          BasicBlock::iterator II = i;
+          if(!found_p && II == (--(AfterLoop->end())) ) {
+            if(PE == 1) {
+              PhiExit = B.CreatePHI(ReduceVar->getType(), 1, Phi->getName() + "orig");
+              PhiExit->addIncoming((*ReduceVarExitOrig)[r], pred_AfterLoop);
+            }
+            NewPhi = B.CreatePHI(ReduceVar->getType(), 1, Phi->getName() + "red");
+            NewPhi->addIncoming(ReduceVar, pred_AfterLoop);
+            NewInstPhi = dyn_cast<Instruction>(NewPhi);
+            found_p = true;
           }
           if (found_p) {
             // Handling of the new branches related to the zero trip count
             BasicBlock* BB = AfterLoop;
             for (auto it = pred_begin(BB), et = pred_end(BB); it != et; ++it) {
               BasicBlock* predecessor = *it;
-              //if(predecessor == L->getLoopPreheader()->getSinglePredecessor()) 
               {// this is the predecessor coming from the zero trip count gard block
                 if(NewPhi->getBasicBlockIndex(predecessor) == -1 && predecessor != pred_AfterLoop) {
+                  //Fixme: move the identity value calculation to a separate function and make it an exhaustive set
                   Value *Ident;
                   Type *Ty = NewPhi->getType();
                   switch ((*ReduceVarOrig)[r]->getOpcode()) {
@@ -468,6 +470,8 @@ Failed to find the identity element of the reduction operation.
               B.SetInsertPoint((*OldInsts)[r]->getNextNode());
             Instruction *NewInst = (*ReduceVarOrig)[r]->clone();
             (*OldInsts)[r]->replaceAllUsesWith(NewInst);
+            (*ReduceVarExitOrig)[r]->replaceUsesOutsideBlock(NewInst, AfterLoop);
+              
             NewInst->setOperand(1, dyn_cast<Value>((*OldInsts)[r]));
             NewInst->setOperand(0, dyn_cast<Value>(NewInstPhi));
             AfterLoop->getInstList().insert(B.GetInsertPoint(), NewInst);
@@ -557,7 +561,7 @@ bool LoopSPMDization::TransformLoopInitandBound(Loop *L, ScalarEvolution *SE, in
   BasicBlock *Latch = L->getLoopLatch();
   BranchInst *LatchBR = cast<BranchInst>(Latch->getTerminator());
   if (!InductionPHI) {
-    DEBUG(dbgs() << "Failed to find the loop induction variable \n");
+    DEBUG(dbgs() << "Failed to find the loop induction variable in one of the loops marked with SPMD intrinsic \n");
     return false;
   }
   IRBuilder<> B(PreHeaderBR);
