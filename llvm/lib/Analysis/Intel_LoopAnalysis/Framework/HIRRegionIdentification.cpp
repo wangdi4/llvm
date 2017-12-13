@@ -1049,57 +1049,61 @@ void HIRRegionIdentification::createRegion(const Loop &Lp) {
   RegionCount++;
 }
 
-bool HIRRegionIdentification::formRegionForLoop(const Loop &Lp,
-                                                unsigned *LoopnestDepth) {
-  SmallVector<Loop *, 8> GenerableLoops;
+bool HIRRegionIdentification::isGenerableLoopnest(
+    const Loop &Lp, unsigned &LoopnestDepth,
+    SmallVectorImpl<const Loop *> &GenerableLoops) {
+  SmallVector<const Loop *, 8> SubGenerableLoops;
   bool Generable = true;
 
-  *LoopnestDepth = 0;
+  LoopnestDepth = 0;
 
   // Check which sub loops are generable.
   for (auto I = Lp.begin(), E = Lp.end(); I != E; ++I) {
     unsigned SubLoopnestDepth;
 
-    if (formRegionForLoop(**I, &SubLoopnestDepth)) {
-      GenerableLoops.push_back(*I);
-
+    if (isGenerableLoopnest(**I, SubLoopnestDepth, SubGenerableLoops)) {
       // Set maximum sub-loopnest depth
-      *LoopnestDepth = std::max(*LoopnestDepth, SubLoopnestDepth);
+      LoopnestDepth = std::max(LoopnestDepth, SubLoopnestDepth);
     } else {
       Generable = false;
     }
   }
 
   // Check whether Lp is generable.
-  if (Generable && !isSelfGenerable(Lp, ++(*LoopnestDepth), false)) {
+  if (Generable && !isSelfGenerable(Lp, ++LoopnestDepth, false)) {
     Generable = false;
   }
 
-  // Lp itself is not generable so create regions for generable sub loops.
-  if (!Generable) {
+  if (Generable) {
+    // Entire loopnest is generable. Add Lp in generable set.
+    GenerableLoops.push_back(&Lp);
+  } else {
+    // Add sub loops of Lp in generable set.
+
     // TODO: add logic to merge fuseable loops. This might also require
     // recognition of ztt and splitting basic blocks which needs to be done
     // in a transformation pass.
-    for (auto I = GenerableLoops.begin(), E = GenerableLoops.end(); I != E;
-         ++I) {
-      auto &Lp = **I;
-      createRegion(Lp);
-    }
+    // GenerableLoops structure needs to change to contain vector of loops
+    // instead.
+    GenerableLoops.append(SubGenerableLoops.begin(), SubGenerableLoops.end());
   }
 
   return Generable;
 }
 
 void HIRRegionIdentification::formRegions() {
+  SmallVector<const Loop *, 32> GenerableLoops;
 
   // LoopInfo::iterator visits loops in reverse program order so we need to
   // use reverse_iterator here.
   for (LoopInfo::reverse_iterator I = LI->rbegin(), E = LI->rend(); I != E;
        ++I) {
     unsigned Depth;
-    if (formRegionForLoop(**I, &Depth)) {
-      createRegion(**I);
-    }
+    isGenerableLoopnest(**I, Depth, GenerableLoops);
+  }
+
+  for (auto Lp : GenerableLoops) {
+    createRegion(*Lp);
   }
 }
 

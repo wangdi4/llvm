@@ -145,8 +145,10 @@ private:
   void createRegion(const Loop &Lp);
 
   /// Returns true if we can form a region around this loop. Returns the max
-  /// loopnest depth in LoopnestDepth.
-  bool formRegionForLoop(const Loop &Lp, unsigned *LoopnestDepth);
+  /// loopnest depth in \p LoopnestDepth. \p GenerableLoops contains \p Lp if it
+  /// is generable, otherwise it contains generable children loops of \p Lp.
+  bool isGenerableLoopnest(const Loop &Lp, unsigned &LoopnestDepth,
+                           SmallVectorImpl<const Loop *> &GenerableLoops);
 
   /// Identifies regions in the incoming LLVM IR.
   void formRegions();
