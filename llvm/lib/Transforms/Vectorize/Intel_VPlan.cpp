@@ -576,11 +576,9 @@ void VPlanPrinter::dumpBasicBlock(const VPBasicBlock *BasicBlock) {
   const VPValue *CBV = BasicBlock->getCondBitVPVal();
   // Dump the CondBitVPVal
   if (CBV) {
-    OS << " +\n"
-       << Indent << "\" ---- CondBitVPVal ---- \\l\" ";
-    OS << " +\n" << Indent << "\" ";
+    OS << " +\n" << Indent << " \"CondBit: ";
     if (const VPInstruction *CBI = dyn_cast<VPInstruction>(CBV)) {
-      CBI->print(OS);
+      CBI->printAsOperand(OS);
       OS << " (" << DOT::EscapeString(CBI->getParent()->getName()) << ")\\l\"";
     } else {
       CBV->printAsOperand(OS);
