@@ -13,7 +13,6 @@ if (WIN32)
 endif (WIN32)
 
 include_directories(${OCL_SOURCE_DIR}/framework/export
-                    ${OCL_SOURCE_DIR}/externals/gtest/include
                     ${OCL_SOURCE_DIR}/cl_api
                     ${CL_API_HEADERS}
                     ${OCL_SOURCE_DIR}/utils/cl_hw_utils/export
@@ -23,21 +22,9 @@ include_directories(${OCL_SOURCE_DIR}/framework/export
 FIND_SOURCES()
 CALCULATE_TARGET_SOURCES()
 
-link_directories( ${TBB_LIB_DIR} )
-
 add_executable(${TARGET} ${TARGET_SOURCES})
 
-target_link_libraries(${TARGET} googletest cl_sys_utils)
-
-if (NOT WIN32)
-  target_link_libraries(${TARGET} cl_logger${OPENCL_BINARIES_POSTFIX} ${PTHREAD_LIB})
-endif (NOT WIN32)
-
-if (NOT WIN32 OR BUILD_FPGA_EMULATOR)
-  target_link_libraries(${TARGET} intelocl${BUILD_PLATFORM}${OPENCL_BINARIES_POSTFIX})
-else (NOT WIN32 OR BUILD_FPGA_EMULATOR)
-  target_link_libraries(${TARGET} intelocl${BUILD_PLATFORM})
-endif (NOT WIN32 OR BUILD_FPGA_EMULATOR)
+target_link_libraries(${TARGET} OpenCL cl_sys_utils)
 
 #
 ##
@@ -48,7 +35,6 @@ endif (NOT WIN32 OR BUILD_FPGA_EMULATOR)
 # This is where things will be copied to
 #
 set(DTT_DIR_NAME tests/debugger_test_type)
-
 
 # Copy generated executable to DTT_DIR_NAME
 # Since COPY_GENERATED_FILES_POST_BUILD needs OCL_INSTALL_DIR set, we save it
