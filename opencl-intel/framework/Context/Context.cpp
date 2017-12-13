@@ -74,8 +74,12 @@ static cl_ulong getFormatsKey(cl_mem_object_type clObjType , cl_mem_flags clMemF
 Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevices, cl_uint uiNumRootDevices, SharedPtr<FissionableDevice>*ppDevices, logging_fn pfnNotify,
                  void *pUserData, cl_err_code * pclErr, ocl_entry_points * pOclEntryPoints, ocl_gpa_data * pGPAData, ContextModule& contextModule)
     : OCLObject<_cl_context_int>(nullptr, "Context"), // Context doesn't have conext to belong
-    m_bTEActivated(false),m_ppExplicitRootDevices(nullptr),m_ppAllDevices(nullptr),m_pDeviceIds(nullptr), m_pOriginalDeviceIds(nullptr),
-    m_devTypeMask(0), m_pclContextProperties(nullptr), m_pfnNotify(nullptr), m_pUserData(nullptr), m_ulMaxMemAllocSize(0),m_MemObjectsHeap(nullptr), m_contextModule(contextModule)
+    m_bTEActivated(false), m_ppExplicitRootDevices(nullptr),
+    m_ppAllDevices(nullptr), m_pDeviceIds(nullptr),
+    m_pOriginalDeviceIds(nullptr), m_devTypeMask(0),
+    m_pclContextProperties(nullptr), m_fpgaEmulator(false),
+    m_pfnNotify(nullptr), m_pUserData(nullptr), m_ulMaxMemAllocSize(0),
+    m_MemObjectsHeap(nullptr), m_contextModule(contextModule)
 {
 
     INIT_LOGGER_CLIENT(TEXT("Context"), LL_DEBUG);
