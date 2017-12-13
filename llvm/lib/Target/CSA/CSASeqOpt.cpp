@@ -140,10 +140,11 @@ void CSASeqOpt::SequenceIndv(CSASSANode* cmpNode, CSASSANode* switchNode, CSASSA
     cpyInit.setIsDef(false);
     unsigned firstReg = LMFI->allocateLIC(&CSA::CI1RegClass);
     unsigned lastReg = LMFI->allocateLIC(&CSA::CI1RegClass);
+    unsigned seqReg = lhdrPickNode->minstr->getOperand(0).getReg();
     MachineInstr* seqInstr = BuildMI(*lhdrPickNode->minstr->getParent(),
       lhdrPickNode->minstr, DebugLoc(),
       TII->get(seqOp),
-      lhdrPickNode->minstr->getOperand(0).getReg()).
+      seqReg).
       addReg(cmpNode->minstr->getOperand(0).getReg(), RegState::Define).  //pred
       addReg(firstReg, RegState::Define).
       addReg(lastReg, RegState::Define).
@@ -152,29 +153,7 @@ void CSASeqOpt::SequenceIndv(CSASSANode* cmpNode, CSASSANode* switchNode, CSASSA
       add(addNode->minstr->getOperand(strideIdx));                      //stride
     seqInstr->setFlag(MachineInstr::NonSequential);
     //handle last value live out of loop
-    if (switchNode->minstr->getOperand(switchOutIndex).getReg() != CSA::IGN) {
-      const TargetRegisterClass *TRC = TII->lookupLICRegClass(addNode->minstr->getOperand(0).getReg());
-      unsigned lastV = LMFI->allocateLIC(TRC);
-      MachineInstr* lastValueSwitch = BuildMI(*lhdrPickNode->minstr->getParent(),
-        lhdrPickNode->minstr, DebugLoc(), 
-          TII->get(TII->adjustOpcode(addNode->minstr->getOpcode(), CSA::Generic::SWITCH)),
-          CSA::IGN).
-        addReg(lastV).
-        addReg(lastReg).
-        addReg(lhdrPickNode->minstr->getOperand(0).getReg());
-      lastValueSwitch->setFlag(MachineInstr::NonSequential);
-
-      const unsigned addOp = TII->makeOpcode(CSA::Generic::ADD, TRC);
-      MachineInstr* outbndInstr = BuildMI(*lhdrPickNode->minstr->getParent(),
-        lhdrPickNode->minstr,
-        DebugLoc(),
-        TII->get(addOp),
-        switchNode->minstr->getOperand(switchOutIndex).getReg()).
-        addReg(lastV).
-        add(addNode->minstr->getOperand(strideIdx));
-      outbndInstr->setFlag(MachineInstr::NonSequential);
-    }
-
+    SequenceSwitchOut(switchNode, addNode, lhdrPickNode, seqInstr, seqReg, backedgeReg);
     //remove the instructions in the IDV cycle.
     cmpNode->minstr->removeFromParent();
     switchNode->minstr->removeFromParent();
@@ -275,7 +254,9 @@ void CSASeqOpt::SequenceReduction(CSASSANode* switchNode, CSASSANode* addNode, C
   if (isIDVCycle) {
     //build reduction seqeuence.
     unsigned redOp = TII->convertTransformToReductionOp(addNode->minstr->getOpcode());
-    assert(redOp == CSA::INVALID_OPCODE);
+    //64bit operations such as ADDF64 are not supported
+    //if (redOp != CSA::INVALID_OPCODE) 
+    assert(redOp != CSA::INVALID_OPCODE);
     MachineInstr* redInstr;
     if (TII->isFMA(addNode->minstr)) {
       //two input reduction besides init
@@ -287,7 +268,7 @@ void CSASeqOpt::SequenceReduction(CSASSANode* switchNode, CSASSANode* addNode, C
         add(addNode->minstr->getOperand(1)).   // input 1
         add(addNode->minstr->getOperand(2)).   // input 2
         addReg(seqOT->getOperand(1).getReg()); // control
-    }  else {
+    } else {
       //normal one input reduciton besides init
       redInstr = BuildMI(*lhdrPickNode->minstr->getParent(), lhdrPickNode->minstr, DebugLoc(),
         TII->get(redOp),
@@ -300,6 +281,45 @@ void CSASeqOpt::SequenceReduction(CSASSANode* switchNode, CSASSANode* addNode, C
   }
 }
 
+
+
+void CSASeqOpt::SequenceSwitchOut(CSASSANode* switchNode, 
+                                  CSASSANode* addNode, 
+                                  CSASSANode* lhdrPickNode, 
+                                  MachineInstr* seqIndv, 
+                                  unsigned seqReg,
+                                  unsigned backedgeReg) {
+  //handle switch out value
+  unsigned switchFalse = switchNode->minstr->getOperand(0).getReg();
+  unsigned switchTrue = switchNode->minstr->getOperand(1).getReg();
+  unsigned switchOut = switchFalse == backedgeReg ? switchTrue : switchFalse;
+  unsigned strideIdx = addNode->minstr->getOperand(1).isReg() ? 2 : 1;
+  if (switchOut != CSA::IGN) {
+    //compute the outbouned value for switchout = last + stride
+    const TargetRegisterClass *TRC = TII->lookupLICRegClass(addNode->minstr->getOperand(0).getReg());
+    unsigned last = LMFI->allocateLIC(TRC);
+    const unsigned switchOp = TII->makeOpcode(CSA::Generic::SWITCH, TRC);
+    MachineInstr* switchLast = BuildMI(*lhdrPickNode->minstr->getParent(),
+      lhdrPickNode->minstr,
+      DebugLoc(),
+      TII->get(switchOp),
+      CSA::IGN).
+      addReg(last, RegState::Define).
+      addReg(seqIndv->getOperand(3).getReg()).   //last
+      addReg(seqReg);
+    switchLast->setFlag(MachineInstr::NonSequential);
+
+    const unsigned addOp = TII->makeOpcode(CSA::Generic::ADD, TRC);
+    MachineInstr* outbndInstr = BuildMI(*lhdrPickNode->minstr->getParent(),
+      lhdrPickNode->minstr,
+      DebugLoc(),
+      TII->get(switchOp),
+      switchOut).
+      addReg(last).
+      add(addNode->minstr->getOperand(strideIdx));
+    outbndInstr->setFlag(MachineInstr::NonSequential);
+  }
+}
 
 
 void CSASeqOpt::MultiSequence(CSASSANode* switchNode, CSASSANode* addNode, CSASSANode* lhdrPickNode) {
@@ -436,36 +456,7 @@ void CSASeqOpt::MultiSequence(CSASSANode* switchNode, CSASSANode* addNode, CSASS
         add(addNode->minstr->getOperand(strideIdx));
       strideInstr->setFlag(MachineInstr::NonSequential);
     }
-
-    //handle switch out value
-    unsigned switchFalse = switchNode->minstr->getOperand(0).getReg();
-    unsigned switchTrue = switchNode->minstr->getOperand(1).getReg();
-    unsigned switchOut = switchFalse == backedgeReg ? switchTrue : switchFalse;
-    if (switchOut != CSA::IGN) {
-      //compute the outbouned value for switchout = last + stride
-      const TargetRegisterClass *TRC = TII->lookupLICRegClass(addNode->minstr->getOperand(0).getReg());
-      unsigned last = LMFI->allocateLIC(TRC);
-      const unsigned switchOp = TII->makeOpcode(CSA::Generic::SWITCH, TRC);
-      MachineInstr* switchLast = BuildMI(*lhdrPickNode->minstr->getParent(),
-        lhdrPickNode->minstr,
-        DebugLoc(),
-        TII->get(switchOp),
-        CSA::IGN).
-        addReg(last, RegState::Define).
-        addReg(seqIndv->getOperand(3).getReg()).   //last
-        addReg(seqReg);
-      switchLast->setFlag(MachineInstr::NonSequential);
-
-      const unsigned addOp = TII->makeOpcode(CSA::Generic::ADD, TRC);
-      MachineInstr* outbndInstr = BuildMI(*lhdrPickNode->minstr->getParent(),
-        lhdrPickNode->minstr,
-        DebugLoc(),
-        TII->get(switchOp),
-        switchOut).
-        addReg(last).
-        add(addNode->minstr->getOperand(strideIdx));
-      outbndInstr->setFlag(MachineInstr::NonSequential);
-    }
+    SequenceSwitchOut(switchNode, addNode, lhdrPickNode, seqIndv, seqReg, backedgeReg);
     //remove the instructions in the IDV cycle.
     switchNode->minstr->removeFromParent();
     addNode->minstr->removeFromBundle();

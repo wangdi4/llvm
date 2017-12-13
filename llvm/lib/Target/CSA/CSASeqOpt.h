@@ -18,6 +18,12 @@ namespace llvm
     void MultiSequence(CSASSANode* switchNode, CSASSANode* addNode, CSASSANode* lhdrPickNode);
     void SequenceApp(CSASSANode* switchNode, CSASSANode* addNode, CSASSANode* lhdrPhiNode);
     void SequenceReduction(CSASSANode* switchNode, CSASSANode* addNode, CSASSANode* lhdrPhiNode);
+    void SequenceSwitchOut(CSASSANode* switchNode, 
+                           CSASSANode* addNode, 
+                           CSASSANode* lhdrPickNode, 
+                           MachineInstr* seqIndv,
+                           unsigned seqReg,
+                           unsigned backedgeReg);
     void SequenceRepeat(CSASSANode* switchNode, CSASSANode* lhdrPhiNode);
     CSASeqOpt(MachineFunction *F);
     
