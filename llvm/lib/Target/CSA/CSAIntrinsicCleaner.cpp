@@ -35,6 +35,10 @@ STATISTIC(
   NumSPMDizationsCleaned, "Number of unused SPMDization intrinsic pairs removed"
 );
 
+STATISTIC(
+  NumPipelineCleaned, "Number of unused pipeline_loop intrinsic pairs removed"
+);
+
 namespace {
 
 struct CSAIntrinsicCleaner : FunctionPass {
@@ -62,6 +66,8 @@ private:
 
   // Removes any unused spmdization intrinsic pairs from a function.
   bool clean_spmdization(Function&);
+  // Removes any unused pipeline_loop intrinsic pairs from a function
+  bool clean_pipeline(Function&);
 };
 
 char CSAIntrinsicCleaner::ID = 0;
@@ -72,7 +78,7 @@ bool CSAIntrinsicCleaner::runOnFunction(Function& F) {
       if (check_for_problematic_iter_storage(L)) break;
     }
   }
-  return clean_spmdization(F);
+  return clean_spmdization(F) | clean_pipeline(F);
 }
 
 // Determines whether there are lifetime start intrinsics anywhere in L. If
@@ -193,6 +199,25 @@ bool CSAIntrinsicCleaner::clean_spmdization(Function& F) {
     }
   }
   return cleaned_spmdizations;
+}
+
+bool CSAIntrinsicCleaner::clean_pipeline(Function& F) {
+  using namespace std;
+  bool cleaned_pipeline_loop = false;
+  for (BasicBlock& BB : F) {
+    for (auto inst_it = begin(BB); inst_it != end(BB);) {
+      IntrinsicInst*const intr_inst = dyn_cast<IntrinsicInst>(&*inst_it);
+      if (
+        intr_inst
+        and intr_inst->getIntrinsicID() == Intrinsic::csa_pipeline_loop_entry
+      ) {
+        cleaned_pipeline_loop = true;
+        ++NumPipelineCleaned;
+        inst_it = erase_with_all_uses(intr_inst);
+      } else ++inst_it;
+    }
+  }
+  return cleaned_pipeline_loop;
 }
 
 }

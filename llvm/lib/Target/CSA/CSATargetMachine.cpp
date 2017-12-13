@@ -154,14 +154,18 @@ public:
       addPass(createInstructionCombiningPass());
     }
 
-    // Remove any remaining intrinsics which should not go through instruction selection
-    addPass(createCSAIntrinsicCleanerPass());
-
     // Add a pass to generate more candidates for reduction operations
     addPass(createCSAIRReductionOptPass());
 
-    // Add a pass to identify and prepare inner loops for pipelinling.
-    addPass(createCSAInnerLoopPrepPass());
+    // Add a pass to identify and prepare inner loops for pipelinling. This
+    // only happens at O1+ so as to avoid requiring excessive additional
+    // analyses at O0.
+    if (getOptLevel() != CodeGenOpt::None) {
+      addPass(createCSAInnerLoopPrepPass());
+    }
+
+    // Remove any remaining intrinsics which should not go through instruction selection
+    addPass(createCSAIntrinsicCleanerPass());
 
     return false;
   }
