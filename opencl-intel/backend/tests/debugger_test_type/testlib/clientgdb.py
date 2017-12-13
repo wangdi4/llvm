@@ -173,9 +173,10 @@ class ClientGDB(TestClient):
         # Disable GDB's warning about unknown source locations (for JITted code)
         self._command("set breakpoint pending on")
 
-        # Disable GDB paging and line wrapping
+        # Disable GDB paging, line wrapping and python scripts autoloading
         self._command("set pagination off")
         self._command("set width 0")
+        self._command("set auto-load python-scripts off")
 
         # Search for, and attempt to pre-load, the OpenCL GDB plugin.
         # Theoretically it should be loaded automatically when libintelocl.so
@@ -187,6 +188,7 @@ class ClientGDB(TestClient):
         else:
             search_path = os.environ["LD_LIBRARY_PATH"]
         ocl_plugin_path = find_on_path("libintelocl.so-gdb.py", search_path)
+
         if ocl_plugin_path is not None:
             self._command("source " + ocl_plugin_path)
         else:
