@@ -91,10 +91,10 @@ static cl::opt<unsigned> VPlanVectCand(
         "Construct VPlan for vectorization candidates (CG stress testing)"));
 
 static cl::opt<bool>
-    VPlanCostModelAnalysis("vplan-analyze-costs", cl::init(false),
+    VPlanCostModelAnalysis("vplan-analyze-costs", cl::init(false), cl::Hidden,
                            cl::desc("Print cost model analysis for VPlan."));
 static cl::opt<unsigned>
-    VPlanCostModelVF("vplan-cost-model-analysis-vf", cl::init(4),
+    VPlanCostModelVF("vplan-cost-model-analysis-vf", cl::init(4), cl::Hidden,
                      cl::desc("VF to evaluate during VPlan Cost Model "
                               "Analysis. For testing purposes."));
 

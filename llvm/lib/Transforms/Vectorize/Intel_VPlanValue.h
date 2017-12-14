@@ -99,6 +99,10 @@ protected:
   VPValue &operator=(const VPValue &) = delete;
 #if INTEL_CUSTOMIZATION
   virtual ~VPValue() {}
+  // FIXME: To be replaced by a proper VPType.
+  virtual Type *getType() const {
+    return nullptr;
+  }
 #endif
 
   /// \return an ID for the concrete type of this object.

@@ -42,6 +42,16 @@ public:
 
 private:
   void printForVPBlockBase(raw_ostream &OS, const vpo::VPBlockBase *VPBlock);
+
+  // These utilities are private for the class instead of being defined as
+  // static functions because they need access to underlying Inst/HIRData in
+  // VPInstruction via the friends relation between VPlanCostModel and
+  // VPInstruction.
+  //
+  // Also, they won't be necessary if we had VPType for each VPValue.
+  static Type *getMemInstValueType(const vpo::VPInstruction *VPInst);
+  static unsigned getMemInstAlignment(const vpo::VPInstruction *VPInst);
+  static unsigned getMemInstAddressSpace(const vpo::VPInstruction *VPInst);
 };
 } // namespace llvm
 #endif

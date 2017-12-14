@@ -22,11 +22,141 @@
 using namespace llvm;
 using namespace vpo;
 
+namespace {
+// FIXME: The following helper functions have multiple implementations
+// in the project. They can be effectively organized in a common Load/Store
+// utilities unit. This copy is from the LoopVectorize.cpp.
+
+/// A helper function that returns the type of loaded or stored value.
+Type *getMemInstValueType(const Value *I) {
+  assert((isa<LoadInst>(I) || isa<StoreInst>(I)) &&
+         "Expected Load or Store instruction");
+  if (auto *LI = dyn_cast<LoadInst>(I))
+    return LI->getType();
+  return cast<StoreInst>(I)->getValueOperand()->getType();
+}
+
+/// A helper function that returns the alignment of load or store instruction.
+unsigned getMemInstAlignment(const Value *I) {
+  assert((isa<LoadInst>(I) || isa<StoreInst>(I)) &&
+         "Expected Load or Store instruction");
+  if (auto *LI = dyn_cast<LoadInst>(I))
+    return LI->getAlignment();
+  return cast<StoreInst>(I)->getAlignment();
+}
+
+/// A helper function that returns the address space of the pointer operand of
+/// load or store instruction.
+unsigned getMemInstAddressSpace(const Value *I) {
+  assert((isa<LoadInst>(I) || isa<StoreInst>(I)) &&
+         "Expected Load or Store instruction");
+  if (auto *LI = dyn_cast<LoadInst>(I))
+    return LI->getPointerAddressSpace();
+  return cast<StoreInst>(I)->getPointerAddressSpace();
+}
+} // end anonymous namespace
+
+static const Instruction *getLLVMInstFromDDNode(const HLDDNode *Node) {
+  const HLInst *HLInstruction = cast<HLInst>(Node);
+  return HLInstruction->getLLVMInstruction();
+}
+
+Type *VPlanCostModel::getMemInstValueType(const VPInstruction *VPInst) {
+  unsigned Opcode = VPInst->getOpcode();
+  assert(Opcode == Instruction::Load || Opcode == Instruction::Store);
+
+  bool IsLoad = Opcode == Instruction::Load;
+  if (Type *Result = IsLoad ? VPInst->getOperand(0)->getType()
+                            : VPInst->getOperand(1)->getType())
+    return Result;
+
+  // FIXME: This is temporal until decomposition is in place - we might end up
+  // in operand without underlying HIR instruction currently. The code below
+  // workarounds it by accessing the operands of the original load/store which
+  // goes beyond just accessing the type of the underlying IR.
+
+  // This path seems to be covered by the one above.
+  if (const Instruction *Inst = VPInst->Inst)
+    return ::getMemInstValueType(Inst);
+
+  if (!VPInst->HIRData)
+    return nullptr;
+
+  HLDDNode *Node = cast<VPInstructionDataHIR>(VPInst->HIRData)->getInstruction();
+
+  if (const Instruction *Inst = getLLVMInstFromDDNode(Node))
+    return ::getMemInstValueType(Inst);
+
+  RegDDRef *LvalDDRef = Node->getLvalDDRef();
+  // FIXME: Is that correct?
+  return LvalDDRef->getDestType();
+}
+
+unsigned VPlanCostModel::getMemInstAlignment(const VPInstruction *VPInst) {
+  unsigned Opcode = VPInst->getOpcode(); (void)Opcode;
+  assert(Opcode == Instruction::Load || Opcode == Instruction::Store);
+
+  // TODO: getType() working without underlying Inst - seems we can return
+  // alignment too.
+
+  if (const Instruction *Inst = VPInst->Inst)
+    return ::getMemInstAlignment(Inst);
+
+  if (!VPInst->HIRData)
+    return 0; // CHECKME: Is that correct?
+
+  HLDDNode *Node = cast<VPInstructionDataHIR>(VPInst->HIRData)->getInstruction();
+  if (const Instruction *Inst = getLLVMInstFromDDNode(Node))
+    return ::getMemInstAlignment(Inst);
+
+  return 0; // CHECKME: Is that correct?
+}
+
+unsigned VPlanCostModel::getMemInstAddressSpace(const VPInstruction *VPInst) {
+  unsigned Opcode = VPInst->getOpcode(); (void)Opcode;
+  assert(Opcode == Instruction::Load || Opcode == Instruction::Store);
+
+  // TODO: getType() working without underlying Inst - seems we can return
+  // address space too.
+
+  if (const Instruction *Inst = VPInst->Inst)
+    return ::getMemInstAddressSpace(Inst);
+
+  if (!VPInst->HIRData)
+    return 0; // CHECKME: Is that correct?
+
+  HLDDNode *Node = cast<VPInstructionDataHIR>(VPInst->HIRData)->getInstruction();
+  if (const Instruction *Inst = getLLVMInstFromDDNode(Node))
+    return ::getMemInstAddressSpace(Inst);
+
+  return 0; // CHECKME: Is that correct?
+}
+
 unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
   unsigned Opcode = VPInst->getOpcode();
   switch (Opcode) {
   default:
     return UnknownCost;
+  case Instruction::Load:
+  case Instruction::Store: {
+    Type *OpTy = getMemInstValueType(VPInst);
+
+    // FIXME: That should be removed later.
+    if (!OpTy)
+      return UnknownCost;
+
+    assert(OpTy && "Can't get type of the load/store instruction!");
+    unsigned Alignment = getMemInstAlignment(VPInst);
+    unsigned AddrSpace = getMemInstAddressSpace(VPInst);
+
+    unsigned ScalarCost =
+        TTI->getMemoryOpCost(Opcode, OpTy, Alignment, AddrSpace);
+    // FIXME: In order to do something smarter we would need:
+    //   1) isLinear (and also the case for consecutive stride)
+    //   2) Changes in TTI so that getGatherScatterOpCost could work without
+    //      'Value *Ptr' (if that could be reasonable)
+    return VF*ScalarCost;
+  }
   }
 }
 

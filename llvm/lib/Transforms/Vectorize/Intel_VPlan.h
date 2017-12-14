@@ -37,6 +37,7 @@
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/Support/FormattedStream.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
 #endif // INTEL_CUSTOMIZATION
 
 namespace llvm {
@@ -46,6 +47,8 @@ namespace llvm {
 class InnerLoopVectorizer;
 class LoopVectorizationLegality;
 class LoopInfo;
+
+class VPlanCostModel; // INTEL: to be later declared as a friend
 //}
 
 #if INTEL_CUSTOMIZATION
@@ -442,6 +445,11 @@ class VPInstruction : public VPUser, public VPRecipeBase {
   friend class VPBuilderHIR;
 #endif
 
+#if INTEL_CUSTOMIZATION
+  // To get underlying HIRData until we have proper VPType.
+  friend class llvm::VPlanCostModel;
+#endif // INTEL_CUSTOMIZATION
+
 public:
 #if INTEL_CUSTOMIZATION
   /// VPlan opcodes, extending LLVM IR with idiomatics instructions.
@@ -517,6 +525,29 @@ public:
   }
 
   unsigned getOpcode() const { return Opcode; }
+#if INTEL_CUSTOMIZATION
+  // FIXME: To be replaced by a proper VPType.
+  virtual Type *getType() const override {
+    if (Inst)
+      return Inst->getType();
+
+    if (!HIRData)
+      return nullptr;
+
+    auto InstDataHIR = cast<VPInstructionDataHIR>(HIRData);
+    HLDDNode *Node = InstDataHIR->getInstruction();
+    HLInst *Inst = dyn_cast_or_null<HLInst>(Node);
+
+    if (!Inst)
+      return nullptr;
+
+    const Instruction *LLVMInst = Inst->getLLVMInstruction();
+    if (!LLVMInst)
+      return nullptr;
+
+    return LLVMInst->getType();
+  }
+#endif // INTEL_CUSTOMIZATION
 
   /// Generate the instruction.
   /// TODO: We currently execute only per-part unless a specific instance is
