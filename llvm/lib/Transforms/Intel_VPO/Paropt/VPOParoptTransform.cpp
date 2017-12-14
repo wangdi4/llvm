@@ -1096,6 +1096,8 @@ void VPOParoptTransform::createEmptyPrivFiniBB(WRegionNode *W,
     BasicBlock *ZttBlock = W->getWRNLoopInfo().getZTTBB();
     assert(ZttBlock &&
            "Expected non-empty ztt bblock after loop is normalized in clang");
+    while (std::distance(pred_begin(ExitBlock), pred_end(ExitBlock)) == 1)
+      ExitBlock = *pred_begin(ExitBlock);
     assert(std::distance(pred_begin(ExitBlock), pred_end(ExitBlock)) == 2 &&
            "Expect two predecessors for the omp loop region exit.");
     auto PI = pred_begin(ExitBlock);
@@ -1650,21 +1652,31 @@ void VPOParoptTransform::wrnUpdateSSAPreprocessForOuterLoop(
 
 // Collect the live-out value in the loop.
 static void
-wrnCollectLiveOutVals(Loop &L, BasicBlock &BB,
-                      SmallSetVector<Instruction *, 8> &LiveOutVals) {
-  for (Instruction &I : BB) {
-    if (I.getType()->isTokenTy())
-      continue;
+wrnCollectLiveOutVals(Loop &L, SmallSetVector<Instruction *, 8> &LiveOutVals) {
+  for (Loop::block_iterator II = L.block_begin(), E = L.block_end(); II != E; ++II) {
+    for (Instruction &I : *(*II)) {
+      if (I.getType()->isTokenTy())
+        continue;
 
-    for (const Use &U : I.uses()) {
-      const Instruction *UI = cast<Instruction>(U.getUser());
-      const BasicBlock *UserBB = UI->getParent();
-      if (const PHINode *P = dyn_cast<PHINode>(UI))
-        UserBB = P->getIncomingBlock(U);
+      for (const Use &U : I.uses()) {
+        const Instruction *UI = cast<Instruction>(U.getUser());
+        const BasicBlock *UserBB = UI->getParent();
+        if (const PHINode *P = dyn_cast<PHINode>(UI))
+          UserBB = P->getIncomingBlock(U);
 
-      if (!L.contains(UserBB))
-        LiveOutVals.insert(&I);
+        if (!L.contains(UserBB))
+          LiveOutVals.insert(&I);
+      }
     }
+  }
+  // Any variable except the loop index which has loop carried dependence
+  // has to be added into the live-out list.
+  for (Instruction &I : *L.getLoopLatch()) {
+    if (!isa<PHINode>(I))
+      break;
+    if (WRegionUtils::getOmpCanonicalInductionVariable(&L) == &I)
+      continue;
+    LiveOutVals.insert(&I);
   }
 }
 
@@ -1703,8 +1715,7 @@ void VPOParoptTransform::wrnUpdateSSAPreprocess(
     }
   }
 
-  for (auto BB : L->blocks())
-    wrnCollectLiveOutVals(*L, *BB, LiveOutVals);
+  wrnCollectLiveOutVals(*L, LiveOutVals);
 }
 
 // Update the SSA form in the region using SSA Updater.
