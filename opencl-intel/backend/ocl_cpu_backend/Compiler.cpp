@@ -41,8 +41,6 @@ File Name:  Compiler.cpp
 #include <string>
 #include <vector>
 
-using std::string;
-
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 TargetOptions ExternInitTargetOptionsFromCodeGenFlags() {
@@ -244,8 +242,8 @@ void Compiler::InitGlobalState( const IGlobalCompilerConfig& config )
 
     // Split the options by space and push back to args
     std::istringstream llvmOptsStream(config.LLVMOptions());
-    std::copy(std::istream_iterator<string>(llvmOptsStream),
-              std::istream_iterator<string>(),
+    std::copy(std::istream_iterator<std::string>(llvmOptsStream),
+              std::istream_iterator<std::string>(),
               std::back_inserter(args));
 
     // Generate the argc/argv parameters for the llvm::ParsecommandLineOptions
