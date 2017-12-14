@@ -1651,6 +1651,22 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
                 return CL_DEV_SUCCESS;
             }
 #ifdef BUILD_FPGA_EMULATOR
+        case(CL_DEVICE_HALF_FP_CONFIG):
+        {
+            cl_device_fp_config fpConfig = 0;
+            fpConfig = CL_FP_INF_NAN | CL_FP_ROUND_TO_NEAREST;
+            *pinternalRetunedValueSize = sizeof(cl_device_fp_config);
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
+            {
+                return CL_DEV_INVALID_VALUE;
+            }
+            //if OUT paramVal is NULL it should be ignored
+            if(nullptr != paramVal)
+            {
+                *(cl_device_fp_config*)paramVal = fpConfig;
+            }
+            return CL_DEV_SUCCESS;
+        }
         case CL_DEVICE_MAX_HOST_READ_PIPES_INTEL: // FALL THROUGH
         case CL_DEVICE_MAX_HOST_WRITE_PIPES_INTEL:
             *pinternalRetunedValueSize = sizeof(size_t);

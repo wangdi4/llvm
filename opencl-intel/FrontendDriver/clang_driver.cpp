@@ -217,6 +217,7 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
     //    (not a device). Having 2 devices seems to be an overkill for this
     //    purpose.
 #ifdef BUILD_FPGA_EMULATOR
+    optionsEx << " -cl-ext=+cl_khr_fp16";
     optionsEx << " -cl-ext=+cl_intel_channels";
     optionsEx << " -cl-ext=+cl_altera_channels";
     optionsEx << " -cl-ext=+cl_intel_fpga_host_pipe";
