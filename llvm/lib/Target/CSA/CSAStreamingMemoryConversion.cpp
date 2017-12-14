@@ -144,6 +144,12 @@ const MachineOperand *CSAStreamingMemoryConversionPass::getLength(
   if (stride < 0)
     return getLength(end, start, isEqual, -stride, MI);
   if (stride != 1) {
+    if (end.isImm() && isZero(start)) {
+      static MachineOperand saveImm = MachineOperand::CreateImm(0);
+      uint64_t withUnitStride = (end.getImm() + stride - 1) / stride;
+      saveImm.ChangeToImmediate(withUnitStride);
+      return &saveImm;
+    }
     DEBUG(dbgs() << "Stream has a non-1 stride, not inserting division\n");
     return nullptr;
   }
@@ -204,9 +210,8 @@ const MachineOperand *CSAStreamingMemoryConversionPass::getLength(
 // The source of the address computations is more complicated. The following
 // patterns should be okay:
 // * LD (STRIDE %stream, %base, %stride) => base = %base, stride = %stride
-// * LDX (REPEAT %stream, %base), (SEQOT**64_index 0, %N, %stride)
-// * LDX (REPEAT %stream, %base), (SEQOT**64_index %start, %end, %stride)
-// TODO: Investigate LDD utility.
+// * LD{X,D,R} (REPEAT %stream, %base), (SEQOT**64_index 0, %N, %stride)
+// * LD{X,D,R] (REPEAT %stream, %base), (SEQOT**64_index %start, %end, %stride)
 
 bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
   const MachineOperand *base, *value;
@@ -214,7 +219,8 @@ bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
   const MachineOperand *inOrder, *outOrder, *memOrder;
   MachineInstr *stream;
   bool baseUsesStream = false;
-  switch (TII->getGenericOpcode(MI->getOpcode())) {
+  auto genericOpcode = TII->getGenericOpcode(MI->getOpcode());
+  switch (genericOpcode) {
   case CSA::Generic::LD: case CSA::Generic::ST:
     {
       // The address here must be a STRIDE.
@@ -247,11 +253,18 @@ bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
       break;
     }
   case CSA::Generic::LDX: case CSA::Generic::STX:
+  case CSA::Generic::LDD: case CSA::Generic::STD:
+  case CSA::Generic::LDR: case CSA::Generic::STR:
     {
       bool isLoad = MI->mayLoad();
+      auto &baseOp = MI->getOperand(isLoad ? 2 : 1);
+      auto &indexOp = MI->getOperand(isLoad ? 3 : 2);
+      if (baseOp.isImm() || indexOp.isImm())
+        return false;
+
       // The base address needs to be repeated
-      MachineInstr *memBase = getDefinition(MI->getOperand(isLoad ? 2 : 1));
-      MachineInstr *memIndex = getDefinition(MI->getOperand(isLoad ? 3 : 2));
+      MachineInstr *memBase = getDefinition(baseOp);
+      MachineInstr *memIndex = getDefinition(indexOp);
       if (!memBase || memBase->getOpcode() != CSA::REPEAT64) {
         return false;
       }
@@ -287,6 +300,15 @@ bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
         return false;
       }
       stride = strideOp.getImm();
+      if (genericOpcode != CSA::Generic::LDX &&
+          genericOpcode != CSA::Generic::STX) {
+        unsigned opcodeSize = TII->getLicSize(MI->getOpcode()) / 8;
+        if (stride % opcodeSize) {
+          DEBUG(dbgs() << "Candidate instruction has improper stride.\n");
+          return false;
+        }
+        stride /= opcodeSize;
+      }
       memOrder = &MI->getOperand(4);
       inOrder = &MI->getOperand(5);
       outOrder = &MI->getOperand(isLoad ? 1 : 0);
