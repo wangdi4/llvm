@@ -448,24 +448,6 @@ llvm::Module* Compiler::BuildProgram(llvm::Module* pModule,
     return pModule;
 }
 
-bool Compiler::FindFunctionBodyInModules(std::string &FName,
-                               llvm::Module const *bifModule,
-                               llvm::Function* &pFunction) const
-{
-    pFunction = bifModule->getFunction(FName);
-
-    // Note that due to the lazy Module parsing of built-in modules the function
-    // body might not be materialized yet and is reported as declaration in that case.
-    // (This behaiour was fixed in LLVM 3.6)
-    if (pFunction != nullptr &&
-        (pFunction->isMaterializable() || !pFunction->isDeclaration())) {
-      return true;
-    }
-
-    pFunction = nullptr;
-    return false;
-}
-
 llvm::Module* Compiler::ParseModuleIR(llvm::MemoryBuffer* pIRBuffer)
 {
     // Parse the module IR

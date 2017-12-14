@@ -181,11 +181,6 @@ public:
     // Returns a list of pointers to the RTL libraries
     virtual llvm::SmallVector<llvm::Module*, 2> GetBuiltinModuleList() const = 0;
 
-    // Get function definition from a Module by its name
-    bool FindFunctionBodyInModules(std::string &FName,
-                               llvm::Module const *bifModule,
-                               llvm::Function* &pFunction) const;
-
     llvm::Module* ParseModuleIR(llvm::MemoryBuffer* pIRBuffer);
 
     const std::string GetBitcodeTargetTriple(const void* pBinary, size_t uiBinarySize) const;
