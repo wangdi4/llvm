@@ -33,7 +33,7 @@ bool CSASeqOpt::repeatOpndInSameLoop(MachineOperand& opnd, MachineInstr* lpCmp) 
   if (TII->getGenericOpcode(bndDef->getOpcode()) == CSA::Generic::REPEAT ||
     TII->getGenericOpcode(bndDef->getOpcode()) == CSA::Generic::REPEATO) {
     result = MRI->getVRegDef(bndDef->getOperand(1).getReg()) == lpCmp;
-  }
+  } 
   return result;
 }
 
@@ -538,8 +538,7 @@ void CSASeqOpt::SequenceRepeat(CSASSANode* switchNode, CSASSANode* lhdrPickNode)
   isIDVCycle = isIDVCycle && switchuseOK && (lpInit != nullptr);
 
   if (isIDVCycle) {
-    //unsigned predRepeat = switchNode->minstr->getOperand(2).getReg();
-    unsigned predRepeat = lpInit->getOperand(0).getReg();
+    unsigned predRepeat = switchNode->minstr->getOperand(2).getReg();
     if (switchFalse == lpbackReg) {
       unsigned notReg = LMFI->allocateLIC(&CSA::CI1RegClass);
       MachineInstr* notInstr = BuildMI(*lhdrPickNode->minstr->getParent(),

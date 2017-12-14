@@ -663,7 +663,7 @@ MachineInstr* CSASSAGraph::GetSingleDef(MachineOperand& opnd) {
     MachineRegisterInfo::def_instr_iterator defI = MRI->def_instr_begin(channel);
     MachineRegisterInfo::def_instr_iterator defInext = std::next(defI);
     assert(std::next(defInext) == MachineRegisterInfo::def_instr_end());
-    assert(TII->isMOV(&*defI) && TII->isInit(&*defInext) || TII->isInit(&*defI) && TII->isMOV(&*defInext));
+    assert((TII->isMOV(&*defI) && TII->isInit(&*defInext)) || (TII->isInit(&*defI) && TII->isMOV(&*defInext)));
     MachineInstr* initInstr = TII->isInit(&*defI) ? &*defI : &*defInext;
     MachineInstr* movInstr = TII->isMOV(&*defI) ? &*defI : &*defInext;
     MachineInstr* cmpInstr = MRI->getVRegDef(movInstr->getOperand(1).getReg());
