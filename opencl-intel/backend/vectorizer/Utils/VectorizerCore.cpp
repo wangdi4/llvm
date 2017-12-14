@@ -97,8 +97,9 @@ static bool isFunctionVectorizable(Function &F, LoopInfo &LI) {
 }
 
 VectorizerCore::VectorizerCore(const OptimizerConfig* pConfig) :
-FunctionPass(ID),
-m_pConfig(pConfig)
+  FunctionPass(ID), m_packetWidth(0), m_isFunctionVectorized(false),
+  m_pConfig(pConfig), m_preWeight(0.0f), m_postWeight(0.0f),
+  m_vectorizationDim(0), m_canUniteWorkgroups(false)
 {
 }
 

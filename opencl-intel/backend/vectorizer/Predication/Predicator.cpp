@@ -70,9 +70,19 @@ OCL_INITIALIZE_PASS_END(Predicator, "predicate", "Predicate Function", false, fa
 
 Predicator::Predicator() :
   FunctionPass(ID),
+  m_one(nullptr),
+  m_zero(nullptr),
+  m_allzero(nullptr),
+  m_allone(nullptr),
   m_maskedLoadCtr(0),
   m_maskedStoreCtr(0),
   m_maskedCallCtr(0),
+  m_hasLocalMemoryArgs(false),
+  m_WIA(nullptr),
+  m_DT(nullptr),
+  m_LI(nullptr),
+  m_DL(nullptr),
+
   OCLSTAT_INIT(Predicated_Uniform_Store_Or_Loads,
     "store or loads with uniform address and value but with masks, that are not zerobypassed and thus predicated"
     , m_kernelStats),

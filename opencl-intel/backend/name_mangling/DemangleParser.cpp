@@ -100,8 +100,8 @@ INIT_TYPE_INFO_TOKEN(g_Block, "U13block_pointer");
 INIT_TYPE_INFO_TOKEN(g_Atomic, "U7_Atomic");
 
 DemangleParser::DemangleParser(TypeVector &parameters, bool isSpir12Name)
-    : m_parameters(parameters), m_currentIndex(0), m_error(false),
-      m_isSpir12Name(isSpir12Name) {
+    : m_parameters(parameters), m_pMangledString(nullptr), m_currentIndex(0),
+      m_mangledStringLength(0), m_error(false), m_isSpir12Name(isSpir12Name) {
   m_imageTypeNameTranslate["ocl_image1d"] = PRIMITIVE_IMAGE_1D_T;
   m_imageTypeNameTranslate["ocl_image1d_ro"] = PRIMITIVE_IMAGE_1D_RO_T;
   m_imageTypeNameTranslate["ocl_image1d_wo"] = PRIMITIVE_IMAGE_1D_WO_T;

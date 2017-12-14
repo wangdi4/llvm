@@ -26,7 +26,8 @@ namespace intel{
   char LocalBuffers::ID = 0;
 
   LocalBuffers::LocalBuffers(bool isNativeDBG) :
-    ModulePass(ID), m_isNativeDBG(isNativeDBG) {
+    ModulePass(ID), m_pModule(nullptr), m_pLLVMContext(nullptr),
+    m_localBuffersAnalysis(nullptr), m_isNativeDBG(isNativeDBG) {
       initializeLocalBuffAnalysisPass(*llvm::PassRegistry::getPassRegistry());
   }
 

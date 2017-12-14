@@ -21,7 +21,8 @@ using namespace Intel::MetadataAPI;
 namespace intel {
 
 
-  BarrierUtils::BarrierUtils() : m_pModule(0) {
+  BarrierUtils::BarrierUtils() :
+      m_pModule(0), m_uiSizeT(0), m_SizetTy(nullptr), m_I32Ty(nullptr) {
     clean();
   }
 

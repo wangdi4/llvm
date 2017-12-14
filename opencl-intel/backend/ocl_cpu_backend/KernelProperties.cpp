@@ -25,8 +25,7 @@ File Name:  KernelProperties.cpp
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 KernelJITProperties::KernelJITProperties():
-    m_useVTune(false),
-    m_vectorSize(1)
+    m_useVTune(false), m_vectorSize(1), m_maxPrivateMemorySize(0)
 {}
 
 KernelJITProperties::~KernelJITProperties()
@@ -54,11 +53,13 @@ KernelProperties::KernelProperties():
     m_privateMemorySize(0),
     m_maxPrivateMemorySize(0),
     m_reqdNumSG(0),
+    m_kernelExecutionLength(0),
     m_minGroupSizeFactorial(1),
     m_isVectorizedWithTail(false),
     m_uiSizeT(sizeof(void*)),
     m_bIsBlock(false),
     m_bIsAutorun(false),
+    m_bIsNonUniformWGSizeSupported(false),
     m_canUniteWG(false),
     m_verctorizeOnDimention(0),
     m_debugInfo(false)

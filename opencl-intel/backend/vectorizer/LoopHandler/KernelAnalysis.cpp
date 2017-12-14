@@ -26,8 +26,8 @@ char KernelAnalysis::ID = 0;
 
 OCL_INITIALIZE_PASS(KernelAnalysis, "kernel-analysis", "analyzes which function go in barrier route", false, false)
 
-KernelAnalysis::KernelAnalysis():
-ModulePass(ID)
+KernelAnalysis::KernelAnalysis() :
+ModulePass(ID), m_M(nullptr)
 {
 }
 

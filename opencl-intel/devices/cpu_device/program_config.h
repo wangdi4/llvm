@@ -47,7 +47,12 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
     {
     public:
 
-        ProgramConfig() : m_vectorizerMode(TRANSPOSE_SIZE_NOT_SET)
+        ProgramConfig() :
+            m_useVectorizer(false),
+            m_vectorizerMode(TRANSPOSE_SIZE_NOT_SET),
+            m_rtLoopUnrollFactor(0),
+            m_useVTune(false),
+            m_forcedPrivateMemorySize(0)
         {}
 
         void InitFromCpuConfig(const CPUDeviceConfig& cpuConfig);

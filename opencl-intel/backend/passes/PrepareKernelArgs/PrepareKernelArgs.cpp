@@ -41,7 +41,11 @@ namespace intel{
   /// Register pass to for opt
   OCL_INITIALIZE_PASS(PrepareKernelArgs, "prepare-kernel-args", "changes the way arguments are passed to kernels", false, false)
 
-    PrepareKernelArgs::PrepareKernelArgs() : ModulePass(ID), m_DL(nullptr) {
+    PrepareKernelArgs::PrepareKernelArgs() :
+      ModulePass(ID), m_pModule(nullptr), m_DL(nullptr), m_pLLVMContext(nullptr),
+      m_IAA(nullptr), m_PtrSizeInBytes(0), m_SizetTy(nullptr), m_I8Ty(nullptr),
+      m_I32Ty(nullptr)
+  {
     initializeImplicitArgsAnalysisPass(*llvm::PassRegistry::getPassRegistry());
   }
 

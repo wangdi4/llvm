@@ -36,7 +36,13 @@ namespace intel {
 
 
   Barrier::Barrier(bool isNativeDebug) :
-      ModulePass(ID), m_DL(nullptr), m_isNativeDBG(isNativeDebug) {
+      ModulePass(ID), m_DL(nullptr), m_pContext(nullptr), m_uiSizeT(0),
+      m_sizeTType(nullptr), m_I32Type(nullptr), m_LocalIdAllocTy(nullptr),
+      m_Zero(nullptr), m_One(nullptr), m_pDataPerValue(nullptr),
+      m_pAllocaValues(nullptr), m_pSpecialValues(nullptr),
+      m_pCrossBarrierValues(nullptr), m_pDataPerBarrier(nullptr),
+      m_pSyncInstructions(nullptr), m_currBarrierKeyValues(nullptr),
+      m_isNativeDBG(isNativeDebug) {
     initializeBarrierPass(*llvm::PassRegistry::getPassRegistry());
   }
 

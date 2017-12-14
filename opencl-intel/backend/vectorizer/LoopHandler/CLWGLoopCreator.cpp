@@ -36,7 +36,13 @@ OCL_INITIALIZE_PASS_BEGIN(CLWGLoopCreator, "cl-loop-creator", "create loops open
 OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(CLWGLoopCreator, "cl-loop-creator", "create loops opencl kernels", false, false)
 
-CLWGLoopCreator::CLWGLoopCreator() : ModulePass(ID), m_rtServices(nullptr) {
+CLWGLoopCreator::CLWGLoopCreator() :
+    ModulePass(ID), m_indTy(nullptr), m_constZero(nullptr), m_constOne(nullptr),
+    m_constPacket(nullptr), m_F(nullptr), m_M(nullptr), m_context(nullptr),
+    m_newEntry(nullptr), m_scalarEntry(nullptr), m_vectorFunc(nullptr),
+    m_packetWidth(0), m_numDim(0), m_rtServices(nullptr), m_scalarRet(nullptr),
+    m_vectorRet(nullptr), m_EECall(nullptr), m_vectorizedDim(0)
+{
   initializeCLWGLoopCreatorPass(*PassRegistry::getPassRegistry());
 }
 

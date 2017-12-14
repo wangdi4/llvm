@@ -52,7 +52,7 @@ private:
   Intel::OpenCL::FECompilerAPI::FECompileProgramDescriptor *m_pProgDesc;
   Intel::OpenCL::ClangFE::CLANG_DEV_INFO m_sDeviceInfo;
 
-  int CLSTDSet;
+  int CLSTDSet = 0;
   std::string m_triple;
 
   const Intel::OpenCL::Utils::BasicCLConfigWrapper &m_config;

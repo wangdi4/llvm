@@ -33,7 +33,9 @@ namespace intel {
 
   Vectorizer::Vectorizer(llvm::SmallVector<llvm::Module*, 2> rtList, const OptimizerConfig* pConfig) :
   ModulePass(ID),
-  m_pConfig(pConfig)
+  m_pConfig(pConfig),
+  m_optimizerFunctions(nullptr),
+  m_optimizerWidths(nullptr)
 {
   m_runtimeModuleList = rtList;
   // init debug prints

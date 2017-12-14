@@ -17,8 +17,9 @@ OCL_INITIALIZE_PASS_BEGIN(ImplicitGlobalIdPass, "B-ImplicitGlobalIdPass", "Impli
 OCL_INITIALIZE_PASS_DEPENDENCY(DataPerBarrier)
 OCL_INITIALIZE_PASS_END(ImplicitGlobalIdPass, "B-ImplicitGlobalIdPass", "Implicit Global Id Pass - Add parameters for native (gdb) debugging", false, true)
 
-ImplicitGlobalIdPass::ImplicitGlobalIdPass()
-    : ModulePass(ID)
+ImplicitGlobalIdPass::ImplicitGlobalIdPass() :
+    ModulePass(ID), m_pDataPerBarrier(nullptr), m_pModule(nullptr),
+    m_pContext(nullptr), m_pSyncInstSet(nullptr)
 {
     initializeImplicitGlobalIdPassPass(*llvm::PassRegistry::getPassRegistry());
 }
