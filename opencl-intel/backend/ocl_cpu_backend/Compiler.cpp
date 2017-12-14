@@ -378,13 +378,9 @@ llvm::Module* Compiler::BuildProgram(llvm::Module* pModule,
     CompilerBuildOptions buildOptions(pModule);
 
     materializeSpirTriple(pModule);
-    // Create TargetMachine for X86.
+
     std::unique_ptr<TargetMachine> targetMachine(GetTargetMachine(pModule));
 
-    // Materialize DataLayout from TargetMachine. It is being created inside
-    // ExecutionEngine the same way as we do in Compiler, so this guarantees that
-    // DataLayout mismatch between what ExecutionEngine expects and what we
-    // provide does not happen.
     pModule->setDataLayout(targetMachine->createDataLayout());
 
     //
