@@ -11,6 +11,7 @@ add_llvm_library(LLVMVectorize
   Intel_VPlan/LoopVectorizationCodeGen.cpp
   Intel_VPlan/LoopVectorizationPlanner.cpp
   Intel_VPlan/LoopVectorizationPlannerHIR.cpp
+  Intel_VPlan/VPlanCostModel.cpp
   Intel_VPlan/VPlanDriver.cpp
   Intel_VPlan/VPlanHCFGBuilder.cpp
   Intel_VPlan/VPlanHCFGBuilderHIR.cpp

@@ -1,6 +1,6 @@
 //===-- VPlanDriver.cpp -----------------------------------------------------===//
 //
-//   Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -18,6 +18,7 @@
 #include "LoopVectorizationPlannerHIR.h"
 #include "VPOCodeGenHIR.h"
 #include "VPOLoopAdapters.h"
+#include "VPlanCostModel.h"
 #include "VPlanPredicator.h"
 #include "VolcanoOpenCL.h"
 #include "llvm/ADT/Statistic.h"
@@ -88,6 +89,14 @@ static cl::opt<unsigned> VPlanVectCand(
     "vplan-build-vect-candidates", cl::init(0),
     cl::desc(
         "Construct VPlan for vectorization candidates (CG stress testing)"));
+
+static cl::opt<bool>
+    VPlanCostModelAnalysis("vplan-analyze-costs", cl::init(false),
+                           cl::desc("Print cost model analysis for VPlan."));
+static cl::opt<unsigned>
+    VPlanCostModelVF("vplan-cost-model-analysis-vf", cl::init(4),
+                     cl::desc("VF to evaluate during VPlan Cost Model "
+                              "Analysis. For testing purposes."));
 
 STATISTIC(CandLoopsVectorized, "Number of candidate loops vectorized");
 
@@ -207,6 +216,30 @@ public:
 
   bool runOnFunction(Function &Fn) override;
 };
+
+// FIXME: \p VF is the single VF that we have VPlan for. That should be changed
+// in the future and the argument won't be required.
+void runCostModelIfNeeded(LoopVectorizationPlannerBase &LVP,
+                          const TargetTransformInfo *TTI, unsigned VF) {
+  if (VPlanCostModelAnalysis) {
+    // FIXME: Below assumes that the single built VPlan would work for any
+    // VPlanCostModelVF.
+    if (VPlanCostModelVF != VF) {
+      errs() << "Requested to evaluate cost of VPlan with VF outside generated "
+                "ones. Available VFs are "
+             << VF << "..." << VF << '\n';
+    }
+
+    IntelVPlan *Plan = LVP.getVPlanForVF(VF);
+    VPlanCostModel CM(Plan, VPlanCostModelVF, TTI);
+
+    // If different stages in VPlanDriver were proper passes under pass manager
+    // control it would have been opt's output stream (via "-o" switch). As it
+    // is not so, just pass stdout so that we would not be required to redirect
+    // stderr to Filecheck.
+    CM.print(outs());
+  }
+}
 
 } // anonymous namespace
 
@@ -461,6 +494,8 @@ bool VPlanDriver::processLoop(Loop *Lp, unsigned VF, Function &Fn,
 
   LVP.buildInitialVPlans(VF /*MinVF*/, VF /*MaxVF*/);
 
+  runCostModelIfNeeded(LVP, TTI, VF);
+
   // VPlan Predicator
   if (!DisableVPlanPredicator) {
     IntelVPlan *Plan = LVP.getVPlanForVF(VF);
@@ -672,6 +707,8 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, unsigned VF, Function &Fn,
   LoopVectorizationPlannerHIR LVP(WRLp, Lp, TLI, TTI, nullptr /*Legal*/, DDG);
 
   LVP.buildInitialVPlans(VF /*MinVF*/, VF /*MaxVF*/);
+
+  runCostModelIfNeeded(LVP, TTI, VF);
 
   // VPlan construction stress test ends here.
   // TODO: Move after predication.
