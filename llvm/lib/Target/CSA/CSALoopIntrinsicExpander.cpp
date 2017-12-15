@@ -32,6 +32,7 @@
 
 STATISTIC(NumLoopIntrinsicExpansions, "Number of parallel loop intrinsics expanded");
 STATISTIC(NumSPMDIntrinsicExpansions, "Number of SPMD intrinsics expanded");
+STATISTIC(NumILPLIntrinsicExpansions, "Number of pipeline loop intrinsics expanded");
 
 using namespace llvm;
 
@@ -256,6 +257,7 @@ IntrinsicInst* CSALoopIntrinsicExpander::asLoopIntrinsic(
   if (
     intr_inst and (
       intr_inst->getIntrinsicID() == Intrinsic::csa_parallel_loop
+        or intr_inst->getIntrinsicID() == Intrinsic::csa_pipeline_loop
         or intr_inst->getIntrinsicID() == Intrinsic::csa_spmdization
     )
   ) return intr_inst;
@@ -343,6 +345,67 @@ bool CSALoopIntrinsicExpander::expandLoop(
 
   LLVMContext& context = L->getHeader()->getContext();
   Module* module = L->getHeader()->getParent()->getParent();
+
+  // If this is a pipelining intrinsic, it needs to have its own entry and exit
+  // inserted for the prep pass later.
+  if (intr->getIntrinsicID() == Intrinsic::csa_pipeline_loop) {
+    Instruction*const preheader_terminator =
+      L->getLoopPreheader()->getTerminator();
+    assert(intr->getNumArgOperands() == 1 && "Bad pipeline_loop intrinsic?");
+    Value *depthValue = intr->getArgOperand(0);
+    ConstantInt *parentDepth = dyn_cast<ConstantInt>(depthValue);
+    assert(parentDepth && "Bad pipeline loop intrinsic arguments?");
+
+    if (parentDepth->isNegative()){
+      errs() << "\n";
+      errs().changeColor(raw_ostream::BLUE, true);
+      errs() << "!! WARNING: COULD NOT PIPELINE INNER LOOP  !!";
+      errs().resetColor();
+      const DebugLoc& loc = intr->getDebugLoc();
+      if (loc) {
+        errs() << "\nThe loop at:\n  ";
+        loc.print(errs());
+        errs() << R"help(
+was marked with __builtin_csa_pipeline_loop() but the specified depth depth
+was less than zero. The number specified should be zero, indicating that the
+compiler should choose piplining depth, or greater than zero, indicating the
+specific number of concurrent instances allowed.
+
+)help";
+      } else {
+        errs() << R"help(
+A loop was marked with __builtin_csa_pipeline_loop() but the specified
+depth depth was less than zero. The number specified should be zero, indicating
+that the compiler should choose piplining depth, or greater than zero,
+indicating the specific number of concurrent instances allowed. Re-run with -g
+to see more location information.
+
+)help";
+      }
+      // Note: returning "true" here because we did not fail to identify a
+      // memory section.
+      return true;
+    }
+
+    CallInst*const ilpl_entry = IRBuilder<>{
+      preheader_terminator
+    }.CreateCall(
+        Intrinsic::getDeclaration(module, Intrinsic::csa_pipeline_loop_entry),
+        intr->getArgOperand(0),
+        "ilpl_entry"
+        );
+    SmallVector<BasicBlock*, 2> exits;
+    L->getExitBlocks(exits);
+    for (BasicBlock*const exit : exits) {
+      IRBuilder<>{exit->getFirstNonPHI()}.CreateCall(
+          Intrinsic::getDeclaration(module, Intrinsic::csa_pipeline_loop_exit),
+          ilpl_entry
+          );
+    }
+    // This is all that is needed for marking pipeline loops.
+    ++NumILPLIntrinsicExpansions;
+    return true;
+  }
 
   // If this is an SPMDization intrinsic, it needs to have its own entry and
   // exit inserted for the SPMDization pass later.
