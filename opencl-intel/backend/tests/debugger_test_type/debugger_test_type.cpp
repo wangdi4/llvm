@@ -43,13 +43,12 @@ public:
         if (flags_str == "none")
             return;
         vector<string> flags = tokenize(flags_str, ",");
-        for (vector<string>::const_iterator flag_i = flags.begin();
-                flag_i != flags.end(); ++flag_i) {
+        for (auto &flag : flags) {
             // Split flag to key=value pair. Ignore invalidly structured flags
-            vector<string> keyval = tokenize(*flag_i, "=");
-            if (keyval.size() != 2)
-                continue;
-            m_options[keyval[0]] = keyval[1];
+            const size_t i = flag.find_first_of("=");
+            if (i != string::npos)
+              m_options[flag.substr(0, i)] =
+                flag.substr(i + 1, flag.size() - i - 1);
         }
     }
 
