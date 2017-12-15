@@ -346,6 +346,11 @@ class ClientGDB(TestClient):
         self._command("finish")
         return self._frame_location()
 
+    def debug_continue(self, timeout=100):
+        # this should test an OCL-specific step command
+        self._continue(timeout)
+        return self._frame_location()
+
     def var_list(self, stackframe=None):
         """ Return a list of visible variable names.
 

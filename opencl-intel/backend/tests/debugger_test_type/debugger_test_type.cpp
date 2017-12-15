@@ -3,14 +3,16 @@
 #include "cl_utils.h"
 #include "test_pipe_thread.h"
 #include "cl_user_logger.h"
-#include <iostream>
+
+#include <algorithm>
 #include <cstdio>
 #include <fstream>
+#include <iostream>
 #include <map>
 #include <sstream>
-#include <vector>
-#include <string>
 #include <stdexcept>
+#include <string>
+#include <vector>
 
 using namespace std;
 
@@ -25,12 +27,22 @@ extern HostProgramFunc host_struct_kernel_arg;
 extern HostProgramFunc host_images_and_struct;
 extern HostProgramFunc host_local_global;
 extern HostProgramFunc host_task;
+extern HostProgramFunc host_fpga_host_side_pipes;
+extern HostProgramFunc host_fpga_channels;
+extern HostProgramFunc host_fpga_autorun;
 
 namespace Intel { namespace OpenCL { namespace Utils {
 
 FrameworkUserLogger* g_pUserLogger = NULL;
 
 }}}
+
+// List of tests which should be launched only on FPGA Emulator
+vector<string> FPGATests = {
+    "fpga_host_side_pipes",
+    "fpga_channels",
+    "fpga_autorun"
+};
 
 // Encapsulates options parsed from a flag string.
 // Initialize with a flag string, then use the 'get' method to obtain values
@@ -102,6 +114,12 @@ HostProgramFunc get_host_program_by_name(string name)
         return host_local_global;
     else if (name == "task")
         return host_task;
+    else if (name == "fpga_host_side_pipes")
+        return host_fpga_host_side_pipes;
+    else if (name == "fpga_channels")
+        return host_fpga_channels;
+    else if (name == "fpga_autorun")
+        return host_fpga_autorun;
     throw runtime_error("Unknown host program: '" + name + "'");
 }
 
@@ -181,12 +199,20 @@ int main(int argc, char** argv)
 
         vector<cl::Device> devices = context.getInfo<CL_CONTEXT_DEVICES>();
 
-        // Ensure tests will be run on CPU or ACCELERATOR
+        // Ensure that tests will be run on CPU or ACCELERATOR
         devices[0].getInfo(CL_DEVICE_TYPE, &deviceType);
         if (deviceType != CL_DEVICE_TYPE_CPU &&
             deviceType != CL_DEVICE_TYPE_ACCELERATOR)
             throw runtime_error("Wrong device type."
                                 "Only CPU or ACCELERATOR types supported");
+
+        // Skip fpga-specific tests on CPU
+        if (deviceType != CL_DEVICE_TYPE_ACCELERATOR &&
+            find(FPGATests.begin(),
+                 FPGATests.end(), host_program_name) != FPGATests.end()) {
+            DTT_LOG("Not a FGPA emulator device. Skip the fpga-spicific test");
+            return 0;
+        }
 
         cl::Program::Sources sources(1,
             make_pair(cl_code.c_str(), cl_code.size()));
