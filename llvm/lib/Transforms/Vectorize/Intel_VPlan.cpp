@@ -607,8 +607,14 @@ void VPlan::execute(VPTransformState *State) {
 
     BasicBlock *FirstSuccBB = FromBB->getSingleSuccessor();
     FromBB->getTerminator()->eraseFromParent();
+#if INTEL_CUSTOMIZATION
+    VPValue *CBV = FromVPBB->getCondBitVPVal();
+    assert(State->CBVToConditionBitMap.count(CBV) && "Must be in map.");
+    Value *Bit = State->CBVToConditionBitMap[CBV];
+#else
     Value *Bit = FromVPBB->getCondBitVPVal()->getValue();
     assert(Bit && "Cannot create conditional branch with empty bit.");
+#endif
     BranchInst::Create(FirstSuccBB, ToBB, Bit, FromBB);
   }
 
