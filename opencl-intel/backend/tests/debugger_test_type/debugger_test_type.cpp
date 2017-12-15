@@ -212,13 +212,11 @@ int main(int argc, char** argv)
             throw;
         }
 
-        cl::Kernel kernel(prog, "main_kernel");
 
         DTT_LOG("Running host program...");
 
-        // Invoke the host program with the built kernel
-        //
-        host_program(context, devices[0], kernel, args);
+        // Invoke the host with the built program
+        host_program(context, devices[0], prog, args);
 
         DTT_LOG("Host program finished");
         rc = 0;

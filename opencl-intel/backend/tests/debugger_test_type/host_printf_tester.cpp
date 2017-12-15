@@ -40,9 +40,10 @@ bool compare_kernel_output(const string& expected, const string& actual)
 // verification.
 //
 static void host_printf_tester_internal(
-    cl::Context context, cl::Device device, cl::Kernel kernel,
+    cl::Context context, cl::Device device, cl::Program program,
     HostProgramExtraArgs extra_args)
 {
+    cl::Kernel kernel(program, "main_kernel");
     cl::CommandQueue queue(context, device, 0);
 
     bool skip_verify = false;

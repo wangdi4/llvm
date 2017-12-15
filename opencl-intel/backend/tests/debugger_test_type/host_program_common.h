@@ -43,7 +43,7 @@ typedef std::vector<std::string> HostProgramExtraArgs;
 //
 typedef void (*HostProgramFunc)(cl::Context context,
                                 cl::Device device,
-                                cl::Kernel kernel,
+                                cl::Program program,
                                 HostProgramExtraArgs extra_args);
 
 

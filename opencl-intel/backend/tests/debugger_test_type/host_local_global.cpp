@@ -21,10 +21,11 @@ using namespace std;
 
 
 static void host_local_global_internal(
-    cl::Context context, cl::Device device, cl::Kernel kernel,
+    cl::Context context, cl::Device device, cl::Program program,
     HostProgramExtraArgs extra_args)
 {
-  cl::CommandQueue queue(context, device, 0);
+    cl::Kernel kernel(program, "main_kernel");
+    cl::CommandQueue queue(context, device, 0);
 
     int data_size = 1024;
     int ndrange_global_size = 32;

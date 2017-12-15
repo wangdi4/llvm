@@ -15,9 +15,10 @@ using namespace std;
 //    <width> <height> <ndrange_global_size> <ndrange_local_size>
 //
 static void host_1d_float4_with_size_internal(
-    cl::Context context, cl::Device device, cl::Kernel kernel,
+    cl::Context context, cl::Device device, cl::Program program,
     HostProgramExtraArgs extra_args)
 {
+    cl::Kernel kernel(program, "main_kernel");
     cl::CommandQueue queue(context, device, 0);
 
     int width = 1024;

@@ -92,9 +92,10 @@ cl::NDRange vector2NDRange(const vector<size_t>& vec)
 //
 //
 static void host_ndrange_inout_internal(
-    cl::Context context, cl::Device device, cl::Kernel kernel,
+    cl::Context context, cl::Device device, cl::Program program,
     HostProgramExtraArgs extra_args)
 {
+    cl::Kernel kernel(program, "main_kernel");
     cl::CommandQueue queue(context, device, 0);
 
     size_t data_size = 1024;

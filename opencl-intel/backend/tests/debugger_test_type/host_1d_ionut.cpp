@@ -13,9 +13,10 @@ using namespace std;
 //    <data_size> <ndrange_global_size> <ndrange_local_size>
 //
 static void host_1d_inout_internal(
-    cl::Context context, cl::Device device, cl::Kernel kernel,
+    cl::Context context, cl::Device device, cl::Program program,
     HostProgramExtraArgs extra_args)
 {
+    cl::Kernel kernel(program, "main_kernel");
     cl::CommandQueue queue(context, device, 0);
 
     int data_size = 1024;

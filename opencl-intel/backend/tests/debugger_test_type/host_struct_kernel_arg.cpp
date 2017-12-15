@@ -29,9 +29,10 @@ typedef struct
 //    <data_size> <ndrange_global_size> <ndrange_local_size>
 //
 static void host_struct_kernel_arg_internal(
-    cl::Context context, cl::Device device, cl::Kernel kernel,
+    cl::Context context, cl::Device device, cl::Program program,
     HostProgramExtraArgs extra_args)
 {
+    cl::Kernel kernel(program, "main_kernel");
     cl::CommandQueue queue(context, device, 0);
 
     int data_size = 1024;
