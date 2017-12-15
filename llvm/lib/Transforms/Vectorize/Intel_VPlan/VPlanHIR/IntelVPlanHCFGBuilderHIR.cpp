@@ -190,6 +190,7 @@ void PlainCFGBuilderHIR::updateActiveVPBB(HLNode *HNode, bool IsPredecessor) {
 }
 
 void PlainCFGBuilderHIR::visit(HLLoop *HLp) {
+  assert(HLp->isDo() && HLp->isNormalized() && "Unsupported HLLoop type.");
 
   // TODO: Print something more useful.
   LLVM_DEBUG(dbgs() << "Visiting HLLoop: " << HLp->getNumber() << "\n");
@@ -214,29 +215,36 @@ void PlainCFGBuilderHIR::visit(HLLoop *HLp) {
     // introduce the dummy PH here.
     updateActiveVPBB();
   }
+  VPBasicBlock *Preheader = ActiveVPBB;
 
-  // - Loop H -
-  // Force creation of a new VPBB for H.
+  // - Loop Body -
+  // Force creation of a new VPBB for loop H.
   ActiveVPBB = nullptr;
+  updateActiveVPBB();
+  VPBasicBlock *Header = ActiveVPBB;
+  assert(Header && "Expected VPBasicBlock for loop header.");
+
+  // Map loop header VPBasicBlock with HLLoop for later loop region detection.
+  Header2HLLoop[Header] = HLp;
+
+  // Materialize the Loop IV and IV Start.
+  Decomposer.createLoopIVAndIVStart(HLp, Preheader);
+
+  // Visit loop body
   HLNodeUtils::visitRange<false /*Recursive*/>(
       *this /*visitor*/, HLp->child_begin(), HLp->child_end());
 
-  // Map loop header VPBasicBlock with HLLoop for later loop region detection.
-  VPBasicBlock *Header = HLN2VPBB[&*HLp->child_begin()];
-  assert(Header && "Expected VPBasicBlock for loop header.");
-  Header2HLLoop[Header] = HLp;
-
-  // An HLoop will always have a single latch that will also be an exiting
-  // block. Keep track of it. If there is no active VPBB, we have to create a
-  // new one.
-  // TODO: Materialize exit condition.
+  // Loop latch: an HLoop will always have a single latch that will also be an
+  // exiting block. Keep track of it. If there is no active VPBB, we have to
+  // create a new one.
   updateActiveVPBB();
-  // Connect Latch to Header and add ConditionBit.
-  // TODO: Workaround. Setting a fake ConditionBit.
-  PlanUtils.connectBlocks(ActiveVPBB /*Latch*/, Header);
-  VPInstruction *LatchCondBit =
-      Decomposer.createVPInstructions(HLp, ActiveVPBB);
-  PlanUtils.setBlockCondBitVPVal(ActiveVPBB /*Latch*/, LatchCondBit);
+  VPBasicBlock *Latch = ActiveVPBB;
+
+  // Materialize IV Next and bottom test in the loop latch. Connect Latch to
+  // Header and set Latch condition bit.
+  VPValue *LatchCondBit = Decomposer.createLoopIVNextAndBottomTest(HLp, Latch);
+  PlanUtils.connectBlocks(Latch, Header);
+  PlanUtils.setBlockCondBitVPVal(Latch, LatchCondBit);
 
   // - Loop Exits -
   // Force creation of a new VPBB for Exit.

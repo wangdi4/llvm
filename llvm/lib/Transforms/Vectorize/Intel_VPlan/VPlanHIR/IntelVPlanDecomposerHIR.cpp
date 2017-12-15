@@ -259,9 +259,67 @@ void VPDecomposerHIR::buildVPOpsForDDNode(
     std::iter_swap(VPValueOps.begin(), std::next(VPValueOps.begin()));
 }
 
-// Main interface to decompose an HLDDNode into VPInstructions. The resulting
-// VPInstructions are inserted at the end of \p InsertPoint VPBasicBlock and
-// added to the HLDef2VPValue map.
+void VPDecomposerHIR::createLoopIVAndIVStart(HLLoop *HLp, VPBasicBlock *LpPH) {
+  assert(HLp->isDo() && HLp->isNormalized() &&
+         "Only normalized single-exit DO loops are supported for now.");
+  assert(LpPH->getSingleSuccessor() &&
+         isa<VPBasicBlock>(LpPH->getSingleSuccessor()) &&
+         "Loop PH must have one successor VPBasicBlock.");
+  VPBasicBlock *LpH = cast<VPBasicBlock>(LpPH->getSingleSuccessor());
+
+  // Create IV start (0). Only normalized loops are expected.
+  CanonExpr *LowerCE = HLp->getLowerCanonExpr();
+  assert(LowerCE->isZero() && "Expected normalized IV.");
+  assert(LowerCE->getDestType() == HLp->getIVType() &&
+         "Lower bound and IV type doesn't match.");
+  VPConstant *IVStart = Plan->getVPConstant(
+      ConstantInt::getSigned(LowerCE->getDestType(), LowerCE->getConstant()));
+  // TODO: Attach HLp as underlying HIR of the IV Start and set HIR to valid.
+
+  // Create phi only with IVStart. We will add IVNext in a separate step. Insert
+  // it at the beginning of the loop header and map it to the loop level.
+  VPBuilder::InsertPointGuard Guard(Builder);
+  Builder.setInsertPoint(LpH, LpH->begin());
+  VPInstruction *IndSemiPhi =
+      cast<VPInstruction>(Builder.createSemiPhiOp({IVStart}, HLp));
+  assert(!HLLp2IVSemiPhi.count(HLp) && "HLLoop has multiple IVs?");
+  HLLp2IVSemiPhi[HLp] = IndSemiPhi;
+  IndSemiPhi->HIR.setValid();
+}
+
+VPValue *VPDecomposerHIR::createLoopIVNextAndBottomTest(HLLoop *HLp,
+                                                        VPBasicBlock *LpLatch) {
+  // Retrieve the inductive semi-phi (IV) generated for this HLLoop.
+  assert(HLLp2IVSemiPhi.count(HLp) &&
+         "Expected semi-phi VPInstruction for HLLoop.");
+  VPInstruction *IndSemiPhi = HLLp2IVSemiPhi[HLp];
+
+  // Create IV next. Only normalized loops are expected so we use step 1.
+  assert(HLp->getStrideCanonExpr()->isOne() &&
+         "Expected positive unit-stride HLLoop.");
+  Builder.setInsertPoint(LpLatch);
+  auto *IVNext = cast<VPInstruction>(Builder.createAdd(
+      IndSemiPhi,
+      Plan->getVPConstant(ConstantInt::getSigned(HLp->getIVType(), 1)), HLp));
+
+  // Add IVNext to inductive semi-phi.
+  IndSemiPhi->addOperand(IVNext);
+
+  // Create bottom test condition.
+  assert(HLp->getUpperDDRef() && "Expected a valid upper DDRef for HLLoop.");
+  // TODO: Temporal workaround. We need the VPInstruction creation method in
+  // this class and decomposed UB in the loop PH.
+  auto *VPUpper = new VPValue();
+  auto *BottomTest = cast<VPInstruction>(
+      Builder.createCmpInst(IVNext, VPUpper, getPredicateFromHIR(HLp), HLp));
+
+  // Set the underlying HIR of the new VPInstructions to valid.
+  IndSemiPhi->HIR.setValid();
+  IVNext->HIR.setValid();
+  BottomTest->HIR.setValid();
+  return BottomTest;
+}
+
 VPInstruction *
 VPDecomposerHIR::createVPInstructions(HLDDNode *DDNode,
                                       VPBasicBlock *InsPointVPBB) {

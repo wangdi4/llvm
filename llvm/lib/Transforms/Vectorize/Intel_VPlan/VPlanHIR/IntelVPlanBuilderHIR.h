@@ -39,6 +39,15 @@ public:
     return createNaryOp(Opcode, ArrayRef<VPValue *>(Operands), DDNode);
   }
 
+  /// Create a VPInstruction with 'Add' opcode, \p LHS and \p RHS as operands
+  /// and \p DDNode as its VPInstructionData.
+  VPValue *createAdd(VPValue *LHS, VPValue *RHS, loopopt::HLDDNode *DDNode) {
+    assert(DDNode && "DDNode can't be null.");
+    auto *NewAdd = cast<VPInstruction>(VPBuilder::createAdd(LHS, RHS));
+    NewAdd->HIR.setUnderlyingDDN(DDNode);
+    return NewAdd;
+  }
+
   /// Create a VPCmpInst with \p LHS and \p RHS as operands, \p Pred as
   /// predicate and set \p DDNode as its VPInstructionData.
   VPCmpInst *createCmpInst(VPValue *LHS, VPValue *RHS, CmpInst::Predicate Pred,
@@ -52,8 +61,21 @@ public:
   }
 
   /// Create a semi-phi operation with \p Operands as reaching definitions.
-  VPValue *createSemiPhiOp(ArrayRef<VPValue *> Operands) {
-    return createInstruction(VPInstruction::SemiPhi, Operands);
+  VPValue *createSemiPhiOp(ArrayRef<VPValue *> Operands,
+                           loopopt::HLDDNode *DDNode = nullptr) {
+    // TODO: Enable assert, remove 'if' and invoke createPhi in super class for
+    // semi-phis without underlying HIR when VPPhi representation is introduced.
+    // assert(DDNode && "DDNode can't be null.");
+    VPInstruction *NewSemiPhi =
+        createInstruction(VPInstruction::SemiPhi, Operands);
+    if (DDNode)
+      NewSemiPhi->HIR.setUnderlyingDDN(DDNode);
+    return NewSemiPhi;
+  }
+
+  VPValue *createSemiPhiOp(std::initializer_list<VPValue *> Operands,
+                           loopopt::HLDDNode *DDNode) {
+    return createSemiPhiOp(ArrayRef<VPValue *>(Operands), DDNode);
   }
 };
 

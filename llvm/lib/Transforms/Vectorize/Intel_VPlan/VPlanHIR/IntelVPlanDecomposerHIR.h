@@ -40,9 +40,8 @@ private:
   /// VPInstruction builder for HIR.
   VPBuilderHIR Builder;
 
-  /// Map the HIR IV level to the semi-phi instruction representing that IV in
-  /// VPlan.
-  SmallDenseMap<int, VPInstruction *> IVLevel2SemiPhi;
+  /// Map HLLoop to the semi-phi instruction representing its IV in VPlan.
+  SmallDenseMap<loopopt::HLLoop *, VPInstruction *> HLLp2IVSemiPhi;
 
   // Methods to create VPInstructions out of an HLDDNode.
   VPInstruction *createNoOperandVPInst(loopopt::HLDDNode *DDNode,
@@ -61,6 +60,18 @@ public:
   /// the last VPInstruction of the Def/Use chain created.
   VPInstruction *createVPInstructions(loopopt::HLDDNode *DDNode,
                                       VPBasicBlock *InsPointVPBB);
+
+  /// Create a semi-phi VPInstruction representing the \p HLp IV and a VPValue
+  /// for the IV Start. The semi-phi is inserted in the loop header VPBasicBlock
+  /// (successor of \p LpPH).
+  // TODO: The IV Start will be inserted in the loop pre-header (\p LpPH). We
+  // only support constant IV Starts that do not require to be inserted in any
+  // VPBasicBlock.
+  void createLoopIVAndIVStart(loopopt::HLLoop *HLp, VPBasicBlock *LpPH);
+
+  /// Create the VPValue representation for the \p HLp bottom test and IV Next
+  /// and insert them in \p LpLatch.
+  VPValue *createLoopIVNextAndBottomTest(loopopt::HLLoop *HLp, VPBasicBlock *LpLatch);
 };
 
 } // namespace vpo

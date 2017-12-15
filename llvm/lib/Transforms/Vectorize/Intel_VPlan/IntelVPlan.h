@@ -565,7 +565,8 @@ class VPInstruction : public VPUser, public VPRecipeBase {
   friend class HIRSpecifics;
   friend class VPBuilder;
   friend class VPBuilderHIR;
-  // To get underlying MasterData until we have proper VPType.
+  friend class VPDecomposerHIR;
+  // To get underlying HIRData until we have proper VPType.
   friend class VPlanCostModel;
   friend class VPlanCostModelProprietary;
 

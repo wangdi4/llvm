@@ -130,6 +130,13 @@ public:
 
   unsigned getNumUsers() const { return Users.size(); }
   void addUser(VPUser &User) { Users.push_back(&User); }
+#if INTEL_CUSTOMIZATION
+  void removeUser(const VPUser &User) {
+    auto It = std::find(user_begin(), user_end(), &User);
+    assert(It != user_end() && "User not found!");
+    Users.erase(It);
+  }
+#endif
 
   typedef SmallVectorImpl<VPUser *>::iterator user_iterator;
   typedef SmallVectorImpl<VPUser *>::const_iterator const_user_iterator;
@@ -209,6 +216,14 @@ public:
     assert(N < Operands.size() && "Operand index out of bounds");
     return Operands[N];
   }
+#if INTEL_CUSTOMIZATION
+  void setOperand(unsigned Idx, VPValue *Val) {
+    assert(Idx < Operands.size() && "setOperand() out of range!");
+    Operands[Idx]->removeUser(*this);
+    Operands[Idx] = Val;
+    Operands[Idx]->addUser(*this);
+  }
+#endif
 
   typedef SmallVectorImpl<VPValue *>::iterator operand_iterator;
   typedef SmallVectorImpl<VPValue *>::const_iterator const_operand_iterator;

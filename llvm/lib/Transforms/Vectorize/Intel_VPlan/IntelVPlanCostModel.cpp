@@ -276,6 +276,8 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) const {
     // that would have had the same underlying llvm::Constant (i32 1).
 
     Type *BaseTy = VPInst->getType();
+    if (!BaseTy)
+      return UnknownCost;
     Type *VecTy = getVectorizedType(BaseTy, VF);
     unsigned Cost =
         TTI->getArithmeticInstrCost(Opcode, VecTy, Op1VK, Op2VK, Op1VP, Op2VP);

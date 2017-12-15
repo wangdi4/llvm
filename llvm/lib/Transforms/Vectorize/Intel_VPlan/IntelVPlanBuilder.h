@@ -107,14 +107,21 @@ public:
   }
 #endif
 
-  /// \brief This specifies that created VPInstructions should be appended to
-  /// the end of the specified block.
+  /// This specifies that created VPInstructions should be appended to the end
+  /// of the specified block.
   void setInsertPoint(VPBasicBlock *TheBB) {
     assert(TheBB && "Attempting to set a null insert point");
     BB = TheBB;
     InsertPt = BB->end();
   }
 #if INTEL_CUSTOMIZATION
+  /// \brief This specifies that created instructions should be inserted
+  /// before the specified instruction.
+  void setInsertPoint(VPInstruction *I) {
+    BB = I->getParent();
+    InsertPt = I->getIterator();
+  }
+
   /// \brief This specifies that created instructions should be inserted at the
   /// specified point.
   void setInsertPoint(VPBasicBlock *TheBB, VPBasicBlock::iterator IP) {
@@ -134,6 +141,12 @@ public:
                         std::initializer_list<VPValue *> Operands,
                         Instruction *Inst = nullptr) {
     return createNaryOp(Opcode, ArrayRef<VPValue *>(Operands), Inst);
+  }
+
+  // Create a VPInstruction with \p LHS and \p RHS as operands and Add opcode.
+  // For now, no no-wrap flags are used since they cannot be modeled in VPlan.
+  VPValue *createAdd(VPValue *LHS, VPValue *RHS) {
+    return createInstruction(Instruction::BinaryOps::Add, {LHS, RHS});
   }
 #endif
 
