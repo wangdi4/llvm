@@ -269,11 +269,19 @@ bool VPOParoptTransform::paroptTransforms() {
       case WRegionNode::WRNParallelSections:
       case WRegionNode::WRNParallelLoop:
       {
-        DEBUG(dbgs() << "\n WRNParallelLoop - Transformation \n\n");
+        if (Mode & ParPrepare) {
+          genCodemotionFenceforAggrData(W);
+        }
+
+        if (isa<WRNParallelSectionsNode>(W))
+          DEBUG(dbgs() << "\n WRNParallelSections - Transformation \n\n");
+        else
+          DEBUG(dbgs() << "\n WRNParallelLoop - Transformation \n\n");
 
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
+          Changed = clearCodemotionFenceIntrinsic(W);
           AllocaInst *IsLastVal = nullptr;
-          Changed = genLoopSchedulingCode(W, IsLastVal);
+          Changed |= genLoopSchedulingCode(W, IsLastVal);
           // Privatization is enabled for both Prepare and Transform passes
           Changed |= genPrivatizationCode(W);
           Changed |= genLastPrivatizationCode(W, IsLastVal);
@@ -392,9 +400,13 @@ bool VPOParoptTransform::paroptTransforms() {
         else
           DEBUG(dbgs() << "\n WRNWksLoop - Transformation \n\n");
 
+        if (Mode & ParPrepare)
+          genCodemotionFenceforAggrData(W);
+
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           AllocaInst *IsLastVal = nullptr;
-          Changed = genLoopSchedulingCode(W, IsLastVal);
+          Changed = clearCodemotionFenceIntrinsic(W);
+          Changed |= genLoopSchedulingCode(W, IsLastVal);
           Changed |= genPrivatizationCode(W);
           Changed |= genLastPrivatizationCode(W, IsLastVal);
           Changed |= genFirstPrivatizationCode(W);
@@ -1443,50 +1455,115 @@ bool VPOParoptTransform::clearCodemotionFenceIntrinsic(WRegionNode *W) {
 
   for (auto IB = W->bbset_begin(); IB != W->bbset_end(); IB++)
     for (auto &I : **IB)
-      if (CallInst *CI = dyn_cast<CallInst>(&I)) {
-        const Function *Callee = CI->getCalledFunction();
-        if (Callee->getIntrinsicID() == Intrinsic::invariant_group_barrier) {
-          Value *V = CI->getOperand(0);
-          if (auto *BI = dyn_cast<BitCastInst>(V)) {
-            if (!W->contains(BI->getParent()) &&
-                WRegionUtils::usedInRegionEntryDirective(W, BI->getOperand(0))) {
-              Instruction *Ext = BI->clone();
-              Ext->insertBefore(CI);
-              CI->setOperand(0, Ext);
-              V = Ext;
-            }
+      if (CallInst *CI = isFenceCall(&I)) {
+        Value *V = CI->getOperand(0);
+        if (auto *BI = dyn_cast<BitCastInst>(V)) {
+          if (!W->contains(BI->getParent()) &&
+              WRegionUtils::usedInRegionEntryDirective(W, BI->getOperand(0))) {
+            Instruction *Ext = BI->clone();
+            Ext->insertBefore(CI);
+            CI->setOperand(0, Ext);
+            V = Ext;
           }
-          I.replaceAllUsesWith(V);
-          DelIns.push_back(&I);
-          Changed = true;
         }
+        I.replaceAllUsesWith(V);
+        DelIns.push_back(&I);
+        Changed = true;
       }
   while (!DelIns.empty()) {
     Instruction *I = DelIns.pop_back_val();
     I->eraseFromParent();
   }
   W->resetBBSet();
+
   return Changed;
 }
 
-// Replace the occurrences of I within the region with the return value of the
+// Replace the occurrences of V within the region with the return value of the
 // intrinsic @llvm.invariant.group.barrier.
-void VPOParoptTransform::replaceValueWithinRegion(WRegionNode *W, Value *I) {
+void VPOParoptTransform::replaceValueWithinRegion(WRegionNode *W, Value *V) {
+  // DEBUG(dbgs() << "replaceValueWithinRegion: " << *V << "\n");
+
+  // Find instructions in W that use V
+  SmallVector<Instruction *, 8> Users;
+  if (!WRegionUtils::findUsersInRegion(W, V, &Users))
+    return; // Found no applicable uses of V in W's body
+
+  // Create a new @llvm.invariant.group.barrier for V
   BasicBlock *EntryBB = W->getEntryBBlock();
   IRBuilder<> Builder(EntryBB->getTerminator());
-  Value *NewI = Builder.CreateInvariantGroupBarrier(I);
+  Value *NewI = Builder.CreateInvariantGroupBarrier(V);
 
-  for (auto IB = I->user_begin(), IE = I->user_end(); IB != IE; IB++) {
-    if (Instruction *User = dyn_cast<Instruction>(*IB)) {
-      if (auto *BI = dyn_cast<BitCastInst>(User)) {
-        if (CallInst *CI = dyn_cast<CallInst>(BI->user_back()))
-          if (CI->getCalledFunction()->getIntrinsicID() ==
-              Intrinsic::invariant_group_barrier)
-            continue;
+  // Replace uses of V with NewI
+  for (Instruction * User : Users) {
+    if (isFenceCall(User) != nullptr) {
+      // Skip fence intrinsics. Consider this case of nested constructs
+      // privatizing "u":
+      //           TYPE u;  // some struct type
+      //           #pragma omp parallel private (u)  // outer construct
+      //           {
+      //              u.a=1;
+      //                #pragma omp for private (u)  // inner construct
+      //                for(...) { ...; u.a=2; }
+      //              print(u.a); // print 1, not 2
+      //           }
+      // First we create %1=fence(bitcast...@u...) for the inner construct,
+      // and replace all uses of @u with %1 in the inner region. Then we create
+      // %2=fence(bitcast...@u...) for the outer construct, and replace uses of
+      // @u with %2. However, we must not replace %1=fence(bitcast...@u...)
+      // into %1=fence(bitcast...%2...). Otherwise, the privatizaion in the
+      // inner construct is lost.
+      //
+      // Note: this guard works for global u, but not local u. For a global u,
+      // the bitcast is represented as a ConstantExpr which is an operand of
+      // the fence call. However, if u is local, a separate bitcast instruction
+      // is done outside of the fence:
+      //
+      //    %3 = bitcast...%u...
+      //    %4 = fence(%3)
+      //
+      // so checking for the fence itself is not effective in this case.
+      // To solve that, look at the next section of code dealing with BitCast.
+      //
+      // DEBUG(dbgs() << "Skipping Fence: " << *User << "\n");
+      continue;
+    }
+
+    // see comment above
+    if (BitCastInst *BCI = dyn_cast<BitCastInst>(User)) {
+      bool Skip = false;
+      for (llvm::User* U : BCI->users())
+        if (Instruction *I = dyn_cast<Instruction>(U))
+          if (isFenceCall(I)) {
+            Skip=true;
+            break;
+          }
+      if (Skip) {
+        // DEBUG(dbgs() << "Skipping BitCast: " << *BCI << "\n");
+        continue;
       }
-      if (User != NewI && !VPOAnalysisUtils::isIntelDirectiveOrClause(User) &&
-          W->contains(User->getParent()))
-        User->replaceUsesOfWith(I, NewI);
+    }
+
+    // DEBUG(dbgs() << "Before Replacement: " << *User << "\n");
+    User->replaceUsesOfWith(V, NewI);
+    // DEBUG(dbgs() << "After Replacement: " << *User << "\n");
+
+    // Some uses of V are in a ConstantExpr, in which case the User is the
+    // instruction using the ConstantExpr. For example, the use of @u below is
+    // the GEP expression (a ConstantExpr), not the instruction itself, so
+    // doing User->replaceUsesOfWith(V, NewI) does not replace @u
+    //
+    //     %12 = load i32, i32* getelementptr inbounds (%struct.t_union_,
+    //           %struct.t_union_* @u, i32 0, i32 0), align 4
+    //
+    // The solution is to access the ConstantExpr as instruction(s) in order to
+    // do the replacement. NewInstArr below keeps such instruction(s).
+    SmallVector<Instruction *, 2> NewInstArr;
+    IntelGeneralUtils::breakExpressions(User, &NewInstArr);
+    for (Instruction *NewInstr : NewInstArr) {
+      // DEBUG(dbgs() << "Before Replacement: " << *NewInstr << "\n");
+      NewInstr->replaceUsesOfWith(V, NewI);
+      // DEBUG(dbgs() << "After Replacement: " << *NewInstr << "\n");
     }
   }
 }
@@ -1507,6 +1584,17 @@ void VPOParoptTransform::genFenceIntrinsic(WRegionNode *W, Value *I) {
       replaceValueWithinRegion(W, I);
   }
 }
+
+/// \brief Return true if the instuction is a call to
+/// @llvm.invariant.group.barrier
+CallInst*  VPOParoptTransform::isFenceCall(Instruction *I) {
+  if (CallInst *CI = dyn_cast<CallInst>(I))
+    if (CI->getCalledFunction()->getIntrinsicID() ==
+                                        Intrinsic::invariant_group_barrier)
+      return CI;
+  return nullptr;
+}
+
 
 // Generate the intrinsic @llvm.invariant.group.barrier to inhibit the cse
 // for the gep instruction related to array/struture which is marked

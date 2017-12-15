@@ -594,13 +594,13 @@ private:
   /// \brief Insert a flush call
   bool genFlush(WRegionNode *W);
 
-  /// \brief Generate the intrinsic @llvm.codemotion.fence to inhibit the cse
-  /// for the gep instruction related to array/struture which is marked
+  /// \brief Generate the intrinsic @llvm.invariant.group.barrier to inhibit
+  /// the cse for the gep instruction related to array/struture which is marked
   /// as private, firstprivate, lastprivate, reduction or shared.
   void genCodemotionFenceforAggrData(WRegionNode *W);
 
-  /// \brief Clean up the intrinsic @llvm.codemotion.fence and replace the use
-  /// of the intrinsic with the its operand.
+  /// \brief Clean up the intrinsic @llvm.invariant.group.barrier and replace
+  /// the use of the intrinsic with the its operand.
   bool clearCodemotionFenceIntrinsic(WRegionNode *W);
 
   enum TgtOffloadMappingFlags {
@@ -628,12 +628,18 @@ private:
   /// \brief Returns the corresponding flag for a given map clause modifier.
   unsigned getMapTypeFlag(MapItem *MpI, bool IsFirstExprFlag,
                           bool IsFirstComponentFlag);
+
   /// \brief Replace the occurrences of I within the region with the return
-  /// value of the intrinsic @llvm.codemotion.fence.
+  /// value of the intrinsic @llvm.invariant.group.barrier
   void replaceValueWithinRegion(WRegionNode *W, Value *Old);
-  /// \brief Generate the intrinsic @llvm.codemotion.fence for local/global
-  /// variable I.
+
+  /// \brief Generate the intrinsic @llvm.invariant.group.barrier for
+  /// local/global variable I.
   void genFenceIntrinsic(WRegionNode *W, Value *I);
+
+  /// \brief If \p I is a call to @llvm.invariant.group.barrier, then return
+  /// the CallInst*. Otherwise, return nullptr.
+  CallInst* isFenceCall(Instruction *I);
 
   /// \brief Collect the live-in value for the phis at the loop header.
   void wrnUpdateSSAPreprocess(

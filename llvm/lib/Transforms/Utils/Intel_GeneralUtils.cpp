@@ -73,11 +73,11 @@ Loop *IntelGeneralUtils::getLoopFromLoopInfo(LoopInfo *LI,
     // dbgs() << "\n=== getLoopFromLoopInfo found loop : " << *Lp << "\n";
     return Lp;
   }
-    
+
   // BB is not a loop header; continue DFS with BB's successors recursively
   for (succ_iterator I = succ_begin(BB), E = succ_end(BB); I != E; ++I) {
     Lp = getLoopFromLoopInfo(LI, *I, ExitBB);
-    if (Lp)   
+    if (Lp)
       return Lp;
   }
 
@@ -121,15 +121,15 @@ void IntelGeneralUtils::collectBBSet(BasicBlock *EntryBB, BasicBlock *ExitBB,
 
 // Breaks up the instruction recursively for all the constant expression
 // operands.
-void IntelGeneralUtils::breakExpressions(Instruction *Inst)
-{
+void IntelGeneralUtils::breakExpressions(Instruction *Inst,
+                                  SmallVectorImpl<Instruction *> *NewInstArr) {
   if (DbgDeclareInst *DbgDclInst = dyn_cast<DbgDeclareInst>(Inst)) {
     // For DbgDeclareInst, the operand is a metadata that might
     // contain a constant expression.
     Value* Op = DbgDclInst->getAddress();
     // If the debug adress is a constant expression, recursively break it up.
     if (ConstantExpr* Expr = dyn_cast_or_null<ConstantExpr>(Op))
-      breakExpressionsHelper(Expr, 0, Inst);
+      breakExpressionsHelper(Expr, 0, Inst, NewInstArr);
   }
   else if (DbgValueInst *DbgValInst = dyn_cast<DbgValueInst>(Inst)) {
     // For DbgValueInst, the operand is a metadata that might
@@ -137,7 +137,7 @@ void IntelGeneralUtils::breakExpressions(Instruction *Inst)
     Value* Op = DbgValInst->getValue();
     // If the debug value operand is a constant expression, recursively break it up.
     if (ConstantExpr* Expr = dyn_cast_or_null<ConstantExpr>(Op))
-      breakExpressionsHelper(Expr, 0, Inst);
+      breakExpressionsHelper(Expr, 0, Inst, NewInstArr);
   }
   else {
     // And all the operands of each instruction
@@ -147,20 +147,21 @@ void IntelGeneralUtils::breakExpressions(Instruction *Inst)
 
       // If the operand is a constant expression, recursively break it up.
       if (ConstantExpr* Expr = dyn_cast<ConstantExpr>(Op))
-        breakExpressionsHelper(Expr, I, Inst);
+        breakExpressionsHelper(Expr, I, Inst, NewInstArr);
     }
   }
 }
 
 // Breaks up the instruction recursively for the gvien constant
 // expression operand.
-void IntelGeneralUtils::breakExpressionsHelper(ConstantExpr* Expr, 
-                                               unsigned OperandIndex, 
-                                               Instruction* User)
-{
+void IntelGeneralUtils::breakExpressionsHelper(ConstantExpr* Expr,
+                                  unsigned OperandIndex, Instruction* User,
+                                  SmallVectorImpl<Instruction *> *NewInstArr) {
     // Create a new instruction, and insert it at the appropriate point.
     Instruction* NewInst = Expr->getAsInstruction();
     NewInst->setDebugLoc(User->getDebugLoc());
+    if (NewInstArr != nullptr)
+      NewInstArr->push_back(NewInst);
 
     if( PHINode* Phi = dyn_cast<PHINode>(User) )
     {
@@ -171,7 +172,7 @@ void IntelGeneralUtils::breakExpressionsHelper(ConstantExpr* Expr,
       NewInst->insertBefore(User);
     else
     {
-      NewInst->insertBefore(User);    
+      NewInst->insertBefore(User);
       User->replaceUsesOfWith(Expr, NewInst);
     }
     if( Expr->use_empty() )
@@ -183,7 +184,7 @@ void IntelGeneralUtils::breakExpressionsHelper(ConstantExpr* Expr,
       Value* Op = NewInst->getOperand(I);
       ConstantExpr* InnerExpr = dyn_cast<ConstantExpr>(Op);
       if( InnerExpr )
-        breakExpressionsHelper(InnerExpr, I, NewInst);
+        breakExpressionsHelper(InnerExpr, I, NewInst, NewInstArr);
     }
 }
 
@@ -197,7 +198,7 @@ bool IntelGeneralUtils::hasNextUniqueInstruction(Instruction *I) {
   return nextBB && (nextBB->getUniquePredecessor() != nullptr);
 }
 
-// Returns I's next unique instruciton, which could be in the same 
+// Returns I's next unique instruciton, which could be in the same
 // basic block or the first instruciotn of the unique succ BB.
 Instruction* IntelGeneralUtils::nextUniqueInstruction(Instruction *I) {
   assert(hasNextUniqueInstruction(I) &&

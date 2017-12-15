@@ -57,15 +57,18 @@ public:
   /// first item in BBSet is 'EntryBB' and the last item is 'ExitBB'.
   static void collectBBSet(BasicBlock *EntryBB, BasicBlock *ExitBB,
                            SmallVectorImpl<BasicBlock *> &BBSet);
-  /// \brief Breaks up the instruction recursively for all the constant 
-  /// expression operands.
-  static void breakExpressions(Instruction *Inst);
+  /// \brief Breaks up the instruction recursively for all the constant
+  /// expression operands. If NewInstArr is not null, put the newly created
+  /// instructions in *NewInstArr.
+  static void breakExpressions(Instruction *Inst,
+                           SmallVectorImpl<Instruction *> *NewInstArr=nullptr);
 
   /// \brief Breaks up the instruction recursively for the gvien constant
-  /// expression operand.
-  static void breakExpressionsHelper(ConstantExpr* Expr, 
-                                     unsigned OperandIndex, 
-                                     Instruction* User);
+  /// expression operand. If NewInstArr is not null, put the newly created
+  /// instructions in *NewInstArr.
+  static void breakExpressionsHelper(ConstantExpr* Expr, unsigned OperandIndex,
+                           Instruction* User,
+                           SmallVectorImpl<Instruction *> *NewInstArr=nullptr);
 
   /// \brief Returns false if I's next instruction is terminator instruction.
   /// Otherwise returns true.

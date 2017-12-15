@@ -501,3 +501,50 @@ bool WRegionUtils::usedInRegionEntryDirective(WRegionNode *W, Value *I) {
         return true;
   return false;
 }
+
+// \returns true if the value \p V is used in the WRN \p W.
+// If \p Users is not null (default is nullptr), then find all users of \p V
+// in \p W and put them in \p *Users.
+// If \p ExcludeDirective is true (default is true), then ignore the
+// instructions for which isIntelDirectiveOrClause() is true.
+//
+// Prerequisite: W's BBSet must be populated before calling this util.
+bool WRegionUtils::findUsersInRegion(WRegionNode *W, Value *V,
+                       SmallVectorImpl<Instruction *> *Users,
+                       bool ExcludeDirective) {
+  bool Found = false;
+  for (User *U : V->users()) {
+    if (Instruction *I = dyn_cast<Instruction>(U)) {
+      if (ExcludeDirective && VPOAnalysisUtils::isIntelDirectiveOrClause(I))
+        continue;
+      if (W->contains(I->getParent())) {
+        // DEBUG(dbgs() << "findUsersInRegion ("<< *V <<") in ("<< *I <<")\n");
+        if (Users == nullptr)
+          return true; // no need to find more users
+        Found = true;
+        Users->push_back(I);
+      }
+    }
+    else if (ConstantExpr *CE = dyn_cast<ConstantExpr>(U)) {
+      // DEBUG(dbgs() << "  ConstantExpr: " << *CE << "\n");
+      //
+      // The user may not be an Instruction, but a ConstantExpr used directly
+      // in an instruction. Example (IR from ompoC/priv9a-4.c): the user of @u
+      // is not the load instruction, but the GEP expr in the load:
+      //
+      //     %12 = load i32, i32* getelementptr inbounds (%struct.t_union_,
+      //           %struct.t_union_* @u, i32 0, i32 0), align 4
+      //
+      // Recursively call findUsersInRegion() to find all Instructions in \p W
+      // that use the ConstantExpr and add such Instructions to \p *Users.
+      if (WRegionUtils::findUsersInRegion(W, CE, Users, ExcludeDirective)) {
+        if (Users == nullptr)
+          return true; // no need to find more users
+        Found = true;
+      }
+    }
+    // else
+    //  DEBUG(dbgs() << "Not an Instruction or ConstantExpr:" << *U << "\n");
+  }
+  return Found;
+}
