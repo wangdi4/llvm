@@ -91,33 +91,33 @@ public:
   }
 };
 
-/// \brief Specialization of VPLoopRegion that holds HIR-specific loop
+/// \brief Specialization of VPLoopRegion that holds the HIR-specific loop
 /// representation (HLLoop).
 ///
-/// Design Principle: new public member functions are not allowed. This class is
-/// meant to be used only by VPlan construction and code generation (and
-/// their utilities). For that reason, its interface must be private and be only
-/// accessible from well-justified friendship relationships.
-class VPLoopRegionHIR : private VPLoopRegion {
-  friend class IntelVPlanUtils; 
-  friend class VPlanVerifierHIR; 
-  
-private: 
+/// Design Principle: access to underlying IR is forbidden by default. Adding
+/// new friends to this class to have access to it must be very well justified.
+class VPLoopRegionHIR : public VPLoopRegion {
+  friend class IntelVPlanUtils;
+  friend class VPlanVerifierHIR;
+  friend class VPDecomposerHIR;
+
+private:
   // Pointer to the underlying HLLoop.
   HLLoop *HLLp;
 
+protected:
   VPLoopRegionHIR(const std::string &Name, VPLoop *VPLp, HLLoop *HLLp)
       : VPLoopRegion(VPLoopRegionHIRSC, Name, VPLp), HLLp(HLLp) {}
 
   const HLLoop *getHLLoop() const { return HLLp; }
-
+  HLLoop *getHLLoop() { return HLLp; }
 
 public:
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPBlockBase *B) {
     return B->getVPBlockID() == VPBlockBase::VPLoopRegionHIRSC;
   }
-}; 
+};
 
 class IntelVPlan : public VPlan {
 
