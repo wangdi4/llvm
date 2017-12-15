@@ -916,6 +916,12 @@ public:
                                                        RetTy, Args[0], VarMask,
                                                        Alignment);
     }
+#if INTEL_CUSTOMIZATION
+    case Intrinsic::directive_region_entry:
+    case Intrinsic::directive_region_exit: {
+        return 0;
+    }
+#endif // INTEL_CUSTOMIZATION
     }
   }
 
