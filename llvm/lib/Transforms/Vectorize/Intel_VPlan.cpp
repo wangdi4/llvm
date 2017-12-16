@@ -18,6 +18,7 @@
 
 #include "Intel_VPlan.h"
 #include "./Intel_VPlan/LoopVectorizationCodeGen.h"
+#include "./Intel_VPlan/VPOCodeGenHIR.h"
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Dominators.h"
@@ -242,6 +243,18 @@ void VPRegionBlock::recomputeSize() {
 }
 #endif
 
+#if INTEL_CUSTOMIZATION
+void VPRegionBlock::executeHIR(VPOCodeGenHIR *CG) {
+  ReversePostOrderTraversal<VPBlockBase *> RPOT(Entry);
+
+  // Visit the VPBlocks connected to "this", starting from it.
+  for (VPBlockBase *Block : RPOT) {
+    DEBUG(dbgs() << "HIRV: VPBlock in RPO " << Block->getName() << '\n');
+    Block->executeHIR(CG);
+  }
+}
+#endif
+
 void VPRegionBlock::execute(VPTransformState *State) {
   ReversePostOrderTraversal<VPBlockBase *> RPOT(Entry);
 
@@ -319,6 +332,33 @@ void VPInstruction::generateInstruction(VPTransformState &State,
     llvm_unreachable("Unsupported opcode for instruction");
   }
 }
+
+#if INTEL_CUSTOMIZATION
+void VPInstruction::executeHIR(VPOCodeGenHIR *CG) {
+  HLInst *WInst;
+
+  // TBD - see if anything special is needed for semiphis.
+  if (Opcode == SemiPhi)
+    return;
+
+  VPInstructionData *InstData = getHIRData();
+  assert(isa<VPInstructionDataHIR>(InstData) &&
+         "Expected VPInstructionDataHIR");
+  VPInstructionDataHIR *InstDataHIR = cast<VPInstructionDataHIR>(InstData);
+  HLDDNode *Node = InstDataHIR->getInstruction();
+  if (HLInst *Inst = dyn_cast<HLInst>(Node))
+    CG->widenNode(Inst, nullptr);
+  else if (HLIf *HIf = dyn_cast<HLIf>(Node)) {
+    // We generate a compare instruction from the IF predicate. The VPValue
+    // corresponding to this instruction gets used as the condition bit value
+    // for the conditional branch. We need a mapping between this VPValue and
+    // the widened value so that we can generate code for the predicate
+    // recipes.
+    WInst = CG->widenIfPred(HIf, nullptr);
+    CG->addVPValueWideRefMapping(this, WInst->getOperandDDRef(0));
+  }
+}
+#endif
 
 void VPInstruction::execute(VPTransformState &State) {
   // TODO: Remove this block of code. Its purpose is to emulate the execute()
@@ -504,7 +544,7 @@ void VPlanPrinter::dump() {
   OS << "graph [labelloc=t, fontsize=30; label=\"Vectorization Plan";
   if (!Plan.getName().empty())
     OS << "\\n" << DOT::EscapeString(Plan.getName());
-#if !INTEL_CUSTOMIZATION  
+#if !INTEL_CUSTOMIZATION
   if (!Plan.Value2VPValue.empty()) {
     OS << ", where:";
     for (auto Entry : Plan.Value2VPValue) {
@@ -645,6 +685,40 @@ void VPlan::printInst2Recipe() {
   }
 }
 
+#if INTEL_CUSTOMIZATION
+void VPBlockPredicateRecipe::executeHIR(VPOCodeGenHIR *CG) {
+  const auto &IncomingPredicates = getIncomingPredicates();
+  unsigned NumIncoming = IncomingPredicates.size();
+  unsigned UF = 1;
+
+  for (unsigned UnrIndex = 0; UnrIndex < UF; ++UnrIndex) {
+    RegDDRef *PredDDRef = nullptr;
+
+    for (unsigned CurIncoming = 0; CurIncoming < NumIncoming; ++CurIncoming) {
+      auto IncomingPredRecipe = IncomingPredicates[CurIncoming];
+
+      if (IncomingPredRecipe->getVectorizedPredicateHIR().size() == 0)
+        IncomingPredRecipe->executeHIR(CG);
+
+      RegDDRef *CurIncomingPredDDRef =
+          IncomingPredRecipe->getVectorizedPredicateHIR()[UnrIndex];
+      if (!PredDDRef)
+        PredDDRef = CurIncomingPredDDRef;
+      else {
+        auto Inst = PredDDRef->getHLDDNode()->getHLNodeUtils().createOr(
+            PredDDRef->clone(), CurIncomingPredDDRef->clone(), "IncOr");
+        CG->addInstUnmasked(Inst);
+        PredDDRef = Inst->getOperandDDRef(0);
+      }
+    }
+    VectorizedPredicateHIR.push_back(PredDDRef);
+  }
+
+  // Set mask value to use to mask instructions in the block
+  CG->setCurMaskValue(VectorizedPredicateHIR[0]);
+}
+#endif
+
 void VPBlockPredicateRecipe::execute(VPTransformState &State) {
   const auto &IncomingPredicates = getIncomingPredicates();
   auto NumIncoming = IncomingPredicates.size();
@@ -688,6 +762,31 @@ void VPBlockPredicateRecipe::print(raw_ostream &OS, const Twine &Indent) const {
   }
 }
 
+#if INTEL_CUSTOMIZATION
+void VPIfTruePredicateRecipe::executeHIR(VPOCodeGenHIR *CG) {
+  RegDDRef *PredMask =
+      PredecessorPredicate
+          ? PredecessorPredicate->getVectorizedPredicateHIR()[0]
+          : nullptr;
+
+  // Get the vector mask value of the branch condition
+  RegDDRef *VecCondMask = CG->getWideRefForVPVal(ConditionValue);
+
+  // Combine with the predecessor block mask if needed - a null predecessor
+  // mask implies allones(predecessor is active for all lanes).
+  RegDDRef *EdgeMask;
+  if (PredMask) {
+    auto Inst = VecCondMask->getHLDDNode()->getHLNodeUtils().createAnd(
+        VecCondMask->clone(), PredMask->clone(), "IfTPred");
+    CG->addInstUnmasked(Inst);
+    EdgeMask = Inst->getOperandDDRef(0);
+  } else
+    EdgeMask = VecCondMask;
+
+  VectorizedPredicateHIR.push_back(EdgeMask);
+}
+#endif
+
 void VPIfTruePredicateRecipe::execute(VPTransformState &State) {
   Value *PredMask = PredecessorPredicate
                         ? PredecessorPredicate->getVectorizedPredicate()[0]
@@ -709,6 +808,16 @@ void VPIfTruePredicateRecipe::execute(VPTransformState &State) {
   // Register the Edge with mask in CG
   State.ILV->setEdgeMask(FromBB, ToBB, EdgeMask);
 }
+
+#if INTEL_CUSTOMIZATION
+void VPEdgePredicateRecipe::executeHIR(VPOCodeGenHIR *CG) {
+  RegDDRef *PredMask =
+      PredecessorPredicate
+          ? PredecessorPredicate->getVectorizedPredicateHIR()[0]
+          : nullptr;
+  CG->setCurMaskValue(PredMask);
+}
+#endif
 
 void VPEdgePredicateRecipe::execute(VPTransformState &State) {
   // This recipe does not produce any code. It propagates an already
@@ -735,6 +844,35 @@ void VPIfTruePredicateRecipe::print(raw_ostream &OS,
 
   ConditionValue->printAsOperand(OS);
 }
+
+#if INTEL_CUSTOMIZATION
+void VPIfFalsePredicateRecipe::executeHIR(VPOCodeGenHIR *CG) {
+  RegDDRef *PredMask =
+      PredecessorPredicate
+          ? PredecessorPredicate->getVectorizedPredicateHIR()[0]
+          : nullptr;
+
+  // Get the vector mask value of the branch condition
+  RegDDRef *VecCondMask = CG->getWideRefForVPVal(ConditionValue);
+  auto Inst = VecCondMask->getHLDDNode()->getHLNodeUtils().createNot(
+      VecCondMask->clone(), "IfFPred");
+  CG->addInstUnmasked(Inst);
+  VecCondMask = Inst->getOperandDDRef(0);
+
+  // Combine with the predecessor block mask if needed - a null predecessor
+  // mask implies allones(predecessor is active for all lanes).
+  RegDDRef *EdgeMask;
+  if (PredMask) {
+    auto Inst = VecCondMask->getHLDDNode()->getHLNodeUtils().createAnd(
+        VecCondMask->clone(), PredMask->clone(), "IfFPred");
+    CG->addInstUnmasked(Inst);
+    EdgeMask = Inst->getOperandDDRef(0);
+  } else
+    EdgeMask = VecCondMask;
+
+  VectorizedPredicateHIR.push_back(EdgeMask);
+}
+#endif
 
 void VPIfFalsePredicateRecipe::execute(VPTransformState &State) {
   Value *PredMask = PredecessorPredicate

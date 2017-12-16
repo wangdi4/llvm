@@ -16,12 +16,14 @@
 #include "LoopVectorizationCodeGen.h"
 #include "LoopVectorizationPlanner.h"
 #include "LoopVectorizationPlannerHIR.h"
+#include "VPOCodeGenHIR.h"
 #include "VPOLoopAdapters.h"
 #include "VPlanPredicator.h"
 #include "VolcanoOpenCL.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"
@@ -32,6 +34,7 @@
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
 #include "llvm/Transforms/Utils/LoopSimplify.h"
 #include "llvm/Transforms/Vectorize.h"
@@ -185,6 +188,16 @@ public:
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override;
+
+#if !INTEL_PRODUCT_RELEASE
+  /// \brief Overrides FunctionPass's printer pass to return one which prints
+  /// HIR instead of LLVM IR.
+  FunctionPass *createPrinterPass(raw_ostream &OS,
+                                  const std::string &Banner) const override {
+    return createHIRPrinterPass(OS, Banner);
+  }
+#endif // !INTEL_PRODUCT_RELEASE
+
   bool runOnFunction(Function &Fn) override;
 };
 
@@ -561,7 +574,7 @@ INITIALIZE_PASS_DEPENDENCY(HIRLoopStatistics)
 // INITIALIZE_PASS_DEPENDENCY(HIRLocalityAnalysis)
 // INITIALIZE_PASS_DEPENDENCY(HIRVectVLSAnalysis)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
-// INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysis)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_END(VPlanDriverHIR, "VPlanDriverHIR",
@@ -586,7 +599,7 @@ void VPlanDriverHIR::getAnalysisUsage(AnalysisUsage &AU) const {
   //  AU.addRequiredTransitive<HIRParser>();
   //  AU.addRequiredTransitive<HIRLocalityAnalysis>();
   AU.addRequired<HIRDDAnalysis>();
-  //  AU.addRequiredTransitive<HIRSafeReductionAnalysis>();
+  AU.addRequiredTransitive<HIRSafeReductionAnalysis>();
   //  AU.addRequired<HIRVectVLSAnalysis>();
 }
 
@@ -665,16 +678,15 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, unsigned VF, Function &Fn,
 
   bool ModifiedLoop = false;
   if (!DisableCodeGen) {
-    //    if (VPlanVectCand)
-    //      errs() << "VD: VPlan Generating code in function: " << Fn.getName()
-    //             << "\n";
-    //
-    //    VPOCodeGen VCodeGen(Lp, PSE, LI, DT, TLI, TTI, VF, 1, &LVL);
-    //#if INTEL_OPENCL
-    //    VCodeGen.initOpenCLScalarSelectSet(volcanoScalarSelect);
-    //#endif
-    //    LVP.executeBestPlan(VCodeGen);
-    //    ModifiedLoop = true;
+    HIRSafeReductionAnalysis *SRA;
+    SRA = &getAnalysis<HIRSafeReductionAnalysis>();
+    VPOCodeGenHIR VCodeGen(TLI, SRA, Fn, Lp, WRLp);
+
+    if (VCodeGen.loopIsHandled(Lp, VF)) {
+      CandLoopsVectorized++;
+      LVP.executeBestPlan(&VCodeGen);
+      ModifiedLoop = true;
+    }
   }
 
   return ModifiedLoop;

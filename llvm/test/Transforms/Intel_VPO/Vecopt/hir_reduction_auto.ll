@@ -13,6 +13,7 @@
 ; 
 ; ModuleID = 't1.c'
 ;RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -default-vpo-vf=8 -VPODriverHIR -hir-cg -mem2reg -print-after=VPODriverHIR -S %s 2>&1 | FileCheck %s
+;RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -vplan-default-vf=8 -VPlanDriverHIR -hir-cg -mem2reg -print-after=VPlanDriverHIR -S %s 2>&1 | FileCheck %s
 ;
 ; CHECK:           BEGIN REGION { modified }
 ; CHECK:           %RedOp = zeroinitializer;

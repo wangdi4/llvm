@@ -50,15 +50,20 @@ class LoopInfo;
 //}
 
 #if INTEL_CUSTOMIZATION
+namespace loopopt {
+class RegDDRef;
+} // namespace loopopt
+
 namespace vpo {
 class VPValue;
 class VPlan;
 class VPBlockBase;
 class VPOCodeGen;
+class VPOCodeGenHIR;
 class VPOVectorizationLegality;
 class VPBasicBlock;
 typedef SmallPtrSet<VPValue *, 8> UniformsTy;
- 
+
 // Class names mapping to minimize the diff:
 #define InnerLoopVectorizer VPOCodeGen
 #define LoopVectorizationLegality VPOVectorizationLegality
@@ -413,6 +418,9 @@ public:
   /// The method which generates the output IR instructions that correspond to
   /// this VPRecipe, thereby "executing" the VPlan.
   virtual void execute(struct VPTransformState &State) = 0;
+#if INTEL_CUSTOMIZATION
+  virtual void executeHIR(VPOCodeGenHIR *CG) = 0;
+#endif
 
   /// Each recipe prints itself.
   virtual void print(raw_ostream &O, const Twine &Indent) const = 0;
@@ -509,6 +517,9 @@ public:
   /// TODO: We currently execute only per-part unless a specific instance is
   /// provided.
   void execute(VPTransformState &State) override;
+#if INTEL_CUSTOMIZATION
+  void executeHIR(VPOCodeGenHIR *CG) override;
+#endif
 
   /// Print the Recipe.
   void print(raw_ostream &O, const Twine &Indent) const override;
@@ -588,6 +599,7 @@ public:
   /// Type definition for an array of vectorized masks. One per unroll
   /// iteration.
   typedef SmallVector<Value *, 2> VectorParts;
+  typedef SmallVector<RegDDRef *, 2> HIRVectorParts;
 
   /// Temporary, should be removed.
   BasicBlock *SourceBB;
@@ -595,10 +607,11 @@ public:
 protected:
   /// The result after vectorizing. used for feeding future v-instructions.
   VectorParts VectorizedPredicate;
+  HIRVectorParts VectorizedPredicateHIR;
 
   /// Construct a VPPredicateRecipeBase.
   VPPredicateRecipeBase(const unsigned char SC)
-      : VPRecipeBase(SC), VectorizedPredicate() {}
+    : VPRecipeBase(SC), VectorizedPredicate(), VectorizedPredicateHIR() {}
 
   /// Predicate's name.
   std::string Name;
@@ -613,6 +626,10 @@ public:
   /// recipe.
   const VectorParts &getVectorizedPredicate() const {
     return VectorizedPredicate;
+  }
+
+  const HIRVectorParts &getVectorizedPredicateHIR() const {
+    return VectorizedPredicateHIR;
   }
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
@@ -678,6 +695,9 @@ public:
   }
 
   void execute(VPTransformState &State) override;
+#if INTEL_CUSTOMIZATION
+  void executeHIR(VPOCodeGenHIR *CG) override;
+#endif
 
   void print(raw_ostream &OS, const Twine &Indent) const override;
 };
@@ -745,6 +765,9 @@ public:
   }
 
   void execute(VPTransformState &State) override;
+#if INTEL_CUSTOMIZATION
+  void executeHIR(VPOCodeGenHIR *CG) override;
+#endif
 
   void print(raw_ostream &OS, const Twine &Indent) const override;
 
@@ -772,6 +795,9 @@ public:
   }
 
   void execute(VPTransformState &State) override;
+#if INTEL_CUSTOMIZATION
+  void executeHIR(VPOCodeGenHIR *CG) override;
+#endif
 
   void print(raw_ostream &OS, const Twine &Indent) const override;
 
@@ -800,6 +826,9 @@ public:
   }
 
   void execute(VPTransformState &State) override;
+#if INTEL_CUSTOMIZATION
+  void executeHIR(VPOCodeGenHIR *CG) override;
+#endif
 
   void print(raw_ostream &OS, const Twine &Indent) const override;
 
@@ -1047,6 +1076,10 @@ public:
   /// The method which generates all new IR instructions that correspond to
   /// this VPBlockBase in the vectorized version, thereby "executing" the VPlan.
   virtual void execute(struct VPTransformState *State) = 0;
+#if INTEL_CUSTOMIZATION
+  virtual void executeHIR(VPOCodeGenHIR *CG) = 0;
+#endif
+
 
   // Delete all blocks reachable from a given VPBlockBase, inclusive.
   static void deleteCFG(VPBlockBase *Entry);
@@ -1197,6 +1230,9 @@ public:
   /// this VPBasicBlock in the vectorized version, thereby "executing" the
   /// VPlan.
   void execute(struct VPTransformState *State) override;
+#if INTEL_CUSTOMIZATION
+  void executeHIR(VPOCodeGenHIR *CG) override;
+#endif
 
   /// Retrieve the list of VPRecipes that belong to this VPBasicBlock.
   const RecipeListTy &getRecipes() const { return Recipes; }
@@ -1546,6 +1582,9 @@ public:
   /// this VPRegionBlock in the vectorized version, thereby "executing" the
   /// VPlan.
   void execute(struct VPTransformState *State) override;
+#if INTEL_CUSTOMIZATION
+  void executeHIR(VPOCodeGenHIR *CG) override;
+#endif
 };
 #if INTEL_CUSTOMIZATION
 } // namespace vpo
@@ -1715,6 +1754,7 @@ public:
 
   /// Generate the IR code for this VPlan.
   virtual void execute(struct VPTransformState *State);
+  virtual void executeHIR(VPOCodeGenHIR *CG) {}
 #else
   /// Generate the IR code for this VPlan.
   void execute(struct VPTransformState *State);
@@ -2250,6 +2290,11 @@ inline bool VPBlockBase::isInsideLoop() {
     // TODO: Use VPLoopRegion
     if (ParentRegion->getVPBlockID() == VPLoopRegionSC) {
       if (/*ParentRegion->getEntry() != this &&*/
+          ParentRegion->getExit() != this)
+        return true;
+    }
+    if (ParentRegion->getVPBlockID() == VPLoopRegionHIRSC) {
+      if (ParentRegion->getEntry() != this &&
           ParentRegion->getExit() != this)
         return true;
     }

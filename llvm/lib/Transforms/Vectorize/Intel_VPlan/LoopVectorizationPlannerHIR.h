@@ -52,6 +52,10 @@ public:
                               const DDGraph &DDG)
       : LoopVectorizationPlannerBase(WRL, TLI, TTI, Legal), TheLoop(Lp),
         DDG(DDG) {}
+
+  /// Generate the HIR code for the body of the vectorized loop according to the
+  /// best selected VPlan.
+  void executeBestPlan(VPOCodeGenHIR *CG);
 };
 
 } // namespace vpo

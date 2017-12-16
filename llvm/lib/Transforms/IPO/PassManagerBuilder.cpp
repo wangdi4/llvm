@@ -130,6 +130,10 @@ static cl::opt<bool> EnableVPlanDriver("vplan-driver", cl::init(false),
                                        cl::Hidden,
                                        cl::desc("Enable VPlan Driver"));
 
+static cl::opt<bool> EnableVPlanDriverHIR("vplan-driver-hir", cl::init(true),
+                                       cl::Hidden,
+                                       cl::desc("Enable VPlan Driver"));
+
 // The user can use -mllvm -paropt=<mode> to enable various paropt 
 // transformations, where <mode> is a bit vector (see enum VPOParoptMode 
 // for a description of the bits.) For example, paropt=0x7 enables 
@@ -1218,7 +1222,7 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
       PM.add(createHIROptPredicatePass());
       if (RunVPOOpt) {
         PM.add(createHIRVecDirInsertPass(OptLevel == 3));
-        if (EnableVPlanDriver) {
+        if (EnableVPlanDriverHIR) {
           // Enable VPlan HIR Vectorizer
           PM.add(createVPlanDriverHIRPass());
         } else {

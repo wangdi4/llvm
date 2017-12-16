@@ -10,6 +10,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "LoopVectorizationCodeGen.h"
+#include "VPOCodeGenHIR.h"
 #include "VPlan.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
@@ -173,6 +174,35 @@ void IntelVPlan::execute(VPTransformState *State) {
   // preserved - so this should be ok.
   // updateDominatorTree(State->DT, VectorPreHeaderBB, VectorLatchBB);
   State->Builder.restoreIP(CurrIP);
+}
+
+void IntelVPlan::executeHIR(VPOCodeGenHIR *CG) {
+#if 0
+  // TODO: remove this block of code here and make a similar change
+  // for the LLVM IR path.
+  for (VPBlockBase *CurrentBlock = Entry; CurrentBlock != nullptr;
+       CurrentBlock = CurrentBlock->getSingleSuccessor()) {
+    assert(CurrentBlock->getSuccessors().size() <= 1 &&
+           "Multiple successors at top level.");
+    CurrentBlock->executeHIR(CG);
+  }
+#endif
+  assert(isa<VPRegionBlock>(Entry) && Entry->getNumPredecessors() == 0 &&
+         Entry->getNumSuccessors() == 0 && "Invalid VPlan entry");
+  Entry->executeHIR(CG);
+}
+
+void VPBasicBlock::executeHIR(VPOCodeGenHIR *CG) {
+  // Loop PH and Loop Exit VPBasicBlocks are part of VPLoopRegion but they are
+  // actually ouside of the loop and they shouldn't be vectorized. For the LLVM
+  // IR path we specifically vectorize the PH, for now this is not needed for
+  // the HIR path - this may be revisited later if needed.
+  if (!isInsideLoop())
+    return;
+
+  CG->setCurMaskValue(nullptr);
+  for (VPRecipeBase &Recipe : Recipes)
+    Recipe.executeHIR(CG);
 }
 
 void VPBasicBlock::execute(VPTransformState *State) {

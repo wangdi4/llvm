@@ -30,6 +30,8 @@ using namespace loopopt;
 
 namespace vpo {
 
+class VPOCodeGenHIR;
+
 class VPMaskGenerationRecipe : public VPRecipeBase {
   friend class VPlanUtilsLoopVectorizer;
 
@@ -60,6 +62,7 @@ public:
     // instructions in the loop body. i.e., a phi instruction that has incoming
     // values using IncomingPred and LoopBackedge.
   }
+  void executeHIR(VPOCodeGenHIR *CG) override {}
 };
 
 
@@ -130,6 +133,7 @@ public:
   }
 
   void execute(struct VPTransformState *State) override;
+  void executeHIR(VPOCodeGenHIR *CG) override;
 
   VPLoopInfo *getVPLoopInfo() { return VPLInfo; }
   const VPLoopInfo *getVPLoopInfo() const { return VPLInfo; }
@@ -161,6 +165,7 @@ public:
   /// The method clones a uniform instruction that calculates condition
   /// for uniform branch.
   void execute(VPTransformState &State) override {}
+  void executeHIR(VPOCodeGenHIR *CG) override {}
 
   Value *getValue(void) const {
     // TODO after vectorize.
@@ -195,6 +200,7 @@ public:
   /// The method clones a uniform instruction that calculates condition
   /// for uniform branch.
   void execute(VPTransformState &State) override {}
+  void executeHIR(VPOCodeGenHIR *CG) override {}
 
   /// Return the phi value after vectorization.
   Value *getValue(void) const {

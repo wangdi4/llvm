@@ -65,7 +65,8 @@ public:
     UNKNOWN_CALL = 15537,
     NON_DO_LOOP = 15536,
     FE_DIAG_VEC_NOT_INNERMOST = 15553,
-    EH
+    EH,
+    MULTI_PRED_IF_STMT
   };
 
 private:

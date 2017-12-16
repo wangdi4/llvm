@@ -712,6 +712,10 @@ public:
   HLInst *createAnd(RegDDRef *OpRef1, RegDDRef *OpRef2,
                     const Twine &Name = "and", RegDDRef *LvalRef = nullptr);
 
+  /// Create a new Not instruction - uses XOR operation
+  HLInst *createNot(RegDDRef *OpRef1, const Twine &Name = "not",
+                    RegDDRef *LvalRef = nullptr);
+
   /// Creates a new Or instruction.
   HLInst *createOr(RegDDRef *OpRef1, RegDDRef *OpRef2, const Twine &Name = "or",
                    RegDDRef *LvalRef = nullptr);

@@ -12,6 +12,7 @@
 ; }
 ; 
 ; RUN: opt -default-vpo-vf=4 -hir-ssa-deconstruction -hir-vec-dir-insert -VPODriverHIR -hir-cg -print-after=VPODriverHIR -S  < %s 2>&1 | FileCheck %s
+; RUN: opt -default-vpo-vf=4 -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -print-after=VPlanDriverHIR -S  < %s 2>&1 | FileCheck %s
 ; CHECK:      DO i1 = 0, 1023, 4   <DO_LOOP>
 ; CHECK-NEXT:     (<4 x i32*>*)(@ip)[0][i1] = &((<4 x i32*>)(@arr)[0][i1 + <i64 0, i64 1, i64 2, i64 3>]);
 ; CHECK-NEXT: END LOOP

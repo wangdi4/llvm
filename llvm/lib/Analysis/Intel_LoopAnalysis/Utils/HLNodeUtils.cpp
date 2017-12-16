@@ -789,6 +789,14 @@ HLInst *HLNodeUtils::createAnd(RegDDRef *OpRef1, RegDDRef *OpRef2,
                                 false, false, nullptr);
 }
 
+HLInst *HLNodeUtils::createNot(RegDDRef *OpRef1, const Twine &Name,
+                               RegDDRef *LvalRef) {
+  auto RefType = OpRef1->getDestType();
+  auto OneRef = OpRef1->getDDRefUtils().createConstDDRef(RefType, -1);
+  return createBinaryHLInstImpl(Instruction::Xor, OpRef1, OneRef, Name, LvalRef,
+                                false, false, nullptr);
+}
+
 HLInst *HLNodeUtils::createOr(RegDDRef *OpRef1, RegDDRef *OpRef2,
                               const Twine &Name, RegDDRef *LvalRef) {
   return createBinaryHLInstImpl(Instruction::Or, OpRef1, OpRef2, Name, LvalRef,

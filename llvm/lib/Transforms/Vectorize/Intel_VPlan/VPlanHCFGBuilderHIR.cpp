@@ -245,7 +245,8 @@ static unsigned getOpcodeFromHIR(HLDDNode *DDNode) {
     Type *PredType = (*HIf->ddref_begin())->getDestType();
 
     // HIR only generates multiple predicates for integers.
-    if (HIf->getNumPredicates() > 1 || PredType->isIntOrIntVectorTy()) {
+    if (HIf->getNumPredicates() > 1 || PredType->isIntOrIntVectorTy() ||
+        PredType->isPtrOrPtrVectorTy()) {
       return Instruction::ICmp;
     }
 
@@ -293,7 +294,9 @@ VPValue *PlainCFGBuilderHIR::createOrGetVPDefFrom(const DDEdge *Edge) {
 // and not to create regular VPInstruction's. For the latter, you should look at
 // 'createOrFixVPInstr'.
 VPValue *PlainCFGBuilderHIR::createOrGetVPOperand(RegDDRef *HIROp) {
-  if (HIROp->isConstant()) {
+  // HIR treats an undef as a constant - TBD see if this is the right thing to
+  // do. Treat an undef as a non-constant for now.
+  if (HIROp->isConstant() && !HIROp->containsUndef()) {
     return PlanUtils.getVPlan()->getVPConstant(getConstantFromHIR(HIROp));
   }
 
@@ -482,10 +485,10 @@ void PlainCFGBuilderHIR::visit(HLIf *HIf) {
   // Create (single, not decomposed) VPInstruction for HLIf's predicate.
   createOrFixVPInstr(HIf);
 
+  auto IfVPVal = HLDef2VPValue.find(HIf)->second;
   VPBasicBlock *ConditionVPBB = ActiveVPBB;
   // assert("HLIf condition generates more than one VPBB?");
-  // TODO: Workaround. Setting a fake ConditionBitRecipe.
-  PlanUtils.setBlockCondBitVPVal(ActiveVPBB, new VPValue());
+  PlanUtils.setBlockCondBitVPVal(ActiveVPBB, IfVPVal);
 
   // - Then branch -
   // Force creation of a new VPBB for Then branch.
@@ -604,4 +607,3 @@ VPLoopRegion *VPlanHCFGBuilderHIR::createLoopRegion(VPLoop *VPLp) {
   assert(HLLp && "Expected HLLoop");
   return VPlanHCFGBuilderBase::PlanUtils.createLoopRegionHIR(VPLp, HLLp);
 }
-
