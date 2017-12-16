@@ -79,7 +79,7 @@ public:
   ///     (predecessors).
   ///   - Size is correct.
   ///   - Blocks' parent is correct.
-  ///   - Blocks with multiple successors have a ConditionBitRecipe set.
+  ///   - Blocks with multiple successors have a ConditionBit set.
   ///   - Linked blocks have a bi-directional link (successor/predecessor).
   ///   - All predecessors/successors are inside the region.
   ///   - Blocks have no duplicated successor/predecessor (TODO: switch)

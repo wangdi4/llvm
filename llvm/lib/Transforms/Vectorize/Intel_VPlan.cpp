@@ -109,13 +109,6 @@ void VPBlockBase::setCondBitVPVal(VPValue *CV, VPlan *Plan) {
   if (CV)
     Plan->setCondBitVPValUser(CV, this);
 }
-#else
-void VPBlockBase::setConditionBitRecipe(VPConditionBitRecipeBase *R,
-                                        VPlan *Plan) {
-  ConditionBitRecipe = R;
-  if (R)
-    Plan->setConditionBitRecipeUser(R, this);
-}
 #endif
 
 BasicBlock *

@@ -61,8 +61,8 @@ using namespace llvm;
 using namespace vpo;
 
 // Build plain CFG from incomming IR using only VPBasicBlock's that contain
-// OneByOneRecipe's and ConditionBitRecipe's. Return VPRegionBlock that
-// encloses all the VPBasicBlock's of the plain CFG.
+// VPInstructions. Return VPRegionBlock that encloses all the VPBasicBlock's of
+// the plain CFG.
 class PlainCFGBuilderHIR : public HLNodeVisitorBase {
   friend HLNodeVisitor<PlainCFGBuilderHIR, false /*Recursive*/>;
 
@@ -519,8 +519,8 @@ void PlainCFGBuilderHIR::visit(HLLoop *HLp) {
   // new one.
   // TODO: Materialize exit condition.
   updateActiveVPBB();
-
-  // Connect Latch to Header and add condition bit.
+  // Connect Latch to Header and add ConditionBit.
+  // TODO: Workaround. Setting a fake ConditionBit.
   PlanUtils.connectBlocks(ActiveVPBB /*Latch*/, Header);
   VPInstruction *LatchCondBit = createOrFixVPInstr(HLp);
   PlanUtils.setBlockCondBitVPVal(ActiveVPBB /*Latch*/, LatchCondBit);

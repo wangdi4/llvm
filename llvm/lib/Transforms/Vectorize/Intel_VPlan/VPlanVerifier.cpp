@@ -210,7 +210,7 @@ void VPlanVerifierBase::verifyRegions(const VPRegionBlock *Region) const {
     // Check block's parent
     assert(VPB->getParent() == Region && "VPBlockBase has wrong parent");
 
-    // Check block's ConditionBitRecipe
+    // Check block's ConditionBit
     if (VPB->getNumSuccessors() > 1)
       assert(VPB->getCondBitVPVal() && "Missing CondBitVPVal");
     else

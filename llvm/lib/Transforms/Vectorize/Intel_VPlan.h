@@ -13,7 +13,6 @@
 // 2. Specializations of GraphTraits that allow VPBlockBase graphs to be treated
 //    as proper graphs for generic algorithms;
 // 3. Pure virtual VPRecipeBase and its pure virtual sub-classes
-//    VPConditionBitRecipeBase and VPOneByOneRecipeBase that
 //    represent base classes for recipes contained within VPBasicBlocks;
 // 4. The VPlan class holding a candidate for vectorization;
 // 5. The VPlanUtils class providing methods for building plans;
@@ -943,8 +942,7 @@ protected:
         PredicateRecipe(nullptr) {}
 #else
   VPBlockBase(const unsigned char SC, const std::string &N)
-      : VBID(SC), Name(N), Parent(nullptr), ConditionBitRecipe(nullptr),
-        PredicateRecipe(nullptr) {}
+      : VBID(SC), Name(N), Parent(nullptr), PredicateRecipe(nullptr) {}
 #endif
 
 public:
@@ -1084,16 +1082,6 @@ public:
   }
 
   void setCondBitVPVal(VPValue *V, VPlan *Plan);
-#else
-  VPConditionBitRecipeBase *getConditionBitRecipe() {
-    return ConditionBitRecipe;
-  }
-
-  const VPConditionBitRecipeBase *getConditionBitRecipe() const {
-    return ConditionBitRecipe;
-  }
-
-  void setConditionBitRecipe(VPConditionBitRecipeBase *R, VPlan *Plan);
 #endif
 
   VPPredicateRecipeBase *getPredicateRecipe() const { return PredicateRecipe; }
@@ -1985,13 +1973,11 @@ public:
   }
 
   /// Sets two given VPBlockBases \p IfTrue and \p IfFalse to be the two
-  /// successors of another VPBlockBase \p Block. A given
-  /// VPConditionBitRecipeBase provides the control selector. The parent of
+  /// successors of another VPBlockBase \p Block. The parent of
   /// \p Block is copied to be the parent of \p IfTrue and \p IfFalse.
-  void setTwoSuccessors(VPBlockBase *Block, VPConditionBitRecipeBase *R,
-                        VPBlockBase *IfTrue, VPBlockBase *IfFalse) {
+  void setTwoSuccessors(VPBlockBase *Block, VPBlockBase *IfTrue,
+                        VPBlockBase *IfFalse) {
     assert(Block->getSuccessors().empty() && "Block successors already set.");
-    Block->setConditionBitRecipe(R, Plan);
     Block->appendSuccessor(IfTrue);
     Block->appendSuccessor(IfFalse);
     IfTrue->appendPredecessor(Block);

@@ -808,8 +808,8 @@ bool VPlanHCFGBuilderBase::isDivergentBlock(VPBlockBase *Block) {
 }
 
 // Build plain CFG from incomming IR using only VPBasicBlock's that contain
-// OneByOneRecipe's and ConditionBitRecipe's. Return VPRegionBlock that
-// encloses all the VPBasicBlock's of the plain CFG.
+// VPInstructions. Return VPRegionBlock that encloses all the VPBasicBlock's
+// of the plain CFG.
 class PlainCFGBuilder {
 private:
   /// Outermost loop of the input loop nest.
