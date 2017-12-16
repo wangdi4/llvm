@@ -133,12 +133,17 @@ void dtrans::TypeInfo::printSafetyData() {
   }
   // TODO: As safety checks are implemented, add them here.
   SafetyData ImplementedMask = dtrans::BadCasting | dtrans::BadAllocSizeArg |
-                               dtrans::UnhandledUse;
+                               dtrans::BadPtrManipulation |
+                               dtrans::AmbiguousGEP | dtrans::UnhandledUse;
   std::vector<StringRef> SafetyIssues;
   if (SafetyInfo & dtrans::BadCasting)
     SafetyIssues.push_back("Bad casting");
   if (SafetyInfo & dtrans::BadAllocSizeArg)
     SafetyIssues.push_back("Bad alloc size");
+  if (SafetyInfo & dtrans::BadPtrManipulation)
+    SafetyIssues.push_back("Bad pointer manipulation");
+  if (SafetyInfo & dtrans::AmbiguousGEP)
+    SafetyIssues.push_back("Ambiguous GEP");
   if (SafetyInfo & dtrans::UnhandledUse)
     SafetyIssues.push_back("Unhandled use");
   // Print the safety issues found
