@@ -266,6 +266,35 @@ define void @test14(i64 %size) {
 ; CHECK: dtrans: Detected allocation cast to pointer type
 ; CHECK: Detected type: %struct.badsize.S3 = type { i32, i32 }
 
+; This test checks a case where a bitcast that allows us to determine the
+; type of an allocated pointer is visited before the allocation call.
+; When the bitcast is visited for analysis, the LocalPointerAnalyzer must
+; proactively find the allocation call. If we wait until the allocation is
+; visited during analysis, the bitcast will be incorrectly flagged as a
+; bad bitcast.
+define void @test15() {
+entry:
+  br label %merge
+
+start:
+  %curP = bitcast i8* %next.p to %struct.good.S1*
+  br i1 undef, label %new, label %latch
+
+new:
+  %newP = tail call noalias i8* @malloc(i64 8)
+  br label %merge
+
+latch:
+  br i1 undef, label %done, label %start
+
+merge:
+  %next.p = phi i8* [ null, %entry ], [ %newP, %new ]
+  br label %start
+
+done:
+  ret void
+}
+
 
 ; The allocation output immediately follows the test where the allocation
 ; occurs. All type safety info is printed at the end. We check that here.

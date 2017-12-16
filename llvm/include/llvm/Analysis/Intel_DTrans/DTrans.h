@@ -182,6 +182,10 @@ AllocKind getAllocFnKind(Function *F, const TargetLibraryInfo &TLI);
 void getAllocSizeArgs(AllocKind Kind, CallInst *CI, Value* &AllocSizeVal,
                       Value* &AllocCountVal);
 
+/// Examine the specified types to determine if a bitcast from \p SrcTy to
+/// \p DestTy could be used to access the first element of SrcTy.
+bool isElementZeroAccess(llvm::Type *SrcTy, llvm::Type *DestTy);
+
 } // namespace dtrans
 
 } // namespace llvm
