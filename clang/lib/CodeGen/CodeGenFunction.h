@@ -3400,6 +3400,9 @@ private:
   void EmitIntelOMPTaskLoopDirective(const OMPTaskLoopDirective &S);
   void EmitIntelOMPTaskLoopSimdDirective(const OMPTaskLoopSimdDirective &S);
   void EmitIntelOMPDistributeDirective(const OMPDistributeDirective &S);
+public:
+  void RemapInlinedPrivates(const OMPExecutableDirective &D,
+                            OMPPrivateScope &PrivScope);
 #endif // INTEL_SPECIFIC_OPENMP
 public:
 

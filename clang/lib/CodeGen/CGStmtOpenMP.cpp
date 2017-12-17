@@ -81,6 +81,9 @@ public:
             });
           }
         }
+#if INTEL_SPECIFIC_OPENMP
+        CGF.RemapInlinedPrivates(S, InlinedShareds);
+#endif // INTEL_SPECIFIC_OPENMP
         (void)InlinedShareds.Privatize();
       }
     }
@@ -4506,6 +4509,30 @@ void CodeGenFunction::EmitOMPTargetUpdateDirective(
 }
 
 #if INTEL_SPECIFIC_OPENMP
+void CodeGenFunction::RemapInlinedPrivates(const OMPExecutableDirective &D,
+                                           OMPPrivateScope &PrivScope) {
+  if (CGM.getLangOpts().IntelOpenMP || CGM.getLangOpts().IntelOpenMPRegion) {
+    for (const auto *C : D.getClausesOfKind<OMPPrivateClause>()) {
+      for (auto *Ref : C->varlists()) {
+        if (auto *DRE = dyn_cast<DeclRefExpr>(Ref->IgnoreParenImpCasts())) {
+          if (auto *VD = dyn_cast<VarDecl>(DRE->getDecl())) {
+            if (VD->isLocalVarDeclOrParm())
+              continue;
+
+            DeclRefExpr DRE(const_cast<VarDecl *>(VD),
+                            /*RefersToEnclosingVariableOrCapture=*/false,
+                            VD->getType().getNonReferenceType(), VK_LValue,
+                            SourceLocation());
+            PrivScope.addPrivate(VD, [this, &DRE]() -> Address {
+              return EmitLValue(&DRE).getAddress();
+            });
+          }
+        }
+      }
+    }
+  }
+}
+
 void CodeGenFunction::EmitIntelOMPLoop(const OMPLoopDirective &S,
                                        OpenMPDirectiveKind K) {
   // Emit the loop iteration variable.
