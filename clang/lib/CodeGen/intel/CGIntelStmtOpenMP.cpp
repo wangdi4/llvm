@@ -1467,26 +1467,7 @@ namespace CGIntelOpenMP {
       });
     }
     // 'private' clause must be handled separately.
-    if (D.hasClausesOfKind<OMPPrivateClause>()) {
-      for (const auto *C : D.getClausesOfKind<OMPPrivateClause>()) {
-        for (auto *Ref : C->varlists()) {
-          if (auto *DRE = dyn_cast<DeclRefExpr>(Ref->IgnoreParenImpCasts())) {
-            if (auto *VD = dyn_cast<VarDecl>(DRE->getDecl())) {
-              if (VD->isLocalVarDeclOrParm())
-                continue;
-
-              DeclRefExpr DRE(const_cast<VarDecl *>(VD),
-                              /*RefersToEnclosingVariableOrCapture=*/false,
-                              VD->getType().getNonReferenceType(), VK_LValue,
-                              SourceLocation());
-              PrivScope.addPrivate(VD, [&CGF, &DRE]() -> Address {
-                return CGF.EmitLValue(&DRE).getAddress();
-              });
-            }
-          }
-        }
-      }
-    }
+    CGF.RemapInlinedPrivates(D, PrivScope);
     (void)PrivScope.Privatize();
     CGF.EmitStmt(CS->getCapturedStmt());
   }
