@@ -1142,6 +1142,27 @@ defm CMPUGE:    FloatCmp<CMPUGE, setuge>;
 defm CMPUEQ:    FloatCmp<CMPUEQ, setueq>;
 defm CMPUNE:    FloatCmp<CMPUNE, setune>;
 
+// These are the flags for we-don't-care-about-NaNs. When the architecture
+// finalizes NaN support, these should map into the cheaper ones.
+def : Pat<(i1 (setlt f16:$op1, f16:$op2)), (CMPOLTF16 $op1, $op2)>;
+def : Pat<(i1 (setle f16:$op1, f16:$op2)), (CMPOLEF16 $op1, $op2)>;
+def : Pat<(i1 (setgt f16:$op1, f16:$op2)), (CMPOGTF16 $op1, $op2)>;
+def : Pat<(i1 (setge f16:$op1, f16:$op2)), (CMPOGEF16 $op1, $op2)>;
+def : Pat<(i1 (seteq f16:$op1, f16:$op2)), (CMPOEQF16 $op1, $op2)>;
+def : Pat<(i1 (setne f16:$op1, f16:$op2)), (CMPONEF16 $op1, $op2)>;
+def : Pat<(i1 (setlt f32:$op1, f32:$op2)), (CMPOLTF32 $op1, $op2)>;
+def : Pat<(i1 (setle f32:$op1, f32:$op2)), (CMPOLEF32 $op1, $op2)>;
+def : Pat<(i1 (setgt f32:$op1, f32:$op2)), (CMPOGTF32 $op1, $op2)>;
+def : Pat<(i1 (setge f32:$op1, f32:$op2)), (CMPOGEF32 $op1, $op2)>;
+def : Pat<(i1 (seteq f32:$op1, f32:$op2)), (CMPOEQF32 $op1, $op2)>;
+def : Pat<(i1 (setne f32:$op1, f32:$op2)), (CMPONEF32 $op1, $op2)>;
+def : Pat<(i1 (setlt f64:$op1, f64:$op2)), (CMPOLTF64 $op1, $op2)>;
+def : Pat<(i1 (setle f64:$op1, f64:$op2)), (CMPOLEF64 $op1, $op2)>;
+def : Pat<(i1 (setgt f64:$op1, f64:$op2)), (CMPOGTF64 $op1, $op2)>;
+def : Pat<(i1 (setge f64:$op1, f64:$op2)), (CMPOGEF64 $op1, $op2)>;
+def : Pat<(i1 (seteq f64:$op1, f64:$op2)), (CMPOEQF64 $op1, $op2)>;
+def : Pat<(i1 (setne f64:$op1, f64:$op2)), (CMPONEF64 $op1, $op2)>;
+
 def CMPO   :   GenericOp<"cmpo">;
 def CMPUO  :   GenericOp<"cmpuo">;
 defm CMPO  :    FloatCmp<CMPO, seto>;
@@ -1406,11 +1427,25 @@ def REPEAT16  : RepeatOp<REPEAT, Ti16, IIALU>;
 def REPEAT32  : RepeatOp<REPEAT, Ti32, IIALU>;
 def REPEAT64  : RepeatOp<REPEAT, Ti64, IIALU>;
 
+def REPEATO   : GenericOp<"repeato">;
+def REPEATO0  : RepeatOp<REPEATO, Ti0,  IIALU>;
+def REPEATO1  : RepeatOp<REPEATO, Ti1,  IIALU>;
+def REPEATO8  : RepeatOp<REPEATO, Ti8,  IIALU>;
+def REPEATO16 : RepeatOp<REPEATO, Ti16, IIALU>;
+def REPEATO32 : RepeatOp<REPEATO, Ti32, IIALU>;
+def REPEATO64 : RepeatOp<REPEATO, Ti64, IIALU>;
+
 def STRIDE    : GenericOp<"stride">;
 def STRIDE8   : StrideOp<STRIDE, Ti8,  IIALU>;
 def STRIDE16  : StrideOp<STRIDE, Ti16, IIALU>;
 def STRIDE32  : StrideOp<STRIDE, Ti32, IIALU>;
 def STRIDE64  : StrideOp<STRIDE, Ti64, IIALU>;
+
+def STRIDEO    : GenericOp<"strideo">;
+def STRIDEO8   : StrideOp<STRIDEO, Ti8,  IIALU>;
+def STRIDEO16  : StrideOp<STRIDEO, Ti16, IIALU>;
+def STRIDEO32  : StrideOp<STRIDEO, Ti32, IIALU>;
+def STRIDEO64  : StrideOp<STRIDEO, Ti64, IIALU>;
 
 // FMA reductions.
 

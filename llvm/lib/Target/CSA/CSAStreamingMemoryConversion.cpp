@@ -60,6 +60,9 @@ namespace llvm {
         SmallVectorImpl<MachineInstr *> &uses) const;
     MachineInstr *getSingleUse(const MachineOperand &MO) const;
     bool isZero(const MachineOperand &MO) const;
+    const MachineOperand *getLength(const MachineOperand &start,
+        const MachineOperand &end, bool isEqual, int64_t stride,
+        MachineInstr *buildPoint) const;
   };
 }
 
@@ -135,6 +138,52 @@ bool CSAStreamingMemoryConversionPass::isZero(const MachineOperand &MO) const {
   return isImm(MO, 0);
 }
 
+const MachineOperand *CSAStreamingMemoryConversionPass::getLength(
+    const MachineOperand &start, const MachineOperand &end,
+    bool isEqual, int64_t stride, MachineInstr *MI) const {
+  if (stride < 0)
+    return getLength(end, start, isEqual, -stride, MI);
+  if (stride != 1) {
+    if (end.isImm() && isZero(start)) {
+      static MachineOperand saveImm = MachineOperand::CreateImm(0);
+      uint64_t withUnitStride = (end.getImm() + stride - 1) / stride;
+      saveImm.ChangeToImmediate(withUnitStride);
+      return &saveImm;
+    }
+    DEBUG(dbgs() << "Stream has a non-1 stride, not inserting division\n");
+    return nullptr;
+  }
+  if (isZero(start) && !isEqual) {
+    return &end;
+  }
+
+  MachineOperand effectiveStart = start;
+  if (isEqual && start.isImm()) {
+    effectiveStart = MachineOperand::CreateImm(start.getImm() - 1);
+  } else if (isEqual) {
+    DEBUG(dbgs() << "<= bounds not handled for non-immediate starts\n");
+    return nullptr;
+  }
+
+  // In the case where multiple loads/stores originate from this stream, we'll
+  // find the sub we want just above us.
+  MachineInstr *possible = MI->getPrevNode();
+  if (possible && possible->getOpcode() == CSA::SUB64) {
+    if (possible->getOperand(1).isIdenticalTo(end) &&
+        possible->getOperand(2).isIdenticalTo(effectiveStart))
+      return &possible->getOperand(0);
+  }
+
+  // Compute the length as end - start.
+  auto lic = LMFI->allocateLIC(&CSA::CI64RegClass);
+  auto builder = BuildMI(*MI->getParent(), MI, MI->getDebugLoc(),
+      TII->get(CSA::SUB64), lic);
+  builder.add(end);
+  builder.add(effectiveStart);
+  builder->setFlag(MachineInstr::NonSequential); // Don't run on the SXU
+  return &builder->getOperand(0);
+}
+
 // This takes a load or a store controlled by a sequence operator and
 // converts it into a streaming load and store. The requirements for legality
 // are as follows:
@@ -155,20 +204,23 @@ bool CSAStreamingMemoryConversionPass::isZero(const MachineOperand &MO) const {
 // * SEQOTNE64 %lic, 0, -1 => length = %lic
 // * SEQOTLTS64 0, %lic, 1 => length = %lic
 // * SEQOTLTU64 0, %lic, 1 => length = %lic
+// * SEQOT{NE,LTS,LTU}64 %base, %lic, 1 => length = %lic - %base
 // Note that the pred output here is the %stream we consider.
 //
 // The source of the address computations is more complicated. The following
 // patterns should be okay:
 // * LD (STRIDE %stream, %base, %stride) => base = %base, stride = %stride
-// * LDX (REPEAT %stream, %base), (SEQOT**64_index 0, %N, %stride)
-// TODO: Investigate LDD utility.
+// * LD{X,D,R} (REPEAT %stream, %base), (SEQOT**64_index 0, %N, %stride)
+// * LD{X,D,R] (REPEAT %stream, %base), (SEQOT**64_index %start, %end, %stride)
 
 bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
   const MachineOperand *base, *value;
   unsigned stride;
   const MachineOperand *inOrder, *outOrder, *memOrder;
   MachineInstr *stream;
-  switch (TII->getGenericOpcode(MI->getOpcode())) {
+  bool baseUsesStream = false;
+  auto genericOpcode = TII->getGenericOpcode(MI->getOpcode());
+  switch (genericOpcode) {
   case CSA::Generic::LD: case CSA::Generic::ST:
     {
       // The address here must be a STRIDE.
@@ -201,11 +253,18 @@ bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
       break;
     }
   case CSA::Generic::LDX: case CSA::Generic::STX:
+  case CSA::Generic::LDD: case CSA::Generic::STD:
+  case CSA::Generic::LDR: case CSA::Generic::STR:
     {
       bool isLoad = MI->mayLoad();
+      auto &baseOp = MI->getOperand(isLoad ? 2 : 1);
+      auto &indexOp = MI->getOperand(isLoad ? 3 : 2);
+      if (baseOp.isImm() || indexOp.isImm())
+        return false;
+
       // The base address needs to be repeated
-      MachineInstr *memBase = getDefinition(MI->getOperand(isLoad ? 2 : 1));
-      MachineInstr *memIndex = getDefinition(MI->getOperand(isLoad ? 3 : 2));
+      MachineInstr *memBase = getDefinition(baseOp);
+      MachineInstr *memIndex = getDefinition(indexOp);
       if (!memBase || memBase->getOpcode() != CSA::REPEAT64) {
         return false;
       }
@@ -234,12 +293,22 @@ bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
       }
 
       base = &memBase->getOperand(2);
+      baseUsesStream = true;
       const MachineOperand &strideOp = memIndex->getOperand(6);
       if (!strideOp.isImm()) {
         DEBUG(dbgs() << "Candidate instruction has non-constant stride.\n");
         return false;
       }
       stride = strideOp.getImm();
+      if (genericOpcode != CSA::Generic::LDX &&
+          genericOpcode != CSA::Generic::STX) {
+        unsigned opcodeSize = TII->getLicSize(MI->getOpcode()) / 8;
+        if (stride % opcodeSize) {
+          DEBUG(dbgs() << "Candidate instruction has improper stride.\n");
+          return false;
+        }
+        stride /= opcodeSize;
+      }
       memOrder = &MI->getOperand(4);
       inOrder = &MI->getOperand(5);
       outOrder = &MI->getOperand(isLoad ? 1 : 0);
@@ -305,27 +374,44 @@ bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
   const MachineOperand &seqStart = stream->getOperand(4);
   const MachineOperand &seqEnd = stream->getOperand(5);
   const MachineOperand &seqStep = stream->getOperand(6);
-  if (stream->getOpcode() == CSA::SEQOTNE64 && isImm(seqEnd, 0) &&
-      isImm(seqStep, -1)) {
-    length = &seqStart;
-  } else if (stream->getOpcode() == CSA::SEQOTNE64 && isImm(seqStep, 1)) {
-    if (isZero(seqStart)) {
-      length = &seqEnd;
-    } else {
-      DEBUG(dbgs() << "Stream operand is of unknown form.\n");
-      return false;
-    }
-  } else if ((stream->getOpcode() == CSA::SEQOTLTS64 ||
-        stream->getOpcode() == CSA::SEQOTLTU64) && isImm(seqStep, 1)) {
-    if (isZero(seqStart)) {
-      length = &seqEnd;
-    } else {
-      DEBUG(dbgs() << "Stream operand is of unknown form.\n");
-      return false;
-    }
-  } else {
+  if (!seqStep.isImm()) {
+    DEBUG(dbgs() << "Sequence step is not an immediate\n");
+    return false;
+  }
+  bool isEqual = false;
+  switch (TII->getGenericOpcode(stream->getOpcode())) {
+  case CSA::Generic::SEQOTNE:
+  case CSA::Generic::SEQOTLT:
+    isEqual = false;
+    break;
+  case CSA::Generic::SEQOTLE:
+    isEqual = true;
+    break;
+  default:
     DEBUG(dbgs() << "Stream operand is of unknown form.\n");
     return false;
+  }
+  length = getLength(seqStart, seqEnd, isEqual, seqStep.getImm(), stream);
+  if (!length) {
+    DEBUG(dbgs() << "Stream operand is of unknown form.\n");
+    return false;
+  }
+
+  if (baseUsesStream) {
+    if (seqStep.getImm() < 0) {
+      DEBUG(dbgs() << "Base using stream needs to have an incrementing step\n");
+      return false;
+    }
+    if (!isZero(seqStart)) {
+      unsigned loadBase = LMFI->allocateLIC(&CSA::CI64RegClass);
+      auto baseForStream = BuildMI(*MI->getParent(), MI, MI->getDebugLoc(),
+          TII->get(CSA::SLADD64), loadBase)
+        .add(seqStart)
+        .addImm(countTrailingZeros(TII->getLicSize(MI->getOpcode()) / 8))
+        .add(*base);
+      baseForStream->setFlag(MachineInstr::NonSequential);
+      base = &baseForStream->getOperand(0);
+    }
   }
 
   DEBUG(dbgs() << "No reason to disqualify the memory operation found, converting\n");
@@ -338,8 +424,14 @@ bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
   if (MI->mayLoad())
     builder.addReg(value->getReg(), RegState::Define); // Value (for load)
   builder.add(*realOutSink); // Output memory order
-  builder.add(*base); // Address
-  builder.add(*length); // Length
+  if (base->isReg())
+    builder.addReg(base->getReg());
+  else
+    builder.add(*base); // Address
+  if (length->isReg())
+    builder.addReg(length->getReg());
+  else
+    builder.add(*length); // Length
   builder.addImm(stride); // Stride
   if (!MI->mayLoad())
     builder.add(*value); // Value (for store)

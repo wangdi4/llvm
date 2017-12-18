@@ -13,9 +13,9 @@
 #include "llvm/Target/TargetInstrInfo.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
+#include "llvm/CodeGen/MachineRegionInfo.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
-#include "CSAInstrInfo.h"
 #include "llvm/Support/CommandLine.h"
 #include <deque>
 #include <set>
@@ -611,36 +611,101 @@ void ControlDependenceGraph::writeDotGraph(StringRef fname) {
 #endif
 }
 
-void CSASSAGraph::BuildCSASSAGraph(MachineFunction &F, MachineLoopInfo *MLI) {
-  MachineRegisterInfo* MRI = &F.getRegInfo();
+
+
+void CSASSAGraph::AddChild(CSASSANode* sn, MachineInstr* childInstr) {
+  CSASSANode* cnode;
+  if (instr2ssan.find(childInstr) == instr2ssan.end()) {
+    cnode = new CSASSANode(childInstr);
+    instr2ssan[childInstr] = cnode;
+  } else {
+    cnode = instr2ssan[childInstr];
+  }
+  sn->children.push_back(cnode);
+}
+
+
+void CSASSAGraph::AddInstructionToGraph(MachineInstr* minstr, unsigned skipOpnd) {
+  CSASSANode* sn;
+  if (instr2ssan.find(minstr) == instr2ssan.end()) {
+    sn = new CSASSANode(minstr);
+    instr2ssan[minstr] = sn;
+    root->children.push_back(sn);
+  } else {
+    sn = instr2ssan[minstr];
+  }
+  unsigned i = 0;
+  for (MIOperands MO(*minstr); MO.isValid(); ++MO, ++i) {
+    if (i == skipOpnd) continue;
+    if (MO->isReg() && MO->isUse()) {
+      unsigned reg = MO->getReg();
+      if (reg == CSA::IGN || MRI->def_empty(reg)) continue;
+      //olny lhdr pick's pred has two definitions
+      MachineInstr* dinstr = GetSingleDef(*MO);
+      if (dinstr) {
+        AddChild(sn, dinstr);
+      } else {
+        for (MachineInstr &DefMI : MRI->def_instructions(reg))
+          AddChild(sn, &DefMI);
+      }
+    }
+  }
+}
+
+
+MachineInstr* CSASSAGraph::GetSingleDef(MachineOperand& opnd) {
+  unsigned channel = opnd.getReg();
+  MachineInstr* dinstr = MRI->hasOneDef(channel) ? MRI->getVRegDef(channel) : nullptr;
+  //olny lhdr pick's pred has two definitions
+  if (dinstr == nullptr) {
+    MachineInstr* minstr = opnd.getParent();
+    assert(TII->isPick(minstr));
+    MachineRegisterInfo::def_instr_iterator defI = MRI->def_instr_begin(channel);
+    MachineRegisterInfo::def_instr_iterator defInext = std::next(defI);
+    assert(std::next(defInext) == MachineRegisterInfo::def_instr_end());
+    assert((TII->isMOV(&*defI) && TII->isInit(&*defInext)) || (TII->isInit(&*defI) && TII->isMOV(&*defInext)));
+    MachineInstr* initInstr = TII->isInit(&*defI) ? &*defI : &*defInext;
+    MachineInstr* movInstr = TII->isMOV(&*defI) ? &*defI : &*defInext;
+    MachineInstr* cmpInstr = MRI->getVRegDef(movInstr->getOperand(1).getReg());
+    //detect cycle of definition that is not phi related:
+    //pick/switch paire representing a repeat consturct, was used by loop condition cmp;
+    //cmp result is used to control pick/switch;
+    unsigned pickDst = minstr->getOperand(0).getReg();
+    if (TII->isCmp(cmpInstr) && !MRI->use_empty(pickDst) && !MRI->hasOneUse(pickDst)) {
+      MachineRegisterInfo::use_instr_iterator useI = MRI->use_instr_begin(minstr->getOperand(0).getReg());
+      MachineRegisterInfo::use_instr_iterator useInext = std::next(useI);
+      if (std::next(useInext) == MachineRegisterInfo::use_instr_end()) {
+        if (&*useI == cmpInstr || &*useInext == cmpInstr) {
+          MachineInstr* switchInstr = &*useI == cmpInstr ? &*useInext : &*useI;
+          //pick <-> switch cycle
+          if (TII->isSwitch(switchInstr) && MRI->getVRegDef(switchInstr->getOperand(3).getReg()) == minstr &&
+              MRI->getVRegDef(switchInstr->getOperand(2).getReg()) == cmpInstr &&
+              (MRI->getVRegDef(minstr->getOperand(2).getReg()) == switchInstr || MRI->getVRegDef(minstr->getOperand(3).getReg()) == switchInstr)) {
+            //side effect: add the pick/switch cyclic pair together
+            AddInstructionToGraph(switchInstr, 2);
+            dinstr = initInstr;
+          }
+        }
+      }
+    }
+  }
+  return dinstr;
+}
+
+void CSASSAGraph::BuildCSASSAGraph(MachineFunction &F) {
+  MRI = &F.getRegInfo();
+  TII = static_cast<const CSAInstrInfo*>(F.getSubtarget().getInstrInfo());
   root = new CSASSANode(nullptr);
   for (MachineFunction::iterator BB = F.begin(), E = F.end(); BB != E; ++BB) {
     for (MachineBasicBlock::iterator I = BB->begin(); I != BB->end(); ++I) {
       MachineInstr* minstr = &*I;
-      CSASSANode* sn;
-      if (instr2ssan.find(minstr) == instr2ssan.end()) {
-        sn = new CSASSANode(minstr);
-        instr2ssan[minstr] = sn;
-        root->children.push_back(sn);
-      } else {
-        sn = instr2ssan[minstr];
-      }
-
-      for (MIOperands MO(*minstr); MO.isValid(); ++MO) {
-        if (MO->isReg() && MO->isUse()) {
-          unsigned reg = MO->getReg();
-          for (MachineInstr &DefMI : MRI->def_instructions(reg)) {
-            MachineInstr* dinstr = &DefMI;
-            CSASSANode* cnode;
-            if (instr2ssan.find(dinstr) == instr2ssan.end()) {
-              cnode = new CSASSANode(dinstr);
-              instr2ssan[dinstr] = cnode;
-            } else {
-              cnode = instr2ssan[dinstr];
-            }
-            sn->children.push_back(cnode);
-          }
+      if (instr2ssan.find(minstr) != instr2ssan.end()) {
+        CSASSANode* ssan = instr2ssan[minstr];
+        if (std::find(root->children.begin(), root->children.end(), ssan) == root->children.end()) {
+          AddInstructionToGraph(minstr);
         }
+      } else {
+        AddInstructionToGraph(minstr);
       }
     }
   }

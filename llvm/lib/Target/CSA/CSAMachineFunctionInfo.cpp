@@ -8,19 +8,15 @@
 //===----------------------------------------------------------------------===//
 
 #include "CSAMachineFunctionInfo.h"
+#include "CSAInstrInfo.h"
 #include "CSARegisterInfo.h"
-
-#define GET_REGINFO_ENUM
-#include "CSAGenRegisterInfo.inc"
+#include "CSASubtarget.h"
+#include "llvm/CodeGen/MachineInstrBuilder.h"
+#include "llvm/CodeGen/MachineRegisterInfo.h"
 
 using namespace llvm;
 
 struct CSAMachineFunctionInfo::Info {
-  // Contains the LIC depth, indexed by target physical register number
-  // -1 means the LIC is not allocated
-  // 0 means default
-  // >0 means a specific depth
-  std::vector<short> licDepth;
   // This is the index into the list of "registers" for the specific class
   // of the next register to be allocated for the class
   std::vector<short> nextRegIndexInClass;
@@ -29,9 +25,10 @@ struct CSAMachineFunctionInfo::Info {
 void CSAMachineFunctionInfo::anchor() { }
 
 CSAMachineFunctionInfo::CSAMachineFunctionInfo(MachineFunction &MF)
-    : FPFrameIndex(-1), RAFrameIndex(-1), VarArgsFrameIndex(-1) {
+  : MRI(MF.getRegInfo()),
+    TII(MF.getSubtarget<CSASubtarget>().getInstrInfo()),
+    FPFrameIndex(-1), RAFrameIndex(-1), VarArgsFrameIndex(-1) {
   info = new Info;
-  info->licDepth.resize(CSA::NUM_TARGET_REGS, -1);
   info->nextRegIndexInClass.resize(32 /* register class count*/, 0);
 }
 
@@ -56,40 +53,50 @@ const TargetRegisterClass* CSAMachineFunctionInfo::licRCFromGenRC(const TargetRe
   return NULL;
 }
 
-const TargetRegisterClass* CSAMachineFunctionInfo::licFromType(MVT vt) {
-  if      (vt==MVT::i1)  return &CSA::CI1RegClass;
-  else if (vt==MVT::i8)  return &CSA::CI8RegClass;
-  else if (vt==MVT::i16) return &CSA::CI16RegClass;
-  else if (vt==MVT::i32) return &CSA::CI32RegClass;
-  else if (vt==MVT::i64) return &CSA::CI64RegClass;
-  else return NULL;
+unsigned CSAMachineFunctionInfo::allocateLIC(const TargetRegisterClass* RC,
+    const Twine &name) {
+  // In the future, we want to allocate LICs as virtual registers. For now,
+  // allocate as a physical register.
+#if 0
+  unsigned regno = MRI.createVirtualRegister(RC);
+#else
+  unsigned regindex = info->nextRegIndexInClass[RC->getID()]++;
+  unsigned regno = RC->getRegister(regindex);
+#endif
+  noteNewLIC(regno, TII->getSizeOfRegisterClass(RC), name);
+  return regno;
 }
 
-unsigned CSAMachineFunctionInfo::allocateLIC(const TargetRegisterClass* RC) {
-  // The register class must be a LIC class!
-  // assert(
-  //  RC==CI0RegClass || RC==CI1RegClass || RC==CI8RegClass ||
-  //    RC==CI16RegClass || RC==CI32RegClass || RC==CI64RegClass);
-  // get the index of the next lic in the class
-  unsigned index = info->nextRegIndexInClass[RC->getID()]++;
-
-  unsigned lic = RC->getRegister(index);
-
-  assert(lic < info->licDepth.capacity() && "Invalid CSA register number");
-  info->licDepth[lic] = 0;
-  return lic;
+void CSAMachineFunctionInfo::noteNewLIC(unsigned vreg, unsigned size,
+    const Twine &name) {
+  if (name.isTriviallyEmpty()) {
+    // Don't set empty names for physical registers.
+    //unsigned index = licInfo.size() + physicalLicInfo.size();
+    //setLICName(vreg, (Twine("cv") + Twine(size) + "_" + Twine(index)));
+  } else {
+    setLICName(vreg, name);
+  }
 }
 
-bool CSAMachineFunctionInfo::isAllocated(unsigned lic) const {
-  return info->licDepth[lic] >= 0;
+void CSAMachineFunctionInfo::setLICName(unsigned vreg, const Twine &name) const {
+  // TODO: guarantee uniqueness of names.
+  getLICInfo(vreg).name = name.str();
 }
 
-// Set the depth for a particular LIC explicitly, rather than the default.
-void CSAMachineFunctionInfo::setLICDepth(unsigned lic, int amount) {
-  info->licDepth[lic] = amount;
+CSAMachineFunctionInfo::LICInfo &
+CSAMachineFunctionInfo::getLICInfo(unsigned regno) {
+  bool isVirtual = TargetRegisterInfo::isVirtualRegister(regno);
+  auto &licMap = isVirtual ? licInfo : physicalLicInfo;
+  auto index = isVirtual ? TargetRegisterInfo::virtReg2Index(regno) : regno;
+  return licMap[index];
 }
 
-// Return the depth of the specified LIC.
-int CSAMachineFunctionInfo::getLICDepth(unsigned lic) {
-  return info->licDepth[lic];
+int CSAMachineFunctionInfo::getLICSize(unsigned regno) const {
+  const TargetRegisterClass *RC;
+  if (TargetRegisterInfo::isVirtualRegister(regno)) {
+    RC = MRI.getRegClass(regno);
+  } else {
+    RC = TII->lookupLICRegClass(regno);
+  }
+  return TII->getSizeOfRegisterClass(RC);
 }

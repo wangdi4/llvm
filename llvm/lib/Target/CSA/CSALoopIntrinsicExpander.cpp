@@ -349,12 +349,12 @@ bool CSALoopIntrinsicExpander::expandLoop(
   if (intr->getIntrinsicID() == Intrinsic::csa_spmdization) {
     Instruction*const preheader_terminator =
       L->getLoopPreheader()->getTerminator();
-    assert(intr->getNumArgOperands() == 1 && "Bad SPMDization intrinsic?");
+    assert(intr->getNumArgOperands() == 2 && "Bad SPMDization intrinsic?");
     CallInst*const spmdization_entry = IRBuilder<>{
       preheader_terminator
     }.CreateCall(
       Intrinsic::getDeclaration(module, Intrinsic::csa_spmdization_entry),
-      intr->getArgOperand(0),
+      {intr->getArgOperand(0), intr->getArgOperand(1)},
       "spmdization_entry"
     );
     SmallVector<BasicBlock*, 2> exits;

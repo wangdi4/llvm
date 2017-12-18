@@ -29,6 +29,7 @@ add_llvm_target(CSACodeGen
   CSAMachineFunctionInfo.cpp
   CSAOMPAllocaTypeFixer.cpp
   CSAOptDFPass.cpp
+  CSASeqOpt.cpp
   CSARedundantMovElim.cpp
   CSARegisterInfo.cpp
   CSASelectionDAGInfo.cpp
@@ -40,9 +41,6 @@ add_llvm_target(CSACodeGen
   CSAExpandInlineAsm.cpp
   CSAMemopOrdering.cpp
   CSAIndependentMemopOrdering.cpp
-  CSALicAllocation.cpp
-  CSAIfConversion.cpp
-  CSADFParLoopPass.cpp
   CSAFortranIntrinsics.cpp
   CSANormalizeDebugPass.cpp
   )

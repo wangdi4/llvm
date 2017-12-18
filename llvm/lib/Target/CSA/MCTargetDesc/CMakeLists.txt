@@ -1,4 +1,5 @@
 add_llvm_library(LLVMCSADesc
-  CSAMCTargetDesc.cpp
   CSAMCAsmInfo.cpp
+  CSAMCTargetDesc.cpp
+  CSAMCTargetExpr.cpp
   )

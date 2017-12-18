@@ -1230,7 +1230,8 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhi(MachineBasicBlock* mbb) {
   // Look up target register class corresponding to this register.
   const TargetRegisterClass* new_LIC_RC = LMFI->licRCFromGenRC(MRI->getRegClass(predReg));
   assert(new_LIC_RC && "Can't determine register class for register");
-  unsigned cpyReg = LMFI->allocateLIC(new_LIC_RC);
+  unsigned cpyReg = LMFI->allocateLIC(new_LIC_RC,
+    Twine("loop_") + mbb->getName() + "_phi");
   assert(mloop->isLoopExiting(latchBB) || latchNode->isParent(exitingNode));
   const unsigned moveOpcode = TII->getMoveOpcode(TRC);
   MachineInstr *cpyInst = BuildMI(*exitingBB, loc, DebugLoc(), TII->get(moveOpcode), cpyReg).addReg(predReg);
@@ -2980,7 +2981,7 @@ void CSACvtCFDFPass::repeatOperandInLoop(MachineLoop* mloop, MachineInstr* initI
             if (flipBackedgePred) {
               switchInst = BuildMI(*latchBB, latchBB->getFirstTerminator(), DebugLoc(), TII->get(switchOpcode),
                   rptIReg).
-                addReg(CSA::IGN).
+                addReg(CSA::IGN, RegState::Define).
                 addReg(backedgePred).
                 addReg(rptOReg);
               switchInst->getOperand(0).setIsDef();

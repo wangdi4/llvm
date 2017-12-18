@@ -64,6 +64,11 @@ ImplicitLicDefs("csa-implicit-lics", cl::Hidden,
                   cl::desc("CSA Specific: Define LICs implicitly"),
                   cl::init(false));
 
+static cl::opt<bool>
+EmitRegNames("csa-print-lic-names", cl::Hidden,
+             cl::desc("CSA Specific: Print pretty names for LICs"),
+             cl::init(false));
+
 namespace {
   class LineReader {
   private:
@@ -549,6 +554,16 @@ void CSAAsmPrinter::EmitFunctionBodyStart() {
   const CSAMachineFunctionInfo *LMFI = MF->getInfo<CSAMachineFunctionInfo>();
 
   if (not ImplicitLicDefs) {
+    auto printRegister = [&](unsigned reg, StringRef name) {
+      SmallString<128> Str;
+      raw_svector_ostream O(Str);
+      O << CSAInstPrinter::WrapCsaAsmLinePrefix();
+      O << "\t.lic .i" << LMFI->getLICSize(reg) << " ";
+      O << "%" << name;
+      O << CSAInstPrinter::WrapCsaAsmLineSuffix();
+      OutStreamer->EmitRawText(O.str());
+    };
+
     // Generate declarations for each LIC by looping over the LIC classes,
     // and over each lic in the class, outputting a decl if needed.
     // Note: If we start allowing parameters and results in LICs for
@@ -559,21 +574,26 @@ void CSAAsmPrinter::EmitFunctionBodyStart() {
       MCPhysReg reg = *ri;
       // A decl is needed if we allocated this LIC and it is has a using/defining
       // instruction. (Sometimes all such instructions are cleaned up by DIE.)
-      if (LMFI->isAllocated(reg) && !MRI->reg_empty(reg)) {
-        SmallString<128> Str;
-        raw_svector_ostream O(Str);
-        O << CSAInstPrinter::WrapCsaAsmLinePrefix();
-        O << "\t.lic ";
-        // Output type based on regclass
-        if      (CSA::CI64RegClass.contains(reg)) O << ".i64";
-        else if (CSA::CI32RegClass.contains(reg)) O << ".i32";
-        else if (CSA::CI16RegClass.contains(reg)) O << ".i16";
-        else if (CSA::CI8RegClass.contains(reg))  O << ".i8";
-        else if (CSA::CI1RegClass.contains(reg))  O << ".i1";
-        else if (CSA::CI0RegClass.contains(reg))  O << ".i0";
-        O << " %" << CSAInstPrinter::getRegisterName(reg);
-        O << CSAInstPrinter::WrapCsaAsmLineSuffix();
-        OutStreamer->EmitRawText(O.str());
+      if (reg != CSA::IGN && reg != CSA::NA && !MRI->reg_empty(reg)) {
+        StringRef name = LMFI->getLICName(reg);
+        if (!EmitRegNames) {
+          LMFI->setLICName(reg, "");
+          name = CSAInstPrinter::getRegisterName(reg);
+        } else if (name.empty()) {
+          name = CSAInstPrinter::getRegisterName(reg);
+        }
+        printRegister(reg, name);
+      }
+    }
+    for (unsigned index = 0, e = MRI->getNumVirtRegs(); index != e; ++index) {
+      unsigned vreg = TargetRegisterInfo::index2VirtReg(index);
+      if (!MRI->reg_empty(vreg)) {
+        StringRef name = LMFI->getLICName(vreg);
+        if (!EmitRegNames || name.empty()) {
+          LMFI->setLICName(vreg,
+            Twine("cv") + Twine(LMFI->getLICSize(vreg)) + "_" + Twine(vreg));
+        }
+        printRegister(vreg, LMFI->getLICName(vreg));
       }
     }
   }

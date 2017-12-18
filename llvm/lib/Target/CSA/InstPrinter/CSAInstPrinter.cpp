@@ -58,10 +58,14 @@ CSAInstPrinter::CSAInstPrinter(const MCAsmInfo &MAI, const MCInstrInfo &MII,
   FUName[CSA::FUNCUNIT::SPD] = "spd";// Scratchpad
 
   // Should match lists in CSAInstrInfo.h and csa.h in the simulator.
-  RMName[CSA::ROUND_NEAREST]    = "ROUND_NEAREST";
-  RMName[CSA::ROUND_DOWNWARD]   = "ROUND_DOWNWARD";
-  RMName[CSA::ROUND_UPWARD]     = "ROUND_UPWARD";
-  RMName[CSA::ROUND_TOWARDZERO] = "ROUND_TOWARDZERO";
+  RMName[CSA::ROUND_NEAREST]       = "ROUND_NEAREST";
+  RMName[CSA::ROUND_DOWNWARD]      = "ROUND_DOWNWARD";
+  RMName[CSA::ROUND_UPWARD]        = "ROUND_UPWARD";
+  RMName[CSA::ROUND_TOWARDZERO]    = "ROUND_TOWARDZERO";
+  RMName[CSA::ROUND_NEAREST_NW]    = "ROUND_NEAREST_NW";
+  RMName[CSA::ROUND_DOWNWARD_NW]   = "ROUND_DOWNWARD_NW";
+  RMName[CSA::ROUND_UPWARD_NW]     = "ROUND_UPWARD_NW";
+  RMName[CSA::ROUND_TOWARDZERO_NW] = "ROUND_TOWARDZERO_NW";
 
   // Should also match the names in CSAInstrInfo.h and the simulator.
   MLName[CSA::MEMLEVEL_NTA] = "MEMLEVEL_NTA";

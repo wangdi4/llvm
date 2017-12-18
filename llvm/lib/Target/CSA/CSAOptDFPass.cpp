@@ -20,7 +20,6 @@
 #include "CSAInstrInfo.h"
 #include "CSATargetMachine.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/ADT/SCCIterator.h"
 #include "llvm/CodeGen/LiveVariables.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
@@ -31,8 +30,7 @@
 #include "llvm/Target/TargetFrameLowering.h"
 #include "llvm/Target/TargetRegisterInfo.h"
 #include "llvm/Target/TargetSubtargetInfo.h"
-#include "MachineCDG.h"
-
+#include "CSASeqOpt.h"
 // Define data structures needed for sequence optimizations.
 #include "CSASequenceOpt.h"
 // Width of vectors we are using for sequence op calculation.
@@ -134,7 +132,7 @@ SequenceMaxPerLoop("csa-seq-max",
               cl::init(1024*1024));
 
 
-namespace {
+namespace llvm {
 
 class CSAOptDFPass : public MachineFunctionPass {
 public:
@@ -149,7 +147,7 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<MachineLoopInfo>();
-    AU.addRequired<MachineDominatorTree>();
+    //AU.addRequired<MachineDominatorTree>();
     MachineFunctionPass::getAnalysisUsage(AU);
   }
 
@@ -411,18 +409,12 @@ public:
   // become dead because of this disconnection.
   void
   disconnect_instruction(MachineInstr* MI);
-  bool isIntegerReg(unsigned Reg);
-  void SequenceOPT();
-  void SequenceIndv(CSASSANode* cmpNode, CSASSANode* switchNode, CSASSANode* addNode, CSASSANode* lhdrPhiNode);
-  void SequenceAddress(CSASSANode* switchNode, CSASSANode* addNode, CSASSANode* lhdrPhiNode);
 
 private:
   MachineFunction *thisMF;
-  const CSAInstrInfo* TII;
-  MachineRegisterInfo* MRI;
   MachineLoopInfo *MLI;
-  MachineDominatorTree *DT;
-  CSAMachineFunctionInfo *LMFI;
+  //MachineDominatorTree *DT;
+  //CSAMachineFunctionInfo *LMFI;
 };
 } // Close unnamed namespace
 
@@ -442,16 +434,14 @@ bool CSAOptDFPass::runOnMachineFunction(MachineFunction &MF) {
   if (OptDFPass == 0) return false;
 
   thisMF = &MF;
-  TII = static_cast<const CSAInstrInfo*>(thisMF->getSubtarget<CSASubtarget>().getInstrInfo());
-  MRI = &thisMF->getRegInfo();
   MLI = &getAnalysis<MachineLoopInfo>();
-  DT = &getAnalysis<MachineDominatorTree>();
-  LMFI = thisMF->getInfo<CSAMachineFunctionInfo>();
+  //DT = &getAnalysis<MachineDominatorTree>();
 
   bool Modified = false;
 
   if (RunSequenceOpt && RunSequenceOptType == SequenceOptMode::analysis) {
-    SequenceOPT();
+    CSASeqOpt seqOpt(thisMF);
+    seqOpt.SequenceOPT();
     return Modified;
   }
   // Using SEQ in place of pick/add/cmp/switch pattern.
@@ -2135,10 +2125,12 @@ seq_do_transform_loop_seq(CSASeqLoopInfo& loop,
   // one dependent sequence.
   seqInfo->pred_reg = CSA::IGN;
   if (num_dependent_sequences > 0) {
-    seqInfo->pred_reg = LMFI->allocateLIC(SeqPredRC);
+    seqInfo->pred_reg = LMFI->allocateLIC(SeqPredRC,
+      Twine("seq_") + Twine(loop.loop_id) + "_pred");
   }
   seqInfo->first_reg = CSA::IGN;
-  seqInfo->last_reg =  LMFI->allocateLIC(SeqPredRC);
+  seqInfo->last_reg =  LMFI->allocateLIC(SeqPredRC,
+    Twine("seq_") + Twine(loop.loop_id) + "_last");
 
   seqInfo->seq_inst = BuildMI(*BB,
                               indvarCandidate.pickInst,
@@ -2442,379 +2434,5 @@ CSAOptDFPass::seq_do_transform_loop(CSASeqLoopInfo& loop) {
        it != insToDisconnect.end();
        ++it) {
     disconnect_instruction(*it);
-  }
-}
-
-
-
-bool CSAOptDFPass::isIntegerReg(unsigned Reg) {
-  const TargetRegisterClass *TRC = MRI->getRegClass(Reg);
-  if (TRC->getID() == CSA::I0RegClassID ||
-    TRC->getID() == CSA::I1RegClassID ||
-    TRC->getID() == CSA::I8RegClassID ||
-    TRC->getID() == CSA::I16RegClassID ||
-    TRC->getID() == CSA::I32RegClassID ||
-    TRC->getID() == CSA::I64RegClassID) {
-    return true;
-  }
-  return false;
-}
-
-
-void CSAOptDFPass::SequenceIndv(CSASSANode* cmpNode, CSASSANode* switchNode, CSASSANode* addNode, CSASSANode* lhdrPickNode) {
-  //addNode has inputs phiNode, and an immediate input
-  bool isIDVCycle = addNode->children.size() == 1 && addNode->children[0] == lhdrPickNode;
-  //switchNode has inputs mov->cmpNode, addNode
-  isIDVCycle = isIDVCycle &&
-    MRI->getVRegDef(switchNode->minstr->getOperand(2).getReg()) == cmpNode->minstr &&
-    MRI->getVRegDef(switchNode->minstr->getOperand(3).getReg()) == addNode->minstr;
-
-  MachineInstr* loopInit = nullptr;
-  MachineInstr* movInstr = nullptr;
-  unsigned numDef = 0;
-  for (MachineInstr &DefMI : MRI->def_instructions(lhdrPickNode->minstr->getOperand(1).getReg())) {
-    ++numDef;
-    if (DefMI.getOpcode() == CSA::INIT1) {
-      loopInit = &DefMI;
-    } else if (DefMI.getOpcode() == CSA::MOV1) {
-      isIDVCycle = isIDVCycle && MRI->getVRegDef(DefMI.getOperand(1).getReg()) == cmpNode->minstr;
-      movInstr = &DefMI;
-    }
-  }
-  //mov from a cmp result, and assigned to init's dst
-  isIDVCycle = isIDVCycle && numDef == 2 && movInstr->getOperand(0).getReg() == loopInit->getOperand(0).getReg();
-  unsigned idvIdx;
-  //cmpNode has inputs either pickNode or addNode
-  if (cmpNode->children.size() == 1) {
-    //cmp with immediate
-    idvIdx = cmpNode->minstr->getOperand(1).isReg() ? 1 : 2;
-  } else {
-    idvIdx = MRI->getVRegDef(cmpNode->minstr->getOperand(1).getReg()) == lhdrPickNode->minstr ||
-             MRI->getVRegDef(cmpNode->minstr->getOperand(1).getReg()) == addNode->minstr ? 1 : 2;
-  }
-  isIDVCycle = isIDVCycle &&
-               (MRI->getVRegDef(cmpNode->minstr->getOperand(idvIdx).getReg()) == lhdrPickNode->minstr ||
-                MRI->getVRegDef(cmpNode->minstr->getOperand(idvIdx).getReg()) == addNode->minstr);
-
-  assert(CSA::CMPNE16 < CSA::CMPNE32 && CSA::CMPNE32 < CSA::CMPNE64 && CSA::CMPNE64 < CSA::CMPNE8);
-  isIDVCycle = isIDVCycle && cmpNode->minstr->getOpcode() >= CSA::CMPNE16 && cmpNode->minstr->getOpcode() <= CSA::CMPNE8;
-  MachineOperand& bndOpnd = cmpNode->minstr->getOperand(3 - idvIdx);
-  //boundary must be integer value or integer register defined outside the loop
-  bool isBndRepeated = false;
-  if (bndOpnd.isReg() && isIntegerReg(bndOpnd.getReg())) {
-    MachineInstr* bndPick = MRI->getVRegDef(bndOpnd.getReg());
-    if (TII->isPick(bndPick) &&
-        MRI->hasOneUse(bndPick->getOperand(0).getReg())) {
-      MachineInstr* bndSwitch = MRI->use_begin(bndPick->getOperand(0).getReg())->getParent();
-      unsigned lpbkIdx = 1 - loopInit->getOperand(0).getImm();
-      if (MRI->hasOneUse(bndSwitch->getOperand(lpbkIdx).getReg()) &&
-          MRI->use_begin(bndSwitch->getOperand(lpbkIdx).getReg())->getParent() == bndPick && 
-          MRI->use_empty(bndSwitch->getOperand(1-lpbkIdx).getReg())) {
-        isBndRepeated = bndPick->getOperand(1).getReg() == loopInit->getOperand(0).getReg() &&
-                        bndSwitch->getOperand(2).getReg() == loopInit->getOperand(0).getReg();
-      }
-    }
-  }
-
-  isIDVCycle = isIDVCycle && (isBndRepeated || bndOpnd.isImm());
-  //handle only |stride| == 1 for now
-  unsigned strideIdx = addNode->minstr->getOperand(1).isReg() ? 2 : 1;
-  isIDVCycle = isIDVCycle && addNode->minstr->getOperand(strideIdx).isImm() &&
-    (addNode->minstr->getOperand(strideIdx).getImm() == 1 ||
-      addNode->minstr->getOperand(strideIdx).getImm() == -1);
-  //uses of phi can only be add or cmp
-  unsigned phidst = lhdrPickNode->minstr->getOperand(0).getReg();
-  MachineRegisterInfo::use_iterator UI = MRI->use_begin(phidst);
-  while (UI != MRI->use_end()) {
-    MachineOperand &UseMO = *UI;
-    ++UI;
-    MachineInstr *UseMI = UseMO.getParent();
-    if (UseMI != addNode->minstr && UseMI != cmpNode->minstr) {
-      isIDVCycle = false;
-      break;
-    }
-  }
-  //uses of add can only be switch or cmp
-  unsigned adddst = addNode->minstr->getOperand(0).getReg();
-  UI = MRI->use_begin(adddst);
-  while (UI != MRI->use_end()) {
-    MachineOperand &UseMO = *UI;
-    ++UI;
-    MachineInstr *UseMI = UseMO.getParent();
-    if (UseMI != switchNode->minstr && UseMI != cmpNode->minstr) {
-      isIDVCycle = false;
-      break;
-    }
-  }
-  unsigned pickInitIdx = 2 + loopInit->getOperand(1).getImm();
-  MachineOperand& initOpnd = lhdrPickNode->minstr->getOperand(pickInitIdx);
-  MachineOperand& bundOpnd = cmpNode->minstr->getOperand(3 - idvIdx);
-  //init and boundary, one of them has to be 0.
-  isIDVCycle = isIDVCycle && ((initOpnd.isImm() && initOpnd.getImm() == 0) || (bundOpnd.isImm() && bundOpnd.getImm() == 0));
-  if (isIDVCycle) {
-    unsigned compareSense = idvIdx - 1;
-    //1 means: false control sig loop back, true control sig exit loop
-    unsigned switchSense = loopInit->getOperand(1).getImm();
-    unsigned switchOutIndex = switchNode->minstr->getOperand(0).getReg() == lhdrPickNode->minstr->getOperand(5-pickInitIdx).getReg() ? 1 : 0;
-
-    //no use of switch outside the loop, only use is lhdrphi
-    if ((switchNode->minstr->getOperand(switchOutIndex).getReg() == CSA::IGN || 
-         MRI->use_empty(switchNode->minstr->getOperand(switchOutIndex).getReg())) &&
-        MRI->hasOneUse(switchNode->minstr->getOperand(1 - switchOutIndex).getReg())) {
-
-      // Find a sequence opcode that matches our compare opcode.
-      unsigned seqOp;
-      if (!CSASeqLoopInfo::compute_matching_seq_opcode(cmpNode->minstr->getOpcode(),
-        addNode->minstr->getOpcode(),
-        compareSense,
-        switchSense,
-        *TII,
-        &seqOp)) {
-        assert(false && "can't find matching sequence opcode\n");
-      }
-#if 1 
-      //add is before cmp => need to adjust init value
-      if (MRI->getVRegDef(cmpNode->minstr->getOperand(idvIdx).getReg()) == addNode->minstr) {
-        if (initOpnd.isImm()) {
-          int adjInit = addNode->minstr->getOperand(strideIdx).getImm() + initOpnd.getImm();
-          initOpnd = MachineOperand::CreateImm(adjInit);
-        } else {
-          const TargetRegisterClass *TRC = TII->lookupLICRegClass(addNode->minstr->getOperand(0).getReg());
-          unsigned adjInitVReg = LMFI->allocateLIC(TRC);
-          MachineInstr* adjInitInstr = BuildMI(*lhdrPickNode->minstr->getParent(),
-            lhdrPickNode->minstr, DebugLoc(),
-            TII->get(addNode->minstr->getOpcode()),
-            adjInitVReg).
-            addImm(addNode->minstr->getOperand(strideIdx).getImm()).                      //stride
-            addReg(initOpnd.getReg());                                                      //init
-          adjInitInstr->setFlag(MachineInstr::NonSequential);
-          initOpnd = adjInitInstr->getOperand(0);
-        }
-      }
-#endif 
-      //MachineOperand cpyInit(initOpnd);
-      //cpyInit.isDef = false;
-      unsigned firstReg = LMFI->allocateLIC(&CSA:: CI1RegClass);
-      unsigned lastReg = LMFI->allocateLIC(&CSA::CI1RegClass);
-      MachineInstr* seqInstr = BuildMI(*lhdrPickNode->minstr->getParent(),
-        lhdrPickNode->minstr, DebugLoc(),
-        TII->get(seqOp),
-        lhdrPickNode->minstr->getOperand(0).getReg()).
-        addReg(cmpNode->minstr->getOperand(0).getReg(), RegState::Define).  //pred
-        addReg(firstReg, RegState::Define).
-        addReg(lastReg, RegState::Define).
-        add(initOpnd).                                                     //init
-        add(cmpNode->minstr->getOperand(3 - idvIdx)).                       //boundary
-        add(addNode->minstr->getOperand(strideIdx));                      //stride
-      seqInstr->setFlag(MachineInstr::NonSequential);
-      //remove the instructions in the IDV cycle.
-      cmpNode->minstr->removeFromParent();
-      switchNode->minstr->removeFromParent();
-      addNode->minstr->removeFromBundle();
-      lhdrPickNode->minstr->removeFromParent();
-      //currently only the cmp instr can have usage outside the cycle
-      cmpNode->minstr = seqInstr;
-    }
-  }
-}
-
-
-
-#if 1
-void CSAOptDFPass::SequenceAddress(CSASSANode* switchNode, CSASSANode* addNode, CSASSANode* lhdrPickNode) {
-  //addNode has inputs phiNode, and an immediate input
-  bool isIDVCycle = addNode->children.size() == 1 && addNode->children[0] == lhdrPickNode;
-  //switchNode has inputs addNode, and switch's control is SeqOT
-  isIDVCycle = isIDVCycle &&
-    TII->isSeqOT(MRI->getVRegDef(switchNode->minstr->getOperand(2).getReg())) &&
-    MRI->getVRegDef(switchNode->minstr->getOperand(3).getReg()) == addNode->minstr;
-
-  //handle only constant stride for now
-  unsigned strideIdx = addNode->minstr->getOperand(1).isReg() ? 2 : 1;
-  isIDVCycle = isIDVCycle &&
-               addNode->minstr->getOperand(strideIdx).isImm() &&
-               //TODO: handle decreemntal address computing
-               addNode->minstr->getOperand(strideIdx).getImm() > 0;
-  //uses of phi can only be add or address computing
-  bool phiuseOK = false;
-  unsigned phidst = lhdrPickNode->minstr->getOperand(0).getReg();
-  if (MRI->hasOneUse(phidst)) {
-    phiuseOK = true;
-  } else {
-    MachineRegisterInfo::use_instr_iterator I = MRI->use_instr_begin(phidst);
-    MachineRegisterInfo::use_instr_iterator Inext = std::next(I);
-    //phi has exactly two uses
-    if (std::next(I) == MachineRegisterInfo::use_instr_end()) {
-      if ((TII->isLoad(&*I) || TII->isStore(&*I)) &&
-        &*Inext == addNode->minstr) {
-        phiuseOK = true;
-      } else if ((TII->isLoad(&*Inext) || TII->isStore(&*Inext)) &&
-        &*I == addNode->minstr) {
-        phiuseOK = true;
-      }
-    }
-  }
-
-  bool adduseOK = false;
-  unsigned adddst = addNode->minstr->getOperand(0).getReg();
-  if (MRI->hasOneUse(phidst)) {
-    adduseOK = true;
-  } else {
-    MachineRegisterInfo::use_instr_iterator I = MRI->use_instr_begin(adddst);
-    MachineRegisterInfo::use_instr_iterator Inext = std::next(I);
-    //phi has exactly two uses
-    if (std::next(I) == MachineRegisterInfo::use_instr_end()) {
-      if ((TII->isLoad(&*I) || TII->isStore(&*I)) &&
-        &*Inext == addNode->minstr) {
-        adduseOK = true;
-      }
-      else if ((TII->isLoad(&*Inext) || TII->isStore(&*Inext)) &&
-        &*I == addNode->minstr) {
-        adduseOK = true;
-      }
-    }
-  }
-  isIDVCycle = isIDVCycle && phiuseOK && adduseOK;
-
-  bool switchuseOK = false;
-  unsigned switchBackReg;
-  unsigned switchFalse = switchNode->minstr->getOperand(0).getReg();
-  unsigned switchTrue = switchNode->minstr->getOperand(1).getReg();
-  if (MRI->use_empty(switchFalse) && MRI->hasOneUse(switchTrue) &&
-      &*MRI->use_instr_begin(switchTrue) == lhdrPickNode->minstr) {
-    switchBackReg = switchFalse;
-    switchuseOK = true;
-  } else if (MRI->use_empty(switchTrue) && MRI->hasOneUse(switchFalse) &&
-             &*MRI->use_instr_begin(switchFalse) == lhdrPickNode->minstr) {
-    switchBackReg = switchTrue;
-    switchuseOK = true;
-  } 
-  
-  isIDVCycle = isIDVCycle && switchuseOK;
-
-  if (isIDVCycle) {
-    MachineInstr* seqIndv = MRI->getVRegDef(switchNode->minstr->getOperand(2).getReg());
-    assert(TII->isSeqOT(seqIndv));
-    MachineOperand& initIndv = seqIndv->getOperand(4);
-    MachineOperand& bndIndv = seqIndv->getOperand(5);
-    MachineOperand& stridIndv = seqIndv->getOperand(6);
-    assert(stridIndv.isImm() && (stridIndv.getImm() == 1 || stridIndv.getImm() == -1));
-    unsigned seqReg;
-    MachineOperand& initOpnd = lhdrPickNode->minstr->getOperand(2).getReg() == switchBackReg ?
-                       lhdrPickNode->minstr->getOperand(3) :
-                       lhdrPickNode->minstr->getOperand(2);
-    const TargetRegisterClass *addTRC = TII->lookupLICRegClass(addNode->minstr->getOperand(0).getReg());
-#if 1
-    if (!MRI->hasOneUse(phidst)) {
-      assert(MRI->hasOneUse(adddst));
-      seqReg = phidst;
-    } else {
-      assert(!MRI->hasOneUse(adddst));
-      seqReg = adddst;
-      //adjust init
-      if (initOpnd.isImm()) {
-        int adjInit = initOpnd.getImm() + addNode->minstr->getOperand(strideIdx).getImm();
-        initOpnd = MachineOperand::CreateImm(adjInit);
-      } else {
-        unsigned adjInitVReg = LMFI->allocateLIC(addTRC);
-        MachineInstr* adjInitInstr = BuildMI(*lhdrPickNode->minstr->getParent(),
-          lhdrPickNode->minstr, DebugLoc(),
-          TII->get(addNode->minstr->getOpcode()),
-          adjInitVReg).
-          addImm(addNode->minstr->getOperand(strideIdx).getImm()).                      //stride
-          add(initOpnd);                                                      //init
-        adjInitInstr->setFlag(MachineInstr::NonSequential);
-        initOpnd = adjInitInstr->getOperand(0);
-      }
-    }
-#endif 
-    //TODO: only compute trip-counter from NE comparison.
-    assert(CSA::SEQOTNE16 < CSA::SEQOTNE32 && CSA::SEQOTNE32 < CSA::SEQOTNE64 && CSA::SEQOTNE64 < CSA::SEQOTNE8);
-    assert(seqIndv->getOpcode() >= CSA::SEQOTNE16 && seqIndv->getOpcode() <= CSA::SEQOTNE8);
-    const TargetRegisterClass *TRC = MRI->getRegClass(addNode->minstr->getOperand(0).getReg());
-    const unsigned FMAOp = TII->makeOpcode(CSA::Generic::FMA, TRC);
-    MachineOperand& tripcountOpnd = initIndv.isImm() ? bndIndv : initIndv;
-    unsigned fmaReg = LMFI->allocateLIC(addTRC);
-    MachineInstr* fmaInstr = BuildMI(*lhdrPickNode->minstr->getParent(),
-      lhdrPickNode->minstr, DebugLoc(),
-      TII->get(FMAOp),
-      fmaReg).
-      add(tripcountOpnd).                                   //trip count from indv
-      add(addNode->minstr->getOperand(strideIdx)).          //stride
-      add(initOpnd);                                        //init
-    fmaInstr->setFlag(MachineInstr::NonSequential);
-
-    unsigned firstReg = LMFI->allocateLIC(&CSA::I1RegClass);
-    unsigned lastReg = LMFI->allocateLIC(&CSA::I1RegClass);
-    unsigned predReg = LMFI->allocateLIC(&CSA::I1RegClass);
-    MachineInstr* seqInstr = BuildMI(*lhdrPickNode->minstr->getParent(),
-      lhdrPickNode->minstr, DebugLoc(),
-      TII->get(seqIndv->getOpcode()),
-      seqReg).
-      addReg(predReg, RegState::Define).                    //pred
-      addReg(firstReg, RegState::Define).
-      addReg(lastReg, RegState::Define).
-      add(initOpnd).                                        //init
-      addReg(fmaReg).                                       //boundary
-      add(addNode->minstr->getOperand(strideIdx));          //stride
-    seqInstr->setFlag(MachineInstr::NonSequential);
-
-    //remove the instructions in the IDV cycle.
-    switchNode->minstr->removeFromParent();
-    addNode->minstr->removeFromBundle();
-    lhdrPickNode->minstr->removeFromParent();
-
-  }
-}
-#endif 
-
-
-void CSAOptDFPass::SequenceOPT() {
-  CSASSAGraph csaSSAGraph;
-  csaSSAGraph.BuildCSASSAGraph(*thisMF, MLI);
-  for (scc_iterator<CSASSANode*> I = scc_begin(csaSSAGraph.getRoot()), IE = scc_end(csaSSAGraph.getRoot()); I != IE; ++I) {
-    const std::vector<CSASSANode *> &SCCNodes = *I;
-    if (SCCNodes.size() > 1) {
-      CSASSANode* lhdrPickNode = nullptr;
-      CSASSANode* cmpNode = nullptr;
-      CSASSANode* addNode = nullptr;
-      CSASSANode* switchNode = nullptr;
-      bool isIDVCandidate = true;
-      for (std::vector<CSASSANode *>::const_iterator nodeI = SCCNodes.begin(), nodeIE = SCCNodes.end(); nodeI != nodeIE && isIDVCandidate; ++nodeI) {
-        CSASSANode* sccn = *nodeI;
-        MachineInstr* minstr = sccn->minstr;
-        //loop header phi
-        if (TII->isPick(minstr) && !lhdrPickNode) {
-          unsigned pickCtrl = minstr->getOperand(1).getReg();
-          for (MachineInstr &ctrlDef : MRI->def_instructions(pickCtrl)) {
-            if (ctrlDef.getOpcode() == CSA::MOV1) continue;
-            else if (ctrlDef.getOpcode() == CSA::INIT1 &&
-                     (ctrlDef.getOperand(1).getImm() == 0 ||
-                      ctrlDef.getOperand(1).getImm() == 1))
-              lhdrPickNode = sccn;
-            else
-              isIDVCandidate = false;
-          }
-        } else if (TII->isAdd(minstr) &&     //TODO: handle sub
-                   TII->adjustOpcode(minstr->getOpcode(), CSA::Generic::STRIDE) != CSA::INVALID_OPCODE && 
-                   !addNode) {
-          addNode = sccn;
-        } else if (TII->isCmp(minstr) && !cmpNode && (nodeI + 1 != nodeIE)) { //cmp can't be the first or last
-          cmpNode = sccn;
-        } else if (TII->isSwitch(minstr) && !switchNode) {
-          switchNode = sccn;
-        } else if (TII->isMOV(minstr)) {
-          //skip mov
-        } else {
-          isIDVCandidate = false;
-        }
-      }
-
-      if (isIDVCandidate && cmpNode && switchNode && addNode && lhdrPickNode) {
-        SequenceIndv(cmpNode, switchNode, addNode, lhdrPickNode);
-      } else if (isIDVCandidate && switchNode && addNode && lhdrPickNode) {
-        SequenceAddress(switchNode, addNode, lhdrPickNode);
-      }
-    }
   }
 }

@@ -48,8 +48,9 @@
 
 using namespace llvm;
 
-static cl::opt<bool> DisableIRReductionOpt{
-  "csa-disable-IR-reduction-opt", cl::Hidden,
+cl::opt<bool> DisableIRReductionOpt{
+  "csa-disable-IR-reduction-opt",
+  cl::Hidden,
   cl::desc("CSA Specific: disables IR level optimization to help in generating reduction operations")
 };
 
@@ -112,12 +113,15 @@ bool CSAIRReductionOpt::runOnLoop(Loop *L, LPPassManager &) {
         incrVal = (addInst->getOperand(0) == v0) ? addInst->getOperand(1) : addInst->getOperand(0);
         exitPhi->addIncoming(Zero, exitPhi->getIncomingBlock(0));
         exitPhi->addIncoming(incrVal, exitPhi->getIncomingBlock(1));
-      } else {
+      } else if (dyn_cast<Instruction>(v1) == &I) {
         addInst = dyn_cast<Instruction>(v0);
         incrVal = (addInst->getOperand(0) == v1) ? addInst->getOperand(1) : addInst->getOperand(0);
         exitPhi->addIncoming(incrVal, exitPhi->getIncomingBlock(0));
         exitPhi->addIncoming(Zero, exitPhi->getIncomingBlock(1));
-      }
+      } else
+        continue; 
+      if (addInst->hasOneUse()) 
+        toBeDeleted.push_back(addInst);
       exitPhi->removeIncomingValue((unsigned)0);
       exitPhi->removeIncomingValue((unsigned)0);
       Instruction *newAddInst = addInst->clone();
@@ -125,8 +129,6 @@ bool CSAIRReductionOpt::runOnLoop(Loop *L, LPPassManager &) {
 	    newAddInst->setOperand(0, &I);
 	    newAddInst->setOperand(1, exitInst);
       newAddInst->insertBefore(exitInst->getParent()->getFirstNonPHI());
-      if (addInst->hasOneUse()) 
-        toBeDeleted.push_back(addInst);
       changed = true;
     }
   }
