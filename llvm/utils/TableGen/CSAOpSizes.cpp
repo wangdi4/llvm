@@ -36,6 +36,9 @@ using namespace llvm;
 
 namespace {
 
+typedef std::vector<
+  std::tuple<size_t, unsigned, unsigned, const CodeGenInstruction *>
+  > ReverseMapTy;
 class CSAOpSizes {
   RecordKeeper &Records;
   CodeGenDAGPatterns CDP;
@@ -49,6 +52,8 @@ public:
 
 private:
   void emitEnums(raw_ostream &OS, const std::vector<Record *> &GenericOps);
+  void emitMIRMatcher(raw_ostream &OS, const ReverseMapTy &ReverseMap,
+    const std::vector<Record *> &GenericOps);
 };
 
 } // end anonymous namespace
@@ -71,8 +76,7 @@ void CSAOpSizes::run(raw_ostream &OS) {
 
   CodeGenTarget &Target = CDP.getTargetInfo();
   auto Namespace = Target.getInstNamespace();
-  typedef std::tuple<size_t, unsigned, unsigned, const CodeGenInstruction *> ReverseMapTy;
-  std::vector<ReverseMapTy> ReverseMap;
+  ReverseMapTy ReverseMap;
 
   OS << "static OpcGenericMap opcode_to_generic_map[] = {\n";
   for (auto &II : Target.getInstructionsByEnumValue()) {
@@ -142,6 +146,8 @@ void CSAOpSizes::run(raw_ostream &OS) {
   OS << "} // end llvm namespace\n";
 
   OS << "#endif // GET_OPC_GENERIC_MAP\n\n";
+
+  emitMIRMatcher(OS, ReverseMap, GenericOps);
 }
 
 // emitEnums - Print out enum values for all of the instructions.
@@ -173,6 +179,64 @@ void CSAOpSizes::emitEnums(raw_ostream &OS,
   OS << "} // end llvm namespace\n";
 
   OS << "#endif // GET_CSAOPGENERIC_ENUM\n\n";
+}
+
+void CSAOpSizes::emitMIRMatcher(raw_ostream &OS, const ReverseMapTy &ReverseMap,
+    const std::vector<Record *> &GenericOps) {
+  OS << "#ifdef GET_MIRMATCHERS\n";
+  OS << "#undef GET_MIRMATCHERS\n";
+
+  OS << "namespace llvm {\n\n";
+
+  CodeGenTarget Target(Records);
+
+  StringRef Namespace = Target.getInstNamespace();
+
+  if (Namespace.empty())
+    PrintFatalError("No instructions defined!");
+
+  OS << "namespace " << Namespace << "Match {\n";
+
+  const auto &Insts = Target.getInstructionsByEnumValue();
+  for (auto &II : Insts) {
+    // Ignore target-independent opcodes
+    if (II->Namespace == "TargetOpcode")
+      continue;
+    StringRef name = II->TheDef->getName();
+    OS << "  constexpr mirmatch::Opcode<" << II->Namespace << "::"
+      << name << "> " << name.lower() << "{};\n";
+  }
+
+  OS << "\n";
+
+  // Add the reverse opcode map.
+  unsigned expected = ~0U;
+  bool needToClose = false, needComma = false;
+  for (size_t i = 0; i < ReverseMap.size(); i++) {
+    unsigned index = std::get<0>(ReverseMap[i]);
+    if (index != expected) {
+      if (needToClose) {
+        OS << "> " << GenericOps[expected]->getName().lower() << "_N{};\n";
+      }
+      OS << "  constexpr mirmatch::OpcodeGroup<";
+      needToClose = true;
+      needComma = false;
+    }
+    expected = index;
+
+    if (needComma)
+      OS << ", ";
+    auto &II = std::get<3>(ReverseMap[i]);
+    OS << II->Namespace << "::" << II->TheDef->getName();
+    needComma = true;
+  }
+  if (needToClose) {
+    OS << "> " << GenericOps[expected]->getName().lower() << "_N{};\n";
+  }
+  OS << "} // end " << Namespace << "Match namespace\n";
+  OS << "} // end llvm namespace\n";
+
+  OS << "#endif // GET_MIRMATCHERS\n\n";
 }
 
 namespace llvm {
