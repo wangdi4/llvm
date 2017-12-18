@@ -23,6 +23,10 @@ Options:
   -t TEST_CLIENT, --test_client=TEST_CLIENT
                         Run the specified test client {gdb|simulator}
   -j NUM_JOBS           number of tests to run in parallel
+  -d DEVICE, --device DEVICE
+                        Run on the specified device type {cpu|fpga_fast_emu}
+                        If the options is not specified,
+                        tests will be run on a default device
 
 Testcases:
   Optional list of files from the 'testcases' directory to run.
