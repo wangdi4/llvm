@@ -38,7 +38,7 @@ namespace intel{
 
   AddImplicitArgs::AddImplicitArgs() :
     ModulePass(ID), m_pModule(nullptr), m_localBuffersAnalysis(nullptr),
-    m_IAA(nullptr), m_pLLVMContext(nullptr) {
+    m_IAA(nullptr), m_pLLVMContext(nullptr), m_struct_WorkDim(nullptr) {
       initializeLocalBuffAnalysisPass(*llvm::PassRegistry::getPassRegistry());
       initializeImplicitArgsAnalysisPass(*llvm::PassRegistry::getPassRegistry());
   }
