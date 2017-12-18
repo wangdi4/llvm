@@ -148,14 +148,14 @@ public:
     //addPass(createUnifyFunctionExitNodesPass());
     addPass(createLowerSwitchPass());
     addPass(createLoopSimplifyPass());
+    // Add a pass to generate more candidates for reduction operations
+    addPass(createCSAIRReductionOptPass());
+    
     if (CSAStructurizeCFG) {
       addPass(createStructurizeCFGPass(false));
       //remove the single input phi and constant branch created from StructurizeCFG
       addPass(createInstructionCombiningPass());
     }
-
-    // Add a pass to generate more candidates for reduction operations
-    addPass(createCSAIRReductionOptPass());
 
     // Add a pass to identify and prepare inner loops for pipelinling. This
     // only happens at O1+ so as to avoid requiring excessive additional
