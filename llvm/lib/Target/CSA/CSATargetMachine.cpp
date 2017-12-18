@@ -183,12 +183,17 @@ public:
     Banner = std::string("After Machine CDG Pass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
 
-    addPass(
-      OrderMemopsType == independent
-        ? createCSAIndependentMemopOrderingPass()
-        : createCSAMemopOrderingPass(),
-      true
-    );
+    switch (OrderMemopsType) {
+      case independent:
+        addPass(createCSAIndependentMemopOrderingPass());
+        break;
+      case depcalc:
+        addPass(createCSADepCalcMemopOrderingPass());
+        break;
+      default:
+        addPass(createCSAMemopOrderingPass());
+        break;
+    }
     Banner = std::string("After CSAMemopOrderingPass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
 
