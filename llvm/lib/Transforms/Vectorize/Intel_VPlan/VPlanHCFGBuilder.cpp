@@ -596,7 +596,7 @@ void VPlanHCFGBuilderBase::buildNonLoopRegions(VPRegionBlock *ParentRegion) {
 
 
 // Go through the blocks in Region, collecting uniforms.
-void VPlanHCFGBuilderBase::collectUniforms(VPRegionBlock *Region) {
+void VPlanHCFGBuilder::collectUniforms(VPRegionBlock *Region) {
   for (VPBlockBase *Block :
        make_range(df_iterator<VPRegionBlock *>::begin(Region),
                   df_iterator<VPRegionBlock *>::end(Region))) {

@@ -47,6 +47,9 @@ private:
   SmallDenseMap<VPBasicBlock *, HLLoop *, 4> Header2HLLoop;
 
   VPRegionBlock *buildPlainCFG() override;
+  void collectUniforms(VPRegionBlock *Region) override {
+    // Do nothing for now
+  }
 
 public:
   VPlanHCFGBuilderHIR(const WRNVecLoopNode *WRL, HLLoop *Lp, IntelVPlan *Plan,
