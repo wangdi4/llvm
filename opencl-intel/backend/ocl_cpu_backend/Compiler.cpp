@@ -30,7 +30,7 @@ File Name:  Compiler.cpp
 #include "MetadataAPI.h"
 
 #include "llvm/Bitcode/BitcodeReader.h"
-#include "llvm/CodeGen/CommandFlags.h"
+#include "llvm/CodeGen/CommandFlags.def"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/MemoryBuffer.h"
