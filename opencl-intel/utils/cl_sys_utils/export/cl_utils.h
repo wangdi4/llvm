@@ -132,24 +132,6 @@ std::string ToNarrow(const wchar_t *s, char dfault = '?',
     const std::locale& loc = std::locale());
 
 /////////////////////////////////////////////////////////////////////////
-// FormatClError
-//  Create a formatted OCL error string
-//  This function uses the ClErrTxt to map the CLError argument to its
-//    string representation, and adds a descriptive Base error text to it
-/////////////////////////////////////////////////////////////////////////
-std::string FormatClError(const std::string& Base, cl_int CLError);
-
-/////////////////////////////////////////////////////////////////////////
-// TrimString
-//  Remove any given character from the start and end of a string
-//  Input: 
-//    string Source - the string to trim
-//    char * chars - the chars to "clean" from the source string
-/////////////////////////////////////////////////////////////////////////
-std::string TrimString (const std::string& sSource, const char *chars = " \t");
-
-
-/////////////////////////////////////////////////////////////////////////
 // SplitString
 //  Split the string using given delimiter 
 //  Input: 
@@ -171,43 +153,6 @@ std::vector<std::string> SplitString(const std::string &s, char delim);
 **************************************************************************************************/
 const string channelOrderToString(const cl_channel_order& co);
 const string channelTypeToString(const cl_channel_type& ct);
-const string imageFormatToString (const cl_image_format& format);
-const string memTypeToString(const cl_mem_object_type& mo);
-const string memFlagsToString(const cl_mem_flags& flags);
-const string addressingModeToString(const cl_addressing_mode& am);
-const string filteringModeToString(const cl_filter_mode& fm);
-const string commandQueuePropertiesToString(const cl_command_queue_properties& prop);
-const string deviceTypeToString(const cl_device_type& type);
-const string fpConfigToString(const cl_device_fp_config& fp_config);
-const string memCacheTypeToString(const cl_device_mem_cache_type& memType);
-const string localMemTypeToString(const cl_device_local_mem_type& memType);
-const string execCapabilitiesToString(const cl_device_exec_capabilities& execCap);
-const string commandTypeToString(const cl_command_type& type);
-const string executionStatusToString(const cl_int& status);
-const string buildStatusToString(const cl_build_status& status);
-const string binaryTypeToString(const cl_program_binary_type& type);
-const string addressQualifierToString(const cl_kernel_arg_address_qualifier& AddressQualifer);
-const string accessQualifierToString(const cl_kernel_arg_access_qualifier& AccessQualifier);
-const string addressQualifierToString_def(const cl_kernel_arg_address_qualifier& add);
-const string accessQualifierToString_def(const cl_kernel_arg_access_qualifier& acc);
-const string typeQualifierToString(const cl_kernel_arg_type_qualifier& type);
-
-
-/**************************************************************************************************
-* Function: 	XXXFromString
-* Description:	Translate a few strings (mostly from GUI entries) to their OCL types
-* Return value:	cl types
-* Author:		Oren Sarid
-* Date:			June 2012
-**************************************************************************************************/
-cl_addressing_mode GetAddressingModeFromString(const std::string& Mode);
-cl_filter_mode GetFilterModeFromString(const std::string& Mode);
-cl_channel_order GetChannelOrderFromString(const std::string& Order);
-cl_channel_type GetChannelTypeFromString(const std::string& Type);
-cl_mem_object_type GetImageTypeFromString(const std::string& Type);
-cl_mem_flags GetMemFlagsFromString(const std::string& Order);
-cl_kernel_arg_address_qualifier GetAddressQualifierFromString(const std::string& AddressQualifier);
-cl_kernel_arg_access_qualifier GetAccessQualifierFromString(const std::string& AccessQualifier);
 
 /**************************************************************************************************
 * Function: 	clIsNumaAvailable
@@ -357,27 +302,6 @@ size_t clGetPixelElementsCount(const cl_image_format* pclImageFormat);
 size_t clGetChannelTypeBytesCount(cl_channel_type pclImageChannelType);
 
 /////////////////////////////////////////////////////////////////////////
-// GetTempDir
-// Parameters: None
-// Output: Based on an environment variable and platform - the temporary
-//         directory/folder to use
-// Author: Oren Sarid
-// Date:   June 2012
-//
-/////////////////////////////////////////////////////////////////////////
-std::string GetTempDir();
-
-/////////////////////////////////////////////////////////////////////////
-// GetDeviceTypeString
-// Parameters: OpenCL device type
-// Output: Exctract all the different types the device bitfield holds
-// Author: Oren Sarid
-// Date:   June 2012
-//
-/////////////////////////////////////////////////////////////////////////
-std::string GetDeviceTypeString(const cl_device_type& Type);
-
-/////////////////////////////////////////////////////////////////////////
 // float2half_rte
 // Parameters: float
 // Output: half
@@ -412,14 +336,6 @@ int __builtin_clz(unsigned int pattern);
  */
 void CopyPattern(const void* pPattern, size_t szPatternSize, void* pBuffer, size_t szBufferSize);
 
-/////////////////////////////////////////////////////////////////////////
-// getHostName
-// Output: localhost machine name
-// Author: Arik Zur
-// Date:   September 2013
-/////////////////////////////////////////////////////////////////////////
-std::string getLocalHostName();
-
 /**
  * @return the file path of the configuration file
  */
@@ -437,43 +353,7 @@ bool GetStringValueFromRegistryOrETC( HKEY       top_hkey,
 #endif
 
 /**
- * @return the file path of the CPU runtime
- */
-bool GetCpuPath( char *pCpuPath, size_t bufferSize );
-
-/**
- * @return the version of the CPU runtime
- */
-bool GetCpuVersion( char *pCpuVersion, size_t bufferSize );
-
-/**************************************************************************************************
-* Function: 	EmulatorEnabled
-* Description:	Returns true if and only if the OpenCL 2.0 emulator is enabled
-* Return value:	bool
-* Author:		Oded Perez
-* Date:			March 2014
-**************************************************************************************************/
-bool EmulatorEnabled();
-
-/**
  * @return the text content of filePath
  */
 string ReadFileContents(const string& filePath);
 
-/**
- * @return the size of the read data, allocates 'sizeToRead' memory and read the data into bufferPtr
- *  if sizeToRead is 0 reads the entire file content
- */
-unsigned int ReadBinaryFileContents(const string& filePath, char** bufferPtr, unsigned int sizeToRead);
-
-/**
- * @Write the given text to the file
- */
-void WriteContentToFile(const string& content, const string& filePath);
-
-/**
- * @Write the given text to the file
- */
-void WriteBinaryContentToFile(const char* content, unsigned int size, const string& filePath);
-
-OclMemObjectType getSimplifiedMemoryObjectType(const cl_mem_object_type MemObjectType);
