@@ -57,6 +57,15 @@ public:
     OS << " " << *LoopBackedge << "\\l\"";
   }
 
+#if INTEL_CUSTOMIZATION
+  void dump(raw_ostream &OS) const override {
+    OS << *LoopBackedge << "\n";
+  }
+  void dump() const override {
+    dump(errs());
+  }
+#endif /* INTEL_CUSTOMIZATION */
+
   void execute(struct VPTransformState &State) override {
     // TODO: vectorizing this recipe should involve generating a mask for the
     // instructions in the loop body. i.e., a phi instruction that has incoming
@@ -177,6 +186,15 @@ public:
     OS << " +\n" << Indent << "\"Const " << val << "\\l\"";
   }
 
+#if INTEL_CUSTOMIZATION
+  void dump(raw_ostream &OS) const override {
+    OS << val << "\n";;
+  }
+  void dump() const override {
+    dump(errs());
+  }
+#endif /* INTEL_CUSTOMIZATION */
+
   StringRef getName() const { return "Constant: " + val; };
 
 private:
@@ -225,6 +243,20 @@ public:
 
     OS << "\\l\"";
   }
+
+#if INTEL_CUSTOMIZATION
+  void dump(raw_ostream &OS) const override {
+    OS << "Phi ";
+    for (auto Item : Incoming) {
+      Item.first.dump(OS);
+      OS << ", " << Item.second->getName() << " ";
+    }
+    OS << "\n";
+  }
+  void dump() const override {
+    dump(errs());
+  }
+#endif /* INTEL_CUSTOMIZATION */
 
   StringRef getName() const { return "Phi Recipe"; };
 

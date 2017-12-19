@@ -73,6 +73,13 @@ static cl::opt<bool>
     VPlanForceBuild("vplan-force-build", cl::init(false),
                     cl::desc("Construct VPlan even if loop is not supported "
                              "(only for development)"));
+
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool>
+    VPlanPrintInit("vplan-print-after-init", cl::init(false),
+                   cl::desc("Print plain dump after initial VPlan generated"));
+#endif
+
 static cl::opt<bool>
     DisableVPlanPredicator("disable-vplan-predicator", cl::init(false),
                            cl::Hidden, cl::desc("Disable VPlan predicator."));
@@ -472,6 +479,14 @@ bool VPlanDriver::processLoop(Loop *Lp, unsigned VF, Function &Fn,
         VPlan *Plan = LVP.getVPlanForVF(VF); Plan->setName(PlanName);
         dbgs() << *Plan);
 
+#if INTEL_CUSTOMIZATION
+  if (VPlanPrintInit) {
+    VPlan *Plan = LVP.getVPlanForVF(VF);
+    errs() << "Print initial VPlan for VF=" << VF << "\n";
+    Plan->dump(errs());
+  }
+#endif
+
   bool ModifiedLoop = false;
   if (!DisableCodeGen) {
     if (VPlanVectCand)
@@ -681,6 +696,13 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, unsigned VF, Function &Fn,
   Plan->setName(PlanName);
 
   DEBUG(dbgs() << "VD:\n" << *Plan);
+
+#if INTEL_CUSTOMIZATION
+  if (VPlanPrintInit) {
+    errs() << "Print initial VPlan for VF=" << VF << "\n";
+    Plan->dump(errs());
+  }
+#endif
 
   bool ModifiedLoop = false;
   if (!DisableCodeGen) {

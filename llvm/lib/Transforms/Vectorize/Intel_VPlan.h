@@ -420,6 +420,10 @@ public:
   virtual void execute(struct VPTransformState &State) = 0;
 #if INTEL_CUSTOMIZATION
   virtual void executeHIR(VPOCodeGenHIR *CG) = 0;
+
+  virtual void dump(raw_ostream &O) const = 0;
+
+  virtual void dump() const = 0;
 #endif
 
   /// Each recipe prints itself.
@@ -521,6 +525,11 @@ public:
   void execute(VPTransformState &State) override;
 #if INTEL_CUSTOMIZATION
   void executeHIR(VPOCodeGenHIR *CG) override;
+
+  /// Dump the VPInstruction.
+  void dump(raw_ostream &O) const override;
+
+  void dump() const override { dump(errs()); }
 #endif
 
   /// Print the Recipe.
@@ -699,6 +708,10 @@ public:
   void execute(VPTransformState &State) override;
 #if INTEL_CUSTOMIZATION
   void executeHIR(VPOCodeGenHIR *CG) override;
+
+  void dump(raw_ostream &OS) const override;
+
+  void dump() const override { dump(errs()); }
 #endif
 
   void print(raw_ostream &OS, const Twine &Indent) const override;
@@ -769,6 +782,10 @@ public:
   void execute(VPTransformState &State) override;
 #if INTEL_CUSTOMIZATION
   void executeHIR(VPOCodeGenHIR *CG) override;
+
+  void dump(raw_ostream &OS) const override;
+
+  void dump() const override { dump(errs()); }
 #endif
 
   void print(raw_ostream &OS, const Twine &Indent) const override;
@@ -799,6 +816,10 @@ public:
   void execute(VPTransformState &State) override;
 #if INTEL_CUSTOMIZATION
   void executeHIR(VPOCodeGenHIR *CG) override;
+
+  void dump(raw_ostream &OS) const override;
+
+  void dump() const override { dump(errs()); }
 #endif
 
   void print(raw_ostream &OS, const Twine &Indent) const override;
@@ -830,6 +851,10 @@ public:
   void execute(VPTransformState &State) override;
 #if INTEL_CUSTOMIZATION
   void executeHIR(VPOCodeGenHIR *CG) override;
+
+  void dump(raw_ostream &OS) const override;
+
+  void dump() const override { dump(errs()); }
 #endif
 
   void print(raw_ostream &OS, const Twine &Indent) const override;
@@ -1106,6 +1131,10 @@ public:
     std::string Indent((Depth * 4), ' ');
     OS << Indent << getName(); // << "\n";
   }
+
+  virtual void dump() const = 0;
+
+  virtual void dump(raw_ostream &OS, unsigned Indent) const = 0;
 #endif
 };
 
@@ -1240,6 +1269,8 @@ public:
   const RecipeListTy &getRecipes() const { return Recipes; }
   RecipeListTy &getRecipes() { return Recipes; }
 #if INTEL_CUSTOMIZATION
+  void dump() const;
+  void dump(raw_ostream &OS, unsigned Indent) const;
   void setCBlock(BasicBlock *CB) { CBlock = CB; }
   void setFBlock(BasicBlock *FB) { FBlock = FB; }
   void setTBlock(BasicBlock *TB) { TBlock = TB; }
@@ -1561,8 +1592,9 @@ public:
   void setReplicator(bool ToReplicate) { IsReplicator = ToReplicate; }
 
 #if INTEL_CUSTOMIZATION
-  /// Getter for Dominator Tree
+  /// Getters for Dominator Tree
   VPDominatorTree *getDT(void) { return RegionDT; }
+  const VPDominatorTree *getDT(void) const { return RegionDT; }
   /// Getter for Post-Dominator Tree
   VPPostDominatorTree *getPDT(void) { return RegionPDT; }
 
@@ -1578,6 +1610,9 @@ public:
     RegionPDT = new VPPostDominatorTree();
     RegionPDT->recalculate(*this);
   }
+  void getOrderedBlocks(std::vector<const VPBlockBase *> &Blocks) const;
+  void dump() const;
+  void dump(raw_ostream &OS, unsigned Indent) const;
 #endif
 
   /// The method which generates the new IR instructions that correspond to
@@ -1792,6 +1827,10 @@ public:
   }
 
   void printInst2Recipe();
+
+  /// Print (in text format) VPlan blocks in order based on dominator tree.
+  void dump(raw_ostream &OS) const;
+  void dump() const;
 #endif // INTEL_CUSTOMIZATION
 
   void addVF(unsigned VF) { VFs.insert(VF); }
@@ -2304,6 +2343,45 @@ inline bool VPBlockBase::isInsideLoop() {
   }
   return false;
 }
+
+// Set of print functions
+inline raw_ostream &operator<<(raw_ostream &OS, const VPInstruction &I) {
+  I.dump(OS);
+  return OS;
+}
+inline raw_ostream &operator<<(raw_ostream &OS, const VPRecipeBase &R) {
+  R.dump(OS);
+  return OS;
+}
+inline raw_ostream &operator<<(raw_ostream &OS,
+                               const VPBlockPredicateRecipe &P) {
+  P.dump(OS);
+  return OS;
+}
+inline raw_ostream &operator<<(raw_ostream &OS,
+                               const VPEdgePredicateRecipe &P) {
+  P.dump(OS);
+  return OS;
+}
+inline raw_ostream &operator<<(raw_ostream &OS,
+                               const VPIfTruePredicateRecipe &P) {
+  P.dump(OS);
+  return OS;
+}
+inline raw_ostream &operator<<(raw_ostream &OS,
+                               const VPIfFalsePredicateRecipe &P) {
+  P.dump(OS);
+  return OS;
+}
+inline raw_ostream &operator<<(raw_ostream &OS, const VPBasicBlock &BB) {
+  BB.dump(OS, 2);
+  return OS;
+}
+inline raw_ostream &operator<<(raw_ostream &OS, const VPRegionBlock &RB) {
+  RB.dump(OS, 2);
+  return OS;
+}
+
 #endif // INTEL_CUSTOMIZATION
 } // namespace vpo
 } // namespace llvm

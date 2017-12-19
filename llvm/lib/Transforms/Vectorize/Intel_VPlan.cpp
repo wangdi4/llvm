@@ -28,18 +28,27 @@
 
 #define DEBUG_TYPE "vplan"
 
+#if INTEL_CUSTOMIZATION
+// Replace dot print output with plain print.
+static cl::opt<bool>
+    DumpPlainVPlanIR("vplan-plain-dump", cl::init(false), cl::Hidden,
+                       cl::desc("Print plain VPlan IR"));
+#endif /* INTEL_CUSTOMIZATION */
+
 namespace llvm {
 namespace vpo {
 
-unsigned VPlanUtils::NextOrdinal = 1;
-
+#if INTEL_CUSTOMIZATION
 raw_ostream &operator<<(raw_ostream &OS, const VPValue &V) {
-  if (const VPInstruction *Instr = dyn_cast<VPInstruction>(&V))
-    Instr->print(OS);
+  if (const VPInstruction *I = dyn_cast<VPInstruction>(&V))
+    I->dump(OS);
   else
-    V.printAsOperand(OS);
+    V.dump(OS);
   return OS;
 }
+#endif /* INTEL_CUSTOMIZATION */
+
+unsigned VPlanUtils::NextOrdinal = 1;
 
 /// \return the VPBasicBlock that is the entry of Block, possibly indirectly.
 const VPBasicBlock *VPBlockBase::getEntryBasicBlock() const {
@@ -249,6 +258,109 @@ void VPRegionBlock::recomputeSize() {
   Size = std::distance(df_iterator<const VPBlockBase *>::begin(Entry),
                        df_iterator<const VPBlockBase *>::end(Exit));
 }
+
+void VPBasicBlock::dump(raw_ostream &OS, unsigned Indent) const {
+  std::string StrIndent = std::string(2 * Indent, ' ');
+  OS << StrIndent << getName() << ":\n";
+  if (empty()) {
+    OS << StrIndent << " <Empty Block>\n";
+  } else {
+    for (const VPRecipeBase &Recipe : *this) {
+      OS << StrIndent << " " << Recipe;
+    }
+  }
+  const VPValue *CB = getCondBitVPVal();
+  if (CB) {
+    const VPInstruction *CBI = dyn_cast<VPInstruction>(CB);
+    if (CBI && CBI->getNumOperands()) {
+      if (CBI->getParent() != this) {
+        OS << StrIndent << " Condition(" << CBI->getParent()->getName()
+           << "): " << *CBI;
+      }
+    } else {
+      // We fall here if VPInstruction has no operands or Value is
+      // constant - both match external defenition.
+      OS << StrIndent << " Condition(external): ";
+      CB->printAsOperand(OS);
+      OS << "\n";
+    }
+  }
+  auto &Successors = getSuccessors();
+  if (Successors.empty()) {
+    OS << StrIndent << "END Block - no SUCCESSORS\n";
+    return;
+  }
+  OS << StrIndent << "SUCCESSORS(" << Successors.size() << "):";
+  if (Successors.size() == 1) {
+    OS << Successors.front()->getName();
+  } else if (Successors.size() == 2) {
+    if (CB) {
+      OS << Successors.front()->getName() << "(";
+      CB->printAsOperand(OS);
+      OS << "), " << Successors.back()->getName() << "(!";
+      CB->printAsOperand(OS);
+      OS << ")";
+    } else {
+      OS << Successors.front()->getName() << "(<undef>), "
+         << Successors.back()->getName() << "(!<undef>)";
+    }
+  } else {
+    assert("More than 2 successors in basic block are not supported!");
+  }
+  OS << "\n";
+}
+
+void VPBasicBlock::dump() const {
+  dump(errs(), 1);
+}
+
+/// Get a list of the basic blocks which make up this region.
+void VPRegionBlock::getOrderedBlocks(std::vector<const VPBlockBase *> &Blocks) const {
+  ReversePostOrderTraversal<VPBlockBase *> RPOT(Entry);
+  for (VPBlockBase *Block : RPOT)
+    Blocks.push_back(Block);
+}
+
+void VPRegionBlock::dump(raw_ostream &OS, unsigned Indent) const {
+  SetVector<const VPBlockBase *> Printed;
+  SetVector<const VPBlockBase *> SuccList;
+  std::vector<const VPBlockBase *> Blocks;
+  getOrderedBlocks(Blocks);
+
+  std::string StrIndent = std::string(2 * Indent, ' ');
+  OS << StrIndent << "REGION: " << getName() << "\n";
+  SuccList.insert(Entry);
+  // Main loop for printing VPRegion blocks.
+  //                  Indent
+  //        BB1         +0
+  //       /   \
+  //     BB2  BB6       +1
+  //    /  \   |
+  //  BB3  BB4 |        +2
+  //    \  /   |
+  //    BB5   /         +1
+  //      \  /
+  //       BB7          +0
+  for (const VPBlockBase *BB : Blocks) {
+    BB->dump(OS, Indent + SuccList.size() - 1);
+    Printed.insert(BB);
+    SuccList.remove(BB);
+    for (auto *Succ : BB->getSuccessors())
+      // Do not increase Indent for back edges
+      if (!Printed.count(Succ))
+        SuccList.insert(Succ);
+  }
+  if (const VPBlockBase *Successor = getSingleSuccessor())
+    OS << StrIndent << "SUCCESSORS(1):" << Successor->getName() << "\n";
+  else
+    OS << StrIndent << "END Region(" << getName() << ")\n";
+
+}
+
+void VPRegionBlock::dump() const {
+  dump(errs(), 1);
+}
+
 #endif
 
 #if INTEL_CUSTOMIZATION
@@ -400,9 +512,23 @@ void VPInstruction::print(raw_ostream &O, const Twine &Indent) const {
   O << "\\l\"";
 }
 
+#if INTEL_CUSTOMIZATION
+void VPInstruction::dump(raw_ostream &O) const {
+  print(O);
+  O << "\n";
+}
+#endif /* INTEL_CUSTOMIZATION */
+
 void VPInstruction::print(raw_ostream &O) const {
+#if INTEL_CUSTOMIZATION
+  if (getOpcode() != Instruction::Store) {
+    printAsOperand(O);
+    O << " = ";
+  }
+#else
   printAsOperand(O);
   O << " = ";
+#endif /* INTEL_CUSTOMIZATION */
 
   switch (getOpcode()) {
   case VPInstruction::Not:
@@ -554,7 +680,27 @@ const Twine VPlanPrinter::getOrCreateName(const VPBlockBase *Block) {
   return "VPB" + Twine(getOrCreateBID(Block));
 }
 
+#if INTEL_CUSTOMIZATION
+void VPlan::dump(raw_ostream &OS) const {
+  if (!getName().empty())
+    OS << "VPlan IR for: " << getName() << "\n";
+  getEntry()->dump(OS, 1);
+}
+void VPlan::dump() const {
+  if (!getName().empty())
+    errs() << "VPlan IR for: " << getName() << "\n";
+  getEntry()->dump(errs(), 1);
+}
+#endif /* INTEL_CUSTOMIZATION */
+
 void VPlanPrinter::dump() {
+#if INTEL_CUSTOMIZATION
+  if (DumpPlainVPlanIR) {
+    Plan.dump(OS);
+    return;
+  }
+#endif /* INTEL_CUSTOMIZATION */
+
   Depth = 1;
   bumpIndent(0);
   OS << "digraph VPlan {\n";
@@ -734,6 +880,10 @@ void VPBlockPredicateRecipe::executeHIR(VPOCodeGenHIR *CG) {
   // Set mask value to use to mask instructions in the block
   CG->setCurMaskValue(VectorizedPredicateHIR[0]);
 }
+void VPBlockPredicateRecipe::dump(raw_ostream &OS) const {
+  print(OS, "");
+  OS << "\n";
+}
 #endif
 
 void VPBlockPredicateRecipe::execute(VPTransformState &State) {
@@ -802,6 +952,11 @@ void VPIfTruePredicateRecipe::executeHIR(VPOCodeGenHIR *CG) {
 
   VectorizedPredicateHIR.push_back(EdgeMask);
 }
+
+void VPIfTruePredicateRecipe::dump(raw_ostream &OS) const {
+  print(OS, "");
+  OS << "\n";
+}
 #endif
 
 void VPIfTruePredicateRecipe::execute(VPTransformState &State) {
@@ -833,6 +988,11 @@ void VPEdgePredicateRecipe::executeHIR(VPOCodeGenHIR *CG) {
           ? PredecessorPredicate->getVectorizedPredicateHIR()[0]
           : nullptr;
   CG->setCurMaskValue(PredMask);
+}
+
+void VPEdgePredicateRecipe::dump(raw_ostream &OS) const {
+  if (PredecessorPredicate)
+    OS << Name << " = " << PredecessorPredicate->getName() << "\n";
 }
 #endif
 
@@ -888,6 +1048,11 @@ void VPIfFalsePredicateRecipe::executeHIR(VPOCodeGenHIR *CG) {
     EdgeMask = VecCondMask;
 
   VectorizedPredicateHIR.push_back(EdgeMask);
+}
+
+void VPIfFalsePredicateRecipe::dump(raw_ostream &OS) const {
+  print(OS, "");
+  OS << "\n";
 }
 #endif
 
