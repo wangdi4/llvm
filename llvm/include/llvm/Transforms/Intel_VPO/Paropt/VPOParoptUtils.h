@@ -385,8 +385,7 @@ public:
     ///
     /// \returns The generated CallInst.
     static CallInst *genKmpcCallWithTid(WRegionNode *W, StructType *IdentTy,
-                                        AllocaInst *TidPtr,
-                                        Instruction *InsertPt,
+                                        Value *TidPtr, Instruction *InsertPt,
                                         StringRef IntrinsicName, Type *ReturnTy,
                                         ArrayRef<Value *> Args);
 
@@ -652,6 +651,23 @@ public:
                                      bool IsUnsigned, bool GetMax);
     // static uint64_t getMinInt(Type *IntTy, bool IsUnsigned);
     // static uint64_t getMaxInt(Type *IntTy, bool IsUnsigned);
+
+    /// \brief This function generates a call as follows.
+    /// void __kmpc_copyprivate(
+    ///    ident_t *loc, kmp_int32 global_tid, kmp_int32 cpy size, void *cpy
+    ///    data, void(*cpy func)(void *, void *), kmp_int32 didit );
+    ///
+    ///    loc: source location information
+    ///    global_tid: global thread number
+    ///    cpy_size: size of the cpy_data buffer
+    ///    cpy_data: pointer to data to be copied
+    ///    cpy_func: helper function to call for copying data
+    ///    didit: flag variable: 1=single thread; 0=not single thread
+    static CallInst *genKmpcCopyPrivate(WRegionNode *W, StructType *IdentTy,
+                                        Value *TidPtr, unsigned Size,
+                                        Value *CpyData, Function *FnCopyPriv,
+                                        Value *IsSingleThread,
+                                        Instruction *InsertPt);
 
   private:
     /// \name Private constructor and destructor to disable instantiation.

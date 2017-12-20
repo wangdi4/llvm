@@ -425,7 +425,12 @@ bool VPOParoptTransform::paroptTransforms() {
       case WRegionNode::WRNSingle:
       { DEBUG(dbgs() << "\n WRNSingle - Transformation \n\n");
         if (Mode & ParPrepare) {
-          Changed = genSingleThreadCode(W);
+          // Changed = genPrivatizationCode(W);
+          // Changed |= genFirstPrivatizationCode(W);
+          AllocaInst *IsSingleThread = nullptr;
+          Changed = genSingleThreadCode(W, IsSingleThread);
+          Changed |= genCopyPrivateCode(W, IsSingleThread);
+
           if (!W->getNowait())
             Changed |= genBarrier(W, false);
           RemoveDirectives = true;
@@ -1022,7 +1027,8 @@ void VPOParoptTransform::genFprivInit(FirstprivateItem *FprivI,
   }
 }
 
-// Generate the lastprivate update code.
+// Generate the lastprivate update code. The same mechanism is also applied
+// for copyprivate.
 // Here is one example for the lastprivate update for the array.
 // num_type    a[100];
 // #pragma omp parallel for schedule( static, 1 ) lastprivate( a )
@@ -1038,9 +1044,9 @@ void VPOParoptTransform::genFprivInit(FirstprivateItem *FprivI,
 //    i8*), i8* %1, i64 400, i32 0, i1 false)
 //    br label %for.end.split
 //
-void VPOParoptTransform::genLprivFini(LastprivateItem *LprivI,
+void VPOParoptTransform::genLprivFini(Value *NewV, Value *OldV,
                                       Instruction *InsertPt) {
-  AllocaInst *AI = dyn_cast<AllocaInst>(LprivI->getNew());
+  AllocaInst *AI = dyn_cast<AllocaInst>(NewV);
   Type *AllocaTy = AI->getAllocatedType();
   Type *ScalarTy = AllocaTy->getScalarType();
   const DataLayout &DL = InsertPt->getModule()->getDataLayout();
@@ -1049,11 +1055,11 @@ void VPOParoptTransform::genLprivFini(LastprivateItem *LprivI,
   if (!AllocaTy->isSingleValueType() ||
       !DL.isLegalInteger(DL.getTypeSizeInBits(ScalarTy)) ||
       DL.getTypeSizeInBits(ScalarTy) % 8 != 0) {
-    VPOParoptUtils::genMemcpy(LprivI->getOrig(), AI, DL, AI->getAlignment(),
+    VPOParoptUtils::genMemcpy(OldV, AI, DL, AI->getAlignment(),
                               InsertPt->getParent());
   } else {
     LoadInst *Load = Builder.CreateLoad(AI);
-    Builder.CreateStore(Load, LprivI->getOrig());
+    Builder.CreateStore(Load, OldV);
   }
 }
 
@@ -1400,7 +1406,8 @@ bool VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
       genPrivatizationReplacement(W, Orig, NewPrivInst, LprivI);
       if (!ForTask) {
         LprivI->setNew(NewPrivInst);
-        genLprivFini(LprivI, BeginBB->getTerminator());
+        genLprivFini(LprivI->getNew(), LprivI->getOrig(),
+                     BeginBB->getTerminator());
       } else
         genLprivFiniForTaskLoop(LprivI->getParm(), LprivI->getNew(),
                                 BeginBB->getTerminator());
@@ -1741,7 +1748,8 @@ void VPOParoptTransform::wrnUpdateSSAPreprocessForOuterLoop(
 // Collect the live-out value in the loop.
 static void
 wrnCollectLiveOutVals(Loop &L, SmallSetVector<Instruction *, 8> &LiveOutVals) {
-  for (Loop::block_iterator II = L.block_begin(), E = L.block_end(); II != E; ++II) {
+  for (Loop::block_iterator II = L.block_begin(), E = L.block_end(); II != E;
+       ++II) {
     for (Instruction &I : *(*II)) {
       if (I.getType()->isTokenTy())
         continue;
@@ -3207,11 +3215,23 @@ bool VPOParoptTransform::genMasterThreadCode(WRegionNode *W) {
 
 // Generate code for single/end single construct and update LLVM control-flow
 // and dominator tree accordingly
-bool VPOParoptTransform::genSingleThreadCode(WRegionNode *W) {
+bool VPOParoptTransform::genSingleThreadCode(WRegionNode *W,
+                                             AllocaInst *&IsSingleThread) {
   DEBUG(dbgs() << "\nEnter VPOParoptTransform::genSingleThreadCode\n");
+  W->populateBBSet();
   BasicBlock *EntryBB = W->getEntryBBlock();
 
   Instruction *InsertPt = EntryBB->getTerminator();
+  CopyprivateClause &CprivClause = W->getCpriv();
+
+  IRBuilder<> Builder(InsertPt);
+  if (!CprivClause.empty()) {
+    IsSingleThread = Builder.CreateAlloca(Type::getInt32Ty(F->getContext()),
+                                          nullptr, "is.single.thread");
+    Builder.CreateStore(
+        ConstantInt::getSigned(Type::getInt32Ty(F->getContext()), 0),
+        IsSingleThread);
+  }
 
   // Generate __kmpc_single Call Instruction
   CallInst* SingleCI = VPOParoptUtils::genKmpcSingleOrEndSingleCall(W,
@@ -3228,6 +3248,13 @@ bool VPOParoptTransform::genSingleThreadCode(WRegionNode *W) {
   BasicBlock *NewBB = nullptr;
   createEmptyPrivFiniBB(W, NewBB);
   Instruction *InsertEndPt = NewBB->getTerminator();
+
+  if (!CprivClause.empty()) {
+    Builder.SetInsertPoint(InsertEndPt);
+    Builder.CreateStore(
+        ConstantInt::getSigned(Type::getInt32Ty(F->getContext()), 1),
+        IsSingleThread);
+  }
 
   // Generate __kmpc_end_single Call Instruction
   CallInst* EndSingleCI = VPOParoptUtils::genKmpcSingleOrEndSingleCall(W,
@@ -3428,4 +3455,122 @@ void VPOParoptTransform::resetValueInIntelClauseGeneric(WRegionNode *W,
       break;
     }
   }
+}
+
+// Generate the copyprivate code. Here is one example.
+// #pragma omp single copyprivate ( a,b )
+// LLVM IR output:
+//     %copyprivate.agg.5 = alloca %struct.kmp_copy_privates.t, align 8
+//     %14 = bitcast %struct.kmp_copy_privates.t* %copyprivate.agg.5 to i8**
+//     store i8* %.0, i8** %14, align 8
+//     %15 = getelementptr inbounds %struct.kmp_copy_privates.t,
+//           %struct.kmp_copy_privates.t* %copyprivate.agg.5, i64 0, i32 1
+//     store float* %b.fpriv, float** %15, align 8
+//     %16 = load i32, i32* %tid, align 4
+//     %17 = bitcast %struct.kmp_copy_privates.t* %copyprivate.agg.5 to i8*
+//     call void @__kmpc_copyprivate({ i32, i32, i32, i32, i8* }*
+//          nonnull @.kmpc_loc.0.0.16, i32 %16, i32 16, i8* nonnull %17,
+//          i8* bitcast (void (%struct.kmp_copy_privates.t*,
+//          %struct.kmp_copy_privates.t*)* @test_copy_priv_5 to i8*), i32 %13)
+//          #11
+//
+bool VPOParoptTransform::genCopyPrivateCode(WRegionNode *W,
+                                            AllocaInst *IsSingleThread) {
+  bool Changed = false;
+  CopyprivateClause &CprivClause = W->getCpriv();
+  if (CprivClause.empty())
+    return Changed;
+  W->populateBBSet();
+  Instruction *InsertPt = W->getExitBBlock()->getTerminator();
+  IRBuilder<> Builder(InsertPt);
+
+  SmallVector<Type *, 4> KmpCopyPrivatesVars;
+  for (CopyprivateItem *CprivI : CprivClause.items()) {
+    Value *Orig = CprivI->getOrig();
+    KmpCopyPrivatesVars.push_back(Orig->getType());
+  }
+
+  LLVMContext &C = F->getContext();
+  StructType *KmpCopyPrivateTy = StructType::create(
+      C, makeArrayRef(KmpCopyPrivatesVars.begin(), KmpCopyPrivatesVars.end()),
+      "struct.kmp_copy_privates.t", false);
+
+  AllocaInst *CopyPrivateBase = Builder.CreateAlloca(
+      KmpCopyPrivateTy, nullptr, "copyprivate.agg." + Twine(W->getNumber()));
+  SmallVector<Value *, 4> Indices;
+
+  unsigned cnt = 0;
+  for (CopyprivateItem *CprivI : CprivClause.items()) {
+    Indices.clear();
+    Indices.push_back(Builder.getInt32(0));
+    Indices.push_back(Builder.getInt32(cnt++));
+    Value *Gep =
+        Builder.CreateInBoundsGEP(KmpCopyPrivateTy, CopyPrivateBase, Indices);
+    Builder.CreateStore(CprivI->getOrig(), Gep);
+  }
+
+  Function *FnCopyPriv = genCopyPrivateFunc(W, KmpCopyPrivateTy);
+
+  PointerType *PtrTy = dyn_cast<PointerType>(CopyPrivateBase->getType());
+  const DataLayout &DL = F->getParent()->getDataLayout();
+  uint64_t Size = DL.getTypeAllocSize(PtrTy->getElementType());
+  VPOParoptUtils::genKmpcCopyPrivate(
+      W, IdentTy, TidPtr, Size, CopyPrivateBase, FnCopyPriv,
+      Builder.CreateLoad(IsSingleThread), InsertPt);
+  W->resetBBSet();
+  return Changed;
+}
+
+// Generate the helper function for copying the copyprivate data.
+Function *VPOParoptTransform::genCopyPrivateFunc(WRegionNode *W,
+                                                 StructType *KmpCopyPrivateTy) {
+  LLVMContext &C = F->getContext();
+  Module *M = F->getParent();
+
+  Type *CopyPrivParams[] = {PointerType::getUnqual(KmpCopyPrivateTy),
+                            PointerType::getUnqual(KmpCopyPrivateTy)};
+  FunctionType *CopyPrivFnTy =
+      FunctionType::get(Type::getVoidTy(C), CopyPrivParams, false);
+
+  Function *FnCopyPriv =
+      Function::Create(CopyPrivFnTy, GlobalValue::InternalLinkage,
+                       F->getName() + "_copy_priv_" + Twine(W->getNumber()), M);
+  FnCopyPriv->setCallingConv(CallingConv::C);
+
+  auto I = FnCopyPriv->arg_begin();
+  Value *DstArg = &*I;
+  I++;
+  Value *SrcArg = &*I;
+
+  BasicBlock *EntryBB = BasicBlock::Create(C, "entry", FnCopyPriv);
+
+  DominatorTree DT;
+  DT.recalculate(*FnCopyPriv);
+
+  IRBuilder<> Builder(EntryBB);
+  Builder.CreateRetVoid();
+
+  Builder.SetInsertPoint(EntryBB->getTerminator());
+
+  unsigned cnt = 0;
+  CopyprivateClause &CprivClause = W->getCpriv();
+  SmallVector<Value *, 4> Indices;
+  for (CopyprivateItem *CprivI : CprivClause.items()) {
+    Indices.clear();
+    Indices.push_back(Builder.getInt32(0));
+    Indices.push_back(Builder.getInt32(cnt++));
+    Value *SrcGep =
+        Builder.CreateInBoundsGEP(KmpCopyPrivateTy, SrcArg, Indices);
+    Value *DstGep =
+        Builder.CreateInBoundsGEP(KmpCopyPrivateTy, DstArg, Indices);
+    LoadInst *SrcLoad = Builder.CreateLoad(SrcGep);
+    LoadInst *DstLoad = Builder.CreateLoad(DstGep);
+    Value *NewCopyPrivInst = genPrivatizationAlloca(
+        W, CprivI->getOrig(), EntryBB->getTerminator(), ".cp.priv");
+    genLprivFini(NewCopyPrivInst, DstLoad, EntryBB->getTerminator());
+    NewCopyPrivInst->replaceAllUsesWith(SrcLoad);
+    cast<AllocaInst>(NewCopyPrivInst)->eraseFromParent();
+  }
+
+  return FnCopyPriv;
 }

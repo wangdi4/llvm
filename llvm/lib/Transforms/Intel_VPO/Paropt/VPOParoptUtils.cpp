@@ -798,6 +798,32 @@ CallInst *VPOParoptUtils::genKmpcTaskGeneric(WRegionNode *W,
 }
 
 // This function generates a call as follows.
+// void __kmpc_copyprivate(
+//    ident_t *loc, kmp_int32 global_tid, kmp_int32 cpy size, void *cpy data,
+//    void(*cpy func)(void *, void *), kmp_int32 didit );
+CallInst *VPOParoptUtils::genKmpcCopyPrivate(WRegionNode *W,
+                                             StructType *IdentTy, Value *TidPtr,
+                                             unsigned Size, Value *CpyData,
+                                             Function *FnCopyPriv,
+                                             Value *IsSingleThread,
+                                             Instruction *InsertPt) {
+
+  IRBuilder<> Builder(InsertPt);
+  BasicBlock *B = W->getEntryBBlock();
+  Function *F = B->getParent();
+  LLVMContext &C = F->getContext();
+  Value *CprivArgs[] = {
+      Builder.getInt32(Size),
+      Builder.CreateBitCast(CpyData, Type::getInt8PtrTy(C)),
+      Builder.CreateBitCast(FnCopyPriv, Type::getInt8PtrTy(C)), IsSingleThread};
+  CallInst *CprivCall =
+      genKmpcCallWithTid(W, IdentTy, TidPtr, InsertPt, "__kmpc_copyprivate",
+                         Type::getVoidTy(C), CprivArgs);
+  CprivCall->insertBefore(InsertPt);
+  return CprivCall;
+}
+
+// This function generates a call as follows.
 //    void @__kmpc_taskloop({ i32, i32, i32, i32, i8* }*, i32, i8*, i32,
 //    i64*, i64*, i64, i32, i32, i64, i8*)
 // The generated code is based on the assumption that the loop is normalized
@@ -1715,11 +1741,9 @@ bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
 }
 
 // Generates a KMPC call to IntrinsicName with Tid obtained using TidPtr.
-CallInst *
-VPOParoptUtils::genKmpcCallWithTid(WRegionNode *W, StructType *IdentTy,
-                                   AllocaInst *TidPtr, Instruction *InsertPt,
-                                   StringRef IntrinsicName, Type *ReturnTy,
-                                   ArrayRef<Value *> Args) {
+CallInst *VPOParoptUtils::genKmpcCallWithTid(
+    WRegionNode *W, StructType *IdentTy, Value *TidPtr, Instruction *InsertPt,
+    StringRef IntrinsicName, Type *ReturnTy, ArrayRef<Value *> Args) {
   assert(W != nullptr && "WRegionNode is null.");
   assert(IdentTy != nullptr && "IdentTy is null.");
   assert(InsertPt != nullptr && "InsertPt is null.");

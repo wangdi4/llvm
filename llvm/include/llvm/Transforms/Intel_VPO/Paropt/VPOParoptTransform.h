@@ -304,8 +304,8 @@ private:
   /// \brief Generate the firstprivate initialization code.
   void genFprivInit(FirstprivateItem *FprivI, Instruction *InsertPt);
 
-  /// \brief Generate the lastprivate update code.
-  void genLprivFini(LastprivateItem *LprivI, Instruction *InsertPt);
+  /// \brief Utility for last private update or copyprivate code generation.
+  void genLprivFini(Value *NewV, Value *OldV, Instruction *InsertPt);
 
   /// \brief Generate the lastprivate update code for taskloop
   void genLprivFiniForTaskLoop(Value *Dst, Value *Src, Instruction *InsertPt);
@@ -563,7 +563,7 @@ private:
 
   /// Generate code for single/end single construct and update LLVM
   /// control-flow and dominator tree accordingly
-  bool genSingleThreadCode(WRegionNode *W);
+  bool genSingleThreadCode(WRegionNode *W, AllocaInst *&IsSingleThread);
 
   /// Generate code for ordered/end ordered construct for preserving ordered
   /// region execution order
@@ -664,6 +664,12 @@ private:
   Value *genGlobalPrivatizationImpl(WRegionNode *W, GlobalVariable *G,
                                     BasicBlock *EntryBB, BasicBlock *NextExitBB,
                                     Item *IT);
+
+  /// \brief Generate the copyprivate code.
+  bool genCopyPrivateCode(WRegionNode *W, AllocaInst *IsSingleThread);
+
+  /// \brief Generate the helper function for copying the copyprivate data.
+  Function *genCopyPrivateFunc(WRegionNode *W, StructType *KmpCopyPrivateTy);
 };
 } /// namespace vpo
 } /// namespace llvm
