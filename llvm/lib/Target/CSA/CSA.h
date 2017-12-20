@@ -39,6 +39,7 @@ namespace llvm {
   MachineFunctionPass *createCSAExpandInlineAsmPass();
   MachineFunctionPass *createCSAMemopOrderingPass();
   MachineFunctionPass *createCSAIndependentMemopOrderingPass();
+  MachineFunctionPass *createCSADepCalcMemopOrderingPass();
   MachineFunctionPass *createCSANormalizeDebugPass();
   MachineFunctionPass *createCSADataflowCanonicalizationPass();
   MachineFunctionPass *createCSAStreamingMemoryConversionPass();
@@ -66,12 +67,22 @@ enum OrderMemopsMode {
   wavefront = 2,
 
   // Optimal (but larger) ordering chains.
-  independent = 3
+  independent = 3,
+
+  // The latest iteration of memory ordering: flips the traversal of memory
+  // operations and separates dependency calculation from chain construction
+  // for better ordering chains and eventually better compile-time performance.
+  depcalc = 4
 };
 
 extern llvm::cl::opt<OrderMemopsMode> OrderMemopsType;
 extern llvm::cl::opt<int> OrderMemops;
 extern llvm::cl::opt<bool> ParallelOrderMemops;
+
+extern llvm::cl::opt<bool> IgnoreAliasInfo;
+extern llvm::cl::opt<bool> ViewMemopCFG;
+extern llvm::cl::opt<bool> DumpMemopCFG;
+extern llvm::cl::opt<bool> DumpOrderingChains;
 
 }
 

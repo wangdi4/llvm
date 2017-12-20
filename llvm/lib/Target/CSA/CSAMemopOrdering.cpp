@@ -40,8 +40,10 @@ OrderMemopsType("csa-order-memops-type",
                            clEnumVal(wavefront,
                                      "Totally ordered stores, parallel loads between stores."),
                            clEnumVal(independent,
-                                     "Order memory operations independently with more fine-grained alias analysis. This should expose more parallelism at the possible expense of compile time and graph size.")),
-                cl::init(OrderMemopsMode::independent));
+                                     "Order memory operations independently with more fine-grained alias analysis. This should expose more parallelism at the possible expense of compile time and graph size."),
+			   clEnumVal(depcalc, "Use the framework for independent memop ordering but with better algorithms for calculating dependencies and putting together dependency chains.")
+		),
+                cl::init(OrderMemopsMode::depcalc));
 
 //  Boolean flag.  If it is set to 0, we force "none" for memory
 //  ordering.  Otherwise, we just obey the OrderMemopsType variable.

@@ -148,20 +148,24 @@ public:
     //addPass(createUnifyFunctionExitNodesPass());
     addPass(createLowerSwitchPass());
     addPass(createLoopSimplifyPass());
+    // Add a pass to generate more candidates for reduction operations
+    addPass(createCSAIRReductionOptPass());
+    
     if (CSAStructurizeCFG) {
       addPass(createStructurizeCFGPass(false));
       //remove the single input phi and constant branch created from StructurizeCFG
       addPass(createInstructionCombiningPass());
     }
 
+    // Add a pass to identify and prepare inner loops for pipelinling. This
+    // only happens at O1+ so as to avoid requiring excessive additional
+    // analyses at O0.
+    if (getOptLevel() != CodeGenOpt::None) {
+      addPass(createCSAInnerLoopPrepPass());
+    }
+
     // Remove any remaining intrinsics which should not go through instruction selection
     addPass(createCSAIntrinsicCleanerPass());
-
-    // Add a pass to generate more candidates for reduction operations
-    addPass(createCSAIRReductionOptPass());
-
-    // Add a pass to identify and prepare inner loops for pipelinling.
-    addPass(createCSAInnerLoopPrepPass());
 
     return false;
   }
@@ -179,12 +183,17 @@ public:
     Banner = std::string("After Machine CDG Pass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
 
-    addPass(
-      OrderMemopsType == independent
-        ? createCSAIndependentMemopOrderingPass()
-        : createCSAMemopOrderingPass(),
-      true
-    );
+    switch (OrderMemopsType) {
+      case independent:
+        addPass(createCSAIndependentMemopOrderingPass());
+        break;
+      case depcalc:
+        addPass(createCSADepCalcMemopOrderingPass());
+        break;
+      default:
+        addPass(createCSAMemopOrderingPass());
+        break;
+    }
     Banner = std::string("After CSAMemopOrderingPass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
 
