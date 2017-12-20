@@ -20,12 +20,10 @@
 #include <string>
 #include <vector>
 
-// Other libraries and framework includes
-// Project includes
-#include "lldb/Core/ArchSpec.h"
-#include "lldb/Core/StructuredData.h"
 #include "lldb/Target/Process.h"
+#include "lldb/Utility/ArchSpec.h"
 #include "lldb/Utility/StreamGDBRemote.h"
+#include "lldb/Utility/StructuredData.h"
 
 #include "llvm/ADT/Optional.h"
 
@@ -340,6 +338,8 @@ public:
 
   bool GetQXferAuxvReadSupported();
 
+  void EnableErrorStringInPacket();
+
   bool GetQXferLibrariesReadSupported();
 
   bool GetQXferLibrariesSVR4ReadSupported();
@@ -549,6 +549,7 @@ protected:
   LazyBool m_supports_jLoadedDynamicLibrariesInfos;
   LazyBool m_supports_jGetSharedCacheInfo;
   LazyBool m_supports_QPassSignals;
+  LazyBool m_supports_error_string_reply;
 
   bool m_supports_qProcessInfoPID : 1, m_supports_qfProcessInfo : 1,
       m_supports_qUserName : 1, m_supports_qGroupName : 1,

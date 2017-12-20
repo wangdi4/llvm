@@ -8,17 +8,17 @@
 //===----------------------------------------------------------------------===//
 
 #include "lldb/Host/Symbols.h"
-#include "lldb/Core/ArchSpec.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/ModuleSpec.h"
-#include "lldb/Core/Timer.h"
 #include "lldb/Symbol/ObjectFile.h"
 #include "lldb/Target/Target.h"
+#include "lldb/Utility/ArchSpec.h"
 #include "lldb/Utility/DataBuffer.h"
 #include "lldb/Utility/DataExtractor.h"
 #include "lldb/Utility/Log.h"
 #include "lldb/Utility/SafeMachO.h"
 #include "lldb/Utility/StreamString.h"
+#include "lldb/Utility/Timer.h"
 #include "lldb/Utility/UUID.h"
 
 #include "llvm/Support/FileSystem.h"
@@ -104,41 +104,56 @@ static bool LocateDSYMInVincinityOfExecutable(const ModuleSpec &module_spec,
           }
           return true;
         } else {
-          // Get a clean copy of the executable path, without the final filename
-          FileSpec path_dir_fspec (exec_fspec->GetDirectory().AsCString(), true);
-          std::string path_dir_str = path_dir_fspec.GetPath();
+          FileSpec parent_dirs = exec_fspec;
 
-          // Add a ".dSYM" name to each directory component of the path, stripping
-          // off components.  e.g. we may have a binary like
+          // Remove the binary name from the FileSpec
+          parent_dirs.RemoveLastPathComponent();
+
+          // Add a ".dSYM" name to each directory component of the path,
+          // stripping off components.  e.g. we may have a binary like
           // /S/L/F/Foundation.framework/Versions/A/Foundation
           // and
           // /S/L/F/Foundation.framework.dSYM
           //
           // so we'll need to start with /S/L/F/Foundation.framework/Versions/A,
           // add the .dSYM part to the "A", and if that doesn't exist, strip off
-          // the "A" and try it again with "Versions", etc., until we find a dSYM
-          // bundle or we've stripped off enough path components that there's no
-          // need to continue.
+          // the "A" and try it again with "Versions", etc., until we find a
+          // dSYM bundle or we've stripped off enough path components that
+          // there's no need to continue.
 
           for (int i = 0; i < 4; i++) {
-            std::string path_dir_plus_dsym (path_dir_str);
-            path_dir_plus_dsym += ".dSYM/Contents/Resources/DWARF/";
-            path_dir_plus_dsym += exec_fspec->GetFilename().AsCString();
-            dsym_fspec.SetFile (path_dir_plus_dsym, true);
-            if (dsym_fspec.Exists() &&
-                    FileAtPathContainsArchAndUUID(
-                        dsym_fspec, module_spec.GetArchitecturePtr(),
-                        module_spec.GetUUIDPtr())) {
-                  if (log) {
-                    log->Printf("dSYM with matching UUID & arch found at %s",
-                                path_dir_plus_dsym.c_str());
-                  }
-                  return true;
+            // Does this part of the path have a "." character - could it be a
+            // bundle's top level directory?
+            const char *fn = parent_dirs.GetFilename().AsCString();
+            if (fn == nullptr)
+              break;
+            if (::strchr(fn, '.') != nullptr) {
+              dsym_fspec = parent_dirs;
+              dsym_fspec.RemoveLastPathComponent();
+
+              // If the current directory name is "Foundation.framework", see if
+              // "Foundation.framework.dSYM/Contents/Resources/DWARF/Foundation"
+              // exists & has the right uuid.
+              std::string dsym_fn = fn;
+              dsym_fn += ".dSYM";
+              dsym_fspec.AppendPathComponent(dsym_fn.c_str());
+              dsym_fspec.AppendPathComponent("Contents");
+              dsym_fspec.AppendPathComponent("Resources");
+              dsym_fspec.AppendPathComponent("DWARF");
+              dsym_fspec.AppendPathComponent(
+                  exec_fspec->GetFilename().AsCString());
+              if (dsym_fspec.Exists() &&
+                  FileAtPathContainsArchAndUUID(
+                      dsym_fspec, module_spec.GetArchitecturePtr(),
+                      module_spec.GetUUIDPtr())) {
+                if (log) {
+                  log->Printf("dSYM with matching UUID & arch found at %s",
+                              dsym_fspec.GetPath().c_str());
+                }
+                return true;
+              }
             }
-            auto const last_slash = path_dir_str.rfind('/');
-            if (last_slash == std::string::npos)
-                break;
-            path_dir_str.resize(last_slash);
+            parent_dirs.RemoveLastPathComponent();
           }
         }
       }
@@ -217,7 +232,8 @@ FileSpec Symbols::LocateExecutableSymbolFile(const ModuleSpec &module_spec) {
 #ifndef LLVM_ON_WIN32
 #if defined(__NetBSD__)
     // Add /usr/libdata/debug directory.
-    debug_file_search_paths.AppendIfUnique(FileSpec("/usr/libdata/debug", true));
+    debug_file_search_paths.AppendIfUnique(
+        FileSpec("/usr/libdata/debug", true));
 #else
     // Add /usr/lib/debug directory.
     debug_file_search_paths.AppendIfUnique(FileSpec("/usr/lib/debug", true));
@@ -271,7 +287,11 @@ FileSpec Symbols::LocateExecutableSymbolFile(const ModuleSpec &module_spec) {
           if (num_specs == 1) {
             ModuleSpec mspec;
             if (specs.GetModuleSpecAtIndex(0, mspec)) {
-              if (mspec.GetUUID() == module_uuid)
+              // Skip the uuids check if module_uuid is invalid.
+              // For example, this happens for *.dwp files since
+              // at the moment llvm-dwp doesn't output build ids,
+              // nor does binutils dwp.
+              if (!module_uuid.IsValid() || module_uuid == mspec.GetUUID())
                 return file_spec;
             }
           }

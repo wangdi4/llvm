@@ -11,8 +11,8 @@
 #define LLD_ELF_DRIVER_H
 
 #include "SymbolTable.h"
-#include "lld/Core/LLVM.h"
-#include "lld/Core/Reproduce.h"
+#include "lld/Common/LLVM.h"
+#include "lld/Common/Reproduce.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringSet.h"
@@ -58,7 +58,7 @@ public:
 // Create enum with OPT_xxx values for each option in Options.td
 enum {
   OPT_INVALID = 0,
-#define OPTION(_1, _2, ID, _4, _5, _6, _7, _8, _9, _10, _11) OPT_##ID,
+#define OPTION(_1, _2, ID, _4, _5, _6, _7, _8, _9, _10, _11, _12) OPT_##ID,
 #include "Options.inc"
 #undef OPTION
 };
@@ -67,6 +67,7 @@ void printHelp(const char *Argv0);
 std::string createResponseFile(const llvm::opt::InputArgList &Args);
 
 llvm::Optional<std::string> findFromSearchPaths(StringRef Path);
+llvm::Optional<std::string> searchLinkerScript(StringRef Path);
 llvm::Optional<std::string> searchLibrary(StringRef Path);
 
 } // namespace elf

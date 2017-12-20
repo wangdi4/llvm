@@ -42,7 +42,8 @@ Error BinaryStreamWriter::writeCString(StringRef Str) {
 }
 
 Error BinaryStreamWriter::writeFixedString(StringRef Str) {
-  return writeBytes(ArrayRef<uint8_t>(Str.bytes_begin(), Str.bytes_end()));
+
+  return writeBytes(arrayRefFromStringRef(Str));
 }
 
 Error BinaryStreamWriter::writeStreamRef(BinaryStreamRef Ref) {
@@ -83,6 +84,8 @@ Error BinaryStreamWriter::padToAlignment(uint32_t Align) {
   uint32_t NewOffset = alignTo(Offset, Align);
   if (NewOffset > getLength())
     return make_error<BinaryStreamError>(stream_error_code::stream_too_short);
-  Offset = NewOffset;
+  while (Offset < NewOffset)
+    if (auto EC = writeInteger('\0'))
+      return EC;
   return Error::success();
 }

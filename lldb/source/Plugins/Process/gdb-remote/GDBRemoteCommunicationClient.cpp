@@ -86,6 +86,7 @@ GDBRemoteCommunicationClient::GDBRemoteCommunicationClient()
       m_supports_jLoadedDynamicLibrariesInfos(eLazyBoolCalculate),
       m_supports_jGetSharedCacheInfo(eLazyBoolCalculate),
       m_supports_QPassSignals(eLazyBoolCalculate),
+      m_supports_error_string_reply(eLazyBoolCalculate),
       m_supports_qProcessInfoPID(true), m_supports_qfProcessInfo(true),
       m_supports_qUserName(true), m_supports_qGroupName(true),
       m_supports_qThreadStopInfo(true), m_supports_z0(true),
@@ -594,6 +595,21 @@ bool GDBRemoteCommunicationClient::GetThreadExtendedInfoSupported() {
     }
   }
   return m_supports_jThreadExtendedInfo;
+}
+
+void GDBRemoteCommunicationClient::EnableErrorStringInPacket() {
+  if (m_supports_error_string_reply == eLazyBoolCalculate) {
+    StringExtractorGDBRemote response;
+    // We try to enable error strings in remote packets
+    // but if we fail, we just work in the older way.
+    m_supports_error_string_reply = eLazyBoolNo;
+    if (SendPacketAndWaitForResponse("QEnableErrorStrings", response, false) ==
+        PacketResult::Success) {
+      if (response.IsOKResponse()) {
+        m_supports_error_string_reply = eLazyBoolYes;
+      }
+    }
+  }
 }
 
 bool GDBRemoteCommunicationClient::GetLoadedDynamicLibrariesInfosSupported() {
@@ -1585,21 +1601,24 @@ GDBRemoteCommunicationClient::GetWatchpointsTriggerAfterInstruction(
   // and we only want to override this behavior if we have explicitly
   // received a qHostInfo telling us otherwise
   if (m_qHostInfo_is_valid != eLazyBoolYes) {
-    // On targets like MIPS, watchpoint exceptions are always generated
-    // before the instruction is executed. The connected target may not
-    // support qHostInfo or qWatchpointSupportInfo packets.
+    // On targets like MIPS and ppc64le, watchpoint exceptions are always
+    // generated before the instruction is executed. The connected target
+    // may not support qHostInfo or qWatchpointSupportInfo packets.
     if (atype == llvm::Triple::mips || atype == llvm::Triple::mipsel ||
-        atype == llvm::Triple::mips64 || atype == llvm::Triple::mips64el)
+        atype == llvm::Triple::mips64 || atype == llvm::Triple::mips64el ||
+        atype == llvm::Triple::ppc64le)
       after = false;
     else
       after = true;
   } else {
-    // For MIPS, set m_watchpoints_trigger_after_instruction to eLazyBoolNo
-    // if it is not calculated before.
-    if (m_watchpoints_trigger_after_instruction == eLazyBoolCalculate &&
-        (atype == llvm::Triple::mips || atype == llvm::Triple::mipsel ||
-         atype == llvm::Triple::mips64 || atype == llvm::Triple::mips64el))
+    // For MIPS and ppc64le, set m_watchpoints_trigger_after_instruction to
+    // eLazyBoolNo if it is not calculated before.
+    if ((m_watchpoints_trigger_after_instruction == eLazyBoolCalculate &&
+         (atype == llvm::Triple::mips || atype == llvm::Triple::mipsel ||
+          atype == llvm::Triple::mips64 || atype == llvm::Triple::mips64el)) ||
+        atype == llvm::Triple::ppc64le) {
       m_watchpoints_trigger_after_instruction = eLazyBoolNo;
+    }
 
     after = (m_watchpoints_trigger_after_instruction != eLazyBoolNo);
   }
@@ -2608,8 +2627,8 @@ size_t GDBRemoteCommunicationClient::GetCurrentThreadIDs(
      * tid.
      * Assume pid=tid=1 in such cases.
     */
-    if (response.IsUnsupportedResponse() && thread_ids.size() == 0 &&
-        IsConnected()) {
+    if ((response.IsUnsupportedResponse() || response.IsNormalResponse()) &&
+        thread_ids.size() == 0 && IsConnected()) {
       thread_ids.push_back(1);
     }
   } else {
@@ -3181,8 +3200,8 @@ GDBRemoteCommunicationClient::SendStartTracePacket(const TraceOptions &options,
                                    true) ==
       GDBRemoteCommunication::PacketResult::Success) {
     if (!response.IsNormalResponse()) {
-      error.SetError(response.GetError(), eErrorTypeGeneric);
-      LLDB_LOG(log, "Target does not support Tracing");
+      error = response.GetStatus();
+      LLDB_LOG(log, "Target does not support Tracing , error {0}", error);
     } else {
       ret_uid = response.GetHexMaxU64(false, LLDB_INVALID_UID);
     }
@@ -3219,7 +3238,7 @@ GDBRemoteCommunicationClient::SendStopTracePacket(lldb::user_id_t uid,
                                    true) ==
       GDBRemoteCommunication::PacketResult::Success) {
     if (!response.IsOKResponse()) {
-      error.SetError(response.GetError(), eErrorTypeGeneric);
+      error = response.GetStatus();
       LLDB_LOG(log, "stop tracing failed");
     }
   } else {
@@ -3234,6 +3253,7 @@ GDBRemoteCommunicationClient::SendStopTracePacket(lldb::user_id_t uid,
 Status GDBRemoteCommunicationClient::SendGetDataPacket(
     lldb::user_id_t uid, lldb::tid_t thread_id,
     llvm::MutableArrayRef<uint8_t> &buffer, size_t offset) {
+
   StreamGDBRemote escaped_packet;
   escaped_packet.PutCString("jTraceBufferRead:");
   return SendGetTraceDataPacket(escaped_packet, uid, thread_id, buffer, offset);
@@ -3242,6 +3262,7 @@ Status GDBRemoteCommunicationClient::SendGetDataPacket(
 Status GDBRemoteCommunicationClient::SendGetMetaDataPacket(
     lldb::user_id_t uid, lldb::tid_t thread_id,
     llvm::MutableArrayRef<uint8_t> &buffer, size_t offset) {
+
   StreamGDBRemote escaped_packet;
   escaped_packet.PutCString("jTraceMetaRead:");
   return SendGetTraceDataPacket(escaped_packet, uid, thread_id, buffer, offset);
@@ -3308,7 +3329,7 @@ GDBRemoteCommunicationClient::SendGetTraceConfigPacket(lldb::user_id_t uid,
                   custom_params_sp));
       }
     } else {
-      error.SetError(response.GetError(), eErrorTypeGeneric);
+      error = response.GetStatus();
     }
   } else {
     LLDB_LOG(log, "failed to send packet");
@@ -3344,7 +3365,7 @@ Status GDBRemoteCommunicationClient::SendGetTraceDataPacket(
       size_t filled_size = response.GetHexBytesAvail(buffer);
       buffer = llvm::MutableArrayRef<uint8_t>(buffer.data(), filled_size);
     } else {
-      error.SetError(response.GetError(), eErrorTypeGeneric);
+      error = response.GetStatus();
       buffer = buffer.slice(buffer.size());
     }
   } else {

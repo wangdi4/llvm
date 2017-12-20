@@ -11,11 +11,9 @@
 
 #include "lldb/Core/Address.h"
 #include "lldb/Core/AddressRange.h" // for AddressRange
-#include "lldb/Core/ArchSpec.h"     // for ArchSpec
 #include "lldb/Core/Debugger.h"
 #include "lldb/Core/Module.h"
-#include "lldb/Core/RegisterValue.h"  // for RegisterValue
-#include "lldb/Core/StructuredData.h" // for StructuredData::O...
+#include "lldb/Core/RegisterValue.h" // for RegisterValue
 #include "lldb/Core/ValueObject.h"
 #include "lldb/Core/ValueObjectVariable.h"
 #include "lldb/DataFormatters/DataVisualization.h"
@@ -43,6 +41,7 @@
 #include "lldb/Target/Target.h"
 #include "lldb/Target/Thread.h"
 #include "lldb/Utility/AnsiTerminal.h"
+#include "lldb/Utility/ArchSpec.h"    // for ArchSpec
 #include "lldb/Utility/ConstString.h" // for ConstString, oper...
 #include "lldb/Utility/FileSpec.h"
 #include "lldb/Utility/Log.h"        // for Log
@@ -50,9 +49,10 @@
 #include "lldb/Utility/SharingPtr.h" // for SharingPtr
 #include "lldb/Utility/Stream.h"
 #include "lldb/Utility/StreamString.h"
-#include "lldb/Utility/StringList.h" // for StringList
-#include "lldb/lldb-defines.h"       // for LLDB_INVALID_ADDRESS
-#include "lldb/lldb-forward.h"       // for ValueObjectSP
+#include "lldb/Utility/StringList.h"     // for StringList
+#include "lldb/Utility/StructuredData.h" // for StructuredData::O...
+#include "lldb/lldb-defines.h"           // for LLDB_INVALID_ADDRESS
+#include "lldb/lldb-forward.h"           // for ValueObjectSP
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Triple.h"       // for Triple, Triple::O...

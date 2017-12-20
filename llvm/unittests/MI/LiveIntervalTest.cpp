@@ -5,6 +5,7 @@
 #include "llvm/CodeGen/MachineModuleInfo.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/Passes.h"
+#include "llvm/CodeGen/TargetRegisterInfo.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/SourceMgr.h"
@@ -12,7 +13,6 @@
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
-#include "llvm/Target/TargetRegisterInfo.h"
 #include "gtest/gtest.h"
 
 using namespace llvm;
@@ -45,9 +45,8 @@ std::unique_ptr<TargetMachine> createTargetMachine() {
     return nullptr;
 
   TargetOptions Options;
-  return std::unique_ptr<TargetMachine>(
-      T->createTargetMachine("AMDGPU", "", "", Options, None,
-                             CodeModel::Default, CodeGenOpt::Aggressive));
+  return std::unique_ptr<TargetMachine>(T->createTargetMachine(
+      "AMDGPU", "", "", Options, None, None, CodeGenOpt::Aggressive));
 }
 
 std::unique_ptr<Module> parseMIR(LLVMContext &Context,
@@ -151,8 +150,7 @@ body: |
   std::unique_ptr<MIRParser> MIR;
   std::unique_ptr<Module> M = parseMIR(Context, PM, MIR, *TM, MIRString,
                                        "func");
-  if (!M)
-    report_fatal_error("Could not parse MIR code\n");
+  ASSERT_TRUE(M);
 
   PM.add(new TestPass(T));
 

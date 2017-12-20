@@ -84,7 +84,7 @@ entry:
 define i8 @e(i32* nocapture %a, i32 %b) nounwind {
 ; CHECK-LABEL: e:
 ; CHECK:       # BB#0:
-; CHECK-NEXT:    # kill: %ESI<def> %ESI<kill> %RSI<def>
+; CHECK-NEXT:    # kill: %esi<def> %esi<kill> %rsi<def>
 ; CHECK-NEXT:    movl (%rdi), %ecx
 ; CHECK-NEXT:    leal (%rsi,%rcx), %edx
 ; CHECK-NEXT:    addl %esi, %edx
@@ -171,8 +171,7 @@ define void @muladd(%accumulator* nocapture %this, i64 %arg.a, i64 %arg.b) {
 ; CHECK:       # BB#0: # %entry
 ; CHECK-NEXT:    movq %rdx, %rax
 ; CHECK-NEXT:    mulq %rsi
-; CHECK-NEXT:    addq (%rdi), %rax
-; CHECK-NEXT:    movq %rax, (%rdi)
+; CHECK-NEXT:    addq %rax, (%rdi)
 ; CHECK-NEXT:    adcq 8(%rdi), %rdx
 ; CHECK-NEXT:    movq %rdx, 8(%rdi)
 ; CHECK-NEXT:    adcl $0, 16(%rdi)

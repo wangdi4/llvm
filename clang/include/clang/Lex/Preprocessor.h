@@ -96,6 +96,8 @@ enum MacroUse {
 /// know anything about preprocessor-level issues like the \#include stack,
 /// token expansion, etc.
 class Preprocessor {
+  friend class VariadicMacroScopeGuard;
+  friend class VAOptDefinitionContext;
   std::shared_ptr<PreprocessorOptions> PPOpts;
   DiagnosticsEngine        *Diags;
   LangOptions       &LangOpts;
@@ -130,6 +132,7 @@ class Preprocessor {
   IdentifierInfo *Ident_Pragma, *Ident__pragma;    // _Pragma, __pragma
   IdentifierInfo *Ident__identifier;               // __identifier
   IdentifierInfo *Ident__VA_ARGS__;                // __VA_ARGS__
+  IdentifierInfo *Ident__VA_OPT__;                 // __VA_OPT__
   IdentifierInfo *Ident__has_feature;              // __has_feature
   IdentifierInfo *Ident__has_extension;            // __has_extension
   IdentifierInfo *Ident__has_builtin;              // __has_builtin
@@ -283,6 +286,23 @@ class Preprocessor {
   /// This is used when loading a precompiled preamble.
   std::pair<int, bool> SkipMainFilePreamble;
 
+public:
+  struct PreambleSkipInfo {
+    PreambleSkipInfo(SourceLocation HashTokenLoc, SourceLocation IfTokenLoc,
+                     bool FoundNonSkipPortion, bool FoundElse,
+                     SourceLocation ElseLoc)
+        : HashTokenLoc(HashTokenLoc), IfTokenLoc(IfTokenLoc),
+          FoundNonSkipPortion(FoundNonSkipPortion), FoundElse(FoundElse),
+          ElseLoc(ElseLoc) {}
+
+    SourceLocation HashTokenLoc;
+    SourceLocation IfTokenLoc;
+    bool FoundNonSkipPortion;
+    bool FoundElse;
+    SourceLocation ElseLoc;
+  };
+
+private:
   class PreambleConditionalStackStore {
     enum State {
       Off = 0,
@@ -315,6 +335,12 @@ class Preprocessor {
     }
 
     bool hasRecordedPreamble() const { return !ConditionalStack.empty(); }
+
+    bool reachedEOFWhileSkipping() const { return SkipInfo.hasValue(); }
+
+    void clearSkipInfo() { SkipInfo.reset(); }
+
+    llvm::Optional<PreambleSkipInfo> SkipInfo;
 
   private:
     SmallVector<PPConditionalInfo, 4> ConditionalStack;
@@ -1733,11 +1759,6 @@ public:
   /// \brief Return true if we're in the top-level file, not in a \#include.
   bool isInPrimaryFile() const;
 
-  /// \brief Return true if we're in the main file (specifically, if we are 0
-  /// (zero) levels deep \#include. This is used by the lexer to determine if
-  /// it needs to generate errors about unterminated \#if directives.
-  bool isInMainFile() const;
-
   /// \brief Handle cases where the \#include name is expanded
   /// from a macro as multiple tokens, which need to be glued together. 
   ///
@@ -1814,11 +1835,24 @@ private:
   void ReadMacroName(Token &MacroNameTok, MacroUse IsDefineUndef = MU_Other,
                      bool *ShadowFlag = nullptr);
 
+  /// ReadOptionalMacroParameterListAndBody - This consumes all (i.e. the
+  /// entire line) of the macro's tokens and adds them to MacroInfo, and while
+  /// doing so performs certain validity checks including (but not limited to):
+  ///   - # (stringization) is followed by a macro parameter
+  /// \param MacroNameTok - Token that represents the macro name
+  /// \param ImmediatelyAfterHeaderGuard - Macro follows an #ifdef header guard
+  /// 
+  ///  Either returns a pointer to a MacroInfo object OR emits a diagnostic and
+  ///  returns a nullptr if an invalid sequence of tokens is encountered.
+
+  MacroInfo *ReadOptionalMacroParameterListAndBody(
+      const Token &MacroNameTok, bool ImmediatelyAfterHeaderGuard);
+
   /// The ( starting an argument list of a macro definition has just been read.
-  /// Lex the rest of the arguments and the closing ), updating \p MI with
+  /// Lex the rest of the parameters and the closing ), updating \p MI with
   /// what we learn and saving in \p LastTok the last token read.
   /// Return true if an error occurs parsing the arg list.
-  bool ReadMacroDefinitionArgList(MacroInfo *MI, Token& LastTok);
+  bool ReadMacroParameterList(MacroInfo *MI, Token& LastTok);
 
   /// We just read a \#if or related directive and decided that the
   /// subsequent tokens are in the \#if'd out portion of the
@@ -1828,18 +1862,28 @@ private:
   /// \p FoundElse is false, then \#else directives are ok, if not, then we have
   /// already seen one so a \#else directive is a duplicate.  When this returns,
   /// the caller can lex the first valid token.
-  void SkipExcludedConditionalBlock(SourceLocation IfTokenLoc,
+  void SkipExcludedConditionalBlock(SourceLocation HashTokenLoc,
+                                    SourceLocation IfTokenLoc,
                                     bool FoundNonSkipPortion, bool FoundElse,
                                     SourceLocation ElseLoc = SourceLocation());
 
   /// \brief A fast PTH version of SkipExcludedConditionalBlock.
   void PTHSkipExcludedConditionalBlock();
 
+  /// Information about the result for evaluating an expression for a
+  /// preprocessor directive.
+  struct DirectiveEvalResult {
+    /// Whether the expression was evaluated as true or not.
+    bool Conditional;
+    /// True if the expression contained identifiers that were undefined.
+    bool IncludedUndefinedIds;
+  };
+
   /// \brief Evaluate an integer constant expression that may occur after a
-  /// \#if or \#elif directive and return it as a bool.
+  /// \#if or \#elif directive and return a \p DirectiveEvalResult object.
   ///
   /// If the expression is equivalent to "!defined(X)" return X in IfNDefMacro.
-  bool EvaluateDirectiveExpression(IdentifierInfo *&IfNDefMacro);
+  DirectiveEvalResult EvaluateDirectiveExpression(IdentifierInfo *&IfNDefMacro);
 
   /// \brief Install the standard preprocessor pragmas:
   /// \#pragma GCC poison/system_header/dependency and \#pragma once.
@@ -1870,7 +1914,7 @@ private:
 
   /// After reading "MACRO(", this method is invoked to read all of the formal
   /// arguments specified for the macro invocation.  Returns null on error.
-  MacroArgs *ReadFunctionLikeMacroArgs(Token &MacroName, MacroInfo *MI,
+  MacroArgs *ReadMacroCallArgumentList(Token &MacroName, MacroInfo *MI,
                                        SourceLocation &ExpansionEnd);
 
   /// \brief If an identifier token is read that is to be expanded
@@ -1998,23 +2042,34 @@ public:
     PreambleConditionalStack.setStack(s);
   }
 
-  void setReplayablePreambleConditionalStack(ArrayRef<PPConditionalInfo> s) {
+  void setReplayablePreambleConditionalStack(ArrayRef<PPConditionalInfo> s,
+                                             llvm::Optional<PreambleSkipInfo> SkipInfo) {
     PreambleConditionalStack.startReplaying();
     PreambleConditionalStack.setStack(s);
+    PreambleConditionalStack.SkipInfo = SkipInfo;
+  }
+
+  llvm::Optional<PreambleSkipInfo> getPreambleSkipInfo() const {
+    return PreambleConditionalStack.SkipInfo;
   }
 
 private:
+  /// \brief After processing predefined file, initialize the conditional stack from
+  /// the preamble.
+  void replayPreambleConditionalStack();
+
   // Macro handling.
   void HandleDefineDirective(Token &Tok, bool ImmediatelyAfterTopLevelIfndef);
   void HandleUndefDirective();
 
   // Conditional Inclusion.
-  void HandleIfdefDirective(Token &Tok, bool isIfndef,
-                            bool ReadAnyTokensBeforeDirective);
-  void HandleIfDirective(Token &Tok, bool ReadAnyTokensBeforeDirective);
+  void HandleIfdefDirective(Token &Tok, const Token &HashToken,
+                            bool isIfndef, bool ReadAnyTokensBeforeDirective);
+  void HandleIfDirective(Token &Tok, const Token &HashToken,
+                         bool ReadAnyTokensBeforeDirective);
   void HandleEndifDirective(Token &Tok);
-  void HandleElseDirective(Token &Tok);
-  void HandleElifDirective(Token &Tok);
+  void HandleElseDirective(Token &Tok, const Token &HashToken);
+  void HandleElifDirective(Token &Tok, const Token &HashToken);
 
   // Pragmas.
   void HandlePragmaDirective(SourceLocation IntroducerLoc,

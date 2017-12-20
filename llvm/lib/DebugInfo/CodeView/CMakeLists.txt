@@ -1,6 +1,7 @@
 add_llvm_library(LLVMDebugInfoCodeView
   CodeViewError.cpp
   CodeViewRecordIO.cpp
+  ContinuationRecordBuilder.cpp
   CVSymbolVisitor.cpp
   CVTypeVisitor.cpp
   DebugChecksumsSubsection.cpp
@@ -19,18 +20,18 @@ add_llvm_library(LLVMDebugInfoCodeView
   Formatters.cpp
   LazyRandomTypeCollection.cpp
   Line.cpp
+  RecordName.cpp
   RecordSerialization.cpp
+  SimpleTypeSerializer.cpp
   StringsAndChecksums.cpp
   SymbolRecordMapping.cpp
   SymbolDumper.cpp
   SymbolSerializer.cpp
-  TypeDatabase.cpp
-  TypeDatabaseVisitor.cpp
   TypeDumpVisitor.cpp
   TypeIndex.cpp
   TypeIndexDiscovery.cpp
   TypeRecordMapping.cpp
-  TypeSerializer.cpp
+  TypeTableBuilder.cpp
   TypeStreamMerger.cpp
   TypeTableCollection.cpp
 

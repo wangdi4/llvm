@@ -27,21 +27,18 @@
 // Other libraries and framework includes
 // Project includes
 #include "lldb/Core/Module.h"
-#include "lldb/Core/StreamFile.h"
 #include "lldb/Host/Host.h"
 #include "lldb/Host/HostInfo.h"
 #include "lldb/Target/Platform.h"
 #include "lldb/Target/Process.h"
-#include "lldb/Utility/DataExtractor.h"
-#include "lldb/Utility/Endian.h"
-#include "lldb/Utility/Log.h"
-#include "lldb/Utility/Status.h"
-#include "lldb/Utility/StreamString.h"
-
 #include "lldb/Utility/CleanUp.h"
 #include "lldb/Utility/DataBufferHeap.h"
 #include "lldb/Utility/DataExtractor.h"
+#include "lldb/Utility/Endian.h"
+#include "lldb/Utility/Log.h"
 #include "lldb/Utility/NameMatches.h"
+#include "lldb/Utility/Status.h"
+#include "lldb/Utility/StreamString.h"
 
 #include "llvm/Support/Host.h"
 
@@ -76,7 +73,14 @@ GetFreeBSDProcessArgs(const ProcessInstanceInfoMatch *match_info_ptr,
   if (!cstr)
     return false;
 
-  process_info.GetExecutableFile().SetFile(cstr, false);
+  // Get pathname for pid. If that fails fall back to argv[0].
+  char pathname[MAXPATHLEN];
+  size_t pathname_len = sizeof(pathname);
+  mib[2] = KERN_PROC_PATHNAME;
+  if (::sysctl(mib, 4, pathname, &pathname_len, NULL, 0) == 0)
+    process_info.GetExecutableFile().SetFile(pathname, false);
+  else
+    process_info.GetExecutableFile().SetFile(cstr, false);
 
   if (!(match_info_ptr == NULL ||
         NameMatches(process_info.GetExecutableFile().GetFilename().GetCString(),

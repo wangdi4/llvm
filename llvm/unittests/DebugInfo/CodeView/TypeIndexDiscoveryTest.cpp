@@ -9,6 +9,8 @@
 
 #include "llvm/DebugInfo/CodeView/TypeIndexDiscovery.h"
 
+#include "llvm/DebugInfo/CodeView/ContinuationRecordBuilder.h"
+#include "llvm/DebugInfo/CodeView/SymbolSerializer.h"
 #include "llvm/DebugInfo/CodeView/TypeTableBuilder.h"
 #include "llvm/Support/Allocator.h"
 
@@ -25,11 +27,12 @@ public:
   void SetUp() override {
     Refs.clear();
     TTB = make_unique<TypeTableBuilder>(Storage);
-    FLRB = make_unique<FieldListRecordBuilder>(*TTB);
+    CRB = make_unique<ContinuationRecordBuilder>();
+    Symbols.clear();
   }
 
   void TearDown() override {
-    FLRB.reset();
+    CRB.reset();
     TTB.reset();
   }
 
@@ -37,14 +40,27 @@ protected:
   template <typename... Indices>
   bool checkTypeReferences(uint32_t RecordIndex, Indices &&... TIs) const {
     EXPECT_EQ(sizeof...(Indices), countRefs(RecordIndex));
-    return checkTypeReferencesImpl(RecordIndex, std::forward<Indices>(TIs)...);
+
+    // Choose between type or symbol records. The checking code doesn't care
+    // which we have.
+    std::vector<ArrayRef<uint8_t>> CVRecords;
+    if (Symbols.empty()) {
+      CVRecords = TTB->records();
+    } else {
+      for (const CVSymbol &S : Symbols)
+        CVRecords.push_back(S.data());
+    }
+
+    return checkTypeReferencesImpl(RecordIndex, CVRecords,
+                                   std::forward<Indices>(TIs)...);
   }
 
   template <typename... T> void writeFieldList(T &&... MemberRecords) {
-    FLRB->begin();
+    CRB->begin(ContinuationRecordKind::FieldList);
     writeFieldListImpl(std::forward<T>(MemberRecords)...);
-    FLRB->end(true);
-    ASSERT_EQ(1u, TTB->records().size());
+    auto Records = CRB->end(TTB->nextTypeIndex());
+    ASSERT_EQ(1u, Records.size());
+    TTB->insertRecordBytes(Records.front().RecordData);
     discoverAllTypeIndices();
   }
 
@@ -53,6 +69,13 @@ protected:
     ASSERT_EQ(sizeof...(T), TTB->records().size());
     discoverAllTypeIndices();
   }
+
+  template <typename... T> void writeSymbolRecords(T &&... Records) {
+    writeSymbolRecordsImpl(std::forward<T>(Records)...);
+    ASSERT_EQ(sizeof...(T), Symbols.size());
+    discoverTypeIndicesInSymbols();
+  }
+
 
   std::unique_ptr<TypeTableBuilder> TTB;
 
@@ -83,18 +106,20 @@ private:
   }
 
   template <typename... Indices>
-  bool checkTypeReferencesImpl(uint32_t RecordIndex) const {
+  bool checkTypeReferencesImpl(uint32_t RecordIndex,
+                               ArrayRef<ArrayRef<uint8_t>> CVRecords) const {
     return true;
   }
 
   template <typename... Indices>
-  bool checkTypeReferencesImpl(uint32_t RecordIndex, TypeIndex TI,
-                               Indices &&... Rest) const {
-    ArrayRef<uint8_t> Record = TTB->records()[RecordIndex];
+  bool checkTypeReferencesImpl(uint32_t RecordIndex,
+                               ArrayRef<ArrayRef<uint8_t>> CVRecords,
+                               TypeIndex TI, Indices &&... Rest) const {
+    ArrayRef<uint8_t> Record = CVRecords[RecordIndex];
     bool Success = checkOneTypeReference(RecordIndex, Record, TI);
     EXPECT_TRUE(Success);
-    return Success &
-           checkTypeReferencesImpl(RecordIndex, std::forward<Indices>(Rest)...);
+    return Success & checkTypeReferencesImpl(RecordIndex, CVRecords,
+                                             std::forward<Indices>(Rest)...);
   }
 
   void discoverAllTypeIndices() {
@@ -105,13 +130,19 @@ private:
     }
   }
 
+  void discoverTypeIndicesInSymbols() {
+    Refs.resize(Symbols.size());
+    for (uint32_t I = 0; I < Symbols.size(); ++I)
+      discoverTypeIndicesInSymbol(Symbols[I], Refs[I]);
+  }
+
   // Helper function to write out a field list record with the given list
   // of member records.
   void writeFieldListImpl() {}
 
   template <typename RecType, typename... Rest>
   void writeFieldListImpl(RecType &&Record, Rest &&... Records) {
-    FLRB->writeMemberType(Record);
+    CRB->writeMemberType(Record);
     writeFieldListImpl(std::forward<Rest>(Records)...);
   }
 
@@ -120,12 +151,23 @@ private:
 
   template <typename RecType, typename... Rest>
   void writeTypeRecordsImpl(RecType &&Record, Rest &&... Records) {
-    TTB->writeKnownType(Record);
+    TTB->writeLeafType(Record);
     writeTypeRecordsImpl(std::forward<Rest>(Records)...);
   }
 
+  // Helper function to write out a list of symbol records.
+  void writeSymbolRecordsImpl() {}
+
+  template <typename RecType, typename... Rest>
+  void writeSymbolRecordsImpl(RecType &&Record, Rest &&... Records) {
+    Symbols.push_back(SymbolSerializer::writeOneSymbol(Record, Storage,
+                                                       CodeViewContainer::Pdb));
+    writeSymbolRecordsImpl(std::forward<Rest>(Records)...);
+  }
+
   std::vector<SmallVector<TiReference, 4>> Refs;
-  std::unique_ptr<FieldListRecordBuilder> FLRB;
+  std::unique_ptr<ContinuationRecordBuilder> CRB;
+  std::vector<CVSymbol> Symbols;
   BumpPtrAllocator Storage;
 };
 
@@ -492,4 +534,40 @@ TEST_F(TypeIndexIteratorTest, ManyMembers) {
       OneMethod.T1, OneMethod.T2, OneMethod.T3, OneMethod.T4, NestedType.Type,
       StaticDataMember.Type, VirtualBaseClass.BaseType,
       VirtualBaseClass.VBPtrType, VFPtr.Type, Continuation.ContinuationIndex);
+}
+
+TEST_F(TypeIndexIteratorTest, ProcSym) {
+  ProcSym GS(SymbolRecordKind::GlobalProcSym);
+  GS.FunctionType = TypeIndex(0x40);
+  ProcSym LS(SymbolRecordKind::ProcSym);
+  LS.FunctionType = TypeIndex(0x41);
+  writeSymbolRecords(GS, LS);
+  checkTypeReferences(0, GS.FunctionType);
+  checkTypeReferences(1, LS.FunctionType);
+}
+
+TEST_F(TypeIndexIteratorTest, DataSym) {
+  DataSym DS(SymbolRecordKind::GlobalData);
+  DS.Type = TypeIndex(0x40);
+  writeSymbolRecords(DS);
+  checkTypeReferences(0, DS.Type);
+}
+
+TEST_F(TypeIndexIteratorTest, CallerSym) {
+  CallerSym Callees(SymbolRecordKind::CalleeSym);
+  Callees.Indices.push_back(TypeIndex(1));
+  Callees.Indices.push_back(TypeIndex(2));
+  Callees.Indices.push_back(TypeIndex(3));
+  CallerSym Callers(SymbolRecordKind::CallerSym);
+  Callers.Indices.push_back(TypeIndex(4));
+  Callers.Indices.push_back(TypeIndex(5));
+  Callers.Indices.push_back(TypeIndex(6));
+  CallerSym Inlinees(SymbolRecordKind::InlineesSym);
+  Inlinees.Indices.push_back(TypeIndex(7));
+  Inlinees.Indices.push_back(TypeIndex(8));
+  Inlinees.Indices.push_back(TypeIndex(9));
+  writeSymbolRecords(Callees, Callers, Inlinees);
+  checkTypeReferences(0, TypeIndex(1), TypeIndex(2), TypeIndex(3));
+  checkTypeReferences(1, TypeIndex(4), TypeIndex(5), TypeIndex(6));
+  checkTypeReferences(2, TypeIndex(7), TypeIndex(8), TypeIndex(9));
 }

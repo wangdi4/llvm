@@ -37,6 +37,8 @@
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/ScoreboardHazardRecognizer.h"
 #include "llvm/CodeGen/SelectionDAGNodes.h"
+#include "llvm/CodeGen/TargetInstrInfo.h"
+#include "llvm/CodeGen/TargetRegisterInfo.h"
 #include "llvm/CodeGen/TargetSchedule.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/Constants.h"
@@ -53,9 +55,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Target/TargetInstrInfo.h"
 #include "llvm/Target/TargetMachine.h"
-#include "llvm/Target/TargetRegisterInfo.h"
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
@@ -665,12 +665,14 @@ bool ARMBaseInstrInfo::isPredicable(const MachineInstr &MI) const {
   const ARMFunctionInfo *AFI =
       MI.getParent()->getParent()->getInfo<ARMFunctionInfo>();
 
+  // Neon instructions in Thumb2 IT blocks are deprecated, see ARMARM.
+  // In their ARM encoding, they can't be encoded in a conditional form.
+  if ((MI.getDesc().TSFlags & ARMII::DomainMask) == ARMII::DomainNEON)
+    return false;
+
   if (AFI->isThumb2Function()) {
     if (getSubtarget().restrictIT())
       return isV8EligibleForIT(&MI);
-  } else { // non-Thumb
-    if ((MI.getDesc().TSFlags & ARMII::DomainMask) == ARMII::DomainNEON)
-      return false;
   }
 
   return true;
@@ -1548,20 +1550,29 @@ void ARMBaseInstrInfo::reMaterialize(MachineBasicBlock &MBB,
   }
 }
 
-MachineInstr *ARMBaseInstrInfo::duplicate(MachineInstr &Orig,
-                                          MachineFunction &MF) const {
-  MachineInstr *MI = TargetInstrInfo::duplicate(Orig, MF);
-  switch (Orig.getOpcode()) {
-  case ARM::tLDRpci_pic:
-  case ARM::t2LDRpci_pic: {
-    unsigned CPI = Orig.getOperand(1).getIndex();
-    unsigned PCLabelId = duplicateCPV(MF, CPI);
-    Orig.getOperand(1).setIndex(CPI);
-    Orig.getOperand(2).setImm(PCLabelId);
-    break;
+MachineInstr &
+ARMBaseInstrInfo::duplicate(MachineBasicBlock &MBB,
+    MachineBasicBlock::iterator InsertBefore,
+    const MachineInstr &Orig) const {
+  MachineInstr &Cloned = TargetInstrInfo::duplicate(MBB, InsertBefore, Orig);
+  MachineBasicBlock::instr_iterator I = Cloned.getIterator();
+  for (;;) {
+    switch (I->getOpcode()) {
+    case ARM::tLDRpci_pic:
+    case ARM::t2LDRpci_pic: {
+      MachineFunction &MF = *MBB.getParent();
+      unsigned CPI = I->getOperand(1).getIndex();
+      unsigned PCLabelId = duplicateCPV(MF, CPI);
+      I->getOperand(1).setIndex(CPI);
+      I->getOperand(2).setImm(PCLabelId);
+      break;
+    }
+    }
+    if (!I->isBundledWithSucc())
+      break;
+    ++I;
   }
-  }
-  return MI;
+  return Cloned;
 }
 
 bool ARMBaseInstrInfo::produceSameValue(const MachineInstr &MI0,
@@ -1639,7 +1650,7 @@ bool ARMBaseInstrInfo::produceSameValue(const MachineInstr &MI0,
     }
 
     for (unsigned i = 3, e = MI0.getNumOperands(); i != e; ++i) {
-      // %vreg12<def> = PICLDR %vreg11, 0, pred:14, pred:%noreg
+      // %12<def> = PICLDR %11, 0, pred:14, pred:%noreg
       const MachineOperand &MO0 = MI0.getOperand(i);
       const MachineOperand &MO1 = MI1.getOperand(i);
       if (!MO0.isIdenticalTo(MO1))
@@ -1849,9 +1860,9 @@ isProfitableToIfCvt(MachineBasicBlock &MBB,
 }
 
 bool ARMBaseInstrInfo::
-isProfitableToIfCvt(MachineBasicBlock &,
+isProfitableToIfCvt(MachineBasicBlock &TBB,
                     unsigned TCycles, unsigned TExtra,
-                    MachineBasicBlock &,
+                    MachineBasicBlock &FBB,
                     unsigned FCycles, unsigned FExtra,
                     BranchProbability Probability) const {
   if (!TCycles)
@@ -1861,14 +1872,46 @@ isProfitableToIfCvt(MachineBasicBlock &,
   // Here we scale up each component of UnpredCost to avoid precision issue when
   // scaling TCycles/FCycles by Probability.
   const unsigned ScalingUpFactor = 1024;
-  unsigned TUnpredCost = Probability.scale(TCycles * ScalingUpFactor);
-  unsigned FUnpredCost =
-      Probability.getCompl().scale(FCycles * ScalingUpFactor);
-  unsigned UnpredCost = TUnpredCost + FUnpredCost;
-  UnpredCost += 1 * ScalingUpFactor; // The branch itself
-  UnpredCost += Subtarget.getMispredictionPenalty() * ScalingUpFactor / 10;
 
-  return (TCycles + FCycles + TExtra + FExtra) * ScalingUpFactor <= UnpredCost;
+  unsigned PredCost = (TCycles + FCycles + TExtra + FExtra) * ScalingUpFactor;
+  unsigned UnpredCost;
+  if (!Subtarget.hasBranchPredictor()) {
+    // When we don't have a branch predictor it's always cheaper to not take a
+    // branch than take it, so we have to take that into account.
+    unsigned NotTakenBranchCost = 1;
+    unsigned TakenBranchCost = Subtarget.getMispredictionPenalty();
+    unsigned TUnpredCycles, FUnpredCycles;
+    if (!FCycles) {
+      // Triangle: TBB is the fallthrough
+      TUnpredCycles = TCycles + NotTakenBranchCost;
+      FUnpredCycles = TakenBranchCost;
+    } else {
+      // Diamond: TBB is the block that is branched to, FBB is the fallthrough
+      TUnpredCycles = TCycles + TakenBranchCost;
+      FUnpredCycles = FCycles + NotTakenBranchCost;
+      // The branch at the end of FBB will disappear when it's predicated, so
+      // discount it from PredCost.
+      PredCost -= 1 * ScalingUpFactor;
+    }
+    // The total cost is the cost of each path scaled by their probabilites
+    unsigned TUnpredCost = Probability.scale(TUnpredCycles * ScalingUpFactor);
+    unsigned FUnpredCost = Probability.getCompl().scale(FUnpredCycles * ScalingUpFactor);
+    UnpredCost = TUnpredCost + FUnpredCost;
+    // When predicating assume that the first IT can be folded away but later
+    // ones cost one cycle each
+    if (Subtarget.isThumb2() && TCycles + FCycles > 4) {
+      PredCost += ((TCycles + FCycles - 4) / 4) * ScalingUpFactor;
+    }
+  } else {
+    unsigned TUnpredCost = Probability.scale(TCycles * ScalingUpFactor);
+    unsigned FUnpredCost =
+      Probability.getCompl().scale(FCycles * ScalingUpFactor);
+    UnpredCost = TUnpredCost + FUnpredCost;
+    UnpredCost += 1 * ScalingUpFactor; // The branch itself
+    UnpredCost += Subtarget.getMispredictionPenalty() * ScalingUpFactor / 10;
+  }
+
+  return PredCost <= UnpredCost;
 }
 
 bool

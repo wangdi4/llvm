@@ -1,4 +1,5 @@
 set(LLVM_LINK_COMPONENTS
+  BinaryFormat
   DebugInfoCodeView
   DebugInfoMSF
   DebugInfoPDB
@@ -9,11 +10,16 @@ set(LLVM_LINK_COMPONENTS
 
 add_llvm_tool(llvm-pdbutil
   Analyze.cpp
-  CompactTypeDumpVisitor.cpp
+  BytesOutputStyle.cpp
   Diff.cpp
+  DiffPrinter.cpp
+  DumpOutputStyle.cpp
+  InputFile.cpp
   llvm-pdbutil.cpp
+  FormatUtil.cpp
   LinePrinter.cpp
-  LLVMOutputStyle.cpp
+  MinimalSymbolDumper.cpp
+  MinimalTypeDumper.cpp
   PdbYaml.cpp
   PrettyBuiltinDumper.cpp
   PrettyClassDefinitionDumper.cpp
@@ -28,7 +34,3 @@ add_llvm_tool(llvm-pdbutil
   StreamUtil.cpp
   YAMLOutputStyle.cpp
   )
-
-if(LLVM_USE_SANITIZE_COVERAGE)
-  add_subdirectory(fuzzer)
-endif()

@@ -10,13 +10,11 @@
 #include "llvm/DebugInfo/CodeView/TypeStreamMerger.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringExtras.h"
-#include "llvm/DebugInfo/CodeView/CVTypeVisitor.h"
 #include "llvm/DebugInfo/CodeView/TypeDeserializer.h"
 #include "llvm/DebugInfo/CodeView/TypeIndex.h"
 #include "llvm/DebugInfo/CodeView/TypeIndexDiscovery.h"
 #include "llvm/DebugInfo/CodeView/TypeRecord.h"
 #include "llvm/DebugInfo/CodeView/TypeTableBuilder.h"
-#include "llvm/DebugInfo/CodeView/TypeVisitorCallbacks.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/ScopedPrinter.h"
 
@@ -57,56 +55,37 @@ namespace {
 /// streams: an item (or IPI) stream and a type stream, as this is what is
 /// actually stored in the final PDB. We choose which records go where by
 /// looking at the record kind.
-class TypeStreamMerger : public TypeVisitorCallbacks {
+class TypeStreamMerger {
 public:
-  explicit TypeStreamMerger(SmallVectorImpl<TypeIndex> &SourceToDest,
-                            TypeServerHandler *Handler)
-      : Handler(Handler), IndexMap(SourceToDest) {
+  explicit TypeStreamMerger(SmallVectorImpl<TypeIndex> &SourceToDest)
+      : IndexMap(SourceToDest) {
     SourceToDest.clear();
   }
 
   static const TypeIndex Untranslated;
 
-  Error visitTypeBegin(CVType &Record) override;
-  Error visitTypeEnd(CVType &Record) override;
-
   Error mergeTypesAndIds(TypeTableBuilder &DestIds, TypeTableBuilder &DestTypes,
-    const CVTypeArray &IdsAndTypes);
+                         const CVTypeArray &IdsAndTypes);
   Error mergeIdRecords(TypeTableBuilder &Dest,
                        ArrayRef<TypeIndex> TypeSourceToDest,
-    const CVTypeArray &Ids);
+                       const CVTypeArray &Ids);
   Error mergeTypeRecords(TypeTableBuilder &Dest, const CVTypeArray &Types);
 
 private:
   Error doit(const CVTypeArray &Types);
+
+  Error remapAllTypes(const CVTypeArray &Types);
+
+  Error remapType(const CVType &Type);
 
   void addMapping(TypeIndex Idx);
 
   bool remapTypeIndex(TypeIndex &Idx);
   bool remapItemIndex(TypeIndex &Idx);
 
-  bool remapIndices(RemappedType &Record, ArrayRef<TiReference> Refs) {
-    auto OriginalData = Record.OriginalRecord.content();
-    bool Success = true;
-    for (auto &Ref : Refs) {
-      uint32_t Offset = Ref.Offset;
-      ArrayRef<uint8_t> Bytes =
-          OriginalData.slice(Ref.Offset, sizeof(TypeIndex));
-      ArrayRef<TypeIndex> TIs(reinterpret_cast<const TypeIndex *>(Bytes.data()),
-                              Ref.Count);
-      for (auto TI : TIs) {
-        TypeIndex NewTI = TI;
-        bool ThisSuccess = (Ref.Kind == TiRefKind::IndexRef)
-                               ? remapItemIndex(NewTI)
-                               : remapTypeIndex(NewTI);
-        if (ThisSuccess && NewTI != TI)
-          Record.Mappings.emplace_back(Offset, NewTI);
-        Offset += sizeof(TypeIndex);
-        Success &= ThisSuccess;
-      }
-    }
-    return Success;
-  }
+  ArrayRef<uint8_t> serializeRemapped(const RemappedType &Record);
+
+  bool remapIndices(RemappedType &Record, ArrayRef<TiReference> Refs);
 
   bool remapIndex(TypeIndex &Idx, ArrayRef<TypeIndex> Map);
 
@@ -119,30 +98,6 @@ private:
     return llvm::make_error<CodeViewError>(cv_error_code::corrupt_record);
   }
 
-  Error writeRecord(TypeTableBuilder &Dest, const RemappedType &Record,
-                    bool RemapSuccess) {
-    TypeIndex DestIdx = Untranslated;
-    if (RemapSuccess)
-      DestIdx = Dest.writeSerializedRecord(Record);
-    addMapping(DestIdx);
-    return Error::success();
-  }
-
-  Error writeTypeRecord(const CVType &Record) {
-    TypeIndex DestIdx =
-        DestTypeStream->writeSerializedRecord(Record.RecordData);
-    addMapping(DestIdx);
-    return Error::success();
-  }
-
-  Error writeTypeRecord(const RemappedType &Record, bool RemapSuccess) {
-    return writeRecord(*DestTypeStream, Record, RemapSuccess);
-  }
-
-  Error writeIdRecord(const RemappedType &Record, bool RemapSuccess) {
-    return writeRecord(*DestIdStream, Record, RemapSuccess);
-  }
-
   Optional<Error> LastError;
 
   bool IsSecondPass = false;
@@ -153,7 +108,6 @@ private:
 
   TypeTableBuilder *DestIdStream = nullptr;
   TypeTableBuilder *DestTypeStream = nullptr;
-  TypeServerHandler *Handler = nullptr;
 
   // If we're only mapping id records, this array contains the mapping for
   // type records.
@@ -162,18 +116,39 @@ private:
   /// Map from source type index to destination type index. Indexed by source
   /// type index minus 0x1000.
   SmallVectorImpl<TypeIndex> &IndexMap;
+
+  /// Temporary storage that we use to copy a record's data while re-writing
+  /// its type indices.
+  SmallVector<uint8_t, 256> RemapStorage;
 };
 
 } // end anonymous namespace
 
+ArrayRef<uint8_t>
+TypeStreamMerger::serializeRemapped(const RemappedType &Record) {
+  TypeIndex TI;
+  ArrayRef<uint8_t> OriginalData = Record.OriginalRecord.RecordData;
+  if (Record.Mappings.empty())
+    return OriginalData;
+
+  // At least one type index was remapped.  We copy the full record bytes,
+  // re-write each type index, then return that.
+  RemapStorage.resize(OriginalData.size());
+  ::memcpy(&RemapStorage[0], OriginalData.data(), OriginalData.size());
+  uint8_t *ContentBegin = RemapStorage.data() + sizeof(RecordPrefix);
+  for (const auto &M : Record.Mappings) {
+    // First 4 bytes of every record are the record prefix, but the mapping
+    // offset is relative to the content which starts after.
+    *(TypeIndex *)(ContentBegin + M.first) = M.second;
+  }
+  auto RemapRef = makeArrayRef(RemapStorage);
+  return RemapRef;
+}
+
 const TypeIndex TypeStreamMerger::Untranslated(SimpleTypeKind::NotTranslated);
 
-Error TypeStreamMerger::visitTypeBegin(CVType &Rec) {
-  RemappedType R(Rec);
-  SmallVector<TiReference, 32> Refs;
-  discoverTypeIndices(Rec.RecordData, Refs);
-  bool Success = remapIndices(R, Refs);
-  switch (Rec.kind()) {
+static bool isIdRecord(TypeLeafKind K) {
+  switch (K) {
   case TypeLeafKind::LF_FUNC_ID:
   case TypeLeafKind::LF_MFUNC_ID:
   case TypeLeafKind::LF_STRING_ID:
@@ -181,19 +156,10 @@ Error TypeStreamMerger::visitTypeBegin(CVType &Rec) {
   case TypeLeafKind::LF_BUILDINFO:
   case TypeLeafKind::LF_UDT_SRC_LINE:
   case TypeLeafKind::LF_UDT_MOD_SRC_LINE:
-    return writeIdRecord(R, Success);
+    return true;
   default:
-    return writeTypeRecord(R, Success);
+    return false;
   }
-  return Error::success();
-}
-
-Error TypeStreamMerger::visitTypeEnd(CVType &Rec) {
-  ++CurIndex;
-  if (!IsSecondPass)
-    assert(IndexMap.size() == slotForIndex(CurIndex) &&
-           "visitKnownRecord should add one index map entry");
-  return Error::success();
 }
 
 void TypeStreamMerger::addMapping(TypeIndex Idx) {
@@ -256,7 +222,7 @@ bool TypeStreamMerger::remapItemIndex(TypeIndex &Idx) {
 }
 
 Error TypeStreamMerger::mergeTypeRecords(TypeTableBuilder &Dest,
-  const CVTypeArray &Types) {
+                                         const CVTypeArray &Types) {
   DestTypeStream = &Dest;
 
   return doit(Types);
@@ -264,7 +230,7 @@ Error TypeStreamMerger::mergeTypeRecords(TypeTableBuilder &Dest,
 
 Error TypeStreamMerger::mergeIdRecords(TypeTableBuilder &Dest,
                                        ArrayRef<TypeIndex> TypeSourceToDest,
-  const CVTypeArray &Ids) {
+                                       const CVTypeArray &Ids) {
   DestIdStream = &Dest;
   TypeLookup = TypeSourceToDest;
 
@@ -273,25 +239,14 @@ Error TypeStreamMerger::mergeIdRecords(TypeTableBuilder &Dest,
 
 Error TypeStreamMerger::mergeTypesAndIds(TypeTableBuilder &DestIds,
                                          TypeTableBuilder &DestTypes,
-  const CVTypeArray &IdsAndTypes) {
+                                         const CVTypeArray &IdsAndTypes) {
   DestIdStream = &DestIds;
   DestTypeStream = &DestTypes;
-
   return doit(IdsAndTypes);
 }
 
 Error TypeStreamMerger::doit(const CVTypeArray &Types) {
-  LastError = Error::success();
-
-  // We don't want to deserialize records.  I guess this flag is poorly named,
-  // but it really means "Don't deserialize records before switching on the
-  // concrete type.
-  // FIXME: We can probably get even more speed here if we don't use the visitor
-  // pipeline here, but instead write the switch ourselves.  I don't think it
-  // would buy us much since it's already pretty fast, but it's probably worth
-  // a few cycles.
-  if (auto EC =
-          codeview::visitTypeStream(Types, *this, VDS_BytesExternal, Handler))
+  if (auto EC = remapAllTypes(Types))
     return EC;
 
   // If we found bad indices but no other errors, try doing another pass and see
@@ -301,50 +256,97 @@ Error TypeStreamMerger::doit(const CVTypeArray &Types) {
   // topologically sorted. The standard library contains MASM-produced objects,
   // so this is important to handle correctly, but we don't have to be too
   // efficient. MASM type streams are usually very small.
-  while (!*LastError && NumBadIndices > 0) {
+  while (!LastError && NumBadIndices > 0) {
     unsigned BadIndicesRemaining = NumBadIndices;
     IsSecondPass = true;
     NumBadIndices = 0;
     CurIndex = TypeIndex(TypeIndex::FirstNonSimpleIndex);
 
-    if (auto EC =
-            codeview::visitTypeStream(Types, *this, VDS_BytesExternal, Handler))
+    if (auto EC = remapAllTypes(Types))
       return EC;
 
     assert(NumBadIndices <= BadIndicesRemaining &&
            "second pass found more bad indices");
-    if (!*LastError && NumBadIndices == BadIndicesRemaining) {
+    if (!LastError && NumBadIndices == BadIndicesRemaining) {
       return llvm::make_error<CodeViewError>(
           cv_error_code::corrupt_record, "input type graph contains cycles");
     }
   }
 
-  Error Ret = std::move(*LastError);
-  LastError.reset();
-  return Ret;
+  if (LastError)
+    return std::move(*LastError);
+  return Error::success();
+}
+
+Error TypeStreamMerger::remapAllTypes(const CVTypeArray &Types) {
+  for (const CVType &Type : Types)
+    if (auto EC = remapType(Type))
+      return EC;
+  return Error::success();
+}
+
+Error TypeStreamMerger::remapType(const CVType &Type) {
+  TypeTableBuilder &Dest =
+      isIdRecord(Type.kind()) ? *DestIdStream : *DestTypeStream;
+
+  RemappedType R(Type);
+  SmallVector<TiReference, 32> Refs;
+  discoverTypeIndices(Type.RecordData, Refs);
+  bool MappedAllIndices = remapIndices(R, Refs);
+  ArrayRef<uint8_t> Data = serializeRemapped(R);
+
+  TypeIndex DestIdx = Untranslated;
+  if (MappedAllIndices)
+    DestIdx = Dest.insertRecordBytes(Data);
+  addMapping(DestIdx);
+
+  ++CurIndex;
+  assert((IsSecondPass || IndexMap.size() == slotForIndex(CurIndex)) &&
+         "visitKnownRecord should add one index map entry");
+  return Error::success();
+}
+
+bool TypeStreamMerger::remapIndices(RemappedType &Record,
+                                    ArrayRef<TiReference> Refs) {
+  ArrayRef<uint8_t> OriginalData = Record.OriginalRecord.content();
+  bool Success = true;
+  for (auto &Ref : Refs) {
+    uint32_t Offset = Ref.Offset;
+    ArrayRef<uint8_t> Bytes = OriginalData.slice(Ref.Offset, sizeof(TypeIndex));
+    ArrayRef<TypeIndex> TIs(reinterpret_cast<const TypeIndex *>(Bytes.data()),
+                            Ref.Count);
+    for (auto TI : TIs) {
+      TypeIndex NewTI = TI;
+      bool ThisSuccess = (Ref.Kind == TiRefKind::IndexRef)
+                             ? remapItemIndex(NewTI)
+                             : remapTypeIndex(NewTI);
+      if (ThisSuccess && NewTI != TI)
+        Record.Mappings.emplace_back(Offset, NewTI);
+      Offset += sizeof(TypeIndex);
+      Success &= ThisSuccess;
+    }
+  }
+  return Success;
 }
 
 Error llvm::codeview::mergeTypeRecords(TypeTableBuilder &Dest,
                                        SmallVectorImpl<TypeIndex> &SourceToDest,
-                                       TypeServerHandler *Handler,
-  const CVTypeArray &Types) {
-  TypeStreamMerger M(SourceToDest, Handler);
+                                       const CVTypeArray &Types) {
+  TypeStreamMerger M(SourceToDest);
   return M.mergeTypeRecords(Dest, Types);
 }
 
 Error llvm::codeview::mergeIdRecords(TypeTableBuilder &Dest,
                                      ArrayRef<TypeIndex> TypeSourceToDest,
                                      SmallVectorImpl<TypeIndex> &SourceToDest,
-  const CVTypeArray &Ids) {
-  TypeStreamMerger M(SourceToDest, nullptr);
+                                     const CVTypeArray &Ids) {
+  TypeStreamMerger M(SourceToDest);
   return M.mergeIdRecords(Dest, TypeSourceToDest, Ids);
 }
 
 Error llvm::codeview::mergeTypeAndIdRecords(
     TypeTableBuilder &DestIds, TypeTableBuilder &DestTypes,
-    SmallVectorImpl<TypeIndex> &SourceToDest, TypeServerHandler *Handler,
-  const CVTypeArray &IdsAndTypes) {
-
-  TypeStreamMerger M(SourceToDest, Handler);
+    SmallVectorImpl<TypeIndex> &SourceToDest, const CVTypeArray &IdsAndTypes) {
+  TypeStreamMerger M(SourceToDest);
   return M.mergeTypesAndIds(DestIds, DestTypes, IdsAndTypes);
 }

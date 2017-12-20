@@ -1,4 +1,4 @@
-//===----- HexagonMCDuplexInfo.cpp - Instruction bundle checking ----------===//
+//===- HexagonMCDuplexInfo.cpp - Instruction bundle checking --------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -11,15 +11,22 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "HexagonBaseInfo.h"
+#include "MCTargetDesc/HexagonBaseInfo.h"
 #include "MCTargetDesc/HexagonMCInstrInfo.h"
-
+#include "MCTargetDesc/HexagonMCTargetDesc.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/MC/MCExpr.h"
+#include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
-
+#include <cassert>
+#include <cstdint>
+#include <iterator>
 #include <map>
+#include <utility>
 
 using namespace llvm;
 using namespace Hexagon;
@@ -265,7 +272,7 @@ unsigned HexagonMCInstrInfo::getDuplexCandidateGroup(MCInst const &MCI) {
   case Hexagon::J2_jumpr:
   case Hexagon::PS_jmpret:
     // jumpr r31
-    // Actual form JMPR %PC<imp-def>, %R31<imp-use>, %R0<imp-use,internal>.
+    // Actual form JMPR %pc<imp-def>, %r31<imp-use>, %r0<imp-use,internal>.
     DstReg = MCI.getOperand(0).getReg();
     if (Hexagon::R31 == DstReg)
       return HexagonII::HSIG_L2;
@@ -464,7 +471,7 @@ unsigned HexagonMCInstrInfo::getDuplexCandidateGroup(MCInst const &MCI) {
   case Hexagon::C2_cmovenewif:
     // if ([!]P0[.new]) Rd = #0
     // Actual form:
-    // %R16<def> = C2_cmovenewit %P0<internal>, 0, %R16<imp-use,undef>;
+    // %r16<def> = C2_cmovenewit %p0<internal>, 0, %r16<imp-use,undef>;
     DstReg = MCI.getOperand(0).getReg();  // Rd
     PredReg = MCI.getOperand(1).getReg(); // P0
     if (HexagonMCInstrInfo::isIntRegForSubInst(DstReg) &&
@@ -701,33 +708,32 @@ MCInst HexagonMCInstrInfo::deriveSubInst(MCInst const &Inst) {
     break;
   case Hexagon::A2_addi:
     Absolute = Inst.getOperand(2).getExpr()->evaluateAsAbsolute(Value);
-    assert(Absolute);(void)Absolute;
-    if (Value == 1) {
-      Result.setOpcode(Hexagon::SA1_inc);
-      addOps(Result, Inst, 0);
-      addOps(Result, Inst, 1);
-      break;
-    } //  1,2 SUBInst $Rd = add($Rs, #1)
-    else if (Value == -1) {
-      Result.setOpcode(Hexagon::SA1_dec);
-      addOps(Result, Inst, 0);
-      addOps(Result, Inst, 1);
-      addOps(Result, Inst, 2);
-      break;
-    } //  1,2 SUBInst $Rd = add($Rs,#-1)
-    else if (Inst.getOperand(1).getReg() == Hexagon::R29) {
-      Result.setOpcode(Hexagon::SA1_addsp);
-      addOps(Result, Inst, 0);
-      addOps(Result, Inst, 2);
-      break;
-    } //  1,3 SUBInst $Rd = add(r29, #$u6_2)
-    else {
-      Result.setOpcode(Hexagon::SA1_addi);
-      addOps(Result, Inst, 0);
-      addOps(Result, Inst, 1);
-      addOps(Result, Inst, 2);
-      break;
-    } //    1,2,3 SUBInst $Rx = add($Rx, #$s7)
+    if (Absolute) {
+      if (Value == 1) {
+        Result.setOpcode(Hexagon::SA1_inc);
+        addOps(Result, Inst, 0);
+        addOps(Result, Inst, 1);
+        break;
+      } //  1,2 SUBInst $Rd = add($Rs, #1)
+      if (Value == -1) {
+        Result.setOpcode(Hexagon::SA1_dec);
+        addOps(Result, Inst, 0);
+        addOps(Result, Inst, 1);
+        addOps(Result, Inst, 2);
+        break;
+      } //  1,2 SUBInst $Rd = add($Rs,#-1)
+      if (Inst.getOperand(1).getReg() == Hexagon::R29) {
+        Result.setOpcode(Hexagon::SA1_addsp);
+        addOps(Result, Inst, 0);
+        addOps(Result, Inst, 2);
+        break;
+      } //  1,3 SUBInst $Rd = add(r29, #$u6_2)
+    }
+    Result.setOpcode(Hexagon::SA1_addi);
+    addOps(Result, Inst, 0);
+    addOps(Result, Inst, 1);
+    addOps(Result, Inst, 2);
+    break; //    1,2,3 SUBInst $Rx = add($Rx, #$s7)
   case Hexagon::A2_add:
     Result.setOpcode(Hexagon::SA1_addrx);
     addOps(Result, Inst, 0);

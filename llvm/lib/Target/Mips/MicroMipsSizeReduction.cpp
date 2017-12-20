@@ -34,6 +34,7 @@ enum OperandTransfer {
   OT_OperandsAll, ///< Transfer all operands
   OT_Operands02,  ///< Transfer operands 0 and 2
   OT_Operand2,    ///< Transfer just operand 2
+  OT_OperandsXOR, ///< Transfer operands for XOR16
 };
 
 /// Reduction type
@@ -151,13 +152,16 @@ private:
 
   // Attempts to reduce ADDIU into ADDIUSP instruction,
   // returns true on success.
-  static bool ReduceADDIUToADDIUSP(MachineInstr *MI,
-                                   const ReduceEntry &Entry);
+  static bool ReduceADDIUToADDIUSP(MachineInstr *MI, const ReduceEntry &Entry);
 
   // Attempts to reduce ADDIU into ADDIUR1SP instruction,
   // returns true on success.
   static bool ReduceADDIUToADDIUR1SP(MachineInstr *MI,
                                      const ReduceEntry &Entry);
+
+  // Attempts to reduce XOR into XOR16 instruction,
+  // returns true on success.
+  static bool ReduceXORtoXOR16(MachineInstr *MI, const ReduceEntry &Entry);
 
   // Changes opcode of an instruction.
   static bool ReplaceInstruction(MachineInstr *MI, const ReduceEntry &Entry);
@@ -178,8 +182,8 @@ llvm::SmallVector<ReduceEntry, 16> MicroMipsSizeReduce::ReduceTable = {
     // ImmField(Shift, LBound, HBound, ImmFieldPosition)
     {RT_OneInstr, OpCodes(Mips::ADDiu, Mips::ADDIUR1SP_MM),
      ReduceADDIUToADDIUR1SP, OpInfo(OT_Operands02), ImmField(2, 0, 64, 2)},
-    {RT_OneInstr, OpCodes(Mips::ADDiu, Mips::ADDIUSP_MM),
-     ReduceADDIUToADDIUSP, OpInfo(OT_Operand2), ImmField(0, 0, 0, 2)},
+    {RT_OneInstr, OpCodes(Mips::ADDiu, Mips::ADDIUSP_MM), ReduceADDIUToADDIUSP,
+     OpInfo(OT_Operand2), ImmField(0, 0, 0, 2)},
     {RT_OneInstr, OpCodes(Mips::ADDiu_MM, Mips::ADDIUR1SP_MM),
      ReduceADDIUToADDIUR1SP, OpInfo(OT_Operands02), ImmField(2, 0, 64, 2)},
     {RT_OneInstr, OpCodes(Mips::ADDiu_MM, Mips::ADDIUSP_MM),
@@ -222,8 +226,11 @@ llvm::SmallVector<ReduceEntry, 16> MicroMipsSizeReduce::ReduceTable = {
      OpInfo(OT_OperandsAll), ImmField(2, 0, 32, 2)},
     {RT_OneInstr, OpCodes(Mips::SW_MM, Mips::SWSP_MM), ReduceXWtoXWSP,
      OpInfo(OT_OperandsAll), ImmField(2, 0, 32, 2)},
-};
-}
+    {RT_OneInstr, OpCodes(Mips::XOR, Mips::XOR16_MM), ReduceXORtoXOR16,
+     OpInfo(OT_OperandsXOR), ImmField(0, 0, 0, -1)},
+    {RT_OneInstr, OpCodes(Mips::XOR_MM, Mips::XOR16_MM), ReduceXORtoXOR16,
+     OpInfo(OT_OperandsXOR), ImmField(0, 0, 0, -1)}};
+} // namespace
 
 // Returns true if the machine operand MO is register SP.
 static bool IsSP(const MachineOperand &MO) {
@@ -259,7 +266,7 @@ static bool GetImm(MachineInstr *MI, unsigned Op, int64_t &Imm) {
 // Returns true if the value is a valid immediate for ADDIUSP.
 static bool AddiuspImmValue(int64_t Value) {
   int64_t Value2 = Value >> 2;
-  if (Value == (Value2 << 2) &&
+  if (((Value & (int64_t)maskTrailingZeros<uint64_t>(2)) == Value) &&
       ((Value2 >= 2 && Value2 <= 257) || (Value2 >= -258 && Value2 <= -3)))
     return true;
   return false;
@@ -270,7 +277,8 @@ static bool AddiuspImmValue(int64_t Value) {
 static bool InRange(int64_t Value, unsigned short Shift, int LBound,
                     int HBound) {
   int64_t Value2 = Value >> Shift;
-  if ((Value2 << Shift) == Value && (Value2 >= LBound) && (Value2 < HBound))
+  if (((Value & (int64_t)maskTrailingZeros<uint64_t>(Shift)) == Value) &&
+      (Value2 >= LBound) && (Value2 < HBound))
     return true;
   return false;
 }
@@ -395,6 +403,20 @@ bool MicroMipsSizeReduce::ReduceSXtoSX16(MachineInstr *MI,
   return ReplaceInstruction(MI, Entry);
 }
 
+bool MicroMipsSizeReduce::ReduceXORtoXOR16(MachineInstr *MI,
+                                           const ReduceEntry &Entry) {
+  if (!isMMThreeBitGPRegister(MI->getOperand(0)) ||
+      !isMMThreeBitGPRegister(MI->getOperand(1)) ||
+      !isMMThreeBitGPRegister(MI->getOperand(2)))
+    return false;
+
+  if (!(MI->getOperand(0).getReg() == MI->getOperand(2).getReg()) &&
+      !(MI->getOperand(0).getReg() == MI->getOperand(1).getReg()))
+    return false;
+
+  return ReplaceInstruction(MI, Entry);
+}
+
 bool MicroMipsSizeReduce::ReduceMBB(MachineBasicBlock &MBB) {
   bool Modified = false;
   MachineBasicBlock::instr_iterator MII = MBB.instr_begin(),
@@ -421,32 +443,49 @@ bool MicroMipsSizeReduce::ReplaceInstruction(MachineInstr *MI,
                                              const ReduceEntry &Entry) {
 
   enum OperandTransfer OpTransfer = Entry.TransferOperands();
+
+  DEBUG(dbgs() << "Converting 32-bit: " << *MI);
+  ++NumReduced;
+
   if (OpTransfer == OT_OperandsAll) {
-    DEBUG(dbgs() << "Converted 32-bit: " << *MI);
     MI->setDesc(MipsII->get(Entry.NarrowOpc()));
     DEBUG(dbgs() << "       to 16-bit: " << *MI);
-    ++NumReduced;
     return true;
   } else {
     MachineBasicBlock &MBB = *MI->getParent();
     const MCInstrDesc &NewMCID = MipsII->get(Entry.NarrowOpc());
     DebugLoc dl = MI->getDebugLoc();
     MachineInstrBuilder MIB = BuildMI(MBB, MI, dl, NewMCID);
-
-    if (OpTransfer == OT_Operand2)
+    switch (OpTransfer) {
+    case OT_Operand2:
       MIB.add(MI->getOperand(2));
-    else if (OpTransfer == OT_Operands02) {
+      break;
+    case OT_Operands02: {
       MIB.add(MI->getOperand(0));
       MIB.add(MI->getOperand(2));
+      break;
+    }
+    case OT_OperandsXOR: {
+      if (MI->getOperand(0).getReg() == MI->getOperand(2).getReg()) {
+        MIB.add(MI->getOperand(0));
+        MIB.add(MI->getOperand(1));
+        MIB.add(MI->getOperand(2));
+      } else {
+        MIB.add(MI->getOperand(0));
+        MIB.add(MI->getOperand(2));
+        MIB.add(MI->getOperand(1));
+      }
+      break;
+    }
+    default:
+      llvm_unreachable("Unknown operand transfer!");
     }
 
     // Transfer MI flags.
     MIB.setMIFlags(MI->getFlags());
 
-    DEBUG(dbgs() << "Converted 32-bit: " << *MI
-                 << "       to 16-bit: " << *MIB);
+    DEBUG(dbgs() << "       to 16-bit: " << *MIB);
     MBB.erase_instr(MI);
-    ++NumReduced;
     return true;
   }
   return false;
@@ -458,7 +497,8 @@ bool MicroMipsSizeReduce::runOnMachineFunction(MachineFunction &MF) {
 
   // TODO: Add support for other subtargets:
   // microMIPS32r6 and microMIPS64r6
-  if (!Subtarget->inMicroMipsMode() || !Subtarget->hasMips32r2())
+  if (!Subtarget->inMicroMipsMode() || !Subtarget->hasMips32r2() ||
+      Subtarget->hasMips32r6())
     return false;
 
   MipsII = static_cast<const MipsInstrInfo *>(Subtarget->getInstrInfo());
