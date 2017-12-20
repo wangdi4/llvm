@@ -22,6 +22,10 @@ class ReturnValueTestCase(TestBase):
         return ("clang" in self.getCompiler() and self.getArchitecture() ==
             "aarch64" and self.getPlatform() == "linux")
 
+    # ABIMacOSX_arm can't fetch simple values inside a structure
+    def affected_by_radar_34562999(self):
+        return (self.getArchitecture() == 'armv7' or self.getArchitecture() == 'armv7k') and self.platformIsDarwin()
+
     @expectedFailureAll(oslist=["freebsd"], archs=["i386"])
     @expectedFailureAll(oslist=["macosx"], archs=["i386"], bugnumber="<rdar://problem/28719652>")
     @expectedFailureAll(
@@ -31,12 +35,6 @@ class ReturnValueTestCase(TestBase):
             "<=",
             "3.6"],
         archs=["i386"])
-    @expectedFailureAll(
-        bugnumber="llvm.org/pr25785",
-        hostoslist=["windows"],
-        compiler="gcc",
-        archs=["i386"],
-        triple='.*-android')
     @expectedFailureAll(oslist=["windows"], bugnumber="llvm.org/pr24778")
     @add_test_categories(['pyapi'])
     def test_with_python(self):
@@ -148,33 +146,34 @@ class ReturnValueTestCase(TestBase):
 
         #self.assertTrue(in_float == return_float)
 
-        self.return_and_test_struct_value("return_one_int")
-        self.return_and_test_struct_value("return_two_int")
-        self.return_and_test_struct_value("return_three_int")
-        self.return_and_test_struct_value("return_four_int")
-        if not self.affected_by_pr33042():
-            self.return_and_test_struct_value("return_five_int")
+        if not self.affected_by_radar_34562999():
+            self.return_and_test_struct_value("return_one_int")
+            self.return_and_test_struct_value("return_two_int")
+            self.return_and_test_struct_value("return_three_int")
+            self.return_and_test_struct_value("return_four_int")
+            if not self.affected_by_pr33042():
+                self.return_and_test_struct_value("return_five_int")
 
-        self.return_and_test_struct_value("return_two_double")
-        self.return_and_test_struct_value("return_one_double_two_float")
-        self.return_and_test_struct_value("return_one_int_one_float_one_int")
+            self.return_and_test_struct_value("return_two_double")
+            self.return_and_test_struct_value("return_one_double_two_float")
+            self.return_and_test_struct_value("return_one_int_one_float_one_int")
 
-        self.return_and_test_struct_value("return_one_pointer")
-        self.return_and_test_struct_value("return_two_pointer")
-        self.return_and_test_struct_value("return_one_float_one_pointer")
-        self.return_and_test_struct_value("return_one_int_one_pointer")
-        self.return_and_test_struct_value("return_three_short_one_float")
+            self.return_and_test_struct_value("return_one_pointer")
+            self.return_and_test_struct_value("return_two_pointer")
+            self.return_and_test_struct_value("return_one_float_one_pointer")
+            self.return_and_test_struct_value("return_one_int_one_pointer")
+            self.return_and_test_struct_value("return_three_short_one_float")
 
-        self.return_and_test_struct_value("return_one_int_one_double")
-        self.return_and_test_struct_value("return_one_int_one_double_one_int")
-        self.return_and_test_struct_value(
-            "return_one_short_one_double_one_short")
-        self.return_and_test_struct_value("return_one_float_one_int_one_float")
-        self.return_and_test_struct_value("return_two_float")
-        # I am leaving out the packed test until we have a way to tell CLANG
-        # about alignment when reading DWARF for packed types.
-        #self.return_and_test_struct_value ("return_one_int_one_double_packed")
-        self.return_and_test_struct_value("return_one_int_one_long")
+            self.return_and_test_struct_value("return_one_int_one_double")
+            self.return_and_test_struct_value("return_one_int_one_double_one_int")
+            self.return_and_test_struct_value(
+                "return_one_short_one_double_one_short")
+            self.return_and_test_struct_value("return_one_float_one_int_one_float")
+            self.return_and_test_struct_value("return_two_float")
+            # I am leaving out the packed test until we have a way to tell CLANG
+            # about alignment when reading DWARF for packed types.
+            #self.return_and_test_struct_value ("return_one_int_one_double_packed")
+            self.return_and_test_struct_value("return_one_int_one_long")
 
     @expectedFailureAll(oslist=["freebsd"], archs=["i386"])
     @expectedFailureAll(oslist=["macosx"], archs=["i386"], bugnumber="<rdar://problem/28719652>")
@@ -185,14 +184,9 @@ class ReturnValueTestCase(TestBase):
             "<=",
             "3.6"],
         archs=["i386"])
-    @expectedFailureAll(
-        bugnumber="llvm.org/pr25785",
-        hostoslist=["windows"],
-        compiler="gcc",
-        archs=["i386"],
-        triple='.*-android')
     @expectedFailureAll(compiler=["gcc"], archs=["x86_64", "i386"])
     @expectedFailureAll(oslist=["windows"], bugnumber="llvm.org/pr24778")
+    @skipIfDarwinEmbedded # <rdar://problem/33976032> ABIMacOSX_arm64 doesn't get structs this big correctly
     def test_vector_values(self):
         self.build()
         exe = os.path.join(os.getcwd(), "a.out")

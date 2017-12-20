@@ -1670,7 +1670,7 @@ size_t ABISysV_arm64::GetRedZoneSize() const { return 128; }
 //------------------------------------------------------------------
 
 ABISP
-ABISysV_arm64::CreateInstance(const ArchSpec &arch) {
+ABISysV_arm64::CreateInstance(lldb::ProcessSP process_sp, const ArchSpec &arch) {
   static ABISP g_abi_sp;
   const llvm::Triple::ArchType arch_type = arch.GetTriple().getArch();
   const llvm::Triple::VendorType vendor_type = arch.GetTriple().getVendor();
@@ -1678,7 +1678,7 @@ ABISysV_arm64::CreateInstance(const ArchSpec &arch) {
   if (vendor_type != llvm::Triple::Apple) {
     if (arch_type == llvm::Triple::aarch64) {
       if (!g_abi_sp)
-        g_abi_sp.reset(new ABISysV_arm64);
+        g_abi_sp.reset(new ABISysV_arm64(process_sp));
       return g_abi_sp;
     }
   }
@@ -2018,7 +2018,7 @@ bool ABISysV_arm64::RegisterIsVolatile(const RegisterInfo *reg_info) {
     if (name[0] == 'l' && name[1] == 'r') // lr
       return false;
 
-    if (name[0] == 'x') {
+    if (name[0] == 'x' || name[0] == 'r') {
       // Volatile registers: x0-x18
       // Although documentation says only x19-28 + sp are callee saved
       // We ll also have to treat x30 as non-volatile.

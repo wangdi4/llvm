@@ -27,9 +27,11 @@ set(modified_files
   __clang_cuda_intrinsics.h
   __clang_cuda_math_forward_declares.h
   __clang_cuda_runtime_wrapper.h
+  cetintrin.h
   clzerointrin.h
   cpuid.h
   clflushoptintrin.h
+  clwbintrin.h
   emmintrin.h
   f16cintrin.h
   fmaintrin.h
@@ -43,6 +45,11 @@ set(modified_files
   mwaitxintrin.h
   nmmintrin.h
   pkuintrin.h
+  opencl-c-common.h
+  opencl-c-20.h
+  opencl-c-platform.h
+  opencl-c-platform-12.h
+  opencl-c-platform-20.h
   pmmintrin.h
   popcntintrin.h
   prfchwintrin.h
@@ -71,8 +78,9 @@ set(special_files
 set(orig_files
   altivec.h
   ammintrin.h
-  armintr.h
   arm_acle.h
+  armintr.h
+  arm64intr.h
   __clang_cuda_builtin_vars.h
   __clang_cuda_cmath.h
   __clang_cuda_complex_builtins.h
@@ -158,17 +166,8 @@ endforeach( f )
 add_custom_target(intel-intrinsic-headers ALL DEPENDS ${intel_out_files})
 set_target_properties(intel-intrinsic-headers PROPERTIES FOLDER "Misc")
 
-if (MSVC)
-  foreach( f ${out_files} )
-    string(REPLACE "${CMAKE_CFG_INTDIR}" "\${BUILD_TYPE}" install_file ${f})
-    list(APPEND install_headers ${install_file})
-  endforeach( f )
-else()
-  set(install_headers ${out_files})
-endif()
-
 install(
-  FILES ${install_headers} ${CMAKE_CURRENT_BINARY_DIR}/arm_neon.h
+  FILES ${all_files} ${CMAKE_CURRENT_BINARY_DIR}/arm_neon.h
   COMPONENT clang-headers
   PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
   DESTINATION lib${LLVM_LIBDIR_SUFFIX}/clang/${CLANG_VERSION}/include)

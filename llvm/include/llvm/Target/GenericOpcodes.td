@@ -49,6 +49,18 @@ def G_TRUNC : Instruction {
   let hasSideEffects = 0;
 }
 
+def G_IMPLICIT_DEF : Instruction {
+  let OutOperandList = (outs type0:$dst);
+  let InOperandList = (ins);
+  let hasSideEffects = 0;
+}
+
+def G_PHI : Instruction {
+  let OutOperandList = (outs type0:$dst);
+  let InOperandList = (ins variable_ops);
+  let hasSideEffects = 0;
+}
+
 def G_FRAME_INDEX : Instruction {
   let OutOperandList = (outs type0:$dst);
   let InOperandList = (ins unknown:$src2);
@@ -104,6 +116,12 @@ def G_VAARG : Instruction {
   let hasSideEffects = 0;
   let mayLoad = 1;
   let mayStore = 1;
+}
+
+def G_BSWAP : Instruction {
+  let OutOperandList = (outs type0:$dst);
+  let InOperandList = (ins type0:$src);
+  let hasSideEffects = 0;
 }
 
 //------------------------------------------------------------------------------
@@ -386,6 +404,15 @@ def G_FMUL : Instruction {
   let isCommutable = 1;
 }
 
+// Generic fused multiply-add instruction.
+// Behaves like llvm fma intrinsic ie src1 * src2 + src3
+def G_FMA : Instruction {
+  let OutOperandList = (outs type0:$dst);
+  let InOperandList = (ins type0:$src1, type0:$src2, type0:$src3);
+  let hasSideEffects = 0;
+  let isCommutable = 0;
+}
+
 // Generic FP division.
 def G_FDIV : Instruction {
   let OutOperandList = (outs type0:$dst);
@@ -407,6 +434,34 @@ def G_FPOW : Instruction {
   let hasSideEffects = 0;
 }
 
+// Floating point base-e exponential of a value.
+def G_FEXP : Instruction {
+  let OutOperandList = (outs type0:$dst);
+  let InOperandList = (ins type0:$src1);
+  let hasSideEffects = 0;
+}
+
+// Floating point base-2 exponential of a value.
+def G_FEXP2 : Instruction {
+  let OutOperandList = (outs type0:$dst);
+  let InOperandList = (ins type0:$src1);
+  let hasSideEffects = 0;
+}
+
+// Floating point base-2 logarithm of a value.
+def G_FLOG : Instruction {
+  let OutOperandList = (outs type0:$dst);
+  let InOperandList = (ins type0:$src1);
+  let hasSideEffects = 0;
+}
+
+// Floating point base-2 logarithm of a value.
+def G_FLOG2 : Instruction {
+  let OutOperandList = (outs type0:$dst);
+  let InOperandList = (ins type0:$src1);
+  let hasSideEffects = 0;
+}
+
 //------------------------------------------------------------------------------
 // Memory ops
 //------------------------------------------------------------------------------
@@ -414,7 +469,7 @@ def G_FPOW : Instruction {
 // Generic load. Expects a MachineMemOperand in addition to explicit operands.
 def G_LOAD : Instruction {
   let OutOperandList = (outs type0:$dst);
-  let InOperandList = (ins type1:$addr);
+  let InOperandList = (ins ptype1:$addr);
   let hasSideEffects = 0;
   let mayLoad = 1;
 }
@@ -422,8 +477,116 @@ def G_LOAD : Instruction {
 // Generic store. Expects a MachineMemOperand in addition to explicit operands.
 def G_STORE : Instruction {
   let OutOperandList = (outs);
-  let InOperandList = (ins type0:$src, type1:$addr);
+  let InOperandList = (ins type0:$src, ptype1:$addr);
   let hasSideEffects = 0;
+  let mayStore = 1;
+}
+
+// Generic atomic cmpxchg with internal success check. Expects a
+// MachineMemOperand in addition to explicit operands.
+def G_ATOMIC_CMPXCHG_WITH_SUCCESS : Instruction {
+  let OutOperandList = (outs type0:$oldval, type1:$success);
+  let InOperandList = (ins type2:$addr, type0:$cmpval, type0:$newval);
+  let hasSideEffects = 0;
+  let mayLoad = 1;
+  let mayStore = 1;
+}
+
+// Generic atomic cmpxchg. Expects a MachineMemOperand in addition to explicit
+// operands.
+def G_ATOMIC_CMPXCHG : Instruction {
+  let OutOperandList = (outs type0:$oldval);
+  let InOperandList = (ins ptype1:$addr, type0:$cmpval, type0:$newval);
+  let hasSideEffects = 0;
+  let mayLoad = 1;
+  let mayStore = 1;
+}
+
+// Generic atomicrmw. Expects a MachineMemOperand in addition to explicit
+// operands.
+class G_ATOMICRMW_OP : Instruction {
+  let OutOperandList = (outs type0:$oldval);
+  let InOperandList = (ins ptype1:$addr, type0:$val);
+  let hasSideEffects = 0;
+  let mayLoad = 1;
+  let mayStore = 1;
+}
+
+def G_ATOMICRMW_XCHG : G_ATOMICRMW_OP {
+  // FIXME: This include is surrounded by a 'let mayLoad = 0, mayStore = 0 in {}'
+  //        block which overrides the value inherited from G_ATOMICRMW_OP. Work
+  //        around this for now. See http://reviews.llvm.org/D40096
+  let mayLoad = 1;
+  let mayStore = 1;
+}
+def G_ATOMICRMW_ADD : G_ATOMICRMW_OP {
+  // FIXME: This include is surrounded by a 'let mayLoad = 0, mayStore = 0 in {}'
+  //        block which overrides the value inherited from G_ATOMICRMW_OP. Work
+  //        around this for now. See http://reviews.llvm.org/D40096
+  let mayLoad = 1;
+  let mayStore = 1;
+}
+def G_ATOMICRMW_SUB : G_ATOMICRMW_OP {
+  // FIXME: This include is surrounded by a 'let mayLoad = 0, mayStore = 0 in {}'
+  //        block which overrides the value inherited from G_ATOMICRMW_OP. Work
+  //        around this for now. See http://reviews.llvm.org/D40096
+  let mayLoad = 1;
+  let mayStore = 1;
+}
+def G_ATOMICRMW_AND : G_ATOMICRMW_OP {
+  // FIXME: This include is surrounded by a 'let mayLoad = 0, mayStore = 0 in {}'
+  //        block which overrides the value inherited from G_ATOMICRMW_OP. Work
+  //        around this for now. See http://reviews.llvm.org/D40096
+  let mayLoad = 1;
+  let mayStore = 1;
+}
+def G_ATOMICRMW_NAND : G_ATOMICRMW_OP {
+  // FIXME: This include is surrounded by a 'let mayLoad = 0, mayStore = 0 in {}'
+  //        block which overrides the value inherited from G_ATOMICRMW_OP. Work
+  //        around this for now. See http://reviews.llvm.org/D40096
+  let mayLoad = 1;
+  let mayStore = 1;
+}
+def G_ATOMICRMW_OR : G_ATOMICRMW_OP {
+  // FIXME: This include is surrounded by a 'let mayLoad = 0, mayStore = 0 in {}'
+  //        block which overrides the value inherited from G_ATOMICRMW_OP. Work
+  //        around this for now. See http://reviews.llvm.org/D40096
+  let mayLoad = 1;
+  let mayStore = 1;
+}
+def G_ATOMICRMW_XOR : G_ATOMICRMW_OP {
+  // FIXME: This include is surrounded by a 'let mayLoad = 0, mayStore = 0 in {}'
+  //        block which overrides the value inherited from G_ATOMICRMW_OP. Work
+  //        around this for now. See http://reviews.llvm.org/D40096
+  let mayLoad = 1;
+  let mayStore = 1;
+}
+def G_ATOMICRMW_MAX : G_ATOMICRMW_OP {
+  // FIXME: This include is surrounded by a 'let mayLoad = 0, mayStore = 0 in {}'
+  //        block which overrides the value inherited from G_ATOMICRMW_OP. Work
+  //        around this for now. See http://reviews.llvm.org/D40096
+  let mayLoad = 1;
+  let mayStore = 1;
+}
+def G_ATOMICRMW_MIN : G_ATOMICRMW_OP {
+  // FIXME: This include is surrounded by a 'let mayLoad = 0, mayStore = 0 in {}'
+  //        block which overrides the value inherited from G_ATOMICRMW_OP. Work
+  //        around this for now. See http://reviews.llvm.org/D40096
+  let mayLoad = 1;
+  let mayStore = 1;
+}
+def G_ATOMICRMW_UMAX : G_ATOMICRMW_OP {
+  // FIXME: This include is surrounded by a 'let mayLoad = 0, mayStore = 0 in {}'
+  //        block which overrides the value inherited from G_ATOMICRMW_OP. Work
+  //        around this for now. See http://reviews.llvm.org/D40096
+  let mayLoad = 1;
+  let mayStore = 1;
+}
+def G_ATOMICRMW_UMIN : G_ATOMICRMW_OP {
+  // FIXME: This include is surrounded by a 'let mayLoad = 0, mayStore = 0 in {}'
+  //        block which overrides the value inherited from G_ATOMICRMW_OP. Work
+  //        around this for now. See http://reviews.llvm.org/D40096
+  let mayLoad = 1;
   let mayStore = 1;
 }
 
@@ -431,8 +594,8 @@ def G_STORE : Instruction {
 // Variadic ops
 //------------------------------------------------------------------------------
 
-// Extract multiple registers specified size, starting from blocks given by
-// indexes. This will almost certainly be mapped to sub-register COPYs after
+// Extract a register of the specified size, starting from the block given by
+// index. This will almost certainly be mapped to sub-register COPYs after
 // register banks have been selected.
 def G_EXTRACT : Instruction {
   let OutOperandList = (outs type0:$res);
@@ -456,15 +619,7 @@ def G_INSERT : Instruction {
   let hasSideEffects = 0;
 }
 
-// Combine a sequence of generic vregs into a single larger value (starting at
-// bit 0). Essentially a G_INSERT where $src is an IMPLICIT_DEF, but it's so
-// important to legalization it probably deserves its own instruction.
-def G_SEQUENCE : Instruction {
-  let OutOperandList = (outs type0:$dst);
-  let InOperandList = (ins variable_ops);
-  let hasSideEffects = 0;
-}
-
+/// Concatenante multiple registers of the same size into a wider register.
 def G_MERGE_VALUES : Instruction {
   let OutOperandList = (outs type0:$dst);
   let InOperandList = (ins variable_ops);

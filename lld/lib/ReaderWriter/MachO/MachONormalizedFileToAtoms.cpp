@@ -25,8 +25,8 @@
 #include "File.h"
 #include "MachONormalizedFile.h"
 #include "MachONormalizedFileBinaryUtils.h"
+#include "lld/Common/LLVM.h"
 #include "lld/Core/Error.h"
-#include "lld/Core/LLVM.h"
 #include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/BinaryFormat/MachO.h"
 #include "llvm/DebugInfo/DWARF/DWARFFormValue.h"
@@ -906,6 +906,7 @@ readCompUnit(const NormalizedFile &normalizedFile,
   abbrevData.getU8(&abbrevOffset);
   uint32_t name;
   llvm::dwarf::Form form;
+  llvm::DWARFFormParams formParams = {version, addrSize, Format};
   TranslationUnitSource tu;
   while ((name = abbrevData.getULEB128(&abbrevOffset)) |
          (form = static_cast<llvm::dwarf::Form>(
@@ -929,8 +930,7 @@ readCompUnit(const NormalizedFile &normalizedFile,
       break;
     }
     default:
-      llvm::DWARFFormValue::skipValue(form, infoData, &offset, version,
-                                      addrSize, Format);
+      llvm::DWARFFormValue::skipValue(form, infoData, &offset, formParams);
     }
   }
   return tu;

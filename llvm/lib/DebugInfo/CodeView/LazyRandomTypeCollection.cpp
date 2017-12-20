@@ -1,4 +1,4 @@
-//===- LazyRandomTypeCollection.cpp ---------------------------- *- C++--*-===//
+//===- LazyRandomTypeCollection.cpp ---------------------------------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -8,12 +8,20 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/DebugInfo/CodeView/LazyRandomTypeCollection.h"
-
-#include "llvm/DebugInfo/CodeView/CVTypeVisitor.h"
+#include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/None.h"
+#include "llvm/ADT/StringExtras.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/DebugInfo/CodeView/CodeViewError.h"
-#include "llvm/DebugInfo/CodeView/TypeName.h"
-#include "llvm/DebugInfo/CodeView/TypeServerHandler.h"
-#include "llvm/DebugInfo/CodeView/TypeVisitorCallbacks.h"
+#include "llvm/DebugInfo/CodeView/RecordName.h"
+#include "llvm/DebugInfo/CodeView/TypeRecord.h"
+#include "llvm/Support/BinaryStreamReader.h"
+#include "llvm/Support/Endian.h"
+#include "llvm/Support/Error.h"
+#include <algorithm>
+#include <cassert>
+#include <cstdint>
+#include <iterator>
 
 using namespace llvm;
 using namespace llvm::codeview;
@@ -67,10 +75,28 @@ void LazyRandomTypeCollection::reset(ArrayRef<uint8_t> Data,
   reset(toStringRef(Data), RecordCountHint);
 }
 
-CVType LazyRandomTypeCollection::getType(TypeIndex Index) {
+uint32_t LazyRandomTypeCollection::getOffsetOfType(TypeIndex Index) {
   error(ensureTypeExists(Index));
   assert(contains(Index));
 
+  return Records[Index.toArrayIndex()].Offset;
+}
+
+CVType LazyRandomTypeCollection::getType(TypeIndex Index) {
+  auto EC = ensureTypeExists(Index);
+  error(std::move(EC));
+  assert(contains(Index));
+
+  return Records[Index.toArrayIndex()].Type;
+}
+
+Optional<CVType> LazyRandomTypeCollection::tryGetType(TypeIndex Index) {
+  if (auto EC = ensureTypeExists(Index)) {
+    consumeError(std::move(EC));
+    return None;
+  }
+
+  assert(contains(Index));
   return Records[Index.toArrayIndex()].Type;
 }
 
@@ -97,6 +123,9 @@ StringRef LazyRandomTypeCollection::getTypeName(TypeIndex Index) {
 }
 
 bool LazyRandomTypeCollection::contains(TypeIndex Index) {
+  if (Index.isSimple() || Index.isNoneType())
+    return false;
+
   if (Records.size() <= Index.toArrayIndex())
     return false;
   if (!Records[Index.toArrayIndex()].Type.valid())

@@ -1,10 +1,11 @@
-
-//==--- DiagnosticSemaKinds.td - libsema diagnostics ----------------------===//
+//===--- DiagnosticIntelSemaKinds.td - Intel libsema diagnostics ----------===//
 //
-//                     The LLVM Compiler Infrastructure
+// Copyright (C) 2017 Intel Corporation. All rights reserved.
 //
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// The information and source code contained herein is the exclusive
+// property of Intel Corporation and may not be disclosed, examined
+// or reproduced in whole or in part without explicit written authorization
+// from the company.
 //
 //===----------------------------------------------------------------------===//
 
@@ -14,7 +15,6 @@
 
 let Component = "Sema" in {
 let CategoryName = "Semantic Issue" in {
-// if INTEL_CUSTOMIZATION
 // CQ#364268
 def warn_main_arg_wrong : Warning<"%select{first|second|third|fourth}0 "
     "parameter of 'main' (%select{argument count|argument array|environment|"
@@ -70,9 +70,7 @@ def warn_ident_list_in_fn_declaration: Warning<
 def warn_default_arg_makes_ctor_special : Warning<
   "addition of default argument on redeclaration makes this constructor a "
   "%select{default|copy|move}0 constructor">, InGroup<IntelCompat>;
-// endif INTEL_CUSTOMIZATION
 
-// if INTEL_CUSTOMIZATION
 // CQ#373258 - allow class member typedef redefinition in IntelCompat mode.
 def ext_intel_member_typedef_redefinition : ExtWarn<
   "class member typedef redefinition is an Intel extension">,
@@ -157,7 +155,8 @@ def warn_arg_invalid_range_low_assumed : Warning<
 def warn_non_asm_stmt_in_naked_function : Warning<
   "attribute 'naked' ignored on function with non-ASM statements">,
   InGroup<IgnoredAttributes>;
-// endif INTEL_CUSTOMIZATION
+def err_attribute_argument_is_not_in_range : Error<
+  "invalid attribute value, possible values are: %0">;
 
 // if INTEL_SPECIFIC_CILKPLUS
 def warn_empty_cilk_for_body : Warning<
@@ -460,7 +459,6 @@ def err_cean_arg_not_lvalue : Error<
   "argument expression must be an l-value">;
 // endif INTEL_SPECIFIC_CILKPLUS
 
-// if INTEL_CUSTOMIZATION
 // CQ#373129 - support for __assume_aligned builtin.
 def err_assume_aligned_first_arg_not_pointer : Error<
   "first argument to '__assume_aligned' must be a pointer">;
@@ -472,7 +470,6 @@ def warn_bad_cxx_cast_unrelated_class : Warning<
   "%select{const_cast|static_cast|reinterpret_cast|dynamic_cast|C-style cast|"
   "functional-style cast}0 from %1 to %2, which are not related by "
   "inheritance, is allowed in Intel/GCC compatibility mode only">, InGroup<IntelCompat>;
-// endif INTEL_CUSTOMIZATION
 }
 // if INTEL_SPECIFIC_IL0_BACKEND
 let CategoryName = "IL0 Issue" in {
@@ -536,4 +533,85 @@ def err_va_pack_not_last : Error<"__builtin_va_arg_pack must be the last "
                                  "parameter in a function call">;
 def err_va_pack_not_variadic : Error<"__builtin_va_arg_pack can only be used "
                                      "as a parameter to a variadic argument">;
+
+// Intel OpenCL FPGA extension
+def warn_opencl_attribute_only_for_local_address_space : Warning<
+  "%0 attribute can be aplied only for parameters that reside "
+  "in local address space, attribute ignored">,
+  InGroup<IgnoredAttributes>;
+def warn_opencl_attribute_only_for_global_address_space : Warning<
+  "%0 attribute can be aplied only for parameters that reside "
+  "in global address space, attribute ignored">,
+  InGroup<IgnoredAttributes>;
+def err_opencl_attributes_conflict : Error<
+  "%0 attribute conflicts with '%1' attribute">;
+def err_opencl_missing_actual_channel_type : Error<
+  "missing actual type specifier for channel">;
+def err_intel_opencl_attribute_argument_type : Error<
+  "%0 attribute requires %select{int or bool|an integer "
+  "constant|a string|an identifier|an unsigned integer}1">;
+def err_opencl_attribute_requires_another_to_be_specified : Error<
+  "%0 attribute requires %1 to be specified">;
+def err_opencl_autorun_kernel_wrong_reqd_wg_size : Error<
+  "Autorun kernel functions must have work group sizes that are divisors "
+  "of 2^32">;
+def err_opencl_autorun_kernel_cannot_have_arguments : Error<
+  "Autorun kernel functions cannot have any arguments">;
+def err_opencl_x_y_z_arguments_must_be_one : Error<
+  "%0 X-, Y- and Z- sizes must be 1 when %1 attribute is used">;
+def err_intel_attribute_argument_is_not_zero: Error<
+  "%0 attribute must be 0">;
+def err_intel_opencl_attribute_requires_extension : Error<
+  "%0 attribute requires %1 extension to be enabled">;
+def warn_intel_opencl_attribute_wrong_decl_type : Warning<
+  "%0 attribute only applies to %select{"
+  "functions"
+  "|unions"
+  "|variables and functions"
+  "|functions and global variables"
+  "|functions, variables, and Objective-C interfaces"
+  "|functions and methods"
+  "|parameters"
+  "|functions, methods and blocks"
+  "|functions, methods, and classes"
+  "|functions, methods, and parameters"
+  "|functions, methods, and global variables"
+  "|classes"
+  "|enums"
+  "|variables"
+  "|methods"
+  "|fields and global variables"
+  "|structs"
+  "|parameters and typedefs"
+  "|variables and typedefs"
+  "|thread-local variables"
+  "|variables and fields"
+  "|variables, data members and tag types"
+  "|types and namespaces"
+  "|Objective-C interfaces"
+  "|methods and properties"
+  "|struct or union"
+  "|struct, union or class"
+  "|types"
+  "|Objective-C instance methods"
+  "|init methods of interface or class extension declarations"
+  "|variables, functions and classes"
+  "|functions, variables, classes, and Objective-C interfaces"
+  "|Objective-C protocols"
+  "|variables with static or thread storage duration"
+  "|functions, methods, properties, and global variables"
+  "|structs, unions, and typedefs"
+  "|structs and typedefs"
+  "|interface or protocol declarations"
+  "|kernel functions"
+  "|non-K&R-style functions"
+  "|variables, enums, fields and typedefs"
+  "|functions, methods, enums, and classes"
+  "|structs, classes, variables, functions, and inline namespaces"
+  "|variables, functions, methods, types, enumerations, enumerators, labels, and non-static data members"
+  "|classes and enumerations"
+  "|named declarations"
+  "|OpenCL channels"
+  "|OpenCL pipes}1">,
+  InGroup<IgnoredAttributes>;
 } // end of sema component.

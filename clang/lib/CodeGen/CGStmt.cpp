@@ -51,7 +51,7 @@ void CodeGenFunction::EmitStopPoint(const Stmt *S) {
   }
 }
 
-void CodeGenFunction::EmitStmt(const Stmt *S) {
+void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
   assert(S && "Null statement?");
   PGO.setCurrentStmt(S);
 
@@ -81,13 +81,27 @@ void CodeGenFunction::EmitStmt(const Stmt *S) {
   EmitStopPoint(S);
 
 #if INTEL_SPECIFIC_OPENMP
-  if (CGM.getLangOpts().IntelCompat && CGM.getLangOpts().IntelOpenMP) {
+  if (CGM.getLangOpts().IntelCompat &&
+      (CGM.getLangOpts().IntelOpenMP || CGM.getLangOpts().IntelOpenMPRegion)) {
     if (S->getStmtClass() == Stmt::OMPSimdDirectiveClass)
       return EmitIntelOMPSimdDirective(cast<OMPSimdDirective>(*S));
-    else if (S->getStmtClass() == Stmt::OMPParallelForDirectiveClass)
+    if (S->getStmtClass() == Stmt::OMPForDirectiveClass)
+      return EmitIntelOMPForDirective(cast<OMPForDirective>(*S));
+    if (S->getStmtClass() == Stmt::OMPParallelForDirectiveClass)
       return EmitIntelOMPParallelForDirective(
                                 cast<OMPParallelForDirective>(*S));
-    else if (auto *Dir = dyn_cast<OMPExecutableDirective>(S))
+    if (S->getStmtClass() == Stmt::OMPParallelForSimdDirectiveClass)
+      return EmitIntelOMPParallelForSimdDirective(
+                                cast<OMPParallelForSimdDirective>(*S));
+    if (S->getStmtClass() == Stmt::OMPTaskLoopDirectiveClass)
+      return EmitIntelOMPTaskLoopDirective(
+                                cast<OMPTaskLoopDirective>(*S));
+    if (S->getStmtClass() == Stmt::OMPTaskLoopSimdDirectiveClass)
+      return EmitIntelOMPTaskLoopSimdDirective(
+                                cast<OMPTaskLoopSimdDirective>(*S));
+    if (S->getStmtClass() == Stmt::OMPDistributeDirectiveClass)
+      return EmitIntelOMPDistributeDirective(cast<OMPDistributeDirective>(*S));
+    if (auto *Dir = dyn_cast<OMPExecutableDirective>(S))
       return EmitIntelOpenMPDirective(*Dir);
   }
 #endif // INTEL_SPECIFIC_OPENMP
@@ -156,16 +170,16 @@ void CodeGenFunction::EmitStmt(const Stmt *S) {
   case Stmt::IndirectGotoStmtClass:
     EmitIndirectGotoStmt(cast<IndirectGotoStmt>(*S)); break;
 
-  case Stmt::IfStmtClass:       EmitIfStmt(cast<IfStmt>(*S));             break;
-  case Stmt::WhileStmtClass:    EmitWhileStmt(cast<WhileStmt>(*S));       break;
-  case Stmt::DoStmtClass:       EmitDoStmt(cast<DoStmt>(*S));             break;
-  case Stmt::ForStmtClass:      EmitForStmt(cast<ForStmt>(*S));           break;
+  case Stmt::IfStmtClass:      EmitIfStmt(cast<IfStmt>(*S));              break;
+  case Stmt::WhileStmtClass:   EmitWhileStmt(cast<WhileStmt>(*S), Attrs); break;
+  case Stmt::DoStmtClass:      EmitDoStmt(cast<DoStmt>(*S), Attrs);       break;
+  case Stmt::ForStmtClass:     EmitForStmt(cast<ForStmt>(*S), Attrs);     break;
 
-  case Stmt::ReturnStmtClass:   EmitReturnStmt(cast<ReturnStmt>(*S));     break;
+  case Stmt::ReturnStmtClass:  EmitReturnStmt(cast<ReturnStmt>(*S));      break;
 
-  case Stmt::SwitchStmtClass:   EmitSwitchStmt(cast<SwitchStmt>(*S));     break;
-  case Stmt::GCCAsmStmtClass:   // Intentional fall-through.
-  case Stmt::MSAsmStmtClass:    EmitAsmStmt(cast<AsmStmt>(*S));           break;
+  case Stmt::SwitchStmtClass:  EmitSwitchStmt(cast<SwitchStmt>(*S));      break;
+  case Stmt::GCCAsmStmtClass:  // Intentional fall-through.
+  case Stmt::MSAsmStmtClass:   EmitAsmStmt(cast<AsmStmt>(*S));            break;
   case Stmt::CoroutineBodyStmtClass:
     EmitCoroutineBody(cast<CoroutineBodyStmt>(*S));
     break;
@@ -203,7 +217,7 @@ void CodeGenFunction::EmitStmt(const Stmt *S) {
     EmitCXXTryStmt(cast<CXXTryStmt>(*S));
     break;
   case Stmt::CXXForRangeStmtClass:
-    EmitCXXForRangeStmt(cast<CXXForRangeStmt>(*S));
+    EmitCXXForRangeStmt(cast<CXXForRangeStmt>(*S), Attrs);
     break;
   case Stmt::SEHTryStmtClass:
     EmitSEHTryStmt(cast<SEHTryStmt>(*S));
@@ -647,24 +661,7 @@ void CodeGenFunction::EmitAttributedStmt(const AttributedStmt &S) {
 #if INTEL_CUSTOMIZATION
   IntelPragmaInlineState PS(*this, S.getAttrs());
 #endif // INTEL_CUSTOMIZATION
-
-  const Stmt *SubStmt = S.getSubStmt();
-  switch (SubStmt->getStmtClass()) {
-  case Stmt::DoStmtClass:
-    EmitDoStmt(cast<DoStmt>(*SubStmt), S.getAttrs());
-    break;
-  case Stmt::ForStmtClass:
-    EmitForStmt(cast<ForStmt>(*SubStmt), S.getAttrs());
-    break;
-  case Stmt::WhileStmtClass:
-    EmitWhileStmt(cast<WhileStmt>(*SubStmt), S.getAttrs());
-    break;
-  case Stmt::CXXForRangeStmtClass:
-    EmitCXXForRangeStmt(cast<CXXForRangeStmt>(*SubStmt), S.getAttrs());
-    break;
-  default:
-    EmitStmt(SubStmt);
-  }
+  EmitStmt(S.getSubStmt(), S.getAttrs());
 }
 
 void CodeGenFunction::EmitGotoStmt(const GotoStmt &S) {
@@ -1146,6 +1143,18 @@ bool CodeGenFunction::EmitFakeLoadForRetPtr(const Expr *RV) {
 /// if the function returns void, or may be missing one if the function returns
 /// non-void.  Fun stuff :).
 void CodeGenFunction::EmitReturnStmt(const ReturnStmt &S) {
+  if (requiresReturnValueCheck()) {
+    llvm::Constant *SLoc = EmitCheckSourceLocation(S.getLocStart());
+    auto *SLocPtr =
+        new llvm::GlobalVariable(CGM.getModule(), SLoc->getType(), false,
+                                 llvm::GlobalVariable::PrivateLinkage, SLoc);
+    SLocPtr->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
+    CGM.getSanitizerMetadata()->disableSanitizerForGlobal(SLocPtr);
+    assert(ReturnLocation.isValid() && "No valid return location");
+    Builder.CreateStore(Builder.CreateBitCast(SLocPtr, Int8PtrTy),
+                        ReturnLocation);
+  }
+
   // Returning from an outlined SEH helper is UB, and we already warn on it.
   if (IsOutlinedSEHHelper) {
     Builder.CreateUnreachable();
@@ -2322,10 +2331,11 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
                                           llvm::ConstantAsMetadata::get(Loc)));
   }
 
-  if (getLangOpts().CUDA && getLangOpts().CUDAIsDevice) {
-    // Conservatively, mark all inline asm blocks in CUDA as convergent
-    // (meaning, they may call an intrinsically convergent op, such as bar.sync,
-    // and so can't have certain optimizations applied around them).
+  if (getLangOpts().assumeFunctionsAreConvergent()) {
+    // Conservatively, mark all inline asm blocks in CUDA or OpenCL as
+    // convergent (meaning, they may call an intrinsically convergent op, such
+    // as bar.sync, and so can't have certain optimizations applied around
+    // them).
     Result->addAttribute(llvm::AttributeList::FunctionIndex,
                          llvm::Attribute::Convergent);
   }
@@ -2367,7 +2377,7 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
                    llvm::IntegerType::get(getLLVMContext(), (unsigned)TmpSize));
         Tmp = Builder.CreateTrunc(Tmp, TruncTy);
       } else if (TruncTy->isIntegerTy()) {
-        Tmp = Builder.CreateTrunc(Tmp, TruncTy);
+        Tmp = Builder.CreateZExtOrTrunc(Tmp, TruncTy);
       } else if (TruncTy->isVectorTy()) {
         Tmp = Builder.CreateBitCast(Tmp, TruncTy);
       }
@@ -2440,7 +2450,6 @@ CodeGenFunction::GenerateCapturedStmtFunction(const CapturedStmt &S) {
   Args.append(CD->param_begin(), CD->param_end());
 
   // Create the function declaration.
-  FunctionType::ExtInfo ExtInfo;
   const CGFunctionInfo &FuncInfo =
     CGM.getTypes().arrangeBuiltinFunctionDeclaration(Ctx.VoidTy, Args);
   llvm::FunctionType *FuncLLVMTy = CGM.getTypes().GetFunctionType(FuncInfo);

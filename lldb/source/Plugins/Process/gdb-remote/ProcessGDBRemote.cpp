@@ -16,6 +16,7 @@
 #include <netinet/in.h>
 #include <sys/mman.h> // for mmap
 #include <sys/socket.h>
+#include <unistd.h>
 #endif
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -28,19 +29,18 @@
 #include <sstream>
 
 #include "lldb/Breakpoint/Watchpoint.h"
-#include "lldb/Core/ArchSpec.h"
 #include "lldb/Core/Debugger.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/ModuleSpec.h"
 #include "lldb/Core/PluginManager.h"
 #include "lldb/Core/State.h"
 #include "lldb/Core/StreamFile.h"
-#include "lldb/Core/Timer.h"
 #include "lldb/Core/Value.h"
 #include "lldb/DataFormatters/FormatManager.h"
 #include "lldb/Host/ConnectionFileDescriptor.h"
 #include "lldb/Host/FileSystem.h"
 #include "lldb/Host/HostThread.h"
+#include "lldb/Host/PosixApi.h"
 #include "lldb/Host/PseudoTerminal.h"
 #include "lldb/Host/StringConvert.h"
 #include "lldb/Host/Symbols.h"
@@ -66,6 +66,7 @@
 #include "lldb/Utility/CleanUp.h"
 #include "lldb/Utility/FileSpec.h"
 #include "lldb/Utility/StreamString.h"
+#include "lldb/Utility/Timer.h"
 
 // Project includes
 #include "GDBRemoteRegisterContext.h"
@@ -242,7 +243,7 @@ bool ProcessGDBRemote::CanDebug(lldb::TargetSP target_sp,
 //----------------------------------------------------------------------
 ProcessGDBRemote::ProcessGDBRemote(lldb::TargetSP target_sp,
                                    ListenerSP listener_sp)
-    : Process(target_sp, listener_sp), m_flags(0), m_gdb_comm(),
+    : Process(target_sp, listener_sp),
       m_debugserver_pid(LLDB_INVALID_PROCESS_ID), m_last_stop_packet_mutex(),
       m_register_info(),
       m_async_broadcaster(NULL, "lldb.process.gdb-remote.async-broadcaster"),
@@ -599,7 +600,7 @@ void ProcessGDBRemote::BuildDynamicRegisterInfo(bool force) {
         // gets called in DidAttach, when the target architecture (and
         // consequently the ABI we'll get from
         // the process) may be wrong.
-        ABISP abi_to_use = ABI::FindPlugin(arch_to_use);
+        ABISP abi_to_use = ABI::FindPlugin(shared_from_this(), arch_to_use);
 
         AugmentRegisterInfoViaABI(reg_info, reg_name, abi_to_use);
 
@@ -1031,6 +1032,7 @@ Status ProcessGDBRemote::ConnectToDebugserver(llvm::StringRef connect_url) {
   m_gdb_comm.GetHostInfo();
   m_gdb_comm.GetVContSupported('c');
   m_gdb_comm.GetVAttachOrWaitSupported();
+  m_gdb_comm.EnableErrorStringInPacket();
 
   // Ask the remote server for the default thread id
   if (GetTarget().GetNonStopModeEnabled())
@@ -3252,7 +3254,6 @@ Status ProcessGDBRemote::DisableWatchpoint(Watchpoint *wp, bool notify) {
 }
 
 void ProcessGDBRemote::Clear() {
-  m_flags = 0;
   m_thread_list_real.Clear();
   m_thread_list.Clear();
 }
@@ -3286,7 +3287,7 @@ ProcessGDBRemote::EstablishConnectionIfNeeded(const ProcessInfo &process_info) {
   }
   return error;
 }
-#if defined(__APPLE__)
+#if !defined(_WIN32)
 #define USE_SOCKETPAIR_FOR_LOCAL_CONNECTION 1
 #endif
 
@@ -3330,8 +3331,8 @@ Status ProcessGDBRemote::LaunchAndConnectToDebugserver(
     lldb_utility::CleanUp<int, int> our_socket(-1, -1, close);
     lldb_utility::CleanUp<int, int> gdb_socket(-1, -1, close);
 
-    // Use a socketpair on Apple for now until other platforms can verify it
-    // works and is fast enough
+    // Use a socketpair on non-Windows systems for security and performance
+    // reasons.
     {
       int sockets[2]; /* the pair of socket descriptors */
       if (socketpair(AF_UNIX, SOCK_STREAM, 0, sockets) == -1) {
@@ -4165,7 +4166,6 @@ struct GdbServerTargetInfo {
   std::string osabi;
   stringVec includes;
   RegisterSetMap reg_set_map;
-  XMLNode feature_node;
 };
 
 bool ParseRegisters(XMLNode feature_node, GdbServerTargetInfo &target_info,
@@ -4371,8 +4371,8 @@ bool ProcessGDBRemote::GetGDBServerRegisterInfo(ArchSpec &arch_to_use) {
 
     XMLNode target_node = xml_document.GetRootElement("target");
     if (target_node) {
-      XMLNode feature_node;
-      target_node.ForEachChildElement([&target_info, &feature_node](
+      std::vector<XMLNode> feature_nodes;
+      target_node.ForEachChildElement([&target_info, &feature_nodes](
                                           const XMLNode &node) -> bool {
         llvm::StringRef name = node.GetName();
         if (name == "architecture") {
@@ -4384,7 +4384,7 @@ bool ProcessGDBRemote::GetGDBServerRegisterInfo(ArchSpec &arch_to_use) {
           if (!href.empty())
             target_info.includes.push_back(href.str());
         } else if (name == "feature") {
-          feature_node = node;
+          feature_nodes.push_back(node);
         } else if (name == "groups") {
           node.ForEachChildElementWithName(
               "group", [&target_info](const XMLNode &node) -> bool {
@@ -4419,8 +4419,8 @@ bool ProcessGDBRemote::GetGDBServerRegisterInfo(ArchSpec &arch_to_use) {
       // that context we haven't
       // set the Target's architecture yet, so the ABI is also potentially
       // incorrect.
-      ABISP abi_to_use_sp = ABI::FindPlugin(arch_to_use);
-      if (feature_node) {
+      ABISP abi_to_use_sp = ABI::FindPlugin(shared_from_this(), arch_to_use);
+      for (auto &feature_node : feature_nodes) {
         ParseRegisters(feature_node, target_info, this->m_register_info,
                        abi_to_use_sp, cur_reg_num, reg_offset);
       }

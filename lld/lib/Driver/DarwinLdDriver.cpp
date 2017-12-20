@@ -13,11 +13,11 @@
 ///
 //===----------------------------------------------------------------------===//
 
+#include "lld/Common/LLVM.h"
 #include "lld/Core/ArchiveLibraryFile.h"
 #include "lld/Core/Error.h"
 #include "lld/Core/File.h"
 #include "lld/Core/Instrumentation.h"
-#include "lld/Core/LLVM.h"
 #include "lld/Core/LinkingContext.h"
 #include "lld/Core/Node.h"
 #include "lld/Core/PassManager.h"
@@ -61,9 +61,9 @@ namespace {
 // Create enum with OPT_xxx values for each option in DarwinLdOptions.td
 enum {
   OPT_INVALID = 0,
-#define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS, PARAM, \
-               HELP, META) \
-          OPT_##ID,
+#define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS, PARAM,  \
+               HELP, META, VALUES)                                             \
+  OPT_##ID,
 #include "DarwinLdOptions.inc"
 #undef OPTION
 };
@@ -74,11 +74,13 @@ enum {
 #undef PREFIX
 
 // Create table mapping all options defined in DarwinLdOptions.td
-static const llvm::opt::OptTable::Info infoTable[] = {
-#define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS, PARAM, \
-               HELPTEXT, METAVAR)   \
-  { PREFIX, NAME, HELPTEXT, METAVAR, OPT_##ID, llvm::opt::Option::KIND##Class, \
-    PARAM, FLAGS, OPT_##GROUP, OPT_##ALIAS, ALIASARGS },
+static const llvm::opt::OptTable::Info InfoTable[] = {
+#define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS, PARAM,  \
+               HELPTEXT, METAVAR, VALUES)                                      \
+  {PREFIX,      NAME,      HELPTEXT,                                           \
+   METAVAR,     OPT_##ID,  llvm::opt::Option::KIND##Class,                     \
+   PARAM,       FLAGS,     OPT_##GROUP,                                        \
+   OPT_##ALIAS, ALIASARGS, VALUES},
 #include "DarwinLdOptions.inc"
 #undef OPTION
 };
@@ -86,7 +88,7 @@ static const llvm::opt::OptTable::Info infoTable[] = {
 // Create OptTable class for parsing actual command line arguments
 class DarwinLdOptTable : public llvm::opt::OptTable {
 public:
-  DarwinLdOptTable() : OptTable(infoTable) {}
+  DarwinLdOptTable() : OptTable(InfoTable) {}
 };
 
 static std::vector<std::unique_ptr<File>>

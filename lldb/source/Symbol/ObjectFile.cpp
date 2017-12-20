@@ -13,7 +13,6 @@
 #include "lldb/Core/ModuleSpec.h"
 #include "lldb/Core/PluginManager.h"
 #include "lldb/Core/Section.h"
-#include "lldb/Core/Timer.h"
 #include "lldb/Symbol/ObjectContainer.h"
 #include "lldb/Symbol/SymbolFile.h"
 #include "lldb/Target/Process.h"
@@ -25,6 +24,7 @@
 #include "lldb/Utility/DataBufferLLVM.h"
 #include "lldb/Utility/Log.h"
 #include "lldb/Utility/RegularExpression.h"
+#include "lldb/Utility/Timer.h"
 #include "lldb/lldb-private.h"
 
 using namespace lldb;
@@ -348,6 +348,7 @@ AddressClass ObjectFile::GetAddressClass(addr_t file_addr) {
           case eSectionTypeDWARFDebugAbbrev:
           case eSectionTypeDWARFDebugAddr:
           case eSectionTypeDWARFDebugAranges:
+          case eSectionTypeDWARFDebugCuIndex:
           case eSectionTypeDWARFDebugFrame:
           case eSectionTypeDWARFDebugInfo:
           case eSectionTypeDWARFDebugLine:
@@ -482,9 +483,9 @@ size_t ObjectFile::CopyData(lldb::offset_t offset, size_t length,
   return m_data.CopyData(offset, length, dst);
 }
 
-size_t ObjectFile::ReadSectionData(const Section *section,
+size_t ObjectFile::ReadSectionData(Section *section,
                                    lldb::offset_t section_offset, void *dst,
-                                   size_t dst_len) const {
+                                   size_t dst_len) {
   assert(section);
   section_offset *= section->GetTargetByteSize();
 
@@ -504,6 +505,9 @@ size_t ObjectFile::ReadSectionData(const Section *section,
                                       dst_len, error);
     }
   } else {
+    if (!section->IsRelocated())
+      RelocateSection(section);
+
     const lldb::offset_t section_file_size = section->GetFileSize();
     if (section_offset < section_file_size) {
       const size_t section_bytes_left = section_file_size - section_offset;
@@ -530,8 +534,8 @@ size_t ObjectFile::ReadSectionData(const Section *section,
 //----------------------------------------------------------------------
 // Get the section data the file on disk
 //----------------------------------------------------------------------
-size_t ObjectFile::ReadSectionData(const Section *section,
-                                   DataExtractor &section_data) const {
+size_t ObjectFile::ReadSectionData(Section *section,
+                                   DataExtractor &section_data) {
   // If some other objectfile owns this data, pass this to them.
   if (section->GetObjectFile() != this)
     return section->GetObjectFile()->ReadSectionData(section, section_data);
@@ -561,8 +565,8 @@ size_t ObjectFile::ReadSectionData(const Section *section,
   }
 }
 
-size_t ObjectFile::MemoryMapSectionData(const Section *section,
-                                        DataExtractor &section_data) const {
+size_t ObjectFile::MemoryMapSectionData(Section *section,
+                                        DataExtractor &section_data) {
   // If some other objectfile owns this data, pass this to them.
   if (section->GetObjectFile() != this)
     return section->GetObjectFile()->MemoryMapSectionData(section,
@@ -571,6 +575,9 @@ size_t ObjectFile::MemoryMapSectionData(const Section *section,
   if (IsInMemory()) {
     return ReadSectionData(section, section_data);
   } else {
+    if (!section->IsRelocated())
+      RelocateSection(section);
+
     // The object file now contains a full mmap'ed copy of the object file data,
     // so just use this
     return GetData(section->GetFileOffset(), section->GetFileSize(),
@@ -692,4 +699,8 @@ Status ObjectFile::LoadInMemory(Target &target, bool set_pc) {
     reg_context->SetPC(file_entry.GetLoadAddress(&target));
   }
   return error;
+}
+
+void ObjectFile::RelocateSection(lldb_private::Section *section)
+{
 }

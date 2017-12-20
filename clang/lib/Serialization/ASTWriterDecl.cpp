@@ -615,6 +615,7 @@ void ASTDeclWriter::VisitFunctionDecl(FunctionDecl *D) {
 
 void ASTDeclWriter::VisitCXXDeductionGuideDecl(CXXDeductionGuideDecl *D) {
   VisitFunctionDecl(D);
+  Record.push_back(D->IsCopyDeductionCandidate);
   Code = serialization::DECL_CXX_DEDUCTION_GUIDE;
 }
 
@@ -852,17 +853,16 @@ void ASTDeclWriter::VisitObjCPropertyImplDecl(ObjCPropertyImplDecl *D) {
 void ASTDeclWriter::VisitFieldDecl(FieldDecl *D) {
   VisitDeclaratorDecl(D);
   Record.push_back(D->isMutable());
-  if (D->InitStorage.getInt() == FieldDecl::ISK_BitWidthOrNothing &&
-      D->InitStorage.getPointer() == nullptr) {
-    Record.push_back(0);
-  } else if (D->InitStorage.getInt() == FieldDecl::ISK_CapturedVLAType) {
-    Record.push_back(D->InitStorage.getInt() + 1);
-    Record.AddTypeRef(
-        QualType(static_cast<Type *>(D->InitStorage.getPointer()), 0));
-  } else {
-    Record.push_back(D->InitStorage.getInt() + 1);
-    Record.AddStmt(static_cast<Expr *>(D->InitStorage.getPointer()));
-  }
+
+  FieldDecl::InitStorageKind ISK = D->InitStorage.getInt();
+  Record.push_back(ISK);
+  if (ISK == FieldDecl::ISK_CapturedVLAType)
+    Record.AddTypeRef(QualType(D->getCapturedVLAType(), 0));
+  else if (ISK)
+    Record.AddStmt(D->getInClassInitializer());
+
+  Record.AddStmt(D->getBitWidth());
+
   if (!D->getDeclName())
     Record.AddDeclRef(Context.getInstantiatedFromUnnamedFieldDecl(D));
 
@@ -876,6 +876,7 @@ void ASTDeclWriter::VisitFieldDecl(FieldDecl *D) {
       !D->isModulePrivate() &&
       !D->getBitWidth() &&
       !D->hasInClassInitializer() &&
+      !D->hasCapturedVLAType() &&
       !D->hasExtInfo() &&
       !ObjCIvarDecl::classofKind(D->getKind()) &&
       !ObjCAtDefsFieldDecl::classofKind(D->getKind()) &&
@@ -931,6 +932,24 @@ void ASTDeclWriter::VisitVarDecl(VarDecl *D) {
   } else {
     Record.push_back(0);
   }
+
+  if (D->getStorageDuration() == SD_Static) {
+    bool ModulesCodegen = false;
+    if (Writer.WritingModule &&
+        !D->getDescribedVarTemplate() && !D->getMemberSpecializationInfo() &&
+        !isa<VarTemplateSpecializationDecl>(D)) {
+      // When building a C++ Modules TS module interface unit, a strong
+      // definition in the module interface is provided by the compilation of
+      // that module interface unit, not by its users. (Inline variables are
+      // still emitted in module users.)
+      ModulesCodegen =
+          (Writer.WritingModule->Kind == Module::ModuleInterfaceUnit &&
+           Writer.Context->GetGVALinkageForVariable(D) == GVA_StrongExternal);
+    }
+    Record.push_back(ModulesCodegen);
+    if (ModulesCodegen)
+      Writer.ModularCodegenDecls.push_back(Writer.GetDeclRef(D));
+  }
   
   enum {
     VarNotTemplate = 0, VarTemplate, StaticDataMemberSpecialization
@@ -966,6 +985,7 @@ void ASTDeclWriter::VisitVarDecl(VarDecl *D) {
       !D->isConstexpr() &&
       !D->isInitCapture() &&
       !D->isPreviousDeclInSameBlockScope() &&
+      D->getStorageDuration() != SD_Static &&
       !D->getMemberSpecializationInfo())
     AbbrevToUse = Writer.getDeclVarAbbrev();
 
@@ -1293,6 +1313,8 @@ void ASTDeclWriter::VisitCXXDestructorDecl(CXXDestructorDecl *D) {
   VisitCXXMethodDecl(D);
 
   Record.AddDeclRef(D->getOperatorDelete());
+  if (D->getOperatorDelete())
+    Record.AddStmt(D->getOperatorDeleteThisArg());
 
   Code = serialization::DECL_CXX_DESTRUCTOR;
 }
@@ -1700,6 +1722,7 @@ void ASTDeclWriter::VisitOMPDeclareReductionDecl(OMPDeclareReductionDecl *D) {
   Record.AddSourceLocation(D->getLocStart());
   Record.AddStmt(D->getCombiner());
   Record.AddStmt(D->getInitializer());
+  Record.push_back(D->getInitializerKind());
   Record.AddDeclRef(D->getPrevDeclInScope());
   Code = serialization::DECL_OMP_DECLARE_REDUCTION;
 }
@@ -1744,7 +1767,7 @@ void ASTWriter::WriteDeclAbbrevs() {
   Abv->Add(BitCodeAbbrevOp(0));                       // hasExtInfo
   // FieldDecl
   Abv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 1)); // isMutable
-  Abv->Add(BitCodeAbbrevOp(0));                       //getBitWidth
+  Abv->Add(BitCodeAbbrevOp(0));                       // InitStyle
   // Type Source Info
   Abv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 6));
   Abv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Array));
@@ -1777,7 +1800,7 @@ void ASTWriter::WriteDeclAbbrevs() {
   Abv->Add(BitCodeAbbrevOp(0));                       // hasExtInfo
   // FieldDecl
   Abv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 1)); // isMutable
-  Abv->Add(BitCodeAbbrevOp(0));                       //getBitWidth
+  Abv->Add(BitCodeAbbrevOp(0));                       // InitStyle
   // ObjC Ivar
   Abv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 6)); // getAccessControl
   Abv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 6)); // getSynthesize
@@ -2250,8 +2273,27 @@ void ASTRecordWriter::AddFunctionDefinition(const FunctionDecl *FD) {
   Writer->ClearSwitchCaseIDs();
 
   assert(FD->doesThisDeclarationHaveABody());
-  bool ModulesCodegen = Writer->Context->getLangOpts().ModulesCodegen &&
-                        Writer->WritingModule && !FD->isDependentContext();
+  bool ModulesCodegen = false;
+  if (Writer->WritingModule && !FD->isDependentContext()) {
+    Optional<GVALinkage> Linkage;
+    if (Writer->WritingModule->Kind == Module::ModuleInterfaceUnit) {
+      // When building a C++ Modules TS module interface unit, a strong
+      // definition in the module interface is provided by the compilation of
+      // that module interface unit, not by its users. (Inline functions are
+      // still emitted in module users.)
+      Linkage = Writer->Context->GetGVALinkageForFunction(FD);
+      ModulesCodegen = *Linkage == GVA_StrongExternal;
+    }
+    if (Writer->Context->getLangOpts().ModulesCodegen) {
+      // Under -fmodules-codegen, codegen is performed for all non-internal,
+      // non-always_inline functions.
+      if (!FD->hasAttr<AlwaysInlineAttr>()) {
+        if (!Linkage)
+          Linkage = Writer->Context->GetGVALinkageForFunction(FD);
+        ModulesCodegen = *Linkage != GVA_Internal;
+      }
+    }
+  }
   Record->push_back(ModulesCodegen);
   if (ModulesCodegen)
     Writer->ModularCodegenDecls.push_back(Writer->GetDeclRef(FD));

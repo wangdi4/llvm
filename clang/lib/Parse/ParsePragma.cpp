@@ -469,15 +469,20 @@ void Parser::HandlePragmaPack() {
   assert(Tok.is(tok::annot_pragma_pack));
   PragmaPackInfo *Info =
     static_cast<PragmaPackInfo *>(Tok.getAnnotationValue());
-  SourceLocation PragmaLoc = ConsumeAnnotationToken();
+  SourceLocation PragmaLoc = Tok.getLocation();
   ExprResult Alignment;
   if (Info->Alignment.is(tok::numeric_constant)) {
     Alignment = Actions.ActOnNumericConstant(Info->Alignment);
-    if (Alignment.isInvalid())
+    if (Alignment.isInvalid()) {
+      ConsumeAnnotationToken();
       return;
+    }
   }
   Actions.ActOnPragmaPack(PragmaLoc, Info->Action, Info->SlotLabel,
                           Alignment.get());
+  // Consume the token after processing the pragma to enable pragma-specific
+  // #include warnings.
+  ConsumeAnnotationToken();
 }
 
 void Parser::HandlePragmaMSStruct() {
@@ -575,7 +580,8 @@ StmtResult Parser::HandlePragmaCaptured()
 
   SourceLocation Loc = Tok.getLocation();
 
-  ParseScope CapturedRegionScope(this, Scope::FnScope | Scope::DeclScope);
+  ParseScope CapturedRegionScope(this, Scope::FnScope | Scope::DeclScope |
+                                           Scope::CompoundStmtScope);
   Actions.ActOnCapturedRegionStart(Loc, getCurScope(), CR_Default,
                                    /*NumParams=*/1);
 
@@ -635,6 +641,13 @@ void Parser::HandlePragmaOpenCLExtension() {
     PP.Diag(NameLoc, diag::warn_pragma_extension_is_core) << Ident;
   else
     PP.Diag(NameLoc, diag::warn_pragma_unsupported_extension) << Ident;
+
+#if INTEL_CUSTOMIZATION
+  // Also enable an extension alias
+  if (Opt.isSupportedExtension("cl_altera_channels", getLangOpts().OpenCLVersion)) {
+    Opt.enable("cl_intel_channels", State == Enable);
+  }
+#endif // INTEL_CUSTOMIZATION
 }
 
 void Parser::HandlePragmaMSPointersToMembers() {

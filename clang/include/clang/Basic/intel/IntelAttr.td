@@ -1,3 +1,15 @@
+//===--- IntelAttr.td - Intel attribute definitions -----------------------===//
+//
+// Copyright (C) 2017 Intel Corporation. All rights reserved.
+//
+// The information and source code contained herein is the exclusive
+// property of Intel Corporation and may not be disclosed, examined
+// or reproduced in whole or in part without explicit written authorization
+// from the company.
+//
+//===----------------------------------------------------------------------===//
+
+include "clang/Basic/intel/IntelAttrDocs.td"
 
 class SourceLocArgument<string name, bit opt = 0> : Argument<name, opt>;
 class CheckedExprArgument<string name> : Argument<name, 1>;
@@ -369,4 +381,113 @@ def IntelInline : Attr {
   }
   }];
   let Documentation = [Undocumented];
+}
+
+// FPGA-specific attributes
+
+def OpenCLBlocking : Attr {
+  let Spellings = [GNU<"blocking">];
+  let Subjects = SubjectList<[Var]>;
+  let Documentation = [OpenCLBlockingDocs];
+  let LangOpts = [OpenCL];
+}
+
+def OpenCLChannelDepth : Attr {
+  let Spellings = [GNU<"depth">];
+  let Args = [UnsignedArgument<"Depth">];
+  let Subjects = SubjectList<[Var]>;
+// FIXME: Add documentation
+  let Documentation = [Undocumented];
+  let LangOpts = [OpenCL];
+}
+
+def OpenCLChannelIO : Attr {
+  let Spellings = [GNU<"io">];
+  let Args = [StringArgument<"IOName">];
+  let Subjects = SubjectList<[Var]>;
+// FIXME: Add documentation
+  let Documentation = [Undocumented];
+  let LangOpts = [OpenCL];
+}
+
+def OpenCLLocalMemSize : Attr {
+  let Spellings = [GNU<"local_mem_size">];
+  let Args = [UnsignedArgument<"LocalMemSize">];
+  let Subjects = SubjectList<[ParmVar], ErrorDiag>;
+// FIXME: Add documentation
+  let Documentation = [Undocumented];
+  let LangOpts = [OpenCL];
+}
+
+def OpenCLBufferLocation : Attr {
+  let Spellings = [GNU<"buffer_location">];
+  let Args = [StringArgument<"BufferLocation">];
+  let Subjects = SubjectList<[ParmVar], ErrorDiag>;
+// FIXME: Add documentation
+  let Documentation = [Undocumented];
+  let LangOpts = [OpenCL];
+}
+
+def MaxWorkGroupSize : InheritableAttr {
+  let Spellings = [GNU<"max_work_group_size">];
+  let Args = [UnsignedArgument<"XDim">, UnsignedArgument<"YDim">,
+              UnsignedArgument<"ZDim">];
+  let Subjects = SubjectList<[Function]>;
+// FIXME: Add documentation
+  let Documentation = [Undocumented];
+}
+
+def Task : InheritableAttr {
+  let Spellings = [GNU<"task">];
+  let Subjects = SubjectList<[Function]>;
+// FIXME: Add documentation
+  let Documentation = [Undocumented];
+}
+
+def NumComputeUnits : InheritableAttr {
+  let Spellings = [GNU<"num_compute_units">];
+  let LangOpts = [OpenCL];
+  let Args = [IntArgument<"XDim">, DefaultIntArgument<"YDim", 1>,
+              DefaultIntArgument<"ZDim", 1>];
+  let Subjects = SubjectList<[Function]>;
+  let Documentation = [NumComputeUnitsDocs];
+}
+
+def NumSimdWorkItems : InheritableAttr {
+  let Spellings = [GNU<"num_simd_work_items">];
+  let Args = [UnsignedArgument<"NumSimdWorkItems">];
+  let Subjects = SubjectList<[Function]>;
+// FIXME: Add documentation
+  let Documentation = [Undocumented];
+}
+
+def MaxGlobalWorkDim : InheritableAttr {
+  let Spellings = [GNU<"max_global_work_dim">];
+  let LangOpts = [OpenCL];
+  let Args = [UnsignedArgument<"MaxGlobalWorkDimValue">];
+  let Subjects = SubjectList<[Function]>;
+  let Documentation = [MaxGlobalWorkDimDocs];
+}
+
+def Autorun : InheritableAttr {
+  let Spellings = [GNU<"autorun">];
+  let LangOpts = [OpenCL];
+  let Subjects = SubjectList<[Function]>;
+  let Documentation = [AutorunDocs];
+}
+
+def OpenCLHostAccessible : Attr {
+  let Spellings = [GNU<"intel_host_accessible">];
+  let Subjects = SubjectList<[Var]>;
+  let Documentation = [OpenCLHostAccessibleDocs];
+  let LangOpts = [OpenCL];
+}
+
+// End of FPGA-specific attributes
+
+def VecLenHint : InheritableAttr {
+  let Spellings = [GNU<"intel_vec_len_hint">];
+  let Args = [UnsignedArgument<"VecLen">];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Documentation = [VecLenHintDocs];
 }

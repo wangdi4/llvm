@@ -130,6 +130,11 @@ struct OpenMPScheduleTy final {
 OpenMPDirectiveKind getOpenMPDirectiveKind(llvm::StringRef Str);
 const char *getOpenMPDirectiveName(OpenMPDirectiveKind Kind);
 
+#if INTEL_CUSTOMIZATION
+bool isAllowedInSimdSubset(OpenMPDirectiveKind DKind);
+bool isAllowedInTBBSubset(OpenMPDirectiveKind DKind);
+#endif //INTEL_CUSTOMIZATION
+
 OpenMPClauseKind getOpenMPClauseKind(llvm::StringRef Str);
 const char *getOpenMPClauseName(OpenMPClauseKind Kind);
 

@@ -1326,7 +1326,7 @@ size_t ABIMacOSX_arm::GetRedZoneSize() const { return 0; }
 //------------------------------------------------------------------
 
 ABISP
-ABIMacOSX_arm::CreateInstance(const ArchSpec &arch) {
+ABIMacOSX_arm::CreateInstance(ProcessSP process_sp, const ArchSpec &arch) {
   static ABISP g_abi_sp;
   const llvm::Triple::ArchType arch_type = arch.GetTriple().getArch();
   const llvm::Triple::VendorType vendor_type = arch.GetTriple().getVendor();
@@ -1335,7 +1335,7 @@ ABIMacOSX_arm::CreateInstance(const ArchSpec &arch) {
     if ((arch_type == llvm::Triple::arm) ||
         (arch_type == llvm::Triple::thumb)) {
       if (!g_abi_sp)
-        g_abi_sp.reset(new ABIMacOSX_arm);
+        g_abi_sp.reset(new ABIMacOSX_arm(process_sp));
       return g_abi_sp;
     }
   }
@@ -1413,10 +1413,6 @@ bool ABIMacOSX_arm::PrepareTrivialCall(Thread &thread, addr_t sp,
   if (!reg_ctx->WriteRegisterFromUnsigned(ra_reg_num, return_addr))
     return false;
 
-  // Set "sp" to the requested value
-  if (!reg_ctx->WriteRegisterFromUnsigned(sp_reg_num, sp))
-    return false;
-
   // If bit zero or 1 is set, this must be a thumb function, no need to figure
   // this out from the symbols.
   so_addr.SetLoadAddress(function_addr, target_sp.get());
@@ -1440,6 +1436,11 @@ bool ABIMacOSX_arm::PrepareTrivialCall(Thread &thread, addr_t sp,
 
   function_addr &=
       ~1ull; // clear bit zero since the CPSR will take care of the mode for us
+
+  // Update the sp - stack pointer - to be aligned to 16-bytes
+  sp &= ~(0xfull);
+  if (!reg_ctx->WriteRegisterFromUnsigned(sp_reg_num, sp))
+    return false;
 
   // Set "pc" to the address requested
   if (!reg_ctx->WriteRegisterFromUnsigned(pc_reg_num, function_addr))
@@ -1546,16 +1547,14 @@ bool ABIMacOSX_arm::GetArgumentValues(Thread &thread, ValueList &values) const {
   return true;
 }
 
-bool ABIMacOSX_arm::IsArmv7kProcess(Thread *thread) const {
+bool ABIMacOSX_arm::IsArmv7kProcess() const {
   bool is_armv7k = false;
-  if (thread) {
-    ProcessSP process_sp(thread->GetProcess());
-    if (process_sp) {
-      const ArchSpec &arch(process_sp->GetTarget().GetArchitecture());
-      const ArchSpec::Core system_core = arch.GetCore();
-      if (system_core == ArchSpec::eCore_arm_armv7k) {
-        is_armv7k = true;
-      }
+  ProcessSP process_sp(GetProcessSP());
+  if (process_sp) {
+    const ArchSpec &arch(process_sp->GetTarget().GetArchitecture());
+    const ArchSpec::Core system_core = arch.GetCore();
+    if (system_core == ArchSpec::eCore_arm_armv7k) {
+      is_armv7k = true;
     }
   }
   return is_armv7k;
@@ -1588,7 +1587,7 @@ ValueObjectSP ABIMacOSX_arm::GetReturnValueObjectImpl(
     default:
       return return_valobj_sp;
     case 128:
-      if (IsArmv7kProcess(&thread)) {
+      if (IsArmv7kProcess()) {
         // "A composite type not larger than 16 bytes is returned in r0-r3. The
         // format is
         // as if the result had been stored in memory at a word-aligned address
@@ -1755,8 +1754,7 @@ Status ABIMacOSX_arm::SetReturnValueObject(lldb::StackFrameSP &frame_sp,
             set_it_simple = true;
         }
       }
-    } else if (num_bytes <= 16 &&
-               IsArmv7kProcess(frame_sp->GetThread().get())) {
+    } else if (num_bytes <= 16 && IsArmv7kProcess()) {
       // "A composite type not larger than 16 bytes is returned in r0-r3. The
       // format is
       // as if the result had been stored in memory at a word-aligned address

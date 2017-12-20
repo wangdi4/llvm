@@ -17,7 +17,6 @@
 #include "Plugins/Process/Utility/RegisterContextDarwin_arm64.h"
 #include "Plugins/Process/Utility/RegisterContextDarwin_i386.h"
 #include "Plugins/Process/Utility/RegisterContextDarwin_x86_64.h"
-#include "lldb/Core/ArchSpec.h"
 #include "lldb/Core/Debugger.h"
 #include "lldb/Core/FileSpecList.h"
 #include "lldb/Core/Module.h"
@@ -27,7 +26,6 @@
 #include "lldb/Core/RegisterValue.h"
 #include "lldb/Core/Section.h"
 #include "lldb/Core/StreamFile.h"
-#include "lldb/Core/Timer.h"
 #include "lldb/Host/Host.h"
 #include "lldb/Symbol/DWARFCallFrameInfo.h"
 #include "lldb/Symbol/ObjectFile.h"
@@ -39,11 +37,13 @@
 #include "lldb/Target/Target.h"
 #include "lldb/Target/Thread.h"
 #include "lldb/Target/ThreadList.h"
+#include "lldb/Utility/ArchSpec.h"
 #include "lldb/Utility/DataBufferLLVM.h"
 #include "lldb/Utility/FileSpec.h"
 #include "lldb/Utility/Log.h"
 #include "lldb/Utility/Status.h"
 #include "lldb/Utility/StreamString.h"
+#include "lldb/Utility/Timer.h"
 #include "lldb/Utility/UUID.h"
 
 #include "lldb/Utility/SafeMachO.h"
@@ -686,7 +686,7 @@ public:
       case FPURegSet: {
         uint8_t *fpu_reg_buf = (uint8_t *)&fpu.v[0];
         const int fpu_reg_buf_size = sizeof(fpu);
-        if (fpu_reg_buf_size == count &&
+        if (fpu_reg_buf_size == count * sizeof(uint32_t) &&
             data.ExtractBytes(offset, fpu_reg_buf_size, eByteOrderLittle,
                               fpu_reg_buf) == fpu_reg_buf_size) {
           SetError(FPURegSet, Read, 0);
@@ -1200,6 +1200,7 @@ AddressClass ObjectFileMachO::GetAddressClass(lldb::addr_t file_addr) {
           case eSectionTypeDWARFDebugAbbrev:
           case eSectionTypeDWARFDebugAddr:
           case eSectionTypeDWARFDebugAranges:
+          case eSectionTypeDWARFDebugCuIndex:
           case eSectionTypeDWARFDebugFrame:
           case eSectionTypeDWARFDebugInfo:
           case eSectionTypeDWARFDebugLine:
@@ -2502,7 +2503,7 @@ size_t ObjectFileMachO::ParseSymtab() {
       if (text_section_sp.get() && eh_frame_section_sp.get() &&
           m_type != eTypeDebugInfo) {
         DWARFCallFrameInfo eh_frame(*this, eh_frame_section_sp,
-                                    eRegisterKindEHFrame, true);
+                                    DWARFCallFrameInfo::EH);
         DWARFCallFrameInfo::FunctionAddressAndSizeVector functions;
         eh_frame.GetFunctionAddressAndSizeVector(functions);
         addr_t text_base_addr = text_section_sp->GetFileAddress();

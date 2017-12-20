@@ -183,6 +183,11 @@ class CompilerInstance : public ModuleLoader {
   /// The list of active output files.
   std::list<OutputFile> OutputFiles;
 
+#if INTEL_CUSTOMIZATION
+  // Force this output buffer
+  std::unique_ptr<llvm::raw_pwrite_stream> OutputStream;
+#endif // INTEL_CUSTOMIZATION
+
   CompilerInstance(const CompilerInstance &) = delete;
   void operator=(const CompilerInstance &) = delete;
 public:
@@ -641,7 +646,9 @@ public:
                     bool IntelCompat = false); // INTEL
 
   /// Create the file manager and replace any existing one with it.
-  void createFileManager();
+  ///
+  /// \return The new file manager on success, or null on failure.
+  FileManager *createFileManager();
 
   /// Create the source manager and replace any existing one with it.
   void createSourceManager(FileManager &FileMgr);
@@ -771,6 +778,16 @@ public:
                                       const FrontendOptions &Opts);
 
   /// }
+
+#if INTEL_CUSTOMIZATION
+  void SetOutputStream(std::unique_ptr<llvm::raw_pwrite_stream> OutStream) {
+    OutputStream = std::move(OutStream);
+  }
+
+  std::unique_ptr<llvm::raw_pwrite_stream> GetOutputStream() {
+    return std::move(OutputStream);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // Create module manager.
   void createModuleManager();

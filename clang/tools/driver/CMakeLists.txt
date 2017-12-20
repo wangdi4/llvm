@@ -14,6 +14,15 @@ set( LLVM_LINK_COMPONENTS
   Support
   TransformUtils
   Vectorize
+# INTEL_CUSTOMIZATION
+  Intel_DTransAnalysis
+  Intel_DTrans
+  Intel_LoopAnalysis
+  Intel_LoopTransforms
+  Intel_MapIntrinToIml
+  Intel_VPOAnalysis
+  Intel_VPOTransforms
+# end INTEL_CUSTOMIZATION
   )
 
 option(CLANG_PLUGIN_SUPPORT "Build clang with plugin support" ON)

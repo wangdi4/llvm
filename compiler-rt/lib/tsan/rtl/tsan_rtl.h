@@ -574,11 +574,8 @@ const char *GetObjectTypeFromTag(uptr tag);
 const char *GetReportHeaderFromTag(uptr tag);
 uptr TagFromShadowStackFrame(uptr pc);
 
-class ScopedReport {
+class ScopedReportBase {
  public:
-  explicit ScopedReport(ReportType typ, uptr tag = kExternalTagNone);
-  ~ScopedReport();
-
   void AddMemoryAccess(uptr addr, uptr external_tag, Shadow s, StackTrace stack,
                        const MutexSet *mset);
   void AddStack(StackTrace stack, bool suppressable = false);
@@ -593,6 +590,10 @@ class ScopedReport {
 
   const ReportDesc *GetReport() const;
 
+ protected:
+  ScopedReportBase(ReportType typ, uptr tag);
+  ~ScopedReportBase();
+
  private:
   ReportDesc *rep_;
   // Symbolizer makes lots of intercepted calls. If we try to process them,
@@ -601,8 +602,17 @@ class ScopedReport {
 
   void AddDeadMutex(u64 id);
 
-  ScopedReport(const ScopedReport&);
-  void operator = (const ScopedReport&);
+  ScopedReportBase(const ScopedReportBase &) = delete;
+  void operator=(const ScopedReportBase &) = delete;
+};
+
+class ScopedReport : public ScopedReportBase {
+ public:
+  explicit ScopedReport(ReportType typ, uptr tag = kExternalTagNone);
+  ~ScopedReport();
+
+ private:
+  ScopedErrorReportLock lock_;
 };
 
 ThreadContext *IsThreadStackOrTls(uptr addr, bool *is_stack);
@@ -690,6 +700,7 @@ void PrintCurrentStack(ThreadState *thr, uptr pc);
 void PrintCurrentStackSlow(uptr pc);  // uses libunwind
 
 void Initialize(ThreadState *thr);
+void MaybeSpawnBackgroundThread();
 int Finalize(ThreadState *thr);
 
 void OnUserAlloc(ThreadState *thr, uptr pc, uptr p, uptr sz, bool write);
@@ -825,7 +836,7 @@ void ALWAYS_INLINE TraceAddEvent(ThreadState *thr, FastState fs,
     return;
   DCHECK_GE((int)typ, 0);
   DCHECK_LE((int)typ, 7);
-  DCHECK_EQ(GetLsb(addr, 61), addr);
+  DCHECK_EQ(GetLsb(addr, kEventPCBits), addr);
   StatInc(thr, StatEvents);
   u64 pos = fs.GetTracePos();
   if (UNLIKELY((pos % kTracePartSize) == 0)) {
@@ -837,7 +848,7 @@ void ALWAYS_INLINE TraceAddEvent(ThreadState *thr, FastState fs,
   }
   Event *trace = (Event*)GetThreadTrace(fs.tid());
   Event *evp = &trace[pos];
-  Event ev = (u64)addr | ((u64)typ << 61);
+  Event ev = (u64)addr | ((u64)typ << kEventPCBits);
   *evp = ev;
 }
 
