@@ -14,6 +14,8 @@ set (
 set ( NAME_POSTFIX _32 )
 endif(BUILD_X64)
 
+set(TARGET_NAME backend_test_type)
+
 # function to compile cl to bc.
 function( compile INPUT_FILE OUTPUT_FILE_NAME)
 
@@ -24,7 +26,7 @@ function( compile INPUT_FILE OUTPUT_FILE_NAME)
     -o ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_FILE_NAME}
     MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
     DEPENDS ${INCLUDE_HEADERS_PATH}/opencl-c.h ${CLANG}
-    COMMENT "Generate spir binary files for ${TARGET_NAME}: ${SPIR_OUTPUT_FILE}"
+    COMMENT "Generate spir binary files for ${TARGET_NAME}: ${OUTPUT_FILE_NAME}"
     VERBATIM
   )
 
@@ -34,13 +36,12 @@ set(BE_TESTS_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
 
 add_subdirectory(OCLSamplePlugin)
 
-set(TARGET_NAME backend_test_type)
-
 set(BACKEND_ROOT_DIR ${OCL_SOURCE_DIR}/backend)
 include_directories(
     ${LLVM_INCLUDE_DIRS}
     ${OCL_SOURCE_DIR}/externals/gtest/include
     ${OCL_SOURCE_DIR}/cl_api
+    ${OCL_SOURCE_DIR}/tests/test_utils/export
     ${CL_API_HEADERS}
     ${BACKEND_ROOT_DIR}/utils
     ${BACKEND_ROOT_DIR}/ocl_cpu_backend
@@ -69,6 +70,7 @@ add_ocl_unittest( ${TARGET_NAME}
     OclPluginManager
     dynamic_load
     cl_sys_utils
+    test_utils
     ${LLVM_MODULE_LIBS})
 
 

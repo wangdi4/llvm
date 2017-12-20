@@ -18,6 +18,7 @@ File Name:  BackendWrapper.cpp
 #include <assert.h>
 #include <iterator>
 #include "BackendWrapper.h"
+#include "common_utils.h"
 #include "plugin_manager.h"
 
 BackendWrapper::BackendWrapper(void):
@@ -196,7 +197,7 @@ void BackEndTests_Plugins::CreateTestEvent()
     std::auto_ptr<BackendWrapper> pBackendWrapper(new BackendWrapper());
     ASSERT_TRUE(pBackendWrapper.get());
     std::vector<char> program;
-    pBackendWrapper->CreateProgramContainer(FILE_BC_WITH_KERNELS, program);
+    pBackendWrapper->CreateProgramContainer(get_exe_dir() + FILE_BC_WITH_KERNELS, program);
     ASSERT_TRUE(program.size() > 0);
 
     // create the program with valid parameters - should success
@@ -215,7 +216,7 @@ void BackEndTests_Plugins::CreateTestEvent(Intel::OpenCL::PluginManager* pManage
     std::auto_ptr<BackendWrapper> pBackendWrapper(new BackendWrapper());
     ASSERT_TRUE(pBackendWrapper.get());
     std::vector<char> program;
-    pBackendWrapper->CreateProgramContainer(FILE_BC_WITH_KERNELS, program);
+    pBackendWrapper->CreateProgramContainer(get_exe_dir() + FILE_BC_WITH_KERNELS, program);
     ASSERT_TRUE(program.size() > 0);
 
     // create the program with valid parameters - should success

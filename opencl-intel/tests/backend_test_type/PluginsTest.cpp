@@ -19,6 +19,7 @@ File Name:  PluginsTest.cpp
 #define _POSIX_SOURCE
 
 #include "BackendWrapper.h"
+#include "common_utils.h"
 #include "plugin_manager.h"
 
 #include <gtest/gtest.h>
@@ -26,36 +27,34 @@ File Name:  PluginsTest.cpp
 #include <stdio.h>
 #include <string>
 
-#ifdef WIN32
-#include <direct.h>
-#include <Windows.h>
-#define GetCurrentDir _getcwd    // used for setting the environment variable
-#else
-#include <stdlib.h>
-#include <unistd.h>
-#define GetCurrentDir getcwd
-#endif
-
 TEST_F(BackEndTests_Plugins, PluginLoadSuccess)
 {
-    // define the environment variable that will contain the path to the plugin dll
-    char currentPath[FILENAME_MAX];
-    ASSERT_TRUE(GetCurrentDir(currentPath, sizeof(currentPath)));
+    // define the environment variable that will contain the path
+    // to the plugin dll
     std::string envString("");
-#ifdef WIN32
+    std::string pluginPath = "";
+#ifdef _WIN32
     // envString = "currentpath\PLUGIN_DLL_NAME"
-    envString = envString + currentPath + "\\" + PLUGIN_DLL_NAME;
+    envString = get_exe_dir();
+#ifndef NDEBUG
+    envString += "Debug\\";
+#else
+    envString += "Release\\";
+#endif
+    envString += PLUGIN_DLL_NAME;
+    pluginPath = envString;
     ASSERT_TRUE(SetEnvironmentVariableA(PLUGIN_ENVIRONMENT_VAR, &(envString[0])));
 #else
     // envString = "environmentname=currentpath/PLUGIN_DLL_NAME"
-    envString = envString + PLUGIN_ENVIRONMENT_VAR + "=" + currentPath + "/" + PLUGIN_DLL_NAME;
+    pluginPath = get_exe_dir() + PLUGIN_DLL_NAME;
+    envString = envString + PLUGIN_ENVIRONMENT_VAR + "=" + pluginPath;
     ASSERT_EQ(putenv(&(envString[0])), 0);
 #endif
 
     // load the plugin dll and get the exported function
     try
     {
-        m_dll.Load(PLUGIN_DLL_NAME);
+        m_dll.Load(pluginPath.c_str());
     }catch(Exceptions::DynamicLibException& )
     {
         FAIL() << "Cannot load the plugin dll file.\n";
@@ -81,17 +80,14 @@ TEST_F(BackEndTests_Plugins, PluginLoadSuccess)
 TEST_F(BackEndTests_Plugins, PluginLoadWrongPath)
 {
     // define the environment variable that will contain the WRONG path to the plugin dll
-    char currentPath[FILENAME_MAX];
-    ASSERT_TRUE(GetCurrentDir(currentPath, sizeof(currentPath)));
-
     std::string envString("");
-#ifdef WIN32
+#ifdef _WIN32
     // envString = "fakepath\PLUGIN_DLL_NAME"
-    envString = envString + currentPath + "\\fakepathblabla\\" + PLUGIN_DLL_NAME;
+    envString = get_exe_dir() + "fakepathblabla\\" + PLUGIN_DLL_NAME;
     ASSERT_TRUE(SetEnvironmentVariableA(PLUGIN_ENVIRONMENT_VAR, &(envString[0])));
 #else
     // envString = "environmentname=fakepath/PLUGIN_DLL_NAME"
-    envString = envString + PLUGIN_ENVIRONMENT_VAR + "=" + currentPath + "/fakepathblabla/" + PLUGIN_DLL_NAME;
+    envString = envString + PLUGIN_ENVIRONMENT_VAR + "=" + get_exe_dir() + "fakepathblabla/" + PLUGIN_DLL_NAME;
     ASSERT_EQ(putenv(&(envString[0])), 0);
 #endif
 

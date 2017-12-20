@@ -100,6 +100,6 @@ std::string get_exe_dir(unsigned int pid) {
   std::string path = exe_path(pid);
   if (!path.empty()) {
     size_t i = path.find_last_of("/\\");
-    return path.substr(0, i);
+    return path.substr(0, i) + dir_sep();
   }
 }

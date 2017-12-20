@@ -17,6 +17,8 @@ File Name:  CompilationServiceTest.cpp
 \*****************************************************************************/
 
 #include "BackendWrapper.h"
+#include "common_utils.h"
+
 #include <gtest/gtest.h>
 
 TEST_F(BackEndTests_CompilationService, CreateProgramSuccess)
@@ -37,7 +39,7 @@ TEST_F(BackEndTests_CompilationService, CreateProgramSuccess)
     std::auto_ptr<BackendWrapper> pBackendWrapper(new BackendWrapper());
     ASSERT_TRUE(pBackendWrapper.get());
     std::vector<char> program;
-    pBackendWrapper->CreateProgramContainer(FILE_BC_WITH_KERNELS, program);
+    pBackendWrapper->CreateProgramContainer(get_exe_dir() + FILE_BC_WITH_KERNELS, program);
     ASSERT_TRUE(program.size() > 0);
 
     // create the program with valid parameters - should success
@@ -66,7 +68,7 @@ TEST_F(BackEndTests_CompilationService, CreateProgramNoKernels)
     std::auto_ptr<BackendWrapper> pBackendWrapper(new BackendWrapper());
     ASSERT_TRUE(pBackendWrapper.get());
     std::vector<char> program;
-    pBackendWrapper->CreateProgramContainer(FILE_BC_NO_KERNELS, program);
+    pBackendWrapper->CreateProgramContainer(get_exe_dir() + FILE_BC_NO_KERNELS, program);
     ASSERT_TRUE(program.size() > 0);
 
     // create the program with valid parameters - should success
@@ -104,7 +106,7 @@ TEST_F(BackEndTests_CompilationService, CreateProgramFailure)
     std::auto_ptr<BackendWrapper> pBackendWrapper(new BackendWrapper());
     ASSERT_TRUE(pBackendWrapper.get());
     std::vector<char> program;
-    pBackendWrapper->CreateProgramContainer(FILE_BC_WITH_KERNELS, program);
+    pBackendWrapper->CreateProgramContainer(get_exe_dir() + FILE_BC_WITH_KERNELS, program);
     ASSERT_TRUE(program.size() > 0);
     // invalid parameters - should fail with no crash
     ret = pCompileService->CreateProgram(program.data(), program.size(), NULL);
@@ -135,7 +137,7 @@ TEST_F(BackEndTests_CompilationService, BuildProgramSuccess)
     std::auto_ptr<BackendWrapper> pBackendWrapper(new BackendWrapper());
     ASSERT_TRUE(pBackendWrapper.get());
     std::vector<char> program;
-    pBackendWrapper->CreateProgramContainer(FILE_BC_WITH_KERNELS, program);
+    pBackendWrapper->CreateProgramContainer(get_exe_dir() + FILE_BC_WITH_KERNELS, program);
     ASSERT_TRUE(program.size() > 0);
     ICLDevBackendProgram_* pProgram = NULL;
     ret = pCompileService->CreateProgram(program.data(), program.size(), &pProgram);
@@ -152,7 +154,7 @@ TEST_F(BackEndTests_CompilationService, BuildProgramSuccess)
     std::auto_ptr<BackendWrapper> pBackendWrapper2(new BackendWrapper());
     ASSERT_TRUE(pBackendWrapper2.get());
     std::vector<char> program2;
-    pBackendWrapper2->CreateProgramContainer(FILE_BC_NO_KERNELS, program2);
+    pBackendWrapper2->CreateProgramContainer(get_exe_dir() + FILE_BC_NO_KERNELS, program2);
     ASSERT_TRUE(program2.size() > 0);
     ICLDevBackendProgram_* pProgram2 = NULL;
     ret = pCompileService->CreateProgram(program2.data(), program2.size(), &pProgram2);
@@ -169,7 +171,7 @@ TEST_F(BackEndTests_CompilationService, BuildProgramSuccess)
     std::auto_ptr<BackendWrapper> pBackendWrapper3(new BackendWrapper());
     ASSERT_TRUE(pBackendWrapper3.get());
     std::vector<char> program3;
-    pBackendWrapper3->CreateProgramContainer(FILE_BC_WITH_KERNELS, program3);
+    pBackendWrapper3->CreateProgramContainer(get_exe_dir() + FILE_BC_WITH_KERNELS, program3);
     ASSERT_TRUE(program3.size() > 0);
     ICLDevBackendProgram_* pProgram3 = NULL;
     ret = pCompileService->CreateProgram(program3.data(), program3.size(), &pProgram3);
@@ -186,7 +188,7 @@ TEST_F(BackEndTests_CompilationService, BuildProgramSuccess)
     std::auto_ptr<BackendWrapper> pBackendWrapper4(new BackendWrapper());
     ASSERT_TRUE(pBackendWrapper4.get());
     std::vector<char> program4;
-    pBackendWrapper4->CreateProgramContainer(FILE_BC_NO_KERNELS, program4);
+    pBackendWrapper4->CreateProgramContainer(get_exe_dir() + FILE_BC_NO_KERNELS, program4);
     ASSERT_TRUE(program4.size() > 0);
 
     ICLDevBackendProgram_* pProgram4 = NULL;
@@ -219,7 +221,7 @@ TEST_F(BackEndTests_CompilationService, BuildProgramFailure)
     std::auto_ptr<BackendWrapper> pBackendWrapper(new BackendWrapper());
     ASSERT_TRUE(pBackendWrapper.get());
     std::vector<char> program;
-    pBackendWrapper->CreateProgramContainer(FILE_BC_NOISE, program);
+    pBackendWrapper->CreateProgramContainer(get_exe_dir() + FILE_BC_NOISE, program);
     ASSERT_TRUE(program.size() > 0);
 
     ICLDevBackendProgram_* pProgram = NULL;

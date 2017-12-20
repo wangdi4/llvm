@@ -72,9 +72,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     ScopeKind Scope;
     AccessKind Access;
-    OpKind Op;
-    bool Blocking;
-    std::string SimdSuffix;
+    OpKind Op = OpKind::NONE;
+    bool Blocking = false;
+    std::string SimdSuffix = "";
 
     bool operator == (const PipeKind &LHS) {
       return Scope      == LHS.Scope    &&

@@ -1,10 +1,15 @@
 #include <gtest/gtest.h>
-#include "KernelProperties.h"
+
+#include <string>
+
 #include "BackendWrapper.h"
+#include "common_utils.h"
+#include "KernelProperties.h"
+
 #if defined _M_X64 || defined __x86_64__
-static const char* BC_FILE = "reqd_num_sub_groups_64.bc";
+#define BC_FILE "reqd_num_sub_groups_64.bc"
 #else
-static const char* BC_FILE = "reqd_num_sub_groups_32.bc";
+#define BC_FILE "reqd_num_sub_groups_32.bc"
 #endif
 
 // The source bitcode consists one kernel with __attribute__ (required_num_sub_groups(5)).
@@ -30,7 +35,7 @@ TEST_F(BackEndTests_KernelSubGroupInfo, SubGroupInfoSuccess)
     std::unique_ptr<BackendWrapper> pBackendWrapper(new BackendWrapper());
     ASSERT_TRUE(pBackendWrapper.get());
     std::vector<char> program;
-    pBackendWrapper->CreateProgramContainer(BC_FILE, program);
+    pBackendWrapper->CreateProgramContainer(get_exe_dir() + BC_FILE, program);
     ASSERT_TRUE(program.size() > 0);
 
     ICLDevBackendProgram_* pProgram = nullptr;
