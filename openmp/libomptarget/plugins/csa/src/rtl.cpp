@@ -108,6 +108,11 @@
 // not defined
 #define ENV_TEMP_PREFIX "CSA_TEMP_PREFIX"
 
+// If defined specifies the value to initialize the floating point flags
+// to before an offloaded function, and that the floating point flags be
+// reported after the offloaded funciton returns
+#define ENV_FP_FLAGS "CSA_FP_FLAGS"
+
 // Bitcode bounds struct built by the compiler. WARNING! This struct MUST
 // match the struct written to the .csa.bc.bounds section in CSAAsmPrinter.cpp!
 struct BitcodeBounds {
@@ -239,6 +244,7 @@ static RTLDeviceInfoTy DeviceInfo(NUMBER_OF_DEVICES);
 
 // How noisy we should be
 static int32_t verbosity = 0;
+static int32_t initial_fp_flags = -1;
 
 static std::string tmp_prefix;
 
@@ -1144,6 +1150,20 @@ int32_t __tgt_rtl_run_target_team_region(int32_t device_id, void *tgt_entry_ptr,
   int32_t status = OFFLOAD_SUCCESS;
   static uint32_t run_count = 0;
 
+  // If not checked yet, see if the CSA_FL_FLAGS environment variable is defined
+  if (-1 == initial_fp_flags) {
+    const char* fpFlags = getenv(ENV_FP_FLAGS);
+    if (NULL == fpFlags) {
+      initial_fp_flags = -2;
+    } else {
+      initial_fp_flags = atoi(fpFlags);
+      if (initial_fp_flags < 0) {
+        fprintf(stderr, "invalid initial FP flags value %d ignored\n", initial_fp_flags);
+        initial_fp_flags = -2;
+      }
+    }
+  }
+
   // Normally this would be the code, but since we're loading assembly into
   // the simulator, the compilation gave us the address of the function name.
   const char *functionName = (const char *)tgt_entry_ptr;
@@ -1182,6 +1202,9 @@ int32_t __tgt_rtl_run_target_team_region(int32_t device_id, void *tgt_entry_ptr,
         err += "\"";
         status = checkForExitOnError(OFFLOAD_FAIL, err.c_str());
       } else {
+        if (initial_fp_flags >= 0) {
+          csa_set_fp_flags(processor, (unsigned int)initial_fp_flags);
+        }
         if (verbosity) {
           fprintf(stderr, "\nRun %u: Running %s on the CSA simulator..\n",
                   run_count, functionName);
@@ -1209,6 +1232,10 @@ int32_t __tgt_rtl_run_target_team_region(int32_t device_id, void *tgt_entry_ptr,
         if (verbosity) {
           fprintf(stderr, "\nRun %u: %s ran on the CSA simulator in %llu cycles\n\n",
                   run_count, functionName, cycles);
+        }
+        if (initial_fp_flags >= 0) {
+          fprintf(stderr, "FP Flags at completion of %s : 0x%02x\n",
+                  functionName, csa_get_fp_flags(processor));
         }
       }
     }
