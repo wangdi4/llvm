@@ -205,7 +205,7 @@ void RunFunctionTest (const char* FuncName,const char* ocl_test_program,int vec,
 	T maxEpsilon=0;
 	for( unsigned y=0; (y < stBuffSize) && bResult; ++y )
 	{
-		if ( ((pULP[y] > target_ulp) || (pULP[y]<0) ) && ( (y+1) % 4 != vector3 ) ) 
+		if ( ((pULP[y] > target_ulp) || (pULP[y]<0) ) && ( (int)((y+1) % 4) != vector3 ) )
 		{
 			printf("KERNEL TEST FAILED: the function %s failed \n \n",FuncName);
 			printf("difference between regular function and relaxed function is: %d ULP\n",pULP[y]);

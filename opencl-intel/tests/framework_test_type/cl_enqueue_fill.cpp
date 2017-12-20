@@ -196,7 +196,7 @@ TEST_F(EnqueueFillTest, Buffer)
 	clEnqueueUnmapMemObject(m_queue, buffer1, pBuf, 0, NULL, NULL);
 	EXPECT_EQ(CL_SUCCESS, iRet) << "clEnqueueUnmapMemObject = " << ClErrTxt(iRet);
 
-	EXPECT_EQ(0, countFillErrors) << "fill with 0 "<<bufferSize<<" bytes has "<<countFillErrors<<" bad bytes.";
+	EXPECT_EQ((size_t)0, countFillErrors) << "fill with 0 "<<bufferSize<<" bytes has "<<countFillErrors<<" bad bytes.";
 
 	// Fill the pattern with 1's
 	countFillErrors = 0;
@@ -217,7 +217,7 @@ TEST_F(EnqueueFillTest, Buffer)
 	clEnqueueUnmapMemObject(m_queue, buffer1, pBuf, 0, NULL, NULL);
 	EXPECT_EQ(CL_SUCCESS, iRet) << "clEnqueueUnmapMemObject = " << ClErrTxt(iRet);
 
-	EXPECT_EQ(0, countFillErrors) << "partial fill with 1's "<<bufferSize<<" bytes has "<<countFillErrors<<" bad bytes.";
+	EXPECT_EQ((size_t)0, countFillErrors) << "partial fill with 1's "<<bufferSize<<" bytes has "<<countFillErrors<<" bad bytes.";
 
 	// Fill the pattern with 2's
 	countFillErrors = 0;
@@ -245,7 +245,7 @@ TEST_F(EnqueueFillTest, Buffer)
 	clEnqueueUnmapMemObject(m_queue, buffer1, pBuf, 0, NULL, NULL);
 	EXPECT_EQ(CL_SUCCESS, iRet) << "clEnqueueUnmapMemObject = " << ClErrTxt(iRet);
 
-	EXPECT_EQ(0, countFillErrors) << "partial fill with 2's and 1's "<<bufferSize<<" bytes has "<<countFillErrors<<" bad bytes.";
+	EXPECT_EQ((size_t)0, countFillErrors) << "partial fill with 2's and 1's "<<bufferSize<<" bytes has "<<countFillErrors<<" bad bytes.";
 
 	// check error cases:
 	iRet = clEnqueueFillBuffer(m_queue, buffer1, pattern, 5, 0, PATTERN_SIZE, 0, NULL, NULL);	// size of pattern isn't power of 2
@@ -258,7 +258,7 @@ TEST_F(EnqueueFillTest, Buffer)
 	TestFillWithLargePattern(buffer1, bufferSize, LENGTH_FOUR_PATTERN, sizeof(LENGTH_FOUR_PATTERN));
 	TestFillWithLargePattern(buffer1, bufferSize, LENGTH_TWELVE_PATTERN, sizeof(LENGTH_TWELVE_PATTERN));
         clFinish(m_queue);
-	EXPECT_EQ(0, countFillErrors) << "pattern fill with LENGTH_FOUR_PATTERN "<<bufferSize<<" bytes has "<<countFillErrors<<" bad bytes.";
+	EXPECT_EQ((size_t)0, countFillErrors) << "pattern fill with LENGTH_FOUR_PATTERN "<<bufferSize<<" bytes has "<<countFillErrors<<" bad bytes.";
     clReleaseMemObject(buffer1);
 }
 
@@ -432,7 +432,7 @@ static inline size_t AT_LEAST1(const size_t val) { return val ? val : 1; }
                 PRINT_BAD_PIXEL(0);
             }
 		);
-		EXPECT_EQ(0, countFillErrors) << "fill everything with color 0 had " << countFillErrors << " errors.";
+		EXPECT_EQ((size_t)0, countFillErrors) << "fill everything with color 0 had " << countFillErrors << " errors.";
 
 
 		//fprintf(stderr, "testing clEnqueueFillImage - fill Upper left corner of image with color 1\n");
@@ -453,7 +453,7 @@ static inline size_t AT_LEAST1(const size_t val) { return val ? val : 1; }
 				}
 			}
 		);
-		EXPECT_EQ(0, countFillErrors) << "fill upper left back corner with color 1 had " << countFillErrors << " errors.";
+		EXPECT_EQ((size_t)0, countFillErrors) << "fill upper left back corner with color 1 had " << countFillErrors << " errors.";
 
 		//fprintf(stderr, "testing clEnqueueFillImage - fill lower right corner of image with color 2\n");
 		iRet = clEnqueueFillImage(m_queue, img, &listOfInputColors[2], origin_mid, region_half, 0, NULL, NULL);
@@ -482,7 +482,7 @@ static inline size_t AT_LEAST1(const size_t val) { return val ? val : 1; }
                 }
 			}
 		);
-		EXPECT_EQ(0, countFillErrors) << "fill lower right front corner with color 2 had " << countFillErrors << " errors.";
+		EXPECT_EQ((size_t)0, countFillErrors) << "fill lower right front corner with color 2 had " << countFillErrors << " errors.";
 
 		//fprintf(stderr, "testing clEnqueueFillImage - fill middle of image with color 3\n");
 		iRet = clEnqueueFillImage(m_queue, img, &listOfInputColors[3], origin_qrtr, region_half, 0, NULL, NULL);
@@ -509,7 +509,7 @@ static inline size_t AT_LEAST1(const size_t val) { return val ? val : 1; }
 					++countFillErrors;
 			}
 		);
-		EXPECT_EQ(0, countFillErrors) << "fill middle with color 3 had " << countFillErrors << " errors.";
+		EXPECT_EQ((size_t)0, countFillErrors) << "fill middle with color 3 had " << countFillErrors << " errors.";
 
 		ALIGNED_FREE(img_buf);
 		clReleaseMemObject(img);

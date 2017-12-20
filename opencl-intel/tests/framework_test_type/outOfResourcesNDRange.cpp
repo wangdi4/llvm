@@ -214,7 +214,7 @@ TEST_F(BaseProvisionalTest, OutOfResourcesNDRange)
         numOfWorkGroupItems--;
     }
 
-    ASSERT_NE(0, numOfWorkGroupItems) << "Test cannot run (fail) properly because there is no good number for WG items.";
+    ASSERT_NE((size_t)0, numOfWorkGroupItems) << "Test cannot run (fail) properly because there is no good number for WG items.";
 
     // In this case the test will simply not run and test the right error.
     // To fix this error you should adjust the size of the HUGE kernel private memory.
