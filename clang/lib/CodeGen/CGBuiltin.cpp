@@ -8461,11 +8461,20 @@ Value *CodeGenFunction::EmitCSABuiltinExpr(unsigned BuiltinID,
   }
   case CSA::BI__builtin_csa_spmdization: {
     Value *X = EmitScalarExpr(E->getArg(0));
+    Value *Y = EmitScalarExpr(E->getArg(1));
+    const Expr *SPMDStrExpr = E->getArg(1)->IgnoreParenCasts();
+    StringRef Str = cast<StringLiteral>(SPMDStrExpr)->getString();
     Value *Callee = CGM.getIntrinsic(Intrinsic::csa_spmdization,
+                                     {X->getType(), Y->getType()});
+    return Builder.CreateCall(Callee, {X, Builder.CreateBitCast(CGM.EmitAnnotationString(Str), Int8PtrTy)});
+  }
+  case CSA::BI__builtin_csa_pipeline_loop: {
+    Value *X = EmitScalarExpr(E->getArg(0));
+    Value *Callee = CGM.getIntrinsic(Intrinsic::csa_pipeline_loop,
                                      X->getType());
     return Builder.CreateCall(Callee, X);
   }
-    
+
   default:
     return nullptr;
   }
