@@ -423,14 +423,16 @@ BasicBlock* VecClone::splitLoopIntoReturn(Function *Clone,
     }
   }
 
-  Function::iterator ReturnBlockIt = Clone->end();
   BasicBlock *ReturnBlock;
   if (dyn_cast<LoadInst>(SplitPt) || dyn_cast<ReturnInst>(SplitPt)) {
     ReturnBlock = LoopBlock->splitBasicBlock(SplitPt, "return");
   } else {
-    ReturnBlockIt = Clone->end();
-    ReturnBlockIt--;
-    ReturnBlock = &*ReturnBlockIt;
+    for (auto &BB : *Clone) {
+      if (isa<ReturnInst>(BB.getTerminator())) {
+        ReturnBlock = &BB;
+        break;
+      }
+    }
   }
 
   return ReturnBlock;

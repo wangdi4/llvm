@@ -19,7 +19,7 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/Analysis/Intel_VectorVariant.h"
-#include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/ADT/SmallSet.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
@@ -302,10 +302,8 @@ public:
 
   ~VPOCodeGen() {}
 
-#if INTEL_OPENCL
   /// Initiate the scalar selects set.
   void initOpenCLScalarSelectSet(ArrayRef<const char *> OpenCLScalarSelects);
-#endif
 
   // Take care of phi's to fix: reduction, 1st-order-recurrence, loop-closed.
   void finalizeLoop();
@@ -370,11 +368,9 @@ public:
                          SmallVectorImpl<Value*> &VecArgs,
                          SmallVectorImpl<Type*> &VecArgTys);
 
-#if INTEL_OPENCL
   // Return true if the argument at position /p Idx for function /p FnName is
   // scalar.
   bool isScalarArgument(StringRef FnName, unsigned Idx);
-#endif
   
   /// Add an in memory linear to the vector of linear values.
   void addUnitStepLinear(Value *LinVal, Value *NewVal, int Step) {
@@ -532,14 +528,12 @@ private:
   /// Returns true if \p I is known to be uniform after vectorization.
   bool isUniformAfterVectorization(Instruction *I, unsigned VF) const;
 
-#if INTEL_OPENCL
   /// Return true if \p FnName is the name of an OpenCL scalar select and \p Idx
   /// is the position of the mask argument.
   bool isOpenCLSelectMask(StringRef FnName, unsigned Idx);
 
   /// Return the right vector mask for a OpenCL vector select build-in.
   Value *getOpenCLSelectVectorMask(Value *ScalarMask);
-#endif
 
   /// The original loop.
   Loop *OrigLoop;
@@ -688,17 +682,15 @@ private:
 
   void vectorizeReductionPHI(PHINode *Inst);
 
-#if INTEL_OPENCL
   // Vectorize the write channel source argument for an OpenCL write channel
   // call. The source is the data that will be written to the channel.
-  Value* vectorizeOpenCLWriteChannelSrc(Value *CallOp);
+  Value* vectorizeOpenCLWriteChannelSrc(CallInst *Call, unsigned ArgNum);
 
   // Vectorize the read channel destination for an OpenCL read channel call.
   // The destination is the location where the data from the channel call will
   // be written to.
   void vectorizeOpenCLReadChannelDest(CallInst *Call, CallInst *VecCall,
                                       Value *CallOp);
-#endif // INTEL_OPENCL
 
   // Return a vector Vl wide: <Val, Val + Stride,
   // ... VAL + (VF - 1) * Stride>
@@ -711,10 +703,8 @@ private:
   ///   <StoreInst, Predicate>
   SmallVector<std::pair<Instruction *, Value *>, 4> PredicatedInstructions;
 
-#if INTEL_OPENCL
   /// Hold names of scalar select builtins
   SmallSet<std::string, 20> ScalarSelectSet;
-#endif
 
   DenseMap<AllocaInst *, Value *> ReductionEofLoopVal;
   DenseMap<AllocaInst *, Value *> ReductionVecInitVal;

@@ -24,10 +24,6 @@
 
 #define DEBUG_TYPE "vpo-wrnnode"
 
-// Define this to 1 for OpenCL (eg, features/vpo branch)
-// Define it to 0 for vpo-xmain
-#define VPO_FOR_OPENCL 0
-
 using namespace llvm;
 using namespace llvm::vpo;
 
@@ -155,7 +151,6 @@ void WRegionNode::finalize(BasicBlock *ExitBB) {
         setSchedCode(0);
     }
 
-#if VPO_FOR_OPENCL
     // For OpenCL, the vectorizer requires that the second operand of
     // __read_pipe_2_bl_intel() be privatized. The code below will look at
     // each occurrence of such a call in the WRN, and find the corresponding
@@ -189,7 +184,6 @@ void WRegionNode::finalize(BasicBlock *ExitBB) {
           }
       resetBBSet();
     }
-#endif //VPO_FOR_OPENCL
   } // if (getIsOmpLoop())
 }
 

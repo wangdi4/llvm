@@ -159,9 +159,6 @@ Function* getOrInsertVectorFunction(const CallInst *Call, unsigned VL,
                                     VectorVariant *VecVariant,
                                     bool Masked);
 
-#endif // INTEL_CUSTOMIZATION
-
-#if INTEL_OPENCL
 /// \brief Return true if \p FnName is an OpenCL read channel function
 bool isOpenCLReadChannel(StringRef FnName);
 
@@ -181,7 +178,7 @@ Value* getOpenCLReadWriteChannelAlloc(const CallInst *Call);
 
 /// \brief Returns a string representation of Type \p Ty.
 std::string typeToString(Type *Ty);
-#endif // INTEL_OPENCL
+#endif // INTEL_CUSTOMIZATION
     
 /// Specifically, let Kinds = [MD_tbaa, MD_alias_scope, MD_noalias, MD_fpmath,
 /// MD_nontemporal].  For K in Kinds, we get the MDNode for K from each of the

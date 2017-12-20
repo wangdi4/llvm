@@ -29,12 +29,10 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
-#if INTEL_OPENCL
 static cl::opt<bool> UseSimdChannels(
-  "use-simd-channels", cl::init(false),
+  "use-simd-channels", cl::init(true),
   cl::Hidden,
   cl::desc("use simd versions of read/write pipe functions"));
-#endif // INTEL_OPENCL
 
 #define DEBUG_TYPE "vpo-ir-loop-vectorize"
 
@@ -2597,6 +2595,9 @@ void VPOCodeGen::vectorizePHIInstruction(Instruction *Inst) {
 VectorVariant* VPOCodeGen::matchVectorVariant(Function *CalledFunc,
                                               bool Masked) {
 
+  VectorVariant *SelectedVariant = nullptr;
+
+  DEBUG(dbgs() << "Trying to find match for: " << CalledFunc->getName() << "\n");
   DEBUG(dbgs() << "\nCall VF: " << VF << "\n");
   unsigned TargetMaxRegWidth = TTI->getRegisterBitWidth(true);
   DEBUG(dbgs() << "Target Max Register Width: " << TargetMaxRegWidth << "\n");
@@ -2655,20 +2656,11 @@ VectorVariant* VPOCodeGen::matchVectorVariant(Function *CalledFunc,
       delete Variant;
     }
 
-    assert(VariantIdx >= 0 && "Invalid vector variant index");
-    VectorVariant *SelectedVariant = new VectorVariant(Variants[VariantIdx]);
-    return SelectedVariant;
+    if (VariantIdx >= 0)
+      SelectedVariant = new VectorVariant(Variants[VariantIdx]);
   }
 
-  llvm_unreachable("Function has vector variants but could not find a match");
-}
-
-#if INTEL_OPENCL
-bool VPOCodeGen::isScalarArgument(StringRef FnName, unsigned Idx) {
-  if (isOpenCLReadChannel(FnName) || isOpenCLWriteChannel(FnName)) {
-    return (Idx == 0);
-  }
-  return false;
+  return SelectedVariant;
 }
 
 bool VPOCodeGen::isScalarArgument(StringRef FnName, unsigned Idx) {
@@ -2776,7 +2768,6 @@ void VPOCodeGen::vectorizeOpenCLReadChannelDest(CallInst *Call,
       Builder.CreateBitCast(VecReadDst, VecCallPtrType, "read_dst_cast");
   Builder.CreateStore(VecCall, VecReadDst);
 }
-#endif // INTEL_OPENCL
 
 void VPOCodeGen::vectorizeCallArgs(CallInst *Call, VectorVariant *VecVariant,
                                    SmallVectorImpl<Value*> &VecArgs,
@@ -2790,7 +2781,6 @@ void VPOCodeGen::vectorizeCallArgs(CallInst *Call, VectorVariant *VecVariant,
   bool isScalarArg = false;
 
   for (unsigned i = 0; i < Call->getNumArgOperands(); i++) {
-#if INTEL_OPENCL
     Function *F = Call->getCalledFunction();
     assert(F && "Function not found for call instruction");
     StringRef FnName = F->getName();
@@ -2805,18 +2795,15 @@ void VPOCodeGen::vectorizeCallArgs(CallInst *Call, VectorVariant *VecVariant,
       VecArgs.push_back(VecWriteSrc);
       VecArgTys.push_back(VecWriteSrc->getType());
     } else
-#endif // INTEL_OPENCL
     if ((!VecVariant || Parms[i].isVector()) && !isScalarArg) {
       // This is a vector call arg, so vectorize it.
       Value *Arg = Call->getArgOperand(i);
       Value *VecArg;
 
-#if INTEL_OPENCL
       // Generate the right mask for OpenCL vector 'select' intrinsic
       if (isOpenCLSelectMask(FnName, i))
         VecArg = getOpenCLSelectVectorMask(Call->getArgOperand(i));
       else
-#endif
         VecArg = getVectorValue(Arg);
 
       VecArgs.push_back(VecArg);
@@ -2831,10 +2818,8 @@ void VPOCodeGen::vectorizeCallArgs(CallInst *Call, VectorVariant *VecVariant,
       // added. The same method applies to built-in functions for args that
       // need to be treated as uniform.
 
-#if INTEL_OPENCL
       assert(!isOpenCLSelectMask(FnName, i) &&
              "OpenCL select mask parameter is linear/uniform?");
-#endif
 
       Value *Arg = Call->getArgOperand(i);
       Value *ScalarArg = getScalarValue(Arg, 0);
@@ -2885,7 +2870,6 @@ void VPOCodeGen::vectorizeCallArgs(CallInst *Call, VectorVariant *VecVariant,
   }
 }
 
-#if INTEL_OPENCL
 void VPOCodeGen::initOpenCLScalarSelectSet(
     ArrayRef<const char *> ScalarSelects) {
 
@@ -2948,7 +2932,6 @@ Value *VPOCodeGen::getOpenCLSelectVectorMask(Value *ScalarMask) {
   Cmp = Builder.CreateICmpNE(VectorMask, Zero);
   return Builder.CreateSExt(Cmp, VecTy);
 }
-#endif // INTEL_OPENCL
 
 void VPOCodeGen::vectorizeCallInstruction(CallInst *Call) {
 
@@ -2960,11 +2943,8 @@ void VPOCodeGen::vectorizeCallInstruction(CallInst *Call) {
   // Don't attempt vector function matching for SVML or built-in functions.
   VectorVariant *MatchedVariant = nullptr;
   if (!TLI->isFunctionVectorizable(CalledFunc->getName())
-#if INTEL_OPENCL
       && !isOpenCLReadChannel(CalledFunc->getName())
-      && !isOpenCLWriteChannel(CalledFunc->getName())
-#endif
-     ) {
+      && !isOpenCLWriteChannel(CalledFunc->getName())) {
     // TLI is not used to check for SIMD functions for two reasons:
     // 1) A more sophisticated interface is needed to determine the most
     //    appropriate match.
@@ -2988,10 +2968,7 @@ void VPOCodeGen::vectorizeCallInstruction(CallInst *Call) {
   // TODO: investigate why attempting to copy fast math flags for __read_pipe
   // fails. For now, just don't do the copy.
   if (isa<FPMathOperator>(VecCall)
-#if INTEL_OPENCL
-      && !isOpenCLReadChannel(CalledFunc->getName())
-#endif
-  )
+      && !isOpenCLReadChannel(CalledFunc->getName()))
     VecCall->copyFastMathFlags(Call);
 
   Loop *Lp = LI->getLoopFor(Call->getParent());
@@ -3007,11 +2984,9 @@ void VPOCodeGen::vectorizeCallInstruction(CallInst *Call) {
   // 2) Currently, masked stores are always generated for call results stored
   //    to memory within a predicated region. See vectorizeStoreInstruction().
 
-#if INTEL_OPENCL
   if (isOpenCLReadChannel(CalledFunc->getName())) {
     vectorizeOpenCLReadChannelDest(Call, VecCall, Call->getArgOperand(1));
   }
-#endif // INTEL_OPENCL
 
   WidenMap[cast<Value>(Call)] = VecCall;
 }
@@ -3193,14 +3168,13 @@ void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
     CallInst *Call = cast<CallInst>(Inst);
     Function *F = Call->getCalledFunction();
     StringRef CalledFunc = F->getName();
+    bool isMasked = (MaskValue != nullptr) ? true : false;
     if (TLI->isFunctionVectorizable(CalledFunc, VF) ||
-        F->hasFnAttribute("vector-variants")
-#if INTEL_OPENCL
-      || ((isOpenCLReadChannel(CalledFunc) ||
+        (F->hasFnAttribute("vector-variants") &&
+         matchVectorVariant(F, isMasked)) ||
+        ((isOpenCLReadChannel(CalledFunc) ||
            isOpenCLWriteChannel(CalledFunc)) &&
-          UseSimdChannels)
-#endif // INTEL_OPENCL
-    )
+          UseSimdChannels))
       vectorizeCallInstruction(Call);
     else {
       DEBUG(dbgs() << "Function " << CalledFunc << " is serialized\n");

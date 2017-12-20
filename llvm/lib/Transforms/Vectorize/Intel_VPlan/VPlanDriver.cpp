@@ -473,9 +473,7 @@ bool VPlanDriver::processLoop(Loop *Lp, unsigned VF, Function &Fn,
                    << "\n");
 
     VPOCodeGen VCodeGen(Lp, PSE, LI, DT, TLI, TTI, VF, 1, &LVL);
-#if INTEL_OPENCL
     VCodeGen.initOpenCLScalarSelectSet(volcanoScalarSelect);
-#endif
     LVP.executeBestPlan(VCodeGen);
     ModifiedLoop = true;
   }
