@@ -56,6 +56,7 @@
 #include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h"
 #include "llvm/Transforms/Intel_VPO/Paropt/VPOParopt.h"
 #include "llvm/Transforms/IPO/Intel_InlineLists.h"
+#include "llvm/Transforms/IPO/Intel_OptimizeDynamicCasts.h"
 #endif //INTEL_CUSTOMIZATION
 
 using namespace llvm;
@@ -966,6 +967,9 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   // IP Cloning
   if (EnableIPCloning)
     PM.add(createIPCloningLegacyPass());
+
+  // Apply dynamic_casts optimization pass.
+  PM.add(createOptimizeDynamicCastsWrapperPass());
 #endif // INTEL_CUSTOMIZATION
 
   // Provide AliasAnalysis services for optimizations.

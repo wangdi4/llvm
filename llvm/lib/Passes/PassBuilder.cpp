@@ -82,6 +82,7 @@
 #include "llvm/Transforms/IPO/Inliner.h"
 #include "llvm/Transforms/IPO/Intel_IPCloning.h"       // INTEL
 #include "llvm/Transforms/IPO/Intel_InlineLists.h"       // INTEL
+#include "llvm/Transforms/IPO/Intel_OptimizeDynamicCasts.h"   //INTEL
 #include "llvm/Transforms/IPO/Internalize.h"
 #include "llvm/Transforms/IPO/LowerTypeTests.h"
 #include "llvm/Transforms/IPO/PartialInlining.h"
@@ -977,6 +978,11 @@ ModulePassManager PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   // attributes where applicable.
   // FIXME: Is this really an optimization rather than a canonicalization?
   MPM.addPass(ReversePostOrderFunctionAttrsPass());
+
+#if INTEL_CUSTOMIZATION
+  // Optimize some dynamic_cast calls.
+  MPM.addPass(OptimizeDynamicCastsPass());
+#endif // INTEL_CUSTOMIZATION
 
   // Use inragne annotations on GEP indices to split globals where beneficial.
   MPM.addPass(GlobalSplitPass());

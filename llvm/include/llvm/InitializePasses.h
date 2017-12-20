@@ -511,6 +511,8 @@ void initializeFMASplitterPass(PassRegistry&);
 // DTrans passes
 void initializeDTransAnalysisWrapperPass(PassRegistry&);
 void initializeDTransOptWrapperPass(PassRegistry&);
+// Pass for dynamic_cast calls optimization
+void initializeOptimizeDynamicCastsWrapperPass(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION
 void initializeMIRCanonicalizerPass(PassRegistry &);
 

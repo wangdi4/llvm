@@ -50,6 +50,7 @@
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/FunctionAttrs.h"
 #include "llvm/Transforms/IPO/Intel_InlineLists.h" // INTEL
+#include "llvm/Transforms/IPO/Intel_OptimizeDynamicCasts.h" // INTEL
 #include "llvm/Transforms/Instrumentation.h"
 #include "llvm/Transforms/Instrumentation/BoundsChecking.h"
 #include "llvm/Transforms/ObjCARC.h"
@@ -332,6 +333,9 @@ namespace {
 
       // VPO Thread Private Transformation
       (void) llvm::createVPOParoptTpvPass();
+
+      // dynamic_cast calls optimization pass.
+      (void) llvm::createOptimizeDynamicCastsWrapperPass();
   #endif // INTEL_CUSTOMIZATION
     }
   } ForcePassLinking; // Force link by creating a global definition.

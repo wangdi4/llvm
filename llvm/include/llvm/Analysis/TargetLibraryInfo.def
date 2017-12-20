@@ -234,6 +234,14 @@ TLI_DEFINE_STRING_INTERNAL("__cxa_guard_acquire")
 /// void __cxa_guard_release(guard_t *guard);
 TLI_DEFINE_ENUM_INTERNAL(cxa_guard_release)
 TLI_DEFINE_STRING_INTERNAL("__cxa_guard_release")
+
+#if INTEL_CUSTOMIZATION
+/// __dynamic_cast (const void *src_ptr, const __class_type_info *src_type,
+///   const __class_type_info *dst_type, ptrdiff_t src2dst)
+TLI_DEFINE_ENUM_INTERNAL(dynamic_cast)
+TLI_DEFINE_STRING_INTERNAL("__dynamic_cast")
+#endif // INTEL_CUSTOMIZATION
+
 /// double __exp10_finite(double x);
 TLI_DEFINE_ENUM_INTERNAL(exp10_finite)
 TLI_DEFINE_STRING_INTERNAL("__exp10_finite")
