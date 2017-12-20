@@ -664,3 +664,21 @@ CSAInstrInfo::lookupLICRegClass(unsigned reg) const {
   }
   return nullptr;
 }
+
+const TargetRegisterClass *
+CSAInstrInfo::getLicClassForSize(unsigned size) const {
+  if (size == 0)
+    return &CSA::CI0RegClass;
+  else if (size == 1)
+    return &CSA::CI1RegClass;
+  else if (size == 8)
+    return &CSA::CI8RegClass;
+  else if (size == 16)
+    return &CSA::CI16RegClass;
+  else if (size == 32)
+    return &CSA::CI32RegClass;
+  else if (size == 64)
+    return &CSA::CI64RegClass;
+  llvm_unreachable("Unknown size class");
+}
+
