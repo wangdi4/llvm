@@ -3169,16 +3169,18 @@ void CXXNameMangler::mangleType(const VectorType *T, bool IsMType) { // INTEL
   auto &LangOpts = getASTContext().getLangOpts();
   // __m64 is a special type, mangled as if it is defined as two ints, while in
   // reality it is a long long.
-  if (LangOpts.IntelCompat && IsMType && (T->getNumElements() == 1) &&
+  if (LangOpts.IntelCompat && !LangOpts.OpenCL && IsMType &&
+      (T->getNumElements() == 1) &&
       (getASTContext().getTypeSize(T->getElementType()) == 64)) {
     if (LangOpts.GNUFABIVersion < 4)
       Out << "U8__vectori";
     else
       Out << "Dv2_i";
     return;
+  }
   // CQ382285: Mangle GNU vector types exactly as icc does.
-  } else if (LangOpts.IntelCompat && (IsMType || LangOpts.EmulateGNUABIBugs) &&
-             (LangOpts.GNUFABIVersion < 4))
+  if (LangOpts.IntelCompat && !LangOpts.OpenCL &&
+      (IsMType || LangOpts.EmulateGNUABIBugs) && (LangOpts.GNUFABIVersion < 4))
     Out << "U8__vector";
   else
 #endif // INTEL_CUSTOMIZATION
