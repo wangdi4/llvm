@@ -19,15 +19,17 @@
 #include <limits.h>
 #include <sys/ptrace.h>
 #include <sys/wait.h>
+#include <unistd.h>
 
 #include <sstream>
+#include <csignal>
 
 #ifdef __ANDROID__
 #include <android/api-level.h>
 #define PT_TRACE_ME PTRACE_TRACEME
 #endif
 
-#if defined(__ANDROID_API__) && __ANDROID_API__ < 21
+#if defined(__ANDROID_API__) && __ANDROID_API__ < 15
 #include <linux/personality.h>
 #elif defined(__linux__)
 #include <sys/personality.h>
@@ -52,10 +54,10 @@ static void FixupEnvironment(Args &env) {
 
 static void LLVM_ATTRIBUTE_NORETURN ExitWithError(int error_fd,
                                                   const char *operation) {
-  std::ostringstream os;
-  os << operation << " failed: " << strerror(errno);
-  write(error_fd, os.str().data(), os.str().size());
-  close(error_fd);
+  int err = errno;
+  llvm::raw_fd_ostream os(error_fd, true);
+  os << operation << " failed: " << llvm::sys::StrError(err);
+  os.flush();
   _exit(1);
 }
 
@@ -93,10 +95,6 @@ static void DupDescriptor(int error_fd, const FileSpec &file_spec, int fd,
 
 static void LLVM_ATTRIBUTE_NORETURN ChildFunc(int error_fd,
                                               const ProcessLaunchInfo &info) {
-  // First, make sure we disable all logging. If we are logging to stdout, our
-  // logs can be mistaken for inferior output.
-  Log::DisableAllLogChannels();
-
   // Do not inherit setgid powers.
   if (setgid(getgid()) != 0)
     ExitWithError(error_fd, "setgid");

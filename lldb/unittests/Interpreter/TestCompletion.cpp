@@ -12,12 +12,11 @@
 #include "lldb/Utility/StringList.h"
 #include "lldb/Utility/TildeExpressionResolver.h"
 
+#include "TestingSupport/MockTildeExpressionResolver.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/raw_ostream.h"
-
-#include "unittests/Utility/Mocks/MockTildeExpressionResolver.h"
 
 namespace fs = llvm::sys::fs;
 namespace path = llvm::sys::path;

@@ -13,15 +13,15 @@
 #include "Plugins/Language/CPlusPlus/CPlusPlusLanguage.h"
 #include "Plugins/Language/ObjC/ObjCLanguage.h"
 #include "lldb/Core/Module.h"
-#include "lldb/Core/Section.h"
 #include "lldb/Core/STLUtils.h"
-#include "lldb/Core/Timer.h"
+#include "lldb/Core/Section.h"
 #include "lldb/Symbol/ObjectFile.h"
 #include "lldb/Symbol/Symbol.h"
 #include "lldb/Symbol/SymbolContext.h"
 #include "lldb/Symbol/Symtab.h"
 #include "lldb/Utility/RegularExpression.h"
 #include "lldb/Utility/Stream.h"
+#include "lldb/Utility/Timer.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -399,29 +399,6 @@ void Symtab::InitNameIndexes() {
     m_basename_to_index.SizeToFit();
     m_method_to_index.Sort();
     m_method_to_index.SizeToFit();
-
-    //        static StreamFile a ("/tmp/a.txt");
-    //
-    //        count = m_basename_to_index.GetSize();
-    //        if (count)
-    //        {
-    //            for (size_t i=0; i<count; ++i)
-    //            {
-    //                if (m_basename_to_index.GetValueAtIndex(i, entry.value))
-    //                    a.Printf ("%s BASENAME\n",
-    //                    m_symbols[entry.value].GetMangled().GetName().GetCString());
-    //            }
-    //        }
-    //        count = m_method_to_index.GetSize();
-    //        if (count)
-    //        {
-    //            for (size_t i=0; i<count; ++i)
-    //            {
-    //                if (m_method_to_index.GetValueAtIndex(i, entry.value))
-    //                    a.Printf ("%s METHOD\n",
-    //                    m_symbols[entry.value].GetMangled().GetName().GetCString());
-    //            }
-    //        }
   }
 }
 
@@ -616,8 +593,10 @@ void Symtab::SortSymbolIndexesByValue(std::vector<uint32_t> &indexes,
   std::stable_sort(indexes.begin(), indexes.end(), comparator);
 
   // Remove any duplicates if requested
-  if (remove_duplicates)
-    std::unique(indexes.begin(), indexes.end());
+  if (remove_duplicates) {
+    auto last = std::unique(indexes.begin(), indexes.end());
+    indexes.erase(last, indexes.end());
+  }
 }
 
 uint32_t Symtab::AppendSymbolIndexesWithName(const ConstString &symbol_name,

@@ -15,6 +15,10 @@
 // RUN: ld.lld --as-needed %t.o %t2.so %t3.so %t4.so -o %t2
 // RUN: llvm-readobj -dynamic-table %t2 | FileCheck -check-prefix=CHECK2 %s
 
+// Test with the .o last
+// RUN: ld.lld --as-needed %t2.so %t3.so %t4.so %t.o -o %t2
+// RUN: llvm-readobj -dynamic-table %t2 | FileCheck -check-prefix=CHECK2 %s
+
 // RUN: ld.lld --as-needed %t.o %t2.so --no-as-needed %t3.so %t4.so -o %t2
 // RUN: llvm-readobj -dynamic-table %t2 | FileCheck %s
 
@@ -28,13 +32,13 @@
 // RUN: ld.lld %t.o %t.script -o %t2
 // RUN: llvm-readobj -dynamic-table %t2 | FileCheck -check-prefix=CHECK2 %s
 
-// CHECK: NEEDED SharedLibrary (shared1)
-// CHECK: NEEDED SharedLibrary (shared2)
-// CHECK: NEEDED SharedLibrary (shared3)
+// CHECK: NEEDED Shared library: [shared1]
+// CHECK: NEEDED Shared library: [shared2]
+// CHECK: NEEDED Shared library: [shared3]
 
-// CHECK2:     NEEDED SharedLibrary (shared1)
-// CHECK2-NOT: NEEDED SharedLibrary (shared2)
-// CHECK2-NOT: NEEDED SharedLibrary (shared3)
+// CHECK2:     NEEDED Shared library: [shared1]
+// CHECK2-NOT: NEEDED Shared library: [shared2]
+// CHECK2-NOT: NEEDED Shared library: [shared3]
 
 .global _start
 _start:

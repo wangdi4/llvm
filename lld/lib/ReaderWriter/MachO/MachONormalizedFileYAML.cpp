@@ -16,8 +16,8 @@
 ///                  +------------+         +------+
 
 #include "MachONormalizedFile.h"
+#include "lld/Common/LLVM.h"
 #include "lld/Core/Error.h"
-#include "lld/Core/LLVM.h"
 #include "lld/ReaderWriter/YamlContext.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringRef.h"
@@ -44,7 +44,6 @@ LLVM_YAML_IS_SEQUENCE_VECTOR(DependentDylib)
 LLVM_YAML_IS_SEQUENCE_VECTOR(RebaseLocation)
 LLVM_YAML_IS_SEQUENCE_VECTOR(BindLocation)
 LLVM_YAML_IS_SEQUENCE_VECTOR(Export)
-LLVM_YAML_IS_SEQUENCE_VECTOR(StringRef)
 LLVM_YAML_IS_SEQUENCE_VECTOR(DataInCode)
 
 

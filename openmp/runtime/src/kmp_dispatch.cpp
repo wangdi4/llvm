@@ -2,7 +2,6 @@
  * kmp_dispatch.cpp: dynamic scheduling - iteration initialization and dispatch.
  */
 
-
 //===----------------------------------------------------------------------===//
 //
 //                     The LLVM Compiler Infrastructure
@@ -11,7 +10,6 @@
 // Source Licenses. See LICENSE.txt for details.
 //
 //===----------------------------------------------------------------------===//
-
 
 /* Dynamic scheduling initialization and dispatch.
  *
@@ -38,7 +36,6 @@
 #endif
 
 #if OMPT_SUPPORT
-#include "ompt-internal.h"
 #include "ompt-specific.h"
 #endif
 
@@ -256,13 +253,13 @@ static UT // unsigned 4- or 8-byte type
             void *obj) // Higher-level synchronization object, or NULL.
         ) {
   // note: we may not belong to a team at this point
-  register volatile UT *spin = spinner;
-  register UT check = checker;
-  register kmp_uint32 spins;
-  register kmp_uint32 (*f)(UT, UT) = pred;
-  register UT r;
+  volatile UT *spin = spinner;
+  UT check = checker;
+  kmp_uint32 spins;
+  kmp_uint32 (*f)(UT, UT) = pred;
+  UT r;
 
-  KMP_FSYNC_SPIN_INIT(obj, (void *)spin);
+  KMP_FSYNC_SPIN_INIT(obj, CCAST(UT *, spin));
   KMP_INIT_YIELD(spins);
   // main wait spin loop
   while (!f(r = *spin, check)) {
@@ -371,7 +368,7 @@ static void __kmp_dispatch_deo(int *gtid_ref, int *cid_ref, ident_t *loc_ref) {
     KMP_MB();
 #ifdef KMP_DEBUG
     {
-      const char *buff;
+      char *buff;
       // create format specifiers before the debug output
       buff = __kmp_str_format("__kmp_dispatch_deo: T#%%d before wait: "
                               "ordered_iter:%%%s lower:%%%s\n",
@@ -386,7 +383,7 @@ static void __kmp_dispatch_deo(int *gtid_ref, int *cid_ref, ident_t *loc_ref) {
     KMP_MB(); /* is this necessary? */
 #ifdef KMP_DEBUG
     {
-      const char *buff;
+      char *buff;
       // create format specifiers before the debug output
       buff = __kmp_str_format("__kmp_dispatch_deo: T#%%d after wait: "
                               "ordered_iter:%%%s lower:%%%s\n",
@@ -440,7 +437,7 @@ static void __kmp_dispatch_dxo(int *gtid_ref, int *cid_ref, ident_t *loc_ref) {
           th->th.th_dispatch->th_dispatch_pr_current);
     }
 
-    KMP_FSYNC_RELEASING(&sh->u.s.ordered_iteration);
+    KMP_FSYNC_RELEASING(CCAST(UT *, &sh->u.s.ordered_iteration));
 #if !defined(KMP_GOMP_COMPAT)
     if (__kmp_env_consistency_check) {
       if (pr->ordered_bumped != 0) {
@@ -551,7 +548,7 @@ __kmp_dispatch_init(ident_t *loc, int gtid, enum sched_type schedule, T lb,
 #endif
 #ifdef KMP_DEBUG
   {
-    const char *buff;
+    char *buff;
     // create format specifiers before the debug output
     buff = __kmp_str_format("__kmp_dispatch_init: T#%%d called: schedule:%%d "
                             "chunk:%%%s lb:%%%s ub:%%%s st:%%%s\n",
@@ -641,7 +638,7 @@ __kmp_dispatch_init(ident_t *loc, int gtid, enum sched_type schedule, T lb,
 #endif
 #ifdef KMP_DEBUG
       {
-        const char *buff;
+        char *buff;
         // create format specifiers before the debug output
         buff = __kmp_str_format(
             "__kmp_dispatch_init: T#%%d new: schedule:%%d chunk:%%%s\n",
@@ -664,7 +661,7 @@ __kmp_dispatch_init(ident_t *loc, int gtid, enum sched_type schedule, T lb,
       schedule = __kmp_auto;
 #ifdef KMP_DEBUG
       {
-        const char *buff;
+        char *buff;
         // create format specifiers before the debug output
         buff = __kmp_str_format("__kmp_dispatch_init: kmp_sch_auto: T#%%d new: "
                                 "schedule:%%d chunk:%%%s\n",
@@ -700,7 +697,7 @@ __kmp_dispatch_init(ident_t *loc, int gtid, enum sched_type schedule, T lb,
 #endif
 #ifdef KMP_DEBUG
       {
-        const char *buff;
+        char *buff;
         // create format specifiers before the debug output
         buff = __kmp_str_format("__kmp_dispatch_init: T#%%d new: schedule:%%d"
                                 " chunk:%%%s\n",
@@ -1137,11 +1134,10 @@ __kmp_dispatch_init(ident_t *loc, int gtid, enum sched_type schedule, T lb,
   break;
 
   default: {
-    __kmp_msg(kmp_ms_fatal, // Severity
-              KMP_MSG(UnknownSchedTypeDetected), // Primary message
-              KMP_HNT(GetNewerLibrary), // Hint
-              __kmp_msg_null // Variadic argument list terminator
-              );
+    __kmp_fatal(KMP_MSG(UnknownSchedTypeDetected), // Primary message
+                KMP_HNT(GetNewerLibrary), // Hint
+                __kmp_msg_null // Variadic argument list terminator
+                );
   } break;
   } // switch
   pr->schedule = schedule;
@@ -1162,11 +1158,12 @@ __kmp_dispatch_init(ident_t *loc, int gtid, enum sched_type schedule, T lb,
                    gtid, my_buffer_index, sh->buffer_index));
 
     th->th.th_dispatch->th_dispatch_pr_current = (dispatch_private_info_t *)pr;
-    th->th.th_dispatch->th_dispatch_sh_current = (dispatch_shared_info_t *)sh;
+    th->th.th_dispatch->th_dispatch_sh_current =
+        CCAST(dispatch_shared_info_t *, (volatile dispatch_shared_info_t *)sh);
 #if USE_ITT_BUILD
     if (pr->ordered) {
       __kmp_itt_ordered_init(gtid);
-    }; // if
+    }
     // Report loop metadata
     if (itt_need_metadata_reporting) {
       // Only report metadata by master of active team at level 1
@@ -1195,11 +1192,11 @@ __kmp_dispatch_init(ident_t *loc, int gtid, enum sched_type schedule, T lb,
       __kmp_itt_metadata_loop(loc, schedtype, tc, cur_chunk);
     }
 #endif /* USE_ITT_BUILD */
-  }; // if
+  }
 
 #ifdef KMP_DEBUG
   {
-    const char *buff;
+    char *buff;
     // create format specifiers before the debug output
     buff = __kmp_str_format(
         "__kmp_dispatch_init: T#%%d returning: schedule:%%d ordered:%%%s "
@@ -1232,12 +1229,14 @@ __kmp_dispatch_init(ident_t *loc, int gtid, enum sched_type schedule, T lb,
   }
 #endif // ( KMP_STATIC_STEAL_ENABLED )
 
-#if OMPT_SUPPORT && OMPT_TRACE
-  if (ompt_enabled && ompt_callbacks.ompt_callback(ompt_event_loop_begin)) {
+#if OMPT_SUPPORT && OMPT_OPTIONAL
+  if (ompt_enabled.ompt_callback_work) {
     ompt_team_info_t *team_info = __ompt_get_teaminfo(0, NULL);
-    ompt_task_info_t *task_info = __ompt_get_taskinfo(0);
-    ompt_callbacks.ompt_callback(ompt_event_loop_begin)(
-        team_info->parallel_id, task_info->task_id, team_info->microtask);
+    ompt_task_info_t *task_info = __ompt_get_task_info_object(0);
+    kmp_info_t *thr = __kmp_threads[gtid];
+    ompt_callbacks.ompt_callback(ompt_callback_work)(
+        ompt_work_loop, ompt_scope_begin, &(team_info->parallel_data),
+        &(task_info->task_data), tc, OMPT_LOAD_RETURN_ADDRESS(gtid));
   }
 #endif
 }
@@ -1277,7 +1276,7 @@ static void __kmp_dispatch_finish(int gtid, ident_t *loc) {
 
 #ifdef KMP_DEBUG
       {
-        const char *buff;
+        char *buff;
         // create format specifiers before the debug output
         buff = __kmp_str_format("__kmp_dispatch_finish: T#%%d before wait: "
                                 "ordered_iteration:%%%s lower:%%%s\n",
@@ -1292,7 +1291,7 @@ static void __kmp_dispatch_finish(int gtid, ident_t *loc) {
       KMP_MB(); /* is this necessary? */
 #ifdef KMP_DEBUG
       {
-        const char *buff;
+        char *buff;
         // create format specifiers before the debug output
         buff = __kmp_str_format("__kmp_dispatch_finish: T#%%d after wait: "
                                 "ordered_iteration:%%%s lower:%%%s\n",
@@ -1345,7 +1344,7 @@ static void __kmp_dispatch_finish_chunk(int gtid, ident_t *loc) {
 
 #ifdef KMP_DEBUG
       {
-        const char *buff;
+        char *buff;
         // create format specifiers before the debug output
         buff = __kmp_str_format(
             "__kmp_dispatch_finish_chunk: T#%%d before wait: "
@@ -1367,7 +1366,7 @@ static void __kmp_dispatch_finish_chunk(int gtid, ident_t *loc) {
 //!!!!! TODO check if the inc should be unsigned, or signed???
 #ifdef KMP_DEBUG
       {
-        const char *buff;
+        char *buff;
         // create format specifiers before the debug output
         buff = __kmp_str_format(
             "__kmp_dispatch_finish_chunk: T#%%d after wait: "
@@ -1392,16 +1391,18 @@ static void __kmp_dispatch_finish_chunk(int gtid, ident_t *loc) {
 /* Define a macro for exiting __kmp_dispatch_next(). If status is 0 (no more
    work), then tell OMPT the loop is over. In some cases kmp_dispatch_fini()
    is not called. */
-#if OMPT_SUPPORT && OMPT_TRACE
+#if OMPT_SUPPORT && OMPT_OPTIONAL
 #define OMPT_LOOP_END                                                          \
   if (status == 0) {                                                           \
-    if (ompt_enabled && ompt_callbacks.ompt_callback(ompt_event_loop_end)) {   \
+    if (ompt_enabled.ompt_callback_work) {                                     \
       ompt_team_info_t *team_info = __ompt_get_teaminfo(0, NULL);              \
-      ompt_task_info_t *task_info = __ompt_get_taskinfo(0);                    \
-      ompt_callbacks.ompt_callback(ompt_event_loop_end)(                       \
-          team_info->parallel_id, task_info->task_id);                         \
+      ompt_task_info_t *task_info = __ompt_get_task_info_object(0);            \
+      ompt_callbacks.ompt_callback(ompt_callback_work)(                        \
+          ompt_work_loop, ompt_scope_end, &(team_info->parallel_data),         \
+          &(task_info->task_data), 0, codeptr);                                \
     }                                                                          \
   }
+// TODO: implement count
 #else
 #define OMPT_LOOP_END // no-op
 #endif
@@ -1409,7 +1410,12 @@ static void __kmp_dispatch_finish_chunk(int gtid, ident_t *loc) {
 template <typename T>
 static int __kmp_dispatch_next(ident_t *loc, int gtid, kmp_int32 *p_last,
                                T *p_lb, T *p_ub,
-                               typename traits_t<T>::signed_t *p_st) {
+                               typename traits_t<T>::signed_t *p_st
+#if OMPT_SUPPORT && OMPT_OPTIONAL
+                               ,
+                               void *codeptr
+#endif
+                               ) {
 
   typedef typename traits_t<T>::unsigned_t UT;
   typedef typename traits_t<T>::signed_t ST;
@@ -1429,7 +1435,7 @@ static int __kmp_dispatch_next(ident_t *loc, int gtid, kmp_int32 *p_last,
   KMP_DEBUG_ASSERT(p_lb && p_ub && p_st); // AC: these cannot be NULL
 #ifdef KMP_DEBUG
   {
-    const char *buff;
+    char *buff;
     // create format specifiers before the debug output
     buff = __kmp_str_format("__kmp_dispatch_next: T#%%d called p_lb:%%%s "
                             "p_ub:%%%s p_st:%%%s p_last: %%p\n",
@@ -1511,7 +1517,7 @@ static int __kmp_dispatch_next(ident_t *loc, int gtid, kmp_int32 *p_last,
           pr->u.p.ordered_upper = limit;
 #ifdef KMP_DEBUG
           {
-            const char *buff;
+            char *buff;
             // create format specifiers before the debug output
             buff = __kmp_str_format("__kmp_dispatch_next: T#%%d "
                                     "ordered_lower:%%%s ordered_upper:%%%s\n",
@@ -1537,7 +1543,7 @@ static int __kmp_dispatch_next(ident_t *loc, int gtid, kmp_int32 *p_last,
     } // if
 #ifdef KMP_DEBUG
     {
-      const char *buff;
+      char *buff;
       // create format specifiers before the debug output
       buff = __kmp_str_format(
           "__kmp_dispatch_next: T#%%d serialized case: p_lb:%%%s "
@@ -1620,7 +1626,7 @@ static int __kmp_dispatch_next(ident_t *loc, int gtid, kmp_int32 *p_last,
                 victim = reinterpret_cast<dispatch_private_info_template<T> *>(
                     other_threads[victimIdx]
                         ->th.th_dispatch->th_dispatch_pr_current);
-              };
+              }
               if (!victim ||
                   (*(volatile T *)&victim->u.p.static_steal_counter !=
                    *(volatile T *)&pr->u.p.static_steal_counter)) {
@@ -1721,7 +1727,7 @@ static int __kmp_dispatch_next(ident_t *loc, int gtid, kmp_int32 *p_last,
                 victim = reinterpret_cast<dispatch_private_info_template<T> *>(
                     other_threads[victimIdx]
                         ->th.th_dispatch->th_dispatch_pr_current);
-              };
+              }
               if (!victim ||
                   (*(volatile T *)&victim->u.p.static_steal_counter !=
                    *(volatile T *)&pr->u.p.static_steal_counter)) {
@@ -1804,7 +1810,7 @@ static int __kmp_dispatch_next(ident_t *loc, int gtid, kmp_int32 *p_last,
             pr->u.p.ordered_upper = limit;
 #ifdef KMP_DEBUG
             {
-              const char *buff;
+              char *buff;
               // create format specifiers before the debug output
               buff = __kmp_str_format("__kmp_dispatch_next: T#%%d "
                                       "ordered_lower:%%%s ordered_upper:%%%s\n",
@@ -1837,7 +1843,7 @@ static int __kmp_dispatch_next(ident_t *loc, int gtid, kmp_int32 *p_last,
         if (pr->ordered) {
 #ifdef KMP_DEBUG
           {
-            const char *buff;
+            char *buff;
             // create format specifiers before the debug output
             buff = __kmp_str_format("__kmp_dispatch_next: T#%%d "
                                     "ordered_lower:%%%s ordered_upper:%%%s\n",
@@ -1889,7 +1895,7 @@ static int __kmp_dispatch_next(ident_t *loc, int gtid, kmp_int32 *p_last,
             pr->u.p.ordered_upper = limit;
 #ifdef KMP_DEBUG
             {
-              const char *buff;
+              char *buff;
               // create format specifiers before the debug output
               buff = __kmp_str_format("__kmp_dispatch_next: T#%%d "
                                       "ordered_lower:%%%s ordered_upper:%%%s\n",
@@ -1943,7 +1949,7 @@ static int __kmp_dispatch_next(ident_t *loc, int gtid, kmp_int32 *p_last,
             pr->u.p.ordered_upper = limit;
 #ifdef KMP_DEBUG
             {
-              const char *buff;
+              char *buff;
               // create format specifiers before the debug output
               buff = __kmp_str_format("__kmp_dispatch_next: T#%%d "
                                       "ordered_lower:%%%s ordered_upper:%%%s\n",
@@ -1978,7 +1984,8 @@ static int __kmp_dispatch_next(ident_t *loc, int gtid, kmp_int32 *p_last,
               pr->u.p.parm2) { // compare with K*nproc*(chunk+1), K=2 by default
             // use dynamic-style shcedule
             // atomically inrement iterations, get old value
-            init = test_then_add<ST>((ST *)&sh->u.s.iteration, (ST)chunkspec);
+            init = test_then_add<ST>(RCAST(volatile ST *, &sh->u.s.iteration),
+                                     (ST)chunkspec);
             remaining = trip - init;
             if (remaining <= 0) {
               status = 0; // all iterations got by other threads
@@ -1995,8 +2002,8 @@ static int __kmp_dispatch_next(ident_t *loc, int gtid, kmp_int32 *p_last,
           } // if
           limit = init + (UT)(remaining *
                               *(double *)&pr->u.p.parm3); // divide by K*nproc
-          if (compare_and_swap<ST>((ST *)&sh->u.s.iteration, (ST)init,
-                                   (ST)limit)) {
+          if (compare_and_swap<ST>(RCAST(volatile ST *, &sh->u.s.iteration),
+                                   (ST)init, (ST)limit)) {
             // CAS was successful, chunk obtained
             status = 1;
             --limit;
@@ -2015,7 +2022,7 @@ static int __kmp_dispatch_next(ident_t *loc, int gtid, kmp_int32 *p_last,
             pr->u.p.ordered_upper = limit;
 #ifdef KMP_DEBUG
             {
-              const char *buff;
+              char *buff;
               // create format specifiers before the debug output
               buff = __kmp_str_format("__kmp_dispatch_next: T#%%d "
                                       "ordered_lower:%%%s ordered_upper:%%%s\n",
@@ -2056,7 +2063,8 @@ static int __kmp_dispatch_next(ident_t *loc, int gtid, kmp_int32 *p_last,
           if ((T)remaining < pr->u.p.parm2) {
             // use dynamic-style shcedule
             // atomically inrement iterations, get old value
-            init = test_then_add<ST>((ST *)&sh->u.s.iteration, (ST)chunk);
+            init = test_then_add<ST>(RCAST(volatile ST *, &sh->u.s.iteration),
+                                     (ST)chunk);
             remaining = trip - init;
             if (remaining <= 0) {
               status = 0; // all iterations got by other threads
@@ -2078,8 +2086,8 @@ static int __kmp_dispatch_next(ident_t *loc, int gtid, kmp_int32 *p_last,
           if (rem) // adjust so that span%chunk == 0
             span += chunk - rem;
           limit = init + span;
-          if (compare_and_swap<ST>((ST *)&sh->u.s.iteration, (ST)init,
-                                   (ST)limit)) {
+          if (compare_and_swap<ST>(RCAST(volatile ST *, &sh->u.s.iteration),
+                                   (ST)init, (ST)limit)) {
             // CAS was successful, chunk obtained
             status = 1;
             --limit;
@@ -2098,7 +2106,7 @@ static int __kmp_dispatch_next(ident_t *loc, int gtid, kmp_int32 *p_last,
             pr->u.p.ordered_upper = limit;
 #ifdef KMP_DEBUG
             {
-              const char *buff;
+              char *buff;
               // create format specifiers before the debug output
               buff = __kmp_str_format("__kmp_dispatch_next: T#%%d "
                                       "ordered_lower:%%%s ordered_upper:%%%s\n",
@@ -2206,7 +2214,7 @@ static int __kmp_dispatch_next(ident_t *loc, int gtid, kmp_int32 *p_last,
             pr->u.p.ordered_upper = limit;
 #ifdef KMP_DEBUG
             {
-              const char *buff;
+              char *buff;
               // create format specifiers before the debug output
               buff = __kmp_str_format("__kmp_dispatch_next: T#%%d "
                                       "ordered_lower:%%%s ordered_upper:%%%s\n",
@@ -2268,7 +2276,7 @@ static int __kmp_dispatch_next(ident_t *loc, int gtid, kmp_int32 *p_last,
             pr->u.p.ordered_upper = limit;
 #ifdef KMP_DEBUG
             {
-              const char *buff;
+              char *buff;
               // create format specifiers before the debug output
               buff = __kmp_str_format("__kmp_dispatch_next: T#%%d "
                                       "ordered_lower:%%%s ordered_upper:%%%s\n",
@@ -2284,11 +2292,10 @@ static int __kmp_dispatch_next(ident_t *loc, int gtid, kmp_int32 *p_last,
       break;
       default: {
         status = 0; // to avoid complaints on uninitialized variable use
-        __kmp_msg(kmp_ms_fatal, // Severity
-                  KMP_MSG(UnknownSchedTypeDetected), // Primary message
-                  KMP_HNT(GetNewerLibrary), // Hint
-                  __kmp_msg_null // Variadic argument list terminator
-                  );
+        __kmp_fatal(KMP_MSG(UnknownSchedTypeDetected), // Primary message
+                    KMP_HNT(GetNewerLibrary), // Hint
+                    __kmp_msg_null // Variadic argument list terminator
+                    );
       } break;
       } // switch
     } // if tc == 0;
@@ -2299,7 +2306,7 @@ static int __kmp_dispatch_next(ident_t *loc, int gtid, kmp_int32 *p_last,
       num_done = test_then_inc<ST>((volatile ST *)&sh->u.s.num_done);
 #ifdef KMP_DEBUG
       {
-        const char *buff;
+        char *buff;
         // create format specifiers before the debug output
         buff = __kmp_str_format(
             "__kmp_dispatch_next: T#%%d increment num_done:%%%s\n",
@@ -2368,7 +2375,7 @@ static int __kmp_dispatch_next(ident_t *loc, int gtid, kmp_int32 *p_last,
 
 #ifdef KMP_DEBUG
   {
-    const char *buff;
+    char *buff;
     // create format specifiers before the debug output
     buff = __kmp_str_format(
         "__kmp_dispatch_next: T#%%d normal case: "
@@ -2391,17 +2398,17 @@ static void __kmp_dist_get_bounds(ident_t *loc, kmp_int32 gtid,
                                   typename traits_t<T>::signed_t incr) {
   typedef typename traits_t<T>::unsigned_t UT;
   typedef typename traits_t<T>::signed_t ST;
-  register kmp_uint32 team_id;
-  register kmp_uint32 nteams;
-  register UT trip_count;
-  register kmp_team_t *team;
+  kmp_uint32 team_id;
+  kmp_uint32 nteams;
+  UT trip_count;
+  kmp_team_t *team;
   kmp_info_t *th;
 
   KMP_DEBUG_ASSERT(plastiter && plower && pupper);
   KE_TRACE(10, ("__kmpc_dist_get_bounds called (%d)\n", gtid));
 #ifdef KMP_DEBUG
   {
-    const char *buff;
+    char *buff;
     // create format specifiers before the debug output
     buff = __kmp_str_format("__kmpc_dist_get_bounds: T#%%d liter=%%d "
                             "iter=(%%%s, %%%s, %%%s) signed?<%s>\n",
@@ -2466,17 +2473,17 @@ static void __kmp_dist_get_bounds(ident_t *loc, kmp_int32 gtid,
       *plastiter = (team_id == trip_count - 1);
   } else {
     if (__kmp_static == kmp_sch_static_balanced) {
-      register UT chunk = trip_count / nteams;
-      register UT extras = trip_count % nteams;
+      UT chunk = trip_count / nteams;
+      UT extras = trip_count % nteams;
       *plower +=
           incr * (team_id * chunk + (team_id < extras ? team_id : extras));
       *pupper = *plower + chunk * incr - (team_id < extras ? 0 : incr);
       if (plastiter != NULL)
         *plastiter = (team_id == nteams - 1);
     } else {
-      register T chunk_inc_count =
+      T chunk_inc_count =
           (trip_count / nteams + ((trip_count % nteams) ? 1 : 0)) * incr;
-      register T upper = *pupper;
+      T upper = *pupper;
       KMP_DEBUG_ASSERT(__kmp_static == kmp_sch_static_greedy);
       // Unknown static scheduling type.
       *plower += team_id * chunk_inc_count;
@@ -2528,6 +2535,9 @@ void __kmpc_dispatch_init_4(ident_t *loc, kmp_int32 gtid,
                             enum sched_type schedule, kmp_int32 lb,
                             kmp_int32 ub, kmp_int32 st, kmp_int32 chunk) {
   KMP_DEBUG_ASSERT(__kmp_init_serial);
+#if OMPT_SUPPORT && OMPT_OPTIONAL
+  OMPT_STORE_RETURN_ADDRESS(gtid);
+#endif
   __kmp_dispatch_init<kmp_int32>(loc, gtid, schedule, lb, ub, st, chunk, true);
 }
 /*!
@@ -2537,6 +2547,9 @@ void __kmpc_dispatch_init_4u(ident_t *loc, kmp_int32 gtid,
                              enum sched_type schedule, kmp_uint32 lb,
                              kmp_uint32 ub, kmp_int32 st, kmp_int32 chunk) {
   KMP_DEBUG_ASSERT(__kmp_init_serial);
+#if OMPT_SUPPORT && OMPT_OPTIONAL
+  OMPT_STORE_RETURN_ADDRESS(gtid);
+#endif
   __kmp_dispatch_init<kmp_uint32>(loc, gtid, schedule, lb, ub, st, chunk, true);
 }
 
@@ -2547,6 +2560,9 @@ void __kmpc_dispatch_init_8(ident_t *loc, kmp_int32 gtid,
                             enum sched_type schedule, kmp_int64 lb,
                             kmp_int64 ub, kmp_int64 st, kmp_int64 chunk) {
   KMP_DEBUG_ASSERT(__kmp_init_serial);
+#if OMPT_SUPPORT && OMPT_OPTIONAL
+  OMPT_STORE_RETURN_ADDRESS(gtid);
+#endif
   __kmp_dispatch_init<kmp_int64>(loc, gtid, schedule, lb, ub, st, chunk, true);
 }
 
@@ -2557,6 +2573,9 @@ void __kmpc_dispatch_init_8u(ident_t *loc, kmp_int32 gtid,
                              enum sched_type schedule, kmp_uint64 lb,
                              kmp_uint64 ub, kmp_int64 st, kmp_int64 chunk) {
   KMP_DEBUG_ASSERT(__kmp_init_serial);
+#if OMPT_SUPPORT && OMPT_OPTIONAL
+  OMPT_STORE_RETURN_ADDRESS(gtid);
+#endif
   __kmp_dispatch_init<kmp_uint64>(loc, gtid, schedule, lb, ub, st, chunk, true);
 }
 
@@ -2574,6 +2593,9 @@ void __kmpc_dist_dispatch_init_4(ident_t *loc, kmp_int32 gtid,
                                  kmp_int32 lb, kmp_int32 ub, kmp_int32 st,
                                  kmp_int32 chunk) {
   KMP_DEBUG_ASSERT(__kmp_init_serial);
+#if OMPT_SUPPORT && OMPT_OPTIONAL
+  OMPT_STORE_RETURN_ADDRESS(gtid);
+#endif
   __kmp_dist_get_bounds<kmp_int32>(loc, gtid, p_last, &lb, &ub, st);
   __kmp_dispatch_init<kmp_int32>(loc, gtid, schedule, lb, ub, st, chunk, true);
 }
@@ -2583,6 +2605,9 @@ void __kmpc_dist_dispatch_init_4u(ident_t *loc, kmp_int32 gtid,
                                   kmp_uint32 lb, kmp_uint32 ub, kmp_int32 st,
                                   kmp_int32 chunk) {
   KMP_DEBUG_ASSERT(__kmp_init_serial);
+#if OMPT_SUPPORT && OMPT_OPTIONAL
+  OMPT_STORE_RETURN_ADDRESS(gtid);
+#endif
   __kmp_dist_get_bounds<kmp_uint32>(loc, gtid, p_last, &lb, &ub, st);
   __kmp_dispatch_init<kmp_uint32>(loc, gtid, schedule, lb, ub, st, chunk, true);
 }
@@ -2592,6 +2617,9 @@ void __kmpc_dist_dispatch_init_8(ident_t *loc, kmp_int32 gtid,
                                  kmp_int64 lb, kmp_int64 ub, kmp_int64 st,
                                  kmp_int64 chunk) {
   KMP_DEBUG_ASSERT(__kmp_init_serial);
+#if OMPT_SUPPORT && OMPT_OPTIONAL
+  OMPT_STORE_RETURN_ADDRESS(gtid);
+#endif
   __kmp_dist_get_bounds<kmp_int64>(loc, gtid, p_last, &lb, &ub, st);
   __kmp_dispatch_init<kmp_int64>(loc, gtid, schedule, lb, ub, st, chunk, true);
 }
@@ -2601,6 +2629,9 @@ void __kmpc_dist_dispatch_init_8u(ident_t *loc, kmp_int32 gtid,
                                   kmp_uint64 lb, kmp_uint64 ub, kmp_int64 st,
                                   kmp_int64 chunk) {
   KMP_DEBUG_ASSERT(__kmp_init_serial);
+#if OMPT_SUPPORT && OMPT_OPTIONAL
+  OMPT_STORE_RETURN_ADDRESS(gtid);
+#endif
   __kmp_dist_get_bounds<kmp_uint64>(loc, gtid, p_last, &lb, &ub, st);
   __kmp_dispatch_init<kmp_uint64>(loc, gtid, schedule, lb, ub, st, chunk, true);
 }
@@ -2620,7 +2651,15 @@ If there is no more work, then the lb,ub and stride need not be modified.
 */
 int __kmpc_dispatch_next_4(ident_t *loc, kmp_int32 gtid, kmp_int32 *p_last,
                            kmp_int32 *p_lb, kmp_int32 *p_ub, kmp_int32 *p_st) {
-  return __kmp_dispatch_next<kmp_int32>(loc, gtid, p_last, p_lb, p_ub, p_st);
+#if OMPT_SUPPORT && OMPT_OPTIONAL
+  OMPT_STORE_RETURN_ADDRESS(gtid);
+#endif
+  return __kmp_dispatch_next<kmp_int32>(loc, gtid, p_last, p_lb, p_ub, p_st
+#if OMPT_SUPPORT && OMPT_OPTIONAL
+                                        ,
+                                        OMPT_LOAD_RETURN_ADDRESS(gtid)
+#endif
+                                            );
 }
 
 /*!
@@ -2629,7 +2668,15 @@ See @ref __kmpc_dispatch_next_4
 int __kmpc_dispatch_next_4u(ident_t *loc, kmp_int32 gtid, kmp_int32 *p_last,
                             kmp_uint32 *p_lb, kmp_uint32 *p_ub,
                             kmp_int32 *p_st) {
-  return __kmp_dispatch_next<kmp_uint32>(loc, gtid, p_last, p_lb, p_ub, p_st);
+#if OMPT_SUPPORT && OMPT_OPTIONAL
+  OMPT_STORE_RETURN_ADDRESS(gtid);
+#endif
+  return __kmp_dispatch_next<kmp_uint32>(loc, gtid, p_last, p_lb, p_ub, p_st
+#if OMPT_SUPPORT && OMPT_OPTIONAL
+                                         ,
+                                         OMPT_LOAD_RETURN_ADDRESS(gtid)
+#endif
+                                             );
 }
 
 /*!
@@ -2637,7 +2684,15 @@ See @ref __kmpc_dispatch_next_4
 */
 int __kmpc_dispatch_next_8(ident_t *loc, kmp_int32 gtid, kmp_int32 *p_last,
                            kmp_int64 *p_lb, kmp_int64 *p_ub, kmp_int64 *p_st) {
-  return __kmp_dispatch_next<kmp_int64>(loc, gtid, p_last, p_lb, p_ub, p_st);
+#if OMPT_SUPPORT && OMPT_OPTIONAL
+  OMPT_STORE_RETURN_ADDRESS(gtid);
+#endif
+  return __kmp_dispatch_next<kmp_int64>(loc, gtid, p_last, p_lb, p_ub, p_st
+#if OMPT_SUPPORT && OMPT_OPTIONAL
+                                        ,
+                                        OMPT_LOAD_RETURN_ADDRESS(gtid)
+#endif
+                                            );
 }
 
 /*!
@@ -2646,7 +2701,15 @@ See @ref __kmpc_dispatch_next_4
 int __kmpc_dispatch_next_8u(ident_t *loc, kmp_int32 gtid, kmp_int32 *p_last,
                             kmp_uint64 *p_lb, kmp_uint64 *p_ub,
                             kmp_int64 *p_st) {
-  return __kmp_dispatch_next<kmp_uint64>(loc, gtid, p_last, p_lb, p_ub, p_st);
+#if OMPT_SUPPORT && OMPT_OPTIONAL
+  OMPT_STORE_RETURN_ADDRESS(gtid);
+#endif
+  return __kmp_dispatch_next<kmp_uint64>(loc, gtid, p_last, p_lb, p_ub, p_st
+#if OMPT_SUPPORT && OMPT_OPTIONAL
+                                         ,
+                                         OMPT_LOAD_RETURN_ADDRESS(gtid)
+#endif
+                                             );
 }
 
 /*!
@@ -2710,13 +2773,13 @@ __kmp_wait_yield_4(volatile kmp_uint32 *spinner, kmp_uint32 checker,
                    void *obj // Higher-level synchronization object, or NULL.
                    ) {
   // note: we may not belong to a team at this point
-  register volatile kmp_uint32 *spin = spinner;
-  register kmp_uint32 check = checker;
-  register kmp_uint32 spins;
-  register kmp_uint32 (*f)(kmp_uint32, kmp_uint32) = pred;
-  register kmp_uint32 r;
+  volatile kmp_uint32 *spin = spinner;
+  kmp_uint32 check = checker;
+  kmp_uint32 spins;
+  kmp_uint32 (*f)(kmp_uint32, kmp_uint32) = pred;
+  kmp_uint32 r;
 
-  KMP_FSYNC_SPIN_INIT(obj, (void *)spin);
+  KMP_FSYNC_SPIN_INIT(obj, CCAST(kmp_uint32 *, spin));
   KMP_INIT_YIELD(spins);
   // main wait spin loop
   while (!f(r = TCR_4(*spin), check)) {
@@ -2740,10 +2803,10 @@ void __kmp_wait_yield_4_ptr(
     void *obj // Higher-level synchronization object, or NULL.
     ) {
   // note: we may not belong to a team at this point
-  register void *spin = spinner;
-  register kmp_uint32 check = checker;
-  register kmp_uint32 spins;
-  register kmp_uint32 (*f)(void *, kmp_uint32) = pred;
+  void *spin = spinner;
+  kmp_uint32 check = checker;
+  kmp_uint32 spins;
+  kmp_uint32 (*f)(void *, kmp_uint32) = pred;
 
   KMP_FSYNC_SPIN_INIT(obj, spin);
   KMP_INIT_YIELD(spins);

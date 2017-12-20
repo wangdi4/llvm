@@ -20,10 +20,10 @@
 #include "llvm/CodeGen/ISDOpcodes.h"
 #include "llvm/CodeGen/MachineValueType.h"
 #include "llvm/CodeGen/SelectionDAGNodes.h"
+#include "llvm/CodeGen/TargetLowering.h"
 #include "llvm/CodeGen/ValueTypes.h"
 #include "llvm/IR/CallingConv.h"
 #include "llvm/IR/InlineAsm.h"
-#include "llvm/Target/TargetLowering.h"
 #include <cstdint>
 #include <utility>
 
@@ -51,37 +51,18 @@ namespace HexagonISD {
       CP,          // Constant pool.
 
       COMBINE,
-      PACKHL,
-      VSPLATB,
-      VSPLATH,
-      SHUFFEB,
-      SHUFFEH,
-      SHUFFOB,
-      SHUFFOH,
-      VSXTBH,
-      VSXTBW,
-      VSRAW,
-      VSRAH,
-      VSRLW,
-      VSRLH,
-      VSHLW,
-      VSHLH,
-      VCMPBEQ,
-      VCMPBGT,
-      VCMPBGTU,
-      VCMPHEQ,
-      VCMPHGT,
-      VCMPHGTU,
-      VCMPWEQ,
-      VCMPWGT,
-      VCMPWGTU,
+      VSPLAT,
+      VASL,
+      VASR,
+      VLSR,
 
       INSERT,
       INSERTRP,
       EXTRACTU,
       EXTRACTURP,
       VCOMBINE,
-      VPACK,
+      VPACKE,
+      VPACKO,
       TC_RETURN,
       EH_RETURN,
       DCFETCH,
@@ -131,18 +112,21 @@ namespace HexagonISD {
     bool shouldExpandBuildVectorWithShuffles(EVT VT,
         unsigned DefinedValues) const override;
 
-    bool isShuffleMaskLegal(const SmallVectorImpl<int> &Mask, EVT VT)
-        const override;
+    bool isShuffleMaskLegal(ArrayRef<int> Mask, EVT VT) const override;
 
     SDValue LowerOperation(SDValue Op, SelectionDAG &DAG) const override;
     const char *getTargetNodeName(unsigned Opcode) const override;
+
+    SDValue LowerBUILD_VECTOR(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerCONCAT_VECTORS(SDValue Op, SelectionDAG &DAG) const;
-    SDValue LowerEXTRACT_VECTOR(SDValue Op, SelectionDAG &DAG) const;
+    SDValue LowerEXTRACT_VECTOR_ELT(SDValue Op, SelectionDAG &DAG) const;
+    SDValue LowerEXTRACT_SUBVECTOR(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerEXTRACT_SUBVECTOR_HVX(SDValue Op, SelectionDAG &DAG) const;
-    SDValue LowerINSERT_VECTOR(SDValue Op, SelectionDAG &DAG) const;
+    SDValue LowerINSERT_SUBVECTOR(SDValue Op, SelectionDAG &DAG) const;
+    SDValue LowerINSERT_VECTOR_ELT(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerVECTOR_SHUFFLE(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerVECTOR_SHIFT(SDValue Op, SelectionDAG &DAG) const;
-    SDValue LowerBUILD_VECTOR(SDValue Op, SelectionDAG &DAG) const;
+
     SDValue LowerDYNAMIC_STACKALLOC(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerINLINEASM(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerPREFETCH(SDValue Op, SelectionDAG &DAG) const;
@@ -183,7 +167,6 @@ namespace HexagonISD {
     SDValue LowerFRAMEADDR(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerATOMIC_FENCE(SDValue Op, SelectionDAG& DAG) const;
     SDValue LowerRETURNADDR(SDValue Op, SelectionDAG &DAG) const;
-    SDValue LowerLOAD(SDValue Op, SelectionDAG &DAG) const;
 
     bool CanLowerReturn(CallingConv::ID CallConv,
                         MachineFunction &MF, bool isVarArg,
@@ -250,7 +233,8 @@ namespace HexagonISD {
     /// mode is legal for a load/store of any legal type.
     /// TODO: Handle pre/postinc as well.
     bool isLegalAddressingMode(const DataLayout &DL, const AddrMode &AM,
-                               Type *Ty, unsigned AS) const override;
+                               Type *Ty, unsigned AS,
+                               Instruction *I = nullptr) const override;
     /// Return true if folding a constant offset with the given GlobalAddress
     /// is legal.  It is frequently not legal in PIC relocation models.
     bool isOffsetFoldingLegal(const GlobalAddressSDNode *GA) const override;
@@ -288,7 +272,25 @@ namespace HexagonISD {
       return AtomicExpansionKind::LLSC;
     }
 
-  protected:
+  private:
+    MVT ty(SDValue Op) const {
+      return Op.getValueType().getSimpleVT();
+    }
+    MVT tyScalar(MVT Ty) const {
+      if (!Ty.isVector())
+        return Ty;
+      return MVT::getIntegerVT(Ty.getSizeInBits());
+    }
+
+    SDValue buildVector32(ArrayRef<SDValue> Elem, const SDLoc &dl, MVT VecTy,
+                          SelectionDAG &DAG) const;
+    SDValue buildVector64(ArrayRef<SDValue> Elem, const SDLoc &dl, MVT VecTy,
+                          SelectionDAG &DAG) const;
+    SDValue extractVector(SDValue VecV, SDValue IdxV, const SDLoc &dl,
+                          MVT ValTy, MVT ResTy, SelectionDAG &DAG) const;
+    SDValue insertVector(SDValue VecV, SDValue ValV, SDValue IdxV,
+                         const SDLoc &dl, MVT ValTy, SelectionDAG &DAG) const;
+
     std::pair<const TargetRegisterClass*, uint8_t>
     findRepresentativeClass(const TargetRegisterInfo *TRI, MVT VT)
         const override;

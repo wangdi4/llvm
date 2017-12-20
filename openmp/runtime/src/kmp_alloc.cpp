@@ -2,7 +2,6 @@
  * kmp_alloc.cpp -- private/shared dynamic memory allocation and management
  */
 
-
 //===----------------------------------------------------------------------===//
 //
 //                     The LLVM Compiler Infrastructure
@@ -11,7 +10,6 @@
 // Source Licenses. See LICENSE.txt for details.
 //
 //===----------------------------------------------------------------------===//
-
 
 #include "kmp.h"
 #include "kmp_io.h"
@@ -298,12 +296,12 @@ static void __kmp_bget_dequeue(kmp_info_t *th) {
 #if USE_CMP_XCHG_FOR_BGET
     {
       volatile void *old_value = TCR_SYNC_PTR(th->th.th_local.bget_list);
-      while (!KMP_COMPARE_AND_STORE_PTR(&th->th.th_local.bget_list, old_value,
-                                        NULL)) {
+      while (!KMP_COMPARE_AND_STORE_PTR(&th->th.th_local.bget_list,
+                                        CCAST(void *, old_value), nullptr)) {
         KMP_CPU_PAUSE();
         old_value = TCR_SYNC_PTR(th->th.th_local.bget_list);
       }
-      p = (void *)old_value;
+      p = CCAST(void *, old_value);
     }
 #else /* ! USE_CMP_XCHG_FOR_BGET */
 #ifdef USE_QUEUING_LOCK_FOR_BGET
@@ -362,15 +360,15 @@ static void __kmp_bget_enqueue(kmp_info_t *th, void *buf
     volatile void *old_value = TCR_PTR(th->th.th_local.bget_list);
     /* the next pointer must be set before setting bget_list to buf to avoid
        exposing a broken list to other threads, even for an instant. */
-    b->ql.flink = BFH(old_value);
+    b->ql.flink = BFH(CCAST(void *, old_value));
 
-    while (!KMP_COMPARE_AND_STORE_PTR(&th->th.th_local.bget_list, old_value,
-                                      buf)) {
+    while (!KMP_COMPARE_AND_STORE_PTR(&th->th.th_local.bget_list,
+                                      CCAST(void *, old_value), buf)) {
       KMP_CPU_PAUSE();
       old_value = TCR_PTR(th->th.th_local.bget_list);
       /* the next pointer must be set before setting bget_list to buf to avoid
          exposing a broken list to other threads, even for an instant. */
-      b->ql.flink = BFH(old_value);
+      b->ql.flink = BFH(CCAST(void *, old_value));
     }
   }
 #else /* ! USE_CMP_XCHG_FOR_BGET */
@@ -464,7 +462,7 @@ static void *bget(kmp_info_t *th, bufsize requested_size) {
 
   if (size < 0 || size + sizeof(bhead_t) > MaxSize) {
     return NULL;
-  }; // if
+  }
 
   __kmp_bget_dequeue(th); /* Release any queued buffers */
 
@@ -607,7 +605,7 @@ static void *bget(kmp_info_t *th, bufsize requested_size) {
   if (thr->acqfcn != 0) {
     if (size > (bufsize)(thr->exp_incr - sizeof(bhead_t))) {
       /* Request is too large to fit in a single expansion block.
-	 Try to satisy it by a direct buffer acquisition. */
+         Try to satisy it by a direct buffer acquisition. */
       bdhead_t *bdh;
 
       size += sizeof(bdhead_t) - sizeof(bhead_t);
@@ -716,7 +714,7 @@ static void *bgetr(kmp_info_t *th, void *buf, bufsize size) {
     osize = bd->tsize - (bufsize)sizeof(bdhead_t);
   } else {
     osize -= sizeof(bhead_t);
-  };
+  }
 
   KMP_DEBUG_ASSERT(osize > 0);
 
@@ -794,7 +792,7 @@ static void brel(kmp_info_t *th, void *buf) {
        the length of this buffer to the previous free buffer. Note that we
        subtract the size in the buffer being released, since it's negative to
        indicate that the buffer is allocated. */
-    register bufsize size = b->bh.bb.bsize;
+    bufsize size = b->bh.bb.bsize;
 
     /* Make the previous buffer the one we're working on. */
     KMP_DEBUG_ASSERT(BH((char *)b - b->bh.bb.prevfree)->bb.bsize ==
@@ -1258,7 +1256,7 @@ void __kmp_finalize_bget(kmp_info_t *th) {
   if (th->th.th_local.bget_data != NULL) {
     __kmp_free(th->th.th_local.bget_data);
     th->th.th_local.bget_data = NULL;
-  }; // if
+  }
 }
 
 void kmpc_set_poolsize(size_t size) {
@@ -1385,7 +1383,7 @@ void *kmpc_realloc(void *ptr, size_t size) {
       *(void **)result = result;
       result = (void **)result + 1;
     }
-  }; // if
+  }
   return result;
 }
 
@@ -1393,14 +1391,14 @@ void *kmpc_realloc(void *ptr, size_t size) {
 void kmpc_free(void *ptr) {
   if (!__kmp_init_serial) {
     return;
-  }; // if
+  }
   if (ptr != NULL) {
     kmp_info_t *th = __kmp_get_thread();
     __kmp_bget_dequeue(th); /* Release any queued buffers */
     // extract allocated pointer and free it
     KMP_ASSERT(*((void **)ptr - 1));
     brel(th, *((void **)ptr - 1));
-  };
+  }
 }
 
 void *___kmp_thread_malloc(kmp_info_t *th, size_t size KMP_SRC_LOC_DECL) {
@@ -1499,7 +1497,7 @@ static void *___kmp_allocate_align(size_t size,
                 descr.ptr_allocated));
   if (descr.ptr_allocated == NULL) {
     KMP_FATAL(OutOfHeapMemory);
-  };
+  }
 
   addr_allocated = (kmp_uintptr_t)descr.ptr_allocated;
   addr_aligned =
@@ -1689,14 +1687,14 @@ void *___kmp_fast_allocate(kmp_info_t *this_thr, size_t size KMP_SRC_LOC_DECL) {
         ((kmp_mem_descr_t *)((kmp_uintptr_t)ptr - sizeof(kmp_mem_descr_t)))
             ->ptr_aligned);
     goto end;
-  };
+  }
   ptr = TCR_SYNC_PTR(this_thr->th.th_free_lists[index].th_free_list_sync);
   if (ptr != NULL) {
     // no-sync free list is empty, use sync free list (filled in by other
     // threads only)
     // pop the head of the sync free list, push NULL instead
     while (!KMP_COMPARE_AND_STORE_PTR(
-        &this_thr->th.th_free_lists[index].th_free_list_sync, ptr, NULL)) {
+        &this_thr->th.th_free_lists[index].th_free_list_sync, ptr, nullptr)) {
       KMP_CPU_PAUSE();
       ptr = TCR_SYNC_PTR(this_thr->th.th_free_lists[index].th_free_list_sync);
     }

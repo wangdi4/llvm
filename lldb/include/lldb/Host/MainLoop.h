@@ -12,10 +12,10 @@
 
 #include "lldb/Host/Config.h"
 #include "lldb/Host/MainLoopBase.h"
-
 #include "llvm/ADT/DenseMap.h"
+#include <csignal>
 
-#if !HAVE_PPOLL && !HAVE_SYS_EVENT_H
+#if !HAVE_PPOLL && !HAVE_SYS_EVENT_H && !defined(__ANDROID__)
 #define SIGNAL_POLLING_UNSUPPORTED 1
 #endif
 

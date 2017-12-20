@@ -10,12 +10,8 @@
 #ifndef liblldb_NativeProcessNetBSD_H_
 #define liblldb_NativeProcessNetBSD_H_
 
-// C++ Includes
-
-// Other libraries and framework includes
-
-#include "lldb/Core/ArchSpec.h"
 #include "lldb/Target/MemoryRegionInfo.h"
+#include "lldb/Utility/ArchSpec.h"
 #include "lldb/Utility/FileSpec.h"
 
 #include "NativeThreadNetBSD.h"
@@ -31,15 +27,18 @@ namespace process_netbsd {
 ///
 /// Changes in the inferior process state are broadcasted.
 class NativeProcessNetBSD : public NativeProcessProtocol {
-  friend Status NativeProcessProtocol::Launch(
-      ProcessLaunchInfo &launch_info, NativeDelegate &native_delegate,
-      MainLoop &mainloop, NativeProcessProtocolSP &process_sp);
-
-  friend Status NativeProcessProtocol::Attach(
-      lldb::pid_t pid, NativeProcessProtocol::NativeDelegate &native_delegate,
-      MainLoop &mainloop, NativeProcessProtocolSP &process_sp);
-
 public:
+  class Factory : public NativeProcessProtocol::Factory {
+  public:
+    llvm::Expected<std::unique_ptr<NativeProcessProtocol>>
+    Launch(ProcessLaunchInfo &launch_info, NativeDelegate &native_delegate,
+           MainLoop &mainloop) const override;
+
+    llvm::Expected<std::unique_ptr<NativeProcessProtocol>>
+    Attach(lldb::pid_t pid, NativeDelegate &native_delegate,
+           MainLoop &mainloop) const override;
+  };
+
   // ---------------------------------------------------------------------
   // NativeProcessProtocol Interface
   // ---------------------------------------------------------------------
@@ -74,7 +73,7 @@ public:
 
   size_t UpdateThreads() override;
 
-  bool GetArchitecture(ArchSpec &arch) const override;
+  const ArchSpec &GetArchitecture() const override { return m_arch; }
 
   Status SetBreakpoint(lldb::addr_t addr, uint32_t size,
                        bool hardware) override;
@@ -107,23 +106,21 @@ protected:
 private:
   MainLoop::SignalHandleUP m_sigchld_handle;
   ArchSpec m_arch;
-  LazyBool m_supports_mem_region;
+  LazyBool m_supports_mem_region = eLazyBoolCalculate;
   std::vector<std::pair<MemoryRegionInfo, FileSpec>> m_mem_region_cache;
 
   // ---------------------------------------------------------------------
   // Private Instance Methods
   // ---------------------------------------------------------------------
-  NativeProcessNetBSD();
+  NativeProcessNetBSD(::pid_t pid, int terminal_fd, NativeDelegate &delegate,
+                      const ArchSpec &arch, MainLoop &mainloop);
 
   bool HasThreadNoLock(lldb::tid_t thread_id);
 
-  NativeThreadNetBSDSP AddThread(lldb::tid_t thread_id);
-
-  Status LaunchInferior(MainLoop &mainloop, ProcessLaunchInfo &launch_info);
-  void AttachToInferior(MainLoop &mainloop, lldb::pid_t pid, Status &error);
+  NativeThreadNetBSD &AddThread(lldb::tid_t thread_id);
 
   void MonitorCallback(lldb::pid_t pid, int signal);
-  void MonitorExited(lldb::pid_t pid, int signal, int status);
+  void MonitorExited(lldb::pid_t pid, WaitStatus status);
   void MonitorSIGSTOP(lldb::pid_t pid);
   void MonitorSIGTRAP(lldb::pid_t pid);
   void MonitorSignal(lldb::pid_t pid, int signal);
@@ -133,8 +130,7 @@ private:
   Status PopulateMemoryRegionCache();
   void SigchldHandler();
 
-  ::pid_t Attach(lldb::pid_t pid, Status &error);
-
+  Status Attach();
   Status ReinitializeThreads();
 };
 

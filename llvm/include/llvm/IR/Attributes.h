@@ -225,8 +225,8 @@ public:
   static AttributeSet get(LLVMContext &C, const AttrBuilder &B);
   static AttributeSet get(LLVMContext &C, ArrayRef<Attribute> Attrs);
 
-  bool operator==(const AttributeSet &O) { return SetNode == O.SetNode; }
-  bool operator!=(const AttributeSet &O) { return !(*this == O); }
+  bool operator==(const AttributeSet &O) const { return SetNode == O.SetNode; }
+  bool operator!=(const AttributeSet &O) const { return !(*this == O); }
 
   /// Add an argument attribute. Returns a new set because attribute sets are
   /// immutable.
@@ -622,7 +622,8 @@ public:
   // AttributeList Introspection
   //===--------------------------------------------------------------------===//
 
-  typedef const AttributeSet *iterator;
+  using iterator = const AttributeSet *;
+
   iterator begin() const;
   iterator end() const;
 
@@ -830,8 +831,8 @@ bool areInlineCompatible(const Function &Caller, const Function &Callee);
 /// \brief Merge caller's and callee's attributes.
 void mergeAttributesForInlining(Function &Caller, const Function &Callee);
 
-} // end AttributeFuncs namespace
+} // end namespace AttributeFuncs
 
-} // end llvm namespace
+} // end namespace llvm
 
 #endif // LLVM_IR_ATTRIBUTES_H

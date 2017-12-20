@@ -18,13 +18,13 @@
 
 #include "AMDGPU.h"
 #include "llvm/CodeGen/CallingConvLower.h"
-#include "llvm/Target/TargetLowering.h"
+#include "llvm/CodeGen/TargetLowering.h"
 
 namespace llvm {
 
 class AMDGPUMachineFunction;
 class AMDGPUSubtarget;
-class MachineRegisterInfo;
+struct ArgDescriptor;
 
 class AMDGPUTargetLowering : public TargetLowering {
 private:
@@ -32,10 +32,11 @@ private:
   /// legalized from a smaller type VT. Need to match pre-legalized type because
   /// the generic legalization inserts the add/sub between the select and
   /// compare.
-  SDValue getFFBH_U32(SelectionDAG &DAG, SDValue Op, const SDLoc &DL) const;
+  SDValue getFFBX_U32(SelectionDAG &DAG, SDValue Op, const SDLoc &DL, unsigned Opc) const;
 
 public:
-  static bool isOrEquivalentToAdd(SelectionDAG &DAG, SDValue Op);
+  static unsigned numBitsUnsigned(SDValue Op, SelectionDAG &DAG);
+  static unsigned numBitsSigned(SDValue Op, SelectionDAG &DAG);
 
 protected:
   const AMDGPUSubtarget *Subtarget;
@@ -56,8 +57,10 @@ protected:
   SDValue LowerFROUND64(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerFROUND(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerFFLOOR(SDValue Op, SelectionDAG &DAG) const;
+  SDValue LowerFLOG(SDValue Op, SelectionDAG &Dag,
+                    double Log2BaseInverted) const;
 
-  SDValue LowerCTLZ(SDValue Op, SelectionDAG &DAG) const;
+  SDValue LowerCTLZ_CTTZ(SDValue Op, SelectionDAG &DAG) const;
 
   SDValue LowerINT_TO_FP32(SDValue Op, SelectionDAG &DAG, bool Signed) const;
   SDValue LowerINT_TO_FP64(SDValue Op, SelectionDAG &DAG, bool Signed) const;
@@ -76,6 +79,7 @@ protected:
   SDValue performLoadCombine(SDNode *N, DAGCombinerInfo &DCI) const;
   SDValue performStoreCombine(SDNode *N, DAGCombinerInfo &DCI) const;
   SDValue performClampCombine(SDNode *N, DAGCombinerInfo &DCI) const;
+  SDValue performAssertSZExtCombine(SDNode *N, DAGCombinerInfo &DCI) const;
 
   SDValue splitBinaryBitConstantOpImpl(DAGCombinerInfo &DCI, const SDLoc &SL,
                                        unsigned Opc, SDValue LHS,
@@ -87,7 +91,7 @@ protected:
   SDValue performMulhsCombine(SDNode *N, DAGCombinerInfo &DCI) const;
   SDValue performMulhuCombine(SDNode *N, DAGCombinerInfo &DCI) const;
   SDValue performMulLoHi24Combine(SDNode *N, DAGCombinerInfo &DCI) const;
-  SDValue performCtlzCombine(const SDLoc &SL, SDValue Cond, SDValue LHS,
+  SDValue performCtlz_CttzCombine(const SDLoc &SL, SDValue Cond, SDValue LHS,
                              SDValue RHS, DAGCombinerInfo &DCI) const;
   SDValue performSelectCombine(SDNode *N, DAGCombinerInfo &DCI) const;
   SDValue performFNegCombine(SDNode *N, DAGCombinerInfo &DCI) const;
@@ -142,6 +146,7 @@ public:
   bool isZExtFree(Type *Src, Type *Dest) const override;
   bool isZExtFree(EVT Src, EVT Dest) const override;
   bool isZExtFree(SDValue Val, EVT VT2) const override;
+  bool isFPExtFoldable(unsigned Opcode, EVT DestVT, EVT SrcVT) const override;
 
   bool isNarrowingProfitable(EVT VT1, EVT VT2) const override;
 
@@ -170,6 +175,15 @@ public:
                       const SmallVectorImpl<ISD::OutputArg> &Outs,
                       const SmallVectorImpl<SDValue> &OutVals, const SDLoc &DL,
                       SelectionDAG &DAG) const override;
+
+  SDValue addTokenForArgument(SDValue Chain,
+                              SelectionDAG &DAG,
+                              MachineFrameInfo &MFI,
+                              int ClobberedFI) const;
+
+  SDValue lowerUnhandledCall(CallLoweringInfo &CLI,
+                             SmallVectorImpl<SDValue> &InVals,
+                             StringRef Reason) const;
   SDValue LowerCall(CallLoweringInfo &CLI,
                     SmallVectorImpl<SDValue> &InVals) const override;
 
@@ -216,10 +230,44 @@ public:
   /// \brief Helper function that adds Reg to the LiveIn list of the DAG's
   /// MachineFunction.
   ///
-  /// \returns a RegisterSDNode representing Reg.
-  virtual SDValue CreateLiveInRegister(SelectionDAG &DAG,
-                                       const TargetRegisterClass *RC,
-                                       unsigned Reg, EVT VT) const;
+  /// \returns a RegisterSDNode representing Reg if \p RawReg is true, otherwise
+  /// a copy from the register.
+  SDValue CreateLiveInRegister(SelectionDAG &DAG,
+                               const TargetRegisterClass *RC,
+                               unsigned Reg, EVT VT,
+                               const SDLoc &SL,
+                               bool RawReg = false) const;
+  SDValue CreateLiveInRegister(SelectionDAG &DAG,
+                               const TargetRegisterClass *RC,
+                               unsigned Reg, EVT VT) const {
+    return CreateLiveInRegister(DAG, RC, Reg, VT, SDLoc(DAG.getEntryNode()));
+  }
+
+  // Returns the raw live in register rather than a copy from it.
+  SDValue CreateLiveInRegisterRaw(SelectionDAG &DAG,
+                                  const TargetRegisterClass *RC,
+                                  unsigned Reg, EVT VT) const {
+    return CreateLiveInRegister(DAG, RC, Reg, VT, SDLoc(DAG.getEntryNode()), true);
+  }
+
+  /// Similar to CreateLiveInRegister, except value maybe loaded from a stack
+  /// slot rather than passed in a register.
+  SDValue loadStackInputValue(SelectionDAG &DAG,
+                              EVT VT,
+                              const SDLoc &SL,
+                              int64_t Offset) const;
+
+  SDValue storeStackInputValue(SelectionDAG &DAG,
+                               const SDLoc &SL,
+                               SDValue Chain,
+                               SDValue StackPtr,
+                               SDValue ArgVal,
+                               int64_t Offset) const;
+
+  SDValue loadInputValue(SelectionDAG &DAG,
+                         const TargetRegisterClass *RC,
+                         EVT VT, const SDLoc &SL,
+                         const ArgDescriptor &Arg) const;
 
   enum ImplicitParameter {
     FIRST_IMPLICIT,
@@ -252,6 +300,7 @@ enum NodeType : unsigned {
 
   // Function call.
   CALL,
+  TC_RETURN,
   TRAP,
 
   // Masked control flow nodes.
@@ -326,12 +375,15 @@ enum NodeType : unsigned {
   BFM, // Insert a range of bits into a 32-bit word.
   FFBH_U32, // ctlz with -1 if input is zero.
   FFBH_I32,
+  FFBL_B32, // cttz with -1 if input is zero.
   MUL_U24,
   MUL_I24,
   MULHI_U24,
   MULHI_I24,
   MAD_U24,
   MAD_I24,
+  MAD_U64_U32,
+  MAD_I64_I32,
   MUL_LOHI_I24,
   MUL_LOHI_U24,
   TEXTURE_FETCH,
@@ -388,11 +440,26 @@ enum NodeType : unsigned {
   STORE_MSKOR,
   LOAD_CONSTANT,
   TBUFFER_STORE_FORMAT,
+  TBUFFER_STORE_FORMAT_X3,
+  TBUFFER_LOAD_FORMAT,
   ATOMIC_CMP_SWAP,
   ATOMIC_INC,
   ATOMIC_DEC,
   BUFFER_LOAD,
   BUFFER_LOAD_FORMAT,
+  BUFFER_STORE,
+  BUFFER_STORE_FORMAT,
+  BUFFER_ATOMIC_SWAP,
+  BUFFER_ATOMIC_ADD,
+  BUFFER_ATOMIC_SUB,
+  BUFFER_ATOMIC_SMIN,
+  BUFFER_ATOMIC_UMIN,
+  BUFFER_ATOMIC_SMAX,
+  BUFFER_ATOMIC_UMAX,
+  BUFFER_ATOMIC_AND,
+  BUFFER_ATOMIC_OR,
+  BUFFER_ATOMIC_XOR,
+  BUFFER_ATOMIC_CMPSWAP,
   LAST_AMDGPU_ISD_NUMBER
 };
 

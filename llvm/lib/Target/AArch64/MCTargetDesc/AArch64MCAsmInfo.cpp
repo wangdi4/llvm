@@ -100,3 +100,21 @@ AArch64MCAsmInfoELF::AArch64MCAsmInfoELF(const Triple &T) {
 
   HasIdentDirective = true;
 }
+
+AArch64MCAsmInfoCOFF::AArch64MCAsmInfoCOFF() {
+  PrivateGlobalPrefix = ".L";
+  PrivateLabelPrefix = ".L";
+  AlignmentIsInBytes = false;
+  SupportsDebugInformation = true;
+  CodePointerSize = 8;
+}
+
+AArch64MCAsmInfoMicrosoftCOFF::AArch64MCAsmInfoMicrosoftCOFF() {
+  CommentString = ";";
+  ExceptionsType = ExceptionHandling::WinEH;
+}
+
+AArch64MCAsmInfoGNUCOFF::AArch64MCAsmInfoGNUCOFF() {
+  CommentString = "//";
+  ExceptionsType = ExceptionHandling::DwarfCFI;
+}
