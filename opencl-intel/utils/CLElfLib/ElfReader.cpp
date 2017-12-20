@@ -145,7 +145,7 @@ bool CElfReader::IsValidElf64(
             }
         }
 
-        for( unsigned char i = 0; i < pElf64Header->NumSectionHeaderEntries; i++ )
+        for( Elf64_Half i = 0; i < pElf64Header->NumSectionHeaderEntries; ++i )
         {
             indexedSectionHeaderOffset = (size_t)pElf64Header->SectionHeadersOffset + 
                 ( i * entrySize );
