@@ -93,8 +93,16 @@ bool VPOParoptTransform::genCSAParallelLoop(WRegionNode *W) {
     auto *Exit = Intrinsic::getDeclaration(Module,
       Intrinsic::csa_spmdization_exit);
 
+    auto *Arr = ConstantDataArray::getString(F->getContext(), "cyclic");
+    auto *Var = new GlobalVariable(*Module, Arr->getType(), true,
+                                   GlobalValue::InternalLinkage, Arr);
+    Var->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
+
     IRBuilder<> Builder(W->getEntryBBlock()->getTerminator());
-    auto *SpmdID = Builder.CreateCall(Entry, { NumThreads }, "spmd");
+    Value *Zero = Builder.getInt32(0u);
+    auto *Ptr = ConstantExpr::getGetElementPtr(Arr->getType(), Var,
+                                               { Zero, Zero });
+    auto *SpmdID = Builder.CreateCall(Entry, { NumThreads, Ptr }, "spmd");
 
     Builder.SetInsertPoint(&*W->getExitBBlock()->getFirstInsertionPt());
     Builder.CreateCall(Exit, { SpmdID }, {});
