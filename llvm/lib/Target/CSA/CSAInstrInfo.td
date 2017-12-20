@@ -1799,8 +1799,8 @@ def CSA_DIRECTIVE : PseudoInstCSA<
 def CSA_PIPELINEABLE_LOOP : PseudoInstCSA<
     (outs),
     (ins I64:$md),
-    "# .csa_pipelineable_loop\t$md",
-    [ (int_csa_pipelineable_loop (i64 imm:$md)) ]>;
+    "# .csa_pipelineable_loop_marker\t$md",
+    [ (int_csa_pipelineable_loop_marker (i64 imm:$md)) ]>;
 
 // These four intrinsics are the ones that mark parallel loops/regions and the
 // parallel sections within.

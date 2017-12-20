@@ -563,7 +563,7 @@ unsigned CSAInstrInfo::commuteNegateCompareOpcode(unsigned cmp_opcode,
     break;
   default:
     llvm_unreachable("This method should only be called on compare opcodes");
-    return cmp_opcode;
+    return CSA::INVALID_OPCODE;
   }
 
   return adjustOpcode(cmp_opcode, new_generic);
@@ -577,7 +577,7 @@ unsigned CSAInstrInfo::convertCompareOpToSeqOTOp(unsigned cmp_opcode) const {
   case CSA::Generic::CMPLE: seq_opcode = CSA::Generic::SEQOTLE; break;
   case CSA::Generic::CMPLT: seq_opcode = CSA::Generic::SEQOTLT; break;
   case CSA::Generic::CMPNE: seq_opcode = CSA::Generic::SEQOTNE; break;
-  default: return cmp_opcode;
+  default: return CSA::INVALID_OPCODE;
   }
   return adjustOpcode(cmp_opcode, seq_opcode);
 }

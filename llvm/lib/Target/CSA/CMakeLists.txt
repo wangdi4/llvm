@@ -41,6 +41,7 @@ add_llvm_target(CSACodeGen
   CSAExpandInlineAsm.cpp
   CSAMemopOrdering.cpp
   CSAIndependentMemopOrdering.cpp
+  CSADepCalcMemopOrdering.cpp
   CSAFortranIntrinsics.cpp
   CSANormalizeDebugPass.cpp
   )

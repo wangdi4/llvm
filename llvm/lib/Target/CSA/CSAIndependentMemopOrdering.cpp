@@ -29,37 +29,37 @@
 using namespace llvm;
 using namespace csa_memop_ordering_shared_options;
 
-static cl::opt<bool>
-IgnoreAliasInfo(
+namespace csa_memop_ordering_shared_options {
+
+cl::opt<bool> IgnoreAliasInfo(
   "csa-memop-ordering-ignore-aa",
   cl::Hidden,
   cl::desc("CSA-specific: ignore alias analysis results when constructing ordering chains and assume everything aliases."),
   cl::init(false)
 );
 
-static cl::opt<bool>
-ViewMemopCFG(
+cl::opt<bool> ViewMemopCFG(
   "csa-view-memop-cfg",
   cl::Hidden,
   cl::desc("CSA-specific: view memop CFG"),
   cl::init(false)
 );
 
-static cl::opt<bool>
-DumpMemopCFG(
+cl::opt<bool> DumpMemopCFG(
   "csa-dump-memop-cfg",
   cl::Hidden,
   cl::desc("CSA-specific: dump memop CFG"),
   cl::init(false)
 );
 
-static cl::opt<bool>
-DumpOrderingChains(
+cl::opt<bool> DumpOrderingChains(
   "csa-dump-ordering-chains",
   cl::Hidden,
   cl::desc("CSA-specific: dump memory ordering chains"),
   cl::init(false)
 );
+
+}
 
 // This value is not for tuning: it is the arity of the merge instruction which
 // is used for generating merge trees. Since the instruction used for merges is

@@ -1,4 +1,4 @@
-; RUN: llc -mtriple=csa < %s | FileCheck %s --check-prefix=CHECK
+; RUN: llc -mtriple=csa -csa-order-memops-type=independent < %s | FileCheck %s --check-prefix=CHECK
 target datalayout = "e-m:e-i64:64-n32:64"
 target triple = "csa"
 
