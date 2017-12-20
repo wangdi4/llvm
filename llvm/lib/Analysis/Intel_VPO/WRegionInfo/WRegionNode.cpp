@@ -24,6 +24,10 @@
 
 #define DEBUG_TYPE "vpo-wrnnode"
 
+// Define this to 1 for OpenCL (eg, features/vpo branch)
+// Define it to 0 for vpo-xmain
+#define VPO_FOR_OPENCL 0
+
 using namespace llvm;
 using namespace llvm::vpo;
 
@@ -38,6 +42,7 @@ std::unordered_map<int, StringRef> llvm::vpo::WRNName = {
     {WRegionNode::WRNDistributeParLoop, "distribute parallel loop"},
     {WRegionNode::WRNTarget, "target"},
     {WRegionNode::WRNTargetData, "target data"},
+    {WRegionNode::WRNTargetUpdate, "target update"},
     {WRegionNode::WRNTask, "task"},
     {WRegionNode::WRNTaskloop, "taskloop"},
     {WRegionNode::WRNVecLoop, "simd"},
@@ -77,15 +82,77 @@ WRegionNode::WRegionNode(unsigned SCID) : SubClassID(SCID), Attributes(0) {
   setIsFromHIR(true);
 }
 
-WRegionNode::WRegionNode(WRegionNode *W) : SubClassID(W->SubClassID) {
-  setNextNumber(); // can't reuse the same number; get a new one
-  setParent(W->getParent());
-  setEntryBBlock(W->getEntryBBlock());
-  setExitBBlock(W->getExitBBlock());
-  setIsFromHIR(W->getIsFromHIR());
-  setAttributes(W->getAttributes());
-  resetBBSet();
-  // TODO: add code to copy Children?
+/// \brief Wrap up the WRN creation now that we have the ExitBB. If the WRN is
+/// a loop construct, this routine also calls the associated Loop from the
+/// LoopInfo.
+void WRegionNode::finalize(BasicBlock *ExitBB) {
+  setExitBBlock(ExitBB);
+  if (getIsOmpLoop()) {
+    LoopInfo *LI = getWRNLoopInfo().getLoopInfo();
+    assert(LI && "LoopInfo not present in a loop construct");
+    BasicBlock *EntryBB = getEntryBBlock();
+    Loop *Lp = IntelGeneralUtils::getLoopFromLoopInfo(LI, EntryBB, ExitBB);
+
+    // Do not assert for loop-type constructs when Lp==NULL because transforms
+    // before Paropt may have optimized away the loop.
+    getWRNLoopInfo().setLoop(Lp);
+
+    if (Lp)
+      DEBUG(dbgs() << "\n=== finalize WRN: found loop : " << *Lp << "\n");
+    else
+      DEBUG(dbgs() << "\n=== finalize WRN: loop not found. Optimized away?\n");
+
+    // For taskloop, the runtime has a parameter for either Grainsize or
+    // NumTasks, which is chosen by the parameter SchedCode:
+    //   SchedCode==1 means Grainsize is used
+    //   SchedCode==2 means NumTasks is used
+    //   SchedCode==0 means neither is used
+    // If both Grainsize and NumTasks are specified, then Grainsize prevails.
+    if (getWRegionKindID() == WRNTaskloop) {
+      if (getGrainsize() != nullptr)
+        setSchedCode(1);
+      else if (getNumTasks() != nullptr)
+        setSchedCode(2);
+      else
+        setSchedCode(0);
+    }
+
+#if VPO_FOR_OPENCL
+    // For OpenCL, the vectorizer requires that the second operand of
+    // __read_pipe_2_bl_intel() be privatized. The code below will look at
+    // each occurrence of such a call in the WRN, and find the corresponding
+    // AllocaInst of its second operand. If the Alloca is outside of the WRN,
+    // then we add it to the PRIVATE list so it will be privatized in the
+    // VPOParoptPrepare phase.
+    if (getWRegionKindID() == WRNVecLoop) {
+      PrivateClause &PC = getPriv();
+      populateBBSet();
+      for (BasicBlock *BB : BBlockSet)
+        for (Instruction &I : *BB)
+          if (VPOAnalysisUtils::isCallOfName(&I, "__read_pipe_2_bl_intel")) {
+            CallInst *Call = dyn_cast<CallInst>(&I);
+            // DEBUG(dbgs() << "Found Call: " << *Call << "\n");
+            assert(Call->getNumArgOperands()==2 &&
+                   "__read_pipe_2_bl_intel() is expected to have 2 operands");
+            Value *V = Call->getArgOperand(1); // second operand
+            AllocaInst *Alloca = VPOAnalysisUtils::findAllocaInst(V);
+            assert (Alloca &&
+                    "Alloca not found for __read_pipe_2_bl_intel operand");
+            if (Alloca) {
+              // DEBUG(dbgs() << "Found Alloca: " << *Alloca << "\n");
+              if (!contains(Alloca->getParent())) {
+                // Alloca is outside of the WRN, so privatize it
+                PC.add(Alloca);
+                // DEBUG(dbgs() << "Will privatize: " << *Alloca << "\n");
+              }
+              // else do nothing: the alloca is inside the WRN hence it is
+              // already private
+            }
+          }
+      resetBBSet();
+    }
+#endif //VPO_FOR_OPENCL
+  }
 }
 
 /// \brief Populates BBlockSet with BBs in the WRN from EntryBB to ExitBB.
@@ -95,8 +162,13 @@ void WRegionNode::populateBBSet(void) {
 
   assert(EntryBB && "Missing EntryBB!");
   assert(ExitBB && "Missing ExitBB!");
-
+  resetBBSet();
   IntelGeneralUtils::collectBBSet(EntryBB, ExitBB, BBlockSet);
+}
+
+void WRegionNode::populateBBSetIfEmpty(void) {
+  if (isBBSetEmpty())
+    populateBBSet();
 }
 
 // After CFGRestructuring, the EntryBB should have a single predecessor
@@ -134,14 +206,160 @@ WRegionNode *WRegionNode::getLastChild() {
   return nullptr;
 }
 
-void WRegionNode::printChildren(formatted_raw_ostream &OS,
-                                unsigned Depth) const
- {
-#if !INTEL_PRODUCT_RELEASE
-  for (auto I = wrn_child_begin(), E = wrn_child_end(); I != E; ++I) {
-    (*I)->print(OS, Depth);
+// Default print() routine for WRegionNode. This routine is invoked for
+// printing the WRN unless the specialized WRegion defines its own print().
+void WRegionNode::print(formatted_raw_ostream &OS, unsigned Depth,
+                                                   unsigned Verbosity) const {
+  // Print BEGIN <directive_name>
+  printBegin(OS, Depth);
+
+  // Print WRN contents specific to a given derived class. If the derived
+  // class does not define printExtra(), then this does nothing.
+  printExtra(OS, Depth+1, Verbosity);
+
+  // Print WRN contents: Clauses, BBlocks, Loop, Children, etc.
+  printBody(OS, true, Depth+1, Verbosity);
+
+  // Print END <directive_name>
+  printEnd(OS, Depth);
+}
+
+void WRegionNode::printBegin(formatted_raw_ostream &OS, unsigned Depth) const {
+  int Id = getDirID();
+  StringRef DirName = VPOAnalysisUtils::getDirectiveName(Id);
+  OS.indent(2*Depth) << "BEGIN " << DirName <<" ID=" << getNumber() << " {\n\n";
+}
+
+void WRegionNode::printEnd(formatted_raw_ostream &OS, unsigned Depth) const {
+  int Id = getDirID();
+  StringRef DirName = VPOAnalysisUtils::getDirectiveName(Id);
+  OS.indent(2*Depth) << "} END " << DirName <<" ID=" << getNumber() << "\n\n";
+}
+
+void WRegionNode::printBody(formatted_raw_ostream &OS, bool PrintChildren,
+                            unsigned Depth, unsigned Verbosity) const {
+  printClauses(OS, Depth, Verbosity);
+
+  if (getIsFromHIR())
+    printHIR(OS, Depth, Verbosity); // defined by derived WRN
+  else {
+    printEntryExitBB(OS, Depth, Verbosity);
+    if (getIsOmpLoop())
+      printLoopBB(OS, Depth, Verbosity);
   }
-#endif // !INTEL_PRODUCT_RELEASE
+
+  if (PrintChildren)
+    printChildren(OS, Depth, Verbosity);
+}
+
+
+void WRegionNode::printClauses(formatted_raw_ostream &OS,
+                               unsigned Depth, unsigned Verbosity) const {
+  bool PrintedSomething = false;
+
+  if (canHaveSchedule())
+    PrintedSomething |= getSchedule().print(OS, Depth, Verbosity);
+
+  if (canHaveDistSchedule())
+    PrintedSomething |= getSchedule().print(OS, Depth, Verbosity);
+
+  if (canHaveShared())
+    PrintedSomething |= getShared().print(OS, Depth, Verbosity);
+
+  if (canHavePrivate())
+    PrintedSomething |= getPriv().print(OS, Depth, Verbosity);
+
+  if (canHaveFirstprivate())
+    PrintedSomething |= getFpriv().print(OS, Depth, Verbosity);
+
+  if (canHaveLastprivate())
+    PrintedSomething |= getLpriv().print(OS, Depth, Verbosity);
+
+  if (canHaveReduction())
+    PrintedSomething |= getRed().print(OS, Depth, Verbosity);
+
+  if (canHaveCopyin())
+    PrintedSomething |= getCopyin().print(OS, Depth, Verbosity);
+
+  if (canHaveCopyprivate())
+    PrintedSomething |= getCpriv().print(OS, Depth, Verbosity);
+
+  if (canHaveLinear())
+    PrintedSomething |= getLinear().print(OS, Depth, Verbosity);
+
+  if (canHaveUniform())
+    PrintedSomething |= getUniform().print(OS, Depth, Verbosity);
+
+  if (canHaveMap())
+    PrintedSomething |= getMap().print(OS, Depth, Verbosity);
+
+  if (canHaveIsDevicePtr())
+    PrintedSomething |= getIsDevicePtr().print(OS, Depth, Verbosity);
+
+  if (canHaveUseDevicePtr())
+    PrintedSomething |= getUseDevicePtr().print(OS, Depth, Verbosity);
+
+  if (canHaveDepend())
+    PrintedSomething |= getDepend().print(OS, Depth, Verbosity);
+
+  if (canHaveDepSink())
+    PrintedSomething |= getDepSink().print(OS, Depth, Verbosity);
+
+  if (canHaveAligned())
+    PrintedSomething |= getAligned().print(OS, Depth, Verbosity);
+
+  if (canHaveFlush())
+    PrintedSomething |= getFlush().print(OS, Depth, Verbosity);
+
+  if (PrintedSomething)
+    OS << "\n";
+}
+
+// Verbosity <= 1:         print BB name for EntryBB/ExitBB
+// Verbosity == 2: above + print BB content for EntryBB/ExitBB
+// Verbosity == 3: above + print BB name for all BBs in BBSet
+// Verbosity >= 4: above + print BB content for all BBs in BBSet
+void WRegionNode::printEntryExitBB(formatted_raw_ostream &OS, unsigned Depth,
+                                   unsigned Verbosity) const {
+  if (getIsFromHIR()) // HIR representation; no BBs to print
+    return;
+
+  int Ind = 2*Depth;
+
+  BasicBlock *EntryBB = getEntryBBlock();
+  BasicBlock *ExitBB = getExitBBlock();
+  assert (EntryBB && "Entry BB is null!");
+  assert (ExitBB && "Exit BB is null!");
+
+  vpo::printBB("EntryBB", EntryBB, OS, Ind, Verbosity);
+  vpo::printBB("ExitBB",  ExitBB,  OS, Ind, Verbosity);
+
+  if (Verbosity >=3) {
+    OS.indent(Ind) << "BBSet";
+    if (!isBBSetEmpty()) {
+      OS << ":\n";
+      for (BasicBlock *BB : BBlockSet ) {
+        if (Verbosity == 3)
+          OS.indent(Ind+2) << BB->getName() << "\n"; // print names only
+        else // Verbosity >=4
+          OS.indent(Ind+2) << *BB << "\n";           // print BB contents
+      }
+    } else
+      OS << " is empty\n";
+  }
+  OS << "\n";
+}
+
+void WRegionNode::printLoopBB(formatted_raw_ostream &OS, unsigned Depth,
+                              unsigned Verbosity) const {
+  if (getIsOmpLoop())
+    getWRNLoopInfo().print(OS, Depth, Verbosity);
+}
+
+void WRegionNode::printChildren(formatted_raw_ostream &OS, unsigned Depth,
+                                unsigned Verbosity) const {
+  for (WRegionNode *W : Children)
+    W->print(OS, Depth, Verbosity);
 }
 
 void WRegionNode::destroy() {
@@ -151,18 +369,62 @@ void WRegionNode::destroy() {
 void WRegionNode::destroyAll() {
   // TODO: implement this by recursive walk from top
 }
-void WRegionNode::dump() const {
+
+void WRegionNode::dump(unsigned Verbosity) const {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   formatted_raw_ostream OS(dbgs());
-  print(OS, 0);
+  print(OS, 0, Verbosity);
 #endif
 }
 
-
 //
 // functions below are used to update WRNs with clause information
-// TODO: Complete implementation as more WRN kinds are supported
 //
+
+// Parse the clause in the llvm.intel.directive.qual* representation.
+void WRegionNode::parseClause(const ClauseSpecifier &ClauseInfo,
+                              IntrinsicInst *Call){
+
+  // Get argument list from the intrinsic call
+  const Use *Args = Call->getOperandList();
+
+  // Skip Args[0] as it's the clause name metadata; hence the -1 below
+  unsigned NumArgs = Call->getNumArgOperands() - 1;
+
+  parseClause(ClauseInfo, &Args[1], NumArgs);
+}
+
+// Common code to parse the clause. This routine is used for both
+// representations: llvm.intel.directive.qual* and directive.region.entry/exit.
+void WRegionNode::parseClause(const ClauseSpecifier &ClauseInfo,
+                              const Use *Args, unsigned NumArgs) {
+  int ClauseID = ClauseInfo.getId();
+
+  // Classify the clause based on the number of arguments allowed by the
+  // clause, which can be 0, 1, or a list. The utility getClauseType()
+  // returns one of these:
+  //    0: for clauses that take no arguments
+  //    1: for clauses that take one argument only
+  //    2: all other clauses (includes those that take a list)
+  unsigned ClauseNumArgs = VPOAnalysisUtils::getClauseType(ClauseID);
+
+  if (ClauseNumArgs == 0) {
+    // The clause takes no arguments
+    assert(NumArgs == 0 && "This clause takes no arguments.");
+    handleQual(ClauseID);
+  } else if (ClauseNumArgs == 1) {
+    // The clause takes one argument only
+    assert(NumArgs == 1 && "This clause takes one argument.");
+    Value *V = (Value*)(Args[0]);
+    handleQualOpnd(ClauseID, V);
+  } else {
+    // The clause takes a list of arguments
+    assert(NumArgs >= 1 && "This clause takes one or more arguments.");
+    handleQualOpndList(&Args[0], NumArgs, ClauseInfo);
+  }
+}
+
+
 void WRegionNode::handleQual(int ClauseID) {
   switch (ClauseID) {
   case QUAL_OMP_DEFAULT_NONE:
@@ -185,6 +447,7 @@ void WRegionNode::handleQual(int ClauseID) {
     break;
   case QUAL_OMP_UNTIED:
     setUntied(true);
+    setTaskFlag(getTaskFlag() & ~WRNTaskFlag::Tied);
     break;
   case QUAL_OMP_READ_SEQ_CST:
     setHasSeqCstClause(true);
@@ -335,123 +598,161 @@ void WRegionNode::handleQualOpnd(int ClauseID, Value *V) {
 //   llvm::IntrinsicInst*, llvm::vpo::Clause<llvm::vpo::PrivateItem>*)'
 
 template <typename ClauseTy>
-ClauseTy *WRegionUtils::extractQualOpndList(IntrinsicInst *Call, ClauseTy *C) {
-  if (C == nullptr) {
-    StringRef DirString = VPOAnalysisUtils::getDirectiveMetadataString(Call);
-    int ClauseID = VPOAnalysisUtils::getClauseID(DirString);
-    C = new ClauseTy();
-    C->setClauseID(ClauseID);
+void WRegionUtils::extractQualOpndList(const Use *Args, unsigned NumArgs,
+                                            int ClauseID, ClauseTy &C) {
+  C.setClauseID(ClauseID);
+  for (unsigned I = 0; I < NumArgs; ++I) {
+    Value *V = (Value*) Args[I];
+    C.add(V);
   }
+}
 
-  // Skip argument(0) as it is the metadata
-  for (unsigned I = 1; I < Call->getNumArgOperands(); ++I) {
-    Value *V = Call->getArgOperand(I);
-    C->add(V);
+template <typename ClauseTy>
+void WRegionUtils::extractQualOpndList(const Use *Args, unsigned NumArgs,
+                                       const ClauseSpecifier &ClauseInfo,
+                                       ClauseTy &C) {
+  int ClauseID = ClauseInfo.getId();
+  bool IsConditional = ClauseInfo.getIsConditional();
+
+  if (IsConditional)
+    assert(ClauseID == QUAL_OMP_LASTPRIVATE &&
+           "The CONDITIONAL keyword is for LASTPRIVATE clauses only");
+
+  C.setClauseID(ClauseID);
+
+  for (unsigned I = 0; I < NumArgs; ++I) {
+    Value *V = (Value*) Args[I];
+    C.add(V);
+    if (IsConditional) {
+      auto *I = C.back();
+      I->setIsConditional(true);
+    }
   }
-  return C;
 }
 
 void WRegionUtils::extractScheduleOpndList(ScheduleClause & Sched,
-                                           IntrinsicInst *Call,
+                                           const Use *Args,
+                                           const ClauseSpecifier &ClauseInfo,
                                            WRNScheduleKind Kind) {
   // save the schedule kind
   Sched.setKind(Kind);
 
-  // extract and save the chunk size expr 
-  Value *V = Call->getArgOperand(2);
-  Sched.setChunkExpr(V);
+  Value *ChunkArg = Args[0];  // chunk size expr
 
-  // if chunk size is constant, extract and save the constant chunk size
-  int64_t ChunkSize = 0;
-  ConstantInt *CI = dyn_cast<ConstantInt>(V);
-  if (CI != nullptr) { 
+  // save the chunk size expr
+  Sched.setChunkExpr(ChunkArg);
+
+  // If ChunkExpr is a constant expression, extract the constant and save it
+  // in ChunkSize, which is initialized to -1 (an invalid chunk size) to
+  // signify that ChunkExpr is not constant.
+  // Examples:
+  //   User's clause:        Clang sends:            Extracted ChunkSize here:
+  //     schedule(static)      schedule(static,0)      ChunkSize ==  0
+  //     schedule(static,2)    schedule(static,2)      ChunkSize ==  2
+  //     schedule(static,x)    schedule(static,%x)     ChunkSize == -1
+  // Therefore, a negative ChunkSize means that the chunk expression is a
+  // symbolic expr whose value is unkown at compile time.
+  int64_t ChunkSize = -1;
+  ConstantInt *CI = dyn_cast<ConstantInt>(ChunkArg);
+  if (CI != nullptr) {
     ChunkSize = *((CI->getValue()).getRawData());
     DEBUG(dbgs() << " Schedule chunk size is constant: " << ChunkSize << "\n");
   }
   Sched.setChunk(ChunkSize);
 
-  // extract and save the schedule modifiers 
-  StringRef ModifierString = 
-                           VPOAnalysisUtils::getScheduleModifierMDString(Call);
-  DEBUG(dbgs() << " Schedule Modifier Argument: " << ModifierString << "\n");
+  // Save schedule modifier info
+  Sched.setIsSchedMonotonic(ClauseInfo.getIsScheduleMonotonic());
+  Sched.setIsSchedNonmonotonic(ClauseInfo.getIsScheduleNonmonotonic());
+  Sched.setIsSchedSimd(ClauseInfo.getIsScheduleSimd());
 
-  SmallVector<StringRef, 4> ModifierSubString;
-  ModifierString.split(ModifierSubString, ".");
-
-  DEBUG(dbgs() << "   Modifier SubString: " << ModifierSubString[0] << "\n");
-  DEBUG(dbgs() << "   Modifier SubString: " << ModifierSubString[1] << "\n");
-
-  for (int i=0; i<2; i++) {
-    // Max number of substrings is 2, because monotonic and nonmonotonic
-    // are mutually exclusive
-    if (ModifierSubString[i] == "MONOTONIC") {
-      Sched.setIsSchedMonotonic(true);
-    } else if (ModifierSubString[i] == "NONMONOTONIC") {
-      Sched.setIsSchedNonmonotonic(true);
-    } else if (ModifierSubString[i] == "SIMD") {
-      Sched.setIsSchedSimd(true);
-    };
-  }
+  // TODO: define the print() method for ScheduleClause to print stuff below
+  DEBUG(dbgs() << "=== "<< ClauseInfo.getBaseName());
+  DEBUG(dbgs() << "  Chunk=" << *Sched.getChunkExpr());
+  DEBUG(dbgs() << "  Monotonic=" << Sched.getIsSchedMonotonic());
+  DEBUG(dbgs() << "  Nonmonotonic=" << Sched.getIsSchedNonmonotonic());
+  DEBUG(dbgs() << "  Simd=" << Sched.getIsSchedSimd() << "\n");
 
   return;
 }
 
-MapClause *WRegionUtils::extractMapOpndList(IntrinsicInst *Call, 
-                                            MapClause *C,
-                                            unsigned MapKind) {
-  if (C == nullptr) {
-    C = new MapClause();
-    C->setClauseID(QUAL_OMP_MAP_TO); // dummy map clause id; details are in 
-                                     // the MapKind of each list item
-  }
+void WRegionUtils::extractMapOpndList(const Use *Args, unsigned NumArgs,
+                                      const ClauseSpecifier &ClauseInfo,
+                                      MapClause &C, unsigned MapKind) {
+  C.setClauseID(QUAL_OMP_MAP_TO); // dummy map clause id; details are in
+                                  // the MapKind of each list item
 
-  // Skip argument(0) as it is the metadata
-  for (unsigned I = 1; I < Call->getNumArgOperands(); ++I) {
-    Value *V = Call->getArgOperand(I);
-    C->add(V);
-    MapItem *MI = C->back();
-    MI->setMapKind(MapKind);
-  }
-  return C;
-}
-
-DependClause *WRegionUtils::extractDependOpndList(IntrinsicInst *Call, 
-                                                  DependClause *C,
-                                                  bool IsIn) {
-  if (C == nullptr) {
-    C = new DependClause();
-    C->setClauseID(QUAL_OMP_DEPEND_IN); // dummy depend clause id; 
-  }
-
-  // Skip argument(0) as it is the metadata
-  for (unsigned I = 1; I < Call->getNumArgOperands(); ++I) {
-    Value *V = Call->getArgOperand(I);
-
+  if (ClauseInfo.getIsArraySection()) {
     //TODO: Parse array section arguments.
-    //      Currently only scalar vars are supported.
-    C->add(V);
-    DependItem *DI = C->back();
-    DI->setIsIn(IsIn);
   }
-  return C;
+  else
+    for (unsigned I = 0; I < NumArgs; ++I) {
+      Value *V = (Value*) Args[I];
+      C.add(V);
+      MapItem *MI = C.back();
+      MI->setMapKind(MapKind);
+    }
 }
 
-ReductionClause *WRegionUtils::extractReductionOpndList(IntrinsicInst *Call, 
-                                                        ReductionClause *C,
-                                                        int ReductionKind) {
-  if (C == nullptr) {
-    C = new ReductionClause();
-    C->setClauseID(QUAL_OMP_REDUCTION_ADD); // dummy reduction op
-  }
+void WRegionUtils::extractDependOpndList(const Use *Args, unsigned NumArgs,
+                                         const ClauseSpecifier &ClauseInfo,
+                                         DependClause &C, bool IsIn) {
+  C.setClauseID(QUAL_OMP_DEPEND_IN); // dummy depend clause id;
 
-  // Skip argument(0) as it is the metadata
-  for (unsigned I = 1; I < Call->getNumArgOperands(); ++I) {
-    Value *V = Call->getArgOperand(I);
-    C->add(V);
-    ReductionItem *RI = C->back();
-    RI->setType((ReductionItem::WRNReductionKind)ReductionKind);
+  if (ClauseInfo.getIsArraySection()) {
+    //TODO: Parse array section arguments.
   }
-  return C;
+  else
+    for (unsigned I = 0; I < NumArgs; ++I) {
+      Value *V = (Value*) Args[I];
+      C.add(V);
+      DependItem *DI = C.back();
+      DI->setIsIn(IsIn);
+    }
+}
+
+void WRegionUtils::extractLinearOpndList(const Use *Args, unsigned NumArgs,
+                                         LinearClause &C) {
+  C.setClauseID(QUAL_OMP_LINEAR);
+
+  // The 'step' is always present in the IR coming from Clang, and it is the
+  // last argument in the operand list. Therefore, NumArgs >= 2, and the step
+  // is the Value in Args[NumArgs-1].
+  assert(NumArgs >= 2 && "Missing 'step' for a LINEAR clause");
+  Value *StepValue = (Value*) Args[NumArgs-1];
+  ConstantInt *CI = dyn_cast<ConstantInt>(StepValue);
+  assert (CI != nullptr && "LINEAR step must be a constant");
+  int64_t Step = *((CI->getValue()).getRawData());
+
+  // The linear list items are in Args[0..NumArgs-2]
+  for (unsigned I = 0; I < NumArgs-1; ++I) {
+    Value *V = (Value*) Args[I];
+    C.add(V);
+    LinearItem *LI = C.back();
+    LI->setStep(Step);
+  }
+}
+
+void WRegionUtils::extractReductionOpndList(const Use *Args, unsigned NumArgs,
+                                      const ClauseSpecifier &ClauseInfo,
+                                      ReductionClause &C, int ReductionKind) {
+  C.setClauseID(QUAL_OMP_REDUCTION_ADD); // dummy reduction op
+  bool IsUnsigned = ClauseInfo.getIsUnsigned();
+  if (IsUnsigned)
+    assert((ReductionKind==ReductionItem::WRNReductionMax ||
+            ReductionKind==ReductionItem::WRNReductionMin) &&
+            "The UNSIGNED modifier is for MIN/MAX reduction only");
+
+  if (ClauseInfo.getIsArraySection()) {
+    //TODO: Parse array section arguments.
+  }
+  else
+    for (unsigned I = 0; I < NumArgs; ++I) {
+      Value *V = (Value*) Args[I];
+      C.add(V);
+      ReductionItem *RI = C.back();
+      RI->setType((ReductionItem::WRNReductionKind)ReductionKind);
+      RI->setIsUnsigned(IsUnsigned);
+    }
 }
 #endif
 
@@ -459,8 +760,8 @@ ReductionClause *WRegionUtils::extractReductionOpndList(IntrinsicInst *Call,
 //
 // The code below was trying to get initializer and combiner from the LLVM IR.
 // However, only UDR requires initializer and combiner function pointers, and
-// the front-end has to provide them. 
-// For standard OpenMP reduction operations(ie, not UDR), the combiner and 
+// the front-end has to provide them.
+// For standard OpenMP reduction operations(ie, not UDR), the combiner and
 // initializer operations are implied by the reduction operation and type
 // of the reduction variable.
 // Therefore, we should never have to use the code below.
@@ -479,7 +780,7 @@ static void setReductionItem(ReductionItem *RI, IntrinsicInst *Call) {
     return Phi;
   };
 
-  Value *RedVarPtr = RI->getOrig();      
+  Value *RedVarPtr = RI->getOrig();
   assert(isa<PointerType>(RedVarPtr->getType()) &&
          "Variable specified in Reduction directive should be a pointer");
 
@@ -509,70 +810,63 @@ static void setReductionItem(ReductionItem *RI, IntrinsicInst *Call) {
 //        clause items. It also does not support the optional arguments at
 //        the end of linear and aligned clauses.  We'll do that later.
 //
-void WRegionNode::handleQualOpndList(int ClauseID, IntrinsicInst *Call) {
+void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
+                                     const ClauseSpecifier &ClauseInfo) {
+  int ClauseID = ClauseInfo.getId();
+
   switch (ClauseID) {
   case QUAL_OMP_SHARED: {
-    SharedClause *C =
-      WRegionUtils::extractQualOpndList<SharedClause>(Call, getShared());
-    setShared(C);
+    WRegionUtils::extractQualOpndList<SharedClause>(Args, NumArgs, ClauseID,
+                                                    getShared());
     break;
   }
   case QUAL_OMP_PRIVATE: {
-    PrivateClause *C =
-      WRegionUtils::extractQualOpndList<PrivateClause>(Call, getPriv());
-    setPriv(C);
+    WRegionUtils::extractQualOpndList<PrivateClause>(Args, NumArgs, ClauseID,
+                                                     getPriv());
     break;
   }
   case QUAL_OMP_FIRSTPRIVATE: {
-    FirstprivateClause *C =
-      WRegionUtils::extractQualOpndList<FirstprivateClause>(Call, getFpriv());
-    setFpriv(C);
+    WRegionUtils::extractQualOpndList<FirstprivateClause>(Args, NumArgs,
+                                                       ClauseID, getFpriv());
     break;
   }
   case QUAL_OMP_LASTPRIVATE: {
-    LastprivateClause *C =
-      WRegionUtils::extractQualOpndList<LastprivateClause>(Call, getLpriv());
-    setLpriv(C);
+    WRegionUtils::extractQualOpndList<LastprivateClause>(Args, NumArgs,
+                                                     ClauseInfo, getLpriv());
     break;
   }
   case QUAL_OMP_COPYIN: {
-    CopyinClause *C =
-      WRegionUtils::extractQualOpndList<CopyinClause>(Call, getCopyin());
-    setCopyin(C);
+    WRegionUtils::extractQualOpndList<CopyinClause>(Args, NumArgs, ClauseID,
+                                                    getCopyin());
     break;
   }
   case QUAL_OMP_COPYPRIVATE: {
-    CopyprivateClause *C =
-      WRegionUtils::extractQualOpndList<CopyprivateClause>(Call, getCpriv());
-    setCpriv(C);
+    WRegionUtils::extractQualOpndList<CopyprivateClause>(Args, NumArgs,
+                                                       ClauseID, getCpriv());
     break;
   }
   case QUAL_OMP_DEPEND_IN:
   case QUAL_OMP_DEPEND_OUT:
   case QUAL_OMP_DEPEND_INOUT: {
     bool IsIn = ClauseID==QUAL_OMP_DEPEND_IN;
-    DependClause *C =
-      WRegionUtils::extractDependOpndList(Call, getDepend(), IsIn);
-    setDepend(C);
+    WRegionUtils::extractDependOpndList(Args, NumArgs, ClauseInfo, getDepend(),
+                                        IsIn);
     break;
   }
   case QUAL_OMP_DEPEND_SINK: {
     setIsDoacross(true);
-    DepSinkClause *C =
-      WRegionUtils::extractQualOpndList<DepSinkClause>(Call, getDepSink());
-    setDepSink(C);
+    WRegionUtils::extractQualOpndList<DepSinkClause>(Args, NumArgs, ClauseID,
+                                                     getDepSink());
     break;
   }
   case QUAL_OMP_IS_DEVICE_PTR: {
-    IsDevicePtrClause *C=WRegionUtils::extractQualOpndList<IsDevicePtrClause>
-                         (Call, getIsDevicePtr());
-    setIsDevicePtr(C);
+    WRegionUtils::extractQualOpndList<IsDevicePtrClause>(Args, NumArgs,
+                                                 ClauseID, getIsDevicePtr());
     break;
   }
   case QUAL_OMP_USE_DEVICE_PTR: {
-    UseDevicePtrClause *C=WRegionUtils::extractQualOpndList<UseDevicePtrClause>
-                          (Call, getUseDevicePtr());
-    setUseDevicePtr(C);
+    WRegionUtils::extractQualOpndList<UseDevicePtrClause>(Args, NumArgs,
+                                                ClauseID, getUseDevicePtr());
     break;
   }
   case QUAL_OMP_TO:
@@ -590,58 +884,56 @@ void WRegionNode::handleQualOpndList(int ClauseID, IntrinsicInst *Call) {
   case QUAL_OMP_MAP_ALWAYS_RELEASE:
   case QUAL_OMP_MAP_ALWAYS_DELETE: {
     unsigned MapKind = MapItem::getMapKindFromClauseId(ClauseID);
-    MapClause *C =
-      WRegionUtils::extractMapOpndList(Call, getMap(), MapKind);
-    setMap(C);
+    WRegionUtils::extractMapOpndList(Args, NumArgs, ClauseInfo, getMap(),
+                                     MapKind);
     break;
   }
   case QUAL_OMP_UNIFORM: {
-    UniformClause *C =
-      WRegionUtils::extractQualOpndList<UniformClause>(Call, getUniform());
-    setUniform(C);
+    WRegionUtils::extractQualOpndList<UniformClause>(Args, NumArgs, ClauseID,
+                                                     getUniform());
     break;
   }
   case QUAL_OMP_LINEAR: {
-    LinearClause *C =
-      WRegionUtils::extractQualOpndList<LinearClause>(Call, getLinear());
-    setLinear(C);
+    WRegionUtils::extractLinearOpndList(Args, NumArgs, getLinear());
     break;
   }
   case QUAL_OMP_ALIGNED: {
-    AlignedClause *C =
-      WRegionUtils::extractQualOpndList<AlignedClause>(Call, getAligned());
-    setAligned(C);
+    WRegionUtils::extractQualOpndList<AlignedClause>(Args, NumArgs, ClauseID,
+                                                     getAligned());
     break;
   }
   case QUAL_OMP_FLUSH: {
-    FlushSet *C =
-      WRegionUtils::extractQualOpndList<FlushSet>(Call, getFlush());
-    setFlush(C);
+    WRegionUtils::extractQualOpndList<FlushSet>(Args, NumArgs, ClauseID,
+                                                getFlush());
     break;
   }
   case QUAL_OMP_SCHEDULE_AUTO: {
-    WRegionUtils::extractScheduleOpndList(getSchedule(), Call, 
+    WRegionUtils::extractScheduleOpndList(getSchedule(), Args, ClauseInfo,
                                           WRNScheduleAuto);
     break;
   }
   case QUAL_OMP_SCHEDULE_DYNAMIC: {
-    WRegionUtils::extractScheduleOpndList(getSchedule(), Call, 
+    WRegionUtils::extractScheduleOpndList(getSchedule(), Args, ClauseInfo,
                                           WRNScheduleDynamic);
     break;
   }
   case QUAL_OMP_SCHEDULE_GUIDED: {
-    WRegionUtils::extractScheduleOpndList(getSchedule(), Call, 
+    WRegionUtils::extractScheduleOpndList(getSchedule(), Args, ClauseInfo,
                                           WRNScheduleGuided);
     break;
   }
   case QUAL_OMP_SCHEDULE_RUNTIME: {
-    WRegionUtils::extractScheduleOpndList(getSchedule(), Call, 
+    WRegionUtils::extractScheduleOpndList(getSchedule(), Args, ClauseInfo,
                                           WRNScheduleRuntime);
     break;
   }
-  case QUAL_OMP_DIST_SCHEDULE_STATIC:
+  case QUAL_OMP_DIST_SCHEDULE_STATIC: {
+    WRegionUtils::extractScheduleOpndList(getSchedule(), Args, ClauseInfo,
+                                          WRNScheduleDistributeStatic);
+    break;
+  }
   case QUAL_OMP_SCHEDULE_STATIC: {
-    WRegionUtils::extractScheduleOpndList(getSchedule(), Call, 
+    WRegionUtils::extractScheduleOpndList(getSchedule(), Args, ClauseInfo,
                                           WRNScheduleStatic);
     break;
   }
@@ -650,24 +942,234 @@ void WRegionNode::handleQualOpndList(int ClauseID, IntrinsicInst *Call) {
   case QUAL_OMP_REDUCTION_MUL:
   case QUAL_OMP_REDUCTION_AND:
   case QUAL_OMP_REDUCTION_OR:
-  case QUAL_OMP_REDUCTION_XOR:
+  case QUAL_OMP_REDUCTION_BXOR:
   case QUAL_OMP_REDUCTION_BAND:
   case QUAL_OMP_REDUCTION_BOR:
+  case QUAL_OMP_REDUCTION_MAX:
+  case QUAL_OMP_REDUCTION_MIN:
   case QUAL_OMP_REDUCTION_UDR: {
     int ReductionKind = ReductionItem::getKindFromClauseId(ClauseID);
     assert(ReductionKind > 0 && "Bad reduction operation");
-    ReductionClause *C =
-      WRegionUtils::extractReductionOpndList(Call, getRed(), ReductionKind);
-    setRed(C);
-
-    //don't call this: 
-    // setReductionItem(C->back(), Call);
+    WRegionUtils::extractReductionOpndList(Args, NumArgs, ClauseInfo, getRed(),
+                                           ReductionKind);
     break;
   }
   default:
     llvm_unreachable("Unknown ClauseID in handleQualOpndList()");
     break;
   }
+}
+
+void WRegionNode::getClausesFromOperandBundles() {
+  // Under the directive.region.entry/exit representation the intrinsic
+  // is alone in the EntryBB, so EntryBB->front() is the intrinsic call
+  Instruction *I = &(getEntryBBlock()->front());
+  IntrinsicInst *Call = dyn_cast<IntrinsicInst>(&*I);
+  assert (Call && "Call not found for directive.region.entry()");
+
+  unsigned i, NumOB = Call->getNumOperandBundles();
+
+  // Index i start from 1 (not 0) because we want to skip the first
+  // OperandBundle, which is the directive name.
+  for(i=1; i<NumOB; ++i) {
+    // BU is the ith OperandBundle, which represents a clause
+    OperandBundleUse BU = Call->getOperandBundleAt(i);
+
+    // The clause name is the tag name
+    StringRef ClauseString = BU.getTagName();
+
+    // Extract clause properties
+    ClauseSpecifier ClauseInfo(ClauseString);
+
+    // Get the argument list from the current OperandBundle
+    ArrayRef<llvm::Use> Args = BU.Inputs;
+    unsigned NumArgs = Args.size();   // BU.Inputs.size()
+
+    const Use *ArgList = NumArgs==0 ? nullptr : &Args[0];
+
+    // Parse the clause and update the WRN
+    parseClause(ClauseInfo, ArgList, NumArgs);
+  }
+}
+
+bool WRegionNode::canHaveSchedule() const {
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNParallelLoop:
+  case WRNDistributeParLoop:
+  case WRNWksLoop:
+  case WRNDistribute:
+    return true;
+  }
+  return false;
+}
+
+bool WRegionNode::canHaveDistSchedule() const {
+  // true for WRNDistribute and WRNDistributeParLoop
+  return getIsDistribute();
+}
+
+bool WRegionNode::canHaveShared() const {
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNParallel:
+  case WRNParallelLoop:
+  case WRNParallelSections:
+  case WRNParallelWorkshare:
+  case WRNTeams:
+  case WRNDistributeParLoop:
+  case WRNTask:
+  case WRNTaskloop:
+    return true;
+  }
+  return false;
+}
+
+bool WRegionNode::canHavePrivate() const {
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNParallel:
+  case WRNParallelLoop:
+  case WRNParallelSections:
+  case WRNParallelWorkshare:
+  case WRNTeams:
+  case WRNDistributeParLoop:
+  case WRNTarget:
+  case WRNTask:
+  case WRNTaskloop:
+  case WRNVecLoop:
+  case WRNWksLoop:
+  case WRNSections:
+  case WRNDistribute:
+  case WRNSingle:
+    return true;
+  }
+  return false;
+}
+
+bool WRegionNode::canHaveFirstprivate() const {
+  unsigned SubClassID = getWRegionKindID();
+
+  // similar to canHavePrivate except for SIMD,
+  // which has Private but not Firstprivate
+  if (SubClassID == WRNVecLoop)
+    return false;
+  return canHavePrivate();
+}
+
+bool WRegionNode::canHaveLastprivate() const {
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNParallelLoop:
+  case WRNDistributeParLoop:
+  case WRNTaskloop:
+  case WRNVecLoop:
+  case WRNWksLoop:
+  case WRNSections:
+  case WRNDistribute:
+    return true;
+  }
+  return false;
+}
+
+bool WRegionNode::canHaveReduction() const {
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNParallel:
+  case WRNParallelLoop:
+  case WRNParallelSections:
+  case WRNParallelWorkshare:
+  case WRNTeams:
+  case WRNDistributeParLoop:
+  // TODO: support OMP5.0 task/taskloop reduction
+  //  case WRNTask:
+  //  case WRNTaskloop:
+  case WRNVecLoop:
+  case WRNWksLoop:
+  case WRNSections:
+    return true;
+  }
+  return false;
+}
+
+bool WRegionNode::canHaveCopyin() const {
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNParallel:
+  case WRNParallelLoop:
+  case WRNParallelSections:
+  case WRNParallelWorkshare:
+  case WRNDistributeParLoop:
+    return true;
+  }
+  return false;
+}
+
+bool WRegionNode::canHaveCopyprivate() const {
+  unsigned SubClassID = getWRegionKindID();
+  // only SINGLE can have a Copyprivate clause
+  return SubClassID==WRNSingle;
+}
+
+bool WRegionNode::canHaveLinear() const {
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNParallelLoop:
+  case WRNDistributeParLoop:
+  case WRNVecLoop:
+  case WRNWksLoop:
+    return true;
+  }
+  return false;
+}
+
+bool WRegionNode::canHaveUniform() const {
+  unsigned SubClassID = getWRegionKindID();
+  // only SIMD can have a Uniform clause
+  return SubClassID==WRNVecLoop;
+}
+
+bool WRegionNode::canHaveAligned() const {
+  // only SIMD can have an Aligned clause
+  return canHaveUniform();
+}
+
+bool WRegionNode::canHaveMap() const {
+  // Only target-type constructs take map clauses
+  return getIsTarget();
+}
+
+bool WRegionNode::canHaveIsDevicePtr() const {
+  unsigned SubClassID = getWRegionKindID();
+  // only WRNTargetNode can have a IsDevicePtr clause
+  return SubClassID==WRNTarget;
+}
+
+bool WRegionNode::canHaveUseDevicePtr() const {
+  unsigned SubClassID = getWRegionKindID();
+  // only WRNTargetDataNode can have a UseDevicePtr clause
+  return SubClassID==WRNTargetData;
+}
+
+bool WRegionNode::canHaveDepend() const {
+  // Only task-type constructs take depend clauses
+  return getIsTask();
+}
+
+bool WRegionNode::canHaveDepSink() const {
+  unsigned SubClassID = getWRegionKindID();
+  // only WRNOrderedNode can have a depend(sink : vec) clause
+  // but only if its "IsDoacross" field is true
+  if(SubClassID==WRNOrdered)
+    return getIsDoacross();
+
+  return false;
+}
+
+bool WRegionNode::canHaveFlush() const {
+  unsigned SubClassID = getWRegionKindID();
+  // only WRNFlushNode can have a flush set
+  return SubClassID==WRNFlush;
 }
 
 StringRef WRegionNode::getName() const {
@@ -689,4 +1191,98 @@ void WRegionNode::errorClause(StringRef ClauseName) const {
 void WRegionNode::errorClause(int ClauseID) const {
   StringRef ClauseName = VPOAnalysisUtils::getClauseName(ClauseID);
   errorClause(ClauseName);
+}
+
+// Printing routines to help dump WRN content
+
+// Auxiliary function to print a BB in a WRN dump
+// If BB is null:
+//   Verbosity == 0: exit without printing anything
+//   Verbosity >= 1: print "Title: NULL BBlock"
+// If BB is not null:
+//   Verbosity <= 1: : print BB->getName()
+//   Verbosity >= 2: : print *BB (dumps the Bblock content)
+void vpo::printBB(StringRef Title, BasicBlock *BB, formatted_raw_ostream &OS,
+                  int Indent, unsigned Verbosity) {
+  if (Verbosity==0 && !BB)
+    return; // When Verbosity==0; print nothing if BB==nullptr
+
+  OS.indent(Indent) << Title << ": ";
+  if (!BB) {
+    OS << "NULL BBlock\n";
+    return;
+  }
+
+  if (Verbosity<=1) {
+    OS << BB->getName() << "\n";
+  } else { // Verbosity >= 2
+    OS << "\n";
+    OS.indent(Indent) << *BB << "\n";
+  }
+}
+
+// Auxiliary function to print a Value in a WRN dump
+// If Val is null:
+//   Verbosity == 0: exit without printing anything
+//   Verbosity >= 1: print "Title: UNSPECIFIED"
+// If Val is not null:
+//   print *Val regardless of Verbosity
+void vpo::printVal(StringRef Title, Value *Val, formatted_raw_ostream &OS,
+                   int Indent, unsigned Verbosity) {
+  if (Verbosity==0 && !Val)
+    return; // When Verbosity==0; print nothing if Val==nullptr
+
+  OS.indent(Indent) << Title << ": ";
+  if (!Val) {
+    OS << "UNSPECIFIED\n";
+    return;
+  }
+  OS << *Val << "\n";
+}
+
+// Auxiliary function to print an Int in a WRN dump
+// If Num is 0:
+//   Verbosity == 0: exit without printing anything
+//   Verbosity >= 1: print "Title: UNSPECIFIED"
+// If Num is not 0:
+//   print "Title: Num"
+void vpo::printInt(StringRef Title, int Num, formatted_raw_ostream &OS,
+                   int Indent, unsigned Verbosity) {
+  if (Verbosity==0 && Num==0)
+    return; // When Verbosity==0; print nothing if Num==0
+
+  OS.indent(Indent) << Title << ": ";
+  if (Num==0) {
+    OS << "UNSPECIFIED\n";
+    return;
+  }
+  OS << Num << "\n";
+}
+
+// Auxiliary function to print a boolean in a WRN dump
+// If Verbosity == 0, don't print anything if Flag is false;
+// otherwise, print "Title: true/false"
+void vpo::printBool(StringRef Title, bool Flag, formatted_raw_ostream &OS,
+                    int Indent, unsigned Verbosity) {
+  if (Verbosity==0 && Flag==false)
+    return; // When Verbosity==0; print nothing if Flag==false
+
+  OS.indent(Indent) << Title << ": ";
+  if (Flag)
+    OS <<  "true\n";
+  else
+    OS <<  "false\n";
+}
+
+// Auxiliary function to print a String for dumping certain clauses. E.g.,
+// for the DEFAULT clause we may print "NONE", "SHARED", "PRIVATE", etc.
+// If <Str> == "UNSPECIFIED"  (happens when the clause is not specified)
+//   Verbosity == 0: exit without printing anything
+//   Verbosity >= 1: print "Title: UNSPECIFIED"
+// Else
+//   print "Title: Str"
+void vpo::printStr(StringRef Title, StringRef Str, formatted_raw_ostream &OS,
+                   int Indent, unsigned Verbosity) {
+  if (Verbosity!=0 || Str!="UNSPECIFIED")
+    OS.indent(Indent) << Title << ": " << Str << "\n";
 }

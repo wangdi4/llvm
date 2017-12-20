@@ -1,6 +1,6 @@
 //===- HIROptVarPredicate.cpp - Optimization of predicates containing IVs -===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -246,7 +246,7 @@ public:
   void visit(const HLNode *Node) {}
   void postVisit(const HLNode *Node) {}
 
-  bool skipRecursion(const HLNode *Node) const override {
+  bool skipRecursion(const HLNode *Node) const {
     return SkipNode == Node;
   }
 };
@@ -398,7 +398,9 @@ bool HIROptVarPredicate::runOnFunction(Function &F) {
     } else {
       HIRInvalidationUtils::invalidateNonLoopRegion(cast<HLRegion>(Node));
     }
-    HLNodeUtils::removeEmptyNodes(Node, false);
+    HLNodeUtils::removeRedundantNodes(Node, false);
+    // TODO: update exits for multiexit loops
+    // HLNodeUtils::updateNumLoopExits(Node);
   }
 
   return false;
@@ -654,7 +656,7 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop) {
   DEBUG(dbgs() << "Processing loop #" << Loop->getNumber() << "\n");
 
   if (!Loop->isDo()) {
-    DEBUG(dbgs() << "Non-DO loop found\n");
+    DEBUG(dbgs() << "Unknown/Multiexit loop skipped.\n");
     return false;
   }
 

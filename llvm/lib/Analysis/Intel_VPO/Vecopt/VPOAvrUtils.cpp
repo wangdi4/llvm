@@ -121,6 +121,11 @@ void AVRUtils::addAVRPredicateIncoming(AVRPredicate *APredicate,
                                        AVRPredicate *IncomingPredicate,
                                        AVR *IncomingCondition) {
   APredicate->addIncoming(IncomingPredicate, IncomingCondition);
+  if (IncomingCondition) {
+    // "void" predicates will not have incoming conditions, so don't
+    // try to set the parent.
+    setParent(IncomingCondition, APredicate);
+  }
 }
 
 void AVRUtils::setAVRAssignLHS(AVRAssign *AvrAssign, AVR *Node) {
@@ -927,4 +932,35 @@ AVRContainerTy *AVRUtils::getChildrenContainer(AVR *Parent, AvrItr Child) {
 
   llvm_unreachable("Unknown vector graph node parent!");
   return nullptr;
+}
+
+template<class T>
+static void findLoopInRange(iterator_range<T> Range, AVRLoop *& ALoop);
+
+/// Parse IF-blocks and look for a loop there.
+static void findALoopInsideIfBlocks(AVRIf *IfNode, AVRLoop *& L) {
+  auto ThenRange = make_range(IfNode->then_begin(), IfNode->then_end());
+  findLoopInRange<AVRIf::then_iterator>(ThenRange, L);
+  auto ElseRange = make_range(IfNode->else_begin(), IfNode->else_end());
+  findLoopInRange<AVRIf::else_iterator>(ElseRange, L);
+}
+
+template<class T>
+static void findLoopInRange(iterator_range<T> Range, AVRLoop *& ALoop) {
+  for (auto Itr = Range.begin(), End = Range.end(); Itr != End; ++Itr) {
+    AVR *Node = &(*Itr);
+    if (auto *TempALoop = dyn_cast<AVRLoop>(Node)) {
+      assert(!ALoop && "Found more than one loop inside region");
+      ALoop = TempALoop;
+
+    } else if (auto *IfBlock = dyn_cast<AVRIf>(Node))
+      findALoopInsideIfBlocks(cast<AVRIf>(Node), ALoop);
+  }
+}
+
+AVRLoop *AVRUtils::findAVRLoop(AVRWrn *AWrn) {
+  AVRLoop *ALoop = nullptr;
+  auto Range = make_range(AWrn->child_begin(), AWrn->child_end());
+  findLoopInRange <AVRWrn::child_iterator>(Range, ALoop);
+  return ALoop;
 }

@@ -183,6 +183,8 @@ private:
 
   bool relaxInstruction(MCAsmLayout &Layout, MCRelaxableFragment &IF);
 
+  bool relaxPaddingFragment(MCAsmLayout &Layout, MCPaddingFragment &PF);
+
   bool relaxLEB(MCAsmLayout &Layout, MCLEBFragment &IF);
 
   bool relaxDwarfLineAddr(MCAsmLayout &Layout, MCDwarfLineAddrFragment &DF);
@@ -195,8 +197,8 @@ private:
   /// finishLayout - Finalize a layout, including fragment lowering.
   void finishLayout(MCAsmLayout &Layout);
 
-  std::pair<uint64_t, bool> handleFixup(const MCAsmLayout &Layout,
-                                        MCFragment &F, const MCFixup &Fixup);
+  std::tuple<MCValue, uint64_t, bool>
+  handleFixup(const MCAsmLayout &Layout, MCFragment &F, const MCFixup &Fixup);
 
 public:
   /// Construct a new assembler instance.
@@ -413,7 +415,7 @@ public:
 
   /// @}
 
-  void dump();
+  void dump() const;
 };
 
 /// \brief Compute the amount of padding required before the fragment \p F to

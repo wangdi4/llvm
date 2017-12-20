@@ -3,7 +3,7 @@
 ;  and Nearby permutation is the same as original order   
 ;  
 ; REQUIRES: asserts 
-; RUN: opt -hir-ssa-deconstruction -debug  -hir-loop-interchange  < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -debug-only=hir-loop-interchange -hir-loop-interchange  < %s 2>&1 | FileCheck %s
 ; CHECK-NOT: Interchanged:
 ;
 ;Module Before HIR; ModuleID = 'x.c'

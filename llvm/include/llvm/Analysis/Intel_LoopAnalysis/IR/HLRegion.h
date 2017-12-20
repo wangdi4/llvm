@@ -1,6 +1,6 @@
 //===-------- HLRegion.h - High level IR region node ------------*- C++ -*-===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -24,7 +24,6 @@
 
 namespace llvm {
 
-class BasicBlock;
 class DbgInfoIntrinsic;
 
 namespace loopopt {
@@ -129,7 +128,7 @@ public:
   }
 
   /// \brief Adds a live-out temp (represented using Symbase) to the region.
-  void addLiveOutTemp(unsigned Symbase, const Value *Temp) {
+  void addLiveOutTemp(unsigned Symbase, const Instruction *Temp) {
     IRReg.addLiveOutTemp(Symbase, Temp);
   }
 
@@ -161,6 +160,11 @@ public:
   iterator_range<const_live_out_iterator> live_out() const {
     return iterator_range<const_live_out_iterator>(live_out_begin(),
                                                    live_out_end());
+  }
+
+  // Returns symbase of a liveout value. Asserts, if the value is not liveout.
+  unsigned getLiveOutSymbase(const Instruction *Temp) const {
+    return IRReg.getLiveOutSymbase(Temp);
   }
 
   /// \brief Returns true if we need to generate code for this region.

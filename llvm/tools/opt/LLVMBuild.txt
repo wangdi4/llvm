@@ -28,7 +28,17 @@ required_libraries =
  IPO
  Instrumentation
  Scalar
+ Intel_DTransAnalysis
+ Intel_DTrans
+ Intel_LoopAnalysis
  Intel_LoopTransforms
+ Intel_MapIntrinToIml
+ Intel_VPOAnalysis
+ Intel_VPOTransforms
  ObjCARC
  Passes
  all-targets
+
+; ***INTEL: Intel_DTransAnalysis, Intel_DTrans, Intel_LoopAnalysis,
+;           Intel_LoopTransforms, Intel_MapIntrinToIml, Intel_VPOAnalysis,
+;           Intel_VPOTransforms

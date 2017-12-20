@@ -37,7 +37,7 @@ namespace {
 enum ID {
   OPT_INVALID = 0, // This is not an option ID.
 #define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS, PARAM,  \
-               HELPTEXT, METAVAR)                                              \
+               HELPTEXT, METAVAR, VALUES)                                      \
   OPT_##ID,
 #include "Opts.inc"
 #undef OPTION
@@ -49,12 +49,12 @@ enum ID {
 
 static const opt::OptTable::Info InfoTable[] = {
 #define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS, PARAM,  \
-               HELPTEXT, METAVAR)                                              \
+               HELPTEXT, METAVAR, VALUES)                                      \
   {                                                                            \
-      PREFIX,      NAME,     HELPTEXT,                                         \
-      METAVAR,     OPT_##ID, opt::Option::KIND##Class,                         \
-      PARAM,       FLAGS,    OPT_##GROUP,                                      \
-      OPT_##ALIAS, ALIASARGS},
+      PREFIX,      NAME,      HELPTEXT,                                        \
+      METAVAR,     OPT_##ID,  opt::Option::KIND##Class,                        \
+      PARAM,       FLAGS,     OPT_##GROUP,                                     \
+      OPT_##ALIAS, ALIASARGS, VALUES},
 #include "Opts.inc"
 #undef OPTION
 };
@@ -89,6 +89,12 @@ void error(Error EC) {
                   [&](const ErrorInfoBase &EI) { reportError(EI.message()); });
 }
 
+template <typename T> T error(Expected<T> EC) {
+  if (!EC)
+    error(EC.takeError());
+  return std::move(EC.get());
+}
+
 int main(int argc_, const char *argv_[]) {
   sys::PrintStackTraceOnErrorSignal(argv_[0]);
   PrettyStackTraceProgram X(argc_, argv_);
@@ -120,6 +126,7 @@ int main(int argc_, const char *argv_[]) {
     std::string MachineString = InputArgs.getLastArgValue(OPT_MACHINE).upper();
     MachineType = StringSwitch<COFF::MachineTypes>(MachineString)
                       .Case("ARM", COFF::IMAGE_FILE_MACHINE_ARMNT)
+                      .Case("ARM64", COFF::IMAGE_FILE_MACHINE_ARM64)
                       .Case("X64", COFF::IMAGE_FILE_MACHINE_AMD64)
                       .Case("X86", COFF::IMAGE_FILE_MACHINE_I386)
                       .Default(COFF::IMAGE_FILE_MACHINE_UNKNOWN);
@@ -149,6 +156,9 @@ int main(int argc_, const char *argv_[]) {
   if (Verbose) {
     outs() << "Machine: ";
     switch (MachineType) {
+    case COFF::IMAGE_FILE_MACHINE_ARM64:
+      outs() << "ARM64\n";
+      break;
     case COFF::IMAGE_FILE_MACHINE_ARMNT:
       outs() << "ARM\n";
       break;
@@ -175,10 +185,7 @@ int main(int argc_, const char *argv_[]) {
 
     if (Verbose) {
       int EntryNumber = 0;
-      Expected<ResourceEntryRef> EntryOrErr = RF->getHeadEntry();
-      if (!EntryOrErr)
-        error(EntryOrErr.takeError());
-      ResourceEntryRef Entry = EntryOrErr.get();
+      ResourceEntryRef Entry = error(RF->getHeadEntry());
       bool End = false;
       while (!End) {
         error(Entry.moveNext(End));
@@ -194,13 +201,12 @@ int main(int argc_, const char *argv_[]) {
     Parser.printTree(outs());
   }
 
-  std::unique_ptr<MemoryBuffer> OutputBuffer;
-  error(llvm::object::writeWindowsResourceCOFF(OutputBuffer, MachineType,
-                                               Parser));
+  std::unique_ptr<MemoryBuffer> OutputBuffer =
+      error(llvm::object::writeWindowsResourceCOFF(MachineType, Parser));
   auto FileOrErr =
       FileOutputBuffer::create(OutputFile, OutputBuffer->getBufferSize());
   if (!FileOrErr)
-    reportError(OutputFile, FileOrErr.getError());
+    reportError(OutputFile, errorToErrorCode(FileOrErr.takeError()));
   std::unique_ptr<FileOutputBuffer> FileBuffer = std::move(*FileOrErr);
   std::copy(OutputBuffer->getBufferStart(), OutputBuffer->getBufferEnd(),
             FileBuffer->getBufferStart());

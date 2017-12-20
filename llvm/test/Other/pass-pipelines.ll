@@ -27,7 +27,7 @@
 ; CHECK-O2: Dead Argument Elimination
 ; CHECK-O2-NEXT: FunctionPass Manager
 ; CHECK-O2-NOT: Manager
-; Very carefully asert the CGSCC pass pipeline as it is fragile and unusually
+; Very carefully assert the CGSCC pass pipeline as it is fragile and unusually
 ; susceptible to phase ordering issues.
 ; CHECK-O2: CallGraph Construction
 ; CHECK-O2-NEXT: Globals Alias Analysis
@@ -63,13 +63,15 @@
 ; CHECK-O2: StdContainerOpt
 ; CHECK-O2: Cleanup fake loads 
 ; End INTEL
-; Reduce the size of the IR ASAP after the inliner.
 ; CHECK-O2-NEXT: Eliminate Available Externally
 ; Inferring function attribute should be right after the CGSCC pipeline, before
 ; any other optimizations/analyses.
 ; CHECK-O2-NEXT: CallGraph
 ; CHECK-O2-NEXT: Deduce function attributes in RPO
 ; CHECK-O2-NOT: Manager
+; Reduce the size of the IR ASAP after the inliner.
+; CHECK-O2-NEXT: Global Variable Optimizer
+; CHECK-O2: Dead Global Elimination
 ; Next is the late function pass pipeline.
 ; CHECK-O2: FunctionPass Manager
 ; CHECK-O2-NOT: Manager

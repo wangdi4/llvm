@@ -1,4 +1,4 @@
-//===-- TargetPassConfig.cpp - Target independent code generation passes --===//
+//===- TargetPassConfig.cpp - Target independent code generation passes ---===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -13,33 +13,44 @@
 //===---------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/TargetPassConfig.h"
-
+#include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/CFLAndersAliasAnalysis.h"
 #include "llvm/Analysis/CFLSteensAliasAnalysis.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"
 #include "llvm/Analysis/Intel_StdContainerAA.h" // INTEL
-#include "llvm/Analysis/Passes.h"
 #include "llvm/Analysis/ScopedNoAliasAA.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
+#include "llvm/CodeGen/MachinePassRegistry.h"
+#include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/RegAllocRegistry.h"
-#include "llvm/CodeGen/RegisterUsageInfo.h"
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/MC/MCAsmInfo.h"
+#include "llvm/MC/MCTargetOptions.h"
+#include "llvm/Pass.h"
+#include "llvm/Support/CodeGen.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/Threading.h"
 #include "llvm/Target/TargetMachine.h"
-#include "llvm/Transforms/Instrumentation.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/SymbolRewriter.h"
+#include <cassert>
+#include <string>
 
 using namespace llvm;
 
+cl::opt<bool> EnableIPRA("enable-ipra", cl::init(false), cl::Hidden,
+                         cl::desc("Enable interprocedural register allocation "
+                                  "to reduce load/store at procedure calls."));
 static cl::opt<bool> DisablePostRASched("disable-post-ra", cl::Hidden,
     cl::desc("Disable Post Regalloc Scheduler"));
 static cl::opt<bool> DisableBranchFold("disable-branch-fold", cl::Hidden,
@@ -84,6 +95,10 @@ static cl::opt<bool> EnableImplicitNullChecks(
     "enable-implicit-null-checks",
     cl::desc("Fold null checks into faulting memory operations"),
     cl::init(false));
+static cl::opt<bool> EnableMergeICmps(
+    "enable-mergeicmps",
+    cl::desc("Merge ICmp chains into a single memcmp"),
+    cl::init(false));
 static cl::opt<bool> PrintLSR("print-lsr-output", cl::Hidden,
     cl::desc("Print LLVM IR produced by the loop-reduce pass"));
 static cl::opt<bool> PrintISelInput("print-isel-input", cl::Hidden,
@@ -97,6 +112,11 @@ static cl::opt<bool> VerifyMachineCode("verify-machineinstrs", cl::Hidden,
 static cl::opt<bool> EnableMachineOutliner("enable-machine-outliner",
     cl::Hidden,
     cl::desc("Enable machine outliner"));
+static cl::opt<bool> EnableLinkOnceODROutlining(
+    "enable-linkonceodr-outlining",
+    cl::Hidden,
+    cl::desc("Enable the machine outliner on linkonceodr functions"),
+    cl::init(false));
 // Enable or disable FastISel. Both options are needed, because
 // FastISel is enabled by default with -fast, and we wish to be
 // able to enable or disable fast-isel independently from -O0.
@@ -145,6 +165,34 @@ static cl::opt<CFLAAType> UseCFLAA(
                           "Enable inclusion-based CFL-AA"),
                clEnumValN(CFLAAType::Both, "both", 
                           "Enable both variants of CFL-AA")));
+
+/// Option names for limiting the codegen pipeline.
+/// Those are used in error reporting and we didn't want
+/// to duplicate their names all over the place.
+const char *StartAfterOptName = "start-after";
+const char *StartBeforeOptName = "start-before";
+const char *StopAfterOptName = "stop-after";
+const char *StopBeforeOptName = "stop-before";
+
+static cl::opt<std::string>
+    StartAfterOpt(StringRef(StartAfterOptName),
+                  cl::desc("Resume compilation after a specific pass"),
+                  cl::value_desc("pass-name"), cl::init(""));
+
+static cl::opt<std::string>
+    StartBeforeOpt(StringRef(StartBeforeOptName),
+                   cl::desc("Resume compilation before a specific pass"),
+                   cl::value_desc("pass-name"), cl::init(""));
+
+static cl::opt<std::string>
+    StopAfterOpt(StringRef(StopAfterOptName),
+                 cl::desc("Stop compilation after a specific pass"),
+                 cl::value_desc("pass-name"), cl::init(""));
+
+static cl::opt<std::string>
+    StopBeforeOpt(StringRef(StopBeforeOptName),
+                  cl::desc("Stop compilation before a specific pass"),
+                  cl::value_desc("pass-name"), cl::init(""));
 
 /// Allow standard passes to be disabled by command line options. This supports
 /// simple binary flags that either suppress the pass or do nothing.
@@ -226,6 +274,7 @@ char TargetPassConfig::EarlyTailDuplicateID = 0;
 char TargetPassConfig::PostRAMachineLICMID = 0;
 
 namespace {
+
 struct InsertedPass {
   AnalysisID TargetPassID;
   IdentifyingPassPtr InsertedPassID;
@@ -246,9 +295,11 @@ struct InsertedPass {
     return NP;
   }
 };
-}
+
+} // end anonymous namespace
 
 namespace llvm {
+
 class PassConfigImpl {
 public:
   // List of passes explicitly substituted by this target. Normally this is
@@ -264,21 +315,49 @@ public:
   /// is inserted after each instance of the first one.
   SmallVector<InsertedPass, 4> InsertedPasses;
 };
-} // namespace llvm
+
+} // end namespace llvm
 
 // Out of line virtual method.
 TargetPassConfig::~TargetPassConfig() {
   delete Impl;
 }
 
+static const PassInfo *getPassInfo(StringRef PassName) {
+  if (PassName.empty())
+    return nullptr;
+
+  const PassRegistry &PR = *PassRegistry::getPassRegistry();
+  const PassInfo *PI = PR.getPassInfo(PassName);
+  if (!PI)
+    report_fatal_error(Twine('\"') + Twine(PassName) +
+                       Twine("\" pass is not registered."));
+  return PI;
+}
+
+static AnalysisID getPassIDFromName(StringRef PassName) {
+  const PassInfo *PI = getPassInfo(PassName);
+  return PI ? PI->getTypeInfo() : nullptr;
+}
+
+void TargetPassConfig::setStartStopPasses() {
+  StartBefore = getPassIDFromName(StartBeforeOpt);
+  StartAfter = getPassIDFromName(StartAfterOpt);
+  StopBefore = getPassIDFromName(StopBeforeOpt);
+  StopAfter = getPassIDFromName(StopAfterOpt);
+  if (StartBefore && StartAfter)
+    report_fatal_error(Twine(StartBeforeOptName) + Twine(" and ") +
+                       Twine(StartAfterOptName) + Twine(" specified!"));
+  if (StopBefore && StopAfter)
+    report_fatal_error(Twine(StopBeforeOptName) + Twine(" and ") +
+                       Twine(StopAfterOptName) + Twine(" specified!"));
+  Started = (StartAfter == nullptr) && (StartBefore == nullptr);
+}
+
 // Out of line constructor provides default values for pass options and
 // registers all common codegen passes.
 TargetPassConfig::TargetPassConfig(LLVMTargetMachine &TM, PassManagerBase &pm)
-    : ImmutablePass(ID), PM(&pm), Started(true), Stopped(false),
-      AddingMachinePasses(false), TM(&TM), Impl(nullptr), Initialized(false),
-      DisableVerify(false), EnableTailMerge(true),
-      RequireCodeGenSCCOrder(false) {
-
+    : ImmutablePass(ID), PM(&pm), TM(&TM) {
   Impl = new PassConfigImpl();
 
   // Register all target independent codegen passes to activate their PassIDs,
@@ -296,8 +375,17 @@ TargetPassConfig::TargetPassConfig(LLVMTargetMachine &TM, PassManagerBase &pm)
   if (StringRef(PrintMachineInstrs.getValue()).equals(""))
     TM.Options.PrintMachineCode = true;
 
+  if (EnableIPRA.getNumOccurrences())
+    TM.Options.EnableIPRA = EnableIPRA;
+  else {
+    // If not explicitly specified, use target default.
+    TM.Options.EnableIPRA = TM.useIPRA();
+  }
+
   if (TM.Options.EnableIPRA)
     setRequiresCodeGenSCCOrder();
+
+  setStartStopPasses();
 }
 
 CodeGenOpt::Level TargetPassConfig::getOptLevel() const {
@@ -326,10 +414,34 @@ TargetPassConfig *LLVMTargetMachine::createPassConfig(PassManagerBase &PM) {
 }
 
 TargetPassConfig::TargetPassConfig()
-  : ImmutablePass(ID), PM(nullptr) {
+  : ImmutablePass(ID) {
   report_fatal_error("Trying to construct TargetPassConfig without a target "
                      "machine. Scheduling a CodeGen pass without a target "
                      "triple set?");
+}
+
+bool TargetPassConfig::hasLimitedCodeGenPipeline() const {
+  return StartBefore || StartAfter || StopBefore || StopAfter;
+}
+
+std::string
+TargetPassConfig::getLimitedCodeGenPipelineReason(const char *Separator) const {
+  if (!hasLimitedCodeGenPipeline())
+    return std::string();
+  std::string Res;
+  static cl::opt<std::string> *PassNames[] = {&StartAfterOpt, &StartBeforeOpt,
+                                              &StopAfterOpt, &StopBeforeOpt};
+  static const char *OptNames[] = {StartAfterOptName, StartBeforeOptName,
+                                   StopAfterOptName, StopBeforeOptName};
+  bool IsFirst = true;
+  for (int Idx = 0; Idx < 4; ++Idx)
+    if (!PassNames[Idx]->empty()) {
+      if (!IsFirst)
+        Res += Separator;
+      IsFirst = false;
+      Res += OptNames[Idx];
+    }
+  return Res;
 }
 
 // Helper to verify the analysis is really immutable.
@@ -490,6 +602,16 @@ void TargetPassConfig::addIRPasses() {
       addPass(createPrintFunctionPass(dbgs(), "\n\n*** Code after LSR ***\n"));
   }
 
+  if (getOptLevel() != CodeGenOpt::None) {
+    // The MergeICmpsPass tries to create memcmp calls by grouping sequences of
+    // loads and compares. ExpandMemCmpPass then tries to expand those calls
+    // into optimally-sized loads and compares. The transforms are enabled by a
+    // target lowering hook.
+    if (EnableMergeICmps)
+      addPass(createMergeICmpsPass());
+    addPass(createExpandMemCmpPass());
+  }
+
   // Run GC lowering passes for builtin collectors
   // TODO: add a pass insertion point here
   addPass(createGCLoweringPass());
@@ -505,8 +627,8 @@ void TargetPassConfig::addIRPasses() {
   if (getOptLevel() != CodeGenOpt::None && !DisablePartialLibcallInlining)
     addPass(createPartiallyInlineLibCallsPass());
 
-  // Insert calls to mcount-like functions.
-  addPass(createCountingFunctionInserterPass());
+  // Instrument function entry and exit, e.g. with calls to mcount().
+  addPass(createPostInlineEntryExitInstrumenterPass());
 
   // Add scalarization of target's unsupported masked memory intrinsics pass.
   // the unsupported intrinsic will be replaced with a chain of basic blocks,
@@ -688,9 +810,6 @@ void TargetPassConfig::addMachinePasses() {
   // Print the instruction selected machine code...
   printAndVerify("After Instruction Selection");
 
-  if (TM->Options.EnableIPRA)
-    addPass(createRegUsageInfoPropPass());
-
   // Expand pseudo-instructions emitted by ISel.
   addPass(&ExpandISelPseudosID);
 
@@ -702,6 +821,9 @@ void TargetPassConfig::addMachinePasses() {
     // to one another and simplify frame index references where possible.
     addPass(&LocalStackSlotAllocationID, false);
   }
+
+  if (TM->Options.EnableIPRA)
+    addPass(createRegUsageInfoPropPass());
 
   // Run pre-ra passes.
   addPreRegAlloc();
@@ -782,7 +904,7 @@ void TargetPassConfig::addMachinePasses() {
   addPass(&PatchableFunctionID, false);
 
   if (EnableMachineOutliner)
-    PM->add(createMachineOutlinerPass());
+    PM->add(createMachineOutlinerPass(EnableLinkOnceODROutlining));
 
   AddingMachinePasses = false;
 }
@@ -817,9 +939,6 @@ void TargetPassConfig::addMachineSSAOptimization() {
 
   addPass(&MachineLICMID, false);
   addPass(&MachineCSEID, false);
-
-  // Coalesce basic blocks with the same branch condition
-  addPass(&BranchCoalescingID);
 
   addPass(&MachineSinkingID);
 

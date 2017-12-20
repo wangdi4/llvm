@@ -21,6 +21,8 @@ namespace llvm_cloning_analysis {
 
 extern cl::opt<bool> IPCloningTrace;
 
+extern bool isPointerToCharArray(Type* PTy);
+
 extern GetElementPtrInst* getAnyGEPAsIncomingValueForPhi(Value *Phi);
 
 extern bool isConstantArgWorthyForSpecializationClone(Value *Arg);

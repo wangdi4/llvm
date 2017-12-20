@@ -1,6 +1,6 @@
 // ===- HIRLoopReversal.cpp - Implement HIR Loop Reversal Transformation -===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -91,17 +91,17 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopReversal.h"
 
-#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 
 #define DEBUG_TYPE "hir-loop-reversal"
 
@@ -156,7 +156,7 @@ public:
   }
   void postVisit(HLNode *Node) {}
 
-  bool isDone() const override { return AbortCollector; }
+  bool isDone() const { return AbortCollector; }
 
   bool hasNegIVExpr(void) const { return HasNegIVExpr; }
 
@@ -217,8 +217,8 @@ void HIRLoopReversal::MarkedCECollector::checkAndCollectMCE(
       CalculatedWeight = IVConstCoeff;
     }
     // If IV has a valid blob, decide IV-Blob's sign
-    else if (ImmedParent->getHLNodeUtils().isKnownPositiveOrNegative(
-                 IVIndex, ImmedParent, BlobVal)) {
+    else if (HLNodeUtils::isKnownPositiveOrNegative(IVIndex, ImmedParent,
+                                                    BlobVal)) {
       CalculatedWeight = IVConstCoeff * BlobVal;
     }
     // Error: IVExpr without known sign, abort collection!
@@ -285,7 +285,7 @@ struct HIRLoopReversal::AnalyzeDDInfo final : public HLNodeVisitorBase {
 
   void visit(const HLNode *Node) {}
 
-  bool isDone() const override { return AbortCollector; }
+  bool isDone() const { return AbortCollector; }
 
   // Any premature abort?
   bool getCollectionAborted(void) const { return AbortCollector; }
@@ -428,7 +428,7 @@ bool HIRLoopReversal::runOnFunction(Function &F) {
                      true, // always do profit test when running as a pass
                      true, // always do legal test when running as a pass
                      false // short-circuit off when running as a pass
-                     );
+        );
 
     // *** Do HIR Loop Reversal Transformation if suitable ***
     // Skip the loop if it is not suitable
@@ -504,7 +504,7 @@ bool HIRLoopReversal::doLoopPreliminaryChecks(const HLLoop *Lp) {
   const LoopStatistics &LS = HLS->getSelfLoopStatistics(Lp);
 
   // DEBUG(LS.dump(););
-  if (LS.hasCallsWithUnsafeSideEffects() || LS.hasGotos() || LS.hasLabels()) {
+  if (LS.hasCallsWithUnsafeSideEffects() || LS.hasForwardGotos()) {
     return false;
   }
 
@@ -756,17 +756,18 @@ bool HIRLoopReversal::isReversible(HLLoop *Lp, HIRDDAnalysis &DDA,
 bool HIRLoopReversal::doHIRReversalTransform(HLLoop *Lp) {
   // Get Loop's UpperBound (UB)
   CanonExpr *UBCE = Lp->getUpperCanonExpr();
-  auto &CEU = UBCE->getCanonExprUtils();
-
   // DEBUG(::dump(UBCE, "Loop's UpperBound (UB) CE:"););
   // DEBUG(dbgs() << "UBCEDenom: " << UBCE->getDenominator() << "\n");
 
   //===  Do Loop Reversal Transformation for each MarkedCE  ===
   // For-each MCE in Collection:
-  //  1. Create CE' = -IV;
-  //  2. Update CE' = UB - IV;
-  //  3. CanonExprUtil::replaceIVWithCE(CE');
-  //  4. Call to RegDD.makeConsistent();
+  //  - Goal is to replace (IV) -> (UB - IV).
+  //    (C * B * i1) -> (C * B * (UB - IV)) -> -C*B*i1 + C*B*UB
+  //
+  //  To do it:
+  //  1. Replace IV with UB;
+  //  2. Add IV with -C and B as a coeff and a blob index.
+  //  3. RegDD.makeConsistent();
   //=== ---------------------------------------------------- ===
 
   // For each MCE in the MCEAV collection
@@ -775,69 +776,16 @@ bool HIRLoopReversal::doHIRReversalTransform(HLLoop *Lp) {
 
     CanonExpr *CE = MCE.getCE();
 
-    CanonExpr *CEPrime = CEU.createExtCanonExpr(
-        CE->getSrcType(), CE->getDestType(), CE->isSExt());
-    CEPrime->setIVCoeff(LoopLevel, InvalidBlobIndex, -1);
+    unsigned BlobIndex;
+    int64_t Coeff;
+    CE->getIVCoeff(LoopLevel, &BlobIndex, &Coeff);
 
-    bool MergeableCase = CanonExprUtils::mergeable(CE, UBCE, true);
+    bool ReplaceIVByCE = CanonExprUtils::replaceIVByCanonExpr(
+        CE, LoopLevel, UBCE, Lp->isNSW(), true);
+    (void)ReplaceIVByCE;
+    assert(ReplaceIVByCE && "replaceIVByCanonExpr(.) failed\n");
 
-    // Handle merge-able case: Merge directly
-    if (MergeableCase) {
-      // Update: CE' = UB - IV; (LB is always 0)
-      bool CEPrimeRet = CanonExprUtils::add(CEPrime, UBCE, true);
-      (void)CEPrimeRet;
-      assert(CEPrimeRet && "CanonExprUtils::add(.) failed on UBCE\n ");
-      // DEBUG(::dump(CEPrime, "CEPrime, Expect: CE' = UB - IV"));
-
-      // Replace original IV with CE' = UB - IV;
-      // DEBUG(::dump(CE, "CE [BEFORE replaceIVByCanonExpr(.)]\n"););
-      bool ReplaceIVByCE =
-          CanonExprUtils::replaceIVByCanonExpr(CE, LoopLevel, CEPrime, true);
-      (void)ReplaceIVByCE;
-      assert(ReplaceIVByCE && "replaceIVByCanonExpr(.) failed\n");
-      // DEBUG(::dump(CE, "CE [AFTER replaceIVByCanonExpr(.)]\n"););
-    }
-    // handle StandaloneBlob Case (not merge-able case)
-    else {
-      // Cast UBCE for StandaloneBlog form;
-      DEBUG(auto T0 = CEPrime->getSrcType(); auto T1 = UBCE->getSrcType();
-            dbgs() << "CEPrime->getSrcType(): "; T0->print(dbgs());
-            dbgs() << "  "
-                   << "UBCE->getSrcType(): ";
-            T1->print(dbgs()); dbgs() << "\n";);
-
-      // Make a UBCE clone, work ONLY with the clone for the rest of
-      // this section!
-      CanonExpr *UBCEClone = UBCE->clone();
-      // DEBUG(::dump(UBCEClone, "UBCEClone [BEFORE]: "));
-
-      bool CastToStandaloneBlob =
-          UBCEClone->castStandAloneBlob(CE->getSrcType(), false);
-
-      // DEBUG(::dump(UBCEClone, "UBCEClone [AFTER]: "));
-      // Note: CastToStandaloneBlob may NOT necessarily return true,
-      // and it is not an error if it is not!
-      //
-      // assert(CastToStandaloneBlob &&
-      //      "Expect castToStandAloneBlob() to be always succeed\n");
-      (void)CastToStandaloneBlob;
-
-      // Build: CE' = UBCEClone - iv;
-      bool CEPrimeRet = CanonExprUtils::add(CEPrime, UBCEClone, true);
-      (void)CEPrimeRet;
-      assert(CEPrimeRet && "CanonExprUtils::add(.) failed on UBCE\n ");
-      // DEBUG(::dump(CEPrime, "Expect: CE' = UB - iv"));
-
-      // Replace CE's original IV with the CE' = UB - IV;
-      bool ReplaceIVByCE =
-          CanonExprUtils::replaceIVByCanonExpr(CE, LoopLevel, CEPrime, true);
-      assert(ReplaceIVByCE && "replaceIVByCanonExpr(.) failed\n");
-      (void)ReplaceIVByCE;
-      // DEBUG(::dump(CE, "CE After replaceIVByCanonExpr(.)\n"););
-
-      // Cleanup: remove UBCEClone
-      CEU.destroy(UBCEClone);
-    }
+    CE->setIVCoeff(LoopLevel, BlobIndex, -Coeff);
 
     // Make the corresponding RegDDRef consistent with the new CE
     const SmallVector<const RegDDRef *, 3> AuxRefs = {Lp->getUpperDDRef()};

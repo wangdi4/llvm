@@ -21,6 +21,7 @@
 #include "lldb/Host/common/NativeRegisterContext.h"
 #include "lldb/Host/posix/ProcessLauncherPosixFork.h"
 #include "lldb/Target/Process.h"
+#include "llvm/Support/Errno.h"
 
 // System includes - They have to be included after framework includes because
 // they define some
@@ -39,32 +40,6 @@ using namespace lldb;
 using namespace lldb_private;
 using namespace lldb_private::process_netbsd;
 using namespace llvm;
-
-static ExitType convert_pid_status_to_exit_type(int status) {
-  if (WIFEXITED(status))
-    return ExitType::eExitTypeExit;
-  else if (WIFSIGNALED(status))
-    return ExitType::eExitTypeSignal;
-  else if (WIFSTOPPED(status))
-    return ExitType::eExitTypeStop;
-  else {
-    // We don't know what this is.
-    return ExitType::eExitTypeInvalid;
-  }
-}
-
-static int convert_pid_status_to_return_code(int status) {
-  if (WIFEXITED(status))
-    return WEXITSTATUS(status);
-  else if (WIFSIGNALED(status))
-    return WTERMSIG(status);
-  else if (WIFSTOPPED(status))
-    return WSTOPSIG(status);
-  else {
-    // We don't know what this is.
-    return ExitType::eExitTypeInvalid;
-  }
-}
 
 // Simple helper function to ensure flags are enabled on the given file
 // descriptor.
@@ -89,81 +64,100 @@ static Status EnsureFDFlags(int fd, int flags) {
 // Public Static Methods
 // -----------------------------------------------------------------------------
 
-Status NativeProcessProtocol::Launch(
-    ProcessLaunchInfo &launch_info,
-    NativeProcessProtocol::NativeDelegate &native_delegate, MainLoop &mainloop,
-    NativeProcessProtocolSP &native_process_sp) {
+llvm::Expected<std::unique_ptr<NativeProcessProtocol>>
+NativeProcessNetBSD::Factory::Launch(ProcessLaunchInfo &launch_info,
+                                     NativeDelegate &native_delegate,
+                                     MainLoop &mainloop) const {
   Log *log(ProcessPOSIXLog::GetLogIfAllCategoriesSet(POSIX_LOG_PROCESS));
 
-  Status error;
-
-  // Verify the working directory is valid if one was specified.
-  FileSpec working_dir{launch_info.GetWorkingDirectory()};
-  if (working_dir && (!working_dir.ResolvePath() ||
-                      !llvm::sys::fs::is_directory(working_dir.GetPath()))) {
-    error.SetErrorStringWithFormat("No such file or directory: %s",
-                                   working_dir.GetCString());
-    return error;
+  Status status;
+  ::pid_t pid = ProcessLauncherPosixFork()
+                    .LaunchProcess(launch_info, status)
+                    .GetProcessId();
+  LLDB_LOG(log, "pid = {0:x}", pid);
+  if (status.Fail()) {
+    LLDB_LOG(log, "failed to launch process: {0}", status);
+    return status.ToError();
   }
 
-  // Create the NativeProcessNetBSD in launch mode.
-  native_process_sp.reset(new NativeProcessNetBSD());
-
-  if (!native_process_sp->RegisterNativeDelegate(native_delegate)) {
-    native_process_sp.reset();
-    error.SetErrorStringWithFormat("failed to register the native delegate");
-    return error;
+  // Wait for the child process to trap on its call to execve.
+  int wstatus;
+  ::pid_t wpid = llvm::sys::RetryAfterSignal(-1, ::waitpid, pid, &wstatus, 0);
+  assert(wpid == pid);
+  (void)wpid;
+  if (!WIFSTOPPED(wstatus)) {
+    LLDB_LOG(log, "Could not sync with inferior process: wstatus={1}",
+             WaitStatus::Decode(wstatus));
+    return llvm::make_error<StringError>("Could not sync with inferior process",
+                                         llvm::inconvertibleErrorCode());
   }
+  LLDB_LOG(log, "inferior started, now in stopped state");
 
-  error = std::static_pointer_cast<NativeProcessNetBSD>(native_process_sp)
-              ->LaunchInferior(mainloop, launch_info);
+  ArchSpec arch;
+  if ((status = ResolveProcessArchitecture(pid, arch)).Fail())
+    return status.ToError();
 
-  if (error.Fail()) {
-    native_process_sp.reset();
-    LLDB_LOG(log, "failed to launch process: {0}", error);
-    return error;
-  }
+  // Set the architecture to the exe architecture.
+  LLDB_LOG(log, "pid = {0:x}, detected architecture {1}", pid,
+           arch.GetArchitectureName());
 
-  launch_info.SetProcessID(native_process_sp->GetID());
+  std::unique_ptr<NativeProcessNetBSD> process_up(new NativeProcessNetBSD(
+      pid, launch_info.GetPTY().ReleaseMasterFileDescriptor(), native_delegate,
+      arch, mainloop));
 
-  return error;
+  status = process_up->ReinitializeThreads();
+  if (status.Fail())
+    return status.ToError();
+
+  for (const auto &thread : process_up->m_threads)
+    static_cast<NativeThreadNetBSD &>(*thread).SetStoppedBySignal(SIGSTOP);
+  process_up->SetState(StateType::eStateStopped);
+
+  return std::move(process_up);
 }
 
-Status NativeProcessProtocol::Attach(
+llvm::Expected<std::unique_ptr<NativeProcessProtocol>>
+NativeProcessNetBSD::Factory::Attach(
     lldb::pid_t pid, NativeProcessProtocol::NativeDelegate &native_delegate,
-    MainLoop &mainloop, NativeProcessProtocolSP &native_process_sp) {
+    MainLoop &mainloop) const {
   Log *log(ProcessPOSIXLog::GetLogIfAllCategoriesSet(POSIX_LOG_PROCESS));
   LLDB_LOG(log, "pid = {0:x}", pid);
 
   // Retrieve the architecture for the running process.
-  ArchSpec process_arch;
-  Status error = ResolveProcessArchitecture(pid, process_arch);
-  if (!error.Success())
-    return error;
+  ArchSpec arch;
+  Status status = ResolveProcessArchitecture(pid, arch);
+  if (!status.Success())
+    return status.ToError();
 
-  std::shared_ptr<NativeProcessNetBSD> native_process_netbsd_sp(
-      new NativeProcessNetBSD());
+  std::unique_ptr<NativeProcessNetBSD> process_up(
+      new NativeProcessNetBSD(pid, -1, native_delegate, arch, mainloop));
 
-  if (!native_process_netbsd_sp->RegisterNativeDelegate(native_delegate)) {
-    error.SetErrorStringWithFormat("failed to register the native delegate");
-    return error;
-  }
+  status = process_up->Attach();
+  if (!status.Success())
+    return status.ToError();
 
-  native_process_netbsd_sp->AttachToInferior(mainloop, pid, error);
-  if (!error.Success())
-    return error;
-
-  native_process_sp = native_process_netbsd_sp;
-  return error;
+  return std::move(process_up);
 }
 
 // -----------------------------------------------------------------------------
 // Public Instance Methods
 // -----------------------------------------------------------------------------
 
-NativeProcessNetBSD::NativeProcessNetBSD()
-    : NativeProcessProtocol(LLDB_INVALID_PROCESS_ID), m_arch(),
-      m_supports_mem_region(eLazyBoolCalculate), m_mem_region_cache() {}
+NativeProcessNetBSD::NativeProcessNetBSD(::pid_t pid, int terminal_fd,
+                                         NativeDelegate &delegate,
+                                         const ArchSpec &arch,
+                                         MainLoop &mainloop)
+    : NativeProcessProtocol(pid, terminal_fd, delegate), m_arch(arch) {
+  if (m_terminal_fd != -1) {
+    Status status = EnsureFDFlags(m_terminal_fd, O_NONBLOCK);
+    assert(status.Success());
+  }
+
+  Status status;
+  m_sigchld_handle = mainloop.RegisterSignal(
+      SIGCHLD, [this](MainLoopBase &) { SigchldHandler(); }, status);
+  assert(m_sigchld_handle && status.Success());
+}
 
 // Handles all waitpid events from the inferior process.
 void NativeProcessNetBSD::MonitorCallback(lldb::pid_t pid, int signal) {
@@ -177,17 +171,15 @@ void NativeProcessNetBSD::MonitorCallback(lldb::pid_t pid, int signal) {
   }
 }
 
-void NativeProcessNetBSD::MonitorExited(lldb::pid_t pid, int signal,
-                                        int status) {
+void NativeProcessNetBSD::MonitorExited(lldb::pid_t pid, WaitStatus status) {
   Log *log(ProcessPOSIXLog::GetLogIfAllCategoriesSet(POSIX_LOG_PROCESS));
 
-  LLDB_LOG(log, "got exit signal({0}) , pid = {1}", signal, pid);
+  LLDB_LOG(log, "got exit signal({0}) , pid = {1}", status, pid);
 
   /* Stop Tracking All Threads attached to Process */
   m_threads.clear();
 
-  SetExitStatus(convert_pid_status_to_exit_type(status),
-                convert_pid_status_to_return_code(status), nullptr, true);
+  SetExitStatus(status, true);
 
   // Notify delegate that our process has exited.
   SetState(StateType::eStateExited, true);
@@ -204,9 +196,9 @@ void NativeProcessNetBSD::MonitorSIGSTOP(lldb::pid_t pid) {
     // Handle SIGSTOP from LLGS (LLDB GDB Server)
     if (info.psi_siginfo.si_code == SI_USER &&
         info.psi_siginfo.si_pid == ::getpid()) {
-      /* Stop Tracking All Threads attached to Process */
-      for (const auto &thread_sp : m_threads) {
-        static_pointer_cast<NativeThreadNetBSD>(thread_sp)->SetStoppedBySignal(
+      /* Stop Tracking all Threads attached to Process */
+      for (const auto &thread : m_threads) {
+        static_cast<NativeThreadNetBSD &>(*thread).SetStoppedBySignal(
             SIGSTOP, &info.psi_siginfo);
       }
     }
@@ -227,18 +219,15 @@ void NativeProcessNetBSD::MonitorSIGTRAP(lldb::pid_t pid) {
 
   switch (info.psi_siginfo.si_code) {
   case TRAP_BRKPT:
-    for (const auto &thread_sp : m_threads) {
-      static_pointer_cast<NativeThreadNetBSD>(thread_sp)
-          ->SetStoppedByBreakpoint();
-      FixupBreakpointPCAsNeeded(
-          *static_pointer_cast<NativeThreadNetBSD>(thread_sp));
+    for (const auto &thread : m_threads) {
+      static_cast<NativeThreadNetBSD &>(*thread).SetStoppedByBreakpoint();
+      FixupBreakpointPCAsNeeded(static_cast<NativeThreadNetBSD &>(*thread));
     }
     SetState(StateType::eStateStopped, true);
     break;
   case TRAP_TRACE:
-    for (const auto &thread_sp : m_threads) {
-      static_pointer_cast<NativeThreadNetBSD>(thread_sp)->SetStoppedByTrace();
-    }
+    for (const auto &thread : m_threads)
+      static_cast<NativeThreadNetBSD &>(*thread).SetStoppedByTrace();
     SetState(StateType::eStateStopped, true);
     break;
   case TRAP_EXEC: {
@@ -251,38 +240,35 @@ void NativeProcessNetBSD::MonitorSIGTRAP(lldb::pid_t pid) {
     // Let our delegate know we have just exec'd.
     NotifyDidExec();
 
-    for (const auto &thread_sp : m_threads) {
-      static_pointer_cast<NativeThreadNetBSD>(thread_sp)->SetStoppedByExec();
-    }
+    for (const auto &thread : m_threads)
+      static_cast<NativeThreadNetBSD &>(*thread).SetStoppedByExec();
     SetState(StateType::eStateStopped, true);
   } break;
   case TRAP_DBREG: {
     // If a watchpoint was hit, report it
     uint32_t wp_index;
-    Status error =
-        static_pointer_cast<NativeThreadNetBSD>(m_threads[info.psi_lwpid])
-            ->GetRegisterContext()
-            ->GetWatchpointHitIndex(wp_index,
-                                    (uintptr_t)info.psi_siginfo.si_addr);
+    Status error = static_cast<NativeThreadNetBSD &>(*m_threads[info.psi_lwpid])
+                       .GetRegisterContext()
+                       .GetWatchpointHitIndex(
+                           wp_index, (uintptr_t)info.psi_siginfo.si_addr);
     if (error.Fail())
       LLDB_LOG(log,
                "received error while checking for watchpoint hits, pid = "
                "{0}, LWP = {1}, error = {2}",
                GetID(), info.psi_lwpid, error);
     if (wp_index != LLDB_INVALID_INDEX32) {
-      for (const auto &thread_sp : m_threads) {
-        static_pointer_cast<NativeThreadNetBSD>(thread_sp)
-            ->SetStoppedByWatchpoint(wp_index);
-      }
+      for (const auto &thread : m_threads)
+        static_cast<NativeThreadNetBSD &>(*thread).SetStoppedByWatchpoint(
+            wp_index);
       SetState(StateType::eStateStopped, true);
       break;
     }
 
     // If a breakpoint was hit, report it
     uint32_t bp_index;
-    error = static_pointer_cast<NativeThreadNetBSD>(m_threads[info.psi_lwpid])
-                ->GetRegisterContext()
-                ->GetHardwareBreakHitIndex(bp_index,
+    error = static_cast<NativeThreadNetBSD &>(*m_threads[info.psi_lwpid])
+                .GetRegisterContext()
+                .GetHardwareBreakHitIndex(bp_index,
                                            (uintptr_t)info.psi_siginfo.si_addr);
     if (error.Fail())
       LLDB_LOG(log,
@@ -290,10 +276,8 @@ void NativeProcessNetBSD::MonitorSIGTRAP(lldb::pid_t pid) {
                "breakpoint hits, pid = {0}, LWP = {1}, error = {2}",
                GetID(), info.psi_lwpid, error);
     if (bp_index != LLDB_INVALID_INDEX32) {
-      for (const auto &thread_sp : m_threads) {
-        static_pointer_cast<NativeThreadNetBSD>(thread_sp)
-            ->SetStoppedByBreakpoint();
-      }
+      for (const auto &thread : m_threads)
+        static_cast<NativeThreadNetBSD &>(*thread).SetStoppedByBreakpoint();
       SetState(StateType::eStateStopped, true);
       break;
     }
@@ -306,8 +290,8 @@ void NativeProcessNetBSD::MonitorSignal(lldb::pid_t pid, int signal) {
   const auto siginfo_err =
       PtraceWrapper(PT_GET_SIGINFO, pid, &info, sizeof(info));
 
-  for (const auto &thread_sp : m_threads) {
-    static_pointer_cast<NativeThreadNetBSD>(thread_sp)->SetStoppedBySignal(
+  for (const auto &thread : m_threads) {
+    static_cast<NativeThreadNetBSD &>(*thread).SetStoppedBySignal(
         info.psi_siginfo.si_signo, &info.psi_siginfo);
   }
   SetState(StateType::eStateStopped, true);
@@ -357,12 +341,7 @@ NativeProcessNetBSD::FixupBreakpointPCAsNeeded(NativeThreadNetBSD &thread) {
   Status error;
   // Find out the size of a breakpoint (might depend on where we are in the
   // code).
-  NativeRegisterContextSP context_sp = thread.GetRegisterContext();
-  if (!context_sp) {
-    error.SetErrorString("cannot get a NativeRegisterContext for the thread");
-    LLDB_LOG(log, "failed: {0}", error);
-    return error;
-  }
+  NativeRegisterContext& context = thread.GetRegisterContext();
   uint32_t breakpoint_size = 0;
   error = GetSoftwareBreakpointPCOffset(breakpoint_size);
   if (error.Fail()) {
@@ -373,7 +352,7 @@ NativeProcessNetBSD::FixupBreakpointPCAsNeeded(NativeThreadNetBSD &thread) {
   // First try probing for a breakpoint at a software breakpoint location: PC
   // - breakpoint size.
   const lldb::addr_t initial_pc_addr =
-      context_sp->GetPCfromBreakpointLocation();
+      context.GetPCfromBreakpointLocation();
   lldb::addr_t breakpoint_addr = initial_pc_addr;
   if (breakpoint_size > 0) {
     // Do not allow breakpoint probe to wrap around.
@@ -426,7 +405,7 @@ NativeProcessNetBSD::FixupBreakpointPCAsNeeded(NativeThreadNetBSD &thread) {
   // Change the program counter.
   LLDB_LOG(log, "pid {0} tid {1}: changing PC from {2:x} to {3:x}", GetID(),
            thread.GetID(), initial_pc_addr, breakpoint_addr);
-  error = context_sp->SetPC(breakpoint_addr);
+  error = context.SetPC(breakpoint_addr);
   if (error.Fail()) {
     LLDB_LOG(log, "pid {0} tid {1}: failed to set PC: {2}", GetID(),
              thread.GetID(), error);
@@ -439,13 +418,13 @@ Status NativeProcessNetBSD::Resume(const ResumeActionList &resume_actions) {
   Log *log(ProcessPOSIXLog::GetLogIfAllCategoriesSet(POSIX_LOG_PROCESS));
   LLDB_LOG(log, "pid {0}", GetID());
 
-  const auto &thread_sp = m_threads[0];
+  const auto &thread = m_threads[0];
   const ResumeAction *const action =
-      resume_actions.GetActionForThread(thread_sp->GetID(), true);
+      resume_actions.GetActionForThread(thread->GetID(), true);
 
   if (action == nullptr) {
     LLDB_LOG(log, "no action specified for pid {0} tid {1}", GetID(),
-             thread_sp->GetID());
+             thread->GetID());
     return Status();
   }
 
@@ -458,9 +437,8 @@ Status NativeProcessNetBSD::Resume(const ResumeActionList &resume_actions) {
                                                action->signal);
     if (!error.Success())
       return error;
-    for (const auto &thread_sp : m_threads) {
-      static_pointer_cast<NativeThreadNetBSD>(thread_sp)->SetRunning();
-    }
+    for (const auto &thread : m_threads)
+      static_cast<NativeThreadNetBSD &>(*thread).SetRunning();
     SetState(eStateRunning, true);
     break;
   }
@@ -470,9 +448,8 @@ Status NativeProcessNetBSD::Resume(const ResumeActionList &resume_actions) {
                                                action->signal);
     if (!error.Success())
       return error;
-    for (const auto &thread_sp : m_threads) {
-      static_pointer_cast<NativeThreadNetBSD>(thread_sp)->SetStepping();
-    }
+    for (const auto &thread : m_threads)
+      static_cast<NativeThreadNetBSD &>(*thread).SetStepping();
     SetState(eStateStepping, true);
     break;
 
@@ -484,7 +461,7 @@ Status NativeProcessNetBSD::Resume(const ResumeActionList &resume_actions) {
     return Status("NativeProcessNetBSD::%s (): unexpected state %s specified "
                   "for pid %" PRIu64 ", tid %" PRIu64,
                   __FUNCTION__, StateAsCString(action->state), GetID(),
-                  thread_sp->GetID());
+                  thread->GetID());
   }
 
   return Status();
@@ -696,11 +673,6 @@ lldb::addr_t NativeProcessNetBSD::GetSharedLibraryInfoAddress() {
 
 size_t NativeProcessNetBSD::UpdateThreads() { return m_threads.size(); }
 
-bool NativeProcessNetBSD::GetArchitecture(ArchSpec &arch) const {
-  arch = m_arch;
-  return true;
-}
-
 Status NativeProcessNetBSD::SetBreakpoint(lldb::addr_t addr, uint32_t size,
                                           bool hardware) {
   if (hardware)
@@ -737,166 +709,42 @@ Status NativeProcessNetBSD::GetFileLoadAddress(const llvm::StringRef &file_name,
   return Status();
 }
 
-Status NativeProcessNetBSD::LaunchInferior(MainLoop &mainloop,
-                                           ProcessLaunchInfo &launch_info) {
-  Status error;
-  m_sigchld_handle = mainloop.RegisterSignal(
-      SIGCHLD, [this](MainLoopBase &) { SigchldHandler(); }, error);
-  if (!m_sigchld_handle)
-    return error;
-
-  SetState(eStateLaunching);
-
-  ::pid_t pid = ProcessLauncherPosixFork()
-                    .LaunchProcess(launch_info, error)
-                    .GetProcessId();
-  if (error.Fail())
-    return error;
-
-  Log *log(ProcessPOSIXLog::GetLogIfAllCategoriesSet(POSIX_LOG_PROCESS));
-
-  // Wait for the child process to trap on its call to execve.
-  ::pid_t wpid;
-  int status;
-  if ((wpid = waitpid(pid, &status, 0)) < 0) {
-    error.SetErrorToErrno();
-    LLDB_LOG(log, "waitpid for inferior failed with %s", error);
-
-    // Mark the inferior as invalid.
-    // FIXME this could really use a new state - eStateLaunchFailure.  For
-    // now, using eStateInvalid.
-    SetState(StateType::eStateInvalid);
-
-    return error;
-  }
-  assert(WIFSTOPPED(status) && (wpid == static_cast<::pid_t>(pid)) &&
-         "Could not sync with inferior process.");
-
-  LLDB_LOG(log, "inferior started, now in stopped state");
-
-  // Release the master terminal descriptor and pass it off to the
-  // NativeProcessNetBSD instance.  Similarly stash the inferior pid.
-  m_terminal_fd = launch_info.GetPTY().ReleaseMasterFileDescriptor();
-  m_pid = pid;
-  launch_info.SetProcessID(pid);
-
-  if (m_terminal_fd != -1) {
-    error = EnsureFDFlags(m_terminal_fd, O_NONBLOCK);
-    if (error.Fail()) {
-      LLDB_LOG(log,
-               "inferior EnsureFDFlags failed for ensuring terminal "
-               "O_NONBLOCK setting: {0}",
-               error);
-
-      // Mark the inferior as invalid.
-      // FIXME this could really use a new state - eStateLaunchFailure.  For
-      // now, using eStateInvalid.
-      SetState(StateType::eStateInvalid);
-
-      return error;
-    }
-  }
-
-  LLDB_LOG(log, "adding pid = {0}", pid);
-
-  ResolveProcessArchitecture(m_pid, m_arch);
-
-  error = ReinitializeThreads();
-  if (error.Fail()) {
-    SetState(StateType::eStateInvalid);
-    return error;
-  }
-
-  for (const auto &thread_sp : m_threads) {
-    static_pointer_cast<NativeThreadNetBSD>(thread_sp)->SetStoppedBySignal(
-        SIGSTOP);
-  }
-
-  /* Set process stopped */
-  SetState(StateType::eStateStopped);
-
-  if (error.Fail())
-    LLDB_LOG(log, "inferior launching failed {0}", error);
-  return error;
-}
-
-void NativeProcessNetBSD::AttachToInferior(MainLoop &mainloop, lldb::pid_t pid,
-                                           Status &error) {
-  Log *log(ProcessPOSIXLog::GetLogIfAllCategoriesSet(POSIX_LOG_PROCESS));
-  LLDB_LOG(log, "pid = {0:x}", pid);
-
-  m_sigchld_handle = mainloop.RegisterSignal(
-      SIGCHLD, [this](MainLoopBase &) { SigchldHandler(); }, error);
-  if (!m_sigchld_handle)
-    return;
-
-  error = ResolveProcessArchitecture(pid, m_arch);
-  if (!error.Success())
-    return;
-
-  // Set the architecture to the exe architecture.
-  LLDB_LOG(log, "pid = {0:x}, detected architecture {1}", pid,
-           m_arch.GetArchitectureName());
-
-  m_pid = pid;
-  SetState(eStateAttaching);
-
-  Attach(pid, error);
-}
-
 void NativeProcessNetBSD::SigchldHandler() {
   Log *log(ProcessPOSIXLog::GetLogIfAllCategoriesSet(POSIX_LOG_PROCESS));
   // Process all pending waitpid notifications.
   int status;
-  ::pid_t wait_pid = waitpid(GetID(), &status, WALLSIG | WNOHANG);
+  ::pid_t wait_pid =
+      llvm::sys::RetryAfterSignal(-1, waitpid, GetID(), &status, WALLSIG | WNOHANG);
 
   if (wait_pid == 0)
     return; // We are done.
 
   if (wait_pid == -1) {
-    if (errno == EINTR)
-      return;
-
     Status error(errno, eErrorTypePOSIX);
     LLDB_LOG(log, "waitpid ({0}, &status, _) failed: {1}", GetID(), error);
   }
 
-  bool exited = false;
-  int signal = 0;
-  int exit_status = 0;
-  const char *status_cstr = nullptr;
-  if (WIFSTOPPED(status)) {
-    signal = WSTOPSIG(status);
-    status_cstr = "STOPPED";
-  } else if (WIFEXITED(status)) {
-    exit_status = WEXITSTATUS(status);
-    status_cstr = "EXITED";
-    exited = true;
-  } else if (WIFSIGNALED(status)) {
-    signal = WTERMSIG(status);
-    status_cstr = "SIGNALED";
-    if (wait_pid == static_cast<::pid_t>(GetID())) {
-      exited = true;
-      exit_status = -1;
-    }
-  } else
-    status_cstr = "(\?\?\?)";
+  WaitStatus wait_status = WaitStatus::Decode(status);
+  bool exited = wait_status.type == WaitStatus::Exit ||
+                (wait_status.type == WaitStatus::Signal &&
+                 wait_pid == static_cast<::pid_t>(GetID()));
 
   LLDB_LOG(log,
-           "waitpid ({0}, &status, _) => pid = {1}, status = {2:x} "
-           "({3}), signal = {4}, exit_state = {5}",
-           GetID(), wait_pid, status, status_cstr, signal, exit_status);
+           "waitpid ({0}, &status, _) => pid = {1}, status = {2}, exited = {3}",
+           GetID(), wait_pid, status, exited);
 
   if (exited)
-    MonitorExited(wait_pid, signal, exit_status);
-  else
-    MonitorCallback(wait_pid, signal);
+    MonitorExited(wait_pid, wait_status);
+  else {
+    assert(wait_status.type == WaitStatus::Stop);
+    MonitorCallback(wait_pid, wait_status.status);
+  }
 }
 
 bool NativeProcessNetBSD::HasThreadNoLock(lldb::tid_t thread_id) {
-  for (auto thread_sp : m_threads) {
-    assert(thread_sp && "thread list should not contain NULL threads");
-    if (thread_sp->GetID() == thread_id) {
+  for (const auto &thread : m_threads) {
+    assert(thread && "thread list should not contain NULL threads");
+    if (thread->GetID() == thread_id) {
       // We have this thread.
       return true;
     }
@@ -906,7 +754,7 @@ bool NativeProcessNetBSD::HasThreadNoLock(lldb::tid_t thread_id) {
   return false;
 }
 
-NativeThreadNetBSDSP NativeProcessNetBSD::AddThread(lldb::tid_t thread_id) {
+NativeThreadNetBSD &NativeProcessNetBSD::AddThread(lldb::tid_t thread_id) {
 
   Log *log(ProcessPOSIXLog::GetLogIfAllCategoriesSet(POSIX_LOG_THREAD));
   LLDB_LOG(log, "pid {0} adding thread with tid {1}", GetID(), thread_id);
@@ -918,48 +766,34 @@ NativeThreadNetBSDSP NativeProcessNetBSD::AddThread(lldb::tid_t thread_id) {
   if (m_threads.empty())
     SetCurrentThreadID(thread_id);
 
-  auto thread_sp = std::make_shared<NativeThreadNetBSD>(this, thread_id);
-  m_threads.push_back(thread_sp);
-  return thread_sp;
+  m_threads.push_back(llvm::make_unique<NativeThreadNetBSD>(*this, thread_id));
+  return static_cast<NativeThreadNetBSD &>(*m_threads.back());
 }
 
-::pid_t NativeProcessNetBSD::Attach(lldb::pid_t pid, Status &error) {
-  if (pid <= 1) {
-    error.SetErrorToGenericError();
-    error.SetErrorString("Attaching to process 1 is not allowed.");
-    return -1;
-  }
-
+Status NativeProcessNetBSD::Attach() {
   // Attach to the requested process.
   // An attach will cause the thread to stop with a SIGSTOP.
-  error = PtraceWrapper(PT_ATTACH, pid);
-  if (error.Fail())
-    return -1;
+  Status status = PtraceWrapper(PT_ATTACH, m_pid);
+  if (status.Fail())
+    return status;
 
-  int status;
+  int wstatus;
   // Need to use WALLSIG otherwise we receive an error with errno=ECHLD
   // At this point we should have a thread stopped if waitpid succeeds.
-  if ((status = waitpid(pid, NULL, WALLSIG)) < 0)
-    return -1;
-
-  m_pid = pid;
+  if ((wstatus = waitpid(m_pid, NULL, WALLSIG)) < 0)
+    return Status(errno, eErrorTypePOSIX);
 
   /* Initialize threads */
-  error = ReinitializeThreads();
-  if (error.Fail()) {
-    SetState(StateType::eStateInvalid);
-    return -1;
-  }
+  status = ReinitializeThreads();
+  if (status.Fail())
+    return status;
 
-  for (const auto &thread_sp : m_threads) {
-    static_pointer_cast<NativeThreadNetBSD>(thread_sp)->SetStoppedBySignal(
-        SIGSTOP);
-  }
+  for (const auto &thread : m_threads)
+    static_cast<NativeThreadNetBSD &>(*thread).SetStoppedBySignal(SIGSTOP);
 
   // Let our process instance know the thread has stopped.
   SetState(StateType::eStateStopped);
-
-  return pid;
+  return Status();
 }
 
 Status NativeProcessNetBSD::ReadMemory(lldb::addr_t addr, void *buf,
@@ -1069,7 +903,7 @@ Status NativeProcessNetBSD::ReinitializeThreads() {
   }
   // Reinitialize from scratch threads and register them in process
   while (info.pl_lwpid != 0) {
-    NativeThreadNetBSDSP thread_sp = AddThread(info.pl_lwpid);
+    AddThread(info.pl_lwpid);
     error = PtraceWrapper(PT_LWPINFO, GetID(), &info, sizeof(info));
     if (error.Fail()) {
       return error;

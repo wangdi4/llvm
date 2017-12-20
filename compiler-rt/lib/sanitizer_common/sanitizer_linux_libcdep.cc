@@ -14,11 +14,12 @@
 
 #include "sanitizer_platform.h"
 
-#if SANITIZER_FREEBSD || SANITIZER_LINUX
+#if SANITIZER_FREEBSD || SANITIZER_LINUX || SANITIZER_NETBSD
 
 #include "sanitizer_allocator_internal.h"
 #include "sanitizer_atomic.h"
 #include "sanitizer_common.h"
+#include "sanitizer_file.h"
 #include "sanitizer_flags.h"
 #include "sanitizer_freebsd.h"
 #include "sanitizer_linux.h"
@@ -36,7 +37,12 @@
 #if SANITIZER_FREEBSD
 #include <pthread_np.h>
 #include <osreldate.h>
+#include <sys/sysctl.h>
 #define pthread_getattr_np pthread_attr_get_np
+#endif
+
+#if SANITIZER_NETBSD
+#include <sys/sysctl.h>
 #endif
 
 #if SANITIZER_LINUX
@@ -45,10 +51,16 @@
 
 #if SANITIZER_ANDROID
 #include <android/api-level.h>
+#if !defined(CPU_COUNT) && !defined(__aarch64__)
+#include <dirent.h>
+#include <fcntl.h>
+struct __sanitizer::linux_dirent {
+  long           d_ino;
+  off_t          d_off;
+  unsigned short d_reclen;
+  char           d_name[];
+};
 #endif
-
-#if SANITIZER_ANDROID && __ANDROID_API__ < 21
-#include <android/log.h>
 #endif
 
 #if !SANITIZER_ANDROID
@@ -81,28 +93,25 @@ void GetThreadStackTopAndBottom(bool at_initialization, uptr *stack_top,
 
     // Find the mapping that contains a stack variable.
     MemoryMappingLayout proc_maps(/*cache_enabled*/true);
-    uptr start, end, offset;
+    MemoryMappedSegment segment;
     uptr prev_end = 0;
-    while (proc_maps.Next(&start, &end, &offset, nullptr, 0,
-          /* protection */nullptr)) {
-      if ((uptr)&rl < end)
-        break;
-      prev_end = end;
+    while (proc_maps.Next(&segment)) {
+      if ((uptr)&rl < segment.end) break;
+      prev_end = segment.end;
     }
-    CHECK((uptr)&rl >= start && (uptr)&rl < end);
+    CHECK((uptr)&rl >= segment.start && (uptr)&rl < segment.end);
 
     // Get stacksize from rlimit, but clip it so that it does not overlap
     // with other mappings.
     uptr stacksize = rl.rlim_cur;
-    if (stacksize > end - prev_end)
-      stacksize = end - prev_end;
+    if (stacksize > segment.end - prev_end) stacksize = segment.end - prev_end;
     // When running with unlimited stack size, we still want to set some limit.
     // The unlimited stack size is caused by 'ulimit -s unlimited'.
     // Also, for some reason, GNU make spawns subprocesses with unlimited stack.
     if (stacksize > kMaxThreadStackSize)
       stacksize = kMaxThreadStackSize;
-    *stack_top = end;
-    *stack_bottom = end - stacksize;
+    *stack_top = segment.end;
+    *stack_bottom = segment.end - stacksize;
     return;
   }
   pthread_attr_t attr;
@@ -151,7 +160,8 @@ bool SanitizerGetThreadName(char *name, int max_len) {
 #endif
 }
 
-#if !SANITIZER_FREEBSD && !SANITIZER_ANDROID && !SANITIZER_GO
+#if !SANITIZER_FREEBSD && !SANITIZER_ANDROID && !SANITIZER_GO && \
+    !SANITIZER_NETBSD
 static uptr g_tls_size;
 
 #ifdef __i386__
@@ -179,7 +189,8 @@ void InitTlsSize() {
 }
 #else
 void InitTlsSize() { }
-#endif  // !SANITIZER_FREEBSD && !SANITIZER_ANDROID && !SANITIZER_GO
+#endif  // !SANITIZER_FREEBSD && !SANITIZER_ANDROID && !SANITIZER_GO &&
+        // !SANITIZER_NETBSD
 
 #if (defined(__x86_64__) || defined(__i386__) || defined(__mips__) \
     || defined(__aarch64__) || defined(__powerpc64__) || defined(__s390__) \
@@ -316,7 +327,7 @@ uptr ThreadSelf() {
 }
 #endif  // (x86_64 || i386 || MIPS) && SANITIZER_LINUX
 
-#if SANITIZER_FREEBSD
+#if SANITIZER_FREEBSD || SANITIZER_NETBSD
 static void **ThreadSelfSegbase() {
   void **segbase = 0;
 # if defined(__i386__)
@@ -326,7 +337,7 @@ static void **ThreadSelfSegbase() {
   // sysarch(AMD64_GET_FSBASE, segbase);
   __asm __volatile("movq %%fs:0, %0" : "=r" (segbase));
 # else
-#  error "unsupported CPU arch for FreeBSD platform"
+#  error "unsupported CPU arch"
 # endif
   return segbase;
 }
@@ -334,7 +345,7 @@ static void **ThreadSelfSegbase() {
 uptr ThreadSelf() {
   return (uptr)ThreadSelfSegbase()[2];
 }
-#endif  // SANITIZER_FREEBSD
+#endif  // SANITIZER_FREEBSD || SANITIZER_NETBSD
 
 #if !SANITIZER_GO
 static void GetTls(uptr *addr, uptr *size) {
@@ -352,7 +363,7 @@ static void GetTls(uptr *addr, uptr *size) {
   *addr = 0;
   *size = 0;
 # endif
-#elif SANITIZER_FREEBSD
+#elif SANITIZER_FREEBSD || SANITIZER_NETBSD
   void** segbase = ThreadSelfSegbase();
   *addr = 0;
   *size = 0;
@@ -376,7 +387,7 @@ static void GetTls(uptr *addr, uptr *size) {
 
 #if !SANITIZER_GO
 uptr GetTlsSize() {
-#if SANITIZER_FREEBSD || SANITIZER_ANDROID
+#if SANITIZER_FREEBSD || SANITIZER_ANDROID || SANITIZER_NETBSD
   uptr addr, size;
   GetTls(&addr, &size);
   return size;
@@ -422,7 +433,7 @@ typedef ElfW(Phdr) Elf_Phdr;
 # endif
 
 struct DlIteratePhdrData {
-  InternalMmapVector<LoadedModule> *modules;
+  InternalMmapVectorNoCtor<LoadedModule> *modules;
   bool first;
 };
 
@@ -460,21 +471,41 @@ extern "C" __attribute__((weak)) int dl_iterate_phdr(
     int (*)(struct dl_phdr_info *, size_t, void *), void *);
 #endif
 
-void ListOfModules::init() {
-  clear();
+static bool requiresProcmaps() {
 #if SANITIZER_ANDROID && __ANDROID_API__ <= 22
-  u32 api_level = AndroidGetApiLevel();
   // Fall back to /proc/maps if dl_iterate_phdr is unavailable or broken.
   // The runtime check allows the same library to work with
   // both K and L (and future) Android releases.
-  if (api_level <= ANDROID_LOLLIPOP_MR1) { // L or earlier
-    MemoryMappingLayout memory_mapping(false);
-    memory_mapping.DumpListOfModules(&modules_);
-    return;
-  }
+  return AndroidGetApiLevel() <= ANDROID_LOLLIPOP_MR1;
+#else
+  return false;
 #endif
-  DlIteratePhdrData data = {&modules_, true};
-  dl_iterate_phdr(dl_iterate_phdr_cb, &data);
+}
+
+static void procmapsInit(InternalMmapVectorNoCtor<LoadedModule> *modules) {
+  MemoryMappingLayout memory_mapping(/*cache_enabled*/true);
+  memory_mapping.DumpListOfModules(modules);
+}
+
+void ListOfModules::init() {
+  clearOrInit();
+  if (requiresProcmaps()) {
+    procmapsInit(&modules_);
+  } else {
+    DlIteratePhdrData data = {&modules_, true};
+    dl_iterate_phdr(dl_iterate_phdr_cb, &data);
+  }
+}
+
+// When a custom loader is used, dl_iterate_phdr may not contain the full
+// list of modules. Allow callers to fall back to using procmaps.
+void ListOfModules::fallbackInit() {
+  if (!requiresProcmaps()) {
+    clearOrInit();
+    procmapsInit(&modules_);
+  } else {
+    clear();
+  }
 }
 
 // getrusage does not give us the current RSS, only the max RSS.
@@ -516,12 +547,62 @@ uptr GetRSS() {
   return rss * GetPageSizeCached();
 }
 
-// 64-bit Android targets don't provide the deprecated __android_log_write.
-// Starting with the L release, syslog() works and is preferable to
-// __android_log_write.
+// sysconf(_SC_NPROCESSORS_{CONF,ONLN}) cannot be used as they allocate memory.
+u32 GetNumberOfCPUs() {
+#if SANITIZER_FREEBSD || SANITIZER_NETBSD
+  u32 ncpu;
+  int req[2];
+  size_t len = sizeof(ncpu);
+  req[0] = CTL_HW;
+  req[1] = HW_NCPU;
+  CHECK_EQ(sysctl(req, 2, &ncpu, &len, NULL, 0), 0);
+  return ncpu;
+#elif SANITIZER_ANDROID && !defined(CPU_COUNT) && !defined(__aarch64__)
+  // Fall back to /sys/devices/system/cpu on Android when cpu_set_t doesn't
+  // exist in sched.h. That is the case for toolchains generated with older
+  // NDKs.
+  // This code doesn't work on AArch64 because internal_getdents makes use of
+  // the 64bit getdents syscall, but cpu_set_t seems to always exist on AArch64.
+  uptr fd = internal_open("/sys/devices/system/cpu", O_RDONLY | O_DIRECTORY);
+  if (internal_iserror(fd))
+    return 0;
+  InternalScopedBuffer<u8> buffer(4096);
+  uptr bytes_read = buffer.size();
+  uptr n_cpus = 0;
+  u8 *d_type;
+  struct linux_dirent *entry = (struct linux_dirent *)&buffer[bytes_read];
+  while (true) {
+    if ((u8 *)entry >= &buffer[bytes_read]) {
+      bytes_read = internal_getdents(fd, (struct linux_dirent *)buffer.data(),
+                                     buffer.size());
+      if (internal_iserror(bytes_read) || !bytes_read)
+        break;
+      entry = (struct linux_dirent *)buffer.data();
+    }
+    d_type = (u8 *)entry + entry->d_reclen - 1;
+    if (d_type >= &buffer[bytes_read] ||
+        (u8 *)&entry->d_name[3] >= &buffer[bytes_read])
+      break;
+    if (entry->d_ino != 0 && *d_type == DT_DIR) {
+      if (entry->d_name[0] == 'c' && entry->d_name[1] == 'p' &&
+          entry->d_name[2] == 'u' &&
+          entry->d_name[3] >= '0' && entry->d_name[3] <= '9')
+        n_cpus++;
+    }
+    entry = (struct linux_dirent *)(((u8 *)entry) + entry->d_reclen);
+  }
+  internal_close(fd);
+  return n_cpus;
+#else
+  cpu_set_t CPUs;
+  CHECK_EQ(sched_getaffinity(0, sizeof(cpu_set_t), &CPUs), 0);
+  return CPU_COUNT(&CPUs);
+#endif
+}
+
 #if SANITIZER_LINUX
 
-#if SANITIZER_ANDROID
+# if SANITIZER_ANDROID
 static atomic_uint8_t android_log_initialized;
 
 void AndroidLogInit() {
@@ -532,26 +613,55 @@ void AndroidLogInit() {
 static bool ShouldLogAfterPrintf() {
   return atomic_load(&android_log_initialized, memory_order_acquire);
 }
-#else
+
+extern "C" SANITIZER_WEAK_ATTRIBUTE
+int async_safe_write_log(int pri, const char* tag, const char* msg);
+extern "C" SANITIZER_WEAK_ATTRIBUTE
+int __android_log_write(int prio, const char* tag, const char* msg);
+
+// ANDROID_LOG_INFO is 4, but can't be resolved at runtime.
+#define SANITIZER_ANDROID_LOG_INFO 4
+
+// async_safe_write_log is a new public version of __libc_write_log that is
+// used behind syslog. It is preferable to syslog as it will not do any dynamic
+// memory allocation or formatting.
+// If the function is not available, syslog is preferred for L+ (it was broken
+// pre-L) as __android_log_write triggers a racey behavior with the strncpy
+// interceptor. Fallback to __android_log_write pre-L.
+void WriteOneLineToSyslog(const char *s) {
+  if (&async_safe_write_log) {
+    async_safe_write_log(SANITIZER_ANDROID_LOG_INFO, GetProcessName(), s);
+  } else if (AndroidGetApiLevel() > ANDROID_KITKAT) {
+    syslog(LOG_INFO, "%s", s);
+  } else {
+    CHECK(&__android_log_write);
+    __android_log_write(SANITIZER_ANDROID_LOG_INFO, nullptr, s);
+  }
+}
+
+extern "C" SANITIZER_WEAK_ATTRIBUTE
+void android_set_abort_message(const char *);
+
+void SetAbortMessage(const char *str) {
+  if (&android_set_abort_message)
+    android_set_abort_message(str);
+}
+# else
 void AndroidLogInit() {}
 
 static bool ShouldLogAfterPrintf() { return true; }
-#endif  // SANITIZER_ANDROID
 
-void WriteOneLineToSyslog(const char *s) {
-#if SANITIZER_ANDROID &&__ANDROID_API__ < 21
-  __android_log_write(ANDROID_LOG_INFO, NULL, s);
-#else
-  syslog(LOG_INFO, "%s", s);
-#endif
-}
+void WriteOneLineToSyslog(const char *s) { syslog(LOG_INFO, "%s", s); }
+
+void SetAbortMessage(const char *str) {}
+# endif  // SANITIZER_ANDROID
 
 void LogMessageOnPrintf(const char *str) {
   if (common_flags()->log_to_syslog && ShouldLogAfterPrintf())
     WriteToSyslog(str);
 }
 
-#endif // SANITIZER_LINUX
+#endif  // SANITIZER_LINUX
 
 } // namespace __sanitizer
 

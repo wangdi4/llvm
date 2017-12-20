@@ -21,7 +21,7 @@
 #include "X86TargetMachine.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/CodeGen/BasicTTIImpl.h"
-#include "llvm/Target/TargetLowering.h"
+#include "llvm/CodeGen/TargetLowering.h"
 
 namespace llvm {
 
@@ -46,6 +46,14 @@ public:
   TTI::PopcntSupportKind getPopcntSupport(unsigned TyWidth);
   unsigned getLoopRotationDefaultThreshold(bool OptForSize) const;
 
+  /// @}
+
+  /// \name Cache TTI Implementation
+  /// @{
+  llvm::Optional<unsigned> getCacheSize(
+    TargetTransformInfo::CacheLevel Level) const;
+  llvm::Optional<unsigned> getCacheAssociativity(
+    TargetTransformInfo::CacheLevel Level) const;
   /// @}
 
   /// \name Vector TTI Implementations
@@ -86,7 +94,11 @@ public:
                             ArrayRef<Value *> Args, FastMathFlags FMF,
                             unsigned VF = 1);
 
-  int getReductionCost(unsigned Opcode, Type *Ty, bool IsPairwiseForm);
+  int getArithmeticReductionCost(unsigned Opcode, Type *Ty,
+                                 bool IsPairwiseForm);
+
+  int getMinMaxReductionCost(Type *Ty, Type *CondTy, bool IsPairwiseForm,
+                             bool IsUnsigned);
 
   int getInterleavedMemoryOpCost(unsigned Opcode, Type *VecTy,
                                  unsigned Factor, ArrayRef<unsigned> Indices,
@@ -94,10 +106,15 @@ public:
   int getInterleavedMemoryOpCostAVX512(unsigned Opcode, Type *VecTy,
                                  unsigned Factor, ArrayRef<unsigned> Indices,
                                  unsigned Alignment, unsigned AddressSpace);
+  int getInterleavedMemoryOpCostAVX2(unsigned Opcode, Type *VecTy,
+                                 unsigned Factor, ArrayRef<unsigned> Indices,
+                                 unsigned Alignment, unsigned AddressSpace);
 
   int getIntImmCost(int64_t);
 
   int getIntImmCost(const APInt &Imm, Type *Ty);
+
+  unsigned getUserCost(const User *U, ArrayRef<const Value *> Operands);
 
   int getIntImmCost(unsigned Opcode, unsigned Idx, const APInt &Imm, Type *Ty);
   int getIntImmCost(Intrinsic::ID IID, unsigned Idx, const APInt &Imm,
@@ -113,9 +130,12 @@ public:
   bool adjustCallArgs(CallInst* CI);
   bool isTargetSpecificShuffleMask(SmallVectorImpl<int> &Mask) const;
 #endif // INTEL_CUSTOMIZATION
+  bool hasDivRemOp(Type *DataType, bool IsSigned);
+  bool isFCmpOrdCheaperThanFCmpZero(Type *Ty);
   bool areInlineCompatible(const Function *Caller,
                            const Function *Callee) const;
-
+  const TTI::MemCmpExpansionOptions *enableMemCmpExpansion(
+      bool IsZeroCmp) const;
   bool enableInterleavedAccessVectorization();
 private:
   int getGSScalarCost(unsigned Opcode, Type *DataTy, bool VariableMask,

@@ -13,12 +13,14 @@ Xmain
    XmainProcesses
    PulldownProcess
    JIRA
+   IRSuppression
    LoopAnalysis/index
    LoopTransforms/index
    VPO/index
    Analysis/index
    CodeGen/index
    Clang/index
+   DTrans/index
    GapAnalysis/index
    Tools/index
 
@@ -81,6 +83,10 @@ process change requests to them.
 :doc:`LLVM Specific JIRA Usage <JIRA>`
    Describes JIRA usage policies specific to LLVM development.
 
+:doc:`IR Suppression in Product Executables <IRSuppression>`
+   Describes the rationale behind suppressing IR output in released products
+   and the implementation used to do so.
+
 Major Components
 ================
 :doc:`LoopAnalysis <LoopAnalysis/index>`
@@ -100,6 +106,9 @@ Major Components
 
 :doc:`Clang <Clang/index>`
    Container for Clang documents.
+
+:doc:`DTrans <DTrans/index>`
+   Describes data layout transformations and analysis.
 
 :doc:`GapAnalysis <GapAnalysis/index>`
    Documents xmain performance and functional gaps for replacing ICC.

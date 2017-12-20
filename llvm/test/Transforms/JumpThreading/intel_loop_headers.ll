@@ -166,7 +166,9 @@ b4:
 ; CHECK: b3.thread:
 ; CHECK-NEXT: call void @f0
 ; CHECK-NEXT: call i1 @continue
-; CHECK-NEXT: br i1 {{.*}}, label %b3, label %b6
+; CHECK-NEXT: br i1 {{.*}}, label %b3, label %b4.thread
+; CHECK: b4.thread:
+; CHECK-NEXT: br label %b6
 ;
 define i32 @f7(i32 %arg1) {
 b0:

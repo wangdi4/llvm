@@ -11,11 +11,11 @@
 
 ; CHECK: IR Dump After
 ; CHECK: %cast = bitcast.i64*.i32*(&((%b)[0]));
-; CHECK: %cast1 = bitcast.i64*.i32*(&((%b)[zext.i32.i64((-1 + %N))]));
+; CHECK: %cast1 = bitcast.i64*.i32*(&((%b)[sext.i32.i64((-1 + %N))]));
 ; CHECK: %mv.test = %cast1 >=u &((%a)[0]);
-; CHECK: %mv.test2 = &((%a)[zext.i32.i64((-1 + %N))]) >=u %cast;
+; CHECK: %mv.test2 = &((%a)[sext.i32.i64((-1 + %N))]) >=u %cast;
 ; CHECK: %mv.and = %mv.test  &&  %mv.test2;
-; CHECK: if (zext.i32.i64((-1 + %N)) + 1 >=u 16 && %mv.and == 0)
+; CHECK: if (%mv.and == 0)
 
 ; ModuleID = 'ptr-types.ll'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

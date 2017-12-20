@@ -145,11 +145,9 @@ public:
   bool DisableTailCalls;
   bool DisableUnitAtATime;
   bool DisableUnrollLoops;
-  bool BBVectorize;
   bool SLPVectorize;
   bool LoopVectorize;
   bool RerollLoops;
-  bool LoadCombine;
   bool NewGVN;
   bool DisableGVNLoadPRE;
   bool VerifyInput;
@@ -168,6 +166,11 @@ public:
   std::string PGOInstrUse;
   /// Path of the sample Profile data file.
   std::string PGOSampleUse;
+
+#if INTEL_CUSTOMIZATION
+  // List of target triples for offloading.
+  std::vector<std::string> OffloadTargets;
+#endif // INTEL_CUSTOMIZATION
 
 private:
   /// ExtensionList - This is list of all of the extensions that are registered.

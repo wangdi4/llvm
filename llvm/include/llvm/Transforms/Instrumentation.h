@@ -22,24 +22,11 @@
 #include <string>
 #include <vector>
 
-#if defined(__GNUC__) && defined(__linux__) && !defined(ANDROID)
-inline void *getDFSanArgTLSPtrForJIT() {
-  extern __thread __attribute__((tls_model("initial-exec")))
-    void *__dfsan_arg_tls;
-  return (void *)&__dfsan_arg_tls;
-}
-
-inline void *getDFSanRetValTLSPtrForJIT() {
-  extern __thread __attribute__((tls_model("initial-exec")))
-    void *__dfsan_retval_tls;
-  return (void *)&__dfsan_retval_tls;
-}
-#endif
-
 namespace llvm {
 
 class FunctionPass;
 class ModulePass;
+class OptimizationRemarkEmitter;
 
 /// Instrumentation passes often insert conditional checks into entry blocks.
 /// Call this function before splitting the entry block to move instructions
@@ -109,12 +96,16 @@ bool isLegalToPromote(Instruction *Inst, Function *F, const char **Reason);
 // Returns the promoted direct call instruction.
 Instruction *promoteIndirectCall(Instruction *Inst, Function *F, uint64_t Count,
                                  uint64_t TotalCount,
-                                 bool AttachProfToDirectCall);
+                                 bool AttachProfToDirectCall,
+                                 OptimizationRemarkEmitter *ORE);
 
 /// Options for the frontend instrumentation based profiling pass.
 struct InstrProfOptions {
   // Add the 'noredzone' attribute to added runtime library calls.
   bool NoRedZone = false;
+
+  // Do counter register promotion
+  bool DoCounterPromotion = false;
 
   // Name of the profile file to use as output
   std::string InstrProfileOutput;
@@ -178,7 +169,9 @@ struct SanitizerCoverageOptions {
   bool TracePC = false;
   bool TracePCGuard = false;
   bool Inline8bitCounters = false;
+  bool PCTable = false;
   bool NoPrune = false;
+  bool StackDepth = false;
 
   SanitizerCoverageOptions() = default;
 };
@@ -186,18 +179,6 @@ struct SanitizerCoverageOptions {
 // Insert SanitizerCoverage instrumentation.
 ModulePass *createSanitizerCoverageModulePass(
     const SanitizerCoverageOptions &Options = SanitizerCoverageOptions());
-
-#if defined(__GNUC__) && defined(__linux__) && !defined(ANDROID)
-inline ModulePass *createDataFlowSanitizerPassForJIT(
-    const std::vector<std::string> &ABIListFiles = std::vector<std::string>()) {
-  return createDataFlowSanitizerPass(ABIListFiles, getDFSanArgTLSPtrForJIT,
-                                     getDFSanRetValTLSPtrForJIT);
-}
-#endif
-
-// BoundsChecking - This pass instruments the code to perform run-time bounds
-// checking on loads, stores, and other memory intrinsics.
-FunctionPass *createBoundsCheckingPass();
 
 /// \brief Calculate what to divide by to scale counts.
 ///

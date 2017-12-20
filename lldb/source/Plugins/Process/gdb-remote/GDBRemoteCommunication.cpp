@@ -815,7 +815,8 @@ GDBRemoteCommunication::CheckForPacket(const uint8_t *src, size_t src_len,
         // checksum
         if (m_bytes[0] == '$' && total_length > 4) {
           for (size_t i = 0; !binary && i < total_length; ++i) {
-            if (isprint(m_bytes[i]) == 0 && isspace(m_bytes[i]) == 0) {
+            unsigned char c = m_bytes[i];
+            if (isprint(c) == 0 && isspace(c) == 0) {
               binary = true;
             }
           }
@@ -1373,5 +1374,41 @@ void GDBRemoteCommunication::AppendBytesToCache(const uint8_t *bytes,
       BroadcastEvent(eBroadcastBitGdbReadThreadGotNotify,
                      new EventDataBytes(pdata));
     }
+  }
+}
+
+void llvm::format_provider<GDBRemoteCommunication::PacketResult>::format(
+    const GDBRemoteCommunication::PacketResult &result, raw_ostream &Stream,
+    StringRef Style) {
+  using PacketResult = GDBRemoteCommunication::PacketResult;
+
+  switch (result) {
+  case PacketResult::Success:
+    Stream << "Success";
+    break;
+  case PacketResult::ErrorSendFailed:
+    Stream << "ErrorSendFailed";
+    break;
+  case PacketResult::ErrorSendAck:
+    Stream << "ErrorSendAck";
+    break;
+  case PacketResult::ErrorReplyFailed:
+    Stream << "ErrorReplyFailed";
+    break;
+  case PacketResult::ErrorReplyTimeout:
+    Stream << "ErrorReplyTimeout";
+    break;
+  case PacketResult::ErrorReplyInvalid:
+    Stream << "ErrorReplyInvalid";
+    break;
+  case PacketResult::ErrorReplyAck:
+    Stream << "ErrorReplyAck";
+    break;
+  case PacketResult::ErrorDisconnected:
+    Stream << "ErrorDisconnected";
+    break;
+  case PacketResult::ErrorNoSequenceLock:
+    Stream << "ErrorNoSequenceLock";
+    break;
   }
 }

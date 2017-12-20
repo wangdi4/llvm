@@ -299,6 +299,7 @@ def IIC_SSE_SHUFP : InstrItinClass;
 def IIC_SSE_PSHUF_RI : InstrItinClass;
 def IIC_SSE_PSHUF_MI : InstrItinClass;
 
+def IIC_SSE_PACK : InstrItinClass;
 def IIC_SSE_UNPCK : InstrItinClass;
 
 def IIC_SSE_MOVMSK : InstrItinClass;
@@ -425,11 +426,20 @@ def IIC_MMX_PSHUF : InstrItinClass;
 def IIC_MMX_PEXTR : InstrItinClass;
 def IIC_MMX_PINSRW : InstrItinClass;
 def IIC_MMX_MASKMOV : InstrItinClass;
-
+def IIC_MMX_MOVMSK : InstrItinClass;
 def IIC_MMX_CVT_PD_RR : InstrItinClass;
 def IIC_MMX_CVT_PD_RM : InstrItinClass;
 def IIC_MMX_CVT_PS_RR : InstrItinClass;
 def IIC_MMX_CVT_PS_RM : InstrItinClass;
+
+def IIC_3DNOW_FALU_RM : InstrItinClass;
+def IIC_3DNOW_FALU_RR : InstrItinClass;
+def IIC_3DNOW_FCVT_F2I_RM : InstrItinClass;
+def IIC_3DNOW_FCVT_F2I_RR : InstrItinClass;
+def IIC_3DNOW_FCVT_I2F_RM : InstrItinClass;
+def IIC_3DNOW_FCVT_I2F_RR : InstrItinClass;
+def IIC_3DNOW_MISC_FUNC_REG : InstrItinClass;
+def IIC_3DNOW_MISC_FUNC_MEM : InstrItinClass;
 
 def IIC_CMPX_LOCK : InstrItinClass;
 def IIC_CMPX_LOCK_8 : InstrItinClass;
@@ -467,6 +477,8 @@ def IIC_FXTRACT : InstrItinClass;
 def IIC_FPREM1 : InstrItinClass;
 def IIC_FPSTP : InstrItinClass;
 def IIC_FPREM : InstrItinClass;
+def IIC_FSIGN : InstrItinClass;
+def IIC_FSQRT : InstrItinClass;
 def IIC_FYL2XP1 : InstrItinClass;
 def IIC_FSINCOS : InstrItinClass;
 def IIC_FRNDINT : InstrItinClass;
@@ -662,6 +674,10 @@ def GenericPostRAModel : GenericX86Model {
 include "X86ScheduleAtom.td"
 include "X86SchedSandyBridge.td"
 include "X86SchedHaswell.td"
+include "X86SchedBroadwell.td"
 include "X86ScheduleSLM.td"
+include "X86ScheduleZnver1.td"
 include "X86ScheduleBtVer2.td"
+include "X86SchedSkylakeClient.td"
+include "X86SchedSkylakeServer.td"
 

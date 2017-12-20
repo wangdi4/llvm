@@ -22,7 +22,7 @@
 using namespace lldb_private;
 
 std::string JSONString::json_string_quote_metachars(const std::string &s) {
-  if (s.find('"') == std::string::npos)
+  if (s.find_first_of("\\\n\"") == std::string::npos)
     return s;
 
   std::string output;
@@ -30,8 +30,9 @@ std::string JSONString::json_string_quote_metachars(const std::string &s) {
   const char *s_chars = s.c_str();
   for (size_t i = 0; i < s_size; i++) {
     unsigned char ch = *(s_chars + i);
-    if (ch == '"') {
+    if (ch == '"' || ch == '\\' || ch == '\n') {
       output.push_back('\\');
+      if (ch == '\n') ch = 'n';
     }
     output.push_back(ch);
   }
@@ -191,7 +192,7 @@ JSONValue::SP JSONArray::GetObject(Index i) {
 
 JSONArray::Size JSONArray::GetNumElements() { return m_elements.size(); }
 
-JSONParser::JSONParser(const char *cstr) : StringExtractor(cstr) {}
+JSONParser::JSONParser(llvm::StringRef data) : StringExtractor(data) {}
 
 JSONParser::Token JSONParser::GetToken(std::string &value) {
   StreamString error;

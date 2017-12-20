@@ -28,11 +28,12 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/Diag.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/VectorUtils.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -345,6 +346,18 @@ bool DDWalk::isSafeReductionFlowDep(const RegDDRef *SrcRef,
     if (SRI->OpCode == Instruction::Select) {
       return false;
     } else {
+      bool FPRedn = SrcRef->getDestType()->isFloatingPointTy();
+      auto FPInst = dyn_cast<FPMathOperator>(Inst->getLLVMInstruction());
+
+      // Return unsafe to vectorize if we are dealing with a Floating
+      // point reduction, and fast flag is off. FPInst can
+      // be NULL for a copy instruction.
+      if (FPRedn && (!FPInst || !FPInst->isFast())) {
+        DEBUG(dbgs() << "\tis unsafe to vectorize/parallelize "
+                        "(FP reduction with fast flag off)\n");
+        return false;
+      }
+
       return true;
     }
   }
@@ -384,12 +397,10 @@ void DDWalk::analyze(const RegDDRef *SrcRef, const DDEdge *Edge) {
 
   // Is this really useful if refineDV() doesn't recompute?
   if (Edge->isRefinableDepAtLevel(NestLevel)) {
-    DirectionVector DV;
-    DistanceVector DistV;
+    auto RefinedDep =
+        DDA.refineDV(Edge->getSrc(), SinkRef, NestLevel, 1, false);
 
-    bool IsIndep = false;
-    if (DDA.refineDV(Edge->getSrc(), SinkRef, NestLevel, 1, DV, DistV,
-                     &IsIndep)) {
+    if (RefinedDep.isRefined()) {
       // TODO: Set Type/Loc. Call emitDiag().
       DEBUG(dbgs() << "\tis unsafe to vectorize/parallelize");
     } else {
@@ -410,7 +421,18 @@ void DDWalk::visit(HLDDNode *Node) {
     if (auto Call = dyn_cast<CallInst>(Inst->getLLVMInstruction())) {
       auto Func = Call->getCalledFunction();
 
-      if (!Func || !TLI.isFunctionVectorizable(Func->getName())) {
+      bool IsNotVectorizable = false;
+
+      if (Func) {
+        if (Func->isIntrinsic())
+          IsNotVectorizable = !isTriviallyVectorizable(Func->getIntrinsicID());
+        else
+          IsNotVectorizable = !TLI.isFunctionVectorizable(Func->getName());
+      } else {
+        IsNotVectorizable = true;
+      }
+
+      if (IsNotVectorizable) {
         Info->setVecType(ParVecInfo::UNKNOWN_CALL);
         Info->setParType(ParVecInfo::UNKNOWN_CALL);
         return;

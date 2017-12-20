@@ -463,19 +463,15 @@ static const char *findBeginningOfLine(StringRef Buffer, unsigned Offset) {
   const char *BufStart = Buffer.data();
   if (Offset >= Buffer.size())
     return nullptr;
-  const char *StrData = BufStart + Offset;
 
-  if (StrData[0] == '\n' || StrData[0] == '\r')
-    return StrData;
-
-  const char *LexStart = StrData;
-  while (LexStart != BufStart) {
-    if (LexStart[0] == '\n' || LexStart[0] == '\r') {
+  const char *LexStart = BufStart + Offset;
+  for (; LexStart != BufStart; --LexStart) {
+    if (isVerticalWhitespace(LexStart[0]) &&
+        !Lexer::isNewLineEscaped(BufStart, LexStart)) {
+      // LexStart should point at first character of logical line.
       ++LexStart;
       break;
     }
-
-    --LexStart;
   }
   return LexStart;
 }
@@ -487,7 +483,7 @@ static SourceLocation getBeginningOfFileToken(SourceLocation Loc,
   std::pair<FileID, unsigned> LocInfo = SM.getDecomposedLoc(Loc);
   if (LocInfo.first.isInvalid())
     return Loc;
-  
+
   bool Invalid = false;
   StringRef Buffer = SM.getBufferData(LocInfo.first, &Invalid);
   if (Invalid)
@@ -499,31 +495,31 @@ static SourceLocation getBeginningOfFileToken(SourceLocation Loc,
   const char *LexStart = findBeginningOfLine(Buffer, LocInfo.second);
   if (!LexStart || LexStart == StrData)
     return Loc;
-  
+
   // Create a lexer starting at the beginning of this token.
   SourceLocation LexerStartLoc = Loc.getLocWithOffset(-LocInfo.second);
   Lexer TheLexer(LexerStartLoc, LangOpts, Buffer.data(), LexStart,
                  Buffer.end());
   TheLexer.SetCommentRetentionState(true);
-  
+
   // Lex tokens until we find the token that contains the source location.
   Token TheTok;
   do {
     TheLexer.LexFromRawLexer(TheTok);
-    
+
     if (TheLexer.getBufferLocation() > StrData) {
       // Lexing this token has taken the lexer past the source location we're
       // looking for. If the current token encompasses our source location,
       // return the beginning of that token.
       if (TheLexer.getBufferLocation() - TheTok.getLength() <= StrData)
         return TheTok.getLocation();
-      
+
       // We ended up skipping over the source location entirely, which means
       // that it points into whitespace. We're done here.
       break;
     }
   } while (TheTok.getKind() != tok::eof);
-  
+
   // We've passed our source location; just return the original source location.
   return Loc;
 }
@@ -531,20 +527,20 @@ static SourceLocation getBeginningOfFileToken(SourceLocation Loc,
 SourceLocation Lexer::GetBeginningOfToken(SourceLocation Loc,
                                           const SourceManager &SM,
                                           const LangOptions &LangOpts) {
- if (Loc.isFileID())
-   return getBeginningOfFileToken(Loc, SM, LangOpts);
- 
- if (!SM.isMacroArgExpansion(Loc))
-   return Loc;
+  if (Loc.isFileID())
+    return getBeginningOfFileToken(Loc, SM, LangOpts);
 
- SourceLocation FileLoc = SM.getSpellingLoc(Loc);
- SourceLocation BeginFileLoc = getBeginningOfFileToken(FileLoc, SM, LangOpts);
- std::pair<FileID, unsigned> FileLocInfo = SM.getDecomposedLoc(FileLoc);
- std::pair<FileID, unsigned> BeginFileLocInfo
-   = SM.getDecomposedLoc(BeginFileLoc);
- assert(FileLocInfo.first == BeginFileLocInfo.first &&
-        FileLocInfo.second >= BeginFileLocInfo.second);
- return Loc.getLocWithOffset(BeginFileLocInfo.second - FileLocInfo.second);
+  if (!SM.isMacroArgExpansion(Loc))
+    return Loc;
+
+  SourceLocation FileLoc = SM.getSpellingLoc(Loc);
+  SourceLocation BeginFileLoc = getBeginningOfFileToken(FileLoc, SM, LangOpts);
+  std::pair<FileID, unsigned> FileLocInfo = SM.getDecomposedLoc(FileLoc);
+  std::pair<FileID, unsigned> BeginFileLocInfo =
+      SM.getDecomposedLoc(BeginFileLoc);
+  assert(FileLocInfo.first == BeginFileLocInfo.first &&
+         FileLocInfo.second >= BeginFileLocInfo.second);
+  return Loc.getLocWithOffset(BeginFileLocInfo.second - FileLocInfo.second);
 }
 
 namespace {
@@ -556,9 +552,9 @@ namespace {
 
 } // end anonymous namespace
 
-std::pair<unsigned, bool> Lexer::ComputePreamble(StringRef Buffer,
-                                                 const LangOptions &LangOpts,
-                                                 unsigned MaxLines) {
+PreambleBounds Lexer::ComputePreamble(StringRef Buffer,
+                                      const LangOptions &LangOpts,
+                                      unsigned MaxLines) {
   // Create a lexer starting at the beginning of the file. Note that we use a
   // "fake" file source location at offset 1 so that the lexer will track our
   // position within the file.
@@ -567,9 +563,6 @@ std::pair<unsigned, bool> Lexer::ComputePreamble(StringRef Buffer,
   Lexer TheLexer(FileLoc, LangOpts, Buffer.begin(), Buffer.begin(),
                  Buffer.end());
   TheLexer.SetCommentRetentionState(true);
-
-  // StartLoc will differ from FileLoc if there is a BOM that was skipped.
-  SourceLocation StartLoc = TheLexer.getSourceLocation();
 
   bool InPreprocessorDirective = false;
   Token TheTok;
@@ -692,7 +685,7 @@ std::pair<unsigned, bool> Lexer::ComputePreamble(StringRef Buffer,
   else
     End = TheTok.getLocation();
 
-  return std::make_pair(End.getRawEncoding() - StartLoc.getRawEncoding(),
+  return PreambleBounds(End.getRawEncoding() - FileLoc.getRawEncoding(),
                         TheTok.isAtStartOfLine());
 }
 
@@ -1032,6 +1025,26 @@ bool Lexer::isIdentifierBodyChar(char c, const LangOptions &LangOpts) {
   return isIdentifierBody(c, LangOpts.DollarIdents);
 }
 
+bool Lexer::isNewLineEscaped(const char *BufferStart, const char *Str) {
+  assert(isVerticalWhitespace(Str[0]));
+  if (Str - 1 < BufferStart)
+    return false;
+
+  if ((Str[0] == '\n' && Str[-1] == '\r') ||
+      (Str[0] == '\r' && Str[-1] == '\n')) {
+    if (Str - 2 < BufferStart)
+      return false;
+    --Str;
+  }
+  --Str;
+
+  // Rewind to first non-space character:
+  while (Str > BufferStart && isHorizontalWhitespace(*Str))
+    --Str;
+
+  return *Str == '\\';
+}
+
 StringRef Lexer::getIndentationForLine(SourceLocation Loc,
                                        const SourceManager &SM) {
   if (Loc.isInvalid() || Loc.isMacroID())
@@ -1199,18 +1212,12 @@ const char *Lexer::SkipEscapedNewLines(const char *P) {
   }
 }
 
-/// \brief Checks that the given token is the first token that occurs after the
-/// given location (this excludes comments and whitespace). Returns the location
-/// immediately after the specified token. If the token is not found or the
-/// location is inside a macro, the returned source location will be invalid.
-SourceLocation Lexer::findLocationAfterToken(SourceLocation Loc,
-                                        tok::TokenKind TKind,
-                                        const SourceManager &SM,
-                                        const LangOptions &LangOpts,
-                                        bool SkipTrailingWhitespaceAndNewLine) {
+Optional<Token> Lexer::findNextToken(SourceLocation Loc,
+                                     const SourceManager &SM,
+                                     const LangOptions &LangOpts) {
   if (Loc.isMacroID()) {
     if (!Lexer::isAtEndOfMacroExpansion(Loc, SM, LangOpts, &Loc))
-      return SourceLocation();
+      return None;
   }
   Loc = Lexer::getLocForEndOfToken(Loc, 0, SM, LangOpts);
 
@@ -1221,7 +1228,7 @@ SourceLocation Lexer::findLocationAfterToken(SourceLocation Loc,
   bool InvalidTemp = false;
   StringRef File = SM.getBufferData(LocInfo.first, &InvalidTemp);
   if (InvalidTemp)
-    return SourceLocation();
+    return None;
 
   const char *TokenBegin = File.data() + LocInfo.second;
 
@@ -1231,15 +1238,25 @@ SourceLocation Lexer::findLocationAfterToken(SourceLocation Loc,
   // Find the token.
   Token Tok;
   lexer.LexFromRawLexer(Tok);
-  if (Tok.isNot(TKind))
+  return Tok;
+}
+
+/// \brief Checks that the given token is the first token that occurs after the
+/// given location (this excludes comments and whitespace). Returns the location
+/// immediately after the specified token. If the token is not found or the
+/// location is inside a macro, the returned source location will be invalid.
+SourceLocation Lexer::findLocationAfterToken(
+    SourceLocation Loc, tok::TokenKind TKind, const SourceManager &SM,
+    const LangOptions &LangOpts, bool SkipTrailingWhitespaceAndNewLine) {
+  Optional<Token> Tok = findNextToken(Loc, SM, LangOpts);
+  if (!Tok || Tok->isNot(TKind))
     return SourceLocation();
-  SourceLocation TokenLoc = Tok.getLocation();
+  SourceLocation TokenLoc = Tok->getLocation();
 
   // Calculate how much whitespace needs to be skipped if any.
   unsigned NumWhitespaceChars = 0;
   if (SkipTrailingWhitespaceAndNewLine) {
-    const char *TokenEnd = SM.getCharacterData(TokenLoc) +
-                           Tok.getLength();
+    const char *TokenEnd = SM.getCharacterData(TokenLoc) + Tok->getLength();
     unsigned char C = *TokenEnd;
     while (isHorizontalWhitespace(C)) {
       C = *(++TokenEnd);
@@ -1256,7 +1273,7 @@ SourceLocation Lexer::findLocationAfterToken(SourceLocation Loc,
     }
   }
 
-  return TokenLoc.getLocWithOffset(Tok.getLength() + NumWhitespaceChars);
+  return TokenLoc.getLocWithOffset(Tok->getLength() + NumWhitespaceChars);
 }
 
 /// getCharAndSizeSlow - Peek a single 'character' from the specified buffer,
@@ -1378,9 +1395,9 @@ Slash:
 // Helper methods for lexing.
 //===----------------------------------------------------------------------===//
 
-/// \brief Routine that indiscriminately skips bytes in the source file.
-void Lexer::SkipBytes(unsigned Bytes, bool StartOfLine) {
-  BufferPtr += Bytes;
+/// \brief Routine that indiscriminately sets the offset into the source file.
+void Lexer::SetByteOffset(unsigned Offset, bool StartOfLine) {
+  BufferPtr = BufferStart + Offset;
   if (BufferPtr > BufferEnd)
     BufferPtr = BufferEnd;
   // FIXME: What exactly does the StartOfLine bit mean?  There are two
@@ -2131,7 +2148,8 @@ bool Lexer::SkipLineComment(Token &Result, const char *CurPtr,
     // If we read multiple characters, and one of those characters was a \r or
     // \n, then we had an escaped newline within the comment.  Emit diagnostic
     // unless the next line is also a // comment.
-    if (CurPtr != OldPtr+1 && C != '/' && CurPtr[0] != '/') {
+    if (CurPtr != OldPtr + 1 && C != '/' &&
+        (CurPtr == BufferEnd + 1 || CurPtr[0] != '/')) {
       for (; OldPtr != CurPtr; ++OldPtr)
         if (OldPtr[0] == '\n' || OldPtr[0] == '\r') {
           // Okay, we found a // comment that ends in a newline, if the next
@@ -2550,7 +2568,7 @@ bool Lexer::LexEndOfFile(Token &Result, const char *CurPtr) {
     return true;
   }
   
-  if (PP->isRecordingPreamble() && !PP->isInMainFile()) {
+  if (PP->isRecordingPreamble() && PP->isInPrimaryFile()) {
     PP->setRecordedPreambleConditionalStack(ConditionalStack);
     ConditionalStack.clear();
   }
@@ -3055,8 +3073,11 @@ LexNextToken:
     Kind = tok::unknown;
     break;
       
-  case '\n':
   case '\r':
+    if (CurPtr[0] == '\n')
+      Char = getAndAdvanceChar(CurPtr, Result);
+    LLVM_FALLTHROUGH;
+  case '\n':
     // If we are inside a preprocessor directive and we see the end of line,
     // we know we are done with the directive, so return an EOD token.
     if (ParsingPreprocessorDirective) {
@@ -3526,7 +3547,8 @@ LexNextToken:
     } else if (LangOpts.Digraphs && Char == '%') {     // '<%' -> '{'
       CurPtr = ConsumeChar(CurPtr, SizeTmp, Result);
       Kind = tok::l_brace;
-    } else if (Char == '#' && lexEditorPlaceholder(Result, CurPtr)) {
+    } else if (Char == '#' && /*Not a trigraph*/ SizeTmp == 1 &&
+               lexEditorPlaceholder(Result, CurPtr)) {
       return true;
     } else {
       Kind = tok::less;
@@ -3594,7 +3616,9 @@ LexNextToken:
     if (LangOpts.Digraphs && Char == '>') {
       Kind = tok::r_square; // ':>' -> ']'
       CurPtr = ConsumeChar(CurPtr, SizeTmp, Result);
-    } else if (LangOpts.CPlusPlus && Char == ':') {
+    } else if ((LangOpts.CPlusPlus ||
+                LangOpts.DoubleSquareBracketAttributes) &&
+               Char == ':') {
       Kind = tok::coloncolon;
       CurPtr = ConsumeChar(CurPtr, SizeTmp, Result);
     } else {

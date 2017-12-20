@@ -31,14 +31,16 @@ class VGSESERegion;
 
 /// \brief Template specialization of the standard LLVM dominator tree utility
 /// for VGBlock CFGs.
-class VGDominatorTree : public DominatorTreeBase<VGBlock> {
-
+class VGDominatorTree : public DomTreeBase<VGBlock> {
 public:
+  VGDominatorTree() : DomTreeBase<VGBlock>() {}
+};
 
-  VGDominatorTree(bool isPostDom) :
-      DominatorTreeBase<VGBlock>(isPostDom) {}
-
-  virtual ~VGDominatorTree() {}
+/// \brief Template specialization of the standard LLVM post-dominator tree
+/// utility for VGBlock CFGs.
+class VGPostDominatorTree : public PostDomTreeBase<VGBlock> {
+public:
+  VGPostDominatorTree() : PostDomTreeBase<VGBlock>() {}
 };
 
 class VectorGraphPredicator : public FunctionPass {

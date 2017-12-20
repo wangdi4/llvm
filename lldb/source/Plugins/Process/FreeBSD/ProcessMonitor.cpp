@@ -746,15 +746,9 @@ ProcessMonitor::ProcessMonitor(
   if (!error.Success())
     return;
 
-WAIT_AGAIN:
-  // Wait for the operation thread to initialize.
-  if (sem_wait(&args->m_semaphore)) {
-    if (errno == EINTR)
-      goto WAIT_AGAIN;
-    else {
-      error.SetErrorToErrno();
-      return;
-    }
+  if (llvm::sys::RetryAfterSignal(-1, sem_wait, &args->m_semaphore) == -1) {
+    error.SetErrorToErrno();
+    return;
   }
 
   // Check that the launch was a success.
@@ -790,15 +784,9 @@ ProcessMonitor::ProcessMonitor(ProcessFreeBSD *process, lldb::pid_t pid,
   if (!error.Success())
     return;
 
-WAIT_AGAIN:
-  // Wait for the operation thread to initialize.
-  if (sem_wait(&args->m_semaphore)) {
-    if (errno == EINTR)
-      goto WAIT_AGAIN;
-    else {
-      error.SetErrorToErrno();
-      return;
-    }
+  if (llvm::sys::RetryAfterSignal(-1, sem_wait, &args->m_semaphore) == -1) {
+    error.SetErrorToErrno();
+    return;
   }
 
   // Check that the attach was a success.
@@ -1204,7 +1192,9 @@ ProcessMessage ProcessMonitor::MonitorSignal(ProcessMonitor *monitor,
   case SIGBUS:
     lldb::addr_t fault_addr = reinterpret_cast<lldb::addr_t>(info->si_addr);
     const auto reason = GetCrashReason(*info);
-    return ProcessMessage::Crash(tid, reason, signo, fault_addr);
+    if (reason != CrashReason::eInvalidCrashReason) {
+      return ProcessMessage::Crash(tid, reason, signo, fault_addr);
+    } // else; Use atleast si_signo info for other si_code
   }
 
   // Everything else is "normal" and does not require any special action on

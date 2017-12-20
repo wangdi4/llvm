@@ -23,7 +23,7 @@
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Bitcode/BitcodeWriterPass.h"
-#include "llvm/CodeGen/CommandFlags.h"
+#include "llvm/CodeGen/CommandFlags.def"
 #include "llvm/CodeGen/TargetPassConfig.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DebugInfo.h"
@@ -242,6 +242,11 @@ static cl::opt<bool> PassRemarksWithHotness(
     cl::desc("With PGO, include profile count in optimization remarks"),
     cl::Hidden);
 
+static cl::opt<unsigned> PassRemarksHotnessThreshold(
+    "pass-remarks-hotness-threshold",
+    cl::desc("Minimum profile count required for an optimization remark to be output"),
+    cl::Hidden);
+
 static cl::opt<std::string>
     RemarksFilename("pass-remarks-output",
                     cl::desc("YAML output filename for pass remarks"),
@@ -344,7 +349,7 @@ static TargetMachine* GetTargetMachine(Triple TheTriple, StringRef CPUStr,
 
   return TheTarget->createTargetMachine(TheTriple.getTriple(), CPUStr,
                                         FeaturesStr, Options, getRelocModel(),
-                                        CMModel, GetCodeGenOptLevel());
+                                        getCodeModel(), GetCodeGenOptLevel());
 }
 
 #ifdef LINK_POLLY_INTO_TOOLS
@@ -386,6 +391,7 @@ int main(int argc, char **argv) {
   initializeTarget(Registry);
   // For codegen passes, only passes that do IR to IR transformation are
   // supported.
+  initializeExpandMemCmpPassPass(Registry);
   initializeScalarizeMaskedMemIntrinPass(Registry);
   initializeCodeGenPreparePass(Registry);
   initializeAtomicExpandPass(Registry);
@@ -397,17 +403,21 @@ int main(int argc, char **argv) {
   initializePreISelIntrinsicLoweringLegacyPassPass(Registry);
   initializeGlobalMergePass(Registry);
   initializeInterleavedAccessPass(Registry);
-  initializeCountingFunctionInserterPass(Registry);
+  initializeEntryExitInstrumenterPass(Registry);
+  initializePostInlineEntryExitInstrumenterPass(Registry);
   initializeUnreachableBlockElimLegacyPassPass(Registry);
   initializeExpandReductionsPass(Registry);
+  initializeWriteBitcodePassPass(Registry);
 
 #if INTEL_CUSTOMIZATION
   initializeIntel_LoopAnalysis(Registry);
   initializeIntel_LoopTransforms(Registry);
   initializeVecClonePass(Registry);
   initializeMapIntrinToImlPass(Registry);
+  initializeIntel_OpenCLTransforms(Registry);
   initializeIntel_VPOAnalysis(Registry);
   initializeIntel_VPOTransforms(Registry);
+  initializeDTransAnalysisWrapperPass(Registry);
 #endif  // INTEL_CUSTOMIZATION
 
 #ifdef LINK_POLLY_INTO_TOOLS
@@ -429,23 +439,27 @@ int main(int argc, char **argv) {
     Context.enableDebugTypeODRUniquing();
 
   if (PassRemarksWithHotness)
-    Context.setDiagnosticHotnessRequested(true);
+    Context.setDiagnosticsHotnessRequested(true);
 
-  std::unique_ptr<tool_output_file> YamlFile;
+  if (PassRemarksHotnessThreshold)
+    Context.setDiagnosticsHotnessThreshold(PassRemarksHotnessThreshold);
+
+  std::unique_ptr<ToolOutputFile> OptRemarkFile;
   if (RemarksFilename != "") {
     std::error_code EC;
-    YamlFile = llvm::make_unique<tool_output_file>(RemarksFilename, EC,
-                                                   sys::fs::F_None);
+    OptRemarkFile =
+        llvm::make_unique<ToolOutputFile>(RemarksFilename, EC, sys::fs::F_None);
     if (EC) {
       errs() << EC.message() << '\n';
       return 1;
     }
     Context.setDiagnosticsOutputFile(
-        llvm::make_unique<yaml::Output>(YamlFile->os()));
+        llvm::make_unique<yaml::Output>(OptRemarkFile->os()));
   }
 
   // Load the input module...
-  std::unique_ptr<Module> M = parseIRFile(InputFilename, Err, Context);
+  std::unique_ptr<Module> M =
+      parseIRFile(InputFilename, Err, Context, !NoVerify);
 
   if (!M) {
     Err.print(argv[0], errs());
@@ -472,8 +486,8 @@ int main(int argc, char **argv) {
     M->setDataLayout(ClDataLayout);
 
   // Figure out what stream we are supposed to write to...
-  std::unique_ptr<tool_output_file> Out;
-  std::unique_ptr<tool_output_file> ThinLinkOut;
+  std::unique_ptr<ToolOutputFile> Out;
+  std::unique_ptr<ToolOutputFile> ThinLinkOut;
   if (NoOutput) {
     if (!OutputFilename.empty())
       errs() << "WARNING: The -o (output filename) option is ignored when\n"
@@ -484,7 +498,7 @@ int main(int argc, char **argv) {
       OutputFilename = "-";
 
     std::error_code EC;
-    Out.reset(new tool_output_file(OutputFilename, EC, sys::fs::F_None));
+    Out.reset(new ToolOutputFile(OutputFilename, EC, sys::fs::F_None));
     if (EC) {
       errs() << EC.message() << '\n';
       return 1;
@@ -492,7 +506,7 @@ int main(int argc, char **argv) {
 
     if (!ThinLinkBitcodeFile.empty()) {
       ThinLinkOut.reset(
-          new tool_output_file(ThinLinkBitcodeFile, EC, sys::fs::F_None));
+          new ToolOutputFile(ThinLinkBitcodeFile, EC, sys::fs::F_None));
       if (EC) {
         errs() << EC.message() << '\n';
         return 1;
@@ -541,7 +555,8 @@ int main(int argc, char **argv) {
     // string. Hand off the rest of the functionality to the new code for that
     // layer.
     return runPassPipeline(argv[0], *M, TM.get(), Out.get(), ThinLinkOut.get(),
-                           PassPipeline, OK, VK, PreserveAssemblyUseListOrder,
+                           OptRemarkFile.get(), PassPipeline, OK, VK,
+                           PreserveAssemblyUseListOrder,
                            PreserveBitcodeUseListOrder, EmitSummaryIndex,
                            EmitModuleHash)
                ? 0
@@ -580,8 +595,8 @@ int main(int argc, char **argv) {
         OutputFilename = "-";
 
       std::error_code EC;
-      Out = llvm::make_unique<tool_output_file>(OutputFilename, EC,
-                                                sys::fs::F_None);
+      Out = llvm::make_unique<ToolOutputFile>(OutputFilename, EC,
+                                              sys::fs::F_None);
       if (EC) {
         errs() << EC.message() << '\n';
         return 1;
@@ -768,8 +783,8 @@ int main(int argc, char **argv) {
                 "the compile-twice option\n";
       Out->os() << BOS->str();
       Out->keep();
-      if (YamlFile)
-        YamlFile->keep();
+      if (OptRemarkFile)
+        OptRemarkFile->keep();
       return 1;
     }
     Out->os() << BOS->str();
@@ -779,8 +794,8 @@ int main(int argc, char **argv) {
   if (!NoOutput || PrintBreakpoints)
     Out->keep();
 
-  if (YamlFile)
-    YamlFile->keep();
+  if (OptRemarkFile)
+    OptRemarkFile->keep();
 
   if (ThinLinkOut)
     ThinLinkOut->keep();

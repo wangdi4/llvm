@@ -725,7 +725,6 @@ void CanonExpr::removeIV(iv_iterator IVI) {
 }
 
 void CanonExpr::replaceIVByConstant(unsigned Lvl, int64_t Val) {
-
   assert(CanonExprUtils::isValidLinearDefLevel(Lvl) &&
          "Level is out of bounds!");
 
@@ -738,6 +737,15 @@ void CanonExpr::replaceIVByConstant(unsigned Lvl, int64_t Val) {
   if (!Val) {
     removeIV(Lvl);
     return;
+  }
+
+  // Cast constant value to the CE source type.
+  Type *SrcType = getSrcType();
+  APInt APVal(SrcType->getPrimitiveSizeInBits(), Val);
+  if (!ConstantInt::isValueValidForType(SrcType, (uint64_t)Val)) {
+    // In HIR the IV is always non negative and may be safely represented as
+    // an unsigned value.
+    Val = static_cast<int64_t>(APVal.getZExtValue());
   }
 
   int64_t NewVal = IVCoeffs[Lvl - 1].Coeff * Val;
@@ -1034,6 +1042,23 @@ void CanonExpr::shift(iv_iterator IVI, int64_t Val) {
   shift(getLevel(IVI), Val);
 }
 
+void CanonExpr::demoteIVs(unsigned StartLevel) {
+  assert(StartLevel > 1 && "It's invalid to demote i1");
+  assert(CanonExprUtils::isValidLoopLevel(StartLevel) && "Invalid StartLevel");
+
+  assert(IVCoeffs[(StartLevel - 1) - 1].Coeff == 0 &&
+      "Shifting to IV with a non zero coeff.");
+
+  unsigned LastIV = IVCoeffs.size() - 1;
+
+  for (int I = StartLevel - 1, E = LastIV; I <= E; ++I) {
+    IVCoeffs[I - 1] = IVCoeffs[I];
+  }
+
+  IVCoeffs[LastIV].Coeff = 0;
+  IVCoeffs[LastIV].Index = InvalidBlobIndex;
+}
+
 void CanonExpr::collectBlobIndicesImpl(SmallVectorImpl<unsigned> &Indices,
                                        bool MakeUnique,
                                        bool NeedTempBlobs) const {
@@ -1120,9 +1145,8 @@ void CanonExpr::simplifyConstantCast() {
 
   APInt Constant(SrcType->getPrimitiveSizeInBits(), Val, IsSigned);
 
-  Val = (IsSigned ? Constant.sextOrTrunc(DstBitWidth)
-                  : Constant.zextOrTrunc(DstBitWidth))
-            .getSExtValue();
+  Val = IsSigned ? Constant.sextOrTrunc(DstBitWidth).getSExtValue()
+                 : Constant.zextOrTrunc(DstBitWidth).getZExtValue();
 
   setSrcType(DstType);
   setConstant(Val);

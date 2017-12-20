@@ -14,51 +14,51 @@
 //           class BinaryOperation, class UnaryOperation>
 //    T transform_reduce(InputIterator1 first1, InputIterator1 last1,
 //                       T init, BinaryOperation binary_op, UnaryOperation unary_op);
-//                      
-  
+//
+
 #include <numeric>
 #include <cassert>
 
 #include "test_iterators.h"
 
-template <class _Tp = void>
-struct identity : std::unary_function<_Tp, _Tp>
+template <class T = void>
+struct identity : std::unary_function<T, T>
 {
-    constexpr const _Tp& operator()(const _Tp& __x) const { return __x;}
+    constexpr const T& operator()(const T& x) const { return x;}
 };
 
 template <>
 struct identity<void>
 {
-    template <class _Tp>
-    constexpr auto operator()(_Tp&& __x) const
-    _NOEXCEPT_(noexcept(_VSTD::forward<_Tp>(__x)))
-    -> decltype        (_VSTD::forward<_Tp>(__x))
-        { return        _VSTD::forward<_Tp>(__x); }
+    template <class T>
+    constexpr auto operator()(T&& x) const
+    _NOEXCEPT_(noexcept(_VSTD::forward<T>(x)))
+    -> decltype        (_VSTD::forward<T>(x))
+        { return        _VSTD::forward<T>(x); }
 };
 
 
-template <class _Tp = void>
+template <class T = void>
 struct twice
 {
-  	constexpr const _Tp operator()(const _Tp& __x) const noexcept { return 2 * __x; }
+    constexpr const T operator()(const T& x) const noexcept { return 2 * x; }
 };
 
 template <>
 struct twice<void>
 {
-    template <class _Tp>
-    constexpr auto operator()(const _Tp& __x) const
-    _NOEXCEPT_(noexcept(2 * __x))
-    -> decltype        (2 * __x)
-        { return        2 * __x; }
+    template <class T>
+    constexpr auto operator()(const T& x) const
+    _NOEXCEPT_(noexcept(2 * x))
+    -> decltype        (2 * x)
+        { return        2 * x; }
 };
 
 template <class Iter1, class T, class BOp, class UOp>
 void
 test(Iter1 first1, Iter1 last1, T init, BOp bOp, UOp uOp, T x)
 {
-    static_assert( std::is_same_v<T, 
+    static_assert( std::is_same_v<T,
                     decltype(std::transform_reduce(first1, last1, init, bOp, uOp))> );
     assert(std::transform_reduce(first1, last1, init, bOp, uOp) == x);
 }
@@ -93,7 +93,7 @@ template <typename T, typename Init>
 void test_return_type()
 {
     T *p = nullptr;
-    static_assert( std::is_same_v<Init, 
+    static_assert( std::is_same_v<Init,
          decltype(std::transform_reduce(p, p, Init{}, std::plus<>(), identity<>()))> );
 }
 
@@ -115,10 +115,10 @@ int main()
     test<const int*>();
     test<      int*>();
 
-//	Make sure the math is done using the correct type
+//  Make sure the math is done using the correct type
     {
     auto v = {1, 2, 3, 4, 5, 6};
     unsigned res = std::transform_reduce(v.begin(), v.end(), 1U, std::multiplies<>(), twice<>());
-    assert(res == 46080);		// 6! * 64 will not fit into a char
+    assert(res == 46080);       // 6! * 64 will not fit into a char
     }
 }

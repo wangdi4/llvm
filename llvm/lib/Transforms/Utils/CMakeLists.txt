@@ -7,10 +7,10 @@ add_llvm_library(LLVMTransformUtils
   BypassSlowDivision.cpp
   CloneFunction.cpp
   CloneModule.cpp
-  CmpInstAnalysis.cpp
   CodeExtractor.cpp
   CtorUtils.cpp
   DemoteRegToStack.cpp
+  EntryExitInstrumenter.cpp
   EscapeEnumerator.cpp
   Evaluator.cpp
   FlattenCFG.cpp
@@ -25,6 +25,7 @@ add_llvm_library(LLVMTransformUtils
   Intel_GeneralUtils.cpp
   Intel_IntrinsicUtils.cpp
   Intel_VecClone.cpp
+  ../Intel_VPO/Utils/IntrinsicUtils.cpp # TODO: Move to lib/Transforms/Utils
 #endif // INTEL_CUSTOMIZATION
   LCSSA.cpp
   LibCallsShrinkWrap.cpp
@@ -66,5 +67,5 @@ add_llvm_library(LLVMTransformUtils
 
   DEPENDS
   intrinsics_gen
-  intel_directives_gen
+  intel_directives_gen  #INTEL
   )

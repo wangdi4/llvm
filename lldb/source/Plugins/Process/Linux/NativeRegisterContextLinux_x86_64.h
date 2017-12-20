@@ -24,8 +24,7 @@ class NativeProcessLinux;
 class NativeRegisterContextLinux_x86_64 : public NativeRegisterContextLinux {
 public:
   NativeRegisterContextLinux_x86_64(const ArchSpec &target_arch,
-                                    NativeThreadProtocol &native_thread,
-                                    uint32_t concrete_frame_idx);
+                                    NativeThreadProtocol &native_thread);
 
   uint32_t GetRegisterSetCount() const override;
 
@@ -137,6 +136,8 @@ private:
   bool CopyMPXtoXSTATE(uint32_t reg);
 
   bool IsMPX(uint32_t reg_index) const;
+
+  void UpdateXSTATEforWrite(uint32_t reg_index);
 };
 
 } // namespace process_linux

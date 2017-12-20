@@ -1,5 +1,4 @@
-//===-- ElimAvailExtern.cpp - DCE unreachable internal functions
-//----------------===//
+//===- ElimAvailExtern.cpp - DCE unreachable internal functions -----------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -17,11 +16,15 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/Intel_Andersens.h"         // INTEL
 #include "llvm/Analysis/Intel_WP.h"                // INTEL
-#include "llvm/IR/Constants.h"
+#include "llvm/IR/Constant.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/GlobalValue.h"
+#include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/Utils/GlobalStatus.h"
+
 using namespace llvm;
 
 #define DEBUG_TYPE "elim-avail-extern"
@@ -76,8 +79,10 @@ EliminateAvailableExternallyPass::run(Module &M, ModuleAnalysisManager &) {
 }
 
 namespace {
+
 struct EliminateAvailableExternallyLegacyPass : public ModulePass {
   static char ID; // Pass identification, replacement for typeid
+
   EliminateAvailableExternallyLegacyPass() : ModulePass(ID) {
     initializeEliminateAvailableExternallyLegacyPassPass(
         *PassRegistry::getPassRegistry());
@@ -92,16 +97,17 @@ struct EliminateAvailableExternallyLegacyPass : public ModulePass {
 
   // run - Do the EliminateAvailableExternally pass on the specified module,
   // optionally updating the specified callgraph to reflect the changes.
-  //
-  bool runOnModule(Module &M) {
+  bool runOnModule(Module &M) override {
     if (skipModule(M))
       return false;
     return eliminateAvailableExternally(M);
   }
 };
-}
+
+} // end anonymous namespace
 
 char EliminateAvailableExternallyLegacyPass::ID = 0;
+
 INITIALIZE_PASS(EliminateAvailableExternallyLegacyPass, "elim-avail-extern",
                 "Eliminate Available Externally Globals", false, false)
 

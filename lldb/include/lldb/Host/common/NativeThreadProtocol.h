@@ -20,10 +20,9 @@ namespace lldb_private {
 //------------------------------------------------------------------
 // NativeThreadProtocol
 //------------------------------------------------------------------
-class NativeThreadProtocol
-    : public std::enable_shared_from_this<NativeThreadProtocol> {
+class NativeThreadProtocol {
 public:
-  NativeThreadProtocol(NativeProcessProtocol *process, lldb::tid_t tid);
+  NativeThreadProtocol(NativeProcessProtocol &process, lldb::tid_t tid);
 
   virtual ~NativeThreadProtocol() {}
 
@@ -31,7 +30,7 @@ public:
 
   virtual lldb::StateType GetState() = 0;
 
-  virtual NativeRegisterContextSP GetRegisterContext() = 0;
+  virtual NativeRegisterContext &GetRegisterContext() = 0;
 
   virtual Status ReadRegister(uint32_t reg, RegisterValue &reg_value);
 
@@ -46,7 +45,7 @@ public:
 
   lldb::tid_t GetID() const { return m_tid; }
 
-  NativeProcessProtocolSP GetProcess();
+  NativeProcessProtocol &GetProcess() { return m_process; }
 
   // ---------------------------------------------------------------------
   // Thread-specific watchpoints
@@ -64,7 +63,7 @@ public:
   virtual Status RemoveHardwareBreakpoint(lldb::addr_t addr) = 0;
 
 protected:
-  NativeProcessProtocolWP m_process_wp;
+  NativeProcessProtocol &m_process;
   lldb::tid_t m_tid;
 };
 }

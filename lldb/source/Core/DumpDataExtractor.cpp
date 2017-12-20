@@ -154,7 +154,8 @@ lldb::offset_t lldb_private::DumpDataExtractor(
       target_sp = exe_scope->CalculateTarget();
     if (target_sp) {
       DisassemblerSP disassembler_sp(Disassembler::FindPlugin(
-          target_sp->GetArchitecture(), nullptr, nullptr));
+          target_sp->GetArchitecture(),
+          target_sp->GetDisassemblyFlavor(), nullptr));
       if (disassembler_sp) {
         lldb::addr_t addr = base_addr + start_offset;
         lldb_private::Address so_addr;
@@ -271,6 +272,13 @@ lldb::offset_t lldb_private::DumpDataExtractor(
     case eFormatChar:
     case eFormatCharPrintable:
     case eFormatCharArray: {
+      // Reject invalid item_byte_size.
+      if (item_byte_size > 8) {
+        s->Printf("error: unsupported byte size (%" PRIu64 ") for char format",
+                  (uint64_t)item_byte_size);
+        return offset;
+      }
+
       // If we are only printing one character surround it with single
       // quotes
       if (item_count == 1 && item_format == eFormatChar)

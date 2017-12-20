@@ -22,4 +22,4 @@
 type = Library
 name = Intel_LoopAnalysis
 parent = Libraries
-required_libraries = Analysis
+required_libraries = Analysis Core Support ProfileData Object TransformUtils

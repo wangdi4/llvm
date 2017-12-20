@@ -26,8 +26,15 @@
 #include "llvm/IR/Type.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/Inliner.h"
+#include "llvm/Transforms/IPO/InlineReport.h"          // INTEL
 
 using namespace llvm;
+
+#if INTEL_CUSTOMIZATION
+using namespace InlineReportTypes;
+
+extern cl::opt<unsigned> IntelInlineReportLevel;
+#endif // INTEL_CUSTOMIZATION
 
 #define DEBUG_TYPE "inline"
 
@@ -57,6 +64,16 @@ public:
   InlineCost getInlineCost(CallSite CS) override {
     Function *Callee = CS.getCalledFunction();
     TargetTransformInfo &TTI = TTIWP->getTTI(*Callee);
+
+    bool RemarksEnabled = false;
+    const auto &BBs = CS.getCaller()->getBasicBlockList();
+    if (!BBs.empty()) {
+      auto DI = OptimizationRemark(DEBUG_TYPE, "", DebugLoc(), &BBs.front());
+      if (DI.isEnabled())
+        RemarksEnabled = true;
+    }
+    OptimizationRemarkEmitter ORE(CS.getCaller());
+
     std::function<AssumptionCache &(Function &)> GetAssumptionCache =
         [&](Function &F) -> AssumptionCache & {
       return ACT->getAssumptionCache(F);
@@ -65,10 +82,13 @@ public:
 #if INTEL_CUSTOMIZATION
     auto *Agg = getAnalysisIfAvailable<InlineAggressiveWrapperPass>();
     InlineAggressiveInfo *AggI = Agg ? &Agg->getResult() : nullptr;
+    Params.ComputeFullInlineCost = (IntelInlineReportLevel &
+                                    InlineReportOptions::RealCost) != 0;
 #endif // INTEL_CUSTOMIZATION
 
-    return llvm::getInlineCost(CS, Params, TTI, GetAssumptionCache, 
-                               /*GetBFI=*/None, ILIC, AggI, PSI); // INTEL 
+    return llvm::getInlineCost(CS, Params, TTI, GetAssumptionCache,
+                               /*GetBFI=*/None, ILIC, AggI,           // INTEL
+                               PSI, RemarksEnabled ? &ORE : nullptr); // INTEL
   }
 
   bool runOnSCC(CallGraphSCC &SCC) override;

@@ -5,10 +5,6 @@ Open Source Development Processes
 .. contents::
    :local:
 
-The Intel LLVM development process documentation is currently under review. If
-anything looks wrong to you, please contact `David Kreitzer
-<mailto:david.l.kreitzer@intel.com>`_.
-
 Introduction
 ============
 
@@ -80,8 +76,8 @@ run the ipscan tool as documented :ref:`here <ipscan>`. Also consider conducting
 an internal code review. We do not currently have specific internal code review
 requirements, so use your best judgment. It is prudent to at least conduct a
 design level review for all but the most trivial changes. If you do choose to
-conduct an internal code review, `Code Collaborator
-<https://ir-codecollab.intel.com/ui>`_ is the tool to use.
+conduct an internal code review,
+`gerrit <https://git-amr-2.devtools.intel.com/gerrit>`_ is the tool to use.
 
 External code reviews should follow the community Phabricator code review
 procedures documented :doc:`here <../Phabricator>`.
@@ -132,8 +128,9 @@ Read the Commit messages section of the
 :doc:`LLVM Developer Policy <../DeveloperPolicy>` document to understand the
 community guidelines for the format of commit messages. Please follow them.
 
-There are no specific rules on how to do the actual commit, but ics provides
-a feature for committing to llvm.org directly from an llorg workspace. That is
+There are no specific rules on how to do the actual commit, but the ICL
+KnowledgeBase offers `this suggestion <http://ssg8vweb1.sc.intel.com/lore/article.php?id=587>`_
+for committing to llvm.org directly from an llorg workspace. That is
 a convenience that enables you to develop, test, and commit from a single
 workspace.
 

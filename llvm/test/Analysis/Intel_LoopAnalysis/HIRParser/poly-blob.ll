@@ -1,7 +1,7 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
 
 ; Check parsing output for the loop verifying that polynomial blob is parsed correctly.
-; CHECK: DO i1 = 0, zext.i32.i64((-1 + %n))
+; CHECK: DO i1 = 0, sext.i32.i64((-1 + %n))
 ; CHECK-NEXT: %0 = i1  *  i1
 ; CHECK-NEXT: (%A)[i1] = %0
 ; CHECK-NEXT: END LOOP

@@ -1,6 +1,6 @@
 //===- HIRIdiomRecognition.cpp - Implements Loop idiom recognition pass ---===//
 //
-// Copyright (C) 2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2017 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -26,9 +26,11 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
@@ -84,6 +86,9 @@ class HIRIdiomRecognition : public HIRTransformPass {
   HIRFramework *HIR;
   HIRLoopStatistics *HLS;
   HIRDDAnalysis *DDA;
+
+  bool HasMemcopy;
+  bool HasMemset;
 
   // Track removed nodes to ignore obsolete dependencies.
   SmallPtrSet<HLNode *, 8> RemovedNodes;
@@ -146,16 +151,18 @@ public:
   bool runOnLoop(HLLoop *Loop);
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
+    AU.addRequiredTransitive<TargetLibraryInfoWrapperPass>();
     AU.addRequiredTransitive<HIRFramework>();
     AU.addRequiredTransitive<HIRLoopStatistics>();
     AU.addRequiredTransitive<HIRDDAnalysis>();
     AU.setPreservesAll();
   }
 };
-}
+} // namespace
 
 char HIRIdiomRecognition::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRIdiomRecognition, OPT_SWITCH, OPT_DESC, false, false)
+INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFramework)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatistics)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
@@ -181,7 +188,8 @@ bool HIRIdiomRecognition::isBytewiseValue(RegDDRef *Ref, bool DoBitcast) {
   }
 
   auto BitcastRef = [DoBitcast](APInt SplatValue, RegDDRef *Ref) -> bool {
-    bool GoodToCast = SplatValue.isSplat(8);
+    bool GoodToCast =
+        (SplatValue.getBitWidth() % 8 == 0) && SplatValue.isSplat(8);
 
     if (GoodToCast && DoBitcast) {
       CanonExpr *CE = Ref->getSingleCanonExpr();
@@ -333,7 +341,7 @@ bool HIRIdiomRecognition::isUnitStrideRef(const RegDDRef *Ref,
   }
 
   int64_t Stride;
-  
+
   if (!Ref->getConstStrideAtLevel(Loop->getNestingLevel(), &Stride)) {
     return false;
   }
@@ -365,14 +373,14 @@ bool HIRIdiomRecognition::analyzeStore(HLLoop *Loop, const RegDDRef *Ref,
     const CanonExpr *CE = RHS->getSingleCanonExpr();
     if (CE->isNonLinear()) {
       // Could be legal for memcopy
-      ForMemcpy = true;
+      ForMemcpy = HasMemcopy;
     } else {
       // Could be legal for memset
-      ForMemset = true;
+      ForMemset = HasMemset;
     }
   } else {
     // Could be legal for memcopy
-    ForMemcpy = true;
+    ForMemcpy = HasMemcopy;
   }
 
   if (ForMemset) {
@@ -427,24 +435,12 @@ bool HIRIdiomRecognition::makeStartRef(RegDDRef *Ref, HLLoop *Loop,
 
     if (IsNegStride) {
       const CanonExpr *OrigUpperCE = Loop->getUpperCanonExpr();
+
       // Try to merge upper bound with CE
-      if (!CanonExprUtils::mergeable(CE, OrigUpperCE, true) ||
-          !CanonExprUtils::replaceIVByCanonExpr(CE, Level, OrigUpperCE, true)) {
-
-        std::unique_ptr<CanonExpr> UpperCE(OrigUpperCE->clone());
-
-        // If merge doesn't work - try to convert UB to blob.
-        bool Ret = UpperCE->castStandAloneBlob(CE->getSrcType(), false);
-
-        if (!Ret) {
-          return false;
-        }
-
-        Ret = CanonExprUtils::replaceIVByCanonExpr(CE, Level, UpperCE.get(),
-                                                   true);
-        assert(Ret &&
-               "Second replaceIVByCanonExpr() should always return true");
-        (void)Ret;
+      if (!CanonExprUtils::replaceIVByCanonExpr(CE, Level, OrigUpperCE,
+                                                Loop->isNSW(), true)) {
+        DEBUG(dbgs() << "Unable to replace i" << Level << " with UB.");
+        return false;
       }
 
       BlobUpdateNeeded = true;
@@ -651,16 +647,12 @@ bool HIRIdiomRecognition::processMemcpy(HLLoop *Loop,
 }
 
 bool HIRIdiomRecognition::runOnLoop(HLLoop *Loop) {
-  DEBUG(dbgs() << "Processing Loop: <" << Loop->getNumber() << ">\n");
+  DEBUG(dbgs() << "\nProcessing Loop: <" << Loop->getNumber() << ">\n");
 
   if (!Loop->isDo() || !Loop->isNormalized() || Loop->isSIMD()) {
     DEBUG(dbgs() << "Skipping - non-DO-Loop / non-Normalized / SIMD\n");
     return false;
   }
-
-  DEBUG(dbgs() << "Loop DD graph:\n");
-  DEBUG(DDA->getGraph(Loop).dump());
-  DEBUG(dbgs() << "\n");
 
   // Check for EH context
   // HLS->getTotalLoopStatistics()
@@ -688,6 +680,12 @@ bool HIRIdiomRecognition::runOnLoop(HLLoop *Loop) {
     }
 
     Candidates.push_back(NewCandidate);
+  }
+
+  if (!Candidates.empty()) {
+    DEBUG(dbgs() << "Loop DD graph:\n");
+    DEBUG(DDA->getGraph(Loop).dump());
+    DEBUG(dbgs() << "\n");
   }
 
   bool Changed = false;
@@ -724,6 +722,15 @@ bool HIRIdiomRecognition::runOnFunction(Function &F) {
   }
 
   DEBUG(dbgs() << OPT_DESC " for Function: " << F.getName() << "\n");
+
+  TargetLibraryInfo &TLI = getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
+  HasMemcopy = TLI.has(LibFunc_memcpy);
+  HasMemset = TLI.has(LibFunc_memset);
+
+  if (!HasMemcopy && !HasMemset) {
+    DEBUG(dbgs() << "Memcpy and Memset calls are not available\n");
+    return false;
+  }
 
   M = F.getParent();
   DL = &M->getDataLayout();

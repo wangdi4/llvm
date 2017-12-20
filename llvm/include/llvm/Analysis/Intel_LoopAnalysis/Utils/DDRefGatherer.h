@@ -1,6 +1,6 @@
 //=== DDRefGatherer.h - Gathers DDRefs attached to HLNodes ----*-- C++ --*-===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -45,6 +45,7 @@ enum DDRefGatherMode : unsigned int {
   BlobRefs = 1 << 3,
   ConstantRefs = 1 << 4,
   GenericRValRefs = 1 << 5,
+  FakeRefs = 1 << 6,
 
   AllRefs = ~0U,
 };
@@ -288,12 +289,18 @@ struct DDRefGatherer : DDRefGathererLambda<RefTy> {
 
   struct ModeSelectorPredicate {
     bool operator()(const RegDDRef *Ref) {
-      if (!(Mode & ConstantRefs) && Ref->getSymbase() == ConstantSymbase) {
+      unsigned Symbase = Ref->getSymbase();
+
+      if (!(Mode & ConstantRefs) && (Symbase == ConstantSymbase)) {
         return false;
       }
 
       if (!(Mode & GenericRValRefs) &&
-          Ref->getSymbase() == GenericRvalSymbase) {
+          (Symbase == GenericRvalSymbase)) {
+        return false;
+      }
+
+      if (!(Mode & FakeRefs) && Ref->isFake()) {
         return false;
       }
 

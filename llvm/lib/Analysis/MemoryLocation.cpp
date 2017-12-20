@@ -186,7 +186,14 @@ static void getMemLocsForPtrVec(const Value *PtrVec,
 
   // Constant pointer vector.
   unsigned NumElts = Results.size();
-  if (const auto *CV = dyn_cast<Constant>(PtrVec)) {
+  const auto *CV = dyn_cast<Constant>(PtrVec);
+  bool isGepExpr = false;
+  if (CV) {
+    const ConstantExpr *CE = dyn_cast<ConstantExpr>(CV);
+    if (CE && CE->getOpcode() == Instruction::GetElementPtr)
+      isGepExpr = true;
+  }
+  if (CV && !isGepExpr) {
     // If this vector is an undef value, we can assume that none of its
     // elements aliases with any pointer.
     if (isa<UndefValue>(CV)) {
@@ -198,19 +205,16 @@ static void getMemLocsForPtrVec(const Value *PtrVec,
       Resolved = true;
       return;
     }
-    // If this is a vector of pointer constants, check each pointer constant.
-    if (const auto *ConstVec = dyn_cast<ConstantVector>(CV)) {
-      for (unsigned i = 0; i < NumElts; i++) {
-        if (isMemLocResolved(Results[i]))
-          continue;
-        // At ith lane, set the memory location to be the memory location
-        // of ith pointer constant.
-        Results[i] = MemoryLocation(ConstVec->getAggregateElement(i));
-      }
-      Resolved = true;
-      return;
+    // Vector of pointer constants, check each pointer constant.
+    for (unsigned i = 0; i < NumElts; i++) {
+      if (isMemLocResolved(Results[i]))
+        continue;
+      // At ith lane, set the memory location to be the memory location
+      // of ith pointer constant.
+      Results[i] = MemoryLocation(CV->getOperand(i));
     }
-    // A GEP with constant operands is a Constant -- continue checks below
+    Resolved = true;
+    return;
   }
 
   const auto *Op = dyn_cast<Operator>(PtrVec);
@@ -222,16 +226,21 @@ static void getMemLocsForPtrVec(const Value *PtrVec,
   // and safety.
   default:
     break;
-  case Instruction::GetElementPtr:
+  case Instruction::GetElementPtr: {
     // Examine the pointers to the underlying objects, and use the underlying
     // objects' memory locations. This will make the reuslts more conservative
     // by adding false positives, but will not give false negatives.
-    getMemLocsForPtrVec(Op->getOperand(0), Results, Resolved, Depth - 1);
+    Value *BasePtr = Op->getOperand(0);
+    if (BasePtr->getType()->isVectorTy())
+      getMemLocsForPtrVec(BasePtr, Results, Resolved, Depth - 1);
+    else
+      Results.assign(NumElts, MemoryLocation(BasePtr));
+    }
     break;
   case Instruction::InsertElement:
     // This is the major source of vector elements. If the insert index is a
     // constant int within the range of vector, we can get the memory location
-    // of the inserted element for that lane. If the index is a varible, set
+    // of the inserted element for that lane. If the index is a variable, set
     // all memlocs as unknown (Ptr = nullptr, Size = UnknownSize) as it could
     // be inserted to any lane.
     // Otherwise, continue to examine the source operand.

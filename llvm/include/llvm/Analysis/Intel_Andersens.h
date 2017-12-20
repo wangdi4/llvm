@@ -251,10 +251,7 @@ class AndersensAAResult : public AAResultBase<AndersensAAResult>,
     void deleted() override {
       Value *Val = getValPtr();
 
-      // Remove it from ValueNodes so that points-to info is treated
-      // it as UniversalSet if Value not found in ValueNodes. 
-      AAR.ValueNodes.erase(Val);
-      AAR.NonEscapeStaticVars.erase(Val);
+      AAR.ProcessIRValueDestructed(Val);
 
       // Clear the value handle, so that the object can be destroyed.
       setValPtr(nullptr);
@@ -390,6 +387,11 @@ private:
   void PerformEscAnal(Module &M);
   void MarkEscaped();
   void ProcessCall(CallSite &CS);
+
+  // Update the information stored for the points-to graph to remove
+  // tracking of the value because the object in the IR that represents is
+  // is being destroyed.
+  void ProcessIRValueDestructed(Value *V);
 
   // Return true if one of the point-to targets escapes
   bool pointsToSetEscapes(Node *N);

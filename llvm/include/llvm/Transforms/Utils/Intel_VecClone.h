@@ -1,6 +1,6 @@
 //===-------------- VecClone.h - Class definition -*- C++ -*---------------===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -13,6 +13,7 @@
 ///
 // ===--------------------------------------------------------------------=== //
 
+#include "llvm/ADT/SmallSet.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Pass.h"
 #include "llvm/IR/Module.h"
@@ -49,6 +50,8 @@ struct ParmRef {
 class VecClone : public ModulePass {
 
   private:
+    /// Set of allocas to mark private for the SIMD loop
+    SmallSet<Value*, 4> PrivateAllocas;
 
     /// \brief Return true if the function has a complex type for the return
     /// or parameters.

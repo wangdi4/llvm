@@ -23,15 +23,14 @@
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/IntrinsicInst.h"
 
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRRegionIdentification.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/CanonExpr.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
+#include "llvm/Analysis/Intel_XmainOptLevelPass.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
-
-#include "llvm/Analysis/Intel_LoopAnalysis/IR/CanonExpr.h"
-
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRRegionIdentification.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 
 #include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h"
 
@@ -67,6 +66,7 @@ INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(XmainOptLevelPass)
 INITIALIZE_PASS_END(HIRRegionIdentification, "hir-region-identification",
                     "HIR Region Identification", false, true)
 
@@ -87,6 +87,7 @@ void HIRRegionIdentification::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<LoopInfoWrapperPass>();
   AU.addRequiredTransitive<ScalarEvolutionWrapperPass>();
   AU.addRequiredTransitive<TargetLibraryInfoWrapperPass>();
+  AU.addRequiredTransitive<XmainOptLevelPass>();
 }
 
 Type *HIRRegionIdentification::getPrimaryElementType(Type *PtrTy) const {
@@ -134,12 +135,6 @@ bool HIRRegionIdentification::isSupported(Type *Ty) {
     } else {
       Ty = Ty->getPointerElementType();
     }
-  }
-
-  if (Ty->isFunctionTy()) {
-    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: function pointer types currently not "
-                    "supported.\n");
-    return false;
   }
 
   auto IntType = dyn_cast<IntegerType>(Ty);
@@ -246,7 +241,13 @@ class HIRRegionIdentification::CostModelAnalyzer
   const HIRRegionIdentification &RI;
   const Loop &Lp;
   DomTreeNode *HeaderDomNode;
+
+  const bool IsInnermostLoop;
+  const bool IsUnknownLoop;
+  bool IsSmallTripLoop;
   bool IsProfitable;
+
+  const unsigned OptLevel;
   unsigned InstCount;             // Approximates number of instructions in HIR.
   unsigned UnstructuredJumpCount; // Approximates goto/label counts in HIR.
   unsigned IfCount;               // Approximates number of ifs in HIR.
@@ -254,33 +255,17 @@ class HIRRegionIdentification::CostModelAnalyzer
   // TODO: use different values for O2/O3.
   const unsigned MaxInstThreshold = 200;
   const unsigned MaxIfThreshold = 7;
-  const unsigned MaxIfNestThreshold = 2;
+  const unsigned O2MaxIfNestThreshold = 2;
+  const unsigned O3MaxIfNestThreshold = 3;
+  const unsigned SmallTripThreshold = 16;
 
 public:
-  CostModelAnalyzer(const HIRRegionIdentification &RI, const Loop &Lp)
-      : RI(RI), Lp(Lp), IsProfitable(true), InstCount(0),
-        UnstructuredJumpCount(0), IfCount(0) {
-    HeaderDomNode = RI.DT->getNode(Lp.getHeader());
-  }
+  CostModelAnalyzer(const HIRRegionIdentification &RI, const Loop &Lp,
+                    const SCEV *BECount);
 
   bool isProfitable() const { return IsProfitable; }
 
-  void analyze() {
-    bool IsInnermostLoop = Lp.empty();
-
-    for (auto BB = Lp.block_begin(), E = Lp.block_end(); BB != E; ++BB) {
-
-      // Skip bblocks which belong to inner loops.
-      if (!IsInnermostLoop && (RI.LI->getLoopFor(*BB) != &Lp)) {
-        continue;
-      }
-
-      if (!visitBasicBlock(**BB)) {
-        IsProfitable = false;
-        break;
-      }
-    }
-  }
+  void analyze();
 
   bool visitBasicBlock(const BasicBlock &BB);
   bool visitInstruction(const Instruction &Inst);
@@ -289,6 +274,64 @@ public:
   bool visitCallInst(const CallInst &CI);
   bool visitBranchInst(const BranchInst &BI);
 };
+
+HIRRegionIdentification::CostModelAnalyzer::CostModelAnalyzer(
+    const HIRRegionIdentification &RI, const Loop &Lp, const SCEV *BECount)
+    : RI(RI), Lp(Lp), IsInnermostLoop(Lp.empty()),
+      IsUnknownLoop(isa<SCEVCouldNotCompute>(BECount)), IsProfitable(true),
+      OptLevel(RI.OptLevel), InstCount(0), UnstructuredJumpCount(0),
+      IfCount(0) {
+
+  HeaderDomNode = RI.DT->getNode(Lp.getHeader());
+
+  auto ConstBECount = dyn_cast<SCEVConstant>(BECount);
+  IsSmallTripLoop =
+      (ConstBECount &&
+       (ConstBECount->getValue()->getZExtValue() <= SmallTripThreshold));
+}
+
+void HIRRegionIdentification::CostModelAnalyzer::analyze() {
+
+  // SIMD loops should not be throttled.
+  if (RI.isSIMDLoop(Lp)) {
+    IsProfitable = true;
+    return;
+  }
+
+  // Only allow innermost multi-exit loops for now.
+  if (!Lp.getExitingBlock() && !Lp.empty()) {
+    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: outer multi-exit loop throttled for "
+                    "compile time reasons.\n");
+    IsProfitable = false;
+    return;
+  }
+
+  // Only handle standalone single bblock unknown loops at O2. We allow bigger
+  // standalone innermost loops at O3.
+  // We don't do much for outer unknown loops except prefetching which isn't
+  // ready yet. Innermost unknown loops embedded inside other loops are
+  // throttled for compile time reasons.
+  if (IsUnknownLoop && (((OptLevel < 3) && (Lp.getNumBlocks() != 1)) ||
+                        (Lp.getLoopDepth() != 1))) {
+    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: unknown loop throttled for compile "
+                    "time reasons.\n");
+    IsProfitable = false;
+    return;
+  }
+
+  for (auto BB = Lp.block_begin(), E = Lp.block_end(); BB != E; ++BB) {
+
+    // Skip bblocks which belong to inner loops.
+    if (!IsInnermostLoop && (RI.LI->getLoopFor(*BB) != &Lp)) {
+      continue;
+    }
+
+    if (!visitBasicBlock(**BB)) {
+      IsProfitable = false;
+      break;
+    }
+  }
+}
 
 bool HIRRegionIdentification::CostModelAnalyzer::visitBasicBlock(
     const BasicBlock &BB) {
@@ -372,13 +415,20 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitStoreInst(
 bool HIRRegionIdentification::CostModelAnalyzer::visitCallInst(
     const CallInst &CI) {
 
-  if (!isa<IntrinsicInst>(CI)) {
-    auto Func = CI.getCalledFunction();
+  // Allow user calls in small trip innermost loops so they can be completely
+  // unrolled.
+  // Also allow them in innermost unknown loops at O3 and above. They may be
+  // candidates for predicate optimization.
+  if (!IsInnermostLoop ||
+      (!IsSmallTripLoop && ((OptLevel < 3) || !IsUnknownLoop))) {
+    if (!isa<IntrinsicInst>(CI)) {
+      auto Func = CI.getCalledFunction();
 
-    if (!Func || !RI.TLI->isFunctionVectorizable(Func->getName())) {
-      DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loop throttled due to presence of "
-                      "user calls.\n");
-      return false;
+      if (!Func || !RI.TLI->isFunctionVectorizable(Func->getName())) {
+        DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loop throttled due to presence of "
+                        "user calls.\n");
+        return false;
+      }
     }
   }
 
@@ -398,6 +448,10 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBranchInst(
     return true;
   }
 
+  // Increase thresholds for small trip innermost loops so that we can unroll
+  // them.
+  bool UseO3Thresholds = (OptLevel > 2) || (IsInnermostLoop && IsSmallTripLoop);
+
   if (++IfCount > MaxIfThreshold) {
     DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loop throttled due to presence of too "
                     "many ifs.\n");
@@ -410,6 +464,7 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBranchInst(
   while (DomNode != HeaderDomNode) {
     assert(DomNode && "Dominator tree node of a loop bblock is null!");
 
+    auto DomBlock = DomNode->getBlock();
     // Consider this a nested if scenario only if the dominator has a single
     // predecessor otherwise sibling ifs may be counted as nested due to
     // merge/join bblocks.
@@ -428,7 +483,10 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBranchInst(
     // if() {
     // }
     //
-    if (DomNode->getBlock()->getSinglePredecessor()) {
+    // Ignore dominators whose terminator is not a branch. It can be a switch,
+    // for example.
+    if (DomBlock->getSinglePredecessor() &&
+        isa<BranchInst>(DomBlock->getTerminator())) {
       ++IfNestCount;
     }
 
@@ -436,23 +494,27 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBranchInst(
   }
 
   // Add 1 to include reaching header node.
-  if ((IfNestCount + 1) > MaxIfNestThreshold) {
+  if ((IfNestCount + 1) >
+      (UseO3Thresholds ? O3MaxIfNestThreshold : O2MaxIfNestThreshold)) {
     DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loop throttled due to presence of too "
                     "many nested ifs.\n");
     return false;
   }
 
+  // Skip goto check for multi-exit loops.
+  if (!Lp.getExitingBlock()) {
+    return true;
+  }
+
   auto Succ0 = BI.getSuccessor(0);
   auto Succ1 = BI.getSuccessor(1);
 
-  // Within the same loop, conditional branches not dominating its successor and
-  // the successor not post-dominating the branch indicates presence of a goto
-  // in HLLoop.
-  if (((RI.LI->getLoopFor(Succ0) == &Lp) &&
-       !RI.DT->dominates(ParentBB, Succ0) &&
+  // Within the same loop, conditional branches not dominating its successor
+  // and the successor not post-dominating the branch indicates presence of a
+  // goto in HLLoop.
+  if ((!RI.DT->dominates(ParentBB, Succ0) &&
        !RI.PDT->dominates(Succ0, ParentBB)) ||
-      ((RI.LI->getLoopFor(Succ1) == &Lp) &&
-       !RI.DT->dominates(ParentBB, Succ1) &&
+      (!RI.DT->dominates(ParentBB, Succ1) &&
        !RI.PDT->dominates(Succ1, ParentBB))) {
     DEBUG(dbgs()
           << "LOOPOPT_OPTREPORT: Loop throttled due to presence of goto.\n");
@@ -463,27 +525,13 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBranchInst(
 }
 
 bool HIRRegionIdentification::shouldThrottleLoop(const Loop &Lp,
-                                                 bool IsUnknown) const {
+                                                 const SCEV *BECount) const {
 
   if (!CostModelThrottling) {
     return false;
   }
 
-  // SIMD loops should not be throttled.
-  if (isSIMDLoop(Lp)) {
-    return false;
-  }
-
-  // Only handle standalone single bblock unknown loops for now. We don't do
-  // much for outer unknown loops except prefetching which isn't ready yet.
-  // Inner unknown loops are throttled for compile time reasons.
-  if (IsUnknown && ((Lp.getNumBlocks() != 1) || (Lp.getLoopDepth() != 1))) {
-    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: unknown loop throttled for compile "
-                    "time reasons.\n");
-    return true;
-  }
-
-  CostModelAnalyzer CMA(*this, Lp);
+  CostModelAnalyzer CMA(*this, Lp, BECount);
   CMA.analyze();
 
   return !CMA.isProfitable();
@@ -601,7 +649,8 @@ bool HIRRegionIdentification::containsCycle(const BasicBlock *BB,
   return false;
 }
 
-bool HIRRegionIdentification::isGenerable(const BasicBlock *BB) {
+bool HIRRegionIdentification::isGenerable(const BasicBlock *BB,
+                                          const Loop *Lp) {
   auto FirstInst = BB->getFirstNonPHI();
 
   if (isa<LandingPadInst>(FirstInst) || isa<FuncletPadInst>(FirstInst)) {
@@ -624,6 +673,37 @@ bool HIRRegionIdentification::isGenerable(const BasicBlock *BB) {
     DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Exception handling currently not "
                     "supported.\n");
     return false;
+  }
+
+  if (Lp && !Lp->getExitingBlock()) {
+    // If there are multiple switch successors that jump to the same bblock
+    // outside the loop, we throttle this loop. This condition essentially means
+    // that there are multiple edges between src and dest bblock. Currently, the
+    // lveout handling mechanism in the framework assumes each goto represents a
+    // unique (src, dest) bblock pair. To handle this case we will have to add
+    // more information to goto's (like switch case value) and do some tracking
+    // of values liveout for each case goto. This is pretty complicated and
+    // hence being left as a TODO for now. It may be simpler to handle switches
+    // where the same value is liveout from each edge but this is also being
+    // left as a TODO for now.
+    if (auto Switch = dyn_cast<SwitchInst>(Term)) {
+      SmallPtrSet<BasicBlock *, 8> LoopExitBBs;
+
+      for (unsigned I = 0, NumSuccs = Switch->getNumSuccessors(); I < NumSuccs;
+           ++I) {
+        auto SuccBB = Switch->getSuccessor(I);
+
+        if (!Lp->contains(SuccBB)) {
+          if (LoopExitBBs.count(SuccBB) && isa<PHINode>(SuccBB->begin())) {
+            DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Switch instruction with "
+                            "multiple successors outside the loop currently "
+                            "not supported.\n");
+            return false;
+          }
+          LoopExitBBs.insert(SuccBB);
+        }
+      }
+    }
   }
 
   // Skip the terminator instruction.
@@ -655,6 +735,13 @@ bool HIRRegionIdentification::isGenerable(const BasicBlock *BB) {
                         "supported.\n");
         return false;
       }
+
+      if (CInst->hasOperandBundles()) {
+        DEBUG(
+            dbgs()
+            << "LOOPOPT_OPTREPORT: Operand bundles currently not supported.\n");
+        return false;
+      }
     }
 
     if (containsUnsupportedTy(&*Inst)) {
@@ -676,7 +763,7 @@ bool HIRRegionIdentification::areBBlocksGenerable(const Loop &Lp) const {
       continue;
     }
 
-    if (!isGenerable(*BB)) {
+    if (!isGenerable(*BB, &Lp)) {
       return false;
     }
 
@@ -688,6 +775,18 @@ bool HIRRegionIdentification::areBBlocksGenerable(const Loop &Lp) const {
   }
 
   return true;
+}
+
+const Loop *HIRRegionIdentification::getOutermostParentLoop(const Loop *Lp) {
+  const Loop *ParLp, *TmpLp;
+
+  ParLp = Lp;
+
+  while ((TmpLp = ParLp->getParentLoop())) {
+    ParLp = TmpLp;
+  }
+
+  return ParLp;
 }
 
 bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
@@ -708,41 +807,13 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
     return false;
   }
 
-  // Don't handle multi-exit loops for now.
-  if (!Lp.getExitingBlock()) {
-    DEBUG(dbgs()
-          << "LOOPOPT_OPTREPORT: Multi-exit loops currently not supported.\n");
-    return false;
-  }
-
-  // Skip loop with vectorize/unroll pragmas for now so that tests checking for
-  // these are not affected. Allow SIMD loops and dbg metadata.
+  // Skip loop with vectorize/unroll pragmas for now so that tests checking
+  // for these are not affected. Allow SIMD loops and dbg metadata.
   MDNode *LoopID = Lp.getLoopID();
   if (!DisablePragmaBailOut && !isSIMDLoop(Lp) && LoopID &&
       !isDebugMetadataOnly(LoopID)) {
-    DEBUG(
-        dbgs()
-        << "LOOPOPT_OPTREPORT: Loops with pragmas currently not supported.\n");
-    return false;
-  }
-
-  auto BECount = SE->getBackedgeTakenCount(&Lp);
-
-  auto UndefBECount = dyn_cast<SCEVUnknown>(BECount);
-
-  if (UndefBECount && isa<UndefValue>(UndefBECount->getValue())) {
-    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loops with undef backedge taken count "
-                    "currently not supported.\n");
-    return false;
-  }
-
-  auto ConstBECount = dyn_cast<SCEVConstant>(BECount);
-
-  // This represents a trip count of 2^n while we can only handle a trip count
-  // up to 2^n-1.
-  if (ConstBECount && ConstBECount->getValue()->isMinusOne()) {
-    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loops with trip count greater than the "
-                    "IV range currently not supported.\n");
+    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loops with pragmas currently not "
+                    "supported.\n");
     return false;
   }
 
@@ -781,6 +852,23 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
     return false;
   }
 
+  // Use the outermost LLVM loop to evaluate the trip count as we do not know
+  // the outermost HIR parent loop. This is okay for the initial analysis. If
+  // we are not able to compute trip count of the loop after suppressing some
+  // parent loops, the loop will be handled as an unknown loop.
+  auto BECount =
+      SE->getBackedgeTakenCountForHIR(&Lp, getOutermostParentLoop(&Lp));
+
+  auto ConstBECount = dyn_cast<SCEVConstant>(BECount);
+
+  // This represents a trip count of 2^n while we can only handle a trip count
+  // up to 2^n-1.
+  if (ConstBECount && ConstBECount->getValue()->isMinusOne()) {
+    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loops with trip count greater than the "
+                    "IV range currently not supported.\n");
+    return false;
+  }
+
   // Check whether the loop contains irreducible CFG before calling
   // findIVDefInHeader() otherwise it may loop infinitely.
   // We skip the bblock check for function region mode as it is done at the
@@ -797,9 +885,9 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
   }
 
   if (IVNode->getType()->getPrimitiveSizeInBits() == 1) {
-    // The following loop with i1 type IV has a trip count of 2 which is outside
-    // its range. This is a quirk of SSA. CG will generate an infinite loop for
-    // this case if we let it through.
+    // The following loop with i1 type IV has a trip count of 2 which is
+    // outside its range. This is a quirk of SSA. CG will generate an infinite
+    // loop for this case if we let it through.
     // for.i:
     // %i.08.i = phi i1 [ true, %entry ], [ false, %for.i ]
     // br i1 %i.08.i, label %for.i, label %exit
@@ -808,8 +896,7 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
   }
 
   // We skip cost model throttling for function level region.
-  if (!IsFunctionRegionMode &&
-      shouldThrottleLoop(Lp, isa<SCEVCouldNotCompute>(BECount))) {
+  if (!IsFunctionRegionMode && shouldThrottleLoop(Lp, BECount)) {
     return false;
   }
 
@@ -937,36 +1024,6 @@ void HIRRegionIdentification::createRegion(const Loop &Lp) {
   RegionCount++;
 }
 
-bool HIRRegionIdentification::canHandleInnerLoopnest(
-    const Loop *CurLp, const Loop *OutermostLp) const {
-
-  // Clear existing HIR cache before processing a new loopnest/region as the
-  // cache is contextual.
-  if (CurLp == OutermostLp) {
-    SE->clearHIRCache();
-  }
-
-  // Check whether countable loop turns into non-countable loop due to inner
-  // loopnest construction. This happens when the trip count of this loop
-  // depends on an outer loop IV which has been suppressed making
-  // ScalarEvolution's analysis conservative.
-  if (SE->hasLoopInvariantBackedgeTakenCount(CurLp)) {
-    auto HIRBECount = SE->getBackedgeTakenCountForHIR(CurLp, OutermostLp);
-
-    if (isa<SCEVCouldNotCompute>(HIRBECount)) {
-      return false;
-    }
-  }
-
-  for (auto I = CurLp->begin(), E = CurLp->end(); I != E; ++I) {
-    if (!canHandleInnerLoopnest(*I, OutermostLp)) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
 bool HIRRegionIdentification::formRegionForLoop(const Loop &Lp,
                                                 unsigned *LoopnestDepth) {
   SmallVector<Loop *, 8> GenerableLoops;
@@ -1001,12 +1058,7 @@ bool HIRRegionIdentification::formRegionForLoop(const Loop &Lp,
     for (auto I = GenerableLoops.begin(), E = GenerableLoops.end(); I != E;
          ++I) {
       auto &Lp = **I;
-
-      if (canHandleInnerLoopnest(&Lp, &Lp)) {
-        createRegion(Lp);
-      } else {
-        DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Cannot handle inner loopnest.\n");
-      }
+      createRegion(Lp);
     }
   }
 
@@ -1015,8 +1067,8 @@ bool HIRRegionIdentification::formRegionForLoop(const Loop &Lp,
 
 void HIRRegionIdentification::formRegions() {
 
-  // LoopInfo::iterator visits loops in reverse program order so we need to use
-  // reverse_iterator here.
+  // LoopInfo::iterator visits loops in reverse program order so we need to
+  // use reverse_iterator here.
   for (LoopInfo::reverse_iterator I = LI->rbegin(), E = LI->rend(); I != E;
        ++I) {
     unsigned Depth;
@@ -1047,7 +1099,7 @@ void HIRRegionIdentification::createFunctionLevelRegion(Function &Func) {
 bool HIRRegionIdentification::areBBlocksGenerable(Function &Func) const {
 
   for (auto BBIt = ++Func.begin(), E = Func.end(); BBIt != E; ++BBIt) {
-    if (!isGenerable(&*BBIt)) {
+    if (!isGenerable(&*BBIt, nullptr)) {
       return false;
     }
 
@@ -1061,20 +1113,126 @@ bool HIRRegionIdentification::areBBlocksGenerable(Function &Func) const {
 }
 
 bool HIRRegionIdentification::canFormFunctionLevelRegion(Function &Func) {
-  // Entry bblock is the first bblock of the region. We do not include it inside
-  // the region because the dummy instructions created by HIR transformations
-  // are inserted in the entry bblock. Our function level region will start from
-  // the terminator instruction of the entry bblock. This is to maintain the
-  // "single entry" property of the region.
+  // Entry bblock is the first bblock of the region. We do not include it
+  // inside the region because the dummy instructions created by HIR
+  // transformations are inserted in the entry bblock. Our function level
+  // region will start from the terminator instruction of the entry bblock.
+  // This is to maintain the "single entry" property of the region.
 
   if (!areBBlocksGenerable(Func)) {
     return false;
   }
 
-  SmallVector<Loop *, 4> AllLoops = LI->getLoopsInPreorder();
+  SmallVector<Loop *, 16> AllLoops = LI->getLoopsInPreorder();
 
   for (auto Lp : AllLoops) {
     if (!isSelfGenerable(*Lp, Lp->getLoopDepth(), true)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+bool HIRRegionIdentification::isLoopConcatenationCandidate(BasicBlock *BB) {
+  // Check that-
+  // 1) All loads either load an i8 type value or load an i32 type value from
+  // the same alloca.
+  // 2) All stores store an i32 type value and use the same alloca as the base
+  // pointer.
+  // 3) Rest of the instructions are all integer type.
+  auto &Cnxt = BB->getContext();
+  auto Int8Ty = Type::getInt8Ty(Cnxt);
+  auto Int32Ty = Type::getInt32Ty(Cnxt);
+  Value *Alloca = nullptr;
+  unsigned NumAllocaLoads = 0, NumAllocaStores = 0;
+
+  for (auto It = BB->begin(), E = --BB->end(); It != E; ++It) {
+    auto &Inst = (*It);
+    auto InstTy = Inst.getType();
+    Value *Ptr = nullptr;
+
+    if (auto LInst = dyn_cast<LoadInst>(&Inst)) {
+      if (InstTy != Int8Ty) {
+        if (InstTy != Int32Ty) {
+          return false;
+        }
+        Ptr = LInst->getPointerOperand();
+      }
+      ++NumAllocaLoads;
+
+    } else if (auto SInst = dyn_cast<StoreInst>(&Inst)) {
+      if (SInst->getValueOperand()->getType() != Int32Ty) {
+        return false;
+      }
+      Ptr = SInst->getPointerOperand();
+      ++NumAllocaStores;
+
+    } else if (!isa<PointerType>(InstTy) && !isa<IntegerType>(InstTy)) {
+      return false;
+    }
+
+    if (Ptr) {
+      auto GEP = dyn_cast<GetElementPtrInst>(Ptr);
+
+      if (!GEP) {
+        return false;
+      }
+
+      auto GEPPtr = GEP->getPointerOperand();
+
+      if (Alloca) {
+        if (GEPPtr != Alloca) {
+          return false;
+        }
+      } else if (!isa<AllocaInst>(GEPPtr)) {
+        return false;
+      } else {
+        Alloca = GEPPtr;
+      }
+    }
+  }
+
+  if ((NumAllocaLoads != 4) && (NumAllocaStores != 4)) {
+    return false;
+  }
+
+  return true;
+}
+
+bool HIRRegionIdentification::isLoopConcatenationCandidate() const {
+  // Restrict to O3 and above.
+  if (OptLevel < 3) {
+    return false;
+  }
+
+  // We are looking for 16, single bblock loops which have a backedge count of
+  // 3.
+  if (std::distance(LI->begin(), LI->end()) != 16) {
+    return false;
+  }
+
+  // Perform the cheap bblock count check first.
+  for (auto Lp : *LI) {
+    if (Lp->getNumBlocks() != 1) {
+      return false;
+    }
+  }
+
+  // Check backedge taken count.
+  for (auto Lp : *LI) {
+    auto BECount = SE->getBackedgeTakenCountForHIR(Lp, Lp);
+    auto ConstBECount = dyn_cast<SCEVConstant>(BECount);
+
+    if (!ConstBECount || (ConstBECount->getValue()->getSExtValue() != 3)) {
+      return false;
+    }
+  }
+
+  // Perform more checks on the loop body to minimize chances of forming
+  // function level region in other cases.
+  for (auto Lp : *LI) {
+    if (!isLoopConcatenationCandidate(Lp->getHeader())) {
       return false;
     }
   }
@@ -1092,8 +1250,9 @@ bool HIRRegionIdentification::runOnFunction(Function &Func) {
   PDT = &getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
   SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
   TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
+  OptLevel = getAnalysis<XmainOptLevelPass>().getOptLevel();
 
-  if (CreateFunctionLevelRegion) {
+  if (CreateFunctionLevelRegion || isLoopConcatenationCandidate()) {
     if (canFormFunctionLevelRegion(Func)) {
       createFunctionLevelRegion(Func);
     }

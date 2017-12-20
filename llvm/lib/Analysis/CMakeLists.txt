@@ -18,6 +18,7 @@ add_llvm_library(LLVMAnalysis
   CallGraphSCCPass.cpp
   CallPrinter.cpp
   CaptureTracking.cpp
+  CmpInstAnalysis.cpp
   CostModel.cpp
   CodeMetrics.cpp
   ConstantFolding.cpp
@@ -34,7 +35,7 @@ add_llvm_library(LLVMAnalysis
   InlineCost.cpp
   InstCount.cpp
   InstructionSimplify.cpp
-#ifdef INTEL_CUSTOMIZATION
+# INTEL_CUSTOMIZATION
   Intel_AggInline.cpp
   Intel_Andersens.cpp
   Intel_Directives.cpp
@@ -45,7 +46,10 @@ add_llvm_library(LLVMAnalysis
   Intel_OptVLSClientUtils.cpp
   Intel_VectorVariant.cpp
   Intel_WP.cpp
-#endif     // INTEL_CUSTOMIZATION
+  Intel_XmainOptLevelPass.cpp
+  Intel_VPO/Utils/IntrinsicUtils.cpp             # TODO: Move to lib/Analysis
+  Intel_VPO/Utils/OpenMPDirectivesAndClauses.cpp # TODO: Move to lib/Analysis
+# end INTEL_CUSTOMIZATION
   Interval.cpp
   IntervalPartition.cpp
   IteratedDominanceFrontier.cpp
@@ -72,7 +76,7 @@ add_llvm_library(LLVMAnalysis
   ObjCARCAliasAnalysis.cpp
   ObjCARCAnalysisUtils.cpp
   ObjCARCInstKind.cpp
-  OptimizationDiagnosticInfo.cpp
+  OptimizationRemarkEmitter.cpp
   OrderedBasicBlock.cpp
   PHITransAddr.cpp
   PostDominators.cpp
@@ -85,13 +89,14 @@ add_llvm_library(LLVMAnalysis
   ScalarEvolutionAliasAnalysis.cpp
   ScalarEvolutionExpander.cpp
   ScalarEvolutionNormalization.cpp
-  SparsePropagation.cpp
   TargetLibraryInfo.cpp
   TargetTransformInfo.cpp
   Trace.cpp
   TypeBasedAliasAnalysis.cpp
   TypeMetadataUtils.cpp
   ScopedNoAliasAA.cpp
+  ValueLattice.cpp
+  ValueLatticeUtils.cpp
   ValueTracking.cpp
   VectorUtils.cpp
 
@@ -100,9 +105,11 @@ add_llvm_library(LLVMAnalysis
 
   DEPENDS
   intrinsics_gen
-  intel_directives_gen
-  intel_svml_gen
+  intel_directives_gen    #INTEL
+  intel_svml_gen          #INTEL
+  intel_libmvec_gen       #INTEL
   )
 
-add_subdirectory(Intel_LoopAnalysis)
-add_subdirectory(Intel_VPO)
+add_subdirectory(Intel_DTrans)        #INTEL
+add_subdirectory(Intel_LoopAnalysis)  #INTEL
+add_subdirectory(Intel_VPO)           #INTEL

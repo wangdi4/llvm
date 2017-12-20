@@ -22,7 +22,6 @@
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Threading.h"
 
-#include "lldb/Core/StructuredData.h"
 #include "lldb/Host/Config.h"
 #include "lldb/Host/ConnectionFileDescriptor.h"
 #include "lldb/Host/Host.h"
@@ -35,6 +34,7 @@
 #include "lldb/Utility/Log.h"
 #include "lldb/Utility/StreamGDBRemote.h"
 #include "lldb/Utility/StreamString.h"
+#include "lldb/Utility/StructuredData.h"
 #include "lldb/Utility/UriParser.h"
 
 // Project includes
@@ -128,8 +128,9 @@ Status GDBRemoteCommunicationServerPlatform::LaunchGDBServer(
   llvm::StringRef platform_ip;
   int platform_port;
   llvm::StringRef platform_path;
-  bool ok = UriParser::Parse(GetConnection()->GetURI(), platform_scheme,
-                             platform_ip, platform_port, platform_path);
+  std::string platform_uri = GetConnection()->GetURI();
+  bool ok = UriParser::Parse(platform_uri, platform_scheme, platform_ip,
+                             platform_port, platform_path);
   UNUSED_IF_ASSERT_DISABLED(ok);
   assert(ok);
 

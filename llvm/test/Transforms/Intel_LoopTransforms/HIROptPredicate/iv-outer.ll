@@ -20,7 +20,7 @@
 ;
 ;           BEGIN REGION { }
 ; <23>            + DO i1 = 0, %n + -1, 1   <DO_LOOP>
-; <22>            |   + DO i2 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>
+; <22>            |   + DO i2 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>
 ; <7>             |   |   if (i1 > %d)
 ; <7>             |   |   {
 ; <12>            |   |      %0 = (%p)[i2];
@@ -35,7 +35,7 @@
 ;
 ; CHECK:    BEGIN REGION { modified }
 ; CHECK:          + DO i1 = 0, %n + -1 * smax(0, (1 + %d)) + -1, 1   <DO_LOOP>
-; CHECK:          |   + DO i2 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>
+; CHECK:          |   + DO i2 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>
 ; CHECK:          |   |   %0 = (%p)[i2];
 ; CHECK:          |   |   (%p)[i2] = %0 + 1;
 ; CHECK:          |   + END LOOP

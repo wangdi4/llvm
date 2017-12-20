@@ -1,5 +1,12 @@
 ; REQUIRES: x86
+; LTO
 ; RUN: llvm-as %s -o %t.o
+; RUN: ld.lld %t.o -o %t.out -wrap=bar -save-temps
+; RUN: llvm-readobj -t %t.out | FileCheck %s
+; RUN: cat %t.out.resolution.txt | FileCheck -check-prefix=RESOLS %s
+
+; ThinLTO
+; RUN: opt -module-summary %s -o %t.o
 ; RUN: ld.lld %t.o -o %t.out -wrap=bar -save-temps
 ; RUN: llvm-readobj -t %t.out | FileCheck %s
 ; RUN: cat %t.out.resolution.txt | FileCheck -check-prefix=RESOLS %s
@@ -12,7 +19,7 @@
 
 ; Make sure that the 'r' (linker redefined) bit is set for bar and __wrap_bar
 ; in the resolutions file.
-; RESOLS: ,bar,r
+; RESOLS: ,bar,xr
 ; RESOLS: ,__wrap_bar,px
 ; RESOLS: ,__real_bar,pxr
 

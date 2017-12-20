@@ -19,11 +19,13 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h"
+#include "llvm/IR/Metadata.h"
 
 namespace llvm {
 
 namespace vpo {
 
+class WRegionNode;
 class WRegionUtils;
 
 // for readability; VAR and EXPR match OpenMP4.1 specs
@@ -31,13 +33,19 @@ typedef Value* VAR;
 typedef Value* EXPR;
 typedef Value* RDECL;
 
+// Tables used for debug printing
+extern std::unordered_map<int, StringRef> WRNDefaultName;
+extern std::unordered_map<int, StringRef> WRNAtomicName;
+extern std::unordered_map<int, StringRef> WRNCancelName;
+extern std::unordered_map<int, StringRef> WRNProcBindName;
+
 //
-// Classes below represent list items used in many OMP clauses 
+// Classes below represent list items used in many OMP clauses
 // The actual clause (a list of items) is then of type vector<item>
-//            
+//
 //   Item: base class NOT intended to be instantiated as is.
 //         Contains members common to most list items in OMP clauses
-//            
+//
 //   SharedItem:       derived class for an item in the SHARED       clause
 //   PrivateItem:      derived class for an item in the PRIVATE      clause
 //   FirstprivateItem: derived class for an item in the FIRSTPRIVATE clause
@@ -55,21 +63,25 @@ typedef Value* RDECL;
 //   Item: abstract base class NOT intended to be instantiated directly.
 //         Contains members common to list items in OMP clauses
 //
-class Item 
+class Item
 {
   friend class WRegionUtils;
   private:
-    VAR   OrigItem;  // original var 
+    VAR   OrigItem;  // original var
     VAR   NewItem;   // new version (eg private) of the var
     VAR   ParmItem;  // formal parm in outlined entry; usually holds &OrigItem
     bool  IsNonpod;  // true for a C++ NONPOD var
     bool  IsVla;     // true for variable-length arrays (C99)
     EXPR  VlaSize;   // size of vla array can be an int expression
+    int   ThunkIdx;  // used for task/taskloop codegen
+    MDNode *AliasScope; // alias info (loads)  to help registerize private vars
+    MDNode *NoAlias;    // alias info (stores) to help registerize private vars
 
   public:
     Item(VAR Orig) :
-      OrigItem(Orig), NewItem(nullptr), ParmItem(nullptr),
-      IsNonpod(false), IsVla(false), VlaSize(nullptr) {}
+      OrigItem(Orig), NewItem(nullptr), ParmItem(nullptr), IsNonpod(false),
+      IsVla(false), VlaSize(nullptr), ThunkIdx(-1), AliasScope(nullptr),
+      NoAlias(nullptr) {}
 
     void setOrig(VAR V)          { OrigItem = V;    }
     void setNew(VAR V)           { NewItem = V;     }
@@ -77,6 +89,9 @@ class Item
     void setIsNonpod(bool Flag)  { IsNonpod = Flag; }
     void setIsVla(bool Flag)     { IsVla = Flag;    }
     void setVlaSize(EXPR Size)   { VlaSize = Size;  }
+    void setThunkIdx(int I)      { ThunkIdx = I;    }
+    void setAliasScope(MDNode *M){ AliasScope = M;  }
+    void setNoAlias(MDNode *M)   { NoAlias = M;     }
 
     VAR  getOrig()     const { return OrigItem; }
     VAR  getNew()      const { return NewItem;  }
@@ -84,6 +99,24 @@ class Item
     bool getIsNonpod() const { return IsNonpod; }
     bool getIsVla()    const { return IsVla;    }
     EXPR getVlaSize()  const { return VlaSize;  }
+    int getThunkIdx()  const { return ThunkIdx; }
+    MDNode *getAliasScope() const { return AliasScope; }
+    MDNode *getNoAlias()    const { return NoAlias; }
+
+    virtual void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+      OS << "(" ;
+      getOrig()->printAsOperand(OS, PrintType);
+      OS << ") ";
+    }
+
+    // Conditional lastprivate:
+    // Abort if these methods are invoked from anything but a LastprivateItem.
+    virtual void setIsConditional(bool B){
+     llvm_unreachable("Unexpected keyword: CONDITIONAL");
+    }
+    virtual bool getIsConditional() const {
+     llvm_unreachable("Unexpected keyword: CONDITIONAL");
+    }
 };
 
 //
@@ -96,7 +129,7 @@ class SharedItem : public Item
     bool  IsPassedDirectly;
 
   public:
-    SharedItem(VAR Orig) : Item(Orig), IsPassedDirectly(false) {} 
+    SharedItem(VAR Orig) : Item(Orig), IsPassedDirectly(false) {}
     void setIsPassedDirectly(bool Flag) { IsPassedDirectly = Flag; }
     bool getIsPassedDirectly() const { return IsPassedDirectly; }
 };
@@ -106,7 +139,7 @@ class SharedItem : public Item
 //   PrivateItem: OMP PRIVATE clause item
 //   (cf PAROPT_OMP_PRIVATE_NODE)
 //
-class PrivateItem : public Item 
+class PrivateItem : public Item
 {
   private:
     RDECL Constructor;
@@ -114,7 +147,7 @@ class PrivateItem : public Item
 
   public:
     PrivateItem(VAR Orig) :
-      Item(Orig), Constructor(nullptr), Destructor(nullptr) {} 
+      Item(Orig), Constructor(nullptr), Destructor(nullptr) {}
     void setConstructor(RDECL Ctor) { Constructor = Ctor; }
     void setDestructor(RDECL Dtor)  { Destructor  = Dtor; }
     RDECL getConstructor() const { return Constructor; }
@@ -126,7 +159,7 @@ class PrivateItem : public Item
 //   FirstprivateItem: OMP FIRSTPRIVATE clause item
 //   (cf PAROPT_OMP_FIRSTPRIVATE_NODE)
 //
-class FirstprivateItem : public Item 
+class FirstprivateItem : public Item
 {
   private:
     RDECL CopyConstructor;
@@ -134,7 +167,7 @@ class FirstprivateItem : public Item
 
   public:
     FirstprivateItem(VAR Orig) :
-      Item(Orig), CopyConstructor(nullptr), Destructor(nullptr) {} 
+      Item(Orig), CopyConstructor(nullptr), Destructor(nullptr) {}
     void setCopyConstructor(RDECL Cctor) { CopyConstructor = Cctor; }
     void setDestructor(RDECL Dtor)       { Destructor  = Dtor;      }
     RDECL getCopyConstructor() const { return CopyConstructor; }
@@ -146,19 +179,22 @@ class FirstprivateItem : public Item
 //   LastprivateItem: OMP LASTPRIVATE clausclause item
 //   (cf PAROPT_OMP_LASTPRIVATE_NODE)
 //
-class LastprivateItem : public Item 
+class LastprivateItem : public Item
 {
   private:
+    bool  IsConditional;    // conditional lastprivate
     RDECL Constructor;
     RDECL Destructor;
     RDECL Copy;
 
   public:
-    LastprivateItem(VAR Orig) : 
-      Item(Orig), Constructor(nullptr), Destructor(nullptr), Copy(nullptr) {} 
+    LastprivateItem(VAR Orig) : Item(Orig), IsConditional(false),
+      Constructor(nullptr), Destructor(nullptr), Copy(nullptr) {}
+    void setIsConditional(bool B)   { IsConditional = B; }
     void setConstructor(RDECL Ctor) { Constructor = Ctor; }
     void setDestructor(RDECL Dtor)  { Destructor  = Dtor; }
     void setCopy(RDECL Cpy)         { Copy = Cpy;         }
+    bool  getIsConditional() const { return IsConditional; }
     RDECL getConstructor() const { return Constructor; }
     RDECL getDestructor()  const { return Destructor; }
     RDECL getCopy()        const { return Copy; }
@@ -169,12 +205,12 @@ class LastprivateItem : public Item
 //   ReductionItem: OMP REDUCTION clause item
 //   (cf PAROPT_OMP_REDUCTION_NODE)
 //
-class ReductionItem : public Item 
+class ReductionItem : public Item
 {
 public:
   typedef enum WRNReductionKind {
     WRNReductionError = 0,
-    WRNReductionSum,
+    WRNReductionAdd,
     WRNReductionSub,
     WRNReductionMult,
     WRNReductionAnd,
@@ -182,26 +218,27 @@ public:
     WRNReductionBxor,
     WRNReductionBand,
     WRNReductionBor,
-    WRNReductionEqv,  // Fortran; currently unsupported 
-    WRNReductionNeqv, // Fortran; currently unsupported 
-    WRNReductionMax,  // Fortran; currently unsupported 
-    WRNReductionMin,  // Fortran; currently unsupported 
+    WRNReductionEqv,  // Fortran; currently unsupported
+    WRNReductionNeqv, // Fortran; currently unsupported
+    WRNReductionMax,
+    WRNReductionMin,
     WRNReductionUdr   // user-defined reduction
   } WRNReductionKind;
 
   private:
     WRNReductionKind Ty; // reduction operation
+    bool  IsUnsigned;    // for min/max reduction; default is signed min/max
     RDECL Combiner;
     RDECL Initializer;
 
   public:
-    ReductionItem(VAR Orig, WRNReductionKind Op=WRNReductionError): 
-      Item(Orig), Ty(Op), Combiner(nullptr), Initializer(nullptr) {}
+    ReductionItem(VAR Orig, WRNReductionKind Op=WRNReductionError): Item(Orig),
+      Ty(Op), IsUnsigned(false), Combiner(nullptr), Initializer(nullptr) {}
 
     static WRNReductionKind getKindFromClauseId(int Id) {
       switch(Id) {
         case QUAL_OMP_REDUCTION_ADD:
-          return WRNReductionSum;
+          return WRNReductionAdd;
         case QUAL_OMP_REDUCTION_SUB:
           return WRNReductionSub;
         case QUAL_OMP_REDUCTION_MUL:
@@ -210,22 +247,26 @@ public:
           return WRNReductionAnd;
         case QUAL_OMP_REDUCTION_OR:
           return WRNReductionOr;
-        case QUAL_OMP_REDUCTION_XOR:
+        case QUAL_OMP_REDUCTION_BXOR:
           return WRNReductionBxor;
         case QUAL_OMP_REDUCTION_BAND:
           return WRNReductionBand;
         case QUAL_OMP_REDUCTION_BOR:
           return WRNReductionBor;
+        case QUAL_OMP_REDUCTION_MAX:
+          return WRNReductionMax;
+        case QUAL_OMP_REDUCTION_MIN:
+          return WRNReductionMin;
         case QUAL_OMP_REDUCTION_UDR:
           return WRNReductionUdr;
-        default: 
+        default:
           llvm_unreachable("Unsupported Reduction Clause ID");
       }
     };
 
     static int getClauseIdFromKind(WRNReductionKind Kind) {
       switch(Kind) {
-        case WRNReductionSum:
+        case WRNReductionAdd:
           return QUAL_OMP_REDUCTION_ADD;
         case WRNReductionSub:
           return QUAL_OMP_REDUCTION_SUB;
@@ -236,24 +277,44 @@ public:
         case WRNReductionOr:
           return QUAL_OMP_REDUCTION_OR;
         case WRNReductionBxor:
-          return QUAL_OMP_REDUCTION_XOR;
+          return QUAL_OMP_REDUCTION_BXOR;
         case WRNReductionBand:
           return QUAL_OMP_REDUCTION_BAND;
         case WRNReductionBor:
           return QUAL_OMP_REDUCTION_BOR;
+        case WRNReductionMax:
+          return QUAL_OMP_REDUCTION_MAX;
+        case WRNReductionMin:
+          return QUAL_OMP_REDUCTION_MIN;
         case WRNReductionUdr:
           return QUAL_OMP_REDUCTION_UDR;
-        default: 
+        default:
           llvm_unreachable("Unsupported Reduction Kind ");
       }
     };
 
     void setType(WRNReductionKind Op) { Ty = Op;          }
+    void setIsUnsigned(bool B)        { IsUnsigned = B;   }
     void setCombiner(RDECL Comb)      { Combiner = Comb;    }
     void setInitializer(RDECL Init)   { Initializer = Init; }
     WRNReductionKind getType() const { return Ty;        }
+    bool getIsUnsigned()       const { return IsUnsigned;  }
     RDECL getCombiner()        const { return Combiner;    }
     RDECL getInitializer()     const { return Initializer; }
+
+    // Return a string for the reduction operation, such as "ADD" and "MUL"
+    StringRef getOpName() const {
+      int ClauseId = getClauseIdFromKind(Ty);
+      return VPOAnalysisUtils::getReductionOpName(ClauseId);
+    };
+
+    // Don't use the default print() from the base class "Item", because
+    // we need to print the Reduction operation too.
+    void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+      OS << "(" << getOpName() << ": ";
+      getOrig()->printAsOperand(OS, PrintType);
+      OS << ") ";
+    }
 };
 
 
@@ -267,7 +328,7 @@ class CopyinItem : public Item
     RDECL Copy;
 
   public:
-    CopyinItem(VAR Orig) : Item(Orig), Copy(nullptr) {} 
+    CopyinItem(VAR Orig) : Item(Orig), Copy(nullptr) {}
     void setCopy(RDECL Cpy) { Copy = Cpy; }
     RDECL getCopy() const { return Copy; }
 };
@@ -282,7 +343,7 @@ class CopyprivateItem : public Item
     RDECL Copy;
 
   public:
-    CopyprivateItem(VAR Orig) : Item(Orig), Copy(nullptr) {} 
+    CopyprivateItem(VAR Orig) : Item(Orig), Copy(nullptr) {}
     void setCopy(RDECL Cpy) { Copy = Cpy; }
     RDECL getCopy() const { return Copy; }
 };
@@ -291,17 +352,24 @@ class CopyprivateItem : public Item
 //
 //   LinearItem: OMP LINEAR clause item
 //
-class LinearItem : public Item 
+class LinearItem : public Item
 {
   private:
-    int Step;   // 0 if unspecified
+    int Step;   // default is 1
 
     // No need for ctor/dtor because OrigItem is either pointer or array base
 
   public:
-    LinearItem(VAR Orig) : Item(Orig), Step(0) {} 
+    LinearItem(VAR Orig) : Item(Orig), Step(1) {}
     void setStep(int S) { Step = S; }
     int getStep() const { return Step; }
+
+    // Specialized print() to output the stride as well
+    void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+      OS << "(";
+      getOrig()->printAsOperand(OS, PrintType);
+      OS << ", " << getStep() << ") ";
+    }
 };
 
 //
@@ -317,24 +385,23 @@ class UniformItem : public Item
 //
 //   MapItem: OMP MAP clause item
 //
-class MapItem : public Item 
+class MapItem : public Item
 {
 private:
   unsigned MapKind;  // bit vector for map kind and modifiers
 
 public:
   enum WRNMapKind {
-    WRNMapNone      = 0x0000,
-    WRNMapTo        = 0x0001,
-    WRNMapFrom      = 0x0002,
-    WRNMapTofrom    = 0x0004,
-    WRNMapAlloc     = 0x0008,
-    WRNMapRelease   = 0x0010,
-    WRNMapDelete    = 0x0020,
-    WRNMapAlways    = 0x0100  
+    WRNMapNone    = 0x0000,
+    WRNMapTo      = 0x0001,
+    WRNMapFrom    = 0x0002,
+    WRNMapAlways  = 0x0004,
+    WRNMapDelete  = 0x0008,
+    WRNMapAlloc   = 0x0010,
+    WRNMapRelease = 0x0020,
   } WRNMapKind;
 
-  MapItem(VAR Orig) : Item(Orig), MapKind(0) {} 
+  MapItem(VAR Orig) : Item(Orig), MapKind(0) {}
 
   static unsigned getMapKindFromClauseId(int Id) {
     switch(Id) {
@@ -345,7 +412,7 @@ public:
       case QUAL_OMP_MAP_FROM:
         return WRNMapFrom;
       case QUAL_OMP_MAP_TOFROM:
-        return WRNMapTofrom;
+        return WRNMapFrom | WRNMapTo;
       case QUAL_OMP_MAP_ALLOC:
         return WRNMapAlloc;
       case QUAL_OMP_MAP_RELEASE:
@@ -357,14 +424,14 @@ public:
       case QUAL_OMP_MAP_ALWAYS_FROM:
         return WRNMapFrom | WRNMapAlways;
       case QUAL_OMP_MAP_ALWAYS_TOFROM:
-        return WRNMapTofrom | WRNMapAlways;
+        return WRNMapTo | WRNMapFrom | WRNMapAlways;
       case QUAL_OMP_MAP_ALWAYS_ALLOC:
         return WRNMapAlloc | WRNMapAlways;
       case QUAL_OMP_MAP_ALWAYS_RELEASE:
         return WRNMapRelease | WRNMapAlways;
       case QUAL_OMP_MAP_ALWAYS_DELETE:
         return WRNMapDelete | WRNMapAlways;
-      default: 
+      default:
         llvm_unreachable("Unsupported MAP Clause ID");
     }
   };
@@ -372,7 +439,7 @@ public:
   void setMapKind(unsigned MK) { MapKind = MK; }
   void setIsMapTo()      { MapKind |= WRNMapTo; }
   void setIsMapFrom()    { MapKind |= WRNMapFrom; }
-  void setIsMapTofrom()  { MapKind |= WRNMapTofrom; }
+  void setIsMapTofrom() { MapKind |= WRNMapFrom | WRNMapTo; }
   void setIsMapAlloc()   { MapKind |= WRNMapAlloc; }
   void setIsMapRelease() { MapKind |= WRNMapRelease; }
   void setIsMapDelete()  { MapKind |= WRNMapDelete; }
@@ -381,7 +448,7 @@ public:
   unsigned getMapKind()    const { return MapKind; }
   bool getIsMapTo()        const { return MapKind & WRNMapTo; }
   bool getIsMapFrom()      const { return MapKind & WRNMapFrom; }
-  bool getIsMapTofrom()    const { return MapKind & WRNMapTofrom; }
+  bool getIsMapTofrom() const { return MapKind & (WRNMapFrom | WRNMapTo); }
   bool getIsMapAlloc()     const { return MapKind & WRNMapAlloc; }
   bool getIsMapRelease()   const { return MapKind & WRNMapRelease; }
   bool getIsMapDelete()    const { return MapKind & WRNMapDelete; }
@@ -410,9 +477,9 @@ class UseDevicePtrItem : public Item
 
 
 //
-// These item classes for list-type clauses are not derived from the 
+// These item classes for list-type clauses are not derived from the
 // base "Item" class above.
-//            
+//
 //   DependItem    (for the depend  clause in task and target constructs)
 //   DepSinkItem   (for the depend(sink:<vec>) clause in ordered constructs)
 //   AlignedItem   (for the aligned clause in simd constructs)
@@ -420,7 +487,7 @@ class UseDevicePtrItem : public Item
 // TODO: we need a better array section representation;
 //       the one hard-coded in DependItem only handles 1-dim.
 //
-class DependItem 
+class DependItem
 {
   private:
     VAR   Base;           // scalar item or base of array section
@@ -447,9 +514,15 @@ class DependItem
     EXPR getLb()        const   { return LowerBound; }
     EXPR getLength()    const   { return Length; }
     EXPR getStride()    const   { return Stride; }
+
+    void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+      OS << "(" ;
+      getOrig()->printAsOperand(OS, PrintType);
+      OS << ") ";
+    }
 };
 
-class DepSinkItem 
+class DepSinkItem
 {
   private:
     EXPR  SinkExpr;       // LoopVar +/- Offset (eg: i-1)
@@ -465,9 +538,15 @@ class DepSinkItem
     EXPR getSinkExpr()  const   { return SinkExpr; }
     EXPR getLoopVar()   const   { return LoopVar; }
     EXPR getOffset()    const   { return Offset; }
+
+    void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+      OS << "(" ;
+      getSinkExpr()->printAsOperand(OS, PrintType);
+      OS << ") ";
+    }
 };
 
-class AlignedItem 
+class AlignedItem
 {
   private:
     VAR   Base;           // pointer or base of array
@@ -479,26 +558,38 @@ class AlignedItem
     void setAlign(int Align) { Alignment = Align; }
     VAR  getOrig()  const { return Base; }
     int  getAlign() const { return Alignment; }
-};
 
+    void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+      OS << "(";
+      getOrig()->printAsOperand(OS, PrintType);
+      OS << ", " << getAlign() << ") ";
+    }
+};
 
 class FlushItem
 {
   private:
-    VAR  Var;  // global, static, volatile values 
+    VAR  Var;  // global, static, volatile values
 
   public:
     FlushItem(VAR V=nullptr) : Var(V) {}
     void setOrig(VAR V)      { Var = V; }
     VAR  getOrig()  const { return Var; }
+
+    void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+      OS << "(" ;
+      getOrig()->printAsOperand(OS, PrintType);
+      OS << ") ";
+    }
 };
 
 
 //
 // The list-type clauses are essentially vectors of the clause items above
-//            
+//
 template <typename ClauseItem> class Clause
 {
+  friend class WRegionNode;
   friend class WRegionUtils;
   private:
     typedef typename std::vector<ClauseItem*>       ItemArray;
@@ -508,6 +599,10 @@ template <typename ClauseItem> class Clause
     ItemArray C;
     int ClauseID;
 
+  public:
+    // Constructor
+    Clause();
+
   protected:
     // Create a new item for VAR V and append it to the clause
     void add(VAR V) { ClauseItem *P = new ClauseItem(V); C.push_back(P); }
@@ -515,6 +610,7 @@ template <typename ClauseItem> class Clause
   public:
     int getClauseID()               const { return ClauseID;     }
     void setClauseID(int ID)              { ClauseID = ID;       }
+    bool empty()                    const { return C.empty();    }
     int size()                      const { return C.size();     }
     int capacity()                  const { return C.capacity(); }
     const ClauseItem *front()       const { return C.front();    }
@@ -536,27 +632,39 @@ template <typename ClauseItem> class Clause
       return ConstItemsRange(begin(), end());
     }
 
-    void print(formatted_raw_ostream &OS) const {
-      StringRef S = VPOAnalysisUtils::getClauseName(getClauseID());
-      OS << S << " clause, size=" << size() << ": " ;
-      for (auto I=begin(); I != end(); ++I) {
-        OS << "(" << *((*I)->getOrig()) << ") ";
-        if (getClauseID() == QUAL_OMP_LINEAR) {
-          LinearItem *LinItem = (LinearItem*)(*I);
-          OS << ", stride = " << LinItem->getStep();
-        }
-      }
-      OS << "\n";
-    }
-
-    // search the clause for 
-    ClauseItem *findOrig(const VAR V) { 
+    bool print(formatted_raw_ostream &OS, unsigned Depth=0,
+                                          unsigned Verbosity=1) const;
+    // search the clause for
+    ClauseItem *findOrig(const VAR V) {
       for (auto I : items())
-        if (I->getOrig() == V) 
+        if (I->getOrig() == V)
           return I;
       return nullptr;
     }
 };
+
+/// \brief Print routine for template list-type Clause classes.
+/// Returns true iff something is printed
+template <typename ClauseItem> bool Clause<ClauseItem>::
+print(formatted_raw_ostream &OS, unsigned Depth, unsigned Verbosity) const {
+
+  if (Verbosity==0 && !size())
+    return false;  // Don't print absent clause message if Verbosity==0
+
+  StringRef Name = VPOAnalysisUtils::getClauseName(getClauseID());
+  OS.indent(2*Depth) << Name << " clause";
+  if (!size()) {  // this clause was not used in the directive
+    OS << ": UNSPECIFIED\n";
+    return true;
+  }
+  OS << " (size=" << size() << "): " ;
+
+  for (auto I: items())
+    I->print(OS);
+
+  OS << "\n";
+  return true;
+}
 
 /*
 template <typename ClauseItem>
@@ -609,7 +717,7 @@ typedef std::vector<FlushItem>::iterator        FlushIter;
 
 //
 // Support for other OMP clauses (not list-type)
-//            
+//
 
 typedef enum WRNDefaultKind {
     WRNDefaultAbsent = 0,     // default clause not present
@@ -661,8 +769,8 @@ typedef enum WRNScheduleKind {
     WRNScheduleTrapezoidal             = 39,
     WRNScheduleStaticGreedy            = 40,
     WRNScheduleStaticBalanced          = 41,
-    WRNScheduleGUIDEDIterative         = 42,
-    WRNScheduleGUIDEDAnalytical        = 43,
+    WRNScheduleGuidedIterative         = 42,
+    WRNScheduleGuidedAnalytical        = 43,
 
     WRNScheduleOrderedStatic           = 65,
     WRNScheduleOrderedStaticEven       = 66,
@@ -674,7 +782,7 @@ typedef enum WRNScheduleKind {
     WRNScheduleOrderedTrapezoidal      = 71,
     WRNScheduleOrderedStaticGreedy     = 72,
     WRNScheduleOrderedStaticBalanced   = 73,
-    WRNScheduleOrderedGuidedITerative  = 74,
+    WRNScheduleOrderedGuidedIterative  = 74,
     WRNScheduleOrderedGuidedAnalytical = 75,
 
     WRNScheduleDistributeStatic        = 91,
@@ -682,7 +790,7 @@ typedef enum WRNScheduleKind {
 } WRNScheduleKind;
 
 
-class ScheduleClause 
+class ScheduleClause
 {
   private:
     WRNScheduleKind Kind;
@@ -702,8 +810,8 @@ class ScheduleClause
 
     // constructor: default schedule when clause is not specified is
     // STATIC with unspecified chunksize or modifiers
-    ScheduleClause(): Kind(WRNScheduleStaticEven), ChunkExpr(nullptr), 
-                      Chunk(0), IsSchedMonotonic(false), 
+    ScheduleClause(): Kind(WRNScheduleStaticEven), ChunkExpr(nullptr),
+                      Chunk(0), IsSchedMonotonic(false),
                       IsSchedNonmonotonic(false), IsSchedSimd(false) {}
     WRNScheduleKind getKind()      const   { return Kind; }
     EXPR getChunkExpr()            const   { return ChunkExpr; }
@@ -711,8 +819,14 @@ class ScheduleClause
     bool getIsSchedMonotonic()     const   { return IsSchedMonotonic; }
     bool getIsSchedNonmonotonic()  const   { return IsSchedNonmonotonic; }
     bool getIsSchedSimd()          const   { return IsSchedSimd; }
-};
 
+    bool isDistSchedule() const {
+      return Kind == WRNScheduleDistributeStatic ||
+             Kind == WRNScheduleDistributeStaticEven;
+    }
+    bool print(formatted_raw_ostream &OS, unsigned Depth=0,
+                                          unsigned Verbosity=1) const;
+};
 
 } // End namespace vpo
 

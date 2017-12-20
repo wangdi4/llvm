@@ -4,8 +4,8 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-post-vec-complete-unroll -print-before=hir-post-vec-complete-unroll -hir-cost-model-throttling=0 2>&1 | FileCheck %s
 
 ; Check parsing output for reduction chain in the loopnest
-; CHECK: + DO i1 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>
-; CHECK: |   + DO i2 = 0, zext.i32.i64((-1 + %m)), 1   <DO_LOOP>
+; CHECK: + DO i1 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>
+; CHECK: |   + DO i2 = 0, sext.i32.i64((-1 + %m)), 1   <DO_LOOP>
 ; CHECK: |   |   %0 = (@A)[0][i2][i1];
 ; CHECK: |   |   %t.034 = %0  +  %t.034;
 ; CHECK: |   |   %t.034.out = %t.034;

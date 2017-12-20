@@ -27,15 +27,15 @@ typedef struct ar_hdr {
 #include <ar.h>
 #endif
 
-#include "lldb/Core/ArchSpec.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/ModuleSpec.h"
 #include "lldb/Core/PluginManager.h"
-#include "lldb/Core/Timer.h"
 #include "lldb/Host/FileSystem.h"
 #include "lldb/Symbol/ObjectFile.h"
+#include "lldb/Utility/ArchSpec.h"
 #include "lldb/Utility/DataBufferLLVM.h"
 #include "lldb/Utility/Stream.h"
+#include "lldb/Utility/Timer.h"
 
 #include "llvm/Support/MemoryBuffer.h"
 

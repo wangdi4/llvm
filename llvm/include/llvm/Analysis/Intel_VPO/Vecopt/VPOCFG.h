@@ -117,6 +117,7 @@ private:
   InstructionsTy Instructions;
   CFGEdgesTy Predecessors;
   CFGEdgesTy Successors;
+  AvrCFGBase *Parent;
 
   static unsigned long long NextId;
   unsigned long long Id;
@@ -129,7 +130,7 @@ private:
 
 public:
 
-  AvrBasicBlock() { assignId(); }
+  AvrBasicBlock(AvrCFGBase *NewParent) : Parent(NewParent) { assignId(); }
 
   unsigned long long getId() const { return Id; }
 
@@ -138,6 +139,10 @@ public:
   InstructionsTy::iterator begin() { return Instructions.begin(); }
 
   InstructionsTy::iterator end() { return Instructions.end(); }
+
+  /// \brief Return the enclosing CFG.
+  const AvrCFGBase *getParent() const { return Parent; }
+  AvrCFGBase *getParent() { return Parent; }
 
   void print(raw_ostream &O,
              bool printSingleAVRs,
@@ -265,7 +270,7 @@ private:
   void insertAfter(AvrBasicBlock* BB, AvrBasicBlock* NewSuccessor);
 
   AvrBasicBlock* createBasicBlock(AVR* A = nullptr) {
-    AvrBasicBlock* BB = new AvrBasicBlock();
+    AvrBasicBlock* BB = new AvrBasicBlock(this);
     Size++;
     if (A) {
       BB->addInstruction(A);
@@ -502,18 +507,6 @@ public:
 private:
 
   AvrCFGBase* CFG = nullptr;
-};
-
-/// \brief Template specialization of the standard LLVM dominator tree utility
-/// for AVR CFGs.
-class AvrDominatorTree : public DominatorTreeBase<AvrBasicBlock> {
-
-public:
-
-  AvrDominatorTree(bool isPostDom) :
-      DominatorTreeBase<AvrBasicBlock>(isPostDom) {}
-
-  virtual ~AvrDominatorTree() {}
 };
 
 } // End VPO Vectorizer Namespace
@@ -771,6 +764,20 @@ struct DOTGraphTraits<vpo::AvrBasicBlock*> : public DefaultDOTGraphTraits {
     return DescriptionString;
   }
 
+};
+
+/// \brief Template specialization of the standard LLVM dominator tree utility
+/// for AVR CFGs.
+class AvrDominatorTree : public DomTreeBase<vpo::AvrBasicBlock> {
+public:
+  AvrDominatorTree() : DomTreeBase<vpo::AvrBasicBlock>() {}
+};
+
+/// \brief Template specialization of the standard LLVM post-dominator tree
+/// utility for AVR CFGs.
+class AvrPostDominatorTree : public PostDomTreeBase<vpo::AvrBasicBlock> {
+public:
+  AvrPostDominatorTree() : PostDomTreeBase<vpo::AvrBasicBlock>() {}
 };
 
 } // End LLVM Namespace 

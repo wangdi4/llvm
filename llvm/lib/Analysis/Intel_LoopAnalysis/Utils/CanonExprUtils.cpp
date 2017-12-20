@@ -13,8 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/IR/Constants.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/CanonExpr.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/IR/LLVMContext.h"
 
 #include "llvm/Support/Debug.h"
@@ -332,8 +332,10 @@ void CanonExprUtils::updateSrcType(CanonExpr *CE1, const CanonExpr *CE2,
   }
 }
 
-bool CanonExprUtils::canAddOrSubtract(const CanonExpr *CE1,
-                                      const CanonExpr *CE2, bool RelaxedMode) {
+bool CanonExprUtils::canAdd(const CanonExpr *CE1, const CanonExpr *CE2,
+                            bool RelaxedMode) {
+  assert((CE1 && CE2) && " Canon Expr parameters are null!");
+
   if (CE2->isZero()) {
     return true;
   }
@@ -349,10 +351,25 @@ bool CanonExprUtils::canAddOrSubtract(const CanonExpr *CE1,
   return true;
 }
 
+bool CanonExprUtils::canSubtract(const CanonExpr *CE1, const CanonExpr *CE2,
+                                 bool RelaxedMode) {
+  assert((CE1 && CE2) && " Canon Expr parameters are null!");
+
+  // const_cast to prevent memory allocation. CE2 will be reverted before
+  // returning.
+  const_cast<CanonExpr *>(CE2)->negate();
+
+  bool Res = canAdd(CE1, CE2, RelaxedMode);
+
+  // Revert CE2 to original state.
+  const_cast<CanonExpr *>(CE2)->negate();
+
+  return Res;
+}
+
 void CanonExprUtils::addImpl(CanonExpr *CE1, const CanonExpr *CE2,
                              bool RelaxedMode) {
-  assert((CE1 && CE2) && " Canon Expr parameters are null!");
-  assert(canAddOrSubtract(CE1, CE2, RelaxedMode) && "Cannot add CE1 and CE2");
+  assert(canAdd(CE1, CE2, RelaxedMode) && "Cannot add CE1 and CE2");
 
   if (CE2->isZero()) {
     return;
@@ -429,9 +446,27 @@ void CanonExprUtils::addImpl(CanonExpr *CE1, const CanonExpr *CE2,
   }
 }
 
+void CanonExprUtils::subtractImpl(CanonExpr *CE1, const CanonExpr *CE2,
+                                  bool RelaxedMode) {
+  assert(canSubtract(CE1, CE2, RelaxedMode) && "Cannot subtract CE1 and CE2");
+
+  // The result of canSubtract(CE1, CE2) and canSubtract(CE2, CE1) can be
+  // different in RelaxedMode. For stability reasons, we negate CE2 and
+  // implement this as (CE1 + -CE2) rather than negating CE1 and implementing it
+  // as (-(-CE1 + CE2)) to preserve const correctness.
+  const_cast<CanonExpr *>(CE2)->negate();
+
+  addImpl(CE1, CE2, RelaxedMode);
+
+  // Revert CE2 to original state.
+  const_cast<CanonExpr *>(CE2)->negate();
+}
+
 bool CanonExprUtils::add(CanonExpr *CE1, const CanonExpr *CE2,
                          bool RelaxedMode) {
-  if (!canAddOrSubtract(CE1, CE2, RelaxedMode)) {
+  assert((CE1 && CE2) && " Canon Expr parameters are null!");
+
+  if (!canAdd(CE1, CE2, RelaxedMode)) {
     return false;
   }
 
@@ -441,8 +476,9 @@ bool CanonExprUtils::add(CanonExpr *CE1, const CanonExpr *CE2,
 
 CanonExpr *CanonExprUtils::cloneAndAdd(const CanonExpr *CE1,
                                        const CanonExpr *CE2, bool RelaxedMode) {
+  assert((CE1 && CE2) && " Canon Expr parameters are null!");
 
-  if (!canAddOrSubtract(CE1, CE2, RelaxedMode)) {
+  if (!canAdd(CE1, CE2, RelaxedMode)) {
     return nullptr;
   }
 
@@ -457,18 +493,12 @@ bool CanonExprUtils::subtract(CanonExpr *CE1, const CanonExpr *CE2,
                               bool RelaxedMode) {
   assert((CE1 && CE2) && " Canon Expr parameters are null!");
 
-  if (!canAddOrSubtract(CE1, CE2, RelaxedMode)) {
+  if (!canSubtract(CE1, CE2, RelaxedMode)) {
     return false;
   }
 
-  // Here, we avoid cloning by doing negation twice.
-  // -(-CE1+CE2) => CE1-CE2
+  subtractImpl(CE1, CE2, RelaxedMode);
 
-  CE1->negate();
-
-  addImpl(CE1, CE2, RelaxedMode);
-
-  CE1->negate();
   return true;
 }
 
@@ -477,16 +507,13 @@ CanonExpr *CanonExprUtils::cloneAndSubtract(const CanonExpr *CE1,
                                             bool RelaxedMode) {
   assert((CE1 && CE2) && " Canon Expr parameters are null!");
 
-  if (!canAddOrSubtract(CE1, CE2, RelaxedMode)) {
+  if (!canSubtract(CE1, CE2, RelaxedMode)) {
     return nullptr;
   }
 
-  // Result = -CE2 + CE1
-  CanonExpr *Result = cloneAndNegate(CE2);
+  CanonExpr *Result = CE1->clone();
 
-  addImpl(Result, CE1, RelaxedMode);
-
-  Result->setDestType(CE1->getDestType());
+  subtractImpl(Result, CE2, RelaxedMode);
 
   return Result;
 }
@@ -514,19 +541,20 @@ bool CanonExprUtils::canReplaceIVByCanonExpr(const CanonExpr *CE1,
                                              const CanonExpr *CE2,
                                              bool RelaxedMode) {
   // Perform cheap checks here to avoid allocating memory.
-  if (!CE1->hasIV(Level) || CE2->isZero()) {
+  if (!CE1->hasIV(Level) || CE2->isIntConstant()) {
     return true;
   }
 
   std::unique_ptr<CanonExpr> CE1Clone(CE1->clone());
 
-  return replaceIVByCanonExpr(CE1Clone.get(), Level, CE2, RelaxedMode);
+  // IsNSW flag has no bearing on whether the replacement can be performed so we
+  // can always pass it as false.
+  return replaceIVByCanonExpr(CE1Clone.get(), Level, CE2, false, RelaxedMode);
 }
 
 bool CanonExprUtils::replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
-                                          const CanonExpr *CE2,
+                                          const CanonExpr *CE2, bool IsNSW,
                                           bool RelaxedMode) {
-
   // CE1 = C1*B1*i1 + C3*i2 + ..., Level 1
   // CE2 = C2*B2
 
@@ -535,17 +563,27 @@ bool CanonExprUtils::replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
     return true;
   }
 
-  // If CE2 is zero - just remove the IV
-  if (CE2->isZero()) {
-    CE1->removeIV(Level);
+  int64_t CE2Value;
+  if (CE2->isIntConstant(&CE2Value)) {
+    CE1->replaceIVByConstant(Level, CE2Value);
     return true;
   }
 
-  if (!mergeable(CE1, CE2, RelaxedMode)) {
-    return false;
+  // Try to merge first
+  bool Mergeable = mergeable(CE1, CE2, RelaxedMode);
+  if (!Mergeable) {
+    if (!CE2->canConvertToStandAloneBlob()) {
+      // If can not be casted
+      return false;
+    }
   }
 
   std::unique_ptr<CanonExpr> Term(CE2->clone());
+
+  if (!Mergeable) {
+    // Not meargeable but could be casted to a blob with a correspondent type.
+    Term->castStandAloneBlob(CE1->getSrcType(), IsNSW);
+  }
 
   // It's safe to change the Term type as CE1 and CE2 are mergeable.
   Term->setSrcAndDestType(CE1->getSrcType());

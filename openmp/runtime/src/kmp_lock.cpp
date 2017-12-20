@@ -2,7 +2,6 @@
  * kmp_lock.cpp -- lock-related functions
  */
 
-
 //===----------------------------------------------------------------------===//
 //
 //                     The LLVM Compiler Infrastructure
@@ -11,7 +10,6 @@
 // Source Licenses. See LICENSE.txt for details.
 //
 //===----------------------------------------------------------------------===//
-
 
 #include <stddef.h>
 #include <atomic>
@@ -950,9 +948,8 @@ static int __kmp_release_nested_ticket_lock_with_checks(kmp_ticket_lock_t *lck,
 void __kmp_init_nested_ticket_lock(kmp_ticket_lock_t *lck) {
   __kmp_init_ticket_lock(lck);
   std::atomic_store_explicit(&lck->lk.depth_locked, 0,
-                             std::memory_order_relaxed); // >= 0 for nestable
-                                                         // locks, -1 for simple
-                                                         // locks
+                             std::memory_order_relaxed);
+  // >= 0 for nestable locks, -1 for simple locks
 }
 
 static void __kmp_init_nested_ticket_lock_with_checks(kmp_ticket_lock_t *lck) {
@@ -1131,14 +1128,14 @@ template <bool takeTime>
 __forceinline static int
 __kmp_acquire_queuing_lock_timed_template(kmp_queuing_lock_t *lck,
                                           kmp_int32 gtid) {
-  register kmp_info_t *this_thr = __kmp_thread_from_gtid(gtid);
+  kmp_info_t *this_thr = __kmp_thread_from_gtid(gtid);
   volatile kmp_int32 *head_id_p = &lck->lk.head_id;
   volatile kmp_int32 *tail_id_p = &lck->lk.tail_id;
   volatile kmp_uint32 *spin_here_p;
   kmp_int32 need_mf = 1;
 
 #if OMPT_SUPPORT
-  ompt_state_t prev_state = ompt_state_undefined;
+  omp_state_t prev_state = omp_state_undefined;
 #endif
 
   KA_TRACE(1000,
@@ -1246,7 +1243,7 @@ __kmp_acquire_queuing_lock_timed_template(kmp_queuing_lock_t *lck,
 #endif
 
 #if OMPT_SUPPORT
-        if (ompt_enabled && prev_state != ompt_state_undefined) {
+        if (ompt_enabled.enabled && prev_state != omp_state_undefined) {
           /* change the state before clearing wait_id */
           this_thr->th.ompt_thread_info.state = prev_state;
           this_thr->th.ompt_thread_info.wait_id = 0;
@@ -1261,11 +1258,11 @@ __kmp_acquire_queuing_lock_timed_template(kmp_queuing_lock_t *lck,
     }
 
 #if OMPT_SUPPORT
-    if (ompt_enabled && prev_state == ompt_state_undefined) {
+    if (ompt_enabled.enabled && prev_state == omp_state_undefined) {
       /* this thread will spin; set wait_id before entering wait state */
       prev_state = this_thr->th.ompt_thread_info.state;
       this_thr->th.ompt_thread_info.wait_id = (uint64_t)lck;
-      this_thr->th.ompt_thread_info.state = ompt_state_wait_lock;
+      this_thr->th.ompt_thread_info.state = omp_state_wait_lock;
     }
 #endif
 
@@ -1402,7 +1399,7 @@ static int __kmp_test_queuing_lock_with_checks(kmp_queuing_lock_t *lck,
 }
 
 int __kmp_release_queuing_lock(kmp_queuing_lock_t *lck, kmp_int32 gtid) {
-  register kmp_info_t *this_thr;
+  kmp_info_t *this_thr;
   volatile kmp_int32 *head_id_p = &lck->lk.head_id;
   volatile kmp_int32 *tail_id_p = &lck->lk.tail_id;
 
@@ -1468,9 +1465,9 @@ int __kmp_release_queuing_lock(kmp_queuing_lock_t *lck, kmp_int32 gtid) {
         KMP_DEBUG_ASSERT(head > 0);
 
         /* try (h,h)->(-1,0) */
-        dequeued = KMP_COMPARE_AND_STORE_REL64((kmp_int64 *)tail_id_p,
-                                               KMP_PACK_64(head, head),
-                                               KMP_PACK_64(-1, 0));
+        dequeued = KMP_COMPARE_AND_STORE_REL64(
+            RCAST(volatile kmp_int64 *, tail_id_p), KMP_PACK_64(head, head),
+            KMP_PACK_64(-1, 0));
 #ifdef DEBUG_QUEUING_LOCKS
         TRACE_LOCK(gtid + 1, "rel deq: (h,h)->(-1,0)");
 #endif
@@ -2290,11 +2287,10 @@ static inline bool __kmp_is_drdpa_lock_nestable(kmp_drdpa_lock_t *lck) {
 
 __forceinline static int
 __kmp_acquire_drdpa_lock_timed_template(kmp_drdpa_lock_t *lck, kmp_int32 gtid) {
-  kmp_uint64 ticket = KMP_TEST_THEN_INC64((kmp_int64 *)&lck->lk.next_ticket);
+  kmp_uint64 ticket =
+      KMP_TEST_THEN_INC64(RCAST(volatile kmp_int64 *, &lck->lk.next_ticket));
   kmp_uint64 mask = TCR_8(lck->lk.mask); // volatile load
-  volatile struct kmp_base_drdpa_lock::kmp_lock_poll *polls =
-      (volatile struct kmp_base_drdpa_lock::kmp_lock_poll *)TCR_PTR(
-          lck->lk.polls); // volatile load
+  volatile struct kmp_base_drdpa_lock::kmp_lock_poll *polls = lck->lk.polls;
 
 #ifdef USE_LOCK_PROFILE
   if (TCR_8(polls[ticket & mask].poll) != ticket)
@@ -2331,8 +2327,7 @@ __kmp_acquire_drdpa_lock_timed_template(kmp_drdpa_lock_t *lck, kmp_int32 gtid) {
     // values, and we get the new value of mask and the old polls pointer, we
     // could access memory beyond the end of the old polling area.
     mask = TCR_8(lck->lk.mask); // volatile load
-    polls = (volatile struct kmp_base_drdpa_lock::kmp_lock_poll *)TCR_PTR(
-        lck->lk.polls); // volatile load
+    polls = lck->lk.polls; // volatile load
   }
 
   // Critical section starts here
@@ -2347,7 +2342,7 @@ __kmp_acquire_drdpa_lock_timed_template(kmp_drdpa_lock_t *lck, kmp_int32 gtid) {
   // The >= check is in case __kmp_test_drdpa_lock() allocated the cleanup
   // ticket.
   if ((lck->lk.old_polls != NULL) && (ticket >= lck->lk.cleanup_ticket)) {
-    __kmp_free((void *)lck->lk.old_polls);
+    __kmp_free(CCAST(kmp_base_drdpa_lock::kmp_lock_poll *, lck->lk.old_polls));
     lck->lk.old_polls = NULL;
     lck->lk.cleanup_ticket = 0;
   }
@@ -2462,13 +2457,11 @@ int __kmp_test_drdpa_lock(kmp_drdpa_lock_t *lck, kmp_int32 gtid) {
   // First get a ticket, then read the polls pointer and the mask.
   // The polls pointer must be read before the mask!!! (See above)
   kmp_uint64 ticket = TCR_8(lck->lk.next_ticket); // volatile load
-  volatile struct kmp_base_drdpa_lock::kmp_lock_poll *polls =
-      (volatile struct kmp_base_drdpa_lock::kmp_lock_poll *)TCR_PTR(
-          lck->lk.polls); // volatile load
+  volatile struct kmp_base_drdpa_lock::kmp_lock_poll *polls = lck->lk.polls;
   kmp_uint64 mask = TCR_8(lck->lk.mask); // volatile load
   if (TCR_8(polls[ticket & mask].poll) == ticket) {
     kmp_uint64 next_ticket = ticket + 1;
-    if (KMP_COMPARE_AND_STORE_ACQ64((kmp_int64 *)&lck->lk.next_ticket, ticket,
+    if (KMP_COMPARE_AND_STORE_ACQ64(&lck->lk.next_ticket, ticket,
                                     next_ticket)) {
       KMP_FSYNC_ACQUIRED(lck);
       KA_TRACE(1000, ("__kmp_test_drdpa_lock: ticket #%lld acquired lock %p\n",
@@ -2509,9 +2502,7 @@ int __kmp_release_drdpa_lock(kmp_drdpa_lock_t *lck, kmp_int32 gtid) {
   // Read the ticket value from the lock data struct, then the polls pointer and
   // the mask.  The polls pointer must be read before the mask!!! (See above)
   kmp_uint64 ticket = lck->lk.now_serving + 1; // non-volatile load
-  volatile struct kmp_base_drdpa_lock::kmp_lock_poll *polls =
-      (volatile struct kmp_base_drdpa_lock::kmp_lock_poll *)TCR_PTR(
-          lck->lk.polls); // volatile load
+  volatile struct kmp_base_drdpa_lock::kmp_lock_poll *polls = lck->lk.polls;
   kmp_uint64 mask = TCR_8(lck->lk.mask); // volatile load
   KA_TRACE(1000, ("__kmp_release_drdpa_lock: ticket #%lld released lock %p\n",
                   ticket - 1, lck));
@@ -2568,11 +2559,11 @@ void __kmp_destroy_drdpa_lock(kmp_drdpa_lock_t *lck) {
   lck->lk.initialized = NULL;
   lck->lk.location = NULL;
   if (lck->lk.polls != NULL) {
-    __kmp_free((void *)lck->lk.polls);
+    __kmp_free(CCAST(kmp_base_drdpa_lock::kmp_lock_poll *, lck->lk.polls));
     lck->lk.polls = NULL;
   }
   if (lck->lk.old_polls != NULL) {
-    __kmp_free((void *)lck->lk.old_polls);
+    __kmp_free(CCAST(kmp_base_drdpa_lock::kmp_lock_poll *, lck->lk.old_polls));
     lck->lk.old_polls = NULL;
   }
   lck->lk.mask = 0;
@@ -2920,11 +2911,11 @@ static int __kmp_test_rtm_lock_with_checks(kmp_queuing_lock_t *lck,
 static void __kmp_init_indirect_lock(kmp_dyna_lock_t *l,
                                      kmp_dyna_lockseq_t tag);
 static void __kmp_destroy_indirect_lock(kmp_dyna_lock_t *lock);
-static void __kmp_set_indirect_lock(kmp_dyna_lock_t *lock, kmp_int32);
+static int __kmp_set_indirect_lock(kmp_dyna_lock_t *lock, kmp_int32);
 static int __kmp_unset_indirect_lock(kmp_dyna_lock_t *lock, kmp_int32);
 static int __kmp_test_indirect_lock(kmp_dyna_lock_t *lock, kmp_int32);
-static void __kmp_set_indirect_lock_with_checks(kmp_dyna_lock_t *lock,
-                                                kmp_int32);
+static int __kmp_set_indirect_lock_with_checks(kmp_dyna_lock_t *lock,
+                                               kmp_int32);
 static int __kmp_unset_indirect_lock_with_checks(kmp_dyna_lock_t *lock,
                                                  kmp_int32);
 static int __kmp_test_indirect_lock_with_checks(kmp_dyna_lock_t *lock,
@@ -2947,14 +2938,13 @@ void (*__kmp_direct_destroy[])(kmp_dyna_lock_t *) = {
 
 // set/acquire functions
 #define expand(l, op)                                                          \
-  0, (void (*)(kmp_dyna_lock_t *, kmp_int32))__kmp_##op##_##l##_lock,
-static void (*direct_set[])(kmp_dyna_lock_t *, kmp_int32) = {
+  0, (int (*)(kmp_dyna_lock_t *, kmp_int32))__kmp_##op##_##l##_lock,
+static int (*direct_set[])(kmp_dyna_lock_t *, kmp_int32) = {
     __kmp_set_indirect_lock, 0, KMP_FOREACH_D_LOCK(expand, acquire)};
 #undef expand
 #define expand(l, op)                                                          \
-  0, (void (*)(kmp_dyna_lock_t *,                                              \
-               kmp_int32))__kmp_##op##_##l##_lock_with_checks,
-static void (*direct_set_check[])(kmp_dyna_lock_t *, kmp_int32) = {
+  0, (int (*)(kmp_dyna_lock_t *, kmp_int32))__kmp_##op##_##l##_lock_with_checks,
+static int (*direct_set_check[])(kmp_dyna_lock_t *, kmp_int32) = {
     __kmp_set_indirect_lock_with_checks, 0,
     KMP_FOREACH_D_LOCK(expand, acquire)};
 #undef expand
@@ -2977,7 +2967,7 @@ static int (*direct_test_check[])(kmp_dyna_lock_t *, kmp_int32) = {
 #undef expand
 
 // Exposes only one set of jump tables (*lock or *lock_with_checks).
-void (*(*__kmp_direct_set))(kmp_dyna_lock_t *, kmp_int32) = 0;
+int (*(*__kmp_direct_set))(kmp_dyna_lock_t *, kmp_int32) = 0;
 int (*(*__kmp_direct_unset))(kmp_dyna_lock_t *, kmp_int32) = 0;
 int (*(*__kmp_direct_test))(kmp_dyna_lock_t *, kmp_int32) = 0;
 
@@ -2991,13 +2981,13 @@ void (*__kmp_indirect_destroy[])(kmp_user_lock_p) = {
 
 // set/acquire functions
 #define expand(l, op)                                                          \
-  (void (*)(kmp_user_lock_p, kmp_int32)) __kmp_##op##_##l##_##lock,
-static void (*indirect_set[])(kmp_user_lock_p, kmp_int32) = {
-    KMP_FOREACH_I_LOCK(expand, acquire)};
+  (int (*)(kmp_user_lock_p, kmp_int32)) __kmp_##op##_##l##_##lock,
+static int (*indirect_set[])(kmp_user_lock_p,
+                             kmp_int32) = {KMP_FOREACH_I_LOCK(expand, acquire)};
 #undef expand
 #define expand(l, op)                                                          \
-  (void (*)(kmp_user_lock_p, kmp_int32)) __kmp_##op##_##l##_##lock_with_checks,
-static void (*indirect_set_check[])(kmp_user_lock_p, kmp_int32) = {
+  (int (*)(kmp_user_lock_p, kmp_int32)) __kmp_##op##_##l##_##lock_with_checks,
+static int (*indirect_set_check[])(kmp_user_lock_p, kmp_int32) = {
     KMP_FOREACH_I_LOCK(expand, acquire)};
 #undef expand
 
@@ -3018,7 +3008,7 @@ static int (*indirect_test_check[])(kmp_user_lock_p, kmp_int32) = {
 #undef expand
 
 // Exposes only one jump tables (*lock or *lock_with_checks).
-void (*(*__kmp_indirect_set))(kmp_user_lock_p, kmp_int32) = 0;
+int (*(*__kmp_indirect_set))(kmp_user_lock_p, kmp_int32) = 0;
 int (*(*__kmp_indirect_unset))(kmp_user_lock_p, kmp_int32) = 0;
 int (*(*__kmp_indirect_test))(kmp_user_lock_p, kmp_int32) = 0;
 
@@ -3068,11 +3058,12 @@ kmp_indirect_lock_t *__kmp_allocate_indirect_lock(void **user_lock,
     if (idx == __kmp_i_lock_table.size) {
       // Double up the space for block pointers
       int row = __kmp_i_lock_table.size / KMP_I_LOCK_CHUNK;
-      kmp_indirect_lock_t **old_table = __kmp_i_lock_table.table;
-      __kmp_i_lock_table.table = (kmp_indirect_lock_t **)__kmp_allocate(
+      kmp_indirect_lock_t **new_table = (kmp_indirect_lock_t **)__kmp_allocate(
           2 * row * sizeof(kmp_indirect_lock_t *));
-      KMP_MEMCPY(__kmp_i_lock_table.table, old_table,
+      KMP_MEMCPY(new_table, __kmp_i_lock_table.table,
                  row * sizeof(kmp_indirect_lock_t *));
+      kmp_indirect_lock_t **old_table = __kmp_i_lock_table.table;
+      __kmp_i_lock_table.table = new_table;
       __kmp_free(old_table);
       // Allocate new objects in the new blocks
       for (int i = row; i < 2 * row; ++i)
@@ -3173,9 +3164,9 @@ static void __kmp_destroy_indirect_lock(kmp_dyna_lock_t *lock) {
   __kmp_release_lock(&__kmp_global_lock, gtid);
 }
 
-static void __kmp_set_indirect_lock(kmp_dyna_lock_t *lock, kmp_int32 gtid) {
+static int __kmp_set_indirect_lock(kmp_dyna_lock_t *lock, kmp_int32 gtid) {
   kmp_indirect_lock_t *l = KMP_LOOKUP_I_LOCK(lock);
-  KMP_I_LOCK_FUNC(l, set)(l->lock, gtid);
+  return KMP_I_LOCK_FUNC(l, set)(l->lock, gtid);
 }
 
 static int __kmp_unset_indirect_lock(kmp_dyna_lock_t *lock, kmp_int32 gtid) {
@@ -3188,11 +3179,11 @@ static int __kmp_test_indirect_lock(kmp_dyna_lock_t *lock, kmp_int32 gtid) {
   return KMP_I_LOCK_FUNC(l, test)(l->lock, gtid);
 }
 
-static void __kmp_set_indirect_lock_with_checks(kmp_dyna_lock_t *lock,
-                                                kmp_int32 gtid) {
+static int __kmp_set_indirect_lock_with_checks(kmp_dyna_lock_t *lock,
+                                               kmp_int32 gtid) {
   kmp_indirect_lock_t *l =
       __kmp_lookup_indirect_lock((void **)lock, "omp_set_lock");
-  KMP_I_LOCK_FUNC(l, set)(l->lock, gtid);
+  return KMP_I_LOCK_FUNC(l, set)(l->lock, gtid);
 }
 
 static int __kmp_unset_indirect_lock_with_checks(kmp_dyna_lock_t *lock,

@@ -81,7 +81,7 @@ public:
     /// \brief This function restructures the CFG on demand, where each
     /// directive for Cilk, OpenMP, Offload, Vectorization is put into a
     /// standalone basic block. This is a pre-required process for WRegion
-    /// construction for each function. 
+    /// construction for each function.
     ///
     /// Note that, since WRegion construction requires
     /// DominatorTreeWrapperPass and LoopInfoWrapperPass to be executed prior
@@ -109,12 +109,18 @@ public:
     /// stripped from \p F; \b false otherwise.
     static bool stripDirectives(Function &F);
 
+    /// \brief Removes OpenMP PRIVATE clauses if present.
+    /// \returns \b true if removal happened.
+    static bool stripPrivateClauses(WRegionNode *WRN);
+    static bool stripPrivateClauses(BasicBlock &BB);
+
+
     ////////////////// MultiVersioning Transformation ////////////////////////
     //
     /// \brief Given a single-entry and single-exit region represented by
     /// BBSet, generates the following code, where ClonedBBSet is the cloned
     /// region of BBSet:
-    /// 
+    ///
     /// if (Cond)
     ///   BBSet;
     /// else
@@ -139,7 +145,7 @@ public:
     /// different. \p CodeInfo (optional) helps to collect additional
     /// information about the cloned region, such as if it contains call,
     /// dynamic or static alloca instructions. \p VMap bookkeeps both basic
-    /// block mapping and instruction mapping. 
+    /// block mapping and instruction mapping.
     static void cloneBBSet(
             SmallVectorImpl<BasicBlock *> &BBSet,
             SmallVectorImpl<BasicBlock *> &ClonedBBSet,
@@ -155,7 +161,7 @@ public:
             SmallVectorImpl<Instruction *> &LiveOut);
 
     /////////////// End MultiVersioning Transformation ////////////////////////
-    
+
     ////////// Functions for Parallel Section Transformation //////////////////
     //
     // Transforms OpenMP parallel sections to parallel do loop and work-sharing
@@ -190,8 +196,8 @@ public:
     // parallel sections and work-sharing sections.
     static ParSectNode *buildParSectTree(Function *F,
                         DominatorTree *DT = nullptr);
-    static void buildParSectTreeRecursive(BasicBlock* BB, 
-                        std::stack<ParSectNode *> &SectionStack, 
+    static void buildParSectTreeRecursive(BasicBlock* BB,
+                        std::stack<ParSectNode *> &SectionStack,
                         DominatorTree *DT = nullptr);
     static void printParSectTree(ParSectNode *Node);
 

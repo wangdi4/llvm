@@ -14,10 +14,12 @@
 
 #include "llvm/Transforms/Scalar/MemCpyOptimizer.h"
 #include "llvm/ADT/DenseSet.h"
+#include "llvm/ADT/None.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/iterator_range.h"
+#include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Intel_Andersens.h"          // INTEL
@@ -26,6 +28,8 @@
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Argument.h"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/CallSite.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DerivedTypes.h"
@@ -42,6 +46,7 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Operator.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/User.h"
 #include "llvm/IR/Value.h"
@@ -55,6 +60,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
+#include <utility>
 
 using namespace llvm;
 
@@ -226,15 +232,18 @@ bool MemsetRange::isProfitableToUseMemset(const DataLayout &DL) const {
 namespace {
 
 class MemsetRanges {
+  using range_iterator = SmallVectorImpl<MemsetRange>::iterator;
+
   /// A sorted list of the memset ranges.
   SmallVector<MemsetRange, 8> Ranges;
-  typedef SmallVectorImpl<MemsetRange>::iterator range_iterator;
+
   const DataLayout &DL;
 
 public:
   MemsetRanges(const DataLayout &DL) : DL(DL) {}
 
-  typedef SmallVectorImpl<MemsetRange>::const_iterator const_iterator;
+  using const_iterator = SmallVectorImpl<MemsetRange>::const_iterator;
+
   const_iterator begin() const { return Ranges.begin(); }
   const_iterator end() const { return Ranges.end(); }
   bool empty() const { return Ranges.empty(); }
@@ -260,7 +269,6 @@ public:
 
   void addRange(int64_t Start, int64_t Size, Value *Ptr,
                 unsigned Alignment, Instruction *Inst);
-
 };
 
 } // end anonymous namespace
@@ -358,9 +366,9 @@ public:
     }
 };
 
-char MemCpyOptLegacyPass::ID = 0;
-
 } // end anonymous namespace
+
+char MemCpyOptLegacyPass::ID = 0;
 
 /// The public interface to this file...
 FunctionPass *llvm::createMemCpyOptPass() { return new MemCpyOptLegacyPass(); }
@@ -452,7 +460,6 @@ Instruction *MemCpyOptPass::tryMergingIntoMemset(Instruction *StartInst,
   // emit memset's for anything big enough to be worthwhile.
   Instruction *AMemSet = nullptr;
   for (const MemsetRange &Range : Ranges) {
-
     if (Range.TheStores.size() == 1) continue;
 
     // If it is profitable to lower this range to memset, do so now.
@@ -537,7 +544,7 @@ static bool moveUp(AliasAnalysis &AA, StoreInst *SI, Instruction *P,
   for (auto I = --SI->getIterator(), E = P->getIterator(); I != E; --I) {
     auto *C = &*I;
 
-    bool MayAlias = AA.getModRefInfo(C) != MRI_NoModRef;
+    bool MayAlias = AA.getModRefInfo(C, None) != MRI_NoModRef;
 
     bool NeedLift = false;
     if (Args.erase(C))
@@ -1026,9 +1033,22 @@ bool MemCpyOptPass::processMemCpyMemCpyDependence(MemCpyInst *M,
   //
   // NOTE: This is conservative, it will stop on any read from the source loc,
   // not just the defining memcpy.
-  MemDepResult SourceDep =
-      MD->getPointerDependencyFrom(MemoryLocation::getForSource(MDep), false,
-                                   M->getIterator(), M->getParent());
+  MemoryLocation SourceLoc = MemoryLocation::getForSource(MDep);
+  MemDepResult SourceDep = MD->getPointerDependencyFrom(SourceLoc, false,
+                                                        M->getIterator(), M->getParent());
+
+  if (SourceDep.isNonLocal()) {
+    SmallVector<NonLocalDepResult, 2> NonLocalDepResults;
+    MD->getNonLocalPointerDependencyFrom(M, SourceLoc, /*isLoad=*/false,
+                                         NonLocalDepResults);
+    if (NonLocalDepResults.size() == 1) {
+      SourceDep = NonLocalDepResults[0].getResult();
+      assert((!SourceDep.getInst() ||
+              LookupDomTree().dominates(SourceDep.getInst(), M)) &&
+             "when memdep returns exactly one result, it should dominate");
+    }
+  }
+
   if (!SourceDep.isClobber() || SourceDep.getInst() != MDep)
     return false;
 
@@ -1229,6 +1249,18 @@ bool MemCpyOptPass::processMemCpy(MemCpyInst *M) {
   MemoryLocation SrcLoc = MemoryLocation::getForSource(M);
   MemDepResult SrcDepInfo = MD->getPointerDependencyFrom(
       SrcLoc, true, M->getIterator(), M->getParent());
+
+  if (SrcDepInfo.isNonLocal()) {
+    SmallVector<NonLocalDepResult, 2> NonLocalDepResults;
+    MD->getNonLocalPointerDependencyFrom(M, SrcLoc, /*isLoad=*/true,
+                                         NonLocalDepResults);
+    if (NonLocalDepResults.size() == 1) {
+      SrcDepInfo = NonLocalDepResults[0].getResult();
+      assert((!SrcDepInfo.getInst() ||
+              LookupDomTree().dominates(SrcDepInfo.getInst(), M)) &&
+             "when memdep returns exactly one result, it should dominate");
+    }
+  }
 
   if (SrcDepInfo.isClobber()) {
     if (MemCpyInst *MDep = dyn_cast<MemCpyInst>(SrcDepInfo.getInst()))

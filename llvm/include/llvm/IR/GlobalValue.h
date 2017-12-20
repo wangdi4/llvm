@@ -80,17 +80,18 @@ protected:
         ValueType(Ty), Linkage(Linkage), Visibility(DefaultVisibility),
         UnnamedAddrVal(unsigned(UnnamedAddr::None)),
         DllStorageClass(DefaultStorageClass), ThreadLocal(NotThreadLocal),
-        ThreadPrivate(0),  // INTEL
-        HasLLVMReservedName(false), IntID((Intrinsic::ID)0U), Parent(nullptr) {
+        ThreadPrivate(0), TargetDeclare(0), // INTEL
+        HasLLVMReservedName(false), IsDSOLocal(false),
+        IntID((Intrinsic::ID)0U), Parent(nullptr) {
     setName(Name);
   }
 
   Type *ValueType;
 
-  // INTEL - This needs to be one less than it is in the community version to
-  //         account for the ThreadPrivate bit.  See also the comment at the
-  //         SubClassData declaration.
-  static const unsigned GlobalValueSubClassDataBits = 17; // INTEL
+  // INTEL - This needs to be two less than it is in the community version to
+  // account for the ThreadPrivate bit and TargetDeclare bit.  See also
+  // the comment at the SubClassData declaration.
+  static const unsigned GlobalValueSubClassDataBits = 15; // INTEL
 
   // All bitfields use unsigned as the underlying type so that MSVC will pack
   // them.
@@ -101,11 +102,14 @@ protected:
 
   unsigned ThreadLocal : 3; // Is this symbol "Thread Local", if so, what is
                             // the desired model?
-#ifdef INTEL_CUSTOMIZATION
-  unsigned ThreadPrivate : 1; // The thread_private attribute indicates 
-                              // if the global variable is associated 
+#if INTEL_CUSTOMIZATION
+  unsigned ThreadPrivate : 1; // The thread_private attribute indicates
+                              // if the global variable is associated
                               // with an OpenMP threadprivate directive
                               // and the threadprivate mode is legacy.
+  unsigned TargetDeclare : 1; // The target declare attribute indicates
+                              // if the global variable is associated
+                              // with an OpenMP declare target directive.
 #endif // INTEL_CUSTOMIZATION
 
   /// True if the function's name starts with "llvm.".  This corresponds to the
@@ -113,11 +117,16 @@ protected:
   /// Function::intrinsicID() returns Intrinsic::not_intrinsic.
   unsigned HasLLVMReservedName : 1;
 
+  /// If true then there is a definition within the same linkage unit and that
+  /// definition cannot be runtime preempted.
+  unsigned IsDSOLocal : 1;
+
 private:
   friend class Constant;
 
   // Give subclasses access to what otherwise would be wasted padding.
-  // INTEL - (17 + 4 + 2 + 2 + 3 + 1 + 1) == 32.  Extra bit for ThreadPrivate.
+  // INTEL - (15 + 4 + 2 + 2 + 2 + 3 + 1 + 1 + 1 + 1) == 32.  Extra two bits for
+  // ThreadPrivate and TargetDeclare.
   unsigned SubClassData : GlobalValueSubClassDataBits;
 
   void destroyConstantImpl();
@@ -239,9 +248,12 @@ public:
     Visibility = V;
   }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   bool isThreadPrivate() const { return ThreadPrivate; }
-  void setThreadPrivate(bool Val) { ThreadPrivate = Val; } 
+  void setThreadPrivate(bool Val) { ThreadPrivate = Val; }
+
+  bool isTargetDeclare() const { return TargetDeclare; }
+  void setTargetDeclare(bool Val) { TargetDeclare = Val; }
 #endif // INTEL_CUSTOMIZATION
 
   /// If the value is "Thread Local", its value isn't shared by the threads.
@@ -275,6 +287,12 @@ public:
   PointerType *getType() const { return cast<PointerType>(User::getType()); }
 
   Type *getValueType() const { return ValueType; }
+
+  void setDSOLocal(bool Local) { IsDSOLocal = Local; }
+
+  bool isDSOLocal() const {
+    return IsDSOLocal;
+  }
 
   static LinkageTypes getLinkOnceLinkage(bool ODR) {
     return ODR ? LinkOnceODRLinkage : LinkOnceAnyLinkage;

@@ -1,12 +1,12 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-general-unroll -print-before=hir-general-unroll -print-after=hir-general-unroll < %s 2>&1 | FileCheck %s
 
-; Check that unrolling oof loop with preheader/postexit is handled correctly.
+; Check that unrolling of loop with preheader/postexit is handled correctly.
 
 ; CHECK: Dump Before HIR General Unroll
 
 ; CHECK: |      %fs.promoted = (%fs)[0];
 ; CHECK: |      %add21136 = %fs.promoted;
-; CHECK: |   + DO i2 = 0, %1, 1   <DO_LOOP>  <MAX_TC_EST = 42>
+; CHECK: |   + DO i2 = 0, i1 + -9, 1   <DO_LOOP>  <MAX_TC_EST = 42>
 ; CHECK: |   |   %4 = (%ti)[0][-1 * i1 + 58][-1 * i1 + 57];
 ; CHECK: |   |   (%ti)[0][-1 * i1 + i2 + 58][-1 * i1 + i2 + 58] = %4;
 ; CHECK: |   |   %5 = (%n)[0][-1 * i1 + i2 + 58];
@@ -18,7 +18,7 @@
 
 ; CHECK: |      %fs.promoted = (%fs)[0];
 ; CHECK: |      %add21136 = %fs.promoted;
-; CHECK: |      %tgu = (%1 + 1)/u4;
+; CHECK: |      %tgu = (i1 + -8)/u4;
 ; CHECK: |      + DO i2 = 0, %tgu + -1, 1   <DO_LOOP>  <MAX_TC_EST = 10>
 ; CHECK: |      |   %4 = (%ti)[0][-1 * i1 + 58][-1 * i1 + 57];
 ; CHECK: |      |   (%ti)[0][-1 * i1 + 4 * i2 + 58][-1 * i1 + 4 * i2 + 58] = %4;
@@ -37,7 +37,7 @@
 ; CHECK: |      |   %5 = (%n)[0][-1 * i1 + 4 * i2 + 61];
 ; CHECK: |      |   %add21136 = -1 * i1 + 4 * i2 + %5 + 61  +  %add21136;
 ; CHECK: |      + END LOOP
-; CHECK: |      + DO i2 = 4 * %tgu, %1, 1   <DO_LOOP>  <MAX_TC_EST = 3>
+; CHECK: |      + DO i2 = 4 * %tgu, i1 + -9, 1   <DO_LOOP>  <MAX_TC_EST = 3>
 ; CHECK: |      |   %4 = (%ti)[0][-1 * i1 + 58][-1 * i1 + 57];
 ; CHECK: |      |   (%ti)[0][-1 * i1 + i2 + 58][-1 * i1 + i2 + 58] = %4;
 ; CHECK: |      |   %5 = (%n)[0][-1 * i1 + i2 + 58];
@@ -78,7 +78,7 @@ for.cond.7.preheader:                             ; preds = %for.inc.48, %entry
   %0 = phi i32 [ 58, %entry ], [ %dec49, %for.inc.48 ]
   %1 = zext i32 %indvars.iv163 to i64
   %2 = add i64 %indvars.iv169, %1
-  %cmp8.128 = icmp ult i32 %0, 5
+  %cmp8.128 = icmp ult i32 %0, 50
   br i1 %cmp8.128, label %for.body.9.lr.ph, label %for.inc.48
 
 for.body.9.lr.ph:                                 ; preds = %for.cond.7.preheader
@@ -100,7 +100,7 @@ for.body.9:                                       ; preds = %for.body.9, %for.bo
   %add21 = add i32 %add, %add21136
   %indvars.iv.next149 = add nuw nsw i64 %indvars.iv148, 1
   %lftr.wideiv = trunc i64 %indvars.iv.next149 to i32
-  %exitcond154 = icmp eq i32 %lftr.wideiv, 5
+  %exitcond154 = icmp eq i32 %lftr.wideiv, 50
   br i1 %exitcond154, label %for.cond.7.for.cond.22.preheader_crit_edge, label %for.body.9
 
 for.cond.7.for.cond.22.preheader_crit_edge:       ; preds = %for.body.9

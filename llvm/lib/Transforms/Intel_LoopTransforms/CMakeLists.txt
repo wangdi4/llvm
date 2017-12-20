@@ -16,8 +16,9 @@ add_llvm_library(LLVMIntel_LoopTransforms
         HIRLoopDistribution.cpp
         HIRLoopDistributionMemRec.cpp
         HIRLoopDistributionLoopNest.cpp
-        HIRLoopReversal.cpp 
+        HIRLoopReversal.cpp
         HIRLMM.cpp
+        HIRSymbolicTripCountCompleteUnroll.cpp
         HIRScalarReplArray.cpp
         ParVecDirectiveInsertion.cpp
         HIRParDirInsert.cpp
@@ -25,6 +26,7 @@ add_llvm_library(LLVMIntel_LoopTransforms
         HIROptVarPredicate.cpp
         HIRIdiomRecognition.cpp
         HIRMVForConstUB.cpp
+        HIRLoopConcatenation.cpp
         Utils/HIRTransformUtils.cpp
 
   ADDITIONAL_HEADER_DIRS
@@ -32,4 +34,4 @@ add_llvm_library(LLVMIntel_LoopTransforms
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms/Intel_LoopTransforms
         )
 
-add_dependencies(LLVMIntel_LoopTransforms intrinsics_gen)
+add_dependencies(LLVMIntel_LoopTransforms intrinsics_gen intel_directives_gen)
