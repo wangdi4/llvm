@@ -113,6 +113,9 @@
 // reported after the offloaded funciton returns
 #define ENV_FP_FLAGS "CSA_FP_FLAGS"
 
+// Environment variable the FP flags will be saved in
+#define ENV_RUN_FP_FLAGS "CSA_RUN_FP_FLAGS"
+
 // Bitcode bounds struct built by the compiler. WARNING! This struct MUST
 // match the struct written to the .csa.bc.bounds section in CSAAsmPrinter.cpp!
 struct BitcodeBounds {
@@ -1234,8 +1237,12 @@ int32_t __tgt_rtl_run_target_team_region(int32_t device_id, void *tgt_entry_ptr,
                   run_count, functionName, cycles);
         }
         if (initial_fp_flags >= 0) {
+          unsigned int flags = csa_get_fp_flags(processor);
           fprintf(stderr, "FP Flags at completion of %s : 0x%02x\n",
-                  functionName, csa_get_fp_flags(processor));
+                  functionName, flags);
+          char buf[32];
+          sprintf(buf, "%u", flags);
+          setenv(ENV_RUN_FP_FLAGS, buf, 1);
         }
       }
     }
