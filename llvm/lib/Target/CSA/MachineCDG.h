@@ -28,6 +28,8 @@
 #include <deque>
 #include <iterator>
 
+#define _unused(x) ((void)(x))
+
 namespace llvm {
 
   class MachineBasicBlock;

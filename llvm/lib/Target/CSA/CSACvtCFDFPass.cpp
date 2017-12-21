@@ -1174,6 +1174,8 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhi(MachineBasicBlock* mbb) {
   unsigned cpyReg = LMFI->allocateLIC(new_LIC_RC,
     Twine("loop_") + mbb->getName() + "_phi");
   assert(mloop->isLoopExiting(latchBB) || latchNode->isParent(exitingNode));
+  _unused(latchNode);
+  _unused(exitingNode);
   const unsigned moveOpcode = TII->getMoveOpcode(TRC);
   MachineInstr *cpyInst = BuildMI(*exitingBB, loc, DebugLoc(), TII->get(moveOpcode), cpyReg).addReg(predReg);
   cpyInst->setFlag(MachineInstr::NonSequential);
@@ -1301,6 +1303,8 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhiPipelined(MachineBasicBlock* mbb,
   assert(new_LIC_RC && "Can't determine register class for register");
   unsigned cpyReg = LMFI->allocateLIC(new_LIC_RC);
   assert(mloop->isLoopExiting(latchBB) || latchNode->isParent(exitingNode));
+  _unused(latchNode);
+  _unused(exitingNode);
   const unsigned moveOpcode = TII->getMoveOpcode(TRC);
   MachineInstr *cpyInst = BuildMI(*exitingBB, loc, DebugLoc(), TII->get(moveOpcode), cpyReg).addReg(predReg);
   cpyInst->setFlag(MachineInstr::NonSequential);
@@ -1955,6 +1959,7 @@ void CSACvtCFDFPass::linearizeCFG() {
   }
   MachineBasicBlock *x = mbbStack.top();
   assert(x == root);
+  _unused(x);
   MachineBasicBlock::succ_iterator SI = root->succ_begin();
   while (SI != root->succ_end()) {
     SI = root->removeSuccessor(SI);
@@ -2962,6 +2967,7 @@ void CSACvtCFDFPass::repeatOperandInLoopUsePred(MachineLoop* mloop, MachineInstr
   unsigned predReg = initInst->getOperand(0).getReg();
   unsigned predConst = initInst->getOperand(1).getImm();
   assert(!predConst);
+  _unused(predConst);
   MachineBasicBlock* lphdr = mloop->getHeader();
   MachineBasicBlock* latchBB = mloop->getLoopLatch();
   assert(latchBB);
