@@ -264,6 +264,7 @@ set( BACKEND_PASSES
     AddImplicitArgs
     AutorunReplicator
     ChannelPipeTransformation
+    CleanupWrappedKernels
     PipeOrdering
     PipeSupport
     OclFunctionAttrs
@@ -273,10 +274,11 @@ set( BACKEND_PASSES
     DetectRecursion
     InfiniteLoopCreator
     InstToFuncCall
+    InternalizeNonKernelFunc
+    InternalizeGlobalVariables
     GenericAddressResolution
     LocalBuffers
     LocalBuffAnalysis
-    ModuleCleanup
     PrepareKernelArgs
     PreventDivCrashes
     PrintIRPass

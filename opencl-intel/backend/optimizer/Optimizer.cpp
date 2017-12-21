@@ -79,13 +79,15 @@ llvm::ModulePass *createKernelAnalysisPass();
 llvm::ModulePass *createBuiltInImportPass(const char *CPUName);
 llvm::ImmutablePass *createImplicitArgsAnalysisPass(llvm::LLVMContext *C);
 llvm::ModulePass *createChannelPipeTransformationPass();
+llvm::ModulePass *createCleanupWrappedKernelsPass();
 llvm::ModulePass *createPipeOrderingPass();
 llvm::ModulePass *createPipeSupportPass();
 llvm::ModulePass *createLocalBuffersPass(bool isNativeDebug);
 llvm::ModulePass *createAddImplicitArgsPass();
 llvm::ModulePass *createOclFunctionAttrsPass();
 llvm::ModulePass *createOclSyncFunctionAttrsPass();
-llvm::ModulePass *createModuleCleanupPass(bool SpareOnlyWrappers);
+llvm::ModulePass *createInternalizeNonKernelFuncPass();
+llvm::ModulePass *createInternalizeGlobalVariablesPass();
 llvm::ModulePass *createGenericAddressStaticResolutionPass();
 llvm::ModulePass *createGenericAddressDynamicResolutionPass();
 llvm::ModulePass *createPrepareKernelArgsPass();
@@ -205,7 +207,6 @@ static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
     PM->add(llvm::createVPlanDriverPass());
   }
 // INTEL VPO END
-
   if (UnrollLoops) {
     PM->add(llvm::createLoopUnrollPass(OptLevel, 512, 0, 0)); // Unroll small loops
     // unroll loops with non-constant trip count
@@ -280,6 +281,11 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
   bool HasGatherScatterPrefetch =
     pConfig->GetCpuId().HasGatherScatterPrefetch();
 
+  // Here we are internalizing non-kernal functions to allow inliner to remove
+  // functions' bodies without call sites
+  if (debugType == intel::None)
+    PM.add(createInternalizeNonKernelFuncPass());
+
   PM.add(createFMASplitterPass());
   PM.add(createOclSyncFunctionAttrsPass());
   PM.add(createPrintfArgumentsPromotionPass());
@@ -314,7 +320,6 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
   if (isFpgaEmulator) {
       PM.add(createChannelPipeTransformationPass());
       PM.add(createPipeOrderingPass());
-
       PM.add(createAutorunReplicatorPass());
   }
 
@@ -435,13 +440,6 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
   // PipeSupport can fail if dynamic pipe access is discovered after LLVM
   // optimizations
   if (isFpgaEmulator) {
-    // LLVM inliner won't remove bodies of inlined functione due to specific
-    // of our implementation. All function in backend will have linkage type
-    // equals to ExternalLinkage. LLVM inliner doesn't remove function with
-    // this linkage type.
-    // TODO: Set correct linkage for all function, except kernels and
-    // vectorized versions and ModuleCleanup pass wouldn't be needed.
-    PM.add(createModuleCleanupPass(/*SpareOnlyWrappers=*/false));
     PM.add(createPipeSupportPass());
   }
 }
@@ -580,14 +578,11 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
       PM.add(createDeduceMaxWGDimPass());
       PM.add(createCLWGLoopCreatorPass());
     }
+
     if (isFpgaEmulator) {
       PM.add(createInfiniteLoopCreatorPass());
     }
-    // This is a good time to remove internal functions which are not called
-    // TODO: Once we set the linkage of internal functions correctly, we won't
-    // to run this pass because the LLVM Inliner, for example, will delete
-    // uncalled functions it inlines.
-    PM.add(createModuleCleanupPass(false));
+
     PM.add(createBarrierMainPass(debugType));
 
     // After adding loops run loop optimizations.
@@ -630,6 +625,11 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
   if (!pRtlModuleList.empty()) {
     // Inline BI function
     PM.add(createBuiltInImportPass(pConfig->GetCpuId().GetCPUPrefix()));
+    // After the globals used in built-ins are imported - we can internalize them
+    // with further wiping them out with GlobalDCE pass
+    PM.add(createInternalizeGlobalVariablesPass());
+    // Cleaning up internal globals
+    PM.add(llvm::createGlobalDCEPass());
     // Need to convert shuffle calls to shuffle IR before running inline pass
     // on built-ins
     PM.add(createBuiltinCallToInstPass());
@@ -692,10 +692,8 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
     PM.add(llvm::createAlwaysInlinerLegacyPass());
   }
 
-  // Remove unneeded functions from the module.
-  // *** keep this optimization last, or at least after function inlining! ***
-  if (!pConfig->GetLibraryModule())
-    PM.add(createModuleCleanupPass(true));
+  // After kernels are inlined into their wrappers we can cleanup the bodies
+  PM.add(createCleanupWrappedKernelsPass());
 
   // Add prefetches if useful for micro-architecture, if not in debug mode,
   // and don't change libraries

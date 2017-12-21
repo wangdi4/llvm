@@ -43,6 +43,7 @@ void initializeOCLPasses(PassRegistry &Registry)
     intel::initializeCLWGLoopCreatorPass(Registry);
     intel::initializeCLWGLoopBoundariesPass(Registry);
     intel::initializeCLStreamSamplerPass(Registry);
+    intel::initializeCleanupWrappedKernelsPass(Registry);
     intel::initializeKernelAnalysisPass(Registry);
     intel::initializeIRInjectModulePass(Registry);
     intel::initializenameByInstTypePass(Registry);
@@ -59,7 +60,8 @@ void initializeOCLPasses(PassRegistry &Registry)
     intel::initializePreventDivCrashesPass(Registry);
     intel::initializeBuiltinCallToInstPass(Registry);
     intel::initializeInstToFuncCallPass(Registry);
-    intel::initializeModuleCleanupPass(Registry);
+    intel::initializeInternalizeNonKernelFuncPass(Registry);
+    intel::initializeInternalizeGlobalVariablesPass(Registry);
     intel::initializeAddImplicitArgsPass(Registry);
     intel::initializeOclFunctionAttrsPass(Registry);
     intel::initializeOclSyncFunctionAttrsPass(Registry);

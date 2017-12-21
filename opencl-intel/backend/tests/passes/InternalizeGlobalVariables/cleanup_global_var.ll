@@ -1,4 +1,4 @@
-; RUN: %oclopt -module-cleanup -S %s -o %t.ll
+; RUN: %oclopt -internalize-global-variables -globaldce -S %s -o %t.ll
 ; RUN: FileCheck %s --input-file=%t.ll
 
 ; CHECK-NOT:    @coord_translate_i_callback

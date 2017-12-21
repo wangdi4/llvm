@@ -1,4 +1,4 @@
-; RUN: %oclopt -module-cleanup -S %s -o %t.ll
+; RUN: %oclopt -internalize-nonkernel-functions -globaldce -S %s -o %t.ll
 ; RUN: FileCheck %s --input-file=%t.ll
 
 ; All non-kernels should be removed
@@ -22,8 +22,10 @@ entry:
   ret void
 }
 
+!opencl.kernels = !{!0}
+
 !0 = !{void ()* @thisIsKernel}
 
-; CHECK-NOT:    define void @thisIsNotKernel()
-; CHECK-NOT:    define void @anotherNotKernel()
+; CHECK-NOT:    define{{.*}}void @thisIsNotKernel()
+; CHECK-NOT:    define{{.*}}void @anotherNotKernel()
 ; CHECK:        define void @thisIsKernel()

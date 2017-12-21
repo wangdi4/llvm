@@ -1,4 +1,4 @@
-; RUN: %oclopt -module-cleanup -S %s -o %t.ll
+; RUN: %oclopt -internalize-nonkernel-functions -globaldce -S %s -o %t.ll
 ; RUN: FileCheck %s --input-file=%t.ll
 
 ; no functions should be removed
@@ -15,11 +15,13 @@ entry:
   ret i32 %x
 }
 
+!opencl.kernels = !{!0}
+
 !0 = !{void ()* @thisIsKernel}
 
 ; CHECK:        define void @thisIsKernel()
 ; CHECK:        %x = call i32 @thisIsNotKernel()
-; CHECK:        define i32 @thisIsNotKernel()
+; CHECK:        define internal i32 @thisIsNotKernel()
 ; CHECK:        %x = add i32 1, 1
 
 

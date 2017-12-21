@@ -1,22 +1,22 @@
-; RUN: %oclopt -module-cleanup -S %s -o %t.ll
+; RUN: %oclopt -internalize-nonkernel-functions -globaldce -S %s -o %t.ll
 ; RUN: FileCheck %s --input-file=%t.ll
 
 ; all functions here are kernels and they should not be removed
 
-define void @thisIsKernel() nounwind !kernel_wrapper !0 {
+define void @thisIsKernel() nounwind {
 entry:
   %x = add i32 1,1
   ret void
 }
 
-define void @alsoKernel(i32 %input) nounwind !kernel_wrapper !1 {
+define void @alsoKernel(i32 %input) nounwind {
 entry:
   %x = add i32 1, %input
   ret void
 }
 
-!0 = !{void ()* @thisIsKernel}
-!1 = !{void (i32)* @alsoKernel}
+!opencl.kernels = !{!0}
+!0 = !{void ()* @thisIsKernel, void (i32)* @alsoKernel}
 
 ; CHECK:        define void @thisIsKernel()
 ; CHECK:        %x = add i32 1, 1

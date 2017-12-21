@@ -21,6 +21,7 @@ set(OCL_BE_PASSES
     BuiltinCallToInst
     BuiltinLibInfo
     ChannelPipeTransformation
+    CleanupWrappedKernels
     CloneBlockInvokeFuncToKernel
     DebugInfoPass
     DetectRecursion
@@ -28,6 +29,8 @@ set(OCL_BE_PASSES
     ImplicitArgsAnalysis
     InfiniteLoopCreator
     InstToFuncCall
+    InternalizeNonKernelFunc
+    InternalizeGlobalVariables
     KernelInfo
     LLVMBarrier
     LLVMVectorizer
@@ -36,7 +39,6 @@ set(OCL_BE_PASSES
     LocalBuffAnalysis
     LocalBuffers
     Materialize
-    ModuleCleanup
     Obfuscation
     OclFunctionAttrs
     PatchCallbackArgs
