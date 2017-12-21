@@ -1634,7 +1634,7 @@ bool PrefetchCandidateUtils::isPrefetchCandidate (CallInst *pCallInst,
 int PrefetchCandidateUtils::getIndexOperand(Instruction *I) {
   assert (isa<CallInst>(I) && "Call instruction expected");
   CallInst *pCallInst = cast<CallInst>(I);
-  assert(pCallInst->getCalledFucntion() &&
+  assert(pCallInst->getCalledFunction() &&
          "Unexpected indirect function invocation");
   StringRef Name = pCallInst->getCalledFunction()->getName();
 
