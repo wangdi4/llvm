@@ -588,6 +588,8 @@ cl_dev_err_code Kernel::RunGroup(const void *pKernelUniformArgs,
                  pKernelUniformImplicitArgs->pUniformJITEntryPoint :
                  pKernelUniformImplicitArgs->pNonUniformJITEntryPoint);
 
+  assert(kernel && "Kernel function is nullptr");
+
   // running the kernel with the specified args and (groupID, runtimeHandle)
 #if defined (ENABLE_SDE)
   // do not forget to export BeforeExecution and AfterExecution symbols
