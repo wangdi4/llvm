@@ -335,7 +335,7 @@ Constant *ReductionHIRMngr::getRecurrenceIdentity(ReductionItem *RedItem,
   case ReductionItem::WRNReductionBor:
     RDKind = RecurrenceDescriptor::RK_IntegerOr;
     break;
-  case ReductionItem::WRNReductionSum:
+  case ReductionItem::WRNReductionAdd:
     RDKind = Ty->isFloatTy() ? RecurrenceDescriptor::RK_FloatAdd
                              : RecurrenceDescriptor::RK_IntegerAdd;
     break;

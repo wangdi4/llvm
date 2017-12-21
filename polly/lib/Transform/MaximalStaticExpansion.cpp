@@ -19,7 +19,7 @@
 #include "polly/Support/GICHelper.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/Analysis/OptimizationDiagnosticInfo.h"
+#include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Pass.h"
 #include "isl/isl-noexceptions.h"
 #include "isl/union_map.h"
@@ -185,7 +185,6 @@ isl::union_map MaximalStaticExpander::filterDependences(
 
   Dependences.foreach_map([&MapDependences, &AccessDomainId,
                            &SAI](isl::map Map) -> isl::stat {
-
     // Filter out Statement to Statement dependences.
     if (!Map.can_curry())
       return isl::stat::ok;
@@ -377,12 +376,8 @@ void MaximalStaticExpander::mapAccess(Scop &S,
     auto Domain = isl::union_set(DomainSet);
 
     // Get the dependences relevant for this MA.
-    isl::union_map MapDependences;
-    if (Reverse) {
-      MapDependences = filterDependences(S, Dependences.reverse(), MA);
-    } else {
-      MapDependences = filterDependences(S, Dependences, MA);
-    }
+    isl::union_map MapDependences =
+        filterDependences(S, Reverse ? Dependences.reverse() : Dependences, MA);
 
     // If no dependences, no need to modify anything.
     if (MapDependences.is_empty())

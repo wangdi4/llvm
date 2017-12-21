@@ -30,11 +30,11 @@
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/Passes.h"
+#include "llvm/CodeGen/TargetInstrInfo.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/Format.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Target/TargetInstrInfo.h"
 #include "Intel_X86FMACommon.h"
 using namespace llvm;
 
@@ -2509,7 +2509,7 @@ bool X86GlobalFMA::runOnMachineFunction(MachineFunction &MFunc) {
         Opcode == Instruction::FMul || Opcode == Instruction::FDiv ||
         Opcode == Instruction::FRem || Opcode == Instruction::FCmp ||
         Opcode == Instruction::Call;
-    if (CheckedOp && isa<FPMathOperator>(&I) && !I.hasUnsafeAlgebra()) {
+    if (CheckedOp && isa<FPMathOperator>(&I) && !I.hasAllowReassoc()) {
       DEBUG(fmadbgs() << "Exit because found mixed fast-math settings.\n");
       return false;
     }

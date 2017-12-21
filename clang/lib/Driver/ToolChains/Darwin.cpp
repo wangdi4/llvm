@@ -986,6 +986,25 @@ StringRef Darwin::getOSLibraryNameSuffix() const {
   llvm_unreachable("Unsupported platform");
 }
 
+/// Check if the link command contains a symbol export directive.
+static bool hasExportSymbolDirective(const ArgList &Args) {
+  for (Arg *A : Args) {
+    if (!A->getOption().matches(options::OPT_Wl_COMMA) &&
+        !A->getOption().matches(options::OPT_Xlinker))
+      continue;
+    if (A->containsValue("-exported_symbols_list") ||
+        A->containsValue("-exported_symbol"))
+      return true;
+  }
+  return false;
+}
+
+/// Add an export directive for \p Symbol to the link command.
+static void addExportedSymbol(ArgStringList &CmdArgs, const char *Symbol) {
+  CmdArgs.push_back("-exported_symbol");
+  CmdArgs.push_back(Symbol);
+}
+
 void Darwin::addProfileRTLibs(const ArgList &Args,
                               ArgStringList &CmdArgs) const {
   if (!needsProfileRT(Args)) return;
@@ -994,6 +1013,16 @@ void Darwin::addProfileRTLibs(const ArgList &Args,
       Args, CmdArgs,
       (Twine("libclang_rt.profile_") + getOSLibraryNameSuffix() + ".a").str(),
       RuntimeLinkOptions(RLO_AlwaysLink | RLO_FirstLink));
+
+  // If we have a symbol export directive and we're linking in the profile
+  // runtime, automatically export symbols necessary to implement some of the
+  // runtime's functionality.
+  if (hasExportSymbolDirective(Args)) {
+    addExportedSymbol(CmdArgs, "_VPMergeHook");
+    addExportedSymbol(CmdArgs, "___llvm_profile_filename");
+    addExportedSymbol(CmdArgs, "___llvm_profile_raw_version");
+    addExportedSymbol(CmdArgs, "_lprofCurFilename");
+  }
 }
 
 void DarwinClang::AddLinkSanitizerLibArgs(const ArgList &Args,
@@ -1049,7 +1078,8 @@ void DarwinClang::AddLinkRuntimeLibArgs(const ArgList &Args,
   if (Sanitize.needsUbsanRt())
     AddLinkSanitizerLibArgs(Args, CmdArgs,
                             Sanitize.requiresMinimalRuntime() ? "ubsan_minimal"
-                                                              : "ubsan");
+                                                              : "ubsan",
+                            Sanitize.needsSharedRt());
   if (Sanitize.needsTsanRt())
     AddLinkSanitizerLibArgs(Args, CmdArgs, "tsan");
   if (Sanitize.needsFuzzer() && !Args.hasArg(options::OPT_dynamiclib)) {
@@ -1851,7 +1881,7 @@ bool MachO::IsUnwindTablesDefault(const ArgList &Args) const {
   // Unwind tables are not emitted if -fno-exceptions is supplied (except when
   // targeting x86_64).
   return getArch() == llvm::Triple::x86_64 ||
-         (!UseSjLjExceptions(Args) &&
+         (GetExceptionModel(Args) != llvm::ExceptionHandling::SjLj &&
           Args.hasFlag(options::OPT_fexceptions, options::OPT_fno_exceptions,
                        true));
 }
@@ -1862,15 +1892,18 @@ bool MachO::UseDwarfDebugFlags() const {
   return false;
 }
 
-bool Darwin::UseSjLjExceptions(const ArgList &Args) const {
+llvm::ExceptionHandling Darwin::GetExceptionModel(const ArgList &Args) const {
   // Darwin uses SjLj exceptions on ARM.
   if (getTriple().getArch() != llvm::Triple::arm &&
       getTriple().getArch() != llvm::Triple::thumb)
-    return false;
+    return llvm::ExceptionHandling::None;
 
   // Only watchOS uses the new DWARF/Compact unwinding method.
   llvm::Triple Triple(ComputeLLVMTriple(Args));
-  return !Triple.isWatchABI();
+  if(Triple.isWatchABI())
+    return llvm::ExceptionHandling::DwarfCFI;
+
+  return llvm::ExceptionHandling::SjLj;
 }
 
 bool Darwin::SupportsEmbeddedBitcode() const {
@@ -2010,8 +2043,6 @@ void Darwin::addStartObjectFileArgs(const ArgList &Args,
     CmdArgs.push_back(Str);
   }
 }
-
-bool Darwin::SupportsObjCGC() const { return isTargetMacOS(); }
 
 void Darwin::CheckObjCARC() const {
   if (isTargetIOSBased() || isTargetWatchOSBased() ||

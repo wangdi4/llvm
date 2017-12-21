@@ -48,6 +48,7 @@ namespace vpo {
 ///    WRNDistributeParLoopNode  #pragma omp distribute parallel for
 ///    WRNTargetNode             #pragma omp target
 ///    WRNTargetDataNode         #pragma omp target data
+///    WRNTargetUpdateNode       #pragma omp target update
 ///    WRNTaskNode               #pragma omp task
 ///    WRNTaskloopNode           #pragma omp taskloop
 ///    WRNVecLoopNode            #pragma omp simd
@@ -70,12 +71,30 @@ namespace vpo {
 // Macro to define getters for list-type clauses. It creates two versions:
 //   1. a const version used primarily by dumpers
 //   2. a nonconst version used by parsing and other code
+// 20171023: Also use this for WRNLoopInfo's getter fns
 #define DEFINE_GETTER(CLAUSETYPE, GETTER, CLAUSEOBJ)       \
    const CLAUSETYPE &GETTER() const { return CLAUSEOBJ; }  \
          CLAUSETYPE &GETTER()       { return CLAUSEOBJ; }
 
+/// Loop information assoaciated with loop-type constructs
+class WRNLoopInfo {
+private:
+  LoopInfo   *LI;
+  Loop       *Lp;
+  BasicBlock *ZTTBB; // bblock with the zero-trip test
+public:
+  WRNLoopInfo(LoopInfo *L) { LI = L; Lp=nullptr; ZTTBB=nullptr; }
+  void setLoopInfo(LoopInfo *L) { LI = L; }
+  void setLoop(Loop *L) { Lp = L; }
+  void setZTTBB(BasicBlock *BB) { ZTTBB = BB; }
+  LoopInfo *getLoopInfo() const { return LI; }
+  Loop *getLoop() const { return Lp; }
+  BasicBlock *getZTTBB() const { return ZTTBB; }
+  void print(formatted_raw_ostream &OS, unsigned Depth,
+             unsigned Verbosity=1) const;
+};
 
-/// WRN for 
+/// WRN for
 /// \code
 ///   #pragma omp parallel
 /// \endcode
@@ -112,13 +131,16 @@ public:
   WRNDefaultKind getDefault() const { return Default; }
   WRNProcBindKind getProcBind() const { return ProcBind; }
 
+  void printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                                             unsigned Verbosity=1) const;
+
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
     return W->getWRegionKindID() == WRegionNode::WRNParallel;
   }
 };
 
-/// WRN for 
+/// WRN for
 /// \code
 ///   #pragma omp parallel loop
 /// \endcode
@@ -138,8 +160,7 @@ private:
   ScheduleClause Schedule;
   int Collapse;
   int Ordered;
-  LoopInfo *LI;
-  Loop *Lp;
+  WRNLoopInfo WRNLI;
 
 public:
   WRNParallelLoopNode(BasicBlock *BB, LoopInfo *L);
@@ -151,8 +172,6 @@ protected:
   void setProcBind(WRNProcBindKind P) { ProcBind = P; }
   void setCollapse(int N) { Collapse = N; }
   void setOrdered(int N) { Ordered = N; }
-  void setLoopInfo(LoopInfo *L) { LI = L; }
-  void setLoop(Loop *L) { Lp = L; }
 
 public:
   DEFINE_GETTER(SharedClause,       getShared, Shared)
@@ -163,6 +182,7 @@ public:
   DEFINE_GETTER(LinearClause,       getLinear, Linear)
   DEFINE_GETTER(CopyinClause,       getCopyin, Copyin)
   DEFINE_GETTER(ScheduleClause,     getSchedule, Schedule)
+  DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo, WRNLI)
 
   EXPR getIf() const { return IfExpr; }
   EXPR getNumThreads() const { return NumThreads; }
@@ -170,8 +190,9 @@ public:
   WRNProcBindKind getProcBind() const { return ProcBind; }
   int getCollapse() const { return Collapse; }
   int getOrdered() const { return Ordered; }
-  LoopInfo *getLoopInfo() const { return LI; }
-  Loop *getLoop() const { return Lp; }
+
+  void printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                                             unsigned Verbosity=1) const;
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -179,7 +200,7 @@ public:
   }
 };
 
-/// WRN for 
+/// WRN for
 /// \code
 ///   #pragma omp parallel sections
 /// \endcode
@@ -194,8 +215,7 @@ private:
   EXPR NumThreads;
   WRNDefaultKind Default;
   WRNProcBindKind ProcBind;
-  LoopInfo *LI;
-  Loop *Lp;
+  WRNLoopInfo WRNLI;
 
 public:
   WRNParallelSectionsNode(BasicBlock *BB, LoopInfo *L);
@@ -205,8 +225,6 @@ protected:
   void setNumThreads(EXPR E) { NumThreads = E; }
   void setDefault(WRNDefaultKind D) { Default = D; }
   void setProcBind(WRNProcBindKind P) { ProcBind = P; }
-  void setLoopInfo(LoopInfo *L) { LI = L; }
-  void setLoop(Loop *L) { Lp = L; }
 
 public:
   DEFINE_GETTER(SharedClause,       getShared, Shared)
@@ -214,13 +232,15 @@ public:
   DEFINE_GETTER(FirstprivateClause, getFpriv,  Fpriv)
   DEFINE_GETTER(ReductionClause,    getRed,    Reduction)
   DEFINE_GETTER(CopyinClause,       getCopyin, Copyin)
+  DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo, WRNLI)
 
   EXPR getIf() const { return IfExpr; }
   EXPR getNumThreads() const { return NumThreads; }
   WRNDefaultKind getDefault() const { return Default; }
   WRNProcBindKind getProcBind() const { return ProcBind; }
-  LoopInfo *getLoopInfo() const { return LI; }
-  Loop *getLoop() const { return Lp; }
+
+  void printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                                             unsigned Verbosity=1) const;
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -228,7 +248,7 @@ public:
   }
 };
 
-/// WRN for 
+/// WRN for
 /// \code
 ///   !$omp parallel workshare
 /// \endcode
@@ -243,8 +263,7 @@ private:
   EXPR NumThreads;
   WRNDefaultKind Default;
   WRNProcBindKind ProcBind;
-  LoopInfo *LI;
-  Loop *Lp;
+  WRNLoopInfo WRNLI;
 
 public:
   WRNParallelWorkshareNode(BasicBlock *BB, LoopInfo *L);
@@ -254,8 +273,6 @@ protected:
   void setNumThreads(EXPR E) { NumThreads = E; }
   void setDefault(WRNDefaultKind D) { Default = D; }
   void setProcBind(WRNProcBindKind P) { ProcBind = P; }
-  void setLoopInfo(LoopInfo *L) { LI = L; }
-  void setLoop(Loop *L) { Lp = L; }
 
 public:
   DEFINE_GETTER(SharedClause,       getShared, Shared)
@@ -263,13 +280,15 @@ public:
   DEFINE_GETTER(FirstprivateClause, getFpriv,  Fpriv)
   DEFINE_GETTER(ReductionClause,    getRed,    Reduction)
   DEFINE_GETTER(CopyinClause,       getCopyin, Copyin)
+  DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo, WRNLI)
 
   EXPR getIf() const { return IfExpr; }
   EXPR getNumThreads() const { return NumThreads; }
   WRNDefaultKind getDefault() const { return Default; }
   WRNProcBindKind getProcBind() const { return ProcBind; }
-  LoopInfo *getLoopInfo() const { return LI; }
-  Loop *getLoop() const { return Lp; }
+
+  void printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                                             unsigned Verbosity=1) const;
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -277,7 +296,7 @@ public:
   }
 };
 
-/// WRN for 
+/// WRN for
 /// \code
 ///   #pragma omp teams
 /// \endcode
@@ -309,13 +328,16 @@ public:
   EXPR getNumTeams() const { return NumTeams; }
   WRNDefaultKind getDefault() const { return Default; }
 
+  void printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                                             unsigned Verbosity=1) const;
+
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
     return W->getWRegionKindID() == WRegionNode::WRNTeams;
   }
 };
 
-/// WRN for 
+/// WRN for
 /// \code
 ///   #pragma omp distribute parallel for
 /// \endcode
@@ -336,8 +358,7 @@ private:
   ScheduleClause DistSchedule;
   int Collapse;
   int Ordered;
-  LoopInfo *LI;
-  Loop *Lp;
+  WRNLoopInfo WRNLI;
 
 public:
   WRNDistributeParLoopNode(BasicBlock *BB, LoopInfo *L);
@@ -349,8 +370,6 @@ protected:
   void setProcBind(WRNProcBindKind P) { ProcBind = P; }
   void setCollapse(int N) { Collapse = N; }
   void setOrdered(int N) { Ordered = N; }
-  void setLoopInfo(LoopInfo *L) { LI = L; }
-  void setLoop(Loop *L) { Lp = L; }
 
 public:
   DEFINE_GETTER(SharedClause,       getShared, Shared)
@@ -362,6 +381,7 @@ public:
   DEFINE_GETTER(CopyinClause,       getCopyin, Copyin)
   DEFINE_GETTER(ScheduleClause,     getSchedule, Schedule)
   DEFINE_GETTER(ScheduleClause,     getDistSchedule, Schedule)
+  DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo, WRNLI)
 
   EXPR getIf() const { return IfExpr; }
   EXPR getNumThreads() const { return NumThreads; }
@@ -369,8 +389,9 @@ public:
   WRNProcBindKind getProcBind() const { return ProcBind; }
   int getCollapse() const { return Collapse; }
   int getOrdered() const { return Ordered; }
-  LoopInfo *getLoopInfo() const { return LI; }
-  Loop *getLoop() const { return Lp; }
+
+  void printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                                             unsigned Verbosity=1) const;
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -378,7 +399,7 @@ public:
   }
 };
 
-/// WRN for 
+/// WRN for
 /// \code
 ///   #pragma omp target
 /// \endcode
@@ -415,6 +436,9 @@ public:
   bool getNowait() const { return Nowait; }
   bool getDefaultmapTofromScalar() const { return DefaultmapTofromScalar; }
 
+  void printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                                             unsigned Verbosity=1) const;
+
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
     return W->getWRegionKindID() == WRegionNode::WRNTarget;
@@ -428,7 +452,6 @@ public:
 ///   #pragma omp target data
 ///   #pragma omp target enter data
 ///   #pragma omp target exit data
-///   #pragma omp target update
 /// \endcode
 class WRNTargetDataNode : public WRegionNode {
 private:
@@ -456,9 +479,49 @@ public:
   EXPR getDevice() const { return Device; }
   bool getNowait() const { return Nowait; }
 
+  void printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                                             unsigned Verbosity=1) const;
+
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
     return W->getWRegionKindID() == WRegionNode::WRNTargetData;
+  }
+};
+
+/// WRN for
+/// \code
+///   #pragma omp target update
+/// \endcode
+class WRNTargetUpdateNode : public WRegionNode {
+private:
+  MapClause Map;        // used for the to/from clauses
+  DependClause Depend;
+  EXPR IfExpr;
+  EXPR Device;
+  bool Nowait;
+
+public:
+  WRNTargetUpdateNode(BasicBlock *BB);
+
+protected:
+  void setIf(EXPR E) { IfExpr = E; }
+  void setDevice(EXPR E) { Device = E; }
+  void setNowait(bool Flag) { Nowait = Flag; }
+
+public:
+  DEFINE_GETTER(MapClause,          getMap,          Map)
+  DEFINE_GETTER(DependClause,       getDepend,       Depend)
+
+  EXPR getIf() const { return IfExpr; }
+  EXPR getDevice() const { return Device; }
+  bool getNowait() const { return Nowait; }
+
+  void printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                                             unsigned Verbosity=1) const;
+
+  /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const WRegionNode *W) {
+    return W->getWRegionKindID() == WRegionNode::WRNTargetUpdate;
   }
 };
 
@@ -476,7 +539,7 @@ enum WRNTaskFlag : uint32_t {
   // bits 26-32: reserved for library
 };
 
-/// WRN for 
+/// WRN for
 /// \code
 ///   #pragma omp task
 /// \endcode
@@ -522,13 +585,16 @@ public:
   bool getMergeable() const { return Mergeable; }
   unsigned getTaskFlag() const { return TaskFlag; }
 
+  void printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                                             unsigned Verbosity=1) const;
+
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
     return W->getWRegionKindID() == WRegionNode::WRNTask;
   }
 };
 
-/// WRN for 
+/// WRN for
 /// \code
 ///   #pragma omp taskloop
 /// \endcode
@@ -540,8 +606,8 @@ private:
   int SchedCode; // 1 for Grainsize, 2 for num_tasks, 0 for none.
   int Collapse;
   bool Nogroup;
-  LoopInfo *LI;
-  Loop *Lp;
+  WRNLoopInfo WRNLI;
+
   // These taskloop clauses are also clauses in the parent class WRNTaskNode
   //   SharedClause Shared;
   //   PrivateClause Priv;
@@ -553,7 +619,7 @@ private:
   //   WRNDefaultKind Default;
   //   bool Untied;
   //   bool Mergeable;
-  //   unsigned TaskFlag; 
+  //   unsigned TaskFlag;
 
 public:
   WRNTaskloopNode(BasicBlock *BB, LoopInfo *L);
@@ -564,8 +630,6 @@ protected:
   void setSchedCode(int N) { SchedCode = N; }
   void setCollapse(int N) { Collapse = N; }
   void setNogroup(bool B) { Nogroup = B; }
-  void setLoopInfo(LoopInfo *L) { LI = L; }
-  void setLoop(Loop *L) { Lp = L; }
 
   // Defined in parent class WRNTaskNode
   //   void setFinal(EXPR E) { Final = E; }
@@ -578,13 +642,12 @@ protected:
 
 public:
   DEFINE_GETTER(LastprivateClause,  getLpriv,  Lpriv)
+  DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo, WRNLI)
   EXPR getGrainsize() const { return Grainsize; }
   EXPR getNumTasks() const { return NumTasks; }
   int getSchedCode() const { return SchedCode; }
   int getCollapse() const { return Collapse; }
   bool getNogroup() const { return Nogroup; }
-  LoopInfo *getLoopInfo() const { return LI; }
-  Loop *getLoop() const { return Lp; }
 
   // Defined in parent class WRNTaskNode
   //   DEFINE_GETTER(SharedClause,       getShared, Shared)
@@ -605,7 +668,7 @@ public:
   }
 };
 
-/// WRN for 
+/// WRN for
 /// \code
 ///   #pragma omp simd
 /// \endcode
@@ -623,8 +686,7 @@ private:
   int Safelen;
   int Collapse;
   bool IsAutoVec;
-  LoopInfo *LI;                 // for LLVM IR only
-  Loop *Lp;                     // for LLVM IR only
+  WRNLoopInfo WRNLI;
   loopopt::HLNode *EntryHLNode; // for HIR only
   loopopt::HLNode *ExitHLNode;  // for HIR only
   loopopt::HLLoop *HLp;         // for HIR only
@@ -637,8 +699,6 @@ public:
   void setSafelen(int N) { Safelen = N; }
   void setCollapse(int N) { Collapse = N; }
   void setIsAutoVec(bool Flag) { IsAutoVec = Flag; }
-  void setLoopInfo(LoopInfo *L) { LI = L; }
-  void setLoop(Loop *L) { Lp = L; }
   void setEntryHLNode(loopopt::HLNode *E) { EntryHLNode = E; }
   void setExitHLNode(loopopt::HLNode *X) { ExitHLNode = X; }
   void setHLLoop(loopopt::HLLoop *L) { HLp = L; }
@@ -649,30 +709,28 @@ public:
   DEFINE_GETTER(LinearClause,      getLinear,  Linear)
   DEFINE_GETTER(AlignedClause,     getAligned, Aligned)
   DEFINE_GETTER(UniformClause,     getUniform, Uniform)
+  DEFINE_GETTER(WRNLoopInfo,       getWRNLoopInfo, WRNLI)
 
   int getSimdlen() const { return Simdlen; }
   int getSafelen() const { return Safelen; }
   int getCollapse() const { return Collapse; }
   bool getIsAutoVec() const { return IsAutoVec; }
-  LoopInfo *getLoopInfo() const { return LI; }
-  Loop *getLoop() const { return Lp; }
   loopopt::HLNode *getEntryHLNode() const { return EntryHLNode; }
   loopopt::HLNode *getExitHLNode() const { return ExitHLNode; }
   loopopt::HLLoop *getHLLoop() const { return HLp; }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
-                                             bool Verbose=false) const;
+                                             unsigned Verbosity=1) const;
 
   void printHIR(formatted_raw_ostream &OS, unsigned Depth,
-                                             bool Verbose=false) const;
-
+                                             unsigned Verbosity=1) const;
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
     return W->getWRegionKindID() == WRegionNode::WRNVecLoop;
   }
 };
 
-/// WRN for 
+/// WRN for
 /// \code
 ///   #pragma omp for
 /// \endcode
@@ -687,8 +745,7 @@ private:
   int Collapse;
   int Ordered;
   bool Nowait;
-  LoopInfo *LI;
-  Loop *Lp;
+  WRNLoopInfo WRNLI;
 
 public:
   WRNWksLoopNode(BasicBlock *BB, LoopInfo *L);
@@ -697,8 +754,6 @@ protected:
   void setCollapse(int N) { Collapse = N; }
   void setOrdered(int N) { Ordered = N; }
   void setNowait(bool Flag) { Nowait = Flag; }
-  void setLoopInfo(LoopInfo *L) { LI = L; }
-  void setLoop(Loop *L) { Lp = L; }
 
 public:
   DEFINE_GETTER(PrivateClause,      getPriv,     Priv)
@@ -707,12 +762,14 @@ public:
   DEFINE_GETTER(ReductionClause,    getRed,      Reduction)
   DEFINE_GETTER(LinearClause,       getLinear,   Linear)
   DEFINE_GETTER(ScheduleClause,     getSchedule, Schedule)
+  DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo, WRNLI)
 
   int getCollapse() const { return Collapse; }
   int getOrdered() const { return Ordered; }
   bool getNowait() const { return Nowait; }
-  LoopInfo *getLoopInfo() const { return LI; }
-  Loop *getLoop() const { return Lp; }
+
+  void printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                                             unsigned Verbosity=1) const;
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -720,7 +777,7 @@ public:
   }
 };
 
-/// WRN for 
+/// WRN for
 /// \code
 ///   #pragma omp sections
 /// \endcode
@@ -731,26 +788,25 @@ private:
   LastprivateClause Lpriv;
   ReductionClause Reduction;
   bool Nowait;
-  LoopInfo *LI;
-  Loop *Lp;
+  WRNLoopInfo WRNLI;
 
 public:
   WRNSectionsNode(BasicBlock *BB, LoopInfo *L);
 
 protected:
   void setNowait(bool Flag) { Nowait = Flag; }
-  void setLoopInfo(LoopInfo *L) { LI = L; }
-  void setLoop(Loop *L) { Lp = L; }
 
 public:
   DEFINE_GETTER(PrivateClause,      getPriv,   Priv)
   DEFINE_GETTER(FirstprivateClause, getFpriv,  Fpriv)
   DEFINE_GETTER(LastprivateClause,  getLpriv,  Lpriv)
   DEFINE_GETTER(ReductionClause,    getRed,    Reduction)
+  DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo, WRNLI)
 
   bool getNowait() const { return Nowait; }
-  LoopInfo *getLoopInfo() const { return LI; }
-  Loop *getLoop() const { return Lp; }
+
+  void printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                                             unsigned Verbosity=1) const;
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -758,28 +814,27 @@ public:
   }
 };
 
-/// Fortran-only WRN for 
+/// Fortran-only WRN for
 /// \code
 ///   !$omp workshare
 /// \endcode
 class WRNWorkshareNode : public WRegionNode {
 private:
   bool Nowait;
-  LoopInfo *LI;
-  Loop *Lp;
+  WRNLoopInfo WRNLI;
 
 public:
   WRNWorkshareNode(BasicBlock *BB, LoopInfo *L);
 
 protected:
   void setNowait(bool Flag) { Nowait = Flag; }
-  void setLoopInfo(LoopInfo *L) { LI = L; }
-  void setLoop(Loop *L) { Lp = L; }
 
 public:
+  DEFINE_GETTER(WRNLoopInfo, getWRNLoopInfo, WRNLI)
   bool getNowait() const { return Nowait; }
-  LoopInfo *getLoopInfo() const { return LI; }
-  Loop *getLoop() const { return Lp; }
+
+  void printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                                             unsigned Verbosity=1) const;
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -787,7 +842,7 @@ public:
   }
 };
 
-/// WRN for 
+/// WRN for
 /// \code
 ///   #pragma omp distribute
 /// \endcode
@@ -798,33 +853,31 @@ private:
   LastprivateClause Lpriv;
   ScheduleClause DistSchedule;
   int Collapse;
-  LoopInfo *LI;
-  Loop *Lp;
+  WRNLoopInfo WRNLI;
 
 public:
   WRNDistributeNode(BasicBlock *BB, LoopInfo *L);
 
 protected:
   void setCollapse(int N) { Collapse = N; }
-  void setLoopInfo(LoopInfo *L) { LI = L; }
-  void setLoop(Loop *L) { Lp = L; }
 
 public:
   DEFINE_GETTER(PrivateClause,      getPriv,         Priv)
   DEFINE_GETTER(FirstprivateClause, getFpriv,        Fpriv)
   DEFINE_GETTER(LastprivateClause,  getLpriv,        Lpriv)
   DEFINE_GETTER(ScheduleClause,     getDistSchedule, DistSchedule)
+  DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo,  WRNLI)
 
   int getCollapse() const { return Collapse; }
-  LoopInfo *getLoopInfo() const { return LI; }
-  Loop *getLoop() const { return Lp; }
+
+  void printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                                             unsigned Verbosity=1) const;
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
     return W->getWRegionKindID() == WRegionNode::WRNDistribute;
   }
 };
-
 
 /// WRegion Node for OMP Atomic Directive.
 /// \code
@@ -850,7 +903,7 @@ public:
   bool getHasSeqCstClause() const { return HasSeqCstClause; }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
-                                             bool Verbose=false) const;
+                                             unsigned Verbosity=1) const;
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -877,7 +930,7 @@ public:
   }
 };
 
-/// WRN for 
+/// WRN for
 /// \code
 ///   #pragma omp barrier
 /// \endcode
@@ -915,13 +968,16 @@ public:
   WRNCancelKind getCancelKind() const { return CancelKind; }
   EXPR getIf() const { return IfExpr; }
 
+  void printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                                             unsigned Verbosity=1) const;
+
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
     return W->getWRegionKindID() == WRegionNode::WRNCancel;
   }
 };
 
-/// WRN for 
+/// WRN for
 /// \code
 ///   #pragma omp master
 /// \endcode
@@ -970,9 +1026,12 @@ public:
   bool getIsThreads() const { assertDoacrossFalse(); return IsThreads; }
   bool getIsDepSource() const { assertDoacrossTrue(); return IsDepSource; }
 
-  const DepSinkClause &getDepSink() const {assertDoacrossTrue(); 
+  const DepSinkClause &getDepSink() const {assertDoacrossTrue();
                                            return DepSink; }
   DepSinkClause &getDepSink() { assertDoacrossTrue(); return DepSink; }
+
+  void printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                                             unsigned Verbosity=1) const;
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -980,7 +1039,7 @@ public:
   }
 };
 
-/// WRN for 
+/// WRN for
 /// \code
 ///   #pragma omp single
 /// \endcode
@@ -1005,6 +1064,9 @@ public:
 
   bool getNowait() const { return Nowait; }
 
+  void printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                                             unsigned Verbosity=1) const;
+
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
     return W->getWRegionKindID() == WRegionNode::WRNSingle;
@@ -1021,6 +1083,7 @@ public:
 class WRNCriticalNode : public WRegionNode {
 private:
   SmallString<64> UserLockName; ///< Lock name provided by the user.
+  // TODO: Add HINT
 
 protected:
   void setUserLockName(StringRef LN) { UserLockName = LN; }
@@ -1030,8 +1093,8 @@ public:
 
   StringRef getUserLockName() const { return UserLockName.str(); }
 
-  void printExtra(formatted_raw_ostream &OS, unsigned Depth, 
-                                             bool Verbose=false) const;
+  void printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                                             unsigned Verbosity=1) const;
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -1039,7 +1102,7 @@ public:
   }
 };
 
-/// WRN for 
+/// WRN for
 /// \code
 ///   #pragma omp taskgroup
 /// \endcode
@@ -1054,7 +1117,7 @@ public:
   }
 };
 
-/// WRN for 
+/// WRN for
 /// \code
 ///   #pragma omp taskwait
 /// \endcode
@@ -1062,14 +1125,13 @@ class WRNTaskwaitNode : public WRegionNode {
 
 public:
   WRNTaskwaitNode(BasicBlock *BB);
-
-  /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
+/// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
     return W->getWRegionKindID() == WRegionNode::WRNTaskwait;
   }
 };
 
-/// WRN for 
+/// WRN for
 /// \code
 ///   #pragma omp taskyield
 /// \endcode
@@ -1084,7 +1146,41 @@ public:
   }
 };
 
+
+/// \brief Print the fields common to WRNs for which getIsPar()==true.
+/// Possible constructs are: WRNParallel, WRNParallelLoop,
+///                          WRNParallelSections, WRNParallelWorkshare,
+/// The fields to print are: IfExpr, NumThreads, Default, ProcBind
+extern void printExtraForParallel(WRegionNode const *W,
+                                  formatted_raw_ostream &OS, int Depth,
+                                  unsigned Verbosity=1);
+
+/// \brief Print the fields common to some WRNs for which getIsOmpLoop()==true.
+/// Possible constructs are: WRNParallelLoop, WRNDistributeParLoop, WRNWksLoop
+/// The fields to print are: Collapse, Ordered, Nowait
+extern void printExtraForOmpLoop(WRegionNode const *W,
+                                  formatted_raw_ostream &OS, int Depth,
+                                  unsigned Verbosity=1);
+
+/// \brief Print the fields common to WRNs for which getIsTarget()==true.
+/// Possible constructs are: WRNTarget, WRNTargetData, WRNTargetUpdate
+/// The fields to print are: IfExpr, Device, Nowait
+/// Additionally, for WRNTarget also print the Defaultmap clause
+extern void printExtraForTarget(WRegionNode const *W,
+                                formatted_raw_ostream &OS, int Depth,
+                                unsigned Verbosity=1);
+
+/// \brief Print the fields common to WRNs for which getIsTask()==true.
+/// Possible constructs are: WRNTask, WRNTaskloop
+/// The fields to print are:
+///          IfExpr, Default, Final, Priority, Untied, Mergeable
+/// Additionally, for WRNTaskloop also print these:
+///          Grainsize, NumTasks, Collapse, Nogroup
+extern void printExtraForTask(WRegionNode const *W, formatted_raw_ostream &OS,
+                              int Depth, unsigned Verbosity=1);
+
 } // End namespace vpo
+
 
 } // End namespace llvm
 

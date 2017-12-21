@@ -743,8 +743,8 @@ def int_invariant_end   : Intrinsic<[],
 // which is valid.
 // The argument also can't be marked with 'returned' attribute, because
 // it would remove barrier.
-def int_invariant_group_barrier : Intrinsic<[llvm_ptr_ty],
-                                            [llvm_ptr_ty],
+def int_invariant_group_barrier : Intrinsic<[llvm_anyptr_ty],
+                                            [LLVMMatchType<0>],
                                             [IntrReadMem, IntrArgMemOnly]>;
 
 //===------------------------ Stackmap Intrinsics -------------------------===//
@@ -778,10 +778,13 @@ def int_experimental_gc_result   : Intrinsic<[llvm_any_ty], [llvm_token_ty],
 def int_experimental_gc_relocate : Intrinsic<[llvm_any_ty],
                                 [llvm_token_ty, llvm_i32_ty, llvm_i32_ty],
                                 [IntrReadMem]>;
+
+// INTEL_CUSTOMIZATION
 //===------------------------ Directive Intrinsics ------------------------===//
 //
 def int_directive_region_entry : Intrinsic<[llvm_token_ty], [], []>;
 def int_directive_region_exit  : Intrinsic<[], [llvm_token_ty], []>;
+// end INTEL_CUSTOMIZATION
 
 //===------------------------ Coroutine Intrinsics ---------------===//
 // These are documented in docs/Coroutines.rst
@@ -846,6 +849,12 @@ def int_experimental_guard : Intrinsic<[], [llvm_i1_ty, llvm_vararg_ty],
 // NOP: calls/invokes to this intrinsic are removed by codegen
 def int_donothing : Intrinsic<[], [], [IntrNoMem]>;
 
+// This instruction has no actual effect, though it is treated by the optimizer
+// has having opaque side effects. This may be inserted into loops to ensure
+// that they are not removed even if they turn out to be empty, for languages
+// which specify that infinite loops must be preserved.
+def int_sideeffect : Intrinsic<[], [], [IntrInaccessibleMemOnly]>;
+
 // Intrisics to support half precision floating point format
 let IntrProperties = [IntrNoMem] in {
 def int_convert_to_fp16   : Intrinsic<[llvm_i16_ty], [llvm_anyfloat_ty]>;
@@ -897,7 +906,7 @@ def int_masked_compressstore: Intrinsic<[],
 def int_type_test : Intrinsic<[llvm_i1_ty], [llvm_ptr_ty, llvm_metadata_ty],
                               [IntrNoMem]>;
 
-// if INTEL_CUSTOMIZATION
+// INTEL_CUSTOMIZATION
 //===--------------------- Intel Directive Intrinsics ---------------------===//
 
 def int_intel_directive : Intrinsic<[], [llvm_metadata_ty],
@@ -1061,4 +1070,4 @@ include "llvm/IR/IntrinsicsAMDGPU.td"
 include "llvm/IR/IntrinsicsBPF.td"
 include "llvm/IR/IntrinsicsSystemZ.td"
 include "llvm/IR/IntrinsicsWebAssembly.td"
-include "llvm/IR/IntrinsicsNios2.td"
+include "llvm/IR/IntrinsicsNios2.td" // INTEL

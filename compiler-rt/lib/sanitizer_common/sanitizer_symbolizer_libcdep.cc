@@ -189,9 +189,9 @@ const LoadedModule *Symbolizer::FindModuleForAddress(uptr address) {
   const LoadedModule *module = SearchForModule(modules_, address);
   if (module) return module;
 
-    // dlopen/dlclose interceptors invalidate the module list, but when
-    // interception is disabled, we need to retry if the lookup fails in
-    // case the module list changed.
+  // dlopen/dlclose interceptors invalidate the module list, but when
+  // interception is disabled, we need to retry if the lookup fails in
+  // case the module list changed.
 #if !SANITIZER_INTERCEPT_DLOPEN_DLCLOSE
   if (!modules_were_reloaded) {
     RefreshModules();

@@ -29,6 +29,8 @@
 #include "llvm/CodeGen/MachineOperand.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/StackMaps.h"
+#include "llvm/CodeGen/TargetRegisterInfo.h"
+#include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/IR/GlobalValue.h"
 #include "llvm/MC/MCInst.h"
@@ -41,8 +43,6 @@
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
-#include "llvm/Target/TargetRegisterInfo.h"
-#include "llvm/Target/TargetSubtargetInfo.h"
 #include <cassert>
 #include <cstdint>
 #include <iterator>
@@ -1038,6 +1038,12 @@ bool AArch64InstrInfo::areMemAccessesTriviallyDisjoint(
 bool AArch64InstrInfo::analyzeCompare(const MachineInstr &MI, unsigned &SrcReg,
                                       unsigned &SrcReg2, int &CmpMask,
                                       int &CmpValue) const {
+  // The first operand can be a frame index where we'd normally expect a
+  // register.
+  assert(MI.getNumOperands() >= 2 && "All AArch64 cmps should have 2 operands");
+  if (!MI.getOperand(1).isReg())
+    return false;
+
   switch (MI.getOpcode()) {
   default:
     break;
@@ -2795,14 +2801,14 @@ MachineInstr *AArch64InstrInfo::foldMemoryOperandImpl(
     LiveIntervals *LIS) const {
   // This is a bit of a hack. Consider this instruction:
   //
-  //   %vreg0<def> = COPY %SP; GPR64all:%vreg0
+  //   %0<def> = COPY %sp; GPR64all:%0
   //
   // We explicitly chose GPR64all for the virtual register so such a copy might
   // be eliminated by RegisterCoalescer. However, that may not be possible, and
-  // %vreg0 may even spill. We can't spill %SP, and since it is in the GPR64all
+  // %0 may even spill. We can't spill %sp, and since it is in the GPR64all
   // register class, TargetInstrInfo::foldMemoryOperand() is going to try.
   //
-  // To prevent that, we are going to constrain the %vreg0 register class here.
+  // To prevent that, we are going to constrain the %0 register class here.
   //
   // <rdar://problem/11522048>
   //
@@ -2824,26 +2830,26 @@ MachineInstr *AArch64InstrInfo::foldMemoryOperandImpl(
   // Handle the case where a copy is being spilled or filled but the source
   // and destination register class don't match.  For example:
   //
-  //   %vreg0<def> = COPY %XZR; GPR64common:%vreg0
+  //   %0<def> = COPY %xzr; GPR64common:%0
   //
   // In this case we can still safely fold away the COPY and generate the
   // following spill code:
   //
-  //   STRXui %XZR, <fi#0>
+  //   STRXui %xzr, <fi#0>
   //
   // This also eliminates spilled cross register class COPYs (e.g. between x and
   // d regs) of the same size.  For example:
   //
-  //   %vreg0<def> = COPY %vreg1; GPR64:%vreg0, FPR64:%vreg1
+  //   %0<def> = COPY %1; GPR64:%0, FPR64:%1
   //
   // will be filled as
   //
-  //   LDRDui %vreg0, fi<#0>
+  //   LDRDui %0, fi<#0>
   //
   // instead of
   //
-  //   LDRXui %vregTemp, fi<#0>
-  //   %vreg0 = FMOV %vregTemp
+  //   LDRXui %Temp, fi<#0>
+  //   %0 = FMOV %Temp
   //
   if (MI.isCopy() && Ops.size() == 1 &&
       // Make sure we're only folding the explicit COPY defs/uses.
@@ -2880,12 +2886,12 @@ MachineInstr *AArch64InstrInfo::foldMemoryOperandImpl(
 
     // Handle cases like spilling def of:
     //
-    //   %vreg0:sub_32<def,read-undef> = COPY %WZR; GPR64common:%vreg0
+    //   %0:sub_32<def,read-undef> = COPY %wzr; GPR64common:%0
     //
     // where the physical register source can be widened and stored to the full
     // virtual reg destination stack slot, in this case producing:
     //
-    //   STRXui %XZR, <fi#0>
+    //   STRXui %xzr, <fi#0>
     //
     if (IsSpill && DstMO.isUndef() &&
         TargetRegisterInfo::isPhysicalRegister(SrcReg)) {
@@ -2928,12 +2934,12 @@ MachineInstr *AArch64InstrInfo::foldMemoryOperandImpl(
 
     // Handle cases like filling use of:
     //
-    //   %vreg0:sub_32<def,read-undef> = COPY %vreg1; GPR64:%vreg0, GPR32:%vreg1
+    //   %0:sub_32<def,read-undef> = COPY %1; GPR64:%0, GPR32:%1
     //
     // where we can load the full virtual reg source stack slot, into the subreg
     // destination, in this case producing:
     //
-    //   LDRWui %vreg0:sub_32<def,read-undef>, <fi#0>
+    //   LDRWui %0:sub_32<def,read-undef>, <fi#0>
     //
     if (IsFill && SrcMO.getSubReg() == 0 && DstMO.isUndef()) {
       const TargetRegisterClass *FillRC;
@@ -4646,13 +4652,24 @@ AArch64InstrInfo::getOutlininingCandidateInfo(
                              FrameID);
 }
 
-bool AArch64InstrInfo::isFunctionSafeToOutlineFrom(MachineFunction &MF) const {
-  // If MF has a red zone, then we ought not to outline from it, since outlined
-  // functions can modify/read from the stack.
-  // If MF's address is taken, then we don't want to outline from it either
-  // since we don't really know what the user is doing with it.
-  return MF.getFunction()->hasFnAttribute(Attribute::NoRedZone) &&
-         !MF.getFunction()->hasAddressTaken();
+bool AArch64InstrInfo::isFunctionSafeToOutlineFrom(MachineFunction &MF,
+                                           bool OutlineFromLinkOnceODRs) const {
+  const Function *F = MF.getFunction();
+
+  // If F uses a redzone, then don't outline from it because it might mess up
+  // the stack.
+  if (!F->hasFnAttribute(Attribute::NoRedZone))
+    return false;
+
+  // If anyone is using the address of this function, don't outline from it.
+  if (F->hasAddressTaken())
+    return false;
+
+  // Can F be deduplicated by the linker? If it can, don't outline from it.
+  if (!OutlineFromLinkOnceODRs && F->hasLinkOnceODRLinkage())
+    return false;
+  
+  return true;
 }
 
 AArch64GenInstrInfo::MachineOutlinerInstrType

@@ -10,7 +10,7 @@
 // This pass transforms loops by placing phi nodes at the end of the loops for
 // all values that are live across the loop boundary.  For example, it turns
 // the left into the right code:
-// 
+//
 // for (...)                for (...)
 //   if (c)                   if (c)
 //     X1 = ...                 X1 = ...
@@ -21,8 +21,8 @@
 //                          ... = X4 + 4
 //
 // This is still valid LLVM; the extra phi nodes are purely redundant, and will
-// be trivially eliminated by InstCombine.  The major benefit of this 
-// transformation is that it makes many other loop optimizations, such as 
+// be trivially eliminated by InstCombine.  The major benefit of this
+// transformation is that it makes many other loop optimizations, such as
 // LoopUnswitching, simpler.
 //
 //===----------------------------------------------------------------------===//
@@ -70,8 +70,11 @@ static bool isExitBlock(BasicBlock *BB,
 /// For every instruction from the worklist, check to see if it has any uses
 /// that are outside the current loop.  If so, insert LCSSA PHI nodes and
 /// rewrite the uses.
-bool llvm::formLCSSAForInstructions(SmallVectorImpl<Instruction *> &Worklist,
-                                    DominatorTree &DT, LoopInfo &LI) {
+#if INTEL_CUSTOMIZATION
+bool llvm::formLCSSAForInstructions(
+    SmallVectorImpl<Instruction *> &Worklist, DominatorTree &DT, LoopInfo &LI,
+    DenseMap<Value *, std::pair<Value *, BasicBlock *>> *ValueToLiveinMap) {
+#endif  // INTEL_CUSTOMIZATION
   SmallVector<Use *, 16> UsesToRewrite;
   SmallSetVector<PHINode *, 16> PHIsToRemove;
   PredIteratorCache PredCache;
@@ -130,6 +133,15 @@ bool llvm::formLCSSAForInstructions(SmallVectorImpl<Instruction *> &Worklist,
     SmallVector<PHINode *, 4> InsertedPHIs;
     SSAUpdater SSAUpdate(&InsertedPHIs);
     SSAUpdate.Initialize(I->getType(), I->getName());
+
+#if INTEL_CUSTOMIZATION
+    // The live-in maptable is provided to aid the SSA updater to
+    // insert the correct incoming value. Please note the output
+    // from the paropt is not LCSSA loop.
+    if (ValueToLiveinMap && (*ValueToLiveinMap).count(I))
+      SSAUpdate.AddAvailableValue((*ValueToLiveinMap)[I].second,
+                                  (*ValueToLiveinMap)[I].first);
+#endif  // INTEL_CUSTOMIZATION
 
     // Insert the LCSSA phi's into all of the exit blocks dominated by the
     // value, and add them to the Phi's map.
@@ -275,14 +287,21 @@ static void computeBlocksDominatingExits(
   }
 }
 
-bool llvm::formLCSSA(Loop &L, DominatorTree &DT, LoopInfo *LI,
-                     ScalarEvolution *SE) {
+#if INTEL_CUSTOMIZATION
+bool llvm::formLCSSA(
+    Loop &L, DominatorTree &DT, LoopInfo *LI, ScalarEvolution *SE,
+    DenseMap<Value *, std::pair<Value *, BasicBlock *>> *ValueToLiveinMap,
+    SmallSetVector<Instruction *, 8> *LiveoutVals) {
+#endif  // INTEL_CUSTOMIZATION
   bool Changed = false;
 
   SmallVector<BasicBlock *, 8> ExitBlocks;
-  L.getExitBlocks(ExitBlocks);
-  if (ExitBlocks.empty())
-    return false;
+
+  if (LiveoutVals == nullptr) { // INTEL
+    L.getExitBlocks(ExitBlocks);
+    if (ExitBlocks.empty())
+      return false;
+  } // INTEL
 
   SmallSetVector<BasicBlock *, 8> BlocksDominatingExits;
 
@@ -291,7 +310,14 @@ bool llvm::formLCSSA(Loop &L, DominatorTree &DT, LoopInfo *LI,
   // defined in the loop can be used outside.
   // We compute the set of blocks fullfilling the conditions in advance
   // walking the dominator tree upwards until we hit a loop header.
-  computeBlocksDominatingExits(L, DT, ExitBlocks, BlocksDominatingExits);
+#if INTEL_CUSTOMIZATION
+  if (LiveoutVals == nullptr)
+    computeBlocksDominatingExits(L, DT, ExitBlocks, BlocksDominatingExits);
+  else {
+    for (Instruction *I : *LiveoutVals)
+      BlocksDominatingExits.insert(I->getParent());
+  }
+#endif // INTEL_CUSTOMIZATION
 
   SmallVector<Instruction *, 8> Worklist;
 
@@ -303,7 +329,8 @@ bool llvm::formLCSSA(Loop &L, DominatorTree &DT, LoopInfo *LI,
       // and instructions with one use that is in the same block as this.
       if (I.use_empty() ||
           (I.hasOneUse() && I.user_back()->getParent() == BB &&
-           !isa<PHINode>(I.user_back())))
+           !isa<PHINode>(I.user_back())) ||
+          (LiveoutVals && !LiveoutVals->count(&I)))
         continue;
 
       // Tokens cannot be used in PHI nodes, so we skip over them.
@@ -316,7 +343,8 @@ bool llvm::formLCSSA(Loop &L, DominatorTree &DT, LoopInfo *LI,
       Worklist.push_back(&I);
     }
   }
-  Changed = formLCSSAForInstructions(Worklist, DT, *LI);
+  Changed = formLCSSAForInstructions(Worklist, DT, *LI,
+                                     ValueToLiveinMap);  //  INTEL
 
   // If we modified the code, remove any caches about the loop from SCEV to
   // avoid dangling entries.
@@ -324,7 +352,10 @@ bool llvm::formLCSSA(Loop &L, DominatorTree &DT, LoopInfo *LI,
   if (SE && Changed)
     SE->forgetLoop(&L);
 
-  assert(L.isLCSSAForm(DT));
+#if INTEL_CUSTOMIZATION
+  if (LiveoutVals == nullptr)
+    assert(L.isLCSSAForm(DT));
+#endif // INTEL_CUSTOMIZATION
 
   return Changed;
 }

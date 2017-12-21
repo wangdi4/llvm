@@ -155,6 +155,14 @@ class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
   int Cost;
   bool ComputeFullInlineCost;
 
+  /// INTEL The cost and the threshold used for early exit during usual
+  /// inlining process. Under IntelInlineReportLevel=64  we compute both
+  /// "early exit" and real cost of inlining.  A value of INT_MAX indicates
+  /// that a value has not yet been seen for these.  They are expected to
+  /// be set at the same time, so we only need to test for EarlyExitCost.
+  int EarlyExitThreshold;             // INTEL
+  int EarlyExitCost;                  // INTEL
+
   InliningLoopInfoCache* ILIC;        // INTEL
 
   // INTEL    Aggressive Analysis
@@ -206,6 +214,7 @@ class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
   void accumulateSROACost(DenseMap<Value *, int>::iterator CostIt,
                           int InstructionCost);
   bool isGEPFree(GetElementPtrInst &GEP);
+  bool canFoldInboundsGEP(GetElementPtrInst &I);
   bool accumulateGEPOffset(GEPOperator &GEP, APInt &Offset);
   bool simplifyCallSite(Function *F, CallSite CS);
   template <typename Callable>
@@ -296,9 +305,11 @@ public:
       : TTI(TTI), GetAssumptionCache(GetAssumptionCache), GetBFI(GetBFI),
         PSI(PSI), F(Callee), DL(F.getParent()->getDataLayout()), ORE(ORE),
         CandidateCS(CSArg), Params(Params), Threshold(Params.DefaultThreshold),
+#if INTEL_CUSTOMIZATION
         Cost(0), ComputeFullInlineCost(OptComputeFullInlineCost ||
                                        Params.ComputeFullInlineCost || ORE),
-        ILIC(ILIC), AI(AI),                // INTEL
+        ILIC(ILIC), AI(AI),
+#endif // INTEL_CUSTOMIZATION
         IsCallerRecursive(false), IsRecursiveCall(false),
         ExposesReturnsTwice(false), HasDynamicAlloca(false),
         ContainsNoDuplicateCall(false), HasReturn(false), HasIndirectBr(false),
@@ -313,6 +324,9 @@ public:
 
   int getThreshold() { return Threshold; }
   int getCost() { return Cost; }
+  int getEarlyExitThreshold() { return EarlyExitThreshold; }  // INTEL
+  int getEarlyExitCost() { return EarlyExitCost; }            // INTEL
+
 
   // Keep a bunch of stats about the cost savings found so we can print them
   // out when debugging.
@@ -470,39 +484,33 @@ bool CallAnalyzer::visitPHI(PHINode &I) {
   return true;
 }
 
+/// \brief Check we can fold GEPs of constant-offset call site argument pointers.
+/// This requires target data and inbounds GEPs.
+///
+/// \return true if the specified GEP can be folded.
+bool CallAnalyzer::canFoldInboundsGEP(GetElementPtrInst &I) {
+  // Check if we have a base + offset for the pointer.
+  std::pair<Value *, APInt> BaseAndOffset =
+      ConstantOffsetPtrs.lookup(I.getPointerOperand());
+  if (!BaseAndOffset.first)
+    return false;
+
+  // Check if the offset of this GEP is constant, and if so accumulate it
+  // into Offset.
+  if (!accumulateGEPOffset(cast<GEPOperator>(I), BaseAndOffset.second))
+    return false;
+
+  // Add the result as a new mapping to Base + Offset.
+  ConstantOffsetPtrs[&I] = BaseAndOffset;
+
+  return true;
+}
+
 bool CallAnalyzer::visitGetElementPtr(GetElementPtrInst &I) {
   Value *SROAArg;
   DenseMap<Value *, int>::iterator CostIt;
   bool SROACandidate =
       lookupSROAArgAndCost(I.getPointerOperand(), SROAArg, CostIt);
-
-  // Try to fold GEPs of constant-offset call site argument pointers. This
-  // requires target data and inbounds GEPs.
-  if (I.isInBounds()) {
-    // Check if we have a base + offset for the pointer.
-    Value *Ptr = I.getPointerOperand();
-    std::pair<Value *, APInt> BaseAndOffset = ConstantOffsetPtrs.lookup(Ptr);
-    if (BaseAndOffset.first) {
-      // Check if the offset of this GEP is constant, and if so accumulate it
-      // into Offset.
-      if (!accumulateGEPOffset(cast<GEPOperator>(I), BaseAndOffset.second)) {
-        // Non-constant GEPs aren't folded, and disable SROA.
-        if (SROACandidate)
-          disableSROA(CostIt);
-        return isGEPFree(I);
-      }
-
-      // Add the result as a new mapping to Base + Offset.
-      ConstantOffsetPtrs[&I] = BaseAndOffset;
-
-      // Also handle SROA candidates here, we already know that the GEP is
-      // all-constant indexed.
-      if (SROACandidate)
-        SROAArgValues[&I] = SROAArg;
-
-      return true;
-    }
-  }
 
   // Lambda to check whether a GEP's indices are all constant.
   auto IsGEPOffsetConstant = [&](GetElementPtrInst &GEP) {
@@ -512,7 +520,7 @@ bool CallAnalyzer::visitGetElementPtr(GetElementPtrInst &I) {
     return true;
   };
 
-  if (IsGEPOffsetConstant(I)) {
+  if ((I.isInBounds() && canFoldInboundsGEP(I)) || IsGEPOffsetConstant(I)) {
     if (SROACandidate)
       SROAArgValues[&I] = SROAArg;
 
@@ -1155,7 +1163,7 @@ bool CallAnalyzer::visitCallSite(CallSite CS) {
       }
     }
 
-    if (F == CS.getInstruction()->getParent()->getParent()) {
+    if (F == CS.getInstruction()->getFunction()) {
       // This flag will fully abort the analysis, so don't bother with anything
       // else.
       IsRecursiveCall = true;
@@ -1338,10 +1346,18 @@ bool CallAnalyzer::visitSwitchInst(SwitchInst &SI) {
       std::min((int64_t)CostUpperBound,
                (int64_t)SI.getNumCases() * InlineConstants::InstrCost + Cost);
 
-  if (CostLowerBound > Threshold && !ComputeFullInlineCost) {
-    Cost = CostLowerBound;
-    return false;
+#if INTEL_CUSTOMIZATION
+  if (CostLowerBound > Threshold) {
+    if (!ComputeFullInlineCost) {
+      Cost = CostLowerBound;
+      return false;
+    }
+    if (EarlyExitCost == INT_MAX) {
+      EarlyExitCost = Cost;
+      EarlyExitThreshold = Threshold;
+    }
   }
+#endif // INTEL_CUSTOMIZATION
 
   unsigned JumpTableSize = 0;
   unsigned NumCaseCluster =
@@ -1503,10 +1519,12 @@ bool CallAnalyzer::analyzeBlock(BasicBlock *BB,
     if (IsRecursiveCall || ExposesReturnsTwice || HasDynamicAlloca ||
         HasIndirectBr || HasFrameEscape) {
       if (ORE)
-        ORE->emit(OptimizationRemarkMissed(DEBUG_TYPE, "NeverInline",
-                                           CandidateCS.getInstruction())
-                  << NV("Callee", &F)
-                  << " has uninlinable pattern and cost is not fully computed");
+        ORE->emit([&]() {
+          return OptimizationRemarkMissed(DEBUG_TYPE, "NeverInline",
+                                          CandidateCS.getInstruction())
+                 << NV("Callee", &F)
+                 << " has uninlinable pattern and cost is not fully computed";
+        });
       return false;
     }
 
@@ -1516,19 +1534,28 @@ bool CallAnalyzer::analyzeBlock(BasicBlock *BB,
     if (IsCallerRecursive &&
         AllocatedSize > InlineConstants::TotalAllocaSizeRecursiveCaller) {
       if (ORE)
-        ORE->emit(
-            OptimizationRemarkMissed(DEBUG_TYPE, "NeverInline",
-                                     CandidateCS.getInstruction())
-            << NV("Callee", &F)
-            << " is recursive and allocates too much stack space. Cost is "
-               "not fully computed");
+        ORE->emit([&]() {
+          return OptimizationRemarkMissed(DEBUG_TYPE, "NeverInline",
+                                          CandidateCS.getInstruction())
+                 << NV("Callee", &F)
+                 << " is recursive and allocates too much stack space. Cost is "
+                    "not fully computed";
+        });
       return false;
     }
 
     // Check if we've past the maximum possible threshold so we don't spin in
     // huge basic blocks that will never inline.
-    if (Cost >= Threshold && !ComputeFullInlineCost)
-      return false;
+#if INTEL_CUSTOMIZATION
+    if (Cost >= Threshold) {
+      if (!ComputeFullInlineCost)
+         return false;
+      if (EarlyExitCost == INT_MAX) {
+         EarlyExitCost = Cost;
+         EarlyExitThreshold = Threshold;
+      }
+    }
+#endif // INTEL_CUSTOMIZATION
   }
 
   return true;
@@ -1607,8 +1634,7 @@ static void countGlobalsAndConstants(Value* Op, unsigned& GlobalCount,
     Value *GV = LILHS->getPointerOperand();
     if (GV && isa<GlobalValue>(GV))
       GlobalCount++;
-  }
-  else if (isa<ConstantInt>(Op))
+  } else if (isa<ConstantInt>(Op))
     ConstantCount++;
 }
 
@@ -1951,6 +1977,8 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
   InlineReasonVector YesReasonVector; // INTEL
   InlineReasonVector NoReasonVector; // INTEL
   TempReason = NinlrNoReason; // INTEL
+  EarlyExitCost = INT_MAX; // INTEL
+  EarlyExitThreshold = INT_MAX; // INTEL
 
   // Perform some tweaks to the cost and threshold based on the direct
   // callsite information.
@@ -2028,25 +2056,32 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
     NoReasonVector.push_back(NinlrColdCC); // INTEL
   } // INTEL
 
-  // Check if we're done. This can happen due to bonuses and penalties.
-  if (Cost >= Threshold && !ComputeFullInlineCost) { // INTEL
-    *ReasonAddr = bestInlineReason(NoReasonVector, NinlrNotProfitable); // INTEL
-    return false;
-  } // INTEL
+#if INTEL_CUSTOMIZATION
+  if (Cost >= Threshold) {
+    if (!ComputeFullInlineCost) {
+      *ReasonAddr = bestInlineReason(NoReasonVector, NinlrNotProfitable);
+      return false;
+    }
+    if (EarlyExitCost == INT_MAX) {
+      EarlyExitCost = Cost;
+      EarlyExitThreshold = Threshold;
+    }
+ }
+#endif // INTEL_CUSTOMIZATION
 
   if (F.empty()) { // INTEL
     *ReasonAddr = InlrEmptyFunction; // INTEL
     return true;
   } // INTEL
 
-  Function *Caller = CS.getInstruction()->getParent()->getParent();
+  Function *Caller = CS.getInstruction()->getFunction();
   // Check if the caller function is recursive itself.
   for (User *U : Caller->users()) {
     CallSite Site(U);
     if (!Site)
       continue;
     Instruction *I = Site.getInstruction();
-    if (I->getParent()->getParent() == Caller) {
+    if (I->getFunction() == Caller) {
       IsCallerRecursive = true;
       break;
     }
@@ -2099,8 +2134,16 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
   for (unsigned Idx = 0; Idx != BBWorklist.size(); ++Idx) {
     // Bail out the moment we cross the threshold. This means we'll under-count
     // the cost, but only when undercounting doesn't matter.
-    if (Cost >= Threshold && !ComputeFullInlineCost)
-      break;
+#if INTEL_CUSTOMIZATION
+    if (Cost >= Threshold) {
+      if (!ComputeFullInlineCost)
+        break;
+      if (EarlyExitCost == INT_MAX) {
+        EarlyExitCost = Cost;
+        EarlyExitThreshold = Threshold;
+      }
+    }
+#endif // INTEL_CUSTOMIZATION
 
     BasicBlock *BB = BBWorklist[Idx];
     if (BB->empty())
@@ -2137,7 +2180,16 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
       if (HasFrameEscape) {
         *ReasonAddr = NinlrCallsLocalEscape;
       }
-      return false;
+      if (IsCallerRecursive &&
+          AllocatedSize > InlineConstants::TotalAllocaSizeRecursiveCaller) {
+        *ReasonAddr = NinlrTooMuchStack;
+      }
+      if (!ComputeFullInlineCost || (*ReasonAddr) != NinlrNotProfitable)
+        return false;
+      if (EarlyExitCost == INT_MAX) {
+        EarlyExitCost = Cost;
+        EarlyExitThreshold = Threshold;
+      }
     }
 #endif // INTEL_CUSTOMIZATION
 
@@ -2201,12 +2253,10 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
   }
 
 #if INTEL_CUSTOMIZATION
-  if (SingleBB) {
+  if (SingleBB)
     YesReasonVector.push_back(InlrSingleBasicBlock);
-  }
-  else if (FoundForgivable) {
+  else if (FoundForgivable)
     YesReasonVector.push_back(InlrAlmostSingleBasicBlock);
-  }
 #endif // INTEL_CUSTOMIZATION
 
   bool OnlyOneCallAndLocalLinkage =
@@ -2230,7 +2280,7 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
     Threshold -= VectorBonus/2;
 
 #if INTEL_CUSTOMIZATION
-  if (VectorBonus > 0) {
+  if (NumVectorInstructions > NumInstructions / 10) {
     YesReasonVector.push_back(InlrVectorBonus);
   }
   bool IsProfitable = Cost < std::max(1, Threshold);
@@ -2331,6 +2381,7 @@ InlineCost llvm::getInlineCost(
 
   // Calls to functions with always-inline attributes should be inlined
   // whenever possible.
+
   if (CS.hasFnAttr(Attribute::AlwaysInline)) {
 #if INTEL_CUSTOMIZATION
     InlineReason Reason = InlrNoReason;
@@ -2397,7 +2448,8 @@ InlineCost llvm::getInlineCost(
     return InlineCost::getAlways(Reason); // INTEL
 
   return llvm::InlineCost::get(CA.getCost(), // INTEL
-    CA.getThreshold(), Reason); // INTEL
+    CA.getThreshold(), Reason, CA.getEarlyExitCost(), //INTEL
+    CA.getEarlyExitThreshold()); // INTEL
 }
 
 bool llvm::isInlineViable(Function &F, // INTEL

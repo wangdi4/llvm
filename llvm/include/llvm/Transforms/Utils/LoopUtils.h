@@ -331,15 +331,13 @@ public:
   /// not have the "fast-math" property. Such operation requires a relaxed FP
   /// mode.
   bool hasUnsafeAlgebra() {
-    return InductionBinOp &&
-      !cast<FPMathOperator>(InductionBinOp)->hasUnsafeAlgebra();
+    return InductionBinOp && !cast<FPMathOperator>(InductionBinOp)->isFast();
   }
 
   /// Returns induction operator that does not have "fast-math" property
   /// and requires FP unsafe mode.
   Instruction *getUnsafeAlgebraInst() {
-    if (!InductionBinOp ||
-        cast<FPMathOperator>(InductionBinOp)->hasUnsafeAlgebra())
+    if (!InductionBinOp || cast<FPMathOperator>(InductionBinOp)->isFast())
       return nullptr;
     return InductionBinOp;
   }
@@ -387,8 +385,14 @@ bool formDedicatedExitBlocks(Loop *L, DominatorTree *DT, LoopInfo *LI,
 /// changes to CFG, preserved.
 ///
 /// Returns true if any modifications are made.
-bool formLCSSAForInstructions(SmallVectorImpl<Instruction *> &Worklist,
-                              DominatorTree &DT, LoopInfo &LI);
+#if INTEL_CUSTOMIZATION
+/// The parameter ValueToLiveinMap is used to update the phis which need the
+/// live-in value.
+bool formLCSSAForInstructions(
+    SmallVectorImpl<Instruction *> &Worklist, DominatorTree &DT, LoopInfo &LI,
+    DenseMap<Value *, std::pair<Value *, BasicBlock *>> *ValueToLiveinMap =
+        nullptr);
+#endif // INTEL_CUSTOMIZATION
 
 /// \brief Put loop into LCSSA form.
 ///
@@ -401,7 +405,12 @@ bool formLCSSAForInstructions(SmallVectorImpl<Instruction *> &Worklist,
 /// If ScalarEvolution is passed in, it will be preserved.
 ///
 /// Returns true if any modifications are made to the loop.
-bool formLCSSA(Loop &L, DominatorTree &DT, LoopInfo *LI, ScalarEvolution *SE);
+#if INTEL_CUSTOMIZATION
+bool formLCSSA(Loop &L, DominatorTree &DT, LoopInfo *LI, ScalarEvolution *SE,
+               DenseMap<Value *, std::pair<Value *, BasicBlock *>>
+                   *ValueToLiveinMap = nullptr,
+               SmallSetVector<Instruction *, 8> *LiveoutVals = nullptr);
+#endif // INTEL_CUSTOMIZATION
 
 /// \brief Put a loop nest into LCSSA form.
 ///
@@ -438,6 +447,20 @@ bool sinkRegion(DomTreeNode *, AliasAnalysis *, LoopInfo *, DominatorTree *,
 bool hoistRegion(DomTreeNode *, AliasAnalysis *, LoopInfo *, DominatorTree *,
                  TargetLibraryInfo *, Loop *, AliasSetTracker *,
                  LoopSafetyInfo *, OptimizationRemarkEmitter *ORE);
+
+/// This function deletes dead loops. The caller of this function needs to
+/// guarantee that the loop is infact dead.
+/// The function requires a bunch or prerequisites to be present:
+///   - The loop needs to be in LCSSA form
+///   - The loop needs to have a Preheader
+///   - A unique dedicated exit block must exist
+///
+/// This also updates the relevant analysis information in \p DT, \p SE, and \p
+/// LI if pointers to those are provided.
+/// It also updates the loop PM if an updater struct is provided.
+
+void deleteDeadLoop(Loop *L, DominatorTree *DT, ScalarEvolution *SE,
+                    LoopInfo *LI);
 
 /// \brief Try to promote memory values to scalars by sinking stores out of
 /// the loop and moving loads to before the loop.  We do this by looping over

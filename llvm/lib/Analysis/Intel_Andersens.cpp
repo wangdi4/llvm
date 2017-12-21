@@ -110,6 +110,7 @@ STATISTIC(NumPtrQuery     , "Number of Ptr query");
 
 static cl::opt<bool> PrintAndersConstraints("print-anders-constraints", cl::ReallyHidden);
 static cl::opt<bool> PrintAndersPointsTo("print-anders-points-to", cl::ReallyHidden);
+static cl::opt<bool> PrintAndersPointsToUpdates("print-anders-points-to-updates", cl::ReallyHidden);
 static cl::opt<bool> PrintAndersAliasQueries("print-anders-alias-queries", cl::ReallyHidden);
 static cl::opt<bool> PrintAndersModRefQueries("print-anders-modref-queries", cl::ReallyHidden);
 static cl::opt<bool> PrintAndersConstMemQueries("print-anders-const-mem-queries", cl::ReallyHidden);
@@ -409,6 +410,10 @@ public:
   // their base function node.
   bool AddressTaken;
 
+  // True is the Value object that originally tracked this node has been
+  // removed from the IR, causing this node to no longer be valid.
+  bool Invalidated;
+
   // Nodes in cycles (or in equivalence classes) are united together using a
   // standard union-find representation with path compression.  NodeRep
   // gives the index into GraphNodes for the representative Node.
@@ -424,10 +429,11 @@ public:
         PointerEquivLabel(0), LocationEquivLabel(0), PredEdges(0),
         ImplicitPredEdges(0), PointedToBy(0), NumInEdges(0),
         StoredInHash(false), Direct(direct), AddressTaken(false),
-        NodeRep(SelfRep), Timestamp(0) {}
+        Invalidated(false), NodeRep(SelfRep), Timestamp(0) {}
 
   Node *setValue(Value *V) {
-    assert(Val == 0 && "Value already set for this node!");
+    assert(V == nullptr ||
+        (Val == nullptr && "Value already set for this node!"));
     Val = V;
     return this;
   }
@@ -435,6 +441,16 @@ public:
   /// getValue - Return the LLVM value corresponding to this node.
   ///
   Value *getValue() const { return Val; }
+
+  /// setInvalidated - Mark the node as no longer tracking a valid object.
+  void setInvalidated() {
+    Invalidated = true;
+  }
+
+  /// getInvalidated - Check whether the node trackes a valid object.
+  bool getInvalidated() const {
+    return Invalidated;
+  }
 
   /// addPointerTo - Add a pointer to the list of pointees of this node,
   /// returning true if this caused a new pointer to be added, or false if
@@ -588,6 +604,17 @@ bool AndersensAAResult::GetFuncPointerPossibleTargets(Value *FP,
       // No need to go conservative here.
       continue;
     }
+
+    if (N->getInvalidated()) {
+        if (Trace) {
+            errs() << "    Node invalidated\n";
+            PrintNode(N);
+        }
+
+        IsComplete = false;
+        continue;
+    }
+
     Value *V = N->getValue();
   
     // Set IsComplete to false if V is unsafe target.
@@ -987,6 +1014,10 @@ static bool NoAliasSpecialCaseCheckUsingRestrictAttr(Value *V1,
   Value* O1 = GetUnderlyingObject(V1, DL, 1);
   Value* O2 = GetUnderlyingObject(V2, DL, 1);
 
+  // If V1/V2 point to the same object, so we can't say NoAlias.
+  if (O1 == O2)
+    return false;
+
   if (isAllUsesOfNoAliasPtrTracked(O1, V2) ||
       isAllUsesOfNoAliasPtrTracked(O2, V1))
     return true;
@@ -1180,6 +1211,14 @@ bool AndersensAAResult::pointsToConstantMemory(const MemoryLocation &Loc,
        E = N->PointsTo->end(); bi != E; ++bi) {
     i = *bi;
     Node *Pointee = &GraphNodes[i];
+
+    if (Pointee->getInvalidated()) {
+        if (PrintAndersConstMemQueries) {
+            errs() << " Points-to can't decide (Invalidated node)\n";
+            errs() << " ConstMem_End \n";
+        }
+        return AAResultBase::pointsToConstantMemory(Loc, OrLocal);
+    }
 
     if (PrintAndersConstMemQueries) {
       errs() << " Pointee : ";
@@ -5401,6 +5440,47 @@ void AndersensAAResult::CreateRevPointsToGraph() {
       }
     }
   }
+}
+
+// Update the points-to information to reflect the fact that a Value
+// object associated with the node has been destroyed. This is necessary
+// because some queries, such as the check for PointsToConstantMemory,
+// try to examine the Value object when the query is made.
+void AndersensAAResult::ProcessIRValueDestructed(Value *V)
+{
+  Node *N = &GraphNodes[FindNode(getNode(V))];
+
+  if (PrintAndersPointsToUpdates) {
+      errs() << "Marking node " << N << " as invalidated.";
+      errs() << "Was used to track Value object @" << V << "\n";
+  }
+
+  // We need to set the node as invalidated, not as being eliminated from the
+  // the program because the memory object that was originally represented may
+  // still exist in the program, but the new IR Value object is being used to
+  // track it. For example, when a routine is inlined, the Alloca Instruction
+  // objects get replaced with new objects in the caller routine.
+
+  N->setInvalidated();
+  N->setValue(nullptr);
+
+  if (ObjectNodes.count(V)) {
+    N = &GraphNodes[getObject(V)];
+
+    if (PrintAndersPointsToUpdates) {
+        errs() << "Marking <mem> node " << N << " as invalidated\n";
+    }
+
+    N->setInvalidated();
+    N->setValue(nullptr);
+
+    ObjectNodes.erase(V);
+  }
+
+  // Remove it from ValueNodes so that points-to info is treated
+  // it as UniversalSet if Value not found in ValueNodes.
+  ValueNodes.erase(V);
+  NonEscapeStaticVars.erase(V);
 }
 
 // Given a call site, it marks the graph node which represents

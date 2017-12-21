@@ -33,15 +33,15 @@
 
 ; CHECK: loop
 ; CHECK: phi <4 x float> [ zeroinitializer
-; CHECK: fadd <4 x float>
+; CHECK: fadd{{.*}} <4 x float>
 ; CHECK: afterloop
 ; CHECK: shufflevector <4 x float>
 ; CHECK: shufflevector <4 x float>
-; CHECK: fadd <2 x float>
+; CHECK: fadd{{.*}} <2 x float>
 ; CHECK: extractelement <2 x float>
 ; CHECK: extractelement <2 x float>
-; CHECK: fadd float
-; CHECK: fadd float
+; CHECK: fadd{{.*}} float
+; CHECK: fadd{{.*}} float
 source_filename = "f1.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -58,7 +58,7 @@ for.body:                                         ; preds = %for.body, %entry
   %sum.06 = phi float [ 0.000000e+00, %entry ], [ %add, %for.body ]
   %arrayidx = getelementptr inbounds [1024 x float], [1024 x float]* @arr, i64 0, i64 %indvars.iv
   %0 = load float, float* %arrayidx, align 4, !tbaa !1
-  %add = fadd float %sum.06, %0
+  %add = fadd fast float %sum.06, %0
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond, label %for.end, label %for.body

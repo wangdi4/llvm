@@ -93,6 +93,17 @@ function(add_compiler_rt_component name)
   add_dependencies(compiler-rt ${name})
 endfunction()
 
+function(add_asm_sources output)
+  set(${output} ${ARGN} PARENT_SCOPE)
+  # Xcode will try to compile asm files as C ('clang -x c'), and that will fail.
+  if (${CMAKE_GENERATOR} STREQUAL "Xcode")
+    enable_language(ASM)
+  else()
+    # Pass ASM file directly to the C++ compiler.
+    set_source_files_properties(${ARGN} PROPERTIES LANGUAGE C)
+  endif()
+endfunction()
+
 macro(set_output_name output name arch)
   if(ANDROID AND ${arch} STREQUAL "i386")
     set(${output} "${name}-i686${COMPILER_RT_OS_SUFFIX}")
@@ -507,4 +518,15 @@ function(rt_externalize_debuginfo name)
   else()
     message(FATAL_ERROR "COMPILER_RT_EXTERNALIZE_DEBUGINFO isn't implemented for non-darwin platforms!")
   endif()
+endfunction()
+
+
+# Configure lit configuration files, including compiler-rt specific variables.
+function(configure_compiler_rt_lit_site_cfg input output)
+  set_llvm_build_mode()
+
+  string(REPLACE ${CMAKE_CFG_INTDIR} ${LLVM_BUILD_MODE} COMPILER_RT_RESOLVED_TEST_COMPILER ${COMPILER_RT_TEST_COMPILER})
+  string(REPLACE ${CMAKE_CFG_INTDIR} ${LLVM_BUILD_MODE} COMPILER_RT_RESOLVED_LIBRARY_OUTPUT_DIR ${COMPILER_RT_LIBRARY_OUTPUT_DIR})
+
+  configure_lit_site_cfg(${input} ${output})
 endfunction()

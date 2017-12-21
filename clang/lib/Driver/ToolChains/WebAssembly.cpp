@@ -49,6 +49,9 @@ void wasm::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   Args.AddAllArgs(CmdArgs, options::OPT_L);
   ToolChain.AddFilePathLibArgs(Args, CmdArgs);
 
+  if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nostartfiles))
+    CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("crt1.o")));
+
   AddLinkerInputs(ToolChain, Inputs, Args, CmdArgs, JA);
 
   if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs)) {
@@ -61,7 +64,7 @@ void wasm::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-allow-undefined-file");
     CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("wasm.syms")));
     CmdArgs.push_back("-lc");
-    CmdArgs.push_back("-lcompiler_rt");
+    AddRunTimeLibs(ToolChain, ToolChain.getDriver(), CmdArgs, Args);
   }
 
   CmdArgs.push_back("-o");
@@ -94,9 +97,6 @@ bool WebAssembly::isPIEDefault() const { return false; }
 bool WebAssembly::isPICDefaultForced() const { return false; }
 
 bool WebAssembly::IsIntegratedAssemblerDefault() const { return true; }
-
-// TODO: Support Objective C stuff.
-bool WebAssembly::SupportsObjCGC() const { return false; }
 
 bool WebAssembly::hasBlocksRuntime() const { return false; }
 
@@ -133,6 +133,14 @@ void WebAssembly::AddClangCXXStdlibIncludeArgs(const ArgList &DriverArgs,
       !DriverArgs.hasArg(options::OPT_nostdincxx))
     addSystemInclude(DriverArgs, CC1Args,
                      getDriver().SysRoot + "/include/c++/v1");
+}
+
+std::string WebAssembly::getThreadModel() const {
+  // The WebAssembly MVP does not yet support threads; for now, use the
+  // "single" threading model, which lowers atomics to non-atomic operations.
+  // When threading support is standardized and implemented in popular engines,
+  // this override should be removed.
+  return "single";
 }
 
 Tool *WebAssembly::buildLinker() const {

@@ -13,6 +13,10 @@ void f();
 
 #pragma omp declare target map(a) // expected-error {{unexpected 'map' clause, only 'to' or 'link' clauses expected}}
 
+#pragma omp declare target to(foo1) // expected-error {{use of undeclared identifier 'foo1'}}
+
+#pragma omp declare target link(foo2) // expected-error {{use of undeclared identifier 'foo2'}}
+
 void c(); // expected-warning {{declaration is not declared in any declare target region}}
 
 extern int b;
@@ -73,9 +77,9 @@ int C::method() {
 }
 
 struct S {
-#pragma omp declare target // expected-error {{directive must be at file or namespace scope}}
+#pragma omp declare target
   int v;
-#pragma omp end declare target // expected-error {{unexpected OpenMP directive '#pragma omp end declare target'}}
+#pragma omp end declare target
 };
 
 int main (int argc, char **argv) {

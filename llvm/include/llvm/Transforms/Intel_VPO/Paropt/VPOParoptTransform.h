@@ -76,11 +76,17 @@ class VPOParoptTransform {
 public:
   /// \brief ParoptTransform object constructor
   VPOParoptTransform(Function *F, WRegionInfo *WI, DominatorTree *DT,
-                     LoopInfo *LI, ScalarEvolution *SE, int Mode)
-      : F(F), WI(WI), DT(DT), LI(LI), SE(SE), Mode(Mode), IdentTy(nullptr),
-        TidPtr(nullptr), BidPtr(nullptr), KmpcMicroTaskTy(nullptr),
-        KmpRoutineEntryPtrTy(nullptr), KmpTaskTTy(nullptr),
-        KmpTaskTRedTy(nullptr), KmpTaskDependInfoTy(nullptr) {}
+                     LoopInfo *LI, ScalarEvolution *SE, int Mode,
+                     const SmallVectorImpl<Triple> &OffloadTargets)
+      : F(F), WI(WI), DT(DT), LI(LI), SE(SE), Mode(Mode),
+        OffloadTargets(OffloadTargets.begin(), OffloadTargets.end()),
+        IdentTy(nullptr), TidPtr(nullptr), BidPtr(nullptr),
+        KmpcMicroTaskTy(nullptr), KmpRoutineEntryPtrTy(nullptr),
+        KmpTaskTTy(nullptr), KmpTaskTRedTy(nullptr),
+        KmpTaskDependInfoTy(nullptr), TgOffloadRegionId(nullptr),
+        TgOffloadEntryTy(nullptr), TgDeviceImageTy(nullptr),
+        TgBinaryDescriptorTy(nullptr), DsoHandle(nullptr)
+  {}
 
   /// \brief Top level interface for parallel and prepare transformation
   bool paroptTransforms();
@@ -103,6 +109,9 @@ private:
 
   /// \brief Paropt compilation mode
   int Mode;
+
+  /// \brief List of target triples for offloading.
+  SmallVector<Triple, 16> OffloadTargets;
 
   /// \brief Contain all parallel/sync/offload constructs to be transformed
   WRegionListTy WRegionList;
@@ -141,6 +150,84 @@ private:
   ///              char   depend_type;
   ///           };
   StructType *KmpTaskDependInfoTy;
+
+  /// The target region ID is an unique global varialble used by the runtime
+  /// libarary.
+  GlobalVariable *TgOffloadRegionId;
+
+  /// \brief Hold the struct type as follows.
+  ///    struct __tgt_offload_entry {
+  ///      void      *addr;       // The address of a global variable
+  ///                             // or entry point in the host.
+  ///      char      *name;       // Name of the symbol referring to the
+  ///                             // global variable or entry point.
+  ///      size_t     size;       // Size in bytes of the global variable or
+  ///                             // zero if it is entry point.
+  ///      int32_t    flags;      // Flags of the entry.
+  ///      int32_t    reserved;   // Reserved by the runtime library.
+  /// };
+  StructType *TgOffloadEntryTy;
+
+  /// \brief Hold the struct type as follows.
+  /// struct __tgt_device_image{
+  ///   void   *ImageStart;       // The address of the beginning of the
+  ///                             // target code.
+  ///   void   *ImageEnd;         // The address of the end of the target
+  ///                             // code.
+  ///   __tgt_offload_entry  *EntriesBegin;  // The first element of an array
+  ///                                        // containing the globals and
+  ///                                        // target entry points.
+  ///   __tgt_offload_entry  *EntriesEnd;    // The last element of an array
+  ///                                        // containing the globals and
+  ///                                        // target entry points.
+  /// };
+  StructType *TgDeviceImageTy;
+
+  /// \brief Hold the struct type as follows.
+  /// struct __tgt_bin_desc{
+  ///   uint32_t              NumDevices;     // Number of device types i
+  ///                                         // supported.
+  ///   __tgt_device_image   *DeviceImages;   // A pointer to an array of
+  ///                                         // NumDevices elements.
+  ///   __tgt_offload_entry  *EntriesBegin;   // The first element of an array
+  ///                                         // containing the globals and
+  ///                                         // target entry points.
+  ///   __tgt_offload_entry  *EntriesEnd;     // The last element of an array
+  ///                                         // containing the globals and
+  ///                                         // target entry points.
+  /// };
+  StructType *TgBinaryDescriptorTy;
+
+  /// \brief Create a variable that binds the atexit to this shared object.
+  GlobalVariable *DsoHandle;
+
+  /// \brief Struct that keeps all the information needed to pass to
+  /// the runtime library.
+  class TgDataInfo {
+  public:
+    /// The array of base pointers passed to the runtime library.
+    Value *BaseDataPtrs = nullptr;
+    /// The array of data pointers passed to the runtime library.
+    Value *DataPtrs = nullptr;
+    /// The array of data sizes passed to the runtime library.
+    Value *DataSizes = nullptr;
+    /// The array of data map types passed to the runtime library.
+    Value *DataMapTypes = nullptr;
+    /// The number of pointers passed to the runtime library.
+    unsigned NumberOfPtrs = 0u;
+    explicit TgDataInfo() {}
+    void clearArrayInfo() {
+      BaseDataPtrs = nullptr;
+      DataPtrs = nullptr;
+      DataSizes = nullptr;
+      DataMapTypes = nullptr;
+      NumberOfPtrs = 0u;
+    }
+    bool isValid() {
+      return BaseDataPtrs && DataPtrs && DataSizes && DataMapTypes &&
+             NumberOfPtrs;
+    }
+  };
 
   /// \brief Use the WRNVisitor class (in WRegionUtils.h) to walk the
   /// W-Region Graph in DFS order and perform outlining transformation.
@@ -350,19 +437,19 @@ private:
   /// parameter's definition is outside the region, the compiler
   /// generates the call __kmpc_global_thread_num() at the entry of
   /// of the region and replaces all tid uses with the new call.
-  /// It also generates the bid alloca instruciton in the region 
+  /// It also generates the bid alloca instruciton in the region
   /// if the region has outlined function.
   void codeExtractorPrepare(WRegionNode *W);
 
   /// \brief Cleans up the generated __kmpc_global_thread_num() in the
-  /// outlined function. It also cleans the genererated bid alloca 
+  /// outlined function. It also cleans the genererated bid alloca
   /// instruction in the outline function.
   void finiCodeExtractorPrepare(Function *F, bool ForTask = false);
 
   /// \brief Collects the bid alloca instructions used by the outline functions.
   void collectTidAndBidInstructionsForBB(BasicBlock *BB);
 
-  /// \brief Collects the instruction uses for the instructions 
+  /// \brief Collects the instruction uses for the instructions
   /// in the set TidAndBidInstructions.
   void collectInstructionUsesInRegion(WRegionNode *W);
 
@@ -375,14 +462,93 @@ private:
                                          BasicBlock *NextBB,
                                          bool ForTask = false);
 
-  /// \brief Reset the expression value of task if clause to be empty.
-  void resetValueInTaskIfClause(WRegionNode *W);
+  /// \brief Reset the expression value in the bundle to be empty.
+  void resetValueInBundle(WRegionNode *W, Value *V);
 
   /// \brief Reset the expression value of task depend clause to be empty.
   void resetValueInTaskDependClause(WRegionNode *W);
 
+  /// \brief Reset the expression value in private clause to be empty.
+  void resetValueInPrivateClause(WRegionNode *W);
+
+  /// \brief Reset the expression value in IsDevicePtr clause to be empty.
+  void resetValueInIsDevicePtrClause(WRegionNode *W);
+
   /// \brief Reset the expression value of Intel clause to be empty.
   void resetValueInIntelClauseGeneric(WRegionNode *W, Value *V);
+
+  /// \brief Generate the code for the directive omp target
+  bool genTargetOffloadingCode(WRegionNode *W);
+
+  /// \brief Generate the initialization code for the directive omp target
+  CallInst *genTargetInitCode(WRegionNode *W, CallInst *Call,
+                              Instruction *InsertPt);
+
+  /// \brief Generate the pointers pointing to the array of base pointer, the
+  /// array of section pointers, the array of sizes, the array of map types.
+  void genOffloadArraysArgument(TgDataInfo *Info, Instruction *InsertPt);
+
+  /// \brief Pass the data to the array of base pointer as well as  array of
+  /// section pointers.
+  void genOffloadArraysInit(WRegionNode *W, TgDataInfo *Info, CallInst *Call,
+                            Instruction *InsertPt);
+
+  /// \brief Register the offloading descriptors as well the offloading binary
+  /// descriptors.
+  void genRegistrationFunction(WRegionNode *W, Function *Fn);
+
+  /// \brief Register the offloading descriptors.
+  void genOffloadEntriesAndInfoMetadata(WRegionNode *W, Function *Fn);
+
+  /// \brief Register the offloading binary descriptors.
+  void genOffloadingBinaryDescriptorRegistration(WRegionNode *W);
+
+  /// \brief Create offloading entry for the provided entry ID and address.
+  void genOffloadEntry(Constant *ID, Constant *Addr);
+
+  /// \brief Return/Create the target region ID used by the runtime library to
+  /// identify the current target region.
+  GlobalVariable *getOMPOffloadRegionId();
+
+  /// \brief Return/Create a variable that binds the atexit to this shared
+  /// object.
+  GlobalVariable *getDsoHandle();
+
+  /// \brief Return the size_t type for 32/bit architecture
+  Type *getSizeTTy();
+
+  /// \brief Return/Create the struct type __tgt_offload_entry.
+  StructType *getTgOffloadEntryTy();
+
+  /// \brief Return/Create the struct type __tgt_device_image.
+  StructType *getTgDeviceImageTy();
+
+  /// \brief Return/Create the struct type __tgt_bin_desc.
+  StructType *getTgBinaryDescriptorTy();
+
+  /// \brief Create the function .omp_offloading.descriptor_reg
+  Function *createTgDescRegisterLib(WRegionNode *W, Function *TgDescUnregFn,
+                                    GlobalVariable *Desc);
+
+  /// \brief Create the function .omp_offloading.descriptor_unreg
+  Function *createTgDescUnregisterLib(WRegionNode *W, GlobalVariable *Desc);
+
+  /// \brief If the map data is global variable, Create the stack variable and
+  /// replace the the global variable with the stack variable.
+  bool genMapPrivationCode(WRegionNode *W);
+
+  /// \brief Pass the value of the DevicePtr to the outlined function.
+  bool genDevicePtrPrivationCode(WRegionNode *W);
+
+  /// \brief build the CFG for if clause.
+  void buildCFGForIfClause(Value *Cmp, TerminatorInst *&ThenTerm,
+                           TerminatorInst *&ElseTerm, Instruction *InsertPt);
+
+  /// \brief Generate the sizes and map type flags for the given map type, map
+  /// modifier and the expression V.
+  void GenTgtInformationForPtrs(WRegionNode *W, Value *V,
+                                SmallVectorImpl<Constant *> &ConstSizes,
+                                SmallVectorImpl<uint32_t> &MapTypes);
 
   /// \brief Generate multithreaded for a given WRegion
   bool genMultiThreadedCode(WRegionNode *W);
@@ -405,7 +571,7 @@ private:
 
   /// \brief Finds the alloc stack variables where the tid stores.
   void getAllocFromTid(CallInst *Tid);
- 
+
   /// \brief Finds the function pointer type for the function
   /// void (*kmpc_micro)(kmp_int32 *global_tid, kmp_int32 *bound_tid, ...)
   FunctionType* getKmpcMicroTaskPointerTy();
@@ -420,8 +586,66 @@ private:
 
   /// \brief Insert a barrier at the end of the construct
   bool genBarrier(WRegionNode *W, bool IsExplicit);
-};
 
+  /// \brief Generate the intrinsic @llvm.codemotion.fence to inhibit the cse
+  /// for the gep instruction related to array/struture which is marked
+  /// as private, firstprivate, lastprivate, reduction or shared.
+  void genCodemotionFenceforAggrData(WRegionNode *W);
+
+  /// \brief Clean up the intrinsic @llvm.codemotion.fence and replace the use
+  /// of the intrinsic with the its operand.
+  bool clearCodemotionFenceIntrinsic(WRegionNode *W);
+
+  enum TgtOffloadMappingFlags {
+    TGT_MAP_TO =
+        0x01, // instructs the runtime to copy the host data to the device.
+    TGT_MAP_FROM =
+        0x02, // instructs the runtime to copy the device data to the host.
+    TGT_MAP_ALWAYS = 0x04, // forces the copying regardless of the reference
+                           // count associated with the map.
+    TGT_MAP_DELETE =
+        0x08, // forces the unmapping of the object in a target data.
+    TGT_MAP_IS_PTR = 0x10, // forces the runtime to map the pointer variable as
+                           // well as the pointee variable.
+    TGT_MAP_FIRST_REF = 0x20,  // instructs the runtime that it is the first
+                               // occurrence of this mapped variable within this
+                               // construct.
+    TGT_MAP_RETURN_PTR = 0x40, // instructs the runtime to return the base
+                               // device address of the mapped variable.
+    TGT_MAP_PRIVATE_PTR =
+        0x80, // informs the runtime that the variable is a private variable.
+    TGT_MAP_PRIVATE_VAL = 0x100, // instructs the runtime to forward the value
+                                 // to target construct.
+  };
+
+  /// \brief Returns the corresponding flag for a given map clause modifier.
+  unsigned getMapTypeFlag(MapItem *MpI, bool IsFirstExprFlag,
+                          bool IsFirstComponentFlag);
+  /// \brief Replace the occurrences of I within the region with the return
+  /// value of the intrinsic @llvm.codemotion.fence.
+  void replaceValueWithinRegion(WRegionNode *W, Value *Old);
+  /// \brief Generate the intrinsic @llvm.codemotion.fence for local/global
+  /// variable I.
+  void genFenceIntrinsic(WRegionNode *W, Value *I);
+
+  /// \brief Collect the live-in value for the phis at the loop header.
+  void wrnUpdateSSAPreprocess(
+      Loop *L,
+      DenseMap<Value *, std::pair<Value *, BasicBlock *>> &ValueToLiveinMap,
+      SmallSetVector<Instruction *, 8> &LiveoutVals);
+  /// \brief Replace the live-in value of the phis at the loop header with
+  /// the loop carried value.
+  void wrnUpdateSSAPreprocessForOuterLoop(
+      Loop *L,
+      DenseMap<Value *, std::pair<Value *, BasicBlock *>> &ValueToLiveinMap,
+      SmallSetVector<Instruction *, 8> &LiveOutVals);
+
+  /// \brief Update the SSA form in the region using SSA Updater.
+  void wrnUpdateSSAForLoop(
+      Loop *L,
+      DenseMap<Value *, std::pair<Value *, BasicBlock *>> &ValueToLiveinMap,
+      SmallSetVector<Instruction *, 8> &LiveOutVals);
+};
 } /// namespace vpo
 } /// namespace llvm
 

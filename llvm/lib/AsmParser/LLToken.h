@@ -45,6 +45,9 @@ enum Kind {
   kw_global,
   kw_constant,
 
+  kw_dso_local,
+  kw_dso_preemptable,
+
   kw_private,
   kw_internal,
   kw_linkonce,
@@ -65,7 +68,10 @@ enum Kind {
   kw_extern_weak,
   kw_external,
   kw_thread_local,
-  kw_thread_private,  // INTEL
+#if INTEL_CUSTOMIZATION
+  kw_thread_private,
+  kw_target_declare,
+#endif // INTEL_CUSTOMIZATION
   kw_localdynamic,
   kw_initialexec,
   kw_localexec,
@@ -100,6 +106,8 @@ enum Kind {
   kw_nsz,
   kw_arcp,
   kw_contract,
+  kw_reassoc,
+  kw_afn,
   kw_fast,
   kw_nuw,
   kw_nsw,
@@ -155,7 +163,9 @@ enum Kind {
   kw_hhvm_ccc,
   kw_cxx_fast_tlscc,
   kw_amdgpu_vs,
+  kw_amdgpu_ls,
   kw_amdgpu_hs,
+  kw_amdgpu_es,
   kw_amdgpu_gs,
   kw_amdgpu_ps,
   kw_amdgpu_cs,
