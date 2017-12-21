@@ -558,8 +558,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         char            m_pattern[MAX_PATTERN_SIZE]; /* pattern for fill */
         size_t          m_pattern_size; /* fill pattern size in bytes */
 
-        const void*     m_cpSrc;
-
         cl_dev_cmd_param_fill m_fillCmdParams;
 
     private:
@@ -704,13 +702,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         
         // GPA related functions
         virtual const char*     GPA_GetCommandName() const { return "Write Image"; }
-        
-    private:
-        size_t          m_szOrigin[MAX_WORK_DIM];
-        size_t          m_szRegion[MAX_WORK_DIM];
-        size_t          m_szRowPitch;
-        size_t          m_szSlicePitch;
-        const void*     m_cpSrc;
     };
     
     
