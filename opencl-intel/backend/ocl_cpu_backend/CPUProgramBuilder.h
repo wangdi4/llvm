@@ -26,7 +26,6 @@ File Name:  CPUProgramBuilder.h
 #ifdef OCL_DEV_BACKEND_PLUGINS
 #include "plugin_manager.h"
 #endif
-#include "ObjectCodeCache.h"
 
 #include <string>
 
@@ -47,6 +46,7 @@ class Program;
 class Kernel;
 class KernelProperties;
 class KernelGroupSet;
+class ObjectCodeCache;
 class ProgramBuildResult;
 
 

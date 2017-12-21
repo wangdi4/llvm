@@ -27,17 +27,10 @@ File Name:  CPUProgramBuilder.cpp
 #include "StaticObjectLoader.h"
 
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
-#include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Module.h"
-#include "llvm/IR/Type.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/TargetSelect.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 
 #include "BitCodeContainer.h"
 #include "CPUSerializationService.h"
