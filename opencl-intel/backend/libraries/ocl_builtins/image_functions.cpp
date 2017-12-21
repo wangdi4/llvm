@@ -620,74 +620,74 @@ __private void* __attribute__((overloadable)) __attribute__((const)) GetImagePtr
 /// Integer coordinate translation callbacks
 
 
-int4 __attribute__((overloadable)) trans_coord_int_NONE_FALSE_NEAREST(__private void* image, int4 coord)
+int4 trans_coord_int_NONE_FALSE_NEAREST(__private void* image, int4 coord)
 {
     //not testing if coords are OOB - this mode doesn't guarantee safeness!
     return coord;
 }
 
-void __attribute__((overloadable)) soa4_trans_coord_int_NONE_FALSE_NEAREST(__private void* image, int4 coord_x, int4 coord_y, __private int4* res_coord_x, __private int4* res_coord_y)
+void soa4_trans_coord_int_NONE_FALSE_NEAREST(__private void* image, int4 coord_x, int4 coord_y, __private int4* res_coord_x, __private int4* res_coord_y)
 {
     //not testing if coords are OOB - this mode doesn't guarantee safeness!
     *res_coord_x = coord_x;
     *res_coord_y = coord_y;
 }
 
-void __attribute__((overloadable)) soa8_trans_coord_int_NONE_FALSE_NEAREST(__private void* image, int8 coord_x, int8 coord_y, __private int8* res_coord_x, __private int8* res_coord_y)
+void soa8_trans_coord_int_NONE_FALSE_NEAREST(__private void* image, int8 coord_x, int8 coord_y, __private int8* res_coord_x, __private int8* res_coord_y)
 {
     //not testing if coords are OOB - this mode doesn't guarantee safeness!
     *res_coord_x = coord_x;
     *res_coord_y = coord_y;
 }
 
-void __attribute__((overloadable)) soa16_trans_coord_int_NONE_FALSE_NEAREST(__private void* image, int16 coord_x, int16 coord_y, __private int16* res_coord_x, __private int16* res_coord_y)
+void soa16_trans_coord_int_NONE_FALSE_NEAREST(__private void* image, int16 coord_x, int16 coord_y, __private int16* res_coord_x, __private int16* res_coord_y)
 {
     //not testing if coords are OOB - this mode doesn't guarantee safeness!
     *res_coord_x = coord_x;
     *res_coord_y = coord_y;
 }
 
-int4 __attribute__((overloadable)) trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST(__private void* image, int4 coord)
+int4 trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST(__private void* image, int4 coord)
 {
     __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
     return ProjectToEdgeInt(pImage, coord);
 }
 
-void __attribute__((overloadable)) soa4_trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST(__private void* image, int4 coord_x, int4 coord_y, __private int4* res_coord_x, __private int4* res_coord_y)
+void soa4_trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST(__private void* image, int4 coord_x, int4 coord_y, __private int4* res_coord_x, __private int4* res_coord_y)
 {
     __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
     return SOA4_ProjectToEdgeInt(pImage, coord_x, coord_y, res_coord_x, res_coord_y);
 }
 
-void __attribute__((overloadable)) soa8_trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST(__private void* image, int8 coord_x, int8 coord_y, __private int8* res_coord_x, __private int8* res_coord_y)
+void soa8_trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST(__private void* image, int8 coord_x, int8 coord_y, __private int8* res_coord_x, __private int8* res_coord_y)
 {
     __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
     return SOA8_ProjectToEdgeInt(pImage, coord_x, coord_y, res_coord_x, res_coord_y);
 }
 
-void __attribute__((overloadable)) soa16_trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST(__private void* image, int16 coord_x, int16 coord_y, __private int16* res_coord_x, __private int16* res_coord_y)
+void soa16_trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST(__private void* image, int16 coord_x, int16 coord_y, __private int16* res_coord_x, __private int16* res_coord_y)
 {
     __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
     return SOA16_ProjectToEdgeInt(pImage, coord_x, coord_y, res_coord_x, res_coord_y);
 }
-int4 __attribute__((overloadable)) trans_coord_int_UNDEFINED(__private void* image, int4 coord)
+int4 trans_coord_int_UNDEFINED(__private void* image, int4 coord)
 {
     return UndefCoordInt;
 }
 
-void __attribute__((overloadable)) soa4_trans_coord_int_UNDEFINED(__private void* image, int4 coord_x, int4 coord_y, __private int4* res_coord_x, __private int4* res_coord_y)
+void soa4_trans_coord_int_UNDEFINED(__private void* image, int4 coord_x, int4 coord_y, __private int4* res_coord_x, __private int4* res_coord_y)
 {
     *res_coord_x = SOA4_UndefCoordIntX;
     *res_coord_y = SOA4_UndefCoordIntY;
 }
 
-void __attribute__((overloadable)) soa8_trans_coord_int_UNDEFINED(__private void* image, int8 coord_x, int8 coord_y, __private int8* res_coord_x, __private int8* res_coord_y)
+void soa8_trans_coord_int_UNDEFINED(__private void* image, int8 coord_x, int8 coord_y, __private int8* res_coord_x, __private int8* res_coord_y)
 {
     *res_coord_x = SOA8_UndefCoordIntX;
     *res_coord_y = SOA8_UndefCoordIntY;
 }
 
-void __attribute__((overloadable)) soa16_trans_coord_int_UNDEFINED(__private void* image, int16 coord_x, int16 coord_y, __private int16* res_coord_x, __private int16* res_coord_y)
+void soa16_trans_coord_int_UNDEFINED(__private void* image, int16 coord_x, int16 coord_y, __private int16* res_coord_x, __private int16* res_coord_y)
 {
     *res_coord_x = SOA16_UndefCoordIntX;
     *res_coord_y = SOA16_UndefCoordIntY;

@@ -124,18 +124,18 @@ SOA16_Image_I_COORD_CBK const call_soa16_coord_translate_i_callback(int samplerI
 
 /// Integer coordinate translation callbacks
 
-int4 __attribute__((overloadable)) trans_coord_int_NONE_FALSE_NEAREST(__private void* image, int4 coord);
-void __attribute__((overloadable)) soa4_trans_coord_int_NONE_FALSE_NEAREST(__private void* image, int4 coord_x, int4 coord_y, __private int4* res_coord_x, __private int4* res_coord_y);
-void __attribute__((overloadable)) soa8_trans_coord_int_NONE_FALSE_NEAREST(__private void* image, int8 coord_x, int8 coord_y, __private int8* res_coord_x, __private int8* res_coord_y);
-void __attribute__((overloadable)) soa16_trans_coord_int_NONE_FALSE_NEAREST(__private void* image, int16 coord_x, int16 coord_y, __private int16* res_coord_x, __private int16* res_coord_y);
-int4 __attribute__((overloadable)) trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST(__private void* image, int4 coord);
-void __attribute__((overloadable)) soa4_trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST(__private void* image, int4 coord_x, int4 coord_y, __private int4* res_coord_x, __private int4* res_coord_y);
-void __attribute__((overloadable)) soa8_trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST(__private void* image, int8 coord_x, int8 coord_y, __private int8* res_coord_x, __private int8* res_coord_y);
-void __attribute__((overloadable)) soa16_trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST(__private void* image, int16 coord_x, int16 coord_y, __private int16* res_coord_x, __private int16* res_coord_y);
-int4 __attribute__((overloadable)) trans_coord_int_UNDEFINED(__private void* image, int4 coord);
-void __attribute__((overloadable)) soa4_trans_coord_int_UNDEFINED(__private void* image, int4 coord_x, int4 coord_y, __private int4* res_coord_x, __private int4* res_coord_y);
-void __attribute__((overloadable)) soa8_trans_coord_int_UNDEFINED(__private void* image, int8 coord_x, int8 coord_y, __private int8* res_coord_x, __private int8* res_coord_y);
-void __attribute__((overloadable)) soa16_trans_coord_int_UNDEFINED(__private void* image, int16 coord_x, int16 coord_y, __private int16* res_coord_x, __private int16* res_coord_y);
+int4 trans_coord_int_NONE_FALSE_NEAREST(__private void* image, int4 coord);
+void soa4_trans_coord_int_NONE_FALSE_NEAREST(__private void* image, int4 coord_x, int4 coord_y, __private int4* res_coord_x, __private int4* res_coord_y);
+void soa8_trans_coord_int_NONE_FALSE_NEAREST(__private void* image, int8 coord_x, int8 coord_y, __private int8* res_coord_x, __private int8* res_coord_y);
+void soa16_trans_coord_int_NONE_FALSE_NEAREST(__private void* image, int16 coord_x, int16 coord_y, __private int16* res_coord_x, __private int16* res_coord_y);
+int4 trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST(__private void* image, int4 coord);
+void soa4_trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST(__private void* image, int4 coord_x, int4 coord_y, __private int4* res_coord_x, __private int4* res_coord_y);
+void soa8_trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST(__private void* image, int8 coord_x, int8 coord_y, __private int8* res_coord_x, __private int8* res_coord_y);
+void soa16_trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST(__private void* image, int16 coord_x, int16 coord_y, __private int16* res_coord_x, __private int16* res_coord_y);
+int4 trans_coord_int_UNDEFINED(__private void* image, int4 coord);
+void soa4_trans_coord_int_UNDEFINED(__private void* image, int4 coord_x, int4 coord_y, __private int4* res_coord_x, __private int4* res_coord_y);
+void soa8_trans_coord_int_UNDEFINED(__private void* image, int8 coord_x, int8 coord_y, __private int8* res_coord_x, __private int8* res_coord_y);
+void soa16_trans_coord_int_UNDEFINED(__private void* image, int16 coord_x, int16 coord_y, __private int16* res_coord_x, __private int16* res_coord_y);
 
 
 #define ALIGN16 __attribute__ ((aligned(16)))
