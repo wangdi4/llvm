@@ -3,7 +3,6 @@
  * kmp.h -- KPTS runtime header file.
  */
 
-
 //===----------------------------------------------------------------------===//
 //
 //                     The LLVM Compiler Infrastructure
@@ -12,7 +11,6 @@
 // Source Licenses. See LICENSE.txt for details.
 //
 //===----------------------------------------------------------------------===//
-
 
 #ifndef KMP_H
 #define KMP_H
@@ -202,6 +200,10 @@ Values for bit flags used in the ident_t to describe the fields.
 #define KMP_IDENT_BARRIER_IMPL_SINGLE 0x0140
 #define KMP_IDENT_BARRIER_IMPL_WORKSHARE 0x01C0
 
+#define KMP_IDENT_WORK_LOOP 0x200 // static loop
+#define KMP_IDENT_WORK_SECTIONS 0x400 // sections
+#define KMP_IDENT_WORK_DISTRIBUTE 0x800 // distribute
+
 /*!
  * The ident structure that describes a source location.
  */
@@ -312,7 +314,7 @@ typedef enum kmp_sched {
  @ingroup WORK_SHARING
  * Describes the loop schedule to be used for a parallel for loop.
  */
-enum sched_type {
+enum sched_type : kmp_int32 {
   kmp_sch_lower = 32, /**< lower bound for unordered values */
   kmp_sch_static_chunked = 33,
   kmp_sch_static = 34, /**< static unspecialized */
@@ -431,9 +433,12 @@ enum sched_type {
 };
 
 /* Type to keep runtime schedule set via OMP_SCHEDULE or omp_set_schedule() */
-typedef struct kmp_r_sched {
-  enum sched_type r_sched_type;
-  int chunk;
+typedef union kmp_r_sched {
+  struct {
+    enum sched_type r_sched_type;
+    int chunk;
+  };
+  kmp_int64 sched;
 } kmp_r_sched_t;
 
 extern enum sched_type __kmp_sch_map[]; // map OMP 3.0 schedule types with our
@@ -569,6 +574,8 @@ extern kmp_SetThreadGroupAffinity_t __kmp_SetThreadGroupAffinity;
 #if KMP_USE_HWLOC
 extern hwloc_topology_t __kmp_hwloc_topology;
 extern int __kmp_hwloc_error;
+extern int __kmp_numa_detected;
+extern int __kmp_tile_depth;
 #endif
 
 extern size_t __kmp_affin_mask_size;
@@ -697,6 +704,8 @@ enum affinity_gran {
   affinity_gran_fine = 0,
   affinity_gran_thread,
   affinity_gran_core,
+  affinity_gran_tile,
+  affinity_gran_numa,
   affinity_gran_package,
   affinity_gran_node,
 #if KMP_GROUP_AFFINITY
@@ -742,7 +751,7 @@ extern unsigned __kmp_affinity_num_masks;
 extern void __kmp_affinity_bind_thread(int which);
 
 extern kmp_affin_mask_t *__kmp_affin_fullMask;
-extern char const *__kmp_cpuinfo_file;
+extern char *__kmp_cpuinfo_file;
 
 #endif /* KMP_AFFINITY_SUPPORTED */
 
@@ -2026,7 +2035,7 @@ typedef enum kmp_tasking_mode {
 
 extern kmp_tasking_mode_t
     __kmp_tasking_mode; /* determines how/when to execute tasks */
-extern kmp_int32 __kmp_task_stealing_constraint;
+extern int __kmp_task_stealing_constraint;
 #if OMP_40_ENABLED
 extern kmp_int32 __kmp_default_device; // Set via OMP_DEFAULT_DEVICE if
 // specified, defaults to 0 otherwise
@@ -2246,13 +2255,14 @@ struct kmp_taskdata { /* aligned during dynamic allocation       */
       *td_dephash; // Dependencies for children tasks are tracked from here
   kmp_depnode_t
       *td_depnode; // Pointer to graph node if this task has dependencies
-#endif
-#if OMPT_SUPPORT
-  ompt_task_info_t ompt_task_info;
-#endif
+#endif // OMP_40_ENABLED
 #if OMP_45_ENABLED
   kmp_task_team_t *td_task_team;
   kmp_int32 td_size_alloc; // The size of task structure, including shareds etc.
+#endif // OMP_45_ENABLED
+  kmp_taskdata_t *td_last_tied; // keep tied task for task scheduling constraint
+#if OMPT_SUPPORT
+  ompt_task_info_t ompt_task_info;
 #endif
 }; // struct kmp_taskdata
 
@@ -2310,6 +2320,7 @@ typedef struct kmp_base_task_team {
   kmp_int32
       tt_found_proxy_tasks; /* Have we found proxy tasks since last barrier */
 #endif
+  kmp_int32 tt_untied_task_encountered;
 
   KMP_ALIGN_CACHE
   volatile kmp_int32 tt_unfinished_threads; /* #threads still active      */
@@ -2890,13 +2901,7 @@ extern int __kmp_gtid_mode; /* Method of getting gtid, values:
 extern int
     __kmp_adjust_gtid_mode; /* If true, adjust method based on #threads */
 #ifdef KMP_TDATA_GTID
-#if KMP_OS_WINDOWS
-extern __declspec(
-    thread) int __kmp_gtid; /* This thread's gtid, if __kmp_gtid_mode == 3 */
-#else
-extern __thread int __kmp_gtid;
-#endif /* KMP_OS_WINDOWS - workaround because Intel(R) Many Integrated Core    \
-          compiler 20110316 doesn't accept __declspec */
+extern KMP_THREAD_LOCAL int __kmp_gtid;
 #endif
 extern int __kmp_tls_gtid_min; /* #threads below which use sp search for gtid */
 extern int __kmp_foreign_tp; // If true, separate TP var for each foreign thread
@@ -3316,7 +3321,7 @@ extern kmp_info_t *__kmp_allocate_thread(kmp_root_t *root, kmp_team_t *team,
 extern kmp_team_t *
 __kmp_allocate_team(kmp_root_t *root, int new_nproc, int max_nproc,
 #if OMPT_SUPPORT
-                    ompt_parallel_id_t ompt_parallel_id,
+                    ompt_data_t ompt_parallel_data,
 #endif
                     kmp_proc_bind_t proc_bind, kmp_internal_control_t *new_icvs,
                     int argc USE_NESTED_HOT_ARG(kmp_info_t *thr));
@@ -3324,7 +3329,7 @@ __kmp_allocate_team(kmp_root_t *root, int new_nproc, int max_nproc,
 extern kmp_team_t *
 __kmp_allocate_team(kmp_root_t *root, int new_nproc, int max_nproc,
 #if OMPT_SUPPORT
-                    ompt_parallel_id_t ompt_parallel_id,
+                    ompt_id_t ompt_parallel_id,
 #endif
                     kmp_internal_control_t *new_icvs,
                     int argc USE_NESTED_HOT_ARG(kmp_info_t *thr));
@@ -3364,9 +3369,6 @@ enum fork_context_e {
 };
 extern int __kmp_fork_call(ident_t *loc, int gtid,
                            enum fork_context_e fork_context, kmp_int32 argc,
-#if OMPT_SUPPORT
-                           void *unwrapped_task,
-#endif
                            microtask_t microtask, launch_t invoker,
 /* TODO: revert workaround for Intel(R) 64 tracker #96 */
 #if (KMP_ARCH_ARM || KMP_ARCH_X86_64 || KMP_ARCH_AARCH64) && KMP_OS_LINUX

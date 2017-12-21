@@ -1423,9 +1423,9 @@ void COFFDumper::printSymbol(const SymbolRef &Sym) {
       const coff_aux_weak_external *Aux;
       error(getSymbolAuxData(Obj, Symbol, I, Aux));
 
-      ErrorOr<COFFSymbolRef> Linked = Obj->getSymbol(Aux->TagIndex);
+      Expected<COFFSymbolRef> Linked = Obj->getSymbol(Aux->TagIndex);
       StringRef LinkedName;
-      std::error_code EC = Linked.getError();
+      std::error_code EC = errorToErrorCode(Linked.takeError());
       if (EC || (EC = Obj->getSymbolName(*Linked, LinkedName))) {
         LinkedName = "";
         error(EC);
@@ -1481,10 +1481,10 @@ void COFFDumper::printSymbol(const SymbolRef &Sym) {
       const coff_aux_clr_token *Aux;
       error(getSymbolAuxData(Obj, Symbol, I, Aux));
 
-      ErrorOr<COFFSymbolRef> ReferredSym =
+      Expected<COFFSymbolRef> ReferredSym =
           Obj->getSymbol(Aux->SymbolTableIndex);
       StringRef ReferredName;
-      std::error_code EC = ReferredSym.getError();
+      std::error_code EC = errorToErrorCode(ReferredSym.takeError());
       if (EC || (EC = Obj->getSymbolName(*ReferredSym, ReferredName))) {
         ReferredName = "";
         error(EC);
@@ -1808,8 +1808,8 @@ void llvm::dumpCodeViewMergedTypes(ScopedPrinter &Writer,
                                    llvm::codeview::TypeTableBuilder &CVTypes) {
   // Flatten it first, then run our dumper on it.
   SmallString<0> TypeBuf;
-  CVTypes.ForEachRecord([&](TypeIndex TI, ArrayRef<uint8_t> Record) {
-    TypeBuf.append(Record.begin(), Record.end());
+  CVTypes.ForEachRecord([&](TypeIndex TI, const CVType &Record) {
+    TypeBuf.append(Record.RecordData.begin(), Record.RecordData.end());
   });
 
   TypeTableCollection TpiTypes(CVTypes.records());

@@ -160,7 +160,7 @@ if( NOT PURE_WINDOWS AND NOT LLVM_USE_SANITIZER MATCHES "Memory.*")
   find_library(ICONV_LIBRARY_PATH NAMES iconv libiconv libiconv-2 c)
   set(LLVM_LIBXML2_ENABLED 0)
   set(LIBXML2_FOUND 0)
-  if((LLVM_ENABLE_LIBXML2) AND (CMAKE_SYSTEM_NAME MATCHES "Linux") AND (ICONV_LIBRARY_PATH))
+  if((LLVM_ENABLE_LIBXML2) AND ((CMAKE_SYSTEM_NAME MATCHES "Linux") AND (ICONV_LIBRARY_PATH) OR APPLE))
     find_package(LibXml2)
     if (LIBXML2_FOUND)
       set(LLVM_LIBXML2_ENABLED 1)
@@ -168,6 +168,10 @@ if( NOT PURE_WINDOWS AND NOT LLVM_USE_SANITIZER MATCHES "Memory.*")
       set(LIBXML2_LIBS "xml2")
     endif()
   endif()
+endif()
+
+if (LLVM_ENABLE_LIBXML2 STREQUAL "FORCE_ON" AND NOT LLVM_LIBXML2_ENABLED)
+  message(FATAL_ERROR "Failed to congifure libxml2")
 endif()
 
 check_library_exists(xar xar_open "" HAVE_LIBXAR)
@@ -267,8 +271,11 @@ endif()
 check_symbol_exists(__GLIBC__ stdio.h LLVM_USING_GLIBC)
 if( LLVM_USING_GLIBC )
   add_definitions( -D_GNU_SOURCE )
+  list(APPEND CMAKE_REQUIRED_DEFINITIONS "-D_GNU_SOURCE")
 endif()
 # This check requires _GNU_SOURCE
+check_symbol_exists(sched_getaffinity sched.h HAVE_SCHED_GETAFFINITY)
+check_symbol_exists(CPU_COUNT sched.h HAVE_CPU_COUNT)
 if(HAVE_LIBPTHREAD)
   check_library_exists(pthread pthread_getname_np "" HAVE_PTHREAD_GETNAME_NP)
   check_library_exists(pthread pthread_setname_np "" HAVE_PTHREAD_SETNAME_NP)
@@ -621,3 +628,34 @@ else()
 endif()
 
 string(REPLACE " " ";" LLVM_BINDINGS_LIST "${LLVM_BINDINGS}")
+
+function(find_python_module module)
+  string(TOUPPER ${module} module_upper)
+  set(FOUND_VAR PY_${module_upper}_FOUND)
+
+  execute_process(COMMAND "${PYTHON_EXECUTABLE}" "-c" "import ${module}"
+    RESULT_VARIABLE status
+    ERROR_QUIET)
+
+  if(status)
+    set(${FOUND_VAR} 0 PARENT_SCOPE)
+    message(STATUS "Could NOT find Python module ${module}")
+  else()
+    set(${FOUND_VAR} 1 PARENT_SCOPE)
+    message(STATUS "Found Python module ${module}")
+  endif()
+endfunction()
+
+set (PYTHON_MODULES
+  pygments
+  yaml
+  )
+foreach(module ${PYTHON_MODULES})
+  find_python_module(${module})
+endforeach()
+
+if(PY_PYGMENTS_FOUND AND PY_YAML_FOUND)
+  set (LLVM_HAVE_OPT_VIEWER_MODULES 1)
+else()
+  set (LLVM_HAVE_OPT_VIEWER_MODULES 0)
+endif()

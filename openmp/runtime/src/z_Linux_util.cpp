@@ -2,7 +2,6 @@
  * z_Linux_util.cpp -- platform specific routines.
  */
 
-
 //===----------------------------------------------------------------------===//
 //
 //                     The LLVM Compiler Infrastructure
@@ -11,7 +10,6 @@
 // Source Licenses. See LICENSE.txt for details.
 //
 //===----------------------------------------------------------------------===//
-
 
 #include "kmp.h"
 #include "kmp_affinity.h"
@@ -510,7 +508,7 @@ static void *__kmp_launch_worker(void *thr) {
   __kmp_gtid = gtid;
 #endif
 #if KMP_STATS_ENABLED
-  // set __thread local index to point to thread-specific stats
+  // set thread local index to point to thread-specific stats
   __kmp_stats_thread_ptr = ((kmp_info_t *)thr)->th.th_stats;
   KMP_START_EXPLICIT_TIMER(OMP_worker_thread_life);
   KMP_SET_THREAD_STATE(IDLE);
@@ -780,7 +778,7 @@ void __kmp_create_worker(int gtid, kmp_info_t *th, size_t stack_size) {
 
   // th->th.th_stats is used to transfer thread-specific stats-pointer to
   // __kmp_launch_worker. So when thread is created (goes into
-  // __kmp_launch_worker) it will set its __thread local pointer to
+  // __kmp_launch_worker) it will set its thread local pointer to
   // th->th.th_stats
   if (!KMP_UBER_GTID(gtid)) {
     th->th.th_stats = __kmp_stats_list->push_back(gtid);
@@ -1395,7 +1393,6 @@ void __kmp_suspend_uninitialize_thread(kmp_info_t *th) {
     KMP_DEBUG_ASSERT(th->th.th_suspend_init_count == __kmp_fork_count);
   }
 }
-
 
 /* This routine puts the calling thread to sleep after setting the
    sleep bit for the indicated flag variable to true. */
@@ -2283,7 +2280,7 @@ int __kmp_invoke_microtask(microtask_t pkfn, int gtid, int tid, int argc,
 #endif
                            ) {
 #if OMPT_SUPPORT
-  *exit_frame_ptr = __builtin_frame_address(0);
+  *exit_frame_ptr = OMPT_GET_FRAME_ADDRESS(0);
 #endif
 
   switch (argc) {

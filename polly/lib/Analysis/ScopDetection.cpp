@@ -61,7 +61,7 @@
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/MemoryLocation.h"
-#include "llvm/Analysis/OptimizationDiagnosticInfo.h"
+#include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/RegionInfo.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
@@ -596,7 +596,7 @@ bool ScopDetection::isValidBranch(BasicBlock &BB, BranchInst *BI,
   }
 
   if (auto Load = dyn_cast<LoadInst>(Condition))
-    if (!IsLoopBranch) {
+    if (!IsLoopBranch && Context.CurRegion.contains(Load)) {
       Context.RequiredILS.insert(Load);
       return true;
     }
@@ -1367,9 +1367,9 @@ Region *ScopDetection::expandRegion(Region &R) {
   DEBUG(dbgs() << "\tExpanding " << R.getNameStr() << "\n");
 
   while (ExpandedRegion) {
-    const auto &It = DetectionContextMap.insert(std::make_pair(
-        getBBPairForRegion(ExpandedRegion.get()),
-        DetectionContext(*ExpandedRegion, AA, false /*verifying*/)));
+    const auto &It = DetectionContextMap.insert(
+        std::make_pair(getBBPairForRegion(ExpandedRegion.get()),
+                       DetectionContext(*ExpandedRegion, AA, false /*verifying*/)));
     DetectionContext &Context = It.first->second;
     DEBUG(dbgs() << "\t\tTrying " << ExpandedRegion->getNameStr() << "\n");
     // Only expand when we did not collect errors.

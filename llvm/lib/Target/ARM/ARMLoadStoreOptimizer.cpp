@@ -41,10 +41,15 @@
 #include "llvm/CodeGen/MachineOperand.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/RegisterClassInfo.h"
+#include "llvm/CodeGen/TargetFrameLowering.h"
+#include "llvm/CodeGen/TargetInstrInfo.h"
+#include "llvm/CodeGen/TargetLowering.h"
+#include "llvm/CodeGen/TargetRegisterInfo.h"
+#include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/IR/DebugLoc.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
-#include "llvm/IR/DebugLoc.h"
 #include "llvm/IR/Type.h"
 #include "llvm/MC/MCInstrDesc.h"
 #include "llvm/Pass.h"
@@ -53,11 +58,6 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Target/TargetFrameLowering.h"
-#include "llvm/Target/TargetInstrInfo.h"
-#include "llvm/Target/TargetLowering.h"
-#include "llvm/Target/TargetRegisterInfo.h"
-#include "llvm/Target/TargetSubtargetInfo.h"
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
@@ -1697,7 +1697,7 @@ bool ARMLoadStoreOpt::FixInvalidRegPairOp(MachineBasicBlock &MBB,
       if (OddReg == EvenReg && EvenDeadKill) {
         // If the two source operands are the same, the kill marker is
         // probably on the first one. e.g.
-        // t2STRDi8 %R5<kill>, %R5, %R9<kill>, 0, 14, %reg0
+        // t2STRDi8 %r5<kill>, %r5, %r9<kill>, 0, 14, %reg0
         EvenDeadKill = false;
         OddDeadKill = true;
       }
@@ -1909,6 +1909,17 @@ bool ARMLoadStoreOpt::MergeReturnIntoLDM(MachineBasicBlock &MBB) {
       MO.setReg(ARM::PC);
       PrevMI.copyImplicitOps(*MBB.getParent(), *MBBI);
       MBB.erase(MBBI);
+      // We now restore LR into PC so it is not live-out of the return block
+      // anymore: Clear the CSI Restored bit.
+      MachineFrameInfo &MFI = MBB.getParent()->getFrameInfo();
+      // CSI should be fixed after PrologEpilog Insertion
+      assert(MFI.isCalleeSavedInfoValid() && "CSI should be valid");
+      for (CalleeSavedInfo &Info : MFI.getCalleeSavedInfo()) {
+        if (Info.getReg() == ARM::LR) {
+          Info.setRestored(false);
+          break;
+        }
+      }
       return true;
     }
   }

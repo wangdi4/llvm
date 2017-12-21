@@ -26,30 +26,30 @@
 ; ASM: # BB#0:                                 # %entry
 ; ASM:         pushq   %rsi
 ; ASM:         subq    $32, %rsp
-; ASM:         #DEBUG_VALUE: f:p <- %ECX
+; ASM:         #DEBUG_VALUE: f:p <- %ecx
 ; ASM:         movl    %ecx, %esi
 ; ASM: [[p_ecx_esi:\.Ltmp.*]]:
-; ASM:         #DEBUG_VALUE: f:p <- %ESI
+; ASM:         #DEBUG_VALUE: f:p <- %esi
 ; ASM:         callq   getint
 ; ASM: [[after_getint:\.Ltmp.*]]:
-; ASM:         #DEBUG_VALUE: a <- %EAX
-; ASM:         #DEBUG_VALUE: inlineinc:a <- %EAX
-; ASM:         #DEBUG_VALUE: c <- %EAX
+; ASM:         #DEBUG_VALUE: a <- %eax
+; ASM:         #DEBUG_VALUE: inlineinc:a <- %eax
+; ASM:         #DEBUG_VALUE: c <- %eax
 ; ASM:         testl   %esi, %esi
 ; ASM:         je      .LBB0_2
 ; ASM: [[after_je:\.Ltmp.*]]:
 ; ASM: # BB#1:                                 # %if.then
-; ASM-DAG:     #DEBUG_VALUE: inlineinc:a <- %EAX
-; ASM-DAG:     #DEBUG_VALUE: a <- %EAX
-; ASM-DAG:     #DEBUG_VALUE: f:p <- %ESI
+; ASM-DAG:     #DEBUG_VALUE: inlineinc:a <- %eax
+; ASM-DAG:     #DEBUG_VALUE: a <- %eax
+; ASM-DAG:     #DEBUG_VALUE: f:p <- %esi
 ; ASM:         addl    $1, %eax
 ; ASM: [[after_inc_eax:\.Ltmp.*]]:
-; ASM:         #DEBUG_VALUE: inlineinc:b <- %EAX
-; ASM:         #DEBUG_VALUE: b <- %EAX
+; ASM:         #DEBUG_VALUE: inlineinc:b <- %eax
+; ASM:         #DEBUG_VALUE: b <- %eax
 ; ASM:         addl    $1, x(%rip)
 ; ASM: [[after_if:\.Ltmp.*]]:
 ; ASM: .LBB0_2:                                # %if.else
-; ASM:         #DEBUG_VALUE: f:p <- %ESI
+; ASM:         #DEBUG_VALUE: f:p <- %esi
 ; ASM:         movl    %eax, %ecx
 ; ASM:         addq    $32, %rsp
 ; ASM:         popq    %rsi
@@ -92,7 +92,7 @@
 ; OBJ:     VarName: p
 ; OBJ:   }
 ; OBJ:   DefRangeRegisterSym {
-; OBJ:     Register: 18
+; OBJ:     Register: ECX (0x12)
 ; OBJ:     LocalVariableAddrRange {
 ; OBJ:       OffsetStart: .text+0x0
 ; OBJ:       ISectStart: 0x0
@@ -100,7 +100,7 @@
 ; OBJ:     }
 ; OBJ:   }
 ; OBJ:   DefRangeRegisterSym {
-; OBJ:     Register: 23
+; OBJ:     Register: ESI (0x17)
 ; OBJ:     LocalVariableAddrRange {
 ; OBJ:       OffsetStart: .text+0x7
 ; OBJ:       ISectStart: 0x0
@@ -114,7 +114,7 @@
 ; OBJ:     VarName: a
 ; OBJ:   }
 ; OBJ:   DefRangeRegisterSym {
-; OBJ:     Register: 17
+; OBJ:     Register: EAX (0x11)
 ; OBJ:     LocalVariableAddrRange {
 ; OBJ:       OffsetStart: .text+0xC
 ; OBJ:       ISectStart: 0x0
@@ -128,7 +128,7 @@
 ; OBJ:     VarName: c
 ; OBJ:   }
 ; OBJ:   DefRangeRegisterSym {
-; OBJ:     Register: 17
+; OBJ:     Register: EAX (0x11)
 ; OBJ:     LocalVariableAddrRange {
 ; OBJ:       OffsetStart: .text+0xC
 ; OBJ:       ISectStart: 0x0
@@ -142,7 +142,7 @@
 ; OBJ:     VarName: b
 ; OBJ:   }
 ; OBJ:   DefRangeRegisterSym {
-; OBJ:     Register: 17
+; OBJ:     Register: EAX (0x11)
 ; OBJ:     MayHaveNoName: 0
 ; OBJ:       OffsetStart: .text+0x13
 ; OBJ:       ISectStart: 0x0
@@ -162,7 +162,7 @@
 ; OBJ:     VarName: a
 ; OBJ:   }
 ; OBJ:   DefRangeRegisterSym {
-; OBJ:     Register: 17
+; OBJ:     Register: EAX (0x11)
 ; OBJ:     LocalVariableAddrRange {
 ; OBJ:       OffsetStart: .text+0xC
 ; OBJ:       ISectStart: 0x0
@@ -176,7 +176,7 @@
 ; OBJ:     VarName: b
 ; OBJ:   }
 ; OBJ:   DefRangeRegisterSym {
-; OBJ:     Register: 17
+; OBJ:     Register: EAX (0x11)
 ; OBJ:     LocalVariableAddrRange {
 ; OBJ:       OffsetStart: .text+0x13
 ; OBJ:       ISectStart: 0x0
