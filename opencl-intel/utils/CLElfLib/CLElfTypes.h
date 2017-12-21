@@ -109,7 +109,8 @@ enum E_EH_FLAGS
     EH_FLAG_NONE               = 0,
     EH_FLAG_SSE4               = 1,
     EH_FLAG_AVX1               = 1 << 1,
-    EH_FLAG_AVX2               = 1 << 2
+    EH_FLAG_AVX2               = 1 << 2,
+    EH_FLAG_AVX512             = 1 << 3
 };
 
 // E_SH_TYPE - List of pre-defined section header types.
