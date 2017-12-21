@@ -62,7 +62,6 @@ set(GENERIC_SOURCES
   cmpti2.c
   comparedf2.c
   comparesf2.c
-  cpu_model.c
   ctzdi2.c
   ctzsi2.c
   ctzti2.c
@@ -77,7 +76,6 @@ set(GENERIC_SOURCES
   divtc3.c
   divti3.c
   divtf3.c
-  divxc3.c
   extendsfdf2.c
   extendhfsf2.c
   ffsdi2.c
@@ -95,27 +93,18 @@ set(GENERIC_SOURCES
   fixunssfdi.c
   fixunssfsi.c
   fixunssfti.c
-  fixunsxfdi.c
-  fixunsxfsi.c
-  fixunsxfti.c
-  fixxfdi.c
-  fixxfti.c
   floatdidf.c
   floatdisf.c
-  floatdixf.c
   floatsidf.c
   floatsisf.c
   floattidf.c
   floattisf.c
-  floattixf.c
   floatundidf.c
   floatundisf.c
-  floatundixf.c
   floatunsidf.c
   floatunsisf.c
   floatuntidf.c
   floatuntisf.c
-  floatuntixf.c
   int_util.c
   lshrdi3.c
   lshrti3.c
@@ -135,7 +124,6 @@ set(GENERIC_SOURCES
   mulvdi3.c
   mulvsi3.c
   mulvti3.c
-  mulxc3.c
   negdf2.c
   negdi2.c
   negsf2.c
@@ -153,7 +141,6 @@ set(GENERIC_SOURCES
   powidf2.c
   powisf2.c
   powitf2.c
-  powixf2.c
   subdf3.c
   subsf3.c
   subvdi3.c
@@ -237,6 +224,23 @@ if (NOT FUCHSIA)
     clear_cache.c)
 endif()
 
+# These sources work on all x86 variants, but only x86 variants.
+set(x86_ARCH_SOURCES
+  cpu_model.c
+  divxc3.c
+  fixxfdi.c
+  fixxfti.c
+  fixunsxfdi.c
+  fixunsxfsi.c
+  fixunsxfti.c
+  floatdixf.c
+  floattixf.c
+  floatundixf.c
+  floatuntixf.c
+  mulxc3.c
+  powixf2.c
+)
+
 if (NOT MSVC)
   set(x86_64_SOURCES
       x86_64/chkstk.S
@@ -294,6 +298,11 @@ else () # MSVC
   set(x86_64h_SOURCES ${x86_64_SOURCES})
   set(i386_SOURCES ${GENERIC_SOURCES})
 endif () # if (NOT MSVC)
+
+set(x86_64h_SOURCES ${x86_64h_SOURCES} ${x86_ARCH_SOURCES})
+set(x86_64_SOURCES ${x86_64_SOURCES} ${x86_ARCH_SOURCES})
+set(i386_SOURCES ${i386_SOURCES} ${x86_ARCH_SOURCES})
+set(i686_SOURCES ${i686_SOURCES} ${x86_ARCH_SOURCES})
 
 set(arm_SOURCES
   arm/bswapdi2.S
@@ -431,6 +440,7 @@ if(MINGW)
       udivsi3.c
       umoddi3.c
       emutls.c)
+  filter_builtin_sources(arm_SOURCES EXCLUDE arm_SOURCES "${arm_SOURCES};${GENERIC_SOURCES}")
 elseif(NOT WIN32)
   # TODO the EABI sources should only be added to EABI targets
   set(arm_SOURCES
@@ -465,8 +475,26 @@ set(mips64_SOURCES ${GENERIC_TF_SOURCES}
 set(mips64el_SOURCES ${GENERIC_TF_SOURCES}
                      ${mips_SOURCES})
 
-set(wasm32_SOURCES ${GENERIC_SOURCES})
-set(wasm64_SOURCES ${GENERIC_SOURCES})
+set(powerpc64_SOURCES
+  ppc/divtc3.c
+  ppc/fixtfdi.c
+  ppc/fixunstfdi.c
+  ppc/floatditf.c
+  ppc/floatunditf.c
+  ppc/gcc_qadd.c
+  ppc/gcc_qdiv.c
+  ppc/gcc_qmul.c
+  ppc/gcc_qsub.c
+  ppc/multc3.c
+  ${GENERIC_SOURCES})
+set(powerpc64le_SOURCES ${powerpc64_SOURCES})
+
+set(wasm32_SOURCES
+  ${GENERIC_TF_SOURCES}
+  ${GENERIC_SOURCES})
+set(wasm64_SOURCES
+  ${GENERIC_TF_SOURCES}
+  ${GENERIC_SOURCES})
 
 add_custom_target(builtins)
 set_target_properties(builtins PROPERTIES FOLDER "Compiler-RT Misc")

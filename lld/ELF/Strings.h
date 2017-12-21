@@ -10,7 +10,7 @@
 #ifndef LLD_ELF_STRINGS_H
 #define LLD_ELF_STRINGS_H
 
-#include "lld/Core/LLVM.h"
+#include "lld/Common/LLVM.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/BitVector.h"
 #include "llvm/ADT/Optional.h"
@@ -22,7 +22,6 @@ namespace lld {
 namespace elf {
 
 std::vector<uint8_t> parseHex(StringRef S);
-bool isAlnum(char C);
 bool isValidCIdentifier(StringRef S);
 
 // This is a lazy version of StringRef. String size is computed lazily
@@ -66,10 +65,6 @@ public:
 private:
   std::vector<llvm::GlobPattern> Patterns;
 };
-
-// Returns a demangled C++ symbol name. If Name is not a mangled
-// name, it returns Optional::None.
-llvm::Optional<std::string> demangle(StringRef Name);
 
 inline ArrayRef<uint8_t> toArrayRef(StringRef S) {
   return {(const uint8_t *)S.data(), S.size()};

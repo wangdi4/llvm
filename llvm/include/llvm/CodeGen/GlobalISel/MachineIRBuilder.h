@@ -93,8 +93,7 @@ public:
   /// Some constructors for easy use.
   MachineIRBuilder() = default;
   MachineIRBuilder(MachineFunction &MF) { setMF(MF); }
-  MachineIRBuilder(MachineInstr &MI)
-      : MachineIRBuilder(*MI.getParent()->getParent()) {
+  MachineIRBuilder(MachineInstr &MI) : MachineIRBuilder(*MI.getMF()) {
     setInstr(MI);
   }
 
@@ -543,6 +542,10 @@ public:
   ///
   /// \return a MachineInstrBuilder for the newly created instruction.
   MachineInstrBuilder buildCopy(unsigned Res, unsigned Op);
+  template <typename DstType, typename SrcType>
+  MachineInstrBuilder buildCopy(DstType &&Res, SrcType &&Src) {
+    return buildCopy(getDestFromArg(Res), getRegFromArg(Src));
+  }
 
   /// Build and insert `Res<def> = G_LOAD Addr, MMO`.
   ///
@@ -660,6 +663,10 @@ public:
   ///
   /// \return The newly created instruction.
   MachineInstrBuilder buildTrunc(unsigned Res, unsigned Op);
+  template <typename DstType, typename SrcType>
+  MachineInstrBuilder buildTrunc(DstType &&Res, SrcType &&Src) {
+    return buildTrunc(getDestFromArg(Res), getRegFromArg(Src));
+  }
 
   /// Build and insert a \p Res = G_ICMP \p Pred, \p Op0, \p Op1
   ///
@@ -727,6 +734,24 @@ public:
   /// \return The newly created instruction.
   MachineInstrBuilder buildExtractVectorElement(unsigned Res, unsigned Val,
                                                 unsigned Idx);
+
+  /// Build and insert `OldValRes<def> = G_ATOMIC_CMPXCHG Addr, CmpVal, NewVal,
+  /// MMO`.
+  ///
+  /// Atomically replace the value at \p Addr with \p NewVal if it is currently
+  /// \p CmpVal otherwise leaves it unchanged. Puts the original value from \p
+  /// Addr in \p Res.
+  ///
+  /// \pre setBasicBlock or setMI must have been called.
+  /// \pre \p OldValRes must be a generic virtual register of scalar type.
+  /// \pre \p Addr must be a generic virtual register with pointer type.
+  /// \pre \p OldValRes, \p CmpVal, and \p NewVal must be generic virtual
+  ///      registers of the same type.
+  ///
+  /// \return a MachineInstrBuilder for the newly created instruction.
+  MachineInstrBuilder buildAtomicCmpXchg(unsigned OldValRes, unsigned Addr,
+                                         unsigned CmpVal, unsigned NewVal,
+                                         MachineMemOperand &MMO);
 };
 
 } // End namespace llvm.

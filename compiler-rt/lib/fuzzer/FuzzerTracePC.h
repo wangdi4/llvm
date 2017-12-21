@@ -80,6 +80,7 @@ class TracePC {
   template <class T> void HandleCmp(uintptr_t PC, T Arg1, T Arg2);
   size_t GetTotalPCCoverage();
   void SetUseCounters(bool UC) { UseCounters = UC; }
+  void SetUseClangCoverage(bool UCC) { UseClangCoverage = UCC; }
   void SetUseValueProfile(bool VP) { UseValueProfile = VP; }
   void SetPrintNewPCs(bool P) { DoPrintNewPCs = P; }
   void SetPrintNewFuncs(size_t P) { NumPrintNewFuncs = P; }
@@ -92,7 +93,8 @@ class TracePC {
       memset(Counters(), 0, GetNumPCs());
     ClearExtraCounters();
     ClearInlineCounters();
-    ClearClangCounters();
+    if (UseClangCoverage)
+      ClearClangCounters();
   }
 
   void ClearInlineCounters();
@@ -133,6 +135,7 @@ class TracePC {
 private:
   bool UseCounters = false;
   bool UseValueProfile = false;
+  bool UseClangCoverage = false;
   bool DoPrintNewPCs = false;
   size_t NumPrintNewFuncs = 0;
 
@@ -193,9 +196,20 @@ void ForEachNonZeroByte(const uint8_t *Begin, const uint8_t *End,
       Handle8bitCounter(FirstFeature, P - Begin, V);
 }
 
-// Given a non-zero Counters returns a number in [0,7].
+// Given a non-zero Counter returns a number in the range [0,7].
 template<class T>
 unsigned CounterToFeature(T Counter) {
+    // Returns a feature number by placing Counters into buckets as illustrated
+    // below.
+    //
+    // Counter bucket: [1] [2] [3] [4-7] [8-15] [16-31] [32-127] [128+]
+    // Feature number:  0   1   2    3     4       5       6       7
+    //
+    // This is a heuristic taken from AFL (see
+    // http://lcamtuf.coredump.cx/afl/technical_details.txt).
+    //
+    // This implementation may change in the future so clients should
+    // not rely on it.
     assert(Counter);
     unsigned Bit = 0;
     /**/ if (Counter >= 128) Bit = 7;

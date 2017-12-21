@@ -52,6 +52,7 @@
 #include "lldb/Utility/Timer.h"
 
 #include "llvm/Support/FileSystem.h"
+#include "llvm/Support/FormatAdapters.h"
 
 // C Includes
 // C++ Includes
@@ -133,25 +134,6 @@ static uint32_t DumpTargetList(TargetList &target_list,
     }
   }
   return num_targets;
-}
-
-// TODO: Remove this once llvm can pretty-print time points
-static void DumpTimePoint(llvm::sys::TimePoint<> tp, Stream &s, uint32_t width) {
-#ifndef LLDB_DISABLE_POSIX
-  char time_buf[32];
-  time_t time = llvm::sys::toTimeT(tp);
-  char *time_cstr = ::ctime_r(&time, time_buf);
-  if (time_cstr) {
-    char *newline = ::strpbrk(time_cstr, "\n\r");
-    if (newline)
-      *newline = '\0';
-    if (width > 0)
-      s.Printf("%-*s", width, time_cstr);
-    else
-      s.PutCString(time_cstr);
-  } else if (width > 0)
-    s.Printf("%-*s", width, "");
-#endif
 }
 
 #pragma mark CommandObjectTargetCreate
@@ -2053,6 +2035,8 @@ protected:
               result.GetOutputStream().EOL();
               result.GetOutputStream().EOL();
             }
+            if (m_interpreter.WasInterrupted())
+              break;
             num_dumped++;
             DumpModuleSymtab(
                 m_interpreter, result.GetOutputStream(),
@@ -2081,6 +2065,8 @@ protected:
                   result.GetOutputStream().EOL();
                   result.GetOutputStream().EOL();
                 }
+                if (m_interpreter.WasInterrupted())
+                  break;
                 num_dumped++;
                 DumpModuleSymtab(m_interpreter, result.GetOutputStream(),
                                  module, m_options.m_sort_order);
@@ -2146,6 +2132,8 @@ protected:
                                           " modules.\n",
                                           (uint64_t)num_modules);
           for (size_t image_idx = 0; image_idx < num_modules; ++image_idx) {
+            if (m_interpreter.WasInterrupted())
+              break;
             num_dumped++;
             DumpModuleSections(
                 m_interpreter, result.GetOutputStream(),
@@ -2167,6 +2155,8 @@ protected:
               FindModulesByName(target, arg_cstr, module_list, true);
           if (num_matches > 0) {
             for (size_t i = 0; i < num_matches; ++i) {
+              if (m_interpreter.WasInterrupted())
+                break;
               Module *module = module_list.GetModulePointerAtIndex(i);
               if (module) {
                 num_dumped++;
@@ -2239,6 +2229,8 @@ protected:
                                           " modules.\n",
                                           (uint64_t)num_modules);
           for (uint32_t image_idx = 0; image_idx < num_modules; ++image_idx) {
+            if (m_interpreter.WasInterrupted())
+              break;
             if (DumpModuleSymbolVendor(
                     result.GetOutputStream(),
                     target_modules.GetModulePointerAtIndexUnlocked(image_idx)))
@@ -2260,6 +2252,8 @@ protected:
               FindModulesByName(target, arg_cstr, module_list, true);
           if (num_matches > 0) {
             for (size_t i = 0; i < num_matches; ++i) {
+              if (m_interpreter.WasInterrupted())
+                break;
               Module *module = module_list.GetModulePointerAtIndex(i);
               if (module) {
                 if (DumpModuleSymbolVendor(result.GetOutputStream(), module))
@@ -2327,6 +2321,8 @@ protected:
         if (num_modules > 0) {
           uint32_t num_dumped = 0;
           for (uint32_t i = 0; i < num_modules; ++i) {
+            if (m_interpreter.WasInterrupted())
+              break;
             if (DumpCompileUnitLineTable(
                     m_interpreter, result.GetOutputStream(),
                     target_modules.GetModulePointerAtIndexUnlocked(i),
@@ -2572,7 +2568,7 @@ public:
                       "Fullpath or basename for module to load.", ""),
         m_load_option(LLDB_OPT_SET_1, false, "load", 'l',
                       "Write file contents to the memory.", false, true),
-        m_pc_option(LLDB_OPT_SET_1, false, "--set-pc-to-entry", 'p',
+        m_pc_option(LLDB_OPT_SET_1, false, "set-pc-to-entry", 'p',
                     "Set PC to the entry point."
                     " Only applicable with '--load' option.",
                     false, true),
@@ -3162,7 +3158,8 @@ protected:
       } break;
 
       case 'm':
-        DumpTimePoint(module->GetModificationTime(), strm, width);
+        strm.Format("{0:%c}", llvm::fmt_align(module->GetModificationTime(),
+                                              llvm::AlignStyle::Left, width));
         break;
 
       case 'p':

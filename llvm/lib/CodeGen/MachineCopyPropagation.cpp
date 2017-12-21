@@ -23,13 +23,13 @@
 #include "llvm/CodeGen/MachineInstr.h"
 #include "llvm/CodeGen/MachineOperand.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
+#include "llvm/CodeGen/TargetInstrInfo.h"
+#include "llvm/CodeGen/TargetRegisterInfo.h"
+#include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Target/TargetInstrInfo.h"
-#include "llvm/Target/TargetRegisterInfo.h"
-#include "llvm/Target/TargetSubtargetInfo.h"
 #include <cassert>
 #include <iterator>
 
@@ -187,6 +187,8 @@ bool MachineCopyPropagation::eraseIfRedundant(MachineInstr &Copy, unsigned Src,
 
   // Check that the existing copy uses the correct sub registers.
   MachineInstr &PrevCopy = *CI->second;
+  if (PrevCopy.getOperand(0).isDead())
+    return false;
   if (!isNopCopy(PrevCopy, Src, Def, TRI))
     return false;
 
@@ -224,19 +226,19 @@ void MachineCopyPropagation::CopyPropagateBlock(MachineBasicBlock &MBB) {
 
       // The two copies cancel out and the source of the first copy
       // hasn't been overridden, eliminate the second one. e.g.
-      //  %ECX<def> = COPY %EAX
-      //  ... nothing clobbered EAX.
-      //  %EAX<def> = COPY %ECX
+      //  %ecx<def> = COPY %eax
+      //  ... nothing clobbered eax.
+      //  %eax<def> = COPY %ecx
       // =>
-      //  %ECX<def> = COPY %EAX
+      //  %ecx<def> = COPY %eax
       //
       // or
       //
-      //  %ECX<def> = COPY %EAX
-      //  ... nothing clobbered EAX.
-      //  %ECX<def> = COPY %EAX
+      //  %ecx<def> = COPY %eax
+      //  ... nothing clobbered eax.
+      //  %ecx<def> = COPY %eax
       // =>
-      //  %ECX<def> = COPY %EAX
+      //  %ecx<def> = COPY %eax
       if (eraseIfRedundant(*MI, Def, Src) || eraseIfRedundant(*MI, Src, Def))
         continue;
 
@@ -286,7 +288,7 @@ void MachineCopyPropagation::CopyPropagateBlock(MachineBasicBlock &MBB) {
       // it's no longer available for copy propagation.
       RegList &DestList = SrcMap[Src];
       if (!is_contained(DestList, Def))
-        DestList.push_back(Def);
+          DestList.push_back(Def);
 
       continue;
     }

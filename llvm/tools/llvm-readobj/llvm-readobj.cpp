@@ -23,7 +23,7 @@
 #include "Error.h"
 #include "ObjDumper.h"
 #include "WindowsResourceDumper.h"
-#include "llvm/DebugInfo/CodeView/TypeTableBuilder.h"
+#include "llvm/DebugInfo/CodeView/MergingTypeTableBuilder.h"
 #include "llvm/Object/Archive.h"
 #include "llvm/Object/COFFImportFile.h"
 #include "llvm/Object/ELFObjectFile.h"
@@ -200,11 +200,6 @@ namespace opts {
   cl::opt<bool> MipsOptions("mips-options",
                             cl::desc("Display the MIPS .MIPS.options section"));
 
-  // -amdgpu-code-object-metadata
-  cl::opt<bool> AMDGPUCodeObjectMetadata(
-      "amdgpu-code-object-metadata",
-      cl::desc("Display AMDGPU code object metadata"));
-
   // -coff-imports
   cl::opt<bool>
   COFFImports("coff-imports", cl::desc("Display the PE/COFF import table"));
@@ -358,8 +353,8 @@ struct ReadObjTypeTableBuilder {
       : Allocator(), IDTable(Allocator), TypeTable(Allocator) {}
 
   llvm::BumpPtrAllocator Allocator;
-  llvm::codeview::TypeTableBuilder IDTable;
-  llvm::codeview::TypeTableBuilder TypeTable;
+  llvm::codeview::MergingTypeTableBuilder IDTable;
+  llvm::codeview::MergingTypeTableBuilder TypeTable;
 };
 }
 static ReadObjTypeTableBuilder CVTypes;
@@ -440,9 +435,6 @@ static void dumpObject(const ObjectFile *Obj) {
       if (opts::MipsOptions)
         Dumper->printMipsOptions();
     }
-    if (Obj->getArch() == llvm::Triple::amdgcn)
-      if (opts::AMDGPUCodeObjectMetadata)
-        Dumper->printAMDGPUCodeObjectMetadata();
     if (opts::SectionGroups)
       Dumper->printGroupSections();
     if (opts::HashHistogram)
@@ -577,8 +569,7 @@ int main(int argc, const char *argv[]) {
   if (opts::InputFilenames.size() == 0)
     opts::InputFilenames.push_back("-");
 
-  std::for_each(opts::InputFilenames.begin(), opts::InputFilenames.end(),
-                dumpInput);
+  llvm::for_each(opts::InputFilenames, dumpInput);
 
   if (opts::CodeViewMergedTypes) {
     ScopedPrinter W(outs());
