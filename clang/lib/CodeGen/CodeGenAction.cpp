@@ -287,7 +287,9 @@ namespace clang {
       if (LinkInModules())
         return;
 
+#if !INTEL_PRODUCT_RELEASE
       EmbedBitcode(getModule(), CodeGenOpts, llvm::MemoryBufferRef());
+#endif // !INTEL_PRODUCT_RELEASE
 
       EmitBackendOutput(Diags, HeaderSearchOpts, CodeGenOpts, TargetOpts,
                         LangOpts, C.getTargetInfo().getDataLayout(),
@@ -433,6 +435,8 @@ void BackendConsumer::InlineAsmDiagHandler2(const llvm::SMDiagnostic &D,
   case llvm::SourceMgr::DK_Note:
     DiagID = diag::note_fe_inline_asm;
     break;
+  case llvm::SourceMgr::DK_Remark:
+    llvm_unreachable("remarks unexpected");
   }
   // If this problem has clang-level source location information, report the
   // issue in the source with a note showing the instantiated
@@ -631,6 +635,10 @@ void BackendConsumer::EmitOptimizationMessage(
 
 void BackendConsumer::OptimizationRemarkHandler(
     const llvm::DiagnosticInfoOptimizationBase &D) {
+  // Without hotness information, don't show noisy remarks.
+  if (D.isVerbose() && !D.getHotness())
+    return;
+
   if (D.isPassed()) {
     // Optimization remarks are active only if the -Rpass flag has a regular
     // expression that matches the name of the pass name in \p D.
@@ -921,6 +929,8 @@ static void BitcodeInlineAsmDiagHandler(const llvm::SMDiagnostic &SM,
   case llvm::SourceMgr::DK_Note:
     DiagID = diag::note_fe_inline_asm;
     break;
+  case llvm::SourceMgr::DK_Remark:
+    llvm_unreachable("remarks unexpected");
   }
 
   Diags->Report(DiagID).AddString("cannot compile inline asm");
@@ -1011,8 +1021,10 @@ void CodeGenAction::ExecuteAction() {
       TheModule->setTargetTriple(TargetOpts.Triple);
     }
 
+#if !INTEL_PRODUCT_RELEASE
     EmbedBitcode(TheModule.get(), CI.getCodeGenOpts(),
                  MainFile->getMemBufferRef());
+#endif // !INTEL_PRODUCT_RELEASE
 
     LLVMContext &Ctx = TheModule->getContext();
     Ctx.setInlineAsmDiagnosticHandler(BitcodeInlineAsmDiagHandler,

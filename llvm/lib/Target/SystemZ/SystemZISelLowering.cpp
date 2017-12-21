@@ -221,13 +221,17 @@ SystemZTargetLowering::SystemZTargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::ATOMIC_LOAD_MAX,  MVT::i32, Custom);
   setOperationAction(ISD::ATOMIC_LOAD_UMIN, MVT::i32, Custom);
   setOperationAction(ISD::ATOMIC_LOAD_UMAX, MVT::i32, Custom);
-  setOperationAction(ISD::ATOMIC_CMP_SWAP,  MVT::i32, Custom);
 
   // Even though i128 is not a legal type, we still need to custom lower
   // the atomic operations in order to exploit SystemZ instructions.
   setOperationAction(ISD::ATOMIC_LOAD,     MVT::i128, Custom);
   setOperationAction(ISD::ATOMIC_STORE,    MVT::i128, Custom);
-  setOperationAction(ISD::ATOMIC_CMP_SWAP, MVT::i128, Custom);
+
+  // We can use the CC result of compare-and-swap to implement
+  // the "success" result of ATOMIC_CMP_SWAP_WITH_SUCCESS.
+  setOperationAction(ISD::ATOMIC_CMP_SWAP_WITH_SUCCESS, MVT::i32, Custom);
+  setOperationAction(ISD::ATOMIC_CMP_SWAP_WITH_SUCCESS, MVT::i64, Custom);
+  setOperationAction(ISD::ATOMIC_CMP_SWAP_WITH_SUCCESS, MVT::i128, Custom);
 
   setOperationAction(ISD::ATOMIC_FENCE, MVT::Other, Custom);
 
@@ -1840,11 +1844,14 @@ static void adjustSubwordCmp(SelectionDAG &DAG, const SDLoc &DL,
                               ISD::SEXTLOAD :
                               ISD::ZEXTLOAD);
   if (C.Op0.getValueType() != MVT::i32 ||
-      Load->getExtensionType() != ExtType)
+      Load->getExtensionType() != ExtType) {
     C.Op0 = DAG.getExtLoad(ExtType, SDLoc(Load), MVT::i32, Load->getChain(),
                            Load->getBasePtr(), Load->getPointerInfo(),
                            Load->getMemoryVT(), Load->getAlignment(),
                            Load->getMemOperand()->getFlags());
+    // Update the chain uses.
+    DAG.ReplaceAllUsesOfValueWith(SDValue(Load, 1), C.Op0.getValue(1));
+  }
 
   // Make sure that the second operand is an i32 with the right value.
   if (C.Op1.getValueType() != MVT::i32 ||
@@ -2936,9 +2943,13 @@ SDValue SystemZTargetLowering::lowerBITCAST(SDValue Op,
   // but we need this case for bitcasts that are created during lowering
   // and which are then lowered themselves.
   if (auto *LoadN = dyn_cast<LoadSDNode>(In))
-    if (ISD::isNormalLoad(LoadN))
-      return DAG.getLoad(ResVT, DL, LoadN->getChain(), LoadN->getBasePtr(),
-                         LoadN->getMemOperand());
+    if (ISD::isNormalLoad(LoadN)) {
+      SDValue NewLoad = DAG.getLoad(ResVT, DL, LoadN->getChain(),
+                                    LoadN->getBasePtr(), LoadN->getMemOperand());
+      // Update the chain uses.
+      DAG.ReplaceAllUsesOfValueWith(SDValue(LoadN, 1), NewLoad.getValue(1));
+      return NewLoad;
+    }
 
   if (InVT == MVT::i32 && ResVT == MVT::f32) {
     SDValue In64;
@@ -3483,25 +3494,38 @@ SDValue SystemZTargetLowering::lowerATOMIC_LOAD_SUB(SDValue Op,
   return lowerATOMIC_LOAD_OP(Op, DAG, SystemZISD::ATOMIC_LOADW_SUB);
 }
 
-// Node is an 8- or 16-bit ATOMIC_CMP_SWAP operation.  Lower the first two
-// into a fullword ATOMIC_CMP_SWAPW operation.
+// Lower 8/16/32/64-bit ATOMIC_CMP_SWAP_WITH_SUCCESS node.
 SDValue SystemZTargetLowering::lowerATOMIC_CMP_SWAP(SDValue Op,
                                                     SelectionDAG &DAG) const {
   auto *Node = cast<AtomicSDNode>(Op.getNode());
-
-  // We have native support for 32-bit compare and swap.
-  EVT NarrowVT = Node->getMemoryVT();
-  EVT WideVT = MVT::i32;
-  if (NarrowVT == WideVT)
-    return Op;
-
-  int64_t BitSize = NarrowVT.getSizeInBits();
   SDValue ChainIn = Node->getOperand(0);
   SDValue Addr = Node->getOperand(1);
   SDValue CmpVal = Node->getOperand(2);
   SDValue SwapVal = Node->getOperand(3);
   MachineMemOperand *MMO = Node->getMemOperand();
   SDLoc DL(Node);
+
+  // We have native support for 32-bit and 64-bit compare and swap, but we
+  // still need to expand extracting the "success" result from the CC.
+  EVT NarrowVT = Node->getMemoryVT();
+  EVT WideVT = NarrowVT == MVT::i64 ? MVT::i64 : MVT::i32;
+  if (NarrowVT == WideVT) {
+    SDVTList Tys = DAG.getVTList(WideVT, MVT::Other, MVT::Glue);
+    SDValue Ops[] = { ChainIn, Addr, CmpVal, SwapVal };
+    SDValue AtomicOp = DAG.getMemIntrinsicNode(SystemZISD::ATOMIC_CMP_SWAP,
+                                               DL, Tys, Ops, NarrowVT, MMO);
+    SDValue Success = emitSETCC(DAG, DL, AtomicOp.getValue(2),
+                                SystemZ::CCMASK_CS, SystemZ::CCMASK_CS_EQ);
+
+    DAG.ReplaceAllUsesOfValueWith(Op.getValue(0), AtomicOp.getValue(0));
+    DAG.ReplaceAllUsesOfValueWith(Op.getValue(1), Success);
+    DAG.ReplaceAllUsesOfValueWith(Op.getValue(2), AtomicOp.getValue(1));
+    return SDValue();
+  }
+
+  // Convert 8-bit and 16-bit compare and swap to a loop, implemented
+  // via a fullword ATOMIC_CMP_SWAPW operation.
+  int64_t BitSize = NarrowVT.getSizeInBits();
   EVT PtrVT = Addr.getValueType();
 
   // Get the address of the containing word.
@@ -3520,12 +3544,18 @@ SDValue SystemZTargetLowering::lowerATOMIC_CMP_SWAP(SDValue Op,
                                     DAG.getConstant(0, DL, WideVT), BitShift);
 
   // Construct the ATOMIC_CMP_SWAPW node.
-  SDVTList VTList = DAG.getVTList(WideVT, MVT::Other);
+  SDVTList VTList = DAG.getVTList(WideVT, MVT::Other, MVT::Glue);
   SDValue Ops[] = { ChainIn, AlignedAddr, CmpVal, SwapVal, BitShift,
                     NegBitShift, DAG.getConstant(BitSize, DL, WideVT) };
   SDValue AtomicOp = DAG.getMemIntrinsicNode(SystemZISD::ATOMIC_CMP_SWAPW, DL,
                                              VTList, Ops, NarrowVT, MMO);
-  return AtomicOp;
+  SDValue Success = emitSETCC(DAG, DL, AtomicOp.getValue(2),
+                              SystemZ::CCMASK_ICMP, SystemZ::CCMASK_CMP_EQ);
+
+  DAG.ReplaceAllUsesOfValueWith(Op.getValue(0), AtomicOp.getValue(0));
+  DAG.ReplaceAllUsesOfValueWith(Op.getValue(1), Success);
+  DAG.ReplaceAllUsesOfValueWith(Op.getValue(2), AtomicOp.getValue(1));
+  return SDValue();
 }
 
 SDValue SystemZTargetLowering::lowerSTACKSAVE(SDValue Op,
@@ -4753,7 +4783,7 @@ SDValue SystemZTargetLowering::LowerOperation(SDValue Op,
     return lowerATOMIC_LOAD_OP(Op, DAG, SystemZISD::ATOMIC_LOADW_UMIN);
   case ISD::ATOMIC_LOAD_UMAX:
     return lowerATOMIC_LOAD_OP(Op, DAG, SystemZISD::ATOMIC_LOADW_UMAX);
-  case ISD::ATOMIC_CMP_SWAP:
+  case ISD::ATOMIC_CMP_SWAP_WITH_SUCCESS:
     return lowerATOMIC_CMP_SWAP(Op, DAG);
   case ISD::STACKSAVE:
     return lowerSTACKSAVE(Op, DAG);
@@ -4847,16 +4877,20 @@ SystemZTargetLowering::LowerOperationWrapper(SDNode *N,
     Results.push_back(Res);
     break;
   }
-  case ISD::ATOMIC_CMP_SWAP: {
+  case ISD::ATOMIC_CMP_SWAP_WITH_SUCCESS: {
     SDLoc DL(N);
-    SDVTList Tys = DAG.getVTList(MVT::Untyped, MVT::Other);
+    SDVTList Tys = DAG.getVTList(MVT::Untyped, MVT::Other, MVT::Glue);
     SDValue Ops[] = { N->getOperand(0), N->getOperand(1),
                       lowerI128ToGR128(DAG, N->getOperand(2)),
                       lowerI128ToGR128(DAG, N->getOperand(3)) };
     MachineMemOperand *MMO = cast<AtomicSDNode>(N)->getMemOperand();
     SDValue Res = DAG.getMemIntrinsicNode(SystemZISD::ATOMIC_CMP_SWAP_128,
                                           DL, Tys, Ops, MVT::i128, MMO);
+    SDValue Success = emitSETCC(DAG, DL, Res.getValue(2),
+                                SystemZ::CCMASK_CS, SystemZ::CCMASK_CS_EQ);
+    Success = DAG.getZExtOrTrunc(Success, DL, N->getValueType(1));
     Results.push_back(lowerGR128ToI128(DAG, Res));
+    Results.push_back(Success);
     Results.push_back(Res.getValue(1));
     break;
   }
@@ -4972,6 +5006,7 @@ const char *SystemZTargetLowering::getTargetNodeName(unsigned Opcode) const {
     OPCODE(ATOMIC_LOADW_UMIN);
     OPCODE(ATOMIC_LOADW_UMAX);
     OPCODE(ATOMIC_CMP_SWAPW);
+    OPCODE(ATOMIC_CMP_SWAP);
     OPCODE(ATOMIC_LOAD_128);
     OPCODE(ATOMIC_STORE_128);
     OPCODE(ATOMIC_CMP_SWAP_128);
@@ -5998,6 +6033,12 @@ SystemZTargetLowering::emitAtomicCmpSwapW(MachineInstr &MI,
     .addImm(SystemZ::CCMASK_CS).addImm(SystemZ::CCMASK_CS_NE).addMBB(LoopMBB);
   MBB->addSuccessor(LoopMBB);
   MBB->addSuccessor(DoneMBB);
+
+  // If the CC def wasn't dead in the ATOMIC_CMP_SWAPW, mark CC as live-in
+  // to the block after the loop.  At this point, CC may have been defined
+  // either by the CR in LoopMBB or by the CS in SetMBB.
+  if (!MI.registerDefIsDead(SystemZ::CC))
+    DoneMBB->addLiveIn(SystemZ::CC);
 
   MI.eraseFromParent();
   return DoneMBB;

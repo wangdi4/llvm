@@ -12,7 +12,7 @@
 
 #include "Config.h"
 #include "InputFiles.h"
-#include "lld/Core/LLVM.h"
+#include "lld/Common/LLVM.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/iterator.h"
 #include "llvm/ADT/iterator_range.h"
@@ -35,7 +35,7 @@ class DefinedImportData;
 class DefinedRegular;
 class ObjFile;
 class OutputSection;
-class SymbolBody;
+class Symbol;
 
 // Mask for section types (code, data, bss, disacardable, etc.)
 // and permissions (writable, readable or executable).
@@ -117,7 +117,7 @@ class SectionChunk final : public Chunk {
 public:
   class symbol_iterator : public llvm::iterator_adaptor_base<
                               symbol_iterator, const coff_relocation *,
-                              std::random_access_iterator_tag, SymbolBody *> {
+                              std::random_access_iterator_tag, Symbol *> {
     friend SectionChunk;
 
     ObjFile *File;
@@ -128,9 +128,7 @@ public:
   public:
     symbol_iterator() = default;
 
-    SymbolBody *operator*() const {
-      return File->getSymbolBody(I->SymbolTableIndex);
-    }
+    Symbol *operator*() const { return File->getSymbol(I->SymbolTableIndex); }
   };
 
   SectionChunk(ObjFile *File, const coff_section *Header);
@@ -161,10 +159,9 @@ public:
   void addAssociative(SectionChunk *Child);
 
   StringRef getDebugName() override;
-  void setSymbol(DefinedRegular *S) { if (!Sym) Sym = S; }
 
-  // Returns true if the chunk was not dropped by GC or COMDAT deduplication.
-  bool isLive() { return Live && !Discarded; }
+  // Returns true if the chunk was not dropped by GC.
+  bool isLive() { return Live; }
 
   // Used by the garbage collector.
   void markLive() {
@@ -173,21 +170,16 @@ public:
     Live = true;
   }
 
-  // Returns true if this chunk was dropped by COMDAT deduplication.
-  bool isDiscarded() const { return Discarded; }
-
-  // Used by the SymbolTable when discarding unused comdat sections. This is
-  // redundant when GC is enabled, as all comdat sections will start out dead.
-  void markDiscarded() { Discarded = true; }
-
   // True if this is a codeview debug info chunk. These will not be laid out in
   // the image. Instead they will end up in the PDB, if one is requested.
   bool isCodeView() const {
     return SectionName == ".debug" || SectionName.startswith(".debug$");
   }
 
-  // True if this is a DWARF debug info chunk.
-  bool isDWARF() const { return SectionName.startswith(".debug_"); }
+  // True if this is a DWARF debug info or exception handling chunk.
+  bool isDWARF() const {
+    return SectionName.startswith(".debug_") || SectionName == ".eh_frame";
+  }
 
   // Allow iteration over the bodies of this chunk's relocated symbols.
   llvm::iterator_range<symbol_iterator> symbols() const {
@@ -213,14 +205,14 @@ public:
   // The file that this chunk was created from.
   ObjFile *File;
 
+  // The COMDAT leader symbol if this is a COMDAT chunk.
+  DefinedRegular *Sym = nullptr;
+
 private:
   StringRef SectionName;
   std::vector<SectionChunk *> AssocChildren;
   llvm::iterator_range<const coff_relocation *> Relocs;
   size_t NumRelocs;
-
-  // True if this chunk was discarded because it was a duplicate comdat section.
-  bool Discarded;
 
   // Used by the garbage collector.
   bool Live;
@@ -228,9 +220,6 @@ private:
   // Used for ICF (Identical COMDAT Folding)
   void replace(SectionChunk *Other);
   uint32_t Class[2] = {0, 0};
-
-  // Sym points to a section symbol if this is a COMDAT chunk.
-  DefinedRegular *Sym = nullptr;
 };
 
 // A chunk for common symbols. Common chunks don't have actual data.

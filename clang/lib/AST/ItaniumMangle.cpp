@@ -535,7 +535,7 @@ private:
   void mangleOperatorName(DeclarationName Name, unsigned Arity);
   void mangleOperatorName(OverloadedOperatorKind OO, unsigned Arity);
   void mangleVendorQualifier(StringRef qualifier);
-  void mangleQualifiers(Qualifiers Quals);
+  void mangleQualifiers(Qualifiers Quals, const DependentAddressSpaceType *DAST = nullptr);
   void mangleRefQualifier(RefQualifierKind RefQualifier);
 
   void mangleObjCMethodName(const ObjCMethodDecl *MD);
@@ -1963,6 +1963,7 @@ bool CXXNameMangler::mangleUnresolvedTypeOrSimpleId(QualType Ty,
   case Type::IncompleteArray:
   case Type::VariableArray:
   case Type::DependentSizedArray:
+  case Type::DependentAddressSpace:
   case Type::DependentSizedExtVector:
   case Type::Vector:
   case Type::ExtVector:
@@ -2237,9 +2238,16 @@ CXXNameMangler::mangleOperatorName(OverloadedOperatorKind OO, unsigned Arity) {
   }
 }
 
-void CXXNameMangler::mangleQualifiers(Qualifiers Quals) {
+void CXXNameMangler::mangleQualifiers(Qualifiers Quals, const DependentAddressSpaceType *DAST) {
   // Vendor qualifiers come first and if they are order-insensitive they must
   // be emitted in reversed alphabetical order, see Itanium ABI 5.1.5.
+
+  // <type> ::= U <addrspace-expr>
+  if (DAST) {
+    Out << "U2ASI";
+    mangleExpression(DAST->getAddrSpaceExpr());
+    Out << "E";
+  }
 
   // Address space qualifiers start with an ordinary letter.
   if (Quals.hasAddressSpace()) {
@@ -2250,20 +2258,22 @@ void CXXNameMangler::mangleQualifiers(Qualifiers Quals) {
     //   <type> ::= U <CUDA-addrspace>
 
     SmallString<64> ASString;
-    unsigned AS = Quals.getAddressSpace();
+    LangAS AS = Quals.getAddressSpace();
 
     if (Context.getASTContext().addressSpaceMapManglingFor(AS)) {
       //  <target-addrspace> ::= "AS" <address-space-number>
       unsigned TargetAS = Context.getASTContext().getTargetAddressSpace(AS);
-      ASString = "AS" + llvm::utostr(TargetAS);
+      if (TargetAS != 0)
+        ASString = "AS" + llvm::utostr(TargetAS);
     } else {
       switch (AS) {
       default: llvm_unreachable("Not a language specific address space");
-      //  <OpenCL-addrspace> ::= "CL" [ "global" | "local" | "constant |
-      //                                "generic" ]
+      //  <OpenCL-addrspace> ::= "CL" [ "global" | "local" | "constant" |
+      //                                "private"| "generic" ]
       case LangAS::opencl_global:   ASString = "CLglobal";   break;
       case LangAS::opencl_local:    ASString = "CLlocal";    break;
       case LangAS::opencl_constant: ASString = "CLconstant"; break;
+      case LangAS::opencl_private:  ASString = "CLprivate";  break;
       case LangAS::opencl_generic:  ASString = "CLgeneric";  break;
       //  <CUDA-addrspace> ::= "CU" [ "device" | "constant" | "shared" ]
       case LangAS::cuda_device:     ASString = "CUdevice";   break;
@@ -2271,7 +2281,8 @@ void CXXNameMangler::mangleQualifiers(Qualifiers Quals) {
       case LangAS::cuda_shared:     ASString = "CUshared";   break;
       }
     }
-    mangleVendorQualifier(ASString);
+    if (!ASString.empty())
+      mangleVendorQualifier(ASString);
   }
 
   // The ARC ownership qualifiers start with underscores.
@@ -2486,11 +2497,19 @@ void CXXNameMangler::mangleType(QualType T) {
     // substitution at the original type.
   }
 
-  if (quals) {
-    mangleQualifiers(quals);
-    // Recurse:  even if the qualified type isn't yet substitutable,
-    // the unqualified type might be.
-    mangleType(QualType(ty, 0));
+  if (quals || ty->isDependentAddressSpaceType()) {
+    if (const DependentAddressSpaceType *DAST = 
+        dyn_cast<DependentAddressSpaceType>(ty)) {
+      SplitQualType splitDAST = DAST->getPointeeType().split();
+      mangleQualifiers(splitDAST.Quals, DAST);
+      mangleType(QualType(splitDAST.Ty, 0));
+    } else {
+      mangleQualifiers(quals);
+
+      // Recurse:  even if the qualified type isn't yet substitutable,
+      // the unqualified type might be.
+      mangleType(QualType(ty, 0));
+    }
   } else {
 #if INTEL_CUSTOMIZATION
     // CQ371729: Special mangling for __mN vector types.
@@ -3150,16 +3169,18 @@ void CXXNameMangler::mangleType(const VectorType *T, bool IsMType) { // INTEL
   auto &LangOpts = getASTContext().getLangOpts();
   // __m64 is a special type, mangled as if it is defined as two ints, while in
   // reality it is a long long.
-  if (LangOpts.IntelCompat && IsMType && (T->getNumElements() == 1) &&
+  if (LangOpts.IntelCompat && !LangOpts.OpenCL && IsMType &&
+      (T->getNumElements() == 1) &&
       (getASTContext().getTypeSize(T->getElementType()) == 64)) {
     if (LangOpts.GNUFABIVersion < 4)
       Out << "U8__vectori";
     else
       Out << "Dv2_i";
     return;
+  }
   // CQ382285: Mangle GNU vector types exactly as icc does.
-  } else if (LangOpts.IntelCompat && (IsMType || LangOpts.EmulateGNUABIBugs) &&
-             (LangOpts.GNUFABIVersion < 4))
+  if (LangOpts.IntelCompat && !LangOpts.OpenCL &&
+      (IsMType || LangOpts.EmulateGNUABIBugs) && (LangOpts.GNUFABIVersion < 4))
     Out << "U8__vector";
   else
 #endif // INTEL_CUSTOMIZATION
@@ -3179,6 +3200,12 @@ void CXXNameMangler::mangleType(const DependentSizedExtVectorType *T) {
   mangleExpression(T->getSizeExpr());
   Out << '_';
   mangleType(T->getElementType());
+}
+
+void CXXNameMangler::mangleType(const DependentAddressSpaceType *T) {
+  SplitQualType split = T->getPointeeType().split();
+  mangleQualifiers(split.Quals, T);
+  mangleType(QualType(split.Ty, 0));
 }
 
 void CXXNameMangler::mangleType(const PackExpansionType *T) {
@@ -3754,7 +3781,6 @@ recurse:
     if (const Expr *Base = PDE->getBase())
       mangleMemberExprBase(Base, PDE->isArrow());
     NestedNameSpecifier *Qualifier = PDE->getQualifier();
-    QualType ScopeType;
     if (TypeSourceInfo *ScopeInfo = PDE->getScopeTypeInfo()) {
       if (Qualifier) {
         mangleUnresolvedPrefix(Qualifier,
@@ -4372,7 +4398,13 @@ void CXXNameMangler::mangleFunctionParam(const ParmVarDecl *parm) {
   // get mangled if used as an rvalue of a known non-class type?
   assert(!parm->getType()->isArrayType()
          && "parameter's type is still an array type?");
-  mangleQualifiers(parm->getType().getQualifiers());
+
+  if (const DependentAddressSpaceType *DAST =
+      dyn_cast<DependentAddressSpaceType>(parm->getType())) {
+    mangleQualifiers(DAST->getPointeeType().getQualifiers(), DAST);
+  } else {
+    mangleQualifiers(parm->getType().getQualifiers());
+  }
 
   // Parameter index.
   if (parmIndex != 0) {

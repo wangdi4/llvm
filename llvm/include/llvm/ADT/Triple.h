@@ -179,7 +179,8 @@ public:
     WatchOS,    // Apple watchOS
     Mesa3D,
     Contiki,
-    LastOSType = Contiki
+    AMDPAL,     // AMD PAL Runtime
+    LastOSType = AMDPAL
   };
   enum EnvironmentType {
     UnknownEnvironment,
@@ -204,7 +205,8 @@ public:
     AMDOpenCL,
     CoreCLR,
     OpenCL,
-    LastEnvironmentType = OpenCL
+    Simulator,  // Simulator variants of other systems, e.g., Apple's iOS
+    LastEnvironmentType = Simulator
   };
   enum ObjectFormatType {
     UnknownObjectFormat,
@@ -469,6 +471,10 @@ public:
     return isMacOSX() || isiOS() || isWatchOS();
   }
 
+  bool isSimulatorEnvironment() const {
+    return getEnvironment() == Triple::Simulator;
+  }
+
   bool isOSNetBSD() const {
     return getOS() == Triple::NetBSD;
   }
@@ -494,6 +500,8 @@ public:
   bool isOSIAMCU() const {
     return getOS() == Triple::ELFIAMCU;
   }
+
+  bool isOSUnknown() const { return getOS() == Triple::UnknownOS; }
 
   bool isGNUEnvironment() const {
     EnvironmentType Env = getEnvironment();
@@ -647,8 +655,15 @@ public:
     return getArch() == Triple::arm || getArch() == Triple::armeb;
   }
 
+  /// Tests whether the target is AArch64 (little and big endian).
+  bool isAArch64() const {
+    return getArch() == Triple::aarch64 || getArch() == Triple::aarch64_be;
+  }
+
   /// Tests wether the target supports comdat
-  bool supportsCOMDAT() const { return !isOSBinFormatMachO(); }
+  bool supportsCOMDAT() const {
+    return !isOSBinFormatMachO() && !isOSBinFormatWasm();
+  }
 
   /// @}
   /// @name Mutators

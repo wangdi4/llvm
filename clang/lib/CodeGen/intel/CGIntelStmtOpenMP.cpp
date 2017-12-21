@@ -1143,9 +1143,38 @@ namespace CGIntelOpenMP {
     emitListClause();
   }
 
-  void OpenMPCodeOutliner::emitOMPCopyprivateClause(
-                                        const OMPCopyprivateClause *) {}
-  void OpenMPCodeOutliner::emitOMPFlushClause(const OMPFlushClause *) {}
+  void OpenMPCodeOutliner::emitOMPFlushClause(const OMPFlushClause *Cl) {
+    addArg("QUAL.OMP.FLUSH");
+    for (auto *E : Cl->varlists())
+      addArg(E);
+    emitListClause();
+  }
+
+  void
+  OpenMPCodeOutliner::emitOMPCopyprivateClause(const OMPCopyprivateClause *Cl) {
+    auto ISrcExpr = Cl->source_exprs().begin();
+    auto IDestExpr = Cl->destination_exprs().begin();
+    auto IAssignOp = Cl->assignment_ops().begin();
+    for (auto *E : Cl->varlists()) {
+      auto *PVD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
+      addExplicit(PVD);
+      bool IsPODType = E->getType().isPODType(CGF.getContext());
+      if (IsPODType)
+        addArg("QUAL.OMP.COPYPRIVATE");
+      else
+        addArg("QUAL.OMP.COPYPRIVATE:NONPOD");
+      addArg(E);
+      if (!IsPODType) {
+        addArg(emitIntelOpenMPCopyAssign(E->getType(), *ISrcExpr, *IDestExpr,
+                                         *IAssignOp));
+      }
+      ++ISrcExpr;
+      ++IDestExpr;
+      ++IAssignOp;
+      emitListClause();
+    }
+  }
+
   void OpenMPCodeOutliner::emitOMPReadClause(const OMPReadClause *) {}
   void OpenMPCodeOutliner::emitOMPWriteClause(const OMPWriteClause *) {}
   void OpenMPCodeOutliner::emitOMPUpdateClause(const OMPUpdateClause *) {}
@@ -1381,6 +1410,15 @@ namespace CGIntelOpenMP {
   void OpenMPCodeOutliner::emitOMPDistributeDirective() {
     startDirectiveIntrinsicSet("DIR.OMP.DISTRIBUTE", "DIR.OMP.END.DISTRIBUTE");
   }
+  void OpenMPCodeOutliner::emitOMPSectionsDirective() {
+    startDirectiveIntrinsicSet("DIR.OMP.SECTIONS", "DIR.OMP.END.SECTIONS");
+  }
+  void OpenMPCodeOutliner::emitOMPSectionDirective() {
+    startDirectiveIntrinsicSet("DIR.OMP.SECTION", "DIR.OMP.END.SECTION");
+  }
+  void OpenMPCodeOutliner::emitOMPParallelSectionsDirective() {
+    startDirectiveIntrinsicSet("DIR.OMP.PARALLEL.SECTIONS", "DIR.OMP.END.PARALLEL.SECTIONS");
+  }
   OpenMPCodeOutliner &OpenMPCodeOutliner::operator<<(
                                          ArrayRef<OMPClause *> Clauses) {
     for (auto *C : Clauses) {
@@ -1571,23 +1609,29 @@ void CodeGenFunction::EmitIntelOpenMPDirective(
   case OMPD_taskyield:
     Outliner.emitOMPTaskYieldDirective();
     break;
+  case OMPD_teams:
+    Outliner.emitOMPTeamsDirective();
+    break;
   case OMPD_barrier:
     Outliner.emitOMPBarrierDirective();
     break;
   case OMPD_flush:
     Outliner.emitOMPFlushDirective();
     break;
-  case OMPD_teams:
-    Outliner.emitOMPTeamsDirective();
-    break;
   case OMPD_sections:
+    Outliner.emitOMPSectionsDirective();
+    break;
   case OMPD_section:
+    Outliner.emitOMPSectionDirective();
+    break;
+  case OMPD_parallel_sections:
+    Outliner.emitOMPParallelSectionsDirective();
+    break;
   case OMPD_teams_distribute:
   case OMPD_teams_distribute_simd:
   case OMPD_teams_distribute_parallel_for:
   case OMPD_teams_distribute_parallel_for_simd:
   case OMPD_cancel:
-  case OMPD_parallel_sections:
   case OMPD_for_simd:
   case OMPD_cancellation_point:
   case OMPD_target_enter_data:

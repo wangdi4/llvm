@@ -1204,6 +1204,10 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
   MCTargetStreamer &TS = *OutStreamer->getTargetStreamer();
   ARMTargetStreamer &ATS = static_cast<ARMTargetStreamer &>(TS);
 
+  const MachineFunction &MF = *MI->getParent()->getParent();
+  const ARMSubtarget &STI = MF.getSubtarget<ARMSubtarget>();
+  unsigned FramePtr = STI.useR7AsFramePointer() ? ARM::R7 : ARM::R11;
+
   // If we just ended a constant pool, mark it as such.
   if (InConstantPool && MI->getOpcode() != ARM::CONSTPOOL_ENTRY) {
     OutStreamer->EmitDataRegion(MCDR_DataRegionEnd);
@@ -1538,7 +1542,6 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
     EmitJumpTableTBInst(MI, MI->getOpcode() == ARM::JUMPTABLE_TBB ? 1 : 2);
     return;
   case ARM::t2BR_JT: {
-    // Lower and emit the instruction itself, then the jump table following it.
     EmitToStreamer(*OutStreamer, MCInstBuilder(ARM::tMOVr)
       .addReg(ARM::PC)
       .addReg(MI->getOperand(0).getReg())
@@ -1647,7 +1650,6 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
   }
   case ARM::tBR_JTr:
   case ARM::BR_JTr: {
-    // Lower and emit the instruction itself, then the jump table following it.
     // mov pc, target
     MCInst TmpInst;
     unsigned Opc = MI->getOpcode() == ARM::BR_JTr ?
@@ -1664,23 +1666,27 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
     EmitToStreamer(*OutStreamer, TmpInst);
     return;
   }
-  case ARM::BR_JTm: {
-    // Lower and emit the instruction itself, then the jump table following it.
+  case ARM::BR_JTm_i12: {
     // ldr pc, target
     MCInst TmpInst;
-    if (MI->getOperand(1).getReg() == 0) {
-      // literal offset
-      TmpInst.setOpcode(ARM::LDRi12);
-      TmpInst.addOperand(MCOperand::createReg(ARM::PC));
-      TmpInst.addOperand(MCOperand::createReg(MI->getOperand(0).getReg()));
-      TmpInst.addOperand(MCOperand::createImm(MI->getOperand(2).getImm()));
-    } else {
-      TmpInst.setOpcode(ARM::LDRrs);
-      TmpInst.addOperand(MCOperand::createReg(ARM::PC));
-      TmpInst.addOperand(MCOperand::createReg(MI->getOperand(0).getReg()));
-      TmpInst.addOperand(MCOperand::createReg(MI->getOperand(1).getReg()));
-      TmpInst.addOperand(MCOperand::createImm(0));
-    }
+    TmpInst.setOpcode(ARM::LDRi12);
+    TmpInst.addOperand(MCOperand::createReg(ARM::PC));
+    TmpInst.addOperand(MCOperand::createReg(MI->getOperand(0).getReg()));
+    TmpInst.addOperand(MCOperand::createImm(MI->getOperand(2).getImm()));
+    // Add predicate operands.
+    TmpInst.addOperand(MCOperand::createImm(ARMCC::AL));
+    TmpInst.addOperand(MCOperand::createReg(0));
+    EmitToStreamer(*OutStreamer, TmpInst);
+    return;
+  }
+  case ARM::BR_JTm_rs: {
+    // ldr pc, target
+    MCInst TmpInst;
+    TmpInst.setOpcode(ARM::LDRrs);
+    TmpInst.addOperand(MCOperand::createReg(ARM::PC));
+    TmpInst.addOperand(MCOperand::createReg(MI->getOperand(0).getReg()));
+    TmpInst.addOperand(MCOperand::createReg(MI->getOperand(1).getReg()));
+    TmpInst.addOperand(MCOperand::createImm(MI->getOperand(2).getImm()));
     // Add predicate operands.
     TmpInst.addOperand(MCOperand::createImm(ARMCC::AL));
     TmpInst.addOperand(MCOperand::createReg(0));
@@ -1688,7 +1694,6 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
     return;
   }
   case ARM::BR_JTadd: {
-    // Lower and emit the instruction itself, then the jump table following it.
     // add pc, target, idx
     EmitToStreamer(*OutStreamer, MCInstBuilder(ARM::ADDrr)
       .addReg(ARM::PC)
@@ -1884,13 +1889,33 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
       .addImm(ARMCC::AL)
       .addReg(0));
 
-    EmitToStreamer(*OutStreamer, MCInstBuilder(ARM::LDRi12)
-      .addReg(ARM::R7)
-      .addReg(SrcReg)
-      .addImm(0)
-      // Predicate.
-      .addImm(ARMCC::AL)
-      .addReg(0));
+    if (STI.isTargetDarwin() || STI.isTargetWindows()) {
+      // These platforms always use the same frame register
+      EmitToStreamer(*OutStreamer, MCInstBuilder(ARM::LDRi12)
+        .addReg(FramePtr)
+        .addReg(SrcReg)
+        .addImm(0)
+        // Predicate.
+        .addImm(ARMCC::AL)
+        .addReg(0));
+    } else {
+      // If the calling code might use either R7 or R11 as
+      // frame pointer register, restore it into both.
+      EmitToStreamer(*OutStreamer, MCInstBuilder(ARM::LDRi12)
+        .addReg(ARM::R7)
+        .addReg(SrcReg)
+        .addImm(0)
+        // Predicate.
+        .addImm(ARMCC::AL)
+        .addReg(0));
+      EmitToStreamer(*OutStreamer, MCInstBuilder(ARM::LDRi12)
+        .addReg(ARM::R11)
+        .addReg(SrcReg)
+        .addImm(0)
+        // Predicate.
+        .addImm(ARMCC::AL)
+        .addReg(0));
+    }
 
     assert(Subtarget->hasV4TOps());
     EmitToStreamer(*OutStreamer, MCInstBuilder(ARM::BX)
@@ -1934,13 +1959,33 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
       .addImm(ARMCC::AL)
       .addReg(0));
 
-    EmitToStreamer(*OutStreamer, MCInstBuilder(ARM::tLDRi)
-      .addReg(ARM::R7)
-      .addReg(SrcReg)
-      .addImm(0)
-      // Predicate.
-      .addImm(ARMCC::AL)
-      .addReg(0));
+    if (STI.isTargetDarwin() || STI.isTargetWindows()) {
+      // These platforms always use the same frame register
+      EmitToStreamer(*OutStreamer, MCInstBuilder(ARM::tLDRi)
+        .addReg(FramePtr)
+        .addReg(SrcReg)
+        .addImm(0)
+        // Predicate.
+        .addImm(ARMCC::AL)
+        .addReg(0));
+    } else {
+      // If the calling code might use either R7 or R11 as
+      // frame pointer register, restore it into both.
+      EmitToStreamer(*OutStreamer, MCInstBuilder(ARM::tLDRi)
+        .addReg(ARM::R7)
+        .addReg(SrcReg)
+        .addImm(0)
+        // Predicate.
+        .addImm(ARMCC::AL)
+        .addReg(0));
+      EmitToStreamer(*OutStreamer, MCInstBuilder(ARM::tLDRi)
+        .addReg(ARM::R11)
+        .addReg(SrcReg)
+        .addImm(0)
+        // Predicate.
+        .addImm(ARMCC::AL)
+        .addReg(0));
+    }
 
     EmitToStreamer(*OutStreamer, MCInstBuilder(ARM::tBX)
       .addReg(ScratchReg)

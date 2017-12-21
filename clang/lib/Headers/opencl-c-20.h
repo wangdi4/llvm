@@ -151,6 +151,41 @@ uint    __ovld get_enqueued_num_sub_groups(void);
 void    __ovld __conv sub_group_barrier(cl_mem_fence_flags flags, memory_scope scope);
 #endif
 
+// Intel-Specific Sub Group Functions
+#if defined(cl_intel_subgroups)
+uint    __ovld __conv intel_sub_group_block_read(read_write image2d_t image, int2 coord);
+uint2   __ovld __conv intel_sub_group_block_read2(read_write image2d_t image, int2 coord);
+uint4   __ovld __conv intel_sub_group_block_read4(read_write image2d_t image, int2 coord);
+uint8   __ovld __conv intel_sub_group_block_read8(read_write image2d_t image, int2 coord);
+
+void    __ovld __conv intel_sub_group_block_write(read_write image2d_t image, int2 coord, uint data);
+void    __ovld __conv intel_sub_group_block_write2(read_write image2d_t image, int2 coord, uint2 data);
+void    __ovld __conv intel_sub_group_block_write4(read_write image2d_t image, int2 coord, uint4 data);
+void    __ovld __conv intel_sub_group_block_write8(read_write image2d_t image, int2 coord, uint8 data);
+#endif //cl_intel_subgroups
+
+#if defined(cl_intel_subgroups_short)
+uint    __ovld __conv intel_sub_group_block_read_ui( read_write image2d_t image, int2 byte_coord );
+uint2   __ovld __conv intel_sub_group_block_read_ui2( read_write image2d_t image, int2 byte_coord );
+uint4   __ovld __conv intel_sub_group_block_read_ui4( read_write image2d_t image, int2 byte_coord );
+uint8   __ovld __conv intel_sub_group_block_read_ui8( read_write image2d_t image, int2 byte_coord );
+
+void    __ovld __conv intel_sub_group_block_write_ui( read_write image2d_t image, int2 byte_coord, uint data );
+void    __ovld __conv intel_sub_group_block_write_ui2( read_write image2d_t image, int2 byte_coord, uint2 data );
+void    __ovld __conv intel_sub_group_block_write_ui4( read_write image2d_t image, int2 byte_coord, uint4 data );
+void    __ovld __conv intel_sub_group_block_write_ui8( read_write image2d_t image, int2 byte_coord, uint8 data );
+
+ushort  __ovld __conv intel_sub_group_block_read_us( read_write image2d_t image, int2 coord);
+ushort2 __ovld __conv intel_sub_group_block_read_us2( read_write image2d_t image, int2 coord);
+ushort4 __ovld __conv intel_sub_group_block_read_us4( read_write image2d_t image, int2 coord);
+ushort8 __ovld __conv intel_sub_group_block_read_us8( read_write image2d_t image, int2 coord);
+
+void    __ovld __conv intel_sub_group_block_write_us( read_write image2d_t image, int2 coord, ushort  data);
+void    __ovld __conv intel_sub_group_block_write_us2( read_write image2d_t image, int2 coord, ushort2 data);
+void    __ovld __conv intel_sub_group_block_write_us4( read_write image2d_t image, int2 coord, ushort4 data);
+void    __ovld __conv intel_sub_group_block_write_us8( read_write image2d_t image, int2 coord, ushort8 data);
+#endif // cl_intel_subgroups_short
+
 /**
  * Builtin functions to_global, to_local, and to_private need to be declared as Clang builtin functions
  * and checked in Sema since they should be declared as

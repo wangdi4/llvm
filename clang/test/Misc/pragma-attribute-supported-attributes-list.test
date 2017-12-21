@@ -3,7 +3,8 @@
 // The number of supported attributes should never go down!
 
 // if INTEL_CUSTOMIZATION
-// CHECK: #pragma clang attribute supports 71 attributes:
+// NOTE: The below value is currently Community value +6.
+// CHECK: #pragma clang attribute supports 72 attributes:
 // endif INTEL_CUSTOMIZATION
 // CHECK-NEXT: AMDGPUFlatWorkGroupSize (SubjectMatchRule_function)
 // CHECK-NEXT: AMDGPUNumSGPR (SubjectMatchRule_function)
@@ -48,6 +49,7 @@
 // CHECK-NEXT: NoSanitize (SubjectMatchRule_function, SubjectMatchRule_objc_method, SubjectMatchRule_variable_is_global)
 // CHECK-NEXT: NoSanitizeSpecific (SubjectMatchRule_function, SubjectMatchRule_variable_is_global)
 // CHECK-NEXT: NoSplitStack (SubjectMatchRule_function)
+// CHECK-NEXT: NoThrow (SubjectMatchRule_function)
 // CHECK-NEXT: NotTailCalled (SubjectMatchRule_function)
 // if INTEL_CUSTOMIZATION
 // CHECK-NEXT: NumComputeUnits (SubjectMatchRule_function)
@@ -84,5 +86,5 @@
 // CHECK-NEXT: VecLenHint (SubjectMatchRule_function)
 // endif INTEL_CUSTOMIZATION
 // CHECK-NEXT: WarnUnusedResult (SubjectMatchRule_objc_method, SubjectMatchRule_enum, SubjectMatchRule_record, SubjectMatchRule_hasType_functionType)
-// CHECK-NEXT: XRayInstrument (SubjectMatchRule_function_is_member, SubjectMatchRule_objc_method, SubjectMatchRule_function)
-// CHECK-NEXT: XRayLogArgs (SubjectMatchRule_function_is_member, SubjectMatchRule_objc_method, SubjectMatchRule_function)
+// CHECK-NEXT: XRayInstrument (SubjectMatchRule_function, SubjectMatchRule_objc_method)
+// CHECK-NEXT: XRayLogArgs (SubjectMatchRule_function, SubjectMatchRule_objc_method)

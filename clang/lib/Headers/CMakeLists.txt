@@ -27,9 +27,11 @@ set(modified_files
   __clang_cuda_intrinsics.h
   __clang_cuda_math_forward_declares.h
   __clang_cuda_runtime_wrapper.h
+  cetintrin.h
   clzerointrin.h
   cpuid.h
   clflushoptintrin.h
+  clwbintrin.h
   emmintrin.h
   f16cintrin.h
   fmaintrin.h
@@ -164,10 +166,8 @@ endforeach( f )
 add_custom_target(intel-intrinsic-headers ALL DEPENDS ${intel_out_files})
 set_target_properties(intel-intrinsic-headers PROPERTIES FOLDER "Misc")
 
-set(install_headers ${out_files})
-
 install(
-  FILES ${install_headers} ${CMAKE_CURRENT_BINARY_DIR}/arm_neon.h
+  FILES ${all_files} ${CMAKE_CURRENT_BINARY_DIR}/arm_neon.h
   COMPONENT clang-headers
   PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
   DESTINATION lib${LLVM_LIBDIR_SUFFIX}/clang/${CLANG_VERSION}/include)

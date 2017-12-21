@@ -96,9 +96,8 @@ namespace {
         BFI.StorageSize = AtomicSizeInBits;
         BFI.StorageOffset += OffsetInChars;
         LVal = LValue::MakeBitfield(Address(Addr, lvalue.getAlignment()),
-                                    BFI, lvalue.getType(),
-                                    lvalue.getBaseInfo());
-        LVal.setTBAAInfo(lvalue.getTBAAInfo());
+                                    BFI, lvalue.getType(), lvalue.getBaseInfo(),
+                                    lvalue.getTBAAInfo());
         AtomicTy = C.getIntTypeForBitwidth(AtomicSizeInBits, OrigBFI.IsSigned);
         if (AtomicTy.isNull()) {
           llvm::APInt Size(
@@ -1742,7 +1741,8 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
       return RValue::get(nullptr);
 
     return convertTempToRValue(
-        Builder.CreateBitCast(Dest, ConvertTypeForMem(RValTy)->getPointerTo()),
+        Builder.CreateBitCast(Dest, ConvertTypeForMem(RValTy)->getPointerTo(
+                                        Dest.getAddressSpace())),
         RValTy, E->getExprLoc());
   }
 
@@ -1814,7 +1814,8 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
 
   assert(Atomics.getValueSizeInBits() <= Atomics.getAtomicSizeInBits());
   return convertTempToRValue(
-      Builder.CreateBitCast(Dest, ConvertTypeForMem(RValTy)->getPointerTo()),
+      Builder.CreateBitCast(Dest, ConvertTypeForMem(RValTy)->getPointerTo(
+                                      Dest.getAddressSpace())),
       RValTy, E->getExprLoc());
 }
 
@@ -1861,15 +1862,15 @@ RValue AtomicInfo::convertAtomicTempToRValue(Address addr,
   if (LVal.isBitField())
     return CGF.EmitLoadOfBitfieldLValue(
         LValue::MakeBitfield(addr, LVal.getBitFieldInfo(), LVal.getType(),
-                             LVal.getBaseInfo()), loc);
+                             LVal.getBaseInfo(), TBAAAccessInfo()), loc);
   if (LVal.isVectorElt())
     return CGF.EmitLoadOfLValue(
         LValue::MakeVectorElt(addr, LVal.getVectorIdx(), LVal.getType(),
-                              LVal.getBaseInfo()), loc);
+                              LVal.getBaseInfo(), TBAAAccessInfo()), loc);
   assert(LVal.isExtVectorElt());
   return CGF.EmitLoadOfExtVectorElementLValue(LValue::MakeExtVectorElt(
       addr, LVal.getExtVectorElts(), LVal.getType(),
-      LVal.getBaseInfo()));
+      LVal.getBaseInfo(), TBAAAccessInfo()));
 }
 
 RValue AtomicInfo::ConvertIntToValueOrAtomic(llvm::Value *IntVal,
@@ -1940,8 +1941,7 @@ llvm::Value *AtomicInfo::EmitAtomicLoadOp(llvm::AtomicOrdering AO,
   // Other decoration.
   if (IsVolatile)
     Load->setVolatile(true);
-  if (LVal.getTBAAInfo())
-    CGF.CGM.DecorateInstructionWithTBAA(Load, LVal.getTBAAInfo());
+  CGF.CGM.DecorateInstructionWithTBAA(Load, LVal.getTBAAInfo());
   return Load;
 }
 
@@ -2186,29 +2186,30 @@ EmitAtomicUpdateValue(CodeGenFunction &CGF, AtomicInfo &Atomics, RValue OldRVal,
       UpdateLVal =
           LValue::MakeBitfield(Ptr, AtomicLVal.getBitFieldInfo(),
                                AtomicLVal.getType(),
-                               AtomicLVal.getBaseInfo());
+                               AtomicLVal.getBaseInfo(),
+                               AtomicLVal.getTBAAInfo());
       DesiredLVal =
           LValue::MakeBitfield(DesiredAddr, AtomicLVal.getBitFieldInfo(),
-                               AtomicLVal.getType(),
-                               AtomicLVal.getBaseInfo());
+                               AtomicLVal.getType(), AtomicLVal.getBaseInfo(),
+                               AtomicLVal.getTBAAInfo());
     } else if (AtomicLVal.isVectorElt()) {
       UpdateLVal = LValue::MakeVectorElt(Ptr, AtomicLVal.getVectorIdx(),
                                          AtomicLVal.getType(),
-                                         AtomicLVal.getBaseInfo());
+                                         AtomicLVal.getBaseInfo(),
+                                         AtomicLVal.getTBAAInfo());
       DesiredLVal = LValue::MakeVectorElt(
           DesiredAddr, AtomicLVal.getVectorIdx(), AtomicLVal.getType(),
-          AtomicLVal.getBaseInfo());
+          AtomicLVal.getBaseInfo(), AtomicLVal.getTBAAInfo());
     } else {
       assert(AtomicLVal.isExtVectorElt());
       UpdateLVal = LValue::MakeExtVectorElt(Ptr, AtomicLVal.getExtVectorElts(),
                                             AtomicLVal.getType(),
-                                            AtomicLVal.getBaseInfo());
+                                            AtomicLVal.getBaseInfo(),
+                                            AtomicLVal.getTBAAInfo());
       DesiredLVal = LValue::MakeExtVectorElt(
           DesiredAddr, AtomicLVal.getExtVectorElts(), AtomicLVal.getType(),
-          AtomicLVal.getBaseInfo());
+          AtomicLVal.getBaseInfo(), AtomicLVal.getTBAAInfo());
     }
-    UpdateLVal.setTBAAInfo(AtomicLVal.getTBAAInfo());
-    DesiredLVal.setTBAAInfo(AtomicLVal.getTBAAInfo());
     UpRVal = CGF.EmitLoadOfLValue(UpdateLVal, SourceLocation());
   }
   // Store new value in the corresponding memory area
@@ -2291,20 +2292,19 @@ static void EmitAtomicUpdateValue(CodeGenFunction &CGF, AtomicInfo &Atomics,
   if (AtomicLVal.isBitField()) {
     DesiredLVal =
         LValue::MakeBitfield(DesiredAddr, AtomicLVal.getBitFieldInfo(),
-                             AtomicLVal.getType(),
-                             AtomicLVal.getBaseInfo());
+                             AtomicLVal.getType(), AtomicLVal.getBaseInfo(),
+                             AtomicLVal.getTBAAInfo());
   } else if (AtomicLVal.isVectorElt()) {
     DesiredLVal =
         LValue::MakeVectorElt(DesiredAddr, AtomicLVal.getVectorIdx(),
-                              AtomicLVal.getType(),
-                              AtomicLVal.getBaseInfo());
+                              AtomicLVal.getType(), AtomicLVal.getBaseInfo(),
+                              AtomicLVal.getTBAAInfo());
   } else {
     assert(AtomicLVal.isExtVectorElt());
     DesiredLVal = LValue::MakeExtVectorElt(
         DesiredAddr, AtomicLVal.getExtVectorElts(), AtomicLVal.getType(),
-        AtomicLVal.getBaseInfo());
+        AtomicLVal.getBaseInfo(), AtomicLVal.getTBAAInfo());
   }
-  DesiredLVal.setTBAAInfo(AtomicLVal.getTBAAInfo());
   // Store new value in the corresponding memory area
   assert(UpdateRVal.isScalar());
   CGF.EmitStoreThroughLValue(UpdateRVal, DesiredLVal);
@@ -2457,8 +2457,7 @@ void CodeGenFunction::EmitAtomicStore(RValue rvalue, LValue dest,
     // Other decoration.
     if (IsVolatile)
       store->setVolatile(true);
-    if (dest.getTBAAInfo())
-      CGM.DecorateInstructionWithTBAA(store, dest.getTBAAInfo());
+    CGM.DecorateInstructionWithTBAA(store, dest.getTBAAInfo());
     return;
   }
 
