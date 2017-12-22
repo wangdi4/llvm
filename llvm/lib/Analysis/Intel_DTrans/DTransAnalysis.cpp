@@ -137,7 +137,8 @@ public:
       analyzeValue(V);
     // Now the information we want will be in the map.
     LocalPointerInfo &Info = LocalMap[V];
-    assert(Info.getAnalyzed() && "Local pointer analysis failed.");
+    assert((Info.getAnalyzed() || InProgressValues.count(V)) &&
+           "Local pointer analysis failed.");
     return Info;
   }
 
@@ -150,15 +151,23 @@ private:
   SmallPtrSet<Value *, 8> InProgressValues;
 
   void analyzeValue(Value *V) {
-    // If we're already working on this value (for instance, tracing the
-    // incoming values of a PHI node), don't go any further.
-    if (!InProgressValues.insert(V).second)
-      return;
-
     // If we've already analyzed this value, there is no need to
     // repeat the work.
     LocalPointerInfo &Info = LocalMap[V];
     if (Info.getAnalyzed())
+      return;
+
+    // If this isn't either a pointer or the result of a ptrtoint we don't
+    // need to do any analysis.
+    if (!V->getType()->isPointerTy() && !isa<PtrToIntInst>(V)) {
+      Info.setAnalyzed();
+      InProgressValues.erase(V);
+      return;
+    }
+
+    // If we're already working on this value (for instance, tracing the
+    // incoming values of a PHI node), don't go any further.
+    if (!InProgressValues.insert(V).second)
       return;
 
     // If this value is derived from another local value, follow the
