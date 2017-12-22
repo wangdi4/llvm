@@ -1114,6 +1114,8 @@ void CodeGenFunction::EmitReturnOfRValue(RValue RV, QualType Ty) {
 #if INTEL_CUSTOMIZATION
 // Checks the expression is the candidate of the fakeload intrinsic
 bool CodeGenFunction::IsFakeLoadCand(const Expr *RV) {
+  if (RV->getType()->isIncompleteType())
+    return false;
   if (RV->getStmtClass() == Expr::ArraySubscriptExprClass ||
       RV->getStmtClass() == Expr::MemberExprClass)
     return true;
