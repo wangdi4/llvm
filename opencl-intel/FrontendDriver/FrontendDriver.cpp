@@ -139,8 +139,8 @@ bool ClangFECompiler::CheckCompileOptions(const char *szOptions,
 bool ClangFECompiler::CheckLinkOptions(const char *szOptions,
                                        char *szUnrecognizedOptions,
                                        size_t uiUnrecognizedOptionsSize) {
-  return ClangFECompilerCheckLinkOptions(szOptions, szUnrecognizedOptions,
-                                         uiUnrecognizedOptionsSize);
+  return ClangLinkOptions(szOptions).checkOptions(szUnrecognizedOptions,
+                                                  uiUnrecognizedOptionsSize);
 }
 
 namespace Intel {

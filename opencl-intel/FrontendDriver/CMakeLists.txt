@@ -93,6 +93,8 @@ target_link_libraries(${TARGET_NAME}
     # be actually used for every particular call to LLVM.
     LLVMBitWriter
     LLVMCore
+    LLVMLinker
+    LLVMOption
     LLVMSupport
     LLVMSPIRVLib
 )
