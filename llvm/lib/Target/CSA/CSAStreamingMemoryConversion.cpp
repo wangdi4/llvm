@@ -143,12 +143,15 @@ MachineOp CSAStreamingMemoryConversionPass::getLength(
     bool isEqual, int64_t stride, MachineInstr *MI) const {
   if (stride < 0)
     return getLength(end, start, isEqual, -stride, MI);
+  CSAInstBuilder builder(*TII);
+  builder.setInsertionPoint(MI);
   if (stride != 1) {
-    if (end.isImm() && isZero(start)) {
-      return OpImm((end.getImm() + stride - 1) / stride);
-    }
-    DEBUG(dbgs() << "Stream has a non-1 stride, not inserting division\n");
-    return nullptr;
+    // Trip count = (end + isEqual - start + stride - 1) / stride
+    return builder.makeOrConstantFold(*LMFI, CSA::SRL64,
+        builder.makeOrConstantFold(*LMFI, CSA::SUB64,
+          builder.makeOrConstantFold(*LMFI, CSA::ADD64,
+            end, OpImm(stride - 1 + isEqual)), start),
+        OpImm(countTrailingZeros((unsigned)stride)));
   }
   if (isZero(start) && !isEqual) {
     return end;
@@ -172,8 +175,6 @@ MachineOp CSAStreamingMemoryConversionPass::getLength(
   }
 
   // Compute the length as end - start.
-  CSAInstBuilder builder(*TII);
-  builder.setInsertionPoint(MI);
   return builder.makeOrConstantFold(*LMFI, CSA::SUB64, end, effectiveStart);
 }
 

@@ -162,6 +162,8 @@ public:
     // analyses at O0.
     if (getOptLevel() != CodeGenOpt::None) {
       addPass(createCSAInnerLoopPrepPass());
+      // Add streaming memory reductions.
+      addPass(createCSAStreamingMemoryPrepPass());
     }
 
     // Remove any remaining intrinsics which should not go through instruction selection

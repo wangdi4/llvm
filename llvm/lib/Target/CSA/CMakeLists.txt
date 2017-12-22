@@ -36,6 +36,7 @@ add_llvm_target(CSACodeGen
   CSASelectionDAGInfo.cpp
   CSAStatistics.cpp
   CSAStreamingMemoryConversion.cpp
+  CSAStreamingMemoryPrep.cpp
   CSASubtarget.cpp
   CSATargetMachine.cpp
   MachineCDG.cpp
