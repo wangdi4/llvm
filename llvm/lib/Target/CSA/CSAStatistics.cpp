@@ -43,21 +43,6 @@ using namespace llvm;
 
 #define DEBUG_TYPE "csa-statistics"
 
-STATISTIC(NumPICKS, "Number of PICK instrucitons generated");
-STATISTIC(NumSWITCHES, "Number of SWITCH instructions generated");
-STATISTIC(NumCOPYS, "Number of COPY instructions generated");
-STATISTIC(NumINITS, "Number of LIC INITIALIZE instructions generated");
-STATISTIC(NumADDS, "Number of Add instrucitons generated");
-STATISTIC(NumSUBS, "Number of Sub instrucitons generated");
-STATISTIC(NumFMAS, "Number of FMA instrucitons generated");
-STATISTIC(NumMULS, "Number of MUL instrucitons generated");
-STATISTIC(NumDIVS, "Number of DIV instrucitons generated");
-STATISTIC(NumLOADS, "Number of LOAD instrucitons generated");
-STATISTIC(NumSTORES, "Number of STORE instrucitons generated");
-STATISTIC(NumCMPS, "Number of COMPARE instrucitons generated");
-STATISTIC(NumSHIFTS, "Number of SHIFT instrucitons generated");
-
-
 static cl::opt<int>
 CSAStatisticsPass("csa-statistics", cl::Hidden,
                cl::desc("CSA Specific: Statistics"),
@@ -76,8 +61,21 @@ namespace {
     }
 
     bool runOnMachineFunction(MachineFunction &MF) override;
+    void getAnalysisUsage(AnalysisUsage &AU) const override {
+      AU.addRequired<MachineLoopInfo>();
+      AU.addRequired<ControlDependenceGraph>();
+      //AU.addRequired<LiveVariables>();
+      AU.addRequired<MachineDominatorTree>();
+      AU.addRequired<MachinePostDominatorTree>();
+      AU.addRequired<AAResultsWrapperPass>();
+      AU.setPreservesAll();
+      MachineFunctionPass::getAnalysisUsage(AU);
+    }
+    void CollectStatsForLoop(MachineLoop* L, raw_fd_ostream &O);
   private:
     MachineFunction *thisMF;
+    MachineLoopInfo* MLI;
+    const CSAInstrInfo *TII;
   };
 }
 
@@ -99,63 +97,112 @@ MachineFunctionPass *llvm::createCSAStatisticsPass() {
 }
 
 bool CSAStatistics::runOnMachineFunction(MachineFunction &MF) {
-
   if (CSAStatisticsPass == 0) return false;
   thisMF = &MF;
-  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+  TII = static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+  MLI = &getAnalysis<MachineLoopInfo>();
+
   bool Modified = false;
-  
-  for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
-	  for (MachineBasicBlock::iterator II = BB->begin(), E = BB->end(); II != E; ++II) {
-      MachineInstr *I = &*II;
-		  if (TII.isSwitch(I)) {
-			  NumSWITCHES++;
-		  } else if (TII.isPick(I)) {
-			  NumPICKS++;
-		  } else if (TII.isInit(I)) {
-			  NumINITS++;
-		  } else if (TII.isCopy(I)) {
-			  NumCOPYS++;
-		  }
-		  else if (TII.isLoad(I)) {
-			  NumLOADS++;
-		  }
-		  else if (TII.isStore(I)) {
-			  NumSTORES++;
-		  }
-		  else if (TII.isFMA(I)) {
-			  NumFMAS++;
-		  }
-		  else if (TII.isMul(I)) {
-			  NumMULS++;
-		  }
-		  else if (TII.isDiv(I)) {
-			  NumDIVS++;
-		  }
-		  else if (TII.isAdd(I)) {
-			  NumADDS++;
-		  }
-		  else if (TII.isSub(I)) {
-			  NumSUBS++;
-		  }
-		  else if (TII.isShift(I)) {
-			  NumSHIFTS++;
-		  }
-		  else if (TII.isCmp(I)) {
-			  NumCMPS++;
-		  }
-	  }
-  }
-
-  std::string Filename = thisMF->getName().str() + "_stats" + ".txt";
+  std::string Filename = MF.getName().str() + "_stats" + ".txt";
   std::error_code EC;
-  raw_fd_ostream File1(Filename, EC, sys::fs::F_Text);
+
   DEBUG(errs() << "Writing '" << Filename << "'...");
+  raw_fd_ostream O(Filename, EC, sys::fs::F_Text);
+  O << "CSA Statistics for function" << MF.getName().str() << "\n";
 
-
-  PrintStatistics(File1);
-
+  for (MachineLoopInfo::iterator LI = MLI->begin(), LE = MLI->end(); LI != LE; ++LI) {
+    CollectStatsForLoop(*LI, O);
+  }
+  O << "Top level" << "\n";
+  unsigned numAdd = 0;
+  unsigned numSub = 0;
+  unsigned numMul = 0;
+  unsigned numDiv = 0;
+  unsigned numFMA = 0;
+  unsigned numPick = 0;
+  unsigned numSwitch = 0;
+  unsigned numLoad = 0;
+  unsigned numStore = 0;
+  unsigned numCmp = 0;
+  for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
+    if (MLI->getLoopFor(&*BB)) continue;
+    for (MachineBasicBlock::iterator II = BB->begin(), E = BB->end(); II != E; ++II) {
+      MachineInstr *MI = &*II;
+      if (TII->isLoad(MI)) numLoad++;
+      else if (TII->isStore(MI)) numStore++;
+      else if (TII->isPick(MI) || TII->isPickany(MI)) numPick++;
+      else if (TII->isSwitch(MI)) numSwitch++;
+      else if (TII->isFMA(MI)) numFMA++;
+      else if (TII->isDiv(MI)) numDiv++;
+      else if (TII->isMul(MI)) numMul++;
+      else if (TII->isCmp(MI)) numCmp++;
+      else if (TII->isAdd(MI)) numAdd++;
+      else if (TII->isSub(MI)) numSub++;
+    }
+  }
+  if (numStore) O << "numStore: " << numStore << "\n";
+  if (numLoad) O << "numLoad: " << numLoad << "\n";
+  if (numPick) O << "numPick: " << numPick << "\n";
+  if (numSwitch) O << "numSwitch: " << numSwitch << "\n";
+  if (numFMA) O << "numFMA: " << numFMA << "\n";
+  if (numDiv) O << "numDiv: " << numDiv << "\n";
+  if (numMul) O << "numMul: " << numMul << "\n";
+  if (numCmp) O << "numCmp: " << numCmp << "\n";
+  if (numAdd) O << "numAdd: " << numAdd << "\n";
+  if (numSub) O << "numSub: " << numSub << "\n";
+  O.close();
   return Modified;
+}
 
+void CSAStatistics::CollectStatsForLoop(MachineLoop* L, raw_fd_ostream &O) {
+  for (MachineLoop::iterator LI = L->begin(), LE = L->end(); LI != LE; ++LI) {
+    CollectStatsForLoop(*LI, O);
+  }
+  unsigned numAdd = 0; 
+  unsigned numSub = 0; 
+  unsigned numMul = 0;
+  unsigned numDiv = 0;
+  unsigned numFMA = 0;
+  unsigned numPick = 0;
+  unsigned numSwitch = 0;
+  unsigned numLoad = 0;
+  unsigned numStore = 0;
+  unsigned numCmp = 0;
+
+  MachineLoop *mloop = L;
+  O << "loop header: " << mloop->getHeader()->getBasicBlock()->getName() << "\n";
+  //parent loop
+  if (mloop->getParentLoop())
+    O << "parent loop header: " << mloop->getParentLoop()->getHeader()->getBasicBlock()->getName() << "\n";
+
+
+  for (MachineLoop::block_iterator BI = mloop->block_begin(), BE = mloop->block_end(); BI != BE; ++BI) {
+    MachineBasicBlock* mbb = *BI;
+    //only conside blocks in the current loop level, blocks in the nested level are done before.
+    if (MLI->getLoopFor(mbb) != mloop) continue;
+    for (MachineBasicBlock::iterator I = mbb->begin(); I != mbb->end(); ++I) {
+      MachineInstr *MI = &*I;
+      if (TII->isLoad(MI)) numLoad++;
+      else if (TII->isStore(MI)) numStore++;
+      else if (TII->isPick(MI) || TII->isPickany(MI)) numPick++;
+      else if (TII->isSwitch(MI)) numSwitch++;
+      else if (TII->isFMA(MI)) numFMA++;
+      else if (TII->isDiv(MI)) numDiv++;
+      else if (TII->isMul(MI)) numMul++;
+      else if (TII->isCmp(MI)) numCmp++;
+      else if (TII->isAdd(MI)) numAdd++;
+      else if (TII->isSub(MI)) numSub++;
+    }
+  }
+  if (numStore) O << "numStore: " << numStore << "\n";
+  if (numLoad) O << "numLoad: " << numLoad << "\n";
+  if (numPick) O << "numPick: " << numPick << "\n";
+  if (numSwitch) O << "numSwitch: " << numSwitch << "\n";
+  if (numFMA) O << "numFMA: " << numFMA << "\n";
+  if (numDiv) O << "numDiv: " << numDiv << "\n";
+  if (numMul) O << "numMul: " << numMul << "\n";
+  if (numCmp) O << "numCmp: " << numCmp << "\n";
+  if (numAdd) O << "numAdd: " << numAdd << "\n";
+  if (numSub) O << "numSub: " << numSub << "\n";
 }
 
