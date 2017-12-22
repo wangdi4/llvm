@@ -39,8 +39,9 @@
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/GlobalsModRef.h"
-#include "llvm/Analysis/Intel_AggInline.h"    // INTEL
-#include "llvm/Analysis/Intel_Andersens.h"    // INTEL
+#include "llvm/Analysis/Intel_AggInline.h"                  // INTEL
+#include "llvm/Analysis/Intel_Andersens.h"                  // INTEL
+#include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h" // INTEL
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/PtrUseVisitor.h"
 #include "llvm/IR/BasicBlock.h"
@@ -101,6 +102,7 @@
 
 using namespace llvm;
 using namespace llvm::sroa;
+using namespace llvm::vpo;           // INTEL
 
 #define DEBUG_TYPE "sroa"
 
@@ -3822,7 +3824,7 @@ bool SROA::presplitLoadsAndStores(AllocaInst &AI, AllocaSlices &AS) {
                          PartPtrTy, BasePtr->getName() + "."),
           getAdjustedAlignment(LI, PartOffset, DL), /*IsVolatile*/ false,
           LI->getName());
-      PLoad->copyMetadata(*LI, LLVMContext::MD_mem_parallel_loop_access); 
+      PLoad->copyMetadata(*LI, LLVMContext::MD_mem_parallel_loop_access);
 
       // Append this load onto the list of split loads so we can find it later
       // to rewrite the stores.
@@ -4534,7 +4536,14 @@ public:
   }
 
   bool runOnFunction(Function &F) override {
-    if (skipFunction(F))
+    if (skipFunction(F)
+#if INTEL_CUSTOMIZATION
+// For VPO OpenMP handling we need SROA even at -O0; calling the util below
+// ensures it for functions that have OpenMP directives. To find other passes
+// that are needed by OpenMP even at -O0, see
+// PassManagerBuilder::populateFunctionPassManager()
+        && VPOAnalysisUtils::skipFunctionForOpenmp(F))
+#endif // INTEL_CUSTOMIZATION
       return false;
 
     auto PA = Impl.runImpl(

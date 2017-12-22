@@ -10,7 +10,7 @@
 ///
 /// \file
 /// This file defines the VPOAnalysisUtils class and provides a set of common
-/// utilities shared primarily by the various components of VPO Analysis 
+/// utilities shared primarily by the various components of VPO Analysis
 ///
 // ===--------------------------------------------------------------------=== //
 
@@ -53,7 +53,7 @@ typedef SmallVector<Instruction *, 32> VPOSmallVectorInst;
 /// is the string obtained directly from the intrinsic. Its format is:
 ///     FullName = BaseName[:Modifier]
 /// Most clauses don't need a the modifier so usually FullName == BaseName
-/// and Modifier is empty. 
+/// and Modifier is empty.
 //
 /// The Modifier is used in the following cases:
 ///
@@ -68,19 +68,19 @@ typedef SmallVector<Instruction *, 32> VPOSmallVectorInst;
 ///      BaseName = "QUAL.OMP.REDUCTION.ADD"
 ///      Modifier = "ARRSECT"
 ///      Id = QUAL_OMP_REDUCTION_ADD
-///      
+///
 /// 3. NonPOD operands. Example:
 ///      FullName = "QUAL.OMP.PRIVATE:NONPOD"
 ///      BaseName = "QUAL.OMP.PRIVATE"
 ///      Modifier = "NONPOD"
 ///      Id = QUAL_OMP_PRIVATE
-/// 
+///
 /// Id is the enum corresponding to BaseName.
 class ClauseSpecifier {
 private:
   StringRef FullName;
   StringRef BaseName;
-  StringRef Modifier; 
+  StringRef Modifier;
   int  Id;
 
   // These properties are extracted from the Modifier substring
@@ -161,7 +161,7 @@ public:
 
     /// \brief Return true if the intrinsic Id corresponds to a clause:
     ///    intel_directive_qual,
-    ///    intel_directive_qual_opnd, or 
+    ///    intel_directive_qual_opnd, or
     ///    intel_directive_qual_opndlist.
     static bool isIntelClause(Intrinsic::ID Id);
 
@@ -175,14 +175,14 @@ public:
     static bool isIntelDirectiveOrClause(Intrinsic::ID Id);
 
     /// \brief Return the string representation of the metadata argument used
-    /// within a call to one of these intrinsics: 
-    ///    llvm.intel.directive, 
-    ///    llvm.intel.directive.qual, 
-    ///    llvm.intel.directive.qual.opnd, and 
+    /// within a call to one of these intrinsics:
+    ///    llvm.intel.directive,
+    ///    llvm.intel.directive.qual,
+    ///    llvm.intel.directive.qual.opnd, and
     ///    llvm.intel.directive.qual.opndlist.
     static StringRef getDirectiveMetadataString(const IntrinsicInst *Call);
 
-    /// \brief Return the string representation of the modifier metadata 
+    /// \brief Return the string representation of the modifier metadata
     /// argument used in an llvm.intel.directive.qual.opndlist intrinsic
     /// that represents a schedule clause
     static StringRef getScheduleModifierMDString(const IntrinsicInst *Call);
@@ -202,15 +202,15 @@ public:
     /// \brief Returns strings corresponding to OpenMP clauses.
     static StringRef getClauseString(int Id);
 
-    /// \brief Similar to getDirectiveString(int), but strips out the leading 
+    /// \brief Similar to getDirectiveString(int), but strips out the leading
     /// "DIR_OMP_" prefix substring.
     static StringRef getDirectiveName(int Id);
 
-    /// \brief Similar to getClauseString(), but strips out the leading 
+    /// \brief Similar to getClauseString(), but strips out the leading
     /// "QUAL_OMP_" prefix substring.
     static StringRef getClauseName(int Id);
 
-    /// \brief Given a ClauseId for a reduction, strip out the leading 
+    /// \brief Given a ClauseId for a reduction, strip out the leading
     /// "QUAL_OMP_REDUCTION_" prefix substring, and return the remaining
     /// substring which describes the reduction operation (eg "ADD", "MUL").
     static StringRef getReductionOpName(int Id);
@@ -231,7 +231,7 @@ public:
     /// Utilities to handle directives & clauses
 
     /// \brief Return true for a directive that begins a region, such as
-    /// DIR_OMP_PARALLEL and DIR_OMP_SIMD. 
+    /// DIR_OMP_PARALLEL and DIR_OMP_SIMD.
     static bool isBeginDirective(int DirID);
     static bool isBeginDirective(StringRef DirString);
     static bool isBeginDirective(Instruction *I);
@@ -250,26 +250,26 @@ public:
     static bool isBeginOrEndDirective(Instruction *I);
     static bool isBeginOrEndDirective(BasicBlock *BB);
 
-    /// \brief Return true if it begins a stand-alone directive 
+    /// \brief Return true if it begins a stand-alone directive
     static bool isStandAloneBeginDirective(int DirID);
     static bool isStandAloneBeginDirective(StringRef DirString);
     static bool isStandAloneBeginDirective(Instruction *I);
     static bool isStandAloneBeginDirective(BasicBlock *BB);
 
-    /// \brief Return true if it ends a stand-alone directive 
+    /// \brief Return true if it ends a stand-alone directive
     static bool isStandAloneEndDirective(int DirID);
     static bool isStandAloneEndDirective(StringRef DirString);
     static bool isStandAloneEndDirective(Instruction *I);
     static bool isStandAloneEndDirective(BasicBlock *BB);
 
-    /// \brief Return true if it corresponds to DIR_QUAL_LIST_END, the 
+    /// \brief Return true if it corresponds to DIR_QUAL_LIST_END, the
     /// mandatory marker to end a directive
     static bool isListEndDirective(int DirID);
     static bool isListEndDirective(StringRef DirString);
     static bool isListEndDirective(Instruction *I);
 
     /// \brief Given a DirID for a BEGIN directive, return the DirID of its
-    /// corresponding END directive. 
+    /// corresponding END directive.
     static int getMatchingEndDirective(int BeginDirID);
 
     /// \brief Return true iff the ClauseID represents a DEPEND clause,
@@ -294,7 +294,6 @@ public:
     ///   2 for all else (such as clauses that take lists)
     static unsigned getClauseType(int ClauseID);
 
-
     /// \brief Verify if the BB is malformed w.r.t. OpenMP directive rules.
     /// Return false if malform, true otherwise.
     static bool verifyBB(BasicBlock &BB, bool DoAssert);
@@ -310,7 +309,15 @@ public:
     /// \brief If V is an AllocaInst, return it. If V is a CastInst, trace
     /// back the cast chain and return an AllocaInst if it's found, or nullptr
     /// if no AllocaInst is found.
-    static AllocaInst *findAllocaInst(Value *V); 
+    static AllocaInst *findAllocaInst(Value *V);
+
+    /// \brief \returns true if the function has the string attribute
+    /// "may-have-openmp-directive" set to "true"
+    static bool mayHaveOpenmpDirective(Function &F);
+
+    /// \brief \returns !mayHaveOpenmpDirective(F). This is mainly used in
+    /// passes required by OpenMP that would otherwise be skipped at -O0.
+    static bool skipFunctionForOpenmp(Function &F);
 };
 
 } // End vpo namespace

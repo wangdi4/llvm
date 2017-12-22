@@ -156,7 +156,7 @@ INITIALIZE_PASS_END(VPOCFGRestructuring, "vpo-cfg-restructuring",
 char VPOCFGRestructuring::ID = 0;
 
 bool VPOCFGRestructuring::runOnFunction(Function &F) {
-  if (skipFunction(F))
+  if (skipFunction(F) && VPOAnalysisUtils::skipFunctionForOpenmp(F))
     return false;
 
 #if INTEL_PRODUCT_RELEASE
