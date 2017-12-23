@@ -305,6 +305,22 @@ bool VPOAnalysisUtils::verifyBB(BasicBlock &BB, bool DoAssert) {
     else
       return verifyBBWithIntelDirective(BB, DoAssert);
   }
-  
+
   return verifyBBWithoutDirective(BB, DoAssert);
+}
+
+/// \brief \returns true if the function has the string attribute
+/// "may-have-openmp-directive" set to "true" (Moved here from GeneralUtils.cpp
+/// to make it part of Analysis library and avoid circular dependence)
+bool VPOAnalysisUtils::mayHaveOpenmpDirective(Function &F) {
+  return F.getFnAttribute("may-have-openmp-directive").getValueAsString()
+                                                                  == "true";
+}
+
+/// \brief \returns !mayHaveOpenmpDirective(F). This is mainly used in
+/// passes required by OpenMP that would otherwise be skipped at -O0. (Moved
+/// here from GeneralUtils.cpp to make it part of Analysis library and avoid
+/// circular dependence)
+bool VPOAnalysisUtils::skipFunctionForOpenmp(Function &F) {
+  return !mayHaveOpenmpDirective(F);
 }

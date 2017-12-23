@@ -41,16 +41,3 @@ AllocaInst *VPOAnalysisUtils::findAllocaInst(Value *V) {
   }
   return nullptr; // not found
 }
-
-/// \brief \returns true if the function has the string attribute
-/// "may-have-openmp-directive" set to "true"
-bool VPOAnalysisUtils::mayHaveOpenmpDirective(Function &F) {
-  return F.getFnAttribute("may-have-openmp-directive").getValueAsString()
-                                                                  == "true";
-}
-
-/// \brief \returns !mayHaveOpenmpDirective(F). This is mainly used in
-/// passes required by OpenMP that would otherwise be skipped at -O0.
-bool VPOAnalysisUtils::skipFunctionForOpenmp(Function &F) {
-  return !mayHaveOpenmpDirective(F);
-}
