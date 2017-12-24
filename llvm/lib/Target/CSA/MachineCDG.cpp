@@ -699,6 +699,8 @@ void CSASSAGraph::BuildCSASSAGraph(MachineFunction &F) {
   for (MachineFunction::iterator BB = F.begin(), E = F.end(); BB != E; ++BB) {
     for (MachineBasicBlock::iterator I = BB->begin(); I != BB->end(); ++I) {
       MachineInstr* minstr = &*I;
+      //skip the artifical cycle created by mem-dependence
+      if (minstr->getOpcode() == CSA::ALL0) continue;
       if (instr2ssan.find(minstr) != instr2ssan.end()) {
         CSASSANode* ssan = instr2ssan[minstr];
         if (std::find(root->children.begin(), root->children.end(), ssan) == root->children.end()) {
