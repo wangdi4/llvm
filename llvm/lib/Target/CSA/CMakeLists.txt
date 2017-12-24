@@ -19,6 +19,7 @@ add_llvm_target(CSACodeGen
   CSAFrameLowering.cpp
   CSAISelDAGToDAG.cpp
   CSAISelLowering.cpp
+  CSAInstBuilder.cpp
   CSAInstrInfo.cpp
   CSAIntrinsicCleaner.cpp
   CSAIROpt.cpp
@@ -35,6 +36,7 @@ add_llvm_target(CSACodeGen
   CSASelectionDAGInfo.cpp
   CSAStatistics.cpp
   CSAStreamingMemoryConversion.cpp
+  CSAStreamingMemoryPrep.cpp
   CSASubtarget.cpp
   CSATargetMachine.cpp
   MachineCDG.cpp

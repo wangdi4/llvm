@@ -378,6 +378,8 @@ public:
   //  fall into a valid range). 
   const TargetRegisterClass*
   lookupLICRegClass(unsigned lic_reg) const;
+
+  const TargetRegisterClass *getLicClassForSize(unsigned size) const;
 };
 
 }

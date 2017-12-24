@@ -13,13 +13,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "CSA.h"
+#include "CSAInstBuilder.h"
 #include "CSAInstrInfo.h"
 #include "CSAMachineFunctionInfo.h"
 #include "CSATargetMachine.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
@@ -60,7 +60,7 @@ namespace llvm {
         SmallVectorImpl<MachineInstr *> &uses) const;
     MachineInstr *getSingleUse(const MachineOperand &MO) const;
     bool isZero(const MachineOperand &MO) const;
-    const MachineOperand *getLength(const MachineOperand &start,
+    MachineOp getLength(const MachineOperand &start,
         const MachineOperand &end, bool isEqual, int64_t stride,
         MachineInstr *buildPoint) const;
   };
@@ -138,23 +138,23 @@ bool CSAStreamingMemoryConversionPass::isZero(const MachineOperand &MO) const {
   return isImm(MO, 0);
 }
 
-const MachineOperand *CSAStreamingMemoryConversionPass::getLength(
+MachineOp CSAStreamingMemoryConversionPass::getLength(
     const MachineOperand &start, const MachineOperand &end,
     bool isEqual, int64_t stride, MachineInstr *MI) const {
   if (stride < 0)
     return getLength(end, start, isEqual, -stride, MI);
+  CSAInstBuilder builder(*TII);
+  builder.setInsertionPoint(MI);
   if (stride != 1) {
-    if (end.isImm() && isZero(start)) {
-      static MachineOperand saveImm = MachineOperand::CreateImm(0);
-      uint64_t withUnitStride = (end.getImm() + stride - 1) / stride;
-      saveImm.ChangeToImmediate(withUnitStride);
-      return &saveImm;
-    }
-    DEBUG(dbgs() << "Stream has a non-1 stride, not inserting division\n");
-    return nullptr;
+    // Trip count = (end + isEqual - start + stride - 1) / stride
+    return builder.makeOrConstantFold(*LMFI, CSA::SRL64,
+        builder.makeOrConstantFold(*LMFI, CSA::SUB64,
+          builder.makeOrConstantFold(*LMFI, CSA::ADD64,
+            end, OpImm(stride - 1 + isEqual)), start),
+        OpImm(countTrailingZeros((unsigned)stride)));
   }
   if (isZero(start) && !isEqual) {
-    return &end;
+    return end;
   }
 
   MachineOperand effectiveStart = start;
@@ -171,17 +171,11 @@ const MachineOperand *CSAStreamingMemoryConversionPass::getLength(
   if (possible && possible->getOpcode() == CSA::SUB64) {
     if (possible->getOperand(1).isIdenticalTo(end) &&
         possible->getOperand(2).isIdenticalTo(effectiveStart))
-      return &possible->getOperand(0);
+      return OpUse(possible->getOperand(0));
   }
 
   // Compute the length as end - start.
-  auto lic = LMFI->allocateLIC(&CSA::CI64RegClass);
-  auto builder = BuildMI(*MI->getParent(), MI, MI->getDebugLoc(),
-      TII->get(CSA::SUB64), lic);
-  builder.add(end);
-  builder.add(effectiveStart);
-  builder->setFlag(MachineInstr::NonSequential); // Don't run on the SXU
-  return &builder->getOperand(0);
+  return builder.makeOrConstantFold(*LMFI, CSA::SUB64, end, effectiveStart);
 }
 
 // This takes a load or a store controlled by a sequence operator and
@@ -324,6 +318,8 @@ bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
   DEBUG(dbgs() << "Base: " << *base << "; stride: " << stride <<
       "; controlling stream: ");
   DEBUG(stream->print(dbgs()));
+  CSAInstBuilder builder(*TII);
+  builder.setInsertionPoint(MI);
 
   // Verify that the memory orders are properly constrained by the stream.
   MachineInstr *inSource = getDefinition(*inOrder);
@@ -370,7 +366,6 @@ bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
   }
 
   // Compute the length of the stream from the stream parameter.
-  const MachineOperand *length;
   const MachineOperand &seqStart = stream->getOperand(4);
   const MachineOperand &seqEnd = stream->getOperand(5);
   const MachineOperand &seqStep = stream->getOperand(6);
@@ -391,7 +386,8 @@ bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
     DEBUG(dbgs() << "Stream operand is of unknown form.\n");
     return false;
   }
-  length = getLength(seqStart, seqEnd, isEqual, seqStep.getImm(), stream);
+  const MachineOp length =
+    getLength(seqStart, seqEnd, isEqual, seqStep.getImm(), stream);
   if (!length) {
     DEBUG(dbgs() << "Stream operand is of unknown form.\n");
     return false;
@@ -404,12 +400,10 @@ bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
     }
     if (!isZero(seqStart)) {
       unsigned loadBase = LMFI->allocateLIC(&CSA::CI64RegClass);
-      auto baseForStream = BuildMI(*MI->getParent(), MI, MI->getDebugLoc(),
-          TII->get(CSA::SLADD64), loadBase)
-        .add(seqStart)
-        .addImm(countTrailingZeros(TII->getLicSize(MI->getOpcode()) / 8))
-        .add(*base);
-      baseForStream->setFlag(MachineInstr::NonSequential);
+      auto baseForStream = builder.makeInstruction(CSA::SLADD64,
+          OpRegDef(loadBase), seqStart,
+          OpImm(countTrailingZeros(TII->getLicSize(MI->getOpcode()) / 8)),
+          *base);
       base = &baseForStream->getOperand(0);
     }
   }
@@ -419,25 +413,15 @@ bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
   // Actually build the new instruction now.
   unsigned opcode = TII->adjustOpcode(MI->getOpcode(),
       MI->mayLoad() ? CSA::Generic::SLD : CSA::Generic::SST);
-  auto builder = BuildMI(*MI->getParent(), MI, MI->getDebugLoc(),
-      TII->get(opcode));
-  if (MI->mayLoad())
-    builder.addReg(value->getReg(), RegState::Define); // Value (for load)
-  builder.add(*realOutSink); // Output memory order
-  if (base->isReg())
-    builder.addReg(base->getReg());
-  else
-    builder.add(*base); // Address
-  if (length->isReg())
-    builder.addReg(length->getReg());
-  else
-    builder.add(*length); // Length
-  builder.addImm(stride); // Stride
-  if (!MI->mayLoad())
-    builder.add(*value); // Value (for store)
-  builder.add(*memOrder); // Memory ordering
-  builder.add(inSource->getOperand(2)); // Input memory order
-  builder->setFlag(MachineInstr::NonSequential); // Don't run on the SXU
+  builder.makeInstruction(opcode,
+    OpIf(MI->mayLoad(), OpDef(*value)), // Value (for load)
+    *realOutSink, // Output memory order
+    OpUse(*base), // Address
+    length, // Length
+    OpImm(stride), // Stride
+    OpIf(!MI->mayLoad(), OpUse(*value)), // Value (for store)
+    *memOrder, // Memory ordering
+    inSource->getOperand(2)); // Input memory order
 
   // Delete the old instruction. Also delete the old output switch, since we
   // added a second definition of its input. Dead instruction elimination should

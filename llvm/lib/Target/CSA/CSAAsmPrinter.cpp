@@ -558,7 +558,11 @@ void CSAAsmPrinter::EmitFunctionBodyStart() {
       SmallString<128> Str;
       raw_svector_ostream O(Str);
       O << CSAInstPrinter::WrapCsaAsmLinePrefix();
-      O << "\t.lic .i" << LMFI->getLICSize(reg) << " ";
+      O << "\t.lic";
+      if (unsigned depth = LMFI->getLICDepth(reg)) {
+        O << "@" << depth;
+      }
+      O << " .i" << LMFI->getLICSize(reg) << " ";
       O << "%" << name;
       O << CSAInstPrinter::WrapCsaAsmLineSuffix();
       OutStreamer->EmitRawText(O.str());
