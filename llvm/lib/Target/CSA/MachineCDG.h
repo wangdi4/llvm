@@ -472,10 +472,7 @@ namespace llvm {
     CSASSANode* getRoot() {
       return root;
     }
-    MachineInstr* GetSingleDef(MachineOperand& opnd);
-    void AddInstructionToGraph(MachineInstr* mInstr, unsigned skipOpnd=0);
-    void AddChild(CSASSANode* sn, MachineInstr* childInstr);
-    void BuildCSASSAGraph(MachineFunction &F);
+    void BuildCSASSAGraph(MachineFunction &F, bool ignCtrl = false);
     ~CSASSAGraph() {
       delete root;
       for (DenseMap<MachineInstr*, CSASSANode*>::iterator i2n = instr2ssan.begin(), i2nEnd = instr2ssan.end(); i2n != i2nEnd; ++i2n) {
