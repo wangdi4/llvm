@@ -223,6 +223,11 @@ void VPOParoptTpvLegacy::genTpvRef(Value *V,
   //
   Value *TpvGV = getTpvPtr(V, F, Int8PtrPtrTy);
   Builder.SetInsertPoint(LastI);
+
+#if 0 // CMPLRS-47746: These if/else Instructions create a race with the
+      // runtime since the runtime does a store to the cache array, and
+      // these if/else Instructions do a load from the array,
+      // without any synchronization/lock to ensure atomicity.
   LoadInst *NewLoad = Builder.CreateLoad(TpvGV);
 
   Value *PtrCompare = Builder.CreateICmp(ICmpInst::ICMP_NE,
@@ -291,6 +296,11 @@ void VPOParoptTpvLegacy::genTpvRef(Value *V,
 
   IRBuilder<> BuilderElse(ElseBB);
   BuilderElse.SetInsertPoint(ElseBB->getTerminator());
+#else
+  BasicBlock *ElseBB = B;
+  IRBuilder<> BuilderElse(B);
+  BuilderElse.SetInsertPoint(LastI);
+#endif
 
   // Generates the call __kmpc_threadprivate_cached() if threadprivate local global pointer
   // is empty.
