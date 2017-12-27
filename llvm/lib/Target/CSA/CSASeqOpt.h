@@ -10,10 +10,10 @@ namespace llvm
     public:
     MachineInstr* lpInitForPickSwitchPair(MachineInstr* pickInstr, MachineInstr* switchInstr, unsigned& backedgeReg, MachineInstr* cmpInstr=nullptr);
     bool isIntegerOpcode(unsigned opcode);
-    bool repeatOpndInSameLoop(MachineOperand& opnd, MachineInstr* lpCmp);
+    MachineInstr* repeatOpndInSameLoop(MachineOperand& opnd, MachineInstr* lpCmp);
     void PrepRepeat();
     void SequenceOPT();
-    void SequenceIndv(CSASSANode* cmpNode, CSASSANode* switchNode, CSASSANode* addNode, CSASSANode* lhdrPhiNode);
+    void SequenceIndv(CSASSANode* cmpNode, CSASSANode* switchNode, CSASSANode* addNode, CSASSANode* lhdrPhiNode); 
     MachineOperand CalculateTripCnt(MachineOperand& initOpnd, MachineOperand& bndOpnd);
     MachineOperand tripCntForSeq(MachineInstr*seqInstr);
     void MultiSequence(CSASSANode* switchNode, CSASSANode* addNode, CSASSANode* lhdrPickNode);
