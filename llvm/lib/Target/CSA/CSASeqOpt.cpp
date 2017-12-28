@@ -33,15 +33,15 @@ MachineInstr* CSASeqOpt::repeatOpndInSameLoop(MachineOperand& opnd, MachineInstr
   MachineInstr* rptInstr = nullptr;
   for (MachineInstr &DefMI : MRI->def_instructions(opnd.getReg())) {
     MachineInstr* dinstr = &DefMI;
-    if (TII->isMOV(dinstr) && !movInstr) 
+    if (TII->isMOV(dinstr) && !movInstr)
       movInstr = dinstr;
-    else if (TII->getGenericOpcode(dinstr->getOpcode()) == CSA::Generic::REPEAT && !rptInstr) 
+    else if (TII->getGenericOpcode(dinstr->getOpcode()) == CSA::Generic::REPEAT && !rptInstr)
       rptInstr = dinstr;
-    else 
+    else
       return nullptr;
   }
 
-  if (movInstr->getOperand(1).getReg() == rptInstr->getOperand(2).getReg() &&
+  if (movInstr && rptInstr && movInstr->getOperand(1).getReg() == rptInstr->getOperand(2).getReg() &&
     MRI->getVRegDef(rptInstr->getOperand(1).getReg()) == lpCmp) {
     return rptInstr;
   } else {
@@ -162,14 +162,9 @@ void CSASeqOpt::SequenceIndv(CSASSANode* cmpNode, CSASSANode* switchNode, CSASSA
     unsigned firstReg = LMFI->allocateLIC(&CSA::CI1RegClass);
     unsigned lastReg = LMFI->allocateLIC(&CSA::CI1RegClass);
     unsigned seqReg = lhdrPickNode->minstr->getOperand(0).getReg();
-#if 1
-    if (bndOpnd.isReg() && rptBnd) {
-        bndOpnd = rptBnd->getOperand(2);
-    }
-    if (strideOpnd.isReg() && rptStride) {
-      strideOpnd = rptStride->getOperand(2);
-    }
-#endif 
+    MachineOperand& indvBnd = bndOpnd.isReg() && rptBnd ? rptBnd->getOperand(2) : bndOpnd;
+    MachineOperand& indvStride = strideOpnd.isReg() && rptStride ? rptStride->getOperand(2) : strideOpnd;
+    
     MachineInstr* seqInstr = BuildMI(*lhdrPickNode->minstr->getParent(),
       lhdrPickNode->minstr, DebugLoc(),
       TII->get(seqOp),
@@ -177,9 +172,9 @@ void CSASeqOpt::SequenceIndv(CSASSANode* cmpNode, CSASSANode* switchNode, CSASSA
       addReg(cmpNode->minstr->getOperand(0).getReg(), RegState::Define).  //pred
       addReg(firstReg, RegState::Define).
       addReg(lastReg, RegState::Define).
-      add(cpyInit).                                                     //init
-      add(bndOpnd).                                                     //boundary
-      add(addNode->minstr->getOperand(strideIdx));                      //stride
+      add(cpyInit).                    //init
+      add(indvBnd).                    //boundary
+      add(indvStride);                 //stride
     seqInstr->setFlag(MachineInstr::NonSequential);
 
     if (loopInit->getOperand(1).getImm() == 1) {
@@ -193,11 +188,16 @@ void CSASeqOpt::SequenceIndv(CSASSANode* cmpNode, CSASSANode* switchNode, CSASSA
     lhdrPickNode->minstr->removeFromParent();
     //currently only the cmp instr can have usage outside the cycle
     cmpNode->minstr = seqInstr;
-    if (rptBnd) {
-      rptBnd->removeFromParent();
+    if (rptBnd && MRI->use_empty(rptBnd->getOperand(0).getReg())) {
+      for (MachineInstr &DefMI : MRI->def_instructions(rptBnd->getOperand(0).getReg())) {
+        DefMI.removeFromParent();
+      }
     }
-    if (rptStride) {
-      rptStride->removeFromParent();
+
+    if (rptStride && MRI->use_empty(rptStride->getOperand(0).getReg())) {
+      for (MachineInstr &DefMI : MRI->def_instructions(rptStride->getOperand(0).getReg())) {
+        DefMI.removeFromParent();
+      }
     }
   }
 }
@@ -703,11 +703,14 @@ void CSASeqOpt::SequenceRepeat(CSASSANode* switchNode, CSASSANode* lhdrPickNode)
     unsigned valueRepeat = lhdrPickNode->minstr->getOperand(2).getReg() == lpbackReg ?
       lhdrPickNode->minstr->getOperand(3).getReg() :
       lhdrPickNode->minstr->getOperand(2).getReg();
-    unsigned movOp = TII->adjustOpcode(switchNode->minstr->getOpcode(), CSA::Generic::MOV);
-    MachineInstr* movInstr = BuildMI(*lhdrPickNode->minstr->getParent(), lhdrPickNode->minstr, DebugLoc(), TII->get(movOp),
-      lhdrPickNode->minstr->getOperand(0).getReg()).
-      addReg(valueRepeat);
-    movInstr->setFlag(MachineInstr::NonSequential);
+
+    if (!TII->isSeqOT(switchCtrl)) {
+      unsigned movOp = TII->adjustOpcode(switchNode->minstr->getOpcode(), CSA::Generic::MOV);
+      MachineInstr* movInstr = BuildMI(*lhdrPickNode->minstr->getParent(), lhdrPickNode->minstr, DebugLoc(), TII->get(movOp),
+        lhdrPickNode->minstr->getOperand(0).getReg()).
+        addReg(valueRepeat);
+      movInstr->setFlag(MachineInstr::NonSequential);
+    }
 
     unsigned repeatOp = TII->adjustOpcode(switchNode->minstr->getOpcode(), CSA::Generic::REPEAT);
     assert(repeatOp != CSA::INVALID_OPCODE);
