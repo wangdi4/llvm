@@ -503,6 +503,7 @@ void initializeVPODirectiveCleanupPass(PassRegistry&);
 void initializeVectorGraphInfoPass(PassRegistry&);
 void initializeVectorGraphPredicatorPass(PassRegistry&);
 void initializeWholeProgramWrapperPassPass(PassRegistry&);
+void initializeMultiVersioningWrapperPass(PassRegistry&);
 // VPO VPlan Vectorizer Passes
 void initializeVPlanDriverPass(PassRegistry&);
 void initializeVPlanDriverHIRPass(PassRegistry&);

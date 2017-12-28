@@ -57,6 +57,7 @@
 #include "llvm/Transforms/Intel_VPO/Paropt/VPOParopt.h"
 #include "llvm/Transforms/IPO/Intel_InlineLists.h"
 #include "llvm/Transforms/IPO/Intel_OptimizeDynamicCasts.h"
+#include "llvm/Transforms/Scalar/Intel_MultiVersioning.h"
 #endif //INTEL_CUSTOMIZATION
 
 using namespace llvm;
@@ -217,6 +218,10 @@ static cl::opt<bool> EnableFunctionSplitting("enable-function-splitting",
   cl::init(false), cl::Hidden,
   cl::desc("Enable function splitting optimization based on PGO data"));
 
+// Function multi-versioning.
+static cl::opt<bool> EnableMultiVersioning("enable-multiversioning",
+  cl::init(false), cl::Hidden,
+  cl::desc("Enable Function Multi-versioning"));
 #endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool>
@@ -1099,6 +1104,8 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   if (EnableInlineAggAnalysis) {
     PM.add(createAggInlAALegacyPass());
   }
+  if (EnableMultiVersioning)
+    PM.add(createMultiVersioningWrapperPass());
 #endif // INTEL_CUSTOMIZATION
 
   // Run a few AA driven optimizations here and now, to cleanup the code.
