@@ -623,6 +623,7 @@ void CSASSAGraph::BuildCSASSAGraph(MachineFunction &F, bool ignCtrl) {
       CSASSANode* sn;
       //skip mem-dependence artifical cycle
       if (minstr->getOpcode() == CSA::ALL0 || 
+          //TII->getGenericOpcode(minstr->getOpcode()) == CSA::Generic::MERGE ||
           TII->getGenericOpcode(minstr->getOpcode()) == CSA::Generic::REPEAT ||
           TII->getGenericOpcode(minstr->getOpcode()) == CSA::Generic::REPEATO) continue;
       if (instr2ssan.find(minstr) == instr2ssan.end()) {
@@ -638,6 +639,8 @@ void CSASSAGraph::BuildCSASSAGraph(MachineFunction &F, bool ignCtrl) {
           ((TII->isSwitch(minstr) && i == 2) || (TII->isPick(minstr) && i == 1)))
           //skip ctrl sig for pick/switch
           continue;
+        if (TII->isPick(minstr) && i == 1) continue;
+         
         if (MO->isReg() && MO->isUse()) {
           unsigned reg = MO->getReg();
           for (MachineInstr &DefMI : MRI->def_instructions(reg)) {

@@ -11,6 +11,7 @@ namespace llvm
     MachineInstr* lpInitForPickSwitchPair(MachineInstr* pickInstr, MachineInstr* switchInstr, unsigned& backedgeReg, MachineInstr* cmpInstr=nullptr);
     bool isIntegerOpcode(unsigned opcode);
     MachineInstr* repeatOpndInSameLoop(MachineOperand& opnd, MachineInstr* lpCmp);
+    void FoldRptInit(MachineInstr* rptInstr);
     void PrepRepeat();
     void SequenceOPT();
     void SequenceIndv(CSASSANode* cmpNode, CSASSANode* switchNode, CSASSANode* addNode, CSASSANode* lhdrPhiNode); 
