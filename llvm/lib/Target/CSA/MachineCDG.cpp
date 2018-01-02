@@ -624,6 +624,7 @@ void CSASSAGraph::BuildCSASSAGraph(MachineFunction &F, bool ignCtrl) {
       //skip mem-dependence artifical cycle
       if (minstr->getOpcode() == CSA::ALL0 || 
           //TII->getGenericOpcode(minstr->getOpcode()) == CSA::Generic::MERGE ||
+          TII->isLoad(minstr) || TII->isStore(minstr) ||
           TII->getGenericOpcode(minstr->getOpcode()) == CSA::Generic::REPEAT ||
           TII->getGenericOpcode(minstr->getOpcode()) == CSA::Generic::REPEATO) continue;
       if (instr2ssan.find(minstr) == instr2ssan.end()) {
@@ -635,11 +636,27 @@ void CSASSAGraph::BuildCSASSAGraph(MachineFunction &F, bool ignCtrl) {
       }
       unsigned i = 0;
       for (MIOperands MO(*minstr); MO.isValid(); ++MO, ++i) {
-        if (ignCtrl &&
-          ((TII->isSwitch(minstr) && i == 2) || (TII->isPick(minstr) && i == 1)))
+        if (ignCtrl && TII->isSwitch(minstr) && i == 2)
           //skip ctrl sig for pick/switch
           continue;
         if (TII->isPick(minstr) && i == 1) continue;
+        if (TII->isPick(minstr) && i > 1) {
+          unsigned pickCtrl = minstr->getOperand(1).getReg();
+          if (!MRI->hasOneDef(pickCtrl)) {
+            MachineInstr* lpInit = nullptr;
+            for (MachineInstr &DefMI : MRI->def_instructions(pickCtrl)) {
+              MachineInstr* dinstr = &DefMI;
+              if (TII->isInit(dinstr)) {
+                lpInit = dinstr;
+                break;
+              }
+            }
+            unsigned initIdx = lpInit->getOperand(1).getImm();
+            //skip loop initial value in the pick instr
+            if (i == initIdx + 2)
+              continue;
+          }
+        }
          
         if (MO->isReg() && MO->isUse()) {
           unsigned reg = MO->getReg();

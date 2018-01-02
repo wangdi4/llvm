@@ -44,9 +44,15 @@ MachineInstr* CSASeqOpt::repeatOpndInSameLoop(MachineOperand& opnd, MachineInstr
         rptInstr = pick1;
         initInstr = pick0;
       }
-      if (MRI->getVRegDef(rptInstr->getOperand(1).getReg()) == lpCmp && 
-          MRI->getVRegDef(rptInstr->getOperand(2).getReg()) == initInstr) {
-        return rptInstr;
+      if (MRI->getVRegDef(rptInstr->getOperand(2).getReg()) == initInstr) {
+        if (MRI->getVRegDef(rptInstr->getOperand(1).getReg()) == lpCmp) {
+          return rptInstr;
+        } else if (MRI->getVRegDef(rptInstr->getOperand(1).getReg())->getOpcode() == CSA::NOT1) {
+          MachineInstr*notInstr = MRI->getVRegDef(rptInstr->getOperand(1).getReg());
+          if (MRI->getVRegDef(notInstr->getOperand(1).getReg()) == lpCmp) {
+            return rptInstr;
+          }
+        }
       }
     }
   }
@@ -61,14 +67,8 @@ void CSASeqOpt::FoldRptInit(MachineInstr* rptInstr) {
   MachineInstr* rptPick = UseMO.getParent();
   assert(TII->isPick(rptPick));
   unsigned pickDst = rptPick->getOperand(0).getReg();
-  MachineRegisterInfo::use_iterator pUI = MRI->use_begin(pickDst);
-  while (pUI != MRI->use_end()) {
-    MachineOperand &pUseMO = *pUI;
-    ++pUI;
-    MachineInstr *pUseMI = pUseMO.getParent();
-    pUseMI->substituteRegister(pickDst, rptInstr->getOperand(0).getReg(), 0, *TRI);
-  }
   rptPick->removeFromParent();
+  rptInstr->getOperand(0).setReg(pickDst);
 }
 
 void CSASeqOpt::SequenceIndv(CSASSANode* cmpNode, CSASSANode* switchNode, CSASSANode* addNode, CSASSANode* lhdrPickNode) {
@@ -111,6 +111,7 @@ void CSASeqOpt::SequenceIndv(CSASSANode* cmpNode, CSASSANode* switchNode, CSASSA
 
 #if 0
   //uses of phi can only be add or cmp, or pick of the nested loop
+  //new seq instr uses phi's dst as its value channel -- no need to consider phi dst's usage
   unsigned phidst = lhdrPickNode->minstr->getOperand(0).getReg();
   MachineRegisterInfo::use_iterator UI = MRI->use_begin(phidst);
   while (UI != MRI->use_end()) {
@@ -123,6 +124,7 @@ void CSASeqOpt::SequenceIndv(CSASSANode* cmpNode, CSASSANode* switchNode, CSASSA
     }
   }
 #endif 
+
   //new seq instr uses phi's dst as its value channel -- no need to consider phi dst's usage
   //uses of add can only be switch or cmp
   unsigned adddst = addNode->minstr->getOperand(0).getReg();
@@ -136,8 +138,13 @@ void CSASeqOpt::SequenceIndv(CSASSANode* cmpNode, CSASSANode* switchNode, CSASSA
       break;
     }
   }
+
+  if (cmpNode->minstr->getOperand(idvIdx).getReg() != switchNode->minstr->getOperand(3).getReg()) {
+    isIDVCycle = false;
+  }
+
   unsigned pickInitIdx = 2 + loopInit->getOperand(1).getImm();
-  MachineOperand& initOpnd = lhdrPickNode->minstr->getOperand(pickInitIdx);
+  MachineOperand* initOpnd = &lhdrPickNode->minstr->getOperand(pickInitIdx);
   unsigned switchOutIndex = switchNode->minstr->getOperand(0).getReg() == backedgeReg ? 1 : 0;
   isIDVCycle = isIDVCycle && 
                (switchNode->minstr->getOperand(1 - switchOutIndex).getReg() == backedgeReg) &&
@@ -162,9 +169,9 @@ void CSASeqOpt::SequenceIndv(CSASSANode* cmpNode, CSASSANode* switchNode, CSASSA
 #if 0
     //add is before cmp => need to adjust init value
     if (MRI->getVRegDef(cmpNode->minstr->getOperand(idvIdx).getReg()) == addNode->minstr) {
-      if (initOpnd.isImm() && strideOpnd.isImm()) {
-        int adjInit = addNode->minstr->getOperand(strideIdx).getImm() + initOpnd.getImm();
-        initOpnd = MachineOperand::CreateImm(adjInit);
+      if (initOpnd->isImm() && strideOpnd.isImm()) {
+        int adjInit = addNode->minstr->getOperand(strideIdx).getImm() + initOpnd->getImm();
+        initOpnd = &MachineOperand::CreateImm(adjInit);
       } else {
         const TargetRegisterClass *TRC = TII->lookupLICRegClass(addNode->minstr->getOperand(0).getReg());
         unsigned adjInitVReg = LMFI->allocateLIC(TRC);
@@ -173,13 +180,13 @@ void CSASeqOpt::SequenceIndv(CSASSANode* cmpNode, CSASSANode* switchNode, CSASSA
           TII->get(addNode->minstr->getOpcode()),
           adjInitVReg).
           add(addNode->minstr->getOperand(strideIdx)).                      //stride
-          add(initOpnd);                                                      //init
+          add(*initOpnd);                                                      //init
         adjInitInstr->setFlag(MachineInstr::NonSequential);
-        initOpnd = adjInitInstr->getOperand(0);
+        initOpnd = &adjInitInstr->getOperand(0);
       }
     }
 #endif 
-    MachineOperand cpyInit(initOpnd);
+    MachineOperand cpyInit(*initOpnd);
     cpyInit.setIsDef(false);
     unsigned firstReg = LMFI->allocateLIC(&CSA::CI1RegClass);
     unsigned lastReg = LMFI->allocateLIC(&CSA::CI1RegClass);
@@ -211,8 +218,29 @@ void CSASeqOpt::SequenceIndv(CSASSANode* cmpNode, CSASSANode* switchNode, CSASSA
         MachineInstr* rptPick = UI->getParent();
         unsigned rptValue = UseMI->getOperand(2).getReg();
         if (TII->isPick(rptPick) && 
+            rptPick->getOperand(1).getReg() == loopInit->getOperand(0).getReg() &&
            (rptPick->getOperand(2).getReg() == rptValue || rptPick->getOperand(3).getReg() == rptValue)) {
           FoldRptInit(UseMI);
+        }
+      } else if (UseMI->getOpcode() == CSA::NOT1 && loopInit->getOperand(1).getImm() == 1) {
+        //1=>init/exit, 0=>loop back; repeat's ctrl is from a not1 instr; need to remove the not1 when replace cmpdst with seqindv's pred
+        if (MRI->hasOneUse(UseMI->getOperand(0).getReg())) {
+          MachineInstr* rptInstr = MRI->use_begin(UseMI->getOperand(0).getReg())->getParent();
+          if (TII->getGenericOpcode(rptInstr->getOpcode()) == CSA::Generic::REPEAT &&
+            rptInstr->getOperand(1).getReg() == UseMI->getOperand(0).getReg() &&
+            MRI->hasOneUse(rptInstr->getOperand(0).getReg())) { //rpt only used by pick init
+            MachineRegisterInfo::use_iterator UI = MRI->use_begin(rptInstr->getOperand(0).getReg());
+            MachineInstr* rptPick = UI->getParent();
+            unsigned rptValue = rptInstr->getOperand(2).getReg();
+            if (TII->isPick(rptPick) &&
+              (rptPick->getOperand(1).getReg() == loopInit->getOperand(0).getReg() && 
+               rptPick->getOperand(3).getReg() == rptValue &&
+               rptPick->getOperand(2).getReg() == rptInstr->getOperand(0).getReg())) {
+              FoldRptInit(rptInstr);
+              rptInstr->getOperand(1).setReg(seqPred);
+              UseMI->removeFromParent();
+            }
+          }
         }
       }
     }
@@ -718,7 +746,7 @@ void CSASeqOpt::SequenceRepeat(CSASSANode* switchNode, CSASSANode* lhdrPickNode)
   isIDVCycle = isIDVCycle && switchuseOK && (lpInit != nullptr);
   if (isIDVCycle) {
     unsigned predRepeat = switchNode->minstr->getOperand(2).getReg();
-#if 0
+#if 1
     if (switchFalse == lpbackReg) {
       unsigned notReg = LMFI->allocateLIC(&CSA::CI1RegClass);
       MachineInstr* notInstr = BuildMI(*lhdrPickNode->minstr->getParent(),
@@ -802,7 +830,7 @@ void CSASeqOpt::SequenceOPT() {
   csaSSAGraph.BuildCSASSAGraph(*thisMF);
   for (scc_iterator<CSASSANode*> I = scc_begin(csaSSAGraph.getRoot()), IE = scc_end(csaSSAGraph.getRoot()); I != IE; ++I) {
     const std::vector<CSASSANode *> &SCCNodes = *I;
-    if (SCCNodes.size() > 1) {// && SCCNodes.size() < 8) {
+    if (SCCNodes.size() > 1 && SCCNodes.size() < 8) {
       CSASSANode* lhdrPickNode = nullptr;
       CSASSANode* cmpNode = nullptr;
       CSASSANode* addNode = nullptr;
