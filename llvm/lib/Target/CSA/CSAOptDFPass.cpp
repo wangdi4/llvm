@@ -71,6 +71,7 @@ enum SequenceOptMode {
   off = 0,
   analysis = 1,
   standard = 2,
+  scc = 3
 };
 //
 //   Other values might be added if needed.
@@ -81,11 +82,12 @@ enum SequenceOptMode {
 // Mostly we expect only compiler developers to use this knob.
 static cl::opt<SequenceOptMode>
 RunSequenceOptType("csa-seq-opt-type", cl::Hidden,
-                   cl::desc("CSA Specific: Type of sequence optimizations. 0 == off, 1 == analysis only, 2 == default"),
+                   cl::desc("CSA Specific: Type of sequence optimizations. 0 == off, 1 == analysis only, 2 == standard, 3 == scc"),
                    cl::values(clEnumVal(off,                      "No sequence optimization"),
                               clEnumVal(analysis,                 "Sequence analysis only, but not transforms"),
-                              clEnumValN(standard, "default",     "Sequence transforms enabled (default)")),
-                   cl::init(SequenceOptMode::standard));
+                              clEnumVal(standard,                "Sequence transforms enabled using pattern matching"),
+                              clEnumValN(scc,      "default",     "Sequence transforms enabled using scc(default)")),
+                   cl::init(SequenceOptMode::scc));
 
 
 
@@ -439,7 +441,7 @@ bool CSAOptDFPass::runOnMachineFunction(MachineFunction &MF) {
 
   bool Modified = false;
 
-  if (RunSequenceOpt && RunSequenceOptType == SequenceOptMode::analysis) {
+  if (RunSequenceOpt && RunSequenceOptType == SequenceOptMode::scc) {
     CSASeqOpt seqOpt(thisMF);
     seqOpt.SequenceOPT();
     return Modified;
