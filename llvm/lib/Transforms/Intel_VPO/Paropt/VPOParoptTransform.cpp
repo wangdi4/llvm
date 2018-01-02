@@ -1112,30 +1112,31 @@ void VPOParoptTransform::createEmptyPrivFiniBB(WRegionNode *W,
     // If the loop has ztt block, the compiler has to generate the lastprivate
     // update code at the exit block of the loop.
     BasicBlock *ZttBlock = W->getWRNLoopInfo().getZTTBB();
-    assert(ZttBlock &&
-           "Expected non-empty ztt bblock after loop is normalized in clang");
-    while (std::distance(pred_begin(ExitBlock), pred_end(ExitBlock)) == 1)
-      ExitBlock = *pred_begin(ExitBlock);
-    assert(std::distance(pred_begin(ExitBlock), pred_end(ExitBlock)) == 2 &&
-           "Expect two predecessors for the omp loop region exit.");
-    auto PI = pred_begin(ExitBlock);
-    auto Pred1 = *PI++;
-    auto Pred2 = *PI++;
 
-    BasicBlock *LoopExitBB;
-    if (Pred1 == ZttBlock && Pred2 != ZttBlock)
-      LoopExitBB = Pred2;
-    else if (Pred2 == ZttBlock && Pred1 != ZttBlock)
-      LoopExitBB = Pred1;
-    else
-      llvm_unreachable("createEmptyPrivFiniBB: unsupported exit block");
-    PrivExitBB = SplitBlock(LoopExitBB, LoopExitBB->getTerminator(), DT, LI);
-    PrivEntryBB = PrivExitBB;
-  } else {
-    PrivExitBB = SplitBlock(ExitBlock, ExitBlock->getFirstNonPHI(), DT, LI);
-    W->setExitBBlock(PrivExitBB);
-    PrivEntryBB = ExitBlock;
+    if (ZttBlock) {
+      while (std::distance(pred_begin(ExitBlock), pred_end(ExitBlock)) == 1)
+        ExitBlock = *pred_begin(ExitBlock);
+      assert(std::distance(pred_begin(ExitBlock), pred_end(ExitBlock)) == 2 &&
+           "Expect two predecessors for the omp loop region exit.");
+      auto PI = pred_begin(ExitBlock);
+      auto Pred1 = *PI++;
+      auto Pred2 = *PI++;
+
+      BasicBlock *LoopExitBB;
+      if (Pred1 == ZttBlock && Pred2 != ZttBlock)
+        LoopExitBB = Pred2;
+      else if (Pred2 == ZttBlock && Pred1 != ZttBlock)
+        LoopExitBB = Pred1;
+      else
+        llvm_unreachable("createEmptyPrivFiniBB: unsupported exit block");
+      PrivExitBB = SplitBlock(LoopExitBB, LoopExitBB->getTerminator(), DT, LI);
+      PrivEntryBB = PrivExitBB;
+      return;
+    }
   }
+  PrivExitBB = SplitBlock(ExitBlock, ExitBlock->getFirstNonPHI(), DT, LI);
+  W->setExitBBlock(PrivExitBB);
+  PrivEntryBB = ExitBlock;
 }
 
 // Generate the reduction code for reduction clause.
@@ -1893,9 +1894,11 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
 #endif
 
   assert(L->isLoopSimplifyForm() && "should follow from addRequired<>");
-  W->getWRNLoopInfo().setZTTBB(
-      WRegionUtils::getOmpLoopZeroTripTest(L, W->getEntryBBlock())
-          ->getParent());
+
+  ICmpInst *CmpI =
+    WRegionUtils::getOmpLoopZeroTripTest(L, W->getEntryBBlock());
+  if (CmpI)
+    W->getWRNLoopInfo().setZTTBB(CmpI->getParent());
 
   DenseMap<Value *, std::pair<Value *, BasicBlock *>> ValueToLiveinMap;
   SmallSetVector<Instruction *, 8> LiveOutVals;

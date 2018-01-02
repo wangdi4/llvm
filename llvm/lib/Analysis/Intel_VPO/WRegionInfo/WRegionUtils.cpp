@@ -404,17 +404,20 @@ Value *WRegionUtils::getOmpLoopUpperBound(Loop *L) {
 ICmpInst *WRegionUtils::getOmpLoopZeroTripTest(Loop *L, BasicBlock *EntryBB) {
 
   BasicBlock *PB = L->getLoopPreheader();
-  assert(std::distance(pred_begin(PB), pred_end(PB))==1);
+  if (pred_empty(PB) || std::distance(pred_begin(PB), pred_end(PB)) != 1)
+    return nullptr;
   do {
+    if (pred_empty(PB))
+      return nullptr;
     PB = *(pred_begin(PB));
     if (std::distance(succ_begin(PB), succ_end(PB))==2)
       break;
     // The basic block should have only one successor.
     if (std::distance(succ_begin(PB), succ_end(PB)) != 1 || PB == EntryBB)
-      llvm_unreachable(
-          "Expect ztt block after the loop is normalized in the clang");
+      return nullptr;
   }while (PB);
-  assert(PB && "Expect to see zero trip test block.");
+  if (!PB)
+    return nullptr;
   for (BasicBlock::reverse_iterator J = PB->rbegin();
        J != PB->rend(); ++J) {
     ICmpInst *CondInst = dyn_cast<ICmpInst>(&*J);
@@ -424,9 +427,7 @@ ICmpInst *WRegionUtils::getOmpLoopZeroTripTest(Loop *L, BasicBlock *EntryBB) {
       return CondInst;
     }
   }
-  llvm_unreachable("Omp loop with non-const \
-    upper bound must have zero trip test!");
-
+  return nullptr;
 }
 
 // gets the bottom test of the OMP loop.
