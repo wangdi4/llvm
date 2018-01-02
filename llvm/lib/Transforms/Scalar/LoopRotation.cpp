@@ -19,7 +19,8 @@
 #include "llvm/Analysis/CodeMetrics.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/InstructionSimplify.h"
-#include "llvm/Analysis/Intel_Andersens.h"      // INTEL
+#include "llvm/Analysis/Intel_Andersens.h"                  // INTEL
+#include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h" // INTEL
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionAliasAnalysis.h"
@@ -42,6 +43,7 @@
 #include "llvm/Transforms/Utils/SSAUpdater.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 using namespace llvm;
+using namespace llvm::vpo; // INTEL
 
 #define DEBUG_TYPE "loop-rotate"
 
@@ -678,9 +680,15 @@ public:
   }
 
   bool runOnLoop(Loop *L, LPPassManager &LPM) override {
-    if (skipLoop(L))
-      return false;
     Function &F = *L->getHeader()->getParent();
+#if INTEL_CUSTOMIZATION
+// For VPO OpenMP handling we need Loop Rotaion even at -O0; calling this util
+// ensures it for functions with OpenMP directives. For other passes needed
+// by OpenMP even at -O0, see PassManagerBuilder::populateFunctionPassManager()
+    if (VPOAnalysisUtils::skipFunctionForOpenmp(F))
+#endif // INTEL_CUSTOMIZATION
+      if (skipLoop(L))
+        return false;
 
     auto *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
     const auto *TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);

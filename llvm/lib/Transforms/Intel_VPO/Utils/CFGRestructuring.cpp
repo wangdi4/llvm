@@ -112,8 +112,10 @@ void VPOUtils::CFGRestructuring(Function &F, DominatorTree *DT, LoopInfo *LI) {
     BasicBlock *BB = I->getParent();
 
     // Split before I (rules 1a, 2a, 2b).
-    // Optimization: skip this if I is BB's first instruction.
-    if (!isListEnd && I != &(BB->front()))
+    // Optimization: skip this if I is BB's first instruction && BB has only
+    // one predecessor.
+    if (!isListEnd &&
+        ((I != &(BB->front())) || (pred_begin(BB) != pred_end(BB))))
       splitBB(I, DT, LI, DirString, Counter);
 
     // Split after I (rules 1b, 2a, 2b).
@@ -156,7 +158,7 @@ INITIALIZE_PASS_END(VPOCFGRestructuring, "vpo-cfg-restructuring",
 char VPOCFGRestructuring::ID = 0;
 
 bool VPOCFGRestructuring::runOnFunction(Function &F) {
-  if (skipFunction(F) && VPOAnalysisUtils::skipFunctionForOpenmp(F))
+  if (VPOAnalysisUtils::skipFunctionForOpenmp(F) && skipFunction(F))
     return false;
 
 #if INTEL_PRODUCT_RELEASE

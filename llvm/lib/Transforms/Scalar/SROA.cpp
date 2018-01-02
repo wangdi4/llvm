@@ -4536,15 +4536,15 @@ public:
   }
 
   bool runOnFunction(Function &F) override {
-    if (skipFunction(F)
+
 #if INTEL_CUSTOMIZATION
-// For VPO OpenMP handling we need SROA even at -O0; calling the util below
-// ensures it for functions that have OpenMP directives. To find other passes
-// that are needed by OpenMP even at -O0, see
-// PassManagerBuilder::populateFunctionPassManager()
-        && VPOAnalysisUtils::skipFunctionForOpenmp(F))
+// For VPO OpenMP handling we need SROA even at -O0; calling this util ensures
+// it for functions with OpenMP directives. For other passes needed by OpenMP
+// even at -O0, see PassManagerBuilder::populateFunctionPassManager()
+    if (VPOAnalysisUtils::skipFunctionForOpenmp(F))
 #endif // INTEL_CUSTOMIZATION
-      return false;
+      if (skipFunction(F))
+        return false;
 
     auto PA = Impl.runImpl(
         F, getAnalysis<DominatorTreeWrapperPass>().getDomTree(),
