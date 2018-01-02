@@ -508,16 +508,16 @@ unsigned CSAInstrInfo::commuteNegateCompareOpcode(unsigned cmp_opcode,
     new_generic = negate_eq ? CSA::Generic::CMPNE : CSA::Generic::CMPEQ;
     break;
   case CSA::Generic::CMPGE: // ">=" maps to "<"
-    new_generic = swap_ltgt ? CSA::Generic::CMPLT : CSA::Generic::CMPGE;
+    new_generic = swap_ltgt ? CSA::Generic::CMPLE : CSA::Generic::CMPGE;
     break;
   case CSA::Generic::CMPGT: // ">" maps to "<="
-    new_generic = swap_ltgt ? CSA::Generic::CMPLE : CSA::Generic::CMPGT;
+    new_generic = swap_ltgt ? CSA::Generic::CMPLT : CSA::Generic::CMPGT;
     break;
   case CSA::Generic::CMPLE: // "<=" maps to ">"
-    new_generic = swap_ltgt ? CSA::Generic::CMPGT : CSA::Generic::CMPLE;
+    new_generic = swap_ltgt ? CSA::Generic::CMPGE : CSA::Generic::CMPLE;
     break;
   case CSA::Generic::CMPLT: // "<" maps to ">="
-    new_generic = swap_ltgt ? CSA::Generic::CMPGE : CSA::Generic::CMPLT;
+    new_generic = swap_ltgt ? CSA::Generic::CMPGT : CSA::Generic::CMPLT;
     break;
   case CSA::Generic::CMPNE: // "!=" maps to "!="
     new_generic = negate_eq ? CSA::Generic::CMPEQ : CSA::Generic::CMPNE;
