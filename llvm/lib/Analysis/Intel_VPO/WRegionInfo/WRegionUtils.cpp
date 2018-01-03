@@ -407,15 +407,15 @@ ICmpInst *WRegionUtils::getOmpLoopZeroTripTest(Loop *L, BasicBlock *EntryBB) {
   if (pred_empty(PB) || std::distance(pred_begin(PB), pred_end(PB)) != 1)
     return nullptr;
   do {
-    if (pred_empty(PB))
+    if (PB == EntryBB || pred_empty(PB))
       return nullptr;
     PB = *(pred_begin(PB));
     if (std::distance(succ_begin(PB), succ_end(PB))==2)
       break;
     // The basic block should have only one successor.
-    if (std::distance(succ_begin(PB), succ_end(PB)) != 1 || PB == EntryBB)
+    if (std::distance(succ_begin(PB), succ_end(PB)) != 1)
       return nullptr;
-  }while (PB);
+  } while (PB);
   if (!PB)
     return nullptr;
   for (BasicBlock::reverse_iterator J = PB->rbegin();
