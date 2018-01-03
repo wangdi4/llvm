@@ -1676,8 +1676,8 @@ class BinaryNoPatOpR<GenericOp op, CSAOpInfo oi, InstrItinClass itin> : FMTGEN<
 class RndscaleOp<GenericOp op, CSAOpInfo oi, InstrItinClass itin> : FMTGEN<
   op, oi,
   (outs oi.RC:$result),
-  (ins oi.RCL:$op1, oi.RCL:$op2, i8imm:$fract, RMODE:$rndmode),
-  !strconcat(op.AsmString, oi.InstrSuffix, "\t$result, $op1, $op2, $fract, $rndmode"),
+  (ins oi.RCL:$op1, i8imm:$fract, RMODE:$rndmode),
+  !strconcat(op.AsmString, oi.InstrSuffix, "\t$result, $op1, $fract, $rndmode"),
   [], // No pattern
   [], // No predicates
   itin>;
