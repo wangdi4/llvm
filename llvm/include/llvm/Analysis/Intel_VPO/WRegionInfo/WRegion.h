@@ -209,6 +209,7 @@ private:
   SharedClause Shared;
   PrivateClause Priv;
   FirstprivateClause Fpriv;
+  LastprivateClause Lpriv;
   ReductionClause Reduction;
   CopyinClause Copyin;
   EXPR IfExpr;
@@ -230,6 +231,7 @@ public:
   DEFINE_GETTER(SharedClause,       getShared, Shared)
   DEFINE_GETTER(PrivateClause,      getPriv,   Priv)
   DEFINE_GETTER(FirstprivateClause, getFpriv,  Fpriv)
+  DEFINE_GETTER(LastprivateClause,  getLpriv,  Lpriv)
   DEFINE_GETTER(ReductionClause,    getRed,    Reduction)
   DEFINE_GETTER(CopyinClause,       getCopyin, Copyin)
   DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo, WRNLI)
