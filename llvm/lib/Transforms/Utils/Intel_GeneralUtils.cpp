@@ -69,7 +69,9 @@ Loop *IntelGeneralUtils::getLoopFromLoopInfo(LoopInfo *LI,
   // Return the loop associated with this BB.
   if (std::distance(pred_begin(BB), pred_end(BB))==2) {
     Lp = LI->getLoopFor(BB);
-    assert(Lp && "The first BB with 2 predecessors should be the loop header");
+    // assert(Lp &&
+    //   "The first BB with 2 predecessors should be the loop header");
+    //
     // dbgs() << "\n=== getLoopFromLoopInfo found loop : " << *Lp << "\n";
     return Lp;
   }

@@ -54,8 +54,21 @@ bool VPOUtils::stripDirectives(BasicBlock &BB) {
   SmallVector<Instruction *, 4> IntrinsicsToRemove;
 
   for (Instruction &I : BB) {
-    if (VPOAnalysisUtils::isIntelDirectiveOrClause(&I))
-      IntrinsicsToRemove.push_back(&I);
+    if (VPOAnalysisUtils::isIntelDirectiveOrClause(&I)) {
+      // Should not add I.Users() to IntrinsicsToRemove Vetor,
+      // otherwise, I.users() will be deleted twice,
+      bool IsUser = false;
+      for (unsigned int Idx = 0; Idx < IntrinsicsToRemove.size(); ++Idx) {
+        Instruction *II = IntrinsicsToRemove[Idx];
+        for (User *U : II->users())
+          if (Instruction *UI = dyn_cast<Instruction>(U))
+            if (&I == UI)
+              IsUser = true;
+      }
+
+      if (!IsUser)
+        IntrinsicsToRemove.push_back(&I);
+    }
   }
 
   // Remove the directive intrinsics.
@@ -71,6 +84,7 @@ bool VPOUtils::stripDirectives(BasicBlock &BB) {
       if (Instruction *UI = dyn_cast<Instruction>(U)) {
         UI->eraseFromParent();
       }
+
     I->eraseFromParent();
   }
 

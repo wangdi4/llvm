@@ -186,7 +186,7 @@ public:
     // Generate a switch statement for the parallel section or work-sharing
     // section represented by \p Node. Each section in the parallel section or
     // work-sharing section corresponds to a case statement in the switch.
-    static SwitchInst *genParSectSwitch(Value *SwitchCond, ParSectNode *Node,
+    static void genParSectSwitch(Value *SwitchCond, ParSectNode *Node,
                         IRBuilder<> &Builder, int Counter,
                         DominatorTree *DT = nullptr);
 
@@ -199,7 +199,15 @@ public:
     static void buildParSectTreeRecursive(BasicBlock* BB,
                         std::stack<ParSectNode *> &SectionStack,
                         DominatorTree *DT = nullptr);
+
     static void printParSectTree(ParSectNode *Node);
+
+    static void gatherImplicitSectionRecursive(BasicBlock* BB,
+                        std::stack<ParSectNode *> &ImpSectStack,
+                        DominatorTree *DT = nullptr);
+
+    static void insertSectionRecursive(Function *F, ParSectNode *Node,
+                        int &Counter, DominatorTree *DT = nullptr);
 
     ///////////////// End Parallel Section Transformation /////////////////
 

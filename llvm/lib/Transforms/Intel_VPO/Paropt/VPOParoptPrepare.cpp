@@ -24,6 +24,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Pass.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/LegacyPassManager.h"
@@ -84,8 +85,19 @@ bool VPOParoptPrepare::runOnFunction(Function &F) {
     return Changed;
   }
 
-  // Walk the W-Region Graph top-down, and create W-Region List
   WRegionInfo &WI = getAnalysis<WRegionInfo>();
+
+  if (Mode & ParPrepare) {
+    DEBUG(dbgs() << "VPOParoptPrepare: Before Par Sections Transformation");
+    DEBUG(dbgs() << F <<" \n");
+
+    Changed = VPOUtils::parSectTransformer(&F, WI.getDomTree());
+
+    DEBUG(dbgs() << "VPOParoptPrepare: After Par Sections Transformation");
+    DEBUG(dbgs() << F <<" \n");
+  }
+
+  // Walk the W-Region Graph top-down, and create W-Region List
   WI.buildWRGraph(WRegionCollection::LLVMIR);
 
   DEBUG(dbgs() << "\n=== W-Region Graph Build Done: " << F.getName() <<"\n");

@@ -235,7 +235,8 @@ bool VPOParoptTransform::paroptTransforms() {
     bool RemoveDirectives = false;
     bool RemovePrivateClauses = false;
 
-    if (W->getIsOmpLoop() && W->getWRNLoopInfo().getLoop()==nullptr) {
+    if (W->getIsOmpLoop() && !W->getIsSections()
+                      &&  W->getWRNLoopInfo().getLoop()==nullptr) {
       // The WRN is a loop-type construct, but the loop is missing, most likely
       // because it has been optimized away. We skip the code transforms for
       // this WRN, and simply remove its directives.

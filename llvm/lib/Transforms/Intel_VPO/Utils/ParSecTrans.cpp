@@ -225,10 +225,26 @@ ParSectNode *VPOUtils::buildParSectTree(Function *F, DominatorTree *DT)
 {
   // Used to find a pair of directives' basic blocks.
   std::stack<ParSectNode *> SectStack;
+  std::stack<ParSectNode *> ImpSectStack;
 
   // The Root node does not correspond to any region represented by
   // OMP_PARALLEL_SECTIONS, OMP_SECTIONS or OMP_SECTION, but its children do.
   ParSectNode *Root = new ParSectNode();
+  ParSectNode *ImpRoot = new ParSectNode();
+
+  ImpRoot->EntryBB = nullptr;
+  ImpRoot->ExitBB  = nullptr;
+  ImpSectStack.push(ImpRoot);
+
+  gatherImplicitSectionRecursive(&F->getEntryBlock(), ImpSectStack, DT);
+
+  printParSectTree(ImpRoot);
+
+  int Cnt = 0;
+  insertSectionRecursive(F, ImpRoot, Cnt, DT);
+
+  delete ImpRoot;
+
   Root->EntryBB = nullptr;
   Root->ExitBB = nullptr;
 
@@ -238,6 +254,107 @@ ParSectNode *VPOUtils::buildParSectTree(Function *F, DominatorTree *DT)
 
   return Root;
 }
+
+
+// Pre-order traversal on Dominator Tree with the use of a stack
+// to build Section Tree.
+void VPOUtils::gatherImplicitSectionRecursive(
+  BasicBlock* BB,
+  std::stack<ParSectNode *> &ImpSectStack,
+  DominatorTree *DT
+)
+{
+  auto DomNode = DT->getNode(BB);
+  ParSectNode *Node = nullptr;
+
+  for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I) {
+
+    if (dyn_cast<IntrinsicInst>(&*I)) {
+      int DirID = VPOAnalysisUtils::getDirectiveID(&*I);
+      if (DirID == DIR_OMP_SECTIONS ||
+          DirID == DIR_OMP_PARALLEL_SECTIONS) {
+
+        BasicBlock *SuccBB = BB->getUniqueSuccessor();
+        BasicBlock::iterator SI = SuccBB->begin();
+        bool IsDirSection = false;
+
+        DEBUG(dbgs() << "Check Imp Section" << *SuccBB << "\n");
+
+        if (dyn_cast<TerminatorInst>(&*SI)) {
+          SuccBB = SuccBB->getUniqueSuccessor();
+          SI = SuccBB->begin();
+        }
+
+        if (dyn_cast<IntrinsicInst>(&*SI)) {
+          int SuccDirID = VPOAnalysisUtils::getDirectiveID(&*SI);
+          if (SuccDirID == DIR_OMP_SECTION) {
+            IsDirSection = true;
+          }
+        }
+
+        if (!IsDirSection) {
+           Node = new ParSectNode();
+           Node->EntryBB = BB;
+           Node->ExitBB  = nullptr;
+           Node->DirBeginID = DirID;
+
+           ParSectNode *Parent = ImpSectStack.top();
+           Parent->Children.push_back(Node);
+           ImpSectStack.push(Node);
+        }
+      }
+
+      if (DirID == DIR_OMP_SECTION ||
+          (DirID == DIR_OMP_END_SECTIONS ||
+           DirID == DIR_OMP_END_PARALLEL_SECTIONS)) {
+
+        Node = ImpSectStack.top();
+        if (Node && Node->ExitBB == nullptr &&
+            (Node->DirBeginID == DIR_OMP_SECTIONS ||
+             Node->DirBeginID == DIR_OMP_PARALLEL_SECTIONS)) {
+
+          bool IsMatchedImpEnd = false;
+          DEBUG(dbgs() << "xMatching Section Entry" << *Node->EntryBB << "\n");
+
+          if (DirID == DIR_OMP_SECTION) {
+            IsMatchedImpEnd = true;
+          }
+          else {
+            BasicBlock *PredBB = BB->getUniquePredecessor();
+            BasicBlock::iterator EI = PredBB->begin();
+
+            if (dyn_cast<TerminatorInst>(&*EI)) {
+              PredBB = PredBB->getUniquePredecessor();
+              EI = PredBB->begin();
+            }
+
+            if (dyn_cast<IntrinsicInst>(&*EI)) {
+              int PredDirID = VPOAnalysisUtils::getDirectiveID(&*EI);
+              if (PredDirID != DIR_OMP_END_SECTION) {
+                IsMatchedImpEnd = true;
+              }
+            }
+            else {
+              IsMatchedImpEnd = true;
+            }
+          }
+
+          if (IsMatchedImpEnd) {
+            Node->ExitBB = BB;
+            ImpSectStack.pop();
+          }
+        }
+      }
+    }
+  }
+
+  /// Walk over dominator children.
+  for (auto D = DomNode->begin(), E = DomNode->end(); D != E; ++D) {
+    auto DomChildBB = (*D)->getBlock();
+    gatherImplicitSectionRecursive(DomChildBB, ImpSectStack, DT);
+  }
+}
+
 
 // Pre-order traversal on Dominator Tree with the use of a stack
 // to build Section Tree.
@@ -252,34 +369,29 @@ void VPOUtils::buildParSectTreeRecursive(
 
   for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I) {
 
-    if (IntrinsicInst *Call = dyn_cast<IntrinsicInst>(&*I)) {
-      Intrinsic::ID IntrinId = Call->getIntrinsicID();
-      if (IntrinId == Intrinsic::intel_directive) {
+    if (dyn_cast<IntrinsicInst>(&*I)) {
+      int DirID = VPOAnalysisUtils::getDirectiveID(&*I);
+      if (DirID == DIR_OMP_SECTION ||
+          DirID == DIR_OMP_SECTIONS ||
+          DirID == DIR_OMP_PARALLEL_SECTIONS) {
 
-        StringRef DirStr = VPOAnalysisUtils::getDirectiveMetadataString(Call);
-        int DirID = VPOAnalysisUtils::getDirectiveID(DirStr);
+        Node = new ParSectNode();
+        Node->EntryBB = BB;
+        Node->DirBeginID = DirID;
 
-        if (DirID == DIR_OMP_SECTION ||
-            DirID == DIR_OMP_SECTIONS ||
-            DirID == DIR_OMP_PARALLEL_SECTIONS) {
+        ParSectNode *Parent = SectStack.top();
+        Parent->Children.push_back(Node);
+        SectStack.push(Node);
+      }
 
-          Node = new ParSectNode();
-          Node->EntryBB = BB;
-          Node->DirBeginID = DirID;
+      if (DirID == DIR_OMP_END_SECTION ||
+          DirID == DIR_OMP_END_SECTIONS ||
+          DirID == DIR_OMP_END_PARALLEL_SECTIONS) {
 
-          ParSectNode *Parent = SectStack.top();
-          Parent->Children.push_back(Node);
-          SectStack.push(Node);
-        }
-        if (DirID == DIR_OMP_END_SECTION ||
-            DirID == DIR_OMP_END_SECTIONS ||
-            DirID == DIR_OMP_END_PARALLEL_SECTIONS) {
+        Node = SectStack.top();
+        Node->ExitBB = BB;
 
-          Node = SectStack.top();
-          Node->ExitBB = BB;
-
-          SectStack.pop();
-        }
+        SectStack.pop();
       }
     }
   }
@@ -317,6 +429,78 @@ void VPOUtils::printParSectTree(ParSectNode *Node)
 
   DEBUG(dbgs() << "\nEnding Chidren Printing:\n");
 }
+
+// Post-order traversal
+void VPOUtils::insertSectionRecursive(
+  Function *F,
+  ParSectNode *Node,
+  int &Counter,
+  DominatorTree *DT
+)
+{
+  if (Node->Children.size() != 0) {
+    // Insert from inner to outer
+    for (auto *Child: Node->Children)
+      insertSectionRecursive(F, Child, Counter, DT);
+
+    // Free children
+    for (auto *Child: Node->Children)
+      delete Child;
+  }
+
+  // We only need to insert SECTION to OMP_PARALLEL_SECTIONS and
+  // OMP_SECTIONS nodes, not OMP_SECTION nodes or the tree Root.
+  //
+  if (Node->EntryBB && Node->ExitBB &&
+      (Node->DirBeginID == DIR_OMP_SECTIONS ||
+       Node->DirBeginID == DIR_OMP_PARALLEL_SECTIONS)) {
+
+    Module *M = F->getParent();
+    Counter++;
+
+    SmallVector<llvm::Value*, 1> BundleValue;
+    llvm::OperandBundleDef EntryOpB("DIR.OMP.SECTION", BundleValue);
+
+    SmallVector<llvm::OperandBundleDef, 1> EntryOpBundle;
+    EntryOpBundle.push_back(EntryOpB);
+
+    Function *DirEntry =
+      Intrinsic::getDeclaration(M, Intrinsic::directive_region_entry);
+
+    SmallVector<llvm::Value*, 1> Arg;
+
+    Instruction *I = &Node->EntryBB->front();
+
+    CallInst *DirEntryCI = CallInst::Create(DirEntry, Arg, EntryOpBundle, "");
+
+    DirEntryCI->insertAfter(I);
+
+    BasicBlock *SecEntry = SplitBlock(Node->EntryBB, DirEntryCI, DT, nullptr);
+    SecEntry->setName("implicit.section.entry." + Twine(Counter));
+
+    SmallVector<llvm::Value*, 1> ExitBundleValue;
+    llvm::OperandBundleDef ExitOpB("DIR.OMP.END.SECTION", ExitBundleValue);
+
+    SmallVector<llvm::OperandBundleDef, 1> ExitOpBundle;
+    ExitOpBundle.push_back(ExitOpB);
+
+    Function *DirExit =
+      Intrinsic::getDeclaration(M, Intrinsic::directive_region_exit);
+
+    SmallVector<llvm::Value*, 1> ArgIn;
+    ArgIn.push_back(DirEntryCI);
+
+    I = &Node->ExitBB->front();
+
+    CallInst *DirExitCI = CallInst::Create(DirExit, ArgIn, ExitOpBundle, "");
+    DirExitCI->insertBefore(I);
+
+    BasicBlock *SecExitSucc = SplitBlock(Node->ExitBB, I, DT, nullptr);
+    SecExitSucc->setName("implicit.section.exit.succ." + Twine(Counter));
+  }
+  return;
+}
+
 
 // Post-order traversal
 void VPOUtils::parSectTransRecursive(
@@ -457,10 +641,10 @@ void VPOUtils::doParSectTrans(
   // insertion point, for the following code to insert the loop body.
   //
   unsigned NumSections = Node->Children.size();
-  IntegerType *type = Type::getInt32Ty(F->getContext());
-  Constant *LB = ConstantInt::get(type, 0);
-  Constant *UB = ConstantInt::get(type, (NumSections - 1));
-  Constant *Stride = ConstantInt::get(type, 1);
+  IntegerType *IntTy = Type::getInt32Ty(F->getContext());
+  Constant *LB = ConstantInt::get(IntTy, 0);
+  Constant *UB = ConstantInt::get(IntTy, (NumSections - 1));
+  Constant *Stride = ConstantInt::get(IntTy, 1);
 
   Value *IV = genNewLoop(LB, UB, Stride, Builder, Counter, DT);
 
@@ -495,21 +679,26 @@ void VPOUtils::doParSectTrans(
   //
   // generateSwitch() will return the switch instruction created.
   //
-  SwitchInst *SwitchInstruction = genParSectSwitch(IV, Node, Builder, Counter, DT);
+  //SwitchInst *SwitchInstruction = genParSectSwitch(IV, Node, Builder, Counter, DT);
+  genParSectSwitch(IV, Node, Builder, Counter, DT);
+  return;
 }
 
 // Insert an empty loop right after BeforeBB
 //
 //             BeforeBB
 //                |
-//           PreheaderBB
+//             HeaderBB:
+//            i = phi(LB, i')
 //                |
-//            HeaderBB:      <-------------|
-//             i = phi(LB, i')             |
-//             i' = i + Stride             | latch
-//             if (i' <= UB)               |
-//                |   |____________________|
 //                |
+//              BodyBB: <-----------+
+//               ...                |
+//               ...                |
+//             i' = i + Stride      | latch
+//             if (i' <= UB)        |
+//                |   |             |
+//                |   +-------------+
 //              ExitBB
 //
 Value *VPOUtils::genNewLoop(
@@ -533,10 +722,13 @@ Value *VPOUtils::genNewLoop(
   BasicBlock *BeforeBB = Builder.GetInsertBlock();
 
   BasicBlock *PreHeaderBB =
-      BasicBlock::Create(Context, FName + ".sec.loop.preheader." + Twine(Counter), F);
+      BasicBlock::Create(Context, ".sloop.preheader." + Twine(Counter), F);
 
   BasicBlock *HeaderBB =
-      BasicBlock::Create(Context, FName + ".sec.loop.header." + Twine(Counter), F);
+      BasicBlock::Create(Context, ".sloop.header." + Twine(Counter), F);
+
+  BasicBlock *BodyBB =
+      BasicBlock::Create(Context, ".sloop.body." + Twine(Counter), F);
 
   // The default insertion point is InsertBlock->end(), we need to move it one
   // step back to point to the terminator instruction in InsertBlock, for
@@ -545,46 +737,78 @@ Value *VPOUtils::genNewLoop(
   Builder.SetInsertPoint(&*--Builder.GetInsertPoint());
   BasicBlock *ExitBB =
       SplitBlock(BeforeBB, &*Builder.GetInsertPoint(), DT, nullptr);
-  ExitBB->setName(FName + ".sec.loop.exit." + Twine(Counter));
+  ExitBB->setName(FName + ".sloop.latch." + Twine(Counter));
 
   // BeforeBB
+  //BeforeBB->getTerminator()->setSuccessor(0, HeaderBB);
   BeforeBB->getTerminator()->setSuccessor(0, PreHeaderBB);
 
-  // PreHeaderBB
   Builder.SetInsertPoint(PreHeaderBB);
   Builder.CreateBr(HeaderBB);
 
-  // HeaderBB
+  Value *UpperBnd = UB;
+
+  if (ConstantInt* CI = cast<ConstantInt>(UB)) {
+    if (CI->getBitWidth() <= 32) {
+      int NumSections = CI->getSExtValue();
+      if (NumSections == 0) {
+        // PreHeaderBB
+        IntegerType *IntTy = Type::getInt32Ty(F->getContext());
+        const DataLayout &DL = F->getParent()->getDataLayout();
+        Instruction *InsertPt = PreHeaderBB->getTerminator();
+        AllocaInst *TmpUB = new AllocaInst(IntTy,
+                            DL.getAllocaAddrSpace(), "num.sects", InsertPt);
+        TmpUB->setAlignment(4);
+
+        StoreInst *SI = new StoreInst(UB, TmpUB, false, InsertPt);
+        SI->setAlignment(4);
+
+        UpperBnd = new LoadInst(TmpUB, "sloop.ub", true, InsertPt);
+      }
+    }
+  }
+
+  // HeaderBB and Loop ZTT
   Builder.SetInsertPoint(HeaderBB);
   PHINode *IV = Builder.CreatePHI(
-                LoopIVType, 2, FName + ".sec.loop.indvar." + Twine(Counter));
+                LoopIVType, 2, ".sloop.iv." + Twine(Counter));
+  //IV->addIncoming(LB, BeforeBB);
   IV->addIncoming(LB, PreHeaderBB);
-  Value *IncrementedIV = Builder.CreateAdd(
-                    IV, Stride, FName + ".sec.loop.incr." + Twine(Counter),
+
+  // Value *LoopZTT = Builder.CreateICmp(ICmpInst::ICMP_SLE, IV, UB);
+  // LoopZTT->setName(FName + ".sloop.ztt." + Twine(Counter));
+  // Builder.CreateCondBr(LoopZTT, BodyBB, ExitBB);
+  Builder.CreateBr(BodyBB);
+
+  // Loop BodyBB
+  Builder.SetInsertPoint(BodyBB);
+  Value *IncIV = Builder.CreateAdd(
+                    IV, Stride, ".sloop.inc." + Twine(Counter),
                     true/*HasNUW*/, true/*HasNSW*/);
-  Value *LoopCondition = Builder.CreateICmp(ICmpInst::ICMP_SLE, IV, UB);
-  LoopCondition->setName(FName + ".sec.loop.cond." + Twine(Counter));
+  Value *LoopCond = Builder.CreateICmp(ICmpInst::ICMP_SLE, IncIV, UpperBnd);
+  LoopCond->setName(FName + ".sloop.cond." + Twine(Counter));
 
   // Loop latch
-  Builder.CreateCondBr(LoopCondition, HeaderBB, ExitBB);
-  IV->addIncoming(IncrementedIV, HeaderBB);
+  Builder.CreateCondBr(LoopCond, HeaderBB, ExitBB);
+  IV->addIncoming(IncIV, BodyBB);
 
   // Now move the newly created loop blocks from the end of basic block list
   // to the proper place, which is right before loop ExitBB. This will not
   // affect CFG, but CFG printing and readability.
   F->getBasicBlockList().splice(ExitBB->getIterator(),
                                 F->getBasicBlockList(),
-                                PreHeaderBB->getIterator(),
+                                HeaderBB->getIterator(),
                                 F->end());
 
   if (DT) {
     DT->addNewBlock(PreHeaderBB, BeforeBB);
     DT->addNewBlock(HeaderBB, PreHeaderBB);
-    DT->changeImmediateDominator(ExitBB, HeaderBB);
+    DT->addNewBlock(BodyBB, HeaderBB);
+    DT->changeImmediateDominator(ExitBB, PreHeaderBB);
   }
 
   // The loop body should be added here.
-  Builder.SetInsertPoint(HeaderBB->getFirstNonPHI());
+  Builder.SetInsertPoint(BodyBB->getFirstNonPHI());
 
   // Return the loop PHI instruction
   return IV;
@@ -619,7 +843,8 @@ Value *VPOUtils::genNewLoop(
 //             |......            |
 //             --------------------
 //
-SwitchInst *VPOUtils::genParSectSwitch(
+//SwitchInst *VPOUtils::genParSectSwitch(
+void VPOUtils::genParSectSwitch(
   Value *SwitchCond,
   ParSectNode *Node,
   IRBuilder<> &Builder,
@@ -627,7 +852,6 @@ SwitchInst *VPOUtils::genParSectSwitch(
   DominatorTree *DT
 )
 {
-
   BasicBlock *SwitchBB = Builder.GetInsertBlock();
   BasicBlock::iterator InsertPoint = Builder.GetInsertPoint();
 
@@ -638,20 +862,21 @@ SwitchInst *VPOUtils::genParSectSwitch(
   unsigned NumCases = Node->Children.size();
 
   // Split SwitchBB at the SwitchInsertPoint
-  BasicBlock *SwitchSuccBB =
-      SplitBlock(SwitchBB, InsertPoint, DT, nullptr);
-  SwitchSuccBB->setName(FName + ".sec.sw.succBB." + Twine(Counter));
+  Instruction *I = &*InsertPoint;
+  BasicBlock *SwitchSuccBB = SplitBlock(SwitchBB, I, DT, nullptr);
+
+  SwitchSuccBB->setName(FName + ".sw.succBB." + Twine(Counter));
 
   // Insert the Switch right before the original terminator
   Builder.SetInsertPoint(SwitchBB->getTerminator());
 
   BasicBlock *Default = BasicBlock::Create(
-          Context, FName + ".sec.sw.default." + Twine(Counter), F);
+          Context, FName + ".sw.default." + Twine(Counter), F);
   SwitchInst *SwitchInstruction =
       Builder.CreateSwitch(SwitchCond, Default, NumCases);
 
   BasicBlock *Epilog = BasicBlock::Create(
-          Context, FName + ".sec.sw.epilog." + Twine(Counter), F);
+          Context, FName + ".sw.epilog." + Twine(Counter), F);
   Builder.SetInsertPoint(Epilog);
   Builder.CreateBr(SwitchSuccBB);
 
@@ -664,7 +889,7 @@ SwitchInst *VPOUtils::genParSectSwitch(
     BasicBlock *SectionExitBB = Node->Children[i]->ExitBB;
 
     SectionEntryBB->setName(
-            FName + ".sec.sw.case" + Twine(i) + "." + Twine(Counter));
+            FName + ".sw.case" + Twine(i) + "." + Twine(Counter));
     SwitchInstruction->addCase(CaseValue, SectionEntryBB);
 
     SectionExitBB->getTerminator()->eraseFromParent();
@@ -675,16 +900,6 @@ SwitchInst *VPOUtils::genParSectSwitch(
       DT->changeImmediateDominator(SectionEntryBB, SwitchBB);
     }
 
-    // Delete DIR_OMP_SECTION directive, which has the following form:
-    //
-    // sec.begin:
-    // call void @llvm.intel.directive(metadata !"DIR.OMP.SECTION");
-    // call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END");
-    // br label %sec.body
-    //
-    SectionEntryBB->getInstList().pop_front();
-    SectionEntryBB->getInstList().pop_front();
-
     // Delete DIR_OMP_END_SECTION directive, which has the following form:
     //
     // sec.end:
@@ -693,7 +908,24 @@ SwitchInst *VPOUtils::genParSectSwitch(
     // br label %after.sec
     //
     SectionExitBB->getInstList().pop_front();
-    SectionExitBB->getInstList().pop_front();
+
+    // Delete DIR_OMP_SECTION directive, which has the following form:
+    //
+    // sec.begin:
+    // call void @llvm.intel.directive(metadata !"DIR.OMP.SECTION");
+    // call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END");
+    // br label %sec.body
+    //
+    SectionEntryBB->getInstList().pop_front();
+
+    auto I = SectionEntryBB->begin();
+    if (IntrinsicInst *Call = dyn_cast<IntrinsicInst>(&*I)) {
+      Intrinsic::ID IntrinId = Call->getIntrinsicID();
+      if (IntrinId == Intrinsic::intel_directive) {
+        SectionExitBB->getInstList().pop_front();
+        SectionEntryBB->getInstList().pop_front();
+      }
+    }
   }
 
   Builder.SetInsertPoint(Default);
@@ -712,5 +944,6 @@ SwitchInst *VPOUtils::genParSectSwitch(
     DT->changeImmediateDominator(SwitchSuccBB, Epilog);
   }
 
-  return SwitchInstruction;
+  return;
+  //return SwitchInstruction;
 }

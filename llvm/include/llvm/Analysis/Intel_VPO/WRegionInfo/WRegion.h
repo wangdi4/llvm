@@ -261,6 +261,7 @@ private:
   FirstprivateClause Fpriv;
   ReductionClause Reduction;
   CopyinClause Copyin;
+  ScheduleClause Schedule;
   EXPR IfExpr;
   EXPR NumThreads;
   WRNDefaultKind Default;
@@ -282,6 +283,7 @@ public:
   DEFINE_GETTER(FirstprivateClause, getFpriv,  Fpriv)
   DEFINE_GETTER(ReductionClause,    getRed,    Reduction)
   DEFINE_GETTER(CopyinClause,       getCopyin, Copyin)
+  DEFINE_GETTER(ScheduleClause,     getSchedule, Schedule)
   DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo, WRNLI)
 
   EXPR getIf() const { return IfExpr; }
@@ -798,6 +800,7 @@ private:
   FirstprivateClause Fpriv;
   LastprivateClause Lpriv;
   ReductionClause Reduction;
+  ScheduleClause Schedule;
   bool Nowait;
   WRNLoopInfo WRNLI;
 
@@ -812,6 +815,7 @@ public:
   DEFINE_GETTER(FirstprivateClause, getFpriv,  Fpriv)
   DEFINE_GETTER(LastprivateClause,  getLpriv,  Lpriv)
   DEFINE_GETTER(ReductionClause,    getRed,    Reduction)
+  DEFINE_GETTER(ScheduleClause,     getSchedule, Schedule)
   DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo, WRNLI)
 
   bool getNowait() const { return Nowait; }
