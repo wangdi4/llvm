@@ -526,10 +526,11 @@ void VPOUtils::parSectTransRecursive(
 
       // Just a check
       for (auto *Child: Node->Children) {
-        assert(Child->EntryBB->getSinglePredecessor()
-               && "Not a single-entry OMP Section");
-        assert(Child->ExitBB->getSingleSuccessor()
-               && "Not a single-exit OMP Section");
+        if (!Child->EntryBB->getSinglePredecessor())
+          DEBUG(dbgs() << "Not a single-entry OMP Section\n");
+
+        if (!Child->ExitBB->getSingleSuccessor())
+          DEBUG(dbgs() << "Not a single-exit OMP Section\n");
       }
 
       Counter++;
