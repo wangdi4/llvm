@@ -15,11 +15,7 @@
 
 #include "llvm/Support/Debug.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/IR/BlobDDRef.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/IR/DDRef.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/IR/RegDDRef.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;

@@ -13,52 +13,24 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "HIRLoopFormation.h"
+
 #include "llvm/IR/Instructions.h"
 
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRCleanup.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRCreation.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRLoopFormation.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRRegionIdentification.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+
+#include "HIRCleanup.h"
+#include "HIRCreation.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
 
 #define DEBUG_TYPE "hir-loop-formation"
-
-INITIALIZE_PASS_BEGIN(HIRLoopFormation, "hir-loop-formation",
-                      "HIR Loop Formation", false, true)
-INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass);
-INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRRegionIdentification)
-INITIALIZE_PASS_DEPENDENCY(HIRCreation)
-INITIALIZE_PASS_DEPENDENCY(HIRCleanup)
-INITIALIZE_PASS_END(HIRLoopFormation, "hir-loop-formation",
-                    "HIR Loop Formation", false, true)
-
-char HIRLoopFormation::ID = 0;
-
-FunctionPass *llvm::createHIRLoopFormationPass() {
-  return new HIRLoopFormation();
-}
-
-HIRLoopFormation::HIRLoopFormation() : FunctionPass(ID) {
-  initializeHIRLoopFormationPass(*PassRegistry::getPassRegistry());
-}
-
-void HIRLoopFormation::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.setPreservesAll();
-  AU.addRequiredTransitive<LoopInfoWrapperPass>();
-  AU.addRequiredTransitive<ScalarEvolutionWrapperPass>();
-  AU.addRequiredTransitive<HIRRegionIdentification>();
-  AU.addRequiredTransitive<HIRCreation>();
-  AU.addRequired<HIRCleanup>();
-}
 
 namespace {
 struct LoopCompareLess {
@@ -133,7 +105,7 @@ APInt HIRLoopFormation::getAddRecRefinedSignedMax(
     return MaxVal;
   }
 
-  auto ConstStride = dyn_cast<SCEVConstant>(AddRec->getStepRecurrence(*SE));
+  auto ConstStride = dyn_cast<SCEVConstant>(AddRec->getStepRecurrence(SE));
 
   if (!ConstStride) {
     return MaxVal;
@@ -153,14 +125,14 @@ APInt HIRLoopFormation::getAddRecRefinedSignedMax(
 
 bool HIRLoopFormation::isNonNegativeNSWIV(const Loop *Lp,
                                           const PHINode *IVPhi) const {
-  auto SC = SE->getSCEVForHIR(const_cast<PHINode *>(IVPhi),
+  auto SC = SE.getSCEVForHIR(const_cast<PHINode *>(IVPhi),
                               getOutermostHIRParentLoop(Lp));
 
   if (!isa<SCEVAddRecExpr>(SC)) {
     return false;
   }
 
-  auto Range = SE->getSignedRange(SC);
+  auto Range = SE.getSignedRange(SC);
 
   if (!Range.getSignedMin().isNonNegative()) {
     return false;
@@ -195,7 +167,7 @@ bool HIRLoopFormation::hasNSWSemantics(const Loop *Lp, Type *IVType,
   assert(IVType->isIntegerTy() && "Integer IV type expected!");
 
   // Loop has NSW if backedge taken count is in signed range.
-  if (!isa<SCEVCouldNotCompute>(BECount) && SE->isKnownNonNegative(BECount)) {
+  if (!isa<SCEVCouldNotCompute>(BECount) && SE.isKnownNonNegative(BECount)) {
     return true;
   }
 
@@ -249,7 +221,7 @@ void HIRLoopFormation::setIVType(HLLoop *HLoop, const SCEV *BECount) const {
   assert(isa<Instruction>(Cond) &&
          "Loop exit condition is not an instruction!");
 
-  auto IVNode = RI->findIVDefInHeader(*Lp, cast<Instruction>(Cond));
+  auto IVNode = RI.findIVDefInHeader(*Lp, cast<Instruction>(Cond));
   assert(IVNode && "Could not find loop IV!");
 
   auto IVType = IVNode->getType();
@@ -325,10 +297,10 @@ void HIRLoopFormation::setZtt(HLLoop *HLoop) {
     PredicateInversion = true;
   }
 
-  auto IfBB = HIR->getSrcBBlock(IfParent);
+  auto IfBB = HIRCr.getSrcBBlock(IfParent);
   auto IfBrInst = cast<BranchInst>(IfBB->getTerminator());
 
-  if (!SE->isLoopZtt(Lp, getOutermostHIRParentLoop(Lp), IfBrInst,
+  if (!SE.isLoopZtt(Lp, getOutermostHIRParentLoop(Lp), IfBrInst,
                      PredicateInversion)) {
     return;
   }
@@ -433,13 +405,13 @@ void HIRLoopFormation::formLoops() {
   HLRegion *PrevRegion = nullptr;
 
   // Traverse RequiredLabels set computed by HIRCleanup phase to form loops.
-  for (auto I = HIRC->getRequiredLabels().begin(),
-            E = HIRC->getRequiredLabels().end();
+  for (auto I = HIRC.getRequiredLabels().begin(),
+            E = HIRC.getRequiredLabels().end();
        I != E; ++I) {
     auto Label = *I;
     BasicBlock *HeaderBB = Label->getSrcBBlock();
 
-    if (!LI->isLoopHeader(HeaderBB)) {
+    if (!LI.isLoopHeader(HeaderBB)) {
       continue;
     }
 
@@ -450,20 +422,20 @@ void HIRLoopFormation::formLoops() {
       // lexical traversal of regions so we shouldn't be consuming extra compile
       // time by unnecessarily switching between regions.
       PrevRegion = CurRegion;
-      SE->clearHIRCache();
+      SE.clearHIRCache();
     }
 
     // Found a loop
-    Loop *Lp = LI->getLoopFor(HeaderBB);
+    Loop *Lp = LI.getLoopFor(HeaderBB);
 
     auto BECount =
-        SE->getBackedgeTakenCountForHIR(Lp, getOutermostHIRParentLoop(Lp));
+        SE.getBackedgeTakenCountForHIR(Lp, getOutermostHIRParentLoop(Lp));
 
     bool IsUnknownLoop = isa<SCEVCouldNotCompute>(BECount);
     bool IsConstTripLoop = isa<SCEVConstant>(BECount);
 
     // Find HIR hook for the loop latch.
-    auto LatchHook = HIRC->findHIRHook(Lp->getLoopLatch());
+    auto LatchHook = HIRC.findHIRHook(Lp->getLoopLatch());
 
     assert((Label->getParent() == LatchHook->getParent()) &&
            "Wrong lexical links built!");
@@ -479,7 +451,7 @@ void HIRLoopFormation::formLoops() {
     HLIf *BottomTest = cast<HLIf>(&*BottomTestIter);
 
     // Create a new loop and move its children inside.
-    HLLoop *HLoop = HIR->getHLNodeUtils().createHLLoop(Lp);
+    HLLoop *HLoop = HNU.createHLLoop(Lp);
     HLNodeUtils::insertBefore(Label, HLoop);
 
     HLoop->setBranchDebugLoc(BottomTest->getDebugLoc());
@@ -511,29 +483,7 @@ void HIRLoopFormation::formLoops() {
   }
 }
 
-bool HIRLoopFormation::runOnFunction(Function &F) {
-  this->Func = &F;
-
-  LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-  SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
-  RI = &getAnalysis<HIRRegionIdentification>();
-  HIR = &getAnalysis<HIRCreation>();
-  HIRC = &getAnalysis<HIRCleanup>();
-
+void HIRLoopFormation::run() {
+  this->Func = &HNU.getFunction();
   formLoops();
-
-  return false;
-}
-
-void HIRLoopFormation::releaseMemory() {
-  Loops.clear();
-  InvertedZttLoops.clear();
-}
-
-void HIRLoopFormation::print(raw_ostream &OS, const Module *M) const {
-  HIR->print(OS, M);
-}
-
-void HIRLoopFormation::verifyAnalysis() const {
-  /// TODO: implement later
 }

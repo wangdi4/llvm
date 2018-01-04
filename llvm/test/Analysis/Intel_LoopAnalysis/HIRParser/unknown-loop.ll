@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-cost-model-throttling=0 | opt -analyze -hir-parser -hir-cost-model-throttling=0 | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-cost-model-throttling=0 | opt -analyze -hir-framework -hir-framework-debug=parser -hir-cost-model-throttling=0 | FileCheck %s
 
 ; Check that we correctly parse the unknown loop. The bottom test "if (i1 < %n.addr.012)" has been shifted by -1 to adjust for the IV update copy which will be generated just before it during code gen.
 

@@ -71,8 +71,8 @@ private:
     return getBlobUtils().getHIRParser();
   }
 
-  /// Destroys all CanonExprs. Called during HIR cleanup.
-  void destroyAll();
+  /// Destroys all CanonExprs.
+  ~CanonExprUtils();
 
   /// Calculates the lcm of two positive inputs. Returns zero on overflow.
   static int64_t lcm(int64_t A, int64_t B);

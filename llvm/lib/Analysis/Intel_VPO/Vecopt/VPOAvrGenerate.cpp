@@ -42,7 +42,7 @@ char AVRGenerate::ID = 0;
 
 INITIALIZE_PASS_BEGIN(AVRGenerateHIR, "hir-avr-generate", "AVR Generate HIR",
                       false, true)
-INITIALIZE_PASS_DEPENDENCY(HIRParser)
+INITIALIZE_PASS_DEPENDENCY(HIRFramework)
 INITIALIZE_PASS_END(AVRGenerateHIR, "hir-avr-generate", "AVR Generate HIR",
                     false, true)
 

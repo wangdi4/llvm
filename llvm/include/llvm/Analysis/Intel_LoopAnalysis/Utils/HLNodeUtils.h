@@ -21,8 +21,8 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/NoFolder.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeVisitor.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"
 
 #include <set>
 
@@ -36,7 +36,6 @@ namespace loopopt {
 
 class HIRCreation;
 class HIRFramework;
-class CanonExprUtils;
 class BlobUtils;
 class HIRLoopStatistics;
 
@@ -54,7 +53,7 @@ private:
 #endif
 
   DDRefUtils *DDRU;
-  HIRFramework *HIRF;
+  HIRFramework &HIRF;
 
   /// Used to create dummy LLVM instructions corresponding to new HIR
   /// instructions. Dummy instructions are appended to the function entry
@@ -70,9 +69,10 @@ private:
   // insertion should take place.
   HLLabel *Marker;
 
-  HLNodeUtils()
-      : NextUniqueHLNodeNumber(0), DDRU(nullptr), DummyIRBuilder(nullptr),
-        FirstDummyInst(nullptr), LastDummyInst(nullptr), Marker(nullptr) {}
+  HLNodeUtils(HIRFramework &HIRF)
+      : NextUniqueHLNodeNumber(0), DDRU(nullptr), HIRF(HIRF),
+        DummyIRBuilder(nullptr), FirstDummyInst(nullptr),
+        LastDummyInst(nullptr), Marker(nullptr) {}
 
   /// Make class uncopyable.
   HLNodeUtils(const HLNodeUtils &) = delete;
@@ -456,6 +456,9 @@ private:
   /// Test the condition described by Pred, LHS and RHS.
   static bool getPredicateResult(APInt &LHS, PredicateTy Pred, APInt &RHS);
 
+  // Get range that corresponds to the first and one after last HLRegion.
+  HLNodeRangeTy getHIRRange();
+
 public:
   /// Returns the first dummy instruction of the function.
   Instruction *getFirstDummyInst() { return FirstDummyInst; }
@@ -476,6 +479,7 @@ public:
 
   /// Returns marker node.
   HLNode *getMarkerNode() { return Marker; }
+  const HLNode *getMarkerNode() const { return Marker; }
 
   // Returns reference to DDRefUtils object.
   DDRefUtils &getDDRefUtils() {
@@ -496,11 +500,9 @@ public:
   BlobUtils &getBlobUtils();
   const BlobUtils &getBlobUtils() const;
 
-  // Returns pointer to HIRFramework.
-  HIRFramework &getHIRFramework() { return *HIRF; }
-
-  // Returns pointer to HIRFramework.
-  const HIRFramework &getHIRFramework() const { return *HIRF; }
+  /// Returns pointer to HIRFramework.
+  const HIRFramework &getHIRFramework() const { return HIRF; }
+  HIRFramework &getHIRFramework() { return HIRF; }
 
   /// Returns Function object.
   Function &getFunction() const;
@@ -804,7 +806,7 @@ public:
             bool Forward = true, typename HV>
   void visitAll(HV &Visitor) {
     HLNodeVisitor<HV, Recursive, RecurseInsideLoops, Forward> V(Visitor);
-    V.visitRange(getHIRFramework().hir_begin(), getHIRFramework().hir_end());
+    V.visitRange(getHIRRange().begin(), getHIRRange().end());
   }
 
   /// Visits HLNodes in the HIR in InnerToOuter loop hierarchy order. The
@@ -820,8 +822,7 @@ public:
   template <typename HV, bool Forward = true>
   void visitAllInnerToOuter(HV &Visitor) {
     HLInnerToOuterLoopVisitor<HV, Forward> V(Visitor);
-    V.visitRangeRecurseInsideLoops(getHIRFramework().hir_begin(),
-                                   getHIRFramework().hir_end());
+    V.visitRangeRecurseInsideLoops(getHIRRange().begin(), getHIRRange().end());
   }
 
   /// Visits all HLNodes in the HIR in OuterToInner loop hierarchy order. The
@@ -829,7 +830,7 @@ public:
   template <typename HV, bool Forward = true>
   void visitAllOuterToInner(HV &Visitor) {
     HLNodeVisitor<HV, true, true, Forward> V(Visitor);
-    V.visit(getHIRFramework().hir_begin(), getHIRFramework().hir_end());
+    V.visit(getHIRRange().begin(), getHIRRange().end());
   }
 
   /// Inserts an unlinked Node before Pos in HIR.

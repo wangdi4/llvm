@@ -15,6 +15,7 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
@@ -3158,6 +3159,10 @@ bool HLNodeUtils::getPredicateResult(APInt &LHS, PredicateTy Pred, APInt &RHS) {
   default:
     llvm_unreachable("Unsupported predicate");
   }
+}
+
+HLNodeRangeTy HLNodeUtils::getHIRRange() {
+  return make_range(getHIRFramework().hir_begin(), getHIRFramework().hir_end());
 }
 
 bool HLNodeUtils::isKnownPredicate(const CanonExpr *LHS, PredicateTy Pred,

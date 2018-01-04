@@ -34,44 +34,31 @@
 #ifndef INTEL_LOOPANALYSIS_SYMBASE
 #define INTEL_LOOPANALYSIS_SYMBASE
 
-#include "llvm/Pass.h"
-
 namespace llvm {
 
+class AAResults;
 class Function;
+class raw_ostream;
+
 namespace loopopt {
 
+class HIRFramework;
 class HIRParser;
 class RegDDRef;
 
-class HIRSymbaseAssignment : public FunctionPass {
+class HIRSymbaseAssignment {
+  class HIRSymbaseAssignmentVisitor;
+
+  AAResults &AA;
+  HIRFramework &HIRF;
+  HIRParser &HIRP;
+
 public:
-  // Accesses getNewSymbase()
-  friend class HIRFramework;
-  friend class DDRefUtils;
-  friend class BlobUtils;
+  HIRSymbaseAssignment(AAResults &AA, HIRFramework &HIRF, HIRParser &HIRP)
+      : AA(AA), HIRF(HIRF), HIRP(HIRP) {}
 
-  HIRSymbaseAssignment() : FunctionPass(ID) {}
-  static char ID;
-
-  Value *getGEPRefPtr(RegDDRef *Ref) const;
-  bool runOnFunction(Function &F) override;
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-  void print(raw_ostream &OS, const Module * = nullptr) const override;
-
-private:
-  Function *F;
-  HIRParser *HIRP;
-
-  unsigned MaxSymbase;
-
-private:
-  /// \brief Initializes max symbase using the max scalar symbase returned by
-  /// HIRParser.
-  void initializeMaxSymbase();
-
-  // Returns a new unused symbase ID.
-  unsigned getNewSymbase() { return ++MaxSymbase; }
+  void run();
+  void print(raw_ostream &OS) const;
 };
 }
 }

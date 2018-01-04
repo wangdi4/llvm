@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser -hir-details | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser -hir-details | FileCheck %s
 
 ; Check that the liveout values of region 1 (%0 and %conv318.maxLen.0) which are part of SCCs are not mapped to base values(%minLen.01049 and %maxLen.01050) in the livein set of region 2. The mapping is not valid for livein sets because they use underlying LLVM values directly (blobs cannot be used here). 
 

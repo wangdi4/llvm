@@ -18,52 +18,47 @@
 
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/Pass.h"
 
 namespace llvm {
 
 class Function;
+class Type;
 class Loop;
 class LoopInfo;
 class ScalarEvolution;
 class SCEV;
 class SCEVAddRecExpr;
 class APInt;
+class PHINode;
 
 namespace loopopt {
 
 class HLNode;
 class HLRegion;
+class HLLabel;
 class HLLoop;
 class HLIf;
 class HIRRegionIdentification;
 class HIRCreation;
 class HIRCleanup;
+class HLNodeUtils;
 
 /// This analysis forms HIR loops within HIR regions created by the
 /// HIRCreation pass.
-class HIRLoopFormation : public FunctionPass {
+class HIRLoopFormation {
 public:
   typedef std::pair<const Loop *, HLLoop *> LoopPairTy;
 
 private:
-  /// Func - The function we are analyzing.
+  /// The function we are analyzing.
   Function *Func;
 
-  /// LI - The loop information for the function we are currently analyzing.
-  LoopInfo *LI;
-
-  /// SE - Scalar Evolution analysis for the function.
-  ScalarEvolution *SE;
-
-  /// RI - Pointer to HIRRegionIdentification pass.
-  HIRRegionIdentification *RI;
-
-  /// HIR - Pointer to HIRCreation pass.
-  HIRCreation *HIR;
-
-  /// HIRC - Pointer to HIRCleanup pass.
-  HIRCleanup *HIRC;
+  LoopInfo &LI;
+  ScalarEvolution &SE;
+  HIRRegionIdentification &RI;
+  HIRCreation &HIRCr;
+  HIRCleanup &HIRC;
+  HLNodeUtils &HNU;
 
   // Region we are processing.
   HLRegion *CurRegion;
@@ -112,14 +107,12 @@ private:
   void formLoops();
 
 public:
-  static char ID; // Pass identification
-  HIRLoopFormation();
+  HIRLoopFormation(LoopInfo &LI, ScalarEvolution &SE,
+                   HIRRegionIdentification &RI, HIRCreation &HIRCr,
+                   HIRCleanup &HIRC, HLNodeUtils &HNU)
+      : LI(LI), SE(SE), RI(RI), HIRCr(HIRCr), HIRC(HIRC), HNU(HNU) {}
 
-  bool runOnFunction(Function &F) override;
-  void releaseMemory() override;
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-  void print(raw_ostream &OS, const Module * = nullptr) const override;
-  void verifyAnalysis() const override;
+  void run();
 
   /// Returns HLLoop corresponding to Lp.
   HLLoop *findHLLoop(const Loop *Lp);

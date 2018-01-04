@@ -21,6 +21,7 @@
 #include "llvm/Support/ErrorHandling.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRParser.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
@@ -72,7 +73,7 @@ void CanonExprUtils::destroy(CanonExpr *CE) {
   delete CE;
 }
 
-void CanonExprUtils::destroyAll() {
+CanonExprUtils::~CanonExprUtils() {
   for (auto &I : Objs) {
     delete I;
   }

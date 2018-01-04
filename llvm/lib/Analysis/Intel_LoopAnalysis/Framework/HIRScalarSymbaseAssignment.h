@@ -29,8 +29,6 @@
 #ifndef LLVM_ANALYSIS_INTEL_LOOPANALYSIS_SCALARSYMBASEASSIGNMENT_H
 #define LLVM_ANALYSIS_INTEL_LOOPANALYSIS_SCALARSYMBASEASSIGNMENT_H
 
-#include "llvm/Pass.h"
-
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringMap.h"
 
@@ -47,41 +45,25 @@ class ScalarEvolution;
 
 namespace loopopt {
 
-/// Invalid symbase.
-const unsigned InvalidSymbase = 0;
-
-/// Symbase for constants.
-const unsigned ConstantSymbase = 1;
-
-/// Symbase assigned to non-constant rvals which do not create data
-/// dependencies.
-const unsigned GenericRvalSymbase = 2;
-
 class HIRSCCFormation;
 class HIRLoopFormation;
+class HLNodeUtils;
 
 /// \brief This analysis populates livein/liveout values for regions.
 ///
 /// It is also responsible for assigning symbases to temps.
-class HIRScalarSymbaseAssignment : public FunctionPass {
+class HIRScalarSymbaseAssignment {
 private:
   /// Func - The function we are analyzing.
   Function *Func;
 
-  /// Loop info analysis.
-  LoopInfo *LI;
-
-  /// SE - Scalar Evolution analysis for the function.
-  ScalarEvolution *SE;
-
-  /// RI - Region identification analysis.
-  HIRRegionIdentification *RI;
-
-  /// SCCF - SCC formation analysis.
-  HIRSCCFormation *SCCF;
-
-  /// LF - Loop formation analysis.
-  HIRLoopFormation *LF;
+  // Requested analysis
+  LoopInfo &LI;
+  ScalarEvolution &SE;
+  HIRRegionIdentification &RI;
+  HIRSCCFormation &SCCF;
+  HIRLoopFormation &LF;
+  HLNodeUtils &HNU;
 
   /// BaseTemps - Temps used to represent a set of scalar values which are
   /// assigned the same symbase.
@@ -112,9 +94,7 @@ private:
   void populateRegionPhiLiveins(HIRRegionIdentification::iterator RegIt);
 
   /// \brief Returns index of Symbase in BaseTemps.
-  unsigned getIndex(unsigned Symbase) const {
-    return Symbase - GenericRvalSymbase - 1;
-  }
+  unsigned getIndex(unsigned Symbase) const;
 
   /// \brief Inserts Temp into set of base temps and returns its non-zero
   /// symbase.
@@ -154,22 +134,20 @@ private:
                                         const Value **OldBaseScalar);
 
 public:
-  static char ID; // Pass identification
-  HIRScalarSymbaseAssignment();
+  HIRScalarSymbaseAssignment(LoopInfo &LI, ScalarEvolution &SE,
+                             HIRRegionIdentification &RI, HIRSCCFormation &SCCF,
+                             HIRLoopFormation &LF, HLNodeUtils &HNU)
+      : LI(LI), SE(SE), RI(RI), SCCF(SCCF), LF(LF), HNU(HNU) {}
 
-  bool runOnFunction(Function &F) override;
-  void releaseMemory() override;
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-  void print(raw_ostream &OS, const Module * = nullptr) const override;
-  void verifyAnalysis() const override;
+  void run();
+
+  void print(raw_ostream &OS) const;
 
   /// \brief Returns the scalar associated with symbase.
   const Value *getBaseScalar(unsigned Symbase) const;
 
   /// \brief Returns the max symbase assigned to any scalar.
-  unsigned getMaxScalarSymbase() const {
-    return BaseTemps.size() + GenericRvalSymbase;
-  }
+  unsigned getMaxScalarSymbase() const;
 
   /// \brief Returns true if this scalar is a constant.
   static bool isConstant(const Value *Scalar);

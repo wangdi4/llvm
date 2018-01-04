@@ -26,11 +26,6 @@ using namespace llvm::loopopt;
 
 #define DEBUG_TYPE "hir-printer"
 
-static cl::opt<bool> HIRDetailedFrameworkInfo(
-    "hir-details-framework", cl::init(false), cl::Hidden,
-    cl::desc(
-        "Prints framework details along with HLRegion like IRRegion and SCCs"));
-
 namespace {
 
 class HIRPrinter : public FunctionPass {
@@ -50,7 +45,7 @@ public:
       OS << Banner << "\n";
       OS << "Function: " << F.getName() << "\n";
 
-      HIRF.print(HIRDetailedFrameworkInfo, OS);
+      HIRF.print(false, OS);
     }
 
     return false;

@@ -1,4 +1,4 @@
-; RUN: opt < %s -analyze -hir-creation | FileCheck %s
+; RUN: opt < %s -analyze -hir-framework -hir-framework-debug=creation | FileCheck %s
 
 ; Check output of hir-creation
 ; CHECK: BEGIN REGION

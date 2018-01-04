@@ -13,12 +13,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
+
 #include "llvm/Support/Debug.h"
 
-#include "llvm/IR/Constants.h" // needed for UndefValue class
-
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRParser.h"
 
 using namespace llvm;
 using namespace loopopt;
@@ -108,14 +107,12 @@ void DDRefUtils::destroy(DDRef *Ref) {
   delete Ref;
 }
 
-void DDRefUtils::destroyAll() {
+DDRefUtils::~DDRefUtils() {
   for (auto &I : Objs) {
     delete I;
   }
 
   Objs.clear();
-
-  getCanonExprUtils().destroyAll();
 }
 
 RegDDRef *DDRefUtils::createSelfBlobRef(Value *Temp) {
@@ -132,7 +129,7 @@ RegDDRef *DDRefUtils::createSelfBlobRef(Value *Temp) {
 }
 
 unsigned DDRefUtils::getNewSymbase() {
-  return getBlobUtils().getHIRSymbaseAssignment().getNewSymbase();
+  return getHIRParser().getHIRFramework().getNewSymbase();
 }
 
 bool DDRefUtils::areEqualImpl(const BlobDDRef *Ref1, const BlobDDRef *Ref2) {

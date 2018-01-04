@@ -18,29 +18,29 @@
 #define LLVM_ANALYSIS_INTEL_LOOPANALYSIS_HIRCLEANUP_H
 
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/Pass.h"
 
 namespace llvm {
 
 class Function;
 class LoopInfo;
+class BasicBlock;
 
 namespace loopopt {
 
 class HIRCreation;
+class HLNodeUtils;
 class HLNode;
 class HLLabel;
 
-class HIRCleanup : public FunctionPass {
+class HIRCleanup {
 public:
   typedef SmallVector<HLLabel *, 64> RequiredLabelsTy;
 
 private:
-  /// HIR - pointer to HIRCreation pass.
-  HIRCreation *HIR;
-
-  /// LI - The loop information for the function we are currently analyzing.
-  LoopInfo *LI;
+  /// Analysis results
+  LoopInfo &LI;
+  HIRCreation &HIRC;
+  HLNodeUtils &HNU;
 
   /// LoopLatchHooks - Stores HLNodes representing start of a loop latch block.
   SmallDenseMap<const BasicBlock *, HLNode *, 32> LoopLatchHooks;
@@ -55,14 +55,10 @@ private:
   void eliminateRedundantLabels();
 
 public:
-  static char ID; // Pass identification
-  HIRCleanup();
+  HIRCleanup(LoopInfo &LI, HIRCreation &HIRC, HLNodeUtils &HNU)
+      : LI(LI), HIRC(HIRC), HNU(HNU) {}
 
-  bool runOnFunction(Function &F) override;
-  void releaseMemory() override;
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-  void print(raw_ostream &OS, const Module * = nullptr) const override;
-  void verifyAnalysis() const override;
+  void run();
 
   /// \brief Returns the set of required labels.
   const RequiredLabelsTy &getRequiredLabels() const { return RequiredLabels; }

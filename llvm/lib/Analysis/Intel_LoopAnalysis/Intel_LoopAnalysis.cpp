@@ -17,12 +17,6 @@ using namespace llvm;
 void llvm::initializeIntel_LoopAnalysis(PassRegistry &Registry) {
   initializeHIRRegionIdentificationPass(Registry);
   initializeHIRSCCFormationPass(Registry);
-  initializeHIRScalarSymbaseAssignmentPass(Registry);
-  initializeHIRCreationPass(Registry);
-  initializeHIRCleanupPass(Registry);
-  initializeHIRLoopFormationPass(Registry);
-  initializeHIRParserPass(Registry);
-  initializeHIRSymbaseAssignmentPass(Registry);
   initializeHIRFrameworkPass(Registry);
   initializeHIRDDAnalysisPass(Registry);
   initializeHIRLocalityAnalysisPass(Registry);

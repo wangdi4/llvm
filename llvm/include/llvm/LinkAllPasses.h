@@ -258,12 +258,6 @@ namespace {
       // HIR passes
       (void) llvm::createHIRRegionIdentificationPass();
       (void) llvm::createHIRSCCFormationPass();
-      (void) llvm::createHIRCreationPass();
-      (void) llvm::createHIRCleanupPass();
-      (void) llvm::createHIRLoopFormationPass();
-      (void) llvm::createHIRScalarSymbaseAssignmentPass();
-      (void) llvm::createHIRParserPass();
-      (void) llvm::createHIRSymbaseAssignmentPass();
       (void) llvm::createHIRFrameworkPass();
       (void) llvm::createHIRDDAnalysisPass();
       (void) llvm::createHIRLocalityAnalysisPass();

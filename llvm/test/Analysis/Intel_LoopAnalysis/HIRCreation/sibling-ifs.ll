@@ -1,4 +1,4 @@
-; RUN: opt < %s -analyze -hir-creation | FileCheck %s
+; RUN: opt < %s -analyze -hir-framework -hir-framework-debug=creation | FileCheck %s
 
 ; Verify that we do not throttle this loopnest due to presence of multiple sibling ifs.
 ; CHECK: BEGIN REGION
