@@ -389,6 +389,20 @@ void PassManagerBuilder::populateFunctionPassManager(
     FPM.add(createLoopRotatePass(-1));
     FPM.add(createVPOCFGRestructuringPass());
     FPM.add(createVPOParoptPreparePass(RunVPOParopt, OffloadTargets));
+    if (OptLevel == 0) {
+      // OpenMP also needs CFGSimplify at -O0. For some loops which are proven
+      // to have only one iteration the FE may skip the BB doing loop increment
+      // and exit the loop directly, leaving the increment BB without any
+      // predecessor, while its successor is still part of the WRN. This causes
+      // code extractor later to assert ("No blocks in this region may have
+      // entries from outside the region"). [This affects ompoC/fmt7bc-1.c.]
+      // CFGSimplify removes the dead code in the increment BB, fixing this.
+      //
+      // NOTE: It is important to do this after VPOParoptPrepare. Otherwise,
+      // CFGSimplify could modify the IR and prevent codegen of Openmp
+      // constructs transformed in the Prepare pass, such as ATOMIC.
+      FPM.add(createCFGSimplificationPass());
+    }
   }
 #endif // INTEL_CUSTOMIZATION
 

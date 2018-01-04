@@ -27,7 +27,8 @@
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/CFG.h"
 #include "llvm/Analysis/GlobalsModRef.h"
-#include "llvm/Analysis/Intel_Andersens.h"  // INTEL
+#include "llvm/Analysis/Intel_Andersens.h"                  // INTEL
+#include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h" // INTEL
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/CFG.h"
@@ -43,6 +44,7 @@
 #include "llvm/Transforms/Utils/Local.h"
 #include <utility>
 using namespace llvm;
+using namespace llvm::vpo;           // INTEL
 
 #define DEBUG_TYPE "simplifycfg"
 
@@ -250,8 +252,14 @@ struct CFGSimplifyPass : public FunctionPass {
   }
 
   bool runOnFunction(Function &F) override {
-    if (skipFunction(F) || (PredicateFtor && !PredicateFtor(F)))
-      return false;
+#if INTEL_CUSTOMIZATION
+// For VPO OpenMP handling we need SimplifyCFG even at -O0; calling this util
+// ensures it for functions with OpenMP directives. For other passes needed by
+// OpenMP even at -O0, see PassManagerBuilder::populateFunctionPassManager()
+    if (VPOAnalysisUtils::skipFunctionForOpenmp(F))
+#endif // INTEL_CUSTOMIZATION
+      if (skipFunction(F) || (PredicateFtor && !PredicateFtor(F)))
+        return false;
 
     Options.AC = &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
     auto &TTI = getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
