@@ -55,15 +55,18 @@ bool VPOUtils::stripDirectives(BasicBlock &BB) {
 
   for (Instruction &I : BB) {
     if (VPOAnalysisUtils::isIntelDirectiveOrClause(&I)) {
-      // Should not add I.Users() to IntrinsicsToRemove Vetor,
+      // Should not add I.Users() to IntrinsicsToRemove Vector,
       // otherwise, I.users() will be deleted twice,
       bool IsUser = false;
       for (unsigned int Idx = 0; Idx < IntrinsicsToRemove.size(); ++Idx) {
         Instruction *II = IntrinsicsToRemove[Idx];
         for (User *U : II->users())
           if (Instruction *UI = dyn_cast<Instruction>(U))
-            if (&I == UI)
+            if (&I == UI) {
               IsUser = true;
+              break; 
+            }
+        if (IsUser) break;
       }
 
       if (!IsUser)

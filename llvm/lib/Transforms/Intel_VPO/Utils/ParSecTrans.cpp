@@ -238,7 +238,9 @@ ParSectNode *VPOUtils::buildParSectTree(Function *F, DominatorTree *DT)
 
   gatherImplicitSectionRecursive(&F->getEntryBlock(), ImpSectStack, DT);
 
+#ifdef DEBUG
   printParSectTree(ImpRoot);
+#endif
 
   int Cnt = 0;
   insertSectionRecursive(F, ImpRoot, Cnt, DT);
@@ -278,8 +280,6 @@ void VPOUtils::gatherImplicitSectionRecursive(
         BasicBlock::iterator SI = SuccBB->begin();
         bool IsDirSection = false;
 
-        DEBUG(dbgs() << "Check Imp Section" << *SuccBB << "\n");
-
         if (dyn_cast<TerminatorInst>(&*SI)) {
           SuccBB = SuccBB->getUniqueSuccessor();
           SI = SuccBB->begin();
@@ -314,7 +314,6 @@ void VPOUtils::gatherImplicitSectionRecursive(
              Node->DirBeginID == DIR_OMP_PARALLEL_SECTIONS)) {
 
           bool IsMatchedImpEnd = false;
-          DEBUG(dbgs() << "xMatching Section Entry" << *Node->EntryBB << "\n");
 
           if (DirID == DIR_OMP_SECTION) {
             IsMatchedImpEnd = true;
@@ -680,7 +679,6 @@ void VPOUtils::doParSectTrans(
   //
   // generateSwitch() will return the switch instruction created.
   //
-  //SwitchInst *SwitchInstruction = genParSectSwitch(IV, Node, Builder, Counter, DT);
   genParSectSwitch(IV, Node, Builder, Counter, DT);
   return;
 }
@@ -882,7 +880,6 @@ void VPOUtils::genParSectSwitch(
   Builder.CreateBr(SwitchSuccBB);
 
   for (unsigned i = 0, e = NumCases; i != e; ++i) {
-
     ConstantInt *CaseValue =
         ConstantInt::get(Type::getInt32Ty(Context), i);
 
@@ -920,12 +917,9 @@ void VPOUtils::genParSectSwitch(
     SectionEntryBB->getInstList().pop_front();
 
     auto I = SectionEntryBB->begin();
-    if (IntrinsicInst *Call = dyn_cast<IntrinsicInst>(&*I)) {
-      Intrinsic::ID IntrinId = Call->getIntrinsicID();
-      if (IntrinId == Intrinsic::intel_directive) {
-        SectionExitBB->getInstList().pop_front();
-        SectionEntryBB->getInstList().pop_front();
-      }
+    if (VPOAnalysisUtils::isIntelDirective(&*I)) {
+      SectionExitBB->getInstList().pop_front();
+      SectionEntryBB->getInstList().pop_front();
     }
   }
 
