@@ -337,9 +337,16 @@ void CSASeqOpt::SequenceReduction(CSASSANode* switchNode, CSASSANode* addNode, C
   MachineInstr* seqOT = MRI->getVRegDef(switchNode->minstr->getOperand(2).getReg());
   bool isIDVCycle = TII->isSeqOT(seqOT) && MRI->getVRegDef(switchNode->minstr->getOperand(3).getReg()) == addNode->minstr;
   unsigned backedgeReg = 0;
+  unsigned idvIdx, strideIdx;
   MachineInstr* loopInit = lpInitForPickSwitchPair(lhdrPickNode->minstr, switchNode->minstr, backedgeReg, seqOT);
-  unsigned idvIdx = MRI->getVRegDef(addNode->minstr->getOperand(1).getReg()) == lhdrPickNode->minstr ? 1 : 2;
-  unsigned strideIdx = 3 - idvIdx;
+  if (TII->isFMA(addNode->minstr)) {
+    assert(MRI->getVRegDef(addNode->minstr->getOperand(3).getReg()) == lhdrPickNode->minstr);
+    idvIdx = 3;
+    strideIdx = 100;
+  } else {
+    idvIdx = MRI->getVRegDef(addNode->minstr->getOperand(1).getReg()) == lhdrPickNode->minstr ? 1 : 2;
+    strideIdx = 3 - idvIdx;
+  }
   isIDVCycle = isIDVCycle && (loopInit != nullptr) && 
                MRI->getVRegDef(addNode->minstr->getOperand(idvIdx).getReg()) == lhdrPickNode->minstr;
   unsigned pickInitIdx = 2 + loopInit->getOperand(1).getImm();
