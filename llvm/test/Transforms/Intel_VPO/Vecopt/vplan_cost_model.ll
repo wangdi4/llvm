@@ -43,6 +43,7 @@
 @arr.double.1 = common local_unnamed_addr global [1024 x double] zeroinitializer, align 16
 @arr.double.2 = common local_unnamed_addr global [1024 x double] zeroinitializer, align 16
 @arr.double.3 = common local_unnamed_addr global [1024 x double] zeroinitializer, align 16
+@arr.double.4 = common local_unnamed_addr global [1024 x double] zeroinitializer, align 16
 
 define void @foo() local_unnamed_addr #0 {
 ; VPLAN-CM-VF4-LABEL:  Cost Model for VPlan:
@@ -1206,6 +1207,253 @@ for.body:
   %st.i32.idx = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.4, i64 0, i64 %indvars.iv
   %st.val = zext i1 %result to i32
   store  i32 %st.val, i32* %st.i32.idx
+
+  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
+  %exitcond = icmp eq i64 %indvars.iv.next, 1024
+  br i1 %exitcond, label %for.end, label %for.body
+
+for.end:                                          ; preds = %for.body
+  call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"()]
+  ret void
+}
+
+define void @test_select() local_unnamed_addr #0 {
+; VPLAN-CM-VF4-LABEL:  Cost Model for VPlan:
+; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: Unknown
+; VPLAN-CM-VF4-NEXT:    Unknown cost for [[VP0:%.*]] = call token ()* @llvm.directive.region.entry
+; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: Unknown
+; VPLAN-CM-VF4-NEXT:    Unknown cost for [[VP1:%.*]] = phi i64 0 [[VP2:%.*]]
+; VPLAN-CM-VF4-NEXT:    Cost 0 for [[VP3:%.*]] = getelementptr [1024 x i32]* @arr.i32.1 i64 0 [[VP1]]
+; VPLAN-CM-VF4-NEXT:    Cost 4 for [[VP4:%.*]] = load [[VP3]]
+; VPLAN-CM-VF4-NEXT:    Cost 0 for [[VP5:%.*]] = getelementptr [1024 x i32]* @arr.i32.2 i64 0 [[VP1]]
+; VPLAN-CM-VF4-NEXT:    Cost 4 for [[VP6:%.*]] = load [[VP5]]
+; VPLAN-CM-VF4-NEXT:    Cost 0 for [[VP7:%.*]] = getelementptr [1024 x i32]* @arr.i32.3 i64 0 [[VP1]]
+; VPLAN-CM-VF4-NEXT:    Cost 4 for [[VP8:%.*]] = load [[VP7]]
+; VPLAN-CM-VF4-NEXT:    Cost 1 for [[VP9:%.*]] = icmp [[VP4]] [[VP6]]
+; VPLAN-CM-VF4-NEXT:    Unknown cost for [[VP10:%.*]] = select [[VP9]] [[VP4]] [[VP6]]
+; VPLAN-CM-VF4-NEXT:    Cost 1 for [[VP11:%.*]] = icmp [[VP4]] [[VP8]]
+; VPLAN-CM-VF4-NEXT:    Unknown cost for [[VP12:%.*]] = select [[VP11]] [[VP10]] [[VP8]]
+; VPLAN-CM-VF4-NEXT:    Cost 0 for [[VP13:%.*]] = getelementptr [1024 x i32]* @arr.i32.4 i64 0 [[VP1]]
+; VPLAN-CM-VF4-NEXT:    Cost 4 for store [[VP12]] [[VP13]]
+; VPLAN-CM-VF4-NEXT:    Cost 0 for [[VP14:%.*]] = getelementptr [1024 x double]* @arr.double.1 i64 0 [[VP1]]
+; VPLAN-CM-VF4-NEXT:    Cost 4 for [[VP15:%.*]] = load [[VP14]]
+; VPLAN-CM-VF4-NEXT:    Cost 0 for [[VP16:%.*]] = getelementptr [1024 x double]* @arr.double.2 i64 0 [[VP1]]
+; VPLAN-CM-VF4-NEXT:    Cost 4 for [[VP17:%.*]] = load [[VP16]]
+; VPLAN-CM-VF4-NEXT:    Cost 0 for [[VP18:%.*]] = getelementptr [1024 x double]* @arr.double.3 i64 0 [[VP1]]
+; VPLAN-CM-VF4-NEXT:    Cost 4 for [[VP19:%.*]] = load [[VP18]]
+; VPLAN-CM-VF4-NEXT:    Cost 1 for [[VP20:%.*]] = fcmp [[VP15]] [[VP17]]
+; VPLAN-CM-VF4-NEXT:    Unknown cost for [[VP21:%.*]] = select [[VP20]] [[VP15]] [[VP17]]
+; VPLAN-CM-VF4-NEXT:    Cost 1 for [[VP22:%.*]] = fcmp [[VP15]] [[VP19]]
+; VPLAN-CM-VF4-NEXT:    Unknown cost for [[VP23:%.*]] = select [[VP22]] [[VP21]] [[VP19]]
+; VPLAN-CM-VF4-NEXT:    Cost 0 for [[VP24:%.*]] = getelementptr [1024 x double]* @arr.double.4 i64 0 [[VP1]]
+; VPLAN-CM-VF4-NEXT:    Cost 4 for store [[VP23]] [[VP24]]
+; VPLAN-CM-VF4-NEXT:    Cost 1 for [[VP2]] = add [[VP1]] i64 1
+; VPLAN-CM-VF4-NEXT:    Cost 1 for [[VP25:%.*]] = icmp [[VP2]] i64 1024
+; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: Unknown
+; VPLAN-CM-VF4-NEXT:    Unknown cost for [[VP26:%.*]] = call [[VP0]] void (token)* @llvm.directive.region.exit
+; VPLAN-CM-VF4-NEXT:    Unknown cost for [[VP27:%.*]] = ret
+; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+;
+; VPLAN-CM-VF1-LABEL:  Cost Model for VPlan:
+; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: Unknown
+; VPLAN-CM-VF1-NEXT:    Unknown cost for [[VP0:%.*]] = call token ()* @llvm.directive.region.entry
+; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: Unknown
+; VPLAN-CM-VF1-NEXT:    Unknown cost for [[VP1:%.*]] = phi i64 0 [[VP2:%.*]]
+; VPLAN-CM-VF1-NEXT:    Cost 0 for [[VP3:%.*]] = getelementptr [1024 x i32]* @arr.i32.1 i64 0 [[VP1]]
+; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP4:%.*]] = load [[VP3]]
+; VPLAN-CM-VF1-NEXT:    Cost 0 for [[VP5:%.*]] = getelementptr [1024 x i32]* @arr.i32.2 i64 0 [[VP1]]
+; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP6:%.*]] = load [[VP5]]
+; VPLAN-CM-VF1-NEXT:    Cost 0 for [[VP7:%.*]] = getelementptr [1024 x i32]* @arr.i32.3 i64 0 [[VP1]]
+; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP8:%.*]] = load [[VP7]]
+; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP9:%.*]] = icmp [[VP4]] [[VP6]]
+; VPLAN-CM-VF1-NEXT:    Unknown cost for [[VP10:%.*]] = select [[VP9]] [[VP4]] [[VP6]]
+; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP11:%.*]] = icmp [[VP4]] [[VP8]]
+; VPLAN-CM-VF1-NEXT:    Unknown cost for [[VP12:%.*]] = select [[VP11]] [[VP10]] [[VP8]]
+; VPLAN-CM-VF1-NEXT:    Cost 0 for [[VP13:%.*]] = getelementptr [1024 x i32]* @arr.i32.4 i64 0 [[VP1]]
+; VPLAN-CM-VF1-NEXT:    Cost 1 for store [[VP12]] [[VP13]]
+; VPLAN-CM-VF1-NEXT:    Cost 0 for [[VP14:%.*]] = getelementptr [1024 x double]* @arr.double.1 i64 0 [[VP1]]
+; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP15:%.*]] = load [[VP14]]
+; VPLAN-CM-VF1-NEXT:    Cost 0 for [[VP16:%.*]] = getelementptr [1024 x double]* @arr.double.2 i64 0 [[VP1]]
+; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP17:%.*]] = load [[VP16]]
+; VPLAN-CM-VF1-NEXT:    Cost 0 for [[VP18:%.*]] = getelementptr [1024 x double]* @arr.double.3 i64 0 [[VP1]]
+; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP19:%.*]] = load [[VP18]]
+; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP20:%.*]] = fcmp [[VP15]] [[VP17]]
+; VPLAN-CM-VF1-NEXT:    Unknown cost for [[VP21:%.*]] = select [[VP20]] [[VP15]] [[VP17]]
+; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP22:%.*]] = fcmp [[VP15]] [[VP19]]
+; VPLAN-CM-VF1-NEXT:    Unknown cost for [[VP23:%.*]] = select [[VP22]] [[VP21]] [[VP19]]
+; VPLAN-CM-VF1-NEXT:    Cost 0 for [[VP24:%.*]] = getelementptr [1024 x double]* @arr.double.4 i64 0 [[VP1]]
+; VPLAN-CM-VF1-NEXT:    Cost 1 for store [[VP23]] [[VP24]]
+; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP2]] = add [[VP1]] i64 1
+; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP25:%.*]] = icmp [[VP2]] i64 1024
+; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: Unknown
+; VPLAN-CM-VF1-NEXT:    Unknown cost for [[VP26:%.*]] = call [[VP0]] void (token)* @llvm.directive.region.exit
+; VPLAN-CM-VF1-NEXT:    Unknown cost for [[VP27:%.*]] = ret
+; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+;
+; VPLAN-HIR-CM-VF4-LABEL:  Cost Model for VPlan:
+; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: Unknown
+; VPLAN-HIR-CM-VF4-NEXT:    Cost 4 for [[VP0:%.*]] = load [[VP1:%.*]]
+; VPLAN-HIR-CM-VF4-NEXT:    Cost 4 for [[VP2:%.*]] = load [[VP3:%.*]]
+; VPLAN-HIR-CM-VF4-NEXT:    Cost 4 for [[VP4:%.*]] = load [[VP5:%.*]]
+; VPLAN-HIR-CM-VF4-NEXT:    Unknown cost for [[VP6:%.*]] = select [[VP0]] [[VP4]] [[VP7:%.*]] [[VP4]]
+; VPLAN-HIR-CM-VF4-NEXT:    Cost 4 for store [[VP6]] [[VP8:%.*]]
+; VPLAN-HIR-CM-VF4-NEXT:    Cost 4 for [[VP9:%.*]] = load [[VP10:%.*]]
+; VPLAN-HIR-CM-VF4-NEXT:    Cost 4 for [[VP11:%.*]] = load [[VP12:%.*]]
+; VPLAN-HIR-CM-VF4-NEXT:    Cost 4 for [[VP13:%.*]] = load [[VP14:%.*]]
+; VPLAN-HIR-CM-VF4-NEXT:    Unknown cost for [[VP15:%.*]] = select [[VP9]] [[VP11]] [[VP9]] [[VP11]]
+; VPLAN-HIR-CM-VF4-NEXT:    Unknown cost for [[VP16:%.*]] = select [[VP9]] [[VP13]] [[VP15]] [[VP13]]
+; VPLAN-HIR-CM-VF4-NEXT:    Cost 4 for store [[VP16]] [[VP17:%.*]]
+; VPLAN-HIR-CM-VF4-NEXT:    Unknown cost for [[VP18:%.*]] = icmp i64 0 i64 1023 i64 1
+; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+;
+; VPLAN-HIR-CM-VF1-LABEL:  Cost Model for VPlan:
+; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: Unknown
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for [[VP0:%.*]] = load [[VP1:%.*]]
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for [[VP2:%.*]] = load [[VP3:%.*]]
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for [[VP4:%.*]] = load [[VP5:%.*]]
+; VPLAN-HIR-CM-VF1-NEXT:    Unknown cost for [[VP6:%.*]] = select [[VP0]] [[VP4]] [[VP7:%.*]] [[VP4]]
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for store [[VP6]] [[VP8:%.*]]
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for [[VP9:%.*]] = load [[VP10:%.*]]
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for [[VP11:%.*]] = load [[VP12:%.*]]
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for [[VP13:%.*]] = load [[VP14:%.*]]
+; VPLAN-HIR-CM-VF1-NEXT:    Unknown cost for [[VP15:%.*]] = select [[VP9]] [[VP11]] [[VP9]] [[VP11]]
+; VPLAN-HIR-CM-VF1-NEXT:    Unknown cost for [[VP16:%.*]] = select [[VP9]] [[VP13]] [[VP15]] [[VP13]]
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for store [[VP16]] [[VP17:%.*]]
+; VPLAN-HIR-CM-VF1-NEXT:    Unknown cost for [[VP18:%.*]] = icmp i64 0 i64 1023 i64 1
+; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+;
+; LLVM-CM-VF4-LABEL:  Printing analysis 'Cost Model Analysis' for function 'test_select':
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   br label [[VECTOR_BODY:%.*]]
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[INDEX:%.*]] = phi i64 [ 0, [[ENTRY:%.*]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY]] ]
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[GEP_INDVAR:%.*]] = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.1, i64 0, i64 [[INDEX]]
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[TMP0:%.*]] = bitcast i32* [[GEP_INDVAR]] to <4 x i32>*
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[WIDE_LOAD:%.*]] = load <4 x i32>, <4 x i32>* [[TMP0]], align 16
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[GEP_INDVAR1:%.*]] = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.2, i64 0, i64 [[INDEX]]
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[TMP1:%.*]] = bitcast i32* [[GEP_INDVAR1]] to <4 x i32>*
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[WIDE_LOAD2:%.*]] = load <4 x i32>, <4 x i32>* [[TMP1]], align 16
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[GEP_INDVAR3:%.*]] = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.3, i64 0, i64 [[INDEX]]
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[TMP2:%.*]] = bitcast i32* [[GEP_INDVAR3]] to <4 x i32>*
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[WIDE_LOAD4:%.*]] = load <4 x i32>, <4 x i32>* [[TMP2]], align 16
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP3:%.*]] = icmp slt <4 x i32> [[WIDE_LOAD]], [[WIDE_LOAD2]]
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP4:%.*]] = select <4 x i1> [[TMP3]], <4 x i32> [[WIDE_LOAD2]], <4 x i32> [[WIDE_LOAD]]
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP5:%.*]] = icmp slt <4 x i32> [[WIDE_LOAD]], [[WIDE_LOAD4]]
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP6:%.*]] = select <4 x i1> [[TMP5]], <4 x i32> [[WIDE_LOAD4]], <4 x i32> [[TMP4]]
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[TMP7:%.*]] = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.4, i64 0, i64 [[INDEX]]
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[TMP8:%.*]] = bitcast i32* [[TMP7]] to <4 x i32>*
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   store <4 x i32> [[TMP6]], <4 x i32>* [[TMP8]], align 16
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[GEP_INDVAR6:%.*]] = getelementptr inbounds [1024 x double], [1024 x double]* @arr.double.1, i64 0, i64 [[INDEX]]
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[TMP9:%.*]] = bitcast double* [[GEP_INDVAR6]] to <4 x double>*
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[WIDE_LOAD7:%.*]] = load <4 x double>, <4 x double>* [[TMP9]], align 16
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[GEP_INDVAR8:%.*]] = getelementptr inbounds [1024 x double], [1024 x double]* @arr.double.2, i64 0, i64 [[INDEX]]
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[TMP10:%.*]] = bitcast double* [[GEP_INDVAR8]] to <4 x double>*
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[WIDE_LOAD9:%.*]] = load <4 x double>, <4 x double>* [[TMP10]], align 16
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[GEP_INDVAR10:%.*]] = getelementptr inbounds [1024 x double], [1024 x double]* @arr.double.3, i64 0, i64 [[INDEX]]
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[TMP11:%.*]] = bitcast double* [[GEP_INDVAR10]] to <4 x double>*
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[WIDE_LOAD11:%.*]] = load <4 x double>, <4 x double>* [[TMP11]], align 16
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP12:%.*]] = fcmp fast oge <4 x double> [[WIDE_LOAD7]], [[WIDE_LOAD9]]
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP13:%.*]] = select <4 x i1> [[TMP12]], <4 x double> [[WIDE_LOAD7]], <4 x double> [[WIDE_LOAD9]]
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP14:%.*]] = fcmp fast oge <4 x double> [[WIDE_LOAD7]], [[WIDE_LOAD11]]
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP15:%.*]] = select <4 x i1> [[TMP14]], <4 x double> [[TMP13]], <4 x double> [[WIDE_LOAD11]]
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[TMP16:%.*]] = getelementptr inbounds [1024 x double], [1024 x double]* @arr.double.4, i64 0, i64 [[INDEX]]
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[TMP17:%.*]] = bitcast double* [[TMP16]] to <4 x double>*
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   store <4 x double> [[TMP15]], <4 x double>* [[TMP17]], align 16
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[INDEX_NEXT]] = add i64 [[INDEX]], 4
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP18:%.*]] = icmp eq i64 [[INDEX_NEXT]], 1024
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   br i1 [[TMP18]], label [[FOR_END:%.*]], label [[VECTOR_BODY]]
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   ret void
+;
+; LLVM-CM-VF1-LABEL:  Printing analysis 'Cost Model Analysis' for function 'test_select':
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[TOK:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   br label [[FOR_BODY:%.*]]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[INDVARS_IV:%.*]] = phi i64 [ 0, [[ENTRY:%.*]] ], [ [[INDVARS_IV_NEXT:%.*]], [[FOR_BODY]] ]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[LD_I32_IDX:%.*]] = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.1, i64 0, i64 [[INDVARS_IV]]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[LD_I32:%.*]] = load i32, i32* [[LD_I32_IDX]]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[LD_I32_IDX_2:%.*]] = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.2, i64 0, i64 [[INDVARS_IV]]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[LD_I32_2:%.*]] = load i32, i32* [[LD_I32_IDX_2]]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[LD_I32_IDX_3:%.*]] = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.3, i64 0, i64 [[INDVARS_IV]]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[LD_I32_3:%.*]] = load i32, i32* [[LD_I32_IDX_3]]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[CMP_I32:%.*]] = icmp sge i32 [[LD_I32]], [[LD_I32_2]]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[MAX_I32:%.*]] = select i1 [[CMP_I32]], i32 [[LD_I32]], i32 [[LD_I32_2]]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[CMP_I32_2:%.*]] = icmp sge i32 [[LD_I32]], [[LD_I32_3]]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[SEL_I32:%.*]] = select i1 [[CMP_I32_2]], i32 [[MAX_I32]], i32 [[LD_I32_3]]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[ST_I32_IDX:%.*]] = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.4, i64 0, i64 [[INDVARS_IV]]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   store i32 [[SEL_I32]], i32* [[ST_I32_IDX]]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[LD_DOUBLE_IDX:%.*]] = getelementptr inbounds [1024 x double], [1024 x double]* @arr.double.1, i64 0, i64 [[INDVARS_IV]]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[LD_DOUBLE:%.*]] = load double, double* [[LD_DOUBLE_IDX]]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[LD_DOUBLE_IDX_2:%.*]] = getelementptr inbounds [1024 x double], [1024 x double]* @arr.double.2, i64 0, i64 [[INDVARS_IV]]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[LD_DOUBLE_2:%.*]] = load double, double* [[LD_DOUBLE_IDX_2]]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[LD_DOUBLE_IDX_3:%.*]] = getelementptr inbounds [1024 x double], [1024 x double]* @arr.double.3, i64 0, i64 [[INDVARS_IV]]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[LD_DOUBLE_3:%.*]] = load double, double* [[LD_DOUBLE_IDX_3]]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[CMP_DOUBLE:%.*]] = fcmp fast oge double [[LD_DOUBLE]], [[LD_DOUBLE_2]]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[MAX_DOUBLE:%.*]] = select i1 [[CMP_DOUBLE]], double [[LD_DOUBLE]], double [[LD_DOUBLE_2]]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[CMP_DOUBLE_2:%.*]] = fcmp fast oge double [[LD_DOUBLE]], [[LD_DOUBLE_3]]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[SEL_DOUBLE:%.*]] = select i1 [[CMP_DOUBLE_2]], double [[MAX_DOUBLE]], double [[LD_DOUBLE_3]]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[ST_DOUBLE_IDX:%.*]] = getelementptr inbounds [1024 x double], [1024 x double]* @arr.double.4, i64 0, i64 [[INDVARS_IV]]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   store double [[SEL_DOUBLE]], double* [[ST_DOUBLE_IDX]]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[INDVARS_IV_NEXT]] = add nuw nsw i64 [[INDVARS_IV]], 1
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[EXITCOND:%.*]] = icmp eq i64 [[INDVARS_IV_NEXT]], 1024
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   br i1 [[EXITCOND]], label [[FOR_END:%.*]], label [[FOR_BODY]]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   call void @llvm.directive.region.exit(token [[TOK]]) [ "DIR.OMP.END.SIMD"() ]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   ret void
+;
+entry:
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
+  br label %for.body
+
+for.body:
+  %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
+
+  %ld.i32.idx = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.1, i64 0, i64 %indvars.iv
+  %ld.i32 = load i32, i32* %ld.i32.idx
+
+  %ld.i32.idx.2 = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.2, i64 0, i64 %indvars.iv
+  %ld.i32.2 = load i32, i32* %ld.i32.idx.2
+
+  %ld.i32.idx.3 = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.3, i64 0, i64 %indvars.iv
+  %ld.i32.3 = load i32, i32* %ld.i32.idx.3
+
+  %cmp.i32 = icmp sge i32 %ld.i32, %ld.i32.2
+  %max.i32 = select i1 %cmp.i32, i32 %ld.i32, i32 %ld.i32.2
+
+  %cmp.i32.2 = icmp sge i32 %ld.i32, %ld.i32.3
+  ; Check another select that won't be lowered into a dedicated min/max instruction.
+  %sel.i32 = select i1 %cmp.i32.2, i32 %max.i32, i32 %ld.i32.3
+
+  %st.i32.idx = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.4, i64 0, i64 %indvars.iv
+  store  i32 %sel.i32, i32* %st.i32.idx
+
+
+  %ld.double.idx = getelementptr inbounds [1024 x double], [1024 x double]* @arr.double.1, i64 0, i64 %indvars.iv
+  %ld.double = load double, double* %ld.double.idx
+
+  %ld.double.idx.2 = getelementptr inbounds [1024 x double], [1024 x double]* @arr.double.2, i64 0, i64 %indvars.iv
+  %ld.double.2 = load double, double* %ld.double.idx.2
+
+  %ld.double.idx.3 = getelementptr inbounds [1024 x double], [1024 x double]* @arr.double.3, i64 0, i64 %indvars.iv
+  %ld.double.3 = load double, double* %ld.double.idx.3
+
+  %cmp.double = fcmp fast oge double %ld.double, %ld.double.2
+  %max.double = select i1 %cmp.double, double %ld.double, double %ld.double.2
+
+  %cmp.double.2 = fcmp fast oge double %ld.double, %ld.double.3
+  ; Check another select that won't be lowered into a dedicated min/max instruction.
+  %sel.double = select i1 %cmp.double.2, double %max.double, double %ld.double.3
+
+  %st.double.idx = getelementptr inbounds [1024 x double], [1024 x double]* @arr.double.4, i64 0, i64 %indvars.iv
+  store  double %sel.double, double* %st.double.idx
+
 
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1024
