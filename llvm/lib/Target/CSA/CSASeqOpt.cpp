@@ -13,6 +13,9 @@
 
 using namespace llvm;
 
+static cl::opt<bool> DisableMultiSeq("csa-disable-multiseq", cl::Hidden,
+  cl::desc("CSA Specific: Disable multiple sequence conversion"));
+
 
 CSASeqOpt::CSASeqOpt(MachineFunction *F) {
   thisMF = F;
@@ -334,9 +337,16 @@ void CSASeqOpt::SequenceReduction(CSASSANode* switchNode, CSASSANode* addNode, C
   MachineInstr* seqOT = MRI->getVRegDef(switchNode->minstr->getOperand(2).getReg());
   bool isIDVCycle = TII->isSeqOT(seqOT) && MRI->getVRegDef(switchNode->minstr->getOperand(3).getReg()) == addNode->minstr;
   unsigned backedgeReg = 0;
+  unsigned idvIdx, strideIdx;
   MachineInstr* loopInit = lpInitForPickSwitchPair(lhdrPickNode->minstr, switchNode->minstr, backedgeReg, seqOT);
-  unsigned idvIdx = MRI->getVRegDef(addNode->minstr->getOperand(1).getReg()) == lhdrPickNode->minstr ? 1 : 2;
-  unsigned strideIdx = 3 - idvIdx;
+  if (TII->isFMA(addNode->minstr)) {
+    assert(MRI->getVRegDef(addNode->minstr->getOperand(3).getReg()) == lhdrPickNode->minstr);
+    idvIdx = 3;
+    strideIdx = 100;
+  } else {
+    idvIdx = MRI->getVRegDef(addNode->minstr->getOperand(1).getReg()) == lhdrPickNode->minstr ? 1 : 2;
+    strideIdx = 3 - idvIdx;
+  }
   isIDVCycle = isIDVCycle && (loopInit != nullptr) && 
                MRI->getVRegDef(addNode->minstr->getOperand(idvIdx).getReg()) == lhdrPickNode->minstr;
   unsigned pickInitIdx = 2 + loopInit->getOperand(1).getImm();
@@ -615,24 +625,30 @@ void CSASeqOpt::MultiSequence(CSASSANode* switchNode, CSASSANode* addNode, CSASS
     }
 #endif
 
-#if 0
+#if 1
     //no multiple sequence for now
     MachineOperand tripcnt = tripCntForSeq(seqIndv);
+    if (tripcnt.isReg()) tripcnt.setIsDef(false);
     //got a valid trip counter, convert to squence; otherwise stride
-    if (!(tripcnt.isImm() && tripcnt.getImm() < 0))  { 
+    if (!DisableMultiSeq && (!tripcnt.isImm() || tripcnt.getImm() > 0))  { 
+      const TargetRegisterClass *addTRC = TII->lookupLICRegClass(addNode->minstr->getOperand(0).getReg());
       //FMA only operates on register
       unsigned fmaReg = LMFI->allocateLIC(addTRC);
       if (addNode->minstr->getOperand(strideIdx).isImm()) {
-        const unsigned mulOp = TII->makeOpcode(CSA::Generic::MUL, addTRC);
         unsigned mulReg = LMFI->allocateLIC(addTRC);
-        MachineInstr* mulInstr = BuildMI(*lhdrPickNode->minstr->getParent(),
-          lhdrPickNode->minstr, DebugLoc(),
-          TII->get(mulOp),
-          mulReg).
-          add(tripcnt).
-          add(addNode->minstr->getOperand(strideIdx));                                  //trip count from indv
-        mulInstr->setFlag(MachineInstr::NonSequential);
-
+        if (addNode->minstr->getOperand(strideIdx).getImm() != 1) {
+          //avoid muptipy by 1
+          const unsigned mulOp = TII->makeOpcode(CSA::Generic::MUL, addTRC);
+          MachineInstr* mulInstr = BuildMI(*seqIndv->getParent(),
+            lhdrPickNode->minstr, DebugLoc(),
+            TII->get(mulOp),
+            mulReg).
+            add(tripcnt).
+            add(addNode->minstr->getOperand(strideIdx));                                  //trip count from indv
+          mulInstr->setFlag(MachineInstr::NonSequential);
+        } else {
+          mulReg = tripcnt.getReg();
+        }
         const unsigned addOp = TII->makeOpcode(CSA::Generic::ADD, addTRC);
         MachineInstr* addInstr = BuildMI(*lhdrPickNode->minstr->getParent(),
           lhdrPickNode->minstr, DebugLoc(),
@@ -655,10 +671,10 @@ void CSASeqOpt::MultiSequence(CSASSANode* switchNode, CSASSANode* addNode, CSASS
       unsigned firstReg = LMFI->allocateLIC(&CSA::CI1RegClass);
       unsigned lastReg = LMFI->allocateLIC(&CSA::CI1RegClass);
       unsigned predReg = LMFI->allocateLIC(&CSA::CI1RegClass);
-      //const unsigned seqOp = TII->makeOpcode(CSA::Generic::SEQOTLT, addTRC);
-      MachineInstr* seqInstr = BuildMI(*lhdrPickNode->minstr->getParent(),
+      const unsigned seqOp = TII->makeOpcode(CSA::Generic::SEQOTLT, addTRC);
+      MachineInstr* seqInstr = BuildMI(*seqIndv->getParent(),
         lhdrPickNode->minstr, DebugLoc(),
-        TII->get(seqIndv->getOpcode()),
+        //TII->get(seqIndv->getOpcode()),
         TII->get(seqOp),
         seqReg).
         addReg(predReg, RegState::Define).                    //pred
