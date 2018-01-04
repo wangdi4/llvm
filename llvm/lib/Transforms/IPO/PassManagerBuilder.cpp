@@ -130,7 +130,7 @@ static cl::opt<bool> EnableVPlanDriver("vplan-driver", cl::init(false),
                                        cl::Hidden,
                                        cl::desc("Enable VPlan Driver"));
 
-static cl::opt<bool> EnableVPlanDriverHIR("vplan-driver-hir", cl::init(true),
+static cl::opt<bool> EnableVPlanDriverHIR("vplan-driver-hir", cl::init(false),
                                        cl::Hidden,
                                        cl::desc("Enable VPlan Driver"));
 
