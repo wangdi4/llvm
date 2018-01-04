@@ -2958,7 +2958,7 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
   }
 
   if (HasDestTy) {
-    Ref->setBaseDestType(DestTy);
+    Ref->setBitCastDestType(DestTy);
   }
 
   populateBlobDDRefs(Ref, Level);

@@ -590,8 +590,8 @@ static RuntimeDDResult isTestSupported(const RegDDRef *RefA,
   }
 
   // Skip loops with different address space references.
-  if (RefA->getBaseSrcType()->getPointerAddressSpace() !=
-      RefB->getBaseSrcType()->getPointerAddressSpace()) {
+  if (RefA->getBaseType()->getPointerAddressSpace() !=
+      RefB->getBaseType()->getPointerAddressSpace()) {
     return DIFF_ADDR_SPACE;
   }
 

@@ -53,15 +53,15 @@ RegDDRef::RegDDRef(const RegDDRef &RegDDRefObj)
 }
 
 RegDDRef::GEPInfo::GEPInfo()
-    : BaseCE(nullptr), InBounds(false), AddressOf(false), Volatile(false),
-      Alignment(0) {}
+    : BaseCE(nullptr), BitCastDestTy(nullptr), InBounds(false),
+      AddressOf(false), Volatile(false), Alignment(0) {}
 
 RegDDRef::GEPInfo::GEPInfo(const GEPInfo &Info)
-    : BaseCE(Info.BaseCE->clone()), InBounds(Info.InBounds),
-      AddressOf(Info.AddressOf), Volatile(Info.Volatile),
-      Alignment(Info.Alignment), DimensionOffsets(Info.DimensionOffsets),
-      MDNodes(Info.MDNodes), GepDbgLoc(Info.GepDbgLoc),
-      MemDbgLoc(Info.MemDbgLoc) {}
+    : BaseCE(Info.BaseCE->clone()), BitCastDestTy(Info.BitCastDestTy),
+      InBounds(Info.InBounds), AddressOf(Info.AddressOf),
+      Volatile(Info.Volatile), Alignment(Info.Alignment),
+      DimensionOffsets(Info.DimensionOffsets), MDNodes(Info.MDNodes),
+      GepDbgLoc(Info.GepDbgLoc), MemDbgLoc(Info.MemDbgLoc) {}
 
 RegDDRef::GEPInfo::~GEPInfo() {}
 
@@ -252,12 +252,6 @@ void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
   const CanonExpr *CE;
   bool HasGEP = hasGEPInfo();
 
-  bool PrintBaseCast = false;
-
-  if (HasGEP) {
-    PrintBaseCast = !Detailed && (getBaseSrcType() != getBaseDestType());
-  }
-
   // Do not print linear forms for scalar lvals
   // Treat disconnected DDRefs as rvals. isLval() asserts for disconnected
   // DDRefs. Being able to print disconnected DDRefs is useful for debugging.
@@ -278,8 +272,8 @@ void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
         }
       }
 
-      if (PrintBaseCast) {
-        OS << "(" << *getBaseDestType() << ")";
+      if (getBitCastDestType()) {
+        OS << "(" << *getBitCastDestType() << ")";
       }
 
       OS << "(";
@@ -352,13 +346,12 @@ Type *RegDDRef::getTypeImpl(bool IsSrc) const {
   if (hasGEPInfo()) {
     CE = getBaseCE();
 
-    PointerType *BaseSrcTy = cast<PointerType>(CE->getSrcType());
-    auto BaseDestTy = CE->getDestType();
+    PointerType *BaseTy = cast<PointerType>(CE->getSrcType());
+    auto *DestTy = getBitCastDestType();
 
-    // If BaseCE's dest type is different that the src type, it refers to Ref's
-    // destination type.
-    if (!IsSrc && (BaseSrcTy != BaseDestTy)) {
-      return isAddressOf() ? BaseDestTy : BaseDestTy->getPointerElementType();
+    // Derive ref's destination type using BitCastDestType, if available.
+    if (!IsSrc && DestTy) {
+      return isAddressOf() ? DestTy : DestTy->getPointerElementType();
     }
 
     // Extract the type from the first dimension/offsets.
@@ -371,7 +364,7 @@ Type *RegDDRef::getTypeImpl(bool IsSrc) const {
     // For DDRefs representing addresses, we need to return a pointer to
     // RefTy.
     if (isAddressOf()) {
-      return PointerType::get(RefTy, BaseSrcTy->getAddressSpace());
+      return PointerType::get(RefTy, BaseTy->getAddressSpace());
     } else {
       return RefTy;
     }
@@ -386,7 +379,7 @@ Type *RegDDRef::getTypeImpl(bool IsSrc) const {
 bool RegDDRef::accessesStruct() const {
   assert(hasGEPInfo() && "GEP ref expected!");
 
-  auto BaseTy = getBaseSrcType()->getPointerElementType();
+  auto BaseTy = getBaseType()->getPointerElementType();
 
   while (isa<ArrayType>(BaseTy)) {
     BaseTy = BaseTy->getArrayElementType();
@@ -805,7 +798,6 @@ void RegDDRef::removeStaleBlobDDRefs(SmallVectorImpl<unsigned> &BlobIndices,
                                      SmallVectorImpl<BlobDDRef *> &StaleBlobs) {
 
   auto RemovePred = [&](BlobDDRef *BRef) {
-
     unsigned Index = BRef->getBlobIndex();
 
     auto BlobIt =
@@ -1106,8 +1098,8 @@ void RegDDRef::verify() const {
       assert(isa<PointerType>(CE->getDestType()) &&
              "Invalid BaseCE dest type!");
     }
-    assert((CE->isStandAloneBlob() || CE->isNull()) &&
-           "BaseCE is not a standalone blob!");
+    assert((CE->isSelfBlob() || CE->isStandAloneUndefBlob() || CE->isNull()) &&
+           "BaseCE is not a self blob!");
 
     for (auto CEI = canon_begin(), E = canon_end(); CEI != E; ++CEI) {
       assert((*CEI)->getSrcType()->isIntOrIntVectorTy() &&
@@ -1265,4 +1257,3 @@ unsigned RegDDRef::getBasePtrSymbase() const {
 
   return getBlobUtils().getTempBlobSymbase(Index);
 }
-

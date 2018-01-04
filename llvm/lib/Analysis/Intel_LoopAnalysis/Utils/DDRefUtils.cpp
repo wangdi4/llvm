@@ -232,6 +232,10 @@ bool DDRefUtils::areEqualImpl(const RegDDRef *Ref1, const RegDDRef *Ref2,
       return false;
     }
 
+    if (Ref1->getBitCastDestType() != Ref2->getBitCastDestType()) {
+      return false;
+    }
+
     if (!CanonExprUtils::areEqual(Ref1->getBaseCE(), Ref2->getBaseCE(),
                                   RelaxedMode)) {
       return false;
@@ -306,6 +310,15 @@ bool DDRefUtils::getConstDistanceImpl(const RegDDRef *Ref1,
   const CanonExpr *BaseCE2 = Ref2->getBaseCE();
 
   if (!CanonExprUtils::areEqual(BaseCE1, BaseCE2)) {
+    return false;
+  }
+
+  // Ideally, this check shouldn't matter as we can compute distance between
+  // (i32*)A[i] and A[i] but it complicates the life of transformations such as
+  // scalar replacement which now need to handle such cases.
+  // TODO: Remove this check and let the transformations decide what to do with
+  // such refs.
+  if (Ref1->getBitCastDestType() != Ref2->getBitCastDestType()) {
     return false;
   }
 
@@ -463,8 +476,9 @@ bool DDRefUtils::compareMemRef(const RegDDRef *Ref1, const RegDDRef *Ref2) {
   assert(Ref1->isMemRef() && Ref2->isMemRef() &&
          "Both RegDDRefs are expected to be memory references.");
 
-  if (!CanonExprUtils::areEqual(Ref1->getBaseCE(), Ref2->getBaseCE()))
+  if (!CanonExprUtils::areEqual(Ref1->getBaseCE(), Ref2->getBaseCE())) {
     return CanonExprUtils::compare(Ref1->getBaseCE(), Ref2->getBaseCE());
+  }
 
   if (Ref1->getNumDimensions() != Ref2->getNumDimensions()) {
     return (Ref1->getNumDimensions() < Ref2->getNumDimensions());
@@ -483,6 +497,19 @@ bool DDRefUtils::compareMemRef(const RegDDRef *Ref1, const RegDDRef *Ref2) {
 
     if (Diff != 0) {
       return (Diff < 0);
+    }
+  }
+
+  auto DestTy1 = Ref1->getBitCastDestType();
+  auto DestTy2 = Ref2->getBitCastDestType();
+
+  if (DestTy1 != DestTy2) {
+    if (!DestTy1) {
+      return true;
+    } else if (!DestTy2) {
+      return false;
+    } else {
+      return (Ref1->getCanonExprUtils().compare(DestTy1, DestTy2) < 0);
     }
   }
 

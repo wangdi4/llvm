@@ -1202,7 +1202,12 @@ void VPOScenarioEvaluationBase::visit(AVRValue *AValue) {
     const RegDDRef *Ref = cast<RegDDRef>(Val->getValue());
     if (Ref->hasGEPInfo() && Ref->isAddressOf()) {
       // address of computations should be pointer types.
-      Ty = cast<PointerType>(Ref->getBaseDestType());
+      Type *BaseTy = Ref->getBitCastDestType();
+  
+      if (!BaseTy) {
+        BaseTy = Ref->getBaseType();
+      }
+      Ty = cast<PointerType>(BaseTy);
     } else {
       // otherwise, things like "a[i] = ..." and "... = a[i]" should be the
       // element type and not the base type since they imply load/store of

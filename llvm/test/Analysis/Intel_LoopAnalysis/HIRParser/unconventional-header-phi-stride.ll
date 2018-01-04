@@ -14,10 +14,7 @@
 ; CHECK: |
 ; CHECK: |   %4 = (%indvars.iv38)[0][0];
 ; CHECK: |   (@t3)[0][i1 + 5] = %4;
-
-; Rval should have a bitcast for the base. Luckily, we generate correct code because the copy instruction itself is implemented as a bitcast operation.
-; TODO: Fix this in a later changeset.
-; CHECK: |   %indvars.iv38 = &((%indvars.iv38)[0][1]);
+; CHECK: |   %indvars.iv38 = &(([20 x i32]*)(%indvars.iv38)[0][1]);
 ; CHECK: + END LOOP
 
 

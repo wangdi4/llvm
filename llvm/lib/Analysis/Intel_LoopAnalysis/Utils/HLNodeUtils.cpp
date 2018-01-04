@@ -204,7 +204,7 @@ HLInst *HLNodeUtils::createUnaryHLInst(unsigned OpCode, RegDDRef *RvalRef,
 
     auto DummyPtrType =
         PointerType::get(RvalRef->getDestType(),
-                         RvalRef->getBaseDestType()->getPointerAddressSpace());
+                         RvalRef->getBaseType()->getPointerAddressSpace());
     auto DummyPtrVal = UndefValue::get(DummyPtrType);
 
     InstVal = DummyIRBuilder->CreateLoad(DummyPtrVal, false, Name);
@@ -217,7 +217,7 @@ HLInst *HLNodeUtils::createUnaryHLInst(unsigned OpCode, RegDDRef *RvalRef,
 
     auto DummyPtrType =
         PointerType::get(LvalRef->getDestType(),
-                         LvalRef->getBaseDestType()->getPointerAddressSpace());
+                         LvalRef->getBaseType()->getPointerAddressSpace());
     auto DummyPtrVal = UndefValue::get(DummyPtrType);
 
     InstVal = DummyIRBuilder->CreateStore(DummyVal, DummyPtrVal);

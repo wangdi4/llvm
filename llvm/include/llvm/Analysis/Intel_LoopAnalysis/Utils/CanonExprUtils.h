@@ -282,9 +282,13 @@ public:
                                         const CanonExpr *CE2,
                                         unsigned LoopLevel, int64_t *Distance);
 
-  // Sorting comparator for two canon expressions. Returns true if \p CE1 is
-  // less then \p CE2.
+  /// Sorting comparator for two canon expressions. Returns true if \p CE1 is
+  /// less then \p CE2.
   static bool compare(const CanonExpr *CE1, const CanonExpr *CE2);
+
+  /// Compares two types and returns negative, zero or positive value based on
+  /// whether Ty1 should be considered less than, equal or greater than Ty2.
+  int64_t compare(Type *Ty1, Type *Ty2) const;
 };
 
 } // End namespace loopopt
