@@ -190,6 +190,7 @@ void CSASeqOpt::SequenceIndv(CSASSANode* cmpNode, CSASSANode* switchNode, CSASSA
     }
 #endif 
     MachineOperand cpyInit(*initOpnd);
+    cpyInit.clearParent();
     cpyInit.setIsDef(false);
     unsigned firstReg = LMFI->allocateLIC(&CSA::CI1RegClass);
     unsigned lastReg = LMFI->allocateLIC(&CSA::CI1RegClass);
@@ -628,6 +629,7 @@ void CSASeqOpt::MultiSequence(CSASSANode* switchNode, CSASSANode* addNode, CSASS
 #if 1
     //no multiple sequence for now
     MachineOperand tripcnt = tripCntForSeq(seqIndv);
+    tripcnt.clearParent();
     if (tripcnt.isReg()) tripcnt.setIsDef(false);
     //got a valid trip counter, convert to squence; otherwise stride
     if (!DisableMultiSeq && (!tripcnt.isImm() || tripcnt.getImm() > 0))  { 
