@@ -170,7 +170,7 @@ TEST(MIRMatcher, ComplexPattern) {
   MIFuncBuilder builder("foo");
 
   using MO = MachineOperand;
-  enum { ra = CSA::CI1_0, rb, rc, rd, rin, rout, rx, rz };
+  enum { ra = CSA::CV0_0, rb, rc, rd, rin, rout, rx, rz };
   MachineInstr* cpm = builder.addInstr(CSA::CSA_PARALLEL_MEMDEP, ra, rout);
   MachineInstr* swx = builder.addInstr(CSA::SWITCH1, rc, rx, rb, ra);
   MachineInstr* swz = builder.addInstr(CSA::SWITCH1, rc, rx, rb, rz);
@@ -203,7 +203,7 @@ TEST(MIRMatcher, FailMatch) {
   MIFuncBuilder builder("bar");
 
   using MO = MachineOperand;
-  MachineInstr* init = builder.addInstr(CSA::INIT1, CSA::CI1_0,
+  MachineInstr* init = builder.addInstr(CSA::INIT1, CSA::CV0_0,
                                         MO::CreateImm(0));
   auto result = mirmatch::match(pat, init);
   ASSERT_FALSE(result);  // Won't match

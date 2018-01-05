@@ -45,8 +45,6 @@
 #include <cassert>
 #include <string>
 
-#include "llvm/Bitcode/CSASaveRawBC.h"
-
 using namespace llvm;
 
 static cl::opt<bool> DisablePostRASched("disable-post-ra", cl::Hidden,
@@ -463,12 +461,6 @@ void TargetPassConfig::addVerifyPass(const std::string &Banner) {
 /// Add common target configurable passes that perform LLVM IR to IR transforms
 /// following machine independent optimization.
 void TargetPassConfig::addIRPasses() {
-
-  // Add the CSASaveRawBC pass which will preserve the initial IR
-  // for a module. This must be added early so it gets IR that's
-  // equivalent to the Bitcode emmitted by the -flto option
-  addPass(createCSASaveRawBCPass());
-
   switch (UseCFLAA) {
   case CFLAAType::Steensgaard:
     addPass(createCFLSteensAAWrapperPass());

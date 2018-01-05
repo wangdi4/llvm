@@ -133,8 +133,7 @@ void CSAMCInstLower::Lower(const MachineInstr *MI, MCInst &OutMI) const {
       unsigned reg = MO.getReg();
       const CSAMachineFunctionInfo &LMFI =
         *MI->getParent()->getParent()->getInfo<CSAMachineFunctionInfo>();
-      if (TargetRegisterInfo::isVirtualRegister(reg) ||
-          !LMFI.getLICName(reg).empty()) {
+      if (TargetRegisterInfo::isVirtualRegister(reg)) {
         MCOp = MCOperand::createExpr(
           CSAMCExpr::create(reg, LMFI.getLICName(reg), Ctx));
       } else {
