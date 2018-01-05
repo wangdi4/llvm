@@ -65,6 +65,10 @@ using namespace llvm;
 static cl::opt<bool>
 EarlyJumpThreading("early-jump-threading", cl::init(true), cl::Hidden,
                    cl::desc("Run the early jump threading pass"));
+
+static cl::opt<bool>
+EnableLV("enable-lv", cl::init(false), cl::Hidden,
+         cl::desc("Enable community loop vectorizer"));
 #endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool>
@@ -818,8 +822,11 @@ void PassManagerBuilder::populateModulePassManager(
   // llvm.loop.distribute=true or when -enable-loop-distribute is specified.
   MPM.add(createLoopDistributePass());
 
-  MPM.add(createLoopVectorizePass(DisableUnrollLoops, LoopVectorize));
-  } // INTEL
+#if INTEL_CUSTOMIZATION
+  if (EnableLV)
+    MPM.add(createLoopVectorizePass(DisableUnrollLoops, LoopVectorize));
+  }
+#endif  // INTEL_CUSTOMIZATION
   // Eliminate loads by forwarding stores from the previous iteration to loads
   // of the current iteration.
   MPM.add(createLoopLoadEliminationPass());
@@ -1090,11 +1097,14 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   if (EnableLoopInterchange)
     PM.add(createLoopInterchangePass());
 
-  // INTEL - HIR complete unroll pass replaces LLVM's simple loop unroll pass.
-  if (!DisableUnrollLoops && !isLoopOptEnabled()) // INTEL
+#if INTEL_CUSTOMIZATION
+  // HIR complete unroll pass replaces LLVM's simple loop unroll pass.
+  if (!DisableUnrollLoops && !isLoopOptEnabled())
     PM.add(createSimpleLoopUnrollPass(OptLevel));   // Unroll small loops
-  addLoopOptAndAssociatedVPOPasses(PM);     // INTEL
-  PM.add(createLoopVectorizePass(true, LoopVectorize));
+  addLoopOptAndAssociatedVPOPasses(PM);
+  if (EnableLV)
+    PM.add(createLoopVectorizePass(true, LoopVectorize));
+#endif  // INTEL_CUSTOMIZATION
   // The vectorizer may have significantly shortened a loop body; unroll again.
   if (!DisableUnrollLoops)
     PM.add(createLoopUnrollPass(OptLevel));
@@ -1272,6 +1282,9 @@ void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM,
   }
   // TODO: Temporal hook-up for VPlan VPO Vectorizer
   if (EnableVPlanDriver && RunVec) {
+    // We are using the loop vectorize pass to generate tests for VPlan LLVM IR
+    // path. Do not use EnableLV to check if loop vectorize pass needs to be
+    // created.
     PM.add(createLoopVectorizePass(true, LoopVectorize, true));
     PM.add(createVPOCFGRestructuringPass());
     PM.add(createVPlanDriverPass());

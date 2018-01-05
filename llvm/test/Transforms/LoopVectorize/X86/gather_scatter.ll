@@ -1,5 +1,6 @@
 ; INTEL - Disabling loopopt as it affects pass pipeline.
-; RUN: opt < %s  -O3 -loopopt=false -mcpu=knl -S | FileCheck %s -check-prefix=AVX512
+; INTEL - Enable loop vectorizer as it is needed.
+; RUN: opt < %s  -O3 -enable-lv -loopopt=false -mcpu=knl -S | FileCheck %s -check-prefix=AVX512
 
 ;AVX1-NOT: llvm.masked
 
