@@ -150,8 +150,8 @@ public:
   HLLoop *getLexicalParentLoop() const;
 };
 
-} // End loopopt namespace
+} // namespace loopopt
 
-} // End llvm namespace
+} // namespace llvm
 
 #endif

@@ -2667,10 +2667,10 @@ HLNodeUtils::VALType HLNodeUtils::getMinMaxBlobValue(unsigned BlobIdx,
     return VALType::IsUnknown;
   }
 
-  DEBUG(dbgs() << "\n\t in getMaxMinBlobValue: input args " << BlobIdx
+  DEBUG(dbgs() << "\tin getMaxMinBlobValue: input args " << BlobIdx
                << BoundCE->getSingleBlobCoeff() << " "
                << BoundCE->getSingleBlobIndex() << " "
-               << BoundCE->getConstant());
+               << BoundCE->getConstant() << "\n");
 
   auto BoundCoeff = BoundCE->getSingleBlobCoeff();
   auto BoundBlobIdx = BoundCE->getSingleBlobIndex();
@@ -3475,9 +3475,16 @@ STATISTIC(RedundantEarlyExitLoops,
 class EmptyNodeRemoverVisitorImpl : public HLNodeVisitorBase {
 protected:
   SmallPtrSet<HLNode *, 32> NodesToInvalidate;
+
+  // The flag is used to determine the need of removing parent nodes and to
+  // return a boolean result to the caller of the utility.
   bool Changed = false;
 
-  void invalidateParent(HLNode *Node) {
+  void notifyWillRemoveNode(HLNode *Node) {
+    // Node will be removed, no reason to invalidate.
+    NodesToInvalidate.erase(Node);
+
+    // Invalidate Node's parent.
     if (HLLoop *ParentLoop = Node->getParentLoop()) {
       NodesToInvalidate.insert(ParentLoop);
     } else if (HLRegion *Region = Node->getParentRegion()) {
@@ -3487,37 +3494,41 @@ protected:
 
   EmptyNodeRemoverVisitorImpl() {}
 
-public:
-  void postVisit(HLRegion *Region) {
-    if (NodesToInvalidate.count(Region)) {
-      HIRInvalidationUtils::invalidateNonLoopRegion(Region);
-      InvalidatedRegions++;
+  ~EmptyNodeRemoverVisitorImpl() {
+    for (HLNode *Node : NodesToInvalidate) {
+      if (HLLoop *Loop = dyn_cast<HLLoop>(Node)) {
+        HIRInvalidationUtils::invalidateBody(Loop);
+        InvalidatedLoops++;
+      } else if (HLRegion *Region = dyn_cast<HLRegion>(Node)) {
+        HIRInvalidationUtils::invalidateNonLoopRegion(Region);
+        InvalidatedRegions++;
+      } else {
+        llvm_unreachable("Unexpected HLNode kind to invalidate");
+      }
     }
   }
 
+public:
   void postVisit(HLLoop *Loop) {
     if (!Loop->hasChildren()) {
-      invalidateParent(Loop);
+      notifyWillRemoveNode(Loop);
 
       Loop->extractPreheaderAndPostexit();
       HLNodeUtils::remove(Loop);
-      LoopsRemoved++;
       Changed = true;
-    } else {
-      if (NodesToInvalidate.count(Loop)) {
-        HIRInvalidationUtils::invalidateBody(Loop);
-        InvalidatedLoops++;
-      }
+
+      LoopsRemoved++;
     }
   }
 
   void postVisit(HLIf *If) {
     if (!If->hasThenChildren() && !If->hasElseChildren()) {
-      invalidateParent(If);
+      notifyWillRemoveNode(If);
 
       HLNodeUtils::remove(If);
-      IfsRemoved++;
       Changed = true;
+
+      IfsRemoved++;
     }
   }
 
@@ -3532,9 +3543,12 @@ public:
       }
     }
 
+    notifyWillRemoveNode(Switch);
+
     HLNodeUtils::remove(Switch);
-    SwitchesRemoved++;
     Changed = true;
+
+    SwitchesRemoved++;
   }
 
   void visit(HLNode *) {}
@@ -3545,8 +3559,6 @@ public:
       postVisit(If);
     } else if (HLLoop *Loop = dyn_cast<HLLoop>(Node)) {
       postVisit(Loop);
-    } else if (HLRegion *Region = dyn_cast<HLRegion>(Node)) {
-      postVisit(Region);
     } else if (HLSwitch *Switch = dyn_cast<HLSwitch>(Node)) {
       postVisit(Switch);
     }
@@ -3554,26 +3566,31 @@ public:
 
   bool isChanged() const { return Changed; }
 
-  void removeParentEmptyNodes(HLNode *Parent) {
-    if (!Parent || isa<HLRegion>(Parent)) {
+  // If Parent is nullptr, empty nodes will be removed until region.
+  void removeEmptyNodesUntilParent(HLNode *Node, HLNode *Parent = nullptr) {
+    if (!Node || isa<HLRegion>(Node) || Node == Parent) {
       return;
     }
 
-    HLRegion *Region = Parent->getParentRegion();
+    if (!Parent) {
+      Parent = Node->getParentRegion();
+    } else {
+      assert(HLNodeUtils::contains(Parent, Node) &&
+             "Node should be a child of Parent");
+    }
 
     bool SavedChanged = Changed;
 
-    while (Parent != Region && Changed) {
-      HLNode *NextParent = Parent->getParent();
+    while (Node != Parent && Changed) {
+      HLNode *NextNode = Node->getParent();
 
       Changed = false;
-      removeEmptyNode(Parent);
+      removeEmptyNode(Node);
 
-      Parent = NextParent;
+      Node = NextNode;
     }
-    removeEmptyNode(Parent);
 
-    Changed = SavedChanged;
+    Changed = Changed || SavedChanged;
   }
 };
 
@@ -3635,7 +3652,7 @@ public:
     bool ConstTripLoop = Loop->isConstTripLoop(&TripCount, true);
     if (ConstTripLoop && TripCount == 0) {
       RedundantLoops++;
-      invalidateParent(Loop);
+      notifyWillRemoveNode(Loop);
 
       SkipNode = Loop;
       HLNodeUtils::remove(Loop);
@@ -3656,7 +3673,7 @@ public:
     if (If->isKnownPredicate(&IsTrue)) {
       Changed = true;
       RedundantPredicates++;
-      invalidateParent(If);
+      notifyWillRemoveNode(If);
 
       auto NodeRange = HLNodeUtils::replaceNodeWithBody(If, IsTrue);
 
@@ -3676,7 +3693,7 @@ public:
     if (Switch->getConditionDDRef()->isIntConstant(&ConditionConstValue)) {
       Changed = true;
       RedundantPredicates++;
-      invalidateParent(Switch);
+      notifyWillRemoveNode(Switch);
 
       unsigned FoundCase = 0;
       for (unsigned I = 1, E = Switch->getNumCases(); I <= E; ++I) {
@@ -3695,26 +3712,36 @@ public:
     visit(static_cast<HLDDNode *>(Switch));
   }
 
-  void removeSiblingGotosWithTarget(HLNode *Node) {
+  void removeSiblingGotosWithTarget(HLLabel *Label) {
     SmallVector<HLGoto *, 4> FoundGotos;
 
     // Collect all gotos pointing to Node which are either a direct siblings to
     // the target label or a last node in their parent containers.
     std::for_each(GotosToRemove.begin(), GotosToRemove.end(),
-                  [Node, &FoundGotos](HLGoto *Goto) {
-                    if (Goto->getTargetLabel() == Node &&
-                        (Goto->getNextNode() == Node ||
+                  [Label, &FoundGotos](HLGoto *Goto) {
+                    if (Goto->getTargetLabel() == Label &&
+                        (Goto->getNextNode() == Label ||
                          HLNodeUtils::getLastLexicalChild(Goto->getParent(),
                                                           Goto) == Goto)) {
                       FoundGotos.push_back(Goto);
                     }
                   });
 
+    HLNode *LabelParent = Label->getParent();
     for (HLGoto *Goto : FoundGotos) {
       RedundantInstructions++;
+
+      HLNode *Parent = Goto->getParent();
+
       HLNodeUtils::remove(Goto);
-      LabelJumps[Goto->getTargetLabel()]--;
+      Changed = true;
+
+      LabelJumps[Label]--;
       GotosToRemove.erase(Goto);
+
+      // Stop removing on LabelParent because at this point the Label will stay
+      // attached and LabelParent may not be removed.
+      removeEmptyNodesUntilParent(Parent, LabelParent);
     }
   }
 
@@ -3726,7 +3753,8 @@ public:
     // Could remove GOTO if it's in a dead block.
     visit(static_cast<HLNode *>(Goto));
 
-    if (LastNodeToRemove) {
+    // If goto is removed.
+    if (SkipNode == Goto) {
       return;
     }
 
@@ -3832,7 +3860,9 @@ public:
   void visit(HLNode *Node) {
     if (LastNodeToRemove) {
       RedundantInstructions++;
+
       HLNodeUtils::remove(Node);
+      Changed = true;
 
       // Do not recurse into removed nodes.
       SkipNode = Node;
@@ -3864,11 +3894,17 @@ template <typename VisitorTy>
 static bool removeNodesImpl(HLNode *Node, bool RemoveEmptyParentNodes) {
   HLNode *Parent = Node->getParent();
 
+#ifndef NDEBUG
+  DEBUG(dbgs() << "While removing HIR nodes from <" << Node->getNumber()
+               << ">:\n");
+  DEBUG(Node->dump());
+#endif
+
   VisitorTy V;
   HLNodeUtils::visit(V, Node);
 
   if (RemoveEmptyParentNodes) {
-    V.removeParentEmptyNodes(Parent);
+    V.removeEmptyNodesUntilParent(Parent);
   }
 
   return V.isChanged();
@@ -3882,13 +3918,21 @@ static bool removeNodesRangeImpl(HLContainerTy::iterator Begin,
     return false;
   }
 
+#ifndef NDEBUG
+  for (auto Iter = Begin; Iter != End; ++Iter) {
+    DEBUG(dbgs() << "While removing HIR nodes from <" << Iter->getNumber()
+                 << ">:\n");
+    DEBUG(Iter->dump());
+  }
+#endif
+
   HLNode *Parent = Begin->getParent();
 
   VisitorTy V;
   HLNodeUtils::visitRange(V, Begin, End);
 
   if (RemoveEmptyParentNodes) {
-    V.removeParentEmptyNodes(Parent);
+    V.removeEmptyNodesUntilParent(Parent);
   }
 
   return V.isChanged();
