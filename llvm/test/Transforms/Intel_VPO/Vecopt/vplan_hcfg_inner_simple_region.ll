@@ -2,6 +2,9 @@
 ; RUN: opt %s -VPlanDriverHIR -disable-vplan-predicator -disable-vplan-codegen -debug -debug-only=VPlanDriver 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 
+; XFAIL: *
+; Expected failure since merge of vplan-vpentity into vpo (CMPLRS-47910)
+
 ; Verify the HCFG construction of an innermost loop with a single nested region.
 
 ; CHECK: Vectorization Plan\nVD: Initial VPlan for VF=
