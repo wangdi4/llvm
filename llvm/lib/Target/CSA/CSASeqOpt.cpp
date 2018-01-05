@@ -250,11 +250,19 @@ void CSASeqOpt::SequenceIndv(CSASSANode* cmpNode, CSASSANode* switchNode, CSASSA
 
     if (loopInit->getOperand(1).getImm() == 1) {
       //1=>init/exit, 0=>loop back; need to flip switch dsts for backward value when replace cmpdst with seqindv's pred
-      SequenceFlipSwitchDsts(cmpNode);
+      SequenceFlipSwitchDsts(cmpNode, switchNode->minstr);
     }
-    //remove the instructions in the IDV cycle.
+    //remove the instructions in the IDV cycle if not used outside the loop
     cmpNode->minstr->removeFromParent();
-    switchNode->minstr->removeFromParent();
+    if (switchNode->minstr->getOperand(switchOutIndex).getReg() == CSA::IGN) {
+      switchNode->minstr->removeFromParent();
+    } else {
+      unsigned outreg = switchNode->minstr->getOperand(switchOutIndex).getReg();
+      switchNode->minstr->getOperand(2).setReg(lastReg);
+      switchNode->minstr->getOperand(3).setReg(seqReg);
+      switchNode->minstr->getOperand(0).setReg(CSA::IGN);
+      switchNode->minstr->getOperand(1).setReg(outreg);
+    }
     addNode->minstr->removeFromBundle();
     lhdrPickNode->minstr->removeFromParent();
     //currently only the cmp instr can have usage outside the cycle
@@ -263,7 +271,7 @@ void CSASeqOpt::SequenceIndv(CSASSANode* cmpNode, CSASSANode* switchNode, CSASSA
 }
 
 
-MachineOperand CSASeqOpt::CalculateTripCnt(MachineOperand& initOpnd, MachineOperand& bndOpnd) {
+MachineOperand CSASeqOpt::CalculateTripCnt(MachineOperand& initOpnd, MachineOperand& bndOpnd, MachineInstr* pos) {
   if (initOpnd.isImm() && bndOpnd.isImm()) {
     unsigned vtripcnt = bndOpnd.getImm() - initOpnd.getImm();
     return MachineOperand::CreateImm(vtripcnt);
@@ -274,9 +282,9 @@ MachineOperand CSASeqOpt::CalculateTripCnt(MachineOperand& initOpnd, MachineOper
     MachineOperand& regOpnd = bndOpnd.isImm() ? initOpnd : bndOpnd;
     const TargetRegisterClass *TRC = TII->lookupLICRegClass(regOpnd.getReg());
     unsigned regTripcnt = LMFI->allocateLIC(TRC);
-    MachineInstr* seqInstr = initOpnd.getParent();
-    MachineInstr* tripcntInstr = BuildMI(*seqInstr->getParent(), initOpnd.getParent(), DebugLoc(),
-      TII->get(TII->adjustOpcode(seqInstr->getOpcode(), CSA::Generic::SUB)),
+    MachineInstr* initInstr = initOpnd.getParent();
+    MachineInstr* tripcntInstr = BuildMI(*pos->getParent(), pos, DebugLoc(),
+      TII->get(TII->adjustOpcode(initInstr->getOpcode(), CSA::Generic::SUB)),
       regTripcnt).
       add(bndOpnd).
       add(initOpnd);
@@ -286,7 +294,7 @@ MachineOperand CSASeqOpt::CalculateTripCnt(MachineOperand& initOpnd, MachineOper
 }
 
 
-MachineOperand CSASeqOpt::tripCntForSeq(MachineInstr*seqIndv) {
+MachineOperand CSASeqOpt::tripCntForSeq(MachineInstr*seqIndv, MachineInstr* pos) {
   assert(TII->isSeqOT(seqIndv));
   MachineOperand& initIndv = seqIndv->getOperand(4);
   MachineOperand& bndIndv = seqIndv->getOperand(5);
@@ -298,11 +306,11 @@ MachineOperand CSASeqOpt::tripCntForSeq(MachineInstr*seqIndv) {
     if (stridIndv.getImm() == -1 &&
       (indvGenOp == CSA::Generic::SEQOTGT || indvGenOp == CSA::Generic::SEQOTGE || indvGenOp == CSA::Generic::SEQOTNE)) {
       //trip counter = init - boundary
-      tripcntOpnd = CalculateTripCnt(bndIndv, initIndv);
+      tripcntOpnd = CalculateTripCnt(bndIndv, initIndv, pos);
     } else if (stridIndv.getImm() == 1 &&
       (indvGenOp == CSA::Generic::SEQOTLT || indvGenOp == CSA::Generic::SEQOTLE || indvGenOp == CSA::Generic::SEQOTNE)) {
       //trip counter = boundary - init 
-      tripcntOpnd = CalculateTripCnt(initIndv, bndIndv);
+      tripcntOpnd = CalculateTripCnt(initIndv, bndIndv, pos);
     }
     //adjust trip counter for equal comparison
     if (indvGenOp == CSA::Generic::SEQOTGE || indvGenOp == CSA::Generic::SEQOTLE) {
@@ -394,14 +402,14 @@ void CSASeqOpt::SequenceReduction(CSASSANode* switchNode, CSASSANode* addNode, C
 
 
 
-void CSASeqOpt::SequenceFlipSwitchDsts(CSASSANode* cmpNode) {
+void CSASeqOpt::SequenceFlipSwitchDsts(CSASSANode* cmpNode, MachineInstr* skipSwitch) {
   unsigned cmpdst = cmpNode->minstr->getOperand(0).getReg();
   MachineRegisterInfo::use_iterator UI = MRI->use_begin(cmpdst);
   while (UI != MRI->use_end()) {
     MachineOperand &UseMO = *UI;
     ++UI;
     MachineInstr *UseMI = UseMO.getParent();
-    if (TII->isSwitch(UseMI) && UseMI->getOperand(2).getReg() == cmpdst) {
+    if (TII->isSwitch(UseMI) && UseMI != skipSwitch && UseMI->getOperand(2).getReg() == cmpdst) {
       //flip pred for the backward value
       unsigned switchTrue = UseMI->getOperand(1).getReg();
       UseMI->getOperand(1).setReg(UseMI->getOperand(0).getReg());
@@ -627,7 +635,7 @@ void CSASeqOpt::MultiSequence(CSASSANode* switchNode, CSASSANode* addNode, CSASS
 
 #if 1
     //no multiple sequence for now
-    MachineOperand tripcnt = tripCntForSeq(seqIndv);
+    MachineOperand tripcnt = tripCntForSeq(seqIndv, lhdrPickNode->minstr);
     if (tripcnt.isReg()) tripcnt.setIsDef(false);
     //got a valid trip counter, convert to squence; otherwise stride
     if (!DisableMultiSeq && (!tripcnt.isImm() || tripcnt.getImm() > 0))  { 
