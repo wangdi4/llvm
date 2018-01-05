@@ -7,7 +7,7 @@
 ;CHECK: Printing analysis 'AVR Generate' for function '_ZGVbM4vv_vec_sum':
 ;CHECK-NEXT: WRN
 
-;CHECK: simd.begin.region:
+;CHECK: DIR.OMP.SIMD.1:
 ;CHECK-NEXT: call void @llvm.intel.directive
 ;CHECK-NEXT: call void @llvm.intel.directive.qual.opnd.i32
 ;CHECK-NEXT: call void @llvm.intel.directive
@@ -15,7 +15,7 @@
 
 ;CHECK-NEXT: LOOP
 ;CHECK: simd.loop:
-;CHECK-NEXT: %index = phi [0, simd.begin.region], [%indvar, simd.loop.exit]
+;CHECK-NEXT: %index = phi [0, DIR.OMP.SIMD.1], [%indvar, simd.loop.exit]
 
 ;TEMP-DO-NOT-CHECK: br i1 %mask.cond, label %simd.loop.then, label %simd.loop.else
 ;CHECK: simd.loop.then:
@@ -29,7 +29,7 @@
 ;CHECK-NEXT: %indvar =  %index add 1
 ;CHECK: br i1 %vl.cond, label %simd.loop, label %simd.end.region, !llvm.loop
 
-;CHECK: simd.end.region:
+;CHECK: DIR.OMP.END.SIMD.2:
 ;CHECK-NEXT: call void @llvm.intel.directive
 ;CHECK-NEXT: call void @llvm.intel.directive
 ;CHECK-NEXT: br label %return

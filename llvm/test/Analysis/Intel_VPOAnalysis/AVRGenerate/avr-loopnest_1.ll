@@ -8,7 +8,7 @@
 
 ;CHECK-NEXT: WRN
 
-;CHECK:      simd.begin.region:
+;CHECK:      DIR.OMP.SIMD.1:
 
 ;CHECK:      br label %simd.loop
 
