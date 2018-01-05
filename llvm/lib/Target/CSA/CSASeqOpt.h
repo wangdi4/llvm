@@ -15,8 +15,8 @@ namespace llvm
     void PrepRepeat();
     void SequenceOPT();
     void SequenceIndv(CSASSANode* cmpNode, CSASSANode* switchNode, CSASSANode* addNode, CSASSANode* lhdrPhiNode); 
-    MachineOperand CalculateTripCnt(MachineOperand& initOpnd, MachineOperand& bndOpnd);
-    MachineOperand tripCntForSeq(MachineInstr*seqInstr);
+    MachineOperand CalculateTripCnt(MachineOperand& initOpnd, MachineOperand& bndOpnd, MachineInstr* pos);
+    MachineOperand tripCntForSeq(MachineInstr*seqInstr, MachineInstr* pos);
     void MultiSequence(CSASSANode* switchNode, CSASSANode* addNode, CSASSANode* lhdrPickNode);
     void SequenceApp(CSASSANode* switchNode, CSASSANode* addNode, CSASSANode* lhdrPhiNode);
     void SequenceReduction(CSASSANode* switchNode, CSASSANode* addNode, CSASSANode* lhdrPhiNode);
@@ -28,7 +28,7 @@ namespace llvm
                            MachineInstr* seqIndv,
                            unsigned seqReg,
                            unsigned backedgeReg);
-    void SequenceFlipSwitchDsts(CSASSANode* cmpNode);
+    void SequenceFlipSwitchDsts(CSASSANode* cmpNode, MachineInstr* skipSwitch);
     void SequenceRepeat(CSASSANode* switchNode, CSASSANode* lhdrPhiNode);
     CSASeqOpt(MachineFunction *F);
     
