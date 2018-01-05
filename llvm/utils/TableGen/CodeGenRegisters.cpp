@@ -727,6 +727,9 @@ CodeGenRegisterClass::CodeGenRegisterClass(CodeGenRegBank &RegBank, Record *R)
   SpillAlignment = R->getValueAsInt("Alignment");
   CopyCost = R->getValueAsInt("CopyCost");
   Allocatable = R->getValueAsBit("isAllocatable");
+#if INTEL_CUSTOMIZATION
+  PureVirtual = R->getValueAsBit("isVirtual");
+#endif
   AltOrderSelect = R->getValueAsString("AltOrderSelect");
   int AllocationPriority = R->getValueAsInt("AllocationPriority");
   if (AllocationPriority < 0 || AllocationPriority > 63)
@@ -748,6 +751,9 @@ CodeGenRegisterClass::CodeGenRegisterClass(CodeGenRegBank &RegBank,
     SpillAlignment(Props.SpillAlignment),
     CopyCost(0),
     Allocatable(true),
+#if INTEL_CUSTOMIZATION
+    PureVirtual(Props.PureVirtual),
+#endif
     AllocationPriority(0) {
   for (const auto R : Members)
     TopoSigs.set(R->getTopoSig());

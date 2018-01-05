@@ -130,6 +130,11 @@ void LiveVariables::MarkVirtRegAliveInBlock(VarInfo &VRInfo,
 
 void LiveVariables::HandleVirtRegUse(unsigned reg, MachineBasicBlock *MBB,
                                      MachineInstr &MI) {
+#if INTEL_CUSTOMIZATION
+  // Ignore virtual register classes.
+  if (MRI->getRegClass(reg)->isVirtual())
+    return;
+#endif
   assert(MRI->getVRegDef(reg) && "Register use before def!");
 
   unsigned BBNum = MBB->getNumber();
@@ -656,6 +661,10 @@ bool LiveVariables::runOnMachineFunction(MachineFunction &mf) {
   // VirtRegInfo onto MI's.
   for (unsigned i = 0, e1 = VirtRegInfo.size(); i != e1; ++i) {
     const unsigned Reg = TargetRegisterInfo::index2VirtReg(i);
+#if INTEL_CUSTOMIZATION
+    if (MRI->getRegClass(Reg)->isVirtual())
+      continue;
+#endif
     for (unsigned j = 0, e2 = VirtRegInfo[Reg].Kills.size(); j != e2; ++j)
       if (VirtRegInfo[Reg].Kills[j] == MRI->getVRegDef(Reg))
         VirtRegInfo[Reg].Kills[j]->addRegisterDead(Reg, TRI);

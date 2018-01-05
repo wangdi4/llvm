@@ -814,6 +814,8 @@ if( ${CMAKE_SYSTEM_NAME} MATCHES SunOS )
    include_directories("${LLVM_MAIN_INCLUDE_DIR}/llvm/Support/Solaris")
 endif( ${CMAKE_SYSTEM_NAME} MATCHES SunOS )
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_CUSTOMIZATION=1")
+
 # Make sure we don't get -rdynamic in every binary. For those that need it,
 # use export_executable_symbols(target).
 set(CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")

@@ -44,6 +44,9 @@ public:
   const uint16_t PhysRegSize;
   const int8_t CopyCost;
   const bool Allocatable;
+#if INTEL_CUSTOMIZATION
+  const bool Virtual;
+#endif
 
   /// getID() - Return the register class ID number.
   ///
@@ -96,6 +99,12 @@ public:
   /// isAllocatable - Return true if this register class may be used to create
   /// virtual registers.
   bool isAllocatable() const { return Allocatable; }
+
+#if INTEL_CUSTOMIZATION
+  /// isVirtual - Return true if this register class should skip register
+  /// allocation.
+  bool isVirtual() const { return Virtual; }
+#endif
 };
 
 /// MCRegisterDesc - This record contains information about a particular

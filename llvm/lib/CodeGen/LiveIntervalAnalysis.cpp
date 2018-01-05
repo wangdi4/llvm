@@ -202,7 +202,9 @@ void LiveIntervals::computeVirtRegInterval(LiveInterval &LI) {
 void LiveIntervals::computeVirtRegs() {
   for (unsigned i = 0, e = MRI->getNumVirtRegs(); i != e; ++i) {
     unsigned Reg = TargetRegisterInfo::index2VirtReg(i);
-    if (MRI->reg_nodbg_empty(Reg))
+#if INTEL_CUSTOMIZATION
+    if (MRI->reg_nodbg_empty(Reg) || MRI->getRegClass(Reg)->isVirtual())
+#endif
       continue;
     createAndComputeVirtRegInterval(Reg);
   }
@@ -656,7 +658,9 @@ void LiveIntervals::addKillFlags(const VirtRegMap *VRM) {
 
   for (unsigned i = 0, e = MRI->getNumVirtRegs(); i != e; ++i) {
     unsigned Reg = TargetRegisterInfo::index2VirtReg(i);
-    if (MRI->reg_nodbg_empty(Reg))
+#if INTEL_CUSTOMIZATION
+    if (MRI->reg_nodbg_empty(Reg) || MRI->getRegClass(Reg)->isVirtual())
+#endif
       continue;
     const LiveInterval &LI = getInterval(Reg);
     if (LI.empty())
