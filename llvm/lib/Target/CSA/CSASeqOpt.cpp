@@ -292,7 +292,7 @@ MachineOperand CSASeqOpt::CalculateTripCnt(MachineOperand& initOpnd, MachineOper
   } else {
     //boundry - init
     MachineOperand& regOpnd = bndOpnd.isImm() ? initOpnd : bndOpnd;
-    const TargetRegisterClass *TRC = TII->lookupLICRegClass(regOpnd.getReg());
+    const TargetRegisterClass *TRC = TII->getRegisterClass(regOpnd.getReg(), *MRI);
     unsigned regTripcnt = LMFI->allocateLIC(TRC);
     unsigned subOp = TII->makeOpcode(CSA::Generic::SUB, TRC);
     MachineInstr* tripcntInstr = BuildMI(*pos->getParent(), pos, DebugLoc(),
@@ -326,7 +326,7 @@ MachineOperand CSASeqOpt::tripCntForSeq(MachineInstr*seqIndv, MachineInstr* pos)
     }
     //adjust trip counter for equal comparison
     if (indvGenOp == CSA::Generic::SEQOTGE || indvGenOp == CSA::Generic::SEQOTLE) {
-      const TargetRegisterClass *TRC = TII->lookupLICRegClass(stridIndv.getReg());
+      const TargetRegisterClass *TRC = TII->getRegisterClass(stridIndv.getReg(), *MRI);
       unsigned regTripcnt = LMFI->allocateLIC(TRC);
       MachineInstr* tripcntInstr = BuildMI(*seqIndv->getParent(), seqIndv, DebugLoc(),
         TII->get(TII->adjustOpcode(seqIndv->getOpcode(), CSA::Generic::ADD)),
@@ -442,7 +442,7 @@ void CSASeqOpt::SequenceSwitchOut(CSASSANode* switchNode,
   unsigned strideIdx = addNode->minstr->getOperand(1).isReg() ? 2 : 1;
   if (switchOut != CSA::IGN) {
     //compute the outbouned value for switchout = last + stride
-    const TargetRegisterClass *TRC = TII->lookupLICRegClass(addNode->minstr->getOperand(0).getReg());
+    const TargetRegisterClass *TRC = TII->getRegisterClass(addNode->minstr->getOperand(0).getReg(), *MRI);
     unsigned last = LMFI->allocateLIC(TRC);
     const unsigned switchOp = TII->makeOpcode(CSA::Generic::SWITCH, TRC);
     MachineInstr* switchLast = BuildMI(*lhdrPickNode->minstr->getParent(),
@@ -505,7 +505,7 @@ void CSASeqOpt::MultiSequence(CSASSANode* switchNode, CSASSANode* addNode, CSASS
     if (tripcnt.isReg()) tripcnt.setIsDef(false);
     //got a valid trip counter, convert to squence; otherwise stride
     if (!DisableMultiSeq && (!tripcnt.isImm() || tripcnt.getImm() > 0))  { 
-      const TargetRegisterClass *addTRC = TII->lookupLICRegClass(addNode->minstr->getOperand(0).getReg());
+      const TargetRegisterClass *addTRC = TII->getRegisterClass(addNode->minstr->getOperand(0).getReg(), *MRI);
       //FMA only operates on register
       unsigned fmaReg = LMFI->allocateLIC(addTRC);
       if (addNode->minstr->getOperand(strideIdx).isImm()) {
@@ -560,7 +560,7 @@ void CSASeqOpt::MultiSequence(CSASSANode* switchNode, CSASSANode* addNode, CSASS
       seqInstr->setFlag(MachineInstr::NonSequential);
     } else {
       //can't figure out trip-counter; generate stride 
-      const TargetRegisterClass *TRC = TII->lookupLICRegClass(addNode->minstr->getOperand(0).getReg());
+      const TargetRegisterClass *TRC = TII->getRegisterClass(addNode->minstr->getOperand(0).getReg(), *MRI);
       const unsigned strideOp = TII->makeOpcode(CSA::Generic::STRIDE, TRC);
       MachineInstr* strideInstr = BuildMI(*lhdrPickNode->minstr->getParent(),
         lhdrPickNode->minstr,

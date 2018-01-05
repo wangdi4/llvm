@@ -88,8 +88,7 @@ char CSADeadInstructionElim::ID = 0;
 
 bool CSADeadInstructionElim::isLIC(unsigned Reg) const {
   // Return true if `Reg` refers to a LIC.
-  // `Reg` is a LIC if it belongs to the ANYC (any channel) register class.
-  return CSA::ANYCRegClass.contains(Reg);
+  return TII->isLICClass(TII->getRegisterClass(Reg, *MRI));
 }
 
 bool CSADeadInstructionElim::isDead(const MachineInstr& MI) const {
@@ -280,12 +279,18 @@ bool CSADeadInstructionElim::runOnMachineFunction(MachineFunction &MF) {
       for (MachineOperand& MO : MI.operands()) {
         if (MO.isReg() && MO.isDef()) {
           unsigned Reg = MO.getReg();
-          if (Reg != CSA::IGN && Reg != CSA::NA && isLIC(Reg) &&
-              ! LivePhysRegs.test(Reg)) {
-            // Replace output to dead LIC with output to %ign
-            DEBUG(dbgs() << "CSADeadInstructionElim: clean up dead LIC "
-                  << MO << " from " << MI << '\n');
-            MO.substPhysReg(CSA::IGN, *TRI);
+          if (Reg != CSA::IGN && Reg != CSA::NA && isLIC(Reg)) {
+            bool dead = false;
+            if (TargetRegisterInfo::isPhysicalRegister(Reg))
+              dead = !LivePhysRegs.test(Reg);
+            else
+              dead = MRI->use_nodbg_empty(Reg);
+            if (dead) {
+              // Replace output to dead LIC with output to %ign
+              DEBUG(dbgs() << "CSADeadInstructionElim: clean up dead LIC "
+                    << MO << " from " << MI << '\n');
+              MO.substPhysReg(CSA::IGN, *TRI);
+            }
           }
         }
       }

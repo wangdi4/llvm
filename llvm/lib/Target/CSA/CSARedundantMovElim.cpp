@@ -304,7 +304,7 @@ bool CSARedundantMovElim::sxuConstantPropMovAndDisconnect(MachineInstr& MI) {
   
   unsigned long long cval;
   unsigned dest_reg = dest->getReg();
-  const TargetRegisterClass* dest_RC = TII->lookupLICRegClass(dest_reg);
+  const TargetRegisterClass* dest_RC = TII->getRegisterClass(dest_reg, *MRI);
   int mov_bitwidth = TII->getLicSize(MI.getOpcode());
   int dest_bitwidth = this->TRI->getRegSizeInBits(*dest_RC);
   int final_bitwidth = std::min(mov_bitwidth, dest_bitwidth);
@@ -438,8 +438,8 @@ bool CSARedundantMovElim::isRedundantMov(const MachineInstr& MI) const {
   unsigned src_reg = src->getReg();
   unsigned dest_reg = dest->getReg();
 
-  const TargetRegisterClass* src_RC= TII->lookupLICRegClass(src_reg);
-  const TargetRegisterClass* dest_RC = TII->lookupLICRegClass(dest_reg);
+  const TargetRegisterClass* src_RC= TII->getRegisterClass(src_reg, *MRI);
+  const TargetRegisterClass* dest_RC = TII->getRegisterClass(dest_reg, *MRI);
 
   if ((!src_RC) || (!dest_RC)) {
     // Error looking up register classes for input/output LICs.

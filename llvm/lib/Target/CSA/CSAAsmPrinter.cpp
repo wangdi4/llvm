@@ -595,7 +595,7 @@ void CSAAsmPrinter::EmitFunctionBodyStart() {
         StringRef name = LMFI->getLICName(vreg);
         if (!EmitRegNames || name.empty()) {
           LMFI->setLICName(vreg,
-            Twine("cv") + Twine(LMFI->getLICSize(vreg)) + "_" + Twine(vreg));
+            Twine("cv") + Twine(LMFI->getLICSize(vreg)) + "_" + Twine(index));
         }
         printRegister(vreg, LMFI->getLICName(vreg));
       }

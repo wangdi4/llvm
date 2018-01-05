@@ -415,6 +415,7 @@ public:
 private:
   MachineFunction *thisMF;
   MachineLoopInfo *MLI;
+  const CSAInstrInfo *TII;
   //MachineDominatorTree *DT;
   //CSAMachineFunctionInfo *LMFI;
 };
@@ -438,6 +439,7 @@ bool CSAOptDFPass::runOnMachineFunction(MachineFunction &MF) {
   thisMF = &MF;
   MLI = &getAnalysis<MachineLoopInfo>();
   //DT = &getAnalysis<MachineDominatorTree>();
+  TII = static_cast<const CSAInstrInfo*>(MF.getSubtarget().getInstrInfo());
 
   bool Modified = false;
 
@@ -567,7 +569,7 @@ bool CSAOptDFPass::seq_is_picker_init_inst(MachineRegisterInfo* MRI,
             // register, I can't seem to use the normal getRegClass methods.
             // But I'm going to assume that knowing that the
             // opcode was INIT1 was enough...
-            if (!TargetRegisterInfo::isVirtualRegister(pickval)) {
+            if (TII->isLIC(picker_def, *MRI)) {
               DEBUG(errs() << "Matched %ival = init " << ival << " \n");
               *pickerChannel = pickval;
               *pickerSense = ival;
@@ -617,7 +619,7 @@ bool CSAOptDFPass::seq_is_picker_mov_inst(MachineRegisterInfo* MRI,
         if (switcherDef.isReg()) {
           unsigned swchannel = switcherDef.getReg();
           MATCH_ASSERT(pat_match.reg(SWITCHER) == swchannel);
-          if (!TargetRegisterInfo::isVirtualRegister(swchannel)) {
+          if (TII->isLIC(switcherDef, *MRI)) {
             *switcherChannel = swchannel;
             return true;
           }
@@ -829,13 +831,13 @@ seq_candidate_match_pick(MachineInstr* MI,
     // header.
     int loopback_idx = header.pick_loopback_op_idx();
     MachineOperand& loopbackOp = MI->getOperand(loopback_idx);
+    MachineRegisterInfo *MRI = &thisMF->getRegInfo();
 
     if (selectOp.isReg() && loopbackOp.isReg()) {
       unsigned select_reg = selectOp.getReg();
       unsigned loopback_reg = loopbackOp.getReg();
-      if ((!TargetRegisterInfo::isVirtualRegister(select_reg)) &&
-          (select_reg == header.pickerChannel) &&
-          (!TargetRegisterInfo::isVirtualRegister(loopback_reg))) {
+      if (TII.isLIC(selectOp, *MRI) && TII.isLIC(loopbackOp, *MRI) &&
+          select_reg == header.pickerChannel) {
         DEBUG(errs() << "Found a pick candidate " << *MI <<
               " with loopback reg " << loopback_reg << "\n");
         if (pickMap.find(loopback_reg) != pickMap.end()) {
@@ -881,10 +883,10 @@ seq_candidate_match_switch(MachineInstr* MI,
     if (selectOp.isReg() && loopbackOp.isReg()) {
       unsigned select_reg = selectOp.getReg();
       unsigned loopback_reg = loopbackOp.getReg();
+      MachineRegisterInfo *MRI = &thisMF->getRegInfo();
 
-      if ((!TargetRegisterInfo::isVirtualRegister(select_reg)) &&
-          (select_reg == header.switcherChannel) &&
-          (!TargetRegisterInfo::isVirtualRegister(loopback_reg))) {
+      if (TII.isLIC(selectOp, *MRI) && TII.isLIC(loopbackOp, *MRI) &&
+          select_reg == header.switcherChannel) {
 
         DEBUG(errs() << "Found possible switch candidate " <<
               *MI << " with loopback reg " << loopback_reg << "\n");
@@ -899,7 +901,6 @@ seq_candidate_match_switch(MachineInstr* MI,
           // Finally, verify that the number of uses of the
           // loopback register is exactly 1, i.e., in the
           // pick.
-          MachineRegisterInfo *MRI = &thisMF->getRegInfo();
           matching_pick = getSingleUse(loopback_reg, MRI);
 
           if (!matching_pick) {
@@ -1100,15 +1101,12 @@ seq_classify_repeat_or_reduction(CSASeqCandidate& x) {
   // is %CI64_13.
   MachineOperand* bottom_op = x.get_switch_bottom_op();
   MachineOperand* top_op = x.get_pick_top_op();
+  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
 
-  if (bottom_op->isReg() &&
-      (!TargetRegisterInfo::isVirtualRegister(bottom_op->getReg())) &&
-      top_op->isReg() &&
-      (!TargetRegisterInfo::isVirtualRegister(top_op->getReg()))) {
+  if (TII->isLIC(*bottom_op, *MRI) && TII->isLIC(*top_op, *MRI)) {
 
     unsigned bottom_channel = bottom_op->getReg();
     unsigned top_channel = top_op->getReg();
-    MachineRegisterInfo *MRI = &thisMF->getRegInfo();
     // Look at the instruction that defines bottom_op.
     MachineInstr* def_bottom = getSingleDef(bottom_channel, MRI);
 
@@ -1230,15 +1228,12 @@ seq_classify_stride(CSASeqCandidate& x,
   assert(x.pickInst && x.switchInst);
   MachineOperand* bottom_op = x.get_switch_bottom_op();
   MachineOperand* top_op = x.get_pick_top_op();
+  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
 
-  if (bottom_op->isReg() &&
-      (!TargetRegisterInfo::isVirtualRegister(bottom_op->getReg())) &&
-      top_op->isReg() &&
-      (!TargetRegisterInfo::isVirtualRegister(top_op->getReg()))) {
+  if (TII->isLIC(*bottom_op, *MRI) && TII->isLIC(*top_op, *MRI)) {
 
     unsigned bottom_channel = bottom_op->getReg();
     unsigned top_channel = top_op->getReg();
-    MachineRegisterInfo *MRI = &thisMF->getRegInfo();
     // Look at the instruction that defines bottom_op.
     MachineInstr* def_bottom = getSingleDef(bottom_channel, MRI);
 

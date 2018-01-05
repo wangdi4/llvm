@@ -1715,6 +1715,7 @@ void CSACvtCFDFPass::assignLicForDF() {
       if (MI->isPHI()) {
         for (MIOperands MO(*MI); MO.isValid(); ++MO) {
           if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
+          if (TII->isLIC(*MO, *MRI)) continue;
           unsigned Reg = MO->getReg();
           pinedVReg.insert(Reg);
         }
@@ -1744,6 +1745,7 @@ void CSACvtCFDFPass::assignLicForDF() {
           mInst->isCopy()) {
         for (MIOperands MO(*MI); MO.isValid(); ++MO) {
           if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
+          if (TII->isLIC(*MO, *MRI)) continue;
           unsigned Reg = MO->getReg();
           renameQueue.push_back(Reg);
         }
@@ -1798,6 +1800,7 @@ void CSACvtCFDFPass::assignLicForDF() {
 
     for (MIOperands MO(*DefMI); MO.isValid(); ++MO) {
       if (!MO->isReg() || &*MO == DefMO || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
+      if (TII->isLIC(*MO, *MRI)) continue;
       unsigned Reg = MO->getReg();
       renameQueue.push_back(Reg);
     }
@@ -1814,17 +1817,9 @@ void CSACvtCFDFPass::assignLicForDF() {
             allLics = false;
             break;
           }
-        } else {
-          unsigned Reg = MO->getReg();
-
-          // Note: this avoids magic constants, but requires that the LIC
-          // virtual registers be defined at the end of the enum in
-          // CSAGenRegisterInfo.inc.
-          if ((Reg < CSA::CI0_0 || Reg >= CSA::NUM_TARGET_REGS) &&
-               Reg != CSA::IGN ) {
-            allLics = false;
-            break;
-          }
+        } else if (!TII->isLIC(*MO, *MRI)) {
+          allLics = false;
+          break;
         }
       }
 
@@ -2989,6 +2984,7 @@ void CSACvtCFDFPass::repeatOperandInLoopUsePred(MachineLoop* mloop, MachineInstr
       }
       for (MIOperands MO(*MI); MO.isValid(); ++MO) {
         if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
+        if (TII->isLIC(*MO, *MRI)) continue;
         unsigned Reg = MO->getReg();
         if (MO->isUse()) {
           MachineInstr* dMI = MRI->getVRegDef(Reg);

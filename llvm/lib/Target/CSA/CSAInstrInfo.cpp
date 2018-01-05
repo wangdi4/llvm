@@ -638,33 +638,6 @@ CSAInstrInfo::convertTransformToReductionOp(unsigned transform_opcode) const {
   return adjustOpcode(transform_opcode, reductGeneric);
 }
 
-// TBD(jsukha): My initial attempt at the implementation was to call
-// TargetRegisterClass::getMinimalPhysRegClass.  But this method seems
-// to end up picking the ANYC register class, which is not what we
-// want...
-const TargetRegisterClass*
-CSAInstrInfo::lookupLICRegClass(unsigned reg) const {
-  if (CSA::CI64RegClass.contains(reg)) {
-    return &CSA::CI64RegClass;
-  }
-  else if (CSA::CI32RegClass.contains(reg)) {
-    return &CSA::CI32RegClass;    
-  }
-  if (CSA::CI16RegClass.contains(reg)) {
-    return &CSA::CI16RegClass;
-  }
-  else if (CSA::CI8RegClass.contains(reg)) {
-    return &CSA::CI8RegClass;    
-  }
-  if (CSA::CI1RegClass.contains(reg)) {
-    return &CSA::CI1RegClass;
-  }
-  else if (CSA::CI0RegClass.contains(reg)) {
-    return &CSA::CI0RegClass;    
-  }
-  return nullptr;
-}
-
 const TargetRegisterClass *
 CSAInstrInfo::getLicClassForSize(unsigned size) const {
   if (size == 0)
@@ -682,3 +655,43 @@ CSAInstrInfo::getLicClassForSize(unsigned size) const {
   llvm_unreachable("Unknown size class");
 }
 
+bool CSAInstrInfo::isLICClass(const TargetRegisterClass *RC) const {
+  if (!RC)
+    return false;
+  return RC->getID() == CSA::CI0RegClassID ||
+    RC->getID() == CSA::CI1RegClassID ||
+    RC->getID() == CSA::CI8RegClassID ||
+    RC->getID() == CSA::CI16RegClassID ||
+    RC->getID() == CSA::CI32RegClassID ||
+    RC->getID() == CSA::CI64RegClassID ||
+    RC->getID() == CSA::ANYCRegClassID;
+}
+
+const TargetRegisterClass *CSAInstrInfo::getRegisterClass(unsigned reg,
+    const MachineRegisterInfo &MRI) const {
+  if (TargetRegisterInfo::isVirtualRegister(reg))
+    return MRI.getRegClass(reg);
+
+  if (CSA::CI64RegClass.contains(reg)) {
+    return &CSA::CI64RegClass;
+  }
+  else if (CSA::CI32RegClass.contains(reg)) {
+    return &CSA::CI32RegClass;
+  }
+  if (CSA::CI16RegClass.contains(reg)) {
+    return &CSA::CI16RegClass;
+  }
+  else if (CSA::CI8RegClass.contains(reg)) {
+    return &CSA::CI8RegClass;
+  }
+  if (CSA::CI1RegClass.contains(reg)) {
+    return &CSA::CI1RegClass;
+  }
+  else if (CSA::CI0RegClass.contains(reg)) {
+    return &CSA::CI0RegClass;
+  }
+  else if (CSA::ANYCRegClass.contains(reg)) {
+    return &CSA::ANYCRegClass;
+  }
+  return nullptr;
+}

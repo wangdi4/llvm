@@ -92,11 +92,6 @@ CSAMachineFunctionInfo::getLICInfo(unsigned regno) {
 }
 
 int CSAMachineFunctionInfo::getLICSize(unsigned regno) const {
-  const TargetRegisterClass *RC;
-  if (TargetRegisterInfo::isVirtualRegister(regno)) {
-    RC = MRI.getRegClass(regno);
-  } else {
-    RC = TII->lookupLICRegClass(regno);
-  }
+  const TargetRegisterClass *RC = TII->getRegisterClass(regno, MRI);
   return TII->getSizeOfRegisterClass(RC);
 }
