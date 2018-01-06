@@ -279,9 +279,10 @@ public:
   ///  test exists.
   static ICmpInst *getOmpLoopZeroTripTest(Loop *L, BasicBlock *EntryBB);
 
-  /// \breif Get the positin of the given loop index at
-  /// the bottom/zero trip test expression.
-  static void getLoopIndexPosInPredicate(Value *LoopIndex,
+  /// \brief Get the position of the given loop index at
+  /// the bottom/zero trip test expression. It returns false if
+  /// it cannot find the loop index.
+  static bool getLoopIndexPosInPredicate(Value *LoopIndex,
                                          Instruction *CondInst,
                                          bool &IsLeft);
   static FirstprivateItem *wrnSeenAsFirstPrivate(WRegionNode *W, Value *V);

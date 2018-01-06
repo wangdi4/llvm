@@ -1875,6 +1875,100 @@ void VPOParoptTransform::wrnUpdateSSAForLoop(
     formLCSSA(*L, *DT, LI, SE, &ValueToLiveinMap, &LiveOutVals);
 }
 
+// Update the SSA form after the basic block LoopExitBB's successor
+// is added one more incoming edge.
+void VPOParoptTransform::RewriteUsesOfOutInstructions(
+    BasicBlock *FirstLoopExitBB,
+    DenseMap<Value *, std::pair<Value *, BasicBlock *>> &ValueToLiveinMap) {
+  SmallVector<PHINode *, 2> InsertedPHIs;
+  SSAUpdater SSA(&InsertedPHIs);
+
+  BasicBlock::iterator I, E = FirstLoopExitBB->end();
+  PredIteratorCache PredCache;
+
+// The following code updates the value %split at the BB %omp.inner.for.end
+// by inserting a phi node at the BB %loop.region.exit
+//
+// Before the SSA update:
+// omp.inner.for.cond.omp.inner.for.end_crit_edge:
+//   %split = phi i32 [ %inc, %omp.inner.for.inc ]
+//   br label %loop.region.exit
+//
+// loop.region.exit:
+//   br label %omp.inner.for.end
+//
+// omp.inner.for.end:
+//   %l.0.lcssa = phi i32 [ %split, %loop.region.exit ],
+//                        [ 0, %DIR.OMP.LOOP.2 ]
+//   br label %omp.loop.exit
+//
+// After teh SSA update:
+//
+// omp.inner.for.cond.omp.inner.for.end_crit_edge:
+//   %split = phi i32 [ %inc, %omp.inner.for.inc ]
+//   br label %loop.region.exit
+//
+// loop.region.exit:
+//   %split18 = phi i32 [ 0, %omp.inner.for.body.lr.ph ],
+//              [ %split, %omp.inner.for.cond.omp.inner.for.end_crit_edge ]
+//   br label %omp.inner.for.end
+//
+// omp.inner.for.end:
+//   %l.0.lcssa = phi i32 [ %split18, %loop.region.exit ],
+//                        [ 0, %DIR.OMP.LOOP.2 ]
+//   br label %omp.loop.exit
+//
+
+  for (I = FirstLoopExitBB->begin(); I != E; ++I) {
+    Value *ExitVal = &*I;
+    if (ExitVal->use_empty())
+      continue;
+    PHINode *PN = dyn_cast<PHINode>(ExitVal);
+    if (!PN)
+      continue;
+    SSA.Initialize(ExitVal->getType(), ExitVal->getName());
+    SSA.AddAvailableValue(FirstLoopExitBB, ExitVal);
+
+    unsigned NumPHIValues = PN->getNumIncomingValues();
+    unsigned II;
+    Value *V;
+    BasicBlock *OrigPreheader = nullptr;
+    Value *OrigPreHeaderVal = nullptr;
+    for (II = 0; II < NumPHIValues; II++) {
+      V = PN->getIncomingValue(II);
+      if (ValueToLiveinMap.count(V)) {
+        OrigPreheader = ValueToLiveinMap[V].second;
+        OrigPreHeaderVal = ValueToLiveinMap[V].first;
+        SSA.AddAvailableValue(OrigPreheader, OrigPreHeaderVal);
+        break;
+      }
+    }
+
+    assert(OrigPreheader && OrigPreHeaderVal &&
+           "RewriteUsesOfOutInstructions: live in value is missing\n");
+    for (Value::use_iterator UI = ExitVal->use_begin(), UE = ExitVal->use_end();
+         UI != UE;) {
+      Use &U = *UI;
+      ++UI;
+
+      Instruction *UserInst = cast<Instruction>(U.getUser());
+      if (!isa<PHINode>(UserInst)) {
+        BasicBlock *UserBB = UserInst->getParent();
+
+        if (UserBB == FirstLoopExitBB)
+          continue;
+
+        if (UserBB == OrigPreheader) {
+          U = OrigPreHeaderVal;
+          continue;
+        }
+      }
+
+      SSA.RewriteUse(U);
+    }
+  }
+}
+
 bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
                                                AllocaInst *&IsLastVal) {
   DEBUG(dbgs() << "\nEnter VPOParoptTransform::genLoopSchedulingCode\n");
@@ -2086,29 +2180,19 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
   assert(PreHdrInst->getNumSuccessors() == 1 &&
          "Expect preheader BB has one exit!");
 
+  BasicBlock *LoopRegionExitBB =
+      SplitBlock(LoopExitBB, LoopExitBB->getFirstNonPHI(), DT, LI);
+  LoopRegionExitBB->setName("loop.region.exit");
+
+  if (LoopExitBB == W->getExitBBlock())
+    W->setExitBBlock(LoopRegionExitBB);
+
+  std::swap(LoopExitBB, LoopRegionExitBB);
   TerminatorInst *NewTermInst = BranchInst::Create(PreHdrInst->getSuccessor(0),
                                                    LoopExitBB, CompInst);
   ReplaceInstWithInst(InsertPt, NewTermInst);
 
-  BasicBlock *LoopRegionExitBB = nullptr;
-
-  if (LoopExitBB != W->getExitBBlock()) {
-    InsertPt = LoopExitBB->getTerminator();
-  }
-  else {
-    InsertPt = LoopExitBB->getFirstNonPHI();
-    LoopRegionExitBB = SplitBlock(LoopExitBB, InsertPt, DT, LI);
-    LoopRegionExitBB->setName("loop.region.exit");
-
-    if (DT)
-      DT->changeImmediateDominator(LoopRegionExitBB, LoopExitBB);
-
-    // After split LoopExitBB block, InsertPt is null, so we get
-    // branch instruction
-    InsertPt = LoopExitBB->getTerminator();
-
-    W->setExitBBlock(LoopRegionExitBB);
-  }
+  InsertPt = LoopExitBB->getTerminator();
 
   if (SchedKind == WRNScheduleStaticEven) {
 
@@ -2121,6 +2205,9 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
     wrnUpdateSSAForLoop(L, ValueToLiveinMap, LiveOutVals);
     if (DT)
       DT->changeImmediateDominator(LoopExitBB, StaticInitBB);
+
+    RewriteUsesOfOutInstructions(LoopRegionExitBB, ValueToLiveinMap);
+
   }
   else if (SchedKind == WRNScheduleStatic) {
 
@@ -2227,6 +2314,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
 
       DT->changeImmediateDominator(DispatchLatchBB, DispatchBodyBB);
     }
+    RewriteUsesOfOutInstructions(LoopRegionExitBB, ValueToLiveinMap);
 
     //// DEBUG(dbgs() << "After Loop Scheduling : "
     ////              << *(LoopExitBB->getParent()) << "\n\n");
@@ -2299,6 +2387,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
 
       DT->changeImmediateDominator(LoopExitBB, DispatchHeaderBB);
     }
+    RewriteUsesOfOutInstructions(LoopRegionExitBB, ValueToLiveinMap);
   }
 
   // There are new BBlocks generated, so we need to reset BBSet

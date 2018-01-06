@@ -316,11 +316,26 @@ PHINode *WRegionUtils::getOmpCanonicalInductionVariable(Loop* L) {
   for (BasicBlock::iterator I = H->begin(); isa<PHINode>(I); ++I) {
     PHINode *PN = cast<PHINode>(I);
     if (Instruction *Inc =
-        dyn_cast<Instruction>(PN->getIncomingValueForBlock(Backedge)))
+            dyn_cast<Instruction>(PN->getIncomingValueForBlock(Backedge))) {
       if ((Inc->getOpcode() == Instruction::Add ||
            Inc->getOpcode() == Instruction::Sub) &&
-          (Inc->getOperand(0) == PN || Inc->getOperand(1) == PN))
+          (Inc->getOperand(0) == PN || Inc->getOperand(1) == PN)) {
+        // The compiler locates the bottom test expression of the loop
+        // and tests whether the loop index is in the bottom
+        // test expression.
+        TerminatorInst *TermInst = L->getLoopLatch()->getTerminator();
+        BranchInst *ExitBrInst = dyn_cast<BranchInst>(TermInst);
+        if (!ExitBrInst)
+          continue;
+        ICmpInst *CondInst = dyn_cast<ICmpInst>(ExitBrInst->getCondition());
+        if (!CondInst)
+          continue;
+        bool IsLeft;
+        if (!getLoopIndexPosInPredicate(Inc, CondInst, IsLeft))
+          continue;
         return PN;
+      }
+    }
   }
   llvm_unreachable("Omp loop must have induction variable!");
 
@@ -357,7 +372,10 @@ Value *WRegionUtils::getOmpLoopStride(Loop *L, bool &IsNeg) {
   llvm_unreachable("Omp loop must have stride!");
 }
 
-void WRegionUtils::getLoopIndexPosInPredicate(Value *LoopIndex,
+// Get the position of the given loop index at
+// the bottom/zero trip test expression. It returns false if
+// it cannot find the loop index.
+bool WRegionUtils::getLoopIndexPosInPredicate(Value *LoopIndex,
                                               Instruction *CondInst,
                                               bool& IsLeft) {
   Value *Operand = CondInst->getOperand(0);
@@ -366,7 +384,7 @@ void WRegionUtils::getLoopIndexPosInPredicate(Value *LoopIndex,
 
   if (Operand == LoopIndex) {
       IsLeft = true;
-      return;
+      return true;
   }
 
   Operand = CondInst->getOperand(1);
@@ -375,9 +393,9 @@ void WRegionUtils::getLoopIndexPosInPredicate(Value *LoopIndex,
 
   if (Operand == LoopIndex) {
       IsLeft = false;
-      return;
+      return true;
   }
-  llvm_unreachable("Omp loop bottom test must have loop index!");
+  return false;
 }
 
 // gets the loop upper bound of the OMP loop.

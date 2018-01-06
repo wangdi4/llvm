@@ -676,6 +676,12 @@ private:
 
   /// \brief Process the device information into the triples.
   void processDeviceTriples();
+
+  /// \brief Update the SSA form after the basic block LoopExitBB's successor
+  /// is added one more incoming edge.
+  void RewriteUsesOfOutInstructions(
+      BasicBlock *FirstLoopExitBB,
+      DenseMap<Value *, std::pair<Value *, BasicBlock *>> &ValueToLiveinMap);
 };
 } /// namespace vpo
 } /// namespace llvm
