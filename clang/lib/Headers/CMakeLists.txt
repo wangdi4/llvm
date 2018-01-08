@@ -1,6 +1,9 @@
 # INTEL_CUSTOMIZATION
 # This file has been heavily modified. Merge with care.
-set(modified_files
+# The community CMake variable, files, has been divided into 2 separate
+# variables in xmain, intel_files and non_intel_files. Only the files in
+# intel_files are included in our release package.
+set(intel_files
   adxintrin.h
   avx2intrin.h
   avx512bwintrin.h
@@ -38,6 +41,7 @@ set(modified_files
   fxsrintrin.h
   ia32intrin.h
   immintrin.h
+  intrin.h
   lzcntintrin.h
   mmintrin.h
   mm_malloc.h
@@ -58,6 +62,7 @@ set(modified_files
   shaintrin.h
   smmintrin.h
   tmmintrin.h
+  vadefs.h
   wmmintrin.h
   __wmmintrin_aes.h
   __wmmintrin_pclmul.h
@@ -66,16 +71,11 @@ set(modified_files
   xsavecintrin.h
   xsaveintrin.h
   xsaveoptintrin.h
-  xsavesintrin.h  
+  xsavesintrin.h
   xtestintrin.h
   )
 
-set(special_files
-  intrin.h
-  vadefs.h
-  )
-
-set(orig_files
+set(non_intel_files
   altivec.h
   ammintrin.h
   arm_acle.h
@@ -97,7 +97,7 @@ set(orig_files
   limits.h
   lwpintrin.h
   module.modulemap
-  mm3dnow.h  
+  mm3dnow.h
   opencl-c.h
   s390intrin.h
   stdalign.h
@@ -116,9 +116,9 @@ set(orig_files
   xopintrin.h
   )
 
-set(intel_files ${modified_files} ${special_files})
-set(all_files ${orig_files} ${modified_files} ${special_files})
-  
+set(files ${non_intel_files} ${intel_files})
+# end INTEL_CUSTOMIZATION
+
 set(cuda_wrapper_files
   cuda_wrappers/algorithm
   cuda_wrappers/complex
@@ -126,14 +126,14 @@ set(cuda_wrapper_files
 )
 
 set(output_dir ${LLVM_LIBRARY_OUTPUT_INTDIR}/clang/${CLANG_VERSION}/include)
-set(intel_output_dir ${LLVM_INCLUDE_DIR}/intel)
+set(intel_output_dir ${LLVM_INCLUDE_DIR}/intel) # INTEL
 
 # Generate arm_neon.h
 clang_tablegen(arm_neon.h -gen-arm-neon
   SOURCE ${CLANG_SOURCE_DIR}/include/clang/Basic/arm_neon.td)
 
 set(out_files)
-foreach( f ${all_files} ${cuda_wrapper_files} )
+foreach( f ${files} ${cuda_wrapper_files} )
   set( src ${CMAKE_CURRENT_SOURCE_DIR}/${f} )
   set( dst ${output_dir}/${f} )
   add_custom_command(OUTPUT ${dst}
@@ -152,6 +152,7 @@ list(APPEND out_files ${output_dir}/arm_neon.h)
 add_custom_target(clang-headers ALL DEPENDS ${out_files})
 set_target_properties(clang-headers PROPERTIES FOLDER "Misc")
 
+# INTEL_CUSTOMIZATION
 set(intel_out_files)
 foreach( f ${intel_files} )
   set( src ${output_dir}/${f} )
@@ -159,15 +160,16 @@ foreach( f ${intel_files} )
   add_custom_command(OUTPUT ${dst}
     DEPENDS ${src} clang-headers
     COMMAND ${CMAKE_COMMAND} -E copy_if_different ${src} ${dst}
-    COMMENT "Copying ${f} with assumes...")
+    COMMENT "Copying intel header ${f} ...")
   list(APPEND intel_out_files ${dst})
 endforeach( f )
-  
+
 add_custom_target(intel-intrinsic-headers ALL DEPENDS ${intel_out_files})
 set_target_properties(intel-intrinsic-headers PROPERTIES FOLDER "Misc")
+# end INTEL_CUSTOMIZATION
 
 install(
-  FILES ${all_files} ${CMAKE_CURRENT_BINARY_DIR}/arm_neon.h
+  FILES ${files} ${CMAKE_CURRENT_BINARY_DIR}/arm_neon.h
   COMPONENT clang-headers
   PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
   DESTINATION lib${LLVM_LIBDIR_SUFFIX}/clang/${CLANG_VERSION}/include)
