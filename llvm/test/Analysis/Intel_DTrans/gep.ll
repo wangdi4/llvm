@@ -195,7 +195,7 @@ declare noalias i8* @malloc(i64)
 ; CHECK-NOT: Read
 ; CHECK-NOT: Written
 ; CHECK: Field info: Written
-; CHECK: Safety data: Unhandled use
+; CHECK: Safety data: No issues found
 
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.S2 = type { [32 x i32], %struct.S1, %struct.S2* }
@@ -206,13 +206,13 @@ declare noalias i8* @malloc(i64)
 ; CHECK-NOT: Read
 ; CHECK-NOT: Written
 ; CHECK: Field info: Written
-; CHECK: Safety data: Unhandled use
+; CHECK: Safety data: Field address taken
 
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.S3 = type { %struct.S2*, %struct.S1* }
 ; CHECK: Field info: Read Written
 ; CHECK: Field info: Written
-; CHECK: Safety data: Unhandled use
+; CHECK: Safety data: No issues found
 
 ; The "Unhandled use" here will go away when globals are handled.
 ; CHECK: LLVMType: %struct.S4 = type { i8, i32 }
@@ -220,7 +220,7 @@ declare noalias i8* @malloc(i64)
 ; CHECK: LLVMType: %struct.S5 = type { %struct.S4, i32 }
 ; CHECK: Safety data: Unhandled use
 ; CHECK: LLVMType: %struct.S6 = type { [256 x i8], i32 }
-; CHECK: Safety data: Unhandled use
+; CHECK: Safety data: No issues found
 
 ; CHECK: LLVMType: %struct.bad.S1 = type { i32, i32, i32 }
 ; CHECK: Safety data: Bad pointer manipulation
@@ -239,7 +239,7 @@ declare noalias i8* @malloc(i64)
 
 ; CHECK: DTRANS_ArrayInfo:
 ; CHECK: LLVMType: [32 x i32]
-; CHECK: Safety data: Unhandled use
+; CHECK: Safety data: No issues found
 ; CHECK: LLVMType: [4 x %struct.bad.S6]
 ; CHECK: Safety data: Bad pointer manipulation
 

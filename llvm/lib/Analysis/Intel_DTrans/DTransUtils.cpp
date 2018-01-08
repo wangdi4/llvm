@@ -1,6 +1,6 @@
 //===------------ Intel_DTransUtils.cpp - Utilities for DTrans ------------===//
 //
-// Copyright (C) 2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -103,7 +103,16 @@ void dtrans::getAllocSizeArgs(AllocKind Kind, CallInst *CI,
 // However, the caller must handle that case by obtaining the necessary
 // type alias information and calling this function with the known alias as
 // the SrcTy argument.
-bool dtrans::isElementZeroAccess(llvm::Type *SrcTy, llvm::Type *DestTy) {
+//
+// If the \p AccessedTy argument is not null, this function will set it to
+// nullptr if this is not an element zero access or a pointer to the type of
+// the aggregate whose element zero is being accessed. This may be \p SrcTy or
+// it may be a nested type if element zero of the source type is an aggregate
+// type whose element zero is being accessed.
+bool dtrans::isElementZeroAccess(llvm::Type *SrcTy, llvm::Type *DestTy,
+                                 llvm::Type **AccessedTy) {
+  if (AccessedTy)
+    *AccessedTy = nullptr;
   if (!DestTy->isPointerTy() || !SrcTy->isPointerTy())
     return false;
   llvm::Type *SrcPointeeTy = SrcTy->getPointerElementType();
@@ -113,12 +122,16 @@ bool dtrans::isElementZeroAccess(llvm::Type *SrcTy, llvm::Type *DestTy) {
   // up wanting to track vector types).
   if (auto *CompTy = dyn_cast<CompositeType>(SrcPointeeTy)) {
     auto *ElementZeroTy = CompTy->getTypeAtIndex(0u);
-    if (DestPointeeTy == ElementZeroTy)
+    if (DestPointeeTy == ElementZeroTy) {
+      if (AccessedTy)
+        *AccessedTy = SrcTy;
       return true;
+    }
     // If element zero is an aggregate type, this cast might be accessing
     // element zero of the nested type.
     if (ElementZeroTy->isAggregateType())
-      return isElementZeroAccess(ElementZeroTy->getPointerTo(), DestTy);
+      return isElementZeroAccess(ElementZeroTy->getPointerTo(), DestTy,
+                                 AccessedTy);
     // Otherwise, it must be a bad cast. The caller should handle that.
     return false;
   }
@@ -134,7 +147,12 @@ void dtrans::TypeInfo::printSafetyData() {
   // TODO: As safety checks are implemented, add them here.
   SafetyData ImplementedMask = dtrans::BadCasting | dtrans::BadAllocSizeArg |
                                dtrans::BadPtrManipulation |
-                               dtrans::AmbiguousGEP | dtrans::UnhandledUse;
+                               dtrans::AmbiguousGEP | dtrans::VolatileData |
+                               dtrans::MismatchedElementAccess |
+                               dtrans::AmbiguousPointerLoad |
+                               dtrans::WholeStructureReference |
+                               dtrans::UnsafePointerStore |
+                               dtrans::FieldAddressTaken | dtrans::UnhandledUse;
   std::vector<StringRef> SafetyIssues;
   if (SafetyInfo & dtrans::BadCasting)
     SafetyIssues.push_back("Bad casting");
@@ -144,6 +162,18 @@ void dtrans::TypeInfo::printSafetyData() {
     SafetyIssues.push_back("Bad pointer manipulation");
   if (SafetyInfo & dtrans::AmbiguousGEP)
     SafetyIssues.push_back("Ambiguous GEP");
+  if (SafetyInfo & dtrans::VolatileData)
+    SafetyIssues.push_back("Volatile data");
+  if (SafetyInfo & dtrans::MismatchedElementAccess)
+    SafetyIssues.push_back("Mismatched element access");
+  if (SafetyInfo & dtrans::AmbiguousPointerLoad)
+    SafetyIssues.push_back("Ambiguous pointer load");
+  if (SafetyInfo & dtrans::WholeStructureReference)
+    SafetyIssues.push_back("Whole structure reference");
+  if (SafetyInfo & dtrans::UnsafePointerStore)
+    SafetyIssues.push_back("Unsafe pointer store");
+  if (SafetyInfo & dtrans::FieldAddressTaken)
+    SafetyIssues.push_back("Field address taken");
   if (SafetyInfo & dtrans::UnhandledUse)
     SafetyIssues.push_back("Unhandled use");
   // Print the safety issues found
