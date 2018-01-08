@@ -283,9 +283,9 @@ MachineOperand CSASeqOpt::CalculateTripCnt(MachineOperand& initOpnd, MachineOper
     MachineOperand& regOpnd = bndOpnd.isImm() ? initOpnd : bndOpnd;
     const TargetRegisterClass *TRC = TII->lookupLICRegClass(regOpnd.getReg());
     unsigned regTripcnt = LMFI->allocateLIC(TRC);
-    MachineInstr* initInstr = initOpnd.getParent();
+    unsigned subOp = TII->makeOpcode(CSA::Generic::SUB, TRC);
     MachineInstr* tripcntInstr = BuildMI(*pos->getParent(), pos, DebugLoc(),
-      TII->get(TII->adjustOpcode(initInstr->getOpcode(), CSA::Generic::SUB)),
+      TII->get(subOp),
       regTripcnt).
       add(bndOpnd).
       add(initOpnd);
