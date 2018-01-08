@@ -44,7 +44,7 @@ MachineOp CSAInstBuilder::makeOrConstantFold(CSAMachineFunctionInfo &LMFI,
     unsigned opcode, const MachineOp &lhs, const MachineOp &rhs) {
   unsigned outputSize = TII.getLicSize(opcode);
   auto opClass = TII.getOpcodeClass(opcode);
-  if (opClass != CSA::VARIANT_FLOAT && lhs.isImm() && rhs.getImm()) {
+  if (opClass != CSA::VARIANT_FLOAT && lhs.isImm() && rhs.isImm()) {
     int64_t lhsVal = lhs.getImm(), rhsVal = rhs.getImm();
     int64_t resVal;
     switch (TII.getGenericOpcode(opcode)) {
