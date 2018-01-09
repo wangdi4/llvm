@@ -1,6 +1,6 @@
-//===-- VPlanVerifier.h --------------------------------------*- C++ -*-===//
+//===-- VPlanVerifier.h -----------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
+//   Copyright (C) 2016-2017 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -15,27 +15,24 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_TRANSFORMS_VECTORIZE_VPLAN_VPLANVERIFIER_H
-#define LLVM_TRANSFORMS_VECTORIZE_VPLAN_VPLANVERIFIER_H
+#ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLANVERIFIER_H
+#define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLANVERIFIER_H
 
-#include "IntelVPlan.h"
+#include "VPlan.h"
 
 namespace llvm {
 namespace vpo {
 
-class VPlanVerifier {
+class VPlanVerifierBase {
 
-private:
-  // Holds the target loop to be vectorized.
-  const Loop *TheLoop;
-
+protected:
   // VPLoopInfo analysis information.
   const VPLoopInfo *VPLInfo;
 
-  // LoopInfo analysis information.
-  const LoopInfo *LInfo;
-
+private:
+  // Main functions driving the verification of regions and loops.
   void verifyRegions(const VPRegionBlock *Region) const;
+  void verifyLoops(const VPRegionBlock *TopRegion) const;
 
   // Auxiliary functions for loop verification.
   void verifyVPLoopInfo(const VPLoopRegion *LoopRegion) const;
@@ -43,27 +40,27 @@ private:
                            const VPLoopRegion *ParentLoopR) const;
   void verifyLoopRegions(const VPRegionBlock *TopRegion) const;
   void verifyNumLoops(const VPRegionBlock *TopRegion) const;
-  void verifyLoops(const VPRegionBlock *TopRegion) const;
+  // Count the number of loops in the underlying IR. 
+  virtual unsigned countLoopsInUnderlyingIR() const = 0;
+  // Perform IR-specific checks for IR-specific VPLoopRegion.
+  virtual void
+  verifyIRSpecificLoopRegion(const VPRegionBlock *Region) const = 0;
 
 public:
-  VPlanVerifier() : TheLoop(nullptr), VPLInfo(nullptr), LInfo(nullptr) {}
+  VPlanVerifierBase() : VPLInfo(nullptr) {}
+  virtual ~VPlanVerifierBase() {}
 
-  /// Set information about loops. This information will be used in some
-  /// verification steps.
-  void setLoopInformation(const Loop *Lp, const VPLoopInfo *VPLI,
-                          const LoopInfo *LI) {
-    TheLoop = Lp;
-    VPLInfo = VPLI;
-    LInfo = LI;
-  };
+  /// Set VPLoopInfo analysis. This information will be used in some
+  /// verification steps, if available.
+  void setVPLoopInfo(const VPLoopInfo *VPLI) { VPLInfo = VPLI; }
 
-  /// Verify that HCFG is well-formed starting from TopRegion. If \p VPLInfo and
-  /// \p LI are not nullptr, it also checks that loop related information in
-  /// HCFG is consistent with information in VPLInfo and LoopInfo. The
+  /// Verify that H-CFG is well-formed starting from TopRegion. If \p VPLInfo
+  /// and \p LI are not nullptr, it also checks that loop related information in
+  /// H-CFG is consistent with information in VPLInfo and LoopInfo. The
   /// verification process comprises two main phases:
   ///
   /// 1. verifyLoops: A first global verification step checks that the number
-  /// of VPLoopRegion's (HCFG), VPLoop's (VPLoopInfo) and Loop's (LoopInfo)
+  /// of VPLoopRegion's (H-CFG), VPLoop's (VPLoopInfo) and Loop's (LoopInfo)
   /// match. In a second step, it checks that the following invariants are met
   /// in every VPLoopRegion:
   ///   - VPLoopRegion has VPLoop attached.
@@ -90,7 +87,26 @@ public:
   void verifyHierarchicalCFG(const VPRegionBlock *TopRegion) const;
 };
 
-} // End vpo namespace
-} // end llvm namespace
+/// Specialization of VPlanVerifierBase for LLVM-IR. It uses LLVM-IR specific
+/// information such as Loop and LoopInfo.
+class VPlanVerifier : public VPlanVerifierBase {
 
-#endif //LLVM_TRANSFORMS_VECTORIZE_VPLAN_VPLANVERIFIER_H
+private:
+  // Outermost LLVM-IR loop to be vectorized.
+  const Loop *TheLoop;
+
+  // VPlan-incoming LoopInfo analysis.
+  const LoopInfo *LInfo;
+
+  unsigned countLoopsInUnderlyingIR() const;
+  void verifyIRSpecificLoopRegion(const VPRegionBlock *Region) const {};
+
+public:
+  VPlanVerifier(const Loop *Lp, const LoopInfo *LInfo)
+      : VPlanVerifierBase(), TheLoop(Lp), LInfo(LInfo) {}
+};
+
+} // namespace vpo
+} // namespace llvm
+
+#endif //LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLANVERIFIER_H

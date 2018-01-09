@@ -130,9 +130,13 @@ static cl::opt<bool> EnableVPlanDriver("vplan-driver", cl::init(false),
                                        cl::Hidden,
                                        cl::desc("Enable VPlan Driver"));
 
-// The user can use -mllvm -paropt=<mode> to enable various paropt 
-// transformations, where <mode> is a bit vector (see enum VPOParoptMode 
-// for a description of the bits.) For example, paropt=0x7 enables 
+static cl::opt<bool> EnableVPlanDriverHIR("vplan-driver-hir", cl::init(false),
+                                       cl::Hidden,
+                                       cl::desc("Enable VPlan Driver"));
+
+// The user can use -mllvm -paropt=<mode> to enable various paropt
+// transformations, where <mode> is a bit vector (see enum VPOParoptMode
+// for a description of the bits.) For example, paropt=0x7 enables
 // "ParPrepare" (0x1), "ParTrans" (0x2), and "OmpPar" (0x4).
 static cl::opt<unsigned> RunVPOParopt("paropt",
   cl::init(0x00000000), cl::Hidden,
@@ -151,7 +155,7 @@ static cl::opt<bool> RunVecClone("enable-vec-clone",
 static cl::opt<bool> RunLoopOpts("loopopt", cl::init(true), cl::Hidden,
                                  cl::desc("Runs loop optimization passes"));
 
-static cl::opt<bool> RunLoopOptFrameworkOnly("loopopt-framework-only", 
+static cl::opt<bool> RunLoopOptFrameworkOnly("loopopt-framework-only",
     cl::init(false), cl::Hidden,
     cl::desc("Enables loopopt framework without any transformation passes"));
 
@@ -195,7 +199,7 @@ static cl::opt<bool> EnableIPCloning("enable-ip-cloning",
     cl::init(true), cl::Hidden, cl::desc("Enable IP Cloning"));
 
 // Inline Aggressive Analysis
-static cl::opt<bool> 
+static cl::opt<bool>
     EnableInlineAggAnalysis("enable-inline-aggressive-analysis",
     cl::init(true), cl::Hidden, cl::desc("Enable Inline Aggressive Analysis"));
 
@@ -367,9 +371,38 @@ void PassManagerBuilder::populateFunctionPassManager(
 
 #if INTEL_CUSTOMIZATION
   FPM.add(createXmainOptLevelPass(OptLevel));
-  if (RunVPOParopt) {
+  if (RunVPOOpt && RunVPOParopt) {
+    if (OptLevel == 0) {
+      // To handle OpenMP we also need SROA and EarlyCSE, but they are disabled
+      // at -O0, so we explicitly add them to the pass pipeline here.
+      //
+      // CMPLRS-46446: Adding them below is not enough. These passes, like many
+      // passes, call skipFunction() and bail out at -O0. The fix was to also
+      // call VPOAnalysisUtils::skipFunctionForOpenmp() from SROA and EarlyCSE
+      // and not bail out if skipFunctionForOpenmp() returns false.
+      // (See SROA.cpp and EarlyCSE.cpp under lib/Transforms/Scalar.)
+      FPM.add(createSROAPass());
+      FPM.add(createEarlyCSEPass());
+    }
+    // The value -1 indicates that the bottom test generation for
+    // loop is always enabled.
+    FPM.add(createLoopRotatePass(-1));
     FPM.add(createVPOCFGRestructuringPass());
     FPM.add(createVPOParoptPreparePass(RunVPOParopt, OffloadTargets));
+    if (OptLevel == 0) {
+      // OpenMP also needs CFGSimplify at -O0. For some loops which are proven
+      // to have only one iteration the FE may skip the BB doing loop increment
+      // and exit the loop directly, leaving the increment BB without any
+      // predecessor, while its successor is still part of the WRN. This causes
+      // code extractor later to assert ("No blocks in this region may have
+      // entries from outside the region"). [This affects ompoC/fmt7bc-1.c.]
+      // CFGSimplify removes the dead code in the increment BB, fixing this.
+      //
+      // NOTE: It is important to do this after VPOParoptPrepare. Otherwise,
+      // CFGSimplify could modify the IR and prevent codegen of Openmp
+      // constructs transformed in the Prepare pass, such as ATOMIC.
+      FPM.add(createCFGSimplificationPass());
+    }
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -676,7 +709,7 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createPartialInliningPass());
 
 #if INTEL_CUSTOMIZATION
-  if (EnableStdContainerOpt) 
+  if (EnableStdContainerOpt)
     MPM.add(createStdContainerOptPass());
   MPM.add(createCleanupFakeLoadsPass());
 #endif // INTEL_CUSTOMIZATION
@@ -773,7 +806,7 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1));
 
 #if INTEL_CUSTOMIZATION
-  // In LTO mode, loopopt needs to run in link phase along with community 
+  // In LTO mode, loopopt needs to run in link phase along with community
   // vectorizer and unroll after it until they are phased out.
   if (!PrepareForLTO || !isLoopOptEnabled()) {
     addLoopOptAndAssociatedVPOPasses(MPM);
@@ -792,9 +825,9 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createLoopLoadEliminationPass());
 
 #if INTEL_CUSTOMIZATION
-  // No need to run cleanup passes in LTO mode when loopopt is enabled as 
+  // No need to run cleanup passes in LTO mode when loopopt is enabled as
   // vectorization is moved to link phase.
-  if (!PrepareForLTO || !isLoopOptEnabled()) { 
+  if (!PrepareForLTO || !isLoopOptEnabled()) {
 #endif // INTEL_CUSTOMIZATION
   // FIXME: Because of #pragma vectorize enable, the passes below are always
   // inserted in the pipeline, even when the vectorizer doesn't run (ex. when
@@ -835,7 +868,7 @@ void PassManagerBuilder::populateModulePassManager(
 #if INTEL_CUSTOMIZATION
   // Disable unroll in LTO mode if loopopt is enabled so it only gets triggered
   // in link phase after loopopt.
-  if (!DisableUnrollLoops && (!PrepareForLTO || !isLoopOptEnabled())) { 
+  if (!DisableUnrollLoops && (!PrepareForLTO || !isLoopOptEnabled())) {
 #endif // INTEL_CUSTOMIZATION
     MPM.add(createLoopUnrollPass(OptLevel));    // Unroll small loops
 
@@ -1031,7 +1064,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 
   // Break up allocas
   PM.add(createSROAPass());
- 
+
 #if INTEL_CUSTOMIZATION
   if (EnableInlineAggAnalysis) {
     PM.add(createAggInlAALegacyPass());
@@ -1179,7 +1212,7 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
       PM.add(createHIRLoopConcatenationPass());
       PM.add(createHIRSymbolicTripCountCompleteUnrollPass());
     }
-    
+
     // TODO: refine cost model for individual transformations for code size.
     if (SizeLevel == 0) {
       // If VPO is disabled, we don't have to insert ParVec directives.
@@ -1211,7 +1244,13 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
       PM.add(createHIROptPredicatePass());
       if (RunVPOOpt) {
         PM.add(createHIRVecDirInsertPass(OptLevel == 3));
-        PM.add(createVPODriverHIRPass());
+        if (EnableVPlanDriverHIR) {
+          // Enable VPlan HIR Vectorizer
+          PM.add(createVPlanDriverHIRPass());
+        } else {
+          // Enable AVR HIR Vectorizer
+          PM.add(createVPODriverHIRPass());
+        }
       }
       PM.add(createHIRPostVecCompleteUnrollPass(OptLevel));
       PM.add(createHIRGeneralUnrollPass());
@@ -1257,7 +1296,7 @@ void PassManagerBuilder::addLoopOptAndAssociatedVPOPasses(
 
   // Process directives inserted by LoopOpt Autopar.
   // Call with RunVec==true (2nd argument) to enable Vectorizer to catch
-  // any vec directives that loopopt might have missed; may change it to 
+  // any vec directives that loopopt might have missed; may change it to
   // false in the future when loopopt is fully implemented.
   if (RunVPOOpt)
     addVPOPasses(PM, true);

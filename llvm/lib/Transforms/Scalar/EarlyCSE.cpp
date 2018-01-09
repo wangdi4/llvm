@@ -23,7 +23,8 @@
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/InstructionSimplify.h"
-#include "llvm/Analysis/Intel_Andersens.h"     // INTEL
+#include "llvm/Analysis/Intel_Andersens.h"                  // INTEL
+#include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h" // INTEL
 #include "llvm/Analysis/MemorySSA.h"
 #include "llvm/Analysis/MemorySSAUpdater.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
@@ -60,6 +61,7 @@
 
 using namespace llvm;
 using namespace llvm::PatternMatch;
+using namespace llvm::vpo;           // INTEL
 
 #define DEBUG_TYPE "early-cse"
 
@@ -1088,8 +1090,14 @@ public:
   }
 
   bool runOnFunction(Function &F) override {
-    if (skipFunction(F))
-      return false;
+#if INTEL_CUSTOMIZATION
+// For VPO OpenMP handling we need EarlyCSE even at -O0; calling this util
+// ensures it for functions with OpenMP directives. For other passes needed by
+// OpenMP even at -O0, see PassManagerBuilder::populateFunctionPassManager()
+    if (VPOAnalysisUtils::skipFunctionForOpenmp(F))
+#endif // INTEL_CUSTOMIZATION
+      if (skipFunction(F))
+        return false;
 
     auto &TLI = getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
     auto &TTI = getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);

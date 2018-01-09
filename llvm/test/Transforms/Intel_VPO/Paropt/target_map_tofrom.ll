@@ -1,6 +1,9 @@
 ; RUN: opt < %s -domtree -loops  -lcssa-verification  -loop-rotate -vpo-cfg-restructuring -vpo-wrncollection -vpo-wrninfo -vpo-paropt-prepare -simplifycfg  -sroa  -loops -vpo-cfg-restructuring -vpo-paropt  -S | FileCheck %s
 
-; This file tests the implementation of omp target with map clause.
+; This file tests the implementation of omp target with map clause for
+; two different target devices. Please note that the device information is
+; represented as module level attribute in the form of
+; target device_triples = "x86_64-mic,i386-pc-linux-gnu"
 ;
 ;  int x;
 ;  int foo()
@@ -15,6 +18,7 @@
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
+target device_triples = "x86_64-mic,i386-pc-linux-gnu"
 
 @x = common global i32 0, align 4
 @.str = private unnamed_addr constant [45 x i8] c"After the target region is executed, x = %d\0A\00", align 1
@@ -82,6 +86,10 @@ attributes #3 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-
 !3 = !{!"omnipotent char", !4, i64 0}
 !4 = !{!"Simple C/C++ TBAA"}
 
+; CHECK:  @.omp_offloading.img_start.x86_64-mic
+; CHECK:  @.omp_offloading.img_end.x86_64-mic
+; CHECK:  @.omp_offloading.img_start.i386-pc-linux-gnu
+; CHECK:  @.omp_offloading.img_end.i386-pc-linux-gnu
 ; CHECK:  call i32 @__tgt_target({{.*}})
 ; CHECK:  call i32 @__tgt_unregister_lib({{.*}})
 ; CHECK:  call i32 @__tgt_register_lib({{.*}})

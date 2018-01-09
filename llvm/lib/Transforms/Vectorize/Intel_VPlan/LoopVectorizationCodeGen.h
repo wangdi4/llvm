@@ -13,8 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_TRANSFORMS_VECTORIZE_VPLAN_LOOPVECTORIZERCODEGEN_H
-#define LLVM_TRANSFORMS_VECTORIZE_VPLAN_LOOPVECTORIZERCODEGEN_H
+#ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_LOOPVECTORIZERCODEGEN_H
+#define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_LOOPVECTORIZERCODEGEN_H
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/MapVector.h"
@@ -33,11 +33,11 @@ namespace vpo {
 
 class VPOVectorizationLegality {
 public:
-  VPOVectorizationLegality(Loop *L, PredicatedScalarEvolution& PSE,
+  VPOVectorizationLegality(Loop *L, PredicatedScalarEvolution &PSE,
                            TargetLibraryInfo *TLI, TargetTransformInfo *TTI,
                            Function *F, LoopInfo *LI, DominatorTree *DT)
-    : TheLoop(L), PSE(PSE), TLI(TLI), TTI(TTI), LI(LI), DT(DT),
-    Induction(nullptr), WidestIndTy(nullptr) {}
+      : TheLoop(L), PSE(PSE), TLI(TLI), TTI(TTI), LI(LI), DT(DT),
+        Induction(nullptr), WidestIndTy(nullptr) {}
 
   /// Returns true if it is legal to vectorize this loop.
   bool canVectorize();
@@ -723,4 +723,4 @@ private:
 } // end vpo namespace
 } // end llvm namespace
 
-#endif // LLVM_TRANSFORMS_VECTORIZE_VPLAN_LOOPVECTORIZERCODEGEN_H
+#endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_LOOPVECTORIZERCODEGEN_H

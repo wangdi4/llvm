@@ -1,7 +1,8 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPODriverHIR -hir-cg -print-after=VPODriverHIR -S  < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -print-after=VPlanDriverHIR -S  < %s 2>&1 | FileCheck %s
 ; check hir
 ; CHECK:     DO i1 = 0, 99, 4   <DO_LOOP>
-; CHECK:         (<4 x i32>*)(%ip)[i1] = i1 + <i64 0, i64 1, i64 2, i64 3>; Mask = @{%Pred{{.*}}}
+; CHECK:         (<4 x i32>*)(%ip)[i1] = i1 + <i64 0, i64 1, i64 2, i64 3>; Mask = @{{{.*}}}
 ; CHECK:     END LOOP
 ; check llvm IR
 ; CHECK:     call void @llvm.masked.store.v4i32.p0v4i32(<4 x i32> {{.*}}, <4 x i32>* {{.*}}, {{.*}}, <4 x i1>

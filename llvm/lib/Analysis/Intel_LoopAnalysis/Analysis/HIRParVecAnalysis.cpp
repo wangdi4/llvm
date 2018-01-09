@@ -127,6 +127,14 @@ public:
     Info->setParType(ParVecInfo::SWITCH_STMT);
   }
 
+  void visit(HLIf *HIf) {
+    // Temporary bailout for loops with IF statements that have more than 1
+    // predicate.
+    if (HIf->getNumPredicates() > 1) {
+      Info->setVecType(ParVecInfo::MULTI_PRED_IF_STMT);
+    }
+  }
+
   /// \brief catch-all visit().
   void visit(HLNode *Node) {}
   /// \brief catch-all postVisit().

@@ -1,6 +1,6 @@
 //===-- LoopVectorizationPlanner.cpp --------------------------------------===//
 //
-//   Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
+//   Copyright (C) 2016-2017 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -61,81 +61,32 @@ void LoopVectorizationPlannerBase::setBestPlan(unsigned VF, unsigned UF) {
   }
 }
 
-void LoopVectorizationPlannerBase::printCurrentPlans(const std::string &Title,
-                                                     raw_ostream &O) {
-  auto printPlan = [&](IntelVPlan *Plan, const SmallVectorImpl<unsigned> &VFs,
-                       const std::string &Prefix) {
-    std::string Title;
-    raw_string_ostream RSO(Title);
-    RSO << Prefix << " for VF=";
-    if (VFs.size() == 1)
-      RSO << VFs[0];
-    else {
-      RSO << "{";
-      bool First = true;
-      for (unsigned VF : VFs) {
-        if (!First)
-          RSO << ",";
-        RSO << VF;
-        First = false;
-      }
-      RSO << "}";
-    }
-    VPlanPrinter PlanPrinter(O, *Plan);
-    PlanPrinter.dump(RSO.str());
-  };
-
-  if (VPlans.empty())
-    return;
-
-  IntelVPlan *Current = VPlans.begin()->second.get();
-
-  SmallVector<unsigned, 4> VFs;
-  for (auto &Entry : VPlans) {
-    IntelVPlan *Plan = Entry.second.get();
-    if (Plan != Current) {
-      // Hit another VPlan. Print the current VPlan for the VFs it served thus
-      // far and move on to the VPlan we just encountered.
-      printPlan(Current, VFs, Title);
-      Current = Plan;
-      VFs.clear();
-    }
-    // Add VF to the list of VFs served by current VPlan.
-    VFs.push_back(Entry.first);
-  }
-  // Print the current VPlan.
-  printPlan(Current, VFs, Title);
-}
-
 std::shared_ptr<IntelVPlan>
 LoopVectorizationPlanner::buildInitialVPlan(unsigned StartRangeVF,
                                             unsigned &EndRangeVF) {
-  // TODO: StartRangeVF and EndRangeVF are not being used by now
-
   // Create new empty VPlan
   std::shared_ptr<IntelVPlan> SharedPlan = std::make_shared<IntelVPlan>();
   IntelVPlan *Plan = SharedPlan.get();
-  IntelVPlanUtils PlanUtils(Plan);
 
   // Build hierarchical CFG
-  VPlanHCFGBuilder HCFGBuilder(LI, SE, Legal);
-  HCFGBuilder.buildHierarchicalCFG(TheLoop, WRLoop, Plan);
+  VPlanHCFGBuilder HCFGBuilder(WRLp, TheLoop, Plan, LI, SE, Legal);
+  HCFGBuilder.buildHierarchicalCFG();
 
   return SharedPlan;
 }
 
 // Feed explicit data, saved in WRNVecLoopNode to the CodeGen.
-void LoopVectorizationPlanner::EnterExplicitData(WRNVecLoopNode *WRLoop,
-                                                 VPOVectorizationLegality& LVL) {
+void LoopVectorizationPlanner::EnterExplicitData(
+    WRNVecLoopNode *WRLp, VPOVectorizationLegality &LVL) {
   // Collect any SIMD loop private information
-  if (WRLoop) {
-    LastprivateClause &LastPrivateClause = WRLoop->getLpriv();
+  if (WRLp) {
+    LastprivateClause &LastPrivateClause = WRLp->getLpriv();
     for (LastprivateItem *PrivItem : LastPrivateClause.items()) {
       auto PrivVal = PrivItem->getOrig();
       if (isa<AllocaInst>(PrivVal))
         LVL.addLoopPrivate(PrivVal, true, PrivItem->getIsConditional());
     }
-    PrivateClause &PrivateClause = WRLoop->getPriv();
+    PrivateClause &PrivateClause = WRLp->getPriv();
     for (PrivateItem *PrivItem : PrivateClause.items()) {
       auto PrivVal = PrivItem->getOrig();
       if (isa<AllocaInst>(PrivVal))
@@ -143,7 +94,7 @@ void LoopVectorizationPlanner::EnterExplicitData(WRNVecLoopNode *WRLoop,
     }
 
     // Add information about loop linears to Legality
-    LinearClause &LinearClause = WRLoop->getLinear();
+    LinearClause &LinearClause = WRLp->getLinear();
     for (LinearItem *LinItem : LinearClause.items()) {
       auto LinVal = LinItem->getOrig();
 
@@ -153,7 +104,7 @@ void LoopVectorizationPlanner::EnterExplicitData(WRNVecLoopNode *WRLoop,
         LVL.addLinear(LinVal, LinItem->getStep());
     }
 
-    ReductionClause &RedClause = WRLoop->getRed();
+    ReductionClause &RedClause = WRLp->getRed();
     for (ReductionItem *RedItem : RedClause.items()) {
       Value *V = RedItem->getOrig();
       ReductionItem::WRNReductionKind Type = RedItem->getType();
@@ -195,21 +146,28 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
   ILV->createEmptyLoop();
 
   // 2. Widen each instruction in the old loop to a new one in the new loop.
+  VPCallbackILV CallbackILV;
+  /*TODO: Necessary in VPO?*/
+  VectorizerValueMap ValMap(BestVF, 1 /*UF*/);
 
-  VPTransformState State(BestVF, BestUF, LI, DT, ILV->getBuilder(), ILV, &Legal);
+  VPTransformState State(BestVF, BestUF, LI, DT, ILV->getBuilder(), ValMap, ILV,
+                         CallbackILV, Legal);
   State.CFG.PrevBB = ILV->getLoopVectorPH();
 
   VPlan *Plan = getVPlanForVF(BestVF);
+  // TODO: This should be removed once we get proper divergence analysis
+  State.UniformCBVs = &Plan->UniformCBVs;
 
   ILV->collectUniformsAndScalars(BestVF);
 
-  Plan->vectorize(&State);
+  Plan->execute(&State);
 
   // 3. Take care of phi's to fix: reduction, 1st-order-recurrence, loop-closed.
   ILV->finalizeLoop();
 }
 
 void LoopVectorizationPlanner::collectDeadInstructions() {
-  VPOCodeGen::collectTriviallyDeadInstructions(TheLoop, &Legal,
+  VPOCodeGen::collectTriviallyDeadInstructions(TheLoop, Legal,
                                                DeadInstructions);
 }
+

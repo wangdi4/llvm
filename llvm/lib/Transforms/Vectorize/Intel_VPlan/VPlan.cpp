@@ -1,6 +1,17 @@
+//===----------------------------------------------------------------------===//
+//
+//   Copyright (C) 2017 Intel Corporation. All rights reserved.
+//
+//   The information and source code contained herein is the exclusive
+//   property of Intel Corporation. and may not be disclosed, examined
+//   or reproduced in whole or in part without explicit written authorization
+//   from the company.
+//
+//===----------------------------------------------------------------------===//
 
-#include "IntelVPlan.h"
 #include "LoopVectorizationCodeGen.h"
+#include "VPOCodeGenHIR.h"
+#include "VPlan.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
 #define DEBUG_TYPE "intel-vplan"
@@ -8,45 +19,12 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
-//Replicated from LoopVectorize.cpp
-
-void VPVectorizeOneByOneIRRecipe::transformIRInstruction(
-    Instruction *I, VPTransformState &State) {
-  assert(I && "No instruction to vectorize.");
-  State.ILV->vectorizeInstruction(I);
-  // if (willAlsoPackOrUnpack(I)) { // Unpack instruction
-  //  for (unsigned Part = 0; Part < State.UF; ++Part)
-  //    for (unsigned Lane = 0; Lane < State.VF; ++Lane)
-  //      State.ILV->getScalarValue(I, Part, Lane);
-  // }
-}
-
-VPOneByOneIRRecipeBase *
-IntelVPlanUtils::createOneByOneRecipe(const BasicBlock::iterator B,
-                                      const BasicBlock::iterator E,
-                                      // VPlan *Plan,
-                                      bool isScalarizing) {
-  // TODO
-  // if (isScalarizing)
-  //  return new VPScalarizeOneByOneRecipe(B, E, Plan);
-  return new VPVectorizeOneByOneIRRecipe(B, E, Plan);
-}
-
-VPBranchIfNotAllZeroRecipe *
-IntelVPlanUtils::createBranchIfNotAllZeroRecipe(Instruction *Cond) {
-  return new VPBranchIfNotAllZeroRecipe(Cond, Plan);
-}
+#define DEBUG_TYPE "intel-vplan"
 
 VPMaskGenerationRecipe *
 IntelVPlanUtils::createMaskGenerationRecipe(const Value *Pred,
                                             const Value *Backedge) {
   return new VPMaskGenerationRecipe(Pred, Backedge);
-}
-
-VPNonUniformConditionBitRecipe *
-IntelVPlanUtils::createNonUniformConditionBitRecipe(
-  const VPMaskGenerationRecipe *MaskRecipe) {
-  return new VPNonUniformConditionBitRecipe(MaskRecipe);
 }
 
 // It turns A->B into A->NewSucc->B and updates VPLoopInfo, DomTree and
@@ -116,7 +94,7 @@ VPBasicBlock *IntelVPlanUtils::splitBlock(VPBlockBase *Block,
 /// Generate the code inside the body of the vectorized loop. Assumes a single
 /// LoopVectorBody basic block was created for this; introduces additional
 /// basic blocks as needed, and fills them all.
-void IntelVPlan::vectorize(VPTransformState *State) {
+void IntelVPlan::execute(VPTransformState *State) {
 
   BasicBlock *VectorPreHeaderBB = State->CFG.PrevBB;
   BasicBlock *VectorHeaderBB = VectorPreHeaderBB->getSingleSuccessor();
@@ -148,7 +126,7 @@ void IntelVPlan::vectorize(VPTransformState *State) {
        CurrentBlock = CurrentBlock->getSingleSuccessor()) {
     assert(CurrentBlock->getSuccessors().size() <= 1 &&
            "Multiple successors at top level.");
-    CurrentBlock->vectorize(State);
+    CurrentBlock->execute(State);
   }
 
   // 3. Fix the back edges
@@ -169,9 +147,11 @@ void IntelVPlan::vectorize(VPTransformState *State) {
 
     BasicBlock *FirstSuccBB = FromBB->getSingleSuccessor();
     FromBB->getTerminator()->eraseFromParent();
-    Value *Bit = FromVPBB->getConditionBitRecipe()->getConditionBit();
+    Value *Bit = FromVPBB->getCondBitVPVal()->getValue();
     assert(Bit && "Cannot create conditional branch with empty bit.");
-    BranchInst::Create(FirstSuccBB, ToBB, Bit, FromBB);
+    Value *NCondBit = State->ILV->getScalarValue(Bit, 0);
+    assert(NCondBit && "Null scalar value for condition bit.");
+    BranchInst::Create(FirstSuccBB, ToBB, NCondBit, FromBB);
   }
 
   // 4. Merge the temporary latch created with the last basic block filled.
@@ -196,7 +176,36 @@ void IntelVPlan::vectorize(VPTransformState *State) {
   State->Builder.restoreIP(CurrIP);
 }
 
-void VPBasicBlock::vectorize(VPTransformState *State) {
+void IntelVPlan::executeHIR(VPOCodeGenHIR *CG) {
+#if 0
+  // TODO: remove this block of code here and make a similar change
+  // for the LLVM IR path.
+  for (VPBlockBase *CurrentBlock = Entry; CurrentBlock != nullptr;
+       CurrentBlock = CurrentBlock->getSingleSuccessor()) {
+    assert(CurrentBlock->getSuccessors().size() <= 1 &&
+           "Multiple successors at top level.");
+    CurrentBlock->executeHIR(CG);
+  }
+#endif
+  assert(isa<VPRegionBlock>(Entry) && Entry->getNumPredecessors() == 0 &&
+         Entry->getNumSuccessors() == 0 && "Invalid VPlan entry");
+  Entry->executeHIR(CG);
+}
+
+void VPBasicBlock::executeHIR(VPOCodeGenHIR *CG) {
+  // Loop PH and Loop Exit VPBasicBlocks are part of VPLoopRegion but they are
+  // actually ouside of the loop and they shouldn't be vectorized. For the LLVM
+  // IR path we specifically vectorize the PH, for now this is not needed for
+  // the HIR path - this may be revisited later if needed.
+  if (!isInsideLoop())
+    return;
+
+  CG->setCurMaskValue(nullptr);
+  for (VPRecipeBase &Recipe : Recipes)
+    Recipe.executeHIR(CG);
+}
+
+void VPBasicBlock::execute(VPTransformState *State) {
 
   // Loop PH and Loop Exit VPBasicBlocks are part of VPLoopRegion but they are
   // actually ouside of the loop and they shouldn't be vectorized. We decided to
@@ -205,8 +214,8 @@ void VPBasicBlock::vectorize(VPTransformState *State) {
   if (!isInsideLoop())
     return;
 
-  VPIterationInstance *I = State->Instance;
-  bool Replica = I && !(I->Part == 0 && I->Lane == 0);
+  bool Replica = State->Instance &&
+                 !(State->Instance->Part == 0 && State->Instance->Lane == 0);
   VPBasicBlock *PrevVPBB = State->CFG.PrevVPBB;
   VPBlockBase *SingleHPred = nullptr;
   BasicBlock *NewBB = State->CFG.PrevBB; // Reuse it if possible.
@@ -241,7 +250,11 @@ void VPBasicBlock::vectorize(VPTransformState *State) {
                PrevVPBB->getSingleHierarchicalSuccessor()) && /* C */
              !(Replica && getPredecessors().empty())) {       /* D */
 
+#if INTEL_CUSTOMIZATION
+    NewBB = createEmptyBasicBlock(State);
+#else
     NewBB = createEmptyBasicBlock(State->CFG);
+#endif
     State->Builder.SetInsertPoint(NewBB);
     // Temporarily terminate with unreachable until CFG is rewired.
     UnreachableInst *Terminator = State->Builder.CreateUnreachable();
@@ -261,7 +274,7 @@ void VPBasicBlock::vectorize(VPTransformState *State) {
   State->CFG.PrevVPBB = this;
 
   for (VPRecipeBase &Recipe : Recipes)
-    Recipe.vectorize(*State);
+    Recipe.execute(*State);
 
   // ILV's MaskValue is set when we find a BlockPredicateRecipe in
   // VPBasicBlock's list of recipes. After generating code for all the
@@ -272,15 +285,8 @@ void VPBasicBlock::vectorize(VPTransformState *State) {
   DEBUG(dbgs() << "LV: filled BB:" << *NewBB);
 }
 
-void VPUniformConditionBitRecipe::vectorize(VPTransformState &State) {
-  if (isa<Instruction>(ScConditionBit)) {
-    State.ILV->serializeInstruction(cast<Instruction>(ScConditionBit));
-    ConditionBit = State.ILV->getScalarValue(ScConditionBit, 0);
-  }
-}
-
-using VPDomTree = DomTreeBase<vpo::VPBlockBase>;
+using VPDomTree = DomTreeBase<VPBlockBase>;
 template void llvm::DomTreeBuilder::Calculate<VPDomTree>(VPDomTree &DT);
 
-using VPPostDomTree = PostDomTreeBase<vpo::VPBlockBase>;
+using VPPostDomTree = PostDomTreeBase<VPBlockBase>;
 template void llvm::DomTreeBuilder::Calculate<VPPostDomTree>(VPPostDomTree &PDT);

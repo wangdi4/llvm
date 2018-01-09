@@ -1,4 +1,4 @@
-//===-- Intel_LoopCFU.cpp -------------------------------------------------===//
+//===-------- LoopCFU.cpp -------------------------------------------------===//
 //
 //   Copyright (C) 2017 Intel Corporation. All rights reserved.
 //
@@ -62,7 +62,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "Intel_LoopCFU.h"
+#include "LoopCFU.h"
 #include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "LoopCFU"
@@ -70,6 +70,8 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
+namespace llvm {
+#if 0
 void VPLoopCFU::getLoopProperties(VPLoop *Lp, Value **LoopIdx,
                                   Value **LoopIdxInc, Value **LoopLB,
                                   Value **LoopUB, Value **BackedgeCond) {
@@ -265,7 +267,7 @@ void VPLoopCFU::createBlockAndRecipeForTruePath(
 
   // Create a new VPBasicBlock and OneByOneRecipe for the instructions that will
   // be executed when the mask is true.
-  VPBasicBlock *TrueBlock = PlanUtils.splitBlock(EntryBlock, VPLI, *DT, *PDT);
+  VPBasicBlock *TrueBlock = PlanUtils.splitBlock(EntryBlock, VPLI, DT, PDT);
 
   // Find the last phi instruction in the original OneByOneRecipe for the loop
   // entry block. This is the point where the original recipe and the mask true
@@ -435,7 +437,7 @@ void VPLoopCFU::createBlockAndRecipesForFalsePath(
   // Create a VPBasicBlock and corresponding OneByOneRecipe for the mask false
   // path. 
   VPBasicBlock *FalseBlock =
-    PlanUtils.splitBlock(LastTrueBlock, VPLI, *DT, *PDT);
+    PlanUtils.splitBlock(LastTrueBlock, VPLI, DT, PDT);
 
   VPInstructionIR *BeginVPInst = cast<VPInstructionIR>(SplitPtIt);
   Instruction *BeginInst = BeginVPInst->getInstruction();
@@ -560,3 +562,5 @@ void VPLoopCFU::makeInnerLoopControlFlowUniform() {
     }
   }
 }
+#endif
+} // end llvm namespace

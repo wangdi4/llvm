@@ -286,8 +286,23 @@ public:
                                          bool &IsLeft);
   static FirstprivateItem *wrnSeenAsFirstPrivate(WRegionNode *W, Value *V);
   static LastprivateItem *wrnSeenAsLastPrivate(WRegionNode *W, Value *V);
-};
+  static MapItem *wrnSeenAsMap(WRegionNode *W, Value *V);
 
+  /// \brief The utility checks whether the given value is used
+  /// at the region entry directive.
+  static bool usedInRegionEntryDirective(WRegionNode *W, Value *I);
+
+  /// \brief Return true if the value \p V is used in the WRN \p W.
+  /// If \p Users is not null, then find all users of \p V in \p W and put them
+  /// in \p *Users.
+  /// If \p ExcludeDirective is true, then ignore the instructions for which
+  /// isIntelDirectiveOrClause() is true.
+  ///
+  /// Prerequisite: W's BBSet must be populated before calling this util.
+  static bool findUsersInRegion(WRegionNode *W, Value *V,
+                                SmallVectorImpl<Instruction *> *Users=nullptr,
+                                bool ExcludeDirective = true);
+};
 
 } // End VPO Namespace
 
