@@ -315,6 +315,28 @@ unsigned VPlanCostModel::getCost(const VPBasicBlock *VPBB) {
   return Cost;
 }
 
+unsigned VPlanCostModel::getCost(const VPBlockBase *VPBlock) {
+  if (auto Region = dyn_cast<VPRegionBlock>(VPBlock)) {
+    unsigned Cost = 0;
+    for (const VPBlockBase *Block : depth_first(Region->getEntry())) {
+      // FIXME: Use Block Frequency Info (or similar VPlan-specific analysis) to
+      // correctly scale the cost of the basic block.
+      Cost += getCost(Block);
+    }
+    return Cost;
+  }
+
+  // TODO: swap the casts with the above?
+  const VPBasicBlock *VPBB = cast<VPBasicBlock>(VPBlock);
+  return getCost(VPBB);
+}
+
+unsigned VPlanCostModel::getCost() {
+  assert(Plan->getEntry()->getNumSuccessors() == 0 &&
+         "VPlan Entry block must have no successors!");
+  return getCost(Plan->getEntry());
+}
+
 void VPlanCostModel::printForVPBlockBase(raw_ostream &OS, const VPBlockBase *VPBlock) {
   // TODO: match print order with "vector execution order".
   if (auto Region = dyn_cast<VPRegionBlock>(VPBlock)) {
@@ -349,6 +371,7 @@ void VPlanCostModel::printForVPBlockBase(raw_ostream &OS, const VPBlockBase *VPB
 
 void VPlanCostModel::print(raw_ostream &OS) {
   OS << "Cost Model for VPlan: " << Plan->getName() << '\n';
+  OS << "Total Cost: " << getCost() << '\n';
   DEBUG(dbgs() << *Plan;);
 
   // TODO: match print order with "vector execution order".

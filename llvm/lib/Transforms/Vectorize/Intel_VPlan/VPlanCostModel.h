@@ -38,10 +38,12 @@ public:
 
   unsigned getCost(const vpo::VPInstruction *VPInst);
   unsigned getCost(const vpo::VPBasicBlock *VPBB);
+  unsigned getCost();
   void print(raw_ostream &OS);
 
 private:
   void printForVPBlockBase(raw_ostream &OS, const vpo::VPBlockBase *VPBlock);
+  unsigned getCost(const vpo::VPBlockBase *VPBlock);
 
   // These utilities are private for the class instead of being defined as
   // static functions because they need access to underlying Inst/HIRData in

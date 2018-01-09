@@ -47,6 +47,7 @@
 
 define void @foo() local_unnamed_addr #0 {
 ; VPLAN-CM-VF4-LABEL:  Cost Model for VPlan:
+; VPLAN-CM-VF4-NEXT:  Total Cost: 208
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ; VPLAN-CM-VF4-NEXT:    Unknown cost for [[VP0:%.*]] = call token ()* @llvm.directive.region.entry
@@ -85,6 +86,7 @@ define void @foo() local_unnamed_addr #0 {
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ;
 ; VPLAN-CM-VF1-LABEL:  Cost Model for VPlan:
+; VPLAN-CM-VF1-NEXT:  Total Cost: 29
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ; VPLAN-CM-VF1-NEXT:    Unknown cost for [[VP0:%.*]] = call token ()* @llvm.directive.region.entry
@@ -123,6 +125,7 @@ define void @foo() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ;
 ; VPLAN-HIR-CM-VF4-LABEL:  Cost Model for VPlan:
+; VPLAN-HIR-CM-VF4-NEXT:  Total Cost: 43
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 43
@@ -144,6 +147,7 @@ define void @foo() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ;
 ; VPLAN-HIR-CM-VF1-LABEL:  Cost Model for VPlan:
+; VPLAN-HIR-CM-VF1-NEXT:  Total Cost: 22
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 22
@@ -286,6 +290,7 @@ for.end:                                          ; preds = %for.body
 
 define void @test_casts() local_unnamed_addr #0 {
 ; VPLAN-CM-VF4-LABEL:  Cost Model for VPlan:
+; VPLAN-CM-VF4-NEXT:  Total Cost: 75
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ; VPLAN-CM-VF4-NEXT:    Unknown cost for [[VP0:%.*]] = call token ()* @llvm.directive.region.entry
@@ -335,6 +340,7 @@ define void @test_casts() local_unnamed_addr #0 {
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ;
 ; VPLAN-CM-VF1-LABEL:  Cost Model for VPlan:
+; VPLAN-CM-VF1-NEXT:  Total Cost: 23
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ; VPLAN-CM-VF1-NEXT:    Unknown cost for [[VP0:%.*]] = call token ()* @llvm.directive.region.entry
@@ -384,6 +390,7 @@ define void @test_casts() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ;
 ; VPLAN-HIR-CM-VF4-LABEL:  Cost Model for VPlan:
+; VPLAN-HIR-CM-VF4-NEXT:  Total Cost: 70
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 70
@@ -412,6 +419,7 @@ define void @test_casts() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ;
 ; VPLAN-HIR-CM-VF1-LABEL:  Cost Model for VPlan:
+; VPLAN-HIR-CM-VF1-NEXT:  Total Cost: 19
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 19
@@ -611,6 +619,7 @@ for.end:                                          ; preds = %for.body
 
 define void @test_non_pow2_casts() local_unnamed_addr #0 {
 ; VPLAN-CM-VF4-LABEL:  Cost Model for VPlan:
+; VPLAN-CM-VF4-NEXT:  Total Cost: 50
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ; VPLAN-CM-VF4-NEXT:    Unknown cost for [[VP0:%.*]] = call token ()* @llvm.directive.region.entry
@@ -638,6 +647,7 @@ define void @test_non_pow2_casts() local_unnamed_addr #0 {
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ;
 ; VPLAN-CM-VF1-LABEL:  Cost Model for VPlan:
+; VPLAN-CM-VF1-NEXT:  Total Cost: 14
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ; VPLAN-CM-VF1-NEXT:    Unknown cost for [[VP0:%.*]] = call token ()* @llvm.directive.region.entry
@@ -665,6 +675,7 @@ define void @test_non_pow2_casts() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ;
 ; VPLAN-HIR-CM-VF4-LABEL:  Cost Model for VPlan:
+; VPLAN-HIR-CM-VF4-NEXT:  Total Cost: 25
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 25
@@ -682,6 +693,7 @@ define void @test_non_pow2_casts() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ;
 ; VPLAN-HIR-CM-VF1-LABEL:  Cost Model for VPlan:
+; VPLAN-HIR-CM-VF1-NEXT:  Total Cost: 8
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 8
@@ -778,6 +790,7 @@ for.end:                                          ; preds = %for.body
 
 define void @test_cmp() local_unnamed_addr #0 {
 ; VPLAN-CM-VF4-LABEL:  Cost Model for VPlan:
+; VPLAN-CM-VF4-NEXT:  Total Cost: 78
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ; VPLAN-CM-VF4-NEXT:    Unknown cost for [[VP0:%.*]] = call token ()* @llvm.directive.region.entry
@@ -842,6 +855,7 @@ define void @test_cmp() local_unnamed_addr #0 {
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ;
 ; VPLAN-CM-VF1-LABEL:  Cost Model for VPlan:
+; VPLAN-CM-VF1-NEXT:  Total Cost: 39
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ; VPLAN-CM-VF1-NEXT:    Unknown cost for [[VP0:%.*]] = call token ()* @llvm.directive.region.entry
@@ -906,6 +920,7 @@ define void @test_cmp() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ;
 ; VPLAN-HIR-CM-VF4-LABEL:  Cost Model for VPlan:
+; VPLAN-HIR-CM-VF4-NEXT:  Total Cost: 75
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 75
@@ -951,6 +966,7 @@ define void @test_cmp() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ;
 ; VPLAN-HIR-CM-VF1-LABEL:  Cost Model for VPlan:
+; VPLAN-HIR-CM-VF1-NEXT:  Total Cost: 36
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 36
@@ -1219,6 +1235,7 @@ for.end:                                          ; preds = %for.body
 
 define void @test_select() local_unnamed_addr #0 {
 ; VPLAN-CM-VF4-LABEL:  Cost Model for VPlan:
+; VPLAN-CM-VF4-NEXT:  Total Cost: 42
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ; VPLAN-CM-VF4-NEXT:    Unknown cost for [[VP0:%.*]] = call token ()* @llvm.directive.region.entry
@@ -1257,6 +1274,7 @@ define void @test_select() local_unnamed_addr #0 {
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ;
 ; VPLAN-CM-VF1-LABEL:  Cost Model for VPlan:
+; VPLAN-CM-VF1-NEXT:  Total Cost: 18
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ; VPLAN-CM-VF1-NEXT:    Unknown cost for [[VP0:%.*]] = call token ()* @llvm.directive.region.entry
@@ -1295,6 +1313,7 @@ define void @test_select() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ;
 ; VPLAN-HIR-CM-VF4-LABEL:  Cost Model for VPlan:
+; VPLAN-HIR-CM-VF4-NEXT:  Total Cost: 32
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 32
@@ -1315,6 +1334,7 @@ define void @test_select() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ;
 ; VPLAN-HIR-CM-VF1-LABEL:  Cost Model for VPlan:
+; VPLAN-HIR-CM-VF1-NEXT:  Total Cost: 8
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 8
@@ -1454,6 +1474,176 @@ for.body:
   %st.double.idx = getelementptr inbounds [1024 x double], [1024 x double]* @arr.double.4, i64 0, i64 %indvars.iv
   store  double %sel.double, double* %st.double.idx
 
+
+  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
+  %exitcond = icmp eq i64 %indvars.iv.next, 1024
+  br i1 %exitcond, label %for.end, label %for.body
+
+for.end:                                          ; preds = %for.body
+  call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"()]
+  ret void
+}
+
+; FIXME: Properly scale basic blocks' costs according to block frequency info.
+define void @test_total_cost_branch_probabilities(i1 %cond) local_unnamed_addr #0 {
+; VPLAN-CM-VF4-LABEL:  Cost Model for VPlan:
+; VPLAN-CM-VF4-NEXT:  Total Cost: 14
+; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+; VPLAN-CM-VF4-NEXT:    Unknown cost for [[VP0:%.*]] = call token ()* @llvm.directive.region.entry
+; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+; VPLAN-CM-VF4-NEXT:    Unknown cost for [[VP1:%.*]] = phi i64 0 [[VP2:%.*]]
+; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 4
+; VPLAN-CM-VF4-NEXT:    Cost 0 for [[VP3:%.*]] = getelementptr [1024 x i32]* @arr.i32.1 i64 0 [[VP1]]
+; VPLAN-CM-VF4-NEXT:    Cost 4 for [[VP4:%.*]] = load [[VP3]]
+; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 6
+; VPLAN-CM-VF4-NEXT:    Unknown cost for [[VP5:%.*]] = phi [[VP4]] [[VP6:%.*]]
+; VPLAN-CM-VF4-NEXT:    Cost 0 for [[VP7:%.*]] = getelementptr [1024 x i32]* @arr.i32.3 i64 0 [[VP1]]
+; VPLAN-CM-VF4-NEXT:    Cost 4 for store [[VP5]] [[VP7]]
+; VPLAN-CM-VF4-NEXT:    Cost 1 for [[VP2]] = add [[VP1]] i64 1
+; VPLAN-CM-VF4-NEXT:    Cost 1 for [[VP8:%.*]] = icmp [[VP2]] i64 1024
+; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 4
+; VPLAN-CM-VF4-NEXT:    Cost 0 for [[VP9:%.*]] = getelementptr [1024 x i32]* @arr.i32.2 i64 0 [[VP1]]
+; VPLAN-CM-VF4-NEXT:    Cost 4 for [[VP6]] = load [[VP9]]
+; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+; VPLAN-CM-VF4-NEXT:    Unknown cost for [[VP10:%.*]] = call [[VP0]] void (token)* @llvm.directive.region.exit
+; VPLAN-CM-VF4-NEXT:    Unknown cost for [[VP11:%.*]] = ret
+; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+;
+; VPLAN-CM-VF1-LABEL:  Cost Model for VPlan:
+; VPLAN-CM-VF1-NEXT:  Total Cost: 5
+; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+; VPLAN-CM-VF1-NEXT:    Unknown cost for [[VP0:%.*]] = call token ()* @llvm.directive.region.entry
+; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+; VPLAN-CM-VF1-NEXT:    Unknown cost for [[VP1:%.*]] = phi i64 0 [[VP2:%.*]]
+; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 1
+; VPLAN-CM-VF1-NEXT:    Cost 0 for [[VP3:%.*]] = getelementptr [1024 x i32]* @arr.i32.1 i64 0 [[VP1]]
+; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP4:%.*]] = load [[VP3]]
+; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 3
+; VPLAN-CM-VF1-NEXT:    Unknown cost for [[VP5:%.*]] = phi [[VP4]] [[VP6:%.*]]
+; VPLAN-CM-VF1-NEXT:    Cost 0 for [[VP7:%.*]] = getelementptr [1024 x i32]* @arr.i32.3 i64 0 [[VP1]]
+; VPLAN-CM-VF1-NEXT:    Cost 1 for store [[VP5]] [[VP7]]
+; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP2]] = add [[VP1]] i64 1
+; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP8:%.*]] = icmp [[VP2]] i64 1024
+; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 1
+; VPLAN-CM-VF1-NEXT:    Cost 0 for [[VP9:%.*]] = getelementptr [1024 x i32]* @arr.i32.2 i64 0 [[VP1]]
+; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP6]] = load [[VP9]]
+; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+; VPLAN-CM-VF1-NEXT:    Unknown cost for [[VP10:%.*]] = call [[VP0]] void (token)* @llvm.directive.region.exit
+; VPLAN-CM-VF1-NEXT:    Unknown cost for [[VP11:%.*]] = ret
+; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+;
+; VPLAN-HIR-CM-VF4-LABEL:  Cost Model for VPlan:
+; VPLAN-HIR-CM-VF4-NEXT:  Total Cost: 12
+; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+; VPLAN-HIR-CM-VF4-NEXT:    Unknown cost for [[VP0:%.*]] = icmp [[VP1:%.*]] i1 false
+; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 4
+; VPLAN-HIR-CM-VF4-NEXT:    Cost 4 for [[VP2:%.*]] = load [[VP3:%.*]]
+; VPLAN-HIR-CM-VF4-NEXT:    Unknown cost for [[VP4:%.*]] = bitcast [[VP2]]
+; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 4
+; VPLAN-HIR-CM-VF4-NEXT:    Unknown cost for [[VP5:%.*]] = semi-phi [[VP4]] [[VP6:%.*]]
+; VPLAN-HIR-CM-VF4-NEXT:    Cost 4 for store [[VP5]] [[VP7:%.*]]
+; VPLAN-HIR-CM-VF4-NEXT:    Unknown cost for [[VP8:%.*]] = icmp i64 0 i64 1023 i64 1
+; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 4
+; VPLAN-HIR-CM-VF4-NEXT:    Cost 4 for [[VP9:%.*]] = load [[VP10:%.*]]
+; VPLAN-HIR-CM-VF4-NEXT:    Unknown cost for [[VP6]] = bitcast [[VP9]]
+; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+;
+; VPLAN-HIR-CM-VF1-LABEL:  Cost Model for VPlan:
+; VPLAN-HIR-CM-VF1-NEXT:  Total Cost: 3
+; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+; VPLAN-HIR-CM-VF1-NEXT:    Unknown cost for [[VP0:%.*]] = icmp [[VP1:%.*]] i1 false
+; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 1
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for [[VP2:%.*]] = load [[VP3:%.*]]
+; VPLAN-HIR-CM-VF1-NEXT:    Unknown cost for [[VP4:%.*]] = bitcast [[VP2]]
+; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 1
+; VPLAN-HIR-CM-VF1-NEXT:    Unknown cost for [[VP5:%.*]] = semi-phi [[VP4]] [[VP6:%.*]]
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for store [[VP5]] [[VP7:%.*]]
+; VPLAN-HIR-CM-VF1-NEXT:    Unknown cost for [[VP8:%.*]] = icmp i64 0 i64 1023 i64 1
+; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 1
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for [[VP9:%.*]] = load [[VP10:%.*]]
+; VPLAN-HIR-CM-VF1-NEXT:    Unknown cost for [[VP6]] = bitcast [[VP9]]
+; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+;
+; LLVM-CM-VF4-LABEL:  Printing analysis 'Cost Model Analysis' for function 'test_total_cost_branch_probabilities':
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[COND_INST:%.*]] = xor i1 [[COND:%.*]], true
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   br label [[VECTOR_BODY:%.*]]
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[INDEX:%.*]] = phi i64 [ 0, [[ENTRY:%.*]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY]] ]
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[ARR_I32_2_ARR_I32_1:%.*]] = select i1 [[COND]], [1024 x i32]* @arr.i32.2, [1024 x i32]* @arr.i32.1
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[LD_I32_VEC_IN_IN:%.*]] = getelementptr inbounds [1024 x i32], [1024 x i32]* [[ARR_I32_2_ARR_I32_1]], i64 0, i64 [[INDEX]]
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[LD_I32_VEC_IN:%.*]] = bitcast i32* [[LD_I32_VEC_IN_IN]] to <4 x i32>*
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[LD_I32_VEC:%.*]] = load <4 x i32>, <4 x i32>* [[LD_I32_VEC_IN]], align 16
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[TMP0:%.*]] = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.3, i64 0, i64 [[INDEX]]
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[TMP1:%.*]] = bitcast i32* [[TMP0]] to <4 x i32>*
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   store <4 x i32> [[LD_I32_VEC]], <4 x i32>* [[TMP1]], align 16
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[INDEX_NEXT]] = add i64 [[INDEX]], 4
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP2:%.*]] = icmp eq i64 [[INDEX_NEXT]], 1024
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   br i1 [[TMP2]], label [[FOR_END:%.*]], label [[VECTOR_BODY]]
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   ret void
+;
+; LLVM-CM-VF1-LABEL:  Printing analysis 'Cost Model Analysis' for function 'test_total_cost_branch_probabilities':
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[COND_INST:%.*]] = xor i1 [[COND:%.*]], true
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   br label [[REGION_ENTRY:%.*]]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[TOK:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   br label [[FOR_BODY:%.*]]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[INDVARS_IV:%.*]] = phi i64 [ 0, [[REGION_ENTRY]] ], [ [[INDVARS_IV_NEXT:%.*]], [[JOIN_LABEL:%.*]] ]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   br i1 [[COND_INST]], label [[TRUE_LABEL:%.*]], label [[FALSE_LABEL:%.*]]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[LD_I32_IDX_TRUE:%.*]] = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.1, i64 0, i64 [[INDVARS_IV]]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[LD_I32_TRUE:%.*]] = load i32, i32* [[LD_I32_IDX_TRUE]]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   br label [[JOIN_LABEL]]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[LD_I32_IDX_FALSE:%.*]] = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.2, i64 0, i64 [[INDVARS_IV]]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[LD_I32_FALSE:%.*]] = load i32, i32* [[LD_I32_IDX_FALSE]]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   br label [[JOIN_LABEL]]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[LD_I32:%.*]] = phi i32 [ [[LD_I32_TRUE]], [[TRUE_LABEL]] ], [ [[LD_I32_FALSE]], [[FALSE_LABEL]] ]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[ST_I32_IDX:%.*]] = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.3, i64 0, i64 [[INDVARS_IV]]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   store i32 [[LD_I32]], i32* [[ST_I32_IDX]]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[INDVARS_IV_NEXT]] = add nuw nsw i64 [[INDVARS_IV]], 1
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[EXITCOND:%.*]] = icmp eq i64 [[INDVARS_IV_NEXT]], 1024
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   br i1 [[EXITCOND]], label [[FOR_END:%.*]], label [[FOR_BODY]]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   call void @llvm.directive.region.exit(token [[TOK]]) [ "DIR.OMP.END.SIMD"() ]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   ret void
+;
+entry:
+  %cond.inst = xor i1 %cond, 1
+  br label %region_entry
+region_entry:
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
+  br label %for.body
+
+for.body:
+  %indvars.iv = phi i64 [ 0, %region_entry ], [ %indvars.iv.next, %join_label ]
+
+  br i1 %cond.inst, label %true_label, label %false_label
+
+true_label:
+  %ld.i32.idx.true = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.1, i64 0, i64 %indvars.iv
+  %ld.i32.true = load i32, i32* %ld.i32.idx.true
+  br label %join_label
+
+false_label:
+  %ld.i32.idx.false = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.2, i64 0, i64 %indvars.iv
+  %ld.i32.false = load i32, i32* %ld.i32.idx.false
+  br label %join_label
+
+join_label:
+  %ld.i32 = phi i32 [ %ld.i32.true, %true_label ], [ %ld.i32.false, %false_label ]
+  %st.i32.idx = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.3, i64 0, i64 %indvars.iv
+  store i32 %ld.i32, i32* %st.i32.idx
 
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1024
