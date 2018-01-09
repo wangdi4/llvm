@@ -530,8 +530,10 @@ bool VPlanDriver::processLoop(Loop *Lp, unsigned VF, Function &Fn,
 
     VPOCodeGen VCodeGen(Lp, PSE, LI, DT, TLI, TTI, VF, 1, &LVL);
     VCodeGen.initOpenCLScalarSelectSet(volcanoScalarSelect);
-    LVP.executeBestPlan(VCodeGen);
-    ModifiedLoop = true;
+    if (VF != 1) {
+      LVP.executeBestPlan(VCodeGen);
+      ModifiedLoop = true;
+    }
   }
 
   return ModifiedLoop;
@@ -747,7 +749,7 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, unsigned VF, Function &Fn,
     SRA = &getAnalysis<HIRSafeReductionAnalysis>();
     VPOCodeGenHIR VCodeGen(TLI, SRA, Fn, Lp, WRLp);
 
-    if (VCodeGen.loopIsHandled(Lp, VF)) {
+    if (VF != 1 && VCodeGen.loopIsHandled(Lp, VF)) {
       CandLoopsVectorized++;
       LVP.executeBestPlan(&VCodeGen);
       ModifiedLoop = true;
@@ -799,4 +801,3 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, unsigned VF, Function &Fn,
 //
 //  return true;
 //}
-

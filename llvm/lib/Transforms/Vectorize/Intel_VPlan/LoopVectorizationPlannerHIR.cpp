@@ -23,6 +23,7 @@ using namespace llvm;
 using namespace llvm::vpo;
 
 void LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG) {
+  assert(BestVF != 1 && "Non-vectorized loop should be handled elsewhere!");
   VPlan *Plan = getVPlanForVF(BestVF);
 
   CG->initializeVectorLoop(BestVF);

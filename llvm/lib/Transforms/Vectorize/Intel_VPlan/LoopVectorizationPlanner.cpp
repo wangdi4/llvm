@@ -139,6 +139,7 @@ void LoopVectorizationPlanner::EnterExplicitData(
 }
 
 void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
+  assert(BestVF != 1 && "Non-vectorized loop should be handled elsewhere!");
   ILV = &LB;
 
   // Perform the actual loop widening (vectorization).
