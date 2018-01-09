@@ -33,6 +33,14 @@ namespace vpo {
 
 unsigned VPlanUtils::NextOrdinal = 1;
 
+raw_ostream &operator<<(raw_ostream &OS, const VPValue &V) {
+  if (const VPInstruction *Instr = dyn_cast<VPInstruction>(&V))
+    Instr->print(OS);
+  else
+    V.printAsOperand(OS);
+  return OS;
+}
+
 /// \return the VPBasicBlock that is the entry of Block, possibly indirectly.
 const VPBasicBlock *VPBlockBase::getEntryBasicBlock() const {
   const VPBlockBase *Block = this;
