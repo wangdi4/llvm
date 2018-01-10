@@ -1654,6 +1654,109 @@ for.end:                                          ; preds = %for.body
   ret void
 }
 
+define void @test_revectorize() local_unnamed_addr #0 {
+; VPLAN-CM-VF4-LABEL:  Cost Model for VPlan:
+; VPLAN-CM-VF4-NEXT:  Total Cost: 10
+; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+; VPLAN-CM-VF4-NEXT:    Unknown cost for [[VP0:%.*]] = call token ()* @llvm.directive.region.entry
+; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 10
+; VPLAN-CM-VF4-NEXT:    Unknown cost for [[VP1:%.*]] = phi i64 0 [[VP2:%.*]]
+; VPLAN-CM-VF4-NEXT:    Cost 0 for [[VP3:%.*]] = getelementptr [1024 x i32]* @arr.i32.1 i64 0 [[VP1]]
+; VPLAN-CM-VF4-NEXT:    Unknown cost for [[VP4:%.*]] = bitcast [[VP3]]
+; VPLAN-CM-VF4-NEXT:    Cost 4 for [[VP5:%.*]] = load [[VP4]]
+; VPLAN-CM-VF4-NEXT:    Cost 0 for [[VP6:%.*]] = getelementptr [1024 x i32]* @arr.i32.3 i64 0 [[VP1]]
+; VPLAN-CM-VF4-NEXT:    Unknown cost for [[VP7:%.*]] = bitcast [[VP6]]
+; VPLAN-CM-VF4-NEXT:    Cost 4 for store [[VP5]] [[VP7]]
+; VPLAN-CM-VF4-NEXT:    Cost 1 for [[VP2]] = add [[VP1]] i64 2
+; VPLAN-CM-VF4-NEXT:    Cost 1 for [[VP8:%.*]] = icmp [[VP2]] i64 1024
+; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+; VPLAN-CM-VF4-NEXT:    Unknown cost for [[VP9:%.*]] = call [[VP0]] void (token)* @llvm.directive.region.exit
+; VPLAN-CM-VF4-NEXT:    Unknown cost for [[VP10:%.*]] = ret
+; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+;
+; VPLAN-CM-VF1-LABEL:  Cost Model for VPlan:
+; VPLAN-CM-VF1-NEXT:  Total Cost: 4
+; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+; VPLAN-CM-VF1-NEXT:    Unknown cost for [[VP0:%.*]] = call token ()* @llvm.directive.region.entry
+; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 4
+; VPLAN-CM-VF1-NEXT:    Unknown cost for [[VP1:%.*]] = phi i64 0 [[VP2:%.*]]
+; VPLAN-CM-VF1-NEXT:    Cost 0 for [[VP3:%.*]] = getelementptr [1024 x i32]* @arr.i32.1 i64 0 [[VP1]]
+; VPLAN-CM-VF1-NEXT:    Unknown cost for [[VP4:%.*]] = bitcast [[VP3]]
+; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP5:%.*]] = load [[VP4]]
+; VPLAN-CM-VF1-NEXT:    Cost 0 for [[VP6:%.*]] = getelementptr [1024 x i32]* @arr.i32.3 i64 0 [[VP1]]
+; VPLAN-CM-VF1-NEXT:    Unknown cost for [[VP7:%.*]] = bitcast [[VP6]]
+; VPLAN-CM-VF1-NEXT:    Cost 1 for store [[VP5]] [[VP7]]
+; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP2]] = add [[VP1]] i64 2
+; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP8:%.*]] = icmp [[VP2]] i64 1024
+; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+; VPLAN-CM-VF1-NEXT:    Unknown cost for [[VP9:%.*]] = call [[VP0]] void (token)* @llvm.directive.region.exit
+; VPLAN-CM-VF1-NEXT:    Unknown cost for [[VP10:%.*]] = ret
+; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
+;
+;
+;
+; LLVM-CM-VF4-LABEL:  Printing analysis 'Cost Model Analysis' for function 'test_revectorize':
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   br label [[VECTOR_BODY:%.*]]
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[INDEX:%.*]] = phi i64 [ 0, [[ENTRY:%.*]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY]] ]
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[VEC_IND:%.*]] = phi <4 x i64> [ <i64 0, i64 2, i64 4, i64 6>, [[ENTRY]] ], [ [[VEC_IND_NEXT:%.*]], [[VECTOR_BODY]] ]
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[MM_VECTORGEP:%.*]] = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.1, i64 0, <4 x i64> [[VEC_IND]]
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[BC:%.*]] = bitcast <4 x i32*> [[MM_VECTORGEP]] to <4 x <8 x i32>*>
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 2 for instruction:   [[TMP0:%.*]] = extractelement <4 x <8 x i32>*> [[BC]], i32 0
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[WIDE_LOAD:%.*]] = load <8 x i32>, <8 x i32>* [[TMP0]], align 8
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[MM_VECTORGEP1:%.*]] = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.3, i64 0, <4 x i64> [[VEC_IND]]
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[BC2:%.*]] = bitcast <4 x i32*> [[MM_VECTORGEP1]] to <4 x <8 x i32>*>
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 2 for instruction:   [[TMP1:%.*]] = extractelement <4 x <8 x i32>*> [[BC2]], i32 0
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   store <8 x i32> [[WIDE_LOAD]], <8 x i32>* [[TMP1]], align 8
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[INDEX_NEXT]] = add i64 [[INDEX]], 4
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[VEC_IND_NEXT]] = add <4 x i64> [[VEC_IND]], <i64 8, i64 8, i64 8, i64 8>
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP2:%.*]] = icmp eq i64 [[INDEX_NEXT]], 512
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   br i1 [[TMP2]], label [[FOR_END:%.*]], label [[VECTOR_BODY]]
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   ret void
+;
+; LLVM-CM-VF1-LABEL:  Printing analysis 'Cost Model Analysis' for function 'test_revectorize':
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[TOK:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   br label [[FOR_BODY:%.*]]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[INDVARS_IV:%.*]] = phi i64 [ 0, [[ENTRY:%.*]] ], [ [[INDVARS_IV_NEXT:%.*]], [[FOR_BODY]] ]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[LD_IDX:%.*]] = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.1, i64 0, i64 [[INDVARS_IV]]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[LD_CAST:%.*]] = bitcast i32* [[LD_IDX]] to <2 x i32>*
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[LD:%.*]] = load <2 x i32>, <2 x i32>* [[LD_CAST]]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[ST_IDX:%.*]] = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.3, i64 0, i64 [[INDVARS_IV]]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[ST_CAST:%.*]] = bitcast i32* [[ST_IDX]] to <2 x i32>*
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   store <2 x i32> [[LD]], <2 x i32>* [[ST_CAST]]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[INDVARS_IV_NEXT]] = add nuw nsw i64 [[INDVARS_IV]], 2
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[EXITCOND:%.*]] = icmp eq i64 [[INDVARS_IV_NEXT]], 1024
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   br i1 [[EXITCOND]], label [[FOR_END:%.*]], label [[FOR_BODY]]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   call void @llvm.directive.region.exit(token [[TOK]]) [ "DIR.OMP.END.SIMD"() ]
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   ret void
+;
+entry:
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
+  br label %for.body
+
+; TODO: No output for HIR* checks because "LOOPOPT_OPTREPORT: Vector types currently not supported."
+for.body:
+  %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
+  %ld.idx = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.1, i64 0, i64 %indvars.iv
+  %ld.cast = bitcast i32* %ld.idx to <2 x i32>*
+  %ld = load <2 x i32>, <2x i32>* %ld.cast
+
+  %st.idx = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.3, i64 0, i64 %indvars.iv
+  %st.cast = bitcast i32* %st.idx to <2 x i32>*
+  store <2 x i32> %ld, <2 x i32>* %st.cast
+
+  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 2
+  %exitcond = icmp eq i64 %indvars.iv.next, 1024
+  br i1 %exitcond, label %for.end, label %for.body
+
+for.end:                                          ; preds = %for.body
+  call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"()]
+  ret void
+}
+
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry() #1
 

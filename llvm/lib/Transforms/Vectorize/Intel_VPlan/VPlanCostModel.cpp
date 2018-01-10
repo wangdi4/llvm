@@ -61,6 +61,13 @@ static const Instruction *getLLVMInstFromDDNode(const HLDDNode *Node) {
   return HLInstruction->getLLVMInstruction();
 }
 
+static Type *getVectorizedType(Type *BaseTy, unsigned VF) {
+  if (BaseTy->isVectorTy())
+    VF *= BaseTy->getVectorNumElements();
+
+  return VectorType::get(BaseTy->getScalarType(), VF);
+}
+
 Type *VPlanCostModel::getMemInstValueType(const VPInstruction *VPInst) {
   unsigned Opcode = VPInst->getOpcode();
   assert(Opcode == Instruction::Load || Opcode == Instruction::Store);
@@ -175,13 +182,13 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
     unsigned Alignment = getMemInstAlignment(VPInst);
     unsigned AddrSpace = getMemInstAddressSpace(VPInst);
 
-    unsigned ScalarCost =
+    unsigned BaseCost =
         TTI->getMemoryOpCost(Opcode, OpTy, Alignment, AddrSpace);
     // FIXME: In order to do something smarter we would need:
     //   1) isLinear (and also the case for consecutive stride)
     //   2) Changes in TTI so that getGatherScatterOpCost could work without
     //      'Value *Ptr' (if that could be reasonable)
-    return VF*ScalarCost;
+    return VF*BaseCost;
   }
   case Instruction::Add:
   case Instruction::FAdd:
@@ -217,7 +224,7 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
     // that would have had the same underlying llvm::Constant (i32 1).
 
     Type *BaseTy = VPInst->getType();
-    Type *VecTy = VectorType::get(BaseTy, VF);
+    Type *VecTy = getVectorizedType(BaseTy, VF);
     unsigned Cost =
         TTI->getArithmeticInstrCost(Opcode, VecTy, Op1VK, Op2VK, Op1VP, Op2VP);
     return Cost;
@@ -235,7 +242,7 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
     if (!Ty)
       return UnknownCost;
 
-    Type *VectorTy = VectorType::get(Ty, VF);
+    Type *VectorTy = getVectorizedType(Ty, VF);
     unsigned Cost = TTI->getCmpSelInstrCost(Opcode, VectorTy);
     return Cost;
   }
@@ -258,8 +265,8 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
     if (!OpTy)
       return UnknownCost;
 
-    Type *VecCondTy = VectorType::get(CondTy, VF);
-    Type *VecOpTy = VectorType::get(OpTy, VF);
+    Type *VecCondTy = getVectorizedType(CondTy, VF);
+    Type *VecOpTy = getVectorizedType(OpTy, VF);
     unsigned Cost = TTI->getCmpSelInstrCost(Opcode, VecOpTy, VecCondTy);
     return Cost;
   }
@@ -284,8 +291,8 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
            "Vector base types are not yet implemented!");
     assert(!BaseDstTy->isAggregateType() && "Unexpected aggregate type!");
 
-    Type *VecDstTy = VectorType::get(BaseDstTy, VF);
-    Type *VecSrcTy = VectorType::get(BaseSrcTy, VF);
+    Type *VecDstTy = getVectorizedType(BaseDstTy, VF);
+    Type *VecSrcTy = getVectorizedType(BaseSrcTy, VF);
     // TODO: The following will report cost "1" for sext/zext in scalar case
     // because no Instruction* is passed to TTI and it is unable to analyze that
     // such a cast can be folded into the defining load for free. We should
