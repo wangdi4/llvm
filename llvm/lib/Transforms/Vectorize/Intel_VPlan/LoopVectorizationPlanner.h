@@ -1,6 +1,6 @@
 //===-- LoopVectorizationPlanner.h ------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2016-2017 Intel Corporation. All rights reserved.
+//   Copyright (C) 2016-2018 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -61,6 +61,15 @@ public:
   /// to all VPlans.
   // void optimizePredicatedInstructions();
 
+  /// Decide if the loop should be vectorized with vector factor \p VF or left
+  /// as scalar.
+  ///
+  /// The loop is vectorized if either \p Forced is true or if cost model says
+  /// it would be profitable.
+  ///
+  /// \Returns the selected vectorization factor.
+  // TODO: Choose from multiple possible VFs
+  unsigned selectVF(unsigned VF, bool Forced);
   /// Record CM's decision and dispose of all other VPlans.
   void setBestPlan(unsigned VF, unsigned UF);
 

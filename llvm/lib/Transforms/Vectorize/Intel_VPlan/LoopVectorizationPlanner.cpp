@@ -1,6 +1,6 @@
 //===-- LoopVectorizationPlanner.cpp --------------------------------------===//
 //
-//   Copyright (C) 2016-2017 Intel Corporation. All rights reserved.
+//   Copyright (C) 2016-2018 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -17,6 +17,7 @@
 
 #include "LoopVectorizationPlanner.h"
 #include "LoopVectorizationCodeGen.h"
+#include "VPlanCostModel.h"
 #include "VPlanHCFGBuilder.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"
 
@@ -30,7 +31,8 @@ unsigned LoopVectorizationPlannerBase::buildInitialVPlans(unsigned MinVF,
                                                           unsigned MaxVF) {
   collectDeadInstructions();
 
-  unsigned StartRangeVF = MinVF;
+  // TODO: Don't build Scalar VPlan if it's not needed.
+  unsigned StartRangeVF = 1;
   unsigned EndRangeVF = MaxVF + 1;
 
   unsigned i = 0;
@@ -41,11 +43,34 @@ unsigned LoopVectorizationPlannerBase::buildInitialVPlans(unsigned MinVF,
     for (unsigned TmpVF = StartRangeVF; TmpVF < EndRangeVF; TmpVF *= 2)
       VPlans[TmpVF] = Plan;
 
-    StartRangeVF = EndRangeVF;
+    // If previously built VPlan was scalar (VF==1) and its end range is smaller
+    // than MinVF we don't have to build the plans in range [EndRangeVF, MinVF).
+    StartRangeVF = StartRangeVF == 1 ? std::max(EndRangeVF, MinVF) : EndRangeVF;
     EndRangeVF = MaxVF + 1;
   }
 
   return i;
+}
+
+unsigned LoopVectorizationPlannerBase::selectVF(unsigned VF, bool Forced) {
+  if (Forced) {
+    setBestPlan(VF, 1);
+    return VF;
+  }
+
+  // For now, only choose between VF == 1 and VF == VPlanDefaultVF, but do so
+  // only if the VF is not explicitly specified by the simd pragma.
+  IntelVPlan *VectorPlan = getVPlanForVF(VF);
+  assert(VectorPlan && "There is no VPlan for the requested VF!");
+  IntelVPlan *ScalarPlan = getVPlanForVF(1);
+  assert(ScalarPlan && "There is no scalar VPlan!");
+
+  unsigned VectorCost = VPlanCostModel::getVPlanCost(VectorPlan, VF, TTI);
+  unsigned ScalarCost = VPlanCostModel::getVPlanCost(ScalarPlan, 1, TTI);
+
+  unsigned ChosenVF = VectorCost < VF * ScalarCost ? VF : 1;
+  setBestPlan(ChosenVF, 1);
+  return ChosenVF;
 }
 
 void LoopVectorizationPlannerBase::setBestPlan(unsigned VF, unsigned UF) {

@@ -57,9 +57,16 @@ static cl::opt<bool> DisableCodeGen(
     cl::desc(
         "Disable VPO codegen, when true, the pass stops at VPlan creation"));
 
+
+// TODO: In the future, these two options below should be superseded by a single
+// "vplan-force-vf" or similar.
 static cl::opt<unsigned>
     VPlanDefaultVF("vplan-default-vf", cl::init(4),
                    cl::desc("Default VPlan vectorization factor"));
+static cl::opt<bool>
+    VPlanDisableCostModel("disable-vplan-cost-model", cl::init(true),
+                          cl::ReallyHidden,
+                          cl::desc("Always use VPlanDefaultVF"));
 
 static cl::opt<bool> VPlanConstrStressTest(
     "vplan-build-stress-test", cl::init(false),
@@ -128,7 +135,7 @@ protected:
   void getAnalysisUsage(AnalysisUsage &AU) const override;
   bool processFunction(Function &Fn, WRegionCollection::InputIRKind IR);
   // TODO: Try to refactor at least part of it.
-  virtual bool processLoop(LoopType *Lp, unsigned VF, Function &Fn,
+  virtual bool processLoop(LoopType *Lp, Function &Fn,
                            WRNVecLoopNode *WRLp = 0) = 0;
 
   // VPlan Driver running modes
@@ -150,8 +157,7 @@ private:
   DominatorTree *DT;
   AssumptionCache *AC;
 
-  bool processLoop(Loop *Lp, unsigned VF, Function &Fn,
-                   WRNVecLoopNode *WRLp = 0) override;
+  bool processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp = 0) override;
 
   bool isSupported(Loop *Lp) override;
   void collectAllLoops(SmallVectorImpl<Loop *> &Loops) override;
@@ -176,8 +182,7 @@ private:
   HIRDDAnalysis *DDA;
   // HIRVectVLSAnalysis *VLS;
 
-  bool processLoop(HLLoop *Lp, unsigned VF, Function &Fn,
-                   WRNVecLoopNode *WRLp = 0) override;
+  bool processLoop(HLLoop *Lp, Function &Fn, WRNVecLoopNode *WRLp = 0) override;
 
   bool isSupported(HLLoop *Lp) override {
     if (!Lp->isInnermost() || Lp->getNumExits() != 1)
@@ -352,16 +357,10 @@ bool VPlanDriverBase<LoopType>::runStandardMode(
       assert((VPlanForceBuild || isSupported(Lp)) &&
              "Loop is not supported by VPlan");
 
-      // Get vectorization factor
-      unsigned VF = VPlanDefaultVF;
-      unsigned Simdlen = WRLp->getSimdlen();
-      assert(Simdlen <= 64 && "Wrong Simdlen value");
-      VF = Simdlen ? Simdlen : VPlanDefaultVF;
-
       DEBUG(dbgs() << "VD: Starting VPlan for \n");
       DEBUG(WRNode->dump());
 
-      ModifiedFunc |= processLoop(Lp, VF, Fn, WRLp);
+      ModifiedFunc |= processLoop(Lp, Fn, WRLp);
     }
   }
 
@@ -387,7 +386,7 @@ bool VPlanDriverBase<LoopType>::runConstructStressTestMode(Function &Fn) {
       // simplifyLoop(Lp, DT, LI, SE, AC, false /* PreserveLCSSA */);
       // formLCSSARecursively(*Lp, *DT, LI, SE);
       if (VPlanForceBuild || isSupported(Lp))
-        ModifiedFunc |= processLoop(Lp, VPlanDefaultVF, Fn);
+        ModifiedFunc |= processLoop(Lp, Fn);
     }
   }
 
@@ -409,7 +408,7 @@ bool VPlanDriverBase<LoopType>::runCGStressTestMode(Function &Fn) {
   int ModifiedFunc = false;
   for (LoopType *Lp : Worklist) {
     if (CandLoopsVectorized < VPlanVectCand && isVPlanCandidate(Lp)) {
-      ModifiedFunc |= processLoop(Lp, VPlanDefaultVF, Fn);
+      ModifiedFunc |= processLoop(Lp, Fn);
       CandLoopsVectorized++;
     }
   }
@@ -469,8 +468,7 @@ bool VPlanDriver::runOnFunction(Function &Fn) {
   return ModifiedFunc;
 }
 
-bool VPlanDriver::processLoop(Loop *Lp, unsigned VF, Function &Fn,
-                              WRNVecLoopNode *WRLp) {
+bool VPlanDriver::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
   PredicatedScalarEvolution PSE(*SE, *Lp);
   VPOVectorizationLegality LVL(Lp, PSE, TLI, TTI, &Fn, LI, DT);
 
@@ -491,7 +489,8 @@ bool VPlanDriver::processLoop(Loop *Lp, unsigned VF, Function &Fn,
   }
 
   LoopVectorizationPlanner LVP(WRLp, Lp, LI, SE, TLI, TTI, DT, &LVL);
-
+  unsigned Simdlen = WRLp->getSimdlen();
+  unsigned VF = Simdlen ? Simdlen : VPlanDefaultVF;
   LVP.buildInitialVPlans(VF /*MinVF*/, VF /*MaxVF*/);
 
   runCostModelIfNeeded(LVP, TTI, VF);
@@ -507,7 +506,8 @@ bool VPlanDriver::processLoop(Loop *Lp, unsigned VF, Function &Fn,
   if (VPlanConstrStressTest)
     return false;
 
-  LVP.setBestPlan(VF, 1);
+  bool ForcedVF = Simdlen > 0 ? true : VPlanDisableCostModel;
+  VF = LVP.selectVF(VF, ForcedVF);
 
   DEBUG(std::string PlanName; raw_string_ostream RSO(PlanName);
         RSO << "VD: Initial VPlan for VF=" << VF; RSO.flush();
@@ -673,7 +673,7 @@ bool VPlanDriverHIR::runOnFunction(Function &Fn) {
   return VPlanDriverBase::processFunction(Fn, WRegionCollection::HIR);
 }
 
-bool VPlanDriverHIR::processLoop(HLLoop *Lp, unsigned VF, Function &Fn,
+bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
                                  WRNVecLoopNode *WRLp) {
 
   // TODO: Do we need legality check in HIR?. If we reach this point, the loop
@@ -707,7 +707,8 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, unsigned VF, Function &Fn,
 
   //TODO: No Legal for HIR.
   LoopVectorizationPlannerHIR LVP(WRLp, Lp, TLI, TTI, nullptr /*Legal*/, DDG);
-
+  unsigned Simdlen = WRLp->getSimdlen();
+  unsigned VF = Simdlen ? Simdlen : VPlanDefaultVF;
   LVP.buildInitialVPlans(VF /*MinVF*/, VF /*MaxVF*/);
 
   runCostModelIfNeeded(LVP, TTI, VF);
@@ -724,7 +725,8 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, unsigned VF, Function &Fn,
     VPP.predicate();
   }
 
-  LVP.setBestPlan(VF, 1);
+  bool ForcedVF = Simdlen > 0 ? true : VPlanDisableCostModel;
+  VF = LVP.selectVF(VF, ForcedVF);
 
   // Set the final name for this initial VPlan.
   std::string PlanName;

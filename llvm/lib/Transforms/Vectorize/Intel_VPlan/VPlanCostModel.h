@@ -39,6 +39,12 @@ public:
   unsigned getCost(const vpo::VPInstruction *VPInst);
   unsigned getCost(const vpo::VPBasicBlock *VPBB);
   unsigned getCost();
+  /// Helper function to allow cost query in one line of code.
+  static unsigned getVPlanCost(const vpo::IntelVPlan *Plan, unsigned VF,
+                               const TargetTransformInfo *TTI) {
+    VPlanCostModel CM(Plan, VF, TTI);
+    return CM.getCost();
+  }
   void print(raw_ostream &OS);
 
 private:
