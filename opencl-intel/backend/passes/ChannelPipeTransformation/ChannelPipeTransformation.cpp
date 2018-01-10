@@ -21,11 +21,13 @@
 #include "ChannelPipeTransformation.h"
 
 #include <llvm/ADT/DenseMap.h>
+#include <llvm/ADT/SmallPtrSet.h>
 #include <llvm/ADT/SmallString.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/Support/Debug.h>
 #include <llvm/Transforms/Utils/BasicBlockUtils.h>
+#include <llvm/Transforms/Utils/Cloning.h>
 #include <llvm/Transforms/Utils/ModuleUtils.h>
 
 #include <BuiltinLibInfo.h>
@@ -38,6 +40,7 @@
 
 #include <algorithm>
 #include <utility>
+#include <vector>
 #include <stack>
 
 using namespace llvm;
@@ -71,6 +74,13 @@ typedef ChannelMetadata PipeMetadata;
 
 typedef DenseMap<Value *, Value *> ValueToValueMap;
 typedef DenseMap<std::pair<Function *, Type *>, Value *> AllocaMapType;
+
+typedef std::pair<Value *, Value *> ValueValuePair;
+// Stack is needed here to implement iterative DFS through global channel uses
+// The second argument defines underlying container for stack: by default it is
+// a std::deque, let's change it to std::vector since the last one has less
+// overheads on accessing elements
+typedef std::stack<ValueValuePair, std::vector<ValueValuePair>> WorkListType;
 
 } // anonymous namespace
 
@@ -441,14 +451,14 @@ static bool replaceGlobalChannels(Module &M, Type *ChannelTy, Type *PipeTy,
   return Changed;
 }
 
-static Value *createPipeUserStub(Value *Channel, Value *Pipe) {
+static Value *createPipeUserStub(Value *ChannelUser, Value *Pipe) {
   Type *PipeTy = Pipe->getType();
   auto *UndefPipe = UndefValue::get(PipeTy);
 
   // isa<GEPOperator> returns true for instances of GetElementPtrInst class,
   // so there is an ugly if here
-  if (isa<GEPOperator>(Channel) && !isa<GetElementPtrInst>(Channel)) {
-    auto *GEPOp = cast<GEPOperator>(Channel);
+  if (isa<GEPOperator>(ChannelUser) && !isa<GetElementPtrInst>(ChannelUser)) {
+    auto *GEPOp = cast<GEPOperator>(ChannelUser);
     SmallVector<Value *, 8> IdxList(GEPOp->idx_begin(), GEPOp->idx_end());
 
     ConstantFolder Folder;
@@ -456,7 +466,20 @@ static Value *createPipeUserStub(Value *Channel, Value *Pipe) {
                                       cast<Constant>(Pipe), IdxList);
   }
 
-  auto *ChannelInst = cast<Instruction>(Channel);
+  auto *ChannelInst = cast<Instruction>(ChannelUser);
+
+  if (auto *Alloca = dyn_cast<AllocaInst>(ChannelInst)) {
+    return new AllocaInst(PipeTy, Alloca->getType()->getAddressSpace(),
+                          Alloca->getArraySize(), "pipe." + Alloca->getName(),
+                          Alloca);
+  }
+
+  if (auto *Store = dyn_cast<StoreInst>(ChannelInst)) {
+    Value *DestPtr = UndefValue::get(PointerType::getUnqual(PipeTy));
+    return new StoreInst(UndefPipe, DestPtr, Store->isVolatile(),
+                         Store->getAlignment(), Store->getOrdering(),
+                         Store->getSyncScopeID(), Store);
+  }
 
   if (auto *GEP = dyn_cast<GetElementPtrInst>(ChannelInst)) {
     SmallVector<Value *, 8> IdxList(GEP->idx_begin(), GEP->idx_end());
@@ -486,6 +509,23 @@ static Value *createPipeUserStub(Value *Channel, Value *Pipe) {
   }
 
   llvm_unreachable("Unsupported instruction.");
+}
+
+static CallInst *createCallInstStub(CallInst *Call, Function *Func,
+                                    Type *ChannelTy, Type *PipeTy) {
+  auto *UndefPipe = UndefValue::get(PipeTy);
+  SmallVector<Value *, 8> Args;
+  for (auto &Arg : Call->arg_operands()) {
+    if (Arg->getType() == ChannelTy) {
+      Args.push_back(UndefPipe);
+    } else {
+      Args.push_back(Arg);
+    }
+  }
+
+  CallInst *Result = CallInst::Create(Func, Args, "", Call);
+  Result->setDebugLoc(Call->getDebugLoc());
+  return Result;
 }
 
 static Value *getPacketPtr(CallInst *ChannelCall,
@@ -624,13 +664,111 @@ static bool isChannelBuiltinCall(CallInst *Call) {
   return false;
 }
 
+static Function *createUserFunctionStub(CallInst *Call, Type *ChannelTy,
+                                             Type *PipeTy) {
+  Function *ExistingF = Call->getCalledFunction();
+  assert(ExistingF && "Indirect function call?");
+
+  FunctionType *ExistingFTy = ExistingF->getFunctionType();
+  SmallVector<Type *, 4> ArgTys(ExistingFTy->param_begin(),
+                                ExistingFTy->param_end());
+  for (auto &ArgTy : ArgTys) {
+    if (ArgTy == ChannelTy) {
+      ArgTy = PipeTy;
+    }
+  }
+
+  FunctionType *NewFTy = FunctionType::get(ExistingFTy->getReturnType(), ArgTys,
+                                           ExistingFTy->isVarArg());
+  Function *Replacement =
+      Function::Create(NewFTy, ExistingF->getLinkage(),
+                       "pipe." + ExistingF->getName(), ExistingF->getParent());
+
+  ValueToValueMapTy VMap;
+  auto ExistFArgIt = ExistingF->arg_begin();
+  auto RArgIt = Replacement->arg_begin();
+  auto RArgItE = Replacement->arg_end();
+  for (; RArgIt != RArgItE; ++RArgIt, ++ExistFArgIt) {
+    VMap[&*ExistFArgIt] = &*RArgIt;
+  }
+
+  SmallVector<ReturnInst *, 4> Returns;
+  CloneFunctionInto(Replacement, ExistingF, VMap, true, Returns, "");
+  assert(Replacement && "CloneFunctionInfo failed");
+
+  ExistingF->deleteBody();
+
+  return Replacement;
+}
+
+static void
+replaceLocalChannelUses(Function *UserFunc, Type *ChannelTy, Type *PipeTy,
+                        ValueToValueMap &VMap,
+                        SmallPtrSetImpl<Instruction *> &ToDelete,
+                        WorkListType &WorkList) {
+  for (auto &Arg : UserFunc->args()) {
+    if (Arg.getType() != PipeTy)
+      continue;
+
+    for (auto *ArgUser : Arg.users()) {
+      if (auto *Store = dyn_cast<StoreInst>(ArgUser)) {
+        Value *POperand = Store->getPointerOperand();
+        assert(isa<AllocaInst>(POperand) && "Expected alloca for argument");
+        // Let's do an initial replacement of alloca
+        auto *&PipeUser = VMap[POperand];
+        if (!PipeUser) {
+          PipeUser = createPipeUserStub(POperand, &Arg);
+          WorkList.push(std::make_pair(POperand, PipeUser));
+        }
+        ToDelete.insert(Store);
+      }
+    }
+
+    WorkList.push(std::make_pair(&Arg, &Arg));
+  }
+}
+
+static void cleanup(Module &M, SmallPtrSetImpl<Instruction *> &ToDelete,
+                    ValueToValueMap &VMap) {
+  for (auto I : ToDelete) {
+    if (!I->use_empty()) {
+      assert(isa<CallInst>(I) && "Expected that only calls to user functions "
+                                 "still has users");
+      I->replaceAllUsesWith(VMap[I]);
+    }
+
+    I->eraseFromParent();
+  }
+
+  for (auto It : VMap) {
+    if (Function *F = dyn_cast<Function>(It.first)) {
+      Function *R = cast<Function>(It.second);
+      R->takeName(F);
+      F->eraseFromParent();
+    }
+  }
+
+  // remove channel built-ins declarations
+  SmallVector<Function *, 8> FToDelete;
+  for (auto &F : M) {
+    if (F.isDeclaration() && CompilationUtils::getChannelKind(F.getName())) {
+      FToDelete.push_back(&F);
+    }
+  }
+
+  for (auto &F : FToDelete) {
+    assert(F->use_empty() && "Users of channel built-in are still exists");
+    F->eraseFromParent();
+  }
+}
+
 static void replaceGlobalChannelUses(Module &M, Type *ChannelTy,
                                      ValueToValueMap &GlobalVMap,
                                      OCLBuiltins &Builtins) {
   ValueToValueMap VMap;
   SmallPtrSet<Instruction *, 32> ToDelete;
-  // Stack is needed here to implement iterative DFS through global channel uses
-  std::stack<std::pair<Value *, Value *>> WorkList;
+  // See comments about WorkListType typedef for explanations
+  WorkListType WorkList;
   // This map is used to cache temporary alloca instuctions used by pipe
   // built-ins
   AllocaMapType AllocaMap;
@@ -652,11 +790,27 @@ static void replaceGlobalChannelUses(Module &M, Type *ChannelTy,
         ToDelete.insert(Call);
         if (isChannelBuiltinCall(Call)) {
           replaceChannelBuiltinCall(Call, Pipe, AllocaMap, Builtins);
-          continue;
-        }
+        } else {
+          // handle calls to user-functions here
+          assert(Call->getCalledFunction() && "Indirect function call?");
+          Value *&FuncReplacement = VMap[Call->getCalledFunction()];
+          if (!FuncReplacement) {
+            FuncReplacement =
+                createUserFunctionStub(Call, ChannelTy, Pipe->getType());
+            replaceLocalChannelUses(cast<Function>(FuncReplacement), ChannelTy,
+                                    Pipe->getType(), VMap, ToDelete, WorkList);
+          }
 
-        //TODO: implement
-        llvm_unreachable("Call to user function. Not supported yet");
+          Value *&CallInstReplacement = VMap[Call];
+          if (!CallInstReplacement) {
+            CallInstReplacement =
+                createCallInstStub(Call, cast<Function>(FuncReplacement),
+                                   ChannelTy, Pipe->getType());
+          }
+
+          cast<User>(CallInstReplacement)->setOperand(OpNo, Pipe);
+        }
+        continue;
       }
 
       auto *&PipeUser = VMap[ChannelUser];
@@ -672,21 +826,7 @@ static void replaceGlobalChannelUses(Module &M, Type *ChannelTy,
     }
   }
 
-  for (auto I : ToDelete) {
-    I->eraseFromParent();
-  }
-
-  // remove channel built-ins declarations
-  SmallVector<Function *, 8> FToDelete;
-  for (auto &F : M) {
-    if (F.isDeclaration() && CompilationUtils::getChannelKind(F.getName())) {
-      FToDelete.push_back(&F);
-    }
-  }
-
-  for (auto &F : FToDelete) {
-    F->eraseFromParent();
-  }
+  cleanup(M, ToDelete, VMap);
 }
 
 ChannelPipeTransformation::ChannelPipeTransformation() : ModulePass(ID) {

@@ -556,6 +556,12 @@ TEST(FPGA, Test_InvalidTBBNumWorkers)
 {
     invalidTBBNumWorkers();
 }
+
+TEST(FPGA, Test_ChannelsByValue)
+{
+    FPGAChannelsByValue();
+}
+
 #endif //BUILD_FPGA_EMULATOR
 
 TEST(FPGA, Test_checkFPGAExtensionNEGATIVE)

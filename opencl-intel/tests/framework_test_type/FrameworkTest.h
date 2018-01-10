@@ -160,6 +160,7 @@ void FPGAWGOrdering();
 void FPGAInfiniteLoopsBasic();
 void FPGAPipeOrdering();
 void FPGAAutorun();
+void FPGAChannelsByValue();
 bool cl_device_local_mem_size_test();
 bool cl_device_private_mem_size_test();
 bool cl_device_private_mem_size_test_out_of_resources();
