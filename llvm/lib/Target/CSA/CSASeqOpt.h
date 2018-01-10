@@ -12,6 +12,7 @@ namespace llvm
     bool isIntegerOpcode(unsigned opcode);
     MachineInstr* repeatOpndInSameLoop(MachineOperand& opnd, MachineInstr* lpCmp);
     void FoldRptInit(MachineInstr* rptInstr);
+    MachineInstr* getSeqOTDef(MachineOperand& opnd);
     void PrepRepeat();
     void SequenceOPT();
     void SequenceIndv(CSASSANode* cmpNode, CSASSANode* switchNode, CSASSANode* addNode, CSASSANode* lhdrPhiNode); 
