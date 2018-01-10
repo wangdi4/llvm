@@ -429,98 +429,6 @@ void CSASeqOpt::SequenceReduction(CSASSANode* switchNode, CSASSANode* addNode, C
 }
 
 
-
-void CSASeqOpt::SequenceFlipSwitchDsts(CSASSANode* cmpNode, MachineInstr* skipSwitch) {
-  unsigned cmpdst = cmpNode->minstr->getOperand(0).getReg();
-  MachineRegisterInfo::use_iterator UI = MRI->use_begin(cmpdst);
-  while (UI != MRI->use_end()) {
-    MachineOperand &UseMO = *UI;
-    ++UI;
-    MachineInstr *UseMI = UseMO.getParent();
-    if (TII->isSwitch(UseMI) && UseMI != skipSwitch && UseMI->getOperand(2).getReg() == cmpdst) {
-      //flip pred for the backward value
-      unsigned switchTrue = UseMI->getOperand(1).getReg();
-      UseMI->getOperand(1).setReg(UseMI->getOperand(0).getReg());
-      UseMI->getOperand(0).setReg(switchTrue);
-    }
-  }
-}
-
-
-
-
-#if 0
-void CSASeqOpt::SequenceSwitchOutLast(CSASSANode* cmpNode, MachineInstr* initInstr, MachineInstr* seqIndv) {
-  unsigned cmpdst = cmpNode->minstr->getOperand(0).getReg();
-  MachineRegisterInfo::use_iterator UI = MRI->use_begin(cmpdst);
-  while (UI != MRI->use_end()) {
-    MachineOperand &UseMO = *UI;
-    ++UI;
-    MachineInstr *UseMI = UseMO.getParent();
-    assert((TII->isSwitch(UseMI) && UseMI->getOperand(2).getReg() == cmpdst) || 
-           (TII->isMOV(UseMI) && UseMI->getOperand(0).getReg() == initInstr->getOperand(0).getReg()));
-    if (TII->isSwitch(UseMI) && UseMI->getOperand(2).getReg() == cmpdst) {
-      if (initInstr->getOperand(1).getImm() == 1) {
-        //1=>init/exit, 0=>loop back; need to flip switch dsts for backward value when replace cmpdst with seqindv's pred
-        if (UseMI->getOperand(0).getReg() == CSA::IGN) {
-          //using last_pred to switch out the last value
-          UseMI->substituteRegister(cmpdst, seqIndv->getOperand(3).getReg(), 0, *TRI);
-        } else if (UseMI->getOperand(1).getReg() == CSA::IGN) {
-          //flip pred for the backward value
-          UseMI->getOperand(1).setReg(UseMI->getOperand(0).getReg());
-          UseMI->getOperand(0).setReg(CSA::IGN);
-        } else {
-          //split the switch into two switches: one backward only, one out only
-          //first switch out
-          MachineInstr* switchoutInstr = BuildMI(*UseMI->getParent(), UseMI, DebugLoc(),
-            TII->get(UseMI->getOpcode()),
-            CSA::IGN).
-            addReg(UseMI->getOperand(1).getReg()).
-            addReg(seqIndv->getOperand(3).getReg()). //last pred
-            addReg(UseMI->getOperand(3).getReg());
-          //then for switch backward flip pred for the backward value
-          UseMI->getOperand(1).setReg(UseMI->getOperand(0).getReg());
-          UseMI->getOperand(0).setReg(CSA::IGN);
-          switchoutInstr->setFlag(MachineInstr::NonSequential);
-        }
-      } else {
-        //0=>init/exit, 1=>loop back; need to flip switch dsts for last value when replace cmpdst with seqindv's pred
-        if (UseMI->getOperand(1).getReg() == CSA::IGN) {
-          UseMI->getOperand(1).setReg(UseMI->getOperand(0).getReg());
-          UseMI->getOperand(0).setReg(CSA::IGN);
-          //flip switch dst's for last value
-          //using last_pred to switch out the last value
-          UseMI->substituteRegister(cmpdst, seqIndv->getOperand(3).getReg(), 0, *TRI);
-        } else if (UseMI->getOperand(0).getReg() == CSA::IGN) {
-          //only backward value on pred true, do nothing
-        } else {
-          //split the switch into two switches: one backward only, one out only
-          //first switch out
-          MachineInstr* switchoutInstr = BuildMI(*UseMI->getParent(), UseMI, DebugLoc(),
-            TII->get(UseMI->getOpcode()),
-            CSA::IGN).
-            addReg(UseMI->getOperand(0).getReg()).
-            addReg(seqIndv->getOperand(3).getReg()). //last pred
-            addReg(UseMI->getOperand(3).getReg());
-          switchoutInstr->setFlag(MachineInstr::NonSequential);
-          //then for switch backward, ignore last out 
-          UseMI->getOperand(0).setReg(CSA::IGN);
-        }
-      }
-    }
-  }
-}
-#else
-void CSASeqOpt::SequenceSwitchOutLast(MachineInstr* switchInstr, MachineInstr* seqIndv) {
-  assert(TII->isSeqOT(MRI->getVRegDef(switchInstr->getOperand(2).getReg())));
-  //can't use seq_pred in switch instr; since seq_pred ==~ not_last, need to replace seq_pred with last, and flip the switch's dsts.
-  switchInstr->substituteRegister(switchInstr->getOperand(2).getReg(), seqIndv->getOperand(3).getReg(), 0, *TRI);
-  unsigned switchFalse = switchInstr->getOperand(0).getReg();
-  switchInstr->getOperand(0).setReg(switchInstr->getOperand(1).getReg());
-  switchInstr->getOperand(1).setReg(switchFalse);
-}
-#endif
-
 void CSASeqOpt::SequenceSwitchOut(CSASSANode* switchNode, 
                                   CSASSANode* addNode, 
                                   CSASSANode* lhdrPickNode, 
@@ -585,46 +493,6 @@ void CSASeqOpt::MultiSequence(CSASSANode* switchNode, CSASSANode* addNode, CSASS
   //otherwise reduced to reduction
   assert(!MRI->hasOneUse(phidst) || !MRI->hasOneUse(adddst));
 
-#if 0
-  //only consider init value from phi, not from add
-  if (MRI->hasOneUse(phidst)) {
-    phiuseOK = true;
-    MachineRegisterInfo::use_instr_iterator I = MRI->use_instr_begin(adddst);
-    MachineRegisterInfo::use_instr_iterator Inext = std::next(I);
-    //add has exactly two uses
-    if (std::next(Inext) == MachineRegisterInfo::use_instr_end()) {
-      if ((TII->isLoad(&*I) || TII->isStore(&*I)) &&
-        &*Inext == addNode->minstr) {
-        adduseOK = true;
-      } else if ((TII->isLoad(&*Inext) || TII->isStore(&*Inext)) &&
-        &*I == addNode->minstr) {
-        adduseOK = true;
-      }
-    }
-  }
-#endif 
-
-
-#if 0
-  //no multi-sequence for now
-  if (MRI->hasOneUse(adddst)) {
-    adduseOK = true;
-    assert(!MRI->use_empty(phidst));
-    MachineRegisterInfo::use_instr_iterator I = MRI->use_instr_begin(phidst);
-    MachineRegisterInfo::use_instr_iterator Inext = std::next(I);
-    //phi has exactly two uses
-    if (std::next(Inext) == MachineRegisterInfo::use_instr_end()) {
-      if ((TII->isLoad(&*I) || TII->isStore(&*I)) &&
-        &*Inext == addNode->minstr) {
-        phiuseOK = true;
-      } else if ((TII->isLoad(&*Inext) || TII->isStore(&*Inext)) &&
-        &*I == addNode->minstr) {
-        phiuseOK = true;
-      }
-    }
-  }
-  isIDVCycle = isIDVCycle && phiuseOK && adduseOK;
-#endif 
   isIDVCycle = isIDVCycle && MRI->hasOneUse(adddst); //otherwise need to adjust init value
   if (isIDVCycle) {
     MachineOperand& initOpnd = lhdrPickNode->minstr->getOperand(2).getReg() == backedgeReg ?
@@ -632,32 +500,6 @@ void CSASeqOpt::MultiSequence(CSASSANode* switchNode, CSASSANode* addNode, CSASS
       lhdrPickNode->minstr->getOperand(2);
     //const TargetRegisterClass *addTRC = TII->lookupLICRegClass(addNode->minstr->getOperand(0).getReg());
     unsigned seqReg = phidst;
-#if 0
-    //adjust init value depend on whether load/store is before add
-    if (!MRI->hasOneUse(phidst)) {
-      assert(MRI->hasOneUse(adddst));
-      seqReg = phidst;
-    }  else {
-      assert(!MRI->hasOneUse(adddst));
-      seqReg = adddst;
-      //adjust init
-      if (initOpnd.isImm()) {
-        assert(addNode->minstr->getOperand(strideIdx).isImm());
-        int adjInit = initOpnd.getImm() + addNode->minstr->getOperand(strideIdx).getImm();
-        initOpnd = MachineOperand::CreateImm(adjInit);
-      } else {
-        unsigned adjInitVReg = LMFI->allocateLIC(addTRC);
-        MachineInstr* adjInitInstr = BuildMI(*lhdrPickNode->minstr->getParent(),
-          lhdrPickNode->minstr, DebugLoc(),
-          TII->get(addNode->minstr->getOpcode()),
-          adjInitVReg).
-          add(addNode->minstr->getOperand(strideIdx)).                      //stride
-          add(initOpnd);                                                      //init
-        adjInitInstr->setFlag(MachineInstr::NonSequential);
-        initOpnd = adjInitInstr->getOperand(0);
-      }
-    }
-#endif
     MachineOperand tripcnt = tripCntForSeq(seqIndv, lhdrPickNode->minstr);
     tripcnt.clearParent();
     if (tripcnt.isReg()) tripcnt.setIsDef(false);
@@ -767,8 +609,6 @@ MachineInstr* CSASeqOpt::lpInitForPickSwitchPair(MachineInstr* pickInstr, Machin
   return result;
 }
 
-
-
 void CSASeqOpt::SequenceRepeat(CSASSANode* switchNode, CSASSANode* lhdrPickNode) {
   //switchNode has inputs lhdrPick
   bool isIDVCycle = MRI->getVRegDef(switchNode->minstr->getOperand(3).getReg()) == lhdrPickNode->minstr;
@@ -790,7 +630,6 @@ void CSASeqOpt::SequenceRepeat(CSASSANode* switchNode, CSASSANode* lhdrPickNode)
   isIDVCycle = isIDVCycle && switchuseOK && (lpInit != nullptr);
   if (isIDVCycle) {
     unsigned predRepeat = switchNode->minstr->getOperand(2).getReg();
-#if 1
     if (switchFalse == lpbackReg) {
       unsigned notReg = LMFI->allocateLIC(&CSA::CI1RegClass);
       MachineInstr* notInstr = BuildMI(*lhdrPickNode->minstr->getParent(),
@@ -800,19 +639,10 @@ void CSASeqOpt::SequenceRepeat(CSASSANode* switchNode, CSASSANode* lhdrPickNode)
       notInstr->setFlag(MachineInstr::NonSequential);
       predRepeat = notReg;
     } 
-#endif
     unsigned valueRepeat = lhdrPickNode->minstr->getOperand(2).getReg() == lpbackReg ?
       lhdrPickNode->minstr->getOperand(3).getReg() :
       lhdrPickNode->minstr->getOperand(2).getReg();
-#if 0
-    if (!TII->isSeqOT(switchCtrl)) {
-      unsigned movOp = TII->adjustOpcode(switchNode->minstr->getOpcode(), CSA::Generic::MOV);
-      MachineInstr* movInstr = BuildMI(*lhdrPickNode->minstr->getParent(), lhdrPickNode->minstr, DebugLoc(), TII->get(movOp),
-        lhdrPickNode->minstr->getOperand(0).getReg()).
-        addReg(valueRepeat);
-      movInstr->setFlag(MachineInstr::NonSequential);
-    }
-#endif
+
     unsigned repeatOp = TII->adjustOpcode(switchNode->minstr->getOpcode(), CSA::Generic::REPEAT);
     assert(repeatOp != CSA::INVALID_OPCODE);
     MachineInstr* repeatInstr = BuildMI(*lhdrPickNode->minstr->getParent(), lhdrPickNode->minstr, DebugLoc(), TII->get(repeatOp),
@@ -827,8 +657,6 @@ void CSASeqOpt::SequenceRepeat(CSASSANode* switchNode, CSASSANode* lhdrPickNode)
 
   }
 }
-
-
 
 void CSASeqOpt::PrepRepeat() {
   CSASSAGraph csaSSAGraph;
