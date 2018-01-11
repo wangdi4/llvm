@@ -33,12 +33,21 @@ namespace dtrans {
 
 class FieldInfo {
 public:
-  FieldInfo(llvm::Type *Ty) : LLVMType(Ty) {}
+  FieldInfo(llvm::Type *Ty) : LLVMType(Ty), Read(false), Written(false)
+                              {}
 
-  llvm::Type *getLLVMType() { return LLVMType; }
+  llvm::Type *getLLVMType() const { return LLVMType; }
 
-  // The comment here is the equivalent entry in ICC's DTRANS_FIELD_INFO.
-  llvm::Type *LLVMType; // field_type
+  bool isRead() const { return Read; }
+  bool isWritten() const { return Written; }
+
+  void setRead(bool b) { Read = b; }
+  void setWritten(bool b) { Written = b; }
+
+private:
+  llvm::Type *LLVMType;
+  bool Read;
+  bool Written;
 };
 
 /// DTrans optimization safety conditions for a structure type.
@@ -57,6 +66,14 @@ const SafetyData BadCasting = 0x0000000000000001;
 /// The size arguments passed to an allocation call could not be proven to
 /// be a multiple of the size of the type being allocated.
 const SafetyData BadAllocSizeArg = 0x0000000000000002;
+
+/// A pointer to an aggregate type is manipulated to compute an address that
+/// is not the address of a field within the type.
+const SafetyData BadPtrManipulation = 0x0000000000000004;
+
+/// An i8* value that may alias to multiple types is passed to a GetElementPtr
+/// instruction.
+const SafetyData AmbiguousGEP = 0x0000000000000008;
 
 /// This is a catch-all flag that will be used to mark any usage pattern
 /// that we don't specifically recognize. The use might actually be safe

@@ -138,11 +138,29 @@ optimization. This flag covers multiple casting problems, including casting of
 pointers from one type to another and casting of pointers to fields within a
 structure to other types.
 
+BadPtrManipulation
+~~~~~~~~~~~~~~~~~~
+This indicates that a pointer to an aggregate type was manipulated to compute
+an address that is not the address of a field within the type or otherwise
+couldn't be understood. It means that the program has an arbitrary pointer to
+memory within an allocated buffer that DTrans will not be able to reliably
+recreate if the allocation is transformed.
+
+AmbiguousGEP
+~~~~~~~~~~~~
+This indicates that an i8* value that is known to alias to multiple types is
+passed to a GetElementPtr instruction. The GetElementPointer instruction can
+be used to compute an offset from an i8* base address, but if the i8* may
+refer to multiple different aggregate types (for instance, because of a select
+or PHI node) DTrans cannot reliably determine the element that is being
+referenced.
+
 UnhandledUse
 ~~~~~~~~~~~~
 This is a catch-all flag that will be used to mark any usage pattern that we
 don't specifically recognize. The use might actually be safe or unsafe, but we
 will conservatively assume it is unsafe.
+
 
 Local Pointer Type Analysis
 ---------------------------
@@ -289,7 +307,23 @@ structure and write a value to the second field might look like this:
 The DTransAnalysis pass must determine that %p is an alias of a pointer to
 an aggregate type (based on the subsequent bitcast) and use the type
 information and DataLayout to determine which field is being accessed in this
-way and track the field usage. **This is not yet implemented.**
+way and track the field usage.
+
+Finally, a GetElementPtr instruction can be used to compute an offset from
+a pointer to treat the pointer as a dynamic array. This occurs when a GEP
+instruction is used with a pointer type other than i8* and a single index
+operand. A typical use will look like this:
+
+.. code-block:: llvm
+
+  %size = mul i64 %numElems, <sizeof struct.S>
+  %p = call i8* @malloc(i64 %size)
+  %p_S bitcast i8* %p to %struct.S*
+  %p_S_3 = getelementptr %struct.S, %struct.S* %p, i64 3
+  ...
+
+The index argument in this case can be a non-constant value. The DTransAnalysis
+will recognize this as a safe use.
 
 
 Bitcast
