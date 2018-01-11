@@ -36,6 +36,12 @@ static cl::opt<bool> LinearOrdering {
   cl::init(false)
 };
 
+static cl::opt<bool> RaceModeOrdering {
+  "csa-memop-ordering-race-mode", cl::Hidden,
+  cl::desc("CSA-specific: Ignore all ordering except for ordering with function call boundaries. Essentially the opposite of linear mode, and will cause race conditions in any code with real intra-function dependencies."),
+  cl::init(false)
+};
+
 static cl::opt<bool> IgnoreAnnotations {
   "csa-memop-ordering-ignore-annotations", cl::Hidden,
   cl::desc("CSA-specific: Ignore parallel region/section annotations during memop ordering."),
@@ -1219,6 +1225,9 @@ bool MemopCFG::RequireOrdering::operator()(
 
   // If either is nullptr, they need to be ordered.
   if (not a or not b) return true;
+
+  // Nothing else should be ordered in race mode.
+  if (RaceModeOrdering) return false;
 
   // If both are loads, they don't need ordering. However, if either is a
   // prefetch this check should be ignored.
