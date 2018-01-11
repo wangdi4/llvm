@@ -264,16 +264,9 @@ void CSASeqOpt::SequenceIndv(CSASSANode* cmpNode, CSASSANode* switchNode, CSASSA
         }
       }
     }
-    //remove the instructions in the IDV cycle if not used outside the loop
-    if (switchNode->minstr->getOperand(switchOutIndex).getReg() == CSA::IGN) {
-      switchNode->minstr->removeFromParent();
-    } else {
-      unsigned outreg = switchNode->minstr->getOperand(switchOutIndex).getReg();
-      switchNode->minstr->getOperand(2).setReg(lastReg);
-      switchNode->minstr->getOperand(3).setReg(seqReg);
-      switchNode->minstr->getOperand(0).setReg(CSA::IGN);
-      switchNode->minstr->getOperand(1).setReg(outreg);
-    }
+
+    SequenceSwitchOut(switchNode, addNode, lhdrPickNode, seqInstr, seqReg, backedgeReg);
+    switchNode->minstr->removeFromParent();
     addNode->minstr->removeFromBundle();
     lhdrPickNode->minstr->removeFromParent();
     cmpNode->minstr->removeFromParent();
@@ -451,14 +444,15 @@ void CSASeqOpt::SequenceSwitchOut(CSASSANode* switchNode,
       TII->get(switchOp),
       CSA::IGN).
       addReg(last, RegState::Define).
-      addReg(seqIndv->getOperand(3).getReg()).   //last
+      addReg(seqIndv->getOperand(3).getReg()).   //last_pred
       addReg(seqReg);
     switchLast->setFlag(MachineInstr::NonSequential);
 
+    const unsigned addOp = TII->makeOpcode(TII->getGenericOpcode(addNode->minstr->getOpcode()), TRC);
     MachineInstr* outbndInstr = BuildMI(*lhdrPickNode->minstr->getParent(),
       lhdrPickNode->minstr,
       DebugLoc(),
-      TII->get(switchOp),
+      TII->get(addOp),
       switchOut).
       addReg(last).
       add(addNode->minstr->getOperand(strideIdx));
@@ -572,7 +566,7 @@ void CSASeqOpt::MultiSequence(CSASSANode* switchNode, CSASSANode* addNode, CSASS
         add(addNode->minstr->getOperand(strideIdx));
       strideInstr->setFlag(MachineInstr::NonSequential);
     }
-    //SequenceSwitchOut(switchNode, addNode, lhdrPickNode, seqIndv, seqReg, backedgeReg);
+    SequenceSwitchOut(switchNode, addNode, lhdrPickNode, seqIndv, seqReg, backedgeReg);
     //remove the instructions in the IDV cycle.
     switchNode->minstr->removeFromParent();
     addNode->minstr->removeFromBundle();
