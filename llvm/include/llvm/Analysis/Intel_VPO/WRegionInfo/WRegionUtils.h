@@ -283,8 +283,7 @@ public:
   /// the bottom/zero trip test expression. It returns false if
   /// it cannot find the loop index.
   static bool getLoopIndexPosInPredicate(Value *LoopIndex,
-                                         Instruction *CondInst,
-                                         bool &IsLeft);
+                                         Instruction *CondInst, bool &IsLeft);
   static FirstprivateItem *wrnSeenAsFirstPrivate(WRegionNode *W, Value *V);
   static LastprivateItem *wrnSeenAsLastPrivate(WRegionNode *W, Value *V);
   static MapItem *wrnSeenAsMap(WRegionNode *W, Value *V);
@@ -303,6 +302,12 @@ public:
   static bool findUsersInRegion(WRegionNode *W, Value *V,
                                 SmallVectorImpl<Instruction *> *Users=nullptr,
                                 bool ExcludeDirective = true);
+
+  /// \brief The utility to create the loop and update the loopinfo.
+  static Loop *createLoop(Loop *L, Loop *PL, LoopInfo *LI);
+
+  /// \ brief The utility to add the given BB into the loop.
+  static void updateBBForLoop(BasicBlock *BB, Loop *L, Loop *PL, LoopInfo *LI);
 };
 
 } // End VPO Namespace

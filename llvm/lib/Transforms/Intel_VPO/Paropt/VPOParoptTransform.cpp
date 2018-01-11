@@ -1747,6 +1747,8 @@ void VPOParoptTransform::wrnUpdateSSAPreprocessForOuterLoop(
       }
     }
   }
+  for (auto SubL : L->getSubLoops())
+    wrnUpdateSSAPreprocessForOuterLoop(SubL, ValueToLiveinMap, LiveOutVals);
 }
 
 // Collect the live-out value in the loop.
@@ -1777,6 +1779,21 @@ wrnCollectLiveOutVals(Loop &L, SmallSetVector<Instruction *, 8> &LiveOutVals) {
     if (WRegionUtils::getOmpCanonicalInductionVariable(&L) == &I)
       continue;
     LiveOutVals.insert(&I);
+  }
+}
+
+// The utility to update the liveout set from the given BB.
+static void
+wrnUpdateLiveOutVals(BasicBlock *BB,
+                     SmallSetVector<Instruction *, 8> &LiveOutVals) {
+  for (auto I = BB->begin(); I != BB->end(); ++I) {
+    Value *ExitVal = &*I;
+    if (ExitVal->use_empty())
+      continue;
+    PHINode *PN = dyn_cast<PHINode>(ExitVal);
+    if (!PN)
+      break;
+    LiveOutVals.insert(PN);
   }
 }
 
@@ -1867,12 +1884,12 @@ void VPOParoptTransform::wrnUpdateSSAPreprocess(
 //  omp.loop.exit:
 //    %l.1 = phi i32 [ 0, %DIR.OMP.LOOP.126 ], [ %inc27, %dispatch.latch ]
 //
-void VPOParoptTransform::wrnUpdateSSAForLoop(
+void VPOParoptTransform::wrnUpdateSSAForLoopRecursively(
     Loop *L,
     DenseMap<Value *, std::pair<Value *, BasicBlock *>> &ValueToLiveinMap,
     SmallSetVector<Instruction *, 8> &LiveOutVals) {
   if (!LiveOutVals.empty())
-    formLCSSA(*L, *DT, LI, SE, &ValueToLiveinMap, &LiveOutVals);
+    formLCSSARecursively(*L, *DT, LI, SE, &ValueToLiveinMap, &LiveOutVals);
 }
 
 // Update the SSA form after the basic block LoopExitBB's successor
@@ -1886,38 +1903,38 @@ void VPOParoptTransform::RewriteUsesOfOutInstructions(
   BasicBlock::iterator I, E = FirstLoopExitBB->end();
   PredIteratorCache PredCache;
 
-// The following code updates the value %split at the BB %omp.inner.for.end
-// by inserting a phi node at the BB %loop.region.exit
-//
-// Before the SSA update:
-// omp.inner.for.cond.omp.inner.for.end_crit_edge:
-//   %split = phi i32 [ %inc, %omp.inner.for.inc ]
-//   br label %loop.region.exit
-//
-// loop.region.exit:
-//   br label %omp.inner.for.end
-//
-// omp.inner.for.end:
-//   %l.0.lcssa = phi i32 [ %split, %loop.region.exit ],
-//                        [ 0, %DIR.OMP.LOOP.2 ]
-//   br label %omp.loop.exit
-//
-// After teh SSA update:
-//
-// omp.inner.for.cond.omp.inner.for.end_crit_edge:
-//   %split = phi i32 [ %inc, %omp.inner.for.inc ]
-//   br label %loop.region.exit
-//
-// loop.region.exit:
-//   %split18 = phi i32 [ 0, %omp.inner.for.body.lr.ph ],
-//              [ %split, %omp.inner.for.cond.omp.inner.for.end_crit_edge ]
-//   br label %omp.inner.for.end
-//
-// omp.inner.for.end:
-//   %l.0.lcssa = phi i32 [ %split18, %loop.region.exit ],
-//                        [ 0, %DIR.OMP.LOOP.2 ]
-//   br label %omp.loop.exit
-//
+  // The following code updates the value %split at the BB %omp.inner.for.end
+  // by inserting a phi node at the BB %loop.region.exit
+  //
+  // Before the SSA update:
+  // omp.inner.for.cond.omp.inner.for.end_crit_edge:
+  //   %split = phi i32 [ %inc, %omp.inner.for.inc ]
+  //   br label %loop.region.exit
+  //
+  // loop.region.exit:
+  //   br label %omp.inner.for.end
+  //
+  // omp.inner.for.end:
+  //   %l.0.lcssa = phi i32 [ %split, %loop.region.exit ],
+  //                        [ 0, %DIR.OMP.LOOP.2 ]
+  //   br label %omp.loop.exit
+  //
+  // After the SSA update:
+  //
+  // omp.inner.for.cond.omp.inner.for.end_crit_edge:
+  //   %split = phi i32 [ %inc, %omp.inner.for.inc ]
+  //   br label %loop.region.exit
+  //
+  // loop.region.exit:
+  //   %split18 = phi i32 [ 0, %omp.inner.for.body.lr.ph ],
+  //              [ %split, %omp.inner.for.cond.omp.inner.for.end_crit_edge ]
+  //   br label %omp.inner.for.end
+  //
+  // omp.inner.for.end:
+  //   %l.0.lcssa = phi i32 [ %split18, %loop.region.exit ],
+  //                        [ 0, %DIR.OMP.LOOP.2 ]
+  //   br label %omp.loop.exit
+  //
 
   for (I = FirstLoopExitBB->begin(); I != E; ++I) {
     Value *ExitVal = &*I;
@@ -2202,10 +2219,10 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
                                         IdentTy, LoadTid, InsertPt);
     KmpcFiniCI->setCallingConv(CallingConv::C);
 
-    wrnUpdateSSAForLoop(L, ValueToLiveinMap, LiveOutVals);
     if (DT)
       DT->changeImmediateDominator(LoopExitBB, StaticInitBB);
 
+    wrnUpdateSSAForLoopRecursively(L, ValueToLiveinMap, LiveOutVals);
     RewriteUsesOfOutInstructions(LoopRegionExitBB, ValueToLiveinMap);
 
   }
@@ -2304,8 +2321,6 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
     TermInst = DispatchBodyBB->getTerminator();
     TermInst->setSuccessor(1, DispatchLatchBB);
 
-    wrnUpdateSSAPreprocessForOuterLoop(L, ValueToLiveinMap, LiveOutVals);
-    wrnUpdateSSAForLoop(L, ValueToLiveinMap, LiveOutVals);
     if (DT) {
       DT->changeImmediateDominator(DispatchHeaderBB, StaticInitBB);
 
@@ -2314,7 +2329,24 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
 
       DT->changeImmediateDominator(DispatchLatchBB, DispatchBodyBB);
     }
-    RewriteUsesOfOutInstructions(LoopRegionExitBB, ValueToLiveinMap);
+
+    Loop *OuterLoop = WRegionUtils::createLoop(L, L->getParentLoop(), LI);
+    WRegionUtils::updateBBForLoop(DispatchHeaderBB, OuterLoop,
+                                  L->getParentLoop(), LI);
+    WRegionUtils::updateBBForLoop(DispatchMinUBB, OuterLoop, L->getParentLoop(),
+                                  LI);
+    WRegionUtils::updateBBForLoop(DispatchBodyBB, OuterLoop, L->getParentLoop(),
+                                  LI);
+    WRegionUtils::updateBBForLoop(LoopExitBB, OuterLoop, L->getParentLoop(),
+                                  LI);
+    WRegionUtils::updateBBForLoop(LoopRegionExitBB, OuterLoop,
+                                  L->getParentLoop(), LI);
+    OuterLoop->moveToHeader(DispatchHeaderBB);
+
+    wrnUpdateLiveOutVals(LoopRegionExitBB, LiveOutVals);
+    wrnUpdateSSAPreprocessForOuterLoop(OuterLoop, ValueToLiveinMap,
+                                       LiveOutVals);
+    wrnUpdateSSAForLoopRecursively(OuterLoop, ValueToLiveinMap, LiveOutVals);
 
     //// DEBUG(dbgs() << "After Loop Scheduling : "
     ////              << *(LoopExitBB->getParent()) << "\n\n");
@@ -2376,9 +2408,6 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
 
     KmpcFiniCI->eraseFromParent();
 
-    wrnUpdateSSAPreprocessForOuterLoop(L, ValueToLiveinMap, LiveOutVals);
-    wrnUpdateSSAForLoop(L, ValueToLiveinMap, LiveOutVals);
-
     if (DT) {
       DT->changeImmediateDominator(DispatchHeaderBB, DispatchInitBB);
       DT->changeImmediateDominator(DispatchBodyBB, DispatchHeaderBB);
@@ -2387,7 +2416,19 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
 
       DT->changeImmediateDominator(LoopExitBB, DispatchHeaderBB);
     }
-    RewriteUsesOfOutInstructions(LoopRegionExitBB, ValueToLiveinMap);
+    Loop *OuterLoop = WRegionUtils::createLoop(L, L->getParentLoop(), LI);
+    WRegionUtils::updateBBForLoop(DispatchHeaderBB, OuterLoop,
+                                  L->getParentLoop(), LI);
+    WRegionUtils::updateBBForLoop(DispatchBodyBB, OuterLoop, L->getParentLoop(),
+                                  LI);
+    WRegionUtils::updateBBForLoop(LoopRegionExitBB, OuterLoop,
+                                  L->getParentLoop(), LI);
+    OuterLoop->moveToHeader(DispatchHeaderBB);
+
+    wrnUpdateLiveOutVals(LoopRegionExitBB, LiveOutVals);
+    wrnUpdateSSAPreprocessForOuterLoop(OuterLoop, ValueToLiveinMap,
+                                       LiveOutVals);
+    wrnUpdateSSAForLoopRecursively(OuterLoop, ValueToLiveinMap, LiveOutVals);
   }
 
   // There are new BBlocks generated, so we need to reset BBSet

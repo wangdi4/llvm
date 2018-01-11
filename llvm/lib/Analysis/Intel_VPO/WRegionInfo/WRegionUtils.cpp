@@ -377,7 +377,7 @@ Value *WRegionUtils::getOmpLoopStride(Loop *L, bool &IsNeg) {
 // it cannot find the loop index.
 bool WRegionUtils::getLoopIndexPosInPredicate(Value *LoopIndex,
                                               Instruction *CondInst,
-                                              bool& IsLeft) {
+                                              bool &IsLeft) {
   Value *Operand = CondInst->getOperand(0);
   if (isa<SExtInst>(Operand) || isa<ZExtInst>(Operand))
     Operand = cast<Instruction>(Operand)->getOperand(0);
@@ -566,4 +566,28 @@ bool WRegionUtils::findUsersInRegion(WRegionNode *W, Value *V,
     //  DEBUG(dbgs() << "Not an Instruction or ConstantExpr:" << *U << "\n");
   }
   return Found;
+}
+
+// The utility to create the loop and update the loopinfo.
+Loop *WRegionUtils::createLoop(Loop *L, Loop *PL, LoopInfo *LI) {
+  Loop *New = LI->AllocateLoop();
+  if (PL)
+    PL->replaceChildLoopWith(L, New);
+  else
+    LI->changeTopLevelLoop(L, New);
+
+  New->addChildLoop(L);
+  for (Loop::block_iterator I = L->block_begin(), E = L->block_end(); I != E;
+       ++I)
+    New->addBlockEntry(*I);
+
+  return New;
+}
+
+// The utility to add the given BB into the loop.
+void WRegionUtils::updateBBForLoop(BasicBlock *BB, Loop *L, Loop *PL,
+                                   LoopInfo *LI) {
+  if (PL)
+    LI->removeBlock(BB);
+  L->addBasicBlockToLoop(BB, *LI);
 }

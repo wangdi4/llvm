@@ -657,7 +657,7 @@ private:
       SmallSetVector<Instruction *, 8> &LiveOutVals);
 
   /// \brief Update the SSA form in the region using SSA Updater.
-  void wrnUpdateSSAForLoop(
+  void wrnUpdateSSAForLoopRecursively(
       Loop *L,
       DenseMap<Value *, std::pair<Value *, BasicBlock *>> &ValueToLiveinMap,
       SmallSetVector<Instruction *, 8> &LiveOutVals);

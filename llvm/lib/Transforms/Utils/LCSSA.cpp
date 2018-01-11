@@ -361,15 +361,27 @@ bool llvm::formLCSSA(
 }
 
 /// Process a loop nest depth first.
-bool llvm::formLCSSARecursively(Loop &L, DominatorTree &DT, LoopInfo *LI,
-                                ScalarEvolution *SE) {
+#if INTEL_CUSTOMIZATION
+bool llvm::formLCSSARecursively(
+    Loop &L, DominatorTree &DT, LoopInfo *LI, ScalarEvolution *SE,
+    DenseMap<Value *, std::pair<Value *, BasicBlock *>> *ValueToLiveinMap,
+    SmallSetVector<Instruction *, 8> *LiveoutVals) {
+#endif // INTEL_CUSTOMIZATION
   bool Changed = false;
 
   // Recurse depth-first through inner loops.
   for (Loop *SubLoop : L.getSubLoops())
-    Changed |= formLCSSARecursively(*SubLoop, DT, LI, SE);
+    Changed |= formLCSSARecursively(*SubLoop, DT, LI, SE,
+#if INTEL_CUSTOMIZATION
+                                    ValueToLiveinMap,
+                                    LiveoutVals);
+#endif // INTEL_CUSTOMIZATION
 
-  Changed |= formLCSSA(L, DT, LI, SE);
+  Changed |= formLCSSA(L, DT, LI, SE,
+#if INTEL_CUSTOMIZATION
+                       ValueToLiveinMap,
+                       LiveoutVals);
+#endif // INTEL_CUSTOMIZATION
   return Changed;
 }
 

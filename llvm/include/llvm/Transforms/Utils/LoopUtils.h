@@ -421,8 +421,13 @@ bool formLCSSA(Loop &L, DominatorTree &DT, LoopInfo *LI, ScalarEvolution *SE,
 /// If ScalarEvolution is passed in, it will be preserved.
 ///
 /// Returns true if any modifications are made to the loop.
-bool formLCSSARecursively(Loop &L, DominatorTree &DT, LoopInfo *LI,
-                          ScalarEvolution *SE);
+#if INTEL_CUSTOMIZATION
+bool formLCSSARecursively(
+    Loop &L, DominatorTree &DT, LoopInfo *LI, ScalarEvolution *SE,
+    DenseMap<Value *, std::pair<Value *, BasicBlock *>> *ValueToLiveinMap =
+        nullptr,
+    SmallSetVector<Instruction *, 8> *LiveoutVals = nullptr);
+#endif // INTEL_CUSTOMIZATION
 
 /// \brief Walk the specified region of the CFG (defined by all blocks
 /// dominated by the specified block, and that are in the current loop) in
