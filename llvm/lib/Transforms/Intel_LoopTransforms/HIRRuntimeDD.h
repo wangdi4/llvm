@@ -38,7 +38,7 @@ namespace runtimedd {
 typedef DDRefGrouping::RefGroupTy<RegDDRef *> RefGroupTy;
 typedef DDRefGrouping::RefGroupVecTy<RegDDRef *> RefGroupVecTy;
 
-const unsigned ExpectedNumberOfTests = 8;
+const unsigned ExpectedNumberOfTests = 16;
 const unsigned SmallTripCountTest = 4;
 
 enum RuntimeDDResult {
