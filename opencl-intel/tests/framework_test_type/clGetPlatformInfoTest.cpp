@@ -32,6 +32,13 @@ bool clGetPlatformInfoTest()
         return bResult;
     }
 
+#ifdef BUILD_FPGA_EMULATOR
+    const char * expectedProfile = "EMBEDDED_PROFILE";
+#else
+    const char * expectedProfile = "FULL_PROFILE";
+#endif
+    size_t expectedProfileSize = strlen(expectedProfile) + 1;
+
     // CL_PLATFORM_PROFILE
     // all NULL is allowed, albeit useless.
     iRes = clGetPlatformInfo(platform, CL_PLATFORM_PROFILE, 0, NULL, NULL);
@@ -43,7 +50,7 @@ bool clGetPlatformInfoTest()
     bResult &= Check("CL_PLATFORM_PROFILE, get size only", CL_SUCCESS, iRes);
     if (CL_SUCCEEDED(iRes))
     {
-        bResult &= CheckSize("check value", 13, size_ret);
+        bResult &= CheckSize("check value", expectedProfileSize, size_ret);
     }
 
     // CL_PLATFORM_PROFILE
@@ -57,7 +64,7 @@ bool clGetPlatformInfoTest()
     bResult &= Check("CL_PLATFORM_PROFILE, size ok, no size return", CL_SUCCESS, iRes);
     if (CL_SUCCEEDED(iRes))
     {
-        bResult &= CheckStr("check value", "FULL_PROFILE", platformInfoStr);
+        bResult &= CheckStr("check value", expectedProfile, platformInfoStr);
     }
 
     // CL_PLATFORM_VERSION

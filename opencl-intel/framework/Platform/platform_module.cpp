@@ -48,7 +48,11 @@ using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 
 std::string PlatformModule::m_vPlatformVersionStr;
+#ifdef BUILD_FPGA_EMULATOR
+const char PlatformModule::m_vPlatformInfoStr[] = "EMBEDDED_PROFILE";
+#else
 const char PlatformModule::m_vPlatformInfoStr[] = "FULL_PROFILE";
+#endif
 const unsigned int PlatformModule::m_uiPlatformInfoStrSize = sizeof(m_vPlatformInfoStr) / sizeof(char);
 
 #ifdef BUILD_EXPERIMENTAL_21

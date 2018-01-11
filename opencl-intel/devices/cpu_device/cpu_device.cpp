@@ -1320,7 +1320,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         }
         case( CL_DEVICE_PROFILE):
         {
-            *pinternalRetunedValueSize = strlen("FULL_PROFILE") + 1;
+#ifdef BUILD_FPGA_EMULATOR
+            const char* profile = "EMBEDDED_PROFILE";
+#else
+            const char* profile = "FULL_PROFILE";
+#endif
+            *pinternalRetunedValueSize = strlen(profile) + 1;
             if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
@@ -1328,7 +1333,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             //if OUT paramVal is NULL it should be ignored
             if(nullptr != paramVal)
             {
-                STRCPY_S((char*)paramVal, valSize, "FULL_PROFILE");
+                STRCPY_S((char*)paramVal, valSize, profile);
             }
             return CL_DEV_SUCCESS;
         }
