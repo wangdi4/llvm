@@ -451,6 +451,11 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
   }
   Opts.OptimizationLevel = OptimizationLevel;
 
+#if INTEL_CUSTOMIZATION
+  Opts.DisableIntelProprietaryOpts = Args.hasArg(
+    OPT_disable_intel_proprietary_opts);
+#endif
+
   // At O0 we want to fully disable inlining outside of cases marked with
   // 'alwaysinline' that are required for correctness.
   Opts.setInlining((Opts.OptimizationLevel == 0)
