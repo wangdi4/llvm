@@ -322,6 +322,15 @@ class CvtOp<GenericOp gen, SDNode opNode, CSAOpInfo oid, CSAOpInfo ois,
     [(set oid.RC:$dst, (opNode ois.RCL:$src))],
     !listconcat(preds,gen.Preds,oid.Preds,ois.Preds), itin>;
 
+class CvtOpR<GenericOp gen, SDNode opNode, CSAOpInfo oid, CSAOpInfo ois,
+             InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
+  FMTGEN<gen, oid,
+    (outs oid.RC:$dst),
+    (ins ois.RCL:$src, RMODE:$rm),
+    !strconcat(gen.AsmString, oid.InstrSuffix, ois.InstrSuffix, "\t$dst, $src, $rm"),
+    [(set oid.RC:$dst, (opNode ois.RCL:$src))],
+    !listconcat(preds,gen.Preds,oid.Preds,ois.Preds), itin>;
+
 // We do not bother trying to specify commutative, since there doesn't
 // appear to be an advantage.
 class BinOp<GenericOp gen, SDNode opNode, CSAOpInfo oi,
@@ -626,12 +635,12 @@ multiclass StreamLdOp<string opStr, CSAOpInfo t,
   let mayLoad = 1, Itinerary = itin in {
     def I : FMTGEN<SLDI, t,  // e.g. ld of literal address - ld rx,sym
       (outs t.RC:$dst, MemOrdDef:$issued),
-      (ins ADDR_I:$addr, CI64:$len, CI64:$stride, MEMLVL:$lvl, MemOrdUse:$ready),
+      (ins ADDR_I:$addr, RCLi64:$len, RCLi64:$stride, MEMLVL:$lvl, MemOrdUse:$ready),
       !strconcat(opStr, "\t$dst, $addr, $len, $stride, $issued, $ready, $lvl"),
       []>;
     def "" : FMTGEN<SLD, t, // normal basereg form
       (outs t.RC:$dst, MemOrdDef:$issued),
-      (ins ADDR_R:$addr, CI64:$len, CI64:$stride, MEMLVL:$lvl, MemOrdUse:$ready),
+      (ins ADDR_R:$addr, RCLi64:$len, RCLi64:$stride, MEMLVL:$lvl, MemOrdUse:$ready),
       !strconcat(opStr, "\t$dst, $addr, $len, $stride, $issued, $ready, $lvl"),
       []>;
     }
@@ -643,7 +652,7 @@ multiclass StreamStOp<string opStr, CSAOpInfo t,
   let mayStore = 1, Itinerary = itin in {
     def "" : FMTGEN<SST, t,
       (outs MemOrdDef:$issued),
-      (ins ADDR_R:$addr, CI64:$len, CI64:$stride, t.RCL:$data, MEMLVL:$lvl, MemOrdUse:$ready),
+      (ins ADDR_R:$addr, RCLi64:$len, RCLi64:$stride, t.RCL:$data, MEMLVL:$lvl, MemOrdUse:$ready),
       !strconcat(opStr, "\t$addr, $len, $stride, $data, $issued, $ready, $lvl"),
       []>;
   }
@@ -944,31 +953,31 @@ def SEXT64    : SExtOp<  SEXT,           Ti64, Ti64, IIALU>;
 
 // first type in convert name is result, second is source type
 def CVT       : GenericOp<"cvt">;
-def CVTS32F32 : CvtOp<   CVT, fp_to_sint,Ts32, Tf32, IICvtIF>;
-def CVTS32F64 : CvtOp<   CVT, fp_to_sint,Ts32, Tf64, IICvtIF>;
+def CVTS32F32 : CvtOpR<   CVT, fp_to_sint,Ts32, Tf32, IICvtIF>;
+def CVTS32F64 : CvtOpR<   CVT, fp_to_sint,Ts32, Tf64, IICvtIF>;
 
-def CVTU32F32 : CvtOp<   CVT, fp_to_uint,Tu32, Tf32, IICvtIF>;
-def CVTU32F64 : CvtOp<   CVT, fp_to_uint,Tu32, Tf64, IICvtIF>;
+def CVTU32F32 : CvtOpR<   CVT, fp_to_uint,Tu32, Tf32, IICvtIF>;
+def CVTU32F64 : CvtOpR<   CVT, fp_to_uint,Tu32, Tf64, IICvtIF>;
 
-def CVTS64F32 : CvtOp<   CVT, fp_to_sint,Ts64, Tf32, IICvtIF>;
-def CVTS64F64 : CvtOp<   CVT, fp_to_sint,Ts64, Tf64, IICvtIF>;
+def CVTS64F32 : CvtOpR<   CVT, fp_to_sint,Ts64, Tf32, IICvtIF>;
+def CVTS64F64 : CvtOpR<   CVT, fp_to_sint,Ts64, Tf64, IICvtIF>;
 
-def CVTU64F32 : CvtOp<   CVT, fp_to_uint,Tu64, Tf32, IICvtIF>;
-def CVTU64F64 : CvtOp<   CVT, fp_to_uint,Tu64, Tf64, IICvtIF>;
+def CVTU64F32 : CvtOpR<   CVT, fp_to_uint,Tu64, Tf32, IICvtIF>;
+def CVTU64F64 : CvtOpR<   CVT, fp_to_uint,Tu64, Tf64, IICvtIF>;
 
-def CVTF32S32 : CvtOp<   CVT, sint_to_fp,Tf32, Ts32, IICvtFI>;
-def CVTF32S64 : CvtOp<   CVT, sint_to_fp,Tf32, Ts64, IICvtFI>;
-def CVTF32U32 : CvtOp<   CVT, uint_to_fp,Tf32, Tu32, IICvtFI>;
-def CVTF32U64 : CvtOp<   CVT, uint_to_fp,Tf32, Tu64, IICvtFI>;
+def CVTF32S32 : CvtOpR<   CVT, sint_to_fp,Tf32, Ts32, IICvtFI>;
+def CVTF32S64 : CvtOpR<   CVT, sint_to_fp,Tf32, Ts64, IICvtFI>;
+def CVTF32U32 : CvtOpR<   CVT, uint_to_fp,Tf32, Tu32, IICvtFI>;
+def CVTF32U64 : CvtOpR<   CVT, uint_to_fp,Tf32, Tu64, IICvtFI>;
 
-def CVTF64S32 : CvtOp<   CVT, sint_to_fp,Tf64, Ts32, IICvtFI>;
-def CVTF64S64 : CvtOp<   CVT, sint_to_fp,Tf64, Ts64, IICvtFI>;
-def CVTF64U32 : CvtOp<   CVT, uint_to_fp,Tf64, Tu32, IICvtFI>;
-def CVTF64U64 : CvtOp<   CVT, uint_to_fp,Tf64, Tu64, IICvtFI>;
+def CVTF64S32 : CvtOpR<   CVT, sint_to_fp,Tf64, Ts32, IICvtFI>;
+def CVTF64S64 : CvtOpR<   CVT, sint_to_fp,Tf64, Ts64, IICvtFI>;
+def CVTF64U32 : CvtOpR<   CVT, uint_to_fp,Tf64, Tu32, IICvtFI>;
+def CVTF64U64 : CvtOpR<   CVT, uint_to_fp,Tf64, Tu64, IICvtFI>;
 
-def CVTF32F64 : CvtOp<   CVT, fpround,    Tf32, Tf64, IICvtFF>;
+def CVTF32F64 : CvtOpR<   CVT, fpround,    Tf32, Tf64, IICvtFF>;
 
-def CVTF64F32 : CvtOp<   CVT, fpextend,   Tf64, Tf32, IICvtFF>;
+def CVTF64F32 : CvtOpR<   CVT, fpextend,   Tf64, Tf32, IICvtFF>;
 
 def AND       : GenericOp<"and">;
 def AND1      : BinOp<   AND,    and,    Ti1,  IIALU>;
