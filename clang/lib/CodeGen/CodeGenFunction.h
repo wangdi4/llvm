@@ -3800,6 +3800,9 @@ public:
 
 #if INTEL_CUSTOMIZATION
   llvm::Value *EmitIntelFPGABuiltinExpr(unsigned BuiltinID, const CallExpr *E);
+  RValue EmitHLSStreamBuiltin(unsigned BuiltinID, const CallExpr *E);
+  RValue EmitHLSMemMasterBuiltin(unsigned BuiltinID, const CallExpr *E,
+                                 ReturnValueSlot ReturnValue);
 #endif // INTEL_CUSTOMIZATION
 
   llvm::Value *EmitCommonNeonBuiltinExpr(unsigned BuiltinID,

@@ -618,4 +618,19 @@ def warn_intel_opencl_attribute_wrong_decl_type : Warning<
   "|OpenCL channels"
   "|OpenCL pipes}1">,
   InGroup<IgnoredAttributes>;
+
+def err_hls_builtin_arg_mismatch : Error<
+  "HLS builtin parameter must be %select{"
+  "a pointer to a complete object type"
+  "|an integer"
+  "|a non-negative integer constant"
+  "|a factor of the type size"
+  "|a boolean value"
+  "|a pointer to a boolean"
+  "|a power of two integer between 8 and 1024"
+  "|an integer between 1 and 64 inclusive"
+  "|an integer between 1 and 1024 inclusive}0">;
+def err_hls_builtin_without_fhls : Error <
+  "HLS builtin can only be used when the HLS flag is present on the command "
+  "line invocation">;
 } // end of sema component.

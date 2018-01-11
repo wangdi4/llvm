@@ -904,6 +904,133 @@ const char * ChangeBuiltinToBL(const CallExpr *E, unsigned BuiltinID, const char
   }
   return Name;
 }
+
+static unsigned getHLSIntrinsic(unsigned BuiltinID) {
+  switch (BuiltinID) {
+  case Builtin::BI__builtin_intel_hls_instream_tryRead:
+    return Intrinsic::intel_hls_instream_tryRead;
+  case Builtin::BI__builtin_intel_hls_outstream_tryRead:
+    return Intrinsic::intel_hls_outstream_tryRead;
+  case Builtin::BI__builtin_intel_hls_instream_tryWrite:
+    return Intrinsic::intel_hls_instream_tryWrite;
+  case Builtin::BI__builtin_intel_hls_outstream_tryWrite:
+    return Intrinsic::intel_hls_outstream_tryWrite;
+  case Builtin::BI__builtin_intel_hls_instream_read:
+    return Intrinsic::intel_hls_instream_read;
+  case Builtin::BI__builtin_intel_hls_outstream_read:
+    return Intrinsic::intel_hls_outstream_read;
+  case Builtin::BI__builtin_intel_hls_instream_write:
+    return Intrinsic::intel_hls_instream_write;
+  case Builtin::BI__builtin_intel_hls_outstream_write:
+    return Intrinsic::intel_hls_outstream_write;
+  case Builtin::BI__builtin_intel_hls_mm_master_init:
+    return Intrinsic::intel_hls_mm_master_init;
+  case Builtin::BI__builtin_intel_hls_mm_master_load:
+    return Intrinsic::intel_hls_mm_master_load;
+  default:
+    llvm_unreachable("Invalid HLS Builtin ID");
+  }
+}
+
+static bool isHLSStreamWrite(unsigned BuiltinID) {
+  switch (BuiltinID) {
+  default:
+    return false;
+  case Builtin::BI__builtin_intel_hls_instream_tryWrite:
+  case Builtin::BI__builtin_intel_hls_outstream_tryWrite:
+  case Builtin::BI__builtin_intel_hls_instream_write:
+  case Builtin::BI__builtin_intel_hls_outstream_write:
+    return true;
+  }
+}
+
+RValue CodeGenFunction::EmitHLSStreamBuiltin(unsigned BuiltinID,
+                                             const CallExpr *E) {
+  llvm::SmallVector<Value *, 8> Args;
+  const Expr *PtrArg = E->getArg(0);
+  const PointerType *PtrTy = cast<PointerType>(PtrArg->getType().getTypePtr());
+
+  if (isHLSStreamWrite(BuiltinID)) {
+    Args.push_back(EmitScalarExpr(PtrArg));
+  }
+
+  const Expr *BufferIdArg = E->getArg(1);
+  Args.push_back(EmitScalarExpr(BufferIdArg));
+
+  const Expr *ReadyLatencyArg = E->getArg(2);
+  Args.push_back(EmitScalarExpr(ReadyLatencyArg));
+
+  const Expr *BitsPerSymbolArg = E->getArg(3);
+  Args.push_back(EmitScalarExpr(BitsPerSymbolArg));
+
+  const Expr *FirstSymbolInHighOrderBitsArg = E->getArg(4);
+  Args.push_back(EmitScalarExpr(FirstSymbolInHighOrderBitsArg));
+
+  const Expr *UsesPacketsArg = E->getArg(5);
+  Args.push_back(EmitScalarExpr(UsesPacketsArg));
+
+  const Expr *UsesEmptyArg = E->getArg(6);
+  Args.push_back(EmitScalarExpr(UsesEmptyArg));
+
+  const Expr *UsesValidReadyArg = E->getArg(7);
+  Args.push_back(EmitScalarExpr(UsesValidReadyArg));
+
+  llvm::Type *OverloadTy = ConvertType(PtrTy->getPointeeType());
+
+  llvm::Function *Func =
+      CGM.getIntrinsic(getHLSIntrinsic(BuiltinID), {OverloadTy});
+  if (BuiltinID == Builtin::BI__builtin_intel_hls_instream_tryRead ||
+      BuiltinID == Builtin::BI__builtin_intel_hls_outstream_tryRead) {
+    auto *Call = Builder.CreateCall(Func, Args);
+    const Expr *SuccessArg = E->getArg(8);
+    auto *Success = EmitScalarExpr(SuccessArg);
+    Builder.CreateDefaultAlignedStore(Builder.CreateExtractValue(Call, 1),
+                                      Success);
+    return RValue::get(Builder.CreateExtractValue(Call, 0));
+  }
+
+  return RValue::get(Builder.CreateCall(Func, Args));
+}
+
+RValue CodeGenFunction::EmitHLSMemMasterBuiltin(unsigned BuiltinID,
+                                                const CallExpr *E,
+                                                ReturnValueSlot ReturnValue) {
+  CallArgList Args;
+  ASTContext &Ctx = getContext();
+  const Expr *PtrArg = E->getArg(0);
+  const PointerType *PtrTy = cast<PointerType>(PtrArg->getType().getTypePtr());
+
+  Args.add(RValue::get(EmitScalarExpr(PtrArg)), PtrArg->getType());
+
+  const Expr *Size = E->getArg(1);
+  Args.add(RValue::get(EmitScalarExpr(Size)),
+           Ctx.getIntTypeForBitwidth(32, /*Signed=*/true));
+
+  const Expr *UseSocket = E->getArg(2);
+  Args.add(RValue::get(EmitScalarExpr(UseSocket)), Ctx.BoolTy);
+
+  for (int I = 3; I <= 9; ++I) {
+    const Expr *Ex = E->getArg(I);
+    Args.add(RValue::get(EmitScalarExpr(Ex)),
+             Ctx.getIntTypeForBitwidth(32, /*Signed=*/true));
+  }
+
+  const Expr *WaitRequest = E->getArg(10);
+  Args.add(RValue::get(EmitScalarExpr(WaitRequest)), Ctx.BoolTy);
+
+  if (BuiltinID == Builtin::BI__builtin_intel_hls_mm_master_load) {
+    const Expr *Index = E->getArg(11);
+    Args.add(RValue::get(EmitScalarExpr(Index)),
+             Ctx.getIntTypeForBitwidth(32, /*Signed=*/true));
+  }
+
+  llvm::Type *OverloadTy = ConvertType(PtrTy->getPointeeType());
+  const CGFunctionInfo &FuncInfo =
+      CGM.getTypes().arrangeBuiltinFunctionCall(E->getType(), Args);
+  llvm::Function *Func =
+      CGM.getIntrinsic(getHLSIntrinsic(BuiltinID), {OverloadTy});
+  return EmitCall(FuncInfo, CGCallee::forDirect(Func), ReturnValue, Args);
+}
 #endif // INTEL_CUSTOMIZATION
 
 RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
@@ -944,6 +1071,18 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
     return RValue::get(Builder.CreateCall(CGM.getIntrinsic(Intrinsic::vaargpacklen)));
   case Builtin::BI__builtin_va_arg_pack:
     return RValue::get(Builder.CreateCall(CGM.getIntrinsic(Intrinsic::vaargpack)));
+  case Builtin::BI__builtin_intel_hls_instream_tryRead:
+  case Builtin::BI__builtin_intel_hls_outstream_tryRead:
+  case Builtin::BI__builtin_intel_hls_instream_tryWrite:
+  case Builtin::BI__builtin_intel_hls_outstream_tryWrite:
+  case Builtin::BI__builtin_intel_hls_instream_read:
+  case Builtin::BI__builtin_intel_hls_outstream_read:
+  case Builtin::BI__builtin_intel_hls_instream_write:
+  case Builtin::BI__builtin_intel_hls_outstream_write:
+    return EmitHLSStreamBuiltin(BuiltinID, E);
+  case Builtin::BI__builtin_intel_hls_mm_master_init:
+  case Builtin::BI__builtin_intel_hls_mm_master_load:
+    return EmitHLSMemMasterBuiltin(BuiltinID, E, ReturnValue);
 #endif // INTEL_CUSTOMIZATION
   case Builtin::BI__builtin_stdarg_start:
   case Builtin::BI__builtin_va_start:
