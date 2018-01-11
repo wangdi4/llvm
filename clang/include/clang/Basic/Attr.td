@@ -2563,19 +2563,31 @@ def LoopHint : Attr {
   /// expression: unrolls loop 'Value' times.
 
   let Spellings = [Pragma<"clang", "loop">, Pragma<"", "unroll">,
-                   Pragma<"", "nounroll">];
-
+//if INTEL_CUSTOMIZATION
+                   Pragma<"", "nounroll">,
+                   Pragma<"", "ii">, Pragma<"", "ivdep">,
+                   Pragma<"", "loop_coalesce">, Pragma<"", "max_concurrency">];
+//endif INTEL_CUSTOMIZATION
   /// State of the loop optimization specified by the spelling.
   let Args = [EnumArgument<"Option", "OptionType",
                           ["vectorize", "vectorize_width", "interleave", "interleave_count",
-                           "unroll", "unroll_count", "distribute"],
+//if INTEL_CUSTOMIZATION
+                           "unroll", "unroll_count", "distribute",
+                           "ii", "ivdep", "loop_coalesce", "max_concurrency"],
+//endif INTEL_CUSTOMIZATION
                           ["Vectorize", "VectorizeWidth", "Interleave", "InterleaveCount",
-                           "Unroll", "UnrollCount", "Distribute"]>,
+//if INTEL_CUSTOMIZATION
+                           "Unroll", "UnrollCount", "Distribute",
+                           "II", "IVDep", "LoopCoalesce", "MaxConcurrency"]>,
+//endif INTEL_CUSTOMIZATION
               EnumArgument<"State", "LoopHintState",
-                           ["enable", "disable", "numeric", "assume_safety", "full"],
-                           ["Enable", "Disable", "Numeric", "AssumeSafety", "Full"]>,
-              ExprArgument<"Value">];
-
+//if INTEL_CUSTOMIZATION
+                           ["enable", "disable", "numeric", "assume_safety",
+                            "full", "loopexpr"],
+                           ["Enable", "Disable", "Numeric", "AssumeSafety",
+                            "Full", "LoopExpr"]>,
+              ExprArgument<"Value">, ExprArgument<"LoopExprValue">];
+//endif INTEL_CUSTOMIZATION
   let AdditionalMembers = [{
   static const char *getOptionName(int Option) {
     switch(Option) {
@@ -2632,6 +2644,16 @@ def LoopHint : Attr {
       return "#pragma nounroll";
     else if (SpellingIndex == Pragma_unroll)
       return "#pragma unroll" + (option == UnrollCount ? getValueString(Policy) : "");
+//if INTEL_CUSTOMIZATION
+    else if (SpellingIndex == Pragma_ii)
+      return "#pragma ii";
+    else if (SpellingIndex == Pragma_ivdep)
+      return "#pragma ivdep";
+    else if (SpellingIndex == Pragma_loop_coalesce)
+      return "#pragma loop_coalesce";
+    else if (SpellingIndex == Pragma_max_concurrency)
+      return "#pragma max_concurrency";
+//endif INTEL_CUSTOMIZATION
 
     assert(SpellingIndex == Pragma_clang_loop && "Unexpected spelling");
     return getOptionName(option) + getValueString(Policy);

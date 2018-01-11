@@ -84,7 +84,15 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const AttributeList &A,
   IdentifierLoc *OptionLoc = A.getArgAsIdent(1);
   IdentifierLoc *StateLoc = A.getArgAsIdent(2);
   Expr *ValueExpr = A.getArgAsExpr(3);
+#if INTEL_CUSTOMIZATION
+  Expr *ArrayExpr = A.getArgAsExpr(4);
 
+  bool PragmaLoopCoalesce = PragmaNameLoc->Ident->getName() == "loop_coalesce";
+  bool PragmaII = PragmaNameLoc->Ident->getName() == "ii";
+  bool PragmaMaxConcurrency =
+      PragmaNameLoc->Ident->getName() == "max_concurrency";
+  bool PragmaIVDep = PragmaNameLoc->Ident->getName() == "ivdep";
+#endif // INTEL_CUSTOMIZATION
   bool PragmaUnroll = PragmaNameLoc->Ident->getName() == "unroll";
   bool PragmaNoUnroll = PragmaNameLoc->Ident->getName() == "nounroll";
   if (St->getStmtClass() != Stmt::DoStmtClass &&
@@ -95,6 +103,12 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const AttributeList &A,
         llvm::StringSwitch<const char *>(PragmaNameLoc->Ident->getName())
             .Case("unroll", "#pragma unroll")
             .Case("nounroll", "#pragma nounroll")
+#if INTEL_CUSTOMIZATION
+            .Case("loop_coalesce", "#pragma loop_coalesce")
+            .Case("ii", "#pragma ii")
+            .Case("max_concurrency", "#pragma max_concurrency")
+            .Case("ivdep", "#pragma ivdep")
+#endif // INTEL_CUSTOMIZATION
             .Default("#pragma clang loop");
     S.Diag(St->getLocStart(), diag::err_pragma_loop_precedes_nonloop) << Pragma;
     return nullptr;
@@ -139,6 +153,30 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const AttributeList &A,
       Option = LoopHintAttr::Unroll;
       State = LoopHintAttr::Enable;
     }
+#if INTEL_CUSTOMIZATION
+  } else if (PragmaLoopCoalesce) {
+    Option = LoopHintAttr::LoopCoalesce;
+    if (ValueExpr != nullptr)
+      State = LoopHintAttr::Numeric;
+    else
+      State = LoopHintAttr::Enable;
+  } else if (PragmaII) {
+    Option = LoopHintAttr::II;
+    State = LoopHintAttr::Numeric;
+  } else if (PragmaMaxConcurrency) {
+    Option = LoopHintAttr::MaxConcurrency;
+    State = LoopHintAttr::Numeric;
+  } else if (PragmaIVDep) {
+    Option = LoopHintAttr::IVDep;
+    if (ValueExpr && ArrayExpr)
+      State = LoopHintAttr::Full;
+    else if (ValueExpr)
+      State = LoopHintAttr::Numeric;
+    else if (ArrayExpr)
+      State = LoopHintAttr::LoopExpr;
+    else
+      State = LoopHintAttr::Enable;
+#endif // INTEL_CUSTOMIZATION
   } else {
     // #pragma clang loop ...
     assert(OptionLoc && OptionLoc->Ident &&
@@ -180,7 +218,7 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const AttributeList &A,
   }
 
   return LoopHintAttr::CreateImplicit(S.Context, Spelling, Option, State,
-                                      ValueExpr, A.getRange());
+                                      ValueExpr, ArrayExpr, A.getRange());
 }
 
 #if INTEL_CUSTOMIZATION
@@ -222,6 +260,12 @@ CheckForIncompatibleAttributes(Sema &S,
     const LoopHintAttr *StateAttr;
     const LoopHintAttr *NumericAttr;
   } HintAttrs[] = {{nullptr, nullptr},
+#if INTEL_CUSTOMIZATION
+                   {nullptr, nullptr},
+                   {nullptr, nullptr},
+                   {nullptr, nullptr},
+                   {nullptr, nullptr},
+#endif // INTEL_CUSTOMIZATION
                    {nullptr, nullptr},
                    {nullptr, nullptr},
                    {nullptr, nullptr}};
@@ -234,8 +278,33 @@ CheckForIncompatibleAttributes(Sema &S,
       continue;
 
     LoopHintAttr::OptionType Option = LH->getOption();
-    enum { Vectorize, Interleave, Unroll, Distribute } Category;
+#if INTEL_CUSTOMIZATION
+    enum {
+      Vectorize,
+      II,
+      IVDep,
+      LoopCoalesce,
+      MaxConcurrency,
+      Interleave,
+      Unroll,
+      Distribute
+    } Category;
+#endif // INTEL_CUSTOMIZATION
     switch (Option) {
+#if INTEL_CUSTOMIZATION
+    case LoopHintAttr::II:
+      Category = II;
+      break;
+    case LoopHintAttr::IVDep:
+      Category = IVDep;
+      break;
+    case LoopHintAttr::LoopCoalesce:
+      Category = LoopCoalesce;
+      break;
+    case LoopHintAttr::MaxConcurrency:
+      Category = MaxConcurrency;
+      break;
+#endif // INTEL_CUSTOMIZATION
     case LoopHintAttr::Vectorize:
     case LoopHintAttr::VectorizeWidth:
       Category = Vectorize;
@@ -258,6 +327,11 @@ CheckForIncompatibleAttributes(Sema &S,
     const LoopHintAttr *PrevAttr;
     if (Option == LoopHintAttr::Vectorize ||
         Option == LoopHintAttr::Interleave || Option == LoopHintAttr::Unroll ||
+#if INTEL_CUSTOMIZATION
+        ((Option == LoopHintAttr::LoopCoalesce ||
+          Option == LoopHintAttr::IVDep) &&
+         LH->getState() == LoopHintAttr::Enable) ||
+#endif // INTEL_CUSTOMIZATION
         Option == LoopHintAttr::Distribute) {
       // Enable|Disable|AssumeSafety hint.  For example, vectorize(enable).
       PrevAttr = CategoryState.StateAttr;
@@ -278,6 +352,9 @@ CheckForIncompatibleAttributes(Sema &S,
 
     if (CategoryState.StateAttr && CategoryState.NumericAttr &&
         (Category == Unroll ||
+#if INTEL_CUSTOMIZATION
+         Category == LoopCoalesce || Category == IVDep ||
+#endif // INTEL_CUSTOMIZATION
          CategoryState.StateAttr->getState() == LoopHintAttr::Disable)) {
       // Disable hints are not compatible with numeric hints of the same
       // category.  As a special case, numeric unroll hints are also not

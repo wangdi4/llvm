@@ -655,11 +655,59 @@ CodeGenFunction::IntelPragmaInlineState::getPragmaInlineAttribute() {
   }
   llvm_unreachable("unhandled attribute");
 }
+
+CodeGenFunction::IntelIVDepArrayHandler::IntelIVDepArrayHandler(
+    CodeGenFunction &CGF, ArrayRef<const Attr *> Attrs)
+    : CGF(CGF), CallEntry(nullptr) {
+  auto AttrItr =
+      std::find_if(std::begin(Attrs), std::end(Attrs), [](const Attr *A) {
+        return A->getKind() == attr::LoopHint &&
+               cast<LoopHintAttr>(A)->getLoopExprValue();
+      });
+
+  if (AttrItr == std::end(Attrs))
+    return;
+
+  // Since only one array expression is allowed, it's the first found.
+  auto *LHAttr = cast<LoopHintAttr>(*AttrItr);
+  Expr *E = LHAttr->getLoopExprValue();
+  assert(E->isGLValue());
+  llvm::Value *Val = CGF.EmitLValue(E).getPointer();
+
+  SmallVector<llvm::Value *, 1> BundleValues;
+  SmallVector<llvm::OperandBundleDef, 8> OpBundles;
+  llvm::OperandBundleDef B1("DIR.PRAGMA.IVDEP", BundleValues);
+  OpBundles.push_back(B1);
+  BundleValues.push_back(Val);
+  llvm::OperandBundleDef B2("QUAL.PRAGMA.ARRAY", BundleValues);
+  OpBundles.push_back(B2);
+  SmallVector<llvm::Value *, 1> CallArgs;
+  CallEntry = CGF.Builder.CreateCall(
+      CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_entry), CallArgs,
+      OpBundles);
+  CallEntry->setCallingConv(CGF.getRuntimeCC());
+}
+
+CodeGenFunction::IntelIVDepArrayHandler::~IntelIVDepArrayHandler() {
+  if (CallEntry) {
+    SmallVector<llvm::Value *, 1> BundleValues;
+    SmallVector<llvm::OperandBundleDef, 1> OpBundles;
+    llvm::OperandBundleDef B1("DIR.PRAGMA.END.IVDEP", BundleValues);
+    OpBundles.push_back(B1);
+    SmallVector<llvm::Value *, 1> CallArgs;
+    CallArgs.push_back(CallEntry);
+    auto *CallExit = CGF.Builder.CreateCall(
+        CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_exit), CallArgs,
+        OpBundles);
+    CallExit->setCallingConv(CGF.getRuntimeCC());
+  }
+}
 #endif // INTEL_CUSTOMIZATION
 
 void CodeGenFunction::EmitAttributedStmt(const AttributedStmt &S) {
 #if INTEL_CUSTOMIZATION
   IntelPragmaInlineState PS(*this, S.getAttrs());
+  IntelIVDepArrayHandler IAH(*this, S.getAttrs());
 #endif // INTEL_CUSTOMIZATION
   EmitStmt(S.getSubStmt(), S.getAttrs());
 }

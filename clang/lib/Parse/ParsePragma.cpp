@@ -172,6 +172,29 @@ struct PragmaUnrollHintHandler : public PragmaHandler {
                     Token &FirstToken) override;
 };
 
+#if INTEL_CUSTOMIZATION
+struct PragmaLoopCoalesceHandler : public PragmaHandler {
+  PragmaLoopCoalesceHandler(const char *name) : PragmaHandler(name) {}
+  void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer,
+                    Token &Tok);
+};
+struct PragmaIIHandler : public PragmaHandler {
+  PragmaIIHandler(const char *name) : PragmaHandler(name) {}
+  void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer,
+                    Token &Tok);
+};
+struct PragmaMaxConcurrencyHandler : public PragmaHandler {
+  PragmaMaxConcurrencyHandler(const char *name) : PragmaHandler(name) {}
+  void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer,
+                    Token &Tok);
+};
+struct PragmaIVDepHandler : public PragmaHandler {
+  PragmaIVDepHandler(const char *name) : PragmaHandler(name) {}
+  void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer,
+                    Token &Tok);
+};
+#endif // INTEL_CUSTOMIZATION
+
 struct PragmaMSRuntimeChecksHandler : public EmptyPragmaHandler {
   PragmaMSRuntimeChecksHandler() : EmptyPragmaHandler("runtime_checks") {}
 };
@@ -309,6 +332,17 @@ void Parser::initializePragmaHandlers() {
 
 #if INTEL_CUSTOMIZATION
   initializeIntelPragmaHandlers ();
+  if (getLangOpts().HLS) {
+    LoopCoalesceHandler.reset(new PragmaLoopCoalesceHandler("loop_coalesce"));
+    PP.AddPragmaHandler(LoopCoalesceHandler.get());
+    IIHandler.reset(new PragmaIIHandler("ii"));
+    PP.AddPragmaHandler(IIHandler.get());
+    MaxConcurrencyHandler.reset(
+        new PragmaMaxConcurrencyHandler("max_concurrency"));
+    PP.AddPragmaHandler(MaxConcurrencyHandler.get());
+    IVDepHandler.reset(new PragmaIVDepHandler("ivdep"));
+    PP.AddPragmaHandler(IVDepHandler.get());
+  }
 #endif // INTEL_CUSTOMIZATION
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
   if (!getLangOpts().IntelCompat) {
@@ -417,6 +451,16 @@ void Parser::resetPragmaHandlers() {
 
 #if INTEL_CUSTOMIZATION
   resetIntelPragmaHandlers();
+  if (getLangOpts().HLS) {
+    PP.RemovePragmaHandler(LoopCoalesceHandler.get());
+    LoopCoalesceHandler.reset();
+    PP.RemovePragmaHandler(IIHandler.get());
+    IIHandler.reset();
+    PP.RemovePragmaHandler(MaxConcurrencyHandler.get());
+    MaxConcurrencyHandler.reset();
+    PP.RemovePragmaHandler(IVDepHandler.get());
+    IVDepHandler.reset();
+  }
 #endif // INTEL_CUSTOMIZATION
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
   if (!getLangOpts().IntelCompat) {
@@ -931,6 +975,7 @@ struct PragmaLoopHintInfo {
   Token PragmaName;
   Token Option;
   ArrayRef<Token> Toks;
+  ArrayRef<Token> ArrayToks; // INTEL
 };
 } // end anonymous namespace
 
@@ -970,11 +1015,33 @@ bool Parser::HandlePragmaLoopHint(LoopHint &Hint) {
   // without an argument.
   bool PragmaUnroll = PragmaNameInfo->getName() == "unroll";
   bool PragmaNoUnroll = PragmaNameInfo->getName() == "nounroll";
-  if (Toks.empty() && (PragmaUnroll || PragmaNoUnroll)) {
+#if INTEL_CUSTOMIZATION
+  bool PragmaLoopCoalesce = PragmaNameInfo->getName() == "loop_coalesce";
+  bool PragmaIVDep = PragmaNameInfo->getName() == "ivdep";
+  if (Toks.empty() && Info->ArrayToks.empty() &&
+      (PragmaUnroll || PragmaNoUnroll || PragmaLoopCoalesce || PragmaIVDep)) {
+#endif // INTEL_CUSTOMIZATION
     ConsumeAnnotationToken();
     Hint.Range = Info->PragmaName.getLocation();
     return true;
   }
+
+#if INTEL_CUSTOMIZATION
+  if (!Info->ArrayToks.empty()) {
+    PP.EnterTokenStream(Info->ArrayToks, /*DisableMacroExpansion=*/false);
+    ConsumeAnnotationToken();
+    ExprResult VarExpr =
+        Actions.CorrectDelayedTyposInExpr(ParseAssignmentExpression());
+    if (VarExpr.isUsable())
+      Hint.ArrayExpr = VarExpr.get();
+  }
+  if (Toks.empty()) {
+    ConsumeToken();  // The terminator eof.
+    Hint.Range = SourceRange(Info->PragmaName.getLocation(),
+                             Info->ArrayToks.back().getLocation());
+    return true;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // The constant expression is always followed by an eof token, which increases
   // the TokSize by 1.
@@ -1030,6 +1097,11 @@ bool Parser::HandlePragmaLoopHint(LoopHint &Hint) {
   } else {
     // Enter constant expression including eof terminator into token stream.
     PP.EnterTokenStream(Toks, /*DisableMacroExpansion=*/false);
+#if INTEL_CUSTOMIZATION
+    if (!Info->ArrayToks.empty())
+      ConsumeToken();  // The terminator eof.
+    else
+#endif // INTEL_CUSTOMIZATION
     ConsumeAnnotationToken();
 
     ExprResult R = ParseConstantExpression();
@@ -2892,6 +2964,274 @@ void PragmaUnrollHintHandler::HandlePragma(Preprocessor &PP,
   PP.EnterTokenStream(std::move(TokenArray), 1,
                       /*DisableMacroExpansion=*/false);
 }
+
+#if INTEL_CUSTOMIZATION
+/// \brief Handle the loop_coalesce pragma.
+///  #pragma loop_coalesce [(]hint-val[)]
+///
+///  hint-val:
+///    constant-expression
+///
+/// This pragma specifies the number of loops to coalesce into a single loop.
+///
+void PragmaLoopCoalesceHandler::HandlePragma(Preprocessor &PP,
+                                             PragmaIntroducerKind Introducer,
+                                             Token &Tok) {
+  Token PragmaName = Tok;
+  PP.Lex(Tok);
+  auto *Info = new (PP.getPreprocessorAllocator()) PragmaLoopHintInfo;
+  if (Tok.is(tok::eod)) {
+    Info->PragmaName = PragmaName;
+    Info->Option.startToken();
+  } else {
+    // #pragma loop_coalesce (N)
+    // Read '(' if it exists.
+    bool ValueInParens = Tok.is(tok::l_paren);
+    if (ValueInParens)
+      PP.Lex(Tok);
+
+    Token Option;
+    Option.startToken();
+    if (ParseLoopHintValue(PP, Tok, PragmaName, Option, ValueInParens, *Info))
+      return;
+
+    if (Tok.isNot(tok::eod)) {
+      PP.Diag(Tok.getLocation(), diag::warn_pragma_extra_tokens_at_eol)
+          << "loop_coalesce";
+      return;
+    }
+  }
+
+  // Generate the hint token.
+  auto TokenArray = llvm::make_unique<Token[]>(1);
+  TokenArray[0].startToken();
+  TokenArray[0].setKind(tok::annot_pragma_loop_hint);
+  TokenArray[0].setLocation(PragmaName.getLocation());
+  TokenArray[0].setAnnotationEndLoc(PragmaName.getLocation());
+  TokenArray[0].setAnnotationValue(static_cast<void *>(Info));
+  PP.EnterTokenStream(std::move(TokenArray), 1,
+                      /*DisableMacroExpansion=*/false);
+}
+
+/// \brief Handle the ii pragma.
+///  #pragma ii [(]hint-val[)]
+///
+///  hint-val:
+///    constant-expression
+///
+/// This pragma sets the loop initiation interval (II) for the loop.
+///
+void PragmaIIHandler::HandlePragma(Preprocessor &PP,
+                                             PragmaIntroducerKind Introducer,
+                                             Token &Tok) {
+  Token PragmaName = Tok;
+  PP.Lex(Tok);
+
+  if (Tok.is(tok::eod)) {
+    PP.Diag(Tok.getLocation(), diag::warn_pragma_expected_value) << "ii";
+    return;
+  }
+
+  // #pragma ii <N>
+  // Read '(' if it exists.
+  bool ValueInParens = Tok.is(tok::l_paren);
+  if (ValueInParens)
+    PP.Lex(Tok);
+
+  auto *Info = new (PP.getPreprocessorAllocator()) PragmaLoopHintInfo;
+  Token Option;
+  Option.startToken();
+  if (ParseLoopHintValue(PP, Tok, PragmaName, Option, ValueInParens, *Info))
+    return;
+
+  if (Tok.isNot(tok::eod)) {
+    PP.Diag(Tok.getLocation(), diag::warn_pragma_extra_tokens_at_eol) << "ii";
+    return;
+  }
+
+  // Generate the hint token.
+  auto TokenArray = llvm::make_unique<Token[]>(1);
+  TokenArray[0].startToken();
+  TokenArray[0].setKind(tok::annot_pragma_loop_hint);
+  TokenArray[0].setLocation(PragmaName.getLocation());
+  TokenArray[0].setAnnotationEndLoc(PragmaName.getLocation());
+  TokenArray[0].setAnnotationValue(static_cast<void *>(Info));
+  PP.EnterTokenStream(std::move(TokenArray), 1,
+                      /*DisableMacroExpansion=*/false);
+}
+
+/// \brief Handle the max_concurrency pragma.
+///  #pragma max_concurrency [(]hint-val[)]
+///
+///  hint-val:
+///    constant-expression
+///
+/// This pragma is used to increase or limit the concurrency of a loop in a
+/// component. The concurrency of a loop is the number of iterations that can
+/// be in progress at one time.
+///
+void PragmaMaxConcurrencyHandler::HandlePragma(Preprocessor &PP,
+                                               PragmaIntroducerKind Introducer,
+                                               Token &Tok) {
+  Token PragmaName = Tok;
+  PP.Lex(Tok);
+
+  if (Tok.is(tok::eod)) {
+    PP.Diag(Tok.getLocation(), diag::warn_pragma_expected_value)
+        << "max_concurrency";
+    return;
+  }
+
+  // #pragma max_concurrency <N>
+  // Read '(' if it exists.
+  bool ValueInParens = Tok.is(tok::l_paren);
+  if (ValueInParens)
+    PP.Lex(Tok);
+
+  auto *Info = new (PP.getPreprocessorAllocator()) PragmaLoopHintInfo;
+  Token Option;
+  Option.startToken();
+  if (ParseLoopHintValue(PP, Tok, PragmaName, Option, ValueInParens, *Info))
+    return;
+
+  if (Tok.isNot(tok::eod)) {
+    PP.Diag(Tok.getLocation(), diag::warn_pragma_extra_tokens_at_eol)
+        << "max_concurrency";
+    return;
+  }
+
+  // Generate the hint token.
+  auto TokenArray = llvm::make_unique<Token[]>(1);
+  TokenArray[0].startToken();
+  TokenArray[0].setKind(tok::annot_pragma_loop_hint);
+  TokenArray[0].setLocation(PragmaName.getLocation());
+  TokenArray[0].setAnnotationEndLoc(PragmaName.getLocation());
+  TokenArray[0].setAnnotationValue(static_cast<void *>(Info));
+  PP.EnterTokenStream(std::move(TokenArray), 1,
+                      /*DisableMacroExpansion=*/false);
+}
+
+/// \brief Handle the ivdep pragma.
+///  #pragma ivdep [safelen(hint-val)] [array(<array-name>)]
+///
+///  hint-val:
+///    constant-expression
+///
+/// This pragma is used to specify guarantees for dependencies across loop
+/// iterations.
+///
+/// #pragma ivdep
+/// No loop-carried dependencies.
+///
+/// #pragma ivdep safelen(4)
+/// No loop-carried dependencies within 4 consecutive loop iterations.
+///
+/// #pragma ivdep array(arr1)
+/// Access to arr1 does not cause loop-carried dependencies.
+///
+/// A single safelen clause and a single array clauses is allowed in any order.
+///
+void PragmaIVDepHandler::HandlePragma(Preprocessor &PP,
+                                      PragmaIntroducerKind Introducer,
+                                      Token &Tok) {
+  SmallVector<Token, 4> ArrayValueList;
+  bool HasSafelen = false;
+  bool HasArray = false;
+  Token PragmaName = Tok;
+  PP.Lex(Tok);
+  auto *Info = new (PP.getPreprocessorAllocator()) PragmaLoopHintInfo;
+  Info->PragmaName = PragmaName;
+  if (Tok.is(tok::eod)) {
+    Info->PragmaName = PragmaName;
+    Info->Option.startToken();
+  } else {
+    while (Tok.isNot(tok::eod)) {
+      if (Tok.isNot(tok::identifier)) {
+        PP.Diag(Tok.getLocation(), diag::warn_pragma_expected_ivdep_clause);
+        return;
+      }
+      IdentifierInfo *II = Tok.getIdentifierInfo();
+      if (II->isStr("safelen")) {
+        if (HasSafelen) {
+          PP.Diag(Tok.getLocation(), diag::warn_multiple_ivdep_clause) << 0;
+          return;
+        }
+        HasSafelen = true;
+        PP.Lex(Tok);
+        if (Tok.isNot(tok::l_paren)) {
+          PP.Diag(Tok.getLocation(), diag::warn_pragma_expected_lparen)
+              << "ivdep";
+          return;
+        }
+        PP.Lex(Tok);
+        Token Option;
+        Option.startToken();
+        if (ParseLoopHintValue(PP, Tok, PragmaName, Option, true, *Info))
+          return;
+      } else if (II->isStr("array")) {
+        if (HasArray) {
+          PP.Diag(Tok.getLocation(), diag::warn_multiple_ivdep_clause) << 1;
+          return;
+        }
+        HasArray = true;
+        unsigned ParenCount = 0;
+        PP.Lex(Tok);
+        if (Tok.isNot(tok::l_paren)) {
+          PP.Diag(Tok.getLocation(), diag::warn_pragma_expected_lparen)
+              << "ivdep";
+          return;
+        }
+        ParenCount++;
+        PP.Lex(Tok);
+        while (ParenCount != 0) {
+          if (Tok.is(tok::eod)) {
+            PP.Diag(Tok.getLocation(), diag::warn_pragma_expected_rparen)
+              << "ivdep";
+            return;
+          }
+          if (Tok.is(tok::l_paren))
+            ParenCount++;
+          else if (Tok.is(tok::r_paren))
+            ParenCount--;
+          if (ParenCount)
+            ArrayValueList.push_back(Tok);
+          PP.Lex(Tok);
+        }
+      } else {
+        PP.Diag(Tok.getLocation(), diag::warn_pragma_expected_ivdep_clause);
+        return;
+      }
+    }
+  }
+
+  if (Tok.isNot(tok::eod)) {
+    PP.Diag(Tok.getLocation(), diag::warn_pragma_extra_tokens_at_eol)
+        << "ivdep";
+    return;
+  }
+
+  if (!ArrayValueList.empty()) {
+    Token EOFTok;
+    EOFTok.startToken();
+    EOFTok.setKind(tok::eof);
+    EOFTok.setLocation(Tok.getLocation());
+    ArrayValueList.push_back(EOFTok); // Terminates expression list.
+    Info->ArrayToks =
+        llvm::makeArrayRef(ArrayValueList).copy(PP.getPreprocessorAllocator());
+  }
+
+  // Generate the hint token.
+  auto TokenArray = llvm::make_unique<Token[]>(1);
+  TokenArray[0].startToken();
+  TokenArray[0].setKind(tok::annot_pragma_loop_hint);
+  TokenArray[0].setLocation(PragmaName.getLocation());
+  TokenArray[0].setAnnotationEndLoc(PragmaName.getLocation());
+  TokenArray[0].setAnnotationValue(static_cast<void *>(Info));
+  PP.EnterTokenStream(std::move(TokenArray), 1,
+                      /*DisableMacroExpansion=*/false);
+}
+
+#endif // INTEL_CUSTOMIZATION
 
 /// \brief Handle the Microsoft \#pragma intrinsic extension.
 ///

@@ -343,6 +343,15 @@ public:
     IntelPragmaInlineState *PreviousState;
   };
   IntelPragmaInlineState *CurrentPragmaInlineState;
+
+  class IntelIVDepArrayHandler {
+  public:
+    IntelIVDepArrayHandler(CodeGenFunction &CGF, ArrayRef<const Attr *> Attrs);
+    ~IntelIVDepArrayHandler();
+  private:
+    CodeGenFunction &CGF;
+    llvm::CallInst *CallEntry;
+  };
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_SPECIFIC_CILKPLUS
