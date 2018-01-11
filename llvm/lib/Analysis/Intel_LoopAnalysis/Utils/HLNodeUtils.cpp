@@ -62,7 +62,7 @@ const DataLayout &HLNodeUtils::getDataLayout() const {
 void HLNodeUtils::reset(Function &F) {
   DDRU = nullptr;
 
-  DummyIRBuilder = new DummyIRBuilderTy(F.getContext());
+  DummyIRBuilder.reset(new DummyIRBuilderTy(F.getContext()));
   DummyIRBuilder->SetInsertPoint(F.getEntryBlock().getTerminator());
 
   FirstDummyInst = nullptr;
@@ -129,14 +129,10 @@ void HLNodeUtils::setFirstAndLastDummyInst(Instruction *Inst) {
   LastDummyInst = Inst;
 }
 
-void HLNodeUtils::destroyAll() {
+HLNodeUtils::~HLNodeUtils() {
   for (auto &I : Objs) {
     delete I;
   }
-
-  Objs.clear();
-
-  delete DummyIRBuilder;
 }
 
 void HLNodeUtils::checkUnaryInstOperands(RegDDRef *LvalRef, RegDDRef *RvalRef,

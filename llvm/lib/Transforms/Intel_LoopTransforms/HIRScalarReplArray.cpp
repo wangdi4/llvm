@@ -894,7 +894,7 @@ char HIRScalarReplArray::ID = 0;
 
 INITIALIZE_PASS_BEGIN(HIRScalarReplArray, "hir-scalarrepl-array",
                       "HIR Scalar Replacement of Array ", false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFramework)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatistics)
 INITIALIZE_PASS_DEPENDENCY(HIRLocalityAnalysis)
@@ -910,7 +910,7 @@ HIRScalarReplArray::HIRScalarReplArray(void) : HIRTransformPass(ID) {
 }
 
 void HIRScalarReplArray::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.addRequiredTransitive<HIRFramework>();
+  AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
   AU.addRequiredTransitive<HIRDDAnalysis>();
   AU.addRequiredTransitive<HIRLoopStatistics>();
   AU.addRequiredTransitive<HIRLocalityAnalysis>();
@@ -961,7 +961,7 @@ bool HIRScalarReplArray::runOnFunction(Function &F) {
 
   // Gather ALL Innermost Loops as Candidates, use 64 increment
   SmallVector<HLLoop *, 64> CandidateLoops;
-  auto HIRF = &getAnalysis<HIRFramework>();
+  auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   HIRF->getHLNodeUtils().gatherInnermostLoops(CandidateLoops);
 
   if (CandidateLoops.empty()) {

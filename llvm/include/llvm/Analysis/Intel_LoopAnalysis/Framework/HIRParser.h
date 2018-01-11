@@ -98,7 +98,7 @@ class HIRParser {
   LoopInfo &LI;
   ScalarEvolution &SE;
   const HIRRegionIdentification &RI;
-  HIRFramework &HIRF;
+  std::reference_wrapper<HIRFramework> HIRF;
   HIRCreation &HIRC;
   HIRLoopFormation &LF;
   HIRScalarSymbaseAssignment &ScalarSA;
@@ -601,9 +601,6 @@ class HIRParser {
                                  int64_t Constant, unsigned &NewBlobIndex,
                                  int64_t &SimplifiedConstant);
 
-  /// Returns the max symbase assigned to any temp.
-  unsigned getMaxScalarSymbase() const;
-
   /// Prints scalar corresponding to Symbase.
   void printScalar(raw_ostream &OS, unsigned Symbase) const;
 
@@ -670,16 +667,18 @@ public:
   const HIRFramework &getHIRFramework() const { return HIRF; }
 
   /// Returns Function object.
-  Function &getFunction() const { return HIRF.getFunction(); }
+  Function &getFunction() const { return getHIRFramework().getFunction(); }
 
   /// Returns Module object.
-  Module &getModule() const { return HIRF.getModule(); }
+  Module &getModule() const { return getHIRFramework().getModule(); }
 
   /// Returns LLVMContext object.
-  LLVMContext &getContext() const { return HIRF.getContext(); }
+  LLVMContext &getContext() const { return getHIRFramework().getContext(); }
 
   /// Returns DataLayout object.
-  const DataLayout &getDataLayout() const { return HIRF.getDataLayout(); }
+  const DataLayout &getDataLayout() const {
+    return getHIRFramework().getDataLayout();
+  }
 };
 
 } // End namespace loopopt

@@ -39,7 +39,7 @@ public:
       : FunctionPass(ID), OS(OS), Banner(Banner) {}
 
   bool runOnFunction(Function &F) override {
-    auto &HIRF = getAnalysis<HIRFramework>();
+    auto &HIRF = getAnalysis<HIRFrameworkWrapperPass>().getHIR();
 
     if (llvm::isFunctionInPrintList(F.getName())) {
       OS << Banner << "\n";
@@ -53,7 +53,7 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesAll();
-    AU.addRequired<HIRFramework>();
+    AU.addRequired<HIRFrameworkWrapperPass>();
   }
 };
 }

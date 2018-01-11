@@ -44,7 +44,7 @@ public:
   bool runOnFunction(Function &F) override;
   void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesAll();
-    AU.addRequiredTransitive<HIRFramework>();
+    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
     AU.addRequiredTransitive<HIRLoopStatistics>();
     AU.addRequiredTransitive<HIRDDAnalysis>();
   }

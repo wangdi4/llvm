@@ -334,7 +334,7 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<AVRGenerateHIR>();
     AU.addRequired<HIRDDAnalysis>();
-    AU.addRequiredTransitive<HIRFramework>();
+    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
     AU.setPreservesAll();
   }
 

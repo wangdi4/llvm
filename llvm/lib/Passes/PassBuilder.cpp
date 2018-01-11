@@ -157,6 +157,17 @@
 #include "llvm/Transforms/Vectorize/LoopVectorize.h"
 #include "llvm/Transforms/Vectorize/SLPVectorizer.h"
 
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_XmainOptLevelPass.h"
+
+// Intel Loop Optimization framework
+#include "llvm/Transforms/Intel_LoopTransforms/HIRSSADeconstruction.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRRegionIdentification.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRSCCFormation.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRCodeGen.h"
+#endif // INTEL_CUSTOMIZATION
+
 #include <type_traits>
 
 using namespace llvm;

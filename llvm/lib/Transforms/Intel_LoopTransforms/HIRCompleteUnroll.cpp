@@ -218,7 +218,7 @@ HIRCompleteUnroll::HIRCompleteUnroll(char &ID, unsigned OptLevel, bool IsPreVec)
 
 void HIRCompleteUnroll::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
-  AU.addRequiredTransitive<HIRFramework>();
+  AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
   AU.addRequiredTransitive<HIRLoopStatistics>();
 }
 
@@ -1838,7 +1838,7 @@ bool HIRCompleteUnroll::runOnFunction(Function &F) {
 
   DEBUG(dbgs() << "Complete unrolling for Function : " << F.getName() << "\n");
 
-  auto HIRF = &getAnalysis<HIRFramework>();
+  auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   HLS = &getAnalysis<HIRLoopStatistics>();
 
   // Storage for Outermost Loops

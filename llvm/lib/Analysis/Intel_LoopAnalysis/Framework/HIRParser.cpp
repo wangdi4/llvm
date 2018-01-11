@@ -183,7 +183,7 @@ unsigned HIRParser::findOrInsertTempBlobIndex(unsigned Symbase) {
   }
   // Some lvals may not be parsed as blobs during parsing, insert them as blobs
   // now.
-  assert((Symbase < getMaxScalarSymbase()) &&
+  assert((Symbase < ScalarSA.getMaxScalarSymbase()) &&
          "Blob index for symbase not found!");
 
   auto Val = ScalarSA.getBaseScalar(Symbase);
@@ -513,10 +513,6 @@ bool HIRParser::replaceTempBlobByConstant(unsigned BlobIndex,
   BlobTy ConstantBlob = SE.getConstant(TempBlob->getType(), Constant, true);
   return replaceTempBlob(BlobIndex, TempIndex, ConstantBlob, NewBlobIndex,
                          SimplifiedConstant);
-}
-
-inline unsigned HIRParser::getMaxScalarSymbase() const {
-  return HIRF.getMaxScalarSymbase();
 }
 
 struct HIRParser::Phase1Visitor final : public HLNodeVisitorBase {
@@ -1224,8 +1220,7 @@ bool HIRParser::BlobProcessor::isReplacableAddRec(
 }
 
 void HIRParser::printScalar(raw_ostream &OS, unsigned Symbase) const {
-
-  if (Symbase < getMaxScalarSymbase()) {
+  if (Symbase < ScalarSA.getMaxScalarSymbase()) {
     ScalarSA.getBaseScalar(Symbase)->printAsOperand(OS, false);
     return;
   }
@@ -3313,7 +3308,7 @@ void HIRParser::phase2Parse() {
 
 void HIRParser::run() {
   // We parse one region at a time to preserve CurRegion during phase2.
-  for (auto I = HIRF.hir_begin(), E = HIRF.hir_end(); I != E; ++I) {
+  for (auto I = HIRF.get().hir_begin(), E = HIRF.get().hir_end(); I != E; ++I) {
     assert(UnclassifiedSymbaseInsts.empty() &&
            "UnclassifiedSymbaseInsts is not empty!");
     assert(RequiredSymbases.empty() && "RequiredSymbases is not empty!");

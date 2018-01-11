@@ -337,7 +337,7 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesAll();
-    AU.addRequiredTransitive<HIRFramework>();
+    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
   }
 };
 } // namespace
@@ -345,7 +345,7 @@ public:
 char HIRTempCleanup::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRTempCleanup, "hir-temp-cleanup", "HIR Temp Cleanup",
                       false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFramework)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_END(HIRTempCleanup, "hir-temp-cleanup", "HIR Temp Cleanup",
                     false, false)
 
@@ -671,7 +671,7 @@ bool HIRTempCleanup::runOnFunction(Function &F) {
     return false;
   }
 
-  auto HIRF = &getAnalysis<HIRFramework>();
+  auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   TempSubstituter TS(HIRF);
 
   for (auto RegIt = HIRF->hir_begin(), End = HIRF->hir_end(); RegIt != End;

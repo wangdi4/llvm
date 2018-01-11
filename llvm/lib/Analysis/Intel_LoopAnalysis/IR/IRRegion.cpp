@@ -41,6 +41,18 @@ IRRegion::IRRegion(IRRegion &&Reg)
       LiveOutMap(std::move(Reg.LiveOutMap)), ParentRegion(Reg.ParentRegion),
       IsFunctionLevel(Reg.IsFunctionLevel) {}
 
+IRRegion &IRRegion::operator =(IRRegion &&Reg) {
+  EntryBBlock = Reg.EntryBBlock;
+  ExitBBlock = Reg.ExitBBlock;
+  BBlocks = std::move(Reg.BBlocks);
+  BBlocksSet = std::move(Reg.BBlocksSet);
+  LiveInMap = std::move(Reg.LiveInMap);
+  LiveOutMap = std::move(Reg.LiveOutMap);
+  ParentRegion = Reg.ParentRegion;
+  IsFunctionLevel = Reg.IsFunctionLevel;
+  return *this;
+}
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void IRRegion::dump() const { print(dbgs(), 0); }
 #endif

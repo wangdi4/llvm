@@ -53,14 +53,14 @@ private:
 #endif
 
   DDRefUtils *DDRU;
-  HIRFramework &HIRF;
+  std::reference_wrapper<HIRFramework> HIRF;
 
   /// Used to create dummy LLVM instructions corresponding to new HIR
   /// instructions. Dummy instructions are appended to the function entry
   /// bblock. IRBuilder by default uses constant folding which needs to be
   /// suppressed for dummy instructions so we use NoFolder class instead.
   typedef IRBuilder<NoFolder> DummyIRBuilderTy;
-  DummyIRBuilderTy *DummyIRBuilder;
+  std::unique_ptr<DummyIRBuilderTy> DummyIRBuilder;
   /// Points to first dummy instruction of the function.
   Instruction *FirstDummyInst;
   /// Points to last dummy instruction of the function.
@@ -73,6 +73,18 @@ private:
       : NextUniqueHLNodeNumber(0), DDRU(nullptr), HIRF(HIRF),
         DummyIRBuilder(nullptr), FirstDummyInst(nullptr),
         LastDummyInst(nullptr), Marker(nullptr) {}
+
+  HLNodeUtils(HLNodeUtils &&Arg)
+      : Objs(std::move(Arg.Objs)),
+        NextUniqueHLNodeNumber(Arg.NextUniqueHLNodeNumber),
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+        LabelNames(std::move(Arg.LabelNames)),
+#endif
+        DDRU(Arg.DDRU), HIRF(Arg.HIRF),
+        DummyIRBuilder(std::move(Arg.DummyIRBuilder)),
+        FirstDummyInst(Arg.FirstDummyInst), LastDummyInst(Arg.LastDummyInst),
+        Marker(Arg.Marker) {
+  }
 
   /// Make class uncopyable.
   HLNodeUtils(const HLNodeUtils &) = delete;
@@ -153,8 +165,6 @@ private:
           SkipNode = Loop;
         }
         break;
-      default:
-        llvm_unreachable("Invalid Visit Kind.");
       }
     }
 
@@ -189,8 +199,8 @@ private:
   /// Only used by framework.
   HLLoop *createHLLoop(const Loop *LLVMLoop);
 
-  /// Destroys all allocated memory, called by framework.
-  void destroyAll();
+  /// Destroys all allocated memory.
+  ~HLNodeUtils();
 
   /// Performs sanity checking on unary instruction operands.
   void checkUnaryInstOperands(RegDDRef *LvalRef, RegDDRef *RvalRef,

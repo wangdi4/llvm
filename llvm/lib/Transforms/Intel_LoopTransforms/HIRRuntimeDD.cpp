@@ -434,7 +434,7 @@ void IVSegment::replaceIVWithBounds(const HLLoop *Loop,
 
 char HIRRuntimeDD::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRRuntimeDD, OPT_SWITCH, OPT_DESCR, false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFramework)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatistics)
 INITIALIZE_PASS_END(HIRRuntimeDD, OPT_SWITCH, OPT_DESCR, false, false)
@@ -911,7 +911,7 @@ bool HIRRuntimeDD::runOnFunction(Function &F) {
   }
 
   HLS = &getAnalysis<HIRLoopStatistics>();
-  auto &HIRF = getAnalysis<HIRFramework>();
+  auto &HIRF = getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   auto &HNU = HIRF.getHLNodeUtils();
 
   DEBUG(dbgs() << "HIRRuntimeDD for function: " << F.getName() << "\n");

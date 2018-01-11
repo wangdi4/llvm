@@ -168,7 +168,7 @@ INITIALIZE_PASS_BEGIN(VPODriverHIR, "VPODriverHIR",
                       "VPO Vectorization Driver HIR", false, false)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(AVRGenerateHIR)
-INITIALIZE_PASS_DEPENDENCY(HIRFramework)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLocalityAnalysis)
 INITIALIZE_PASS_DEPENDENCY(HIRVectVLSAnalysis)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
@@ -343,7 +343,7 @@ void VPODriverHIR::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<TargetLibraryInfoWrapperPass>();
   AU.addRequired<AvrDefUseHIR>();
 
-  AU.addRequiredTransitive<HIRFramework>();
+  AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
   AU.addRequiredTransitive<HIRLocalityAnalysis>();
   AU.addRequiredTransitive<HIRDDAnalysis>();
   AU.addRequiredTransitive<HIRSafeReductionAnalysis>();

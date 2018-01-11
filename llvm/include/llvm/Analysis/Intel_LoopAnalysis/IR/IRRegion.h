@@ -55,9 +55,6 @@ protected:
   /// \brief Make class uncopyable.
   IRRegion(const IRRegion &) = delete;
 
-  /// \brief Make class unassignable.
-  void operator=(const IRRegion &) = delete;
-
   // Sets parent region.
   friend HLRegion;
 
@@ -82,7 +79,7 @@ private:
   HLRegion *ParentRegion;
 
   // Indicates that the region is composed of all the function bblocks.
-  const bool IsFunctionLevel;
+  bool IsFunctionLevel;
 
 public:
   IRRegion(BasicBlock *Entry, const RegionBBlocksTy &BBlocks,
@@ -91,6 +88,7 @@ public:
   /// \brief Move constructor. This is used by HIRRegionIdentification pass to
   /// push_back regions onto SmallVector.
   IRRegion(IRRegion &&);
+  IRRegion &operator =(IRRegion &&);
 
   /// \brief Dumps IRRegion.
   void dump() const;

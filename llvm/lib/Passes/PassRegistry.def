@@ -121,6 +121,11 @@ FUNCTION_ANALYSIS("targetir",
                   TM ? TM->getTargetIRAnalysis() : TargetIRAnalysis())
 FUNCTION_ANALYSIS("verify", VerifierAnalysis())
 
+FUNCTION_ANALYSIS("xm-opt-level", XmainOptLevelAnalysis())
+FUNCTION_ANALYSIS("hir-region-identification", loopopt::HIRRegionIdentificationAnalysis())
+FUNCTION_ANALYSIS("hir-scc-formation", loopopt::HIRSCCFormationAnalysis())
+FUNCTION_ANALYSIS("hir-framework", loopopt::HIRFrameworkAnalysis())
+
 #ifndef FUNCTION_ALIAS_ANALYSIS
 #define FUNCTION_ALIAS_ANALYSIS(NAME, CREATE_PASS)                             \
   FUNCTION_ANALYSIS(NAME, CREATE_PASS)
@@ -214,6 +219,13 @@ FUNCTION_PASS("verify<memoryssa>", MemorySSAVerifierPass())
 FUNCTION_PASS("verify<regions>", RegionInfoVerifierPass())
 FUNCTION_PASS("view-cfg", CFGViewerPass())
 FUNCTION_PASS("view-cfg-only", CFGOnlyViewerPass())
+
+FUNCTION_PASS("hir-ssa-deconstruction", loopopt::HIRSSADeconstructionPass())
+FUNCTION_PASS("print<hir-region-identification>", loopopt::HIRRegionIdentificationPrinterPass(dbgs()))
+FUNCTION_PASS("print<hir-scc-formation>", loopopt::HIRSCCFormationPrinterPass(dbgs()))
+FUNCTION_PASS("print<hir-framework>", loopopt::HIRFrameworkPrinterPass(dbgs()))
+FUNCTION_PASS("verify<hir-framework>", loopopt::HIRFrameworkVerifierPass())
+FUNCTION_PASS("hir-cg", loopopt::HIRCodeGenPass())
 #undef FUNCTION_PASS
 
 #ifndef LOOP_ANALYSIS

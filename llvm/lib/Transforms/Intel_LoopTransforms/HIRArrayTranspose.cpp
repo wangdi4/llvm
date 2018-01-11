@@ -118,7 +118,7 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesAll();
-    AU.addRequiredTransitive<HIRFramework>();
+    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
   }
 
   bool hasValidMallocs(HLRegion *Reg);
@@ -205,7 +205,7 @@ private:
 char HIRArrayTranspose::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRArrayTranspose, "hir-array-transpose",
                       "HIR Array Transpose", false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFramework)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_END(HIRArrayTranspose, "hir-array-transpose",
                     "HIR Array Transpose", false, false)
 
@@ -219,7 +219,7 @@ bool HIRArrayTranspose::runOnFunction(Function &F) {
     return false;
   }
 
-  auto HIRF = &getAnalysis<HIRFramework>();
+  auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
 
   // Expect a function level region.
   if (HIRF->hir_begin() == HIRF->hir_end()) {

@@ -49,7 +49,7 @@ FunctionPass *llvm::createHIRSafeReductionAnalysisPass() {
 char HIRSafeReductionAnalysis::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRSafeReductionAnalysis, "hir-safe-reduction-analysis",
                       "HIR Safe Reduction Analysis", false, true)
-INITIALIZE_PASS_DEPENDENCY(HIRFramework)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatistics)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
 INITIALIZE_PASS_END(HIRSafeReductionAnalysis, "hir-safe-reduction-analysis",
@@ -58,7 +58,7 @@ INITIALIZE_PASS_END(HIRSafeReductionAnalysis, "hir-safe-reduction-analysis",
 void HIRSafeReductionAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
 
   AU.setPreservesAll();
-  AU.addRequiredTransitive<HIRFramework>();
+  AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
   AU.addRequiredTransitive<HIRLoopStatistics>();
   AU.addRequiredTransitive<HIRDDAnalysis>();
 }
@@ -83,7 +83,7 @@ void HIRSafeReductionAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
 //
 bool HIRSafeReductionAnalysis::runOnFunction(Function &F) {
 
-  auto HIRF = &getAnalysis<HIRFramework>();
+  auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   DDA = &getAnalysis<HIRDDAnalysis>();
   HLS = &getAnalysis<HIRLoopStatistics>();
 

@@ -1,5 +1,6 @@
 ; With forced hir-cg, we should see HIR->LLVM IR occur
 ; RUN: opt -hir-ssa-deconstruction -hir-cg -force-hir-cg -S < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-cg" -force-hir-cg -S < %s | FileCheck %s
 
 ; terminator of entry bblock should have changed
 ; CHECK: for.body:

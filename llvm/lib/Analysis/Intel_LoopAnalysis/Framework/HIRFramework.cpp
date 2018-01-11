@@ -15,6 +15,8 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
+
 #include "llvm/Support/Debug.h"
 
 #include "llvm/Analysis/AliasAnalysis.h"
@@ -82,27 +84,47 @@ static cl::opt<HIRFrameworkDebugEnum> HIRFrameworkDebugPhase(
                clEnumValN(P6_SA, "symbase-assignment",
                           "Debug symbase assignment phase")));
 
-INITIALIZE_PASS_BEGIN(HIRFramework, "hir-framework", "HIR Framework", false,
-                      true)
+AnalysisKey HIRFrameworkAnalysis::Key;
+
+HIRFramework HIRFrameworkAnalysis::run(Function &F,
+                                       FunctionAnalysisManager &AM) {
+  // All the real work is done in the constructor for the HIRFramework.
+  return HIRFramework(
+      F, AM.getResult<DominatorTreeAnalysis>(F),
+      AM.getResult<PostDominatorTreeAnalysis>(F), AM.getResult<LoopAnalysis>(F),
+      AM.getResult<ScalarEvolutionAnalysis>(F), AM.getResult<AAManager>(F),
+      AM.getResult<HIRRegionIdentificationAnalysis>(F),
+      AM.getResult<HIRSCCFormationAnalysis>(F),
+      HIRAnalysisProvider([&]() { return nullptr; }, [&]() { return nullptr; },
+                          [&]() { return nullptr; }, [&]() { return nullptr; },
+                          [&]() { return nullptr; },
+                          [&]() { return nullptr; }));
+}
+
+INITIALIZE_PASS_BEGIN(HIRFrameworkWrapperPass, "hir-framework", "HIR Framework",
+                      false, true)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
 
-INITIALIZE_PASS_DEPENDENCY(HIRSCCFormation)
-INITIALIZE_PASS_DEPENDENCY(HIRRegionIdentification)
-INITIALIZE_PASS_END(HIRFramework, "hir-framework", "HIR Framework", false, true)
+INITIALIZE_PASS_DEPENDENCY(HIRSCCFormationWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRRegionIdentificationWrapperPass)
+INITIALIZE_PASS_END(HIRFrameworkWrapperPass, "hir-framework", "HIR Framework",
+                    false, true)
 
-char HIRFramework::ID = 0;
+char HIRFrameworkWrapperPass::ID = 0;
 
-FunctionPass *llvm::createHIRFrameworkPass() { return new HIRFramework(); }
-
-HIRFramework::HIRFramework() : FunctionPass(ID), HNU(*this) {
-  initializeHIRFrameworkPass(*PassRegistry::getPassRegistry());
+FunctionPass *llvm::createHIRFrameworkWrapperPass() {
+  return new HIRFrameworkWrapperPass();
 }
 
-void HIRFramework::getAnalysisUsage(AnalysisUsage &AU) const {
+HIRFrameworkWrapperPass::HIRFrameworkWrapperPass() : FunctionPass(ID) {
+  initializeHIRFrameworkWrapperPassPass(*PassRegistry::getPassRegistry());
+}
+
+void HIRFrameworkWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
 
   AU.addRequiredTransitive<DominatorTreeWrapperPass>();
@@ -111,66 +133,65 @@ void HIRFramework::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<ScalarEvolutionWrapperPass>();
   AU.addRequiredTransitive<AAResultsWrapperPass>();
 
-  AU.addRequiredTransitive<HIRRegionIdentification>();
-  AU.addRequiredTransitive<HIRSCCFormation>();
+  AU.addRequiredTransitive<HIRRegionIdentificationWrapperPass>();
+  AU.addRequiredTransitive<HIRSCCFormationWrapperPass>();
 }
 
-bool HIRFramework::runOnFunction(Function &F) {
+bool HIRFrameworkWrapperPass::runOnFunction(Function &F) {
+  // All the real work is done in the constructor for the HIRFramework.
+  HIRF.reset(new HIRFramework(
+      F, getAnalysis<DominatorTreeWrapperPass>().getDomTree(),
+      getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree(),
+      getAnalysis<LoopInfoWrapperPass>().getLoopInfo(),
+      getAnalysis<ScalarEvolutionWrapperPass>().getSE(),
+      getAnalysis<AAResultsWrapperPass>().getAAResults(),
+      getAnalysis<HIRRegionIdentificationWrapperPass>().getRI(),
+      getAnalysis<HIRSCCFormationWrapperPass>().getSCCF(),
+      HIRAnalysisProvider(
+          [&]() { return getAnalysisIfAvailable<HIRDDAnalysis>(); },
+          [&]() { return getAnalysisIfAvailable<HIRLocalityAnalysis>(); },
+          [&]() { return getAnalysisIfAvailable<HIRLoopResource>(); },
+          [&]() { return getAnalysisIfAvailable<HIRLoopStatistics>(); },
+          [&]() { return getAnalysisIfAvailable<HIRSafeReductionAnalysis>(); },
+          [&]() { return getAnalysisIfAvailable<HIRVectVLSAnalysis>(); })));
+  return false;
+}
+
+void HIRFramework::runImpl() {
   // TODO: Refactor code of the framework phases to make them local objects by
   // moving persistent data structures from individual phases to the
   // HIRFramework class.
-
-  Func = &F;
-  HNU.reset(F);
-
-  auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-  auto &PDT = getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
-  auto &LI = getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-  auto &SE = getAnalysis<ScalarEvolutionWrapperPass>().getSE();
-  auto &AA = getAnalysis<AAResultsWrapperPass>().getAAResults();
-
-  auto &RI = getAnalysis<HIRRegionIdentification>();
-  auto &SCCF = getAnalysis<HIRSCCFormation>();
-
-  PhaseCreation.reset(new HIRCreation(DT, PDT, LI, RI, HNU));
-  PhaseCleanup.reset(new HIRCleanup(LI, *PhaseCreation, HNU));
-  PhaseLoopFormation.reset(
-      new HIRLoopFormation(LI, SE, RI, *PhaseCreation, *PhaseCleanup, HNU));
-  PhaseScalarSA.reset(new HIRScalarSymbaseAssignment(LI, SE, RI, SCCF,
-                                                     *PhaseLoopFormation, HNU));
-  PhaseParser.reset(new HIRParser(DT, LI, SE, RI, *this, *PhaseCreation,
-                                  *PhaseLoopFormation, *PhaseScalarSA, HNU));
   HIRSymbaseAssignment PhaseSA(AA, *this, *PhaseParser);
 
   PhaseCreation->run(Regions);
 
   if (HIRFrameworkDebugPhase == P1_Creation) {
-    return false;
+    return;
   }
 
   PhaseCleanup->run();
 
   if (HIRFrameworkDebugPhase == P2_Cleanup) {
-    return false;
+    return;
   }
 
   PhaseLoopFormation->run();
 
   if (HIRFrameworkDebugPhase == P3_LoopFormation) {
-    return false;
+    return;
   }
 
   PhaseScalarSA->run();
 
   if (HIRFrameworkDebugPhase == P4_ScalarSA) {
     DEBUG(PhaseScalarSA->print(dbgs()));
-    return false;
+    return;
   }
 
   PhaseParser->run();
 
   if (HIRFrameworkDebugPhase == P5_Parsing) {
-    return false;
+    return;
   }
 
   // Initialize symbase start value.
@@ -181,7 +202,7 @@ bool HIRFramework::runOnFunction(Function &F) {
 
   if (HIRFrameworkDebugPhase == P6_SA) {
     DEBUG(PhaseSA.print(dbgs()));
-    return false;
+    return;
   }
 
   HLNodeUtils::removeEmptyNodesRange(hir_begin(), hir_end());
@@ -190,26 +211,47 @@ bool HIRFramework::runOnFunction(Function &F) {
   estimateMaxTripCounts();
 
 #ifndef NDEBUG
-  verifyAnalysis();
+  verify();
 #endif
-
-  return false;
 }
 
-void HIRFramework::releaseMemory() {
-  // Clear components.
-  PhaseParser.reset();
-  PhaseScalarSA.reset();
-  PhaseLoopFormation.reset();
-  PhaseCleanup.reset();
-  PhaseCreation.reset();
+HIRFramework::HIRFramework(Function &F, DominatorTree &DT,
+                           PostDominatorTree &PDT, LoopInfo &LI,
+                           ScalarEvolution &SE, AAResults &AA,
+                           HIRRegionIdentification &RI, HIRSCCFormation &SCCF,
+                           HIRAnalysisProvider AnalysisProvider)
+    : Func(F), DT(DT), PDT(PDT), LI(LI), SE(SE), AA(AA), RI(RI), SCCF(SCCF),
+      HNU(*this), AnalysisProvider(AnalysisProvider), MaxSymbase(0) {
+  HNU.reset(F);
 
-  // Clear HIR regions
-  Regions.clear();
+  PhaseCreation.reset(new HIRCreation(DT, PDT, LI, RI, HNU));
+  PhaseCleanup.reset(new HIRCleanup(LI, *PhaseCreation, HNU));
+  PhaseLoopFormation.reset(
+      new HIRLoopFormation(LI, SE, RI, *PhaseCreation, *PhaseCleanup, HNU));
+  PhaseScalarSA.reset(new HIRScalarSymbaseAssignment(LI, SE, RI, SCCF,
+                                                     *PhaseLoopFormation, HNU));
+  PhaseParser.reset(new HIRParser(DT, LI, SE, RI, *this, *PhaseCreation,
+                                  *PhaseLoopFormation, *PhaseScalarSA, HNU));
 
-  // Destroy all HLNodes.
-  HNU.destroyAll();
+  runImpl();
 }
+
+HIRFramework::HIRFramework(HIRFramework &&Arg)
+    : Func(Arg.Func), DT(Arg.DT), PDT(Arg.PDT), LI(Arg.LI), SE(Arg.SE),
+      AA(Arg.AA), RI(Arg.RI), SCCF(Arg.SCCF), HNU(std::move(Arg.HNU)),
+      AnalysisProvider(std::move(Arg.AnalysisProvider)),
+      Regions(std::move(Arg.Regions)),
+      PhaseCreation(std::move(Arg.PhaseCreation)),
+      PhaseCleanup(std::move(Arg.PhaseCleanup)),
+      PhaseLoopFormation(std::move(Arg.PhaseLoopFormation)),
+      PhaseScalarSA(std::move(Arg.PhaseScalarSA)),
+      PhaseParser(std::move(Arg.PhaseParser)), MaxSymbase(Arg.MaxSymbase) {
+  // Have to update HIRFramework reference to the new location.
+  HNU.HIRF = std::ref(*this);
+  PhaseParser->HIRF = std::ref(*this);
+}
+
+HIRFramework::~HIRFramework() {}
 
 struct HIRFramework::MaxTripCountEstimator final : public HLNodeVisitorBase {
   const HIRFramework *HIRF;
@@ -392,15 +434,12 @@ void HIRFramework::estimateMaxTripCounts() {
   getHLNodeUtils().visitAll(MTCE);
 }
 
-void HIRFramework::print(raw_ostream &OS, const Module *M) const {
-  print(true, OS);
-}
+void HIRFramework::print(raw_ostream &OS) const { print(true, OS); }
 
 void HIRFramework::print(bool FrameworkDetails, raw_ostream &OS) const {
 #if !INTEL_PRODUCT_RELEASE
   formatted_raw_ostream FOS(OS);
-  auto RegBegin = getAnalysis<HIRRegionIdentification>().begin();
-  auto SCCF = &getAnalysis<HIRSCCFormation>();
+  auto RegBegin = RI.begin();
   unsigned Offset = 0;
   bool PrintFrameworkDetails =
       PhaseParser->isReady() && (HIRFrameworkDetails || FrameworkDetails);
@@ -411,7 +450,7 @@ void HIRFramework::print(bool FrameworkDetails, raw_ostream &OS) const {
     if (!HIRPrintModified || Region->shouldGenCode()) {
       // Print SCCs in hir-parser output and in detailed mode.
       if (PrintFrameworkDetails) {
-        SCCF->print(FOS, RegBegin + Offset);
+        SCCF.print(FOS, RegBegin + Offset);
       }
 
       FOS << "\n";
@@ -422,7 +461,7 @@ void HIRFramework::print(bool FrameworkDetails, raw_ostream &OS) const {
 #endif // !INTEL_PRODUCT_RELEASE
 }
 
-void HIRFramework::verifyAnalysis() const {
+void HIRFramework::verify() const {
   if (HIRVerify) {
     HIRVerifier::verifyAll(*this);
     DEBUG(dbgs() << "Verification of HIR done"

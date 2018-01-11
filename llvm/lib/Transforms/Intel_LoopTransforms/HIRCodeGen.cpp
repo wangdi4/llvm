@@ -21,26 +21,17 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Transforms/Intel_LoopTransforms/HIRCodeGen.h"
+
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
-#include "llvm/IR/Function.h"
-#include "llvm/Pass.h"
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpander.h"
-#include "llvm/Analysis/ScalarEvolutionExpressions.h"
 
-#include "llvm/Support/Debug.h"
-
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/IR/DebugInfoMetadata.h"
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Local.h"
@@ -122,10 +113,10 @@ public:
     llvm_unreachable("Unknown HIR type in CG");
   }
 
-  CGVisitor(Function *CurFunc, ScalarEvolution *SE, HIRFramework *HIRF)
-      : F(CurFunc), HIRF(HIRF), CurRegion(nullptr), CurLoopIsNSW(false),
-        Builder(CurFunc->getContext()),
-        Expander(*SE, CurFunc->getParent()->getDataLayout(), "i", *this) {}
+  CGVisitor(HIRFramework &HIRF, ScalarEvolution &SE)
+      : F(HIRF.getFunction()), HIRF(HIRF), CurRegion(nullptr),
+        CurLoopIsNSW(false), Builder(HIRF.getContext()),
+        Expander(SE, HIRF.getDataLayout(), "i", *this) {}
 
 private:
   // Performs preprocessing for \p Reg before we start generating code for it.
@@ -209,7 +200,7 @@ private:
 
   // TODO blobs are reprsented by scev with some caveats
   SCEV *getBlobSCEV(int BlobIdx) {
-    return const_cast<SCEV *>(HIRF->getBlobUtils().getBlob(BlobIdx));
+    return const_cast<SCEV *>(HIRF.getBlobUtils().getBlob(BlobIdx));
   }
 
   Value *IVCoefCG(CanonExpr *CE, CanonExpr::iv_iterator IVIt) {
@@ -238,7 +229,7 @@ private:
   // current func. used for allocs that we expect to regisiterize
   AllocaInst *CreateEntryBlockAlloca(const std::string &VarName, Type *Ty,
                                      Value *size = 0) {
-    IRBuilder<> TmpB(&F->getEntryBlock(), F->getEntryBlock().begin());
+    IRBuilder<> TmpB(&F.getEntryBlock(), F.getEntryBlock().begin());
     return TmpB.CreateAlloca(Ty, size, VarName.c_str());
   }
 
@@ -319,8 +310,8 @@ private:
     ~ScopeDbgLoc() { Visitor.Builder.SetCurrentDebugLocation(OldDbgLoc); }
   };
 
-  Function *F;
-  HIRFramework *HIRF;
+  Function &F;
+  HIRFramework &HIRF;
   HLRegion *CurRegion;
   bool CurLoopIsNSW;
   IRBuilder<> Builder;
@@ -347,10 +338,10 @@ private:
   SmallPtrSet<BasicBlock *, 8> ExitBBs;
 };
 
-class HIRCodeGen : public FunctionPass {
+class HIRCodeGen {
 private:
-  ScalarEvolution *SE;
-  HIRFramework *HIRF;
+  ScalarEvolution &SE;
+  HIRFramework &HIRF;
 
   // Clears HIR related metadata from instructions. Returns true if any
   // instruction was cleared.
@@ -360,45 +351,67 @@ private:
   bool shouldGenCode(HLRegion *Reg, unsigned RegionIdx) const;
 
 public:
-  static char ID;
+  HIRCodeGen(ScalarEvolution &SE, HIRFramework &HIRF) : SE(SE), HIRF(HIRF) {}
 
-  HIRCodeGen() : FunctionPass(ID) {
-    initializeHIRCodeGenPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnFunction(Function &F) override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const {
-    AU.addRequired<ScalarEvolutionWrapperPass>();
-    AU.addRequired<HIRFramework>();
-  }
+  bool run();
 
   /// Erases all the dummy instructions.
   void eraseDummyInstructions(HLNodeUtils &HNU);
 };
+
+class HIRCodeGenWrapperPass : public FunctionPass {
+public:
+  static char ID;
+
+  HIRCodeGenWrapperPass() : FunctionPass(ID) {
+    initializeHIRCodeGenWrapperPassPass(*PassRegistry::getPassRegistry());
+  }
+
+  bool runOnFunction(Function &F) override {
+    return HIRCodeGen(getAnalysis<ScalarEvolutionWrapperPass>().getSE(),
+                      getAnalysis<HIRFrameworkWrapperPass>().getHIR())
+        .run();
+  }
+
+  void getAnalysisUsage(AnalysisUsage &AU) const {
+    AU.addRequired<ScalarEvolutionWrapperPass>();
+    AU.addRequired<HIRFrameworkWrapperPass>();
+  }
+};
+
 } // namespace
 
-FunctionPass *llvm::createHIRCodeGenPass() { return new HIRCodeGen(); }
+FunctionPass *llvm::createHIRCodeGenWrapperPass() {
+  return new HIRCodeGenWrapperPass();
+}
 
-char HIRCodeGen::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRCodeGen, "hir-cg", "HIR Code Generation", false, false)
+char HIRCodeGenWrapperPass::ID = 0;
+INITIALIZE_PASS_BEGIN(HIRCodeGenWrapperPass, "hir-cg", "HIR Code Generation",
+                      false, false)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRFramework)
-INITIALIZE_PASS_END(HIRCodeGen, "hir-cg", "HIR Code Generation", false, false)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
+INITIALIZE_PASS_END(HIRCodeGenWrapperPass, "hir-cg", "HIR Code Generation",
+                    false, false)
 
-bool HIRCodeGen::runOnFunction(Function &F) {
-  DEBUG(dbgs().write_escaped(F.getName()) << "\n");
-  DEBUG(F.dump());
+PreservedAnalyses HIRCodeGenPass::run(Function &F,
+                                      FunctionAnalysisManager &AM) {
+  bool Transformed = HIRCodeGen(AM.getResult<ScalarEvolutionAnalysis>(F),
+                                AM.getResult<HIRFrameworkAnalysis>(F))
+                         .run();
 
-  SE = &(getAnalysis<ScalarEvolutionWrapperPass>().getSE());
-  auto HIRF = &getAnalysis<HIRFramework>();
+  return Transformed ? PreservedAnalyses::none() : PreservedAnalyses::all();
+}
+
+bool HIRCodeGen::run() {
+  DEBUG(dbgs().write_escaped(HIRF.getFunction().getName()) << "\n");
+  DEBUG(HIRF.getFunction().dump());
 
   // generate code
-  CGVisitor CG(&F, SE, HIRF);
+  CGVisitor CG(HIRF, SE);
   bool Transformed = false;
   unsigned RegionIdx = 1;
 
-  for (auto I = HIRF->hir_begin(), E = HIRF->hir_end(); I != E;
+  for (auto I = HIRF.hir_begin(), E = HIRF.hir_end(); I != E;
        ++I, ++RegionIdx) {
     HLRegion *Reg = cast<HLRegion>(&*I);
 
@@ -414,10 +427,10 @@ bool HIRCodeGen::runOnFunction(Function &F) {
     }
   }
 
-  eraseDummyInstructions(HIRF->getHLNodeUtils());
+  eraseDummyInstructions(HIRF.getHLNodeUtils());
 
   // No longer need to suppress scalar optimizations.
-  F.resetPreLoopOpt();
+  HIRF.getFunction().resetPreLoopOpt();
 
   return Transformed;
 }
@@ -445,11 +458,10 @@ bool HIRCodeGen::shouldGenCode(HLRegion *Reg, unsigned RegionIdx) const {
 
 bool HIRCodeGen::clearHIRMetadata(HLRegion *Reg) const {
   bool Cleared = false;
-  unsigned LiveInID = SE->getHIRMDKindID(ScalarEvolution::HIRLiveKind::LiveIn);
-  unsigned LiveOutID =
-      SE->getHIRMDKindID(ScalarEvolution::HIRLiveKind::LiveOut);
+  unsigned LiveInID = SE.getHIRMDKindID(ScalarEvolution::HIRLiveKind::LiveIn);
+  unsigned LiveOutID = SE.getHIRMDKindID(ScalarEvolution::HIRLiveKind::LiveOut);
   unsigned LiveRangeID =
-      SE->getHIRMDKindID(ScalarEvolution::HIRLiveKind::LiveRange);
+      SE.getHIRMDKindID(ScalarEvolution::HIRLiveKind::LiveRange);
 
   for (auto BB = Reg->bb_begin(), End = Reg->bb_end(); BB != End; ++BB) {
     for (auto &Inst : **BB) {
@@ -485,7 +497,7 @@ Value *CGVisitor::HIRSCEVExpander::visitUnknown(const SCEVUnknown *S) {
   // Blobs represented by an scevunknown whose value is an instruction
   // are represented by load and stores to a memory location corresponding
   // to the blob's symbase. Blobs are always rvals, and so loaded
-  unsigned BlobSymbase = CG.HIRF->getBlobUtils().findTempBlobSymbase(S);
+  unsigned BlobSymbase = CG.HIRF.getBlobUtils().findTempBlobSymbase(S);
 
   // SCEVExpander can create its own SCEVs as intermediates which are
   // then expanded. One example is expandAddToGep which replaces
@@ -596,10 +608,9 @@ Value *CGVisitor::getBlobValue(int BlobIdx, Type *Ty) {
     if (ScalarTy->isPointerTy()) {
       assert((ScalarTy == BType) && "Pointer blob type mismatch!");
     } else {
-      assert(
-          (ScalarTy->getPrimitiveSizeInBits() ==
-           F->getParent()->getDataLayout().getPointerTypeSizeInBits(BType)) &&
-          "Pointer size and CE size mismatch");
+      assert((ScalarTy->getPrimitiveSizeInBits() ==
+              F.getParent()->getDataLayout().getPointerTypeSizeInBits(BType)) &&
+             "Pointer size and CE size mismatch");
       Blob = Builder.CreatePtrToInt(Blob, ScalarTy);
     }
   }
@@ -809,7 +820,7 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
 
       if (Offsets) {
         // Structure fields are always i32 type.
-        auto I32Ty = Type::getInt32Ty(F->getContext());
+        auto I32Ty = Type::getInt32Ty(F.getContext());
 
         for (auto OffsetVal : *Offsets) {
           auto OffsetIndex = ConstantInt::get(I32Ty, OffsetVal);
@@ -994,9 +1005,9 @@ void CGVisitor::generateDeclareValue(AllocaInst *Alloca,
          "Expected matching subprograms");
 
   Function *DeclareFn =
-      Intrinsic::getDeclaration(F->getParent(), Intrinsic::dbg_declare);
+      Intrinsic::getDeclaration(F.getParent(), Intrinsic::dbg_declare);
 
-  auto &Context = F->getContext();
+  auto &Context = F.getContext();
   Value *Args[] = {MetadataAsValue::get(Context, ValueAsMetadata::get(Alloca)),
                    MetadataAsValue::get(Context, LocalVariable),
                    MetadataAsValue::get(Context, Expression)};
@@ -1036,7 +1047,7 @@ void CGVisitor::replaceOldRegion(BasicBlock *RegionEntry) {
   // Split the block if the region entry is the same as function entry
   // TODO - As mentioned in discussions with Pankaj, the framework should
   // handle this splitting as splitting here can cause problems.
-  if (&(F->getEntryBlock()) == EntryFirstHalf) {
+  if (&(F.getEntryBlock()) == EntryFirstHalf) {
     EntryFirstHalf = EntryFirstHalf->splitBasicBlock(
         EntryFirstHalf->getTerminator(), "entry.split");
   }
@@ -1048,7 +1059,7 @@ void CGVisitor::replaceOldRegion(BasicBlock *RegionEntry) {
   BasicBlock::iterator It(Term);
   BranchInst *RegionBranch = BranchInst::Create(
       RegionEntry, EntrySecondHalf,
-      ConstantInt::get(IntegerType::get(F->getContext(), 1), 1));
+      ConstantInt::get(IntegerType::get(F.getContext(), 1), 1));
   ReplaceInstWithInst(Term->getParent()->getInstList(), It, RegionBranch);
 }
 
@@ -1063,7 +1074,7 @@ Value *CGVisitor::visitRegion(HLRegion *Reg) {
   CurIVValues.push_back(nullptr);
   // create new bblock for region entry
   BasicBlock *RegionEntry = BasicBlock::Create(
-      F->getContext(), "region." + std::to_string(Reg->getNumber()), F);
+      F.getContext(), "region." + std::to_string(Reg->getNumber()), &F);
   Builder.SetInsertPoint(RegionEntry);
 
   initializeLiveins();
@@ -1102,7 +1113,7 @@ Value *CGVisitor::visitRegion(HLRegion *Reg) {
 
   replaceOldRegion(RegionEntry);
 
-  // DEBUG(F->dump());
+  // DEBUG(F.dump());
   // Remove null value used for indexing
   CurIVValues.pop_back();
   return nullptr;
@@ -1120,7 +1131,7 @@ Value *CGVisitor::generatePredicate(HLIf *HIf, HLIf::const_pred_iterator P) {
   if (*P == UNDEFINED_PREDICATE) {
     // TODO icmp/fcmp with nonvector args return a boolean, i1 but
     // vector types would require cmp to return vector of i1
-    return UndefValue::get(IntegerType::get(F->getContext(), 1));
+    return UndefValue::get(IntegerType::get(F.getContext(), 1));
   }
 
   LHSVal = visitRegDDRef(LHSRef);
@@ -1162,23 +1173,23 @@ Value *CGVisitor::visitIf(HLIf *HIf, Value *IVAdd, AllocaInst *IVAlloca) {
 
   std::string HNumStr = std::to_string(HIf->getNumber());
   BasicBlock *MergeBB =
-      BasicBlock::Create(F->getContext(), "ifmerge." + HNumStr);
+      BasicBlock::Create(F.getContext(), "ifmerge." + HNumStr);
 
   bool HasThenChildren = HIf->hasThenChildren();
   bool HasElseChildren = HIf->hasElseChildren();
 
   BasicBlock *ThenBB =
-      HasThenChildren ? BasicBlock::Create(F->getContext(), "then." + HNumStr)
+      HasThenChildren ? BasicBlock::Create(F.getContext(), "then." + HNumStr)
                       : MergeBB;
   BasicBlock *ElseBB =
-      HasElseChildren ? BasicBlock::Create(F->getContext(), "else." + HNumStr)
+      HasElseChildren ? BasicBlock::Create(F.getContext(), "else." + HNumStr)
                       : MergeBB;
 
   Builder.CreateCondBr(CondV, ThenBB, ElseBB);
 
   if (HasThenChildren) {
     // generate then block
-    F->getBasicBlockList().push_back(ThenBB);
+    F.getBasicBlockList().push_back(ThenBB);
     Builder.SetInsertPoint(ThenBB);
 
     if (IVAdd) {
@@ -1197,7 +1208,7 @@ Value *CGVisitor::visitIf(HLIf *HIf, Value *IVAdd, AllocaInst *IVAlloca) {
     assert(!IVAdd && "Bottom test cannot have else case!");
 
     // generate else block
-    F->getBasicBlockList().push_back(ElseBB);
+    F.getBasicBlockList().push_back(ElseBB);
     Builder.SetInsertPoint(ElseBB);
     for (auto It = HIf->else_begin(), E = HIf->else_end(); It != E; ++It) {
       visit(*It);
@@ -1207,7 +1218,7 @@ Value *CGVisitor::visitIf(HLIf *HIf, Value *IVAdd, AllocaInst *IVAlloca) {
   }
 
   // CG resumes at merge block
-  F->getBasicBlockList().push_back(MergeBB);
+  F.getBasicBlockList().push_back(MergeBB);
   Builder.SetInsertPoint(MergeBB);
 
   return nullptr;
@@ -1254,7 +1265,7 @@ Value *CGVisitor::visitLoop(HLLoop *Lp) {
     assert(Upper->getType() == Lp->getIVType() &&
            "IVtype does not match upper type");
 
-    LoopBB = BasicBlock::Create(F->getContext(), LName, F);
+    LoopBB = BasicBlock::Create(F.getContext(), LName, &F);
 
     // explicit fallthru to loop, terminates current bblock
     Builder.CreateBr(LoopBB);
@@ -1300,7 +1311,7 @@ Value *CGVisitor::visitLoop(HLLoop *Lp) {
                            NextVar, Upper, "cond" + LName);
 
     BasicBlock *AfterBB =
-        BasicBlock::Create(F->getContext(), "after" + LName, F);
+        BasicBlock::Create(F.getContext(), "after" + LName, &F);
 
     ScopeDbgLoc DbgLocBranch(*this, Lp->getBranchDebugLoc());
 
@@ -1325,7 +1336,7 @@ BasicBlock *CGVisitor::getBBlockForLabel(HLLabel *L) {
     return InternalLabels[L];
 
   BasicBlock *LabelBB =
-      BasicBlock::Create(F->getContext(), "hir." + L->getName(), F);
+      BasicBlock::Create(F.getContext(), "hir." + L->getName(), &F);
   InternalLabels[L] = LabelBB;
   return LabelBB;
 }
@@ -1368,15 +1379,15 @@ Value *CGVisitor::visitSwitch(HLSwitch *S) {
   SmallString<10> SwitchName("hir.sw." + std::to_string(S->getNumber()));
 
   BasicBlock *DefaultBlock =
-      BasicBlock::Create(F->getContext(), SwitchName + ".default");
+      BasicBlock::Create(F.getContext(), SwitchName + ".default");
   BasicBlock *EndBlock =
-      BasicBlock::Create(F->getContext(), SwitchName + ".end");
+      BasicBlock::Create(F.getContext(), SwitchName + ".end");
 
   SwitchInst *LLVMSwitch =
       Builder.CreateSwitch(CondV, DefaultBlock, S->getNumCases());
 
   // generate default block
-  F->getBasicBlockList().push_back(DefaultBlock);
+  F.getBasicBlockList().push_back(DefaultBlock);
   Builder.SetInsertPoint(DefaultBlock);
   for (auto I = S->default_case_child_begin(), E = S->default_case_child_end();
        I != E; ++I) {
@@ -1392,8 +1403,8 @@ Value *CGVisitor::visitSwitch(HLSwitch *S) {
     ConstantInt *CaseInt = cast<ConstantInt>(CaseV);
 
     BasicBlock *CaseBlock = BasicBlock::Create(
-        F->getContext(), SwitchName + ".case." + std::to_string(I - 1));
-    F->getBasicBlockList().push_back(CaseBlock);
+        F.getContext(), SwitchName + ".case." + std::to_string(I - 1));
+    F.getBasicBlockList().push_back(CaseBlock);
     Builder.SetInsertPoint(CaseBlock);
 
     for (auto HNode = S->case_child_begin(I), E = S->case_child_end(I);
@@ -1405,7 +1416,7 @@ Value *CGVisitor::visitSwitch(HLSwitch *S) {
     LLVMSwitch->addCase(CaseInt, CaseBlock);
   }
 
-  F->getBasicBlockList().push_back(EndBlock);
+  F.getBasicBlockList().push_back(EndBlock);
   Builder.SetInsertPoint(EndBlock);
   return nullptr;
 }

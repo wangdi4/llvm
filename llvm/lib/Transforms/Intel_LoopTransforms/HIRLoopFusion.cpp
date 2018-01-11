@@ -131,7 +131,7 @@ public:
   void releaseMemory() override;
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
-    AU.addRequiredTransitive<HIRFramework>();
+    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
     AU.addRequiredTransitive<HIRDDAnalysis>();
     AU.addRequiredTransitive<HIRLoopStatistics>();
     AU.setPreservesAll();
@@ -141,7 +141,7 @@ public:
 
 char HIRLoopFusion::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRLoopFusion, OPT_SWITCH, OPT_DESC, false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFramework)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatistics)
 INITIALIZE_PASS_END(HIRLoopFusion, OPT_SWITCH, OPT_DESC, false, false)
@@ -623,7 +623,7 @@ bool HIRLoopFusion::runOnFunction(Function &F) {
 
   DEBUG(dbgs() << OPT_DESC " for Function : " << F.getName() << "\n");
 
-  auto &HIR = getAnalysis<HIRFramework>();
+  auto &HIR = getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   DDA = &getAnalysis<HIRDDAnalysis>();
   HLS = &getAnalysis<HIRLoopStatistics>();
 

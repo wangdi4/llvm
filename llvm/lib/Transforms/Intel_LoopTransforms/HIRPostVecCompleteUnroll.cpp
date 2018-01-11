@@ -48,7 +48,7 @@ public:
 char HIRPostVecCompleteUnroll::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRPostVecCompleteUnroll, "hir-post-vec-complete-unroll",
                       "HIR PostVec Complete Unroll", false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFramework)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatistics)
 INITIALIZE_PASS_END(HIRPostVecCompleteUnroll, "hir-post-vec-complete-unroll",
                     "HIR PostVec Complete Unroll", false, false)

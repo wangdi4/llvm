@@ -31,40 +31,61 @@ using namespace llvm::loopopt;
 
 #define DEBUG_TYPE "hir-scc-formation"
 
-INITIALIZE_PASS_BEGIN(HIRSCCFormation, "hir-scc-formation", "HIR SCC Formation",
-                      false, true)
+AnalysisKey HIRSCCFormationAnalysis::Key;
+
+HIRSCCFormation HIRSCCFormationAnalysis::run(Function &F,
+                                             FunctionAnalysisManager &AM) {
+  // All the real work is done in the constructor for the HIRSCCFormation.
+  return HIRSCCFormation(AM.getResult<LoopAnalysis>(F),
+                         AM.getResult<DominatorTreeAnalysis>(F),
+                         AM.getResult<ScalarEvolutionAnalysis>(F),
+                         AM.getResult<HIRRegionIdentificationAnalysis>(F));
+}
+
+INITIALIZE_PASS_BEGIN(HIRSCCFormationWrapperPass, "hir-scc-formation",
+                      "HIR SCC Formation", false, true)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRRegionIdentification)
-INITIALIZE_PASS_END(HIRSCCFormation, "hir-scc-formation", "HIR SCC Formation",
-                    false, true)
+INITIALIZE_PASS_DEPENDENCY(HIRRegionIdentificationWrapperPass)
+INITIALIZE_PASS_END(HIRSCCFormationWrapperPass, "hir-scc-formation",
+                    "HIR SCC Formation", false, true)
 
-char HIRSCCFormation::ID = 0;
+char HIRSCCFormationWrapperPass::ID = 0;
 
-FunctionPass *llvm::createHIRSCCFormationPass() {
-  return new HIRSCCFormation();
+FunctionPass *llvm::createHIRSCCFormationWrapperPass() {
+  return new HIRSCCFormationWrapperPass();
 }
 
-HIRSCCFormation::HIRSCCFormation() : FunctionPass(ID), GlobalNodeIndex(1) {
-  initializeHIRSCCFormationPass(*PassRegistry::getPassRegistry());
+bool HIRSCCFormationWrapperPass::runOnFunction(Function &) {
+  // All the real work is done in the constructor for the HIRSCCFormation.
+  SCCF.reset(new HIRSCCFormation(
+      getAnalysis<LoopInfoWrapperPass>().getLoopInfo(),
+      getAnalysis<DominatorTreeWrapperPass>().getDomTree(),
+      getAnalysis<ScalarEvolutionWrapperPass>().getSE(),
+      getAnalysis<HIRRegionIdentificationWrapperPass>().getRI()));
+  return false;
 }
 
-void HIRSCCFormation::getAnalysisUsage(AnalysisUsage &AU) const {
+HIRSCCFormationWrapperPass::HIRSCCFormationWrapperPass() : FunctionPass(ID) {
+  initializeHIRSCCFormationWrapperPassPass(*PassRegistry::getPassRegistry());
+}
+
+void HIRSCCFormationWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequiredTransitive<DominatorTreeWrapperPass>();
   AU.addRequiredTransitive<LoopInfoWrapperPass>();
   AU.addRequiredTransitive<ScalarEvolutionWrapperPass>();
-  AU.addRequiredTransitive<HIRRegionIdentification>();
+  AU.addRequiredTransitive<HIRRegionIdentificationWrapperPass>();
 }
 
 bool HIRSCCFormation::isConsideredLinear(const NodeTy *Node) const {
 
-  if (!SE->isSCEVable(Node->getType())) {
+  if (!SE.isSCEVable(Node->getType())) {
     return false;
   }
 
-  auto SC = SE->getSCEV(const_cast<NodeTy *>(Node));
+  auto SC = SE.getSCEV(const_cast<NodeTy *>(Node));
   auto AddRecSCEV = dyn_cast<SCEVAddRecExpr>(SC);
 
   if (!AddRecSCEV || !AddRecSCEV->isAffine()) {
@@ -78,14 +99,14 @@ bool HIRSCCFormation::isConsideredLinear(const NodeTy *Node) const {
   auto Phi = dyn_cast<PHINode>(Node);
 
   // Header phis can be handled by the parser.
-  if (!Phi || RI->isHeaderPhi(Phi)) {
+  if (!Phi || RI.isHeaderPhi(Phi)) {
     return true;
   }
 
   // Check if there is a type mismatch in the primary element type for pointer
   // types.
-  if (RI->getPrimaryElementType(Phi->getType()) !=
-      RI->getPrimaryElementType(SC->getType())) {
+  if (RI.getPrimaryElementType(Phi->getType()) !=
+      RI.getPrimaryElementType(SC->getType())) {
     return false;
   }
 
@@ -111,7 +132,7 @@ bool HIRSCCFormation::isCandidateRootNode(const NodeTy *Node) const {
 }
 
 bool HIRSCCFormation::isLoopLiveOut(const Instruction *Inst) const {
-  auto Lp = LI->getLoopFor(Inst->getParent());
+  auto Lp = LI.getLoopFor(Inst->getParent());
 
   assert(Lp && "Loop is null!");
 
@@ -122,7 +143,7 @@ bool HIRSCCFormation::isLoopLiveOut(const Instruction *Inst) const {
     // using opt, for example) we will see a liveout copy which is used outside
     // the loop instead of a direct liveout use. This check is to make sure we
     // form identical SCCs irrespective of when this is called.
-    if (SE->getHIRMetadata(UserInst, ScalarEvolution::HIRLiveKind::LiveOut)) {
+    if (SE.getHIRMetadata(UserInst, ScalarEvolution::HIRLiveKind::LiveOut)) {
       return isLoopLiveOut(UserInst);
     }
 
@@ -135,12 +156,12 @@ bool HIRSCCFormation::isLoopLiveOut(const Instruction *Inst) const {
 }
 
 bool HIRSCCFormation::usedInHeaderPhi(const PHINode *Phi) const {
-  assert(!RI->isHeaderPhi(Phi) && "Header phi not expected!");
+  assert(!RI.isHeaderPhi(Phi) && "Header phi not expected!");
 
   for (auto I = Phi->user_begin(), E = Phi->user_end(); I != E; ++I) {
     auto UserPhi = dyn_cast<PHINode>(*I);
 
-    if (!UserPhi || !RI->isHeaderPhi(UserPhi)) {
+    if (!UserPhi || !RI.isHeaderPhi(UserPhi)) {
       continue;
     }
 
@@ -179,14 +200,14 @@ public:
 };
 
 bool HIRSCCFormation::dependsOnSameBasicBlockPhi(const PHINode *Phi) const {
-  assert(RI->isHeaderPhi(Phi) && "Header phi expected!");
+  assert(RI.isHeaderPhi(Phi) && "Header phi expected!");
 
   if (isConsideredLinear(Phi)) {
     return false;
   }
 
   auto PhiBB = Phi->getParent();
-  bool IsSCEVable = SE->isSCEVable(Phi->getType());
+  bool IsSCEVable = SE.isSCEVable(Phi->getType());
 
   BasicBlockPhiFinder BBPF(Phi);
 
@@ -208,7 +229,7 @@ bool HIRSCCFormation::dependsOnSameBasicBlockPhi(const PHINode *Phi) const {
     }
 
     // Check SCEV form of operand.
-    auto SC = SE->getSCEV(const_cast<Instruction *>(InstOp));
+    auto SC = SE.getSCEV(const_cast<Instruction *>(InstOp));
     visitAll(SC, BBPF);
 
     if (BBPF.found()) {
@@ -226,12 +247,12 @@ bool HIRSCCFormation::hasEarlyExitPredecessor(const PHINode *Phi) const {
     return false;
   }
 
-  auto PhiLp = LI->getLoopFor(Phi->getParent());
+  auto PhiLp = LI.getLoopFor(Phi->getParent());
 
   for (unsigned I = 0, E = Phi->getNumIncomingValues(); I < E; ++I) {
     auto PredBB = Phi->getIncomingBlock(I);
 
-    auto PredLp = LI->getLoopFor(PredBB);
+    auto PredLp = LI.getLoopFor(PredBB);
 
     if ((PredLp != PhiLp) && (PredBB != PredLp->getLoopLatch())) {
       return true;
@@ -259,7 +280,7 @@ bool HIRSCCFormation::isCandidateNode(const NodeTy *Node) const {
     // removed as intermediate temps from the SCC and do not cause type mismatch
     // issues.
     if (!isa<CastInst>(Node) ||
-        (!SE->getHIRMetadata(Node, ScalarEvolution::HIRLiveKind::LiveOut) &&
+        (!SE.getHIRMetadata(Node, ScalarEvolution::HIRLiveKind::LiveOut) &&
          !Node->hasOneUse())) {
       return false;
     }
@@ -294,7 +315,7 @@ bool HIRSCCFormation::isCandidateNode(const NodeTy *Node) const {
     return true;
   }
 
-  if (RI->isHeaderPhi(Phi)) {
+  if (RI.isHeaderPhi(Phi)) {
     return (!isLoopLiveOut(Phi) || !dependsOnSameBasicBlockPhi(Phi));
   }
 
@@ -342,7 +363,7 @@ void HIRSCCFormation::removeIntermediateNodes(SCC &CurSCC) const {
   SmallVector<NodeTy *, 8> IntermediateNodes;
 
   Type *RootTy = CurSCC.getRoot()->getType();
-  bool IsSCEVable = SE->isSCEVable(RootTy);
+  bool IsSCEVable = SE.isSCEVable(RootTy);
 
   // Collect all the intermediate nodes of the SCC for removal afterwards.
   for (auto Node : CurSCC) {
@@ -357,8 +378,7 @@ void HIRSCCFormation::removeIntermediateNodes(SCC &CurSCC) const {
       IntermediateNodes.push_back(Node);
       continue;
 
-    } else if (SE->getHIRMetadata(Node,
-                                  ScalarEvolution::HIRLiveKind::LiveOut)) {
+    } else if (SE.getHIRMetadata(Node, ScalarEvolution::HIRLiveKind::LiveOut)) {
       // Liveout copies added by SSA deconstruction should be removed as
       // intermediate nodes.
       IntermediateNodes.push_back(Node);
@@ -399,29 +419,29 @@ void HIRSCCFormation::removeIntermediateNodes(SCC &CurSCC) const {
 
 unsigned HIRSCCFormation::getRegionIndex(
     HIRRegionIdentification::const_iterator RegIt) const {
-  return RegIt - RI->begin();
+  return RegIt - RI.begin();
 }
 
 void HIRSCCFormation::setRegionSCCBegin() {
-  if (isNewRegion) {
+  if (IsNewRegion) {
     // Set begin index of current region's SCCs.
     RegionSCCBegin[getRegionIndex(CurRegIt)].first = RegionSCCs.size() - 1;
 
     // Set end index of last region with SCCs.
-    if (LastSCCRegIt != RI->end()) {
+    if (LastSCCRegIt != RI.end()) {
       RegionSCCBegin[getRegionIndex(LastSCCRegIt)].second =
           RegionSCCs.size() - 1;
     }
 
     // Set the current region as the last region with SCCs.
     LastSCCRegIt = CurRegIt;
-    isNewRegion = false;
+    IsNewRegion = false;
   }
 }
 
 void HIRSCCFormation::setRegion(HIRRegionIdentification::const_iterator RegIt) {
   CurRegIt = RegIt;
-  isNewRegion = true;
+  IsNewRegion = true;
 }
 
 bool HIRSCCFormation::isUsedInSCCPhi(PHINode *Phi, const SCC &CurSCC) {
@@ -642,7 +662,7 @@ bool HIRSCCFormation::hasLiveRangeOverlap(const NodeTy *Node,
 bool HIRSCCFormation::hasLoopLiveoutUseInSCC(const Instruction *Inst,
                                              const SCC &CurSCC) const {
 
-  auto Lp = LI->getLoopFor(Inst->getParent());
+  auto Lp = LI.getLoopFor(Inst->getParent());
 
   assert(Lp && "Loop is null!");
 
@@ -653,7 +673,7 @@ bool HIRSCCFormation::hasLoopLiveoutUseInSCC(const Instruction *Inst,
     // using opt, for example) we will see a liveout copy which is used outside
     // the loop instead of a direct liveout use. This check is to make sure we
     // form identical SCCs irrespective of when this is called.
-    if (SE->getHIRMetadata(UserInst, ScalarEvolution::HIRLiveKind::LiveOut)) {
+    if (SE.getHIRMetadata(UserInst, ScalarEvolution::HIRLiveKind::LiveOut)) {
       return hasLoopLiveoutUseInSCC(UserInst, CurSCC);
     }
 
@@ -676,7 +696,7 @@ bool HIRSCCFormation::isValidSCCRootNode(const NodeTy *Root) const {
     return true;
   }
 
-  auto SC = SE->getSCEV(const_cast<NodeTy *>(Root));
+  auto SC = SE.getSCEV(const_cast<NodeTy *>(Root));
 
   auto AddRec = dyn_cast<SCEVAddRecExpr>(SC);
   // Suppress SCC formation for polynomial AddRecs. The issue is that
@@ -702,7 +722,7 @@ bool HIRSCCFormation::isValidSCCRootNode(const NodeTy *Root) const {
   // all occurences of temps in the SCC with the base/root temp. If such
   // simplification occurs during substitution, we will form incorrect HIR.
   // TODO: refine this logic?
-  if (!SE->getUnsignedRange(SC).isFullSet()) {
+  if (!SE.getUnsignedRange(SC).isFullSet()) {
     return false;
   }
 
@@ -768,7 +788,7 @@ bool HIRSCCFormation::isValidSCC(const SCC &CurSCC) const {
 
     BBlocks.insert(ParentBB);
 
-    if (RI->isHeaderPhi(Phi)) {
+    if (RI.isHeaderPhi(Phi)) {
       if (hasLoopLiveoutUseInSCC(Phi, CurSCC)) {
         return false;
       } else {
@@ -798,14 +818,14 @@ void HIRSCCFormation::updateRoot(SCC &CurSCC, NodeTy *NewRoot) const {
   }
 
   auto ParentBB = NewRoot->getParent();
-  auto NewLp = LI->getLoopFor(ParentBB);
+  auto NewLp = LI.getLoopFor(ParentBB);
 
   // Return if NewRoot isn't a header phi.
   if (ParentBB != NewLp->getHeader()) {
     return;
   }
 
-  auto OldLp = LI->getLoopFor(CurSCC.getRoot()->getParent());
+  auto OldLp = LI.getLoopFor(CurSCC.getRoot()->getParent());
 
   // If new loop contains old loop, we have found an outer loop header phi.
   if (NewLp->contains(OldLp)) {
@@ -872,7 +892,7 @@ unsigned HIRSCCFormation::findSCC(NodeTy *Node) {
       } while (SCCNode != Node);
 
       assert(isa<PHINode>(NewSCC.getRoot()) &&
-             RI->isHeaderPhi(cast<PHINode>(NewSCC.getRoot())) &&
+             RI.isHeaderPhi(cast<PHINode>(NewSCC.getRoot())) &&
              "No phi found in SCC!");
 
       removeIntermediateNodes(NewSCC);
@@ -890,16 +910,16 @@ unsigned HIRSCCFormation::findSCC(NodeTy *Node) {
   return LowLink;
 }
 
-void HIRSCCFormation::formRegionSCCs() {
+void HIRSCCFormation::runImpl() {
 
   // Iterate through the regions.
-  for (auto RegIt = RI->begin(), RegionEndIt = RI->end(); RegIt != RegionEndIt;
+  for (auto RegIt = RI.begin(), RegionEndIt = RI.end(); RegIt != RegionEndIt;
        ++RegIt) {
 
     setRegion(RegIt);
     VisitedNodes.clear();
 
-    auto Root = DT->getNode(RegIt->getEntryBBlock());
+    auto Root = DT.getNode(RegIt->getEntryBBlock());
 
     // Iterate the dominator tree of the region.
     for (df_iterator<DomTreeNode *> DomIt = df_begin(Root),
@@ -913,11 +933,11 @@ void HIRSCCFormation::formRegionSCCs() {
       }
 
       // We only care about loop headers as the phi cycle starts there.
-      if (!LI->isLoopHeader(BB)) {
+      if (!LI.isLoopHeader(BB)) {
         continue;
       }
 
-      CurLoop = LI->getLoopFor(BB);
+      CurLoop = LI.getLoopFor(BB);
 
       // Iterate through the phi nodes in the header.
       for (auto I = BB->begin(); isa<PHINode>(I); ++I) {
@@ -931,31 +951,25 @@ void HIRSCCFormation::formRegionSCCs() {
   }
 }
 
-bool HIRSCCFormation::runOnFunction(Function &F) {
+HIRSCCFormation::HIRSCCFormation(LoopInfo &LI, DominatorTree &DT,
+                                 ScalarEvolution &SE,
+                                 HIRRegionIdentification &RI)
+    : LI(LI), DT(DT), SE(SE), RI(RI), GlobalNodeIndex(1) {
+  // Initialize members to default values.
+  RegionSCCBegin.resize(RI.getNumRegions(), std::make_pair(NO_SCC, NO_SCC));
+  LastSCCRegIt = RI.end();
 
-  LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-  DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-  SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
-  RI = &getAnalysis<HIRRegionIdentification>();
-
-  // Initialize members to defualt values.
-  RegionSCCBegin.resize(RI->getNumRegions(), std::make_pair(NO_SCC, NO_SCC));
-  LastSCCRegIt = RI->end();
-
-  formRegionSCCs();
-
-  return false;
+  runImpl();
 }
 
-void HIRSCCFormation::releaseMemory() {
-  GlobalNodeIndex = 1;
-  isNewRegion = false;
-
-  RegionSCCs.clear();
-  RegionSCCBegin.clear();
-  VisitedNodes.clear();
-  NodeStack.clear();
-}
+HIRSCCFormation::HIRSCCFormation(HIRSCCFormation &&SCCF)
+    : LI(SCCF.LI), DT(SCCF.DT), SE(SCCF.SE), RI(SCCF.RI),
+      RegionSCCs(std::move(SCCF.RegionSCCs)),
+      RegionSCCBegin(std::move(SCCF.RegionSCCBegin)),
+      VisitedNodes(std::move(SCCF.VisitedNodes)),
+      NodeStack(std::move(SCCF.NodeStack)), CurRegIt(SCCF.CurRegIt),
+      LastSCCRegIt(SCCF.LastSCCRegIt), CurLoop(SCCF.CurLoop),
+      GlobalNodeIndex(SCCF.GlobalNodeIndex), IsNewRegion(SCCF.IsNewRegion) {}
 
 HIRSCCFormation::const_iterator
 HIRSCCFormation::begin(HIRRegionIdentification::const_iterator RegIt) const {
@@ -974,7 +988,7 @@ HIRSCCFormation::const_iterator
 HIRSCCFormation::end(HIRRegionIdentification::const_iterator RegIt) const {
 
   // If this is the absolute last region, blindly return end() iterator.
-  if (std::next(RegIt) == RI->end()) {
+  if (std::next(RegIt) == RI.end()) {
     return RegionSCCs.end();
   }
 
@@ -994,7 +1008,7 @@ void HIRSCCFormation::print(
 #if !INTEL_PRODUCT_RELEASE
   unsigned Count = 1;
   bool FirstSCC = true;
-  auto RegBegin = RI->begin();
+  auto RegBegin = RI.begin();
 
   for (auto SCCIt = begin(RegIt), SCCEndIt = end(RegIt); SCCIt != SCCEndIt;
        ++SCCIt, ++Count) {
@@ -1019,15 +1033,11 @@ void HIRSCCFormation::print(
 #endif // !INTEL_PRODUCT_RELEASE
 }
 
-void HIRSCCFormation::print(raw_ostream &OS, const Module *M) const {
+void HIRSCCFormation::print(raw_ostream &OS) const {
 #if !INTEL_PRODUCT_RELEASE
-  for (auto RegIt = RI->begin(), RegEndIt = RI->end(); RegIt != RegEndIt;
+  for (auto RegIt = RI.begin(), RegEndIt = RI.end(); RegIt != RegEndIt;
        ++RegIt) {
     print(OS, RegIt);
   }
 #endif // !INTEL_PRODUCT_RELEASE
-}
-
-void HIRSCCFormation::verifyAnalysis() const {
-  // TODO: implement later
 }

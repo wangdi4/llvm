@@ -162,7 +162,7 @@ public:
   void releaseMemory() override;
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
-    AU.addRequiredTransitive<HIRFramework>();
+    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
     AU.addRequiredTransitive<HIRDDAnalysis>();
     AU.addRequiredTransitive<HIRLoopStatistics>();
     AU.setPreservesAll();
