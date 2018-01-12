@@ -438,7 +438,7 @@ OPENCL_VERSION BasicCLConfigWrapper::GetOpenCLVersion() const
     // first look in environment variable or configuration file
     string ver = m_pConfigFile->Read("ForceOCLCPUVersion", string(""));   // we are using this name to be aligned with GEN
     if ("1.2" == ver)
-    {        
+    {
         s_ver = OPENCL_VERSION_1_2;
         return OPENCL_VERSION_1_2;
     }
@@ -491,9 +491,11 @@ OPENCL_VERSION BasicCLConfigWrapper::GetOpenCLVersion() const
 #endif // NDEBUG
 
 #ifdef BUILD_EXPERIMENTAL_21
+    s_ver = OPENCL_VERSION_2_1;
     return OPENCL_VERSION_2_1;
 #elif defined(BUILD_FPGA_EMULATOR)
-    return OPENCL_VERSION_2_0;
+    s_ver = OPENCL_VERSION_1_2;
+    return OPENCL_VERSION_1_2;
 #endif // BUILD_FPGA_EMULATOR
 
     s_ver = GetOpenclVerByCpuModel();
