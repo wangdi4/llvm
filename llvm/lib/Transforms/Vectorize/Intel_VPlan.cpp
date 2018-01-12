@@ -341,21 +341,30 @@ void VPInstruction::executeHIR(VPOCodeGenHIR *CG) {
   if (Opcode == SemiPhi)
     return;
 
-  VPInstructionData *InstData = getHIRData();
-  assert(isa<VPInstructionDataHIR>(InstData) &&
-         "Expected VPInstructionDataHIR");
-  VPInstructionDataHIR *InstDataHIR = cast<VPInstructionDataHIR>(InstData);
-  HLDDNode *Node = InstDataHIR->getInstruction();
-  if (HLInst *Inst = dyn_cast<HLInst>(Node))
-    CG->widenNode(Inst, nullptr);
-  else if (HLIf *HIf = dyn_cast<HLIf>(Node)) {
-    // We generate a compare instruction from the IF predicate. The VPValue
-    // corresponding to this instruction gets used as the condition bit value
-    // for the conditional branch. We need a mapping between this VPValue and
-    // the widened value so that we can generate code for the predicate
-    // recipes.
-    WInst = CG->widenIfPred(HIf, nullptr);
-    CG->addVPValueWideRefMapping(this, WInst->getOperandDDRef(0));
+  // TODO: As a temporal workaround, we are currently skipping VPInstructions
+  // resulting from decomposition. These VPInstructions are:
+  //    1. VPInstructions with no attached HLDDNode .
+  //    2. VPInstructions with an attached HLLoop (inductive semi-phis
+  //       - already skipped by previous early exit - and bottom test loop
+  //       condition).
+  // CG currently relies only on the VPInstruction with the HLDDNode information
+  // to generate the whole "re-composed" HIR. This approach won't work when we
+  // introduce VPlan-to-VPlan transformations that modify the input
+  // VPInstructions.
+  if (auto *HIRData = dyn_cast_or_null<VPInstructionDataHIR>(getHIRData())) {
+    HLDDNode *Node = HIRData->getInstruction();
+    assert(isa<HLDDNode>(Node) && "Expected HLDDNode.");
+    if (HLInst *Inst = dyn_cast<HLInst>(Node))
+      CG->widenNode(Inst, nullptr);
+    else if (HLIf *HIf = dyn_cast<HLIf>(Node)) {
+      // We generate a compare instruction from the IF predicate. The VPValue
+      // corresponding to this instruction gets used as the condition bit value
+      // for the conditional branch. We need a mapping between this VPValue and
+      // the widened value so that we can generate code for the predicate
+      // recipes.
+      WInst = CG->widenIfPred(HIf, nullptr);
+      CG->addVPValueWideRefMapping(this, WInst->getOperandDDRef(0));
+    }
   }
 }
 #endif
