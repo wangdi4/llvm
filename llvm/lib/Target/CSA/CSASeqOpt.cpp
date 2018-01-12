@@ -297,7 +297,17 @@ MachineOperand CSASeqOpt::CalculateTripCnt(MachineOperand& initOpnd, MachineOper
     return tripcntInstr->getOperand(0);
   }
 }
-
+MachineOperand CSASeqOpt::getTripCntForSeq(MachineInstr*seqInstr, MachineInstr* pos) {
+  if (seq2tripcnt.find(seqInstr) != seq2tripcnt.end())
+    return *seq2tripcnt[seqInstr];
+  else {
+    MachineOperand tripcnt = tripCntForSeq(seqInstr, pos);
+    tripcnt.clearParent();
+    MachineOperand* cpyTripcnt = new MachineOperand(tripcnt);
+    seq2tripcnt[seqInstr] = cpyTripcnt;
+    return tripcnt;
+  }
+}
 
 MachineOperand CSASeqOpt::tripCntForSeq(MachineInstr*seqIndv, MachineInstr* pos) {
   assert(TII->isSeqOT(seqIndv));
@@ -492,9 +502,8 @@ void CSASeqOpt::MultiSequence(CSASSANode* switchNode, CSASSANode* addNode, CSASS
     MachineOperand& initOpnd = lhdrPickNode->minstr->getOperand(2).getReg() == backedgeReg ?
       lhdrPickNode->minstr->getOperand(3) :
       lhdrPickNode->minstr->getOperand(2);
-    //const TargetRegisterClass *addTRC = TII->lookupLICRegClass(addNode->minstr->getOperand(0).getReg());
     unsigned seqReg = phidst;
-    MachineOperand tripcnt = tripCntForSeq(seqIndv, lhdrPickNode->minstr);
+    MachineOperand tripcnt = getTripCntForSeq(seqIndv, lhdrPickNode->minstr);
     tripcnt.clearParent();
     if (tripcnt.isReg()) tripcnt.setIsDef(false);
     //got a valid trip counter, convert to squence; otherwise stride
@@ -625,13 +634,18 @@ void CSASeqOpt::SequenceRepeat(CSASSANode* switchNode, CSASSANode* lhdrPickNode)
   if (isIDVCycle) {
     unsigned predRepeat = switchNode->minstr->getOperand(2).getReg();
     if (switchFalse == lpbackReg) {
-      unsigned notReg = LMFI->allocateLIC(&CSA::CI1RegClass);
-      MachineInstr* notInstr = BuildMI(*lhdrPickNode->minstr->getParent(),
-        lhdrPickNode->minstr, DebugLoc(), TII->get(CSA::NOT1),
-        notReg).
-        addReg(predRepeat);
-      notInstr->setFlag(MachineInstr::NonSequential);
-      predRepeat = notReg;
+      if (reg2neg.find(predRepeat) != reg2neg.end()) {
+        predRepeat = reg2neg[predRepeat];
+      } else {
+        unsigned notReg = LMFI->allocateLIC(&CSA::CI1RegClass);
+        MachineInstr* notInstr = BuildMI(*lhdrPickNode->minstr->getParent(),
+          lhdrPickNode->minstr, DebugLoc(), TII->get(CSA::NOT1),
+          notReg).
+          addReg(predRepeat);
+        notInstr->setFlag(MachineInstr::NonSequential);
+        reg2neg[predRepeat] = notReg;
+        predRepeat = notReg;
+      }
     } 
     unsigned valueRepeat = lhdrPickNode->minstr->getOperand(2).getReg() == lpbackReg ?
       lhdrPickNode->minstr->getOperand(3).getReg() :
@@ -687,6 +701,7 @@ void CSASeqOpt::PrepRepeat() {
       }
     }
   }
+  reg2neg.clear();
 }
 
 
@@ -743,4 +758,12 @@ void CSASeqOpt::SequenceOPT() {
       }
     }
   }
+  DenseMap<MachineInstr *,  MachineOperand *> ::iterator itm = seq2tripcnt.begin();
+  while (itm != seq2tripcnt.end()) {
+    MachineOperand* tripCnt = itm->getSecond();
+    ++itm;
+    delete tripCnt;
+  }
+  seq2tripcnt.clear();
+  reg2neg.clear();
 }

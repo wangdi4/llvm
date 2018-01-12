@@ -18,6 +18,7 @@ namespace llvm
     void SequenceIndv(CSASSANode* cmpNode, CSASSANode* switchNode, CSASSANode* addNode, CSASSANode* lhdrPhiNode); 
     MachineOperand CalculateTripCnt(MachineOperand& initOpnd, MachineOperand& bndOpnd, MachineInstr* pos);
     MachineOperand tripCntForSeq(MachineInstr*seqInstr, MachineInstr* pos);
+    MachineOperand getTripCntForSeq(MachineInstr*seqInstr, MachineInstr* pos);
     void MultiSequence(CSASSANode* switchNode, CSASSANode* addNode, CSASSANode* lhdrPickNode);
     void SequenceApp(CSASSANode* switchNode, CSASSANode* addNode, CSASSANode* lhdrPhiNode);
     void SequenceReduction(CSASSANode* switchNode, CSASSANode* addNode, CSASSANode* lhdrPhiNode);
@@ -36,5 +37,7 @@ namespace llvm
     MachineRegisterInfo* MRI;
     CSAMachineFunctionInfo *LMFI;
     const TargetRegisterInfo* TRI;
+    DenseMap<MachineInstr*, MachineOperand*> seq2tripcnt;
+    DenseMap<unsigned, unsigned> reg2neg;
   };
 }
