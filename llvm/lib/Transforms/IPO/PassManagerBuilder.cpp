@@ -287,6 +287,7 @@ PassManagerBuilder::PassManagerBuilder() {
     PerformThinLTO = false;
     DivergentTarget = false;
 #if INTEL_CUSTOMIZATION
+    DisableIntelProprietaryOpts = false;
     OffloadTargets = VPOOffloadTargets;
 #endif // INTEL_CUSTOMIZATION
 }
@@ -375,7 +376,7 @@ void PassManagerBuilder::populateFunctionPassManager(
 
 #if INTEL_CUSTOMIZATION
   FPM.add(createXmainOptLevelPass(OptLevel));
-  if (RunVPOOpt && RunVPOParopt) {
+  if (RunVPOOpt && RunVPOParopt && !DisableIntelProprietaryOpts) {
     if (OptLevel == 0) {
       // To handle OpenMP we also need SROA and EarlyCSE, but they are disabled
       // at -O0, so we explicitly add them to the pass pipeline here.
@@ -611,7 +612,7 @@ void PassManagerBuilder::populateModulePassManager(
     if (PrepareForThinLTO)
       MPM.add(createNameAnonGlobalPass());
 #if INTEL_CUSTOMIZATION
-    if (RunVPOOpt) {
+    if (RunVPOOpt && !DisableIntelProprietaryOpts) {
       if (RunVecClone) {
         MPM.add(createVecClonePass());
       }
@@ -624,7 +625,7 @@ void PassManagerBuilder::populateModulePassManager(
 
 #if INTEL_CUSTOMIZATION
   // Process OpenMP directives at -O1 and above
-  if (RunVPOOpt)
+  if (RunVPOOpt & !DisableIntelProprietaryOpts)
     addVPOPasses(MPM, false);
 #endif // INTEL_CUSTOMIZATION
 
@@ -1161,7 +1162,8 @@ void PassManagerBuilder::addLateLTOOptimizationPasses(
 #if INTEL_CUSTOMIZATION // HIR passes
 
 bool PassManagerBuilder::isLoopOptEnabled() const {
-  if ((RunLoopOpts || RunLoopOptFrameworkOnly) && (OptLevel >= 2) &&
+  if (!DisableIntelProprietaryOpts &&
+      (RunLoopOpts || RunLoopOptFrameworkOnly) && (OptLevel >= 2) &&
       !PerformThinLTO)
     return true;
 
@@ -1276,6 +1278,11 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
 
 void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM,
                                       bool RunVec) const {
+  // We should never get here if proprietary options are disabled,
+  // but it's a release-mode feature so we can't just assert.
+  if (DisableIntelProprietaryOpts)
+    return;
+
   if (RunVPOParopt) {
     PM.add(createVPOCFGRestructuringPass());
     PM.add(createVPOParoptPass(RunVPOParopt, OffloadTargets));
@@ -1297,6 +1304,10 @@ void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM,
 
 void PassManagerBuilder::addLoopOptAndAssociatedVPOPasses(
      legacy::PassManagerBase &PM) const {
+  // We should never get here if proprietary options are disabled,
+  // but it's a release-mode feature so we can't just assert.
+  if (DisableIntelProprietaryOpts)
+    return;
 
   if (RunVPOOpt && RunVecClone) {
     PM.add(createVecClonePass());
