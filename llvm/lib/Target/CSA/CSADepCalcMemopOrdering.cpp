@@ -1233,13 +1233,9 @@ bool MemopCFG::RequireOrdering::operator()(
   // prefetch this check should be ignored.
   const bool neither_is_prefetch =
     a_memop.MI->getOpcode() != CSA::PREFETCH
-    and a_memop.MI->getOpcode() != CSA::PREFETCHI
     and a_memop.MI->getOpcode() != CSA::PREFETCHW
-    and a_memop.MI->getOpcode() != CSA::PREFETCHWI
     and b_memop.MI->getOpcode() != CSA::PREFETCH
-    and b_memop.MI->getOpcode() != CSA::PREFETCHI
-    and b_memop.MI->getOpcode() != CSA::PREFETCHW
-    and b_memop.MI->getOpcode() != CSA::PREFETCHWI;
+    and b_memop.MI->getOpcode() != CSA::PREFETCHW;
   if (neither_is_prefetch and a->isLoad() and b->isLoad()) return false;
 
   // Otherwise, they only need ordering if they could alias each other. If

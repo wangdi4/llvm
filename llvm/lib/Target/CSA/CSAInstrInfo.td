@@ -21,10 +21,9 @@ include "CSAInstrFormats.td"
 //   as default for order operands for stores/loads?)
 // - Possible to merge BinOp and CmpOp (something that can take both a PatFrag
 //   and an SDNode?)
-// - Use "foreacj" or some other mechanism to deal with 8/16/32/64 redundancy
+// - Use "foreach" or some other mechanism to deal with 8/16/32/64 redundancy
 //   in patterns? (but will likely eventually need opcode bitpatterns, so
 //   that may not be feasible/desirable long term)
-// - Merge ADDR_I/R and ADDR_RI/RR similar to RegImm?
 // - Why are so many operands in CSAGenInstrInfo.inc unknown?
 
 //===----------------------------------------------------------------------===//
@@ -125,9 +124,7 @@ def RCLf64 : RegImmOperand<f64>;
 
 // Memory operands
 class Addr<int numArgs, string funcName, dag opInfo> :
-  Operand<i64>, ComplexPattern<i64, numArgs,
-    funcName, [],
-    [SDNPWantParent]> {
+  Operand<i64>, ComplexPattern<i64, numArgs, funcName, [], [SDNPWantParent]> {
       let MIOperandInfo = opInfo;
       let OperandType = "OPERAND_MEMORY";
     }
@@ -135,13 +132,9 @@ class Addr<int numArgs, string funcName, dag opInfo> :
 let PrintMethod = "printMemOperand" in {
 def ADDR_RX : Addr<2, "SelectAddrRegIdx", (ops I64:$base, I64:$offset)>;
 def ADDR_RI : Addr<2, "SelectAddrRegImm", (ops I64:$base, i64imm:$offset)>;
-def ADDR_RR : Addr<2, "SelectAddrRegReg", (ops I64:$base, I64:$offset)>;
 }
-def ADDR_I : Addr<1, "SelectAddrImm", (ops i64imm:$imm)>;
-def ADDR_R : Addr<1, "SelectAddrReg", (ops I64:$addr)>{
-  // For some reason, the asm matcher is deducing that we must match the I64
-  // with an Imm. Override, allowing either, at least for asm parsing.
-  let ParserMatchClass = RegImmAsmOperand;
+def ADDR_R : RegImmOperand<i64> {
+  let OperandType = "OPERAND_MEMORY";
 }
 
 // Memory ordering operands
@@ -547,8 +540,6 @@ class FMSReduceOp<GenericOp gen, CSAOpInfo oi,
 
 def LDX : GenericOp<"ldx">;
 def LDD : GenericOp<"ldd">;
-def LDR : GenericOp<"ldd">;
-def LDI : GenericOp<"ld">;
 def LD  : GenericOp<"ld">;
 multiclass LdOp<string opStr, CSAOpInfo t,
            InstrItinClass itin = IILD> {
@@ -566,19 +557,9 @@ multiclass LdOp<string opStr, CSAOpInfo t,
       (ins ADDR_RI:$addr, MEMLVL:$lvl, MemOrdUse:$ready),
       !strconcat(opStr, "d\t$dst, $addr, $issued, $ready, $lvl"),
       [(set t.VT:$dst, (load ADDR_RI:$addr))]>;
-    def R : FMTGEN<LDR, t, // non-indexed reg+reg
-      (outs t.RC:$dst, MemOrdDef:$issued),
-      (ins ADDR_RR:$addr, MEMLVL:$lvl, MemOrdUse:$ready),
-      !strconcat(opStr, "d\t$dst, $addr, $issued, $ready, $lvl"),
-      [(set t.VT:$dst, (load ADDR_RR:$addr))]>;
   }
 
   let Itinerary = itin in {
-    def I : FMTGEN<LDI, t,  // e.g. ld of literal address - ld rx,sym
-      (outs t.RC:$dst, MemOrdDef:$issued),
-      (ins ADDR_I:$addr, MEMLVL:$lvl, MemOrdUse:$ready),
-      !strconcat(opStr, "\t$dst, $addr, $issued, $ready, $lvl"),
-      [(set t.VT:$dst, (load ADDR_I:$addr))]>;
     def "" : FMTGEN<LD, t, // normal basereg form
       (outs t.RC:$dst, MemOrdDef:$issued),
       (ins ADDR_R:$addr, MEMLVL:$lvl, MemOrdUse:$ready),
@@ -590,7 +571,6 @@ multiclass LdOp<string opStr, CSAOpInfo t,
 // Ugly combinatorial issue between literal store data and addressing modes
 def STX : GenericOp<"stx">;
 def STD : GenericOp<"std">;
-def STR : GenericOp<"std">;
 def ST  : GenericOp<"st">;
 multiclass StOp<string opStr, CSAOpInfo t,
            InstrItinClass itin = IIST> {
@@ -613,11 +593,6 @@ multiclass StOp<string opStr, CSAOpInfo t,
         (ins ADDR_RI:$addr, t.RCL:$data, MEMLVL:$lvl, MemOrdUse:$ready),
         !strconcat(opStr, "d\t$addr, $data, $issued, $ready, $lvl"),
         [(store (t.VT t.RCL:$data), ADDR_RI:$addr)]>;
-      def R : FMTGEN<STR, t,
-        (outs MemOrdDef:$issued),
-        (ins ADDR_RR:$addr, t.RCL:$data, MEMLVL:$lvl, MemOrdUse:$ready),
-        !strconcat(opStr, "d\t$addr, $data, $issued, $ready, $lvl"),
-        [(store (t.VT t.RCL:$data), ADDR_RR:$addr)]>;
     }
 
     def "" : FMTGEN<ST, t,
@@ -628,34 +603,26 @@ multiclass StOp<string opStr, CSAOpInfo t,
   }
 }
 
-def SLDI : GenericOp<"sld">;
 def SLD  : GenericOp<"sld">;
-multiclass StreamLdOp<string opStr, CSAOpInfo t,
-           InstrItinClass itin = IILD> {
-  let mayLoad = 1, Itinerary = itin in {
-    def I : FMTGEN<SLDI, t,  // e.g. ld of literal address - ld rx,sym
-      (outs t.RC:$dst, MemOrdDef:$issued),
-      (ins ADDR_I:$addr, RCLi64:$len, RCLi64:$stride, MEMLVL:$lvl, MemOrdUse:$ready),
-      !strconcat(opStr, "\t$dst, $addr, $len, $stride, $issued, $ready, $lvl"),
-      []>;
-    def "" : FMTGEN<SLD, t, // normal basereg form
-      (outs t.RC:$dst, MemOrdDef:$issued),
-      (ins ADDR_R:$addr, RCLi64:$len, RCLi64:$stride, MEMLVL:$lvl, MemOrdUse:$ready),
-      !strconcat(opStr, "\t$dst, $addr, $len, $stride, $issued, $ready, $lvl"),
-      []>;
-    }
+class StreamLdOp<string opStr, CSAOpInfo t, InstrItinClass itin = IILD> :
+  FMTGEN<SLD, t,
+    (outs t.RC:$dst, MemOrdDef:$issued),
+    (ins ADDR_R:$addr, RCLi64:$len, RCLi64:$stride, MEMLVL:$lvl, MemOrdUse:$ready),
+    !strconcat(opStr, "\t$dst, $addr, $len, $stride, $issued, $ready, $lvl"),
+    []> {
+  let mayLoad = 1;
+  let Itinerary = itin;
 }
 
 def SST : GenericOp<"sst">;
-multiclass StreamStOp<string opStr, CSAOpInfo t,
-           InstrItinClass itin = IIST> {
-  let mayStore = 1, Itinerary = itin in {
-    def "" : FMTGEN<SST, t,
-      (outs MemOrdDef:$issued),
-      (ins ADDR_R:$addr, RCLi64:$len, RCLi64:$stride, t.RCL:$data, MEMLVL:$lvl, MemOrdUse:$ready),
-      !strconcat(opStr, "\t$addr, $len, $stride, $data, $issued, $ready, $lvl"),
-      []>;
-  }
+class StreamStOp<string opStr, CSAOpInfo t, InstrItinClass itin = IIST> :
+  FMTGEN<SST, t,
+    (outs MemOrdDef:$issued),
+    (ins ADDR_R:$addr, RCLi64:$len, RCLi64:$stride, t.RCL:$data, MEMLVL:$lvl, MemOrdUse:$ready),
+    !strconcat(opStr, "\t$addr, $len, $stride, $data, $issued, $ready, $lvl"),
+    []> {
+  let mayStore = 1;
+  let Itinerary = itin;
 }
 
 class MullohiOp<GenericOp gen, CSAOpInfo oi,
@@ -710,11 +677,6 @@ class AtomicOp2<GenericOp gen, PatFrag opNode, CSAOpInfo oi,
 
 multiclass PrefetchOp<string opStr, int rw, InstrItinClass itin = IILD> {
   let Itinerary = itin, hasPostISelHook = 1 in {
-    def I : FMTGEN <?, ?,
-      (outs MemOrdDef:$issued),
-      (ins ADDR_I:$addr, MEMLVLExplicit:$lvl, MemOrdUse:$ready),
-      !strconcat(opStr, "\t$addr, $issued, $ready, $lvl"),
-      [(prefetch ADDR_I:$addr, (i32 rw), imm:$lvl, (i32 1))]>;
     def "" : FMTGEN <?, ?,
       (outs MemOrdDef:$issued),
       (ins ADDR_R:$addr, MEMLVLExplicit:$lvl, MemOrdUse:$ready),
@@ -1556,23 +1518,23 @@ defm ST32f    : StOp<    "st32",  Tf32>;
 defm ST64     : StOp<    "st64",  Ti64>;
 defm ST64f    : StOp<    "st64",  Tf64>;
 
-defm SLD1     : StreamLdOp<"sld8",   Ti1>;
-defm SLD8     : StreamLdOp<"sld8",   Ti8>;
-defm SLD16    : StreamLdOp<"sld16",  Ti16>;
-defm SLD16f   : StreamLdOp<"sld16",  Tf16>;
-defm SLD32    : StreamLdOp<"sld32",  Ti32>;
-defm SLD32f   : StreamLdOp<"sld32",  Tf32>;
-defm SLD64    : StreamLdOp<"sld64",  Ti64>;
-defm SLD64f   : StreamLdOp<"sld64",  Tf64>;
+def SLD1      : StreamLdOp<"sld8",   Ti1>;
+def SLD8      : StreamLdOp<"sld8",   Ti8>;
+def SLD16     : StreamLdOp<"sld16",  Ti16>;
+def SLD16f    : StreamLdOp<"sld16",  Tf16>;
+def SLD32     : StreamLdOp<"sld32",  Ti32>;
+def SLD32f    : StreamLdOp<"sld32",  Tf32>;
+def SLD64     : StreamLdOp<"sld64",  Ti64>;
+def SLD64f    : StreamLdOp<"sld64",  Tf64>;
 
-defm SST1     : StreamStOp<"sst8",   Ti1>;
-defm SST8     : StreamStOp<"sst8",   Ti8>;
-defm SST16    : StreamStOp<"sst16",  Ti16>;
-defm SST16f   : StreamStOp<"sst16",  Tf16>;
-defm SST32    : StreamStOp<"sst32",  Ti32>;
-defm SST32f   : StreamStOp<"sst32",  Tf32>;
-defm SST64    : StreamStOp<"sst64",  Ti64>;
-defm SST64f   : StreamStOp<"sst64",  Tf64>;
+def SST1     : StreamStOp<"sst8",   Ti1>;
+def SST8     : StreamStOp<"sst8",   Ti8>;
+def SST16    : StreamStOp<"sst16",  Ti16>;
+def SST16f   : StreamStOp<"sst16",  Tf16>;
+def SST32    : StreamStOp<"sst32",  Ti32>;
+def SST32f   : StreamStOp<"sst32",  Tf32>;
+def SST64    : StreamStOp<"sst64",  Ti64>;
+def SST64f   : StreamStOp<"sst64",  Tf64>;
 
 // Extended multiplication
 def MULLOHI   : GenericOp<"mullohi">;

@@ -417,8 +417,7 @@ CSAInstrInfo::getSizeOfRegisterClass(const TargetRegisterClass *RC) const {
 
 bool CSAInstrInfo::isLoad(const MachineInstr *MI) const {
   switch (getGenericOpcode(MI->getOpcode())) {
-  case CSA::Generic::LD: case CSA::Generic::LDD: case CSA::Generic::LDI:
-  case CSA::Generic::LDR: case CSA::Generic::LDX:
+  case CSA::Generic::LD: case CSA::Generic::LDD: case CSA::Generic::LDX:
     return true;
   default:
     return false;
@@ -427,8 +426,7 @@ bool CSAInstrInfo::isLoad(const MachineInstr *MI) const {
 
 bool CSAInstrInfo::isStore(const MachineInstr *MI) const {
   switch (getGenericOpcode(MI->getOpcode())) {
-  case CSA::Generic::ST: case CSA::Generic::STD:
-  case CSA::Generic::STR: case CSA::Generic::STX:
+  case CSA::Generic::ST: case CSA::Generic::STD: case CSA::Generic::STX:
     return true;
   default:
     return false;
