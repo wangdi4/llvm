@@ -341,6 +341,7 @@ void MachineVerifier::verifySlotIndexes() const {
 }
 
 void MachineVerifier::verifyProperties(const MachineFunction &MF) {
+#if !INTEL_CUSTOMIZATION // Disable vreg checking for now.
   // If a pass has introduced virtual registers without clearing the
   // NoVRegs property (or set it without allocating the vregs)
   // then report an error.
@@ -348,6 +349,7 @@ void MachineVerifier::verifyProperties(const MachineFunction &MF) {
           MachineFunctionProperties::Property::NoVRegs) &&
       MRI->getNumVirtRegs())
     report("Function has NoVRegs property but there are VReg operands", &MF);
+#endif
 }
 
 unsigned MachineVerifier::verify(MachineFunction &MF) {
@@ -1372,7 +1374,8 @@ void MachineVerifier::checkLiveness(const MachineOperand *MO, unsigned MONum) {
         }
       }
 
-      if (TargetRegisterInfo::isVirtualRegister(Reg)) {
+      if (TargetRegisterInfo::isVirtualRegister(Reg) &&
+          !MRI->getRegClass(Reg)->isVirtual()) { // INTEL_CUSTOMIZATION
         if (LiveInts->hasInterval(Reg)) {
           // This is a virtual register interval.
           const LiveInterval &LI = LiveInts->getInterval(Reg);
@@ -1474,7 +1477,8 @@ void MachineVerifier::checkLiveness(const MachineOperand *MO, unsigned MONum) {
       SlotIndex DefIdx = LiveInts->getInstructionIndex(*MI);
       DefIdx = DefIdx.getRegSlot(MO->isEarlyClobber());
 
-      if (TargetRegisterInfo::isVirtualRegister(Reg)) {
+      if (TargetRegisterInfo::isVirtualRegister(Reg) &&
+          !MRI->getRegClass(Reg)->isVirtual()) { // INTEL_CUSTOMIZATION
         if (LiveInts->hasInterval(Reg)) {
           const LiveInterval &LI = LiveInts->getInterval(Reg);
           checkLivenessAtDef(MO, MONum, DefIdx, LI, Reg);
@@ -1743,6 +1747,12 @@ void MachineVerifier::verifyLiveIntervals() {
     // Spilling and splitting may leave unused registers around. Skip them.
     if (MRI->reg_nodbg_empty(Reg))
       continue;
+
+#if INTEL_CUSTOMIZATION
+    // Ignore virtual register classes.
+    if (MRI->getRegClass(Reg)->isVirtual())
+      continue;
+#endif
 
     if (!LiveInts->hasInterval(Reg)) {
       report("Missing live interval for virtual register", MF);
