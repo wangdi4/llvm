@@ -58,17 +58,10 @@ namespace {
     bool SelectRegImm(SDValue Opnd, SDValue &Result);
 
     bool SelectAddrRegIdx(SDNode *Parent, SDValue Addr, SDValue &Base,
-	SDValue &ScaledOffset);
+        SDValue &ScaledOffset);
 
     bool SelectAddrRegImm(SDNode *Parent, SDValue Addr, SDValue &Base,
         SDValue &Offset);
-
-    bool SelectAddrRegReg(SDNode *Parent, SDValue Addr, SDValue &Base,
-        SDValue &Offset);
-
-    bool SelectAddrImm(SDNode *Parent, SDValue Addr, SDValue &Base);
-
-    bool SelectAddrReg(SDNode *Parent, SDValue Addr, SDValue &Base);
 
     void Select(SDNode *N) override;
   };
@@ -124,8 +117,8 @@ bool CSADAGToDAGISel::SelectRegImm(SDValue Opnd,
 }
 
 // Scaled indexing (for scaling by 2/4/8 matching opcode access size)
-bool CSADAGToDAGISel::SelectAddrRegIdx(SDNode *Parent, SDValue Addr, SDValue &Base,
-					SDValue &ScaledOffset) {
+bool CSADAGToDAGISel::SelectAddrRegIdx(SDNode *Parent, SDValue Addr,
+    SDValue &Base, SDValue &ScaledOffset) {
   MemSDNode* memSDNode = dyn_cast<MemSDNode>(Parent);
   //If add operation, we can optimize.
   if (memSDNode && Addr.getOpcode() == ISD::ADD) {
@@ -138,13 +131,13 @@ bool CSADAGToDAGISel::SelectAddrRegIdx(SDNode *Parent, SDValue Addr, SDValue &Ba
     unsigned int byteSize = memSDNode->getMemoryVT().getStoreSize();
     // Better be over a SHL
     if (Addr.getOperand(1).getOpcode() != ISD::SHL)
-	return false;
+      return false;
     // And the shift amount must match the size of the reference
     ConstantSDNode* shamt = dyn_cast<ConstantSDNode>(Addr.getOperand(1).getOperand(1));
     if (!shamt)
-	return false;
-    if ( (1u << shamt->getZExtValue()) != byteSize)
-	return false;
+      return false;
+    if ((1u << shamt->getZExtValue()) != byteSize)
+      return false;
 
     //set address and offset.
     Base   = Addr.getOperand(0);
@@ -157,75 +150,30 @@ bool CSADAGToDAGISel::SelectAddrRegIdx(SDNode *Parent, SDValue Addr, SDValue &Ba
 // Displacement
 bool CSADAGToDAGISel::SelectAddrRegImm(SDNode *Parent, SDValue Addr,
                                          SDValue &Base, SDValue &Offset) {
-  MemSDNode *memSDNode = dyn_cast<MemSDNode>(Parent);
-
-  if (memSDNode && Addr.getOpcode() == ISD::ADD) {
-    if (ConstantSDNode *CN = dyn_cast<ConstantSDNode>(Addr.getOperand(1))) {
-      // If operation is a stack operation base becomes offset of
-      // the frame.
-      if (FrameIndexSDNode *FIN = dyn_cast<FrameIndexSDNode>(Addr.getOperand(0))) {
-        Base = CurDAG->getTargetFrameIndex(FIN->getIndex(), MVT::i64);
-      }
-      // otherwise, this isn't a stack operation so use passed in
-      // register offset.
-      else {
-        Base = Addr.getOperand(0);
-      }
-      SDLoc dl(Parent);
-      Offset = CurDAG->getTargetConstant(CN->getSExtValue(), dl, MVT::i64);
-      return true;
+  if (CurDAG->isBaseWithConstantOffset(Addr)) {
+    // If operation is a stack operation base becomes offset of
+    // the frame.
+    if (auto FIN = dyn_cast<FrameIndexSDNode>(Addr.getOperand(0))) {
+      Base = CurDAG->getTargetFrameIndex(FIN->getIndex(), MVT::i64);
     }
+    // otherwise, this isn't a stack operation so use passed in
+    // register offset.
+    else {
+      Base = Addr.getOperand(0);
+    }
+    SDLoc dl(Parent);
+    ConstantSDNode *CN = dyn_cast<ConstantSDNode>(Addr.getOperand(1));
+    Offset = CurDAG->getTargetConstant(CN->getSExtValue(), dl, MVT::i64);
+    return true;
   }
-  return false;
 
-}
-
-// Unscaled reg/reg
-bool CSADAGToDAGISel::SelectAddrRegReg(SDNode *Parent, SDValue Addr,
-                                       SDValue &Base, SDValue &Offset) {
-  MemSDNode* memSDNode = dyn_cast<MemSDNode>(Parent);
-  //If add operation, we can optimize
-  if (memSDNode && Addr.getOpcode() == ISD::ADD) {
-    //set address and offset.
-    Base   = Addr.getOperand(0);
+  if (Addr.getOpcode() == ISD::ADD) {
+    Base = Addr.getOperand(0);
     Offset = Addr.getOperand(1);
     return true;
   }
   return false;
-}
 
-bool CSADAGToDAGISel::SelectAddrImm(SDNode *Parent, SDValue Addr,
-                                         SDValue &Base)
-{
-  if(dyn_cast<MemSDNode>(Parent)) {
-    if (Addr.getOpcode() == CSAISD::Wrapper) {
-      Base = Addr.getOperand(0);
-      return true;
-    }
-
-    if (Addr.getOpcode() == ISD::TargetExternalSymbol) {
-      Base = Addr;
-      return true;
-    }
-
-    if (ConstantSDNode *CN = dyn_cast<ConstantSDNode>(Addr)) {
-      SDLoc dl(Parent);
-      Base = CurDAG->getTargetConstant(CN->getZExtValue(), dl, MVT::i64);
-      return true;
-    }
-  }
-  //not our operation type, so return false.
-  return false;
-}
-
-bool CSADAGToDAGISel::SelectAddrReg(SDNode *Parent, SDValue Addr,
-                                      SDValue &Base)
-{
-  if(dyn_cast<MemSDNode>(Parent)) {
-    Base = Addr;
-    return true;
-  }
-  return false;
 }
 
 void CSADAGToDAGISel::Select(SDNode *Node) {
