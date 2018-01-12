@@ -155,18 +155,22 @@ class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
   int Cost;
   bool ComputeFullInlineCost;
 
-  /// INTEL The cost and the threshold used for early exit during usual
+#if INTEL_CUSTOMIZATION
+  /// The cost and the threshold used for early exit during usual
   /// inlining process. Under IntelInlineReportLevel=64  we compute both
   /// "early exit" and real cost of inlining.  A value of INT_MAX indicates
   /// that a value has not yet been seen for these.  They are expected to
   /// be set at the same time, so we only need to test for EarlyExitCost.
-  int EarlyExitThreshold;             // INTEL
-  int EarlyExitCost;                  // INTEL
+  int EarlyExitThreshold;
+  int EarlyExitCost;
 
-  InliningLoopInfoCache* ILIC;        // INTEL
+  InliningLoopInfoCache* ILIC;
 
-  // INTEL    Aggressive Analysis
-  InlineAggressiveInfo *AI;           // INTEL
+  // Aggressive Analysis
+  InlineAggressiveInfo *AI;
+  // Set of candidate call sites for loop fusion
+  SmallSet<CallSite, 20> *CallSitesForFusion;
+#endif // INTEL_CUSTOMIZATION
 
   bool IsCallerRecursive;
   bool IsRecursiveCall;
@@ -301,6 +305,7 @@ public:
                Function &Callee, CallSite CSArg,   // INTEL
                InliningLoopInfoCache *ILIC,        // INTEL
                InlineAggressiveInfo *AI,           // INTEL
+               SmallSet<CallSite, 20> *CSForFusion, // INTEL
                const InlineParams &Params)
       : TTI(TTI), GetAssumptionCache(GetAssumptionCache), GetBFI(GetBFI),
         PSI(PSI), F(Callee), DL(F.getParent()->getDataLayout()), ORE(ORE),
@@ -308,7 +313,7 @@ public:
 #if INTEL_CUSTOMIZATION
         Cost(0), ComputeFullInlineCost(OptComputeFullInlineCost ||
                                        Params.ComputeFullInlineCost || ORE),
-        ILIC(ILIC), AI(AI),
+        ILIC(ILIC), AI(AI), CallSitesForFusion(CSForFusion),
 #endif // INTEL_CUSTOMIZATION
         IsCallerRecursive(false), IsRecursiveCall(false),
         ExposesReturnsTwice(false), HasDynamicAlloca(false),
@@ -1206,7 +1211,7 @@ bool CallAnalyzer::visitCallSite(CallSite CS) {
   auto IndirectCallParams = Params;
   IndirectCallParams.DefaultThreshold = InlineConstants::IndirectCallThreshold;
   CallAnalyzer CA(TTI, GetAssumptionCache, GetBFI, PSI, ORE, *F, CS,
-                  ILIC, AI, IndirectCallParams); // INTEL
+                  ILIC, AI, nullptr, IndirectCallParams); // INTEL
   if (CA.analyzeCall(CS, nullptr)) { // INTEL
     // We were able to inline the indirect call! Subtract the cost from the
     // threshold to get the bonus we want to apply, but don't go below zero.
@@ -1756,19 +1761,32 @@ static bool worthyDoubleCallSite1(CallSite &CS, InliningLoopInfoCache &ILIC) {
 }
 
 //
+// Return loop bottom-test
+//
+static ICmpInst *getLoopBottomTest(Loop *L) {
+  auto EB = L->getExitingBlock();
+  if (EB == nullptr)
+    return nullptr;
+  auto BI = dyn_cast<BranchInst>(EB->getTerminator());
+  if (!BI || !BI->isConditional())
+    return nullptr;
+  auto ICmp = dyn_cast_or_null<ICmpInst>(BI->getCondition());
+  if (!ICmp)
+    return nullptr;
+
+  return ICmp;
+}
+
+//
 // Return 'true' if the Function F has a Loop L whose trip count will be
 // constant after F is inlined.
 //
 static bool boundConstArg(Function *F, Loop *L) {
-  auto EB = L->getExitingBlock();
-  if (EB == nullptr)
+  auto ICmp = getLoopBottomTest(L);
+  if (!ICmp) {
     return false;
-  auto BI = dyn_cast<BranchInst>(EB->getTerminator());
-  if (!BI || !BI->isConditional())
-    return false;
-  auto ICmp = dyn_cast<ICmpInst>(BI->getCondition());
-  if (!ICmp)
-    return false ;
+  }
+
   for (unsigned i = 0, e = ICmp->getNumOperands(); i != e; ++i) {
     auto Arg = dyn_cast<Argument>(ICmp->getOperand(i));
     if (!Arg)
@@ -1957,6 +1975,216 @@ static bool preferCloningToInlining(CallSite& CS,
   return false;
 }
 
+// Check that loop has normalized structure and constant trip count.
+static bool isConstantTripCount(Loop *L) {
+  // Get canonical IV.
+  PHINode *IV = L->getCanonicalInductionVariable();
+  if (!IV) {
+    return false;
+  }
+
+  ICmpInst *CInst = getLoopBottomTest(L);
+  if (!CInst)
+    return false;
+
+  if (!CInst->isIntPredicate())
+    return false;
+
+  int NumOps = CInst->getNumOperands();
+  if (NumOps != 2)
+    return false;
+
+  // Check that condition is <, <= or ==.
+  ICmpInst::Predicate Pred = CInst->getPredicate();
+  if (!(Pred == ICmpInst::ICMP_EQ || Pred == ICmpInst::ICMP_ULT ||
+        Pred == ICmpInst::ICMP_ULE || Pred == ICmpInst::ICMP_SLT ||
+        Pred == ICmpInst::ICMP_SLE))
+    return false;
+
+  // First operand should be IV. Second should be positive int constant.
+  Value *IVInc = CInst->getOperand(0);
+  ConstantInt *Const = dyn_cast<ConstantInt>(CInst->getOperand(1));
+
+  if (!IVInc || !Const)
+    return false;
+
+  const APInt &ConstValue = Const->getValue();
+  if (!ConstValue.isStrictlyPositive()) {
+    return false;
+  }
+
+  unsigned IncomingValuesCnt = IV->getNumIncomingValues();
+  for (unsigned i = 0; i < IncomingValuesCnt; ++i) {
+    if (IVInc == IV->getIncomingValue(i)) {
+      // Found IV in bottom test - return true
+      return true;
+    }
+  }
+
+  return false;
+}
+
+// Minimal number of arrays in loop that should be function arguments.
+static cl::opt<int> MinArgRefs(
+    "inline-for-fusion-min-arg-refs", cl::Hidden, cl::init(10),
+    cl::desc(
+        "Min number of arguments appearing in loop candidates for fusion"));
+
+// Minimal number of successive callsites need to be inlined to benefit
+// from loops fusion.
+static cl::opt<int>
+    MinCallSitesForFusion("inline-for-fusion-min-callsites", cl::Hidden,
+                          cl::init(3),
+                          cl::desc("Min number of calls inlined for fusion"));
+
+// Maximal number of successive callsites need to be inlined to benefit
+// from loops fusion.
+static cl::opt<int>
+    MaxCallSitesForFusion("inline-for-fusion-max-callsites", cl::Hidden,
+                          cl::init(20),
+                          cl::desc("Max number of calls inlined for fusion"));
+
+// Temporary switch to control new callsite inlining heuristics
+// for fusion until tuning of loopopt is complete.
+static cl::opt<bool>
+    InliningForFusionHeuristics("inlining-for-fusion-heuristics",
+                                cl::init(false), cl::ReallyHidden);
+
+/// \brief Analyze a callsite for potential inlining for fusion.
+///
+/// Returns true if inlining of this and a number of successive callsites
+/// with the same callee would benefit from loop fusion and vectorization
+/// later on.
+/// The criteria for this heuristic are:
+/// 1) Multiple callsites of the same callee in one basic block.
+/// 2) Loops inside callee should have constant trip count and have
+///    no calles inside.
+/// 3) Array accesses inside loops should corespond to callee arguments.
+/// In case we decide that current CS is a candidate for inlining for fusion,
+/// then we store other CS to the same function in the same basic block in
+/// the set of inlining candidates for fusion.
+static bool worthInliningForFusion(CallSite &CS, InliningLoopInfoCache &ILIC,
+                                   SmallSet<CallSite, 20> *CallSitesForFusion) {
+  if (!InliningForFusionHeuristics) {
+    return false;
+  }
+
+  if (!CallSitesForFusion) {
+    return false;
+  }
+
+  // The call site was stored as candidate for inlining for fusion.
+  if (CallSitesForFusion->count(CS)) {
+    CallSitesForFusion->erase(CS);
+    return true;
+  }
+
+  Function *Callee = CS.getCalledFunction();
+  BasicBlock *CSBB = CS->getParent();
+
+  // if it is the last call - no fusion candidates could be found.
+  if (CS.isTailCall()) {
+    return false;
+  }
+
+  SmallVector<CallSite, 20> LocalCSForFusion;
+  // Go through each successive call in basic block and find all callsites.
+  int CSCount = 0;
+  bool CallSiteCountFlag = false;
+  for (auto I = CSBB->begin(), E = CSBB->end(); I != E; ++I) {
+    CallSite LocalCS(cast<Value>(I));
+    if (!LocalCS) {
+      continue;
+    }
+    if (LocalCS == CS) {
+      CallSiteCountFlag = true;
+      continue;
+    }
+    Function *CurrCallee = LocalCS.getCalledFunction();
+    if (CallSiteCountFlag) {
+      if (CurrCallee == Callee) {
+        CSCount++;
+        LocalCSForFusion.push_back(LocalCS);
+      } else {
+        CallSiteCountFlag = false;
+      }
+    }
+  }
+
+  // If number of successive calls is relatively small or too big
+  // then skip inlining
+  if ((CSCount < MinCallSitesForFusion) || (CSCount > MaxCallSitesForFusion)) {
+    return false;
+  }
+
+  // Check if callee has function calls inside - skip it.
+  for (BasicBlock &BB : *Callee) {
+    for (auto &I : BB) {
+      if (isa<CallInst>(I) || isa<InvokeInst>(I)) {
+        CallInst *CI = dyn_cast_or_null<CallInst>(&I);
+        InvokeInst *II = dyn_cast_or_null<InvokeInst>(&I);
+        auto InnerFunc = CI ? CI->getCalledFunction() : II->getCalledFunction();
+        if (!InnerFunc || !InnerFunc->isIntrinsic()) {
+          return false;
+        }
+      }
+    }
+  }
+
+  // Check loops inside callee.
+  LoopInfo *LI = ILIC.getLI(Callee);
+  if (!LI) {
+    return false;
+  }
+
+  int ArgCnt = 0;
+  for (auto LB = LI->begin(), LE = LI->end(); LB != LE; ++LB) {
+    Loop *LL = *LB;
+    if (!isConstantTripCount(LL)) {
+      // Non-constant trip count. Skip inlining.
+      return false;
+    }
+    // Check how many array refs in GEP instructions are arguments of
+    // the callee.
+    for (auto *BB : LL->blocks()) {
+      for (auto &I : *BB) {
+        if (ArgCnt > MinArgRefs) {
+          break;
+        }
+        if (isa<GetElementPtrInst>(I)) {
+          GetElementPtrInst *GEPI = dyn_cast_or_null<GetElementPtrInst>(&I);
+          Value *PtrOp = GEPI->getPointerOperand();
+          if (PtrOp) {
+            if (isa<PHINode>(PtrOp)) {
+              PtrOp = dyn_cast<PHINode>(PtrOp)->getIncomingValue(0);
+            }
+            if (isa<Argument>(PtrOp))
+              ArgCnt++;
+          }
+        }
+      }
+      if (ArgCnt > MinArgRefs) {
+        break;
+      }
+    }
+    if (ArgCnt > MinArgRefs) {
+      break;
+    }
+  }
+
+  // Not enough arguments-arrays were fould in loop.
+  if (ArgCnt < MinArgRefs)
+    return false;
+
+  // Store other inlining candidates in a special map.
+  if (CallSitesForFusion) {
+    for (auto LocalCS : LocalCSForFusion) {
+      CallSitesForFusion->insert(LocalCS);
+    }
+  }
+
+  return true;
+}
 #endif // INTEL_CUSTOMIZATION
 
 /// \brief Analyze a call site for potential inlining.
@@ -2037,6 +2265,10 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
              YesReasonVector.push_back(InlrDoubleNonLocalCall);
            }
         }
+      }
+      if (worthInliningForFusion(CS, *ILIC, CallSitesForFusion)) {
+        Cost -= InlineConstants::InliningForFusionBonus;
+        YesReasonVector.push_back(InlrForFusion);
       }
     }
   }
@@ -2361,9 +2593,11 @@ InlineCost llvm::getInlineCost(
     Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI,
     InliningLoopInfoCache *ILIC, // INTEL
     InlineAggressiveInfo *AI,    // INTEL
+    SmallSet<CallSite, 20> *CallSitesForFusion, // INTEL
     ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE) {
   return getInlineCost(CS, CS.getCalledFunction(), Params, CalleeTTI,
-                       GetAssumptionCache, GetBFI, ILIC, AI, PSI, ORE);// INTEL
+                       GetAssumptionCache, GetBFI, ILIC, AI, // INTEL
+                       CallSitesForFusion, PSI, ORE);// INTEL
 }
 
 InlineCost llvm::getInlineCost(
@@ -2373,6 +2607,7 @@ InlineCost llvm::getInlineCost(
     Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI,
     InliningLoopInfoCache *ILIC,    // INTEL
     InlineAggressiveInfo *AI,       // INTEL
+    SmallSet<CallSite, 20> *CallSitesForFusion, // INTEL
     ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE) {
 
   // Cannot inline indirect calls.
@@ -2432,7 +2667,7 @@ InlineCost llvm::getInlineCost(
                      << "... (caller:" << Caller->getName() << ")\n");
 
   CallAnalyzer CA(CalleeTTI, GetAssumptionCache, GetBFI, PSI, ORE, *Callee, CS,
-                  ILIC, AI, Params);  // INTEL
+                  ILIC, AI, CallSitesForFusion, Params);  // INTEL
 #if INTEL_CUSTOMIZATION
   InlineReason Reason = InlrNoReason;
   bool ShouldInline = CA.analyzeCall(CS, &Reason);
