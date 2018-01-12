@@ -217,10 +217,18 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
     //    (not a device). Having 2 devices seems to be an overkill for this
     //    purpose.
 #ifdef BUILD_FPGA_EMULATOR
-    optionsEx << " -cl-ext=+cl_khr_fp16";
+    // In FPGA HW: Since some of the extensions are either partially supported,
+    // or are not yet conformant (have not been tested or do not pass
+    // conformance tests), what we claim to support in the platform/device
+    // queries should be different from what we allow and have implemented.
+    // We're aligning with it's behavior in FPGA emulator.
     optionsEx << " -cl-ext=+cl_intel_channels";
-    optionsEx << " -cl-ext=+cl_altera_channels";
-    optionsEx << " -cl-ext=+cl_intel_fpga_host_pipe";
+    optionsEx << " -cl-ext=+cl_khr_local_int32_base_atomics ";
+    optionsEx << " -cl-ext=+cl_khr_local_int32_extended_atomics ";
+    optionsEx << " -cl-ext=+cl_khr_global_int32_base_atomics ";
+    optionsEx << " -cl-ext=+cl_khr_global_int32_extended_atomics ";
+    optionsEx << " -cl-ext=+cl_khr_fp64";
+    optionsEx << " -cl-ext=+cl_khr_fp16";
 #endif // BUILD_FPGA_EMULATOR
   }
 

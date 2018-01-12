@@ -133,8 +133,8 @@ const char* CPUDeviceConfig::GetExtensions() const
 {
     if (m_extensions.empty())
     {
+#ifndef BUILD_FPGA_EMULATOR
         // build the extensions list dynamically
-
         // common KHR extensions
         m_extensions =  OCL_EXT_KHR_ICD " ";
         m_extensions += OCL_EXT_KHR_GLOBAL_BASE_ATOMICS " ";
@@ -179,10 +179,12 @@ const char* CPUDeviceConfig::GetExtensions() const
 
         m_extensions += OCL_INTEL_VEC_LEN_HINT " ";
 
-#ifdef BUILD_FPGA_EMULATOR
-        m_extensions += OCL_EXT_INTEL_CHANNELS " ";
+#else
+        m_extensions =  OCL_EXT_KHR_ICD " ";
+        m_extensions += OCL_EXT_KHR_BYTE_ADDRESSABLE_STORE " ";
+        m_extensions += OCL_EXT_KHR_3D_IMAGE_WRITES " ";
         m_extensions += OCL_EXT_INTEL_FPGA_HOST_PIPE " ";
-        m_extensions += OCL_EXT_ALTERA_CHANNELS " ";
+        m_extensions += OCL_EXT_ES_KHR_INT64 " ";
 #endif
     }
 
