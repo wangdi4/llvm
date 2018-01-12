@@ -108,12 +108,12 @@ bool CSAStatistics::runOnMachineFunction(MachineFunction &MF) {
 
   DEBUG(errs() << "Writing '" << Filename << "'...");
   raw_fd_ostream O(Filename, EC, sys::fs::F_Text);
-  O << "CSA Statistics for function" << MF.getName().str() << "\n";
+  O << "CSA Statistics for function: " << MF.getName().str() << "\n";
 
   for (MachineLoopInfo::iterator LI = MLI->begin(), LE = MLI->end(); LI != LE; ++LI) {
     CollectStatsForLoop(*LI, O);
   }
-  O << "Top level" << "\n";
+  O << "Top level: " << "\n";
   unsigned numAdd = 0;
   unsigned numSub = 0;
   unsigned numMul = 0;
@@ -170,11 +170,26 @@ void CSAStatistics::CollectStatsForLoop(MachineLoop* L, raw_fd_ostream &O) {
   unsigned numCmp = 0;
 
   MachineLoop *mloop = L;
-  O << "loop header: " << mloop->getHeader()->getBasicBlock()->getName() << "\n";
-  //parent loop
-  if (mloop->getParentLoop())
+  unsigned lineno = 0;
+  for (MachineLoop::block_iterator BI = mloop->block_begin(), BE = mloop->block_end(); BI != BE; ++BI) {
+    MachineBasicBlock* mbb = *BI;
+    //only conside blocks in the current loop level, blocks in the nested level are done before.
+    if (MLI->getLoopFor(mbb) != mloop) continue;
+    for (MachineBasicBlock::iterator I = mbb->begin(); I != mbb->end(); ++I) {
+      MachineInstr *MI = &*I;
+      if (MI->getDebugLoc().get()) {
+        lineno = MI->getDebugLoc().getLine();
+        break;
+      }
+    }
+    if (lineno) break;
+  }
+  //current loop name + line number
+  O << "loop header: " << mloop->getHeader()->getBasicBlock()->getName() << "; source line number: " << lineno << "\n";
+  //parent loop name
+  if (mloop->getParentLoop()) {
     O << "parent loop header: " << mloop->getParentLoop()->getHeader()->getBasicBlock()->getName() << "\n";
-
+  }
 
   for (MachineLoop::block_iterator BI = mloop->block_begin(), BE = mloop->block_end(); BI != BE; ++BI) {
     MachineBasicBlock* mbb = *BI;
