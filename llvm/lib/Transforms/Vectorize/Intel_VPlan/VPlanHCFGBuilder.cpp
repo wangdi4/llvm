@@ -811,7 +811,7 @@ private:
   unsigned TopRegionSize = 0;
 
   IntelVPlanUtils &PlanUtils;
-  VPBuilderIR VPIRBuilder;
+  VPBuilder VPIRBuilder;
 
   /// Map the branches to the condition VPInstruction they are controlled by
   /// (Possibly at a different VPBB).

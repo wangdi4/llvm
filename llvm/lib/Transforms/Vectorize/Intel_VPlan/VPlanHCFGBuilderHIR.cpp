@@ -334,8 +334,7 @@ VPInstruction *PlainCFGBuilderHIR::createNoOperandVPInst(HLDDNode *DDNode,
   }
 
   // Temporal representation for external uses.
-  return cast<VPInstruction>(
-      VPHIRBuilder.createNaryOp(0 /*Opcode*/, {}, nullptr /*DDNode*/));
+  return cast<VPInstruction>(VPHIRBuilder.createNaryOp(0 /*Opcode*/, {}));
 }
 
 // Returns the VPValue that defines Edge's sink.

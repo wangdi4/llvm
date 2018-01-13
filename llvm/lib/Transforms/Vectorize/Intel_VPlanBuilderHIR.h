@@ -16,8 +16,8 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_BUILDER_HIR_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_BUILDER_HIR_H
 
-#include "Intel_VPlan/VPlanInstructionData.h"
 #include "Intel_VPlanBuilder.h"
+#include "Intel_VPlan/VPlanInstructionData.h"
 
 namespace llvm {
 namespace vpo {
@@ -27,14 +27,16 @@ public:
   /// Create an N-ary operation with \p Opcode and \p Operands and set \p HInst
   /// as its VPInstructionData.
   VPValue *createNaryOp(unsigned Opcode, ArrayRef<VPValue *> Operands,
-                        HLDDNode *DDNode) {
-    VPInstruction *NewVPInst = createInstruction(Opcode, Operands);
-    NewVPInst->setHIRData(new VPInstructionDataHIR(DDNode));
+                        HLDDNode *DDNode = nullptr) {
+    VPInstruction *NewVPInst =
+        cast<VPInstruction>(VPBuilder::createNaryOp(Opcode, Operands));
+    if (DDNode)
+      NewVPInst->setHIRData(new VPInstructionDataHIR(DDNode));
     return NewVPInst;
   }
   VPValue *createNaryOp(unsigned Opcode,
                         std::initializer_list<VPValue *> Operands,
-                        HLDDNode *DDNode) {
+                        HLDDNode *DDNode = nullptr) {
     return createNaryOp(Opcode, ArrayRef<VPValue *>(Operands), DDNode);
   }
 

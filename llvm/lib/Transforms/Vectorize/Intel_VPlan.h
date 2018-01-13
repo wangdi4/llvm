@@ -434,8 +434,10 @@ public:
 /// Design Principle: access to underlying IR is forbidden by default. Adding
 /// new friends to this class to have access to it must be very well justified.
 class VPInstruction : public VPUser, public VPRecipeBase {
-  friend class VPBuilderIR;
+#if INTEL_CUSTOMIZATION
+  friend class VPBuilder;
   friend class VPBuilderHIR;
+#endif
 
 public:
 #if INTEL_CUSTOMIZATION
