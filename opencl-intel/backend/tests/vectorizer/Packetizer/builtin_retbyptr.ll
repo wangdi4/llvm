@@ -9,16 +9,16 @@ target triple = "x86_64-unknown-linux-gnu"
 declare i64 @_Z13get_global_idj(i32) nounwind readnone
 
 define void @__Vectorized_.sincos(<4 x double> addrspace(1)* nocapture %out, <4 x double> addrspace(1)* %out2, <4 x double> addrspace(1)* nocapture %in) nounwind {
-; CHECK: call void @_Z14sincos_ret2ptrDv4_dPS_S0_(<4 x double> {{%[a-zA-Z0-9_]+}}, <4 x double>* [[S0:%[a-zA-Z0-9_]+]], <4 x double>* [[C0:%[a-zA-Z0-9_]+]])
+; CHECK: call void @_Z14sincos_ret2ptrDv4_dPS_S1_(<4 x double> {{%[a-zA-Z0-9_]+}}, <4 x double>* [[S0:%[a-zA-Z0-9_]+]], <4 x double>* [[C0:%[a-zA-Z0-9_]+]])
 ; CHECK: load <4 x double>, <4 x double>* [[S0]]
 ; CHECK: load <4 x double>, <4 x double>* [[C0]]
-; CHECK: call void @_Z14sincos_ret2ptrDv4_dPS_S0_(<4 x double> {{%[a-zA-Z0-9_]+}}, <4 x double>* [[S1:%[a-zA-Z0-9_]+]], <4 x double>* [[C1:%[a-zA-Z0-9_]+]])
+; CHECK: call void @_Z14sincos_ret2ptrDv4_dPS_S1_(<4 x double> {{%[a-zA-Z0-9_]+}}, <4 x double>* [[S1:%[a-zA-Z0-9_]+]], <4 x double>* [[C1:%[a-zA-Z0-9_]+]])
 ; CHECK: load <4 x double>, <4 x double>* [[S1]]
 ; CHECK: load <4 x double>, <4 x double>* [[C1]]
-; CHECK: call void @_Z14sincos_ret2ptrDv4_dPS_S0_(<4 x double> {{%[a-zA-Z0-9_]+}}, <4 x double>* [[S2:%[a-zA-Z0-9_]+]], <4 x double>* [[C2:%[a-zA-Z0-9_]+]])
+; CHECK: call void @_Z14sincos_ret2ptrDv4_dPS_S1_(<4 x double> {{%[a-zA-Z0-9_]+}}, <4 x double>* [[S2:%[a-zA-Z0-9_]+]], <4 x double>* [[C2:%[a-zA-Z0-9_]+]])
 ; CHECK: load <4 x double>, <4 x double>* [[S2]]
 ; CHECK: load <4 x double>, <4 x double>* [[C2]]
-; CHECK: call void @_Z14sincos_ret2ptrDv4_dPS_S0_(<4 x double> {{%[a-zA-Z0-9_]+}}, <4 x double>* [[S3:%[a-zA-Z0-9_]+]], <4 x double>* [[C3:%[a-zA-Z0-9_]+]])
+; CHECK: call void @_Z14sincos_ret2ptrDv4_dPS_S1_(<4 x double> {{%[a-zA-Z0-9_]+}}, <4 x double>* [[S3:%[a-zA-Z0-9_]+]], <4 x double>* [[C3:%[a-zA-Z0-9_]+]])
 ; CHECK: load <4 x double>, <4 x double>* [[S3]]
 ; CHECK: load <4 x double>, <4 x double>* [[C3]]
 ; CHECK: ret
@@ -61,16 +61,16 @@ entry:
 declare <2 x double> @_Z20__retbyvector_sincosd(double) nounwind readnone
 
 define void @__Vectorized_.native_sincos(<4 x double> addrspace(1)* nocapture %out, <4 x double> addrspace(1)* %out2, <4 x double> addrspace(1)* nocapture %in) nounwind {
-; CHECK: call void @_Z21native_sincos_ret2ptrDv4_dPS_S0_(<4 x double> {{%[a-zA-Z0-9_]+}}, <4 x double>* [[S0:%[a-zA-Z0-9_]+]], <4 x double>* [[C0:%[a-zA-Z0-9_]+]])
+; CHECK: call void @_Z21native_sincos_ret2ptrDv4_dPS_S1_(<4 x double> {{%[a-zA-Z0-9_]+}}, <4 x double>* [[S0:%[a-zA-Z0-9_]+]], <4 x double>* [[C0:%[a-zA-Z0-9_]+]])
 ; CHECK: load <4 x double>, <4 x double>* [[S0]]
 ; CHECK: load <4 x double>, <4 x double>* [[C0]]
-; CHECK: call void @_Z21native_sincos_ret2ptrDv4_dPS_S0_(<4 x double> {{%[a-zA-Z0-9_]+}}, <4 x double>* [[S1:%[a-zA-Z0-9_]+]], <4 x double>* [[C1:%[a-zA-Z0-9_]+]])
+; CHECK: call void @_Z21native_sincos_ret2ptrDv4_dPS_S1_(<4 x double> {{%[a-zA-Z0-9_]+}}, <4 x double>* [[S1:%[a-zA-Z0-9_]+]], <4 x double>* [[C1:%[a-zA-Z0-9_]+]])
 ; CHECK: load <4 x double>, <4 x double>* [[S1]]
 ; CHECK: load <4 x double>, <4 x double>* [[C1]]
-; CHECK: call void @_Z21native_sincos_ret2ptrDv4_dPS_S0_(<4 x double> {{%[a-zA-Z0-9_]+}}, <4 x double>* [[S2:%[a-zA-Z0-9_]+]], <4 x double>* [[C2:%[a-zA-Z0-9_]+]])
+; CHECK: call void @_Z21native_sincos_ret2ptrDv4_dPS_S1_(<4 x double> {{%[a-zA-Z0-9_]+}}, <4 x double>* [[S2:%[a-zA-Z0-9_]+]], <4 x double>* [[C2:%[a-zA-Z0-9_]+]])
 ; CHECK: load <4 x double>, <4 x double>* [[S2]]
 ; CHECK: load <4 x double>, <4 x double>* [[C2]]
-; CHECK: call void @_Z21native_sincos_ret2ptrDv4_dPS_S0_(<4 x double> {{%[a-zA-Z0-9_]+}}, <4 x double>* [[S3:%[a-zA-Z0-9_]+]], <4 x double>* [[C3:%[a-zA-Z0-9_]+]])
+; CHECK: call void @_Z21native_sincos_ret2ptrDv4_dPS_S1_(<4 x double> {{%[a-zA-Z0-9_]+}}, <4 x double>* [[S3:%[a-zA-Z0-9_]+]], <4 x double>* [[C3:%[a-zA-Z0-9_]+]])
 ; CHECK: load <4 x double>, <4 x double>* [[S3]]
 ; CHECK: load <4 x double>, <4 x double>* [[C3]]
 ; CHECK: ret

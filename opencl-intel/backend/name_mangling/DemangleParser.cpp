@@ -310,15 +310,14 @@ RefParamType DemangleParser::createPointerType() {
   PointerType *pPointer = new PointerType(pType);
 
   assert(AttrAddressSpace != ATTR_NONE && "No addr space.");
-  if (AttrAddressSpace != ATTR_PRIVATE)
-    pPointer->addAttribute(AttrAddressSpace);
+  pPointer->addAttribute(AttrAddressSpace);
 
   for (const auto &Attr : AttrQualifiers)
     pPointer->addAttribute(Attr);
 
   RefParamType refPointer(pPointer);
   // Add pointer to substitution list *after* parsing a pointee type
-  if (!AttrQualifiers.empty() || AttrAddressSpace != ATTR_PRIVATE)
+  if (!AttrQualifiers.empty())
     // Add dummy value to preserve correct substitution order
     //
     // TODO: implement correct way to handle substitutions with qualifiers

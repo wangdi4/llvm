@@ -26,11 +26,11 @@ entry:
 ; CHECK_4-NOT:    @_Z12read_imageui14ocl_image_ro2d11ocl_samplerDv2_i
 ; CHECK_8-NOT:    @_Z12read_imageui14ocl_image_ro2d11ocl_samplerDv2_i
 
-; CHECK_4:    call void @_Z17soa4_read_imageui14ocl_image2d_roDv4_iS0_PDv4_jS2_S2_S2_
-; CHECK_8:    call void @_Z17soa8_read_imageui14ocl_image2d_roDv8_iS0_PDv8_jS2_S2_S2_
+; CHECK_4:    call void @_Z17soa4_read_imageui14ocl_image2d_roDv4_iS0_PDv4_jS3_S3_S3_
+; CHECK_8:    call void @_Z17soa8_read_imageui14ocl_image2d_roDv8_iS0_PDv8_jS3_S3_S3_
   %call4 = tail call spir_func <4 x i32> @_Z12read_imageui14ocl_image2d_roDv2_i(%opencl.image2d_ro_t addrspace(1)* %img, <2 x i32> %vecinit3) #4
-; CHECK_4:    call void @_Z17soa4_read_imageui14ocl_image2d_ro11ocl_samplerDv4_iS1_PDv4_jS3_S3_S3_
-; CHECK_8:    call void @_Z17soa8_read_imageui14ocl_image2d_ro11ocl_samplerDv8_iS1_PDv8_jS3_S3_S3_
+; CHECK_4:    call void @_Z17soa4_read_imageui14ocl_image2d_ro11ocl_samplerDv4_iS1_PDv4_jS4_S4_S4_
+; CHECK_8:    call void @_Z17soa8_read_imageui14ocl_image2d_ro11ocl_samplerDv8_iS1_PDv8_jS4_S4_S4_
 
 ; CHECK_4-NOT:    @_Z12read_imageui14ocl_image_ro2dDv2_i
 ; CHECK_8-NOT:    @_Z12read_imageui14ocl_image_ro2dDv2_i
@@ -52,12 +52,12 @@ if.then:                                          ; preds = %entry
 ; CHECK_4-NOT:    @_Z12read_imageui14ocl_image_ro2d11ocl_samplerDv2_i
 ; CHECK_8-NOT:    @_Z12read_imageui14ocl_image_ro2d11ocl_samplerDv2_i
 
-; CHECK_4:    call void @_Z22mask_soa4_read_imageuiDv4_i14ocl_image2d_roS_S_PDv4_jS2_S2_S2_
-; CHECK_8:    call void @_Z22mask_soa8_read_imageuiDv8_i14ocl_image2d_roS_S_PDv8_jS2_S2_S2_
+; CHECK_4:    call void @_Z22mask_soa4_read_imageuiDv4_i14ocl_image2d_roS_S_PDv4_jS3_S3_S3_
+; CHECK_8:    call void @_Z22mask_soa8_read_imageuiDv8_i14ocl_image2d_roS_S_PDv8_jS3_S3_S3_
   %call13 = tail call spir_func <4 x i32> @_Z12read_imageui14ocl_image2d_roDv2_i(%opencl.image2d_ro_t addrspace(1)* %img, <2 x i32> %vecinit12) #4
   %add14 = add <4 x i32> %call13, %add
-; CHECK_4:    call void @_Z22mask_soa4_read_imageuiDv4_i14ocl_image2d_ro11ocl_samplerS_S_PDv4_jS3_S3_S3_
-; CHECK_8:    call void @_Z22mask_soa8_read_imageuiDv8_i14ocl_image2d_ro11ocl_samplerS_S_PDv8_jS3_S3_S3_
+; CHECK_4:    call void @_Z22mask_soa4_read_imageuiDv4_i14ocl_image2d_ro11ocl_samplerS_S_PDv4_jS4_S4_S4_
+; CHECK_8:    call void @_Z22mask_soa8_read_imageuiDv8_i14ocl_image2d_ro11ocl_samplerS_S_PDv8_jS4_S4_S4_
 
 ; CHECK_4-NOT:    @_Z12read_imageui14ocl_image_ro2dDv2_i
 ; CHECK_8-NOT:    @_Z12read_imageui14ocl_image_ro2dDv2_i

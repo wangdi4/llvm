@@ -124,14 +124,6 @@ static void replaceAll(std::string &src, const std::string &from,
   }
 }
 
-//
-// deletes the __private attribute from the given string if it appears in it
-//
-static void deletePrivate(std::string &s) {
-  replaceAll(s, "__private ", "");
-  replaceAll(s, "private ", "");
-}
-
 static void replaceSizeT(std::string &s) {
   const std::string strSizeT(SizeT<sizeof(size_t)>::nativeStr());
   replaceAll(s, "size_t", strSizeT);
@@ -169,11 +161,7 @@ static void fixImageTypeNames(std::string &s) {
 static bool isSematicallyEqual(const std::string &l, const std::string &r) {
   if (l == r)
     return true;
-  // we remove __private attribute, since it is the default address space,
-  // therefore doesn't mangled to the string.
   std::string left(l), right(r);
-  deletePrivate(left);
-  deletePrivate(right);
   // cl_mem_fence_flags are typedef's for int under SPIR SPEC.
   replaceClMemFenceFlags(left);
   replaceClMemFenceFlags(right);
@@ -463,31 +451,6 @@ TEST(MangleTest, _Z17convert_float_satc) {
   ASSERT_EQ(orig, syntesized);
 }
 
-TEST(MangleTest, ignorePrivateAddrSpaceQual) {
-  // Built-in declaration:
-  //
-  // bool atomic_compare_exchange_weak_explicit(
-  //           __local volatile atomic_int *object,
-  //           __private int *expected,  <--- private address space
-  //           int desired,                   qualifier is not mangled
-  //           memory_order success,
-  //           memory_order failure);
-
-  std::string orig =
-      "_Z37atomic_compare_exchange_weak_explicitPU3AS3VU7_AtomiciPii12memory_orderS3_";
-  FunctionDescriptor fd = demangle(orig.c_str());
-  ASSERT_FALSE(fd.isNull());
-  std::string syntesized = mangle(fd);
-  ASSERT_EQ(orig, syntesized);
-
-  // Check that __private has no affect on mangling
-  PointerType *Ty =
-      reinterpret_cast<PointerType *>((ParamType *)fd.parameters[1]);
-  Ty->addAttribute(reflection::ATTR_PRIVATE);
-  std::string syntesizedWithPrivate = mangle(fd);
-  ASSERT_EQ(syntesized, syntesizedWithPrivate);
-}
-
 // A special case, in which the param duplicate operator works to duplicate a
 // type suffix, not the enture type. The first parameter is v2f, the second is
 // v2f*.
@@ -576,25 +539,26 @@ TEST(DemangleTest, doubleDup6) {
 TEST(DemangleTest, doubleDup7) {
   FunctionDescriptor fd = demangle("_Z3fooPDv4_fS_S0_");
   ASSERT_FALSE(fd.isNull());
-  ASSERT_EQ(std::string("foo(float4 *, float4, float4 *)"), fd.toString());
+  ASSERT_EQ(std::string("foo(__private float4 *, float4, __private float4 *)"), fd.toString());
 }
 
 TEST(DemangleTest, doubleDup8) {
   FunctionDescriptor fd =
       demangle("_Z3fooPiPjPcPhPfPdS_S0_S1_S2_S3_S4_Dv4_iDv4_jDv4_cDv4_hDv4_fDv4_dS5_S6_S7_S8_S9_SA_");
   ASSERT_FALSE(fd.isNull());
-  ASSERT_EQ(std::string("foo(int *, uint *, char *, uchar *, float *, "
-                        "double *, int *, uint *, char *, uchar *, float *, "
-                        "double *, int4, uint4, char4, uchar4, float4, "
-                        "double4, int4, uint4, char4, uchar4, float4, "
-                        "double4)"),
+  ASSERT_EQ(std::string("foo(__private int *, __private uint *, __private char *, "
+                        "__private uchar *, __private float *, __private double *, "
+                        "__private int *, __private uint *, __private char *, "
+                        "__private uchar *, __private float *, __private double *, "
+                        "int4, uint4, char4, uchar4, float4, double4, int4, "
+                        "uint4, char4, uchar4, float4, double4)"),
             fd.toString());
 }
 
 TEST(DemangleTest, doubleDup9) {
   FunctionDescriptor fd = demangle("_Z3fooP4sFooS0_S_");
   ASSERT_FALSE(fd.isNull());
-  ASSERT_EQ(std::string("foo(sFoo *, sFoo *, sFoo)"), fd.toString());
+  ASSERT_EQ(std::string("foo(__private sFoo *, __private sFoo *, sFoo)"), fd.toString());
 }
 
 // Check that all (more than one) CVR-qualifiers is demangled correctly

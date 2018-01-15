@@ -22,16 +22,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 //
 
 typedef std::vector<reflection::TypeAttributeEnum> TypeAttrVec;
-static bool hasQualifiersForSubstitution(const TypeAttrVec &attrs) {
-  if (attrs.size() == 0) {
-    return false;
-  }
-
-  // ignore __private address space as it is done in clang
-  size_t privateAddrSpaceQualsNum =
-      std::count(attrs.begin(), attrs.end(), reflection::ATTR_PRIVATE);
-  return privateAddrSpaceQualsNum != attrs.size();
-}
 
 class MangleVisitor : public reflection::TypeVisitor {
 public:
@@ -66,7 +56,7 @@ public:
     }
     p->getPointee()->accept(this);
 
-    if (hasQualifiersForSubstitution(p->getAttributes())) {
+    if (p->getAttributes().size() > 0) {
       // Add dummy type to preserve substitutions order
       // TODO: implement correct way to handle substitutions with qualifiers
       // See more details in DemangleParser.cpp
