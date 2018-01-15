@@ -48,7 +48,7 @@ public:
 
   virtual ~ObjectCodeCache();
 
-  /// notifyObjectCompiled - will be called once the codegen genrates an object
+  /// notifyObjectCompiled - will be called once the codegen generates an object
   virtual void notifyObjectCompiled(const llvm::Module*, llvm::MemoryBufferRef);
 
   /// getObject - Returns a pointer to a pre-compiled object buffer previously

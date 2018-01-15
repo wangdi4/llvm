@@ -275,6 +275,7 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
         llvm::ScopedFatalErrorHandler FatalErrorHandler(BEFatalErrorHandler, nullptr);
 
         pCompiler->BuildProgram( pModule, &buildResult);
+        // ObjectCodeCache structure will be filled by a callback after JIT happens.
         std::unique_ptr<ObjectCodeCache> pObjectCodeCache(new ObjectCodeCache(nullptr, nullptr, 0));
         pCompiler->SetObjectCache(pObjectCodeCache.get());
 

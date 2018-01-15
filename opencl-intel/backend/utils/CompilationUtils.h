@@ -11,8 +11,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "cl_kernel_arg_type.h"
 #include "exceptions.h"
 
-#include "llvm/IR/Module.h"
-#include "llvm/IR/Function.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/BasicBlock.h"

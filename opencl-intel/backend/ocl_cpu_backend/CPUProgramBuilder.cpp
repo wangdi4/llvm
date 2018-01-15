@@ -211,13 +211,13 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
 
     std::unique_ptr<KernelSet> spKernels(new KernelSet);
 
-    for (auto pFunc : KernelList(pModule))
+    for (auto *pFunc : KernelList(pModule))
     {
         // Obtain kernel function from annotation
         auto kimd = KernelInternalMetadataAPI(pFunc);
         // Obtain kernel wrapper function from metadata info
         assert(kimd.KernelWrapper.hasValue() && "Always expect a kernel wrapper to be present");
-        llvm::Function *pWrapperFunc = kimd.KernelWrapper.get(); //TODO: stripPointerCasts());
+        llvm::Function *pWrapperFunc = kimd.KernelWrapper.get();
 
         // Create a kernel and kernel JIT properties
         std::unique_ptr<KernelProperties> spKernelProps( CreateKernelProperties( pProgram,
