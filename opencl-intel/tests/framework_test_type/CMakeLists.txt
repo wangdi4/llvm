@@ -84,12 +84,12 @@ add_custom_command( TARGET ${TARGET}
   POST_BUILD
   COMMAND ${CLANG} -cc1 -x cl ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
   -I ${INCLUDE_HEADERS_PATH} -emit-llvm-bc
-  ${SPIR_OPT}
-  -include opencl-c.h -disable-llvm-passes -o ${CMAKE_CURRENT_BINARY_DIR}/${SPIR_OUTPUT_FILE}
+  ${SPIR_OPT} -disable-llvm-passes -O0 -disable-intel-proprietary-opts
+  -include opencl-c.h -o ${CMAKE_CURRENT_BINARY_DIR}/${SPIR_OUTPUT_FILE}
   COMMAND ${CLANG} -cc1 -x cl ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
   -I ${INCLUDE_HEADERS_PATH} -emit-llvm-bc
-  ${INV_SPIR_OPT}
-  -include opencl-c.h -disable-llvm-passes -o ${CMAKE_CURRENT_BINARY_DIR}/${INV_SPIR_OUTPUT_FILE}
+  ${INV_SPIR_OPT} -disable-llvm-passes -O0 -disable-intel-proprietary-opts
+  -include opencl-c.h -o ${CMAKE_CURRENT_BINARY_DIR}/${INV_SPIR_OUTPUT_FILE}
   MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
   DEPENDS ${INCLUDE_HEADERS_PATH}/opencl-c.h
   BYPRODUCTS ${SPIR_OUTPUT_FILE} ${INV_SPIR_OUTPUT_FILE}

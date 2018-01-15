@@ -167,14 +167,14 @@ set (CLANG_OCL_12_COMPILER_FLAGS
 # add opencl.enable.FP_CONTRACT metadata and they will eventually appear in the
 # user's program.
 set (CLANG_CL_COMMON_COMPILER_FLAGS
-  -cc1 -triple ${DEVICE_TRIPLE} -mllvm -loopopt=false -emit-llvm-bc -fwrapv -O3
+  -cc1 -triple ${DEVICE_TRIPLE} -emit-llvm-bc -fwrapv -O3 -disable-intel-proprietary-opts
   -x cl -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -I ${LLVM_INCLUDE_DIRS}/cclang/ -I ${CL_BUILTIN_SOURCE_DIR} ${CLANG_LLVM_INCLUDE_DIRS} -include opencl-c.h
   -fblocks -ffake-address-space-map -faddress-space-map-mangling=yes -mstackrealign -ffp-contract=off
   -cl-ext=+cl_khr_fp16
   )
 
 set (CLANG_C_COMPILER_PARAMS
-  -cc1 -triple ${DEVICE_TRIPLE} -mllvm -loopopt=false -emit-llvm-bc -fwrapv -O3
+  -cc1 -triple ${DEVICE_TRIPLE} -emit-llvm-bc -fwrapv -O3 -disable-intel-proprietary-opts
   -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -I ${LLVM_INCLUDE_DIRS}/cclang/ -I ${CL_BUILTIN_SOURCE_DIR} ${CLANG_LLVM_INCLUDE_DIRS} -mstackrealign
   # Pretend we use LTO as Intel's clang version doesn't allows emitting LLVM
   # bytecode for C/C++ files w/o LTO flag.
@@ -190,7 +190,7 @@ set (CLANG_CL20_COMPILER_PARAMS
 set (LLVM_OPT_PARAMS -verify -sroa -functionattrs)
 
 # images optimization options
-set (LLVM_IMAGES_OPT_PARAMS -verify -builtin-import -builtin-call-to-inst -verify -O3 -loopopt=false)
+set (LLVM_IMAGES_OPT_PARAMS -verify -builtin-import -builtin-call-to-inst -verify -O3 -disable-intel-proprietary-opts)
 
 # llvm-link parameters
 set (LLVM_LINK_PARAMS -suppress-warnings)
