@@ -11,9 +11,9 @@ endif( BACKEND_BUILD_VERIFICATION_LIB )
 
 add_custom_command(
   OUTPUT BuiltinList.h
-  COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/backend/name_mangling/unittests/MangledNames.h
+  COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/tests/name_mangling_test_type/MangledNames.h
   BuiltinList.h
-  DEPENDS NameManglingTests
+  DEPENDS name_mangling_test_type
   COMMENT "copying MangledNames.h ..."
   VERBATIM
 )

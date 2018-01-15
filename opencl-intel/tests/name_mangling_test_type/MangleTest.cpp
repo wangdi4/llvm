@@ -452,7 +452,7 @@ TEST(DemangleTest, addressSpaceAndUserDefTy) {
 }
 
 //
-// Manlge
+// Mangle
 //
 
 TEST(MangleTest, _Z17convert_float_satc) {

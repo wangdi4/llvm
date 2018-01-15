@@ -46,6 +46,7 @@ Also, the following targets are available:
 * ``check-ocl-bi_test_type``
 * ``check-ocl-clang_compiler_test_type``
 * ``check-ocl-cpu_device_test_type``
+* ``check-ocl-name_mangling_test_type``
 * ``check-ocl-framework_test_type``
 * ``check-ocl-task_executor_test_type``
 

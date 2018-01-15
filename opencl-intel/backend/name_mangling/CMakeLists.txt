@@ -1,11 +1,4 @@
-set( BACKEND_BUILD_TESTS            ON  CACHE STRING "")
-set( BACKEND_BUILD_VERIFICATION_LIB ON  CACHE STRING "")
-
 set(TARGET_NAME name_mangle)
-
-project (${TARGET_NAME})
-
-add_subdirectory(unittests)
 
 add_definitions(-DSUBSTITUTE_OPENCL_TYPES)
 
@@ -16,9 +9,6 @@ set(TARGET_SOURCE_FILES
   FunctionDescriptor.cpp
   DemangleParser.cpp
   Utils.cpp
-)
-
-set(TARGET_INCLUDE_FILES
   ParameterType.h
   NameMangleAPI.h
   FunctionDescriptor.h
@@ -31,14 +21,10 @@ add_library(
   ${TARGET_NAME}
   STATIC
   ${TARGET_SOURCE_FILES}
-  ${TARGET_INCLUDE_FILES}
 )
-
-include_directories(${LLVM_MAIN_SRC_DIR}/utils/unittest/googletest/include)
 
 include_directories(
   ${LLVM_INCLUDE_DIRS}
-  ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/reflection )

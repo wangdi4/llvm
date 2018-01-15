@@ -61,11 +61,11 @@ add_subdirectory( tbb_native_test_type )
 add_subdirectory( cpu_device_test_type )
 add_subdirectory( framework_test_type )
 add_subdirectory( FrontendDriver_test_type )
-
 add_subdirectory( task_executor_test_type )
 add_subdirectory( bi_test_type )
 add_subdirectory( backend_test_type )
 add_subdirectory( openmp_test_type )
+add_subdirectory( name_mangling_test_type )
 
 if( USE_VALGRIND )
   add_subdirectory( valgrind )
@@ -87,6 +87,7 @@ list(APPEND RUNTIME_UNITTESTS
   cpu_device_test_type
   backend_test_type
   openmp_test_type
+  name_mangling_test_type
 )
 
 list(APPEND RT_TEST_DEPS
