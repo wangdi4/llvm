@@ -98,6 +98,7 @@ void initializeOCLPasses(PassRegistry &Registry)
     intel::initializeInfiniteLoopCreatorPass(Registry);
     intel::initializeAutorunReplicatorPass(Registry);
     intel::initializeImplicitGlobalIdPassPass(Registry);
+    intel::initializeStripIntelIPPass(Registry);
 }
 
 

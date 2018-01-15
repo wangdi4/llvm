@@ -297,8 +297,9 @@ set( BACKEND_PASSES
     CloneBlockInvokeFuncToKernel
     ResolveBlockToStaticCall
     PatchCallbackArgs
-    SmartGVN
     SinCosFold
+    SmartGVN
+    StripIntelIP
     PreLegalizeBools
     OCLAliasAnalysis
     PrintfArgumentsPromotion

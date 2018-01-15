@@ -52,8 +52,9 @@ set(OCL_BE_PASSES
     ResolveBlockToStaticCall
     ResolveWICall
     ShiftZeroUpperBits
-    SmartGVN
     SinCosFold
+    SmartGVN
+    StripIntelIP
     PreLegalizeBools
     OCLAliasAnalysis
     PrintfArgumentsPromotion
