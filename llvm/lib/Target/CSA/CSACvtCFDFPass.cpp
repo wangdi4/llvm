@@ -1742,7 +1742,8 @@ void CSACvtCFDFPass::assignLicForDF() {
           mInst->getOpcode() == CSA::LAND1 ||
           mInst->getOpcode() == CSA::LOR1  || 
           mInst->getOpcode() == CSA::OR1 ||
-          mInst->isCopy()) {
+          mInst->isCopy() || TII->isInit(mInst) ||
+          TII->isLoad(mInst) || TII->isStore(mInst)) {
         for (MIOperands MO(*MI); MO.isValid(); ++MO) {
           if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
           if (TII->isLIC(*MO, *MRI)) continue;
@@ -3152,7 +3153,7 @@ void CSACvtCFDFPass::generateDynamicPickTreeForHeader(MachineBasicBlock* mbb) {
   MachineBasicBlock::iterator hdrloc = mbb->begin();
   // init loopPred 0;
   MachineInstr *predInit = BuildMI(*mbb, hdrloc, DebugLoc(), TII->get(InitOpcode), loopPred).addImm(0);
-
+  predInit->setFlag(MachineInstr::NonSequential);
 #if 1
   unsigned hdrPred = getBBPred(mbb);
   assert(hdrPred);
