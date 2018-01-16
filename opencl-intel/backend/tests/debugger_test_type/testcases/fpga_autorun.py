@@ -9,6 +9,7 @@
 # ===---------------------------------------------------------------------=== //
 # The test check that
 # * compiltion of a programm with autorun kernels and debug info is successful,
+# * stop breakpoints, step and continue in autorun kernel
 
 from testlib.debuggertestcase import DebuggerTestCase
 
@@ -22,15 +23,31 @@ class FPGAAutorun(DebuggerTestCase):
         self.client.connect_to_server()
         self.client.start_session(0, 0, 0)
 
-        # TODO: write a meaningful scenario for GDB
-        # Compilation of 'fpga_autorun.cl' with debug info fails due to a
-        # known issue in PipeSupportPass. Need to complete this test by
-        # meaningful debugging scenario when the bug will be fixed.
-
-        # This test checks only that compilation with debug info works fine.
-
-        # Set a dummy breakpoint
-        bp = (self.CLNAME, 7)
+        # Set a breakpoint in an autorun kernel
+        bp = (self.CLNAME, 8)
         self.assertEqual(self.client.debug_run([bp]), bp)
+
+        # Set a breakpoint and test 'next' and 'continue'
+        bps = [(self.CLNAME, 16), (self.CLNAME, 17)]
+
+        # Prevent switching threads
+        self.client._command('set scheduler-locking step')
+
+        # Go through all 5 replicas of autorun kernel 'chained_plus()'
+        # stop at the 16th line and test 'next'
+        self.assertEqual(self.client.debug_run([bps[0]]), bps[0])
+        self.assertEqual(self.client.debug_step_over(), bps[1])
+
+        self.assertEqual(self.client.debug_continue(), bps[0])
+        self.assertEqual(self.client.debug_step_over(), bps[1])
+
+        self.assertEqual(self.client.debug_continue(), bps[0])
+        self.assertEqual(self.client.debug_step_over(), bps[1])
+
+        self.assertEqual(self.client.debug_continue(), bps[0])
+        self.assertEqual(self.client.debug_step_over(), bps[1])
+
+        self.assertEqual(self.client.debug_continue(), bps[0])
+        self.assertEqual(self.client.debug_step_over(), bps[1])
 
         self.client.debug_run_finish()
