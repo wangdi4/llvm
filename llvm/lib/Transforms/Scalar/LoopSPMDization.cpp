@@ -55,6 +55,11 @@ namespace {
     IntrinsicInst* detectSPMDExitIntrinsic(Loop *L, LoopInfo *LI);
 
     bool runOnLoop(Loop *L, LPPassManager &) override {
+
+      // Skip SPMDization if optnone is set; this makes it possible to use
+      // things like OptBisect with SPMDization.
+      if (skipLoop(L)) return false;
+
       LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
       DominatorTree *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
       ScalarEvolution *SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
