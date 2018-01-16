@@ -3878,6 +3878,9 @@ public:
   }
 
   template <typename NodeTy> void postVisitImpl(NodeTy *Node) {
+    assert(Node != SkipNode &&
+           "Node is removed, should be no further actions.");
+
     IsJoinNode = true;
 
     LastNodeToRemove = nullptr;

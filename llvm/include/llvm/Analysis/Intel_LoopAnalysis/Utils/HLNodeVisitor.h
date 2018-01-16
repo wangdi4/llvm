@@ -170,14 +170,16 @@ private:
 
       if (Recursive && !Visitor.isDone()) {
 
-        // Visit body
-        if (RecurseInsideLoops && !Visitor.skipRecursion(Node) &&
-            visitRange(Loop->child_begin(), Loop->child_end())) {
-          return true;
-        }
+        if (!Visitor.skipRecursion(Node)) {
+          // Visit body
+          if (RecurseInsideLoops &&
+              visitRange(Loop->child_begin(), Loop->child_end())) {
+            return true;
+          }
 
-        // PostVisit loop
-        Visitor.postVisit(Loop);
+          // PostVisit loop
+          Visitor.postVisit(Loop);
+        }
 
         // Visit postexit
         Ret = Forward ? visitRange(Loop->post_begin(), Loop->post_end())
