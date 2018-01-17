@@ -524,6 +524,12 @@ void ParVecInfo::analyze(HLLoop *Loop, TargetLibraryInfo *TLI,
     return;
   }
 
+  if (!Loop->isNormalized()) {
+    setVecType(NON_NORMALIZED_LOOP);
+    emitDiag();
+    return;
+  }
+
   if (!isDone()) {
     cleanEdges();
     DDWalk DDW(*TLI, *DDA, *SRA, Loop, this); // Legality checker.
