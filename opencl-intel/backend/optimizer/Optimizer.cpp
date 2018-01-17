@@ -140,6 +140,10 @@ static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
                                             int rtLoopUnrollFactor,
                                             bool allowAllocaModificationOpt,
                                             bool isDBG, unsigned RunVPOParopt) {
+  if (OptLevel == 0) {
+    return;
+  }
+
 // INTEL VPO BEGIN
   if (!DisableVPlanVec && (RunVPOParopt & VPOParoptMode::OmpVec))
     PM->add(createVecClonePass());
@@ -156,10 +160,6 @@ static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
     PM->add(llvm::createVPOParoptPass(RunVPOParopt));
   }
 // INTEL VPO END
-
-  if (OptLevel == 0) {
-    return;
-  }
 
   if (UnitAtATime) {
     PM->add(llvm::createGlobalOptimizerPass());    // Optimize out global vars
