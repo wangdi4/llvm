@@ -61,6 +61,11 @@ this extensions is specified in ``lit.local.cfg`` files in subdirectories of
 For example in ``opencl/backend/tests/barrier`` directory all files with ``.ll``
 extension are treated as tests.
 
+In case when a new test folder is added during development cmake won't
+re-run automatically and new test target will not be created.
+A solution is to re-run cmake by either performing a clean build or
+clearing cmake cache.
+
 LIT tests configuration and internal details
 ============================================
 
