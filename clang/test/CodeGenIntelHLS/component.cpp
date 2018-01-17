@@ -34,6 +34,18 @@ __attribute__((max_concurrency(2048)))
 __attribute__((component_interface("always_run")))
 int foo3() { return 0; }
 
+template <int N>
+__attribute__((ihc_component))
+__attribute__((max_concurrency(N)))
+__attribute__((component_interface("always_run")))
+int tfoo3() { return 0; }
+
+//CHECK: @_Z5tfoo3ILi512EEiv{{.*}}!ihc_component [[CTFOO3:![0-9]+]] !ihc_attrs [[ATFOO3:![0-9]+]]
+void call_it()
+{
+  tfoo3<512>();
+}
+
 //CHECK: @_Z4foo4v{{.*}}!ihc_component [[CFOO4:![0-9]+]] !ihc_attrs [[AFOO4:![0-9]+]]
 __attribute__((ihc_component))
 __attribute__((stall_free_return))
@@ -54,6 +66,9 @@ int foo4() { return 0; }
 
 //CHECK: [[CFOO3]] = !{!"_Z4foo3v", i32 undef}
 //CHECK: [[AFOO3]] = !{!"cosim_name", !"_Z4foo3v", !"component_interface", !"always_run", !"stall_free_return", i32 0, !"max_concurrency", i32 2048
+
+//CHECK: [[CTFOO3]] = !{!"_Z5tfoo3ILi512EEiv", i32 undef}
+//CHECK: [[ATFOO3]] = !{!"cosim_name", !"_Z5tfoo3ILi512EEiv", !"component_interface", !"always_run", !"stall_free_return", i32 0, !"max_concurrency", i32 512
 
 //CHECK: [[CFOO4]] = !{!"_Z4foo4v", i32 undef}
 //CHECK: [[AFOO4]] = !{!"cosim_name", !"_Z4foo4v", !"component_interface", !"avalon_streaming", !"stall_free_return", i32 1

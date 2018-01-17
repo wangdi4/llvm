@@ -92,9 +92,10 @@ void CodeGenFunction::EmitHLSComponentMetadata(const FunctionDecl *FD,
       llvm::ConstantInt::get(Int32Ty, IsStallFreeReturn)));
 
   if (const auto *MCA = FD->getAttr<MaxConcurrencyAttr>()) {
+    llvm::Value *MaxValue = EmitScalarExpr(MCA->getMax());
+    llvm::ConstantInt *MaxCI = cast<llvm::ConstantInt>(MaxValue);
     AttrMD.push_back(llvm::MDString::get(Ctx, "max_concurrency"));
-    AttrMD.push_back(llvm::ConstantAsMetadata::get(
-        llvm::ConstantInt::get(Int32Ty, MCA->getMax())));
+    AttrMD.push_back(llvm::ConstantAsMetadata::get(MaxCI));
   }
 
   Fn->setMetadata("ihc_component", llvm::MDNode::get(Ctx, ComponentMD));

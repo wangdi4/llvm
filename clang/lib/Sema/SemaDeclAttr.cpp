@@ -35,6 +35,7 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/MathExtras.h"
+#include "intel/SemaIntelImpl.h" // INTEL
 
 using namespace clang;
 using namespace sema;
@@ -3270,6 +3271,284 @@ static void handleOpenCLLocalMemSizeAttr(Sema & S, Decl * D,
       Attr.getAttributeSpellingListIndex()));
 }
 
+/// \brief Give a warning for duplicate attributes, return true if duplicate.
+template <typename AttrType>
+static bool checkForDuplicateAttribute(Sema &S, Decl *D,
+                                       const AttributeList &Attr) {
+  // Give a warning for duplicates but not if it's one we've implicitly added.
+  auto *A = D->getAttr<AttrType>();
+  if (A && !A->isImplicit()) {
+    S.Diag(Attr.getLoc(), diag::warn_duplicate_attribute_exact)
+        << Attr.getName();
+    return true;
+  }
+  return false;
+}
+
+/// \brief Handle the __doublepump__ and __singlepump__ attributes.
+/// One but not both can be specified, and __register__ is incompatible.
+template <typename AttrType, typename IncompatAttrType>
+static void handlePumpAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+
+  if (checkForDuplicateAttribute<AttrType>(S, D, Attr))
+    return;
+  if (checkAttrMutualExclusion<IncompatAttrType>(S, D, Attr.getRange(),
+                                                 Attr.getName()))
+    return;
+
+  if (checkAttrMutualExclusion<RegisterAttr>(S, D, Attr.getRange(),
+                                             Attr.getName()))
+    return;
+
+  if (!D->hasAttr<MemoryAttr>())
+    D->addAttr(MemoryAttr::CreateImplicit(S.Context));
+
+  handleSimpleAttribute<AttrType>(S, D, Attr);
+}
+
+/// \brief Handle the __memory__ attribute.
+/// This is incompatible with the __register__ attribute.
+static void handleMemoryAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+
+  if (checkForDuplicateAttribute<MemoryAttr>(S, D, Attr))
+    return;
+  if (checkAttrMutualExclusion<RegisterAttr>(S, D, Attr.getRange(),
+                                             Attr.getName()))
+    return;
+
+  // We are adding a user memory attribute, drop any implicit default.
+  if (auto *MA = D->getAttr<MemoryAttr>())
+    if (MA->isImplicit())
+      D->dropAttr<MemoryAttr>();
+
+  handleSimpleAttribute<MemoryAttr>(S, D, Attr);
+}
+
+/// \brief Check for and diagnose attributes incompatible with register.
+/// return true if any incompatible attributes exist.
+static bool checkRegisterAttrCompatibility(Sema &S, Decl *D,
+                                           const AttributeList &Attr) {
+  bool InCompat = false;
+  if (auto *MA = D->getAttr<MemoryAttr>())
+    if (!MA->isImplicit() && checkAttrMutualExclusion<MemoryAttr>(
+                                 S, D, Attr.getRange(), Attr.getName()))
+      InCompat = true;
+  if (checkAttrMutualExclusion<DoublePumpAttr>(S, D, Attr.getRange(),
+                                               Attr.getName()))
+    InCompat = true;
+  if (checkAttrMutualExclusion<SinglePumpAttr>(S, D, Attr.getRange(),
+                                               Attr.getName()))
+    InCompat = true;
+  if (checkAttrMutualExclusion<MergeAttr>(S, D, Attr.getRange(),
+                                          Attr.getName()))
+    InCompat = true;
+  if (checkAttrMutualExclusion<BankBitsAttr>(S, D, Attr.getRange(),
+                                             Attr.getName()))
+    InCompat = true;
+  if (checkAttrMutualExclusion<BankWidthAttr>(S, D, Attr.getRange(),
+                                              Attr.getName()))
+    InCompat = true;
+  if (auto *NBA = D->getAttr<NumBanksAttr>())
+    if (!NBA->isImplicit() && checkAttrMutualExclusion<NumBanksAttr>(
+                                  S, D, Attr.getRange(), Attr.getName()))
+      InCompat = true;
+  if (checkAttrMutualExclusion<NumReadPortsAttr>(S, D, Attr.getRange(),
+                                                 Attr.getName()))
+    InCompat = true;
+  if (checkAttrMutualExclusion<NumWritePortsAttr>(S, D, Attr.getRange(),
+                                                  Attr.getName()))
+    InCompat = true;
+
+  return InCompat;
+}
+
+/// \brief Handle the __register__ attribute.
+/// This is incompatible with most of the other memory attributes.
+static void handleRegisterAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+
+  if (checkForDuplicateAttribute<RegisterAttr>(S, D, Attr))
+    return;
+  if (checkRegisterAttrCompatibility(S, D, Attr))
+    return;
+
+  handleSimpleAttribute<RegisterAttr>(S, D, Attr);
+}
+
+/// \brief Handle the numreadports, numwriteports, and static_array_reset
+/// attributes.  These require a single constant value.
+/// numreadports,numwriteports: must be greater than zero.
+/// static_array_reset: must be 0 or 1.
+/// These are incompatible with the register attribute.
+template <typename AttrType>
+static void handleOneConstantValueAttr(Sema &S, Decl *D,
+                                       const AttributeList &Attr) {
+  if (checkForDuplicateAttribute<AttrType>(S, D, Attr))
+    return;
+  if (checkAttrMutualExclusion<RegisterAttr>(S, D, Attr.getRange(),
+                                             Attr.getName()))
+    return;
+
+  S.AddOneConstantValueAttr<AttrType>(Attr.getRange(), D, Attr.getArgAsExpr(0),
+                                      Attr.getAttributeSpellingListIndex());
+}
+
+/// \brief Handle the bankwidth and numbanks attributes.
+/// These require a single constant power of two greater than zero.
+/// These are incompatible with the register attribute.
+/// The numbanks and bank_bits attributes are related.  If bank_bits exists
+/// when handling numbanks they are checked for consistency.
+template <typename AttrType>
+static void handleOneConstantPowerTwoValueAttr(Sema &S, Decl *D,
+                                               const AttributeList &Attr) {
+  if (checkForDuplicateAttribute<AttrType>(S, D, Attr))
+    return;
+  if (checkAttrMutualExclusion<RegisterAttr>(S, D, Attr.getRange(),
+                                             Attr.getName()))
+    return;
+
+  S.AddOneConstantPowerTwoValueAttr<AttrType>(
+      Attr.getRange(), D, Attr.getArgAsExpr(0),
+      Attr.getAttributeSpellingListIndex());
+}
+
+/// \brief Handle the numports_readonly_writeonly attribute.
+/// This requires two constant values greater than zero.
+/// This is incompatible with the register attribute.
+/// This generates a NumReadPortsAttr and a NumWritePortsAttr instead of
+/// its own attribute.
+static void handleNumPortsReadOnlyWriteOnlyAttr(Sema &S, Decl *D,
+                                                const AttributeList &Attr) {
+  if (checkForDuplicateAttribute<NumReadPortsAttr>(S, D, Attr))
+    return;
+  if (checkForDuplicateAttribute<NumWritePortsAttr>(S, D, Attr))
+    return;
+  if (checkAttrMutualExclusion<RegisterAttr>(S, D, Attr.getRange(),
+                                             Attr.getName()))
+    return;
+
+  S.AddOneConstantValueAttr<NumReadPortsAttr>(Attr.getRange(), D,
+                                              Attr.getArgAsExpr(0), 0);
+  S.AddOneConstantValueAttr<NumWritePortsAttr>(Attr.getRange(), D,
+                                               Attr.getArgAsExpr(1), 0);
+}
+
+/// \brief Handle the merge attribute.
+/// This requires two string arguments.  The first argument is a name, the
+/// second is a direction.  The direction must be "depth" or "width".
+/// This is incompatible with the register attribute.
+static void handleMergeAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+
+  if (checkForDuplicateAttribute<MergeAttr>(S, D, Attr))
+    return;
+
+  if (checkAttrMutualExclusion<RegisterAttr>(S, D, Attr.getRange(),
+                                             Attr.getName()))
+    return;
+
+  SmallVector<StringRef, 2> Results;
+  for (int I = 0; I < 2; I++) {
+    StringRef Str;
+    if (!S.checkStringLiteralArgumentAttr(Attr, I, Str))
+      return;
+
+    if (I == 1 && Str != "depth" && Str != "width") {
+      S.Diag(Attr.getLoc(), diag::err_hls_merge_dir_invalid) << Attr.getName();
+      return;
+    }
+    Results.push_back(Str);
+  }
+
+  if (!D->hasAttr<MemoryAttr>())
+    D->addAttr(MemoryAttr::CreateImplicit(S.Context));
+
+  D->addAttr(::new (S.Context)
+                 MergeAttr(Attr.getRange(), S.Context, Results[0], Results[1],
+                           Attr.getAttributeSpellingListIndex()));
+}
+
+/// \brief Handle the bank_bits attribute.
+/// This attribute accepts a list of values greater than zero.
+/// This is incompatible with the register attribute.
+/// The numbanks and bank_bits attributes are related.  If numbanks exists
+/// when handling bank_bits they are checked for consistency.  If numbanks
+/// hasn't been added yet an implicit one is added with the correct value.
+/// If the user later adds a numbanks attribute the implicit one is removed.
+/// The values must be consecutive values (i.e. 3,4,5 or 1,2).
+static void handleBankBitsAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+
+  if (checkForDuplicateAttribute<BankBitsAttr>(S, D, Attr))
+    return;
+
+  if (!checkAttributeAtLeastNumArgs(S, Attr, 1))
+    return;
+
+  if (checkAttrMutualExclusion<RegisterAttr>(S, D, Attr.getRange(),
+                                             Attr.getName()))
+    return;
+
+  SmallVector<Expr *, 8> Args;
+  for (unsigned I = 0; I < Attr.getNumArgs(); ++I) {
+    Args.push_back(Attr.getArgAsExpr(I));
+  }
+
+  S.AddBankBitsAttr(Attr.getRange(), D, Args.data(), Args.size(),
+                    Attr.getAttributeSpellingListIndex());
+}
+
+void Sema::AddBankBitsAttr(SourceRange AttrRange, Decl *D, Expr **Exprs,
+                           unsigned Size, unsigned SpellingListIndex) {
+  BankBitsAttr TmpAttr(AttrRange, Context, Exprs, Size, SpellingListIndex);
+  SmallVector<Expr *, 8> Args;
+  SmallVector<llvm::APSInt, 8> Values;
+  for (auto *E : TmpAttr.args()) {
+    llvm::APSInt Value(32, /*IsUnsigned=*/false);
+    if (!E->isValueDependent()) {
+      ExprResult ICE;
+      if (checkRangedIntegralArgument<BankBitsAttr>(E, &TmpAttr, ICE))
+        return;
+      E->EvaluateAsInt(Value, Context);
+      if (!Values.empty()) {
+        llvm::APSInt Expected(32, /*IsUnsigned=*/false);
+        Expected = Values.back() + 1;
+        // Expected == 1 would only happen for a value-dependent template
+        // which we can't check yet.
+        if (Expected != 1 && Value != Expected) {
+          Diag(AttrRange.getBegin(), diag::err_bankbits_non_consecutive)
+              << &TmpAttr;
+          return;
+        }
+      }
+      E = ICE.get();
+    }
+    Args.push_back(E);
+    Values.push_back(Value);
+  }
+
+  // Check or add the related numbanks attribute.
+  if (auto *NBA = D->getAttr<NumBanksAttr>()) {
+    Expr *E = NBA->getValue();
+    if (!E->isValueDependent()) {
+      llvm::APSInt Value(32);
+      E->EvaluateAsInt(Value, Context);
+      if (Args.size() != Value.ceilLogBase2()) {
+        Diag(AttrRange.getBegin(), diag::err_bankbits_numbanks_conflicting);
+        return;
+      }
+    }
+  } else {
+    llvm::APInt Num(32, (unsigned)(1 << Args.size()));
+    Expr *NBE =
+        IntegerLiteral::Create(Context, Num, Context.IntTy, SourceLocation());
+    D->addAttr(NumBanksAttr::CreateImplicit(Context, NBE));
+  }
+
+  if (!D->hasAttr<MemoryAttr>())
+    D->addAttr(MemoryAttr::CreateImplicit(Context));
+
+  D->addAttr(::new (Context) BankBitsAttr(AttrRange, Context, Args.data(),
+                                          Args.size(), SpellingListIndex));
+}
+
 static void setComponentDefaults(Sema &S, Decl *D) {
   if (!D->hasAttr<ComponentAttr>())
     D->addAttr(ComponentAttr::CreateImplicit(S.Context));
@@ -3344,30 +3623,22 @@ static void handleComponentInterfaceAttr(Sema &S, Decl *D,
 
 static void handleMaxConcurrencyAttr(Sema &S, Decl *D,
                                      const AttributeList &Attr) {
-  if (!checkAttributeNumArgs(S, Attr, /*NumArgsExpected=*/1))
-    return;
+  S.AddMaxConcurrencyAttr(Attr.getRange(), D, Attr.getArgAsExpr(0),
+                          Attr.getAttributeSpellingListIndex());
+}
 
-  Expr *E = Attr.getArgAsExpr(0);
-  llvm::APSInt MaxVal;
-  int64_t Max;
-  bool IsValidInt = E->EvaluateAsInt(MaxVal, S.Context);
+void Sema::AddMaxConcurrencyAttr(SourceRange AttrRange, Decl *D, Expr *E,
+                                 unsigned SpellingListIndex) {
+  MaxConcurrencyAttr TmpAttr(AttrRange, Context, E, SpellingListIndex);
 
-  if (IsValidInt) {
-    Max = MaxVal.getExtValue();
-    if (Max < 0 || Max > MaxConcurrencyAttr::getMaxValue())
-      IsValidInt = false;
+  if (!E->isValueDependent()) {
+    ExprResult ICE;
+    if (checkRangedIntegralArgument<MaxConcurrencyAttr>(E, &TmpAttr, ICE))
+      return;
+    E = ICE.get();
   }
-
-  if (!IsValidInt) {
-    S.Diag(Attr.getLoc(), diag::err_attribute_argument_outof_range)
-        << Attr.getName() << 0 << MaxConcurrencyAttr::getMaxValue();
-    return;
-  }
-
-  D->addAttr(::new (S.Context)
-                 MaxConcurrencyAttr(Attr.getRange(), S.Context, (unsigned)Max,
-                                    Attr.getAttributeSpellingListIndex()));
-  setComponentDefaults(S, D);
+  D->addAttr(::new (Context)
+                 MaxConcurrencyAttr(AttrRange, Context, E, SpellingListIndex));
 }
 
 static void handleArgumentInterfaceAttr(Sema & S, Decl * D,
@@ -7821,6 +8092,42 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     handleOpenCLHostAccessible(S, D, Attr);
     break;
   // Intel HLS specific attributes
+  case AttributeList::AT_SinglePump:
+    handlePumpAttr<SinglePumpAttr, DoublePumpAttr>(S, D, Attr);
+    break;
+  case AttributeList::AT_DoublePump:
+    handlePumpAttr<DoublePumpAttr, SinglePumpAttr>(S, D, Attr);
+    break;
+  case AttributeList::AT_Memory:
+    handleMemoryAttr(S, D, Attr);
+    break;
+  case AttributeList::AT_Register:
+    handleRegisterAttr(S, D, Attr);
+    break;
+  case AttributeList::AT_BankWidth:
+    handleOneConstantPowerTwoValueAttr<BankWidthAttr>(S, D, Attr);
+    break;
+  case AttributeList::AT_NumBanks:
+    handleOneConstantPowerTwoValueAttr<NumBanksAttr>(S, D, Attr);
+    break;
+  case AttributeList::AT_NumReadPorts:
+    handleOneConstantValueAttr<NumReadPortsAttr>(S, D, Attr);
+    break;
+  case AttributeList::AT_NumWritePorts:
+    handleOneConstantValueAttr<NumWritePortsAttr>(S, D, Attr);
+    break;
+  case AttributeList::AT_NumPortsReadOnlyWriteOnly:
+    handleNumPortsReadOnlyWriteOnlyAttr(S, D, Attr);
+    break;
+  case AttributeList::AT_Merge:
+    handleMergeAttr(S, D, Attr);
+    break;
+  case AttributeList::AT_BankBits:
+    handleBankBitsAttr(S, D, Attr);
+    break;
+  case AttributeList::AT_StaticArrayReset:
+    handleOneConstantValueAttr<StaticArrayResetAttr>(S, D, Attr);
+    break;
   case AttributeList::AT_Component:
     handleComponentAttr(S, D, Attr);
     break;

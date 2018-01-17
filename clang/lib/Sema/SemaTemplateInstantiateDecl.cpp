@@ -23,6 +23,7 @@
 #include "clang/Sema/Lookup.h"
 #include "clang/Sema/PrettyDeclStackTrace.h"
 #include "clang/Sema/Template.h"
+#include "intel/SemaIntelImpl.h" // INTEL
 
 using namespace clang;
 
@@ -182,6 +183,63 @@ static void instantiateDependentAlignValueAttr(
     S.AddAlignValueAttr(Aligned->getLocation(), New, Result.getAs<Expr>(),
                         Aligned->getSpellingListIndex());
 }
+#if INTEL_CUSTOMIZATION
+static void instantiateDependentMaxConcurrencyAttr(
+    Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
+    const MaxConcurrencyAttr *Max, Decl *New) {
+  // The max_concurrency expression is a constant expression.
+  EnterExpressionEvaluationContext Unevaluated(
+      S, Sema::ExpressionEvaluationContext::ConstantEvaluated);
+  ExprResult Result = S.SubstExpr(Max->getMax(), TemplateArgs);
+  if (!Result.isInvalid())
+    S.AddMaxConcurrencyAttr(Max->getLocation(), New, Result.getAs<Expr>(),
+                            Max->getSpellingListIndex());
+}
+
+template <typename AttrType>
+static void instantiateDependentOneConstantValueAttr(
+    Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
+    const AttrType *A, Decl *New) {
+  // The expression is a constant expression.
+  EnterExpressionEvaluationContext Unevaluated(
+      S, Sema::ExpressionEvaluationContext::ConstantEvaluated);
+  ExprResult Result = S.SubstExpr(A->getValue(), TemplateArgs);
+  if (!Result.isInvalid())
+    S.AddOneConstantValueAttr<AttrType>(
+        A->getLocation(), New, Result.getAs<Expr>(), A->getSpellingListIndex());
+}
+
+template <typename AttrType>
+static void instantiateDependentOneConstantPowerTwoValueAttr(
+    Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
+    const AttrType *A, Decl *New) {
+  // The expression is a constant expression.
+  EnterExpressionEvaluationContext Unevaluated(
+      S, Sema::ExpressionEvaluationContext::ConstantEvaluated);
+  ExprResult Result = S.SubstExpr(A->getValue(), TemplateArgs);
+  if (!Result.isInvalid())
+    S.AddOneConstantPowerTwoValueAttr<AttrType>(
+        A->getLocation(), New, Result.getAs<Expr>(), A->getSpellingListIndex());
+}
+
+static void instantiateDependentBankBitsAttr(
+    Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
+    const BankBitsAttr *BBA, Decl *New) {
+  // The bank_bits expressions are constant expressions.
+  EnterExpressionEvaluationContext Unevaluated(
+      S, Sema::ExpressionEvaluationContext::ConstantEvaluated);
+
+  SmallVector<Expr *, 8> Args;
+  for (auto *E : BBA->args()) {
+    ExprResult Result = S.SubstExpr(E, TemplateArgs);
+    if (Result.isInvalid())
+      return;
+    Args.push_back(Result.getAs<Expr>());
+  }
+  S.AddBankBitsAttr(BBA->getLocation(), New, Args.data(), Args.size(),
+                    BBA->getSpellingListIndex());
+}
+#endif // INTEL_CUSTOMIZATION
 
 static void instantiateDependentAllocAlignAttr(
     Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
@@ -406,6 +464,48 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
       instantiateDependentAlignValueAttr(*this, TemplateArgs, AlignValue, New);
       continue;
     }
+#if INTEL_CUSTOMIZATION
+    const MaxConcurrencyAttr *MCA = dyn_cast<MaxConcurrencyAttr>(TmplAttr);
+    if (MCA) {
+      instantiateDependentMaxConcurrencyAttr(*this, TemplateArgs, MCA, New);
+      continue;
+    }
+    const NumReadPortsAttr *NRPA = dyn_cast<NumReadPortsAttr>(TmplAttr);
+    if (NRPA) {
+      instantiateDependentOneConstantValueAttr<NumReadPortsAttr>(
+          *this, TemplateArgs, NRPA, New);
+      continue;
+    }
+    const NumWritePortsAttr *NWPA = dyn_cast<NumWritePortsAttr>(TmplAttr);
+    if (NWPA) {
+      instantiateDependentOneConstantValueAttr<NumWritePortsAttr>(
+          *this, TemplateArgs, NWPA, New);
+      continue;
+    }
+    const StaticArrayResetAttr *SARA = dyn_cast<StaticArrayResetAttr>(TmplAttr);
+    if (SARA) {
+      instantiateDependentOneConstantValueAttr<StaticArrayResetAttr>(
+          *this, TemplateArgs, SARA, New);
+      continue;
+    }
+    const BankWidthAttr *BWA = dyn_cast<BankWidthAttr>(TmplAttr);
+    if (BWA) {
+      instantiateDependentOneConstantPowerTwoValueAttr<BankWidthAttr>(
+          *this, TemplateArgs, BWA, New);
+      continue;
+    }
+    const NumBanksAttr *NBA = dyn_cast<NumBanksAttr>(TmplAttr);
+    if (NBA) {
+      instantiateDependentOneConstantPowerTwoValueAttr<NumBanksAttr>(
+          *this, TemplateArgs, NBA, New);
+      continue;
+    }
+    const BankBitsAttr *BBA = dyn_cast<BankBitsAttr>(TmplAttr);
+    if (BBA) {
+      instantiateDependentBankBitsAttr(*this, TemplateArgs, BBA, New);
+      continue;
+    }
+#endif // INTEL_CUSTOMIZATION
 
     if (const auto *AllocAlign = dyn_cast<AllocAlignAttr>(TmplAttr)) {
       instantiateDependentAllocAlignAttr(*this, TemplateArgs, AllocAlign, New);
