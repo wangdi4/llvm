@@ -35,6 +35,12 @@
 // This file declares OCL utility functions.
 //
 //===----------------------------------------------------------------------===//
+
+#ifndef OCLUTIL_H
+#define OCLUTIL_H
+
+#include "llvm/IR/DebugInfoMetadata.h"
+#include "llvm/Support/Path.h"
 #include "SPIRVInternal.h"
 
 #include <utility>
@@ -109,10 +115,6 @@ typedef std::tuple<unsigned, OCLMemOrderKind, OCLScopeKind>
 ///     (flag, mem_scope, exec_scope)
 typedef std::tuple<unsigned, OCLScopeKind, OCLScopeKind>
   BarrierLiterals;
-
-class OCLOpaqueType;
-typedef SPIRVMap<std::string, Op, OCLOpaqueType>
-  OCLOpaqueTypeOpCodeMap;
 
 /// Information for translating OCL builtin.
 struct OCLBuiltinTransInfo {
@@ -303,6 +305,20 @@ decodeOCLVer(unsigned Ver);
 
 /// Decode a MDNode assuming it contains three integer constants.
 void decodeMDNode(MDNode* N, unsigned& X, unsigned& Y, unsigned& Z);
+
+/// Get full path from debug info metadata
+/// Return empty string if the path is not available.
+template <typename T>
+std::string getFullPath(const T* Scope) {
+  if (!Scope)
+    return std::string();
+  std::string Filename = Scope->getFilename().str();
+  if (sys::path::is_absolute(Filename))
+    return Filename;
+  SmallString<16> DirName = Scope->getDirectory();
+  sys::path::append(DirName, Filename);
+  return DirName.str().str();
+}
 
 /// Decode OpenCL vector type hint MDNode and encode it as SPIR-V execution
 /// mode VecTypeHint.
@@ -611,13 +627,5 @@ _SPIRV_OP(get_image_num_samples, ImageQuerySamples)
 #undef _SPIRV_OP
 }
 
-template<> inline void
-SPIRVMap<std::string, Op, OCLOpaqueType>::init() {
-  add("opencl.event_t", OpTypeEvent);
-  add("opencl.pipe_t", OpTypePipe);
-  add("opencl.clk_event_t", OpTypeDeviceEvent);
-  add("opencl.reserve_id_t", OpTypeReserveId);
-  add("opencl.queue_t", OpTypeQueue);
-}
-
 } // namespace SPIRV
+#endif //OCLUTIL_H

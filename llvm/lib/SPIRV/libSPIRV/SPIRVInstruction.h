@@ -118,8 +118,14 @@ public:
   // Complete constructor for instruction with type but no id
   SPIRVInstruction(unsigned TheWordCount, Op TheOC, SPIRVType *TheType,
       SPIRVBasicBlock *TheBB);
+  // Special constructor for debug instruction
+  SPIRVInstruction(unsigned TheWordCount, Op TheOC, SPIRVType *TheType,
+                   SPIRVId TheId, SPIRVModule *TheBM,
+                   SPIRVBasicBlock *TheBB = nullptr);
+
   // Incomplete constructor
-  SPIRVInstruction(Op TheOC = OpNop):SPIRVValue(TheOC), BB(NULL){}
+  SPIRVInstruction(Op TheOC = OpNop)
+      : SPIRVValue(TheOC), BB(NULL), DebugScope(nullptr) {}
 
   virtual bool isInst() const { return true;}
   SPIRVBasicBlock *getParent() const {return BB;}
@@ -167,12 +173,21 @@ public:
       setModule(TheBB->getModule());
   }
 
+  void setDebugScope(SPIRVEntry *Scope) {
+    DebugScope = Scope;
+  }
+
+  SPIRVEntry *getDebugScope() const {
+    return DebugScope;
+  }
+
 protected:
   void validate()const {
     SPIRVValue::validate();
   }
 private:
   SPIRVBasicBlock *BB;
+  SPIRVEntry *DebugScope;
 };
 
 class SPIRVInstTemplateBase:public SPIRVInstruction {
@@ -1322,8 +1337,15 @@ public:
     validate();
     assert(BB && "Invalid BB");
   }
+
+  SPIRVFunctionCallGeneric(SPIRVModule *BM, SPIRVWord ResId, SPIRVType *TheType,
+                           const std::vector<SPIRVWord>& TheArgs) :
+    SPIRVInstruction(TheArgs.size() + FixedWordCount, OC, TheType, ResId, BM),
+    Args(TheArgs) {
+  }
+
   SPIRVFunctionCallGeneric():SPIRVInstruction(OC) {}
-  const std::vector<SPIRVWord> &getArguments() {
+  const std::vector<SPIRVWord> &getArguments() const{
     return Args;
   }
   std::vector<SPIRVValue *> getArgumentValues() {
@@ -1382,27 +1404,47 @@ public:
     setExtSetKindById();
     validate();
   }
+
+  SPIRVExtInst(SPIRVModule* BM, SPIRVId ResId, SPIRVType *TheType,
+               SPIRVExtInstSetKind SetKind, SPIRVWord SetId, SPIRVWord InstId,
+               const std::vector<SPIRVWord>& Args):
+    SPIRVFunctionCallGeneric(BM, ResId, TheType, Args),
+    ExtSetKind(SetKind),
+    ExtSetId(SetId),
+    ExtOp(InstId) {
+  }
+
   SPIRVExtInst(SPIRVExtInstSetKind SetKind = SPIRVEIS_Count,
       unsigned ExtOC = SPIRVWORD_MAX)
-    :ExtSetId(SPIRVWORD_MAX), ExtOp(ExtOC), ExtSetKind(SetKind) {}
+    : ExtSetKind(SetKind), ExtSetId(SPIRVWORD_MAX), ExtOp(ExtOC) {}
   void setExtSetId(unsigned Set) { ExtSetId = Set;}
   void setExtOp(unsigned ExtOC) { ExtOp = ExtOC;}
-  SPIRVId getExtSetId()const {
+
+  SPIRVId getExtSetId() const {
     return ExtSetId;
   }
-  SPIRVWord getExtOp()const {
+  SPIRVWord getExtOp() const {
     return ExtOp;
   }
+
+  SPIRVExtInstSetKind GetExtSetKind() const {
+    return ExtSetKind;
+  }
+
   void setExtSetKindById() {
     assert(Module && "Invalid module");
     ExtSetKind = Module->getBuiltinSet(ExtSetId);
-    assert(ExtSetKind == SPIRVEIS_OpenCL && "not supported");
+    assert((ExtSetKind == SPIRVEIS_OpenCL || ExtSetKind == SPIRVEIS_Debug)
+           && "not supported");
   }
   void encode(spv_ostream &O) const {
     getEncoder(O) << Type << Id << ExtSetId;
     switch(ExtSetKind) {
     case SPIRVEIS_OpenCL:
       getEncoder(O) << ExtOpOCL;
+      break;
+    case SPIRVEIS_Debug:
+      getEncoder(O) << ExtOpDebug;
       break;
     default:
       assert(0 && "not supported");
@@ -1416,6 +1458,9 @@ public:
     switch(ExtSetKind) {
     case SPIRVEIS_OpenCL:
       getDecoder(I) >> ExtOpOCL;
+      break;
+    case SPIRVEIS_Debug:
+      getDecoder(I) >> ExtOpDebug;
       break;
     default:
       assert(0 && "not supported");
@@ -1445,12 +1490,13 @@ public:
     }
   }
 protected:
+  SPIRVExtInstSetKind ExtSetKind;
   SPIRVId ExtSetId;
   union {
     SPIRVWord ExtOp;
     OCLExtOpKind ExtOpOCL;
+    SPIRVDebugExtOpKind ExtOpDebug;
   };
-  SPIRVExtInstSetKind ExtSetKind;
 };
 
 class SPIRVCompositeConstruct : public SPIRVInstruction {
@@ -1959,7 +2005,7 @@ enum SPIRVOpKind {
 
 class SPIRVDevEnqInstBase:public SPIRVInstTemplateBase {
 public:
-  SPIRVCapVec getRequiriedCapability() const {
+  SPIRVCapVec getRequiredCapability() const {
     return getVec(CapabilityDeviceEnqueue);
   }
 };
@@ -1986,7 +2032,7 @@ _SPIRV_OP(BuildNDRange, true, 6)
 
 class SPIRVPipeInstBase:public SPIRVInstTemplateBase {
 public:
-  SPIRVCapVec getRequiriedCapability() const {
+  SPIRVCapVec getRequiredCapability() const {
     return getVec(CapabilityPipes);
   }
 };
@@ -2010,7 +2056,7 @@ _SPIRV_OP(GetMaxPipePackets, true, 6)
 
 class SPIRVPipeStorageInstBase :public SPIRVInstTemplateBase {
 public:
-  SPIRVCapVec getRequiriedCapability() const {
+  SPIRVCapVec getRequiredCapability() const {
     return getVec(CapabilityPipeStorage, CapabilityPipes);
   }
 };
@@ -2024,7 +2070,7 @@ _SPIRV_OP(CreatePipeFromPipeStorage, true, 4)
 
 class SPIRVGroupInstBase:public SPIRVInstTemplateBase {
 public:
-  SPIRVCapVec getRequiriedCapability() const {
+  SPIRVCapVec getRequiredCapability() const {
     return getVec(CapabilityGroups);
   }
 };
@@ -2051,10 +2097,35 @@ _SPIRV_OP(GroupCommitReadPipe, false, 6)
 _SPIRV_OP(GroupCommitWritePipe, false, 6)
 #undef _SPIRV_OP
 
-class SPIRVAtomicInstBase:public SPIRVInstTemplateBase {
+class SPIRVAtomicInstBase : public SPIRVInstTemplateBase {
 public:
-  SPIRVCapVec getRequiriedCapability() const {
-    return getVec(CapabilityInt64Atomics);
+  SPIRVCapVec getRequiredCapability() const override {
+    SPIRVCapVec CapVec;
+    // Most of atomic instructions do not require any capabilities
+    // ... unless they operate on 64-bit integers.
+    if (hasType() && getType()->isTypeInt(64)) {
+      // In SPIRV 1.2 spec only 2 atomic instructions have no result type:
+      // 1. OpAtomicStore - need to check type of the Value operand
+      // 2. OpAtomicFlagClear - doesn't require Int64Atomics capability.
+      CapVec.push_back(CapabilityInt64Atomics);
+    }
+    // Per the spec the following 3 instructions require kernel capability.
+    if (getOpCode() == OpAtomicCompareExchangeWeak ||
+        getOpCode() == OpAtomicFlagTestAndSet ||
+        getOpCode() == OpAtomicFlagClear) {
+      CapVec.push_back(CapabilityKernel);
+    }
+    return CapVec;
+  }
+
+  // Overriding the following method only because of OpAtomicStore.
+  // We have to declare Int64Atomics capability if the Value operand is int64.
+  void setOpWords(const std::vector<SPIRVWord> &TheOps) override {
+    SPIRVInstTemplateBase::setOpWords(TheOps);
+    static const unsigned ValueOperandIndex = 3;
+    if (getOpCode() == OpAtomicStore &&
+        getOperand(ValueOperandIndex)->getType()->isTypeInt(64))
+      Module->addCapability(CapabilityInt64Atomics);
   }
 };
 
@@ -2085,7 +2156,7 @@ _SPIRV_OP(MemoryBarrier, false, 3)
 
 class SPIRVImageInstBase:public SPIRVInstTemplateBase {
 public:
-  SPIRVCapVec getRequiriedCapability() const {
+  SPIRVCapVec getRequiredCapability() const {
     return getVec(CapabilityImageBasic);
   }
 };

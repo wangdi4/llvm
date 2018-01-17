@@ -165,7 +165,7 @@ inline bool isConstantOpCode(Op OpCode) {
 }
 
 inline bool isModuleScopeAllowedOpCode(Op OpCode) {
-  return OpCode == OpVariable ||
+  return OpCode == OpVariable || OpCode == OpExtInst ||
       isConstantOpCode(OpCode);
 }
 

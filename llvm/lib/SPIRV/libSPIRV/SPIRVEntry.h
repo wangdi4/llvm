@@ -257,8 +257,11 @@ public:
   bool hasLinkageType() const;
   bool isAtomic() const { return isAtomicOpCode(OpCode);}
   bool isBasicBlock() const { return isLabel();}
-  bool isBuiltinCall() const { return OpCode == OpExtInst;}
-  bool isDecorate()const { return OpCode == OpDecorate;}
+  bool isExtInst() const { return OpCode == OpExtInst;}
+  bool isExtInst(const SPIRVExtInstSetKind InstSet) const;
+  bool isExtInst(const SPIRVExtInstSetKind InstSet,
+                 const SPIRVWord ExtOp) const;
+  bool isDecorate() const { return OpCode == OpDecorate; }
   bool isMemberDecorate()const { return OpCode == OpMemberDecorate;}
   bool isForward() const { return OpCode == OpForward;}
   bool isLabel() const { return OpCode == OpLabel;}
