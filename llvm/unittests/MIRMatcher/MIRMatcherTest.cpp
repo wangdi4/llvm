@@ -25,8 +25,7 @@
 // Test the mimatcher library, currently specific to CSA, but eventually
 // portable to all architectures.
 
-#include "llvm/CodeGen/MIRMatcher.h"
-#include "llvm/CodeGen/MIRParser/MIRParser.h"
+//#include "llvm/CodeGen/MIRMatcher.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
@@ -35,6 +34,8 @@
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetInstrInfo.h"
 #include "../lib/Target/CSA/CSA.h"
+#include "../lib/Target/CSA/CSARegisterInfo.h"
+#include "../lib/Target/CSA/CSAMatcher.h"
 //#include "../lib/Target/CSA/CSAInstrInfo.h"
 //#include "../lib/Target/CSA/CSATargetMachine.h"
 #include "gtest/gtest.h"
@@ -122,7 +123,6 @@ public:
 
   ~MIFuncBuilder() {
     MMI->deleteMachineFunctionFor(*m_func);
-
   }
 
   Function& func()             const { return *m_func; }
@@ -131,6 +131,10 @@ public:
   MachineBasicBlock* BB()      const { return m_BB; }
   MachineRegisterInfo& MRI()   const { return m_MIFunc.getRegInfo(); }
   void dump()                  const { return m_BB->dump(); }
+
+  int createVirtualRegister(const TargetRegisterClass *regClass) {
+    return MRI().createVirtualRegister(regClass);
+  }
 
   template <typename... Opnds>
   MachineInstr* addInstr(unsigned OpCode, const Opnds&... opnds) {
@@ -147,22 +151,18 @@ template <class T> struct PrintType;
 
 } // Close anonymous namespace
 
-constexpr mirmatch::Opcode<CSA::MOV1>                     mov1{};
-constexpr mirmatch::Opcode<CSA::CSA_PARALLEL_MEMDEP>      csa_parallel_memdep{};
-constexpr mirmatch::OpcodeGroup<CSA::SWITCH0, CSA::SWITCH1> switchx{};
-constexpr mirmatch::OpcodeGroup<CSA::PICK0, CSA::PICK1>     pickx{};
-constexpr mirmatch::Opcode<CSA::INIT1>                      init1{};
-
 MIRMATCHER_REGS(LICx_A, LIC1_B, LICx_C, X, LIC1_D, LICx_IN, LICx_OUT, Q1, Q2);
 constexpr mirmatch::LiteralMatcher<bool, true>              TRUE_OPND{};
 constexpr mirmatch::LiteralMatcher<bool, false>             FALSE_OPND{};
 
+using namespace CSAMatch;
+
 constexpr auto pat =
   mirmatch::graph(LICx_A      = csa_parallel_memdep(LICx_OUT)    ,
                   LIC1_D      = mov1(LIC1_B)                     ,
-                  (LICx_C, X) = switchx(LIC1_B, LICx_A)          ,
+                  (LICx_C, X) = switch_N(LIC1_B, LICx_A)         ,
                   LIC1_D      = init1(TRUE_OPND)                 ,
-                  LICx_IN     = pickx(LIC1_D, LICx_C, X));
+                  LICx_IN     = pick_N(LIC1_D, LICx_C, X));
 
 TEST(MIRMatcher, ComplexPattern) {
   using namespace llvm;
@@ -170,13 +170,23 @@ TEST(MIRMatcher, ComplexPattern) {
   MIFuncBuilder builder("foo");
 
   using MO = MachineOperand;
-  enum { ra = CSA::CV0_0, rb, rc, rd, rin, rout, rx, rz };
+
+  const int ra   = builder.createVirtualRegister(&CSA::CI0RegClass);
+  const int rc   = builder.createVirtualRegister(&CSA::CI0RegClass);
+  const int rin  = builder.createVirtualRegister(&CSA::CI0RegClass);
+  const int rout = builder.createVirtualRegister(&CSA::CI0RegClass);
+  const int rx   = builder.createVirtualRegister(&CSA::CI0RegClass);
+  const int rz   = builder.createVirtualRegister(&CSA::CI0RegClass);
+
+  const int rb   = builder.createVirtualRegister(&CSA::CI1RegClass);
+  const int rd   = builder.createVirtualRegister(&CSA::CI1RegClass);
+
   MachineInstr* cpm = builder.addInstr(CSA::CSA_PARALLEL_MEMDEP, ra, rout);
-  MachineInstr* swx = builder.addInstr(CSA::SWITCH1, rc, rx, rb, ra);
-  MachineInstr* swz = builder.addInstr(CSA::SWITCH1, rc, rx, rb, rz);
+  MachineInstr* swx = builder.addInstr(CSA::SWITCH0, rc, rx, rb, ra);
+  MachineInstr* swz = builder.addInstr(CSA::SWITCH0, rc, rx, rb, rz);
   MachineInstr* mv1 = builder.addInstr(CSA::MOV1, rd, rb);
   MachineInstr* ini = builder.addInstr(CSA::INIT1, rd, MO::CreateImm(1));
-  MachineInstr* pkx = builder.addInstr(CSA::PICK1, rin, rd, rc, rx);
+  MachineInstr* pkx = builder.addInstr(CSA::PICK0, rin, rd, rc, rx);
 //  builder.dump();
 
   auto result = mirmatch::match(pat, cpm);
@@ -191,10 +201,10 @@ TEST(MIRMatcher, ComplexPattern) {
 
   EXPECT_EQ(cpm, result.instr(LICx_A      = csa_parallel_memdep(LICx_OUT)));
   EXPECT_EQ(mv1, result.instr(LIC1_D      = mov1(LIC1_B)                 ));
-  EXPECT_EQ(swx, result.instr((LICx_C, X) = switchx(LIC1_B, LICx_A)      ));
-  EXPECT_NE(swz, result.instr((LICx_C, X) = switchx(LIC1_B, LICx_A)      ));
+  EXPECT_EQ(swx, result.instr((LICx_C, X) = switch_N(LIC1_B, LICx_A)     ));
+  EXPECT_NE(swz, result.instr((LICx_C, X) = switch_N(LIC1_B, LICx_A)     ));
   EXPECT_EQ(ini, result.instr(LIC1_D      = init1(TRUE_OPND)             ));
-  EXPECT_EQ(pkx, result.instr(LICx_IN     = pickx(LIC1_D, LICx_C, X)     ));
+  EXPECT_EQ(pkx, result.instr(LICx_IN     = pick_N(LIC1_D, LICx_C, X)    ));
 }
 
 TEST(MIRMatcher, FailMatch) {
@@ -203,8 +213,8 @@ TEST(MIRMatcher, FailMatch) {
   MIFuncBuilder builder("bar");
 
   using MO = MachineOperand;
-  MachineInstr* init = builder.addInstr(CSA::INIT1, CSA::CV0_0,
-                                        MO::CreateImm(0));
+  const int r = builder.createVirtualRegister(&CSA::CI1RegClass);
+  MachineInstr* init = builder.addInstr(CSA::INIT1, r, MO::CreateImm(0));
   auto result = mirmatch::match(pat, init);
   ASSERT_FALSE(result);  // Won't match
 }
