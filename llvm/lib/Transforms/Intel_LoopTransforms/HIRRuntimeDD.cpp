@@ -478,6 +478,8 @@ const char *HIRRuntimeDD::getResultString(RuntimeDDResult Result) {
     return "Subscript multiversioning is non-profitable";
   case STRUCT_ACCESS:
     return "Struct refs not supported yet";
+  case DIFF_ADDR_SPACE:
+    return "Different address spaces";
   default:
     llvm_unreachable("Unexpected give up reason");
   }
@@ -578,6 +580,24 @@ unsigned HIRRuntimeDD::findAndGroup(RefGroupVecTy &Groups, RegDDRef *Ref) {
   return NewGroupNum;
 }
 
+static RuntimeDDResult isTestSupported(const RegDDRef *RefA,
+                                       const RegDDRef *RefB) {
+
+  // Skip loops with refs where base CEs are the same, as this
+  // transformation mostly for cases with different pointers.
+  if (CanonExprUtils::areEqual(RefA->getBaseCE(), RefB->getBaseCE(), true)) {
+    return SAME_BASE;
+  }
+
+  // Skip loops with different address space references.
+  if (RefA->getBaseSrcType()->getPointerAddressSpace() !=
+      RefB->getBaseSrcType()->getPointerAddressSpace()) {
+    return DIFF_ADDR_SPACE;
+  }
+
+  return OK;
+}
+
 RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
   Context.Loop = Loop;
 
@@ -648,11 +668,9 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
       unsigned GroupB = findAndGroup(Groups, DstRef);
 
       if (GroupA != GroupB) {
-        // Skip loops with refs where base CEs are the same, as this
-        // transformation mostly for cases with different pointers.
-        if (CanonExprUtils::areEqual(SrcRef->getBaseCE(), DstRef->getBaseCE(),
-                                     true)) {
-          return SAME_BASE;
+        auto IsSupported = isTestSupported(SrcRef, DstRef);
+        if (IsSupported != OK) {
+          return IsSupported;
         }
 
         auto TestPair = GroupA > GroupB ? std::make_pair(GroupB, GroupA)

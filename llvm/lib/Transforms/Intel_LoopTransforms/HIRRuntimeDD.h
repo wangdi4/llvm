@@ -55,7 +55,8 @@ enum RuntimeDDResult {
   UNROLL_PRAGMA_LOOP,
   NON_PROFITABLE,
   NON_PROFITABLE_SUBS,
-  STRUCT_ACCESS
+  STRUCT_ACCESS,
+  DIFF_ADDR_SPACE
 };
 
 // The struct represents a segment of memory. It is used to construct checks
