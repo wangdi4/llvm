@@ -32,30 +32,14 @@ bool CSASeqOpt::isIntegerOpcode(unsigned opcode) {
 }
 
 MachineInstr* CSASeqOpt::repeatOpndInSameLoop(MachineOperand& opnd, MachineInstr* lpCmp) {
-  MachineInstr* pickInstr = MRI->getVRegDef(opnd.getReg());
-  if (TII->isPick(pickInstr)) {
-    MachineInstr* pick0 = MRI->getVRegDef(pickInstr->getOperand(2).getReg());
-    MachineInstr* pick1 = MRI->getVRegDef(pickInstr->getOperand(3).getReg());
-    if (TII->getGenericOpcode(pick0->getOpcode()) == CSA::Generic::REPEAT ||
-        TII->getGenericOpcode(pick1->getOpcode()) == CSA::Generic::REPEAT) {
-      MachineInstr* rptInstr = nullptr;
-      MachineInstr* initInstr = nullptr;
-      if (TII->getGenericOpcode(pick0->getOpcode()) == CSA::Generic::REPEAT) {
-        rptInstr = pick0;
-        initInstr = pick1;
-      } else {
-        rptInstr = pick1;
-        initInstr = pick0;
-      }
-      if (MRI->getVRegDef(rptInstr->getOperand(2).getReg()) == initInstr) {
-        if (MRI->getVRegDef(rptInstr->getOperand(1).getReg()) == lpCmp) {
-          return rptInstr;
-        } else if (MRI->getVRegDef(rptInstr->getOperand(1).getReg())->getOpcode() == CSA::NOT1) {
-          MachineInstr*notInstr = MRI->getVRegDef(rptInstr->getOperand(1).getReg());
-          if (MRI->getVRegDef(notInstr->getOperand(1).getReg()) == lpCmp) {
-            return rptInstr;
-          }
-        }
+  MachineInstr* rptInstr = MRI->getVRegDef(opnd.getReg());
+  if (TII->getGenericOpcode(rptInstr->getOpcode()) == CSA::Generic::REPEATO) {
+    if (MRI->getVRegDef(rptInstr->getOperand(1).getReg()) == lpCmp) {
+      return rptInstr;
+    } else if (MRI->getVRegDef(rptInstr->getOperand(1).getReg())->getOpcode() == CSA::NOT1) {
+      MachineInstr*notInstr = MRI->getVRegDef(rptInstr->getOperand(1).getReg());
+      if (MRI->getVRegDef(notInstr->getOperand(1).getReg()) == lpCmp) {
+        return rptInstr;
       }
     }
   }
@@ -224,47 +208,6 @@ void CSASeqOpt::SequenceIndv(CSASSANode* cmpNode, CSASSANode* switchNode, CSASSA
       cmpReg).
       addReg(lastReg);
     adjCmpInstr->setFlag(MachineInstr::NonSequential);
-
-    MachineRegisterInfo::use_iterator UI = MRI->use_begin(cmpReg);
-    while (UI != MRI->use_end()) {
-      MachineOperand &UseMO = *UI;
-      ++UI;
-      MachineInstr *UseMI = UseMO.getParent();
-      if (TII->getGenericOpcode(UseMI->getOpcode()) == CSA::Generic::REPEAT && 
-          UseMI->getOperand(1).getReg() == cmpReg &&
-          MRI->hasOneUse(UseMI->getOperand(0).getReg())) {
-        MachineRegisterInfo::use_iterator UI = MRI->use_begin(UseMI->getOperand(0).getReg());
-        MachineInstr* rptPick = UI->getParent();
-        unsigned rptValue = UseMI->getOperand(2).getReg();
-        if (TII->isPick(rptPick) && 
-            rptPick->getOperand(1).getReg() == loopInit->getOperand(0).getReg() &&
-           (rptPick->getOperand(2).getReg() == rptValue || rptPick->getOperand(3).getReg() == rptValue)) {
-          FoldRptInit(UseMI);
-          UseMI->getOperand(1).setReg(seqPred);
-        }
-      } else if (UseMI->getOpcode() == CSA::NOT1 && loopInit->getOperand(1).getImm() == 1) {
-        //1=>init/exit, 0=>loop back; repeat's ctrl is from a not1 instr; need to remove the not1 when replace cmpdst with seqindv's pred
-        if (MRI->hasOneUse(UseMI->getOperand(0).getReg())) {
-          MachineInstr* rptInstr = MRI->use_begin(UseMI->getOperand(0).getReg())->getParent();
-          if (TII->getGenericOpcode(rptInstr->getOpcode()) == CSA::Generic::REPEAT &&
-            rptInstr->getOperand(1).getReg() == UseMI->getOperand(0).getReg() &&
-            MRI->hasOneUse(rptInstr->getOperand(0).getReg())) { //rpt only used by pick init
-            MachineRegisterInfo::use_iterator UI = MRI->use_begin(rptInstr->getOperand(0).getReg());
-            MachineInstr* rptPick = UI->getParent();
-            unsigned rptValue = rptInstr->getOperand(2).getReg();
-            if (TII->isPick(rptPick) &&
-              (rptPick->getOperand(1).getReg() == loopInit->getOperand(0).getReg() && 
-               rptPick->getOperand(3).getReg() == rptValue &&
-               rptPick->getOperand(2).getReg() == rptInstr->getOperand(0).getReg())) {
-              FoldRptInit(rptInstr);
-              rptInstr->getOperand(1).setReg(seqPred);
-              UseMI->removeFromParent();
-            }
-          }
-        }
-      }
-    }
-
     SequenceSwitchOut(switchNode, addNode, lhdrPickNode, seqInstr, seqReg, backedgeReg);
     switchNode->minstr->removeFromParent();
     addNode->minstr->removeFromBundle();
@@ -651,18 +594,17 @@ void CSASeqOpt::SequenceRepeat(CSASSANode* switchNode, CSASSANode* lhdrPickNode)
       lhdrPickNode->minstr->getOperand(3).getReg() :
       lhdrPickNode->minstr->getOperand(2).getReg();
 
-    unsigned repeatOp = TII->adjustOpcode(switchNode->minstr->getOpcode(), CSA::Generic::REPEAT);
+    unsigned repeatOp = TII->adjustOpcode(switchNode->minstr->getOpcode(), CSA::Generic::REPEATO);
     assert(repeatOp != CSA::INVALID_OPCODE);
     MachineInstr* repeatInstr = BuildMI(*lhdrPickNode->minstr->getParent(), lhdrPickNode->minstr, DebugLoc(), TII->get(repeatOp),
-      lpbackReg).
+      lhdrPickNode->minstr->getOperand(0).getReg()).
       addReg(predRepeat).
       addReg(valueRepeat); 
     repeatInstr->setFlag(MachineInstr::NonSequential);
 
     //remove the instructions in the IDV cycle.
     switchNode->minstr->removeFromParent();
-    //lhdrPickNode->minstr->removeFromParent();
-
+    lhdrPickNode->minstr->removeFromParent();
   }
 }
 
