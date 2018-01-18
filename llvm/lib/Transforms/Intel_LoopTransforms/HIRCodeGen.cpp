@@ -1088,12 +1088,11 @@ Value *CGVisitor::visitRegion(HLRegion *Reg) {
       Builder.CreateUnreachable();
     }
 
-    assert((Reg->live_out_begin() == Reg->live_out_end()) &&
+    assert(!Reg->hasLiveOuts() &&
            "Function level region cannot have liveouts!");
   } else {
     assert(Reg->exitsFunction() && "no successor block to region!");
-    assert((Reg->live_out_begin() == Reg->live_out_end()) &&
-           "Unsupported liveout for multiexit region!");
+    assert(!Reg->hasLiveOuts() && "Unsupported liveout for multiexit region!");
   }
 
   processLiveouts();

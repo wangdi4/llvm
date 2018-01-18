@@ -443,13 +443,18 @@ void HIRScalarSymbaseAssignment::print(raw_ostream &OS) const {
     }
 
     OS << "\n   LiveOuts: ";
+    bool FirstLiveout = true;
     for (auto LiveOutIt = RegIt->live_out_begin(),
               EndIt = RegIt->live_out_end();
          LiveOutIt != EndIt; ++LiveOutIt) {
-      if (LiveOutIt != RegIt->live_out_begin()) {
-        OS << ", ";
+
+      for (auto Inst : LiveOutIt->second) {
+        if (FirstLiveout) {
+          OS << ", ";
+        }
+        Inst->printAsOperand(OS, false);
+        FirstLiveout = false;
       }
-      LiveOutIt->second->printAsOperand(OS, false);
     }
 
     OS << "\n";
