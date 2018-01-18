@@ -3357,6 +3357,7 @@ clMapHostPipeIntelFPGA(cl_mem pipe, cl_map_flags flags,
     }
 }
 SET_ALIAS(clMapHostPipeIntelFPGA);
+REGISTER_EXTENSION_FUNCTION(clMapHostPipeIntelFPGA, clMapHostPipeIntelFPGA);
 
 cl_int CL_API_CALL
 clUnmapHostPipeIntelFPGA(cl_mem pipe, void* pMappedPtr,
@@ -3381,6 +3382,7 @@ clUnmapHostPipeIntelFPGA(cl_mem pipe, void* pMappedPtr,
     }
 }
 SET_ALIAS(clUnmapHostPipeIntelFPGA);
+REGISTER_EXTENSION_FUNCTION(clUnmapHostPipeIntelFPGA, clUnmapHostPipeIntelFPGA);
 
 cl_int CL_API_CALL clReadPipeIntelFPGA(cl_mem pipe, void* ptr)
 {
@@ -3396,6 +3398,7 @@ cl_int CL_API_CALL clReadPipeIntelFPGA(cl_mem pipe, void* ptr)
     }
 }
 SET_ALIAS(clReadPipeIntelFPGA);
+REGISTER_EXTENSION_FUNCTION(clReadPipeIntelFPGA, clReadPipeIntelFPGA);
 
 cl_int CL_API_CALL clWritePipeIntelFPGA(cl_mem pipe, const void* ptr)
 {
@@ -3411,3 +3414,4 @@ cl_int CL_API_CALL clWritePipeIntelFPGA(cl_mem pipe, const void* ptr)
     }
 }
 SET_ALIAS(clWritePipeIntelFPGA);
+REGISTER_EXTENSION_FUNCTION(clWritePipeIntelFPGA, clWritePipeIntelFPGA);

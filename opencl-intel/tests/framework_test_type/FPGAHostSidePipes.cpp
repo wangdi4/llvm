@@ -42,6 +42,11 @@ protected:
 
     static const char* m_program_source;
     const int m_maxBufferSize = 128;
+
+    cl_int (*read_pipe_fn) (cl_mem, void *);
+    cl_int (*write_pipe_fn) (cl_mem, const void *);
+    void * (*map_pipe_fn) (cl_mem, cl_map_flags, size_t, size_t *, cl_int *);
+    cl_int (*unmap_pipe_fn) (cl_mem, void *, size_t, size_t *);
 };
 
 const char* HostSidePipesTest::m_program_source = "                                     \n\
@@ -125,6 +130,27 @@ void HostSidePipesTest::SetUp()
                                sizeof(cl_int), m_maxBufferSize,
                                nullptr, &iRet);
     ASSERT_EQ(CL_SUCCESS, iRet) << "clCreatePipe(write) failed.";
+
+    read_pipe_fn = (cl_int (*) (cl_mem,
+        void *)) clGetExtensionFunctionAddress("clReadPipeIntelFPGA");
+    ASSERT_TRUE(nullptr != read_pipe_fn) <<
+        "clGetExtensionFunctionAddress(clReadPipeIntelFPGA) failed";
+
+    write_pipe_fn = (cl_int (*) (cl_mem,
+        const void *)) clGetExtensionFunctionAddress("clWritePipeIntelFPGA");
+    ASSERT_TRUE(nullptr != write_pipe_fn) <<
+        "clGetExtensionFunctionAddress(clWritePipeIntelFPGA) failed";
+
+    map_pipe_fn = (void * (*) (cl_mem, cl_map_flags, size_t, size_t *,
+        cl_int *)) clGetExtensionFunctionAddress("clMapHostPipeIntelFPGA");
+    ASSERT_TRUE(nullptr != map_pipe_fn) <<
+        "clGetExtensionFunctionAddress(clMapPipeIntelFPGA) failed";
+
+    unmap_pipe_fn = (cl_int (*) (cl_mem, void *, size_t,
+        size_t *)) clGetExtensionFunctionAddress("clUnmapHostPipeIntelFPGA");
+    ASSERT_TRUE(nullptr != unmap_pipe_fn) <<
+        "clGetExtensionFunctionAddress(clUnmapPipeIntelFPGA) failed";
+
 }
 
 void HostSidePipesTest::TearDown()
@@ -143,7 +169,7 @@ cl_int HostSidePipesTest::readPipe(cl_mem pipe, void* mem)
     cl_int error = CL_SUCCESS;
     do
     {
-        error = clReadPipeIntelFPGA(pipe, mem);
+        error = (*read_pipe_fn)(pipe, mem);
     }
     while (error == CL_OUT_OF_RESOURCES);
 
@@ -155,7 +181,7 @@ cl_int HostSidePipesTest::writePipe(cl_mem pipe, const void* mem)
     cl_int error = CL_SUCCESS;
     do
     {
-        error = clWritePipeIntelFPGA(pipe, mem);
+        error = (*write_pipe_fn)(pipe, mem);
     }
     while (error == CL_OUT_OF_RESOURCES);
 
@@ -169,8 +195,8 @@ cl_int HostSidePipesTest::mapPipe(cl_mem pipe, size_t numBytes, void** mem)
     size_t mappedSize = 0;
     do
     {
-        *mem = clMapHostPipeIntelFPGA(pipe, 0, numBytes,
-                                      &mappedSize, &error);
+        *mem = (*map_pipe_fn)(pipe, 0, numBytes,
+                              &mappedSize, &error);
     }
     while (error == CL_OUT_OF_RESOURCES);
 
@@ -187,8 +213,8 @@ cl_int HostSidePipesTest::unmapPipe(cl_mem pipe, size_t numBytes, void* mem)
     size_t unmappedSize = 0;
     do
     {
-        error = clUnmapHostPipeIntelFPGA(pipe, mem,
-                                         numBytes, &unmappedSize);
+        error = (*unmap_pipe_fn)(pipe, mem,
+                                 numBytes, &unmappedSize);
     }
     while (error == CL_OUT_OF_RESOURCES);
 

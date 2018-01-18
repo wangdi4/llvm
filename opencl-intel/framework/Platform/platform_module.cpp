@@ -305,8 +305,11 @@ cl_int    PlatformModule::GetPlatformInfo(cl_platform_id clPlatform,
     cl_char pcPlatformExtension[8192] = {0};
     cl_char pcDeviceExtension[8192] = {0};
     cl_char pcOtherDeviceExtension[8192] = {0};
+#ifdef BUILD_FPGA_EMULATOR
+    cl_char pcPlatformICDSuffixKhr[10] = "IntelFPGA";
+#else
     cl_char pcPlatformICDSuffixKhr[8] = "INTEL";
-
+#endif
     switch (clParamName)
     {
     case CL_PLATFORM_PROFILE:
