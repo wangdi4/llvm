@@ -96,13 +96,13 @@ namespace intel {
     // Add dummyBarrier call before pFirstInst
     m_util.createDummyBarrier(pFirstInst);
 
-    // Find all ret instructions in pFunc
-    // TODO: check if there is a better way!
+    // Find all reachable return instructions in pFunc
     TInstructionVector retInstructions;
-    for ( Function::iterator bi = pFunc->begin(), be = pFunc->end(); bi != be; ++bi ) {
-      Instruction *term = bi->getTerminator();
-      if ( isa<ReturnInst>(term) ) {
-        // Found a ret instruction add to container
+    for ( auto &BB : *pFunc ) {
+      Instruction *term = BB.getTerminator();
+      if ( isa<ReturnInst>(term) &&
+           (pred_begin(&BB) != pred_end(&BB) || &BB == pFirstBB) ) {
+        // Found a reachable ret instruction add to container
         retInstructions.push_back(term);
       }
     }
