@@ -5126,6 +5126,38 @@ Value *CodeGenFunction::EmitIntelFPGABuiltinExpr(unsigned BuiltinID,
     return Builder.CreateCall(CGM.CreateRuntimeFunction(FTy, Name), {Arg});
   }
 
+  if (BuiltinID == SPIRINTELFpga::BIread_pipe ||
+      BuiltinID == SPIRINTELFpga::BIwrite_pipe) {
+    Value *Arg0 = EmitScalarExpr(E->getArg(0)),
+          *Arg1 = EmitScalarExpr(E->getArg(1));
+    CGOpenCLRuntime OpenCLRT(CGM);
+    Value *PacketSize = OpenCLRT.getPipeElemSize(E->getArg(0));
+    Value *PacketAlign = OpenCLRT.getPipeElemAlign(E->getArg(0));
+
+    // Type of the generic packet parameter.
+    llvm::PointerType *PT = cast<llvm::PointerType>(Arg1->getType());
+    LangAS ArgAS = getLangASFromTargetAS(PT->getAddressSpace());
+    unsigned AS = getContext().getTargetAddressSpace(ArgAS);
+    llvm::Type *I8PTy = llvm::PointerType::get(
+        llvm::Type::getInt8Ty(getLLVMContext()), AS);
+
+    // Testing which overloaded version we should generate the call for.
+    bool IsReadPipe = BuiltinID == SPIRINTELFpga::BIread_pipe;
+    std::string ReadMangling = "__read_pipe_2_AS" + std::to_string(AS);
+    std::string WriteMangling = "__write_pipe_2_AS" + std::to_string(AS);
+    const char *Name = (IsReadPipe) ? ReadMangling.c_str()
+                                    : WriteMangling.c_str();
+    Name = ChangeBuiltinToBL(E, BuiltinID, Name);
+
+    // Creating a function with mangled type to be able to call with any
+    // builtin or user defined type.
+    llvm::Type *ArgTys[] = {Arg0->getType(), I8PTy, Int32Ty, Int32Ty};
+    llvm::FunctionType *FTy = llvm::FunctionType::get(Int32Ty, ArgTys, false);
+    Value *BCast = Builder.CreatePointerCast(Arg1, I8PTy);
+    return Builder.CreateCall(CGM.CreateRuntimeFunction(FTy, Name),
+                              {Arg0, BCast, PacketSize, PacketAlign});
+  }
+
   return nullptr;
 }
 #endif // INTEL_CUSTOMIZATION

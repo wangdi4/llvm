@@ -3764,7 +3764,10 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       isInvalid = DS.SetTypeAltiVecBool(true, Loc, PrevSpec, DiagID, Policy);
       break;
     case tok::kw_pipe:
-      if (!getLangOpts().OpenCL || (getLangOpts().OpenCLVersion < 200)) {
+#if INTEL_CUSTOMIZATION
+      if (!getLangOpts().OpenCL || (getLangOpts().OpenCLVersion < 200 &&
+          !getTargetInfo().getTriple().isINTELFPGAEnvironment())) {
+#endif // INTEL_CUSTOMIZATION
         // OpenCL 2.0 defined this keyword. OpenCL 1.2 and earlier should
         // support the "pipe" word as identifier.
         Tok.getIdentifierInfo()->revertTokenIDToIdentifier();

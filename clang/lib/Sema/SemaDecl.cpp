@@ -9736,7 +9736,10 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
 
     // OpenCL 2.0 pipe restrictions forbids pipe packet types to be non-value
     // types.
-    if (getLangOpts().OpenCLVersion >= 200) {
+#if INTEL_CUSTOMIZATION
+    if (getLangOpts().OpenCLVersion >= 200 ||
+        Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
+#endif // INTEL_CUSTOMIZATION
       if(const PipeType *PipeTy = PT->getAs<PipeType>()) {
         QualType ElemTy = PipeTy->getElementType();
           if (ElemTy->isReferenceType() || ElemTy->isPointerType()) {
