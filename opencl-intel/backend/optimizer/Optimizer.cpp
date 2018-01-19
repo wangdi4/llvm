@@ -156,8 +156,6 @@ static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
   }
 
 // INTEL VPO BEGIN
-  if (!DisableVPlanVec && (RunVPOParopt & VPOParoptMode::OmpVec))
-    PM->add(createVecClonePass());
 
   if (RunVPOParopt) {
     PM->add(llvm::createLoopRotatePass(-1));
@@ -208,6 +206,7 @@ static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
 // INTEL VPO BEGIN
   // VPO Driver
   if (!DisableVPlanVec && (RunVPOParopt & VPOParoptMode::OmpVec)) {
+    PM->add(createVecClonePass());
     PM->add(llvm::createVPOCFGRestructuringPass());
     PM->add(llvm::createVPlanDriverPass());
   }
