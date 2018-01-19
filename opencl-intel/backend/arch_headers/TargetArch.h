@@ -45,6 +45,7 @@ enum ECPUFeatureSupport {
     CFS_AVX512BW = 1 << 14, // SKX
     CFS_AVX512DQ = 1 << 15, // SKX
     CFS_AVX512VL = 1 << 16, // SKX
+    CFS_F16C     = 1 << 17,
 };
 
 enum TransposeSizeSupport { SUPPORTED, UNSUPPORTED, INVALID };

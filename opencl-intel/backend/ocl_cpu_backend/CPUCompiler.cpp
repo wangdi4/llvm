@@ -259,10 +259,10 @@ void CPUCompiler::SelectCpu( const std::string& cpuName, const std::string& cpuF
     Utils::SplitString( cpuFeatures, ",", m_forcedCpuFeatures);
 
     bool DisableAVX = false;
+    CPUId cpuId = Utils::CPUDetect::GetInstance()->GetCPUId();
     // if we autodetected the SandyBridge CPU and a user didn't forced us to use AVX256 - disable it if not supported
     if (cpuName == CPU_ARCH_AUTO)
     {
-        CPUId cpuId = Utils::CPUDetect::GetInstance()->GetCPUId();
         if (selectedCpuId == Intel::CPU_SANDYBRIDGE)
         {
             if( std::find( m_forcedCpuFeatures.begin(), m_forcedCpuFeatures.end(), "+avx" ) == m_forcedCpuFeatures.end() )
@@ -286,10 +286,12 @@ void CPUCompiler::SelectCpu( const std::string& cpuName, const std::string& cpuF
     if (!DisableAVX && (selectedCpuId == Intel::CPU_SANDYBRIDGE))
       m_forcedCpuFeatures.push_back("+avx");
 
-    if (!DisableAVX && (selectedCpuId == Intel::CPU_HASWELL)) {
+    if (!DisableAVX && (selectedCpuId == Intel::CPU_HASWELL))
       m_forcedCpuFeatures.push_back("+avx2");
+
+    if (cpuId.IsFeatureOn(CFS_F16C))
       m_forcedCpuFeatures.push_back("+f16c");
-    }
+
     if (selectedCpuId == Intel::CPU_KNL) {
       m_forcedCpuFeatures.push_back("+avx512f");
       m_forcedCpuFeatures.push_back("+avx512cd");

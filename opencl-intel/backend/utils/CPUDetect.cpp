@@ -157,6 +157,10 @@ CPUDetect::CPUDetect(void)
         CPU = CPU_COREI7;
         uiCPUFeatures |= CFS_SSE42;
     }
+    if (viCPUInfo[2] & 0x20000000)
+    {
+        uiCPUFeatures |= CFS_F16C;
+    }
 
     if (viCPUInfo[2] & 0x10000000)
     {
