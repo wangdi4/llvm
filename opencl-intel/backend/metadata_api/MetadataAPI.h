@@ -72,7 +72,24 @@ struct KernelMetadataAPI {
         VecLenHint(Func, "intel_vec_len_hint"),
         Task(Func, "task"),
         Autorun(Func, "autorun"),
-        NumComputeUnits(Func, "num_compute_units") {}
+        NumComputeUnits(Func, "num_compute_units")
+     {
+       MDNames.push_back(ArgAddressSpaceList.getID());
+       MDNames.push_back(ArgAccessQualifierList.getID());
+       MDNames.push_back(ArgTypeList.getID());
+       MDNames.push_back(ArgBaseTypeList.getID());
+       MDNames.push_back(ArgTypeQualifierList.getID());
+       MDNames.push_back(ArgNameList.getID());
+
+       MDNames.push_back(WorkGroupSizeHint.getID());
+       MDNames.push_back(ReqdWorkGroupSize.getID());
+       MDNames.push_back(ReqdNumSubGroups.getID());
+       MDNames.push_back(VecTypeHint.getID());
+       MDNames.push_back(VecLenHint.getID());
+       MDNames.push_back(Task.getID());
+       MDNames.push_back(Autorun.getID());
+       MDNames.push_back(NumComputeUnits.getID());
+     }
 
   // required attributes
   ArgAddressSpaceListTy ArgAddressSpaceList;
@@ -91,6 +108,12 @@ struct KernelMetadataAPI {
   NamedMDValueAccessor<TaskTy> Task;
   NamedMDValueAccessor<AutorunTy> Autorun;
   WorkgroupSizeMDAccessor<NumComputeUnitsTy> NumComputeUnits;
+
+public:
+  const llvm::SmallVectorImpl<llvm::StringRef>& getMDNames() const
+    { return MDNames; }
+private:
+  llvm::SmallVector<llvm::StringRef, 16> MDNames;
 };
 
 // internal attributes
@@ -133,7 +156,24 @@ struct KernelInternalMetadataAPI {
         CanUniteWorkgroups(Func, "can_unite_workgroups"),
         VectorizedKernel(Func, "vectorized_kernel"),
         KernelWrapper(Func, "kernel_wrapper"),
-        ScalarizedKernel(Func, "scalarized_kernel") {}
+        ScalarizedKernel(Func, "scalarized_kernel")
+    {
+      MDNames.push_back(LocalBufferSize.getID());
+      MDNames.push_back(BarrierBufferSize.getID());
+      MDNames.push_back(KernelExecutionLength.getID());
+      MDNames.push_back(MaxWGDimensions.getID());
+      MDNames.push_back(KernelHasBarrier.getID());
+      MDNames.push_back(KernelHasGlobalSync.getID());
+      MDNames.push_back(NoBarrierPath.getID());
+      MDNames.push_back(VectorizedWidth.getID());
+      MDNames.push_back(BlockLiteralSize.getID());
+      MDNames.push_back(PrivateMemorySize.getID());
+      MDNames.push_back(VectorizationDimension.getID());
+      MDNames.push_back(CanUniteWorkgroups.getID());
+      MDNames.push_back(VectorizedKernel.getID());
+      MDNames.push_back(KernelWrapper.getID());
+      MDNames.push_back(ScalarizedKernel.getID());
+    }
 
   // internal attributes
   NamedMDValueAccessor<LocalBufferSizeTy> LocalBufferSize;
@@ -151,6 +191,12 @@ struct KernelInternalMetadataAPI {
   NamedMDValueAccessor<VectorizedKernelTy> VectorizedKernel;
   NamedMDValueAccessor<KernelWrapperTy> KernelWrapper;
   NamedMDValueAccessor<ScalarizedKernelTy> ScalarizedKernel;
+
+public:
+  const llvm::SmallVectorImpl<llvm::StringRef>& getMDNames() const
+    { return MDNames; }
+private:
+  llvm::SmallVector<llvm::StringRef, 16> MDNames;
 };
 
 // required attributes
@@ -194,13 +240,25 @@ struct ModuleInternalMetadataAPI {
   typedef NamedMDList<int32_t, MDValueModuleStrategy> GASWarningsListTy;
 
   ModuleInternalMetadataAPI(llvm::Module *pModule)
+        // TODO: The following is not internal!
       : GlobalVariableTotalSize(pModule, "opencl.global_variable_total_size"),
         GASCounter(pModule, "opencl.gen_addr_space_pointer_counter"),
-        GASWarningsList(pModule, "opencl.gas_warning_line_numbers") {}
+        GASWarningsList(pModule, "opencl.gas_warning_line_numbers")
+    {
+      MDNames.push_back(GlobalVariableTotalSize.getID());
+      MDNames.push_back(GASCounter.getID());
+      MDNames.push_back(GASWarningsList.getID());
+    }
 
   NamedMDValueAccessor<GlobalVariableTotalSizeTy> GlobalVariableTotalSize;
   NamedMDValueAccessor<GASCounterTy> GASCounter;
   GASWarningsListTy GASWarningsList;
+
+public:
+  const llvm::SmallVectorImpl<llvm::StringRef>& getMDNames() const
+    { return MDNames; }
+private:
+  llvm::SmallVector<llvm::StringRef, 16> MDNames;
 };
 
 } // end namespace MetadataAPI

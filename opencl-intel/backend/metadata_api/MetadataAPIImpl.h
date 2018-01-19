@@ -353,6 +353,8 @@ public:
     MDGetSetStrategy::setMetadata(m_pGlobal, m_id, pNode);
   }
 
+  llvm::StringRef getID() const { return m_id; }
+
 protected:
   void load() const {
     if (m_isLoaded || nullptr == m_pGlobal) {
@@ -472,6 +474,8 @@ public:
     m_isLoaded = false;
   }
 
+  llvm::StringRef getID() const { return m_id; }
+
 protected:
   void load() const {
     if (m_isLoaded || nullptr == m_pNode) {
@@ -502,7 +506,7 @@ public:
   typedef typename VTraits::value_type Vitem_type;
 
   NamedHeteroTupleMDList(const llvm::Function *pFunction, const char *Name)
-      : m_pNode(pFunction->getMetadata(Name)), m_isLoaded(false) {}
+      : m_pID(Name), m_pNode(pFunction->getMetadata(Name)), m_isLoaded(false) {}
 
   Uitem_type getFirstItem() {
     load();
@@ -515,6 +519,8 @@ public:
   }
 
   bool hasValue() const { return m_pNode != nullptr; }
+
+  llvm::StringRef getID() const { return m_pID; }
 
 protected:
   virtual void load() const {
@@ -534,6 +540,7 @@ protected:
   }
 
 protected:
+  const char *m_pID;
   const llvm::MDNode *m_pNode;
   mutable bool m_isLoaded;
   mutable std::tuple<Uitem_type, Vitem_type> m_data;
@@ -557,6 +564,8 @@ public:
     mdValue.generateNode();
   }
 
+  llvm::StringRef getID() const { return m_mdValue.getID(); }
+
 private:
   subject_type m_pGlobal;
   const char *m_pId;
@@ -575,6 +584,8 @@ public:
 
   bool hasValue() const { return m_mdlist.hasValue(); }
 
+  llvm::StringRef getID() const { return m_mdlist.getID(); }
+
 private:
   T m_mdlist;
 };
@@ -592,6 +603,8 @@ public:
   typename T::item_type getZDim() { return m_mdlist.getItem(2); }
 
   bool hasValue() const { return m_mdlist.hasValue(); }
+
+  llvm::StringRef getID() const { return m_mdlist.getID(); }
 
 private:
   T m_mdlist;
