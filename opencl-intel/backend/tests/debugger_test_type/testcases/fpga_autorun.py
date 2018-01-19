@@ -19,7 +19,7 @@ class FPGAAutorun(DebuggerTestCase):
         self.client.execute_debuggee(
             hostprog_name='fpga_autorun',
             cl_name=self.CLNAME,
-            options={'build_opts':'"-cl-std=CL2.0 -DN=5"'})
+            options={'build_opts':'"-DN=5"'})
         self.client.connect_to_server()
         self.client.start_session(0, 0, 0)
 

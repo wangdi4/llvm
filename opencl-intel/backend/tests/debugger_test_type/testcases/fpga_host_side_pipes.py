@@ -18,8 +18,7 @@ class FPGAHostSidePipes(DebuggerTestCase):
     def test_breakpoints(self):
         self.client.execute_debuggee(
             hostprog_name='fpga_host_side_pipes',
-            cl_name=self.CLNAME,
-            options={'build_opts':'-cl-std=CL2.0'})
+            cl_name=self.CLNAME)
         self.client.connect_to_server()
         self.client.start_session(0, 0, 0)
 
