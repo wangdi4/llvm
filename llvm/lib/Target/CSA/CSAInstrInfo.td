@@ -435,16 +435,16 @@ class MergeOp<string opStr, CSAOpInfo t,
               list<Predicate> preds, InstrItinClass itin> :
   FMTGEN<MERGE, t,
     (outs t.RC:$dst),
-    (ins I1:$sel, t.RCL:$v0, t.RCL:$v1),
+    (ins RCLi1:$sel, t.RCL:$v0, t.RCL:$v1),
     !strconcat(opStr, "\t$dst, $sel, $v0, $v1"),
-    [(set t.VT:$dst, (select I1:$sel, (t.VT t.RCL:$v1), (t.VT t.RCL:$v0)))],
+    [(set t.VT:$dst, (select RCLi1:$sel, (t.VT t.RCL:$v1), (t.VT t.RCL:$v0)))],
     preds, itin>;
 
 class SwitchOp<GenericOp gen, CSAOpInfo oi,
                InstrItinClass itin, list<Predicate> preds = []> :
   FMTGEN<gen, oi,
     (outs oi.RC:$dst0, oi.RC:$dst1),
-    (ins I1:$sel, oi.RCL:$v),
+    (ins RCLi1:$sel, oi.RCL:$v),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst0, $dst1, $sel, $v"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin>;
 
@@ -460,7 +460,7 @@ class PickOp<GenericOp gen, CSAOpInfo oi,
              InstrItinClass itin, list<Predicate> preds = []>:
   FMTGEN<gen, oi,
     (outs oi.RC:$dst),
-    (ins I1:$sel, oi.RCL:$v0, oi.RCL:$v1),
+    (ins RCLi1:$sel, oi.RCL:$v0, oi.RCL:$v1),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $sel, $v0, $v1"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin>;
 
@@ -501,7 +501,7 @@ class RepeatOp<GenericOp gen, CSAOpInfo oi,
                InstrItinClass itin, list<Predicate> preds = []> :
   FMTGEN<gen, oi,  // TODO: something to reflect state
     (outs oi.RC:$out),
-    (ins I1:$pred, oi.RCL:$in),
+    (ins RCLi1:$pred, oi.RCL:$in),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$out, $pred, $in"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin> { }
 
@@ -510,7 +510,7 @@ class StrideOp<GenericOp gen, CSAOpInfo oi,
                InstrItinClass itin, list<Predicate> preds = []> :
   FMTGEN<gen, oi,  // TODO: something to reflect state
     (outs oi.RC:$out),
-    (ins I1:$pred, oi.RCL:$base, oi.RCL:$stride),
+    (ins RCLi1:$pred, oi.RCL:$base, oi.RCL:$stride),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$out, $pred, $base, $stride"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin> { }
 
@@ -518,7 +518,7 @@ class SReduceOp<GenericOp gen, CSAOpInfo oi,
                 InstrItinClass itin, list<Predicate> preds = []> :
   FMTGEN<gen, oi,
     (outs oi.RC:$result, oi.RC:$each),
-    (ins oi.RCL:$init, oi.RCL:$inval, I1:$ctl),
+    (ins oi.RCL:$init, oi.RCL:$inval, RCLi1:$ctl),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$result, $each, $init, $inval, $ctl"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin> { }
 
@@ -526,7 +526,7 @@ class SReduceOpR<GenericOp gen, CSAOpInfo oi,
                 InstrItinClass itin, list<Predicate> preds = []> :
   FMTGEN<gen, oi,
     (outs oi.RC:$result, oi.RC:$each),
-    (ins oi.RCL:$init, oi.RCL:$inval, I1:$ctl, RMODE:$rm),
+    (ins oi.RCL:$init, oi.RCL:$inval, RCLi1:$ctl, RMODE:$rm),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$result, $each, $init, $inval, $ctl, $rm"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin> { }
 
@@ -534,7 +534,7 @@ class FMSReduceOp<GenericOp gen, CSAOpInfo oi,
                   InstrItinClass itin, list<Predicate> preds = []> :
   FMTGEN<gen, oi,
     (outs oi.RC:$result, oi.RC:$each),
-    (ins oi.RCL:$init, oi.RCL:$inval1, oi.RCL:$inval2, I1:$ctl, RMODE:$rm),
+    (ins oi.RCL:$init, oi.RCL:$inval1, oi.RCL:$inval2, RCLi1:$ctl, RMODE:$rm),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$result, $each, $init, $inval1, $inval2, $ctl, $rm"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin> { }
 
@@ -1473,7 +1473,7 @@ def SREDXOR64 : SReduceOp<SREDXOR,  Ti64, IIALU>;
 def ONEND_G : GenericOp<"onend">;
 def ONEND : FMTGEN<ONEND_G, Ti0,  // TODO: something to reflect state
   (outs I0:$dst),
-  (ins I1:$ctrl, I0:$in),
+  (ins RCLi1:$ctrl, RCLi0:$in),
   "onend\t$dst, $ctrl, $in",
   []> { let Itinerary = IIVir; }
 
