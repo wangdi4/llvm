@@ -18,6 +18,8 @@
 #include "llvm/Analysis/ScalarEvolutionExpander.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/IR/Dominators.h"
+#include "llvm/Analysis/PostDominators.h"
+#include "llvm/IR/PatternMatch.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
 #include <vector>
@@ -51,8 +53,7 @@ namespace {
     bool TransformLoopInitandBound(Loop *L, ScalarEvolution *SE, int PE, int NPEs);
     bool ZeroTripCountCheck(Loop *L, ScalarEvolution *SE, int PE, int NPEs, BasicBlock *AfterLoop, std::vector<PHINode *> *Reductions, std::vector<Value *> *ReduceVarExitOrig, std::vector<Instruction *> *ReduceVarOrig, DominatorTree *DT, LoopInfo *LI); 
     bool AddParallelIntrinsicstoLoop(Loop *L, LLVMContext& context, Module *M, BasicBlock *OrigPH, BasicBlock *E);
-    IntrinsicInst* detectSPMDIntrinsic(Loop *L, LoopInfo *LI);
-    IntrinsicInst* detectSPMDExitIntrinsic(Loop *L, LoopInfo *LI);
+    IntrinsicInst* detectSPMDIntrinsic(Loop *L, LoopInfo *LI, DominatorTree *DT, PostDominatorTree *PDT, int &NPEs, Value *&approach);
 
     bool runOnLoop(Loop *L, LPPassManager &) override {
 
@@ -62,6 +63,7 @@ namespace {
 
       LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
       DominatorTree *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+      PostDominatorTree *PDT = &getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
       ScalarEvolution *SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
       
       LLVMContext& context = L->getHeader()->getContext();
@@ -72,10 +74,10 @@ namespace {
       BasicBlock *OrigPH = L->getLoopPreheader();
       Loop *OrigL = L;
       unsigned spmd_approach = 0;
-      IntrinsicInst* found_spmd = detectSPMDIntrinsic(L, LI);
+      int NPEs;
+      Value *approachV = nullptr;
+      IntrinsicInst* found_spmd = detectSPMDIntrinsic(L, LI, DT, PDT, NPEs, approachV);
       if (found_spmd) {
-        Value *NPEs_val = found_spmd->getOperand(0);
-        Value *approachV  = found_spmd->getOperand(1);
         if(ConstantExpr *expr = dyn_cast<ConstantExpr>(approachV)) {
           if (expr->getOpcode() == Instruction::GetElementPtr) {
             GlobalVariable *glob_arg = dyn_cast<GlobalVariable>(expr->getOperand(0));
@@ -133,15 +135,11 @@ namespace {
           errs().resetColor();
           return false;
         }
-        int NPEs = (dyn_cast<ConstantInt>(NPEs_val))->getZExtValue();
-        IntrinsicInst* found_spmd_exit = detectSPMDExitIntrinsic(L, LI);
-        if(found_spmd_exit) {
-          for (auto UA = (dyn_cast<Value>(found_spmd))->user_begin(), EA = (dyn_cast<Value>(found_spmd))->user_end(); UA != EA;) {
-            Instruction *spmd_use = cast<Instruction>(*UA++);
-            spmd_use->eraseFromParent();
-          }
-          found_spmd->eraseFromParent();
+        for (auto UA = (dyn_cast<Value>(found_spmd))->user_begin(), EA = (dyn_cast<Value>(found_spmd))->user_end(); UA != EA;) {
+          Instruction *spmd_use = cast<Instruction>(*UA++);
+          spmd_use->eraseFromParent();
         }
+        found_spmd->eraseFromParent();
         if(!L->getExitBlock()) {
           errs() << "\n";
           errs().changeColor(raw_ostream::BLUE, true);
@@ -260,6 +258,7 @@ Branches to or from an OpenMP structured block are illegal
       //getLoopAnalysisUsage(AU);
       AU.addRequired<DominatorTreeWrapperPass>();
       AU.addPreserved<DominatorTreeWrapperPass>();
+      AU.addRequired<PostDominatorTreeWrapperPass>();
       AU.addRequired<LoopInfoWrapperPass>();
       AU.addPreserved<LoopInfoWrapperPass>();
       AU.addRequired<ScalarEvolutionWrapperPass>();
@@ -279,6 +278,7 @@ INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopAccessLegacyAnalysis)
 INITIALIZE_PASS_DEPENDENCY(LoopPass)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopSimplify)
 INITIALIZE_PASS_END(LoopSPMDization, DEBUG_TYPE, "Loop SPMDization", false, false)
@@ -490,42 +490,68 @@ Failed to find the identity element of the reduction operation.
   return true;
 }
 
-
 /* This routine should made generic and be declared somewhere as public to be used here and in csa backend (Target/CSA/CSALoopIntrinsicExpander.cpp)*/
-IntrinsicInst* LoopSPMDization::detectSPMDIntrinsic(Loop *L, LoopInfo *LI) {
-  // Start iterating backwards at the preheader
-  for (BasicBlock *cur_block = L->getLoopPreheader();
-       cur_block and LI->getLoopFor(cur_block) == LI->getLoopFor(L->getLoopPreheader());
-       cur_block = cur_block->getSinglePredecessor()
-       ) {
-    
-    // Look for intrinsic calls with the right ID.
-    for (Instruction& inst : *cur_block)
-      if (IntrinsicInst *intr_inst = dyn_cast<IntrinsicInst>(&inst))
-        if (intr_inst->getIntrinsicID() == Intrinsic::csa_spmdization_entry)//|| intr_inst->getIntrinsicID() == Intrinsic::x86_spmdization)
-          return intr_inst;
-  }
-  return nullptr;
-}
-IntrinsicInst* LoopSPMDization::detectSPMDExitIntrinsic(Loop *L, LoopInfo *LI) {
-  SmallVector<BasicBlock*, 2> exits;
-  L->getExitBlocks(exits);
-  for (BasicBlock *const exit : exits) {
-    for (Instruction& inst : *exit)
-      if (IntrinsicInst *intr_inst = dyn_cast<IntrinsicInst>(&inst))
-        if (intr_inst->getIntrinsicID() == Intrinsic::csa_spmdization_exit)//|| intr_inst->getIntrinsicID() == Intrinsic::x86_spmdization)
-          return intr_inst;
-    
-    BasicBlock *afterexit = exit->getSingleSuccessor();
-    //Optimizations might move the exit intrinsic to the next exit
-    for (Instruction& inst : *afterexit)
-      if (IntrinsicInst *intr_inst = dyn_cast<IntrinsicInst>(&inst))
-        if (intr_inst->getIntrinsicID() == Intrinsic::csa_spmdization_exit)//|| intr_inst->getIntrinsicID() == Intrinsic::x86_spmdization)
-          return intr_inst;
-  }
-  return nullptr;
-}
+IntrinsicInst* LoopSPMDization::detectSPMDIntrinsic(Loop *L, LoopInfo *LI, DominatorTree *DT, PostDominatorTree *PDT, int &NPEs, Value *&approach) {
 
+  // Attempts to match a valid SPMDization entry/exit pair with an exit in a
+  // given basic block.
+  const auto match_pair_from_block = [=, &NPEs, &approach](
+    BasicBlock *BB
+  ) -> IntrinsicInst * {
+    using namespace llvm::PatternMatch;
+
+    // The block must be exactly one loop level above the loop.
+    if (LI->getLoopDepth(BB) != L->getLoopDepth() - 1) return nullptr;
+
+    // And it should post-dominate the loop in order to have a correct exit in
+    // it.
+    if (!PDT->dominates(BB, L->getHeader())) return nullptr;
+
+    // Try to find an exit with a paired entry.
+    for (Instruction &exit : *BB) {
+      Instruction *entry = nullptr;
+      uint64_t NPEs_64;
+      if (
+        !match(
+          &exit,
+          m_Intrinsic<Intrinsic::csa_spmdization_exit>(m_Instruction(entry))
+        ) || !match(
+          entry,
+          m_Intrinsic<Intrinsic::csa_spmdization_entry>(
+            m_ConstantInt(NPEs_64), m_Value(approach)
+          )
+        )
+      ) continue;
+
+      // If one is found, make sure that the entry block is also one loop level
+      // above the loop and dominates the loop.
+      const BasicBlock *const entry_block = entry->getParent();
+      if (LI->getLoopDepth(entry_block) != L->getLoopDepth() - 1) continue;
+      if (!DT->dominates(entry_block, L->getHeader())) continue;
+
+      IntrinsicInst *const entry_intr = dyn_cast<IntrinsicInst>(entry);
+      assert(entry_intr && "Entry intrinsic is not an intrinsic??");
+      NPEs = NPEs_64;
+      return entry_intr;
+    }
+
+    return nullptr;
+  };
+
+  // If there is a parent loop, only look inside of it for exits. Otherwise,
+  // look through the entire function.
+  if (Loop *const L_parent = L->getParentLoop()) {
+    for (BasicBlock *const BB : L_parent->getBlocks())
+      if (IntrinsicInst *const intr = match_pair_from_block(BB))
+        return intr;
+  } else {
+    for (BasicBlock &BB : *L->getHeader()->getParent())
+      if (IntrinsicInst *const intr = match_pair_from_block(&BB))
+        return intr;
+  }
+
+  return nullptr;
+}
 
 /* This routine has been copied from LoopInterchange.cpp. It has then been modified to accomodate the type of induction variables we are insterested in handling for SPMDization  */
 PHINode *LoopSPMDization::getInductionVariable(Loop *L, ScalarEvolution *SE) {
