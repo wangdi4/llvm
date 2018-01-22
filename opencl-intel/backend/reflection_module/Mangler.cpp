@@ -214,7 +214,8 @@ std::string Mangler::getVectorizedPrefetchName(const std::string& name, int pack
   V_ASSERT(scalarType->getTypeId() == reflection::PrimitiveType::enumTy && "Primitive type is expected.");
   // create vectorized data type for packed prefetch
   reflection::VectorType *vectorizedType = new reflection::VectorType(scalarType, packetWidth);
-  reflection::PointerType* vectorizedPtr = new reflection::PointerType(vectorizedType);
+  reflection::PointerType *vectorizedPtr =
+      new reflection::PointerType(vectorizedType, {reflection::ATTR_PRIVATE});
   prefetchDesc.parameters[0] = vectorizedPtr;
   return ::mangle(prefetchDesc);
 }
@@ -358,7 +359,8 @@ std::string Mangler::get_original_scalar_name_from_retbyvector_builtin(const std
   reflection::FunctionDescriptor desc = ::demangle(name.c_str());
   //Add second operand that is pointer of first operand type
   //It is always pointer to address space 0 (should not really matter)!
-  desc.parameters.push_back(new reflection::PointerType(desc.parameters[0]));
+  desc.parameters.push_back(new reflection::PointerType(
+      desc.parameters[0], {reflection::ATTR_PRIVATE}));
   //Fix the name
   size_t start = desc.name.find(retbyvector_builtin_prefix);
   // when get_original_scalar_name_from_retbyvector_builtin

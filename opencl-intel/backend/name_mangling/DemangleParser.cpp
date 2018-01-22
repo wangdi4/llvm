@@ -294,6 +294,7 @@ RefParamType DemangleParser::createPointerType() {
     // Reachning means parsing Address Space failed, return NULL;
     return RefParamType();
   }
+
   // Try to parse CVR-qualifier one more time since
   // Clang 4.0 mangling scheme assumes CV-qualifiers *after*
   // vendor extensions (i.e. address space qualifiers in OpenCL case).
@@ -307,32 +308,34 @@ RefParamType DemangleParser::createPointerType() {
     setError();
     return RefParamType();
   }
-  PointerType *pPointer = new PointerType(pType);
 
   assert(AttrAddressSpace != ATTR_NONE && "No addr space.");
+
+  // All pointee types are qualified due to address spaces, so we always need
+  // to add them as substitution candidates.
+  //
+  // TODO: implement correct way to handle qualified pointees
+  // When we mangle/demangle a type like "const clk_event_t *"
+  // we should treat as substitution candidates 3 types:
+  // clk_event_t : base type
+  // const clk_event_t : qualified base type (all qualifiers should be here)
+  // const clk_event_t * : full pointer type
+  // Now we can't properly handle "const clk_event_t" type due to only
+  // object of PointerType keeps qualifiers. To preserve correct substitution
+  // order we add dummy value to substitution list because we don't have any
+  // cases in OpenCL now when "const clk_event_t" can be used, but it is still
+  // wrong way to handle this situation
+  m_signList.push_back(RefParamType());
+
+  PointerType *pPointer = new PointerType(pType);
   pPointer->addAttribute(AttrAddressSpace);
 
   for (const auto &Attr : AttrQualifiers)
     pPointer->addAttribute(Attr);
 
   RefParamType refPointer(pPointer);
-  // Add pointer to substitution list *after* parsing a pointee type
-  if (!AttrQualifiers.empty())
-    // Add dummy value to preserve correct substitution order
-    //
-    // TODO: implement correct way to handle substitutions with qualifiers
-    // When we mangle/demangle a type like "const clk_event_t *"
-    // we should treat as substitution candidates 3 types:
-    // clk_event_t : base type
-    // const clk_event_t : qualified base type (all qualifiers should be here)
-    // const clk_event_t * : full pointer type
-    // Now we can't properly handle "const clk_event_t" type due to only
-    // object of PointerType keeps qualifiers. To preserve correct substitution
-    // order we add dummy value to substitution list because we don't have any
-    // cases in OpenCL now when "const clk_event_t" can be used, but it is still
-    // wrong way to handle this situation
-    m_signList.push_back(RefParamType());
 
+  // Add pointer to substitutions list *after* parsing a pointee type
   m_signList.push_back(new PointerType(*pPointer));
   return refPointer;
 }

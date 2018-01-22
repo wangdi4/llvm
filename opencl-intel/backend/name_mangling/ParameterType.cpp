@@ -49,6 +49,11 @@ void PrimitiveType::setPrimitive(TypePrimitiveEnum primitive) {
 PointerType::PointerType(const RefParamType type)
     : ParamType(TYPE_ID_POINTER), m_pType(type) {}
 
+PointerType::PointerType(const RefParamType type,
+                         std::vector<TypeAttributeEnum> &&attrs)
+    : ParamType(TYPE_ID_POINTER), m_pType(type),
+      m_attributes(std::move(attrs)) {}
+
 void PointerType::accept(TypeVisitor *visitor) const { visitor->visit(this); }
 
 std::string PointerType::toString() const {

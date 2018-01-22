@@ -189,6 +189,12 @@ struct PointerType : public ParamType {
   ///@param RefParamType the type of pointee (that the pointer points at).
   PointerType(const RefParamType type);
 
+  ///@brief Constructor
+  ///@param RefParamType the type of pointee (that the pointer points at).
+  ///@param std::vector<TypeAttributeEnum>&& the vector of attributes
+  //                                         for new pointer type
+  PointerType(const RefParamType type, std::vector<TypeAttributeEnum> &&attrs);
+
   /// Implementation of Abstract Methods ///
 
   ///@brief visitor service method. (see TypeVisitor for more details).

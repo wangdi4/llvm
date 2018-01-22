@@ -67,7 +67,8 @@ namespace intel {
 
     reflection::FunctionDescriptor fd;
     fd.name = "sincos";
-    reflection::RefParamType PF(new reflection::PointerType(iData->argType)); //cos return value
+    reflection::RefParamType PF(new reflection::PointerType(
+        iData->argType, {reflection::ATTR_PRIVATE})); // cos return value
     fd.parameters.push_back(iData->argType);
     fd.parameters.push_back(PF);
     std::string MangledFName = mangle(fd);

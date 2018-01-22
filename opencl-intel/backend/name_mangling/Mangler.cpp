@@ -56,12 +56,14 @@ public:
     }
     p->getPointee()->accept(this);
 
-    if (p->getAttributes().size() > 0) {
-      // Add dummy type to preserve substitutions order
-      // TODO: implement correct way to handle substitutions with qualifiers
-      // See more details in DemangleParser.cpp
-      m_dupList.push_back(reflection::RefParamType());
-    }
+    assert(p->getAttributes().size() > 0 &&
+           "Pointers always have atrributes (at least address space)");
+
+    // Add dummy type to preserve substitutions order
+    // TODO: implement correct way to handle substitutions with qualifiers
+    // See more details in DemangleParser.cpp
+    m_dupList.push_back(reflection::RefParamType());
+
     m_dupList.push_back((reflection::ParamType *)p);
   }
 

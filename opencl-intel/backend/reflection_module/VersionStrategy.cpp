@@ -183,7 +183,8 @@ SoaDescriptorStrategy::vectorReturnTranspose(const PairSW& sw)const{
   VectorType* retVecTy = reflection::dyn_cast<VectorType>(&*retTy);
   assert(retVecTy && "non-vector return type");
   RefParamType vOut(new VectorType(retVecTy->getScalarType(), sw.second));
-  RefParamType ptr(new PointerType(vOut));
+  //All pointers for return data have private address space
+  RefParamType ptr(new PointerType(vOut, {ATTR_PRIVATE}));
   for(int i=0 ; i<retVecTy->getLength() ; ++i)
     fd.parameters.push_back(ptr);
   return fd;

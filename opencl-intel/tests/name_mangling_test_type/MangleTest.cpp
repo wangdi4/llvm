@@ -231,7 +231,7 @@ TEST(NameMangle, demangleTostrightAndBack) {
   }
 }
 
-const char *const strRetByPtr = "_Z4FuncfPfS_";
+const char *const strRetByPtr = "_Z4FuncfPfS0_";
 
 TEST(DemangleTest, retByPtr) {
   FunctionDescriptor fd = demangle(strRetByPtr);
@@ -250,7 +250,7 @@ TEST(MangleTest, retByPtr) {
   FunctionDescriptor fd;
   fd.name = "Func";
   RefParamType F(new PrimitiveType(PRIMITIVE_FLOAT));
-  RefParamType PF(new PointerType(F));
+  RefParamType PF(new PointerType(F, {ATTR_PRIVATE}));
   fd.parameters.push_back(F);
   fd.parameters.push_back(PF);
   fd.parameters.push_back(PF);
@@ -306,12 +306,12 @@ TEST(NameMangle, SOAFunction) {
   soaDescriptor.name = "soa";
   RefParamType doubleTy(new PrimitiveType(PRIMITIVE_DOUBLE));
   RefParamType intTy(new PrimitiveType(PRIMITIVE_INT));
-  RefParamType pintTy(new PointerType(intTy));
+  RefParamType pintTy(new PointerType(intTy, {ATTR_PRIVATE}));
   soaDescriptor.parameters.push_back(doubleTy);
   soaDescriptor.parameters.push_back(pintTy);
   soaDescriptor.parameters.push_back(pintTy);
   std::cout << soaDescriptor.toString() << std::endl;
-  ASSERT_EQ(std::string("_Z3soadPiS_"), mangle(soaDescriptor));
+  ASSERT_EQ(std::string("_Z3soadPiS0_"), mangle(soaDescriptor));
 }
 
 static bool testDemangle(const char *mname) {
@@ -462,13 +462,13 @@ TEST(MangleTest, semidup) {
   ASSERT_EQ(orig, actual);
 }
 
-const char *strDoubleDup = "_Z4stamDv4_fS_PS_S0_";
+const char *strDoubleDup = "_Z4stamDv4_fS_PS_S1_";
 
 TEST(MangleTest, doubleDup) {
   FunctionDescriptor fd;
   RefParamType primitiveFloat(new PrimitiveType(PRIMITIVE_FLOAT));
   RefParamType vectorFloat(new VectorType(primitiveFloat, 4));
-  RefParamType ptrFloat(new PointerType(vectorFloat));
+  RefParamType ptrFloat(new PointerType(vectorFloat, {ATTR_PRIVATE}));
 
   fd.name = "stam";
   fd.parameters.push_back(vectorFloat);
@@ -537,26 +537,27 @@ TEST(DemangleTest, doubleDup6) {
 }
 
 TEST(DemangleTest, doubleDup7) {
-  FunctionDescriptor fd = demangle("_Z3fooPDv4_fS_S0_");
+  FunctionDescriptor fd = demangle("_Z3fooPDv4_fS_S1_");
   ASSERT_FALSE(fd.isNull());
   ASSERT_EQ(std::string("foo(__private float4 *, float4, __private float4 *)"), fd.toString());
 }
 
 TEST(DemangleTest, doubleDup8) {
   FunctionDescriptor fd =
-      demangle("_Z3fooPiPjPcPhPfPdS_S0_S1_S2_S3_S4_Dv4_iDv4_jDv4_cDv4_hDv4_fDv4_dS5_S6_S7_S8_S9_SA_");
+      demangle("_Z3fooPiPjPcPhPfPdS0_S2_S4_S6_S8_SA_Dv4_iDv4_jDv4_cDv4_hDv4_fDv4_dSB_SC_SD_SE_SF_SG_");
   ASSERT_FALSE(fd.isNull());
-  ASSERT_EQ(std::string("foo(__private int *, __private uint *, __private char *, "
-                        "__private uchar *, __private float *, __private double *, "
-                        "__private int *, __private uint *, __private char *, "
-                        "__private uchar *, __private float *, __private double *, "
-                        "int4, uint4, char4, uchar4, float4, double4, int4, "
-                        "uint4, char4, uchar4, float4, double4)"),
-            fd.toString());
+  ASSERT_EQ(
+    std::string("foo(__private int *, __private uint *, __private char *, "
+                "__private uchar *, __private float *, __private double *, "
+                "__private int *, __private uint *, __private char *, "
+                "__private uchar *, __private float *, __private double *, "
+                "int4, uint4, char4, uchar4, float4, double4, "
+                "int4, uint4, char4, uchar4, float4, double4)"),
+    fd.toString());
 }
 
 TEST(DemangleTest, doubleDup9) {
-  FunctionDescriptor fd = demangle("_Z3fooP4sFooS0_S_");
+  FunctionDescriptor fd = demangle("_Z3fooP4sFooS1_S_");
   ASSERT_FALSE(fd.isNull());
   ASSERT_EQ(std::string("foo(__private sFoo *, __private sFoo *, sFoo)"), fd.toString());
 }
