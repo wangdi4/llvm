@@ -3000,11 +3000,14 @@ void CSACvtCFDFPass::repeatOperandInLoopUsePred(MachineLoop* mloop, MachineInstr
             !MLI->getLoopFor(mbb)->contains(MLI->getLoopFor(DefBB));
 
           if (isDefOutsideLoop && DT->dominates(DefBB, mbb)) {
+            assert((!hasAllConstantInputs(dMI) || MLI->getLoopFor(DefBB) == NULL) && "const prop failed");
+#if 0
             if (hasAllConstantInputs(dMI)) {
 			  //has to be root mov 1 pred instr
               assert(!dMI->getFlag(MachineInstr::NonSequential));
               continue;
             }
+#endif
             const TargetRegisterClass *TRC = MRI->getRegClass(Reg);
             unsigned rptIReg = MRI->createVirtualRegister(TRC);
             unsigned rptOReg = MRI->createVirtualRegister(TRC);
