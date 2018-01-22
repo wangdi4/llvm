@@ -67,7 +67,7 @@ MachineOp CSAInstBuilder::makeOrConstantFold(CSAMachineFunctionInfo &LMFI,
       goto build_mi;
     }
     // Truncate to outputSize bits.
-    int mask = (1 << outputSize) - 1;
+    int64_t mask = outputSize == 64 ? ~0ULL : (1ULL << outputSize) - 1;
     return OpImm(resVal & mask);
   }
 
