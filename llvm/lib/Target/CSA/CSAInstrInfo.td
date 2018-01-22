@@ -362,9 +362,9 @@ class ShiftOp<GenericOp gen, SDNode opNode, CSAOpInfo oi,
               InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
   FMTGEN<gen, oi,
     (outs oi.RC:$dst),
-    (ins oi.RCL:$op1, RCLi8:$op2),
+    (ins oi.RCL:$op1, oi.RCL:$op2),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $op1, $op2"),
-    [(set oi.RC:$dst, (opNode oi.RCL:$op1, RCLi8:$op2))],
+    [(set oi.RC:$dst, (opNode oi.RCL:$op1, oi.RCL:$op2))],
     !listconcat(preds,gen.Preds,oi.Preds), itin>;
 
 // CmpOp is identical to BinOp, except opNode is a PatFrag rather than
