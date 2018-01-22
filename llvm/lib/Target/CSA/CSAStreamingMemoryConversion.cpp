@@ -16,6 +16,7 @@
 #include "CSAInstBuilder.h"
 #include "CSAInstrInfo.h"
 #include "CSAMachineFunctionInfo.h"
+#include "CSAMatcher.h"
 #include "CSATargetMachine.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/CodeGen/MachineFunction.h"
@@ -204,8 +205,17 @@ MachineOp CSAStreamingMemoryConversionPass::getLength(
 // The source of the address computations is more complicated. The following
 // patterns should be okay:
 // * LD (STRIDE %stream, %base, %stride) => base = %base, stride = %stride
-// * LD{X,D,R} (REPEAT %stream, %base), (SEQOT**64_index 0, %N, %stride)
-// * LD{X,D,R] (REPEAT %stream, %base), (SEQOT**64_index %start, %end, %stride)
+// * LD{X,D,R} (REPEATO %stream, %base), (SEQOT**64_index 0, %N, %stride)
+// * LD{X,D,R] (REPEATO %stream, %base), (SEQOT**64_index %start, %end, %stride)
+
+MIRMATCHER_REGS(RESULT, REPEATED, SEQ_VAL, SEQ_PRED, SEQ_FIRST, SEQ_LAST, CTL);
+using namespace CSAMatch;
+constexpr auto repeated_pat = mirmatch::graph(
+    RESULT = repeato_N(CTL, REPEATED),
+    CTL = not1(SEQ_LAST),
+    (SEQ_VAL, SEQ_PRED, SEQ_FIRST, SEQ_LAST) =
+      seqot(mirmatch::AnyOperand, mirmatch::AnyOperand, mirmatch::AnyOperand)
+    );
 
 bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
   const MachineOperand *base, *value;
@@ -256,16 +266,19 @@ bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
       if (baseOp.isImm() || indexOp.isImm())
         return false;
 
-      // The base address needs to be repeated
+      // The base address needs to be repeated.
       MachineInstr *memBase = getDefinition(baseOp);
       MachineInstr *memIndex = getDefinition(indexOp);
-      if (!memBase || memBase->getOpcode() != CSA::REPEAT64) {
+      if (!memBase)
+        return false;
+      auto repeat_result = mirmatch::match(repeated_pat, memBase);
+      if (!repeat_result) {
         return false;
       }
 
       // The stream controls the base REPEAT--they should be the same
       // instruction.
-      stream = getDefinition(memBase->getOperand(1));
+      stream = MRI->getVRegDef(repeat_result.reg(SEQ_LAST));
       if (stream != memIndex) {
         return false;
       }
@@ -323,8 +336,12 @@ bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
 
   // Verify that the memory orders are properly constrained by the stream.
   MachineInstr *inSource = getDefinition(*inOrder);
-  if (!inSource || inSource->getOpcode() != CSA::REPEAT1 ||
-      getDefinition(inSource->getOperand(1)) != stream) {
+  if (!inSource) {
+    DEBUG(dbgs() << "Conversion failed due to bad in memory order.\n");
+    return false;
+  }
+  auto mem_result = mirmatch::match(repeated_pat, inSource);
+  if (!mem_result || MRI->getVRegDef(mem_result.reg(SEQ_LAST)) != stream) {
     DEBUG(dbgs() << "Conversion failed due to bad in memory order.\n");
     return false;
   }

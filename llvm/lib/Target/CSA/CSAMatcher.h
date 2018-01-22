@@ -88,4 +88,11 @@ constexpr mirmatch::LiteralMatcher<int, 1> litOne{};
 #define GET_MIRMATCHERS
 #include "CSAGenCSAOpInfo.inc"
 
+namespace llvm {
+namespace CSAMatch {
+constexpr mirmatch::OpcodeRange<CSA::SEQOTGES16, CSA::SEQOTNE8> seqot{};
+} // Close namespace CSAMatch
+} // Close namespace llvm
+
+
 #endif // INCLUDED_CSAMATCHER_DOT_H
