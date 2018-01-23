@@ -216,6 +216,13 @@ static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
     PM->add(llvm::createVPlanDriverPass());
   }
 // INTEL VPO END
+  if (!isDBG) {
+    // If a function appeared in a loop is a candidate to be inlined,
+    // LoopUnroll pass refuses to unroll the loop, so we should inline the function
+    // first to help unroller to decide if it's worthy to unroll the loop.
+    PM->add(llvm::createFunctionInliningPass(4096)); // Inline (not only small)
+                                                     // functions
+  }
   if (UnrollLoops) {
     PM->add(llvm::createLoopUnrollPass(OptLevel, 512, 0, 0)); // Unroll small loops
     // unroll loops with non-constant trip count
@@ -225,10 +232,6 @@ static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
       PM->add(llvm::createLoopUnrollPass(OptLevel,
                                          threshold, rtLoopUnrollFactor, 0, 1));
     }
-  }
-  if (!isDBG) {
-    PM->add(llvm::createFunctionInliningPass(4096)); // Inline (not only small)
-                                                     // functions
   }
   // Break up aggregate allocas
   PM->add(llvm::createSROAPass());
