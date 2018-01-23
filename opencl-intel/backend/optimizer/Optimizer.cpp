@@ -146,6 +146,15 @@ static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
     return;
   }
 
+  if (UnitAtATime) {
+    // If a function has internal linkage type this pass can eliminate one or
+    // even more arguments in a function call. Due to VPO passes are split
+    // in the optimizer that will lead to a mismatch between number of parameters in
+    // the function callee and its vectorized form. Therefore, this pass should
+    // be launched before VPO.
+    PM->add(llvm::createDeadArgEliminationPass());
+  }
+
 // INTEL VPO BEGIN
   if (!DisableVPlanVec && (RunVPOParopt & VPOParoptMode::OmpVec))
     PM->add(createVecClonePass());
@@ -166,8 +175,8 @@ static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
   if (UnitAtATime) {
     PM->add(llvm::createGlobalOptimizerPass());    // Optimize out global vars
     PM->add(llvm::createIPSCCPPass());             // IP SCCP
-    PM->add(llvm::createDeadArgEliminationPass()); // Dead argument elimination
   }
+
   PM->add(llvm::createInstructionSimplifierPass());
   PM->add(llvm::createInstructionCombiningPass()); // Clean up after IPCP & DAE
   PM->add(llvm::createCFGSimplificationPass());    // Clean up after IPCP & DAE
