@@ -258,7 +258,6 @@ bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
     }
   case CSA::Generic::LDX: case CSA::Generic::STX:
   case CSA::Generic::LDD: case CSA::Generic::STD:
-  case CSA::Generic::LDR: case CSA::Generic::STR:
     {
       bool isLoad = MI->mayLoad();
       auto &baseOp = MI->getOperand(isLoad ? 2 : 1);

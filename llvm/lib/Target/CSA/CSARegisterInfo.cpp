@@ -67,6 +67,10 @@ BitVector CSARegisterInfo::getReservedRegs(const MachineFunction &MF) const {
   if (TFL->hasFP(MF))
     Reserved.set(CSA::FP);
 
+  // The special LICs should be treated as reserved for verification purposes.
+  Reserved.set(CSA::IGN);
+  Reserved.set(CSA::NA);
+
   return Reserved;
 }
 
