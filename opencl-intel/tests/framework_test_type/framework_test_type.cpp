@@ -522,6 +522,11 @@ TEST(FPGA, Test_checkInfiniteLoopsBasic)
     FPGAInfiniteLoopsBasic();
 }
 
+TEST(FPGA, Test_FPGAPipes)
+{
+    FPGAPipes();
+}
+
 TEST(FPGA, Test_FPGAPipeOrdering)
 {
     FPGAPipeOrdering();

@@ -158,6 +158,7 @@ void checkFPGAExtension();
 void checkFPGAExtensionNEGATIVE();
 void FPGAWGOrdering();
 void FPGAInfiniteLoopsBasic();
+void FPGAPipes();
 void FPGAPipeOrdering();
 void FPGAAutorun();
 void FPGAChannelsByValue();

@@ -491,7 +491,7 @@ __kernel void no_attr(read_only pipe int pin,      \n\
     ASSERT_EQ(CL_SUCCESS, error) << "clCreateProgramWithSource failed.";
 
     error = clBuildProgram(program, /*num_devices=*/0, /*device_list=*/nullptr,
-                           /*options=*/"-cl-std=CL2.0", /*pfn_notify*/nullptr,
+                           /*options=*/"", /*pfn_notify*/nullptr,
                            /*user_data=*/nullptr);
     ASSERT_EQ(CL_SUCCESS, error) << "clBuildProgram failed.";
 

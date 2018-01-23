@@ -75,12 +75,26 @@ public:
     StringRef FName = F->getName();
 
     bool PipeBI = StringSwitch<bool>(FName)
+      .Case("__read_pipe_2_AS0", true)
+      .Case("__read_pipe_2_AS1", true)
+      .Case("__read_pipe_2_AS3", true)
       .Case("__read_pipe_2", true)
       .Case("__read_pipe_4", true)
+      .Case("__read_pipe_2_bl_AS0", true)
+      .Case("__read_pipe_2_bl_AS1", true)
+      .Case("__read_pipe_2_bl_AS3", true)
       .Case("__read_pipe_2_bl", true)
       .Case("__read_pipe_4_bl", true)
       .Case("__write_pipe_2", true)
+      .Case("__write_pipe_2_AS0", true)
+      .Case("__write_pipe_2_AS1", true)
+      .Case("__write_pipe_2_AS2", true)
+      .Case("__write_pipe_2_AS3", true)
       .Case("__write_pipe_4", true)
+      .Case("__write_pipe_2_bl_AS0", true)
+      .Case("__write_pipe_2_bl_AS1", true)
+      .Case("__write_pipe_2_bl_AS2", true)
+      .Case("__write_pipe_2_bl_AS3", true)
       .Case("__write_pipe_2_bl", true)
       .Case("__write_pipe_4_bl", true)
       .Case("__reserve_read_pipe", true)
@@ -114,11 +128,27 @@ public:
     SmallVector<Value *, 4> NewArgs;
     NewArgs.push_back(PipeArg);
 
-    // skip the first argument (the pipe), and the 2 last arguments (packet size
-    // and max packets, they are not used by the BIs)
-    assert(CI->getNumArgOperands() > 2 && "Unexpected number of arguments");
-    for (size_t i = 1; i < CI->getNumArgOperands() - 2; ++i) {
-      NewArgs.push_back(CI->getArgOperand(i));
+    if (!FName.contains("_AS")) {
+      // skip the first argument (the pipe), and the 2 last arguments (packet size
+      // and max packets, they are not used by the BIs)
+      assert(CI->getNumArgOperands() > 2 && "Unexpected number of arguments");
+      for (size_t i = 1; i < CI->getNumArgOperands() - 2; ++i) {
+        NewArgs.push_back(CI->getArgOperand(i));
+      }
+    } else {
+      // For OpenCL 1.x we expect that built-in contains only 4 arguments.
+      // Else branch handles OpenCL 1.x case.
+      assert(CI->getNumArgOperands() == 4 && "Unexpected number of arguments");
+      FName = FName.drop_back(4);
+      auto *Int8Ty = IntegerType::getInt8Ty(PipesModule->getContext());
+      // We need to do a cast from global/local/private address spaces to
+      // generic due to in backend we have pipe built-ins only with generic
+      // address space.
+      llvm::Type *I8PTy = llvm::PointerType::get(Int8Ty,
+              Intel::OpenCL::DeviceBackend::Utils::OCLAddressSpace::Generic);
+      auto ResArg = BitCastInst::CreatePointerBitCastOrAddrSpaceCast(
+                                          CI->getArgOperand(1), I8PTy, "", CI);
+      NewArgs.push_back(ResArg);
     }
 
     llvm::SmallString<256> NewFName(FName);
