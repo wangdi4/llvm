@@ -154,18 +154,12 @@ CSARegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
     break;
   case CSA::LD8:    new_mem_opc = CSA::LD8D;    break;
   case CSA::LD16:   new_mem_opc = CSA::LD16D;   break;
-  case CSA::LD16f:  new_mem_opc = CSA::LD16fD;  break;
   case CSA::LD32:   new_mem_opc = CSA::LD32D;   break;
-  case CSA::LD32f:  new_mem_opc = CSA::LD32fD;  break;
   case CSA::LD64:   new_mem_opc = CSA::LD64D;   break;
-  case CSA::LD64f:  new_mem_opc = CSA::LD64fD;  break;
   case CSA::ST8:    new_mem_opc = CSA::ST8D;    new_is_st = true;  break;
   case CSA::ST16:   new_mem_opc = CSA::ST16D;   new_is_st = true;  break;
-  case CSA::ST16f:  new_mem_opc = CSA::ST16fD;  new_is_st = true;  break;
   case CSA::ST32:   new_mem_opc = CSA::ST32D;   new_is_st = true;  break;
-  case CSA::ST32f:  new_mem_opc = CSA::ST32fD;  new_is_st = true;  break;
   case CSA::ST64:   new_mem_opc = CSA::ST64D;   new_is_st = true;  break;
-  case CSA::ST64f:  new_mem_opc = CSA::ST64fD;  new_is_st = true;  break;
   default:
     break;
   }

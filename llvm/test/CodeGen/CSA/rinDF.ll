@@ -5,17 +5,13 @@ target datalayout = "e-m:e-i64:64-n32:64"
 target triple = "csa"
 
 ; Function Attrs: nounwind
-define double @rinDF(double* %p) #0 {
+define double @rinDF(double %a) #0 {
 ; CSA_CHECK-LABEL: rinDF
 ; CSA_CHECK: negf64
 ; CSA_CHECK-NOT: sext32
 
 entry:
-  %p.addr = alloca double*, align 8
-  store double* %p, double** %p.addr, align 8
-  %0 = load double*, double** %p.addr, align 8
-  %1 = load double, double* %0, align 8
-  %sub = fsub double -0.000000e+00, %1
+  %sub = fsub double -0.000000e+00, %a
   ret double %sub
 } 
 
