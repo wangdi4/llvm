@@ -262,8 +262,8 @@ struct MemopCFG {
     int delayed_emit_idx = 0;
   };
 
-  // A parallel section intrinsic.
-  struct SectionIntrinsic {
+  // A parallel region/section intrinsic.
+  struct RegSecIntrinsic {
 
     // The index of the first memop after this intrinsic (or the number of
     // memops in the node if there isn't one).
@@ -273,8 +273,14 @@ struct MemopCFG {
     // to.
     int region;
 
-    // Whether this intrinsic is an entry (true) or exit (false).
-    bool is_entry;
+    // The type of this intrinsic.
+    enum Type {region_entry, region_exit, section_entry, section_exit} type;
+
+    // A constructor from a machine instruction.
+    RegSecIntrinsic(
+      int memop_idx, const MachineInstr& MI,
+      std::map<int, int>& normalized_regions
+    );
   };
 
   // A holder for all of the relevant information pertaining to a single memop.
@@ -354,7 +360,8 @@ struct MemopCFG {
       no_intrinsics_encountered,
       not_in_section,
       outside_of_section,
-      crossed_sections
+      crossed_sections,
+      left_region
     };
 
     // An array of those states, one for each region in the function. The
@@ -367,9 +374,9 @@ struct MemopCFG {
     // this state set.
     bool should_ignore_memops() const;
 
-    // Transitions the state set given a parallel section intrinsic. If this
-    // is an invalid transition, false will be returned.
-    bool transition(const SectionIntrinsic&);
+    // Transitions the state set given a parallel region/section intrinsic. If
+    // this is an invalid transition, false will be returned.
+    bool transition(const RegSecIntrinsic&);
 
     // Whether this parallel section state is incompatible with another one,
     // indicating an incorrect use of parallel section intrinsics.
@@ -408,9 +415,9 @@ struct MemopCFG {
     // they appear in the original basic block.
     SmallVector<Memop, MEMOP_COUNT> memops;
 
-    // The parallel section intrinsics. These are also in basic block order
-    // and have a field to indicate where they are relative to the memops.
-    SmallVector<SectionIntrinsic, SECTION_INTRINSIC_COUNT> section_intrinsics;
+    // The parallel region/section intrinsics. These are also in basic block
+    // order and have a field to indicate where they are relative to the memops.
+    SmallVector<RegSecIntrinsic, SECTION_INTRINSIC_COUNT> regsec_intrinsics;
 
     // The sets of merges and phis belonging to this node.
     SmallVector<Merge, MERGE_COUNT> merges;
@@ -814,9 +821,16 @@ raw_ostream& operator<<(raw_ostream& out, const MemopCFG::PHI& phi) {
 }
 
 raw_ostream& operator<<(
-  raw_ostream& out, const MemopCFG::SectionIntrinsic& intr
+  raw_ostream& out, const MemopCFG::RegSecIntrinsic& intr
 ) {
-  return out << (intr.is_entry ? "entry " : "exit ") << intr.region;
+  using Type = MemopCFG::RegSecIntrinsic::Type;
+  switch (intr.type) {
+    case Type::region_entry:  return out << "region entry "  << intr.region;
+    case Type::region_exit:   return out << "region exit "   << intr.region;
+    case Type::section_entry: return out << "section entry " << intr.region;
+    case Type::section_exit:  return out << "section exit "  << intr.region;
+    default: llvm_unreachable("Bad region/section intrinsic type");
+  }
 }
 
 // Writes the body of node to out, starting each line with line_start and ending
@@ -838,10 +852,10 @@ void print_body(
     out << line_start << OrdToken{node_ptr, OrdToken::phi, phi_idx} << " = "
       << node.phis[phi_idx] << line_end;
   }
-  auto cur_intr = node.section_intrinsics.begin();
+  auto cur_intr = node.regsec_intrinsics.begin();
   for (int memop_idx = 0; memop_idx <= int(node.memops.size()); ++memop_idx) {
     while (
-      cur_intr != node.section_intrinsics.end()
+      cur_intr != node.regsec_intrinsics.end()
         and cur_intr->memop_idx == memop_idx
     ) out << line_start << *cur_intr++ << line_end;
     for (int merge_idx = 0; merge_idx != int(node.merges.size()); ++merge_idx) {
@@ -1185,6 +1199,114 @@ MemopCFG::Dep MemopCFG::PHIBit::orig_dep() const {
     : dep;
 }
 
+// Recursively searches for a virtual register def through phi nodes given a
+// virtual register number and a set of phi nodes that shouldn't be visited
+// again in order to avoid infinite recursion.
+static const MachineInstr* find_non_phi_def(
+  unsigned vreg,
+  std::set<const MachineInstr*>& visited_phis,
+  const MachineRegisterInfo& MRI
+) {
+
+  // Look up the def of the virtual register.
+  const MachineInstr*const def = MRI.getUniqueVRegDef(vreg);
+  assert(def && "Unexpected non-SSA-form virtual register");
+
+  // If this is an implicit def, ignore it.
+  if (def->isImplicitDef()) return nullptr;
+
+  // If it's not a phi node, we're done.
+  if (not def->isPHI()) return def;
+
+  // If it's a phi node that's already been visited, it doesn't need to be
+  // visited again. Otherwise, it should be added to the list so that it isn't
+  // visited again later.
+  if (visited_phis.count(def)) return nullptr;
+  visited_phis.insert(def);
+
+  // Explore each of the phi's value operands to look for non-phi defs for them.
+  for (unsigned i = 1; i < def->getNumOperands(); i += 2) {
+    const MachineOperand& phi_operand = def->getOperand(i);
+    if (phi_operand.isReg()) {
+      const MachineInstr*const found_def
+        = find_non_phi_def(phi_operand.getReg(), visited_phis, MRI);
+      if (found_def) return found_def;
+    }
+  }
+
+  // If this is reached, this register doesn't seem to have a non-phi def for
+  // some reason. It probably means that there is some weird constant
+  // propagation thing going on.
+  return nullptr;
+}
+
+// Determines the normalized region id for a given parallel region/section
+// intrinsic.
+static int find_normalized_region(
+  const MachineInstr& MI,
+  std::map<int, int>& normalized_regions
+) {
+
+  switch (MI.getOpcode()) {
+
+    // If this is is a region entry, the unnormalized region id is just an
+    // operand. Look it up in the p and add a new entry if needed.
+    case CSA::CSA_PARALLEL_REGION_ENTRY: {
+      assert(MI.getOperand(1).isImm());
+      const int unnormalized_id = MI.getOperand(1).getImm();
+
+      const auto found = normalized_regions.lower_bound(unnormalized_id);
+      if (
+        found != normalized_regions.end() and found->first == unnormalized_id
+      ) return found->second;
+      const int new_id = normalized_regions.size();
+      normalized_regions.emplace_hint(found, unnormalized_id, new_id);
+      return new_id;
+    }
+
+    // Otherwise, follow its operand to find the region entry.
+    case CSA::CSA_PARALLEL_SECTION_ENTRY:
+    case CSA::CSA_PARALLEL_REGION_EXIT:
+    case CSA::CSA_PARALLEL_SECTION_EXIT: {
+      std::set<const MachineInstr*> visited_phis;
+      const MachineRegisterInfo& MRI = MI.getParent()->getParent()->getRegInfo();
+      assert(MI.getOperand(MI.getNumOperands()-1).isReg());
+      const MachineInstr*const non_phi_def = find_non_phi_def(
+        MI.getOperand(MI.getNumOperands()-1).getReg(), visited_phis, MRI
+      );
+      assert(non_phi_def);
+      return find_normalized_region(
+        *non_phi_def,
+        normalized_regions
+      );
+    }
+
+    // No other kinds of intrinsics should be showing up here.
+    default:
+      DEBUG(dbgs() << "Bad instruction is:" << MI << "\n");
+      llvm_unreachable("Bad region/section markings");
+  }
+}
+
+// Maps opcodes to RegSecIntrinsic types.
+static MemopCFG::RegSecIntrinsic::Type get_regsec_type(unsigned opcode) {
+  using RSI = MemopCFG::RegSecIntrinsic;
+  switch (opcode) {
+    case CSA::CSA_PARALLEL_REGION_ENTRY:  return RSI::region_entry;
+    case CSA::CSA_PARALLEL_REGION_EXIT:   return RSI::region_exit;
+    case CSA::CSA_PARALLEL_SECTION_ENTRY: return RSI::section_entry;
+    case CSA::CSA_PARALLEL_SECTION_EXIT:  return RSI::section_exit;
+    default: llvm_unreachable("Bad region/section intrinsic type");
+  }
+}
+
+MemopCFG::RegSecIntrinsic::RegSecIntrinsic(
+  int memop_idx_in, const MachineInstr& MI,
+  std::map<int, int>& normalized_regions
+) : memop_idx{memop_idx_in},
+  region{find_normalized_region(MI, normalized_regions)},
+  type{get_regsec_type(MI.getOpcode())} {}
+
 const MachineMemOperand* MemopCFG::Memop::mem_operand() const {
   return MI ? *MI->memoperands_begin() : nullptr;
 }
@@ -1293,40 +1415,61 @@ bool MemopCFG::SectionStates::should_ignore_memops() const {
   });
 }
 
-bool MemopCFG::SectionStates::transition(const SectionIntrinsic& intr) {
+bool MemopCFG::SectionStates::transition(const RegSecIntrinsic& intr) {
 
   // Determine which state needs to update.
   State& to_update = states[intr.region];
 
   switch (to_update) {
 
-    // For no_intrinsics_encountered, transition to either not_in_section or
-    // outside_of_section.
-    case State::no_intrinsics_encountered:
-      if (intr.is_entry) to_update = State::outside_of_section;
-      else to_update = State::not_in_section;
-      return true;
+    // For no_intrinsics_encountered, transition to not_in_section,
+    // outside_of_section, or left_region depending on which intrinsic is
+    // encountered first.
+    case State::no_intrinsics_encountered: switch (intr.type) {
+      case RegSecIntrinsic::region_entry:
+        to_update = State::left_region;
+        return true;
+      case RegSecIntrinsic::region_exit:
+      case RegSecIntrinsic::section_exit:
+        to_update = State::not_in_section;
+        return true;
+      case RegSecIntrinsic::section_entry:
+        to_update = State::outside_of_section;
+        return true;
+    }
 
-    // For not_in_section, no further state transitions need to be taken.
+    // For not_in_section or left_region, no further state transitions need to
+    // be taken.
     case State::not_in_section:
+    case State::left_region:
       return true;
 
-    // For outside_of_section, exits should transition to crossed_sections and
-    // entries should not be encountered.
-    case State::outside_of_section:
-      if (intr.is_entry) return false;
-      else to_update = State::crossed_sections;
-      return true;
+    // For outside_of_section, section exits should transition to
+    // crossed_sections, region entries should transition to outside_of_region,
+    // and section entries and region exits should not be encountered.
+    case State::outside_of_section: switch (intr.type) {
+      case RegSecIntrinsic::section_exit:
+        to_update = State::crossed_sections;
+        return true;
+      case RegSecIntrinsic::region_entry:
+        to_update = State::left_region;
+        return true;
+      case RegSecIntrinsic::region_exit:
+      case RegSecIntrinsic::section_entry:
+        return false;
+    }
 
-    // For crossed_sections, entries should transition to outside_of_section and
-    // exits should not be encountered.
+    // For crossed_sections, section entries should transition to
+    // outside_of_section and no other types of intrinsics should be
+    // encountered.
     case State::crossed_sections:
-      if (intr.is_entry) to_update = State::outside_of_section;
-      else return false;
-      return true;
+      if (intr.type == RegSecIntrinsic::section_entry) {
+        to_update = State::outside_of_section;
+        return true;
+      } else return false;
   }
 
-  return false;
+  llvm_unreachable("Invalid section state?");
 }
 
 bool MemopCFG::SectionStates::incompatible_with(
@@ -1387,99 +1530,6 @@ void MemopCFG::Node::DepSetEntry::clear() {
   );
 }
 
-// Recursively searches for a virtual register def through phi nodes given a
-// virtual register number and a set of phi nodes that shouldn't be visited
-// again in order to avoid infinite recursion.
-static const MachineInstr* find_non_phi_def(
-  unsigned vreg,
-  std::set<const MachineInstr*>& visited_phis,
-  const MachineRegisterInfo& MRI
-) {
-
-  // Look up the def of the virtual register.
-  const MachineInstr*const def = MRI.getUniqueVRegDef(vreg);
-  assert(def && "Unexpected non-SSA-form virtual register");
-
-  // If this is an implicit def, ignore it.
-  if (def->isImplicitDef()) return nullptr;
-
-  // If it's not a phi node, we're done.
-  if (not def->isPHI()) return def;
-
-  // If it's a phi node that's already been visited, it doesn't need to be
-  // visited again. Otherwise, it should be added to the list so that it isn't
-  // visited again later.
-  if (visited_phis.count(def)) return nullptr;
-  visited_phis.insert(def);
-
-  // Explore each of the phi's value operands to look for non-phi defs for them.
-  for (unsigned i = 1; i < def->getNumOperands(); i += 2) {
-    const MachineOperand& phi_operand = def->getOperand(i);
-    if (phi_operand.isReg()) {
-      const MachineInstr*const found_def
-        = find_non_phi_def(phi_operand.getReg(), visited_phis, MRI);
-      if (found_def) return found_def;
-    }
-  }
-
-  // If this is reached, this register doesn't seem to have a non-phi def for
-  // some reason. It probably means that there is some weird constant
-  // propagation thing going on.
-  return nullptr;
-}
-
-// Determines the normalized region id for a given parallel section intrinsic.
-static int find_normalized_region(
-  const MachineInstr& MI,
-  std::map<int, int>& normalized_regions
-) {
-  std::set<const MachineInstr*> visited_phis;
-  const MachineRegisterInfo& MRI = MI.getParent()->getParent()->getRegInfo();
-
-  // In order to find a region entry, a section entry needs to be found first.
-  const MachineInstr* section_entry;
-
-  // If the section intrinsic _is_ an entry, that's pretty easy to do.
-  if (MI.getOpcode() == CSA::CSA_PARALLEL_SECTION_ENTRY) section_entry = &MI;
-
-  // Otherwise, the section intrinsic is an exit and its operand needs to be
-  // traced to find the section entry.
-  else {
-    assert(MI.getOperand(0).isReg());
-    section_entry
-      = find_non_phi_def(MI.getOperand(0).getReg(), visited_phis, MRI);
-    visited_phis.clear();
-  }
-
-  assert(
-    section_entry
-      and section_entry->getOpcode() == CSA::CSA_PARALLEL_SECTION_ENTRY
-  );
-
-  // Now look for the region entry too.
-  assert(section_entry->getOperand(1).isReg());
-  const MachineInstr*const region_entry = find_non_phi_def(
-    section_entry->getOperand(1).getReg(), visited_phis, MRI
-  );
-  visited_phis.clear();
-  assert(
-    region_entry
-      and region_entry->getOpcode() == CSA::CSA_PARALLEL_REGION_ENTRY
-  );
-
-  // The unnormalized region id ought to be the region entry's operand.
-  assert(region_entry->getOperand(1).isImm());
-  const int unnormalized_id = region_entry->getOperand(1).getImm();
-
-  // Look it up in the map. If there's already an entry, use that. Otherwise,
-  // make a new one.
-  const auto found = normalized_regions.find(unnormalized_id);
-  if (found != normalized_regions.end()) return found->second;
-  const int new_id = normalized_regions.size();
-  normalized_regions.emplace(unnormalized_id, new_id);
-  return new_id;
-}
-
 MemopCFG::Node::Node(
   MachineBasicBlock* BB_in,
   const RequireOrdering& require_ordering_in,
@@ -1505,15 +1555,11 @@ MemopCFG::Node::Node(
     if (Memop::should_assign_ordering(MI)) memops.emplace_back(this, &MI);
     else if (
       use_parallel_sections
-        and (MI.getOpcode() == CSA::CSA_PARALLEL_SECTION_ENTRY
+        and (MI.getOpcode() == CSA::CSA_PARALLEL_REGION_ENTRY
+          or MI.getOpcode() == CSA::CSA_PARALLEL_REGION_EXIT
+          or MI.getOpcode() == CSA::CSA_PARALLEL_SECTION_ENTRY
           or MI.getOpcode() == CSA::CSA_PARALLEL_SECTION_EXIT)
-    ) {
-      section_intrinsics.push_back({
-        int(memops.size()),
-        find_normalized_region(MI, normalized_regions),
-        MI.getOpcode() == CSA::CSA_PARALLEL_SECTION_ENTRY
-      });
-    }
+    ) regsec_intrinsics.emplace_back(memops.size(), MI, normalized_regions);
     else if (MI.getOpcode() == CSA::JSR or MI.getOpcode() == CSA::JSRi) {
       memops.emplace_back(this);
       memops.back().call_mi = &MI;
@@ -1861,8 +1907,8 @@ bool MemopCFG::Node::step_backwards(
 
   // Take care of any disconnected memops in this node.
   auto cur_intr = find_if(
-    section_intrinsics.rbegin(), section_intrinsics.rend(),
-    [memop_idx](const SectionIntrinsic& intr) {
+    regsec_intrinsics.rbegin(), regsec_intrinsics.rend(),
+    [memop_idx](const RegSecIntrinsic& intr) {
       return intr.memop_idx <= memop_idx;
     }
   );
@@ -1888,9 +1934,9 @@ bool MemopCFG::Node::step_backwards(
       continue;
     }
 
-    // Handle any relevant section intrinsics.
+    // Handle any relevant region/section intrinsics.
     while (
-      cur_intr != section_intrinsics.rend()
+      cur_intr != regsec_intrinsics.rend()
       and cur_intr->memop_idx > cur_dis.idx
     ) {
       if (not sec_states.transition(*cur_intr)) return false;
@@ -1938,8 +1984,8 @@ bool MemopCFG::Node::step_backwards(
     push_deps_to_queue(top, connected_queue);
   }
 
-  // And any remaining section intrinsics.
-  while (cur_intr != section_intrinsics.rend()) {
+  // And any remaining region/section intrinsics.
+  while (cur_intr != regsec_intrinsics.rend()) {
     if (not sec_states.transition(*cur_intr)) return false;
     ++cur_intr;
   }
