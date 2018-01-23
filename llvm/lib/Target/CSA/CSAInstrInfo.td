@@ -14,8 +14,6 @@
 include "CSAInstrFormats.td"
 
 // Possible TODO:
-// - Get rid of "f" variants for stores and other operations?  (e.g. ideally
-//   there should be a single LD32, ST32, MERGE32, etc.)
 // - Get rid of separate ordered loads/stores by having default operands?
 //   (Also, should %ign be zero_reg defined in Target.td, and use that
 //   as default for order operands for stores/loads?)
@@ -1503,20 +1501,14 @@ let isCodeGenOnly=1 in {
 defm LD1      : LdOp<    "ld8",   Ti1>;
 defm LD8      : LdOp<    "ld8",   Ti8>;
 defm LD16     : LdOp<    "ld16",  Ti16>;
-defm LD16f    : LdOp<    "ld16",  Tf16>;
 defm LD32     : LdOp<    "ld32",  Ti32>;
-defm LD32f    : LdOp<    "ld32",  Tf32>;
 defm LD64     : LdOp<    "ld64",  Ti64>;
-defm LD64f    : LdOp<    "ld64",  Tf64>;
 
 defm ST1      : StOp<    "st8",   Ti1>;
 defm ST8      : StOp<    "st8",   Ti8>;
 defm ST16     : StOp<    "st16",  Ti16>;
-defm ST16f    : StOp<    "st16",  Tf16>;
 defm ST32     : StOp<    "st32",  Ti32>;
-defm ST32f    : StOp<    "st32",  Tf32>;
 defm ST64     : StOp<    "st64",  Ti64>;
-defm ST64f    : StOp<    "st64",  Tf64>;
 
 def SLD1      : StreamLdOp<"sld8",   Ti1>;
 def SLD8      : StreamLdOp<"sld8",   Ti8>;

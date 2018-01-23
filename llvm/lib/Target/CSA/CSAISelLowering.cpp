@@ -195,6 +195,12 @@ CSATargetLowering::CSATargetLowering(const TargetMachine &TM, const CSASubtarget
     setTruncStoreAction(VT, MVT::i1,  Expand);
   }
 
+  // Load and store floats as equivalently-sized integers.
+  setOperationPromotedToType(ISD::LOAD, MVT::f32, MVT::i32);
+  setOperationPromotedToType(ISD::LOAD, MVT::f64, MVT::i64);
+  setOperationPromotedToType(ISD::STORE, MVT::f32, MVT::i32);
+  setOperationPromotedToType(ISD::STORE, MVT::f64, MVT::i64);
+
   setLoadExtAction(ISD::EXTLOAD, MVT::f32, MVT::f16, Expand);
   setLoadExtAction(ISD::EXTLOAD, MVT::f64, MVT::f16, Expand);
   setLoadExtAction(ISD::EXTLOAD, MVT::f64, MVT::f32, Expand);
