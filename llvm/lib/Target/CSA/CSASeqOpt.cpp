@@ -331,6 +331,8 @@ void CSASeqOpt::SequenceReduction(CSASSANode* switchNode, CSASSANode* addNode, C
   }
   isIDVCycle = isIDVCycle && (loopInit != nullptr) && 
                MRI->getVRegDef(addNode->minstr->getOperand(idvIdx).getReg()) == lhdrPickNode->minstr;
+  if (!isIDVCycle) return;
+
   unsigned pickInitIdx = 2 + loopInit->getOperand(1).getImm();
   MachineOperand& initOpnd = lhdrPickNode->minstr->getOperand(pickInitIdx);
   unsigned switchOutIndex = switchNode->minstr->getOperand(0).getReg() == backedgeReg ? 1 : 0;
