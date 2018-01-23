@@ -1,6 +1,6 @@
-//===-- LoopVectorizationPlanner.h -------------------------------*- C++ -*-===//
+//===-- LoopVectorizationPlanner.h ------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
+//   Copyright (C) 2016-2017 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -14,10 +14,10 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_TRANSFORMS_VECTORIZE_VPLAN_LOOPVECTORIZATIONPLANNER_H
-#define LLVM_TRANSFORMS_VECTORIZE_VPLAN_LOOPVECTORIZATIONPLANNER_H
+#ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_LOOPVECTORIZATIONPLANNER_H
+#define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_LOOPVECTORIZATIONPLANNER_H
 
-#include "IntelVPlan.h"
+#include "VPlan.h"
 #include "llvm/ADT/DenseMap.h"
 
 namespace llvm {
@@ -26,10 +26,18 @@ class ScalarEvolution;
 class TargetLibraryInfo;
 class TargetTransformInfo;
 
+namespace loopopt {
+class HLLoop;
+class DDGraph;
+}
+
+using namespace llvm::loopopt;
+
 namespace vpo {
 class VPOCodeGen;
 class VPOVectorizationLegality;
 class WRNVecLoopNode;
+class VPlanHCFGBuilder;
 
 /// LoopVectorizationPlanner - builds and optimizes the Vectorization Plans
 /// which record the decisions how to vectorize the given loop.
@@ -51,21 +59,23 @@ public:
   /// necessary conditional execution of the predicated instruction in favor
   /// of other related instructions. The function applies these optimizations
   /// to all VPlans.
-  //void optimizePredicatedInstructions();
+  // void optimizePredicatedInstructions();
 
   /// Record CM's decision and dispose of all other VPlans.
   void setBestPlan(unsigned VF, unsigned UF);
 
   /// Generate the IR code for the body of the vectorized loop according to the
   /// best selected VPlan.
-  //void executeBestPlan(InnerLoopVectorizer &LB);
+  // void executeBestPlan(InnerLoopVectorizer &LB);
 
   IntelVPlan *getVPlanForVF(unsigned VF) { return VPlans[VF].get(); }
 
-  void printCurrentPlans(const std::string &Title, raw_ostream &O);
-
 protected:
-  LoopVectorizationPlannerBase(WRNVecLoopNode *WRL) : WRLoop(WRL) {}
+  LoopVectorizationPlannerBase(WRNVecLoopNode *WRL,
+                               const TargetLibraryInfo *TLI,
+                               const TargetTransformInfo *TTI,
+                               VPOVectorizationLegality *Legal)
+      : WRLp(WRL), TLI(TLI), TTI(TTI), Legal(Legal) {}
   virtual ~LoopVectorizationPlannerBase() {}
 
   /// Build an initial VPlan according to the information gathered by Legal
@@ -73,52 +83,63 @@ protected:
   /// that corresponds to vectorization factors starting from the given
   /// \p StartRangeVF and up to \p EndRangeVF, exclusive, possibly decreasing
   /// the given \p EndRangeVF.
-  virtual std::shared_ptr<IntelVPlan> buildInitialVPlan(unsigned StartRangeVF,
-                                                   unsigned &EndRangeVF) = 0;
+  // TODO: If this function becomes more complicated, move common code to base
+  // class.
+  virtual std::shared_ptr<IntelVPlan>
+  buildInitialVPlan(unsigned StartRangeVF, unsigned &EndRangeVF) = 0;
 
-  WRNVecLoopNode *WRLoop;
+  /// WRegion info of the loop we evaluate. It can be null.
+  WRNVecLoopNode *WRLp;
+
+  /// Target Library Info.
+  const TargetLibraryInfo *TLI;
+
+  /// Target Transform Info.
+  const TargetTransformInfo *TTI;
+
+  /// The legality analysis.
+  // TODO: Turn into a reference when supported for HIR.
+  LoopVectorizationLegality *Legal;
+
+  /// This class is copied from open-source LoopVectorize.cpp and it's supposed
+  /// to be temporal. VPO doesn't need it but we have it to minimize divergency
+  /// with TransformState.
+  struct VPCallbackILV : public VPCallback {
+
+    ~VPCallbackILV() override {}
+
+    Value *getOrCreateVectorValues(Value *V, unsigned Part) override {
+      llvm_unreachable("Not implemented");
+      return nullptr;
+    }
+  };
 
 private:
   /// Determine whether \p I will be scalarized in a given range of VFs.
   /// The returned value reflects the result for a prefix of the range, with \p
   /// EndRangeVF modified accordingly.
-  //bool willBeScalarized(Instruction *I, unsigned StartRangeVF,
+  // bool willBeScalarized(Instruction *I, unsigned StartRangeVF,
   //                      unsigned &EndRangeVF);
 
   /// Iteratively sink the scalarized operands of a predicated instruction into
   /// the block that was created for it.
-  //void sinkScalarOperands(Instruction *PredInst, VPlan *Plan);
+  // void sinkScalarOperands(Instruction *PredInst, VPlan *Plan);
 
   /// Determine whether a newly-created recipe adds a second user to one of the
   /// variants the values its ingredients use. This may cause the defining
   /// recipe to generate that variant itself to serve all such users.
-  //void assignScalarVectorConversions(Instruction *PredInst, VPlan *Plan);
-
-  /// The loop that we evaluate.
-  Loop *TheLoop;
-
-  /// Loop Info analysis.
-  //LoopInfo *LI;
-
-  /// Target Library Info.
-  //const TargetLibraryInfo *TLI;
-
-  /// Target Transform Info.
-  //const TargetTransformInfo *TTI;
-
-  /// The legality analysis.
-  //LoopVectorizationLegality *Legal;
+  // void assignScalarVectorConversions(Instruction *PredInst, VPlan *Plan);
 
   /// The profitablity analysis.
-  //LoopVectorizationCostModel *CM;
+  // LoopVectorizationCostModel *CM;
 
-  //InnerLoopVectorizer *ILV = nullptr;
+  // InnerLoopVectorizer *ILV = nullptr;
 
   // Holds instructions from the original loop that we predicated. Such
   // instructions reside in their own conditioned VPBasicBlock and represent
   // an optimization opportunity for sinking their scalarized operands thus
   // reducing their cost by the predicate's probability.
-  //SmallPtrSet<Instruction *, 4> PredicatedInstructions;
+  // SmallPtrSet<Instruction *, 4> PredicatedInstructions;
 
   /// VPlans are shared between VFs, use smart pointers.
   DenseMap<unsigned, std::shared_ptr<IntelVPlan>> VPlans;
@@ -131,15 +152,12 @@ protected:
 class LoopVectorizationPlanner : public LoopVectorizationPlannerBase {
 public:
   LoopVectorizationPlanner(WRNVecLoopNode *WRL, Loop *Lp, LoopInfo *LI,
-                           ScalarEvolution *SE,
-                           const TargetLibraryInfo *TLI,
+                           ScalarEvolution *SE, const TargetLibraryInfo *TLI,
                            const TargetTransformInfo *TTI,
-                           class DominatorTree* DT,
-                           VPOVectorizationLegality &Legal)
-      : LoopVectorizationPlannerBase(WRL),
-        TheLoop(Lp), LI(LI), SE(SE), TLI(TLI), TTI(TTI), DT(DT), Legal(Legal) {}
-
-  ~LoopVectorizationPlanner() {}
+                           class DominatorTree *DT,
+                           VPOVectorizationLegality *Legal)
+      : LoopVectorizationPlannerBase(WRL, TLI, TTI, Legal), TheLoop(Lp), LI(LI),
+        SE(SE), DT(DT) {}
 
   /// On VPlan construction, each instruction marked for predication by Legal
   /// gets its own basic block guarded by an if-then. This initial planning
@@ -147,29 +165,23 @@ public:
   /// necessary conditional execution of the predicated instruction in favor
   /// of other related instructions. The function applies these optimizations
   /// to all VPlans.
-  //void optimizePredicatedInstructions();
+  // void optimizePredicatedInstructions();
 
   /// Record CM's decision and dispose of all other VPlans.
-  //void setBestPlan(unsigned VF, unsigned UF);
+  // void setBestPlan(unsigned VF, unsigned UF);
 
   /// Generate the IR code for the body of the vectorized loop according to the
   /// best selected VPlan.
   void executeBestPlan(VPOCodeGen &LB);
 
-  Loop *getLoop() { return TheLoop; }
-
   void collectDeadInstructions() override;
 
   /// Feed information from explicit clauses to the loop Legality.
   /// This information is necessary for initial loop analysis in the CodeGen.
-  static void EnterExplicitData(WRNVecLoopNode *WRLoop,
-                                VPOVectorizationLegality& Legality);
+  static void EnterExplicitData(WRNVecLoopNode *WRLp,
+                                VPOVectorizationLegality &Legality);
+
 private:
-  /// Build an initial VPlan according to the information gathered by Legal
-  /// when it checked if it is legal to vectorize this loop. \return a VPlan
-  /// that corresponds to vectorization factors starting from the given
-  /// \p StartRangeVF and up to \p EndRangeVF, exclusive, possibly decreasing
-  /// the given \p EndRangeVF.
   std::shared_ptr<IntelVPlan> buildInitialVPlan(unsigned StartRangeVF,
                                                 unsigned &EndRangeVF) override;
 
@@ -200,21 +212,13 @@ private:
   /// Scalar Evolution analysis.
   ScalarEvolution *SE;
 
-  /// Target Library Info.
-  const TargetLibraryInfo *TLI;
-
-  /// Target Transform Info.
-  const TargetTransformInfo *TTI;
-
   /// The dominators tree.
-  class DominatorTree* DT;
-
-  /// The legality analysis.
-  VPOVectorizationLegality &Legal;
+  class DominatorTree *DT;
 
   /// The profitablity analysis.
   // LoopVectorizationCostModel *CM;
 
+  // TODO: Move to base class
   VPOCodeGen *ILV = nullptr;
 
   // Holds instructions from the original loop that we predicated. Such
@@ -232,33 +236,7 @@ private:
   SmallPtrSet<Instruction *, 4> DeadInstructions;
 };
 
+} // namespace vpo
+} // namespace llvm
 
-// Code from POC for HIR
-
-//class LoopVectorizationPlannerHIR : public LoopVectorizationPlannerBase { 
-//
-//private: 
-//  /// HIRP - HIR Parser 
-//  HIRFramework *HIRF; 
-//
-//  VPlan *buildInitialVPlan(unsigned StartRangeVF, 
-//                           unsigned &EndRangeVF) override; 
-//
-//public: 
-//  static char ID; 
-//
-//  LoopVectorizationPlannerHIR() : LoopVectorizationPlannerBase(ID) { 
-//    llvm::initializeLoopVectorizationPlannerHIRPass( 
-//      *PassRegistry::getPassRegistry()); 
-//  } 
-//  bool runOnFunction(Function &F) override; 
-//  void getAnalysisUsage(AnalysisUsage &AU) const override; 
-//}; 
-
-
-
-} // end vpo namespace
-} // end llvm namespace
-
-#endif //LLVM_TRANSFORMS_VECTORIZE_VPLAN_LOOPVECTORIZATIONPLANNER_H
-
+#endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_LOOPVECTORIZATIONPLANNER_H

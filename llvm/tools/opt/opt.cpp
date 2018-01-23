@@ -161,6 +161,15 @@ static cl::opt<unsigned>
 CodeGenOptLevel("codegen-opt-level",
                 cl::desc("Override optimization level for codegen hooks"));
 
+#if INTEL_CUSTOMIZATION
+// This option can be passed directly to clcpcom. It is duplicated here to
+// provide the same functionality through opt.
+static cl::opt<bool>
+DisableIntelProprietaryOpts("disable-intel-proprietary-opts",
+               cl::desc("Disable Intel proprietary optimizations"),
+               cl::init(false));
+#endif // INTEL_CUSTOMIZATION
+
 static cl::opt<std::string>
 TargetTriple("mtriple", cl::desc("Override target triple for module"));
 
@@ -286,6 +295,9 @@ static void AddOptimizationPasses(legacy::PassManagerBase &MPM,
   Builder.DisableUnitAtATime = !UnitAtATime;
   Builder.DisableUnrollLoops = (DisableLoopUnrolling.getNumOccurrences() > 0) ?
                                DisableLoopUnrolling : OptLevel == 0;
+#if INTEL_CUSTOMIZATION
+  Builder.DisableIntelProprietaryOpts = DisableIntelProprietaryOpts;
+#endif // INTEL_CUSTOMIZATION
 
   // This is final, unless there is a #pragma vectorize enable
   if (DisableLoopVectorization)

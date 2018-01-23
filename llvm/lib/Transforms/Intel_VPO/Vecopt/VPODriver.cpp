@@ -202,8 +202,9 @@ bool VPODriverBase::runOnFunction(Function &Fn) {
   TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
   DL = &Fn.getParent()->getDataLayout();
 
-  // TODO - driver should not invoke VPODriver for non-vector target
-  // Until then - bail out. This should be changed to an assert later.
+  // We cannot rely on compiler driver not invoking vectorizer for
+  // non-vector targets. Ensure vectorizer won't cause any issues for
+  // such targets.
   if (TTI->getRegisterBitWidth(true) == 0)
     return false;
 

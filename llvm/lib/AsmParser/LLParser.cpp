@@ -322,6 +322,15 @@ bool LLParser::ParseTargetDefinition() {
       return true;
     M->setTargetTriple(Str);
     return false;
+#if INTEL_CUSTOMIZATION
+  case lltok::kw_device_triples:
+    Lex.Lex();
+    if (ParseToken(lltok::equal, "expected '=' after target devices") ||
+        ParseStringConstant(Str))
+      return true;
+    M->setTargetDevices(Str);
+    return false;
+#endif // INTEL_CUSTOMIZATION
   case lltok::kw_datalayout:
     Lex.Lex();
     if (ParseToken(lltok::equal, "expected '=' after target datalayout") ||

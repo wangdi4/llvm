@@ -154,6 +154,8 @@ class PrivateItem : public Item
     RDECL getDestructor()  const { return Destructor;  }
 };
 
+class LastprivateItem; // forward declaration
+class MapItem;         // forward declaration
 
 //
 //   FirstprivateItem: OMP FIRSTPRIVATE clause item
@@ -162,14 +164,21 @@ class PrivateItem : public Item
 class FirstprivateItem : public Item
 {
   private:
+    LastprivateItem *InLastprivate; // LastprivateItem with the same opnd
+    MapItem *InMap;                 // MapItem with the same opnd
     RDECL CopyConstructor;
     RDECL Destructor;
 
   public:
-    FirstprivateItem(VAR Orig) :
-      Item(Orig), CopyConstructor(nullptr), Destructor(nullptr) {}
+    FirstprivateItem(VAR Orig)
+        : Item(Orig), InLastprivate(nullptr), InMap(nullptr),
+          CopyConstructor(nullptr), Destructor(nullptr) {}
+    void setInLastprivate(LastprivateItem *LI) { InLastprivate = LI; }
+    void setInMap(MapItem *MI) { InMap = MI; }
     void setCopyConstructor(RDECL Cctor) { CopyConstructor = Cctor; }
     void setDestructor(RDECL Dtor)       { Destructor  = Dtor;      }
+    LastprivateItem *getInLastprivate() const { return InLastprivate; }
+    MapItem *getInMap() const { return InMap; }
     RDECL getCopyConstructor() const { return CopyConstructor; }
     RDECL getDestructor()      const { return Destructor;      }
 };
@@ -182,19 +191,23 @@ class FirstprivateItem : public Item
 class LastprivateItem : public Item
 {
   private:
-    bool  IsConditional;    // conditional lastprivate
+    bool IsConditional;               // conditional lastprivate
+    FirstprivateItem *InFirstprivate; // FirstprivateItem with the same opnd
     RDECL Constructor;
     RDECL Destructor;
     RDECL Copy;
 
   public:
-    LastprivateItem(VAR Orig) : Item(Orig), IsConditional(false),
-      Constructor(nullptr), Destructor(nullptr), Copy(nullptr) {}
+    LastprivateItem(VAR Orig)
+        : Item(Orig), IsConditional(false), InFirstprivate(nullptr),
+          Constructor(nullptr), Destructor(nullptr), Copy(nullptr) {}
     void setIsConditional(bool B)   { IsConditional = B; }
+    void setInFirstprivate(FirstprivateItem *FI) { InFirstprivate = FI; }
     void setConstructor(RDECL Ctor) { Constructor = Ctor; }
     void setDestructor(RDECL Dtor)  { Destructor  = Dtor; }
     void setCopy(RDECL Cpy)         { Copy = Cpy;         }
-    bool  getIsConditional() const { return IsConditional; }
+    bool getIsConditional() const { return IsConditional; }
+    FirstprivateItem *getInFirstprivate() const { return InFirstprivate; }
     RDECL getConstructor() const { return Constructor; }
     RDECL getDestructor()  const { return Destructor; }
     RDECL getCopy()        const { return Copy; }
@@ -388,7 +401,8 @@ class UniformItem : public Item
 class MapItem : public Item
 {
 private:
-  unsigned MapKind;  // bit vector for map kind and modifiers
+  unsigned MapKind;                 // bit vector for map kind and modifiers
+  FirstprivateItem *InFirstprivate; // FirstprivateItem with the same opnd
 
 public:
   enum WRNMapKind {
@@ -401,7 +415,7 @@ public:
     WRNMapRelease = 0x0020,
   } WRNMapKind;
 
-  MapItem(VAR Orig) : Item(Orig), MapKind(0) {}
+  MapItem(VAR Orig) : Item(Orig), MapKind(0), InFirstprivate(nullptr) {}
 
   static unsigned getMapKindFromClauseId(int Id) {
     switch(Id) {
@@ -444,6 +458,7 @@ public:
   void setIsMapRelease() { MapKind |= WRNMapRelease; }
   void setIsMapDelete()  { MapKind |= WRNMapDelete; }
   void setIsMapAlways()  { MapKind |= WRNMapAlways; }
+  void setInFirstprivate(FirstprivateItem *FI) { InFirstprivate = FI; }
 
   unsigned getMapKind()    const { return MapKind; }
   bool getIsMapTo()        const { return MapKind & WRNMapTo; }
@@ -453,6 +468,7 @@ public:
   bool getIsMapRelease()   const { return MapKind & WRNMapRelease; }
   bool getIsMapDelete()    const { return MapKind & WRNMapDelete; }
   bool getIsMapAlways()    const { return MapKind & WRNMapAlways; }
+  FirstprivateItem *getInFirstprivate() const { return InFirstprivate; }
 };
 
 

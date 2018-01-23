@@ -158,6 +158,10 @@ public:
   bool PerformThinLTO;
   bool DivergentTarget;
 
+#if INTEL_CUSTOMIZATION
+  bool DisableIntelProprietaryOpts;
+#endif // INTEL_CUSTOMIZATION
+
   /// Enable profile instrumentation pass.
   bool EnablePGOInstrGen;
   /// Profile data file name that the instrumentation will be written to.

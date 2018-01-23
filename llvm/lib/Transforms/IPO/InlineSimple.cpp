@@ -88,6 +88,7 @@ public:
 
     return llvm::getInlineCost(CS, Params, TTI, GetAssumptionCache,
                                /*GetBFI=*/None, ILIC, AggI,           // INTEL
+                               &CallSitesForFusion,                    // INTEL
                                PSI, RemarksEnabled ? &ORE : nullptr); // INTEL
   }
 

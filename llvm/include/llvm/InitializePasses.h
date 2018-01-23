@@ -505,6 +505,7 @@ void initializeVectorGraphPredicatorPass(PassRegistry&);
 void initializeWholeProgramWrapperPassPass(PassRegistry&);
 // VPO VPlan Vectorizer Passes
 void initializeVPlanDriverPass(PassRegistry&);
+void initializeVPlanDriverHIRPass(PassRegistry&);
 // OpenCL Passes
 void initializeFMASplitterPass(PassRegistry&);
 // DTrans passes

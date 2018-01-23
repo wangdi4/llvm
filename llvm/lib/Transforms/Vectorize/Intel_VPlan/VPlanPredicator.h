@@ -1,8 +1,19 @@
-#ifndef VPLAN_PREDICATOR_H
-#define VPLAN_PREDICATOR_H
+//===------------------------------------------------------------*- C++ -*-===//
+//
+//   Copyright (C) 2017 Intel Corporation. All rights reserved.
+//
+//   The information and source code contained herein is the exclusive
+//   property of Intel Corporation and may not be disclosed, examined
+//   or reproduced in whole or in part without explicit written authorization
+//   from the company.
+//
+//===----------------------------------------------------------------------===//
+
+#ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_PREDICATOR_H
+#define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_PREDICATOR_H
 
 #include "../Intel_VPlan.h"
-#include "IntelVPlan.h"
+#include "VPlan.h"
 #include "llvm/IR/Dominators.h"
 
 namespace llvm {
@@ -15,21 +26,16 @@ private:
     FALSE_EDGE,
     EDGE_TYPE_MAX,
   };
-  
+
   IntelVPlan *Plan;
   VPLoopInfo *VPLI;
   IntelVPlanUtils PlanUtils;
 
   EdgeType getEdgeTypeBetween(VPBlockBase *FromBlock, VPBlockBase *ToBlock);
-  // Map to remember which BRs have already been generated
-  // for corresponding CBRs.
-  std::map<VPConditionBitRecipeWithScalar *, VPBooleanRecipe *> CBRtoBRMap;
-
-  int countSuccessorsNoBE(VPBlockBase *PredBlock, bool& HasBE);
+  int countSuccessorsNoBE(VPBlockBase *PredBlock, bool &HasBE);
   void getSuccessorsNoBE(VPBlockBase *PredBlock,
                          SmallVector<VPBlockBase *, 2> &Succs);
 
-  VPBooleanRecipe *getConditionRecipe(VPConditionBitRecipeBase *CBR);
   VPPredicateRecipeBase *genEdgeRecipe(VPBasicBlock *PredBB, EdgeType ET);
   VPPredicateRecipeBase *genEdgeRecipe(VPBasicBlock *PredBB,
                                        VPPredicateRecipeBase *R,
@@ -54,4 +60,4 @@ public:
 };
 } // end namespace vpo
 } // end namespace llvm
-#endif
+#endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_PREDICATOR_H

@@ -17,8 +17,8 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_TRANSFORMS_VECTORIZE_VPLAN_VPLOOPINFO_H 
-#define LLVM_TRANSFORMS_VECTORIZE_VPLAN_VPLOOPINFO_H
+#ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLOOPINFO_H 
+#define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLOOPINFO_H
 
 #include "llvm/Analysis/LoopInfoImpl.h"
 
@@ -41,5 +41,4 @@ typedef LoopInfoBase<VPBlockBase, VPLoop> VPLoopInfo;
 } // End VPO Vectorizer Namespace
 } // end llvm namespace
 
-#endif // LLVM_TRANSFORMS_VECTORIZE_VPLAN_VPLOOPINFO_H 
-
+#endif // LLVM_TRANSFORMS_VECTORIZE_INTE_VPLAN_VPLOOPINFO_H

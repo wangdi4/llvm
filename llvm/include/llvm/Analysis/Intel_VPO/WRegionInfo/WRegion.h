@@ -209,6 +209,7 @@ private:
   SharedClause Shared;
   PrivateClause Priv;
   FirstprivateClause Fpriv;
+  LastprivateClause Lpriv;
   ReductionClause Reduction;
   CopyinClause Copyin;
   EXPR IfExpr;
@@ -230,6 +231,7 @@ public:
   DEFINE_GETTER(SharedClause,       getShared, Shared)
   DEFINE_GETTER(PrivateClause,      getPriv,   Priv)
   DEFINE_GETTER(FirstprivateClause, getFpriv,  Fpriv)
+  DEFINE_GETTER(LastprivateClause,  getLpriv,  Lpriv)
   DEFINE_GETTER(ReductionClause,    getRed,    Reduction)
   DEFINE_GETTER(CopyinClause,       getCopyin, Copyin)
   DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo, WRNLI)
@@ -259,6 +261,7 @@ private:
   FirstprivateClause Fpriv;
   ReductionClause Reduction;
   CopyinClause Copyin;
+  ScheduleClause Schedule;
   EXPR IfExpr;
   EXPR NumThreads;
   WRNDefaultKind Default;
@@ -280,6 +283,7 @@ public:
   DEFINE_GETTER(FirstprivateClause, getFpriv,  Fpriv)
   DEFINE_GETTER(ReductionClause,    getRed,    Reduction)
   DEFINE_GETTER(CopyinClause,       getCopyin, Copyin)
+  DEFINE_GETTER(ScheduleClause,     getSchedule, Schedule)
   DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo, WRNLI)
 
   EXPR getIf() const { return IfExpr; }
@@ -723,12 +727,21 @@ public:
                                              unsigned Verbosity=1) const;
 
   void printHIR(formatted_raw_ostream &OS, unsigned Depth,
-                                             unsigned Verbosity=1) const;
+                                           unsigned Verbosity=1) const;
+
+  template <class LoopType> LoopType *getTheLoop() const {
+    llvm_unreachable("Unsupported LoopType");
+  }
+
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
     return W->getWRegionKindID() == WRegionNode::WRNVecLoop;
   }
 };
+
+template <> Loop *WRNVecLoopNode::getTheLoop<Loop>() const;
+template <>
+loopopt::HLLoop *WRNVecLoopNode::getTheLoop<loopopt::HLLoop>() const;
 
 /// WRN for
 /// \code
@@ -787,6 +800,7 @@ private:
   FirstprivateClause Fpriv;
   LastprivateClause Lpriv;
   ReductionClause Reduction;
+  ScheduleClause Schedule;
   bool Nowait;
   WRNLoopInfo WRNLI;
 
@@ -801,6 +815,7 @@ public:
   DEFINE_GETTER(FirstprivateClause, getFpriv,  Fpriv)
   DEFINE_GETTER(LastprivateClause,  getLpriv,  Lpriv)
   DEFINE_GETTER(ReductionClause,    getRed,    Reduction)
+  DEFINE_GETTER(ScheduleClause,     getSchedule, Schedule)
   DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo, WRNLI)
 
   bool getNowait() const { return Nowait; }

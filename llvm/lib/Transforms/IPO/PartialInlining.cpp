@@ -790,7 +790,7 @@ bool PartialInlinerImpl::shouldPartialInline(
   auto &ORE = (*GetORE)(*Caller);
   InlineCost IC = getInlineCost(CS, getInlineParams(), CalleeTTI,
                                 *GetAssumptionCache, GetBFI, ILIC,  // INTEL
-                                nullptr, PSI, &ORE);                // INTEL
+                                nullptr, nullptr, PSI, &ORE);       // INTEL
 
   if (IC.isAlways()) {
     ORE.emit([&]() {

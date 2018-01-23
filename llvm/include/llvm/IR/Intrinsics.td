@@ -1071,3 +1071,4 @@ include "llvm/IR/IntrinsicsBPF.td"
 include "llvm/IR/IntrinsicsSystemZ.td"
 include "llvm/IR/IntrinsicsWebAssembly.td"
 include "llvm/IR/IntrinsicsNios2.td" // INTEL
+include "llvm/IR/Intel_IntrinsicsFPGA.td" // INTEL

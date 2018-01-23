@@ -98,7 +98,7 @@ bool VPOParopt::runOnModule(Module &M) {
   // transformation and generate MT-code
   for (auto F : FnList) {
 
-    DEBUG(dbgs() << "\n=== VPOParopt begin func: " << F->getName() <<" {\n");
+    DEBUG(dbgs() << "\n=== VPOParopt Process func: " << F->getName() <<" {\n");
 
     // Walk the W-Region Graph top-down, and create W-Region List
     WRegionInfo &WI = getAnalysis<WRegionInfo>(*F);

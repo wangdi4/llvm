@@ -49,6 +49,7 @@ public:
 private:
   void printStructInfo(dtrans::StructInfo *AI);
   void printArrayInfo(dtrans::ArrayInfo *AI);
+  void printFieldInfo(dtrans::FieldInfo &FI);
 
   DenseMap<llvm::Type *, dtrans::TypeInfo *> TypeInfoMap;
 };

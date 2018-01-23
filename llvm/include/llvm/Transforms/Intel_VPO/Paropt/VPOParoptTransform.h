@@ -201,18 +201,25 @@ private:
   /// \brief Create a variable that binds the atexit to this shared object.
   GlobalVariable *DsoHandle;
 
+  /// \brief A string to describe the device information.
+  SmallVector<Triple, 16> TgtDeviceTriples;
+
   /// \brief Struct that keeps all the information needed to pass to
   /// the runtime library.
   class TgDataInfo {
   public:
     /// The array of base pointers passed to the runtime library.
     Value *BaseDataPtrs = nullptr;
+    Value *ResBaseDataPtrs;
     /// The array of data pointers passed to the runtime library.
     Value *DataPtrs = nullptr;
+    Value *ResDataPtrs;
     /// The array of data sizes passed to the runtime library.
     Value *DataSizes = nullptr;
+    Value *ResDataSizes;
     /// The array of data map types passed to the runtime library.
     Value *DataMapTypes = nullptr;
+    Value *ResDataMapTypes;
     /// The number of pointers passed to the runtime library.
     unsigned NumberOfPtrs = 0u;
     explicit TgDataInfo() {}
@@ -300,8 +307,8 @@ private:
   /// \brief Generate the firstprivate initialization code.
   void genFprivInit(FirstprivateItem *FprivI, Instruction *InsertPt);
 
-  /// \brief Generate the lastprivate update code.
-  void genLprivFini(LastprivateItem *LprivI, Instruction *InsertPt);
+  /// \brief Utility for last private update or copyprivate code generation.
+  void genLprivFini(Value *NewV, Value *OldV, Instruction *InsertPt);
 
   /// \brief Generate the lastprivate update code for taskloop
   void genLprivFiniForTaskLoop(Value *Dst, Value *Src, Instruction *InsertPt);
@@ -533,9 +540,9 @@ private:
   /// \brief Create the function .omp_offloading.descriptor_unreg
   Function *createTgDescUnregisterLib(WRegionNode *W, GlobalVariable *Desc);
 
-  /// \brief If the map data is global variable, Create the stack variable and
-  /// replace the the global variable with the stack variable.
-  bool genMapPrivationCode(WRegionNode *W);
+  /// \brief If the incoming data is global variable, create the stack variable
+  /// and replace the the global variable with the stack variable.
+  bool genGlobalPrivatizationCode(WRegionNode *W);
 
   /// \brief Pass the value of the DevicePtr to the outlined function.
   bool genDevicePtrPrivationCode(WRegionNode *W);
@@ -559,7 +566,7 @@ private:
 
   /// Generate code for single/end single construct and update LLVM
   /// control-flow and dominator tree accordingly
-  bool genSingleThreadCode(WRegionNode *W);
+  bool genSingleThreadCode(WRegionNode *W, AllocaInst *&IsSingleThread);
 
   /// Generate code for ordered/end ordered construct for preserving ordered
   /// region execution order
@@ -587,13 +594,16 @@ private:
   /// \brief Insert a barrier at the end of the construct
   bool genBarrier(WRegionNode *W, bool IsExplicit);
 
-  /// \brief Generate the intrinsic @llvm.codemotion.fence to inhibit the cse
-  /// for the gep instruction related to array/struture which is marked
+  /// \brief Insert a flush call
+  bool genFlush(WRegionNode *W);
+
+  /// \brief Generate the intrinsic @llvm.invariant.group.barrier to inhibit
+  /// the cse for the gep instruction related to array/struture which is marked
   /// as private, firstprivate, lastprivate, reduction or shared.
   void genCodemotionFenceforAggrData(WRegionNode *W);
 
-  /// \brief Clean up the intrinsic @llvm.codemotion.fence and replace the use
-  /// of the intrinsic with the its operand.
+  /// \brief Clean up the intrinsic @llvm.invariant.group.barrier and replace
+  /// the use of the intrinsic with the its operand.
   bool clearCodemotionFenceIntrinsic(WRegionNode *W);
 
   enum TgtOffloadMappingFlags {
@@ -621,12 +631,18 @@ private:
   /// \brief Returns the corresponding flag for a given map clause modifier.
   unsigned getMapTypeFlag(MapItem *MpI, bool IsFirstExprFlag,
                           bool IsFirstComponentFlag);
+
   /// \brief Replace the occurrences of I within the region with the return
-  /// value of the intrinsic @llvm.codemotion.fence.
+  /// value of the intrinsic @llvm.invariant.group.barrier
   void replaceValueWithinRegion(WRegionNode *W, Value *Old);
-  /// \brief Generate the intrinsic @llvm.codemotion.fence for local/global
-  /// variable I.
+
+  /// \brief Generate the intrinsic @llvm.invariant.group.barrier for
+  /// local/global variable I.
   void genFenceIntrinsic(WRegionNode *W, Value *I);
+
+  /// \brief If \p I is a call to @llvm.invariant.group.barrier, then return
+  /// the CallInst*. Otherwise, return nullptr.
+  CallInst* isFenceCall(Instruction *I);
 
   /// \brief Collect the live-in value for the phis at the loop header.
   void wrnUpdateSSAPreprocess(
@@ -645,6 +661,21 @@ private:
       Loop *L,
       DenseMap<Value *, std::pair<Value *, BasicBlock *>> &ValueToLiveinMap,
       SmallSetVector<Instruction *, 8> &LiveOutVals);
+
+  /// \brief The utility to generate the stack variable to pass the value of
+  /// global variable.
+  Value *genGlobalPrivatizationImpl(WRegionNode *W, GlobalVariable *G,
+                                    BasicBlock *EntryBB, BasicBlock *NextExitBB,
+                                    Item *IT);
+
+  /// \brief Generate the copyprivate code.
+  bool genCopyPrivateCode(WRegionNode *W, AllocaInst *IsSingleThread);
+
+  /// \brief Generate the helper function for copying the copyprivate data.
+  Function *genCopyPrivateFunc(WRegionNode *W, StructType *KmpCopyPrivateTy);
+
+  /// \brief Process the device information into the triples.
+  void processDeviceTriples();
 };
 } /// namespace vpo
 } /// namespace llvm

@@ -9,6 +9,7 @@
 ;}
 ;
 ; RUN: opt -vector-library=SVML -hir-ssa-deconstruction -hir-vec-dir-insert -VPODriverHIR -hir-cg -print-after=VPODriverHIR -S  < %s 2>&1 | FileCheck %s
+; RUN: opt -vector-library=SVML -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -print-after=VPlanDriverHIR -S  < %s 2>&1 | FileCheck %s
 
 ; Check to see that the main vector loop was vectorized with svml
 ; CHECK: call <4 x float> @__svml_sinf4_mask

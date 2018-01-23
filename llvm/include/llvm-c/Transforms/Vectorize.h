@@ -45,8 +45,10 @@ void LLVMAddSLPVectorizePass(LLVMPassManagerRef PM);
 #if INTEL_CUSTOMIZATION
 /** See llvm::createVPlanDriverPass function. */
 void LLVMAddVPlanDriverPass(LLVMPassManagerRef PM);
-#endif
 
+/** See llvm::createVPlanDriverHIRPass function. */
+void LLVMAddVPlanDriverHIRPass(LLVMPassManagerRef PM);
+#endif
 
 /**
  * @}

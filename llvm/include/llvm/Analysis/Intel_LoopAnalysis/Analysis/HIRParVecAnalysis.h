@@ -66,7 +66,8 @@ public:
     NON_DO_LOOP = 15536,
     UNROLL_PRAGMA_LOOP = 15538,
     FE_DIAG_VEC_NOT_INNERMOST = 15553,
-    EH
+    EH,
+    MULTI_PRED_IF_STMT
   };
 
 private:

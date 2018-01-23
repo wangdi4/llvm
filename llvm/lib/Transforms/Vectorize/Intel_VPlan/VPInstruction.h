@@ -1,5 +1,16 @@
-#ifndef LLVM_ANALYSIS_VPO_VPINSTRUCTION_H
-#define LLVM_ANALYSIS_VPO_VPINSTRUCTION_H
+//===------------------------------------------------------------*- C++ -*-===//
+//
+//   Copyright (C) 2017 Intel Corporation. All rights reserved.
+//
+//   The information and source code contained herein is the exclusive
+//   property of Intel Corporation and may not be disclosed, examined
+//   or reproduced in whole or in part without explicit written authorization
+//   from the company.
+//
+//===----------------------------------------------------------------------===//
+
+#ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPINSTRUCTION_H
+#define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPINSTRUCTION_H
 
 #include "llvm/ADT/ilist.h"
 #include "llvm/ADT/ilist_node.h"
@@ -91,4 +102,4 @@ struct ilist_traits<VPInstruction>
 };
 #endif
 
-#endif // LLVM_ANALYSIS_VPO_VPINSTRUCTION_H
+#endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPINSTRUCTION_H
