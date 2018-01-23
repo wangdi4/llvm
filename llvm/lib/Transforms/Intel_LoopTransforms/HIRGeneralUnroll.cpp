@@ -68,6 +68,7 @@
 
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/ADT/Triple.h"
 
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstrTypes.h"
@@ -131,7 +132,9 @@ class HIRGeneralUnroll : public HIRTransformPass {
 public:
   static char ID;
 
-  HIRGeneralUnroll() : HIRTransformPass(ID) {
+  HIRGeneralUnroll()
+      : HIRTransformPass(ID), HLR(nullptr), HLS(nullptr),
+        IsUnrollTriggered(false), Is32Bit(false) {
     initializeHIRGeneralUnrollPass(*PassRegistry::getPassRegistry());
   }
 
@@ -150,6 +153,7 @@ private:
   HIRLoopStatistics *HLS;
 
   bool IsUnrollTriggered;
+  bool Is32Bit;
 
   /// Processes and santitizes command line options.
   void sanitizeOptions();
@@ -205,6 +209,9 @@ bool HIRGeneralUnroll::runOnFunction(Function &F) {
   HLS = &getAnalysis<HIRLoopStatistics>();
 
   IsUnrollTriggered = false;
+
+  llvm::Triple TargetTriple(F.getParent()->getTargetTriple());
+  Is32Bit = (TargetTriple.getArch() == llvm::Triple::x86);
 
   sanitizeOptions();
 
@@ -340,7 +347,10 @@ unsigned HIRGeneralUnroll::computeUnrollFactor(const HLLoop *HLoop,
       return 0;
     }
 
-    UnrollFactor = MaxUnrollFactor;
+    // Multi-exit loops have a higher chance of having a low trip count as they
+    // can take early exits. We may cause degradations in those cases by
+    // increasing code size. Unroll factor of 2 is the safest bet.
+    UnrollFactor = (HLoop->getNumExits() > 1) ? 2 : MaxUnrollFactor;
   }
 
   while ((UnrollFactor * SelfCost) > MaxUnrolledLoopCost) {
@@ -385,9 +395,22 @@ bool HIRGeneralUnroll::isProfitable(const HLLoop *Loop, bool HasEnablingPragma,
                                     unsigned *UnrollFactor) const {
 
   if (!HasEnablingPragma) {
-    // TODO: Enable unroll for multi-exit loops with perf tuning.
-    if (Loop->getNumExits() > 1) {
-      DEBUG(dbgs() << "Skipping unroll of multi-exit loop!\n");
+    // 32bit platform seems to be more sensitive to register pressure/code size.
+    // Unrolling too many loops leads to regression in the same benchmark which
+    // is improved on 64-bit platform.
+    if (Is32Bit && (Loop->getNumExits() > 1)) {
+      DEBUG(dbgs()
+            << "Skipping unroll of multi-exit loops on 32 bit platform!\n");
+      return false;
+    }
+
+    // Enable this when we find a convincing test case where unrolling helps.
+    // All the current instances where it helps is when we have locality
+    // between memrefs. These should be handled by scalar replacement (captured
+    // in CMPLRS-41981). It is causing degradations in some benchmarks and the
+    // reasons are not quite clear to me.
+    if (Loop->isDoMultiExit()) {
+      DEBUG(dbgs() << "Skipping unroll of DO multi-exit loop!\n");
       return false;
     }
 
