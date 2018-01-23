@@ -1,4 +1,5 @@
 ; RUN: opt %s -S -VPlanDriver 2>&1 | FileCheck %s
+; XFAIL: *
 
 ; CHECK: __write_pipe_2_bl_intel_v4i8
 
