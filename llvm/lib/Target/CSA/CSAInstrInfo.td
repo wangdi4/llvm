@@ -62,11 +62,6 @@ def UnitOpnd : Operand<i64> {
   let PrintMethod = "printUnitOperand";
 }
 
-// Not in Target.td with the other *imms
-let OperandType = "OPERAND_IMMEDIATE" in {
-def f16imm : Operand<f16>;
-}
-
 // TableGen expects special *RegImm* functions in CSAAsmParser due to this.
 def RegImmAsmOperand : AsmOperandClass {
   let Name = "RegImm";
@@ -114,7 +109,6 @@ def RCLi0  : RegImmOperand<i1>;
 def RCLi1  : RegImmOperand<i1>;
 def RCLi8  : RegImmOperand<i8>;
 def RCLi16 : RegImmOperand<i16>;
-def RCLf16 : RegImmOperand<f16>;
 def RCLi32 : RegImmOperand<i32>;
 def RCLf32 : RegImmOperand<f32>;
 def RCLi64 : RegImmOperand<i64>;
@@ -196,7 +190,6 @@ def Tu8  : CSAOpInfo< i8,  8,  "u8",  I8,  RI8,  CI8,  RCLi8,  i8imm,  [HasI8]>;
 def Ti16 : CSAOpInfo<i16, 16,  "16", I16, RI16, CI16, RCLi16, i16imm, [HasI16]>;
 def Ts16 : CSAOpInfo<i16, 16, "s16", I16, RI16, CI16, RCLi16, i16imm, [HasI16]>;
 def Tu16 : CSAOpInfo<i16, 16, "u16", I16, RI16, CI16, RCLi16, i16imm, [HasI16]>;
-def Tf16 : CSAOpInfo<f16, 16, "f16", I16, RI16, CI16, RCLf16, f16imm, [HasF16]>;
 def Ti32 : CSAOpInfo<i32, 32,  "32", I32, RI32, CI32, RCLi32, i32imm, [HasI32]>;
 def Ts32 : CSAOpInfo<i32, 32, "s32", I32, RI32, CI32, RCLi32, i32imm, [HasI32]>;
 def Tu32 : CSAOpInfo<i32, 32, "u32", I32, RI32, CI32, RCLi32, i32imm, [HasI32]>;
@@ -796,17 +789,14 @@ def NEG16     : UnaryOpP<NEG,    ineg,   Ti16, IIALU>;
 def NEG32     : UnaryOpP<NEG,    ineg,   Ti32, IIALU>;
 def NEG64     : UnaryOpP<NEG,    ineg,   Ti64, IIALU>;
 
-def NEGF16    : UnaryOp< NEG,    fneg,   Tf16, IIALU>;
 def NEGF32    : UnaryOp< NEG,    fneg,   Tf32, IIALU>;
 def NEGF64    : UnaryOp< NEG,    fneg,   Tf64, IIALU>;
 
 def ABS       : GenericOp<"abs">;
-def ABSF16    : UnaryOp< ABS,    fabs,   Tf16, IIALU>;
 def ABSF32    : UnaryOp< ABS,    fabs,   Tf32, IIALU>;
 def ABSF64    : UnaryOp< ABS,    fabs,   Tf64, IIALU>;
 
 def SQRT      : GenericOp<"sqrt", [HasSqrt]>;
-def SQRTF16   : UnaryOp< SQRT,   fsqrt,  Tf16, IISqrtF16>;
 def SQRTF32   : UnaryOp< SQRT,   fsqrt,  Tf32, IISqrtF32>;
 def SQRTF64   : UnaryOp< SQRT,   fsqrt,  Tf64, IISqrtF64>;
 
@@ -827,42 +817,34 @@ def TRUNCF32  : UnaryOp< TRUNC,  ftrunc, Tf32, IIMathF32>;
 def TRUNCF64  : UnaryOp< TRUNC,  ftrunc, Tf64, IIMathF64>;
 
 def EXP2      : GenericOp<"exp2", [HasMath0]>;
-def EXP2F16   : UnaryOp< EXP2,   fexp2,  Tf16, IIMathF16>;
 def EXP2F32   : UnaryOp< EXP2,   fexp2,  Tf32, IIMathF32>;
 def EXP2F64   : UnaryOp< EXP2,   fexp2,  Tf64, IIMathF64>;
 
 def LOG2      : GenericOp<"log2", [HasMath0]>;
-def LOG2F16   : UnaryOp< LOG2,   flog2,  Tf16, IIMathF16>;
 def LOG2F32   : UnaryOp< LOG2,   flog2,  Tf32, IIMathF32>;
 def LOG2F64   : UnaryOp< LOG2,   flog2,  Tf64, IIMathF64>;
 
 def EXP       : GenericOp<"exp", [HasMath0]>;
-def EXPF16    : UnaryOp< EXP,    fexp,   Tf16, IIMathF16>;
 def EXPF32    : UnaryOp< EXP,    fexp,   Tf32, IIMathF32>;
 def EXPF64    : UnaryOp< EXP,    fexp,   Tf64, IIMathF64>;
 
 def LOG       : GenericOp<"log", [HasMath0]>;
-def LOGF16    : UnaryOp< LOG,    flog,   Tf16, IIMathF16>;
 def LOGF32    : UnaryOp< LOG,    flog,   Tf32, IIMathF32>;
 def LOGF64    : UnaryOp< LOG,    flog,   Tf64, IIMathF64>;
 
 def SIN       : GenericOp<"sin", [HasMath0]>;
-def SINF16    : UnaryOp< SIN,    fsin,   Tf16, IIMathF16>;
 def SINF32    : UnaryOp< SIN,    fsin,   Tf32, IIMathF32>;
 def SINF64    : UnaryOp< SIN,    fsin,   Tf64, IIMathF64>;
 
 def COS       : GenericOp<"cos", [HasMath0]>;
-def COSF16    : UnaryOp< COS,    fcos,   Tf16, IIMathF16>;
 def COSF32    : UnaryOp< COS,    fcos,   Tf32, IIMathF32>;
 def COSF64    : UnaryOp< COS,    fcos,   Tf64, IIMathF64>;
 
 def TAN       : GenericOp<"tan", [HasMath0]>;
-def TANF16    : UnaryOp< TAN,    ftan,   Tf16, IIMathF16>;
 def TANF32    : UnaryOp< TAN,    ftan,   Tf32, IIMathF32>;
 def TANF64    : UnaryOp< TAN,    ftan,   Tf64, IIMathF64>;
 
 def ATAN      : GenericOp<"atan", [HasMath0]>;
-def ATANF16   : UnaryOp< ATAN,   fatan,  Tf16, IIMathF16>;
 def ATANF32   : UnaryOp< ATAN,   fatan,  Tf32, IIMathF32>;
 def ATANF64   : UnaryOp< ATAN,   fatan,  Tf64, IIMathF64>;
 
@@ -871,7 +853,6 @@ def MODF32    : FModOp<  MOD,            Tf32, IIMathF32>;
 def MODF64    : FModOp<  MOD,            Tf64, IIMathF64>;
 
 //def SINCOS : GenericOp<"sincos", [HasMath0]>;
-//def SINCOSF16 : UnaryOp<SINCOS,fsincos,Tf16, IIMathF16>;
 //def SINCOSF32 : UnaryOp<SINCOS,fsincos,Tf32, IIMathF32>;
 //def SINCOSF64 : UnaryOp<SINCOS,fsincos,Tf64, IIMathF64>;
 
@@ -993,7 +974,6 @@ def ADC16     : BinOpC<  ADC,            Ti16, IIALU>;
 def ADC32     : BinOpC<  ADC,            Ti32, IIALU>;
 def ADC64     : BinOpC<  ADC,            Ti64, IIALU>;
 
-def ADDF16    : BinOpR<  ADD,    fadd,   Tf16, IIAddF16>;
 def ADDF32    : BinOpR<  ADD,    fadd,   Tf32, IIAddF32>;
 def ADDF64    : BinOpR<  ADD,    fadd,   Tf64, IIAddF64>;
 
@@ -1011,7 +991,6 @@ def SBB16     : BinOpC<  SBB,            Ti16, IIALU>;
 def SBB32     : BinOpC<  SBB,            Ti32, IIALU>;
 def SBB64     : BinOpC<  SBB,            Ti64, IIALU>;
 
-def SUBF16    : BinOpR<  SUB,    fsub,   Tf16, IIAddF16>;
 def SUBF32    : BinOpR<  SUB,    fsub,   Tf32, IIAddF32>;
 def SUBF64    : BinOpR<  SUB,    fsub,   Tf64, IIAddF64>;
 
@@ -1021,7 +1000,6 @@ def MUL16     : BinOp<   MUL,    mul,    Ti16, IIMulI16>;
 def MUL32     : BinOp<   MUL,    mul,    Ti32, IIMulI32>;
 def MUL64     : BinOp<   MUL,    mul,    Ti64, IIMulI64>;
 
-def MULF16    : BinOpR<  MUL,    fmul,   Tf16, IIMulF16>;
 def MULF32    : BinOpR<  MUL,    fmul,   Tf32, IIMulF32>;
 def MULF64    : BinOpR<  MUL,    fmul,   Tf64, IIMulF64>;
 
@@ -1036,7 +1014,6 @@ def DIVU16    : BinOp<   DIV,    udiv,   Tu16, IIDivI16, [HasIDiv]>;
 def DIVU32    : BinOp<   DIV,    udiv,   Tu32, IIDivI32, [HasIDiv]>;
 def DIVU64    : BinOp<   DIV,    udiv,   Tu64, IIDivI64, [HasIDiv]>;
 
-def DIVF16    : BinOpR<  DIV,    fdiv,   Tf16, IIDivF16, [HasFDiv]>;
 def DIVF32    : BinOpR<  DIV,    fdiv,   Tf32, IIDivF32, [HasFDiv]>;
 def DIVF64    : BinOpR<  DIV,    fdiv,   Tf64, IIDivF64, [HasFDiv]>;
 
@@ -1045,7 +1022,6 @@ def POWF32    : BinOp<   POW,    fpow,   Tf32, IIMathF32>;
 def POWF64    : BinOp<   POW,    fpow,   Tf64, IIMathF64>;
 
 def ATAN2     : GenericOp<"atan2", [HasMath0]>;
-def ATAN2F16  : BinOp<   ATAN2,  fatan2, Tf16, IIMathF16>;
 def ATAN2F32  : BinOp<   ATAN2,  fatan2, Tf32, IIMathF32>;
 def ATAN2F64  : BinOp<   ATAN2,  fatan2, Tf64, IIMathF64>;
 
@@ -1062,7 +1038,6 @@ multiclass UnsignedCmp<GenericOp generic, PatFrag frag> {
   def U64 : CmpOp<generic, frag, Tu64, IIALU>;
 }
 multiclass FloatCmp<GenericOp generic, PatFrag frag> {
-  def F16 : CmpOp<generic, frag, Tf16, IICmpF>;
   def F32 : CmpOp<generic, frag, Tf32, IICmpF>;
   def F64 : CmpOp<generic, frag, Tf64, IICmpF>;
 }
@@ -1113,12 +1088,6 @@ defm CMPUNE:    FloatCmp<CMPUNE, setune>;
 
 // These are the flags for we-don't-care-about-NaNs. When the architecture
 // finalizes NaN support, these should map into the cheaper ones.
-def : Pat<(i1 (setlt f16:$op1, f16:$op2)), (CMPOLTF16 $op1, $op2)>;
-def : Pat<(i1 (setle f16:$op1, f16:$op2)), (CMPOLEF16 $op1, $op2)>;
-def : Pat<(i1 (setgt f16:$op1, f16:$op2)), (CMPOGTF16 $op1, $op2)>;
-def : Pat<(i1 (setge f16:$op1, f16:$op2)), (CMPOGEF16 $op1, $op2)>;
-def : Pat<(i1 (seteq f16:$op1, f16:$op2)), (CMPOEQF16 $op1, $op2)>;
-def : Pat<(i1 (setne f16:$op1, f16:$op2)), (CMPONEF16 $op1, $op2)>;
 def : Pat<(i1 (setlt f32:$op1, f32:$op2)), (CMPOLTF32 $op1, $op2)>;
 def : Pat<(i1 (setle f32:$op1, f32:$op2)), (CMPOLEF32 $op1, $op2)>;
 def : Pat<(i1 (setgt f32:$op1, f32:$op2)), (CMPOGTF32 $op1, $op2)>;
@@ -1159,17 +1128,14 @@ def SLADD32   : ShAdd<   SLADD,shl,  add,  Ti32, IISAdd>;
 def SLADD64   : ShAdd<   SLADD,shl,  add,  Ti64, IISAdd>;
 
 def FMA       : GenericOp<"fma", [HasFMA]>;
-def FMAF16    : TriOp1<FMA,  fma, Tf16, IIFMAF16>;
 def FMAF32    : TriOp1<FMA,  fma, Tf32, IIFMAF32>;
 def FMAF64    : TriOp1<FMA,  fma, Tf64, IIFMAF64>;
 
 def FMS       : GenericOp<"fms", [HasFMA]>;
-def FMSF16    : TriOp1<FMS,  fms, Tf16, IIFMAF16>;
 def FMSF32    : TriOp1<FMS,  fms, Tf32, IIFMAF32>;
 def FMSF64    : TriOp1<FMS,  fms, Tf64, IIFMAF64>;
 
 def FMRS      : GenericOp<"fmrs", [HasFMA]>;
-def FMRSF16   : TriOp1<FMRS, fmrs, Tf16, IIFMAF16>;
 def FMRSF32   : TriOp1<FMRS, fmrs, Tf32, IIFMAF32>;
 def FMRSF64   : TriOp1<FMRS, fmrs, Tf64, IIFMAF64>;
 
@@ -1186,7 +1152,6 @@ def MERGE0    : MergeOp< "merge0",  Ti0,  [HasI0],  IIVir>;
 def MERGE1    : MergeOp< "merge1",  Ti1,  [HasI1],  IIVir>;
 def MERGE8    : MergeOp< "merge8",  Ti8,  [HasI8],  IIVir>;
 def MERGE16   : MergeOp< "merge16", Ti16, [HasI16], IIVir>;
-def MERGE16f  : MergeOp< "merge16", Tf16, [HasI16], IIVir>;
 def MERGE32   : MergeOp< "merge32", Ti32, [HasI32], IIVir>;
 def MERGE32f  : MergeOp< "merge32", Tf32, [HasI32], IIVir>;
 def MERGE64   : MergeOp< "merge64", Ti64, [HasI64], IIVir>;
@@ -1513,7 +1478,6 @@ defm ST64     : StOp<    "st64",  Ti64>;
 def SLD1      : StreamLdOp<"sld8",   Ti1>;
 def SLD8      : StreamLdOp<"sld8",   Ti8>;
 def SLD16     : StreamLdOp<"sld16",  Ti16>;
-def SLD16f    : StreamLdOp<"sld16",  Tf16>;
 def SLD32     : StreamLdOp<"sld32",  Ti32>;
 def SLD32f    : StreamLdOp<"sld32",  Tf32>;
 def SLD64     : StreamLdOp<"sld64",  Ti64>;
@@ -1522,7 +1486,6 @@ def SLD64f    : StreamLdOp<"sld64",  Tf64>;
 def SST1     : StreamStOp<"sst8",   Ti1>;
 def SST8     : StreamStOp<"sst8",   Ti8>;
 def SST16    : StreamStOp<"sst16",  Ti16>;
-def SST16f   : StreamStOp<"sst16",  Tf16>;
 def SST32    : StreamStOp<"sst32",  Ti32>;
 def SST32f   : StreamStOp<"sst32",  Tf32>;
 def SST64    : StreamStOp<"sst64",  Ti64>;
@@ -1811,7 +1774,6 @@ def CSA_PARALLEL_MEMDEP :  PseudoInstCSA<
 def : Pat<(i1 imm:$imm),    (MOV1 imm:$imm)>;
 def : Pat<(i8 imm:$imm),    (MOV8 imm:$imm)>;
 def : Pat<(i16 imm:$imm),   (MOV16 imm:$imm)>;
-def : Pat<(f16 fpimm:$imm), (MOV16 fpimm:$imm)>;
 def : Pat<(i32 imm:$imm),   (MOV32 imm:$imm)>;
 def : Pat<(f32 fpimm:$imm), (MOV32 fpimm:$imm)>;
 def : Pat<(i64 imm:$imm),   (MOV64 imm:$imm)>;
@@ -1902,9 +1864,6 @@ def : Pat<(f64 (bitconvert i64:$op1)), (COPY_TO_REGCLASS $op1, I64)>;
 
 def : Pat<(i32 (bitconvert f32:$op1)), (COPY_TO_REGCLASS $op1, I32)>;
 def : Pat<(f32 (bitconvert i32:$op1)), (COPY_TO_REGCLASS $op1, I32)>;
-
-def : Pat<(i16 (bitconvert f16:$op1)), (COPY_TO_REGCLASS $op1, I16)>;
-def : Pat<(f16 (bitconvert i16:$op1)), (COPY_TO_REGCLASS $op1, I16)>;
 
 // The debugprint instruction
 let hasSideEffects = 1 in {

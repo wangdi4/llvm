@@ -55,7 +55,6 @@ CSATargetLowering::CSATargetLowering(const TargetMachine &TM, const CSASubtarget
   addRegisterClass(MVT::i16,  &CSA::I16RegClass);
   addRegisterClass(MVT::i32,  &CSA::I32RegClass);
   addRegisterClass(MVT::i64,  &CSA::I64RegClass);
-  addRegisterClass(MVT::f16,  &CSA::I16RegClass);
   addRegisterClass(MVT::f32,  &CSA::I32RegClass);
   addRegisterClass(MVT::f64,  &CSA::I64RegClass);
 
@@ -201,13 +200,9 @@ CSATargetLowering::CSATargetLowering(const TargetMachine &TM, const CSASubtarget
   setOperationPromotedToType(ISD::STORE, MVT::f32, MVT::i32);
   setOperationPromotedToType(ISD::STORE, MVT::f64, MVT::i64);
 
-  setLoadExtAction(ISD::EXTLOAD, MVT::f32, MVT::f16, Expand);
-  setLoadExtAction(ISD::EXTLOAD, MVT::f64, MVT::f16, Expand);
   setLoadExtAction(ISD::EXTLOAD, MVT::f64, MVT::f32, Expand);
 
   setTruncStoreAction(MVT::f64, MVT::f32, Expand);
-  setTruncStoreAction(MVT::f64, MVT::f16, Expand);
-  setTruncStoreAction(MVT::f32, MVT::f16, Expand);
   
   // SETOEQ and SETUNE require checking two conditions.
   /*
@@ -237,7 +232,6 @@ CSATargetLowering::CSATargetLowering(const TargetMachine &TM, const CSASubtarget
   setOperationAction(ISD::FP_TO_SINT, MVT::i16, Promote);
 
   // Allow full FP literals
-  setOperationAction(ISD::ConstantFP, MVT::f16, Legal);
   setOperationAction(ISD::ConstantFP, MVT::f32, Legal);
   setOperationAction(ISD::ConstantFP, MVT::f64, Legal);
 
@@ -246,19 +240,6 @@ CSATargetLowering::CSATargetLowering(const TargetMachine &TM, const CSASubtarget
   setOperationAction(ISD::FP16_TO_FP, MVT::f32, Expand);
   setOperationAction(ISD::FP_TO_FP16, MVT::f32, Expand);
 */
-
-  if (ST.hasF16()) {
-    setOperationAction(ISD::FADD, MVT::f16, Legal);
-    setOperationAction(ISD::FSUB, MVT::f16, Legal);
-    setOperationAction(ISD::FMUL, MVT::f16, Legal);
-    if (ST.hasFMA()) {
-      setOperationAction(ISD::FMA,  MVT::f16, Legal);
-    }
-    setOperationAction(ISD::FDIV, MVT::f16, Legal);
-    setOperationAction(ISD::FREM, MVT::f16, Expand);
-    setOperationAction(ISD::FNEG, MVT::f16, Legal);
-    setOperationAction(ISD::FABS, MVT::f16, Legal);
-  }
 
   setOperationAction(ISD::FNEG,  MVT::f32, Legal);
   setOperationAction(ISD::FNEG,  MVT::f64, Legal);
@@ -273,8 +254,6 @@ CSATargetLowering::CSATargetLowering(const TargetMachine &TM, const CSASubtarget
     //setOperationAction(ISD::FREM,  MVT::f64, Legal);
     setOperationAction(ISD::FCOPYSIGN,  MVT::f32, Expand);
     setOperationAction(ISD::FCOPYSIGN,  MVT::f64, Expand);
-    if (ST.hasF16())
-      setOperationAction(ISD::FSQRT, MVT::f16, Legal);
     setOperationAction(ISD::FSQRT, MVT::f32, Legal);
     setOperationAction(ISD::FSQRT, MVT::f64, Legal);
     setOperationAction(ISD::FSIN,  MVT::f32, Legal);
@@ -1036,8 +1015,6 @@ CSATargetLowering::LowerFormalArguments(SDValue Chain,
         tClass = &CSA::RI64RegClass;
       } else if(tVT == MVT::f32) {
         tClass = &CSA::RI32RegClass;
-      } else if(tVT == MVT::f16) {
-        tClass = &CSA::RI16RegClass;
       } else {
         llvm_unreachable("WTC!!");
       }
