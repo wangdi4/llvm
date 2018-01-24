@@ -637,11 +637,13 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
   if (!pRtlModuleList.empty()) {
     // Inline BI function
     PM.add(createBuiltInImportPass(pConfig->GetCpuId().GetCPUPrefix()));
-    // After the globals used in built-ins are imported - we can internalize them
-    // with further wiping them out with GlobalDCE pass
-    PM.add(createInternalizeGlobalVariablesPass());
-    // Cleaning up internal globals
-    PM.add(llvm::createGlobalDCEPass());
+    if (debugType == intel::None) {
+      // After the globals used in built-ins are imported - we can internalize
+      // them with further wiping them out with GlobalDCE pass
+      PM.add(createInternalizeGlobalVariablesPass());
+      // Cleaning up internal globals
+      PM.add(llvm::createGlobalDCEPass());
+    }
     // Need to convert shuffle calls to shuffle IR before running inline pass
     // on built-ins
     PM.add(createBuiltinCallToInstPass());
