@@ -2047,6 +2047,12 @@ private:  //***INTEL
   void CheckIntelStmt(StmtVector& Stmts);
 #endif // INTEL_SPECIFIC_IL0_BACKEND
 #if INTEL_CUSTOMIZATION
+  // HLS loop pragmas
+  std::unique_ptr<PragmaHandler> LoopCoalesceHandler;
+  std::unique_ptr<PragmaHandler> IIHandler;
+  std::unique_ptr<PragmaHandler> IVDepHandler;
+  std::unique_ptr<PragmaHandler> MaxConcurrencyHandler;
+
   // Pragma inline
   std::unique_ptr<PragmaHandler> InlineHandler;
   // Pragma forceinline

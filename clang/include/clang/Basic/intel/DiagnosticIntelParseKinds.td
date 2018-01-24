@@ -17,6 +17,16 @@ let Component = "Parse" in {
 
 let CategoryName = "Parse Issue" in {
 
+def warn_pragma_expected_value : Warning<
+  "expected value with '#pragma %0' - ignored">,
+  InGroup<IgnoredPragmas>;
+def warn_pragma_expected_ivdep_clause : Warning<
+  "expected safelen or array value with '#pragma ivdep' - ignored">,
+  InGroup<IgnoredPragmas>;
+def warn_multiple_ivdep_clause : Warning<
+  "%select{'safelen'|'array'}0 cannot appear multiple times in #pragma ivdep' - ignored">,
+  InGroup<IgnoredPragmas>;
+
 // CQ#364426
 def warn_empty_enum : Warning<"use of empty enum">, InGroup<IntelCompat>;
 // CQ#369185 - support of __bases and __direct_bases intrinsics.

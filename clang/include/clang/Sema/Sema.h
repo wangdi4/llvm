@@ -10686,6 +10686,7 @@ private:
   bool SemaBuiltinOSLogFormat(CallExpr *TheCall);
 
 #if INTEL_CUSTOMIZATION
+  bool CheckHLSBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall);
   bool SemaBuiltinVAArgPackChecks(CallExpr *TheCall, unsigned BuiltinID);
 #endif // INTEL_CUSTOMIZATION
 

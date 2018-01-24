@@ -451,6 +451,11 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
   }
   Opts.OptimizationLevel = OptimizationLevel;
 
+#if INTEL_CUSTOMIZATION
+  Opts.DisableIntelProprietaryOpts = Args.hasArg(
+    OPT_disable_intel_proprietary_opts);
+#endif
+
   // At O0 we want to fully disable inlining outside of cases marked with
   // 'alwaysinline' that are required for correctness.
   Opts.setInlining((Opts.OptimizationLevel == 0)
@@ -2111,6 +2116,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
 #if INTEL_CUSTOMIZATION
   Opts.IntelCompat = Args.hasArg(OPT_fintel_compatibility);
   Opts.IntelMSCompat = Args.hasArg(OPT_fintel_ms_compatibility);
+  Opts.HLS = Args.hasArg(OPT_fhls);
   Opts.IntelQuad = Args.hasArg(OPT_extended_float_types);
   Opts.IntelAdvancedOptim = Args.hasArg(OPT_fintel_advanced_optim);
   // CQ381541: Parse IMF attributes

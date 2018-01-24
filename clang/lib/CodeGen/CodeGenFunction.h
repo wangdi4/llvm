@@ -343,6 +343,15 @@ public:
     IntelPragmaInlineState *PreviousState;
   };
   IntelPragmaInlineState *CurrentPragmaInlineState;
+
+  class IntelIVDepArrayHandler {
+  public:
+    IntelIVDepArrayHandler(CodeGenFunction &CGF, ArrayRef<const Attr *> Attrs);
+    ~IntelIVDepArrayHandler();
+  private:
+    CodeGenFunction &CGF;
+    llvm::CallInst *CallEntry;
+  };
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_SPECIFIC_CILKPLUS
@@ -1772,6 +1781,9 @@ private:
                                 llvm::Function *Fn);
 
 #if INTEL_CUSTOMIZATION
+  /// Add metadata for HLS component functions.
+  void EmitHLSComponentMetadata(const FunctionDecl *FD, llvm::Function *Fn);
+
   // Table recording the mapping between the return pointer and
   // the correspoind tbaa for the pointer dereference.
   llvm::DenseMap<llvm::Value *, llvm::MDNode *> RetPtrMap;
@@ -3400,6 +3412,9 @@ private:
   void EmitIntelOMPTaskLoopDirective(const OMPTaskLoopDirective &S);
   void EmitIntelOMPTaskLoopSimdDirective(const OMPTaskLoopSimdDirective &S);
   void EmitIntelOMPDistributeDirective(const OMPDistributeDirective &S);
+public:
+  void RemapInlinedPrivates(const OMPExecutableDirective &D,
+                            OMPPrivateScope &PrivScope);
 #endif // INTEL_SPECIFIC_OPENMP
 public:
 
@@ -3785,6 +3800,9 @@ public:
 
 #if INTEL_CUSTOMIZATION
   llvm::Value *EmitIntelFPGABuiltinExpr(unsigned BuiltinID, const CallExpr *E);
+  RValue EmitHLSStreamBuiltin(unsigned BuiltinID, const CallExpr *E);
+  RValue EmitHLSMemMasterBuiltin(unsigned BuiltinID, const CallExpr *E,
+                                 ReturnValueSlot ReturnValue);
 #endif // INTEL_CUSTOMIZATION
 
   llvm::Value *EmitCommonNeonBuiltinExpr(unsigned BuiltinID,

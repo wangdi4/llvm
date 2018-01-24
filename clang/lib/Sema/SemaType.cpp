@@ -7238,7 +7238,12 @@ static void deduceOpenCLImplicitAddrSpace(TypeProcessingState &State,
   // The default address space name for arguments to a function in a
   // program, or local variables of a function is __private. All function
   // arguments shall be in the __private address space.
-  if (State.getSema().getLangOpts().OpenCLVersion <= 120) {
+#if INTEL_CUSTOMIZATION
+  bool IsChannel =
+      State.getSema().Context.getBaseElementType(T)->isChannelType();
+
+  if (State.getSema().getLangOpts().OpenCLVersion <= 120 && !IsChannel) {
+#endif // INTEL_CUSTOMIZATION
       ImpAddr = LangAS::opencl_private;
   } else {
     // If address space is not set, OpenCL 2.0 defines non private default

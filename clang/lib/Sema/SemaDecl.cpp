@@ -6607,7 +6607,7 @@ void Sema::DeclareOCLChannelBuiltins(QualType ChannelTy, Scope *S,
   if (getLangOpts().OpenCLVersion >= 200) {
     createNBReadChannelBuiltinDecl(LangAS::opencl_generic);
   } else {
-    createNBReadChannelBuiltinDecl(LangAS::Default);
+    createNBReadChannelBuiltinDecl(LangAS::opencl_private);
     createNBReadChannelBuiltinDecl(LangAS::opencl_local);
     createNBReadChannelBuiltinDecl(LangAS::opencl_global);
   }
@@ -7806,7 +7806,10 @@ void Sema::CheckVariableDeclarationType(VarDecl *NewVD) {
     // address space.
     if (NewVD->isFileVarDecl() || NewVD->isStaticLocal() ||
         NewVD->hasExternalStorage()) {
-      if (!T->isSamplerT() &&
+#if INTEL_CUSTOMIZATION
+      bool IsChannel = Context.getBaseElementType(T)->isChannelType();
+      if (!T->isSamplerT() && !IsChannel &&
+#endif // INTEL_CUSTOMIZATION
           !(T.getAddressSpace() == LangAS::opencl_constant ||
             (T.getAddressSpace() == LangAS::opencl_global &&
              getLangOpts().OpenCLVersion == 200))) {
