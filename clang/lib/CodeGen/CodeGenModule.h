@@ -664,7 +664,7 @@ public:
 
   /// getTBAAVTablePtrAccessInfo - Get the TBAA information that describes an
   /// access to a virtual table pointer.
-  TBAAAccessInfo getTBAAVTablePtrAccessInfo();
+  TBAAAccessInfo getTBAAVTablePtrAccessInfo(llvm::Type *VTablePtrType);
 
   llvm::MDNode *getTBAAStructInfo(QualType QTy);
 
@@ -688,8 +688,9 @@ public:
   /// getTBAAInfoForSubobject - Get TBAA information for an access with a given
   /// base lvalue.
   TBAAAccessInfo getTBAAInfoForSubobject(LValue Base, QualType AccessType) {
-    if (Base.getTBAAInfo().isMayAlias())
-      return TBAAAccessInfo::getMayAliasInfo();
+    TBAAAccessInfo TBAAInfo = Base.getTBAAInfo();
+    if (TBAAInfo.isMayAlias() || TBAAInfo.isUnionMember())
+      return TBAAInfo;
     return getTBAAAccessInfo(AccessType);
   }
 
