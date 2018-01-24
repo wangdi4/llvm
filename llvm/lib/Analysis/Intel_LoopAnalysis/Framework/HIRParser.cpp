@@ -2393,6 +2393,24 @@ const Value *HIRParser::getHeaderPhiUpdateVal(const PHINode *Phi) const {
   return getHeaderPhiOperand(Phi, false);
 }
 
+static bool hasNonGEPAccess(const Instruction *AddRecPhi,
+                            const Instruction *PhiUpdateInst) {
+  auto Inst = PhiUpdateInst;
+
+  // Trace pointers starting from PhiUpdateInst until we reach AddRecPhi.
+  while (Inst != AddRecPhi) {
+    if (auto GEPInst = dyn_cast<GetElementPtrInst>(Inst)) {
+      Inst = cast<Instruction>(GEPInst->getPointerOperand());
+    } else {
+      // Some other kind of instruction is involved, probably a bitcast
+      // instruction.
+      return true;
+    }
+  }
+
+  return false;
+}
+
 CanonExpr *HIRParser::createHeaderPhiIndexCE(const PHINode *Phi,
                                              unsigned Level) {
   auto UpdateVal = getHeaderPhiUpdateVal(Phi);
@@ -2405,25 +2423,37 @@ CanonExpr *HIRParser::createHeaderPhiIndexCE(const PHINode *Phi,
   // UpdateSCEV : {(%ptr + 4),+,4)
   // StrideSCEV : 4
   auto StrideSCEV = SE.getMinusSCEV(UpdateSCEV, PhiSCEV);
-
-  auto IndexTy = Type::getIntNTy(
-      getContext(), getDataLayout().getTypeSizeInBits(Phi->getType()));
+  auto StrideTy = StrideSCEV->getType();
+  assert(StrideTy->isIntegerTy() && "stride is not an integer!");
 
   // Create index as {0,+,stride}
-  auto InitSCEV = SE.getConstant(IndexTy, 0);
+  auto InitSCEV = SE.getConstant(StrideTy, 0);
   auto IndexSCEV =
       SE.getAddRecExpr(InitSCEV, StrideSCEV, LI.getLoopFor(Phi->getParent()),
                        cast<SCEVAddRecExpr>(PhiSCEV)->getNoWrapFlags());
 
-  auto IndexCE = getCanonExprUtils().createCanonExpr(IndexTy);
+  std::unique_ptr<CanonExpr> IndexCE(
+      getCanonExprUtils().createCanonExpr(StrideTy));
 
   // Disable cast hiding to prevent possible merging issues.
-  if (!parseRecursive(IndexSCEV, IndexCE, Level, true, true, true)) {
-    getCanonExprUtils().destroy(IndexCE);
+  if (!parseRecursive(IndexSCEV, IndexCE.get(), Level, true, true, true)) {
     return nullptr;
   }
 
-  return IndexCE;
+  auto PhiTy = Phi->getType();
+
+  // Divide by element size to convert byte offset to number of elements.
+  IndexCE->divide(getElementSize(PhiTy));
+  IndexCE->simplify(true);
+
+  // Bail out if element size does not divide stride evenly and Phi has an
+  // unusual access pattern.
+  if ((IndexCE->getDenominator() != 1) &&
+      hasNonGEPAccess(Phi, cast<Instruction>(UpdateVal))) {
+    return nullptr;
+  }
+
+  return IndexCE.release();
 }
 
 void HIRParser::mergeIndexCE(CanonExpr *IndexCE1, const CanonExpr *IndexCE2) {
@@ -2724,7 +2754,6 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
 
   // A phi can be initialized using another phi so we should trace back.
   do {
-    Type *BaseTy = CurBasePhi->getType();
     const GEPOperator *InitGEPOp = nullptr;
     CanonExpr *IndexCE = nullptr;
 
@@ -2736,14 +2765,6 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
       if (RecSCEV->isAffine() &&
           (BaseVal = getValidPhiBaseVal(PhiInitVal, &InitGEPOp))) {
         IndexCE = createHeaderPhiIndexCE(CurBasePhi, Level);
-
-        if (IndexCE) {
-          unsigned ElementSize = getElementSize(BaseTy);
-
-          // Normalize with respect to element size.
-          IndexCE->divide(ElementSize);
-          IndexCE->simplify(true);
-        }
       }
 
       // Use no wrap flags to set inbounds property.
@@ -2756,7 +2777,8 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
       BaseVal = CurBasePhi;
 
       auto OffsetType = Type::getIntNTy(
-          getContext(), getDataLayout().getTypeSizeInBits(BaseTy));
+          getContext(),
+          getDataLayout().getTypeSizeInBits(CurBasePhi->getType()));
       IndexCE = getCanonExprUtils().createCanonExpr(OffsetType);
     }
 
