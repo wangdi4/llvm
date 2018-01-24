@@ -1,4 +1,5 @@
-; RUN: opt < %s -O2 -force-vector-interleave=2 -force-vector-width=4 -debug-only=loop-vectorize -S 2>&1 | FileCheck %s
+; INTEL - Enable loop vectorizer as it is needed.
+; RUN: opt < %s -enable-lv -O2 -force-vector-interleave=2 -force-vector-width=4 -debug-only=loop-vectorize -S 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 
 ; CHECK: LV: Checking a loop in "foo"

@@ -59,3 +59,106 @@ bb9:                                              ; preds = %bb7
 bb10:                                             ; preds = %bb7
   br label %bb1
 }
+
+; This test case crashed threading sw.bb to sw.bb5. We cloned for.inc, but
+; deleted the only incoming value for the phi there. This created an empty
+; phi that got erased and invalidated an iterator. We no longer erase empty
+; phis, preventing the invalidation.
+
+@g_1 = external local_unnamed_addr global i32, align 4
+@g_2 = external local_unnamed_addr global i32, align 4
+
+define void @_Z3foov() {
+; CHECK-LABEL: @_Z3foov(
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    [[TMP0:%.*]] = load i32, i32* @g_2, align 4
+; CHECK-NEXT:    switch i32 [[TMP0]], label [[SW_EPILOG:%.*]] [
+; CHECK-NEXT:    i32 0, label [[SW_BB:%.*]]
+; CHECK-NEXT:    i32 2, label [[SW_BB]]
+; CHECK-NEXT:    ]
+; CHECK:       sw.bb:
+; CHECK-NEXT:    [[TMP1:%.*]] = load i32, i32* @g_1, align 4
+; CHECK-NEXT:    [[TOBOOL:%.*]] = icmp eq i32 [[TMP1]], 0
+; CHECK-NEXT:    br i1 [[TOBOOL]], label [[FOR_COND_THREAD:%.*]], label [[IF_THEN:%.*]]
+; CHECK:       for.cond.thread:
+; CHECK-NEXT:    [[TOBOOL21:%.*]] = icmp eq i32 [[TMP0]], 0
+; CHECK-NEXT:    br i1 [[TOBOOL21]], label [[CLEANUP12:%.*]], label [[IF_THEN3_THREAD:%.*]]
+; CHECK:       if.then3.thread:
+; CHECK-NEXT:    br label [[SW_BB5:%.*]]
+; CHECK:       if.then:
+; CHECK-NEXT:    unreachable
+; CHECK:       sw.epilog:
+; CHECK-NEXT:    [[DOTPR:%.*]] = load i32, i32* @g_1, align 4
+; CHECK-NEXT:    br label [[FOR_COND:%.*]]
+; CHECK:       for.cond:
+; CHECK-NEXT:    [[TOBOOL2:%.*]] = icmp eq i32 [[TMP0]], 0
+; CHECK-NEXT:    [[OR_COND:%.*]] = or i1 false, [[TOBOOL2]]
+; CHECK-NEXT:    br i1 [[OR_COND]], label [[CLEANUP12]], label [[IF_THEN3:%.*]]
+; CHECK:       if.then3:
+; CHECK-NEXT:    switch i32 [[DOTPR]], label [[CLEANUP10_THREAD:%.*]] [
+; CHECK-NEXT:    i32 0, label [[SW_BB5]]
+; CHECK-NEXT:    i32 1, label [[FOR_INC:%.*]]
+; CHECK-NEXT:    ]
+; CHECK:       sw.bb5:
+; CHECK-NEXT:    br label [[CLEANUP10_THREAD]]
+; CHECK:       cleanup10.thread:
+; CHECK-NEXT:    br label [[CLEANUP12]]
+; CHECK:       for.inc:
+; CHECK-NEXT:    [[CLEANUP_DEST_SLOT_1:%.*]] = phi i32 [ 5, [[IF_THEN3]] ]
+; CHECK-NEXT:    br label [[FOR_COND]]
+; CHECK:       cleanup12:
+; CHECK-NEXT:    ret void
+;
+entry:
+  %0 = load i32, i32* @g_2, align 4
+  switch i32 %0, label %sw.epilogthread-pre-split [
+  i32 0, label %sw.bb
+  i32 2, label %sw.bb
+  ]
+
+sw.bb:                                            ; preds = %entry, %entry
+  %1 = load i32, i32* @g_1, align 4
+  %tobool = icmp eq i32 %1, 0
+  br i1 %tobool, label %sw.epilog, label %if.then
+
+if.then:                                          ; preds = %sw.bb
+  unreachable
+
+sw.epilogthread-pre-split:                        ; preds = %entry
+  %.pr = load i32, i32* @g_1, align 4
+  br label %sw.epilog
+
+sw.epilog:                                        ; preds = %sw.epilogthread-pre-split, %sw.bb
+  %2 = phi i32 [ %.pr, %sw.epilogthread-pre-split ], [ %1, %sw.bb ]
+  br label %for.cond
+
+for.cond:                                         ; preds = %for.inc, %sw.epilog
+  %tobool2 = icmp eq i32 %0, 0
+  %or.cond = or i1 false, %tobool2
+  br i1 %or.cond, label %cleanup12, label %if.then3
+
+if.then3:                                         ; preds = %for.cond
+  switch i32 %2, label %sw.epilog8 [
+  i32 0, label %sw.bb5
+  i32 1, label %for.inc
+  ]
+
+sw.bb5:                                           ; preds = %if.then3
+  br label %cleanup10.thr_comm
+
+sw.epilog8:                                       ; preds = %if.then3
+  br label %cleanup10.thr_comm
+
+cleanup10.thr_comm:                               ; preds = %sw.bb5, %sw.epilog8
+  br label %cleanup10.thread
+
+cleanup10.thread:                                 ; preds = %cleanup10.thr_comm
+  br label %cleanup12
+
+for.inc:                                          ; preds = %if.then3
+  %cleanup.dest.slot.1 = phi i32 [ 5, %if.then3 ]
+  br label %for.cond
+
+cleanup12:                                        ; preds = %cleanup10.thread, %for.cond
+  ret void
+}

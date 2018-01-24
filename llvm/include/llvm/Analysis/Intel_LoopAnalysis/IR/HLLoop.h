@@ -18,10 +18,10 @@
 
 #include "llvm/ADT/SmallVector.h"
 
-#include "llvm/IR/InstrTypes.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLDDNode.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLIf.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/RegDDRef.h"
+#include "llvm/IR/InstrTypes.h"
 
 namespace llvm {
 
@@ -695,10 +695,16 @@ public:
   }
 
   /// Set or replace !llvm.loop metadata.
-  void setLoopMetadata(MDNode *MD) { LoopMetadata = MD; }
+  void setLoopMetadata(MDNode *MD) {
+    assert(MD && "MD is null, use clearLoopMetadata() instead!");
+    LoopMetadata = MD;
+  }
 
   /// Returns !llvm.loop metadata associated with the Loop.
   MDNode *getLoopMetadata() const { return LoopMetadata; }
+
+  /// Clear all metadata from !llvm.loop MDNode.
+  void clearLoopMetadata() { LoopMetadata = nullptr; }
 
   /// Add a list of metadata \p MDs to loops !llvm.loop MDNode.
   ///
@@ -710,8 +716,33 @@ public:
   /// Remove !llvm.loop metadata that starts with \p ID.
   void removeLoopMetadata(StringRef ID) { addRemoveLoopMetadataImpl({}, &ID); }
 
-  /// Clear all metadata from !llvm.loop MDNode.
-  void clearLoopMetadata() { setLoopMetadata(nullptr); }
+  /// Documentation for clang loop pragmas-
+  /// http://clang.llvm.org/docs/LanguageExtensions.html#extensions-for-loop-hint-optimizations
+
+  /// Returns true if loop has pragma to enable complete or general unrolling.
+  bool hasUnrollEnablingPragma() const;
+
+  /// Returns true if loop has pragma to enable complete unrolling.
+  bool hasCompleteUnrollEnablingPragma() const;
+
+  /// Returns true if loop has pragma to disable complete unrolling.
+  bool hasCompleteUnrollDisablingPragma() const;
+
+  /// Returns true if loop has pragma to enable general unrolling.
+  bool hasGeneralUnrollEnablingPragma() const;
+
+  /// Returns true if loop has pragma to disable general unrolling.
+  bool hasGeneralUnrollDisablingPragma() const;
+
+  /// Returns true if loop has pragma to enable unroll & jam.
+  bool hasUnrollAndJamEnablingPragma() const;
+
+  /// Returns true if loop has pragma to disable unroll & jam.
+  bool hasUnrollAndJamDisablingPragma() const;
+
+  /// Returns unroll count specified through a pragma if present, othweise
+  /// returns 0.
+  unsigned getUnrollPragmaCount() const;
 
   uint64_t getMaxTripCountEstimate() const { return MaxTripCountEstimate; }
 

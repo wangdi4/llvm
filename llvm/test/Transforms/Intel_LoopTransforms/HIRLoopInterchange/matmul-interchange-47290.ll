@@ -1,6 +1,6 @@
 ; RUN: opt -hir-ssa-deconstruction -disable-output -hir-runtime-dd -hir-loop-interchange -debug-only=hir-loop-interchange -scoped-noalias < %s 2>&1 | FileCheck %s
 
-; REQUIRE: asserts
+; REQUIRES: asserts
 
 ; Before:
 ; BEGIN REGION { }

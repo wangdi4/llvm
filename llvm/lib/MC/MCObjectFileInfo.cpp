@@ -594,6 +594,8 @@ void MCObjectFileInfo::initELFMCObjectFileInfo(const Triple &T, bool Large) {
 
   EHFrameSection =
       Ctx->getELFSection(".eh_frame", EHSectionType, EHSectionFlags);
+
+  StackSizesSection = Ctx->getELFSection(".stack_sizes", ELF::SHT_PROGBITS, 0);
 }
 
 void MCObjectFileInfo::initCOFFMCObjectFileInfo(const Triple &T) {
@@ -653,13 +655,13 @@ void MCObjectFileInfo::initCOFFMCObjectFileInfo(const Triple &T) {
                                        COFF::IMAGE_SCN_CNT_INITIALIZED_DATA |
                                        COFF::IMAGE_SCN_MEM_READ),
                           SectionKind::getMetadata());
-
-//***INTEL
+#if INTEL_CUSTOMIZATION
   COFFDebugTypesSection =
-    Ctx->getCOFFSection(".debug$T", COFF::IMAGE_SCN_MEM_DISCARDABLE |
-                                    COFF::IMAGE_SCN_CNT_INITIALIZED_DATA |
-                                    COFF::IMAGE_SCN_MEM_READ,
+      Ctx->getCOFFSection(".debug$T", COFF::IMAGE_SCN_MEM_DISCARDABLE |
+                                      COFF::IMAGE_SCN_CNT_INITIALIZED_DATA |
+                                      COFF::IMAGE_SCN_MEM_READ,
                           SectionKind::getMetadata());
+#endif // INTEL_CUSTOMIZATION
 
   DwarfAbbrevSection = Ctx->getCOFFSection(
       ".debug_abbrev",

@@ -255,6 +255,13 @@ bool VPlanDriverBase<LoopType>::processFunction(
     Function &Fn, WRegionCollection::InputIRKind IR) {
 
   TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(Fn);
+
+  // We cannot rely on compiler driver not invoking vectorizer for
+  // non-vector targets. Ensure vectorizer won't cause any issues for
+  // such targets.
+  if (TTI->getRegisterBitWidth(true) == 0)
+    return false;
+
   TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
 
   assert(!(VPlanVectCand && VPlanConstrStressTest) &&
@@ -399,12 +406,11 @@ void VPlanDriver::getAnalysisUsage(AnalysisUsage &AU) const {
 }
 
 bool VPlanDriver::runOnFunction(Function &Fn) {
+  if (skipFunction(Fn))
+    return false;
 
   DEBUG(dbgs() << "VPlan LLVM-IR Driver for Function: " << Fn.getName()
                << "\n");
-
-  if (skipFunction(Fn))
-    return false;
 
   SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
@@ -602,6 +608,8 @@ void VPlanDriverHIR::getAnalysisUsage(AnalysisUsage &AU) const {
 }
 
 bool VPlanDriverHIR::runOnFunction(Function &Fn) {
+  if (skipFunction(Fn))
+    return false;
 
   DEBUG(dbgs() << "VPlan HIR Driver for Function: " << Fn.getName() << "\n");
 

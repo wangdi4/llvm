@@ -2396,7 +2396,7 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
                 PN->getIncomingBlock(i) != RegionBottom)
               PN->setIncomingBlock(i, BlockMapping[PN->getIncomingBlock(i)]);
             else
-              PN->removeIncomingValue(i);
+              PN->removeIncomingValue(i, /*DeletePHIIfEmpty*/false);
           }
         }
 

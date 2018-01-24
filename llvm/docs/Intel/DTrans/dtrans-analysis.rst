@@ -138,11 +138,86 @@ optimization. This flag covers multiple casting problems, including casting of
 pointers from one type to another and casting of pointers to fields within a
 structure to other types.
 
+BadPtrManipulation
+~~~~~~~~~~~~~~~~~~
+This indicates that a pointer to an aggregate type was manipulated to compute
+an address that is not the address of a field within the type or otherwise
+couldn't be understood. It means that the program has an arbitrary pointer to
+memory within an allocated buffer that DTrans will not be able to reliably
+recreate if the allocation is transformed.
+
+AmbiguousGEP
+~~~~~~~~~~~~
+This indicates that an i8* value that is known to alias to multiple types is
+passed to a GetElementPtr instruction. The GetElementPointer instruction can
+be used to compute an offset from an i8* base address, but if the i8* may
+refer to multiple different aggregate types (for instance, because of a select
+or PHI node) DTrans cannot reliably determine the element that is being
+referenced.
+
 UnhandledUse
 ~~~~~~~~~~~~
 This is a catch-all flag that will be used to mark any usage pattern that we
 don't specifically recognize. The use might actually be safe or unsafe, but we
 will conservatively assume it is unsafe.
+
+
+Local Pointer Type Analysis
+---------------------------
+In order to sufficiently analyze the use of a pointer value, it is often
+necessary to have additional information about the pointer beyond what is
+available by directly examining the value's LLVM type. Specifically, we need to
+track whether a given pointer is known to point to other types and we need to
+track whether a given pointer points to a field of an aggregate type.
+
+This local analysis is not intended as a complete and robust alias analysis.
+Rather, it offers a way to track local type transitions without having to trace
+back the use-def chain every time the information is required.
+
+One example where this is needed is when analyzing a bitcast where an i8* value
+is cast as a pointer to an aggregate type. This is a common occurance in LLVM.
+However, if we can not specifically prove that the source pointer is a known
+pointer to the destination type, we must treat this as an unsafe cast (for the
+purposes of DTrans optimizations). Consider the following IR:
+
+.. code-block:: llvm
+
+  define %struct.S* @f(%struct.S* %p) {
+  entry:
+    %origS = bitcast %struct.S* %p to i8*
+    %isNull = icmp eq %struct.S* %p, null
+    br i1 %flag, label %new, label %end
+
+  new:
+    %newS = call i8* @malloc(i64 16)
+    br label %end
+
+  end:
+    %tmp = phi i8* [%origS, %entry], [%newS, %new]
+    %ret = bitcast i8* tmp to %struct.S*
+    ret %ret
+  }
+
+In this example, the bitcast at the %ret value is safe because the input value
+is either the result of casting a %struct.S point to an i8* or the result of
+a safe allocation (assuming 16 is a multiple of the size of %struct.S). Rather
+than include all of the logic necessary to prove this relationship in the
+bitcast analysis handling, we use a helper class (LocalPointerAnalyzer) that
+maintains a map of previously analyzed values to an object with the necessary
+information about the values (LocalPointerInfo).
+
+When the LocalPointerAnalyzer object is asked for the LocalPointerInfo for
+a value, it will first check its map and if the information is available and
+indicates that previous analysis was complete, it will just return the existing
+information. If there was no previous entry for the value in the map, a default
+LocalPointerInfo object will be constructed with a flag indicating analysis
+has not been performed. In this case, the LocalPointerAnalyzer object will
+follow the use-chain from the value to its local source (either a function
+argument, a global value or a local instruction that defined the pointer) and
+populate the LocalPointerInfo to be returned.
+
+**Field pointer tracking is not yet implemented.**
+
 
 Instruction Handling
 --------------------
@@ -232,7 +307,23 @@ structure and write a value to the second field might look like this:
 The DTransAnalysis pass must determine that %p is an alias of a pointer to
 an aggregate type (based on the subsequent bitcast) and use the type
 information and DataLayout to determine which field is being accessed in this
-way and track the field usage. **This is not yet implemented.**
+way and track the field usage.
+
+Finally, a GetElementPtr instruction can be used to compute an offset from
+a pointer to treat the pointer as a dynamic array. This occurs when a GEP
+instruction is used with a pointer type other than i8* and a single index
+operand. A typical use will look like this:
+
+.. code-block:: llvm
+
+  %size = mul i64 %numElems, <sizeof struct.S>
+  %p = call i8* @malloc(i64 %size)
+  %p_S bitcast i8* %p to %struct.S*
+  %p_S_3 = getelementptr %struct.S, %struct.S* %p, i64 3
+  ...
+
+The index argument in this case can be a non-constant value. The DTransAnalysis
+will recognize this as a safe use.
 
 
 Bitcast
@@ -241,7 +332,34 @@ Bitcast instructions are analyzed to determine if the value being cast points
 to a type of interest or is a pointer to some field/element in a type of
 interest. If it does, the uses of the bitcast must be examined to determine
 whether or not the use might present a safety issue for some DTrans
-optimization. **This is not yet implemented.**
+optimization.
+
+If the destination type of the bitcast is a type of interest and the source
+value is an i8* value, the cast is only legal if one of the following
+conditions are met:
+
+1. The source value is the result of an allocation call.
+2. The source value can be proved to locally alias to the destination type and
+   is not known to locally alias to any other type. (See `Local Pointer Type
+   Analysis`_.)
+3. The destination type points to the type of the first element in an aggregate
+   type to which the value is known to alias locally.
+
+If the destination type is a type of interest and the source value is not an
+i8* value, the cast can only be safe if the source value is a pointer to an
+aggregate type and the destination type points to the type of the first element
+in the aggregate type pointed to by the source value.
+
+If the destination type is not a type of interest but the source value is a
+value of interest, the cast is only legal if one of the following conditions is
+met:
+
+1. The destination type is i8*.
+2. The source value is a pointer to a pointer and the destination type is
+   a pointer to a pointer-sized integer (pointers are often stored to memory
+   this way in LLVM IR).
+3. The destination type points to the type of the first element in an aggregate
+   type to which the source value is known to alias locally.
 
 
 PtrToInt

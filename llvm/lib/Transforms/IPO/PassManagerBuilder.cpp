@@ -65,6 +65,10 @@ using namespace llvm;
 static cl::opt<bool>
 EarlyJumpThreading("early-jump-threading", cl::init(true), cl::Hidden,
                    cl::desc("Run the early jump threading pass"));
+
+static cl::opt<bool>
+EnableLV("enable-lv", cl::init(false), cl::Hidden,
+         cl::desc("Enable community loop vectorizer"));
 #endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool>
@@ -130,7 +134,7 @@ static cl::opt<bool> EnableVPlanDriver("vplan-driver", cl::init(false),
                                        cl::Hidden,
                                        cl::desc("Enable VPlan Driver"));
 
-static cl::opt<bool> EnableVPlanDriverHIR("vplan-driver-hir", cl::init(false),
+static cl::opt<bool> EnableVPlanDriverHIR("vplan-driver-hir", cl::init(true),
                                        cl::Hidden,
                                        cl::desc("Enable VPlan Driver"));
 
@@ -283,6 +287,7 @@ PassManagerBuilder::PassManagerBuilder() {
     PerformThinLTO = false;
     DivergentTarget = false;
 #if INTEL_CUSTOMIZATION
+    DisableIntelProprietaryOpts = false;
     OffloadTargets = VPOOffloadTargets;
 #endif // INTEL_CUSTOMIZATION
 }
@@ -371,7 +376,7 @@ void PassManagerBuilder::populateFunctionPassManager(
 
 #if INTEL_CUSTOMIZATION
   FPM.add(createXmainOptLevelPass(OptLevel));
-  if (RunVPOOpt && RunVPOParopt) {
+  if (RunVPOOpt && RunVPOParopt && !DisableIntelProprietaryOpts) {
     if (OptLevel == 0) {
       // To handle OpenMP we also need SROA and EarlyCSE, but they are disabled
       // at -O0, so we explicitly add them to the pass pipeline here.
@@ -607,7 +612,7 @@ void PassManagerBuilder::populateModulePassManager(
     if (PrepareForThinLTO)
       MPM.add(createNameAnonGlobalPass());
 #if INTEL_CUSTOMIZATION
-    if (RunVPOOpt) {
+    if (RunVPOOpt && !DisableIntelProprietaryOpts) {
       if (RunVecClone) {
         MPM.add(createVecClonePass());
       }
@@ -620,7 +625,7 @@ void PassManagerBuilder::populateModulePassManager(
 
 #if INTEL_CUSTOMIZATION
   // Process OpenMP directives at -O1 and above
-  if (RunVPOOpt)
+  if (RunVPOOpt & !DisableIntelProprietaryOpts)
     addVPOPasses(MPM, false);
 #endif // INTEL_CUSTOMIZATION
 
@@ -818,8 +823,11 @@ void PassManagerBuilder::populateModulePassManager(
   // llvm.loop.distribute=true or when -enable-loop-distribute is specified.
   MPM.add(createLoopDistributePass());
 
-  MPM.add(createLoopVectorizePass(DisableUnrollLoops, LoopVectorize));
-  } // INTEL
+#if INTEL_CUSTOMIZATION
+  if (EnableLV)
+    MPM.add(createLoopVectorizePass(DisableUnrollLoops, LoopVectorize));
+  }
+#endif  // INTEL_CUSTOMIZATION
   // Eliminate loads by forwarding stores from the previous iteration to loads
   // of the current iteration.
   MPM.add(createLoopLoadEliminationPass());
@@ -1090,11 +1098,14 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   if (EnableLoopInterchange)
     PM.add(createLoopInterchangePass());
 
-  // INTEL - HIR complete unroll pass replaces LLVM's simple loop unroll pass.
-  if (!DisableUnrollLoops && !isLoopOptEnabled()) // INTEL
+#if INTEL_CUSTOMIZATION
+  // HIR complete unroll pass replaces LLVM's simple loop unroll pass.
+  if (!DisableUnrollLoops && !isLoopOptEnabled())
     PM.add(createSimpleLoopUnrollPass(OptLevel));   // Unroll small loops
-  addLoopOptAndAssociatedVPOPasses(PM);     // INTEL
-  PM.add(createLoopVectorizePass(true, LoopVectorize));
+  addLoopOptAndAssociatedVPOPasses(PM);
+  if (EnableLV)
+    PM.add(createLoopVectorizePass(true, LoopVectorize));
+#endif  // INTEL_CUSTOMIZATION
   // The vectorizer may have significantly shortened a loop body; unroll again.
   if (!DisableUnrollLoops)
     PM.add(createLoopUnrollPass(OptLevel));
@@ -1151,7 +1162,8 @@ void PassManagerBuilder::addLateLTOOptimizationPasses(
 #if INTEL_CUSTOMIZATION // HIR passes
 
 bool PassManagerBuilder::isLoopOptEnabled() const {
-  if ((RunLoopOpts || RunLoopOptFrameworkOnly) && (OptLevel >= 2) &&
+  if (!DisableIntelProprietaryOpts &&
+      (RunLoopOpts || RunLoopOptFrameworkOnly) && (OptLevel >= 2) &&
       !PerformThinLTO)
     return true;
 
@@ -1266,12 +1278,20 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
 
 void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM,
                                       bool RunVec) const {
+  // We should never get here if proprietary options are disabled,
+  // but it's a release-mode feature so we can't just assert.
+  if (DisableIntelProprietaryOpts)
+    return;
+
   if (RunVPOParopt) {
     PM.add(createVPOCFGRestructuringPass());
     PM.add(createVPOParoptPass(RunVPOParopt, OffloadTargets));
   }
   // TODO: Temporal hook-up for VPlan VPO Vectorizer
   if (EnableVPlanDriver && RunVec) {
+    // We are using the loop vectorize pass to generate tests for VPlan LLVM IR
+    // path. Do not use EnableLV to check if loop vectorize pass needs to be
+    // created.
     PM.add(createLoopVectorizePass(true, LoopVectorize, true));
     PM.add(createVPOCFGRestructuringPass());
     PM.add(createVPlanDriverPass());
@@ -1284,6 +1304,10 @@ void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM,
 
 void PassManagerBuilder::addLoopOptAndAssociatedVPOPasses(
      legacy::PassManagerBase &PM) const {
+  // We should never get here if proprietary options are disabled,
+  // but it's a release-mode feature so we can't just assert.
+  if (DisableIntelProprietaryOpts)
+    return;
 
   if (RunVPOOpt && RunVecClone) {
     PM.add(createVecClonePass());
