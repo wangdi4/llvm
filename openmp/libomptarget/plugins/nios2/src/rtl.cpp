@@ -86,12 +86,16 @@
 #endif // EM_ALTERA_NIOS2
 
 #ifdef OMPTARGET_DEBUG
+static int DebugLevel = 0;
+
 #define DP(...)                                                            \
-  {                                                                        \
-    fprintf(stderr, "Nios2 (HOST) --> ");                                  \
-    fprintf(stderr, __VA_ARGS__);                                          \
-    fflush(nullptr);                                                       \
-  }
+  do { \
+    if (DebugLevel > 0) { \
+      fprintf(stderr, "Nios2 (HOST) --> ");                                \
+      fprintf(stderr, __VA_ARGS__);                                        \
+      fflush(nullptr);                                                     \
+    } \
+  } while (false)
 #else
 #define DP(...)                                                            \
   {}
@@ -387,7 +391,7 @@ public:
     Symtab* toSymtab() {
       return getType() == Type::Symtab ? static_cast<Symtab*>(this) : nullptr;
     }
-    
+
     Strtab* toStrtab() {
       return getType() == Type::Strtab ? static_cast<Strtab*>(this) : nullptr;
     }
@@ -1653,6 +1657,11 @@ DeviceTy& getDevice() {
   static std::once_flag InitFlag;
 
   std::call_once(InitFlag, [&]() {
+#ifdef OMPTARGET_DEBUG
+    if (char *Str = getenv("LIBOMPTARGET_DEBUG")) {
+      DebugLevel = std::stoi(Str);
+    }
+#endif // OMPTARGET_DEBUG
     if (const char *Str = getenv("NIOS2_OFFLOAD_MEMORY")) {
       if (strcmp(Str, "L3") == 0) {
         DeviceMemType = MSOF_MEM_L3;
@@ -1759,16 +1768,6 @@ int32_t __tgt_rtl_run_target_region(
   ptrdiff_t *Offsets,
   int32_t NumArgs
 ) {
-  // Remove an extra nullptr that is unconditionally added by libomptarget
-  // to the list of function arguments.
-  if (NumArgs > 0) {
-    assert(Args[NumArgs-1] == nullptr && "unexpected last argument");
-    if (--NumArgs == 0) {
-      Args = nullptr;
-      Offsets = nullptr;
-    }
-  }
-
   // Cast arguments to device pointers.
   std::vector<DeviceTy::PtrTy> TgtArgs(NumArgs);
   for (int II = 0; II < NumArgs; ++II) {

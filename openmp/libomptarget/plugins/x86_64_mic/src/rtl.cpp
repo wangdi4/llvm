@@ -22,6 +22,7 @@
 #include <pthread.h>
 #include <vector>
 #include <sstream>
+#include <string>
 
 #include <intel-coi/source/COIEngine_source.h>
 #include <intel-coi/source/COIProcess_source.h>
@@ -32,12 +33,16 @@
 #include "utils.h"
 
 #ifdef OMPTARGET_DEBUG
+static int DebugLevel = 0;
+
 #define DP(...)                                                            \
-  {                                                                        \
-    fprintf(stderr, "x86_64_mic (HOST) --> ");                             \
-    fprintf(stderr, __VA_ARGS__);                                          \
-    fflush(nullptr);                                                       \
-  }
+  do { \
+    if (DebugLevel > 0) { \
+      fprintf(stderr, "x86_64_mic (HOST) --> ");                           \
+      fprintf(stderr, __VA_ARGS__);                                        \
+      fflush(nullptr);                                                     \
+    } \
+  } while (false)
 #else
 #define DP(...)                                                            \
   {}
@@ -47,7 +52,7 @@ namespace {
 
 // Name of ELF section where compiler puts entry table
 const char * const EntryTableSectionName = ".omp_offloading.entries";
-  
+
 // target_main.dump is generated at build time from the target_main executable
 const uint8_t TargetBinary[] = {
 #include "target_main.dump"
@@ -343,7 +348,7 @@ public:
         sizeof(TargetBinary),                   // in_BinaryBufferLength
         0,                                      // in_Argc
         nullptr,                                // in_ppArgv
-        false,                                  // in_DupEnv
+        true,                                   // in_DupEnv
         nullptr,                                // in_ppAdditionalEnv
         Settings.TargetDoProxyIO,               // in_ProxyActive
         nullptr,                                // in_Reserved
@@ -978,10 +983,17 @@ DeviceInfoTy& getDeviceInfo() {
   static std::once_flag InitFlag;
 
   std::call_once(InitFlag, [&]() {
+#ifdef OMPTARGET_DEBUG
+    if (char *Str = getenv("LIBOMPTARGET_DEBUG")) {
+      DebugLevel = std::stoi(Str);
+    }
+#endif // OMPTARGET_DEBUG
     if (DeviceInfo.init()) {
-      atexit([&]() {
-        DeviceInfo.fini();
-      });
+      // TODO: Temporary disabling plugin cleanup for now because it causes a
+      // segfault originating from libcoi_host.so (needs further investigation).
+      //atexit([&]() {
+      //  DeviceInfo.fini();
+      //});
     }
   });
   return DeviceInfo;
@@ -1078,15 +1090,6 @@ int32_t __tgt_rtl_run_target_region(
   ptrdiff_t *Offsets,
   int32_t NumArgs
 ) {
-  // libomptarget unconditionally adds an extra nullptr to the list of arguments
-  // for invocation on the target.
-  if (NumArgs > 0) {
-    assert(Args[NumArgs-1] == nullptr && "unexpected last argument");
-    if (--NumArgs == 0) {
-      Args = nullptr;
-      Offsets = nullptr;
-    }
-  }
   if (!getDeviceInfo().getDevice(ID).runTargetRegion(Entry, Args, Offsets, NumArgs)) {
     return OFFLOAD_FAIL;
   }
