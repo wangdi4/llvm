@@ -48,6 +48,7 @@
 #include "llvm/Transforms/Scalar/SimpleLoopUnswitch.h"
 #include "llvm/Transforms/Vectorize.h"
 #if INTEL_CUSTOMIZATION
+#include "llvm/Transforms/Instrumentation/Intel_FunctionSplitting.h"
 #include "llvm/Transforms/Intel_DTrans/DTransOpt.h"
 #include "llvm/Transforms/Intel_VPO/VPOPasses.h"
 #include "llvm/Transforms/Intel_VPO/Vecopt/VecoptPasses.h"
@@ -211,6 +212,12 @@ static cl::opt<bool>
 static cl::opt<bool> EnableDTrans("enable-dtrans",
     cl::init(false), cl::Hidden,
     cl::desc("Enable DTrans optimizations"));
+
+// PGO based function splitting
+static cl::opt<bool> EnableFunctionSplitting("enable-function-splitting",
+  cl::init(false), cl::Hidden,
+  cl::desc("Enable function splitting optimization based on PGO data"));
+
 #endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool>
@@ -464,6 +471,15 @@ void PassManagerBuilder::addPGOInstrPasses(legacy::PassManagerBase &MPM) {
   if (OptLevel > 0)
     MPM.add(
         createPGOIndirectCallPromotionLegacyPass(false, !PGOSampleUse.empty()));
+
+#if INTEL_CUSTOMIZATION
+  // The function splitting pass uses the PGO frequency info, and only
+  // makes sense to run during profile feedback.
+  if (EnableFunctionSplitting &&
+    (!PGOInstrUse.empty() || !PGOSampleUse.empty())) {
+    MPM.add(createFunctionSplittingWrapperPass());
+  }
+#endif // INTEL_CUSTOMIZATION
 }
 void PassManagerBuilder::addFunctionSimplificationPasses(
     legacy::PassManagerBase &MPM) {

@@ -7,6 +7,9 @@ add_llvm_library(LLVMInstrumentation
   IndirectCallPromotion.cpp
   Instrumentation.cpp
   InstrProfiling.cpp
+# INTEL_CUSTOMIZATION
+  Intel_FunctionSplitting.cpp
+# end INTEL_CUSTOMIZATION
   PGOInstrumentation.cpp
   PGOMemOPSizeOpt.cpp
   SanitizerCoverage.cpp
