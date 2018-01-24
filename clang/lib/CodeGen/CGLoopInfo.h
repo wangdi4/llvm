@@ -43,6 +43,26 @@ struct LoopAttributes {
   /// \brief State of loop vectorization or unrolling.
   enum LVEnableState { Unspecified, Enable, Disable, Full };
 
+#if INTEL_CUSTOMIZATION
+  /// \brief Value for llvm.loop.coalesce.enable metadata.
+  LVEnableState LoopCoalesceEnable;
+
+  /// \brief Value for llvm.loop.coalesce.count metadata.
+  unsigned LoopCoalesceCount;
+
+  /// \brief Value for llvm.loop.ii.count metadata.
+  unsigned IICount;
+
+  /// \brief Value for llvm.loop.max_concurrency.count metadata.
+  unsigned MaxConcurrencyCount;
+
+  /// \brief Value for llvm.loop.ivdep.enable metadata.
+  LVEnableState IVDepEnable;
+
+  /// \brief Value for llvm.loop.ivdep.safelen metadata.
+  unsigned IVDepCount;
+#endif // INTEL_CUSTOMIZATION
+
   /// \brief Value for llvm.loop.vectorize.enable metadata.
   LVEnableState VectorizeEnable;
 
@@ -136,6 +156,30 @@ public:
 
   /// \brief Set the next pushed loop as parallel.
   void setParallel(bool Enable = true) { StagedAttrs.IsParallel = Enable; }
+
+#if INTEL_CUSTOMIZATION
+  /// \brief Set the next pushed loop 'coalesce.enable'
+  void setLoopCoalesceEnable() {
+    StagedAttrs.LoopCoalesceEnable = LoopAttributes::Enable;
+  }
+
+  /// \brief Set the coalesce count for the next loop pushed.
+  void setLoopCoalesceCount(unsigned C) { StagedAttrs.LoopCoalesceCount = C; }
+
+  /// \brief Set the ii count for the next loop pushed.
+  void setIICount(unsigned C) { StagedAttrs.IICount = C; }
+
+  /// \brief Set the max_concurrency count for the next loop pushed.
+  void setMaxConcurrencyCount(unsigned C) {
+    StagedAttrs.MaxConcurrencyCount = C;
+  }
+
+  /// \brief Set the next pushed loop 'ivdep.enable'
+  void setIVDepEnable() { StagedAttrs.IVDepEnable = LoopAttributes::Enable; }
+
+  /// \brief Set the safelen count for the next loop pushed.
+  void setIVDepCount(unsigned C) { StagedAttrs.IVDepCount = C; }
+#endif // INTEL_CUSTOMIZATION
 
   /// \brief Set the next pushed loop 'vectorize.enable'
   void setVectorizeEnable(bool Enable = true) {

@@ -428,6 +428,10 @@ static void initTargetOptions(llvm::TargetOptions &Options,
 
   if (LangOpts.SjLjExceptions)
     Options.ExceptionModel = llvm::ExceptionHandling::SjLj;
+  if (LangOpts.SEHExceptions)
+    Options.ExceptionModel = llvm::ExceptionHandling::WinEH;
+  if (LangOpts.DWARFExceptions)
+    Options.ExceptionModel = llvm::ExceptionHandling::DwarfCFI;
 
   Options.NoInfsFPMath = CodeGenOpts.NoInfsFPMath;
   Options.NoNaNsFPMath = CodeGenOpts.NoNaNsFPMath;
@@ -531,6 +535,11 @@ void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
     break;
   }
 #endif // INTEL_SPECIFIC_IL0_BACKEND
+
+#if INTEL_CUSTOMIZATION
+  PMBuilder.DisableIntelProprietaryOpts =
+    CodeGenOpts.DisableIntelProprietaryOpts;
+#endif // INTEL_CUSTOMIZATION
 
   PMBuilder.OptLevel = CodeGenOpts.OptimizationLevel;
   PMBuilder.SizeLevel = CodeGenOpts.OptimizeSize;
@@ -1181,7 +1190,8 @@ void clang::EmitBackendOutput(DiagnosticsEngine &Diags,
     Diags.Report(DiagID);
     return;
   }
-  if (Action == Backend_EmitBC && !CGOpts.PrepareForLTO && !LOpts.OpenCL) {
+  if (Action == Backend_EmitBC && !CGOpts.PrepareForLTO &&
+      !CGOpts.DisableIntelProprietaryOpts) {
     unsigned DiagID = Diags.getCustomDiagID(
         DiagnosticsEngine::Error, "Bitcode output is only supported with LTO.");
     Diags.Report(DiagID);

@@ -906,6 +906,25 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
     if (SemaBuiltinVAArgPackChecks(TheCall, BuiltinID))
       return ExprError();
     break;
+    // FIXME: The following likely will need to be added to a TSBuiltin once we
+    // have a target for this functionality.
+  case Builtin::BI__builtin_intel_hls_instream_tryRead:
+  case Builtin::BI__builtin_intel_hls_outstream_tryRead:
+  case Builtin::BI__builtin_intel_hls_instream_tryWrite:
+  case Builtin::BI__builtin_intel_hls_outstream_tryWrite:
+  case Builtin::BI__builtin_intel_hls_instream_read:
+  case Builtin::BI__builtin_intel_hls_outstream_read:
+  case Builtin::BI__builtin_intel_hls_instream_write:
+  case Builtin::BI__builtin_intel_hls_outstream_write:
+  case Builtin::BI__builtin_intel_hls_mm_master_init:
+  case Builtin::BI__builtin_intel_hls_mm_master_load:
+    if (!Context.getLangOpts().HLS) {
+      Diag(TheCall->getLocStart(), diag::err_hls_builtin_without_fhls);
+      return ExprError();
+    }
+    if (CheckHLSBuiltinFunctionCall(BuiltinID, TheCall))
+      return ExprError();
+    break;
 #endif // INTEL_CUSTOMIZATION
   case Builtin::BI__builtin_isgreater:
   case Builtin::BI__builtin_isgreaterequal:
@@ -2863,7 +2882,7 @@ void Sema::checkCall(NamedDecl *FDecl, const FunctionProtoType *Proto,
     // Type safety checking.
     if (FDecl) {
       for (const auto *I : FDecl->specific_attrs<ArgumentWithTypeTagAttr>())
-        CheckArgumentWithTypeTag(I, Args.data());
+        CheckArgumentWithTypeTag(I, Args, Loc);
     }
   }
 
@@ -3136,6 +3155,197 @@ static unsigned IntelTypeCoerceSizeCalc(AtomicExpr::AtomicOp p) {
     return 16;
   default: 
     return 0;
+  }
+}
+
+bool Sema::CheckHLSBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
+  bool RequiresSuccess = false;
+  switch (BuiltinID) {
+  default:
+    return false;
+  case Builtin::BI__builtin_intel_hls_instream_tryRead:
+  case Builtin::BI__builtin_intel_hls_outstream_tryRead:
+    RequiresSuccess = true;
+    LLVM_FALLTHROUGH;
+  case Builtin::BI__builtin_intel_hls_instream_tryWrite:
+  case Builtin::BI__builtin_intel_hls_outstream_tryWrite:
+  case Builtin::BI__builtin_intel_hls_instream_read:
+  case Builtin::BI__builtin_intel_hls_outstream_read:
+  case Builtin::BI__builtin_intel_hls_instream_write:
+  case Builtin::BI__builtin_intel_hls_outstream_write: {
+    if (checkArgCount(*this, TheCall, RequiresSuccess ? 9 : 8))
+      return true;
+    // Signature is: T* Pointer, int64 bufferid, int readyLatency,
+    // int bitsPerSymbol, bool firstSymbolInHighOrderBits, bool usesPackets,
+    // bool usesEmpty, bool usesValid/usesReady, <bool *success>
+
+    // First parameter permits an arbitrary pointer type, which determines the
+    // return type of this builtin.
+    Expr *PointerArg = TheCall->getArg(0);
+    const auto *Pointer = dyn_cast<PointerType>(PointerArg->getType());
+    if (!Pointer || !Pointer->getPointeeType()->isObjectType() ||
+        Pointer->getPointeeType()->isIncompleteType())
+      return Diag(PointerArg->getLocStart(), diag::err_hls_builtin_arg_mismatch)
+             << 0;
+
+    // Second paramter is a unique identifier for this stream.
+    Expr *BufferId = TheCall->getArg(1);
+    if (!BufferId->getType()->isIntegerType())
+      return Diag(BufferId->getLocStart(), diag::err_hls_builtin_arg_mismatch)
+             << 1;
+
+    // ReadyLatency, positive constant integer.
+    llvm::APSInt Result;
+    if (SemaBuiltinConstantArg(TheCall, 2, Result))
+      return true;
+    if (Result.isNegative())
+      return Diag(TheCall->getArg(2)->getLocStart(),
+                  diag::err_hls_builtin_arg_mismatch)
+             << 2;
+
+    // BitsPerSymbol, positive integer value that evenly divides Type size.
+    if (SemaBuiltinConstantArg(TheCall, 3, Result))
+      return true;
+    if (Result.isNegative() || Context.getTypeSize(Pointer->getPointeeType()) %
+                                       Result.getZExtValue() !=
+                                   0)
+      return Diag(TheCall->getArg(3)->getLocStart(),
+                  diag::err_hls_builtin_arg_mismatch)
+             << 3;
+
+    // FirstSymbolInHighOrderBits, UsesPackets, UsesEmpty, UsesValid/UsesReady,
+    // are all booleans.
+    for (int I = 4; I < 8; ++I) {
+      Expr *BoolArg = TheCall->getArg(I);
+      if (!BoolArg->getType()->isBooleanType())
+        return Diag(BoolArg->getLocStart(), diag::err_hls_builtin_arg_mismatch)
+               << 4;
+    }
+
+    // Last arg is a pointer to a boolean in the 'try' cases.
+    if (RequiresSuccess) {
+      Expr *SuccessArg = TheCall->getArg(8);
+      const auto *SuccessPointer = dyn_cast<PointerType>(SuccessArg->getType());
+      if (!SuccessPointer || !SuccessPointer->getPointeeType()->isBooleanType())
+        return Diag(PointerArg->getLocStart(),
+                    diag::err_hls_builtin_arg_mismatch)
+               << 5;
+    }
+
+    if (BuiltinID == Builtin::BI__builtin_intel_hls_instream_tryWrite ||
+        BuiltinID == Builtin::BI__builtin_intel_hls_outstream_tryWrite)
+      TheCall->setType(Context.BoolTy);
+    else if (BuiltinID == Builtin::BI__builtin_intel_hls_instream_write ||
+             BuiltinID == Builtin::BI__builtin_intel_hls_outstream_write)
+      TheCall->setType(Context.VoidTy);
+    else
+      TheCall->setType(QualType{Pointer, 0});
+    return false;
+  }
+  case Builtin::BI__builtin_intel_hls_mm_master_init:
+  case Builtin::BI__builtin_intel_hls_mm_master_load: {
+    if (checkArgCount(*this, TheCall,
+                      BuiltinID == Builtin::BI__builtin_intel_hls_mm_master_init
+                          ? 11
+                          : 12))
+      return true;
+    // Signatures are: T*, int size, bool use_socket,
+    // int dwidth, int awidth, int aspace, int latency,
+    // int maxburst, int align, int readwrite_mode, bool waitrequest,
+    // int index(load only).
+    // All are compile-time constants except T, size, use_socket, and index.
+
+    // First is the pointer type, determines return value.
+    Expr *PointerArg = TheCall->getArg(0);
+    const auto *Pointer = dyn_cast<PointerType>(PointerArg->getType());
+    if (!Pointer || !Pointer->getPointeeType()->isObjectType() ||
+        Pointer->getPointeeType()->isIncompleteType())
+      return Diag(PointerArg->getLocStart(), diag::err_hls_builtin_arg_mismatch)
+             << 0;
+    //  Size is an integer.
+    Expr *Size = TheCall->getArg(1);
+    if (!Size->getType()->isIntegerType())
+      return Diag(Size->getLocStart(), diag::err_hls_builtin_arg_mismatch) << 1;
+
+    // use_socket, boolean.
+    Expr *UseSocket = TheCall->getArg(2);
+    if (!UseSocket->getType()->isBooleanType())
+      return Diag(UseSocket->getLocStart(), diag::err_hls_builtin_arg_mismatch)
+             << 4;
+
+    llvm::APSInt Result;
+    // dwidth, constant integer, power of 2 between 8 and 1024.
+    if (SemaBuiltinConstantArg(TheCall, 3, Result))
+      return true;
+    if (Result < 2 || Result > 1024 || !Result.isPowerOf2())
+      return Diag(TheCall->getArg(3)->getLocStart(),
+                  diag::err_hls_builtin_arg_mismatch)
+             << 6;
+
+    // awidth, constant integer, 1 <= awidth <= 64
+    if (SemaBuiltinConstantArg(TheCall, 4, Result))
+      return true;
+    if (Result < 1 || Result > 64)
+      return Diag(TheCall->getArg(4)->getLocStart(),
+                  diag::err_hls_builtin_arg_mismatch)
+             << 7;
+
+    // aspace, non-negative constant integer.
+    if (SemaBuiltinConstantArg(TheCall, 5, Result))
+      return true;
+    if (Result.isNegative())
+      return Diag(TheCall->getArg(5)->getLocStart(),
+                  diag::err_hls_builtin_arg_mismatch)
+             << 2;
+
+    // latency, non-negative constant integer.
+    if (SemaBuiltinConstantArg(TheCall, 6, Result))
+      return true;
+    if (Result.isNegative())
+      return Diag(TheCall->getArg(6)->getLocStart(),
+                  diag::err_hls_builtin_arg_mismatch)
+             << 2;
+
+    // maxburst, integer between 1 and 1024 inclusive.
+    if (SemaBuiltinConstantArg(TheCall, 7, Result))
+      return true;
+    if (Result < 1 || Result > 1024)
+      return Diag(TheCall->getArg(7)->getLocStart(),
+                  diag::err_hls_builtin_arg_mismatch)
+             << 8;
+
+    // align, integer based on byte alignment, for now, just positive int.
+    if (SemaBuiltinConstantArg(TheCall, 8, Result))
+      return true;
+    if (Result.isNegative())
+      return Diag(TheCall->getArg(8)->getLocStart(),
+                  diag::err_hls_builtin_arg_mismatch)
+             << 2;
+
+    // readwrite_mode: an enum, so we'll just make sure it is a constant int.
+    if (SemaBuiltinConstantArg(TheCall, 9, Result))
+      return true;
+
+    // waitrequest: A boolean.
+    Expr *WaitRequest = TheCall->getArg(10);
+    if (!WaitRequest->getType()->isBooleanType())
+      return Diag(WaitRequest->getLocStart(),
+                  diag::err_hls_builtin_arg_mismatch)
+             << 4;
+
+    // index (load only), a user provided integer.
+    if (BuiltinID == Builtin::BI__builtin_intel_hls_mm_master_load) {
+      Expr *Index = TheCall->getArg(11);
+      if (!Index->getType()->isIntegerType())
+        return Diag(Index->getLocStart(), diag::err_hls_builtin_arg_mismatch)
+               << 1;
+    }
+
+    TheCall->setType(Context.VoidTy);
+    if (BuiltinID == Builtin::BI__builtin_intel_hls_mm_master_load)
+      TheCall->setType(QualType{Pointer, 0});
+    return false;
+  }
   }
 }
 #endif // INTEL_CUSTOMIZATION
@@ -12820,10 +13030,18 @@ static bool IsSameCharType(QualType T1, QualType T2) {
 }
 
 void Sema::CheckArgumentWithTypeTag(const ArgumentWithTypeTagAttr *Attr,
-                                    const Expr * const *ExprArgs) {
+                                    const ArrayRef<const Expr *> ExprArgs,
+                                    SourceLocation CallSiteLoc) {
   const IdentifierInfo *ArgumentKind = Attr->getArgumentKind();
   bool IsPointerAttr = Attr->getIsPointer();
 
+  // Retrieve the argument representing the 'type_tag'.
+  if (Attr->getTypeTagIdx() >= ExprArgs.size()) {
+    // Add 1 to display the user's specified value.
+    Diag(CallSiteLoc, diag::err_tag_index_out_of_range)
+        << 0 << Attr->getTypeTagIdx() + 1;
+    return;
+  }
   const Expr *TypeTagExpr = ExprArgs[Attr->getTypeTagIdx()];
   bool FoundWrongKind;
   TypeTagData TypeInfo;
@@ -12837,6 +13055,13 @@ void Sema::CheckArgumentWithTypeTag(const ArgumentWithTypeTagAttr *Attr,
     return;
   }
 
+  // Retrieve the argument representing the 'arg_idx'.
+  if (Attr->getArgumentIdx() >= ExprArgs.size()) {
+    // Add 1 to display the user's specified value.
+    Diag(CallSiteLoc, diag::err_tag_index_out_of_range)
+        << 1 << Attr->getArgumentIdx() + 1;
+    return;
+  }
   const Expr *ArgumentExpr = ExprArgs[Attr->getArgumentIdx()];
   if (IsPointerAttr) {
     // Skip implicit cast of pointer to `void *' (as a function argument).

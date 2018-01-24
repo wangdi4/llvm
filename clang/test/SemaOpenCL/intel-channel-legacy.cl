@@ -2,6 +2,10 @@
 // RUN: %clang_cc1 -x cl -cl-std=CL2.0 -triple spir-unknown-unknown -cl-ext=+cl_intel_channels -fsyntax-only -verify -D__IHC_USE_DEPRECATED_NAMES %s
 // RUN: %clang_cc1 -x cl -cl-std=CL2.0 -triple spir-unknown-unknown -cl-ext=+cl_intel_channels -fsyntax-only -verify -DUSE_LEGACY_EXT %s
 // RUN: %clang_cc1 -x cl -cl-std=CL2.0 -triple spir-unknown-unknown -cl-ext=+cl_intel_channels -fsyntax-only -verify -DUSE_LEGACY_EXT -D__IHC_USE_DEPRECATED_NAMES %s
+// RUN: %clang_cc1 -x cl -triple spir-unknown-unknown -cl-ext=+cl_intel_channels -fsyntax-only -verify %s
+// RUN: %clang_cc1 -x cl -triple spir-unknown-unknown -cl-ext=+cl_intel_channels -fsyntax-only -verify -D__IHC_USE_DEPRECATED_NAMES %s
+// RUN: %clang_cc1 -x cl -triple spir-unknown-unknown -cl-ext=+cl_intel_channels -fsyntax-only -verify -DUSE_LEGACY_EXT %s
+// RUN: %clang_cc1 -x cl -triple spir-unknown-unknown -cl-ext=+cl_intel_channels -fsyntax-only -verify -DUSE_LEGACY_EXT -D__IHC_USE_DEPRECATED_NAMES %s
 
 // expected-no-diagnostics
 

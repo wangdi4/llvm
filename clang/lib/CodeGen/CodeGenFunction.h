@@ -343,6 +343,15 @@ public:
     IntelPragmaInlineState *PreviousState;
   };
   IntelPragmaInlineState *CurrentPragmaInlineState;
+
+  class IntelIVDepArrayHandler {
+  public:
+    IntelIVDepArrayHandler(CodeGenFunction &CGF, ArrayRef<const Attr *> Attrs);
+    ~IntelIVDepArrayHandler();
+  private:
+    CodeGenFunction &CGF;
+    llvm::CallInst *CallEntry;
+  };
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_SPECIFIC_CILKPLUS
@@ -1772,6 +1781,9 @@ private:
                                 llvm::Function *Fn);
 
 #if INTEL_CUSTOMIZATION
+  /// Add metadata for HLS component functions.
+  void EmitHLSComponentMetadata(const FunctionDecl *FD, llvm::Function *Fn);
+
   // Table recording the mapping between the return pointer and
   // the correspoind tbaa for the pointer dereference.
   llvm::DenseMap<llvm::Value *, llvm::MDNode *> RetPtrMap;
@@ -2128,6 +2140,10 @@ public:
   /// ShouldXRayInstrument - Return true if the current function should be
   /// instrumented with XRay nop sleds.
   bool ShouldXRayInstrumentFunction() const;
+
+  /// AlwaysEmitXRayCustomEvents - Return true if we must unconditionally emit
+  /// XRay custom event handling calls.
+  bool AlwaysEmitXRayCustomEvents() const;
 
   /// Encode an address into a form suitable for use in a function prologue.
   llvm::Constant *EncodeAddrForUseInPrologue(llvm::Function *F,
@@ -3784,6 +3800,9 @@ public:
 
 #if INTEL_CUSTOMIZATION
   llvm::Value *EmitIntelFPGABuiltinExpr(unsigned BuiltinID, const CallExpr *E);
+  RValue EmitHLSStreamBuiltin(unsigned BuiltinID, const CallExpr *E);
+  RValue EmitHLSMemMasterBuiltin(unsigned BuiltinID, const CallExpr *E,
+                                 ReturnValueSlot ReturnValue);
 #endif // INTEL_CUSTOMIZATION
 
   llvm::Value *EmitCommonNeonBuiltinExpr(unsigned BuiltinID,

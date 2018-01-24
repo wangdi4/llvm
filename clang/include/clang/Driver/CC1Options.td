@@ -175,6 +175,12 @@ def fno_math_builtin : Flag<["-"], "fno-math-builtin">,
   HelpText<"Disable implicit builtin knowledge of math functions">;
 }
 
+// if INTEL_CUSTOMIZATION
+def disable_intel_proprietary_opts : Flag<["-"],
+  "disable-intel-proprietary-opts">,
+  HelpText<"Disable Intel proprietary optimizations">;
+// endif INTEL_CUSTOMIZATION
+
 def disable_llvm_verifier : Flag<["-"], "disable-llvm-verifier">,
   HelpText<"Don't run the LLVM IR verifier pass">;
 def disable_llvm_passes : Flag<["-"], "disable-llvm-passes">,

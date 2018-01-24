@@ -496,8 +496,8 @@ void Sema::PrintInstantiationStack() {
       SmallVector<char, 128> TemplateArgsStr;
       llvm::raw_svector_ostream OS(TemplateArgsStr);
       Template->printName(OS);
-      TemplateSpecializationType::PrintTemplateArgumentList(
-          OS, Active->template_arguments(), getPrintingPolicy());
+      printTemplateArgumentList(OS, Active->template_arguments(),
+                                getPrintingPolicy());
       Diags.Report(Active->PointOfInstantiation,
                    diag::note_default_arg_instantiation_here)
         << OS.str()
@@ -562,8 +562,8 @@ void Sema::PrintInstantiationStack() {
       SmallVector<char, 128> TemplateArgsStr;
       llvm::raw_svector_ostream OS(TemplateArgsStr);
       FD->printName(OS);
-      TemplateSpecializationType::PrintTemplateArgumentList(
-          OS, Active->template_arguments(), getPrintingPolicy());
+      printTemplateArgumentList(OS, Active->template_arguments(),
+                                getPrintingPolicy());
       Diags.Report(Active->PointOfInstantiation,
                    diag::note_default_function_arg_instantiation_here)
         << OS.str()
@@ -1214,12 +1214,19 @@ const LoopHintAttr *
 TemplateInstantiator::TransformLoopHintAttr(const LoopHintAttr *LH) {
   Expr *TransformedExpr = getDerived().TransformExpr(LH->getValue()).get();
 
-  if (TransformedExpr == LH->getValue())
+#if INTEL_CUSTOMIZATION
+  Expr *TransformedLoopExpr =
+      getDerived().TransformExpr(LH->getLoopExprValue()).get();
+
+  if (TransformedExpr == LH->getValue() &&
+      TransformedLoopExpr == LH->getLoopExprValue())
+#endif
     return LH;
 
-  // Generate error if there is a problem with the value.
+    // Generate error if there is a problem with the value.
 #if INTEL_CUSTOMIZATION
-  if (getSema().CheckLoopHintExpr(TransformedExpr, LH->getLocation(),
+  if (TransformedExpr &&
+      getSema().CheckLoopHintExpr(TransformedExpr, LH->getLocation(),
                                   !getSema().getLangOpts().IntelCompat ||
                                       LH->getSemanticSpelling() !=
                                           LoopHintAttr::Pragma_unroll))
@@ -1234,15 +1241,17 @@ TemplateInstantiator::TransformLoopHintAttr(const LoopHintAttr *LH) {
     llvm::APSInt ValueAPS;
     ExprResult R = getSema().VerifyIntegerConstantExpression(TransformedExpr, &ValueAPS);
 
-    if (!R.isInvalid() && (!ValueAPS.isStrictlyPositive() ||
-        ValueAPS.getActiveBits() > 31)){
+    if (!R.isInvalid() &&
+        (!ValueAPS.isStrictlyPositive() || ValueAPS.getActiveBits() > 31)) {
       if (ValueAPS.getBoolValue())
         return LoopHintAttr::CreateImplicit(
             getSema().Context, LH->getSemanticSpelling(), LoopHintAttr::Unroll,
-            LoopHintAttr::Enable, TransformedExpr, LH->getRange());
+            LoopHintAttr::Enable, TransformedExpr, TransformedLoopExpr,
+            LH->getRange());
       return LoopHintAttr::CreateImplicit(
           getSema().Context, LH->getSemanticSpelling(), LoopHintAttr::Unroll,
-          LoopHintAttr::Disable, TransformedExpr, LH->getRange());
+          LoopHintAttr::Disable, TransformedExpr, TransformedLoopExpr,
+          LH->getRange());
     }
   }
 #endif // INTEL_CUSTOMIZATION
@@ -1251,7 +1260,9 @@ TemplateInstantiator::TransformLoopHintAttr(const LoopHintAttr *LH) {
   // non-type template parameter.
   return LoopHintAttr::CreateImplicit(
       getSema().Context, LH->getSemanticSpelling(), LH->getOption(),
-      LH->getState(), TransformedExpr, LH->getRange());
+#if INTEL_CUSTOMIZATION
+      LH->getState(), TransformedExpr, TransformedLoopExpr, LH->getRange());
+#endif // INTEL_CUSTOMIZATION
 }
 
 ExprResult TemplateInstantiator::transformNonTypeTemplateParmRef(

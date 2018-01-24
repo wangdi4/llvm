@@ -485,6 +485,12 @@ bool CodeGenFunction::ShouldXRayInstrumentFunction() const {
   return CGM.getCodeGenOpts().XRayInstrumentFunctions;
 }
 
+/// AlwaysEmitXRayCustomEvents - Return true if we should emit IR for calls to
+/// the __xray_customevent(...) builin calls, when doing XRay instrumentation.
+bool CodeGenFunction::AlwaysEmitXRayCustomEvents() const {
+  return CGM.getCodeGenOpts().XRayAlwaysEmitCustomEvents;
+}
+
 llvm::Constant *
 CodeGenFunction::EncodeAddrForUseInPrologue(llvm::Function *F,
                                             llvm::Constant *Addr) {
@@ -993,6 +999,14 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
   // Add profile-sample-accurate value.
   if (CGM.getCodeGenOpts().ProfileSampleAccurate)
     Fn->addFnAttr("profile-sample-accurate");
+
+#if INTEL_CUSTOMIZATION
+  if (getLangOpts().HLS) {
+    // Add metadata for HLS components
+    if (const auto *FD = dyn_cast_or_null<FunctionDecl>(D))
+      EmitHLSComponentMetadata(FD, Fn);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   if (getLangOpts().OpenCL) {
     // Add metadata for a kernel function.

@@ -2152,12 +2152,14 @@ StmtResult Parser::ParsePragmaLoopHint(StmtVector &Stmts,
     if (!HandlePragmaLoopHint(Hint))
       continue;
 
-    ArgsUnion ArgHints[] = {Hint.PragmaNameLoc, Hint.OptionLoc, Hint.StateLoc,
-                            ArgsUnion(Hint.ValueExpr)};
-    TempAttrs.addNew(Hint.PragmaNameLoc->Ident, Hint.Range, nullptr,
-                     Hint.PragmaNameLoc->Loc, ArgHints, 4,
-                     AttributeList::AS_Pragma);
 #if INTEL_CUSTOMIZATION
+    ArgsUnion ArgHints[] = {Hint.PragmaNameLoc, Hint.OptionLoc, Hint.StateLoc,
+                            ArgsUnion(Hint.ValueExpr),
+                            ArgsUnion(Hint.ArrayExpr)};
+    TempAttrs.addNew(Hint.PragmaNameLoc->Ident, Hint.Range, nullptr,
+                     Hint.PragmaNameLoc->Loc, ArgHints, 5,
+                     AttributeList::AS_Pragma);
+
     // CQ#371799 - let #pragma unroll precede non-loop statements. Also fixes
     // CQ#377523, allowing several #pragma unroll attributes, choosing the last.
     auto PragmaName = Hint.PragmaNameLoc->Ident->getName();

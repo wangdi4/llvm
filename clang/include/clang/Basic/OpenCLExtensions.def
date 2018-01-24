@@ -86,6 +86,10 @@ OPENCLEXT_INTERNAL(cl_altera_channels, 100, ~0U)
 OPENCLEXT_INTERNAL(cl_intel_fpga_host_pipe, 100, ~0U)
 #endif // INTEL_CUSTOMIZATION
 
+// Intel OpenCL extensions
+OPENCLEXT_INTERNAL(cl_intel_subgroups, 120, ~0U)
+OPENCLEXT_INTERNAL(cl_intel_subgroups_short, 120, ~0U)
+
 #undef OPENCLEXT_INTERNAL
 
 #ifdef OPENCLEXT
