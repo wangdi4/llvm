@@ -58,6 +58,21 @@ public:
         &HIRAnalysisPass::markLoopBodyModified, Loop);
   }
 
+  /// Invalidates all the available HIR analysis on any loop in the loopnest
+  /// except the preserved ones explicitly specified by template arguments.
+  template <typename... Exclude>
+  static void invalidateLoopNestBody(const HLLoop *Loop) {
+    SmallVector<const HLLoop *, 4> Loops;
+
+    Loop->getHLNodeUtils().gatherAllLoops(Loop, Loops);
+
+    for (auto *Lp : Loops) {
+      HIRAnalysisProvider::Invoke<Exclude...>(
+          Loop->getHLNodeUtils().getHIRFramework().getHIRAnalysisProvider())(
+          &HIRAnalysisPass::markLoopBodyModified, Lp);
+    }
+  }
+
   /// Invalidates all the available HIR analysis dependent non-loop region nodes
   /// except the preserved ones explicitly specified by template arguments.
   template <typename... Exclude>

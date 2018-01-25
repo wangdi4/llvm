@@ -47,11 +47,13 @@
 
 #include "HIRCompleteUnroll.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Statistic.h"
 
+#include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/LLVMContext.h"
 
@@ -170,7 +172,7 @@ static cl::opt<bool>
                                   "all memrefs in the unroll loopnest"));
 
 HIRCompleteUnroll::HIRCompleteUnroll(char &ID, unsigned OptLevel, bool IsPreVec)
-    : HIRTransformPass(ID), IsPreVec(IsPreVec) {
+    : HIRTransformPass(ID), DT(nullptr), HLS(nullptr), IsPreVec(IsPreVec) {
 
   Limits.SavingsThreshold =
       IsPreVec ? PreVectorSavingsThreshold : PostVectorSavingsThreshold;
@@ -218,8 +220,11 @@ HIRCompleteUnroll::HIRCompleteUnroll(char &ID, unsigned OptLevel, bool IsPreVec)
 
 void HIRCompleteUnroll::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
+
+  AU.addRequiredTransitive<DominatorTreeWrapperPass>();
   AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
   AU.addRequiredTransitive<HIRLoopStatistics>();
+  AU.addRequiredTransitive<HIRSafeReductionAnalysis>();
 }
 
 /// Visitor to update the CanonExpr.
@@ -359,7 +364,7 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
           Simplified(false), NumOperations(0), IsNewCoeff(0) {}
   };
 
-  const HIRCompleteUnroll &HCU;
+  HIRCompleteUnroll &HCU;
   const HLLoop *CurLoop;
   const HLLoop *OuterLoop;
 
@@ -401,20 +406,27 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
   // refs of OuterLoop.
   HIRCompleteUnroll::MemRefGatherer::MapTy &OuterLoopMemRefMap;
 
-  // Set of simplifiable alloca store base values discovered in this loopnest.
-  SmallPtrSet<const Value *, 16> &AllocaStoreBases;
+  // Set of simplifiable alloca stores discovered in this loopnest.
+  DenseMap<unsigned, const RegDDRef *> &AllocaStores;
+
+  // Set of non-loop parent nodes which can be simplified by unrolling the
+  // current loopnest.
+  SmallPtrSet<const HLNode *, 8> &SimplifiedNonLoopParents;
 
   // Private constructor used for children loops.
-  ProfitabilityAnalyzer(const HIRCompleteUnroll &HCU, const HLLoop *CurLp,
-                        const HLLoop *OuterLp, unsigned ParentLoopNestTripCount,
-                        SmallVector<SimplifiedTempBlob, 8> &SimplifiedBlobs,
-                        HIRCompleteUnroll::MemRefGatherer::MapTy &MemRefMap,
-                        SmallPtrSet<const Value *, 16> &AllocaStoreBases)
+  ProfitabilityAnalyzer(
+      HIRCompleteUnroll &HCU, const HLLoop *CurLp, const HLLoop *OuterLp,
+      unsigned ParentLoopNestTripCount,
+      SmallVector<SimplifiedTempBlob, 8> &SimplifiedBlobs,
+      HIRCompleteUnroll::MemRefGatherer::MapTy &MemRefMap,
+      DenseMap<unsigned, const RegDDRef *> &AllocaStores,
+      SmallPtrSet<const HLNode *, 8> &SimplifiedNonLoopParents)
       : HCU(HCU), CurLoop(CurLp), OuterLoop(OuterLp),
         CurLevel(CurLp->getNestingLevel()), Cost(0), ScaledCost(0), Savings(0),
         ScaledSavings(0), GEPCost(0), GEPSavings(0), NumMemRefs(0),
         NumDDRefs(0), SimplifiedTempBlobs(SimplifiedBlobs),
-        OuterLoopMemRefMap(MemRefMap), AllocaStoreBases(AllocaStoreBases) {
+        OuterLoopMemRefMap(MemRefMap), AllocaStores(AllocaStores),
+        SimplifiedNonLoopParents(SimplifiedNonLoopParents) {
     auto Iter = HCU.AvgTripCount.find(CurLp);
     assert((Iter != HCU.AvgTripCount.end()) && "Trip count of loop not found!");
     LoopNestTripCount = (ParentLoopNestTripCount * Iter->second);
@@ -502,8 +514,20 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
   /// temporary workaround.
   bool isPreVectorProfitableLoop(const HLLoop *CurLoop) const;
 
-  /// Returns true if simplifiable \p MemRef can be optimized away.
-  bool canEliminate(const RegDDRef *MemRef);
+  /// Returns true if we find a simplified alloca store with base ptr blob index
+  /// \p BaseIndex which dominates \p AllocaLoadRef in a previous loopnest.
+  bool foundSimplifiedDominatingStoreInPreviousLoopnest(
+      const RegDDRef *AllocaLoadRef, unsigned BaseIndex);
+
+  /// Returns true if we find a simplified alloca store with base ptr blob index
+  /// \p BaseIndex which dominates \p AllocaLoadRef in current loopnest.
+  bool foundSimplifiedDominatingStore(const RegDDRef *AllocaLoadRef,
+                                      unsigned BaseIndex);
+
+  /// Returns true if simplifiable \p MemRef can be optimized away. \p
+  /// CanSimplifySubs indicates whether all its subscripts can be simplified to
+  /// constant.
+  bool canEliminate(const RegDDRef *MemRef, bool CanSimplifySubs);
 
   /// Scales the profitability by the given multiplier.
   void scale(unsigned Multiplier) {
@@ -527,12 +551,15 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
   }
 
 public:
-  ProfitabilityAnalyzer(const HIRCompleteUnroll &HCU, const HLLoop *CurLp,
-                        SmallVector<SimplifiedTempBlob, 8> &SimplifiedTempBlobs,
-                        HIRCompleteUnroll::MemRefGatherer::MapTy &MemRefMap,
-                        SmallPtrSet<const Value *, 16> &AllocaStoreBases)
+  ProfitabilityAnalyzer(
+      HIRCompleteUnroll &HCU, const HLLoop *CurLp,
+      SmallVector<SimplifiedTempBlob, 8> &SimplifiedTempBlobs,
+      HIRCompleteUnroll::MemRefGatherer::MapTy &MemRefMap,
+      DenseMap<unsigned, const RegDDRef *> &AllocaStores,
+      SmallPtrSet<const HLNode *, 8> &SimplifiedNonLoopParents)
       : ProfitabilityAnalyzer(HCU, CurLp, CurLp, 1, SimplifiedTempBlobs,
-                              MemRefMap, AllocaStoreBases) {
+                              MemRefMap, AllocaStores,
+                              SimplifiedNonLoopParents) {
     if (auto OuterLp = CurLp->getParentLoop()) {
       MemRefGatherer::gatherRange(OuterLp->child_begin(), OuterLp->child_end(),
                                   MemRefMap);
@@ -651,6 +678,14 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::isPreVectorProfitableLoop(
 }
 
 void HIRCompleteUnroll::ProfitabilityAnalyzer::analyze() {
+
+  if (HCU.IsPreVec && CurLoop->isInnermost() && CurLoop->isDo()) {
+    // compute safe reduction chain for innermost do loops if we are executing
+    // before vectorizer. This is to add extra cost to the loops containing
+    // reductions.
+    HCU.HSRA->computeSafeReductionChains(CurLoop);
+  }
+
   // TODO: Think about visiting the linear instructions at the end of the loop
   // body first so that they are treated as simplified. This happens when IV is
   // parsed as blob.
@@ -764,7 +799,7 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::visit(const HLLoop *Lp) {
   // Analyze child loop.
   ProfitabilityAnalyzer PA(HCU, Lp, OuterLoop, LoopNestTripCount,
                            SimplifiedTempBlobs, OuterLoopMemRefMap,
-                           AllocaStoreBases);
+                           AllocaStores, SimplifiedNonLoopParents);
   PA.analyze();
 
   // Add the result of child loop profitability analysis.
@@ -814,7 +849,7 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::isSimplifiedTempBlob(
   //   END DO
   // END DO
   //
-  // 2) Simplified definition dominates cureent node.
+  // 2) Simplified definition dominates current node.
   //
   // In the example below 't' should not be considered simplified as 't = 50'
   // doesn't dominate the use.
@@ -911,6 +946,11 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::visit(const HLDDNode *Node) {
       // Add extra savings for ifs/switches.
       Savings += HInst ? 1 : 2;
     }
+
+    if (!HInst) {
+      SimplifiedNonLoopParents.insert(Node);
+    }
+
   } else {
     // Account for ddrefs only if the node cannot be simplified.
     NumDDRefs += NumRvalOp;
@@ -946,8 +986,17 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::visit(const HLDDNode *Node) {
   }
 
   if (!CanSimplifyRvals || !CanSimplifyLval) {
-    // Add extra cost for ifs/switches.
-    Cost += HInst ? 1 : 2;
+
+    if (HInst) {
+      // Add extra cost if instruction is a non-simplifiable reduction and we
+      // are executing before vectorizer. We should prefer vectorizing
+      // reductions rather than unrolling them.
+      Cost +=
+          (HCU.IsPreVec && LvalRef && HCU.HSRA->isSafeReduction(HInst)) ? 2 : 1;
+    } else {
+      // Add extra cost for ifs/switches.
+      Cost += 2;
+    }
   }
 }
 
@@ -1164,11 +1213,190 @@ HIRCompleteUnroll::ProfitabilityAnalyzer::computeGEPInfo(const RegDDRef *Ref,
   return GEPRefInfo(UniqueOccurences, TotalOccurences, IsIndependent);
 }
 
+class IntermediateAllocaStoreFinder final : public HLNodeVisitorBase {
+  unsigned AllocaBaseIndex;
+  const HLNode *EndNode;
+  bool FoundStore;
+  bool FoundEndNode;
+
+public:
+  IntermediateAllocaStoreFinder(unsigned AllocaBaseIndex, HLNode *EndNode)
+      : AllocaBaseIndex(AllocaBaseIndex), EndNode(EndNode), FoundStore(false),
+        FoundEndNode(false) {}
+
+  bool visit(const HLNode *Node) {
+    FoundEndNode = (Node == EndNode);
+    return FoundEndNode;
+  }
+  void visit(const HLInst *Inst);
+
+  void postVisit(const HLNode *Node) {}
+
+  bool isDone() const { return FoundStore || FoundEndNode; }
+
+  bool foundIntermediateStore() const { return FoundStore; }
+};
+
+void IntermediateAllocaStoreFinder::visit(const HLInst *Inst) {
+
+  if (visit(static_cast<const HLNode *>(Inst))) {
+    return;
+  }
+
+  auto LvalRef = Inst->getLvalDDRef();
+
+  if (!LvalRef || !LvalRef->isMemRef() || !LvalRef->accessesAlloca()) {
+    return;
+  }
+
+  if (LvalRef->getBasePtrBlobIndex() == AllocaBaseIndex) {
+    FoundStore = true;
+  }
+}
+
+bool HIRCompleteUnroll::ProfitabilityAnalyzer::
+    foundSimplifiedDominatingStoreInPreviousLoopnest(
+        const RegDDRef *AllocaLoadRef, unsigned BaseIndex) {
+  auto It = HCU.PrevLoopnestAllocaStores.find(BaseIndex);
+
+  if (It != HCU.PrevLoopnestAllocaStores.end()) {
+    auto PrevParentLoop = It->second;
+    auto PrevRegion = PrevParentLoop->getParentRegion();
+    auto CurRegion = OuterLoop->getParentRegion();
+
+    auto LoadNode = AllocaLoadRef->getHLDDNode();
+
+    const HLNode *FirstNode = nullptr;
+    const HLNode *LastNode = nullptr;
+
+    if (PrevRegion != CurRegion) {
+      // Since we are dealing with different regions, we can only perform
+      // approximate checks.
+
+      if (!HCU.DT->dominates(PrevRegion->getExitBBlock(),
+                             CurRegion->getEntryBBlock())) {
+        // Previous region does not dominate current region so we remove store's
+        // entry.
+        HCU.PrevLoopnestAllocaStores.erase(It);
+        return false;
+      }
+
+      const HLNode *LastRegionChild = PrevRegion->getLastChild();
+
+      if ((PrevParentLoop->getParent() != PrevRegion) ||
+          !HLNodeUtils::dominates(PrevParentLoop, LastRegionChild, HCU.HLS)) {
+        // Store is not executed unconditionally in previous region so we remove
+        // its entry.
+        HCU.PrevLoopnestAllocaStores.erase(It);
+        return false;
+      }
+
+      if (PrevParentLoop != LastRegionChild) {
+        // Visit from PrevParentLoop's next node to end of region looking for
+        // intermediate alloca stores.
+        IntermediateAllocaStoreFinder IASF(BaseIndex, nullptr);
+        HLNodeUtils::visitRange(IASF, PrevParentLoop->getNextNode(),
+                                LastRegionChild);
+
+        if (IASF.foundIntermediateStore()) {
+          HCU.PrevLoopnestAllocaStores.erase(It);
+          return false;
+        }
+      }
+
+      FirstNode = &*(std::next(PrevRegion->getIterator()));
+      LastNode = CurRegion;
+
+    } else {
+      if (!HLNodeUtils::dominates(PrevParentLoop, LoadNode, HCU.HLS)) {
+        // Since the simplified store does not dominate this ref, we are most
+        // likely out of its lexical scope. Hence, we remove its entry.
+        HCU.PrevLoopnestAllocaStores.erase(It);
+        return false;
+      }
+
+      const HLNode *OuterNode = OuterLoop;
+      const HLNode *ParentNode = PrevParentLoop->getParent();
+      const HLNode *TmpNode = nullptr;
+
+      // Find the outer node of the load whose parent is the same as previous
+      // loop's parent. This is to set the begin/end nodes for the visitor later
+      // on.
+      while ((TmpNode = OuterNode->getParent()) && (TmpNode != ParentNode)) {
+        OuterNode = TmpNode;
+      }
+
+      // Could not reach previous loop's parent node. This is possible if
+      // previous loop is inside a constant trip sibling loop of current loop.
+      // Give up in those cases.
+      if (!TmpNode) {
+        HCU.PrevLoopnestAllocaStores.erase(It);
+        return false;
+      }
+
+      FirstNode = PrevParentLoop->getNextNode();
+      LastNode = OuterNode;
+    }
+
+    // Look for intermediate alloca stores which would invalidate the existing
+    // entry.
+    IntermediateAllocaStoreFinder IASF(BaseIndex, LoadNode);
+    HLNodeUtils::visitRange(IASF, FirstNode, LastNode);
+
+    if (IASF.foundIntermediateStore()) {
+      HCU.PrevLoopnestAllocaStores.erase(It);
+      return false;
+    }
+
+    return true;
+  }
+
+  return false;
+}
+
+bool HIRCompleteUnroll::ProfitabilityAnalyzer::foundSimplifiedDominatingStore(
+    const RegDDRef *AllocaLoadRef, unsigned BaseIndex) {
+
+  // First, look for simplified refs in current loopnest.
+  auto It = AllocaStores.find(BaseIndex);
+
+  if (It != AllocaStores.end()) {
+    auto SimplifiedStore = It->second;
+
+    int64_t Dist;
+    // We found an alloca load/store combination where either-
+    // 1) There is no constant distance (like A[i1], A[i2]) so we give up on
+    // them. Or 2) There is no reuse between them. For example-
+    //   A[i1] =
+    //         = A[i1+1]
+    if (!DDRefUtils::getConstIterationDistance(SimplifiedStore, AllocaLoadRef,
+                                               AllocaLoadRef->getNodeLevel(),
+                                               &Dist) ||
+        (Dist < 0)) {
+      return false;
+    }
+
+    if (!HLNodeUtils::dominates(SimplifiedStore->getHLDDNode(),
+                                AllocaLoadRef->getHLDDNode(), HCU.HLS)) {
+      // Since the simplified store does not dominate this ref, we are most
+      // likely out of its lexical scope. Hence, we remove its entry.
+      AllocaStores.erase(It);
+      return false;
+    }
+
+    return true;
+  }
+
+  // Now look for simplified refs in previous loopnests.
+  return foundSimplifiedDominatingStoreInPreviousLoopnest(AllocaLoadRef,
+                                                          BaseIndex);
+}
+
 bool HIRCompleteUnroll::ProfitabilityAnalyzer::canEliminate(
-    const RegDDRef *MemRef) {
+    const RegDDRef *MemRef, bool CanSimplifySubs) {
   assert(MemRef->isMemRef() && "Memref expected!");
 
-  if (MemRef->accessesConstantArray()) {
+  if (CanSimplifySubs && MemRef->accessesConstantArray()) {
     return true;
   }
 
@@ -1176,42 +1404,41 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::canEliminate(
     return false;
   }
 
-  auto BaseVal = MemRef->getTempBaseValue();
+  unsigned BaseIndex = MemRef->getBasePtrBlobIndex();
 
   if (MemRef->isLval()) {
-    auto Node = MemRef->getHLDDNode();
-
-    // Assume unconditional alloca stores can be eliminated after unrolling by
-    // propagating the assigned value directly into corresponding loads.
-    if (isa<HLLoop>(Node->getParent())) {
-      AllocaStoreBases.insert(BaseVal);
+    if (CanSimplifySubs) {
+      // Assume alloca stores can be eliminated after unrolling by
+      // propagating the assigned value directly into corresponding loads.
+      AllocaStores[BaseIndex] = MemRef;
       return true;
+    } else {
+      // We encountered a non-simplifiable alloca store. Invalidate its entry
+      // from the data structures.
+      AllocaStores.erase(BaseIndex);
+      HCU.PrevLoopnestAllocaStores.erase(BaseIndex);
+      return false;
     }
 
+  } else if (!CanSimplifySubs) {
     return false;
   }
 
-  // Assume alloca load can be eliminated if we have encountered correspsonding
-  // alloca store.
-  // TODO: Refine the current check as it is too relaxed.
-  // It will return true for cases like this-
-  // A[i+1] =
-  //        = A[i]
-  if (HCU.UnrolledAllocaStoreBases.count(BaseVal) ||
-      AllocaStoreBases.count(BaseVal)) {
+  if (foundSimplifiedDominatingStore(MemRef, BaseIndex)) {
     return true;
   }
 
-  // If we can unconditionally reach alloca's parent bblock from the region
-  // predecessor bblock, assume there are dominating alloca stores.
-  auto CurRegion = CurLoop->getParentRegion();
+  // If all else fails, check whether we can unconditionally reach alloca's
+  // parent bblock from the region predecessor bblock. If so, assume there are
+  // dominating alloca stores.
+  auto CurRegion = OuterLoop->getParentRegion();
   unsigned BaseSymbase = MemRef->getBasePtrSymbase();
 
   if (!CurRegion->isLiveIn(BaseSymbase)) {
     return false;
   }
 
-  auto AllocaBB = cast<AllocaInst>(BaseVal)->getParent();
+  auto AllocaBB = cast<AllocaInst>(MemRef->getTempBaseValue())->getParent();
   auto PredBB = CurLoop->getParentRegion()->getPredBBlock();
 
   while (PredBB && (PredBB != AllocaBB)) {
@@ -1264,7 +1491,7 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::addGEPCost(
   unsigned SimplifiedToConstSavings = 0;
   unsigned UniqueOccurences = 0;
 
-  bool CanSimplifyToConst = (IsMemRef && CanSimplifySubs && canEliminate(Ref));
+  bool CanSimplifyToConst = (IsMemRef && canEliminate(Ref, CanSimplifySubs));
 
   if (CanSimplifyToConst) {
     // Everything goes to savings for refs which can be simplified to
@@ -1395,7 +1622,8 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::processRef(const RegDDRef *Ref) {
 
   if (HasGEPInfo) {
     if (Ref->accessesAlloca() || Ref->accessesInternalGlobalVar()) {
-      // The base addess is known at compile time.
+      // The base address is known at compile time for global vars and stack
+      // frame offset can be simplified for allocas.
       ++NumAddressSimplificationTerms;
     }
 
@@ -1838,8 +2066,10 @@ bool HIRCompleteUnroll::runOnFunction(Function &F) {
 
   DEBUG(dbgs() << "Complete unrolling for Function : " << F.getName() << "\n");
 
+  DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   HLS = &getAnalysis<HIRLoopStatistics>();
+  HSRA = &getAnalysis<HIRSafeReductionAnalysis>();
 
   // Storage for Outermost Loops
   SmallVector<HLLoop *, 64> OuterLoops;
@@ -2129,22 +2359,59 @@ HIRCompleteUnroll::performTripCountAnalysis(HLLoop *Loop) {
   return std::make_pair(TotalTripCnt, MinDepLevel);
 }
 
+void HIRCompleteUnroll::populateSimplifiedAllocaStores(
+    const HLLoop *Loop,
+    const DenseMap<unsigned, const RegDDRef *> &AllocaStores,
+    const SmallPtrSet<const HLNode *, 8> &SimplifiedNonLoopParents) {
+  const HLNode *OuterParent = Loop->getParent();
+
+  // Store unconditional simplifiable alloca stores to be used in
+  // profitability checks for subsequent loopnests.
+  for (auto &Pair : AllocaStores) {
+    const HLNode *ParentNode = Pair.second->getHLDDNode()->getParent();
+
+    while (ParentNode != OuterParent) {
+      auto ParLoop = dyn_cast<HLLoop>(ParentNode);
+
+      if (ParLoop) {
+        // Store is not unconditional in unrolled multi-exit loop.
+        if (ParLoop->getNumExits() > 1) {
+          break;
+        }
+      } else if (!SimplifiedNonLoopParents.count(ParentNode)) {
+        // Marking alloca stores unconditional based on simplified parents is
+        // an optimistic assumption because simplified parent may mean that
+        // parent's body (this ref) gets optimized away but it is hard to
+        // check this accurately as we only store the lexical last alloca
+        // store and furthermore we need to employ redundant node logic.
+        // Nevertheless, it seems better to make this assumption as we see
+        // some performance regressions without it.
+        break;
+      }
+
+      ParentNode = ParentNode->getParent();
+    }
+
+    if (ParentNode == OuterParent) {
+      PrevLoopnestAllocaStores[Pair.first] = Loop;
+    }
+  }
+}
+
 bool HIRCompleteUnroll::isProfitable(const HLLoop *Loop) {
   SmallVector<SimplifiedTempBlob, 8> SimplifiedTempBlobs;
   MemRefGatherer::MapTy MemRefMap;
-  SmallPtrSet<const Value *, 16> AllocaStoreBases;
+  DenseMap<unsigned, const RegDDRef *> AllocaStores;
+  SmallPtrSet<const HLNode *, 8> SimplifiedNonLoopParents;
 
   ProfitabilityAnalyzer PA(*this, Loop, SimplifiedTempBlobs, MemRefMap,
-                           AllocaStoreBases);
+                           AllocaStores, SimplifiedNonLoopParents);
 
   PA.analyze();
 
   if (PA.isProfitable()) {
-    // Copy captured simplifiable alloca stores.
-    for (auto BaseVal : AllocaStoreBases) {
-      UnrolledAllocaStoreBases.insert(BaseVal);
-    }
-
+    populateSimplifiedAllocaStores(Loop, AllocaStores,
+                                   SimplifiedNonLoopParents);
     return true;
   }
 
@@ -2171,6 +2438,11 @@ void HIRCompleteUnroll::transformLoops() {
     // Generate code for the parent region and invalidate parent
     Reg->setGenCode();
     HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(Loop);
+    // Also invalidate analyses for the loops being unrolled. Since we reuse the
+    // instructions from the unrolled loops, not invalidating the analyses may
+    // leave them in an inconsistent state. This is the case for safe reduction
+    // analysis.
+    HIRInvalidationUtils::invalidateLoopNestBody(Loop);
 
     CanonExprUpdater CEUpdater(Loop->getNestingLevel(), IVValues);
     transformLoop(Loop, CEUpdater, true);
@@ -2313,5 +2585,5 @@ void HIRCompleteUnroll::releaseMemory() {
   CandidateLoops.clear();
   AvgTripCount.clear();
   TopLevelCandidates.clear();
-  UnrolledAllocaStoreBases.clear();
+  PrevLoopnestAllocaStores.clear();
 }

@@ -19,9 +19,9 @@
 #include "llvm/Support/Debug.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/DDTests.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"
@@ -581,17 +581,8 @@ HIRSafeReductionAnalysis::getSafeRedInfo(const HLInst *Inst) const {
   // Get SafeRedChainList via Loop
   auto Iter2 = SafeReductionMap.find(Loop);
 
-  // SafeReductionInstMap can go out of sync with SafeReductionMap if the
-  // instruction moves from its orignal parent loop to another loop. For
-  // example, if we complete unroll the parent loop, the instruction will move
-  // to the outer parent. In such cases we should return null so that we get a
-  // new entry for the instruction if it is still a safe reduction in the new
-  // loop.
-  // Please note that safe reduction information is not invalidated for deleted
-  // loops.
-  if (Iter2 == SafeReductionMap.end()) {
-    return nullptr;
-  }
+  assert(Iter2 != SafeReductionMap.end() &&
+         "safe reduction analysis is in an inconsistent state!");
 
   auto &SRCL = Iter2->second;
 
