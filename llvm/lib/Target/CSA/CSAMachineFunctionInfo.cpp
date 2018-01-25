@@ -16,25 +16,15 @@
 
 using namespace llvm;
 
-struct CSAMachineFunctionInfo::Info {
-  // This is the index into the list of "registers" for the specific class
-  // of the next register to be allocated for the class
-  std::vector<short> nextRegIndexInClass;
-};
-
 void CSAMachineFunctionInfo::anchor() { }
 
 CSAMachineFunctionInfo::CSAMachineFunctionInfo(MachineFunction &MF)
   : MRI(MF.getRegInfo()),
     TII(MF.getSubtarget<CSASubtarget>().getInstrInfo()),
     FPFrameIndex(-1), RAFrameIndex(-1), VarArgsFrameIndex(-1) {
-  info = new Info;
-  info->nextRegIndexInClass.resize(32 /* register class count*/, 0);
 }
 
 CSAMachineFunctionInfo::~CSAMachineFunctionInfo() {
-  delete info;
-  info = NULL;
 }
 
 const TargetRegisterClass* CSAMachineFunctionInfo::licRCFromGenRC(const TargetRegisterClass* RC) {
@@ -55,14 +45,7 @@ const TargetRegisterClass* CSAMachineFunctionInfo::licRCFromGenRC(const TargetRe
 
 unsigned CSAMachineFunctionInfo::allocateLIC(const TargetRegisterClass* RC,
     const Twine &name) {
-  // In the future, we want to allocate LICs as virtual registers. For now,
-  // allocate as a physical register.
-#if 0
   unsigned regno = MRI.createVirtualRegister(RC);
-#else
-  unsigned regindex = info->nextRegIndexInClass[RC->getID()]++;
-  unsigned regno = RC->getRegister(regindex);
-#endif
   noteNewLIC(regno, TII->getSizeOfRegisterClass(RC), name);
   return regno;
 }
@@ -70,8 +53,8 @@ unsigned CSAMachineFunctionInfo::allocateLIC(const TargetRegisterClass* RC,
 void CSAMachineFunctionInfo::noteNewLIC(unsigned vreg, unsigned size,
     const Twine &name) {
   if (name.isTriviallyEmpty()) {
-    // Don't set empty names for physical registers.
-    //unsigned index = licInfo.size() + physicalLicInfo.size();
+    // Don't set empty names for now.
+    //unsigned index = licInfo.size();
     //setLICName(vreg, (Twine("cv") + Twine(size) + "_" + Twine(index)));
   } else {
     setLICName(vreg, name);
@@ -85,18 +68,13 @@ void CSAMachineFunctionInfo::setLICName(unsigned vreg, const Twine &name) const 
 
 CSAMachineFunctionInfo::LICInfo &
 CSAMachineFunctionInfo::getLICInfo(unsigned regno) {
-  bool isVirtual = TargetRegisterInfo::isVirtualRegister(regno);
-  auto &licMap = isVirtual ? licInfo : physicalLicInfo;
-  auto index = isVirtual ? TargetRegisterInfo::virtReg2Index(regno) : regno;
-  return licMap[index];
+  assert(TargetRegisterInfo::isVirtualRegister(regno) &&
+      "LICs should be virtual registers");
+  auto index = TargetRegisterInfo::virtReg2Index(regno);
+  return licInfo[index];
 }
 
 int CSAMachineFunctionInfo::getLICSize(unsigned regno) const {
-  const TargetRegisterClass *RC;
-  if (TargetRegisterInfo::isVirtualRegister(regno)) {
-    RC = MRI.getRegClass(regno);
-  } else {
-    RC = TII->lookupLICRegClass(regno);
-  }
+  const TargetRegisterClass *RC = TII->getRegisterClass(regno, MRI);
   return TII->getSizeOfRegisterClass(RC);
 }

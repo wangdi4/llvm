@@ -21,31 +21,27 @@ class CSAReg<string n> : Register<n> {
   let Namespace = "CSA";
 }
 
-// Channels between units.  Note that these are only for transient use
-// as needed during code gen.
-// The intent is that channels are vregs and effectively unbounded.
-foreach i = 0-127 in { def CI0_#i  : CSAReg<"ci0_"#i>;  }
-foreach i = 0-8191 in { def CI1_#i  : CSAReg<"ci1_"#i>;  }
-foreach i = 0-512 in { def CI8_#i  : CSAReg<"ci8_"#i>;  }
-foreach i = 0-127 in { def CI16_#i : CSAReg<"ci16_"#i>; }
-foreach i = 0-8191 in { def CI32_#i : CSAReg<"ci32_"#i>; }
-foreach i = 0-8191 in { def CI64_#i : CSAReg<"ci64_"#i>; }
-// Special channels.
+// Defining the LIC register set. We use IGN and NA for special registers in the
+// register. Beyond that, all LICs are represented as virtual registers. Their
+// size is indicated by their actual register class. We use a few extra physical
+// registers to keep LLVM happy about register class sizes, but these should
+// never be used.
 def IGN : CSAReg<"ign">; // Ignored (always writeable and readable)
 def NA  : CSAReg<"na">;  // Not available (never writeable or readable)
+foreach i = 0-10 in { def CV0_#i : CSAReg<"phy0_"#i>; }
 
-// Define LICs.  It is less than ideal to have a full enumeration, but it
-// works for now.
-// Do not allow standard allocation of LICs, or copying.  Allocation is
-// handled specially in conversion from control flow to dataflow.
-let isAllocatable = 0, CopyCost = -1 in {
-  def CI0  : RegisterClass<"CSA", [i1],       0, (add (sequence "CI0_%u",  0, 127), NA, IGN)>;
-  def CI1  : RegisterClass<"CSA", [i1],       1, (add (sequence "CI1_%u",  0, 8191), NA, IGN)> { let Size=1;  }
-  def CI8  : RegisterClass<"CSA", [i8],       8, (add (sequence "CI8_%u",  0, 512), NA, IGN)> { let Size=8;  }
-  def CI16 : RegisterClass<"CSA", [i16,f16], 16, (add (sequence "CI16_%u", 0, 127), NA, IGN)> { let Size=16; }
-  def CI32 : RegisterClass<"CSA", [i32,f32], 32, (add (sequence "CI32_%u", 0, 8191), NA, IGN)> { let Size=32; }
-  def CI64 : RegisterClass<"CSA", [i64,f64], 64, (add (sequence "CI64_%u", 0, 8191), NA, IGN)> { let Size=64; }
-  def ANYC : RegisterClass<"CSA", [i1],       0, (add CI0, CI1, CI8, CI16, CI32, CI64)>;
+// Define the virtual register classes for LICs. It's important that these
+// register classes all share the same register set: if they don't, then
+// synthetic register classes will be created from the common intersections,
+// and registers might be assigned to those classes.
+let isVirtual = 1, CopyCost = -1 in {
+  def ANYC : RegisterClass<"CSA", [i1], 0, (add (sequence "CV0_%u", 0, 10), NA, IGN)>;
+  def CI0  : RegisterClass<"CSA", [i1],       1, (add ANYC)> { let Size=1;  }
+  def CI1  : RegisterClass<"CSA", [i1],       1, (add ANYC)> { let Size=1;  }
+  def CI8  : RegisterClass<"CSA", [i8],       8, (add ANYC)> { let Size=8;  }
+  def CI16 : RegisterClass<"CSA", [i16,f16], 16, (add ANYC)> { let Size=16; }
+  def CI32 : RegisterClass<"CSA", [i32,f32], 32, (add ANYC)> { let Size=32; }
+  def CI64 : RegisterClass<"CSA", [i64,f64], 64, (add ANYC)> { let Size=64; }
 }
 
 //// Registers in main sequential unit

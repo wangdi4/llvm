@@ -371,13 +371,20 @@ public:
   // the same size. TBD(jsukha): Not implemented yet!
   unsigned convertTransformToReductionOp(unsigned transform_opcode) const;
 
+  const TargetRegisterClass *getLicClassForSize(unsigned size) const;
 
+  /// Return true if the register class is a LIC class rather than an SXU
+  /// register.
+  bool isLICClass(const TargetRegisterClass *RC) const;
 
-  // Look up the register class for a given LIC.
-  // (This method returns nullptr if the register number does not
-  //  fall into a valid range). 
-  const TargetRegisterClass*
-  lookupLICRegClass(unsigned lic_reg) const;
+  /// Return the register class for a LIC register.
+  const TargetRegisterClass *getRegisterClass(unsigned reg,
+      const MachineRegisterInfo &MRI) const;
+
+  /// Return true if the MachineOperand represents a LIC.
+  bool isLIC(const MachineOperand &MO, const MachineRegisterInfo &MRI) const {
+    return MO.isReg() && isLICClass(getRegisterClass(MO.getReg(), MRI));
+  }
 };
 
 }

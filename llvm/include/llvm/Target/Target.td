@@ -195,6 +195,12 @@ class RegisterClass<string namespace, list<ValueType> regTypes, int alignment,
   // model instruction operand constraints, and should have isAllocatable = 0.
   bit isAllocatable = 1;
 
+// INTEL_CUSTOMIZATION
+  // isVirtual - Specify that register allocation should not attempt to assign
+  // physical registers for virtual registers of this class.
+  bit isVirtual = 0;
+// end INTEL_CUSTOMIZATION
+
   // AltOrders - List of alternative allocation orders. The default order is
   // MemberList itself, and that is good enough for most targets since the
   // register allocators automatically remove reserved registers and move

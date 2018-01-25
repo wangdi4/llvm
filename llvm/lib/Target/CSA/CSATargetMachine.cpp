@@ -20,6 +20,7 @@
 #include "CSAOMPAllocaTypeFixer.h"
 #include "CSA.h"
 #include "llvm/Analysis/Passes.h"
+#include "llvm/Bitcode/CSASaveRawBC.h"
 #include "llvm/CodeGen/AsmPrinter.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
 #include "llvm/CodeGen/Passes.h"
@@ -122,7 +123,9 @@ namespace {
 class CSAPassConfig : public TargetPassConfig {
 public:
   CSAPassConfig(CSATargetMachine &TM, legacy::PassManagerBase &PM)
-    : TargetPassConfig(TM, PM) {}
+    : TargetPassConfig(TM, PM) {
+      disablePass(&PostRAMachineLICMID);
+    }
 
   CSATargetMachine &getCSATargetMachine() const {
     return getTM<CSATargetMachine>();
@@ -162,6 +165,8 @@ public:
     // analyses at O0.
     if (getOptLevel() != CodeGenOpt::None) {
       addPass(createCSAInnerLoopPrepPass());
+      // Add streaming memory reductions.
+      addPass(createCSAStreamingMemoryPrepPass());
     }
 
     // Remove any remaining intrinsics which should not go through instruction selection
@@ -200,6 +205,10 @@ public:
     addPass(createCSACvtCFDFPass(), false);
     Banner = std::string("After CSACvtCFDFPass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
+    
+    if (RunCSAStatistics) {
+      addPass(createCSAStatisticsPass(), false);
+    }
 
     addPass(createCSAOptDFPass(), false);
     Banner = std::string("After CSAOptDFPass");
@@ -224,10 +233,6 @@ public:
     addPass(createCSANormalizeDebugPass(), false);
     Banner = std::string("After CSANormalizeDebug");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
-
-    if (RunCSAStatistics) {
-      addPass(createCSAStatisticsPass(), false);
-    }
 #else
     Banner = std::string("Before CSAOptDFPass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
@@ -241,9 +246,23 @@ public:
 
   void addPostRegAlloc() override {
     addPass(createCSAAllocUnitPass(), false);
+
+    // These functions don't like vregs.
+    disablePass(&ShrinkWrapID);
+    disablePass(&MachineCopyPropagationID);
+    disablePass(&PostRASchedulerID);
+    disablePass(&FuncletLayoutID);
+    disablePass(&StackMapLivenessID);
+    disablePass(&LiveDebugValuesID);
+    disablePass(&PatchableFunctionID);
   }
 
   void addIRPasses() override {
+    // Add the CSASaveRawBC pass which will preserve the initial IR
+    // for a module. This must be added early so it gets IR that's
+    // equivalent to the Bitcode emitted by the -flto option.
+    addPass(createCSASaveRawBCPass());
+
     // Pass call onto parent
     TargetPassConfig::addIRPasses();
   }

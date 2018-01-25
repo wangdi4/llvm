@@ -31,20 +31,15 @@ class CSAMachineFunctionInfo : public MachineFunctionInfo {
   /// A small structure to keep track of LIC information on a per-LIC basis.
   struct LICInfo {
     mutable std::string name;
-    std::vector<uint64_t> initValues;
     short licDepth;
 
     LICInfo() : name(), licDepth(0) {}
   };
   DenseMap<unsigned, LICInfo> licInfo;
-  DenseMap<unsigned, LICInfo> physicalLicInfo;
   void noteNewLIC(unsigned vreg, unsigned licSize, const Twine &name="");
 
   MachineRegisterInfo &MRI;
   const CSAInstrInfo *TII;
-
-  struct Info;
-  Info* info;
 
   virtual void anchor();
 
@@ -95,8 +90,6 @@ public:
   /// assembly (if no name is provided, one is generated based on the LIC size).
   ///
   /// TODO: ensure uniqueness of LIC names.
-  /// At present, LICs are allocated as physical registers. This is expected to
-  /// change to virtual registers in the near-future.
   unsigned allocateLIC(const TargetRegisterClass* RegClass,
     const Twine &name="");
 
@@ -119,18 +112,6 @@ public:
 
   /// Set the name of the LIC to have the specified name.
   void setLICName(unsigned vreg, const Twine &name) const;
-
-  /// Get a list of initial values for LICs.
-  std::vector<uint64_t> &getLICInit(unsigned vreg) {
-    return getLICInfo(vreg).initValues;
-  }
-  const std::vector<uint64_t> &getLICInit(unsigned vreg) const {
-    return getLICInfo(vreg).initValues;
-  }
-  /// Add the value to the list of initial values for the LIC.
-  void addLICInit(unsigned vreg, uint64_t value) {
-    getLICInfo(vreg).initValues.push_back(value);
-  }
 
   /// Get the lic size (e.g., 0, 1, 8, 16, 32, 64) for a register number.
   int getLICSize(unsigned reg) const;

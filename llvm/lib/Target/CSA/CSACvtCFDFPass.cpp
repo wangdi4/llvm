@@ -1,19 +1,16 @@
-//==--- CSACvtCFDFPass.cpp - Table CSA convert control flow to data flow --==//
+//===-- CSACvtCFDFPass.cpp - CSA convert control flow to data flow --------===//
 //
-// Copyright (C) 2017-2017 Intel Corporation. All rights reserved.
+//                     The LLVM Compiler Infrastructure
 //
-// The information and source code contained herein is the exclusive property
-// of Intel Corporation and may not be disclosed, examined or reproduced in
-// whole or in part without explicit written authorization from the company.
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
 //
-//===---------------------------------------------------------------------===//
-///
-/// \file
-/// This file "reexpresses" the code containing traditional control flow
-/// into a basically data flow representation suitable for the CSA.
-///
-//===---------------------------------------------------------------------===//
-
+//===----------------------------------------------------------------------===//
+//
+// This file "reexpresses" the code containing traditional control flow
+// into a basically data flow representation suitable for the CSA.
+//
+//===----------------------------------------------------------------------===//
 #include <stack>
 #include "CSA.h"
 #include "InstPrinter/CSAInstPrinter.h"
@@ -24,7 +21,6 @@
 #include "llvm/ADT/SparseSet.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Analysis/AliasSetTracker.h"
-#include "llvm/Analysis/OptimizationDiagnosticInfo.h"
 #include "llvm/CodeGen/LiveVariables.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
@@ -32,7 +28,6 @@
 #include "llvm/CodeGen/MachineDominators.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineOptimizationRemarkEmitter.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/MachineSSAUpdater.h"
 #include "llvm/CodeGen/SlotIndexes.h"
@@ -97,7 +92,6 @@ namespace llvm {
       AU.addRequired<MachineDominatorTree>();
       AU.addRequired<MachinePostDominatorTree>();
       AU.addRequired<AAResultsWrapperPass>();
-      AU.addRequired<MachineOptimizationRemarkEmitterPass>();
       AU.setPreservesAll();
       MachineFunctionPass::getAnalysisUsage(AU);
     }
@@ -188,23 +182,6 @@ namespace llvm {
     DenseMap<MachineBasicBlock*, unsigned> bb2rpo;
     DenseMap<MachineInstr *, MachineBasicBlock *> multiInputsPick;
     std::set<MachineBasicBlock *> dcgBBs;
-
-    //
-    // Optimization report analysis for CF-to-DF conversion pass.
-    //
-    MachineOptimizationRemarkEmitter *ORE;
-
-    //
-    // A method for printing the optimization report, once
-    // CF-to-DF conversion finishes.  The first parameter
-    // is false, if the conversion was not possible due to
-    // the reasons described by the second string parameter;
-    // if the first parameter is true, then the second
-    // parameter is not used, and the optimization report
-    // states a successful conversion, while it may be possible
-    // that some operations are still in SXU.
-    //
-    bool conversion_status(bool status, const char *message);
   };
 }
 
@@ -214,7 +191,6 @@ char CSACvtCFDFPass::ID = 0;
 //declare CSACvtCFDFPass Pass
 INITIALIZE_PASS_BEGIN(CSACvtCFDFPass, "csa-cvt-cfdf", "CSA Convert Control Flow to Data Flow", true, true)
 INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(MachineOptimizationRemarkEmitterPass)
 INITIALIZE_PASS_END(CSACvtCFDFPass, "csa-cvt-cfdf", "CSA Convert Control Flow to Data Flow", true, true)
 
 CSACvtCFDFPass::CSACvtCFDFPass() : MachineFunctionPass(ID) {
@@ -295,42 +271,6 @@ ControlDependenceNode* CSACvtCFDFPass::getNonLatchParent(ControlDependenceNode* 
   return pcdn;
 }
 
-bool CSACvtCFDFPass::conversion_status(bool status, const char *message)
-{
-  const char *remark_name = "ConversionStatus";
-  DiagnosticInfoMIROptimization *remark;
-
-  if (status) {
-    remark =
-      new MachineOptimizationRemarkAnalysis(DEBUG_TYPE,
-                                            remark_name,
-                                            thisMF->getFunction()->
-                                            getSubprogram(),
-                                            &thisMF->front());
-
-    (*remark) << "Control flow is converted to data flow operations.";
-  }
-  else {
-    remark =
-      new MachineOptimizationRemarkMissed(DEBUG_TYPE,
-                                          remark_name,
-                                          thisMF->getFunction()->
-                                          getSubprogram(),
-                                          &thisMF->front());
-
-    (*remark) <<
-      "Control flow is not converted to data flow operations because ";
-
-    assert(message != nullptr);
-    (*remark) << message;
-  }
-
-  ORE->emit(*remark);
-
-  delete remark;
-
-  return status;
-}
 
 bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
 
@@ -347,7 +287,6 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   if (PDT->getRootNode() == nullptr) return false;
   CDG = &getAnalysis<ControlDependenceGraph>();
   MLI = &getAnalysis<MachineLoopInfo>();
-  ORE = &getAnalysis<MachineOptimizationRemarkEmitterPass>().getORE();
 
 #if 1
   //exception handling code creates multiple exits from a function
@@ -355,23 +294,24 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
     if (BB->succ_empty()) exitBlks.push_back(&*BB);
   }
-  if (exitBlks.size() > 1)
-    return conversion_status(false, "Multiple exit blocks detected.");
+  if (exitBlks.size() > 1) return false;
 #endif
 
   // Give up and run on SXU if there is dynamic stack activity we don't handle.
   if (thisMF->getFrameInfo().hasVarSizedObjects()) {
     errs() << "WARNING: dataflow conversion not attempting to handle dynamic stack allocation.\n";
     errs() << "Function \"" << thisMF->getName() << "\" will run on the SXU.\n";
-    return conversion_status(false, "Dynamic stack allocation detected.");
+    return false;
   }
+
+  bool Modified = false;
 
 #if 0
   // for now only well formed innermost loop regions are processed in this pass
   MachineLoopInfo *MLI = &getAnalysis<MachineLoopInfo>();
   if (!MLI) {
     DEBUG(errs() << "no loop info.\n");
-    return conversion_failed(false, "No loop info.");
+    return false;
   }
 #endif
 
@@ -456,7 +396,8 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   releaseMemory();
 
   RunSXU = false;
-  return conversion_status(true, nullptr);
+
+  return Modified;
 
 }
 
@@ -1233,6 +1174,8 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhi(MachineBasicBlock* mbb) {
   unsigned cpyReg = LMFI->allocateLIC(new_LIC_RC,
     Twine("loop_") + mbb->getName() + "_phi");
   assert(mloop->isLoopExiting(latchBB) || latchNode->isParent(exitingNode));
+  _unused(latchNode);
+  _unused(exitingNode);
   const unsigned moveOpcode = TII->getMoveOpcode(TRC);
   MachineInstr *cpyInst = BuildMI(*exitingBB, loc, DebugLoc(), TII->get(moveOpcode), cpyReg).addReg(predReg);
   cpyInst->setFlag(MachineInstr::NonSequential);
@@ -1360,6 +1303,8 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhiPipelined(MachineBasicBlock* mbb,
   assert(new_LIC_RC && "Can't determine register class for register");
   unsigned cpyReg = LMFI->allocateLIC(new_LIC_RC);
   assert(mloop->isLoopExiting(latchBB) || latchNode->isParent(exitingNode));
+  _unused(latchNode);
+  _unused(exitingNode);
   const unsigned moveOpcode = TII->getMoveOpcode(TRC);
   MachineInstr *cpyInst = BuildMI(*exitingBB, loc, DebugLoc(), TII->get(moveOpcode), cpyReg).addReg(predReg);
   cpyInst->setFlag(MachineInstr::NonSequential);
@@ -1770,6 +1715,7 @@ void CSACvtCFDFPass::assignLicForDF() {
       if (MI->isPHI()) {
         for (MIOperands MO(*MI); MO.isValid(); ++MO) {
           if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
+          if (TII->isLIC(*MO, *MRI)) continue;
           unsigned Reg = MO->getReg();
           pinedVReg.insert(Reg);
         }
@@ -1796,9 +1742,11 @@ void CSACvtCFDFPass::assignLicForDF() {
           mInst->getOpcode() == CSA::LAND1 ||
           mInst->getOpcode() == CSA::LOR1  || 
           mInst->getOpcode() == CSA::OR1 ||
-          mInst->isCopy()) {
+          mInst->isCopy() || TII->isInit(mInst) ||
+          TII->isLoad(mInst) || TII->isStore(mInst)) {
         for (MIOperands MO(*MI); MO.isValid(); ++MO) {
           if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
+          if (TII->isLIC(*MO, *MRI)) continue;
           unsigned Reg = MO->getReg();
           renameQueue.push_back(Reg);
         }
@@ -1853,6 +1801,7 @@ void CSACvtCFDFPass::assignLicForDF() {
 
     for (MIOperands MO(*DefMI); MO.isValid(); ++MO) {
       if (!MO->isReg() || &*MO == DefMO || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
+      if (TII->isLIC(*MO, *MRI)) continue;
       unsigned Reg = MO->getReg();
       renameQueue.push_back(Reg);
     }
@@ -1869,17 +1818,9 @@ void CSACvtCFDFPass::assignLicForDF() {
             allLics = false;
             break;
           }
-        } else {
-          unsigned Reg = MO->getReg();
-
-          // Note: this avoids magic constants, but requires that the LIC
-          // virtual registers be defined at the end of the enum in
-          // CSAGenRegisterInfo.inc.
-          if ((Reg < CSA::CI0_0 || Reg >= CSA::NUM_TARGET_REGS) &&
-               Reg != CSA::IGN ) {
-            allLics = false;
-            break;
-          }
+        } else if (!TII->isLIC(*MO, *MRI)) {
+          allLics = false;
+          break;
         }
       }
 
@@ -2014,6 +1955,7 @@ void CSACvtCFDFPass::linearizeCFG() {
   }
   MachineBasicBlock *x = mbbStack.top();
   assert(x == root);
+  _unused(x);
   MachineBasicBlock::succ_iterator SI = root->succ_begin();
   while (SI != root->succ_end()) {
     SI = root->removeSuccessor(SI);
@@ -3021,6 +2963,7 @@ void CSACvtCFDFPass::repeatOperandInLoopUsePred(MachineLoop* mloop, MachineInstr
   unsigned predReg = initInst->getOperand(0).getReg();
   unsigned predConst = initInst->getOperand(1).getImm();
   assert(!predConst);
+  _unused(predConst);
   MachineBasicBlock* lphdr = mloop->getHeader();
   MachineBasicBlock* latchBB = mloop->getLoopLatch();
   assert(latchBB);
@@ -3042,6 +2985,7 @@ void CSACvtCFDFPass::repeatOperandInLoopUsePred(MachineLoop* mloop, MachineInstr
       }
       for (MIOperands MO(*MI); MO.isValid(); ++MO) {
         if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
+        if (TII->isLIC(*MO, *MRI)) continue;
         unsigned Reg = MO->getReg();
         if (MO->isUse()) {
           MachineInstr* dMI = MRI->getVRegDef(Reg);
@@ -3056,11 +3000,14 @@ void CSACvtCFDFPass::repeatOperandInLoopUsePred(MachineLoop* mloop, MachineInstr
             !MLI->getLoopFor(mbb)->contains(MLI->getLoopFor(DefBB));
 
           if (isDefOutsideLoop && DT->dominates(DefBB, mbb)) {
+            assert((!hasAllConstantInputs(dMI) || MLI->getLoopFor(DefBB) == NULL) && "const prop failed");
+#if 0
             if (hasAllConstantInputs(dMI)) {
 			  //has to be root mov 1 pred instr
               assert(!dMI->getFlag(MachineInstr::NonSequential));
               continue;
             }
+#endif
             const TargetRegisterClass *TRC = MRI->getRegClass(Reg);
             unsigned rptIReg = MRI->createVirtualRegister(TRC);
             unsigned rptOReg = MRI->createVirtualRegister(TRC);
@@ -3209,7 +3156,7 @@ void CSACvtCFDFPass::generateDynamicPickTreeForHeader(MachineBasicBlock* mbb) {
   MachineBasicBlock::iterator hdrloc = mbb->begin();
   // init loopPred 0;
   MachineInstr *predInit = BuildMI(*mbb, hdrloc, DebugLoc(), TII->get(InitOpcode), loopPred).addImm(0);
-
+  predInit->setFlag(MachineInstr::NonSequential);
 #if 1
   unsigned hdrPred = getBBPred(mbb);
   assert(hdrPred);

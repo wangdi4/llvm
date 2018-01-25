@@ -229,7 +229,7 @@ bool CSADataflowCanonicalizationPass::invertIgnoredSwitches(MachineInstr *MI) {
       // Non-ignored registers mean that we need to allocate a new SWITCH here.
       // Insert the new SWITCH before the operand instruction to try to keep the
       // operations in topological order.
-      auto licClass = TII->lookupLICRegClass(MO.getReg());
+      auto licClass = TII->getRegisterClass(MO.getReg(), *MRI);
       auto newParam = (decltype(CSA::IGN))LMFI->allocateLIC(licClass);
       auto newSwitch = BuildMI(*switched->getParent(), switched,
           MI->getDebugLoc(),

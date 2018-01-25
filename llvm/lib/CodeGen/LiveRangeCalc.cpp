@@ -356,7 +356,6 @@ bool LiveRangeCalc::findReachingDefs(LiveRange &LR, MachineBasicBlock &UseMBB,
 // LiveDebugVariables will have a chance of working when "-g" is used. Also see
 // the other CSA EDIT's comments below.
 #if 0
-#endif
     if (MBB->pred_empty()) {
       MBB->getParent()->verify();
       errs() << "Use of " << PrintReg(PhysReg)
@@ -376,7 +375,6 @@ bool LiveRangeCalc::findReachingDefs(LiveRange &LR, MachineBasicBlock &UseMBB,
              << ", but is missing from the live-in list.\n";
       report_fatal_error("Invalid global physical register");
     }
-#if INTEL_CUSTOMIZATION
 #endif // 0 -- CSA EDIT
 #endif
 #endif

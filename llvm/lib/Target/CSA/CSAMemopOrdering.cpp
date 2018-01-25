@@ -125,9 +125,6 @@ namespace {
 
   class CSAMemopOrdering : public MachineFunctionPass {
     bool runOnMachineFunction(MachineFunction &MF) override;
-    const TargetMachine *TM;
-    const CSASubtarget *STI;
-    const MCInstrInfo  *MII;
 
   public:
     static char ID;

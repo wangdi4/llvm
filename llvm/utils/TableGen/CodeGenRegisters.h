@@ -314,6 +314,9 @@ namespace llvm {
     unsigned SpillAlignment;
     int CopyCost;
     bool Allocatable;
+#if INTEL_CUSTOMIZATION
+    bool PureVirtual;
+#endif
     StringRef AltOrderSelect;
     uint8_t AllocationPriority;
     /// Contains the combination of the lane masks of all subregisters.
@@ -431,14 +434,18 @@ namespace llvm {
       const CodeGenRegister::Vec *Members;
       unsigned SpillSize;
       unsigned SpillAlignment;
+#if INTEL_CUSTOMIZATION
+      bool PureVirtual;
 
       Key(const CodeGenRegister::Vec *M, unsigned S = 0, unsigned A = 0)
-        : Members(M), SpillSize(S), SpillAlignment(A) {}
+        : Members(M), SpillSize(S), SpillAlignment(A), PureVirtual(false) {}
 
       Key(const CodeGenRegisterClass &RC)
         : Members(&RC.getMembers()),
           SpillSize(RC.SpillSize),
-          SpillAlignment(RC.SpillAlignment) {}
+          SpillAlignment(RC.SpillAlignment),
+          PureVirtual(RC.PureVirtual) {}
+#endif
 
       // Lexicographical order of (Members, SpillSize, SpillAlignment).
       bool operator<(const Key&) const;

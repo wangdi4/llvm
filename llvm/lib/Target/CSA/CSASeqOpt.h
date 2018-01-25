@@ -10,11 +10,15 @@ namespace llvm
     public:
     MachineInstr* lpInitForPickSwitchPair(MachineInstr* pickInstr, MachineInstr* switchInstr, unsigned& backedgeReg, MachineInstr* cmpInstr=nullptr);
     bool isIntegerOpcode(unsigned opcode);
-    bool repeatOpndInSameLoop(MachineOperand& opnd, MachineInstr* lpCmp);
+    MachineInstr* repeatOpndInSameLoop(MachineOperand& opnd, MachineInstr* lpCmp);
+    void FoldRptInit(MachineInstr* rptInstr);
+    MachineInstr* getSeqOTDef(MachineOperand& opnd);
+    void PrepRepeat();
     void SequenceOPT();
-    void SequenceIndv(CSASSANode* cmpNode, CSASSANode* switchNode, CSASSANode* addNode, CSASSANode* lhdrPhiNode);
-    MachineOperand CalculateTripCnt(MachineOperand& initOpnd, MachineOperand& bndOpnd);
-    MachineOperand tripCntForSeq(MachineInstr*seqInstr);
+    void SequenceIndv(CSASSANode* cmpNode, CSASSANode* switchNode, CSASSANode* addNode, CSASSANode* lhdrPhiNode); 
+    MachineOperand CalculateTripCnt(MachineOperand& initOpnd, MachineOperand& bndOpnd, MachineInstr* pos);
+    MachineOperand tripCntForSeq(MachineInstr*seqInstr, MachineInstr* pos);
+    MachineOperand getTripCntForSeq(MachineInstr*seqInstr, MachineInstr* pos);
     void MultiSequence(CSASSANode* switchNode, CSASSANode* addNode, CSASSANode* lhdrPickNode);
     void SequenceApp(CSASSANode* switchNode, CSASSANode* addNode, CSASSANode* lhdrPhiNode);
     void SequenceReduction(CSASSANode* switchNode, CSASSANode* addNode, CSASSANode* lhdrPhiNode);
@@ -32,5 +36,8 @@ namespace llvm
     const CSAInstrInfo* TII;
     MachineRegisterInfo* MRI;
     CSAMachineFunctionInfo *LMFI;
+    const TargetRegisterInfo* TRI;
+    DenseMap<MachineInstr*, MachineOperand*> seq2tripcnt;
+    DenseMap<unsigned, unsigned> reg2neg;
   };
 }

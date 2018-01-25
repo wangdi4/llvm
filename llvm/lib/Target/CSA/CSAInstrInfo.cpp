@@ -508,16 +508,16 @@ unsigned CSAInstrInfo::commuteNegateCompareOpcode(unsigned cmp_opcode,
     new_generic = negate_eq ? CSA::Generic::CMPNE : CSA::Generic::CMPEQ;
     break;
   case CSA::Generic::CMPGE: // ">=" maps to "<"
-    new_generic = swap_ltgt ? CSA::Generic::CMPLT : CSA::Generic::CMPGE;
+    new_generic = swap_ltgt ? CSA::Generic::CMPLE : CSA::Generic::CMPGE;
     break;
   case CSA::Generic::CMPGT: // ">" maps to "<="
-    new_generic = swap_ltgt ? CSA::Generic::CMPLE : CSA::Generic::CMPGT;
+    new_generic = swap_ltgt ? CSA::Generic::CMPLT : CSA::Generic::CMPGT;
     break;
   case CSA::Generic::CMPLE: // "<=" maps to ">"
-    new_generic = swap_ltgt ? CSA::Generic::CMPGT : CSA::Generic::CMPLE;
+    new_generic = swap_ltgt ? CSA::Generic::CMPGE : CSA::Generic::CMPLE;
     break;
   case CSA::Generic::CMPLT: // "<" maps to ">="
-    new_generic = swap_ltgt ? CSA::Generic::CMPGE : CSA::Generic::CMPLT;
+    new_generic = swap_ltgt ? CSA::Generic::CMPGT : CSA::Generic::CMPLT;
     break;
   case CSA::Generic::CMPNE: // "!=" maps to "!="
     new_generic = negate_eq ? CSA::Generic::CMPEQ : CSA::Generic::CMPNE;
@@ -638,29 +638,60 @@ CSAInstrInfo::convertTransformToReductionOp(unsigned transform_opcode) const {
   return adjustOpcode(transform_opcode, reductGeneric);
 }
 
-// TBD(jsukha): My initial attempt at the implementation was to call
-// TargetRegisterClass::getMinimalPhysRegClass.  But this method seems
-// to end up picking the ANYC register class, which is not what we
-// want...
-const TargetRegisterClass*
-CSAInstrInfo::lookupLICRegClass(unsigned reg) const {
+const TargetRegisterClass *
+CSAInstrInfo::getLicClassForSize(unsigned size) const {
+  if (size == 0)
+    return &CSA::CI0RegClass;
+  else if (size == 1)
+    return &CSA::CI1RegClass;
+  else if (size == 8)
+    return &CSA::CI8RegClass;
+  else if (size == 16)
+    return &CSA::CI16RegClass;
+  else if (size == 32)
+    return &CSA::CI32RegClass;
+  else if (size == 64)
+    return &CSA::CI64RegClass;
+  llvm_unreachable("Unknown size class");
+}
+
+bool CSAInstrInfo::isLICClass(const TargetRegisterClass *RC) const {
+  if (!RC)
+    return false;
+  return RC->getID() == CSA::CI0RegClassID ||
+    RC->getID() == CSA::CI1RegClassID ||
+    RC->getID() == CSA::CI8RegClassID ||
+    RC->getID() == CSA::CI16RegClassID ||
+    RC->getID() == CSA::CI32RegClassID ||
+    RC->getID() == CSA::CI64RegClassID ||
+    RC->getID() == CSA::ANYCRegClassID;
+}
+
+const TargetRegisterClass *CSAInstrInfo::getRegisterClass(unsigned reg,
+    const MachineRegisterInfo &MRI) const {
+  if (TargetRegisterInfo::isVirtualRegister(reg))
+    return MRI.getRegClass(reg);
+
   if (CSA::CI64RegClass.contains(reg)) {
     return &CSA::CI64RegClass;
   }
   else if (CSA::CI32RegClass.contains(reg)) {
-    return &CSA::CI32RegClass;    
+    return &CSA::CI32RegClass;
   }
   if (CSA::CI16RegClass.contains(reg)) {
     return &CSA::CI16RegClass;
   }
   else if (CSA::CI8RegClass.contains(reg)) {
-    return &CSA::CI8RegClass;    
+    return &CSA::CI8RegClass;
   }
   if (CSA::CI1RegClass.contains(reg)) {
     return &CSA::CI1RegClass;
   }
   else if (CSA::CI0RegClass.contains(reg)) {
-    return &CSA::CI0RegClass;    
+    return &CSA::CI0RegClass;
+  }
+  else if (CSA::ANYCRegClass.contains(reg)) {
+    return &CSA::ANYCRegClass;
   }
   return nullptr;
 }
