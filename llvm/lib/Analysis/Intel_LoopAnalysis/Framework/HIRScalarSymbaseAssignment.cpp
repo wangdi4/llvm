@@ -24,11 +24,11 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRSCCFormation.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRSCCFormation.h"
 
-#include "HIRScalarSymbaseAssignment.h"
 #include "HIRLoopFormation.h"
+#include "HIRScalarSymbaseAssignment.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -275,10 +275,15 @@ void HIRScalarSymbaseAssignment::populateLoopLiveouts(const Instruction *Inst,
   // populateLoopSCCPhiLiveouts(). This is for the latter case where BaseInst is
   // defined at a deeper level than Inst making it live out of inner loops.
   if (BaseInst != Inst) {
+
     Loop *BaseLp = LI.getLoopFor(BaseInst->getParent());
-    assert(BaseLp && "Could not find base instruction's loop!");
-    HLLoop *BaseDefLoop = LF.findHLLoop(BaseLp);
-    assert(BaseDefLoop && "Could not find base instruction's HLLoop!");
+    HLLoop *BaseDefLoop = BaseLp ? LF.findHLLoop(BaseLp) : nullptr;
+
+    // BaseInst for a single operand phi can be outside the current region in
+    // which case there is nothing to mark as liveout.
+    if (!BaseDefLoop) {
+      return;
+    }
 
     if (!DefLoop ||
         (BaseDefLoop->getNestingLevel() > DefLoop->getNestingLevel())) {
@@ -363,8 +368,8 @@ void HIRScalarSymbaseAssignment::populateLoopSCCPhiLiveouts(
 void HIRScalarSymbaseAssignment::populateRegionPhiLiveins(
     HIRRegionIdentification::iterator RegIt) {
   // Traverse SCCs associated with the region.
-  for (auto SCCIt = SCCF.begin(RegIt), EndIt = SCCF.end(RegIt);
-       SCCIt != EndIt; ++SCCIt) {
+  for (auto SCCIt = SCCF.begin(RegIt), EndIt = SCCF.end(RegIt); SCCIt != EndIt;
+       ++SCCIt) {
 
     bool SCCLiveInProcessed = false;
     // This call sets SCC's root node as the base temp.
