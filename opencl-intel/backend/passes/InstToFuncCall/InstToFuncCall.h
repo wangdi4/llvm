@@ -33,6 +33,7 @@ namespace intel{
             Type2ValueLookup FPToSI_Lookup;
             Type2ValueLookup UIToFP_Lookup;
             Type2ValueLookup SIToFP_Lookup;
+            Type2ValueLookup FPTrunc_Lookup;
 
             /// Replaces:
             /// %conv = fptoui double %tmp2 to i64
@@ -133,11 +134,13 @@ namespace intel{
                 UIToFP_Lookup[std::make_pair(Float,Integer64)] = std::make_pair("_Z13convert_floatm", CallingConv::C);
             }
 
+            FPTrunc_Lookup[std::make_pair(Half,Double)] = std::make_pair("convert_halfd", CallingConv::C);
 
             m_Lookup[Instruction::UIToFP] = UIToFP_Lookup;
             m_Lookup[Instruction::SIToFP] = SIToFP_Lookup;
             m_Lookup[Instruction::FPToUI] = FPToUI_Lookup;
             m_Lookup[Instruction::FPToSI] = FPToSI_Lookup;
+            m_Lookup[Instruction::FPTrunc] = FPTrunc_Lookup;
         }
 
         const LookupValue *operator [](const Instruction &inst) const {
@@ -177,9 +180,10 @@ namespace intel{
             Integer64 = 2,
             Float = 3,
             Double = 4,
-            v16xInteger64 = 5,
-            v16xFloat = 6,
-            v16xDouble = 7
+            Half = 5,
+            v16xInteger64 = 6,
+            v16xFloat = 7,
+            v16xDouble = 8
         };
         Opcode2T2VLookup m_Lookup;
 
@@ -199,6 +203,8 @@ namespace intel{
                 return Float;
             if (type->isDoubleTy())
                 return Double;
+            if (type->isHalfTy())
+                return Half;
             if (type->isVectorTy())
             {
                 VectorType *vt = cast<VectorType>(type);
@@ -230,7 +236,10 @@ namespace intel{
     private:
         Inst2FunctionLookup m_I2F;
 
-        static void replaceInstWithCall(Function *func, Instruction* inst, const char* funcName, CallingConv::ID CC);
+        static void replaceInstWithCall(Function *func,
+                                        BasicBlock::iterator &II,
+                                        const char* funcName,
+                                        CallingConv::ID CC);
 
     };
 

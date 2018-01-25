@@ -170,6 +170,7 @@ set (CLANG_CL_COMMON_COMPILER_FLAGS
   -cc1 -triple ${DEVICE_TRIPLE} -mllvm -loopopt=false -emit-llvm-bc -fwrapv -O3
   -x cl -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -I ${LLVM_INCLUDE_DIRS}/cclang/ -I ${CL_BUILTIN_SOURCE_DIR} ${CLANG_LLVM_INCLUDE_DIRS} -include opencl-c.h
   -fblocks -ffake-address-space-map -faddress-space-map-mangling=yes -mstackrealign -ffp-contract=off
+  -cl-ext=+cl_khr_fp16
   )
 
 set (CLANG_C_COMPILER_PARAMS
@@ -455,6 +456,7 @@ list (APPEND OCL_20_SOURCE_FILES
 if( BUILD_FPGA_EMULATOR )
     list (APPEND OCL_20_SOURCE_FILES
       pipes.cl
+      half.cl
     )
 else( BUILD_FPGA_EMULATOR )
     # Use old pipe implementation for no-fpga build

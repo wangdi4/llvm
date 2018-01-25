@@ -7,8 +7,9 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "InstToFuncCall.h"
 #include "OCLPassSupport.h"
 
-#include <llvm/IR/Instructions.h>
 #include <llvm/IR/Constants.h>
+#include <llvm/IR/Instructions.h>
+#include <llvm/Transforms/Utils/BasicBlockUtils.h>
 
 using namespace llvm;
 
@@ -29,11 +30,12 @@ namespace intel{
 
     InstToFuncCall::InstToFuncCall(bool isV16Supported) : ModulePass(ID), m_I2F(isV16Supported) {}
 
-    /// Replaces instruction 'inst' with call to function 'funcName' which has a
+    /// Replaces instruction 'II' with call to function 'funcName' which has a
     /// calling convention 'CC'.
     void InstToFuncCall::replaceInstWithCall(Function *func,
-        Instruction* inst, const char* funcName, CallingConv::ID CC)
+        BasicBlock::iterator &II, const char* funcName, CallingConv::ID CC)
     {
+        Instruction *inst = &*II;
         // Get number of operands.
         unsigned int numOperands = inst->getNumOperands();
 
@@ -48,10 +50,9 @@ namespace intel{
 
         FunctionType *proto = FunctionType::get(inst->getType(), types, false);
         Constant* new_f = func->getParent()->getOrInsertFunction(funcName, proto);
-        CallInst* call = CallInst::Create(new_f, ArrayRef<Value*>(args), "call_conv", inst);
+        CallInst* call = CallInst::Create(new_f, ArrayRef<Value*>(args), "call_conv");
         call->setCallingConv(CC);
-        // replace all users with new function call, DCE will take care of it
-        inst->replaceAllUsesWith(call);
+        llvm::ReplaceInstWithInst(inst->getParent()->getInstList(), II,call);
     }
 
     bool InstToFuncCall::runOnModule(Module &M)
@@ -72,7 +73,7 @@ namespace intel{
                     if (0 == LV) {
                         continue;
                     }
-                    replaceInstWithCall(&(*fn), &(*it), LV->first, LV->second);
+                    replaceInstWithCall(&(*fn), it, LV->first, LV->second);
                     changed = true;
                 }
             }
