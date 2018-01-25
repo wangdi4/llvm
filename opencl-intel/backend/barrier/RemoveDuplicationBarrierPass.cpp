@@ -69,7 +69,7 @@ namespace intel {
             if ( SYNC_TYPE_BARRIER == typeNextInst ) {
               ConstantInt *pBarrierValue = dyn_cast<ConstantInt>(pNextCallInst->getArgOperand(0));
               assert( pBarrierValue && "dynamic barrier mem fence value!!" );
-              if ( CLK_GLOBAL_MEM_FENCE & pBarrierValue->getZExtValue() ) {
+              if ( (CLK_GLOBAL_MEM_FENCE | CLK_CHANNEL_MEM_FENCE) & pBarrierValue->getZExtValue() ) {
                 //dummyBarrier-barrier(global) : don't remove instruction
                 //Just update iterators
                 pInst = pNextInst;
@@ -99,7 +99,7 @@ namespace intel {
             "pInst and pNextInst must be barriers at this point!" );
           ConstantInt *pBarrierValue = dyn_cast<ConstantInt>(pNextCallInst->getArgOperand(0));
           assert( pBarrierValue && "dynamic barrier mem fence value!!" );
-          if ( CLK_GLOBAL_MEM_FENCE & pBarrierValue->getZExtValue() ) {
+          if ( (CLK_GLOBAL_MEM_FENCE | CLK_CHANNEL_MEM_FENCE) & pBarrierValue->getZExtValue() ) {
             //barrier()-barrier(global) : remove the first barrier instruction
             toRemoveInstructions.push_back(pInst);
             pInst = pNextInst;

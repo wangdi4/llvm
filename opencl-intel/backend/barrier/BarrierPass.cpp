@@ -755,7 +755,7 @@ namespace intel {
         assert(isa<ConstantInt>(pArg1) &&
                "Barrier first argument (memory fence) must be const!");
         ConstantInt *pMemFence = cast<ConstantInt>(pArg1);
-        if ( pMemFence->getZExtValue() & CLK_GLOBAL_MEM_FENCE ) {
+        if ( pMemFence->getZExtValue() & (CLK_GLOBAL_MEM_FENCE | CLK_CHANNEL_MEM_FENCE) ) {
           //barrier(global): add mem_fence instruction!
           NeedsFence = true;
         }

@@ -5777,11 +5777,16 @@ void __attribute__((overloadable)) vstorea_half16_rtn(double16 data,size_t offse
  * will either flush any variables stored in local memory
  * or queue a memory fence to ensure correct ordering of
  * memory operations to local memory.
- * CLK_GLOBAL_MEM_FENCE – The barrier function
+ * CLK_GLOBAL_MEM_FENCE - The barrier function
  * will queue a memory fence to ensure correct ordering
  * of memory operations to global memory. This can be
  * useful when work-items, for example, write to buffer or
  * image objects and then want to read the updated data.
+ * CLK_CHANNEL_MEM_FENCE - The barrier function
+ * will queue a memory fence to ensure correct ordering of
+ * channel operations. For example one can use it with CLK_GLOBAL_MEM_FENCE,
+ * so a call can't start until the global memory operation
+ * is committed to the shared memory buffer.
  */
 
 typedef uint cl_mem_fence_flags;
@@ -5801,7 +5806,8 @@ void __attribute__((overloadable)) barrier(cl_mem_fence_flags flags);
  * combination of the following literal
  * values:
  * CLK_LOCAL_MEM_FENCE
- * CLK_GLOBAL_MEM_FENCE.
+ * CLK_GLOBAL_MEM_FENCE
+ * CLK_CHANNEL_MEM_FENCE.
  */
 void __attribute__((overloadable)) mem_fence(cl_mem_fence_flags flags);
 
@@ -5813,7 +5819,8 @@ void __attribute__((overloadable)) mem_fence(cl_mem_fence_flags flags);
  * combination of the following literal
  * values:
  * CLK_LOCAL_MEM_FENCE
- * CLK_GLOBAL_MEM_FENCE.
+ * CLK_GLOBAL_MEM_FENCE
+ * CLK_CHANNEL_MEM_FENCE.
  */
 void __attribute__((overloadable)) read_mem_fence(cl_mem_fence_flags flags);
 
@@ -5825,7 +5832,8 @@ void __attribute__((overloadable)) read_mem_fence(cl_mem_fence_flags flags);
  * combination of the following literal
  * values:
  * CLK_LOCAL_MEM_FENCE
- * CLK_GLOBAL_MEM_FENCE.
+ * CLK_GLOBAL_MEM_FENCE
+ * CLK_CHANNEL_MEM_FENCE.
  */
 void __attribute__((overloadable)) write_mem_fence(cl_mem_fence_flags flags);
 
@@ -5835,14 +5843,19 @@ void __attribute__((overloadable)) write_mem_fence(cl_mem_fence_flags flags);
  * Queue a memory fence to ensure correct 
  * ordering of memory operations to local memory
  */
-#define CLK_LOCAL_MEM_FENCE    0x1
+#define CLK_LOCAL_MEM_FENCE    0x01
 
 /**
  * Queue a memory fence to ensure correct 
  * ordering of memory operations to global memory
  */
-#define CLK_GLOBAL_MEM_FENCE   0x2
+#define CLK_GLOBAL_MEM_FENCE   0x02
 
+/**
+ * Queue a memory fence to ensure correct
+ * ordering of memory operations to channel
+ */
+#define CLK_CHANNEL_MEM_FENCE  0x04
 
 // Async copies from global to local memory, local to global memory, and prefetch
 

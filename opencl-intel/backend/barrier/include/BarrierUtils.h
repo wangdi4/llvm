@@ -7,7 +7,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #ifndef __BARRIER_UTILS_H__
 #define __BARRIER_UTILS_H__
 
-#include "CL/cl.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IRBuilder.h"
@@ -39,8 +38,9 @@ namespace intel {
   #define GET_SPECIAL_BUFFER "get_special_buffer."
   #define GET_BASE_GID "get_base_global_id."
 
-  #define CLK_LOCAL_MEM_FENCE (CL_LOCAL)
-  #define CLK_GLOBAL_MEM_FENCE (CL_GLOBAL)
+  #define CLK_LOCAL_MEM_FENCE 0x01
+  #define CLK_GLOBAL_MEM_FENCE 0x02
+  #define CLK_CHANNEL_MEM_FENCE 0x04
 
   #define SPECIAL_BUFFER_ADDR_SPACE 0
   #define CURR_WI_ADDR_SPACE 0

@@ -15,10 +15,9 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include <list>
 #include <string>
 
-#include <CL/cl.h>
-
-#define CLK_LOCAL_MEM_FENCE (CL_LOCAL)
-#define CLK_GLOBAL_MEM_FENCE (CL_GLOBAL)
+#define CLK_LOCAL_MEM_FENCE 0x01
+#define CLK_GLOBAL_MEM_FENCE 0x02
+#define CLK_CHANNEL_MEM_FENCE 0x04
 
 using namespace Intel::OpenCL::DeviceBackend::Utils;
 
