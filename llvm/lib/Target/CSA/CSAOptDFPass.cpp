@@ -445,7 +445,7 @@ bool CSAOptDFPass::runOnMachineFunction(MachineFunction &MF) {
 
   if (RunSequenceOpt && RunSequenceOptType == SequenceOptMode::scc) {
     CSASeqOpt seqOpt(thisMF);
-    seqOpt.SequenceOPT();
+    seqOpt.SequenceOPT(false);
     return Modified;
   }
   // Using SEQ in place of pick/add/cmp/switch pattern.

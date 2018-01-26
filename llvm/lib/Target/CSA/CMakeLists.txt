@@ -31,6 +31,7 @@ add_llvm_target(CSACodeGen
   CSAOMPAllocaTypeFixer.cpp
   CSAOptDFPass.cpp
   CSASeqOpt.cpp
+  CSAMultiSeqPass.cpp
   CSARedundantMovElim.cpp
   CSARegisterInfo.cpp
   CSASelectionDAGInfo.cpp

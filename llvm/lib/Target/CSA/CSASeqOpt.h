@@ -14,7 +14,7 @@ namespace llvm
     void FoldRptInit(MachineInstr* rptInstr);
     MachineInstr* getSeqOTDef(MachineOperand& opnd);
     void PrepRepeat();
-    void SequenceOPT();
+    void SequenceOPT(bool);
     void SequenceIndv(CSASSANode* cmpNode, CSASSANode* switchNode, CSASSANode* addNode, CSASSANode* lhdrPhiNode); 
     MachineOperand CalculateTripCnt(MachineOperand& initOpnd, MachineOperand& bndOpnd, MachineInstr* pos);
     MachineOperand tripCntForSeq(MachineInstr*seqInstr, MachineInstr* pos);
