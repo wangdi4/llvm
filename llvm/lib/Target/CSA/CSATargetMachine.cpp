@@ -231,6 +231,10 @@ public:
     Banner = std::string("After CSAStreamingMemoryConversionPass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
 
+    addPass(createCSAMultiSeqPass(), false);
+    Banner = std::string("After CSAMultiSeqPass");
+    DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
+
     addPass(createCSARedundantMovElimPass(), false);
     Banner = std::string("After CSARedundantMovElim");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));

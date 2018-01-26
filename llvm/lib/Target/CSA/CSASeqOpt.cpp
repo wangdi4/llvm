@@ -649,7 +649,10 @@ void CSASeqOpt::PrepRepeat() {
 }
 
 
-void CSASeqOpt::SequenceOPT() {
+void CSASeqOpt::SequenceOPT(bool runMultiSeq) {
+  if (!runMultiSeq) 
+    DisableMultiSeq = true;
+
   PrepRepeat();
   CSASSAGraph csaSSAGraph;
   csaSSAGraph.BuildCSASSAGraph(*thisMF);
