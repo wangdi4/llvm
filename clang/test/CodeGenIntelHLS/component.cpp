@@ -51,6 +51,11 @@ __attribute__((ihc_component))
 __attribute__((stall_free_return))
 int foo4() { return 0; }
 
+//CHECK: @_Z4foo5v{{.*}}!ihc_component [[CFOO5:![0-9]+]] !ihc_attrs [[AFOO5:![0-9]+]]
+__attribute__((ihc_component))
+__attribute__((hls_component_use_single_clock))
+int foo5() { return 0; }
+
 //CHECK: [[CFOO1]] = !{!"_Z4foo1iiiiPiS_Ri", i32 undef, [[FOO1A1:![0-9]+]], [[FOO1A2:![0-9]+]], [[FOO1A3:![0-9]+]], [[FOO1A4:![0-9]+]], [[FOO1A5:![0-9]+]], [[FOO1A6:![0-9]+]], [[FOO1A7:![0-9]+]]}
 //CHECK: [[FOO1A1]] = !{!"arg_type", !"default", !"impl_type", !"wire", !"stable", i32 0, !"cosim_name", !"i1"}
 //CHECK: [[FOO1A2]] = !{!"arg_type", !"default", !"impl_type", !"wire", !"stable", i32 1, !"cosim_name", !"i2"}
@@ -59,16 +64,18 @@ int foo4() { return 0; }
 //CHECK: [[FOO1A5]] = !{!"arg_type", !"mm_slave", !"impl_type", !"wire", !"stable", i32 0, !"cosim_name", !"i5", !"local_mem_size", i32 32}
 //CHECK: [[FOO1A6]] = !{!"arg_type", !"pointer", !"impl_type", !"wire", !"stable", i32 0, !"cosim_name", !"i6"}
 //CHECK: [[FOO1A7]] = !{!"arg_type", !"pointer", !"impl_type", !"wire", !"stable", i32 0, !"cosim_name", !"i7"}
-//CHECK: [[AFOO1]] = !{!"cosim_name", !"_Z4foo1iiiiPiS_Ri", !"component_interface", !"avalon_streaming", !"stall_free_return", i32 0
+//CHECK: [[AFOO1]] = !{!"cosim_name", !"_Z4foo1iiiiPiS_Ri", !"component_interface", !"avalon_streaming", !"stall_free_return", i32 0, !"use_single_clock", i32 0
 
 //CHECK: [[CFOO2]] = !{!"_Z4foo2v", i32 undef}
 //CHECK: [[AFOO2]] = !{!"cosim_name", !"_Z4foo2v", !"component_interface", !"avalon_mm_slave", !"stall_free_return", i32 0
 
 //CHECK: [[CFOO3]] = !{!"_Z4foo3v", i32 undef}
-//CHECK: [[AFOO3]] = !{!"cosim_name", !"_Z4foo3v", !"component_interface", !"always_run", !"stall_free_return", i32 0, !"max_concurrency", i32 2048
+//CHECK: [[AFOO3]] = !{!"cosim_name", !"_Z4foo3v", !"component_interface", !"always_run", !"stall_free_return", i32 0, !"use_single_clock", i32 0, !"max_concurrency", i32 2048
 
 //CHECK: [[CTFOO3]] = !{!"_Z5tfoo3ILi512EEiv", i32 undef}
-//CHECK: [[ATFOO3]] = !{!"cosim_name", !"_Z5tfoo3ILi512EEiv", !"component_interface", !"always_run", !"stall_free_return", i32 0, !"max_concurrency", i32 512
+//CHECK: [[ATFOO3]] = !{!"cosim_name", !"_Z5tfoo3ILi512EEiv", !"component_interface", !"always_run", !"stall_free_return", i32 0, !"use_single_clock", i32 0, !"max_concurrency", i32 512
 
 //CHECK: [[CFOO4]] = !{!"_Z4foo4v", i32 undef}
-//CHECK: [[AFOO4]] = !{!"cosim_name", !"_Z4foo4v", !"component_interface", !"avalon_streaming", !"stall_free_return", i32 1
+//CHECK: [[AFOO4]] = !{!"cosim_name", !"_Z4foo4v", !"component_interface", !"avalon_streaming", !"stall_free_return", i32 1, !"use_single_clock", i32 0
+//CHECK: [[CFOO5]] = !{!"_Z4foo5v", i32 undef}
+//CHECK: [[AFOO5]] = !{!"cosim_name", !"_Z4foo5v", !"component_interface", !"avalon_streaming", !"stall_free_return", i32 0, !"use_single_clock", i32 1

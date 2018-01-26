@@ -91,6 +91,11 @@ void CodeGenFunction::EmitHLSComponentMetadata(const FunctionDecl *FD,
   AttrMD.push_back(llvm::ConstantAsMetadata::get(
       llvm::ConstantInt::get(Int32Ty, IsStallFreeReturn)));
 
+  AttrMD.push_back(llvm::MDString::get(Ctx, "use_single_clock"));
+  int IsUseSingleClock = FD->hasAttr<UseSingleClockAttr>() ? 1 : 0;
+  AttrMD.push_back(llvm::ConstantAsMetadata::get(
+      llvm::ConstantInt::get(Int32Ty, IsUseSingleClock)));
+
   if (const auto *MCA = FD->getAttr<MaxConcurrencyAttr>()) {
     llvm::Value *MaxValue = EmitScalarExpr(MCA->getMax());
     llvm::ConstantInt *MaxCI = cast<llvm::ConstantInt>(MaxValue);

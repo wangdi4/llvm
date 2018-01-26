@@ -548,7 +548,7 @@ def StallFreeReturn : InheritableAttr {
 }
 
 def UseSingleClock : InheritableAttr {
-  let Spellings = [GNU<"__hls_component_use_single_clock__">];
+  let Spellings = [GNU<"hls_component_use_single_clock">];
   let LangOpts = [HLS];
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [Undocumented];
