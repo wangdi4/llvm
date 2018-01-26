@@ -58,10 +58,7 @@ namespace intel {
     LoopUtils::fillAtomicBuiltinUsers(M, RT, ForbiddenFuncUsers);
     LoopUtils::fillInternalFuncUsers(M, RT, ForbiddenFuncUsers);
 
-    // OpenCL 2.0 handling
-    if(OclVersion::CL_VER_2_0 <= CompilationUtils::getCLVersionFromModuleOrDefault(M)) {
-      LoopUtils::fillWorkItemPipeBuiltinUsers(M, RT, ForbiddenFuncUsers);
-    }
+    LoopUtils::fillWorkItemPipeBuiltinUsers(M, RT, ForbiddenFuncUsers);
 
     // Get all kernels
     CompilationUtils::FunctionSet kernelsFunctionSet;

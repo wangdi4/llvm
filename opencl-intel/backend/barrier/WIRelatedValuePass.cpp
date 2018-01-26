@@ -189,9 +189,8 @@ namespace intel {
       return false;
     }
 
-    if ( CompilationUtils::isAtomicBuiltin(origFuncName) ||
-         (OclVersion::CL_VER_2_0 <= m_oclVersion &&
-          CompilationUtils::isWorkItemPipeBuiltin(origFuncName)) ) {
+    if (CompilationUtils::isAtomicBuiltin(origFuncName) ||
+        CompilationUtils::isWorkItemPipeBuiltin(origFuncName)) {
       // Atomic and pipe built-ins are WI Id related
       return true;
     }

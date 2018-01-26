@@ -92,9 +92,8 @@ void CLWGLoopBoundaries::collectWIUniqueFuncUsers(Module &M) {
     Function* f = &*fit;
     std::string name = f->getName().str();
     if (m_clRtServices->isAtomicBuiltin(name) ||
-        (OclVersion::CL_VER_2_0 <= m_oclVersion &&
-         CompilationUtils::isWorkItemPipeBuiltin(name))){
-       wiUniqueFuncs.insert(f);
+        CompilationUtils::isWorkItemPipeBuiltin(name)) {
+      wiUniqueFuncs.insert(f);
     }
   }
   // Obtain all the recursive users of the atomic/pipe functions.
