@@ -479,8 +479,6 @@ void FrameworkProxy::Destroy()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void FrameworkProxy::Release(bool bTerminate)
 {
-    LOG_INFO(TEXT("%s"), TEXT("FrameworkProxy::Release enter"));
-
     if (TERMINATED != gGlobalState)
     {
         // Many modules assume that FrameWorkProxy singleton, execution_module, context_module and platform_module

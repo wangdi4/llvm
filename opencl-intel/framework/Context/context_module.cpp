@@ -57,8 +57,6 @@ ContextModule::ContextModule(PlatformModule *pPlatformModule) : m_bIsTerminating
 //////////////////////////////////////////////////////////////////////////
 ContextModule::~ContextModule()
 {
-    LOG_INFO(TEXT("%s"), TEXT("ContextModule destructor enter"));
-
     RELEASE_LOGGER_CLIENT;
 }
 
@@ -80,8 +78,6 @@ cl_err_code ContextModule::Initialize(ocl_entry_points * pOclEntryPoints, ocl_gp
 cl_err_code ContextModule::Release(  bool bTerminate )
 {
     m_bIsTerminating = bTerminate;
-    LOG_INFO(TEXT("%s"), TEXT("ContextModule::Release enter"));
-
     return CL_SUCCESS;
 }
 

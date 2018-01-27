@@ -216,8 +216,6 @@ cl_err_code    PlatformModule::Initialize(ocl_entry_points * pOclEntryPoints, OC
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code    PlatformModule::Release(bool bTerminate)
 {
-    LOG_INFO(TEXT("%s"), TEXT("Enter Release"));
-
     // release devices
     m_mapDevices.ReleaseAllObjects(bTerminate);
     m_pDefaultDevice = nullptr;
@@ -227,8 +225,6 @@ cl_err_code    PlatformModule::Release(bool bTerminate)
         delete[] m_ppRootDevices;
         m_ppRootDevices = nullptr;
     }
-
-    LOG_INFO(TEXT("%s"), TEXT("Platform module logger release"));
     RELEASE_LOGGER_CLIENT;
 
     return CL_SUCCESS;
