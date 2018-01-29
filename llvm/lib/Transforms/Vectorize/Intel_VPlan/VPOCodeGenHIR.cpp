@@ -608,8 +608,13 @@ void VPOCodeGenHIR::finalizeVectorLoop(void) {
     DEBUG(OrigLoop->dump());
 
   if (!MainLoop->hasChildren()) {
+    // TODO: Can this happen if HIR would never let "dead" loops to be in the
+    //       input to the vectorizer? Currently it's not the case, e.g. the loop
+    //       containing a single call to @llvm.assume is not considered as empty
+    //       by HIR framework, but once this is fixed this condition might be
+    //       changed to an assert.
     DEBUG(dbgs() << "\n\n\nRemoving empty loop\n");
-    HLNodeUtils::remove(MainLoop);
+    HLNodeUtils::removeEmptyNodes(MainLoop, true);
   } else {
     // Prevent LLVM from possibly unrolling vectorized loops with non-constant
     // trip counts. See loop in function fxpAutoCorrelation() that is part of
@@ -1301,6 +1306,8 @@ HLInst *VPOCodeGenHIR::widenNode(const HLInst *INode, RegDDRef *Mask) {
     Intrinsic::ID ID = Intrinsic::not_intrinsic;
     if (!TLI->isFunctionVectorizable(FnName, VF)) {
       ID = getVectorIntrinsicIDForCall(Call, TLI);
+      // FIXME: We should scalarize calls to @llvm.assume intrinsic instead of
+      //        completely ignoring them.
       if (ID && (ID == Intrinsic::assume || ID == Intrinsic::lifetime_end ||
                  ID == Intrinsic::lifetime_start)) {
         return const_cast<HLInst *>(INode);
