@@ -8,7 +8,6 @@ target triple = "csa"
 define void @BlackScholesOpt(i32 %OptPerThread, double* nocapture readonly %OptionYears, double* nocapture readonly %OptionStrike, double* nocapture readonly %StockPrice, double* nocapture %CallResult, double* nocapture %PutResult) #0 {
 
 ; CSA_CHECK-DAG: seqotne32
-; CSA_CHECK-DAG: seqotlts64
 
 entry:
   %cmp.77 = icmp sgt i32 %OptPerThread, 0

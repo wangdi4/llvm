@@ -10,8 +10,6 @@ target triple = "csa"
 define double @dot_kernel(i32 %n, double* nocapture readonly %x, double* nocapture readonly %y) #0 {
 
 ; CSA_CHECK-DAG: fmsredaf64
-; CSA_CHECK-DAG: seqotlts64
-; CSA_CHECK-DAG: seqotne32
 
 entry:
   %cmp.9 = icmp sgt i32 %n, 0
