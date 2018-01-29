@@ -1,7 +1,7 @@
 ; RUN: %oclopt -strip-intel-ip -verify -S %s | FileCheck %s
 
 ; global initializer must go
-@global = constant i32 4, align 4
+@global = internal local_unnamed_addr global i32 1, align 8
 ; CHECK-NOT: @global
 @llvm.global_ctors = appending global [1 x { i32, void ()*, i8* }] [{ i32, void ()*, i8* } { i32 65535, void ()* @__global_pipes_ctor, i8* null }]
 ; global ctors/dtors must stay
@@ -14,7 +14,8 @@ declare !kernel_wrapper !1 void @kernel_separated_args()
 ; kernel function is expected to be emptied
 define void @kernel() {
 entry:
- %x = add i64 1, 1
+ %x = load i32, i32* @global, align 8
+ %y = add i32 %x, 1
  ret void
 }
 

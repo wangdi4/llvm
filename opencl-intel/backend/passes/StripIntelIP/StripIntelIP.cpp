@@ -146,9 +146,16 @@ bool StripIntelIP::runOnModule(Module &M) {
   for (auto *F : KernelDecls)
     stripFunction(F);
 
-  // Strip stage 2. Nuke GVs.
+  // Strip stage 2. Strip GV Initializers.
+  // Initializers must be properly destroyed as they can
+  // reference functions.
   for (auto *GV : GlobalsToRemove) {
-      GV->eraseFromParent();
+    if (GV->hasInitializer()) {
+      Constant *Init = GV->getInitializer();
+      GV->setInitializer(nullptr);
+      if (isSafeToDestroyConstant(Init))
+        Init->destroyConstant();
+    }
   }
 
   // Strip stage 3. Nuke remaining functions.
@@ -161,7 +168,12 @@ bool StripIntelIP::runOnModule(Module &M) {
       F->eraseFromParent();
   }
 
-  // Strip stage 4. Nuke Named Metadata.
+  // Strip stage 4. Nuke GVs.
+  for (auto *GV : GlobalsToRemove) {
+    GV->eraseFromParent();
+  }
+
+  // Strip stage 5. Nuke Named Metadata.
   for (auto *NamedMDNode : NamedMDNodesToRemove)
     M.eraseNamedMetadata(NamedMDNode);
 
