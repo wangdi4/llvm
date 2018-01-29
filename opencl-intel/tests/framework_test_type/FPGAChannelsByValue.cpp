@@ -113,7 +113,7 @@ void FPGAChannelsByValue()
     const cl_int numElements = 1024;
     cl_int2 input_data[numElements];
     for (cl_int i = 0, x = 0; i < numElements; ++i) {
-        int a, b;
+        int a = 0, b = 0;
         switch (x) {
             case 0: a = 0; b = 0; break;
             case 1: a = 1; b = 0; break;
