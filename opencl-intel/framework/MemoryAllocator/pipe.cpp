@@ -31,6 +31,12 @@ cl_err_code Pipe::Initialize(cl_mem_flags flags, cl_uint uiPacketSize,
     m_uiPacketSize = uiPacketSize;
     m_uiMaxPackets = uiMaxPackets;
 
+    if (((flags & CL_MEM_HOST_WRITE_ONLY) && (flags & CL_MEM_WRITE_ONLY)) ||
+        ((flags & CL_MEM_HOST_READ_ONLY) && (flags & CL_MEM_READ_ONLY)))
+    {
+        return CL_INVALID_VALUE;
+    }
+
     const size_t szDim = CalcPipeSize(uiPacketSize, uiMaxPackets);
     cl_err_code err = CL_SUCCESS;
     if (!pHostPtr)
@@ -111,8 +117,10 @@ void* Pipe::Map(cl_mem_flags flags, size_t requestedSize,
         return nullptr;
     }
 
-    // TODO: add note to the spec
-    if (requestedSize < m_uiPacketSize)
+    // Reject invalid sizes:
+    //   - size of 0 does not makes sense.
+    //   - sizes aliquant to the packet size.
+    if (requestedSize == 0 || requestedSize % m_uiPacketSize)
     {
         SET_ERROR(pError, CL_INVALID_VALUE);
         return nullptr;
@@ -178,8 +186,13 @@ cl_err_code Pipe::Unmap(void* pMappedMem, size_t sizeToUnmap,
         return CL_INVALID_VALUE;
     }
 
-    // Unmap integral number of packets
-    size_t unmappedSize = (sizeToUnmap / m_uiPacketSize) * m_uiPacketSize;
+    // Requested_size must be an integer multiple of the packet size.
+    if (sizeToUnmap % m_uiPacketSize)
+    {
+        return CL_INVALID_VALUE;
+    }
+
+    size_t unmappedSize = sizeToUnmap;
 
     if (seg->size < unmappedSize)
     {
@@ -191,6 +204,10 @@ cl_err_code Pipe::Unmap(void* pMappedMem, size_t sizeToUnmap,
     if (pUnmappedSizeRet)
     {
         *pUnmappedSizeRet = unmappedSize;
+    }
+    else
+    {
+        return CL_INVALID_VALUE;
     }
 
     if (seg->sizeToUnmap > 0)
@@ -286,6 +303,11 @@ void Pipe::UnmapWrite(MapSegment seg)
 }
 cl_err_code Pipe::ReadPacket(void* pDst)
 {
+    if (!pDst)
+    {
+      return CL_INVALID_VALUE;
+    }
+
     if (!(GetFlags() & CL_MEM_HOST_READ_ONLY))
     {
         return CL_INVALID_MEM_OBJECT;
@@ -300,23 +322,27 @@ cl_err_code Pipe::ReadPacket(void* pDst)
         void *mapPtr = Map(0, m_uiPacketSize, &mappedSize, &error);
         if (CL_FAILED(error))
         {
-            return error;
+            assert(error == CL_OUT_OF_RESOURCES &&
+                   "Unexpected Pipe::Map error.");
+            return CL_PIPE_EMPTY;
         }
 
         memcpy(pDst, mapPtr, m_uiPacketSize);
 
         size_t unmappedSize = 0;
         error = Unmap(mapPtr, m_uiPacketSize, &unmappedSize);
+        assert(error == CL_SUCCESS &&
+               "Cannot fail unmap unless arguments are incorrect.");
         assert((unmappedSize == mappedSize) &&
                (mappedSize == m_uiPacketSize) &&
                "Inconsistent mapped/unmapped size.");
-        return error;
+        return CL_SUCCESS;
     }
 
     void* pPipe = GetBackingStoreData();
     if (__read_pipe_2_intel(pPipe, pDst))
     {
-        return CL_OUT_OF_RESOURCES;
+        return CL_PIPE_EMPTY;
     }
     FlushRead();
     return CL_SUCCESS;
@@ -324,6 +350,11 @@ cl_err_code Pipe::ReadPacket(void* pDst)
 
 cl_err_code Pipe::WritePacket(const void* pSrc)
 {
+    if (!pSrc)
+    {
+        return CL_INVALID_VALUE;
+    }
+
     if (!(GetFlags() & CL_MEM_HOST_WRITE_ONLY))
     {
         return CL_INVALID_MEM_OBJECT;
@@ -338,23 +369,27 @@ cl_err_code Pipe::WritePacket(const void* pSrc)
         void *mapPtr = Map(0, m_uiPacketSize, &mappedSize, &error);
         if (CL_FAILED(error))
         {
-            return error;
+            assert(error == CL_OUT_OF_RESOURCES &&
+                   "Unexpected Pipe::Map error.");
+            return CL_PIPE_FULL;
         }
 
         memcpy(mapPtr, pSrc, m_uiPacketSize);
 
         size_t unmappedSize = 0;
         error = Unmap(mapPtr, m_uiPacketSize, &unmappedSize);
+        assert(error == CL_SUCCESS &&
+               "Cannot fail unmap unless arguments are incorrect.");
         assert((unmappedSize == mappedSize) &&
                (mappedSize == m_uiPacketSize) &&
                "Inconsistent mapped/unmapped size.");
-        return error;
+        return CL_SUCCESS;
     }
 
     void* pPipe = GetBackingStoreData();
     if (__write_pipe_2_intel(pPipe, pSrc))
     {
-        return CL_OUT_OF_RESOURCES;
+        return CL_PIPE_FULL;
     }
     FlushWrite();
     return CL_SUCCESS;

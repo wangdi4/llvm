@@ -174,7 +174,7 @@ cl_int HostSidePipesTest::readPipe(cl_mem pipe, void* mem)
     {
         error = (*read_pipe_fn)(pipe, mem);
     }
-    while (error == CL_OUT_OF_RESOURCES);
+    while (error == CL_PIPE_EMPTY);
 
     return error;
 }
@@ -186,7 +186,7 @@ cl_int HostSidePipesTest::writePipe(cl_mem pipe, const void* mem)
     {
         error = (*write_pipe_fn)(pipe, mem);
     }
-    while (error == CL_OUT_OF_RESOURCES);
+    while (error == CL_PIPE_FULL);
 
     return error;
 }
@@ -507,4 +507,90 @@ __kernel void no_attr(read_only pipe int pin,      \n\
     error = clSetKernelArg(noAttrKernel, 1,
                            sizeof(m_pipeRead), &m_pipeRead);
     EXPECT_EQ( CL_INVALID_ARG_VALUE, error);
+}
+
+TEST_F(HostSidePipesTest, FlagsGood)
+{
+  cl_int iRet = CL_SUCCESS;
+  cl_mem pipe = nullptr;
+  pipe = clCreatePipe(m_context,
+                      CL_MEM_HOST_READ_ONLY,
+                      sizeof(cl_int), m_maxBufferSize,
+                      nullptr, &iRet);
+  ASSERT_EQ(CL_SUCCESS, iRet)
+    << "clCreatePipe(CL_MEM_HOST_READ_ONLY) failed.";
+  clReleaseMemObject(pipe);
+
+  pipe = clCreatePipe(m_context,
+                            CL_MEM_HOST_READ_ONLY | CL_MEM_WRITE_ONLY,
+                            sizeof(cl_int), m_maxBufferSize,
+                            nullptr, &iRet);
+  ASSERT_EQ(CL_SUCCESS, iRet)
+    << "clCreatePipe(CL_MEM_HOST_READ_ONLY | CL_MEM_WRITE_ONLY) failed.";
+  clReleaseMemObject(pipe);
+
+  pipe = clCreatePipe(m_context,
+                      CL_MEM_HOST_WRITE_ONLY,
+                      sizeof(cl_int), m_maxBufferSize,
+                      nullptr, &iRet);
+  ASSERT_EQ(CL_SUCCESS, iRet)
+    << "clCreatePipe(CL_MEM_HOST_WRITE_ONLY) failed.";
+  clReleaseMemObject(pipe);
+
+  pipe = clCreatePipe(m_context,
+                      CL_MEM_HOST_WRITE_ONLY | CL_MEM_READ_ONLY,
+                      sizeof(cl_int), m_maxBufferSize,
+                      nullptr, &iRet);
+  ASSERT_EQ(CL_SUCCESS, iRet)
+    << "clCreatePipe(CL_MEM_HOST_WRITE_ONLY | CL_MEM_READ_ONLY) failed.";
+  clReleaseMemObject(pipe);
+}
+
+TEST_F(HostSidePipesTest, FlagsBad)
+{
+  cl_int iRet = CL_SUCCESS;
+  cl_mem pipe = nullptr;
+  pipe = clCreatePipe(m_context,
+                            CL_MEM_HOST_READ_ONLY | CL_MEM_READ_ONLY,
+                            sizeof(cl_int), m_maxBufferSize,
+                            nullptr, &iRet);
+  ASSERT_EQ(CL_INVALID_VALUE, iRet)
+    << "clCreatePipe(CL_MEM_HOST_READ_ONLY | CL_MEM_READ_ONLY) failed.";
+  clReleaseMemObject(pipe);
+
+  pipe = clCreatePipe(m_context,
+                      CL_MEM_HOST_WRITE_ONLY | CL_MEM_WRITE_ONLY,
+                      sizeof(cl_int), m_maxBufferSize,
+                      nullptr, &iRet);
+  ASSERT_EQ(CL_INVALID_VALUE, iRet)
+    << "clCreatePipe(CL_MEM_HOST_WRITE_ONLY | CL_MEM_WRITE_ONLY) failed.";
+  clReleaseMemObject(pipe);
+}
+
+TEST_F(HostSidePipesTest, BadPtr)
+{
+  cl_int iRet = CL_SUCCESS;
+
+  iRet = read_pipe_fn(m_pipeRead, nullptr);
+  ASSERT_EQ(CL_INVALID_VALUE, iRet)
+    << "clReadPipeIntelFPGA(nullptr)";
+
+  iRet = write_pipe_fn(m_pipeWrite, nullptr);
+  ASSERT_EQ(CL_INVALID_VALUE, iRet)
+    << "clReadPipeIntelFPGA(nullptr)";
+
+  map_pipe_fn(m_pipeRead, CL_MEM_HOST_READ_ONLY,
+              sizeof(cl_int), nullptr, &iRet);
+  ASSERT_EQ(CL_INVALID_VALUE, iRet)
+    << "clMapPipeIntelFPGA(nullptr)";
+
+  iRet = unmap_pipe_fn(m_pipeRead, nullptr,
+                       sizeof(cl_int), (size_t*)0xdeadbeef);
+  ASSERT_EQ(CL_INVALID_VALUE, iRet)
+    << "clUnmapPipeIntelFPGA(nullptr, 0xdeadbeef)";
+
+  iRet = unmap_pipe_fn(m_pipeRead, (void*)0xdeadbeef,
+                       sizeof(cl_int), nullptr);
+  ASSERT_EQ(CL_INVALID_VALUE, iRet)
+    << "clUnmapPipeIntelFPGA(0xdeadbeef, nullptr)";
 }
