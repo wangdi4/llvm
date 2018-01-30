@@ -1394,6 +1394,21 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
         if (CheckPPCBuiltinFunctionCall(BuiltinID, TheCall))
           return ExprError();
         break;
+#if INTEL_CUSTOMIZATION
+  case llvm::Triple::spir:
+  case llvm::Triple::spir64:
+    // We use environment part of triple to indicate that the target for
+    // compilation is fpga-emulator, i.e. spir64-unknown-unknown-intelfpga.
+    //
+    // Additional fpga built-ins are declared as target builtins for
+    // SPIR64INTELFpga and SPIR32INTELFpga targets, so, usual user will see an
+    // error message if it would try to use this ones and we can omit check
+    // of environment part of the triple.
+    // check for the argument.
+    if (CheckFPGABuiltinFunctionCall(BuiltinID, TheCall))
+      return ExprError();
+    break;
+#endif // INTEL_CUSTOMIZATION
       default:
         break;
     }
@@ -2620,6 +2635,21 @@ bool Sema::CheckX86BuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
   return SemaBuiltinConstantArgRange(TheCall, i, l, u);
 }
 
+#if INTEL_CUSTOMIZATION
+bool Sema::CheckFPGABuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
+  if (BuiltinID == SPIRINTELFpga::BIget_compute_id)
+    return false;
+  if (BuiltinID == SPIRINTELFpga::BIread_pipe ||
+      BuiltinID == SPIRINTELFpga::BIwrite_pipe) {
+    if (SemaBuiltinRWPipe(*this, TheCall))
+      return true;
+    TheCall->setType(Context.IntTy);
+    return false;
+  }
+
+  return true;
+}
+#endif // INTEL_CUSTOMIZATION
 /// Given a FunctionDecl's FormatAttr, attempts to populate the FomatStringInfo
 /// parameter with the FormatAttr's correct format_idx and firstDataArg.
 /// Returns true when the format fits the function and the FormatStringInfo has

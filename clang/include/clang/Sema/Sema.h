@@ -10688,6 +10688,9 @@ private:
   bool CheckX86BuiltinGatherScatterScale(unsigned BuiltinID, CallExpr *TheCall);
   bool CheckX86BuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall);
   bool CheckPPCBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall);
+#if INTEL_CUSTOMIZATION
+  bool CheckFPGABuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall);
+#endif // INTEL_CUSTOMIZATION
 
   bool SemaBuiltinVAStart(unsigned BuiltinID, CallExpr *TheCall);
   bool SemaBuiltinVAStartARMMicrosoft(CallExpr *Call);

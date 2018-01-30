@@ -5138,16 +5138,19 @@ Value *CodeGenFunction::EmitIntelFPGABuiltinExpr(unsigned BuiltinID,
     llvm::PointerType *PT = cast<llvm::PointerType>(Arg1->getType());
     LangAS ArgAS = getLangASFromTargetAS(PT->getAddressSpace());
     unsigned AS = getContext().getTargetAddressSpace(ArgAS);
-    llvm::Type *I8PTy = llvm::PointerType::get(
-        llvm::Type::getInt8Ty(getLLVMContext()), AS);
+    llvm::Type *I8PTy =
+        llvm::PointerType::get(llvm::Type::getInt8Ty(getLLVMContext()), AS);
 
     // Testing which overloaded version we should generate the call for.
     bool IsReadPipe = BuiltinID == SPIRINTELFpga::BIread_pipe;
-    std::string ReadMangling = "__read_pipe_2_AS" + std::to_string(AS);
-    std::string WriteMangling = "__write_pipe_2_AS" + std::to_string(AS);
-    const char *Name = (IsReadPipe) ? ReadMangling.c_str()
-                                    : WriteMangling.c_str();
-    Name = ChangeBuiltinToBL(E, BuiltinID, Name);
+    SmallString<21> Name;
+    Name = (IsReadPipe) ? "__read_pipe_2" : "__write_pipe_2";
+    if (auto *DR = dyn_cast<DeclRefExpr>(E->getArg(0))) {
+      auto DRDecl = DR->getDecl();
+      if (DRDecl->hasAttr<OpenCLBlockingAttr>())
+        Name += "_bl";
+    }
+    Name += ("_AS" + std::to_string(AS));
 
     // Creating a function with mangled type to be able to call with any
     // builtin or user defined type.
