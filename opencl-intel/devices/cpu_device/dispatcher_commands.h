@@ -201,7 +201,7 @@ protected:
 // OCL Kernel execution
 class NDRange : public CommandBaseClass<ITaskSet>, public KernelCommand
 {
-public:    
+public:
 
     PREPARE_SHARED_PTR(NDRange)
 
@@ -216,7 +216,7 @@ public:
     void    DetachFromThread(void* pWgContext);
     bool    ExecuteIteration(size_t x, size_t y, size_t z, void* pWgContext);
     bool    Finish(FINISH_REASON reason);
-    
+
     // Optimize By
     TASK_SET_OPTIMIZATION OptimizeBy()                        const { return TASK_SET_OPTIMIZE_DEFAULT; }
     unsigned int          PreferredSequentialItemsPerThread() const;
@@ -246,6 +246,7 @@ protected:
     // Information about the hardware and a potential override for work group to thread mapping
     unsigned int                m_numThreads;
     bool                        m_bEnablePredictablePartitioning;
+    bool                        m_needSerializeWGs;
 
     // Used when running in "predictable partitioning" mode (i.e. 1:1 mapping between threads and WGs when using fission)
     // Ensures no work group is executed twice, regardless of task stealing

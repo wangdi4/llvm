@@ -140,6 +140,7 @@ struct KernelInternalMetadataAPI {
       KernelWrapperTy;
   typedef NamedMDValue<llvm::Function, MDValueGlobalObjectStrategy>
       ScalarizedKernelTy;
+  typedef NamedMDValue<bool, MDValueGlobalObjectStrategy> UseFPGAPipesTy;
 
   KernelInternalMetadataAPI(llvm::Function *Func)
       : LocalBufferSize(Func, "local_buffer_size"),
@@ -156,7 +157,8 @@ struct KernelInternalMetadataAPI {
         CanUniteWorkgroups(Func, "can_unite_workgroups"),
         VectorizedKernel(Func, "vectorized_kernel"),
         KernelWrapper(Func, "kernel_wrapper"),
-        ScalarizedKernel(Func, "scalarized_kernel")
+        ScalarizedKernel(Func, "scalarized_kernel"),
+        UseFPGAPipes(Func, "use_fpga_pipes")
     {
       MDNames.push_back(LocalBufferSize.getID());
       MDNames.push_back(BarrierBufferSize.getID());
@@ -173,6 +175,7 @@ struct KernelInternalMetadataAPI {
       MDNames.push_back(VectorizedKernel.getID());
       MDNames.push_back(KernelWrapper.getID());
       MDNames.push_back(ScalarizedKernel.getID());
+      MDNames.push_back(UseFPGAPipes.getID());
     }
 
   // internal attributes
@@ -191,6 +194,7 @@ struct KernelInternalMetadataAPI {
   NamedMDValueAccessor<VectorizedKernelTy> VectorizedKernel;
   NamedMDValueAccessor<KernelWrapperTy> KernelWrapper;
   NamedMDValueAccessor<ScalarizedKernelTy> ScalarizedKernel;
+  NamedMDValueAccessor<UseFPGAPipesTy> UseFPGAPipes;
 
 public:
   const llvm::SmallVectorImpl<llvm::StringRef>& getMDNames() const

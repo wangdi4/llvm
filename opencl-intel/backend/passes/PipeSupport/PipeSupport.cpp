@@ -35,6 +35,7 @@
 #include <llvm/Transforms/Utils/BasicBlockUtils.h>
 
 #include <algorithm>
+#include <stack>
 
 using namespace llvm;
 using namespace Intel::OpenCL::DeviceBackend;
@@ -312,12 +313,6 @@ static bool addImplicitFlushCalls(Function &F, OCLBuiltins &Builtins,
 
   // Ensure that nothing is cached upon exit from a function
   insertFlushAtExit(F, FlushReadCall, FlushWriteCall);
-
-  // OpenCL NDRange vectorizer is not able to handle non-blocking pipe
-  // operations. Disable vectorization of the functions with
-  // these operations by setting vector width to 1.
-  Intel::MetadataAPI::KernelMetadataAPI(&F).VecLenHint.set(TRANSPOSE_SIZE_1);
-
   return true;
 }
 
@@ -337,11 +332,45 @@ bool PipeSupport::runOnModule(Module &M) {
   BuiltinLibInfo &BLI = getAnalysis<BuiltinLibInfo>();
   OCLBuiltins Builtins(M, BLI.getBuiltinModules());
 
+  std::stack<Function *, std::vector<Function *>> WorkList;
   for (auto &F : M) {
     if (F.isDeclaration())
       continue;
+    bool FuncUseFPGAPipes =
+        addImplicitFlushCalls(F, Builtins, PipePtrTy, PipeImplPtrTy);
+    Changed |= FuncUseFPGAPipes;
 
-    Changed |= addImplicitFlushCalls(F, Builtins, PipePtrTy, PipeImplPtrTy);
+    Intel::MetadataAPI::KernelInternalMetadataAPI(&F).UseFPGAPipes.set(
+        FuncUseFPGAPipes);
+    if (!FuncUseFPGAPipes)
+      continue;
+
+    // OpenCL NDRange vectorizer is not able to handle non-blocking pipe
+    // operations. Disable vectorization of the functions with
+    // these operations by setting vector width to 1.
+
+    Intel::MetadataAPI::KernelMetadataAPI(&F).VecLenHint.set(TRANSPOSE_SIZE_1);
+
+    WorkList.push(&F);
+  }
+
+  while (!WorkList.empty()) {
+    auto *F = WorkList.top();
+    WorkList.pop();
+    for (const auto &U : F->users()) {
+      if (CallInst *Call = dyn_cast<CallInst>(U)) {
+        auto ParentFunction = Call->getFunction();
+        auto UseFPGAPipesMD =
+            Intel::MetadataAPI::KernelInternalMetadataAPI(ParentFunction)
+                .UseFPGAPipes;
+        // In WorkList all functions have pipes, so all parent functions
+        // should have pipes.
+        if (!UseFPGAPipesMD.hasValue() ||
+            (UseFPGAPipesMD.hasValue() && !UseFPGAPipesMD.get()))
+          WorkList.push(ParentFunction);
+        UseFPGAPipesMD.set(true);
+      }
+    }
   }
   return Changed;
 }

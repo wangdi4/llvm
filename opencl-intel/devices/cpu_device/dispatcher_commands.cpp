@@ -813,6 +813,8 @@ int NDRange::Init(size_t region[], unsigned int &dimCount, size_t numberOfThread
 
     const ICLDevBackendKernel_* pKernel = ((const ProgramService::KernelMapEntry*)cmdParams->kernel)->pBEKernel;
     const cl_kernel_argument*   pParams = pKernel->GetKernelParams();
+    const ICLDevBackendKernelProporties* pProperties = pKernel->GetKernelProporties();
+    m_needSerializeWGs = pProperties->NeedSerializeWGs();
 
     std::vector<cl_mem_obj_descriptor*> devMemObjects;
     unsigned int uiMemArgCount = pKernel->GetMemoryObjectArgumentCount();
@@ -881,13 +883,13 @@ int NDRange::Init(size_t region[], unsigned int &dimCount, size_t numberOfThread
     // if logger is enabled, always print local work size from BE
     if (nullptr != g_pUserLogger && g_pUserLogger->IsApiLoggingEnabled())
     {
-        vector<size_t> dims(m_pImplicitArgs->LocalSize[0], &m_pImplicitArgs->LocalSize[0][cmdParams->work_dim]);                       
+        vector<size_t> dims(m_pImplicitArgs->LocalSize[0], &m_pImplicitArgs->LocalSize[0][cmdParams->work_dim]);
         g_pUserLogger->SetLocalWorkSize4ArgValues(m_pCmd->id, dims);
     }
 
     const size_t*    pWGSize = m_pImplicitArgs->WGCount;
     unsigned int i;
-    for (i = 0; i < cmdParams->work_dim; ++i) 
+    for (i = 0; i < cmdParams->work_dim; ++i)
     {
       region[i] = pWGSize[i];
     }
@@ -897,7 +899,7 @@ int NDRange::Init(size_t region[], unsigned int &dimCount, size_t numberOfThread
     }
 
     dimCount = cmdParams->work_dim;
-  
+
     //TODO: might want to revisit these restrictions in the future
     //TODO: Use direct access to ITEDevice and expose sub device INFO.
     m_bEnablePredictablePartitioning = ( (1 == dimCount) && (region[0] == m_numThreads) && m_pTaskDispatcher->isPredictablePartitioningAllowed() );
@@ -916,7 +918,7 @@ int NDRange::Init(size_t region[], unsigned int &dimCount, size_t numberOfThread
 unsigned int NDRange::PreferredSequentialItemsPerThread() const
 {
     unsigned int preferredSize = 1;
-    if(m_pCmd->isFPGAEmulator)
+    if(m_needSerializeWGs)
     {
         assert(m_pImplicitArgs != nullptr && "Init should be called first.");
         const size_t* pWGSize = m_pImplicitArgs->WGCount;

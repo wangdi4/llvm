@@ -59,6 +59,7 @@ KernelProperties::KernelProperties():
     m_uiSizeT(sizeof(void*)),
     m_bIsBlock(false),
     m_bIsAutorun(false),
+    m_bNeedSerializeWGs(false),
     m_bIsNonUniformWGSizeSupported(false),
     m_canUniteWG(false),
     m_verctorizeOnDimention(0),
@@ -110,6 +111,7 @@ void KernelProperties::Serialize(IOutputStream& ost, SerializationStatus* stats)
     Serializer::SerialPrimitive<bool>(&m_canUniteWG, ost);
     Serializer::SerialPrimitive<unsigned int>(&m_verctorizeOnDimention, ost);
     Serializer::SerialPrimitive<bool>(&m_bIsAutorun, ost);
+    Serializer::SerialPrimitive<bool>(&m_bNeedSerializeWGs, ost);
 }
 
 void KernelProperties::Deserialize(IInputStream& ist, SerializationStatus* stats)
@@ -158,6 +160,7 @@ void KernelProperties::Deserialize(IInputStream& ist, SerializationStatus* stats
     Serializer::DeserialPrimitive<bool>(&m_canUniteWG, ist);
     Serializer::DeserialPrimitive<unsigned int>(&m_verctorizeOnDimention, ist);
     Serializer::DeserialPrimitive<bool>(&m_bIsAutorun, ist);
+    Serializer::DeserialPrimitive<bool>(&m_bNeedSerializeWGs, ist);
 }
 
 
@@ -272,6 +275,11 @@ bool KernelProperties::IsBlock() const
 bool KernelProperties::IsAutorun() const
 {
     return m_bIsAutorun;
+}
+
+bool KernelProperties::NeedSerializeWGs() const
+{
+    return m_bNeedSerializeWGs;
 }
 
 size_t KernelProperties::GetMaxWorkGroupSize(size_t const wgSizeUpperBound,

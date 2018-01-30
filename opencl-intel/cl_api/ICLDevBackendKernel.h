@@ -152,6 +152,12 @@ public:
     virtual bool IsAutorun() const = 0;
 
     /**
+     * @returns true if the specified kernel needs to serialize workgroups
+     *  false otherwise
+     */
+    virtual bool NeedSerializeWGs() const = 0;
+
+    /**
      * @returns true if the specified kernel is compiled with support of non-unifrom WG size
      *  false otherwise
      */

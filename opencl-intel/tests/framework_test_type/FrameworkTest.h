@@ -156,7 +156,6 @@ bool Timers();
 bool CloneKernel();
 void checkFPGAExtension();
 void checkFPGAExtensionNEGATIVE();
-void FPGAWGOrdering();
 void FPGAInfiniteLoopsBasic();
 void FPGAPipes();
 void FPGAPipeOrdering();
@@ -174,4 +173,5 @@ void minTBBNumWorkers();
 void moreThanMaxTBBNumWorkers();
 void lessThanMinTBBNumWorkers();
 void invalidTBBNumWorkers();
+void checkNumWorkers();
 //#define CUDA_DEVICE

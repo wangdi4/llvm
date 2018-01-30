@@ -434,6 +434,10 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
   }
 
   auto skimd = KernelInternalMetadataAPI(func);
+
+  bool needSerializeWGs =
+      skimd.UseFPGAPipes.hasValue() && skimd.UseFPGAPipes.get();
+
   // Need to check if NoBarrierPath Value exists, it is not guaranteed that
   // KernelAnalysisPass is running in all scenarios.
   const bool HasNoBarrierPath =
@@ -488,6 +492,7 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
   pProps->SetHasGlobalSync(hasGlobalSync);
   pProps->SetKernelExecutionLength(executionLength);
   pProps->SetIsAutorun(isAutorun);
+  pProps->SetNeedSerializeWGs(needSerializeWGs);
   auto kernelAttributesStr = kernelAttributes.str();
   // Remove space at the end
   if (!kernelAttributesStr.empty())
