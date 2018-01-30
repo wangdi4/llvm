@@ -89,15 +89,13 @@ Type *VPlanCostModel::getMemInstValueType(const VPInstruction *VPInst) {
     return ::getMemInstValueType(Inst);
 
 #if INTEL_CUSTOMIZATION
-  auto HIRData = dyn_cast_or_null<VPInstructionDataHIR>(VPInst->getHIRData());
-  if (!HIRData)
-    return nullptr; // CHECKME: Is that correct?
-  HLDDNode *Node = HIRData->getInstruction();
-
+  if (!VPInst->HIR.isMaster())
+    return nullptr;
+  const HLDDNode *Node = VPInst->HIR.getUnderlyingDDN();
   if (const Instruction *Inst = getLLVMInstFromDDNode(Node))
     return ::getMemInstValueType(Inst);
 
-  RegDDRef *LvalDDRef = Node->getLvalDDRef();
+  const RegDDRef *LvalDDRef = Node->getLvalDDRef();
   // FIXME: Is that correct?
   return LvalDDRef->getDestType();
 #endif // INTEL_CUSTOMIZATION
@@ -117,11 +115,9 @@ unsigned VPlanCostModel::getMemInstAlignment(const VPInstruction *VPInst) {
     return ::getMemInstAlignment(Inst);
 
 #if INTEL_CUSTOMIZATION
-  auto HIRData = dyn_cast_or_null<VPInstructionDataHIR>(VPInst->getHIRData());
-  if (!HIRData)
+  if (!VPInst->HIR.isMaster())
     return 0; // CHECKME: Is that correct?
-  HLDDNode *Node = HIRData->getInstruction();
-
+  const HLDDNode *Node = VPInst->HIR.getUnderlyingDDN();
   if (const Instruction *Inst = getLLVMInstFromDDNode(Node))
     return ::getMemInstAlignment(Inst);
 #endif // INTEL_CUSTOMIZATION
@@ -141,11 +137,9 @@ unsigned VPlanCostModel::getMemInstAddressSpace(const VPInstruction *VPInst) {
     return ::getMemInstAddressSpace(Inst);
 
 #if INTEL_CUSTOMIZATION
-  auto HIRData = dyn_cast_or_null<VPInstructionDataHIR>(VPInst->getHIRData());
-  if (!HIRData)
+  if (!VPInst->HIR.isMaster())
     return 0; // CHECKME: Is that correct?
-  HLDDNode *Node = HIRData->getInstruction();
-
+  const HLDDNode *Node = VPInst->HIR.getUnderlyingDDN();
   if (const Instruction *Inst = getLLVMInstFromDDNode(Node))
     return ::getMemInstAddressSpace(Inst);
 #endif // INTEL_CUSTOMIZATION
@@ -166,10 +160,9 @@ Value* VPlanCostModel::getGEP(const VPInstruction *VPInst) {
   }
 
 #if INTEL_CUSTOMIZATION
-  auto HIRData = dyn_cast_or_null<VPInstructionDataHIR>(VPInst->getHIRData());
-  if (!HIRData)
+  if (!VPInst->HIR.isMaster())
     return nullptr;
-  auto *HInst = dyn_cast<HLInst>(HIRData->getInstruction());
+  auto *HInst = dyn_cast<HLInst>(VPInst->HIR.getUnderlyingDDN());
   auto RegDD = Opcode == Instruction::Load ? HInst->getOperandDDRef(1)
                                            : HInst->getLvalDDRef();
 

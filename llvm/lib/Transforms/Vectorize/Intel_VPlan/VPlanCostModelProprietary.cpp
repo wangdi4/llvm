@@ -53,11 +53,10 @@ bool VPlanCostModelProprietary::isUnitStrideLoadStore(
   unsigned Opcode = VPInst->getOpcode();
   assert((Opcode == Instruction::Load || Opcode == Instruction::Store) &&
          "Is not load or store instruction.");
-  auto HIRData = dyn_cast_or_null<VPInstructionDataHIR>(VPInst->getHIRData());
-  if (!HIRData)
+  if (!VPInst->HIR.isMaster())
     return false; // CHECKME: Is that correct?
 
-  if (auto Inst = dyn_cast_or_null<HLInst>(HIRData->getInstruction())) {
+  if (auto Inst = dyn_cast<HLInst>(VPInst->HIR.getUnderlyingDDN())) {
     unsigned NestingLevel = Inst->getParentLoop()->getNestingLevel();
 
     return Opcode == Instruction::Load

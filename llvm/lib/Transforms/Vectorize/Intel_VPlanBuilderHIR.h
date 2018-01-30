@@ -17,7 +17,6 @@
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_BUILDER_HIR_H
 
 #include "Intel_VPlanBuilder.h"
-#include "Intel_VPlan/VPlanInstructionData.h"
 
 namespace llvm {
 namespace vpo {
@@ -31,7 +30,7 @@ public:
     VPInstruction *NewVPInst =
         cast<VPInstruction>(VPBuilder::createNaryOp(Opcode, Operands));
     if (DDNode)
-      NewVPInst->setHIRData(new VPInstructionDataHIR(DDNode));
+      NewVPInst->HIR.setUnderlyingDDN(DDNode);
     return NewVPInst;
   }
   VPValue *createNaryOp(unsigned Opcode,
@@ -46,7 +45,7 @@ public:
                            HLDDNode *DDNode) {
     assert(DDNode && "DDNode can't be null.");
     VPCmpInst *NewVPCmp = VPBuilder::createCmpInst(LHS, RHS, Pred);
-    NewVPCmp->setHIRData(new VPInstructionDataHIR(DDNode));
+    NewVPCmp->HIR.setUnderlyingDDN(DDNode);
     return NewVPCmp;
   }
 
