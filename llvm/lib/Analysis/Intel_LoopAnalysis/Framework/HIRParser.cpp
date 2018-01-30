@@ -1423,7 +1423,6 @@ unsigned HIRParser::getOrAssignSymbase(const Value *Temp, unsigned *BlobIndex) {
 unsigned HIRParser::processInstBlob(const Instruction *Inst,
                                     const Instruction *BaseInst,
                                     unsigned Symbase) {
-
   unsigned DefLevel = 0;
   bool IsRegionLivein = false;
   HLLoop *LCALoop = nullptr;
@@ -1440,12 +1439,7 @@ unsigned HIRParser::processInstBlob(const Instruction *Inst,
   if (!CurRegion->containsBBlock(ParentBB)) {
     CurRegion->addLiveInTemp(Symbase, Inst);
     IsRegionLivein = true;
-
-    // If Inst is defined in another region, we need to add it as region
-    // liveout.
-    if (DefLoop) {
-      DefLoop->getParentRegion()->addLiveOutTemp(Symbase, Inst);
-    }
+    assert(!DefLoop && "Livein value cannot come from another region!");
 
   } else if (DefLoop && UseLoop &&
              (LCALoop =
@@ -1469,32 +1463,20 @@ unsigned HIRParser::processInstBlob(const Instruction *Inst,
 
   // Set loop livein/liveout as applicable.
 
-  // For livein/liveout analysis we need to set defining loop based on BaseInst
-  // as it represents Inst in HIR.
+  // For loop livein/liveout analysis we need to set defining loop based on
+  // BaseInst as it represents Inst in HIR.
   if (!IsRegionLivein && (Inst != BaseInst)) {
     DefLp = LI.getLoopFor(BaseInst->getParent());
+    DefLoop = DefLp ? LF.findHLLoop(DefLp) : nullptr;
 
-    // DefLp can be null for phis which are outside any loop. Such phis can
-    // occur in function level regions or extended regions formed for loop
-    // fusion.
-    if (DefLp) {
-      DefLoop = LF.findHLLoop(DefLp);
-      assert(DefLoop && "Defining HLLoop of BaseInst is null!");
-
-      if (UseLoop) {
-        LCALoop = HLNodeUtils::getLowestCommonAncestorLoop(UseLoop, DefLoop);
-      }
+    if (DefLoop && UseLoop) {
+      LCALoop = HLNodeUtils::getLowestCommonAncestorLoop(UseLoop, DefLoop);
     }
   }
 
-  // Add temp as livein into current and all parent loops till we reach LCA
-  // loop.
-  while (UseLoop && (UseLoop != LCALoop)) {
-    UseLoop->addLiveInTemp(Symbase);
-    UseLoop = UseLoop->getParentLoop();
-  }
-
-  if (DefLoop) {
+  // This if-else case handles liveins/liveouts caused by SSA deconstruction.
+  if (DefLoop && isa<PHINode>(BaseInst) &&
+      (BaseInst->getParent() == DefLp->getHeader())) {
     // If this is a phi in the loop header, it should be added as a livein
     // temp in defining loop since header phis are deconstructed as follows-
     // Before deconstruction-
@@ -1513,18 +1495,57 @@ unsigned HIRParser::processInstBlob(const Instruction *Inst,
     //   %t1 = %t1 + %step
     // goto L:
     //
-    if (isa<PHINode>(BaseInst) &&
-        (BaseInst->getParent() == DefLp->getHeader())) {
-      DefLoop->addLiveInTemp(Symbase);
-    }
+    DefLoop->addLiveInTemp(Symbase);
 
-    // Instructions with livein metadata are deconstructed definitions (not
-    // uses). Therefore, they should not be used to mark loop liveouts.
-    if (!SE.getHIRMetadata(Inst, ScalarEvolution::HIRLiveKind::LiveIn)) {
-      while (DefLoop != LCALoop) {
-        DefLoop->addLiveOutTemp(Symbase);
-        DefLoop = DefLoop->getParentLoop();
+  } else if (SE.getHIRMetadata(BaseInst,
+                               ScalarEvolution::HIRLiveKind::LiveIn)) {
+    if (auto Phi = dyn_cast<PHINode>(BaseInst)) {
+      // Check if phi is in the loop exit bblock. The deconstructed definition
+      // lies inside the loop which makes it liveout of the loop. This is only
+      // possible for multi-exit loops. For single-exit loops, liveout values
+      // are used in single-operand phis which are optimized away. For
+      // example-
+      //
+      // loop:
+      //    %t1.in = 0                    <<< deconstructed definition
+      // br %cond %loopexit, %looplatch
+      //
+      // looplatch:
+      //    %t1.in1 = 1                   <<< deconstructed definition
+      // br %cond %loopexit, %loop
+      //
+      // loopexit:
+      //    %t1 = phi [ 1, %looplatch, 0, %loop ]
+      for (unsigned I = 0, Num = Phi->getNumIncomingValues(); I < Num; ++I) {
+        auto PredLp = LI.getLoopFor(Phi->getIncomingBlock(I));
+
+        if (PredLp && (PredLp != DefLp)) {
+          auto PredLoop = LF.findHLLoop(PredLp);
+          assert(PredLoop && "Could not find predecessors HLLoop!");
+          PredLoop->addLiveOutTemp(Symbase);
+        }
       }
+    }
+  }
+
+  // Add temp as livein into UseLoop and all its parent loops till we reach LCA
+  // loop.
+  if (UseLoop) {
+    while (UseLoop != LCALoop) {
+      UseLoop->addLiveInTemp(Symbase);
+      UseLoop = UseLoop->getParentLoop();
+    }
+  }
+
+  // Add temp as livein into DefLoop and all its parent loops till we reach LCA
+  // loop.
+  // Instructions with livein metadata are deconstructed definitions (not
+  // uses). Therefore, they should not be used to mark loop liveouts.
+  if (DefLoop &&
+      !SE.getHIRMetadata(Inst, ScalarEvolution::HIRLiveKind::LiveIn)) {
+    while (DefLoop != LCALoop) {
+      DefLoop->addLiveOutTemp(Symbase);
+      DefLoop = DefLoop->getParentLoop();
     }
   }
 
