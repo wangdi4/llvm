@@ -35,13 +35,15 @@ private:
   // Pointers on the represented program
   std::string m_CachedModuleBuffer;
   std::unique_ptr<llvm::MemoryBuffer> m_pObjectBuffer;
+  bool m_isObjectAvailable;
 
   ObjectCodeCache( const ObjectCodeCache& rhs );
   ObjectCodeCache& operator=( const ObjectCodeCache& rhs );
 
 public:
   ObjectCodeCache(): 
-    m_CachedModuleBuffer("")
+    m_CachedModuleBuffer(""),
+    m_isObjectAvailable(false)
     { }
 
   ObjectCodeCache(llvm::Module* pModule, const char* pObject, size_t ObjectSize);

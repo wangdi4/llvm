@@ -46,15 +46,18 @@ static void StripIntelIP(llvm::Module *M) {
 
 ObjectCodeCache::ObjectCodeCache(llvm::Module* pModule, const char* pObject, size_t ObjectSize):
   m_CachedModuleBuffer(""),
-  m_pObjectBuffer(nullptr) {
+  m_pObjectBuffer(nullptr),
+  m_isObjectAvailable(false) {
 
   if(pObject && pModule) {
     llvm::raw_string_ostream stream(m_CachedModuleBuffer);
     llvm::WriteBitcodeToFile(pModule, stream);
     stream.flush();
-    
+
     llvm::StringRef data = llvm::StringRef((const char*)pObject, ObjectSize);
     m_pObjectBuffer.reset(llvm::MemoryBuffer::getMemBufferCopy(data).release());
+
+    m_isObjectAvailable = true;
   }
 }
 
@@ -63,6 +66,8 @@ ObjectCodeCache::~ObjectCodeCache() {
 
 void ObjectCodeCache::notifyObjectCompiled(const llvm::Module* pModule,
    llvm::MemoryBufferRef pBuffer) {
+
+  assert(!m_isObjectAvailable && "We do not expect a second Module to save its object");
 
   // A module has been compiled and the resulting object is in a MemoryBuffer
   m_CachedModuleBuffer = std::string();
@@ -73,18 +78,14 @@ void ObjectCodeCache::notifyObjectCompiled(const llvm::Module* pModule,
   StripIntelIP(const_cast<llvm::Module*>(pModule));
   llvm::WriteBitcodeToFile(pModule, stream);
   stream.flush();
-  
+
   m_pObjectBuffer.reset(llvm::MemoryBuffer::getMemBufferCopy(pBuffer.getBuffer()).release());
-  StripIntelIP(const_cast<llvm::Module*>(pModule));
+
+  m_isObjectAvailable = true;
 }
 
 std::unique_ptr<llvm::MemoryBuffer> ObjectCodeCache::getObject(const llvm::Module* pModule) {
-  std::string moduleBuffer = "";
-  llvm::raw_string_ostream stream(moduleBuffer);
-  llvm::WriteBitcodeToFile(pModule, stream);
-  stream.flush();
-
-  if(moduleBuffer == m_CachedModuleBuffer) {
+  if (m_isObjectAvailable) {
     assert(m_pObjectBuffer.get() && "Mapped Object is null");
     return std::unique_ptr<llvm::MemoryBuffer>(std::move(m_pObjectBuffer));
   }
