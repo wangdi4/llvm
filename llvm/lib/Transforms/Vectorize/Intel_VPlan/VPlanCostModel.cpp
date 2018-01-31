@@ -157,6 +157,45 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
     //      'Value *Ptr' (if that could be reasonable)
     return VF*ScalarCost;
   }
+  case Instruction::Add:
+  case Instruction::FAdd:
+  case Instruction::Sub:
+  case Instruction::FSub:
+  case Instruction::Mul:
+  case Instruction::FMul:
+  case Instruction::UDiv:
+  case Instruction::SDiv:
+  case Instruction::FDiv:
+  case Instruction::URem:
+  case Instruction::SRem:
+  case Instruction::Shl:
+  case Instruction::LShr:
+  case Instruction::AShr:
+  case Instruction::And:
+  case Instruction::Or:
+  case Instruction::Xor: {
+    TargetTransformInfo::OperandValueKind Op1VK =
+        TargetTransformInfo::OK_AnyValue;
+    TargetTransformInfo::OperandValueKind Op2VK =
+        TargetTransformInfo::OK_AnyValue;
+    TargetTransformInfo::OperandValueProperties Op1VP =
+        TargetTransformInfo::OP_None;
+    TargetTransformInfo::OperandValueProperties Op2VP =
+        TargetTransformInfo::OP_None;
+
+    // TODO: More precise kinds/properties for VPConstants. However, we'd need
+    // to distinguish
+    //   <i32 1, i32 1, i32 1, i32 1>
+    // from
+    //   <i32 1, i32 2, i32 3, i32 4>
+    // that would have had the same underlying llvm::Constant (i32 1).
+
+    Type *BaseTy = VPInst->getType();
+    Type *VecTy = VectorType::get(BaseTy, VF);
+    unsigned Cost =
+        TTI->getArithmeticInstrCost(Opcode, VecTy, Op1VK, Op2VK, Op1VP, Op2VP);
+    return Cost;
+  }
   }
 }
 
