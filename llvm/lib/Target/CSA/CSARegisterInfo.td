@@ -39,10 +39,10 @@ foreach i = 0-10 in { def CV0_#i : CSAReg<"phy0_"#i>; }
 let isVirtual = 1, CopyCost = -1 in {
   def ANYC : RegisterClass<"CSA", [i1], 64, (add (sequence "CV0_%u", 0, 10), NA, IGN)>;
   def CI0  : RegisterClass<"CSA", [i1],      64, (add ANYC)> { let Size=1;  }
-  def CI1  : RegisterClass<"CSA", [i1],      64, (add ANYC)> { let Size=1;  }
-  def CI8  : RegisterClass<"CSA", [i8],      64, (add ANYC)> { let Size=8;  }
-  def CI16 : RegisterClass<"CSA", [i16,f16], 64, (add ANYC)> { let Size=16; }
-  def CI32 : RegisterClass<"CSA", [i32,f32], 64, (add ANYC)> { let Size=32; }
+  def CI1  : RegisterClass<"CSA", [i1],      8, (add ANYC)> { let Size=1;  }
+  def CI8  : RegisterClass<"CSA", [i8],      8, (add ANYC)> { let Size=8;  }
+  def CI16 : RegisterClass<"CSA", [i16,f16], 16, (add ANYC)> { let Size=16; }
+  def CI32 : RegisterClass<"CSA", [i32,f32], 32, (add ANYC)> { let Size=32; }
   def CI64 : RegisterClass<"CSA", [i64,f64], 64, (add ANYC)> { let Size=64; }
 }
 
@@ -96,10 +96,10 @@ def RA : CSAReg<"ra">;  // return addr
 
 def RI0  : RegisterClass<"CSA", [i1],      64,
     (add (sequence "R%u", 0, 59), FP, TP, SP, RA)> { let isAllocatable = 0; }
-def RI1  : RegisterClass<"CSA", [i1],      64, (add RI0)>;
-def RI8  : RegisterClass<"CSA", [i8],      64, (add RI0)>;
-def RI16 : RegisterClass<"CSA", [i16,f16], 64, (add RI0)>;
-def RI32 : RegisterClass<"CSA", [i32,f32], 64, (add RI0)>;
+def RI1  : RegisterClass<"CSA", [i1],      8, (add RI0)>;
+def RI8  : RegisterClass<"CSA", [i8],      8, (add RI0)>;
+def RI16 : RegisterClass<"CSA", [i16,f16], 16, (add RI0)>;
+def RI32 : RegisterClass<"CSA", [i32,f32], 32, (add RI0)>;
 def RI64 : RegisterClass<"CSA", [i64,f64], 64, (add RI0)>;
 
 // These classes are used for instruction descriptions.
@@ -108,8 +108,8 @@ def RI64 : RegisterClass<"CSA", [i64,f64], 64, (add RI0)>;
 // to registers.  (The assumption is that things that could be channels
 // were explicitly identified before register allocation.)
 def I0  : RegisterClass<"CSA", [i1],      64, (add RI0 , CI0 )>;
-def I1  : RegisterClass<"CSA", [i1],      64, (add RI1 , CI1 )>;
-def I8  : RegisterClass<"CSA", [i8],      64, (add RI8 , CI8 )>;
-def I16 : RegisterClass<"CSA", [i16,f16], 64, (add RI16, CI16)>;
-def I32 : RegisterClass<"CSA", [i32,f32], 64, (add RI32, CI32)>;
+def I1  : RegisterClass<"CSA", [i1],      8, (add RI1 , CI1 )>;
+def I8  : RegisterClass<"CSA", [i8],      8, (add RI8 , CI8 )>;
+def I16 : RegisterClass<"CSA", [i16,f16], 16, (add RI16, CI16)>;
+def I32 : RegisterClass<"CSA", [i32,f32], 32, (add RI32, CI32)>;
 def I64 : RegisterClass<"CSA", [i64,f64], 64, (add RI64, CI64)>;
