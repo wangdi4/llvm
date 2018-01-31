@@ -216,7 +216,6 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
     // 3. I think we only used 'experimental 2.x' as a separate platform
     //    (not a device). Having 2 devices seems to be an overkill for this
     //    purpose.
-#ifdef BUILD_FPGA_EMULATOR
     // In FPGA HW: Since some of the extensions are either partially supported,
     // or are not yet conformant (have not been tested or do not pass
     // conformance tests), what we claim to support in the platform/device
@@ -229,7 +228,8 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
     optionsEx << " -cl-ext=+cl_khr_global_int32_extended_atomics ";
     optionsEx << " -cl-ext=+cl_khr_fp64";
     optionsEx << " -cl-ext=+cl_khr_fp16";
-#endif // BUILD_FPGA_EMULATOR
+
+    optionsEx << " -DINTELFPGA_CL";
   }
 
   if (m_sDeviceInfo.bImageSupport) {

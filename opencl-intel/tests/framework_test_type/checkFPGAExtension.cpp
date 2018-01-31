@@ -40,11 +40,14 @@ void checkFPGAExtension()
     ASSERT_EQ(CL_SUCCESS, iRet) << " clCreateContext failed.";
 
     const char* kernel = "\
-        #pragma OPENCL EXTENSION cl_intel_channels : enable\n \
-        channel float4 rgb __attribute__((depth(43)));\
-        __kernel void dummy_kernel()\
-        {\
-            return;\
+        #ifndef INTELFPGA_CL\n\
+          #error \"INTELFPGA_CL define is missed!\"\n\
+        #endif\n\
+        #pragma OPENCL EXTENSION cl_intel_channels : enable\n\
+        channel float4 rgb __attribute__((depth(43)));\n\
+        __kernel void dummy_kernel()\n\
+        {\n\
+            return;\n\
         }\
         ";
     cl_program program = clCreateProgramWithSource(context, /*count=*/1,
