@@ -280,3 +280,17 @@ bool IntelGeneralUtils::isEscaped(const Value *V) {
   SmallPtrSet<const PHINode *, 16> PhiUsers;
   return analyzeEscapeAux(V, PhiUsers);
 }
+
+// Return the size_t type for 32/64 bit architecture
+Type *IntelGeneralUtils::getSizeTTy(Function *F) {
+  LLVMContext &C = F->getContext();
+
+  IntegerType *IntTy;
+  const DataLayout &DL = F->getParent()->getDataLayout();
+
+  if (DL.getIntPtrType(Type::getInt8PtrTy(C))->getIntegerBitWidth() == 64)
+    IntTy = Type::getInt64Ty(C);
+  else
+    IntTy = Type::getInt32Ty(C);
+  return IntTy;
+}

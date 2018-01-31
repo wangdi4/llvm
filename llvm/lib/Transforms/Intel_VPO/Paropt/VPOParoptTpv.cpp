@@ -322,13 +322,18 @@ void VPOParoptTpvLegacy::genTpvRef(Value *V,
     V = CastInst::CreatePointerCast(V, Type::getInt8PtrTy(C),
                                     Twine(""), ElseBB->getTerminator());
 
+  Value *SizeV;
+
+  if (DL.getIntPtrType(Int8PtrTy)->getIntegerBitWidth() == 64)
+    SizeV = BuilderElse.getInt64(
+                DL.getTypeAllocSize(GVPtrType->getPointerElementType()));
+  else
+     SizeV = BuilderElse.getInt32(
+                DL.getTypeAllocSize(GVPtrType->getPointerElementType()));
+
   CallInst *TC = VPOParoptUtils::genKmpcThreadPrivateCachedCall(
-      F, AI,
-      IdentTy,
-      TidV,
-      V,
-      BuilderElse.getInt32(DL.getTypeAllocSize(GVPtrType->getPointerElementType())),
-      TpvGV);
+      F, AI, IdentTy, TidV, V, SizeV, TpvGV);
+
   TC->insertBefore(AI);
   BuilderElse.CreateStore(TC, TpvPtrRef);
 

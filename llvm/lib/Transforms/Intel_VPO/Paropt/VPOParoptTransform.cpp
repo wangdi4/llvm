@@ -353,9 +353,15 @@ bool VPOParoptTransform::paroptTransforms() {
         }
         break;
       case WRegionNode::WRNTargetData:
+      case WRegionNode::WRNTargetUpdate:
         if (Mode & ParPrepare)
           genCodemotionFenceforAggrData(W);
-        DEBUG(dbgs() << "\n WRNTargetData  - Transformation \n\n");
+
+        if (W->getWRegionKindID() == WRegionNode::WRNTargetData)
+          DEBUG(dbgs() << "\n WRNTargetData  - Transformation \n\n");
+        else
+          DEBUG(dbgs() << "\n WRNTargetUpdate  - Transformation \n\n");
+
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed = clearCodemotionFenceIntrinsic(W);
           Changed |= genGlobalPrivatizationCode(W);

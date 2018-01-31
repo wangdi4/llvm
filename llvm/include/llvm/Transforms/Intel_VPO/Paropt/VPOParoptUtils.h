@@ -527,60 +527,60 @@ public:
     static CallInst *genKmpcTaskWait(WRegionNode *W, StructType *IdentTy,
                                      Value *TidPtr, Instruction *InsertPt);
 
-    /// \brief Build int32_t __tgt_target_data_begin(int32_t  device_id,
+    /// \brief Build int32_t __tgt_target_data_begin(int64_t  device_id,
     ///                                              int32_t  num_args,
     ///                                              void**   args_base,
     ///                                              void**   args,
     ///                                              int64_t* args_size,
-    ///                                              int32_t* args_maptype)
+    ///                                              int64_t* args_maptype)
     ///
     static CallInst *genTgtTargetDataBegin(WRegionNode *W, int NumArgs,
                                            Value *ArgsBase, Value *Args,
                                            Value *ArgsSize, Value *ArgsMaptype,
                                            Instruction *InsertPt);
 
-    /// \brief Build int32_t __tgt_target_data_end(int32_t  device_id,
+    /// \brief Build int32_t __tgt_target_data_end(int64_t  device_id,
     ///                                            int32_t  num_args,
     ///                                            void**   args_base,
     ///                                            void**   args,
     ///                                            int64_t* args_size,
-    ///                                            int32_t* args_maptype)
+    ///                                            int64_t* args_maptype)
     static CallInst *genTgtTargetDataEnd(WRegionNode *W, int NumArgs,
                                          Value *ArgsBase, Value *Args,
                                          Value *ArgsSize, Value *ArgsMaptype,
                                          Instruction *InsertPt);
 
-    /// \brief Build int32_t __tgt_target_data_update(int32_t  device_id,
+    /// \brief Build int32_t __tgt_target_data_update(int64_t  device_id,
     ///                                               int32_t  num_args,
     ///                                               void**   args_base,
     ///                                               void**   args,
     ///                                               int64_t* args_size,
-    ///                                               int32_t* args_maptype)
+    ///                                               int64_t* args_maptype)
     static CallInst *genTgtTargetDataUpdate(WRegionNode *W, int NumArgs,
                                             Value *ArgsBase, Value *Args,
                                             Value *ArgsSize,
                                             Value *ArgsMaptype,
                                             Instruction *InsertPt);
 
-    /// \brief Build int32_t __tgt_target(int32_t  device_id,
+    /// \brief Build int32_t __tgt_target(int64_t  device_id,
     ///                                   void*    host_addr,
     ///                                   int32_t  num_args,
     ///                                   void**   args_base,
     ///                                   void**   args,
     ///                                   int64_t* args_size,
-    ///                                   int32_t* args_maptype)
+    ///                                   int64_t* args_maptype)
     static CallInst *genTgtTarget(WRegionNode *W, Value *HostAddr, int NumArgs,
                                   Value *ArgsBase, Value *Args,
                                   Value *ArgsSize, Value *ArgsMaptype,
                                   Instruction *InsertPt);
 
-    /// \brief Build int32_t __tgt_target_teams(int32_t  device_id,
+    /// \brief Build int32_t __tgt_target_teams(int64_t  device_id,
     ///                                         void*    host_addr,
     ///                                         int32_t  num_args,
     ///                                         void**   args_base,
     ///                                         void**   args,
     ///                                         int64_t* args_size,
-    ///                                         int32_t* args_maptype,
+    ///                                         int64_t* args_maptype,
     ///                                         int32_t  num_teams,
     ///                                         int32_t  thread_limit)
     static CallInst *genTgtTargetTeams(WRegionNode *W, Value *HostAddr,
@@ -589,14 +589,13 @@ public:
                                        Value *ArgsMaptype,
                                        Instruction *InsertPt);
 
-
     /// \brief Base routine to create one of these libomptarget calls:
     /// \code
-    ///   void    __tgt_target_data_begin( int32_t device_id, <common>)
-    ///   void    __tgt_target_data_end(   int32_t device_id, <common>)
-    ///   void    __tgt_target_data_update(int32_t device_id, <common>)
-    ///   int32_t __tgt_target(int32_t device_id, void *host_addr, <common>)
-    ///   int32_t __tgt_target_teams(int32_t device_id, void *host_addr,
+    ///   void    __tgt_target_data_begin( int64_t device_id, <common>)
+    ///   void    __tgt_target_data_end(   int64_t device_id, <common>)
+    ///   void    __tgt_target_data_update(int64_t device_id, <common>)
+    ///   int32_t __tgt_target(int64_t device_id, void *host_addr, <common>)
+    ///   int32_t __tgt_target_teams(int64_t device_id, void *host_addr,
     ///                              <common>, int32_t num_teams,
     ///                              int32_t thread_limit)
     /// \endcode

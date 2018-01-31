@@ -521,9 +521,6 @@ private:
   /// object.
   GlobalVariable *getDsoHandle();
 
-  /// \brief Return the size_t type for 32/bit architecture
-  Type *getSizeTTy();
-
   /// \brief Return/Create the struct type __tgt_offload_entry.
   StructType *getTgOffloadEntryTy();
 
@@ -555,7 +552,7 @@ private:
   /// modifier and the expression V.
   void GenTgtInformationForPtrs(WRegionNode *W, Value *V,
                                 SmallVectorImpl<Constant *> &ConstSizes,
-                                SmallVectorImpl<uint32_t> &MapTypes);
+                                SmallVectorImpl<uint64_t> &MapTypes);
 
   /// \brief Generate multithreaded for a given WRegion
   bool genMultiThreadedCode(WRegionNode *W);

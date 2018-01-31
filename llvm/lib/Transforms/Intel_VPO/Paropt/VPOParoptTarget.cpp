@@ -126,7 +126,7 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
       NewCall->insertBefore(Term->getParent()->getTerminator());
 
       genRegistrationFunction(W, NewF);
-    } else if (isa<WRNTargetDataNode>(W)) {
+    } else if (isa<WRNTargetDataNode>(W) || isa<WRNTargetUpdateNode>(W)) {
       NewCall->removeFromParent();
       NewCall->insertAfter(Call);
     }
@@ -151,20 +151,6 @@ void VPOParoptTransform::resetValueInIsDevicePtrClause(WRegionNode *W) {
   for (auto *I : IDevicePtrClause.items()) {
     resetValueInIntelClauseGeneric(W, I->getOrig());
   }
-}
-
-// Return the size_t type for 32/64 bit architecture
-Type *VPOParoptTransform::getSizeTTy() {
-  LLVMContext &C = F->getContext();
-
-  IntegerType *IntTy;
-  const DataLayout &DL = F->getParent()->getDataLayout();
-
-  if (DL.getIntPtrType(Type::getInt8PtrTy(C))->getIntegerBitWidth() == 64)
-    IntTy = Type::getInt64Ty(C);
-  else
-    IntTy = Type::getInt32Ty(C);
-  return IntTy;
 }
 
 // Returns the corresponding flag for a given map clause modifier.
@@ -198,7 +184,7 @@ unsigned VPOParoptTransform::getMapTypeFlag(MapItem *MapI, bool IsFirstExprFlag,
 // modifier and the expression V.
 void VPOParoptTransform::GenTgtInformationForPtrs(
     WRegionNode *W, Value *V, SmallVectorImpl<Constant *> &ConstSizes,
-    SmallVectorImpl<uint32_t> &MapTypes) {
+    SmallVectorImpl<uint64_t> &MapTypes) {
   const DataLayout DL = F->getParent()->getDataLayout();
 
   bool IsFirstExprFlag = true;
@@ -209,8 +195,8 @@ void VPOParoptTransform::GenTgtInformationForPtrs(
     if (MapI->getNew() != V)
       continue;
     Type *T = MapI->getOrig()->getType()->getPointerElementType();
-    ConstSizes.push_back(
-        ConstantInt::get(getSizeTTy(), DL.getTypeAllocSize(T)));
+    ConstSizes.push_back(ConstantInt::get(IntelGeneralUtils::getSizeTTy(F),
+                                          DL.getTypeAllocSize(T)));
     MapTypes.push_back(
         getMapTypeFlag(MapI, !IsFirstExprFlag, IsFirstComponentFlag));
     IsFirstExprFlag = false;
@@ -224,8 +210,8 @@ void VPOParoptTransform::GenTgtInformationForPtrs(
       if (FprivI->getInMap())
         continue;
       Type *T = FprivI->getOrig()->getType()->getPointerElementType();
-      ConstSizes.push_back(
-          ConstantInt::get(getSizeTTy(), DL.getTypeAllocSize(T)));
+      ConstSizes.push_back(ConstantInt::get(IntelGeneralUtils::getSizeTTy(F),
+                                            DL.getTypeAllocSize(T)));
       MapTypes.push_back(TGT_MAP_TO);
     }
   }
@@ -235,7 +221,7 @@ void VPOParoptTransform::GenTgtInformationForPtrs(
     for (IsDevicePtrItem *IsDevicePtrI : IDevicePtrClause.items()) {
       if (IsDevicePtrI->getNew() != V)
         continue;
-      Type *T = getSizeTTy();
+      Type *T = IntelGeneralUtils::getSizeTTy(F);
       ConstSizes.push_back(ConstantInt::get(T, DL.getTypeAllocSize(T)));
       MapTypes.push_back(TGT_MAP_PRIVATE_VAL | TGT_MAP_FIRST_REF);
     }
@@ -263,7 +249,7 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
         ".offload_ptrs");
 
     SmallVector<Constant *, 16> ConstSizes;
-    SmallVector<uint32_t, 16> MapTypes;
+    SmallVector<uint64_t, 16> MapTypes;
 
     for (unsigned II = 0; II < Call->getNumArgOperands(); ++II) {
       Value *BPVal = Call->getArgOperand(II);
@@ -271,7 +257,8 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
     }
 
     auto *SizesArrayInit = ConstantArray::get(
-        ArrayType::get(getSizeTTy(), ConstSizes.size()), ConstSizes);
+        ArrayType::get(IntelGeneralUtils::getSizeTTy(F), ConstSizes.size()),
+        ConstSizes);
 
     GlobalVariable *SizesArrayGbl = new GlobalVariable(
         *(F->getParent()), SizesArrayInit->getType(), true,
@@ -311,7 +298,10 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
     VPOParoptUtils::genTgtTargetDataEnd(
         W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
         Info.ResDataSizes, Info.ResDataMapTypes, Call);
-  }
+  } else if (isa<WRNTargetUpdateNode>(W))
+    TgtCall = VPOParoptUtils::genTgtTargetDataUpdate(
+        W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
+        Info.ResDataSizes, Info.ResDataMapTypes, InsertPt);
 
   DEBUG(dbgs() << "\nExit VPOParoptTransform::genTargetInitCode\n");
   return TgtCall;
@@ -388,18 +378,18 @@ void VPOParoptTransform::genOffloadArraysArgument(TgDataInfo *Info,
         ArrayType::get(Builder.getInt8PtrTy(), Info->NumberOfPtrs),
         Info->DataPtrs, 0, 0);
     Info->ResDataSizes = Builder.CreateConstInBoundsGEP2_32(
-        ArrayType::get(getSizeTTy(), Info->NumberOfPtrs), Info->DataSizes, 0,
-        0);
+        ArrayType::get(IntelGeneralUtils::getSizeTTy(F), Info->NumberOfPtrs),
+        Info->DataSizes, 0, 0);
     Info->ResDataMapTypes = Builder.CreateConstInBoundsGEP2_32(
-        ArrayType::get(Type::getInt32Ty(F->getContext()), Info->NumberOfPtrs),
+        ArrayType::get(IntelGeneralUtils::getSizeTTy(F), Info->NumberOfPtrs),
         Info->DataMapTypes, 0, 0);
   } else {
     Info->ResBaseDataPtrs = ConstantPointerNull::get(Builder.getInt8PtrTy());
     Info->ResDataPtrs = ConstantPointerNull::get(Builder.getInt8PtrTy());
-    Info->ResDataSizes =
-        ConstantPointerNull::get(PointerType::getUnqual(getSizeTTy()));
+    Info->ResDataSizes = ConstantPointerNull::get(
+        PointerType::getUnqual(IntelGeneralUtils::getSizeTTy(F)));
     Info->ResDataMapTypes = ConstantPointerNull::get(
-        PointerType::getUnqual(Type::getInt32Ty(F->getContext())));
+        PointerType::getUnqual(IntelGeneralUtils::getSizeTTy(F)));
   }
 }
 
@@ -420,8 +410,9 @@ StructType *VPOParoptTransform::getTgOffloadEntryTy() {
 
   LLVMContext &C = F->getContext();
 
-  Type *TyArgs[] = { Type::getInt8PtrTy(C), Type::getInt8PtrTy(C), getSizeTTy(),
-                     Type::getInt32Ty(C),   Type::getInt32Ty(C) };
+  Type *TyArgs[] = {Type::getInt8PtrTy(C), Type::getInt8PtrTy(C),
+                    IntelGeneralUtils::getSizeTTy(F), Type::getInt32Ty(C),
+                    Type::getInt32Ty(C)};
   TgOffloadEntryTy =
       StructType::create(C, TyArgs, "struct.__tgt_offload_entry", false);
   return TgOffloadEntryTy;
@@ -500,7 +491,8 @@ void VPOParoptTransform::genOffloadEntry(Constant *ID, Constant *Addr) {
   SmallVector<Constant *, 16> EntryInitBuffer;
   EntryInitBuffer.push_back(AddrPtr);
   EntryInitBuffer.push_back(StrPtr);
-  EntryInitBuffer.push_back(ConstantInt::get(getSizeTTy(), 0));
+  EntryInitBuffer.push_back(
+      ConstantInt::get(IntelGeneralUtils::getSizeTTy(F), 0));
   EntryInitBuffer.push_back(ConstantInt::get(Type::getInt32Ty(C), 0));
   EntryInitBuffer.push_back(ConstantInt::get(Type::getInt32Ty(C), 0));
 

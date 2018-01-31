@@ -33,6 +33,7 @@ class DbgValueInst;
 class DbgInfoIntrinsic;
 class ConstantExpr;
 class Value;
+class Function;
 
 /// \brief This class provides a set of general utility functions that can be
 /// used for a variety of purposes.
@@ -79,6 +80,9 @@ public:
 
   /// \brief Returns true if the value V escapes.
   static bool isEscaped(const Value *V);
+
+  /// \brief Return the size_t type for 32/64 bit architecture
+  static Type *getSizeTTy(Function *F);
 };
 
 } // end llvm namespace
