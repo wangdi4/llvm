@@ -239,6 +239,30 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
     unsigned Cost = TTI->getCmpSelInstrCost(Opcode, VectorTy);
     return Cost;
   }
+  case Instruction::Select: {
+    // FIXME: Due to issues in VPlan creation VPInstruction with Select opcode
+    // can have 4 operands. This is obviously wrong and is not related to the
+    // cost modeling. Skip such cases.
+    if (VPInst->getNumOperands() != 3)
+      return UnknownCost;
+
+    Type *CondTy = VPInst->getOperand(0)->getType();
+    Type *OpTy = VPInst->getOperand(1)->getType();
+
+    // FIXME: Remove once VPValue is known to always have type.
+    if (!CondTy)
+      return UnknownCost;
+
+    if (!OpTy)
+      OpTy = VPInst->getOperand(2)->getType();
+    if (!OpTy)
+      return UnknownCost;
+
+    Type *VecCondTy = VectorType::get(CondTy, VF);
+    Type *VecOpTy = VectorType::get(OpTy, VF);
+    unsigned Cost = TTI->getCmpSelInstrCost(Opcode, VecOpTy, VecCondTy);
+    return Cost;
+  }
   case Instruction::ZExt:
   case Instruction::SExt:
   case Instruction::FPToUI:
