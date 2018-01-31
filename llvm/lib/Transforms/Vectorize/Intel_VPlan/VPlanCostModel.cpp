@@ -137,6 +137,32 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
   switch (Opcode) {
   default:
     return UnknownCost;
+  case Instruction::GetElementPtr: {
+    // FIXME: First, there could be at least two ways to use this GEP's result
+    // (maybe with some casts/geps in between):
+    //   1) As a pointer operand of memory operation.
+    //   2) As a non-pointer operand of memory operation, e.g. calculation of
+    //      some pointers in a loop and storing them without dereferencing.
+    // In the first case, the cost of the GEP might be easier to keep as a part
+    // of that memory operation - because the way GEP would be handled depends
+    // on how the corresponding memory instruction would be handled (e.g.
+    // scalarized or not). We reflect that by just returning zero for such GEPs.
+    //
+    // Also, memory operation are not modeled correctly for now (just
+    // VF*ScalarCost) so return the same zero cost for both scalar (VF==1) and
+    // vector cases to remove any influence in GEPs cost modeling to
+    // vectorization decisions.
+    //
+    // For the second case from the above we first need a way to distinguish
+    // such two kinds of GEP in some prior analysis. As it's not yet done just
+    // return the same zero cost too.
+    //
+    // Another note: getGEPCost in TTI uses GEP's operands (llvm::Value's) to
+    // dedicde what will be the cost of the GEP. We don't necessarily have them
+    // in VPlan so in future TTI interface should probably be extended with
+    // VPValue-based operands overload.
+    return 0;
+  }
   case Instruction::Load:
   case Instruction::Store: {
     Type *OpTy = getMemInstValueType(VPInst);
