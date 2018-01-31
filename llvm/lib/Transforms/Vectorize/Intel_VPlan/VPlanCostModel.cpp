@@ -196,6 +196,38 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
         TTI->getArithmeticInstrCost(Opcode, VecTy, Op1VK, Op2VK, Op1VP, Op2VP);
     return Cost;
   }
+  case Instruction::ZExt:
+  case Instruction::SExt:
+  case Instruction::FPToUI:
+  case Instruction::FPToSI:
+  case Instruction::FPExt:
+  case Instruction::PtrToInt:
+  case Instruction::IntToPtr:
+  case Instruction::SIToFP:
+  case Instruction::UIToFP:
+  case Instruction::Trunc:
+  case Instruction::FPTrunc: {
+    Type *BaseDstTy = VPInst->getType();
+    Type *BaseSrcTy = VPInst->getOperand(0)->getType();
+
+    if (!BaseDstTy || !BaseSrcTy)
+      return UnknownCost;
+
+    assert(!BaseDstTy->isVectorTy() &&
+           "Vector base types are not yet implemented!");
+    assert(!BaseDstTy->isAggregateType() && "Unexpected aggregate type!");
+
+    Type *VecDstTy = VectorType::get(BaseDstTy, VF);
+    Type *VecSrcTy = VectorType::get(BaseSrcTy, VF);
+    // TODO: The following will report cost "1" for sext/zext in scalar case
+    // because no Instruction* is passed to TTI and it is unable to analyze that
+    // such a cast can be folded into the defining load for free. We should
+    // consider adding an overload accepting VPInstruction for TTI to be able to
+    // analyze that.
+    unsigned Cost = TTI->getCastInstrCost(Opcode, VecDstTy, VecSrcTy);
+
+    return Cost;
+  }
   }
 }
 
