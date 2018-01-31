@@ -575,7 +575,7 @@ unsigned CSAAsmParser::validateTargetOperandClass(MCParsedAsmOperand &GOp,
   CSAOperand &Op = (CSAOperand &)GOp;
   switch (Kind) {
     default: break;
-    case MCK_I0:
+    case MCK_I1:
              // This is what the matcher generates as the type for register+channel
              // operands. ("I0" because technically all of the R* register classes
              // contain all of the regular registers. There is no such thing as
