@@ -308,7 +308,7 @@ unsigned VPlanCostModel::getCost(const VPBasicBlock *VPBB) {
 
     unsigned InstCost = getCost(VPInst);
     if (InstCost == UnknownCost)
-      return UnknownCost;
+      continue;
     Cost += InstCost;
   }
 
