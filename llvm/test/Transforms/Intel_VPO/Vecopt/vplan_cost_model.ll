@@ -76,7 +76,7 @@ define void @foo() local_unnamed_addr #0 {
 ; VPLAN-CM-VF4-NEXT:    Cost 4 for store [[VP19]] [[VP22]]
 ; VPLAN-CM-VF4-NEXT:    Cost 4 for store [[VP20]] [[VP23]]
 ; VPLAN-CM-VF4-NEXT:    Cost 1 for [[VP2]] = add [[VP1]] i64 1
-; VPLAN-CM-VF4-NEXT:    Unknown cost for [[VP24:%.*]] = icmp [[VP2]] i64 1024
+; VPLAN-CM-VF4-NEXT:    Cost 1 for [[VP24:%.*]] = icmp [[VP2]] i64 1024
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: Unknown
 ; VPLAN-CM-VF4-NEXT:    Unknown cost for [[VP25:%.*]] = call [[VP0]] void (token)* @llvm.directive.region.exit
@@ -114,7 +114,7 @@ define void @foo() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for store [[VP19]] [[VP22]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for store [[VP20]] [[VP23]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP2]] = add [[VP1]] i64 1
-; VPLAN-CM-VF1-NEXT:    Unknown cost for [[VP24:%.*]] = icmp [[VP2]] i64 1024
+; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP24:%.*]] = icmp [[VP2]] i64 1024
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: Unknown
 ; VPLAN-CM-VF1-NEXT:    Unknown cost for [[VP25:%.*]] = call [[VP0]] void (token)* @llvm.directive.region.exit
@@ -326,7 +326,7 @@ define void @test_casts() local_unnamed_addr #0 {
 ; VPLAN-CM-VF4-NEXT:    Cost 4 for store [[VP27]] [[VP17]]
 ; VPLAN-CM-VF4-NEXT:    Cost 4 for store [[VP28]] [[VP19]]
 ; VPLAN-CM-VF4-NEXT:    Cost 1 for [[VP2]] = add [[VP1]] i64 1
-; VPLAN-CM-VF4-NEXT:    Unknown cost for [[VP29:%.*]] = icmp [[VP2]] i64 1024
+; VPLAN-CM-VF4-NEXT:    Cost 1 for [[VP29:%.*]] = icmp [[VP2]] i64 1024
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: Unknown
 ; VPLAN-CM-VF4-NEXT:    Unknown cost for [[VP30:%.*]] = call [[VP0]] void (token)* @llvm.directive.region.exit
@@ -375,7 +375,7 @@ define void @test_casts() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for store [[VP27]] [[VP17]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for store [[VP28]] [[VP19]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP2]] = add [[VP1]] i64 1
-; VPLAN-CM-VF1-NEXT:    Unknown cost for [[VP29:%.*]] = icmp [[VP2]] i64 1024
+; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP29:%.*]] = icmp [[VP2]] i64 1024
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: Unknown
 ; VPLAN-CM-VF1-NEXT:    Unknown cost for [[VP30:%.*]] = call [[VP0]] void (token)* @llvm.directive.region.exit
@@ -629,7 +629,7 @@ define void @test_non_pow2_casts() local_unnamed_addr #0 {
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for [[VP14:%.*]] = getelementptr [1024 x float]* @arr.float.1 i64 0 [[VP1]]
 ; VPLAN-CM-VF4-NEXT:    Cost 4 for store [[VP13]] [[VP14]]
 ; VPLAN-CM-VF4-NEXT:    Cost 1 for [[VP2]] = add [[VP1]] i64 1
-; VPLAN-CM-VF4-NEXT:    Unknown cost for [[VP15:%.*]] = icmp [[VP2]] i64 1024
+; VPLAN-CM-VF4-NEXT:    Cost 1 for [[VP15:%.*]] = icmp [[VP2]] i64 1024
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: Unknown
 ; VPLAN-CM-VF4-NEXT:    Unknown cost for [[VP16:%.*]] = call [[VP0]] void (token)* @llvm.directive.region.exit
@@ -656,7 +656,7 @@ define void @test_non_pow2_casts() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for [[VP14:%.*]] = getelementptr [1024 x float]* @arr.float.1 i64 0 [[VP1]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for store [[VP13]] [[VP14]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP2]] = add [[VP1]] i64 1
-; VPLAN-CM-VF1-NEXT:    Unknown cost for [[VP15:%.*]] = icmp [[VP2]] i64 1024
+; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP15:%.*]] = icmp [[VP2]] i64 1024
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: Unknown
 ; VPLAN-CM-VF1-NEXT:    Unknown cost for [[VP16:%.*]] = call [[VP0]] void (token)* @llvm.directive.region.exit
@@ -788,9 +788,9 @@ define void @test_cmp() local_unnamed_addr #0 {
 ; VPLAN-CM-VF4-NEXT:    Cost 4 for [[VP6:%.*]] = load [[VP5]]
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for [[VP7:%.*]] = getelementptr [1024 x i32]* @arr.i32.3 i64 0 [[VP1]]
 ; VPLAN-CM-VF4-NEXT:    Cost 4 for [[VP8:%.*]] = load [[VP7]]
-; VPLAN-CM-VF4-NEXT:    Unknown cost for [[VP9:%.*]] = icmp [[VP4]] [[VP6]]
-; VPLAN-CM-VF4-NEXT:    Unknown cost for [[VP10:%.*]] = icmp [[VP4]] [[VP8]]
-; VPLAN-CM-VF4-NEXT:    Unknown cost for [[VP11:%.*]] = icmp [[VP6]] [[VP8]]
+; VPLAN-CM-VF4-NEXT:    Cost 1 for [[VP9:%.*]] = icmp [[VP4]] [[VP6]]
+; VPLAN-CM-VF4-NEXT:    Cost 1 for [[VP10:%.*]] = icmp [[VP4]] [[VP8]]
+; VPLAN-CM-VF4-NEXT:    Cost 1 for [[VP11:%.*]] = icmp [[VP6]] [[VP8]]
 ; VPLAN-CM-VF4-NEXT:    Cost 1 for [[VP12:%.*]] = xor [[VP9]] [[VP10]]
 ; VPLAN-CM-VF4-NEXT:    Cost 1 for [[VP13:%.*]] = xor [[VP12]] [[VP11]]
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for [[VP14:%.*]] = getelementptr [1024 x i8]* @arr.i8.1 i64 0 [[VP1]]
@@ -799,9 +799,9 @@ define void @test_cmp() local_unnamed_addr #0 {
 ; VPLAN-CM-VF4-NEXT:    Cost 4 for [[VP17:%.*]] = load [[VP16]]
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for [[VP18:%.*]] = getelementptr [1024 x i8]* @arr.i8.3 i64 0 [[VP1]]
 ; VPLAN-CM-VF4-NEXT:    Cost 4 for [[VP19:%.*]] = load [[VP18]]
-; VPLAN-CM-VF4-NEXT:    Unknown cost for [[VP20:%.*]] = icmp [[VP15]] [[VP17]]
-; VPLAN-CM-VF4-NEXT:    Unknown cost for [[VP21:%.*]] = icmp [[VP15]] [[VP19]]
-; VPLAN-CM-VF4-NEXT:    Unknown cost for [[VP22:%.*]] = icmp [[VP17]] [[VP19]]
+; VPLAN-CM-VF4-NEXT:    Cost 1 for [[VP20:%.*]] = icmp [[VP15]] [[VP17]]
+; VPLAN-CM-VF4-NEXT:    Cost 1 for [[VP21:%.*]] = icmp [[VP15]] [[VP19]]
+; VPLAN-CM-VF4-NEXT:    Cost 1 for [[VP22:%.*]] = icmp [[VP17]] [[VP19]]
 ; VPLAN-CM-VF4-NEXT:    Cost 1 for [[VP23:%.*]] = xor [[VP20]] [[VP21]]
 ; VPLAN-CM-VF4-NEXT:    Cost 1 for [[VP24:%.*]] = xor [[VP23]] [[VP22]]
 ; VPLAN-CM-VF4-NEXT:    Cost 1 for [[VP25:%.*]] = xor [[VP13]] [[VP24]]
@@ -811,9 +811,9 @@ define void @test_cmp() local_unnamed_addr #0 {
 ; VPLAN-CM-VF4-NEXT:    Cost 4 for [[VP29:%.*]] = load [[VP28]]
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for [[VP30:%.*]] = getelementptr [1024 x float]* @arr.float.3 i64 0 [[VP1]]
 ; VPLAN-CM-VF4-NEXT:    Cost 4 for [[VP31:%.*]] = load [[VP30]]
-; VPLAN-CM-VF4-NEXT:    Unknown cost for [[VP32:%.*]] = fcmp [[VP27]] [[VP29]]
-; VPLAN-CM-VF4-NEXT:    Unknown cost for [[VP33:%.*]] = fcmp [[VP27]] [[VP31]]
-; VPLAN-CM-VF4-NEXT:    Unknown cost for [[VP34:%.*]] = fcmp [[VP29]] [[VP31]]
+; VPLAN-CM-VF4-NEXT:    Cost 1 for [[VP32:%.*]] = fcmp [[VP27]] [[VP29]]
+; VPLAN-CM-VF4-NEXT:    Cost 1 for [[VP33:%.*]] = fcmp [[VP27]] [[VP31]]
+; VPLAN-CM-VF4-NEXT:    Cost 1 for [[VP34:%.*]] = fcmp [[VP29]] [[VP31]]
 ; VPLAN-CM-VF4-NEXT:    Cost 1 for [[VP35:%.*]] = xor [[VP32]] [[VP33]]
 ; VPLAN-CM-VF4-NEXT:    Cost 1 for [[VP36:%.*]] = xor [[VP35]] [[VP34]]
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for [[VP37:%.*]] = getelementptr [1024 x double]* @arr.double.1 i64 0 [[VP1]]
@@ -822,9 +822,9 @@ define void @test_cmp() local_unnamed_addr #0 {
 ; VPLAN-CM-VF4-NEXT:    Cost 4 for [[VP40:%.*]] = load [[VP39]]
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for [[VP41:%.*]] = getelementptr [1024 x double]* @arr.double.3 i64 0 [[VP1]]
 ; VPLAN-CM-VF4-NEXT:    Cost 4 for [[VP42:%.*]] = load [[VP41]]
-; VPLAN-CM-VF4-NEXT:    Unknown cost for [[VP43:%.*]] = fcmp [[VP38]] [[VP40]]
-; VPLAN-CM-VF4-NEXT:    Unknown cost for [[VP44:%.*]] = fcmp [[VP38]] [[VP42]]
-; VPLAN-CM-VF4-NEXT:    Unknown cost for [[VP45:%.*]] = fcmp [[VP40]] [[VP42]]
+; VPLAN-CM-VF4-NEXT:    Cost 1 for [[VP43:%.*]] = fcmp [[VP38]] [[VP40]]
+; VPLAN-CM-VF4-NEXT:    Cost 1 for [[VP44:%.*]] = fcmp [[VP38]] [[VP42]]
+; VPLAN-CM-VF4-NEXT:    Cost 1 for [[VP45:%.*]] = fcmp [[VP40]] [[VP42]]
 ; VPLAN-CM-VF4-NEXT:    Cost 1 for [[VP46:%.*]] = xor [[VP43]] [[VP44]]
 ; VPLAN-CM-VF4-NEXT:    Cost 1 for [[VP47:%.*]] = xor [[VP46]] [[VP45]]
 ; VPLAN-CM-VF4-NEXT:    Cost 1 for [[VP48:%.*]] = xor [[VP36]] [[VP47]]
@@ -833,7 +833,7 @@ define void @test_cmp() local_unnamed_addr #0 {
 ; VPLAN-CM-VF4-NEXT:    Cost 1 for [[VP51:%.*]] = zext [[VP49]]
 ; VPLAN-CM-VF4-NEXT:    Cost 4 for store [[VP51]] [[VP50]]
 ; VPLAN-CM-VF4-NEXT:    Cost 1 for [[VP2]] = add [[VP1]] i64 1
-; VPLAN-CM-VF4-NEXT:    Unknown cost for [[VP52:%.*]] = icmp [[VP2]] i64 1024
+; VPLAN-CM-VF4-NEXT:    Cost 1 for [[VP52:%.*]] = icmp [[VP2]] i64 1024
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: Unknown
 ; VPLAN-CM-VF4-NEXT:    Unknown cost for [[VP53:%.*]] = call [[VP0]] void (token)* @llvm.directive.region.exit
@@ -852,9 +852,9 @@ define void @test_cmp() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP6:%.*]] = load [[VP5]]
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for [[VP7:%.*]] = getelementptr [1024 x i32]* @arr.i32.3 i64 0 [[VP1]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP8:%.*]] = load [[VP7]]
-; VPLAN-CM-VF1-NEXT:    Unknown cost for [[VP9:%.*]] = icmp [[VP4]] [[VP6]]
-; VPLAN-CM-VF1-NEXT:    Unknown cost for [[VP10:%.*]] = icmp [[VP4]] [[VP8]]
-; VPLAN-CM-VF1-NEXT:    Unknown cost for [[VP11:%.*]] = icmp [[VP6]] [[VP8]]
+; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP9:%.*]] = icmp [[VP4]] [[VP6]]
+; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP10:%.*]] = icmp [[VP4]] [[VP8]]
+; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP11:%.*]] = icmp [[VP6]] [[VP8]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP12:%.*]] = xor [[VP9]] [[VP10]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP13:%.*]] = xor [[VP12]] [[VP11]]
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for [[VP14:%.*]] = getelementptr [1024 x i8]* @arr.i8.1 i64 0 [[VP1]]
@@ -863,9 +863,9 @@ define void @test_cmp() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP17:%.*]] = load [[VP16]]
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for [[VP18:%.*]] = getelementptr [1024 x i8]* @arr.i8.3 i64 0 [[VP1]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP19:%.*]] = load [[VP18]]
-; VPLAN-CM-VF1-NEXT:    Unknown cost for [[VP20:%.*]] = icmp [[VP15]] [[VP17]]
-; VPLAN-CM-VF1-NEXT:    Unknown cost for [[VP21:%.*]] = icmp [[VP15]] [[VP19]]
-; VPLAN-CM-VF1-NEXT:    Unknown cost for [[VP22:%.*]] = icmp [[VP17]] [[VP19]]
+; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP20:%.*]] = icmp [[VP15]] [[VP17]]
+; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP21:%.*]] = icmp [[VP15]] [[VP19]]
+; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP22:%.*]] = icmp [[VP17]] [[VP19]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP23:%.*]] = xor [[VP20]] [[VP21]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP24:%.*]] = xor [[VP23]] [[VP22]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP25:%.*]] = xor [[VP13]] [[VP24]]
@@ -875,9 +875,9 @@ define void @test_cmp() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP29:%.*]] = load [[VP28]]
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for [[VP30:%.*]] = getelementptr [1024 x float]* @arr.float.3 i64 0 [[VP1]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP31:%.*]] = load [[VP30]]
-; VPLAN-CM-VF1-NEXT:    Unknown cost for [[VP32:%.*]] = fcmp [[VP27]] [[VP29]]
-; VPLAN-CM-VF1-NEXT:    Unknown cost for [[VP33:%.*]] = fcmp [[VP27]] [[VP31]]
-; VPLAN-CM-VF1-NEXT:    Unknown cost for [[VP34:%.*]] = fcmp [[VP29]] [[VP31]]
+; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP32:%.*]] = fcmp [[VP27]] [[VP29]]
+; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP33:%.*]] = fcmp [[VP27]] [[VP31]]
+; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP34:%.*]] = fcmp [[VP29]] [[VP31]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP35:%.*]] = xor [[VP32]] [[VP33]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP36:%.*]] = xor [[VP35]] [[VP34]]
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for [[VP37:%.*]] = getelementptr [1024 x double]* @arr.double.1 i64 0 [[VP1]]
@@ -886,9 +886,9 @@ define void @test_cmp() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP40:%.*]] = load [[VP39]]
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for [[VP41:%.*]] = getelementptr [1024 x double]* @arr.double.3 i64 0 [[VP1]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP42:%.*]] = load [[VP41]]
-; VPLAN-CM-VF1-NEXT:    Unknown cost for [[VP43:%.*]] = fcmp [[VP38]] [[VP40]]
-; VPLAN-CM-VF1-NEXT:    Unknown cost for [[VP44:%.*]] = fcmp [[VP38]] [[VP42]]
-; VPLAN-CM-VF1-NEXT:    Unknown cost for [[VP45:%.*]] = fcmp [[VP40]] [[VP42]]
+; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP43:%.*]] = fcmp [[VP38]] [[VP40]]
+; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP44:%.*]] = fcmp [[VP38]] [[VP42]]
+; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP45:%.*]] = fcmp [[VP40]] [[VP42]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP46:%.*]] = xor [[VP43]] [[VP44]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP47:%.*]] = xor [[VP46]] [[VP45]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP48:%.*]] = xor [[VP36]] [[VP47]]
@@ -897,7 +897,7 @@ define void @test_cmp() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP51:%.*]] = zext [[VP49]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for store [[VP51]] [[VP50]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP2]] = add [[VP1]] i64 1
-; VPLAN-CM-VF1-NEXT:    Unknown cost for [[VP52:%.*]] = icmp [[VP2]] i64 1024
+; VPLAN-CM-VF1-NEXT:    Cost 1 for [[VP52:%.*]] = icmp [[VP2]] i64 1024
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock BB{{.*}}, total cost: Unknown
 ; VPLAN-CM-VF1-NEXT:    Unknown cost for [[VP53:%.*]] = call [[VP0]] void (token)* @llvm.directive.region.exit
@@ -911,34 +911,34 @@ define void @test_cmp() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 4 for [[VP0:%.*]] = load [[VP1:%.*]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 4 for [[VP2:%.*]] = load [[VP3:%.*]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 4 for [[VP4:%.*]] = load [[VP5:%.*]]
-; VPLAN-HIR-CM-VF4-NEXT:    Unknown cost for [[VP6:%.*]] = icmp [[VP0]] [[VP2]]
-; VPLAN-HIR-CM-VF4-NEXT:    Unknown cost for [[VP7:%.*]] = icmp [[VP0]] [[VP4]]
-; VPLAN-HIR-CM-VF4-NEXT:    Unknown cost for [[VP8:%.*]] = icmp [[VP2]] [[VP4]]
+; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for [[VP6:%.*]] = icmp [[VP0]] [[VP2]]
+; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for [[VP7:%.*]] = icmp [[VP0]] [[VP4]]
+; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for [[VP8:%.*]] = icmp [[VP2]] [[VP4]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for [[VP9:%.*]] = xor [[VP6]] [[VP7]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for [[VP10:%.*]] = xor [[VP9]] [[VP8]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 4 for [[VP11:%.*]] = load [[VP12:%.*]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 4 for [[VP13:%.*]] = load [[VP14:%.*]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 4 for [[VP15:%.*]] = load [[VP16:%.*]]
-; VPLAN-HIR-CM-VF4-NEXT:    Unknown cost for [[VP17:%.*]] = icmp [[VP11]] [[VP13]]
-; VPLAN-HIR-CM-VF4-NEXT:    Unknown cost for [[VP18:%.*]] = icmp [[VP11]] [[VP15]]
-; VPLAN-HIR-CM-VF4-NEXT:    Unknown cost for [[VP19:%.*]] = icmp [[VP13]] [[VP15]]
+; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for [[VP17:%.*]] = icmp [[VP11]] [[VP13]]
+; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for [[VP18:%.*]] = icmp [[VP11]] [[VP15]]
+; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for [[VP19:%.*]] = icmp [[VP13]] [[VP15]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for [[VP20:%.*]] = xor [[VP17]] [[VP18]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for [[VP21:%.*]] = xor [[VP20]] [[VP19]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for [[VP22:%.*]] = xor [[VP10]] [[VP21]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 4 for [[VP23:%.*]] = load [[VP24:%.*]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 4 for [[VP25:%.*]] = load [[VP26:%.*]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 4 for [[VP27:%.*]] = load [[VP28:%.*]]
-; VPLAN-HIR-CM-VF4-NEXT:    Unknown cost for [[VP29:%.*]] = fcmp [[VP23]] [[VP25]]
-; VPLAN-HIR-CM-VF4-NEXT:    Unknown cost for [[VP30:%.*]] = fcmp [[VP23]] [[VP27]]
-; VPLAN-HIR-CM-VF4-NEXT:    Unknown cost for [[VP31:%.*]] = fcmp [[VP25]] [[VP27]]
+; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for [[VP29:%.*]] = fcmp [[VP23]] [[VP25]]
+; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for [[VP30:%.*]] = fcmp [[VP23]] [[VP27]]
+; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for [[VP31:%.*]] = fcmp [[VP25]] [[VP27]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for [[VP32:%.*]] = xor [[VP29]] [[VP30]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for [[VP33:%.*]] = xor [[VP32]] [[VP31]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 4 for [[VP34:%.*]] = load [[VP35:%.*]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 4 for [[VP36:%.*]] = load [[VP37:%.*]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 4 for [[VP38:%.*]] = load [[VP39:%.*]]
-; VPLAN-HIR-CM-VF4-NEXT:    Unknown cost for [[VP40:%.*]] = fcmp [[VP34]] [[VP36]]
-; VPLAN-HIR-CM-VF4-NEXT:    Unknown cost for [[VP41:%.*]] = fcmp [[VP34]] [[VP38]]
-; VPLAN-HIR-CM-VF4-NEXT:    Unknown cost for [[VP42:%.*]] = fcmp [[VP36]] [[VP38]]
+; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for [[VP40:%.*]] = fcmp [[VP34]] [[VP36]]
+; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for [[VP41:%.*]] = fcmp [[VP34]] [[VP38]]
+; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for [[VP42:%.*]] = fcmp [[VP36]] [[VP38]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for [[VP43:%.*]] = xor [[VP40]] [[VP41]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for [[VP44:%.*]] = xor [[VP43]] [[VP42]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for [[VP45:%.*]] = xor [[VP33]] [[VP44]]
@@ -956,34 +956,34 @@ define void @test_cmp() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for [[VP0:%.*]] = load [[VP1:%.*]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for [[VP2:%.*]] = load [[VP3:%.*]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for [[VP4:%.*]] = load [[VP5:%.*]]
-; VPLAN-HIR-CM-VF1-NEXT:    Unknown cost for [[VP6:%.*]] = icmp [[VP0]] [[VP2]]
-; VPLAN-HIR-CM-VF1-NEXT:    Unknown cost for [[VP7:%.*]] = icmp [[VP0]] [[VP4]]
-; VPLAN-HIR-CM-VF1-NEXT:    Unknown cost for [[VP8:%.*]] = icmp [[VP2]] [[VP4]]
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for [[VP6:%.*]] = icmp [[VP0]] [[VP2]]
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for [[VP7:%.*]] = icmp [[VP0]] [[VP4]]
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for [[VP8:%.*]] = icmp [[VP2]] [[VP4]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for [[VP9:%.*]] = xor [[VP6]] [[VP7]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for [[VP10:%.*]] = xor [[VP9]] [[VP8]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for [[VP11:%.*]] = load [[VP12:%.*]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for [[VP13:%.*]] = load [[VP14:%.*]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for [[VP15:%.*]] = load [[VP16:%.*]]
-; VPLAN-HIR-CM-VF1-NEXT:    Unknown cost for [[VP17:%.*]] = icmp [[VP11]] [[VP13]]
-; VPLAN-HIR-CM-VF1-NEXT:    Unknown cost for [[VP18:%.*]] = icmp [[VP11]] [[VP15]]
-; VPLAN-HIR-CM-VF1-NEXT:    Unknown cost for [[VP19:%.*]] = icmp [[VP13]] [[VP15]]
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for [[VP17:%.*]] = icmp [[VP11]] [[VP13]]
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for [[VP18:%.*]] = icmp [[VP11]] [[VP15]]
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for [[VP19:%.*]] = icmp [[VP13]] [[VP15]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for [[VP20:%.*]] = xor [[VP17]] [[VP18]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for [[VP21:%.*]] = xor [[VP20]] [[VP19]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for [[VP22:%.*]] = xor [[VP10]] [[VP21]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for [[VP23:%.*]] = load [[VP24:%.*]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for [[VP25:%.*]] = load [[VP26:%.*]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for [[VP27:%.*]] = load [[VP28:%.*]]
-; VPLAN-HIR-CM-VF1-NEXT:    Unknown cost for [[VP29:%.*]] = fcmp [[VP23]] [[VP25]]
-; VPLAN-HIR-CM-VF1-NEXT:    Unknown cost for [[VP30:%.*]] = fcmp [[VP23]] [[VP27]]
-; VPLAN-HIR-CM-VF1-NEXT:    Unknown cost for [[VP31:%.*]] = fcmp [[VP25]] [[VP27]]
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for [[VP29:%.*]] = fcmp [[VP23]] [[VP25]]
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for [[VP30:%.*]] = fcmp [[VP23]] [[VP27]]
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for [[VP31:%.*]] = fcmp [[VP25]] [[VP27]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for [[VP32:%.*]] = xor [[VP29]] [[VP30]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for [[VP33:%.*]] = xor [[VP32]] [[VP31]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for [[VP34:%.*]] = load [[VP35:%.*]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for [[VP36:%.*]] = load [[VP37:%.*]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for [[VP38:%.*]] = load [[VP39:%.*]]
-; VPLAN-HIR-CM-VF1-NEXT:    Unknown cost for [[VP40:%.*]] = fcmp [[VP34]] [[VP36]]
-; VPLAN-HIR-CM-VF1-NEXT:    Unknown cost for [[VP41:%.*]] = fcmp [[VP34]] [[VP38]]
-; VPLAN-HIR-CM-VF1-NEXT:    Unknown cost for [[VP42:%.*]] = fcmp [[VP36]] [[VP38]]
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for [[VP40:%.*]] = fcmp [[VP34]] [[VP36]]
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for [[VP41:%.*]] = fcmp [[VP34]] [[VP38]]
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for [[VP42:%.*]] = fcmp [[VP36]] [[VP38]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for [[VP43:%.*]] = xor [[VP40]] [[VP41]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for [[VP44:%.*]] = xor [[VP43]] [[VP42]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for [[VP45:%.*]] = xor [[VP33]] [[VP44]]

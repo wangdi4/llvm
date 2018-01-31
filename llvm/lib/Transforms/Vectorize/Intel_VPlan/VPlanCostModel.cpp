@@ -222,6 +222,23 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
         TTI->getArithmeticInstrCost(Opcode, VecTy, Op1VK, Op2VK, Op1VP, Op2VP);
     return Cost;
   }
+  case Instruction::ICmp:
+  case Instruction::FCmp: {
+    // FIXME: Assuming all the compares are widened, which is obviously wrong
+    // for trip count checks.
+    Type *Ty = VPInst->getOperand(0)->getType();
+
+    // FIXME: In the future VPValue will always have Type (VPType), but for now
+    // it might be missing so handle such cases.
+    if (!Ty)
+      Ty = VPInst->getOperand(1)->getType();
+    if (!Ty)
+      return UnknownCost;
+
+    Type *VectorTy = VectorType::get(Ty, VF);
+    unsigned Cost = TTI->getCmpSelInstrCost(Opcode, VectorTy);
+    return Cost;
+  }
   case Instruction::ZExt:
   case Instruction::SExt:
   case Instruction::FPToUI:
