@@ -348,40 +348,22 @@ bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
   }
 
   MachineInstr *outSink = getSingleUse(*outOrder);
-  if (!outSink || !TII->isSwitch(outSink)) {
+  if (!outSink ||
+      TII->getGenericOpcode(outSink->getOpcode()) != CSA::Generic::FILTER) {
     DEBUG(dbgs() << "Conversion failed because out memory order is not a switch.\n");
     return false;
   }
 
   // The output memory order should be a switch that ignores the signal unless
   // it's the last iteration of the stream.
-  MachineInstr *sinkControl = getDefinition(outSink->getOperand(2));
+  MachineInstr *sinkControl = getDefinition(outSink->getOperand(1));
   if (!sinkControl) {
     DEBUG(dbgs() << "Cannot found the definition of the output order switch");
     return false;
   }
 
   // TODO: check that we are using the last output of the stream.
-  const MachineOperand *realOutSink;
-  if (outSink->getOperand(0).getReg() == CSA::IGN) {
-    if (sinkControl != stream) {
-      DEBUG(dbgs() << "Output memory order is not controlled by the stream\n");
-      return false;
-    }
-    realOutSink = &outSink->getOperand(1);
-  } else if (outSink->getOperand(1).getReg() == CSA::IGN) {
-    // The control structure should be a NOT (stream control)
-    if (outSink->getOpcode() != CSA::NOT1 ||
-        getDefinition(outSink->getOperand(1)) == stream) {
-      DEBUG(dbgs() << "Output memory order is not controlled by the stream\n");
-      return false;
-    }
-    realOutSink = &outSink->getOperand(0);
-  } else {
-    // The output memory order is not ignored...
-    DEBUG(dbgs() << "Output memory order is not controlled by the stream\n");
-    return false;
-  }
+  const MachineOperand *realOutSink = &outSink->getOperand(0);
 
   // Compute the length of the stream from the stream parameter.
   const MachineOperand &seqStart = stream->getOperand(4);
