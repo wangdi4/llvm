@@ -449,6 +449,14 @@ class SwitchAnyOp<GenericOp gen, CSAOpInfo oi,
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst0, $dst1, $sel, $v"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin>;
 
+class FilterOp<GenericOp gen, CSAOpInfo oi,
+               InstrItinClass itin, list<Predicate> preds = []> :
+  FMTGEN<gen, oi,
+    (outs oi.RC:$dst),
+    (ins I1:$sel, oi.RCL:$v),
+    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $sel, $v"),
+    [], !listconcat(preds,gen.Preds,oi.Preds), itin>;
+
 class PickOp<GenericOp gen, CSAOpInfo oi,
              InstrItinClass itin, list<Predicate> preds = []>:
   FMTGEN<gen, oi,
@@ -1174,6 +1182,15 @@ def SWITCHANY8  : SwitchAnyOp<SWITCHANY, Ti8,  IIVir>;
 def SWITCHANY16 : SwitchAnyOp<SWITCHANY, Ti16, IIVir>;
 def SWITCHANY32 : SwitchAnyOp<SWITCHANY, Ti32, IIVir>;
 def SWITCHANY64 : SwitchAnyOp<SWITCHANY, Ti64, IIVir>;
+
+def FILTER    : GenericOp<"filter">;
+def FILTER0   : FilterOp<FILTER, Ti0,  IIVir>;
+def FILTER1   : FilterOp<FILTER, Ti1,  IIVir>;
+def FILTER8   : FilterOp<FILTER, Ti8,  IIVir>;
+def FILTER16  : FilterOp<FILTER, Ti16, IIVir>;
+def FILTER32  : FilterOp<FILTER, Ti32, IIVir>;
+def FILTER64  : FilterOp<FILTER, Ti64, IIVir>;
+
 
 def PICK      : GenericOp<"pick">;
 def PICK0     : PickOp<PICK, Ti0,  IIVir>;

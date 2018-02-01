@@ -68,6 +68,10 @@ namespace llvm {
     /// operations. This helps for memory ordering issues.
     bool invertIgnoredSwitches(MachineInstr *MI);
 
+    /// The following mini pass replaces SWITCH operations where one output
+    /// is ignored with FILTER operations.
+    bool createFilterOps(MachineInstr *MI);
+
     MachineInstr *getDefinition(const MachineOperand &MO) const;
     void getUses(const MachineOperand &MO,
         SmallVectorImpl<MachineInstr *> &uses) const;
@@ -100,6 +104,7 @@ bool CSADataflowCanonicalizationPass::runOnMachineFunction(MachineFunction &MF) 
   bool changed = false;
   static auto functions = {
     &CSADataflowCanonicalizationPass::eliminateNotPicks,
+    &CSADataflowCanonicalizationPass::createFilterOps,
     &CSADataflowCanonicalizationPass::invertIgnoredSwitches
   };
   for (auto func : functions) {
@@ -166,6 +171,42 @@ bool CSADataflowCanonicalizationPass::eliminateNotPicks(MachineInstr *MI) {
       return true;
     }
   }
+  return false;
+}
+
+bool CSADataflowCanonicalizationPass::createFilterOps(MachineInstr *MI) {
+  if (!TII->isSwitch(MI))
+    return false;
+
+  if (MI->getOperand(0).isReg() && MI->getOperand(0).getReg() == CSA::IGN) {
+    // The first value is ignored.
+    MI->setDesc(
+      TII->get(TII->adjustOpcode(MI->getOpcode(), CSA::Generic::FILTER)));
+    MI->RemoveOperand(0);
+    return true;
+  } else if (MI->getOperand(1).isReg() && MI->getOperand(1).getReg() == CSA::IGN) {
+    // Second value is ignored. We need to generate a NOT -> FILTER
+    MI->setDesc(
+      TII->get(TII->adjustOpcode(MI->getOpcode(), CSA::Generic::FILTER)));
+    MI->RemoveOperand(1);
+    auto ctrlOperand = MI->getOperand(1).getReg();
+    unsigned invertedReg = 0;
+    for (auto &use : MRI->use_instructions(ctrlOperand)) {
+      if (use.getOpcode() == CSA::NOT1) {
+        invertedReg = use.getOperand(0).getReg();
+        break;
+      }
+    }
+    if (invertedReg == 0) {
+      invertedReg = LMFI->allocateLIC(&CSA::CI1RegClass);
+      BuildMI(*MI->getParent(), MI, DebugLoc{}, TII->get(CSA::NOT1), invertedReg)
+        .addReg(MI->getOperand(1).getReg())
+        ->setFlag(MachineInstr::NonSequential);
+    }
+    MI->getOperand(1).setReg(invertedReg);
+    return true;
+  }
+
   return false;
 }
 
