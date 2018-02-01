@@ -105,7 +105,7 @@ bool clGetPlatformInfoTest()
         }
         #elif defined(BUILD_FPGA_EMULATOR)
         {
-            expectedString += "2.0 ";
+            expectedString += "1.2 ";
         }
         #else // BUILD_FPGA_EMULATOR
         {

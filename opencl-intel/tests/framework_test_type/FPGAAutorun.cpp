@@ -82,7 +82,7 @@ void FPGAAutorun()
     ASSERT_EQ(CL_SUCCESS, error) << " clCreateProgramWithSource failed.";
 
     const int N = 5;
-    std::string buildOptions = "-cl-std=CL2.0 -DN=" + std::to_string(N);
+    std::string buildOptions = "-DN=" + std::to_string(N);
     error = clBuildProgram(program, 1, &device, buildOptions.c_str(), nullptr,
         nullptr);
     EXPECT_EQ(CL_SUCCESS, error) << " clBuildProgram failed.";

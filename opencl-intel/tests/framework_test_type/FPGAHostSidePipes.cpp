@@ -98,7 +98,7 @@ void HostSidePipesTest::SetUp()
     ASSERT_EQ(CL_SUCCESS, iRet) << "clCreateProgramWithSource failed.";
 
     iRet = clBuildProgram(m_program, /*num_devices=*/0, /*device_list=*/nullptr,
-                          /*options=*/"-cl-std=CL2.0", /*pfn_notify*/nullptr,
+                          /*options=*/"", /*pfn_notify*/nullptr,
                           /*user_data=*/nullptr);
     if(CL_SUCCESS != iRet)
     {

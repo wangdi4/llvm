@@ -40,7 +40,7 @@ void checkFPGAExtension()
     ASSERT_EQ(CL_SUCCESS, iRet) << " clCreateContext failed.";
 
     const char* kernel = "\
-        #pragma OPENCL EXTENSION cl_altera_channels : enable\n \
+        #pragma OPENCL EXTENSION cl_intel_channels : enable\n \
         channel float4 rgb __attribute__((depth(43)));\
         __kernel void dummy_kernel()\
         {\
@@ -53,7 +53,7 @@ void checkFPGAExtension()
     ASSERT_EQ(CL_SUCCESS, iRet) << " clCreateProgramWithSource failed.";
 
     iRet = clBuildProgram(program, /*num_devices=*/0, /*device_list=*/nullptr,
-                          /*options=*/"-cl-std=CL2.0", /*pfn_notify*/nullptr,
+                          /*options=*/"", /*pfn_notify*/nullptr,
                           /*user_data=*/nullptr);
     if(CL_SUCCESS != iRet)
     {

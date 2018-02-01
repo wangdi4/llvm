@@ -92,8 +92,7 @@ void FPGAChannelsByValue()
         nullptr, &error);
     ASSERT_EQ(CL_SUCCESS, error) << " clCreateProgramWithSource failed.";
 
-    std::string buildOptions = "-cl-std=CL2.0 ";
-    error = clBuildProgram(program, 1, &device, buildOptions.c_str(), nullptr,
+    error = clBuildProgram(program, 1, &device, "", nullptr,
         nullptr);
     EXPECT_EQ(CL_SUCCESS, error) << " clBuildProgram failed.";
     if (CL_SUCCESS != error)

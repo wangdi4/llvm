@@ -44,8 +44,7 @@ void FPGAInfiniteLoopsBasic()
         nullptr, &error);
     ASSERT_EQ(CL_SUCCESS, error) << "clCreateProgramWithSource failed";
 
-    error = clBuildProgram(program, 0, nullptr, "-cl-std=CL2.0", nullptr,
-        nullptr);
+    error = clBuildProgram(program, 0, nullptr, "", nullptr, nullptr);
     EXPECT_EQ(CL_SUCCESS, error);
     if (CL_SUCCESS != error)
     {
