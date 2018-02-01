@@ -225,6 +225,19 @@ FieldAddressTaken
 This indicates that the addresses of one or more fields within the type were
 either written to memory or passed to a function call.
 
+GlobalPtr
+~~~~~~~~~
+This indicates that a global variable was found that is a pointer to the type.
+
+GlobalInstance
+~~~~~~~~~~~~~~
+This indicates that a global variable was found that is an instance of the type.
+
+HasInitializerList
+~~~~~~~~~~~~~~~~~~
+This indicates that a global variable was found that is an instance of the type
+and a non-zero initializer was specified for the variable.
+
 UnhandledUse
 ~~~~~~~~~~~~
 This is a catch-all flag that will be used to mark any usage pattern that we
@@ -559,5 +572,22 @@ variables. **This instruction type is currently not handled.**
 Global variables
 ----------------
 Global variables are mostly tracked through their uses in the instructions of
-a program. At the module level, global variables will be examined to determine
-whether or not they have an initializer list. **This is not yet implemented.**
+a program. At the module level, the definition for each global variable will be
+visited and if its type is a type of interest, safety data for that type will
+be updated.
+
+All global variables in LLVM IR are defined as pointers. If the variable is
+an instance of an aggregate type at the source code level, the LLVM IR global
+variable will be a pointer to the global memory for that object. If the
+variable is a pointer at the source code level, the LLVM IR global variable
+will be a pointer to a pointer.
+
+As global variables with a type of interest are visited, if the variable is
+a pointer to a pointer, the `GlobalPtr`_ safety condition will be added to
+the type. Otherwise, the `GlobalInstance`_ safety condition will be added.
+
+LLVM IR requires all global variables to have an initializer. This may be
+a simple zero-initializer, or it may be specific aggregate data. If the global
+variable is an instance of a type and not a pointer to that type and the
+initializer is non-zero aggregate data, the type will be marked with the
+`HasInitializerList`_ safety condition.

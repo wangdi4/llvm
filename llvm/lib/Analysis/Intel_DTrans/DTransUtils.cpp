@@ -152,7 +152,10 @@ void dtrans::TypeInfo::printSafetyData() {
                                dtrans::AmbiguousPointerLoad |
                                dtrans::WholeStructureReference |
                                dtrans::UnsafePointerStore |
-                               dtrans::FieldAddressTaken | dtrans::UnhandledUse;
+                               dtrans::FieldAddressTaken | dtrans::GlobalPtr |
+                               dtrans::GlobalInstance |
+                               dtrans::HasInitializerList |
+                               dtrans::UnhandledUse;
   std::vector<StringRef> SafetyIssues;
   if (SafetyInfo & dtrans::BadCasting)
     SafetyIssues.push_back("Bad casting");
@@ -174,6 +177,12 @@ void dtrans::TypeInfo::printSafetyData() {
     SafetyIssues.push_back("Unsafe pointer store");
   if (SafetyInfo & dtrans::FieldAddressTaken)
     SafetyIssues.push_back("Field address taken");
+  if (SafetyInfo & dtrans::GlobalPtr)
+    SafetyIssues.push_back("Global pointer");
+  if (SafetyInfo & dtrans::GlobalInstance)
+    SafetyIssues.push_back("Global instance");
+  if (SafetyInfo & dtrans::HasInitializerList)
+    SafetyIssues.push_back("Has initializer list");
   if (SafetyInfo & dtrans::UnhandledUse)
     SafetyIssues.push_back("Unhandled use");
   // Print the safety issues found

@@ -973,8 +973,7 @@ public:
       DEBUG(dbgs() << "dtrans-safety: Ambiguous GEP:\n"
                    << "  " << I << "\n");
       DEBUG(SrcLPI.dump());
-      setAllAliasedTypeSafetyData(SrcLPI, dtrans::AmbiguousGEP,
-                                  /* IncludeNestedTypes = */ true);
+      setAllAliasedTypeSafetyData(SrcLPI, dtrans::AmbiguousGEP);
     }
 
     // If the local pointer analysis did not conclude that this value
@@ -993,8 +992,7 @@ public:
       if (isInt8Ptr(Src) || I.getNumIndices() != 1) {
         DEBUG(dbgs() << "dtrans-safety: Bad pointer manipulation:\n"
                      << "  " << I << "\n");
-        setAllAliasedTypeSafetyData(SrcLPI, dtrans::BadPtrManipulation,
-                                    /* IncludeNestedTypes = */ true);
+        setAllAliasedTypeSafetyData(SrcLPI, dtrans::BadPtrManipulation);
       }
     }
 
@@ -1113,18 +1111,74 @@ public:
     // Call the base InstVisitor routine to visit each function.
     InstVisitor<DTransInstVisitor>::visitModule(M);
 
-    // Now follow the uses of global variables.
+    // Now follow the uses of global variables (not functions or aliases).
     for (auto &GV : M.globals()) {
+      // No initializer indicates a declaration. We'll see the definition
+      // if it's actually used.
+      if (!GV.hasInitializer())
+        continue;
+
       // Get the type of this variable.
       llvm::Type *GVTy = GV.getType();
 
+      // FIXME: Should we be considering all arrays of scalars as not
+      //        interesting types?
+      if (GVTy->getPointerElementType()->isArrayTy() &&
+          !DTInfo.isTypeOfInterest(
+              GVTy->getPointerElementType()->getArrayElementType()))
+        continue;
+
       // If this is an interesting type, analyze its uses.
       if (DTInfo.isTypeOfInterest(GVTy)) {
-        DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
-                     << "Type used by a global value:\n"
-                     << "  " << GV << "\n");
-        // TODO: Look for an initializer list and set specific info.
-        setBaseTypeInfoSafetyData(GVTy, dtrans::UnhandledUse);
+        // These are conservative conditions meant to restrict us to
+        // global variables that are definitely handled. If this condition
+        // is triggered in code we think we can optimize additional handling
+        // for these cases may be necessary.
+        //
+        // hasGlobalUnnamedAddr() indicates that the actual address of the
+        //   variable is definitely not significant. We may encounter cases
+        //   where this is true but not explicitly set as such. If so, this
+        //   will need to be reconsidered.
+        //
+        // hasLocalLinkage() indicates that the linkage is either internal or
+        //   private. This should be the case for all program defined variables
+        //   during LTO. The primary intention of this check is to eliminate
+        //   externally accessible variables, but we're using a more general
+        //   check to defer decisions about other linkage types until they
+        //   are encountered.
+        //
+        // isThreadLocal() may be acceptable but is included here so that
+        //   consideration of its implications can be deferred until it must
+        //   be handled.
+        //
+        if (!GV.hasGlobalUnnamedAddr() || !GV.hasLocalLinkage() ||
+            GV.isThreadLocal()) {
+          DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
+                       << "Unexpected global variable usage:\n"
+                       << "  " << GV << "\n");
+          setBaseTypeInfoSafetyData(GVTy, dtrans::UnhandledUse);
+          continue;
+        }
+        if (GVTy->getPointerElementType()->isPointerTy()) {
+          DEBUG(dbgs() << "dtrans-safety: Global pointer\n"
+                       << "  " << GV << "\n");
+          setBaseTypeInfoSafetyData(GVTy, dtrans::GlobalPtr);
+        } else {
+          DEBUG(dbgs() << "dtrans-safety: Global instance\n"
+                       << "  " << GV << "\n");
+          setBaseTypeInfoSafetyData(GVTy, dtrans::GlobalInstance);
+          // The local linkage check should guarantee a unique and definitive
+          // initializer.
+          assert(GV.hasUniqueInitializer() && GV.hasDefinitiveInitializer() &&
+                 !GV.isExternallyInitialized());
+          Constant *Initializer = GV.getInitializer();
+          if (!isa<ConstantAggregateZero>(Initializer) &&
+              !isa<UndefValue>(Initializer)) {
+            DEBUG(dbgs() << "dtrans-safety: Has initializer list\n"
+                         << "  " << GV << "\n");
+            setBaseTypeInfoSafetyData(GVTy, dtrans::HasInitializerList);
+          }
+        }
       }
     }
   }
@@ -1542,44 +1596,41 @@ private:
   // Given LocalPointerInfo for a value, set the specified safety data
   // for the base type of every type which is known to alias to the value.
   void setAllAliasedTypeSafetyData(LocalPointerInfo &LPI,
-                                   dtrans::SafetyData Data,
-                                   bool IncludeNestedTypes = false) {
+                                   dtrans::SafetyData Data) {
     for (auto *Ty : LPI.getPointerTypeAliasSet())
       if (DTInfo.isTypeOfInterest(Ty))
-        setBaseTypeInfoSafetyData(Ty, Data, IncludeNestedTypes);
+        setBaseTypeInfoSafetyData(Ty, Data);
   }
 
   // This is a helper function that retrieves the aggregate type through
   // zero or more layers of indirection and sets the specified safety data
   // for that type.
-  void setBaseTypeInfoSafetyData(llvm::Type *Ty, dtrans::SafetyData Data,
-                                 bool IncludeNestedTypes = false) {
+  void setBaseTypeInfoSafetyData(llvm::Type *Ty, dtrans::SafetyData Data) {
     llvm::Type *BaseTy = Ty;
     while (BaseTy->isPointerTy())
       BaseTy = cast<PointerType>(BaseTy)->getElementType();
     dtrans::TypeInfo *TI = DTInfo.getOrCreateTypeInfo(BaseTy);
     TI->setSafetyData(Data);
-    if (IncludeNestedTypes) {
-      if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI)) {
-        for (dtrans::FieldInfo &FI : StInfo->getFields()) {
-          llvm::Type *FieldTy = FI.getLLVMType();
-          // Propagate the safety condition if this field is an instance of
-          // a type of interest, but not if it is merely a pointer to such
-          // a type. Call setBaseTypeInfoSafetyData to handle additional levels
-          // of nesting.
-          if (!FieldTy->isPointerTy() && DTInfo.isTypeOfInterest(FieldTy))
-            setBaseTypeInfoSafetyData(FieldTy, Data, IncludeNestedTypes);
-        }
-      } else if (auto *ArrInfo = dyn_cast<dtrans::ArrayInfo>(TI)) {
-        ArrInfo->setSafetyData(Data);
-        llvm::Type *ElementTy = BaseTy->getArrayElementType();
+    // Propagate this condition to any nested types.
+    if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI)) {
+      for (dtrans::FieldInfo &FI : StInfo->getFields()) {
+        llvm::Type *FieldTy = FI.getLLVMType();
         // Propagate the safety condition if this field is an instance of
         // a type of interest, but not if it is merely a pointer to such
         // a type. Call setBaseTypeInfoSafetyData to handle additional levels
         // of nesting.
-        if (!ElementTy->isPointerTy() && DTInfo.isTypeOfInterest(ElementTy))
-          setBaseTypeInfoSafetyData(ElementTy, Data, IncludeNestedTypes);
+        if (!FieldTy->isPointerTy() && DTInfo.isTypeOfInterest(FieldTy))
+          setBaseTypeInfoSafetyData(FieldTy, Data);
       }
+    } else if (auto *ArrInfo = dyn_cast<dtrans::ArrayInfo>(TI)) {
+      ArrInfo->setSafetyData(Data);
+      llvm::Type *ElementTy = BaseTy->getArrayElementType();
+      // Propagate the safety condition if this field is an instance of
+      // a type of interest, but not if it is merely a pointer to such
+      // a type. Call setBaseTypeInfoSafetyData to handle additional levels
+      // of nesting.
+      if (!ElementTy->isPointerTy() && DTInfo.isTypeOfInterest(ElementTy))
+        setBaseTypeInfoSafetyData(ElementTy, Data);
     }
   }
 };

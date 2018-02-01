@@ -101,6 +101,16 @@ const SafetyData UnsafePointerStore = 0x0000000000000100;
 /// or passed as an argument to a function call.
 const SafetyData FieldAddressTaken = 0x0000000000000200;
 
+/// A global variable was found which is a pointer to the type.
+const SafetyData GlobalPtr = 0x0000000000000400;
+
+/// A global variable was found which is an instance of the type.
+const SafetyData GlobalInstance = 0x0000000000000800;
+
+/// A global variable was found which is an instance of the type and has a
+/// non-zero initializer.
+const SafetyData HasInitializerList = 0x0000000000001000;
+
 /// This is a catch-all flag that will be used to mark any usage pattern
 /// that we don't specifically recognize. The use might actually be safe
 /// or unsafe, but we will conservatively assume it is unsafe.

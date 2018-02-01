@@ -76,11 +76,9 @@ define void @test4( %struct.test04.a* %sa, %struct.test04.b* %sb ) {
 ; CHECK: Safety data: Unsafe pointer store
 
 ; Cast of non-instruction to struct pointer.
-; This case currently gets flagged as an unhandled use because it uses a global
-; value.
 ; This use actually meets the pointer copy idiom and so is safe.
 %struct.test05 = type { i32, %struct.test05* }
-@p.test05 = external global %struct.test05
+@p.test05 = internal unnamed_addr global %struct.test05 zeroinitializer
 define void @test5(%struct.test05* %pa.arg) {
   %ppa.as.pi = bitcast %struct.test05** getelementptr(
                                           %struct.test05,
@@ -94,7 +92,7 @@ define void @test5(%struct.test05* %pa.arg) {
 }
 
 ; CHECK: LLVMType: %struct.test05 = type { i32, %struct.test05* }
-; CHECK: Safety data: Unhandled use
+; CHECK: Safety data: Global instance
 
 ; Load from aliased pointer passed across PHI and Select
 %struct.test06 = type { i32, i32 }

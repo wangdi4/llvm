@@ -214,11 +214,10 @@ declare noalias i8* @malloc(i64)
 ; CHECK: Field info: Written
 ; CHECK: Safety data: No issues found
 
-; The "Unhandled use" here will go away when globals are handled.
 ; CHECK: LLVMType: %struct.S4 = type { i8, i32 }
-; CHECK: Safety data: Unhandled use
+; CHECK: Safety data: Global instance
 ; CHECK: LLVMType: %struct.S5 = type { %struct.S4, i32 }
-; CHECK: Safety data: Unhandled use
+; CHECK: Safety data: Global instance
 ; CHECK: LLVMType: %struct.S6 = type { [256 x i8], i32 }
 ; CHECK: Safety data: No issues found
 
