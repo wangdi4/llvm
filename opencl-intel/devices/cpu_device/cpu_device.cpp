@@ -25,21 +25,22 @@
 #include "stdafx.h"
 
 #include "cpu_device.h"
-#include "program_service.h"
-#include "memory_allocator.h"
-#include "task_dispatcher.h"
 #include "cpu_logger.h"
+#include "memory_allocator.h"
+#include "program_config.h"
+#include "program_service.h"
+#include "task_dispatcher.h"
 
-#include <cl_shared_ptr.hpp>
-#include <buildversion.h>
 #include <CL/cl_ext.h>
-#include <clang_device_info.h>
-#include <cl_sys_info.h>
-#include <cpu_dev_limits.h>
-#include <cl_sys_defines.h>
-#include <cl_cpu_detect.h>
-#include <cl_shutdown.h>
+#include <buildversion.h>
 #include <builtin_kernels.h>
+#include <cl_cpu_detect.h>
+#include <cl_shared_ptr.hpp>
+#include <cl_shutdown.h>
+#include <cl_sys_defines.h>
+#include <cl_sys_info.h>
+#include <clang_device_info.h>
+#include <cpu_dev_limits.h>
 
 #ifdef __INCLUDE_MKL__
 #include <mkl_builtins.h>
@@ -253,16 +254,17 @@ cl_dev_err_code CPUDevice::Init()
         }
     }
 
-    ret = m_backendWrapper.Init(nullptr);
+    // Get configuration file name
+    m_pCPUDeviceConfig = new CPUDeviceConfig();
+    m_pCPUDeviceConfig->Initialize("cl.cfg");
+    // We need to pass some options from cl.cfg to GlobalCompilerConfig
+    ProgramConfig programConfig;
+    programConfig.InitFromCpuConfig(*m_pCPUDeviceConfig);
+    ret = m_backendWrapper.Init(&programConfig);
     if (CL_DEV_FAILED(ret))
     {
         return CL_DEV_ERROR_FAIL;
     }
-
-
-    // Get configuration file name
-    m_pCPUDeviceConfig = new CPUDeviceConfig();
-    m_pCPUDeviceConfig->Initialize("cl.cfg");
 
     // Enable VTune source level profiling
     GetCPUDevInfo(*m_pCPUDeviceConfig)->bEnableSourceLevelProfiling = m_pCPUDeviceConfig->UseVTune();

@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2007 Intel Corporation
+// Copyright (c) 2006-2018 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -16,20 +16,14 @@
 // MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 // Intel Corporation is the author of the Materials, and requests that all
-// problem reports or change requests be submitted to it directlytypedef uint _PIPE_TYPE;
+// problem reports or change requests be submitted to it directly
 
 #ifndef __PIPE_COMMON_H__
 #define __PIPE_COMMON_H__
 
 #include "../backend/libraries/ocl_builtins/pipes.h"
 
-#ifdef BUILD_FPGA_EMULATOR
-
-static size_t pipe_get_total_size(cl_uint packet_size, cl_uint depth) {
-  return __pipe_get_total_size(packet_size, depth);
-}
-
-#else // BUILD_FPGA_EMULATOR
+#ifndef BUILD_FPGA_EMULATOR
 
 #define CACHE_LINE 64
 #define INTEL_PIPE_HEADER_RESERVED_SPACE CACHE_LINE * 2
@@ -63,7 +57,15 @@ typedef struct _tag_pipe_control_intel_t
     char pad1[CACHE_LINE - sizeof(cl_int)];
 } pipe_control_intel_t;
 
+#ifndef _WIN32
+#define ATTRIBUTE_UNUSED __attribute__((unused))
+#else
+#define ATTRIBUTE_UNUSED
+#endif // _WIN32
 
+// pipe_get_total_size function are not always used when this header is included
+// somewhere, let's silence warning
+ATTRIBUTE_UNUSED
 static size_t pipe_get_total_size(cl_uint uiPacketSize, cl_uint uiMaxPackets) {
   return INTEL_PIPE_HEADER_RESERVED_SPACE + uiPacketSize * uiMaxPackets;
 }

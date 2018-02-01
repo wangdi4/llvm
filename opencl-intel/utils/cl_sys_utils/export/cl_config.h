@@ -2,7 +2,7 @@
 // cl_config.h
 /////////////////////////////////////////////////////////////////////////
 // INTEL CONFIDENTIAL
-// Copyright 2007-2008 Intel Corporation All Rights Reserved.
+// Copyright 2007-2018 Intel Corporation All Rights Reserved.
 //
 // The source code contained or described herein and all documents related
 // to the source code ("Material") are owned by Intel Corporation or its
@@ -26,18 +26,18 @@
 /////////////////////////////////////////////////////////////////////////
 #pragma once
 
-#include "cl_types.h"
-#include <string>
-#include <map>
-#include <vector>
-#include <iostream>
-#include <fstream>
-#include <sstream>
+#include "PipeCommon.h"
 #include "cl_env.h"
+#include "cl_types.h"
+
+#include <fstream>
+#include <map>
+#include <sstream>
+#include <string>
+#include <vector>
+
 #ifdef _WIN32
 #include <windows.h>
-#else
-#include <fstream>
 #endif
 
 using std::string;
@@ -584,6 +584,26 @@ T GetRegistryKeyValue(const string& keyName, const string& valName, T defaultVal
             }
 
             return ParseStringToSize(strForcedSize);
+        }
+
+        int GetChannelDepthEmulationMode() const
+        {
+            std::string strDepthEmulationMode;
+            if (!m_pConfigFile->ReadInto(strDepthEmulationMode,
+                  "CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE"))
+            {
+                return CHANNEL_DEPTH_MODE_IGNORE_DEPTH;
+            }
+
+            if (strDepthEmulationMode == "ignore-depth")
+                return CHANNEL_DEPTH_MODE_IGNORE_DEPTH;
+            if (strDepthEmulationMode == "default")
+                return CHANNEL_DEPTH_MODE_DEFAULT;
+            if (strDepthEmulationMode == "strict")
+                return CHANNEL_DEPTH_MODE_STRICT;
+
+            assert(0 && "Unknown channel depth emulation mode!");
+            return CHANNEL_DEPTH_MODE_IGNORE_DEPTH;
         }
 
     private:

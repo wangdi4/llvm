@@ -37,8 +37,11 @@ typedef void* global_ptr_t;
 #define EXPORT extern "C"
 #endif
 
-EXPORT void __pipe_init_intel(pipe_ptr_t p,
-                              int packet_size, int max_packets);
+#include "pipes-defines.h"
+
+EXPORT void
+__pipe_init_intel(pipe_ptr_t p, int packet_size, int max_packets, int mode);
+
 EXPORT void __flush_read_pipe(pipe_ptr_t p);
 EXPORT void __flush_write_pipe(pipe_ptr_t p);
 
@@ -47,7 +50,7 @@ EXPORT i32 __write_pipe_2_intel(pipe_ptr_t p, const void* src);
 EXPORT i32 __read_pipe_2_bl_intel(pipe_ptr_t p, void* dst);
 EXPORT i32 __write_pipe_2_bl_intel(pipe_ptr_t p, const void* src);
 
-EXPORT i32 __pipe_get_max_packets(i32 depth);
-EXPORT i32 __pipe_get_total_size(i32 packet_size, i32 depth);
+EXPORT i32 __pipe_get_max_packets(i32 depth, int mode);
+EXPORT i32 __pipe_get_total_size(i32 packet_size, i32 depth, int mode);
 
 #endif // __INTEL_PIPES_H__

@@ -1,4 +1,4 @@
-// Copyright (c) 2017 Intel Corporation
+// Copyright (c) 2017-2018 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -148,7 +148,36 @@ static void __pipe_dump(__global struct __pipe_t* p) {
          wb->end, wb->size, wb->limit);
 }
 
-int __pipe_get_max_packets(int depth) {
+int __pipe_get_max_packets(int depth, int mode) {
+  // STRICT mode:
+  //   if user specifies the depth -> the exact depth the user asked for is used
+  //   if user doesn't specify the depth -> use depth = 1
+  // DEFAULT mode:
+  //   if user specifies the depth -> the exact depth the user asked for is used
+  //   if user doesn't specify the depth -> use whataver we want to achieve max
+  //     performance
+  // IGNORE_DEPTH mode:
+  //    Use whatever we want to achieve max performance, ignore user-provided
+  //      values
+  //
+  //  NOTE: in any mode we need to ensure that at least 'depth' packets can be
+  //  written without blocking.
+  if (mode == CHANNEL_DEPTH_MODE_STRICT) {
+    if (depth == 0)
+      depth = 1;
+    // reserve one extra element b/w head and tail to distinguish full/empty
+    // conditions
+    return depth + 1;
+  }
+
+  if (mode == CHANNEL_DEPTH_MODE_DEFAULT && depth != 0) {
+    // reserve one extra element b/w head and tail to distinguish full/empty
+    // conditions
+    return depth + 1;
+  }
+
+  // if (mode == CHANNEL_DEPTH_MODE_IGNORE_DEPTH ||
+  //    (mode == CHANNEL_DEPTH_MODE_DEFAULT && depth == 0))
   // pipe max_packets should be more than maximum of supported VL
   int max_packets = max(depth, MAX_VL_SUPPORTED_BY_PIPES);
 
@@ -168,9 +197,9 @@ int __pipe_get_max_packets(int depth) {
   return max_packets;
 }
 
-int __pipe_get_total_size(int packet_size, int depth) {
+int __pipe_get_total_size(int packet_size, int depth, int mode) {
   size_t total = sizeof(struct __pipe_t)       // header
-    + packet_size * __pipe_get_max_packets(depth);
+    + packet_size * __pipe_get_max_packets(depth, mode);
   return total;
 }
 
@@ -219,7 +248,7 @@ int advance(const __global struct __pipe_t* p, int index, int offset) {
 /// For given \p index_from and \p index_to compute the number of elements
 /// between them. The function behaves exactly as std::distance.
 static int dist(__global const struct __pipe_t* p,
-                    int index_from, int index_to) {
+                int index_from, int index_to) {
   int res = index_from <= index_to ? index_to - index_from
     : p->max_packets - index_from + index_to;
   ASSERT(res >= 0);
@@ -243,10 +272,10 @@ int get_write_capacity(__global struct __pipe_t* p) {
   return result;
 }
 
-void __pipe_init_intel(__global struct __pipe_t* p,
-                       int packet_size, int depth) {
+void __pipe_init_intel(__global struct __pipe_t* p, int packet_size, int depth,
+                       int mode) {
   p->packet_size = packet_size;
-  p->max_packets = __pipe_get_max_packets(depth);
+  p->max_packets = __pipe_get_max_packets(depth, mode);
   atomic_init(&p->head, 0);
   atomic_init(&p->tail, 0);
 
@@ -257,19 +286,28 @@ void __pipe_init_intel(__global struct __pipe_t* p,
   p->write_buf.end = 0;
   p->write_buf.size = -1;
 
-  // Limit pipe write buffer by pipe write capacity, which is a maximum
-  // capacity, since the pipe is empty.
-  int write_buf_limit = min(get_write_capacity(p),
-                            PIPE_WRITE_BUF_PREFERRED_LIMIT);
-  // Ensure that write buffer limit is a multiple of max supported vector length
-  p->write_buf.limit =
-             write_buf_limit - (write_buf_limit % MAX_VL_SUPPORTED_BY_PIPES);
+  if (mode == CHANNEL_DEPTH_MODE_STRICT ||
+      (mode == CHANNEL_DEPTH_MODE_DEFAULT && depth != 0)) {
+    // See notes in __pipe_get_max_packets function: "We must ensure that at
+    // least 'depth' packets can be written without blocking..."
+    p->write_buf.limit = 1;
+  } else {
+    // Limit pipe write buffer by pipe write capacity, which is a maximum
+    // capacity, since the pipe is empty.
+    int write_buf_limit = min(get_write_capacity(p),
+                              PIPE_WRITE_BUF_PREFERRED_LIMIT);
+    // Ensure that write buffer limit is a multiple of max supported vector
+    // length
+    p->write_buf.limit =
+               write_buf_limit - (write_buf_limit % MAX_VL_SUPPORTED_BY_PIPES);
+  }
 }
 
 void __pipe_init_array_intel(__global struct __pipe_t* __global* p,
-                             int array_size, int packet_size, int depth) {
+                             int array_size, int packet_size, int depth,
+                             int mode) {
   for (int i = 0; i < array_size; ++i) {
-    __pipe_init_intel(p[i], packet_size, depth);
+    __pipe_init_intel(p[i], packet_size, depth, mode);
   }
 }
 

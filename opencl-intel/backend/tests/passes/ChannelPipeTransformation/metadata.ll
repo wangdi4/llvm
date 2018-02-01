@@ -42,12 +42,12 @@ target triple = "spir64-unknown-unknown-intelfpga"
 ; CHECK-DAG: @ich_arr.pipe.bs = {{.*}} global [{{[0-9]+}} x i8] {{.*}} align 4
 ; CHECK-DAG: @lch_arr.pipe.bs = {{.*}} global [{{[0-9]+}} x i8] {{.*}} align 8
 
-; CHECK-DAG: call {{.*}} @__pipe_init{{.*}} @ich.pipe.bs {{.*}} i32 4, i32 1)
-; CHECK-DAG: call {{.*}} @__pipe_init{{.*}} @lch.pipe.bs {{.*}} i32 8, i32 3)
-; CHECK-DAG: call {{.*}} @__pipe_init{{.*}} @sch.pipe.bs {{.*}} i32 16, i32 1)
-; CHECK-DAG: call {{.*}} @__pipe_init_array{{.*}}({{.*}} @ich_arr.pipe {{.*}} i32 5, i32 4, i32 1)
-; CHECK-DAG: call {{.*}} @__pipe_init_array{{.*}}({{.*}} @sch_arr.pipe {{.*}} i32 60, i32 16, i32 1)
-; CHECK-DAG: call {{.*}} @__pipe_init_array{{.*}}({{.*}} @lch_arr.pipe {{.*}} i32 20, i32 8, i32 3)
+; CHECK-DAG: call {{.*}} @__pipe_init{{.*}} @ich.pipe.bs {{.*}} i32 4, i32 0
+; CHECK-DAG: call {{.*}} @__pipe_init{{.*}} @lch.pipe.bs {{.*}} i32 8, i32 3
+; CHECK-DAG: call {{.*}} @__pipe_init{{.*}} @sch.pipe.bs {{.*}} i32 16, i32 0
+; CHECK-DAG: call {{.*}} @__pipe_init_array{{.*}}({{.*}} @ich_arr.pipe {{.*}} i32 5, i32 4, i32 0
+; CHECK-DAG: call {{.*}} @__pipe_init_array{{.*}}({{.*}} @sch_arr.pipe {{.*}} i32 60, i32 16, i32 0
+; CHECK-DAG: call {{.*}} @__pipe_init_array{{.*}}({{.*}} @lch_arr.pipe {{.*}} i32 20, i32 8, i32 3
 
 ; Function Attrs: nounwind
 define spir_kernel void @foo() #0 !kernel_arg_addr_space !16 !kernel_arg_access_qual !16 !kernel_arg_type !16 !kernel_arg_base_type !16 !kernel_arg_type_qual !16 {

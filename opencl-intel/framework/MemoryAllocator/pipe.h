@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2013 Intel Corporation
+// Copyright (c) 2006-2018 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -22,6 +22,7 @@
 
 #include "GenericMemObj.h"
 #include "PipeCommon.h"
+#include "framework_proxy.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
@@ -40,12 +41,18 @@ class Pipe : public GenericMemObject
 
     /**
      * @param uiPacketSize the size in byte of this Pipe's packet
-	 * @param uiMaxPackets the maximum number of packets this Pipe can hold
+     * @param uiMaxPackets the maximum number of packets this Pipe can hold
      * @return the pipe's size
      */
     static size_t CalcPipeSize(cl_uint uiPacketSize, cl_uint uiMaxPackets)
     {
+#ifdef BUILD_FPGA_EMULATOR
+        int mode = FrameworkProxy::Instance()->GetOCLConfig()
+            ->GetChannelDepthEmulationMode();
+        return __pipe_get_total_size(uiPacketSize, uiMaxPackets, mode);
+#else // BUILD_FPGA_EMULATOR
         return pipe_get_total_size(uiPacketSize, uiMaxPackets);
+#endif // BUILD_FPGA_EMULATOR
     }
 
 	/**

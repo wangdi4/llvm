@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2007 Intel Corporation
+// Copyright (c) 2006-2018 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -18,6 +18,7 @@
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
+#include "framework_proxy.h"
 #include "pipe.h"
 #include <algorithm>
 
@@ -58,7 +59,9 @@ cl_err_code Pipe::Initialize(cl_mem_flags flags, cl_uint uiPacketSize,
     assert(CL_SUCCEEDED(err) && "GetBackingStore failed");
 
 #ifdef BUILD_FPGA_EMULATOR
-    __pipe_init_intel(pBS->GetRawData(), uiPacketSize, uiMaxPackets);
+    int mode = FrameworkProxy::Instance()->GetOCLConfig()
+        ->GetChannelDepthEmulationMode();
+    __pipe_init_intel(pBS->GetRawData(), uiPacketSize, uiMaxPackets, mode);
     m_mapBuffer.reserve(uiPacketSize * uiMaxPackets);
 #else
     pipe_control_intel_t* pipeCtrl = (pipe_control_intel_t*)pBS->GetRawData();

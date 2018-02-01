@@ -529,7 +529,7 @@ set(RTL_SHARED ${BUILTINS_SHARED_OUTPUT_DIR}/${TARGET_NAME_PREFIX}shared.rtl)
 
 add_custom_command(OUTPUT clbltpipe.obj
   DEPENDS ${TARGET_NAME_MINIMAL} ${TARGET_NAME_SHARED}
-  DEPENDS pipes.cl pipes.h pipes-internal.h
+  DEPENDS pipes.cl pipes.h pipes-internal.h pipes-defines.h
 
   # Use host triple to let llc produce object file in a native format.
   COMMAND ${CLANG} ${CLANG_CL20_COMPILER_PARAMS} -triple ${HOST_TRIPLE}

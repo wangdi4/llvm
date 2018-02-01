@@ -1,4 +1,4 @@
-// Copyright (c) 2017 Intel Corporation
+// Copyright (c) 2017-2018 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -25,6 +25,7 @@
 #include <llvm/ADT/SmallString.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/Instructions.h>
+#include <llvm/Support/CommandLine.h>
 #include <llvm/Support/Debug.h>
 #include <llvm/Transforms/Utils/BasicBlockUtils.h>
 #include <llvm/Transforms/Utils/Cloning.h>
@@ -47,6 +48,10 @@
 using namespace llvm;
 using namespace Intel::OpenCL::DeviceBackend;
 using namespace Intel::MetadataAPI;
+
+static cl::opt<int> ChannelDepthEmulationMode("channel-depth-emulation-mode",
+    cl::init(CHANNEL_DEPTH_MODE_IGNORE_DEPTH), cl::Hidden,
+    cl::desc("Channel depth emulation mode"));
 
 namespace intel {
 char ChannelPipeTransformation::ID = 0;
@@ -157,7 +162,8 @@ static GlobalVariable *createPipeBackingStore(GlobalVariable *GV,
   Module *M = GV->getParent();
   Type *Int8Ty = IntegerType::getInt8Ty(M->getContext());
 
-  size_t BSSize = pipe_get_total_size(MD.PacketSize, MD.Depth);
+  size_t BSSize = __pipe_get_total_size(MD.PacketSize, MD.Depth,
+      ChannelDepthEmulationMode);
   if (auto *PipePtrArrayTy =
           dyn_cast<ArrayType>(GV->getType()->getElementType())) {
     BSSize *= CompilationUtils::getArrayNumElements(PipePtrArrayTy);
@@ -190,10 +196,11 @@ static void initializeGlobalPipeScalar(GlobalVariable *PipeGV,
 
   Value *PacketSize = Builder.getInt32(MD.PacketSize);
   Value *Depth = Builder.getInt32(MD.Depth);
+  Value *Mode = Builder.getInt32(ChannelDepthEmulationMode);
 
   Value *CallArgs[] = {
       Builder.CreateBitCast(BS, PipeInit->getFunctionType()->getParamType(0)),
-      PacketSize, Depth
+      PacketSize, Depth, Mode
   };
 
   Builder.CreateCall(PipeInit, CallArgs);
@@ -278,7 +285,8 @@ static void generateBSItemsToPipeArrayStores(Module &M, IRBuilder<> &Builder,
   SmallVector<size_t, 8> IndicesListForPipeElem(DimensionsNum, 0);
   SmallVector<Value *, 8> GEPIndicesListForPipeElem(DimensionsNum + 1, 0);
 
-  size_t BSItemSize = pipe_get_total_size(PipeMD.PacketSize, PipeMD.Depth);
+  size_t BSItemSize = __pipe_get_total_size(PipeMD.PacketSize, PipeMD.Depth,
+                                            ChannelDepthEmulationMode);
   size_t BSItemsCount = CompilationUtils::getArrayNumElements(PipePtrArrayTy);
 
   // iterate over all elements from backing store
@@ -326,11 +334,12 @@ static void initializeGlobalPipeArray(GlobalVariable *PipeGV,
       cast<ArrayType>(PipeGV->getType()->getElementType());
 
   size_t BSNumItems = CompilationUtils::getArrayNumElements(PipePtrArrayTy);
+  Value *Mode = Builder.getInt32(ChannelDepthEmulationMode);
 
   Value *CallArgs[] = {
       Builder.CreateBitCast(PipeGV,
                             PipeInitArray->getFunctionType()->getParamType(0)),
-      Builder.getInt32(BSNumItems), PacketSize, Depth
+      Builder.getInt32(BSNumItems), PacketSize, Depth, Mode
   };
   Builder.CreateCall(PipeInitArray, CallArgs);
 }
@@ -363,12 +372,8 @@ static ChannelMetadata getChannelMetadata(GlobalVariable *Channel) {
   ChannelMetadata CMD;
   CMD.PacketSize = GVMetadata.PipePacketSize.get();
   CMD.PacketAlign = GVMetadata.PipePacketAlign.get();
-  CMD.Depth = GVMetadata.PipeDepth.hasValue() ? GVMetadata.PipeDepth.get() : 1;
+  CMD.Depth = GVMetadata.PipeDepth.hasValue() ? GVMetadata.PipeDepth.get() : 0;
   CMD.IO = GVMetadata.PipeIO.hasValue() ? GVMetadata.PipeIO.get() : "";
-
-  if (CMD.Depth == 0) {
-    CMD.Depth = 1;
-  }
 
   return CMD;
 }
@@ -810,7 +815,8 @@ bool ChannelPipeTransformation::runOnModule(Module &M) {
   BuiltinLibInfo &BLI = getAnalysis<BuiltinLibInfo>();
   OCLBuiltins Builtins(M, BLI.getBuiltinModules());
 
-  auto *ChannelValueTy = M.getTypeByName("opencl.channel_t");
+  auto *ChannelValueTy =
+      CompilationUtils::getStructByName("opencl.channel_t", &M);
   if (!ChannelValueTy)
     return false;
 

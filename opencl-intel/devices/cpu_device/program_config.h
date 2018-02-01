@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2008 Intel Corporation
+// Copyright (c) 2006-2018 Intel Corporation
 // All rights reserved.
 // 
 // WARRANTY DISCLAIMER
@@ -26,12 +26,14 @@
 */
 #pragma once
 
-#include "cl_device_api.h"
+#include "PipeCommon.h"
 #include "cl_dev_backend_api.h"
+#include "cl_device_api.h"
 #include "cl_user_logger.h"
 #include "cpu_logger.h"
-#include <string>
+
 #include <algorithm>
+#include <string>
 
 using Intel::OpenCL::Utils::g_pUserLogger;
 
@@ -52,7 +54,8 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
             m_vectorizerMode(TRANSPOSE_SIZE_NOT_SET),
             m_rtLoopUnrollFactor(0),
             m_useVTune(false),
-            m_forcedPrivateMemorySize(0)
+            m_forcedPrivateMemorySize(0),
+            m_channelDepthEmulationMode(CHANNEL_DEPTH_MODE_IGNORE_DEPTH)
         {}
 
         void InitFromCpuConfig(const CPUDeviceConfig& cpuConfig);
@@ -62,26 +65,31 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
             return (CL_DEV_BACKEND_OPTION_USE_VTUNE == optionId) ? m_useVTune : defaultValue;
         }
 
-        virtual int GetIntValue( int optionId, int defaultValue) const
+        virtual int GetIntValue(int optionId, int defaultValue) const
         {
             switch(optionId )
             {
-              case CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE:
-              {
-                // The transpoze size is applicable only then
-                // CL_CONFIG_USE_VECTORIZER is false.
-                return m_useVectorizer ? m_vectorizerMode : TRANSPOSE_SIZE_1;
-              }
-              case CL_DEV_BACKEND_OPTION_RT_LOOP_UNROLL_FACTOR:
-              {
-                return std::max(1, std::min(16, m_rtLoopUnrollFactor));
-              }
-              case CL_DEV_BACKEND_OPTION_FORCED_PRIVATE_MEMORY_SIZE:
-              {
-                return m_forcedPrivateMemorySize;
-              }
-              default:
-                return defaultValue;
+                case CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE:
+                {
+                    // The transpoze size is applicable only then
+                    // CL_CONFIG_USE_VECTORIZER is false.
+                    return m_useVectorizer ? m_vectorizerMode
+                                           : TRANSPOSE_SIZE_1;
+                }
+                case CL_DEV_BACKEND_OPTION_RT_LOOP_UNROLL_FACTOR:
+                {
+                    return std::max(1, std::min(16, m_rtLoopUnrollFactor));
+                }
+                case CL_DEV_BACKEND_OPTION_FORCED_PRIVATE_MEMORY_SIZE:
+                {
+                    return m_forcedPrivateMemorySize;
+                }
+                case CL_DEV_BACKEND_OPTION_CHANNEL_DEPTH_EMULATION_MODE:
+                {
+                    return m_channelDepthEmulationMode;
+                }
+                default:
+                    return defaultValue;
             }
         }
 
@@ -101,7 +109,7 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
         int  m_rtLoopUnrollFactor;
         bool m_useVTune;
         int m_forcedPrivateMemorySize;
-
+        int m_channelDepthEmulationMode;
     };
 
     /**

@@ -1370,6 +1370,21 @@ StructType* CompilationUtils::getStructFromTypePtr(Type *Ty) {
   return dyn_cast<StructType>(PtrTy->getElementType());
 }
 
+StructType *CompilationUtils::getStructByName(StringRef Name, const Module *M) {
+  std::vector<StructType *> StructTys = M->getIdentifiedStructTypes();
+
+  for (auto *STy : StructTys) {
+    if (!STy->hasName())
+      continue;
+
+    if (stripStructNameTrailingDigits(STy->getName())
+            .equals(stripStructNameTrailingDigits(Name)))
+      return STy;
+  }
+
+  return nullptr;
+}
+
 PointerType * CompilationUtils::mutatePtrElementType(
     PointerType *SrcPTy, Type *DstTy) {
   // The function changes the base type of SrcPTy to DstTy

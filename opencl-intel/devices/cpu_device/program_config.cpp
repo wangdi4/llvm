@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2012 Intel Corporation
+// Copyright (c) 2006-2018 Intel Corporation
 // All rights reserved.
 // 
 // WARRANTY DISCLAIMER
@@ -36,6 +36,7 @@ void ProgramConfig::InitFromCpuConfig(const CPUDeviceConfig& cpuConfig)
     m_rtLoopUnrollFactor   = cpuConfig.GetRTLoopUnrollFactor();
     m_useVTune       = cpuConfig.UseVTune();
     m_forcedPrivateMemorySize = cpuConfig.GetForcedPrivateMemSize();
+    m_channelDepthEmulationMode = cpuConfig.GetChannelDepthEmulationMode();
 }
 
 void ProgramDumpConfig::InitFromString(const char* options)

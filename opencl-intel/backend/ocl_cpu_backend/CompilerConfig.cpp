@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2010-2014).
+Copyright (c) Intel Corporation (2010-2018).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -18,6 +18,7 @@ File Name:  CompilerConfig.cpp
 
 #include "CompilerConfig.h"
 #include "OclTune.h"
+#include "PipeCommon.h"
 
 #include "llvm/Support/Debug.h"
 
@@ -105,6 +106,17 @@ void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBack
     m_infoOutputFile = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_TIME_PASSES, "");
     m_enableTiming = !m_infoOutputFile.empty();
     m_disableStackDump = pBackendOptions->GetBooleanValue((int)CL_DEV_BACKEND_OPTION_DISABLE_STACKDUMP, false);
+#ifdef BUILD_FPGA_EMULATOR
+    int channelDepthEmulationMode = pBackendOptions->GetIntValue(
+        (int)CL_DEV_BACKEND_OPTION_CHANNEL_DEPTH_EMULATION_MODE,
+        (int)CHANNEL_DEPTH_MODE_IGNORE_DEPTH);
+    m_LLVMOptions += " --channel-depth-emulation-mode="
+        + std::to_string(channelDepthEmulationMode);
+    if (channelDepthEmulationMode != CHANNEL_DEPTH_MODE_IGNORE_DEPTH)
+    {
+        m_LLVMOptions += " --use-simd-channels=0 ";
+    }
+#endif // BUILD_FPGA_EMULATOR
 }
 
 void CompilerConfig::LoadDefaults()

@@ -489,8 +489,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// already exist in the \p Dst.
     static Constant *importFunctionDecl(Module *Dst, const Function *Orig);
 
-
-
     /// Check if two types are pointers to the same opaque type
     /// @see isSameStructType
     static bool isSameStructPtrType(Type *Ty1, Type *Ty2);
@@ -504,6 +502,15 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     /// Return a type name without .N suffix (if any)
     static StringRef stripStructNameTrailingDigits(StringRef TyName);
+
+    /// Returns struct type with corresponding name if such exists
+    /// The main difference from Module::getTypeByName is that this function
+    /// doesn't account '.N' suffixes while comparing type names.
+    ///
+    /// For example, if module contains only '__pipe_t.2' type:
+    ///   * Module::getTypeByName('__pipe_t') will return nullptr
+    ///   * getStructByName('__pipe_t', M) will return '__pipe_t_.2' type
+    static StructType *getStructByName(StringRef Name, const Module *M);
 
     /// Return a pointer to struct from a pointer to type
     static StructType* getStructFromTypePtr(Type *T);
