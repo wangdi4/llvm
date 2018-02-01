@@ -473,6 +473,14 @@ class PickAnyOp<GenericOp gen, CSAOpInfo oi,
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $sel, $v0, $v1"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin>;
 
+class GateOp<GenericOp gen, CSAOpInfo oi,
+             InstrItinClass itin, list<Predicate> preds = []> :
+  FMTGEN<gen, oi,
+    (outs oi.RC:$dst),
+    (ins I0:$sel, oi.RCL:$v),
+    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $sel, $v"),
+    [], !listconcat(preds,gen.Preds,oi.Preds), itin>;
+
 // We thought that hasSideEffects would capture the internal state and stream
 // output behavior, but it's really not the right thing.  From the standpoint
 // of retained state, each time a SEQ or REPEAT is triggered, it has a fresh
@@ -1191,7 +1199,6 @@ def FILTER16  : FilterOp<FILTER, Ti16, IIVir>;
 def FILTER32  : FilterOp<FILTER, Ti32, IIVir>;
 def FILTER64  : FilterOp<FILTER, Ti64, IIVir>;
 
-
 def PICK      : GenericOp<"pick">;
 def PICK0     : PickOp<PICK, Ti0,  IIVir>;
 def PICK1     : PickOp<PICK, Ti1,  IIVir>;
@@ -1207,6 +1214,14 @@ def PICKANY8  : PickAnyOp<PICKANY, Ti8,  IIVir>;
 def PICKANY16 : PickAnyOp<PICKANY, Ti16, IIVir>;
 def PICKANY32 : PickAnyOp<PICKANY, Ti32, IIVir>;
 def PICKANY64 : PickAnyOp<PICKANY, Ti64, IIVir>;
+
+def GATE      : GenericOp<"gate">;
+def GATE0     : GateOp<GATE, Ti0,  IIVir>;
+def GATE1     : GateOp<GATE, Ti1,  IIVir>;
+def GATE8     : GateOp<GATE, Ti8,  IIVir>;
+def GATE16    : GateOp<GATE, Ti16, IIVir>;
+def GATE32    : GateOp<GATE, Ti32, IIVir>;
+def GATE64    : GateOp<GATE, Ti64, IIVir>;
 
 def LAND : GenericOp<"land">;
 def LAND1 : FMTGEN<LAND, Ti1,
