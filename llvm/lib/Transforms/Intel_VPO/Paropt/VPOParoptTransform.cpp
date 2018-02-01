@@ -3254,6 +3254,11 @@ Function *VPOParoptTransform::finalizeExtractedMTFunction(WRegionNode *W,
   fixThreadedEntryFormalParmName(W, NFn);
   genTpvCopyIn(W, NFn);
 
+  if (W->canHaveCopyin()) {
+    unsigned Cnt =  W->getCopyin().size();
+    NewArgI += Cnt;
+  }
+
   // For each argument, move the name and users over to the new version.
   TidParmNo = 0;
   for (Function::arg_iterator I = Fn->arg_begin(),
