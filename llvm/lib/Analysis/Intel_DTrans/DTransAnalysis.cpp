@@ -217,7 +217,7 @@ private:
 
     // If this is a GetElementPtr, figure out what element it is
     // accessing.
-    if (auto *GEP = dyn_cast<GetElementPtrInst>(V))
+    if (auto *GEP = dyn_cast<GEPOperator>(V))
       analyzeElementAccess(GEP, Info);
 
     // Mark the info as analyzed.
@@ -261,11 +261,13 @@ private:
     llvm_unreachable("Unexpected class for derived value!");
   }
 
-  bool analyzeElementAccess(GetElementPtrInst *GEP, LocalPointerInfo &Info) {
+  bool analyzeElementAccess(GEPOperator *GEP, LocalPointerInfo &Info) {
+    auto *Int8PtrTy = llvm::Type::getInt8PtrTy(GEP->getContext());
+
     // If the base pointer is an i8* we need to analyze this as a
     // byte-flattened GEP.
     Value *BasePointer = GEP->getPointerOperand();
-    if (BasePointer->getType() == llvm::Type::getInt8PtrTy(GEP->getContext()))
+    if (BasePointer->getType() == Int8PtrTy)
       return analyzeByteFlattenedGEPAccess(GEP, Info);
 
     // A GEP with only one index argument is a special case where a pointer
@@ -273,6 +275,30 @@ private:
     // within an aggregate type.
     if (GEP->getNumIndices() == 1)
       return false;
+
+    // There's an odd case where LLVM's constant folder will transform
+    // a bitcast into a GEP if the first element of the structure at
+    // any level of nesting matches the type of the bitcast. Normally
+    // this is good, but if the first element is an i8 (or a fixed array
+    // of i8, or a nested structure whose first element is an i8, etc.)
+    // then this folding can lead to a misleading GEP where the code
+    // was actually just trying to obtain a void pointer to the structure.
+    //
+    // For that reason, if this GEP returns an i8* and all but its first
+    // index arguments are zero, we want to include the base structure
+    // type in the alias set. The first index argument does not index
+    // into the structure but offsets from it (as a dynamic array) so
+    // this case applies even if the first index is non-zero.
+    if (GEP->getType() == Int8PtrTy) {
+      bool IsBitCastEquivalent = true;
+      for (unsigned i = 1; i < GEP->getNumIndices(); ++i)
+        // The +1 here is because the first operand of a GEP is not an index.
+        if (ConstantInt *CI = dyn_cast<ConstantInt>(GEP->getOperand(i+1)))
+          if (!CI->isZero())
+            IsBitCastEquivalent = false;
+      if (IsBitCastEquivalent)
+        Info.addPointerTypeAlias(BasePointer->getType());
+    }
 
     // Find the type of the type of the last composite type being
     // indexed by this GEP.
@@ -311,7 +337,7 @@ private:
   //
   // where %struct.S is a structure that has an element of type %struct.Elem
   // at offset 32 (as determined by DataLayout).
-  bool analyzeByteFlattenedGEPAccess(GetElementPtrInst *GEP,
+  bool analyzeByteFlattenedGEPAccess(GEPOperator *GEP,
                                      LocalPointerInfo &Info) {
     Value *BasePointer = GEP->getPointerOperand();
     // The caller should have checked this.
@@ -340,7 +366,7 @@ private:
     return false;
   }
 
-  bool analyzePossibleOffsetAggregateAccess(GetElementPtrInst *GEP,
+  bool analyzePossibleOffsetAggregateAccess(GEPOperator *GEP,
                                             llvm::Type *AggregateTy,
                                             uint64_t Offset,
                                             LocalPointerInfo &Info) {
@@ -354,7 +380,7 @@ private:
                                               Offset, Info);
   }
 
-  bool analyzePossibleOffsetStructureAccess(GetElementPtrInst *GEP,
+  bool analyzePossibleOffsetStructureAccess(GEPOperator *GEP,
                                             llvm::StructType *StructTy,
                                             uint64_t Offset,
                                             LocalPointerInfo &Info) {
@@ -388,7 +414,7 @@ private:
     return true;
   }
 
-  bool analyzePossibleOffsetArrayAccess(GetElementPtrInst *GEP,
+  bool analyzePossibleOffsetArrayAccess(GEPOperator *GEP,
                                         llvm::ArrayType *ArrayTy,
                                         uint64_t Offset,
                                         LocalPointerInfo &Info) {
