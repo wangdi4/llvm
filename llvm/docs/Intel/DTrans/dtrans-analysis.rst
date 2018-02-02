@@ -149,7 +149,7 @@ recreate if the allocation is transformed.
 AmbiguousGEP
 ~~~~~~~~~~~~
 This indicates that an i8* value that is known to alias to multiple types is
-passed to a GetElementPtr instruction. The GetElementPointer instruction can
+passed to a GetElementPtr instruction. The GetElementPtr instruction can
 be used to compute an offset from an i8* base address, but if the i8* may
 refer to multiple different aggregate types (for instance, because of a select
 or PHI node) DTrans cannot reliably determine the element that is being
@@ -242,7 +242,7 @@ purposes of DTrans optimizations). Consider the following IR:
   }
 
 In this example, the bitcast at the %ret value is safe because the input value
-is either the result of casting a %struct.S point to an i8* or the result of
+is either the result of casting a %struct.S pointer to an i8* or the result of
 a safe allocation (assuming 16 is a multiple of the size of %struct.S). Rather
 than include all of the logic necessary to prove this relationship in the
 bitcast analysis handling, we use a helper class (LocalPointerAnalyzer) that
@@ -381,7 +381,7 @@ conditions are met:
 
 1. The source value is the result of an allocation call.
 2. The source value can be proved to locally alias to the destination type and
-   is not known to locally alias to any other type. (See `Local Pointer Type
+   is known not to locally alias to any other type. (See `Local Pointer Type
    Analysis`_.)
 3. The destination type points to the type of the first element in an aggregate
    type to which the value is known to alias locally.
