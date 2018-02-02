@@ -129,6 +129,7 @@ VPBasicBlock::createEmptyBasicBlock(VPTransformState::CFGState &CFG)
                                          PrevBB->getParent(), CFG.LastBB);
   DEBUG(dbgs() << "LV: created " << NewBB->getName() << '\n');
 
+#if INTEL_CUSTOMIZATION
   // Hook up the new basic block to its predecessors. New predecessors that
   // result from creating new BranchInsts are prepended instead of appended to
   // the predecessor list. In order to preserve original CFG and original
@@ -175,6 +176,30 @@ VPBasicBlock::createEmptyBasicBlock(VPTransformState::CFGState &CFG)
       }
     }
   }
+#else
+  // Hook up the new basic block to its predecessors.
+  for (VPBlockBase *PredVPBlock : getHierarchicalPredecessors()) {
+    VPBasicBlock *PredVPBB = PredVPBlock->getExitBasicBlock();
+    auto &PredVPSuccessors = PredVPBB->getSuccessors();
+    BasicBlock *PredBB = CFG.VPBB2IRBB[PredVPBB];
+    assert(PredBB && "Predecessor basic-block not found building successor.");
+    auto *PredBBTerminator = PredBB->getTerminator();
+    DEBUG(dbgs() << "LV: draw edge from" << PredBB->getName() << '\n');
+    if (isa<UnreachableInst>(PredBBTerminator)) {
+      assert(PredVPSuccessors.size() == 1 &&
+             "Predecessor ending w/o branch must have single successor.");
+      PredBBTerminator->eraseFromParent();
+      BranchInst::Create(NewBB, PredBB);
+    } else {
+      assert(PredVPSuccessors.size() == 2 &&
+             "Predecessor ending with branch must have two successors.");
+      unsigned idx = PredVPSuccessors.front() == this ? 0 : 1;
+      assert(!PredBBTerminator->getSuccessor(idx) &&
+             "Trying to reset an existing successor block.");
+      PredBBTerminator->setSuccessor(idx, NewBB);
+    }
+  }
+#endif
   return NewBB;
 }
 
@@ -483,6 +508,7 @@ void VPInstruction::executeHIR(VPOCodeGenHIR *CG) {
 #endif
 
 void VPInstruction::execute(VPTransformState &State) {
+#if INTEL_CUSTOMIZATION
   // TODO: Remove this block of code. Its purpose is to emulate the execute()
   //       of the conditionbit recipies that have now been removed.
   if (State.UniformCBVs->count(this)) {
@@ -493,6 +519,7 @@ void VPInstruction::execute(VPTransformState &State) {
     State.CBVToConditionBitMap[this] = ConditionBit;
     return;
   }
+#endif
 
   assert(!State.Instance && "VPInstruction executing an Instance");
   for (unsigned Part = 0; Part < State.UF; ++Part)
@@ -835,6 +862,7 @@ void VPlanPrinter::printAsIngredient(raw_ostream &O, Value *V) {
   O << DOT::EscapeString(IngredientString);
 }
 
+#if INTEL_CUSTOMIZATION
 void VPlan::printInst2Recipe() {
   DenseMap<Instruction *, VPRecipeBase *>::iterator It, End;
   for (It = Inst2Recipe.begin(), End = Inst2Recipe.end(); It != End; ++It) {
@@ -846,6 +874,7 @@ void VPlan::printInst2Recipe() {
     DEBUG(errs() << "Recipe: " << RSO.str() << "\n");
   }
 }
+#endif
 
 #if INTEL_CUSTOMIZATION
 void VPBlockPredicateRecipe::executeHIR(VPOCodeGenHIR *CG) {
