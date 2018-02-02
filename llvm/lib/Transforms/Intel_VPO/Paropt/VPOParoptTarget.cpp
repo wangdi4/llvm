@@ -688,15 +688,12 @@ bool VPOParoptTransform::genGlobalPrivatizationCode(WRegionNode *W) {
   BasicBlock *NextExitBB = SplitBlock(ExitBB, ExitBB->getTerminator(), DT, LI);
   bool Changed = false;
 
-  if (MpClause.empty())
-    return Changed;
-
-  W->populateBBSet();
 
   for (MapItem *MapI : MpClause.items()) {
     Value *Orig = MapI->getOrig();
     if (GlobalVariable *G = dyn_cast<GlobalVariable>(Orig)) {
-
+      if (!Changed)
+        W->populateBBSet();
       Value *NewPrivInst =
           genGlobalPrivatizationImpl(W, G, EntryBB, NextExitBB, MapI);
 
@@ -719,6 +716,8 @@ bool VPOParoptTransform::genGlobalPrivatizationCode(WRegionNode *W) {
         continue;
       }
       if (GlobalVariable *G = dyn_cast<GlobalVariable>(Orig)) {
+        if (!Changed)
+          W->populateBBSet();
 
         Value *NewPrivInst =
             genGlobalPrivatizationImpl(W, G, EntryBB, NextExitBB, FprivI);
