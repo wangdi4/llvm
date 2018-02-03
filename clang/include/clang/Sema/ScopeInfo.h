@@ -580,6 +580,7 @@ public:
     void markUsed(bool IsODRUse) { (IsODRUse ? ODRUsed : NonODRUsed) = true; }
 
     VarDecl *getVariable() const {
+      assert(isVariableCapture());
       return VarAndNestedAndThis.getPointer();
     }
     

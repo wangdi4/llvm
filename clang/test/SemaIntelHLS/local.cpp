@@ -523,7 +523,7 @@ void foo1()
 //CHECK: BankWidthAttr
 //CHECK-NEXT: SubstNonTypeTemplateParmExpr
 //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
-template <unsigned bankwidth, unsigned numbanks, unsigned numreadports,
+template <unsigned bankwidth, unsigned numbanks, int numreadports,
           unsigned numwriteports, int bit1, int bit2, int bit3>
 void tattr() {
 

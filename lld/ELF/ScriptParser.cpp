@@ -151,6 +151,8 @@ static ExprValue add(ExprValue A, ExprValue B) {
 }
 
 static ExprValue sub(ExprValue A, ExprValue B) {
+  if (!A.isAbsolute() && !B.isAbsolute())
+    return A.getValue() - B.getValue();
   return {A.Sec, false, A.getSectionOffset() - B.getValue(), A.Loc};
 }
 
@@ -705,8 +707,6 @@ OutputSection *ScriptParser::readOutputSectionDescription(StringRef OutSec) {
 
   if (consume(">"))
     Cmd->MemoryRegionName = next();
-  else if (peek().startswith(">"))
-    Cmd->MemoryRegionName = next().drop_front();
 
   Cmd->Phdrs = readOutputSectionPhdrs();
 

@@ -91,16 +91,16 @@ void ivdep1(IV_S* sp)
   //CHECK: LoopHintAttr{{.*}}IVDep LoopExpr
   //CHECK-NEXT: NULL
   //CHECK-NEXT: MemberExpr{{.*}}arr1
-  //CHECK: DeclRefExpr{{.*}}'sp' 'struct IV_S *'
+  //CHECK: DeclRefExpr{{.*}}'sp' 'IV_S *'
   #pragma ivdep array(sp->arr1)
   for (int i=0;i<32;++i) {}
 }
 
-//CHECK: FunctionDecl{{.*}}tivdep 'void (struct IV_S *)'
+//CHECK: FunctionDecl{{.*}}tivdep 'void (IV_S *)'
 //CHECK: LoopHintAttr{{.*}}IVDep LoopExpr
 //CHECK-NEXT: NULL
 //CHECK-NEXT: MemberExpr{{.*}}arr1
-//CHECK: DeclRefExpr{{.*}}'tsp' 'struct IV_S *'
+//CHECK: DeclRefExpr{{.*}}'tsp' 'IV_S *'
 template <typename T>
 void tivdep(T* tsp)
 {
@@ -113,7 +113,7 @@ void tivdep(T* tsp)
 //CHECK: LoopHintAttr{{.*}}IVDep LoopExpr
 //CHECK-NEXT: NULL
 //CHECK-NEXT: MemberExpr{{.*}}arr1
-//CHECK: DeclRefExpr{{.*}}'lsp' 'struct IV_S *'
+//CHECK: DeclRefExpr{{.*}}'lsp' 'IV_S *'
 template <int item>
 void t2ivdep(int i) {
   IV_S *lsp = &ivs[item];

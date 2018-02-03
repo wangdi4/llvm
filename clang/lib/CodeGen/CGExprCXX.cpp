@@ -89,10 +89,11 @@ RValue CodeGenFunction::EmitCXXMemberOrOperatorCall(
       *this, MD, This, ImplicitParam, ImplicitParamTy, CE, Args, RtlArgs);
   auto &FnInfo = CGM.getTypes().arrangeCXXMethodCall(
       Args, FPT, CallInfo.ReqArgs, CallInfo.PrefixSize);
-  return EmitCall(FnInfo, Callee, ReturnValue, Args // INTEL
+  return EmitCall(FnInfo, Callee, ReturnValue, Args, nullptr,  // INTEL
+                  CE ? CE->getExprLoc() : SourceLocation() // INTEL
 #if INTEL_SPECIFIC_CILKPLUS
                   ,
-                  /*callOrInvoke=*/0, CE ? CE->isCilkSpawnCall() : false
+                  CE ? CE->isCilkSpawnCall() : false
 #endif // INTEL_SPECIFIC_CILKPLUS
   );
 }
@@ -373,9 +374,11 @@ RValue CodeGenFunction::EmitCXXMemberOrOperatorMemberCallExpr(
   } else {
     if (SanOpts.has(SanitizerKind::CFINVCall) &&
         MD->getParent()->isDynamicClass()) {
-      llvm::Value *VTable = GetVTablePtr(This, Int8PtrTy, MD->getParent());
-      EmitVTablePtrCheckForCall(MD->getParent(), VTable, CFITCK_NVCall,
-                                CE->getLocStart());
+      llvm::Value *VTable;
+      const CXXRecordDecl *RD;
+      std::tie(VTable, RD) =
+          CGM.getCXXABI().LoadVTablePtr(*this, This, MD->getParent());
+      EmitVTablePtrCheckForCall(RD, VTable, CFITCK_NVCall, CE->getLocStart());
     }
 
     if (getLangOpts().AppleKext && MD->isVirtual() && HasQualifier)
@@ -449,13 +452,14 @@ CodeGenFunction::EmitCXXMemberPointerCallExpr(const CXXMemberCallExpr *E,
   EmitCallArgs(Args, FPT, E->arguments());
   return EmitCall(CGM.getTypes().arrangeCXXMethodCall(Args, FPT, required,
                                                       /*PrefixSize=*/0),
-                  Callee, ReturnValue, Args,
+                  Callee, ReturnValue, Args, nullptr, E->getExprLoc() // INTEL
 #if INTEL_SPECIFIC_CILKPLUS
                   // FIXME(DLK) - Make sure that simply removing the
                   // CGCalleeInfo arg was the right thing to do. See r285258.
-                  /*callOrInvoke=*/nullptr,
-                  E->isCilkSpawnCall());
+                  ,
+                  E->isCilkSpawnCall()
 #endif // INTEL_SPECIFIC_CILKPLUS
+                  );
 }
 
 RValue
@@ -622,7 +626,7 @@ CodeGenFunction::EmitCXXConstructExpr(const CXXConstructExpr *E,
 
      case CXXConstructExpr::CK_VirtualBase:
       ForVirtualBase = true;
-      // fall-through
+      LLVM_FALLTHROUGH;
 
      case CXXConstructExpr::CK_NonVirtualBase:
       Type = Ctor_Base;
