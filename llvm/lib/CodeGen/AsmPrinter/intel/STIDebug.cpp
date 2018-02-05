@@ -1447,7 +1447,7 @@ void STIDebugImpl::beginFunction(const MachineFunction *MF) {
   STISymbolProcedure *procedure;
 
   // Locate the symbol for this function.
-  FunctionMap::iterator Itr = _functionMap.find(MF->getFunction());
+  FunctionMap::iterator Itr = _functionMap.find(&MF->getFunction());
   if (Itr == _functionMap.end()) {
     // If function has no debug info, skip it.
     setCurrentProcedure(nullptr);

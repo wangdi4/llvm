@@ -792,7 +792,7 @@ static void maybeDiagnoseTemplateParameterShadow(Sema &SemaRef, Scope *S,
 /// ParamNameLoc is the location of the parameter name (if any).
 /// If the type parameter has a default argument, it will be added
 /// later via ActOnTypeParameterDefault.
-Decl *Sema::ActOnTypeParameter(Scope *S, bool Typename,
+NamedDecl *Sema::ActOnTypeParameter(Scope *S, bool Typename,
                                SourceLocation EllipsisLoc,
                                SourceLocation KeyLoc,
                                IdentifierInfo *ParamName,
@@ -922,13 +922,67 @@ QualType Sema::CheckNonTypeTemplateParameterType(QualType T,
   return QualType();
 }
 
-Decl *Sema::ActOnNonTypeTemplateParameter(Scope *S, Declarator &D,
+NamedDecl *Sema::ActOnNonTypeTemplateParameter(Scope *S, Declarator &D,
                                           unsigned Depth,
                                           unsigned Position,
                                           SourceLocation EqualLoc,
                                           Expr *Default) {
   TypeSourceInfo *TInfo = GetTypeForDeclarator(D, S);
 
+  // Check that we have valid decl-specifiers specified.
+  auto CheckValidDeclSpecifiers = [this, &D] {
+    // C++ [temp.param]
+    // p1 
+    //   template-parameter:
+    //     ...
+    //     parameter-declaration
+    // p2 
+    //   ... A storage class shall not be specified in a template-parameter
+    //   declaration.
+    // [dcl.typedef]p1: 
+    //   The typedef specifier [...] shall not be used in the decl-specifier-seq
+    //   of a parameter-declaration
+    const DeclSpec &DS = D.getDeclSpec();
+    auto EmitDiag = [this](SourceLocation Loc) {
+      Diag(Loc, diag::err_invalid_decl_specifier_in_nontype_parm)
+          << FixItHint::CreateRemoval(Loc);
+    };
+    if (DS.getStorageClassSpec() != DeclSpec::SCS_unspecified)
+      EmitDiag(DS.getStorageClassSpecLoc());
+    
+    if (DS.getThreadStorageClassSpec() != TSCS_unspecified)
+      EmitDiag(DS.getThreadStorageClassSpecLoc());
+    
+    // [dcl.inline]p1: 
+    //   The inline specifier can be applied only to the declaration or 
+    //   definition of a variable or function.
+    
+    if (DS.isInlineSpecified())
+      EmitDiag(DS.getInlineSpecLoc());
+    
+    // [dcl.constexpr]p1:
+    //   The constexpr specifier shall be applied only to the definition of a 
+    //   variable or variable template or the declaration of a function or 
+    //   function template.
+    
+    if (DS.isConstexprSpecified())
+      EmitDiag(DS.getConstexprSpecLoc());
+
+    // [dcl.fct.spec]p1:
+    //   Function-specifiers can be used only in function declarations.
+
+    if (DS.isVirtualSpecified())
+      EmitDiag(DS.getVirtualSpecLoc());
+
+    if (DS.isExplicitSpecified())
+      EmitDiag(DS.getExplicitSpecLoc());
+
+    if (DS.isNoreturnSpecified())
+      EmitDiag(DS.getNoreturnSpecLoc());
+  };
+
+  CheckValidDeclSpecifiers();
+  
   if (TInfo->getType()->isUndeducedType()) {
     Diag(D.getIdentifierLoc(),
          diag::warn_cxx14_compat_template_nontype_parm_auto_type)
@@ -999,7 +1053,7 @@ Decl *Sema::ActOnNonTypeTemplateParameter(Scope *S, Declarator &D,
 /// ActOnTemplateTemplateParameter - Called when a C++ template template
 /// parameter (e.g. T in template <template \<typename> class T> class array)
 /// has been parsed. S is the current scope.
-Decl *Sema::ActOnTemplateTemplateParameter(Scope* S,
+NamedDecl *Sema::ActOnTemplateTemplateParameter(Scope* S,
                                            SourceLocation TmpLoc,
                                            TemplateParameterList *Params,
                                            SourceLocation EllipsisLoc,
@@ -5923,7 +5977,7 @@ ExprResult Sema::CheckTemplateArgument(NonTypeTemplateParmDecl *Param,
   SourceLocation StartLoc = Arg->getLocStart();
 
   // If the parameter type somehow involves auto, deduce the type now.
-  if (getLangOpts().CPlusPlus1z && ParamType->isUndeducedType()) {
+  if (getLangOpts().CPlusPlus17 && ParamType->isUndeducedType()) {
     // During template argument deduction, we allow 'decltype(auto)' to
     // match an arbitrary dependent argument.
     // FIXME: The language rules don't say what happens in this case.
@@ -6007,8 +6061,8 @@ ExprResult Sema::CheckTemplateArgument(NonTypeTemplateParmDecl *Param,
   EnterExpressionEvaluationContext ConstantEvaluated(
       *this, Sema::ExpressionEvaluationContext::ConstantEvaluated);
 
-  if (getLangOpts().CPlusPlus1z) {
-    // C++1z [temp.arg.nontype]p1:
+  if (getLangOpts().CPlusPlus17) {
+    // C++17 [temp.arg.nontype]p1:
     //   A template-argument for a non-type template parameter shall be
     //   a converted constant expression of the type of the template-parameter.
     APValue Value;
@@ -8037,15 +8091,6 @@ bool Sema::CheckFunctionTemplateSpecialization(
   // Ignore access information;  it doesn't figure into redeclaration checking.
   FunctionDecl *Specialization = cast<FunctionDecl>(*Result);
 
-  // C++ Concepts TS [dcl.spec.concept]p7: A program shall not declare [...]
-  // an explicit specialization (14.8.3) [...] of a concept definition.
-  if (Specialization->getPrimaryTemplate()->isConcept()) {
-    Diag(FD->getLocation(), diag::err_concept_specialized)
-        << 0 /*function*/ << 1 /*explicitly specialized*/;
-    Diag(Specialization->getLocation(), diag::note_previous_declaration);
-    return true;
-  }
-
   FunctionTemplateSpecializationInfo *SpecInfo
     = Specialization->getTemplateSpecializationInfo();
   assert(SpecInfo && "Function template specialization info missing?");
@@ -8932,15 +8977,6 @@ DeclResult Sema::ActOnExplicitInstantiation(Scope *S,
     Diag(D.getDeclSpec().getConstexprSpecLoc(),
          diag::err_explicit_instantiation_constexpr);
 
-  // C++ Concepts TS [dcl.spec.concept]p1: The concept specifier shall be
-  // applied only to the definition of a function template or variable template,
-  // declared in namespace scope.
-  if (D.getDeclSpec().isConceptSpecified()) {
-    Diag(D.getDeclSpec().getConceptSpecLoc(),
-         diag::err_concept_specified_specialization) << 0;
-    return true;
-  }
-
   // A deduction guide is not on the list of entities that can be explicitly
   // instantiated.
   if (Name.getNameKind() == DeclarationName::CXXDeductionGuideName) {
@@ -9020,15 +9056,6 @@ DeclResult Sema::ActOnExplicitInstantiation(Scope *S,
         return true;
       }
 
-      // C++ Concepts TS [dcl.spec.concept]p7: A program shall not declare an
-      // explicit instantiation (14.8.2) [...] of a concept definition.
-      if (PrevTemplate->isConcept()) {
-        Diag(D.getIdentifierLoc(), diag::err_concept_specialized)
-            << 1 /*variable*/ << 0 /*explicitly instantiated*/;
-        Diag(PrevTemplate->getLocation(), diag::note_previous_declaration);
-        return true;
-      }
-
       // Translate the parser's template argument list into our AST format.
       TemplateArgumentListInfo TemplateArgs =
           makeTemplateArgumentListInfo(*this, *D.getName().TemplateId);
@@ -9071,7 +9098,6 @@ DeclResult Sema::ActOnExplicitInstantiation(Scope *S,
 
     if (!HasNoEffect) {
       // Instantiate static data member or variable template.
-
       Prev->setTemplateSpecializationKind(TSK, D.getIdentifierLoc());
       if (PrevTemplate) {
         // Merge attributes.
@@ -9272,16 +9298,6 @@ DeclResult Sema::ActOnExplicitInstantiation(Scope *S,
     Diag(D.getIdentifierLoc(),
          diag::ext_explicit_instantiation_without_qualified_id)
     << Specialization << D.getCXXScopeSpec().getRange();
-
-  // C++ Concepts TS [dcl.spec.concept]p7: A program shall not declare an
-  // explicit instantiation (14.8.2) [...] of a concept definition.
-  if (FunTmpl && FunTmpl->isConcept() &&
-      !D.getDeclSpec().isConceptSpecified()) {
-    Diag(D.getIdentifierLoc(), diag::err_concept_specialized)
-        << 0 /*function*/ << 0 /*explicitly instantiated*/;
-    Diag(FunTmpl->getLocation(), diag::note_previous_declaration);
-    return true;
-  }
 
   CheckExplicitInstantiationScope(*this,
                    FunTmpl? (NamedDecl *)FunTmpl
@@ -9621,7 +9637,7 @@ Sema::CheckTypenameType(ElaboratedTypeKeyword Keyword,
     //   A type-specifier of the form
     //     typename[opt] nested-name-specifier[opt] template-name
     //   is a placeholder for a deduced class type [...].
-    if (getLangOpts().CPlusPlus1z) {
+    if (getLangOpts().CPlusPlus17) {
       if (auto *TD = getAsTypeTemplateDecl(Result.getFoundDecl())) {
         return Context.getElaboratedType(
             Keyword, QualifierLoc.getNestedNameSpecifier(),

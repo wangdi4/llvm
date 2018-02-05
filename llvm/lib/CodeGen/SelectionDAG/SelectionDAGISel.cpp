@@ -219,7 +219,7 @@ namespace llvm {
       IS.OptLevel = NewOptLevel;
       IS.TM.setOptLevel(NewOptLevel);
       DEBUG(dbgs() << "\nChanging optimization level for Function "
-            << IS.MF->getFunction()->getName() << "\n");
+            << IS.MF->getFunction().getName() << "\n");
       DEBUG(dbgs() << "\tBefore: -O" << SavedOptLevel
             << " ; After: -O" << NewOptLevel << "\n");
       SavedFastISel = IS.TM.Options.EnableFastISel;
@@ -235,7 +235,7 @@ namespace llvm {
       if (IS.OptLevel == SavedOptLevel)
         return;
       DEBUG(dbgs() << "\nRestoring optimization level for Function "
-            << IS.MF->getFunction()->getName() << "\n");
+            << IS.MF->getFunction().getName() << "\n");
       DEBUG(dbgs() << "\tBefore: -O" << IS.OptLevel
             << " ; After: -O" << SavedOptLevel << "\n");
       IS.OptLevel = SavedOptLevel;
@@ -392,7 +392,7 @@ bool SelectionDAGISel::runOnMachineFunction(MachineFunction &mf) {
   assert((!EnableFastISelAbort || TM.Options.EnableFastISel) &&
          "-fast-isel-abort > 0 requires -fast-isel");
 
-  const Function &Fn = *mf.getFunction();
+  const Function &Fn = mf.getFunction();
   MF = &mf;
 
   // Reset the target options before resetting the optimization
@@ -746,8 +746,9 @@ void SelectionDAGISel::CodeGenAndEmitDAG() {
     BlockName =
         (MF->getName() + ":" + FuncInfo->MBB->getBasicBlock()->getName()).str();
   }
-  DEBUG(dbgs() << "Initial selection DAG: BB#" << BlockNumber
-        << " '" << BlockName << "'\n"; CurDAG->dump());
+  DEBUG(dbgs() << "Initial selection DAG: " << printMBBReference(*FuncInfo->MBB)
+               << " '" << BlockName << "'\n";
+        CurDAG->dump());
 
   if (ViewDAGCombine1 && MatchFilterBB)
     CurDAG->viewGraph("dag-combine1 input for " + BlockName);
@@ -759,8 +760,10 @@ void SelectionDAGISel::CodeGenAndEmitDAG() {
     CurDAG->Combine(BeforeLegalizeTypes, AA, OptLevel);
   }
 
-  DEBUG(dbgs() << "Optimized lowered selection DAG: BB#" << BlockNumber
-        << " '" << BlockName << "'\n"; CurDAG->dump());
+  DEBUG(dbgs() << "Optimized lowered selection DAG: "
+               << printMBBReference(*FuncInfo->MBB) << " '" << BlockName
+               << "'\n";
+        CurDAG->dump());
 
   // Second step, hack on the DAG until it only uses operations and types that
   // the target supports.
@@ -774,8 +777,10 @@ void SelectionDAGISel::CodeGenAndEmitDAG() {
     Changed = CurDAG->LegalizeTypes();
   }
 
-  DEBUG(dbgs() << "Type-legalized selection DAG: BB#" << BlockNumber
-        << " '" << BlockName << "'\n"; CurDAG->dump());
+  DEBUG(dbgs() << "Type-legalized selection DAG: "
+               << printMBBReference(*FuncInfo->MBB) << " '" << BlockName
+               << "'\n";
+        CurDAG->dump());
 
   // Only allow creation of legal node types.
   CurDAG->NewNodesMustHaveLegalTypes = true;
@@ -791,8 +796,10 @@ void SelectionDAGISel::CodeGenAndEmitDAG() {
       CurDAG->Combine(AfterLegalizeTypes, AA, OptLevel);
     }
 
-    DEBUG(dbgs() << "Optimized type-legalized selection DAG: BB#" << BlockNumber
-          << " '" << BlockName << "'\n"; CurDAG->dump());
+    DEBUG(dbgs() << "Optimized type-legalized selection DAG: "
+                 << printMBBReference(*FuncInfo->MBB) << " '" << BlockName
+                 << "'\n";
+          CurDAG->dump());
   }
 
   {
@@ -802,8 +809,10 @@ void SelectionDAGISel::CodeGenAndEmitDAG() {
   }
 
   if (Changed) {
-    DEBUG(dbgs() << "Vector-legalized selection DAG: BB#" << BlockNumber
-          << " '" << BlockName << "'\n"; CurDAG->dump());
+    DEBUG(dbgs() << "Vector-legalized selection DAG: "
+                 << printMBBReference(*FuncInfo->MBB) << " '" << BlockName
+                 << "'\n";
+          CurDAG->dump());
 
     {
       NamedRegionTimer T("legalize_types2", "Type Legalization 2", GroupName,
@@ -811,8 +820,10 @@ void SelectionDAGISel::CodeGenAndEmitDAG() {
       CurDAG->LegalizeTypes();
     }
 
-    DEBUG(dbgs() << "Vector/type-legalized selection DAG: BB#" << BlockNumber
-          << " '" << BlockName << "'\n"; CurDAG->dump());
+    DEBUG(dbgs() << "Vector/type-legalized selection DAG: "
+                 << printMBBReference(*FuncInfo->MBB) << " '" << BlockName
+                 << "'\n";
+          CurDAG->dump());
 
     if (ViewDAGCombineLT && MatchFilterBB)
       CurDAG->viewGraph("dag-combine-lv input for " + BlockName);
@@ -824,8 +835,10 @@ void SelectionDAGISel::CodeGenAndEmitDAG() {
       CurDAG->Combine(AfterLegalizeVectorOps, AA, OptLevel);
     }
 
-    DEBUG(dbgs() << "Optimized vector-legalized selection DAG: BB#"
-          << BlockNumber << " '" << BlockName << "'\n"; CurDAG->dump());
+    DEBUG(dbgs() << "Optimized vector-legalized selection DAG: "
+                 << printMBBReference(*FuncInfo->MBB) << " '" << BlockName
+                 << "'\n";
+          CurDAG->dump());
   }
 
   if (ViewLegalizeDAGs && MatchFilterBB)
@@ -837,8 +850,10 @@ void SelectionDAGISel::CodeGenAndEmitDAG() {
     CurDAG->Legalize();
   }
 
-  DEBUG(dbgs() << "Legalized selection DAG: BB#" << BlockNumber
-        << " '" << BlockName << "'\n"; CurDAG->dump());
+  DEBUG(dbgs() << "Legalized selection DAG: "
+               << printMBBReference(*FuncInfo->MBB) << " '" << BlockName
+               << "'\n";
+        CurDAG->dump());
 
   if (ViewDAGCombine2 && MatchFilterBB)
     CurDAG->viewGraph("dag-combine2 input for " + BlockName);
@@ -850,8 +865,10 @@ void SelectionDAGISel::CodeGenAndEmitDAG() {
     CurDAG->Combine(AfterLegalizeDAG, AA, OptLevel);
   }
 
-  DEBUG(dbgs() << "Optimized legalized selection DAG: BB#" << BlockNumber
-        << " '" << BlockName << "'\n"; CurDAG->dump());
+  DEBUG(dbgs() << "Optimized legalized selection DAG: "
+               << printMBBReference(*FuncInfo->MBB) << " '" << BlockName
+               << "'\n";
+        CurDAG->dump());
 
   if (OptLevel != CodeGenOpt::None)
     ComputeLiveOutVRegInfo();
@@ -867,8 +884,10 @@ void SelectionDAGISel::CodeGenAndEmitDAG() {
     DoInstructionSelection();
   }
 
-  DEBUG(dbgs() << "Selected selection DAG: BB#" << BlockNumber
-        << " '" << BlockName << "'\n"; CurDAG->dump());
+  DEBUG(dbgs() << "Selected selection DAG: "
+               << printMBBReference(*FuncInfo->MBB) << " '" << BlockName
+               << "'\n";
+        CurDAG->dump());
 
   if (ViewSchedDAGs && MatchFilterBB)
     CurDAG->viewGraph("scheduler input for " + BlockName);
@@ -935,9 +954,9 @@ public:
 } // end anonymous namespace
 
 void SelectionDAGISel::DoInstructionSelection() {
-  DEBUG(dbgs() << "===== Instruction selection begins: BB#"
-        << FuncInfo->MBB->getNumber()
-        << " '" << FuncInfo->MBB->getName() << "'\n");
+  DEBUG(dbgs() << "===== Instruction selection begins: "
+               << printMBBReference(*FuncInfo->MBB) << " '"
+               << FuncInfo->MBB->getName() << "'\n");
 
   PreprocessISelDAG();
 
@@ -3114,7 +3133,16 @@ void SelectionDAGISel::SelectCodeCommon(SDNode *NodeToMatch,
       continue;
     }
     case OPC_RecordMemRef:
-      MatchedMemRefs.push_back(cast<MemSDNode>(N)->getMemOperand());
+      if (auto *MN = dyn_cast<MemSDNode>(N))
+        MatchedMemRefs.push_back(MN->getMemOperand());
+      else {
+        DEBUG(
+          dbgs() << "Expected MemSDNode ";
+          N->dump(CurDAG);
+          dbgs() << '\n'
+        );
+      }
+
       continue;
 
     case OPC_CaptureGlueInput:
@@ -3560,7 +3588,7 @@ void SelectionDAGISel::SelectCodeCommon(SDNode *NodeToMatch,
         Ops.push_back(InputGlue);
 
       // Create the node.
-      SDNode *Res = nullptr;
+      MachineSDNode *Res = nullptr;
       bool IsMorphNodeTo = Opcode == OPC_MorphNodeTo ||
                      (Opcode >= OPC_MorphNodeTo0 && Opcode <= OPC_MorphNodeTo2);
       if (!IsMorphNodeTo) {
@@ -3586,7 +3614,8 @@ void SelectionDAGISel::SelectCodeCommon(SDNode *NodeToMatch,
                  "Chain node replaced during MorphNode");
           Chain.erase(std::remove(Chain.begin(), Chain.end(), N), Chain.end());
         });
-        Res = MorphNode(NodeToMatch, TargetOpc, VTList, Ops, EmitNodeInfo);
+        Res = cast<MachineSDNode>(MorphNode(NodeToMatch, TargetOpc, VTList,
+                                            Ops, EmitNodeInfo));
       }
 
       // If the node had chain/glue results, update our notion of the current
@@ -3642,13 +3671,19 @@ void SelectionDAGISel::SelectCodeCommon(SDNode *NodeToMatch,
           }
         }
 
-        cast<MachineSDNode>(Res)
-          ->setMemRefs(MemRefs, MemRefs + NumMemRefs);
+        Res->setMemRefs(MemRefs, MemRefs + NumMemRefs);
       }
 
-      DEBUG(dbgs() << "  "
-                   << (IsMorphNodeTo ? "Morphed" : "Created")
-                   << " node: "; Res->dump(CurDAG); dbgs() << "\n");
+      DEBUG(
+        if (!MatchedMemRefs.empty() && Res->memoperands_empty())
+          dbgs() << "  Dropping mem operands\n";
+        dbgs() << "  "
+               << (IsMorphNodeTo ? "Morphed" : "Created")
+               << " node: ";
+        Res->dump(CurDAG);
+
+        dbgs() << '\n';
+      );
 
       // If this was a MorphNodeTo then we're completely done!
       if (IsMorphNodeTo) {
@@ -3756,6 +3791,25 @@ void SelectionDAGISel::SelectCodeCommon(SDNode *NodeToMatch,
       MatchScopes.pop_back();
     }
   }
+}
+
+bool SelectionDAGISel::isOrEquivalentToAdd(const SDNode *N) const {
+  assert(N->getOpcode() == ISD::OR && "Unexpected opcode");
+  auto *C = dyn_cast<ConstantSDNode>(N->getOperand(1));
+  if (!C)
+    return false;
+
+  // Detect when "or" is used to add an offset to a stack object.
+  if (auto *FN = dyn_cast<FrameIndexSDNode>(N->getOperand(0))) {
+    MachineFrameInfo &MFI = MF->getFrameInfo();
+    unsigned A = MFI.getObjectAlignment(FN->getIndex());
+    assert(isPowerOf2_32(A) && "Unexpected alignment");
+    int32_t Off = C->getSExtValue();
+    // If the alleged offset fits in the zero bits guaranteed by
+    // the alignment, then this or is really an add.
+    return (Off >= 0) && (((A - 1) & Off) == unsigned(Off));
+  }
+  return false;
 }
 
 void SelectionDAGISel::CannotYetSelect(SDNode *N) {

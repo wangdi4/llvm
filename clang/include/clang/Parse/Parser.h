@@ -2200,13 +2200,16 @@ private:
 
   void stripTypeAttributesOffDeclSpec(ParsedAttributesWithRange &Attrs,
                                       DeclSpec &DS, Sema::TagUseKind TUK);
-
-  void ProhibitAttributes(ParsedAttributesWithRange &attrs) {
+  
+  // FixItLoc = possible correct location for the attributes
+  void ProhibitAttributes(ParsedAttributesWithRange &attrs,
+                          SourceLocation FixItLoc = SourceLocation()) {
     if (!attrs.Range.isValid()) return;
-    DiagnoseProhibitedAttributes(attrs);
+    DiagnoseProhibitedAttributes(attrs, FixItLoc);
     attrs.clear();
   }
-  void DiagnoseProhibitedAttributes(ParsedAttributesWithRange &attrs);
+  void DiagnoseProhibitedAttributes(ParsedAttributesWithRange &attrs, 
+    SourceLocation FixItLoc);
 
   // Forbid C++11 and C2x attributes that appear on certain syntactic locations
   // which standard permits but we don't supported yet, for example, attributes
@@ -2748,10 +2751,10 @@ private:
   bool ParseTemplateParameterList(unsigned Depth,
                                   SmallVectorImpl<NamedDecl*> &TemplateParams);
   bool isStartOfTemplateTypeParameter();
-  Decl *ParseTemplateParameter(unsigned Depth, unsigned Position);
-  Decl *ParseTypeParameter(unsigned Depth, unsigned Position);
-  Decl *ParseTemplateTemplateParameter(unsigned Depth, unsigned Position);
-  Decl *ParseNonTypeTemplateParameter(unsigned Depth, unsigned Position);
+  NamedDecl *ParseTemplateParameter(unsigned Depth, unsigned Position);
+  NamedDecl *ParseTypeParameter(unsigned Depth, unsigned Position);
+  NamedDecl *ParseTemplateTemplateParameter(unsigned Depth, unsigned Position);
+  NamedDecl *ParseNonTypeTemplateParameter(unsigned Depth, unsigned Position);
   void DiagnoseMisplacedEllipsis(SourceLocation EllipsisLoc,
                                  SourceLocation CorrectLoc,
                                  bool AlreadyHasEllipsis,

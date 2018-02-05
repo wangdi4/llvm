@@ -202,6 +202,7 @@ else()
   set(ALL_LSAN_SUPPORTED_ARCH ${X86} ${X86_64} ${MIPS64} ${ARM64} ${ARM32} ${PPC64})
 endif()
 set(ALL_MSAN_SUPPORTED_ARCH ${X86_64} ${MIPS64} ${ARM64} ${PPC64})
+set(ALL_HWASAN_SUPPORTED_ARCH ${ARM64})
 set(ALL_PROFILE_SUPPORTED_ARCH ${X86} ${X86_64} ${ARM32} ${ARM64} ${PPC64}
     ${MIPS32} ${MIPS64} ${S390X})
 set(ALL_TSAN_SUPPORTED_ARCH ${X86_64} ${MIPS64} ${ARM64} ${PPC64})
@@ -396,6 +397,9 @@ if(APPLE)
   list_intersect(MSAN_SUPPORTED_ARCH
     ALL_MSAN_SUPPORTED_ARCH
     SANITIZER_COMMON_SUPPORTED_ARCH)
+  list_intersect(HWASAN_SUPPORTED_ARCH
+    ALL_HWASAN_SUPPORTED_ARCH
+    SANITIZER_COMMON_SUPPORTED_ARCH)
   list_intersect(PROFILE_SUPPORTED_ARCH
     ALL_PROFILE_SUPPORTED_ARCH
     SANITIZER_COMMON_SUPPORTED_ARCH)
@@ -439,6 +443,7 @@ else()
   filter_available_targets(DFSAN_SUPPORTED_ARCH ${ALL_DFSAN_SUPPORTED_ARCH})
   filter_available_targets(LSAN_SUPPORTED_ARCH ${ALL_LSAN_SUPPORTED_ARCH})
   filter_available_targets(MSAN_SUPPORTED_ARCH ${ALL_MSAN_SUPPORTED_ARCH})
+  filter_available_targets(HWASAN_SUPPORTED_ARCH ${ALL_HWASAN_SUPPORTED_ARCH})
   filter_available_targets(PROFILE_SUPPORTED_ARCH ${ALL_PROFILE_SUPPORTED_ARCH})
   filter_available_targets(TSAN_SUPPORTED_ARCH ${ALL_TSAN_SUPPORTED_ARCH})
   filter_available_targets(UBSAN_SUPPORTED_ARCH ${ALL_UBSAN_SUPPORTED_ARCH})
@@ -475,13 +480,13 @@ else()
   set(OS_NAME "${CMAKE_SYSTEM_NAME}")
 endif()
 
-set(ALL_SANITIZERS asan;dfsan;msan;tsan;safestack;cfi;esan;scudo;ubsan_minimal)
+set(ALL_SANITIZERS asan;dfsan;msan;hwasan;tsan;safestack;cfi;esan;scudo;ubsan_minimal)
 set(COMPILER_RT_SANITIZERS_TO_BUILD all CACHE STRING
     "sanitizers to build if supported on the target (all;${ALL_SANITIZERS})")
 list_replace(COMPILER_RT_SANITIZERS_TO_BUILD all "${ALL_SANITIZERS}")
 
 if (SANITIZER_COMMON_SUPPORTED_ARCH AND NOT LLVM_USE_SANITIZER AND
-    (OS_NAME MATCHES "Android|Darwin|Linux|FreeBSD|NetBSD|Fuchsia" OR
+    (OS_NAME MATCHES "Android|Darwin|Linux|FreeBSD|NetBSD|Fuchsia|SunOS" OR
     (OS_NAME MATCHES "Windows" AND (NOT MINGW AND NOT CYGWIN))))
   set(COMPILER_RT_HAS_SANITIZER_COMMON TRUE)
 else()
@@ -500,7 +505,7 @@ else()
   set(COMPILER_RT_HAS_ASAN FALSE)
 endif()
 
-if (OS_NAME MATCHES "Linux|FreeBSD|Windows|NetBSD")
+if (OS_NAME MATCHES "Linux|FreeBSD|Windows|NetBSD|SunOS")
   set(COMPILER_RT_ASAN_HAS_STATIC_RUNTIME TRUE)
 else()
   set(COMPILER_RT_ASAN_HAS_STATIC_RUNTIME FALSE)
@@ -529,8 +534,15 @@ else()
   set(COMPILER_RT_HAS_MSAN FALSE)
 endif()
 
+if (COMPILER_RT_HAS_SANITIZER_COMMON AND HWASAN_SUPPORTED_ARCH AND
+    OS_NAME MATCHES "Linux|Android")
+  set(COMPILER_RT_HAS_HWASAN TRUE)
+else()
+  set(COMPILER_RT_HAS_HWASAN FALSE)
+endif()
+
 if (PROFILE_SUPPORTED_ARCH AND NOT LLVM_USE_SANITIZER AND
-    OS_NAME MATCHES "Darwin|Linux|FreeBSD|Windows|Android")
+    OS_NAME MATCHES "Darwin|Linux|FreeBSD|Windows|Android|SunOS")
   set(COMPILER_RT_HAS_PROFILE TRUE)
 else()
   set(COMPILER_RT_HAS_PROFILE FALSE)
@@ -544,7 +556,7 @@ else()
 endif()
 
 if (COMPILER_RT_HAS_SANITIZER_COMMON AND UBSAN_SUPPORTED_ARCH AND
-    OS_NAME MATCHES "Darwin|Linux|FreeBSD|NetBSD|Windows|Android|Fuchsia")
+    OS_NAME MATCHES "Darwin|Linux|FreeBSD|NetBSD|Windows|Android|Fuchsia|SunOS")
   set(COMPILER_RT_HAS_UBSAN TRUE)
 else()
   set(COMPILER_RT_HAS_UBSAN FALSE)

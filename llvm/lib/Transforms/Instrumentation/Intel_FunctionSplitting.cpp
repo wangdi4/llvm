@@ -878,8 +878,10 @@ bool FunctionSplittingImpl::runOnModule(Module &M,
   Worklist.reserve(M.size());
   for (Function &F : M)
     if (!F.isDeclaration() &&
-      (!FunctionSplittingOnlyHot || PSI->isFunctionHotInCallGraph(&F)))
+       (!FunctionSplittingOnlyHot ||
+        PSI->isFunctionHotInCallGraph(&F, (*GetBFI)(F)))) {
       Worklist.push_back(&F);
+    }
 
   for (Function *F : Worklist)
     Changed |= processFunction(*F, GetBFI, GetDT, GetPDT);

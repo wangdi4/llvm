@@ -1191,6 +1191,8 @@ bool LLParser::ParseFnAttributeValuePairs(AttrBuilder &B,
     case lltok::kw_safestack: B.addAttribute(Attribute::SafeStack); break;
     case lltok::kw_sanitize_address:
       B.addAttribute(Attribute::SanitizeAddress); break;
+    case lltok::kw_sanitize_hwaddress:
+      B.addAttribute(Attribute::SanitizeHWAddress); break;
     case lltok::kw_sanitize_thread:
       B.addAttribute(Attribute::SanitizeThread); break;
     case lltok::kw_sanitize_memory:
@@ -1539,6 +1541,7 @@ bool LLParser::ParseOptionalParamAttrs(AttrBuilder &B) {
     case lltok::kw_optsize:
     case lltok::kw_returns_twice:
     case lltok::kw_sanitize_address:
+    case lltok::kw_sanitize_hwaddress:
     case lltok::kw_sanitize_memory:
     case lltok::kw_sanitize_thread:
     case lltok::kw_ssp:
@@ -1635,6 +1638,7 @@ bool LLParser::ParseOptionalReturnAttrs(AttrBuilder &B) {
     case lltok::kw_optsize:
     case lltok::kw_returns_twice:
     case lltok::kw_sanitize_address:
+    case lltok::kw_sanitize_hwaddress:
     case lltok::kw_sanitize_memory:
     case lltok::kw_sanitize_thread:
     case lltok::kw_ssp:
