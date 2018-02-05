@@ -581,13 +581,7 @@ void CSAAsmPrinter::EmitFunctionBodyStart() {
       // A decl is needed if we allocated this LIC and it is has a using/defining
       // instruction. (Sometimes all such instructions are cleaned up by DIE.)
       if (reg != CSA::IGN && reg != CSA::NA && !MRI->reg_empty(reg)) {
-        StringRef name = LMFI->getLICName(reg);
-        if (!EmitRegNames) {
-          LMFI->setLICName(reg, "");
-          name = CSAInstPrinter::getRegisterName(reg);
-        } else if (name.empty()) {
-          name = CSAInstPrinter::getRegisterName(reg);
-        }
+        StringRef name = CSAInstPrinter::getRegisterName(reg);
         printRegister(reg, name);
       }
     }
