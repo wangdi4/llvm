@@ -84,6 +84,11 @@ static unsigned getOptimizationLevel(ArgList &Args, InputKind IK,
   if (IK.getLanguage() == InputKind::OpenCL && !Args.hasArg(OPT_cl_opt_disable))
     DefaultOpt = 2;
 
+#if INTEL_CUSTOMIZATION
+  if (Args.hasArg(OPT_emit_spirv))
+    return 0; // LLVM-SPIRV translator expects not optimized IR
+#endif // INTEL_CUSTOMIZATION
+
   if (Arg *A = Args.getLastArg(options::OPT_O_Group)) {
     if (A->getOption().matches(options::OPT_O0))
       return 0;
@@ -926,6 +931,7 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
 
 #if INTEL_CUSTOMIZATION
   Opts.SPIRCompileOptions = Args.getLastArgValue(OPT_cl_spir_compile_options);
+  Opts.EmitOpenCLArgMetadata |= Args.hasArg(OPT_emit_spirv);
 
   // CQ#368119 - support for '/Z7' and '/Zi' options.
   if (Arg *A = Args.getLastArg(OPT_fms_debug_info_file_type)) {
@@ -1331,6 +1337,10 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
       Opts.ProgramAction = frontend::EmitAssembly; break;
     case OPT_emit_llvm_bc:
       Opts.ProgramAction = frontend::EmitBC; break;
+#if INTEL_CUSTOMIZATION
+    case OPT_emit_spirv:
+      Opts.ProgramAction = frontend::EmitSPIRV; break;
+#endif // INTEL_CUSTOMIZATION
     case OPT_emit_html:
       Opts.ProgramAction = frontend::EmitHTML; break;
     case OPT_emit_llvm:
@@ -2926,6 +2936,9 @@ static bool isStrictlyPreprocessorAction(frontend::ActionKind Action) {
   case frontend::ASTView:
   case frontend::EmitAssembly:
   case frontend::EmitBC:
+#if INTEL_CUSTOMIZATION
+  case frontend::EmitSPIRV:
+#endif // INTEL_CUSTOMIZATION
   case frontend::EmitHTML:
   case frontend::EmitLLVM:
   case frontend::EmitLLVMOnly:

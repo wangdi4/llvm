@@ -59,6 +59,9 @@
 #include "llvm/Transforms/Utils/NameAnonGlobals.h"
 #include "llvm/Transforms/Utils/SymbolRewriter.h"
 #include <memory>
+#if INTEL_CUSTOMIZATION
+#include "llvm/Support/SPIRV.h"
+#endif // INTEL_CUSTOMIZATION
 using namespace clang;
 using namespace llvm;
 
@@ -780,6 +783,9 @@ void EmitAssemblyHelper::EmitAssembly(BackendAction Action,
 
   bool UsesCodeGen = (Action != Backend_EmitNothing &&
                       Action != Backend_EmitBC &&
+#if INTEL_CUSTOMIZATION
+                      Action != Backend_EmitSPIRV &&
+#endif // INTEL_CUSTOMIZATION
                       Action != Backend_EmitLL);
   CreateTargetMachine(UsesCodeGen);
 
@@ -828,6 +834,12 @@ void EmitAssemblyHelper::EmitAssembly(BackendAction Action,
       PerModulePasses.add(
           createBitcodeWriterPass(*OS, CodeGenOpts.EmitLLVMUseLists));
     break;
+
+#if INTEL_CUSTOMIZATION
+  case Backend_EmitSPIRV:
+    PerModulePasses.add(createSPIRVWriterPass(*OS));
+    break;
+#endif // INTEL_CUSTOMIZATION
 
   case Backend_EmitLL:
     PerModulePasses.add(
@@ -1037,6 +1049,12 @@ void EmitAssemblyHelper::EmitAssemblyWithNewPassManager(
                                     CodeGenOpts.EmitSummaryIndex));
     }
     break;
+
+#if INTEL_CUSTOMIZATION
+  case Backend_EmitSPIRV:
+    CodeGenPasses.add(createSPIRVWriterPass(*OS));
+    break;
+#endif // INTEL_CUSTOMIZATION
 
   case Backend_EmitLL:
     MPM.addPass(PrintModulePass(*OS, "", CodeGenOpts.EmitLLVMUseLists));
