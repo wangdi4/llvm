@@ -1344,7 +1344,7 @@ bool CallAnalyzer::visitCallSite(CallSite CS) {
   auto IndirectCallParams = Params;
   IndirectCallParams.DefaultThreshold = InlineConstants::IndirectCallThreshold;
   CallAnalyzer CA(TTI, GetAssumptionCache, GetBFI, PSI, ORE, *F, CS,
-                  ILIC, AI, nullptr, IndirectCallParams); // INTEL
+                  ILIC, AI, CallSitesForFusion, IndirectCallParams); // INTEL
   if (CA.analyzeCall(CS, nullptr)) { // INTEL
     // We were able to inline the indirect call! Subtract the cost from the
     // threshold to get the bonus we want to apply, but don't go below zero.
@@ -1884,8 +1884,6 @@ static ICmpInst *getLoopBottomTest(Loop *L) {
   if (!BI || !BI->isConditional())
     return nullptr;
   auto ICmp = dyn_cast_or_null<ICmpInst>(BI->getCondition());
-  if (!ICmp)
-    return nullptr;
 
   return ICmp;
 }
@@ -2097,32 +2095,45 @@ static bool isConstantTripCount(Loop *L) {
   }
 
   ICmpInst *CInst = getLoopBottomTest(L);
-  if (!CInst)
+  if (!CInst) {
     return false;
+  }
 
-  if (!CInst->isIntPredicate())
+  if (!CInst->isIntPredicate()) {
     return false;
+  }
 
   int NumOps = CInst->getNumOperands();
-  if (NumOps != 2)
+  if (NumOps != 2) {
     return false;
+  }
 
   // Check that condition is <, <= or ==.
   ICmpInst::Predicate Pred = CInst->getPredicate();
   if (!(Pred == ICmpInst::ICMP_EQ || Pred == ICmpInst::ICMP_ULT ||
         Pred == ICmpInst::ICMP_ULE || Pred == ICmpInst::ICMP_SLT ||
-        Pred == ICmpInst::ICMP_SLE))
+        Pred == ICmpInst::ICMP_SLE)) {
     return false;
+  }
 
   // First operand should be IV. Second should be positive int constant.
   Value *IVInc = CInst->getOperand(0);
   ConstantInt *Const = dyn_cast<ConstantInt>(CInst->getOperand(1));
 
-  if (!IVInc || !Const)
+  if (!IVInc || !Const) {
+    // IV or TC are not available - return false
     return false;
+  }
 
   const APInt &ConstValue = Const->getValue();
   if (!ConstValue.isStrictlyPositive()) {
+    // non-positive TC - return false
+    return false;
+  }
+
+  uint64_t LimTC = ConstValue.getLimitedValue();
+  if (LimTC < 3) {
+    // small TC - return false
     return false;
   }
 
@@ -2147,7 +2158,7 @@ static cl::opt<int> MinArgRefs(
 // from loops fusion.
 static cl::opt<int>
     MinCallSitesForFusion("inline-for-fusion-min-callsites", cl::Hidden,
-                          cl::init(3),
+                          cl::init(2),
                           cl::desc("Min number of calls inlined for fusion"));
 
 // Maximal number of successive callsites need to be inlined to benefit
@@ -2183,6 +2194,8 @@ static bool worthInliningForFusion(CallSite &CS, InliningLoopInfoCache &ILIC,
   }
 
   if (!CallSitesForFusion) {
+    DEBUG(llvm::dbgs() <<
+          "IC: No inlining for fusion: no call site candidates.\n");
     return false;
   }
 
@@ -2195,14 +2208,9 @@ static bool worthInliningForFusion(CallSite &CS, InliningLoopInfoCache &ILIC,
   Function *Callee = CS.getCalledFunction();
   BasicBlock *CSBB = CS->getParent();
 
-  // if it is the last call - no fusion candidates could be found.
-  if (CS.isTailCall()) {
-    return false;
-  }
-
   SmallVector<CallSite, 20> LocalCSForFusion;
   // Go through each successive call in basic block and find all callsites.
-  int CSCount = 0;
+  int CSCount = 1;
   bool CallSiteCountFlag = false;
   for (auto I = CSBB->begin(), E = CSBB->end(); I != E; ++I) {
     CallSite LocalCS(cast<Value>(I));
@@ -2227,6 +2235,9 @@ static bool worthInliningForFusion(CallSite &CS, InliningLoopInfoCache &ILIC,
   // If number of successive calls is relatively small or too big
   // then skip inlining
   if ((CSCount < MinCallSitesForFusion) || (CSCount > MaxCallSitesForFusion)) {
+    DEBUG(llvm::dbgs()
+          << "IC: No inlining for fusion: number of candidates is out of range:"
+          << CSCount << "\n");
     return false;
   }
 
@@ -2238,6 +2249,8 @@ static bool worthInliningForFusion(CallSite &CS, InliningLoopInfoCache &ILIC,
         InvokeInst *II = dyn_cast_or_null<InvokeInst>(&I);
         auto InnerFunc = CI ? CI->getCalledFunction() : II->getCalledFunction();
         if (!InnerFunc || !InnerFunc->isIntrinsic()) {
+          DEBUG(llvm::dbgs() <<
+                "IC: No inlining for fusion: call inside candidate.\n");
           return false;
         }
       }
@@ -2247,6 +2260,8 @@ static bool worthInliningForFusion(CallSite &CS, InliningLoopInfoCache &ILIC,
   // Check loops inside callee.
   LoopInfo *LI = ILIC.getLI(Callee);
   if (!LI) {
+    DEBUG(llvm::dbgs() <<
+          "IC: No inlining for fusion: no loop info for candidate.\n");
     return false;
   }
 
@@ -2255,6 +2270,8 @@ static bool worthInliningForFusion(CallSite &CS, InliningLoopInfoCache &ILIC,
     Loop *LL = *LB;
     if (!isConstantTripCount(LL)) {
       // Non-constant trip count. Skip inlining.
+      DEBUG(llvm::dbgs() <<
+            "IC: No inlining for fusion: non-constant TC in loop.\n");
       return false;
     }
     // Check how many array refs in GEP instructions are arguments of
@@ -2285,9 +2302,12 @@ static bool worthInliningForFusion(CallSite &CS, InliningLoopInfoCache &ILIC,
     }
   }
 
-  // Not enough arguments-arrays were fould in loop.
-  if (ArgCnt < MinArgRefs)
+  // Not enough arguments-arrays were found in loop.
+  if (ArgCnt < MinArgRefs) {
+    DEBUG(llvm::dbgs() <<
+          "IC: No inlining for fusion: not enough array refs.\n");
     return false;
+  }
 
   // Store other inlining candidates in a special map.
   if (CallSitesForFusion) {
