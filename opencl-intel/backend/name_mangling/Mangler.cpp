@@ -57,7 +57,7 @@ public:
     p->getPointee()->accept(this);
 
     assert(p->getAttributes().size() > 0 &&
-           "Pointers always have atrributes (at least address space)");
+           "Pointers always have attributes (at least address space)");
 
     // Add dummy type to preserve substitutions order
     // TODO: implement correct way to handle substitutions with qualifiers

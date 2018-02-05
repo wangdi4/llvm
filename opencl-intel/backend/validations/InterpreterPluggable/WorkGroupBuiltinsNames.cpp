@@ -49,7 +49,7 @@ namespace Validation{
 #elif defined (__x86_64__) || defined (_M_AMD64) || defined (_M_X64)
         reflection::RefParamType SizeTTy(new reflection::PrimitiveType(reflection::PRIMITIVE_ULONG));
 #endif
-        reflection::RefParamType pSizeTTy(new reflection::PointerType(SizeTTy));
+        reflection::RefParamType pSizeTTy(new reflection::PointerType(SizeTTy, {reflection::ATTR_PRIVATE}));
 
         ONE_ARG_FUNCTION(work_group_all, IntTy)
         ONE_ARG_FUNCTION(work_group_any, IntTy)
