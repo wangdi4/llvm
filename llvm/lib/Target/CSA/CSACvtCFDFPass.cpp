@@ -1772,10 +1772,10 @@ void CSACvtCFDFPass::assignLicForDF() {
         continue;
     }
 
+    // Adjust the register class to be the appropriate LIC class for its size.
     const TargetRegisterClass *TRC = MRI->getRegClass(dReg);
-    const TargetRegisterClass* new_LIC_RC = LMFI->licRCFromGenRC(TRC);
-    assert(new_LIC_RC && "unknown CSA register class");
-    unsigned phyReg = LMFI->allocateLIC(new_LIC_RC);
+    MRI->setRegClass(dReg,
+        TII->getLicClassForSize(TII->getSizeOfRegisterClass(TRC)));
 
     if (TII->isSwitch(DefMI)) {
       unsigned trueReg = DefMI->getOperand(1).getReg();
@@ -1790,15 +1790,6 @@ void CSACvtCFDFPass::assignLicForDF() {
         DefMI->clearFlag(MachineInstr::NonSequential);
         continue;
       }
-    }
-
-    DefMI->substituteRegister(dReg, phyReg, 0, *TRI);
-
-    MachineRegisterInfo::use_iterator UI = MRI->use_begin(dReg);
-    while (UI != MRI->use_end()) {
-      MachineOperand &UseMO = *UI;
-      ++UI;
-      UseMO.setReg(phyReg);
     }
 
     for (MIOperands MO(*DefMI); MO.isValid(); ++MO) {
