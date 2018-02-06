@@ -2113,12 +2113,9 @@ public:
       // 2. OpAtomicFlagClear - doesn't require Int64Atomics capability.
       CapVec.push_back(CapabilityInt64Atomics);
     }
-    // Per the spec the following 3 instructions require kernel capability.
-    if (getOpCode() == OpAtomicCompareExchangeWeak ||
-        getOpCode() == OpAtomicFlagTestAndSet ||
-        getOpCode() == OpAtomicFlagClear) {
-      CapVec.push_back(CapabilityKernel);
-    }
+    // Per the spec OpAtomicCompareExchangeWeak, OpAtomicFlagTestAndSet and
+    // OpAtomicFlagClear instructions require kernel capability. But this
+    // capability should be added by setting OpenCL memory model.
     return CapVec;
   }
 
