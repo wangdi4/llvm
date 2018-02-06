@@ -2813,6 +2813,9 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
     // call site.
     NewF->setCallingConv(CC);
 
+    if (hasParentTarget(W))
+      NewF->addFnAttr("target.declare", "true");
+
     assert(NewF->hasOneUse() && "New function should have one use");
     User *U = NewF->user_back();
 

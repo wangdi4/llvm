@@ -679,6 +679,10 @@ private:
   void RewriteUsesOfOutInstructions(
       BasicBlock *FirstLoopExitBB,
       DenseMap<Value *, std::pair<Value *, BasicBlock *>> &ValueToLiveinMap);
+
+  /// \brief Return true if one of the region W's ancestor is OMP target
+  /// construct or the function where W lies in has target declare attribute.
+  bool hasParentTarget(WRegionNode *W);
 };
 } /// namespace vpo
 } /// namespace llvm
