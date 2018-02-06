@@ -392,12 +392,11 @@ def OpenCLBlocking : Attr {
   let LangOpts = [OpenCL];
 }
 
-def OpenCLChannelDepth : Attr {
+def OpenCLDepth : Attr {
   let Spellings = [GNU<"depth">];
   let Args = [UnsignedArgument<"Depth">];
-  let Subjects = SubjectList<[Var]>;
-// FIXME: Add documentation
-  let Documentation = [Undocumented];
+  let Subjects = SubjectList<[ParmVar, GlobalVar]>;
+  let Documentation = [OpenCLDepthDocs];
   let LangOpts = [OpenCL];
 }
 

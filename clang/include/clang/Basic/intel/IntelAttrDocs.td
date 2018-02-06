@@ -158,3 +158,22 @@ the results to one or more channels.
 .. _link: https://www.altera.com/documentation/mwh1391807965224.html#mwh1391807939093
   }];
 }
+
+def OpenCLDepthDocs : Documentation {
+  let Category = DocCatVariable;
+  let Content = [{
+You may have buffered or unbuffered channels/pipes in your kernel program. If there are
+imbalances in channel/pipe read and write operations, create buffered channels/pipes to prevent
+kernel stalls by including the depth attribute in your channel/pipe declaration.
+Buffered channels/pipes decouple the operation of concurrent work-items executing in
+different kernels.
+If you expect any temporary mismatch between the consumption rate and the
+production rate to the channel/pipe, set the buffer size using the depth
+attribute.
+
+Specify the depth attribute for the pipe arguments. Assign a depth attribute
+value that equals to the maximum number of packets that the pipe creates to
+hold in the host.
+  }];
+}
+

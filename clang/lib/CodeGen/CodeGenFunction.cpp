@@ -601,6 +601,9 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
 #if INTEL_CUSTOMIZATION
   // MDNode for the intel_host_accessible attribute.
   SmallVector<llvm::Metadata*, 8> argHostAccessible;
+
+  // MDNode for the depth attribute for pipes.
+  SmallVector<llvm::Metadata*, 8> argPipeDepthAttr;
 #endif // INTEL_CUSTOMIZATION
   for (unsigned i = 0, e = FD->getNumParams(); i != e; ++i) {
     const ParmVarDecl *parm = FD->getParamDecl(i);
@@ -725,6 +728,13 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
         llvm::ConstantAsMetadata::get(
             (IsHostAccessible) ? llvm::ConstantInt::getTrue(Context)
                                : llvm::ConstantInt::getFalse(Context)));
+
+    auto *DepthAttr = parm->getAttr<OpenCLDepthAttr>();
+
+    argPipeDepthAttr.push_back(
+            llvm::ConstantAsMetadata::get(
+            (DepthAttr) ? Builder.getInt32(DepthAttr->getDepth())
+                        : Builder.getInt32(0)));
 #endif // INTEL_CUSTOMIZATION
   }
 
@@ -741,6 +751,8 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
 #if INTEL_CUSTOMIZATION
   Fn->setMetadata("kernel_arg_host_accessible",
                   llvm::MDNode::get(Context, argHostAccessible));
+  Fn->setMetadata("kernel_arg_pipe_depth",
+                  llvm::MDNode::get(Context, argPipeDepthAttr));
 #endif // INTEL_CUSTOMIZATION
 
   if (CGM.getCodeGenOpts().EmitOpenCLArgMetadata)

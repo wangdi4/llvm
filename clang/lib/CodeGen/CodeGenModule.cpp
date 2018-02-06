@@ -2894,8 +2894,7 @@ static void maybeEmitGlobalChannelMetadata(const VarDecl *D,
 
   llvm::Metadata *ChannelDepthMD = nullptr;
 
-  if (D->hasAttr<OpenCLChannelDepthAttr>()) {
-    OpenCLChannelDepthAttr *DepthAttr = D->getAttr<OpenCLChannelDepthAttr>();
+  if (auto *DepthAttr = D->getAttr<OpenCLDepthAttr>()) {
     llvm::Metadata *ChannelDepthMDOps[] = {
         llvm::MDString::get(CGM.getLLVMContext(), "depth"),
         llvm::ConstantAsMetadata::get(

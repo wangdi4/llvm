@@ -623,7 +623,7 @@ def warn_intel_opencl_attribute_wrong_decl_type : Warning<
   "|variables, functions, methods, types, enumerations, enumerators, labels, and non-static data members"
   "|classes and enumerations"
   "|named declarations"
-  "|OpenCL channels"
+  "|OpenCL channels or pipes"
   "|OpenCL pipes}1">,
   InGroup<IgnoredAttributes>;
 

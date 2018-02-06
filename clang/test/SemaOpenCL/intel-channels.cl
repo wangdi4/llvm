@@ -18,7 +18,7 @@ channel int multiarr[2][7] __attribute__((depth(0)));
 __constant int a1 __attribute((depth(3))) = 2; // expected-warning{{'depth' attribute only applies to OpenCL channels}}
 __constant long a2 __attribute((io("eth1"))) = 2; // expected-warning{{'io' attribute only applies to OpenCL channels}}
 
-__kernel void k1() __attribute__((depth(100))) { // expected-warning{{'depth' attribute only applies to variables}}
+__kernel void k1() __attribute__((depth(100))) { // expected-warning{{'depth' attribute only applies to parameters and global variables}}
 }
 
 __kernel void k2() {
