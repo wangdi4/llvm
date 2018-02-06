@@ -6,7 +6,7 @@
 ; the parameters specified on the command line, this code should be split
 ; to a separate function. The new function should get marked as 'noinline'.
 ;
-; This is a basic test to just verify the function splitting is occuring
+; This test is to verify that the 'alwaysinline' attribute is not propagated to the split out function.
 
 ; CHECK-LABEL: define i32 @test(i32 %x, i32* %y)
 ; CHECK-LABEL: codeRepl:
@@ -22,7 +22,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @str = private unnamed_addr constant [10 x i8] c"cold path\00"
 @str.2 = private unnamed_addr constant [9 x i8] c"hot path\00"
 
-; Function Attrs: nounwind uwtable
+; Function Attrs: inlinehint nounwind uwtable
 define i32 @test(i32 %x, i32* %y) local_unnamed_addr #0 !prof !29 {
 entry:
   %cmp = icmp slt i32 %x, 100
@@ -53,7 +53,7 @@ declare i32 @printf(i8* nocapture readonly, ...) local_unnamed_addr #1
 ; Function Attrs: nounwind
 declare i32 @puts(i8* nocapture readonly) #1
 
-attributes #0 = { nounwind uwtable }
+attributes #0 = { alwaysinline nounwind uwtable }
 attributes #1 = { nounwind }
 
 !llvm.module.flags = !{!0, !1}

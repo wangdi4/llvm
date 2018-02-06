@@ -235,6 +235,13 @@ Function *RegionSplitter::doSplit(const SplinterRegionT &Region)
 
   // Mark the function to be kept in a cold segment.
   NewF->setSectionPrefix(getUnlikelySectionPrefix());
+
+  // Override any inlining directives, if present, and prevent the split out
+  // routine from being inlined back to the original function.
+  NewF->removeFnAttr(Attribute::AlwaysInline);
+  NewF->removeFnAttr(Attribute::AlwaysInlineRecursive);
+  NewF->removeFnAttr(Attribute::InlineHint);
+  NewF->removeFnAttr(Attribute::InlineHintRecursive);
   NewF->addFnAttr(Attribute::NoInline);
 
   return NewF;
@@ -860,6 +867,7 @@ public:
     std::function<PostDominatorTree &(Function &)> *GetPDT);
 
 private:
+
   bool processFunction(Function &F,
     std::function<BlockFrequencyInfo &(Function &)> *GetBFI,
     std::function<DominatorTree &(Function &)> *GetDT,
