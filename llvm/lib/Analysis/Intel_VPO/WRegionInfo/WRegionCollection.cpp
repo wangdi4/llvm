@@ -194,6 +194,7 @@ void topSortBasicBlocks(
   BasicBlock *BB,
   WRStack<BasicBlock *> &BBStack,
   SmallPtrSetImpl<BasicBlock *> &Visited,
+  bool SeenRegionDir,
   bool DoVerifyBB
 )
 {
@@ -213,10 +214,29 @@ void topSortBasicBlocks(
   // Mark BB as "visited".
   Visited.insert(BB);
 
-  // Visit all the successors first
-  for (succ_iterator I = succ_begin(BB), E = succ_end(BB); I != E; ++I) {
-    topSortBasicBlocks(*I, BBStack, Visited, DoVerifyBB);
+  //
+  Instruction *FirstInstr = BB->getFirstNonPHI();
+  BasicBlock *EndBB = nullptr;
+  bool IsOmpDir = VPOAnalysisUtils::isIntelDirective(FirstInstr);
+  if (IsOmpDir) {
+    // The 'SeenRegionDir' mechanism is trying to detect whether the new
+    // region.entry/exit representation is being used, and fall back to the
+    // old behavior if it is not. When we stop supporting the old metadata
+    // representation, we will remove this mechanism.
+    if (!SeenRegionDir)
+      SeenRegionDir = VPOAnalysisUtils::isRegionDirective(FirstInstr);
+    if (SeenRegionDir) {
+      // FirstInstr must be a BEGIN directive
+      EndBB= VPOAnalysisUtils::getEndRegionDirBB(FirstInstr);
+      assert(EndBB && "topSortBasicBlocks: End Directive not found");
+      BBStack.push(EndBB);
+      Visited.insert(EndBB);
+    }
   }
+
+  // Visit all the successors first
+  for (succ_iterator I = succ_begin(BB), E = succ_end(BB); I != E; ++I)
+    topSortBasicBlocks(*I, BBStack, Visited, SeenRegionDir, DoVerifyBB);
 
   // We are only interested in BBs that start with OMP directives. Paying the
   // cost now to look at BB's first instruction allows us to save memory by
@@ -225,9 +245,14 @@ void topSortBasicBlocks(
   // the BBs in the CFG. For typical OpenMP programs where the percentage of
   // BBs with OMP directives is small, this should result in net savings of
   // compile time.
-  if (VPOAnalysisUtils::isIntelDirective(&(BB->front()))) {
+  if (IsOmpDir) {
     // DEBUG(dbgs() << "\n=== topSortBasicBlocks pushed this BB: " << *BB);
     BBStack.push(BB);
+
+    if (SeenRegionDir)
+      // Visit all successors of EndBB
+      for (succ_iterator I = succ_begin(EndBB), E = succ_end(EndBB); I!=E; ++I)
+        topSortBasicBlocks(*I, BBStack, Visited, SeenRegionDir, DoVerifyBB);
   }
 }
 
@@ -243,7 +268,7 @@ void WRegionCollection::buildWRGraphFromLLVMIR(Function &F) {
 
   // Having the last argument==true turns on the verifier by default.
   // TODO: guard it under a flag (or debug mode) when VPO is more stable.
-  topSortBasicBlocks(RootBB, BBStack, Visited, true);
+  topSortBasicBlocks(RootBB, BBStack, Visited, false, true);
 
   // Then, visit the BBs in sorted order (by popping BBStack) to build WRNs
   while (!BBStack.empty()) {

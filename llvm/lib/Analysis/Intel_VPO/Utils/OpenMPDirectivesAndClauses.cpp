@@ -377,6 +377,28 @@ bool VPOAnalysisUtils::isListEndDirective(Instruction *I) {
   return VPOAnalysisUtils::isListEndDirective(DirID);
 }
 
+Instruction * VPOAnalysisUtils::getEndRegionDir(Instruction *BeginDir) {
+  assert(VPOAnalysisUtils::isRegionDirective(BeginDir) &&
+         "getEndRegionDir: expected BeginDir to be a REGION directive");
+  assert((VPOAnalysisUtils::isBeginDirective(BeginDir) ||
+          VPOAnalysisUtils::isStandAloneBeginDirective(BeginDir)) &&
+         "getEndRegionDir: expected BeginDir to be a BEGIN directive");
+  assert(BeginDir->getNumUses() == 1 &&
+         "getEndRegionDir: there must be exactly 1 use of the BEGIN dir");
+  User *U = *(BeginDir->user_begin());
+  Instruction *EndDir = dyn_cast<Instruction>(U);
+  assert(EndDir && (VPOAnalysisUtils::isEndDirective(EndDir) ||
+                    VPOAnalysisUtils::isStandAloneEndDirective(EndDir)) &&
+           "getEndRegionDir: the use is not an END directive");
+  return EndDir;
+}
+
+BasicBlock * VPOAnalysisUtils::getEndRegionDirBB(Instruction *BeginDir) {
+  Instruction *EndDir = VPOAnalysisUtils::getEndRegionDir(BeginDir);
+  BasicBlock  *EndBB  = EndDir->getParent();
+  return EndBB;
+}
+
 int VPOAnalysisUtils::getMatchingEndDirective(int DirID) {
   switch(DirID) {
   case DIR_OMP_PARALLEL:

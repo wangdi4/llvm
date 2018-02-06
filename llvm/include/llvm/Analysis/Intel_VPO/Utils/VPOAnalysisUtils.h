@@ -268,6 +268,11 @@ public:
     static bool isListEndDirective(StringRef DirString);
     static bool isListEndDirective(Instruction *I);
 
+    /// \brief Given an instruction for a region.begin directive, return its
+    /// corresponding region.end directive instruction or BB
+    static Instruction *getEndRegionDir(Instruction *BeginDir);
+    static BasicBlock *getEndRegionDirBB(Instruction *BeginDir);
+
     /// \brief Given a DirID for a BEGIN directive, return the DirID of its
     /// corresponding END directive.
     static int getMatchingEndDirective(int BeginDirID);
