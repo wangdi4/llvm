@@ -703,6 +703,12 @@ void PassManagerBuilder::populateModulePassManager(
   // for the entire SCC pass run below.
   MPM.add(createGlobalsAAWrapperPass());
 
+#if INTEL_CUSTOMIZATION
+  if (Inliner) {
+    MPM.add(createInlineListsPass()); // -[no]inline-list parsing
+  }
+#endif  // INTEL_CUSTOMIZATION
+
   // Start of CallGraph SCC passes.
   MPM.add(createPruneEHPass()); // Remove dead EH info
   bool RunInliner = false;

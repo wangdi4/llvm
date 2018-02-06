@@ -473,7 +473,7 @@ struct InlineLists : public ModulePass {
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addPreserved<WholeProgramWrapperPass>();
+    AU.setPreservesAll();
   }
 
   bool runOnModule(Module &M) {
@@ -491,12 +491,8 @@ INITIALIZE_PASS(InlineLists, "inlinelists",
 ModulePass *llvm::createInlineListsPass() { return new InlineLists; }
 
 PreservedAnalyses InlineListsPass::run(Module &M, ModuleAnalysisManager &AM) {
-  if (!setInlineListsAttributes(M))
-    return PreservedAnalyses::all();
-
-  PreservedAnalyses PA;
-  PA.preserve<WholeProgramAnalysis>();
-  return PA;
+  setInlineListsAttributes(M);
+  return PreservedAnalyses::all();
 }
 
 #endif // INTEL_CUSTOMIZATION
