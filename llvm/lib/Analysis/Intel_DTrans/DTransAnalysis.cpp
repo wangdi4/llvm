@@ -45,7 +45,7 @@ namespace {
 /// within a function.
 ///
 /// This class is used within the DTransAnalysis to track the types of data
-/// that a value may point to, independent of the the type of the value.
+/// that a value may point to, independent of the type of the value.
 /// For example, consider the following line of IR:
 ///
 ///   %t = bitcast %struct.S* %ps to i8*
@@ -673,6 +673,41 @@ public:
     PtrSizeIntTy = llvm::Type::getIntNTy(Context, DL.getPointerSizeInBits());
     PtrSizeIntPtrTy =
         llvm::Type::getIntNPtrTy(Context, DL.getPointerSizeInBits());
+  }
+
+  void visitIntrinsicInst(IntrinsicInst &I) {
+    Intrinsic::ID Intrin = I.getIntrinsicID();
+    switch (Intrin) {
+    default:
+      break;
+
+    // The following intrinsics do not affect the safety checks of
+    // the DTrans analysis for any of their arguments.
+    case Intrinsic::dbg_declare:
+    case Intrinsic::dbg_value:
+    case Intrinsic::lifetime_end:
+    case Intrinsic::lifetime_start:
+      return;
+
+    case Intrinsic::memset:
+      analyzeMemset(I);
+      return;
+
+    case Intrinsic::memcpy:
+    case Intrinsic::memmove:
+      analyzeMemcpyOrMemmove(I);
+      return;
+    }
+
+    // The intrinsic was not handled, mark all parameters as unhandled uses.
+    for (Value *Arg : I.arg_operands()) {
+      if (isValueOfInterest(Arg)) {
+        DEBUG(dbgs() << "dtrans-safety: Unhandled use --  IntrinsicInst: " << I
+                     << " value passed as argument.\n"
+                     << "  " << *Arg << "\n");
+        setValueTypeInfoSafetyData(Arg, dtrans::UnhandledUse);
+      }
+    }
   }
 
   void visitCallInst(CallInst &CI) {
@@ -1405,8 +1440,7 @@ private:
       // handled as bad casts.
       if (WasCastToMultipleTypes) {
         DEBUG(dbgs() << "dtrans-safety: Bad casting -- "
-                     << "allocation cast to multiple types:\n  "
-                     << CI << "\n");
+                     << "allocation cast to multiple types:\n  " << CI << "\n");
         setBaseTypeInfoSafetyData(Ty, dtrans::BadCasting);
       }
 
@@ -1570,6 +1604,319 @@ private:
     }
     // Otherwise, it's not what we needed.
     return false;
+  }
+
+  // This helper function checks if a value is a constant integer equal to
+  // 'Size'.
+  bool isValueEqualToSize(Value *Val, uint64_t Size) {
+    if (!Val)
+      return false;
+
+    if (auto *ConstVal = dyn_cast<ConstantInt>(Val)) {
+      uint64_t ConstSize = ConstVal->getLimitedValue();
+      return ConstSize == Size;
+    }
+
+    return false;
+  }
+
+  // Check the destination of a call to memset for safety.
+  //
+  // A safe call is one where it can be resolved that the operand to the
+  // memset meets the following conditions:
+  //   - The operand does not affect an aggregate data type.
+  //  or
+  //   - If the operand is not a pointer to a field within an aggregate, then
+  //     the size must be a multiple of the aggregate size.
+  //   - If the operand is a pointer to a field within an aggregate, then
+  //     the size operand must equal the size of the field
+  //  or
+  //  - The size operand is 0.
+  //
+  // A necessary precursor for most of these rule is that the operand type
+  // is able to be resolved to a unique dominant type for the pointer.
+  //
+  // For a safe call, the field information tracking of the aggregate type
+  // will be updated to indicate the field is written to.
+  void analyzeMemset(IntrinsicInst &I) {
+    DEBUG(dbgs() << "dtrans: Analyzing memset call:\n  " << I << "\n");
+
+    assert(I.getNumArgOperands() >= 2);
+    auto *DestArg = I.getArgOperand(0);
+    Value *SetSize = I.getArgOperand(2);
+
+    // A memset of 0 bytes will not affect the safety of any data structure.
+    if (isValueEqualToSize(SetSize, 0))
+      return;
+
+    if (!isValueOfInterest(DestArg))
+      return;
+
+    LocalPointerInfo &DstLPI = LPA.getLocalPointerInfo(DestArg);
+    auto *DestParentTy = DstLPI.getDominantAggregateTy();
+    if (!DestParentTy) {
+      if (isAliasSetOverloaded(DstLPI.getPointerTypeAliasSet())) {
+        // Cannot do anything for an aliased type. Declare them
+        // to be unsafe.
+        DEBUG(dbgs() << "dtrans-safety: Ambiguous pointer target -- "
+                     << "Aliased type, could not identify dominant type:\n"
+                     << " " << I << "\n");
+
+        setAllAliasedTypeSafetyData(DstLPI, dtrans::AmbiguousPointerTarget);
+      } else {
+        // If the dominant type was not identified, and the pointer is not
+        // an aliased type, we expect that we are dealing with a pointer
+        // to a scalar member element. assert this to be sure.
+
+        assert(DstLPI.pointsToSomeElement());
+
+        // For now, we do not expect to need to handle such a case.
+        DEBUG(dbgs() << "dtrans-safety: Bad memfunc manipulation -- "
+                     << "No dominant type:\n"
+                     << "  " << I << "\n");
+
+        setValueTypeInfoSafetyData(DestArg, dtrans::BadMemFuncManipulation);
+      }
+
+      return;
+    }
+
+    // If the parameter does not point to an aggregate type, it's safe.
+    auto *DestPointeeTy = DestParentTy->getPointerElementType();
+
+    // Verify the size being is valid for the type of the pointer:
+    //  - When an aggregate type is passed, require all fields to be set to
+    //    consider the access as safe. This requires that the size parameter
+    //    equals the aggregate size (or some multiple to allow for arrays).
+    //  - When a pointer to a member of another aggregate is used, make sure
+    //    the size being set is exactly the size of aggregate being set,
+    //    otherwise other parts of the parent could be overwritten when the
+    //    size written is larger than the member size.
+    // This will make it easier for transformations, such as field reordering
+    // to be able to perform the transformation.
+    //
+    // NOTE: Currently, we require the size to be a multiple of the result of
+    // sizeof(TYPE) to mark the structure as safe. However, this could cause
+    // the rejection of a structure that is set based on a summation of the
+    // field sizes if the tail padding is not counted. For
+    // example, struct { int A, short B }, passing a size value of 6 will clear
+    // the structure, but we require a size equal to 8 because that is what
+    // sizeof reports. This could be added in the future, if necessary.
+    //
+    // NOTE: In the future, an additional safety check may be necessary here
+    // to check if a non-zero value is being written to inhibit
+    // transformations such as field shrinking. But this is not implemented
+    // now because it will also require the rest of the analysis to perform
+    // range checks of the values being stored in a field.
+    uint64_t ElementSize = DL.getTypeAllocSize(DestPointeeTy);
+    bool DstPtrToMember = DstLPI.pointsToSomeElement();
+
+    if (DstPtrToMember) {
+      // Currently, we will invalidate if the size is larger or smaller for
+      // simplicity, we could probably allow it if the write size was smaller
+      // than an array aggregate, in the future.
+      if (!isValueEqualToSize(SetSize, ElementSize)) {
+        DEBUG(dbgs() << "dtrans-safety: Bad memfunc size -- "
+                     << "size does not equal member field type size:\n"
+                     << "  " << I << "\n");
+
+        auto ElementPointees = DstLPI.getElementPointeeSet();
+        for (auto &PointeePair : ElementPointees) {
+          setBaseTypeInfoSafetyData(PointeePair.first, dtrans::BadMemFuncSize);
+        }
+        return;
+      }
+    } else if (DestPointeeTy->isAggregateType() &&
+               !isValueMultipleOfSize(SetSize, ElementSize)) {
+      DEBUG(dbgs() << "dtrans-safety: Bad memfunc size -- "
+                   << "size is not a multiple of type size:\n"
+                   << "  " << I << "\n");
+
+      setValueTypeInfoSafetyData(DestArg, dtrans::BadMemFuncSize);
+      return;
+    }
+
+    // It is a safe use. Mark all the fields as being written.
+    auto *ParentTI = DTInfo.getOrCreateTypeInfo(DestPointeeTy);
+    markAllFieldsWritten(ParentTI);
+  }
+
+  // Check the source and destination of a call to memcpy or memmove call
+  // for safety.
+  //
+  // A safe call is one where it can be resolved that the operands to the
+  // call meets of the following conditions:
+  //   - Neither operand affects an aggregate data type.
+  //   or
+  //   - The source and destination data types are the same.
+  //   - If the operand is not a pointer to a field within an aggregate, then
+  //     the size must be a multiple of the aggregate size.
+  //   - If the either the source or destination operands are pointers to a
+  //     field within an aggregate, then the size operand must equal the size
+  //     of the field.
+  //   or
+  //  - The size operand is 0.
+  //
+  // A necessary precursor for most of these rule is that the operand type
+  // is able to be resolved to a unique dominant type for the pointer.
+  //
+  // For a safe call, the field information tracking of the aggregate type
+  // will be updated to indicate the field is written to for the destination.
+  // Fields of the source operand will not be updated to allow for fields
+  // to be eliminated if they are never directly read.
+  void analyzeMemcpyOrMemmove(IntrinsicInst &I) {
+    DEBUG(dbgs() << "dtrans: Analyzing memcpy/memmove call:\n  " << I << "\n");
+    assert(I.getNumArgOperands() >= 2);
+
+    auto *DestArg = I.getArgOperand(0);
+    auto *SrcArg = I.getArgOperand(1);
+    Value *SetSize = I.getArgOperand(2);
+
+    // A memcpy/memmove of 0 bytes will not affect the safety of any data
+    // structure.
+    if (isValueEqualToSize(SetSize, 0))
+      return;
+
+    bool DestOfInterest = isValueOfInterest(DestArg);
+    bool SrcOfInterest = isValueOfInterest(SrcArg);
+    if (!DestOfInterest && !SrcOfInterest) {
+      return;
+    } else if (!SrcOfInterest || !DestOfInterest) {
+      DEBUG(dbgs() << "dtrans-safety: Bad memfunc manipulation --  "
+                   << "Either source or destination operand is fundamental "
+                      "pointer type:\n"
+                   << "  " << I << "\n");
+
+      setValueTypeInfoSafetyData(SrcArg, dtrans::BadMemFuncManipulation);
+      setValueTypeInfoSafetyData(DestArg, dtrans::BadMemFuncManipulation);
+      return;
+    }
+
+    // If we get here, both parameters are types of interest.
+    LocalPointerInfo &DstLPI = LPA.getLocalPointerInfo(DestArg);
+    LocalPointerInfo &SrcLPI = LPA.getLocalPointerInfo(SrcArg);
+    auto *DestParentTy = DstLPI.getDominantAggregateTy();
+    auto *SrcParentTy = SrcLPI.getDominantAggregateTy();
+
+    if (!DestParentTy || !SrcParentTy) {
+      if (!DestParentTy &&
+          isAliasSetOverloaded(DstLPI.getPointerTypeAliasSet())) {
+        DEBUG(dbgs() << "dtrans-safety: Ambiguous pointer target -- "
+                     << "Aliased type for destination operand:\n"
+                     << "  " << I << "\n");
+
+        setAllAliasedTypeSafetyData(DstLPI, dtrans::AmbiguousPointerTarget);
+        setAllAliasedTypeSafetyData(SrcLPI, dtrans::BadMemFuncManipulation);
+      } else if (!SrcParentTy &&
+                 isAliasSetOverloaded(SrcLPI.getPointerTypeAliasSet())) {
+        DEBUG(dbgs() << "dtrans-safety: Bad memfunc manipulation -- "
+                     << "Aliased type for source operand.\n"
+                     << "  " << I << "\n");
+
+        setAllAliasedTypeSafetyData(DstLPI, dtrans::BadMemFuncManipulation);
+        setAllAliasedTypeSafetyData(SrcLPI, dtrans::AmbiguousPointerTarget);
+      } else {
+        // If the dominant type was not identified, and the pointer is not
+        // an aliased type, we expect that we are dealing with a pointer
+        // to a member element. assert this to be sure.
+        assert(DestParentTy || DstLPI.pointsToSomeElement());
+        assert(SrcParentTy || SrcLPI.pointsToSomeElement());
+
+        // For now, we do not expect to need to handle such a case.
+        DEBUG(dbgs() << "dtrans-safety: Bad memfunc manipulation --  "
+                     << "No dominant type for either source or destination:\n"
+                     << "  " << I << "\n");
+
+        setValueTypeInfoSafetyData(DestArg, dtrans::BadMemFuncManipulation);
+        setValueTypeInfoSafetyData(SrcArg, dtrans::BadMemFuncManipulation);
+      }
+      return;
+    }
+
+    if (DestParentTy != SrcParentTy) {
+      DEBUG(dbgs() << "dtrans-safety: Bad memfunc manipulation -- "
+                   << "Different types for source and destination:\n"
+                   << "  " << I << "\n");
+
+      setValueTypeInfoSafetyData(DestArg, dtrans::BadMemFuncManipulation);
+      setValueTypeInfoSafetyData(SrcArg, dtrans::BadMemFuncManipulation);
+      return;
+    }
+
+    // If the parameter does not point to an aggregate type, it's safe.
+    auto *DestPointeeTy = DestParentTy->getPointerElementType();
+
+    // Verify the copy if the entire structure.
+    uint64_t ElementSize = DL.getTypeAllocSize(DestPointeeTy);
+    bool DstPtrToMember = DstLPI.pointsToSomeElement();
+    bool SrcPtrToMember = SrcLPI.pointsToSomeElement();
+
+    if (DstPtrToMember || SrcPtrToMember) {
+      // When a pointer-to-member is used, make sure the size being set is
+      // exactly the size of aggregate being set, otherwise other parts of the
+      // parent structure could be overwritten.
+      //
+      // Currently, we will invalidate if the size is larger or smaller for
+      // simplicity, we could probably allow it if the write size was smaller
+      // than an array aggregate, in the future.
+      if (!isValueEqualToSize(SetSize, ElementSize)) {
+        DEBUG(dbgs() << "dtrans-safety: Bad memfunc size -- "
+                     << "size does not equal member field type size:\n"
+                     << "  " << I << "\n");
+
+        if (DstPtrToMember) {
+          auto ElementPointees = DstLPI.getElementPointeeSet();
+          for (auto &PointeePair : ElementPointees) {
+            setBaseTypeInfoSafetyData(PointeePair.first,
+                                      dtrans::BadMemFuncSize);
+          }
+        }
+
+        if (SrcPtrToMember) {
+          auto ElementPointees = SrcLPI.getElementPointeeSet();
+          for (auto &PointeePair : ElementPointees) {
+            setBaseTypeInfoSafetyData(PointeePair.first,
+                                      dtrans::BadMemFuncSize);
+          }
+        }
+
+        return;
+      }
+    } else if (DestPointeeTy->isAggregateType() &&
+               !isValueMultipleOfSize(SetSize, ElementSize)) {
+      DEBUG(dbgs() << "dtrans-safety: Bad memfunc size -- "
+                   << "size is not a multiple of type size:\n"
+                   << "  " << I << "\n");
+
+      setValueTypeInfoSafetyData(DestArg, dtrans::BadMemFuncSize);
+      setValueTypeInfoSafetyData(SrcArg, dtrans::BadMemFuncSize);
+      return;
+    }
+
+    auto *DestTI = DTInfo.getOrCreateTypeInfo(DestPointeeTy);
+    markAllFieldsWritten(DestTI);
+  }
+
+  void markAllFieldsWritten(dtrans::TypeInfo *TI) {
+    if (TI == nullptr)
+      return;
+
+    if (!TI->getLLVMType()->isAggregateType()) {
+      return;
+    }
+
+    if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI)) {
+      for (auto &FI : StInfo->getFields()) {
+        FI.setWritten(true);
+        auto *ComponentTI = DTInfo.getTypeInfo(FI.getLLVMType());
+        markAllFieldsWritten(ComponentTI);
+      }
+    } else if (auto *AInfo = dyn_cast<dtrans::ArrayInfo>(TI)) {
+      auto *ComponentTI = AInfo->getElementDTransInfo();
+      markAllFieldsWritten(ComponentTI);
+    }
+
+    return;
   }
 
   // In many cases we need to set safety data based on a value that

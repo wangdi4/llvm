@@ -111,6 +111,18 @@ const SafetyData GlobalInstance = 0x0000000000000800;
 /// non-zero initializer.
 const SafetyData HasInitializerList = 0x0000000000001000;
 
+/// A structure is modified via a memory function intrinsic (memcpy, memmove,
+/// or memset), with a size that differs from the native structure size.
+const SafetyData BadMemFuncSize = 0x0000000000002000;
+
+/// A structure is modified via a memory function intrinsic (memcpy or memmove)
+/// with conflicting or unknown types for the source and destination parameters.
+const SafetyData BadMemFuncManipulation = 0x0000000000004000;
+
+/// A pointer is passed to an intrinsic or library function that can alias
+/// incompatible types.
+const SafetyData AmbiguousPointerTarget = 0x0000000000008000;
+
 /// This is a catch-all flag that will be used to mark any usage pattern
 /// that we don't specifically recognize. The use might actually be safe
 /// or unsafe, but we will conservatively assume it is unsafe.
