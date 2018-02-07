@@ -1,43 +1,44 @@
-=================================
-Debugging OpenCL kernels on Linux
-=================================
+======================================
+Debugging OpenCL(TM) Kernels on Linux*
+======================================
 
 .. contents:: :local:
 
 Introduction
 ============
 
-OpenCL CPU Compiler & Runtime and FPGA Fast Emulator support debugging
-OpenCL kernels using GNU debugger GDB or LLDB Debugger on Linux.
-It allows to debug a host code and OpenCL kernels in a single debug session.
+The Intel(R) SDK for OpenCL(TM) - CPU only runtime and The Intel(R) FPGA
+Emulation Platform for OpenCL(TM) support debugging OpenCL(TM) kernels using a
+GNU GDB*, or LLDB* Debugger on Linux*. It allows for debugging host code and
+OpenCL(TM) kernels in a single debug session.
 
-Enabling Debugging in OpenCL CPU Compiler & Runtime
-===================================================
+Enabling Debugging in OpenCL(TM) CPU Compiler and Runtime
+=========================================================
 
-To enable debugging mode in OpenCL CPU Compiler & Runtime or FPGA Fast Emulator,
-specific options should be passed to the build options string parameter in
-``clBuildProgram`` function.
+To enable the debugging mode in the OpenCL(TM) CPU Compiler and Runtime or FPGA
+Fast Emulator, specific options should be passed to the build options string
+parameter in the ``clBuildProgram`` function.
 
 ``-g``
-    The flag enables generation of source-level debug information
+    The ``-g`` flag enables source-level debug information generation.
 
-    .. note:: passing ``-g`` flag also means that no optimizations
-      (such as inlining, unrolling, vectorization etc) will be performed
-      as if `-cl-opt-disable` option was passed.
+    NOTE: Passing a ``-g`` flag means that no optimizations (such as inlining,
+    unrolling, vectorization, etc.) are performed, the same as if a
+    ``-cl-opt-disable`` option was passed.
 
+``-s /full/path/to/OpenCL/source/file.cl``
+    This option specifies the full path to the OpenCL(TM) source file. If the
+    path includes spaces, the entire path should be enclosed with double or
+    single quotes.
 
-``-s`` */full/path/to/OpenCL/source/file.cl*
-    The option specifies full path to the OpenCL source file.
-    If the path includes spaces, the entire path should be enclosed with
-    double or single quotes.
+    This option is required in cases where the source of an OpenCL(TM) kernel is
+    passed to the ``clCreateProgramWithSource`` function as a string.
 
-    This option is required in case of source of OpenCL kernel(s) is(are)
-    passed to ``clCreateProgramWithSource`` function as a string.
+    Only one file can be specified with the ``-s`` option. If the file contains
+    one or more ``#include`` directives, multiple paths for files with the
+    ``-s`` option are not needed.
 
-    If the file contains one or more ``#include`` directives, it is not needed
-    to add multiple paths for included files to ``-s`` option.
-
-clBuildProgram example
+clBuildProgram Example
 ^^^^^^^^^^^^^^^^^^^^^^
 
 ::
@@ -50,24 +51,23 @@ clBuildProgram example
           NULL,
           NULL);
 
-.. note:: The OpenCL kernel code must exist in a text file,
-  separate from the host code. Debugging OpenCL code that appears only
-  in a string embedded in the host application is not supported.
+NOTE: The OpenCL(TM) kernel code must exist in a text file that is separate from
+the host code. Debugging OpenCL(TM) code that appears only in a string embedded
+in the host application is not supported.
 
-Instead of passing ``-s`` option to specify a path to an OpenCL source file
-one of the follow approaches can be used:
+Instead of passing the ``-s`` option to specify a path to an OpenCL(TM) source
+file, one of the follow approaches can be used:
 
-* Use Intel Offline Compiler (IOC).
-  Using Intel Offline Compiler it is not needed to specify ``-s`` option,
-  the path to an OpenCL source file is defined by ``-input`` option.
+* Use an Intel(R) SDK for OpenCL(TM) - offline compiler
+  Specifying the ``-s`` option is not needed, as the path to an OpenCL(TM)
+  source file is defined by the ``-input`` option.
 
   ::
 
     ioc -cmd=build -input=kernel.cl '-bo=-g'
 
-* Pass to ``clCreateProgramWithSource`` a string with one or more ``#include``
-  directives. In the case paths to included files will be detected
-  automatically.
+* Pass a string with one or more ``#include`` directives to ``clCreateProgramWithSource``.
+  In this instance the paths to included files are detected automatically.
 
   ::
 
@@ -76,10 +76,10 @@ one of the follow approaches can be used:
           m_context, 1, &src, NULL, &error);
 
 
-Start debugging session
-=======================
+Start the Debugging Session
+===========================
 
-The normal GDB or LLDB commands are used for debug OpenCL programs:
+The standard GDB* or LLDB* commands are used to debug OpenCL(TM) programs:
 
 ::
 
@@ -87,20 +87,18 @@ The normal GDB or LLDB commands are used for debug OpenCL programs:
 
 Breakpoints and stepping functionality are fully supported.
 
-For more information about GDB or LLDB debuggers, please, visit
-`GDB: The GNU Project Debugger <https://www.gnu.org/software/gdb/>`__ or
-`The LLDB Debugger <https://lldb.llvm.org/lldb-gdb.html>`__.
+For more information about GDB* or LLDB* debuggers see the References section.
 
-GDB gebugging session example
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+GDB* Debugging Session Example
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-1. Start debugging of a program
+1. Start debugging a program:
 
    ::
 
      gdb --args ./host_program
 
-2. Set a breakpoint in a kernel
+2. Set a breakpoint in a kernel:
 
    ::
 
@@ -108,8 +106,8 @@ GDB gebugging session example
      Make breakpoint pending on future shared library load? (y or [n]) y
      Breakpoint 1 (kernel.cl:5) pending.
 
-3. Run the host program. Execution will be stopped once the debugger hits the
-   breakpoint in the kernel.
+3. Run the host program. The execution stops once the debugger hits the
+   breakpoint in the kernel:
 
    ::
 
@@ -117,26 +115,27 @@ GDB gebugging session example
      Thread 19 "debugger_test_t" hit Breakpoint 1, foo (c=9 '\t') kernel.cl:5
      5         d = d + 2;
 
-Conditional Breakpoints on work items
+Conditional Breakpoints on Work-Items
 =====================================
 
-According to the OpenCL standard, work-items execute OpenCL kernels
-simultaneously. So, if a work-group contains more than one work-item
-the debugger stops on a breakpoint in every running work-item.
+According to the OpenCL(TM) standard, work-items execute OpenCL(TM) kernels
+simultaneously. If a work-group contains more than one work-item, the debugger
+stops on a breakpoint in every running work-item.
 
-While a kernel compiled with ``-g`` flag the compiler generates three variables
-which allow to define the current work item - one for each range in 3D NDRange:
+When a kernel is compiled with a ``-g`` flag, the compiler generates three
+variables that define the current work item. There is a variable for each range
+in the 3D NDRange:
 * ``__ocl_dbg_gid0``
 * ``__ocl_dbg_gid1``
 * ``__ocl_dbg_gid2``
 
-These variables can be used to set conditional breakpoints to make possible stop
-on a specific work item (or work items).
+These variables can be used to set conditional breakpoints that make it possible
+to stop on a specific work item (or work items).
 
-Native debugger syntax
+Native Debugger Syntax
 ^^^^^^^^^^^^^^^^^^^^^^
 
-The native GDB or LLDB commands for conditional breakpoints are supported.
+The native GDB* or LLDB* commands for conditional breakpoints are supported.
 
 ::
 
@@ -156,28 +155,30 @@ The native GDB or LLDB commands for conditional breakpoints are supported.
   $0 = 2
 
 
-GDB Plugin for OpenCL: Work-Item Breakpoint Command
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+GDB* Plugin for OpenCL(TM): Work-Item Breakpoint Command
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The plugin extends GDB commands sintax to make the work with conditional
-breakpoints on work-items easier.
-This feature is available only if GDB was configured using --with-python.
+The plugin extends the GDB* commands syntax to make the work with conditional
+breakpoints on work-items easier. This feature is available only if GDB* was
+configured using Python*.
 
 ``ocl-break-workitem`` *location* *work-item*
 
     Set a breakpoint at the given *location*, which can specify a function name,
     a line number, or an address of an instruction.
-    *work-item* speficies a work-item number in 3D NDRange, where the number of
-    each range is separeted by a space. For example, 0 0 0.
 
-To enable OpenCL work-item breakpoints ``libintelocl.so-gdb.py`` file should be
-sourced from a GDB session.
+    The *work-item* specifies a work-item number in the 3D NDRange, where the
+    number of each range is separated by a space. For example, 0 0 0.
+
+To enable OpenCL(TM) work-item breakpoints the ``libintelocl.so-gdb.py`` file
+should be sourced from a GDB* session.
 
 ::
 
   (gdb) source libintelocl.so-gdb.py
 
-Set a breakpoint on a specific work-item using ``ocl-break-workitem`` command:
+Set a breakpoint on a specific work-item using the ``ocl-break-workitem``
+command:
 
 ::
 
@@ -201,30 +202,34 @@ Set a breakpoint on a specific work-item using ``ocl-break-workitem`` command:
   (gdb) print __ocl_dbg_gid2
   $2 = 0
 
-Known issues
+Known Issues
 ============
 
-1. For better debugging expirience GDB 7.12 or higher is required.
-   In case of an older GDB version is used, some issues related to JIT code
+1. For better debugging experience GDB* 7.12 or higher is required.  In cases
+   where an older GDB* version is used, some issues related to JIT code
    debugging may occur (such as no automatic breakpoints reset between runs,
-   fail to stop on a breakpoint for second and other runs, etc).
+   fail to stop on a breakpoint for second and other runs, etc.).
 
-2. ``finish`` GDB or LLDB command returns to the same line as a function call.
-   ``finish`` command should advance an instruction pointer to the next
-   instructuion after the call. It is expected that it will point to the next
-   line after the line of calling, except a callee function returns a value
-   for using. In case of OpenCL kernel code it will point to the same line as
-   the call even the callee function is a void one.
+2. The finish GDB* or LLDB* command returns to the same line as a function call.
+   The finish command should advance an instruction pointer to the next
+   instruction after the call. It is expected that it will point to the next
+   line following the line of calling, except when a callee function returns a
+   value for using. In the case of OpenCL(TM) kernel code it points to the same
+   line as the call, even the callee function is a void one.
 
-3. Setting ``__local`` variables has no effect on program execution.
-   A try to set variables in ``local`` address space has no effect. The new
-   value will be discarded just after the next step.
+3. Setting ``__local`` variables has no effect on program execution. An attempt
+   to set variables in a local address space has no effect. The new value is
+   discarded just after the next step.
 
-4. Conditional breakpoints on work-items may take too much time to evaluate.
-   It may take too much time to evaluate conditional breakpoints depended on
-   a work item number for heavy NDRange kernels. To avoid such breakpoints
-   the kernel source code can be modified using ``get_global_id`` function
-   directly.
+4. Conditional breakpoints on work-items may take too much time to evaluate.  It
+   may take too much time to evaluate conditional breakpoints depending on a
+   work item number for heavy NDRange kernels. To avoid such breakpoints the
+   kernel source code can be modified using the ``get_global_id`` function.
 
 References
 ==========
+1. Link to more information on the GNU* Project Debugger:
+    https://www.gnu.org/software/gdb/
+
+2. Link to more information on the LLDB* Debugger:
+    https://lldb.llvm.org/lldb-gdb.html
