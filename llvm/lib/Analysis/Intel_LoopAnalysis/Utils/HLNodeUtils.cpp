@@ -1269,12 +1269,31 @@ void HLNodeUtils::insertAsFirstChild(HLIf *If, HLNode *Node, bool IsThenChild) {
              Node->getIterator(), Node->getIterator(), !IsThenChild);
 }
 
+void HLNodeUtils::insertAsFirstChildren(HLIf *If, HLContainerTy *NodeContainer,
+                                        bool IsThenChild) {
+  assert(If && "If is null!");
+  assert(NodeContainer && "NodeContainer is null!");
+
+  insertImpl(If, IsThenChild ? If->then_begin() : If->else_begin(),
+             NodeContainer, NodeContainer->begin(), NodeContainer->end(),
+             !IsThenChild);
+}
+
 void HLNodeUtils::insertAsLastChild(HLIf *If, HLNode *Node, bool IsThenChild) {
   assert(If && "If is null!");
   assert(Node && "Node is null!");
 
   insertImpl(If, IsThenChild ? If->then_end() : If->else_end(), nullptr,
              Node->getIterator(), Node->getIterator(), !IsThenChild);
+}
+
+void HLNodeUtils::insertAsLastChildren(HLIf *If, HLContainerTy *NodeContainer,
+                                       bool IsThenChild) {
+  assert(If && "If is null!");
+  assert(NodeContainer && "NodeContainer is null!");
+
+  insertImpl(If, IsThenChild ? If->then_end() : If->else_end(), NodeContainer,
+             NodeContainer->begin(), NodeContainer->end(), !IsThenChild);
 }
 
 void HLNodeUtils::insertAsChildImpl(HLSwitch *Switch,
@@ -2495,7 +2514,6 @@ const HLNode *HLNodeUtils::getCommonDominatingParent(
 bool HLNodeUtils::dominatesImpl(const HLNode *Node1, const HLNode *Node2,
                                 bool PostDomination, bool StrictDomination,
                                 HIRLoopStatistics *HLS) {
-
   assert(Node1 && Node2 && "Node is null!");
 
   assert(!isa<HLRegion>(Node1) && !isa<HLRegion>(Node2) &&
@@ -4006,9 +4024,9 @@ public:
 
       // Unable to remove node means this is not a join point now.
       IsJoinNode = false;
-    }
 
-    EmptyNodeRemoverVisitorImpl::visit(Node);
+      EmptyNodeRemoverVisitorImpl::visit(Node);
+    }
   }
 
   virtual bool skipRecursion(const HLNode *Node) const {

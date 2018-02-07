@@ -61,8 +61,9 @@
 
 ; Verify that there were goto and labels
 
-; CHECK: Hoisting:
-; CHECK: Hoisting:
+; CHECK: Unswitching
+; CHECK: Unswitching
+; CHECK: H:
 ; CHECK-SAME: if (%n > 100)
 ; CHECK: While
 ; CHECK: goto L[[X:.*]];

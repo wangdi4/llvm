@@ -1301,7 +1301,7 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
     if (SizeLevel == 0) {
       PM.add(createHIRUnrollAndJamPass());
       PM.add(createHIROptVarPredicatePass());
-      PM.add(createHIROptPredicatePass());
+      PM.add(createHIROptPredicatePass(OptLevel == 3));
       if (RunVPOOpt) {
         PM.add(createHIRVecDirInsertPass(OptLevel == 3));
         if (EnableVPlanDriverHIR) {

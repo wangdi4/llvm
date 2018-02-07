@@ -37,7 +37,7 @@ FunctionPass *createHIRCodeGenWrapperPass();
 
 /// createOptPredicatePass - This creates a pass that performs OptPredicate
 /// transformation on HIR.
-FunctionPass *createHIROptPredicatePass();
+FunctionPass *createHIROptPredicatePass(bool EnablePartialUnswitch = true);
 
 /// createHIRPreVecCompleteUnrollPass - This creates a pass that performs
 /// complete unrolling before vectorizer.

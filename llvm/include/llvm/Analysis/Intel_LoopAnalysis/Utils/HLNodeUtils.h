@@ -884,9 +884,13 @@ public:
   /// Inserts an unlinked Node as first child of this If. The flag IsThenChild
   /// indicates whether this is to be inserted as then or else child.
   static void insertAsFirstChild(HLIf *If, HLNode *Node, bool IsThenChild);
-  /// Inserts an unlinked Node as last child of this If. The flaga IsThenChild
+  static void insertAsFirstChildren(HLIf *If, HLContainerTy *NodeContainer,
+                                    bool IsThenChild);
+  /// Inserts an unlinked Node as last child of this If. The flag IsThenChild
   /// indicates whether this is to be inserted as then or else child.
   static void insertAsLastChild(HLIf *If, HLNode *Node, bool IsThenChild);
+  static void insertAsLastChildren(HLIf *If, HLContainerTy *NodeContainer,
+                                   bool IsThenChild);
 
   /// Inserts an unlinked Node as first default case child of switch.
   static void insertAsFirstDefaultChild(HLSwitch *Switch, HLNode *Node);
