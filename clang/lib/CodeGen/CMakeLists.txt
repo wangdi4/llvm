@@ -20,6 +20,9 @@ set(LLVM_LINK_COMPONENTS
   Support
   Target
   TransformUtils
+# INTEL_CUSTOMIZATION
+  SPIRVlib
+# end INTEL_CUSTOMIZATION
   )
 
 # In a standard Clang+LLVM build, we need to generate intrinsics before
@@ -30,6 +33,13 @@ set(codegen_deps intrinsics_gen)
 if (CLANG_BUILT_STANDALONE)
   set(codegen_deps)
 endif()
+
+# INTEL_CUSTOMIZATION
+if (MSVC)
+  set_source_files_properties(CodeGenModule.cpp
+                              PROPERTIES COMPILE_FLAGS /bigobj)
+endif()
+# end INTEL_CUSTOMIZATION
 
 add_clang_library(clangCodeGen
   BackendUtil.cpp
@@ -94,6 +104,7 @@ add_clang_library(clangCodeGen
   intel/CGIntelStmt.cpp
   intel/CGIntelStmtOpenMP.cpp
   intel/CGSPIRMetadataAdder.cpp
+  intel/CGIntelHLS.cpp
 # end INTEL_CUSTOMIZATION
 
   DEPENDS

@@ -59,6 +59,9 @@
 #include "llvm/Transforms/Utils/NameAnonGlobals.h"
 #include "llvm/Transforms/Utils/SymbolRewriter.h"
 #include <memory>
+#if INTEL_CUSTOMIZATION
+#include "llvm/Support/SPIRV.h"
+#endif // INTEL_CUSTOMIZATION
 using namespace clang;
 using namespace llvm;
 
@@ -236,6 +239,15 @@ static void addKernelAddressSanitizerPasses(const PassManagerBuilder &Builder,
       /*Recover*/ true, /*UseAfterScope*/ false));
   PM.add(createAddressSanitizerModulePass(/*CompileKernel*/true,
                                           /*Recover*/true));
+}
+
+static void addHWAddressSanitizerPasses(const PassManagerBuilder &Builder,
+                                            legacy::PassManagerBase &PM) {
+  const PassManagerBuilderWrapper &BuilderWrapper =
+      static_cast<const PassManagerBuilderWrapper &>(Builder);
+  const CodeGenOptions &CGOpts = BuilderWrapper.getCGOpts();
+  bool Recover = CGOpts.SanitizeRecover.has(SanitizerKind::HWAddress);
+  PM.add(createHWAddressSanitizerPass(Recover));
 }
 
 static void addMemorySanitizerPass(const PassManagerBuilder &Builder,
@@ -536,6 +548,11 @@ void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
   }
 #endif // INTEL_SPECIFIC_IL0_BACKEND
 
+#if INTEL_CUSTOMIZATION
+  PMBuilder.DisableIntelProprietaryOpts =
+    CodeGenOpts.DisableIntelProprietaryOpts;
+#endif // INTEL_CUSTOMIZATION
+
   PMBuilder.OptLevel = CodeGenOpts.OptimizationLevel;
   PMBuilder.SizeLevel = CodeGenOpts.OptimizeSize;
   PMBuilder.SLPVectorize = CodeGenOpts.VectorizeSLP;
@@ -595,6 +612,13 @@ void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
                            addKernelAddressSanitizerPasses);
     PMBuilder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
                            addKernelAddressSanitizerPasses);
+  }
+
+  if (LangOpts.Sanitize.has(SanitizerKind::HWAddress)) {
+    PMBuilder.addExtension(PassManagerBuilder::EP_OptimizerLast,
+                           addHWAddressSanitizerPasses);
+    PMBuilder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
+                           addHWAddressSanitizerPasses);
   }
 
   if (LangOpts.Sanitize.has(SanitizerKind::Memory)) {
@@ -759,6 +783,9 @@ void EmitAssemblyHelper::EmitAssembly(BackendAction Action,
 
   bool UsesCodeGen = (Action != Backend_EmitNothing &&
                       Action != Backend_EmitBC &&
+#if INTEL_CUSTOMIZATION
+                      Action != Backend_EmitSPIRV &&
+#endif // INTEL_CUSTOMIZATION
                       Action != Backend_EmitLL);
   CreateTargetMachine(UsesCodeGen);
 
@@ -807,6 +834,12 @@ void EmitAssemblyHelper::EmitAssembly(BackendAction Action,
       PerModulePasses.add(
           createBitcodeWriterPass(*OS, CodeGenOpts.EmitLLVMUseLists));
     break;
+
+#if INTEL_CUSTOMIZATION
+  case Backend_EmitSPIRV:
+    PerModulePasses.add(createSPIRVWriterPass(*OS));
+    break;
+#endif // INTEL_CUSTOMIZATION
 
   case Backend_EmitLL:
     PerModulePasses.add(
@@ -1017,6 +1050,12 @@ void EmitAssemblyHelper::EmitAssemblyWithNewPassManager(
     }
     break;
 
+#if INTEL_CUSTOMIZATION
+  case Backend_EmitSPIRV:
+    CodeGenPasses.add(createSPIRVWriterPass(*OS));
+    break;
+#endif // INTEL_CUSTOMIZATION
+
   case Backend_EmitLL:
     MPM.addPass(PrintModulePass(*OS, "", CodeGenOpts.EmitLLVMUseLists));
     break;
@@ -1185,7 +1224,8 @@ void clang::EmitBackendOutput(DiagnosticsEngine &Diags,
     Diags.Report(DiagID);
     return;
   }
-  if (Action == Backend_EmitBC && !CGOpts.PrepareForLTO && !LOpts.OpenCL) {
+  if (Action == Backend_EmitBC && !CGOpts.PrepareForLTO &&
+      !CGOpts.DisableIntelProprietaryOpts) {
     unsigned DiagID = Diags.getCustomDiagID(
         DiagnosticsEngine::Error, "Bitcode output is only supported with LTO.");
     Diags.Report(DiagID);

@@ -39,7 +39,9 @@ void SPIR64TargetInfo::getTargetDefines(const LangOptions &Opts,
 #if INTEL_CUSTOMIZATION
 const Builtin::Info SPIR32INTELFpgaTargetInfo::BuiltinInfo[] = {
 #define BUILTIN(ID, TYPE, ATTRS)                                               \
-  { #ID, TYPE, ATTRS, nullptr, OCLC20_LANG, nullptr },
+  { #ID, TYPE, ATTRS, nullptr, ALL_OCLC_LANGUAGES, nullptr },
+#define LANGBUILTIN(ID, TYPE, ATTRS, LANGS)                                    \
+  { #ID, TYPE, ATTRS, nullptr, LANGS, nullptr },
 #include "clang/Basic/intel/BuiltinsSPIRINTELFpga.def"
 };
 
@@ -51,7 +53,9 @@ SPIR32INTELFpgaTargetInfo::getTargetBuiltins() const {
 
 const Builtin::Info SPIR64INTELFpgaTargetInfo::BuiltinInfo[] = {
 #define BUILTIN(ID, TYPE, ATTRS)                                               \
-  { #ID, TYPE, ATTRS, nullptr, OCLC20_LANG, nullptr },
+  { #ID, TYPE, ATTRS, nullptr, ALL_OCLC_LANGUAGES, nullptr },
+#define LANGBUILTIN(ID, TYPE, ATTRS, LANGS)                                    \
+  { #ID, TYPE, ATTRS, nullptr, LANGS, nullptr },
 #include "clang/Basic/intel/BuiltinsSPIRINTELFpga.def"
 };
 

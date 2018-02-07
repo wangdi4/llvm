@@ -35,6 +35,7 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/MathExtras.h"
+#include "intel/SemaIntelImpl.h" // INTEL
 
 using namespace clang;
 using namespace sema;
@@ -540,14 +541,13 @@ static bool isCapabilityExpr(Sema &S, const Expr *Ex) {
   // a DeclRefExpr is found, its type should be checked to determine whether it
   // is a capability or not.
 
-  if (const auto *E = dyn_cast<DeclRefExpr>(Ex))
-    return typeHasCapability(S, E->getType());
-  else if (const auto *E = dyn_cast<CastExpr>(Ex))
+  if (const auto *E = dyn_cast<CastExpr>(Ex))
     return isCapabilityExpr(S, E->getSubExpr());
   else if (const auto *E = dyn_cast<ParenExpr>(Ex))
     return isCapabilityExpr(S, E->getSubExpr());
   else if (const auto *E = dyn_cast<UnaryOperator>(Ex)) {
-    if (E->getOpcode() == UO_LNot)
+    if (E->getOpcode() == UO_LNot || E->getOpcode() == UO_AddrOf ||
+        E->getOpcode() == UO_Deref)
       return isCapabilityExpr(S, E->getSubExpr());
     return false;
   } else if (const auto *E = dyn_cast<BinaryOperator>(Ex)) {
@@ -557,7 +557,7 @@ static bool isCapabilityExpr(Sema &S, const Expr *Ex) {
     return false;
   }
 
-  return false;
+  return typeHasCapability(S, Ex->getType());
 }
 
 /// \brief Checks that all attribute arguments, starting from Sidx, resolve to
@@ -1845,12 +1845,6 @@ static void handleIFuncAttr(Sema &S, Decl *D, const AttributeList &Attr) {
     S.Diag(Attr.getLoc(), diag::err_alias_is_definition) << FD << 1;
     return;
   }
-  // FIXME: it should be handled as a target specific attribute.
-  if (S.Context.getTargetInfo().getTriple().getObjectFormat() !=
-          llvm::Triple::ELF) {
-    S.Diag(Attr.getLoc(), diag::warn_attribute_ignored) << Attr.getName();
-    return;
-  }
 
   D->addAttr(::new (S.Context) IFuncAttr(Attr.getRange(), S.Context, Str,
                                          Attr.getAttributeSpellingListIndex()));
@@ -2156,10 +2150,10 @@ static void handleUsedAttr(Sema &S, Decl *D, const AttributeList &Attr) {
 }
 
 static void handleUnusedAttr(Sema &S, Decl *D, const AttributeList &Attr) {
-  bool IsCXX1zAttr = Attr.isCXX11Attribute() && !Attr.getScopeName();
+  bool IsCXX17Attr = Attr.isCXX11Attribute() && !Attr.getScopeName();
 
-  if (IsCXX1zAttr && isa<VarDecl>(D)) {
-    // The C++1z spelling of this attribute cannot be applied to a static data
+  if (IsCXX17Attr && isa<VarDecl>(D)) {
+    // The C++17 spelling of this attribute cannot be applied to a static data
     // member per [dcl.attr.unused]p2.
     if (cast<VarDecl>(D)->isStaticDataMember()) {
       S.Diag(Attr.getLoc(), diag::warn_attribute_wrong_decl_type)
@@ -2168,9 +2162,9 @@ static void handleUnusedAttr(Sema &S, Decl *D, const AttributeList &Attr) {
     }
   }
 
-  // If this is spelled as the standard C++1z attribute, but not in C++1z, warn
+  // If this is spelled as the standard C++17 attribute, but not in C++17, warn
   // about using it as an extension.
-  if (!S.getLangOpts().CPlusPlus1z && IsCXX1zAttr)
+  if (!S.getLangOpts().CPlusPlus17 && IsCXX17Attr)
     S.Diag(Attr.getLoc(), diag::ext_cxx17_attr) << Attr.getName();
 
   D->addAttr(::new (S.Context) UnusedAttr(
@@ -2871,9 +2865,9 @@ static void handleWarnUnusedResult(Sema &S, Decl *D, const AttributeList &Attr) 
       return;
     }
   
-  // If this is spelled as the standard C++1z attribute, but not in C++1z, warn
+  // If this is spelled as the standard C++17 attribute, but not in C++17, warn
   // about using it as an extension.
-  if (!S.getLangOpts().CPlusPlus1z && Attr.isCXX11Attribute() &&
+  if (!S.getLangOpts().CPlusPlus17 && Attr.isCXX11Attribute() &&
       !Attr.getScopeName())
     S.Diag(Attr.getLoc(), diag::ext_cxx17_attr) << Attr.getName();
 
@@ -3225,7 +3219,8 @@ static void handleOpenCLLocalMemSizeAttr(Sema & S, Decl * D,
   if (D->isInvalidDecl())
     return;
 
-  if (!S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
+  if (!S.getLangOpts().HLS &&
+      !S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
     S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
         << Attr.getName();
     return;
@@ -3241,7 +3236,8 @@ static void handleOpenCLLocalMemSizeAttr(Sema & S, Decl * D,
   }
 
   QualType pointeeType = TypePtr->getPointeeType();
-  if (pointeeType.getAddressSpace() != LangAS::opencl_local) {
+  if (!S.getLangOpts().HLS &&
+      pointeeType.getAddressSpace() != LangAS::opencl_local) {
     S.Diag(Attr.getLoc(),
            diag::warn_opencl_attribute_only_for_local_address_space)
         << Attr.getName();
@@ -3266,6 +3262,414 @@ static void handleOpenCLLocalMemSizeAttr(Sema & S, Decl * D,
   D->addAttr(::new (S.Context) OpenCLLocalMemSizeAttr(
       Attr.getRange(), S.Context, localMemSize,
       Attr.getAttributeSpellingListIndex()));
+}
+
+/// \brief Give a warning for duplicate attributes, return true if duplicate.
+template <typename AttrType>
+static bool checkForDuplicateAttribute(Sema &S, Decl *D,
+                                       const AttributeList &Attr) {
+  // Give a warning for duplicates but not if it's one we've implicitly added.
+  auto *A = D->getAttr<AttrType>();
+  if (A && !A->isImplicit()) {
+    S.Diag(Attr.getLoc(), diag::warn_duplicate_attribute_exact)
+        << Attr.getName();
+    return true;
+  }
+  return false;
+}
+
+/// \brief Handle the __doublepump__ and __singlepump__ attributes.
+/// One but not both can be specified, and __register__ is incompatible.
+template <typename AttrType, typename IncompatAttrType>
+static void handlePumpAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+
+  if (checkForDuplicateAttribute<AttrType>(S, D, Attr))
+    return;
+  if (checkAttrMutualExclusion<IncompatAttrType>(S, D, Attr.getRange(),
+                                                 Attr.getName()))
+    return;
+
+  if (checkAttrMutualExclusion<RegisterAttr>(S, D, Attr.getRange(),
+                                             Attr.getName()))
+    return;
+
+  if (!D->hasAttr<MemoryAttr>())
+    D->addAttr(MemoryAttr::CreateImplicit(S.Context));
+
+  handleSimpleAttribute<AttrType>(S, D, Attr);
+}
+
+/// \brief Handle the __memory__ attribute.
+/// This is incompatible with the __register__ attribute.
+static void handleMemoryAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+
+  if (checkForDuplicateAttribute<MemoryAttr>(S, D, Attr))
+    return;
+  if (checkAttrMutualExclusion<RegisterAttr>(S, D, Attr.getRange(),
+                                             Attr.getName()))
+    return;
+
+  // We are adding a user memory attribute, drop any implicit default.
+  if (auto *MA = D->getAttr<MemoryAttr>())
+    if (MA->isImplicit())
+      D->dropAttr<MemoryAttr>();
+
+  handleSimpleAttribute<MemoryAttr>(S, D, Attr);
+}
+
+/// \brief Check for and diagnose attributes incompatible with register.
+/// return true if any incompatible attributes exist.
+static bool checkRegisterAttrCompatibility(Sema &S, Decl *D,
+                                           const AttributeList &Attr) {
+  bool InCompat = false;
+  if (auto *MA = D->getAttr<MemoryAttr>())
+    if (!MA->isImplicit() && checkAttrMutualExclusion<MemoryAttr>(
+                                 S, D, Attr.getRange(), Attr.getName()))
+      InCompat = true;
+  if (checkAttrMutualExclusion<DoublePumpAttr>(S, D, Attr.getRange(),
+                                               Attr.getName()))
+    InCompat = true;
+  if (checkAttrMutualExclusion<SinglePumpAttr>(S, D, Attr.getRange(),
+                                               Attr.getName()))
+    InCompat = true;
+  if (checkAttrMutualExclusion<MergeAttr>(S, D, Attr.getRange(),
+                                          Attr.getName()))
+    InCompat = true;
+  if (checkAttrMutualExclusion<BankBitsAttr>(S, D, Attr.getRange(),
+                                             Attr.getName()))
+    InCompat = true;
+  if (checkAttrMutualExclusion<BankWidthAttr>(S, D, Attr.getRange(),
+                                              Attr.getName()))
+    InCompat = true;
+  if (auto *NBA = D->getAttr<NumBanksAttr>())
+    if (!NBA->isImplicit() && checkAttrMutualExclusion<NumBanksAttr>(
+                                  S, D, Attr.getRange(), Attr.getName()))
+      InCompat = true;
+  if (checkAttrMutualExclusion<NumReadPortsAttr>(S, D, Attr.getRange(),
+                                                 Attr.getName()))
+    InCompat = true;
+  if (checkAttrMutualExclusion<NumWritePortsAttr>(S, D, Attr.getRange(),
+                                                  Attr.getName()))
+    InCompat = true;
+
+  return InCompat;
+}
+
+/// \brief Handle the __register__ attribute.
+/// This is incompatible with most of the other memory attributes.
+static void handleRegisterAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+
+  if (checkForDuplicateAttribute<RegisterAttr>(S, D, Attr))
+    return;
+  if (checkRegisterAttrCompatibility(S, D, Attr))
+    return;
+
+  handleSimpleAttribute<RegisterAttr>(S, D, Attr);
+}
+
+/// \brief Handle the numreadports, numwriteports, and static_array_reset
+/// attributes.  These require a single constant value.
+/// numreadports,numwriteports: must be greater than zero.
+/// static_array_reset: must be 0 or 1.
+/// These are incompatible with the register attribute.
+template <typename AttrType>
+static void handleOneConstantValueAttr(Sema &S, Decl *D,
+                                       const AttributeList &Attr) {
+  if (checkForDuplicateAttribute<AttrType>(S, D, Attr))
+    return;
+  if (checkAttrMutualExclusion<RegisterAttr>(S, D, Attr.getRange(),
+                                             Attr.getName()))
+    return;
+
+  S.AddOneConstantValueAttr<AttrType>(Attr.getRange(), D, Attr.getArgAsExpr(0),
+                                      Attr.getAttributeSpellingListIndex());
+}
+
+/// \brief Handle the bankwidth and numbanks attributes.
+/// These require a single constant power of two greater than zero.
+/// These are incompatible with the register attribute.
+/// The numbanks and bank_bits attributes are related.  If bank_bits exists
+/// when handling numbanks they are checked for consistency.
+template <typename AttrType>
+static void handleOneConstantPowerTwoValueAttr(Sema &S, Decl *D,
+                                               const AttributeList &Attr) {
+  if (checkForDuplicateAttribute<AttrType>(S, D, Attr))
+    return;
+  if (checkAttrMutualExclusion<RegisterAttr>(S, D, Attr.getRange(),
+                                             Attr.getName()))
+    return;
+
+  S.AddOneConstantPowerTwoValueAttr<AttrType>(
+      Attr.getRange(), D, Attr.getArgAsExpr(0),
+      Attr.getAttributeSpellingListIndex());
+}
+
+/// \brief Handle the numports_readonly_writeonly attribute.
+/// This requires two constant values greater than zero.
+/// This is incompatible with the register attribute.
+/// This generates a NumReadPortsAttr and a NumWritePortsAttr instead of
+/// its own attribute.
+static void handleNumPortsReadOnlyWriteOnlyAttr(Sema &S, Decl *D,
+                                                const AttributeList &Attr) {
+  if (checkForDuplicateAttribute<NumReadPortsAttr>(S, D, Attr))
+    return;
+  if (checkForDuplicateAttribute<NumWritePortsAttr>(S, D, Attr))
+    return;
+  if (checkAttrMutualExclusion<RegisterAttr>(S, D, Attr.getRange(),
+                                             Attr.getName()))
+    return;
+
+  S.AddOneConstantValueAttr<NumReadPortsAttr>(Attr.getRange(), D,
+                                              Attr.getArgAsExpr(0), 0);
+  S.AddOneConstantValueAttr<NumWritePortsAttr>(Attr.getRange(), D,
+                                               Attr.getArgAsExpr(1), 0);
+}
+
+/// \brief Handle the merge attribute.
+/// This requires two string arguments.  The first argument is a name, the
+/// second is a direction.  The direction must be "depth" or "width".
+/// This is incompatible with the register attribute.
+static void handleMergeAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+
+  if (checkForDuplicateAttribute<MergeAttr>(S, D, Attr))
+    return;
+
+  if (checkAttrMutualExclusion<RegisterAttr>(S, D, Attr.getRange(),
+                                             Attr.getName()))
+    return;
+
+  SmallVector<StringRef, 2> Results;
+  for (int I = 0; I < 2; I++) {
+    StringRef Str;
+    if (!S.checkStringLiteralArgumentAttr(Attr, I, Str))
+      return;
+
+    if (I == 1 && Str != "depth" && Str != "width") {
+      S.Diag(Attr.getLoc(), diag::err_hls_merge_dir_invalid) << Attr.getName();
+      return;
+    }
+    Results.push_back(Str);
+  }
+
+  if (!D->hasAttr<MemoryAttr>())
+    D->addAttr(MemoryAttr::CreateImplicit(S.Context));
+
+  D->addAttr(::new (S.Context)
+                 MergeAttr(Attr.getRange(), S.Context, Results[0], Results[1],
+                           Attr.getAttributeSpellingListIndex()));
+}
+
+/// \brief Handle the bank_bits attribute.
+/// This attribute accepts a list of values greater than zero.
+/// This is incompatible with the register attribute.
+/// The numbanks and bank_bits attributes are related.  If numbanks exists
+/// when handling bank_bits they are checked for consistency.  If numbanks
+/// hasn't been added yet an implicit one is added with the correct value.
+/// If the user later adds a numbanks attribute the implicit one is removed.
+/// The values must be consecutive values (i.e. 3,4,5 or 1,2).
+static void handleBankBitsAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+
+  if (checkForDuplicateAttribute<BankBitsAttr>(S, D, Attr))
+    return;
+
+  if (!checkAttributeAtLeastNumArgs(S, Attr, 1))
+    return;
+
+  if (checkAttrMutualExclusion<RegisterAttr>(S, D, Attr.getRange(),
+                                             Attr.getName()))
+    return;
+
+  SmallVector<Expr *, 8> Args;
+  for (unsigned I = 0; I < Attr.getNumArgs(); ++I) {
+    Args.push_back(Attr.getArgAsExpr(I));
+  }
+
+  S.AddBankBitsAttr(Attr.getRange(), D, Args.data(), Args.size(),
+                    Attr.getAttributeSpellingListIndex());
+}
+
+void Sema::AddBankBitsAttr(SourceRange AttrRange, Decl *D, Expr **Exprs,
+                           unsigned Size, unsigned SpellingListIndex) {
+  BankBitsAttr TmpAttr(AttrRange, Context, Exprs, Size, SpellingListIndex);
+  SmallVector<Expr *, 8> Args;
+  SmallVector<llvm::APSInt, 8> Values;
+  for (auto *E : TmpAttr.args()) {
+    llvm::APSInt Value(32, /*IsUnsigned=*/false);
+    if (!E->isValueDependent()) {
+      ExprResult ICE;
+      if (checkRangedIntegralArgument<BankBitsAttr>(E, &TmpAttr, ICE))
+        return;
+      E->EvaluateAsInt(Value, Context);
+      if (!Values.empty()) {
+        llvm::APSInt Expected(32, /*IsUnsigned=*/false);
+        Expected = Values.back() + 1;
+        // Expected == 1 would only happen for a value-dependent template
+        // which we can't check yet.
+        if (Expected != 1 && Value != Expected) {
+          Diag(AttrRange.getBegin(), diag::err_bankbits_non_consecutive)
+              << &TmpAttr;
+          return;
+        }
+      }
+      E = ICE.get();
+    }
+    Args.push_back(E);
+    Values.push_back(Value);
+  }
+
+  // Check or add the related numbanks attribute.
+  if (auto *NBA = D->getAttr<NumBanksAttr>()) {
+    Expr *E = NBA->getValue();
+    if (!E->isValueDependent()) {
+      llvm::APSInt Value(32);
+      E->EvaluateAsInt(Value, Context);
+      if (Args.size() != Value.ceilLogBase2()) {
+        Diag(AttrRange.getBegin(), diag::err_bankbits_numbanks_conflicting);
+        return;
+      }
+    }
+  } else {
+    llvm::APInt Num(32, (unsigned)(1 << Args.size()));
+    Expr *NBE =
+        IntegerLiteral::Create(Context, Num, Context.IntTy, SourceLocation());
+    D->addAttr(NumBanksAttr::CreateImplicit(Context, NBE));
+  }
+
+  if (!D->hasAttr<MemoryAttr>())
+    D->addAttr(MemoryAttr::CreateImplicit(Context));
+
+  D->addAttr(::new (Context) BankBitsAttr(AttrRange, Context, Args.data(),
+                                          Args.size(), SpellingListIndex));
+}
+
+static void setComponentDefaults(Sema &S, Decl *D) {
+  if (!D->hasAttr<ComponentAttr>())
+    D->addAttr(ComponentAttr::CreateImplicit(S.Context));
+  if (!D->hasAttr<ComponentInterfaceAttr>())
+    D->addAttr(ComponentInterfaceAttr::CreateImplicit(
+        S.Context, ComponentInterfaceAttr::Streaming));
+}
+
+static void handleComponentAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+
+  if (!checkAttributeNumArgs(S, Attr, /*NumArgsExpected=*/0))
+    return;
+
+  // We are adding a user attribute, drop any implicit default.
+  if (auto *CA = D->getAttr<ComponentAttr>())
+    if (CA->isImplicit())
+      D->dropAttr<ComponentAttr>();
+
+  handleSimpleAttribute<ComponentAttr>(S, D, Attr);
+  setComponentDefaults(S, D);
+}
+
+static void handleStallFreeReturnAttr(Sema &S, Decl *D,
+                                      const AttributeList &Attr) {
+
+  if (!checkAttributeNumArgs(S, Attr, /*NumArgsExpected=*/0))
+    return;
+
+  handleSimpleAttribute<StallFreeReturnAttr>(S, D, Attr);
+  setComponentDefaults(S, D);
+}
+
+static void handleUseSingleClockAttr(Sema &S, Decl *D,
+                                      const AttributeList &Attr) {
+
+  if (!checkAttributeNumArgs(S, Attr, /*NumArgsExpected=*/0))
+    return;
+
+  handleSimpleAttribute<UseSingleClockAttr>(S, D, Attr);
+  setComponentDefaults(S, D);
+}
+
+static void handleComponentInterfaceAttr(Sema &S, Decl *D,
+                                         const AttributeList &Attr) {
+
+  if (!checkAttributeNumArgs(S, Attr, /*NumArgsExpected=*/1))
+    return;
+
+  StringRef Str;
+  if (!S.checkStringLiteralArgumentAttr(Attr, 0, Str))
+    return;
+
+  ComponentInterfaceAttr::ComponentInterfaceType Type;
+  if (!ComponentInterfaceAttr::ConvertStrToComponentInterfaceType(Str, Type)) {
+    SmallString<256> ValidStrings;
+    ComponentInterfaceAttr::generateValidStrings(ValidStrings);
+    S.Diag(D->getLocation(), diag::err_attribute_interface_invalid_type)
+        << Attr.getName() << ValidStrings;
+    return;
+  }
+
+  // We are adding a user attribute, drop any implicit default.
+  if (auto *CIA = D->getAttr<ComponentInterfaceAttr>())
+    if (CIA->isImplicit())
+      D->dropAttr<ComponentInterfaceAttr>();
+
+  D->addAttr(::new (S.Context) ComponentInterfaceAttr(
+      Attr.getRange(), S.Context, Type, Attr.getAttributeSpellingListIndex()));
+
+  setComponentDefaults(S, D);
+}
+
+static void handleMaxConcurrencyAttr(Sema &S, Decl *D,
+                                     const AttributeList &Attr) {
+  S.AddMaxConcurrencyAttr(Attr.getRange(), D, Attr.getArgAsExpr(0),
+                          Attr.getAttributeSpellingListIndex());
+}
+
+void Sema::AddMaxConcurrencyAttr(SourceRange AttrRange, Decl *D, Expr *E,
+                                 unsigned SpellingListIndex) {
+  MaxConcurrencyAttr TmpAttr(AttrRange, Context, E, SpellingListIndex);
+
+  if (!E->isValueDependent()) {
+    ExprResult ICE;
+    if (checkRangedIntegralArgument<MaxConcurrencyAttr>(E, &TmpAttr, ICE))
+      return;
+    E = ICE.get();
+  }
+  D->addAttr(::new (Context)
+                 MaxConcurrencyAttr(AttrRange, Context, E, SpellingListIndex));
+}
+
+static void handleArgumentInterfaceAttr(Sema & S, Decl * D,
+                                        const AttributeList &Attr) {
+  if (!checkAttributeNumArgs(S, Attr, /*Num=*/1))
+    return;
+
+  StringRef Str;
+  if (!S.checkStringLiteralArgumentAttr(Attr, 0, Str))
+    return;
+
+  ArgumentInterfaceAttr::ArgumentInterfaceType Type;
+  if (!ArgumentInterfaceAttr::ConvertStrToArgumentInterfaceType(Str, Type)) {
+    SmallString<256> ValidStrings;
+    ArgumentInterfaceAttr::generateValidStrings(ValidStrings);
+    S.Diag(D->getLocation(), diag::err_attribute_interface_invalid_type)
+        << Attr.getName() << ValidStrings;
+    return;
+  }
+
+  D->addAttr(::new (S.Context) ArgumentInterfaceAttr(
+      Attr.getRange(), S.Context, Type, Attr.getAttributeSpellingListIndex()));
+}
+
+static void handleStableArgumentAttr(Sema &S, Decl *D,
+                                     const AttributeList &Attr) {
+  if (!checkAttributeNumArgs(S, Attr, /*Num=*/0))
+    return;
+
+  handleSimpleAttribute<StableArgumentAttr>(S, D, Attr);
+}
+
+static void handleSlaveMemoryArgumentAttr(Sema &S, Decl *D,
+                                          const AttributeList &Attr) {
+  if (!checkAttributeNumArgs(S, Attr, /*Num=*/0))
+    return;
+
+  handleSimpleAttribute<SlaveMemoryArgumentAttr>(S, D, Attr);
 }
 
 static void handleOpenCLBufferLocationAttr(Sema & S, Decl * D,
@@ -3880,12 +4284,6 @@ static void handleTargetAttr(Sema &S, Decl *D, const AttributeList &Attr) {
 }
 
 static void handleCleanupAttr(Sema &S, Decl *D, const AttributeList &Attr) {
-  VarDecl *VD = cast<VarDecl>(D);
-  if (!VD->hasLocalStorage()) {
-    S.Diag(Attr.getLoc(), diag::warn_attribute_ignored) << Attr.getName();
-    return;
-  }
-
   Expr *E = Attr.getArgAsExpr(0);
   SourceLocation Loc = E->getExprLoc();
   FunctionDecl *FD = nullptr;
@@ -3928,7 +4326,7 @@ static void handleCleanupAttr(Sema &S, Decl *D, const AttributeList &Attr) {
 
   // We're currently more strict than GCC about what function types we accept.
   // If this ever proves to be a problem it should be easy to fix.
-  QualType Ty = S.Context.getPointerType(VD->getType());
+  QualType Ty = S.Context.getPointerType(cast<VarDecl>(D)->getType());
   QualType ParamTy = FD->getParamDecl(0)->getType();
   if (S.CheckAssignmentConstraints(FD->getParamDecl(0)->getLocation(),
                                    ParamTy, Ty) != Sema::Compatible) {
@@ -7679,6 +8077,67 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     break;
   case AttributeList::AT_OpenCLHostAccessible:
     handleOpenCLHostAccessible(S, D, Attr);
+    break;
+  // Intel HLS specific attributes
+  case AttributeList::AT_SinglePump:
+    handlePumpAttr<SinglePumpAttr, DoublePumpAttr>(S, D, Attr);
+    break;
+  case AttributeList::AT_DoublePump:
+    handlePumpAttr<DoublePumpAttr, SinglePumpAttr>(S, D, Attr);
+    break;
+  case AttributeList::AT_Memory:
+    handleMemoryAttr(S, D, Attr);
+    break;
+  case AttributeList::AT_Register:
+    handleRegisterAttr(S, D, Attr);
+    break;
+  case AttributeList::AT_BankWidth:
+    handleOneConstantPowerTwoValueAttr<BankWidthAttr>(S, D, Attr);
+    break;
+  case AttributeList::AT_NumBanks:
+    handleOneConstantPowerTwoValueAttr<NumBanksAttr>(S, D, Attr);
+    break;
+  case AttributeList::AT_NumReadPorts:
+    handleOneConstantValueAttr<NumReadPortsAttr>(S, D, Attr);
+    break;
+  case AttributeList::AT_NumWritePorts:
+    handleOneConstantValueAttr<NumWritePortsAttr>(S, D, Attr);
+    break;
+  case AttributeList::AT_NumPortsReadOnlyWriteOnly:
+    handleNumPortsReadOnlyWriteOnlyAttr(S, D, Attr);
+    break;
+  case AttributeList::AT_Merge:
+    handleMergeAttr(S, D, Attr);
+    break;
+  case AttributeList::AT_BankBits:
+    handleBankBitsAttr(S, D, Attr);
+    break;
+  case AttributeList::AT_StaticArrayReset:
+    handleOneConstantValueAttr<StaticArrayResetAttr>(S, D, Attr);
+    break;
+  case AttributeList::AT_Component:
+    handleComponentAttr(S, D, Attr);
+    break;
+  case AttributeList::AT_StallFreeReturn:
+    handleStallFreeReturnAttr(S, D, Attr);
+    break;
+  case AttributeList::AT_UseSingleClock:
+    handleUseSingleClockAttr(S, D, Attr);
+    break;
+  case AttributeList::AT_ComponentInterface:
+    handleComponentInterfaceAttr(S, D, Attr);
+    break;
+  case AttributeList::AT_MaxConcurrency:
+    handleMaxConcurrencyAttr(S, D, Attr);
+    break;
+  case AttributeList::AT_ArgumentInterface:
+    handleArgumentInterfaceAttr(S, D, Attr);
+    break;
+  case AttributeList::AT_StableArgument:
+    handleStableArgumentAttr(S, D, Attr);
+    break;
+  case AttributeList::AT_SlaveMemoryArgument:
+    handleSlaveMemoryArgumentAttr(S, D, Attr);
     break;
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_SPECIFIC_CILKPLUS

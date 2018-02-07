@@ -280,6 +280,11 @@ public:
   std::vector<std::string> OffloadTargets;
 #endif // INTEL_CUSTOMIZATION
 
+  /// The preferred width for auto-vectorization transforms. This is intended to
+  /// override default transforms based on the width of the architected vector
+  /// registers.
+  std::string PreferVectorWidth;
+
 public:
   // Define accessors/mutators for code generation options of enumeration type.
 #define CODEGENOPT(Name, Bits, Default)

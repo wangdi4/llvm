@@ -534,6 +534,18 @@ def err_va_pack_not_last : Error<"__builtin_va_arg_pack must be the last "
 def err_va_pack_not_variadic : Error<"__builtin_va_arg_pack can only be used "
                                      "as a parameter to a variadic argument">;
 
+// Intel HLS extensions
+def err_attribute_interface_invalid_type : Error<
+  "string passed to %0 attribute is not a valid interface type. Valid component invocation interface types are: %1">;
+def err_attribute_argument_not_power_of_two : Error<
+  "%0 attribute argument must be a constant power of two greater than zero">;
+def err_hls_merge_dir_invalid : Error<
+  "merge direction must be 'depth' or 'width'">;
+def err_bankbits_numbanks_conflicting : Error<
+  "the number of bank_bits must be equal to ceil(log2(numbanks))">;
+def err_bankbits_non_consecutive : Error<
+  "bank_bits must be consecutive">;
+
 // Intel OpenCL FPGA extension
 def warn_opencl_attribute_only_for_local_address_space : Warning<
   "%0 attribute can be aplied only for parameters that reside "
@@ -614,4 +626,19 @@ def warn_intel_opencl_attribute_wrong_decl_type : Warning<
   "|OpenCL channels"
   "|OpenCL pipes}1">,
   InGroup<IgnoredAttributes>;
+
+def err_hls_builtin_arg_mismatch : Error<
+  "HLS builtin parameter must be %select{"
+  "a pointer to a complete object type"
+  "|an integer"
+  "|a non-negative integer constant"
+  "|a factor of the type size"
+  "|a boolean value"
+  "|a pointer to a boolean"
+  "|a power of two integer between 8 and 1024"
+  "|an integer between 1 and 64 inclusive"
+  "|an integer between 1 and 1024 inclusive}0">;
+def err_hls_builtin_without_fhls : Error <
+  "HLS builtin can only be used when the HLS flag is present on the command "
+  "line invocation">;
 } // end of sema component.

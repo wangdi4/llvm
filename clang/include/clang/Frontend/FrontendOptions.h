@@ -35,6 +35,9 @@ namespace frontend {
     DumpTokens,             ///< Dump out preprocessed tokens.
     EmitAssembly,           ///< Emit a .s file.
     EmitBC,                 ///< Emit a .bc file.
+#if INTEL_CUSTOMIZATION
+    EmitSPIRV,              ///< Emit a .spv file.
+#endif // INTEL_CUSTOMIZATION
     EmitHTML,               ///< Translate input source into HTML.
     EmitLLVM,               ///< Emit a .ll file.
     EmitLLVMOnly,           ///< Generate LLVM IR, but do not emit anything.

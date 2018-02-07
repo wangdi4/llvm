@@ -668,6 +668,7 @@ namespace CGIntelOpenMP {
       case OO_Greater:
       case OO_LessEqual:
       case OO_GreaterEqual:
+      case OO_Spaceship:
       case OO_PlusEqual:
       case OO_MinusEqual:
       case OO_StarEqual:
@@ -1191,6 +1192,10 @@ namespace CGIntelOpenMP {
   OpenMPCodeOutliner::OpenMPCodeOutliner(CodeGenFunction &CGF,
                                          const OMPExecutableDirective &D)
       : CGF(CGF), C(CGF.CGM.getLLVMContext()), Directive(D) {
+    // Set an attribute indicating that the routine may have OpenMP directives
+    // (represented with llvm intrinsics) in the LLVM IR
+    CGF.CurFn->addFnAttr("may-have-openmp-directive", "true");
+
     RegionEntryDirective = CGF.CGM.getIntrinsic(
                                llvm::Intrinsic::directive_region_entry);
     RegionExitDirective = CGF.CGM.getIntrinsic(
@@ -1467,26 +1472,7 @@ namespace CGIntelOpenMP {
       });
     }
     // 'private' clause must be handled separately.
-    if (D.hasClausesOfKind<OMPPrivateClause>()) {
-      for (const auto *C : D.getClausesOfKind<OMPPrivateClause>()) {
-        for (auto *Ref : C->varlists()) {
-          if (auto *DRE = dyn_cast<DeclRefExpr>(Ref->IgnoreParenImpCasts())) {
-            if (auto *VD = dyn_cast<VarDecl>(DRE->getDecl())) {
-              if (VD->isLocalVarDeclOrParm())
-                continue;
-
-              DeclRefExpr DRE(const_cast<VarDecl *>(VD),
-                              /*RefersToEnclosingVariableOrCapture=*/false,
-                              VD->getType().getNonReferenceType(), VK_LValue,
-                              SourceLocation());
-              PrivScope.addPrivate(VD, [&CGF, &DRE]() -> Address {
-                return CGF.EmitLValue(&DRE).getAddress();
-              });
-            }
-          }
-        }
-      }
-    }
+    CGF.RemapInlinedPrivates(D, PrivScope);
     (void)PrivScope.Privatize();
     CGF.EmitStmt(CS->getCapturedStmt());
   }

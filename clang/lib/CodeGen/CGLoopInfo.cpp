@@ -28,6 +28,12 @@ static MDNode *createMetadata(LLVMContext &Ctx, const LoopAttributes &Attrs,
       Attrs.VectorizeEnable == LoopAttributes::Unspecified &&
       Attrs.UnrollEnable == LoopAttributes::Unspecified &&
       Attrs.DistributeEnable == LoopAttributes::Unspecified &&
+#if INTEL_CUSTOMIZATION
+      Attrs.LoopCoalesceEnable == LoopAttributes::Unspecified &&
+      Attrs.LoopCoalesceCount == 0 && Attrs.IICount == 0 &&
+      Attrs.MaxConcurrencyCount == 0 && Attrs.IVDepCount == 0 &&
+      Attrs.IVDepEnable == LoopAttributes::Unspecified &&
+#endif // INTEL_CUSTOMIZATION
       !StartLoc && !EndLoc)
     return nullptr;
 
@@ -60,6 +66,47 @@ static MDNode *createMetadata(LLVMContext &Ctx, const LoopAttributes &Attrs,
                             Type::getInt32Ty(Ctx), Attrs.InterleaveCount))};
     Args.push_back(MDNode::get(Ctx, Vals));
   }
+
+#if INTEL_CUSTOMIZATION
+  // Setting II count
+  if (Attrs.IICount > 0) {
+    Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.ii.count"),
+                        ConstantAsMetadata::get(ConstantInt::get(
+                            Type::getInt32Ty(Ctx), Attrs.IICount))};
+    Args.push_back(MDNode::get(Ctx, Vals));
+  }
+  // Setting max_concurrency count
+  if (Attrs.MaxConcurrencyCount > 0) {
+    Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.max_concurrency.count"),
+                        ConstantAsMetadata::get(ConstantInt::get(
+                            Type::getInt32Ty(Ctx), Attrs.MaxConcurrencyCount))};
+    Args.push_back(MDNode::get(Ctx, Vals));
+  }
+  // Setting loop_coalesce count
+  if (Attrs.LoopCoalesceCount > 0) {
+    Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.coalesce.count"),
+                        ConstantAsMetadata::get(ConstantInt::get(
+                            Type::getInt32Ty(Ctx), Attrs.LoopCoalesceCount))};
+    Args.push_back(MDNode::get(Ctx, Vals));
+  }
+  // Setting loop_coalesce
+  if (Attrs.LoopCoalesceEnable != LoopAttributes::Unspecified) {
+    Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.coalesce.enable")};
+    Args.push_back(MDNode::get(Ctx, Vals));
+  }
+  // Setting ivdep safelen count
+  if (Attrs.IVDepCount > 0) {
+    Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.ivdep.safelen"),
+                        ConstantAsMetadata::get(ConstantInt::get(
+                            Type::getInt32Ty(Ctx), Attrs.IVDepCount))};
+    Args.push_back(MDNode::get(Ctx, Vals));
+  }
+  // Setting ivdep
+  if (Attrs.IVDepEnable != LoopAttributes::Unspecified) {
+    Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.ivdep.enable")};
+    Args.push_back(MDNode::get(Ctx, Vals));
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // Setting interleave.count
   if (Attrs.UnrollCount > 0) {
@@ -106,13 +153,27 @@ static MDNode *createMetadata(LLVMContext &Ctx, const LoopAttributes &Attrs,
 }
 
 LoopAttributes::LoopAttributes(bool IsParallel)
-    : IsParallel(IsParallel), VectorizeEnable(LoopAttributes::Unspecified),
+#if INTEL_CUSTOMIZATION
+    : IsParallel(IsParallel),
+      LoopCoalesceEnable(LoopAttributes::Unspecified),
+      LoopCoalesceCount(0), IICount(0), MaxConcurrencyCount(0),
+      IVDepEnable(LoopAttributes::Unspecified), IVDepCount(0),
+      VectorizeEnable(LoopAttributes::Unspecified),
+#endif // INTEL_CUSTOMIZATION
       UnrollEnable(LoopAttributes::Unspecified), VectorizeWidth(0),
       InterleaveCount(0), UnrollCount(0),
       DistributeEnable(LoopAttributes::Unspecified) {}
 
 void LoopAttributes::clear() {
   IsParallel = false;
+#if INTEL_CUSTOMIZATION
+  LoopCoalesceEnable = LoopAttributes::Unspecified;
+  LoopCoalesceCount = 0;
+  IICount = 0;
+  MaxConcurrencyCount = 0;
+  IVDepEnable = LoopAttributes::Unspecified;
+  IVDepCount = 0;
+#endif // INTEL_CUSTOMIZATION
   VectorizeWidth = 0;
   InterleaveCount = 0;
   UnrollCount = 0;
@@ -200,6 +261,12 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::UnrollCount:
       case LoopHintAttr::VectorizeWidth:
       case LoopHintAttr::InterleaveCount:
+#if INTEL_CUSTOMIZATION
+      case LoopHintAttr::II:
+      case LoopHintAttr::IVDep:
+      case LoopHintAttr::LoopCoalesce:
+      case LoopHintAttr::MaxConcurrency:
+#endif // INTEL_CUSTOMIZATION
         llvm_unreachable("Options cannot be disabled.");
         break;
       }
@@ -221,6 +288,18 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::InterleaveCount:
         llvm_unreachable("Options cannot enabled.");
         break;
+#if INTEL_CUSTOMIZATION
+      case LoopHintAttr::II:
+      case LoopHintAttr::MaxConcurrency:
+        llvm_unreachable("Options cannot enabled.");
+        break;
+      case LoopHintAttr::IVDep:
+        setIVDepEnable();
+        break;
+      case LoopHintAttr::LoopCoalesce:
+        setLoopCoalesceEnable();
+        break;
+#endif // INTEL_CUSTOMIZATION
       }
       break;
     case LoopHintAttr::AssumeSafety:
@@ -236,6 +315,12 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::VectorizeWidth:
       case LoopHintAttr::InterleaveCount:
       case LoopHintAttr::Distribute:
+#if INTEL_CUSTOMIZATION
+      case LoopHintAttr::II:
+      case LoopHintAttr::IVDep:
+      case LoopHintAttr::LoopCoalesce:
+      case LoopHintAttr::MaxConcurrency:
+#endif // INTEL_CUSTOMIZATION
         llvm_unreachable("Options cannot be used to assume mem safety.");
         break;
       }
@@ -251,6 +336,14 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::VectorizeWidth:
       case LoopHintAttr::InterleaveCount:
       case LoopHintAttr::Distribute:
+#if INTEL_CUSTOMIZATION
+      case LoopHintAttr::IVDep:
+        setIVDepCount(ValueInt);
+        break;
+      case LoopHintAttr::II:
+      case LoopHintAttr::LoopCoalesce:
+      case LoopHintAttr::MaxConcurrency:
+#endif // INTEL_CUSTOMIZATION
         llvm_unreachable("Options cannot be used with 'full' hint.");
         break;
       }
@@ -266,6 +359,20 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::UnrollCount:
         setUnrollCount(ValueInt);
         break;
+#if INTEL_CUSTOMIZATION
+      case LoopHintAttr::LoopCoalesce:
+        setLoopCoalesceCount(ValueInt);
+        break;
+      case LoopHintAttr::II:
+        setIICount(ValueInt);
+        break;
+      case LoopHintAttr::MaxConcurrency:
+        setMaxConcurrencyCount(ValueInt);
+        break;
+      case LoopHintAttr::IVDep:
+        setIVDepCount(ValueInt);
+        break;
+#endif // INTEL_CUSTOMIZATION
       case LoopHintAttr::Unroll:
       case LoopHintAttr::Vectorize:
       case LoopHintAttr::Interleave:
@@ -274,6 +381,27 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
         break;
       }
       break;
+#if INTEL_CUSTOMIZATION
+    case LoopHintAttr::LoopExpr:
+      switch (Option) {
+      case LoopHintAttr::IVDep:
+        // Handled with IntelIVDepArrayHandler.
+        break;
+      case LoopHintAttr::VectorizeWidth:
+      case LoopHintAttr::InterleaveCount:
+      case LoopHintAttr::UnrollCount:
+      case LoopHintAttr::II:
+      case LoopHintAttr::LoopCoalesce:
+      case LoopHintAttr::MaxConcurrency:
+      case LoopHintAttr::Unroll:
+      case LoopHintAttr::Vectorize:
+      case LoopHintAttr::Interleave:
+      case LoopHintAttr::Distribute:
+        llvm_unreachable("Options cannot be assigned a loopexpr value.");
+        break;
+      }
+      break;
+#endif // INTEL_CUSTOMIZATION
     }
   }
 

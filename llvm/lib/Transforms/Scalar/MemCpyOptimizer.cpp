@@ -476,22 +476,33 @@ Instruction *MemCpyOptPass::tryMergingIntoMemset(Instruction *StartInst,
       Alignment = DL.getABITypeAlignment(EltType);
     }
 
-    AMemSet =
-      Builder.CreateMemSet(StartPtr, ByteVal, Range.End-Range.Start, Alignment);
+    // Remember the debug location.
+    DebugLoc Loc;
+    if (!Range.TheStores.empty())
+      Loc = Range.TheStores[0]->getDebugLoc();
 
     DEBUG(dbgs() << "Replace stores:\n";
           for (Instruction *SI : Range.TheStores)
-            dbgs() << *SI << '\n';
-          dbgs() << "With: " << *AMemSet << '\n');
-
-    if (!Range.TheStores.empty())
-      AMemSet->setDebugLoc(Range.TheStores[0]->getDebugLoc());
+            dbgs() << *SI << '\n');
 
     // Zap all the stores.
     for (Instruction *SI : Range.TheStores) {
       MD->removeInstruction(SI);
       SI->eraseFromParent();
     }
+
+    // Create the memset after removing the stores, so that if there any cached
+    // non-local dependencies on the removed instructions in
+    // MemoryDependenceAnalysis, the cache entries are updated to "dirty"
+    // entries pointing below the memset, so subsequent queries include the
+    // memset.
+    AMemSet =
+      Builder.CreateMemSet(StartPtr, ByteVal, Range.End-Range.Start, Alignment);
+    if (!Range.TheStores.empty())
+      AMemSet->setDebugLoc(Loc);
+
+    DEBUG(dbgs() << "With: " << *AMemSet << '\n');
+
     ++NumMemSetInfer;
   }
 
@@ -518,7 +529,7 @@ static bool moveUp(AliasAnalysis &AA, StoreInst *SI, Instruction *P,
                    const LoadInst *LI) {
   // If the store alias this position, early bail out.
   MemoryLocation StoreLoc = MemoryLocation::get(SI);
-  if (AA.getModRefInfo(P, StoreLoc) != MRI_NoModRef)
+  if (isModOrRefSet(AA.getModRefInfo(P, StoreLoc)))
     return false;
 
   // Keep track of the arguments of all instruction we plan to lift
@@ -542,20 +553,20 @@ static bool moveUp(AliasAnalysis &AA, StoreInst *SI, Instruction *P,
   for (auto I = --SI->getIterator(), E = P->getIterator(); I != E; --I) {
     auto *C = &*I;
 
-    bool MayAlias = AA.getModRefInfo(C, None) != MRI_NoModRef;
+    bool MayAlias = isModOrRefSet(AA.getModRefInfo(C, None));
 
     bool NeedLift = false;
     if (Args.erase(C))
       NeedLift = true;
     else if (MayAlias) {
       NeedLift = llvm::any_of(MemLocs, [C, &AA](const MemoryLocation &ML) {
-        return AA.getModRefInfo(C, ML);
+        return isModOrRefSet(AA.getModRefInfo(C, ML));
       });
 
       if (!NeedLift)
         NeedLift =
             llvm::any_of(CallSites, [C, &AA](const ImmutableCallSite &CS) {
-              return AA.getModRefInfo(C, CS);
+              return isModOrRefSet(AA.getModRefInfo(C, CS));
             });
     }
 
@@ -565,18 +576,18 @@ static bool moveUp(AliasAnalysis &AA, StoreInst *SI, Instruction *P,
     if (MayAlias) {
       // Since LI is implicitly moved downwards past the lifted instructions,
       // none of them may modify its source.
-      if (AA.getModRefInfo(C, LoadLoc) & MRI_Mod)
+      if (isModSet(AA.getModRefInfo(C, LoadLoc)))
         return false;
       else if (auto CS = ImmutableCallSite(C)) {
         // If we can't lift this before P, it's game over.
-        if (AA.getModRefInfo(P, CS) != MRI_NoModRef)
+        if (isModOrRefSet(AA.getModRefInfo(P, CS)))
           return false;
 
         CallSites.push_back(CS);
       } else if (isa<LoadInst>(C) || isa<StoreInst>(C) || isa<VAArgInst>(C)) {
         // If we can't lift this before P, it's game over.
         auto ML = MemoryLocation::get(C);
-        if (AA.getModRefInfo(P, ML) != MRI_NoModRef)
+        if (isModOrRefSet(AA.getModRefInfo(P, ML)))
           return false;
 
         MemLocs.push_back(ML);
@@ -631,7 +642,7 @@ bool MemCpyOptPass::processStore(StoreInst *SI, BasicBlock::iterator &BBI) {
         // of at the store position.
         Instruction *P = SI;
         for (auto &I : make_range(++LI->getIterator(), SI->getIterator())) {
-          if (AA.getModRefInfo(&I, LoadLoc) & MRI_Mod) {
+          if (isModSet(AA.getModRefInfo(&I, LoadLoc))) {
             P = &I;
             break;
           }
@@ -702,7 +713,7 @@ bool MemCpyOptPass::processStore(StoreInst *SI, BasicBlock::iterator &BBI) {
         MemoryLocation StoreLoc = MemoryLocation::get(SI);
         for (BasicBlock::iterator I = --SI->getIterator(), E = C->getIterator();
              I != E; --I) {
-          if (AA.getModRefInfo(&*I, StoreLoc) != MRI_NoModRef) {
+          if (isModOrRefSet(AA.getModRefInfo(&*I, StoreLoc))) {
             C = nullptr;
             break;
           }
@@ -934,9 +945,9 @@ bool MemCpyOptPass::performCallSlotOptzn(Instruction *cpy, Value *cpyDest,
   AliasAnalysis &AA = LookupAliasAnalysis();
   ModRefInfo MR = AA.getModRefInfo(C, cpyDest, srcSize);
   // If necessary, perform additional analysis.
-  if (MR != MRI_NoModRef)
+  if (isModOrRefSet(MR))
     MR = AA.callCapturesBefore(C, cpyDest, srcSize, &DT);
-  if (MR != MRI_NoModRef)
+  if (isModOrRefSet(MR))
     return false;
 
   // We can't create address space casts here because we don't know if they're

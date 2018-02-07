@@ -3295,12 +3295,8 @@ ExprResult Sema::ActOnCEANBuiltinExpr(Scope *S, SourceLocation StartLoc,
             << RankedExpr->getSourceRange();
         return ExprError();
       }
-      if (ScalarTypeToBooleanCastKind(RankedExpr->getType()) == CK_Invalid) {
-        Diag(RankedExpr->getExprLoc(), diag::err_typecheck_nonviable_condition)
-            << RankedExpr->getType() << Context.IntTy
-            << RankedExpr->getSourceRange();
-        return ExprError();
-      }
+      assert(ScalarTypeToBooleanCastKind(RankedExpr->getType()) >= 0 &&
+             "Invalid Scalar Type");
       InitExpr = ActOnIntegerConstant(RankedExpr->getExprLoc(), 1);
       ResType = Context.IntTy;
       break;
@@ -3311,12 +3307,8 @@ ExprResult Sema::ActOnCEANBuiltinExpr(Scope *S, SourceLocation StartLoc,
             << RankedExpr->getSourceRange();
         return ExprError();
       }
-      if (ScalarTypeToBooleanCastKind(RankedExpr->getType()) == CK_Invalid) {
-        Diag(RankedExpr->getExprLoc(), diag::err_typecheck_nonviable_condition)
-            << RankedExpr->getType() << Context.IntTy
-            << RankedExpr->getSourceRange();
-        return ExprError();
-      }
+      assert(ScalarTypeToBooleanCastKind(RankedExpr->getType()) >= 0 &&
+             "Invalid Scalar Type");
       InitExpr = ActOnIntegerConstant(RankedExpr->getExprLoc(), 0);
       ResType = Context.IntTy;
       break;
@@ -3557,8 +3549,8 @@ ExprResult Sema::ActOnCEANBuiltinExpr(Scope *S, SourceLocation StartLoc,
                         SourceLocation(), nullptr)
                 .get();
         Stmt *Stmts[] = { Body, IfStmt };
-        Body = new (Context) CompoundStmt(Context, llvm::makeArrayRef(Stmts),
-                                          SourceLocation(), SourceLocation());
+        Body = CompoundStmt::Create(Context, llvm::makeArrayRef(Stmts),
+                                    SourceLocation(), SourceLocation());
       } else if (CKind == CEANBuiltinExpr::ReduceMaxIndex ||
                  CKind == CEANBuiltinExpr::ReduceMinIndex) {
         Return = IndDRE;
