@@ -2,62 +2,69 @@
 
 ; Test check plain dump of a VPlan
 
-; CHECK:       Print after simplify plain CFG
-; CHECK-NEXT:  REGION: region1
-; CHECK-NEXT:  BB7:
+; CHECK: Print after simplify plain CFG
+; CHECK-NEXT:  REGION: [[region_1:region[0-9]+]] (BP: NULL)
+; CHECK-NEXT:  [[BB_7:BB[0-9]+]] (BP: NULL) :
 ; CHECK-NEXT:   <Empty Block>
-; CHECK-NEXT:  SUCCESSORS(1):BB5
-; CHECK-NEXT:  BB5:
-; CHECK-NEXT:   %vp{{[0-9]+}} = load i32* @N
-; CHECK-NEXT:   %vp{{[0-9]+}} = sext %vp{{[0-9]+}}
-; CHECK-NEXT:  SUCCESSORS(1):BB2
-; CHECK-NEXT:  BB2:
-; CHECK-NEXT:   %vp{{[0-9]+}} = phi i64 0 %vp{{[0-9]+}}
-; CHECK-NEXT:   %vp{{[0-9]+}} = getelementptr [1024 x i32]* @a i64 0 %vp{{[0-9]+}}
-; CHECK-NEXT:   %vp{{[0-9]+}} = load %vp{{[0-9]+}}
-; CHECK-NEXT:   %vp{{[0-9]+}} = getelementptr [1024 x i32]* @b i64 0 %vp{{[0-9]+}}
-; CHECK-NEXT:   %vp{{[0-9]+}} = load %vp{{[0-9]+}}
-; CHECK-NEXT:   %vp{{[0-9]+}} = icmp %vp{{[0-9]+}} %vp{{[0-9]+}}
-; CHECK-NEXT:  SUCCESSORS(1):BB9
-; CHECK-NEXT:  BB9:
+; CHECK-NEXT:  SUCCESSORS(1):[[BB_5:BB[0-9]+]]
+
+; CHECK:       [[BB_5]] (BP: NULL) :
+; CHECK-NEXT:   [[vp_864:%vp[0-9]+]] = load i32* @N
+; CHECK-NEXT:   [[vp_320:%vp[0-9]+]] = sext [[vp_864]]
+; CHECK-NEXT:  SUCCESSORS(1):[[BB_2:BB[0-9]+]]
+
+; CHECK:       [[BB_2]] (BP: NULL) :
+; CHECK-NEXT:   [[vp_52896:%vp[0-9]+]] = phi i64 0 [[vp_54720:%vp[0-9]+]]
+; CHECK-NEXT:   [[vp_54896:%vp[0-9]+]] = getelementptr [1024 x i32]* @a i64 0 [[vp_52896]]
+; CHECK-NEXT:   [[vp_55232:%vp[0-9]+]] = load [[vp_54896]]
+; CHECK-NEXT:   [[vp_55408:%vp[0-9]+]] = getelementptr [1024 x i32]* @b i64 0 [[vp_52896]]
+; CHECK-NEXT:   [[vp_55792:%vp[0-9]+]] = load [[vp_55408]]
+; CHECK-NEXT:   [[vp_55968:%vp[0-9]+]] = icmp [[vp_55232]] [[vp_55792]]
+; CHECK-NEXT:  SUCCESSORS(1):[[BB_9:BB[0-9]+]]
+
+; CHECK:       [[BB_9]] (BP: NULL) :
 ; CHECK-NEXT:   <Empty Block>
-; CHECK-NEXT:   Condition(BB2): %vp{{[0-9]+}} = icmp %vp{{[0-9]+}} %vp{{[0-9]+}}
-; CHECK-NEXT:  SUCCESSORS(2):BB3(%vp{{[0-9]+}}), BB4(!%vp{{[0-9]+}})
-; CHECK-NEXT:    BB3:
-; CHECK-NEXT:     %vp{{[0-9]+}} = icmp %vp{{[0-9]+}} i32 16
-; CHECK-NEXT:     %vp{{[0-9]+}} = mul %vp{{[0-9]+}} %vp{{[0-9]+}}
-; CHECK-NEXT:     %vp{{[0-9]+}} = add %vp{{[0-9]+}} %vp{{[0-9]+}}
-; CHECK-NEXT:     %vp{{[0-9]+}} = select %vp{{[0-9]+}} %vp{{[0-9]+}} i32 1
-; CHECK-NEXT:     %vp{{[0-9]+}} = select %vp{{[0-9]+}} %vp{{[0-9]+}} i32 1
-; CHECK-NEXT:     %vp{{[0-9]+}} = mul %vp{{[0-9]+}} %vp{{[0-9]+}}
-; CHECK-NEXT:     %vp{{[0-9]+}} = mul %vp{{[0-9]+}} %vp{{[0-9]+}}
-; CHECK-NEXT:    SUCCESSORS(1):BB4
-; CHECK-NEXT:  BB4:
-; CHECK-NEXT:   %vp{{[0-9]+}} = phi %vp{{[0-9]+}} i32 0
-; CHECK-NEXT:   %vp{{[0-9]+}} = phi %vp{{[0-9]+}} i32 0
-; CHECK-NEXT:   %vp{{[0-9]+}} = phi %vp{{[0-9]+}} i32 1
-; CHECK-NEXT:   %vp{{[0-9]+}} = phi %vp{{[0-9]+}} i32 1
-; CHECK-NEXT:   %vp{{[0-9]+}} = mul %vp{{[0-9]+}} %vp{{[0-9]+}}
-; CHECK-NEXT:   %vp{{[0-9]+}} = add %vp{{[0-9]+}} %vp{{[0-9]+}}
-; CHECK-NEXT:   store %vp{{[0-9]+}} %vp{{[0-9]+}}
-; CHECK-NEXT:   %vp{{[0-9]+}} = mul %vp{{[0-9]+}} %vp{{[0-9]+}}
-; CHECK-NEXT:   %vp{{[0-9]+}} = add %vp{{[0-9]+}} %vp{{[0-9]+}}
-; CHECK-NEXT:   store %vp{{[0-9]+}} %vp{{[0-9]+}}
-; CHECK-NEXT:   %vp{{[0-9]+}} = add %vp{{[0-9]+}} i64 1
-; CHECK-NEXT:   %vp{{[0-9]+}} = icmp %vp{{[0-9]+}} %vp{{[0-9]+}}
-; CHECK-NEXT:  SUCCESSORS(1):BB10
-; CHECK-NEXT:  BB10:
+; CHECK-NEXT:   Condition([[BB_2]]): [[vp_55968]] = icmp [[vp_55232]] [[vp_55792]]
+; CHECK-NEXT:  SUCCESSORS(2):[[BB_3:BB[0-9]+]]([[vp_55968]]), [[BB_4:BB[0-9]+]](![[vp_55968]])
+
+; CHECK:        [[BB_3]] (BP: NULL) :
+; CHECK-NEXT:     [[vp_61632:%vp[0-9]+]] = icmp [[vp_55232]] i32 16
+; CHECK-NEXT:     [[vp_61920:%vp[0-9]+]] = mul [[vp_55792]] [[vp_55232]]
+; CHECK-NEXT:     [[vp_62128:%vp[0-9]+]] = add [[vp_55792]] [[vp_55232]]
+; CHECK-NEXT:     [[vp_62368:%vp[0-9]+]] = select [[vp_61632]] [[vp_61920]] i32 1
+; CHECK-NEXT:     [[vp_62672:%vp[0-9]+]] = select [[vp_61632]] [[vp_62128]] i32 1
+; CHECK-NEXT:     [[vp_62976:%vp[0-9]+]] = mul [[vp_55792]] [[vp_55792]]
+; CHECK-NEXT:     [[vp_63216:%vp[0-9]+]] = mul [[vp_55232]] [[vp_55232]]
+; CHECK-NEXT:    SUCCESSORS(1):[[BB_4]]
+
+; CHECK:       [[BB_4]] (BP: NULL) :
+; CHECK-NEXT:   [[vp_63392:%vp[0-9]+]] = phi [[vp_62976]] i32 0
+; CHECK-NEXT:   [[vp_63648:%vp[0-9]+]] = phi [[vp_63216]] i32 0
+; CHECK-NEXT:   [[vp_63904:%vp[0-9]+]] = phi [[vp_62368]] i32 1
+; CHECK-NEXT:   [[vp_64160:%vp[0-9]+]] = phi [[vp_62672]] i32 1
+; CHECK-NEXT:   [[vp_64416:%vp[0-9]+]] = mul [[vp_63904]] [[vp_63392]]
+; CHECK-NEXT:   [[vp_64592:%vp[0-9]+]] = add [[vp_64416]] [[vp_55792]]
+; CHECK-NEXT:   store [[vp_64592]] [[vp_55408]]
+; CHECK-NEXT:   [[vp_64944:%vp[0-9]+]] = mul [[vp_64160]] [[vp_63648]]
+; CHECK-NEXT:   [[vp_65120:%vp[0-9]+]] = add [[vp_64944]] [[vp_55232]]
+; CHECK-NEXT:   store [[vp_65120]] [[vp_54896]]
+; CHECK-NEXT:   [[vp_54720]] = add [[vp_52896]] i64 1
+; CHECK-NEXT:   [[vp_112:%vp[0-9]+]] = icmp [[vp_54720]] [[vp_320]]
+; CHECK-NEXT:  SUCCESSORS(1):[[BB_10:BB[0-9]+]]
+
+; CHECK:      [[BB_10]] (BP: NULL) :
 ; CHECK-NEXT:   <Empty Block>
-; CHECK-NEXT:   Condition(BB4): %vp{{[0-9]+}} = icmp %vp{{[0-9]+}} %vp{{[0-9]+}}
-; CHECK-NEXT:  SUCCESSORS(2):BB2(%vp{{[0-9]+}}), BB6(!%vp{{[0-9]+}})
-; CHECK-NEXT:  BB6:
+; CHECK-NEXT:   Condition([[BB_4]]): [[vp_112]] = icmp [[vp_54720]] [[vp_320]]
+; CHECK-NEXT:  SUCCESSORS(2):[[BB_2]]([[vp_112]]), [[BB_6:BB[0-9]+]](![[vp_112]])
+
+; CHECK:      [[BB_6]] (BP: NULL) :
 ; CHECK-NEXT:   <Empty Block>
-; CHECK-NEXT:  SUCCESSORS(1):BB8
-; CHECK-NEXT:  BB8:
+; CHECK-NEXT:  SUCCESSORS(1):[[BB_8:BB[0-9]+]]
+
+; CHECK:      [[BB_8]] (BP: NULL) :
 ; CHECK-NEXT:   <Empty Block>
 ; CHECK-NEXT:  END Block - no SUCCESSORS
-; CHECK-NEXT:  END Region(region1)
-
+; CHECK-NEXT:  END Region([[region_1]])
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 

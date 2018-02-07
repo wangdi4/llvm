@@ -1153,7 +1153,7 @@ public:
 
   virtual void dump() const = 0;
 
-  virtual void dump(raw_ostream &OS, unsigned Indent) const = 0;
+  virtual void dump(raw_ostream &OS, unsigned Indent = 0) const = 0;
 #endif
 };
 
@@ -1289,7 +1289,7 @@ public:
   RecipeListTy &getRecipes() { return Recipes; }
 #if INTEL_CUSTOMIZATION
   void dump() const;
-  void dump(raw_ostream &OS, unsigned Indent) const;
+  void dump(raw_ostream &OS, unsigned Indent = 0) const;
   void setCBlock(BasicBlock *CB) { CBlock = CB; }
   void setFBlock(BasicBlock *FB) { FBlock = FB; }
   void setTBlock(BasicBlock *TB) { TBlock = TB; }
@@ -1631,7 +1631,7 @@ public:
   }
   void getOrderedBlocks(std::vector<const VPBlockBase *> &Blocks) const;
   void dump() const;
-  void dump(raw_ostream &OS, unsigned Indent) const;
+  void dump(raw_ostream &OS, unsigned Indent = 0) const;
 #endif
 
   /// The method which generates the new IR instructions that correspond to
