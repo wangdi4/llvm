@@ -28,7 +28,7 @@ cl_int readPipe(cl_mem pipe, void* mem)
     {
         error = clReadPipeIntelFPGA(pipe, mem);
     }
-    while (error == CL_OUT_OF_RESOURCES);
+    while (error == CL_PIPE_EMPTY);
 
     return error;
 }
@@ -40,7 +40,7 @@ cl_int writePipe(cl_mem pipe, const void* mem)
     {
         error = clWritePipeIntelFPGA(pipe, mem);
     }
-    while (error == CL_OUT_OF_RESOURCES);
+    while (error == CL_PIPE_FULL);
 
     return error;
 }
