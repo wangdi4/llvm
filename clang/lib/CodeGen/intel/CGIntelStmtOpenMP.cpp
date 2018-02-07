@@ -668,6 +668,7 @@ namespace CGIntelOpenMP {
       case OO_Greater:
       case OO_LessEqual:
       case OO_GreaterEqual:
+      case OO_Spaceship:
       case OO_PlusEqual:
       case OO_MinusEqual:
       case OO_StarEqual:

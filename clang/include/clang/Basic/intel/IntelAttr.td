@@ -526,11 +526,14 @@ def ComponentInterface : InheritableAttr {
 
 def MaxConcurrency : InheritableAttr {
   let Spellings = [GNU<"max_concurrency">];
-  let Args = [UnsignedArgument<"Max">];
+  let Args = [ExprArgument<"Max">];
   let LangOpts = [HLS];
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [Undocumented];
   let AdditionalMembers = [{
+    static unsigned getMinValue() {
+      return 0;
+    }
     static unsigned getMaxValue() {
       return 1024*1024;
     }
@@ -545,7 +548,7 @@ def StallFreeReturn : InheritableAttr {
 }
 
 def UseSingleClock : InheritableAttr {
-  let Spellings = [GNU<"__hls_component_use_single_clock__">];
+  let Spellings = [GNU<"hls_component_use_single_clock">];
   let LangOpts = [HLS];
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [Undocumented];
@@ -585,4 +588,172 @@ def SlaveMemoryArgument : Attr {
   let Subjects = SubjectList<[ParmVar], ErrorDiag>;
   let LangOpts = [HLS];
   let Documentation = [Undocumented];
+}
+
+// HLS local variable attributes
+
+def HLSLocalVar : SubsetSubject<Var,
+                              [{S->getKind() != Decl::ImplicitParam &&
+                                S->getKind() != Decl::ParmVar &&
+                                S->getKind() != Decl::NonTypeTemplateParm}],
+                              "local variables">;
+// No arguments.
+def SinglePump : Attr {
+  let Spellings = [GNU<"singlepump">];
+  let Subjects = SubjectList<[HLSLocalVar], ErrorDiag>;
+  let LangOpts = [HLS];
+  let Documentation = [Undocumented];
+}
+
+def DoublePump : Attr {
+  let Spellings = [GNU<"doublepump">];
+  let Subjects = SubjectList<[HLSLocalVar], ErrorDiag>;
+  let LangOpts = [HLS];
+  let Documentation = [Undocumented];
+}
+
+def Memory : Attr {
+  let Spellings = [GNU<"memory">];
+  let Subjects = SubjectList<[HLSLocalVar], ErrorDiag>;
+  let LangOpts = [HLS];
+  let Documentation = [Undocumented];
+}
+
+def Register : Attr {
+  let Spellings = [GNU<"register">];
+  let Subjects = SubjectList<[HLSLocalVar], ErrorDiag>;
+  let LangOpts = [HLS];
+  let Documentation = [Undocumented];
+}
+
+// One integral argument.
+def BankWidth : Attr {
+  let Spellings = [GNU<"bankwidth">];
+  let Args = [ExprArgument<"Value">];
+  let Subjects = SubjectList<[HLSLocalVar], ErrorDiag>;
+  let LangOpts = [HLS];
+  let Documentation = [Undocumented];
+  let AdditionalMembers = [{
+    static unsigned getMinValue() {
+      return 1;
+    }
+    static unsigned getMaxValue() {
+      return 1024*1024;
+    }
+  }];
+}
+
+def NumBanks : Attr {
+  let Spellings = [GNU<"numbanks">];
+  let Args = [ExprArgument<"Value">];
+  let Subjects = SubjectList<[HLSLocalVar], ErrorDiag>;
+  let LangOpts = [HLS];
+  let Documentation = [Undocumented];
+  let AdditionalMembers = [{
+    static unsigned getMinValue() {
+      return 1;
+    }
+    static unsigned getMaxValue() {
+      return 1024*1024;
+    }
+  }];
+}
+
+def NumReadPorts : Attr {
+  let Spellings = [GNU<"numreadports">];
+  let Args = [ExprArgument<"Value">];
+  let Subjects = SubjectList<[HLSLocalVar], ErrorDiag>;
+  let LangOpts = [HLS];
+  let Documentation = [Undocumented];
+  let AdditionalMembers = [{
+    static unsigned getMinValue() {
+      return 1;
+    }
+    static unsigned getMaxValue() {
+      return 1024*1024;
+    }
+  }];
+}
+
+def NumWritePorts : Attr {
+  let Spellings = [GNU<"numwriteports">];
+  let Args = [ExprArgument<"Value">];
+  let Subjects = SubjectList<[HLSLocalVar], ErrorDiag>;
+  let LangOpts = [HLS];
+  let Documentation = [Undocumented];
+  let AdditionalMembers = [{
+    static unsigned getMinValue() {
+      return 1;
+    }
+    static unsigned getMaxValue() {
+      return 1024*1024;
+    }
+  }];
+}
+
+// Two integral arguments.
+def NumPortsReadOnlyWriteOnly : Attr {
+  let Spellings = [GNU<"numports_readonly_writeonly">];
+  let Args = [ExprArgument<"NumReadPorts">, ExprArgument<"NumWritePorts">];
+  let Subjects = SubjectList<[HLSLocalVar], ErrorDiag>;
+  let LangOpts = [HLS];
+  let Documentation = [Undocumented];
+  let AdditionalMembers = [{
+    static unsigned getMinValue() {
+      return 1;
+    }
+    static unsigned getMaxValue() {
+      return 1024*1024;
+    }
+  }];
+}
+
+// Two string arguments.
+def Merge : Attr {
+  let Spellings = [GNU<"merge">];
+  let Args = [StringArgument<"Name">, StringArgument<"Direction">];
+  let Subjects = SubjectList<[HLSLocalVar], ErrorDiag>;
+  let LangOpts = [HLS];
+  let Documentation = [Undocumented];
+}
+
+// Variadic integral arguments.
+def BankBits : Attr {
+  let Spellings = [GNU<"bank_bits">];
+  let Args = [VariadicExprArgument<"Args">];
+  let Subjects = SubjectList<[HLSLocalVar], ErrorDiag>;
+  let LangOpts = [HLS];
+  let Documentation = [Undocumented];
+  let AdditionalMembers = [{
+    static unsigned getMinValue() {
+      return 1;
+    }
+    static unsigned getMaxValue() {
+      return 1024*1024;
+    }
+  }];
+}
+
+def HLSLocalStaticVar : SubsetSubject<Var,
+                              [{S->getStorageClass() == SC_Static &&
+                                S->getKind() != Decl::ImplicitParam &&
+                                S->getKind() != Decl::ParmVar &&
+                                S->getKind() != Decl::NonTypeTemplateParm}],
+                              "local static variables">;
+
+// One integral argument, static only.
+def StaticArrayReset : Attr {
+  let Spellings = [GNU<"static_array_reset">];
+  let Args = [ExprArgument<"Value">];
+  let Subjects = SubjectList<[HLSLocalStaticVar], ErrorDiag>;
+  let LangOpts = [HLS];
+  let Documentation = [Undocumented];
+  let AdditionalMembers = [{
+    static unsigned getMinValue() {
+      return 0;
+    }
+    static unsigned getMaxValue() {
+      return 1;
+    }
+  }];
 }

@@ -19,6 +19,7 @@ template <class TBase>
 class CButtonT : public TBase {
 #ifndef MS
     // expected-note@-2 {{candidate constructor (the implicit copy constructor) not viable}}
+    // expected-note@-3 {{candidate constructor (the implicit move constructor) not viable}}
 #endif
 public:
   CButtonT(HWND hWnd = 0) : TBase(hWnd) {}

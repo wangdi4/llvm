@@ -1641,28 +1641,38 @@ void Parser::DiagnoseMisplacedCXX11Attribute(ParsedAttributesWithRange &Attrs,
   CharSourceRange AttrRange(SourceRange(Loc, Attrs.Range.getEnd()), true);
 
 #if INTEL_CUSTOMIZATION
-    // CQ#370092 - warn_attributes_not_allowed is used in IntelCompat mode
-    if (getLangOpts().IntelCompat)
-      Diag(Loc, diag::warn_attributes_not_allowed)
+  // CQ#370092 - warn_attributes_not_allowed is used in IntelCompat mode
+  if (getLangOpts().IntelCompat)
+    Diag(Loc, diag::warn_attributes_not_allowed)
         << FixItHint::CreateInsertionFromRange(CorrectLocation, AttrRange)
         << FixItHint::CreateRemoval(AttrRange);
-    else
+  else
 #endif // INTEL_CUSTOMIZATION
+
+  // FIXME: use err_attributes_misplaced
   Diag(Loc, diag::err_attributes_not_allowed)
     << FixItHint::CreateInsertionFromRange(CorrectLocation, AttrRange)
     << FixItHint::CreateRemoval(AttrRange);
 }
 
-void Parser::DiagnoseProhibitedAttributes(ParsedAttributesWithRange &attrs) {
+void Parser::DiagnoseProhibitedAttributes(ParsedAttributesWithRange &attrs,
+                                          const SourceLocation CorrectLocation) {
+  if (CorrectLocation.isValid()) {
+    CharSourceRange AttrRange(attrs.Range, true);
+    Diag(CorrectLocation, diag::err_attributes_misplaced)
+        << FixItHint::CreateInsertionFromRange(CorrectLocation, AttrRange)
+        << FixItHint::CreateRemoval(AttrRange);
+  } else
+
 #if INTEL_CUSTOMIZATION
-    // CQ#370092 - warn_attributes_not_allowed is used in IntelCompat mode
-    if (getLangOpts().IntelCompat)
-      Diag(attrs.Range.getBegin(), diag::warn_attributes_not_allowed)
+  // CQ#370092 - warn_attributes_not_allowed is used in IntelCompat mode
+  if (getLangOpts().IntelCompat)
+    Diag(attrs.Range.getBegin(), diag::warn_attributes_not_allowed)
         << attrs.Range;
-    else
 #endif // INTEL_CUSTOMIZATION
-  Diag(attrs.Range.getBegin(), diag::err_attributes_not_allowed)
-    << attrs.Range;
+
+  else
+    Diag(attrs.Range.getBegin(), diag::err_attributes_not_allowed) << attrs.Range;
 }
 
 void Parser::ProhibitCXX11Attributes(ParsedAttributesWithRange &Attrs,
@@ -3389,7 +3399,7 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
 
       // Likewise, if this is a context where the identifier could be a template
       // name, check whether this is a deduction guide declaration.
-      if (getLangOpts().CPlusPlus1z &&
+      if (getLangOpts().CPlusPlus17 &&
           (DSContext == DSC_class || DSContext == DSC_top_level) &&
           Actions.isDeductionGuideName(getCurScope(), *Tok.getIdentifierInfo(),
                                        Tok.getLocation()) &&
@@ -3626,11 +3636,6 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       isInvalid = DS.SetConstexprSpec(Loc, PrevSpec, DiagID);
       break;
 
-    // concept
-    case tok::kw_concept:
-      isInvalid = DS.SetConceptSpec(Loc, PrevSpec, DiagID);
-      break;
-
     // type-specifier
     case tok::kw_short:
       isInvalid = DS.SetTypeSpecWidth(DeclSpec::TSW_short, Loc, PrevSpec,
@@ -3764,7 +3769,10 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       isInvalid = DS.SetTypeAltiVecBool(true, Loc, PrevSpec, DiagID, Policy);
       break;
     case tok::kw_pipe:
-      if (!getLangOpts().OpenCL || (getLangOpts().OpenCLVersion < 200)) {
+#if INTEL_CUSTOMIZATION
+      if (!getLangOpts().OpenCL || (getLangOpts().OpenCLVersion < 200 &&
+          !getTargetInfo().getTriple().isINTELFPGAEnvironment())) {
+#endif // INTEL_CUSTOMIZATION
         // OpenCL 2.0 defined this keyword. OpenCL 1.2 and earlier should
         // support the "pipe" word as identifier.
         Tok.getIdentifierInfo()->revertTokenIDToIdentifier();
@@ -4636,7 +4644,7 @@ void Parser::ParseEnumBody(SourceLocation StartLoc, Decl *EnumDecl) {
     ProhibitAttributes(attrs); // GNU-style attributes are prohibited.
     if (standardAttributesAllowed() && isCXX11AttributeSpecifier()) {
       if (getLangOpts().CPlusPlus)
-        Diag(Tok.getLocation(), getLangOpts().CPlusPlus1z
+        Diag(Tok.getLocation(), getLangOpts().CPlusPlus17
                                     ? diag::warn_cxx14_compat_ns_enum_attribute
                                     : diag::ext_ns_enum_attribute)
             << 1 /*enumerator*/;
@@ -5051,9 +5059,6 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
     // C++11 decltype and constexpr.
   case tok::annot_decltype:
   case tok::kw_constexpr:
-
-    // C++ Concepts TS - concept
-  case tok::kw_concept:
 
     // C11 _Atomic
   case tok::kw__Atomic:

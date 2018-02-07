@@ -17,6 +17,12 @@ void foo2a(int i) {}
 // CHECK: FunctionDecl{{.*}}foo2a
 // CHECK: UseSingleClockAttr
 
+__attribute__((hls_component_use_single_clock))
+__attribute__((ihc_component))
+void foo2aa(int i) {}
+// CHECK: FunctionDecl{{.*}}foo2a
+// CHECK: UseSingleClockAttr
+
 __attribute__((component_interface("avalon_streaming")))
 __attribute__((ihc_component))
 void foo3(int i) {}
