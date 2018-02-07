@@ -11,6 +11,8 @@
 #include "../ClangTidyModule.h"
 #include "../ClangTidyModuleRegistry.h"
 #include "DefaultArgumentsCheck.h"
+#include "OverloadedOperatorCheck.h"
+#include "VirtualInheritanceCheck.h"
 
 using namespace clang::ast_matchers;
 
@@ -18,12 +20,16 @@ namespace clang {
 namespace tidy {
 namespace fuchsia {
 
-/// This module is for Fuchsia specific checks.
+/// This module is for Fuchsia-specific checks.
 class FuchsiaModule : public ClangTidyModule {
 public:
   void addCheckFactories(ClangTidyCheckFactories &CheckFactories) override {
     CheckFactories.registerCheck<DefaultArgumentsCheck>(
         "fuchsia-default-arguments");
+    CheckFactories.registerCheck<OverloadedOperatorCheck>(
+        "fuchsia-overloaded-operator");
+    CheckFactories.registerCheck<VirtualInheritanceCheck>(
+        "fuchsia-virtual-inheritance");
   }
 };
 // Register the FuchsiaTidyModule using this statically initialized variable.

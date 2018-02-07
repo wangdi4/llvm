@@ -69,6 +69,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/Instrumentation.h"
+#include "llvm/Transforms/Utils/CallPromotionUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include <algorithm>
 #include <cassert>
@@ -823,10 +824,10 @@ bool SampleProfileLoader::inlineHotFunctions(
           if (R != SymbolMap.end() && R->getValue() &&
               !R->getValue()->isDeclaration() &&
               R->getValue()->getSubprogram() &&
-              isLegalToPromote(I, R->getValue(), &Reason)) {
+              isLegalToPromote(CallSite(I), R->getValue(), &Reason)) {
             uint64_t C = FS->getEntrySamples();
-            Instruction *DI = promoteIndirectCall(
-                I, R->getValue(), C, Sum, false, ORE);
+            Instruction *DI =
+                pgo::promoteIndirectCall(I, R->getValue(), C, Sum, false, ORE);
             Sum -= C;
             PromotedInsns.insert(I);
             // If profile mismatches, we should not attempt to inline DI.
@@ -1582,7 +1583,10 @@ bool SampleProfileLoaderLegacyPass::runOnModule(Module &M) {
 }
 
 bool SampleProfileLoader::runOnFunction(Function &F, ModuleAnalysisManager *AM) {
-  F.setEntryCount(0);
+  // Initialize the entry count to -1, which will be treated conservatively
+  // by getEntryCount as the same as unknown (None). If we have samples this
+  // will be overwritten in emitAnnotations.
+  F.setEntryCount(-1);
   std::unique_ptr<OptimizationRemarkEmitter> OwnedORE;
   if (AM) {
     auto &FAM =
