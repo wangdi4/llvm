@@ -400,12 +400,11 @@ def OpenCLDepth : Attr {
   let LangOpts = [OpenCL];
 }
 
-def OpenCLChannelIO : Attr {
+def OpenCLIO : Attr {
   let Spellings = [GNU<"io">];
   let Args = [StringArgument<"IOName">];
   let Subjects = SubjectList<[Var]>;
-// FIXME: Add documentation
-  let Documentation = [Undocumented];
+  let Documentation = [OpenCLIODocs];
   let LangOpts = [OpenCL];
 }
 

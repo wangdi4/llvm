@@ -3184,25 +3184,26 @@ static void handleOpenCLDepthAttr(Sema &S, Decl *D, const AttributeList &Attr) {
                                  Attr.getAttributeSpellingListIndex()));
 }
 
-static void handleOpenCLChannelIOAttr(Sema & S, Decl * D,
-                                      const AttributeList &Attr) {
+static void handleOpenCLIOAttr(Sema &S, Decl *D, const AttributeList &Attr) {
   if (D->isInvalidDecl())
     return;
 
-  if (!S.getOpenCLOptions().isEnabled("cl_intel_channels")) {
+  VarDecl *VD = cast<VarDecl>(D);
+  QualType Ty = VD->getType();
+
+  // Handle array of channels case
+  QualType BaseTy = S.Context.getBaseElementType(Ty);
+  if (BaseTy->isChannelType())
+    Ty = BaseTy;
+
+  if (Ty->isChannelType() &&
+      !S.getOpenCLOptions().isEnabled("cl_intel_channels")) {
     S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
         << Attr.getName() << "cl_intel_channels";
     return;
   }
 
-  VarDecl *VD = cast<VarDecl>(D);
-  QualType Ty = VD->getType();
-  // Handle array of channels case
-  while (auto *ArrayTy = dyn_cast<ArrayType>(Ty.getTypePtr())) {
-    Ty = ArrayTy->getElementType();
-  }
-  const Type *TypePtr = Ty.getTypePtr();
-  if (!TypePtr->isChannelType()) {
+  if (!Ty->isChannelType() && !Ty->isPipeType()) {
     S.Diag(Attr.getLoc(), diag::warn_intel_opencl_attribute_wrong_decl_type)
         << Attr.getName() << 46;
     return;
@@ -3210,9 +3211,9 @@ static void handleOpenCLChannelIOAttr(Sema & S, Decl * D,
 
   StringRef Str;
   if (!S.checkStringLiteralArgumentAttr(Attr, 0, Str))
-    llvm_unreachable("io channel attribute should be a string");
+    return;
 
-  D->addAttr(::new (S.Context) OpenCLChannelIOAttr(
+  D->addAttr(::new (S.Context) OpenCLIOAttr(
       Attr.getRange(), S.Context, Str, Attr.getAttributeSpellingListIndex()));
 }
 
@@ -8062,8 +8063,8 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case AttributeList::AT_OpenCLDepth:
     handleOpenCLDepthAttr(S, D, Attr);
     break;
-  case AttributeList::AT_OpenCLChannelIO:
-    handleOpenCLChannelIOAttr(S, D, Attr);
+  case AttributeList::AT_OpenCLIO:
+    handleOpenCLIOAttr(S, D, Attr);
     break;
   case AttributeList::AT_OpenCLLocalMemSize:
     handleOpenCLLocalMemSizeAttr(S, D, Attr);

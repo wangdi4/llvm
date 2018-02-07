@@ -14,6 +14,14 @@ __kernel void k1() __attribute__((depth(100))) { // expected-warning{{'depth' at
 __kernel void k2(__global int *in_data,
                  __global float __attribute__((depth(1))) *fp_data, // expected-warning{{'depth' attribute only applies to OpenCL channels or pipes}}
                  read_only pipe float __attribute__((depth(-1))) pf, // expected-warning{{'depth' attribute parameter 0 is negative and will be ignored}}
-                 write_only pipe int __attribute((depth(10))) pi,
-                 read_only pipe struct st __attribute((depth(0))) ps) {
+                 write_only pipe int __attribute__((depth(10))) pi,
+                 read_only pipe struct st __attribute__((depth(0))) ps) {
+}
+
+__kernel void k3() __attribute__((io("tmp"))) { // expected-warning{{'io' attribute only applies to variables}}
+}
+
+__kernel void k4(__global float __attribute__((io("tmp"))) *fp_data, // expected-warning{{'io' attribute only applies to OpenCL channels or pipes}}
+                 read_only pipe float __attribute__((io(1))) pf, // expected-error{{'io' attribute requires a string}}
+                 write_only pipe int __attribute__((io("tmp"))) pi) {
 }

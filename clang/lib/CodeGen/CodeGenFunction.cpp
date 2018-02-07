@@ -604,6 +604,9 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
 
   // MDNode for the depth attribute for pipes.
   SmallVector<llvm::Metadata*, 8> argPipeDepthAttr;
+
+  // MDNode for the intel_io attribute.
+  SmallVector<llvm::Metadata*, 8> argPipeIOAttr;
 #endif // INTEL_CUSTOMIZATION
   for (unsigned i = 0, e = FD->getNumParams(); i != e; ++i) {
     const ParmVarDecl *parm = FD->getParamDecl(i);
@@ -735,6 +738,11 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
             llvm::ConstantAsMetadata::get(
             (DepthAttr) ? Builder.getInt32(DepthAttr->getDepth())
                         : Builder.getInt32(0)));
+
+    auto *IOAttr = parm->getAttr<OpenCLIOAttr>();
+    argPipeIOAttr.push_back(
+        (IOAttr) ? llvm::MDString::get(Context, IOAttr->getIOName())
+                 : llvm::MDString::get(Context, ""));
 #endif // INTEL_CUSTOMIZATION
   }
 
@@ -753,6 +761,8 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
                   llvm::MDNode::get(Context, argHostAccessible));
   Fn->setMetadata("kernel_arg_pipe_depth",
                   llvm::MDNode::get(Context, argPipeDepthAttr));
+  Fn->setMetadata("kernel_arg_pipe_io",
+                  llvm::MDNode::get(Context, argPipeIOAttr));
 #endif // INTEL_CUSTOMIZATION
 
   if (CGM.getCodeGenOpts().EmitOpenCLArgMetadata)

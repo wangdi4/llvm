@@ -177,3 +177,19 @@ hold in the host.
   }];
 }
 
+def OpenCLIODocs : Documentation {
+  let Category = DocCatVariable;
+  let Content = [{
+Include an io attribute in your OpenCL channel/pipe declaration to declare a
+special I/O channel/pipe to interface with input or output features of an FPGA
+board. These features might include network interfaces, PCIe, cameras, or other
+data capture or processing devices or protocols.
+
+In the Intel FPGA SDK for OpenCL channels extension, the io("chan_id") attribute
+specifies the I/O feature of an accelerator board with which a channel
+interfaces. The chan_id argument is the name of the I/O interface listed in the
+board_spec.xml file of your Custom Platform. The same I/O features can be used
+to identify I/O pipes.
+  }];
+}
+

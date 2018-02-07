@@ -2903,6 +2903,16 @@ static void maybeEmitGlobalChannelMetadata(const VarDecl *D,
     ChannelDepthMD = llvm::MDNode::get(CGM.getLLVMContext(), ChannelDepthMDOps);
   }
 
+  llvm::Metadata *ChannelIOMD = nullptr;
+
+  if (auto *IOAttr = D->getAttr<OpenCLIOAttr>()) {
+    llvm::Metadata *ChannelIOMDOps[] = {
+        llvm::MDString::get(CGM.getLLVMContext(), "io"),
+        llvm::MDString::get(CGM.getLLVMContext(), IOAttr->getIOName())};
+
+    ChannelIOMD = llvm::MDNode::get(CGM.getLLVMContext(), ChannelIOMDOps);
+  }
+
   auto *PacketSize = llvm::ConstantInt::get(
       Int32Ty, CGM.getContext().getTypeSize(ChanTy->getElementType()) / 8,
       false);
@@ -2927,6 +2937,8 @@ static void maybeEmitGlobalChannelMetadata(const VarDecl *D,
   Ops.push_back(PacketAlignMD);
   if (ChannelDepthMD)
     Ops.push_back(ChannelDepthMD);
+  if (ChannelIOMD)
+    Ops.push_back(ChannelIOMD);
 
   CGM.getModule()
       .getOrInsertNamedMetadata("opencl.channels")
