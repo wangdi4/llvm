@@ -489,7 +489,8 @@ bool VPlanDriver::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
   }
 
   LoopVectorizationPlanner LVP(WRLp, Lp, LI, SE, TLI, TTI, DT, &LVL);
-  unsigned Simdlen = WRLp->getSimdlen();
+
+  unsigned Simdlen = WRLp ? WRLp->getSimdlen() : 0;
   unsigned VF = Simdlen ? Simdlen : VPlanDefaultVF;
   LVP.buildInitialVPlans(VF /*MinVF*/, VF /*MaxVF*/);
 
@@ -707,7 +708,7 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
 
   //TODO: No Legal for HIR.
   LoopVectorizationPlannerHIR LVP(WRLp, Lp, TLI, TTI, nullptr /*Legal*/, DDG);
-  unsigned Simdlen = WRLp->getSimdlen();
+  unsigned Simdlen = WRLp ? WRLp->getSimdlen() : 0;
   unsigned VF = Simdlen ? Simdlen : VPlanDefaultVF;
   LVP.buildInitialVPlans(VF /*MinVF*/, VF /*MaxVF*/);
 
