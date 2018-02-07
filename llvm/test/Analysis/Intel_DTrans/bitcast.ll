@@ -29,11 +29,8 @@ define void @test2() {
   ret void
 }
 
-; FIXME: %struct.test02.a should also be marked as bad casting here.
-;        That's being missed because the analysis doesn't look for the
-;        uses of globals and therefore doesn't see the GEP operator.
 ; CHECK: LLVMType: %struct.test02.a = type { i32, i8 }
-; CHECK: Safety data: Unhandled use
+; CHECK: Safety data: Bad casting
 ; CHECK: LLVMType: %struct.test02.b = type { i32, i32 }
 ; CHECK: Safety data: Bad casting
 

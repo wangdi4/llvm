@@ -25,7 +25,6 @@
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/LoopIterator.h"
-#include "llvm/Analysis/LoopPass.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpander.h"
 #include "llvm/IR/BasicBlock.h"
@@ -649,8 +648,13 @@ bool llvm::UnrollRuntimeLoopRemainder(Loop *L, unsigned Count,
     SmallVector<BasicBlock*, 4> Preds(predecessors(LatchExit));
     NewExit = SplitBlockPredecessors(LatchExit, Preds, ".unr-lcssa",
                                      DT, LI, PreserveLCSSA);
+    // NewExit gets its DebugLoc from LatchExit, which is not part of the
+    // original Loop.
+    // Fix this by setting Loop's DebugLoc to NewExit.
+    auto *NewExitTerminator = NewExit->getTerminator();
+    NewExitTerminator->setDebugLoc(Header->getTerminator()->getDebugLoc());
     // Split NewExit to insert epilog remainder loop.
-    EpilogPreHeader = SplitBlock(NewExit, NewExit->getTerminator(), DT, LI);
+    EpilogPreHeader = SplitBlock(NewExit, NewExitTerminator, DT, LI);
     EpilogPreHeader->setName(Header->getName() + ".epil.preheader");
   } else {
     // If prolog remainder

@@ -33,11 +33,9 @@
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/LegacyPassManager.h"
-#include "llvm/IR/ModuleSummaryIndex.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ManagedStatic.h"
-#include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/ForceFunctionAttrs.h"
 #include "llvm/Transforms/IPO/FunctionAttrs.h"
@@ -48,6 +46,7 @@
 #include "llvm/Transforms/Scalar/SimpleLoopUnswitch.h"
 #include "llvm/Transforms/Vectorize.h"
 #if INTEL_CUSTOMIZATION
+#include "llvm/Transforms/Instrumentation/Intel_FunctionSplitting.h"
 #include "llvm/Transforms/Intel_DTrans/DTransOpt.h"
 #include "llvm/Transforms/Intel_VPO/VPOPasses.h"
 #include "llvm/Transforms/Intel_VPO/Vecopt/VecoptPasses.h"
@@ -211,6 +210,12 @@ static cl::opt<bool>
 static cl::opt<bool> EnableDTrans("enable-dtrans",
     cl::init(false), cl::Hidden,
     cl::desc("Enable DTrans optimizations"));
+
+// PGO based function splitting
+static cl::opt<bool> EnableFunctionSplitting("enable-function-splitting",
+  cl::init(false), cl::Hidden,
+  cl::desc("Enable function splitting optimization based on PGO data"));
+
 #endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool>
@@ -464,6 +469,15 @@ void PassManagerBuilder::addPGOInstrPasses(legacy::PassManagerBase &MPM) {
   if (OptLevel > 0)
     MPM.add(
         createPGOIndirectCallPromotionLegacyPass(false, !PGOSampleUse.empty()));
+
+#if INTEL_CUSTOMIZATION
+  // The function splitting pass uses the PGO frequency info, and only
+  // makes sense to run during profile feedback.
+  if (EnableFunctionSplitting &&
+    (!PGOInstrUse.empty() || !PGOSampleUse.empty())) {
+    MPM.add(createFunctionSplittingWrapperPass());
+  }
+#endif // INTEL_CUSTOMIZATION
 }
 void PassManagerBuilder::addFunctionSimplificationPasses(
     legacy::PassManagerBase &MPM) {
@@ -859,6 +873,13 @@ void PassManagerBuilder::populateModulePassManager(
     addInstructionCombiningPass(MPM);
   }
 
+  // Cleanup after loop vectorization, etc. Simplification passes like CVP and
+  // GVN, loop transforms, and others have already run, so it's now better to
+  // convert to more optimized IR using more aggressive simplify CFG options.
+  // The extra sinking transform can create larger basic blocks, so do this
+  // before SLP vectorization.
+  MPM.add(createCFGSimplificationPass(1, true, true, false, true));
+
   if (RunSLPAfterLoopVectorization && SLPVectorize) {
     MPM.add(createSLPVectorizerPass()); // Vectorize parallel scalar chains.
     if (OptLevel > 1 && ExtraVectorizerPasses) {
@@ -868,9 +889,6 @@ void PassManagerBuilder::populateModulePassManager(
   } // INTEL
 
   addExtensionsToPM(EP_Peephole, MPM);
-  // Switches to lookup tables and other transforms that may not be considered
-  // canonical by other IR passes.
-  MPM.add(createCFGSimplificationPass(1, true, true, false));
   addInstructionCombiningPass(MPM);
 
 #if INTEL_CUSTOMIZATION

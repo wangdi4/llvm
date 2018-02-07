@@ -323,19 +323,19 @@ done:
 ; CHECK: LLVMType: %struct.badsize.S3
 ; CHECK: Safety data: Bad alloc size
 
-; 'good' types should have 'No issues found' (or 'Unhandled use')
+; 'good' types should have 'No issues found'
 ; CHECK: LLVMType: %struct.good.Inner
-; CHECK: Safety data: Unhandled use
+; CHECK: Safety data: No issues found
 ; CHECK: LLVMType: %struct.good.Left
-; CHECK: Safety data: Unhandled use
+; CHECK: Safety data: No issues found
 ; CHECK: LLVMType: %struct.good.Middle
-; CHECK: Safety data: Unhandled use
+; CHECK: Safety data: No issues found
 ; CHECK: LLVMType: %struct.good.Outer
-; CHECK: Safety data: Unhandled use
+; CHECK: Safety data: No issues found
 ; CHECK: LLVMType: %struct.good.Right
-; CHECK: Safety data: Unhandled use
+; CHECK: Safety data: No issues found
 ; CHECK: LLVMType: %struct.good.S1
-; CHECK: Safety data: Unhandled use
+; CHECK: Safety data: No issues found
 ; CHECK: LLVMType: %struct.good.S2
 ; CHECK: Safety data: No issues found
 

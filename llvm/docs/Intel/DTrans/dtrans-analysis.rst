@@ -149,11 +149,54 @@ recreate if the allocation is transformed.
 AmbiguousGEP
 ~~~~~~~~~~~~
 This indicates that an i8* value that is known to alias to multiple types is
-passed to a GetElementPtr instruction. The GetElementPointer instruction can
+passed to a GetElementPtr instruction. The GetElementPtr instruction can
 be used to compute an offset from an i8* base address, but if the i8* may
 refer to multiple different aggregate types (for instance, because of a select
 or PHI node) DTrans cannot reliably determine the element that is being
 referenced.
+
+VolatileData
+~~~~~~~~~~~~
+This indicates that one or more instructions acting on data of this type were
+marked as being volatile.
+
+MismatchedElementAccess
+~~~~~~~~~~~~~~~~~~~~~~~
+This indicates that a pointer to an element within the type was passed to a
+load or store instruction but the type of the value loaded or stored did not
+match the type of the element being pointed to. For instance, if a value that
+is known to point to an i64 element is bitcast to an i32* and that i32* is
+passed to a load instruction, the loaded type would not match the expected
+element type.
+
+AmbiguousPointerLoad
+~~~~~~~~~~~~~~~~~~~~
+This indicates that a load instruction was seen with a pointer operand (the
+address of the value being loaded) which was known to alias incompatible
+pointer types. For instance, if a %struct.A** value and a %struct.B** value
+are both bitcast to i64* and then joined by either a PHI node or a select
+and the joined value is passed to a load instruction, there would be no way
+to determine the actual type of the loaded pointer.
+
+WholeStructureReference
+~~~~~~~~~~~~~~~~~~~~~~~
+This indicates that an instruction was seen which references a non-pointer
+instance of a structure type. This is unlikely but legal in LLVM IR. Such a
+value can be returned by a load instruction when a pointer to a structure is
+used as the pointer operand. A value loaded this way can also be passed to a
+store instruction, used as an argument to a function call, and merged through
+a select or PHI node.
+
+UnsafePointerStore
+~~~~~~~~~~~~~~~~~~
+This indicates that a pointer that is known to alias to the type for which this
+condition was set was stored to a memory location using a pointer operand that
+was not otherwise known to alias to a pointer to pointer to the type.
+
+FieldAddressTaken
+~~~~~~~~~~~~~~~~~
+This indicates that the addresses of one or more fields within the type were
+either written to memory or passed to a function call.
 
 UnhandledUse
 ~~~~~~~~~~~~
@@ -199,7 +242,7 @@ purposes of DTrans optimizations). Consider the following IR:
   }
 
 In this example, the bitcast at the %ret value is safe because the input value
-is either the result of casting a %struct.S point to an i8* or the result of
+is either the result of casting a %struct.S pointer to an i8* or the result of
 a safe allocation (assuming 16 is a multiple of the size of %struct.S). Rather
 than include all of the logic necessary to prove this relationship in the
 bitcast analysis handling, we use a helper class (LocalPointerAnalyzer) that
@@ -215,8 +258,6 @@ has not been performed. In this case, the LocalPointerAnalyzer object will
 follow the use-chain from the value to its local source (either a function
 argument, a global value or a local instruction that defined the pointer) and
 populate the LocalPointerInfo to be returned.
-
-**Field pointer tracking is not yet implemented.**
 
 
 Instruction Handling
@@ -287,7 +328,7 @@ field at that address.
 The DTrans analysis must follow all uses of any value returned by a
 GetElementPtr instruction in order to track field access and to determine
 whether or not the pointer is manipulated in any way that might make a DTrans
-optimization unsafe. **This is not yet implemented.**
+optimization unsafe.
 
 In addition to the simple form of GetElementPtr shown above, LLVM will sometimes
 use GetElementPtr on an i8* alias of an aggregate type pointer to index directly
@@ -340,7 +381,7 @@ conditions are met:
 
 1. The source value is the result of an allocation call.
 2. The source value can be proved to locally alias to the destination type and
-   is not known to locally alias to any other type. (See `Local Pointer Type
+   is known not to locally alias to any other type. (See `Local Pointer Type
    Analysis`_.)
 3. The destination type points to the type of the first element in an aggregate
    type to which the value is known to alias locally.
@@ -384,15 +425,51 @@ Other uses of PtrToInt should be considered as potentially unsafe.
 Load
 ~~~~
 Load instructions must be analyzed according to the source of the memory being
-loaded. Field reads are performed using load instructions. **More work is
-needed to analyze loads.**
+loaded. Field reads are performed using load instructions.
+
+If the pointer operand of the load instruction is known to alias a pointer to a
+pointer to a type of interest, the loaded value (typically a pointer-sized
+integer) will be considered to alias to a pointer to that type.
+
+If the pointer operand is known to point to an element within an aggregate type,
+the size of the value being loaded must be the same as the size of the element
+pointed to. In most cases, the value will be loaded with the same type as the
+element, but pointer elements are often loaded as pointer-sized integers and
+then cast to the appropriate type. In the case of pointer field copies a
+pointer loaded as an integer may even be stored to another location as an
+integer without ever being cast to a pointer type. In this case the `Local
+Pointer Type Analysis`_ information will be important for verifying the
+safety of the store.
+
+If the pointer operand is known to point to an element within an aggregate type
+and the load instruction is marked as volatile, then the aggregate type which
+contains the element will have the `VolatileData`_ safety condition set.
 
 
 Store
 ~~~~~
 Store instructions must be analyzed according to the source of the memory being
-stored. Field writes are performed using store instructions. **More work is
-needed to analyze stores.**
+stored. Field writes are performed using store instructions.
+
+If the pointer operand of the store instruction is known to alias a pointer to
+a pointer to a type of interest, the stored value (typically a pointer-sized
+integer) must also be known to alias to a pointer to that type. Otherwise, the
+`UnsafePointerStore`_ safety condition will be set for the type to which the
+pointer operand aliases.
+
+If the pointer operand is known to point to an element within an aggregate
+type, the value being stored must be the same as the size of the element. If it
+does not, the `MismatchedElementAccess`_ safety condition will be set for
+the aggregate type containing the element to which the pointer operand points.
+
+If the value operand is known to alias to a type of interest the pointer
+operand must be known to alias to a pointer to that type. If it does not, the
+`UnsafePointerStore`_ safety condition will be set for the stored type. If the
+pointer operand is known to alias some other type of interest, that type will
+also receive the UnsafePointerStore safety condition.
+
+If the value operand is known to point to an element within an aggregate type,
+the `FieldAddressTaken`_ safety condition will be set for the parent type.
 
 
 PHI Nodes

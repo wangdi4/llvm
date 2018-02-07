@@ -595,11 +595,9 @@ static bool memoryIsNotModifiedBetween(Instruction *FirstI,
     }
     for (; BI != EI; ++BI) {
       Instruction *I = &*BI;
-      if (I->mayWriteToMemory() && I != SecondI) {
-        auto Res = AA->getModRefInfo(I, MemLoc);
-        if (Res & MRI_Mod)
+      if (I->mayWriteToMemory() && I != SecondI)
+        if (isModSet(AA->getModRefInfo(I, MemLoc)))
           return false;
-      }
     }
     if (B != FirstBB) {
       assert(B != &FirstBB->getParent()->getEntryBlock() &&
@@ -823,9 +821,7 @@ static bool handleEndBlock(BasicBlock &BB, AliasAnalysis *AA,
       // the call is live.
       DeadStackObjects.remove_if([&](Value *I) {
         // See if the call site touches the value.
-        ModRefInfo A = AA->getModRefInfo(CS, I, getPointerSize(I, DL, *TLI));
-
-        return A == MRI_ModRef || A == MRI_Ref;
+        return isRefSet(AA->getModRefInfo(CS, I, getPointerSize(I, DL, *TLI)));
       });
 
       // If all of the allocas were clobbered by the call then we're not going
@@ -1256,7 +1252,7 @@ static bool eliminateDeadStores(BasicBlock &BB, AliasAnalysis *AA,
       if (DepWrite == &BB.front()) break;
 
       // Can't look past this instruction if it might read 'Loc'.
-      if (AA->getModRefInfo(DepWrite, Loc) & MRI_Ref)
+      if (isRefSet(AA->getModRefInfo(DepWrite, Loc)))
         break;
 
       InstDep = MD->getPointerDependencyFrom(Loc, /*isLoad=*/ false,

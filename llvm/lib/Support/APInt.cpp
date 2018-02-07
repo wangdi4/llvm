@@ -1049,9 +1049,14 @@ APInt APInt::sqrt() const {
   // libc sqrt function which will probably use a hardware sqrt computation.
   // This should be faster than the algorithm below.
   if (magnitude < 52) {
-    return APInt(BitWidth,
-                 uint64_t(::round(::sqrt(double(isSingleWord() ? U.VAL
-                                                               : U.pVal[0])))));
+#if INTEL_CUSTOMIZATION
+    // This customization is temporary fix for windows self-build
+    // The only change is ::round(x) replaced with ::floor(x + 0.5)
+    return APInt(
+        BitWidth,
+        uint64_t(
+            ::floor(::sqrt(double(isSingleWord() ? U.VAL : U.pVal[0])) + 0.5)));
+#endif /* INTEL_CUSTOMIZATION */
   }
 
   // Okay, all the short cuts are exhausted. We must compute it. The following
