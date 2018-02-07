@@ -337,6 +337,32 @@ define void @test24(%struct.test24.b* %pb) {
 ; CHECK: LLVMType: %struct.test24.b = type { %struct.test24.a, i32 }
 ; CHECK: Safety data: No issues found
 
+; Store an allocated pointer directly to memory.
+%struct.test25 = type { i32, i32 }
+define void @test25(%struct.test25** %pIn) {
+  %dest = bitcast %struct.test25** %pIn to i8**
+  %p = call i8* @malloc(i64 8)
+  store i8* %p, i8** %dest
+  ret void
+}
+
+; FIXME: This shouldn't be bad casting.
+; CHECK: LLVMType: %struct.test25 = type { i32, i32 }
+; CHECK: Safety data: Bad casting
+
+; Store an allocated pointer-to-pointer directly to memory.
+%struct.test26 = type { i32, i32 }
+define void @test26(%struct.test26*** %pIn) {
+  %dest = bitcast %struct.test26*** %pIn to i8**
+  %p = call i8* @malloc(i64 8)
+  store i8* %p, i8** %dest
+  ret void
+}
+
+; FIXME: This shouldn't be bad casting.
+; CHECK: LLVMType: %struct.test26 = type { i32, i32 }
+; CHECK: Safety data: Bad casting
+
 ; Because of the way the types get printed out, all array types are
 ; after all structure types. To avoid continually renumbering the
 ; array tests, I am giving them a prefix 'A' and restarting the numbering.
@@ -346,6 +372,7 @@ define void @test24(%struct.test24.b* %pb) {
 %struct.testA01 = type [101 x i32]
 define void @testA01(%struct.testA01* %pA, i64* %pUnknown) {
   %pA4 = getelementptr %struct.testA01, %struct.testA01* %pA, i64 0, i32 4
+
   %tmp = ptrtoint i32* %pA4 to i64
   store i64 %tmp, i64* %pUnknown
   ret void
@@ -379,3 +406,5 @@ define void @testA03(%struct.testA03* %pA, i8 %val) {
 
 ; CHECK: LLVMType: [103 x i32]
 ; CHECK: Safety data: Mismatched element access
+
+declare noalias i8* @malloc(i64)

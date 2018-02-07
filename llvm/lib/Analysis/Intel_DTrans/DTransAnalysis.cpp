@@ -593,7 +593,39 @@ private:
       if (isa<PHINode>(U) || isa<SelectInst>(U))
         collectAllocatedPtrBitcasts(cast<Instruction>(U), CastTypes,
                                     VisitedUsers);
+      // If the user is a store instruction, treat the alias types of the
+      // destination pointer as implicit casts.
+      if (auto *Store = dyn_cast<StoreInst>(U))
+        inferAllocatedTypesFromStoreInst(Store, CastTypes);
     }
+  }
+
+  // Sometime an allocated pointer will be directly stored to a memory
+  // location. In such a case, the type of memory that was allocated can be
+  // inferred from the type of the destination pointer. A typical example
+  // might look like this:
+  //
+  //   %dest = bitcast %struct.A** %val to %i8**
+  //   %p = call i8* @malloc(i64 64)
+  //   store i8* p, i8** %dest
+  //
+  // In this case, we can infer that the memory allocated is a %struct.A
+  // object because its pointer (effectively %struct.A*) is stored in a
+  // location that aliases to %struct.A**. This often happens when an
+  // allocated pointer is stored in a structure field.
+  void inferAllocatedTypesFromStoreInst(
+      StoreInst *Store, SmallPtrSetImpl<llvm::PointerType *> &Types) {
+    // Get the local pointer info for the destination address.
+    Value *DestPtr = Store->getPointerOperand();
+    analyzeValue(DestPtr);
+    LocalPointerInfo &DestInfo = LocalMap[DestPtr];
+
+    // For each type aliased by the destination, if the type is a pointer
+    // add the type that it points to to the Types set.
+    for (auto *AliasTy : DestInfo.getPointerTypeAliasSet())
+      if (AliasTy->isPointerTy() &&
+          AliasTy->getPointerElementType()->isPointerTy())
+        Types.insert(cast<PointerType>(AliasTy->getPointerElementType()));
   }
 };
 
