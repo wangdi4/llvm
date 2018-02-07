@@ -10,13 +10,12 @@
 #include "llvm/DebugInfo/CodeView/TypeStreamMerger.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringExtras.h"
-#include "llvm/DebugInfo/CodeView/TypeDeserializer.h"
+#include "llvm/DebugInfo/CodeView/GlobalTypeTableBuilder.h"
+#include "llvm/DebugInfo/CodeView/MergingTypeTableBuilder.h"
 #include "llvm/DebugInfo/CodeView/TypeIndex.h"
 #include "llvm/DebugInfo/CodeView/TypeIndexDiscovery.h"
 #include "llvm/DebugInfo/CodeView/TypeRecord.h"
-#include "llvm/DebugInfo/CodeView/TypeTableBuilder.h"
 #include "llvm/Support/Error.h"
-#include "llvm/Support/ScopedPrinter.h"
 
 using namespace llvm;
 using namespace llvm::codeview;
@@ -64,12 +63,27 @@ public:
 
   static const TypeIndex Untranslated;
 
-  Error mergeTypesAndIds(TypeTableBuilder &DestIds, TypeTableBuilder &DestTypes,
+  // Local hashing entry points
+  Error mergeTypesAndIds(MergingTypeTableBuilder &DestIds,
+                         MergingTypeTableBuilder &DestTypes,
                          const CVTypeArray &IdsAndTypes);
-  Error mergeIdRecords(TypeTableBuilder &Dest,
+  Error mergeIdRecords(MergingTypeTableBuilder &Dest,
                        ArrayRef<TypeIndex> TypeSourceToDest,
                        const CVTypeArray &Ids);
-  Error mergeTypeRecords(TypeTableBuilder &Dest, const CVTypeArray &Types);
+  Error mergeTypeRecords(MergingTypeTableBuilder &Dest,
+                         const CVTypeArray &Types);
+
+  // Global hashing entry points
+  Error mergeTypesAndIds(GlobalTypeTableBuilder &DestIds,
+                         GlobalTypeTableBuilder &DestTypes,
+                         const CVTypeArray &IdsAndTypes,
+                         ArrayRef<GloballyHashedType> Hashes);
+  Error mergeIdRecords(GlobalTypeTableBuilder &Dest,
+                       ArrayRef<TypeIndex> TypeSourceToDest,
+                       const CVTypeArray &Ids,
+                       ArrayRef<GloballyHashedType> Hashes);
+  Error mergeTypeRecords(GlobalTypeTableBuilder &Dest, const CVTypeArray &Types,
+                         ArrayRef<GloballyHashedType> Hashes);
 
 private:
   Error doit(const CVTypeArray &Types);
@@ -82,6 +96,14 @@ private:
 
   bool remapTypeIndex(TypeIndex &Idx);
   bool remapItemIndex(TypeIndex &Idx);
+
+  bool hasTypeStream() const {
+    return (UseGlobalHashes) ? (!!DestGlobalTypeStream) : (!!DestTypeStream);
+  }
+
+  bool hasIdStream() const {
+    return (UseGlobalHashes) ? (!!DestGlobalIdStream) : (!!DestIdStream);
+  }
 
   ArrayRef<uint8_t> serializeRemapped(const RemappedType &Record);
 
@@ -100,14 +122,21 @@ private:
 
   Optional<Error> LastError;
 
+  bool UseGlobalHashes = false;
+
   bool IsSecondPass = false;
 
   unsigned NumBadIndices = 0;
 
   TypeIndex CurIndex{TypeIndex::FirstNonSimpleIndex};
 
-  TypeTableBuilder *DestIdStream = nullptr;
-  TypeTableBuilder *DestTypeStream = nullptr;
+  MergingTypeTableBuilder *DestIdStream = nullptr;
+  MergingTypeTableBuilder *DestTypeStream = nullptr;
+
+  GlobalTypeTableBuilder *DestGlobalIdStream = nullptr;
+  GlobalTypeTableBuilder *DestGlobalTypeStream = nullptr;
+
+  ArrayRef<GloballyHashedType> GlobalHashes;
 
   // If we're only mapping id records, this array contains the mapping for
   // type records.
@@ -209,7 +238,7 @@ bool TypeStreamMerger::remapTypeIndex(TypeIndex &Idx) {
   // special mapping from OldTypeStream -> NewTypeStream which was computed
   // externally.  Regardless, we use this special map if and only if we are
   // doing an id-only mapping.
-  if (DestTypeStream == nullptr)
+  if (!hasTypeStream())
     return remapIndex(Idx, TypeLookup);
 
   assert(TypeLookup.empty());
@@ -217,31 +246,69 @@ bool TypeStreamMerger::remapTypeIndex(TypeIndex &Idx) {
 }
 
 bool TypeStreamMerger::remapItemIndex(TypeIndex &Idx) {
-  assert(DestIdStream);
+  assert(hasIdStream());
   return remapIndex(Idx, IndexMap);
 }
 
-Error TypeStreamMerger::mergeTypeRecords(TypeTableBuilder &Dest,
+// Local hashing entry points
+Error TypeStreamMerger::mergeTypeRecords(MergingTypeTableBuilder &Dest,
                                          const CVTypeArray &Types) {
   DestTypeStream = &Dest;
+  UseGlobalHashes = false;
 
   return doit(Types);
 }
 
-Error TypeStreamMerger::mergeIdRecords(TypeTableBuilder &Dest,
+Error TypeStreamMerger::mergeIdRecords(MergingTypeTableBuilder &Dest,
                                        ArrayRef<TypeIndex> TypeSourceToDest,
                                        const CVTypeArray &Ids) {
   DestIdStream = &Dest;
   TypeLookup = TypeSourceToDest;
+  UseGlobalHashes = false;
 
   return doit(Ids);
 }
 
-Error TypeStreamMerger::mergeTypesAndIds(TypeTableBuilder &DestIds,
-                                         TypeTableBuilder &DestTypes,
+Error TypeStreamMerger::mergeTypesAndIds(MergingTypeTableBuilder &DestIds,
+                                         MergingTypeTableBuilder &DestTypes,
                                          const CVTypeArray &IdsAndTypes) {
   DestIdStream = &DestIds;
   DestTypeStream = &DestTypes;
+  UseGlobalHashes = false;
+  return doit(IdsAndTypes);
+}
+
+// Global hashing entry points
+Error TypeStreamMerger::mergeTypeRecords(GlobalTypeTableBuilder &Dest,
+                                         const CVTypeArray &Types,
+                                         ArrayRef<GloballyHashedType> Hashes) {
+  DestGlobalTypeStream = &Dest;
+  UseGlobalHashes = true;
+  GlobalHashes = Hashes;
+
+  return doit(Types);
+}
+
+Error TypeStreamMerger::mergeIdRecords(GlobalTypeTableBuilder &Dest,
+                                       ArrayRef<TypeIndex> TypeSourceToDest,
+                                       const CVTypeArray &Ids,
+                                       ArrayRef<GloballyHashedType> Hashes) {
+  DestGlobalIdStream = &Dest;
+  TypeLookup = TypeSourceToDest;
+  UseGlobalHashes = true;
+  GlobalHashes = Hashes;
+
+  return doit(Ids);
+}
+
+Error TypeStreamMerger::mergeTypesAndIds(GlobalTypeTableBuilder &DestIds,
+                                         GlobalTypeTableBuilder &DestTypes,
+                                         const CVTypeArray &IdsAndTypes,
+                                         ArrayRef<GloballyHashedType> Hashes) {
+  DestGlobalIdStream = &DestIds;
+  DestGlobalTypeStream = &DestTypes;
+  UseGlobalHashes = true;
+  GlobalHashes = Hashes;
   return doit(IdsAndTypes);
 }
 
@@ -286,18 +353,29 @@ Error TypeStreamMerger::remapAllTypes(const CVTypeArray &Types) {
 }
 
 Error TypeStreamMerger::remapType(const CVType &Type) {
-  TypeTableBuilder &Dest =
-      isIdRecord(Type.kind()) ? *DestIdStream : *DestTypeStream;
-
-  RemappedType R(Type);
-  SmallVector<TiReference, 32> Refs;
-  discoverTypeIndices(Type.RecordData, Refs);
-  bool MappedAllIndices = remapIndices(R, Refs);
-  ArrayRef<uint8_t> Data = serializeRemapped(R);
+  auto DoSerialize = [this, Type]() -> ArrayRef<uint8_t> {
+    RemappedType R(Type);
+    SmallVector<TiReference, 32> Refs;
+    discoverTypeIndices(Type.RecordData, Refs);
+    if (!remapIndices(R, Refs))
+      return {};
+    return serializeRemapped(R);
+  };
 
   TypeIndex DestIdx = Untranslated;
-  if (MappedAllIndices)
-    DestIdx = Dest.insertRecordBytes(Data);
+  if (UseGlobalHashes) {
+    GlobalTypeTableBuilder &Dest =
+        isIdRecord(Type.kind()) ? *DestGlobalIdStream : *DestGlobalTypeStream;
+    GloballyHashedType H = GlobalHashes[CurIndex.toArrayIndex()];
+    DestIdx = Dest.insertRecordAs(H, DoSerialize);
+  } else {
+    MergingTypeTableBuilder &Dest =
+        isIdRecord(Type.kind()) ? *DestIdStream : *DestTypeStream;
+
+    auto Data = DoSerialize();
+    if (!Data.empty())
+      DestIdx = Dest.insertRecordBytes(Data);
+  }
   addMapping(DestIdx);
 
   ++CurIndex;
@@ -329,14 +407,14 @@ bool TypeStreamMerger::remapIndices(RemappedType &Record,
   return Success;
 }
 
-Error llvm::codeview::mergeTypeRecords(TypeTableBuilder &Dest,
+Error llvm::codeview::mergeTypeRecords(MergingTypeTableBuilder &Dest,
                                        SmallVectorImpl<TypeIndex> &SourceToDest,
                                        const CVTypeArray &Types) {
   TypeStreamMerger M(SourceToDest);
   return M.mergeTypeRecords(Dest, Types);
 }
 
-Error llvm::codeview::mergeIdRecords(TypeTableBuilder &Dest,
+Error llvm::codeview::mergeIdRecords(MergingTypeTableBuilder &Dest,
                                      ArrayRef<TypeIndex> TypeSourceToDest,
                                      SmallVectorImpl<TypeIndex> &SourceToDest,
                                      const CVTypeArray &Ids) {
@@ -345,8 +423,33 @@ Error llvm::codeview::mergeIdRecords(TypeTableBuilder &Dest,
 }
 
 Error llvm::codeview::mergeTypeAndIdRecords(
-    TypeTableBuilder &DestIds, TypeTableBuilder &DestTypes,
+    MergingTypeTableBuilder &DestIds, MergingTypeTableBuilder &DestTypes,
     SmallVectorImpl<TypeIndex> &SourceToDest, const CVTypeArray &IdsAndTypes) {
   TypeStreamMerger M(SourceToDest);
   return M.mergeTypesAndIds(DestIds, DestTypes, IdsAndTypes);
+}
+
+Error llvm::codeview::mergeTypeAndIdRecords(
+    GlobalTypeTableBuilder &DestIds, GlobalTypeTableBuilder &DestTypes,
+    SmallVectorImpl<TypeIndex> &SourceToDest, const CVTypeArray &IdsAndTypes,
+    ArrayRef<GloballyHashedType> Hashes) {
+  TypeStreamMerger M(SourceToDest);
+  return M.mergeTypesAndIds(DestIds, DestTypes, IdsAndTypes, Hashes);
+}
+
+Error llvm::codeview::mergeTypeRecords(GlobalTypeTableBuilder &Dest,
+                                       SmallVectorImpl<TypeIndex> &SourceToDest,
+                                       const CVTypeArray &Types,
+                                       ArrayRef<GloballyHashedType> Hashes) {
+  TypeStreamMerger M(SourceToDest);
+  return M.mergeTypeRecords(Dest, Types, Hashes);
+}
+
+Error llvm::codeview::mergeIdRecords(GlobalTypeTableBuilder &Dest,
+                                     ArrayRef<TypeIndex> Types,
+                                     SmallVectorImpl<TypeIndex> &SourceToDest,
+                                     const CVTypeArray &Ids,
+                                     ArrayRef<GloballyHashedType> Hashes) {
+  TypeStreamMerger M(SourceToDest);
+  return M.mergeIdRecords(Dest, Types, Ids, Hashes);
 }
