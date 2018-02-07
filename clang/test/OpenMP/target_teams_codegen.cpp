@@ -97,7 +97,7 @@ int foo(int n) {
   double cn[5][n];
   TT<long long, char> d;
 
-  // CHECK-DAG:   [[RET:%.+]] = call i32 @__tgt_target_teams(i64 -1, i8* @{{[^,]+}}, i32 3, i8** [[BP:%[^,]+]], i8** [[P:%[^,]+]], i[[SZ]]* getelementptr inbounds ([3 x i[[SZ]]], [3 x i[[SZ]]]* [[SIZET]], i32 0, i32 0), i64* getelementptr inbounds ([3 x i64], [3 x i64]* [[MAPT]], i32 0, i32 0), i32 {{[^,]+}}, i32 {{[^)]+}})
+  // CHECK-DAG:   [[RET:%.+]] = call i32 @__tgt_target_teams_nowait(i64 -1, i8* @{{[^,]+}}, i32 3, i8** [[BP:%[^,]+]], i8** [[P:%[^,]+]], i[[SZ]]* getelementptr inbounds ([3 x i[[SZ]]], [3 x i[[SZ]]]* [[SIZET]], i32 0, i32 0), i64* getelementptr inbounds ([3 x i64], [3 x i64]* [[MAPT]], i32 0, i32 0), i32 {{[^,]+}}, i32 {{[^)]+}})
   // CHECK-DAG:   [[BP]] = getelementptr inbounds [3 x i8*], [3 x i8*]* [[BPR:%[^,]+]], i32 0, i32 0
   // CHECK-DAG:   [[P]] = getelementptr inbounds [3 x i8*], [3 x i8*]* [[PR:%[^,]+]], i32 0, i32 0
   // CHECK-DAG:   [[BPADDR0:%.+]] = getelementptr inbounds [3 x i8*], [3 x i8*]* [[BPR]], i32 0, i32 [[IDX0:[0-9]+]]
@@ -124,7 +124,7 @@ int foo(int n) {
   // CHECK:       call void [[HVT0:@.+]](i[[SZ]] {{[^,]+}}, i[[SZ]] {{[^,]+}}, i[[SZ]] {{[^)]+}})
   // CHECK-NEXT:  br label %[[END]]
   // CHECK:       [[END]]
-  #pragma omp target teams num_teams(a) thread_limit(a) firstprivate(aa)
+  #pragma omp target teams num_teams(a) thread_limit(a) firstprivate(aa) nowait
   {
   }
 
@@ -190,7 +190,6 @@ int foo(int n) {
   {
     a += 1;
     aa += 1;
-    global += 1;
   }
 
   // We capture 3 VLA sizes in this target region
@@ -384,7 +383,6 @@ int foo(int n) {
 // CHECK:       [[AA_ADDR:%.+]] = alloca i[[SZ]], align
 // CHECK:       [[A_CASTED:%.+]] = alloca i[[SZ]], align
 // CHECK:       [[AA_CASTED:%.+]] = alloca i[[SZ]], align
-// CHECK:       [[GLOBAL_CASTED:%.+]] = alloca i[[SZ]], align
 // CHECK-DAG:   store i[[SZ]] %{{.+}}, i[[SZ]]* [[A_ADDR]], align
 // CHECK-DAG:   store i[[SZ]] %{{.+}}, i[[SZ]]* [[AA_ADDR]], align
 // CHECK-64-DAG:[[A_CADDR:%.+]] = bitcast i[[SZ]]* [[A_ADDR]] to i32*
@@ -397,28 +395,18 @@ int foo(int n) {
 // CHECK-DAG:   [[AA:%.+]] = load i16, i16* [[AA_CADDR]], align
 // CHECK-DAG:   [[AA_C:%.+]] = bitcast i[[SZ]]* [[AA_CASTED]] to i16*
 // CHECK-DAG:   store i16 [[AA]], i16* [[AA_C]], align
-// CHECK-DAG:   [[GLOBAL:%.+]] = load i32, i32* @global, align
-// CHECK-64-DAG:[[GLOBAL_C:%.+]] = bitcast i[[SZ]]* [[GLOBAL_CASTED]] to i32*
-// CHECK-64-DAG:store i32 [[GLOBAL]], i32* [[GLOBAL_C]], align
-// CHECK-32-DAG:store i32 [[GLOBAL]], i32* [[GLOBAL_CASTED]], align
 // CHECK-DAG:   [[PARAM1:%.+]] = load i[[SZ]], i[[SZ]]* [[A_CASTED]], align
 // CHECK-DAG:   [[PARAM2:%.+]] = load i[[SZ]], i[[SZ]]* [[AA_CASTED]], align
-// CHECK-DAG:   [[PARAM3:%.+]] = load i[[SZ]], i[[SZ]]* [[GLOBAL_CASTED]], align
-// CHECK-DAG:   call {{.*}}void (%ident_t*, i32, void (i32*, i32*, ...)*, ...) @__kmpc_fork_teams(%ident_t* [[DEF_LOC]], i32 3, void (i32*, i32*, ...)* bitcast (void (i32*, i32*, i[[SZ]], i[[SZ]], i[[SZ]])* [[OMP_OUTLINED3:@.+]] to void (i32*, i32*, ...)*), i[[SZ]] [[PARAM1]], i[[SZ]] [[PARAM2]], i[[SZ]] [[PARAM3]])
+// CHECK-DAG:   call {{.*}}void (%ident_t*, i32, void (i32*, i32*, ...)*, ...) @__kmpc_fork_teams(%ident_t* [[DEF_LOC]], i32 2, void (i32*, i32*, ...)* bitcast (void (i32*, i32*, i[[SZ]], i[[SZ]])* [[OMP_OUTLINED3:@.+]] to void (i32*, i32*, ...)*), i[[SZ]] [[PARAM1]], i[[SZ]] [[PARAM2]])
 //
 //
-// CHECK:       define internal {{.*}}void [[OMP_OUTLINED3]](i32* noalias %.global_tid., i32* noalias %.bound_tid., i[[SZ]] %{{.+}}, i[[SZ]] %{{.+}}, i[[SZ]] %{{.+}})
+// CHECK:       define internal {{.*}}void [[OMP_OUTLINED3]](i32* noalias %.global_tid., i32* noalias %.bound_tid., i[[SZ]] %{{.+}}, i[[SZ]] %{{.+}})
 // CHECK:       [[A_ADDR:%.+]] = alloca i[[SZ]], align
 // CHECK:       [[AA_ADDR:%.+]] = alloca i[[SZ]], align
-// CHECK:       [[GLOBAL_ADDR:%.+]] = alloca i[[SZ]], align
 // CHECK-DAG:   store i[[SZ]] %{{.+}}, i[[SZ]]* [[A_ADDR]], align
 // CHECK-DAG:   store i[[SZ]] %{{.+}}, i[[SZ]]* [[AA_ADDR]], align
-// CHECK-DAG:   store i[[SZ]] %{{.+}}, i[[SZ]]* [[GLOBAL_ADDR]], align
 // CHECK-64-DAG:[[A_CADDR:%.+]] = bitcast i[[SZ]]* [[A_ADDR]] to i32*
 // CHECK-DAG:   [[AA_CADDR:%.+]] = bitcast i[[SZ]]* [[AA_ADDR]] to i16*
-// CHECK-64-DAG:[[GLOBAL_CADDR:%.+]] = bitcast i[[SZ]]* [[GLOBAL_ADDR]] to i32*
-// CHECK-64:    store i32 {{.+}}, i32* [[GLOBAL_CADDR]],
-// CHECK-32:    store i32 {{.+}}, i32* [[GLOBAL_ADDR]],
 // CHECK:       ret void
 // CHECK-NEXT:  }
 

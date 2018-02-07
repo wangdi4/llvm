@@ -534,7 +534,7 @@ namespace __sanitizer {
   typedef long __sanitizer_clock_t;
 #endif
 
-#if SANITIZER_LINUX
+#if SANITIZER_LINUX || SANITIZER_FREEBSD
   typedef int __sanitizer_clockid_t;
 #endif
 
@@ -1497,6 +1497,8 @@ struct __sanitizer_cookie_io_functions_t {
                  sizeof(((struct CLASS *) NULL)->MEMBER));                \
   COMPILER_CHECK(offsetof(struct __sanitizer_##CLASS, MEMBER) ==          \
                  offsetof(struct CLASS, MEMBER))
+
+#define SIGACTION_SYMNAME sigaction
 
 #endif  // SANITIZER_FREEBSD || SANITIZER_LINUX || SANITIZER_MAC
 
