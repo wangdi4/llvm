@@ -214,14 +214,14 @@ JumpThreadingPass::JumpThreadingPass(int T, bool AllowCFGSimps) {       // INTEL
 //
 //  Given that P(cond == true) = P(cond == true | A) * P(A) +
 //                               P(cond == true | B) * P(B)
-//  we get
+//  we get:
 //     P(cond == true ) = P(A) + P(cond == true | B) * P(B)
 //
 //  which gives us:
 //     P(A) is less than P(cond == true), i.e.
 //     P(t == true) <= P(cond == true)
 //
-//  In other words, if we know P(cond == true) is unlikely, we know 
+//  In other words, if we know P(cond == true) is unlikely, we know
 //  that P(t == true) is also unlikely.
 //
 static void updatePredecessorProfileMetadata(PHINode *PN, BasicBlock *BB) {
@@ -308,7 +308,7 @@ bool JumpThreading::runOnFunction(Function &F) {
   auto AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
   std::unique_ptr<BlockFrequencyInfo> BFI;
   std::unique_ptr<BranchProbabilityInfo> BPI;
-  bool HasProfileData = F.getEntryCount().hasValue();
+  bool HasProfileData = F.hasProfileData();
   if (HasProfileData) {
     LoopInfo LI{DominatorTree(F)};
     BPI.reset(new BranchProbabilityInfo(F, LI, TLI));
@@ -333,8 +333,7 @@ PreservedAnalyses JumpThreadingPass::run(Function &F,
 
   std::unique_ptr<BlockFrequencyInfo> BFI;
   std::unique_ptr<BranchProbabilityInfo> BPI;
-  bool HasProfileData = F.getEntryCount().hasValue();
-  if (HasProfileData) {
+  if (F.hasProfileData()) {
     LoopInfo LI{DominatorTree(F)};
     BPI.reset(new BranchProbabilityInfo(F, LI, &TLI));
     BFI.reset(new BlockFrequencyInfo(F, *BPI, LI));
@@ -1575,6 +1574,20 @@ bool JumpThreadingPass::SimplifyPartiallyRedundantLoad(LoadInst *LI) {
   // code size.
   BasicBlock *UnavailablePred = nullptr;
 
+  // If the value is unavailable in one of predecessors, we will end up
+  // inserting a new instruction into them. It is only valid if all the
+  // instructions before LI are guaranteed to pass execution to its successor,
+  // or if LI is safe to speculate.
+  // TODO: If this logic becomes more complex, and we will perform PRE insertion
+  // farther than to a predecessor, we need to reuse the code from GVN's PRE.
+  // It requires domination tree analysis, so for this simple case it is an
+  // overkill.
+  if (PredsScanned.size() != AvailablePreds.size() &&
+      !isSafeToSpeculativelyExecute(LI))
+    for (auto I = LoadBB->begin(); &*I != LI; ++I)
+      if (!isGuaranteedToTransferExecutionToSuccessor(&*I))
+        return false;
+
   // If there is exactly one predecessor where the value is unavailable, the
   // already computed 'OneUnavailablePred' block is it.  If it ends in an
   // unconditional branch, we know that it isn't a critical edge.
@@ -2396,7 +2409,7 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
                 PN->getIncomingBlock(i) != RegionBottom)
               PN->setIncomingBlock(i, BlockMapping[PN->getIncomingBlock(i)]);
             else
-              PN->removeIncomingValue(i);
+              PN->removeIncomingValue(i, /*DeletePHIIfEmpty*/false);
           }
         }
 

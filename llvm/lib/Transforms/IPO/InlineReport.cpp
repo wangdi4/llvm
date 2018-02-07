@@ -94,6 +94,8 @@ const static InlPrtRecord InlineReasonText[NinlrLast + 1] = {
   InlPrtCost, "Callee has vector instructions",
   // InlrAggInline,
   InlPrtCost, "Aggressive inline to expose uses of global ptrs",
+  // InlrForFusion,
+  InlPrtCost, "Callee has multiple callsites with loops that could be fused",
   // InlrProfitable,
   InlPrtCost, "Inlining is profitable",
   // InlrLast,

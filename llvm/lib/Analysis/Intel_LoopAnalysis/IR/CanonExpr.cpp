@@ -1047,7 +1047,7 @@ void CanonExpr::demoteIVs(unsigned StartLevel) {
   assert(CanonExprUtils::isValidLoopLevel(StartLevel) && "Invalid StartLevel");
 
   assert(IVCoeffs[(StartLevel - 1) - 1].Coeff == 0 &&
-      "Shifting to IV with a non zero coeff.");
+         "Shifting to IV with a non zero coeff.");
 
   unsigned LastIV = IVCoeffs.size() - 1;
 
@@ -1122,17 +1122,16 @@ void CanonExpr::simplifyConstantDenom() {
   APInt Constant(SrcBitWidth, Val, IsSignedDiv);
   APInt Denom(SrcBitWidth, DenomConst, IsSignedDiv);
 
-  Val = (IsSignedDiv ? Constant.sdiv(Denom) 
-                     : Constant.udiv(Denom)).getSExtValue();
+  Val = (IsSignedDiv ? Constant.sdiv(Denom) : Constant.udiv(Denom))
+            .getSExtValue();
 
   setDenominator(1);
   setConstant(Val);
 }
 
 void CanonExpr::simplifyConstantCast() {
-  Type *SrcType = getSrcType();
-  Type *DstType = getDestType();
-  // TODO: support vector types?
+  Type *SrcType = getSrcType()->getScalarType();
+  Type *DstType = getDestType()->getScalarType();
 
   // Handle cast of constant canon expression.
   if (!SrcType->isIntegerTy() || SrcType == DstType) {
@@ -1141,12 +1140,18 @@ void CanonExpr::simplifyConstantCast() {
 
   auto Val = getConstant();
   unsigned DstBitWidth = DstType->getPrimitiveSizeInBits();
-  bool IsSigned = isSExt();
 
-  APInt Constant(SrcType->getPrimitiveSizeInBits(), Val, IsSigned);
+  // Just assume the constant is signed. This doesn't matter as the final value
+  // is determined by the cast and eventual getSExtValue() call below.
+  APInt Constant(SrcType->getPrimitiveSizeInBits(), Val, true);
 
-  Val = IsSigned ? Constant.sextOrTrunc(DstBitWidth).getSExtValue()
-                 : Constant.zextOrTrunc(DstBitWidth).getZExtValue();
+  // HIRParser uses getSExtValue() to set the C0 integer in CEs. To be
+  // consistent we should also use getSExtValue(). This way we can perform
+  // equality check between constant CEs. LLVM print also prints the constant in
+  // signed mode so this setup seems to make sense. Signed representation also
+  // makes sense for DD which needs to perform arithmertic on CanonExprs.
+  Val = IsSExt ? Constant.sextOrTrunc(DstBitWidth).getSExtValue()
+               : Constant.zextOrTrunc(DstBitWidth).getSExtValue();
 
   setSrcType(DstType);
   setConstant(Val);

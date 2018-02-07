@@ -30,6 +30,7 @@
 #include "llvm/ADT/PointerIntPair.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SetVector.h"
+#include "llvm/ADT/SmallBitVector.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
@@ -39,8 +40,9 @@
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/GlobalsModRef.h"
-#include "llvm/Analysis/Intel_AggInline.h"    // INTEL
-#include "llvm/Analysis/Intel_Andersens.h"    // INTEL
+#include "llvm/Analysis/Intel_AggInline.h"                  // INTEL
+#include "llvm/Analysis/Intel_Andersens.h"                  // INTEL
+#include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h" // INTEL
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/PtrUseVisitor.h"
 #include "llvm/IR/BasicBlock.h"
@@ -101,6 +103,7 @@
 
 using namespace llvm;
 using namespace llvm::sroa;
+using namespace llvm::vpo;           // INTEL
 
 #define DEBUG_TYPE "sroa"
 
@@ -124,6 +127,11 @@ static cl::opt<bool> SROARandomShuffleSlices("sroa-random-shuffle-slices",
 /// GEPs.
 static cl::opt<bool> SROAStrictInbounds("sroa-strict-inbounds", cl::init(false),
                                         cl::Hidden);
+
+/// Hidden option to allow more aggressive splitting.
+static cl::opt<bool>
+SROASplitNonWholeAllocaSlices("sroa-split-nonwhole-alloca-slices",
+                              cl::init(false), cl::Hidden);
 
 namespace {
 
@@ -3822,7 +3830,7 @@ bool SROA::presplitLoadsAndStores(AllocaInst &AI, AllocaSlices &AS) {
                          PartPtrTy, BasePtr->getName() + "."),
           getAdjustedAlignment(LI, PartOffset, DL), /*IsVolatile*/ false,
           LI->getName());
-      PLoad->copyMetadata(*LI, LLVMContext::MD_mem_parallel_loop_access); 
+      PLoad->copyMetadata(*LI, LLVMContext::MD_mem_parallel_loop_access);
 
       // Append this load onto the list of split loads so we can find it later
       // to rewrite the stores.
@@ -4215,27 +4223,58 @@ bool SROA::splitAlloca(AllocaInst &AI, AllocaSlices &AS) {
   // First try to pre-split loads and stores.
   Changed |= presplitLoadsAndStores(AI, AS);
 
-  // Now that we have identified any pre-splitting opportunities, mark any
-  // splittable (non-whole-alloca) loads and stores as unsplittable. If we fail
-  // to split these during pre-splitting, we want to force them to be
-  // rewritten into a partition.
+  // Now that we have identified any pre-splitting opportunities,
+  // mark loads and stores unsplittable except for the following case.
+  // We leave a slice splittable if all other slices are disjoint or fully
+  // included in the slice, such as whole-alloca loads and stores.
+  // If we fail to split these during pre-splitting, we want to force them
+  // to be rewritten into a partition.
   bool IsSorted = true;
-  for (Slice &S : AS) {
-    if (!S.isSplittable())
-      continue;
-    // FIXME: We currently leave whole-alloca splittable loads and stores. This
-    // used to be the only splittable loads and stores and we need to be
-    // confident that the above handling of splittable loads and stores is
-    // completely sufficient before we forcibly disable the remaining handling.
-    if (S.beginOffset() == 0 &&
-        S.endOffset() >= DL.getTypeAllocSize(AI.getAllocatedType()))
-      continue;
-    if (isa<LoadInst>(S.getUse()->getUser()) ||
-        isa<StoreInst>(S.getUse()->getUser())) {
-      S.makeUnsplittable();
-      IsSorted = false;
+
+  uint64_t AllocaSize = DL.getTypeAllocSize(AI.getAllocatedType());
+  const uint64_t MaxBitVectorSize = 1024;
+  if (SROASplitNonWholeAllocaSlices && AllocaSize <= MaxBitVectorSize) {
+    // If a byte boundary is included in any load or store, a slice starting or
+    // ending at the boundary is not splittable.
+    SmallBitVector SplittableOffset(AllocaSize + 1, true);
+    for (Slice &S : AS)
+      for (unsigned O = S.beginOffset() + 1;
+           O < S.endOffset() && O < AllocaSize; O++)
+        SplittableOffset.reset(O);
+
+    for (Slice &S : AS) {
+      if (!S.isSplittable())
+        continue;
+
+      if ((S.beginOffset() > AllocaSize || SplittableOffset[S.beginOffset()]) &&
+          (S.endOffset() > AllocaSize || SplittableOffset[S.endOffset()]))
+        continue;
+
+      if (isa<LoadInst>(S.getUse()->getUser()) ||
+          isa<StoreInst>(S.getUse()->getUser())) {
+        S.makeUnsplittable();
+        IsSorted = false;
+      }
     }
   }
+  else {
+    // We only allow whole-alloca splittable loads and stores
+    // for a large alloca to avoid creating too large BitVector.
+    for (Slice &S : AS) {
+      if (!S.isSplittable())
+        continue;
+
+      if (S.beginOffset() == 0 && S.endOffset() >= AllocaSize)
+        continue;
+
+      if (isa<LoadInst>(S.getUse()->getUser()) ||
+          isa<StoreInst>(S.getUse()->getUser())) {
+        S.makeUnsplittable();
+        IsSorted = false;
+      }
+    }
+  }
+
   if (!IsSorted)
     std::sort(AS.begin(), AS.end());
 
@@ -4548,8 +4587,15 @@ public:
   }
 
   bool runOnFunction(Function &F) override {
-    if (skipFunction(F))
-      return false;
+
+#if INTEL_CUSTOMIZATION
+// For VPO OpenMP handling we need SROA even at -O0; calling this util ensures
+// it for functions with OpenMP directives. For other passes needed by OpenMP
+// even at -O0, see PassManagerBuilder::populateFunctionPassManager()
+    if (VPOAnalysisUtils::skipFunctionForOpenmp(F))
+#endif // INTEL_CUSTOMIZATION
+      if (skipFunction(F))
+        return false;
 
     auto PA = Impl.runImpl(
         F, getAnalysis<DominatorTreeWrapperPass>().getDomTree(),

@@ -108,23 +108,28 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
     } else
       Call = genTargetInitCode(W, NewCall, InsertPt);
 
-    Builder.SetInsertPoint(InsertPt);
-    Builder.CreateStore(Call, OffloadError);
+    if (isa<WRNTargetNode>(W)) {
+      Builder.SetInsertPoint(InsertPt);
+      Builder.CreateStore(Call, OffloadError);
 
-    Builder.SetInsertPoint(NewCall);
-    LoadInst *LastLoad = Builder.CreateLoad(OffloadError);
-    ConstantInt *ValueZero =
-        ConstantInt::getSigned(Type::getInt32Ty(F->getContext()), 0);
-    Value *ErrorCompare = Builder.CreateICmpNE(LastLoad, ValueZero);
-    TerminatorInst *Term = SplitBlockAndInsertIfThen(ErrorCompare, NewCall,
-                                                     false, nullptr, DT, LI);
-    Term->getParent()->setName("omp_offload.failed");
-    LastLoad->getParent()->getTerminator()->getSuccessor(1)->setName(
-        "omp_offload.cont");
-    NewCall->removeFromParent();
-    NewCall->insertBefore(Term->getParent()->getTerminator());
+      Builder.SetInsertPoint(NewCall);
+      LoadInst *LastLoad = Builder.CreateLoad(OffloadError);
+      ConstantInt *ValueZero =
+          ConstantInt::getSigned(Type::getInt32Ty(F->getContext()), 0);
+      Value *ErrorCompare = Builder.CreateICmpNE(LastLoad, ValueZero);
+      TerminatorInst *Term = SplitBlockAndInsertIfThen(ErrorCompare, NewCall,
+                                                       false, nullptr, DT, LI);
+      Term->getParent()->setName("omp_offload.failed");
+      LastLoad->getParent()->getTerminator()->getSuccessor(1)->setName(
+          "omp_offload.cont");
+      NewCall->removeFromParent();
+      NewCall->insertBefore(Term->getParent()->getTerminator());
 
-    genRegistrationFunction(W, NewF);
+      genRegistrationFunction(W, NewF);
+    } else if (isa<WRNTargetDataNode>(W)) {
+      NewCall->removeFromParent();
+      NewCall->insertAfter(Call);
+    }
 
     W->resetBBSet(); // Invalidate BBSet after transformations
 
@@ -136,6 +141,8 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
 
 // Reset the expression value in IsDevicePtr clause to be empty.
 void VPOParoptTransform::resetValueInIsDevicePtrClause(WRegionNode *W) {
+  if (!W->canHaveIsDevicePtr())
+    return;
 
   IsDevicePtrClause IDevicePtrClause = W->getIsDevicePtr();
   if (IDevicePtrClause.empty())
@@ -161,28 +168,29 @@ Type *VPOParoptTransform::getSizeTTy() {
 }
 
 // Returns the corresponding flag for a given map clause modifier.
-unsigned VPOParoptTransform::getMapTypeFlag(MapItem *MpI, bool IsFirstExprFlag,
+unsigned VPOParoptTransform::getMapTypeFlag(MapItem *MapI, bool IsFirstExprFlag,
                                             bool IsFirstComponentFlag) {
   unsigned Res = 0u;
 
-  if (MpI->getIsMapTofrom())
+  if (MapI->getIsMapTofrom())
     Res = TGT_MAP_TO | TGT_MAP_FROM;
-  else if (MpI->getIsMapTo())
+  else if (MapI->getIsMapTo() || MapI->getInFirstprivate())
     Res = TGT_MAP_TO;
-  else if (MpI->getIsMapFrom())
+  else if (MapI->getIsMapFrom())
     Res = TGT_MAP_FROM;
-  else if (MpI->getIsMapDelete())
+  else if (MapI->getIsMapDelete())
     Res = TGT_MAP_DELETE;
 
   // WRNMapAlloc and WRNMapRelease are the default behavior in the runtime.
 
-  if (MpI->getIsMapAlways())
+  if (MapI->getIsMapAlways())
     Res |= TGT_MAP_ALWAYS;
 
   if (IsFirstExprFlag)
     Res |= TGT_MAP_IS_PTR;
   if (IsFirstComponentFlag)
     Res |= TGT_MAP_FIRST_REF;
+
   return Res;
 }
 
@@ -197,34 +205,40 @@ void VPOParoptTransform::GenTgtInformationForPtrs(
   bool IsFirstComponentFlag = true;
 
   MapClause MpClause = W->getMap();
-  for (MapItem *MpI : MpClause.items()) {
-    if (MpI->getNew() != V)
+  for (MapItem *MapI : MpClause.items()) {
+    if (MapI->getNew() != V)
       continue;
-    Type *T = MpI->getOrig()->getType()->getPointerElementType();
+    Type *T = MapI->getOrig()->getType()->getPointerElementType();
     ConstSizes.push_back(
         ConstantInt::get(getSizeTTy(), DL.getTypeAllocSize(T)));
     MapTypes.push_back(
-        getMapTypeFlag(MpI, !IsFirstExprFlag, IsFirstComponentFlag));
+        getMapTypeFlag(MapI, !IsFirstExprFlag, IsFirstComponentFlag));
     IsFirstExprFlag = false;
   }
 
-  FirstprivateClause &FprivClause = W->getFpriv();
-  for (FirstprivateItem *FprivI : FprivClause.items()) {
-    if (FprivI->getOrig() != V)
-      continue;
-    Type *T = FprivI->getOrig()->getType()->getPointerElementType();
-    ConstSizes.push_back(
-        ConstantInt::get(getSizeTTy(), DL.getTypeAllocSize(T)));
-    MapTypes.push_back(TGT_MAP_TO);
+  if (W->canHaveFirstprivate()) {
+    FirstprivateClause &FprivClause = W->getFpriv();
+    for (FirstprivateItem *FprivI : FprivClause.items()) {
+      if (FprivI->getOrig() != V)
+        continue;
+      if (FprivI->getInMap())
+        continue;
+      Type *T = FprivI->getOrig()->getType()->getPointerElementType();
+      ConstSizes.push_back(
+          ConstantInt::get(getSizeTTy(), DL.getTypeAllocSize(T)));
+      MapTypes.push_back(TGT_MAP_TO);
+    }
   }
 
-  IsDevicePtrClause IDevicePtrClause = W->getIsDevicePtr();
-  for (IsDevicePtrItem *IsDevicePtrI : IDevicePtrClause.items()) {
-    if (IsDevicePtrI->getNew() != V)
-      continue;
-    Type *T = getSizeTTy();
-    ConstSizes.push_back(ConstantInt::get(T, DL.getTypeAllocSize(T)));
-    MapTypes.push_back(TGT_MAP_PRIVATE_VAL | TGT_MAP_FIRST_REF);
+  if (W->canHaveIsDevicePtr()) {
+    IsDevicePtrClause IDevicePtrClause = W->getIsDevicePtr();
+    for (IsDevicePtrItem *IsDevicePtrI : IDevicePtrClause.items()) {
+      if (IsDevicePtrI->getNew() != V)
+        continue;
+      Type *T = getSizeTTy();
+      ConstSizes.push_back(ConstantInt::get(T, DL.getTypeAllocSize(T)));
+      MapTypes.push_back(TGT_MAP_PRIVATE_VAL | TGT_MAP_FIRST_REF);
+    }
   }
 }
 
@@ -232,7 +246,7 @@ void VPOParoptTransform::GenTgtInformationForPtrs(
 CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
                                                 Instruction *InsertPt) {
   DEBUG(dbgs() << "\nEnter VPOParoptTransform::genTargetInitCode\n");
-  IRBuilder<> Builder(InsertPt);
+  IRBuilder<> Builder(F->getEntryBlock().getFirstNonPHI());
   TgDataInfo Info;
 
   MapClause MpClause = W->getMap();
@@ -284,9 +298,21 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
 
   GlobalVariable *OffloadRegionId = getOMPOffloadRegionId();
 
-  CallInst *TgtCall = VPOParoptUtils::genTgtTarget(
-                 W, OffloadRegionId, Info.NumberOfPtrs, Info.BaseDataPtrs,
-                 Info.DataPtrs, Info.DataSizes, Info.DataMapTypes, InsertPt);
+  CallInst *TgtCall;
+  if (isa<WRNTargetNode>(W))
+    TgtCall = VPOParoptUtils::genTgtTarget(
+        W, OffloadRegionId, Info.NumberOfPtrs, Info.ResBaseDataPtrs,
+        Info.ResDataPtrs, Info.ResDataSizes, Info.ResDataMapTypes, InsertPt);
+  else if (isa<WRNTargetDataNode>(W)) {
+    TgtCall = VPOParoptUtils::genTgtTargetDataBegin(
+        W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
+        Info.ResDataSizes, Info.ResDataMapTypes, InsertPt);
+    genOffloadArraysArgument(&Info, Call);
+    VPOParoptUtils::genTgtTargetDataEnd(
+        W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
+        Info.ResDataSizes, Info.ResDataMapTypes, Call);
+  }
+
   DEBUG(dbgs() << "\nExit VPOParoptTransform::genTargetInitCode\n");
   return TgtCall;
 }
@@ -355,24 +381,24 @@ void VPOParoptTransform::genOffloadArraysArgument(TgDataInfo *Info,
   IRBuilder<> Builder(InsertPt);
 
   if (Info->NumberOfPtrs) {
-    Info->BaseDataPtrs = Builder.CreateConstInBoundsGEP2_32(
+    Info->ResBaseDataPtrs = Builder.CreateConstInBoundsGEP2_32(
         ArrayType::get(Builder.getInt8PtrTy(), Info->NumberOfPtrs),
         Info->BaseDataPtrs, 0, 0);
-    Info->DataPtrs = Builder.CreateConstInBoundsGEP2_32(
+    Info->ResDataPtrs = Builder.CreateConstInBoundsGEP2_32(
         ArrayType::get(Builder.getInt8PtrTy(), Info->NumberOfPtrs),
         Info->DataPtrs, 0, 0);
-    Info->DataSizes = Builder.CreateConstInBoundsGEP2_32(
+    Info->ResDataSizes = Builder.CreateConstInBoundsGEP2_32(
         ArrayType::get(getSizeTTy(), Info->NumberOfPtrs), Info->DataSizes, 0,
         0);
-    Info->DataMapTypes = Builder.CreateConstInBoundsGEP2_32(
+    Info->ResDataMapTypes = Builder.CreateConstInBoundsGEP2_32(
         ArrayType::get(Type::getInt32Ty(F->getContext()), Info->NumberOfPtrs),
         Info->DataMapTypes, 0, 0);
   } else {
-    Info->BaseDataPtrs = ConstantPointerNull::get(Builder.getInt8PtrTy());
-    Info->DataPtrs = ConstantPointerNull::get(Builder.getInt8PtrTy());
-    Info->DataSizes =
+    Info->ResBaseDataPtrs = ConstantPointerNull::get(Builder.getInt8PtrTy());
+    Info->ResDataPtrs = ConstantPointerNull::get(Builder.getInt8PtrTy());
+    Info->ResDataSizes =
         ConstantPointerNull::get(PointerType::getUnqual(getSizeTTy()));
-    Info->DataMapTypes = ConstantPointerNull::get(
+    Info->ResDataMapTypes = ConstantPointerNull::get(
         PointerType::getUnqual(Type::getInt32Ty(F->getContext())));
   }
 }
@@ -531,7 +557,7 @@ VPOParoptTransform::genOffloadingBinaryDescriptorRegistration(WRegionNode *W) {
       ".omp_offloading.entries_end");
 
   SmallVector<Constant*, 16> DeviceImagesInit;
-  for (const auto &T : OffloadTargets) {
+  for (const auto &T : TgtDeviceTriples) {
     const auto &N = T.getTriple();
 
     auto *ImgBegin = new GlobalVariable(
@@ -565,7 +591,8 @@ VPOParoptTransform::genOffloadingBinaryDescriptorRegistration(WRegionNode *W) {
                         Constant::getNullValue(Type::getInt32Ty(C)) };
 
   SmallVector<Constant *, 16> DescInitBuffer;
-  DescInitBuffer.push_back(ConstantInt::get(Type::getInt32Ty(C), 1));
+  DescInitBuffer.push_back(
+      ConstantInt::get(Type::getInt32Ty(C), TgtDeviceTriples.size()));
   DescInitBuffer.push_back(ConstantExpr::getGetElementPtr(
       DeviceImages->getValueType(), DeviceImages, Index));
   DescInitBuffer.push_back(HostEntriesBegin);
@@ -640,9 +667,29 @@ Function *VPOParoptTransform::createTgDescRegisterLib(WRegionNode *W,
   return Fn;
 }
 
-// If the map data is global variable, Create the stack variable and
+// The utility to generate the stack variable to pass the value of
+// global variable.
+Value *VPOParoptTransform::genGlobalPrivatizationImpl(WRegionNode *W,
+                                                      GlobalVariable *G,
+                                                      BasicBlock *EntryBB,
+                                                      BasicBlock *NextExitBB,
+                                                      Item *IT) {
+  G->setTargetDeclare(true);
+  auto NewPrivInst =
+      genPrivatizationAlloca(W, G, EntryBB->getFirstNonPHI(), ".priv.mp");
+  genPrivatizationReplacement(W, G, NewPrivInst, IT);
+  LoadInst *Load = new LoadInst(G);
+  Load->insertAfter(cast<Instruction>(NewPrivInst));
+  StoreInst *Store = new StoreInst(Load, NewPrivInst);
+  Store->insertAfter(Load);
+  IRBuilder<> Builder(NextExitBB->getTerminator());
+  Builder.CreateStore(Builder.CreateLoad(NewPrivInst), G);
+  return NewPrivInst;
+}
+
+// If the incoming data is global variable, Create the stack variable and
 // replace the the global variable with the stack variable.
-bool VPOParoptTransform::genMapPrivationCode(WRegionNode *W) {
+bool VPOParoptTransform::genGlobalPrivatizationCode(WRegionNode *W) {
   MapClause MpClause = W->getMap();
   BasicBlock *EntryBB = &(F->getEntryBlock());
   BasicBlock *ExitBB = W->getExitBBlock();
@@ -650,24 +697,43 @@ bool VPOParoptTransform::genMapPrivationCode(WRegionNode *W) {
   W->populateBBSet();
 
   bool Changed = false;
-  for (MapItem *MpI : MpClause.items()) {
-    Value *Orig = MpI->getOrig();
+  for (MapItem *MapI : MpClause.items()) {
+    Value *Orig = MapI->getOrig();
     if (GlobalVariable *G = dyn_cast<GlobalVariable>(Orig)) {
-      G->setTargetDeclare(true);
-      auto NewPrivInst = genPrivatizationAlloca(
-          W, Orig, EntryBB->getFirstNonPHI(), ".priv.mp");
-      genPrivatizationReplacement(W, Orig, NewPrivInst, MpI);
-      LoadInst *Load = new LoadInst(Orig);
-      Load->insertAfter(cast<Instruction>(NewPrivInst));
-      StoreInst *Store = new StoreInst(Load, NewPrivInst);
-      Store->insertAfter(Load);
-      IRBuilder<> Builder(NextExitBB->getTerminator());
-      Builder.CreateStore(Builder.CreateLoad(NewPrivInst), Orig);
-      MpI->setNew(NewPrivInst);
+
+      Value *NewPrivInst =
+          genGlobalPrivatizationImpl(W, G, EntryBB, NextExitBB, MapI);
+
+      MapI->setNew(NewPrivInst);
       Changed = true;
     } else
-      MpI->setNew(Orig);
+      // The New is set to be the same as Orig for local firstprivate so that
+      // global/local firstprivate can be processed in a unified way in the
+      // later OMP code generation.
+      MapI->setNew(Orig);
   }
+
+  if (W->canHaveFirstprivate()) {
+    FirstprivateClause &FprivClause = W->getFpriv();
+    for (FirstprivateItem *FprivI : FprivClause.items()) {
+      Value *Orig = FprivI->getOrig();
+      MapItem *MapI = FprivI->getInMap();
+      if (MapI) {
+        FprivI->setNew(MapI->getNew());
+        continue;
+      }
+      if (GlobalVariable *G = dyn_cast<GlobalVariable>(Orig)) {
+
+        Value *NewPrivInst =
+            genGlobalPrivatizationImpl(W, G, EntryBB, NextExitBB, FprivI);
+
+        FprivI->setNew(NewPrivInst);
+        Changed = true;
+      } else
+        FprivI->setNew(Orig);
+    }
+  }
+
   if (Changed)
     W->resetBBSet();
   return Changed;
@@ -676,6 +742,8 @@ bool VPOParoptTransform::genMapPrivationCode(WRegionNode *W) {
 // Pass the value of the DevicePtr to the outlined function.
 bool VPOParoptTransform::genDevicePtrPrivationCode(WRegionNode *W) {
   bool Changed = false;
+  if (!W->canHaveIsDevicePtr())
+    return Changed;
   IsDevicePtrClause IDevicePtrClause = W->getIsDevicePtr();
   if (!IDevicePtrClause.empty()) {
     W->populateBBSet();
@@ -698,4 +766,18 @@ bool VPOParoptTransform::genDevicePtrPrivationCode(WRegionNode *W) {
     }
   }
   return Changed;
+}
+
+// Process the device information string into the triples.
+void VPOParoptTransform::processDeviceTriples() {
+  auto TargetDevicesStr = F->getParent()->getTargetDevices();
+  std::string::size_type Pos = 0;
+  while (true) {
+    std::string::size_type Next = TargetDevicesStr.find(',', Pos);
+    Triple TT(TargetDevicesStr.substr(Pos, Next - Pos));
+    TgtDeviceTriples.push_back(TT);
+    if (Next == std::string::npos)
+      break;
+    Pos = Next + 1;
+  }
 }

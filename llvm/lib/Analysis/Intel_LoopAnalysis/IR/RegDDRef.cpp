@@ -1077,7 +1077,7 @@ void RegDDRef::replaceIVByConstant(unsigned LoopLevel, int64_t Val) {
 
     // Replace IV by constant Val and then simplify the CE
     CE->replaceIVByConstant(LoopLevel, Val);
-    CE->simplify();
+    CE->simplify(true);
   }
 }
 

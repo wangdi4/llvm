@@ -1651,6 +1651,10 @@ example:
 ``sanitize_thread``
     This attribute indicates that ThreadSanitizer checks
     (dynamic thread safety analysis) are enabled for this function.
+``sanitize_hwaddress``
+    This attribute indicates that HWAddressSanitizer checks
+    (dynamic address safety analysis based on tagged pointers) are enabled for
+    this function.
 ``speculatable``
     This function attribute indicates that the function does not have any
     effects besides calculating its result and does not have undefined behavior.
@@ -2081,6 +2085,27 @@ by the minus sign character ('-'). The canonical forms are:
 This information is passed along to the backend so that it generates
 code for the proper architecture. It's possible to override this on the
 command line with the ``-mtriple`` command line option.
+
+.. INTEL_CUSTOMIZATION
+.. _target_devices_triples:
+
+Devices Triples
+---------------
+A module may specify comma-separated list of triples that describes the
+OpenMP offloading targets to be supported. The list of triples is denoted
+as devices triple, whose syntax is simply:
+
+.. code-block:: llvm
+
+    target device_triples = "x86_64-mic,i386-pc-linux-gnu"
+
+The *devices triples* string consists of a series of substrings separated by
+','. Each substring which consists of a series of identifiers joined by the
+minus sign character ('-'), is in the same format of the *target triple*.
+
+This information is passed along to the backend so that it generates
+code for the proper architecture.
+.. END INTEL_CUSTOMIZATION
 
 .. _pointeraliasing:
 

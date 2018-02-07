@@ -175,7 +175,7 @@ attributes #2 = { nounwind }
 ; NOOPT: [[region_18]]:
 ; NOOPT:   [[BB_14:BB[0-9]+]]:
 ; NOOPT:     [[BP_25:BP[0-9]+]] = [[BP_22]]
-; NOOPT:     [[IfF_28:IfF[0-9]+]] = [[BP_25]] && ![[VBR_27:VBR[0-9]+]]
+; NOOPT:     [[IfF_28:IfF[0-9]+]] = [[BP_25]] && ![[VBR_27:%vp[0-9]+]]
 ; NOOPT:     [[IfT_29:IfT[0-9]+]] = [[BP_25]] && [[VBR_27]]
 ; NOOPT:   [[loop_19:loop[0-9]+]]:
 ; NOOPT:     [[IfF_28]] = [[BP_25]] && ![[VBR_27]]
@@ -207,7 +207,7 @@ attributes #2 = { nounwind }
 ; OPT: [[region_18:region[0-9]+]]:
 ; OPT:   [[BB_14:BB[0-9]+]]:
 ; OPT-NOT: {{BP[0-9]+}} = 
-; OPT:     [[IfF_28]] = ![[VBR_27:VBR[0-9]+]]
+; OPT:     [[IfF_28]] = ![[VBR_27:%vp[0-9]+]]
 ; OPT:     [[IfT_29:IfT[0-9]+]] = [[VBR_27]]
 ; OPT:   [[loop_19]]:
 ; OPT:     [[IfF_28]] = ![[VBR_27]]

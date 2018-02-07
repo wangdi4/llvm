@@ -19,6 +19,7 @@
 #include "llvm/Analysis/Intel_AggInline.h"    // INTEL
 #include "llvm/Analysis/LoopInfo.h"           // INTEL
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
+#include "llvm/ADT/SmallSet.h"                // INTEL
 #include <cassert>
 #include <climits>
 
@@ -51,6 +52,7 @@ const int LastCallToStaticBonus = 15000;
 const int SecondToLastCallToStaticBonus = 410; // INTEL
 const int AggressiveInlineCallBonus = 5000;    // INTEL
 const int BigBasicBlockPredCount = 90;         // INTEL
+const int InliningForFusionBonus = 400;        // INTEL
 const int ColdccPenalty = 2000;
 const int NoreturnPenalty = 10000;
 /// Do not inline functions which allocate this many bytes on the stack
@@ -109,8 +111,8 @@ typedef enum {
    InlrFirst, // Just a marker placed before the first inlining reason
    InlrNoReason,
    InlrAlwaysInline,
-   InlrAlwaysInlineRecursive, // INTEL
-   InlrInlineList,            // INTEL
+   InlrAlwaysInlineRecursive,
+   InlrInlineList,
    InlrSingleLocalCall,
    InlrSingleBasicBlock,
    InlrAlmostSingleBasicBlock,
@@ -119,11 +121,12 @@ typedef enum {
    InlrDoubleNonLocalCall,
    InlrVectorBonus,
    InlrAggInline,
+   InlrForFusion,
    InlrProfitable,
    InlrLast, // Just a marker placed after the last inlining reason
    NinlrFirst, // Just a marker placed before the first non-inlining reason
    NinlrNoReason,
-   NinlrNoinlineList,         // INTEL
+   NinlrNoinlineList,
    NinlrColdCC,
    NinlrDeleted,
    NinlrDuplicateCall,
@@ -374,6 +377,7 @@ getInlineCost(CallSite CS, const InlineParams &Params,
               Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI,
               InliningLoopInfoCache *ILIC,     // INTEL
               InlineAggressiveInfo *AggI,      // INTEL
+              SmallSet<CallSite, 20> *CallSitesForFusion, // INTEL
               ProfileSummaryInfo *PSI,
               OptimizationRemarkEmitter *ORE = nullptr);
 
@@ -389,6 +393,7 @@ getInlineCost(CallSite CS, Function *Callee, const InlineParams &Params,
               Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI,
               InliningLoopInfoCache *ILIC,           // INTEL
               InlineAggressiveInfo *AggI,            // INTEL
+              SmallSet<CallSite, 20> *CallSitesForFusion, // INTEL
               ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE);
 
 /// \brief Minimal filter to detect invalid constructs for inlining.

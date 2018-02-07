@@ -520,6 +520,7 @@ lltok::Kind LLLexer::LexIdentifier() {
 #if INTEL_CUSTOMIZATION
   KEYWORD(thread_private);
   KEYWORD(target_declare);
+  KEYWORD(device_triples);
 #endif // INTEL_CUSTOMIZATION
   KEYWORD(localdynamic);
   KEYWORD(initialexec);
@@ -675,6 +676,7 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(strictfp);
   KEYWORD(safestack);
   KEYWORD(sanitize_address);
+  KEYWORD(sanitize_hwaddress);
   KEYWORD(sanitize_thread);
   KEYWORD(sanitize_memory);
   KEYWORD(swifterror);

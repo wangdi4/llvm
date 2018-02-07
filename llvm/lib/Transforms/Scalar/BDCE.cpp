@@ -21,11 +21,8 @@
 #include "llvm/Analysis/DemandedBits.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Intel_Andersens.h"  // INTEL
-#include "llvm/IR/CFG.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/Operator.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"

@@ -5,7 +5,7 @@ add_llvm_library(LLVMIntel_VPOTransforms
 #  Utils/IntrinsicUtils.cpp // TODO: move to Transforms/Utils
 #  Utils/GeneralUtils.cpp // moved to Transforms/Utils
   Utils/MultiVersioning.cpp
-#  Utils/ParSecTrans.cpp
+  Utils/ParSecTrans.cpp
 
   Vecopt/VPODriver.cpp
   Vecopt/VPOAvrLLVMCodeGen.cpp

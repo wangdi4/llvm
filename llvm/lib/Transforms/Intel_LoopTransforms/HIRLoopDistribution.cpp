@@ -321,6 +321,10 @@ bool HIRLoopDistribution::loopIsCandidate(const HLLoop *Lp) const {
     }
   }
 
+  if (Lp->hasUnrollEnablingPragma()) {
+    return false;
+  }
+
   return true;
 }
 

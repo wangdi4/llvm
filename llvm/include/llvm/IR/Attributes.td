@@ -169,6 +169,9 @@ def SanitizeThread : EnumAttr<"sanitize_thread">;
 /// MemorySanitizer is on.
 def SanitizeMemory : EnumAttr<"sanitize_memory">;
 
+/// HWAddressSanitizer is on.
+def SanitizeHWAddress : EnumAttr<"sanitize_hwaddress">;
+
 /// Argument is swift error.
 def SwiftError : EnumAttr<"swifterror">;
 
@@ -191,6 +194,13 @@ def NoNansFPMath : StrBoolAttr<"no-nans-fp-math">;
 def UnsafeFPMath : StrBoolAttr<"unsafe-fp-math">;
 def NoJumpTables : StrBoolAttr<"no-jump-tables">;
 def ProfileSampleAccurate : StrBoolAttr<"profile-sample-accurate">;
+// if INTEL_CUSTOMIZATION
+def MayHaveOpenmpDirective : StrBoolAttr<"may-have-openmp-directive">;
+    // The "may-have-openmp-directive" attribute is set by the front-end for
+    // functions that contain OpenMP directives. While the backend passes can
+    // also obtain this information by scanning the IR, setting this attribute
+    // in the front-end significantly reduces compile time.
+// endif INTEL_CUSTOMIZATION
 
 class CompatRule<string F> {
   // The name of the function called to check the attribute of the caller and
@@ -205,6 +215,7 @@ class CompatRule<string F> {
 def : CompatRule<"isEqual<SanitizeAddressAttr>">;
 def : CompatRule<"isEqual<SanitizeThreadAttr>">;
 def : CompatRule<"isEqual<SanitizeMemoryAttr>">;
+def : CompatRule<"isEqual<SanitizeHWAddressAttr>">;
 def : CompatRule<"isEqual<SafeStackAttr>">;
 
 class MergeRule<string F> {
@@ -223,6 +234,7 @@ def : MergeRule<"setAND<UnsafeFPMathAttr>">;
 def : MergeRule<"setOR<NoImplicitFloatAttr>">;
 def : MergeRule<"setOR<NoJumpTablesAttr>">;
 def : MergeRule<"setOR<ProfileSampleAccurateAttr>">;
+def : MergeRule<"setOR<MayHaveOpenmpDirectiveAttr>">;  // INTEL
 def : MergeRule<"adjustCallerSSPLevel">;
 def : MergeRule<"adjustCallerStackProbes">;
 def : MergeRule<"adjustCallerStackProbeSize">;

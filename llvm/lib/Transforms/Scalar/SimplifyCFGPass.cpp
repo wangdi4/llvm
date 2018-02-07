@@ -27,7 +27,8 @@
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/CFG.h"
 #include "llvm/Analysis/GlobalsModRef.h"
-#include "llvm/Analysis/Intel_Andersens.h"  // INTEL
+#include "llvm/Analysis/Intel_Andersens.h"                  // INTEL
+#include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h" // INTEL
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/CFG.h"
@@ -43,6 +44,7 @@
 #include "llvm/Transforms/Utils/Local.h"
 #include <utility>
 using namespace llvm;
+using namespace llvm::vpo;           // INTEL
 
 #define DEBUG_TYPE "simplifycfg"
 
@@ -61,6 +63,11 @@ static cl::opt<bool> UserSwitchToLookup(
 static cl::opt<bool> UserForwardSwitchCond(
     "forward-switch-cond", cl::Hidden, cl::init(false),
     cl::desc("Forward switch condition to phi ops (default = false)"));
+
+static cl::opt<bool> UserSinkCommonInsts(
+    "sink-common-insts", cl::Hidden, cl::init(false),
+    cl::desc("Sink common instructions (default = false)"));
+
 
 STATISTIC(NumSimpl, "Number of blocks simplified");
 
@@ -206,6 +213,9 @@ SimplifyCFGPass::SimplifyCFGPass(const SimplifyCFGOptions &Opts) {
   Options.NeedCanonicalLoop = UserKeepLoops.getNumOccurrences()
                                   ? UserKeepLoops
                                   : Opts.NeedCanonicalLoop;
+  Options.SinkCommonInsts = UserSinkCommonInsts.getNumOccurrences()
+                                ? UserSinkCommonInsts
+                                : Opts.SinkCommonInsts;
 }
 
 PreservedAnalyses SimplifyCFGPass::run(Function &F,
@@ -227,6 +237,7 @@ struct CFGSimplifyPass : public FunctionPass {
 
   CFGSimplifyPass(unsigned Threshold = 1, bool ForwardSwitchCond = false,
                   bool ConvertSwitch = false, bool KeepLoops = true,
+                  bool SinkCommon = false,
                   std::function<bool(const Function &)> Ftor = nullptr)
       : FunctionPass(ID), PredicateFtor(std::move(Ftor)) {
 
@@ -247,11 +258,21 @@ struct CFGSimplifyPass : public FunctionPass {
 
     Options.NeedCanonicalLoop =
         UserKeepLoops.getNumOccurrences() ? UserKeepLoops : KeepLoops;
+
+    Options.SinkCommonInsts = UserSinkCommonInsts.getNumOccurrences()
+                                  ? UserSinkCommonInsts
+                                  : SinkCommon;
   }
 
   bool runOnFunction(Function &F) override {
-    if (skipFunction(F) || (PredicateFtor && !PredicateFtor(F)))
-      return false;
+#if INTEL_CUSTOMIZATION
+// For VPO OpenMP handling we need SimplifyCFG even at -O0; calling this util
+// ensures it for functions with OpenMP directives. For other passes needed by
+// OpenMP even at -O0, see PassManagerBuilder::populateFunctionPassManager()
+    if (VPOAnalysisUtils::skipFunctionForOpenmp(F))
+#endif // INTEL_CUSTOMIZATION
+      if (skipFunction(F) || (PredicateFtor && !PredicateFtor(F)))
+        return false;
 
     Options.AC = &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
     auto &TTI = getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
@@ -278,7 +299,8 @@ INITIALIZE_PASS_END(CFGSimplifyPass, "simplifycfg", "Simplify the CFG", false,
 FunctionPass *
 llvm::createCFGSimplificationPass(unsigned Threshold, bool ForwardSwitchCond,
                                   bool ConvertSwitch, bool KeepLoops,
+                                  bool SinkCommon,
                                   std::function<bool(const Function &)> Ftor) {
   return new CFGSimplifyPass(Threshold, ForwardSwitchCond, ConvertSwitch,
-                             KeepLoops, std::move(Ftor));
+                             KeepLoops, SinkCommon, std::move(Ftor));
 }

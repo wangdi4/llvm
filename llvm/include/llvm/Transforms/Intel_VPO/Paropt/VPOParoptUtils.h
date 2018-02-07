@@ -363,6 +363,12 @@ public:
                        StructType *IdentTy, Value *Tid,
                        Instruction *InsertPt, bool IsOrderedStart);
 
+    /// \Brief This function inserts a __kmpc_flush call at InsertPt:
+    ///
+    ///   call void @__kmpc_flush(%ident_t* %loc)
+    static CallInst *genKmpcFlush(WRegionNode *W, StructType *IdentTy,
+                                  Instruction *InsertPt);
+
     /// \brief Generate KMPC runtime call to the function \p IntrinsicName
     /// with arguments Loc(obtained using \p IdentTy), Tid (Obtained using \p
     /// TidPtr), and \p Args.
@@ -379,8 +385,7 @@ public:
     ///
     /// \returns The generated CallInst.
     static CallInst *genKmpcCallWithTid(WRegionNode *W, StructType *IdentTy,
-                                        AllocaInst *TidPtr,
-                                        Instruction *InsertPt,
+                                        Value *TidPtr, Instruction *InsertPt,
                                         StringRef IntrinsicName, Type *ReturnTy,
                                         ArrayRef<Value *> Args);
 
@@ -647,6 +652,23 @@ public:
     // static uint64_t getMinInt(Type *IntTy, bool IsUnsigned);
     // static uint64_t getMaxInt(Type *IntTy, bool IsUnsigned);
 
+    /// \brief This function generates a call as follows.
+    /// void __kmpc_copyprivate(
+    ///    ident_t *loc, kmp_int32 global_tid, kmp_int32 cpy size, void *cpy
+    ///    data, void(*cpy func)(void *, void *), kmp_int32 didit );
+    ///
+    ///    loc: source location information
+    ///    global_tid: global thread number
+    ///    cpy_size: size of the cpy_data buffer
+    ///    cpy_data: pointer to data to be copied
+    ///    cpy_func: helper function to call for copying data
+    ///    didit: flag variable: 1=single thread; 0=not single thread
+    static CallInst *genKmpcCopyPrivate(WRegionNode *W, StructType *IdentTy,
+                                        Value *TidPtr, unsigned Size,
+                                        Value *CpyData, Function *FnCopyPriv,
+                                        Value *IsSingleThread,
+                                        Instruction *InsertPt);
+
   private:
     /// \name Private constructor and destructor to disable instantiation.
     /// @{
@@ -666,11 +688,13 @@ public:
     /// \param IntrinsicName is the name of the function.
     /// \param ReturnTy is the return type of the function.
     /// \param Args arguments for the function call.
+    /// \param Insert indicates whether to insert the call at InsertPt
     ///
     /// \returns the generated CallInst.
     static CallInst *genKmpcCall(WRegionNode *W, StructType *IdentTy,
                                  Instruction *InsertPt, StringRef IntrinsicName,
-                                 Type *ReturnTy, ArrayRef<Value *> Args);
+                                 Type *ReturnTy, ArrayRef<Value *> Args,
+                                 bool Insert=false);
 
     /// \brief Generates a call to the function \p FnName.
     /// If the function is not already declared in the module \p M, then it is

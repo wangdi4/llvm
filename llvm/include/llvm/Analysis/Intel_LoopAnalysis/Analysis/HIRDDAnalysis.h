@@ -63,43 +63,22 @@ class RefinedDependence {
   DirectionVector DV;
   DistanceVector DistV;
   bool Refined;
-  bool Reversed;
   bool Independent;
 
 public:
-  RefinedDependence() : Refined(false), Reversed(false), Independent(false) {}
+  RefinedDependence() : Refined(false), Independent(false) {}
 
-  DirectionVector &getDV() {
-    return DV;
-  }
+  DirectionVector &getDV() { return DV; }
 
-  DistanceVector &getDist() {
-    return DistV;
-  }
+  DistanceVector &getDist() { return DistV; }
 
-  bool isReversed() const {
-    return Reversed;
-  }
+  bool isRefined() const { return Refined; }
 
-  bool isRefined() const {
-    return Refined;
-  }
+  bool isIndependent() const { return Independent; }
 
-  bool isIndependent() const {
-    return Independent;
-  }
+  void setIndependent() { Independent = true; }
 
-  void setIndependent() {
-    Independent = true;
-  }
-
-  void setRefined() {
-    Refined = true;
-  }
-
-  void setReversed() {
-    Reversed = true;
-  }
+  void setRefined() { Refined = true; }
 
   LLVM_DUMP_METHOD
   void print(raw_ostream &OS) const {
@@ -115,9 +94,6 @@ public:
     }
     if (isIndependent()) {
       OS << "independent ";
-    }
-    if (isReversed()) {
-      OS << "reversed ";
     }
     OS << ">";
   }
@@ -198,10 +174,21 @@ public:
     return getGraphImpl(static_cast<const HLNode *>(Loop), InputEdgesReq);
   }
 
+  /// \brief Caller has DDG and the level it needs to refine. Should check
+  /// isRefinable before calling refineDV
+  bool isRefinableDepAtLevel(const DDEdge *Edge, unsigned Level) const;
+
   /// \brief Refine DV by calling demand driven DD.
+  /// e.g. If we are testing for Vectorization for outer loop level 4
+  ///  in a 5 level Loop,  Start nest = 4, Deepest nest = 5
+  ///  The input DV will be set as  * from Start to Deepest
+  ///  Input DV for DD in this case is (= = = * *).
+  ///  When ForFusion is true, DD assumes both references are inside the
+  ///  deepest nesting.
+
   RefinedDependence refineDV(DDRef *SrcDDRef, DDRef *DstDDRef,
-                             unsigned InnermostNestingLevel,
-                             unsigned OutermostNestingLevel, bool ForFusion);
+                             unsigned StartNestingLevel,
+                             unsigned DeepestNestingLevel, bool ForFusion);
 
   // TODO still needed? Call findDependences directly?
   // bool demandDrivenDD(DDRef* SrcRef, DDRef* SinkRef,

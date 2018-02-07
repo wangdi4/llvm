@@ -345,6 +345,19 @@ WRNVecLoopNode::WRNVecLoopNode(loopopt::HLNode *EntryHLN)
   DEBUG(dbgs() << "\nCreated HIR-WRNVecLoopNode<" << getNumber() << ">\n");
 }
 
+// Specify namespace for the template instantiation or the build will fail
+namespace llvm {
+namespace vpo {
+template <> Loop *WRNVecLoopNode::getTheLoop<Loop>() const {
+  return getWRNLoopInfo().getLoop();
+}
+template <>
+loopopt::HLLoop *WRNVecLoopNode::getTheLoop<loopopt::HLLoop>() const {
+  return getHLLoop();
+}
+}
+}
+
 // printer
 void WRNVecLoopNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                 unsigned Verbosity) const {

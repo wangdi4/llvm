@@ -131,7 +131,7 @@ void LinkerDriver::addBuffer(std::unique_ptr<MemoryBuffer> MB,
   case file_magic::archive:
     if (WholeArchive) {
       std::unique_ptr<Archive> File =
-          check(Archive::create(MBRef),
+          CHECK(Archive::create(MBRef),
                 MBRef.getBufferIdentifier() + ": failed to parse archive");
 
       for (MemoryBufferRef M : getArchiveMembers(File.get()))
@@ -196,7 +196,7 @@ void LinkerDriver::enqueueArchiveMember(const Archive::Child &C,
                                         StringRef SymName,
                                         StringRef ParentName) {
   if (!C.getParent()->isThin()) {
-    MemoryBufferRef MB = check(
+    MemoryBufferRef MB = CHECK(
         C.getMemoryBufferRef(),
         "could not get the buffer for the member defining symbol " + SymName);
     enqueueTask([=]() { Driver->addArchiveBuffer(MB, SymName, ParentName); });
@@ -204,7 +204,7 @@ void LinkerDriver::enqueueArchiveMember(const Archive::Child &C,
   }
 
   auto Future = std::make_shared<std::future<MBErrPair>>(createFutureForFile(
-      check(C.getFullName(),
+      CHECK(C.getFullName(),
             "could not get the filename for the member defining symbol " +
                 SymName)));
   enqueueTask([=]() {
@@ -227,7 +227,7 @@ static bool isDecorated(StringRef Sym) {
 void LinkerDriver::parseDirectives(StringRef S) {
   ArgParser Parser;
   // .drectve is always tokenized using Windows shell rules.
-  opt::InputArgList Args = Parser.parse(S);
+  opt::InputArgList Args = Parser.parseDirectives(S);
 
   for (auto *Arg : Args) {
     switch (Arg->getOption().getUnaliasedOption().getID()) {
@@ -315,6 +315,8 @@ Optional<StringRef> LinkerDriver::findFile(StringRef Filename) {
   bool Seen = !VisitedFiles.insert(Path.lower()).second;
   if (Seen)
     return None;
+  if (Path.endswith_lower(".lib"))
+    VisitedLibs.insert(sys::path::filename(Path));
   return Path;
 }
 
@@ -426,7 +428,7 @@ static std::string createResponseFile(const opt::InputArgList &Args,
     case OPT_manifestuac:
       break;
     default:
-      OS << toString(Arg) << "\n";
+      OS << toString(*Arg) << "\n";
     }
   }
 
@@ -531,8 +533,8 @@ static void createImportLibrary(bool AsLib) {
 }
 
 static void parseModuleDefs(StringRef Path) {
-  std::unique_ptr<MemoryBuffer> MB = check(
-    MemoryBuffer::getFile(Path, -1, false, true), "could not open " + Path);
+  std::unique_ptr<MemoryBuffer> MB = CHECK(
+      MemoryBuffer::getFile(Path, -1, false, true), "could not open " + Path);
   COFFModuleDefinition M = check(parseCOFFModuleDefinition(
       MB->getMemBufferRef(), Config->Machine, Config->MinGW));
 
@@ -577,7 +579,7 @@ static bool needsRebuilding(MemoryBufferRef MB) {
   // The MSVC linker doesn't support thin archives, so if it's a thin
   // archive, we always need to rebuild it.
   std::unique_ptr<Archive> File =
-      check(Archive::create(MB), "Failed to read " + MB.getBufferIdentifier());
+      CHECK(Archive::create(MB), "Failed to read " + MB.getBufferIdentifier());
   if (File->isThin())
     return true;
 
@@ -598,7 +600,7 @@ static bool needsRebuilding(MemoryBufferRef MB) {
 // its path is returned.
 static Optional<std::string>
 filterBitcodeFiles(StringRef Path, std::vector<std::string> &TemporaryFiles) {
-  std::unique_ptr<MemoryBuffer> MB = check(
+  std::unique_ptr<MemoryBuffer> MB = CHECK(
       MemoryBuffer::getFile(Path, -1, false, true), "could not open " + Path);
   MemoryBufferRef MBRef = MB->getMemBufferRef();
   file_magic Magic = identify_magic(MBRef.getBuffer());
@@ -611,7 +613,7 @@ filterBitcodeFiles(StringRef Path, std::vector<std::string> &TemporaryFiles) {
     return Path.str();
 
   std::unique_ptr<Archive> File =
-      check(Archive::create(MBRef),
+      CHECK(Archive::create(MBRef),
             MBRef.getBufferIdentifier() + ": failed to parse archive");
 
   std::vector<NewArchiveMember> New;
@@ -674,7 +676,7 @@ void LinkerDriver::invokeMSVC(opt::InputArgList &Args) {
       break;
     case OPT_opt:
       if (!StringRef(Arg->getValue()).startswith("lld"))
-        Rsp += toString(Arg) + " ";
+        Rsp += toString(*Arg) + " ";
       break;
     case OPT_INPUT: {
       if (Optional<StringRef> Path = doFindFile(Arg->getValue())) {
@@ -686,7 +688,7 @@ void LinkerDriver::invokeMSVC(opt::InputArgList &Args) {
       break;
     }
     default:
-      Rsp += toString(Arg) + "\n";
+      Rsp += toString(*Arg) + "\n";
     }
   }
 
@@ -803,11 +805,11 @@ void LinkerDriver::link(ArrayRef<const char *> ArgsArr) {
   errorHandler().Verbose = Config->Verbose;
 
   // Handle /force or /force:unresolved
-  if (Args.hasArg(OPT_force) || Args.hasArg(OPT_force_unresolved))
+  if (Args.hasArg(OPT_force, OPT_force_unresolved))
     Config->Force = true;
 
   // Handle /debug
-  if (Args.hasArg(OPT_debug) || Args.hasArg(OPT_debug_dwarf)) {
+  if (Args.hasArg(OPT_debug, OPT_debug_dwarf, OPT_debug_ghash)) {
     Config->Debug = true;
     if (auto *Arg = Args.getLastArg(OPT_debugtype))
       Config->DebugTypes = parseDebugType(Arg->getValue());
@@ -815,9 +817,11 @@ void LinkerDriver::link(ArrayRef<const char *> ArgsArr) {
       Config->DebugTypes = getDefaultDebugType(Args);
   }
 
-  // Create a dummy PDB file to satisfy build sytem rules.
-  if (auto *Arg = Args.getLastArg(OPT_pdb))
-    Config->PDBPath = Arg->getValue();
+  // Handle /pdb
+  bool ShouldCreatePDB = Args.hasArg(OPT_debug, OPT_debug_ghash);
+  if (ShouldCreatePDB)
+    if (auto *Arg = Args.getLastArg(OPT_pdb))
+      Config->PDBPath = Arg->getValue();
 
   // Handle /noentry
   if (Args.hasArg(OPT_noentry)) {
@@ -957,7 +961,7 @@ void LinkerDriver::link(ArrayRef<const char *> ArgsArr) {
 
   // Handle /lldsavecachepolicy
   if (auto *Arg = Args.getLastArg(OPT_lldltocachepolicy))
-    Config->LTOCachePolicy = check(
+    Config->LTOCachePolicy = CHECK(
         parseCachePruningPolicy(Arg->getValue()),
         Twine("/lldltocachepolicy: invalid cache policy: ") + Arg->getValue());
 
@@ -968,10 +972,6 @@ void LinkerDriver::link(ArrayRef<const char *> ArgsArr) {
   // Handle /merge
   for (auto *Arg : Args.filtered(OPT_merge))
     parseMerge(Arg->getValue());
-
-  // Add default section merging rules after user rules. User rules take
-  // precedence, but we will emit a warning if there is a conflict.
-  parseMerge(".xdata=.rdata");
 
   // Handle /section
   for (auto *Arg : Args.filtered(OPT_section))
@@ -1020,6 +1020,7 @@ void LinkerDriver::link(ArrayRef<const char *> ArgsArr) {
   Config->NxCompat = Args.hasFlag(OPT_nxcompat, OPT_nxcompat_no, true);
   Config->TerminalServerAware = Args.hasFlag(OPT_tsaware, OPT_tsaware_no, true);
   Config->DebugDwarf = Args.hasArg(OPT_debug_dwarf);
+  Config->DebugGHashes = Args.hasArg(OPT_debug_ghash);
 
   Config->MapFile = getMapFile(Args);
 
@@ -1079,6 +1080,11 @@ void LinkerDriver::link(ArrayRef<const char *> ArgsArr) {
   Config->HighEntropyVA =
       Config->is64() &&
       Args.hasFlag(OPT_highentropyva, OPT_highentropyva_no, true);
+
+  if (!Config->DynamicBase &&
+      (Config->Machine == ARMNT || Config->Machine == ARM64))
+    error("/dynamicbase:no is not compatible with " +
+          machineToStr(Config->Machine));
 
   // Handle /entry and /dll
   if (auto *Arg = Args.getLastArg(OPT_entry)) {
@@ -1141,14 +1147,10 @@ void LinkerDriver::link(ArrayRef<const char *> ArgsArr) {
   }
 
   // Put the PDB next to the image if no /pdb flag was passed.
-  if (Config->Debug && Config->PDBPath.empty()) {
+  if (ShouldCreatePDB && Config->PDBPath.empty()) {
     Config->PDBPath = Config->OutputFile;
     sys::path::replace_extension(Config->PDBPath, ".pdb");
   }
-
-  // Disable PDB generation if the user requested it.
-  if (Args.hasArg(OPT_nopdb) || Args.hasArg(OPT_debug_dwarf))
-    Config->PDBPath = "";
 
   // Set default image base if /base is not given.
   if (Config->ImageBase == uint64_t(-1))
@@ -1169,6 +1171,8 @@ void LinkerDriver::link(ArrayRef<const char *> ArgsArr) {
   Symtab->addAbsolute(mangle("__guard_iat_table"), 0);
   Symtab->addAbsolute(mangle("__guard_longjmp_count"), 0);
   Symtab->addAbsolute(mangle("__guard_longjmp_table"), 0);
+  // Needed for MSVC 2017 15.5 CRT.
+  Symtab->addAbsolute(mangle("__enclave_config"), 0);
 
   // This code may add new undefined symbols to the link, which may enqueue more
   // symbol resolution tasks, so we need to continue executing tasks until we

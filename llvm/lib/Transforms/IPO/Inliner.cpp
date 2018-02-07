@@ -511,7 +511,8 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
                 function_ref<AAResults &(Function &)> AARGetter,
                 ImportedFunctionsInliningStatistics &ImportedFunctionsStats,
                 InliningLoopInfoCache *ILIC, // INTEL
-                InlineReport& IR) { // INTEL
+                InlineReport& IR,            // INTEL
+                SmallSet<CallSite, 20> *CallSitesForFusion) { // INTEL
   SmallPtrSet<Function *, 8> SCCFunctions;
   DEBUG(dbgs() << "Inliner visiting SCC:");
   for (CallGraphNode *Node : SCC) {
@@ -532,7 +533,12 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
   // index into the InlineHistory vector.
   SmallVector<std::pair<Function *, int>, 8> InlineHistory;
 
-  IR.beginSCC(CG, SCC); // INTEL
+#if INTEL_CUSTOMIZATION
+  IR.beginSCC(CG, SCC);
+  if (CallSitesForFusion) {
+    CallSitesForFusion->clear();
+  }
+#endif // INTEL_CUSTOMIZATION
 
   for (CallGraphNode *Node : SCC) {
     Function *F = Node->getFunction();
@@ -680,6 +686,9 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
                                   ImportedFunctionsStats, &Reason)) {
           IR.endUpdate();
           IR.setReasonNotInlined(CS, Reason);
+          if (CallSitesForFusion) {
+            CallSitesForFusion->clear();
+          }
 #endif // INTEL_CUSTOMIZATION
           ORE.emit([&]() {
             return OptimizationRemarkMissed(DEBUG_TYPE, "NotInlined", DLoc,
@@ -793,7 +802,7 @@ bool LegacyInlinerBase::inlineCalls(CallGraphSCC &SCC) {
                             [this](CallSite CS) { return getInlineCost(CS); },
                             LegacyAARGetter(*this), // INTEL
                             ImportedFunctionsStats, // INTEL
-                            ILIC, getReport());     // INTEL
+                            ILIC, getReport(), &CallSitesForFusion); // INTEL
   delete ILIC;    // INTEL
   ILIC = nullptr; // INTEL
   return rv;      // INTEL
@@ -902,6 +911,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
   bool Changed = false;
   InliningLoopInfoCache* ILIC = new InliningLoopInfoCache(); // INTEL
 
+  SmallSet<CallSite, 20> CallSitesForFusion;
   assert(InitialC.size() > 0 && "Cannot handle an empty SCC!");
   Module &M = *InitialC.begin()->getFunction().getParent();
   InlineAggressiveInfo* AggI = MAM.getCachedResult<InlineAggAnalysis>(M);
@@ -1010,7 +1020,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
       Function &Callee = *CS.getCalledFunction();
       auto &CalleeTTI = FAM.getResult<TargetIRAnalysis>(Callee);
       return getInlineCost(CS, Params, CalleeTTI, GetAssumptionCache, {GetBFI},
-                           ILIC, AggI, PSI, &ORE); // INTEL
+                           ILIC, AggI, &CallSitesForFusion, PSI, &ORE); // INTEL
     };
 
     // Now process as many calls as we have within this caller in the sequnece.

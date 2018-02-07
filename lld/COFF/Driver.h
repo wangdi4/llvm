@@ -36,10 +36,10 @@ using llvm::COFF::WindowsSubsystem;
 using llvm::Optional;
 
 // Implemented in MarkLive.cpp.
-void markLive(const std::vector<Chunk *> &Chunks);
+void markLive(ArrayRef<Chunk *> Chunks);
 
 // Implemented in ICF.cpp.
-void doICF(const std::vector<Chunk *> &Chunks);
+void doICF(ArrayRef<Chunk *> Chunks);
 
 class COFFOptTable : public llvm::opt::OptTable {
 public:
@@ -53,6 +53,10 @@ public:
 
   // Tokenizes a given string and then parses as command line options.
   llvm::opt::InputArgList parse(StringRef S) { return parse(tokenize(S)); }
+
+  // Tokenizes a given string and then parses as command line options in
+  // .drectve section.
+  llvm::opt::InputArgList parseDirectives(StringRef S);
 
 private:
   // Parses command line options.
@@ -171,7 +175,7 @@ void assignExportOrdinals();
 void checkFailIfMismatch(StringRef Arg);
 
 // Convert Windows resource files (.res files) to a .obj file.
-MemoryBufferRef convertResToCOFF(const std::vector<MemoryBufferRef> &MBs);
+MemoryBufferRef convertResToCOFF(ArrayRef<MemoryBufferRef> MBs);
 
 void runMSVCLinker(std::string Rsp, ArrayRef<StringRef> Objects);
 

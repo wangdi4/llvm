@@ -26,7 +26,6 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
@@ -649,8 +648,10 @@ bool HIRIdiomRecognition::processMemcpy(HLLoop *Loop,
 bool HIRIdiomRecognition::runOnLoop(HLLoop *Loop) {
   DEBUG(dbgs() << "\nProcessing Loop: <" << Loop->getNumber() << ">\n");
 
-  if (!Loop->isDo() || !Loop->isNormalized() || Loop->isSIMD()) {
-    DEBUG(dbgs() << "Skipping - non-DO-Loop / non-Normalized / SIMD\n");
+  if (!Loop->isDo() || !Loop->isNormalized() || Loop->isSIMD() ||
+      Loop->hasUnrollEnablingPragma()) {
+    DEBUG(dbgs() << "Skipping - non-DO-Loop / non-Normalized / SIMD / unroll "
+                    "pragma loop\n");
     return false;
   }
 

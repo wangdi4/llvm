@@ -118,6 +118,11 @@ enum ModuleCodes {
 
   // IFUNC: [ifunc value type, addrspace, resolver val#, linkage, visibility]
   MODULE_CODE_IFUNC = 18,
+
+#if INTEL_CUSTOMIZATION
+  // TRIPLE:      [strchr x N, ..., strchr x N]
+  MODULE_CODE_DEVICES = 19,
+#endif //INTEL_CUSTOMIZATION
 };
 
 /// PARAMATTR blocks have code for defining a parameter attribute set.
@@ -560,11 +565,10 @@ enum AttributeKindCodes {
   ATTR_KIND_WRITEONLY = 52,
   ATTR_KIND_SPECULATABLE = 53,
   ATTR_KIND_STRICT_FP = 54,
+  ATTR_KIND_SANITIZE_HWADDRESS = 55,
 #if INTEL_CUSTOMIZATION
-  ATTR_KIND_ALWAYS_INLINE_RECURSIVE = 55,
-  ATTR_KIND_INLINE_HINT_RECURSIVE = 56,
-  ATTR_KIND_INLINE_LIST = 57,
-  ATTR_KIND_NOINLINE_LIST = 58
+  ATTR_KIND_ALWAYS_INLINE_RECURSIVE = 56,
+  ATTR_KIND_INLINE_HINT_RECURSIVE = 57,
 #endif //INTEL_CUSTOMIZATION
 };
 

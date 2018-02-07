@@ -14,6 +14,7 @@
 #include "llvm/Analysis/CallGraphSCCPass.h"
 #include "llvm/Analysis/InlineCost.h"
 #include "llvm/Analysis/LazyCallGraph.h"
+#include "llvm/ADT/SmallSet.h"    // INTEL
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Transforms/IPO/InlineReport.h" // INTEL
@@ -63,7 +64,7 @@ struct LegacyInlinerBase : public CallGraphSCCPass {
   /// deal with that subset of the functions.
   bool removeDeadFunctions(CallGraph &CG, bool AlwaysInlineOnly = false);
 
-  InlineReport& getReport() { return Report; } // INTEL 
+  InlineReport& getReport() { return Report; } // INTEL
 
   /// This function performs the main work of the pass.  The default of
   /// Inlinter::runOnSCC() calls skipSCC() before calling this method, but
@@ -83,6 +84,7 @@ protected:
   InliningLoopInfoCache *ILIC; // INTEL
   ProfileSummaryInfo *PSI;
   ImportedFunctionsInliningStatistics ImportedFunctionsStats;
+  SmallSet<CallSite, 20> CallSitesForFusion; // INTEL
 };
 
 /// The inliner pass for the new pass manager.

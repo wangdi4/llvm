@@ -127,6 +127,14 @@ public:
     Info->setParType(ParVecInfo::SWITCH_STMT);
   }
 
+  void visit(HLIf *HIf) {
+    // Temporary bailout for loops with IF statements that have more than 1
+    // predicate.
+    if (HIf->getNumPredicates() > 1) {
+      Info->setVecType(ParVecInfo::MULTI_PRED_IF_STMT);
+    }
+  }
+
   /// \brief catch-all visit().
   void visit(HLNode *Node) {}
   /// \brief catch-all postVisit().
@@ -366,6 +374,7 @@ bool DDWalk::isSafeReductionFlowDep(const RegDDRef *SrcRef,
 }
 
 void DDWalk::analyze(const RegDDRef *SrcRef, const DDEdge *Edge) {
+
   DEBUG(Edge->dump());
 
   unsigned NestLevel = CandidateLoop->getNestingLevel();
@@ -395,22 +404,32 @@ void DDWalk::analyze(const RegDDRef *SrcRef, const DDEdge *Edge) {
     return;
   }
 
-  // Is this really useful if refineDV() doesn't recompute?
-  if (Edge->isRefinableDepAtLevel(NestLevel)) {
+  if (Info->isVectorMode() && DDA.isRefinableDepAtLevel(Edge, NestLevel)) {
+    // Input DV set to test for innermost loop vectorization
+    // For outer loop vectorization, modification is neeeded here or elsewhere
     auto RefinedDep =
-        DDA.refineDV(Edge->getSrc(), SinkRef, NestLevel, 1, false);
-
-    if (RefinedDep.isRefined()) {
-      // TODO: Set Type/Loc. Call emitDiag().
-      DEBUG(dbgs() << "\tis unsafe to vectorize/parallelize");
-    } else {
-      // TODO: Set Type/Loc. Call emitDiag().
-      DEBUG(dbgs() << "\tis unsafe to vectorize/parallelize");
+        DDA.refineDV(Edge->getSrc(), SinkRef, NestLevel, NestLevel, false);
+    if (RefinedDep.isIndependent()) {
+      DEBUG(dbgs() << "\tis safe to vectorize (indep)\n");
+      return;
     }
-    DEBUG(dbgs() << " @ Level " << NestLevel << "\n");
+    if (RefinedDep.isRefined()) {
+      // RefineDV will not flip the direction
+      // the result DV is from source to sink
+      // Just need to check for DV. Other conditions are covered by
+      // the call to preventsVectorization above
+      DirectionVector DirV = RefinedDep.getDV();
+      DEBUG(DirV.print(dbgs()));
+      if (!DirV.isCrossIterDepAtLevel(NestLevel)) {
+        DEBUG(dbgs() << "\tis DV improved by RefineDD: Safe to vectorize\n");
+        return;
+      }
+    }
+    DEBUG(dbgs() << "\tis unsafe to vectorize\n");
   } else {
-    DEBUG(dbgs() << "\tis unsafe to vectorize/parallelize\n");
+    DEBUG(dbgs() << "\tDV is not refinable - unsafe to vectorize\n");
   }
+
   Info->setVecType(ParVecInfo::FE_DIAG_PAROPT_VEC_VECTOR_DEPENDENCE);
   Info->setParType(ParVecInfo::FE_DIAG_PAROPT_VEC_VECTOR_DEPENDENCE);
 }
@@ -479,6 +498,13 @@ void ParVecInfo::emitDiag() {
 
 void ParVecInfo::analyze(HLLoop *Loop, TargetLibraryInfo *TLI,
                          HIRDDAnalysis *DDA, HIRSafeReductionAnalysis *SRA) {
+
+  if (Loop->hasUnrollEnablingPragma()) {
+    setVecType(UNROLL_PRAGMA_LOOP);
+    emitDiag();
+    return;
+  }
+
   // DD Analysis is expensive. Be sure to run structural analysis first,
   // i.e., before coming here.
   if (isVectorMode() && Loop->isSIMD()) {
