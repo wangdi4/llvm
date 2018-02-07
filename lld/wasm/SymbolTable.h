@@ -42,11 +42,11 @@ public:
   void addFile(InputFile *File);
 
   std::vector<ObjFile *> ObjectFiles;
-  std::vector<Symbol *> SyntheticSymbols;
 
   void reportDuplicate(Symbol *Existing, InputFile *NewFile);
   void reportRemainingUndefines();
 
+  ArrayRef<Symbol *> getSymbols() const { return SymVector; }
   Symbol *find(StringRef Name);
 
   Symbol *addDefined(InputFile *F, const WasmSymbol *Sym,
@@ -60,6 +60,7 @@ private:
   std::pair<Symbol *, bool> insert(StringRef Name);
 
   llvm::DenseMap<llvm::CachedHashStringRef, Symbol *> SymMap;
+  std::vector<Symbol *> SymVector;
 };
 
 extern SymbolTable *Symtab;

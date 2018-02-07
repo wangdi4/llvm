@@ -367,7 +367,7 @@ static DeclaratorChunk *maybeMovePastReturnType(Declarator &declarator,
           if (onlyBlockPointers)
             continue;
 
-          // fallthrough
+          LLVM_FALLTHROUGH;
 
         case DeclaratorChunk::BlockPointer:
           result = &ptrChunk;
@@ -1340,7 +1340,7 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
       }
     }
 
-    // FALL THROUGH.
+    LLVM_FALLTHROUGH;
   case DeclSpec::TST_int: {
     if (DS.getTypeSpecSign() != DeclSpec::TSS_unsigned) {
       switch (DS.getTypeSpecWidth()) {
@@ -2844,8 +2844,8 @@ static QualType GetDeclSpecTypeForDeclarator(TypeProcessingState &state,
     case Declarator::TemplateParamContext:
       if (isa<DeducedTemplateSpecializationType>(Deduced))
         Error = 19; // Template parameter
-      else if (!SemaRef.getLangOpts().CPlusPlus1z)
-        Error = 8; // Template parameter (until C++1z)
+      else if (!SemaRef.getLangOpts().CPlusPlus17)
+        Error = 8; // Template parameter (until C++17)
       break;
     case Declarator::BlockLiteralContext:
       Error = 9; // Block literal
@@ -3137,10 +3137,15 @@ static void warnAboutRedundantParens(Sema &S, Declarator &D, QualType T) {
       (T->isRecordType() || T->isDependentType()) &&
       D.getDeclSpec().getTypeQualifiers() == 0 && D.isFirstDeclarator();
 
+  bool StartsWithDeclaratorId = true;
   for (auto &C : D.type_objects()) {
     switch (C.Kind) {
-    case DeclaratorChunk::Pointer:
     case DeclaratorChunk::Paren:
+      if (&C == &Paren)
+        continue;
+      LLVM_FALLTHROUGH;
+    case DeclaratorChunk::Pointer:
+      StartsWithDeclaratorId = false;
       continue;
 
     case DeclaratorChunk::Array:
@@ -3154,18 +3159,25 @@ static void warnAboutRedundantParens(Sema &S, Declarator &D, QualType T) {
       // We assume that something like 'T (&x) = y;' is highly likely to not
       // be intended to be a temporary object.
       CouldBeTemporaryObject = false;
+      StartsWithDeclaratorId = false;
       continue;
 
     case DeclaratorChunk::Function:
       // In a new-type-id, function chunks require parentheses.
       if (D.getContext() == Declarator::CXXNewContext)
         return;
-      LLVM_FALLTHROUGH;
+      // FIXME: "A(f())" deserves a vexing-parse warning, not just a
+      // redundant-parens warning, but we don't know whether the function
+      // chunk was syntactically valid as an expression here.
+      CouldBeTemporaryObject = false;
+      continue;
+
     case DeclaratorChunk::BlockPointer:
     case DeclaratorChunk::MemberPointer:
     case DeclaratorChunk::Pipe:
       // These cannot appear in expressions.
       CouldBeTemporaryObject = false;
+      StartsWithDeclaratorId = false;
       continue;
     }
   }
@@ -3186,6 +3198,18 @@ static void warnAboutRedundantParens(Sema &S, Declarator &D, QualType T) {
   SourceRange ParenRange(Paren.Loc, Paren.EndLoc);
 
   if (!CouldBeTemporaryObject) {
+    // If we have A (::B), the parentheses affect the meaning of the program.
+    // Suppress the warning in that case. Don't bother looking at the DeclSpec
+    // here: even (e.g.) "int ::x" is visually ambiguous even though it's
+    // formally unambiguous.
+    if (StartsWithDeclaratorId && D.getCXXScopeSpec().isValid()) {
+      for (NestedNameSpecifier *NNS = D.getCXXScopeSpec().getScopeRep(); NNS;
+           NNS = NNS->getPrefix()) {
+        if (NNS->getKind() == NestedNameSpecifier::Global)
+          return;
+      }
+    }
+
     S.Diag(Paren.Loc, diag::warn_redundant_parens_around_declarator)
         << ParenRange << FixItHint::CreateRemoval(Paren.Loc)
         << FixItHint::CreateRemoval(Paren.EndLoc);
@@ -3890,7 +3914,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
     case Declarator::PrototypeContext:
     case Declarator::TrailingReturnContext:
       isFunctionOrMethod = true;
-      // fallthrough
+      LLVM_FALLTHROUGH;
 
     case Declarator::MemberContext:
       if (state.getDeclarator().isObjCIvar() && !isFunctionOrMethod) {
@@ -3904,7 +3928,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
         break;
       }
 
-      // fallthrough
+      LLVM_FALLTHROUGH;
 
     case Declarator::FileContext:
     case Declarator::KNRTypeListContext: {
@@ -4063,7 +4087,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
     case CAMN_InnerPointers:
       if (NumPointersRemaining == 0)
         break;
-      // Fallthrough.
+      LLVM_FALLTHROUGH;
 
     case CAMN_Yes:
       checkNullabilityConsistency(S, pointerKind, pointerLoc, pointerEndLoc);
@@ -4295,7 +4319,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
               << T << D.getSourceRange();
             D.setInvalidType(true);
           } else if (D.getName().getKind() ==
-                         UnqualifiedId::IK_DeductionGuideName) {
+                     UnqualifiedId::IK_DeductionGuideName) {
             if (T != Context.DependentTy) {
               S.Diag(D.getDeclSpec().getLocStart(),
                      diag::err_deduction_guide_with_complex_decl)
@@ -4463,7 +4487,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
 
       // Exception specs are not allowed in typedefs. Complain, but add it
       // anyway.
-      if (IsTypedefName && FTI.getExceptionSpecType() && !LangOpts.CPlusPlus1z)
+      if (IsTypedefName && FTI.getExceptionSpecType() && !LangOpts.CPlusPlus17)
         S.Diag(FTI.getExceptionSpecLocBeg(),
                diag::err_exception_spec_in_typedef)
             << (D.getContext() == Declarator::AliasDeclContext ||
@@ -7269,31 +7293,29 @@ void Sema::completeExprArrayBound(Expr *E) {
   if (DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(E->IgnoreParens())) {
     if (VarDecl *Var = dyn_cast<VarDecl>(DRE->getDecl())) {
       if (isTemplateInstantiation(Var->getTemplateSpecializationKind())) {
-        SourceLocation PointOfInstantiation = E->getExprLoc();
+        auto *Def = Var->getDefinition();
+        if (!Def) {
+          SourceLocation PointOfInstantiation = E->getExprLoc();
+          InstantiateVariableDefinition(PointOfInstantiation, Var);
+          Def = Var->getDefinition();
 
-        if (MemberSpecializationInfo *MSInfo =
-                Var->getMemberSpecializationInfo()) {
-          // If we don't already have a point of instantiation, this is it.
-          if (MSInfo->getPointOfInstantiation().isInvalid()) {
-            MSInfo->setPointOfInstantiation(PointOfInstantiation);
-
-            // This is a modification of an existing AST node. Notify
-            // listeners.
-            if (ASTMutationListener *L = getASTMutationListener())
-              L->StaticDataMemberInstantiated(Var);
+          // If we don't already have a point of instantiation, and we managed
+          // to instantiate a definition, this is the point of instantiation.
+          // Otherwise, we don't request an end-of-TU instantiation, so this is
+          // not a point of instantiation.
+          // FIXME: Is this really the right behavior?
+          if (Var->getPointOfInstantiation().isInvalid() && Def) {
+            assert(Var->getTemplateSpecializationKind() ==
+                       TSK_ImplicitInstantiation &&
+                   "explicit instantiation with no point of instantiation");
+            Var->setTemplateSpecializationKind(
+                Var->getTemplateSpecializationKind(), PointOfInstantiation);
           }
-        } else {
-          VarTemplateSpecializationDecl *VarSpec =
-              cast<VarTemplateSpecializationDecl>(Var);
-          if (VarSpec->getPointOfInstantiation().isInvalid())
-            VarSpec->setPointOfInstantiation(PointOfInstantiation);
         }
 
-        InstantiateVariableDefinition(PointOfInstantiation, Var);
-
-        // Update the type to the newly instantiated definition's type both
-        // here and within the expression.
-        if (VarDecl *Def = Var->getDefinition()) {
+        // Update the type to the definition's type both here and within the
+        // expression.
+        if (Def) {
           DRE->setDecl(Def);
           QualType T = Def->getType();
           DRE->setType(T);
