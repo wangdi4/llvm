@@ -19,8 +19,8 @@
 //
 //===----------------------------------------------------------------===//
 
-#include "llvm/Pass.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -37,7 +37,6 @@ struct CSAFixupOmpEntries : public ModulePass {
     //    initializeCSAFixupOmpEntriesPass(*PassRegistry::getPassRegistry());
   }
 
-
   bool runOnModule(Module &M) override;
 
   StringRef getPassName() const override {
@@ -46,34 +45,26 @@ struct CSAFixupOmpEntries : public ModulePass {
   }
 };
 
-}  // namespace
+} // namespace
 
 char CSAFixupOmpEntries::ID = 0;
 
-
-static RegisterPass<CSAFixupOmpEntries>
-    X("csa-fixup-omp-entries",
-      "Fixup OpenMP entries",
-      false,
-      false);
+static RegisterPass<CSAFixupOmpEntries> X("csa-fixup-omp-entries",
+                                          "Fixup OpenMP entries", false, false);
 
 bool CSAFixupOmpEntries::runOnModule(Module &M) {
 
-  DEBUG(
-        dbgs() << "CSAFixupOmpEntries::runModule\n"
-  );
+  DEBUG(dbgs() << "CSAFixupOmpEntries::runModule\n");
 
-  bool Changed = false;
+  bool Changed          = false;
   bool inEntriesSection = false;
 
   for (Module::global_iterator GVI = M.global_begin(), E = M.global_end();
-       GVI != E; ) {
+       GVI != E;) {
 
     GlobalVariable *GV = &*GVI++;
 
-    DEBUG(
-          dbgs() << "Found GlobalVariable " << GV->getName() << "\n"
-    );
+    DEBUG(dbgs() << "Found GlobalVariable " << GV->getName() << "\n");
 
     // The entry starts with a variable in the .omp_offloading.entries
     // section. All of the names we're interested start with the string
@@ -82,20 +73,18 @@ bool CSAFixupOmpEntries::runOnModule(Module &M) {
 
     if (GV->hasSection()) {
       StringRef sectionName = GV->getSection();
-      inEntriesSection = (sectionName == ".omp_offloading.entries");
+      inEntriesSection      = (sectionName == ".omp_offloading.entries");
     }
 
     if (inEntriesSection) {
       StringRef name = GV->getName();
-      if (! name.startswith(".omp_offloading.")) {
+      if (!name.startswith(".omp_offloading.")) {
         inEntriesSection = false;
-      } else {    
+      } else {
         // If the linkage type is internal fix it
         if (GV->hasInternalLinkage()) {
-          DEBUG(
-                dbgs() << "Converting " << GV->getName() <<
-                          " to global linkage\n"
-          );
+          DEBUG(dbgs() << "Converting " << GV->getName()
+                       << " to global linkage\n");
           GV->setLinkage(GlobalValue::ExternalLinkage);
           Changed = true;
         }

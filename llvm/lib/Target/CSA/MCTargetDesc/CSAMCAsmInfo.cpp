@@ -14,20 +14,20 @@
 //===----------------------------------------------------------------------===//
 
 #include "CSAMCAsmInfo.h"
-#include "llvm/ADT/StringRef.h"
 #include "../InstPrinter/CSAInstPrinter.h"
+#include "llvm/ADT/StringRef.h"
 using namespace llvm;
 
-void CSAMCAsmInfo::anchor() { }
+void CSAMCAsmInfo::anchor() {}
 
 CSAMCAsmInfo::CSAMCAsmInfo(const Triple &T) {
   CodePointerSize = CalleeSaveStackSlotSize = 8;
   // For now
   HasDotTypeDotSizeDirective = false;
-  HasSingleParameterDotFile = false;
-  MaxInstLength = 8;
-  MinInstAlignment = 8;
-  DollarIsPC = true;
+  HasSingleParameterDotFile  = false;
+  MaxInstLength              = 8;
+  MinInstAlignment           = 8;
+  DollarIsPC                 = true;
 
   UsesELFSectionDirectiveForBSS = true;
 

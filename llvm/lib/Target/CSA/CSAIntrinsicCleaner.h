@@ -19,8 +19,8 @@
 #define LLVM_LIB_TARGET_CSA_CSAINTRINSICCLEANER_H
 
 namespace llvm {
-  class Pass;
-  Pass* createCSAIntrinsicCleanerPass();
-}
+class Pass;
+Pass *createCSAIntrinsicCleanerPass();
+} // namespace llvm
 
 #endif

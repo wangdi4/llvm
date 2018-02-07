@@ -24,24 +24,24 @@ class CSAFrameLowering : public TargetFrameLowering {
 
 public:
   explicit CSAFrameLowering()
-    : TargetFrameLowering(TargetFrameLowering::StackGrowsUp,
-                          /* align */ 16,
-                          /* local area offset */ 0,
-                          /* transient align */ 16) {}
+      : TargetFrameLowering(TargetFrameLowering::StackGrowsUp,
+                            /* align */ 16,
+                            /* local area offset */ 0,
+                            /* transient align */ 16) {}
 
   void emitPrologue(MachineFunction &MF, MachineBasicBlock &MBB) const override;
   void emitEpilogue(MachineFunction &MF, MachineBasicBlock &MBB) const override;
 
   bool hasFP(const MachineFunction &MF) const override;
 
-  void processFunctionBeforeFrameFinalized(MachineFunction &MF,
-                                           RegScavenger *RS=nullptr) const override;
+  void processFunctionBeforeFrameFinalized(
+    MachineFunction &MF, RegScavenger *RS = nullptr) const override;
 
   MachineBasicBlock::iterator
   eliminateCallFramePseudoInstr(MachineFunction &MF, MachineBasicBlock &MBB,
                                 MachineBasicBlock::iterator I) const override;
 };
 
-} // End llvm namespace
+} // namespace llvm
 
 #endif

@@ -84,39 +84,39 @@ using namespace llvm::PatternMatch;
   "Identify and prepare inner loops for pipelining of multiple executions"
 
 static cl::opt<bool> EnableILPLPrep(
-    "csa-ilpl-prep", cl::Hidden,
-    cl::desc(
-        "CSA Specific: enable/disable inner loop pipelining preparation pass"),
-    cl::init(true));
+  "csa-ilpl-prep", cl::Hidden,
+  cl::desc(
+    "CSA Specific: enable/disable inner loop pipelining preparation pass"),
+  cl::init(true));
 
 static cl::alias EnableILPL(
-    "csa-ilpl",
-    cl::desc("Enable inner loop pipelining. (Alias for -csa-ilpl-prep.)"),
-    cl::aliasopt(EnableILPLPrep));
+  "csa-ilpl",
+  cl::desc("Enable inner loop pipelining. (Alias for -csa-ilpl-prep.)"),
+  cl::aliasopt(EnableILPLPrep));
 
 enum ILPLSelectionMode {
   automatic = 0,
-  manual = 1,
-  both = 2,
-  disabled = 3,
+  manual    = 1,
+  both      = 2,
+  disabled  = 3,
 };
 
 static cl::opt<ILPLSelectionMode> SelectionMode(
-    "csa-ilpl-selection", cl::Hidden,
-    cl::desc(
-        "CSA specific: choose how pipelineable inner loops are discovered"),
-    cl::values(
-        clEnumVal(automatic, "automatically choose inner loops to pipeline"),
-        clEnumVal(manual, "pipeline according to __builtin_csa_pipellineable_loop"),
-        clEnumVal(both, "use both specified and auto-discovered pipelining candidates"),
-        clEnumVal(disabled, "disable inner loop pipelining")),
-    cl::init(ILPLSelectionMode::manual));
+  "csa-ilpl-selection", cl::Hidden,
+  cl::desc("CSA specific: choose how pipelineable inner loops are discovered"),
+  cl::values(
+    clEnumVal(automatic, "automatically choose inner loops to pipeline"),
+    clEnumVal(manual, "pipeline according to __builtin_csa_pipellineable_loop"),
+    clEnumVal(both,
+              "use both specified and auto-discovered pipelining candidates"),
+    clEnumVal(disabled, "disable inner loop pipelining")),
+  cl::init(ILPLSelectionMode::manual));
 
 static cl::opt<int> DefaultDegreeOfPipeliningParallelism(
-    "csa-ilpl-tokens", cl::Hidden,
-    cl::desc(
-        "CSA Specific: degree of concurrency allowed by inner loop pipelining"),
-    cl::init(32));
+  "csa-ilpl-tokens", cl::Hidden,
+  cl::desc(
+    "CSA Specific: degree of concurrency allowed by inner loop pipelining"),
+  cl::init(32));
 
 namespace llvm {
 void initializeCSAInnerLoopPrepPass(PassRegistry &);
@@ -153,8 +153,10 @@ struct CSAInnerLoopPrep : public FunctionPass {
   uint64_t automaticallyPipelineable(Loop *L);
   uint64_t programmerSpecifiedPipelineable(Loop *L);
   bool containsMemoryLifetimeMarkers(Loop *L);
-  void discoverOuterLoopContext(const Loop *L, const Loop *outerLoop,
-    std::set<Instruction*> &needsRepeating, std::map<Instruction*, std::set<Use*>> &repeatForUses);
+  void discoverOuterLoopContext(
+    const Loop *L, const Loop *outerLoop,
+    std::set<Instruction *> &needsRepeating,
+    std::map<Instruction *, std::set<Use *>> &repeatForUses);
 
   // Eventually, particularly when the simulator switches to default to shallow
   // LICs, this needs to be implemented.
@@ -186,19 +188,19 @@ bool CSAInnerLoopPrep::runOnFunction(Function &F) {
   if (not EnableILPLPrep or SelectionMode == ILPLSelectionMode::disabled)
     return Changed;
 
-  DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+  DT  = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   PDT = &getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
-  LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+  LI  = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   ORE = &getAnalysis<OptimizationRemarkEmitterWrapperPass>().getORE();
 
-  for(Loop *L : LI->getLoopsInPreorder())
+  for (Loop *L : LI->getLoopsInPreorder())
     Changed |= runOnLoop(L);
 
   return Changed;
 }
 
 bool CSAInnerLoopPrep::runOnLoop(Loop *L) {
-  bool Changed = false;
+  bool Changed         = false;
   bool IntrinsicDriven = false;
 
   Loop *outerLoop = L->getParentLoop();
@@ -213,9 +215,8 @@ bool CSAInnerLoopPrep::runOnLoop(Loop *L) {
     return Changed;
   }
 
-  if (pipeliningDepth == 1 and
-      (SelectionMode == ILPLSelectionMode::manual or
-       SelectionMode == ILPLSelectionMode::both)) {
+  if (pipeliningDepth == 1 and (SelectionMode == ILPLSelectionMode::manual or
+                                SelectionMode == ILPLSelectionMode::both)) {
     pipeliningDepth = programmerSpecifiedPipelineable(L);
     if (pipeliningDepth > 1) {
       DEBUG(errs() << "Programmer has specified " << L->getName() << "(depth "
@@ -226,13 +227,13 @@ bool CSAInnerLoopPrep::runOnLoop(Loop *L) {
     }
   }
 
-  if (pipeliningDepth == 1 and
-      (SelectionMode == ILPLSelectionMode::automatic or
-       SelectionMode == ILPLSelectionMode::both)) {
+  if (pipeliningDepth == 1 and (SelectionMode == ILPLSelectionMode::automatic or
+                                SelectionMode == ILPLSelectionMode::both)) {
     pipeliningDepth = automaticallyPipelineable(L);
     if (pipeliningDepth > 1) {
-      DEBUG(errs() << "Automatically discovered loop " << L->getName() << "(depth "
-                   << L->getLoopDepth() << ") as pipelineable with respect to "
+      DEBUG(errs() << "Automatically discovered loop " << L->getName()
+                   << "(depth " << L->getLoopDepth()
+                   << ") as pipelineable with respect to "
                    << outerLoop->getName() << " (depth "
                    << outerLoop->getLoopDepth() << ").\n");
     }
@@ -252,8 +253,8 @@ bool CSAInnerLoopPrep::runOnLoop(Loop *L) {
 
   for (Instruction *outerToRepeat : needsRepeating) {
     PHINode *repeatIV =
-        PHINode::Create(outerToRepeat->getType(), 2, "outerRepeat",
-                        L->getHeader()->getFirstNonPHI());
+      PHINode::Create(outerToRepeat->getType(), 2, "outerRepeat",
+                      L->getHeader()->getFirstNonPHI());
     Changed = true;
     for (auto it = pred_begin(L->getHeader()), et = pred_end(L->getHeader());
          it != et; ++it) {
@@ -272,23 +273,25 @@ bool CSAInnerLoopPrep::runOnLoop(Loop *L) {
 
   // Note that this loop was selected and prepared.
   LLVMContext &Context = L->getHeader()->getContext();
-  Module *m = L->getHeader()->getParent()->getParent();
+  Module *m            = L->getHeader()->getParent()->getParent();
   IRBuilder<>{L->getHeader()->getTerminator()}.CreateCall(
-      Intrinsic::getDeclaration(m, Intrinsic::csa_pipelineable_loop_marker),
-      ConstantInt::get(IntegerType::get(Context, 64), pipeliningDepth));
+    Intrinsic::getDeclaration(m, Intrinsic::csa_pipelineable_loop_marker),
+    ConstantInt::get(IntegerType::get(Context, 64), pipeliningDepth));
 
   using namespace ore;
   // Report the optimization.
   if (IntrinsicDriven) {
-    ORE->emit(OptimizationRemark(REMARK_NAME, "ILPLPrepDone",
-          L->getStartLoc(), L->getHeader()) <<
-        "selected loop for inner loop pipelining via directive with depth " <<
-        NV("PipeliningDepth", (unsigned)pipeliningDepth));
+    ORE->emit(
+      OptimizationRemark(REMARK_NAME, "ILPLPrepDone", L->getStartLoc(),
+                         L->getHeader())
+      << "selected loop for inner loop pipelining via directive with depth "
+      << NV("PipeliningDepth", (unsigned)pipeliningDepth));
   } else {
-    ORE->emit(OptimizationRemark(REMARK_NAME, "ILPLPrepDone",
-          L->getStartLoc(), L->getHeader()) <<
-        "automatically selected loop for inner loop pipelining with depth " <<
-        NV("PipeliningDepth", (unsigned)pipeliningDepth));
+    ORE->emit(
+      OptimizationRemark(REMARK_NAME, "ILPLPrepDone", L->getStartLoc(),
+                         L->getHeader())
+      << "automatically selected loop for inner loop pipelining with depth "
+      << NV("PipeliningDepth", (unsigned)pipeliningDepth));
   }
 
   return Changed;
@@ -297,30 +300,26 @@ bool CSAInnerLoopPrep::runOnLoop(Loop *L) {
 bool CSAInnerLoopPrep::isLoopMarkedParallel(Loop *L) {
   for (BasicBlock *bb : L->blocks()) {
     for (Instruction &i : *bb) {
-      Instruction *section_exit = &i;
+      Instruction *section_exit  = &i;
       Instruction *section_entry = nullptr;
-      Instruction *region_entry = nullptr;
-      Value *regionId = nullptr;
-      if (match(section_exit,
-            m_Intrinsic<Intrinsic::csa_parallel_section_exit>(
-              m_Instruction(section_entry))) and
+      Instruction *region_entry  = nullptr;
+      Value *regionId            = nullptr;
+      if (match(section_exit, m_Intrinsic<Intrinsic::csa_parallel_section_exit>(
+                                m_Instruction(section_entry))) and
           match(section_entry,
-            m_Intrinsic<Intrinsic::csa_parallel_section_entry>(
-              m_Instruction(region_entry))) and
-          match(region_entry,
-            m_Intrinsic<Intrinsic::csa_parallel_region_entry>(
-              m_Value(regionId))) and
+                m_Intrinsic<Intrinsic::csa_parallel_section_entry>(
+                  m_Instruction(region_entry))) and
+          match(region_entry, m_Intrinsic<Intrinsic::csa_parallel_region_entry>(
+                                m_Value(regionId))) and
           LI->getLoopFor(section_entry->getParent()) == L and
           LI->getLoopFor(section_exit->getParent()) == L) {
-        if (DT->dominates(section_entry->getParent(),
-              L->getHeader()) and
-            PDT->dominates(section_exit->getParent(),
-              L->getHeader())) {
+        if (DT->dominates(section_entry->getParent(), L->getHeader()) and
+            PDT->dominates(section_exit->getParent(), L->getHeader())) {
           DEBUG(errs() << "Found (region id is " << *regionId << "):\n"
-              << "\t" << *region_entry << "\n"
-              << "\t\t" << *section_entry << " (depth "
-              << L->getLoopDepth() << ")\n"
-              << "\t\t" << *section_exit << "\n");
+                       << "\t" << *region_entry << "\n"
+                       << "\t\t" << *section_entry << " (depth "
+                       << L->getLoopDepth() << ")\n"
+                       << "\t\t" << *section_exit << "\n");
           return true;
         }
       }
@@ -336,10 +335,10 @@ bool CSAInnerLoopPrep::containsPipelinedLoop(Loop *L) {
   for (BasicBlock *bb : L->blocks()) {
     for (Instruction &i : *bb) {
       Instruction *pipelineable_marker = &i;
-      Value *numTokens = nullptr;
+      Value *numTokens                 = nullptr;
       if (match(pipelineable_marker,
                 m_Intrinsic<Intrinsic::csa_pipelineable_loop_marker>(
-                    m_Value(numTokens)))) {
+                  m_Value(numTokens)))) {
         return true;
       }
     }
@@ -353,23 +352,24 @@ uint64_t CSAInnerLoopPrep::programmerSpecifiedPipelineable(Loop *L) {
 
   for (BasicBlock *bb : L->getParentLoop()->blocks()) {
     for (Instruction &i : *bb) {
-      Instruction *pipeline_loop_exit = &i;
+      Instruction *pipeline_loop_exit  = &i;
       Instruction *pipeline_loop_entry = nullptr;
-      ConstantInt *pipeliningDepth = nullptr;
+      ConstantInt *pipeliningDepth     = nullptr;
       if (match(pipeline_loop_exit,
                 m_Intrinsic<Intrinsic::csa_pipeline_loop_exit>(
-                    m_Instruction(pipeline_loop_entry))) and
+                  m_Instruction(pipeline_loop_entry))) and
           match(pipeline_loop_entry,
                 m_Intrinsic<Intrinsic::csa_pipeline_loop_entry>(
-                    m_ConstantInt(pipeliningDepth)))) {
+                  m_ConstantInt(pipeliningDepth)))) {
 
         // Also verify that the parent loop is marked as a parallel loop.
         Loop *parent = L->getParentLoop();
         if (not isLoopMarkedParallel(parent)) {
           // Report the missed optimization.
-          ORE->emit(OptimizationRemarkMissed(REMARK_NAME, "ILPLDirectiveIgnored",
-                L->getStartLoc(), L->getHeader()) <<
-              " ignoring pipelining directive; not in parallel loop");
+          ORE->emit(OptimizationRemarkMissed(REMARK_NAME,
+                                             "ILPLDirectiveIgnored",
+                                             L->getStartLoc(), L->getHeader())
+                    << " ignoring pipelining directive; not in parallel loop");
 
           continue;
         }
@@ -404,11 +404,10 @@ bool CSAInnerLoopPrep::containsMemoryLifetimeMarkers(Loop *L) {
   for (BasicBlock *bb : L->blocks()) {
     for (Instruction &i : *bb) {
       Instruction *lifetime_start = &i;
-      Value *allocSize = nullptr;
-      Value *memory = nullptr;
-      if (match(lifetime_start,
-            m_Intrinsic<Intrinsic::lifetime_start>(
-              m_Value(allocSize), m_Value(memory)))) {
+      Value *allocSize            = nullptr;
+      Value *memory               = nullptr;
+      if (match(lifetime_start, m_Intrinsic<Intrinsic::lifetime_start>(
+                                  m_Value(allocSize), m_Value(memory)))) {
         DEBUG(errs() << "Found lifetime.start:\n\t" << *lifetime_start << "\n");
         return true;
       }
@@ -422,8 +421,9 @@ bool CSAInnerLoopPrep::containsMemoryLifetimeMarkers(Loop *L) {
 // there are uses of inner loop outputs which also depend on some data from the
 // parallel outer loop. The outer loop values (needsRepeating) and their
 // relevant uses (repeatForUses) are returned.
-void CSAInnerLoopPrep::discoverOuterLoopContext(const Loop *L, const Loop *outerLoop,
-    std::set<Instruction*> &needsRepeating, std::map<Instruction*, std::set<Use*>> &repeatForUses){
+void CSAInnerLoopPrep::discoverOuterLoopContext(
+  const Loop *L, const Loop *outerLoop, std::set<Instruction *> &needsRepeating,
+  std::map<Instruction *, std::set<Use *>> &repeatForUses) {
 
   DEBUG(errs() << "Looking at loop " << L->getHeader()->getName() << ".\n");
   std::vector<BasicBlock *> region(L->getBlocks());
@@ -434,8 +434,8 @@ void CSAInnerLoopPrep::discoverOuterLoopContext(const Loop *L, const Loop *outer
   ValueSet inputs, outputs, allocas;
   Extractor.findInputsOutputs(inputs, outputs, allocas);
   DEBUG(errs() << "\textractor found: " << inputs.size() << " inputs; "
-      << outputs.size() << " outputs; " << allocas.size()
-      << " allocas\n");
+               << outputs.size() << " outputs; " << allocas.size()
+               << " allocas\n");
 
   DEBUG(errs() << "\t\tinputs:\n");
   for (Value *v : inputs) {
@@ -535,5 +535,4 @@ void CSAInnerLoopPrep::discoverOuterLoopContext(const Loop *L, const Loop *outer
       }
     }
   } while (newOutputs.size());
-
 }

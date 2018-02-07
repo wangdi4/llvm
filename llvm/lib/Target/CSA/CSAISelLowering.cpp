@@ -43,30 +43,30 @@ using namespace llvm;
 
 STATISTIC(NumTailCalls, "Number of tail calls");
 
-static cl::opt<bool>
-EnableCSATailCalls("enable-csa-tail-calls",
-                    cl::desc("CSA: Enable tail calls."));
+static cl::opt<bool> EnableCSATailCalls("enable-csa-tail-calls",
+                                        cl::desc("CSA: Enable tail calls."));
 
-CSATargetLowering::CSATargetLowering(const TargetMachine &TM, const CSASubtarget &ST)
+CSATargetLowering::CSATargetLowering(const TargetMachine &TM,
+                                     const CSASubtarget &ST)
     : TargetLowering(TM), Subtarget(ST) {
 
   // Set up the register classes.
   // The actual allocation should depend on the context (serial vs. parallel)
-  addRegisterClass(MVT::i1,   &CSA::I1RegClass);
-  addRegisterClass(MVT::i8,   &CSA::I8RegClass);
-  addRegisterClass(MVT::i16,  &CSA::I16RegClass);
-  addRegisterClass(MVT::i32,  &CSA::I32RegClass);
-  addRegisterClass(MVT::i64,  &CSA::I64RegClass);
-  addRegisterClass(MVT::f32,  &CSA::I32RegClass);
-  addRegisterClass(MVT::f64,  &CSA::I64RegClass);
+  addRegisterClass(MVT::i1, &CSA::I1RegClass);
+  addRegisterClass(MVT::i8, &CSA::I8RegClass);
+  addRegisterClass(MVT::i16, &CSA::I16RegClass);
+  addRegisterClass(MVT::i32, &CSA::I32RegClass);
+  addRegisterClass(MVT::i64, &CSA::I64RegClass);
+  addRegisterClass(MVT::f32, &CSA::I32RegClass);
+  addRegisterClass(MVT::f64, &CSA::I64RegClass);
 
   // always lower memset, memcpy, and memmove intrinsics to load/store
   // instructions, rather
   // then generating calls to memset, mempcy or memmove.
-  MaxStoresPerMemset = (unsigned) 0xFFFFFFFF;
-  MaxStoresPerMemcpy = (unsigned) 0xFFFFFFFF;
-  MaxStoresPerMemmove = (unsigned) 0xFFFFFFFF;
-  
+  MaxStoresPerMemset  = (unsigned)0xFFFFFFFF;
+  MaxStoresPerMemcpy  = (unsigned)0xFFFFFFFF;
+  MaxStoresPerMemmove = (unsigned)0xFFFFFFFF;
+
   setBooleanContents(ZeroOrOneBooleanContent);
   setBooleanVectorContents(ZeroOrOneBooleanContent); // FIXME: Is this correct?
 
@@ -103,97 +103,95 @@ CSATargetLowering::CSATargetLowering(const TargetMachine &TM, const CSASubtarget
   for (MVT VT : MVT::integer_valuetypes()) {
     // If this type is generally supported
     bool isTypeSupported =
-      ( (VT == MVT::i8 && ST.hasI8()) ||
-        (VT == MVT::i16 && ST.hasI16()) ||
-        (VT == MVT::i32 && ST.hasI32()) ||
-        (VT == MVT::i64 && ST.hasI64()) );
+      ((VT == MVT::i8 && ST.hasI8()) || (VT == MVT::i16 && ST.hasI16()) ||
+       (VT == MVT::i32 && ST.hasI32()) || (VT == MVT::i64 && ST.hasI64()));
 
-    setOperationAction(ISD::BR_CC,            VT,    Expand);
-    setOperationAction(ISD::SELECT_CC,        VT,    Expand);
+    setOperationAction(ISD::BR_CC, VT, Expand);
+    setOperationAction(ISD::SELECT_CC, VT, Expand);
 
-    setOperationAction(ISD::SIGN_EXTEND,      VT,    Expand);
+    setOperationAction(ISD::SIGN_EXTEND, VT, Expand);
 
     // Arithmetic
-    setOperationAction(ISD::ADDC,             VT,    Expand);
-    setOperationAction(ISD::ADDE,             VT,    Expand);
-    setOperationAction(ISD::SUBC,             VT,    Expand);
-    setOperationAction(ISD::SUBE,             VT,    Expand);
+    setOperationAction(ISD::ADDC, VT, Expand);
+    setOperationAction(ISD::ADDE, VT, Expand);
+    setOperationAction(ISD::SUBC, VT, Expand);
+    setOperationAction(ISD::SUBE, VT, Expand);
     // Note: {U,S}MUL_LOHI must be Custom selected because TableGen cannot cope
     // with multi-output selection. This is a known weakness.
-    setOperationAction(ISD::SMUL_LOHI,        VT,    Custom);
-    setOperationAction(ISD::UMUL_LOHI,        VT,    Custom);
-    setOperationAction(ISD::MULHS,            VT,    Expand);
-    setOperationAction(ISD::MULHU,            VT,    Expand);
-    setOperationAction(ISD::UREM,             VT,    Expand);
-    setOperationAction(ISD::SREM,             VT,    Expand);
-    setOperationAction(ISD::UDIVREM,          VT,    Expand);
-    setOperationAction(ISD::SDIVREM,          VT,    Expand);
+    setOperationAction(ISD::SMUL_LOHI, VT, Custom);
+    setOperationAction(ISD::UMUL_LOHI, VT, Custom);
+    setOperationAction(ISD::MULHS, VT, Expand);
+    setOperationAction(ISD::MULHU, VT, Expand);
+    setOperationAction(ISD::UREM, VT, Expand);
+    setOperationAction(ISD::SREM, VT, Expand);
+    setOperationAction(ISD::UDIVREM, VT, Expand);
+    setOperationAction(ISD::SDIVREM, VT, Expand);
 
-    setOperationAction(ISD::SHL_PARTS,        VT,    Expand);
-    setOperationAction(ISD::SRL_PARTS,        VT,    Expand);
-    setOperationAction(ISD::SRA_PARTS,        VT,    Expand);
+    setOperationAction(ISD::SHL_PARTS, VT, Expand);
+    setOperationAction(ISD::SRL_PARTS, VT, Expand);
+    setOperationAction(ISD::SRA_PARTS, VT, Expand);
 
     // Bit manipulation
-    setOperationAction(ISD::ROTL,             VT,    Expand);
-    setOperationAction(ISD::ROTR,             VT,    Expand);
-    setOperationAction(ISD::BSWAP,            VT,    Expand);
+    setOperationAction(ISD::ROTL, VT, Expand);
+    setOperationAction(ISD::ROTR, VT, Expand);
+    setOperationAction(ISD::BSWAP, VT, Expand);
 
     LegalizeAction action = (isTypeSupported && ST.hasBitOp()) ? Legal : Expand;
-    setOperationAction(ISD::CTPOP,            VT,    action);
-    setOperationAction(ISD::CTTZ,             VT,    action);
-    setOperationAction(ISD::CTTZ_ZERO_UNDEF,  VT,    Expand);
-    setOperationAction(ISD::CTLZ,             VT,    action);
-    setOperationAction(ISD::CTLZ_ZERO_UNDEF,  VT,    Expand);
+    setOperationAction(ISD::CTPOP, VT, action);
+    setOperationAction(ISD::CTTZ, VT, action);
+    setOperationAction(ISD::CTTZ_ZERO_UNDEF, VT, Expand);
+    setOperationAction(ISD::CTLZ, VT, action);
+    setOperationAction(ISD::CTLZ_ZERO_UNDEF, VT, Expand);
 
     // Atomic operations
-    setOperationAction(ISD::ATOMIC_LOAD_AND,  VT,    Legal);
-    setOperationAction(ISD::ATOMIC_LOAD_ADD,  VT,    Legal);
-    setOperationAction(ISD::ATOMIC_LOAD_MIN,  VT,    Legal);
-    setOperationAction(ISD::ATOMIC_LOAD_MAX,  VT,    Legal);
-    setOperationAction(ISD::ATOMIC_LOAD_OR,   VT,    Legal);
-    setOperationAction(ISD::ATOMIC_LOAD_XOR,  VT,    Legal);
-    setOperationAction(ISD::ATOMIC_SWAP,      VT,    Legal);
-    setOperationAction(ISD::ATOMIC_CMP_SWAP,  VT,    Legal);
+    setOperationAction(ISD::ATOMIC_LOAD_AND, VT, Legal);
+    setOperationAction(ISD::ATOMIC_LOAD_ADD, VT, Legal);
+    setOperationAction(ISD::ATOMIC_LOAD_MIN, VT, Legal);
+    setOperationAction(ISD::ATOMIC_LOAD_MAX, VT, Legal);
+    setOperationAction(ISD::ATOMIC_LOAD_OR, VT, Legal);
+    setOperationAction(ISD::ATOMIC_LOAD_XOR, VT, Legal);
+    setOperationAction(ISD::ATOMIC_SWAP, VT, Legal);
+    setOperationAction(ISD::ATOMIC_CMP_SWAP, VT, Legal);
 
-    setOperationAction(ISD::ATOMIC_LOAD,      VT,    Custom);
-    setOperationAction(ISD::ATOMIC_STORE,     VT,    Custom);
+    setOperationAction(ISD::ATOMIC_LOAD, VT, Custom);
+    setOperationAction(ISD::ATOMIC_STORE, VT, Custom);
 
-    setOperationAction(ISD::DYNAMIC_STACKALLOC,VT,   Expand);
+    setOperationAction(ISD::DYNAMIC_STACKALLOC, VT, Expand);
   }
 
-  setOperationAction(ISD::STACKSAVE,          MVT::Other, Expand);
-  setOperationAction(ISD::STACKRESTORE,       MVT::Other, Expand);
+  setOperationAction(ISD::STACKSAVE, MVT::Other, Expand);
+  setOperationAction(ISD::STACKRESTORE, MVT::Other, Expand);
 
   for (MVT VT : MVT::fp_valuetypes()) {
-    setOperationAction(ISD::BR_CC,            VT,    Expand);
-    setOperationAction(ISD::SELECT_CC,        VT,    Expand);
+    setOperationAction(ISD::BR_CC, VT, Expand);
+    setOperationAction(ISD::SELECT_CC, VT, Expand);
   }
 
-  setOperationAction(ISD::BR_JT,              MVT::Other, Expand);
-  
+  setOperationAction(ISD::BR_JT, MVT::Other, Expand);
+
   // Loads & stores
   for (MVT VT : MVT::integer_valuetypes()) {
     //  i1 used to be promote, now expand...
-    setLoadExtAction(ISD::EXTLOAD,  VT, MVT::i1,  Promote);
-    setLoadExtAction(ISD::SEXTLOAD, VT, MVT::i1,  Promote);
-    setLoadExtAction(ISD::ZEXTLOAD, VT, MVT::i1,  Promote);
+    setLoadExtAction(ISD::EXTLOAD, VT, MVT::i1, Promote);
+    setLoadExtAction(ISD::SEXTLOAD, VT, MVT::i1, Promote);
+    setLoadExtAction(ISD::ZEXTLOAD, VT, MVT::i1, Promote);
 
     // for now (likely revisit)
-    setLoadExtAction(ISD::EXTLOAD , VT, MVT::i8,  Expand);
-    setLoadExtAction(ISD::ZEXTLOAD, VT, MVT::i8,  Expand);
-    setLoadExtAction(ISD::SEXTLOAD, VT, MVT::i8,  Expand);
-    setLoadExtAction(ISD::EXTLOAD,  VT, MVT::i16, Expand);
+    setLoadExtAction(ISD::EXTLOAD, VT, MVT::i8, Expand);
+    setLoadExtAction(ISD::ZEXTLOAD, VT, MVT::i8, Expand);
+    setLoadExtAction(ISD::SEXTLOAD, VT, MVT::i8, Expand);
+    setLoadExtAction(ISD::EXTLOAD, VT, MVT::i16, Expand);
     setLoadExtAction(ISD::ZEXTLOAD, VT, MVT::i16, Expand);
     setLoadExtAction(ISD::SEXTLOAD, VT, MVT::i16, Expand);
-    setLoadExtAction(ISD::EXTLOAD,  VT, MVT::i32, Expand);
+    setLoadExtAction(ISD::EXTLOAD, VT, MVT::i32, Expand);
     setLoadExtAction(ISD::ZEXTLOAD, VT, MVT::i32, Expand);
     setLoadExtAction(ISD::SEXTLOAD, VT, MVT::i32, Expand);
 
     // We don't accept any truncstore of integer registers.
     setTruncStoreAction(VT, MVT::i32, Expand);
     setTruncStoreAction(VT, MVT::i16, Expand);
-    setTruncStoreAction(VT, MVT::i8 , Expand);
-    setTruncStoreAction(VT, MVT::i1,  Expand);
+    setTruncStoreAction(VT, MVT::i8, Expand);
+    setTruncStoreAction(VT, MVT::i1, Expand);
   }
 
   // Load and store floats as equivalently-sized integers.
@@ -205,7 +203,7 @@ CSATargetLowering::CSATargetLowering(const TargetMachine &TM, const CSASubtarget
   setLoadExtAction(ISD::EXTLOAD, MVT::f64, MVT::f32, Expand);
 
   setTruncStoreAction(MVT::f64, MVT::f32, Expand);
-  
+
   // SETOEQ and SETUNE require checking two conditions.
   /*
   setCondCodeAction(ISD::SETOEQ, MVT::f32, Expand);
@@ -237,109 +235,117 @@ CSATargetLowering::CSATargetLowering(const TargetMachine &TM, const CSASubtarget
   setOperationAction(ISD::ConstantFP, MVT::f32, Legal);
   setOperationAction(ISD::ConstantFP, MVT::f64, Legal);
 
-/*  These are to enable as CG work is done
-  // Short float
-  setOperationAction(ISD::FP16_TO_FP, MVT::f32, Expand);
-  setOperationAction(ISD::FP_TO_FP16, MVT::f32, Expand);
-*/
+  /*  These are to enable as CG work is done
+    // Short float
+    setOperationAction(ISD::FP16_TO_FP, MVT::f32, Expand);
+    setOperationAction(ISD::FP_TO_FP16, MVT::f32, Expand);
+  */
 
-  setOperationAction(ISD::FNEG,  MVT::f32, Legal);
-  setOperationAction(ISD::FNEG,  MVT::f64, Legal);
-  setOperationAction(ISD::FABS,  MVT::f32, Legal);
-  setOperationAction(ISD::FABS,  MVT::f64, Legal);
+  setOperationAction(ISD::FNEG, MVT::f32, Legal);
+  setOperationAction(ISD::FNEG, MVT::f64, Legal);
+  setOperationAction(ISD::FABS, MVT::f32, Legal);
+  setOperationAction(ISD::FABS, MVT::f64, Legal);
 
   // Allow various FP operations (temporarily.)
   // The intent is these will be provided via a math library
   if (ST.hasMath0()) {
     // Order from ISDOpcodes.h
-    //setOperationAction(ISD::FREM,  MVT::f32, Legal);
-    //setOperationAction(ISD::FREM,  MVT::f64, Legal);
-    setOperationAction(ISD::FCOPYSIGN,  MVT::f32, Expand);
-    setOperationAction(ISD::FCOPYSIGN,  MVT::f64, Expand);
+    // setOperationAction(ISD::FREM,  MVT::f32, Legal);
+    // setOperationAction(ISD::FREM,  MVT::f64, Legal);
+    setOperationAction(ISD::FCOPYSIGN, MVT::f32, Expand);
+    setOperationAction(ISD::FCOPYSIGN, MVT::f64, Expand);
     setOperationAction(ISD::FSQRT, MVT::f32, Legal);
     setOperationAction(ISD::FSQRT, MVT::f64, Legal);
-    setOperationAction(ISD::FSIN,  MVT::f32, Legal);
-    setOperationAction(ISD::FSIN,  MVT::f64, Legal);
-    setOperationAction(ISD::FCOS,  MVT::f32, Legal);
-    setOperationAction(ISD::FCOS,  MVT::f64, Legal);
-    setOperationAction(ISD::FTAN,  MVT::f32, Legal);
-    setOperationAction(ISD::FTAN,  MVT::f64, Legal);
+    setOperationAction(ISD::FSIN, MVT::f32, Legal);
+    setOperationAction(ISD::FSIN, MVT::f64, Legal);
+    setOperationAction(ISD::FCOS, MVT::f32, Legal);
+    setOperationAction(ISD::FCOS, MVT::f64, Legal);
+    setOperationAction(ISD::FTAN, MVT::f32, Legal);
+    setOperationAction(ISD::FTAN, MVT::f64, Legal);
     setOperationAction(ISD::FATAN, MVT::f32, Legal);
     setOperationAction(ISD::FATAN, MVT::f64, Legal);
-    setOperationAction(ISD::FATAN2,MVT::f32, Legal);
-    setOperationAction(ISD::FATAN2,MVT::f64, Legal);
-    //setOperationAction(ISD::FPOWI, MVT::f32, Legal);
-    //setOperationAction(ISD::FPOWI, MVT::f64, Legal);
-    setOperationAction(ISD::FPOW,  MVT::f32, Legal);
-    setOperationAction(ISD::FPOW,  MVT::f64, Legal);
-    setOperationAction(ISD::FLOG,  MVT::f32, Legal);
-    setOperationAction(ISD::FLOG,  MVT::f64, Legal);
+    setOperationAction(ISD::FATAN2, MVT::f32, Legal);
+    setOperationAction(ISD::FATAN2, MVT::f64, Legal);
+    // setOperationAction(ISD::FPOWI, MVT::f32, Legal);
+    // setOperationAction(ISD::FPOWI, MVT::f64, Legal);
+    setOperationAction(ISD::FPOW, MVT::f32, Legal);
+    setOperationAction(ISD::FPOW, MVT::f64, Legal);
+    setOperationAction(ISD::FLOG, MVT::f32, Legal);
+    setOperationAction(ISD::FLOG, MVT::f64, Legal);
     setOperationAction(ISD::FLOG2, MVT::f32, Legal);
     setOperationAction(ISD::FLOG2, MVT::f64, Legal);
-    //setOperationAction(ISD::FLOG10,MVT::f32, Legal);
-    //setOperationAction(ISD::FLOG10,MVT::f64, Legal);
-    setOperationAction(ISD::FEXP,  MVT::f32, Legal);
-    setOperationAction(ISD::FEXP,  MVT::f64, Legal);
+    // setOperationAction(ISD::FLOG10,MVT::f32, Legal);
+    // setOperationAction(ISD::FLOG10,MVT::f64, Legal);
+    setOperationAction(ISD::FEXP, MVT::f32, Legal);
+    setOperationAction(ISD::FEXP, MVT::f64, Legal);
     setOperationAction(ISD::FEXP2, MVT::f32, Legal);
     setOperationAction(ISD::FEXP2, MVT::f64, Legal);
     setOperationAction(ISD::FCEIL, MVT::f32, Legal);
     setOperationAction(ISD::FCEIL, MVT::f64, Legal);
-    setOperationAction(ISD::FTRUNC,MVT::f32, Legal);
-    setOperationAction(ISD::FTRUNC,MVT::f64, Legal);
-    //setOperationAction(ISD::FRINT, MVT::f32, Legal);
-    //setOperationAction(ISD::FRINT, MVT::f64, Legal);
-    //setOperationAction(ISD::FNEARBYINT,MVT::f32, Legal);
-    //setOperationAction(ISD::FNEARBYINT,MVT::f64, Legal);
-    setOperationAction(ISD::FROUND,MVT::f32, Legal);
-    setOperationAction(ISD::FROUND,MVT::f64, Legal);
-    setOperationAction(ISD::FFLOOR,MVT::f32, Legal);
-    setOperationAction(ISD::FFLOOR,MVT::f64, Legal);
-    //setOperationAction(ISD::FMINNUM, MVT::f32, Legal);
-    //setOperationAction(ISD::FMINNUM, MVT::f64, Legal);
-    //setOperationAction(ISD::FMAXNUM, MVT::f32, Legal);
-    //setOperationAction(ISD::FMAXNUM, MVT::f64, Legal);
-    //setOperationAction(ISD::FSINCOS, MVT::f32, Legal);
-    //setOperationAction(ISD::FSINCOS, MVT::f64, Legal);
+    setOperationAction(ISD::FTRUNC, MVT::f32, Legal);
+    setOperationAction(ISD::FTRUNC, MVT::f64, Legal);
+    // setOperationAction(ISD::FRINT, MVT::f32, Legal);
+    // setOperationAction(ISD::FRINT, MVT::f64, Legal);
+    // setOperationAction(ISD::FNEARBYINT,MVT::f32, Legal);
+    // setOperationAction(ISD::FNEARBYINT,MVT::f64, Legal);
+    setOperationAction(ISD::FROUND, MVT::f32, Legal);
+    setOperationAction(ISD::FROUND, MVT::f64, Legal);
+    setOperationAction(ISD::FFLOOR, MVT::f32, Legal);
+    setOperationAction(ISD::FFLOOR, MVT::f64, Legal);
+    // setOperationAction(ISD::FMINNUM, MVT::f32, Legal);
+    // setOperationAction(ISD::FMINNUM, MVT::f64, Legal);
+    // setOperationAction(ISD::FMAXNUM, MVT::f32, Legal);
+    // setOperationAction(ISD::FMAXNUM, MVT::f64, Legal);
+    // setOperationAction(ISD::FSINCOS, MVT::f32, Legal);
+    // setOperationAction(ISD::FSINCOS, MVT::f64, Legal);
   }
 
-  setOperationAction(ISD::GlobalAddress,    MVT::i64,   Custom);
-  setOperationAction(ISD::ExternalSymbol,   MVT::i64,   Custom);
-  setOperationAction(ISD::BlockAddress,     MVT::i64,   Custom);
-  setOperationAction(ISD::JumpTable,        MVT::i64,   Custom);
+  setOperationAction(ISD::GlobalAddress, MVT::i64, Custom);
+  setOperationAction(ISD::ExternalSymbol, MVT::i64, Custom);
+  setOperationAction(ISD::BlockAddress, MVT::i64, Custom);
+  setOperationAction(ISD::JumpTable, MVT::i64, Custom);
 
   //  setOperationAction(ISD::SIGN_EXTEND_INREG, MVT::i1,   Expand);
 
   // varargs support
-  setOperationAction(ISD::VASTART,          MVT::Other, Expand);
-  setOperationAction(ISD::VAARG,            MVT::Other, Expand);
-  setOperationAction(ISD::VAEND,            MVT::Other, Expand);
-  setOperationAction(ISD::VACOPY,           MVT::Other, Expand);
+  setOperationAction(ISD::VASTART, MVT::Other, Expand);
+  setOperationAction(ISD::VAARG, MVT::Other, Expand);
+  setOperationAction(ISD::VAEND, MVT::Other, Expand);
+  setOperationAction(ISD::VACOPY, MVT::Other, Expand);
 
-  //setOperationAction(ISD::READCYCLECOUNTER,   MVT::i64,   Legal);
+  // setOperationAction(ISD::READCYCLECOUNTER,   MVT::i64,   Legal);
 
-  setOperationAction(ISD::PREFETCH,         MVT::Other, Legal);
+  setOperationAction(ISD::PREFETCH, MVT::Other, Legal);
 }
 
-EVT CSATargetLowering::getSetCCResultType(const DataLayout &DL, LLVMContext &Context, EVT VT) const {
+EVT CSATargetLowering::getSetCCResultType(const DataLayout &DL,
+                                          LLVMContext &Context, EVT VT) const {
   return MVT::i1;
 }
 
-SDValue CSATargetLowering::LowerOperation(SDValue Op,
-                                             SelectionDAG &DAG) const {
+SDValue CSATargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
   switch (Op.getOpcode()) {
-  case ISD::GlobalAddress:    return LowerGlobalAddress(Op, DAG);
-  case ISD::ExternalSymbol:   return LowerExternalSymbol(Op, DAG);
-  case ISD::BlockAddress:     return LowerBlockAddress(Op, DAG);
-  case ISD::JumpTable:        return LowerJumpTable(Op, DAG);
+  case ISD::GlobalAddress:
+    return LowerGlobalAddress(Op, DAG);
+  case ISD::ExternalSymbol:
+    return LowerExternalSymbol(Op, DAG);
+  case ISD::BlockAddress:
+    return LowerBlockAddress(Op, DAG);
+  case ISD::JumpTable:
+    return LowerJumpTable(Op, DAG);
     /*
   case ISD::RETURNADDR:       return LowerRETURNADDR(Op, DAG);
   case ISD::FRAMEADDR:        return LowerFRAMEADDR(Op, DAG);
   case ISD::VASTART:          return LowerVASTART(Op, DAG);
     */
-  case ISD::ATOMIC_LOAD:      return LowerAtomicLoad(Op, DAG);
-  case ISD::ATOMIC_STORE:     return LowerAtomicStore(Op, DAG);
-  case ISD::SMUL_LOHI:        return LowerMUL_LOHI(Op, DAG);
-  case ISD::UMUL_LOHI:        return LowerMUL_LOHI(Op, DAG);
+  case ISD::ATOMIC_LOAD:
+    return LowerAtomicLoad(Op, DAG);
+  case ISD::ATOMIC_STORE:
+    return LowerAtomicStore(Op, DAG);
+  case ISD::SMUL_LOHI:
+    return LowerMUL_LOHI(Op, DAG);
+  case ISD::UMUL_LOHI:
+    return LowerMUL_LOHI(Op, DAG);
   default:
     llvm_unreachable("unimplemented operand");
   }
@@ -347,133 +353,123 @@ SDValue CSATargetLowering::LowerOperation(SDValue Op,
 
 const char *CSATargetLowering::getTargetNodeName(unsigned Opcode) const {
   switch (Opcode) {
-  default: return nullptr;
-  case CSAISD::Call:               return "CSAISD::Call";
-  case CSAISD::TailCall:           return "CSAISD::TailCall";
-  case CSAISD::Ret:                return "CSAISD::Ret";
-  case CSAISD::Wrapper:            return "CSAISD::Wrapper";
+  default:
+    return nullptr;
+  case CSAISD::Call:
+    return "CSAISD::Call";
+  case CSAISD::TailCall:
+    return "CSAISD::TailCall";
+  case CSAISD::Ret:
+    return "CSAISD::Ret";
+  case CSAISD::Wrapper:
+    return "CSAISD::Wrapper";
   }
 }
 
-
 SDValue CSATargetLowering::LowerGlobalAddress(SDValue Op,
-                                                 SelectionDAG &DAG) const {
+                                              SelectionDAG &DAG) const {
   const GlobalValue *GV = cast<GlobalAddressSDNode>(Op)->getGlobal();
-  int64_t Offset = cast<GlobalAddressSDNode>(Op)->getOffset();
+  int64_t Offset        = cast<GlobalAddressSDNode>(Op)->getOffset();
 
   // Create the TargetGlobalAddress node
   // DO NOT fold in the constant offset for now
-  SDValue Result = DAG.getTargetGlobalAddress(GV, SDLoc(Op),
-                                              getPointerTy(DAG.getDataLayout()),
-                                              0);
+  SDValue Result = DAG.getTargetGlobalAddress(
+    GV, SDLoc(Op), getPointerTy(DAG.getDataLayout()), 0);
   Result = DAG.getNode(CSAISD::Wrapper, SDLoc(Op),
-                     getPointerTy(DAG.getDataLayout()), Result);
+                       getPointerTy(DAG.getDataLayout()), Result);
   if (Offset) {
-      SDValue Remaining = DAG.getConstant(Offset, SDLoc(Op), MVT::i64);
-      Result = DAG.getNode(ISD::ADD, SDLoc(Op), MVT::i64, Result, Remaining);
+    SDValue Remaining = DAG.getConstant(Offset, SDLoc(Op), MVT::i64);
+    Result = DAG.getNode(ISD::ADD, SDLoc(Op), MVT::i64, Result, Remaining);
   }
 
   return Result;
 }
 
 SDValue CSATargetLowering::LowerExternalSymbol(SDValue Op,
-                                                  SelectionDAG &DAG) const {
+                                               SelectionDAG &DAG) const {
   const char *Sym = cast<ExternalSymbolSDNode>(Op)->getSymbol();
-  SDValue Result = DAG.getTargetExternalSymbol(Sym,
-                                          getPointerTy(DAG.getDataLayout()));
+  SDValue Result =
+    DAG.getTargetExternalSymbol(Sym, getPointerTy(DAG.getDataLayout()));
   return DAG.getNode(CSAISD::Wrapper, SDLoc(Op),
                      getPointerTy(DAG.getDataLayout()), Result);
 }
 
 SDValue CSATargetLowering::LowerBlockAddress(SDValue Op,
-                                                SelectionDAG &DAG) const {
+                                             SelectionDAG &DAG) const {
   const BlockAddress *BA = cast<BlockAddressSDNode>(Op)->getBlockAddress();
-  SDValue Result = DAG.getTargetBlockAddress(BA,
-                                        getPointerTy(DAG.getDataLayout()));
+  SDValue Result =
+    DAG.getTargetBlockAddress(BA, getPointerTy(DAG.getDataLayout()));
   return DAG.getNode(CSAISD::Wrapper, SDLoc(Op),
-                                getPointerTy(DAG.getDataLayout()), Result);
+                     getPointerTy(DAG.getDataLayout()), Result);
 }
 
-SDValue CSATargetLowering::LowerJumpTable(SDValue Op,
-                                             SelectionDAG &DAG) const {
+SDValue CSATargetLowering::LowerJumpTable(SDValue Op, SelectionDAG &DAG) const {
   JumpTableSDNode *JT = cast<JumpTableSDNode>(Op);
-  SDValue Result = DAG.getTargetJumpTable(JT->getIndex(),
-                                    getPointerTy(DAG.getDataLayout()));
+  SDValue Result =
+    DAG.getTargetJumpTable(JT->getIndex(), getPointerTy(DAG.getDataLayout()));
   return DAG.getNode(CSAISD::Wrapper, SDLoc(JT),
-                            getPointerTy(DAG.getDataLayout()), Result);
+                     getPointerTy(DAG.getDataLayout()), Result);
 }
 
 SDValue CSATargetLowering::LowerAtomicLoad(SDValue Op,
-                                             SelectionDAG &DAG) const {
-    AtomicSDNode *AL = cast<AtomicSDNode>(Op);
-    // Sufficiently small regular loads are already atomic.
-    // If this is a large load, don't lower here. Probably the right thing to
-    // do is to use AtomicExpandPass to take care of it.
-    if(AL->getMemoryVT().getStoreSizeInBits() > 64) {
-        return Op;
-    }
+                                           SelectionDAG &DAG) const {
+  AtomicSDNode *AL = cast<AtomicSDNode>(Op);
+  // Sufficiently small regular loads are already atomic.
+  // If this is a large load, don't lower here. Probably the right thing to
+  // do is to use AtomicExpandPass to take care of it.
+  if (AL->getMemoryVT().getStoreSizeInBits() > 64) {
+    return Op;
+  }
 
-    SDLoc DL(Op);
-    return DAG.getLoad(AL->getMemoryVT(),
-            DL,
-            AL->getChain(),
-            AL->getBasePtr(),
-            AL->getPointerInfo(),
-            AL->getAlignment());
+  SDLoc DL(Op);
+  return DAG.getLoad(AL->getMemoryVT(), DL, AL->getChain(), AL->getBasePtr(),
+                     AL->getPointerInfo(), AL->getAlignment());
 }
 
 SDValue CSATargetLowering::LowerAtomicStore(SDValue Op,
-                                             SelectionDAG &DAG) const {
-    AtomicSDNode *AS = cast<AtomicSDNode>(Op);
-    // Sufficiently small regular stores are already atomic.
-    if(AS->getMemoryVT().getStoreSizeInBits() > 64) {
-        return Op;
-    }
-
-    SDLoc DL(Op);
-    return DAG.getStore(
-            AS->getChain(),
-            DL,
-            AS->getVal(),
-            AS->getBasePtr(),
-            AS->getPointerInfo(),
-            AS->getAlignment());
-}
-
-SDValue CSATargetLowering::
-LowerMUL_LOHI(SDValue Op, SelectionDAG &DAG) const
-{
-  SDLoc dl(Op);
-  SDValue LHS = Op.getOperand(0);
-  SDValue RHS = Op.getOperand(1);
-  MVT partVT = LHS.getSimpleValueType();
-  SDValue InOps[] = { LHS, RHS };
-  bool isSigned = (Op.getNode()->getOpcode() == ISD::SMUL_LOHI);
-
-  unsigned opcode;
-  switch(partVT.SimpleTy)
-  {
-    case MVT::i8:
-      opcode = isSigned ? CSA::MULLOHIS8 : CSA::MULLOHIU8;
-      break;
-    case MVT::i16:
-      opcode = isSigned ? CSA::MULLOHIS16 : CSA::MULLOHIU16;
-      break;
-    case MVT::i32:
-      opcode = isSigned ? CSA::MULLOHIS32 : CSA::MULLOHIU32;
-      break;
-    case MVT::i64:
-      opcode = isSigned ? CSA::MULLOHIS64 : CSA::MULLOHIU64;
-      break;
-    default:
-      return Op;
+                                            SelectionDAG &DAG) const {
+  AtomicSDNode *AS = cast<AtomicSDNode>(Op);
+  // Sufficiently small regular stores are already atomic.
+  if (AS->getMemoryVT().getStoreSizeInBits() > 64) {
+    return Op;
   }
 
-  SDNode *Mullohi = DAG.getMachineNode(opcode, dl,
-                           DAG.getVTList(partVT, partVT), InOps);
+  SDLoc DL(Op);
+  return DAG.getStore(AS->getChain(), DL, AS->getVal(), AS->getBasePtr(),
+                      AS->getPointerInfo(), AS->getAlignment());
+}
+
+SDValue CSATargetLowering::LowerMUL_LOHI(SDValue Op, SelectionDAG &DAG) const {
+  SDLoc dl(Op);
+  SDValue LHS     = Op.getOperand(0);
+  SDValue RHS     = Op.getOperand(1);
+  MVT partVT      = LHS.getSimpleValueType();
+  SDValue InOps[] = {LHS, RHS};
+  bool isSigned   = (Op.getNode()->getOpcode() == ISD::SMUL_LOHI);
+
+  unsigned opcode;
+  switch (partVT.SimpleTy) {
+  case MVT::i8:
+    opcode = isSigned ? CSA::MULLOHIS8 : CSA::MULLOHIU8;
+    break;
+  case MVT::i16:
+    opcode = isSigned ? CSA::MULLOHIS16 : CSA::MULLOHIU16;
+    break;
+  case MVT::i32:
+    opcode = isSigned ? CSA::MULLOHIS32 : CSA::MULLOHIU32;
+    break;
+  case MVT::i64:
+    opcode = isSigned ? CSA::MULLOHIS64 : CSA::MULLOHIU64;
+    break;
+  default:
+    return Op;
+  }
+
+  SDNode *Mullohi =
+    DAG.getMachineNode(opcode, dl, DAG.getVTList(partVT, partVT), InOps);
   SDValue Lo(Mullohi, 0);
   SDValue Hi(Mullohi, 1);
-  SDValue Ops[] = { Lo, Hi };
+  SDValue Ops[] = {Lo, Hi};
   return DAG.getMergeValues(Ops, dl);
 }
 
@@ -505,30 +501,30 @@ CSATargetLowering::getConstraintType(StringRef Constraint) const {
 
 std::pair<unsigned, const TargetRegisterClass *>
 CSATargetLowering::getRegForInlineAsmConstraint(const TargetRegisterInfo *TRI,
-                                                  StringRef Constraint,
-                                                  MVT VT) const {
+                                                StringRef Constraint,
+                                                MVT VT) const {
 
   if (Constraint.size() == 1) {
     switch (Constraint[0]) {
-      default:
-        break;
-      case 'a':
-        return std::make_pair(0U, &CSA::I8RegClass);
-      case 'b':
-        return std::make_pair(0U, &CSA::I16RegClass);
-      case 'c':
-        return std::make_pair(0U, &CSA::I32RegClass);
-      case 'd':
-        return std::make_pair(0U, &CSA::I64RegClass);
+    default:
+      break;
+    case 'a':
+      return std::make_pair(0U, &CSA::I8RegClass);
+    case 'b':
+      return std::make_pair(0U, &CSA::I16RegClass);
+    case 'c':
+      return std::make_pair(0U, &CSA::I32RegClass);
+    case 'd':
+      return std::make_pair(0U, &CSA::I64RegClass);
 
-      case 'A':
-        return std::make_pair(0U, &CSA::RI8RegClass);
-      case 'B':
-        return std::make_pair(0U, &CSA::RI16RegClass);
-      case 'C':
-        return std::make_pair(0U, &CSA::RI32RegClass);
-      case 'D':
-        return std::make_pair(0U, &CSA::RI64RegClass);
+    case 'A':
+      return std::make_pair(0U, &CSA::RI8RegClass);
+    case 'B':
+      return std::make_pair(0U, &CSA::RI16RegClass);
+    case 'C':
+      return std::make_pair(0U, &CSA::RI32RegClass);
+    case 'D':
+      return std::make_pair(0U, &CSA::RI64RegClass);
     }
   }
 
@@ -554,12 +550,12 @@ bool CSATargetLowering::isTruncateFree(Type *Ty1, Type *Ty2) const {
 
 bool CSATargetLowering::isZExtFree(Type *Ty1, Type *Ty2) const {
   // x86-64 implicitly zero-extends 32-bit results in 64-bit registers.
-  return Ty1->isIntegerTy(32) && Ty2->isIntegerTy(64);  //&& Subtarget->is64Bit()
+  return Ty1->isIntegerTy(32) && Ty2->isIntegerTy(64); //&& Subtarget->is64Bit()
 }
 
 bool CSATargetLowering::isZExtFree(EVT VT1, EVT VT2) const {
   // x86-64 implicitly zero-extends 32-bit results in 64-bit registers.
-  return VT1 == MVT::i32 && VT2 == MVT::i64;  // && Subtarget->is64Bit()
+  return VT1 == MVT::i32 && VT2 == MVT::i64; // && Subtarget->is64Bit()
 }
 
 bool CSATargetLowering::isZExtFree(SDValue Val, EVT VT2) const {
@@ -570,12 +566,13 @@ bool CSATargetLowering::isZExtFree(SDValue Val, EVT VT2) const {
   if (Val.getOpcode() != ISD::LOAD)
     return false;
 
-  if (!VT1.isSimple() || !VT1.isInteger() ||
-    !VT2.isSimple() || !VT2.isInteger())
+  if (!VT1.isSimple() || !VT1.isInteger() || !VT2.isSimple() ||
+      !VT2.isInteger())
     return false;
 
   switch (VT1.getSimpleVT().SimpleTy) {
-  default: break;
+  default:
+    break;
   case MVT::i8:
   case MVT::i16:
   case MVT::i32:
@@ -612,30 +609,33 @@ bool CSATargetLowering::isFMAFasterThanFMulAndFAdd(EVT VT) const {
 
 // Overwrite mi_op with the value specified by sd_op. This is basically a really
 // dumbed-down version of InstrEmitter::AddOperand, but since it doesn't have
-// access to VRBaseMap it has to assume that the register value originally in the
-// operand before the one that it needs to process (last_reg) is the one it wants
-// to use if it doesn't have any other hints. This will be the case for the
-// instructions that this function needs to operate on because the values based on
-// the SDNode are all shifted left in the original instruction.
-static void overwrite_operand(MachineOperand& mi_op, SDValue sd_op, unsigned last_reg, bool is_def) {
-  if (const ConstantSDNode*const C = dyn_cast<ConstantSDNode>(sd_op))
+// access to VRBaseMap it has to assume that the register value originally in
+// the operand before the one that it needs to process (last_reg) is the one it
+// wants to use if it doesn't have any other hints. This will be the case for
+// the instructions that this function needs to operate on because the values
+// based on the SDNode are all shifted left in the original instruction.
+static void overwrite_operand(MachineOperand &mi_op, SDValue sd_op,
+                              unsigned last_reg, bool is_def) {
+  if (const ConstantSDNode *const C = dyn_cast<ConstantSDNode>(sd_op))
     return mi_op.ChangeToImmediate(C->getSExtValue());
-  if (const ConstantFPSDNode*const F = dyn_cast<ConstantFPSDNode>(sd_op))
+  if (const ConstantFPSDNode *const F = dyn_cast<ConstantFPSDNode>(sd_op))
     return mi_op.ChangeToFPImmediate(F->getConstantFPValue());
-  if (const RegisterSDNode*const R = dyn_cast<RegisterSDNode>(sd_op))
+  if (const RegisterSDNode *const R = dyn_cast<RegisterSDNode>(sd_op))
     return mi_op.ChangeToRegister(R->getReg(), is_def);
-  if (const FrameIndexSDNode*const FI = dyn_cast<FrameIndexSDNode>(sd_op))
+  if (const FrameIndexSDNode *const FI = dyn_cast<FrameIndexSDNode>(sd_op))
     return mi_op.ChangeToFrameIndex(FI->getIndex());
-  if (const ExternalSymbolSDNode*const ES = dyn_cast<ExternalSymbolSDNode>(sd_op))
+  if (const ExternalSymbolSDNode *const ES =
+        dyn_cast<ExternalSymbolSDNode>(sd_op))
     return mi_op.ChangeToES(ES->getSymbol(), ES->getTargetFlags());
-  if (const MCSymbolSDNode*const MCS = dyn_cast<MCSymbolSDNode>(sd_op))
+  if (const MCSymbolSDNode *const MCS = dyn_cast<MCSymbolSDNode>(sd_op))
     return mi_op.ChangeToMCSymbol(MCS->getMCSymbol());
 
   assert(last_reg && "can't figure out which register to use!");
   return mi_op.ChangeToRegister(last_reg, is_def);
 }
 
-void CSATargetLowering::AdjustInstrPostInstrSelection(MachineInstr& MI, SDNode* Node) const {
+void CSATargetLowering::AdjustInstrPostInstrSelection(MachineInstr &MI,
+                                                      SDNode *Node) const {
 
   DEBUG(errs() << "adjusting instruction: " << MI << "from node ");
   DEBUG(Node->print(errs()));
@@ -643,32 +643,32 @@ void CSATargetLowering::AdjustInstrPostInstrSelection(MachineInstr& MI, SDNode* 
 
   // Instruction selection has a problem where it won't add any defs to an
   // instruction that doesn't have any non-chain results on its corresponding
-  // SDNode, and as a result it produces broken instructions with too few operands
-  // and with mismatched operand values. This is an issue for our store
-  // instructions because their only output is the issued signal and that doesn't
-  // appear as an SDNode result because it defaults to a physical register (%ign).
-  // In order to make sure that those are generated correctly, this code
-  // identifies memory operations that have too few operands and that have defs
-  // which aren't represented as SDNode results and patches those instructions to
-  // make sure that all of their operands are correct.
-  const MCInstrDesc& II = MI.getDesc();
-  if (Node->getNumValues() == 1 and II.getNumDefs()
-    and not MI.memoperands_empty()
-    and MI.getNumOperands() < II.getNumOperands()
-  ) {
+  // SDNode, and as a result it produces broken instructions with too few
+  // operands and with mismatched operand values. This is an issue for our store
+  // instructions because their only output is the issued signal and that
+  // doesn't appear as an SDNode result because it defaults to a physical
+  // register (%ign). In order to make sure that those are generated correctly,
+  // this code identifies memory operations that have too few operands and that
+  // have defs which aren't represented as SDNode results and patches those
+  // instructions to make sure that all of their operands are correct.
+  const MCInstrDesc &II = MI.getDesc();
+  if (Node->getNumValues() == 1 and II.getNumDefs() and
+      not MI.memoperands_empty() and
+      MI.getNumOperands() < II.getNumOperands()) {
     DEBUG(errs() << "found defective instruction with too few operands!\n");
 
     // Pad out the operands until there are enough of them.
     assert(II.getNumDefs() == 1 && "This hook assumes only one def is missing");
-    MachineInstrBuilder MIB {*MI.getParent()->getParent(), &MI};
+    MachineInstrBuilder MIB{*MI.getParent()->getParent(), &MI};
     MIB.addReg(CSA::IGN);
 
     // Then overwrite all of them with the correct values.
     unsigned last_reg = 0;
     for (unsigned op_ind = 0; op_ind < II.getNumOperands(); ++op_ind) {
-      MachineOperand& mi_op = MI.getOperand(op_ind);
+      MachineOperand &mi_op        = MI.getOperand(op_ind);
       const unsigned next_last_reg = mi_op.isReg() ? mi_op.getReg() : 0;
-      overwrite_operand(mi_op, Node->getOperand(op_ind), last_reg, op_ind < II.getNumDefs());
+      overwrite_operand(mi_op, Node->getOperand(op_ind), last_reg,
+                        op_ind < II.getNumDefs());
       last_reg = next_last_reg;
     }
 
@@ -679,8 +679,7 @@ void CSATargetLowering::AdjustInstrPostInstrSelection(MachineInstr& MI, SDNode* 
 // isLegalAddressingMode - Return true if the addressing mode represented
 // by AM is legal for this target, for a load/store of the specified type.
 bool CSATargetLowering::isLegalAddressingMode(const DataLayout &DL,
-                                              const AddrMode &AM,
-                                              Type *Ty,
+                                              const AddrMode &AM, Type *Ty,
                                               unsigned AddrSpace) const {
   /**/
   // X86 supports extremely general addressing modes.
@@ -703,28 +702,25 @@ bool CSATargetLowering::isLegalAddressingMode(const DataLayout &DL,
     if (AM.HasBaseReg)
       return false;
     break;
-  default:  // Other stuff never works.
+  default: // Other stuff never works.
     return false;
   }
 
   return true;
 }
 
-
-
-//===----------------------------------------------------------------------===//
-//                      Calling Convention Implementation
-//===----------------------------------------------------------------------===//
+  //===----------------------------------------------------------------------===//
+  //                      Calling Convention Implementation
+  //===----------------------------------------------------------------------===//
 
 #include "CSAGenCallingConv.inc"
 
 /// IsEligibleForTailCallOptimization - Check whether the call is eligible
 /// for tail call optimization.
-bool CSATargetLowering::
-IsEligibleForTailCallOptimization(unsigned NextStackOffset,
-                                  const CSAMachineFunctionInfo& FI) const {
-    //  if (!EnableCSATailCalls)
-    //    return false;
+bool CSATargetLowering::IsEligibleForTailCallOptimization(
+  unsigned NextStackOffset, const CSAMachineFunctionInfo &FI) const {
+  //  if (!EnableCSATailCalls)
+  //    return false;
 
   // Return false if either the callee or caller has a byval argument.
   //  if (FI.hasByValArg())
@@ -732,16 +728,15 @@ IsEligibleForTailCallOptimization(unsigned NextStackOffset,
 
   // Return true if the callee's argument area is no larger than the
   // caller's.
-  //return NextStackOffset <= FI.getIncomingArgSize();
+  // return NextStackOffset <= FI.getIncomingArgSize();
   return true;
 }
 
 /// LowerCall - functions arguments are copied from virtual regs to
 /// (physical regs)/(stack frame), CALLSEQ_START and CALLSEQ_END are emitted.
 /// TODO: isTailCall.
-SDValue
-CSATargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
-                              SmallVectorImpl<SDValue> &InVals) const {
+SDValue CSATargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
+                                     SmallVectorImpl<SDValue> &InVals) const {
 
   SelectionDAG &DAG                     = CLI.DAG;
   SDLoc &dl                             = CLI.DL;
@@ -767,29 +762,27 @@ CSATargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
     // Variable arguments always go into memory.
     unsigned NumArgs = Outs.size();
     for (unsigned i = 0; i != NumArgs; ++i) {
-      MVT ArgVT = Outs[i].VT;
+      MVT ArgVT                = Outs[i].VT;
       ISD::ArgFlagsTy ArgFlags = Outs[i].Flags;
       bool Result;
 
       if (Outs[i].IsFixed) {
-        Result = CC_Reg_CSA(i, ArgVT, ArgVT, CCValAssign::Full, ArgFlags,
-                            CCInfo);
-      }
-      else {
-        Result = CC_Reg_VarArg_CSA(i, ArgVT, ArgVT, CCValAssign::Full,
-                                   ArgFlags, CCInfo);
+        Result =
+          CC_Reg_CSA(i, ArgVT, ArgVT, CCValAssign::Full, ArgFlags, CCInfo);
+      } else {
+        Result = CC_Reg_VarArg_CSA(i, ArgVT, ArgVT, CCValAssign::Full, ArgFlags,
+                                   CCInfo);
       }
 
       if (Result) {
-        #ifndef NDEBUG
+#ifndef NDEBUG
         dbgs() << "Call operand #" << i << " has unhandled type "
                << EVT(ArgVT).getEVTString();
-        #endif
+#endif
         llvm_unreachable(0);
       }
     }
-  }
-  else {
+  } else {
     // All arguments are treated the same.
     CCInfo.AnalyzeCallOperands(Outs, CC_Reg_CSA);
   }
@@ -798,9 +791,9 @@ CSATargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   unsigned NumBytes = CCInfo.getNextStackOffset();
 
   if (isTailCall)
-    isTailCall = !isVarArg &&
-      IsEligibleForTailCallOptimization(NumBytes,
-                                        *MF.getInfo<CSAMachineFunctionInfo>());
+    isTailCall =
+      !isVarArg && IsEligibleForTailCallOptimization(
+                     NumBytes, *MF.getInfo<CSAMachineFunctionInfo>());
 
   if (isTailCall)
     ++NumTailCalls;
@@ -808,16 +801,16 @@ CSATargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   if (!isTailCall)
     Chain = DAG.getCALLSEQ_START(Chain, NumBytes, 0, dl);
 
-  SDValue StackPtr = DAG.getCopyFromReg(Chain, dl, CSA::SP,
-                                        getPointerTy(DAG.getDataLayout()));
+  SDValue StackPtr =
+    DAG.getCopyFromReg(Chain, dl, CSA::SP, getPointerTy(DAG.getDataLayout()));
 
   SmallVector<std::pair<unsigned, SDValue>, 8> RegsToPass;
   SmallVector<SDValue, 8> MemOpChains;
 
   // Walk the register/memloc assignments, inserting copies/loads.
   for (unsigned i = 0, e = ArgLocs.size(); i != e; ++i) {
-    CCValAssign    &VA    = ArgLocs[i];
-    SDValue         Arg   = OutVals[i];
+    CCValAssign &VA       = ArgLocs[i];
+    SDValue Arg           = OutVals[i];
     ISD::ArgFlagsTy Flags = Outs[i].Flags;
 
     // Nothing should need promotion
@@ -854,15 +847,15 @@ CSATargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
     // emit ISD::STORE whichs stores the
     // parameter value to a stack Location
     unsigned LocMemOffset = VA.getLocMemOffset();
-    SDValue PtrOff = DAG.getIntPtrConstant(LocMemOffset, dl);
+    SDValue PtrOff        = DAG.getIntPtrConstant(LocMemOffset, dl);
     PtrOff = DAG.getNode(ISD::ADD, dl, getPointerTy(DAG.getDataLayout()),
-        StackPtr, PtrOff);
+                         StackPtr, PtrOff);
     if (Flags.isByVal()) {
       SDValue SizeNode = DAG.getConstant(Flags.getByValSize(), dl, MVT::i32);
-      MemOpChains.push_back(
-        DAG.getMemcpy(Chain, dl, PtrOff, Arg, SizeNode, Flags.getByValAlign(),
-                      /*isVolatile=*/false, /*AlwaysInline=*/false, /*isTailCall=*/false,
-                      MachinePointerInfo(), MachinePointerInfo()));
+      MemOpChains.push_back(DAG.getMemcpy(
+        Chain, dl, PtrOff, Arg, SizeNode, Flags.getByValAlign(),
+        /*isVolatile=*/false, /*AlwaysInline=*/false, /*isTailCall=*/false,
+        MachinePointerInfo(), MachinePointerInfo()));
     } else {
       MemOpChains.push_back(
         DAG.getStore(Chain, dl, Arg, PtrOff,
@@ -881,7 +874,7 @@ CSATargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   // together.
   SDValue InFlag;
   for (unsigned i = 0, e = RegsToPass.size(); i != e; ++i) {
-    Chain = DAG.getCopyToReg(Chain, dl, RegsToPass[i].first,
+    Chain  = DAG.getCopyToReg(Chain, dl, RegsToPass[i].first,
                              RegsToPass[i].second, InFlag);
     InFlag = Chain.getValue(1);
   }
@@ -891,12 +884,12 @@ CSATargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   // node so that legalize doesn't hack it.
   if (GlobalAddressSDNode *G = dyn_cast<GlobalAddressSDNode>(Callee)) {
     const GlobalValue *GV = G->getGlobal();
-    Callee = DAG.getTargetGlobalAddress(GV, dl,
-        getPointerTy(DAG.getDataLayout()));
+    Callee =
+      DAG.getTargetGlobalAddress(GV, dl, getPointerTy(DAG.getDataLayout()));
   } else if (ExternalSymbolSDNode *S = dyn_cast<ExternalSymbolSDNode>(Callee)) {
     const char *Sym = S->getSymbol();
-    Callee = DAG.getTargetExternalSymbol(Sym,
-        getPointerTy(DAG.getDataLayout()));
+    Callee =
+      DAG.getTargetExternalSymbol(Sym, getPointerTy(DAG.getDataLayout()));
   }
 
   // MipsJmpLink = #chain, #target_address, #opt_in_flags...
@@ -917,11 +910,11 @@ CSATargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
     Ops.push_back(InFlag);
 
   if (isTailCall)
-      return DAG.getNode(CSAISD::TailCall, dl, MVT::Other, Ops);
+    return DAG.getNode(CSAISD::TailCall, dl, MVT::Other, Ops);
 
   SDVTList NodeTys = DAG.getVTList(MVT::Other, MVT::Glue);
-  Chain  = DAG.getNode(CSAISD::Call, dl, NodeTys, Ops);
-  InFlag = Chain.getValue(1);
+  Chain            = DAG.getNode(CSAISD::Call, dl, NodeTys, Ops);
+  InFlag           = Chain.getValue(1);
 
   // Create the CALLSEQ_END node.
   Chain = DAG.getCALLSEQ_END(Chain, DAG.getIntPtrConstant(NumBytes, dl, true),
@@ -931,31 +924,29 @@ CSATargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
 
   // Handle result values, copying them out of physregs into vregs that we
   // return.
-  return LowerCallResult(Chain, InFlag, CallConv, isVarArg, Ins,
-                         dl, DAG, InVals);
+  return LowerCallResult(Chain, InFlag, CallConv, isVarArg, Ins, dl, DAG,
+                         InVals);
 }
 
 /// LowerCallResult - Lower the result values of a call into the
 /// appropriate copies out of appropriate physical registers.
-SDValue
-CSATargetLowering::LowerCallResult(SDValue Chain, SDValue InFlag,
-                                    CallingConv::ID CallConv, bool isVarArg,
-                                    const SmallVectorImpl<ISD::InputArg> &Ins,
-                                    const SDLoc &dl, SelectionDAG &DAG,
-                                    SmallVectorImpl<SDValue> &InVals) const {
+SDValue CSATargetLowering::LowerCallResult(
+  SDValue Chain, SDValue InFlag, CallingConv::ID CallConv, bool isVarArg,
+  const SmallVectorImpl<ISD::InputArg> &Ins, const SDLoc &dl, SelectionDAG &DAG,
+  SmallVectorImpl<SDValue> &InVals) const {
 
   // Assign locations to each value returned by this call.
   SmallVector<CCValAssign, 16> RVLocs;
-  CCState CCInfo(CallConv, isVarArg, DAG.getMachineFunction(),
-                 RVLocs, *DAG.getContext());
+  CCState CCInfo(CallConv, isVarArg, DAG.getMachineFunction(), RVLocs,
+                 *DAG.getContext());
 
   CCInfo.AnalyzeCallResult(Ins, RetCC_Reg_CSA);
 
   // Copy all of the result registers out of their specified physreg.
   for (unsigned i = 0; i != RVLocs.size(); ++i) {
     CCValAssign VA = RVLocs[i];
-    SDValue Val     = DAG.getCopyFromReg(Chain, dl, VA.getLocReg(),
-                                         VA.getValVT(), InFlag);
+    SDValue Val =
+      DAG.getCopyFromReg(Chain, dl, VA.getLocReg(), VA.getValVT(), InFlag);
     Chain  = Val.getValue(1);
     InFlag = Val.getValue(2);
 
@@ -971,23 +962,19 @@ CSATargetLowering::LowerCallResult(SDValue Chain, SDValue InFlag,
 
 /// LowerFormalArguments - transform physical registers into virtual registers
 /// and generate load operations for arguments places on the stack.
-SDValue
-CSATargetLowering::LowerFormalArguments(SDValue Chain,
-                                        CallingConv::ID CallConv, bool isVarArg,
-                                        const SmallVectorImpl<ISD::InputArg>
-                                        &Ins,
-                                        const SDLoc &dl, SelectionDAG &DAG,
-                                        SmallVectorImpl<SDValue> &InVals)
-                                          const {
+SDValue CSATargetLowering::LowerFormalArguments(
+  SDValue Chain, CallingConv::ID CallConv, bool isVarArg,
+  const SmallVectorImpl<ISD::InputArg> &Ins, const SDLoc &dl, SelectionDAG &DAG,
+  SmallVectorImpl<SDValue> &InVals) const {
 
-  MachineFunction &MF = DAG.getMachineFunction();
-  MachineFrameInfo &MFI = MF.getFrameInfo();
+  MachineFunction &MF         = DAG.getMachineFunction();
+  MachineFrameInfo &MFI       = MF.getFrameInfo();
   CSAMachineFunctionInfo *UFI = MF.getInfo<CSAMachineFunctionInfo>();
 
   // Assign locations to all of the incoming arguments.
   SmallVector<CCValAssign, 16> ArgLocs;
-  CCState CCInfo(CallConv, isVarArg, DAG.getMachineFunction(),
-                 ArgLocs, *DAG.getContext());
+  CCState CCInfo(CallConv, isVarArg, DAG.getMachineFunction(), ArgLocs,
+                 *DAG.getContext());
 
   CCInfo.AnalyzeFormalArguments(Ins, CC_Reg_CSA);
 
@@ -998,29 +985,29 @@ CSATargetLowering::LowerFormalArguments(SDValue Chain,
 
     // Arguments stored on registers
     if (VA.isRegLoc()) {
-      //EVT RegVT = VA.getLocVT();
+      // EVT RegVT = VA.getLocVT();
 
       // Transform the arguments stored in physical registers into virtual ones
       const TargetRegisterClass *tClass = &CSA::RI64RegClass;
-      MVT tVT = VA.getValVT();
-      if(tVT == MVT::i64) {
+      MVT tVT                           = VA.getValVT();
+      if (tVT == MVT::i64) {
         tClass = &CSA::RI64RegClass;
-      } else if(tVT == MVT::i32) {
+      } else if (tVT == MVT::i32) {
         tClass = &CSA::RI32RegClass;
-      } else if(tVT == MVT::i16) {
+      } else if (tVT == MVT::i16) {
         tClass = &CSA::RI16RegClass;
-      } else if(tVT == MVT::i8) {
+      } else if (tVT == MVT::i8) {
         tClass = &CSA::RI8RegClass;
-      } else if(tVT == MVT::i1) {
+      } else if (tVT == MVT::i1) {
         tClass = &CSA::RI1RegClass;
-      } else if(tVT == MVT::f64) {
+      } else if (tVT == MVT::f64) {
         tClass = &CSA::RI64RegClass;
-      } else if(tVT == MVT::f32) {
+      } else if (tVT == MVT::f32) {
         tClass = &CSA::RI32RegClass;
       } else {
         llvm_unreachable("WTC!!");
       }
-      unsigned Reg = MF.addLiveIn(VA.getLocReg(), tClass);
+      unsigned Reg     = MF.addLiveIn(VA.getLocReg(), tClass);
       SDValue ArgValue = DAG.getCopyFromReg(Chain, dl, Reg, VA.getValVT());
 
       InVals.push_back(ArgValue);
@@ -1028,21 +1015,26 @@ CSATargetLowering::LowerFormalArguments(SDValue Chain,
       // sanity check
       assert(VA.isMemLoc());
       ISD::ArgFlagsTy flags = Ins[VA.getValNo()].Flags;
-      if(flags.isByVal()) {
+      if (flags.isByVal()) {
         // Argument passed directly on the stack. We don't need to load it
-        // NOTE: I *finally* figured out what the +8. It is just some non-zero number to make
-        // sure that VA.getLocMemOffset() + 8 is always *non-null* and therefore always negative
-        // as this is used to determine the offset of the FrameIndex in 'eliminateFrameIndex'. The +8
-        // and negative are removed then...
-        int FI = MFI.CreateFixedObject(flags.getByValSize(), -((int64_t)VA.getLocMemOffset() + 8LL), true);
-        InVals.push_back(DAG.getFrameIndex(FI,
-              getPointerTy(DAG.getDataLayout())));
+        // NOTE: I *finally* figured out what the +8. It is just some non-zero
+        // number to make sure that VA.getLocMemOffset() + 8 is always
+        // *non-null* and therefore always negative as this is used to determine
+        // the offset of the FrameIndex in 'eliminateFrameIndex'. The +8 and
+        // negative are removed then...
+        int FI = MFI.CreateFixedObject(
+          flags.getByValSize(), -((int64_t)VA.getLocMemOffset() + 8LL), true);
+        InVals.push_back(
+          DAG.getFrameIndex(FI, getPointerTy(DAG.getDataLayout())));
       } else {
-        int FI = MFI.CreateFixedObject(VA.getLocVT().getSizeInBits()/8, -((int64_t)VA.getLocMemOffset() + 8LL), true);
+        int FI =
+          MFI.CreateFixedObject(VA.getLocVT().getSizeInBits() / 8,
+                                -((int64_t)VA.getLocMemOffset() + 8LL), true);
         SDValue FIN = DAG.getFrameIndex(FI, getPointerTy(DAG.getDataLayout()));
         // Create load to retrieve the argument from the stack
-        InVals.push_back(DAG.getLoad(VA.getValVT(), dl, Chain, FIN,
-	    MachinePointerInfo::getFixedStack(MF, FI, 0)));
+        InVals.push_back(
+          DAG.getLoad(VA.getValVT(), dl, Chain, FIN,
+                      MachinePointerInfo::getFixedStack(MF, FI, 0)));
       }
       /*
       unsigned ArgSize = VA.getLocVT().getSizeInBits()/8;
@@ -1073,18 +1065,18 @@ CSATargetLowering::LowerFormalArguments(SDValue Chain,
 //===----------------------------------------------------------------------===//
 
 SDValue
-CSATargetLowering::LowerReturn(SDValue Chain,
-                                CallingConv::ID CallConv, bool isVarArg,
-                                const SmallVectorImpl<ISD::OutputArg> &Outs,
-                                const SmallVectorImpl<SDValue> &OutVals,
-                                const SDLoc &dl, SelectionDAG &DAG) const {
+CSATargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
+                               bool isVarArg,
+                               const SmallVectorImpl<ISD::OutputArg> &Outs,
+                               const SmallVectorImpl<SDValue> &OutVals,
+                               const SDLoc &dl, SelectionDAG &DAG) const {
 
   // CCValAssign - represent the assignment of the return value to a location
   SmallVector<CCValAssign, 16> RVLocs;
 
   // CCState - Info about the registers and stack slot.
-  CCState CCInfo(CallConv, isVarArg, DAG.getMachineFunction(),
-                 RVLocs, *DAG.getContext());
+  CCState CCInfo(CallConv, isVarArg, DAG.getMachineFunction(), RVLocs,
+                 *DAG.getContext());
 
   // Analize return values.
   CCInfo.AnalyzeReturn(Outs, RetCC_Reg_CSA);
@@ -1105,7 +1097,7 @@ CSATargetLowering::LowerReturn(SDValue Chain,
     RetOps.push_back(DAG.getRegister(VA.getLocReg(), VA.getLocVT()));
   }
 
-  RetOps[0] = Chain;  // Update chain.
+  RetOps[0] = Chain; // Update chain.
 
   // Add the flag if we have it.
   if (Flag.getNode())
@@ -1148,8 +1140,8 @@ SDValue CSATargetLowering::LowerRETURNADDR(SDValue Op,
     SDValue FrameAddr = LowerFRAMEADDR(Op, DAG);
     SDValue Offset =
         DAG.getConstant(getDataLayout()->getPointerSize(), MVT::i16);
-    return DAG.getLoad(getPointerTy(DAG.getDataLayout()), dl, DAG.getEntryNode(),
-                       DAG.getNode(ISD::ADD, dl, getPointerTy(DAG.getDataLayout()),
+    return DAG.getLoad(getPointerTy(DAG.getDataLayout()), dl,
+DAG.getEntryNode(), DAG.getNode(ISD::ADD, dl, getPointerTy(DAG.getDataLayout()),
                                    FrameAddr, Offset),
                        MachinePointerInfo());
   }
@@ -1196,4 +1188,3 @@ SDValue CSATargetLowering::LowerVASTART(SDValue Op,
 //===----------------------------------------------------------------------===//
 //  Other Lowering Code
 //===----------------------------------------------------------------------===//
-

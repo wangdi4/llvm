@@ -43,22 +43,42 @@ int64_t MachineOp::getImm() const {
 }
 
 MachineOp CSAInstBuilder::makeOrConstantFold(CSAMachineFunctionInfo &LMFI,
-    unsigned opcode, const MachineOp &lhs, const MachineOp &rhs) {
+                                             unsigned opcode,
+                                             const MachineOp &lhs,
+                                             const MachineOp &rhs) {
   unsigned outputSize = TII.getLicSize(opcode);
-  auto opClass = TII.getOpcodeClass(opcode);
+  auto opClass        = TII.getOpcodeClass(opcode);
   if (opClass != CSA::VARIANT_FLOAT && lhs.isImm() && rhs.isImm()) {
     int64_t lhsVal = lhs.getImm(), rhsVal = rhs.getImm();
     int64_t resVal;
     switch (TII.getGenericOpcode(opcode)) {
-    case CSA::Generic::ADD: resVal = lhsVal + rhsVal; break;
-    case CSA::Generic::SUB: resVal = lhsVal - rhsVal; break;
-    case CSA::Generic::MUL: resVal = lhsVal * rhsVal; break;
-    case CSA::Generic::AND: resVal = lhsVal & rhsVal; break;
-    case CSA::Generic::OR:  resVal = lhsVal | rhsVal; break;
-    case CSA::Generic::XOR: resVal = lhsVal ^ rhsVal; break;
-    case CSA::Generic::SLL: resVal = lhsVal << rhsVal; break;
-    case CSA::Generic::SRA: resVal = lhsVal >> rhsVal; break;
-    case CSA::Generic::SRL: resVal = (uint64_t)lhsVal >> (uint64_t)rhsVal; break;
+    case CSA::Generic::ADD:
+      resVal = lhsVal + rhsVal;
+      break;
+    case CSA::Generic::SUB:
+      resVal = lhsVal - rhsVal;
+      break;
+    case CSA::Generic::MUL:
+      resVal = lhsVal * rhsVal;
+      break;
+    case CSA::Generic::AND:
+      resVal = lhsVal & rhsVal;
+      break;
+    case CSA::Generic::OR:
+      resVal = lhsVal | rhsVal;
+      break;
+    case CSA::Generic::XOR:
+      resVal = lhsVal ^ rhsVal;
+      break;
+    case CSA::Generic::SLL:
+      resVal = lhsVal << rhsVal;
+      break;
+    case CSA::Generic::SRA:
+      resVal = lhsVal >> rhsVal;
+      break;
+    case CSA::Generic::SRL:
+      resVal = (uint64_t)lhsVal >> (uint64_t)rhsVal;
+      break;
     case CSA::Generic::DIV:
       if (opClass == CSA::VARIANT_SIGNED)
         resVal = lhsVal / rhsVal;

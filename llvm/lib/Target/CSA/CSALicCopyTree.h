@@ -18,20 +18,18 @@
 #ifndef LLVM_LIB_TARGET_CSA_CSALICCOPYTREE_H
 #define LLVM_LIB_TARGET_CSA_CSALICCOPYTREE_H
 
-
 // No-op for the printf for now.
 //
 #define CSA_DEBUG_PRINTF(...)
 #define CSA_DEBUG_COPY_TREE 0
 
 // Structure to represent a degree-D copy statement.
-// 
+//
 // The source is in "src".
 // The outputs are in "out".
 // -1 == %ign for an output.
-// 
-template <int D>
-struct CSALicCopyStmt {
+//
+template <int D> struct CSALicCopyStmt {
   int src;
   int out[D];
 
@@ -50,25 +48,21 @@ struct CSALicCopyStmt {
     std::printf("copy64 ");
     for (int z = 0; z < D; ++z) {
       if (out[z] > 0) {
-        std::printf("%d, ",  out[z]);
-      }
-      else {
+        std::printf("%d, ", out[z]);
+      } else {
         std::printf("%%ign, ");
       }
     }
     std::printf("%d\n", src);
   }
 #endif // CSA_DEBUG_COPY_TREE
-  
 };
 
-
-template <int D>
-struct CSALicCopyTree {
+template <int D> struct CSALicCopyTree {
   int m_num_copies;
   int m_leaf_start;
   int m_leaf_stop;
-  std::vector<CSALicCopyStmt<D> > m_copy_stmts;
+  std::vector<CSALicCopyStmt<D>> m_copy_stmts;
 
   // This constructor creates a list of copy statements (organized in
   // a complete D-ary tree)
@@ -81,48 +75,33 @@ struct CSALicCopyTree {
   //
   // If num_copies < 2, the tree is empty.
   CSALicCopyTree(int num_copies)
-    : m_num_copies(num_copies)
-    , m_leaf_start(0)
-    , m_leaf_stop(0) {
+      : m_num_copies(num_copies), m_leaf_start(0), m_leaf_stop(0) {
 
-    assert(D>=2);
-    generate_copy_tree(m_copy_stmts,
-                       m_num_copies,
-                       &m_leaf_start,
-                       &m_leaf_stop);
+    assert(D >= 2);
+    generate_copy_tree(m_copy_stmts, m_num_copies, &m_leaf_start, &m_leaf_stop);
   }
 
-  int leaf_start() const {
-    return m_leaf_start;
-  }
-  int leaf_stop() const {
-    return m_leaf_stop;
-  }
+  int leaf_start() const { return m_leaf_start; }
+  int leaf_stop() const { return m_leaf_stop; }
 
-  int num_copy_stmts() const {
-    return m_copy_stmts.size();
-  }
+  int num_copy_stmts() const { return m_copy_stmts.size(); }
 
-  const CSALicCopyStmt<D>& get_copy_stmt(int i) {
+  const CSALicCopyStmt<D> &get_copy_stmt(int i) {
     assert((i >= 0) && (i < m_copy_stmts.size()));
     return m_copy_stmts[i];
   }
-  
-  
+
 #if CSA_DEBUG_COPY_TREE
   void print() {
-    std::printf("Copy tree: %d copies\n",
-                m_num_copies);
-    std::printf("Leaves: [%d, %d)\n",
-                m_leaf_start,
-                m_leaf_stop);
+    std::printf("Copy tree: %d copies\n", m_num_copies);
+    std::printf("Leaves: [%d, %d)\n", m_leaf_start, m_leaf_stop);
     for (int z = 0; z < m_copy_stmts.size(); ++z) {
       m_copy_stmts[z].print();
     }
     std::printf("\n");
   }
 #endif // CSA_DEBUG_COPY_TREE
-  
+
   // Check invariants on the copy tree.
   bool validate() {
     // Count the number of times each number is used as a source and
@@ -131,22 +110,21 @@ struct CSALicCopyTree {
     std::vector<int> destinations;
 
     // Check that we have 1 root and the correct number of leaves.
-    int num_roots = 0;
+    int num_roots  = 0;
     int num_leaves = 0;
-    int ign_count = 0;
-    
+    int ign_count  = 0;
+
     for (int z = 0; z < m_leaf_stop; ++z) {
       sources.push_back(0);
       destinations.push_back(0);
     }
 
-
     for (int i = 0; i < m_copy_stmts.size(); ++i) {
       // Count the source of this copy stmt.
       int src = m_copy_stmts[i].src;
       if ((src < 0) || (src >= m_leaf_stop)) {
-        std::printf("ERROR: found src of %d. m_leaf_stop=%d\n",
-                    src, m_leaf_stop);
+        std::printf("ERROR: found src of %d. m_leaf_stop=%d\n", src,
+                    m_leaf_stop);
         goto error;
       }
       sources[src]++;
@@ -155,11 +133,10 @@ struct CSALicCopyTree {
         int dest = m_copy_stmts[i].out[j];
         if (dest == CSALicCopyStmt<D>::IGN) {
           ign_count++;
-        }
-        else {
+        } else {
           if ((dest < 0) || (dest > m_leaf_stop)) {
-            std::printf("ERROR: found dest of %d. m_leaf_stop=%d\n",
-                        dest, m_leaf_stop);
+            std::printf("ERROR: found dest of %d. m_leaf_stop=%d\n", dest,
+                        m_leaf_stop);
             goto error;
           }
           destinations[dest]++;
@@ -168,14 +145,14 @@ struct CSALicCopyTree {
     }
 
     for (int z = 0; z < m_leaf_stop; ++z) {
-      int src_count = sources[z];
+      int src_count  = sources[z];
       int dest_count = destinations[z];
 
       // No node in a tree should be a source or a destination more
       // than once.
-      if ((src_count >= 2) ||(dest_count >=2)) {
-        std::printf("ERROR: z = %d, has src_count=%d, dest_count=%d\n",
-                    z, src_count, dest_count);
+      if ((src_count >= 2) || (dest_count >= 2)) {
+        std::printf("ERROR: z = %d, has src_count=%d, dest_count=%d\n", z,
+                    src_count, dest_count);
         goto error;
       }
 
@@ -208,42 +185,36 @@ struct CSALicCopyTree {
     // only the last internal node in the tree should be incomplete,
     // and (b) it must have at least two outputs, because otherwise it
     // wouldn't a copy.
-    if (ign_count >= D-1) {
+    if (ign_count >= D - 1) {
       std::printf("ERROR: ign_count is %d\n", ign_count);
       goto error;
     }
 
-    std::printf("Validated copy tree with D=%d, %d copies. ign_count=%d, Leaves = [%d, %d)\n",
-                D,
-                m_num_copies,
-                ign_count, 
-                m_leaf_start,
-                m_leaf_stop);
+    std::printf("Validated copy tree with D=%d, %d copies. ign_count=%d, "
+                "Leaves = [%d, %d)\n",
+                D, m_num_copies, ign_count, m_leaf_start, m_leaf_stop);
     return true;
-    
+
   error:
     std::printf("ERROR in tree\n");
-#if CSA_DEBUG_COPY_TREE    
+#if CSA_DEBUG_COPY_TREE
     this->print();
-#endif    
+#endif
     return false;
   }
 
+  static void generate_copy_tree(std::vector<CSALicCopyStmt<D>> &cstmts,
+                                 int num_copies, int *leaf_start_ptr,
+                                 int *leaf_stop_ptr) {
 
-  static
-  void generate_copy_tree(std::vector<CSALicCopyStmt<D> >& cstmts,
-                          int num_copies,
-                          int* leaf_start_ptr,
-                          int* leaf_stop_ptr) {
-    
     if (num_copies <= 1) {
       cstmts.clear();
       return;
     }
 
-    int num_levels = 0;
+    int num_levels          = 0;
     int complete_level_size = 1;
-    int num_internal_nodes = 0;
+    int num_internal_nodes  = 0;
 
     // Find the number of complete levels in the tree.
     while (complete_level_size * D < num_copies) {
@@ -252,16 +223,14 @@ struct CSALicCopyTree {
       complete_level_size = complete_level_size * D;
     }
 
-
     // At this point, complete_level_size is the number of leaves in the last
     // complete level of the tree.
     assert(complete_level_size < num_copies);
     assert(num_copies <= complete_level_size * D);
 
-    CSA_DEBUG_PRINTF("Generating %d copies: num_levels = %d, complete_level_size=%d, num_internal_nodes=%d\n",
-                     num_copies,
-                     num_levels,
-                     complete_level_size,
+    CSA_DEBUG_PRINTF("Generating %d copies: num_levels = %d, "
+                     "complete_level_size=%d, num_internal_nodes=%d\n",
+                     num_copies, num_levels, complete_level_size,
                      num_internal_nodes);
 
     // First, generate the largest complete tree that has fewer than
@@ -275,9 +244,9 @@ struct CSALicCopyTree {
     //  Level 2:     D+1, D+2, ... D + D^2
     //   etc.
 
-    int Dpow = 1;  // Stores D^x
+    int Dpow = 1; // Stores D^x
     for (int x = 0; x < num_levels; ++x) {
-      int start_node = (Dpow-1) / (D-1);
+      int start_node = (Dpow - 1) / (D - 1);
       //      CSA_DEBUG_PRINTF("x = %d, start_node = %d\n", x, start_node);
 
       // Generate copy statement from source z,
@@ -285,7 +254,7 @@ struct CSALicCopyTree {
       for (int z = start_node; z < start_node + Dpow; ++z) {
         CSALicCopyStmt<D> cstmt(z);
         for (int y = 0; y < D; ++y) {
-          cstmt.out[y] = D*z + y + 1;
+          cstmt.out[y] = D * z + y + 1;
         }
         cstmts.push_back(cstmt);
       }
@@ -293,16 +262,15 @@ struct CSALicCopyTree {
     }
 
     // The starting value of the nodes in the last complete level.
-    int complete_level_start = (Dpow-1) / (D-1);
+    int complete_level_start = (Dpow - 1) / (D - 1);
     // The starting value of the nodes in the (only) incomplete level.
-    int incomplete_level_start = (Dpow*D - 1) / (D-1);
+    int incomplete_level_start = (Dpow * D - 1) / (D - 1);
 
     //  assert(complete_level_size * D >= num_copies);
-    CSA_DEBUG_PRINTF("Incomplete tree level: starts at %d. Complete level starts at %d,  complete_level_size=%d\n",
-                 incomplete_level_start,
-                 complete_level_start,
-                 complete_level_size);
-
+    CSA_DEBUG_PRINTF("Incomplete tree level: starts at %d. Complete level "
+                     "starts at %d,  complete_level_size=%d\n",
+                     incomplete_level_start, complete_level_start,
+                     complete_level_size);
 
     // Let x track the number of nodes on the last complete level of
     // the tree that will feed copy statements.  The remaining nodes
@@ -319,7 +287,7 @@ struct CSALicCopyTree {
     // Add copy statements to the last level, one at a time, until we
     // have enough copies.
     //
-    int x = 0;
+    int x                = 0;
     int copies_generated = complete_level_size;
 
     int last_level_counter = incomplete_level_start;
@@ -349,15 +317,13 @@ struct CSALicCopyTree {
     }
 
     (*leaf_start_ptr) = complete_level_start + x;
-    (*leaf_stop_ptr) = last_level_counter;
-    
+    (*leaf_stop_ptr)  = last_level_counter;
+
     CSA_DEBUG_PRINTF("Range of statements: [%d, %d).  Available copies = %d\n",
-                     (*leaf_start_ptr),
-                     (*leaf_stop_ptr),
+                     (*leaf_start_ptr), (*leaf_stop_ptr),
                      (*leaf_stop_ptr) - (*leaf_start_ptr));
     assert(((*leaf_stop_ptr) - (*leaf_start_ptr)) == num_copies);
   }
 };
-
 
 #endif // LLVM_LIB_TARGET_CSA_CSALICCOPYTREE_H

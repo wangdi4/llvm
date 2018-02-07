@@ -19,8 +19,8 @@
 #define LLVM_LIB_TARGET_CSA_CSALOOPINTRINSICEXPANDER_H
 
 namespace llvm {
-  class Pass;
-  Pass* createCSALoopIntrinsicExpanderPass();
-}
+class Pass;
+Pass *createCSALoopIntrinsicExpanderPass();
+} // namespace llvm
 
 #endif

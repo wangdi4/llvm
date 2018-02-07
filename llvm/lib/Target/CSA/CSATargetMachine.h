@@ -1,4 +1,4 @@
-//===-- CSATargetMachine.h - TargetMachine for the CSA backend ------*- C++ -*-===//
+//===-- CSATargetMachine.h - TargetMachine for the CSA backend --*- C++ -*-===//
 //
 // Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
 //
@@ -24,19 +24,18 @@ namespace llvm {
 class CSATargetMachine : public LLVMTargetMachine {
   std::unique_ptr<TargetLoweringObjectFile> TLOF;
   CSASubtarget Subtarget;
+
 public:
-  CSATargetMachine(const Target &T, const Triple &TT,
-                 StringRef CPU, StringRef FS, const TargetOptions &Options,
-                 Optional<Reloc::Model> RM, CodeModel::Model CM,
-		   CodeGenOpt::Level OL);
+  CSATargetMachine(const Target &T, const Triple &TT, StringRef CPU,
+                   StringRef FS, const TargetOptions &Options,
+                   Optional<Reloc::Model> RM, CodeModel::Model CM,
+                   CodeGenOpt::Level OL);
   ~CSATargetMachine() override;
 
   const CSASubtarget *getSubtargetImpl(const Function &) const override {
     return &Subtarget;
   }
-  const CSASubtarget *getSubtargetImpl() const {
-    return &Subtarget;
-  }
+  const CSASubtarget *getSubtargetImpl() const { return &Subtarget; }
 
   TargetPassConfig *createPassConfig(legacy::PassManagerBase &PM) override;
 
@@ -47,11 +46,9 @@ public:
   // This is used to inject passes before other LLVM optimizations run, which is
   // important for the loop intrinsic expansion pass because some optimizations
   // move parallel loop intrinsics in unhelpful ways.
-  void adjustPassManager(PassManagerBuilder&) override;
-
+  void adjustPassManager(PassManagerBuilder &) override;
 };
 
-} // End llvm namespace
-
+} // namespace llvm
 
 #endif

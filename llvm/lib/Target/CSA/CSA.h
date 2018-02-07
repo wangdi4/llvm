@@ -22,35 +22,35 @@
 #include "llvm/Target/TargetMachine.h"
 
 namespace llvm {
-  class CSATargetMachine;
-  class FunctionPass;
-  class MachineFunctionPass;
+class CSATargetMachine;
+class FunctionPass;
+class MachineFunctionPass;
 
-  FunctionPass *createCSAISelDag(CSATargetMachine &TM,
-                                 llvm::CodeGenOpt::Level OptLevel);
-  MachineFunctionPass *createCSAConvertControlPass();
-  MachineFunctionPass *createControlDepenceGraph();
-  MachineFunctionPass *createCSACvtCFDFPass();
-  MachineFunctionPass *createCSAStatisticsPass();
-  MachineFunctionPass *createCSAOptDFPass();
-  MachineFunctionPass *createCSAMultiSeqPass();
-  MachineFunctionPass *createCSADFParLoopPass();
-  MachineFunctionPass *createCSARedundantMovElimPass();
-  MachineFunctionPass *createCSADeadInstructionElimPass();
-  MachineFunctionPass *createCSAAllocUnitPass();
-  MachineFunctionPass *createCSAPrologEpilogPass();
-  MachineFunctionPass *createCSAExpandInlineAsmPass();
-  MachineFunctionPass *createCSAMemopOrderingPass();
-  MachineFunctionPass *createCSAIndependentMemopOrderingPass();
-  MachineFunctionPass *createCSADepCalcMemopOrderingPass();
-  MachineFunctionPass *createCSANormalizeDebugPass();
-  MachineFunctionPass *createCSADataflowCanonicalizationPass();
-  MachineFunctionPass *createCSAStreamingMemoryConversionPass();
-  //FunctionPass *createCSALowerStructArgsPass();
-  Pass *createCSAInnerLoopPrepPass();
-  Pass *createCSAStreamingMemoryPrepPass();
+FunctionPass *createCSAISelDag(CSATargetMachine &TM,
+                               llvm::CodeGenOpt::Level OptLevel);
+MachineFunctionPass *createCSAConvertControlPass();
+MachineFunctionPass *createControlDepenceGraph();
+MachineFunctionPass *createCSACvtCFDFPass();
+MachineFunctionPass *createCSAStatisticsPass();
+MachineFunctionPass *createCSAOptDFPass();
+MachineFunctionPass *createCSAMultiSeqPass();
+MachineFunctionPass *createCSADFParLoopPass();
+MachineFunctionPass *createCSARedundantMovElimPass();
+MachineFunctionPass *createCSADeadInstructionElimPass();
+MachineFunctionPass *createCSAAllocUnitPass();
+MachineFunctionPass *createCSAPrologEpilogPass();
+MachineFunctionPass *createCSAExpandInlineAsmPass();
+MachineFunctionPass *createCSAMemopOrderingPass();
+MachineFunctionPass *createCSAIndependentMemopOrderingPass();
+MachineFunctionPass *createCSADepCalcMemopOrderingPass();
+MachineFunctionPass *createCSANormalizeDebugPass();
+MachineFunctionPass *createCSADataflowCanonicalizationPass();
+MachineFunctionPass *createCSAStreamingMemoryConversionPass();
+// FunctionPass *createCSALowerStructArgsPass();
+Pass *createCSAInnerLoopPrepPass();
+Pass *createCSAStreamingMemoryPrepPass();
 
-} // end namespace llvm;
+} // namespace llvm
 
 // Options that are currently shared between both memory ordering passes (and
 // CSATargetMachine to select which one to run).
@@ -88,8 +88,6 @@ extern llvm::cl::opt<bool> ViewMemopCFG;
 extern llvm::cl::opt<bool> DumpMemopCFG;
 extern llvm::cl::opt<bool> DumpOrderingChains;
 
-}
-
-
+} // namespace csa_memop_ordering_shared_options
 
 #endif

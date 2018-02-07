@@ -34,11 +34,11 @@ using namespace llvm;
 #define PASS_DESC "Prepare IR for streaming memory conversion"
 
 static cl::opt<bool> EnableStreamingMemoryPrep(
-    "csa-enable-streammem-prep", cl::Hidden,
-    cl::desc("CSA Specific: enable streaming memory prepare pass"));
+  "csa-enable-streammem-prep", cl::Hidden,
+  cl::desc("CSA Specific: enable streaming memory prepare pass"));
 
 namespace llvm {
-  void initializeCSAStreamingMemoryPrepPass(PassRegistry&);
+void initializeCSAStreamingMemoryPrepPass(PassRegistry &);
 }
 
 namespace {
@@ -64,15 +64,17 @@ struct CSAStreamingMemoryPrep : public FunctionPass {
 } // namespace
 
 char CSAStreamingMemoryPrep::ID = 0;
-INITIALIZE_PASS_BEGIN(CSAStreamingMemoryPrep, "csa-streammem-prep", PASS_DESC, false,
-                      false)
+INITIALIZE_PASS_BEGIN(CSAStreamingMemoryPrep, "csa-streammem-prep", PASS_DESC,
+                      false, false)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
-INITIALIZE_PASS_END(CSAStreamingMemoryPrep, "csa-streammem-prep", PASS_DESC, false,
-                    false)
+INITIALIZE_PASS_END(CSAStreamingMemoryPrep, "csa-streammem-prep", PASS_DESC,
+                    false, false)
 
-Pass *llvm::createCSAStreamingMemoryPrepPass() { return new CSAStreamingMemoryPrep(); }
+Pass *llvm::createCSAStreamingMemoryPrepPass() {
+  return new CSAStreamingMemoryPrep();
+}
 
 bool CSAStreamingMemoryPrep::runOnFunction(Function &F) {
   bool Changed = false;
@@ -84,7 +86,7 @@ bool CSAStreamingMemoryPrep::runOnFunction(Function &F) {
     return Changed;
 
   LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-  SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
+  SE           = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
 
   for (auto &L : LI->getLoopsInPreorder()) {
     Changed |= runOnLoop(L);

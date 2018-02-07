@@ -14,13 +14,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "CSATargetMachine.h"
-#include "CSALowerAggrCopies.h"
-#include "CSAFortranIntrinsics.h"
-#include "CSAIntrinsicCleaner.h"
-#include "CSAIROpt.h"
-#include "CSALoopIntrinsicExpander.h"
-#include "CSAOMPAllocaTypeFixer.h"
 #include "CSA.h"
+#include "CSAFortranIntrinsics.h"
+#include "CSAIROpt.h"
+#include "CSAIntrinsicCleaner.h"
+#include "CSALoopIntrinsicExpander.h"
+#include "CSALowerAggrCopies.h"
+#include "CSAOMPAllocaTypeFixer.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Bitcode/CSASaveRawBC.h"
 #include "llvm/CodeGen/AsmPrinter.h"
@@ -29,12 +29,12 @@
 #include "llvm/CodeGen/TargetLoweringObjectFileImpl.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
 #include "llvm/IR/IRPrintingPasses.h"
+#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCInstrInfo.h"
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCSubtargetInfo.h"
-#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FormattedStream.h"
@@ -53,30 +53,26 @@
 #include "llvm/Transforms/Utils/Mem2Reg.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 
-
 using namespace llvm;
 
-static cl::opt<int>
-RunCSAStatistics("csa-run-statistics", cl::Hidden,
-              cl::desc("CSA Specific: collect statistics for DF instructions"),
-              cl::init(0));
+static cl::opt<int> RunCSAStatistics(
+  "csa-run-statistics", cl::Hidden,
+  cl::desc("CSA Specific: collect statistics for DF instructions"),
+  cl::init(0));
 
 static cl::opt<int>
-CSAStructurizeCFG("csa-structurize-cfg", cl::Hidden,
-  cl::desc("CSA Specific: leverage llvm StructurizeCFG"),
-  cl::init(1));
+  CSAStructurizeCFG("csa-structurize-cfg", cl::Hidden,
+                    cl::desc("CSA Specific: leverage llvm StructurizeCFG"),
+                    cl::init(1));
 
 // Helper function to build a DataLayout string
-static std::string computeDataLayout() {
-  return "e-m:e-i64:64-n32:64";
-}
-
+static std::string computeDataLayout() { return "e-m:e-i64:64-n32:64"; }
 
 namespace llvm {
-  void initializeCSALowerAggrCopiesPass(PassRegistry &);
-  void initializeCSAFortranIntrinsicsPass(PassRegistry &);
-  void initializeCSAInnerLoopPrepPass(PassRegistry &);
-}
+void initializeCSALowerAggrCopiesPass(PassRegistry &);
+void initializeCSAFortranIntrinsicsPass(PassRegistry &);
+void initializeCSAInnerLoopPrepPass(PassRegistry &);
+} // namespace llvm
 
 extern "C" void LLVMInitializeCSATarget() {
   // Register the target.
@@ -97,11 +93,10 @@ static Reloc::Model getEffectiveRelocModel(Optional<Reloc::Model> RM) {
 }
 
 CSATargetMachine::CSATargetMachine(const Target &T, const Triple &TT,
-                                         StringRef CPU, StringRef FS,
-                                         const TargetOptions &Options,
-                                         Optional<Reloc::Model> RM,
-                                         CodeModel::Model CM,
-                                         CodeGenOpt::Level OL)
+                                   StringRef CPU, StringRef FS,
+                                   const TargetOptions &Options,
+                                   Optional<Reloc::Model> RM,
+                                   CodeModel::Model CM, CodeGenOpt::Level OL)
     : LLVMTargetMachine(T, computeDataLayout(), TT, CPU, FS, Options,
                         getEffectiveRelocModel(RM), CM, OL),
       TLOF(make_unique<TargetLoweringObjectFileELF>()),
@@ -114,9 +109,8 @@ CSATargetMachine::CSATargetMachine(const Target &T, const Triple &TT,
   // was tail merging, but this disables other transformations as well.
   setRequiresStructuredCFG(true);
   initAsmInfo();
-  //setAsmVerbosityDefault(true);
+  // setAsmVerbosityDefault(true);
 }
-
 
 CSATargetMachine::~CSATargetMachine() {}
 
@@ -125,9 +119,9 @@ namespace {
 class CSAPassConfig : public TargetPassConfig {
 public:
   CSAPassConfig(CSATargetMachine &TM, legacy::PassManagerBase &PM)
-    : TargetPassConfig(TM, PM) {
-      disablePass(&PostRAMachineLICMID);
-    }
+      : TargetPassConfig(TM, PM) {
+    disablePass(&PostRAMachineLICMID);
+  }
 
   CSATargetMachine &getCSATargetMachine() const {
     return getTM<CSATargetMachine>();
@@ -147,18 +141,17 @@ public:
     return false;
   }
 
-
-
   bool addPreISel() override {
-    //addPass(createUnifyFunctionExitNodesPass());
+    // addPass(createUnifyFunctionExitNodesPass());
     addPass(createLowerSwitchPass());
     addPass(createLoopSimplifyPass());
     // Add a pass to generate more candidates for reduction operations
     addPass(createCSAIRReductionOptPass());
-    
+
     if (CSAStructurizeCFG) {
       addPass(createStructurizeCFGPass(false));
-      //remove the single input phi and constant branch created from StructurizeCFG
+      // remove the single input phi and constant branch created from
+      // StructurizeCFG
       addPass(createInstructionCombiningPass());
     }
 
@@ -171,12 +164,12 @@ public:
       addPass(createCSAStreamingMemoryPrepPass());
     }
 
-    // Remove any remaining intrinsics which should not go through instruction selection
+    // Remove any remaining intrinsics which should not go through instruction
+    // selection
     addPass(createCSAIntrinsicCleanerPass());
 
     return false;
   }
-
 
 #define DEBUG_TYPE "csa-convert-control"
   void addPreRegAlloc() override {
@@ -191,15 +184,15 @@ public:
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
 
     switch (OrderMemopsType) {
-      case independent:
-        addPass(createCSAIndependentMemopOrderingPass());
-        break;
-      case depcalc:
-        addPass(createCSADepCalcMemopOrderingPass());
-        break;
-      default:
-        addPass(createCSAMemopOrderingPass());
-        break;
+    case independent:
+      addPass(createCSAIndependentMemopOrderingPass());
+      break;
+    case depcalc:
+      addPass(createCSADepCalcMemopOrderingPass());
+      break;
+    default:
+      addPass(createCSAMemopOrderingPass());
+      break;
     }
     Banner = std::string("After CSAMemopOrderingPass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
@@ -207,7 +200,7 @@ public:
     addPass(createCSACvtCFDFPass(), false);
     Banner = std::string("After CSACvtCFDFPass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
-    
+
     if (RunCSAStatistics) {
       addPass(createCSAStatisticsPass(), false);
     }
@@ -247,7 +240,6 @@ public:
     Banner = std::string("After CSAOptDFPass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
 #endif
-
   }
 
   void addPostRegAlloc() override {
@@ -277,23 +269,23 @@ public:
 
 } // namespace
 
-TargetPassConfig *CSATargetMachine::createPassConfig(legacy::PassManagerBase &PM) {
+TargetPassConfig *
+CSATargetMachine::createPassConfig(legacy::PassManagerBase &PM) {
   CSAPassConfig *PassConfig = new CSAPassConfig(*this, PM);
   return PassConfig;
 }
 
-void CSATargetMachine::adjustPassManager(PassManagerBuilder& PMB) {
+void CSATargetMachine::adjustPassManager(PassManagerBuilder &PMB) {
   PMB.addExtension(PassManagerBuilder::EP_EarlyAsPossible,
-    [](const PassManagerBuilder&, legacy::PassManagerBase& PM) {
+                   [](const PassManagerBuilder &, legacy::PassManagerBase &PM) {
 
-      // Add the pass to convert Fortran "builtin" calls
-      PM.add(createFortranIntrinsics());
+                     // Add the pass to convert Fortran "builtin" calls
+                     PM.add(createFortranIntrinsics());
 
-      // Add the pass to expand loop intrinsics
-      PM.add(createCSAOMPAllocaTypeFixerPass());
-      PM.add(createPromoteMemoryToRegisterPass());
-      PM.add(createLoopSimplifyPass());
-      PM.add(createCSALoopIntrinsicExpanderPass());
-    }
-  );
+                     // Add the pass to expand loop intrinsics
+                     PM.add(createCSAOMPAllocaTypeFixerPass());
+                     PM.add(createPromoteMemoryToRegisterPass());
+                     PM.add(createLoopSimplifyPass());
+                     PM.add(createCSALoopIntrinsicExpanderPass());
+                   });
 }

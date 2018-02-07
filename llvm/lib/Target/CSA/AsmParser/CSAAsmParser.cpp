@@ -12,8 +12,8 @@
 #include "CSA.h"
 #include "CSAInstrInfo.h"
 #include "MCTargetDesc/CSAMCTargetDesc.h"
-#include "llvm/ADT/SmallBitVector.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/SmallBitVector.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCInst.h"
@@ -67,11 +67,11 @@ class CSAAsmParser : public MCTargetAsmParser {
 
 public:
   CSAAsmParser(const MCSubtargetInfo &STI, MCAsmParser &Parser,
-                 const MCInstrInfo &MII, const MCTargetOptions &Options)
+               const MCInstrInfo &MII, const MCTargetOptions &Options)
       : MCTargetAsmParser(Options, STI), Parser(Parser),
         Lexer(Parser.getLexer()), SubtargetInfo(STI) {
     setAvailableFeatures(
-        ComputeAvailableFeatures(SubtargetInfo.getFeatureBits()));
+      ComputeAvailableFeatures(SubtargetInfo.getFeatureBits()));
   }
 
 private:
@@ -136,14 +136,14 @@ public:
     return Imm.Value;
   }
 
-  bool getRegImm(const MCExpr** e, unsigned *r) const {
+  bool getRegImm(const MCExpr **e, unsigned *r) const {
     assert((isImm() || isReg()) && "Invalid type access!");
-    if(isImm()) {
+    if (isImm()) {
       assert(r);
       *e = Imm.Value;
       return true;
     }
-    if(isReg()) {
+    if (isReg()) {
       // Otherwise, this is a register.
       assert(e);
       *r = Reg.RegNum;
@@ -196,29 +196,29 @@ public:
   }
 
   static std::unique_ptr<CSAOperand> CreateToken(StringRef Str, SMLoc Start) {
-    auto Op = make_unique<CSAOperand>(TOKEN);
-    Op->Tok.Data = Str.data();
+    auto Op        = make_unique<CSAOperand>(TOKEN);
+    Op->Tok.Data   = Str.data();
     Op->Tok.Length = Str.size();
-    Op->StartLoc = Start;
-    Op->EndLoc = Start;
+    Op->StartLoc   = Start;
+    Op->EndLoc     = Start;
     return Op;
   }
 
   static std::unique_ptr<CSAOperand> createReg(unsigned RegNum, SMLoc Start,
-                                                 SMLoc End) {
-    auto Op = make_unique<CSAOperand>(REGISTER);
+                                               SMLoc End) {
+    auto Op        = make_unique<CSAOperand>(REGISTER);
     Op->Reg.RegNum = RegNum;
-    Op->StartLoc = Start;
-    Op->EndLoc = End;
+    Op->StartLoc   = Start;
+    Op->EndLoc     = End;
     return Op;
   }
 
-  static std::unique_ptr<CSAOperand> createImm(const MCExpr *Value,
-                                                 SMLoc Start, SMLoc End) {
-    auto Op = make_unique<CSAOperand>(IMMEDIATE);
+  static std::unique_ptr<CSAOperand> createImm(const MCExpr *Value, SMLoc Start,
+                                               SMLoc End) {
+    auto Op       = make_unique<CSAOperand>(IMMEDIATE);
     Op->Imm.Value = Value;
-    Op->StartLoc = Start;
-    Op->EndLoc = End;
+    Op->StartLoc  = Start;
+    Op->EndLoc    = End;
     return Op;
   }
 
@@ -244,48 +244,46 @@ public:
 
   void addRegImmOperands(MCInst &Inst, unsigned N) const {
     assert(N == 1 && "Invalid number of operands!");
-    if(isImm())
+    if (isImm())
       addExpr(Inst, getImm());
-    else if(isReg())
+    else if (isReg())
       Inst.addOperand(MCOperand::createReg(getReg()));
     else
       assert(false && "Invalid operand type!");
   }
 
-  void addOptionalRegOperands(MCInst& Inst, unsigned N) const {
+  void addOptionalRegOperands(MCInst &Inst, unsigned N) const {
     assert(N == 1 && "Invalid number of operands!");
     Inst.addOperand(MCOperand::createReg(getReg()));
   }
 
-  void addMemLvlOperands(MCInst& Inst, unsigned N) const {
+  void addMemLvlOperands(MCInst &Inst, unsigned N) const {
     assert(N == 1 && "Invalid number of operands!");
     addExpr(Inst, getImm());
   }
 
-  void addRModeOperands(MCInst& Inst, unsigned N) const {
+  void addRModeOperands(MCInst &Inst, unsigned N) const {
     assert(N == 1 && "Invalid number of operands!");
     addExpr(Inst, getImm());
   }
 
-  void addIntervalOperands(MCInst& Inst, unsigned N) const {
+  void addIntervalOperands(MCInst &Inst, unsigned N) const {
     assert(N == 1 && "Invalid number of operands!");
     addExpr(Inst, getImm());
   }
 
-  void addSignctlOperands(MCInst& Inst, unsigned N) const {
+  void addSignctlOperands(MCInst &Inst, unsigned N) const {
     assert(N == 1 && "Invalid number of operands!");
     addExpr(Inst, getImm());
   }
-
 };
 
 bool CSAAsmParser::ParseDirective(AsmToken /*DirectiveId*/) { return true; }
 
 bool CSAAsmParser::MatchAndEmitInstruction(SMLoc IdLoc, unsigned &Opcode,
-                                             OperandVector &Operands,
-                                             MCStreamer &Out,
-                                             uint64_t &ErrorInfo,
-                                             bool MatchingInlineAsm) {
+                                           OperandVector &Operands,
+                                           MCStreamer &Out, uint64_t &ErrorInfo,
+                                           bool MatchingInlineAsm) {
   MCInst Inst;
   SMLoc ErrorLoc;
 
@@ -357,10 +355,10 @@ std::unique_ptr<CSAOperand> CSAAsmParser::parseRegister() {
 }
 
 bool CSAAsmParser::ParseRegister(unsigned &RegNum, SMLoc &StartLoc,
-                                   SMLoc &EndLoc) {
-  const AsmToken &Tok = getParser().getTok();
-  StartLoc = Tok.getLoc();
-  EndLoc = Tok.getEndLoc();
+                                 SMLoc &EndLoc) {
+  const AsmToken &Tok            = getParser().getTok();
+  StartLoc                       = Tok.getLoc();
+  EndLoc                         = Tok.getEndLoc();
   std::unique_ptr<CSAOperand> Op = parseRegister();
   if (Op != nullptr)
     RegNum = Op->getReg();
@@ -369,13 +367,13 @@ bool CSAAsmParser::ParseRegister(unsigned &RegNum, SMLoc &StartLoc,
 
 static int roundingModeToInt(StringRef T) {
   return StringSwitch<int>(T)
-    .Case("ROUND_NEAREST",       CSA::ROUND_NEAREST)
-    .Case("ROUND_DOWNWARD",      CSA::ROUND_DOWNWARD)
-    .Case("ROUND_UPWARD",        CSA::ROUND_UPWARD)
-    .Case("ROUND_TOWARDZERO",    CSA::ROUND_TOWARDZERO)
-    .Case("ROUND_NEAREST_NW",    CSA::ROUND_NEAREST_NW)
-    .Case("ROUND_DOWNWARD_NW",   CSA::ROUND_DOWNWARD_NW)
-    .Case("ROUND_UPWARD_NW",     CSA::ROUND_UPWARD_NW)
+    .Case("ROUND_NEAREST", CSA::ROUND_NEAREST)
+    .Case("ROUND_DOWNWARD", CSA::ROUND_DOWNWARD)
+    .Case("ROUND_UPWARD", CSA::ROUND_UPWARD)
+    .Case("ROUND_TOWARDZERO", CSA::ROUND_TOWARDZERO)
+    .Case("ROUND_NEAREST_NW", CSA::ROUND_NEAREST_NW)
+    .Case("ROUND_DOWNWARD_NW", CSA::ROUND_DOWNWARD_NW)
+    .Case("ROUND_UPWARD_NW", CSA::ROUND_UPWARD_NW)
     .Case("ROUND_TOWARDZERO_NW", CSA::ROUND_TOWARDZERO_NW)
     .Default(-1);
 }
@@ -383,9 +381,9 @@ static int roundingModeToInt(StringRef T) {
 static int memLvlToInt(StringRef T) {
   return StringSwitch<int>(T)
     .Case("MEMLEVEL_NTA", CSA::MEMLEVEL_NTA)
-    .Case("MEMLEVEL_T2",  CSA::MEMLEVEL_T2)
-    .Case("MEMLEVEL_T1",  CSA::MEMLEVEL_T1)
-    .Case("MEMLEVEL_T0",  CSA::MEMLEVEL_T0)
+    .Case("MEMLEVEL_T2", CSA::MEMLEVEL_T2)
+    .Case("MEMLEVEL_T1", CSA::MEMLEVEL_T1)
+    .Case("MEMLEVEL_T0", CSA::MEMLEVEL_T0)
     .Default(-1);
 }
 
@@ -412,29 +410,27 @@ std::unique_ptr<CSAOperand> CSAAsmParser::parseImmediate() {
 
   const MCExpr *ExprVal;
   switch (Lexer.getKind()) {
-  case AsmToken::Identifier:
-    {
-      StringRef Identifier;
-      if (Parser.parseIdentifier(Identifier))
-        return 0;
+  case AsmToken::Identifier: {
+    StringRef Identifier;
+    if (Parser.parseIdentifier(Identifier))
+      return 0;
 
-      // Check for one of the enum words
-      auto funcs = { roundingModeToInt, memLvlToInt, SignctlToInt,
-        IntervalToInt };
-      for (auto func : funcs) {
-        int value = func(Identifier);
-        if (value >= 0) {
-          const MCConstantExpr *exp = MCConstantExpr::create(value, getContext());
-          return CSAOperand::createImm(exp, Start, End);
-        }
+    // Check for one of the enum words
+    auto funcs = {roundingModeToInt, memLvlToInt, SignctlToInt, IntervalToInt};
+    for (auto func : funcs) {
+      int value = func(Identifier);
+      if (value >= 0) {
+        const MCConstantExpr *exp = MCConstantExpr::create(value, getContext());
+        return CSAOperand::createImm(exp, Start, End);
       }
-
-      // Otherwise, it's a symbol of some kind.
-      MCSymbol *Sym = getContext().getOrCreateSymbol(Identifier);
-      const MCExpr *Res = MCSymbolRefExpr::create(Sym, MCSymbolRefExpr::VK_None,
-          getContext());
-      return CSAOperand::createImm(Res, Start, End);
     }
+
+    // Otherwise, it's a symbol of some kind.
+    MCSymbol *Sym = getContext().getOrCreateSymbol(Identifier);
+    const MCExpr *Res =
+      MCSymbolRefExpr::create(Sym, MCSymbolRefExpr::VK_None, getContext());
+    return CSAOperand::createImm(Res, Start, End);
+  }
   case AsmToken::Plus:
   case AsmToken::Minus:
   case AsmToken::Integer:
@@ -454,33 +450,25 @@ std::unique_ptr<CSAOperand> CSAAsmParser::defaultOptionalRegOperands() {
 std::unique_ptr<CSAOperand> CSAAsmParser::defaultMemLvlOperands() {
   SMLoc loc = Parser.getTok().getLoc();
   return CSAOperand::createImm(
-    MCConstantExpr::create(CSA::MEMLEVEL_T0, getContext()),
-    loc, loc
-  );
+    MCConstantExpr::create(CSA::MEMLEVEL_T0, getContext()), loc, loc);
 }
 
 std::unique_ptr<CSAOperand> CSAAsmParser::defaultRModeOperands() {
   SMLoc loc = Parser.getTok().getLoc();
   return CSAOperand::createImm(
-    MCConstantExpr::create(CSA::ROUND_NEAREST, getContext()),
-    loc, loc
-  );
+    MCConstantExpr::create(CSA::ROUND_NEAREST, getContext()), loc, loc);
 }
 
 std::unique_ptr<CSAOperand> CSAAsmParser::defaultSignctlOperands() {
   SMLoc loc = Parser.getTok().getLoc();
   return CSAOperand::createImm(
-    MCConstantExpr::create(CSA::SIGNCTL_PROP, getContext()),
-    loc, loc
-  );
+    MCConstantExpr::create(CSA::SIGNCTL_PROP, getContext()), loc, loc);
 }
 
 std::unique_ptr<CSAOperand> CSAAsmParser::defaultIntervalOperands() {
   SMLoc loc = Parser.getTok().getLoc();
   return CSAOperand::createImm(
-    MCConstantExpr::create(CSA::INTERVAL0, getContext()),
-    loc, loc
-  );
+    MCConstantExpr::create(CSA::INTERVAL0, getContext()), loc, loc);
 }
 
 static int SizeForSuffix(StringRef T) {
@@ -512,8 +500,7 @@ bool CSAAsmParser::parsePrePost(StringRef Type, int *OffsetValue) {
 // Looks at a token type and creates the relevant operand from this
 // information, adding to operands.
 // If operand was parsed, returns false, else true.
-OperandMatchResultTy
-CSAAsmParser::parseOperand(OperandVector *Operands) {
+OperandMatchResultTy CSAAsmParser::parseOperand(OperandVector *Operands) {
 
   // Attempt to parse token as register
   std::unique_ptr<CSAOperand> Op = parseRegister();
@@ -536,8 +523,8 @@ CSAAsmParser::parseOperand(OperandVector *Operands) {
 }
 
 bool CSAAsmParser::ParseInstruction(ParseInstructionInfo & /*Info*/,
-                                      StringRef Name, SMLoc NameLoc,
-                                      OperandVector &Operands) {
+                                    StringRef Name, SMLoc NameLoc,
+                                    OperandVector &Operands) {
   // First operand is token for instruction
   Operands.push_back(CSAOperand::CreateToken(Name, NameLoc));
 
@@ -571,27 +558,28 @@ bool CSAAsmParser::ParseInstruction(ParseInstructionInfo & /*Info*/,
 // necessary due to the limitations of register class and instruction
 // descriptions.
 unsigned CSAAsmParser::validateTargetOperandClass(MCParsedAsmOperand &GOp,
-                                                    unsigned Kind) {
+                                                  unsigned Kind) {
   CSAOperand &Op = (CSAOperand &)GOp;
   switch (Kind) {
-    default: break;
-    case MCK_I1:
-             // This is what the matcher generates as the type for register+channel
-             // operands. ("I0" because technically all of the R* register classes
-             // contain all of the regular registers. There is no such thing as
-             // MCK_RI32, for example, since it would always be included in
-             // MCK_I0.) We need to allow CI* here, since CI* is technically
-             // disjoint with I* (which is currently equivalent to I0).
-             if(Op.isReg())
-               return MCTargetAsmParser::Match_Success;
-             break;
-    case MCK__PCT_ra:
-             // We don't get this as a register for some reason. Fortunately
-             // it's easy to match as a one-off. The resulting MI doesn't
-             // actually use %ra since it doesn't have any operands.
-             if(Op.isReg() && Op.getReg() == CSA::RA)
-               return MCTargetAsmParser::Match_Success;
-             break;
+  default:
+    break;
+  case MCK_I1:
+    // This is what the matcher generates as the type for register+channel
+    // operands. ("I0" because technically all of the R* register classes
+    // contain all of the regular registers. There is no such thing as
+    // MCK_RI32, for example, since it would always be included in
+    // MCK_I0.) We need to allow CI* here, since CI* is technically
+    // disjoint with I* (which is currently equivalent to I0).
+    if (Op.isReg())
+      return MCTargetAsmParser::Match_Success;
+    break;
+  case MCK__PCT_ra:
+    // We don't get this as a register for some reason. Fortunately
+    // it's easy to match as a one-off. The resulting MI doesn't
+    // actually use %ra since it doesn't have any operands.
+    if (Op.isReg() && Op.getReg() == CSA::RA)
+      return MCTargetAsmParser::Match_Success;
+    break;
   }
 
   return Match_InvalidOperand;

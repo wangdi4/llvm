@@ -28,97 +28,80 @@
 namespace llvm {
 
 namespace CSA {
-  enum CondCode {
-    COND_T,
-    COND_F,
-    COND_INVALID
-  };
+enum CondCode { COND_T, COND_F, COND_INVALID };
 
-  // This should match the CSASchedule.td FuncUnit list.  This is
-  // intended to be a temporary placeholder until that method works
-  // without needing this separate copy.
-  // Note: There is a mapping from these index values to text in
-  // CSAInstPrinter.cpp - do not reorder/change without adjusting that table.
-  namespace FUNCUNIT {
-    enum FuncUnit {
-      None,
-      Auto, // Automatic unit assignment
-      VIR, // Virtual unit - doesn't really exist
-      ALU, // Integer arithmetic and logical
-      SHF, // Shift unit
-      IMA, // Integer multiply/accumulate
-      FMA, // Floating Multiply Accumulate
-      FCM, // Floating point comparisons
-      CFI, // Conversion to Floating from Integer
-      CIF, // Conversion to Integer of Floating
-      DIV, // Division
-      MEM, // Memory access
-      SXU, // Sequential eXecution Unit
-      SPD, // Scratchpad
-        Count
-    };
-  }
-
-  // This should match the same enum in the simulator's csa.h.
-  enum RoundingMode {
-    ROUND_NEAREST = 0,
-    ROUND_DOWNWARD,
-    ROUND_UPWARD,
-    ROUND_TOWARDZERO,
-    ROUND_NEAREST_NW,
-    ROUND_DOWNWARD_NW,
-    ROUND_UPWARD_NW,
-    ROUND_TOWARDZERO_NW,
-  };
-
-  // This is reversed from the simulator's convention to match the intrinsic.
-  enum MemLvl {
-    MEMLEVEL_NTA,
-    MEMLEVEL_T2,
-    MEMLEVEL_T1,
-    MEMLEVEL_T0
-  };
-
-  // These enums are used for the getmant instruction.
-  enum Signctl {
-    SIGNCTL_PROP,
-    SIGNCTL_FORCE,
-    SIGNCTL_FORCE_AND_CHECK
-  };
-
-  enum Interval {
-    INTERVAL0,
-    INTERVAL1,
-    INTERVAL2,
-    INTERVAL3
-  };
-
-  /// This indicates the kind of output when distinguishing between different
-  /// opcodes that generate the same generic opcode.
-  enum OpcodeClass {
-    /// This is an opcode that doesn't distinguish itself in anyway. Usually,
-    /// the operands are integers (as distinguished from floats). In effect,
-    /// this refers to TiN classes in the tablegen.
-    VARIANT_INT = 0,
-    /// This is an opcode that specifically refers to floats, for example a
-    /// ADDF operation. This means that the corresponding operand use
-    VARIANT_FLOAT = 1,
-    /// This is an opcode that refers specifically to a signed integer.
-    VARIANT_SIGNED = 2,
-    /// This is an opcode that refers specifically to an unsigned integer.
-    VARIANT_UNSIGNED = 3,
-    /// This is used in some function calls to indicate that the desired class
-    /// doesn't matter and any opcode suffices. This is the default argument,
-    /// so it generally only matters if this doesn't appear.
-    VARIANT_DONTCARE = ~0U
-  };
+// This should match the CSASchedule.td FuncUnit list.  This is
+// intended to be a temporary placeholder until that method works
+// without needing this separate copy.
+// Note: There is a mapping from these index values to text in
+// CSAInstPrinter.cpp - do not reorder/change without adjusting that table.
+namespace FUNCUNIT {
+enum FuncUnit {
+  None,
+  Auto, // Automatic unit assignment
+  VIR,  // Virtual unit - doesn't really exist
+  ALU,  // Integer arithmetic and logical
+  SHF,  // Shift unit
+  IMA,  // Integer multiply/accumulate
+  FMA,  // Floating Multiply Accumulate
+  FCM,  // Floating point comparisons
+  CFI,  // Conversion to Floating from Integer
+  CIF,  // Conversion to Integer of Floating
+  DIV,  // Division
+  MEM,  // Memory access
+  SXU,  // Sequential eXecution Unit
+  SPD,  // Scratchpad
+  Count
+};
 }
+
+// This should match the same enum in the simulator's csa.h.
+enum RoundingMode {
+  ROUND_NEAREST = 0,
+  ROUND_DOWNWARD,
+  ROUND_UPWARD,
+  ROUND_TOWARDZERO,
+  ROUND_NEAREST_NW,
+  ROUND_DOWNWARD_NW,
+  ROUND_UPWARD_NW,
+  ROUND_TOWARDZERO_NW,
+};
+
+// This is reversed from the simulator's convention to match the intrinsic.
+enum MemLvl { MEMLEVEL_NTA, MEMLEVEL_T2, MEMLEVEL_T1, MEMLEVEL_T0 };
+
+// These enums are used for the getmant instruction.
+enum Signctl { SIGNCTL_PROP, SIGNCTL_FORCE, SIGNCTL_FORCE_AND_CHECK };
+
+enum Interval { INTERVAL0, INTERVAL1, INTERVAL2, INTERVAL3 };
+
+/// This indicates the kind of output when distinguishing between different
+/// opcodes that generate the same generic opcode.
+enum OpcodeClass {
+  /// This is an opcode that doesn't distinguish itself in anyway. Usually,
+  /// the operands are integers (as distinguished from floats). In effect,
+  /// this refers to TiN classes in the tablegen.
+  VARIANT_INT = 0,
+  /// This is an opcode that specifically refers to floats, for example a
+  /// ADDF operation. This means that the corresponding operand use
+  VARIANT_FLOAT = 1,
+  /// This is an opcode that refers specifically to a signed integer.
+  VARIANT_SIGNED = 2,
+  /// This is an opcode that refers specifically to an unsigned integer.
+  VARIANT_UNSIGNED = 3,
+  /// This is used in some function calls to indicate that the desired class
+  /// doesn't matter and any opcode suffices. This is the default argument,
+  /// so it generally only matters if this doesn't appear.
+  VARIANT_DONTCARE = ~0U
+};
+} // namespace CSA
 
 class CSASubtarget;
 
 class CSAInstrInfo : public CSAGenInstrInfo {
   const CSARegisterInfo RI;
   virtual void anchor();
+
 public:
   explicit CSAInstrInfo(CSASubtarget &STI);
 
@@ -128,54 +111,44 @@ public:
   ///
   const TargetRegisterInfo &getRegisterInfo() const { return RI; }
 
-  void copyPhysReg(MachineBasicBlock &MBB,
-                   MachineBasicBlock::iterator I, const DebugLoc &DL,
-                   unsigned DestReg, unsigned SrcReg,
+  void copyPhysReg(MachineBasicBlock &MBB, MachineBasicBlock::iterator I,
+                   const DebugLoc &DL, unsigned DestReg, unsigned SrcReg,
                    bool KillSrc) const override;
 
   void storeRegToStackSlot(MachineBasicBlock &MBB,
-                           MachineBasicBlock::iterator MI,
-                           unsigned SrcReg, bool isKill,
-                           int FrameIndex,
+                           MachineBasicBlock::iterator MI, unsigned SrcReg,
+                           bool isKill, int FrameIndex,
                            const TargetRegisterClass *RC,
                            const TargetRegisterInfo *TRI) const override;
   void loadRegFromStackSlot(MachineBasicBlock &MBB,
-                            MachineBasicBlock::iterator MI,
-                            unsigned DestReg, int FrameIdx,
-                            const TargetRegisterClass *RC,
+                            MachineBasicBlock::iterator MI, unsigned DestReg,
+                            int FrameIdx, const TargetRegisterClass *RC,
                             const TargetRegisterInfo *TRI) const override;
 
   /*
   unsigned GetInstSizeInBytes(const MachineInstr *MI) const;
   */
 
-  // ifConversion 
-  bool isPredicable(const MachineInstr &MI) const override {
+  // ifConversion
+  bool isPredicable(const MachineInstr &MI) const override { return true; }
+
+  bool isProfitableToIfCvt(MachineBasicBlock &MBB, unsigned NumCycles,
+                           unsigned ExtraPredCycles,
+                           BranchProbability Probability) const override {
     return true;
   }
 
-  bool isProfitableToIfCvt(MachineBasicBlock &MBB,
-                          unsigned NumCycles, unsigned ExtraPredCycles,
-                          BranchProbability Probability) const override {
-    return true;
-  }
-
-  bool isProfitableToIfCvt(MachineBasicBlock &TMBB,
-                           unsigned NumT, unsigned ExtraT,
-                           MachineBasicBlock &FMBB,
+  bool isProfitableToIfCvt(MachineBasicBlock &TMBB, unsigned NumT,
+                           unsigned ExtraT, MachineBasicBlock &FMBB,
                            unsigned NumF, unsigned ExtraF,
-                           BranchProbability Probability)
-                           const override {
+                           BranchProbability Probability) const override {
     return true;
   }
 
-  bool isProfitableToDupForIfCvt(MachineBasicBlock &MBB,
-                                 unsigned NumCycles,
-                                 BranchProbability Probability)
-                                 const override {
+  bool isProfitableToDupForIfCvt(MachineBasicBlock &MBB, unsigned NumCycles,
+                                 BranchProbability Probability) const override {
     return true;
   }
-
 
   // Branch folding goodness
   bool
@@ -183,8 +156,8 @@ public:
   /*
   bool isUnpredicatedTerminator(const MachineInstr &MI) const override;
   */
-  bool analyzeBranch(MachineBasicBlock &MBB,
-                     MachineBasicBlock *&TBB, MachineBasicBlock *&FBB,
+  bool analyzeBranch(MachineBasicBlock &MBB, MachineBasicBlock *&TBB,
+                     MachineBasicBlock *&FBB,
                      SmallVectorImpl<MachineOperand> &Cond,
                      bool AllowModify) const override;
 
@@ -192,10 +165,8 @@ public:
                         int *BytesRemoved = nullptr) const override;
 
   unsigned insertBranch(MachineBasicBlock &MBB, MachineBasicBlock *TBB,
-                        MachineBasicBlock *FBB,
-                        ArrayRef<MachineOperand> Cond,
-                        const DebugLoc &DL,
-                        int *BytesAdded) const override;
+                        MachineBasicBlock *FBB, ArrayRef<MachineOperand> Cond,
+                        const DebugLoc &DL, int *BytesAdded) const override;
 
   /// Return the generic opcode for the relevant opcode. If the opcode is not
   /// valid, INVALID_OP is returned.
@@ -216,13 +187,15 @@ public:
   /// Construct an opcode for a MachineInstr given the generic opcode and a
   /// desired licSize. If such an operation cannot be constructed, then the
   /// result is CSA::INVALID_OPCODE.
-  unsigned makeOpcode(CSA::Generic genericOpcode, unsigned licSize,
-    CSA::OpcodeClass opcodeClass = CSA::VARIANT_DONTCARE) const;
+  unsigned
+  makeOpcode(CSA::Generic genericOpcode, unsigned licSize,
+             CSA::OpcodeClass opcodeClass = CSA::VARIANT_DONTCARE) const;
 
   /// Variant of makeOpcode that works on register classes instead of fixed
   /// bit sizes.
-  unsigned makeOpcode(CSA::Generic genericOpcode, const TargetRegisterClass *RC,
-      CSA::OpcodeClass opcodeClass = CSA::VARIANT_DONTCARE) const {
+  unsigned
+  makeOpcode(CSA::Generic genericOpcode, const TargetRegisterClass *RC,
+             CSA::OpcodeClass opcodeClass = CSA::VARIANT_DONTCARE) const {
     return makeOpcode(genericOpcode, getSizeOfRegisterClass(RC), opcodeClass);
   }
 
@@ -269,11 +242,9 @@ public:
   bool isShift(const MachineInstr *MI) const {
     auto opcode = getGenericOpcode(MI->getOpcode());
     return opcode == CSA::Generic::SLL || opcode == CSA::Generic::SRL ||
-      opcode == CSA::Generic::SRA;
+           opcode == CSA::Generic::SRA;
   }
-  bool isCmp(const MachineInstr *MI) const {
-    return MI->isCompare();
-  }
+  bool isCmp(const MachineInstr *MI) const { return MI->isCompare(); }
   bool isAtomic(const MachineInstr *) const;
   bool isSeqOT(const MachineInstr *) const;
 
@@ -285,10 +256,10 @@ public:
   // Gets the opcode for a memory token MOV.  This method is defined
   // here so that all the places which need to know which opcode is a
   // MOV of a memory token agree upon the answer.
-  unsigned getMemTokenMOVOpcode()const;
-  // Returns true if this instruction is a MOV of a memory token.  
+  unsigned getMemTokenMOVOpcode() const;
+  // Returns true if this instruction is a MOV of a memory token.
   bool isMemTokenMOV(const MachineInstr *) const;
-  
+
   unsigned getCopyOpcode(const TargetRegisterClass *RC) const {
     return makeOpcode(CSA::Generic::GCOPY, RC);
   }
@@ -304,8 +275,6 @@ public:
   unsigned getPickanyOpcode(const TargetRegisterClass *RC) const {
     return makeOpcode(CSA::Generic::PICKANY, RC);
   }
-
-
 
   // Takes an opcode for a compare instruction, and returns the opcode
   // that you would use if (a) you swapped the input operands to the
@@ -325,7 +294,7 @@ public:
   // else:
   //     >=, >, <=, < remains the same.
   //
-  // if negate_eq: 
+  // if negate_eq:
   //     == maps to !=
   //     != maps to ==
   // else:
@@ -342,12 +311,11 @@ public:
   // Takes in an opcode for a comparison operation, and returns the
   // opcode for a sequence instruction corresponding to that op.
   //
-  // 
+  //
   //  CMPGT maps to SEQOTGT
   //  CMPGE maps to SEQOTGE
   //    etc...
   unsigned convertCompareOpToSeqOTOp(unsigned cmp_opcode) const;
-
 
   // Takes in a sequence opcode, and a bitwidth, and returns a
   // corresponding sequence opcode whose bitwidth size is
@@ -360,14 +328,13 @@ public:
 
   // Get channel register class that is the same size as this stride
   // operation.
-  const TargetRegisterClass*
-  getStrideInputRC(unsigned stride_opcode) const;
+  const TargetRegisterClass *getStrideInputRC(unsigned stride_opcode) const;
 
   // Returns true if this op is one of the transform ops that
   // corresponds to a 3-operand commuting reduction.
   //
   //  ADD, MUL, AND, OR, XOR
-  bool isCommutingReductionTransform(const MachineInstr* ) const;
+  bool isCommutingReductionTransform(const MachineInstr *) const;
 
   // Convert an ADD/SUB/FMA code into a matching reduction opcode of
   // the same size. TBD(jsukha): Not implemented yet!
@@ -380,8 +347,8 @@ public:
   bool isLICClass(const TargetRegisterClass *RC) const;
 
   /// Return the register class for a LIC register.
-  const TargetRegisterClass *getRegisterClass(unsigned reg,
-      const MachineRegisterInfo &MRI) const;
+  const TargetRegisterClass *
+  getRegisterClass(unsigned reg, const MachineRegisterInfo &MRI) const;
 
   /// Return true if the MachineOperand represents a LIC.
   bool isLIC(const MachineOperand &MO, const MachineRegisterInfo &MRI) const {
@@ -389,6 +356,6 @@ public:
   }
 };
 
-}
+} // namespace llvm
 
 #endif

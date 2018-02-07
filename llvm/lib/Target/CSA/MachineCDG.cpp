@@ -9,60 +9,59 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file defines the ControlDependenceGraph class, which allows fast and 
-// efficient control dependence queries. It is based on Ferrante et al's "The 
+// This file defines the ControlDependenceGraph class, which allows fast and
+// efficient control dependence queries. It is based on Ferrante et al's "The
 // Program Dependence Graph and Its Use in Optimization."
 //
 //===----------------------------------------------------------------------===//
-#include "CSA.h"
 #include "MachineCDG.h"
+#include "CSA.h"
 
-#include "llvm/Analysis/DOTGraphTraitsPass.h"
 #include "llvm/ADT/PostOrderIterator.h"
-#include "llvm/Target/TargetInstrInfo.h"
-#include "llvm/CodeGen/MachineFunction.h"
+#include "llvm/Analysis/DOTGraphTraitsPass.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
+#include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineRegionInfo.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/CommandLine.h"
+#include "llvm/Target/TargetInstrInfo.h"
 #include <deque>
 #include <set>
 
 using namespace llvm;
 
 static cl::opt<int>
-CSADumpDotGraph("csa-dump-dot-graph", cl::Hidden,
-	cl::desc("CSA Specific: dump CFG, CDG, PDT, DT dot graphs"),
-	cl::init(0));
+  CSADumpDotGraph("csa-dump-dot-graph", cl::Hidden,
+                  cl::desc("CSA Specific: dump CFG, CDG, PDT, DT dot graphs"),
+                  cl::init(0));
 
-static cl::opt<bool>
-CSAViewMachineCDG("csa-view-machine-cdg", cl::Hidden,
-	cl::desc("CSA Specific: View machine control dependence graph of function"),
-	cl::init(false));
+static cl::opt<bool> CSAViewMachineCDG(
+  "csa-view-machine-cdg", cl::Hidden,
+  cl::desc("CSA Specific: View machine control dependence graph of function"),
+  cl::init(false));
 
-static cl::opt<bool>
-CSAViewMachineCFG("csa-view-machine-cfg", cl::Hidden,
-	cl::desc("CSA Specific: View machine control flow graph of function"),
-	cl::init(false));
+static cl::opt<bool> CSAViewMachineCFG(
+  "csa-view-machine-cfg", cl::Hidden,
+  cl::desc("CSA Specific: View machine control flow graph of function"),
+  cl::init(false));
 
-static cl::opt<bool>
-CSAViewMachinePDT("csa-view-machine-pdt", cl::Hidden,
-	cl::desc("CSA Specific: View machine post-dominator tree of function"),
-	cl::init(false));
+static cl::opt<bool> CSAViewMachinePDT(
+  "csa-view-machine-pdt", cl::Hidden,
+  cl::desc("CSA Specific: View machine post-dominator tree of function"),
+  cl::init(false));
 
-static cl::opt<bool>
-CSAViewMachineDT("csa-view-machine-dt", cl::Hidden,
-	cl::desc("CSA Specific: View machine dominator tree of function"),
-	cl::init(false));
+static cl::opt<bool> CSAViewMachineDT(
+  "csa-view-machine-dt", cl::Hidden,
+  cl::desc("CSA Specific: View machine dominator tree of function"),
+  cl::init(false));
 
 //  Because of the namespace-related syntax limitations of gcc, we need
-//  To hoist init out of namespace blocks. 
+//  To hoist init out of namespace blocks.
 char ControlDependenceGraph::ID = 0;
-//declare ControlDependenceGraph Pass
+// declare ControlDependenceGraph Pass
 INITIALIZE_PASS(ControlDependenceGraph, "machine-cdg",
-  "Machine Control Dependence Graph Construction", true, true)
-
+                "Machine Control Dependence Graph Construction", true, true)
 
 #define DEBUG_TYPE "csa-cdg-pass"
 namespace llvm {
@@ -80,8 +79,8 @@ void ControlDependenceNode::addOther(ControlDependenceNode *Child) {
 }
 
 void ControlDependenceNode::addParent(ControlDependenceNode *Parent) {
-  assert(std::find(Parent->begin(), Parent->end(), this) != Parent->end()
-  	 && "Must be a child before adding the parent!");
+  assert(std::find(Parent->begin(), Parent->end(), this) != Parent->end() &&
+         "Must be a child before adding the parent!");
   Parents.insert(Parent);
 }
 
@@ -131,52 +130,53 @@ bool ControlDependenceNode::isLatchNode() {
 }
 #endif
 
-ControlDependenceNode::EdgeType
-ControlDependenceGraphBase::getEdgeType(MachineBasicBlock *A, MachineBasicBlock *B, bool confirmAnalysiable) {
+ControlDependenceNode::EdgeType ControlDependenceGraphBase::getEdgeType(
+  MachineBasicBlock *A, MachineBasicBlock *B, bool confirmAnalysiable) {
   SmallVector<MachineOperand, 4> Cond; // For analyzeBranch.
   Cond.clear();
   MachineBasicBlock *TBB = nullptr, *FBB = nullptr; // For analyzeBranch
-  assert(A->isSuccessor(B) && "Asking for edge type between unconnected basic blocks!");
-  if (TII->analyzeBranch(*A, TBB, FBB, Cond)) { 
-		if (confirmAnalysiable) {
-			assert(false && "can't analyze branch");
-		}
-    //no branch, just fall through
+  assert(A->isSuccessor(B) &&
+         "Asking for edge type between unconnected basic blocks!");
+  if (TII->analyzeBranch(*A, TBB, FBB, Cond)) {
+    if (confirmAnalysiable) {
+      assert(false && "can't analyze branch");
+    }
+    // no branch, just fall through
     return ControlDependenceNode::OTHER;
   } else if (!FBB && Cond.empty()) {
-    //unconditional jump
+    // unconditional jump
     return ControlDependenceNode::OTHER;
-  } else if (!FBB && !Cond.empty() && TBB) { 
-    //branch followed by a fall through
-		if (TBB == B) {
-			if (A->getFirstTerminator()->getOpcode() == CSA::BT)
-				return ControlDependenceNode::TRUE;
-			else
-				return ControlDependenceNode::FALSE;
-		} else {
-			if (A->getFirstTerminator()->getOpcode() == CSA::BT)
-				return ControlDependenceNode::FALSE;	
-			else 
-				return ControlDependenceNode::TRUE;
-		}
+  } else if (!FBB && !Cond.empty() && TBB) {
+    // branch followed by a fall through
+    if (TBB == B) {
+      if (A->getFirstTerminator()->getOpcode() == CSA::BT)
+        return ControlDependenceNode::TRUE;
+      else
+        return ControlDependenceNode::FALSE;
+    } else {
+      if (A->getFirstTerminator()->getOpcode() == CSA::BT)
+        return ControlDependenceNode::FALSE;
+      else
+        return ControlDependenceNode::TRUE;
+    }
   } else if (TBB && !Cond.empty() && FBB) {
     // a two-way branch
-		if (TBB == B) {
-			if (A->getFirstTerminator()->getOpcode() == CSA::BT) {
-				return ControlDependenceNode::TRUE;
-			} else {
-				return ControlDependenceNode::FALSE;
-			}
-		} else {
-			if (A->getFirstTerminator()->getOpcode() == CSA::BT) {
-				return ControlDependenceNode::FALSE;
-			}	else {
-				return ControlDependenceNode::TRUE;
-			}
-		}
+    if (TBB == B) {
+      if (A->getFirstTerminator()->getOpcode() == CSA::BT) {
+        return ControlDependenceNode::TRUE;
+      } else {
+        return ControlDependenceNode::FALSE;
+      }
+    } else {
+      if (A->getFirstTerminator()->getOpcode() == CSA::BT) {
+        return ControlDependenceNode::FALSE;
+      } else {
+        return ControlDependenceNode::TRUE;
+      }
+    }
   } else {
     assert(false && "unexpected case");
-		return ControlDependenceNode::OTHER;
+    return ControlDependenceNode::OTHER;
   }
 }
 
@@ -196,7 +196,7 @@ ControlDependenceNode* ControlDependenceGraphBase::getLatchParent(ControlDepende
   }
   return NULL;
 }
-#endif 
+#endif
 
 #if 0
 //return the first non latch parent found or NULL
@@ -213,49 +213,60 @@ ControlDependenceNode* ControlDependenceGraphBase::getNonLatchParent(ControlDepe
   }
   return pcdn;
 }
-#endif 
+#endif
 
-void ControlDependenceGraphBase::computeDependencies(MachineFunction &F, MachinePostDominatorTree &pdt) {
+void ControlDependenceGraphBase::computeDependencies(
+  MachineFunction &F, MachinePostDominatorTree &pdt) {
   root = new ControlDependenceNode();
   nodes.insert(root);
   for (MachineFunction::iterator BB = F.begin(), E = F.end(); BB != E; ++BB) {
-    MachineBasicBlock *mbb = &*BB;
+    MachineBasicBlock *mbb    = &*BB;
     ControlDependenceNode *bn = new ControlDependenceNode(mbb);
     nodes.insert(bn);
     bb2cdg[mbb] = bn;
-    cdg2bb[bn] = mbb;
+    cdg2bb[bn]  = mbb;
   }
 
   for (MachineFunction::iterator BB = F.begin(), E = F.end(); BB != E; ++BB) {
-    MachineBasicBlock *A = &*BB;
+    MachineBasicBlock *A      = &*BB;
     ControlDependenceNode *AN = bb2cdg[A];
 
-    for (MachineBasicBlock::succ_iterator succ = A->succ_begin(), end = A->succ_end(); succ != end; ++succ) {
+    for (MachineBasicBlock::succ_iterator succ = A->succ_begin(),
+                                          end  = A->succ_end();
+         succ != end; ++succ) {
       MachineBasicBlock *B = *succ;
       assert(A && B);
       if (A == B || !pdt.dominates(B, A)) {
         MachineBasicBlock *L = pdt.findNearestCommonDominator(A, B);
-        ControlDependenceNode::EdgeType type = ControlDependenceGraphBase::getEdgeType(A, B);
+        ControlDependenceNode::EdgeType type =
+          ControlDependenceGraphBase::getEdgeType(A, B);
         if (A == L) {
           switch (type) {
           case ControlDependenceNode::TRUE:
-            AN->addTrue(AN); break;
+            AN->addTrue(AN);
+            break;
           case ControlDependenceNode::FALSE:
-            AN->addFalse(AN); break;
+            AN->addFalse(AN);
+            break;
           case ControlDependenceNode::OTHER:
-            AN->addOther(AN); break;
+            AN->addOther(AN);
+            break;
           }
           AN->addParent(AN);
         }
-        for (MachineDomTreeNode *cur = pdt[B]; cur && cur != pdt[L]; cur = cur->getIDom()) {
+        for (MachineDomTreeNode *cur = pdt[B]; cur && cur != pdt[L];
+             cur                     = cur->getIDom()) {
           ControlDependenceNode *CN = bb2cdg[cur->getBlock()];
           switch (type) {
           case ControlDependenceNode::TRUE:
-            AN->addTrue(CN); break;
+            AN->addTrue(CN);
+            break;
           case ControlDependenceNode::FALSE:
-            AN->addFalse(CN); break;
+            AN->addFalse(CN);
+            break;
           case ControlDependenceNode::OTHER:
-            AN->addOther(CN); break;
+            AN->addOther(CN);
+            break;
           }
           assert(CN);
           CN->addParent(AN);
@@ -269,23 +280,26 @@ void ControlDependenceGraphBase::computeDependencies(MachineFunction &F, Machine
     if (cur->getBlock()) {
       ControlDependenceNode *CN = bb2cdg[cur->getBlock()];
       assert(CN);
-      root->addOther(CN); CN->addParent(root);
+      root->addOther(CN);
+      CN->addParent(root);
     }
   }
 }
 
 void ControlDependenceGraphBase::insertRegions(MachinePostDominatorTree &pdt) {
-  typedef po_iterator<MachinePostDominatorTree*> po_pdt_iterator;  
-  typedef std::pair<ControlDependenceNode::EdgeType, ControlDependenceNode *> cd_type;
+  typedef po_iterator<MachinePostDominatorTree *> po_pdt_iterator;
+  typedef std::pair<ControlDependenceNode::EdgeType, ControlDependenceNode *>
+    cd_type;
   typedef std::set<cd_type> cd_set_type;
   typedef std::map<cd_set_type, ControlDependenceNode *> cd_map_type;
 
   cd_map_type cdMap;
   cd_set_type initCDs;
   initCDs.insert(std::make_pair(ControlDependenceNode::OTHER, root));
-  cdMap.insert(std::make_pair(initCDs,root));
+  cdMap.insert(std::make_pair(initCDs, root));
 
-  for (po_pdt_iterator DTN = po_pdt_iterator::begin(&pdt), END = po_pdt_iterator::end(&pdt);
+  for (po_pdt_iterator DTN = po_pdt_iterator::begin(&pdt),
+                       END = po_pdt_iterator::end(&pdt);
        DTN != END; ++DTN) {
     if (!DTN->getBlock())
       continue;
@@ -294,7 +308,9 @@ void ControlDependenceGraphBase::insertRegions(MachinePostDominatorTree &pdt) {
     assert(node);
 
     cd_set_type cds;
-    for (ControlDependenceNode::node_iterator P = node->Parents.begin(), E = node->Parents.end(); P != E; ++P) {
+    for (ControlDependenceNode::node_iterator P = node->Parents.begin(),
+                                              E = node->Parents.end();
+         P != E; ++P) {
       ControlDependenceNode *parent = *P;
       if (parent->TrueChildren.find(node) != parent->TrueChildren.end())
         cds.insert(std::make_pair(ControlDependenceNode::TRUE, parent));
@@ -309,8 +325,9 @@ void ControlDependenceGraphBase::insertRegions(MachinePostDominatorTree &pdt) {
     if (CDEntry == cdMap.end()) {
       region = new ControlDependenceNode();
       nodes.insert(region);
-      cdMap.insert(std::make_pair(cds,region));
-      for (cd_set_type::iterator CD = cds.begin(), CDEnd = cds.end(); CD != CDEnd; ++CD) {
+      cdMap.insert(std::make_pair(cds, region));
+      for (cd_set_type::iterator CD = cds.begin(), CDEnd = cds.end();
+           CD != CDEnd; ++CD) {
         switch (CD->first) {
         case ControlDependenceNode::TRUE:
           CD->second->addTrue(region);
@@ -327,7 +344,8 @@ void ControlDependenceGraphBase::insertRegions(MachinePostDominatorTree &pdt) {
     } else {
       region = CDEntry->second;
     }
-    for (cd_set_type::iterator CD = cds.begin(), CDEnd = cds.end(); CD != CDEnd; ++CD) {
+    for (cd_set_type::iterator CD = cds.begin(), CDEnd = cds.end(); CD != CDEnd;
+         ++CD) {
       switch (CD->first) {
       case ControlDependenceNode::TRUE:
         CD->second->removeTrue(node);
@@ -346,7 +364,8 @@ void ControlDependenceGraphBase::insertRegions(MachinePostDominatorTree &pdt) {
   }
 
   // Make sure that each node has at most one true or false edge
-  for (std::set<ControlDependenceNode *>::iterator N = nodes.begin(), E = nodes.end();
+  for (std::set<ControlDependenceNode *>::iterator N = nodes.begin(),
+                                                   E = nodes.end();
        N != E; ++N) {
     ControlDependenceNode *node = *N;
     assert(node);
@@ -357,7 +376,8 @@ void ControlDependenceGraphBase::insertRegions(MachinePostDominatorTree &pdt) {
     if (node->TrueChildren.size() > 1) {
       ControlDependenceNode *region = new ControlDependenceNode();
       nodes.insert(region);
-      ControlDependenceNode::node_iterator C = node->true_begin(), CE = node->true_end();
+      ControlDependenceNode::node_iterator C  = node->true_begin(),
+                                           CE = node->true_end();
       while (C != CE) {
         ControlDependenceNode *child = *C;
         ++C;
@@ -368,7 +388,6 @@ void ControlDependenceGraphBase::insertRegions(MachinePostDominatorTree &pdt) {
         child->addParent(region);
         child->removeParent(node);
         node->removeTrue(child);
-
       }
       node->addTrue(region);
       region->addParent(node);
@@ -378,7 +397,8 @@ void ControlDependenceGraphBase::insertRegions(MachinePostDominatorTree &pdt) {
     if (node->FalseChildren.size() > 1) {
       ControlDependenceNode *region = new ControlDependenceNode();
       nodes.insert(region);
-      ControlDependenceNode::node_iterator C = node->false_begin(), CE = node->false_end();
+      ControlDependenceNode::node_iterator C  = node->false_begin(),
+                                           CE = node->false_end();
       while (C != CE) {
         ControlDependenceNode *child = *C;
         ++C;
@@ -393,40 +413,44 @@ void ControlDependenceGraphBase::insertRegions(MachinePostDominatorTree &pdt) {
   }
 }
 
-void ControlDependenceGraphBase::graphForFunction(MachineFunction &F, MachinePostDominatorTree &pdt) {
-  computeDependencies(F,pdt);
-  //insertRegions(pdt);
+void ControlDependenceGraphBase::graphForFunction(
+  MachineFunction &F, MachinePostDominatorTree &pdt) {
+  computeDependencies(F, pdt);
+  // insertRegions(pdt);
   regionsForGraph(F, pdt);
 
   dumpRegions();
-
 }
 
-//base on "compact representaions for control dependence, by Cytron, Ferrante, Sarkar"
-//ControlDependenceNode is the link between these ADT:
-//ControlDependenceNode => MachineBasicBlock
-//ControlDependenceNode => Region
-//The original paper actually compute the week region, this algorithms enhance it to compute a strong region 
-//if the loop latch has exit edge, as most LLVM loops do,or it is a while loop
-void ControlDependenceGraphBase::regionsForGraph(MachineFunction &F, MachinePostDominatorTree &pdt) {
-  //reset region for each funciton
+// base on "compact representaions for control dependence, by Cytron, Ferrante,
+// Sarkar"  ControlDependenceNode is the link between these ADT:
+// ControlDependenceNode => MachineBasicBlock
+// ControlDependenceNode => Region
+// The original paper actually compute the week region, this algorithms enhance
+// it to compute a strong region  if the loop latch has exit edge, as most LLVM
+// loops do,or it is a while loop
+void ControlDependenceGraphBase::regionsForGraph(
+  MachineFunction &F, MachinePostDominatorTree &pdt) {
+  // reset region for each funciton
   for (unsigned i = 0; i < regions.size(); i++) {
     CDGRegion *r = regions[i];
     delete r;
   }
   regions.clear();
 
-  typedef po_iterator<MachinePostDominatorTree*> po_pdt_iterator;
+  typedef po_iterator<MachinePostDominatorTree *> po_pdt_iterator;
   DenseMap<MachineBasicBlock *, CDGRegion *> mbb2rgn;
-  CDGRegion* rootRegion = new CDGRegion;
-  //regions[0] = rootRegion;
+  CDGRegion *rootRegion = new CDGRegion;
+  // regions[0] = rootRegion;
   regions.push_back(rootRegion);
   rootRegion->NewRegion = 0;
-  unsigned NumRegions = 0;
-  //first, add all CDG nodes into region 0, by postorder traversal of the pdt, so that
-  //RTAIL(0)==STOP; and postdominator of any node X is linked into the list somewhere AFTER X
-  for (po_pdt_iterator DTN = po_pdt_iterator::begin(&pdt), END = po_pdt_iterator::end(&pdt);
-    DTN != END; ++DTN) {
+  unsigned NumRegions   = 0;
+  // first, add all CDG nodes into region 0, by postorder traversal of the pdt,
+  // so that  RTAIL(0)==STOP; and postdominator of any node X is linked into the
+  // list somewhere AFTER X
+  for (po_pdt_iterator DTN = po_pdt_iterator::begin(&pdt),
+                       END = po_pdt_iterator::end(&pdt);
+       DTN != END; ++DTN) {
     if (!DTN->getBlock())
       continue;
     ControlDependenceNode *node = bb2cdg[DTN->getBlock()];
@@ -436,14 +460,16 @@ void ControlDependenceGraphBase::regionsForGraph(MachineFunction &F, MachinePost
 
   for (MachineFunction::iterator BB = F.begin(), E = F.end(); BB != E; ++BB) {
     MachineBasicBlock *A = &*BB;
-    for (MachineBasicBlock::succ_iterator succ = A->succ_begin(), end = A->succ_end(); succ != end; ++succ) {
+    for (MachineBasicBlock::succ_iterator succ = A->succ_begin(),
+                                          end  = A->succ_end();
+         succ != end; ++succ) {
       MachineBasicBlock *B = *succ;
       assert(A && B);
       unsigned T = NumRegions;
       if (A == B || !pdt.dominates(B, A)) {
-        MachineDomTreeNode *Y= pdt.getNode(B);
-        MachineDomTreeNode *StartDN = Y;
-        MachineBasicBlock *L = pdt.findNearestCommonDominator(A, B);
+        MachineDomTreeNode *Y        = pdt.getNode(B);
+        MachineDomTreeNode *StartDN  = Y;
+        MachineBasicBlock *L         = pdt.findNearestCommonDominator(A, B);
         MachineBasicBlock *loopLatch = NULL;
         if (A == L) {
           loopLatch = A;
@@ -451,50 +477,55 @@ void ControlDependenceGraphBase::regionsForGraph(MachineFunction &F, MachinePost
         MachineDomTreeNode *EndDN = pdt.getNode(A)->getIDom();
         while (Y != EndDN) {
           MachineBasicBlock *YB = Y->getBlock();
-          CDGRegion *YR = cdg2rgn[bb2cdg[YB]];
-          //RHEAD
+          CDGRegion *YR         = cdg2rgn[bb2cdg[YB]];
+          // RHEAD
           ControlDependenceNode *YRHdr = YR->nodes[0];
-          MachineBasicBlock *YRHdrBB = cdg2bb[YRHdr];
-          MachineDomTreeNode *YRHdrDN = pdt.getNode(YRHdrBB);
-          //RTAIL
+          MachineBasicBlock *YRHdrBB   = cdg2bb[YRHdr];
+          MachineDomTreeNode *YRHdrDN  = pdt.getNode(YRHdrBB);
+          // RTAIL
           ControlDependenceNode *YRTail = YR->nodes.back();
-          MachineBasicBlock *YRTailBB = cdg2bb[YRTail];
-          MachineDomTreeNode *YRTailDN = pdt.getNode(YRTailBB);
-          bool isYBtwnStartEnd = pdt.dominates(YRHdrDN, StartDN) &&
+          MachineBasicBlock *YRTailBB   = cdg2bb[YRTail];
+          MachineDomTreeNode *YRTailDN  = pdt.getNode(YRTailBB);
+          bool isYBtwnStartEnd          = pdt.dominates(YRHdrDN, StartDN) &&
                                  pdt.properlyDominates(EndDN, YRTailDN);
-		  if (!isYBtwnStartEnd || (loopLatch && Y->getBlock() == loopLatch && YR->nodes.size() > 1)) {
-			//modification to the original paper: latch node need to be in a seperate region by itself
-			if (YR->NewRegion <= T || (loopLatch && Y->getBlock() == loopLatch && YR->nodes.size() > 1)) {
-			  NumRegions++;
+          if (!isYBtwnStartEnd || (loopLatch && Y->getBlock() == loopLatch &&
+                                   YR->nodes.size() > 1)) {
+            // modification to the original paper: latch node need to be in a
+            // seperate region by itself
+            if (YR->NewRegion <= T ||
+                (loopLatch && Y->getBlock() == loopLatch &&
+                 YR->nodes.size() > 1)) {
+              NumRegions++;
               CDGRegion *splitRgn = new CDGRegion();
-              //regions[NumRegions] = splitRgn;
+              // regions[NumRegions] = splitRgn;
               regions.push_back(splitRgn);
-              //YR's splited new region has region# NumRegions in regions list
+              // YR's splited new region has region# NumRegions in regions list
               YR->NewRegion = NumRegions;
-              //splitRgn's new region is itself -- not splited yet
+              // splitRgn's new region is itself -- not splited yet
               splitRgn->NewRegion = NumRegions;
             }
             ControlDependenceNode *YCN = bb2cdg[YB];
-            //delete Y from YR
+            // delete Y from YR
             YR->nodes.remove(YCN);
-            //add Y at tail of the new region
-            regions[YR->NewRegion]->nodes.insert(YCN); 
-            //denote Y is in a new region now
+            // add Y at tail of the new region
+            regions[YR->NewRegion]->nodes.insert(YCN);
+            // denote Y is in a new region now
             cdg2rgn[bb2cdg[YB]] = regions[YR->NewRegion];
           }
           Y = Y->getIDom();
-        } //end of while
-      } //end of if(A == B ...
-    } //end of edge AB's end point
-  }//end of for(A
+        } // end of while
+      }   // end of if(A == B ...
+    }     // end of edge AB's end point
+  }       // end of for(A
 }
 
 void ControlDependenceGraphBase::dumpRegions() {
   for (unsigned i = 0; i < regions.size(); i++) {
     CDGRegion *r = regions[i];
     DEBUG(errs() << "Region" << i << ": ");
-    for (SetVector<ControlDependenceNode *>::iterator N = r->nodes.begin(), E = r->nodes.end();
-      N != E; ++N) {
+    for (SetVector<ControlDependenceNode *>::iterator N = r->nodes.begin(),
+                                                      E = r->nodes.end();
+         N != E; ++N) {
       ControlDependenceNode *node = *N;
       assert(node);
       DEBUG(errs() << "BB" << cdg2bb[node]->getNumber() << ", ");
@@ -503,7 +534,8 @@ void ControlDependenceGraphBase::dumpRegions() {
   }
 }
 
-bool ControlDependenceGraphBase::controls(MachineBasicBlock *A, MachineBasicBlock *B) const {
+bool ControlDependenceGraphBase::controls(MachineBasicBlock *A,
+                                          MachineBasicBlock *B) const {
   const ControlDependenceNode *n = getNode(B);
   assert(n && "Basic block not in control dependence graph!");
   while (n->getNumParents() == 1) {
@@ -514,7 +546,8 @@ bool ControlDependenceGraphBase::controls(MachineBasicBlock *A, MachineBasicBloc
   return false;
 }
 
-bool ControlDependenceGraphBase::influences(MachineBasicBlock *A, MachineBasicBlock *B) const {
+bool ControlDependenceGraphBase::influences(MachineBasicBlock *A,
+                                            MachineBasicBlock *B) const {
   const ControlDependenceNode *n = getNode(B);
   assert(n && "Basic block not in control dependence graph!");
 
@@ -524,17 +557,16 @@ bool ControlDependenceGraphBase::influences(MachineBasicBlock *A, MachineBasicBl
   while (!worklist.empty()) {
     n = worklist.front();
     worklist.pop_front();
-    if (n->getBlock() == A) return true;
+    if (n->getBlock() == A)
+      return true;
     worklist.insert(worklist.end(), n->parent_begin(), n->parent_end());
   }
 
   return false;
 }
 
-
-
-
-const ControlDependenceNode *ControlDependenceGraphBase::enclosingRegion(MachineBasicBlock *BB) const {
+const ControlDependenceNode *
+ControlDependenceGraphBase::enclosingRegion(MachineBasicBlock *BB) const {
   if (const ControlDependenceNode *node = this->getNode(BB)) {
     return node->enclosingRegion();
   } else {
@@ -542,22 +574,23 @@ const ControlDependenceNode *ControlDependenceGraphBase::enclosingRegion(Machine
   }
 }
 
-ControlDependenceGraph::ControlDependenceGraph() : MachineFunctionPass(ID), ControlDependenceGraphBase() {
+ControlDependenceGraph::ControlDependenceGraph()
+    : MachineFunctionPass(ID), ControlDependenceGraphBase() {
   initializeControlDependenceGraphPass(*PassRegistry::getPassRegistry());
 }
 
 bool ControlDependenceGraph::runOnMachineFunction(MachineFunction &F) {
-	thisMF = &F;
-	TII = thisMF->getSubtarget().getInstrInfo();
-	MachinePostDominatorTree &pdt = getAnalysis<MachinePostDominatorTree>();
-	if (pdt.getRootNode() == nullptr) {	
-		return false;
-	}
-	thisPDT = &pdt;
-	graphForFunction(F, pdt);
-	if (CSADumpDotGraph) {
-		writeDotGraph(F.getName());
-	}
+  thisMF                        = &F;
+  TII                           = thisMF->getSubtarget().getInstrInfo();
+  MachinePostDominatorTree &pdt = getAnalysis<MachinePostDominatorTree>();
+  if (pdt.getRootNode() == nullptr) {
+    return false;
+  }
+  thisPDT = &pdt;
+  graphForFunction(F, pdt);
+  if (CSADumpDotGraph) {
+    writeDotGraph(F.getName());
+  }
   if (CSAViewMachineCDG) {
     viewMachineCDG();
   }
@@ -570,25 +603,25 @@ bool ControlDependenceGraph::runOnMachineFunction(MachineFunction &F) {
   if (CSAViewMachineDT) {
     viewMachineDT();
   }
-	return false;
+  return false;
 }
 
 void ControlDependenceGraph::viewMachineCDG(void) {
-  llvm::ViewGraph(this,"mCDG");
+  llvm::ViewGraph(this, "mCDG");
 }
 
 void ControlDependenceGraph::viewMachineCFG(void) {
-  llvm::ViewGraph(thisMF,"mCFG");
+  llvm::ViewGraph(thisMF, "mCFG");
 }
 
 void ControlDependenceGraph::viewMachinePDT(void) {
   MachinePostDominatorTree &pdt = getAnalysis<MachinePostDominatorTree>();
-  llvm::ViewGraph(&pdt,"mPDT");
+  llvm::ViewGraph(&pdt, "mPDT");
 }
 
 void ControlDependenceGraph::viewMachineDT(void) {
   MachineDominatorTree &dt = getAnalysis<MachineDominatorTree>();
-  llvm::ViewGraph(&dt,"mDT");
+  llvm::ViewGraph(&dt, "mDT");
 }
 
 void ControlDependenceGraph::writeDotGraph(StringRef fname) {
@@ -620,24 +653,23 @@ void ControlDependenceGraph::writeDotGraph(StringRef fname) {
 #endif
 }
 
-
-
-
 void CSASSAGraph::BuildCSASSAGraph(MachineFunction &F, bool ignCtrl) {
-  MachineRegisterInfo* MRI = &F.getRegInfo();
-  root = new CSASSANode(nullptr);
+  MachineRegisterInfo *MRI = &F.getRegInfo();
+  root                     = new CSASSANode(nullptr);
   for (MachineFunction::iterator BB = F.begin(), E = F.end(); BB != E; ++BB) {
     for (MachineBasicBlock::iterator I = BB->begin(); I != BB->end(); ++I) {
-      MachineInstr* minstr = &*I;
-      CSASSANode* sn;
-      //skip mem-dependence artifical cycle
-      if (minstr->getOpcode() == CSA::ALL0 || 
-          //TII->getGenericOpcode(minstr->getOpcode()) == CSA::Generic::MERGE ||
+      MachineInstr *minstr = &*I;
+      CSASSANode *sn;
+      // skip mem-dependence artifical cycle
+      if (minstr->getOpcode() == CSA::ALL0 ||
+          // TII->getGenericOpcode(minstr->getOpcode()) == CSA::Generic::MERGE
+          // ||
           TII->isLoad(minstr) || TII->isStore(minstr) ||
           TII->getGenericOpcode(minstr->getOpcode()) == CSA::Generic::REPEAT ||
-          TII->getGenericOpcode(minstr->getOpcode()) == CSA::Generic::REPEATO) continue;
+          TII->getGenericOpcode(minstr->getOpcode()) == CSA::Generic::REPEATO)
+        continue;
       if (instr2ssan.find(minstr) == instr2ssan.end()) {
-        sn = new CSASSANode(minstr);
+        sn                 = new CSASSANode(minstr);
         instr2ssan[minstr] = sn;
         root->children.push_back(sn);
       } else {
@@ -646,34 +678,35 @@ void CSASSAGraph::BuildCSASSAGraph(MachineFunction &F, bool ignCtrl) {
       unsigned i = 0;
       for (MIOperands MO(*minstr); MO.isValid(); ++MO, ++i) {
         if (ignCtrl && TII->isSwitch(minstr) && i == 2)
-          //skip ctrl sig for pick/switch
+          // skip ctrl sig for pick/switch
           continue;
-        if (TII->isPick(minstr) && i == 1) continue;
+        if (TII->isPick(minstr) && i == 1)
+          continue;
         if (TII->isPick(minstr) && i > 1) {
           unsigned pickCtrl = minstr->getOperand(1).getReg();
           if (!MRI->hasOneDef(pickCtrl)) {
-            MachineInstr* lpInit = nullptr;
+            MachineInstr *lpInit = nullptr;
             for (MachineInstr &DefMI : MRI->def_instructions(pickCtrl)) {
-              MachineInstr* dinstr = &DefMI;
+              MachineInstr *dinstr = &DefMI;
               if (TII->isInit(dinstr)) {
                 lpInit = dinstr;
                 break;
               }
             }
             unsigned initIdx = lpInit->getOperand(1).getImm();
-            //skip loop initial value in the pick instr
+            // skip loop initial value in the pick instr
             if (i == initIdx + 2)
               continue;
           }
         }
-         
+
         if (MO->isReg() && MO->isUse()) {
           unsigned reg = MO->getReg();
           for (MachineInstr &DefMI : MRI->def_instructions(reg)) {
-            MachineInstr* dinstr = &DefMI;
-            CSASSANode* cnode;
+            MachineInstr *dinstr = &DefMI;
+            CSASSANode *cnode;
             if (instr2ssan.find(dinstr) == instr2ssan.end()) {
-              cnode = new CSASSANode(dinstr);
+              cnode              = new CSASSANode(dinstr);
               instr2ssan[dinstr] = cnode;
             } else {
               cnode = instr2ssan[dinstr];
@@ -686,12 +719,8 @@ void CSASSAGraph::BuildCSASSAGraph(MachineFunction &F, bool ignCtrl) {
   }
 }
 
-
-
 } // namespace llvm
-
 
 MachineFunctionPass *llvm::createControlDepenceGraph() {
   return new ControlDependenceGraph();
 }
-

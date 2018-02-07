@@ -27,6 +27,6 @@ public:
   explicit CSASelectionDAGInfo() = default;
 };
 
-}
+} // namespace llvm
 
 #endif

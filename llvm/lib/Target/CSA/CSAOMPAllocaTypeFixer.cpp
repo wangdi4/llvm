@@ -38,11 +38,11 @@ struct CSAOMPAllocaTypeFixer : FunctionPass {
 
   CSAOMPAllocaTypeFixer() : FunctionPass{ID} {}
 
-  void getAnalysisUsage(AnalysisUsage& AU) const override {
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesCFG();
   }
 
-  bool runOnFunction(Function&) override;
+  bool runOnFunction(Function &) override;
 
   StringRef getPassName() const override {
     return "Fix OpenMP bitcasted allocas";
@@ -51,45 +51,46 @@ struct CSAOMPAllocaTypeFixer : FunctionPass {
 
 char CSAOMPAllocaTypeFixer::ID = 0;
 
-bool CSAOMPAllocaTypeFixer::runOnFunction(Function& F) {
+bool CSAOMPAllocaTypeFixer::runOnFunction(Function &F) {
   using namespace std;
 
   bool fixed_allocas = false;
 
   // All new instructions should go at the end of the entry block
-  IRBuilder<> builder {F.getEntryBlock().getTerminator()};
+  IRBuilder<> builder{F.getEntryBlock().getTerminator()};
 
-  for (Instruction& instr : F.getEntryBlock()) {
+  for (Instruction &instr : F.getEntryBlock()) {
 
     // Only mess with bitcast instructions of alloca values which have no uses
     // outside of the entry block.
-    BitCastInst*const bitcast = dyn_cast<BitCastInst>(&instr);
-    if (not bitcast) continue;
-    AllocaInst*const orig_alloca = dyn_cast<AllocaInst>(bitcast->getOperand(0));
-    if (not orig_alloca) continue;
+    BitCastInst *const bitcast = dyn_cast<BitCastInst>(&instr);
+    if (not bitcast)
+      continue;
+    AllocaInst *const orig_alloca =
+      dyn_cast<AllocaInst>(bitcast->getOperand(0));
+    if (not orig_alloca)
+      continue;
     const auto outside_block_use = find_if(
       begin(orig_alloca->users()), end(orig_alloca->users()),
-      [&F](const User* user) {
-        const Instruction*const user_inst = dyn_cast<Instruction>(user);
+      [&F](const User *user) {
+        const Instruction *const user_inst = dyn_cast<Instruction>(user);
         return user_inst and user_inst->getParent() != &F.getEntryBlock();
-      }
-    );
-    if (outside_block_use != end(orig_alloca->users())) continue;
+      });
+    if (outside_block_use != end(orig_alloca->users()))
+      continue;
 
     // Put in a new alloca to hold the casted value.
-    const PointerType*const cast_ptr_type
-      = dyn_cast<PointerType>(bitcast->getDestTy());
-    AllocaInst*const new_alloca = builder.CreateAlloca(
-      cast_ptr_type->getElementType(), nullptr, "omp_fixup"
-    );
+    const PointerType *const cast_ptr_type =
+      dyn_cast<PointerType>(bitcast->getDestTy());
+    AllocaInst *const new_alloca = builder.CreateAlloca(
+      cast_ptr_type->getElementType(), nullptr, "omp_fixup");
 
-    // Update all of the post-entry uses of the bitcast to point to the new alloca instead.
+    // Update all of the post-entry uses of the bitcast to point to the new
+    // alloca instead.
     bitcast->replaceUsesOutsideBlock(new_alloca, &F.getEntryBlock());
 
     // Copy the value from the original alloca in there.
-    LoadInst*const orig_val = builder.CreateLoad(
-      bitcast, "omp_fixup_val"
-    );
+    LoadInst *const orig_val = builder.CreateLoad(bitcast, "omp_fixup_val");
     builder.CreateStore(orig_val, new_alloca);
 
     // This alloca has now been fixed.
@@ -100,17 +101,15 @@ bool CSAOMPAllocaTypeFixer::runOnFunction(Function& F) {
   return fixed_allocas;
 }
 
-}
+} // namespace
 
 namespace llvm {
-void initializeCSAOMPAllocaTypeFixerPass(PassRegistry&);
+void initializeCSAOMPAllocaTypeFixerPass(PassRegistry &);
 }
 
-static RegisterPass<CSAOMPAllocaTypeFixer> rpinst {
-  "csa-omp-alloca-type-fixer",
-  "Fix OpenMP bitcasted allocas"
-};
+static RegisterPass<CSAOMPAllocaTypeFixer> rpinst{
+  "csa-omp-alloca-type-fixer", "Fix OpenMP bitcasted allocas"};
 
-Pass* llvm::createCSAOMPAllocaTypeFixerPass() {
+Pass *llvm::createCSAOMPAllocaTypeFixerPass() {
   return new CSAOMPAllocaTypeFixer();
 }

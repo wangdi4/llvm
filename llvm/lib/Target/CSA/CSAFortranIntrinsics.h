@@ -19,8 +19,8 @@
 #define LLVM_LIB_TARGET_CSA_CSAFORTRANINTRINSICS_H
 
 namespace llvm {
-  class FunctionPass;
-  FunctionPass *createFortranIntrinsics();
-}
+class FunctionPass;
+FunctionPass *createFortranIntrinsics();
+} // namespace llvm
 
 #endif

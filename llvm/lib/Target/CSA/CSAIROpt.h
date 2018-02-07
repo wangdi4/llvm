@@ -17,8 +17,8 @@
 #define LLVM_LIB_TARGET_CSA_CSAIROPT_H
 
 namespace llvm {
-  class Pass;
-  Pass* createCSAIRReductionOptPass();
-}
+class Pass;
+Pass *createCSAIRReductionOptPass();
+} // namespace llvm
 
 #endif

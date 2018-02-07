@@ -16,6 +16,7 @@
 
 #include "CSAMCInstLower.h"
 #include "CSAMachineFunctionInfo.h"
+#include "MCTargetDesc/CSAMCTargetExpr.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/CodeGen/AsmPrinter.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
@@ -31,41 +32,45 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetSubtargetInfo.h"
-#include "MCTargetDesc/CSAMCTargetExpr.h"
 
 using namespace llvm;
 
-MCSymbol *CSAMCInstLower::
-GetGlobalAddressSymbol(const MachineOperand &MO) const {
+MCSymbol *
+CSAMCInstLower::GetGlobalAddressSymbol(const MachineOperand &MO) const {
   switch (MO.getTargetFlags()) {
-  default: llvm_unreachable("Unknown target flag on GV operand");
-  case 0: break;
+  default:
+    llvm_unreachable("Unknown target flag on GV operand");
+  case 0:
+    break;
   }
 
   return Printer.getSymbol(MO.getGlobal());
 }
 
-MCSymbol *CSAMCInstLower::
-GetExternalSymbolSymbol(const MachineOperand &MO) const {
+MCSymbol *
+CSAMCInstLower::GetExternalSymbolSymbol(const MachineOperand &MO) const {
   switch (MO.getTargetFlags()) {
-  default: llvm_unreachable("Unknown target flag on GV operand");
-  case 0: break;
+  default:
+    llvm_unreachable("Unknown target flag on GV operand");
+  case 0:
+    break;
   }
 
   return Printer.GetExternalSymbolSymbol(MO.getSymbolName());
 }
 
-MCSymbol *CSAMCInstLower::
-GetJumpTableSymbol(const MachineOperand &MO) const {
+MCSymbol *CSAMCInstLower::GetJumpTableSymbol(const MachineOperand &MO) const {
   const DataLayout &DL = Printer.getDataLayout();
   SmallString<256> Name;
-  raw_svector_ostream(Name) << DL.getPrivateGlobalPrefix() << "JTI"
-                            << Printer.getFunctionNumber() << '_'
-                            << MO.getIndex();
+  raw_svector_ostream(Name)
+    << DL.getPrivateGlobalPrefix() << "JTI" << Printer.getFunctionNumber()
+    << '_' << MO.getIndex();
 
   switch (MO.getTargetFlags()) {
-  default: llvm_unreachable("Unknown target flag on GV operand");
-  case 0: break;
+  default:
+    llvm_unreachable("Unknown target flag on GV operand");
+  case 0:
+    break;
   }
 
   // Create a symbol for the name.
@@ -90,31 +95,34 @@ GetConstantPoolIndexSymbol(const MachineOperand &MO) const {
 }
 */
 
-MCSymbol *CSAMCInstLower::
-GetBlockAddressSymbol(const MachineOperand &MO) const {
+MCSymbol *
+CSAMCInstLower::GetBlockAddressSymbol(const MachineOperand &MO) const {
   switch (MO.getTargetFlags()) {
-  default: llvm_unreachable("Unknown target flag on GV operand");
-  case 0: break;
+  default:
+    llvm_unreachable("Unknown target flag on GV operand");
+  case 0:
+    break;
   }
 
   return Printer.GetBlockAddressSymbol(MO.getBlockAddress());
 }
 
-MCOperand CSAMCInstLower::
-LowerSymbolOperand(const MachineOperand &MO, MCSymbol *Sym) const {
+MCOperand CSAMCInstLower::LowerSymbolOperand(const MachineOperand &MO,
+                                             MCSymbol *Sym) const {
   // FIXME: We would like an efficient form for this, so we don't have to do a
   // lot of extra uniquing.
   const MCExpr *Expr = MCSymbolRefExpr::create(Sym, Ctx);
 
   switch (MO.getTargetFlags()) {
-  default: llvm_unreachable("Unknown target flag on GV operand");
-  case 0: break;
+  default:
+    llvm_unreachable("Unknown target flag on GV operand");
+  case 0:
+    break;
   }
 
   if (!MO.isJTI() && MO.getOffset())
-    Expr = MCBinaryExpr::createAdd(Expr,
-                                   MCConstantExpr::create(MO.getOffset(), Ctx),
-                                   Ctx);
+    Expr = MCBinaryExpr::createAdd(
+      Expr, MCConstantExpr::create(MO.getOffset(), Ctx), Ctx);
   return MCOperand::createExpr(Expr);
 }
 
@@ -131,7 +139,8 @@ void CSAMCInstLower::Lower(const MachineInstr *MI, MCInst &OutMI) const {
       llvm_unreachable("unknown operand type");
     case MachineOperand::MO_Register: {
       // Ignore all implicit register operands.
-      if (MO.isImplicit()) continue;
+      if (MO.isImplicit())
+        continue;
       unsigned reg = MO.getReg();
       const CSAMachineFunctionInfo &LMFI =
         *MI->getParent()->getParent()->getInfo<CSAMachineFunctionInfo>();
@@ -147,28 +156,31 @@ void CSAMCInstLower::Lower(const MachineInstr *MI, MCInst &OutMI) const {
       MCOp = MCOperand::createImm(MO.getImm());
       break;
     case MachineOperand::MO_FPImmediate: {
-      const ConstantFP* f = MO.getFPImm();
-      APFloat apf = f->getValueAPF();
+      const ConstantFP *f = MO.getFPImm();
+      APFloat apf         = f->getValueAPF();
       bool ignored;
       if (f->getType() == Type::getFloatTy(f->getContext()))
-        apf.convert(APFloat::IEEEdouble(), APFloat::rmNearestTiesToEven, &ignored);
+        apf.convert(APFloat::IEEEdouble(), APFloat::rmNearestTiesToEven,
+                    &ignored);
       double d = apf.convertToDouble();
-      switch  (f->getType()->getTypeID()) {
+      switch (f->getType()->getTypeID()) {
       default:
         report_fatal_error("Unsupported FP type");
         break;
       case Type::FloatTyID: {
         float f = d;
-        MCOp = MCOperand::createImm(*(int*)&f);
-        break; }
-      case Type::DoubleTyID:
-        MCOp = MCOperand::createImm(*(long long*)&d);
+        MCOp    = MCOperand::createImm(*(int *)&f);
         break;
       }
-      break; }
+      case Type::DoubleTyID:
+        MCOp = MCOperand::createImm(*(long long *)&d);
+        break;
+      }
+      break;
+    }
     case MachineOperand::MO_MachineBasicBlock:
-      MCOp = MCOperand::createExpr(MCSymbolRefExpr::create(
-                         MO.getMBB()->getSymbol(), Ctx));
+      MCOp = MCOperand::createExpr(
+        MCSymbolRefExpr::create(MO.getMBB()->getSymbol(), Ctx));
       break;
     case MachineOperand::MO_GlobalAddress:
       MCOp = LowerSymbolOperand(MO, GetGlobalAddressSymbol(MO));
@@ -194,4 +206,3 @@ void CSAMCInstLower::Lower(const MachineInstr *MI, MCInst &OutMI) const {
     OutMI.addOperand(MCOp);
   }
 }
-

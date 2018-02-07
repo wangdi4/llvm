@@ -21,10 +21,10 @@
 
 #include "CSA.h"
 #include "CSAInstrInfo.h"
-#include "llvm/CodeGen/Passes.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
+#include "llvm/CodeGen/Passes.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
@@ -35,51 +35,51 @@ using namespace llvm;
 
 #define DEBUG_TYPE "csa-dead-instruction"
 
-STATISTIC(NumDeletes,          "Number of dead instructions deleted");
+STATISTIC(NumDeletes, "Number of dead instructions deleted");
 
 namespace llvm {
 namespace CSA { // Register classes
-  // Register class for ANYC, a superclass representing a channel of any width.
-  // This constant is declared in "CSAGenRegisterInfo.inc", but that file is
-  // huge and #including it would slow compilation.
-  extern const TargetRegisterClass ANYCRegClass;
-}
-}
+// Register class for ANYC, a superclass representing a channel of any width.
+// This constant is declared in "CSAGenRegisterInfo.inc", but that file is
+// huge and #including it would slow compilation.
+extern const TargetRegisterClass ANYCRegClass;
+} // namespace CSA
+} // namespace llvm
 
 namespace {
-  class CSADeadInstructionElim : public MachineFunctionPass {
-    // This class defines a machine function pass for the CSA which deletes
-    // dead instructions. An instruction is considered dead if all of its
-    // outputs are ignored. The definition is transitive, so that if an
-    // instruction's output feeds only dead instructions, then that
-    // instruction is also dead. However, an instruction is *not* considered
-    // dead if:
-    //
-    // - It has a side effect OR
-    // - It may store to memory OR
-    // - At least one input is a LIC and at least one output is not a
-    //   LIC. Such an instruction is assumed to be needed to synchronize
-    //   dataflow with sequential code. (TBD: This rule might need to be
-    //   revisited.)
+class CSADeadInstructionElim : public MachineFunctionPass {
+  // This class defines a machine function pass for the CSA which deletes
+  // dead instructions. An instruction is considered dead if all of its
+  // outputs are ignored. The definition is transitive, so that if an
+  // instruction's output feeds only dead instructions, then that
+  // instruction is also dead. However, an instruction is *not* considered
+  // dead if:
+  //
+  // - It has a side effect OR
+  // - It may store to memory OR
+  // - At least one input is a LIC and at least one output is not a
+  //   LIC. Such an instruction is assumed to be needed to synchronize
+  //   dataflow with sequential code. (TBD: This rule might need to be
+  //   revisited.)
 
-    // This function is the main entry point. It performs dead-instruction
-    // elimination on the specified machine function.
-    bool runOnMachineFunction(MachineFunction &MF) override;
+  // This function is the main entry point. It performs dead-instruction
+  // elimination on the specified machine function.
+  bool runOnMachineFunction(MachineFunction &MF) override;
 
-    const TargetRegisterInfo  *TRI;
-    const MachineRegisterInfo *MRI;
-    const CSAInstrInfo        *TII;
-    BitVector                 LivePhysRegs; // Set of live registers
+  const TargetRegisterInfo *TRI;
+  const MachineRegisterInfo *MRI;
+  const CSAInstrInfo *TII;
+  BitVector LivePhysRegs; // Set of live registers
 
-  public:
-    static char ID; // Pass identification, replacement for typeid
-    CSADeadInstructionElim() : MachineFunctionPass(ID) { }
+public:
+  static char ID; // Pass identification, replacement for typeid
+  CSADeadInstructionElim() : MachineFunctionPass(ID) {}
 
-  private:
-    bool isLIC(unsigned Reg) const;
-    bool isDead(const MachineInstr& MI) const;
-  };
-}
+private:
+  bool isLIC(unsigned Reg) const;
+  bool isDead(const MachineInstr &MI) const;
+};
+} // namespace
 
 // The declaration for this factory function is in file "CSA.h"
 MachineFunctionPass *llvm::createCSADeadInstructionElimPass() {
@@ -88,7 +88,7 @@ MachineFunctionPass *llvm::createCSADeadInstructionElimPass() {
 
 char CSADeadInstructionElim::ID = 0;
 
-//char &llvm::CSADeadInstructionElimID = CSADeadInstructionElim::ID;
+// char &llvm::CSADeadInstructionElimID = CSADeadInstructionElim::ID;
 
 // INITIALIZE_PASS(CSADeadInstructionElim, "CSA-dead-elimination",
 //                 "Remove dead CSA instructions", false, false)
@@ -98,7 +98,7 @@ bool CSADeadInstructionElim::isLIC(unsigned Reg) const {
   return TII->isLICClass(TII->getRegisterClass(Reg, *MRI));
 }
 
-bool CSADeadInstructionElim::isDead(const MachineInstr& MI) const {
+bool CSADeadInstructionElim::isDead(const MachineInstr &MI) const {
   // Return true if this instruction can be determined to be dead. Note that
   // some instructions may return false in one pass over the dead-instruction
   // algorithm, but then return true in a subsequent pass, as transtitive
@@ -118,23 +118,22 @@ bool CSADeadInstructionElim::isDead(const MachineInstr& MI) const {
   // Don't delete instructions with side effects.
   // (A few exceptions apply.)
   bool SawStore = false;
-  if (!MI.isSafeToMove(nullptr, SawStore) &&
-      !MI.isPHI() && !TII->isInit(&MI))
+  if (!MI.isSafeToMove(nullptr, SawStore) && !MI.isPHI() && !TII->isInit(&MI))
     return false;
 
   // Examine each operand.
-  bool hasChannelUses = false;    // True if at least one input is a LIC channel
+  bool hasChannelUses    = false; // True if at least one input is a LIC channel
   bool hasNonChannelDefs = false; // True if at least one output not a LIC
 
   // Iterate over the operands. If any output operand is live (in used), then
   // instruction is not dead.
-  for (const MachineOperand& MO : MI.operands()) {
-    if (! MO.isReg())
-      continue;  // Ignore non-register operands
+  for (const MachineOperand &MO : MI.operands()) {
+    if (!MO.isReg())
+      continue; // Ignore non-register operands
 
     unsigned Reg = MO.getReg();
     if (Reg == CSA::IGN || Reg == CSA::NA)
-      continue;  // %ign and %na operands do not cause instruction to be live.
+      continue; // %ign and %na operands do not cause instruction to be live.
 
     if (MO.isDef()) {
       if (TargetRegisterInfo::isPhysicalRegister(Reg)) {
@@ -146,7 +145,7 @@ bool CSADeadInstructionElim::isDead(const MachineInstr& MI) const {
           // This def has a non-debug use. Don't delete the instruction!
           return false;
       }
-      hasNonChannelDefs = hasNonChannelDefs || ! isLIC(Reg);
+      hasNonChannelDefs = hasNonChannelDefs || !isLIC(Reg);
     } else /* if MO.isUse() */ {
       hasChannelUses = hasChannelUses || isLIC(Reg);
     }
@@ -219,9 +218,9 @@ bool CSADeadInstructionElim::runOnMachineFunction(MachineFunction &MF) {
     return false;
 
   bool AnyChanges = false;
-  MRI = &MF.getRegInfo();
-  TRI = MF.getSubtarget().getRegisterInfo();
-  TII = static_cast< const CSAInstrInfo* >(MF.getSubtarget().getInstrInfo());
+  MRI             = &MF.getRegInfo();
+  TRI             = MF.getSubtarget().getRegisterInfo();
+  TII = static_cast<const CSAInstrInfo *>(MF.getSubtarget().getInstrInfo());
 
   bool SubpassChanges;
   do {
@@ -236,8 +235,8 @@ bool CSADeadInstructionElim::runOnMachineFunction(MachineFunction &MF) {
 
     // Make initial pass, marking any physreg uses as live.
     for (MachineBasicBlock &MBB : make_range(MF.rbegin(), MF.rend())) {
-      for (const MachineInstr& MI : MBB) {
-        for (const MachineOperand& MO : MI.operands()) {
+      for (const MachineInstr &MI : MBB) {
+        for (const MachineOperand &MO : MI.operands()) {
           if (MO.isReg() && MO.isUse()) {
             unsigned Reg = MO.getReg();
             if (Reg != CSA::IGN && Reg != CSA::NA &&
@@ -256,9 +255,10 @@ bool CSADeadInstructionElim::runOnMachineFunction(MachineFunction &MF) {
       // Note: Cannot use range-based for loop because sometimes iterator is
       // not incremented.
       for (MachineBasicBlock::reverse_iterator MII = MBB.rbegin(),
-             MIE = MBB.rend(); MII != MIE; ) {
+                                               MIE = MBB.rend();
+           MII != MIE;) {
 
-        MachineInstr& MI = *MII++;
+        MachineInstr &MI = *MII++;
 
         // If the instruction is dead, delete it!
         if (isDead(MI)) {
@@ -267,7 +267,7 @@ bool CSADeadInstructionElim::runOnMachineFunction(MachineFunction &MF) {
           // instruction.  They get marked as undef and will be deleted
           // in the live debug variable analysis.
           MI.eraseFromParentAndMarkDBGValuesForRemoval();
-          AnyChanges = true;
+          AnyChanges     = true;
           SubpassChanges = true;
           ++NumDeletes;
           continue;
@@ -282,8 +282,8 @@ bool CSADeadInstructionElim::runOnMachineFunction(MachineFunction &MF) {
   // Cleanup: Loop over all instructions and replace any output to a dead
   // register with %ign
   for (MachineBasicBlock &MBB : make_range(MF.rbegin(), MF.rend())) {
-    for (MachineInstr& MI : MBB) {
-      for (MachineOperand& MO : MI.operands()) {
+    for (MachineInstr &MI : MBB) {
+      for (MachineOperand &MO : MI.operands()) {
         if (MO.isReg() && MO.isDef()) {
           unsigned Reg = MO.getReg();
           if (Reg != CSA::IGN && Reg != CSA::NA && isLIC(Reg)) {
@@ -294,8 +294,8 @@ bool CSADeadInstructionElim::runOnMachineFunction(MachineFunction &MF) {
               dead = MRI->use_nodbg_empty(Reg);
             if (dead) {
               // Replace output to dead LIC with output to %ign
-              DEBUG(dbgs() << "CSADeadInstructionElim: clean up dead LIC "
-                    << MO << " from " << MI << '\n');
+              DEBUG(dbgs() << "CSADeadInstructionElim: clean up dead LIC " << MO
+                           << " from " << MI << '\n');
               MO.substPhysReg(CSA::IGN, *TRI);
             }
           }
