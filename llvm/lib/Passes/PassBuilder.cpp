@@ -168,8 +168,6 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRCodeGen.h"
 #endif // INTEL_CUSTOMIZATION
 
-#include <type_traits>
-
 using namespace llvm;
 
 static cl::opt<unsigned> MaxDevirtIterations("pm-max-devirt-iterations",
