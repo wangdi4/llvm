@@ -121,9 +121,10 @@ static bool ShouldPrintBeforePass(const PassInfo *PI) {
 static bool ShouldPrintAfterPass(const PassInfo *PI) {
   return PrintAfterAll || ShouldPrintBeforeOrAfterPass(PI, PrintAfter);
 }
-#endif // !INTEL_PRODUCT_RELEASE
 
 bool llvm::forcePrintModuleIR() { return PrintModuleScope; }
+
+#endif // !INTEL_PRODUCT_RELEASE
 
 bool llvm::isFunctionInPrintList(StringRef FunctionName) {
 #if INTEL_PRODUCT_RELEASE
