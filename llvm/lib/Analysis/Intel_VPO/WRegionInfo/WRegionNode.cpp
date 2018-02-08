@@ -616,6 +616,9 @@ void WRegionNode::handleQualOpnd(int ClauseID, Value *V) {
   case QUAL_OMP_DEVICE:
     setDevice(V);
     break;
+  case QUAL_OMP_NORMALIZED_IV:
+    getWRNLoopInfo().setNormIV(V);
+    break;
   default:
     llvm_unreachable("Unknown ClauseID in handleQualOpnd()");
   }

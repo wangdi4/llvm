@@ -229,3 +229,9 @@ def "QUAL.OMP.CANCEL.SECTIONS" : Clause;
 def "QUAL.OMP.CANCEL.TASKGROUP" : Clause;
 def "QUAL.OMP.HINT" : Clause;
 def "QUAL.OMP.NAME" : Clause;
+
+// *** Begin Auxiliary Clauses ***
+// These "clauses" don't correspond to actual OpenMP clauses, but are used
+// to carry additional information
+
+def "QUAL.OMP.NORMALIZED.IV" : Clause;
