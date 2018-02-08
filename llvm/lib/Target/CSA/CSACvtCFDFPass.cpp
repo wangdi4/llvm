@@ -60,6 +60,17 @@ static cl::opt<int> UseDynamicPred(
     "CSA Specific: use solely dynamic predicate to generate data flow code"),
   cl::init(0));
 
+static cl::opt<bool> ILPLWaitForAllIncoming(
+  "csa-ilpl-all0-incoming", cl::Hidden,
+  cl::desc("CSA Specific: ILPL codegen: pick based on all0 of new cohorts"),
+  cl::init(true));
+
+static cl::opt<bool> ILPLWaitForAllBack(
+  "csa-ilpl-all0-backedges", cl::Hidden,
+  cl::desc(
+    "CSA Specific: ILPL codegen: pick based on all0 of backedge cohorts"),
+  cl::init(false));
+
 #define DEBUG_TYPE "csa-cvt-cf-df-pass"
 
 namespace llvm {
@@ -116,7 +127,9 @@ public:
   void insertSWITCHForRepeat(MachineLoop *mloop);
   unsigned repeatOperandInLoop(unsigned Reg, MachineLoop *mloop);
   void repeatOperandInLoop(MachineLoop *mloop, MachineInstr *initInst,
-                           unsigned backedgePred);
+                           unsigned backedgePred, bool pickCtrlInverted,
+                           SmallVector<MachineOperand *, 4> *in   = nullptr,
+                           SmallVector<MachineOperand *, 4> *back = nullptr);
   void repeatOperandInLoopUsePred(MachineLoop *mloop, MachineInstr *initInst,
                                   unsigned backedgePred, unsigned exitPred);
   MachineBasicBlock *
@@ -137,9 +150,11 @@ public:
   void replaceLoopHdrPhi(MachineLoop *L);
   void replaceCanonicalLoopHdrPhi(MachineBasicBlock *lhdr);
   void replaceCanonicalLoopHdrPhiPipelined(MachineBasicBlock *mbb,
-                                           unsigned numTokens      = 1,
-                                           bool waitForAllInner    = false,
-                                           bool waitForAllIncoming = false);
+                                           unsigned numTokens = 1);
+  MachineOperand *createUseTree(MachineBasicBlock::iterator before,
+                                unsigned opcode,
+                                const SmallVector<MachineOperand *, 4> vals,
+                                unsigned unusedReg = CSA::IGN);
   bool hasStraightExitings(MachineLoop *mloop);
   void replaceStraightExitingsLoopHdrPhi(MachineBasicBlock *mbb);
   void generateCompletePickTreeForPhi(MachineBasicBlock *);
@@ -704,8 +719,8 @@ void CSACvtCFDFPass::insertSWITCHForIf() {
       MachineBasicBlock *succBB = *isucc;
       // phi in succNode has been processed or generated before
       // if (!succNode->isParent(*DTN)), don't need this as long as we don't
-      // handle phi in its owning blks.  for loop hdr Phi, we still need to
-      // handle back to back instructions in same block:
+      // handle phi in its owning blks.  for loop hdr Phi, we still need to handle
+      // back to back instructions in same block:
       // %y = Phi(%x0, %x)
       // %x = ...
       for (MachineBasicBlock::iterator iPhi = succBB->begin();
@@ -1288,17 +1303,18 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhi(MachineBasicBlock *mbb) {
   MachineBasicBlock::iterator hdrloc = lphdr->begin();
   const unsigned InitOpcode          = TII->getInitOpcode(TRC);
   MachineInstr *initInst             = nullptr;
-  if (CDG->getEdgeType(exitingBB, exitBB, true) ==
-      ControlDependenceNode::FALSE) {
-    initInst = BuildMI(*lphdr, hdrloc, DebugLoc(), TII->get(InitOpcode), cpyReg)
-                 .addImm(0);
-  } else {
+  bool pickCtrlInverted =
+    CDG->getEdgeType(exitingBB, exitBB, true) != ControlDependenceNode::FALSE;
+  if (pickCtrlInverted) {
     initInst = BuildMI(*lphdr, hdrloc, DebugLoc(), TII->get(InitOpcode), cpyReg)
                  .addImm(1);
+  } else {
+    initInst = BuildMI(*lphdr, hdrloc, DebugLoc(), TII->get(InitOpcode), cpyReg)
+                 .addImm(0);
   }
   initInst->setFlag(MachineInstr::NonSequential);
 
-  repeatOperandInLoop(mloop, initInst, predReg);
+  repeatOperandInLoop(mloop, initInst, predReg, pickCtrlInverted);
 
   MachineBasicBlock::iterator iterI = mbb->begin();
   while (iterI != mbb->end()) {
@@ -1345,13 +1361,12 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhi(MachineBasicBlock *mbb) {
     MachineOperand *pickFalse;
     MachineOperand *pickTrue;
     MachineBasicBlock *exitBB = mloop->getExitBlock();
-    if (CDG->getEdgeType(exitingBB, exitBB, true) ==
-        ControlDependenceNode::FALSE) {
-      pickFalse = initInput;
-      pickTrue  = backEdgeInput;
-    } else {
+    if (pickCtrlInverted) {
       pickFalse = backEdgeInput;
       pickTrue  = initInput;
+    } else {
+      pickFalse = initInput;
+      pickTrue  = backEdgeInput;
     }
     TRC                       = MRI->getRegClass(dst);
     const unsigned pickOpcode = TII->makeOpcode(CSA::Generic::PICK, TRC);
@@ -1397,9 +1412,8 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhi(MachineBasicBlock *mbb) {
 // allowed to be in the pipeline at once is determined by the number of values
 // pre-initialized into the "sema" LIC. Currently this pass always just puts a
 // single value in, resulting in no actual pipelinling.
-void CSACvtCFDFPass::replaceCanonicalLoopHdrPhiPipelined(
-  MachineBasicBlock *mbb, unsigned numTokens, bool waitForAllInner,
-  bool waitForAllIncoming) {
+void CSACvtCFDFPass::replaceCanonicalLoopHdrPhiPipelined(MachineBasicBlock *mbb,
+                                                         unsigned numTokens) {
   MachineLoop *mloop = MLI->getLoopFor(mbb);
   assert(mloop->getHeader() == mbb);
   if (mbb->getFirstNonPHI() == mbb->begin())
@@ -1425,7 +1439,7 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhiPipelined(
   const TargetRegisterClass *new_LIC_RC =
     LMFI->licRCFromGenRC(MRI->getRegClass(predReg));
   assert(new_LIC_RC && "Can't determine register class for register");
-  unsigned cpyReg = LMFI->allocateLIC(new_LIC_RC);
+  unsigned cpyReg = LMFI->allocateLIC(new_LIC_RC, "loopCtl");
   assert(mloop->isLoopExiting(latchBB) || latchNode->isParent(exitingNode));
   _unused(latchNode);
   _unused(exitingNode);
@@ -1451,15 +1465,16 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhiPipelined(
   }
   initInst->setFlag(MachineInstr::NonSequential);
 
-  unsigned semaInitReg = LMFI->allocateLIC(&CSA::CI0RegClass);
+  unsigned semaInitReg = LMFI->allocateLIC(&CSA::CI0RegClass, "sema");
+  LMFI->setLICDepth(semaInitReg, numTokens);
   for (unsigned i = 0; i < numTokens; i++)
     BuildMI(*lphdr, hdrloc, DebugLoc(), TII->get(InitOpcode), semaInitReg)
       .addImm(0)
       .setMIFlag(MachineInstr::NonSequential);
 
-  repeatOperandInLoop(mloop, initInst, predReg);
-
   SmallVector<MachineOperand *, 4> newGang, backGang;
+  repeatOperandInLoop(mloop, initInst, predReg, pickCtrlInverted, &newGang,
+                      &backGang);
 
   MachineBasicBlock::iterator iterI = mbb->begin();
   while (iterI != mbb->end()) {
@@ -1553,47 +1568,35 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhiPipelined(
     }
   }
 
-  MachineOperand &newPulse  = *newGang[0];
-  MachineOperand &backPulse = *backGang[0];
+  MachineOperand *newPulse  = newGang[0];
+  MachineOperand *backPulse = backGang[0];
 
-  if (waitForAllIncoming) {
-    assert(newGang.size() <= 4);
-    MachineInstrBuilder newGangAll =
-      BuildMI(*mbb, initInst, initInst->getDebugLoc(), TII->get(CSA::ALL0),
-              LMFI->allocateLIC(&CSA::CI0RegClass));
-    for (MachineOperand *g : newGang)
-      newGangAll.add(*g);
-    while (newGangAll->getNumOperands() < 5)
-      newGangAll.addReg(CSA::IGN);
-    newGangAll.setMIFlag(MachineInstr::NonSequential);
-    newGangAll->dump();
-    newPulse = newGangAll->getOperand(0);
+  if (ILPLWaitForAllIncoming) {
+    newPulse = createUseTree(initInst, CSA::ALL0, newGang);
+    LMFI->setLICName(newPulse->getReg(), "newAll");
   }
 
-  if (waitForAllInner) {
-    assert(backGang.size() <= 4);
-    MachineInstrBuilder backGangAll =
-      BuildMI(*mbb, initInst, initInst->getDebugLoc(), TII->get(CSA::ALL0),
-              LMFI->allocateLIC(&CSA::CI0RegClass));
-    for (MachineOperand *g : backGang)
-      backGangAll.add(*g);
-    while (backGangAll->getNumOperands() < 5)
-      backGangAll.addReg(CSA::IGN);
-    backGangAll.setMIFlag(MachineInstr::NonSequential);
-    backGangAll->dump();
-    backPulse = backGangAll->getOperand(0);
+  if (ILPLWaitForAllBack) {
+    backPulse = createUseTree(initInst, CSA::ALL0, backGang);
+    LMFI->setLICName(backPulse->getReg(), "backAll");
+  }
+
+  // Add buffering to backedges.
+  for (MachineOperand *g : backGang) {
+    assert(g->isReg() && "Unexpected non-LIC backedge in inner loop pipeline");
+    LMFI->setLICDepth(g->getReg(), 32);
+    LMFI->setLICName(g->getReg(), "backEdge");
   }
 
   MachineInstrBuilder newGated =
-    BuildMI(*mbb, initInst, initInst->getDebugLoc(), TII->get(CSA::PICK0),
-            LMFI->allocateLIC(&CSA::CI0RegClass))
+    BuildMI(*mbb, initInst, initInst->getDebugLoc(), TII->get(CSA::GATE0),
+            LMFI->allocateLIC(&CSA::CI0RegClass, "newGated"))
       .addReg(semaInitReg)
-      .addReg(newPulse.getReg())
-      .addReg(CSA::IGN)
+      .addReg(newPulse->getReg())
       .setMIFlag(MachineInstr::NonSequential);
 
   unsigned firstPrio          = newGated->getOperand(0).getReg();
-  unsigned secondPrio         = backPulse.getReg();
+  unsigned secondPrio         = backPulse->getReg();
   MachineInstrBuilder pickany = BuildMI(*mbb, initInst, initInst->getDebugLoc(),
                                         TII->get(CSA::PICKANY0), CSA::IGN)
                                   .addDef(cpyReg)
@@ -1602,7 +1605,8 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhiPipelined(
                                   .setMIFlag(MachineInstr::NonSequential);
 
   if (pickCtrlInverted) {
-    pickany->getOperand(1).setReg(LMFI->allocateLIC(&CSA::CI1RegClass));
+    pickany->getOperand(1).setReg(
+      LMFI->allocateLIC(&CSA::CI1RegClass, "notLoopCtl"));
     BuildMI(*mbb, initInst, initInst->getDebugLoc(), TII->get(CSA::NOT1),
             cpyReg)
       .addReg(pickany->getOperand(1).getReg())
@@ -1627,6 +1631,58 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhiPipelined(
 
   cpyInst->eraseFromParent();
   initInst->eraseFromParent();
+}
+
+// Utility function to create a tree of uses. For example, it can create
+// ANY/ALL/MERGE trees from a collection of operands. The "unusedReg" value
+// defaults to IGN.
+MachineOperand *CSACvtCFDFPass::createUseTree(
+  MachineBasicBlock::iterator before, unsigned opcode,
+  const SmallVector<MachineOperand *, 4> vals, unsigned unusedReg) {
+
+  unsigned n = vals.size();
+  assert(n && "Can't combine 0 values");
+  MCInstrDesc id = TII->get(opcode);
+  // Ensure that this is an op that we can build some kind of 1-to-N tree out
+  // of.
+  assert(id.getNumDefs() == 1 && id.getNumOperands() > 2 &&
+         "Don't know how to build a tree out of this opcode");
+  unsigned radix                    = id.getNumOperands() - id.getNumDefs();
+  const TargetRegisterClass *outTRC = LMFI->licRCFromGenRC(
+    TII->getRegClass(id, 0, TRI, *before->getParent()->getParent()));
+
+  // If one left, we're done.
+  if (n == 1)
+    return vals[0];
+
+  // Make our own set of vals to track.
+  SmallVector<MachineOperand *, 4> fewerVals;
+
+  // Create a new element to combine some of the others.
+  MachineInstrBuilder next =
+    BuildMI(*before->getParent(), before, before->getDebugLoc(),
+            TII->get(opcode), LMFI->allocateLIC(outTRC));
+  next.setMIFlag(MachineInstr::NonSequential);
+
+  // vals will be partitioned into those items being combined and those items
+  // which remain.
+  for (unsigned j = 0; j < n; ++j) {
+    if (j < radix)
+      next.addReg(vals[j]->getReg());
+    else
+      fewerVals.push_back(vals[j]);
+  }
+
+  // Ensure the new instruction has enough ops
+  while (next->getNumOperands() < radix + 1)
+    next.addReg(CSA::IGN);
+
+  // Add the new item to be combined. Putting this at the back of the list
+  // helps balance.
+  fewerVals.push_back(&next->getOperand(0));
+
+  // Run again on the smaller vector.
+  return createUseTree(before, opcode, fewerVals, unusedReg);
 }
 
 // single latch, straitht line exitings blks
@@ -3092,12 +3148,13 @@ void CSACvtCFDFPass::generateDynamicPreds(MachineLoop *L) {
   }
 }
 
-void CSACvtCFDFPass::repeatOperandInLoop(MachineLoop *mloop,
-                                         MachineInstr *initInst,
-                                         unsigned backedgePred) {
-  unsigned predReg           = 0;
-  bool flipBackedgePred      = false;
-  unsigned predConst         = initInst->getOperand(1).getImm();
+void CSACvtCFDFPass::repeatOperandInLoop(
+  MachineLoop *mloop, MachineInstr *initInst, unsigned backedgePred,
+  bool flipBackedgePred, SmallVector<MachineOperand *, 4> *repeatIn,
+  SmallVector<MachineOperand *, 4> *repeatBack) {
+
+  unsigned pickCtlReg = initInst->getOperand(0).getReg();
+
   MachineBasicBlock *lphdr   = mloop->getHeader();
   MachineBasicBlock *latchBB = mloop->getLoopLatch();
   // pick
@@ -3146,20 +3203,16 @@ void CSACvtCFDFPass::repeatOperandInLoop(MachineLoop *mloop,
               (!hasAllConstantInputs(dMI) || MLI->getLoopFor(DefBB) == NULL) &&
               "const prop failed");
 
-            if (!predReg) {
-              predReg = initInst->getOperand(0).getReg();
-              if (predConst) {
-                flipBackedgePred = true;
-              }
-            }
-
             const TargetRegisterClass *TRC = MRI->getRegClass(Reg);
-            unsigned rptIReg               = MRI->createVirtualRegister(TRC);
-            unsigned rptOReg               = MRI->createVirtualRegister(TRC);
+            unsigned rptIReg = LMFI->allocateLIC(TRC, "rptBackEdge");
+            unsigned rptOReg = LMFI->allocateLIC(TRC, "rptOut");
+            if (repeatIn) {
+              repeatIn->push_back(dMI->findRegisterDefOperand(Reg));
+            }
             unsigned pickTrue, pickFalse;
             const unsigned pickOpcode =
               TII->makeOpcode(CSA::Generic::PICK, TRC);
-            if (predConst) {
+            if (flipBackedgePred) {
               pickTrue  = Reg;
               pickFalse = rptIReg;
             } else {
@@ -3169,7 +3222,7 @@ void CSACvtCFDFPass::repeatOperandInLoop(MachineLoop *mloop,
             MachineInstr *pickInst =
               BuildMI(*lphdr, lphdr->getFirstTerminator(), DebugLoc(),
                       TII->get(pickOpcode), rptOReg)
-                .addReg(predReg)
+                .addReg(pickCtlReg)
                 .addReg(pickFalse)
                 .addReg(pickTrue);
             pickInst->setFlag(MachineInstr::NonSequential);
@@ -3191,6 +3244,10 @@ void CSACvtCFDFPass::repeatOperandInLoop(MachineLoop *mloop,
                              .addReg(rptIReg, RegState::Define)
                              .addReg(backedgePred)
                              .addReg(rptOReg);
+            }
+            if (repeatBack) {
+              repeatBack->push_back(
+                switchInst->findRegisterDefOperand(rptIReg));
             }
             switchInst->setFlag(MachineInstr::NonSequential);
             repeats.insert(switchInst);
@@ -3273,7 +3330,7 @@ void CSACvtCFDFPass::repeatOperandInLoopUsePred(MachineLoop *mloop,
               "const prop failed");
 #if 0
             if (hasAllConstantInputs(dMI)) {
-              //has to be root mov 1 pred instr
+			  //has to be root mov 1 pred instr
               assert(!dMI->getFlag(MachineInstr::NonSequential));
               continue;
             }
@@ -3326,8 +3383,8 @@ void CSACvtCFDFPass::repeatOperandInLoopUsePred(MachineLoop *mloop,
                 if (mloop->isLoopExiting(UseBB) &&
                     !mloop->isLoopExiting(latchBB)) {
                   // closed loop latch can cause CDG relationship reversed --
-                  // exits control everything connected to latch,  need switch
-                  // to guard channel overflow
+                  // exits control everything connected to latch,  need switch to
+                  // guard channel overflow
                   unsigned pbb    = getBBPred(UseBB);
                   unsigned rptReg = MRI->createVirtualRegister(TRC);
                   MachineInstr *switchInst =
