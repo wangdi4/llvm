@@ -58,6 +58,12 @@ static cl::opt<bool> IgnoreAnnotations{
            "memop ordering."),
   cl::init(false)};
 
+static cl::opt<bool> IgnoreIntDeps{
+  "csa-memop-ordering-explicit-internal-deps", cl::Hidden,
+  cl::desc("CSA-specific: Explicitly enforce internal dependencies during "
+           "memop ordering."),
+  cl::init(false)};
+
 static cl::opt<bool> ViewPreOrderingMemopCFG(
   "csa-view-pre-ordering-memop-cfg", cl::Hidden,
   cl::desc("CSA-specific: view memop CFG before memory ordering, to help debug "
@@ -242,6 +248,11 @@ struct MemopCFG {
 
     // The inputs to this merge, in sorted order.
     SmallVector<OrdToken, MERGE_ARITY> inputs;
+
+    // Must-merge and may-merge sets for determining which merges this one can
+    // be combined with without introducing any extra memory ordering
+    // constraints.
+    DepVec must_merge, may_merge;
 
     // The latest possible location that this merge can be put relative to the
     // memops. If it doesn't need to go before any of the memops in its node,
@@ -501,6 +512,9 @@ struct MemopCFG {
     // Whether this node is non-strictly dominated by another one.
     bool nonstrictly_dominated_by(const Node *) const;
 
+    // The lowest common dominator of this node and another one.
+    const Node *lowest_common_dominator(const Node *) const;
+
     // Obtains the depset entry corresponding to back_loop. Since all of those
     // allocated ahead of time, there's no risk of invalidating the reference
     // returned by this function.
@@ -553,10 +567,12 @@ struct MemopCFG {
     // dependencies calculated for it.
     void construct_chains();
 
-    // Inserts merges and phi nodes as needed to produce an equivalent value to
-    // the the given DepVec before the memop at memop_idx in this node (or at
-    // the end if memop_idx is memops.size()).
-    OrdToken insert_merges_and_phis(DepVec &, int memop_idx);
+    // Inserts merges and phi nodes as needed to satisfy the dependencies in
+    // must before the memop at memop_idx in this node (or at the end if
+    // memop_idx is memops.size()). Dependencies in may are also allowed to be
+    // merged in if it helps with CSE.
+    OrdToken insert_merges_and_phis(DepVec &must, const DepVec &may,
+                                    int memop_idx);
 
     // Expands each merge into a tree of MERGE_ARITY-ary merges.
     void expand_merge_trees();
@@ -587,6 +603,16 @@ struct MemopCFG {
 
     // Whether this loop contains a given node.
     bool contains(const Node *) const;
+
+    // Collects internal dependencies of a memop around this loop's backedge(s).
+    void collect_internal_deps(const Dep &memop) const;
+
+  private:
+    // Determines the set of PHIBits leading to memop at a node in this loop
+    // without traversing backedges. reach_cache keeps track of deps that were
+    // already computed to avoid extra work.
+    DepVec reachable_internal_deps(Node *, const Dep &memop,
+                                   std::map<Node *, DepVec> &reach_cache) const;
   };
 
   // The collection of nodes in this MemopCFG. In general, these will be
@@ -616,17 +642,6 @@ struct MemopCFG {
   void load(MachineFunction &, AAResults *, const MachineDominatorTree *,
             const MachineLoopInfo *, bool use_parallel_sections);
 
-  // Performs a topological sort of the nodes. This is called inside of load.
-  void topological_sort();
-
-  // Recursively collects loop information to build the loops array. This is
-  // also called inside of load.
-  void collect_loops(const MachineLoop *);
-
-  // Determines implicit dependencies. These aren't really implemented yet, so
-  // this currently does nothing. It is also called inside of load.
-  void calculate_imp_deps();
-
   // Unloads/erases the currently-loaded graph.
   void clear();
 
@@ -641,6 +656,17 @@ struct MemopCFG {
 
   // Dumps the memory ordering chains for each memop.
   void dump_ordering_chains(raw_ostream &);
+
+private:
+  // Performs a topological sort of the nodes. This is called inside of load.
+  void topological_sort();
+
+  // Recursively collects loop information to build the loops array. This is
+  // also called inside of load.
+  void collect_loops(const MachineLoop *);
+
+  // Determines implicit dependencies. Also called inside of load.
+  void calculate_imp_deps();
 };
 
 // A pass for filling out memory ordering operands on memory operations. Full
@@ -681,7 +707,8 @@ private:
 // token values.
 bool operator<(const MemopCFG::Dep &a, const MemopCFG::Dep &b) {
 
-  // Order by owning node first.
+  // Order topologically by owning node first. The chain construction code
+  // heavily exploits this ordering when splitting up and delegating deps.
   if (a.node->topo_num < b.node->topo_num)
     return true;
   if (b.node->topo_num < a.node->topo_num)
@@ -721,6 +748,17 @@ bool operator==(const MemopCFG::OrdToken &a, const MemopCFG::OrdToken &b) {
 bool operator!=(const MemopCFG::OrdToken &a, const MemopCFG::OrdToken &b) {
   return not(a == b);
 }
+
+// It's often useful to search for deps by node; this functor can be used for
+// doing that with lower_bound and upper_bound.
+struct comp_dep_by_node {
+  bool operator()(const MemopCFG::Dep &dep, const MemopCFG::Node *node) const {
+    return MemopCFG::Node::topo_order{}(dep.node, node);
+  }
+  bool operator()(const MemopCFG::Node *node, const MemopCFG::Dep &dep) const {
+    return MemopCFG::Node::topo_order{}(node, dep.node);
+  }
+};
 
 // -- Various output operators for diagnostics --
 
@@ -795,6 +833,25 @@ raw_ostream &operator<<(raw_ostream &out, const MemopCFG::Merge &merge) {
   for (const MemopCFG::OrdToken &merged : merge.inputs) {
     out << (first ? " " : ", ") << merged;
     first = false;
+  }
+  if (not merge.may_merge.empty()) {
+    MemopCFG::DepVec may_diff;
+    may_diff.reserve(merge.may_merge.size() - merge.must_merge.size());
+    set_difference(begin(merge.may_merge), end(merge.may_merge),
+                   begin(merge.must_merge), end(merge.must_merge),
+                   back_inserter(may_diff));
+    first = true;
+    out << " (";
+    for (const MemopCFG::Dep &must_merged : merge.must_merge) {
+      out << (first ? "" : ", ") << must_merged;
+      first = false;
+    }
+    first = true;
+    for (const MemopCFG::Dep &may_merged : may_diff) {
+      out << (first ? " | " : ", ") << may_merged;
+      first = false;
+    }
+    out << ")";
   }
   if (merge.delayed_emit_idx)
     out << " [" << merge.delayed_emit_idx << "]";
@@ -878,6 +935,13 @@ raw_ostream &operator<<(raw_ostream &out, const MemopCFG::Node &node) {
   for (const Node *const succ : node.succs)
     out << " " << succ->topo_num;
   return out << "\n";
+}
+
+raw_ostream &operator<<(raw_ostream &out, const MemopCFG::Loop &loop) {
+  if (loop.nodes.empty())
+    return out << "-";
+  return out << loop.nodes.front()->topo_num << "-"
+             << loop.nodes.back()->topo_num;
 }
 
 raw_ostream &operator<<(raw_ostream &out, const MemopCFG &cfg) {
@@ -1593,6 +1657,33 @@ bool MemopCFG::Node::nonstrictly_dominated_by(const Node *possi_dom) const {
   return this == possi_dom or dominated_by(possi_dom);
 }
 
+// A helper function to determine the "dominator depth" of a node, which is
+// equivalent to the number of nodes that (non-strictly) dominate it.
+static int dom_depth(const MemopCFG::Node *node) {
+  int dom_depth = 0;
+  while (node)
+    node = node->dominator, ++dom_depth;
+  return dom_depth;
+}
+
+const MemopCFG::Node *
+MemopCFG::Node::lowest_common_dominator(const Node *that) const {
+  int depth_diff           = dom_depth(this) - dom_depth(that);
+  const Node *this_matched = this, *that_matched = that;
+  if (depth_diff > 0) {
+    while (depth_diff--)
+      this_matched = this_matched->dominator;
+  } else {
+    while (depth_diff++)
+      that_matched = that_matched->dominator;
+  }
+  while (this_matched != that_matched) {
+    this_matched = this_matched->dominator;
+    that_matched = that_matched->dominator;
+  }
+  return this_matched;
+}
+
 MemopCFG::Node::DepSetEntry &MemopCFG::Node::get_depset(const Loop *back_loop) {
   return depsets[back_loop ? back_loop->depth : 0];
 }
@@ -1671,12 +1762,60 @@ MemopCFG::OrdToken MemopCFG::Node::get_merge(Merge &&merge) {
   for (Node *cur_dom = this; cur_dom; cur_dom = cur_dom->dominator) {
     for (int merge_idx = 0; merge_idx != int(cur_dom->merges.size());
          ++merge_idx) {
-      if (cur_dom->merges[merge_idx].inputs == merge.inputs) {
-        if (cur_dom == this and merges[merge_idx].memop_idx > merge.memop_idx) {
-          merges[merge_idx].memop_idx = merge.memop_idx;
-        }
-        return {cur_dom, OrdToken::merge, merge_idx};
+      Merge &cand = cur_dom->merges[merge_idx];
+
+      // If there's a may_merge set, matches are valid if each merge's
+      // must_merge set is a subset of the other's may_merge set.
+      if (not merge.may_merge.empty()) {
+        if (not includes(begin(merge.may_merge), end(merge.may_merge),
+                         begin(cand.must_merge), end(cand.must_merge)))
+          continue;
+        if (not includes(begin(cand.may_merge), end(cand.may_merge),
+                         begin(merge.must_merge), end(merge.must_merge)))
+          continue;
       }
+
+      // Otherwise, the inputs must match exactly.
+      else {
+        if (cand.inputs != merge.inputs)
+          continue;
+      }
+
+      // If the merges are compatible and matched by must/may merge sets, the
+      // combined one must have inputs and must_merge sets which are the unions
+      // of the originals and a may_merge set that is the intersection of the
+      // originals. Otherwise, the input sets already match so no further work
+      // is needed.
+      if (not merge.may_merge.empty()) {
+        decltype(cand.inputs) new_inputs;
+        new_inputs.reserve(max(cand.inputs.size(), merge.inputs.size()));
+        set_union(begin(cand.inputs), end(cand.inputs), begin(merge.inputs),
+                  end(merge.inputs), back_inserter(new_inputs));
+        cand.inputs = move(new_inputs);
+
+        decltype(cand.must_merge) new_must_merge;
+        new_must_merge.reserve(
+          max(cand.must_merge.size(), merge.must_merge.size()));
+        set_union(begin(cand.must_merge), end(cand.must_merge),
+                  begin(merge.must_merge), end(merge.must_merge),
+                  back_inserter(new_must_merge));
+        cand.must_merge = move(new_must_merge);
+
+        decltype(cand.may_merge) new_may_merge;
+        new_may_merge.reserve(
+          min(cand.may_merge.size(), merge.may_merge.size()));
+        set_intersection(begin(cand.may_merge), end(cand.may_merge),
+                         begin(merge.may_merge), end(merge.may_merge),
+                         back_inserter(new_may_merge));
+        cand.may_merge = move(new_may_merge);
+      }
+
+      // Also move the matched merge earlier if needed.
+      if (cur_dom == this and cand.memop_idx > merge.memop_idx) {
+        cand.memop_idx = merge.memop_idx;
+      }
+
+      return {cur_dom, OrdToken::merge, merge_idx};
     }
   }
 
@@ -1781,8 +1920,7 @@ bool MemopCFG::Node::calculate_deps(const Loop *loop) {
   tips.erase(unique(begin(tips), end(tips)), end(tips));
 
   if (loop) {
-    DEBUG(dbgs() << loop->depth << " " << loop->nodes.front()->topo_num << "-"
-                 << loop->nodes.back()->topo_num << " ");
+    DEBUG(dbgs() << loop->depth << " " << *loop << " ");
   } else
     DEBUG(dbgs() << "0 - ");
   DEBUG(dbgs() << topo_num << ": " << tips.size() << "\n");
@@ -2118,14 +2256,24 @@ void MemopCFG::Node::step_forwards(const Node *memop_node, const Loop *ord_loop,
 void MemopCFG::Node::construct_chains() {
   using namespace std;
   for (int memop_idx = 0; memop_idx != int(memops.size()); ++memop_idx) {
-    memops[memop_idx].ready =
-      insert_merges_and_phis(memops[memop_idx].exp_deps, memop_idx);
+    DepVec &exp_deps = memops[memop_idx].exp_deps;
+    DepVec &imp_deps = memops[memop_idx].imp_deps;
+    DepVec may;
+    may.reserve(exp_deps.size() + imp_deps.size());
+    set_union(begin(exp_deps), end(exp_deps), begin(imp_deps), end(imp_deps),
+              back_inserter(may));
+    memops[memop_idx].ready = insert_merges_and_phis(exp_deps, may, memop_idx);
   }
 }
 
-MemopCFG::OrdToken MemopCFG::Node::insert_merges_and_phis(DepVec &deps,
+MemopCFG::OrdToken MemopCFG::Node::insert_merges_and_phis(DepVec &must,
+                                                          const DepVec &may,
                                                           int memop_idx) {
   using namespace std;
+
+  // Figure out where the may deps for this node start.
+  const auto this_may_beg =
+    lower_bound(begin(may), end(may), this, comp_dep_by_node{});
 
   // The merge that is being constructed.
   Merge merge;
@@ -2133,57 +2281,89 @@ MemopCFG::OrdToken MemopCFG::Node::insert_merges_and_phis(DepVec &deps,
 
   // Separate out phibits that aren't in this node and have those nodes handle
   // them instead.
-  const auto external_phibit_split =
-    partition(begin(deps), end(deps), [this](const Dep &dep) {
+  const auto ext_phi_split =
+    partition(begin(must), end(must), [this](const Dep &dep) {
       return dep.type != Dep::phibit or dep.node == this;
     });
-  if (external_phibit_split != end(deps)) {
-    sort(external_phibit_split, end(deps));
+  if (ext_phi_split != end(must)) {
+    sort(ext_phi_split, end(must));
+
+    // Iterate each node that has phibits from the must set and extract those
+    // phibits. Since deps order topologically by node, all of the must phibits
+    // for each node appear contiguously. Note that each of these nodes must
+    // dominate the current one.
     SmallVector<OrdToken, LIVE_DEP_COUNT> ext_phis;
-    for (auto exb = external_phibit_split; exb != end(deps);) {
-      const auto exe = find_if(exb, end(deps), [exb](const Dep &dep) {
-        return dep.node != exb->node;
-      });
-      DepVec external_deps{exb, exe};
-      ext_phis.push_back(exb->node->insert_merges_and_phis(
-        external_deps, exb->node->memops.size()));
-      exb = exe;
+    for (auto ext_must_beg = ext_phi_split; ext_must_beg != end(must);) {
+      Node *dom = ext_must_beg->node;
+      const auto ext_must_end =
+        upper_bound(ext_must_beg, end(must), dom, comp_dep_by_node{});
+      DepVec ext_must{ext_must_beg, ext_must_end};
+
+      // For the may set, pass along every value from nodes up to dom in order.
+      // Since these nodes (including dom) all dominate the current node and
+      // none of them appears after dom in topological order, these nodes must
+      // all (nonstrictly) dominate dom.
+      const auto ext_may_end =
+        upper_bound(begin(may), this_may_beg, dom, comp_dep_by_node{});
+      DepVec ext_may{begin(may), ext_may_end};
+
+      ext_phis.push_back(
+        dom->insert_merges_and_phis(ext_must, ext_may, dom->memops.size()));
+
+      ext_must_beg = ext_must_end;
     }
-    deps.erase(external_phibit_split, end(deps));
     merge.inputs.append(begin(ext_phis), end(ext_phis));
   }
 
   // Separate out phibits for each predecessor and recurse to handle those.
   PHI phi;
-  const auto phibit_split =
-    partition(begin(deps), end(deps),
+  const auto phi_split =
+    partition(begin(must), ext_phi_split,
               [](const Dep &dep) { return dep.type != Dep::phibit; });
-  if (phibit_split != end(deps)) {
+  if (phi_split != ext_phi_split) {
     for (Node *const pred : preds) {
-      DepVec pred_deps;
-      for (auto it = phibit_split; it != end(deps); ++it) {
+      DepVec pred_must;
+      for (auto it = phi_split; it != ext_phi_split; ++it) {
         assert(it->type == Dep::phibit and it->node == this);
         if (phibits[it->idx].pred == pred) {
-          pred_deps.push_back(phibits[it->idx].dep);
+          pred_must.push_back(phibits[it->idx].dep);
         }
       }
+
+      // The may set should include everything up to this node's common
+      // dominator with pred along with the matching phibits from this node.
+      DepVec pred_may;
+      const Node *const common_dom = lowest_common_dominator(pred);
+      if (common_dom) {
+        const auto may_dom_end =
+          upper_bound(begin(may), this_may_beg, common_dom, comp_dep_by_node{});
+        pred_may.assign(begin(may), may_dom_end);
+      }
+      for (auto it = this_may_beg; it != end(may); ++it) {
+        if (it->type == Dep::phibit and phibits[it->idx].pred == pred) {
+          pred_may.push_back(phibits[it->idx].dep);
+        }
+      }
+      sort(begin(pred_may), end(pred_may));
+
       phi.inputs.push_back(
-        pred->insert_merges_and_phis(pred_deps, pred->memops.size()));
+        pred->insert_merges_and_phis(pred_must, pred_may, pred->memops.size()));
     }
-    deps.erase(phibit_split, end(deps));
     merge.inputs.push_back(get_phi(move(phi)));
   }
 
-  // Translate the remaining dependencies in deps to the merge inputs.
-  transform(begin(deps), end(deps), back_inserter(merge.inputs),
+  // Translate the remaining dependencies in must to the merge inputs.
+  transform(begin(must), phi_split, back_inserter(merge.inputs),
             [](const Dep &dep) {
               assert(dep.type == Dep::memop);
               return OrdToken{dep.node, OrdToken::memop, dep.idx};
             });
-  deps.clear();
 
   // Make a merge.
   sort(begin(merge.inputs), end(merge.inputs));
+  sort(begin(must), end(must));
+  swap(merge.must_merge, must);
+  merge.may_merge = may;
   return get_merge(move(merge));
 }
 
@@ -2194,6 +2374,9 @@ void MemopCFG::Node::expand_merge_trees() {
   SmallVector<OrdToken, MERGE_ARITY> new_inputs;
   const int orig_merge_count = merges.size();
   for (int merge_idx = 0; merge_idx != orig_merge_count; ++merge_idx) {
+
+    // Clear the merge's must and may merge sets.
+    merges[merge_idx].must_merge.clear(), merges[merge_idx].may_merge.clear();
 
     // If a merge is already small enough, there's no reason to expand it to a
     // tree.
@@ -2412,6 +2595,62 @@ bool MemopCFG::Loop::contains(const Node *node) const {
   return binary_search(begin(nodes), end(nodes), node, Node::topo_order{});
 }
 
+void MemopCFG::Loop::collect_internal_deps(const Dep &memop) const {
+  using namespace std;
+  using namespace std::placeholders;
+  assert(memop.type == Dep::memop);
+  DepVec &imp_deps = memop.node->memops[memop.idx].imp_deps;
+  map<Node *, DepVec> reach_cache;
+
+  // Collect internal deps from each latch.
+  Node *const header = nodes.front();
+  for (Node *const latch : header->preds) {
+    if (latch->topo_num < header->topo_num)
+      continue;
+    const DepVec latch_deps =
+      reachable_internal_deps(latch, memop, reach_cache);
+    transform(begin(latch_deps), end(latch_deps), back_inserter(imp_deps),
+              bind(&Node::get_phibit, header, latch, _1));
+  }
+}
+
+MemopCFG::DepVec MemopCFG::Loop::reachable_internal_deps(
+  Node *node, const Dep &memop, std::map<Node *, DepVec> &reach_cache) const {
+  using namespace std;
+  using namespace std::placeholders;
+
+  // If the node isn't in the loop, ignore it.
+  if (not contains(node))
+    return {};
+
+  // If the memop's node dominates this node, just point to it directly.
+  if (node->nonstrictly_dominated_by(memop.node))
+    return {memop};
+
+  // If it's in the cache, just use that value.
+  const auto found = reach_cache.lower_bound(node);
+  if (found != end(reach_cache) and found->first == node)
+    return found->second;
+
+  // Try the node's dominator first.
+  DepVec internal_deps =
+    reachable_internal_deps(node->dominator, memop, reach_cache);
+  if (not internal_deps.empty())
+    return internal_deps;
+
+  // If that didn't work, collect values from the predecessors instead. Ignore
+  // loop backedges.
+  for (Node *const pred : node->preds)
+    if (pred->topo_num < node->topo_num) {
+      const DepVec pred_deps =
+        reachable_internal_deps(pred, memop, reach_cache);
+      transform(begin(pred_deps), end(pred_deps), back_inserter(internal_deps),
+                bind(&Node::get_phibit, node, pred, _1));
+    }
+  reach_cache.emplace_hint(found, node, internal_deps);
+  return internal_deps;
+}
+
 void MemopCFG::load(MachineFunction &MF, AAResults *AA,
                     const MachineDominatorTree *DT, const MachineLoopInfo *MLI,
                     bool use_parallel_sections) {
@@ -2549,6 +2788,18 @@ void MemopCFG::collect_loops(const MachineLoop *L) {
 void MemopCFG::calculate_imp_deps() {
   using namespace std;
 
+  // If we're using internal dependencies, mark all of them.
+  if (not IgnoreIntDeps) {
+    for (const Loop &loop : loops) {
+      for (Node *const node : loop.nodes) {
+        for (int memop_idx = 0; memop_idx != int(node->memops.size());
+             ++memop_idx) {
+          loop.collect_internal_deps({node, Dep::memop, memop_idx});
+        }
+      }
+    }
+  }
+
   /*
   // NOTE: Experimental code for calculating data dependencies. Do not resurrect
   // until we get a good answer as to exactly which ones we are allowed to use.
@@ -2646,6 +2897,15 @@ void MemopCFG::calculate_imp_deps() {
     memop.imp_deps.assign(begin(deps), end(deps));
   }
   */
+
+  for (const unique_ptr<Node> &node : nodes) {
+    for (Memop &memop : node->memops)
+      if (not memop.imp_deps.empty()) {
+        sort(begin(memop.imp_deps), end(memop.imp_deps));
+        memop.imp_deps.erase(unique(begin(memop.imp_deps), end(memop.imp_deps)),
+                             end(memop.imp_deps));
+      }
+  }
 }
 
 void MemopCFG::clear() {
