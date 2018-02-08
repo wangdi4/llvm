@@ -189,9 +189,36 @@ a select or PHI node.
 
 UnsafePointerStore
 ~~~~~~~~~~~~~~~~~~
-This indicates that a pointer that is known to alias to the type for which this
-condition was set was stored to a memory location using a pointer operand that
-was not otherwise known to alias to a pointer to pointer to the type.
+This indicates either that a store instruction was seen where a pointer being
+stored was not known to be compatible with the pointer to the address at which
+it was being stored. This could mean that the value operand and the pointer
+operand (destination) were known to alias to different aggregate types or
+that the one was known to alias to an aggregate type and the other was not.
+
+For example, in the following block, %p1 is an arbitrary pointer with no known
+aliases. After it is stored in the location referenced by %tmp (%p2) any future
+loads from that address will handle it as a %struct.S pointer. Since dtrans
+does not know where the original buffer came from or how it is used, we must
+assume this is unsafe.
+
+.. code-block:: llvm
+
+  define void @f(i8* %p1, %struct.S** %p2) {
+    %tmp = bitcast %struct.S** %p2 to i8**
+    ret void store i8* %p1, i8** %tmp
+  }
+
+In the next example, the value operand %tmp1 (%p1) is known to be incompatible
+with the pointer operand %tmp2 (%p2). In this case, both %struct.A and
+%struct.B will be marked with the UnsafePointerStore condition.
+
+.. code-block:: llvm
+
+  define void @f(%struct.A* %p1, %struct.B** %p2) {
+    %tmp1 = bitcast %struct.A* %p1 to i8*
+    %tmp2 = bitcast %struct.B** %p2 to i8**
+    ret void store i8* %tmp1, i8** %tmp2
+  }
 
 FieldAddressTaken
 ~~~~~~~~~~~~~~~~~
@@ -458,9 +485,10 @@ integer) must also be known to alias to a pointer to that type. Otherwise, the
 pointer operand aliases.
 
 If the pointer operand is known to point to an element within an aggregate
-type, the value being stored must be the same as the size of the element. If it
-does not, the `MismatchedElementAccess`_ safety condition will be set for
-the aggregate type containing the element to which the pointer operand points.
+type, the size of the value being stored must be the same as the size of the
+element. If it does not, the `MismatchedElementAccess`_ safety condition will
+be set for the aggregate type containing the element to which the pointer
+operand points.
 
 If the value operand is known to alias to a type of interest the pointer
 operand must be known to alias to a pointer to that type. If it does not, the
