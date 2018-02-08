@@ -602,11 +602,14 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
   // MDNode for the intel_host_accessible attribute.
   SmallVector<llvm::Metadata*, 8> argHostAccessible;
 
-  // MDNode for the depth attribute for pipes.
+  // MDNode for the intel_depth attribute for pipes.
   SmallVector<llvm::Metadata*, 8> argPipeDepthAttr;
 
   // MDNode for the intel_io attribute.
   SmallVector<llvm::Metadata*, 8> argPipeIOAttr;
+
+  // MDNode for the intel_buffer_location attribute.
+  SmallVector<llvm::Metadata*, 8> argBufferLocationAttr;
 #endif // INTEL_CUSTOMIZATION
   for (unsigned i = 0, e = FD->getNumParams(); i != e; ++i) {
     const ParmVarDecl *parm = FD->getParamDecl(i);
@@ -743,6 +746,13 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
     argPipeIOAttr.push_back(
         (IOAttr) ? llvm::MDString::get(Context, IOAttr->getIOName())
                  : llvm::MDString::get(Context, ""));
+
+    auto *BufferLocationAttr = parm->getAttr<OpenCLBufferLocationAttr>();
+    argBufferLocationAttr.push_back(
+        (BufferLocationAttr)
+            ? llvm::MDString::get(Context,
+                                  BufferLocationAttr->getBufferLocation())
+            : llvm::MDString::get(Context, ""));
 #endif // INTEL_CUSTOMIZATION
   }
 
@@ -763,6 +773,8 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
                   llvm::MDNode::get(Context, argPipeDepthAttr));
   Fn->setMetadata("kernel_arg_pipe_io",
                   llvm::MDNode::get(Context, argPipeIOAttr));
+  Fn->setMetadata("kernel_arg_buffer_location",
+                  llvm::MDNode::get(Context, argBufferLocationAttr));
 #endif // INTEL_CUSTOMIZATION
 
   if (CGM.getCodeGenOpts().EmitOpenCLArgMetadata)

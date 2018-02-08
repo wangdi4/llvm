@@ -3706,8 +3706,7 @@ static void handleOpenCLBufferLocationAttr(Sema & S, Decl * D,
 
   StringRef Str;
   if (!S.checkStringLiteralArgumentAttr(Attr, 0, Str))
-    llvm_unreachable(
-        "argument of buffer_location attribute should be a string");
+    return;
 
   D->addAttr(::new (S.Context) OpenCLBufferLocationAttr(
       Attr.getRange(), S.Context, Str, Attr.getAttributeSpellingListIndex()));

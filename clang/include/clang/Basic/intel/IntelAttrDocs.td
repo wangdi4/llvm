@@ -193,3 +193,23 @@ to identify I/O pipes.
   }];
 }
 
+def OpenCLBufferLocationDocs : Documentation {
+  let Category = DocCatVariable;
+  let Content = [{
+The board support package for your FPGA board can assemble a global memory space
+consisting of different memory technologies (for example, DRAM or SRAM). The
+board support package designates one such memory, which might consist of
+multiple interfaces, as the default memory. All buffers reside there.
+
+To instruct the host to allocate a buffer to a specific global memory type,
+insert the buffer_location("<memory_type>") attribute, where <memory_type> is
+the name of the global memory type provided by your board vendor.
+
+If you do not specify the buffer_location attribute, the host allocates the
+buffer to the default memory type automatically. To determine the default memory
+type, consult the documentation provided by your board vendor. Alternatively, in
+the board_spec.xml file of your Custom Platform, search for the memory type that
+is defined first or has the attribute default=1 assigned to it.
+  }];
+}
+

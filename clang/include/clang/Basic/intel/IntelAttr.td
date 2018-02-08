@@ -423,8 +423,7 @@ def OpenCLBufferLocation : Attr {
   let Spellings = [GNU<"buffer_location">];
   let Args = [StringArgument<"BufferLocation">];
   let Subjects = SubjectList<[ParmVar], ErrorDiag>;
-// FIXME: Add documentation
-  let Documentation = [Undocumented];
+  let Documentation = [OpenCLBufferLocationDocs];
   let LangOpts = [OpenCL];
 }
 
