@@ -158,12 +158,24 @@ private:
 PreservedAnalyses HIRSSADeconstructionPass::run(Function &F,
                                                 FunctionAnalysisManager &AM) {
   HIRSSADeconstruction HSSAD;
-  HSSAD.run(F, AM.getResult<DominatorTreeAnalysis>(F),
+  bool Modified = HSSAD.run(F, AM.getResult<DominatorTreeAnalysis>(F),
             AM.getResult<LoopAnalysis>(F),
             AM.getResult<ScalarEvolutionAnalysis>(F),
             AM.getResult<HIRRegionIdentificationAnalysis>(F),
             AM.getResult<HIRSCCFormationAnalysis>(F));
-  return PreservedAnalyses::all();
+
+  if (!Modified) {
+    return PreservedAnalyses::all();
+  }
+
+  PreservedAnalyses PA;
+  PA.preserve<DominatorTreeAnalysis>();
+  PA.preserve<LoopAnalysis>();
+  PA.preserve<ScalarEvolutionAnalysis>();
+  PA.preserve<HIRRegionIdentificationAnalysis>();
+  PA.preserve<HIRSCCFormationAnalysis>();
+  PA.preserve<AndersensAA>();
+  return PA;
 }
 
 class HIRSSADeconstructionLegacyPass : public FunctionPass {
@@ -181,13 +193,11 @@ public:
     }
 
     HIRSSADeconstruction HSSAD;
-    HSSAD.run(F, getAnalysis<DominatorTreeWrapperPass>().getDomTree(),
-              getAnalysis<LoopInfoWrapperPass>().getLoopInfo(),
-              getAnalysis<ScalarEvolutionWrapperPass>().getSE(),
-              getAnalysis<HIRRegionIdentificationWrapperPass>().getRI(),
-              getAnalysis<HIRSCCFormationWrapperPass>().getSCCF());
-
-    return false;
+    return HSSAD.run(F, getAnalysis<DominatorTreeWrapperPass>().getDomTree(),
+                     getAnalysis<LoopInfoWrapperPass>().getLoopInfo(),
+                     getAnalysis<ScalarEvolutionWrapperPass>().getSE(),
+                     getAnalysis<HIRRegionIdentificationWrapperPass>().getRI(),
+                     getAnalysis<HIRSCCFormationWrapperPass>().getSCCF());
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
