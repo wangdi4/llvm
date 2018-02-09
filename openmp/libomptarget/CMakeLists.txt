@@ -66,7 +66,7 @@ set(LIBOMPTARGET_BASE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 set(LIBOMPTARGET_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
 
 # We need C++11 support.
-if(LIBOMPTARGET_HAVE_STD_CPP11_FLAG)
+#if(LIBOMPTARGET_HAVE_STD_CPP11_FLAG)
   
   libomptarget_say("Building offloading runtime library libomptarget.")
 
@@ -119,6 +119,6 @@ if(LIBOMPTARGET_HAVE_STD_CPP11_FLAG)
   # Add tests.
   add_subdirectory(test)
   
-else(LIBOMPTARGET_HAVE_STD_CPP11_FLAG)
-  libomptarget_say("Not building offloading runtime library libomptarget: host compiler must have c++11 support.")
-endif(LIBOMPTARGET_HAVE_STD_CPP11_FLAG)
+#else(LIBOMPTARGET_HAVE_STD_CPP11_FLAG)
+#  libomptarget_say("Not building offloading runtime library libomptarget: host compiler must have c++11 support.")
+#endif(LIBOMPTARGET_HAVE_STD_CPP11_FLAG)

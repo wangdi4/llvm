@@ -30,7 +30,9 @@ using namespace llvm;
 void AMDGPUInstrInfo::anchor() {}
 
 AMDGPUInstrInfo::AMDGPUInstrInfo(const AMDGPUSubtarget &ST)
-  : AMDGPUGenInstrInfo(-1, -1), ST(ST), AMDGPUASI(ST.getAMDGPUAS()) {}
+  : AMDGPUGenInstrInfo(AMDGPU::ADJCALLSTACKUP, AMDGPU::ADJCALLSTACKDOWN),
+    ST(ST),
+    AMDGPUASI(ST.getAMDGPUAS()) {}
 
 // FIXME: This behaves strangely. If, for example, you have 32 load + stores,
 // the first 16 loads will be interleaved with the stores, and the next 16 will
@@ -68,7 +70,8 @@ enum SIEncodingFamily {
   SI = 0,
   VI = 1,
   SDWA = 2,
-  SDWA9 = 3
+  SDWA9 = 3,
+  GFX9 = 4
 };
 
 // Wrapper for Tablegen'd function.  enum Subtarget is not defined in any
@@ -104,6 +107,11 @@ static SIEncodingFamily subtargetEncodingFamily(const AMDGPUSubtarget &ST) {
 
 int AMDGPUInstrInfo::pseudoToMCOpcode(int Opcode) const {
   SIEncodingFamily Gen = subtargetEncodingFamily(ST);
+
+  if ((get(Opcode).TSFlags & SIInstrFlags::renamedInGFX9) != 0 &&
+    ST.getGeneration() >= AMDGPUSubtarget::GFX9)
+    Gen = SIEncodingFamily::GFX9;
+
   if (get(Opcode).TSFlags & SIInstrFlags::SDWA)
     Gen = ST.getGeneration() == AMDGPUSubtarget::GFX9 ? SIEncodingFamily::SDWA9
                                                       : SIEncodingFamily::SDWA;

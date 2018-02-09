@@ -96,7 +96,7 @@ static __isl_give isl_pw_aff *getWidthExpValOnDomain(unsigned Width,
 }
 
 SCEVAffinator::SCEVAffinator(Scop *S, LoopInfo &LI)
-    : S(S), Ctx(S->getIslCtx()), SE(*S->getSE()), LI(LI),
+    : S(S), Ctx(S->getIslCtx().get()), SE(*S->getSE()), LI(LI),
       TD(S->getFunction().getParent()->getDataLayout()) {}
 
 SCEVAffinator::~SCEVAffinator() {
@@ -122,7 +122,8 @@ void SCEVAffinator::takeNonNegativeAssumption(PWACtx &PWAC) {
   PWAC.second = isl_set_union(PWAC.second, isl_set_copy(NegDom));
   auto *Restriction = BB ? NegDom : isl_set_params(NegDom);
   auto DL = BB ? BB->getTerminator()->getDebugLoc() : DebugLoc();
-  S->recordAssumption(UNSIGNED, Restriction, DL, AS_RESTRICTION, BB);
+  S->recordAssumption(UNSIGNED, isl::manage(Restriction), DL, AS_RESTRICTION,
+                      BB);
 }
 
 __isl_give PWACtx SCEVAffinator::getPWACtxFromPWA(__isl_take isl_pw_aff *PWA) {
@@ -134,7 +135,7 @@ __isl_give PWACtx SCEVAffinator::getPwAff(const SCEV *Expr, BasicBlock *BB) {
   this->BB = BB;
 
   if (BB) {
-    auto *DC = S->getDomainConditions(BB);
+    auto *DC = S->getDomainConditions(BB).release();
     NumIterators = isl_set_n_dim(DC);
     isl_set_free(DC);
   } else
@@ -168,7 +169,8 @@ __isl_give PWACtx SCEVAffinator::checkForWrapping(const SCEV *Expr,
   if (isl_set_is_empty(NotEqualSet))
     isl_set_free(NotEqualSet);
   else
-    S->recordAssumption(WRAPPING, NotEqualSet, Loc, AS_RESTRICTION, BB);
+    S->recordAssumption(WRAPPING, isl::manage(NotEqualSet), Loc, AS_RESTRICTION,
+                        BB);
 
   return PWAC;
 }
@@ -233,7 +235,7 @@ __isl_give PWACtx SCEVAffinator::visit(const SCEV *Expr) {
   // expression, but create a new parameter in the isl_pw_aff. This allows us
   // to treat subexpressions that we cannot translate into an piecewise affine
   // expression, as constant parameters of the piecewise affine expression.
-  if (isl_id *Id = S->getIdForParam(Expr)) {
+  if (isl_id *Id = S->getIdForParam(Expr).release()) {
     isl_space *Space = isl_space_set_alloc(Ctx, 1, NumIterators);
     Space = isl_space_set_dim_id(Space, isl_dim_param, 0, Id);
 
@@ -317,7 +319,8 @@ SCEVAffinator::visitTruncateExpr(const SCEVTruncateExpr *Expr) {
     OutOfBoundsDom = isl_set_params(OutOfBoundsDom);
   }
 
-  S->recordAssumption(UNSIGNED, OutOfBoundsDom, DebugLoc(), AS_RESTRICTION, BB);
+  S->recordAssumption(UNSIGNED, isl::manage(OutOfBoundsDom), DebugLoc(),
+                      AS_RESTRICTION, BB);
 
   return OpPWAC;
 }

@@ -402,7 +402,7 @@ define <4 x float> @test_extend32_vec4(<4 x half>* %p) #0 {
 ; CHECK-LIBCALL-NEXT:    movaps {{[0-9]+}}(%rsp), %xmm0 # 16-byte Reload
 ; CHECK-LIBCALL-NEXT:    unpcklps {{[0-9]+}}(%rsp), %xmm0 # 16-byte Folded Reload
 ; CHECK-LIBCALL-NEXT:    # xmm0 = xmm0[0],mem[0],xmm0[1],mem[1]
-; CHECK-LIBCALL-NEXT:    unpcklpd {{.*#+}} xmm0 = xmm0[0],xmm1[0]
+; CHECK-LIBCALL-NEXT:    movlhps {{.*#+}} xmm0 = xmm0[0],xmm1[0]
 ; CHECK-LIBCALL-NEXT:    addq $48, %rsp
 ; CHECK-LIBCALL-NEXT:    popq %rbx
 ; CHECK-LIBCALL-NEXT:    retq
@@ -457,7 +457,7 @@ define <4 x float> @test_extend32_vec4(<4 x half>* %p) #0 {
 ; CHECK-I686-NEXT:    movss {{.*#+}} xmm2 = mem[0],zero,zero,zero
 ; CHECK-I686-NEXT:    movss {{.*#+}} xmm0 = mem[0],zero,zero,zero
 ; CHECK-I686-NEXT:    unpcklps {{.*#+}} xmm0 = xmm0[0],xmm2[0],xmm0[1],xmm2[1]
-; CHECK-I686-NEXT:    unpcklpd {{.*#+}} xmm0 = xmm0[0],xmm1[0]
+; CHECK-I686-NEXT:    movlhps {{.*#+}} xmm0 = xmm0[0],xmm1[0]
 ; CHECK-I686-NEXT:    addl $56, %esp
 ; CHECK-I686-NEXT:    popl %esi
 ; CHECK-I686-NEXT:    retl
@@ -487,14 +487,14 @@ define <4 x double> @test_extend64_vec4(<4 x half>* %p) #0 {
 ; CHECK-LIBCALL-NEXT:    movss {{[0-9]+}}(%rsp), %xmm0 # 4-byte Reload
 ; CHECK-LIBCALL-NEXT:    # xmm0 = mem[0],zero,zero,zero
 ; CHECK-LIBCALL-NEXT:    cvtss2sd %xmm0, %xmm0
-; CHECK-LIBCALL-NEXT:    unpcklpd {{.*#+}} xmm0 = xmm0[0],xmm1[0]
+; CHECK-LIBCALL-NEXT:    movlhps {{.*#+}} xmm0 = xmm0[0],xmm1[0]
 ; CHECK-LIBCALL-NEXT:    movss {{[0-9]+}}(%rsp), %xmm1 # 4-byte Reload
 ; CHECK-LIBCALL-NEXT:    # xmm1 = mem[0],zero,zero,zero
 ; CHECK-LIBCALL-NEXT:    cvtss2sd %xmm1, %xmm2
 ; CHECK-LIBCALL-NEXT:    movss {{[0-9]+}}(%rsp), %xmm1 # 4-byte Reload
 ; CHECK-LIBCALL-NEXT:    # xmm1 = mem[0],zero,zero,zero
 ; CHECK-LIBCALL-NEXT:    cvtss2sd %xmm1, %xmm1
-; CHECK-LIBCALL-NEXT:    unpcklpd {{.*#+}} xmm1 = xmm1[0],xmm2[0]
+; CHECK-LIBCALL-NEXT:    movlhps {{.*#+}} xmm1 = xmm1[0],xmm2[0]
 ; CHECK-LIBCALL-NEXT:    addq $16, %rsp
 ; CHECK-LIBCALL-NEXT:    popq %rbx
 ; CHECK-LIBCALL-NEXT:    retq
@@ -515,10 +515,10 @@ define <4 x double> @test_extend64_vec4(<4 x half>* %p) #0 {
 ; BWON-F16C-NEXT:    vcvtph2ps %xmm3, %xmm3
 ; BWON-F16C-NEXT:    vcvtss2sd %xmm3, %xmm3, %xmm3
 ; BWON-F16C-NEXT:    vcvtss2sd %xmm2, %xmm2, %xmm2
-; BWON-F16C-NEXT:    vunpcklpd {{.*#+}} xmm2 = xmm2[0],xmm3[0]
+; BWON-F16C-NEXT:    vmovlhps {{.*#+}} xmm2 = xmm2[0],xmm3[0]
 ; BWON-F16C-NEXT:    vcvtss2sd %xmm1, %xmm1, %xmm1
 ; BWON-F16C-NEXT:    vcvtss2sd %xmm0, %xmm0, %xmm0
-; BWON-F16C-NEXT:    vunpcklpd {{.*#+}} xmm0 = xmm0[0],xmm1[0]
+; BWON-F16C-NEXT:    vmovlhps {{.*#+}} xmm0 = xmm0[0],xmm1[0]
 ; BWON-F16C-NEXT:    vinsertf128 $1, %xmm2, %ymm0, %ymm0
 ; BWON-F16C-NEXT:    retq
 ;
@@ -777,7 +777,7 @@ define void @test_trunc64_vec4(<4 x double> %a, <4 x half>* %p) #0 {
 ; BWON-F16C-NEXT:    callq __truncdfhf2
 ; BWON-F16C-NEXT:    movl %eax, %r15d
 ; BWON-F16C-NEXT:    vmovups {{[0-9]+}}(%rsp), %ymm0 # 32-byte Reload
-; BWON-F16C-NEXT:    # kill: %XMM0<def> %XMM0<kill> %YMM0<kill>
+; BWON-F16C-NEXT:    # kill: %xmm0<def> %xmm0<kill> %ymm0<kill>
 ; BWON-F16C-NEXT:    vzeroupper
 ; BWON-F16C-NEXT:    callq __truncdfhf2
 ; BWON-F16C-NEXT:    movl %eax, %ebp

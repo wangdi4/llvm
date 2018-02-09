@@ -1866,6 +1866,7 @@ void MicrosoftCXXNameMangler::mangleType(const BuiltinType *T, Qualifiers,
     Out << "$$T";
     break;
 
+  case BuiltinType::Float16:
   case BuiltinType::Float128:
   case BuiltinType::Half: {
     DiagnosticsEngine &Diags = Context.getDiags();
@@ -2324,13 +2325,15 @@ void MicrosoftCXXNameMangler::mangleType(const PointerType *T, Qualifiers Quals,
   manglePointerExtQualifiers(Quals, PointeeType);
   mangleType(PointeeType, Range);
 }
+
 void MicrosoftCXXNameMangler::mangleType(const ObjCObjectPointerType *T,
                                          Qualifiers Quals, SourceRange Range) {
+  if (T->isObjCIdType() || T->isObjCClassType())
+    return mangleType(T->getPointeeType(), Range, QMM_Drop);
+
   QualType PointeeType = T->getPointeeType();
   manglePointerCVQualifiers(Quals);
   manglePointerExtQualifiers(Quals, PointeeType);
-  // Object pointers never have qualifiers.
-  Out << 'A';
   mangleType(PointeeType, Range);
 }
 
@@ -2427,6 +2430,15 @@ void MicrosoftCXXNameMangler::mangleType(const DependentSizedExtVectorType *T,
     << Range;
 }
 
+void MicrosoftCXXNameMangler::mangleType(const DependentAddressSpaceType *T,
+                                         Qualifiers, SourceRange Range) {
+  DiagnosticsEngine &Diags = Context.getDiags();
+  unsigned DiagID = Diags.getCustomDiagID(
+      DiagnosticsEngine::Error,
+      "cannot mangle this dependent address space type yet");
+  Diags.Report(Range.getBegin(), DiagID) << Range;
+}
+
 void MicrosoftCXXNameMangler::mangleType(const ObjCInterfaceType *T, Qualifiers,
                                          SourceRange) {
   // ObjC interfaces have structs underlying them.
@@ -2438,7 +2450,7 @@ void MicrosoftCXXNameMangler::mangleType(const ObjCObjectType *T, Qualifiers,
                                          SourceRange Range) {
   // We don't allow overloading by different protocol qualification,
   // so mangling them isn't necessary.
-  mangleType(T->getBaseType(), Range);
+  mangleType(T->getBaseType(), Range, QMM_Drop);
 }
 
 void MicrosoftCXXNameMangler::mangleType(const BlockPointerType *T,
