@@ -12404,7 +12404,8 @@ ExprResult Sema::CreateBuiltinUnaryOp(SourceLocation OpLoc,
 #if INTEL_CUSTOMIZATION
     // OpenCL special types - image, sampler and blocks are to be used
     // only with a builtin functions and therefore should be disallowed here.
-        (Ty->isImageType() || Ty->isSamplerT() || Ty->isBlockPointerType())) {
+        (Ty->isImageType() || Ty->isSamplerT() || Ty->isBlockPointerType() ||
+         Ty->isChannelType())) {
 #endif // INTEL_CUSTOMIZATION
       return ExprError(Diag(OpLoc, diag::err_typecheck_unary_expr)
                        << InputExpr->getType()

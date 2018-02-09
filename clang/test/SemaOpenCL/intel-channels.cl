@@ -37,3 +37,19 @@ struct incomplete;
 
 channel struct incomplete ch_arr[10]; // expected-error{{array has incomplete element type '__global channel struct incomplete'}}
 channel struct incomplete ch; // expected-error{{tentative definition has type '__global channel struct incomplete' that is never completed}}
+
+void write_wrapper(__global channel char *inp, char data) {
+  write_channel_intel(*inp, data); // expected-error{{invalid argument type 'channel char *' to unary expression}}
+  void *tmp = &inp; // expected-error{{invalid argument type 'channel char *' to unary expression}}
+}
+
+void read_channel(__global channel int *a) {
+}
+channel char INPUT_CHANNEL;
+__kernel void k3(__global const char *src)
+{
+  char tmp = src[1];
+  write_wrapper(&INPUT_CHANNEL, tmp); // expected-error{{invalid argument type '__global channel char' to unary expression}}
+  read_channel(&arr[1]); // expected-error{{invalid argument type '__global channel int' to unary expression}}
+  read_channel(&multiarr[1][2]); // expected-error{{invalid argument type '__global channel int' to unary expression}}
+}
