@@ -18,7 +18,7 @@
 ; CHECK: goto for.inc;
 ; CHECK-NEXT: for.inc
 
-; RUN: opt < %s -analyze -hir-creation -debug 2>&1 | FileCheck -check-prefix=COST-MODEL %s
+; RUN: opt < %s -analyze -hir-creation -debug-only=hir-region-identification 2>&1 | FileCheck -check-prefix=COST-MODEL %s
 ; COST-MODEL: Loop throttled due to presence of user calls
 
 

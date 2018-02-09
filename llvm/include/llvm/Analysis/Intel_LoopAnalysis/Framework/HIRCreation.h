@@ -1,6 +1,6 @@
 //===----------- HIRCreation.h - Creates HIR nodes ------------*-- C++ --*-===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -35,6 +35,7 @@ class SwitchInst;
 class DominatorTree;
 struct PostDominatorTree;
 class LoopInfo;
+class Loop;
 
 namespace loopopt {
 
@@ -45,7 +46,7 @@ class HLIf;
 class HLSwitch;
 class HIRRegionIdentification;
 
-/// \brief This analysis creates and populates HIR regions with HLNodes using
+/// This analysis creates and populates HIR regions with HLNodes using
 /// the information provided by HIRRegionIdentification pass.
 ///
 class HIRCreation : public FunctionPass {
@@ -93,10 +94,13 @@ private:
   /// Switches - HLSwitches map to be used by later passes.
   SmallDenseMap<HLSwitch *, const BasicBlock *, 8> Switches;
 
-  /// \brief Creates HLNodes corresponding to the terminator of the basic block.
+  /// Maps loops to their early exits.
+  SmallDenseMap<Loop *, SmallVector<BasicBlock *, 4>, 16> EarlyExits;
+
+  /// Creates HLNodes corresponding to the terminator of the basic block.
   HLNode *populateTerminator(BasicBlock *BB, HLNode *InsertionPos);
 
-  /// \brief Creates HLNodes for the instructions in the basic block.
+  /// Creates HLNodes for the instructions in the basic block.
   HLNode *populateInstSequence(BasicBlock *BB, HLNode *InsertionPos);
 
   /// Helper to populate \p EndBBs before calling isReachableFrom().
@@ -111,23 +115,24 @@ private:
   /// the other successors of \p SI.
   bool isCrossLinked(const SwitchInst *SI, const BasicBlock *SuccessorBB) const;
 
-  /// \brief Sorts the dominator children of Node using post dominator
-  /// relationship.
-  void sortDomChildren(DomTreeNode *Node,
+  /// Sorts the dominator children of Node in reverse lexical order.
+  /// Returns true/false based on whether any dominator children belong to
+  /// 'CurRegion'.
+  bool sortDomChildren(DomTreeNode *Node,
                        SmallVectorImpl<BasicBlock *> &SortedChildren) const;
 
-  /// \brief Performs lexical (preorder) walk of the dominator tree for the
+  /// Performs lexical (preorder) walk of the dominator tree for the
   /// region.
   /// Returns the last HLNode for the current sub-tree.
   HLNode *doPreOrderRegionWalk(BasicBlock *BB, HLNode *InsertionPos);
 
-  /// \brief Sets the exit basic block of CurRegion using its last child.
+  /// Sets the exit basic block of CurRegion using its last child.
   void setExitBBlock() const;
 
-  /// \brief Creates HLRegions out of IRRegions.
+  /// Creates HLRegions out of IRRegions.
   void create();
 
-  /// \brief Contains implementation for print().
+  /// Contains implementation for print().
   void printImpl(raw_ostream &OS, bool FrameworkDetais) const;
 
 public:
@@ -157,11 +162,11 @@ public:
   reverse_iterator rend() { return Regions.rend(); }
   const_reverse_iterator rend() const { return Regions.rend(); }
 
-  /// \brief Returns the src bblock associated with this if. Returns null if it
+  /// Returns the src bblock associated with this if. Returns null if it
   /// fails to find one.
   const BasicBlock *getSrcBBlock(HLIf *If) const;
 
-  /// \brief Returns the src bblock associated with this switch. Returns null if
+  /// Returns the src bblock associated with this switch. Returns null if
   /// it fails to find one.
   const BasicBlock *getSrcBBlock(HLSwitch *Switch) const;
 };

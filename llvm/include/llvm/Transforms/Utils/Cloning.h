@@ -196,8 +196,8 @@ public:
   /// get copied into the caller.
   SmallVector<AllocaInst *, 4> StaticAllocas;
 
-  /// INTEL OriginalCalls - InlineFunction fills this in with callsites that 
-  /// INTEL were cloned from the callee.  This is only filled in if CG is 
+  /// INTEL OriginalCalls - InlineFunction fills this in with callsites that
+  /// INTEL were cloned from the callee.  This is only filled in if CG is
   /// INTEL non-null.
   SmallVector<const Value*, 8> OriginalCalls; // INTEL
 
@@ -234,16 +234,22 @@ public:
 /// *inlined* code to minimize the actual inserted code, it must not delete
 /// code in the caller as users of this routine may have pointers to
 /// instructions in the caller that need to remain stable.
+///
+/// If ForwardVarArgsTo is passed, inlining a function with varargs is allowed
+/// and all varargs at the callsite will be passed to any calls to
+/// ForwardVarArgsTo. The caller of InlineFunction has to make sure any varargs
+/// are only used by ForwardVarArgsTo.
 bool InlineFunction(CallInst *C, InlineFunctionInfo &IFI,
                     AAResults *CalleeAAR = nullptr, bool InsertLifetime = true);
 bool InlineFunction(InvokeInst *II, InlineFunctionInfo &IFI,
                     AAResults *CalleeAAR = nullptr, bool InsertLifetime = true);
 bool InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
-                    AAResults *CalleeAAR = nullptr, bool InsertLifetime = true);
+                    AAResults *CalleeAAR = nullptr, bool InsertLifetime = true,
+                    Function *ForwardVarArgsTo = nullptr);
 
 #if INTEL_CUSTOMIZATION
-/// The Intel version computes the InlineReason indicating the prinicipal 
-/// reason the function was or was not inlined. 
+/// The Intel version computes the InlineReason indicating the principal
+/// reason the function was or was not inlined.
 ///
 bool InlineFunction(CallInst *C, InlineFunctionInfo &IFI,
                     InlineReportTypes::InlineReason* Reason,
@@ -253,7 +259,8 @@ bool InlineFunction(InvokeInst *II, InlineFunctionInfo &IFI,
                     AAResults *CalleeAAR = nullptr, bool InsertLifetime = true);
 bool InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
                     InlineReportTypes::InlineReason* Reason,
-                    AAResults *CalleeAAR = nullptr, bool InsertLifetime = true);
+                    AAResults *CalleeAAR = nullptr, bool InsertLifetime = true,
+                    Function *ForwardVarArgsTo = nullptr);
 #endif // INTEL_CUSTOMIZATION
 
 /// \brief Clones a loop \p OrigLoop.  Returns the loop and the blocks in \p

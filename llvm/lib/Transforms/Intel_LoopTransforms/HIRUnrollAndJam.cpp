@@ -1,6 +1,6 @@
 //===----- HIRUnrollAndJam.cpp - Implements UnrollAndJam class ------------===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -65,9 +65,10 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/DDTests.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLocalityAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopResource.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
@@ -123,9 +124,9 @@ namespace unroll {
 void unrollLoop(HLLoop *Loop, unsigned UnrollFactor) {
   unrollLoopImpl(Loop, UnrollFactor, nullptr);
 }
-}
-}
-}
+} // namespace unroll
+} // namespace loopopt
+} // namespace llvm
 
 namespace {
 
@@ -137,7 +138,7 @@ private:
   unsigned UnrollCnt;
 
   void processRegDDRef(RegDDRef *RegDD);
-  void processCanonExpr(CanonExpr *CExpr, bool IsTerminal);
+  void processCanonExpr(CanonExpr *CExpr);
 
 public:
   CanonExprUpdater(unsigned Level, unsigned UF)
@@ -171,6 +172,7 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesAll();
     AU.addRequiredTransitive<HIRFramework>();
+    AU.addRequiredTransitive<HIRLoopStatistics>();
     AU.addRequiredTransitive<HIRLoopResource>();
     AU.addRequiredTransitive<HIRLocalityAnalysis>();
     AU.addRequiredTransitive<HIRDDAnalysis>();
@@ -182,6 +184,7 @@ private:
   // Stores the info for each loop in the loopnest by loop level.
   typedef std::array<LoopUFInfoPerLevelTy, MaxLoopNestLevel> LoopNestUFInfoTy;
 
+  HIRLoopStatistics *HLS;
   HIRLoopResource *HLR;
   HIRLocalityAnalysis *HLA;
   HIRDDAnalysis *DDA;
@@ -265,8 +268,10 @@ public:
   void postVisit(HLNode *) {}
 
   /// Computes and returns unroll factor for the loop using cost model. Returns
-  /// 0 as an invalid unroll factor.
-  unsigned computeUnrollFactorUsingCost(HLLoop *HLoop) const;
+  /// 0 to indicate that unroll & jam should be throttled recursively and 1 to
+  /// indicate throttling of \p HLoop only.
+  unsigned computeUnrollFactorUsingCost(HLLoop *HLoop,
+                                        bool HasEnablingPragma) const;
 
   /// Returns true if \p Lp can legally be unrolled & jammed.
   bool canLegallyUnrollAndJam(HLLoop *Lp) const;
@@ -300,17 +305,18 @@ public:
   void visit(const HLNode *Node) {}
   void postVisit(const HLNode *Node) {}
 
-  bool isDone() const override { return !IsLegal; }
+  bool isDone() const { return !IsLegal; }
 
   /// Driver function which checks legality of the loop.
   bool isLegal();
 };
-}
+} // namespace
 
 char HIRUnrollAndJam::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRUnrollAndJam, "hir-unroll-and-jam", "HIR Unroll & Jam",
                       false, false)
 INITIALIZE_PASS_DEPENDENCY(HIRFramework)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopStatistics)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopResource)
 INITIALIZE_PASS_DEPENDENCY(HIRLocalityAnalysis)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
@@ -322,8 +328,8 @@ FunctionPass *llvm::createHIRUnrollAndJamPass() {
 }
 
 bool LegalityChecker::isLegal() {
-  HLNodeUtils::visitRange(
-      *this, CandidateLoop->child_begin(), CandidateLoop->child_end());
+  HLNodeUtils::visitRange(*this, CandidateLoop->child_begin(),
+                          CandidateLoop->child_end());
   return IsLegal;
 }
 
@@ -509,36 +515,48 @@ void HIRUnrollAndJam::Analyzer::visit(HLLoop *Lp) {
   HUAJ.initializeUnrollFactor(Lp);
 
   if (!Lp->isDo()) {
+    DEBUG(dbgs() << "Skipping unroll & jam of non-DO loop!\n");
     HUAJ.throttleRecursively(Lp);
     return;
   }
 
   // TODO: What is the right behavior for simd loops?
   if (Lp->isSIMD()) {
+    DEBUG(dbgs() << "Skipping unroll & jam of SIMD loop!\n");
+    HUAJ.throttleRecursively(Lp);
+    return;
+  }
+
+  auto &LS = HUAJ.HLS->getSelfLoopStatistics(Lp);
+
+  // Cannot unroll loop if it has calls with noduplicate attribute.
+  if (LS.hasCallsWithNoDuplicate()) {
+    DEBUG(dbgs() << "Skipping unroll & jam of loopnest containing call(s) with "
+                    "NoDuplicate attribute !\n");
     HUAJ.throttleRecursively(Lp);
     return;
   }
 
   if (!Lp->isInnermost()) {
-    uint64_t TC;
-
     if (!Lp->isNormalized()) {
+      DEBUG(dbgs() << "Skipping unroll & jam of non-normalized loop!\n");
       HUAJ.throttle(Lp);
       return;
 
-    } else if ((Lp->isConstTripLoop(&TC) ||
-                (TC = Lp->getMaxTripCountEstimate())) &&
-               (TC < MinTripCountThreshold)) {
+    } else if (Lp->hasUnrollAndJamDisablingPragma()) {
+      DEBUG(dbgs() << "Skipping unroll & jam of pragma disabled loop!\n");
       HUAJ.throttle(Lp);
       return;
 
     } else if (!HLNodeUtils::isPerfectLoopNest(Lp)) {
+      DEBUG(dbgs() << "Skipping unroll & jam of non-perfect loopnest!\n");
       // TODO: Extend to handle imperfect loopnests using instruction renaming.
       HUAJ.throttleRecursively(Lp);
       return;
     }
-
-  } else if (!Lp->hasChildren()) {
+  } else if (Lp->hasUnrollEnablingPragma()) {
+    // TODO: Check this for all loops when we have unroll & jam metadata.
+    DEBUG(dbgs() << "Skipping unroll & jam as innermost loop has unroll pragma!\n");
     HUAJ.throttleRecursively(Lp);
     return;
   }
@@ -552,11 +570,14 @@ void HIRUnrollAndJam::Analyzer::visit(HLLoop *Lp) {
       auto CE = (*RefIt)->getSingleCanonExpr();
 
       if (unsigned DefLevel = CE->getDefinedAtLevel()) {
+        DEBUG(
+            dbgs() << "Skipping unroll & jam for loopnest as it is illegal!\n");
         HUAJ.throttleRecursively(Lp->getParentLoopAtLevel(DefLevel));
       }
 
       for (auto IV = CE->iv_begin(), IVE = CE->iv_end(); IV != IVE; ++IV) {
         if (CE->getIVConstCoeff(IV) != 0) {
+          DEBUG(dbgs() << "Skipping unroll & jam for loop as it is illegal!\n");
           HUAJ.throttle(Lp->getParentLoopAtLevel(CE->getLevel(IV)));
         }
       }
@@ -598,21 +619,63 @@ unsigned HIRUnrollAndJam::computeLoopNestCost(HLLoop *Lp) const {
   return Cost;
 }
 
-unsigned
-HIRUnrollAndJam::Analyzer::computeUnrollFactorUsingCost(HLLoop *Lp) const {
+unsigned HIRUnrollAndJam::Analyzer::computeUnrollFactorUsingCost(
+    HLLoop *Lp, bool HasEnablingPragma) const {
   unsigned LoopCost = HUAJ.HLR->getSelfLoopResource(Lp).getTotalCost();
 
   if (LoopCost > MaxOuterLoopCost) {
+    DEBUG(dbgs() << "Skipping unroll & jam of loop as the loop body cost "
+                    "exceeds threshold!\n");
     return 0;
   }
 
   unsigned LoopNestCost = HUAJ.computeLoopNestCost(Lp);
 
   if ((2 * LoopNestCost) > MaxUnrolledLoopNestCost) {
+    DEBUG(dbgs() << "Skipping unroll & jam of loop as the unrolled loop body "
+                    "cost exceeds threshold!\n");
     return 0;
   }
 
-  unsigned UnrollFactor = MaxUnrollFactor;
+  uint64_t TC;
+  bool IsConstTC = Lp->isConstTripLoop(&TC);
+  unsigned UnrollFactor;
+
+  if (HasEnablingPragma) {
+    // TODO: fix this when frontend implements unroll & jam pragma.
+    UnrollFactor = Lp->getUnrollPragmaCount();
+
+    if (!UnrollFactor) {
+      UnrollFactor = MaxUnrollFactor;
+    }
+
+    if (IsConstTC) {
+      if (TC < 3) {
+        DEBUG(dbgs() << "Skipping unroll & jam of pragma enabled loop as trip "
+                        "count is too small!\n");
+        return 1;
+      }
+
+      if (TC <= UnrollFactor) {
+        UnrollFactor = TC / 2;
+      }
+    }
+
+    if ((UnrollFactor * LoopNestCost) > MaxUnrolledLoopNestCost) {
+      // This it to avoid encountering unroll factor of 1 in the while loop
+      // below when using pragma count. For example if the pragma unroll factor
+      // is 3, we get 1 on dividing by 2.
+      UnrollFactor = PowerOf2Floor(UnrollFactor);
+    }
+
+  } else {
+    if ((IsConstTC || (TC = Lp->getMaxTripCountEstimate())) &&
+        (TC < MinTripCountThreshold)) {
+      DEBUG(dbgs() << "Skipping unroll & jam of small trip count loop!\n");
+      return 1;
+    }
+    UnrollFactor = MaxUnrollFactor;
+  }
 
   while ((UnrollFactor * LoopNestCost) > MaxUnrolledLoopNestCost) {
     UnrollFactor /= 2;
@@ -636,20 +699,31 @@ void HIRUnrollAndJam::Analyzer::postVisit(HLLoop *Lp) {
     return;
   }
 
-  unsigned UnrollFactor = computeUnrollFactorUsingCost(Lp);
+  bool HasEnablingPragma = Lp->hasUnrollAndJamEnablingPragma();
+
+  unsigned UnrollFactor = computeUnrollFactorUsingCost(Lp, HasEnablingPragma);
 
   if (!UnrollFactor) {
     HUAJ.throttleRecursively(Lp);
     return;
+  } else if (UnrollFactor == 1) {
+    HUAJ.throttle(Lp);
+    return;
   }
 
-  // TODO: refine unroll factor using extra cache lines accessed by unrolling?
-  if (!HUAJ.HLA->hasTemporalLocality(Lp, UnrollFactor - 1)) {
+  if (!HasEnablingPragma &&
+      // TODO: refine unroll factor using extra cache lines accessed by
+      // unrolling?
+      !HUAJ.HLA->hasTemporalLocality(Lp, UnrollFactor - 1)) {
+    DEBUG(
+        dbgs()
+        << "Skipping unroll & jam as loop does not have temporal locality!\n");
     HUAJ.throttle(Lp);
     return;
   }
 
   if (!canLegallyUnrollAndJam(Lp)) {
+    DEBUG(dbgs() << "Skipping unroll & jam for loop as it is illegal!\n");
     HUAJ.throttle(Lp);
     return;
   }
@@ -736,6 +810,7 @@ bool HIRUnrollAndJam::runOnFunction(Function &F) {
   }
 
   auto HIRF = &getAnalysis<HIRFramework>();
+  HLS = &getAnalysis<HIRLoopStatistics>();
   HLR = &getAnalysis<HIRLoopResource>();
   HLA = &getAnalysis<HIRLocalityAnalysis>();
   DDA = &getAnalysis<HIRDDAnalysis>();
@@ -772,23 +847,21 @@ void CanonExprUpdater::visit(HLDDNode *Node) {
 }
 
 void CanonExprUpdater::processRegDDRef(RegDDRef *RegDD) {
-  bool IsTerminal = RegDD->isTerminalRef();
-
   for (auto Iter = RegDD->canon_begin(), End = RegDD->canon_end(); Iter != End;
        ++Iter) {
-    processCanonExpr(*Iter, IsTerminal);
+    processCanonExpr(*Iter);
   }
 }
 
 /// Processes CanonExpr to modify IV to:
 /// IV*UF + (Original IVCoeff)*UnrollCnt.
-void CanonExprUpdater::processCanonExpr(CanonExpr *CExpr, bool IsTerminal) {
+void CanonExprUpdater::processCanonExpr(CanonExpr *CExpr) {
   if (UnrollCnt) {
     CExpr->shift(Level, UnrollCnt);
   }
 
   CExpr->multiplyIVByConstant(Level, UnrollFactor);
-  CExpr->simplify(IsTerminal);
+  CExpr->simplify(true);
 }
 
 void patchIntermediateBottomTest(HLIf *BottomTest, unsigned LoopLevel,
@@ -915,6 +988,6 @@ void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap) {
 
   // If a remainder loop is not needed get rid of the OrigLoop at this point.
   if (!NeedRemainderLoop && !IsUnknownLoop) {
-    Loop->getHLNodeUtils().remove(Loop);
+    HLNodeUtils::remove(Loop);
   }
 }

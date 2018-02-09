@@ -1,6 +1,6 @@
 //===--- IRRegion.h - Section of LLVM IR representing HLRegion --*- C++ -*-===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -25,6 +25,7 @@
 namespace llvm {
 
 class Value;
+class Instruction;
 class BasicBlock;
 class raw_ostream;
 
@@ -41,7 +42,8 @@ public:
   typedef DenseSet<const BasicBlock *> RegionBBlocksSetTy;
   typedef SmallVector<const BasicBlock *, 32> RegionBBlocksTy;
   typedef SmallDenseMap<unsigned, const Value *, 16> LiveInSetTy;
-  typedef LiveInSetTy LiveOutSetTy;
+  typedef SmallDenseMap<unsigned, const Instruction *, 16> LiveOutSetTy;
+  typedef SmallDenseMap<const Instruction *, unsigned, 16> ReverseLiveOutSetTy;
 
   /// Iterators to iterate over bblocks and live-in/live-out sets.
   typedef RegionBBlocksTy::const_iterator const_bb_iterator;
@@ -72,6 +74,8 @@ private:
   // Set of symbases/values whose live-out uses need to be materialized into a
   // load during HIRCG.
   LiveOutSetTy LiveOutSet;
+  // Reverse set used by CG to handle liveouts.
+  ReverseLiveOutSetTy ReverseLiveOutSet;
   HLRegion *ParentRegion;
 
   // Indicates that the region is composed of all the function bblocks.
@@ -127,11 +131,13 @@ public:
   }
 
   /// \brief Adds a live-out temp (represented using Symbase) to the region.
-  void addLiveOutTemp(unsigned Symbase, const Value *Temp) {
+  void addLiveOutTemp(unsigned Symbase, const Instruction *Temp) {
     auto Ret = LiveOutSet.insert(std::make_pair(Symbase, Temp));
     (void)Ret;
     assert((Ret.second || (Ret.first->second == Temp)) &&
            "Inconsistent liveout value detected!");
+
+    ReverseLiveOutSet[Temp] = Symbase;
   }
 
   void replaceLiveOutTemp(unsigned OldSymbase, unsigned NewSymbase) {
@@ -157,6 +163,14 @@ public:
 
   const_live_out_iterator live_out_begin() const { return LiveOutSet.begin(); }
   const_live_out_iterator live_out_end() const { return LiveOutSet.end(); }
+
+  // Returns symbase of a liveout value. Asserts, if the value is not liveout.
+  unsigned getLiveOutSymbase(const Instruction *Temp) const {
+    auto It = ReverseLiveOutSet.find(Temp);
+    assert(It != ReverseLiveOutSet.end() && "Temp is not liveout!");
+
+    return It->second;
+  }
 
   /// Returns true if this one region was created for the entire function.
   bool isFunctionLevel() const { return IsFunctionLevel; }

@@ -2,6 +2,7 @@ add_llvm_library(LLVMipo
   AlwaysInliner.cpp
   ArgumentPromotion.cpp
   BarrierNoopPass.cpp
+  CalledValuePropagation.cpp
   ConstantMerge.cpp
   CrossDSOCFI.cpp
   DeadArgumentElimination.cpp
@@ -20,6 +21,7 @@ add_llvm_library(LLVMipo
   InlineSimple.cpp
   Inliner.cpp
   Intel_IPCloning.cpp     # INTEL
+  Intel_InlineLists.cpp   # INTEL
   Internalize.cpp
   LoopExtractor.cpp
   LowerTypeTests.cpp

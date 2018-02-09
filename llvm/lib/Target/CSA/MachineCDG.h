@@ -20,8 +20,8 @@
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/MachineLoopInfo.h"
-#include "llvm/Target/TargetSubtargetInfo.h"
-#include "llvm/Target/TargetRegisterInfo.h"
+#include "llvm/CodeGen/TargetSubtargetInfo.h"
+#include "llvm/CodeGen/TargetRegisterInfo.h"
 #include "CSAInstrInfo.h"
 #include <map>
 #include <set>

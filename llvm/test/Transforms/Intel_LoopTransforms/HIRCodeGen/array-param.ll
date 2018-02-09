@@ -25,13 +25,13 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; Function Attrs: nounwind readonly uwtable
 define i32 @foo([64 x i32]* nocapture readonly %A) {
 entry:
   br label %for.body
 
 for.cond.cleanup:                                 ; preds = %for.body
-  ret i32 %add
+  %add.lcssa = phi i32 [ %add, %for.body ]
+  ret i32 %add.lcssa
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]

@@ -14,9 +14,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLIf.h"
-#include "llvm/Support/Debug.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+#include "llvm/Support/Debug.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -33,8 +33,7 @@ void HLIf::initialize() {
 HLIf::HLIf(HLNodeUtils &HNU, const HLPredicate &FirstPred, RegDDRef *Ref1,
            RegDDRef *Ref2)
     : HLDDNode(HNU, HLNode::HLIfVal) {
-  assert(((FirstPred == PredicateTy::FCMP_FALSE) ||
-          (FirstPred == PredicateTy::FCMP_TRUE) || (Ref1 && Ref2)) &&
+  assert((isPredicateTrueOrFalse(FirstPred) || (Ref1 && Ref2)) &&
          "DDRefs cannot be null!");
   assert((!Ref1 || (Ref1->getDestType() == Ref2->getDestType())) &&
          "Ref1/Ref2 type mismatch!");
@@ -84,14 +83,14 @@ HLIf *HLIf::cloneImpl(GotoContainerTy *GotoList, LabelMapTy *LabelMap,
        ThenIter != ThenIterEnd; ++ThenIter) {
     HLNode *NewHLNode =
         cloneBaseImpl(&*ThenIter, GotoList, LabelMap, NodeMapper);
-    getHLNodeUtils().insertAsLastChild(NewHLIf, NewHLNode, true);
+    HLNodeUtils::insertAsLastChild(NewHLIf, NewHLNode, true);
   }
 
   for (auto ElseIter = this->else_begin(), ElseIterEnd = this->else_end();
        ElseIter != ElseIterEnd; ++ElseIter) {
     HLNode *NewHLNode =
         cloneBaseImpl(&*ElseIter, GotoList, LabelMap, NodeMapper);
-    getHLNodeUtils().insertAsLastChild(NewHLIf, NewHLNode, false);
+    HLNodeUtils::insertAsLastChild(NewHLIf, NewHLNode, false);
   }
 
   return NewHLIf;
@@ -236,15 +235,14 @@ unsigned HLIf::getPredicateOperandDDRefOffset(const_pred_iterator CPredI,
 void HLIf::addPredicate(const HLPredicate &Pred, RegDDRef *Ref1,
                         RegDDRef *Ref2) {
   assert(Ref1 && Ref2 && "DDRef is null!");
-  assert((Pred != PredicateTy::FCMP_FALSE) &&
-         (Pred != PredicateTy::FCMP_TRUE) && "Invalid predicate!");
   assert((Ref1->getDestType() == Ref2->getDestType()) &&
          "Ref1/Ref2 type mismatch!");
   assert(((CmpInst::isIntPredicate(Pred) &&
            (Ref1->getDestType()->isIntegerTy() ||
             Ref1->getDestType()->isPointerTy())) ||
           (CmpInst::isFPPredicate(Pred) &&
-           Ref1->getDestType()->isFloatingPointTy())) &&
+           (isPredicateTrueOrFalse(Pred) ||
+            Ref1->getDestType()->isFloatingPointTy()))) &&
          "Predicate/DDRef type mismatch!");
   unsigned NumOp;
 
@@ -300,7 +298,7 @@ void HLIf::invertPredicate(const_pred_iterator CPredI) {
   assert((CPredI != pred_end()) && "End iterator is not a valid input!");
   auto PredI = getNonConstPredIterator(CPredI);
   auto PredKind = PredI->Kind;
-  
+
   // Inversion is a no-op for undef predicate.
   if (PredKind != UNDEFINED_PREDICATE) {
     PredI->Kind = CmpInst::getInversePredicate(PredKind);
@@ -339,8 +337,6 @@ bool HLIf::isElseChild(const HLNode *Node) const {
 }
 
 void HLIf::verify() const {
-  bool ContainsTrueFalsePred = false;
-
   assert(getNumPredicates() > 0 &&
          "HLIf should contain at least one predicate");
 
@@ -349,10 +345,7 @@ void HLIf::verify() const {
             *I == UNDEFINED_PREDICATE) &&
            "Invalid predicate value, should be one of PredicateTy");
 
-    bool IsBooleanPred = isPredicateTrueOrFalse(*I);
-    ContainsTrueFalsePred = ContainsTrueFalsePred || IsBooleanPred;
-
-    if (IsBooleanPred) {
+    if (isPredicateTrueOrFalse(*I)) {
       auto *DDRefLhs = getPredicateOperandDDRef(I, true);
       auto *DDRefRhs = getPredicateOperandDDRef(I, false);
 
@@ -363,9 +356,6 @@ void HLIf::verify() const {
              "DDRefs should be undefined for FCMP_TRUE/FCMP_FALSE predicate");
     }
   }
-
-  assert((!ContainsTrueFalsePred || getNumPredicates() == 1) &&
-         "FCMP_TRUE/FCMP_FALSE cannot be combined with any other predicates");
 
   assert((hasThenChildren() || hasElseChildren()) &&
          "Found an empty *IF* construction, assumption that there should be no "

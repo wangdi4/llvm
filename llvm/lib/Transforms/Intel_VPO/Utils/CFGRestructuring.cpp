@@ -44,7 +44,7 @@ static void splitBB(Instruction *SplitPoint, DominatorTree *DT, LoopInfo *LI,
 
 /// \brief This function isolates sequences of intrinsic calls representing a
 /// directive (such as an OpenMP directive) by putting them into separate BB
-/// that contains only those intrinsic calls (plus the necessary terminating 
+/// that contains only those intrinsic calls (plus the necessary terminating
 /// unconditional branch instr). This is required by WRegion Construction.
 ///
 /// Currently, it supports two forms of directive representations. In the
@@ -53,8 +53,8 @@ static void splitBB(Instruction *SplitPoint, DominatorTree *DT, LoopInfo *LI,
 ///   #pragma omp parallel shared(x) private(i)
 ///   { /* Parallel code region here */ }
 //
-/// The first form uses a sequence of llvm.intel.directive* intrinsics to 
-/// represent the begin or the end of the construct. 
+/// The first form uses a sequence of llvm.intel.directive* intrinsics to
+/// represent the begin or the end of the construct.
 ///
 /// Example 1a: This sequence of intrinsics begins the construct:
 ///   call void @llvm.intel.directive("DIR.OMP.PARALLEL")
@@ -112,8 +112,10 @@ void VPOUtils::CFGRestructuring(Function &F, DominatorTree *DT, LoopInfo *LI) {
     BasicBlock *BB = I->getParent();
 
     // Split before I (rules 1a, 2a, 2b).
-    // Optimization: skip this if I is BB's first instruction.
-    if (!isListEnd && I != &(BB->front()))
+    // Optimization: skip this if I is BB's first instruction && BB has only
+    // one predecessor.
+    if (!isListEnd &&
+        ((I != &(BB->front())) || (pred_begin(BB) != pred_end(BB))))
       splitBB(I, DT, LI, DirString, Counter);
 
     // Split after I (rules 1b, 2a, 2b).
@@ -123,7 +125,7 @@ void VPOUtils::CFGRestructuring(Function &F, DominatorTree *DT, LoopInfo *LI) {
       // Optimization: skip this if I's successor is an unconditional branch
       // instruction.
       BranchInst *BI = dyn_cast<BranchInst>(SplitPoint);
-      if (BI && BI->isUnconditional()) 
+      if (BI && BI->isUnconditional())
         continue; // skip; don't split
       splitBB(SplitPoint, DT, LI, DirString, Counter);
     }
@@ -156,7 +158,7 @@ INITIALIZE_PASS_END(VPOCFGRestructuring, "vpo-cfg-restructuring",
 char VPOCFGRestructuring::ID = 0;
 
 bool VPOCFGRestructuring::runOnFunction(Function &F) {
-  if (skipFunction(F))
+  if (VPOAnalysisUtils::skipFunctionForOpenmp(F) && skipFunction(F))
     return false;
 
 #if INTEL_PRODUCT_RELEASE

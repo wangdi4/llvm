@@ -17,7 +17,7 @@
 #include "CSARegisterInfo.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/Target/TargetRegisterInfo.h"
+#include "llvm/CodeGen/TargetRegisterInfo.h"
 
 namespace llvm {
   class CSAInstrInfo;

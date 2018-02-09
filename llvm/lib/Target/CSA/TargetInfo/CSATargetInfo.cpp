@@ -21,5 +21,5 @@ namespace llvm {
 
 extern "C" void LLVMInitializeCSATargetInfo() {
   RegisterTarget<Triple::csa, /*HasJIT=*/ false>
-    X(getTheCSATarget(), "csa", "CSA");
+    X(getTheCSATarget(), "csa", "CSA", "CSANULL");
 }

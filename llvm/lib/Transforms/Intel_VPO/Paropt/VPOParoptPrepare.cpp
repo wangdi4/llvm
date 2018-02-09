@@ -18,12 +18,13 @@
 //===----------------------------------------------------------------------===//
 ///
 /// \file
-/// This file implements the ParOpt prepare pass interface to perform Prepare 
+/// This file implements the ParOpt prepare pass interface to perform Prepare
 /// transformation for OpenMP parallelization, simd and Offloading
 ///
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Pass.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/LegacyPassManager.h"
@@ -44,22 +45,26 @@ using namespace llvm::vpo;
 
 #define DEBUG_TYPE "VPOParoptPrepare"
 
-INITIALIZE_PASS_BEGIN(VPOParoptPrepare, "vpo-paropt-prepare", 
+INITIALIZE_PASS_BEGIN(VPOParoptPrepare, "vpo-paropt-prepare",
                      "VPO Paropt Prepare Function Pass", false, false)
 INITIALIZE_PASS_DEPENDENCY(LoopSimplify)
 INITIALIZE_PASS_DEPENDENCY(WRegionInfo)
-INITIALIZE_PASS_END(VPOParoptPrepare, "vpo-paropt-prepare", 
+INITIALIZE_PASS_END(VPOParoptPrepare, "vpo-paropt-prepare",
                     "VPO Paropt Prepare Function Pass", false, false)
 
 char VPOParoptPrepare::ID = 0;
 
-FunctionPass *llvm::createVPOParoptPreparePass(unsigned Mode) {
-  return new VPOParoptPrepare(ParPrepare & Mode);
+FunctionPass *llvm::createVPOParoptPreparePass(unsigned Mode,
+    const std::vector<std::string> &OffloadTargets) {
+  return new VPOParoptPrepare(Mode & ParPrepare, OffloadTargets);
 }
 
-VPOParoptPrepare::VPOParoptPrepare(unsigned MyMode)
+VPOParoptPrepare::VPOParoptPrepare(unsigned MyMode,
+    const std::vector<std::string> &MyOffloadTargets)
     : FunctionPass(ID), Mode(MyMode) {
   DEBUG(dbgs() << "\n\n====== Enter VPO Paropt Prepare Pass ======\n\n");
+  for (const auto &T : MyOffloadTargets)
+    OffloadTargets.emplace_back(Triple{T});
   initializeVPOParoptPreparePass(*PassRegistry::getPassRegistry());
 }
 
@@ -75,13 +80,24 @@ bool VPOParoptPrepare::runOnFunction(Function &F) {
 
   // TODO: need Front-End to set F.hasOpenMPDirective()
   if (F.isDeclaration()) { // if(!F.hasOpenMPDirective()))
-    DEBUG(dbgs() << "\n}=== VPOParoptPrepare End (no change): " 
+    DEBUG(dbgs() << "\n}=== VPOParoptPrepare End (no change): "
                                                      << F.getName() <<"\n");
     return Changed;
   }
 
-  // Walk the W-Region Graph top-down, and create W-Region List
   WRegionInfo &WI = getAnalysis<WRegionInfo>();
+
+  if (Mode & ParPrepare) {
+    DEBUG(dbgs() << "VPOParoptPrepare: Before Par Sections Transformation");
+    DEBUG(dbgs() << F <<" \n");
+
+    Changed = VPOUtils::parSectTransformer(&F, WI.getDomTree());
+
+    DEBUG(dbgs() << "VPOParoptPrepare: After Par Sections Transformation");
+    DEBUG(dbgs() << F <<" \n");
+  }
+
+  // Walk the W-Region Graph top-down, and create W-Region List
   WI.buildWRGraph(WRegionCollection::LLVMIR);
 
   DEBUG(dbgs() << "\n=== W-Region Graph Build Done: " << F.getName() <<"\n");
@@ -98,8 +114,8 @@ bool VPOParoptPrepare::runOnFunction(Function &F) {
   DEBUG(dbgs() << "\n === VPOParoptPrepare Pass before Transformation === \n");
 
   // AUTOPAR | OPENMP | SIMD | OFFLOAD
-  VPOParoptTransform VP(&F, &WI, 
-                        WI.getDomTree(), WI.getLoopInfo(), WI.getSE(), Mode);
+  VPOParoptTransform VP(&F, &WI, WI.getDomTree(), WI.getLoopInfo(), WI.getSE(),
+                        Mode, OffloadTargets);
   Changed = Changed | VP.paroptTransforms();
 
   DEBUG(dbgs() << "\n === VPOParoptPrepare Pass after Transformation === \n");

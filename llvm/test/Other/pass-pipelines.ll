@@ -6,8 +6,9 @@
 ; INTEL - Disabled Intel Andersen's Alias Analysis and loopopt so as to not
 ; INTEL - break the pass pipeline this is trying to check for.
 ; INTEL - Disabled svml translation pass to prevent this test from breaking
+; INTEL - Enabled loop vectorizer to prevent this test from breaking
 ; RUN: opt -disable-output -disable-verify -debug-pass=Structure \
-; RUN:     -enable-andersen=false -enable-iml-trans=false -loopopt=false -O2 %s 2>&1 \
+; RUN:     -enable-andersen=false -enable-iml-trans=false -loopopt=false -O2 -enable-lv %s 2>&1 \
 ; RUN:     | FileCheck %s --check-prefix=CHECK-O2
 ;
 ; In the first pipeline there should just be a function pass manager, no other
@@ -63,13 +64,15 @@
 ; CHECK-O2: StdContainerOpt
 ; CHECK-O2: Cleanup fake loads 
 ; End INTEL
-; Reduce the size of the IR ASAP after the inliner.
 ; CHECK-O2-NEXT: Eliminate Available Externally
 ; Inferring function attribute should be right after the CGSCC pipeline, before
 ; any other optimizations/analyses.
 ; CHECK-O2-NEXT: CallGraph
 ; CHECK-O2-NEXT: Deduce function attributes in RPO
 ; CHECK-O2-NOT: Manager
+; Reduce the size of the IR ASAP after the inliner.
+; CHECK-O2-NEXT: Global Variable Optimizer
+; CHECK-O2: Dead Global Elimination
 ; Next is the late function pass pipeline.
 ; CHECK-O2: FunctionPass Manager
 ; CHECK-O2-NOT: Manager

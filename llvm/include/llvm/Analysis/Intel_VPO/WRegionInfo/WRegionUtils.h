@@ -155,7 +155,7 @@ public:
     WRNVisitor<WV> V(Visitor);
     V.forwardVisit(Graph);
   }
-  
+
   /// \brief Visit all WRN nodes in the Graph in the backward direction
   template <typename WV>
   static void backwardVisit(WV &Visitor, WRContainerImpl *Graph) {
@@ -277,15 +277,32 @@ public:
 
   /// \brief Get the zero trip test of the OMP loop if the zero trip
   ///  test exists.
-  static ICmpInst *getOmpLoopZeroTripTest(Loop *L);
+  static ICmpInst *getOmpLoopZeroTripTest(Loop *L, BasicBlock *EntryBB);
 
-  /// \breif Get the positin of the given loop index at 
+  /// \breif Get the positin of the given loop index at
   /// the bottom/zero trip test expression.
   static void getLoopIndexPosInPredicate(Value *LoopIndex,
                                          Instruction *CondInst,
                                          bool &IsLeft);
-};
+  static FirstprivateItem *wrnSeenAsFirstPrivate(WRegionNode *W, Value *V);
+  static LastprivateItem *wrnSeenAsLastPrivate(WRegionNode *W, Value *V);
+  static MapItem *wrnSeenAsMap(WRegionNode *W, Value *V);
 
+  /// \brief The utility checks whether the given value is used
+  /// at the region entry directive.
+  static bool usedInRegionEntryDirective(WRegionNode *W, Value *I);
+
+  /// \brief Return true if the value \p V is used in the WRN \p W.
+  /// If \p Users is not null, then find all users of \p V in \p W and put them
+  /// in \p *Users.
+  /// If \p ExcludeDirective is true, then ignore the instructions for which
+  /// isIntelDirectiveOrClause() is true.
+  ///
+  /// Prerequisite: W's BBSet must be populated before calling this util.
+  static bool findUsersInRegion(WRegionNode *W, Value *V,
+                                SmallVectorImpl<Instruction *> *Users=nullptr,
+                                bool ExcludeDirective = true);
+};
 
 } // End VPO Namespace
 

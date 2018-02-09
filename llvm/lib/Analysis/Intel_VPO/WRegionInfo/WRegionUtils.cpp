@@ -62,8 +62,10 @@ WRegionNode *WRegionUtils::createWRegion(int DirID, BasicBlock *EntryBB,
     case DIR_OMP_TARGET_DATA:
     case DIR_OMP_TARGET_ENTER_DATA:
     case DIR_OMP_TARGET_EXIT_DATA:
-    case DIR_OMP_TARGET_UPDATE:
       W = new WRNTargetDataNode(EntryBB);
+      break;
+    case DIR_OMP_TARGET_UPDATE:
+      W = new WRNTargetUpdateNode(EntryBB);
       break;
     case DIR_OMP_TASK:
       W = new WRNTaskNode(EntryBB);
@@ -124,7 +126,7 @@ WRegionNode *WRegionUtils::createWRegion(int DirID, BasicBlock *EntryBB,
       break;
     case DIR_OMP_THREADPRIVATE:
       // #pragma omp threadprivate can be a module-level directive so we
-      // handle it outside of the WRN framework 
+      // handle it outside of the WRN framework
       break;
   }
   if (W) {
@@ -165,7 +167,7 @@ void WRegionUtils::updateWRGraphFromHIR (
   IntrinsicInst   *Call,
   Intrinsic::ID   IntrinId,
   WRContainerImpl *WRGraph,
-  WRStack<WRegionNode*> &S, 
+  WRStack<WRegionNode*> &S,
   loopopt::HLNode *H
 )
 {
@@ -173,7 +175,7 @@ void WRegionUtils::updateWRGraphFromHIR (
   StringRef DirOrClauseStr = VPOAnalysisUtils::getDirectiveMetadataString(Call);
   if (IntrinId == Intrinsic::intel_directive) {
     int DirID = VPOAnalysisUtils::getDirectiveID(DirOrClauseStr);
-    // If the intrinsic represents a BEGIN directive for a construct 
+    // If the intrinsic represents a BEGIN directive for a construct
     // needed by the vectorizer (eg: DIR.OMP.SIMD), then
     // createWRegionHIR creates a WRN for it and returns its pointer.
     // Otherwise, the W returned is a nullptr.
@@ -219,10 +221,10 @@ void WRegionUtils::updateWRGraphFromHIR (
 /// \brief Visitor class to walk the HIR and build WRNs
 /// based on HIR. Main logic is in the visit() member function
 /// This visitor class is intended to be instantiated and used
-/// only by WRegionUtils::buildWRGraphFromHIR(). 
+/// only by WRegionUtils::buildWRGraphFromHIR().
 struct HIRVisitor final : public HLNodeVisitorBase {
   WRContainerImpl *WRGraph;
-  WRStack<WRegionNode*> S; 
+  WRStack<WRegionNode*> S;
   HIRVisitor() : WRGraph(new WRContainerTy){}
 
   WRContainerImpl *getWRGraph() const { return WRGraph; }
@@ -240,9 +242,9 @@ void HIRVisitor::visit(loopopt::HLNode *Node) {
       Intrinsic::ID IntrinId = Call->getIntrinsicID();
       if (VPOAnalysisUtils::isIntelDirectiveOrClause(IntrinId)) {
         // The intrinsic is one of these: intel_directive,
-        //                                intel_directive_qual, 
-        //                                intel_directive_qual_opnd, 
-        //                                intel_directive_qual_opndlist 
+        //                                intel_directive_qual,
+        //                                intel_directive_qual_opnd,
+        //                                intel_directive_qual_opndlist
         // Process them and create or update WRN accordingly
         WRegionUtils::updateWRGraphFromHIR(
                               Call, IntrinId, WRGraph, S, Node);
@@ -259,7 +261,7 @@ void HIRVisitor::visit(loopopt::HLNode *Node) {
         VLN->setHLLoop(L);
       }
     }
-  } 
+  }
 }
 
 WRContainerImpl *WRegionUtils::buildWRGraphFromHIR(HIRFramework &HIRF)
@@ -301,7 +303,7 @@ PHINode *WRegionUtils::getOmpCanonicalInductionVariable(Loop* L) {
   if (PI == pred_end(H))
     llvm_unreachable("Omp loop is dead loop");
   Incoming = *PI++;
-  if (PI != pred_end(H)) 
+  if (PI != pred_end(H))
     llvm_unreachable("Omp loop has multiple backedges");
 
   if (L->contains(Incoming)) {
@@ -338,7 +340,7 @@ Value *WRegionUtils::getOmpLoopStride(Loop *L, bool &IsNeg) {
   PHINode *PN = getOmpCanonicalInductionVariable(L);
   assert(PN != nullptr && "Omp loop must have induction variable!");
 
-  if (Instruction *Inc = 
+  if (Instruction *Inc =
       dyn_cast<Instruction>(PN->getIncomingValueForBlock(L->getLoopLatch())))
     if ((Inc->getOpcode() == Instruction::Add ||
          Inc->getOpcode() == Instruction::Sub) &&
@@ -359,7 +361,7 @@ void WRegionUtils::getLoopIndexPosInPredicate(Value *LoopIndex,
                                               Instruction *CondInst,
                                               bool& IsLeft) {
   Value *Operand = CondInst->getOperand(0);
-  if (isa<SExtInst>(Operand) || isa<ZExtInst>(Operand)) 
+  if (isa<SExtInst>(Operand) || isa<ZExtInst>(Operand))
     Operand = cast<Instruction>(Operand)->getOperand(0);
 
   if (Operand == LoopIndex) {
@@ -368,8 +370,8 @@ void WRegionUtils::getLoopIndexPosInPredicate(Value *LoopIndex,
   }
 
   Operand = CondInst->getOperand(1);
-  if (isa<SExtInst>(Operand) || isa<ZExtInst>(Operand)) 
-    Operand = cast<Instruction>(Operand)->getOperand(1);
+  if (isa<SExtInst>(Operand) || isa<ZExtInst>(Operand))
+    Operand = cast<Instruction>(Operand)->getOperand(0);
 
   if (Operand == LoopIndex) {
       IsLeft = false;
@@ -385,30 +387,37 @@ Value *WRegionUtils::getOmpLoopUpperBound(Loop *L) {
 
   CondInst = getOmpLoopBottomTest(L);
   PHINode *PN = getOmpCanonicalInductionVariable(L);
-  Instruction *Inc = 
+  Instruction *Inc =
     dyn_cast<Instruction>(PN->getIncomingValueForBlock(L->getLoopLatch()));
   bool IsLeft;
   getLoopIndexPosInPredicate(Inc, CondInst, IsLeft);
-  if (IsLeft) 
+  if (IsLeft)
     Res = CondInst->getOperand(1);
   else
     Res = CondInst->getOperand(0);
-  
+
   return Res;
 }
 
 // gets the zero trip test of the OMP loop if the zero trip
 // test exists.
-ICmpInst *WRegionUtils::getOmpLoopZeroTripTest(Loop *L) {
+ICmpInst *WRegionUtils::getOmpLoopZeroTripTest(Loop *L, BasicBlock *EntryBB) {
 
   BasicBlock *PB = L->getLoopPreheader();
-  assert(std::distance(pred_begin(PB), pred_end(PB))==1);
+  if (pred_empty(PB) || std::distance(pred_begin(PB), pred_end(PB)) != 1)
+    return nullptr;
   do {
+    if (PB == EntryBB || pred_empty(PB))
+      return nullptr;
     PB = *(pred_begin(PB));
     if (std::distance(succ_begin(PB), succ_end(PB))==2)
       break;
-  }while (PB);
-  assert(PB && "Expect to see zero trip test block.");
+    // The basic block should have only one successor.
+    if (std::distance(succ_begin(PB), succ_end(PB)) != 1)
+      return nullptr;
+  } while (PB);
+  if (!PB)
+    return nullptr;
   for (BasicBlock::reverse_iterator J = PB->rbegin();
        J != PB->rend(); ++J) {
     ICmpInst *CondInst = dyn_cast<ICmpInst>(&*J);
@@ -418,9 +427,7 @@ ICmpInst *WRegionUtils::getOmpLoopZeroTripTest(Loop *L) {
       return CondInst;
     }
   }
-  llvm_unreachable("Omp loop with non-const \
-    upper bound must have zero trip test!");
-  
+  return nullptr;
 }
 
 // gets the bottom test of the OMP loop.
@@ -436,7 +443,7 @@ ICmpInst *WRegionUtils::getOmpLoopBottomTest(Loop *L) {
   ICmpInst *CondInst = dyn_cast<ICmpInst>(ExitBrInst->getCondition());
   if (CondInst && ICmpInst::isRelational(CondInst->getPredicate()))
     return CondInst;
-  
+
   llvm_unreachable("Omp loop must have bottom test!");
 }
 
@@ -448,7 +455,7 @@ BasicBlock *WRegionUtils::getOmpExitBlock(Loop* L) {
 
   ExitBrInst = dyn_cast<BranchInst>(&*L->getLoopLatch()->rbegin());
   for (unsigned I = 0; I < ExitBrInst->getNumSuccessors(); I++) {
-    if (ExitBrInst->getSuccessor(I) != L->getHeader()) 
+    if (ExitBrInst->getSuccessor(I) != L->getHeader())
       return ExitBrInst->getSuccessor(I);
   }
   llvm_unreachable("Omp loop must have one exit block");
@@ -461,10 +468,84 @@ CmpInst::Predicate WRegionUtils::getOmpPredicate(Loop* L, bool& IsLeft) {
   ICmpInst *CondInst = dyn_cast<ICmpInst>(ExitBrInst->getCondition());
   assert(CondInst && "Omp loop must have cmp instruction at the end!");
   PHINode *PN = getOmpCanonicalInductionVariable(L);
-  Instruction *Inc = 
+  Instruction *Inc =
     dyn_cast<Instruction>(PN->getIncomingValueForBlock(L->getLoopLatch()));
 
   getLoopIndexPosInPredicate(Inc, CondInst, IsLeft);
 
   return CondInst->getPredicate();
+}
+
+FirstprivateItem *WRegionUtils::wrnSeenAsFirstPrivate(WRegionNode *W,
+                                                      Value *V) {
+  FirstprivateClause &FprivClause = W->getFpriv();
+  return FprivClause.findOrig(V);
+}
+
+LastprivateItem *WRegionUtils::wrnSeenAsLastPrivate(WRegionNode *W, Value *V) {
+  LastprivateClause &LprivClause = W->getLpriv();
+  return LprivClause.findOrig(V);
+}
+
+MapItem *WRegionUtils::wrnSeenAsMap(WRegionNode *W, Value *V) {
+  MapClause &Map = W->getMap();
+  return Map.findOrig(V);
+}
+
+// The utility checks whether the given value is used at the region
+// entry directive.
+bool WRegionUtils::usedInRegionEntryDirective(WRegionNode *W, Value *I) {
+  for (auto IB = I->user_begin(), IE = I->user_end(); IB != IE; IB++)
+    if (Instruction *User = dyn_cast<Instruction>(*IB))
+      if (VPOAnalysisUtils::isIntelDirectiveOrClause(User) &&
+          User->getParent() == W->getEntryBBlock())
+        return true;
+  return false;
+}
+
+// \returns true if the value \p V is used in the WRN \p W.
+// If \p Users is not null (default is nullptr), then find all users of \p V
+// in \p W and put them in \p *Users.
+// If \p ExcludeDirective is true (default is true), then ignore the
+// instructions for which isIntelDirectiveOrClause() is true.
+//
+// Prerequisite: W's BBSet must be populated before calling this util.
+bool WRegionUtils::findUsersInRegion(WRegionNode *W, Value *V,
+                       SmallVectorImpl<Instruction *> *Users,
+                       bool ExcludeDirective) {
+  bool Found = false;
+  for (User *U : V->users()) {
+    if (Instruction *I = dyn_cast<Instruction>(U)) {
+      if (ExcludeDirective && VPOAnalysisUtils::isIntelDirectiveOrClause(I))
+        continue;
+      if (W->contains(I->getParent())) {
+        // DEBUG(dbgs() << "findUsersInRegion ("<< *V <<") in ("<< *I <<")\n");
+        if (Users == nullptr)
+          return true; // no need to find more users
+        Found = true;
+        Users->push_back(I);
+      }
+    }
+    else if (ConstantExpr *CE = dyn_cast<ConstantExpr>(U)) {
+      // DEBUG(dbgs() << "  ConstantExpr: " << *CE << "\n");
+      //
+      // The user may not be an Instruction, but a ConstantExpr used directly
+      // in an instruction. Example (IR from ompoC/priv9a-4.c): the user of @u
+      // is not the load instruction, but the GEP expr in the load:
+      //
+      //     %12 = load i32, i32* getelementptr inbounds (%struct.t_union_,
+      //           %struct.t_union_* @u, i32 0, i32 0), align 4
+      //
+      // Recursively call findUsersInRegion() to find all Instructions in \p W
+      // that use the ConstantExpr and add such Instructions to \p *Users.
+      if (WRegionUtils::findUsersInRegion(W, CE, Users, ExcludeDirective)) {
+        if (Users == nullptr)
+          return true; // no need to find more users
+        Found = true;
+      }
+    }
+    // else
+    //  DEBUG(dbgs() << "Not an Instruction or ConstantExpr:" << *U << "\n");
+  }
+  return Found;
 }

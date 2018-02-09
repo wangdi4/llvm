@@ -22,6 +22,9 @@
 #include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/CodeGen/ParallelCG.h"
 #include "llvm/CodeGen/RuntimeLibcalls.h"
+#include "llvm/CodeGen/TargetLowering.h"
+#include "llvm/CodeGen/TargetRegisterInfo.h"
+#include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/Config/config.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
@@ -52,10 +55,7 @@
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/YAMLTraits.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Target/TargetLowering.h"
 #include "llvm/Target/TargetOptions.h"
-#include "llvm/Target/TargetRegisterInfo.h"
-#include "llvm/Target/TargetSubtargetInfo.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/Internalize.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
@@ -76,16 +76,6 @@ namespace llvm {
 cl::opt<bool> LTODiscardValueNames(
     "lto-discard-value-names",
     cl::desc("Strip names from Value during LTO (other than GlobalValue)."),
-#ifdef NDEBUG
-    cl::init(true),
-#else
-    cl::init(false),
-#endif
-    cl::Hidden);
-
-cl::opt<bool> LTOStripInvalidDebugInfo(
-    "lto-strip-invalid-debug-info",
-    cl::desc("Strip invalid debug info metadata during LTO instead of aborting."),
 #ifdef NDEBUG
     cl::init(true),
 #else
@@ -126,6 +116,7 @@ void LTOCodeGenerator::initializeLTOPasses() {
   initializeConstantMergeLegacyPassPass(R);
   initializeDAHPass(R);
   initializeInstructionCombiningPassPass(R);
+  initializeInlineListsPass(R); // INTEL
   initializeSimpleInlinerPass(R);
   initializePruneEHPass(R);
   initializeGlobalDCELegacyPassPass(R);
@@ -135,16 +126,19 @@ void LTOCodeGenerator::initializeLTOPasses() {
   initializePostOrderFunctionAttrsLegacyPassPass(R);
   initializeReversePostOrderFunctionAttrsLegacyPassPass(R);
   initializeGlobalsAAWrapperPassPass(R);
-  initializeAndersensAAWrapperPassPass(R);   // INTEL
   initializeLegacyLICMPassPass(R);
   initializeMergedLoadStoreMotionLegacyPassPass(R);
   initializeGVNLegacyPassPass(R);
   initializeMemCpyOptLegacyPassPass(R);
   initializeDCELegacyPassPass(R);
   initializeCFGSimplifyPassPass(R);
-  initializeLateCFGSimplifyPassPass(R);
-  initializeWholeProgramWrapperPassPass(R);      // INTEL
-  initializeInlineAggressiveWrapperPassPass(R);  // INTEL
+#if INTEL_CUSTOMIZATION
+  initializeAndersensAAWrapperPassPass(R);
+  initializeDTransAnalysisWrapperPass(R);
+  initializeDTransOptWrapperPass(R);
+  initializeWholeProgramWrapperPassPass(R);
+  initializeInlineAggressiveWrapperPassPass(R);
+#endif // INTEL_CUSTOMIZATION
 }
 
 void LTOCodeGenerator::setAsmUndefinedRefs(LTOModule *Mod) {
@@ -228,10 +222,10 @@ bool LTOCodeGenerator::writeMergedModules(StringRef Path) {
 
   // create output file
   std::error_code EC;
-  tool_output_file Out(Path, EC, sys::fs::F_None);
+  ToolOutputFile Out(Path, EC, sys::fs::F_None);
   if (EC) {
     std::string ErrMsg = "could not open bitcode file for writing: ";
-    ErrMsg += Path;
+    ErrMsg += Path.str() + ": " + EC.message();
     emitError(ErrMsg);
     return false;
   }
@@ -242,7 +236,7 @@ bool LTOCodeGenerator::writeMergedModules(StringRef Path) {
 
   if (Out.os().has_error()) {
     std::string ErrMsg = "could not write bitcode file: ";
-    ErrMsg += Path;
+    ErrMsg += Path.str() + ": " + Out.os().error().message();
     emitError(ErrMsg);
     Out.os().clear_error();
     return false;
@@ -268,12 +262,14 @@ bool LTOCodeGenerator::compileOptimizedToFile(const char **Name) {
   }
 
   // generate object file
-  tool_output_file objFile(Filename, FD);
+  ToolOutputFile objFile(Filename, FD);
 
   bool genResult = compileOptimized(&objFile.os());
   objFile.os().close();
   if (objFile.os().has_error()) {
-    emitError((Twine("could not write object file: ") + Filename).str());
+    emitError((Twine("could not write object file: ") + Filename + ": " +
+               objFile.os().error().message())
+                  .str());
     objFile.os().clear_error();
     sys::fs::remove(Twine(Filename));
     return false;
@@ -371,9 +367,8 @@ bool LTOCodeGenerator::determineTarget() {
 }
 
 std::unique_ptr<TargetMachine> LTOCodeGenerator::createTargetMachine() {
-  return std::unique_ptr<TargetMachine>(
-      MArch->createTargetMachine(TripleStr, MCpu, FeatureStr, Options,
-                                 RelocModel, CodeModel::Default, CGOptLevel));
+  return std::unique_ptr<TargetMachine>(MArch->createTargetMachine(
+      TripleStr, MCpu, FeatureStr, Options, RelocModel, None, CGOptLevel));
 }
 
 // If a linkonce global is present in the MustPreserveSymbols, we need to make
@@ -485,11 +480,9 @@ void LTOCodeGenerator::restoreLinkageForExternals() {
     GV.setLinkage(I->second);
   };
 
-  std::for_each(MergedModule->begin(), MergedModule->end(), externalize);
-  std::for_each(MergedModule->global_begin(), MergedModule->global_end(),
-                externalize);
-  std::for_each(MergedModule->alias_begin(), MergedModule->alias_end(),
-                externalize);
+  llvm::for_each(MergedModule->functions(), externalize);
+  llvm::for_each(MergedModule->globals(), externalize);
+  llvm::for_each(MergedModule->aliases(), externalize);
 }
 
 void LTOCodeGenerator::verifyMergedModuleOnce() {
@@ -499,8 +492,7 @@ void LTOCodeGenerator::verifyMergedModuleOnce() {
   HasVerifiedInput = true;
 
   bool BrokenDebugInfo = false;
-  if (verifyModule(*MergedModule, &dbgs(),
-                   LTOStripInvalidDebugInfo ? &BrokenDebugInfo : nullptr))
+  if (verifyModule(*MergedModule, &dbgs(), &BrokenDebugInfo))
     report_fatal_error("Broken module found, compilation aborted!");
   if (BrokenDebugInfo) {
     emitWarning("Invalid debug info found, debug info will be stripped");
@@ -626,12 +618,8 @@ void LTOCodeGenerator::parseCodeGenDebugOptions() {
   }
 }
 
-void LTOCodeGenerator::DiagnosticHandler(const DiagnosticInfo &DI,
-                                         void *Context) {
-  ((LTOCodeGenerator *)Context)->DiagnosticHandler2(DI);
-}
 
-void LTOCodeGenerator::DiagnosticHandler2(const DiagnosticInfo &DI) {
+void LTOCodeGenerator::DiagnosticHandler(const DiagnosticInfo &DI) {
   // Map the LLVM internal diagnostic severity to the LTO diagnostic severity.
   lto_codegen_diagnostic_severity_t Severity;
   switch (DI.getSeverity()) {
@@ -661,17 +649,29 @@ void LTOCodeGenerator::DiagnosticHandler2(const DiagnosticInfo &DI) {
   (*DiagHandler)(Severity, MsgStorage.c_str(), DiagContext);
 }
 
+namespace {
+struct LTODiagnosticHandler : public DiagnosticHandler {
+  LTOCodeGenerator *CodeGenerator;
+  LTODiagnosticHandler(LTOCodeGenerator *CodeGenPtr)
+      : CodeGenerator(CodeGenPtr) {}
+  bool handleDiagnostics(const DiagnosticInfo &DI) override {
+    CodeGenerator->DiagnosticHandler(DI);
+    return true;
+  }
+};
+}
+
 void
 LTOCodeGenerator::setDiagnosticHandler(lto_diagnostic_handler_t DiagHandler,
                                        void *Ctxt) {
   this->DiagHandler = DiagHandler;
   this->DiagContext = Ctxt;
   if (!DiagHandler)
-    return Context.setDiagnosticHandler(nullptr, nullptr);
+    return Context.setDiagnosticHandler(nullptr);
   // Register the LTOCodeGenerator stub in the LLVMContext to forward the
   // diagnostic to the external DiagHandler.
-  Context.setDiagnosticHandler(LTOCodeGenerator::DiagnosticHandler, this,
-                               /* RespectFilters */ true);
+  Context.setDiagnosticHandler(llvm::make_unique<LTODiagnosticHandler>(this),
+                               true);
 }
 
 namespace {

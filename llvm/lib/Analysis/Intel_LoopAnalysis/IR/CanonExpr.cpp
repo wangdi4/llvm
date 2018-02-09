@@ -725,7 +725,6 @@ void CanonExpr::removeIV(iv_iterator IVI) {
 }
 
 void CanonExpr::replaceIVByConstant(unsigned Lvl, int64_t Val) {
-
   assert(CanonExprUtils::isValidLinearDefLevel(Lvl) &&
          "Level is out of bounds!");
 
@@ -738,6 +737,15 @@ void CanonExpr::replaceIVByConstant(unsigned Lvl, int64_t Val) {
   if (!Val) {
     removeIV(Lvl);
     return;
+  }
+
+  // Cast constant value to the CE source type.
+  Type *SrcType = getSrcType();
+  APInt APVal(SrcType->getPrimitiveSizeInBits(), Val);
+  if (!ConstantInt::isValueValidForType(SrcType, (uint64_t)Val)) {
+    // In HIR the IV is always non negative and may be safely represented as
+    // an unsigned value.
+    Val = static_cast<int64_t>(APVal.getZExtValue());
   }
 
   int64_t NewVal = IVCoeffs[Lvl - 1].Coeff * Val;
@@ -1034,6 +1042,23 @@ void CanonExpr::shift(iv_iterator IVI, int64_t Val) {
   shift(getLevel(IVI), Val);
 }
 
+void CanonExpr::demoteIVs(unsigned StartLevel) {
+  assert(StartLevel > 1 && "It's invalid to demote i1");
+  assert(CanonExprUtils::isValidLoopLevel(StartLevel) && "Invalid StartLevel");
+
+  assert(IVCoeffs[(StartLevel - 1) - 1].Coeff == 0 &&
+         "Shifting to IV with a non zero coeff.");
+
+  unsigned LastIV = IVCoeffs.size() - 1;
+
+  for (int I = StartLevel - 1, E = LastIV; I <= E; ++I) {
+    IVCoeffs[I - 1] = IVCoeffs[I];
+  }
+
+  IVCoeffs[LastIV].Coeff = 0;
+  IVCoeffs[LastIV].Index = InvalidBlobIndex;
+}
+
 void CanonExpr::collectBlobIndicesImpl(SmallVectorImpl<unsigned> &Indices,
                                        bool MakeUnique,
                                        bool NeedTempBlobs) const {
@@ -1097,17 +1122,16 @@ void CanonExpr::simplifyConstantDenom() {
   APInt Constant(SrcBitWidth, Val, IsSignedDiv);
   APInt Denom(SrcBitWidth, DenomConst, IsSignedDiv);
 
-  Val = (IsSignedDiv ? Constant.sdiv(Denom) 
-                     : Constant.udiv(Denom)).getSExtValue();
+  Val = (IsSignedDiv ? Constant.sdiv(Denom) : Constant.udiv(Denom))
+            .getSExtValue();
 
   setDenominator(1);
   setConstant(Val);
 }
 
 void CanonExpr::simplifyConstantCast() {
-  Type *SrcType = getSrcType();
-  Type *DstType = getDestType();
-  // TODO: support vector types?
+  Type *SrcType = getSrcType()->getScalarType();
+  Type *DstType = getDestType()->getScalarType();
 
   // Handle cast of constant canon expression.
   if (!SrcType->isIntegerTy() || SrcType == DstType) {
@@ -1116,13 +1140,18 @@ void CanonExpr::simplifyConstantCast() {
 
   auto Val = getConstant();
   unsigned DstBitWidth = DstType->getPrimitiveSizeInBits();
-  bool IsSigned = isSExt();
 
-  APInt Constant(SrcType->getPrimitiveSizeInBits(), Val, IsSigned);
+  // Just assume the constant is signed. This doesn't matter as the final value
+  // is determined by the cast and eventual getSExtValue() call below.
+  APInt Constant(SrcType->getPrimitiveSizeInBits(), Val, true);
 
-  Val = (IsSigned ? Constant.sextOrTrunc(DstBitWidth)
-                  : Constant.zextOrTrunc(DstBitWidth))
-            .getSExtValue();
+  // HIRParser uses getSExtValue() to set the C0 integer in CEs. To be
+  // consistent we should also use getSExtValue(). This way we can perform
+  // equality check between constant CEs. LLVM print also prints the constant in
+  // signed mode so this setup seems to make sense. Signed representation also
+  // makes sense for DD which needs to perform arithmertic on CanonExprs.
+  Val = IsSExt ? Constant.sextOrTrunc(DstBitWidth).getSExtValue()
+               : Constant.zextOrTrunc(DstBitWidth).getSExtValue();
 
   setSrcType(DstType);
   setConstant(Val);

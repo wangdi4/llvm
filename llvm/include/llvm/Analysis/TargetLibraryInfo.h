@@ -91,7 +91,9 @@ public:
     NoLibrary,  // Don't use any vector library.
     Accelerate, // Use Accelerate framework.
     SVML,       // Intel short vector math library.
+#if INTEL_CUSTOMIZATION
     Libmvec     // Glibc vector math library.
+#endif
   };
 
   TargetLibraryInfoImpl();
@@ -164,7 +166,7 @@ public:
   /// Return the name of the equivalent of F, vectorized with factor VF. If no
   /// such mapping exists, return the empty string.
   StringRef getVectorizedFunction(StringRef F, unsigned VF,
-                                  bool Masked=false) const;
+                                  bool Masked=false) const; // INTEL
 
   /// Return true if the function F has a scalar equivalent, and set VF to be
   /// the vectorization factor.
@@ -198,13 +200,9 @@ public:
     ShouldSignExtI32Param = Val;
   }
 
-  /// Returns the size of the wchar_t type in bytes.
+  /// Returns the size of the wchar_t type in bytes or 0 if the size is unknown.
+  /// This queries the 'wchar_size' metadata.
   unsigned getWCharSize(const Module &M) const;
-
-  /// Returns size of the default wchar_t type on target \p T. This is mostly
-  /// intended to verify that the size in the frontend matches LLVM. All other
-  /// queries should use getWCharSize() instead.
-  static unsigned getTargetWCharSize(const Triple &T);
 };
 
 /// Provides information about what library functions are available for

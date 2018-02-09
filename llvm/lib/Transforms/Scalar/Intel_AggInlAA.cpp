@@ -152,9 +152,10 @@ static void explorePointerUses(Value* V, SmallVector<Value*, 8>& PtrList) {
 
     GetElementPtrInst *GEPI = dyn_cast<GetElementPtrInst>(I); 
     if (GEPI && GEPI->hasOneUse()) {
-      if (PtrToIntInst *PI = dyn_cast<PtrToIntInst>(*GEPI->user_begin()))
+      if (PtrToIntInst *PI = dyn_cast<PtrToIntInst>(*GEPI->user_begin())) {
         PtrList.push_back(PI);
         continue;
+      }
     }
     PtrList.push_back(I);
   }

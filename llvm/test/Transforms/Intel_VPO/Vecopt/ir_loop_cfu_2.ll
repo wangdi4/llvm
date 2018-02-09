@@ -1,6 +1,9 @@
 ; REQUIRES: asserts
 ; RUN: opt -VPlanDriver -vplan-loop-cfu -disable-vplan-predicator -disable-vplan-subregions -disable-vplan-codegen -debug -S < %s 2>&1 | FileCheck %s
 
+; XFAIL: *
+; Expected failure since merge of vplan-vpentity into vpo (CMPLRS-47910)
+
 ; Test the transformation of the innermost loop non-uniform control flow to uniform control flow.
 
 ;void foo(float **a, int m, int n, int k) {

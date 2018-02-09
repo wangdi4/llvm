@@ -27,9 +27,9 @@
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Target/TargetFrameLowering.h"
-#include "llvm/Target/TargetRegisterInfo.h"
-#include "llvm/Target/TargetSubtargetInfo.h"
+#include "llvm/CodeGen/TargetFrameLowering.h"
+#include "llvm/CodeGen/TargetRegisterInfo.h"
+#include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "CSASeqOpt.h"
 // Define data structures needed for sequence optimizations.
 #include "CSASequenceOpt.h"
@@ -659,8 +659,10 @@ bool CSAOptDFPass::seq_identify_header(MachineInstr* MI,
   if (seq_is_picker_init_inst(MRI, MI,
                               &pickerChannel,
                               &pickerSense)) {
+#if RAVI
     DEBUG(errs() << "Found picker definition. Register= " <<
-          pickerChannel << " = " << PrintReg(pickerChannel) << "\n");
+          pickerChannel << " = " << PrintRegister(pickerChannel) << "\n");
+#endif
 
     // Once we have a picker, then walk over and count the defs.  We
     // want to find exactly one (other) def != MI, which is a MOV1

@@ -17,7 +17,7 @@
 
 #include "CSATargetMachine.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/Target/TargetRegisterInfo.h"
+#include "llvm/CodeGen/TargetRegisterInfo.h"
 
 /**
  * Sequence optimization.

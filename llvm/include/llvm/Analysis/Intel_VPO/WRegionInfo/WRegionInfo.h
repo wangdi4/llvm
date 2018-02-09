@@ -75,7 +75,7 @@ public:
   void print(raw_ostream &OS, const Module * = nullptr) const override;
   void verifyAnalysis() const override;
 
-  /// \brief Entry point for on-demand call to gather WRegion info out of the 
+  /// \brief Entry point for on-demand call to gather WRegion info out of the
   /// IR. If FromHIR==true, it walks the HIR; else, it walks the LLVM IR
   void buildWRGraph(WRegionCollection::InputIRKind IR);
 

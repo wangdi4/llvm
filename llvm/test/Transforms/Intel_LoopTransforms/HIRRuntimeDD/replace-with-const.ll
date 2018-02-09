@@ -32,7 +32,7 @@
 
 ; RUN: opt -disable-output -hir-ssa-deconstruction -hir-runtime-dd -print-after=hir-runtime-dd -disable-hir-runtime-dd-cost-model -S < %s 2>&1 | FileCheck %s
 
-; CHECK: if (%n >=u 16 && %mv.and == 0)
+; CHECK: if (%mv.and == 0)
 
 ; ModuleID = '1.ll'
 source_filename = "1.c"

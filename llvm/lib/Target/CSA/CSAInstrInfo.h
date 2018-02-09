@@ -15,7 +15,7 @@
 #define LLVM_LIB_TARGET_CSA_CSAINSTRINFO_H
 
 #include "CSARegisterInfo.h"
-#include "llvm/Target/TargetInstrInfo.h"
+#include "llvm/CodeGen/TargetInstrInfo.h"
 
 #define GET_INSTRINFO_HEADER
 #include "CSAGenInstrInfo.inc"

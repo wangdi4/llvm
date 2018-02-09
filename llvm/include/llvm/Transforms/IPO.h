@@ -217,6 +217,10 @@ ModulePass *createMetaRenamerPass();
 /// manager.
 ModulePass *createBarrierNoopPass();
 
+/// createCalledValuePropagationPass - Attach metadata to indirct call sites
+/// indicating the set of functions they may target at run-time.
+ModulePass *createCalledValuePropagationPass();
+
 /// What to do with the summary when running passes that operate on it.
 enum class PassSummaryAction {
   None,   ///< Do nothing.
@@ -261,6 +265,10 @@ ModulePass *createGlobalSplitPass();
 #if INTEL_CUSTOMIZATION
 /// \brief This pass implements IP Cloning
 ModulePass *createIPCloningLegacyPass(bool AfterInl = false);
+
+/// \brief This pass parses -[no]inline-list option and assigns corresponding
+/// attributes to callsites (for experimental purposes).
+ModulePass *createInlineListsPass();
 #endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//

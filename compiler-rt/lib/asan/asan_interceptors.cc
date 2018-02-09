@@ -24,6 +24,11 @@
 #include "lsan/lsan_common.h"
 #include "sanitizer_common/sanitizer_libc.h"
 
+// There is no general interception at all on Fuchsia.
+// Only the functions in asan_interceptors_memintrinsics.cc are
+// really defined to replace libc functions.
+#if !SANITIZER_FUCHSIA
+
 #if SANITIZER_POSIX
 #include "sanitizer_common/sanitizer_posix.h"
 #endif
@@ -156,6 +161,7 @@ DECLARE_REAL_AND_INTERCEPTOR(void, free, void *)
   } while (false)
 
 #include "sanitizer_common/sanitizer_common_interceptors.inc"
+#include "sanitizer_common/sanitizer_signal_interceptors.inc"
 
 // Syscall interceptors don't have contexts, we don't support suppressions
 // for them.
@@ -237,42 +243,6 @@ INTERCEPTOR(int, pthread_join, void *t, void **arg) {
 DEFINE_REAL_PTHREAD_FUNCTIONS
 #endif  // ASAN_INTERCEPT_PTHREAD_CREATE
 
-#if ASAN_INTERCEPT_SIGNAL_AND_SIGACTION
-
-#if SANITIZER_ANDROID
-INTERCEPTOR(void*, bsd_signal, int signum, void *handler) {
-  if (GetHandleSignalMode(signum) != kHandleSignalExclusive)
-    return REAL(bsd_signal)(signum, handler);
-  return 0;
-}
-#endif
-
-INTERCEPTOR(void*, signal, int signum, void *handler) {
-  if (GetHandleSignalMode(signum) != kHandleSignalExclusive)
-    return REAL(signal)(signum, handler);
-  return nullptr;
-}
-
-INTERCEPTOR(int, sigaction, int signum, const struct sigaction *act,
-                            struct sigaction *oldact) {
-  if (GetHandleSignalMode(signum) != kHandleSignalExclusive)
-    return REAL(sigaction)(signum, act, oldact);
-  return 0;
-}
-
-namespace __sanitizer {
-int real_sigaction(int signum, const void *act, void *oldact) {
-  return REAL(sigaction)(signum, (const struct sigaction *)act,
-                         (struct sigaction *)oldact);
-}
-} // namespace __sanitizer
-
-#elif SANITIZER_POSIX
-// We need to have defined REAL(sigaction) on posix systems.
-DEFINE_REAL(int, sigaction, int signum, const struct sigaction *act,
-    struct sigaction *oldact)
-#endif  // ASAN_INTERCEPT_SIGNAL_AND_SIGACTION
-
 #if ASAN_INTERCEPT_SWAPCONTEXT
 static void ClearShadowMemoryForContextStack(uptr stack, uptr ssize) {
   // Align to page size.
@@ -308,6 +278,11 @@ INTERCEPTOR(int, swapcontext, struct ucontext_t *oucp,
   return res;
 }
 #endif  // ASAN_INTERCEPT_SWAPCONTEXT
+
+#if SANITIZER_NETBSD
+#define longjmp __longjmp14
+#define siglongjmp __siglongjmp14
+#endif
 
 INTERCEPTOR(void, longjmp, void *env, int val) {
   __asan_handle_no_return();
@@ -580,6 +555,7 @@ void InitializeAsanInterceptors() {
   CHECK(!was_called_once);
   was_called_once = true;
   InitializeCommonInterceptors();
+  InitializeSignalInterceptors();
 
   // Intercept str* functions.
   ASAN_INTERCEPT_FUNC(strcat);  // NOLINT
@@ -602,15 +578,9 @@ void InitializeAsanInterceptors() {
   ASAN_INTERCEPT_FUNC(strtoll);
 #endif
 
-  // Intecept signal- and jump-related functions.
+  // Intecept jump-related functions.
   ASAN_INTERCEPT_FUNC(longjmp);
-#if ASAN_INTERCEPT_SIGNAL_AND_SIGACTION
-  ASAN_INTERCEPT_FUNC(sigaction);
-#if SANITIZER_ANDROID
-  ASAN_INTERCEPT_FUNC(bsd_signal);
-#endif
-  ASAN_INTERCEPT_FUNC(signal);
-#endif
+
 #if ASAN_INTERCEPT_SWAPCONTEXT
   ASAN_INTERCEPT_FUNC(swapcontext);
 #endif
@@ -654,3 +624,5 @@ void InitializeAsanInterceptors() {
 }
 
 } // namespace __asan
+
+#endif  // !SANITIZER_FUCHSIA

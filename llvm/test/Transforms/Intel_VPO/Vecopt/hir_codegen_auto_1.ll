@@ -1,5 +1,6 @@
 ; Test for auto vectorization going through HIR.
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPODriverHIR -hir-cg -S  < %s | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -S  < %s | FileCheck %s
 ; Check for vectorized HIR loop
 
 ; CHECK: fadd <4 x float>

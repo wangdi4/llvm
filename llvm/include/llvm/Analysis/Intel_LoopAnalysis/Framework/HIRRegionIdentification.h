@@ -1,6 +1,6 @@
 //===---- HIRRegionIdentification.h - Identifies HIR regions ---*- C++ --*-===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -18,6 +18,7 @@
 #define LLVM_ANALYSIS_INTEL_LOOPANALYSIS_REGIONIDENTIFICATION_H
 
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 
 #include "llvm/Pass.h"
@@ -39,6 +40,8 @@ class GetElementPtrInst;
 class GEPOperator;
 class SCEV;
 class TargetLibraryInfo;
+class MDNode;
+class Type;
 
 namespace loopopt {
 
@@ -75,12 +78,11 @@ private:
   /// Target library information for the target.
   TargetLibraryInfo *TLI;
 
+  unsigned OptLevel;
+
   /// CostModelAnalyzer - Used to determine whether creating HIR for a loop
   /// would be profitable.
   class CostModelAnalyzer;
-
-  /// Returns true if \p GEPOp contains a type not supported by HIR.
-  static bool containsUnsupportedTy(const GEPOperator *GEPOp);
 
   /// Returns true if \p Inst contains a type not supported by HIR.
   static bool containsUnsupportedTy(const Instruction *Inst);
@@ -97,8 +99,9 @@ private:
   /// not null, only bblocks in Lp are considered.
   bool containsCycle(const BasicBlock *BB, const Loop *Lp) const;
 
-  /// Returns true if \p BB is generable (can be handled by HIR).
-  static bool isGenerable(const BasicBlock *BB);
+  /// Returns true if \p BB is generable (can be handled by HIR). \p Lp is
+  /// passed as null for function level region mode.
+  static bool isGenerable(const BasicBlock *BB, const Loop *Lp);
 
   /// Returns true if bblocks of \p Lp are generable.
   bool areBBlocksGenerable(const Loop &Lp) const;
@@ -111,7 +114,7 @@ private:
 
   /// Returns true if this loop should be throttled based on cost model
   /// analysis.
-  bool shouldThrottleLoop(const Loop &Lp, bool IsUnknown) const;
+  bool shouldThrottleLoop(const Loop &Lp, const SCEV *BECount) const;
 
   /// Returns true if this instruction represents simd begin/end directive. \p
   /// BeginDir flag indicates whether to look for begin or end directive.
@@ -141,14 +144,11 @@ private:
   /// Creates a Region out of Lp's basic blocks.
   void createRegion(const Loop &Lp);
 
-  /// Performs checks to see if we can handle the inner loopnest represented by
-  /// \p OutermostLp. This is only applicable when \p OutermostLp has parent
-  /// loops which have been suppressed.
-  bool canHandleInnerLoopnest(const Loop *CurLp, const Loop *OutermostLp) const;
-
   /// Returns true if we can form a region around this loop. Returns the max
-  /// loopnest depth in LoopnestDepth.
-  bool formRegionForLoop(const Loop &Lp, unsigned *LoopnestDepth);
+  /// loopnest depth in \p LoopnestDepth. \p GenerableLoops contains \p Lp if it
+  /// is generable, otherwise it contains generable children loops of \p Lp.
+  bool isGenerableLoopnest(const Loop &Lp, unsigned &LoopnestDepth,
+                           SmallVectorImpl<const Loop *> &GenerableLoops);
 
   /// Identifies regions in the incoming LLVM IR.
   void formRegions();
@@ -163,9 +163,24 @@ private:
   /// the entry bblock.
   void createFunctionLevelRegion(Function &F);
 
-  /// Returns true if metadata node \p Node contains only debug metadata or
-  /// equals null.
-  static bool isDebugMetadataOnly(MDNode *Node);
+  /// Checks whether this loop basic block is loop concatenation candidate.
+  static bool isLoopConcatenationCandidate(BasicBlock *BB);
+
+  /// Checks whether the current function is loop concatenation candidate.
+  bool isLoopConcatenationCandidate() const;
+
+  /// Returns true if \p Str refers to unroll related metadata.
+  static bool isUnrollMetadata(StringRef Str);
+
+  /// Returns true if \p Node refers to unroll related metadata.
+  static bool isUnrollMetadata(MDNode *Node);
+
+  /// Returns true if \p Node is a debug related metadata type.
+  static bool isDebugMetadata(MDNode *Node);
+
+  /// Returns true if metadata node \p Node only contains metadata supported in
+  /// HIR.
+  static bool isSupportedMetadata(MDNode *Node);
 
 public:
   static char ID; // Pass identification
@@ -190,9 +205,14 @@ public:
 
   unsigned getNumRegions() const { return IRRegions.size(); }
 
-  /// Returns true if this type is supported. Currently returns false for
-  /// structure and function types.
+  /// Returns true if this type is supported.
   static bool isSupported(Type *Ty);
+
+  /// Returns true if \p GEPOp contains a type not supported by HIR.
+  static bool containsUnsupportedTy(const GEPOperator *GEPOp);
+
+  /// Returns the outermost parent loop of \p Lp.
+  static const Loop *getOutermostParentLoop(const Loop *Lp);
 
   // NOTE: Following functions were moved here so they can be shared between
   // HIRParser and SSADeconstruction. Is there a better way?

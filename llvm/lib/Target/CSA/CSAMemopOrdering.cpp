@@ -22,6 +22,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
+#include "llvm/CodeGen/TargetRegisterInfo.h"
 #include "MachineCDG.h"
 
 using namespace llvm;
@@ -1237,7 +1238,9 @@ void CSAMemopOrdering::relaxSectionOrderingEdges(parRegionInfo &parReg, MachineF
 
     DEBUG(errs() << "Merging " << wave.size() << " for this alias set:\n");
     for (unsigned wE : wave) {
-      DEBUG(errs() << "\t" << PrintReg(wE) << "\n");
+#if RAVi
+      DEBUG(errs() << "\t" << PrintRegister(wE) << "\n");
+#endif
       (void)wE;
     }
     SmallVector<MachineOperand*, MEMDEP_VEC_WIDTH> newOps;

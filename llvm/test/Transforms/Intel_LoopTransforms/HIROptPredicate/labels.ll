@@ -1,51 +1,52 @@
-; Check that OptPredicate is disabled when there is a label inside the if statement.
-; HIR structure has changed, test need to be modified.
-; XFAIL: *
+; Check OptPredicate in presence of forward gotos and labels.
 ; RUN: opt -hir-ssa-deconstruction -hir-opt-predicate -print-after=hir-opt-predicate -hir-cost-model-throttling=0 -S < %s 2>&1 | FileCheck %s
 
-; Source
-;
-; int foo(int m, char *a, char *b) {
-;
-; int j;
-;
-;   for(j=0;j<100;j++) {
-;     if (m < 100 && a[m] > 100) {
-;       a[j] = j;
-;     } else {
-;       b[j] = a[j];
-;     }
-;   }
-;
-; }
-;
 ; HIR:
-;
-;           BEGIN REGION { }
-; <31>            + DO i1 = 0, 99, 1   <DO_LOOP>
-; <2>             |   if (%m < 100)
-; <2>             |   {
-; <12>            |      %0 = (%a)[%m];
-; <14>            |      if (%0 > 100)
-; <14>            |      {
-; <20>            |         (%a)[i1] = i1;
-; <14>            |      }
-; <14>            |      else
-; <14>            |      {
-; <16>            |         goto if.else;
-; <14>            |      }
-; <2>             |   }
-; <2>             |   else
-; <2>             |   {
-; <5>             |      if.else:
-; <7>             |      %1 = (%a)[i1];
-; <9>             |      (%b)[i1] = %1;
-; <2>             |   }
-; <31>            + END LOOP
-;           END REGION
+; BEGIN REGION { }
+;      + DO i1 = 0, 99, 1   <DO_LOOP>
+;      |   if (%m < 100)
+;      |   {
+;      |      %0 = (%a)[%m];
+;      |      if (%n > 100)
+;      |      {
+;      |         (%a)[i1] = i1;
+;      |         goto for.inc;
+;      |      }
+;      |   }
+;      |   %1 = (%a)[i1];
+;      |   (%b)[i1] = %1;
+;      |   for.inc:
+;      + END LOOP
+; END REGION
 
-; CHECK: IR Dump After
-; CHECK: BEGIN REGION { }
+; CHECK: After
+; CHECK: BEGIN REGION { modified }
+; CHECK:       if (%m < 100)
+; CHECK:       {
+; CHECK:          if (%n > 100)
+; CHECK:          {
+; CHECK:            + DO i1 = 0, 99, 1   <DO_LOOP>
+; CHECK:             |   %0 = (%a)[%m];
+; CHECK:            |   (%a)[i1] = i1;
+; CHECK:            + END LOOP
+; CHECK:          }
+; CHECK:          else
+; CHECK:          {
+; CHECK:            + DO i1 = 0, 99, 1   <DO_LOOP>
+; CHECK:            |   %0 = (%a)[%m];
+; CHECK:            |   %1 = (%a)[i1];
+; CHECK:            |   (%b)[i1] = %1;
+; CHECK:            + END LOOP
+; CHECK:          }
+; CHECK:       }
+; CHECK:       else
+; CHECK:       {
+; CHECK:         + DO i1 = 0, 99, 1   <DO_LOOP>
+; CHECK:         |   %1 = (%a)[i1];
+; CHECK:         |   (%b)[i1] = %1;
+; CHECK:         + END LOOP
+; CHECK:       }
+; CHECK: END REGION
 
 ;Module Before HIR; ModuleID = '2.c'
 source_filename = "2.c"
@@ -53,9 +54,10 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define i32 @foo(i32 %m, i8* nocapture %a, i8* nocapture %b) local_unnamed_addr #0 {
+define i32 @foo(i32 %m, i32 %n, i8* nocapture %a, i8* nocapture %b) local_unnamed_addr #0 {
 entry:
   %cmp1 = icmp slt i32 %m, 100
+  %cmp2 = icmp sgt i32 %n, 100
   %idxprom = sext i32 %m to i64
   %arrayidx = getelementptr inbounds i8, i8* %a, i64 %idxprom
   br label %for.body
@@ -67,7 +69,6 @@ for.body:                                         ; preds = %for.inc, %entry
 
 land.lhs.true:                                    ; preds = %for.body
   %0 = load i8, i8* %arrayidx, align 1
-  %cmp2 = icmp sgt i8 %0, 100
   br i1 %cmp2, label %if.then, label %if.else
 
 if.then:                                          ; preds = %land.lhs.true

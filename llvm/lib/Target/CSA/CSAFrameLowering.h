@@ -15,7 +15,7 @@
 #define LLVM_LIB_TARGET_CSA_CSAFRAMELOWERING_H
 
 #include "CSA.h"
-#include "llvm/Target/TargetFrameLowering.h"
+#include "llvm/CodeGen/TargetFrameLowering.h"
 
 namespace llvm {
 class CSAFrameLowering : public TargetFrameLowering {

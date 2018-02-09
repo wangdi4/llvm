@@ -24,6 +24,7 @@ subdirectories =
  DebugInfo
  Demangle
  ExecutionEngine
+ FuzzMutate
  LineEditor
  Linker
  IR
@@ -36,12 +37,16 @@ subdirectories =
  Option
  Passes
  ProfileData
+#if INTEL_CUSTOMIZATION
+ SPIRV
+#endif // INTEL_CUSTOMIZATION
  Support
  TableGen
  Target
  Testing
  ToolDrivers
  Transforms
+ WindowsManifest
 
 [component_0]
 type = Group

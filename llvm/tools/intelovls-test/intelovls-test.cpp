@@ -231,7 +231,7 @@ std::unique_ptr<TargetMachine> createTargetMachine() {
   TargetOptions Options;
   return std::unique_ptr<TargetMachine>(T->createTargetMachine(
       TargetTriple.getTriple(), "core-avx-i", "", Options, None,
-      CodeModel::Default, CodeGenOpt::Aggressive));
+      None, CodeGenOpt::Aggressive));
 }
 
 template <typename FuncType>

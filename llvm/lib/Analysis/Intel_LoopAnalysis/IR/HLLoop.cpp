@@ -15,13 +15,14 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/Analysis/LoopInfo.h"
-#include "llvm/Support/Debug.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+#include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
+#include "llvm/Transforms/Utils/UnrollLoop.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -47,7 +48,7 @@ void HLLoop::initialize() {
 HLLoop::HLLoop(HLNodeUtils &HNU, const Loop *LLVMLoop)
     : HLDDNode(HNU, HLNode::HLLoopVal), OrigLoop(LLVMLoop), Ztt(nullptr),
       NestingLevel(0), IsInnermost(true), IVType(nullptr), IsNSW(false),
-      MaxTripCountEstimate(0) {
+      LoopMetadata(LLVMLoop->getLoopID()), MaxTripCountEstimate(0) {
   assert(LLVMLoop && "LLVM loop cannot be null!");
 
   SmallVector<BasicBlock *, 8> Exits;
@@ -157,7 +158,7 @@ HLLoop *HLLoop::cloneImpl(GotoContainerTy *GotoList, LabelMapTy *LabelMap,
   for (auto PreIter = this->pre_begin(), PreIterEnd = this->pre_end();
        PreIter != PreIterEnd; ++PreIter) {
     HLNode *NewHLNode = cloneBaseImpl(&*PreIter, nullptr, nullptr, NodeMapper);
-    getHLNodeUtils().insertAsLastPreheaderNode(NewHLLoop, NewHLNode);
+    HLNodeUtils::insertAsLastPreheaderNode(NewHLLoop, NewHLNode);
   }
 
   // Clone the children.
@@ -166,13 +167,13 @@ HLLoop *HLLoop::cloneImpl(GotoContainerTy *GotoList, LabelMapTy *LabelMap,
        ChildIter != ChildIterEnd; ++ChildIter) {
     HLNode *NewHLNode =
         cloneBaseImpl(&*ChildIter, GotoList, LabelMap, NodeMapper);
-    getHLNodeUtils().insertAsLastChild(NewHLLoop, NewHLNode);
+    HLNodeUtils::insertAsLastChild(NewHLLoop, NewHLNode);
   }
 
   for (auto PostIter = this->post_begin(), PostIterEnd = this->post_end();
        PostIter != PostIterEnd; ++PostIter) {
     HLNode *NewHLNode = cloneBaseImpl(&*PostIter, nullptr, nullptr, NodeMapper);
-    getHLNodeUtils().insertAsLastPostexitNode(NewHLLoop, NewHLNode);
+    HLNodeUtils::insertAsLastPostexitNode(NewHLLoop, NewHLNode);
   }
 
   return NewHLLoop;
@@ -316,6 +317,10 @@ void HLLoop::printHeader(formatted_raw_ostream &OS, unsigned Depth,
 
   if (MaxTripCountEstimate) {
     OS << "  <MAX_TC_EST = " << MaxTripCountEstimate << ">";
+  }
+
+  if (getMVTag()) {
+    OS << "  <MVTag: " << getMVTag() << ">";
   }
 
   OS << "\n";
@@ -597,8 +602,7 @@ const CanonExpr *HLLoop::getStrideCanonExpr() const {
 }
 
 CanonExpr *HLLoop::getTripCountCanonExpr() const {
-
-  if (isUnknown() || !getStrideDDRef()->isIntConstant()) {
+  if (isUnknown()) {
     return nullptr;
   }
 
@@ -615,9 +619,7 @@ CanonExpr *HLLoop::getTripCountCanonExpr() const {
   int64_t StrideConst = getStrideCanonExpr()->getConstant();
   Result = getCanonExprUtils().cloneAndSubtract(UBCE, getLowerCanonExpr());
   assert(Result && " Trip Count computation failed.");
-  if (!Result) {
-    return nullptr;
-  }
+
   Result->divide(StrideConst);
   Result->addConstant(StrideConst, true);
   Result->simplify(true);
@@ -625,7 +627,6 @@ CanonExpr *HLLoop::getTripCountCanonExpr() const {
 }
 
 RegDDRef *HLLoop::getTripCountDDRef(unsigned NestingLevel) const {
-
   SmallVector<const RegDDRef *, 4> LoopRefs;
 
   CanonExpr *TripCE = getTripCountCanonExpr();
@@ -718,7 +719,8 @@ HLNode *HLLoop::getLastChild() {
 
 bool HLLoop::isNormalized() const {
   if (isUnknown()) {
-    return false;
+    // Unknown loop is always normalized.
+    return true;
   }
 
   int64_t LBConst = 0, StepConst = 0;
@@ -736,6 +738,10 @@ bool HLLoop::isNormalized() const {
 }
 
 bool HLLoop::isConstTripLoop(uint64_t *TripCnt, bool AllowZeroTripCnt) const {
+  if (isUnknown()) {
+    return false;
+  }
+
   bool ConstantTripLoop = false;
   int64_t TC;
 
@@ -824,7 +830,8 @@ void HLLoop::createZtt(bool IsOverwrite, bool IsSigned) {
   UBRef->makeConsistent(&Aux, getNestingLevel());
 }
 
-HLIf *HLLoop::extractZtt() {
+HLIf *HLLoop::extractZtt(unsigned NewLevel) {
+  // Default value of NewLevel is NonLinearLevel.
 
   if (!hasZtt()) {
     return nullptr;
@@ -832,13 +839,18 @@ HLIf *HLLoop::extractZtt() {
 
   HLIf *Ztt = removeZtt();
 
-  getHLNodeUtils().insertBefore(this, Ztt);
-  getHLNodeUtils().moveAsFirstChild(Ztt, this, true);
+  HLNodeUtils::insertBefore(this, Ztt);
+  HLNodeUtils::moveAsFirstChild(Ztt, this, true);
 
-  unsigned Level = getNestingLevel();
+  if (NewLevel == NonLinearLevel) {
+    NewLevel = getNestingLevel() - 1;
+  }
+
+  assert(CanonExprUtils::isValidLinearDefLevel(NewLevel) &&
+         "Invalid nesting level.");
 
   std::for_each(Ztt->ddref_begin(), Ztt->ddref_end(),
-                [Level](RegDDRef *Ref) { Ref->updateDefLevel(Level - 1); });
+                [NewLevel](RegDDRef *Ref) { Ref->updateDefLevel(NewLevel); });
 
   return Ztt;
 }
@@ -851,7 +863,7 @@ void HLLoop::extractPreheader() {
 
   extractZtt();
 
-  getHLNodeUtils().moveBefore(this, pre_begin(), pre_end());
+  HLNodeUtils::moveBefore(this, pre_begin(), pre_end());
 }
 
 void HLLoop::extractPostexit() {
@@ -862,7 +874,7 @@ void HLLoop::extractPostexit() {
 
   extractZtt();
 
-  getHLNodeUtils().moveAfter(this, post_begin(), post_end());
+  HLNodeUtils::moveAfter(this, post_begin(), post_end());
 }
 
 void HLLoop::extractPreheaderAndPostexit() {
@@ -870,12 +882,64 @@ void HLLoop::extractPreheaderAndPostexit() {
   extractPostexit();
 }
 
-void HLLoop::removePreheader() {
-  getHLNodeUtils().remove(pre_begin(), pre_end());
-}
+void HLLoop::removePreheader() { HLNodeUtils::remove(pre_begin(), pre_end()); }
 
-void HLLoop::removePostexit() {
-  getHLNodeUtils().remove(post_begin(), post_end());
+void HLLoop::removePostexit() { HLNodeUtils::remove(post_begin(), post_end()); }
+
+void HLLoop::replaceByFirstIteration() {
+  unsigned Level = getNestingLevel();
+  extractZtt(Level - 1);
+  extractPreheader();
+
+  bool IsInnermost = isInnermost();
+
+  const RegDDRef *LB = getLowerDDRef();
+  SmallVector<const RegDDRef *, 4> Aux = {LB};
+
+  auto &HNU = getHLNodeUtils();
+
+  RegDDRef *ExplicitLB = nullptr;
+
+  ForEach<RegDDRef>::visitRange(
+      child_begin(), child_end(),
+      [this, &HNU, Level, &Aux, LB, &ExplicitLB, IsInnermost](RegDDRef *Ref) {
+
+        const CanonExpr *IVReplacement = nullptr;
+
+        if (DDRefUtils::canReplaceIVByCanonExpr(Ref, Level,
+                                                LB->getSingleCanonExpr())) {
+          IVReplacement = LB->getSingleCanonExpr();
+        } else {
+          if (!ExplicitLB) {
+            // Create explicit copy statement
+            HLInst *LBCopy = HNU.createCopyInst(getLowerDDRef()->clone(), "lb");
+            HLNodeUtils::insertBefore(this, LBCopy);
+            ExplicitLB = LBCopy->getLvalDDRef();
+            Aux.push_back(ExplicitLB);
+          }
+
+          IVReplacement = ExplicitLB->getSingleCanonExpr();
+        }
+
+        // Expected to be always successful.
+        DDRefUtils::replaceIVByCanonExpr(Ref, Level, IVReplacement, IsNSW,
+                                         false);
+
+        if (!IsInnermost) {
+          // Innermost loops doesn't contain IVs deeper than Level.
+          Ref->demoteIVs(Level + 1);
+        }
+
+        Ref->makeConsistent(&Aux, Level - 1);
+      });
+
+  // To minimize the possibility of topsort numbers re-computation, detach the
+  // loop before moving the body nodes.
+  HLNode *Marker = HNU.getOrCreateMarkerNode();
+  HLNodeUtils::replace(this, Marker);
+
+  HLNodeUtils::moveAfter(Marker, child_begin(), child_end());
+  HLNodeUtils::remove(Marker);
 }
 
 void HLLoop::verify() const {
@@ -1046,7 +1110,7 @@ void HLLoop::markDoNotVectorize() {
 }
 
 bool HLLoop::canNormalize() const {
-  if (!isDo()) {
+  if (isUnknown()) {
     return false;
   }
 
@@ -1086,6 +1150,8 @@ bool HLLoop::normalize() {
   }
 
   if (!canNormalize()) {
+    DEBUG_NORMALIZE(dbgs() << "[HIR-NORMALIZE] Can not normalize loop "
+                           << getNumber() << "\n");
     return false;
   }
 
@@ -1118,7 +1184,8 @@ bool HLLoop::normalize() {
   std::unique_ptr<CanonExpr> NewIV(LowerCE->clone());
   NewIV->addIV(Level, InvalidBlobIndex, Stride, false);
 
-  auto UpdateCE = [&NewIV, Level](CanonExpr *CE) {
+  bool IsNSW = isNSW();
+  auto UpdateCE = [&NewIV, Level, IsNSW](CanonExpr *CE) {
     if (!CE->hasIV(Level)) {
       return;
     }
@@ -1133,7 +1200,8 @@ bool HLLoop::normalize() {
     // correct src type to the NewIV.
     NewIV->setSrcType(CE->getSrcType());
 
-    if (!CanonExprUtils::replaceIVByCanonExpr(CE, Level, NewIV.get(), true)) {
+    if (!CanonExprUtils::replaceIVByCanonExpr(CE, Level, NewIV.get(), IsNSW,
+                                              true)) {
       llvm_unreachable("[HIR-NORMALIZE] Can not replace IV by Lower");
     }
   };
@@ -1191,4 +1259,87 @@ HLLabel *HLLoop::getHeaderLabel() {
          "Could not find bottom test for unknown loop!");
 
   return cast<HLLabel>(FirstChild);
+}
+
+bool HLLoop::hasUnrollEnablingPragma() const {
+  if (!LoopMetadata) {
+    return false;
+  }
+
+  return (GetUnrollMetadata(LoopMetadata, "llvm.loop.unroll.enable") ||
+          GetUnrollMetadata(LoopMetadata, "llvm.loop.unroll.count") ||
+          (isConstTripLoop() &&
+           GetUnrollMetadata(LoopMetadata, "llvm.loop.unroll.full")));
+}
+
+bool HLLoop::hasCompleteUnrollEnablingPragma() const {
+  if (!LoopMetadata) {
+    return false;
+  }
+
+  if (GetUnrollMetadata(LoopMetadata, "llvm.loop.unroll.enable") ||
+      GetUnrollMetadata(LoopMetadata, "llvm.loop.unroll.full")) {
+    return true;
+  }
+
+  uint64_t TC;
+  if (!isConstTripLoop(&TC)) {
+    return false;
+  }
+
+  // Unroll if loop's trip count is less than unroll count.
+  auto PragmaTC = getUnrollPragmaCount();
+
+  return PragmaTC && (TC < PragmaTC);
+}
+
+bool HLLoop::hasCompleteUnrollDisablingPragma() const {
+  return LoopMetadata &&
+         GetUnrollMetadata(LoopMetadata, "llvm.loop.unroll.disable");
+}
+
+bool HLLoop::hasGeneralUnrollEnablingPragma() const {
+  if (!LoopMetadata) {
+    return false;
+  }
+
+  return GetUnrollMetadata(LoopMetadata, "llvm.loop.unroll.enable") ||
+         GetUnrollMetadata(LoopMetadata, "llvm.loop.unroll.count");
+}
+
+bool HLLoop::hasGeneralUnrollDisablingPragma() const {
+  if (!LoopMetadata) {
+    return false;
+  }
+
+  return GetUnrollMetadata(LoopMetadata, "llvm.loop.unroll.disable") ||
+         GetUnrollMetadata(LoopMetadata, "llvm.loop.unroll.runtime.disable") ||
+         // 'full' metadata only implies complete unroll, not partial unroll.
+         GetUnrollMetadata(LoopMetadata, "llvm.loop.unroll.full");
+}
+
+bool HLLoop::hasUnrollAndJamEnablingPragma() const {
+  // TODO: Use unroll & jam metadata when available. Also add the check to other
+  // passes such as loop interchange and loop distribution.
+  return hasGeneralUnrollEnablingPragma();
+}
+
+bool HLLoop::hasUnrollAndJamDisablingPragma() const {
+  // TODO: Use unroll & jam metadata when available.
+  return hasGeneralUnrollDisablingPragma();
+}
+
+unsigned HLLoop::getUnrollPragmaCount() const {
+  if (!LoopMetadata) {
+    return 0;
+  }
+
+  // Unroll if loop's trip count is less than unroll count.
+  auto MD = GetUnrollMetadata(LoopMetadata, "llvm.loop.unroll.count");
+
+  if (!MD) {
+    return 0;
+  }
+
+  return mdconst::extract<ConstantInt>(MD->getOperand(1))->getZExtValue();
 }

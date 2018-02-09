@@ -13,7 +13,7 @@
 
 ; Check the loop resource and verify that it is memory bound.
 
-; CHECK: + DO i1 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>
+; CHECK: + DO i1 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>
 ; CHECK:    Integer Operations: 7 
 ; CHECK:    Integer Operations Cost: 7
 ; CHECK:    Integer Memory Reads: 2

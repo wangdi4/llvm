@@ -23,17 +23,18 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
-HLGoto::HLGoto(HLNodeUtils &HNU, BasicBlock *TargetBB)
-    : HLNode(HNU, HLNode::HLGotoVal), TargetBBlock(TargetBB),
+HLGoto::HLGoto(HLNodeUtils &HNU, BasicBlock *SrcBB, BasicBlock *TargetBB)
+    : HLNode(HNU, HLNode::HLGotoVal), SrcBBlock(SrcBB), TargetBBlock(TargetBB),
       TargetLabel(nullptr) {}
 
 HLGoto::HLGoto(HLNodeUtils &HNU, HLLabel *TargetL)
-    : HLNode(HNU, HLNode::HLGotoVal), TargetBBlock(nullptr),
+    : HLNode(HNU, HLNode::HLGotoVal), SrcBBlock(nullptr), TargetBBlock(nullptr),
       TargetLabel(TargetL) {}
 
 HLGoto::HLGoto(const HLGoto &HLGotoObj)
-    : HLNode(HLGotoObj), TargetBBlock(HLGotoObj.TargetBBlock),
-      TargetLabel(HLGotoObj.TargetLabel) {}
+    : HLNode(HLGotoObj), SrcBBlock(HLGotoObj.SrcBBlock),
+      TargetBBlock(HLGotoObj.TargetBBlock), TargetLabel(HLGotoObj.TargetLabel) {
+}
 
 HLGoto *HLGoto::cloneImpl(GotoContainerTy *GotoList, LabelMapTy *LabelMap,
                           HLNodeMapper *NodeMapper) const {
@@ -69,7 +70,7 @@ void HLGoto::print(formatted_raw_ostream &OS, unsigned Depth,
     OS << "<i" << Level << " = "
        << "i" << Level << " + 1>\n";
   }
-  
+
   indent(OS, Depth);
   OS << "goto ";
 

@@ -12,6 +12,10 @@
 ; CHECK-NEXT: %add.i.46 = %sub4  +  0.000000e+00
 ; CHECK-NEXT: END LOOP
 
+; Verify that we set NSW flag for this constant trip count loop.
+
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser -hir-details | FileCheck %s --check-prefix=DETAILS
+; DETAILS: NSW: Yes
 
 ; Function Attrs: nounwind uwtable
 define i32 @main() #2 {

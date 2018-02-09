@@ -14,7 +14,7 @@
 ; CHECK: %mv.test = &((%q)[-5]) >=u &((%p)[10]);
 ; CHECK: %mv.test1 = &((%p)[5 * %N + 5]) >=u &((%q)[-1 * %N + -4]);
 ; CHECK: %mv.and = %mv.test  &&  %mv.test1;
-; CHECK: if (%N >=u {{[0-9]+}} && %mv.and == 0)
+; CHECK: if (%mv.and == 0)
 
 
 ; ModuleID = 'ptrs.ll'

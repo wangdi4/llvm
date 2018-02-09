@@ -70,8 +70,8 @@ for.cond.1.preheader.lr.ph:                       ; preds = %entry
 
 for.cond.1.preheader:                             ; preds = %for.cond.cleanup.3, %for.cond.1.preheader.lr.ph
   %indvars.iv = phi i64 [ 0, %for.cond.1.preheader.lr.ph ], [ %indvars.iv.next, %for.cond.cleanup.3 ]
-  %l.061 = phi i64 [ undef, %for.cond.1.preheader.lr.ph ], [ %l.2.lcssa, %for.cond.cleanup.3 ]
-  %l2.059 = phi i64 [ undef, %for.cond.1.preheader.lr.ph ], [ %l2.2.lcssa, %for.cond.cleanup.3 ]
+  %l.061 = phi i64 [ undef, %for.cond.1.preheader.lr.ph ], [ %l.2.lcssa.lcssa, %for.cond.cleanup.3 ]
+  %l2.059 = phi i64 [ undef, %for.cond.1.preheader.lr.ph ], [ %l2.2.lcssa.lcssa, %for.cond.cleanup.3 ]
   br label %for.cond.5.preheader
 
 for.cond.5.preheader:                             ; preds = %for.cond.cleanup.7, %for.cond.1.preheader
@@ -115,13 +115,15 @@ for.cond.cleanup.7:                               ; preds = %for.cond.5.for.cond
   br i1 %exitcond64, label %for.cond.cleanup.3, label %for.cond.5.preheader
 
 for.cond.cleanup.3:                               ; preds = %for.cond.cleanup.7
+  %l.2.lcssa.lcssa = phi i64 [ %l.2.lcssa, %for.cond.cleanup.7 ]
+  %l2.2.lcssa.lcssa = phi i64 [ %l2.2.lcssa, %for.cond.cleanup.7 ]
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond65 = icmp eq i64 %indvars.iv.next, %M
   br i1 %exitcond65, label %for.cond.cleanup, label %for.cond.1.preheader
 
 for.cond.cleanup:                                 ; preds = %for.cond.cleanup.3, %entry
-  %l.0.lcssa = phi i64 [ undef, %entry ], [ %l.2.lcssa, %for.cond.cleanup.3 ]
-  %l2.0.lcssa = phi i64 [ undef, %entry ], [ %l2.2.lcssa, %for.cond.cleanup.3 ]
+  %l.0.lcssa = phi i64 [ undef, %entry ], [ %l.2.lcssa.lcssa, %for.cond.cleanup.3 ]
+  %l2.0.lcssa = phi i64 [ undef, %entry ], [ %l2.2.lcssa.lcssa, %for.cond.cleanup.3 ]
   %add23 = add nsw i64 %l2.0.lcssa, 3
   %add24 = add nsw i64 %l.0.lcssa, 2
   %arrayidx25 = getelementptr inbounds i32*, i32** %A, i64 %add24

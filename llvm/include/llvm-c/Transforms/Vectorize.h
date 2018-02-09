@@ -42,9 +42,13 @@ void LLVMAddLoopVectorizePass(LLVMPassManagerRef PM);
 /** See llvm::createSLPVectorizerPass function. */
 void LLVMAddSLPVectorizePass(LLVMPassManagerRef PM);
 
+#if INTEL_CUSTOMIZATION
 /** See llvm::createVPlanDriverPass function. */
 void LLVMAddVPlanDriverPass(LLVMPassManagerRef PM);
 
+/** See llvm::createVPlanDriverHIRPass function. */
+void LLVMAddVPlanDriverHIRPass(LLVMPassManagerRef PM);
+#endif
 
 /**
  * @}

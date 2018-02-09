@@ -18,6 +18,8 @@
 #include "llvm/Analysis/CallGraphSCCPass.h"
 #include "llvm/Analysis/Intel_AggInline.h"    // INTEL
 #include "llvm/Analysis/LoopInfo.h"           // INTEL
+#include "llvm/Analysis/OptimizationRemarkEmitter.h"
+#include "llvm/ADT/SmallSet.h"                // INTEL
 #include <cassert>
 #include <climits>
 
@@ -50,6 +52,7 @@ const int LastCallToStaticBonus = 15000;
 const int SecondToLastCallToStaticBonus = 410; // INTEL
 const int AggressiveInlineCallBonus = 5000;    // INTEL
 const int BigBasicBlockPredCount = 90;         // INTEL
+const int InliningForFusionBonus = 400;        // INTEL
 const int ColdccPenalty = 2000;
 const int NoreturnPenalty = 10000;
 /// Do not inline functions which allocate this many bytes on the stack
@@ -108,7 +111,8 @@ typedef enum {
    InlrFirst, // Just a marker placed before the first inlining reason
    InlrNoReason,
    InlrAlwaysInline,
-   InlrAlwaysInlineRecursive, // INTEL
+   InlrAlwaysInlineRecursive,
+   InlrInlineList,
    InlrSingleLocalCall,
    InlrSingleBasicBlock,
    InlrAlmostSingleBasicBlock,
@@ -117,10 +121,12 @@ typedef enum {
    InlrDoubleNonLocalCall,
    InlrVectorBonus,
    InlrAggInline,
+   InlrForFusion,
    InlrProfitable,
    InlrLast, // Just a marker placed after the last inlining reason
    NinlrFirst, // Just a marker placed before the first non-inlining reason
    NinlrNoReason,
+   NinlrNoinlineList,
    NinlrColdCC,
    NinlrDeleted,
    NinlrDuplicateCall,
@@ -188,11 +194,25 @@ class InlineCost {
 
   InlineReportTypes::InlineReason Reason; // INTEL
 
+#if INTEL_CUSTOMIZATION
+  /// \brief The cost and the threshold used for early exit from usual inlining
+  /// process. A value of INT_MAX for either of these indicates that no value
+  /// has been seen yet. They are expected to be set at the same time, so we
+  /// need test only EarlyExitCost to see if the value of either is set yet.
+  const int EarlyExitCost;
+  const int EarlyExitThreshold;
+#endif // INTEL_CUSTOMIZATION
+
   // Trivial constructor, interesting logic in the factory functions below.
 
+#if INTEL_CUSTOMIZATION
   InlineCost(int Cost, int Threshold, InlineReportTypes::InlineReason Reason
-    = InlineReportTypes::NinlrNoReason) : Cost(Cost), Threshold(Threshold),
-    Reason(Reason) {} // INTEL
+    = InlineReportTypes::NinlrNoReason, int EarlyExitCost = INT_MAX,
+    int EarlyExitThreshold = INT_MAX) :
+    Cost(Cost), Threshold(Threshold), Reason(Reason),
+    EarlyExitCost(EarlyExitCost),
+    EarlyExitThreshold(EarlyExitThreshold) {}
+#endif // INTEL_CUSTOMIZATION
 
 public:
   static InlineCost get(int Cost, int Threshold) {
@@ -202,10 +222,11 @@ public:
   }
 #if INTEL_CUSTOMIZATION
   static InlineCost get(int Cost, int Threshold,
-    InlineReportTypes::InlineReason Reason) {
+    InlineReportTypes::InlineReason Reason, int EarlyExitCost,
+    int EarlyExitThreshold) {
     assert(Cost > AlwaysInlineCost && "Cost crosses sentinel value");
     assert(Cost < NeverInlineCost && "Cost crosses sentinel value");
-    return InlineCost(Cost, Threshold, Reason);
+    return InlineCost(Cost, Threshold, Reason, EarlyExitCost, EarlyExitThreshold);
   }
 #endif // INTEL_CUSTOMIZATION
   static InlineCost getAlways() {
@@ -239,6 +260,12 @@ public:
     return Cost;
   }
 
+  /// \brief Get the threshold against which the cost was computed
+  int getThreshold() const {
+    assert(isVariable() && "Invalid access of InlineCost");
+    return Threshold;
+  }
+
   /// \brief Get the cost delta from the threshold for inlining.
   /// Only valid if the cost is of the variable kind. Returns a negative
   /// value if the cost is too high to inline.
@@ -249,6 +276,10 @@ public:
     { return Reason; }
   void setInlineReason(InlineReportTypes::InlineReason MyReason)
     { Reason = MyReason; }
+  int getEarlyExitCost() const
+    { return EarlyExitCost; }
+  int getEarlyExitThreshold() const
+    { return EarlyExitThreshold; }
 #endif // INTEL_CUSTOMIZATION
 
 };
@@ -287,8 +318,15 @@ struct InlineParams {
   bool PrepareForLTO;
 #endif // INTEL_CUSTOMIZATION
 
+  /// Threshold to use when the callsite is considered hot relative to function
+  /// entry.
+  Optional<int> LocallyHotCallSiteThreshold;
+
   /// Threshold to use when the callsite is considered cold.
   Optional<int> ColdCallSiteThreshold;
+
+  /// Compute inline cost even when the cost has exceeded the threshold.
+  Optional<bool> ComputeFullInlineCost;
 };
 
 /// Generate the parameters to tune the inline cost analysis based only on the
@@ -339,7 +377,9 @@ getInlineCost(CallSite CS, const InlineParams &Params,
               Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI,
               InliningLoopInfoCache *ILIC,     // INTEL
               InlineAggressiveInfo *AggI,      // INTEL
-              ProfileSummaryInfo *PSI);
+              SmallSet<CallSite, 20> *CallSitesForFusion, // INTEL
+              ProfileSummaryInfo *PSI,
+              OptimizationRemarkEmitter *ORE = nullptr);
 
 /// \brief Get an InlineCost with the callee explicitly specified.
 /// This allows you to calculate the cost of inlining a function via a
@@ -353,7 +393,8 @@ getInlineCost(CallSite CS, Function *Callee, const InlineParams &Params,
               Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI,
               InliningLoopInfoCache *ILIC,           // INTEL
               InlineAggressiveInfo *AggI,            // INTEL
-              ProfileSummaryInfo *PSI);
+              SmallSet<CallSite, 20> *CallSitesForFusion, // INTEL
+              ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE);
 
 /// \brief Minimal filter to detect invalid constructs for inlining.
 bool isInlineViable(Function &Callee,                         // INTEL

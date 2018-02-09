@@ -20,11 +20,13 @@
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/FunctionAttrs.h"
+#include "llvm/Transforms/IPO/Intel_InlineLists.h" // INTEL
 
 using namespace llvm;
 
 void llvm::initializeIPO(PassRegistry &Registry) {
   initializeArgPromotionPass(Registry);
+  initializeCalledValuePropagationLegacyPassPass(Registry);
   initializeConstantMergeLegacyPassPass(Registry);
   initializeCrossDSOCFIPass(Registry);
   initializeDAEPass(Registry);
@@ -35,6 +37,7 @@ void llvm::initializeIPO(PassRegistry &Registry) {
   initializeGlobalSplitPass(Registry);
   initializeIPCPPass(Registry);
   initializeAlwaysInlinerLegacyPassPass(Registry);
+  initializeInlineListsPass(Registry); // INTEL
   initializeSimpleInlinerPass(Registry);
   initializeInferFunctionAttrsLegacyPassPass(Registry);
   initializeInternalizeLegacyPassPass(Registry);
@@ -69,6 +72,10 @@ void LLVMAddArgumentPromotionPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createArgumentPromotionPass());
 }
 
+void LLVMAddCalledValuePropagationPass(LLVMPassManagerRef PM) {
+  unwrap(PM)->add(createCalledValuePropagationPass());
+}
+
 void LLVMAddConstantMergePass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createConstantMergePass());
 }
@@ -76,6 +83,12 @@ void LLVMAddConstantMergePass(LLVMPassManagerRef PM) {
 void LLVMAddDeadArgEliminationPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createDeadArgEliminationPass());
 }
+
+#if INTEL_CUSTOMIZATION
+void LLVMAddInlineListsPass(LLVMPassManagerRef PM) {
+  unwrap(PM)->add(createInlineListsPass());
+}
+#endif  // INTEL_CUSTOMIZATION
 
 void LLVMAddFunctionAttrsPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createPostOrderFunctionAttrsLegacyPass());

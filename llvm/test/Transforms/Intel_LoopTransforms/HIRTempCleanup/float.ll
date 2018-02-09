@@ -4,7 +4,7 @@
 
 ; CHECK: Dump Before HIR Temp Cleanup
 
-; CHECK: + DO i1 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>
+; CHECK: + DO i1 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>
 ; CHECK: |   %0 = (%B)[i1];
 ; CHECK: |   %1 = (%A)[i1];
 ; CHECK: |   %add = %0  +  %1;
@@ -13,7 +13,7 @@
 
 ; CHECK: Dump After HIR Temp Cleanup
 
-; CHECK: + DO i1 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>
+; CHECK: + DO i1 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>
 ; CHECK: |   %add = (%B)[i1]  +  (%A)[i1];
 ; CHECK: |   (%A)[i1] = %add;
 ; CHECK: + END LOOP

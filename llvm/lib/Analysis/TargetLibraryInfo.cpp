@@ -26,8 +26,10 @@ static cl::opt<TargetLibraryInfoImpl::VectorLibrary> ClVectorLibrary(
                           "Accelerate framework"),
                clEnumValN(TargetLibraryInfoImpl::SVML, "SVML",
                           "Intel SVML library"),
+#if INTEL_CUSTOMIZATION
                clEnumValN(TargetLibraryInfoImpl::Libmvec, "Libmvec",
                           "Glibc vector math library")));
+#endif
 
 StringRef const TargetLibraryInfoImpl::StandardNames[LibFunc::NumLibFuncs] = {
 #define TLI_DEFINE_STRING
@@ -1266,7 +1268,17 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(0)->isPointerTy() &&
             FTy.getParamType(1) == SizeTTy && FTy.getParamType(2) == SizeTTy);
 
+  case LibFunc_wcslen:
+    return (NumParams == 1 && FTy.getParamType(0)->isPointerTy() &&
+            FTy.getReturnType()->isIntegerTy());
+  case LibFunc::NumLibFuncs:
+    break;
+
 #if INTEL_CUSTOMIZATION
+  // Note: These are being placed after the case for LibFunc::NumLibFuncs to
+  // avoid conflicts during community pulldowns, which otherwise occur
+  // every time a new entry is added to the enumeration.
+
   case LibFunc_dunder_isoc99_fscanf:
     // int __isoc99_fscanf(FILE *stream, const char *format, ... );
     return (NumParams >= 2 && FTy.getReturnType()->isIntegerTy() &&
@@ -1294,12 +1306,6 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(1)->isPointerTy() &&
             FTy.getParamType(2)->isPointerTy());
 #endif // INTEL_CUSTOMIZATION
-
-  case LibFunc_wcslen:
-    return (NumParams == 1 && FTy.getParamType(0)->isPointerTy() &&
-            FTy.getReturnType()->isIntegerTy());
-  case LibFunc::NumLibFuncs:
-    break;
   }
 
   llvm_unreachable("Invalid libfunc");
@@ -1418,11 +1424,13 @@ bool TargetLibraryInfoImpl::isFunctionVectorizable(StringRef funcName) const {
   if (funcName.empty())
     return false;
 
+#if INTEL_CUSTOMIZATION
   // TODO: We must be able to distinguish between masked/non-masked entries,
   // so this function will need to move away from using lower_bound, as this
   // could be an entry for either the masked or non-masked version. For now,
   // assume that both the masked and non-masked variants are vectorizable as
   // long as lower_bound says so.
+#endif
   std::vector<VecDesc>::const_iterator I = std::lower_bound(
       VectorDescs.begin(), VectorDescs.end(), funcName,
       compareWithScalarFnName);
@@ -1485,20 +1493,11 @@ TargetLibraryInfoImpl &TargetLibraryAnalysis::lookupInfoImpl(const Triple &T) {
   return *Impl;
 }
 
-unsigned TargetLibraryInfoImpl::getTargetWCharSize(const Triple &T) {
-  // See also clang/lib/Basic/Targets.cpp.
-  if (T.isPS4() || T.isOSWindows() || T.isArch16Bit())
-    return 2;
-  if (T.getArch() == Triple::xcore)
-    return 1;
-  return 4;
-}
-
 unsigned TargetLibraryInfoImpl::getWCharSize(const Module &M) const {
   if (auto *ShortWChar = cast_or_null<ConstantAsMetadata>(
       M.getModuleFlag("wchar_size")))
     return cast<ConstantInt>(ShortWChar->getValue())->getZExtValue();
-  return getTargetWCharSize(Triple(M.getTargetTriple()));
+  return 0;
 }
 
 TargetLibraryInfoWrapperPass::TargetLibraryInfoWrapperPass()

@@ -1,7 +1,7 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-loop-statistics | FileCheck %s
 
 ; HIR-
-; + DO i1 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>
+; + DO i1 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>
 ; |   %a.addr.014.out = %a.addr.014;
 ; |   %output.1 = %b;
 ; |   if (i1 > 77)
@@ -15,7 +15,7 @@
 
 ; Verify that if in the loop is included in loop statistics.
 
-; CHECK: + DO i1 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>
+; CHECK: + DO i1 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>
 ; CHECK:    Number of ifs: 1
 ; CHECK: + END LOOP
 

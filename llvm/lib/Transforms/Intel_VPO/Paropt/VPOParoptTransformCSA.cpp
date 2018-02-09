@@ -79,7 +79,7 @@ bool VPOParoptTransform::genCSAParallelLoop(WRegionNode *W) {
 
   auto *Module = F->getParent();
 
-  auto *Loop = W->getLoop();
+  auto *Loop = W->getWRNLoopInfo().getLoop();
   assert(Loop->isLoopSimplifyForm());
 
   // Annotating loop with spmdization entry/exit intrinsic calls if parallel

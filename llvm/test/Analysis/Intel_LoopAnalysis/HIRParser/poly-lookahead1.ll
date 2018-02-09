@@ -5,23 +5,25 @@
 ; CHECK: + DO i1 = 0, 47, 1   <DO_LOOP>
 ; CHECK: |   %n.addr.038.out = %n.addr.038;
 ; CHECK: |   %qb.041.out1 = %qb.041;
-; CHECK: |   %indvars.iv42.out = %indvars.iv42;
-; CHECK: |   %indvars.iv44.out = %indvars.iv44;
 ; CHECK: |
 ; CHECK: |      %2 = i1 + -1  *  i1 + -2;
 ; CHECK: |      %qb.135 = %qb.041.out1;
-; CHECK: |   + DO i2 = 0, (i1 + -1)/u3, 1   <DO_LOOP>
-; CHECK: |   |   %qb.135.out = %qb.135;
+; CHECK: |   + DO i2 = 0, (i1 + -1)/u3, 1   <DO_LOOP>  <MAX_TC_EST = 16>
+; CHECK: |   |   %6 = -1 * trunc.i33.i32((%2 /u 2)) + %indvars.iv44  +  %qb.135;
+; CHECK: |   |   %7 = %6  +  (-1 + (-1 * %indvars.iv54)) * i2 + %n.addr.038.out;
 ; CHECK: |   |   %9 = i1 + -1  *  (-1 + (-1 * %indvars.iv54)) * i2 + %n.addr.038.out + -1;
-; CHECK: |   |   %qb.135 = (-1 + (-1 * %indvars.iv54)) * i2 + -1 * trunc.i33.i32((%2 /u 2)) + %indvars.iv44.out + %n.addr.038.out + %qb.135.out  +  %9;
+; CHECK: |   |   %10 = %7  +  %9;
 ; CHECK: |   |   %11 = -1 * i1  +  %indvars.iv52 * i2 + %n.addr.038.out;
+; CHECK: |   |   %qb.135 = %10;
 ; CHECK: |   + END LOOP
-; CHECK: |      %qb.041 = %qb.135;
+; CHECK: |      %qb.041 = %10;
 ; CHECK: |      %n.addr.038 = %11;
 ; CHECK: |
 ; CHECK: |   %qb.041.out = %qb.041;
-; CHECK: |   %indvars.iv42 = %indvars.iv42  +  -6 * i1 + -12;
-; CHECK: |   %indvars.iv44 = %indvars.iv44  +  %indvars.iv42.out;
+; CHECK: |   %indvars.iv.next43 = %indvars.iv42  +  -6 * i1 + -12;
+; CHECK: |   %indvars.iv.next45 = %indvars.iv44  +  %indvars.iv42;
+; CHECK: |   %indvars.iv42 = %indvars.iv.next43;
+; CHECK: |   %indvars.iv44 = %indvars.iv.next45;
 ; CHECK: |   %indvars.iv52 = -1 * i1 + -1;
 ; CHECK: |   %indvars.iv54 = i1;
 ; CHECK: + END LOOP

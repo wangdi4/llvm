@@ -15,8 +15,8 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
-#include "llvm/Support/Debug.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+#include "llvm/Support/Debug.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -262,6 +262,23 @@ bool DDUtils::enablePerfectLPGatherPrePostInsts(
   return true;
 }
 
+/// t0 = a[i1];     LRef =
+///  ...
+/// t1  = t0        Node
+/// Looking for Node (assuming  forward sub is not done)
+HLInst *
+DDUtils::findForwardSubInst(const DDRef *LRef,
+                            SmallVectorImpl<HLInst *> &ForwardSubInsts) {
+
+  for (auto &Inst : ForwardSubInsts) {
+    const RegDDRef *RRef = Inst->getRvalDDRef();
+    if (RRef->getSymbase() == LRef->getSymbase()) {
+      return Inst;
+    }
+  }
+  return nullptr;
+}
+
 bool DDUtils::enablePerfectLPLegalityCheckPre(
     HLLoop *InnermostLoop, DDGraph DDG, SmallVectorImpl<HLInst *> &PreLoopInsts,
     SmallVectorImpl<HLInst *> &PostLoopInsts,
@@ -269,7 +286,6 @@ bool DDUtils::enablePerfectLPLegalityCheckPre(
     SmallVectorImpl<HLInst *> &ValidatedStores) {
 
   const DDRef *LRef, *RRef;
-  auto &HNU = InnermostLoop->getHLNodeUtils();
 
   for (auto &Inst : PreLoopInsts) {
     const Instruction *LLVMInst;
@@ -298,7 +314,7 @@ bool DDUtils::enablePerfectLPLegalityCheckPre(
     //            the same store for A[x] is needed in PostLoop stmts
     LRef = Inst->getLvalDDRef();
     RRef = Inst->getRvalDDRef();
-    HLInst *ForwardSInst = HNU.findForwardSubInst(LRef, ForwardSubInsts);
+    HLInst *ForwardSInst = findForwardSubInst(LRef, ForwardSubInsts);
     LRef = ForwardSInst ? ForwardSInst->getLvalDDRef() : Inst->getLvalDDRef();
     HLInst *StoreInst = nullptr;
     if (!canMoveLoadIntoLoop(LRef, RRef, InnermostLoop, PostLoopInsts,
@@ -475,16 +491,14 @@ bool DDUtils::enablePerfectLoopNest(HLLoop *InnermostLoop, DDGraph DDG) {
     return false;
   }
 
-  auto &HNU = InnermostLoop->getHLNodeUtils();
-
   // (4) Move Stmts into Innermost Loop
   for (auto I = PreLoopInsts.rbegin(), E = PreLoopInsts.rend(); I != E; ++I) {
     HLNode *Node = cast<HLNode>(*I);
-    HNU.moveAsFirstChild(InnermostLoop, Node);
+    HLNodeUtils::moveAsFirstChild(InnermostLoop, Node);
   }
   for (auto &I : PostLoopInsts) {
     HLNode *Node = cast<HLNode>(I);
-    HNU.moveAsLastChild(InnermostLoop, Node);
+    HLNodeUtils::moveAsLastChild(InnermostLoop, Node);
   }
 
   // Call Util to update the temp DDRefs from linear-at-level to non-linear

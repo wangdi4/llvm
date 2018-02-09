@@ -21,8 +21,10 @@
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/IR/Dominators.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
+
 
 #include <algorithm>
 #include <cassert>
@@ -227,6 +229,7 @@ void CSALoopIntrinsicExpander::recurseLoops(Loop* L, BasicBlock* dummy_exit) {
     errs().changeColor(raw_ostream::BLUE, true);
     errs() << "!! WARNING: COULD NOT PARALLELIZE LOOP !!";
     errs().resetColor();
+#if RAVI
     const DebugLoc& loc = found_parloop->getDebugLoc();
     if (loc) {
       errs() << R"help(
@@ -238,6 +241,7 @@ We were unable to automatically identify a unique section for the loop at
 We were unable to automatically identify a unique section for a loop marked
 with a CSA loop builtin. Use -g for location information.)help";
     }
+#endif
     errs() << R"help(
 
 This was likely caused by either having multiple loop exits or by having memory

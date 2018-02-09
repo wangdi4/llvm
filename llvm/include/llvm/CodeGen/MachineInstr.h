@@ -22,11 +22,11 @@
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/CodeGen/MachineOperand.h"
+#include "llvm/CodeGen/TargetOpcodes.h"
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/MC/MCInstrDesc.h"
 #include "llvm/Support/ArrayRecycler.h"
-#include "llvm/Target/TargetOpcodes.h"
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
@@ -142,6 +142,17 @@ public:
 
   const MachineBasicBlock* getParent() const { return Parent; }
   MachineBasicBlock* getParent() { return Parent; }
+
+  /// Return the function that contains the basic block that this instruction
+  /// belongs to.
+  ///
+  /// Note: this is undefined behaviour if the instruction does not have a
+  /// parent.
+  const MachineFunction *getMF() const;
+  MachineFunction *getMF() {
+    return const_cast<MachineFunction *>(
+        static_cast<const MachineInstr *>(this)->getMF());
+  }
 
   /// Return the asm printer flags bitvector.
   uint8_t getAsmPrinterFlags() const { return AsmPrinterFlags; }
@@ -294,6 +305,21 @@ public:
     return Operands[i];
   }
 
+  /// Return true if operand \p OpIdx is a subregister index.
+  bool isOperandSubregIdx(unsigned OpIdx) const {
+    assert(getOperand(OpIdx).getType() == MachineOperand::MO_Immediate &&
+           "Expected MO_Immediate operand type.");
+    if (isExtractSubreg() && OpIdx == 2)
+      return true;
+    if (isInsertSubreg() && OpIdx == 3)
+      return true;
+    if (isRegSequence() && OpIdx > 1 && (OpIdx % 2) == 0)
+      return true;
+    if (isSubregToReg() && OpIdx == 3)
+      return true;
+    return false;
+  }
+
   /// Returns the number of non-implicit operands.
   unsigned getNumExplicitOperands() const;
 
@@ -382,6 +408,9 @@ public:
   bool hasOneMemOperand() const {
     return NumMemRefs == 1;
   }
+
+  /// Return the number of memory operands.
+  unsigned getNumMemOperands() const { return NumMemRefs; }
 
   /// API for querying MachineInstr properties. They are the same as MCInstrDesc
   /// queries but they are bundle aware.
@@ -772,9 +801,14 @@ public:
 
   bool isEHLabel() const { return getOpcode() == TargetOpcode::EH_LABEL; }
   bool isGCLabel() const { return getOpcode() == TargetOpcode::GC_LABEL; }
+  bool isAnnotationLabel() const {
+    return getOpcode() == TargetOpcode::ANNOTATION_LABEL;
+  }
 
   /// Returns true if the MachineInstr represents a label.
-  bool isLabel() const { return isEHLabel() || isGCLabel(); }
+  bool isLabel() const {
+    return isEHLabel() || isGCLabel() || isAnnotationLabel();
+  }
 
   bool isCFIInstruction() const {
     return getOpcode() == TargetOpcode::CFI_INSTRUCTION;
@@ -793,7 +827,10 @@ public:
       && getOperand(1).isImm();
   }
 
-  bool isPHI() const { return getOpcode() == TargetOpcode::PHI; }
+  bool isPHI() const {
+    return getOpcode() == TargetOpcode::PHI ||
+           getOpcode() == TargetOpcode::G_PHI;
+  }
   bool isKill() const { return getOpcode() == TargetOpcode::KILL; }
   bool isImplicitDef() const { return getOpcode()==TargetOpcode::IMPLICIT_DEF; }
   bool isInlineAsm() const { return getOpcode() == TargetOpcode::INLINEASM; }
@@ -870,6 +907,7 @@ public:
       return isMetaInstruction();
     // Copy-like instructions are usually eliminated during register allocation.
     case TargetOpcode::PHI:
+    case TargetOpcode::G_PHI:
     case TargetOpcode::COPY:
     case TargetOpcode::INSERT_SUBREG:
     case TargetOpcode::SUBREG_TO_REG:

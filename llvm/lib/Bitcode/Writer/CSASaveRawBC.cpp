@@ -100,7 +100,7 @@ void CSASaveRawBC::dumpBC(StringRef modName) {
 
   // Create output file
   std::error_code EC;
-  tool_output_file Out(bcName.c_str(), EC, sys::fs::F_None);
+  ToolOutputFile Out(bcName.c_str(), EC, sys::fs::F_None);
   if (EC) {
     errs() << "could not open bitcode file for writing: ";
     errs() << bcName;

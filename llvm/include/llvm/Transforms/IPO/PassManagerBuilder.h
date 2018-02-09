@@ -158,6 +158,10 @@ public:
   bool PerformThinLTO;
   bool DivergentTarget;
 
+#if INTEL_CUSTOMIZATION
+  bool DisableIntelProprietaryOpts;
+#endif // INTEL_CUSTOMIZATION
+
   /// Enable profile instrumentation pass.
   bool EnablePGOInstrGen;
   /// Profile data file name that the instrumentation will be written to.
@@ -166,6 +170,11 @@ public:
   std::string PGOInstrUse;
   /// Path of the sample Profile data file.
   std::string PGOSampleUse;
+
+#if INTEL_CUSTOMIZATION
+  // List of target triples for offloading.
+  std::vector<std::string> OffloadTargets;
+#endif // INTEL_CUSTOMIZATION
 
 private:
   /// ExtensionList - This is list of all of the extensions that are registered.

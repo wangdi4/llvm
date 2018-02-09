@@ -17,11 +17,9 @@
 ;  }
 
 ; CHECK:      + DO i1 = 0, 56, 1   <DO_LOOP>
-; CHECK-NEXT: |   %1 = zext.i32.i64(i1 + -54);
-; CHECK-NEXT: |
 ; CHECK-NEXT: |      %fs.promoted = (%fs)[0];
 ; CHECK-NEXT: |      %add21136 = %fs.promoted;
-; CHECK-NEXT: |   + DO i2 = 0, %1, 1   <DO_LOOP>
+; CHECK-NEXT: |   + DO i2 = 0, i1 + -54, 1   <DO_LOOP>
 ; CHECK-NEXT: |   |   %5 = (%ti)[0][-1 * i1 + 58][-1 * i1 + 57];
 ; CHECK-NEXT: |   |   (%ti)[0][-1 * i1 + i2 + 58][-1 * i1 + i2 + 58] = %5;
 ; CHECK-NEXT: |   |   %6 = (%n)[0][-1 * i1 + i2 + 58];
@@ -33,7 +31,7 @@
 ; CHECK-NEXT: |      %arrayidx35.promoted = (%ti)[0][-1 * i1 + 57][-1 * i1 + 57];
 ; CHECK-NEXT: |      %n1.promoted = (%n1)[0];
 ; CHECK-NEXT: |      %8 = %arrayidx35.promoted;
-; CHECK-NEXT: |   + DO i2 = 0, %1, 1   <DO_LOOP>
+; CHECK-NEXT: |   + DO i2 = 0, i1 + -54, 1   <DO_LOOP>
 ; CHECK-NEXT: |   |   %10 = (%ep)[0][-1 * i1 + i2 + 58][-1 * i1 + i2 + 57];
 ; CHECK-NEXT: |   |   %8 = %8  +  %10;
 ; CHECK-NEXT: |   |   (%a)[0][-1 * i1 + i2 + 58] = -1 * i2 + %n1.promoted;

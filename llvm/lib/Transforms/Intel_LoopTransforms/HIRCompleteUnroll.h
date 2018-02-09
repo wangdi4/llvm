@@ -1,6 +1,6 @@
 //===----- HIRCompleteUnroll.h - Implements complete unroll ---------------===//
 //
-// Copyright (C) 2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2017 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -19,6 +19,7 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGatherer.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
 namespace llvm {
@@ -46,6 +47,8 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const override;
 
+  typedef DDRefGatherer<const RegDDRef, MemRefs> MemRefGatherer;
+
 private:
   struct CanonExprUpdater;
   class ProfitabilityAnalyzer;
@@ -72,9 +75,16 @@ private:
   // Structure holding thresholds for complete unroll.
   UnrollThresholds Limits;
 
+  // Set of alloca stores that have been unrolled by complete unroll. This is
+  // used to evaluate profitability for corresponding alloca loads.
+  SmallPtrSet<const Value *, 16> UnrolledAllocaStoreBases;
+
 private:
-  // Returns true if loop is eligible for complete unrolling.
+  /// Returns true if loop is eligible for complete unrolling.
   bool isApplicable(const HLLoop *Loop) const;
+
+  /// Returns true if we cannot handle loop liveouts after unrolling.
+  bool cannotHandleLiveouts(const HLLoop *Loop, int64_t MinUpper) const;
 
   /// Computes and returns average trip count and dependence level of the loop
   /// for profitability analysis.
@@ -93,7 +103,7 @@ private:
   void refineCandidates();
 
   /// Returns true if loop is profitable for complete unrolling.
-  bool isProfitable(const HLLoop *Loop) const;
+  bool isProfitable(const HLLoop *Loop);
 
   /// Computes constant upper bound of \p Loop by substituting outer loop trip
   /// counts by their respective IVs in the upper.
@@ -115,7 +125,7 @@ private:
   /// Routine to drive the transformation of candidate loops.
   void transformLoops();
 };
-}
-}
+} // namespace loopopt
+} // namespace llvm
 
 #endif

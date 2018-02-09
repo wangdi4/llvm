@@ -1,6 +1,6 @@
 //===------- HLInst.h - High level IR instruction node ----*- C++ -*-------===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -153,6 +153,12 @@ public:
 
   /// Returns true if this is a call instruction.
   bool isCallInst() const { return isa<CallInst>(Inst); }
+
+  /// Returns true if this is an indirect call instruction.
+  bool isIndirectCallInst() const {
+    auto Call = dyn_cast<CallInst>(Inst);
+    return (Call && !Call->getCalledFunction());
+  }
 
   /// Verifies HLInst integrity.
   virtual void verify() const override;

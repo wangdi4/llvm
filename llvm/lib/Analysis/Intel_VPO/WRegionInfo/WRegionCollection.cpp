@@ -149,7 +149,7 @@ void WRegionCollection::getWRegionFromBB(BasicBlock *BB,
           S->pop();
           DEBUG(dbgs() << "\n  === Closed WRegion. ");
           DEBUG(dbgs() << "Stacksize after pop = " << S->size() << "\n");
-        } else if (VPOAnalysisUtils::isListEndDirective(DirID) && 
+        } else if (VPOAnalysisUtils::isListEndDirective(DirID) &&
                  !(S->empty())) {
           // We reach here only if using the intel_directive representation.
           // Under this representation, stand-alone directives don't have a
@@ -163,17 +163,17 @@ void WRegionCollection::getWRegionFromBB(BasicBlock *BB,
             DEBUG(dbgs() << "Stacksize after pop = " << S->size() << "\n");
           }
         }
-      } else if (VPOAnalysisUtils::isIntelClause(IntrinId)) { 
+      } else if (VPOAnalysisUtils::isIntelClause(IntrinId)) {
         // Process clauses from intel_directive_qual* intrinsics. We reach here
         // only if using the intel_directive_qual* representation.
-        assert(!IsRegion && 
+        assert(!IsRegion &&
                "Unexpected directive.region.entry/exit representation");
 
         assert(!(S->empty()) &&
                "Unexpected empty WRN stack when seeing a clause");
         W = S->top();
 
-        // Extract clause properties 
+        // Extract clause properties
         ClauseSpecifier ClauseInfo(DirOrClause);
 
         // Parse the clause and update W
@@ -220,7 +220,7 @@ void topSortBasicBlocks(
 
   // We are only interested in BBs that start with OMP directives. Paying the
   // cost now to look at BB's first instruction allows us to save memory by
-  // only pushing BBs with such directives onto BBStack. It will also save 
+  // only pushing BBs with such directives onto BBStack. It will also save
   // compile time later in getWRegionFromBB, which no longer has to look at all
   // the BBs in the CFG. For typical OpenMP programs where the percentage of
   // BBs with OMP directives is small, this should result in net savings of
@@ -268,7 +268,7 @@ bool WRegionCollection::runOnFunction(Function &F) {
 }
 
 void WRegionCollection::buildWRGraph(InputIRKind IR) {
-  DEBUG(dbgs() << "\nENTER WRegionCollection::buildWRGraph(InputIR=" 
+  DEBUG(dbgs() << "\nENTER WRegionCollection::buildWRGraph(InputIR="
                << IR <<"){\n");
   if (IR == HIR) {
     // TODO: move buildWRGraphFromHIR() from WRegionUtils to WRegionCollection

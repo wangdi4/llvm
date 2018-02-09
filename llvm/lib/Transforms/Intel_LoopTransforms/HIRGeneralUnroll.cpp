@@ -1,6 +1,6 @@
 //===-- HIRGeneralUnroll.cpp - Implements GeneralUnroll class -------------===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -77,9 +77,9 @@
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopResource.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
@@ -159,20 +159,24 @@ private:
 
   /// Computes and returns unroll factor for the loop using cost model. Returns
   /// 0 as an invalid unroll factor.
-  unsigned computeUnrollFactor(const HLLoop *HLoop) const;
+  unsigned computeUnrollFactor(const HLLoop *HLoop,
+                               bool HasEnablingPragma) const;
 
   /// Returns true if we can attempt to unroll this loop.
   bool isApplicable(const HLLoop *Loop) const;
 
   /// Determines if Unrolling is profitable for the given Loop.
-  bool isProfitable(const HLLoop *Loop, unsigned *UnrollFactor) const;
+  bool isProfitable(const HLLoop *Loop, bool HasEnablingPragma,
+                    unsigned *UnrollFactor) const;
 
   /// Returns a refined unroll factor for the loop based on reuse analysis.
   /// Returns 0 if unrolling is not profitable.
   unsigned refineUnrollFactorUsingReuseAnalysis(const HLLoop *Loop,
                                                 unsigned CurUnrollFactor) const;
+
+  void addUnrollDisablingPragma(HLLoop *Loop) const;
 };
-}
+} // namespace
 
 char HIRGeneralUnroll::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRGeneralUnroll, "hir-general-unroll",
@@ -238,6 +242,18 @@ void HIRGeneralUnroll::sanitizeOptions() {
   }
 }
 
+void HIRGeneralUnroll::addUnrollDisablingPragma(HLLoop *Loop) const {
+  Loop->removeLoopMetadata("llvm.loop.unroll.enable");
+  Loop->removeLoopMetadata("llvm.loop.unroll.count");
+
+  auto &Context = Loop->getHLNodeUtils().getContext();
+
+  Metadata *DisableUnrollMD =
+      MDString::get(Context, "llvm.loop.unroll.disable");
+
+  Loop->addLoopMetadata({MDNode::get(Context, DisableUnrollMD)});
+}
+
 /// processGeneralUnroll - Main routine to perform unrolling.
 /// First, performs cost analysis and then do the transformation.
 void HIRGeneralUnroll::processGeneralUnroll(
@@ -247,9 +263,18 @@ void HIRGeneralUnroll::processGeneralUnroll(
   for (auto &Loop : CandidateLoops) {
     unsigned UnrollFactor = 0;
 
+    bool HasEnablingPragma = Loop->hasGeneralUnrollEnablingPragma();
+
     // Perform a cost/profitability analysis on the loop
     // If all conditions are met, unroll it.
-    if (isApplicable(Loop) && isProfitable(Loop, &UnrollFactor)) {
+    if (isApplicable(Loop) &&
+        isProfitable(Loop, HasEnablingPragma, &UnrollFactor)) {
+      // This may not be needed once we disable LLVM's loop unroll pass after
+      // LoopOpt.
+      if (HasEnablingPragma) {
+        addUnrollDisablingPragma(Loop);
+      }
+
       unrollLoop(Loop, UnrollFactor);
       IsUnrollTriggered = true;
       LoopsGenUnrolled++;
@@ -257,22 +282,66 @@ void HIRGeneralUnroll::processGeneralUnroll(
   }
 }
 
-unsigned HIRGeneralUnroll::computeUnrollFactor(const HLLoop *HLoop) const {
-  auto SelfResource = HLR->getSelfLoopResource(HLoop);
+unsigned HIRGeneralUnroll::computeUnrollFactor(const HLLoop *HLoop,
+                                               bool HasEnablingPragma) const {
 
-  unsigned SelfCost = SelfResource.getTotalCost();
+  unsigned SelfCost = HLR->getSelfLoopResource(HLoop).getTotalCost();
 
   // Exit if loop exceeds threshold.
   if (SelfCost > MaxLoopCost) {
+    DEBUG(dbgs()
+          << "Skipping unroll of loop as loop body cost exceeds threshold!\n");
     return 0;
   }
 
   // Exit if loop with minimum unroll factor of 2 exceeds threshold.
   if ((2 * SelfCost) > MaxUnrolledLoopCost) {
+    DEBUG(dbgs() << "Skipping unroll of loop as unrolled loop body cost "
+                    "exceeds threshold!\n");
     return 0;
   }
 
-  unsigned UnrollFactor = MaxUnrollFactor;
+  uint64_t TripCount;
+  bool IsConstTripLoop = HLoop->isConstTripLoop(&TripCount);
+
+  unsigned UnrollFactor;
+
+  if (HasEnablingPragma) {
+    // Pragma related sanity checks...
+    UnrollFactor = HLoop->getUnrollPragmaCount();
+
+    if (!UnrollFactor) {
+      UnrollFactor = MaxUnrollFactor;
+    }
+
+    if (IsConstTripLoop) {
+      if (TripCount < 3) {
+        DEBUG(dbgs() << "Skipping unroll of loop with unroll pragma as trip "
+                        "count is too small!\n");
+        return 0;
+      }
+
+      if (TripCount <= UnrollFactor) {
+        UnrollFactor = TripCount / 2;
+      }
+    }
+
+    if ((UnrollFactor * SelfCost) > MaxUnrolledLoopCost) {
+      // This it to avoid encountering unroll factor of 1 in the while loop
+      // below when using pragma count. For example if the pragma unroll factor
+      // is 3, we get 1 on dividing by 2.
+      UnrollFactor = PowerOf2Floor(UnrollFactor);
+    }
+
+  } else {
+    if ((IsConstTripLoop || (TripCount = HLoop->getMaxTripCountEstimate())) &&
+        (TripCount < MinTripCountThreshold)) {
+      DEBUG(dbgs() << "Skipping unroll of small trip count loop!\n");
+      return 0;
+    }
+
+    UnrollFactor = MaxUnrollFactor;
+  }
 
   while ((UnrollFactor * SelfCost) > MaxUnrolledLoopCost) {
     UnrollFactor /= 2;
@@ -284,46 +353,61 @@ unsigned HIRGeneralUnroll::computeUnrollFactor(const HLLoop *HLoop) const {
 }
 
 bool HIRGeneralUnroll::isApplicable(const HLLoop *Loop) const {
-  // Ignore loops with SIMD directive.
   if (Loop->isSIMD()) {
+    DEBUG(dbgs() << "Skipping unroll of SIMD loop!\n");
     return false;
   }
 
-  bool IsUnknown = Loop->isUnknown();
-
-  // Loop should be normalized before this pass
-  // TODO: Decide whether we can remove this, just to save compile time.
-  if (!IsUnknown && !Loop->isNormalized()) {
+  if (Loop->hasGeneralUnrollDisablingPragma()) {
+    DEBUG(dbgs() << "Skipping unroll of pragma disabled loop!\n");
     return false;
   }
 
-  uint64_t TripCount;
+  // Loop should be normalized before this pass.
+  if (!Loop->isNormalized()) {
+    DEBUG(dbgs() << "Skipping unroll of non-normalized loop!\n");
+    return false;
+  }
 
-  if (((!IsUnknown && Loop->isConstTripLoop(&TripCount)) ||
-       (TripCount = Loop->getMaxTripCountEstimate())) &&
-      (TripCount < MinTripCountThreshold)) {
+  const LoopStatistics &LS = HLS->getSelfLoopStatistics(Loop);
+
+  // Cannot unroll loop if it has calls with noduplicate attribute.
+  if (LS.hasCallsWithNoDuplicate()) {
+    DEBUG(dbgs() << "Skipping unroll of loop containing call(s) with "
+                    "NoDuplicate attribute!\n");
     return false;
   }
 
   return true;
 }
 
-bool HIRGeneralUnroll::isProfitable(const HLLoop *Loop,
+bool HIRGeneralUnroll::isProfitable(const HLLoop *Loop, bool HasEnablingPragma,
                                     unsigned *UnrollFactor) const {
 
-  const LoopStatistics &LS = HLS->getSelfLoopStatistics(Loop);
+  if (!HasEnablingPragma) {
+    // TODO: Enable unroll for multi-exit loops with perf tuning.
+    if (Loop->getNumExits() > 1) {
+      DEBUG(dbgs() << "Skipping unroll of multi-exit loop!\n");
+      return false;
+    }
 
-  if (LS.hasSwitches()) {
-    return false;
+    const LoopStatistics &LS = HLS->getSelfLoopStatistics(Loop);
+
+    // TODO: remove this condition?
+    if (LS.hasSwitches()) {
+      DEBUG(dbgs() << "Skipping unroll of loop containing switch statement!\n");
+      return false;
+    }
   }
 
   // Determine unroll factor of the loop.
-  if ((*UnrollFactor = computeUnrollFactor(Loop)) == 0) {
+  if ((*UnrollFactor = computeUnrollFactor(Loop, HasEnablingPragma)) == 0) {
     return false;
   }
 
-  if ((*UnrollFactor =
-           refineUnrollFactorUsingReuseAnalysis(Loop, *UnrollFactor)) == 0) {
+  if (!HasEnablingPragma &&
+      ((*UnrollFactor =
+            refineUnrollFactorUsingReuseAnalysis(Loop, *UnrollFactor)) == 0)) {
     return false;
   }
 
@@ -349,12 +433,19 @@ bool HIRGeneralUnroll::isProfitable(const HLLoop *Loop,
 // TODO: Add temporal locality analysis?
 class ReuseAnalyzer final : public HLNodeVisitorBase {
 private:
+  HIRLoopStatistics *HLS;
+  const HLLoop *Loop;
   SmallSet<unsigned, 16> RvalTempBlobSymbases;
   int Reuse;
   bool CyclicalDefUse;
 
 public:
-  ReuseAnalyzer() : Reuse(0), CyclicalDefUse(false) {}
+  ReuseAnalyzer(HIRLoopStatistics *HLS, const HLLoop *Loop)
+      : HLS(HLS), Loop(Loop), Reuse(0), CyclicalDefUse(false) {}
+
+  void analyze() {
+    HLNodeUtils::visitRange(*this, Loop->child_begin(), Loop->child_end());
+  }
 
   void visit(const HLDDNode *Node);
 
@@ -377,7 +468,9 @@ void ReuseAnalyzer::visit(const HLDDNode *Node) {
     LvalSymbase = LvalRef->getSymbase();
 
     if (cast<HLInst>(Node)->isCopyInst()) {
-      if (RvalTempBlobSymbases.count(LvalSymbase)) {
+      // Only consider reuse for copies which dominate the backedge path.
+      if (RvalTempBlobSymbases.count(LvalSymbase) &&
+          HLNodeUtils::dominates(Node, Loop->getLastChild(), HLS)) {
         ++Reuse;
       }
       // No more processing needed for copy instructions.
@@ -420,9 +513,9 @@ unsigned HIRGeneralUnroll::refineUnrollFactorUsingReuseAnalysis(
     return CurUnrollFactor;
   }
 
-  ReuseAnalyzer RA;
+  ReuseAnalyzer RA(HLS, Loop);
 
-  HLNodeUtils::visitRange(RA, Loop->child_begin(), Loop->child_end());
+  RA.analyze();
 
   if (!RA.hasReuse()) {
     // Loop is not profitable.

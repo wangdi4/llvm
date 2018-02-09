@@ -1,7 +1,7 @@
 //===------ HIRParVecAnalysis.h - Provides Parallel/Vector --*-- C++ --*---===//
 //                                Candidate Analysis
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -64,8 +64,10 @@ public:
     SWITCH_STMT = 15535,
     UNKNOWN_CALL = 15537,
     NON_DO_LOOP = 15536,
+    UNROLL_PRAGMA_LOOP = 15538,
     FE_DIAG_VEC_NOT_INNERMOST = 15553,
-    EH
+    EH,
+    MULTI_PRED_IF_STMT
   };
 
 private:

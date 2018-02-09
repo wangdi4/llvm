@@ -11,9 +11,6 @@
 ; SCC-NEXT: SCC1
 ; SCC-DAG: %mul
 ; SCC-DAG: %b.addr.023
-; SCC-NEXT: SCC2
-; SCC-DAG: %add
-; SCC-DAG: %a.addr.022
 ; SCC-NOT: SCC
 
 

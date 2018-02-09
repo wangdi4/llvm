@@ -1,7 +1,7 @@
 //===------ ParVecDirectiveInsertion.h -------------------*-- C++ --*------===//
 //                         Implements ParVecDirectiveInsertion class
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -64,7 +64,7 @@ class ParVecDirectiveInsertion : public HIRTransformPass {
     /// \brief Returns true if directive is inserted for at least one loop.
     bool getInserted() { return Inserted; }
 
-    bool skipRecursion(const HLNode *Node) const override {
+    bool skipRecursion(const HLNode *Node) const {
       return Node == SkipNode;
     }
   };

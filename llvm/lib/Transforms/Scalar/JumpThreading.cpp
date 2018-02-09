@@ -14,28 +14,53 @@
 #include "llvm/Transforms/Scalar/JumpThreading.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AliasAnalysis.h"
-#include "llvm/Analysis/BlockFrequencyInfoImpl.h"
+#include "llvm/Analysis/BlockFrequencyInfo.h"
+#include "llvm/Analysis/BranchProbabilityInfo.h"
 #include "llvm/Analysis/CFG.h"
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/Intel_AggInline.h"          // INTEL
 #include "llvm/Analysis/Intel_Andersens.h"          // INTEL
+#include "llvm/Analysis/LazyValueInfo.h"
 #include "llvm/Transforms/Utils/Intel_IntrinsicUtils.h" // INTEL
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/CFG.h"
+#include "llvm/IR/Constant.h"
 #include "llvm/IR/ConstantRange.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/IR/Dominators.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/InstrTypes.h"
+#include "llvm/IR/Instruction.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/IR/Metadata.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/IR/PatternMatch.h"
+#include "llvm/IR/Type.h"
+#include "llvm/IR/Use.h"
+#include "llvm/IR/User.h"
+#include "llvm/IR/Value.h"
 #include "llvm/Pass.h"
+#include "llvm/Support/BlockFrequency.h"
+#include "llvm/Support/BranchProbability.h"
+#include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
@@ -44,8 +69,15 @@
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/SSAUpdater.h"
+#include "llvm/Transforms/Utils/ValueMapper.h"
 #include <algorithm>
+#include <cassert>
+#include <cstddef>
+#include <cstdint>
+#include <iterator>
 #include <memory>
+#include <utility>
+
 using namespace llvm;
 using namespace jumpthreading;
 
@@ -67,6 +99,11 @@ ImplicationSearchThreshold(
            "condition to use to thread over a weaker condition"),
   cl::init(3), cl::Hidden);
 
+static cl::opt<bool> PrintLVIAfterJumpThreading(
+    "print-lvi-after-jump-threading",
+    cl::desc("Print the LazyValueInfo cache after JumpThreading"), cl::init(false),
+    cl::Hidden);
+
 #if INTEL_CUSTOMIZATION
 static cl::opt<bool>
 JumpThreadLoopHeader("jump-thread-loop-header",
@@ -86,6 +123,7 @@ ConservativeJumpThreading("conservative-jump-threading",
 #endif // INTEL_CUSTOMIZATION
 
 namespace {
+
   /// This pass performs 'jump threading', which looks at blocks that have
   /// multiple predecessors and multiple successors.  If one or more of the
   /// predecessors of the block can be proven to always jump to one of the
@@ -101,12 +139,12 @@ namespace {
   ///
   /// In this case, the unconditional branch at the end of the first if can be
   /// revectored to the false side of the second if.
-  ///
   class JumpThreading : public FunctionPass {
     JumpThreadingPass Impl;
 
   public:
     static char ID; // Pass identification
+
     JumpThreading(int T = -1, bool AllowCFGSimps = true) :              // INTEL
       FunctionPass(ID), Impl(T, AllowCFGSimps) {                        // INTEL
       initializeJumpThreadingPass(*PassRegistry::getPassRegistry());
@@ -115,9 +153,10 @@ namespace {
     bool runOnFunction(Function &F) override;
 
     void getAnalysisUsage(AnalysisUsage &AU) const override {
+      if (PrintLVIAfterJumpThreading)
+        AU.addRequired<DominatorTreeWrapperPass>();
       AU.addRequired<AAResultsWrapperPass>();
       AU.addRequired<LazyValueInfoWrapperPass>();
-      AU.addPreserved<LazyValueInfoWrapperPass>();
       AU.addPreserved<GlobalsAAWrapperPass>();
       AU.addPreserved<AndersensAAWrapperPass>();                        // INTEL
       AU.addPreserved<InlineAggressiveWrapperPass>();                   // INTEL
@@ -126,9 +165,11 @@ namespace {
 
     void releaseMemory() override { Impl.releaseMemory(); }
   };
-}
+
+} // end anonymous namespace
 
 char JumpThreading::ID = 0;
+
 INITIALIZE_PASS_BEGIN(JumpThreading, "jump-threading",
                 "Jump Threading", false, false)
 INITIALIZE_PASS_DEPENDENCY(LazyValueInfoWrapperPass)
@@ -148,8 +189,117 @@ JumpThreadingPass::JumpThreadingPass(int T, bool AllowCFGSimps) {       // INTEL
   BBDupThreshold = (T == -1) ? BBDuplicateThreshold : unsigned(T);
 }
 
-/// runOnFunction - Top level algorithm.
-///
+// Update branch probability information according to conditional
+// branch probablity. This is usually made possible for cloned branches
+// in inline instances by the context specific profile in the caller.
+// For instance,
+//
+//  [Block PredBB]
+//  [Branch PredBr]
+//  if (t) {
+//     Block A;
+//  } else {
+//     Block B;
+//  }
+//
+//  [Block BB]
+//  cond = PN([true, %A], [..., %B]); // PHI node
+//  [Branch CondBr]
+//  if (cond) {
+//    ...  // P(cond == true) = 1%
+//  }
+//
+//  Here we know that when block A is taken, cond must be true, which means
+//      P(cond == true | A) = 1
+//
+//  Given that P(cond == true) = P(cond == true | A) * P(A) +
+//                               P(cond == true | B) * P(B)
+//  we get
+//     P(cond == true ) = P(A) + P(cond == true | B) * P(B)
+//
+//  which gives us:
+//     P(A) is less than P(cond == true), i.e.
+//     P(t == true) <= P(cond == true)
+//
+//  In other words, if we know P(cond == true) is unlikely, we know 
+//  that P(t == true) is also unlikely.
+//
+static void updatePredecessorProfileMetadata(PHINode *PN, BasicBlock *BB) {
+  BranchInst *CondBr = dyn_cast<BranchInst>(BB->getTerminator());
+  if (!CondBr)
+    return;
+
+  BranchProbability BP;
+  uint64_t TrueWeight, FalseWeight;
+  if (!CondBr->extractProfMetadata(TrueWeight, FalseWeight))
+    return;
+
+  // Returns the outgoing edge of the dominating predecessor block
+  // that leads to the PhiNode's incoming block:
+  auto GetPredOutEdge =
+      [](BasicBlock *IncomingBB,
+         BasicBlock *PhiBB) -> std::pair<BasicBlock *, BasicBlock *> {
+    auto *PredBB = IncomingBB;
+    auto *SuccBB = PhiBB;
+    while (true) {
+      BranchInst *PredBr = dyn_cast<BranchInst>(PredBB->getTerminator());
+      if (PredBr && PredBr->isConditional())
+        return {PredBB, SuccBB};
+      auto *SinglePredBB = PredBB->getSinglePredecessor();
+      if (!SinglePredBB)
+        return {nullptr, nullptr};
+      SuccBB = PredBB;
+      PredBB = SinglePredBB;
+    }
+  };
+
+  for (unsigned i = 0, e = PN->getNumIncomingValues(); i != e; ++i) {
+    Value *PhiOpnd = PN->getIncomingValue(i);
+    ConstantInt *CI = dyn_cast<ConstantInt>(PhiOpnd);
+
+    if (!CI || !CI->getType()->isIntegerTy(1))
+      continue;
+
+    BP = (CI->isOne() ? BranchProbability::getBranchProbability(
+                            TrueWeight, TrueWeight + FalseWeight)
+                      : BranchProbability::getBranchProbability(
+                            FalseWeight, TrueWeight + FalseWeight));
+
+    auto PredOutEdge = GetPredOutEdge(PN->getIncomingBlock(i), BB);
+    if (!PredOutEdge.first)
+      return;
+
+    BasicBlock *PredBB = PredOutEdge.first;
+    BranchInst *PredBr = cast<BranchInst>(PredBB->getTerminator());
+
+    uint64_t PredTrueWeight, PredFalseWeight;
+    // FIXME: We currently only set the profile data when it is missing.
+    // With PGO, this can be used to refine even existing profile data with
+    // context information. This needs to be done after more performance
+    // testing.
+    if (PredBr->extractProfMetadata(PredTrueWeight, PredFalseWeight))
+      continue;
+
+    // We can not infer anything useful when BP >= 50%, because BP is the
+    // upper bound probability value.
+    if (BP >= BranchProbability(50, 100))
+      continue;
+
+    SmallVector<uint32_t, 2> Weights;
+    if (PredBr->getSuccessor(0) == PredOutEdge.second) {
+      Weights.push_back(BP.getNumerator());
+      Weights.push_back(BP.getCompl().getNumerator());
+    } else {
+      Weights.push_back(BP.getCompl().getNumerator());
+      Weights.push_back(BP.getNumerator());
+    }
+    PredBr->setMetadata(LLVMContext::MD_prof,
+                        MDBuilder(PredBr->getParent()->getContext())
+                            .createBranchWeights(Weights));
+  }
+}
+
+/// runOnFunction - Toplevel algorithm.
 bool JumpThreading::runOnFunction(Function &F) {
   if (skipFunction(F))
     return false;
@@ -165,13 +315,18 @@ bool JumpThreading::runOnFunction(Function &F) {
     BFI.reset(new BlockFrequencyInfo(F, *BPI, LI));
   }
 
-  return Impl.runImpl(F, TLI, LVI, AA, HasProfileData, std::move(BFI),
-                      std::move(BPI));
+  bool Changed = Impl.runImpl(F, TLI, LVI, AA, HasProfileData, std::move(BFI),
+                              std::move(BPI));
+  if (PrintLVIAfterJumpThreading) {
+    dbgs() << "LVI for function '" << F.getName() << "':\n";
+    LVI->printLVI(F, getAnalysis<DominatorTreeWrapperPass>().getDomTree(),
+                  dbgs());
+  }
+  return Changed;
 }
 
 PreservedAnalyses JumpThreadingPass::run(Function &F,
                                          FunctionAnalysisManager &AM) {
-
   auto &TLI = AM.getResult<TargetLibraryAnalysis>(F);
   auto &LVI = AM.getResult<LazyValueAnalysis>(F);
   auto &AA = AM.getResult<AAManager>(F);
@@ -200,7 +355,6 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
                                 bool HasProfileData_,
                                 std::unique_ptr<BlockFrequencyInfo> BFI_,
                                 std::unique_ptr<BranchProbabilityInfo> BPI_) {
-
   DEBUG(dbgs() << "Jump threading on function '" << F.getName() << "'\n");
   TLI = TLI_;
   LVI = LVI_;
@@ -248,6 +402,7 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
         DEBUG(dbgs() << "  JT: Deleting dead block '" << BB->getName()
               << "' with terminator: " << *BB->getTerminator() << '\n');
         LoopHeaders.erase(BB);
+        CountableLoopLatches.erase(BB);   // INTEL
         LVI->eraseBlock(BB);
         DeleteDeadBlock(BB);
         Changed = true;
@@ -274,6 +429,7 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
         // awesome, but it allows us to use AssertingVH to prevent nasty
         // dangling pointer issues within LazyValueInfo.
         LVI->eraseBlock(BB);
+        CountableLoopLatches.erase(BB); // INTEL
         if (TryToSimplifyUncondBranchFromEmptyBlock(BB))
           Changed = true;
       }
@@ -282,6 +438,7 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
   } while (Changed);
 
   LoopHeaders.clear();
+  CountableLoopLatches.clear(); // INTEL
   return EverChanged;
 }
 
@@ -396,6 +553,58 @@ static unsigned getJumpThreadDuplicationCost(
 
   return Size > Bonus ? Size - Bonus : 0;
 }
+
+// Approximates checks for common countable loop structure-
+// 1) Header has two predecessors.
+// 2) Latch ends in a conditional branch.
+// 3) Latch condition is a ICmp instruction.
+// 4) One of the compare operands looks like an IV.
+//
+// Example IR-
+// latch:
+// %inc = add %iv, 1
+// %cmp = icmp lt %inc, 5
+// br %cmp, %header, %exit
+static bool isCountableLoop(const BasicBlock *HeaderBB,
+                            const BasicBlock *LatchBB) {
+
+  if (std::distance(pred_begin(HeaderBB), pred_end(HeaderBB)) != 2)
+    return false;
+
+  auto *BrTerm = dyn_cast<BranchInst>(LatchBB->getTerminator());
+
+  if (!BrTerm || BrTerm->isUnconditional())
+    return false;
+
+  auto *CmpInst = dyn_cast<ICmpInst>(BrTerm->getCondition());
+
+  if (!CmpInst)
+    return false;
+
+  for (const Value *Op : CmpInst->operands()) {
+    auto *OpInst = dyn_cast<Instruction>(Op);
+
+    if (!OpInst)
+      continue;
+
+    auto ParentBB = OpInst->getParent();
+    bool DefinedInHeader = (ParentBB == HeaderBB);
+    bool DefinedInHeaderOrLatch = (DefinedInHeader || (ParentBB == LatchBB));
+
+    // If instruction is defined in the header or latch and is among the most
+    // common instruction types for an IV (add, sub, GEP and phi), assume it
+    // is an IV.
+    if (DefinedInHeaderOrLatch &&
+        ((OpInst->getOpcode() == Instruction::Add) ||
+        (OpInst->getOpcode() == Instruction::Sub) ||
+        (OpInst->getOpcode() == Instruction::GetElementPtr) ||
+        (DefinedInHeader && isa<PHINode>(OpInst))))
+      return true;
+  }
+
+  return false;
+}
+
 #endif // INTEL_CUSTOMIZATION
 
 /// FindLoopHeaders - We do not want jump threading to turn proper loop
@@ -412,13 +621,18 @@ static unsigned getJumpThreadDuplicationCost(
 /// within the loop (forming a nested loop).  This simple analysis is not rich
 /// enough to track all of these properties and keep it up-to-date as the CFG
 /// mutates, so we don't allow any of these transformations.
-///
 void JumpThreadingPass::FindLoopHeaders(Function &F) {
   SmallVector<std::pair<const BasicBlock*,const BasicBlock*>, 32> Edges;
   FindFunctionBackedges(F, Edges);
 
   for (const auto &Edge : Edges)
     LoopHeaders.insert(Edge.second);
+#if INTEL_CUSTOMIZATION
+  if (F.isPreLoopOpt())
+    for (const auto &Edge : Edges)
+      if (isCountableLoop(Edge.second, Edge.first))
+        CountableLoopLatches.insert(Edge.first);
+#endif // INTEL_CUSTOMIZATION
 }
 
 /// getKnownConstant - Helper method to determine if we can thread over a
@@ -463,7 +677,6 @@ static bool matchingRegionInfo(const ThreadRegionInfo &RegionInfo1,
 /// BB in the result vector.
 ///
 /// This returns true if there were any known values.
-///
 bool JumpThreadingPass::ComputeValueKnownInPredecessors(
     Value *V, BasicBlock *BB, PredValueInfo &Result,
     ThreadRegionInfo &RegionInfo,       // INTEL
@@ -600,8 +813,6 @@ bool JumpThreadingPass::ComputeValueKnownInPredecessors(
     return true;
   }
 
-  PredValueInfoTy LHSVals, RHSVals;
-
   // Handle some boolean conditions.
   if (I->getType()->getPrimitiveSizeInBits() == 1) {
     assert(Preference == WantInteger && "One-bit non-integer type?");
@@ -609,7 +820,9 @@ bool JumpThreadingPass::ComputeValueKnownInPredecessors(
     // X & false -> false
     if (I->getOpcode() == Instruction::Or ||
         I->getOpcode() == Instruction::And) {
+      PredValueInfoTy LHSVals, RHSVals;
       ThreadRegionInfoTy RegionInfoOp0, RegionInfoOp1;                  // INTEL
+
       ComputeValueKnownInPredecessors(I->getOperand(0), BB, LHSVals,
                                       RegionInfoOp0,                    // INTEL
                                       WantInteger, CxtI);
@@ -806,6 +1019,7 @@ bool JumpThreadingPass::ComputeValueKnownInPredecessors(
       // x as a live-in.
       {
         using namespace PatternMatch;
+
         Value *AddLHS;
         ConstantInt *AddConst;
         if (isa<ConstantInt>(CmpConst) &&
@@ -920,14 +1134,11 @@ bool JumpThreadingPass::ComputeValueKnownInPredecessors(
   return !Result.empty();
 }
 
-
-
 /// GetBestDestForBranchOnUndef - If we determine that the specified block ends
 /// in an undefined jump, decide which block is best to revector to.
 ///
 /// Since we can pick an arbitrary destination, we pick the successor with the
 /// fewest predecessors.  This should reduce the in-degree of the others.
-///
 static unsigned GetBestDestForJumpOnUndef(BasicBlock *BB) {
   TerminatorInst *BBTerm = BB->getTerminator();
   unsigned MinSucc = 0;
@@ -978,6 +1189,7 @@ bool JumpThreadingPass::ProcessBlock(BasicBlock *BB) {
       if (LoopHeaders.erase(SinglePred))
         LoopHeaders.insert(BB);
 
+      CountableLoopLatches.erase(SinglePred);   // INTEL
       LVI->eraseBlock(SinglePred);
       MergeBasicBlockIntoOnlyPred(BB);
 
@@ -1149,7 +1361,6 @@ bool JumpThreadingPass::ProcessBlock(BasicBlock *BB) {
   // for loads that are used by a switch or by the condition for the branch.  If
   // we see one, check to see if it's partially redundant.  If so, insert a PHI
   // which can then be used to thread the values.
-  //
   Value *SimplifyValue = CondInst;
   if (CmpInst *CondCmp = dyn_cast<CmpInst>(SimplifyValue))
     if (isa<Constant>(CondCmp->getOperand(1)))
@@ -1161,10 +1372,14 @@ bool JumpThreadingPass::ProcessBlock(BasicBlock *BB) {
     if (SimplifyPartiallyRedundantLoad(LI))
       return true;
 
+  // Before threading, try to propagate profile data backwards:
+  if (PHINode *PN = dyn_cast<PHINode>(CondInst))
+    if (PN->getParent() == BB && isa<BranchInst>(BB->getTerminator()))
+      updatePredecessorProfileMetadata(PN, BB);
+
   // Handle a variety of cases where we are branching on something derived from
   // a PHI node in the current block.  If we can prove that any predecessors
   // compute a predictable value based on a PHI node, thread those predecessors.
-  //
   if (ProcessThreadableEdges(CondInst, BB, Preference, Terminator))
     return true;
 
@@ -1206,9 +1421,9 @@ bool JumpThreadingPass::ProcessImpliedCondition(BasicBlock *BB) {
     if (PBI->getSuccessor(0) != CurrentBB && PBI->getSuccessor(1) != CurrentBB)
       return false;
 
-    bool FalseDest = PBI->getSuccessor(1) == CurrentBB;
+    bool CondIsTrue = PBI->getSuccessor(0) == CurrentBB;
     Optional<bool> Implication =
-      isImpliedCondition(PBI->getCondition(), Cond, DL, FalseDest);
+        isImpliedCondition(PBI->getCondition(), Cond, DL, CondIsTrue);
     if (Implication) {
       BI->getSuccessor(*Implication ? 1 : 0)->removePredecessor(BB);
       BranchInst::Create(BI->getSuccessor(*Implication ? 0 : 1), BI);
@@ -1294,7 +1509,9 @@ bool JumpThreadingPass::SimplifyPartiallyRedundantLoad(LoadInst *LI) {
   LI->getAAMetadata(AATags);
 
   SmallPtrSet<BasicBlock*, 8> PredsScanned;
-  typedef SmallVector<std::pair<BasicBlock*, Value*>, 8> AvailablePredsTy;
+
+  using AvailablePredsTy = SmallVector<std::pair<BasicBlock *, Value *>, 8>;
+
   AvailablePredsTy AvailablePreds;
   BasicBlock *OneUnavailablePred = nullptr;
   SmallVector<LoadInst*, 8> CSELoads;
@@ -1454,8 +1671,8 @@ bool JumpThreadingPass::SimplifyPartiallyRedundantLoad(LoadInst *LI) {
 static BasicBlock *
 FindMostPopularDest(BasicBlock *BB,
                     const ThreadRegionInfo &RegionInfo,                 // INTEL
-                    const SmallVectorImpl<std::pair<BasicBlock*,
-                                  BasicBlock*> > &PredToDestList) {
+                    const SmallVectorImpl<std::pair<BasicBlock *,
+                                          BasicBlock *>> &PredToDestList) {
   assert(!PredToDestList.empty());
 
   // Determine popularity.  If there are multiple possible destinations, we
@@ -1560,7 +1777,7 @@ bool JumpThreadingPass::ProcessThreadableEdges(Value *Cond, BasicBlock *BB,
   BasicBlock *MultipleDestSentinel = (BasicBlock*)(intptr_t)~0ULL;
   Constant *OnlyVal = nullptr;
   Constant *MultipleVal = (Constant *)(intptr_t)~0ULL;
-
+  bool ThreadingBackedge = false;    // INTEL
   unsigned PredWithKnownDest = 0;
   for (const auto &PredValue : PredValues) {
     BasicBlock *Pred = PredValue.second;
@@ -1606,12 +1823,27 @@ bool JumpThreadingPass::ProcessThreadableEdges(Value *Cond, BasicBlock *BB,
     if (isa<IndirectBrInst>(Pred->getTerminator()))
       continue;
 
+    if (CountableLoopLatches.count(BB) && LoopHeaders.count(DestBB)) // INTEL
+      ThreadingBackedge = true;                             // INTEL
     PredToDestList.push_back(std::make_pair(Pred, DestBB));
   }
 
   // If all edges were unthreadable, we fail.
   if (PredToDestList.empty())
     return false;
+
+#if INTEL_CUSTOMIZATION
+  // Allow threading of backedge only if we can thread all predecessors of latch
+  // otherwise we may turn countable loop into non-countable loop by adding
+  // additional backedges to it.
+  if (ThreadingBackedge) {
+    if (PredToDestList.size() == (unsigned)std::distance(pred_begin(BB),
+                                                         pred_end(BB)))
+      CountableLoopLatches.erase(BB);
+    else
+      return false;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // If all the predecessors go to a single known successor, we want to fold,
   // not thread. By doing so, we do not need to duplicate the current block and
@@ -1692,7 +1924,6 @@ bool JumpThreadingPass::ProcessThreadableEdges(Value *Cond, BasicBlock *BB,
 /// ProcessBranchOnPHI - We have an otherwise unthreadable conditional branch on
 /// a PHI node in the current block.  See if there are any simplifications we
 /// can do based on inputs to the phi node.
-///
 bool JumpThreadingPass::ProcessBranchOnPHI(PHINode *PN) {
   BasicBlock *BB = PN->getParent();
 
@@ -1722,7 +1953,6 @@ bool JumpThreadingPass::ProcessBranchOnPHI(PHINode *PN) {
 /// ProcessBranchOnXOR - We have an otherwise unthreadable conditional branch on
 /// a xor instruction in the current block.  See if there are any
 /// simplifications we can do based on inputs to the xor.
-///
 bool JumpThreadingPass::ProcessBranchOnXOR(BinaryOperator *BO) {
   BasicBlock *BB = BO->getParent();
 
@@ -1836,7 +2066,6 @@ bool JumpThreadingPass::ProcessBranchOnXOR(BinaryOperator *BO) {
   // Try to duplicate BB into PredBB.
   return DuplicateCondBranchOnPHIIntoPred(BB, BlocksToFoldInto);
 }
-
 
 /// AddPHINodeEntriesForMappedBlock - We're adding 'NewPred' as a new
 /// predecessor to the PHIBB block.  If it has PHI nodes, add entries for
@@ -1991,6 +2220,15 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
   BasicBlock *RegionBottom = RegionInfo.front().second;
   SmallVector<BasicBlock*, 16> RegionBlocks;
   bool ThreadingLoopHeader = false;
+
+  // If threading this would thread into a loop header don't thread the edge.
+  // See the comments above FindLoopHeaders for justifications and caveats.
+  if (LoopHeaders.count(SuccBB) && !JumpThreadLoopHeader) {
+    DEBUG(dbgs() << "  Not threading to dest loop header BB '"
+                 << SuccBB->getName()
+                 << "' - it might create an irreducible loop!\n");
+    return false;
+  }
 
   if (!collectThreadRegionBlocks(RegionInfo, RegionBlocks))
     return false;
@@ -2158,7 +2396,7 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
                 PN->getIncomingBlock(i) != RegionBottom)
               PN->setIncomingBlock(i, BlockMapping[PN->getIncomingBlock(i)]);
             else
-              PN->removeIncomingValue(i);
+              PN->removeIncomingValue(i, /*DeletePHIIfEmpty*/false);
           }
         }
 
@@ -2801,7 +3039,7 @@ bool JumpThreadingPass::TryToUnfoldSelect(CmpInst *CondCmp, BasicBlock *BB) {
 ///   %p = phi [0, %bb1], [1, %bb2], [0, %bb3], [1, %bb4], ...
 ///   %c = cmp %p, 0
 ///   %s = select %c, trueval, falseval
-//
+///
 /// And expand the select into a branch structure. This later enables
 /// jump-threading over bb in this pass.
 ///
@@ -2887,6 +3125,7 @@ bool JumpThreadingPass::TryToUnfoldSelectInCurrBB(BasicBlock *BB) {
 /// guard is then threaded to one of them.
 bool JumpThreadingPass::ProcessGuards(BasicBlock *BB) {
   using namespace PatternMatch;
+
   // We only want to deal with two predecessors.
   BasicBlock *Pred1, *Pred2;
   auto PI = pred_begin(BB), PE = pred_end(BB);
@@ -2938,8 +3177,7 @@ bool JumpThreadingPass::ThreadGuard(BasicBlock *BB, IntrinsicInst *Guard,
     TrueDestIsSafe = true;
   else {
     // False dest is safe if !BranchCond => GuardCond.
-    Impl =
-        isImpliedCondition(BranchCond, GuardCond, DL, /* InvertAPred */ true);
+    Impl = isImpliedCondition(BranchCond, GuardCond, DL, /* LHSIsTrue */ false);
     if (Impl && *Impl)
       FalseDestIsSafe = true;
   }

@@ -4,7 +4,7 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-post-vec-complete-unroll -print-before=hir-post-vec-complete-unroll 2>&1 | FileCheck %s
 
 ; Check parsing output for the loop verifying that polynomial phi pase is parsed correctly.
-; CHECK: DO i1 = 0, zext.i32.i64((-1 + %n))
+; CHECK: DO i1 = 0, sext.i32.i64((-1 + %n))
 ; CHECK-NEXT: (%p.addr.07)[0] = i1
 ; CHECK-NEXT: %p.addr.07 = &((%p.addr.07)[i1])
 ; CHECK-NEXT: END LOOP

@@ -125,7 +125,7 @@ void HLNode::printFMF(raw_ostream &OS, FastMathFlags FMF) {
 #if !INTEL_PRODUCT_RELEASE
   OS << "<";
 
-  if (!FMF.unsafeAlgebra()) {
+  if (!FMF.isFast()) {
     bool First = true;
 
     if (FMF.noNaNs()) {

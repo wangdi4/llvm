@@ -694,7 +694,7 @@ void CSATargetLowering::AdjustInstrPostInstrSelection(MachineInstr& MI, SDNode* 
 bool CSATargetLowering::isLegalAddressingMode(const DataLayout &DL,
                                               const AddrMode &AM,
                                               Type *Ty,
-                                              unsigned AddrSpace) const {
+                                              unsigned AddrSpace, Instruction *i) const {
   /**/
   // X86 supports extremely general addressing modes.
   //  CodeModel::Model M = getTargetMachine().getCodeModel();

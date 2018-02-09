@@ -1,6 +1,6 @@
 //===-------- DDUtils.h - Utilities for DD  -------------------------------===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -49,6 +49,14 @@ private:
   static bool findLoadInst(const DDRef *RRef,
                            SmallVectorImpl<HLInst *> &PreLoopInsts,
                            DDGraph DDG);
+
+  /// Find node receiving the load
+  /// e.g.   t0 = a[i] ;
+  ///         ...
+  ///        t1 = t0
+  ///  returns t1 = t0
+  static HLInst *findForwardSubInst(const DDRef *LRef,
+                             SmallVectorImpl<HLInst *> &ForwardSubInsts);
 
   // \Brief Gather Pre / Post Nodes in Vectors
   // Called from EnablePerfectLoopNest Util

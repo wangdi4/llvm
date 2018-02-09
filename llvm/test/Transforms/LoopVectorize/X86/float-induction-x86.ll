@@ -1,4 +1,4 @@
-; RUN: opt < %s  -O3 -latesimplifycfg -mcpu=core-avx2 -mtriple=x86_64-unknown-linux-gnu -S | FileCheck --check-prefix AUTO_VEC %s
+; RUN: opt < %s  -O3 -simplifycfg -keep-loops=false -mcpu=core-avx2 -mtriple=x86_64-unknown-linux-gnu -S | FileCheck --check-prefix AUTO_VEC %s
 ; INTEL - This test started failing when the "external_use" functions were
 ;         added due to differences between the community vectorizer and the
 ;         HIR vectorizer. We chose to mark this test as XFAIL and create an

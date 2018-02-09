@@ -154,6 +154,9 @@ def StackProtectReq : EnumAttr<"sspreq">;
 /// Strong Stack protection.
 def StackProtectStrong : EnumAttr<"sspstrong">;
 
+/// Function was called in a scope requiring strict floating point semantics.
+def StrictFP : EnumAttr<"strictfp">;
+
 /// Hidden pointer to structure to return.
 def StructRet : EnumAttr<"sret">;
 
@@ -187,6 +190,14 @@ def NoInfsFPMath : StrBoolAttr<"no-infs-fp-math">;
 def NoNansFPMath : StrBoolAttr<"no-nans-fp-math">;
 def UnsafeFPMath : StrBoolAttr<"unsafe-fp-math">;
 def NoJumpTables : StrBoolAttr<"no-jump-tables">;
+def ProfileSampleAccurate : StrBoolAttr<"profile-sample-accurate">;
+// if INTEL_CUSTOMIZATION
+def MayHaveOpenmpDirective : StrBoolAttr<"may-have-openmp-directive">;
+    // The "may-have-openmp-directive" attribute is set by the front-end for
+    // functions that contain OpenMP directives. While the backend passes can
+    // also obtain this information by scanning the IR, setting this attribute
+    // in the front-end significantly reduces compile time.
+// endif INTEL_CUSTOMIZATION
 
 class CompatRule<string F> {
   // The name of the function called to check the attribute of the caller and
@@ -218,6 +229,8 @@ def : MergeRule<"setAND<NoNansFPMathAttr>">;
 def : MergeRule<"setAND<UnsafeFPMathAttr>">;
 def : MergeRule<"setOR<NoImplicitFloatAttr>">;
 def : MergeRule<"setOR<NoJumpTablesAttr>">;
+def : MergeRule<"setOR<ProfileSampleAccurateAttr>">;
+def : MergeRule<"setOR<MayHaveOpenmpDirectiveAttr>">;  // INTEL
 def : MergeRule<"adjustCallerSSPLevel">;
 def : MergeRule<"adjustCallerStackProbes">;
 def : MergeRule<"adjustCallerStackProbeSize">;

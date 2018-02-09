@@ -101,6 +101,11 @@ void IRRegion::print(raw_ostream &OS, unsigned IndentWidth) const {
 BasicBlock *IRRegion::getPredBBlock() const {
   auto PredI = pred_begin(EntryBBlock);
 
+  // Predecessor can be null for function level region.
+  if (PredI == pred_end(EntryBBlock)) {
+    return nullptr;
+  }
+
   /// In some cases the entry bblock is also the loop header, so the predecessor
   /// can be the loop latch. We need to skip it, if that is the case.
   if (containsBBlock(*PredI)) {
@@ -118,6 +123,10 @@ BasicBlock *IRRegion::getPredBBlock() const {
 }
 
 BasicBlock *IRRegion::getSuccBBlock() const {
+  if (!ExitBBlock) {
+    return nullptr;
+  }
+
   auto SuccI = succ_begin(ExitBBlock);
 
   // Exit bblock can be a function return bblock.

@@ -18,6 +18,65 @@ namespace llvm {
 
 namespace vpo {
 
+std::unordered_map<int, StringRef> WRNDefaultName = {
+    {WRNDefaultKind::WRNDefaultAbsent,       "UNSPECIFIED"},
+    {WRNDefaultKind::WRNDefaultNone,         "NONE"},
+    {WRNDefaultKind::WRNDefaultShared,       "SHARED"},
+    {WRNDefaultKind::WRNDefaultPrivate,      "PRIVATE"},
+    {WRNDefaultKind::WRNDefaultFirstprivate, "FIRSTPRIVATE"},
+    {WRNDefaultKind::WRNDefaultAbsent,       "LASTPRIVATE"}};
+
+std::unordered_map<int, StringRef> WRNAtomicName = {
+    {WRNAtomicKind::WRNAtomicUpdate,  "UPDATE"},
+    {WRNAtomicKind::WRNAtomicRead,    "READ"},
+    {WRNAtomicKind::WRNAtomicWrite,   "WRITE"},
+    {WRNAtomicKind::WRNAtomicCapture, "CAPTURE"}};
+
+std::unordered_map<int, StringRef> WRNCancelName = {
+    {WRNCancelKind::WRNCancelError,    "ERROR"},  // not optional
+    {WRNCancelKind::WRNCancelParallel, "PARALLEL"},
+    {WRNCancelKind::WRNCancelLoop,     "LOOP"},
+    {WRNCancelKind::WRNCancelSections, "SECTIONS"},
+    {WRNCancelKind::WRNCancelTaskgroup,"TASKGROUP"}};
+
+std::unordered_map<int, StringRef> WRNProcBindName = {
+    {WRNProcBindKind::WRNProcBindAbsent, "UNSPECIFIED"},
+    {WRNProcBindKind::WRNProcBindTrue,   "TRUE"},
+    {WRNProcBindKind::WRNProcBindMaster, "MASTER"},
+    {WRNProcBindKind::WRNProcBindClose,  "CLOSE"},
+    {WRNProcBindKind::WRNProcBindSpread, "SPREAD"}};
+
+std::unordered_map<int, StringRef> WRNScheduleName = {
+    {WRNScheduleKind::WRNScheduleCrewloop, "Crew Loop"},
+    {WRNScheduleKind::WRNScheduleStatic, "Static"},
+    {WRNScheduleKind::WRNScheduleStaticEven, "Static Even"},
+    {WRNScheduleKind::WRNScheduleDynamic, "Dynamic"},
+    {WRNScheduleKind::WRNScheduleGuided, "Guided"},
+    {WRNScheduleKind::WRNScheduleRuntime, "Runtime"},
+    {WRNScheduleKind::WRNScheduleAuto, "Auto"},
+    {WRNScheduleKind::WRNScheduleTrapezoidal, "Trapezoidal"},
+    {WRNScheduleKind::WRNScheduleStaticGreedy, "Static Greedy"},
+    {WRNScheduleKind::WRNScheduleStaticBalanced, "Static Balanced"},
+    {WRNScheduleKind::WRNScheduleGuidedIterative, "Guided Iterative"},
+    {WRNScheduleKind::WRNScheduleGuidedAnalytical, "Guided Analytical"},
+    {WRNScheduleKind::WRNScheduleOrderedStatic, "Ordered Static"},
+    {WRNScheduleKind::WRNScheduleOrderedStaticEven, "Ordered Static Even"},
+    {WRNScheduleKind::WRNScheduleOrderedDynamic, "Ordered Dynamic"},
+    {WRNScheduleKind::WRNScheduleOrderedGuided, "Ordered Guided"},
+    {WRNScheduleKind::WRNScheduleOrderedRuntime, "Ordered Runtime"},
+    {WRNScheduleKind::WRNScheduleOrderedAuto, "Ordered Auto"},
+    {WRNScheduleKind::WRNScheduleOrderedTrapezoidal, "Ordered Trapezoidal"},
+    {WRNScheduleKind::WRNScheduleOrderedStaticGreedy, "Ordered Static Greedy"},
+    {WRNScheduleKind::WRNScheduleOrderedStaticBalanced,
+                                                  "Ordered Static Balanced"},
+    {WRNScheduleKind::WRNScheduleOrderedGuidedIterative,
+                                                  "Ordered Guided Iterative"},
+    {WRNScheduleKind::WRNScheduleOrderedGuidedAnalytical,
+                                                  "Ordered Guided Analytical"},
+    {WRNScheduleKind::WRNScheduleDistributeStatic, "Distribute Static"},
+    {WRNScheduleKind::WRNScheduleDistributeStaticEven,
+                                                  "Distribute Static Even"}};
+
 // Constructors for template Clause classes
 template<>Clause<SharedItem>      ::Clause():ClauseID(QUAL_OMP_SHARED){}
 template<>Clause<PrivateItem>     ::Clause():ClauseID(QUAL_OMP_PRIVATE){}
@@ -37,38 +96,31 @@ template<>Clause<AlignedItem>     ::Clause():ClauseID(QUAL_OMP_ALIGNED){}
 template<>Clause<FlushItem>       ::Clause():ClauseID(QUAL_OMP_FLUSH){}
 
 
-// print() routine for ScheduleClause
-void ScheduleClause::print(formatted_raw_ostream &OS, unsigned Depth,
-                           bool Verbose) const {
-  if (!Verbose && !ChunkExpr)
-    return;  // ChunkExpr==NULL means there was not SCHEDULE clause
+// Print routine for ScheduleClause. Returns true iff something is printed.
+// Eg,
+//    SCHEDULE clause: Dynamic (MONOTONIC ), ChunkSize: i32 8
+//
+bool ScheduleClause::print(formatted_raw_ostream &OS, unsigned Depth,
+                           unsigned Verbosity) const {
+  if (Verbosity==0 && !ChunkExpr)
+    return false;  // ChunkExpr==NULL means there was not SCHEDULE clause
 
-  OS.indent(2*Depth) << "SCHEDULE clause";
+  StringRef Title;
+
+  if (isDistSchedule())
+    Title = "DIST_SCHEDULE";
+  else
+    Title = "SCHEDULE";
+
+  OS.indent(2*Depth) << Title << " clause: ";
+
   if (!ChunkExpr) {
     // ChunkExpr==NULL means there is no SCHEDULE clause
-    OS << " is ABSENT\n";
-    return;
+    OS << "UNSPECIFIED\n";
+    return true;
   }
 
-  switch(Kind) {
-  case WRNScheduleAuto:
-    OS << ": AUTO (";
-    break;
-  case WRNScheduleDynamic:
-    OS << ": DYNAMIC (";
-    break;
-  case WRNScheduleGuided:
-    OS << ": GUIDED (";
-    break;
-  case WRNScheduleRuntime:
-    OS << ": RUNTIME (";
-    break;
-  case WRNScheduleStatic:
-    OS << ": STATIC (";
-    break;
-  default:
-    OS << ": TYPE=" << Kind << " (";
-  }
+  OS << WRNScheduleName[Kind] << " (";
 
   if(getIsSchedMonotonic())
     OS << "MONOTONIC ";
@@ -76,7 +128,14 @@ void ScheduleClause::print(formatted_raw_ostream &OS, unsigned Depth,
     OS << "NONMONOTONIC ";
   if(getIsSchedSimd())
     OS << "SIMD ";
-  OS << "), ChunkSize= " << *ChunkExpr << "\n";
+  OS << "), ChunkSize: ";
+
+  if (Chunk==0)
+    OS << "UNSPECIFIED\n";
+  else
+    OS << *ChunkExpr << "\n";
+
+  return true;
 }
 
 } // End namespace vpo

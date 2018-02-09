@@ -132,7 +132,7 @@ define <2 x double> @test_pd(<2 x double> %a32, <2 x double> %b32, <2 x double> 
 ; OTHER-NEXT:    movabsq $4607182418800017408, %rax # imm = 0x3FF0000000000000
 ;
 ; AVX2OTHER-NEXT: vmovd %rax, %xmm4
-; AVX2OTHER-NEXT: vunpcklpd {{.*#+}} xmm4 = xmm4[0,0]
+; AVX2OTHER-NEXT: vpunpcklqdq {{.*#+}} xmm4 = xmm4[0,0]
 ; SKXOTHER-NEXT:  vpbroadcastq %rax, %xmm4
 ;
 ; OTHER-NEXT:    vfmadd213pd %xmm4, %xmm2, %xmm0

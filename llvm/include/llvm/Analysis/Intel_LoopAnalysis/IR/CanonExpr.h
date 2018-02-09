@@ -1,6 +1,6 @@
 //===- CanonExpr.h - Closed form in high level IR ---------------*- C++ -*-===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -292,11 +292,9 @@ public:
 
   /// Returns the innermost level at which some blob present in this canon expr
   /// is defined. The canon expr in linear in all the inner loop levels w.r.t
-  /// this level. 
+  /// this level.
   /// It returns NonLinearLevel for non-linear canon exprs.
-  unsigned getDefinedAtLevel() const {
-    return DefinedAtLevel;
-  }
+  unsigned getDefinedAtLevel() const { return DefinedAtLevel; }
   /// Sets non-negative defined at level.
   void setDefinedAtLevel(unsigned DefLvl) {
     assert((DefLvl <= MaxLoopNestLevel) && "DefLvl exceeds max level!");
@@ -662,8 +660,15 @@ public:
   /// For example, if CE = 2 * i1, call to shift(1, 1) will result in
   /// CE = 2 * (i1 + 1) => 2 * i1 + 2.
   void shift(unsigned Lvl, int64_t Val);
+
   /// Iterator version of shift.
   void shift(iv_iterator IVI, int64_t Val);
+
+  /// Demotes the nesting level of all canon expr IVs starting from \p
+  /// StartLevel.
+  /// E.g.
+  /// i2 -> i1, i3 -> i2, ...
+  void demoteIVs(unsigned StartLevel);
 
   /// Populates Indices with all the blobs contained in the CanonExpr
   /// (including blob IV coeffs). The blobs are sorted and uniqued if
@@ -678,7 +683,11 @@ public:
                               bool MakeUnique = true) const;
 
   /// Simplifies canon expr by dividing numerator and denominator by gcd.
-  void simplify(bool SimplifyCast = false);
+  // \p SimpliyCast indicates whether we can simplify a constant CE of the form
+  // sext.i32.i64(4) into i64(4). This is currently not set by DD but should be
+  // set by everyone else.
+  // TODO: Can we set it for DD too?
+  void simplify(bool SimplifyCast);
 
   /// Multiplies the canon expr by Val. Returns false if the result expression
   /// can not be represented as a single CanonExpr.
@@ -705,9 +714,9 @@ public:
   const DebugLoc &getDebugLoc() const { return DbgLoc; }
 };
 
-} // End loopopt namespace
+} // namespace loopopt
 
-} // End llvm namespace
+} // namespace llvm
 
 namespace std {
 
@@ -716,6 +725,6 @@ namespace std {
 template <> struct default_delete<llvm::loopopt::CanonExpr> {
   void operator()(llvm::loopopt::CanonExpr *CE) const;
 };
-}
+} // namespace std
 
 #endif

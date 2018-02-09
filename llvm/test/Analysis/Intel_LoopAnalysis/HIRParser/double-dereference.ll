@@ -1,10 +1,10 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
 
 ; Check parsing output for the loop verifying that the double dereference is parsed correctly.
-; CHECK: + DO i1 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>
+; CHECK: + DO i1 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>
 ; CHECK: |   %0 = (%A)[i1];
 ; CHECK: |
-; CHECK: |   + DO i2 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>
+; CHECK: |   + DO i2 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>
 ; CHECK: |   |   %1 = (%0)[i2];
 ; CHECK: |   |   (%0)[i2] = i2 + %1;
 ; CHECK: |   + END LOOP

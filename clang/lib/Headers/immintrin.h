@@ -58,6 +58,10 @@
 #include <clflushoptintrin.h>
 #endif
 
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__CLWB__)
+#include <clwbintrin.h>
+#endif
+
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__AVX__)
 #include <avxintrin.h>
 #endif
@@ -313,6 +317,10 @@ _writegsbase_u64(unsigned long long __V)
 
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__XSAVES__)
 #include <xsavesintrin.h>
+#endif
+
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__SHSTK__)
+#include <cetintrin.h>
 #endif
 
 /* Some intrinsics inside adxintrin.h are available only on processors with ADX,

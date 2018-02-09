@@ -26,8 +26,8 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/DDTests.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGatherer.h"
@@ -76,10 +76,6 @@ static cl::list<int> DumpGraphForNodeNumbers(
 static cl::opt<bool>
     ForceDDA("force-hir-dd-analysis", cl::init(false), cl::Hidden,
              cl::desc("forces graph construction for every request"));
-
-typedef DDRefGatherer<DDRef, AllRefs ^
-    (ConstantRefs | GenericRValRefs | IsAddressOfRefs)>
-    DDARefGatherer;
 
 FunctionPass *llvm::createHIRDDAnalysisPass() { return new HIRDDAnalysis(); }
 
@@ -185,7 +181,7 @@ DDGraph HIRDDAnalysis::getGraphImpl(const HLNode *Node, bool InputEdgesReq) {
 
   // TODO: We have to treat NoData graph as Invalid if there are edges
   // associated with the Loop/Region. For ex. the distribution pass creates new
-  // loops and populates it with old HLNodes. Calling getGraph() on NoData nodes
+  // loop and populates it with old HLNodes. Calling getGraph() on NoData nodes
   // potentially can lead to duplicated edges or invalid dependencies.
 
   // conservatively assume input edges are always invalid
@@ -426,34 +422,75 @@ void HIRDDAnalysis::buildGraph(const HLNode *Node, bool BuildInputEdges) {
   Node->getHLNodeUtils().visit(Visitor, Node);
 }
 
-bool HIRDDAnalysis::refineDV(DDRef *SrcDDRef, DDRef *DstDDRef,
-                             unsigned InnermostNestingLevel,
-                             unsigned OutermostNestingLevel,
-                             DirectionVector &RefinedDV,
-                             DistanceVector &RefinedDistV,
-                             bool *IsIndependent) {
+bool HIRDDAnalysis::isRefinableDepAtLevel(const DDEdge *Edge,
+                                          unsigned Level) const {
 
-  bool IsDVRefined = false;
-  *IsIndependent = false;
+  const DirectionVector *DV = &Edge->getDV();
+  if (!DV->isRefinableAtLevel(Level)) {
+    return false;
+  }
+
+  const RegDDRef *SrcDDRef = dyn_cast<RegDDRef>(Edge->getSrc());
+  if (!SrcDDRef) {
+    return false;
+  }
+  const RegDDRef *DstDDRef = dyn_cast<RegDDRef>(Edge->getSink());
+  if (!DstDDRef) {
+    return false;
+  }
+
+  if (!SrcDDRef->isMemRef()) {
+    return false;
+  }
+
+  assert(DstDDRef->isMemRef() && "MemRef expected");
+
+  // There are very few cases that the first DD build, testing for all *,
+  // do not produce a precise DV.  Restrict it to limited cases to save
+  // compile time
+  // We can extend to more cases as needed.
+  if (!DDTest::isDelinearizeCandidate(SrcDDRef) ||
+      !DDTest::isDelinearizeCandidate(DstDDRef)) {
+    return false;
+  }
+  return true;
+}
+
+RefinedDependence HIRDDAnalysis::refineDV(DDRef *SrcDDRef, DDRef *DstDDRef,
+                                          unsigned StartNestingLevel,
+                                          unsigned DeepestNestingLevel,
+                                          bool ForFusion) {
+
+  RefinedDependence Dep;
+
   RegDDRef *RegDDref = dyn_cast<RegDDRef>(DstDDRef);
 
   if (RegDDref && !(RegDDref->isTerminalRef())) {
     DDTest DT(*AAR, RegDDref->getHLDDNode()->getHLNodeUtils(), *HLS);
-    DirectionVector InputDV;
-    InputDV.setAsInput(InnermostNestingLevel, OutermostNestingLevel);
-    auto Result = DT.depends(SrcDDRef, DstDDRef, InputDV);
-    if (Result == nullptr) {
-      *IsIndependent = true;
-      return true;
-    }
-    for (unsigned I = 1; I <= Result->getLevels(); ++I) {
-      RefinedDV[I - 1] = Result->getDirection(I);
-      IsDVRefined = true;
-      RefinedDistV[I - 1] = DT.mapDVToDist(RefinedDV[I - 1], I, *Result);
+
+    DirectionVector &InputDV = Dep.getDV();
+    //  For Start = 3, Deepest = 3, when testing for innermost loop dep,
+    //  DV constructed: (= = *)
+    InputDV.setAsInput(StartNestingLevel, DeepestNestingLevel);
+
+    auto Result = DT.depends(SrcDDRef, DstDDRef, InputDV, false, ForFusion);
+
+    if (Result != nullptr) {
+      Dep.setRefined();
+
+      DirectionVector &RefinedDV = Dep.getDV();
+      DistanceVector &RefinedDistV = Dep.getDist();
+
+      for (unsigned I = 1; I <= Result->getLevels(); ++I) {
+        RefinedDV[I - 1] = Result->getDirection(I);
+        RefinedDistV[I - 1] = DT.mapDVToDist(RefinedDV[I - 1], I, *Result);
+      }
+    } else {
+      Dep.setIndependent();
     }
   }
 
-  return IsDVRefined;
+  return Dep;
 }
 
 bool HIRDDAnalysis::graphForNodeValid(const HLNode *Node) {
@@ -482,32 +519,6 @@ void HIRDDAnalysis::GraphVerifier::visit(HLLoop *Loop) {
       (Loop->isInnermost() && CurLevel == DDVerificationLevel::Innermost)) {
     if (!CurDDA->graphForNodeValid(Loop)) {
       CurDDA->buildGraph(Loop, false);
-    }
-  }
-}
-
-bool DDGraph::singleEdgeGoingOut(const DDRef *LRef) {
-  unsigned NumEdge = 0;
-
-  for (auto *Edge : outgoing(LRef)) {
-    (void)Edge;
-    if (NumEdge++ > 1) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-void DDGraph::print(raw_ostream &OS) const {
-  DDARefGatherer::MapTy Refs;
-  DDARefGatherer::gather(CurNode, Refs);
-
-  for (auto Pair : Refs) {
-    for (DDRef *Ref : Pair.second) {
-      for (DDEdge *E : outgoing(Ref)) {
-        E->print(OS);
-      }
     }
   }
 }

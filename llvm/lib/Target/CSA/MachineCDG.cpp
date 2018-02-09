@@ -10,7 +10,7 @@
 
 #include "llvm/Analysis/DOTGraphTraitsPass.h"
 #include "llvm/ADT/PostOrderIterator.h"
-#include "llvm/Target/TargetInstrInfo.h"
+#include "llvm/CodeGen/TargetInstrInfo.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineRegionInfo.h"
