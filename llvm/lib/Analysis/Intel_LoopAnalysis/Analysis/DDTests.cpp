@@ -4402,8 +4402,8 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
     }
 
   } else {
-    BlobDDRef *BRef = cast<BlobDDRef>(SrcDDRef);
-    Pair[0].Src = BRef->getCanonExpr();
+    const auto *BRef = cast<BlobDDRef>(SrcDDRef);
+    Pair[0].Src = BRef->getSingleCanonExpr();
   }
 
   if (DstRegDDRef) {
@@ -4413,8 +4413,8 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
       Pair[P].Dst = *CE;
     }
   } else {
-    BlobDDRef *BRef = cast<BlobDDRef>(DstDDRef);
-    Pair[0].Dst = BRef->getCanonExpr();
+    const auto *BRef = cast<BlobDDRef>(DstDDRef);
+    Pair[0].Dst = BRef->getSingleCanonExpr();
   }
 
   // Note: Couple of original functionality were skipped

@@ -80,7 +80,7 @@ private:
     // Note that in some cases this type can be the same as the BaseCE type
     // therefore we cannot store it in the BaseCE dest type as in this case we
     // cannot tell whether the bitcast is needed. It is also not a good
-    // representaion as the bitcast is on the resulting GEP, not the base ptr.
+    // representation as the bitcast is on the resulting GEP, not the base ptr.
     // This was the previous implementation. An example where it didn't work-
     //   %gep = getelementptr [20 x i32], [20 x i32]* @t, i64 0, i64 1
     //   %bc = bitcast i32* %gep to [20 x i32]*
@@ -144,7 +144,6 @@ private:
   GEPInfo *GepInfo;
   HLDDNode *Node;
 
-protected:
   RegDDRef(DDRefUtils &DDRU, unsigned SB);
 
   /// Calling delete on a null pointer has no effect.
@@ -481,12 +480,12 @@ public:
   unsigned getNumDimensions() const { return CanonExprs.size(); }
 
   /// Returns the only canon expr of this DDRef.
-  CanonExpr *getSingleCanonExpr() {
+  CanonExpr *getSingleCanonExpr() override {
     assert(getNumDimensions() == 1);
     return *(canon_begin());
   }
 
-  const CanonExpr *getSingleCanonExpr() const {
+  const CanonExpr *getSingleCanonExpr() const override {
     return const_cast<RegDDRef *>(this)->getSingleCanonExpr();
   }
 
@@ -540,7 +539,7 @@ public:
 
   /// Returns true if this DDRef is a lval DDRef. This function
   /// assumes that the DDRef is connected to a HLDDNode.
-  bool isLval() const;
+  bool isLval() const override;
 
   /// Returns true if this DDRef is a rval DDRef. This function
   /// assumes that the DDRef is connected to a HLDDNode.
@@ -564,7 +563,7 @@ public:
   ///      RegDDRef is Memory Reference - A[i]
   ///      RegDDRef is a Pointer Reference - *p
   /// Else returns true for cases like DDRef - 2*i and M+N.
-  bool isTerminalRef() const {
+  bool isTerminalRef() const override {
     if (!hasGEPInfo()) {
       assert(isSingleCanonExpr() &&
              "Terminal ref has more than one dimension!");

@@ -72,7 +72,7 @@ const unsigned NonLinearLevel = MaxLoopNestLevel + 1;
 ///
 /// This class disallows creating objects on stack.
 /// Objects are created/destroyed using CanonExprUtils friend class.
-class CanonExpr {
+class CanonExpr final {
 private:
   struct BlobIndexToCoeff {
     /// Valid index range is [1, UINT_MAX].
@@ -145,11 +145,9 @@ private:
 
   DebugLoc DbgLoc;
 
-protected:
   CanonExpr(CanonExprUtils &CEU, Type *SrcType, Type *DestType, bool IsSExt,
             unsigned DefLevel, int64_t ConstVal, int64_t Denom,
             bool IsSignedDiv);
-  virtual ~CanonExpr() {}
 
   friend class CanonExprUtils;
 

@@ -141,7 +141,8 @@ bool DDRefUtils::areEqualImpl(const BlobDDRef *Ref1, const BlobDDRef *Ref2) {
   }
 
   // Additional check. Ideally, symbase match should be equal blobs.
-  assert(CanonExprUtils::areEqual(Ref1->getCanonExpr(), Ref2->getCanonExpr()));
+  assert(CanonExprUtils::areEqual(Ref1->getSingleCanonExpr(),
+                                  Ref2->getSingleCanonExpr()));
 
   return true;
 }

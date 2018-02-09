@@ -225,7 +225,7 @@ void RegDDRef::updateDefLevelInternal(unsigned NewLevel) {
 
   // Update attached blob DDRefs' def level first.
   for (auto It = blob_begin(), EndIt = blob_end(); It != EndIt; ++It) {
-    auto CE = (*It)->getCanonExpr();
+    auto CE = (*It)->getMutableSingleCanonExpr();
 
     if (CE->isNonLinear()) {
       continue;
@@ -965,7 +965,7 @@ void RegDDRef::updateBlobDDRefs(SmallVectorImpl<BlobDDRef *> &NewBlobs,
     addBlobDDRef(BRef);
 
     // Defined at level is only applicable for instruction blobs. Other types
-    // (like globals, function paramaters) are always proper linear.
+    // (like globals, function parameters) are always proper linear.
     if (!BlobUtils::isGuaranteedProperLinear(getBlobUtils().getBlob(I))) {
       NewBlobs.push_back(BRef);
     }
@@ -993,7 +993,7 @@ bool RegDDRef::findTempBlobLevel(unsigned BlobIndex, unsigned *DefLevel) const {
     Index = (*I)->getBlobIndex();
 
     if (Index == BlobIndex) {
-      auto CE = (*I)->getCanonExpr();
+      auto CE = (*I)->getSingleCanonExpr();
       *DefLevel = CE->isNonLinear() ? NonLinearLevel : CE->getDefinedAtLevel();
       return true;
     }
@@ -1103,6 +1103,14 @@ void RegDDRef::verify() const {
     for (auto CEI = canon_begin(), E = canon_end(); CEI != E; ++CEI) {
       assert((*CEI)->getSrcType()->isIntOrIntVectorTy() &&
              "Subscript should be integer type!");
+    }
+  } else {
+    // assert(isTerminalRef())
+    auto CE = getSingleCanonExpr();
+    if (CE->isSelfBlob() && !isLval()) {
+      auto &BU = getBlobUtils();
+      assert(BU.getTempBlobSymbase(CE->getSingleBlobIndex()) == getSymbase());
+      (void)BU;
     }
   }
 

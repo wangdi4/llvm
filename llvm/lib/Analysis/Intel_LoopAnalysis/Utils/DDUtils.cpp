@@ -408,7 +408,7 @@ void DDUtils::updateDDRefsLinearity(SmallVectorImpl<HLInst *> &HLInsts,
         assert(RegRef->isTerminalRef() && "Unexpected memrefs");
         SinkCE = RegRef->getSingleCanonExpr();
       } else {
-        SinkCE = cast<BlobDDRef>(DDRefSink)->getMutableCanonExpr();
+        SinkCE = cast<BlobDDRef>(DDRefSink)->getMutableSingleCanonExpr();
       }
       // There might be defs which are non-linear encountered here,
       // update it anyway

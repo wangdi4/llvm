@@ -35,7 +35,6 @@ private:
   CanonExpr *CE;
   RegDDRef *ParentDDRef;
 
-protected:
   explicit BlobDDRef(DDRefUtils &DDRU, unsigned Index, unsigned Level);
   virtual ~BlobDDRef() override {}
 
@@ -52,8 +51,11 @@ protected:
   /// Sets the parent DDRef of BlobDDRef.
   void setParentDDRef(RegDDRef *Ref) { ParentDDRef = Ref; }
 
+  /// Only const-method is allowed
+  CanonExpr *getSingleCanonExpr() override { return CE; }
+
   /// Returns modifiable canonical form associated with the blob.
-  CanonExpr *getMutableCanonExpr() { return CE; }
+  CanonExpr *getMutableSingleCanonExpr() { return CE; }
 
   /// Restrict access to base class's public member. Blob DDRef can be modified
   /// to represent a different blob using the interface replaceBlob(). The
@@ -69,7 +71,7 @@ public:
                      bool Detailed = false) const override;
 
   /// Returns the canonical form associated with the blob.
-  const CanonExpr *getCanonExpr() const { return CE; }
+  const CanonExpr *getSingleCanonExpr() const override { return CE; }
 
   /// Returns the blob index associated with this BlobDDRef.
   unsigned getBlobIndex() const { return CE->getSingleBlobIndex(); }
@@ -96,6 +98,13 @@ public:
   /// Returns true if the blob DDRef represents a self-blob like (1 * %t)
   /// which should always be true.
   bool isSelfBlob() const override { return true; }
+
+  /// Returns true if DDRef corresponds to temp blob
+  /// self-blobs are subset of terminal refs
+  bool isTerminalRef() const override { return true; }
+
+  /// Returns false because BlobDDRef is never lvalue
+  bool isLval() const override { return false; }
 
   /// Returns true if this ref looks like 1 * undef.
   bool isStandAloneUndefBlob() const override {

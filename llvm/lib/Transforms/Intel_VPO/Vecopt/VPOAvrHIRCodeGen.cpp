@@ -107,13 +107,13 @@ void AVRCGVisit::visit(AVRValueHIR *AVal) {
   } else {
     assert(isa<BlobDDRef>(RefVal) && "Expected Blob DDRef");
 
-    auto BRefVal = cast<BlobDDRef>(RefVal);
+    const auto * BRefVal = cast<BlobDDRef>(RefVal);
     if (auto WInst = ACG->findWideInst(BRefVal->getSymbase())) {
       WideRef = WInst->getLvalDDRef();
     } else {
       WideRef = DDRU.createScalarRegDDRef(
           BRefVal->getSymbase(),
-          const_cast<CanonExpr *>(BRefVal->getCanonExpr()));
+          const_cast<CanonExpr *>(BRefVal->getSingleCanonExpr()));
       WideRef = ACG->widenRef(WideRef);
     }
   }

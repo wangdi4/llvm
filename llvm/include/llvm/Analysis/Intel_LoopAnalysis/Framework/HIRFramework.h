@@ -138,6 +138,9 @@ public:
 
   void verify() const;
 
+  // The biggest symbase seen during compilation of this fuction
+  unsigned getMaxSymbase() const { return MaxSymbase; }
+
   // Returns a new unused symbase ID.
   unsigned getNewSymbase() { return ++MaxSymbase; }
 

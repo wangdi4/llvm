@@ -1095,6 +1095,7 @@ bool HIRRegionIdentification::isSIMDLoop(const Loop &Lp,
 
   BasicBlock *ExitBB = Lp.getExitBlock();
 
+  // TODO: Multi-exit SIMD loops
   if (!ExitBB) {
     return false;
   }
