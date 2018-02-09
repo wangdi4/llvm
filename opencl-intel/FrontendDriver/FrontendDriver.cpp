@@ -8,15 +8,20 @@
 //
 // ===--------------------------------------------------------------------===
 
-#include "FrontendDriver.h"
-#include "clang_driver.h"
 #include "common_clang.h"
+#include "Compile.h"
+#include "FrontendDriver.h"
+#include "GetKernelArgInfo.h"
+#include "Link.h"
+#include "ParseSPIRV.h"
+#include "SPIRMaterializer.h"
 
 #include <Logger.h>
 #include <cl_device_api.h>
 #include <cl_shutdown.h>
 #include <cl_sys_defines.h>
 
+#include "llvm/ADT/StringRef.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/Mutex.h"
 
@@ -39,7 +44,7 @@ using namespace Intel::OpenCL::Utils;
 
 using namespace Intel::OpenCL::FECompilerAPI;
 
-extern DECLARE_LOGGER_CLIENT;
+DECLARE_LOGGER_CLIENT;
 
 void ClangCompilerTerminate() { llvm::llvm_shutdown(); }
 

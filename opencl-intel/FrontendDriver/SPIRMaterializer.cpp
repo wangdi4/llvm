@@ -1,6 +1,6 @@
-//==---- SPIRMaterializer.cpp - SPIR 1.2 materializer ----------*- C++ -*---=
+//==---- SPIRMaterializer.cpp - SPIR 1.2 materializer -------------*- C++ -*---=
 //
-// Copyright (C) 2012-2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2012-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -13,12 +13,17 @@ Subject to the terms and conditions of the Master Development License
 Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
 OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
 ==================================================================================*/
+
+#include "frontend_api.h"
+#include "FrontendResultImpl.h"
 #include "SPIRMaterializer.h"
 
 #include "NameMangleAPI.h"
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringSwitch.h"
+#include "llvm/Bitcode/BitcodeReader.h"
+#include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Transforms/Utils/Cloning.h"
@@ -28,7 +33,9 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 using namespace llvm;
 
-namespace intel {
+namespace Intel {
+namespace OpenCL {
+namespace ClangFE {
 
 static void updateMetadata(llvm::Module &M) {
   llvm::NamedMDNode *Kernels = M.getNamedMetadata("opencl.kernels");
@@ -301,7 +308,7 @@ static void RemangleBuiltins(llvm::Function &F) {
   F.setName(NewName);
 }
 
-int MaterializeSPIR(llvm::Module &M) {
+int ClangFECompilerMaterializeSPIRTask::MaterializeSPIR(llvm::Module &M) {
   updateMetadata(M);
 
   std::for_each(M.begin(), M.end(), RemangleBuiltins);
@@ -309,4 +316,39 @@ int MaterializeSPIR(llvm::Module &M) {
 
   return 0;
 }
+
+int ClangFECompilerMaterializeSPIRTask::MaterializeSPIR(
+    IOCLFEBinaryResult **pBinaryResult) {
+  std::unique_ptr<OCLFEBinaryResult> pResult(new OCLFEBinaryResult());
+
+  std::unique_ptr<llvm::LLVMContext> C(new llvm::LLVMContext());
+  auto MemBuff = llvm::MemoryBuffer::getMemBuffer(
+      llvm::StringRef((const char *)m_pProgDesc->pSPIRContainer,
+                      (size_t)m_pProgDesc->uiSPIRContainerSize),
+      "", false);
+  auto ModuleOrErr = parseBitcodeFile(*MemBuff.get(), *C.get());
+  if (!ModuleOrErr) {
+    if (pBinaryResult) {
+      pResult->setLog("Can't parse SPIR 1.2 module\n");
+      *pBinaryResult = pResult.release();
+    }
+    return CL_INVALID_PROGRAM;
+  }
+  llvm::Module *pModule = ModuleOrErr.get().get();
+  int res = MaterializeSPIR(*pModule);
+
+  llvm::raw_svector_ostream ir_ostream(pResult->getIRBufferRef());
+  llvm::WriteBitcodeToFile(pModule, ir_ostream);
+
+  pResult->setIRType(IR_TYPE_COMPILED_OBJECT);
+  pResult->setIRName(pModule->getName());
+
+  if (pBinaryResult) {
+    *pBinaryResult = pResult.release();
+  }
+  return res;
 }
+
+} // namespace ClangFE
+} // namespace OpenCL
+} // namespace Intel

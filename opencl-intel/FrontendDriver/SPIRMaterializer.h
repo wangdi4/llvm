@@ -14,20 +14,43 @@ Agreement between Intel and Apple dated August 26, 2005; under the Category 2 In
 OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
 ==================================================================================*/
 
-#ifndef __SPIR_MATERIALIZER_H__
-#define __SPIR_MATERIALIZER_H__
+#pragma once
 
 namespace llvm {
 class Module;
 }
 
-namespace intel {
-/// \brief Adjusts the given module to be processed by the BE.
-///
-/// More concretely:
-/// - replaces SPIR artifacts with Intel-implementation specific stuff.
-/// - updates LLVM IR to version supported by back-end compiler
-int MaterializeSPIR(llvm::Module &M);
+namespace Intel {
+namespace OpenCL {
+namespace FECompilerAPI {
+struct FESPIRProgramDescriptor;
 }
+namespace ClangFE {
 
-#endif //__SPIR_MATERIALIZER_H__
+struct IOCLFEBinaryResult;
+
+// Updates SPIR 1.2 to current LLVM IR version.
+class ClangFECompilerMaterializeSPIRTask {
+public:
+  ClangFECompilerMaterializeSPIRTask(
+      Intel::OpenCL::FECompilerAPI::FESPIRProgramDescriptor *pProgDesc)
+      : m_pProgDesc(pProgDesc) {}
+
+  /// \brief Updates SPIR 1.2 to consumable by the compiler back-end LLVM IR.
+  /// \return error code of clCompileProgram API
+  int MaterializeSPIR(IOCLFEBinaryResult **pBinaryResult);
+
+  /// \brief Adjusts the given module to be processed by the BE.
+  ///
+  /// More concretely:
+  /// - replaces SPIR artifacts with Intel-implementation specific stuff.
+  /// - updates LLVM IR to version supported by back-end compiler
+  static int MaterializeSPIR(llvm::Module &M);
+
+private:
+  Intel::OpenCL::FECompilerAPI::FESPIRProgramDescriptor *m_pProgDesc;
+};
+
+} // namespace ClangFE
+} // namespace OpenCL
+} // namespace Intel

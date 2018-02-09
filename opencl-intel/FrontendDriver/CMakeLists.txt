@@ -55,15 +55,22 @@ if (WIN32)
 endif ()
 
 add_opencl_library (${TARGET_NAME} SHARED
-    SPIRMaterializer.cpp
-    SPIRMaterializer.h
+    clang_device_info.h
+    Compile.cpp
+    Compile.h
     FrontendDriver.cpp
     FrontendDriver.h
     FrontendDriver.rc
-    clang_device_info.h
-    clang_driver.cpp
-    clang_driver.h
+    FrontendResultImpl.h
+    GetKernelArgInfo.cpp
+    GetKernelArgInfo.h
+    Link.cpp
+    Link.h
+    ParseSPIRV.cpp
+    ParseSPIRV.h
     resource.h
+    SPIRMaterializer.cpp
+    SPIRMaterializer.h
 )
 if (WIN32)
     set(COMMON_CLANG_LIB ${LLVM_LIBRARY_DIRS}/common_clang${BUILD_PLATFORM}.lib)

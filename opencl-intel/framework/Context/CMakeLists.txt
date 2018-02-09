@@ -19,12 +19,7 @@ if (NOT WIN32)
     add_definitions( "-Wno-unused-function -Wno-conversion-null" )
 endif(NOT WIN32)
 
-include_directories( 
-            ${LLVM_INCLUDE_DIRS}/cclang
-            ${CMAKE_SOURCE_DIR}/utils/cl_sys_utils/export
-            ${CMAKE_SOURCE_DIR}/utils/CLElfLib 
-            ${LLVM_INCLUDE_DIRS}/cclang
-            )
+include_directories( ${CMAKE_SOURCE_DIR}/utils/CLElfLib )
 
 # add a target named ${TARGET_NAME}
 add_library (${TARGET_NAME} STATIC ${TARGET_SOURCES})

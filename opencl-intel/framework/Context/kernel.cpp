@@ -29,7 +29,6 @@
 #include "Context.h"
 #include "program.h"
 #include "fe_compiler.h"
-#include "common_clang.h"
 #include "sampler.h"
 #include "cl_shared_ptr.hpp"
 #include "svm_buffer.h"
