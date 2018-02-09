@@ -22,6 +22,7 @@
 #include "CGOpenMPRuntime.h"
 #include "CodeGenFunction.h"
 #include "CodeGenModule.h"
+#include "ConstantEmitter.h"
 #include "TargetInfo.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/CharUnits.h"
@@ -185,11 +186,9 @@ void CodeGenFunction::EmitVarDecl(const VarDecl &D) {
   // needs to be emitted like a static variable, e.g. a function-scope
   // variable in constant address space in OpenCL.
   if (D.getStorageDuration() != SD_Automatic) {
-#if INTEL_CUSTOMIZATION
     // Static sampler variables translated to function calls.
     if (D.getType()->isSamplerT())
       return;
-#endif  // INTEL_CUSTOMIZATION
 
     llvm::GlobalValue::LinkageTypes Linkage =
         CGM.getLLVMLinkageVarDefinition(&D, /*isConstant=*/false);
@@ -251,7 +250,7 @@ llvm::Constant *CodeGenModule::getOrCreateStaticVarDecl(
     Name = getStaticDeclName(*this, D);
 
   llvm::Type *LTy = getTypes().ConvertTypeForMem(Ty);
-  unsigned AS = GetGlobalVarAddressSpace(&D);
+  LangAS AS = GetGlobalVarAddressSpace(&D);
   unsigned TargetAS = getContext().getTargetAddressSpace(AS);
 
   // Local address space cannot have an initializer.
@@ -265,7 +264,7 @@ llvm::Constant *CodeGenModule::getOrCreateStaticVarDecl(
       getModule(), LTy, Ty.isConstant(getContext()), Linkage, Init, Name,
       nullptr, llvm::GlobalVariable::NotThreadLocal, TargetAS);
   GV->setAlignment(getContext().getDeclAlign(&D).getQuantity());
-  setGlobalVisibility(GV, &D);
+  setGlobalVisibility(GV, &D, ForDefinition);
 
   if (supportsCOMDAT() && GV->isWeakForLinker())
     GV->setComdat(TheModule.getOrInsertComdat(GV->getName()));
@@ -281,7 +280,7 @@ llvm::Constant *CodeGenModule::getOrCreateStaticVarDecl(
   }
 
   // Make sure the result is of the correct type.
-  unsigned ExpectedAS = Ty.getAddressSpace();
+  LangAS ExpectedAS = Ty.getAddressSpace();
   llvm::Constant *Addr = GV;
   if (AS != ExpectedAS) {
     Addr = getTargetCodeGenInfo().performAddrSpaceCast(
@@ -337,7 +336,8 @@ static bool hasNontrivialDestruction(QualType T) {
 llvm::GlobalVariable *
 CodeGenFunction::AddInitializerToStaticVarDecl(const VarDecl &D,
                                                llvm::GlobalVariable *GV) {
-  llvm::Constant *Init = CGM.EmitConstantInit(D, this);
+  ConstantEmitter emitter(*this);
+  llvm::Constant *Init = emitter.tryEmitForInitializer(D);
 
   // If constant emission failed, then this should be a C++ static
   // initializer.
@@ -384,6 +384,8 @@ CodeGenFunction::AddInitializerToStaticVarDecl(const VarDecl &D,
 
   GV->setConstant(CGM.isTypeConstant(D.getType(), true));
   GV->setInitializer(Init);
+
+  emitter.finalize(GV);
 
   if (hasNontrivialDestruction(D.getType()) && HaveInsertPoint()) {
     // We have a constant initializer, but a nontrivial destructor. We still
@@ -434,6 +436,12 @@ void CodeGenFunction::EmitStaticVarDecl(const VarDecl &D,
   if (D.hasAttr<AnnotateAttr>())
     CGM.AddGlobalAnnotations(&D, var);
 
+#if INTEL_CUSTOMIZATION
+  if (getLangOpts().OpenMPThreadPrivateLegacy &&
+      D.hasAttr<OMPThreadPrivateDeclAttr>())
+    var->setThreadPrivate(true);
+#endif // INTEL_CUSTOMIZATION
+
   if (auto *SA = D.getAttr<PragmaClangBSSSectionAttr>())
     var->addAttribute("bss-section", SA->getName());
   if (auto *SA = D.getAttr<PragmaClangDataSectionAttr>())
@@ -467,6 +475,42 @@ void CodeGenFunction::EmitStaticVarDecl(const VarDecl &D,
     DI->setLocation(D.getLocation());
     DI->EmitGlobalVariable(var, &D);
   }
+
+#if INTEL_CUSTOMIZATION
+  if (getLangOpts().HLS && D.getStorageClass() == SC_Static) {
+    unsigned ResetOption = 2; // Default value.
+    if (auto *SARA = D.getAttr<StaticArrayResetAttr>()) {
+      llvm::Value *V = EmitScalarExpr(SARA->getValue());
+      llvm::ConstantInt *CI = cast<llvm::ConstantInt>(V);
+      ResetOption = CI->getValue().getZExtValue();
+    }
+    auto &Ctx = getLLVMContext();
+    SmallVector<llvm::Metadata *, 10> MD;
+    llvm::IntegerType *int32Ty = llvm::Type::getInt32Ty(Ctx);
+
+    // Build attribute node.
+    MD.push_back(llvm::MDString::get(Ctx, "staticreset"));
+    MD.push_back(llvm::ConstantAsMetadata::get(
+        llvm::ConstantInt::get(int32Ty, ResetOption)));
+    MD.push_back(llvm::MDString::get(Ctx, "unset"));
+    llvm::MDNode *ANode = llvm::MDNode::get(Ctx, MD);
+
+    // Build variable node.
+    MD.clear();
+    unsigned ASpace =
+        (cast<llvm::PointerType>(addr->getType()))->getAddressSpace();
+    MD.push_back(
+        llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(int32Ty, ASpace)));
+    MD.push_back(llvm::ConstantAsMetadata::get(addr));
+    MD.push_back(ANode);
+    llvm::MDNode *VNode = llvm::MDNode::get(Ctx, MD);
+
+    // Attach variable node to the named metadata node.
+    llvm::Module &M = CGM.getModule();
+    llvm::NamedMDNode *NamedMD = M.getOrInsertNamedMetadata("hls.staticreset");
+    NamedMD->addOperand(VNode);
+  }
+#endif // INTEL_CUSTOMIZATION
 }
 
 namespace {
@@ -1013,7 +1057,9 @@ void CodeGenFunction::EmitLifetimeEnd(llvm::Value *Size, llvm::Value *Addr) {
 CodeGenFunction::AutoVarEmission
 CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
   QualType Ty = D.getType();
-  assert(Ty.getAddressSpace() == LangAS::Default);
+  assert(
+      Ty.getAddressSpace() == LangAS::Default ||
+      (Ty.getAddressSpace() == LangAS::opencl_private && getLangOpts().OpenCL));
 
   AutoVarEmission emission(D);
 
@@ -1227,6 +1273,67 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
       }
     }
 
+#if INTEL_CUSTOMIZATION
+  // Emit annotation for HLS local variable attributes.
+  if (getLangOpts().HLS) {
+    SmallString<256> AnnotStr;
+    llvm::raw_svector_ostream Out(AnnotStr);
+    if (D.hasAttr<RegisterAttr>())
+      Out << "{register:1}";
+    if (D.hasAttr<MemoryAttr>())
+      Out << "{register:0}";
+    if (D.hasAttr<SinglePumpAttr>())
+      Out << "{pump:1}";
+    if (D.hasAttr<DoublePumpAttr>())
+      Out << "{pump:2}";
+    if (auto *BWA = D.getAttr<BankWidthAttr>()) {
+      llvm::Value *V = EmitScalarExpr(BWA->getValue());
+      llvm::ConstantInt *CI = cast<llvm::ConstantInt>(V);
+      Out << '{' << BWA->getSpelling() << ':' << CI->getValue() << '}';
+    }
+    if (auto *NBA = D.getAttr<NumBanksAttr>()) {
+      llvm::Value *V = EmitScalarExpr(NBA->getValue());
+      llvm::ConstantInt *CI = cast<llvm::ConstantInt>(V);
+      Out << '{' << NBA->getSpelling() << ':' << CI->getValue() << '}';
+    }
+    if (auto *NRPA = D.getAttr<NumReadPortsAttr>()) {
+      llvm::Value *V = EmitScalarExpr(NRPA->getValue());
+      llvm::ConstantInt *CI = cast<llvm::ConstantInt>(V);
+      Out << '{' << NRPA->getSpelling() << ':' << CI->getValue() << '}';
+    }
+    if (auto *NWPA = D.getAttr<NumWritePortsAttr>()) {
+      llvm::Value *V = EmitScalarExpr(NWPA->getValue());
+      llvm::ConstantInt *CI = cast<llvm::ConstantInt>(V);
+      Out << '{' << NWPA->getSpelling() << ':' << CI->getValue() << '}';
+    }
+    if (auto *BBA = D.getAttr<BankBitsAttr>()) {
+      Out << '{';
+      Out << BBA->getSpelling();
+      Out << ':';
+      for (BankBitsAttr::args_iterator I = BBA->args_begin(),
+                                       E = BBA->args_end();
+           I != E; ++I) {
+        if (I != BBA->args_begin())
+          Out << ',';
+        llvm::Value *V = EmitScalarExpr(*I);
+        llvm::ConstantInt *CI = cast<llvm::ConstantInt>(V);
+        Out << CI->getValue();
+      }
+      Out << '}';
+    }
+    if (auto *MA = D.getAttr<MergeAttr>()) {
+      Out << '{' << MA->getSpelling() << ':' << MA->getName() << ':'
+          << MA->getDirection() << '}';
+    }
+    if (!AnnotStr.empty()) {
+      llvm::Value *V = address.getPointer();
+      EmitAnnotationCall(CGM.getIntrinsic(llvm::Intrinsic::var_annotation),
+                         Builder.CreateBitCast(V, CGM.Int8PtrTy, V->getName()),
+                         AnnotStr, D.getLocation());
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
+
   if (D.hasAttr<AnnotateAttr>())
     EmitVarAnnotations(&D, address.getPointer());
 
@@ -1342,7 +1449,7 @@ void CodeGenFunction::EmitAutoVarInit(const AutoVarEmission &emission) {
   llvm::Constant *constant = nullptr;
   if (emission.IsConstantAggregate || D.isConstexpr()) {
     assert(!capturedByInit && "constant init contains a capturing block?");
-    constant = CGM.EmitConstantInit(D, this);
+    constant = ConstantEmitter(*this).tryEmitAbstractForInitializer(D);
   }
 
   if (!constant) {
@@ -1366,7 +1473,7 @@ void CodeGenFunction::EmitAutoVarInit(const AutoVarEmission &emission) {
     llvm::ConstantInt::get(IntPtrTy,
                            getContext().getTypeSizeInChars(type).getQuantity());
 
-  llvm::Type *BP = Int8PtrTy;
+  llvm::Type *BP = AllocaInt8PtrTy;
   if (Loc.getType() != BP)
     Loc = Builder.CreateBitCast(Loc, BP);
 
@@ -1891,24 +1998,6 @@ void CodeGenFunction::EmitParmDecl(const VarDecl &D, ParamValue Arg,
     if (BlockInfo) {
       setBlockContextParameter(IPD, ArgNo, Arg.getDirectValue());
       return;
-    }
-
-    // Apply any prologue 'this' adjustments required by the ABI. Be careful to
-    // handle the case where 'this' is passed indirectly as part of an inalloca
-    // struct.
-    if (const CXXMethodDecl *MD =
-            dyn_cast_or_null<CXXMethodDecl>(CurCodeDecl)) {
-      if (MD->isVirtual() && IPD == CXXABIThisDecl) {
-        llvm::Value *This = Arg.isIndirect()
-                                ? Builder.CreateLoad(Arg.getIndirectAddress())
-                                : Arg.getDirectValue();
-        This = CGM.getCXXABI().adjustThisParameterInVirtualFunctionPrologue(
-            *this, CurGD, This);
-        if (Arg.isIndirect())
-          Builder.CreateStore(This, Arg.getIndirectAddress());
-        else
-          Arg = ParamValue::forDirect(This);
-      }
     }
   }
 

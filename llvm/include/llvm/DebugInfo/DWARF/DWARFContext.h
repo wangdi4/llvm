@@ -17,6 +17,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/DebugInfo/DIContext.h"
+#include "llvm/DebugInfo/DWARF/DWARFAcceleratorTable.h"
 #include "llvm/DebugInfo/DWARF/DWARFCompileUnit.h"
 #include "llvm/DebugInfo/DWARF/DWARFDebugAbbrev.h"
 #include "llvm/DebugInfo/DWARF/DWARFDebugAranges.h"
@@ -43,6 +44,7 @@
 namespace llvm {
 
 class DataExtractor;
+class MCRegisterInfo;
 class MemoryBuffer;
 class raw_ostream;
 
@@ -67,6 +69,10 @@ class DWARFContext : public DIContext {
   std::unique_ptr<DWARFDebugFrame> DebugFrame;
   std::unique_ptr<DWARFDebugFrame> EHFrame;
   std::unique_ptr<DWARFDebugMacro> Macro;
+  std::unique_ptr<DWARFAcceleratorTable> AppleNames;
+  std::unique_ptr<DWARFAcceleratorTable> AppleTypes;
+  std::unique_ptr<DWARFAcceleratorTable> AppleNamespaces;
+  std::unique_ptr<DWARFAcceleratorTable> AppleObjC;
 
   DWARFUnitSection<DWARFCompileUnit> DWOCUs;
   std::deque<DWARFUnitSection<DWARFTypeUnit>> DWOTUs;
@@ -83,6 +89,9 @@ class DWARFContext : public DIContext {
   StringMap<std::weak_ptr<DWOFile>> DWOFiles;
   std::weak_ptr<DWOFile> DWP;
   bool CheckedForDWP = false;
+  std::string DWPName;
+
+  std::unique_ptr<MCRegisterInfo> RegInfo;
 
   /// Read compile units from the debug_info section (if necessary)
   /// and store them in CUs.
@@ -104,8 +113,10 @@ protected:
   std::unique_ptr<const DWARFObject> DObj;
 
 public:
-  DWARFContext(std::unique_ptr<const DWARFObject> DObj)
-      : DIContext(CK_DWARF), DObj(std::move(DObj)) {}
+  DWARFContext(std::unique_ptr<const DWARFObject> DObj,
+               std::string DWPName = "");
+  ~DWARFContext();
+
   DWARFContext(DWARFContext &) = delete;
   DWARFContext &operator=(DWARFContext &) = delete;
 
@@ -115,9 +126,17 @@ public:
     return DICtx->getKind() == CK_DWARF;
   }
 
-  void dump(raw_ostream &OS, DIDumpOptions DumpOpts) override;
+  /// Dump a textual representation to \p OS. If any \p DumpOffsets are present,
+  /// dump only the record at the specified offset.
+  void dump(raw_ostream &OS, DIDumpOptions DumpOpts,
+            std::array<Optional<uint64_t>, DIDT_ID_Count> DumpOffsets);
 
-  bool verify(raw_ostream &OS, DIDumpType DumpType = DIDT_All) override;
+  void dump(raw_ostream &OS, DIDumpOptions DumpOpts) override {
+    std::array<Optional<uint64_t>, DIDT_ID_Count> DumpOffsets;
+    dump(OS, DumpOpts, DumpOffsets);
+  }
+
+  bool verify(raw_ostream &OS, DIDumpOptions DumpOpts = {}) override;
 
   using cu_iterator_range = DWARFUnitSection<DWARFCompileUnit>::iterator_range;
   using tu_iterator_range = DWARFUnitSection<DWARFTypeUnit>::iterator_range;
@@ -223,8 +242,32 @@ public:
   /// Get a pointer to the parsed DebugMacro object.
   const DWARFDebugMacro *getDebugMacro();
 
+  /// Get a reference to the parsed accelerator table object.
+  const DWARFAcceleratorTable &getAppleNames();
+
+  /// Get a reference to the parsed accelerator table object.
+  const DWARFAcceleratorTable &getAppleTypes();
+
+  /// Get a reference to the parsed accelerator table object.
+  const DWARFAcceleratorTable &getAppleNamespaces();
+
+  /// Get a reference to the parsed accelerator table object.
+  const DWARFAcceleratorTable &getAppleObjC();
+
   /// Get a pointer to a parsed line table corresponding to a compile unit.
   const DWARFDebugLine::LineTable *getLineTableForUnit(DWARFUnit *cu);
+
+  /// Wraps the returned DIEs for a given address.
+  struct DIEsForAddress {
+    DWARFCompileUnit *CompileUnit = nullptr;
+    DWARFDie FunctionDIE;
+    DWARFDie BlockDIE;
+    explicit operator bool() const { return CompileUnit != nullptr; }
+  };
+
+  /// Get the compilation unit, the function DIE and lexical block DIE for the
+  /// given address where applicable.
+  DIEsForAddress getDIEsForAddress(uint64_t Address);
 
   DILineInfo getLineInfoForAddress(uint64_t Address,
       DILineInfoSpecifier Specifier = DILineInfoSpecifier()) override;
@@ -240,16 +283,24 @@ public:
 
   std::shared_ptr<DWARFContext> getDWOContext(StringRef AbsolutePath);
 
+  const MCRegisterInfo *getRegisterInfo() const { return RegInfo.get(); }
+
   /// Function used to handle default error reporting policy. Prints a error
   /// message and returns Continue, so DWARF context ignores the error.
   static ErrorPolicy defaultErrorHandler(Error E);
   static std::unique_ptr<DWARFContext>
   create(const object::ObjectFile &Obj, const LoadedObjectInfo *L = nullptr,
-         function_ref<ErrorPolicy(Error)> HandleError = defaultErrorHandler);
+         function_ref<ErrorPolicy(Error)> HandleError = defaultErrorHandler,
+         std::string DWPName = "");
 
   static std::unique_ptr<DWARFContext>
   create(const StringMap<std::unique_ptr<MemoryBuffer>> &Sections,
          uint8_t AddrSize, bool isLittleEndian = sys::IsLittleEndianHost);
+
+  /// Loads register info for the architecture of the provided object file.
+  /// Improves readability of dumped DWARF expressions. Requires the caller to
+  /// have initialized the relevant target descriptions.
+  Error loadRegisterInfo(const object::ObjectFile &Obj);
 
 private:
   /// Return the compile unit that includes an offset (relative to .debug_info).

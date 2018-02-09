@@ -1,4 +1,4 @@
-//===--- StmtVisitor.h - Visitor for Stmt subclasses ------------*- C++ -*-===//
+//===- StmtVisitor.h - Visitor for Stmt subclasses --------------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -17,31 +17,36 @@
 #include "clang/AST/ExprCXX.h"
 #include "clang/AST/ExprObjC.h"
 #include "clang/AST/ExprOpenMP.h"
+#include "clang/AST/Stmt.h"
 #include "clang/AST/StmtCXX.h"
 #include "clang/AST/StmtObjC.h"
 #include "clang/AST/StmtOpenMP.h"
 #if INTEL_SPECIFIC_CILKPLUS
 #include "clang/Basic/intel/StmtIntel.h"
 #endif // INTEL_SPECIFIC_CILKPLUS
+#include "clang/Basic/LLVM.h"
+#include "llvm/Support/Casting.h"
+#include "llvm/Support/ErrorHandling.h"
+#include <utility>
 
 namespace clang {
 
-template <typename T> struct make_ptr       { typedef       T *type; };
-template <typename T> struct make_const_ptr { typedef const T *type; };
+template <typename T> struct make_ptr { using type = T *; };
+template <typename T> struct make_const_ptr { using type = const T *; };
 
 /// StmtVisitorBase - This class implements a simple visitor for Stmt
 /// subclasses. Since Expr derives from Stmt, this also includes support for
 /// visiting Exprs.
-template<template <typename> class Ptr, typename ImplClass, typename RetTy=void>
+template<template <typename> class Ptr, typename ImplClass, typename RetTy=void,
+         class... ParamTys>
 class StmtVisitorBase {
 public:
-
 #define PTR(CLASS) typename Ptr<CLASS>::type
 #define DISPATCH(NAME, CLASS) \
- return static_cast<ImplClass*>(this)->Visit ## NAME(static_cast<PTR(CLASS)>(S))
+  return static_cast<ImplClass*>(this)->Visit ## NAME( \
+    static_cast<PTR(CLASS)>(S), std::forward<ParamTys>(P)...)
 
-  RetTy Visit(PTR(Stmt) S) {
-
+  RetTy Visit(PTR(Stmt) S, ParamTys... P) {
     // If we have a binary expr, dispatch to the subcode of the binop.  A smart
     // optimizer (e.g. LLVM) will fold this comparison into the switch stmt
     // below.
@@ -114,13 +119,13 @@ public:
   // If the implementation chooses not to implement a certain visit method, fall
   // back on VisitExpr or whatever else is the superclass.
 #define STMT(CLASS, PARENT)                                   \
-  RetTy Visit ## CLASS(PTR(CLASS) S) { DISPATCH(PARENT, PARENT); }
+  RetTy Visit ## CLASS(PTR(CLASS) S, ParamTys... P) { DISPATCH(PARENT, PARENT); }
 #include "clang/AST/StmtNodes.inc"
 
   // If the implementation doesn't implement binary operator methods, fall back
   // on VisitBinaryOperator.
 #define BINOP_FALLBACK(NAME) \
-  RetTy VisitBin ## NAME(PTR(BinaryOperator) S) { \
+  RetTy VisitBin ## NAME(PTR(BinaryOperator) S, ParamTys... P) { \
     DISPATCH(BinaryOperator, BinaryOperator); \
   }
   BINOP_FALLBACK(PtrMemD)                    BINOP_FALLBACK(PtrMemI)
@@ -140,7 +145,7 @@ public:
   // If the implementation doesn't implement compound assignment operator
   // methods, fall back on VisitCompoundAssignOperator.
 #define CAO_FALLBACK(NAME) \
-  RetTy VisitBin ## NAME(PTR(CompoundAssignOperator) S) { \
+  RetTy VisitBin ## NAME(PTR(CompoundAssignOperator) S, ParamTys... P) { \
     DISPATCH(CompoundAssignOperator, CompoundAssignOperator); \
   }
   CAO_FALLBACK(MulAssign) CAO_FALLBACK(DivAssign) CAO_FALLBACK(RemAssign)
@@ -152,7 +157,7 @@ public:
   // If the implementation doesn't implement unary operator methods, fall back
   // on VisitUnaryOperator.
 #define UNARYOP_FALLBACK(NAME) \
-  RetTy VisitUnary ## NAME(PTR(UnaryOperator) S) { \
+  RetTy VisitUnary ## NAME(PTR(UnaryOperator) S, ParamTys... P) { \
     DISPATCH(UnaryOperator, UnaryOperator);    \
   }
   UNARYOP_FALLBACK(PostInc)   UNARYOP_FALLBACK(PostDec)
@@ -166,7 +171,7 @@ public:
 #undef UNARYOP_FALLBACK
 
   // Base case, ignore it. :)
-  RetTy VisitStmt(PTR(Stmt) Node) { return RetTy(); }
+  RetTy VisitStmt(PTR(Stmt) Node, ParamTys... P) { return RetTy(); }
 
 #undef PTR
 #undef DISPATCH
@@ -177,18 +182,18 @@ public:
 ///
 /// This class does not preserve constness of Stmt pointers (see also
 /// ConstStmtVisitor).
-template<typename ImplClass, typename RetTy=void>
+template<typename ImplClass, typename RetTy=void, typename... ParamTys>
 class StmtVisitor
- : public StmtVisitorBase<make_ptr, ImplClass, RetTy> {};
+ : public StmtVisitorBase<make_ptr, ImplClass, RetTy, ParamTys...> {};
 
 /// ConstStmtVisitor - This class implements a simple visitor for Stmt
 /// subclasses. Since Expr derives from Stmt, this also includes support for
 /// visiting Exprs.
 ///
 /// This class preserves constness of Stmt pointers (see also StmtVisitor).
-template<typename ImplClass, typename RetTy=void>
+template<typename ImplClass, typename RetTy=void, typename... ParamTys>
 class ConstStmtVisitor
- : public StmtVisitorBase<make_const_ptr, ImplClass, RetTy> {};
+ : public StmtVisitorBase<make_const_ptr, ImplClass, RetTy, ParamTys...> {};
 
 /// \brief This class implements a simple visitor for OMPClause
 /// subclasses.
@@ -225,6 +230,6 @@ template<class ImplClass, typename RetTy = void>
 class ConstOMPClauseVisitor :
       public OMPClauseVisitorBase <ImplClass, make_const_ptr, RetTy> {};
 
-}  // end namespace clang
+} // namespace clang
 
-#endif
+#endif // LLVM_CLANG_AST_STMTVISITOR_H

@@ -44,8 +44,10 @@ namespace clang {
                          BackendAction Action,
                          std::unique_ptr<raw_pwrite_stream> OS);
 
+#if !INTEL_PRODUCT_RELEASE
   void EmbedBitcode(llvm::Module *M, const CodeGenOptions &CGOpts,
                     llvm::MemoryBufferRef Buf);
+#endif // !INTEL_PRODUCT_RELEASE
 
   llvm::Expected<llvm::BitcodeModule>
   FindThinLTOModule(llvm::MemoryBufferRef MBRef);

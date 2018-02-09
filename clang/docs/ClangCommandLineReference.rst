@@ -56,6 +56,16 @@ Pass <arg> to fatbinary invocation
 
 Pass <arg> to the ptxas assembler
 
+.. option:: -Xopenmp-target <arg>
+
+Pass <arg> to the target offloading toolchain.
+
+.. program:: clang1
+.. option:: -Xopenmp-target=<arg> <arg2>
+.. program:: clang
+
+Pass <arg> to the specified target offloading toolchain. The triple that identifies the toolchain must be provided after the equals sign.
+
 .. option:: -Z<arg>
 
 .. option:: -a<arg>, --profile-blocks
@@ -310,6 +320,10 @@ Disable standard #include directories for the C++ standard library
 
 .. option:: -nostdlib, --no-standard-libraries
 
+.. program:: clang1
+.. option:: -nostdlib++
+.. program:: clang
+
 .. option:: -nostdlibinc
 
 .. option:: -o<file>, --output <arg>, --output=<arg>
@@ -508,9 +522,9 @@ Serialize compiler diagnostics to a file
 
 .. option:: -shared, --shared
 
-.. option:: -shared-libasan
-
 .. option:: -shared-libgcc
+
+.. option:: -shared-libsan, -shared-libasan
 
 .. option:: -single\_module
 
@@ -519,6 +533,8 @@ Serialize compiler diagnostics to a file
 .. option:: -static, --static
 
 .. option:: -static-libgcc
+
+.. option:: -static-libsan
 
 .. option:: -static-libstdc++
 
@@ -571,6 +587,8 @@ Show commands to run and use verbose output
 Verify the binary representation of debug output
 
 .. option:: --version
+
+Print version information
 
 .. option:: -w, --no-warnings
 
@@ -654,6 +672,10 @@ Pass <arg> to the assembler
 
 Pass <arg> to the clang compiler
 
+.. option:: -fclang-abi-compat=<version>
+
+Attempt to match the ABI of Clang <version>
+
 .. option:: -fcomment-block-commands=<arg>,<arg2>...
 
 Treat each comma separated argument in <arg> as a documentation comment block command
@@ -681,6 +703,10 @@ Print source range spans in numeric form
 .. option:: -fexperimental-new-pass-manager, -fno-experimental-new-pass-manager
 
 Enables an experimental new pass manager in LLVM.
+
+.. option:: -ffine-grained-bitfield-accesses, -fno-fine-grained-bitfield-accesses
+
+Use separate accesses for bitfields with legal widths and alignments.
 
 .. option:: -finline-functions, -fno-inline-functions
 
@@ -716,6 +742,10 @@ Path to blacklist file for sanitizers
 
 Enable control flow integrity (CFI) checks for cross-DSO calls.
 
+.. option:: -fsanitize-cfi-icall-generalize-pointers
+
+Generalize pointers in CFI indirect call type signature checks
+
 .. option:: -fsanitize-coverage=<arg1>,<arg2>..., -fno-sanitize-coverage=<arg1>,<arg2>...
 
 Specify the type of coverage instrumentation for Sanitizers
@@ -732,9 +762,11 @@ Enable origins tracking in MemorySanitizer
 
 Enable origins tracking in MemorySanitizer
 
-.. option:: -fsanitize-memory-use-after-dtor
+.. option:: -fsanitize-memory-use-after-dtor, -fno-sanitize-memory-use-after-dtor
 
 Enable use-after-destroy detection in MemorySanitizer
+
+.. option:: -fsanitize-minimal-runtime, -fno-sanitize-minimal-runtime
 
 .. option:: -fsanitize-recover, -fno-sanitize-recover
 
@@ -845,6 +877,10 @@ Use the last modification time of <file> as the build session timestamp
 .. option:: -fbuild-session-timestamp=<time since Epoch in seconds>
 
 Time when the current build session started
+
+.. option:: -fmodule-file=\[<name>=\]<file>
+
+Specify the mapping of module name to precompiled module file, or load a module file if name is omitted.
 
 .. option:: -fmodules-cache-path=<directory>
 
@@ -1225,6 +1261,10 @@ Print a template comparison tree for differing templates
 
 Allow '$' in identifiers
 
+.. option:: -fdouble-square-bracket-attributes, -fno-double-square-bracket-attributes
+
+Enable '\[\[\]\]' attributes in all C and C++ language modes
+
 .. option:: -fdwarf-directory-asm, -fno-dwarf-directory-asm
 
 .. option:: -felide-constructors, -fno-elide-constructors
@@ -1307,6 +1347,10 @@ Implicitly search the file system for module map files.
 
 Generate calls to instrument function entry and exit
 
+.. option:: -finstrument-functions-after-inlining
+
+Like -finstrument-functions, but insert the calls after inlining
+
 .. option:: -fintegrated-as, -fno-integrated-as, -integrated-as
 
 Enable the integrated assembler
@@ -1346,10 +1390,6 @@ Specify the maximum alignment to enforce on pointers lacking an explicit alignme
 .. option:: -fmessage-length=<arg>
 
 .. option:: -fmodule-file-deps, -fno-module-file-deps
-
-.. option:: -fmodule-file=<file>
-
-Load this precompiled module file
 
 .. option:: -fmodule-map-file=<file>
 
@@ -1433,6 +1473,10 @@ Do not treat C++ operator name keywords as synonyms for operators
 
 .. option:: -fno-working-directory
 
+.. option:: -fnoopenmp-relocatable-target
+
+Do not compile OpenMP target code as relocatable.
+
 .. option:: -fnoopenmp-use-tls
 
 .. option:: -fobjc-abi-version=<arg>
@@ -1475,6 +1519,10 @@ Enable ARC-style weak references in Objective-C
 
 .. option:: -fopenmp-dump-offload-linker-script
 
+.. option:: -fopenmp-relocatable-target
+
+OpenMP target code is compiled as relocatable using the -c flag. For OpenMP targets the code is relocatable by default.
+
 .. option:: -fopenmp-use-tls
 
 .. option:: -fopenmp-version=<arg>
@@ -1515,6 +1563,10 @@ Override the default ABI to return all structs on the stack
 
 .. option:: -fpie, -fno-pie
 
+.. option:: -fplt, -fno-plt
+
+Use the PLT to make function calls
+
 .. option:: -fplugin=<dsopath>
 
 Load the named plugin (dynamic shared object)
@@ -1552,6 +1604,13 @@ Generate instrumented code to collect execution counts into <file> (overridden b
 .. program:: clang
 
 Use instrumentation data for profile-guided optimization
+
+.. option:: -fprofile-sample-accurate, -fauto-profile-accurate, -fno-profile-sample-accurate
+
+Specifies that the sample profile is accurate. If the sample
+               profile is accurate, callsites without profile samples are marked
+               as cold. Otherwise, treat callsites without profile samples as if
+               we have no profile
 
 .. option:: -fprofile-sample-use, -fauto-profile, -fno-profile-sample-use
 
@@ -1631,9 +1690,17 @@ Which overload candidates to show when overload resolution fails: best\|all; def
 
 Enable C++14 sized global deallocation functions
 
+.. option:: -fdwarf-exceptions
+
+Use DWARF style exceptions
+
 .. option:: -fsjlj-exceptions
 
 Use SjLj style exceptions
+
+.. option:: -fseh-exceptions
+
+Use SEH style exceptions
 
 .. option:: -fslp-vectorize, -fno-slp-vectorize, -ftree-slp-vectorize
 
@@ -1889,6 +1956,8 @@ Put objects of at most <size> bytes into small data section (MIPS / Hexagon)
 
 Enable SVR4-style position-independent code (Mips only)
 
+.. option:: -mabs=<arg>
+
 .. option:: -malign-double
 
 Align doubles to two words in structs (x86 only)
@@ -1924,6 +1993,14 @@ Link stack frames through backchain on System Z
 .. option:: -meabi <arg>
 
 Set EABI type, e.g. 4, 5 or gnu (default depends on triple)
+
+.. option:: -membedded-data, -mno-embedded-data
+
+Place constants in the .rodata section instead of the .sdata section even if they meet the -G <size> threshold (MIPS)
+
+.. option:: -mextern-sdata, -mno-extern-sdata
+
+Assume that externally defined data is in the small data if it meets the -G <size> threshold (MIPS)
 
 .. option:: -mfentry
 
@@ -1970,6 +2047,10 @@ Use Intel MCU ABI
 .. option:: -mkernel
 
 .. option:: -mldc1-sdc1, -mno-ldc1-sdc1
+
+.. option:: -mlocal-sdata, -mno-local-sdata
+
+Extend the -G behaviour to object local data (MIPS)
 
 .. option:: -mlong-calls, -mno-long-calls
 
@@ -2085,6 +2166,10 @@ Generate code which only uses the general purpose registers (AArch64 only)
 
 AMDGPU
 ------
+.. option:: -mxnack, -mno-xnack
+
+Enable XNACK (AMDGPU only)
+
 ARM
 ---
 .. option:: -ffixed-r9
@@ -2115,9 +2200,17 @@ Disallow use of CRC instructions (ARM only)
 
 Disallow generation of deprecated IT blocks for ARMv8. It is on by default for ARMv8 Thumb mode.
 
+.. option:: -mtp=<arg>
+
+Read thread pointer from coprocessor register (ARM only)
+
 .. option:: -munaligned-access, -mno-unaligned-access
 
 Allow memory accesses to be unaligned (AArch32/AArch64 only)
+
+Hexagon
+-------
+.. option:: -mieee-rnd-near
 
 Hexagon
 -------
@@ -2129,7 +2222,15 @@ Enable Hexagon Vector eXtensions
 
 Enable Hexagon Double Vector eXtensions
 
-.. option:: -mieee-rnd-near
+.. option:: -mhvx-length=<arg>
+
+Set Hexagon Vector Length
+
+.. program:: clang1
+.. option:: -mhvx=<arg>
+.. program:: clang
+
+Enable Hexagon Vector eXtensions
 
 PowerPC
 -------

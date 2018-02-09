@@ -1,1 +1,1 @@
-// empty
+struct S { int x; };

@@ -68,6 +68,21 @@ elif [ "`uname -a | grep FreeBSD`" != "" ]; then
 		../../sanitizer_common/sanitizer_linux_libcdep.cc
 		../../sanitizer_common/sanitizer_stoptheworld_linux_libcdep.cc
 	"
+elif [ "`uname -a | grep NetBSD`" != "" ]; then
+	SUFFIX="netbsd_amd64"
+	OSCFLAGS="-fno-strict-aliasing -fPIC -Werror"
+	OSLDFLAGS="-lpthread -fPIC -fpie"
+	SRCS="
+		$SRCS
+		../rtl/tsan_platform_linux.cc
+		../../sanitizer_common/sanitizer_posix.cc
+		../../sanitizer_common/sanitizer_posix_libcdep.cc
+		../../sanitizer_common/sanitizer_procmaps_common.cc
+		../../sanitizer_common/sanitizer_procmaps_freebsd.cc
+		../../sanitizer_common/sanitizer_linux.cc
+		../../sanitizer_common/sanitizer_linux_libcdep.cc
+		../../sanitizer_common/sanitizer_stoptheworld_linux_libcdep.cc
+	"
 elif [ "`uname -a | grep Darwin`" != "" ]; then
 	SUFFIX="darwin_amd64"
 	OSCFLAGS="-fPIC -Wno-unused-const-variable -Wno-unknown-warning-option -isysroot $(xcodebuild -version -sdk macosx Path) -mmacosx-version-min=10.7"
@@ -127,7 +142,7 @@ if [ "$SILENT" != "1" ]; then
 fi
 $CC $DIR/gotsan.cc -c -o $DIR/race_$SUFFIX.syso $FLAGS $CFLAGS
 
-$CC $OSCFLAGS test.c $DIR/race_$SUFFIX.syso -m64 -g -o $DIR/test $OSLDFLAGS
+$CC $OSCFLAGS test.c $DIR/race_$SUFFIX.syso -m64 -g -o $DIR/test $OSLDFLAGS $LDFLAGS
 
 export GORACE="exitcode=0 atexit_sleep_ms=0"
 if [ "$SILENT" != "1" ]; then

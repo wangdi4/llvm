@@ -1,6 +1,9 @@
 // RUN: %clang_cc1 -x cl -cl-std=CL2.0 -fsyntax-only -verify -cl-ext=-cl_intel_channels %s
 // RUN: %clang_cc1 -x cl -cl-std=CL2.0 -fsyntax-only -verify -cl-ext=-cl_intel_channels -D __KERNEL %s
 // RUN: %clang_cc1 -x cl -cl-std=CL2.0 -fsyntax-only -verify -cl-ext=-cl_intel_channels -D __FUNCTION %s
+// RUN: %clang_cc1 -x cl -fsyntax-only -verify -cl-ext=-cl_intel_channels %s
+// RUN: %clang_cc1 -x cl -fsyntax-only -verify -cl-ext=-cl_intel_channels -D __KERNEL %s
+// RUN: %clang_cc1 -x cl -fsyntax-only -verify -cl-ext=-cl_intel_channels -D __FUNCTION %s
 
 // 'channel' should be treated as an identifier if cl_intel_channels extension
 // is not supported
@@ -23,7 +26,7 @@ __kernel void t(__global int* out) {
 
 #else
 
-int channel;
+__constant int channel = 1;
 channel int foo; // expected-error{{unknown type name 'channel'}}
                  // expected-error@-1{{expected identifier or '('}}
 

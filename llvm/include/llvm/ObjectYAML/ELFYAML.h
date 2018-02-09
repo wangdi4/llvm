@@ -50,6 +50,7 @@ LLVM_YAML_STRONG_TYPEDEF(uint32_t, ELF_REL)
 LLVM_YAML_STRONG_TYPEDEF(uint8_t, ELF_RSS)
 // Just use 64, since it can hold 32-bit values too.
 LLVM_YAML_STRONG_TYPEDEF(uint64_t, ELF_SHF)
+LLVM_YAML_STRONG_TYPEDEF(uint16_t, ELF_SHN)
 LLVM_YAML_STRONG_TYPEDEF(uint8_t, ELF_STT)
 LLVM_YAML_STRONG_TYPEDEF(uint8_t, ELF_STV)
 LLVM_YAML_STRONG_TYPEDEF(uint8_t, ELF_STO)
@@ -82,6 +83,7 @@ struct ProgramHeader {
   ELF_PF Flags;
   llvm::yaml::Hex64 VAddr;
   llvm::yaml::Hex64 PAddr;
+  Optional<llvm::yaml::Hex64> Align;
   std::vector<SectionName> Sections;
 };
 
@@ -89,6 +91,7 @@ struct Symbol {
   StringRef Name;
   ELF_STT Type;
   StringRef Section;
+  Optional<ELF_SHN> Index;
   llvm::yaml::Hex64 Value;
   llvm::yaml::Hex64 Size;
   uint8_t Other;
@@ -161,7 +164,7 @@ struct Relocation {
   llvm::yaml::Hex64 Offset;
   int64_t Addend;
   ELF_REL Type;
-  StringRef Symbol;
+  Optional<StringRef> Symbol;
 };
 
 struct RelocationSection : Section {
@@ -204,6 +207,7 @@ struct Object {
   // top-level key, which automatically ensures that invariants like there
   // being a single SHT_SYMTAB section are upheld.
   LocalGlobalWeakSymbols Symbols;
+  LocalGlobalWeakSymbols DynamicSymbols;
 };
 
 } // end namespace ELFYAML
@@ -265,6 +269,10 @@ struct ScalarEnumerationTraits<ELFYAML::ELF_SHT> {
 template <>
 struct ScalarBitSetTraits<ELFYAML::ELF_SHF> {
   static void bitset(IO &IO, ELFYAML::ELF_SHF &Value);
+};
+
+template <> struct ScalarEnumerationTraits<ELFYAML::ELF_SHN> {
+  static void enumeration(IO &IO, ELFYAML::ELF_SHN &Value);
 };
 
 template <>
@@ -334,6 +342,7 @@ template <> struct MappingTraits<ELFYAML::ProgramHeader> {
 template <>
 struct MappingTraits<ELFYAML::Symbol> {
   static void mapping(IO &IO, ELFYAML::Symbol &Symbol);
+  static StringRef validate(IO &IO, ELFYAML::Symbol &Symbol);
 };
 
 template <>

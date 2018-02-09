@@ -1,0 +1,131 @@
+//===--- Cuda.h - Utilities for compiling CUDA code  ------------*- C++ -*-===//
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+
+#ifndef LLVM_CLANG_BASIC_CSA_H
+#define LLVM_CLANG_BASIC_CSA_H
+
+#include "clang/Basic/TargetInfo.h"
+#include "clang/Basic/TargetOptions.h"
+#include "llvm/ADT/Triple.h"
+#include "llvm/ADT/StringSwitch.h"
+#include "llvm/Support/Compiler.h"
+
+namespace llvm {
+class StringRef;
+} // namespace llvm
+
+namespace clang {
+
+class CSATargetInfo : public TargetInfo {
+  static const Builtin::Info BuiltinInfo[];
+
+  enum CSAKind {
+    CSA_NONE,
+    CSA_ORDERED,
+    CSA_AUTOUNIT,
+    CSA_AUTOMIN,
+    CSA_CONFIG0,
+    CSA_CONFIG1
+  } CSA;
+
+public:
+  CSATargetInfo(const llvm::Triple &Triple, const TargetOptions &Opts)
+      : TargetInfo(Triple) {
+    LongWidth = LongAlign = PointerWidth = PointerAlign = 64;
+    LongDoubleWidth = 128;
+    LongDoubleAlign = 128;
+    LargeArrayMinWidth = 128;
+    LargeArrayAlign = 128;
+    SuitableAlign = 128;
+    SizeType    = UnsignedLong;
+    PtrDiffType = SignedLong;
+    IntPtrType  = SignedLong;
+    IntMaxType  = SignedLong;
+    Int64Type   = SignedLong;
+
+    // CSA supports atomics up to 8 bytes.
+    MaxAtomicPromoteWidth = MaxAtomicInlineWidth = 64;
+
+    // Match lib/Target/CSA/CSASubtarget.cpp
+    // Issue - does it need to match x86-64?
+    resetDataLayout("e-m:e-i64:64-n32:64");
+  }
+
+  void getTargetDefines(const LangOptions &Opts,
+                        MacroBuilder &Builder) const override {
+    // CSA builds on X86.  We should really define everything for
+    // the current x86 target, but this should get past initial include
+    // file issues.
+    Builder.defineMacro("__amd64__");
+    Builder.defineMacro("__amd64");
+    Builder.defineMacro("__x86_64");
+    Builder.defineMacro("__x86_64__");
+
+    Builder.defineMacro("__CSA__");
+  }
+  ArrayRef<Builtin::Info> getTargetBuiltins() const override {
+    return llvm::makeArrayRef(BuiltinInfo,
+                           clang::CSA::LastTSBuiltin-Builtin::FirstTSBuiltin);
+  }
+  ArrayRef<const char *> getGCCRegNames() const override {
+    static const char * const GCCRegNames[] = { "dummy" };
+    return llvm::makeArrayRef(GCCRegNames);
+  }
+  ArrayRef<TargetInfo::GCCRegAlias> getGCCRegAliases() const override {
+    return None;
+  }
+  bool validateAsmConstraint(const char *&Name,
+                            TargetInfo::ConstraintInfo &Info) const override {
+    // This is only used for validation on the front end.
+    switch (*Name) {
+      default:
+        return false;
+      case 'a':
+      case 'b':
+      case 'c':
+      case 'd':
+      case 'A':
+      case 'B':
+      case 'C':
+      case 'D':
+        Info.setAllowsRegister();
+        return true;
+    }
+    return false;
+  }
+
+  const char *getClobbers() const override {
+    return "";
+  }
+  BuiltinVaListKind getBuiltinVaListKind() const override {
+    return TargetInfo::VoidPtrBuiltinVaList;
+  }
+  bool setCPU(const std::string &Name) override {
+    CSA = llvm::StringSwitch<CSAKind>(Name)
+        .Case("ordered", CSA_ORDERED)
+        .Case("autounit",CSA_AUTOUNIT)
+        .Case("automin", CSA_AUTOMIN)
+        .Case("config0", CSA_CONFIG0)
+        .Case("config1", CSA_CONFIG1)
+        .Default(CSA_NONE);
+    return CSA != CSA_NONE;
+  }
+};
+
+const Builtin::Info CSATargetInfo::BuiltinInfo[] = {
+#define BUILTIN(ID, TYPE, ATTRS) \
+  { #ID, TYPE, ATTRS, nullptr, ALL_LANGUAGES, nullptr },
+#define LIBBUILTIN(ID, TYPE, ATTRS, HEADER) \
+  { #ID, TYPE, ATTRS, HEADER, ALL_LANGUAGES, nullptr },
+#include "clang/Basic/BuiltinsCSA.def"
+};
+} // namespace clang
+
+#endif // LLVM_CLANG_LIB_BASIC_CSA_H
+

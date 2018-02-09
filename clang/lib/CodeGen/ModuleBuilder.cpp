@@ -119,10 +119,32 @@ namespace {
       return Builder->GetAddrOfGlobal(global, ForDefinition_t(isForDefinition));
     }
 
+    llvm::Module *StartModule(llvm::StringRef ModuleName,
+                              llvm::LLVMContext &C) {
+      assert(!M && "Replacing existing Module?");
+      M.reset(new llvm::Module(ModuleName, C));
+      Initialize(*Ctx);
+      return M.get();
+    }
+
     void Initialize(ASTContext &Context) override {
       Ctx = &Context;
 
       M->setTargetTriple(Ctx->getTargetInfo().getTriple().getTriple());
+
+#if INTEL_CUSTOMIZATION
+      // The target device information is represented as module level
+      // attribute.
+      SmallString<128> Res;
+      for (auto &Device : Ctx->getLangOpts().OMPTargetTriples) {
+        if (!Res.empty())
+          Res += ",";
+        Res += Device.getTriple();
+      }
+      if (!Res.empty())
+        M->setTargetDevices(Res);
+#endif // INTEL_CUSTOMIZATION
+
       M->setDataLayout(Ctx->getTargetInfo().getDataLayout());
       Builder.reset(new CodeGen::CodeGenModule(Context, HeaderSearchOpts,
                                                PreprocessorOpts, CodeGenOpts,
@@ -331,6 +353,11 @@ llvm::Constant *CodeGenerator::GetAddrOfGlobal(GlobalDecl global,
                                                bool isForDefinition) {
   return static_cast<CodeGeneratorImpl*>(this)
            ->GetAddrOfGlobal(global, isForDefinition);
+}
+
+llvm::Module *CodeGenerator::StartModule(llvm::StringRef ModuleName,
+                                         llvm::LLVMContext &C) {
+  return static_cast<CodeGeneratorImpl*>(this)->StartModule(ModuleName, C);
 }
 
 CodeGenerator *clang::CreateLLVMCodeGen(

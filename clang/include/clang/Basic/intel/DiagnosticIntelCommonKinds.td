@@ -1,9 +1,11 @@
-//==--- DiagnosticCommonKinds.td - common diagnostics ---------------------===//
+//===--- DiagnosticIntelCommonKinds.td - Intel common diagnostics ---------===//
 //
-//                     The LLVM Compiler Infrastructure
+// Copyright (C) 2017 Intel Corporation. All rights reserved.
 //
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// The information and source code contained herein is the exclusive
+// property of Intel Corporation and may not be disclosed, examined
+// or reproduced in whole or in part without explicit written authorization
+// from the company.
 //
 //===----------------------------------------------------------------------===//
 
@@ -16,7 +18,6 @@ let Component = "Common" in {
 let CategoryName = "Parse Issue" in {
 
 // CQ#370092
-// if INTEL_CUSTOMIZATION
 def warn_attribute_not_type_attr : Warning<
   "%0 attribute cannot be applied to types">,
   InGroup<IgnoredAttributes>;
@@ -24,7 +25,6 @@ def err_pragma_simd_expected_for_loop : Error<
   "expected for statement following '#pragma simd'">;
 def err_pragma_simd_invalid_linear_var : Error<
   "invalid linear variable">;
-// endif INTEL_CUSTOMIZATION
 }
 
 let CategoryName = "Nullability Issue" in {

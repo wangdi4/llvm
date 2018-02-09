@@ -44,6 +44,10 @@ CodeGenTypes::~CodeGenTypes() {
     delete &*I++;
 }
 
+const CodeGenOptions &CodeGenTypes::getCodeGenOpts() const {
+  return CGM.getCodeGenOpts();
+}
+
 void CodeGenTypes::addRecordTypeName(const RecordDecl *RD,
                                      llvm::StructType *Ty,
                                      StringRef suffix) {
@@ -446,6 +450,12 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
                                  static_cast<unsigned>(Context.getTypeSize(T)));
       break;
 
+    case BuiltinType::Float16:
+      ResultType =
+          getTypeForFormat(getLLVMContext(), Context.getFloatTypeSemantics(T),
+                           /* UseNativeHalf = */ true);
+      break;
+
     case BuiltinType::Half:
       // Half FP can either be storage-only (lowered to i16) or native.
       ResultType =
@@ -653,7 +663,7 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
   }
 #endif // INTEL_CUSTOMIZATION
   case Type::Pipe: {
-    ResultType = CGM.getOpenCLRuntime().getPipeType();
+    ResultType = CGM.getOpenCLRuntime().getPipeType(cast<PipeType>(Ty));
     break;
   }
   }

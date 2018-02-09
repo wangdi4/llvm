@@ -1701,6 +1701,26 @@ CXXBaseSpecifier **CastExpr::path_buffer() {
   }
 }
 
+const FieldDecl *CastExpr::getTargetFieldForToUnionCast(QualType unionType,
+                                                        QualType opType) {
+  auto RD = unionType->castAs<RecordType>()->getDecl();
+  return getTargetFieldForToUnionCast(RD, opType);
+}
+
+const FieldDecl *CastExpr::getTargetFieldForToUnionCast(const RecordDecl *RD,
+                                                        QualType OpType) {
+  auto &Ctx = RD->getASTContext();
+  RecordDecl::field_iterator Field, FieldEnd;
+  for (Field = RD->field_begin(), FieldEnd = RD->field_end();
+       Field != FieldEnd; ++Field) {
+    if (Ctx.hasSameUnqualifiedType(Field->getType(), OpType) &&
+        !Field->isUnnamedBitfield()) {
+      return *Field;
+    }
+  }
+  return nullptr;
+}
+
 ImplicitCastExpr *ImplicitCastExpr::Create(const ASTContext &C, QualType T,
                                            CastKind Kind, Expr *Operand,
                                            const CXXCastPath *BasePath,
@@ -1815,15 +1835,6 @@ OverloadedOperatorKind BinaryOperator::getOverloadedOperator(Opcode Opc) {
   return OverOps[Opc];
 }
 
-#if INTEL_CUSTOMIZATION
-// This change is cherry-picked from LLVM trunk r313666 and r313784 (which
-// amended r313666 by deleting the IExp varaible and the offset size check
-// at the end of the function.
-//
-// When r313666 is merged with xmain, the INTEL_CUSTOMIZATION of this function
-// can be deleted and the LLVM trunk change followed without modification.
-// Three associated lit tests will fail if tested with a 32-bit target triple,
-// but those failures are fixed by r313684.
 bool BinaryOperator::isNullPointerArithmeticExtension(ASTContext &Ctx,
                                                       Opcode Opc,
                                                       Expr *LHS, Expr *RHS) {
@@ -1856,8 +1867,6 @@ bool BinaryOperator::isNullPointerArithmeticExtension(ASTContext &Ctx,
 
   return true;
 }
-#endif // INTEL_CUSTOMIZATION
-
 InitListExpr::InitListExpr(const ASTContext &C, SourceLocation lbraceloc,
                            ArrayRef<Expr*> initExprs, SourceLocation rbraceloc)
   : Expr(InitListExprClass, QualType(), VK_RValue, OK_Ordinary, false, false,
@@ -1948,6 +1957,17 @@ bool InitListExpr::isTransparent() const {
          getInit(0)->getType().getCanonicalType();
 }
 
+bool InitListExpr::isIdiomaticZeroInitializer(const LangOptions &LangOpts) const {
+  assert(isSyntacticForm() && "only test syntactic form as zero initializer");
+
+  if (LangOpts.CPlusPlus || getNumInits() != 1) {
+    return false;
+  }
+
+  const IntegerLiteral *Lit = dyn_cast<IntegerLiteral>(getInit(0));
+  return Lit && Lit->getValue() == 0;
+}
+
 SourceLocation InitListExpr::getLocStart() const {
   if (InitListExpr *SyntacticForm = getSyntacticForm())
     return SyntacticForm->getLocStart();
@@ -2001,6 +2021,7 @@ const Stmt *BlockExpr::getBody() const {
 Stmt *BlockExpr::getBody() {
   return TheBlock->getBody();
 }
+
 
 //===----------------------------------------------------------------------===//
 // Generic Expression Routines
@@ -2303,7 +2324,8 @@ bool Expr::isUnusedResultAWarning(const Expr *&WarnE, SourceLocation &Loc,
         const DeclRefExpr *DRE =
             dyn_cast<DeclRefExpr>(CE->getSubExpr()->IgnoreParens());
         if (!(DRE && isa<VarDecl>(DRE->getDecl()) &&
-              cast<VarDecl>(DRE->getDecl())->hasLocalStorage())) {
+              cast<VarDecl>(DRE->getDecl())->hasLocalStorage()) &&
+            !isa<CallExpr>(CE->getSubExpr()->IgnoreParens())) {
           return CE->getSubExpr()->isUnusedResultAWarning(WarnE, Loc,
                                                           R1, R2, Ctx);
         }
@@ -3307,20 +3329,20 @@ Expr::isNullPointerConstant(ASTContext &Ctx,
       // Check that it is a cast to void*.
       if (const PointerType *PT = CE->getType()->getAs<PointerType>()) {
         QualType Pointee = PT->getPointeeType();
-        Qualifiers Q = Pointee.getQualifiers();
-        // In OpenCL v2.0 generic address space acts as a placeholder
-        // and should be ignored.
-        bool IsASValid = true;
-        if (Ctx.getLangOpts().OpenCLVersion >= 200) {
-          if (Pointee.getAddressSpace() == LangAS::opencl_generic)
-            Q.removeAddressSpace();
-          else
-            IsASValid = false;
-        }
+        // Only (void*)0 or equivalent are treated as nullptr. If pointee type
+        // has non-default address space it is not treated as nullptr.
+        // (__generic void*)0 in OpenCL 2.0 should not be treated as nullptr
+        // since it cannot be assigned to a pointer to constant address space.
+        bool PointeeHasDefaultAS =
+            Pointee.getAddressSpace() == LangAS::Default ||
+            (Ctx.getLangOpts().OpenCLVersion >= 200 &&
+             Pointee.getAddressSpace() == LangAS::opencl_generic) ||
+            (Ctx.getLangOpts().OpenCL &&
+             Ctx.getLangOpts().OpenCLVersion < 200 &&
+             Pointee.getAddressSpace() == LangAS::opencl_private);
 
-        if (IsASValid && !Q.hasQualifiers() &&
-            Pointee->isVoidType() &&                      // to void*
-            CE->getSubExpr()->getType()->isIntegerType()) // from int.
+        if (PointeeHasDefaultAS && Pointee->isVoidType() && // to void*
+            CE->getSubExpr()->getType()->isIntegerType())   // from int.
           return CE->getSubExpr()->isNullPointerConstant(Ctx, NPC);
       }
     }
@@ -4015,10 +4037,12 @@ AtomicExpr::AtomicExpr(SourceLocation BLoc, ArrayRef<Expr*> args,
 unsigned AtomicExpr::getNumSubExprs(AtomicOp Op) {
   switch (Op) {
   case AO__c11_atomic_init:
+  case AO__opencl_atomic_init:
   case AO__c11_atomic_load:
   case AO__atomic_load_n:
     return 2;
 
+  case AO__opencl_atomic_load:
   case AO__c11_atomic_store:
   case AO__c11_atomic_exchange:
   case AO__atomic_load:
@@ -4044,6 +4068,15 @@ unsigned AtomicExpr::getNumSubExprs(AtomicOp Op) {
   case AO__atomic_nand_fetch:
     return 3;
 
+  case AO__opencl_atomic_store:
+  case AO__opencl_atomic_exchange:
+  case AO__opencl_atomic_fetch_add:
+  case AO__opencl_atomic_fetch_sub:
+  case AO__opencl_atomic_fetch_and:
+  case AO__opencl_atomic_fetch_or:
+  case AO__opencl_atomic_fetch_xor:
+  case AO__opencl_atomic_fetch_min:
+  case AO__opencl_atomic_fetch_max:
   case AO__atomic_exchange:
     return 4;
 
@@ -4051,6 +4084,8 @@ unsigned AtomicExpr::getNumSubExprs(AtomicOp Op) {
   case AO__c11_atomic_compare_exchange_weak:
     return 5;
 
+  case AO__opencl_atomic_compare_exchange_strong:
+  case AO__opencl_atomic_compare_exchange_weak:
   case AO__atomic_compare_exchange:
   case AO__atomic_compare_exchange_n:
     return 6;
@@ -4171,6 +4206,13 @@ unsigned AtomicExpr::getNumSubExprs(AtomicOp Op) {
 #endif // INTEL_CUSTOMIZATION
   }
   llvm_unreachable("unknown atomic op");
+}
+
+QualType AtomicExpr::getValueType() const {
+  auto T = getPtr()->getType()->castAs<PointerType>()->getPointeeType();
+  if (auto AT = T->getAs<AtomicType>())
+    return AT->getValueType();
+  return T;
 }
 
 QualType OMPArraySectionExpr::getBaseOriginalType(const Expr *Base) {

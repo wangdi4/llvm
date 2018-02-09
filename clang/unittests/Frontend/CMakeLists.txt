@@ -3,9 +3,13 @@ set(LLVM_LINK_COMPONENTS
   )
 
 add_clang_unittest(FrontendTests
+  ASTUnitTest.cpp
+  CompilerInstanceTest.cpp
   FrontendActionTest.cpp
   CodeGenActionTest.cpp
-  IntelOutputStreamTest.cpp
+  IntelOutputStreamTest.cpp #INTEL
+  ParsedSourceLocationTest.cpp
+  PCHPreambleTest.cpp
   )
 target_link_libraries(FrontendTests
   clangAST

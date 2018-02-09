@@ -44,13 +44,15 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
-#include "llvm/Target/TargetSubtargetInfo.h"
+#include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/Transforms/Coroutines.h"
 #include "llvm/Transforms/IPO.h"
+#include "llvm/Transforms/IPO/Intel_InlineLists.h"       // INTEL
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/IPO/ThinLTOBitcodeWriter.h"
 #include "llvm/Transforms/Instrumentation.h"
+#include "llvm/Transforms/Instrumentation/BoundsChecking.h"
 #include "llvm/Transforms/ObjCARC.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/GVN.h"
@@ -168,7 +170,7 @@ static void addAddDiscriminatorsPass(const PassManagerBuilder &Builder,
 
 static void addBoundsCheckingPass(const PassManagerBuilder &Builder,
                                   legacy::PassManagerBase &PM) {
-  PM.add(createBoundsCheckingPass());
+  PM.add(createBoundsCheckingLegacyPass());
 }
 
 static void addSanitizerCoveragePass(const PassManagerBuilder &Builder,
@@ -189,6 +191,8 @@ static void addSanitizerCoveragePass(const PassManagerBuilder &Builder,
   Opts.TracePCGuard = CGOpts.SanitizeCoverageTracePCGuard;
   Opts.NoPrune = CGOpts.SanitizeCoverageNoPrune;
   Opts.Inline8bitCounters = CGOpts.SanitizeCoverageInline8bitCounters;
+  Opts.PCTable = CGOpts.SanitizeCoveragePCTable;
+  Opts.StackDepth = CGOpts.SanitizeCoverageStackDepth;
   PM.add(createSanitizerCoverageModulePass(Opts));
 }
 
@@ -337,16 +341,18 @@ static CodeGenOpt::Level getCGOptLevel(const CodeGenOptions &CodeGenOpts) {
   }
 }
 
-static llvm::CodeModel::Model getCodeModel(const CodeGenOptions &CodeGenOpts) {
-  unsigned CodeModel =
-      llvm::StringSwitch<unsigned>(CodeGenOpts.CodeModel)
-      .Case("small", llvm::CodeModel::Small)
-      .Case("kernel", llvm::CodeModel::Kernel)
-      .Case("medium", llvm::CodeModel::Medium)
-      .Case("large", llvm::CodeModel::Large)
-      .Case("default", llvm::CodeModel::Default)
-      .Default(~0u);
+static Optional<llvm::CodeModel::Model>
+getCodeModel(const CodeGenOptions &CodeGenOpts) {
+  unsigned CodeModel = llvm::StringSwitch<unsigned>(CodeGenOpts.CodeModel)
+                           .Case("small", llvm::CodeModel::Small)
+                           .Case("kernel", llvm::CodeModel::Kernel)
+                           .Case("medium", llvm::CodeModel::Medium)
+                           .Case("large", llvm::CodeModel::Large)
+                           .Case("default", ~1u)
+                           .Default(~0u);
   assert(CodeModel != ~0u && "invalid code model!");
+  if (CodeModel == ~1u)
+    return None;
   return static_cast<llvm::CodeModel::Model>(CodeModel);
 }
 
@@ -422,6 +428,10 @@ static void initTargetOptions(llvm::TargetOptions &Options,
 
   if (LangOpts.SjLjExceptions)
     Options.ExceptionModel = llvm::ExceptionHandling::SjLj;
+  if (LangOpts.SEHExceptions)
+    Options.ExceptionModel = llvm::ExceptionHandling::WinEH;
+  if (LangOpts.DWARFExceptions)
+    Options.ExceptionModel = llvm::ExceptionHandling::DwarfCFI;
 
   Options.NoInfsFPMath = CodeGenOpts.NoInfsFPMath;
   Options.NoNaNsFPMath = CodeGenOpts.NoNaNsFPMath;
@@ -525,6 +535,11 @@ void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
     break;
   }
 #endif // INTEL_SPECIFIC_IL0_BACKEND
+
+#if INTEL_CUSTOMIZATION
+  PMBuilder.DisableIntelProprietaryOpts =
+    CodeGenOpts.DisableIntelProprietaryOpts;
+#endif // INTEL_CUSTOMIZATION
 
   PMBuilder.OptLevel = CodeGenOpts.OptimizationLevel;
   PMBuilder.SizeLevel = CodeGenOpts.OptimizeSize;
@@ -664,6 +679,10 @@ void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
   if (!CodeGenOpts.SampleProfileFile.empty())
     PMBuilder.PGOSampleUse = CodeGenOpts.SampleProfileFile;
 
+#if INTEL_CUSTOMIZATION
+  PMBuilder.OffloadTargets = CodeGenOpts.OffloadTargets;
+#endif // INTEL_CUSTOMIZATION
+
   PMBuilder.populateFunctionPassManager(FPM);
   PMBuilder.populateModulePassManager(MPM);
 }
@@ -697,7 +716,7 @@ void EmitAssemblyHelper::CreateTargetMachine(bool MustCreateTM) {
     return;
   }
 
-  llvm::CodeModel::Model CM  = getCodeModel(CodeGenOpts);
+  Optional<llvm::CodeModel::Model> CM = getCodeModel(CodeGenOpts);
   std::string FeaturesStr =
       llvm::join(TargetOpts.Features.begin(), TargetOpts.Features.end(), ",");
   llvm::Reloc::Model RM = getRelocModel(CodeGenOpts);
@@ -880,36 +899,43 @@ void EmitAssemblyHelper::EmitAssemblyWithNewPassManager(
     return;
   TheModule->setDataLayout(TM->createDataLayout());
 
-  PGOOptions PGOOpt;
+  Optional<PGOOptions> PGOOpt;
 
-  // -fprofile-generate.
-  PGOOpt.RunProfileGen = CodeGenOpts.hasProfileIRInstr();
-  if (PGOOpt.RunProfileGen)
-    PGOOpt.ProfileGenFile = CodeGenOpts.InstrProfileOutput.empty() ?
-      DefaultProfileGenName : CodeGenOpts.InstrProfileOutput;
+  if (CodeGenOpts.hasProfileIRInstr())
+    // -fprofile-generate.
+    PGOOpt = PGOOptions(CodeGenOpts.InstrProfileOutput.empty()
+                            ? DefaultProfileGenName
+                            : CodeGenOpts.InstrProfileOutput,
+                        "", "", true, CodeGenOpts.DebugInfoForProfiling);
+  else if (CodeGenOpts.hasProfileIRUse())
+    // -fprofile-use.
+    PGOOpt = PGOOptions("", CodeGenOpts.ProfileInstrumentUsePath, "", false,
+                        CodeGenOpts.DebugInfoForProfiling);
+  else if (!CodeGenOpts.SampleProfileFile.empty())
+    // -fprofile-sample-use
+    PGOOpt = PGOOptions("", "", CodeGenOpts.SampleProfileFile, false,
+                        CodeGenOpts.DebugInfoForProfiling);
+  else if (CodeGenOpts.DebugInfoForProfiling)
+    // -fdebug-info-for-profiling
+    PGOOpt = PGOOptions("", "", "", false, true);
 
-  // -fprofile-use.
-  if (CodeGenOpts.hasProfileIRUse())
-    PGOOpt.ProfileUseFile = CodeGenOpts.ProfileInstrumentUsePath;
+  PassBuilder PB(TM.get(), PGOOpt);
 
-  if (!CodeGenOpts.SampleProfileFile.empty())
-    PGOOpt.SampleProfileFile = CodeGenOpts.SampleProfileFile;
-
-  // Only pass a PGO options struct if -fprofile-generate or
-  // -fprofile-use were passed on the cmdline.
-  PassBuilder PB(TM.get(),
-    (PGOOpt.RunProfileGen ||
-      !PGOOpt.ProfileUseFile.empty() ||
-      !PGOOpt.SampleProfileFile.empty()) ?
-        Optional<PGOOptions>(PGOOpt) : None);
-
-  LoopAnalysisManager LAM;
-  FunctionAnalysisManager FAM;
-  CGSCCAnalysisManager CGAM;
-  ModuleAnalysisManager MAM;
+  LoopAnalysisManager LAM(CodeGenOpts.DebugPassManager);
+  FunctionAnalysisManager FAM(CodeGenOpts.DebugPassManager);
+  CGSCCAnalysisManager CGAM(CodeGenOpts.DebugPassManager);
+  ModuleAnalysisManager MAM(CodeGenOpts.DebugPassManager);
 
   // Register the AA manager first so that our version is the one used.
   FAM.registerPass([&] { return PB.buildDefaultAAPipeline(); });
+
+  // Register the target library analysis directly and give it a customized
+  // preset TLI.
+  Triple TargetTriple(TheModule->getTargetTriple());
+  std::unique_ptr<TargetLibraryInfoImpl> TLII(
+      createTLII(TargetTriple, CodeGenOpts));
+  FAM.registerPass([&] { return TargetLibraryAnalysis(*TLII); });
+  MAM.registerPass([&] { return TargetLibraryAnalysis(*TLII); });
 
   // Register all the basic analyses with the managers.
   PB.registerModuleAnalyses(MAM);
@@ -927,13 +953,28 @@ void EmitAssemblyHelper::EmitAssemblyWithNewPassManager(
     if (CodeGenOpts.OptimizationLevel == 0) {
       // Build a minimal pipeline based on the semantics required by Clang,
       // which is just that always inlining occurs.
+      MPM.addPass(InlineListsPass()); // INTEL
       MPM.addPass(AlwaysInlinerPass());
+
+      // At -O0 we directly run necessary sanitizer passes.
+      if (LangOpts.Sanitize.has(SanitizerKind::LocalBounds))
+        MPM.addPass(createModuleToFunctionPassAdaptor(BoundsCheckingPass()));
+
+      // Lastly, add a semantically necessary pass for ThinLTO.
       if (IsThinLTO)
         MPM.addPass(NameAnonGlobalPass());
     } else {
       // Map our optimization levels into one of the distinct levels used to
       // configure the pipeline.
       PassBuilder::OptimizationLevel Level = mapToLevel(CodeGenOpts);
+
+      // Register callbacks to schedule sanitizer passes at the appropriate part of
+      // the pipeline.
+      if (LangOpts.Sanitize.has(SanitizerKind::LocalBounds))
+        PB.registerScalarOptimizerLateEPCallback(
+            [](FunctionPassManager &FPM, PassBuilder::OptimizationLevel Level) {
+              FPM.addPass(BoundsCheckingPass());
+            });
 
       if (IsThinLTO) {
         MPM = PB.buildThinLTOPreLinkDefaultPipeline(
@@ -1102,6 +1143,7 @@ static void runThinLTOBackend(ModuleSummaryIndex *CombinedIndex, Module *M,
   initTargetOptions(Conf.Options, CGOpts, TOpts, LOpts, HeaderOpts);
   Conf.SampleProfile = std::move(SampleProfile);
   Conf.UseNewPM = CGOpts.ExperimentalNewPassManager;
+  Conf.DebugPassManager = CGOpts.DebugPassManager;
   switch (Action) {
   case Backend_EmitNothing:
     Conf.PreCodeGenModuleHook = [](size_t Task, const Module &Mod) {
@@ -1141,6 +1183,21 @@ void clang::EmitBackendOutput(DiagnosticsEngine &Diags,
                               const llvm::DataLayout &TDesc, Module *M,
                               BackendAction Action,
                               std::unique_ptr<raw_pwrite_stream> OS) {
+#if INTEL_PRODUCT_RELEASE
+  if (Action == Backend_EmitLL) {
+    unsigned DiagID = Diags.getCustomDiagID(
+        DiagnosticsEngine::Error, "IR output is not supported.");
+    Diags.Report(DiagID);
+    return;
+  }
+  if (Action == Backend_EmitBC && !CGOpts.PrepareForLTO &&
+      !CGOpts.DisableIntelProprietaryOpts) {
+    unsigned DiagID = Diags.getCustomDiagID(
+        DiagnosticsEngine::Error, "Bitcode output is only supported with LTO.");
+    Diags.Report(DiagID);
+    return;
+  }
+#endif // INTEL_PRODUCT_RELEASE
   if (!CGOpts.ThinLTOIndexFile.empty()) {
     // If we are performing a ThinLTO importing compile, load the function index
     // into memory and pass it into runThinLTOBackend, which will run the
@@ -1186,6 +1243,7 @@ void clang::EmitBackendOutput(DiagnosticsEngine &Diags,
   }
 }
 
+#if !INTEL_PRODUCT_RELEASE
 static const char* getSectionNameForBitcode(const Triple &T) {
   switch (T.getObjectFormat()) {
   case Triple::MachO:
@@ -1306,3 +1364,4 @@ void clang::EmbedBitcode(llvm::Module *M, const CodeGenOptions &CGOpts,
       llvm::ConstantArray::get(ATy, UsedArray), "llvm.compiler.used");
   NewUsed->setSection("llvm.metadata");
 }
+#endif // !INTEL_PRODUCT_RELEASE

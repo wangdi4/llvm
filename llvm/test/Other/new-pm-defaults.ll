@@ -76,14 +76,17 @@
 ; CHECK-O-NEXT: Running pass: EarlyCSEPass
 ; CHECK-O-NEXT: Running analysis: TargetLibraryAnalysis
 ; CHECK-O-NEXT: Running pass: LowerExpectIntrinsicPass
+; CHECK-O3-NEXT: Running pass: CallSiteSplittingPass
 ; CHECK-O-NEXT: Finished llvm::Function pass manager run.
 ; CHECK-O-NEXT: Running pass: IPSCCPPass
+; CHECK-O-NEXT: Running pass: CalledValuePropagationPass
 ; CHECK-O-NEXT: Running pass: GlobalOptPass
 ; CHECK-O-NEXT: Running pass: ModuleToFunctionPassAdaptor<{{.*}}PromotePass>
 ; CHECK-O-NEXT: Running pass: DeadArgumentEliminationPass
 ; CHECK-O-NEXT: Running pass: ModuleToFunctionPassAdaptor<{{.*}}PassManager{{.*}}>
 ; CHECK-O-NEXT: Starting llvm::Function pass manager run.
 ; CHECK-O-NEXT: Running pass: InstCombinePass
+; CHECK-O-NEXT: Running analysis: OptimizationRemarkEmitterAnalysis
 ; CHECK-EP-PEEPHOLE-NEXT: Running pass: NoOpFunctionPass
 ; CHECK-O-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-O-NEXT: Finished llvm::Function pass manager run.
@@ -118,7 +121,6 @@
 ; CHECK-O3-NEXT: Running pass: LibCallsShrinkWrapPass
 ; CHECK-EP-PEEPHOLE-NEXT: Running pass: NoOpFunctionPass
 ; CHECK-O-NEXT: Running pass: TailCallElimPass
-; CHECK-O-NEXT: Running analysis: OptimizationRemarkEmitterAnalysis
 ; CHECK-O-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-O-NEXT: Running pass: ReassociatePass
 ; CHECK-O-NEXT: Running pass: RequireAnalysisPass<{{.*}}OptimizationRemarkEmitterAnalysis
@@ -140,7 +142,7 @@
 ; CHECK-O-NEXT: Running pass: LoopIdiomRecognizePass
 ; CHECK-EP-LOOP-LATE-NEXT: Running pass: NoOpLoopPass
 ; CHECK-O-NEXT: Running pass: LoopDeletionPass
-; CHECK-O-NEXT: Running pass: LoopUnrollPass
+; CHECK-O-NEXT: Running pass: LoopFullUnrollPass
 ; CHECK-EP-LOOP-END-NEXT: Running pass: NoOpLoopPass
 ; CHECK-O-NEXT: Finished Loop pass manager run.
 ; CHECK-Os-NEXT: Running pass: MergedLoadStoreMotionPass
@@ -179,6 +181,7 @@
 ; CHECK-O-NEXT: Running pass: PassManager<{{.*}}Module{{.*}}>
 ; CHECK-O-NEXT: Starting llvm::Module pass manager run.
 ; CHECK-O-NEXT: Running pass: GlobalOptPass
+; CHECK-O-NEXT: Running pass: GlobalDCEPass
 ; CHECK-O-NEXT: Running pass: EliminateAvailableExternallyPass
 ; CHECK-O-NEXT: Running pass: ReversePostOrderFunctionAttrsPass
 ; CHECK-O-NEXT: Running pass: RequireAnalysisPass<{{.*}}GlobalsAA
@@ -197,14 +200,17 @@
 ; CHECK-O-NEXT: Running pass: SLPVectorizerPass
 ; CHECK-O-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-O-NEXT: Running pass: InstCombinePass
-; CHECK-O-NEXT: Running pass: FunctionToLoopPassAdaptor<{{.*}}LoopUnrollPass
+; CHECK-O-NEXT: Running pass: LoopUnrollPass
+; CHECK-O-NEXT: Running analysis: OuterAnalysisManagerProxy
 ; CHECK-O-NEXT: Running pass: InstCombinePass
 ; CHECK-O-NEXT: Running pass: RequireAnalysisPass<{{.*}}OptimizationRemarkEmitterAnalysis
 ; CHECK-O-NEXT: Running pass: FunctionToLoopPassAdaptor<{{.*}}LICMPass
 ; CHECK-O-NEXT: Running pass: AlignmentFromAssumptionsPass
 ; CHECK-O-NEXT: Running pass: LoopSinkPass
 ; CHECK-O-NEXT: Running pass: InstSimplifierPass
+; CHECK-O-NEXT: Running pass: DivRemPairsPass
 ; CHECK-O-NEXT: Running pass: SimplifyCFGPass
+; CHECK-O-NEXT: Running pass: SpeculateAroundPHIsPass
 ; CHECK-O-NEXT: Finished llvm::Function pass manager run.
 ; CHECK-O-NEXT: Running pass: GlobalDCEPass
 ; CHECK-O-NEXT: Running pass: ConstantMergePass

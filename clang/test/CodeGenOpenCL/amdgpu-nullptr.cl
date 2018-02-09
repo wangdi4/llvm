@@ -1,8 +1,8 @@
 // INTEL -- TBAAPROP causes SROA to run late and SROA removes nonnull attributes
 //          which breaks this test.  Disable TBAAPROP until this is fixed.
-// RUN: %clang_cc1 %s -cl-std=CL2.0 -include opencl-c.h -triple amdgcn -mllvm -enable-tbaa-prop=0 -emit-llvm -o - | FileCheck %s
+// RUN: %clang_cc1 %s -cl-std=CL2.0 -include opencl-c.h -triple amdgcn -mllvm -enable-tbaa-prop=0 -mllvm -loopopt=0 -emit-llvm -o - | FileCheck %s
 // RUN: %clang_cc1 %s -O0 -cl-std=CL2.0 -include opencl-c.h -triple amdgcn -mllvm -enable-tbaa-prop=0 -emit-llvm -o - | FileCheck --check-prefix=NOOPT %s
-// RUN: %clang_cc1 %s -cl-std=CL2.0 -include opencl-c.h -triple amdgcn---opencl -mllvm -enable-tbaa-prop=0 -emit-llvm -o - | FileCheck %s
+// RUN: %clang_cc1 %s -cl-std=CL2.0 -include opencl-c.h -triple amdgcn---opencl -mllvm -enable-tbaa-prop=0 -mllvm -loopopt=0 -emit-llvm -o - | FileCheck %s
 
 typedef struct {
   private char *p1;
@@ -513,9 +513,9 @@ typedef struct {
 
 // CHECK-LABEL: test_memset_private
 // CHECK: call void @llvm.memset.p0i8.i64(i8* nonnull {{.*}}, i8 0, i64 40, i32 8, i1 false)
-StructTy3 test_memset_private(void) {
+void test_memset_private(private StructTy3 *ptr) {
   StructTy3 S3 = {0, 0, 0, 0, 0};
-  return S3;
+  *ptr = S3;
 }
 
 // Test casting literal 0 to pointer.

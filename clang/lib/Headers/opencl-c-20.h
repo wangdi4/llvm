@@ -13,23 +13,24 @@
 typedef int kernel_enqueue_flags_t;
 typedef int clk_profiling_info;
 
-typedef enum memory_scope
-{
-  memory_scope_work_item,
-  memory_scope_work_group,
-  memory_scope_device,
-  memory_scope_all_svm_devices,
-  memory_scope_sub_group
+typedef enum memory_scope {
+  memory_scope_work_item = __OPENCL_MEMORY_SCOPE_WORK_ITEM,
+  memory_scope_work_group = __OPENCL_MEMORY_SCOPE_WORK_GROUP,
+  memory_scope_device = __OPENCL_MEMORY_SCOPE_DEVICE,
+  memory_scope_all_svm_devices = __OPENCL_MEMORY_SCOPE_ALL_SVM_DEVICES,
+#if defined(cl_intel_subgroups) || defined(cl_khr_subgroups)
+  memory_scope_sub_group = __OPENCL_MEMORY_SCOPE_SUB_GROUP
+#endif
 } memory_scope;
 
 // enum values aligned with what clang uses in EmitAtomicExpr()
 typedef enum memory_order
 {
-  memory_order_relaxed,
-  memory_order_acquire,
-  memory_order_release,
-  memory_order_acq_rel,
-  memory_order_seq_cst
+  memory_order_relaxed = __ATOMIC_RELAXED,
+  memory_order_acquire = __ATOMIC_ACQUIRE,
+  memory_order_release = __ATOMIC_RELEASE,
+  memory_order_acq_rel = __ATOMIC_ACQ_REL,
+  memory_order_seq_cst = __ATOMIC_SEQ_CST
 } memory_order;
 
 #ifndef cl_khr_depth_images
@@ -149,6 +150,41 @@ void __ovld __conv work_group_barrier(cl_mem_fence_flags flags);
 uint    __ovld get_enqueued_num_sub_groups(void);
 void    __ovld __conv sub_group_barrier(cl_mem_fence_flags flags, memory_scope scope);
 #endif
+
+// Intel-Specific Sub Group Functions
+#if defined(cl_intel_subgroups)
+uint    __ovld __conv intel_sub_group_block_read(read_write image2d_t image, int2 coord);
+uint2   __ovld __conv intel_sub_group_block_read2(read_write image2d_t image, int2 coord);
+uint4   __ovld __conv intel_sub_group_block_read4(read_write image2d_t image, int2 coord);
+uint8   __ovld __conv intel_sub_group_block_read8(read_write image2d_t image, int2 coord);
+
+void    __ovld __conv intel_sub_group_block_write(read_write image2d_t image, int2 coord, uint data);
+void    __ovld __conv intel_sub_group_block_write2(read_write image2d_t image, int2 coord, uint2 data);
+void    __ovld __conv intel_sub_group_block_write4(read_write image2d_t image, int2 coord, uint4 data);
+void    __ovld __conv intel_sub_group_block_write8(read_write image2d_t image, int2 coord, uint8 data);
+#endif //cl_intel_subgroups
+
+#if defined(cl_intel_subgroups_short)
+uint    __ovld __conv intel_sub_group_block_read_ui( read_write image2d_t image, int2 byte_coord );
+uint2   __ovld __conv intel_sub_group_block_read_ui2( read_write image2d_t image, int2 byte_coord );
+uint4   __ovld __conv intel_sub_group_block_read_ui4( read_write image2d_t image, int2 byte_coord );
+uint8   __ovld __conv intel_sub_group_block_read_ui8( read_write image2d_t image, int2 byte_coord );
+
+void    __ovld __conv intel_sub_group_block_write_ui( read_write image2d_t image, int2 byte_coord, uint data );
+void    __ovld __conv intel_sub_group_block_write_ui2( read_write image2d_t image, int2 byte_coord, uint2 data );
+void    __ovld __conv intel_sub_group_block_write_ui4( read_write image2d_t image, int2 byte_coord, uint4 data );
+void    __ovld __conv intel_sub_group_block_write_ui8( read_write image2d_t image, int2 byte_coord, uint8 data );
+
+ushort  __ovld __conv intel_sub_group_block_read_us( read_write image2d_t image, int2 coord);
+ushort2 __ovld __conv intel_sub_group_block_read_us2( read_write image2d_t image, int2 coord);
+ushort4 __ovld __conv intel_sub_group_block_read_us4( read_write image2d_t image, int2 coord);
+ushort8 __ovld __conv intel_sub_group_block_read_us8( read_write image2d_t image, int2 coord);
+
+void    __ovld __conv intel_sub_group_block_write_us( read_write image2d_t image, int2 coord, ushort  data);
+void    __ovld __conv intel_sub_group_block_write_us2( read_write image2d_t image, int2 coord, ushort2 data);
+void    __ovld __conv intel_sub_group_block_write_us4( read_write image2d_t image, int2 coord, ushort4 data);
+void    __ovld __conv intel_sub_group_block_write_us8( read_write image2d_t image, int2 coord, ushort8 data);
+#endif // cl_intel_subgroups_short
 
 /**
  * Builtin functions to_global, to_local, and to_private need to be declared as Clang builtin functions

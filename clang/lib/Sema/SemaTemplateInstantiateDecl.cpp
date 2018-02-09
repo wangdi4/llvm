@@ -23,6 +23,7 @@
 #include "clang/Sema/Lookup.h"
 #include "clang/Sema/PrettyDeclStackTrace.h"
 #include "clang/Sema/Template.h"
+#include "intel/SemaIntelImpl.h" // INTEL
 
 using namespace clang;
 
@@ -182,6 +183,63 @@ static void instantiateDependentAlignValueAttr(
     S.AddAlignValueAttr(Aligned->getLocation(), New, Result.getAs<Expr>(),
                         Aligned->getSpellingListIndex());
 }
+#if INTEL_CUSTOMIZATION
+static void instantiateDependentMaxConcurrencyAttr(
+    Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
+    const MaxConcurrencyAttr *Max, Decl *New) {
+  // The max_concurrency expression is a constant expression.
+  EnterExpressionEvaluationContext Unevaluated(
+      S, Sema::ExpressionEvaluationContext::ConstantEvaluated);
+  ExprResult Result = S.SubstExpr(Max->getMax(), TemplateArgs);
+  if (!Result.isInvalid())
+    S.AddMaxConcurrencyAttr(Max->getLocation(), New, Result.getAs<Expr>(),
+                            Max->getSpellingListIndex());
+}
+
+template <typename AttrType>
+static void instantiateDependentOneConstantValueAttr(
+    Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
+    const AttrType *A, Decl *New) {
+  // The expression is a constant expression.
+  EnterExpressionEvaluationContext Unevaluated(
+      S, Sema::ExpressionEvaluationContext::ConstantEvaluated);
+  ExprResult Result = S.SubstExpr(A->getValue(), TemplateArgs);
+  if (!Result.isInvalid())
+    S.AddOneConstantValueAttr<AttrType>(
+        A->getLocation(), New, Result.getAs<Expr>(), A->getSpellingListIndex());
+}
+
+template <typename AttrType>
+static void instantiateDependentOneConstantPowerTwoValueAttr(
+    Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
+    const AttrType *A, Decl *New) {
+  // The expression is a constant expression.
+  EnterExpressionEvaluationContext Unevaluated(
+      S, Sema::ExpressionEvaluationContext::ConstantEvaluated);
+  ExprResult Result = S.SubstExpr(A->getValue(), TemplateArgs);
+  if (!Result.isInvalid())
+    S.AddOneConstantPowerTwoValueAttr<AttrType>(
+        A->getLocation(), New, Result.getAs<Expr>(), A->getSpellingListIndex());
+}
+
+static void instantiateDependentBankBitsAttr(
+    Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
+    const BankBitsAttr *BBA, Decl *New) {
+  // The bank_bits expressions are constant expressions.
+  EnterExpressionEvaluationContext Unevaluated(
+      S, Sema::ExpressionEvaluationContext::ConstantEvaluated);
+
+  SmallVector<Expr *, 8> Args;
+  for (auto *E : BBA->args()) {
+    ExprResult Result = S.SubstExpr(E, TemplateArgs);
+    if (Result.isInvalid())
+      return;
+    Args.push_back(Result.getAs<Expr>());
+  }
+  S.AddBankBitsAttr(BBA->getLocation(), New, Args.data(), Args.size(),
+                    BBA->getSpellingListIndex());
+}
+#endif // INTEL_CUSTOMIZATION
 
 static void instantiateDependentAllocAlignAttr(
     Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
@@ -406,6 +464,48 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
       instantiateDependentAlignValueAttr(*this, TemplateArgs, AlignValue, New);
       continue;
     }
+#if INTEL_CUSTOMIZATION
+    const MaxConcurrencyAttr *MCA = dyn_cast<MaxConcurrencyAttr>(TmplAttr);
+    if (MCA) {
+      instantiateDependentMaxConcurrencyAttr(*this, TemplateArgs, MCA, New);
+      continue;
+    }
+    const NumReadPortsAttr *NRPA = dyn_cast<NumReadPortsAttr>(TmplAttr);
+    if (NRPA) {
+      instantiateDependentOneConstantValueAttr<NumReadPortsAttr>(
+          *this, TemplateArgs, NRPA, New);
+      continue;
+    }
+    const NumWritePortsAttr *NWPA = dyn_cast<NumWritePortsAttr>(TmplAttr);
+    if (NWPA) {
+      instantiateDependentOneConstantValueAttr<NumWritePortsAttr>(
+          *this, TemplateArgs, NWPA, New);
+      continue;
+    }
+    const StaticArrayResetAttr *SARA = dyn_cast<StaticArrayResetAttr>(TmplAttr);
+    if (SARA) {
+      instantiateDependentOneConstantValueAttr<StaticArrayResetAttr>(
+          *this, TemplateArgs, SARA, New);
+      continue;
+    }
+    const BankWidthAttr *BWA = dyn_cast<BankWidthAttr>(TmplAttr);
+    if (BWA) {
+      instantiateDependentOneConstantPowerTwoValueAttr<BankWidthAttr>(
+          *this, TemplateArgs, BWA, New);
+      continue;
+    }
+    const NumBanksAttr *NBA = dyn_cast<NumBanksAttr>(TmplAttr);
+    if (NBA) {
+      instantiateDependentOneConstantPowerTwoValueAttr<NumBanksAttr>(
+          *this, TemplateArgs, NBA, New);
+      continue;
+    }
+    const BankBitsAttr *BBA = dyn_cast<BankBitsAttr>(TmplAttr);
+    if (BBA) {
+      instantiateDependentBankBitsAttr(*this, TemplateArgs, BBA, New);
+      continue;
+    }
+#endif // INTEL_CUSTOMIZATION
 
     if (const auto *AllocAlign = dyn_cast<AllocAlignAttr>(TmplAttr)) {
       instantiateDependentAllocAlignAttr(*this, TemplateArgs, AllocAlign, New);
@@ -689,6 +789,7 @@ TemplateDeclInstantiator::VisitTypeAliasTemplateDecl(TypeAliasTemplateDecl *D) {
 Decl *TemplateDeclInstantiator::VisitBindingDecl(BindingDecl *D) {
   auto *NewBD = BindingDecl::Create(SemaRef.Context, Owner, D->getLocation(),
                                     D->getIdentifier());
+  NewBD->setReferenced(D->isReferenced());
   SemaRef.CurrentInstantiationScope->InstantiatedLocal(D, NewBD);
   return NewBD;
 }
@@ -1206,7 +1307,8 @@ Decl *TemplateDeclInstantiator::VisitClassTemplateDecl(ClassTemplateDecl *D) {
     // Look for a previous declaration of the template in the owning
     // context.
     LookupResult R(SemaRef, Pattern->getDeclName(), Pattern->getLocation(),
-                   Sema::LookupOrdinaryName, Sema::ForRedeclaration);
+                   Sema::LookupOrdinaryName,
+                   SemaRef.forRedeclarationInCurContext());
     SemaRef.LookupQualifiedName(R, DC);
 
     if (R.isSingleResult()) {
@@ -1661,11 +1763,13 @@ Decl *TemplateDeclInstantiator::VisitFunctionDecl(FunctionDecl *D,
   }
 
   FunctionDecl *Function;
-  if (auto *DGuide = dyn_cast<CXXDeductionGuideDecl>(D))
+  if (auto *DGuide = dyn_cast<CXXDeductionGuideDecl>(D)) {
     Function = CXXDeductionGuideDecl::Create(
-        SemaRef.Context, DC, D->getInnerLocStart(), DGuide->isExplicit(),
-        D->getNameInfo(), T, TInfo, D->getSourceRange().getEnd());
-  else {
+      SemaRef.Context, DC, D->getInnerLocStart(), DGuide->isExplicit(),
+      D->getNameInfo(), T, TInfo, D->getSourceRange().getEnd());
+    if (DGuide->isCopyDeductionCandidate())
+      cast<CXXDeductionGuideDecl>(Function)->setIsCopyDeductionCandidate();
+  } else {
     Function = FunctionDecl::Create(
         SemaRef.Context, DC, D->getInnerLocStart(), D->getNameInfo(), T, TInfo,
         D->getCanonicalDecl()->getStorageClass(), D->isInlineSpecified(),
@@ -1696,7 +1800,6 @@ Decl *TemplateDeclInstantiator::VisitFunctionDecl(FunctionDecl *D,
       Params[P]->setOwningFunction(Function);
   Function->setParams(Params);
 
-  SourceLocation InstantiateAtPOI;
   if (TemplateParams) {
     // Our resulting instantiation is actually a function template, since we
     // are substituting only the outer template parameters. For example, given
@@ -1747,7 +1850,8 @@ Decl *TemplateDeclInstantiator::VisitFunctionDecl(FunctionDecl *D,
       SemaRef, Function->getDeclName(), SourceLocation(),
       D->isLocalExternDecl() ? Sema::LookupRedeclarationWithLinkage
                              : Sema::LookupOrdinaryName,
-      Sema::ForRedeclaration);
+      D->isLocalExternDecl() ? Sema::ForExternalRedeclaration
+                             : SemaRef.forRedeclarationInCurContext());
 
   if (DependentFunctionTemplateSpecializationInfo *Info
         = D->getDependentSpecializationInfo()) {
@@ -2065,7 +2169,7 @@ TemplateDeclInstantiator::VisitCXXMethodDecl(CXXMethodDecl *D,
     Method->setInvalidDecl();
 
   LookupResult Previous(SemaRef, NameInfo, Sema::LookupOrdinaryName,
-                        Sema::ForRedeclaration);
+                        Sema::ForExternalRedeclaration);
 
   if (!FunctionTemplate || TemplateParams || isFriend) {
     SemaRef.LookupQualifiedName(Previous, Record);
@@ -2504,7 +2608,7 @@ Decl *TemplateDeclInstantiator::VisitUsingDecl(UsingDecl *D) {
   bool CheckRedeclaration = Owner->isRecord();
 
   LookupResult Prev(SemaRef, NameInfo, Sema::LookupUsingDeclName,
-                    Sema::ForRedeclaration);
+                    Sema::ForVisibleRedeclaration);
 
   UsingDecl *NewUD = UsingDecl::Create(SemaRef.Context, Owner,
                                        D->getUsingLoc(),
@@ -2723,7 +2827,7 @@ Decl *TemplateDeclInstantiator::VisitClassScopeFunctionSpecializationDecl(
     return nullptr;
 
   LookupResult Previous(SemaRef, NewFD->getNameInfo(), Sema::LookupOrdinaryName,
-                        Sema::ForRedeclaration);
+                        Sema::ForExternalRedeclaration);
 
   TemplateArgumentListInfo TemplateArgs;
   TemplateArgumentListInfo *TemplateArgsPtr = nullptr;
@@ -2811,8 +2915,9 @@ Decl *TemplateDeclInstantiator::VisitOMPDeclareReductionDecl(
     SemaRef.ActOnOpenMPDeclareReductionCombinerEnd(NewDRD, SubstCombiner);
     // Initializers instantiation sequence.
     if (D->getInitializer()) {
-      SemaRef.ActOnOpenMPDeclareReductionInitializerStart(
-          /*S=*/nullptr, NewDRD);
+      VarDecl *OmpPrivParm =
+          SemaRef.ActOnOpenMPDeclareReductionInitializerStart(
+              /*S=*/nullptr, NewDRD);
       const char *Names[] = {"omp_orig", "omp_priv"};
       for (auto &Name : Names) {
         DeclarationName DN(&SemaRef.Context.Idents.get(Name));
@@ -2820,17 +2925,28 @@ Decl *TemplateDeclInstantiator::VisitOMPDeclareReductionDecl(
         auto Lookup = NewDRD->lookup(DN);
         if (!OldLookup.empty() && !Lookup.empty()) {
           assert(Lookup.size() == 1 && OldLookup.size() == 1);
-          SemaRef.CurrentInstantiationScope->InstantiatedLocal(
-              OldLookup.front(), Lookup.front());
+          auto *OldVD = cast<VarDecl>(OldLookup.front());
+          auto *NewVD = cast<VarDecl>(Lookup.front());
+          SemaRef.InstantiateVariableInitializer(NewVD, OldVD, TemplateArgs);
+          SemaRef.CurrentInstantiationScope->InstantiatedLocal(OldVD, NewVD);
         }
       }
-      SubstInitializer =
-          SemaRef.SubstExpr(D->getInitializer(), TemplateArgs).get();
-      SemaRef.ActOnOpenMPDeclareReductionInitializerEnd(NewDRD,
-                                                        SubstInitializer);
+      if (D->getInitializerKind() == OMPDeclareReductionDecl::CallInit) {
+        SubstInitializer =
+            SemaRef.SubstExpr(D->getInitializer(), TemplateArgs).get();
+      } else {
+        IsCorrect = IsCorrect && OmpPrivParm->hasInit();
+      }
+      SemaRef.ActOnOpenMPDeclareReductionInitializerEnd(
+          NewDRD, SubstInitializer, OmpPrivParm);
     }
-    IsCorrect = IsCorrect && SubstCombiner &&
-                (!D->getInitializer() || SubstInitializer);
+    IsCorrect =
+        IsCorrect && SubstCombiner &&
+        (!D->getInitializer() ||
+         (D->getInitializerKind() == OMPDeclareReductionDecl::CallInit &&
+          SubstInitializer) ||
+         (D->getInitializerKind() != OMPDeclareReductionDecl::CallInit &&
+          !SubstInitializer && !SubstInitializer));
   } else
     IsCorrect = false;
 
@@ -3764,7 +3880,8 @@ void Sema::InstantiateFunctionDefinition(SourceLocation PointOfInstantiation,
                                          bool Recursive,
                                          bool DefinitionRequired,
                                          bool AtEndOfTU) {
-  if (Function->isInvalidDecl() || Function->isDefined())
+  if (Function->isInvalidDecl() || Function->isDefined() ||
+      isa<CXXDeductionGuideDecl>(Function))
     return;
 
   // Never instantiate an explicit specialization except if it is a class scope
@@ -3783,6 +3900,8 @@ void Sema::InstantiateFunctionDefinition(SourceLocation PointOfInstantiation,
   if (PatternDef) {
     Pattern = PatternDef->getBody(PatternDef);
     PatternDecl = PatternDef;
+    if (PatternDef->willHaveBody())
+      PatternDef = nullptr;
   }
 
   // FIXME: We need to track the instantiation stack in order to know which
@@ -4072,7 +4191,8 @@ void Sema::BuildVariableInstantiation(
       *this, NewVar->getDeclName(), NewVar->getLocation(),
       NewVar->isLocalExternDecl() ? Sema::LookupRedeclarationWithLinkage
                                   : Sema::LookupOrdinaryName,
-      Sema::ForRedeclaration);
+      NewVar->isLocalExternDecl() ? Sema::ForExternalRedeclaration
+                                  : forRedeclarationInCurContext());
 
   if (NewVar->isLocalExternDecl() && OldVar->getPreviousDecl() &&
       (!OldVar->getPreviousDecl()->getDeclContext()->isDependentContext() ||
@@ -4138,12 +4258,8 @@ void Sema::InstantiateVariableInitializer(
     Var->setImplicitlyInline();
 
   if (OldVar->getInit()) {
-    if (Var->isStaticDataMember() && !OldVar->isOutOfLine())
-      PushExpressionEvaluationContext(
-          Sema::ExpressionEvaluationContext::ConstantEvaluated, OldVar);
-    else
-      PushExpressionEvaluationContext(
-          Sema::ExpressionEvaluationContext::PotentiallyEvaluated, OldVar);
+    EnterExpressionEvaluationContext Evaluated(
+        *this, Sema::ExpressionEvaluationContext::PotentiallyEvaluated, Var);
 
     // Instantiate the initializer.
     ExprResult Init;
@@ -4171,8 +4287,6 @@ void Sema::InstantiateVariableInitializer(
       // because of a bogus initializer.
       Var->setInvalidDecl();
     }
-
-    PopExpressionEvaluationContext();
   } else {
     if (Var->isStaticDataMember()) {
       if (!Var->isOutOfLine())
@@ -4360,10 +4474,12 @@ void Sema::InstantiateVariableDefinition(SourceLocation PointOfInstantiation,
     return;
 
   // C++11 [temp.explicit]p10:
-  //   Except for inline functions, [...] explicit instantiation declarations
+  //   Except for inline functions, const variables of literal types, variables
+  //   of reference types, [...] explicit instantiation declarations
   //   have the effect of suppressing the implicit instantiation of the entity
   //   to which they refer.
-  if (TSK == TSK_ExplicitInstantiationDeclaration)
+  if (TSK == TSK_ExplicitInstantiationDeclaration &&
+      !Var->isUsableInConstantExpressions(getASTContext()))
     return;
 
   // Make sure to pass the instantiated variable to the consumer at the end.
@@ -4436,7 +4552,7 @@ void Sema::InstantiateVariableDefinition(SourceLocation PointOfInstantiation,
 
       // Merge the definition with the declaration.
       LookupResult R(*this, Var->getDeclName(), Var->getLocation(),
-                     LookupOrdinaryName, ForRedeclaration);
+                     LookupOrdinaryName, forRedeclarationInCurContext());
       R.addDecl(OldVar);
       MergeVarDecl(Var, R);
 

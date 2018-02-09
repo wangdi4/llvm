@@ -115,8 +115,6 @@
 
 using namespace llvm;
 
-static cl::opt<bool> VerifyDebugInfo("verify-debug-info", cl::init(true));
-
 namespace llvm {
 
 struct VerifierSupport {
@@ -468,8 +466,7 @@ private:
   void visitUserOp2(Instruction &I) { visitUserOp1(I); }
   void visitIntrinsicCallSite(Intrinsic::ID ID, CallSite CS);
   void visitConstrainedFPIntrinsic(ConstrainedFPIntrinsic &FPI);
-  template <class DbgIntrinsicTy>
-  void visitDbgIntrinsic(StringRef Kind, DbgIntrinsicTy &DII);
+  void visitDbgIntrinsic(StringRef Kind, DbgInfoIntrinsic &DII);
   void visitAtomicCmpXchgInst(AtomicCmpXchgInst &CXI);
   void visitAtomicRMWInst(AtomicRMWInst &RMWI);
   void visitFenceInst(FenceInst &FI);
@@ -507,6 +504,10 @@ private:
   void verifySiblingFuncletUnwinds();
 
   void verifyFragmentExpression(const DbgInfoIntrinsic &I);
+  template <typename ValueOrMetadata>
+  void verifyFragmentExpression(const DIVariable &V,
+                                DIExpression::FragmentInfo Fragment,
+                                ValueOrMetadata *Desc);
   void verifyFnArgs(const DbgInfoIntrinsic &I);
 
   /// Module-level debug info verification...
@@ -564,6 +565,10 @@ void Verifier::visitGlobalValue(const GlobalValue &GV) {
 
   if (GV.isDeclarationForLinker())
     Assert(!GV.hasComdat(), "Declaration may not be in a Comdat!", &GV);
+
+  if (GV.hasDLLImportStorageClass())
+    Assert(!GV.isDSOLocal(),
+           "GlobalValue with DLLImport Storage is dso_local!", &GV);
 
   forEachUser(&GV, GlobalValueVisited, [&](const Value *V) -> bool {
     if (const Instruction *I = dyn_cast<Instruction>(V)) {
@@ -839,6 +844,8 @@ void Verifier::visitDILocation(const DILocation &N) {
            "location requires a valid scope", &N, N.getRawScope());
   if (auto *IA = N.getRawInlinedAt())
     AssertDI(isa<DILocation>(IA), "inlined-at should be a location", &N, IA);
+  if (auto *SP = dyn_cast<DISubprogram>(N.getRawScope()))
+    AssertDI(SP->isDefinition(), "scope points into the type hierarchy", &N);
 }
 
 void Verifier::visitGenericDINode(const GenericDINode &N) {
@@ -1067,6 +1074,8 @@ void Verifier::visitDILexicalBlockBase(const DILexicalBlockBase &N) {
   AssertDI(N.getTag() == dwarf::DW_TAG_lexical_block, "invalid tag", &N);
   AssertDI(N.getRawScope() && isa<DILocalScope>(N.getRawScope()),
            "invalid local scope", &N, N.getRawScope());
+  if (auto *SP = dyn_cast<DISubprogram>(N.getRawScope()))
+    AssertDI(SP->isDefinition(), "scope points into the type hierarchy", &N);
 }
 
 void Verifier::visitDILexicalBlock(const DILexicalBlock &N) {
@@ -1139,7 +1148,6 @@ void Verifier::visitDITemplateValueParameter(
 void Verifier::visitDIVariable(const DIVariable &N) {
   if (auto *S = N.getRawScope())
     AssertDI(isa<DIScope>(S), "invalid scope", &N, S);
-  AssertDI(isType(N.getRawType()), "invalid type ref", &N, N.getRawType());
   if (auto *F = N.getRawFile())
     AssertDI(isa<DIFile>(F), "invalid file", &N, F);
 }
@@ -1150,6 +1158,8 @@ void Verifier::visitDIGlobalVariable(const DIGlobalVariable &N) {
 
   AssertDI(N.getTag() == dwarf::DW_TAG_variable, "invalid tag", &N);
   AssertDI(!N.getName().empty(), "missing global variable name", &N);
+  AssertDI(isType(N.getRawType()), "invalid type ref", &N, N.getRawType());
+  AssertDI(N.getType(), "missing global variable type", &N);
   if (auto *Member = N.getRawStaticDataMemberDeclaration()) {
     AssertDI(isa<DIDerivedType>(Member),
              "invalid static data member declaration", &N, Member);
@@ -1160,6 +1170,7 @@ void Verifier::visitDILocalVariable(const DILocalVariable &N) {
   // Checks common to all variables.
   visitDIVariable(N);
 
+  AssertDI(isType(N.getRawType()), "invalid type ref", &N, N.getRawType());
   AssertDI(N.getTag() == dwarf::DW_TAG_variable, "invalid tag", &N);
   AssertDI(N.getRawScope() && isa<DILocalScope>(N.getRawScope()),
            "local variable requires a valid scope", &N, N.getRawScope());
@@ -1174,8 +1185,11 @@ void Verifier::visitDIGlobalVariableExpression(
   AssertDI(GVE.getVariable(), "missing variable");
   if (auto *Var = GVE.getVariable())
     visitDIGlobalVariable(*Var);
-  if (auto *Expr = GVE.getExpression())
+  if (auto *Expr = GVE.getExpression()) {
     visitDIExpression(*Expr);
+    if (auto Fragment = Expr->getFragmentInfo())
+      verifyFragmentExpression(*GVE.getVariable(), *Fragment, &GVE);
+  }
 }
 
 void Verifier::visitDIObjCProperty(const DIObjCProperty &N) {
@@ -1377,6 +1391,7 @@ static bool isFuncOnlyAttr(Attribute::AttrKind Kind) {
   case Attribute::InaccessibleMemOrArgMemOnly:
   case Attribute::AllocSize:
   case Attribute::Speculatable:
+  case Attribute::StrictFP:
     return true;
   default:
     break;
@@ -3969,6 +3984,7 @@ void Verifier::visitIntrinsicCallSite(Intrinsic::ID ID, CallSite CS) {
   case Intrinsic::experimental_constrained_fmul:
   case Intrinsic::experimental_constrained_fdiv:
   case Intrinsic::experimental_constrained_frem:
+  case Intrinsic::experimental_constrained_fma:
   case Intrinsic::experimental_constrained_sqrt:
   case Intrinsic::experimental_constrained_pow:
   case Intrinsic::experimental_constrained_powi:
@@ -3987,10 +4003,13 @@ void Verifier::visitIntrinsicCallSite(Intrinsic::ID ID, CallSite CS) {
   case Intrinsic::dbg_declare: // llvm.dbg.declare
     Assert(isa<MetadataAsValue>(CS.getArgOperand(0)),
            "invalid llvm.dbg.declare intrinsic call 1", CS);
-    visitDbgIntrinsic("declare", cast<DbgDeclareInst>(*CS.getInstruction()));
+    visitDbgIntrinsic("declare", cast<DbgInfoIntrinsic>(*CS.getInstruction()));
+    break;
+  case Intrinsic::dbg_addr: // llvm.dbg.addr
+    visitDbgIntrinsic("addr", cast<DbgInfoIntrinsic>(*CS.getInstruction()));
     break;
   case Intrinsic::dbg_value: // llvm.dbg.value
-    visitDbgIntrinsic("value", cast<DbgValueInst>(*CS.getInstruction()));
+    visitDbgIntrinsic("value", cast<DbgInfoIntrinsic>(*CS.getInstruction()));
     break;
   case Intrinsic::memcpy:
   case Intrinsic::memmove:
@@ -4008,9 +4027,7 @@ void Verifier::visitIntrinsicCallSite(Intrinsic::ID ID, CallSite CS) {
     break;
   }
   case Intrinsic::memcpy_element_unordered_atomic: {
-    const ElementUnorderedAtomicMemCpyInst *MI =
-        cast<ElementUnorderedAtomicMemCpyInst>(CS.getInstruction());
-    ;
+    const AtomicMemCpyInst *MI = cast<AtomicMemCpyInst>(CS.getInstruction());
 
     ConstantInt *ElementSizeCI =
         dyn_cast<ConstantInt>(MI->getRawElementSizeInBytes());
@@ -4045,7 +4062,7 @@ void Verifier::visitIntrinsicCallSite(Intrinsic::ID ID, CallSite CS) {
     break;
   }
   case Intrinsic::memmove_element_unordered_atomic: {
-    auto *MI = cast<ElementUnorderedAtomicMemMoveInst>(CS.getInstruction());
+    auto *MI = cast<AtomicMemMoveInst>(CS.getInstruction());
 
     ConstantInt *ElementSizeCI =
         dyn_cast<ConstantInt>(MI->getRawElementSizeInBytes());
@@ -4080,7 +4097,7 @@ void Verifier::visitIntrinsicCallSite(Intrinsic::ID ID, CallSite CS) {
     break;
   }
   case Intrinsic::memset_element_unordered_atomic: {
-    auto *MI = cast<ElementUnorderedAtomicMemSetInst>(CS.getInstruction());
+    auto *MI = cast<AtomicMemSetInst>(CS.getInstruction());
 
     ConstantInt *ElementSizeCI =
         dyn_cast<ConstantInt>(MI->getRawElementSizeInBytes());
@@ -4429,8 +4446,9 @@ static DISubprogram *getSubprogram(Metadata *LocalScope) {
 
 void Verifier::visitConstrainedFPIntrinsic(ConstrainedFPIntrinsic &FPI) {
   unsigned NumOperands = FPI.getNumArgOperands();
-  Assert(((NumOperands == 3 && FPI.isUnaryOp()) || (NumOperands == 4)),
-         "invalid arguments for constrained FP intrinsic", &FPI);
+  Assert(((NumOperands == 5 && FPI.isTernaryOp()) ||
+          (NumOperands == 3 && FPI.isUnaryOp()) || (NumOperands == 4)),
+           "invalid arguments for constrained FP intrinsic", &FPI);
   Assert(isa<MetadataAsValue>(FPI.getArgOperand(NumOperands-1)),
          "invalid exception behavior argument", &FPI);
   Assert(isa<MetadataAsValue>(FPI.getArgOperand(NumOperands-2)),
@@ -4441,8 +4459,7 @@ void Verifier::visitConstrainedFPIntrinsic(ConstrainedFPIntrinsic &FPI) {
          "invalid exception behavior argument", &FPI);
 }
 
-template <class DbgIntrinsicTy>
-void Verifier::visitDbgIntrinsic(StringRef Kind, DbgIntrinsicTy &DII) {
+void Verifier::visitDbgIntrinsic(StringRef Kind, DbgInfoIntrinsic &DII) {
   auto *MD = cast<MetadataAsValue>(DII.getArgOperand(0))->getMetadata();
   AssertDI(isa<ValueAsMetadata>(MD) ||
              (isa<MDNode>(MD) && !cast<MDNode>(MD)->getNumOperands()),
@@ -4481,46 +4498,15 @@ void Verifier::visitDbgIntrinsic(StringRef Kind, DbgIntrinsicTy &DII) {
   verifyFnArgs(DII);
 }
 
-static uint64_t getVariableSize(const DILocalVariable &V) {
-  // Be careful of broken types (checked elsewhere).
-  const Metadata *RawType = V.getRawType();
-  while (RawType) {
-    // Try to get the size directly.
-    if (auto *T = dyn_cast<DIType>(RawType))
-      if (uint64_t Size = T->getSizeInBits())
-        return Size;
-
-    if (auto *DT = dyn_cast<DIDerivedType>(RawType)) {
-      // Look at the base type.
-      RawType = DT->getRawBaseType();
-      continue;
-    }
-
-    // Missing type or size.
-    break;
-  }
-
-  // Fail gracefully.
-  return 0;
-}
-
 void Verifier::verifyFragmentExpression(const DbgInfoIntrinsic &I) {
-  DILocalVariable *V;
-  DIExpression *E;
-  if (auto *DVI = dyn_cast<DbgValueInst>(&I)) {
-    V = dyn_cast_or_null<DILocalVariable>(DVI->getRawVariable());
-    E = dyn_cast_or_null<DIExpression>(DVI->getRawExpression());
-  } else {
-    auto *DDI = cast<DbgDeclareInst>(&I);
-    V = dyn_cast_or_null<DILocalVariable>(DDI->getRawVariable());
-    E = dyn_cast_or_null<DIExpression>(DDI->getRawExpression());
-  }
+  DILocalVariable *V = dyn_cast_or_null<DILocalVariable>(I.getRawVariable());
+  DIExpression *E = dyn_cast_or_null<DIExpression>(I.getRawExpression());
 
   // We don't know whether this intrinsic verified correctly.
   if (!V || !E || !E->isValid())
     return;
 
-  // Nothing to do if this isn't a bit piece expression.
+  // Nothing to do if this isn't a DW_OP_LLVM_fragment expression.
   auto Fragment = E->getFragmentInfo();
   if (!Fragment)
     return;
@@ -4534,17 +4520,24 @@ void Verifier::verifyFragmentExpression(const DbgInfoIntrinsic &I) {
   if (V->isArtificial())
     return;
 
+  verifyFragmentExpression(*V, *Fragment, &I);
+}
+
+template <typename ValueOrMetadata>
+void Verifier::verifyFragmentExpression(const DIVariable &V,
+                                        DIExpression::FragmentInfo Fragment,
+                                        ValueOrMetadata *Desc) {
   // If there's no size, the type is broken, but that should be checked
   // elsewhere.
-  uint64_t VarSize = getVariableSize(*V);
+  auto VarSize = V.getSizeInBits();
   if (!VarSize)
     return;
 
-  unsigned FragSize = Fragment->SizeInBits;
-  unsigned FragOffset = Fragment->OffsetInBits;
-  AssertDI(FragSize + FragOffset <= VarSize,
-         "fragment is larger than or outside of variable", &I, V, E);
-  AssertDI(FragSize != VarSize, "fragment covers entire variable", &I, V, E);
+  unsigned FragSize = Fragment.SizeInBits;
+  unsigned FragOffset = Fragment.OffsetInBits;
+  AssertDI(FragSize + FragOffset <= *VarSize,
+         "fragment is larger than or outside of variable", Desc, &V);
+  AssertDI(FragSize != *VarSize, "fragment covers entire variable", Desc, &V);
 }
 
 void Verifier::verifyFnArgs(const DbgInfoIntrinsic &I) {
@@ -4554,18 +4547,11 @@ void Verifier::verifyFnArgs(const DbgInfoIntrinsic &I) {
   if (!HasDebugInfo)
     return;
 
-  DILocalVariable *Var;
-  if (auto *DV = dyn_cast<DbgValueInst>(&I)) {
-    // For performance reasons only check non-inlined ones.
-    if (DV->getDebugLoc()->getInlinedAt())
-      return;
-    Var = DV->getVariable();
-  } else {
-    auto *DD = cast<DbgDeclareInst>(&I);
-    if (DD->getDebugLoc()->getInlinedAt())
-      return;
-    Var = DD->getVariable();
-  }
+  // For performance reasons only check non-inlined ones.
+  if (I.getDebugLoc()->getInlinedAt())
+    return;
+
+  DILocalVariable *Var = I.getVariable();
   AssertDI(Var, "dbg intrinsic without variable");
 
   unsigned ArgNo = Var->getArg();
@@ -4584,6 +4570,11 @@ void Verifier::verifyFnArgs(const DbgInfoIntrinsic &I) {
 }
 
 void Verifier::verifyCompileUnits() {
+  // When more than one Module is imported into the same context, such as during
+  // an LTO build before linking the modules, ODR type uniquing may cause types
+  // to point to a different CU. This check does not make sense in this case.
+  if (M.getContext().isODRUniquingDebugTypes())
+    return;
   auto *CUs = M.getNamedMetadata("llvm.dbg.cu");
   SmallPtrSet<const Metadata *, 2> Listed;
   if (CUs)
@@ -4675,19 +4666,8 @@ struct VerifierLegacyPass : public FunctionPass {
         HasErrors |= !V->verify(F);
 
     HasErrors |= !V->verify();
-    if (FatalErrors) {
-      if (HasErrors)
-        report_fatal_error("Broken module found, compilation aborted!");
-      assert(!V->hasBrokenDebugInfo() && "Module contains invalid debug info");
-    }
-
-    // Strip broken debug info.
-    if (V->hasBrokenDebugInfo()) {
-      DiagnosticInfoIgnoringInvalidDebugMetadata DiagInvalid(M);
-      M.getContext().diagnose(DiagInvalid);
-      if (!StripDebugInfo(M))
-        report_fatal_error("Failed to strip malformed debug info");
-    }
+    if (FatalErrors && (HasErrors || V->hasBrokenDebugInfo()))
+      report_fatal_error("Broken module found, compilation aborted!");
     return false;
   }
 
@@ -4990,19 +4970,9 @@ VerifierAnalysis::Result VerifierAnalysis::run(Function &F,
 
 PreservedAnalyses VerifierPass::run(Module &M, ModuleAnalysisManager &AM) {
   auto Res = AM.getResult<VerifierAnalysis>(M);
-  if (FatalErrors) {
-    if (Res.IRBroken)
-      report_fatal_error("Broken module found, compilation aborted!");
-    assert(!Res.DebugInfoBroken && "Module contains invalid debug info");
-  }
+  if (FatalErrors && (Res.IRBroken || Res.DebugInfoBroken))
+    report_fatal_error("Broken module found, compilation aborted!");
 
-  // Strip broken debug info.
-  if (Res.DebugInfoBroken) {
-    DiagnosticInfoIgnoringInvalidDebugMetadata DiagInvalid(M);
-    M.getContext().diagnose(DiagInvalid);
-    if (!StripDebugInfo(M))
-      report_fatal_error("Failed to strip malformed debug info");
-  }
   return PreservedAnalyses::all();
 }
 

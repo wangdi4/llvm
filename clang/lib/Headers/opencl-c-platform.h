@@ -1003,4 +1003,39 @@ unsigned long __ovld atom_xor(volatile __local unsigned long *p, unsigned long v
 int printf(__constant const char* st, ...);
 #endif
 
+// Intel-Specific Sub Group Functions
+#if defined(cl_intel_subgroups)
+uint    __ovld __conv intel_sub_group_block_read( const __global uint* p );
+uint2   __ovld __conv intel_sub_group_block_read2( const __global uint* p );
+uint4   __ovld __conv intel_sub_group_block_read4( const __global uint* p );
+uint8   __ovld __conv intel_sub_group_block_read8( const __global uint* p );
+
+void    __ovld __conv intel_sub_group_block_write( __global uint* p, uint data );
+void    __ovld __conv intel_sub_group_block_write2( __global uint* p, uint2 data );
+void    __ovld __conv intel_sub_group_block_write4( __global uint* p, uint4 data );
+void    __ovld __conv intel_sub_group_block_write8( __global uint* p, uint8 data );
+#endif //cl_intel_subgroups
+
+#if defined(cl_intel_subgroups_short)
+uint    __ovld __conv intel_sub_group_block_read_ui( const __global uint* p );
+uint2   __ovld __conv intel_sub_group_block_read_ui2( const __global uint* p );
+uint4   __ovld __conv intel_sub_group_block_read_ui4( const __global uint* p );
+uint8   __ovld __conv intel_sub_group_block_read_ui8( const __global uint* p );
+
+void    __ovld __conv intel_sub_group_block_write_ui( __global uint* p, uint data );
+void    __ovld __conv intel_sub_group_block_write_ui2( __global uint* p, uint2 data );
+void    __ovld __conv intel_sub_group_block_write_ui4( __global uint* p, uint4 data );
+void    __ovld __conv intel_sub_group_block_write_ui8( __global uint* p, uint8 data );
+
+ushort  __ovld __conv intel_sub_group_block_read_us(  const __global ushort* p );
+ushort2 __ovld __conv intel_sub_group_block_read_us2( const __global ushort* p );
+ushort4 __ovld __conv intel_sub_group_block_read_us4( const __global ushort* p );
+ushort8 __ovld __conv intel_sub_group_block_read_us8( const __global ushort* p );
+
+void    __ovld __conv intel_sub_group_block_write_us(  __global ushort* p, ushort  data );
+void    __ovld __conv intel_sub_group_block_write_us2( __global ushort* p, ushort2 data );
+void    __ovld __conv intel_sub_group_block_write_us4( __global ushort* p, ushort4 data );
+void    __ovld __conv intel_sub_group_block_write_us8( __global ushort* p, ushort8 data );
+#endif // cl_intel_subgroups_short
+
 #endif // _OPENCL_PLATFORM_H_

@@ -1,9 +1,11 @@
-//==--- DiagnosticGroups.td - Diagnostic Group Definitions ----------------===//
+//===--- DiagnosticIntelGroups.td - Intel Diagnostic Group Definitions ----===//
 //
-//                     The LLVM Compiler Infrastructure
+// Copyright (C) 2017 Intel Corporation. All rights reserved.
 //
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// The information and source code contained herein is the exclusive
+// property of Intel Corporation and may not be disclosed, examined
+// or reproduced in whole or in part without explicit written authorization
+// from the company.
 //
 //===----------------------------------------------------------------------===//
 
@@ -18,7 +20,6 @@ def IntelSpecificCilkplus : DiagGroup <"intel-specific-cilkplus", [
   ]>;
 //endif  // INTEL_SPECIFIC_CILKPLUS
 
-// if INTEL_CUSTOMIZATION
 // Intel pragma warnings.
 def IntelPragma : DiagGroup<"intel-pragma">;
 // CQ#364717
@@ -32,7 +33,6 @@ def IntelMSCompat : DiagGroup<"intel-ms-compat">;
 // Warning group for err_access_dtor_vbase error that we converted to a warning.
 // CQ#376362.
 def PrivateVBaseDtor : DiagGroup<"private-vbase-dtor">;
-// endif INTEL_CUSTOMIZATION
 
 // Put here any group if you'd like to add it to "all"
 def IntelSpecific : DiagGroup <"intel-specific", [IntelSpecificCilkplus]>;

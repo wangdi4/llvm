@@ -1,3 +1,15 @@
+//===--- IntelAttr.td - Intel attribute definitions -----------------------===//
+//
+// Copyright (C) 2017 Intel Corporation. All rights reserved.
+//
+// The information and source code contained herein is the exclusive
+// property of Intel Corporation and may not be disclosed, examined
+// or reproduced in whole or in part without explicit written authorization
+// from the company.
+//
+//===----------------------------------------------------------------------===//
+
+include "clang/Basic/intel/IntelAttrDocs.td"
 
 class SourceLocArgument<string name, bit opt = 0> : Argument<name, opt>;
 class CheckedExprArgument<string name> : Argument<name, 1>;
@@ -371,6 +383,8 @@ def IntelInline : Attr {
   let Documentation = [Undocumented];
 }
 
+// FPGA-specific attributes
+
 def OpenCLBlocking : Attr {
   let Spellings = [GNU<"blocking">];
   let Subjects = SubjectList<[Var]>;
@@ -396,13 +410,15 @@ def OpenCLChannelIO : Attr {
   let LangOpts = [OpenCL];
 }
 
+def HLS : LangOpt<"HLS">;
+
 def OpenCLLocalMemSize : Attr {
   let Spellings = [GNU<"local_mem_size">];
   let Args = [UnsignedArgument<"LocalMemSize">];
   let Subjects = SubjectList<[ParmVar], ErrorDiag>;
 // FIXME: Add documentation
   let Documentation = [Undocumented];
-  let LangOpts = [OpenCL];
+  let LangOpts = [OpenCL, HLS];
 }
 
 def OpenCLBufferLocation : Attr {
@@ -432,10 +448,11 @@ def Task : InheritableAttr {
 
 def NumComputeUnits : InheritableAttr {
   let Spellings = [GNU<"num_compute_units">];
-  let Args = [UnsignedArgument<"NumComputeUnits">];
+  let LangOpts = [OpenCL];
+  let Args = [IntArgument<"XDim">, DefaultIntArgument<"YDim", 1>,
+              DefaultIntArgument<"ZDim", 1>];
   let Subjects = SubjectList<[Function]>;
-// FIXME: Add documentation
-  let Documentation = [Undocumented];
+  let Documentation = [NumComputeUnitsDocs];
 }
 
 def NumSimdWorkItems : InheritableAttr {
@@ -446,9 +463,297 @@ def NumSimdWorkItems : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def MaxGlobalWorkDim : InheritableAttr {
+  let Spellings = [GNU<"max_global_work_dim">];
+  let LangOpts = [OpenCL];
+  let Args = [UnsignedArgument<"MaxGlobalWorkDimValue">];
+  let Subjects = SubjectList<[Function]>;
+  let Documentation = [MaxGlobalWorkDimDocs];
+}
+
+def Autorun : InheritableAttr {
+  let Spellings = [GNU<"autorun">];
+  let LangOpts = [OpenCL];
+  let Subjects = SubjectList<[Function]>;
+  let Documentation = [AutorunDocs];
+}
+
+def OpenCLHostAccessible : Attr {
+  let Spellings = [GNU<"intel_host_accessible">];
+  let Subjects = SubjectList<[Var]>;
+  let Documentation = [OpenCLHostAccessibleDocs];
+  let LangOpts = [OpenCL];
+}
+
+// End of FPGA-specific attributes
+
 def VecLenHint : InheritableAttr {
   let Spellings = [GNU<"intel_vec_len_hint">];
   let Args = [UnsignedArgument<"VecLen">];
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [VecLenHintDocs];
+}
+
+// HLS function attributes
+def Component : InheritableAttr {
+  let Spellings = [GNU<"ihc_component">];
+  let LangOpts = [HLS];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Documentation = [Undocumented];
+}
+
+def ComponentInterface : InheritableAttr {
+  let Spellings = [GNU<"component_interface">];
+  // If adding to the end of enum, modify generateValidStrings as well.
+  let Args = [EnumArgument<"Type", "ComponentInterfaceType",
+                           ["avalon_streaming", "avalon_mm_slave",
+                            "always_run"],
+                           ["Streaming", "Slave", "AlwaysRun"]>];
+  let LangOpts = [HLS];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Documentation = [Undocumented];
+  let AdditionalMembers = [{
+    static void generateValidStrings(SmallString<256> &Str) {
+      auto Last = AlwaysRun;
+      for (int I = 0; I <= Last; ++I) {
+        Str += ConvertComponentInterfaceTypeToStr(
+                static_cast<ComponentInterfaceType>(I));
+        if (I != Last) Str += " ";
+      }
+    }
+  }];
+}
+
+def MaxConcurrency : InheritableAttr {
+  let Spellings = [GNU<"max_concurrency">];
+  let Args = [ExprArgument<"Max">];
+  let LangOpts = [HLS];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Documentation = [Undocumented];
+  let AdditionalMembers = [{
+    static unsigned getMinValue() {
+      return 0;
+    }
+    static unsigned getMaxValue() {
+      return 1024*1024;
+    }
+  }];
+}
+
+def StallFreeReturn : InheritableAttr {
+  let Spellings = [GNU<"stall_free_return">];
+  let LangOpts = [HLS];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Documentation = [Undocumented];
+}
+
+def UseSingleClock : InheritableAttr {
+  let Spellings = [GNU<"__hls_component_use_single_clock__">];
+  let LangOpts = [HLS];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Documentation = [Undocumented];
+}
+
+// HLS parameter attributes
+def ArgumentInterface : Attr {
+  let Spellings = [GNU<"argument_interface">];
+  // If adding to the end of enum, modify generateValidStrings as well.
+  let Args = [EnumArgument<"Type", "ArgumentInterfaceType",
+                           ["wire","avalon_mm_slave", "avalon_streaming"],
+                           ["Wire", "Slave", "Streaming"]>];
+  let Subjects = SubjectList<[ParmVar], ErrorDiag>;
+  let LangOpts = [HLS];
+  let Documentation = [Undocumented];
+  let AdditionalMembers = [{
+    static void generateValidStrings(SmallString<256> &Str) {
+      auto Last = Streaming;
+      for (int I = 0; I <= Last; ++I) {
+        Str += ConvertArgumentInterfaceTypeToStr(
+                static_cast<ArgumentInterfaceType>(I));
+        if (I != Last) Str += " ";
+      }
+    }
+  }];
+}
+
+def StableArgument : Attr {
+  let Spellings = [GNU<"stable_argument">];
+  let Subjects = SubjectList<[ParmVar], ErrorDiag>;
+  let LangOpts = [HLS];
+  let Documentation = [Undocumented];
+}
+
+def SlaveMemoryArgument : Attr {
+  let Spellings = [GNU<"slave_memory_argument">];
+  let Subjects = SubjectList<[ParmVar], ErrorDiag>;
+  let LangOpts = [HLS];
+  let Documentation = [Undocumented];
+}
+
+// HLS local variable attributes
+
+def HLSLocalVar : SubsetSubject<Var,
+                              [{S->getKind() != Decl::ImplicitParam &&
+                                S->getKind() != Decl::ParmVar &&
+                                S->getKind() != Decl::NonTypeTemplateParm}],
+                              "local variables">;
+// No arguments.
+def SinglePump : Attr {
+  let Spellings = [GNU<"singlepump">];
+  let Subjects = SubjectList<[HLSLocalVar], ErrorDiag>;
+  let LangOpts = [HLS];
+  let Documentation = [Undocumented];
+}
+
+def DoublePump : Attr {
+  let Spellings = [GNU<"doublepump">];
+  let Subjects = SubjectList<[HLSLocalVar], ErrorDiag>;
+  let LangOpts = [HLS];
+  let Documentation = [Undocumented];
+}
+
+def Memory : Attr {
+  let Spellings = [GNU<"memory">];
+  let Subjects = SubjectList<[HLSLocalVar], ErrorDiag>;
+  let LangOpts = [HLS];
+  let Documentation = [Undocumented];
+}
+
+def Register : Attr {
+  let Spellings = [GNU<"register">];
+  let Subjects = SubjectList<[HLSLocalVar], ErrorDiag>;
+  let LangOpts = [HLS];
+  let Documentation = [Undocumented];
+}
+
+// One integral argument.
+def BankWidth : Attr {
+  let Spellings = [GNU<"bankwidth">];
+  let Args = [ExprArgument<"Value">];
+  let Subjects = SubjectList<[HLSLocalVar], ErrorDiag>;
+  let LangOpts = [HLS];
+  let Documentation = [Undocumented];
+  let AdditionalMembers = [{
+    static unsigned getMinValue() {
+      return 1;
+    }
+    static unsigned getMaxValue() {
+      return 1024*1024;
+    }
+  }];
+}
+
+def NumBanks : Attr {
+  let Spellings = [GNU<"numbanks">];
+  let Args = [ExprArgument<"Value">];
+  let Subjects = SubjectList<[HLSLocalVar], ErrorDiag>;
+  let LangOpts = [HLS];
+  let Documentation = [Undocumented];
+  let AdditionalMembers = [{
+    static unsigned getMinValue() {
+      return 1;
+    }
+    static unsigned getMaxValue() {
+      return 1024*1024;
+    }
+  }];
+}
+
+def NumReadPorts : Attr {
+  let Spellings = [GNU<"numreadports">];
+  let Args = [ExprArgument<"Value">];
+  let Subjects = SubjectList<[HLSLocalVar], ErrorDiag>;
+  let LangOpts = [HLS];
+  let Documentation = [Undocumented];
+  let AdditionalMembers = [{
+    static unsigned getMinValue() {
+      return 1;
+    }
+    static unsigned getMaxValue() {
+      return 1024*1024;
+    }
+  }];
+}
+
+def NumWritePorts : Attr {
+  let Spellings = [GNU<"numwriteports">];
+  let Args = [ExprArgument<"Value">];
+  let Subjects = SubjectList<[HLSLocalVar], ErrorDiag>;
+  let LangOpts = [HLS];
+  let Documentation = [Undocumented];
+  let AdditionalMembers = [{
+    static unsigned getMinValue() {
+      return 1;
+    }
+    static unsigned getMaxValue() {
+      return 1024*1024;
+    }
+  }];
+}
+
+// Two integral arguments.
+def NumPortsReadOnlyWriteOnly : Attr {
+  let Spellings = [GNU<"numports_readonly_writeonly">];
+  let Args = [ExprArgument<"NumReadPorts">, ExprArgument<"NumWritePorts">];
+  let Subjects = SubjectList<[HLSLocalVar], ErrorDiag>;
+  let LangOpts = [HLS];
+  let Documentation = [Undocumented];
+  let AdditionalMembers = [{
+    static unsigned getMinValue() {
+      return 1;
+    }
+    static unsigned getMaxValue() {
+      return 1024*1024;
+    }
+  }];
+}
+
+// Two string arguments.
+def Merge : Attr {
+  let Spellings = [GNU<"merge">];
+  let Args = [StringArgument<"Name">, StringArgument<"Direction">];
+  let Subjects = SubjectList<[HLSLocalVar], ErrorDiag>;
+  let LangOpts = [HLS];
+  let Documentation = [Undocumented];
+}
+
+// Variadic integral arguments.
+def BankBits : Attr {
+  let Spellings = [GNU<"bank_bits">];
+  let Args = [VariadicExprArgument<"Args">];
+  let Subjects = SubjectList<[HLSLocalVar], ErrorDiag>;
+  let LangOpts = [HLS];
+  let Documentation = [Undocumented];
+  let AdditionalMembers = [{
+    static unsigned getMinValue() {
+      return 1;
+    }
+    static unsigned getMaxValue() {
+      return 1024*1024;
+    }
+  }];
+}
+
+def HLSLocalStaticVar : SubsetSubject<Var,
+                              [{S->getStorageClass() == SC_Static &&
+                                S->getKind() != Decl::ImplicitParam &&
+                                S->getKind() != Decl::ParmVar &&
+                                S->getKind() != Decl::NonTypeTemplateParm}],
+                              "local static variables">;
+
+// One integral argument, static only.
+def StaticArrayReset : Attr {
+  let Spellings = [GNU<"static_array_reset">];
+  let Args = [ExprArgument<"Value">];
+  let Subjects = SubjectList<[HLSLocalStaticVar], ErrorDiag>;
+  let LangOpts = [HLS];
+  let Documentation = [Undocumented];
+  let AdditionalMembers = [{
+    static unsigned getMinValue() {
+      return 0;
+    }
+    static unsigned getMaxValue() {
+      return 1;
+    }
+  }];
 }

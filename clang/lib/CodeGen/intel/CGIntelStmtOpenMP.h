@@ -138,6 +138,7 @@ class OpenMPCodeOutliner {
   void emitOMPUseDevicePtrClause(const OMPUseDevicePtrClause *);
   void emitOMPIsDevicePtrClause(const OMPIsDevicePtrClause *);
   void emitOMPTaskReductionClause(const OMPTaskReductionClause *);
+  void emitOMPInReductionClause(const OMPInReductionClause *);
 
   llvm::Value *emitIntelOpenMPDefaultConstructor(const Expr *IPriv);
   llvm::Value *emitIntelOpenMPDestructor(QualType Ty);
@@ -179,6 +180,13 @@ public:
   void emitOMPTaskGroupDirective();
   void emitOMPTaskWaitDirective();
   void emitOMPTaskYieldDirective();
+  void emitOMPBarrierDirective();
+  void emitOMPFlushDirective();
+  void emitOMPTeamsDirective();
+  void emitOMPDistributeDirective();
+  void emitOMPSectionsDirective();
+  void emitOMPSectionDirective();
+  void emitOMPParallelSectionsDirective();
   OpenMPCodeOutliner &operator<<(ArrayRef<OMPClause *> Clauses);
   void emitImplicit(Expr *E, OpenMPClauseKind K);
   void emitImplicit(const VarDecl *VD, OpenMPClauseKind K);

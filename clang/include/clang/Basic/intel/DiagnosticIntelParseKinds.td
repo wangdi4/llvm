@@ -1,9 +1,11 @@
-//==--- DiagnosticParseKinds.td - libparse diagnostics --------------------===//
+//===--- DiagnosticIntelParseKinds.td - Intel libparse diagnostics --------===//
 //
-//                     The LLVM Compiler Infrastructure
+// Copyright (C) 2017 Intel Corporation. All rights reserved.
 //
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// The information and source code contained herein is the exclusive
+// property of Intel Corporation and may not be disclosed, examined
+// or reproduced in whole or in part without explicit written authorization
+// from the company.
 //
 //===----------------------------------------------------------------------===//
 
@@ -15,8 +17,17 @@ let Component = "Parse" in {
 
 let CategoryName = "Parse Issue" in {
 
+def warn_pragma_expected_value : Warning<
+  "expected value with '#pragma %0' - ignored">,
+  InGroup<IgnoredPragmas>;
+def warn_pragma_expected_ivdep_clause : Warning<
+  "expected safelen or array value with '#pragma ivdep' - ignored">,
+  InGroup<IgnoredPragmas>;
+def warn_multiple_ivdep_clause : Warning<
+  "%select{'safelen'|'array'}0 cannot appear multiple times in #pragma ivdep' - ignored">,
+  InGroup<IgnoredPragmas>;
+
 // CQ#364426
-// if INTEL_CUSTOMIZATION
 def warn_empty_enum : Warning<"use of empty enum">, InGroup<IntelCompat>;
 // CQ#369185 - support of __bases and __direct_bases intrinsics.
 def err_bases_arg_type_not_dependent: Error<"'%select{__bases|__direct_bases}0' "
@@ -35,7 +46,6 @@ def warn_attributes_not_allowed : Warning<
 def warn_member_function_initialization : Warning<
   "initializer on function does not look like a pure-specifier">,
   InGroup<IntelCompat>;
-// endif INTEL_CUSTOMIZATION
 
 // if INTEL_SPECIFIC_CILKPLUS
 // Cilk Plus

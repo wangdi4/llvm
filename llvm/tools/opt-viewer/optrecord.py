@@ -17,13 +17,14 @@ import functools
 from multiprocessing import Lock
 import os, os.path
 import subprocess
+try:
+    # The previously builtin function `intern()` was moved
+    # to the `sys` module in Python 3.
+    from sys import intern
+except:
+    pass
 
 import optpmap
-
-
-p = subprocess.Popen(['c++filt', '-n'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-p_lock = Lock()
-
 
 try:
     dict.iteritems
@@ -41,13 +42,6 @@ else:
         return d.iteritems()
 
 
-def demangle(name):
-    with p_lock:
-        p.stdin.write((name + '\n').encode('utf-8'))
-        p.stdin.flush()
-        return p.stdout.readline().rstrip().decode('utf-8')
-
-
 def html_file_name(filename):
     return filename.replace('/', '_').replace('#', '_') + ".html"
 
@@ -59,6 +53,21 @@ def make_link(File, Line):
 class Remark(yaml.YAMLObject):
     # Work-around for http://pyyaml.org/ticket/154.
     yaml_loader = Loader
+
+    default_demangler = 'c++filt -n'
+    demangler_proc = None
+
+    @classmethod
+    def set_demangler(cls, demangler):
+        cls.demangler_proc = subprocess.Popen(demangler.split(), stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+        cls.demangler_lock = Lock()
+
+    @classmethod
+    def demangle(cls, name):
+        with cls.demangler_lock:
+            cls.demangler_proc.stdin.write((name + '\n').encode('utf-8'))
+            cls.demangler_proc.stdin.flush()
+            return cls.demangler_proc.stdout.readline().rstrip().decode('utf-8')
 
     # Intern all strings since we have lot of duplication across filenames,
     # remark text.
@@ -74,7 +83,7 @@ class Remark(yaml.YAMLObject):
 
         def _reduce_memory_dict(old_dict):
             new_dict = dict()
-            for (k, v) in old_dict.iteritems():
+            for (k, v) in iteritems(old_dict):
                 if type(k) is str:
                     k = intern(k)
 
@@ -127,7 +136,7 @@ class Remark(yaml.YAMLObject):
 
     @property
     def DemangledFunctionName(self):
-        return demangle(self.Function)
+        return self.demangle(self.Function)
 
     @property
     def Link(self):
@@ -140,10 +149,10 @@ class Remark(yaml.YAMLObject):
             del mapping['DebugLoc']
 
         assert(len(mapping) == 1)
-        (key, value) = mapping.items()[0]
+        (key, value) = list(mapping.items())[0]
 
         if key == 'Caller' or key == 'Callee':
-            value = cgi.escape(demangle(value))
+            value = cgi.escape(self.demangle(value))
 
         if dl and key != 'Caller':
             dl_dict = dict(list(dl))
@@ -173,7 +182,7 @@ class Remark(yaml.YAMLObject):
     @property
     def RelativeHotness(self):
         if self.max_hotness:
-            return "{}%".format(int(round(self.Hotness * 100 / self.max_hotness)))
+            return "{0:.2f}%".format(self.Hotness * 100. / self.max_hotness)
         else:
             return ''
 
@@ -253,6 +262,8 @@ def get_remarks(input_file):
 def gather_results(filenames, num_jobs, should_print_progress):
     if should_print_progress:
         print('Reading YAML files...')
+    if not Remark.demangler_proc:
+        Remark.set_demangler(Remark.default_demangler)
     remarks = optpmap.pmap(
         get_remarks, filenames, num_jobs, should_print_progress)
     max_hotness = max(entry[0] for entry in remarks)
@@ -276,7 +287,7 @@ def gather_results(filenames, num_jobs, should_print_progress):
     return all_remarks, file_remarks, max_hotness != 0
 
 
-def find_opt_files(dirs_or_files):
+def find_opt_files(*dirs_or_files):
     all = []
     for dir_or_file in dirs_or_files:
         if os.path.isfile(dir_or_file):
