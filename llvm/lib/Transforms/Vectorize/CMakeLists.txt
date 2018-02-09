@@ -18,8 +18,9 @@ add_llvm_library(LLVMVectorize
   Intel_VPlan/IntelVPlanHCFGBuilder.cpp
   Intel_VPlan/IntelVPlanPredicator.cpp
   Intel_VPlan/IntelVPlanVerifier.cpp
-  Intel_VPlan/VPlanHIR/IntelVPOCodeGenHIR.cpp
   Intel_VPlan/VPlanHIR/IntelLoopVectorizationPlannerHIR.cpp
+  Intel_VPlan/VPlanHIR/IntelVPOCodeGenHIR.cpp
+  Intel_VPlan/VPlanHIR/IntelVPlanDecomposerHIR.cpp
   Intel_VPlan/VPlanHIR/IntelVPlanHCFGBuilderHIR.cpp
   Intel_VPlan/VPlanHIR/IntelVPlanVerifierHIR.cpp
 # end INTEL_CUSTOMIZATION

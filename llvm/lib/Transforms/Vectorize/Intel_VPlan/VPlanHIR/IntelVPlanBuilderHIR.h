@@ -26,7 +26,7 @@ public:
   /// Create an N-ary operation with \p Opcode and \p Operands and set \p HInst
   /// as its VPInstructionData.
   VPValue *createNaryOp(unsigned Opcode, ArrayRef<VPValue *> Operands,
-                        HLDDNode *DDNode = nullptr) {
+                        loopopt::HLDDNode *DDNode = nullptr) {
     VPInstruction *NewVPInst =
         cast<VPInstruction>(VPBuilder::createNaryOp(Opcode, Operands));
     if (DDNode)
@@ -35,14 +35,14 @@ public:
   }
   VPValue *createNaryOp(unsigned Opcode,
                         std::initializer_list<VPValue *> Operands,
-                        HLDDNode *DDNode = nullptr) {
+                        loopopt::HLDDNode *DDNode = nullptr) {
     return createNaryOp(Opcode, ArrayRef<VPValue *>(Operands), DDNode);
   }
 
   /// Create a VPCmpInst with \p LHS and \p RHS as operands, \p Pred as
   /// predicate and set \p DDNode as its VPInstructionData.
   VPCmpInst *createCmpInst(VPValue *LHS, VPValue *RHS, CmpInst::Predicate Pred,
-                           HLDDNode *DDNode) {
+                           loopopt::HLDDNode *DDNode) {
     assert(DDNode && "DDNode can't be null.");
     // TODO: Enable assert after fixing VPlanHCFGBuilderHIR.
     //assert(LHS && RHS && "VPCmpInst's operands can't be null!");
