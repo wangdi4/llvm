@@ -180,6 +180,16 @@ If you want to check on the status of in-progress ``xmain-web`` testing, you
 can use the ``amt`` tool on Windows and search for jobs with owner ``omirochn``
 that are testing ``xmain-web``.
 
+JIRA Board For Tracking ``xmain-web`` Testing Status
+----------------------------------------------------
+For every non-trivial issue in ``xmain-web`` that regular testing reveals,
+the pulldown coordinator should submit a JIRA tracker to the corresponding
+component. The tracker summary should start with ``[xmain-web]`` tag.
+
+The overall progress can be monitored at the following board:
+`JIRA xmain-web status board <https://jira01.devtools.intel.com/secure/RapidBoard.jspa?rapidView=10643&view=detail>`_.
+
+
 Selecting a Revision of ``xmain-web`` to Stabilize
 --------------------------------------------------
 The pulldown coordinator can decide which revision of ``xmain-web`` is a good
