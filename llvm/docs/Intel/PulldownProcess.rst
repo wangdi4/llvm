@@ -203,8 +203,11 @@ the normal branch promotion process, e.g.
 
      $ ics mk xmain-promo-ws xmain head -git
      $ ics merge xmain-cand head
-     <run xmain checkin testing and request gatekeeper approval>
+     <Run xmain checkin testing>
+     <Request gatekeeper approval>
      $ ics merge -push
+
+For checkin testing requirements, see :ref:`testing-requirements`.
 
 Xmain Pulldown History
 ======================
