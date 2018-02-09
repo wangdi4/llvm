@@ -1416,13 +1416,13 @@ operator()(const Memop &a_memop, const Memop &b_memop, bool looped) const {
   if (RaceModeOrdering)
     return false;
 
-  // If both are loads, they don't need ordering. However, if either is a
+  // If neither can store, they don't need ordering. However, if either is a
   // prefetch this check should be ignored.
   const bool neither_is_prefetch = a_memop.MI->getOpcode() != CSA::PREFETCH and
                                    a_memop.MI->getOpcode() != CSA::PREFETCHW and
                                    b_memop.MI->getOpcode() != CSA::PREFETCH and
                                    b_memop.MI->getOpcode() != CSA::PREFETCHW;
-  if (neither_is_prefetch and a->isLoad() and b->isLoad())
+  if (neither_is_prefetch and not a->isStore() and not b->isStore())
     return false;
 
   // Otherwise, they only need ordering if they could alias each other. If
