@@ -8,6 +8,7 @@ include(CheckIncludeFileCXX)
 include(CheckLibraryExists)
 include(CheckSymbolExists)
 include(CheckFunctionExists)
+include(CheckCCompilerFlag)
 include(CheckCXXSourceCompiles)
 include(TestBigEndian)
 
@@ -155,6 +156,22 @@ if( NOT PURE_WINDOWS AND NOT LLVM_USE_SANITIZER MATCHES "Memory.*")
   else()
     set(HAVE_TERMINFO 0)
   endif()
+
+  find_library(ICONV_LIBRARY_PATH NAMES iconv libiconv libiconv-2 c)
+  set(LLVM_LIBXML2_ENABLED 0)
+  set(LIBXML2_FOUND 0)
+  if((LLVM_ENABLE_LIBXML2) AND ((CMAKE_SYSTEM_NAME MATCHES "Linux") AND (ICONV_LIBRARY_PATH) OR APPLE))
+    find_package(LibXml2)
+    if (LIBXML2_FOUND)
+      set(LLVM_LIBXML2_ENABLED 1)
+      include_directories(${LIBXML2_INCLUDE_DIR})
+      set(LIBXML2_LIBS "xml2")
+    endif()
+  endif()
+endif()
+
+if (LLVM_ENABLE_LIBXML2 STREQUAL "FORCE_ON" AND NOT LLVM_LIBXML2_ENABLED)
+  message(FATAL_ERROR "Failed to congifure libxml2")
 endif()
 
 check_library_exists(xar xar_open "" HAVE_LIBXAR)
@@ -167,6 +184,14 @@ check_symbol_exists(arc4random "stdlib.h" HAVE_DECL_ARC4RANDOM)
 find_package(Backtrace)
 set(HAVE_BACKTRACE ${Backtrace_FOUND})
 set(BACKTRACE_HEADER ${Backtrace_HEADER})
+
+# Prevent check_symbol_exists from using API that is not supported for a given
+# deployment target.
+check_c_compiler_flag("-Werror=unguarded-availability-new" "C_SUPPORTS_WERROR_UNGUARDED_AVAILABILITY_NEW")
+if(C_SUPPORTS_WERROR_UNGUARDED_AVAILABILITY_NEW)
+  set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} -Werror=unguarded-availability-new")
+endif()
+
 check_symbol_exists(_Unwind_Backtrace "unwind.h" HAVE__UNWIND_BACKTRACE)
 check_symbol_exists(getpagesize unistd.h HAVE_GETPAGESIZE)
 check_symbol_exists(sysconf unistd.h HAVE_SYSCONF)
@@ -246,8 +271,11 @@ endif()
 check_symbol_exists(__GLIBC__ stdio.h LLVM_USING_GLIBC)
 if( LLVM_USING_GLIBC )
   add_definitions( -D_GNU_SOURCE )
+  list(APPEND CMAKE_REQUIRED_DEFINITIONS "-D_GNU_SOURCE")
 endif()
 # This check requires _GNU_SOURCE
+check_symbol_exists(sched_getaffinity sched.h HAVE_SCHED_GETAFFINITY)
+check_symbol_exists(CPU_COUNT sched.h HAVE_CPU_COUNT)
 if(HAVE_LIBPTHREAD)
   check_library_exists(pthread pthread_getname_np "" HAVE_PTHREAD_GETNAME_NP)
   check_library_exists(pthread pthread_setname_np "" HAVE_PTHREAD_SETNAME_NP)
@@ -600,3 +628,34 @@ else()
 endif()
 
 string(REPLACE " " ";" LLVM_BINDINGS_LIST "${LLVM_BINDINGS}")
+
+function(find_python_module module)
+  string(TOUPPER ${module} module_upper)
+  set(FOUND_VAR PY_${module_upper}_FOUND)
+
+  execute_process(COMMAND "${PYTHON_EXECUTABLE}" "-c" "import ${module}"
+    RESULT_VARIABLE status
+    ERROR_QUIET)
+
+  if(status)
+    set(${FOUND_VAR} 0 PARENT_SCOPE)
+    message(STATUS "Could NOT find Python module ${module}")
+  else()
+    set(${FOUND_VAR} 1 PARENT_SCOPE)
+    message(STATUS "Found Python module ${module}")
+  endif()
+endfunction()
+
+set (PYTHON_MODULES
+  pygments
+  yaml
+  )
+foreach(module ${PYTHON_MODULES})
+  find_python_module(${module})
+endforeach()
+
+if(PY_PYGMENTS_FOUND AND PY_YAML_FOUND)
+  set (LLVM_HAVE_OPT_VIEWER_MODULES 1)
+else()
+  set (LLVM_HAVE_OPT_VIEWER_MODULES 0)
+endif()

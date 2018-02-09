@@ -26,7 +26,7 @@
 #include "llvm/CodeGen/RegisterScavenging.h"
 #include "llvm/IR/Function.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Target/TargetFrameLowering.h"
+#include "llvm/CodeGen/TargetFrameLowering.h"
 #include "llvm/Target/TargetOptions.h"
 
 using namespace llvm;
@@ -35,7 +35,9 @@ using namespace llvm;
 #include "AArch64GenRegisterInfo.inc"
 
 AArch64RegisterInfo::AArch64RegisterInfo(const Triple &TT)
-    : AArch64GenRegisterInfo(AArch64::LR), TT(TT) {}
+    : AArch64GenRegisterInfo(AArch64::LR), TT(TT) {
+  AArch64_MC::initLLVMToCVRegMapping(this);
+}
 
 const MCPhysReg *
 AArch64RegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {

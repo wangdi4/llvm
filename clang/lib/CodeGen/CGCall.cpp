@@ -455,11 +455,15 @@ const CGFunctionInfo &
 CodeGenTypes::arrangeObjCMessageSendSignature(const ObjCMethodDecl *MD,
                                               QualType receiverType) {
   SmallVector<CanQualType, 16> argTys;
+  SmallVector<FunctionProtoType::ExtParameterInfo, 4> extParamInfos(2);
   argTys.push_back(Context.getCanonicalParamType(receiverType));
   argTys.push_back(Context.getCanonicalParamType(Context.getObjCSelType()));
   // FIXME: Kill copy?
   for (const auto *I : MD->parameters()) {
     argTys.push_back(Context.getCanonicalParamType(I->getType()));
+    auto extParamInfo = FunctionProtoType::ExtParameterInfo().withIsNoEscape(
+        I->hasAttr<NoEscapeAttr>());
+    extParamInfos.push_back(extParamInfo);
   }
 
   FunctionType::ExtInfo einfo;
@@ -475,7 +479,7 @@ CodeGenTypes::arrangeObjCMessageSendSignature(const ObjCMethodDecl *MD,
 
   return arrangeLLVMFunctionInfo(
       GetReturnType(MD->getReturnType()), /*instanceMethod=*/false,
-      /*chainCall=*/false, argTys, einfo, {}, required);
+      /*chainCall=*/false, argTys, einfo, extParamInfos, required);
 }
 
 const CGFunctionInfo &
@@ -1223,7 +1227,8 @@ static llvm::Value *CreateCoercedLoad(Address Src, llvm::Type *Ty,
     //
     // FIXME: Assert that we aren't truncating non-padding bits when have access
     // to that information.
-    Src = CGF.Builder.CreateBitCast(Src, llvm::PointerType::getUnqual(Ty));
+    Src = CGF.Builder.CreateBitCast(Src,
+                                    Ty->getPointerTo(Src.getAddressSpace()));
     return CGF.Builder.CreateLoad(Src);
   }
 
@@ -1734,10 +1739,10 @@ void CodeGenModule::ConstructDefaultFnAttrList(StringRef Name, bool HasOptnone,
         llvm::toStringRef(CodeGenOpts.CorrectlyRoundedDivSqrt));
 
     // TODO: Reciprocal estimate codegen options should apply to instructions?
-    std::vector<std::string> &Recips = getTarget().getTargetOpts().Reciprocals;
+    const std::vector<std::string> &Recips = CodeGenOpts.Reciprocals;
     if (!Recips.empty())
       FuncAttrs.addAttribute("reciprocal-estimates",
-                             llvm::join(Recips.begin(), Recips.end(), ","));
+                             llvm::join(Recips, ","));
 
     if (CodeGenOpts.StackRealignment)
       FuncAttrs.addAttribute("stackrealign");
@@ -1745,13 +1750,16 @@ void CodeGenModule::ConstructDefaultFnAttrList(StringRef Name, bool HasOptnone,
       FuncAttrs.addAttribute("backchain");
   }
 
-  if (getLangOpts().CUDA && getLangOpts().CUDAIsDevice) {
-    // Conservatively, mark all functions and calls in CUDA as convergent
-    // (meaning, they may call an intrinsically convergent op, such as
-    // __syncthreads(), and so can't have certain optimizations applied around
-    // them).  LLVM will remove this attribute where it safely can.
+  if (getLangOpts().assumeFunctionsAreConvergent()) {
+    // Conservatively, mark all functions and calls in CUDA and OpenCL as
+    // convergent (meaning, they may call an intrinsically convergent op, such
+    // as __syncthreads() / barrier(), and so can't have certain optimizations
+    // applied around them).  LLVM will remove this attribute where it safely
+    // can.
     FuncAttrs.addAttribute(llvm::Attribute::Convergent);
+  }
 
+  if (getLangOpts().CUDA && getLangOpts().CUDAIsDevice) {
     // Exceptions aren't supported in CUDA device code.
     FuncAttrs.addAttribute(llvm::Attribute::NoUnwind);
 
@@ -1847,6 +1855,16 @@ void CodeGenModule::ConstructAttributeList(
       !(TargetDecl && TargetDecl->hasAttr<NoSplitStackAttr>()))
     FuncAttrs.addAttribute("split-stack");
 
+  // Add NonLazyBind attribute to function declarations when -fno-plt
+  // is used.
+  if (TargetDecl && CodeGenOpts.NoPLT) {
+    if (auto *Fn = dyn_cast<FunctionDecl>(TargetDecl)) {
+      if (!Fn->isDefined() && !AttrOnCallSite) {
+        FuncAttrs.addAttribute(llvm::Attribute::NonLazyBind);
+      }
+    }
+  }
+
   if (!AttrOnCallSite) {
     bool DisableTailCalls =
         CodeGenOpts.DisableTailCalls ||
@@ -1859,13 +1877,13 @@ void CodeGenModule::ConstructAttributeList(
     // we have a decl for the function and it has a target attribute then
     // parse that and add it to the feature set.
     StringRef TargetCPU = getTarget().getTargetOpts().CPU;
+    std::vector<std::string> Features;
     const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(TargetDecl);
     if (FD && FD->hasAttr<TargetAttr>()) {
       llvm::StringMap<bool> FeatureMap;
       getFunctionFeatureMap(FeatureMap, FD);
 
       // Produce the canonical string for this set of features.
-      std::vector<std::string> Features;
       for (llvm::StringMap<bool>::const_iterator it = FeatureMap.begin(),
                                                  ie = FeatureMap.end();
            it != ie; ++it)
@@ -1877,28 +1895,22 @@ void CodeGenModule::ConstructAttributeList(
       // the function.
       const auto *TD = FD->getAttr<TargetAttr>();
       TargetAttr::ParsedTargetAttr ParsedAttr = TD->parse();
-      if (ParsedAttr.Architecture != "")
+      if (ParsedAttr.Architecture != "" &&
+          getTarget().isValidCPUName(ParsedAttr.Architecture))
         TargetCPU = ParsedAttr.Architecture;
-      if (TargetCPU != "")
-        FuncAttrs.addAttribute("target-cpu", TargetCPU);
-      if (!Features.empty()) {
-        std::sort(Features.begin(), Features.end());
-        FuncAttrs.addAttribute(
-            "target-features",
-            llvm::join(Features.begin(), Features.end(), ","));
-      }
     } else {
       // Otherwise just add the existing target cpu and target features to the
       // function.
-      std::vector<std::string> &Features = getTarget().getTargetOpts().Features;
-      if (TargetCPU != "")
-        FuncAttrs.addAttribute("target-cpu", TargetCPU);
-      if (!Features.empty()) {
-        std::sort(Features.begin(), Features.end());
-        FuncAttrs.addAttribute(
-            "target-features",
-            llvm::join(Features.begin(), Features.end(), ","));
-      }
+      Features = getTarget().getTargetOpts().Features;
+    }
+
+    if (TargetCPU != "")
+      FuncAttrs.addAttribute("target-cpu", TargetCPU);
+    if (!Features.empty()) {
+      std::sort(Features.begin(), Features.end());
+      FuncAttrs.addAttribute(
+          "target-features",
+          llvm::join(Features, ","));
     }
   }
 
@@ -2091,6 +2103,9 @@ void CodeGenModule::ConstructAttributeList(
       Attrs.addAttribute(llvm::Attribute::SwiftSelf);
       break;
     }
+
+    if (FI.getExtParameterInfo(ArgNo).isNoEscape())
+      Attrs.addAttribute(llvm::Attribute::NoCapture);
 
     if (Attrs.hasAttributes()) {
       unsigned FirstIRArg, NumIRArgs;
@@ -3054,7 +3069,8 @@ static void emitWriteback(CodeGenFunction &CGF,
 
   // If the argument wasn't provably non-null, we need to null check
   // before doing the store.
-  bool provablyNonNull = llvm::isKnownNonNull(srcAddr.getPointer());
+  bool provablyNonNull = llvm::isKnownNonZero(srcAddr.getPointer(),
+                                              CGF.CGM.getDataLayout());
   if (!provablyNonNull) {
     llvm::BasicBlock *writebackBB = CGF.createBasicBlock("icr.writeback");
     contBB = CGF.createBasicBlock("icr.done");
@@ -3194,7 +3210,8 @@ static void emitWritebackArg(CodeGenFunction &CGF, CallArgList &args,
   // If the address is *not* known to be non-null, we need to switch.
   llvm::Value *finalArgument;
 
-  bool provablyNonNull = llvm::isKnownNonNull(srcAddr.getPointer());
+  bool provablyNonNull = llvm::isKnownNonZero(srcAddr.getPointer(),
+                                              CGF.CGM.getDataLayout());
   if (provablyNonNull) {
     finalArgument = temp.getPointer();
   } else {
@@ -3946,7 +3963,8 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
           Builder.CreateMemCpy(TempAlloca, Src, SrcSize);
           Src = TempAlloca;
         } else {
-          Src = Builder.CreateBitCast(Src, llvm::PointerType::getUnqual(STy));
+          Src = Builder.CreateBitCast(Src,
+                                      STy->getPointerTo(Src.getAddressSpace()));
         }
 
         auto SrcLayout = CGM.getDataLayout().getStructLayout(STy);

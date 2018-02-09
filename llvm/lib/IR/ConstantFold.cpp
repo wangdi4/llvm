@@ -629,6 +629,15 @@ Constant *llvm::ConstantFoldCastInstruction(unsigned opc, Constant *V,
     if (ConstantExpr *CE = dyn_cast<ConstantExpr>(V))
       if (CE->getOpcode() == Instruction::GetElementPtr &&
           CE->getOperand(0)->isNullValue()) {
+        // FIXME: Looks like getFoldedSizeOf(), getFoldedOffsetOf() and
+        // getFoldedAlignOf() don't handle the case when DestTy is a vector of
+        // pointers yet. We end up in asserts in CastInst::getCastOpcode (see
+        // test/Analysis/ConstantFolding/cast-vector.ll). I've only seen this
+        // happen in one "real" C-code test case, so it does not seem to be an
+        // important optimization to handle vectors here. For now, simply bail
+        // out.
+        if (DestTy->isVectorTy())
+          return nullptr;
         GEPOperator *GEPO = cast<GEPOperator>(CE);
         Type *Ty = GEPO->getSourceElementType();
         if (CE->getNumOperands() == 2) {
@@ -2062,9 +2071,20 @@ Constant *llvm::ConstantFoldGetElementPtr(Type *PointeeTy, Constant *C,
       Type *Ty = GetElementPtrInst::getIndexedType(PointeeTy, Idxs);
 
       assert(Ty && "Invalid indices for GEP!");
+      Type *OrigGEPTy = PointerType::get(Ty, PtrTy->getAddressSpace());
       Type *GEPTy = PointerType::get(Ty, PtrTy->getAddressSpace());
       if (VectorType *VT = dyn_cast<VectorType>(C->getType()))
-        GEPTy = VectorType::get(GEPTy, VT->getNumElements());
+        GEPTy = VectorType::get(OrigGEPTy, VT->getNumElements());
+
+      // The GEP returns a vector of pointers when one of more of
+      // its arguments is a vector.
+      for (unsigned i = 0, e = Idxs.size(); i != e; ++i) {
+        if (auto *VT = dyn_cast<VectorType>(Idxs[i]->getType())) {
+          GEPTy = VectorType::get(OrigGEPTy, VT->getNumElements());
+          break;
+        }
+      }
+
       return Constant::getNullValue(GEPTy);
     }
   }
@@ -2097,15 +2117,19 @@ Constant *llvm::ConstantFoldGetElementPtr(Type *PointeeTy, Constant *C,
       // Subsequent evaluation would get confused and produce erroneous results.
       //
       // The following prohibits such a GEP from being formed by checking to see
-      // if the index is in-range with respect to an array or vector.
+      // if the index is in-range with respect to an array.
+      // TODO: This code may be extended to handle vectors as well.
       bool PerformFold = false;
       if (Idx0->isNullValue())
         PerformFold = true;
       else if (LastI.isSequential())
         if (ConstantInt *CI = dyn_cast<ConstantInt>(Idx0))
-          PerformFold =
-              !LastI.isBoundedSequential() ||
-              isIndexInRangeOfArrayType(LastI.getSequentialNumElements(), CI);
+          PerformFold = (!LastI.isBoundedSequential() ||
+                         isIndexInRangeOfArrayType(
+                             LastI.getSequentialNumElements(), CI)) &&
+                        !CE->getOperand(CE->getNumOperands() - 1)
+                             ->getType()
+                             ->isVectorTy();
 
       if (PerformFold) {
         SmallVector<Value*, 16> NewIndices;
@@ -2195,6 +2219,9 @@ Constant *llvm::ConstantFoldGetElementPtr(Type *PointeeTy, Constant *C,
       Unknown = true;
       continue;
     }
+    if (!isa<ConstantInt>(Idxs[i - 1]))
+      // FIXME: add the support of cosntant vector index.
+      continue;
     if (InRangeIndex && i == *InRangeIndex + 1) {
       // If an index is marked inrange, we cannot apply this canonicalization to
       // the following index, as that will cause the inrange index to point to

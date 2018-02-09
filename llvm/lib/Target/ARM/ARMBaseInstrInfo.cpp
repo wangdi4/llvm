@@ -37,6 +37,8 @@
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/ScoreboardHazardRecognizer.h"
 #include "llvm/CodeGen/SelectionDAGNodes.h"
+#include "llvm/CodeGen/TargetInstrInfo.h"
+#include "llvm/CodeGen/TargetRegisterInfo.h"
 #include "llvm/CodeGen/TargetSchedule.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/Constants.h"
@@ -53,9 +55,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Target/TargetInstrInfo.h"
 #include "llvm/Target/TargetMachine.h"
-#include "llvm/Target/TargetRegisterInfo.h"
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
@@ -1550,20 +1550,29 @@ void ARMBaseInstrInfo::reMaterialize(MachineBasicBlock &MBB,
   }
 }
 
-MachineInstr *ARMBaseInstrInfo::duplicate(MachineInstr &Orig,
-                                          MachineFunction &MF) const {
-  MachineInstr *MI = TargetInstrInfo::duplicate(Orig, MF);
-  switch (Orig.getOpcode()) {
-  case ARM::tLDRpci_pic:
-  case ARM::t2LDRpci_pic: {
-    unsigned CPI = Orig.getOperand(1).getIndex();
-    unsigned PCLabelId = duplicateCPV(MF, CPI);
-    Orig.getOperand(1).setIndex(CPI);
-    Orig.getOperand(2).setImm(PCLabelId);
-    break;
+MachineInstr &
+ARMBaseInstrInfo::duplicate(MachineBasicBlock &MBB,
+    MachineBasicBlock::iterator InsertBefore,
+    const MachineInstr &Orig) const {
+  MachineInstr &Cloned = TargetInstrInfo::duplicate(MBB, InsertBefore, Orig);
+  MachineBasicBlock::instr_iterator I = Cloned.getIterator();
+  for (;;) {
+    switch (I->getOpcode()) {
+    case ARM::tLDRpci_pic:
+    case ARM::t2LDRpci_pic: {
+      MachineFunction &MF = *MBB.getParent();
+      unsigned CPI = I->getOperand(1).getIndex();
+      unsigned PCLabelId = duplicateCPV(MF, CPI);
+      I->getOperand(1).setIndex(CPI);
+      I->getOperand(2).setImm(PCLabelId);
+      break;
+    }
+    }
+    if (!I->isBundledWithSucc())
+      break;
+    ++I;
   }
-  }
-  return MI;
+  return Cloned;
 }
 
 bool ARMBaseInstrInfo::produceSameValue(const MachineInstr &MI0,
@@ -1641,7 +1650,7 @@ bool ARMBaseInstrInfo::produceSameValue(const MachineInstr &MI0,
     }
 
     for (unsigned i = 3, e = MI0.getNumOperands(); i != e; ++i) {
-      // %vreg12<def> = PICLDR %vreg11, 0, pred:14, pred:%noreg
+      // %12<def> = PICLDR %11, 0, pred:14, pred:%noreg
       const MachineOperand &MO0 = MI0.getOperand(i);
       const MachineOperand &MO1 = MI1.getOperand(i);
       if (!MO0.isIdenticalTo(MO1))

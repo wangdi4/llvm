@@ -14,14 +14,14 @@
 #ifndef SCUDO_UTILS_H_
 #define SCUDO_UTILS_H_
 
-#include <string.h>
-
 #include "sanitizer_common/sanitizer_common.h"
+
+#include <string.h>
 
 namespace __scudo {
 
 template <class Dest, class Source>
-inline Dest bit_cast(const Source& source) {
+INLINE Dest bit_cast(const Source& source) {
   static_assert(sizeof(Dest) == sizeof(Source), "Sizes are not equal!");
   Dest dest;
   memcpy(&dest, &source, sizeof(dest));
@@ -30,11 +30,7 @@ inline Dest bit_cast(const Source& source) {
 
 void NORETURN dieWithMessage(const char *Format, ...);
 
-enum CPUFeature {
-  CRC32CPUFeature = 0,
-  MaxCPUFeature,
-};
-bool testCPUFeature(CPUFeature feature);
+bool hasHardwareCRC32();
 
 INLINE u64 rotl(const u64 X, int K) {
   return (X << K) | (X >> (64 - K));
@@ -44,11 +40,14 @@ INLINE u64 rotl(const u64 X, int K) {
 struct XoRoShiRo128Plus {
  public:
   void init() {
-    if (UNLIKELY(!GetRandom(reinterpret_cast<void *>(State), sizeof(State)))) {
-      // Early processes (eg: init) do not have /dev/urandom yet, but we still
-      // have to provide them with some degree of entropy. Not having a secure
-      // seed is not as problematic for them, as they are less likely to be
-      // the target of heap based vulnerabilities exploitation attempts.
+    if (UNLIKELY(!GetRandom(reinterpret_cast<void *>(State), sizeof(State),
+                            /*blocking=*/false))) {
+      // On some platforms, early processes like `init` do not have an
+      // initialized random pool (getrandom blocks and /dev/urandom doesn't
+      // exist yet), but we still have to provide them with some degree of
+      // entropy. Not having a secure seed is not as problematic for them, as
+      // they are less likely to be the target of heap based vulnerabilities
+      // exploitation attempts.
       State[0] = NanoTime();
       State[1] = 0;
     }

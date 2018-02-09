@@ -30,7 +30,7 @@ elseif( CMAKE_HOST_UNIX )
 endif( MSVC OR MINGW )
 
 add_llvm_library(LLVMSupport
-  AMDGPUCodeObjectMetadata.cpp
+  AMDGPUMetadata.cpp
   APFloat.cpp
   APInt.cpp
   APSInt.cpp
@@ -48,6 +48,7 @@ add_llvm_library(LLVMSupport
   circular_raw_ostream.cpp
   Chrono.cpp
   COM.cpp
+  CodeGenCoverage.cpp
   CommandLine.cpp
   Compression.cpp
   ConvertUTF.cpp
@@ -71,6 +72,7 @@ add_llvm_library(LLVMSupport
   IntEqClasses.cpp
   IntervalMap.cpp
   JamCRC.cpp
+  KnownBits.cpp
   LEB128.cpp
   LineIterator.cpp
   Locale.cpp
