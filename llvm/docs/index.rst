@@ -4,6 +4,7 @@
    :hidden:
 
    Intel/index
+   SPIRVRepresentationInLLVM
 
 .. // INTEL_CUSTOMIZATION
 
