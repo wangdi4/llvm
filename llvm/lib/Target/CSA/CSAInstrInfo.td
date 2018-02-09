@@ -680,7 +680,7 @@ class AtomicOp2<GenericOp gen, PatFrag opNode, CSAOpInfo oi,
     (outs oi.RC:$dst, MemOrdDef:$issued),
     (ins ADDR_R:$addr, oi.RCL:$op3, oi.RCL:$op4, MEMLVL:$lvl, MemOrdUse:$ready),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$issued, $dst, $addr, $op3, $op4, $ready, $lvl"),
-    [(set oi.RC:$dst, (opNode ADDR_R:$addr, oi.RCL:$op4, oi.RCL:$op3))],
+    [(set oi.RC:$dst, (opNode ADDR_R:$addr, oi.RCL:$op3, oi.RCL:$op4))],
     !listconcat(preds,oi.Preds), itin>
     { let mayLoad = 1; let mayStore = 1; let hasSideEffects = 1; }
 
