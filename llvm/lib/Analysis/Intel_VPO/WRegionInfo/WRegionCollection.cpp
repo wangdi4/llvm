@@ -14,16 +14,18 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Pass.h"
-#include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/Intrinsics.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/Dominators.h"
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/IR/Dominators.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/Intrinsics.h"
+#include "llvm/Pass.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegion.h"
@@ -42,6 +44,9 @@ INITIALIZE_PASS_BEGIN(WRegionCollection, "vpo-wrncollection",
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
+INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_END(WRegionCollection, "vpo-wrncollection",
                     "VPO Work-Region Collection", false, true)
 
@@ -60,6 +65,9 @@ void WRegionCollection::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<DominatorTreeWrapperPass>();
   AU.addRequired<LoopInfoWrapperPass>();
   AU.addRequired<ScalarEvolutionWrapperPass>();
+  AU.addRequired<AssumptionCacheTracker>();
+  AU.addRequired<TargetTransformInfoWrapperPass>();
+  AU.addRequired<TargetLibraryInfoWrapperPass>();
 }
 
 /// \brief TBD: get associated Loop Info for a given W-Region
@@ -144,7 +152,7 @@ void WRegionCollection::getWRegionFromBB(BasicBlock *BB,
                  "Unexpected empty WRN stack when seeing an END directive");
 
           W = S->top();
-          W->finalize(BB); // set the ExitBB and wrap up the WRN
+          W->finalize(BB, DT); // set the ExitBB and wrap up the WRN
 
           S->pop();
           DEBUG(dbgs() << "\n  === Closed WRegion. ");
@@ -286,6 +294,9 @@ bool WRegionCollection::runOnFunction(Function &F) {
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
+  TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
+  AC = &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
+  TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
 
   DEBUG(dbgs() << "\n}EXIT WRegionCollection::runOnFunction: "
                << F.getName() << "\n");

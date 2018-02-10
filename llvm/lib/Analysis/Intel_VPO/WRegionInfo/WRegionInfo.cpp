@@ -56,6 +56,9 @@ bool WRegionInfo::runOnFunction(Function &F) {
   DT   = WRC->getDomTree();   // propagate analysis results
   LI   = WRC->getLoopInfo();
   SE   = WRC->getSE();
+  TTI = WRC->getTargetTransformInfo();
+  AC = WRC->getAssumptionCache();
+  TLI = WRC->getTargetLibraryInfo();
 
   DEBUG(dbgs() << "\n}EXIT WRegionInfo::runOnFunction: "
                << F.getName() << "\n");

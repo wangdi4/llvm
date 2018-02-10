@@ -2192,6 +2192,10 @@ CallInst *VPOParoptUtils::genMemcpy(Value *D, Value *S, const DataLayout &DL,
     Size = MemcpyBuilder.getInt32(
         DL.getTypeAllocSize(D->getType()->getPointerElementType()));
 
+  AllocaInst *AI = dyn_cast<AllocaInst>(D);
+  if (AI && AI->isArrayAllocation())
+    Size = MemcpyBuilder.CreateMul(Size, AI->getArraySize());
+
   return MemcpyBuilder.CreateMemCpy(Dest, Src, Size, Align);
 }
 

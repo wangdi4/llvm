@@ -115,7 +115,8 @@ bool VPOParoptPrepare::runOnFunction(Function &F) {
 
   // AUTOPAR | OPENMP | SIMD | OFFLOAD
   VPOParoptTransform VP(&F, &WI, WI.getDomTree(), WI.getLoopInfo(), WI.getSE(),
-                        Mode, OffloadTargets);
+                        WI.getTargetTransformInfo(), WI.getAssumptionCache(),
+                        WI.getTargetLibraryInfo(), Mode, OffloadTargets);
   Changed = Changed | VP.paroptTransforms();
 
   DEBUG(dbgs() << "\n === VPOParoptPrepare Pass after Transformation === \n");

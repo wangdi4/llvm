@@ -92,6 +92,15 @@ private:
   /// SE - Scalar Evolution analysis for the function.
   ScalarEvolution *SE;
 
+  /// TTI - Target Transform Info analysis for the function.
+  const TargetTransformInfo *TTI;
+
+  /// AC - Assumption Cache analysis for the function.
+  AssumptionCache *AC;
+
+  /// TLI - Target Library Info analysis for the function.
+  const TargetLibraryInfo *TLI;
+
 public:
   enum InputIRKind{
     LLVMIR,
@@ -128,6 +137,9 @@ public:
   DominatorTree *getDomTree() { return DT; }
   LoopInfo *getLoopInfo()     { return LI; }
   ScalarEvolution *getSE()    { return SE; }
+  const TargetTransformInfo *getTargetTransformInfo() { return TTI; }
+  AssumptionCache *getAssumptionCache() { return AC; }
+  const TargetLibraryInfo *getTargetLibraryInfo() { return TLI; }
 
   /// \brief Returns the size of the WRGraph container
   unsigned getWRGraphSize() { return WRGraph->size(); }

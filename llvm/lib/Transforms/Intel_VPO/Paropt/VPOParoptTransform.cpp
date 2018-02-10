@@ -36,6 +36,8 @@
 
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/PostOrderIterator.h"
+#include "llvm/Analysis/InstructionSimplify.h"
+#include "llvm/Analysis/ValueTracking.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/IR/Constants.h"
@@ -67,9 +69,12 @@
 
 #include "llvm/Transforms/Utils/Intel_GeneralUtils.h"
 #include "llvm/Transforms/Utils/Intel_IntrinsicUtils.h"
+#include "llvm/Transforms/Utils/LoopRotationUtils.h"
+#include "llvm/Transforms/Utils/PromoteMemToReg.h"
 
 #include <algorithm>
 #include <set>
+#include <vector>
 
 using namespace llvm;
 using namespace llvm::vpo;
@@ -273,6 +278,7 @@ bool VPOParoptTransform::paroptTransforms() {
       case WRegionNode::WRNParallelLoop:
       {
         if (Mode & ParPrepare) {
+          regularizeOMPLoop(W);
           genCodemotionFenceforAggrData(W);
         }
 
@@ -315,12 +321,18 @@ bool VPOParoptTransform::paroptTransforms() {
 
       case WRegionNode::WRNTaskloop:
         DEBUG(dbgs() << "\n WRNTaskloop - Transformation \n\n");
+        if (Mode & ParPrepare) {
+          regularizeOMPLoop(W);
+          genCodemotionFenceforAggrData(W);
+        }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
+          Changed = clearCodemotionFenceIntrinsic(W);
           StructType *KmpTaskTTWithPrivatesTy;
           StructType *KmpSharedTy;
           Value *LBPtr, *UBPtr, *STPtr, *LastIterGep;
-          Changed = genTaskLoopInitCode(W, KmpTaskTTWithPrivatesTy, KmpSharedTy,
-                                        LBPtr, UBPtr, STPtr, LastIterGep);
+          Changed |=
+              genTaskLoopInitCode(W, KmpTaskTTWithPrivatesTy, KmpSharedTy,
+                                  LBPtr, UBPtr, STPtr, LastIterGep);
           Changed |= genPrivatizationCode(W);
           Changed |= genFirstPrivatizationCode(W);
           Changed |= genLastPrivatizationCode(W, LastIterGep);
@@ -400,8 +412,8 @@ bool VPOParoptTransform::paroptTransforms() {
         }
         break;
       }
-      case WRegionNode::WRNSections:
       case WRegionNode::WRNWksLoop:
+      case WRegionNode::WRNSections:
       case WRegionNode::WRNDistribute:
       {
         if (W->getIsDistribute())
@@ -409,8 +421,10 @@ bool VPOParoptTransform::paroptTransforms() {
         else
           DEBUG(dbgs() << "\n WRNWksLoop - Transformation \n\n");
 
-        if (Mode & ParPrepare)
+        if (Mode & ParPrepare) {
+          regularizeOMPLoop(W);
           genCodemotionFenceforAggrData(W);
+        }
 
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           AllocaInst *IsLastVal = nullptr;
@@ -1027,7 +1041,8 @@ void VPOParoptTransform::genFprivInit(FirstprivateItem *FprivI,
   IRBuilder<> Builder(InsertPt);
   if (!AllocaTy->isSingleValueType() ||
       !DL.isLegalInteger(DL.getTypeSizeInBits(ScalarTy)) ||
-      DL.getTypeSizeInBits(ScalarTy) % 8 != 0)
+      DL.getTypeSizeInBits(ScalarTy) % 8 != 0 ||
+      AI->isArrayAllocation())
     VPOParoptUtils::genMemcpy(AI, FprivI->getOrig(), DL, AI->getAlignment(),
                               InsertPt->getParent());
   else {
@@ -1602,8 +1617,8 @@ void VPOParoptTransform::genFenceIntrinsic(WRegionNode *W, Value *I) {
   }
 }
 
-/// \brief Return true if the instuction is a call to
-/// @llvm.invariant.group.barrier
+// Return true if the instuction is a call to
+// @llvm.invariant.group.barrier
 CallInst*  VPOParoptTransform::isFenceCall(Instruction *I) {
   if (CallInst *CI = dyn_cast<CallInst>(I))
     if (CI->getCalledFunction() && CI->getCalledFunction()->getIntrinsicID() ==
@@ -1612,6 +1627,34 @@ CallInst*  VPOParoptTransform::isFenceCall(Instruction *I) {
   return nullptr;
 }
 
+// The OMP loop is converted into bottom test loop to facilitate the
+// code generation of VPOParopt transform and vectorization. This
+// regularization is required for the program which is compiled at -O0
+// and above.
+bool VPOParoptTransform::regularizeOMPLoop(WRegionNode *W) {
+  if (!W->getWRNLoopInfo().getLoop() || !W->getWRNLoopInfo().getNormIV())
+    return false;
+
+  std::vector<AllocaInst *> Allocas;
+  Value *NormIV = W->getWRNLoopInfo().getNormIV();
+  if (!NormIV)
+    return false;
+  AllocaInst *AI = dyn_cast<AllocaInst>(NormIV);
+  if (AI) {
+    W->populateBBSet();
+    resetValueInIntelClauseGeneric(W, NormIV);
+    Allocas.push_back(AI);
+    PromoteMemToReg(Allocas, *DT, AC);
+    Loop *L = W->getWRNLoopInfo().getLoop();
+    const DataLayout &DL = L->getHeader()->getModule()->getDataLayout();
+    const SimplifyQuery SQ = {DL, TLI, DT, AC};
+    LoopRotation(L, -1, LI, TTI, AC, DT, SE, SQ);
+    W->resetBBSet();
+    return true;
+  }
+
+  llvm_unreachable("Expect the omp normalized iv to be a stack variable.");
+}
 
 // Generate the intrinsic @llvm.invariant.group.barrier to inhibit the cse
 // for the gep instruction related to array/struture which is marked
@@ -1900,7 +1943,7 @@ void VPOParoptTransform::wrnUpdateSSAForLoopRecursively(
 
 // Update the SSA form after the basic block LoopExitBB's successor
 // is added one more incoming edge.
-void VPOParoptTransform::RewriteUsesOfOutInstructions(
+void VPOParoptTransform::rewriteUsesOfOutInstructions(
     BasicBlock *FirstLoopExitBB,
     DenseMap<Value *, std::pair<Value *, BasicBlock *>> &ValueToLiveinMap) {
   SmallVector<PHINode *, 2> InsertedPHIs;
@@ -1968,7 +2011,7 @@ void VPOParoptTransform::RewriteUsesOfOutInstructions(
     }
 
     assert(OrigPreheader && OrigPreHeaderVal &&
-           "RewriteUsesOfOutInstructions: live in value is missing\n");
+           "rewriteUsesOfOutInstructions: live in value is missing\n");
     for (Value::use_iterator UI = ExitVal->use_begin(), UE = ExitVal->use_end();
          UI != UE;) {
       Use &U = *UI;
@@ -2229,7 +2272,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
       DT->changeImmediateDominator(LoopExitBB, StaticInitBB);
 
     wrnUpdateSSAForLoopRecursively(L, ValueToLiveinMap, LiveOutVals);
-    RewriteUsesOfOutInstructions(LoopRegionExitBB, ValueToLiveinMap);
+    rewriteUsesOfOutInstructions(LoopRegionExitBB, ValueToLiveinMap);
 
   }
   else if (SchedKind == WRNScheduleStatic) {

@@ -148,7 +148,7 @@ protected:
   /// calls WRN->setExitBBlock(ExitBB). In addition, if the WRN is a loop
   /// construct, this routine also calls IntelGeneralUtils::getLoopFromLoopInfo
   /// to find the Loop from LoopInfo
-  void finalize(BasicBlock *ExitBB);
+  void finalize(BasicBlock *ExitBB, DominatorTree *DT);
 
   //
   // Routines for parsing clauses

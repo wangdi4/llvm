@@ -41,7 +41,6 @@
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Intel_AggInline.h"                  // INTEL
 #include "llvm/Analysis/Intel_Andersens.h"                  // INTEL
-#include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h" // INTEL
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/PtrUseVisitor.h"
 #include "llvm/IR/BasicBlock.h"
@@ -102,7 +101,6 @@
 
 using namespace llvm;
 using namespace llvm::sroa;
-using namespace llvm::vpo;           // INTEL
 
 #define DEBUG_TYPE "sroa"
 
@@ -4551,14 +4549,8 @@ public:
 
   bool runOnFunction(Function &F) override {
 
-#if INTEL_CUSTOMIZATION
-// For VPO OpenMP handling we need SROA even at -O0; calling this util ensures
-// it for functions with OpenMP directives. For other passes needed by OpenMP
-// even at -O0, see PassManagerBuilder::populateFunctionPassManager()
-    if (VPOAnalysisUtils::skipFunctionForOpenmp(F))
-#endif // INTEL_CUSTOMIZATION
-      if (skipFunction(F))
-        return false;
+    if (skipFunction(F))
+      return false;
 
     auto PA = Impl.runImpl(
         F, getAnalysis<DominatorTreeWrapperPass>().getDomTree(),

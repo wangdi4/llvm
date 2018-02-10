@@ -76,17 +76,19 @@ class VPOParoptTransform {
 public:
   /// \brief ParoptTransform object constructor
   VPOParoptTransform(Function *F, WRegionInfo *WI, DominatorTree *DT,
-                     LoopInfo *LI, ScalarEvolution *SE, int Mode,
+                     LoopInfo *LI, ScalarEvolution *SE,
+                     const TargetTransformInfo *TTI, AssumptionCache *AC,
+                     const TargetLibraryInfo *TLI, int Mode,
                      const SmallVectorImpl<Triple> &OffloadTargets)
-      : F(F), WI(WI), DT(DT), LI(LI), SE(SE), Mode(Mode),
+      : F(F), WI(WI), DT(DT), LI(LI), SE(SE), TTI(TTI), AC(AC), TLI(TLI),
+        Mode(Mode),
         OffloadTargets(OffloadTargets.begin(), OffloadTargets.end()),
         IdentTy(nullptr), TidPtr(nullptr), BidPtr(nullptr),
         KmpcMicroTaskTy(nullptr), KmpRoutineEntryPtrTy(nullptr),
         KmpTaskTTy(nullptr), KmpTaskTRedTy(nullptr),
         KmpTaskDependInfoTy(nullptr), TgOffloadRegionId(nullptr),
         TgOffloadEntryTy(nullptr), TgDeviceImageTy(nullptr),
-        TgBinaryDescriptorTy(nullptr), DsoHandle(nullptr)
-  {}
+        TgBinaryDescriptorTy(nullptr), DsoHandle(nullptr) {}
 
   /// \brief Top level interface for parallel and prepare transformation
   bool paroptTransforms();
@@ -106,6 +108,15 @@ private:
 
   /// \brief Get the Scalar Evolution information for loop candidates
   ScalarEvolution *SE;
+
+  /// \brief Get the Target Tranform information for loop candidates.
+  const TargetTransformInfo *TTI;
+
+  /// \brief Get the assumption cache informtion for loop candidates.
+  AssumptionCache *AC;
+
+  /// \brief Get the target library information for the loop candidates.
+  const TargetLibraryInfo *TLI;
 
   /// \brief Paropt compilation mode
   int Mode;
@@ -676,9 +687,11 @@ private:
 
   /// \brief Update the SSA form after the basic block LoopExitBB's successor
   /// is added one more incoming edge.
-  void RewriteUsesOfOutInstructions(
+  void rewriteUsesOfOutInstructions(
       BasicBlock *FirstLoopExitBB,
       DenseMap<Value *, std::pair<Value *, BasicBlock *>> &ValueToLiveinMap);
+
+  bool regularizeOMPLoop(WRegionNode *W);
 
   /// \brief Return true if one of the region W's ancestor is OMP target
   /// construct or the function where W lies in has target declare attribute.

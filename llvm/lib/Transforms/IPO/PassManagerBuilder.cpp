@@ -377,21 +377,6 @@ void PassManagerBuilder::populateFunctionPassManager(
 #if INTEL_CUSTOMIZATION
   FPM.add(createXmainOptLevelPass(OptLevel));
   if (RunVPOOpt && RunVPOParopt && !DisableIntelProprietaryOpts) {
-    if (OptLevel == 0) {
-      // To handle OpenMP we also need SROA and EarlyCSE, but they are disabled
-      // at -O0, so we explicitly add them to the pass pipeline here.
-      //
-      // CMPLRS-46446: Adding them below is not enough. These passes, like many
-      // passes, call skipFunction() and bail out at -O0. The fix was to also
-      // call VPOAnalysisUtils::skipFunctionForOpenmp() from SROA and EarlyCSE
-      // and not bail out if skipFunctionForOpenmp() returns false.
-      // (See SROA.cpp and EarlyCSE.cpp under lib/Transforms/Scalar.)
-      FPM.add(createSROAPass());
-      FPM.add(createEarlyCSEPass());
-    }
-    // The value -1 indicates that the bottom test generation for
-    // loop is always enabled.
-    FPM.add(createLoopRotatePass(-1));
     FPM.add(createVPOCFGRestructuringPass());
     FPM.add(createVPOParoptPreparePass(RunVPOParopt, OffloadTargets));
     if (OptLevel == 0) {

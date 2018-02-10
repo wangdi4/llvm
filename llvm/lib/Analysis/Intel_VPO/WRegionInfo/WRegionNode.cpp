@@ -86,7 +86,7 @@ WRegionNode::WRegionNode(unsigned SCID) : SubClassID(SCID), Attributes(0) {
 /// 3. If the WRN is for a loop construct:
 ///    3a. Find the associated Loop from the LoopInfo.
 ///    3b. If the WRN is a taskloop, set its SchedCode for grainsize/numtasks.
-void WRegionNode::finalize(BasicBlock *ExitBB) {
+void WRegionNode::finalize(BasicBlock *ExitBB, DominatorTree *DT) {
   setExitBBlock(ExitBB);
 
   // Firstprivate and lastprivate clauses may have the same item X
@@ -125,7 +125,7 @@ void WRegionNode::finalize(BasicBlock *ExitBB) {
     LoopInfo *LI = getWRNLoopInfo().getLoopInfo();
     assert(LI && "LoopInfo not present in a loop construct");
     BasicBlock *EntryBB = getEntryBBlock();
-    Loop *Lp = IntelGeneralUtils::getLoopFromLoopInfo(LI, EntryBB, ExitBB);
+    Loop *Lp = IntelGeneralUtils::getLoopFromLoopInfo(LI, DT, EntryBB, ExitBB);
 
     // Do not assert for loop-type constructs when Lp==NULL because transforms
     // before Paropt may have optimized away the loop.
