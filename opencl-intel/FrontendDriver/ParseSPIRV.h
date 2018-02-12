@@ -35,6 +35,10 @@ public:
   /// \return error code of clCompileProgram API
   int ParseSPIRV(IOCLFEBinaryResult **pBinaryResult);
 
+  /// \brief Check that stream of bytes given in \a pBinary begins with SPIR-V
+  /// magic number, i.e 0x07230203
+  static bool isSPIRV(const void* pBinary, const size_t BinarySize);
+
 private:
   /// \brief Read 32bit integer value and convert it to little-endian if
   /// necessary
@@ -42,7 +46,7 @@ private:
   /// \brief Check a SPIR-V module's version, capabilities, and memory model are
   /// supported
   /// \param error - contains explanation why the module is not supported.
-  bool isSPIRVSupported() const;
+  bool isSPIRVSupported(std::string &error) const;
 
   Intel::OpenCL::FECompilerAPI::FESPIRVProgramDescriptor *m_pProgDesc;
   const Intel::OpenCL::ClangFE::CLANG_DEV_INFO& m_sDeviceInfo;
