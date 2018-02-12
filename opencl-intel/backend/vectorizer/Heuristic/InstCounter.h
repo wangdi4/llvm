@@ -66,7 +66,9 @@ namespace intel {
     // block and output as counters. Called after both runs (before and after
     // vectorization), called in the post vectorization, and gets
     // as input the pre-vectorization costs.
-    void countPerBlockHeuristics(std::map<BasicBlock*, int>* preCosts, int packetWidth);
+    void countPerBlockHeuristics(Function &F,
+                                 std::map<BasicBlock*, int>* preCosts,
+                                 int packetWidth);
     // for statistical purposes only.
     // we need to allow the vectorizerCore to maintain the costs of blocks
     // in the pre vectorization version until after vectorization.

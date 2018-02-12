@@ -1147,17 +1147,18 @@ void WeightedInstCounter::copyBlockCosts(std::map<BasicBlock*,int>* dest) {
   );
 }
 
-void WeightedInstCounter::countPerBlockHeuristics(std::map<BasicBlock*, int>* preCosts, int packetWidth) {
+void WeightedInstCounter::countPerBlockHeuristics(
+  Function &F, std::map<BasicBlock*, int>* preCosts, int packetWidth) {
   // this method is just for statistical purposes.
   OCLSTAT_GATHER_CHECK(
   Statistic::ActiveStatsT kernelStats;
-  Function* F = nullptr;
   int vectorizedVersionIsBetter = 0;
   int scalarVersionIsBetter = 0;
   for (std::map<BasicBlock*, int>::iterator it = preCosts->begin(),
     e = preCosts->end(); it!= e; ++it) {
+      // Do not try to access to the object 'BB' points,
+      // the pointer may be no longer valid
       BasicBlock* BB = it->first;
-      F = BB->getParent();
       int scalarVersionWeight = it->second;
       if (!m_blockCosts.count(BB)) // no weight for vectorized version.
         continue;
@@ -1171,8 +1172,7 @@ void WeightedInstCounter::countPerBlockHeuristics(std::map<BasicBlock*, int>* pr
   Blocks_That_Are_Better_Vectorized = vectorizedVersionIsBetter;
   OCLSTAT_DEFINE(Blocks_That_Are_Better_Scalarized,"blocks for which the heuristics says it is better to leave scalar version",kernelStats);
   Blocks_That_Are_Better_Scalarized = scalarVersionIsBetter;
-  if (F)
-    intel::Statistic::pushFunctionStats (kernelStats, *F, DEBUG_TYPE);
+  intel::Statistic::pushFunctionStats (kernelStats, F, DEBUG_TYPE);
   );
 }
 

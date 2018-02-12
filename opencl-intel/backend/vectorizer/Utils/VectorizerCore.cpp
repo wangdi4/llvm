@@ -351,7 +351,7 @@ bool VectorizerCore::runOnFunction(Function &F) {
     if (!forcedVecWidth)  {
       V_ASSERT(postCounter && "uninitialized postCounter");
       // for statistical purposes:: //////////////////////////////////////////////
-      postCounter->countPerBlockHeuristics(&preVectorizationCosts, m_packetWidth);
+      postCounter->countPerBlockHeuristics(F, &preVectorizationCosts, m_packetWidth);
       preVectorizationCosts.clear();
       ////////////////////////////////////////////////////////////////////////////
       m_postWeight = postCounter->getWeight();
