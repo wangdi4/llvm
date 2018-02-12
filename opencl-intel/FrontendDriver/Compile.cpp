@@ -251,6 +251,13 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
     }
   }
 
+#ifndef INTEL_PRODUCT_RELEASE
+  llvm::StringRef intermediateType(getenv("OCL_INTERMEDIATE"));
+  if (intermediateType.equals("SPIRV")) {
+    optionsEx << " -emit-spirv";
+  }
+#endif // INTEL_PRODUCT_RELEASE
+
   IOCLFEBinaryResultPtr spBinaryResult;
 
   int res = ::Compile(m_pProgDesc->pProgramSource, m_pProgDesc->pInputHeaders,

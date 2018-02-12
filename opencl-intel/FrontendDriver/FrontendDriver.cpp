@@ -87,8 +87,22 @@ int ClangFECompiler::CompileProgram(FECompileProgramDescriptor *pProgDesc,
   assert(nullptr != pProgDesc && "Program description can't be null");
   assert(nullptr != pBinaryResult && "Result parameter can't be null");
 
-  return ClangFECompilerCompileTask(pProgDesc, m_sDeviceInfo, m_config)
+  int result = ClangFECompilerCompileTask(pProgDesc, m_sDeviceInfo, m_config)
       .Compile(pBinaryResult);
+
+  if (result != CL_SUCCESS ||
+      !ClangFECompilerParseSPIRVTask::isSPIRV((*pBinaryResult)->GetIR(),
+                                              (*pBinaryResult)->GetIRSize()))
+    return result;
+
+  // If we get here, ClangFECompilerCompileTask::Compile() generated a SPIR-V
+  // module. Now we need to translate it to LLVM IR.
+  FESPIRVProgramDescriptor SPIRVProgDesc{(*pBinaryResult)->GetIR(),
+                                         (*pBinaryResult)->GetIRSize(),
+                                         pProgDesc->pszOptions};
+  (*pBinaryResult)->Release();
+  return ClangFECompilerParseSPIRVTask(&SPIRVProgDesc, m_sDeviceInfo)
+               .ParseSPIRV(pBinaryResult);
 }
 
 int ClangFECompiler::LinkPrograms(

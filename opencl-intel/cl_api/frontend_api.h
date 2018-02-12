@@ -80,7 +80,7 @@ struct FESPIRVProgramDescriptor
     // binary container for SPIRV program
     const void*     pSPIRVContainer;
     // the size in bytes of the container pSPIRVContainer
-    unsigned int    uiSPIRVContainerSize;
+    size_t          uiSPIRVContainerSize;
     // A string for compile options
     const char*     pszOptions;
 };
