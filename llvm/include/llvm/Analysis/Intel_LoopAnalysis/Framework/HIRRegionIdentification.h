@@ -95,11 +95,6 @@ private:
                       const SmallPtrSetImpl<const BasicBlock *> &FromBBs,
                       SmallPtrSetImpl<const BasicBlock *> &VisitedBBs) const;
 
-  /// Returns true if dominator children of \p BB are involved in a cycle which
-  /// doesn't go through backedges. This indicates irreducible CFG. If \p Lp is
-  /// not null, only bblocks in Lp are considered.
-  bool containsCycle(const BasicBlock *BB, const Loop *Lp) const;
-
   /// Returns true if \p BB is generable (can be handled by HIR). \p Lp is
   /// passed as null for function level region mode.
   static bool isGenerable(const BasicBlock *BB, const Loop *Lp);

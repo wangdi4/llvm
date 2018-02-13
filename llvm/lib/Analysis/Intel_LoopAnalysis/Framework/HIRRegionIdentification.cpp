@@ -1,6 +1,6 @@
 //===- HIRRegionIdentification.cpp - Identifies HIR Regions ---------------===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -15,6 +15,7 @@
 
 #include "llvm/Pass.h"
 
+#include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/Statistic.h"
 
 #include "llvm/Support/Debug.h"
@@ -657,56 +658,125 @@ bool HIRRegionIdentification::isReachableFrom(
   return isReachableFromImpl(BB, EndBBs, FromBBs, VisitedBBs);
 }
 
-bool HIRRegionIdentification::containsCycle(const BasicBlock *BB,
-                                            const Loop *Lp) const {
-  SmallVector<BasicBlock *, 8> DomChildren;
+namespace {
+// Keeps track of BasicBlock on stack.
+// Finds any back edge during DFS, Loop's back edges and edges going outside
+// Loop are ignored.
+//
+// Essentially, checks that a Loop has irreducible CFG.
+//
+// See also Intel_VPlan/VPlanDriver.cpp isIrreducibleCFG()
+class DFLoopTraverse
+    : public SmallPtrSet<typename GraphTraits<const BasicBlock *>::NodeRef, 32> {
+public:
+  typedef typename GraphTraits<const BasicBlock *>::NodeRef NodeRef;
+  typedef SmallPtrSet<NodeRef, 32> Container;
 
-  auto Node = DT.getNode(const_cast<BasicBlock *>(BB));
+  DFLoopTraverse(const LoopInfo *LI = nullptr, const Loop *Lp = nullptr)
+      : LI(LI), Lp(Lp) {}
 
-  // Collect dominator children in the same loop.
-  for (auto &I : (*Node)) {
-    auto BB = I->getBlock();
-
-    if (!Lp || (LI.getLoopFor(BB) == Lp)) {
-      DomChildren.push_back(BB);
-    }
+  bool isOutgoing(NodeRef ToBBlock) const {
+    return Lp && !Lp->contains(ToBBlock);
   }
 
-  unsigned Size = DomChildren.size();
+  // See LoopBase<>::getNumBackEdges
+  bool isLoopBackedge(Optional<NodeRef> From, NodeRef To) const {
+    if (!From) {
+      return false;
+    }
+    auto ToLoop = LI->getLoopFor(To);
+    return ToLoop && ToLoop->getHeader() == To &&
+           ToLoop->contains(From.getValue());
+  }
 
-  if (Size < 2) {
+private:
+  DFLoopTraverse(const DFLoopTraverse &that) = delete;
+  DFLoopTraverse(const DFLoopTraverse &&that) = delete;
+  DFLoopTraverse &operator=(const DFLoopTraverse &) = delete;
+  DFLoopTraverse &operator=(const DFLoopTraverse &&) = delete;
+
+  const LoopInfo *LI;
+  const Loop *Lp;
+};
+}
+
+namespace llvm {
+// Specialization of po_iterator_storage to implement
+// finishPostorder/insertEdge.
+//
+// These methods compute CycleSeen using info from DFLoopTraverse
+template <> class po_iterator_storage<DFLoopTraverse, false> {
+public:
+  typedef typename GraphTraits<const BasicBlock *>::NodeRef NodeRef;
+
+  po_iterator_storage(DFLoopTraverse &DFLoopInfo)
+      : CycleSeen(false), DFLoopInfo(DFLoopInfo) {}
+
+  // Return true if edge destination should be visited.
+  // Computes CycleSeen
+  bool insertEdge(Optional<NodeRef> From, NodeRef To) {
+    if (CycleSeen || DFLoopInfo.isOutgoing(To) ||
+        DFLoopInfo.isLoopBackedge(From, To)) {
+      return false;
+    }
+
+    // Seen first time ever
+    if (Visited.insert(To).second) {
+      // keep in sync with po_iterator's stack
+      auto res = DFLoopInfo.insert(To);
+      assert(res.second && "DFLoopInfo and DF traversal are out of sync");
+      (void)res;
+      return true;
+    }
+
+    if (DFLoopInfo.find(To) != DFLoopInfo.end()) {
+      CycleSeen = true;
+    }
+
     return false;
   }
 
-  SmallPtrSet<const BasicBlock *, 1> EndBBs;
-  SmallPtrSet<const BasicBlock *, 1> FromBBs;
-  EndBBs.insert(BB);
+  // Called after all children of BB have been visited.
+  void finishPostorder(NodeRef BB) {
+    // Keep in sync with po_iterator's stack.
+    DFLoopInfo.erase(BB);
+  }
 
-  // For each pair of dominator children, check if they can reach each other
-  // without going through the dominator.
-  for (unsigned I = 0; I < Size - 1; ++I) {
-    auto ChildBB1 = DomChildren[I];
+  bool getFoundCycle() const { return CycleSeen; }
 
-    for (unsigned J = I + 1; J < Size; ++J) {
-      auto ChildBB2 = DomChildren[J];
+private:
+  bool CycleSeen;
+  // set of basic block seen in pre-order.
+  DFLoopTraverse::Container Visited;
+  // set of basic block in po_iterator's stack.
+  // need quick check 'if basic block is on stack of depth-first traversal'
+  DFLoopTraverse &DFLoopInfo;
+};
+}
 
-      FromBBs.clear();
-      FromBBs.insert(ChildBB2);
+namespace
+{
+bool isIrreducible(const LoopInfo *LI, const Loop *Lp,
+                   const BasicBlock *EntryBlock = nullptr) {
 
-      if (!isReachableFrom(ChildBB1, EndBBs, FromBBs)) {
-        continue;
-      }
+  assert((Lp == nullptr) == (EntryBlock != nullptr) &&
+         "Exactly one parameter should be non-null");
 
-      FromBBs.clear();
-      FromBBs.insert(ChildBB1);
+  typedef po_iterator<const BasicBlock *, DFLoopTraverse> Iter;
 
-      if (isReachableFrom(ChildBB2, EndBBs, FromBBs)) {
-        return true;
-      }
+  DFLoopTraverse dfs(LI, Lp);
+  auto Start = Lp ? Lp->getHeader() : EntryBlock;
+  for (auto PoIter = Iter::begin(Start, dfs),
+            PoEnd = Iter::end(Start, dfs);
+       PoIter != PoEnd; ++PoIter) {
+    if (PoIter.getFoundCycle()) {
+        DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Irreducible CFG not supported.\n");
+      return true;
     }
   }
 
   return false;
+}
 }
 
 bool HIRRegionIdentification::isGenerable(const BasicBlock *BB,
@@ -826,12 +896,10 @@ bool HIRRegionIdentification::areBBlocksGenerable(const Loop &Lp) const {
     if (!isGenerable(*BB, &Lp)) {
       return false;
     }
+  }
 
-    // TODO: Is there a more efficient way to check this?
-    if (containsCycle(*BB, &Lp)) {
-      DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Irreducible CFG not supported.\n");
-      return false;
-    }
+  if (isIrreducible(&LI, &Lp)) {
+    return false;
   }
 
   return true;
@@ -1163,11 +1231,10 @@ bool HIRRegionIdentification::areBBlocksGenerable(Function &Func) const {
     if (!isGenerable(&*BBIt, nullptr)) {
       return false;
     }
+  }
 
-    if (containsCycle(&*BBIt, nullptr)) {
-      DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Irreducible CFG not supported.\n");
-      return false;
-    }
+  if (isIrreducible(&LI, nullptr, &Func.getEntryBlock())) {
+    return false;
   }
 
   return true;
