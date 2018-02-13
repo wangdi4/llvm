@@ -155,14 +155,6 @@ public:
   /// statement node appears at most once in its containing declaration.
   bool AlwaysRebuild() { return SemaRef.ArgumentPackSubstitutionIndex != -1; }
 
-#if INTEL_CUSTOMIZATION
-  // Fix for CQ374244: non-template call of template function is ambiguous.
-  /// \brief true if the qualifiers must be suppressed for types that should not
-  /// be qualified for template instantiation. false, if all types must be
-  /// qualified (for example, for type substitution on function parameters).
-  bool SuppressQualifiers() { return SemaRef.SuppressQualifiersOnTypeSubst; }
-#endif  // INTEL_CUSTOMIZATION
-
   /// \brief Returns the location of the entity being transformed, if that
   /// information was not available elsewhere in the AST.
   ///
@@ -4394,10 +4386,6 @@ QualType TreeTransform<Derived>::RebuildQualifiedType(QualType T,
   // Note that [dcl.ref]p1 lists all cases in which cv-qualifiers can be
   // applied to a reference type.
   // FIXME: This removes all qualifiers, not just cv-qualifiers!
-#if INTEL_CUSTOMIZATION
-  // Fix for CQ374244: non-template call of template function is ambiguous.
-  if (SuppressQualifiers())
-#endif  // INTEL_CUSTOMIZATION
   if (T->isFunctionType() || T->isReferenceType())
     return T;
 
