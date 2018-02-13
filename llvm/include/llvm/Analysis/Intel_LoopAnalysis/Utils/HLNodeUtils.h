@@ -1114,6 +1114,13 @@ public:
                                            const HLNode *Node = nullptr);
   static HLNode *getLastLexicalChild(HLNode *Parent, HLNode *Node = nullptr);
 
+  // Returns immediate child of \p ParentNode that contain \p Node.
+  static const HLNode *getImmediateChildContainingNode(const HLNode *ParentNode,
+                                                       const HLNode *Node);
+  // Returns immediate child of \p ParentNode that contain \p Node.
+  static HLNode *getImmediateChildContainingNode(HLNode *ParentNode,
+                                                 HLNode *Node);
+
   /// Returns true if Node1 can be proven to dominate Node2, otherwise
   /// conservatively returns false.
   /// \p HLS is used to produce faster results. A valid value can (and should)

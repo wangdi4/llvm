@@ -327,20 +327,6 @@ void FuseEdge::merge(const FuseEdge &Edge) {
   IsBadEdge = IsBadEdge || Edge.IsBadEdge;
 }
 
-HLNode *FuseGraph::getImmediateChildContainingNode(HLNode *ParentNode,
-                                                   HLNode *Node) {
-  assert(HLNodeUtils::contains(ParentNode, Node) &&
-         "Node doesn't belong to a ParentNode");
-
-  HLNode *Parent = Node->getParent();
-  while (Parent != ParentNode) {
-    Node = Parent;
-    Parent = Node->getParent();
-  }
-
-  return Node;
-}
-
 FuseEdge *FuseGraph::tryGetFuseEdge(unsigned Node1, unsigned Node2) {
   auto Iter = Edges.find(std::make_pair(Node1, Node2));
 
@@ -946,8 +932,8 @@ void FuseGraph::constructDirectedEdges(
           continue;
         }
 
-        HLNode *DstNode =
-            getImmediateChildContainingNode(ParentNode, DstNodeExact);
+        HLNode *DstNode = HLNodeUtils::getImmediateChildContainingNode(
+            ParentNode, DstNodeExact);
         if (DstNode == SrcNode) {
           continue;
         }

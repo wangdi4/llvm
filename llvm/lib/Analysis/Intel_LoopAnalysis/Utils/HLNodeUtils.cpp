@@ -2233,6 +2233,27 @@ HLNode *HLNodeUtils::getLastLexicalChild(HLNode *Parent, HLNode *Node) {
       static_cast<const HLNode *>(Parent), static_cast<const HLNode *>(Node)));
 }
 
+const HLNode *
+HLNodeUtils::getImmediateChildContainingNode(const HLNode *ParentNode,
+                                             const HLNode *Node) {
+  assert(contains(ParentNode, Node) && "Node doesn't belong to a ParentNode");
+
+  HLNode *Parent = Node->getParent();
+  while (Parent != ParentNode) {
+    Node = Parent;
+    Parent = Node->getParent();
+  }
+
+  return Node;
+}
+
+HLNode *HLNodeUtils::getImmediateChildContainingNode(HLNode *ParentNode,
+                                                     HLNode *Node) {
+  return const_cast<HLNode *>(
+      getImmediateChildContainingNode(static_cast<const HLNode *>(ParentNode),
+                                      static_cast<const HLNode *>(Node)));
+}
+
 // For domination we care about single entry i.e. absence of labels in the scope
 // of interest.
 // For post domination we care about single exit i.e. absence of jumps from
