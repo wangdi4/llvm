@@ -652,36 +652,65 @@ void VPInstruction::generateInstruction(VPTransformState &State,
 
 #if INTEL_CUSTOMIZATION
 void VPInstruction::executeHIR(VPOCodeGenHIR *CG) {
+  // TODO: For the reuse/invalidation of the underlying HIR to be working
+  // properly, we need to do an independent traversal of all the VPInstructions
+  // in the CFG and invalidate their HIR when:
+  //  1) there are nested blobs that need to be widened,
+  //  2) the decomposed VPInstructions don't precede their master VPInstruction
+  //     (rule to be refined), and
+  //  3) the decomposed VPInstructions have more than one use.
+
   HLInst *WInst;
 
   // TBD - see if anything special is needed for semiphis.
   if (Opcode == SemiPhi)
     return;
 
-  // TODO: As a temporal workaround, we are currently skipping VPInstructions
-  // resulting from decomposition. These VPInstructions are:
-  //    1. VPInstructions with no attached HLDDNode .
-  //    2. VPInstructions with an attached HLLoop (inductive semi-phis
-  //       - already skipped by previous early exit - and bottom test loop
-  //       condition).
-  // CG currently relies only on the VPInstruction with the HLDDNode information
-  // to generate the whole "re-composed" HIR. This approach won't work when we
-  // introduce VPlan-to-VPlan transformations that modify the input
-  // VPInstructions.
-  if (HIR.isMaster()) {
-    HLDDNode *Node = HIR.getUnderlyingDDN();
-    if (HLInst *Inst = dyn_cast<HLInst>(Node))
+  if (HIR.isDecomposed() && HIR.isValid()) {
+    // Skip decomposed VPInstruction with valid HIR. They will be codegen'ed by
+    // its master VPInstruction.
+    LLVM_DEBUG(dbgs() << "Skipping decomposed VPInstruction with valid HIR:"
+                      << *this << "\n");
+    return;
+  }
+
+  if (HIR.isValid()) {
+    // Master VPInstruction with valid HIR.
+    assert(HIR.isMaster() && "VPInstruction with valid HIR must be a Master "
+                             "VPInstruction at this point.");
+    HLDDNode *HNode = HIR.getUnderlyingDDN();
+    if (auto *Inst = dyn_cast<HLInst>(HNode)) {
       CG->widenNode(Inst, nullptr);
-    else if (HLIf *HIf = dyn_cast<HLIf>(Node)) {
+      return;
+    }
+    if (auto *HIf = dyn_cast<HLIf>(HNode)) {
       // We generate a compare instruction from the IF predicate. The VPValue
-      // corresponding to this instruction gets used as the condition bit value
-      // for the conditional branch. We need a mapping between this VPValue and
-      // the widened value so that we can generate code for the predicate
-      // recipes.
+      // corresponding to this instruction gets used as the condition bit
+      // value for the conditional branch. We need a mapping between this
+      // VPValue and the widened value so that we can generate code for the
+      // predicate recipes.
       WInst = CG->widenIfPred(HIf, nullptr);
       CG->addVPValueWideRefMapping(this, WInst->getOperandDDRef(0));
+      return;
     }
+    if (isa<HLLoop>(HNode)) {
+      // Master VPInstructions with an attached HLLoop are IV-related or bottom
+      // test instructions that don't have explicit instruction representation
+      // in HIR. This information will be updated directly when processing the
+      // HLLoop construct.
+      return;
+    }
+
+    llvm_unreachable("Master VPInstruction with unexpected HLDDNode.");
   }
+
+  // VPInstruction with invalid or no HIR (new).
+  LLVM_DEBUG(
+      dbgs()
+      << "TODO: Generate new HIR for VPInstruction with invalid or no HIR: "
+      << *this << "\n");
+  llvm_unreachable("VPInstruction with invalid HIR shouldn't be generated at "
+                   "this point in VPlan.");
 }
 #endif
 
@@ -735,6 +764,12 @@ void VPInstruction::print(raw_ostream &O) const {
 #if INTEL_CUSTOMIZATION
   case VPInstruction::SemiPhi:
     O << "semi-phi";
+    break;
+  case VPInstruction::SMax:
+    O << "smax";
+    break;
+  case VPInstruction::UMax:
+    O << "umax";
     break;
 #endif
   default:

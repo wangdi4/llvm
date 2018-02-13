@@ -550,8 +550,16 @@ private:
 ///      or master VPInstruction attached. New VPInstructions also exist in the
 ///      LLVM-IR path.
 ///
-/// DESIGN PRINCIPLE: access to underlying IR is forbidden by default. Adding
-/// new friends to this class to have access to it must be very well justified.
+/// DESIGN PRINCIPLE: access to the underlying IR is forbidden by default. Only
+/// the front-end and back-end of VPlan should have access to the underlying IR
+/// and be aware of the VPInstruction sub-type (master/decomposed/new)
+/// instructions. Some well-delimited VPlan analyses, previous design review
+/// approval, may also need to have access to the underlying IR and
+/// VPInstruction sub-types to bring analysis information computed on the input
+/// IR to VPlan. The remaining VPlan algorithms should process all the
+/// VPInstructions ignoring their underlying IR and sub-type. For these
+/// reasons, adding new friends to this class must be very well justified.
+///
 /// DESIGN DECISION: for VPO, we decided to pay the memory and design cost of
 /// having LLVM-IR data (Inst) HIR data (MasterData) and their respective
 /// interfaces in the same class in favor of minimizing divergence with the
@@ -715,7 +723,7 @@ public:
   // proper Phi nodes. At this point, we can find semi-phis at any point of the
   // VPBasicBlock and even redundant semi-phis blending exactly the same
   // definitions.
-  enum { Not = Instruction::OtherOpsEnd + 1, SemiPhi };
+  enum { Not = Instruction::OtherOpsEnd + 1, SemiPhi, SMax, UMax };
 #else
   enum { Not = Instruction::OtherOpsEnd + 1 };
 #endif

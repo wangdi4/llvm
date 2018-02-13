@@ -117,7 +117,9 @@ private:
 public:
   PlainCFGBuilderHIR(HLLoop *Lp, const DDGraph &DDG, VPlan *Plan,
                      SmallDenseMap<VPBasicBlock *, HLLoop *> &H2HLLp)
-      : TheLoop(Lp), Plan(Plan), Header2HLLoop(H2HLLp), Decomposer(Plan, DDG) {}
+      : TheLoop(Lp), Plan(Plan), Header2HLLoop(H2HLLp),
+        Decomposer(Plan, Lp, DDG) {}
+
   /// Build a plain CFG for an HLLoop loop nest. Return the TopRegion containing
   /// the plain CFG.
   VPRegionBlock *buildPlainCFG();
@@ -241,7 +243,8 @@ void PlainCFGBuilderHIR::visit(HLLoop *HLp) {
 
   // Materialize IV Next and bottom test in the loop latch. Connect Latch to
   // Header and set Latch condition bit.
-  VPValue *LatchCondBit = Decomposer.createLoopIVNextAndBottomTest(HLp, Latch);
+  VPValue *LatchCondBit =
+      Decomposer.createLoopIVNextAndBottomTest(HLp, Preheader, Latch);
   VPlanUtils::connectBlocks(Latch, Header);
   VPlanUtils::setBlockCondBit(Latch, LatchCondBit, Plan);
 
