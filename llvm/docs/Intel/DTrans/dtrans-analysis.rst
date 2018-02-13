@@ -286,6 +286,16 @@ follow the use-chain from the value to its local source (either a function
 argument, a global value or a local instruction that defined the pointer) and
 populate the LocalPointerInfo to be returned.
 
+For DTrans optimizations to be possible, each pointer that may point to a type
+that will be optimized will in most cases need to point only to that type
+and generic equivalents such as i8* and a pointer-sized integer. If the local
+alias analysis finds just one such type, that type will be described as the
+unique dominant type for the pointer. Identifying a unique dominant type for
+a pointer will simplify the analysis of its uses. For example, when a pointer
+is used by a bitcast instruction, we are interested in whether or not the
+destination type is safe for the pointer's dominant type. If all other aliases
+of the pointer are generic equivalents, they do not need to be analyzed.
+
 
 Instruction Handling
 --------------------
@@ -402,32 +412,39 @@ interest. If it does, the uses of the bitcast must be examined to determine
 whether or not the use might present a safety issue for some DTrans
 optimization.
 
-If the destination type of the bitcast is a type of interest and the source
-value is an i8* value, the cast is only legal if one of the following
-conditions are met:
+If the source pointer operand is not a value of interest but the destination
+type is a type of interest, the destination type will be marked with the
+`BadCasting`_ safety condition. This would happen, for instance, if an
+unknown i8* value were cast as a pointer to an aggregate type.
 
-1. The source value is the result of an allocation call.
-2. The source value can be proved to locally alias to the destination type and
-   is known not to locally alias to any other type. (See `Local Pointer Type
-   Analysis`_.)
-3. The destination type points to the type of the first element in an aggregate
-   type to which the value is known to alias locally.
+If the source pointer operand is known to alias to incompatible types then
+the cast is ambiguous and each aliased type and the destination type (if
+it is a type of interest) will be marked with the `BadCasting`_ safety
+condition.
 
-If the destination type is a type of interest and the source value is not an
-i8* value, the cast can only be safe if the source value is a pointer to an
-aggregate type and the destination type points to the type of the first element
-in the aggregate type pointed to by the source value.
+If the source pointer operand is known to point to a single aggregate type
+the cast is safe if the destination type is one of the following:
 
-If the destination type is not a type of interest but the source value is a
-value of interest, the cast is only legal if one of the following conditions is
-met:
+ - The same aggregate type (for instance, an i8* value with a known type alias
+   may be cast back to its original type)
+ - A generic pointer equivalent (for instance, a pointer to an aggregate may be
+   cast to an i8* or a pointer sized integer)
+ - A type that points to the first element in the aggregate type (for instance,
+   if a structure has an i16 value as its first field, a pointer to the
+   structure may be cast to i16* to access that field)
 
-1. The destination type is i8*.
-2. The source value is a pointer to a pointer and the destination type is
-   a pointer to a pointer-sized integer (pointers are often stored to memory
-   this way in LLVM IR).
-3. The destination type points to the type of the first element in an aggregate
-   type to which the source value is known to alias locally.
+The immediate type (that is, the type as reported by LLVM) of the source
+pointer operand is not important since the local pointer analysis will have
+already proven that it is equivalent to the aliased type.
+
+If the source pointer operand is known to point to an element within an
+aggregate type, then the cast is safe if the destination type is one of the
+following:
+
+ - A type that points to the type of the element
+ - A generic pointer equivalent (for instance, i8* or a pointer-sized integer)
+ - A type that points to the type of the first field within the element (at
+   any level of nesting) if the element is an aggregate type
 
 
 PtrToInt

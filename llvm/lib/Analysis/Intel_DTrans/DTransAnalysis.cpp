@@ -134,6 +134,38 @@ public:
     return NumAliased > 1;
   }
 
+  llvm::Type *getDominantAggregateTy() {
+    // TODO: Compute this as aliases are added.
+    if (!AliasesToAggregatePointer)
+      return nullptr;
+    llvm::Type *DomTy = nullptr;
+    for (auto *AliasTy : PointerTypeAliases) {
+      llvm::Type *BaseTy = AliasTy;
+      while (BaseTy->isPointerTy())
+        BaseTy = BaseTy->getPointerElementType();
+      if (!BaseTy->isAggregateType())
+        continue;
+      if (!DomTy) {
+        DomTy = AliasTy;
+        continue;
+      }
+      // If this type can be an element zero access of DomTy,
+      // DomTy is still dominant.
+      if (dtrans::isElementZeroAccess(DomTy, AliasTy))
+        continue;
+      // If what we previously thought was the dominant type can be
+      // an element zero access of the current alias, the current
+      // alias becomes dominant.
+      if (dtrans::isElementZeroAccess(AliasTy, DomTy)) {
+        DomTy = AliasTy;
+        continue;
+      }
+      // Otherwise, there are conflicting aliases and nothing can be dominant.
+      return nullptr;
+    }
+    return DomTy;
+  }
+
   PointerTypeAliasSetRef getPointerTypeAliasSet() { return PointerTypeAliases; }
   ElementPointeeSetRef getElementPointeeSet() { return ElementPointees; }
 
@@ -675,163 +707,77 @@ public:
   }
 
   void visitBitCastInst(BitCastInst &I) {
-    // Collect the types involed in this cast.
-    llvm::Type *SrcTy = I.getSrcTy();
     llvm::Type *DestTy = I.getDestTy();
+    llvm::Value *SrcVal = I.getOperand(0);
 
-    if (DTInfo.isTypeOfInterest(DestTy)) {
-      if (SrcTy == Int8PtrTy) {
-        // If we are casting from an i8* to a type of interest, make sure
-        // the source operand is known to alias DestTy and does not alias to
-        // any other types.
-        LocalPointerInfo &LPI = LPA.getLocalPointerInfo(I.getOperand(0));
-        bool AliasesDestTy = false;
-        bool AccessesElementZero = false;
-        for (auto *AliasTy : LPI.getPointerTypeAliasSet()) {
-          if (AliasTy == Int8PtrTy)
-            continue;
-          if (AliasTy == DestTy) {
-            AliasesDestTy = true;
-            continue;
-          }
-          // If this cast is accessing element zero of a known alias type
-          // that is a safe cast.
-          if (dtrans::isElementZeroAccess(AliasTy, DestTy)) {
-            DEBUG(dbgs() << "dtrans: bitcast used to access element zero:\n"
-                         << "  " << I << "\n");
-            AccessesElementZero = true;
-            continue;
-          }
-          // If the source pointer aliases to another type, the cast is unsafe.
-          DEBUG(dbgs() << "dtrans-safety: Bad casting -- "
-                       << "unsafe cast of aliased pointer:\n"
-                       << "  " << I << "\n"
-                       << "  AliasTy: " << *AliasTy << "\n");
-          setValueTypeInfoSafetyData(&I, dtrans::BadCasting);
-          return;
-        }
-        if (!AliasesDestTy && !AccessesElementZero) {
-          DEBUG(dbgs() << "dtrans-safety: Bad casting -- "
-                       << "unsafe cast of i8* to unexpected type:\n"
-                       << "  " << I << "\n");
-          setValueTypeInfoSafetyData(&I, dtrans::BadCasting);
-          return;
-        }
-        // TODO: Check for element pointer use.
-      } else {
-        // If DestTy points to a type that matches the type of SrcTy
-        // element zero, this is an element access.
-        if (dtrans::isElementZeroAccess(SrcTy, DestTy)) {
-          DEBUG(dbgs() << "dtrans: bitcast used to access element zero:\n"
-                       << "  " << I << "\n");
-        } else {
-          DEBUG(dbgs() << "dtrans-safety: Bad casting -- "
-                       << "unsafe cast of pointer:\n"
-                       << "  " << I << "\n");
-          setValueTypeInfoSafetyData(&I, dtrans::BadCasting);
-          return;
-        }
+    // If the source operand is not a value of interest, we only need to
+    // consider the destination type.
+    if (!isValueOfInterest(SrcVal)) {
+      // If the destination type is a type of interest, then the cast is
+      // unsafe since we don't know anything about the source value.
+      if (DTInfo.isTypeOfInterest(DestTy)) {
+        DEBUG(dbgs() << "dtrans-safety: Bad casting -- "
+                     << "unknown pointer cast to type of interest:\n"
+                     << "  " << I << "\n");
+        setValueTypeInfoSafetyData(&I, dtrans::BadCasting);
       }
-      // We don't need to check the source type any further.
       return;
     }
 
-    // If the source value is of interest, make sure the destination value
-    // will be used in safe ways.
-    if (isValueOfInterest(I.getOperand(0))) {
-      // Casting to i8* is safe (though the uses may still be unsafe).
-      if (DestTy == Int8PtrTy)
-        return;
+    // If we get here, the source operand is a value of interest.
 
-      // If the source is a pointer to a pointer, and the destination is
-      // a pointer to a pointer-sized integer, the cast is safe (though the
-      // uses may still be unsafe).
-      if (SrcTy->isPointerTy() &&
-          SrcTy->getPointerElementType()->isPointerTy() &&
-          DestTy == PtrSizeIntPtrTy)
-        return;
+    LocalPointerInfo &LPI = LPA.getLocalPointerInfo(SrcVal);
 
-      // Get the local pointer info for the source value.
-      LocalPointerInfo &LPI = LPA.getLocalPointerInfo(I.getOperand(0));
-
-      // If this is a pointer to an element within a struct, make sure
-      // it is being cast to the correct type.
-      auto ElementPointees = LPI.getElementPointeeSet();
-      if (ElementPointees.size() > 0) {
-        for (auto &PointeePair : ElementPointees) {
-          dtrans::TypeInfo *ParentTI =
-              DTInfo.getOrCreateTypeInfo(PointeePair.first);
-          // It should only be necessary to perform a cast if the source
-          // pointer is an i8*. Otherwise, we probably need some additional
-          // handling somewhere.
-          if (SrcTy != Int8PtrTy) {
-            DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
-                         << "non-i8* value bitcast "
-                         << "of element pointer:\n  " << I << "\n");
-            ParentTI->setSafetyData(dtrans::UnhandledUse);
-          }
-          if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(ParentTI)) {
-            assert(PointeePair.second < ParentStInfo->getNumFields());
-            dtrans::FieldInfo &FI = ParentStInfo->getField(PointeePair.second);
-            if (FI.getLLVMType() != DestTy->getPointerElementType()) {
-              // This probably indicates that a union was present.
-              // TODO: Should this have its own safety condition?
-              //       Should the field info be marked accordingly?
-              DEBUG(dbgs() << "dtrans-safety: Bad casting -- "
-                           << "element pointer cast to incorrect type:\n"
-                           << "  " << I << "\n");
-              ParentStInfo->setSafetyData(dtrans::BadCasting);
-            }
-          } else {
-            // We only store info for structs and arrays, so this must be
-            // an array. The cast asserts that.
-            auto *ParentArrayInfo = cast<dtrans::ArrayInfo>(ParentTI);
-            if (ParentArrayInfo->getElementLLVMType() !=
-                DestTy->getPointerElementType()) {
-              DEBUG(dbgs() << "dtrans: Bad casting -- "
-                           << "array element pointer cast to incorrect type.\n"
-                           << "  " << I << "\n");
-              ParentArrayInfo->setSafetyData(dtrans::BadCasting);
-            }
-          }
-        }
-        return;
-      }
-
-      // If the source value is an i8*, we need to look for the type of
-      // interest to which it is known to alias. (We know there is one
-      // because of the isValueOfInterest check.)
-      if (SrcTy == Int8PtrTy) {
-        for (auto *AliasTy : LPI.getPointerTypeAliasSet()) {
-          // If this aliases to multiple types of interest those will have
-          // already been marked with bad casting elsewhere, so we can just
-          // take the first one and stop looking.
-          if (DTInfo.isTypeOfInterest(AliasTy)) {
-            SrcTy = AliasTy;
-            break;
-          }
-        }
-      }
-
-      assert(DTInfo.isTypeOfInterest(SrcTy));
-
-      // The only other legal cast is a cast to the type of the first
-      // element in an aggregate (which is a way to access that element
-      // without using a GEP instruction).
-      if (dtrans::isElementZeroAccess(SrcTy, DestTy)) {
-        DEBUG(dbgs() << "dtrans: bitcast used to access element zero:\n"
-                     << "  " << I << "\n");
-      } else {
-        // TODO: If SrcTy is a struct and DestTy is smaller than the struct's
-        //       element zero type, it's likely that element zero is actually
-        //       a union. We might want to handle that as something other than
-        //       a bad cast.
-        DEBUG(dbgs() << "dtrans-safety: Bad casting -- "
-                     << "unsafe cast of pointer:\n"
-                     << "  " << I << "\n");
-        setBaseTypeInfoSafetyData(SrcTy, dtrans::BadCasting);
-      }
+    // If the source points to multiple incompatible types, mark the cast
+    // as unsafe for all aliased types.
+    if (isAliasSetOverloaded(LPI.getPointerTypeAliasSet(),
+                             /*AllowElementZeroAccess=*/true)) {
+      DEBUG(dbgs() << "dtrans-safety: Bad casting -- "
+                   << "cast of ambiguous pointer:\n"
+                   << "  " << I << "\n");
+      setValueTypeInfoSafetyData(&I, dtrans::BadCasting);
+      setValueTypeInfoSafetyData(SrcVal, dtrans::BadCasting);
+      return;
     }
+
+    // Get the dominant aggregate type to which the source operand points.
+    // Usually the value will only alias to one aggregate type. However, if
+    // the first element in an aggregate type is a nested type, the value
+    // may also alias to a pointer to that type. In that case, the parent
+    // type will be returned as the dominant type. The case of multiple
+    // incompatible types was checked for above.
+    llvm::Type *DomTy = LPI.getDominantAggregateTy();
+    if (!DomTy) {
+      // If a dominant aggregate type was not identified, this must be a
+      // pointer to an element within some other aggregate type.
+      auto ElementPointees = LPI.getElementPointeeSet();
+      assert(ElementPointees.size() > 0);
+      // In the case of multiple nested element zero types, there may be
+      // more than one safe element pointee.
+      for (auto &PointeePair : ElementPointees) {
+        dtrans::TypeInfo *ParentTI =
+            DTInfo.getOrCreateTypeInfo(PointeePair.first);
+        llvm::Type *ElemTy;
+        if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(ParentTI)) {
+          assert(PointeePair.second < ParentStInfo->getNumFields());
+          dtrans::FieldInfo &FI = ParentStInfo->getField(PointeePair.second);
+          ElemTy = FI.getLLVMType();
+        } else {
+          // We only store info for structs and arrays, so this must be
+          // an array. The cast asserts that.
+          auto *ParentArrayInfo = cast<dtrans::ArrayInfo>(ParentTI);
+          ElemTy = ParentArrayInfo->getElementLLVMType();
+        }
+        verifyBitCastSafety(I, ElemTy->getPointerTo(), DestTy);
+      }
+      return;
+    }
+
+    // If we get here, we have identified a single dominant type to which
+    // the source operand points. We call a helper function to handle this
+    // case because the details are the same as the casting of a pointer
+    // to an element.
+    verifyBitCastSafety(I, DomTy, DestTy);
   }
 
   void visitLoadInst(LoadInst &I) {
@@ -1255,32 +1201,118 @@ private:
 
   inline bool isPtrSizeInt(Value *V) { return (V->getType() == PtrSizeIntTy); }
 
+  // Given two types if both types are pointers to pointers, unwind the
+  // indirection to see if there is some level at which a pointer within
+  // ATy is safely equivalent to an i8* or a pointer-sized integer in BTy.
+  //
+  // For instance, the following are all a safe bitcasts:
+  //
+  //   (1) %p1 = bitcast %struct.S** to i64*
+  //   (2) %p2 = bitcast %struct.S*** to i8**
+  //   (3) %p3 = bitcast %struct.S*** to i8***
+  //
+  // (1) is safe because after unwinding one level of indirection %struct.S*
+  //     can safely be cast to a pointer-sized integer (i64).
+  //
+  // (2) is safe because after unwinding one level of indirection %struct.S**
+  //     can be safely cast to i8*
+  //
+  // (3) is safe because after unwinding two levels of indirection %struct.S*
+  //     can safely be cast to i8*.
+  //
+  // We need the equivalence to be directional. For instance, any
+  // %struct.A* can be cast to an i8* but not just any i8* can be cast to a
+  // %struct.A*. In cases where the generic pointer can be either type,
+  // this function must be called twice, with the arguments reversed the second
+  // time.
+  bool isGenericPtrEquivalent(llvm::Type *ATy, llvm::Type *BTy) {
+    auto *TempATy = ATy;
+    auto *TempBTy = BTy;
+    while (TempATy->isPointerTy() && TempBTy->isPointerTy()) {
+      if (TempBTy == Int8PtrTy)
+        return true;
+
+      auto *NextATy = TempATy->getPointerElementType();
+      auto *NextBTy = TempBTy->getPointerElementType();
+
+      if (TempBTy == PtrSizeIntPtrTy && NextATy->isPointerTy())
+        return true;
+
+      TempATy = NextATy;
+      TempBTy = NextBTy;
+    }
+
+    return false;
+  }
+
   // Check to see if the value aliases to incompatible pointer types.
   // The alias set may contain a pointer-sized integer, which is compatible
   // with any pointer (via PtrToInt). The i8* type is also compatible with
   // any pointer type. Finally, any pointer-to-pointer is compatible with
   // a pointer to a pointer-sized integer (i.e. i64*).
-  bool isAliasSetOverloaded(LocalPointerInfo::PointerTypeAliasSetRef Aliases) {
-    for (auto AliasIt = Aliases.begin(); AliasIt != Aliases.end(); ++AliasIt) {
+  //
+  // Ideally, we'd move this logic into LocalPointerInfo so that it could be
+  // determined as aliases are added. However, the generic pointer check
+  // requires access to the DataLayout which isn't easily available in the
+  // LocalPointerInfo. So for now we're leaving it here.
+  //
+  // In practice, the maximum number of compatible aliases is 2*N+1 where N is
+  // the number of levels of indirection on the dominant pointer type. In
+  // practice there will almost always be three or fewer aliases, so this code
+  // should be trivially fast.
+  bool isAliasSetOverloaded(LocalPointerInfo::PointerTypeAliasSetRef Aliases,
+                            bool AllowElementZeroAccess = false) {
+    auto AliasEnd = Aliases.end();
+    for (auto AliasIt = Aliases.begin(); AliasIt != AliasEnd; ++AliasIt) {
       auto *AliasTy = *AliasIt;
       if (!AliasTy->isPointerTy() || (AliasTy == Int8PtrTy))
         continue;
-      for (auto OtherAliasIt = AliasIt; OtherAliasIt != Aliases.end();
+
+      for (auto OtherAliasIt = std::next(AliasIt); OtherAliasIt != AliasEnd;
            ++OtherAliasIt) {
         auto *OtherAliasTy = *OtherAliasIt;
-        if (AliasTy == OtherAliasTy)
-          continue;
         if (!OtherAliasTy->isPointerTy() || (OtherAliasTy == Int8PtrTy))
           continue;
-        if ((AliasTy->getPointerElementType()->isPointerTy() &&
-             OtherAliasTy->getPointerElementType() == PtrSizeIntTy) ||
-            (OtherAliasTy->getPointerElementType()->isPointerTy() &&
-             AliasTy->getPointerElementType() == PtrSizeIntTy))
+        if (isGenericPtrEquivalent(AliasTy, OtherAliasTy) ||
+            isGenericPtrEquivalent(OtherAliasTy, AliasTy))
+          continue;
+        if (AllowElementZeroAccess &&
+            (dtrans::isElementZeroAccess(AliasTy, OtherAliasTy) ||
+             dtrans::isElementZeroAccess(OtherAliasTy, AliasTy)))
           continue;
         return true;
       }
     }
     return false;
+  }
+
+  // Verify that a bitcast from \p SrcTy to \p DestTy would be safe. The
+  // caller has analyzed the bitcast instruction to determine that these
+  // types need to be considered. These may not be the actual types used
+  // by the bitcast instruction, but the source operand will be known to
+  // be an instance of SrcTy in some way.
+  void verifyBitCastSafety(BitCastInst &I, llvm::Type *SrcTy,
+                           llvm::Type *DestTy) {
+    // If the types are the same, it's a safe cast.
+    if (SrcTy == DestTy)
+      return;
+
+    // If DestTy is a generic equivalent of SrcTy, it's a safe cast.
+    if (isGenericPtrEquivalent(SrcTy, DestTy))
+      return;
+
+    // If this can be interpreted as an element-zero access of SrcTy,
+    // it's a safe cast.
+    if (dtrans::isElementZeroAccess(SrcTy, DestTy))
+      return;
+
+    // Otherwise, it's not safe.
+    DEBUG(dbgs() << "dtrans-safety: Bad casting -- "
+                 << "unsafe cast of aliased pointer:\n"
+                 << "  " << I << "\n");
+    setValueTypeInfoSafetyData(I.getOperand(0), dtrans::BadCasting);
+    if (DTInfo.isTypeOfInterest(DestTy))
+      setValueTypeInfoSafetyData(&I, dtrans::BadCasting);
   }
 
   void analyzeAllocationCall(CallInst &CI, dtrans::AllocKind Kind) {

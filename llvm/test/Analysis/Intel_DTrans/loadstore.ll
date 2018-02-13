@@ -346,9 +346,8 @@ define void @test25(%struct.test25** %pIn) {
   ret void
 }
 
-; FIXME: This shouldn't be bad casting.
 ; CHECK: LLVMType: %struct.test25 = type { i32, i32 }
-; CHECK: Safety data: Bad casting
+; CHECK: Safety data: No issues found
 
 ; Store an allocated pointer-to-pointer directly to memory.
 %struct.test26 = type { i32, i32 }
@@ -359,9 +358,8 @@ define void @test26(%struct.test26*** %pIn) {
   ret void
 }
 
-; FIXME: This shouldn't be bad casting.
 ; CHECK: LLVMType: %struct.test26 = type { i32, i32 }
-; CHECK: Safety data: Bad casting
+; CHECK: Safety data: No issues found
 
 ; Because of the way the types get printed out, all array types are
 ; after all structure types. To avoid continually renumbering the

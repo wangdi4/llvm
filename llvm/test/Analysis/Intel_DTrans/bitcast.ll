@@ -516,6 +516,37 @@ define void @test33( %struct.test33* %p ) {
 ; CHECK: LLVMType: %struct.test33 = type { i32, i32 }
 ; CHECK: Safety data: Bad casting
 
+; Multiple cast of allocated pointer-to-pointer-to-pointer.
+; The second cast effectively re-interprets %struct.test34*** so that a
+; an allocated %struct.test34** pointer can be stored to this location as
+; an i8** value.
+;
+; A typical occurance of the pattern may look like this:
+;
+;   <BB1>:
+;     %7 = call noalias i8* @malloc(i64 8)
+;     %8 = bitcast i8* %7 to %struct.a***
+;     ...
+;   <BB2>:
+;     ...
+;     %49 = tail call noalias i8* @calloc(i64 %46, i64 8)
+;     %50 = bitcast i8* %7 to i8**
+;     store i8* %49, i8** %50, align 8, !tbaa !45
+;     ...
+;     %52 = bitcast i8* %49 to %struct.a**
+;     ...
+;
+%struct.test34 = type { i32, i32 }
+define void @test34() {
+  %p1 = call noalias i8* @malloc(i64 8)
+  %p2 = bitcast i8* %p1 to %struct.test34***
+  %p3 = bitcast i8* %p1 to i8**
+  ret void
+}
+
+; CHECK: LLVMType: %struct.test34 = type { i32, i32 }
+; CHECK: Safety data: No issues found
+
 ; Array types get printed last so theese checks aren't with their IR.
 
 ; CHECK: LLVMType: [16 x %struct.test10]
