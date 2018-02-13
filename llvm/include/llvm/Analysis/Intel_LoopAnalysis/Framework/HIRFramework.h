@@ -102,7 +102,7 @@ private:
   HIRSCCFormation &SCCF;
 
   /// HLNodeUtils object for the framework.
-  HLNodeUtils HNU;
+  std::unique_ptr<HLNodeUtils, HLNodeUtils::HLNodeUtilsDeleter> HNU;
 
   HIRAnalysisProvider AnalysisProvider;
 
@@ -145,8 +145,8 @@ public:
   unsigned getMaxScalarSymbase() const;
 
   /// Returns HLNodeUtils object.
-  HLNodeUtils &getHLNodeUtils() { return HNU; }
-  const HLNodeUtils &getHLNodeUtils() const { return HNU; }
+  HLNodeUtils &getHLNodeUtils() { return *HNU; }
+  const HLNodeUtils &getHLNodeUtils() const { return *HNU; }
 
   /// Returns DDRefUtils object.
   DDRefUtils &getDDRefUtils() const;

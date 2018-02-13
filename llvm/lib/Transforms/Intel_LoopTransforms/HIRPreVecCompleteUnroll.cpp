@@ -51,7 +51,7 @@ INITIALIZE_PASS_BEGIN(HIRPreVecCompleteUnroll, "hir-pre-vec-complete-unroll",
 INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopStatistics)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysis)
 INITIALIZE_PASS_END(HIRPreVecCompleteUnroll, "hir-pre-vec-complete-unroll",
                     "HIR PreVec Complete Unroll", false, false)

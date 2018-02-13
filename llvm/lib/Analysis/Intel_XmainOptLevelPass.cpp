@@ -26,14 +26,16 @@ static cl::opt<unsigned>
 
 AnalysisKey XmainOptLevelAnalysis::Key;
 
+XmainOptLevel::XmainOptLevel(unsigned OptLevel)
+    : OptLevel((ForceXmainOptLevel == unsigned(-1)) ? OptLevel
+                                                    : ForceXmainOptLevel) {}
+
 char XmainOptLevelWrapperPass::ID = 0;
 INITIALIZE_PASS(XmainOptLevelWrapperPass, "xmain-opt-level-pass",
                 "Xmain opt level pass", false, true)
 
 XmainOptLevelWrapperPass::XmainOptLevelWrapperPass(unsigned OptLevel)
-    : ImmutablePass(ID),
-      Impl((ForceXmainOptLevel == unsigned(-1)) ? OptLevel
-                                                : ForceXmainOptLevel) {
+    : ImmutablePass(ID), Impl(OptLevel) {
   initializeXmainOptLevelWrapperPassPass(*PassRegistry::getPassRegistry());
 }
 

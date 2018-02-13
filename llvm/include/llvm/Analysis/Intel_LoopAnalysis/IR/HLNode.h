@@ -33,6 +33,7 @@ class formatted_raw_ostream;
 
 namespace loopopt {
 
+class HIRFramework;
 class HLNode;
 class HLGoto;
 class HLLabel;
@@ -137,6 +138,7 @@ protected:
   HLNode(const HLNode &HLNodeObj);
   virtual ~HLNode() {}
 
+  friend class HIRFramework;
   friend class HLNodeUtils;
 
   /// IndentWidth used to print HLNodes.

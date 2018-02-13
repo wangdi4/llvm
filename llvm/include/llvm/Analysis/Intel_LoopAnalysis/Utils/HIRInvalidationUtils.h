@@ -55,7 +55,7 @@ public:
   static void invalidateBody(const HLLoop *Loop) {
     HIRAnalysisProvider::Invoke<Exclude...>(
         Loop->getHLNodeUtils().getHIRFramework().getHIRAnalysisProvider())(
-        &HIRAnalysisPass::markLoopBodyModified, Loop);
+        &HIRAnalysisBase::markLoopBodyModified, Loop);
   }
 
   /// Invalidates all the available HIR analysis on any loop in the loopnest
@@ -69,7 +69,7 @@ public:
     for (auto *Lp : Loops) {
       HIRAnalysisProvider::Invoke<Exclude...>(
           Loop->getHLNodeUtils().getHIRFramework().getHIRAnalysisProvider())(
-          &HIRAnalysisPass::markLoopBodyModified, Lp);
+          &HIRAnalysisBase::markLoopBodyModified, Lp);
     }
   }
 
@@ -79,7 +79,7 @@ public:
   static void invalidateNonLoopRegion(const HLRegion *Region) {
     HIRAnalysisProvider::Invoke<Exclude...>(
         Region->getHLNodeUtils().getHIRFramework().getHIRAnalysisProvider())(
-        &HIRAnalysisPass::markNonLoopRegionModified, Region);
+        &HIRAnalysisBase::markNonLoopRegionModified, Region);
   }
 
   /// Invalidates all the available HIR analysis dependent on the parent node
@@ -99,7 +99,7 @@ public:
   static void invalidateBounds(const HLLoop *Loop) {
     HIRAnalysisProvider::Invoke<Exclude...>(
         Loop->getHLNodeUtils().getHIRFramework().getHIRAnalysisProvider())(
-        &HIRAnalysisPass::markLoopBoundsModified, Loop);
+        &HIRAnalysisBase::markLoopBoundsModified, Loop);
   }
 };
 

@@ -45,7 +45,7 @@ FunctionPass *createHIRLocalityAnalysisPass();
 FunctionPass *createHIRLoopResourcePass();
 
 /// Compute statistics for HIR Loops.
-FunctionPass *createHIRLoopStatisticsPass();
+FunctionPass *createHIRLoopStatisticsWrapperPass();
 
 /// Creates analysis which can provide parallel/vector candidate analysis
 FunctionPass *createHIRParVecAnalysisPass();

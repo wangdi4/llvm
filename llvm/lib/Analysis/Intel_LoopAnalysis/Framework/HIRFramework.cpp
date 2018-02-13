@@ -95,10 +95,11 @@ HIRFramework HIRFrameworkAnalysis::run(Function &F,
       AM.getResult<ScalarEvolutionAnalysis>(F), AM.getResult<AAManager>(F),
       AM.getResult<HIRRegionIdentificationAnalysis>(F),
       AM.getResult<HIRSCCFormationAnalysis>(F),
-      HIRAnalysisProvider([&]() { return nullptr; }, [&]() { return nullptr; },
-                          [&]() { return nullptr; }, [&]() { return nullptr; },
-                          [&]() { return nullptr; },
-                          [&]() { return nullptr; }));
+      HIRAnalysisProvider(
+          [&]() { return nullptr; }, [&]() { return nullptr; },
+          [&]() { return nullptr; },
+          [&]() { return AM.getCachedResult<HIRLoopStatisticsAnalysis>(F); },
+          [&]() { return nullptr; }, [&]() { return nullptr; }));
 }
 
 INITIALIZE_PASS_BEGIN(HIRFrameworkWrapperPass, "hir-framework", "HIR Framework",
@@ -151,7 +152,11 @@ bool HIRFrameworkWrapperPass::runOnFunction(Function &F) {
           [&]() { return getAnalysisIfAvailable<HIRDDAnalysis>(); },
           [&]() { return getAnalysisIfAvailable<HIRLocalityAnalysis>(); },
           [&]() { return getAnalysisIfAvailable<HIRLoopResource>(); },
-          [&]() { return getAnalysisIfAvailable<HIRLoopStatistics>(); },
+          [&]() {
+            auto *Wrapper =
+                getAnalysisIfAvailable<HIRLoopStatisticsWrapperPass>();
+            return Wrapper ? &Wrapper->getHLS() : nullptr;
+          },
           [&]() { return getAnalysisIfAvailable<HIRSafeReductionAnalysis>(); },
           [&]() { return getAnalysisIfAvailable<HIRVectVLSAnalysis>(); })));
   return false;
@@ -206,7 +211,7 @@ void HIRFramework::runImpl() {
   }
 
   HLNodeUtils::removeEmptyNodesRange(hir_begin(), hir_end());
-  HNU.initTopSortNum();
+  HNU->initTopSortNum();
 
   estimateMaxTripCounts();
 
@@ -221,17 +226,18 @@ HIRFramework::HIRFramework(Function &F, DominatorTree &DT,
                            HIRRegionIdentification &RI, HIRSCCFormation &SCCF,
                            HIRAnalysisProvider AnalysisProvider)
     : Func(F), DT(DT), PDT(PDT), LI(LI), SE(SE), AA(AA), RI(RI), SCCF(SCCF),
-      HNU(*this), AnalysisProvider(AnalysisProvider), MaxSymbase(0) {
-  HNU.reset(F);
+      AnalysisProvider(AnalysisProvider), MaxSymbase(0) {
+  HNU.reset(new HLNodeUtils(*this));
+  HNU->reset(F);
 
-  PhaseCreation.reset(new HIRCreation(DT, PDT, LI, RI, HNU));
-  PhaseCleanup.reset(new HIRCleanup(LI, *PhaseCreation, HNU));
+  PhaseCreation.reset(new HIRCreation(DT, PDT, LI, RI, *HNU));
+  PhaseCleanup.reset(new HIRCleanup(LI, *PhaseCreation, *HNU));
   PhaseLoopFormation.reset(
-      new HIRLoopFormation(LI, SE, RI, *PhaseCreation, *PhaseCleanup, HNU));
-  PhaseScalarSA.reset(new HIRScalarSymbaseAssignment(LI, SE, RI, SCCF,
-                                                     *PhaseLoopFormation, HNU));
+      new HIRLoopFormation(LI, SE, RI, *PhaseCreation, *PhaseCleanup, *HNU));
+  PhaseScalarSA.reset(new HIRScalarSymbaseAssignment(
+      LI, SE, RI, SCCF, *PhaseLoopFormation, *HNU));
   PhaseParser.reset(new HIRParser(DT, LI, SE, RI, *this, *PhaseCreation,
-                                  *PhaseLoopFormation, *PhaseScalarSA, HNU));
+                                  *PhaseLoopFormation, *PhaseScalarSA, *HNU));
 
   runImpl();
 }
@@ -247,7 +253,7 @@ HIRFramework::HIRFramework(HIRFramework &&Arg)
       PhaseScalarSA(std::move(Arg.PhaseScalarSA)),
       PhaseParser(std::move(Arg.PhaseParser)), MaxSymbase(Arg.MaxSymbase) {
   // Have to update HIRFramework reference to the new location.
-  HNU.HIRF = std::ref(*this);
+  HNU->HIRF = std::ref(*this);
   PhaseParser->HIRF = std::ref(*this);
 }
 

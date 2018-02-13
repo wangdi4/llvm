@@ -38,16 +38,16 @@ HLNode::HLNode(HLNodeUtils &HNU, unsigned SCID)
     : HNU(HNU), SubClassID(SCID), Parent(nullptr), TopSortNum(0),
       MaxTopSortNum(0) {
 
-  HNU.Objs.insert(this);
-  Number = HNU.getUniqueHLNodeNumber();
+  getHLNodeUtils().Objs.insert(this);
+  Number = getHLNodeUtils().getUniqueHLNodeNumber();
 }
 
 HLNode::HLNode(const HLNode &HLNodeObj)
     : HNU(HLNodeObj.HNU), SubClassID(HLNodeObj.SubClassID), Parent(nullptr),
       TopSortNum(0), MaxTopSortNum(0) {
 
-  HNU.Objs.insert(this);
-  Number = HNU.getUniqueHLNodeNumber();
+  getHLNodeUtils().Objs.insert(this);
+  Number = getHLNodeUtils().getUniqueHLNodeNumber();
 }
 
 DDRefUtils &HLNode::getDDRefUtils() const {

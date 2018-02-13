@@ -17,6 +17,7 @@
 #define LLVM_ANALYSIS_INTEL_LOOPANALYSIS_STATISTICS_H
 
 #include "llvm/Pass.h"
+#include "llvm/IR/PassManager.h"
 
 #include "llvm/ADT/DenseMap.h"
 
@@ -108,7 +109,7 @@ public:
   void print(formatted_raw_ostream &OS, const HLLoop *Lp) const;
 };
 
-class HIRLoopStatistics final : public HIRAnalysisPass {
+class HIRLoopStatistics : public HIRAnalysis {
 private:
   /// Maintains self statistics information for loops.
   DenseMap<const HLLoop *, LoopStatistics> SelfStatisticsMap;
@@ -126,16 +127,12 @@ protected:
   virtual void print(formatted_raw_ostream &OS, const HLLoop *Lp) override;
 
 public:
-  HIRLoopStatistics()
-      : HIRAnalysisPass(ID, HIRAnalysisPass::HIRLoopStatisticsVal) {}
-
-  static char ID;
-
-  bool runOnFunction(Function &F) override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-
-  void releaseMemory() override;
+  HIRLoopStatistics(HIRFramework &HIRF) : HIRAnalysis(HIRF) {}
+  HIRLoopStatistics(HIRLoopStatistics &&Arg)
+      : HIRAnalysis(std::move(Arg)),
+        SelfStatisticsMap(std::move(Arg.SelfStatisticsMap)),
+        TotalStatisticsMap(std::move(Arg.TotalStatisticsMap)) {}
+  HIRLoopStatistics(const HIRLoopStatistics &Arg) = delete;
 
   /// This method will mark the loop and all its parent loops as modified. If
   /// loop changes, statistics of the loop and all its parents loops needs to be
@@ -154,9 +151,49 @@ public:
 
   // TODO: provide an update interface.
 
-  /// Method for supporting type inquiry through isa, cast, and dyn_cast.
-  static bool classof(const HIRAnalysisPass *AP) {
-    return AP->getHIRAnalysisID() == HIRAnalysisPass::HIRLoopStatisticsVal;
+};
+
+class HIRLoopStatisticsWrapperPass : public FunctionPass {
+  std::unique_ptr<HIRLoopStatistics> HLS;
+
+public:
+  static char ID;
+  HIRLoopStatisticsWrapperPass() : FunctionPass(ID) {}
+
+  bool runOnFunction(Function &F) override;
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
+  void releaseMemory() override;
+
+  void print(raw_ostream &OS, const Module * = nullptr) const override {
+    getHLS().printAnalysis(OS);
+  }
+
+  HIRLoopStatistics &getHLS() { return *HLS; }
+  const HIRLoopStatistics &getHLS() const { return *HLS; }
+};
+
+class HIRLoopStatisticsAnalysis
+    : public AnalysisInfoMixin<HIRLoopStatisticsAnalysis> {
+  friend struct AnalysisInfoMixin<HIRLoopStatisticsAnalysis>;
+
+  static AnalysisKey Key;
+
+public:
+  using Result = HIRLoopStatistics;
+
+  HIRLoopStatistics run(Function &F, FunctionAnalysisManager &AM);
+};
+
+class HIRLoopStatisticsPrinterPass
+    : public PassInfoMixin<HIRLoopStatisticsPrinterPass> {
+  raw_ostream &OS;
+
+public:
+  explicit HIRLoopStatisticsPrinterPass(raw_ostream &OS) : OS(OS) {}
+
+  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM) {
+    AM.getResult<HIRLoopStatisticsAnalysis>(F).printAnalysis(OS);
+    return PreservedAnalyses::all();
   }
 };
 

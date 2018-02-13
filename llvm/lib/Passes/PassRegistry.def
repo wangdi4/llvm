@@ -129,6 +129,7 @@ FUNCTION_ANALYSIS("xm-optreport-options", OptReportOptionsAnalysis())
 FUNCTION_ANALYSIS("hir-region-identification", loopopt::HIRRegionIdentificationAnalysis())
 FUNCTION_ANALYSIS("hir-scc-formation", loopopt::HIRSCCFormationAnalysis())
 FUNCTION_ANALYSIS("hir-framework", loopopt::HIRFrameworkAnalysis())
+FUNCTION_ANALYSIS("hir-loop-statistics", loopopt::HIRLoopStatisticsAnalysis())
 #endif // INTEL_CUSTOMIZATION
 
 #ifndef FUNCTION_ALIAS_ANALYSIS
@@ -234,6 +235,7 @@ FUNCTION_PASS("verify<hir-framework>", loopopt::HIRFrameworkVerifierPass())
 FUNCTION_PASS("hir-optreport-emitter", loopopt::HIROptReportEmitterPass())
 FUNCTION_PASS("hir-cg", loopopt::HIRCodeGenPass())
 FUNCTION_PASS("intel-ir-optreport-emitter", LoopOptReportEmitterPass())
+FUNCTION_PASS("print<hir-loop-statistics>", loopopt::HIRLoopStatisticsPrinterPass(dbgs()))
 #endif // INTEL_CUSTOMIZATION
 #undef FUNCTION_PASS
 

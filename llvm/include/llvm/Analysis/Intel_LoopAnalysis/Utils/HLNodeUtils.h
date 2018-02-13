@@ -43,6 +43,11 @@ class HIRLoopStatistics;
 /// It contains a bunch of member functions which manipulate HLNodes.
 class HLNodeUtils {
 private:
+  /// Special deleter is required to call HLNodeUtils private destructor.
+  struct HLNodeUtilsDeleter {
+    void operator()(HLNodeUtils *Ptr) const { delete Ptr; }
+  };
+
   /// Keeps track of HLNode objects.
   std::set<HLNode *> Objs;
   unsigned NextUniqueHLNodeNumber;
