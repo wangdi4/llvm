@@ -46,7 +46,7 @@ void write_wrapper(__global channel char *inp, char data) {
 void read_channel(__global channel int *a) {
 }
 channel char INPUT_CHANNEL;
-__kernel void k3(__global const char *src)
+__kernel void k4(__global const char *src)
 {
   char tmp = src[1];
   write_wrapper(&INPUT_CHANNEL, tmp); // expected-error{{invalid argument type '__global channel char' to unary expression}}
