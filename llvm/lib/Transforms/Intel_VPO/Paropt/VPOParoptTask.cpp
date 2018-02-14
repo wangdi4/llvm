@@ -1216,12 +1216,12 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
         if (!DummyTaskTDependRec)
           VPOParoptUtils::genKmpcTask(W, IdentTy, TidPtr, TaskAllocCI,
                                       ThenTerm);
-        else
+        else {
           genTaskDeps(W, IdentTy, TidPtr, TaskAllocCI, DummyTaskTDependRec,
                       ThenTerm, false);
-
-        genTaskDeps(W, IdentTy, TidPtr, TaskAllocCI, DummyTaskTDependRec,
-                    ElseTerm, true);
+          genTaskDeps(W, IdentTy, TidPtr, TaskAllocCI, DummyTaskTDependRec,
+                      ElseTerm, true);
+        }
         VPOParoptUtils::genKmpcTaskBeginIf0(W, IdentTy, TidPtr, TaskAllocCI,
                                             ElseTerm);
         MTFnArgs.clear();

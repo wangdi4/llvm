@@ -1606,8 +1606,8 @@ void VPOParoptTransform::genFenceIntrinsic(WRegionNode *W, Value *I) {
 /// @llvm.invariant.group.barrier
 CallInst*  VPOParoptTransform::isFenceCall(Instruction *I) {
   if (CallInst *CI = dyn_cast<CallInst>(I))
-    if (CI->getCalledFunction()->getIntrinsicID() ==
-                                        Intrinsic::invariant_group_barrier)
+    if (CI->getCalledFunction() && CI->getCalledFunction()->getIntrinsicID() ==
+                                       Intrinsic::invariant_group_barrier)
       return CI;
   return nullptr;
 }
