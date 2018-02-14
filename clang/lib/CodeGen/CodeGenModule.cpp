@@ -2892,58 +2892,37 @@ static void maybeEmitGlobalChannelMetadata(const VarDecl *D,
 
   llvm::Type *Int32Ty = llvm::IntegerType::getInt32Ty(CGM.getLLVMContext());
 
-  llvm::Metadata *ChannelDepthMD = nullptr;
-
+  llvm::MDNode *ChannelDepthMD = nullptr;
   if (auto *DepthAttr = D->getAttr<OpenCLDepthAttr>()) {
-    llvm::Metadata *ChannelDepthMDOps[] = {
-        llvm::MDString::get(CGM.getLLVMContext(), "depth"),
+    ChannelDepthMD = llvm::MDNode::get(CGM.getLLVMContext(),
         llvm::ConstantAsMetadata::get(
-            llvm::ConstantInt::get(Int32Ty, DepthAttr->getDepth(), false))};
-
-    ChannelDepthMD = llvm::MDNode::get(CGM.getLLVMContext(), ChannelDepthMDOps);
+            llvm::ConstantInt::get(Int32Ty, DepthAttr->getDepth(), false)));
   }
 
-  llvm::Metadata *ChannelIOMD = nullptr;
-
+  llvm::MDNode *ChannelIOMD = nullptr;
   if (auto *IOAttr = D->getAttr<OpenCLIOAttr>()) {
-    llvm::Metadata *ChannelIOMDOps[] = {
-        llvm::MDString::get(CGM.getLLVMContext(), "io"),
-        llvm::MDString::get(CGM.getLLVMContext(), IOAttr->getIOName())};
-
-    ChannelIOMD = llvm::MDNode::get(CGM.getLLVMContext(), ChannelIOMDOps);
+    ChannelIOMD = llvm::MDNode::get(CGM.getLLVMContext(),
+        llvm::MDString::get(CGM.getLLVMContext(), IOAttr->getIOName()));
   }
 
   auto *PacketSize = llvm::ConstantInt::get(
       Int32Ty, CGM.getContext().getTypeSize(ChanTy->getElementType()) / 8,
       false);
-  llvm::Metadata *PacketSizeMDOps[] = {
-      llvm::MDString::get(CGM.getLLVMContext(), "packet_size"),
-      llvm::ConstantAsMetadata::get(PacketSize)};
-  llvm::Metadata *PacketSizeMD =
-      llvm::MDNode::get(CGM.getLLVMContext(), PacketSizeMDOps);
+  llvm::MDNode *PacketSizeMD = llvm::MDNode::get(CGM.getLLVMContext(),
+      llvm::ConstantAsMetadata::get(PacketSize));
 
   auto *PacketAlign = llvm::ConstantInt::get(
       Int32Ty, CGM.getContext().getTypeAlign(ChanTy->getElementType()) / 8,
       false);
-  llvm::Metadata *PacketAlignMDOps[] = {
-      llvm::MDString::get(CGM.getLLVMContext(), "packet_align"),
-      llvm::ConstantAsMetadata::get(PacketAlign)};
-  llvm::Metadata *PacketAlignMD =
-      llvm::MDNode::get(CGM.getLLVMContext(), PacketAlignMDOps);
+  llvm::MDNode *PacketAlignMD = llvm::MDNode::get(CGM.getLLVMContext(),
+      llvm::ConstantAsMetadata::get(PacketAlign));
 
-  llvm::SmallVector<llvm::Metadata *, 4> Ops;
-  Ops.push_back(llvm::ConstantAsMetadata::get(GV));
-  Ops.push_back(PacketSizeMD);
-  Ops.push_back(PacketAlignMD);
+  GV->setMetadata("packet_size", PacketSizeMD);
+  GV->setMetadata("packet_align", PacketAlignMD);
   if (ChannelDepthMD)
-    Ops.push_back(ChannelDepthMD);
+    GV->setMetadata("depth", ChannelDepthMD);
   if (ChannelIOMD)
-    Ops.push_back(ChannelIOMD);
-
-  CGM.getModule()
-      .getOrInsertNamedMetadata("opencl.channels")
-      ->addOperand(llvm::MDNode::get(CGM.getLLVMContext(),
-                                     ArrayRef<llvm::Metadata *>(Ops)));
+    GV->setMetadata("io", ChannelIOMD);
 }
 #endif // INTEL_CUSTOMIZATION
 
