@@ -67,6 +67,7 @@ struct ChannelMetadata {
   int PacketSize;
   int PacketAlign;
   int Depth;
+  StringRef IO;
 };
 
 // Pipes and channels have the same metadata
@@ -376,6 +377,7 @@ static ChannelMetadata getChannelMetadata(const Module &M,
   ConstantAsMetadata *PacketSizeMD = nullptr;
   ConstantAsMetadata *PacketAlignMD = nullptr;
   ConstantAsMetadata *DepthMD = nullptr;
+  MDString *IOMD = nullptr;
 
   for (unsigned i = 1; i < ChannelMDList->getNumOperands(); ++i) {
     MDNode *MDN = cast<MDNode>(ChannelMDList->getOperand(i).get());
@@ -387,6 +389,8 @@ static ChannelMetadata getChannelMetadata(const Module &M,
       PacketAlignMD = cast<ConstantAsMetadata>(MDN->getOperand(1).get());
     } else if (Key->getString() == "depth") {
       DepthMD = cast<ConstantAsMetadata>(MDN->getOperand(1).get());
+    } else if (Key->getString() == "io") {
+      IOMD = cast<MDString>(MDN->getOperand(1).get());
     } else {
       llvm_unreachable("Unknown metadata operand key");
     }
@@ -401,6 +405,7 @@ static ChannelMetadata getChannelMetadata(const Module &M,
   CMD.PacketSize = PacketSize->getLimitedValue();
   CMD.PacketAlign = PacketAlign->getLimitedValue();
   CMD.Depth = Depth ? Depth->getLimitedValue() : 1;
+  CMD.IO = IOMD ? IOMD->getString() : "";
 
   if (CMD.Depth == 0) {
     CMD.Depth = 1;
