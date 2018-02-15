@@ -261,6 +261,9 @@ public:
     // equivalent to the Bitcode emitted by the -flto option.
     addPass(createCSASaveRawBCPass());
 
+    // Do any necessary atomic expansion according to Subtarget features.
+    addPass(createAtomicExpandPass());
+
     // Pass call onto parent
     TargetPassConfig::addIRPasses();
   }

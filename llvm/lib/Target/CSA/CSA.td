@@ -57,20 +57,22 @@ def FeatureIndex : SubtargetFeature<"index", "HasIndex", "true",
                             "Enable indexed mode memrefs">;
 
 // Operation features
-def FeatureShAdd : SubtargetFeature<"shadd", "HasShAdd", "true",
-                            "Enable shift/add">;
-def FeatureBitOp : SubtargetFeature<"bitop", "HasBitOp", "true",
-                            "Enable ctlz, cttz, popc">;
-def FeatureIDiv  : SubtargetFeature<"idiv", "HasIDiv", "true",
-                            "Enable integer div">;
-def FeatureFDiv  : SubtargetFeature<"fdiv", "HasFDiv", "true",
-                            "Enable floating div">;
-def FeatureFMA   : SubtargetFeature<"fma", "HasFMA", "true",
-                            "Enable fused mul/add">;
-def FeatureSqrt  : SubtargetFeature<"sqrt", "HasSqrt", "true",
-                            "Enable sqrt">;
-def FeatureMath0 : SubtargetFeature<"math0", "HasMath0", "true",
+def FeatureShAdd     : SubtargetFeature<"shadd", "HasShAdd", "true",
+                           "Enable shift/add">;
+def FeatureBitOp     : SubtargetFeature<"bitop", "HasBitOp", "true",
+                           "Enable ctlz, cttz, popc">;
+def FeatureIDiv      : SubtargetFeature<"idiv", "HasIDiv", "true",
+                           "Enable integer div">;
+def FeatureFDiv      : SubtargetFeature<"fdiv", "HasFDiv", "true",
+                           "Enable floating div">;
+def FeatureFMA       : SubtargetFeature<"fma", "HasFMA", "true",
+                           "Enable fused mul/add">;
+def FeatureSqrt      : SubtargetFeature<"sqrt", "HasSqrt", "true",
+                           "Enable sqrt">;
+def FeatureMath0     : SubtargetFeature<"math0", "HasMath0", "true",
                             "Enable exp[2]/log[2]/sin/cos">;
+def FeatureRMWAtomic : SubtargetFeature<"rmwatomic", "HasRMWAtomic", "true",
+                            "Enable atomic atm[RMW] memory ops">;
 
 //===----------------------------------------------------------------------===//
 // CSA supported processors

@@ -144,12 +144,14 @@ CSATargetLowering::CSATargetLowering(const TargetMachine &TM,
     setOperationAction(ISD::CTLZ_ZERO_UNDEF, VT, Expand);
 
     // Atomic operations
-    setOperationAction(ISD::ATOMIC_LOAD_AND, VT, Legal);
-    setOperationAction(ISD::ATOMIC_LOAD_ADD, VT, Legal);
-    setOperationAction(ISD::ATOMIC_LOAD_MIN, VT, Legal);
-    setOperationAction(ISD::ATOMIC_LOAD_MAX, VT, Legal);
-    setOperationAction(ISD::ATOMIC_LOAD_OR, VT, Legal);
-    setOperationAction(ISD::ATOMIC_LOAD_XOR, VT, Legal);
+    if (isTypeSupported && ST.hasRMWAtomic()) {
+      setOperationAction(ISD::ATOMIC_LOAD_AND, VT, Legal);
+      setOperationAction(ISD::ATOMIC_LOAD_ADD, VT, Legal);
+      setOperationAction(ISD::ATOMIC_LOAD_MIN, VT, Legal);
+      setOperationAction(ISD::ATOMIC_LOAD_MAX, VT, Legal);
+      setOperationAction(ISD::ATOMIC_LOAD_OR,  VT, Legal);
+      setOperationAction(ISD::ATOMIC_LOAD_XOR, VT, Legal);
+    }
     setOperationAction(ISD::ATOMIC_SWAP, VT, Legal);
     setOperationAction(ISD::ATOMIC_CMP_SWAP, VT, Legal);
 
@@ -1107,6 +1109,36 @@ CSATargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
   return DAG.getNode(CSAISD::Ret, dl, MVT::Other, RetOps);
 }
 
+TargetLowering::AtomicExpansionKind
+CSATargetLowering::shouldExpandAtomicRMWInIR(AtomicRMWInst *AI) const {
+  unsigned NativeWidth = 64;
+  Type *MemType = AI->getType();
+
+  // If the operand is too big, resort to library calls.
+  if (MemType->getPrimitiveSizeInBits() > NativeWidth) {
+    return AtomicExpansionKind::None;
+  }
+
+  AtomicRMWInst::BinOp Op = AI->getOperation();
+  switch (Op) {
+  default:
+    llvm_unreachable("Unknown atomic operation");
+  case AtomicRMWInst::Xchg:
+    return AtomicExpansionKind::None;
+  case AtomicRMWInst::Add:
+  case AtomicRMWInst::Sub:
+  case AtomicRMWInst::Or:
+  case AtomicRMWInst::And:
+  case AtomicRMWInst::Xor:
+  case AtomicRMWInst::Nand:
+  case AtomicRMWInst::Max:
+  case AtomicRMWInst::Min:
+  case AtomicRMWInst::UMax:
+  case AtomicRMWInst::UMin:
+    // Use a cmpxchg loop if we don't have native atomic RMW ops
+    return Subtarget.hasRMWAtomic() ? AtomicExpansionKind::None : AtomicExpansionKind::CmpXChg;
+  }
+}
 /*
 SDValue
 CSATargetLowering::getReturnAddressFrameIndex(SelectionDAG &DAG) const {

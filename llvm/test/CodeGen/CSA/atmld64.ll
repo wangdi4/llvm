@@ -3,8 +3,8 @@ target datalayout = "e-m:e-i64:64-n32:64"
 target triple = "csa"
 
 ; Function Attrs: nounwind
-define i64 @f_atmld64(i64* %m) #0 {
-; CSA_CHECK-LABEL: f_atmld64
+define i64 @f_atomic_load64(i64* %m) #0 {
+; CSA_CHECK-LABEL: f_atomic_load64
 ; CSA_CHECK: ld64
 ; CSA_CHECK-NOT: atmxchg
 ; CSA_CHECK-NOT: atmcmpxchg
