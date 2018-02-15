@@ -457,27 +457,14 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     ///     global ulong *value)
     static const std::string NAME_CAPTURE_EVENT_PROFILING_INFO;
 
-    /// getCLVersionFromModule - if the version exists in the module's metadata,
-    /// stores the OpenCL version to 'Result' and returns true.
-    /// Otherwise returns false
-    static bool getCLVersionFromModule(const Module &M, unsigned &Result);
-
     /// fetchCompilerOption - if an option with specified prefix exists in
     /// the module's metadata returns an entire option string (the fist was met),
     /// Otherwise returns an empty string.
     static StringRef fetchCompilerOption(const Module &M, char const* prefix);
 
-    /// fetchCLVersionFromMetadata - obtain CL version from "!opencl.ocl.version"
-    /// named metadata
-    static bool fetchCLVersionFromMetadata(const Module &M, unsigned &Result);
-
-    /// getCLVersionFromModuleOrDefault - Return the version in the module's metadata,
-    /// if it exists, otherwise the default version
-    static unsigned getCLVersionFromModuleOrDefault(const Module &M) {
-      unsigned version;
-      return CompilationUtils::getCLVersionFromModule(M, version) ?
-             version : OclVersion::CL_VER_DEFAULT;
-    }
+    /// fetchCLVersionFromMetadata - obtain CL version
+    /// from "!opencl.ocl.version" named metadata
+    static unsigned fetchCLVersionFromMetadata(const Module &M);
 
     /// Import a declaration of \p Orig into module \p Dst
     ///

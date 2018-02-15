@@ -515,7 +515,7 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
 
   // OpenCL 2.0 related properties
   if (OclVersion::CL_VER_2_0 <=
-          CompilationUtils::getCLVersionFromModuleOrDefault(*pModule) &&
+          CompilationUtils::fetchCLVersionFromMetadata(*pModule) &&
       CompilationUtils::fetchCompilerOption(*pModule,
                                             "-cl-uniform-work-group-size")
           .empty()) {

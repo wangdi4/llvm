@@ -224,18 +224,32 @@ struct ModuleMetadataAPI {
       OptionalCoreFeaturesListTy;
   typedef NamedMDList<llvm::StringRef, MDValueModuleStrategy> CompilerOptionsListTy;
 
-  ModuleMetadataAPI(llvm::Module *pModule) :
-        SpirVersionList(pModule, "opencl.spir.version"),
+  ModuleMetadataAPI(llvm::Module *pModule)
+      : SpirVersionList(pModule, "opencl.spir.version"),
         OpenCLVersionList(pModule, "opencl.ocl.version"),
         UsedExtentionsList(pModule, "opencl.used.extensions"),
         OptionalCoreFeaturesList(pModule, "opencl.used.optional.core.features"),
-        CompilerOptionsList(pModule, "opencl.compiler.options") {}
+        CompilerOptionsList(pModule, "opencl.compiler.options") {
+    MDNames.push_back(SpirVersionList.getID());
+    MDNames.push_back(OpenCLVersionList.getID());
+    MDNames.push_back(UsedExtentionsList.getID());
+    MDNames.push_back(OptionalCoreFeaturesList.getID());
+    MDNames.push_back(CompilerOptionsList.getID());
+  }
 
   SpirVersionListTy SpirVersionList;
   OpenCLVersionListTy OpenCLVersionList;
   UsedExtentionsListTy UsedExtentionsList;
   OptionalCoreFeaturesListTy OptionalCoreFeaturesList;
   CompilerOptionsListTy CompilerOptionsList;
+
+public:
+  const llvm::SmallVectorImpl<llvm::StringRef> &getMDNames() const {
+    return MDNames;
+  }
+
+private:
+  llvm::SmallVector<llvm::StringRef, 8> MDNames;
 };
 
 // OpenCL kernels

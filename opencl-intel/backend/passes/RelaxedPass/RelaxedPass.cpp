@@ -267,8 +267,9 @@ namespace intel{
 
     RelaxedPass::FRMMap const& RelaxedPass::selectFRMMap(llvm::Module const& M) const
     {
-        if (Intel::OpenCL::DeviceBackend::CompilationUtils::getCLVersionFromModuleOrDefault(M) <
-            Intel::OpenCL::DeviceBackend::OclVersion::CL_VER_2_0)
+        using namespace Intel::OpenCL::DeviceBackend;
+        if (CompilationUtils::fetchCLVersionFromMetadata(M) <
+            OclVersion::CL_VER_2_0)
             return m_relaxedFunctions;
         else
             return m_relaxedFunctions_2_0;

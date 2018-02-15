@@ -63,7 +63,7 @@ namespace intel {
       // extended execution flags
       m_ExtExecDecls.clear();
 
-      m_oclVersion = CompilationUtils::getCLVersionFromModuleOrDefault(M);
+      m_oclVersion = CompilationUtils::fetchCLVersionFromMetadata(M);
       m_nonUniformLocalSize = CompilationUtils::fetchCompilerOption(
         M, "-cl-uniform-work-group-size").empty() == false;
 

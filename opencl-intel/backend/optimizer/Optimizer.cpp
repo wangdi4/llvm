@@ -750,8 +750,8 @@ Optimizer::Optimizer(llvm::Module *pModule,
   const bool isFpgaEmulator = pConfig->isFpgaEmulator();
 
   // Detect OCL2.0 compilation mode
-  const bool isOcl20 = CompilationUtils::getCLVersionFromModuleOrDefault(
-                           *pModule) >= OclVersion::CL_VER_2_0;
+  const bool isOcl20 = CompilationUtils::fetchCLVersionFromMetadata(*pModule) >=
+                       OclVersion::CL_VER_2_0;
   bool UnrollLoops = true;
 
   // Initialize TTI

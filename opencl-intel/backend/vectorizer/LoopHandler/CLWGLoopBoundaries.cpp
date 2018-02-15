@@ -67,7 +67,7 @@ bool CLWGLoopBoundaries::runOnModule(Module &M) {
   assert(m_clRtServices && "expected to have openCL runtime");
 
   // Obtain OpenCL C version from this module
-  m_oclVersion = CompilationUtils::getCLVersionFromModuleOrDefault(M);
+  m_oclVersion = CompilationUtils::fetchCLVersionFromMetadata(M);
   // Collect all users of atomic/pipe built-ins
   collectWIUniqueFuncUsers(M);
   // Get the kernels using the barrier for work group loops.

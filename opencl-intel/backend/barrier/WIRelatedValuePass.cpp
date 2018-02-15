@@ -27,7 +27,7 @@ namespace intel {
     //Initialize barrier utils class with current module
     m_util.init(&M);
     // Obtain OpenCL C version from this  module
-    m_oclVersion = CompilationUtils::getCLVersionFromModuleOrDefault(M);
+    m_oclVersion = CompilationUtils::fetchCLVersionFromMetadata(M);
     //Calculate the calling order for the functions to be analyzed
     calculateCallingOrder();
 

@@ -135,6 +135,11 @@ bool StripIntelIP::runOnModule(Module &M) {
   for (auto MDNameToSpare : ModuleInternalMetadataAPI(&M).getMDNames()) {
     NamedMDNodesToSpare.insert(MDNameToSpare);
   }
+
+  for (auto MDNameToSpare : ModuleMetadataAPI(&M).getMDNames()) {
+    NamedMDNodesToSpare.insert(MDNameToSpare);
+  }
+
   NamedMDNodesToSpare.insert("opencl.kernels");
   for (auto &NamedMD : M.named_metadata()) {
     if (!(NamedMDNodesToSpare.count(NamedMD.getName()) > 0))

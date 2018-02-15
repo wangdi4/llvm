@@ -545,30 +545,23 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     }
   }
 
-  bool CompilationUtils::getCLVersionFromModule(const Module &M, unsigned &Result) {
-    StringRef opt = fetchCompilerOption(M, "-cl-std=");
-    if(!opt.empty()) {
-      opt = opt.drop_front(strlen("-cl-std="));
-      Result = OclVersion::CLStrToVal(opt.data());
-      return true;
-    }
-    return fetchCLVersionFromMetadata(M, Result);
-  }
-
-  bool CompilationUtils::fetchCLVersionFromMetadata(const Module &M, unsigned &Result) {
+  unsigned CompilationUtils::fetchCLVersionFromMetadata(const Module &M) {
     /*
     Example of the metadata
     !opencl.ocl.version = !{!6}
     !6 = !{i32 2, i32 0}
     */
 
-    auto oclVersion = ModuleMetadataAPI(const_cast<llvm::Module*>(&M)).OpenCLVersionList;
-    if (!oclVersion.hasValue())
-      return false;
+    auto oclVersion =
+        ModuleMetadataAPI(const_cast<llvm::Module *>(&M)).OpenCLVersionList;
 
-    Result = OclVersion::CLVersionToVal(oclVersion.getItem(0), oclVersion.getItem(1));
+    if (oclVersion.hasValue())
+      return OclVersion::CLVersionToVal(oclVersion.getItem(0),
+                                        oclVersion.getItem(1));
 
-    return true;
+    // Always return an OpenCL version to avoid any issues
+    // in manually written LIT tests.
+    return OclVersion::CL_VER_DEFAULT;
   }
 
   StringRef CompilationUtils::fetchCompilerOption(const Module &M, char const* prefix) {
@@ -1049,11 +1042,11 @@ bool CompilationUtils::isWorkGroupBuiltin(const std::string& S) {
 bool CompilationUtils::isWorkGroupAsyncOrPipeBuiltin(const std::string& S, const Module* pModule) {
   return CompilationUtils::isAsyncWorkGroupCopy(S) ||
          CompilationUtils::isAsyncWorkGroupStridedCopy(S) ||
-         (OclVersion::CL_VER_2_0 <= getCLVersionFromModuleOrDefault(*pModule) && (
-            CompilationUtils::isWorkGroupReserveReadPipe(S) ||
-            CompilationUtils::isWorkGroupCommitReadPipe(S) ||
-            CompilationUtils::isWorkGroupReserveWritePipe(S) ||
-            CompilationUtils::isWorkGroupCommitWritePipe(S)));
+         (OclVersion::CL_VER_2_0 <= fetchCLVersionFromMetadata(*pModule) &&
+          (CompilationUtils::isWorkGroupReserveReadPipe(S) ||
+           CompilationUtils::isWorkGroupCommitReadPipe(S) ||
+           CompilationUtils::isWorkGroupReserveWritePipe(S) ||
+           CompilationUtils::isWorkGroupCommitWritePipe(S)));
 }
 
 bool CompilationUtils::isWorkGroupScan(const std::string& S) {

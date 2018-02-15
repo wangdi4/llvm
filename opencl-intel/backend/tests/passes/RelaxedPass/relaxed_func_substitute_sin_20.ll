@@ -19,9 +19,9 @@ declare <4 x float> @_Z3sinDv4_f(<4 x float>)
 declare <8 x float> @_Z3sinDv8_f(<8 x float>)
 declare <16 x float> @_Z3sinDv16_f(<16 x float>)
 
-!opencl.compiler.options = !{!0}
+!opencl.ocl.version = !{!0}
 
-!0 = !{!"-cl-std=CL2.0"}
+!0 = !{i32 2, i32 0}
 
 ; CHECK:        define void @check_sin_float
 ; CHECK:        entry:

@@ -46,7 +46,7 @@ namespace intel{
   static bool isFunctionMayBeCalled(const Function &F) {
     // If there may be Clang Blocks present in the module, pessimistically
     // assume this function is a callee
-    if (CompilationUtils::getCLVersionFromModuleOrDefault(*F.getParent()) ==
+    if (CompilationUtils::fetchCLVersionFromMetadata(*F.getParent()) ==
         OclVersion::CL_VER_2_0)
       return true;
     for (Function::const_user_iterator U = F.user_begin(), UE = F.user_end();

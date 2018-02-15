@@ -81,5 +81,5 @@ define i64 @GELSX(i32 %x) {
 declare i64 @_Z14get_local_sizej(i32)
 declare i64 @_Z23get_enqueued_local_sizej(i32)
 
-!opencl.compiler.options = !{!0}
-!0 = !{!"-cl-std=CL2.0"}
+!opencl.ocl.version = !{!0}
+!0 = !{i32 2, i32 0}

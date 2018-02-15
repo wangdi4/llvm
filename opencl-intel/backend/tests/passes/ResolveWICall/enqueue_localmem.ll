@@ -27,5 +27,5 @@ define void @enqueue_kernel_localmem(%opencl.queue_t addrspace(1)* %q, %struct.n
 declare i32 @__enqueue_kernel_vaargs(%opencl.queue_t addrspace(1)*, i32, %struct.ndrange_t* byval, i8 addrspace(4)*, i32, ...)
 declare i32 @__enqueue_kernel_events_vaargs(%opencl.queue_t addrspace(1)*, i32, %struct.ndrange_t*, i32, %opencl.clk_event_t* addrspace(4)*, %opencl.clk_event_t* addrspace(4)*, i8 addrspace(4)*, i32, ...)
 
-!opencl.compiler.options = !{!2}
-!2 = !{!"-cl-std=CL2.0"}
+!opencl.ocl.version = !{!0}
+!0 = !{i32 2, i32 0}

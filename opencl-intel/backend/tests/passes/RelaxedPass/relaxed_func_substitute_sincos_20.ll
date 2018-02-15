@@ -24,9 +24,9 @@ declare <4 x float> @_Z6sincosDv4_fPU3AS1S_(<4 x float>, <4 x float> addrspace(1
 declare <8 x float> @_Z6sincosDv8_fPU3AS1S_(<8 x float>, <8 x float> addrspace(1)*)
 declare <16 x float> @_Z6sincosDv16_fPU3AS1S_(<16 x float>, <16 x float> addrspace(1)*)
 
-!opencl.compiler.options = !{!0}
+!opencl.ocl.version = !{!0}
 
-!0 = !{!"-cl-std=CL2.0"}
+!0 = !{i32 2, i32 0}
 
 ; CHECK:        define void @check_sincos_float
 ; CHECK:        entry:
