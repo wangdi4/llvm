@@ -101,8 +101,10 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
                                 cast<OMPTaskLoopSimdDirective>(*S));
     if (S->getStmtClass() == Stmt::OMPDistributeDirectiveClass)
       return EmitIntelOMPDistributeDirective(cast<OMPDistributeDirective>(*S));
-    if (auto *Dir = dyn_cast<OMPExecutableDirective>(S))
-      return EmitIntelOpenMPDirective(*Dir);
+    if (S->getStmtClass() != Stmt::OMPTargetDirectiveClass ||
+        CGM.getLangOpts().IntelOpenMPOffload)
+       if (auto *Dir = dyn_cast<OMPExecutableDirective>(S))
+         return EmitIntelOpenMPDirective(*Dir);
   }
 #endif // INTEL_SPECIFIC_OPENMP
 
