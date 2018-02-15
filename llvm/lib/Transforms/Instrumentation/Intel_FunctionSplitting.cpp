@@ -695,7 +695,7 @@ namespace llvm {
     using ChildIteratorType = succ_const_iterator;
     using nodes_iterator = pointer_iterator<Function::const_iterator>;
 
-    static NodeRef getEntryNode(const BlockFrequencyInfo *G) {
+    static NodeRef getEntryNode(const FunctionSplitter *G) {
       return &G->getFunction()->front();
     }
 
