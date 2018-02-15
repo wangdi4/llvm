@@ -1117,11 +1117,10 @@ int32_t __tgt_rtl_run_target_team_region(int32_t device_id, void *tgt_entry_ptr,
           ptrs[i] = (void*)((intptr_t)tgt_args[i] + tgt_offsets[i]);
         }
 
-        // Execute the CSA code. target() is adding an "omp handle" to the
-        // arguments array which we don't care about. So ignore it
+        // Execute the CSA code.
         assert(sizeof(csa_arg) == sizeof(ptrs[0]));
         unsigned long long start = csa_cycle_counter(processor);
-        csa_call(entry, arg_num-1, (csa_arg *)&ptrs[0]);
+        csa_call(entry, arg_num, (csa_arg *)&ptrs[0]);
         unsigned long long cycles = csa_cycle_counter(processor) - start;
 
         // Dump the statistics, if requested
