@@ -30,6 +30,7 @@ extern HostProgramFunc host_task;
 extern HostProgramFunc host_fpga_host_side_pipes;
 extern HostProgramFunc host_fpga_channels;
 extern HostProgramFunc host_fpga_autorun;
+extern HostProgramFunc host_fpga_fp16;
 
 namespace Intel { namespace OpenCL { namespace Utils {
 
@@ -42,6 +43,7 @@ vector<string> FPGATests = {
     "fpga_host_side_pipes",
     "fpga_channels",
     "fpga_autorun"
+    "fpga_fp16"
 };
 
 // Encapsulates options parsed from a flag string.
@@ -120,6 +122,8 @@ HostProgramFunc get_host_program_by_name(string name)
         return host_fpga_channels;
     else if (name == "fpga_autorun")
         return host_fpga_autorun;
+    else if (name == "fpga_fp16")
+        return host_fpga_fp16;
     throw runtime_error("Unknown host program: '" + name + "'");
 }
 
