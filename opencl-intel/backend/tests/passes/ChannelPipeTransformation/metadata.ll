@@ -28,12 +28,12 @@ target triple = "spir64-unknown-unknown-intelfpga"
 
 %opencl.channel_t = type opaque
 
-@ich = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4
-@lch = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 8
-@sch = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 16
-@ich_arr = common addrspace(1) global [5 x %opencl.channel_t addrspace(1)*] zeroinitializer, align 4
-@lch_arr = common addrspace(1) global [5 x [4 x %opencl.channel_t addrspace(1)*]] zeroinitializer, align 8
-@sch_arr = common addrspace(1) global [5 x [4 x [3 x %opencl.channel_t addrspace(1)*]]] zeroinitializer, align 16
+@ich = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4, !packet_size !0, !packet_align !0
+@lch = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 8, !packet_size !1, !packet_align !1, !depth !2
+@sch = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 16, !packet_size !3, !packet_align !3, !depth !4
+@ich_arr = common addrspace(1) global [5 x %opencl.channel_t addrspace(1)*] zeroinitializer, align 4, !packet_size !0, !packet_align !0
+@lch_arr = common addrspace(1) global [5 x [4 x %opencl.channel_t addrspace(1)*]] zeroinitializer, align 8, !packet_size !1, !packet_align !1, !depth !2
+@sch_arr = common addrspace(1) global [5 x [4 x [3 x %opencl.channel_t addrspace(1)*]]] zeroinitializer, align 16, !packet_size !3, !packet_align !3, !depth !4
 
 ; CHECK-DAG: @ich.pipe.bs = {{.*}} global [{{[0-9]+}} x i8] {{.*}} align 4
 ; CHECK-DAG: @lch.pipe.bs = {{.*}} global [{{[0-9]+}} x i8] {{.*}} align 8
@@ -57,7 +57,6 @@ entry:
 
 attributes #0 = { nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
 
-!opencl.channels = !{!0, !3, !7, !11, !12, !13}
 !llvm.module.flags = !{!14}
 !opencl.enable.FP_CONTRACT = !{}
 !opencl.ocl.version = !{!15}
@@ -67,20 +66,11 @@ attributes #0 = { nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disa
 !opencl.compiler.options = !{!16}
 !llvm.ident = !{!17}
 
-!0 = !{%opencl.channel_t addrspace(1)* addrspace(1)* @ich, !1, !2}
-!1 = !{!"packet_size", i32 4}
-!2 = !{!"packet_align", i32 4}
-!3 = !{%opencl.channel_t addrspace(1)* addrspace(1)* @lch, !4, !5, !6}
-!4 = !{!"packet_size", i32 8}
-!5 = !{!"packet_align", i32 8}
-!6 = !{!"depth", i32 3}
-!7 = !{%opencl.channel_t addrspace(1)* addrspace(1)* @sch, !8, !9, !10}
-!8 = !{!"packet_size", i32 16}
-!9 = !{!"packet_align", i32 16}
-!10 = !{!"depth", i32 0}
-!11 = !{[5 x %opencl.channel_t addrspace(1)*] addrspace(1)* @ich_arr, !1, !2}
-!12 = !{[5 x [4 x %opencl.channel_t addrspace(1)*]] addrspace(1)* @lch_arr, !4, !5, !6}
-!13 = !{[5 x [4 x [3 x %opencl.channel_t addrspace(1)*]]] addrspace(1)* @sch_arr, !8, !9, !10}
+!0 = !{i32 4}
+!1 = !{i32 8}
+!2 = !{i32 3}
+!3 = !{i32 16}
+!4 = !{i32 0}
 !14 = !{i32 1, !"wchar_size", i32 4}
 !15 = !{i32 2, i32 0}
 !16 = !{}

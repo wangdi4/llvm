@@ -20,8 +20,8 @@ target triple = "spir64-unknown-unknown-intelfpga"
 
 %opencl.channel_t = type opaque
 
-@ch1 = common local_unnamed_addr addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4
-@ch2 = common local_unnamed_addr addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4
+@ch1 = common local_unnamed_addr addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4, !packet_size !0, !packet_align !0
+@ch2 = common local_unnamed_addr addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4, !packet_size !0, !packet_align !0
 
 ; CHECK: @[[PIPE1:.*]] = addrspace(1) global %opencl.pipe_t addrspace(1)*
 ; CHECK: @[[PIPE2:.*]] = addrspace(1) global %opencl.pipe_t addrspace(1)*
@@ -50,7 +50,6 @@ attributes #0 = { nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disa
 attributes #1 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #2 = { nounwind }
 
-!opencl.channels = !{!0, !3}
 !llvm.module.flags = !{!4}
 !opencl.enable.FP_CONTRACT = !{}
 !opencl.ocl.version = !{!5}
@@ -60,10 +59,7 @@ attributes #2 = { nounwind }
 !opencl.compiler.options = !{!6}
 !llvm.ident = !{!7}
 
-!0 = !{%opencl.channel_t addrspace(1)* addrspace(1)* @ch1, !1, !2}
-!1 = !{!"packet_size", i32 4}
-!2 = !{!"packet_align", i32 4}
-!3 = !{%opencl.channel_t addrspace(1)* addrspace(1)* @ch2, !1, !2}
+!0 = !{i32 4}
 !4 = !{i32 1, !"wchar_size", i32 4}
 !5 = !{i32 2, i32 0}
 !6 = !{}

@@ -44,10 +44,10 @@ target triple = "spir-unknown-unknown-intelfpga"
 %opencl.channel_t = type opaque
 
 @foo.s = private unnamed_addr addrspace(2) constant %struct.st { i32 100 }, align 4
-@bar_arr = common addrspace(1) global [5 x %opencl.channel_t addrspace(1)*] zeroinitializer, align 4
-@far_arr = common addrspace(1) global [5 x [4 x %opencl.channel_t addrspace(1)*]] zeroinitializer, align 4
-@star_arr = common addrspace(1) global [5 x [4 x [3 x %opencl.channel_t addrspace(1)*]]] zeroinitializer, align 4
-@lar_arr = common addrspace(1) global [6 x [5 x [4 x [3 x %opencl.channel_t addrspace(1)*]]]] zeroinitializer, align 8
+@bar_arr = common addrspace(1) global [5 x %opencl.channel_t addrspace(1)*] zeroinitializer, align 4, !packet_size !0, !packet_align !0, !depth !1
+@far_arr = common addrspace(1) global [5 x [4 x %opencl.channel_t addrspace(1)*]] zeroinitializer, align 4, !packet_size !0, !packet_align !0, !depth !2
+@star_arr = common addrspace(1) global [5 x [4 x [3 x %opencl.channel_t addrspace(1)*]]] zeroinitializer, align 4, !packet_size !0, !packet_align !0
+@lar_arr = common addrspace(1) global [6 x [5 x [4 x [3 x %opencl.channel_t addrspace(1)*]]]] zeroinitializer, align 8, !packet_size !3, !packet_align !3
 
 ; CHECK: %[[CINDEX0:.*]] = load {{.*}} %char_index
 ; CHECK: %[[BAR_PIPE_ARR_W_INDEX0:.*]] = sext {{.*}} %[[CINDEX0]]
@@ -305,7 +305,6 @@ attributes #1 = { argmemonly nounwind }
 attributes #2 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #3 = { nounwind }
 
-!opencl.channels = !{!0, !4, !6, !7}
 !llvm.module.flags = !{!10}
 !opencl.enable.FP_CONTRACT = !{}
 !opencl.ocl.version = !{!11}
@@ -315,16 +314,10 @@ attributes #3 = { nounwind }
 !opencl.compiler.options = !{!12}
 !llvm.ident = !{!13}
 
-!0 = !{[5 x %opencl.channel_t addrspace(1)*] addrspace(1)* @bar_arr, !1, !2, !3}
-!1 = !{!"packet_size", i32 4}
-!2 = !{!"packet_align", i32 4}
-!3 = !{!"depth", i32 0}
-!4 = !{[5 x [4 x %opencl.channel_t addrspace(1)*]] addrspace(1)* @far_arr, !1, !2, !5}
-!5 = !{!"depth", i32 3}
-!6 = !{[5 x [4 x [3 x %opencl.channel_t addrspace(1)*]]] addrspace(1)* @star_arr, !1, !2}
-!7 = !{[6 x [5 x [4 x [3 x %opencl.channel_t addrspace(1)*]]]] addrspace(1)* @lar_arr, !8, !9}
-!8 = !{!"packet_size", i32 8}
-!9 = !{!"packet_align", i32 8}
+!0 = !{i32 4}
+!1 = !{i32 0}
+!2 = !{i32 3}
+!3 = !{i32 8}
 !10 = !{i32 1, !"wchar_size", i32 4}
 !11 = !{i32 2, i32 0}
 !12 = !{}

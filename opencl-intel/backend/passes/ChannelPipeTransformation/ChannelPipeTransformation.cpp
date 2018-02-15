@@ -33,6 +33,7 @@
 #include <BuiltinLibInfo.h>
 #include <CompilationUtils.h>
 #include <InitializePasses.h>
+#include <MetadataAPI.h>
 #include <OCLAddressSpace.h>
 #include <OCLPassSupport.h>
 
@@ -45,6 +46,7 @@
 
 using namespace llvm;
 using namespace Intel::OpenCL::DeviceBackend;
+using namespace Intel::MetadataAPI;
 
 namespace intel {
 char ChannelPipeTransformation::ID = 0;
@@ -351,61 +353,18 @@ static Function *createGlobalPipeCtor(Module &M) {
   return Ctor;
 }
 
-static ChannelMetadata getChannelMetadata(const Module &M,
-                                          GlobalVariable *Channel) {
-  // ToDo: Use MetadataAPI for collecting the data,
-  // once clang emits 4.0-style of Metadata for channels (attached to global
-  // objects), this all will turn into a dozen of lines of well-supported code.
-  auto *MDs = M.getNamedMetadata("opencl.channels");
-  if (!MDs) {
-    llvm_unreachable("'opencl.channels' metadata not found.");
-  }
+static ChannelMetadata getChannelMetadata(GlobalVariable *Channel) {
+  auto GVMetadata = GlobalVariableMetadataAPI(Channel);
 
-  MDNode *ChannelMDList = nullptr;
-  for (auto *MD : MDs->operands()) {
-    assert(MD->getNumOperands() >= 3 &&
-           "Channel metedata must contain at least 3 operands");
-    auto *ChanMD = cast<ValueAsMetadata>(MD->getOperand(0).get());
-    if (Channel == ChanMD->getValue()) {
-      ChannelMDList = MD;
-      break;
-    }
-  }
-
-  assert(ChannelMDList && "Channel metadata is not found");
-
-  ConstantAsMetadata *PacketSizeMD = nullptr;
-  ConstantAsMetadata *PacketAlignMD = nullptr;
-  ConstantAsMetadata *DepthMD = nullptr;
-  MDString *IOMD = nullptr;
-
-  for (unsigned i = 1; i < ChannelMDList->getNumOperands(); ++i) {
-    MDNode *MDN = cast<MDNode>(ChannelMDList->getOperand(i).get());
-
-    auto *Key = cast<MDString>(MDN->getOperand(0).get());
-    if (Key->getString() == "packet_size") {
-      PacketSizeMD = cast<ConstantAsMetadata>(MDN->getOperand(1).get());
-    } else if (Key->getString() == "packet_align") {
-      PacketAlignMD = cast<ConstantAsMetadata>(MDN->getOperand(1).get());
-    } else if (Key->getString() == "depth") {
-      DepthMD = cast<ConstantAsMetadata>(MDN->getOperand(1).get());
-    } else if (Key->getString() == "io") {
-      IOMD = cast<MDString>(MDN->getOperand(1).get());
-    } else {
-      llvm_unreachable("Unknown metadata operand key");
-    }
-  }
-
-  ConstantInt *PacketSize = cast<ConstantInt>(PacketSizeMD->getValue());
-  ConstantInt *PacketAlign = cast<ConstantInt>(PacketAlignMD->getValue());
-  ConstantInt *Depth =
-      DepthMD ? cast<ConstantInt>(DepthMD->getValue()) : nullptr;
+  assert(GVMetadata.PipePacketSize.hasValue() &&
+         GVMetadata.PipePacketAlign.hasValue() &&
+         "Channel metadata must contain packet_size and packet_align");
 
   ChannelMetadata CMD;
-  CMD.PacketSize = PacketSize->getLimitedValue();
-  CMD.PacketAlign = PacketAlign->getLimitedValue();
-  CMD.Depth = Depth ? Depth->getLimitedValue() : 1;
-  CMD.IO = IOMD ? IOMD->getString() : "";
+  CMD.PacketSize = GVMetadata.PipePacketSize.get();
+  CMD.PacketAlign = GVMetadata.PipePacketAlign.get();
+  CMD.Depth = GVMetadata.PipeDepth.hasValue() ? GVMetadata.PipeDepth.get() : 1;
+  CMD.IO = GVMetadata.PipeIO.hasValue() ? GVMetadata.PipeIO.get() : "";
 
   if (CMD.Depth == 0) {
     CMD.Depth = 1;
@@ -429,7 +388,7 @@ static bool replaceGlobalChannels(Module &M, Type *ChannelTy, Type *PipeTy,
       GlobalCtor = createGlobalPipeCtor(M);
     }
 
-    PipeMetadata MD = getChannelMetadata(M, &ChannelGV);
+    PipeMetadata MD = getChannelMetadata(&ChannelGV);
     GlobalVariable *PipeGV = nullptr;
     if (auto *GVArrTy =
             dyn_cast<ArrayType>(ChannelGV.getType()->getElementType())) {
@@ -447,6 +406,16 @@ static bool replaceGlobalChannels(Module &M, Type *ChannelTy, Type *PipeTy,
       initializeGlobalPipeScalar(PipeGV, MD, GlobalCtor,
                                  Builtins.get("__pipe_init_intel"));
     }
+
+    auto ChannelMD = GlobalVariableMetadataAPI(&ChannelGV);
+    PipeGV->setMetadata(ChannelMD.PipePacketSize.getID(),
+        ChannelGV.getMetadata(ChannelMD.PipePacketSize.getID()));
+    PipeGV->setMetadata(ChannelMD.PipePacketAlign.getID(),
+        ChannelGV.getMetadata(ChannelMD.PipePacketAlign.getID()));
+    PipeGV->setMetadata(ChannelMD.PipeDepth.getID(),
+        ChannelGV.getMetadata(ChannelMD.PipeDepth.getID()));
+    PipeGV->setMetadata(ChannelMD.PipeIO.getID(),
+        ChannelGV.getMetadata(ChannelMD.PipeIO.getID()));
 
     VMap[&ChannelGV] = PipeGV;
 

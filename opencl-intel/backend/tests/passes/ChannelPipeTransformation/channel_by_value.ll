@@ -36,8 +36,8 @@ target triple = "spir64-unknown-unknown-intelfpga"
 
 %opencl.channel_t = type opaque
 
-@a = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4
-@b = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4
+@a = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4, !packet_size !0, !packet_align !0
+@b = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4, !packet_size !0, !packet_align !0
 
 ; CHECK: define {{.*}} @foo
 ; CHECK: %[[A_PIPE:.*]] = load {{.*}} @a.pipe
@@ -149,7 +149,6 @@ attributes #1 = { convergent "correctly-rounded-divide-sqrt-fp-math"="false" "di
 attributes #2 = { convergent nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #3 = { convergent }
 
-!opencl.channels = !{!0, !3}
 !llvm.module.flags = !{!4}
 !opencl.enable.FP_CONTRACT = !{}
 !opencl.ocl.version = !{!5}
@@ -159,10 +158,7 @@ attributes #3 = { convergent }
 !opencl.compiler.options = !{!6}
 !llvm.ident = !{!7}
 
-!0 = !{%opencl.channel_t addrspace(1)* addrspace(1)* @a, !1, !2}
-!1 = !{!"packet_size", i32 4}
-!2 = !{!"packet_align", i32 4}
-!3 = !{%opencl.channel_t addrspace(1)* addrspace(1)* @b, !1, !2}
+!0 = !{i32 4}
 !4 = !{i32 1, !"wchar_size", i32 4}
 !5 = !{i32 2, i32 0}
 !6 = !{}

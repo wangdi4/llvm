@@ -22,7 +22,7 @@ target triple = "spir64-unknown-unknown-intelfpga"
 
 %opencl.channel_t = type opaque
 
-@a = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4, !dbg !0
+@a = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4, !dbg !0, !packet_size !8, !packet_align !8
 
 
 ; CHECK-DAG: ![[SENDONE_SCOPE:[0-9]+]] = distinct !DISubprogram(name: "sendOne"
@@ -72,7 +72,6 @@ attributes #3 = { convergent nounwind "correctly-rounded-divide-sqrt-fp-math"="f
 attributes #4 = { convergent }
 
 !llvm.dbg.cu = !{!2}
-!opencl.channels = !{!8}
 !llvm.module.flags = !{!11, !12, !13}
 !opencl.enable.FP_CONTRACT = !{}
 !opencl.ocl.version = !{!14}
@@ -90,9 +89,7 @@ attributes #4 = { convergent }
 !5 = !{!0}
 !6 = !DIFile(filename: "temp.cl", directory: "/data/xmain/ics-ws/opencl/llvm/projects/opencl")
 !7 = !DIBasicType(name: "int", size: 32, encoding: DW_ATE_signed)
-!8 = !{%opencl.channel_t addrspace(1)* addrspace(1)* @a, !9, !10}
-!9 = !{!"packet_size", i32 4}
-!10 = !{!"packet_align", i32 4}
+!8 = !{i32 4}
 !11 = !{i32 2, !"Dwarf Version", i32 4}
 !12 = !{i32 2, !"Debug Info Version", i32 3}
 !13 = !{i32 1, !"wchar_size", i32 4}

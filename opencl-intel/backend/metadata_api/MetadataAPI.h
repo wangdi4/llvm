@@ -16,10 +16,22 @@
 namespace Intel {
 namespace MetadataAPI {
 
-// TBD for FPGA specific Metadata
-// look for channels.cl in CodeGenOpenCL tests in clang.
 struct GlobalVariableMetadataAPI {
-  GlobalVariableMetadataAPI(llvm::GlobalVariable *Global) {}
+  typedef NamedMDValue<int32_t, MDValueGlobalObjectStrategy> PipePacketSizeTy;
+  typedef NamedMDValue<int32_t, MDValueGlobalObjectStrategy> PipePacketAlignTy;
+  typedef NamedMDValue<int32_t, MDValueGlobalObjectStrategy> PipeDepthTy;
+  typedef NamedMDValue<llvm::StringRef, MDValueGlobalObjectStrategy> PipeIOTy;
+
+  GlobalVariableMetadataAPI(llvm::GlobalVariable *Global) :
+        PipePacketSize(Global, "packet_size"),
+        PipePacketAlign(Global, "packet_align"),
+        PipeDepth(Global, "depth"),
+        PipeIO(Global, "io") {}
+
+  PipePacketSizeTy PipePacketSize;
+  PipePacketAlignTy PipePacketAlign;
+  PipeDepthTy PipeDepth;
+  PipeIOTy PipeIO;
 };
 
 struct FunctionMetadataAPI {

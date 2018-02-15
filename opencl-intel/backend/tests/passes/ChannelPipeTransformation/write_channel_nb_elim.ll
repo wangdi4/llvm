@@ -39,11 +39,11 @@ target triple = "spir64-unknown-unknown-intelfpga"
 %struct.Foo = type { i32 }
 
 @foo.l_valid = internal addrspace(3) global i8 undef, align 1
-@bar = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4
-@far = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4
+@bar = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4, !packet_size !0, !packet_align !0, !depth !1
+@far = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4, !packet_size !0, !packet_align !0, !depth !2
 @g_valid = common addrspace(1) global i8 0, align 1
-@star = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4
-@bar_arr = common addrspace(1) global [5 x %opencl.channel_t addrspace(1)*] zeroinitializer, align 4
+@star = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4, !packet_size !0, !packet_align !0
+@bar_arr = common addrspace(1) global [5 x %opencl.channel_t addrspace(1)*] zeroinitializer, align 4, !packet_size !0, !packet_align !0
 
 ; CHECK: @[[PIPE_BAR:.*]] = addrspace(1) global %opencl.pipe_t{{.*}} addrspace(1)*
 ; CHECK: @[[PIPE_FAR:.*]] = addrspace(1) global %opencl.pipe_t{{.*}} addrspace(1)*
@@ -143,7 +143,6 @@ attributes #1 = { argmemonly nounwind }
 attributes #2 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #3 = { nounwind }
 
-!opencl.channels = !{!0, !4, !6, !7}
 !llvm.module.flags = !{!8}
 !opencl.enable.FP_CONTRACT = !{}
 !opencl.ocl.version = !{!9}
@@ -153,14 +152,9 @@ attributes #3 = { nounwind }
 !opencl.compiler.options = !{!10}
 !llvm.ident = !{!11}
 
-!0 = !{%opencl.channel_t addrspace(1)* addrspace(1)* @bar, !1, !2, !3}
-!1 = !{!"packet_size", i32 4}
-!2 = !{!"packet_align", i32 4}
-!3 = !{!"depth", i32 0}
-!4 = !{%opencl.channel_t addrspace(1)* addrspace(1)* @far, !1, !2, !5}
-!5 = !{!"depth", i32 3}
-!6 = !{%opencl.channel_t addrspace(1)* addrspace(1)* @star, !1, !2}
-!7 = !{[5 x %opencl.channel_t addrspace(1)*] addrspace(1)* @bar_arr, !1, !2}
+!0 = !{i32 4}
+!1 = !{i32 0}
+!2 = !{i32 3}
 !8 = !{i32 1, !"wchar_size", i32 4}
 !9 = !{i32 2, i32 0}
 !10 = !{}

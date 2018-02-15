@@ -31,8 +31,8 @@ target triple = "spir64-unknown-unknown-intelfpga"
 
 %opencl.channel_t = type opaque
 
-@ich = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4
-@lch = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 8
+@ich = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4, !packet_size !0, !packet_align !0
+@lch = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 8, !packet_size !1, !packet_align !1
 
 ; CHECK-NOT: call {{.*}} read_channel
 ; CHECK-NOT: call {{.*}} write_channel
@@ -112,7 +112,6 @@ attributes #1 = { argmemonly nounwind }
 attributes #2 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #3 = { nounwind }
 
-!opencl.channels = !{!0, !3}
 !llvm.module.flags = !{!6}
 !opencl.enable.FP_CONTRACT = !{}
 !opencl.ocl.version = !{!7}
@@ -122,12 +121,8 @@ attributes #3 = { nounwind }
 !opencl.compiler.options = !{!8}
 !llvm.ident = !{!9}
 
-!0 = !{%opencl.channel_t addrspace(1)* addrspace(1)* @ich, !1, !2}
-!1 = !{!"packet_size", i32 4}
-!2 = !{!"packet_align", i32 4}
-!3 = !{%opencl.channel_t addrspace(1)* addrspace(1)* @lch, !4, !5}
-!4 = !{!"packet_size", i32 8}
-!5 = !{!"packet_align", i32 8}
+!0 = !{i32 4}
+!1 = !{i32 8}
 !6 = !{i32 1, !"wchar_size", i32 4}
 !7 = !{i32 2, i32 0}
 !8 = !{}

@@ -20,7 +20,7 @@ target triple = "spir64-unknown-unknown-intelfpga"
 
 %opencl.channel_t = type opaque
 
-@c4 = common local_unnamed_addr addrspace(1) global [4 x [8 x %opencl.channel_t addrspace(1)*]] zeroinitializer, align 4
+@c4 = common local_unnamed_addr addrspace(1) global [4 x [8 x %opencl.channel_t addrspace(1)*]] zeroinitializer, align 4, !packet_size !0, !packet_align !0
 
 ; Function Attrs: nounwind
 define spir_kernel void @foo() local_unnamed_addr #0 !kernel_arg_addr_space !5 !kernel_arg_access_qual !5 !kernel_arg_type !5 !kernel_arg_base_type !5 !kernel_arg_type_qual !5 {
@@ -36,7 +36,6 @@ attributes #0 = { nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disa
 attributes #1 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #2 = { nounwind }
 
-!opencl.channels = !{!0}
 !llvm.module.flags = !{!3}
 !opencl.enable.FP_CONTRACT = !{}
 !opencl.ocl.version = !{!4}
@@ -46,9 +45,7 @@ attributes #2 = { nounwind }
 !opencl.compiler.options = !{!5}
 !llvm.ident = !{!6}
 
-!0 = !{[4 x [8 x %opencl.channel_t addrspace(1)*]] addrspace(1)* @c4, !1, !2}
-!1 = !{!"packet_size", i32 4}
-!2 = !{!"packet_align", i32 4}
+!0 = !{i32 4}
 !3 = !{i32 1, !"wchar_size", i32 4}
 !4 = !{i32 2, i32 0}
 !5 = !{}
