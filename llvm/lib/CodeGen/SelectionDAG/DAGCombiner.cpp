@@ -2015,12 +2015,10 @@ SDValue DAGCombiner::visitADD(SDNode *N) {
   if (SimplifyDemandedBits(SDValue(N, 0)))
     return SDValue(N, 0);
 
-/* CSA - disabled.  Interferes with patterns
   // fold (a+b) -> (a|b) iff a and b share no bits.
   if ((!LegalOperations || TLI.isOperationLegal(ISD::OR, VT)) &&
       DAG.haveNoCommonBitsSet(N0, N1))
     return DAG.getNode(ISD::OR, DL, VT, N0, N1);
-*/
 
   if (SDValue Combined = visitADDLike(N0, N1, N))
     return Combined;
