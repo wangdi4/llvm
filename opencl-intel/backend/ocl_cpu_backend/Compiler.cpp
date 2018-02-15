@@ -517,31 +517,10 @@ void Compiler::LoadBuiltinModules(BuiltinLibrary* pLibrary,
 bool Compiler::isProgramValid(llvm::Module* pModule, ProgramBuildResult* pResult) const
 {
     // Check for the limitation: "Images are not supported on Xeon Phi".
-    // TODO: Reimplement the check as utility function to correctly provide
-    // an information about images support on a given device
-    if(m_CpuId.GetCPU() != CPU_KNL)
-      return true;
-    if (llvm::NamedMDNode* pNode = pModule->getNamedMetadata("opencl.used.optional.core.features"))
-    {
-        // Usually "opencl.used.optional.core.features" metadata has only one node.
-        // It can have multiple nodes if clCompileProgram/clLinkProgram API is used.
-        // In that case each node represent the features used in its original
-        // binary before linking it into the final module.
-        // We should respect all of them and abort compilation if any of the binaries has images.
-        for (unsigned mdNodeId = 0; mdNodeId < pNode->getNumOperands(); ++mdNodeId)
-        {
-            MDNode *mdNode = pNode->getOperand(mdNodeId);
-            for (unsigned i = 0; i < mdNode->getNumOperands(); ++i)
-            {
-                auto *featureString = dyn_cast<MDString>(mdNode->getOperand(i).get());
-                assert(featureString && "MDString is expected");
-                if (featureString->getString() == "cl_images")
-                {
-                    pResult->LogS() << "Images are not supported on given device.\n";
-                    return false;
-                }
-            }
-        }
+    if (m_CpuId.GetCPU() == CPU_KNL &&
+        CompilationUtils::isImagesUsed(*pModule)) {
+      pResult->LogS() << "Images are not supported on given device.\n";
+      return false;
     }
 
     return true;

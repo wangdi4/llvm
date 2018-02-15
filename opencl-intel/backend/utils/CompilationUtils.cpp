@@ -116,6 +116,27 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   const std::string CompilationUtils::IMG_2D        = OCL_IMG_PREFIX + "2d_t";
   const std::string CompilationUtils::IMG_2D_ARRAY  = OCL_IMG_PREFIX + "2d_array_t";
   const std::string CompilationUtils::IMG_3D        = OCL_IMG_PREFIX + "3d_t";
+
+  const char* CompilationUtils::ImageTypeNames[] = {
+      "opencl.image1d_ro_t",                  "opencl.image1d_array_ro_t",
+      "opencl.image1d_wo_t",                  "opencl.image1d_array_wo_t",
+      "opencl.image1d_rw_t",                  "opencl.image1d_array_rw_t",
+      "opencl.image2d_ro_t",                  "opencl.image1d_buffer_ro_t",
+      "opencl.image2d_wo_t",                  "opencl.image1d_buffer_wo_t",
+      "opencl.image2d_rw_t",                  "opencl.image1d_buffer_rw_t",
+      "opencl.image2d_array_ro_t",            "opencl.image2d_depth_ro_t",
+      "opencl.image2d_array_wo_t",            "opencl.image2d_depth_wo_t",
+      "opencl.image2d_array_rw_t",            "opencl.image2d_depth_rw_t",
+      "opencl.image2d_array_depth_ro_t",      "opencl.image2d_msaa_ro_t",
+      "opencl.image2d_array_depth_wo_t",      "opencl.image2d_msaa_wo_t",
+      "opencl.image2d_array_depth_rw_t",      "opencl.image2d_msaa_rw_t",
+      "opencl.image2d_array_msaa_ro_t",       "opencl.image2d_msaa_depth_ro_t",
+      "opencl.image2d_array_msaa_wo_t",       "opencl.image2d_msaa_depth_wo_t",
+      "opencl.image2d_array_msaa_rw_t",       "opencl.image2d_msaa_depth_rw_t",
+      "opencl.image2d_array_msaa_depth_ro_t", "opencl.image3d_ro_t",
+      "opencl.image2d_array_msaa_depth_wo_t", "opencl.image3d_wo_t",
+      "opencl.image2d_array_msaa_depth_rw_t", "opencl.image3d_rw_t"};
+
   //Argument qualifiers
   const std::string CompilationUtils::WRITE_ONLY = "write_only";
   const std::string CompilationUtils::READ_ONLY  = "read_only";
@@ -1077,6 +1098,16 @@ bool CompilationUtils::isWorkGroupUniform(const std::string& S) {
          isWorkGroupReduceAdd(S) ||
          isWorkGroupReduceMin(S) ||
          isWorkGroupReduceMax(S);
+}
+
+bool CompilationUtils::isImagesUsed(const Module &M) {
+  for (unsigned i = 0,
+       e = sizeof(ImageTypeNames)/sizeof(ImageTypeNames[0]); i < e; ++i) {
+    if (M.getTypeByName(ImageTypeNames[i]))
+      return true;
+  }
+
+  return false;
 }
 
 bool CompilationUtils::isAtomicBuiltin(const std::string& funcName){

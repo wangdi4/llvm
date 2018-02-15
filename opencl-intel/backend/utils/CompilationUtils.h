@@ -340,6 +340,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static const std::string IMG_2D;
     static const std::string IMG_2D_ARRAY;
     static const std::string IMG_3D;
+    static const char* ImageTypeNames[];
+
     //kernel arg qualifiers
     static const std::string WRITE_ONLY;
     static const std::string READ_ONLY;
@@ -475,6 +477,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// bitcast if a function with the same name, but different type, is
     /// already exist in the \p Dst.
     static Constant *importFunctionDecl(Module *Dst, const Function *Orig);
+
+    /// Check if at least one of the image types is defined in the module
+    static bool isImagesUsed(const Module &M);
 
     /// Check if two types are pointers to the same opaque type
     /// @see isSameStructType
