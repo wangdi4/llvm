@@ -187,7 +187,7 @@ bool BlobUtils::isConstantDataBlob(BlobTy Blob, ConstantData **Val) {
 
   return false;
 }
-  
+
 bool BlobUtils::isConstantVectorBlob(BlobTy Blob, Constant **Val) {
   auto UnknownSCEV = dyn_cast<SCEVUnknown>(Blob);
 

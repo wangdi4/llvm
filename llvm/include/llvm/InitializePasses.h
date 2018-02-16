@@ -460,6 +460,7 @@ void initializeHIROptPredicatePass(PassRegistry&);
 void initializeHIRRuntimeDDPass(PassRegistry&);
 void initializeHIRLoopReversalPass(PassRegistry&);
 void initializeHIRLMMPass(PassRegistry&);
+void initializeHIRLoopCollapsePass(PassRegistry&);
 void initializeHIRSymbolicTripCountCompleteUnrollPass(PassRegistry&);
 void initializeHIRScalarReplArrayPass(PassRegistry&);
 void initializeHIRDummyTransformationPass(PassRegistry&);

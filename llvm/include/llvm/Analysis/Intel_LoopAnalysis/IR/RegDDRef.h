@@ -88,6 +88,8 @@ private:
     // of a load or store.
     bool AddressOf;
     bool Volatile;
+    bool IsCollapsed; // Set if the DDRef has been collapsed through Loop
+                      // Collapse Pass. Needed for DD test to bail out often.
     unsigned Alignment;
 
     // Stores trailing structure element offsets for each dimension of the ref.
@@ -390,6 +392,15 @@ public:
   void setAlignment(unsigned Align) {
     createGEP();
     getGEPInfo()->Alignment = Align;
+  }
+
+  /// \brief Returns true if this is a collapsed ref.
+  bool isCollapsed(void) const { return getGEPInfo()->IsCollapsed; }
+
+  /// Sets collapse flag for this ref.
+  void setCollapsed(bool CollapseFlag) {
+    createGEP();
+    getGEPInfo()->IsCollapsed = CollapseFlag;
   }
 
   // Get/Set DebugLoc for the Load/Store instruction

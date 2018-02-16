@@ -54,12 +54,13 @@ RegDDRef::RegDDRef(const RegDDRef &RegDDRefObj)
 
 RegDDRef::GEPInfo::GEPInfo()
     : BaseCE(nullptr), BitCastDestTy(nullptr), InBounds(false),
-      AddressOf(false), Volatile(false), Alignment(0) {}
+      AddressOf(false), Volatile(false),
+      IsCollapsed(false), Alignment(0) {}
 
 RegDDRef::GEPInfo::GEPInfo(const GEPInfo &Info)
     : BaseCE(Info.BaseCE->clone()), BitCastDestTy(Info.BitCastDestTy),
       InBounds(Info.InBounds), AddressOf(Info.AddressOf),
-      Volatile(Info.Volatile), Alignment(Info.Alignment),
+      Volatile(Info.Volatile), IsCollapsed(Info.IsCollapsed), Alignment(Info.Alignment),
       DimensionOffsets(Info.DimensionOffsets), MDNodes(Info.MDNodes),
       GepDbgLoc(Info.GepDbgLoc), MemDbgLoc(Info.MemDbgLoc) {}
 

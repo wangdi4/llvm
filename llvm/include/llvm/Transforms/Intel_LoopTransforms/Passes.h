@@ -85,6 +85,10 @@ FunctionPass *createHIRLoopReversalPass();
 /// Memory Motion.
 FunctionPass *createHIRLMMPass();
 
+/// createHIRLoopCollapsePass - This creates a HIR Loop pass that performs Loop
+/// Collapse
+FunctionPass *createHIRLoopCollapsePass();
+
 /// createHIRSymbolicTripCountCompleteUnrollPass - This creates a HIR Loop pass
 /// that
 /// performs Loop based pattern matching.

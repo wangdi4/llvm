@@ -19,6 +19,7 @@ add_llvm_library(LLVMIntel_LoopTransforms
         HIROptReportEmitter.cpp
         HIRLoopReversal.cpp
         HIRLMM.cpp
+        HIRLoopCollapse.cpp
         HIRSymbolicTripCountCompleteUnroll.cpp
         HIRScalarReplArray.cpp
         ParVecDirectiveInsertion.cpp
