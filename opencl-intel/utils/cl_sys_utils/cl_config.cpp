@@ -494,8 +494,8 @@ OPENCL_VERSION BasicCLConfigWrapper::GetOpenCLVersion() const
     s_ver = OPENCL_VERSION_2_1;
     return OPENCL_VERSION_2_1;
 #elif defined(BUILD_FPGA_EMULATOR)
-    s_ver = OPENCL_VERSION_1_2;
-    return OPENCL_VERSION_1_2;
+    s_ver = OPENCL_VERSION_1_0;
+    return OPENCL_VERSION_1_0;
 #endif // BUILD_FPGA_EMULATOR
 
     s_ver = GetOpenclVerByCpuModel();

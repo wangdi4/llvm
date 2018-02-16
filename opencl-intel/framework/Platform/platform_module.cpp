@@ -188,6 +188,9 @@ cl_err_code    PlatformModule::Initialize(ocl_entry_points * pOclEntryPoints, OC
     m_oclVersion = pConfig->GetOpenCLVersion();
     switch(m_oclVersion)
     {
+        case OPENCL_VERSION_1_2:
+            m_vPlatformVersionStr = "OpenCL 1.2";
+        break;
         case OPENCL_VERSION_2_2:
             m_vPlatformVersionStr = "OpenCL 2.2";
         break;
@@ -198,10 +201,12 @@ cl_err_code    PlatformModule::Initialize(ocl_entry_points * pOclEntryPoints, OC
             m_vPlatformVersionStr = "OpenCL 2.0";
         break;
         default:
-            m_vPlatformVersionStr = "OpenCL 1.2";
+            m_vPlatformVersionStr = "OpenCL 1.0";
         break;
     }
-#ifdef _WIN32
+#ifdef BUILD_FPGA_EMULATOR
+    m_vPlatformVersionStr += " Intel(R) FPGA SDK for OpenCL(TM), Version 18.0";
+#elif defined (_WIN32)
     m_vPlatformVersionStr += " WINDOWS";
 #else // LINUX
     m_vPlatformVersionStr += " LINUX";

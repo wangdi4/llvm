@@ -586,13 +586,16 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         pinternalRetunedValueSize = &internalRetunedValueSize;
     }
 
-    static const char sOpenCL12Str[] = "OpenCL 1.2 ",
+    static const char sOpenCL10Str[] = "OpenCL 1.0 ",
+                      sOpenCL12Str[] = "OpenCL 1.2 ",
                       sOpenCL20Str[] = "OpenCL 2.0 ",
                       sOpenCL21Str[] = "OpenCL 2.1 ",
                       sOpenCL22Str[] = "OpenCL 2.2 ";
 
-    static const char sOpenCLC12Str[] = "OpenCL C 1.2 ",
+    static const char sOpenCLC10Str[] = "OpenCL C 1.0 ",
+                      sOpenCLC12Str[] = "OpenCL C 1.2 ",
                       sOpenCLC20Str[] = "OpenCL C 2.0 ";
+
     switch (param)
     {
         case( CL_DEVICE_TYPE):
@@ -625,7 +628,11 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             //if OUT paramVal is NULL it should be ignored
             if(nullptr != paramVal)
             {
-                    *(cl_uint*)paramVal = 0x8086;
+#ifdef BUILD_FPGA_EMULATOR
+                *(cl_uint*)paramVal = 4466;
+#else
+                *(cl_uint*)paramVal = 0x8086;
+#endif
             }
             return CL_DEV_SUCCESS;
         }
@@ -1341,7 +1348,20 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         }
         case( CL_DEVICE_OPENCL_C_VERSION):
             {
-                *pinternalRetunedValueSize = strlen(OPENCL_VERSION_1_2 == ver ? sOpenCLC12Str : sOpenCLC20Str) + 1;
+                const char* openclCVerStr = nullptr;
+                switch(ver)
+                {
+                    case OPENCL_VERSION_1_0:
+                        openclCVerStr = sOpenCLC10Str;
+                        break;
+                    case OPENCL_VERSION_1_2:
+                        openclCVerStr = sOpenCLC12Str;
+                        break;
+                    default:
+                        openclCVerStr = sOpenCLC20Str;
+                        break;
+                }
+                *pinternalRetunedValueSize = strlen(openclCVerStr) + 1;
                 if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
                 {
                     return CL_DEV_INVALID_VALUE;
@@ -1349,7 +1369,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
                 //if OUT paramVal is NULL it should be ignored
                 if(nullptr != paramVal)
                 {
-                    STRCPY_S((char*)paramVal, valSize, OPENCL_VERSION_1_2 == ver ? sOpenCLC12Str : sOpenCLC20Str);
+                    STRCPY_S((char*)paramVal, valSize, openclCVerStr);
                 }
                 return CL_DEV_SUCCESS;
             }
@@ -1358,6 +1378,9 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             const char* openclVerStr = nullptr;
             switch(ver)
             {
+                case OPENCL_VERSION_1_0:
+                    openclVerStr = sOpenCL10Str;
+                    break;
                 case OPENCL_VERSION_1_2:
                     openclVerStr = sOpenCL12Str;
                     break;
@@ -1373,7 +1396,15 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
                 default:
                     assert("Unknown OpenCL version.");
             }
-            *pinternalRetunedValueSize = strlen(openclVerStr) + strlen(BUILDVERSIONSTR) + 1;
+#ifdef BUILD_FPGA_EMULATOR
+            *pinternalRetunedValueSize =
+                strlen(openclVerStr) + 1 /*for null-terminator*/;
+#else
+            *pinternalRetunedValueSize =
+                strlen(openclVerStr) + strlen(BUILDVERSIONSTR)
+                + 1 /*for null-terminator*/;
+#endif
+
             if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
@@ -1381,8 +1412,13 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             //if OUT paramVal is NULL it should be ignored
             if(nullptr != paramVal)
             {
+#ifdef BUILD_FPGA_EMULATOR
+                SPRINTF_S((char*)paramVal, valSize, "%s", openclVerStr);
+#else
                 SPRINTF_S((char*)paramVal, valSize, "%s%s", openclVerStr, BUILDVERSIONSTR);
+#endif
             }
+
             return CL_DEV_SUCCESS;
         }
         case( CL_DEVICE_IL_VERSION ):
@@ -1418,7 +1454,11 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
                 // TODO: remove this once GetModuleProductVersion is implemented on Linux
                 driverVerStream << "1.2.0." << (int)BUILDVERSION;
             }
+#ifdef BUILD_FPGA_EMULATOR
+            std::string driverVer = "18.0";
+#else
             std::string driverVer = driverVerStream.str();
+#endif
 
             *pinternalRetunedValueSize = driverVer.length() + 1;
             if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)

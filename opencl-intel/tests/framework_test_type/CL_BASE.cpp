@@ -38,6 +38,8 @@ void CL_base::SetUpTestCase()
         m_version = OPENCL_VERSION::OPENCL_VERSION_2_0;
     else if(!platVer_str.compare(0, 10, "OpenCL 1.2"))
         m_version = OPENCL_VERSION::OPENCL_VERSION_1_2;
+    else if(!platVer_str.compare(0, 10, "OpenCL 1.0"))
+        m_version = OPENCL_VERSION::OPENCL_VERSION_1_0;
 
     //Get device.
     iRet = clGetDeviceIDs(m_platform, gDeviceType, 1, &m_device, NULL);

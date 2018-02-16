@@ -78,7 +78,9 @@ bool clGetPlatformInfoTest()
     bResult &= Check("CL_PLATFORM_VERSION, get size only", CL_SUCCESS, iRes);
     if (CL_SUCCEEDED(iRes))
     {
-#ifdef _WIN32
+#ifdef BUILD_FPGA_EMULATOR
+        bResult &= CheckSize("check value", 58, size_ret);
+#elif defined(_WIN32)
         bResult &= CheckSize("check value", 19, size_ret);
 #else
         bResult &= CheckSize("check value", 17, size_ret);
@@ -105,7 +107,7 @@ bool clGetPlatformInfoTest()
         }
         #elif defined(BUILD_FPGA_EMULATOR)
         {
-            expectedString += "1.2 ";
+            expectedString += "1.0 ";
         }
         #else // BUILD_FPGA_EMULATOR
         {
@@ -124,14 +126,21 @@ bool clGetPlatformInfoTest()
                     break;
 
                 case OPENCL_VERSION_1_2:
-                default:
                     expectedString += "1.2 ";
+                    break;
+                case OPENCL_VERSION_1_0:
+                default:
+                    expectedString += "1.0 ";
                     break;
             }
         }
         #endif //BUILD_EXPERIMENTAL_21
 
-        #ifdef _WIN32
+        #ifdef BUILD_FPGA_EMULATOR
+        {
+            expectedString += "Intel(R) FPGA SDK for OpenCL(TM), Version 18.0";
+        }
+        #elif defined (_WIN32)
         {
             expectedString += "WINDOWS";
         }
@@ -144,7 +153,6 @@ bool clGetPlatformInfoTest()
             #error Unhandled platform!
         }
         #endif
-
 
         bResult &= CheckStr("check value",
                 &expectedString[0], platformInfoStr);

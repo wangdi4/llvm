@@ -94,6 +94,8 @@ static std::string getCPUSignatureMacro() {
 
 const char *GetOpenCLVersionStr(OPENCL_VERSION ver) {
   switch (ver) {
+  case OPENCL_VERSION_1_0:
+    return "100";
   case OPENCL_VERSION_1_2:
     return "120";
   case OPENCL_VERSION_2_0:
