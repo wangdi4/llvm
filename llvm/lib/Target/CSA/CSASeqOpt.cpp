@@ -143,12 +143,13 @@ void CSASeqOpt::SequenceIndv(CSASSANode *cmpNode, CSASSANode *switchNode,
   // phi dst's usage  uses of add can only be switch or cmp
   unsigned adddst = addNode->minstr->getOperand(0).getReg();
   MachineRegisterInfo::use_iterator UI = MRI->use_begin(adddst);
+  bool hasPostIncUses = false;
   while (UI != MRI->use_end()) {
     MachineOperand &UseMO = *UI;
     ++UI;
     MachineInstr *UseMI = UseMO.getParent();
     if (UseMI != switchNode->minstr && UseMI != cmpNode->minstr) {
-      isIDVCycle = false;
+      hasPostIncUses = true;
       break;
     }
   }
@@ -243,8 +244,17 @@ void CSASeqOpt::SequenceIndv(CSASSANode *cmpNode, CSASSANode *switchNode,
     adjCmpInstr->setFlag(MachineInstr::NonSequential);
     SequenceSwitchOut(switchNode, addNode, lhdrPickNode, seqInstr, seqReg,
                       backedgeReg);
+
+    // If the add has uses, replace it with an add of the induction variable
+    // from the switch.
+    if (hasPostIncUses) {
+      // if strideIdx == 2, set operand 1 else (it == 1) set operand 2.
+      addNode->minstr->getOperand(3 - strideIdx).setReg(seqReg);
+    } else {
+      addNode->minstr->removeFromBundle();
+    }
+
     switchNode->minstr->removeFromParent();
-    addNode->minstr->removeFromBundle();
     lhdrPickNode->minstr->removeFromParent();
     cmpNode->minstr->removeFromParent();
     // currently only the cmp instr can have usage outside the cycle

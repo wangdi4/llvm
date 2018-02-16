@@ -173,7 +173,6 @@ public:
 
 #define DEBUG_TYPE "csa-convert-control"
   void addPreRegAlloc() override {
-    using namespace csa_memop_ordering_shared_options;
     std::string Banner;
 #if 1
     Banner = std::string("Before Machine CDG Pass");
@@ -183,17 +182,7 @@ public:
     Banner = std::string("After Machine CDG Pass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
 
-    switch (OrderMemopsType) {
-    case independent:
-      addPass(createCSAIndependentMemopOrderingPass());
-      break;
-    case depcalc:
-      addPass(createCSADepCalcMemopOrderingPass());
-      break;
-    default:
-      addPass(createCSAMemopOrderingPass());
-      break;
-    }
+    addPass(createCSAMemopOrderingPass());
     Banner = std::string("After CSAMemopOrderingPass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
 
@@ -261,8 +250,8 @@ public:
     // equivalent to the Bitcode emitted by the -flto option.
     addPass(createCSASaveRawBCPass());
 
-    // Do any necessary atomic expansion according to Subtarget features.
-    addPass(createAtomicExpandPass());
+		// Do any necessary atomic expansion according to Subtarget features.
+		addPass(createAtomicExpandPass());
 
     // Pass call onto parent
     TargetPassConfig::addIRPasses();
