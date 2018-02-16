@@ -81,7 +81,7 @@ set(LIBOMPTARGET_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
   # dumping progress messages at runtime.
   string( TOLOWER "${CMAKE_BUILD_TYPE}" LIBOMPTARGET_CMAKE_BUILD_TYPE)
   if(LIBOMPTARGET_CMAKE_BUILD_TYPE MATCHES debug)
-#    add_definitions(-DOMPTARGET_DEBUG)
+    add_definitions(-DOMPTARGET_DEBUG)
     add_definitions(-g)
     add_definitions(-O0)
   endif()

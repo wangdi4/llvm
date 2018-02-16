@@ -60,12 +60,16 @@
 #define GETNAME(name) GETNAME2(name)
 
 #ifdef OMPTARGET_DEBUG
+static int DebugLevel = 0;
+
 #define DP(...)                                                            \
-  {                                                                        \
-    fprintf(stderr, "CSA  (HOST) --> ");                                   \
-    fprintf(stderr, __VA_ARGS__);                                          \
-    fflush(nullptr);                                                       \
-  }
+  do {                                                                     \
+    if (DebugLevel > 0) {                                                  \
+      fprintf(stderr, "CSA  (HOST)  --> ");                                \
+      fprintf(stderr, __VA_ARGS__);                                        \
+      fflush(nullptr);                                                     \
+    }                                                                      \
+  } while (false)
 #else
 #define DP(...)                                                            \
   {}
@@ -224,6 +228,11 @@ public:
   }
 
   RTLDeviceInfoTy(int32_t num_devices) {
+#ifdef OMPTARGET_DEBUG
+    if (char *envStr = getenv("LIBOMPTARGET_DEBUG")) {
+      DebugLevel = std::stoi(envStr);
+    }
+#endif // OMPTARGET_DEBUG
     if (auto *Str = getenv(ENV_SAVE_TEMPS)) {
       SaveTemps = std::atoi(Str);
     }
@@ -281,6 +290,16 @@ int32_t __tgt_rtl_is_valid_binary(__tgt_device_image *image) {
     return 0;
   }
 
+  // Utility object for closing Elf on return.
+  struct ElfEnd {
+    ElfEnd(Elf *E) : E(E) {}
+    ~ElfEnd() {
+     elf_end(E);
+  }
+  private:
+    Elf *E;
+  } ElfEndCaller(e);
+
   // Check if ELF is the right kind
   if (elf_kind(e) != ELF_K_ELF) {
     DP("Unexpected ELF type!\n");
@@ -291,7 +310,6 @@ int32_t __tgt_rtl_is_valid_binary(__tgt_device_image *image) {
 
   if (!eh64 && !eh32) {
     DP("Unable to get machine ID from ELF file!\n");
-    elf_end(e);
     return 0;
   }
 
@@ -302,12 +320,36 @@ int32_t __tgt_rtl_is_valid_binary(__tgt_device_image *image) {
     MachineID = eh32->e_machine;
   else {
     DP("Ambiguous ELF header!\n");
-    elf_end(e);
     return 0;
   }
-  elf_end(e);
 
-  return MachineID == TARGET_ELF_ID;
+  if (MachineID != TARGET_ELF_ID) {
+    DP("Unexpected ELF machine\n");
+    return 0;
+  }
+
+  // So far CSA binary is indistinguishable from x86_64 by looking at ELF
+  // machine only. We can slightly enhance this test by checking if given
+  // binary contains CSA bitcode section.
+  {
+    size_t ShStrIdx = 0;
+    if (elf_getshdrstrndx(e, &ShStrIdx)) {
+      DP("Unable to get ELF strings index!\n");
+      return 0;
+    }
+    Elf_Scn *Sec = nullptr;
+    while ((Sec = elf_nextscn(e, Sec))) {
+      GElf_Shdr Shdr;
+      gelf_getshdr(Sec, &Shdr);
+
+      if (const auto *Name = elf_strptr(e, ShStrIdx, Shdr.sh_name))
+        if (strcmp(Name, CSA_BITCODE_DATA_SECTION) == 0)
+          return 1;
+    }
+  }
+
+  DP("No CSA bitcode data section\n");
+  return 0;
 #endif
 }
 
