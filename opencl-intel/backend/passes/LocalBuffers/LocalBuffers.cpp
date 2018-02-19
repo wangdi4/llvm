@@ -54,7 +54,7 @@ namespace intel{
       }
 
       // pipes ctor is not a kernel
-      if (CompilationUtils::isGlobalConstructor(pFunc))
+      if (CompilationUtils::isGlobalCtorDtor(pFunc))
         continue;
 
       runOnFunction(pFunc);

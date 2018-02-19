@@ -39,6 +39,13 @@ class Pipe : public GenericMemObject
 		return new Pipe(pContext, clObjType);
 	}
 
+    long Release(void) override
+    {
+        void* pPipe = GetBackingStoreData();
+        __pipe_release_intel(pPipe);
+        return 0;
+    }
+
     /**
      * @param uiPacketSize the size in byte of this Pipe's packet
      * @param uiMaxPackets the maximum number of packets this Pipe can hold

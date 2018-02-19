@@ -64,9 +64,9 @@ namespace intel{
         continue;
       }
 
-      // global ctor's don't need implicit arguments, as it only called once by
-      // runStaticConstructorsDestructors function.
-      if (CompilationUtils::isGlobalConstructor(pFunc))
+      // global ctor's and dtor's don't need implicit arguments, as it only
+      // called once by runStaticConstructorsDestructors function.
+      if (CompilationUtils::isGlobalCtorDtor(pFunc))
         continue;
 
       toHandleFunctions.push_back(pFunc);

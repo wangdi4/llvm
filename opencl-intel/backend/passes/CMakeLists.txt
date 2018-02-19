@@ -6,6 +6,7 @@ include_directories(${LLVM_INCLUDE_DIRS}
 add_subdirectory(AddImplicitArgs)
 add_subdirectory(AutorunReplicator)
 add_subdirectory(ChannelPipeTransformation)
+add_subdirectory(PipeIOTransformation)
 add_subdirectory(CleanupWrappedKernels)
 add_subdirectory(PipeOrdering)
 add_subdirectory(PipeSupport)

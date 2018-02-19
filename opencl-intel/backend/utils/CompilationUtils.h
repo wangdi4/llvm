@@ -18,6 +18,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Module.h"
 
+#include <PipeCommon.h>
+
 #include <string>
 #include <vector>
 #include <map>
@@ -47,6 +49,19 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     unsigned CLVersionToVal(uint64_t major, uint64_t minor);
   }
 
+  namespace ChannelPipeMetadata {
+    struct ChannelPipeMD {
+      int PacketSize;
+      int PacketAlign;
+      int Depth;
+      StringRef IO;
+    };
+
+    ChannelPipeMD getChannelPipeMetadata(
+        GlobalVariable *Channel,
+        int ChannelDepthEmulationMode = CHANNEL_DEPTH_MODE_IGNORE_DEPTH);
+  }
+
   struct PipeKind {
     enum ScopeKind {
       WORK_ITEM,
@@ -74,6 +89,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     AccessKind Access;
     OpKind Op = OpKind::NONE;
     bool Blocking = false;
+    bool IO = false;
     std::string SimdSuffix = "";
 
     bool operator == (const PipeKind &LHS) {
@@ -81,6 +97,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
              Access     == LHS.Access   &&
              Op         == LHS.Op       &&
              Blocking   == LHS.Blocking &&
+             IO         == LHS.IO       &&
              SimdSuffix == LHS.SimdSuffix;
     }
 
@@ -533,12 +550,12 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static void getArrayTypeDimensions(const ArrayType *ArrTy,
                                        SmallVectorImpl<size_t> &Dimensions);
 
-    /// @brief Returns true if the function is global constructor (listed in
-    //         @llvm.global_ctors variable)
+    /// @brief Returns true if the function is global constructor or destructor
+    //         (listed in @llvm.global_ctors variable)
     //
     //         NOTE: current implementation is *the only* workaround for global
-    //         constructor for pipes. See TODO inside the implementation
-    static bool isGlobalConstructor(Function *F);
+    //         ctor/dtor for pipes. See TODO inside the implementation
+    static bool isGlobalCtorDtor(Function *F);
   };
 
   class OCLBuiltins {

@@ -41,6 +41,7 @@ set(OCL_BE_PASSES
     Materialize
     OclFunctionAttrs
     PatchCallbackArgs
+    PipeIOTransformation
     PipeOrdering
     PipeSupport
     Prefetch

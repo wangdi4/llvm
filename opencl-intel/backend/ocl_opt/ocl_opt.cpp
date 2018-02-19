@@ -91,6 +91,7 @@ void initializeOCLPasses(PassRegistry &Registry)
     intel::initializeOCLAliasAnalysisPass(Registry);
     intel::initializePrintfArgumentsPromotionPass(Registry);
     intel::initializeChannelPipeTransformationPass(Registry);
+    intel::initializePipeIOTransformationPass(Registry);
     intel::initializePipeSupportPass(Registry);
     intel::initializePipeOrderingPass(Registry);
     intel::initializeInfiniteLoopCreatorPass(Registry);

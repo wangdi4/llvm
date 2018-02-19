@@ -61,6 +61,8 @@ struct KernelMetadataAPI {
   typedef NamedMDList<llvm::StringRef, MDValueGlobalObjectStrategy>
       ArgTypeQualifierListTy;
   typedef NamedMDList<llvm::StringRef, MDValueGlobalObjectStrategy> ArgNameListTy;
+  typedef NamedMDList<llvm::StringRef, MDValueGlobalObjectStrategy>
+      ArgIOAttributeListTy;
 
   // optional attributes
   typedef NamedMDList<int32_t, MDValueGlobalObjectStrategy> WorkGroupSizeHintTy;
@@ -79,6 +81,7 @@ struct KernelMetadataAPI {
         ArgBaseTypeList(Func, "kernel_arg_base_type"),
         ArgTypeQualifierList(Func, "kernel_arg_type_qual"),
         ArgNameList(Func, "kernel_arg_name"),
+        ArgIOAttributeList(Func, "kernel_arg_pipe_io"),
 
         WorkGroupSizeHint(Func, "work_group_size_hint"),
         ReqdWorkGroupSize(Func, "reqd_work_group_size"),
@@ -95,6 +98,7 @@ struct KernelMetadataAPI {
        MDNames.push_back(ArgBaseTypeList.getID());
        MDNames.push_back(ArgTypeQualifierList.getID());
        MDNames.push_back(ArgNameList.getID());
+       MDNames.push_back(ArgIOAttributeList.getID());
 
        MDNames.push_back(WorkGroupSizeHint.getID());
        MDNames.push_back(ReqdWorkGroupSize.getID());
@@ -113,6 +117,7 @@ struct KernelMetadataAPI {
   ArgBaseTypeListTy ArgBaseTypeList;
   ArgTypeQualifierListTy ArgTypeQualifierList;
   ArgNameListTy ArgNameList;
+  ArgIOAttributeListTy ArgIOAttributeList;
 
   // optional attributes
   WorkgroupSizeMDAccessor<WorkGroupSizeHintTy> WorkGroupSizeHint;

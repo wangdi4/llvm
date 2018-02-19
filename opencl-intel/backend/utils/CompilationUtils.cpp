@@ -166,6 +166,30 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     return major * 100 + minor * 10;
   }
 
+  ChannelPipeMetadata::ChannelPipeMD
+  ChannelPipeMetadata::getChannelPipeMetadata(GlobalVariable *Channel,
+                                              int ChannelDepthEmulationMode) {
+    auto GVMetadata = GlobalVariableMetadataAPI(Channel);
+
+    assert(GVMetadata.PipePacketSize.hasValue() &&
+           GVMetadata.PipePacketAlign.hasValue() &&
+           "Channel metadata must contain packet_size and packet_align");
+
+    ChannelPipeMD CMD;
+    CMD.PacketSize = GVMetadata.PipePacketSize.get();
+    CMD.PacketAlign = GVMetadata.PipePacketAlign.get();
+    CMD.Depth =
+        GVMetadata.PipeDepth.hasValue() ? GVMetadata.PipeDepth.get() : 0;
+    CMD.IO = GVMetadata.PipeIO.hasValue() ? GVMetadata.PipeIO.get() : "";
+
+    if (!GVMetadata.PipeDepth.hasValue() &&
+        ChannelDepthEmulationMode == CHANNEL_DEPTH_MODE_DEFAULT) {
+      GVMetadata.DepthIsIgnored.set(true);
+    }
+
+    return CMD;
+  }
+
   BasicBlock::iterator CompilationUtils::removeInstruction(BasicBlock* pBB, BasicBlock::iterator it) {
     BasicBlock::InstListType::iterator prev;
 
@@ -1206,6 +1230,11 @@ PipeKind CompilationUtils::getPipeKind(const std::string &Name) {
   } else {
     Kind.Blocking = false;
   }
+  if (N.consume_front("_io")) {
+    Kind.IO = true;
+  } else {
+    Kind.IO = false;
+  }
 
 #ifdef BUILD_FPGA_EMULATOR
   // TODO: drop this case when built-ins would be aligned b/w fpga
@@ -1268,6 +1297,9 @@ std::string CompilationUtils::getPipeName(PipeKind Kind) {
 
   if (Kind.Blocking) {
      Name += "_bl";
+  }
+  if (Kind.IO) {
+     Name += "_io";
   }
 
 #ifdef BUILD_FPGA_EMULATOR
@@ -1471,9 +1503,10 @@ void CompilationUtils::getArrayTypeDimensions(
   } while ((InnerArrTy = dyn_cast<ArrayType>(InnerArrTy->getElementType())));
 }
 
-bool CompilationUtils::isGlobalConstructor(Function *F) {
+bool CompilationUtils::isGlobalCtorDtor(Function *F) {
   // TODO: implement good solution based on value of @llvm.global_ctors variable
-  return F->getName() == "__pipe_global_ctor";
+  return F->getName() == "__pipe_global_ctor" ||
+         F->getName() == "__pipe_global_dtor";
 }
 
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {

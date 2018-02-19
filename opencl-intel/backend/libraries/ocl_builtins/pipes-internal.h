@@ -1,6 +1,6 @@
 //==--- pipe-internal.h - Private header for pipe builtins. -*- OpenCL C -*-==//
 //
-// Copyright (C) 2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -39,6 +39,16 @@ struct __pipe_internal_buf {
 //
 //   where K is a constant number of packets, depends on a cache
 //   settings
+typedef struct FILE FILE;
+
+FILE *fopen(__generic const char *filename, __constant char *mode);
+int fclose(FILE *fp);
+int fflush(FILE *fp);
+size_t fread(void *ptr, size_t size_of_elements,
+             size_t number_of_elements, FILE *a_file);
+size_t fwrite(const void *ptr, size_t size_of_elements,
+              size_t number_of_elements, FILE *a_file);
+
 struct __pipe_t {
   int packet_size;
   int max_packets;
@@ -50,6 +60,8 @@ struct __pipe_t {
 
   ALIGNED(struct __pipe_internal_buf read_buf, 64);
   ALIGNED(struct __pipe_internal_buf write_buf, 64);
+
+  FILE *io;
 
   // Pipe object also has a trailing buffer for packets:
   // char buffer[max_packets * packet_size];

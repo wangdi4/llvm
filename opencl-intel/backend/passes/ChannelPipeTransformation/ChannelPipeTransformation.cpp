@@ -47,8 +47,9 @@
 #include <stack>
 
 using namespace llvm;
-using namespace Intel::OpenCL::DeviceBackend;
 using namespace Intel::MetadataAPI;
+using namespace Intel::OpenCL::DeviceBackend;
+using namespace Intel::OpenCL::DeviceBackend::ChannelPipeMetadata;
 
 static cl::opt<int> ChannelDepthEmulationMode("channel-depth-emulation-mode",
     cl::init(CHANNEL_DEPTH_MODE_IGNORE_DEPTH), cl::Hidden,
@@ -70,16 +71,6 @@ OCL_INITIALIZE_PASS_END(ChannelPipeTransformation,
 #define DEBUG_TYPE "channel-pipe-transformation"
 
 namespace {
-
-struct ChannelMetadata {
-  int PacketSize;
-  int PacketAlign;
-  int Depth;
-  StringRef IO;
-};
-
-// Pipes and channels have the same metadata
-typedef ChannelMetadata PipeMetadata;
 
 typedef DenseMap<Value *, Value *> ValueToValueMap;
 typedef MapVector<Value *, Value *> ValueToValueStableMap;
@@ -160,7 +151,7 @@ static GlobalVariable *createGlobalPipeArray(Module &M, Type *PipeTy,
 }
 
 static GlobalVariable *createPipeBackingStore(GlobalVariable *GV,
-                                              const PipeMetadata &MD) {
+                                              const ChannelPipeMD &MD) {
   Module *M = GV->getParent();
   Type *Int8Ty = IntegerType::getInt8Ty(M->getContext());
 
@@ -189,7 +180,7 @@ static GlobalVariable *createPipeBackingStore(GlobalVariable *GV,
 }
 
 static void initializeGlobalPipeScalar(GlobalVariable *PipeGV,
-                                       const PipeMetadata &MD,
+                                       const ChannelPipeMD &MD,
                                        Function *GlobalCtor,
                                        Function *PipeInit) {
   auto *BS = createPipeBackingStore(PipeGV, MD);
@@ -268,7 +259,7 @@ static void convertToGEPIndicesList(const SmallVectorImpl<size_t> &IndicesList,
  */
 static void generateBSItemsToPipeArrayStores(Module &M, IRBuilder<> &Builder,
                                             Value *BS, Value *PipeArrayGlobal,
-                                            const PipeMetadata &PipeMD) {
+                                            const ChannelPipeMD &PipeMD) {
   auto *PipePtrArrayTy = cast<ArrayType>(
       cast<PointerType>(PipeArrayGlobal->getType())->getElementType());
   auto *PipePtrTy = CompilationUtils::getArrayElementType(PipePtrArrayTy);
@@ -317,7 +308,7 @@ static void generateBSItemsToPipeArrayStores(Module &M, IRBuilder<> &Builder,
 }
 
 static void initializeGlobalPipeArray(GlobalVariable *PipeGV,
-                                      const PipeMetadata &MD,
+                                      const ChannelPipeMD &MD,
                                       Function *GlobalCtor,
                                       Function *PipeInitArray) {
   auto *BS = createPipeBackingStore(PipeGV, MD);
@@ -364,27 +355,6 @@ static Function *createGlobalPipeCtor(Module &M) {
   return Ctor;
 }
 
-static ChannelMetadata getChannelMetadata(GlobalVariable *Channel) {
-  auto GVMetadata = GlobalVariableMetadataAPI(Channel);
-
-  assert(GVMetadata.PipePacketSize.hasValue() &&
-         GVMetadata.PipePacketAlign.hasValue() &&
-         "Channel metadata must contain packet_size and packet_align");
-
-  ChannelMetadata CMD;
-  CMD.PacketSize = GVMetadata.PipePacketSize.get();
-  CMD.PacketAlign = GVMetadata.PipePacketAlign.get();
-  CMD.Depth = GVMetadata.PipeDepth.hasValue() ? GVMetadata.PipeDepth.get() : 0;
-  CMD.IO = GVMetadata.PipeIO.hasValue() ? GVMetadata.PipeIO.get() : "";
-
-  if (!GVMetadata.PipeDepth.hasValue() &&
-      ChannelDepthEmulationMode == CHANNEL_DEPTH_MODE_DEFAULT) {
-    GVMetadata.DepthIsIgnored.set(true);
-  }
-
-  return CMD;
-}
-
 static bool replaceGlobalChannels(Module &M, Type *ChannelTy, Type *PipeTy,
                                   ValueToValueStableMap &VMap,
                                   OCLBuiltins &Builtins) {
@@ -400,7 +370,8 @@ static bool replaceGlobalChannels(Module &M, Type *ChannelTy, Type *PipeTy,
       GlobalCtor = createGlobalPipeCtor(M);
     }
 
-    PipeMetadata MD = getChannelMetadata(&ChannelGV);
+    ChannelPipeMD MD =
+        getChannelPipeMetadata(&ChannelGV, ChannelDepthEmulationMode);
     GlobalVariable *PipeGV = nullptr;
     if (auto *GVArrTy =
             dyn_cast<ArrayType>(ChannelGV.getType()->getElementType())) {

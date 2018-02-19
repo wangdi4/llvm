@@ -86,6 +86,7 @@ void initializeRenderscriptVectorizerPass(llvm::PassRegistry&);
 void initializeOCLAliasAnalysisPass(llvm::PassRegistry&);
 void initializePrintfArgumentsPromotionPass(llvm::PassRegistry&);
 void initializeChannelPipeTransformationPass(llvm::PassRegistry&);
+void initializePipeIOTransformationPass(llvm::PassRegistry&);
 void initializePipeSupportPass(llvm::PassRegistry&);
 void initializePipeOrderingPass(llvm::PassRegistry&);
 void initializeInfiniteLoopCreatorPass(llvm::PassRegistry&);

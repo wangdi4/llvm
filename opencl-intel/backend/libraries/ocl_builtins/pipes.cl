@@ -276,6 +276,7 @@ void __pipe_init_intel(__global struct __pipe_t* p, int packet_size, int depth,
                        int mode) {
   p->packet_size = packet_size;
   p->max_packets = __pipe_get_max_packets(depth, mode);
+  p->io = NULL;
   atomic_init(&p->head, 0);
   atomic_init(&p->tail, 0);
 
@@ -301,6 +302,11 @@ void __pipe_init_intel(__global struct __pipe_t* p, int packet_size, int depth,
     p->write_buf.limit =
                write_buf_limit - (write_buf_limit % MAX_VL_SUPPORTED_BY_PIPES);
   }
+}
+
+void __pipe_release_intel(__global struct __pipe_t* p) {
+  if (p->io != NULL)
+    fclose(p->io);
 }
 
 void __pipe_init_array_intel(__global struct __pipe_t* __global* p,
@@ -371,6 +377,62 @@ int __write_pipe_2_intel(__global struct __pipe_t* p, const void* src) {
   if (is_buffer_full(buf)) {
     __flush_write_pipe(p);
   }
+
+  return 0;
+}
+
+int __read_pipe_2_io_intel(__global struct __pipe_t* p, void* dst,
+                           const char* dstName) {
+  if (p->io == NULL)
+    p->io = fopen(dstName, "rb");
+  if (p->io == NULL)
+    return -2;
+
+  if (fread(dst, p->packet_size, 1, p->io) == 0)
+    return -1;
+
+  return 0;
+}
+
+int __write_pipe_2_io_intel(__global struct __pipe_t* p, const void* src,
+                            const char* srcName) {
+  if (p->io == NULL)
+    p->io = fopen(srcName, "wb");
+  if (p->io == NULL)
+    return -2;
+
+  if (fwrite(src, p->packet_size, 1, p->io) == 0)
+    return -1;
+
+  fflush(p->io);
+
+  return 0;
+}
+
+int __read_pipe_2_bl_io_intel(__global struct __pipe_t* p, void* dst,
+                              const char* dstName) {
+  if (p->io == NULL)
+    p->io = fopen(dstName, "rb");
+  if (p->io == NULL)
+    return -2;
+
+  while (!fread(dst, p->packet_size, 1, p->io))
+  {}
+
+  return 0;
+}
+
+int __write_pipe_2_bl_io_intel(__global struct __pipe_t* p, const void* src,
+                               const char* srcName) {
+  if (p->io == NULL)
+    p->io = fopen(srcName, "wb");
+  if (p->io == NULL)
+    return -2;
+
+  while (!fwrite(src, p->packet_size, 1, p->io))
+  {}
+
+  fflush(p->io);
 
   return 0;
 }

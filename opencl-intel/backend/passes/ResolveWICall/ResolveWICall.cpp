@@ -75,7 +75,7 @@ namespace intel {
           continue;
         }
 
-        if (CompilationUtils::isGlobalConstructor(pFunc))
+        if (CompilationUtils::isGlobalCtorDtor(pFunc))
           continue;
 
         clearPerFunctionCache();
