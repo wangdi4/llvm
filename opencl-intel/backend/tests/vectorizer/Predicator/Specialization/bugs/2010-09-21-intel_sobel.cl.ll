@@ -639,7 +639,9 @@ for.body166:                                      ; preds = %for.cond162
   br label %for.inc245
 
 for.inc245:                                       ; preds = %for.body166
-  %tmp246 = load i32, i32* %x                          ; <i32> [#uses=0]
+  %tmp246 = load i32, i32* %x                          ; <i32> [#uses=1]
+  %inc246 = add nsw i32 %tmp246, 1                     ; <i32> [#uses=1]
+  store i32 %inc246, i32* %x
   br label %for.cond162
 
 for.end247:                                       ; preds = %for.cond162
