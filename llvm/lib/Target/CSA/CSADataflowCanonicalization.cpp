@@ -176,8 +176,7 @@ bool CSADataflowCanonicalizationPass::eliminateNotPicks(MachineInstr *MI) {
 }
 
 bool CSADataflowCanonicalizationPass::createFilterOps(MachineInstr *MI) {
-  // TODO: FILTER0 doesn't actually exist yet.
-  if (!TII->isSwitch(MI) || TII->getLicSize(MI->getOpcode()) == 0)
+  if (!TII->isSwitch(MI))
     return false;
 
   if (MI->getOperand(0).isReg() && MI->getOperand(0).getReg() == CSA::IGN) {
