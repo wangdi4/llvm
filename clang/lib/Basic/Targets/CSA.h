@@ -37,7 +37,17 @@ class CSATargetInfo : public TargetInfo {
 public:
   CSATargetInfo(const llvm::Triple &Triple, const TargetOptions &Opts)
       : TargetInfo(Triple) {
+    //
+    // TODO (vzakhari 2/20/2018): we should support more host OSes eventually.
+    //       See all possible OSes in llvm::Triple::*.
+    //       The target setup below is specific to Linux Intel64 host.
+    //
+    auto os = Triple.getOS();
+    assert(os == llvm::Triple::Linux &&
+           "CSA target is only supported for Linux host.");
+
     LongWidth = LongAlign = PointerWidth = PointerAlign = 64;
+    LongDoubleFormat = &llvm::APFloat::x87DoubleExtended();
     LongDoubleWidth = 128;
     LongDoubleAlign = 128;
     LargeArrayMinWidth = 128;
