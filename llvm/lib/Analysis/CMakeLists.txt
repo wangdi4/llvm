@@ -113,3 +113,4 @@ add_llvm_library(LLVMAnalysis
 add_subdirectory(Intel_DTrans)        #INTEL
 add_subdirectory(Intel_LoopAnalysis)  #INTEL
 add_subdirectory(Intel_VPO)           #INTEL
+add_subdirectory(Intel_OptReport)     #INTEL

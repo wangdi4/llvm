@@ -125,6 +125,7 @@ FUNCTION_ANALYSIS("verify", VerifierAnalysis())
 
 #if INTEL_CUSTOMIZATION
 FUNCTION_ANALYSIS("xm-opt-level", XmainOptLevelAnalysis())
+FUNCTION_ANALYSIS("xm-optreport-options", OptReportOptionsAnalysis())
 FUNCTION_ANALYSIS("hir-region-identification", loopopt::HIRRegionIdentificationAnalysis())
 FUNCTION_ANALYSIS("hir-scc-formation", loopopt::HIRSCCFormationAnalysis())
 FUNCTION_ANALYSIS("hir-framework", loopopt::HIRFrameworkAnalysis())

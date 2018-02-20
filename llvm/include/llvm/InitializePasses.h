@@ -431,6 +431,7 @@ void initializeMapIntrinToImlPass(PassRegistry&);
 void initializeLoopOptMarkerLegacyPassPass(PassRegistry&);
 // Pass to store the opt level.
 void initializeXmainOptLevelWrapperPassPass(PassRegistry&);
+void initializeOptReportOptionsPassPass(PassRegistry &);
 // HIR Passes
 void initializeHIRRegionIdentificationWrapperPassPass(PassRegistry&);
 void initializeHIRSCCFormationWrapperPassPass(PassRegistry&);
