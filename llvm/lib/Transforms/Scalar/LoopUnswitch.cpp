@@ -35,7 +35,9 @@
 #include "llvm/Analysis/CodeMetrics.h"
 #include "llvm/Analysis/DivergenceAnalysis.h"
 #include "llvm/Analysis/InstructionSimplify.h"
-#include "llvm/Analysis/Intel_Andersens.h"  // INTEL
+#include "llvm/Analysis/Intel_Andersens.h"                      // INTEL
+#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h" // INTEL
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h" // INTEL
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/Analysis/ScalarEvolution.h"
@@ -196,6 +198,11 @@ namespace {
 
     bool hasBranchDivergence;
 
+#ifdef INTEL_CUSTOMIZATION
+    // Helper for generating optimization reports.
+    LoopOptReportBuilder LORBuilder;
+#endif // INTEL CUSTOMIZATION
+
   public:
     static char ID; // Pass ID, replacement for typeid
 
@@ -215,6 +222,7 @@ namespace {
     void getAnalysisUsage(AnalysisUsage &AU) const override {
       AU.addRequired<AssumptionCacheTracker>();
       AU.addRequired<TargetTransformInfoWrapperPass>();
+      AU.addRequired<OptReportOptionsPass>(); // INTEL
       if (hasBranchDivergence)
         AU.addRequired<DivergenceAnalysis>();
       getLoopAnalysisUsage(AU);
@@ -384,6 +392,7 @@ INITIALIZE_PASS_BEGIN(LoopUnswitch, "loop-unswitch", "Unswitch loops",
                       false, false)
 INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(LoopPass)
+INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass) // INTEL
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(DivergenceAnalysis)
 INITIALIZE_PASS_END(LoopUnswitch, "loop-unswitch", "Unswitch loops",
@@ -519,6 +528,11 @@ bool LoopUnswitch::runOnLoop(Loop *L, LPPassManager &LPM_Ref) {
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   currentLoop = L;
   Function *F = currentLoop->getHeader()->getParent();
+
+#ifdef INTEL_CUSTOMIZATION
+  auto &OROP = getAnalysis<OptReportOptionsPass>();
+  LORBuilder.setup(F->getContext(), OROP.getLoopOptReportVerbosity());
+#endif
 
   SanitizeMemory = F->hasFnAttribute(Attribute::SanitizeMemory);
   if (SanitizeMemory)
@@ -977,6 +991,9 @@ void LoopUnswitch::UnswitchTrivialCondition(Loop *L, Value *Cond, Constant *Val,
                << " blocks] in Function "
                << L->getHeader()->getParent()->getName() << " on cond: " << *Val
                << " == " << *Cond << "\n");
+  LORBuilder(*L).addRemark(OptReportVerbosity::Low,           // INTEL
+                           "Loop has been unswitched via %s", // INTEL
+                           Cond->getName());                  // INTEL
 
   // First step, split the preheader, so that we know that there is a safe place
   // to insert the conditional branch.  We will change loopPreheader to have a
@@ -1202,6 +1219,9 @@ void LoopUnswitch::UnswitchNontrivialCondition(Value *LIC, Constant *Val,
         << loopHeader->getName() << " [" << L->getBlocks().size()
         << " blocks] in Function " << F->getName()
         << " when '" << *Val << "' == " << *LIC << "\n");
+  LORBuilder(*L).addRemark(OptReportVerbosity::Low,           // INTEL
+                           "Loop has been unswitched via %s", // INTEL
+                           LIC->getName());                   // INTEL
 
   if (auto *SEWP = getAnalysisIfAvailable<ScalarEvolutionWrapperPass>())
     SEWP->getSE().forgetLoop(L);

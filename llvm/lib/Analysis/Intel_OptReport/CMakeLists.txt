@@ -1,4 +1,5 @@
 add_llvm_library(LLVMIntel_OptReport
+  LoopOptReport.cpp
   OptReportOptionsPass.cpp
 
   ADDITIONAL_HEADER_DIRS
