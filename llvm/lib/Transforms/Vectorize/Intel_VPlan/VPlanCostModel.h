@@ -8,6 +8,14 @@
 //   from the company.
 //
 //===----------------------------------------------------------------------===//
+///
+/// \file
+/// This file defines the VPlanCostModel class that is used for all cost
+/// estimations performed in the VPlan-based vectorizer. The class provides both
+/// the interfaces to calculate different costs (e.g., a single VPInstruction or
+/// the whole VPlan) and the dedicated printing methods used exclusively for
+/// testing purposes.
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLAN_COST_MODEL_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLAN_COST_MODEL_H
@@ -26,7 +34,7 @@ class VPInstruction;
 
 class VPlanCostModel {
   const vpo::IntelVPlan *Plan;
-  unsigned VF;
+  const unsigned VF;
   const TargetTransformInfo *TTI;
 
   static constexpr unsigned UnknownCost = static_cast<unsigned>(-1);
@@ -36,20 +44,31 @@ public:
                  const TargetTransformInfo *TTI)
       : Plan(Plan), VF(VF), TTI(TTI) {}
 
-  unsigned getCost(const vpo::VPInstruction *VPInst);
-  unsigned getCost(const vpo::VPBasicBlock *VPBB);
-  unsigned getCost();
-  /// Helper function to allow cost query in one line of code.
-  static unsigned getVPlanCost(const vpo::IntelVPlan *Plan, unsigned VF,
-                               const TargetTransformInfo *TTI) {
-    VPlanCostModel CM(Plan, VF, TTI);
-    return CM.getCost();
-  }
-  void print(raw_ostream &OS);
+  /// Calculate the cost of the given \p VPInst.
+  ///
+  /// Although the cost is calculated for a single instruction only, it is still
+  /// possible for this method to take other instruction into consideration.
+  unsigned getCost(const vpo::VPInstruction *VPInst) const;
+  /// Calculate the total cost of the instructions for a given \p VPBB.
+  unsigned getCost(const vpo::VPBasicBlock *VPBB) const;
+  /// Calculate the cost of the whole VPlan.
+  unsigned getCost() const;
+
+  /// Print fully detailed report for the costs inside the underlying VPlan.
+  ///
+  /// To be used for testing purposes only (similar to print method in analysis
+  /// passes).
+  void print(raw_ostream &OS) const;
 
 private:
-  void printForVPBlockBase(raw_ostream &OS, const vpo::VPBlockBase *VPBlock);
-  unsigned getCost(const vpo::VPBlockBase *VPBlock);
+  // TODO: These two methods below should probably go away once we start using
+  // the traversal used in VPlan dumps.
+  /// Helper function to recursively travers the VPlan during detailed cost
+  /// printing.
+  void printForVPBlockBase(raw_ostream &OS,
+                           const vpo::VPBlockBase *VPBlock) const;
+  /// Helper function to recursively travers the VPlan and accumulate the cost.
+  unsigned getCost(const vpo::VPBlockBase *VPBlock) const;
 
   // These utilities are private for the class instead of being defined as
   // static functions because they need access to underlying Inst/HIRData in
