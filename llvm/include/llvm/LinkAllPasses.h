@@ -95,6 +95,7 @@ namespace {
       (void) llvm::createInlineListsPass();
       (void) llvm::createXmainOptLevelWrapperPass();
       (void) llvm::createOptReportOptionsPass();
+      (void) llvm::createLoopOptReportEmitterLegacyPass();
 #endif // INTEL_CUSTOMIZATION
       (void) llvm::createBasicAAWrapperPass();
       (void) llvm::createSCEVAAWrapperPass();

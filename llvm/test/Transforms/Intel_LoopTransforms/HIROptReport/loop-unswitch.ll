@@ -14,7 +14,7 @@
 ;  return;
 ;}
 
-; Check the proper optreport for loop unswitching.
+; Check the proper optreport for loop unswitching using metadata.
 ; RUN: opt -loop-unswitch -intel-loop-optreport=low < %s -S | FileCheck %s
 
 ; CHECK: [[M1:!.*]] = distinct !{[[M1]], [[M2:!.*]]}
@@ -22,6 +22,17 @@
 ; CHECK: [[M3]] = distinct !{!"intel.loop.optreport", [[M4:!.*]]}
 ; CHECK: [[M4]] = !{!"intel.optreport.remarks", [[M5:!.*]]}
 ; CHECK: [[M5]] = !{!"intel.optreport.remark", !"Loop has been unswitched via %s", {{.*}}}
+
+; Check the proper optreport for loop unswitching.
+; RUN: opt -loop-unswitch -intel-loop-optreport=low -intel-ir-optreport-emitter -simplifycfg < %s -S |& FileCheck %s -check-prefix=CHECK-EMITTER --strict-whitespace
+
+; CHECK-EMITTER: LOOP BEGIN
+; CHECK-EMITTER-NEXT:     Remark #XXXXX: Loop has been unswitched via cmp113{{[[:space:]]}}
+; CHECK-EMITTER-NEXT:     LOOP BEGIN
+; CHECK-EMITTER-NEXT:     LOOP END{{[[:space:]]}}
+; CHECK-EMITTER-NEXT:     LOOP BEGIN
+; CHECK-EMITTER-NEXT:     LOOP END
+; CHECK-EMITTER-NEXT: LOOP END
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

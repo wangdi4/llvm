@@ -160,6 +160,7 @@
 #if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_XmainOptLevelPass.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
+#include "llvm/Transforms/Scalar/Intel_LoopOptReportEmitter.h"
 
 // Intel Loop Optimization framework
 #include "llvm/Transforms/Intel_LoopTransforms/HIRSSADeconstruction.h"
