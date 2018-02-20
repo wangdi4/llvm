@@ -504,7 +504,7 @@ void initializeMultiVersioningWrapperPass(PassRegistry&);
 void initializeVPlanDriverPass(PassRegistry&);
 void initializeVPlanDriverHIRPass(PassRegistry&);
 // OpenCL Passes
-void initializeFMASplitterPass(PassRegistry&);
+void initializeFMASplitterLegacyPassPass(PassRegistry&);
 // DTrans passes
 void initializeDTransAnalysisWrapperPass(PassRegistry&);
 void initializeDTransOptWrapperPass(PassRegistry&);
