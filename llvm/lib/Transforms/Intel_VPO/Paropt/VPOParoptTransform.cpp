@@ -3684,9 +3684,9 @@ bool VPOParoptTransform::genCopyPrivateCode(WRegionNode *W,
   }
 
   LLVMContext &C = F->getContext();
-  StructType *KmpCopyPrivateTy = StructType::create(
+  StructType *KmpCopyPrivateTy = StructType::get(
       C, makeArrayRef(KmpCopyPrivatesVars.begin(), KmpCopyPrivatesVars.end()),
-      "struct.kmp_copy_privates.t", false);
+      /* struct.kmp_copy_privates.t */false);
 
   AllocaInst *CopyPrivateBase = Builder.CreateAlloca(
       KmpCopyPrivateTy, nullptr, "copyprivate.agg." + Twine(W->getNumber()));

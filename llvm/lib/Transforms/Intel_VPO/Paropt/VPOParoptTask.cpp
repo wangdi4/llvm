@@ -173,8 +173,8 @@ void VPOParoptTransform::genTaskTRedType() {
   Type *TaskTRedTyArgs[] = {Type::getInt8PtrTy(C), Int64Ty,
                             Type::getInt8PtrTy(C), Type::getInt8PtrTy(C),
                             Type::getInt8PtrTy(C), Int32Ty};
-  KmpTaskTRedTy = StructType::create(C, TaskTRedTyArgs,
-                                     "struct.kmp_task_t_red_item", false);
+  KmpTaskTRedTy = StructType::get(C, TaskTRedTyArgs,
+                                  /*"struct.kmp_task_t_red_item" */false);
 }
 
 // internal structure for dependInfo
@@ -200,8 +200,8 @@ void VPOParoptTransform::genKmpTaskDependInfo() {
 
   Type *KmpTaskDependTyArgs[] = {IntTy, IntTy, Type::getInt8Ty(C)};
 
-  KmpTaskDependInfoTy = StructType::create(C, KmpTaskDependTyArgs,
-                                           "struct.kmp_depend_info", false);
+  KmpTaskDependInfoTy = StructType::get(C, KmpTaskDependTyArgs,
+                                           /*"struct.kmp_depend_info"*/false);
 }
 
 // Build struct kmp_task_t {
@@ -227,7 +227,7 @@ void VPOParoptTransform::genKmpTaskTRecordDecl() {
 
   Type *KmpCmplrdataTyArgs[] = {KmpRoutineEntryPtrTy};
   StructType *KmpCmplrdataTy =
-      StructType::create(C, KmpCmplrdataTyArgs, "union.kmp_cmplrdata_t", false);
+      StructType::get(C, KmpCmplrdataTyArgs, /*"union.kmp_cmplrdata_t"*/false);
 
   Type *KmpTaskTyArgs[] = {Type::getInt8PtrTy(C),
                            KmpRoutineEntryPtrTy,
@@ -239,7 +239,7 @@ void VPOParoptTransform::genKmpTaskTRecordDecl() {
                            Int64Ty,
                            Int32Ty};
 
-  KmpTaskTTy = StructType::create(C, KmpTaskTyArgs, "struct.kmp_task_t", false);
+  KmpTaskTTy = StructType::get(C, KmpTaskTyArgs, /*"struct.kmp_task_t"*/false);
 }
 
 // Generate the struct type kmpc_task_t as well as its private data
@@ -328,20 +328,20 @@ StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
     }
   }
 
-  KmpPrivatesTy = StructType::create(
+  KmpPrivatesTy = StructType::get(
       C, makeArrayRef(KmpPrivatesIndices.begin(), KmpPrivatesIndices.end()),
-      "struct.kmp_privates.t", false);
+      /*"struct.kmp_privates.t"*/ false);
 
-  KmpSharedTy = StructType::create(
+  KmpSharedTy = StructType::get(
       C, makeArrayRef(SharedIndices.begin(), SharedIndices.end()),
-      "struct.shared.t", false);
+      /*"struct.shared.t"*/ false);
 
   KmpTaksTWithPrivatesTyArgs.push_back(KmpPrivatesTy);
 
   StructType *KmpTaskTTWithPrivatesTy =
-      StructType::create(C, makeArrayRef(KmpTaksTWithPrivatesTyArgs.begin(),
+      StructType::get(C, makeArrayRef(KmpTaksTWithPrivatesTyArgs.begin(),
                                          KmpTaksTWithPrivatesTyArgs.end()),
-                         "struct.kmp_task_t_with_privates", false);
+                         /*"struct.kmp_task_t_with_privates"*/ false);
 
   return KmpTaskTTWithPrivatesTy;
 }
@@ -896,10 +896,10 @@ VPOParoptTransform::genDependInitForTask(WRegionNode *W,
     KmpTaskTDependVecTyArgs.push_back(KmpTaskDependInfoTy);
 
   StructType *KmpTaskTDependVecTy =
-      StructType::create(C,
+      StructType::get(C,
                          makeArrayRef(KmpTaskTDependVecTyArgs.begin(),
                                       KmpTaskTDependVecTyArgs.end()),
-                         "struct.kmp_task_depend_vec", false);
+                         /*"struct.kmp_task_depend_vec"*/ false);
 
   IRBuilder<> Builder(InsertBefore);
   AllocaInst *DummyTaskTDependVec =
@@ -957,9 +957,9 @@ void VPOParoptTransform::genRedInitForTaskLoop(WRegionNode *W,
   for (int I = 0; I < RedClause.size(); I++)
     KmpTaskTRedRecTyArgs.push_back(KmpTaskTRedTy);
 
-  StructType *KmpTaskTTRedRecTy = StructType::create(
+  StructType *KmpTaskTTRedRecTy = StructType::get(
       C, makeArrayRef(KmpTaskTRedRecTyArgs.begin(), KmpTaskTRedRecTyArgs.end()),
-      "struct.kmp_task_t_red_rec", false);
+      /*"struct.kmp_task_t_red_rec"*/ false);
 
   IRBuilder<> Builder(InsertBefore);
   AllocaInst *DummyTaskTRedRec =

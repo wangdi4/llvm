@@ -414,7 +414,7 @@ StructType *VPOParoptTransform::getTgOffloadEntryTy() {
                     IntelGeneralUtils::getSizeTTy(F), Type::getInt32Ty(C),
                     Type::getInt32Ty(C)};
   TgOffloadEntryTy =
-      StructType::create(C, TyArgs, "struct.__tgt_offload_entry", false);
+      StructType::get(C, TyArgs, /* "struct.__tgt_offload_entry"*/false);
   return TgOffloadEntryTy;
 }
 
@@ -439,7 +439,7 @@ StructType *VPOParoptTransform::getTgDeviceImageTy() {
                     PointerType::getUnqual(getTgOffloadEntryTy()),
                     PointerType::getUnqual(getTgOffloadEntryTy())};
   TgDeviceImageTy =
-      StructType::create(C, TyArgs, "struct.__tgt_device_image", false);
+      StructType::get(C, TyArgs, /* "struct.__tgt_device_image" */false);
   return TgDeviceImageTy;
 }
 
@@ -467,7 +467,7 @@ StructType *VPOParoptTransform::getTgBinaryDescriptorTy() {
                     PointerType::getUnqual(getTgOffloadEntryTy()),
                     PointerType::getUnqual(getTgOffloadEntryTy())};
   TgBinaryDescriptorTy =
-      StructType::create(C, TyArgs, "struct.__tgt_bin_desc", false);
+      StructType::get(C, TyArgs, /* "struct.__tgt_bin_desc" */false);
   return TgBinaryDescriptorTy;
 }
 
