@@ -111,6 +111,7 @@
 #include "llvm/Transforms/Scalar/IVUsersPrinter.h"
 #include "llvm/Transforms/Scalar/IndVarSimplify.h"
 #include "llvm/Transforms/Scalar/Intel_AggInlAA.h"     // INTEL
+#include "llvm/Transforms/Scalar/Intel_TbaaMDPropagation.h" // INTEL
 #include "llvm/Transforms/Scalar/JumpThreading.h"
 #include "llvm/Transforms/Scalar/LICM.h"
 #include "llvm/Transforms/Scalar/LoopAccessAnalysisPrinter.h"
@@ -721,6 +722,10 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
   // large bodies.
   if (RunPartialInlining)
     MPM.addPass(PartialInlinerPass());
+
+#if INTEL_CUSTOMIZATION
+  MPM.addPass(createModuleToFunctionPassAdaptor(CleanupFakeLoadsPass()));
+#endif // INTEL_CUSTOMIZATION
 
   // Remove avail extern fns and globals definitions since we aren't compiling
   // an object file for later LTO. For LTO we want to preserve these so they

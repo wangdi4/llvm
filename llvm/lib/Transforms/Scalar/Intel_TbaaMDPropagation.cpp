@@ -1,6 +1,6 @@
 //===-- TbaaMDPropagation.cpp - TBAA recovery for return pointers implementation -===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -98,31 +98,12 @@ public:
 private:
   friend class InstVisitor<TbaaMDPropagation>;
 };
-struct CleanupFakeLoads : public FunctionPass {
-public:
-  static char ID;
-  CleanupFakeLoads() : FunctionPass(ID) {
-    initializeCleanupFakeLoadsPass(*PassRegistry::getPassRegistry());
-  }
-  bool runOnFunction(Function &F);
-  StringRef getPassName() const override { return "Cleanup fake loads"; }
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesCFG();
-    AU.addPreserved<GlobalsAAWrapperPass>();
-  }
-};
 }
 char TbaaMDPropagation::ID = 0;
 INITIALIZE_PASS_BEGIN(TbaaMDPropagation, "tbaa-prop",
                       "Propagate the TbaaMD through intrinsic", false, false)
 INITIALIZE_PASS_END(TbaaMDPropagation, "tbaa-prop",
                     "Propagate the TbaaMD through intrinsic", false, false)
-
-char CleanupFakeLoads::ID = 0;
-INITIALIZE_PASS_BEGIN(CleanupFakeLoads, "cleanup-fakeloads",
-                      "Remove intel.fakeload intrinsics", false, false)
-INITIALIZE_PASS_END(CleanupFakeLoads, "cleanup-fakeloads",
-                    "Remove intel.fakeload intrinsics", false, false)
 
 FunctionPass *llvm::createTbaaMDPropagationPass() {
   return new TbaaMDPropagation();
@@ -191,21 +172,7 @@ void TbaaMDPropagation::visitIntrinsicInst(IntrinsicInst &II) {
   }
 }
 
-FunctionPass *llvm::createCleanupFakeLoadsPass() {
-  return new CleanupFakeLoads();
-}
-
-PreservedAnalyses CleanupFakeLoadsPass::run(Function &F,
-                                            FunctionAnalysisManager &AM) {
-  auto PA = PreservedAnalyses();
-  PA.preserve<GlobalsAA>();
-  return PA;
-}
-
-bool CleanupFakeLoads::runOnFunction(Function &F) {
-  if (skipFunction(F))
-    return false;
-
+static bool runCleanupFakeLoads(Function &F) {
   for (BasicBlock &BB : F) {
     for (auto II = BB.begin(), IE = BB.end(); II != IE;) {
       // Because we might be erasing the instruction, we need to get the
@@ -221,6 +188,48 @@ bool CleanupFakeLoads::runOnFunction(Function &F) {
       }
     }
   }
-  return false;
+  return false; // FIXME: Should this return true when something changes?
+}
+
+PreservedAnalyses CleanupFakeLoadsPass::run(Function &F,
+                                            FunctionAnalysisManager &AM) {
+  if (!runCleanupFakeLoads(F))
+    return PreservedAnalyses::all();
+
+  auto PA = PreservedAnalyses();
+  PA.preserveSet<CFGAnalyses>();
+  PA.preserve<GlobalsAA>();
+  return PA;
+}
+
+namespace {
+struct CleanupFakeLoadsLegacyPass : public FunctionPass {
+public:
+  static char ID;
+  CleanupFakeLoadsLegacyPass() : FunctionPass(ID) {
+    initializeCleanupFakeLoadsLegacyPassPass(*PassRegistry::getPassRegistry());
+  }
+  bool runOnFunction(Function &F);
+  StringRef getPassName() const override { return "Cleanup fake loads"; }
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.setPreservesCFG();
+    AU.addPreserved<GlobalsAAWrapperPass>();
+  }
+};
+} // end anonymous namespace
+
+char CleanupFakeLoadsLegacyPass::ID = 0;
+INITIALIZE_PASS(CleanupFakeLoadsLegacyPass, "cleanup-fakeloads",
+                "Remove intel.fakeload intrinsics", false, false)
+
+FunctionPass *llvm::createCleanupFakeLoadsPass() {
+  return new CleanupFakeLoadsLegacyPass();
+}
+
+bool CleanupFakeLoadsLegacyPass::runOnFunction(Function &F) {
+  if (skipFunction(F))
+    return false;
+
+  return runCleanupFakeLoads(F);
 }
 
