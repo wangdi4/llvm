@@ -86,6 +86,9 @@ private:
   // profitability for alloca loads in later loopnests.
   DenseMap<unsigned, const HLLoop *> PrevLoopnestAllocaStores;
 
+  // Helper for generating optimization reports.
+  LoopOptReportBuilder LORBuilder;
+
 private:
   /// Returns true if loop is eligible for complete unrolling.
   bool isApplicable(const HLLoop *Loop) const;

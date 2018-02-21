@@ -66,6 +66,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 
 #define DEBUG_TYPE "hir-complete-unroll"
@@ -220,7 +221,7 @@ HIRCompleteUnroll::HIRCompleteUnroll(char &ID, unsigned OptLevel, bool IsPreVec)
 
 void HIRCompleteUnroll::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
-
+  AU.addRequiredTransitive<OptReportOptionsPass>();
   AU.addRequiredTransitive<DominatorTreeWrapperPass>();
   AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
   AU.addRequiredTransitive<HIRLoopStatistics>();
@@ -2070,6 +2071,8 @@ bool HIRCompleteUnroll::runOnFunction(Function &F) {
   auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   HLS = &getAnalysis<HIRLoopStatistics>();
   HSRA = &getAnalysis<HIRSafeReductionAnalysis>();
+  auto &OROP = getAnalysis<OptReportOptionsPass>();
+  LORBuilder.setup(F.getContext(), OROP.getLoopOptReportVerbosity());
 
   // Storage for Outermost Loops
   SmallVector<HLLoop *, 64> OuterLoops;
@@ -2426,6 +2429,14 @@ void HIRCompleteUnroll::transformLoops() {
 
   // Transform the loop nest from outer to inner.
   for (auto &Loop : CandidateLoops) {
+    if (Loop->isInnermost())
+      LORBuilder(*Loop).addRemark(OptReportVerbosity::Low,
+                                  "Loop completely unrolled");
+    else
+      LORBuilder(*Loop).addRemark(OptReportVerbosity::Low,
+                                  "Loopnest completely unrolled");
+    LORBuilder(*Loop).preserveLostLoopOptReport();
+
     auto &LS = HLS->getTotalLoopStatistics(Loop);
     bool HasIfsOrSwitches = LS.hasIfs() || LS.hasSwitches();
 

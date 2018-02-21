@@ -269,6 +269,23 @@ template <> struct LoopOptReportTraits<Loop> {
   }
 };
 
+// Traits of LLVM Function for LoopOptReportBuilder.
+template <> struct LoopOptReportTraits<Function> {
+  static LoopOptReport getOptReport(const Function &F) {
+    return cast_or_null<MDTuple>(F.getMetadata(LoopOptReportTag::Root));
+  }
+
+  static void setOptReport(Function &F, LoopOptReport OR) {
+    assert(OR && "eraseOptReport method should be used to remove OptReport");
+    F.setMetadata(LoopOptReportTag::Root, OR.get());
+  }
+
+  static void eraseOptReport(Function &F) {
+    F.setMetadata(LoopOptReportTag::Root, nullptr);
+  }
+
+  static DebugLoc getDebugLoc(const Function &F) { return nullptr; }
+};
 
 } // namespace llvm
 

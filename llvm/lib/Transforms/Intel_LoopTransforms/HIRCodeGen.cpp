@@ -1097,6 +1097,43 @@ Value *CGVisitor::visitRegion(HLRegion *Reg) {
 
   initializeLiveins();
 
+  LoopOptReport RegOptReport = Reg->getOptReport();
+  if (RegOptReport) {
+    // Optreports for outermost lost loop are stored as first child of the
+    // region. So it looks like:
+    // !1 = distinct !{!"llvm.loop.optreport", !2}
+    // !2 = distinct !{!"intel.loop.optreport", !3}
+    // !3 = !{!"intel.optreport.first_child", !4}
+    // !4 = distinct !{!"llvm.loop.optreport", !5}
+    // !5 = distinct !{!"intel.loop.optreport", !6, !8}
+    // !6 = !{!"intel.optreport.remarks", !7}
+    // !7 = !{!"intel.optreport.remark", !"Loop completely unrolled"}
+    //
+    // Our aim now is to attach it to the function. We do that the same way as
+    // for the region. Except for the function may have multiple outermost loops.
+    // In this case all the following loops as stored as next siblings of the
+    // first child. E.g.
+    // !1 = distinct !{!"llvm.loop.optreport", !2}
+    // !2 = distinct !{!"intel.loop.optreport", !3}
+    // !3 = !{!"intel.optreport.first_child", !4}
+    // !4 = distinct !{!"llvm.loop.optreport", !5}
+    // !5 = distinct !{!"intel.loop.optreport", !6, !8}
+    // !6 = !{!"intel.optreport.remarks", !7}
+    // !7 = !{!"intel.optreport.remark", !"Loop completely unrolled"}
+    // !8 = !{!"intel.optreport.next_sibling", !9}
+    // !9 = distinct !{!"llvm.loop.optreport", !10}
+    // !10 = distinct !{!"intel.loop.optreport", !6, !11}
+    // !11 = !{!"intel.optreport.next_sibling", !12}
+    // !12 = distinct !{!"llvm.loop.optreport", !13}
+    // !13 = distinct !{!"intel.loop.optreport", !6}
+
+    // TODO: We reattach all region-attached loops to a function and
+    // this is not always correct: the proper way would be to find
+    // a previous sibling of the loop first, even if this sibling
+    // is located in another region.
+    LORBuilder(F).addChild(RegOptReport.firstChild());
+  }
+
   // Onto children cg
   for (auto It = Reg->child_begin(), E = Reg->child_end(); It != E; ++It) {
     visit(*It);

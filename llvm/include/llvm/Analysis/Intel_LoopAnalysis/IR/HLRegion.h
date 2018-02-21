@@ -22,6 +22,10 @@
 #include <iterator>
 #include <set>
 
+#include "llvm/Analysis/Intel_OptReport/LoopOptReport.h"
+#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
+#include <functional>
+
 namespace llvm {
 
 class DbgInfoIntrinsic;
@@ -81,6 +85,9 @@ private:
 
   // Symbase to llvm.dbg.* intrinsics.
   DebugIntrinMap DbgIntrinMap;
+
+  // Optimization report for some nested but lost loops.
+  LoopOptReport OptReport;
 
 public:
   /// Returns the map between symbase and llvm.dbg.* intrinsics.
@@ -210,9 +217,30 @@ public:
 
   /// Returns true if the last child of the region is a return instruction.
   bool exitsFunction() const;
+
+  LoopOptReport getOptReport() const { return OptReport; }
+  void setOptReport(LoopOptReport R) { OptReport = R; }
+  void eraseOptReport() { OptReport = nullptr; }
 };
 
 } // End namespace loopopt
+
+// Traits of HLRegion for LoopOptReportBuilder.
+template <> struct LoopOptReportTraits<loopopt::HLRegion> {
+  static LoopOptReport getOptReport(const loopopt::HLRegion &R) {
+    return R.getOptReport();
+  }
+
+  static void setOptReport(loopopt::HLRegion &R, LoopOptReport OR) {
+    R.setOptReport(OR);
+  }
+
+  static void eraseOptReport(loopopt::HLRegion &R) { R.eraseOptReport(); }
+
+  static DebugLoc getDebugLoc(const loopopt::HLRegion &R) {
+    return R.getDebugLoc();
+  }
+};
 
 } // End namespace llvm
 

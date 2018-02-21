@@ -74,6 +74,11 @@ bool LoopOptReportEmitter::run(Function &F, LoopInfo &LI) {
   formatted_raw_ostream OS(dbgs());
   OS << "Global loop optimization report for : " << F.getName() << "\n";
 
+  // First check that there are attached reports to the function itself.
+  LoopOptReport FunOR = LoopOptReportTraits<Function>::getOptReport(F);
+  if (FunOR)
+    printEnclosedOptReport(OS, 0, FunOR.firstChild());
+
   // Traversal through all loops of the program in lexicographical order.
   // Due to the specifics of loop build algorithm, it is achieved via reverse
   // iteration.
