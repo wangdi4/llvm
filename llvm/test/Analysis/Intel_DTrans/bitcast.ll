@@ -525,6 +525,38 @@ define void @test34() {
 ; CHECK: LLVMType: %struct.test34 = type { i32, i32 }
 ; CHECK: Safety data: No issues found
 
+; Test that an element zero pointer cannot be cast back to the original type
+; after a merge with an unknown pointer value.
+;
+; Currently, we do not allow element zero to be cast back to the original
+; type under any circumstances because it is not an expected IR idiom. However,
+; if we decide to allow it in the future, something would need to be done
+; to handle this case.
+%struct.test35 = type { i32, i32 }
+define void @test35(%struct.test35* %p, i32* %p2) {
+  %p.a = getelementptr %struct.test35, %struct.test35* %p, i64 0, i32 0
+  %p3 = select i1 undef, i32* %p.a, i32* %p2
+  %p4 = bitcast i32* %p.a to %struct.test35*
+  ret void
+}
+
+; CHECK: LLVMType: %struct.test35 = type { i32, i32 }
+; CHECK: Safety data: Bad casting
+
+; Test that an element zero pointer cannot be cast back to the original type
+; after a merge with a pointer to another element.
+%struct.test36 = type { i32, i32 }
+define void @test36(%struct.test36* %p) {
+  %p.a = getelementptr %struct.test36, %struct.test36* %p, i64 0, i32 0
+  %p.b = getelementptr %struct.test36, %struct.test36* %p, i64 0, i32 1
+  %p2 = select i1 undef, i32* %p.a, i32* %p.b
+  %p3 = bitcast i32* %p2 to %struct.test36*
+  ret void
+}
+
+; CHECK: LLVMType: %struct.test36 = type { i32, i32 }
+; CHECK: Safety data: Bad casting
+
 ; Array types get printed last so theese checks aren't with their IR.
 
 ; CHECK: LLVMType: [16 x %struct.test10]

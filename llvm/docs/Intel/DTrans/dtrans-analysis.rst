@@ -169,15 +169,6 @@ is known to point to an i64 element is bitcast to an i32* and that i32* is
 passed to a load instruction, the loaded type would not match the expected
 element type.
 
-AmbiguousPointerLoad
-~~~~~~~~~~~~~~~~~~~~
-This indicates that a load instruction was seen with a pointer operand (the
-address of the value being loaded) which was known to alias incompatible
-pointer types. For instance, if a %struct.A** value and a %struct.B** value
-are both bitcast to i64* and then joined by either a PHI node or a select
-and the joined value is passed to a load instruction, there would be no way
-to determine the actual type of the loaded pointer.
-
 WholeStructureReference
 ~~~~~~~~~~~~~~~~~~~~~~~
 This indicates that an instruction was seen which references a non-pointer
@@ -254,6 +245,14 @@ AmbiguousPointerTarget
 ~~~~~~~~~~~~~~~~~~~~~~
 This indicates that a pointer is passed to an intrinsic or function call,
 but the pointer is known to alias incompatible pointer types.
+
+UnsafePtrMerge
+~~~~~~~~~~~~~~
+This indicates that a PHI node or select instruction was seen which had
+incompatible incoming values. This could mean either that the incoming values
+were known to alias to incompatible aggregate types or that at least one
+incoming value was known to be a pointer to a type of interest and at least one
+other incoming value was not known to point to that type.
 
 UnhandledUse
 ~~~~~~~~~~~~
@@ -565,18 +564,34 @@ the `FieldAddressTaken`_ safety condition will be set for the parent type.
 
 PHI Nodes
 ~~~~~~~~~
-PHI nodes do not create new safety issues as they are only used to describe
-the flow of existing values. We will need to process PHI nodes as we
-follow the uses of values for other purposes, but the PHI node itself
-requires no special processing.
+PHI nodes may be unsafe if the incoming values do not all point to the same
+aggregate type. For instance, if one incoming value is known to be a pointer
+to some structure and another incoming value is not known to point to that
+structure, the resulting merged pointer is unsafe. Similarly, if one incoming
+value is known to point to some structure A and another incoming value is known
+to point to some structure B, the merged value is ambiguous.
+
+On the other hand, it will be common for PHI nodes to merge pointers which
+point to different elements within a structure. As long as the elements being
+pointed to all have the same type, this is safe. If pointers to elements of
+different sizes are merged, the safety issue will be detected when the merged
+value is used.
 
 
 Select
 ~~~~~~
-Select instructions do not create new safety issues as they are only used to
-describe the flow of existing values. We will need to process select
-instructions as we follow the uses of values for other purposes, but the select
-instruction itself requires no special processing.
+Select instructions may be unsafe if the incoming values do not both point to
+the same aggregate type. For instance, if one incoming value is known to be a
+pointer to some structure and the other incoming value is not known to point to
+that structure, the resulting merged pointer is unsafe. Similarly, if one
+incoming value is known to point to some structure A and the other incoming
+value is known to point to some structure B, the merged value is ambiguous.
+
+On the other hand, it will be common for selects to merge pointers which
+point to different elements within a structure. As long as the elements being
+pointed to all have the same type, this is safe. If pointers to elements of
+different sizes are merged, the safety issue will be detected when the merged
+value is used.
 
 
 Return

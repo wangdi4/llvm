@@ -116,8 +116,12 @@ end:
   ret void
 }
 
+; Note: Although the load can be proven safe in this case, the %t2 phi node
+;       creates an unsafe pointer because we cannot reasonably prove that
+;       the resulting value won't be used as if it were a pointer to
+;       a %struct.test06 object, while it may refer to the %p2 argument.
 ; CHECK: LLVMType: %struct.test06 = type { i32, i32 }
-; CHECK: Safety data: No issues found
+; CHECK: Safety data: Unsafe pointer merge 
 
 ; Load from a GEP-based pointer with the correct type
 %struct.test07 = type { i32, i32 }
@@ -203,9 +207,9 @@ define void @test13(%struct.test13.a** %p1, %struct.test13.b** %p2) {
 }
 
 ; CHECK: LLVMType: %struct.test13.a = type { i32, i32 }
-; CHECK: Safety data: Ambiguous pointer load
+; CHECK: Safety data: Unsafe pointer merge
 ; CHECK: LLVMType: %struct.test13.b = type { i64, i64 }
-; CHECK: Safety data: Ambiguous pointer load
+; CHECK: Safety data: Unsafe pointer merge
 
 ; Store of non-aggregate to an aggregate pointer location.
 %struct.test14 = type { i32, i32 }
@@ -299,7 +303,7 @@ define void @test21(%struct.test21* %p) {
 }
 
 ; CHECK: LLVMType: %struct.test21 = type { i32, i32 }
-; CHECK: Safety data: Bad casting | Mismatched element access | Ambiguous pointer load
+; CHECK: Safety data: Bad casting | Mismatched element access
 
 ; Direct load of a structure as a structure.
 %struct.test22 = type { i32, i32 }

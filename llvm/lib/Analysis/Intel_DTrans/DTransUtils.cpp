@@ -149,7 +149,6 @@ void dtrans::TypeInfo::printSafetyData() {
                                dtrans::BadPtrManipulation |
                                dtrans::AmbiguousGEP | dtrans::VolatileData |
                                dtrans::MismatchedElementAccess |
-                               dtrans::AmbiguousPointerLoad |
                                dtrans::WholeStructureReference |
                                dtrans::UnsafePointerStore |
                                dtrans::FieldAddressTaken | dtrans::GlobalPtr |
@@ -158,7 +157,7 @@ void dtrans::TypeInfo::printSafetyData() {
                                dtrans::BadMemFuncSize |
                                dtrans::BadMemFuncManipulation |
                                dtrans::AmbiguousPointerTarget |
-                               dtrans::UnhandledUse;
+                               dtrans::UnsafePtrMerge | dtrans::UnhandledUse;
   std::vector<StringRef> SafetyIssues;
   if (SafetyInfo & dtrans::BadCasting)
     SafetyIssues.push_back("Bad casting");
@@ -172,8 +171,6 @@ void dtrans::TypeInfo::printSafetyData() {
     SafetyIssues.push_back("Volatile data");
   if (SafetyInfo & dtrans::MismatchedElementAccess)
     SafetyIssues.push_back("Mismatched element access");
-  if (SafetyInfo & dtrans::AmbiguousPointerLoad)
-    SafetyIssues.push_back("Ambiguous pointer load");
   if (SafetyInfo & dtrans::WholeStructureReference)
     SafetyIssues.push_back("Whole structure reference");
   if (SafetyInfo & dtrans::UnsafePointerStore)
@@ -192,6 +189,8 @@ void dtrans::TypeInfo::printSafetyData() {
     SafetyIssues.push_back("Bad memfunc manipulation");
   if (SafetyInfo & dtrans::AmbiguousPointerTarget)
     SafetyIssues.push_back("Ambiguous pointer target");
+  if (SafetyInfo & dtrans::UnsafePtrMerge)
+    SafetyIssues.push_back("Unsafe pointer merge");
   if (SafetyInfo & dtrans::UnhandledUse)
     SafetyIssues.push_back("Unhandled use");
   // Print the safety issues found

@@ -890,15 +890,6 @@ public:
         setValueTypeInfoSafetyData(&I, dtrans::UnhandledUse);
       }
     }
-
-    // If the location being loaded aliases multiple pointer-to-pointer types
-    // the above code will not have flagged the mismatch.
-    if (isAliasSetOverloaded(LPI.getPointerTypeAliasSet())) {
-      DEBUG(dbgs() << "dtrans-safety Ambiguous pointer load:\n"
-                   << "  " << I << "\n");
-      DEBUG(LPI.dump());
-      setAllAliasedTypeSafetyData(LPI, dtrans::AmbiguousPointerLoad);
-    }
   }
 
   void visitStoreInst(StoreInst &I) {
@@ -1035,17 +1026,19 @@ public:
   }
 
   void visitPHINode(PHINode &I) {
-    // PHI Nodes in LLVM just merge other values, nothing can be accessed
-    // or dereferenced through a PHI node, so they are always safe. We
-    // may need to follow uses through a PHI for other instruction types
-    // but that happens elsewhere.
+    // PHI Nodes in LLVM merge other values. However, they may allow pointers
+    // to be merged which alias to different types. If any of the incoming
+    // values may point to a type of interest that is not pointed to by one
+    // or more of the other incoming values, the merge is unsafe.
+    analyzeSelectOrPHI(I);
   }
 
   void visitSelectInst(SelectInst &I) {
-    // Select instruction in LLVM just select among other values, nothing can
-    // be accessed or dereferenced through a Select instruction, so they are
-    // always safe. We may need to follow uses through a Select for other
-    // instruction types but that happens elsewhere.
+    // Selects in LLVM merge other values. However, they may allow pointers
+    // to be merged which alias to different types. If any of the incoming
+    // values may point to a type of interest that is not pointed to by one
+    // or more of the other incoming values, the merge is unsafe.
+    analyzeSelectOrPHI(I);
   }
 
   void visitPtrToIntInst(PtrToIntInst &I) {
@@ -1529,6 +1522,104 @@ private:
       }
     }
     return SafetyIssuesFound;
+  }
+
+  /// \brief Check for overloaded alias sets being introduced by a PHI node
+  ///        or select instruction.
+  ///
+  /// When multiple pointers are merged using either a PHI node or a select
+  /// instruction the type alias sets for the pointers are merged by our
+  /// local pointer analyzer. If the new alias set is overloaded (that is,
+  /// incompatible types are aliased) we want to be able to identify the
+  /// spot where that happened. This will typically be caused by some
+  /// transformation that we may be able to undo. An example of such a case
+  /// might look like this:
+  ///
+  ///   Block_A:
+  ///     %p1 = call i8* @malloc(i64 128)
+  ///     %p_A = bitcast i8* %p1 to %struct.A
+  ///     br label %Block_C
+  ///
+  ///   Block_B:
+  ///     %p2 = call i8* @malloc(i64 32)
+  ///     %p_B = bitcast i8* %p2 to %struct.B
+  ///     br label %Block_C
+  ///
+  ///   Block_C:
+  ///     %p_merged = phi i8* [%p1, %Block_A], [%p2, %Block_B]
+  ///     br label %Block_D
+  ///
+  /// In this case, %p_merged may be a pointer to either %struct.A or
+  /// %struct.B. We will be unable to optimize either of those structures
+  /// unless we are able to rewrite this IR in some way that eliminates this
+  /// PHI node.
+  void analyzeSelectOrPHI(Instruction &I) {
+    // This routine should only ever be called for PHI nodes or select
+    // instructions.
+    assert(isa<SelectInst>(&I) || isa<PHINode>(&I));
+
+    // Local pointer analysis will already know if none of the incoming
+    // values are of interest, so we can avoid the checks below.
+    if (!isValueOfInterest(&I))
+      return;
+
+    // The local pointer analyzer will handle merging all relevant information
+    // for this instruction. If the value resulting from the merge has an
+    // overloaded alias set, the instruction and all of its aliased types
+    // should be marked as an unsafe merge.
+    LocalPointerInfo &LPI = LPA.getLocalPointerInfo(&I);
+    if (isAliasSetOverloaded(LPI.getPointerTypeAliasSet())) {
+      DEBUG(dbgs() << "dtrans-safety: Unsafe pointer merge -- "
+                   << "overloaded merge result\n"
+                   << "  " << I << "\n");
+      setValueTypeInfoSafetyData(&I, dtrans::UnsafePtrMerge);
+      return;
+    }
+
+    // Get the aggregate type to which the result points. If this call returns
+    // null, it is either because the value is overloaded (which we checked
+    // above) or it is a pointer to some element. It is common to merge
+    // pointers to fields with other pointers to the same type of element.
+    // If there are problems with the field access, they will appear in
+    // later analysis. The merge itself is safe.
+    llvm::Type *DomTy = LPI.getDominantAggregateTy();
+    if (!DomTy)
+      return;
+
+    // Build a set of all the incoming values for this instruction.
+    SmallVector<Value *, 4> IncomingVals;
+    if (auto *Sel = dyn_cast<SelectInst>(&I)) {
+      IncomingVals.push_back(Sel->getTrueValue());
+      IncomingVals.push_back(Sel->getFalseValue());
+    } else {
+      auto *PHI = cast<PHINode>(&I);
+      for (Value *Val : PHI->incoming_values())
+        IncomingVals.push_back(Val);
+    }
+
+    // If the result of the merge points to some aggregate type, each of
+    // the incoming values must also be capable of pointing to that type
+    // otherwise the merge is unsafe. For example, if a pointer to a structure
+    // is bitcast to an i8* and then merged with some arbitrary i8* value
+    // that is not otherwise known to point to that structure type, the merge
+    // is unsafe because the memory pointed to by the arbitrary i8* value
+    // cannot be transformed in any meaningful way.
+    for (auto *ValIn : IncomingVals) {
+      // Null pointers can be safely merged since they don't actually point
+      // to a memory buffer that can be used in any way.
+      if (isa<ConstantPointerNull>(ValIn))
+        continue;
+      LocalPointerInfo &ValLPI = LPA.getLocalPointerInfo(ValIn);
+      if (!ValLPI.canPointToType(DomTy->getPointerElementType())) {
+        DEBUG(dbgs() << "dtrans-safety: Unsafe pointer merge -- "
+                     << "incompatible incoming value\n"
+                     << "  " << I << "\n");
+        setValueTypeInfoSafetyData(&I, dtrans::UnsafePtrMerge);
+        return;
+      }
+    }
+
+    // Otherwise, the merge is safe.
   }
 
   /// Given a call instruction that has been determined to be an allocation

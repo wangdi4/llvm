@@ -84,32 +84,31 @@ const SafetyData VolatileData = 0x0000000000000010;
 /// element type.
 const SafetyData MismatchedElementAccess = 0x0000000000000020;
 
-/// A load was seen using a pointer operand that alias to incompatible pointer
-/// types.
-const SafetyData AmbiguousPointerLoad = 0x0000000000000040;
-
 /// A load or store instruction was found which loads or stores an entire
 /// instance of the type.
-const SafetyData WholeStructureReference = 0x0000000000000080;
+const SafetyData WholeStructureReference = 0x0000000000000040;
 
 /// A store was seen using a value operand that aliases to a type of interest
 /// with a pointer operand that was not known to alias to a pointer to a
 /// pointer to that type.
-const SafetyData UnsafePointerStore = 0x0000000000000100;
+const SafetyData UnsafePointerStore = 0x0000000000000080;
 
 /// The addresses of one or more fields within the type were written to memory
 /// or passed as an argument to a function call.
-const SafetyData FieldAddressTaken = 0x0000000000000200;
+const SafetyData FieldAddressTaken = 0x0000000000000100;
 
 /// A global variable was found which is a pointer to the type.
-const SafetyData GlobalPtr = 0x0000000000000400;
+const SafetyData GlobalPtr = 0x0000000000000200;
 
 /// A global variable was found which is an instance of the type.
-const SafetyData GlobalInstance = 0x0000000000000800;
+const SafetyData GlobalInstance = 0x0000000000000400;
 
 /// A global variable was found which is an instance of the type and has a
 /// non-zero initializer.
-const SafetyData HasInitializerList = 0x0000000000001000;
+const SafetyData HasInitializerList = 0x0000000000000800;
+
+/// A PHI node or select was found with incompatible incoming values.
+const SafetyData UnsafePtrMerge = 0x0000000000001000;
 
 /// A structure is modified via a memory function intrinsic (memcpy, memmove,
 /// or memset), with a size that differs from the native structure size.
