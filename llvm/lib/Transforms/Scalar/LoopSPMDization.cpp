@@ -170,6 +170,24 @@ Branches to or from an OpenMP structured block are illegal
           SCEVExpander Expander(*SE, DL, "loop-SPMDization");
           BranchInst *PreHeaderBR = cast<BranchInst>(L->getLoopPreheader()->getTerminator());
           const SCEV *BECountSC = SE->getBackedgeTakenCount(L);
+
+          // Sometimes SCEV can't figure out the backedge taken count; bail and
+          // print a warning if that happens.
+          if (isa<SCEVCouldNotCompute>(BECountSC)) {
+            errs() << "\n";
+            errs().changeColor(raw_ostream::BLUE, true);
+            errs() << "!! WARNING: COULD NOT PERFORM SPMDization !!";
+            errs().resetColor();
+            errs() << R"help(
+
+We were unable to determine an expression for the trip count of a loop for which
+blocking SPMDization was requested. Please simplify the loop control logic or
+try a different SPMDization strategy instead.
+
+)help";
+            return false;
+          }
+
           const SCEV *TripCountSC =
             SE->getAddExpr(BECountSC, SE->getConstant(BECountSC->getType(), 1));
           Value *TripCountV = Expander.expandCodeFor(TripCountSC, 
