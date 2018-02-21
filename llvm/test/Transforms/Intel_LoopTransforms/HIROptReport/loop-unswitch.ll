@@ -34,6 +34,16 @@
 ; CHECK-EMITTER-NEXT:     LOOP END
 ; CHECK-EMITTER-NEXT: LOOP END
 
+; RUN: opt -loop-unswitch -intel-loop-optreport=low -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -VPODriverHIR -hir-cg -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=CHECK-HIR --strict-whitespace
+
+; CHECK-HIR: LOOP BEGIN
+; CHECK-HIR-NEXT:     Remark #XXXXX: Loop has been unswitched via {{.*}}{{[[:space:]]}}
+; CHECK-HIR-NEXT:     LOOP BEGIN
+; CHECK-HIR-NEXT:     LOOP END{{[[:space:]]}}
+; CHECK-HIR-NEXT:     LOOP BEGIN
+; CHECK-HIR-NEXT:     LOOP END
+; CHECK-HIR-NEXT: LOOP END
+
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 

@@ -58,6 +58,11 @@ HLLoop::HLLoop(HLNodeUtils &HNU, const Loop *LLVMLoop)
   initialize();
   OrigLoop->getExitingBlocks(Exits);
   setNumExits(Exits.size());
+  // If Lp has attached optreport metadata node - initialize HLoop
+  // optreport with it. Otherwise it will initialize it with zero.
+  // We also don't erase the opt report from LoopID. We only do that
+  // at the HIRCodeGen stage, if needed.
+  setOptReport(LoopOptReport::findOptReportInLoopID(LLVMLoop->getLoopID()));
 }
 
 // IsInnermost flag is initialized to true, please refer to the header file.

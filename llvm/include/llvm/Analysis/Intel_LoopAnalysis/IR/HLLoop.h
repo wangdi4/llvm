@@ -23,6 +23,10 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/RegDDRef.h"
 #include "llvm/IR/InstrTypes.h"
 
+#include "llvm/Analysis/Intel_OptReport/LoopOptReport.h"
+#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
+#include <functional>
+
 namespace llvm {
 
 class Loop;
@@ -115,6 +119,9 @@ private:
 
   // Back-edge branch debug location.
   DebugLoc BranchDbgLoc;
+
+  // Optimization report for the loop.
+  LoopOptReport OptReport;
 
 protected:
   HLLoop(HLNodeUtils &HNU, const Loop *LLVMLoop);
@@ -762,6 +769,10 @@ public:
 
   const DebugLoc getDebugLoc() const override { return getBranchDebugLoc(); }
 
+  LoopOptReport getOptReport() const { return OptReport; }
+  void setOptReport(LoopOptReport R) { OptReport = R; }
+  void eraseOptReport() { OptReport = nullptr; }
+
   /// Returns the bottom test node for the loop. It is null for non-unknown
   /// loops.
   HLIf *getBottomTest();
@@ -778,6 +789,36 @@ public:
 };
 
 } // End namespace loopopt
+
+// Traits of HLLoop for LoopOptReportBuilder.
+template <> struct LoopOptReportTraits<loopopt::HLLoop> {
+  static LoopOptReport getOptReport(const loopopt::HLLoop &Loop) {
+    return Loop.getOptReport();
+  }
+
+  static void setOptReport(loopopt::HLLoop &Loop, LoopOptReport OR) {
+    Loop.setOptReport(OR);
+  }
+
+  static void eraseOptReport(loopopt::HLLoop &Loop) { Loop.eraseOptReport(); }
+
+  static DebugLoc getDebugLoc(const loopopt::HLLoop &Loop) {
+    return Loop.getDebugLoc();
+  }
+
+  static LoopOptReport
+  getOrCreatePrevOptReport(loopopt::HLLoop &Loop,
+                           const LoopOptReportBuilder &Builder);
+
+  static LoopOptReport
+  getOrCreateParentOptReport(loopopt::HLLoop &Loop,
+                             const LoopOptReportBuilder &Builder);
+
+  using ChildLoopTy = loopopt::HLLoop;
+  using LoopVisitorTy = std::function<void(ChildLoopTy &)>;
+  static void traverseChildLoopsBackward(loopopt::HLLoop &Loop,
+                                         LoopVisitorTy Func);
+};
 
 } // End namespace llvm
 

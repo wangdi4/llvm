@@ -20,6 +20,7 @@
 
 #include "llvm/Support/Debug.h"
 
+#include "llvm/Analysis/Intel_OptReport/LoopOptReport.h"
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/IntrinsicInst.h"
@@ -598,7 +599,8 @@ bool HIRRegionIdentification::isDebugMetadata(MDNode *Node) {
 
 bool HIRRegionIdentification::isSupportedMetadata(MDNode *Node) {
 
-  if (isDebugMetadata(Node) || isUnrollMetadata(Node)) {
+  if (isDebugMetadata(Node) || isUnrollMetadata(Node) ||
+      LoopOptReport::isOptReportMetadata(Node)) {
     return true;
   }
 

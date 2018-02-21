@@ -31,6 +31,9 @@
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpander.h"
 
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
+#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
+
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
@@ -113,10 +116,10 @@ public:
     llvm_unreachable("Unknown HIR type in CG");
   }
 
-  CGVisitor(HIRFramework &HIRF, ScalarEvolution &SE)
+  CGVisitor(HIRFramework &HIRF, ScalarEvolution &SE, LoopOptReportBuilder &LORB)
       : F(HIRF.getFunction()), HIRF(HIRF), CurRegion(nullptr),
         CurLoopIsNSW(false), Builder(HIRF.getContext()),
-        Expander(SE, HIRF.getDataLayout(), "i", *this) {}
+        Expander(SE, HIRF.getDataLayout(), "i", *this), LORBuilder(LORB) {}
 
 private:
   // Performs preprocessing for \p Reg before we start generating code for it.
@@ -316,6 +319,7 @@ private:
   bool CurLoopIsNSW;
   IRBuilder<> Builder;
   HIRSCEVExpander Expander;
+  const LoopOptReportBuilder &LORBuilder;
 
   // keep track of our mem allocs. Only IV and temps atm
   std::map<std::string, AllocaInst *> NamedValues;
@@ -342,6 +346,7 @@ class HIRCodeGen {
 private:
   ScalarEvolution &SE;
   HIRFramework &HIRF;
+  LoopOptReportBuilder &LORBuilder;
 
   // Clears HIR related metadata from instructions. Returns true if any
   // instruction was cleared.
@@ -351,7 +356,9 @@ private:
   bool shouldGenCode(HLRegion *Reg, unsigned RegionIdx) const;
 
 public:
-  HIRCodeGen(ScalarEvolution &SE, HIRFramework &HIRF) : SE(SE), HIRF(HIRF) {}
+  HIRCodeGen(ScalarEvolution &SE, HIRFramework &HIRF,
+             LoopOptReportBuilder &LORB)
+      : SE(SE), HIRF(HIRF), LORBuilder(LORB) {}
 
   bool run();
 
@@ -368,12 +375,17 @@ public:
   }
 
   bool runOnFunction(Function &F) override {
+    auto &OROP = getAnalysis<OptReportOptionsPass>();
+    LoopOptReportBuilder LORBuilder;
+    LORBuilder.setup(F.getContext(), OROP.getLoopOptReportVerbosity());
+
     return HIRCodeGen(getAnalysis<ScalarEvolutionWrapperPass>().getSE(),
-                      getAnalysis<HIRFrameworkWrapperPass>().getHIR())
+                      getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
+                      LORBuilder)
         .run();
   }
-
   void getAnalysisUsage(AnalysisUsage &AU) const {
+    AU.addRequired<OptReportOptionsPass>();
     AU.addRequired<ScalarEvolutionWrapperPass>();
     AU.addRequired<HIRFrameworkWrapperPass>();
   }
@@ -388,6 +400,7 @@ FunctionPass *llvm::createHIRCodeGenWrapperPass() {
 char HIRCodeGenWrapperPass::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRCodeGenWrapperPass, "hir-cg", "HIR Code Generation",
                       false, false)
+INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_END(HIRCodeGenWrapperPass, "hir-cg", "HIR Code Generation",
@@ -395,9 +408,14 @@ INITIALIZE_PASS_END(HIRCodeGenWrapperPass, "hir-cg", "HIR Code Generation",
 
 PreservedAnalyses HIRCodeGenPass::run(Function &F,
                                       FunctionAnalysisManager &AM) {
-  bool Transformed = HIRCodeGen(AM.getResult<ScalarEvolutionAnalysis>(F),
-                                AM.getResult<HIRFrameworkAnalysis>(F))
-                         .run();
+  auto &OROP = AM.getResult<OptReportOptionsAnalysis>(F);
+  LoopOptReportBuilder LORBuilder;
+  LORBuilder.setup(F.getContext(), OROP.getLoopOptReportVerbosity());
+
+  bool Transformed =
+      HIRCodeGen(AM.getResult<ScalarEvolutionAnalysis>(F),
+                 AM.getResult<HIRFrameworkAnalysis>(F), LORBuilder)
+          .run();
 
   return Transformed ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }
@@ -407,7 +425,7 @@ bool HIRCodeGen::run() {
   DEBUG(HIRF.getFunction().dump());
 
   // generate code
-  CGVisitor CG(HIRF, SE);
+  CGVisitor CG(HIRF, SE, LORBuilder);
   bool Transformed = false;
   unsigned RegionIdx = 1;
 
@@ -1318,9 +1336,17 @@ Value *CGVisitor::visitLoop(HLLoop *Lp) {
     // latch
     BranchInst *Br = Builder.CreateCondBr(EndCond, LoopBB, AfterBB);
 
-    if (MDNode *MD = Lp->getLoopMetadata()) {
-      Br->setMetadata(LLVMContext::MD_loop, MD);
-    }
+    // Attach metadata to the resulting loop; Exclude opt report field
+    // if there was any.
+    MDNode *LoopID = LoopOptReport::eraseOptReportFromLoopID(
+        Lp->getLoopMetadata(), F.getContext());
+    LoopOptReport OptReport = Lp->getOptReport();
+    if (OptReport)
+      LoopID = LoopOptReport::addOptReportToLoopID(LoopID, OptReport,
+                                                   F.getContext());
+
+    if (LoopID)
+      Br->setMetadata(LLVMContext::MD_loop, LoopID);
 
     // new code goes after loop
     Builder.SetInsertPoint(AfterBB);
