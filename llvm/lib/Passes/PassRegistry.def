@@ -231,6 +231,7 @@ FUNCTION_PASS("print<hir-region-identification>", loopopt::HIRRegionIdentificati
 FUNCTION_PASS("print<hir-scc-formation>", loopopt::HIRSCCFormationPrinterPass(dbgs()))
 FUNCTION_PASS("print<hir-framework>", loopopt::HIRFrameworkPrinterPass(dbgs()))
 FUNCTION_PASS("verify<hir-framework>", loopopt::HIRFrameworkVerifierPass())
+FUNCTION_PASS("hir-optreport-emitter", loopopt::HIROptReportEmitterPass())
 FUNCTION_PASS("hir-cg", loopopt::HIRCodeGenPass())
 FUNCTION_PASS("intel-ir-optreport-emitter", LoopOptReportEmitterPass())
 #endif // INTEL_CUSTOMIZATION

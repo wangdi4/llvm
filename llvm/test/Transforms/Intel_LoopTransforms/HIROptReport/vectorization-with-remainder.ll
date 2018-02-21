@@ -10,6 +10,18 @@
 ;  return;
 ;}
 
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPODriverHIR -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter %s 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPODriverHIR -hir-optreport-emitter -hir-cg -intel-loop-optreport=low %s 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
+
+; OPTREPORT: LOOP BEGIN{{[[:space:]]}}
+; OPTREPORT-NEXT:     LOOP BEGIN
+; OPTREPORT-NEXT:         Remark #XXXXX: Loop has been vectorized with vector {{.*}} factor
+; OPTREPORT-NEXT:     LOOP END{{[[:space:]]}}
+; OPTREPORT-NEXT:     LOOP BEGIN
+; OPTREPORT-NEXT:         <Remainder loop for vectorization>
+; OPTREPORT-NEXT:     LOOP END
+; OPTREPORT-NEXT: LOOP END
+
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPODriverHIR -hir-cg -intel-loop-optreport=low < %s -S | FileCheck %s
 
 ; CHECK: [[M1:!.*]] = distinct !{!"llvm.loop.optreport", [[M2:!.*]]}
@@ -21,17 +33,6 @@
 ; CHECK: [[M7]] = distinct !{!"intel.loop.optreport", [[M8:!.*]]}
 ; CHECK: [[M8]] = !{!"intel.optreport.origin", [[M9:!.*]]}
 ; CHECK: [[M9]] = !{!"intel.optreport.remark", !"Remainder loop for vectorization"}
-
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPODriverHIR -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter %s 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
-
-; OPTREPORT: LOOP BEGIN{{[[:space:]]}}
-; OPTREPORT-NEXT:     LOOP BEGIN
-; OPTREPORT-NEXT:         Remark #XXXXX: Loop has been vectorized with vector {{.*}} factor
-; OPTREPORT-NEXT:     LOOP END{{[[:space:]]}}
-; OPTREPORT-NEXT:     LOOP BEGIN
-; OPTREPORT-NEXT:         <Remainder loop for vectorization>
-; OPTREPORT-NEXT:     LOOP END
-; OPTREPORT-NEXT: LOOP END
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

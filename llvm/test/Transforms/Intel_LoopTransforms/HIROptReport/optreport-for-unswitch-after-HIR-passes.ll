@@ -1,4 +1,4 @@
-; Check that the remark that was added pre-HIR "survived" HIR phase
+; Check that the remark that was added pre-HIR "survived" HIR phase.
 
 ;void foo(int *restrict A, int *restrict B, int *restrict C, int *restrict D, int *G, int N) {
 ;
@@ -15,6 +15,7 @@
 ;}
 
 ; RUN: opt -hir-ssa-deconstruction -intel-loop-optreport=low -hir-post-vec-complete-unroll -hir-vec-dir-insert -VPODriverHIR -hir-cg -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
+; RUN: opt -hir-ssa-deconstruction -intel-loop-optreport=low -hir-post-vec-complete-unroll -hir-vec-dir-insert -VPODriverHIR -hir-optreport-emitter -hir-cg 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
 
 ; OPTREPORT: LOOP BEGIN
 ; OPTREPORT-NEXT:     Remark #XXXXX: Loop has been unswitched via {{.*}}{{[[:space:]]}}

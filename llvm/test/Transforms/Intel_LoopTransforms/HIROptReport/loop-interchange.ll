@@ -11,6 +11,7 @@
 ;}
 
 ; RUN: opt -hir-ssa-deconstruction -hir-loop-interchange -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
+; RUN: opt -hir-ssa-deconstruction -hir-loop-interchange -hir-optreport-emitter -hir-cg -intel-loop-optreport=low 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
 
 ; OPTREPORT: LOOP BEGIN
 ; OPTREPORT-NEXT:     Remark #XXXXX: Loopnest Interchanged: ( 1 2 ) --> ( 2 1 ){{[[:space:]]}}

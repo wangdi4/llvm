@@ -265,6 +265,7 @@ namespace {
       (void) llvm::createHIRRegionIdentificationWrapperPass();
       (void) llvm::createHIRSCCFormationWrapperPass();
       (void) llvm::createHIRFrameworkWrapperPass();
+      (void) llvm::createHIROptReportEmitterWrapperPass();
       (void) llvm::createHIRDDAnalysisPass();
       (void) llvm::createHIRLocalityAnalysisPass();
       (void) llvm::createHIRLoopResourcePass();

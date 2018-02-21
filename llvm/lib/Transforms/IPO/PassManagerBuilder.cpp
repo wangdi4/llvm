@@ -1315,7 +1315,10 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
     PM.add(createHIRScalarReplArrayPass());
   }
 
-  PM.add(createHIRCodeGenWrapperPass());
+  if (OptReportEmitter == OptReportOptionsPass::HIR)
+    PM.add(createHIROptReportEmitterWrapperPass());
+
+ PM.add(createHIRCodeGenWrapperPass());
 
   addLoopOptCleanupPasses(PM);
 }

@@ -119,6 +119,9 @@ FunctionPass *createHIRArrayTransposePass();
 
 /// Creates pass that fuses loops.
 FunctionPass *createHIRLoopFusionPass();
+
+/// This creates a pass that emits HIR opt report.
+FunctionPass *createHIROptReportEmitterWrapperPass();
 }
 
 #endif
