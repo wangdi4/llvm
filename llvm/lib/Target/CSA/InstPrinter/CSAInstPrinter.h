@@ -59,6 +59,9 @@ public:
   void printIntervalOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O,
                             const char *Modifier = nullptr);
 
+  void printPrioOrderOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O,
+                            const char *Modifier = nullptr);
+
   //    void printPCRelImmOperand(const MCInst *MI, unsigned OpNo, raw_ostream
   //    &O); void printSrcMemOperand(const MCInst *MI, unsigned OpNo,
   //    raw_ostream &O,

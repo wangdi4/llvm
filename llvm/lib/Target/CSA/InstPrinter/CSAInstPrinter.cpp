@@ -206,3 +206,23 @@ void CSAInstPrinter::printIntervalOperand(const MCInst *MI, unsigned OpNo,
   else
     printOperand(MI, OpNo, O, Modifier);
 }
+
+
+void CSAInstPrinter::printPrioOrderOperand(const MCInst *MI, unsigned OpNo,
+                                           raw_ostream &O,
+                                          const char *Modifier) {
+  assert((Modifier == nullptr || Modifier[0] == 0) && "No modifiers supported");
+
+  // This is an optional operand; the compiler may never add it. The optional
+  // MO is added at selection, so if this instruction was added later, it may
+  // still not have this operand. In this case, just print the default, 0.
+  int64_t immV = 0;
+
+  if (OpNo < MI->getNumOperands()) {
+    printOperand(MI, OpNo, O, Modifier);
+  } else {
+    // There are no fancy names for this one -- just "0" or "1".
+    O << 0;
+  }
+}
+
