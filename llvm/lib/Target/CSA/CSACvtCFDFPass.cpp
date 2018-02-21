@@ -1597,19 +1597,21 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhiPipelined(MachineBasicBlock *mbb,
 
   unsigned firstPrio          = newGated->getOperand(0).getReg();
   unsigned secondPrio         = backPulse->getReg();
-  MachineInstrBuilder pickany = BuildMI(*mbb, initInst, initInst->getDebugLoc(),
-                                        TII->get(CSA::PICKANY0), CSA::IGN)
+  MachineInstrBuilder any = BuildMI(*mbb, initInst, initInst->getDebugLoc(),
+                                        TII->get(CSA::ANY0))
                                   .addDef(cpyReg)
                                   .addReg(firstPrio)
                                   .addReg(secondPrio)
+                                  .addReg(CSA::NA)
+                                  .addReg(CSA::NA)
                                   .setMIFlag(MachineInstr::NonSequential);
 
   if (pickCtrlInverted) {
-    pickany->getOperand(1).setReg(
+    any->getOperand(0).setReg(
       LMFI->allocateLIC(&CSA::CI1RegClass, "notLoopCtl"));
     BuildMI(*mbb, initInst, initInst->getDebugLoc(), TII->get(CSA::NOT1),
             cpyReg)
-      .addReg(pickany->getOperand(1).getReg())
+      .addReg(any->getOperand(0).getReg())
       .setMIFlag(MachineInstr::NonSequential);
   }
 
