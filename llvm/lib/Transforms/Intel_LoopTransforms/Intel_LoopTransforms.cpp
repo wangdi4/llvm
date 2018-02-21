@@ -15,7 +15,7 @@
 using namespace llvm;
 
 void llvm::initializeIntel_LoopTransforms(PassRegistry &Registry) {
-  initializeHIRSSADeconstructionPass(Registry);
+  initializeHIRSSADeconstructionLegacyPassPass(Registry);
   initializeHIRTempCleanupPass(Registry);
   initializeHIRSymbolicTripCountCompleteUnrollPass(Registry);
   initializeHIRLoopInterchangePass(Registry);
@@ -31,11 +31,13 @@ void llvm::initializeIntel_LoopTransforms(PassRegistry &Registry) {
   initializeHIRScalarReplArrayPass(Registry);
   initializeHIRLoopDistributionForMemRecPass(Registry);
   initializeHIRLoopDistributionForLoopNestPass(Registry);
-  initializeHIRCodeGenPass(Registry);
+  initializeHIRCodeGenWrapperPassPass(Registry);
   initializeHIRParDirInsertPass(Registry);
   initializeHIRVecDirInsertPass(Registry);
   initializeHIROptVarPredicatePass(Registry);
   initializeHIRIdiomRecognitionPass(Registry);
   initializeHIRMVForConstUBPass(Registry);
   initializeHIRLoopConcatenationPass(Registry);
+  initializeHIRArrayTransposePass(Registry);
+  initializeHIRLoopFusionPass(Registry);
 }

@@ -3961,7 +3961,12 @@ bool ScalarEvolution::isLoopZtt(const Loop *Lp, const Loop *OutermostLoop,
     Pred = ICmpInst::getSwappedPredicate(Pred);
   }
 
-  const SCEVAddRecExpr *IV = cast<SCEVAddRecExpr>(LHS);
+  const SCEVAddRecExpr *IV = dyn_cast<SCEVAddRecExpr>(LHS);
+
+  if (!IV) {
+    return false;
+  }
+
   auto Start = IV->getStart();
   auto Stride = IV->getStepRecurrence(*this);
 

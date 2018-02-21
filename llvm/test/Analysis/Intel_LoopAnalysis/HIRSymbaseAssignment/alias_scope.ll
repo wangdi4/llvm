@@ -1,7 +1,8 @@
+; REQUIRES: asserts
 ; Check that Alias Scope metadata are handled by symbase assignment analysis
 
-; RUN: opt -analyze -hir-symbase-assignment < %s | FileCheck %s
-; RUN: opt -analyze -hir-symbase-assignment -scoped-noalias < %s | FileCheck -check-prefix=NOALIAS %s
+; RUN: opt -analyze -hir-framework -hir-framework-debug=symbase-assignment -debug-only=hir-framework < %s 2>&1 | FileCheck %s
+; RUN: opt -analyze -hir-framework -hir-framework-debug=symbase-assignment -debug-only=hir-framework -scoped-noalias < %s 2>&1 | FileCheck -check-prefix=NOALIAS %s
 
 ; CHECK-DAG: {{.*%q.*\[.*}} {sb:[[Base1:[0-9]+]]}
 ; CHECK-DAG: {{.*%p.*\[.*}} {sb:[[Base1]]}

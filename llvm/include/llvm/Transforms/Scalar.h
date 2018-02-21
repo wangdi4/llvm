@@ -291,7 +291,7 @@ FunctionPass *createIndirectCallConvPass();
 ModulePass *createVPOParoptTpvPass();
 
 // LoopOptMarker - Indicates loopopt based throttling to subsequent passes.
-FunctionPass *createLoopOptMarkerPass();
+FunctionPass *createLoopOptMarkerLegacyPass();
 
 FunctionPass *createAggInlAALegacyPass();
 #endif // INTEL_CUSTOMIZATION

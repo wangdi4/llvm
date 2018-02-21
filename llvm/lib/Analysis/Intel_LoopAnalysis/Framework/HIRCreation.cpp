@@ -13,17 +13,16 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "HIRCreation.h"
+
 #include "llvm/Support/CommandLine.h"
+
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRRegionIdentification.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRSCCFormation.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/PostDominators.h"
-
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRCreation.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRRegionIdentification.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRSCCFormation.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
-
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Instructions.h"
 
@@ -31,46 +30,6 @@ using namespace llvm;
 using namespace llvm::loopopt;
 
 #define DEBUG_TYPE "hir-creation"
-
-INITIALIZE_PASS_BEGIN(HIRCreation, "hir-creation", "HIR Creation", false, true)
-INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRRegionIdentification)
-INITIALIZE_PASS_DEPENDENCY(HIRSCCFormation)
-INITIALIZE_PASS_END(HIRCreation, "hir-creation", "HIR Creation", false, true)
-
-char HIRCreation::ID = 0;
-
-static cl::opt<bool> HIRPrinterDetails("hir-details",
-                                       cl::desc("Show HIR with dd_ref details"),
-                                       cl::init(false));
-
-static cl::opt<bool>
-    HIRFrameworkDetails("hir-framework-details",
-                        cl::desc("Show framework detail in print"),
-                        cl::init(false));
-
-static cl::opt<bool>
-    HIRPrintModified("hir-print-modified",
-                     cl::desc("Show modified HIR Regions only"),
-                     cl::init(false));
-
-FunctionPass *llvm::createHIRCreationPass() { return new HIRCreation(); }
-
-HIRCreation::HIRCreation() : FunctionPass(ID) {
-  initializeHIRCreationPass(*PassRegistry::getPassRegistry());
-}
-
-void HIRCreation::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.setPreservesAll();
-  AU.addRequiredTransitive<DominatorTreeWrapperPass>();
-  AU.addRequiredTransitive<PostDominatorTreeWrapperPass>();
-  AU.addRequiredTransitive<LoopInfoWrapperPass>();
-  AU.addRequiredTransitive<HIRRegionIdentification>();
-  // Only used for printing.
-  AU.addRequiredTransitive<HIRSCCFormation>();
-}
 
 const BasicBlock *HIRCreation::getSrcBBlock(HLIf *If) const {
   auto Iter = Ifs.find(If);
@@ -105,25 +64,25 @@ HLNode *HIRCreation::populateTerminator(BasicBlock *BB, HLNode *InsertionPos) {
       // Create dummy if condition for now. Later on the compare instruction
       // operands will be substituted here and eliminated. If this is a bottom
       // test, it will be eliminated anyway.
-      auto If = getHLNodeUtils().createHLIf(
+      auto If = HNU.createHLIf(
           {CmpInst::Predicate::FCMP_TRUE, FastMathFlags(), CondDebugLoc},
           nullptr, nullptr);
 
       Ifs[If] = BB;
       If->setDebugLoc(BI->getDebugLoc());
 
-      HLGoto *ThenGoto = getHLNodeUtils().createHLGoto(BB, BI->getSuccessor(0));
+      HLGoto *ThenGoto = HNU.createHLGoto(BB, BI->getSuccessor(0));
       HLNodeUtils::insertAsFirstChild(If, ThenGoto, true);
       Gotos.push_back(ThenGoto);
 
-      HLGoto *ElseGoto = getHLNodeUtils().createHLGoto(BB, BI->getSuccessor(1));
+      HLGoto *ElseGoto = HNU.createHLGoto(BB, BI->getSuccessor(1));
       HLNodeUtils::insertAsFirstChild(If, ElseGoto, false);
       Gotos.push_back(ElseGoto);
 
       TermNode = If;
 
     } else {
-      auto Goto = getHLNodeUtils().createHLGoto(BB, BI->getSuccessor(0));
+      auto Goto = HNU.createHLGoto(BB, BI->getSuccessor(0));
 
       Gotos.push_back(Goto);
       Goto->setDebugLoc(BI->getDebugLoc());
@@ -131,7 +90,7 @@ HLNode *HIRCreation::populateTerminator(BasicBlock *BB, HLNode *InsertionPos) {
       TermNode = Goto;
     }
   } else if (SwitchInst *SI = dyn_cast<SwitchInst>(Terminator)) {
-    auto Switch = getHLNodeUtils().createHLSwitch(nullptr);
+    auto Switch = HNU.createHLSwitch(nullptr);
 
     Switches[Switch] = BB;
     Switch->setDebugLoc(SI->getDebugLoc());
@@ -143,7 +102,7 @@ HLNode *HIRCreation::populateTerminator(BasicBlock *BB, HLNode *InsertionPos) {
 
     // Add gotos to all the cases. They are added for convenience in forming
     // lexical links and will be eliminated later.
-    auto DefaultGoto = getHLNodeUtils().createHLGoto(BB, SI->getDefaultDest());
+    auto DefaultGoto = HNU.createHLGoto(BB, SI->getDefaultDest());
     HLNodeUtils::insertAsFirstDefaultChild(Switch, DefaultGoto);
     Gotos.push_back(DefaultGoto);
 
@@ -153,7 +112,7 @@ HLNode *HIRCreation::populateTerminator(BasicBlock *BB, HLNode *InsertionPos) {
     unsigned Count = 1;
 
     for (auto I = SI->case_begin(), E = SI->case_end(); I != E; ++I, ++Count) {
-      auto CaseGoto = getHLNodeUtils().createHLGoto(BB, I->getCaseSuccessor());
+      auto CaseGoto = HNU.createHLGoto(BB, I->getCaseSuccessor());
       HLNodeUtils::insertAsFirstChild(Switch, CaseGoto, Count);
       Gotos.push_back(CaseGoto);
 
@@ -163,7 +122,7 @@ HLNode *HIRCreation::populateTerminator(BasicBlock *BB, HLNode *InsertionPos) {
     TermNode = Switch;
 
   } else if (isa<ReturnInst>(Terminator) || isa<UnreachableInst>(Terminator)) {
-    TermNode = getHLNodeUtils().createHLInst(Terminator);
+    TermNode = HNU.createHLInst(Terminator);
 
   } else {
     assert(0 && "Unhandled terminator type!");
@@ -181,7 +140,7 @@ HLNode *HIRCreation::populateTerminator(BasicBlock *BB, HLNode *InsertionPos) {
 
 HLNode *HIRCreation::populateInstSequence(BasicBlock *BB,
                                           HLNode *InsertionPos) {
-  auto Label = getHLNodeUtils().createHLLabel(BB);
+  auto Label = HNU.createHLLabel(BB);
 
   Labels[BB] = Label;
 
@@ -195,7 +154,7 @@ HLNode *HIRCreation::populateInstSequence(BasicBlock *BB,
 
   for (auto I = BB->getFirstInsertionPt(), E = std::prev(BB->end()); I != E;
        ++I) {
-    auto Inst = getHLNodeUtils().createHLInst(&*I);
+    auto Inst = HNU.createHLInst(&*I);
     HLNodeUtils::insertAfter(InsertionPos, Inst);
     InsertionPos = Inst;
   }
@@ -209,7 +168,7 @@ void HIRCreation::populateEndBBs(
     const BasicBlock *BB, SmallPtrSet<const BasicBlock *, 2> &EndBBs) const {
   EndBBs.insert(BB);
 
-  auto Lp = LI->getLoopFor(BB);
+  auto Lp = LI.getLoopFor(BB);
 
   if (!Lp) {
     return;
@@ -231,7 +190,7 @@ bool HIRCreation::isCrossLinked(const BranchInst *BI,
     FromBBs.insert(BI->getSuccessor(0));
   }
 
-  return RI->isReachableFrom(SuccessorBB, EndBBs, FromBBs);
+  return RI.isReachableFrom(SuccessorBB, EndBBs, FromBBs);
 }
 
 bool HIRCreation::isCrossLinked(const SwitchInst *SI,
@@ -262,7 +221,7 @@ bool HIRCreation::isCrossLinked(const SwitchInst *SI,
     }
   }
 
-  return RI->isReachableFrom(SuccessorBB, EndBBs, FromBBs);
+  return RI.isReachableFrom(SuccessorBB, EndBBs, FromBBs);
 }
 
 bool HIRCreation::sortDomChildren(
@@ -294,7 +253,7 @@ bool HIRCreation::sortDomChildren(
 
     // First check satisfies the strict weak ordering requirements of
     // comparator function.
-    return ((B1 != B2) && RI->isReachableFrom(B1, EndBBs, FromBBs));
+    return ((B1 != B2) && RI.isReachableFrom(B1, EndBBs, FromBBs));
   };
 
   std::sort(SortedChildren.begin(), SortedChildren.end(), ReverseLexOrder);
@@ -319,7 +278,7 @@ HLNode *HIRCreation::doPreOrderRegionWalk(BasicBlock *BB,
   SmallVector<BasicBlock *, 8> DomChildren;
 
   // Sort dominator children.
-  if (!sortDomChildren(DT->getNode(BB), DomChildren)) {
+  if (!sortDomChildren(DT.getNode(BB), DomChildren)) {
     // No children to process.
     return InsertionPos;
   }
@@ -328,7 +287,7 @@ HLNode *HIRCreation::doPreOrderRegionWalk(BasicBlock *BB,
   auto IfTerm = dyn_cast<HLIf>(TermNode);
   auto SwitchTerm = IfTerm ? nullptr : dyn_cast<HLSwitch>(TermNode);
 
-  auto Lp = LI->getLoopFor(BB);
+  auto Lp = LI.getLoopFor(BB);
   bool IsMultiExitLoop = (Lp && !Lp->getExitingBlock());
   bool IsLoopLatch = (IfTerm && Lp && (Lp->getLoopLatch() == BB));
 
@@ -351,7 +310,7 @@ HLNode *HIRCreation::doPreOrderRegionWalk(BasicBlock *BB,
     // multi-exit loops we delay it for when we encounter the corresponding loop
     // header up the call chain.
     if (DomChildMayBeMultiExitLoopLatch &&
-        (DomChildLp = LI->getLoopFor(DomChildBB)) &&
+        (DomChildLp = LI.getLoopFor(DomChildBB)) &&
         !DomChildLp->getExitingBlock() && DomChildLp->isLoopLatch(DomChildBB)) {
       continue;
     }
@@ -457,11 +416,10 @@ void HIRCreation::setExitBBlock() const {
   }
 }
 
-void HIRCreation::create() {
+void HIRCreation::run(HLContainerTy &Regions) {
 
-  for (auto &I : *RI) {
-
-    CurRegion = getHLNodeUtils().createHLRegion(I);
+  for (auto &I : RI) {
+    CurRegion = HNU.createHLRegion(I);
 
     EarlyExits.clear();
 
@@ -477,61 +435,3 @@ void HIRCreation::create() {
   }
 }
 
-bool HIRCreation::runOnFunction(Function &F) {
-  DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-  PDT = &getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
-  LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-  RI = &getAnalysis<HIRRegionIdentification>();
-
-  HNU.reset(F);
-
-  create();
-
-  return false;
-}
-
-void HIRCreation::releaseMemory() {
-  // Clear HIR regions
-  Regions.clear();
-
-  // Clear framework data structures.
-  Labels.clear();
-  Gotos.clear();
-  Ifs.clear();
-  Switches.clear();
-
-  // Destroy all HLNodes.
-  getHLNodeUtils().destroyAll();
-}
-
-void HIRCreation::print(raw_ostream &OS, const Module *M) const {
-  print(HIRPrinterDetails, OS, M);
-}
-
-void HIRCreation::print(bool FrameworkDetails, raw_ostream &OS,
-                        const Module *M) const {
-#if !INTEL_PRODUCT_RELEASE
-  formatted_raw_ostream FOS(OS);
-  auto RegBegin = RI->begin();
-  auto SCCF = &getAnalysis<HIRSCCFormation>();
-  unsigned Offset = 0;
-  bool PrintFrameworkDetails = HIRFrameworkDetails || FrameworkDetails;
-
-  for (auto I = begin(), E = end(); I != E; ++I, ++Offset) {
-    assert(isa<HLRegion>(I) && "Top level node is not a region!");
-    const HLRegion *Region = cast<HLRegion>(I);
-    if (!HIRPrintModified || Region->shouldGenCode()) {
-      // Print SCCs in hir-parser output and in detailed mode.
-      if (PrintFrameworkDetails) {
-        SCCF->print(FOS, RegBegin + Offset);
-      }
-
-      FOS << "\n";
-      Region->print(FOS, 0, PrintFrameworkDetails, HIRPrinterDetails);
-    }
-  }
-  FOS << "\n";
-#endif // !INTEL_PRODUCT_RELEASE
-}
-
-void HIRCreation::verifyAnalysis() const {}

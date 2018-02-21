@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser | FileCheck %s
 
 ; Check parsing output for the loop verifying that we can parse %ptBlist2.017 and %ptBlist1.016 cleanly in case of type mismatch of the base ptr in the SCEV (%ptr) which is i64* and the type of the phi which is i32*.
 

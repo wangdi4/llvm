@@ -384,7 +384,10 @@ TLI_DEFINE_ENUM_INTERNAL(dunder_strtok_r)
 TLI_DEFINE_STRING_INTERNAL("__strtok_r")
 
 #if INTEL_CUSTOMIZATION
-/// __xstat64 (int vers, const char *file, struct stat64 *buf);
+/// int __xstat(int ver, const char * path, struct stat * stat_buf);
+TLI_DEFINE_ENUM_INTERNAL(dunder_xstat)
+TLI_DEFINE_STRING_INTERNAL("__xstat")
+/// int __xstat64 (int vers, const char *file, struct stat64 *buf);
 TLI_DEFINE_ENUM_INTERNAL(dunder_xstat64)
 TLI_DEFINE_STRING_INTERNAL("__xstat64")
 #endif // INTEL_CUSTOMIZATION

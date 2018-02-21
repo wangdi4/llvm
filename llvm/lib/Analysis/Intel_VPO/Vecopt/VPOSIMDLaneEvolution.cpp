@@ -1251,7 +1251,7 @@ void SIMDLaneEvolutionHIR::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<AVRDecomposeHIR>();
   AU.addRequired<AvrDefUseHIR>();
   AU.addRequired<AvrCFGHIR>();
-  AU.addRequiredTransitive<HIRParser>();
+  AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
   AU.setPreservesAll();
 }
 

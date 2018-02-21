@@ -58,6 +58,7 @@
 
 #include "llvm/Transforms/Scalar/CallSiteSplitting.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/Analysis/Intel_WP.h"         // INTEL
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/PatternMatch.h"
@@ -386,6 +387,7 @@ struct CallSiteSplittingLegacyPass : public FunctionPass {
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<TargetLibraryInfoWrapperPass>();
+    AU.addPreserved<WholeProgramWrapperPass>();  // INTEL
     FunctionPass::getAnalysisUsage(AU);
   }
 
@@ -416,5 +418,6 @@ PreservedAnalyses CallSiteSplittingPass::run(Function &F,
   if (!doCallSiteSplitting(F, TLI))
     return PreservedAnalyses::all();
   PreservedAnalyses PA;
+  PA.preserve<WholeProgramAnalysis>();  // INTEL
   return PA;
 }

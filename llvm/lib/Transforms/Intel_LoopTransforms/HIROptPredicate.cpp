@@ -136,7 +136,7 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesAll();
-    AU.addRequiredTransitive<HIRFramework>();
+    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
   }
 
 private:
@@ -372,7 +372,7 @@ void HIROptPredicate::CandidateLookup::visit(HLLoop *Loop) {
 
 char HIROptPredicate::ID = 0;
 INITIALIZE_PASS_BEGIN(HIROptPredicate, OPT_SWITCH, OPT_DESC, false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFramework)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_END(HIROptPredicate, OPT_SWITCH, OPT_DESC, false, false)
 
 FunctionPass *llvm::createHIROptPredicatePass() { return new HIROptPredicate; }
@@ -400,7 +400,7 @@ bool HIROptPredicate::runOnFunction(Function &F) {
 
   DEBUG(dbgs() << "Opt Predicate for Function: " << F.getName() << "\n");
 
-  HIRFramework &HIR = getAnalysis<HIRFramework>();
+  HIRFramework &HIR = getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   for (HLNode &Node : make_range(HIR.hir_begin(), HIR.hir_end())) {
     HLRegion *Region = cast<HLRegion>(&Node);
 

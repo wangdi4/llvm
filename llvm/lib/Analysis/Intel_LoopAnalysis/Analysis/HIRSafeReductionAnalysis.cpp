@@ -19,9 +19,9 @@
 #include "llvm/Support/Debug.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/DDTests.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"
@@ -49,7 +49,7 @@ FunctionPass *llvm::createHIRSafeReductionAnalysisPass() {
 char HIRSafeReductionAnalysis::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRSafeReductionAnalysis, "hir-safe-reduction-analysis",
                       "HIR Safe Reduction Analysis", false, true)
-INITIALIZE_PASS_DEPENDENCY(HIRFramework)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatistics)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
 INITIALIZE_PASS_END(HIRSafeReductionAnalysis, "hir-safe-reduction-analysis",
@@ -58,7 +58,7 @@ INITIALIZE_PASS_END(HIRSafeReductionAnalysis, "hir-safe-reduction-analysis",
 void HIRSafeReductionAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
 
   AU.setPreservesAll();
-  AU.addRequiredTransitive<HIRFramework>();
+  AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
   AU.addRequiredTransitive<HIRLoopStatistics>();
   AU.addRequiredTransitive<HIRDDAnalysis>();
 }
@@ -83,7 +83,7 @@ void HIRSafeReductionAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
 //
 bool HIRSafeReductionAnalysis::runOnFunction(Function &F) {
 
-  auto HIRF = &getAnalysis<HIRFramework>();
+  auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   DDA = &getAnalysis<HIRDDAnalysis>();
   HLS = &getAnalysis<HIRLoopStatistics>();
 
@@ -581,17 +581,8 @@ HIRSafeReductionAnalysis::getSafeRedInfo(const HLInst *Inst) const {
   // Get SafeRedChainList via Loop
   auto Iter2 = SafeReductionMap.find(Loop);
 
-  // SafeReductionInstMap can go out of sync with SafeReductionMap if the
-  // instruction moves from its orignal parent loop to another loop. For
-  // example, if we complete unroll the parent loop, the instruction will move
-  // to the outer parent. In such cases we should return null so that we get a
-  // new entry for the instruction if it is still a safe reduction in the new
-  // loop.
-  // Please note that safe reduction information is not invalidated for deleted
-  // loops.
-  if (Iter2 == SafeReductionMap.end()) {
-    return nullptr;
-  }
+  assert(Iter2 != SafeReductionMap.end() &&
+         "safe reduction analysis is in an inconsistent state!");
 
   auto &SRCL = Iter2->second;
 

@@ -428,25 +428,19 @@ void initializeNonLTOGlobalOptPass(PassRegistry &);
 // Pass for math call optimization.
 void initializeMapIntrinToImlPass(PassRegistry&);
 // Pass for indicating loopopt based throttling.
-void initializeLoopOptMarkerPass(PassRegistry&);
+void initializeLoopOptMarkerLegacyPassPass(PassRegistry&);
 // Pass to store the opt level.
-void initializeXmainOptLevelPassPass(PassRegistry&);
+void initializeXmainOptLevelWrapperPassPass(PassRegistry&);
 // HIR Passes
-void initializeHIRRegionIdentificationPass(PassRegistry&);
-void initializeHIRSCCFormationPass(PassRegistry&);
-void initializeHIRScalarSymbaseAssignmentPass(PassRegistry&);
-void initializeHIRCreationPass(PassRegistry&);
-void initializeHIRCleanupPass(PassRegistry&);
-void initializeHIRLoopFormationPass(PassRegistry&);
-void initializeHIRParserPass(PassRegistry&);
-void initializeHIRSymbaseAssignmentPass(PassRegistry&);
-void initializeHIRFrameworkPass(PassRegistry&);
+void initializeHIRRegionIdentificationWrapperPassPass(PassRegistry&);
+void initializeHIRSCCFormationWrapperPassPass(PassRegistry&);
+void initializeHIRFrameworkWrapperPassPass(PassRegistry&);
 void initializeHIRDDAnalysisPass(PassRegistry&);
 void initializeHIRLocalityAnalysisPass(PassRegistry&);
 void initializeHIRLoopResourcePass(PassRegistry&);
 void initializeHIRSafeReductionAnalysisPass(PassRegistry&);
 void initializeHIRLoopStatisticsPass(PassRegistry&);
-void initializeHIRSSADeconstructionPass(PassRegistry&);
+void initializeHIRSSADeconstructionLegacyPassPass(PassRegistry&);
 void initializeHIRTempCleanupPass(PassRegistry&);
 void initializeHIRParVecAnalysisPass(PassRegistry&);
 void initializeHIRParDirInsertPass(PassRegistry&);
@@ -467,11 +461,13 @@ void initializeHIRLMMPass(PassRegistry&);
 void initializeHIRSymbolicTripCountCompleteUnrollPass(PassRegistry&);
 void initializeHIRScalarReplArrayPass(PassRegistry&);
 void initializeHIRDummyTransformationPass(PassRegistry&);
-void initializeHIRCodeGenPass(PassRegistry&);
+void initializeHIRCodeGenWrapperPassPass(PassRegistry&);
 void initializeHIROptVarPredicatePass(PassRegistry&);
 void initializeHIRIdiomRecognitionPass(PassRegistry&);
 void initializeHIRMVForConstUBPass(PassRegistry&);
 void initializeHIRLoopConcatenationPass(PassRegistry&);
+void initializeHIRArrayTransposePass(PassRegistry&);
+void initializeHIRLoopFusionPass(PassRegistry&);
 // VPO WRegion Passes
 void initializeWRegionCollectionPass(PassRegistry&);
 void initializeWRegionInfoPass(PassRegistry&);

@@ -50,7 +50,7 @@ char HIRVectVLSAnalysis::ID = 0;
 
 INITIALIZE_PASS_BEGIN(HIRVectVLSAnalysis, "hir-vect-vls-analysis",
                       "HIR Vect VLS Analysis", false, true)
-INITIALIZE_PASS_DEPENDENCY(HIRFramework)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
 INITIALIZE_PASS_END(HIRVectVLSAnalysis, "hir-vect-vls-analysis",
                     "HIR Vect VLS Analysis", false, true)
@@ -58,7 +58,7 @@ INITIALIZE_PASS_END(HIRVectVLSAnalysis, "hir-vect-vls-analysis",
 void HIRVectVLSAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
 
   AU.setPreservesAll();
-  AU.addRequired<HIRFramework>();
+  AU.addRequired<HIRFrameworkWrapperPass>();
   AU.addRequired<HIRDDAnalysis>();
 }
 
@@ -310,7 +310,7 @@ void HIRVectVLSAnalysis::analyze(HIRFramework &HIRF) {
 // Performs a basic setup without actually running the VLS analysis.
 bool HIRVectVLSAnalysis::runOnFunction(Function &F) {
 
-  auto &HIRF = getAnalysis<HIRFramework>();
+  auto &HIRF = getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   DDA = &getAnalysis<HIRDDAnalysis>();
 
   if (debugHIRVectVLS) {

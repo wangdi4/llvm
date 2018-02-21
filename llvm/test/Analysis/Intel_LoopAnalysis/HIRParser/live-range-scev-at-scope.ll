@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser | FileCheck %s
 
 ; Src code-
 
@@ -31,7 +31,7 @@
 ; CHECK: + END LOOP
 
 
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser -hir-details | FileCheck -check-prefix=DETAIL %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser -hir-details | FileCheck -check-prefix=DETAIL %s
 
 ; Verify loop liveins/liveouts.
 

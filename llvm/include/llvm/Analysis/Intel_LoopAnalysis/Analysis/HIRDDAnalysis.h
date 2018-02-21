@@ -72,6 +72,10 @@ public:
 
   DistanceVector &getDist() { return DistV; }
 
+  const DirectionVector &getDV() const { return DV; }
+
+  const DistanceVector &getDist() const { return DistV; }
+
   bool isRefined() const { return Refined; }
 
   bool isIndependent() const { return Independent; }

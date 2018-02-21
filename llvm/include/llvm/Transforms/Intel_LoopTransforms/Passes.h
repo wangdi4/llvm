@@ -21,9 +21,8 @@ namespace llvm {
 
 class FunctionPass;
 
-/// createHIRSSADeconstructionPass - This creates a pass which desconstructs SSA
-/// for HIR creation.
-FunctionPass *createHIRSSADeconstructionPass();
+/// This creates a pass which desconstructs SSA for HIR creation.
+FunctionPass *createHIRSSADeconstructionLegacyPass();
 
 /// Creates a pass which cleans up unnecessary temps in HIR.
 FunctionPass *createHIRTempCleanupPass();
@@ -34,7 +33,7 @@ FunctionPass *createHIRPrinterPass(raw_ostream &OS, const std::string &Banner);
 #endif // !INTEL_PRODUCT_RELEASE
 
 /// createHIRCodeGenPass - This creates a pass that generates LLVM IR from HIR.
-FunctionPass *createHIRCodeGenPass();
+FunctionPass *createHIRCodeGenWrapperPass();
 
 /// createOptPredicatePass - This creates a pass that performs OptPredicate
 /// transformation on HIR.
@@ -114,6 +113,12 @@ FunctionPass *createHIRMVForConstUBPass();
 
 /// Creates pass that performs loop concatenation.
 FunctionPass *createHIRLoopConcatenationPass();
+
+/// Creates pass that performs array transpose.
+FunctionPass *createHIRArrayTransposePass();
+
+/// Creates pass that fuses loops.
+FunctionPass *createHIRLoopFusionPass();
 }
 
 #endif

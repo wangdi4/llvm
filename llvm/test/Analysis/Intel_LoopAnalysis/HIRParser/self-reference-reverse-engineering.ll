@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser | FileCheck %s
 
 ; Check parsing output for the loop verifying that %0 is not reverse engineered in terms of %1 (the instruction it is an operand of!).
 ; CHECK: DO i1 = 0, 999

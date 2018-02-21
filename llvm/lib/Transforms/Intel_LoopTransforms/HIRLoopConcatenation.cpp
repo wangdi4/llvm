@@ -295,7 +295,7 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesAll();
-    AU.addRequiredTransitive<HIRFramework>();
+    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
   }
 
   /// Validates top level nodes in the region. Returns all the found loops in \p
@@ -400,7 +400,7 @@ private:
 char HIRLoopConcatenation::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRLoopConcatenation, "hir-loop-concatenation",
                       "HIR Loop Concatenation", false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFramework)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_END(HIRLoopConcatenation, "hir-loop-concatenation",
                     "HIR Loop Concatenation", false, false)
 
@@ -421,7 +421,7 @@ bool HIRLoopConcatenation::runOnFunction(Function &F) {
     return false;
   }
 
-  auto HIRF = &getAnalysis<HIRFramework>();
+  auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
 
   // Expect a function level region.
   if (HIRF->hir_begin() == HIRF->hir_end()) {

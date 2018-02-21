@@ -10,7 +10,7 @@
 ; END REGION
 
 ; Verify that 0 index is left as a scalar type.
-; CHECK: <RVAL-REG> &((LINEAR bitcast.%struct.OType*.<2 x %struct.OType*>(%b))[i64 0])  
+; CHECK: <RVAL-REG> &((<2 x %struct.OType*>)(LINEAR %struct.OType* %b)[i64 0])  
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

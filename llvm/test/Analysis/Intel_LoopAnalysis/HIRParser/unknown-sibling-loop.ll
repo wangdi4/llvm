@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser | FileCheck %s
 
 ; Check parsing output for the loop verifying that the (for.body568) loop's upper is parsed correctly. The initial value for the loop upper is coming from unknown sibling loop(land.rhs532).
 ; CHECK: DO i1 = 0, %k.41017 + -1

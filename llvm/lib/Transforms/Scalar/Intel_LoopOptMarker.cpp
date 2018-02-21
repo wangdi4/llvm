@@ -9,14 +9,16 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This pass sets loopopt based throttling for the function indicating to 
+// This pass sets loopopt based throttling for the function indicating to
 // scalar transformations to suppress optimizations which can interfere with
 // loopopt.
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Pass.h"
+#include "llvm/Transforms/Scalar/Intel_LoopOptMarker.h"
+
 #include "llvm/IR/Function.h"
+#include "llvm/Pass.h"
 #include "llvm/Transforms/Scalar.h"
 
 using namespace llvm;
@@ -25,12 +27,19 @@ using namespace llvm;
 
 namespace {
 
-class LoopOptMarker : public FunctionPass {
+class LoopOptMarker {
+public:
+  void run(Function &F) { F.setPreLoopOpt(); }
+};
+
+class LoopOptMarkerLegacyPass : public FunctionPass {
+  LoopOptMarker LOM;
+
 public:
   static char ID;
 
-  LoopOptMarker() : FunctionPass(ID) {
-    initializeLoopOptMarkerPass(*PassRegistry::getPassRegistry());
+  LoopOptMarkerLegacyPass() : FunctionPass(ID) {
+    initializeLoopOptMarkerLegacyPassPass(*PassRegistry::getPassRegistry());
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
@@ -39,20 +48,26 @@ public:
 
   bool runOnFunction(Function &F) override;
 };
+} // namespace
+
+PreservedAnalyses LoopOptMarkerPass::run(Function &F,
+                                         FunctionAnalysisManager &) {
+  LoopOptMarker LOM;
+  LOM.run(F);
+  return PreservedAnalyses::all();
 }
 
-char LoopOptMarker::ID = 0;
-INITIALIZE_PASS_BEGIN(LoopOptMarker, "loopopt-marker", "LoopOpt Marker", false,
-                      false)
-INITIALIZE_PASS_END(LoopOptMarker, "loopopt-marker", "LoopOpt Marker", false,
-                    false)
+char LoopOptMarkerLegacyPass::ID = 0;
+INITIALIZE_PASS_BEGIN(LoopOptMarkerLegacyPass, "loopopt-marker",
+                      "LoopOpt Marker", false, false)
+INITIALIZE_PASS_END(LoopOptMarkerLegacyPass, "loopopt-marker", "LoopOpt Marker",
+                    false, false)
 
-FunctionPass *llvm::createLoopOptMarkerPass() {
-  return new LoopOptMarker();
+FunctionPass *llvm::createLoopOptMarkerLegacyPass() {
+  return new LoopOptMarkerLegacyPass();
 }
 
-bool LoopOptMarker::runOnFunction(Function &F) {
-  F.setPreLoopOpt();
-  // TODO: also add opt level information for loopopt.
+bool LoopOptMarkerLegacyPass::runOnFunction(Function &F) {
+  LOM.run(F);
   return false;
 }

@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-cost-model-throttling=0 | opt -analyze -hir-parser -hir-cost-model-throttling=0 | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-cost-model-throttling=0 | opt -analyze -hir-framework -hir-framework-debug=parser -hir-cost-model-throttling=0 | FileCheck %s
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-cg -force-hir-cg -hir-cost-model-throttling=0 -S | FileCheck -check-prefix=CHECK-CG %s
 
 ; Check parsing output for the loop verifying that the switch is parsed correctly.
