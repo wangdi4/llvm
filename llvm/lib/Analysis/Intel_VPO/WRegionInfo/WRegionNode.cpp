@@ -38,6 +38,8 @@ std::unordered_map<int, StringRef> llvm::vpo::WRNName = {
     {WRegionNode::WRNDistributeParLoop, "distribute parallel loop"},
     {WRegionNode::WRNTarget, "target"},
     {WRegionNode::WRNTargetData, "target data"},
+    {WRegionNode::WRNTargetEnterData, "target enter data"},
+    {WRegionNode::WRNTargetExitData, "target exit data"},
     {WRegionNode::WRNTargetUpdate, "target update"},
     {WRegionNode::WRNTask, "task"},
     {WRegionNode::WRNTaskloop, "taskloop"},
@@ -46,14 +48,14 @@ std::unordered_map<int, StringRef> llvm::vpo::WRNName = {
     {WRegionNode::WRNSections, "sections"},
     {WRegionNode::WRNWorkshare, "workshare"},
     {WRegionNode::WRNDistribute, "distribute"},
-    {WRegionNode::WRNSingle, "single"},
-    {WRegionNode::WRNMaster, "master"},
     {WRegionNode::WRNAtomic, "atomic"},
     {WRegionNode::WRNBarrier, "barrier"},
     {WRegionNode::WRNCancel, "cancel"},
     {WRegionNode::WRNCritical, "critical"},
     {WRegionNode::WRNFlush, "flush"},
     {WRegionNode::WRNOrdered, "ordered"},
+    {WRegionNode::WRNMaster, "master"},
+    {WRegionNode::WRNSingle, "single"},
     {WRegionNode::WRNTaskgroup, "taskgroup"},
     {WRegionNode::WRNTaskwait, "taskwait"},
     {WRegionNode::WRNTaskyield, "taskyield"}};
@@ -185,6 +187,19 @@ void WRegionNode::finalize(BasicBlock *ExitBB, DominatorTree *DT) {
       resetBBSet();
     }
   } // if (getIsOmpLoop())
+
+  // All target constructs except for "target data" are task-generating
+  // constructs. Furthermore, when the construct has a nowait or depend clause,
+  // then the resulting task is not undeferred (ie, asynchronous offloading).
+  // We want to set the "IsTask" attribute of these target constructs to
+  // facilitate code generation.
+  if (getIsTarget() && getWRegionKindID() != WRNTargetData) {
+    assert(canHaveDepend() && "Corrupt WRN? Depend Clause should be allowed");
+    if (getNowait() || !getDepend().empty()) {
+      // TODO: turn on this code after verifying that task codegen supports it
+      // setIsTask();
+    }
+  }
 }
 
 /// \brief Populates BBlockSet with BBs in the WRN from EntryBB to ExitBB.
@@ -1187,8 +1202,16 @@ bool WRegionNode::canHaveUseDevicePtr() const {
 }
 
 bool WRegionNode::canHaveDepend() const {
-  // Only task-type constructs take depend clauses
-  return getIsTask();
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNTask:
+  case WRNTarget:
+  case WRNTargetEnterData:
+  case WRNTargetExitData:
+  case WRNTargetUpdate:
+    return true;
+  }
+  return false;
 }
 
 bool WRegionNode::canHaveDepSink() const {

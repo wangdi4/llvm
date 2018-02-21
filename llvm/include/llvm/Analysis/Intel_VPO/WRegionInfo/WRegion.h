@@ -48,6 +48,8 @@ namespace vpo {
 ///    WRNDistributeParLoopNode  #pragma omp distribute parallel for
 ///    WRNTargetNode             #pragma omp target
 ///    WRNTargetDataNode         #pragma omp target data
+///    WRNTargetEnterDataNode    #pragma omp target enter data
+///    WRNTargetExitDataNode     #pragma omp target exit data
 ///    WRNTargetUpdateNode       #pragma omp target update
 ///    WRNTaskNode               #pragma omp task
 ///    WRNTaskloopNode           #pragma omp taskloop
@@ -455,23 +457,54 @@ public:
 
 /// This WRN is similar to WRNTargetNode but it does not offload a code block
 /// to the device. It holds map clauses that describe data movement between
-/// host and device as specified by any of the following OMP directives:
+/// host and device as specified by the OMP directive:
 /// \code
 ///   #pragma omp target data
-///   #pragma omp target enter data
-///   #pragma omp target exit data
 /// \endcode
 class WRNTargetDataNode : public WRegionNode {
 private:
-  MapClause Map;  // used for the map clause and the to/from clauses
-  DependClause Depend;
+  MapClause Map;
   UseDevicePtrClause UseDevicePtr;
+  EXPR IfExpr;
+  EXPR Device;
+
+public:
+  WRNTargetDataNode(BasicBlock *BB);
+
+protected:
+  void setIf(EXPR E) { IfExpr = E; }
+  void setDevice(EXPR E) { Device = E; }
+
+public:
+  DEFINE_GETTER(MapClause,          getMap,          Map)
+  DEFINE_GETTER(UseDevicePtrClause, getUseDevicePtr, UseDevicePtr)
+
+  EXPR getIf() const { return IfExpr; }
+  EXPR getDevice() const { return Device; }
+
+  void printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                                             unsigned Verbosity=1) const;
+
+  /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const WRegionNode *W) {
+    return W->getWRegionKindID() == WRegionNode::WRNTargetData;
+  }
+};
+
+/// WRN for
+/// \code
+///   #pragma omp target enter data
+/// \endcode
+class WRNTargetEnterDataNode : public WRegionNode {
+private:
+  MapClause Map;
+  DependClause Depend;
   EXPR IfExpr;
   EXPR Device;
   bool Nowait;
 
 public:
-  WRNTargetDataNode(BasicBlock *BB);
+  WRNTargetEnterDataNode(BasicBlock *BB);
 
 protected:
   void setIf(EXPR E) { IfExpr = E; }
@@ -481,7 +514,6 @@ protected:
 public:
   DEFINE_GETTER(MapClause,          getMap,          Map)
   DEFINE_GETTER(DependClause,       getDepend,       Depend)
-  DEFINE_GETTER(UseDevicePtrClause, getUseDevicePtr, UseDevicePtr)
 
   EXPR getIf() const { return IfExpr; }
   EXPR getDevice() const { return Device; }
@@ -492,7 +524,44 @@ public:
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
-    return W->getWRegionKindID() == WRegionNode::WRNTargetData;
+    return W->getWRegionKindID() == WRegionNode::WRNTargetEnterData;
+  }
+};
+
+/// WRN for
+/// \code
+///   #pragma omp target exit data
+/// \endcode
+class WRNTargetExitDataNode : public WRegionNode {
+private:
+  MapClause Map;
+  DependClause Depend;
+  EXPR IfExpr;
+  EXPR Device;
+  bool Nowait;
+
+public:
+  WRNTargetExitDataNode(BasicBlock *BB);
+
+protected:
+  void setIf(EXPR E) { IfExpr = E; }
+  void setDevice(EXPR E) { Device = E; }
+  void setNowait(bool Flag) { Nowait = Flag; }
+
+public:
+  DEFINE_GETTER(MapClause,          getMap,          Map)
+  DEFINE_GETTER(DependClause,       getDepend,       Depend)
+
+  EXPR getIf() const { return IfExpr; }
+  EXPR getDevice() const { return Device; }
+  bool getNowait() const { return Nowait; }
+
+  void printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                                             unsigned Verbosity=1) const;
+
+  /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const WRegionNode *W) {
+    return W->getWRegionKindID() == WRegionNode::WRNTargetExitData;
   }
 };
 

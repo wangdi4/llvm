@@ -553,7 +553,9 @@ public:
     WRNTeams,                         // IsTeams
     WRNDistributeParLoop,             // IsPar, IsOmpLoop, IsDistribute
     WRNTarget,                        // IsTarget, IsTask (if depend/nowait)
-    WRNTargetData,                    // IsTarget, IsTask (if depend/nowait)
+    WRNTargetData,                    // IsTarget
+    WRNTargetEnterData,               // IsTarget, IsTask (if depend/nowait)
+    WRNTargetExitData,                // IsTarget, IsTask (if depend/nowait)
     WRNTargetUpdate,                  // IsTarget, IsTask (if depend/nowait)
     WRNTask,                          // IsTask
     WRNTaskloop,                      // IsTask, IsOmpLoop

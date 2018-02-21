@@ -60,9 +60,13 @@ WRegionNode *WRegionUtils::createWRegion(int DirID, BasicBlock *EntryBB,
       W = new WRNTargetNode(EntryBB);
       break;
     case DIR_OMP_TARGET_DATA:
-    case DIR_OMP_TARGET_ENTER_DATA:
-    case DIR_OMP_TARGET_EXIT_DATA:
       W = new WRNTargetDataNode(EntryBB);
+      break;
+    case DIR_OMP_TARGET_ENTER_DATA:
+      W = new WRNTargetEnterDataNode(EntryBB);
+      break;
+    case DIR_OMP_TARGET_EXIT_DATA:
+      W = new WRNTargetExitDataNode(EntryBB);
       break;
     case DIR_OMP_TARGET_UPDATE:
       W = new WRNTargetUpdateNode(EntryBB);

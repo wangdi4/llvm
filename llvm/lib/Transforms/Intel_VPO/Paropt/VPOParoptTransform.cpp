@@ -116,6 +116,20 @@ void VPOParoptTransform::gatherWRegionNodeList(bool &NeedTID, bool &NeedBID) {
   return;
 }
 
+static void debugPrintHeader(WRegionNode *W, bool IsPrepare) {
+  if (IsPrepare)
+    DEBUG(dbgs() << "\n\n === VPOParopt Prepare: ");
+  else
+    DEBUG(dbgs() << "\n\n === VPOParopt Transform: ");
+
+  DEBUG(dbgs() << W->getName().upper() << " construct\n\n");
+}
+
+static void debugPrintToBeSupported(WRegionNode *W) {
+  DEBUG(dbgs() << "\n === TODO: construct not yet supported: "
+               << W->getName().upper() << "\n\n");
+}
+
 //
 // ParPrepare mode:
 //   Paropt prepare transformations for lowering and privatizing
@@ -247,22 +261,19 @@ bool VPOParoptTransform::paroptTransforms() {
       // this WRN, and simply remove its directives.
       RemoveDirectives = true;
     }
-    else switch (W->getWRegionKindID()) {
+    else {
+      bool IsPrepare = Mode & ParPrepare;
+      switch (W->getWRegionKindID()) {
 
       // 1. Constructs that need to perform outlining:
       //      Parallel [for|sections], task, taskloop, etc.
 
       case WRegionNode::WRNTeams:
       case WRegionNode::WRNParallel:
-      {
-        if (Mode & ParPrepare)
+        debugPrintHeader(W, IsPrepare);
+        if (Mode & ParPrepare) {
           genCodemotionFenceforAggrData(W);
-
-        if (isa<WRNTeamsNode>(W))
-          DEBUG(dbgs() << "\n WRNTeams - Transformation \n\n");
-        else
-          DEBUG(dbgs() << "\n WRNParallel - Transformation \n\n");
-
+        }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed = clearCodemotionFenceIntrinsic(W);
           // Privatization is enabled for both Prepare and Transform passes
@@ -273,20 +284,13 @@ bool VPOParoptTransform::paroptTransforms() {
           RemoveDirectives = true;
         }
         break;
-      }
       case WRegionNode::WRNParallelSections:
       case WRegionNode::WRNParallelLoop:
-      {
+        debugPrintHeader(W, IsPrepare);
         if (Mode & ParPrepare) {
           regularizeOMPLoop(W);
           genCodemotionFenceforAggrData(W);
         }
-
-        if (isa<WRNParallelSectionsNode>(W))
-          DEBUG(dbgs() << "\n WRNParallelSections - Transformation \n\n");
-        else
-          DEBUG(dbgs() << "\n WRNParallelLoop - Transformation \n\n");
-
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed = clearCodemotionFenceIntrinsic(W);
           AllocaInst *IsLastVal = nullptr;
@@ -300,10 +304,9 @@ bool VPOParoptTransform::paroptTransforms() {
           RemoveDirectives = true;
         }
         break;
-      }
       case WRegionNode::WRNTask:
-        DEBUG(dbgs() << "\n WRNTask - Transformation \n\n");
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
+          debugPrintHeader(W, false);
           StructType *KmpTaskTTWithPrivatesTy;
           StructType *KmpSharedTy;
           Value *LastIterGep;
@@ -318,9 +321,8 @@ bool VPOParoptTransform::paroptTransforms() {
           RemoveDirectives = true;
         }
         break;
-
       case WRegionNode::WRNTaskloop:
-        DEBUG(dbgs() << "\n WRNTaskloop - Transformation \n\n");
+        debugPrintHeader(W, IsPrepare);
         if (Mode & ParPrepare) {
           regularizeOMPLoop(W);
           genCodemotionFenceforAggrData(W);
@@ -344,16 +346,16 @@ bool VPOParoptTransform::paroptTransforms() {
         }
         break;
       case WRegionNode::WRNTaskwait:
-        DEBUG(dbgs() << "\n WRNTaskWait - Transformation \n\n");
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
+          debugPrintHeader(W, false);
           Changed |= genTaskWaitCode(W);
           RemoveDirectives = true;
         }
         break;
       case WRegionNode::WRNTarget:
+        debugPrintHeader(W, IsPrepare);
         if (Mode & ParPrepare)
           genCodemotionFenceforAggrData(W);
-        DEBUG(dbgs() << "\n WRNTarget  - Transformation \n\n");
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed = clearCodemotionFenceIntrinsic(W);
           Changed |= genPrivatizationCode(W);
@@ -364,16 +366,16 @@ bool VPOParoptTransform::paroptTransforms() {
           RemoveDirectives = true;
         }
         break;
+      case WRegionNode::WRNTargetEnterData:
+      case WRegionNode::WRNTargetExitData:
+        // TODO
+        debugPrintToBeSupported(W);
+        break;
       case WRegionNode::WRNTargetData:
       case WRegionNode::WRNTargetUpdate:
+        debugPrintHeader(W, IsPrepare);
         if (Mode & ParPrepare)
           genCodemotionFenceforAggrData(W);
-
-        if (W->getWRegionKindID() == WRegionNode::WRNTargetData)
-          DEBUG(dbgs() << "\n WRNTargetData  - Transformation \n\n");
-        else
-          DEBUG(dbgs() << "\n WRNTargetUpdate  - Transformation \n\n");
-
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed = clearCodemotionFenceIntrinsic(W);
           Changed |= genGlobalPrivatizationCode(W);
@@ -383,49 +385,39 @@ bool VPOParoptTransform::paroptTransforms() {
         }
         break;
 
-        // 2. Constructs that do not need to perform outlining. E.g., simd,
-        //    taskgroup, atomic, for, sections, etc.
+      // 2. Below are constructs that do not need to perform outlining.
+      //    E.g., simd, taskgroup, atomic, for, sections, etc.
 
       case WRegionNode::WRNTaskgroup:
+        // TODO
+        debugPrintToBeSupported(W);
         break;
-
       case WRegionNode::WRNVecLoop:
-      {
         // Privatization is enabled for SIMD Transform passes
-        DEBUG(dbgs() << "\n WRNSimdLoop - Transformation \n\n");
-
         if ((Mode & OmpVec) && (Mode & ParTrans)) {
-           Changed = genPrivatizationCode(W);
-           // keep SIMD directives; will be processed by the Vectorizer
-           RemoveDirectives = false;
-           RemovePrivateClauses = false;
+          debugPrintHeader(W, false);
+          Changed = genPrivatizationCode(W);
+          // keep SIMD directives; will be processed by the Vectorizer
+          RemoveDirectives = false;
+          RemovePrivateClauses = false;
         }
         break;
-      }
       case WRegionNode::WRNAtomic:
-      {
-        DEBUG(dbgs() << "\n WRNAtomic - Transformation \n\n");
         if (Mode & ParPrepare) {
+          debugPrintHeader(W, true);
           Changed = VPOParoptAtomics::handleAtomic(dyn_cast<WRNAtomicNode>(W),
                                                    IdentTy, TidPtr);
           RemoveDirectives = true;
         }
         break;
-      }
       case WRegionNode::WRNWksLoop:
       case WRegionNode::WRNSections:
       case WRegionNode::WRNDistribute:
-      {
-        if (W->getIsDistribute())
-          DEBUG(dbgs() << "\n WRNDistribute - Transformation \n\n");
-        else
-          DEBUG(dbgs() << "\n WRNWksLoop - Transformation \n\n");
-
+        debugPrintHeader(W, IsPrepare);
         if (Mode & ParPrepare) {
           regularizeOMPLoop(W);
           genCodemotionFenceforAggrData(W);
         }
-
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           AllocaInst *IsLastVal = nullptr;
           Changed = clearCodemotionFenceIntrinsic(W);
@@ -433,80 +425,69 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= genPrivatizationCode(W);
           Changed |= genLastPrivatizationCode(W, IsLastVal);
           Changed |= genFirstPrivatizationCode(W);
-
           if (!W->getIsDistribute()) {
             Changed |= genReductionCode(W);
             if (!W->getNowait())
               Changed |= genBarrier(W, false);
           }
-
           RemoveDirectives = true;
         }
-
         break;
-      }
       case WRegionNode::WRNSingle:
-      { DEBUG(dbgs() << "\n WRNSingle - Transformation \n\n");
         if (Mode & ParPrepare) {
+          debugPrintHeader(W, true);
           // Changed = genPrivatizationCode(W);
           // Changed |= genFirstPrivatizationCode(W);
           AllocaInst *IsSingleThread = nullptr;
           Changed = genSingleThreadCode(W, IsSingleThread);
           Changed |= genCopyPrivateCode(W, IsSingleThread);
-
           if (!W->getNowait())
             Changed |= genBarrier(W, false);
           RemoveDirectives = true;
         }
         break;
-      }
       case WRegionNode::WRNMaster:
-      { DEBUG(dbgs() << "\n WRNMaster - Transformation \n\n");
         if (Mode & ParPrepare) {
+          debugPrintHeader(W, true);
           Changed = genMasterThreadCode(W);
           RemoveDirectives = true;
         }
         break;
-      }
       case WRegionNode::WRNCritical:
-      {
-        DEBUG(dbgs() << "\n WRNCritical - Transformation \n\n");
         if (Mode & ParPrepare) {
+          debugPrintHeader(W, true);
           Changed = genCriticalCode(dyn_cast<WRNCriticalNode>(W));
           RemoveDirectives = true;
         }
         break;
-      }
       case WRegionNode::WRNOrdered:
-      {
-        DEBUG(dbgs() << "\n WRNOrdered - Transformation \n\n");
         if (Mode & ParPrepare) {
+          debugPrintHeader(W, true);
           Changed = genOrderedThreadCode(W);
           RemoveDirectives = true;
         }
         break;
-      }
       case WRegionNode::WRNBarrier:
-      {
-        DEBUG(dbgs() << "\n WRNBarrier - Transformation \n\n");
         if (Mode & ParPrepare) {
+          debugPrintHeader(W, true);
           Changed = genBarrier(W, true);
           RemoveDirectives = true;
         }
         break;
-      }
       case WRegionNode::WRNCancel:
+        // TODO
+        debugPrintToBeSupported(W);
         break;
       case WRegionNode::WRNFlush:
-      {
-        DEBUG(dbgs() << "\n WRNFlush - Transformation \n\n");
         if (Mode & ParPrepare) {
+          debugPrintHeader(W, true);
           Changed = genFlush(W);
           RemoveDirectives = true;
         }
         break;
-      }
-      default: break;
+      default:
+        break;
+      } // switch
     }
 
     // Remove calls to directive intrinsics since the LLVM back end does not
