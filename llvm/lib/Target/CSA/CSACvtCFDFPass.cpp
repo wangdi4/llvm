@@ -190,6 +190,10 @@ namespace llvm {
 char CSACvtCFDFPass::ID = 0;
 //declare CSACvtCFDFPass Pass
 INITIALIZE_PASS_BEGIN(CSACvtCFDFPass, "csa-cvt-cfdf", "CSA Convert Control Flow to Data Flow", true, true)
+INITIALIZE_PASS_DEPENDENCY(MachineLoopInfo)
+INITIALIZE_PASS_DEPENDENCY(ControlDependenceGraph)
+INITIALIZE_PASS_DEPENDENCY(MachineDominatorTree)
+INITIALIZE_PASS_DEPENDENCY(MachinePostDominatorTree)
 INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
 INITIALIZE_PASS_END(CSACvtCFDFPass, "csa-cvt-cfdf", "CSA Convert Control Flow to Data Flow", true, true)
 
@@ -284,18 +288,35 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
 
   DT = &getAnalysis<MachineDominatorTree>();
   PDT = &getAnalysis<MachinePostDominatorTree>();
-  if (PDT->getRootNode() == nullptr) return false;
+  if (PDT->getRootNode() == nullptr)
+    return false;
+  else {
+    //
+    // CMPLRS-48822: workaround for infinite loops.
+    //
+    // Look for children of the PDT's root node and bail
+    // out if any of them is not a normal exit (i.e. have
+    // a CF successor).
+    //
+    bool normalExitBlockSeen = false;
+    for (auto &child : children<MachineDomTreeNode *>(PDT->getRootNode())) {
+      auto *MBB = child->getBlock();
+      if (MBB->succ_empty()) {
+        // Bail out on functions with multiple exits.
+        //
+        // TODO (vzakhari 2/21/2018): figure out, why this is needed.
+        if (normalExitBlockSeen)
+          return false;
+
+        normalExitBlockSeen = true;
+        continue;
+      }
+      else
+        return false;
+    }
+  }
   CDG = &getAnalysis<ControlDependenceGraph>();
   MLI = &getAnalysis<MachineLoopInfo>();
-
-#if 1
-  //exception handling code creates multiple exits from a function
-  SmallVector<MachineBasicBlock*, 4> exitBlks;
-  for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
-    if (BB->succ_empty()) exitBlks.push_back(&*BB);
-  }
-  if (exitBlks.size() > 1) return false;
-#endif
 
   // Give up and run on SXU if there is dynamic stack activity we don't handle.
   if (thisMF->getFrameInfo().hasVarSizedObjects()) {
