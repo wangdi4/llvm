@@ -93,8 +93,8 @@ const SafetyData WholeStructureReference = 0x0000000000000040;
 /// pointer to that type.
 const SafetyData UnsafePointerStore = 0x0000000000000080;
 
-/// The addresses of one or more fields within the type were written to memory
-/// or passed as an argument to a function call.
+/// The addresses of one or more fields within the type were written to memory,
+/// passed as an argument to a function call, or returned from a function.
 const SafetyData FieldAddressTaken = 0x0000000000000100;
 
 /// A global variable was found which is a pointer to the type.
@@ -121,6 +121,10 @@ const SafetyData BadMemFuncManipulation = 0x0000000000004000;
 /// A pointer is passed to an intrinsic or library function that can alias
 /// incompatible types.
 const SafetyData AmbiguousPointerTarget = 0x0000000000008000;
+
+/// The address of an aggregate object escaped through a function call or
+/// a return statement.
+const SafetyData AddressTaken = 0x0000000000010000;
 
 /// This is a catch-all flag that will be used to mark any usage pattern
 /// that we don't specifically recognize. The use might actually be safe

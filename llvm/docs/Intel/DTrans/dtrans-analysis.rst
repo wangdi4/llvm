@@ -214,7 +214,8 @@ with the pointer operand %tmp2 (%p2). In this case, both %struct.A and
 FieldAddressTaken
 ~~~~~~~~~~~~~~~~~
 This indicates that the addresses of one or more fields within the type were
-either written to memory or passed to a function call.
+either written to memory, passed to a function call or returned by a
+function.
 
 GlobalPtr
 ~~~~~~~~~
@@ -253,6 +254,11 @@ incompatible incoming values. This could mean either that the incoming values
 were known to alias to incompatible aggregate types or that at least one
 incoming value was known to be a pointer to a type of interest and at least one
 other incoming value was not known to point to that type.
+
+AddressTaken
+~~~~~~~~~~~~
+This indicates that the address of an object of the type was returned by
+a function using an anonymous type (i8* or i64).
 
 UnhandledUse
 ~~~~~~~~~~~~
@@ -596,10 +602,23 @@ value is used.
 
 Return
 ~~~~~~
-Return instructions do not require direct analysis. If the value returned is the
-address of a field within a structure, we will need to mark the containing
-field with safety data indicating that the address of the field was taken.
-However, that will be done as part of the GetElementPtr analysis.
+Return instructions must be checked to see if the address of an aggregate
+object or the address of an element within an aggregate may escape through
+the return.
+
+If the returned value is a pointer to an aggregate type but the type is
+preserved in the return value, the return is safe since our analysis will
+recognize the type at the call site. However, if the address is returned
+via an anonymous type such as i8* or i64 the type of the object whose
+address is returned will be marked with the `AddressTaken`_ safety condition.
+
+If the returned value is known to be the address of an element within an
+aggregate object, the type of the object containing the element will be
+marked with the `FieldAddressTaken`_ safety condition.
+
+In the uncommon case where an instance of an aggregate is returned the type
+of the aggregate will be marked with the `WholeStructureReference`_
+safety condition.
 
 
 ICmp

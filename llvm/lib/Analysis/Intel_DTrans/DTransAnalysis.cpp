@@ -1069,22 +1069,53 @@ public:
   }
 
   void visitReturnInst(ReturnInst &I) {
-    // Return instructions are always safe. When a field within an aggregate
-    // type is being returned, the field is accessed through a GEP and a load
-    // with the loaded value being passed to the return instruction. We'll
-    // look for that case where the GEP uses are being processed.
-
-    // Here we're just interested in noting if a type of interest is returned.
-    llvm::Type *RetTy = I.getType();
-    if (!DTInfo.isTypeOfInterest(RetTy))
+    llvm::Value *RetVal = I.getReturnValue();
+    if (!RetVal || !isValueOfInterest(RetVal))
       return;
 
-    DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
-                 << "An aggregate type is returned by function:\n  "
-                 << I.getParent()->getParent()->getName() << "\n");
-    // TODO: Record this?
-    // This is probably safe, but we'll flag it for now until we're sure.
-    setBaseTypeInfoSafetyData(RetTy, dtrans::UnhandledUse);
+    // If the value returned is an instance of a type of interest, we need to
+    // record this as a whole structure reference. This is unusual but it
+    // is legal in LLVM IR.
+    auto *RetTy = RetVal->getType();
+    if (!RetTy->isPointerTy() && DTInfo.isTypeOfInterest(RetTy)) {
+      DEBUG(dbgs() << "dtrans-safety: Whole structure reference -- "
+                   << "Type is returned by function: "
+                   << I.getParent()->getParent()->getName() << "\n");
+      setBaseTypeInfoSafetyData(RetTy, dtrans::WholeStructureReference);
+      return;
+    }
+
+    // If the value returned is a pointer to a type of interest but is
+    // not typed as that pointer type (for example, it has been cast to an i8*)
+    // then we must note that the address of the object has escaped our
+    // analysis.
+    LocalPointerInfo &LPI = LPA.getLocalPointerInfo(RetVal);
+    for (auto *AliasTy : LPI.getPointerTypeAliasSet()) {
+      // If the address of an aggregate is returned but the return value has
+      // the expected type, that's OK. We will track that at the call site.
+      if (AliasTy == RetTy)
+        continue;
+      // Skip over inconsequential aliases like i8* and i64.
+      if (!DTInfo.isTypeOfInterest(AliasTy))
+        continue;
+      // Otherwise, the address is escaping our analysis.
+      DEBUG(dbgs() << "dtrans-safety: Address taken -- "
+                   << "Non-typed address is returned by function: "
+                   << I.getParent()->getParent()->getName() << "\n");
+      setBaseTypeInfoSafetyData(AliasTy, dtrans::AddressTaken);
+    }
+
+    // If the value returned is a pointer to an element within an aggregate
+    // type we also need to note that since it can have implications on
+    // field access tracking.
+    if (LPI.pointsToSomeElement()) {
+      for (auto PointeePair : LPI.getElementPointeeSet()) {
+        DEBUG(dbgs() << "dtrans-safety: Field address taken -- "
+                     << "Address of a field is returned by function: "
+                     << I.getParent()->getParent()->getName() << "\n");
+        setBaseTypeInfoSafetyData(PointeePair.first, dtrans::FieldAddressTaken);
+      }
+    }
   }
 
   void visitICmpInst(ICmpInst &I) {

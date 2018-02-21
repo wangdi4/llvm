@@ -44,7 +44,7 @@ AllocKind dtrans::getAllocFnKind(Function *F, const TargetLibraryInfo &TLI) {
 }
 
 void dtrans::getAllocSizeArgs(AllocKind Kind, CallInst *CI,
-                              Value* &AllocSizeVal, Value* &AllocCountVal) {
+                              Value *&AllocSizeVal, Value *&AllocCountVal) {
   assert(Kind != AK_NotAlloc && Kind != AK_UserAlloc &&
          "Unexpected alloc kind passed to getAllocSizeArgs");
 
@@ -145,19 +145,29 @@ void dtrans::TypeInfo::printSafetyData() {
     return;
   }
   // TODO: As safety checks are implemented, add them here.
-  SafetyData ImplementedMask = dtrans::BadCasting | dtrans::BadAllocSizeArg |
-                               dtrans::BadPtrManipulation |
-                               dtrans::AmbiguousGEP | dtrans::VolatileData |
-                               dtrans::MismatchedElementAccess |
-                               dtrans::WholeStructureReference |
-                               dtrans::UnsafePointerStore |
-                               dtrans::FieldAddressTaken | dtrans::GlobalPtr |
-                               dtrans::GlobalInstance |
-                               dtrans::HasInitializerList |
-                               dtrans::BadMemFuncSize |
-                               dtrans::BadMemFuncManipulation |
-                               dtrans::AmbiguousPointerTarget |
-                               dtrans::UnsafePtrMerge | dtrans::UnhandledUse;
+  const SafetyData ImplementedMask =
+      dtrans::BadCasting | dtrans::BadAllocSizeArg |
+      dtrans::BadPtrManipulation | dtrans::AmbiguousGEP | dtrans::VolatileData |
+      dtrans::MismatchedElementAccess | dtrans::WholeStructureReference |
+      dtrans::UnsafePointerStore | dtrans::FieldAddressTaken |
+      dtrans::GlobalPtr | dtrans::GlobalInstance | dtrans::HasInitializerList |
+      dtrans::BadMemFuncSize | dtrans::BadMemFuncManipulation |
+      dtrans::AmbiguousPointerTarget | dtrans::UnsafePtrMerge |
+      dtrans::AddressTaken | dtrans::UnhandledUse;
+  // This assert is intended to catch non-unique safety condition values.
+  // It needs to be kept synchronized with the statement above.
+  static_assert(ImplementedMask ==
+                    (dtrans::BadCasting ^ dtrans::BadAllocSizeArg ^
+                     dtrans::BadPtrManipulation ^ dtrans::AmbiguousGEP ^
+                     dtrans::VolatileData ^ dtrans::MismatchedElementAccess ^
+                     dtrans::WholeStructureReference ^
+                     dtrans::UnsafePointerStore ^ dtrans::FieldAddressTaken ^
+                     dtrans::GlobalPtr ^ dtrans::GlobalInstance ^
+                     dtrans::HasInitializerList ^ dtrans::BadMemFuncSize ^
+                     dtrans::BadMemFuncManipulation ^
+                     dtrans::AmbiguousPointerTarget ^ dtrans::UnsafePtrMerge ^
+                     dtrans::AddressTaken ^ dtrans::UnhandledUse),
+                "Duplicate value used in dtrans safety conditions");
   std::vector<StringRef> SafetyIssues;
   if (SafetyInfo & dtrans::BadCasting)
     SafetyIssues.push_back("Bad casting");
@@ -191,6 +201,8 @@ void dtrans::TypeInfo::printSafetyData() {
     SafetyIssues.push_back("Ambiguous pointer target");
   if (SafetyInfo & dtrans::UnsafePtrMerge)
     SafetyIssues.push_back("Unsafe pointer merge");
+  if (SafetyInfo & dtrans::AddressTaken)
+    SafetyIssues.push_back("Address taken");
   if (SafetyInfo & dtrans::UnhandledUse)
     SafetyIssues.push_back("Unhandled use");
   // Print the safety issues found
