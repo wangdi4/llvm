@@ -192,11 +192,9 @@ void HIRTransformUtils::updateBoundDDRef(RegDDRef *BoundRef, unsigned BlobIndex,
   BoundRef->updateDefLevel();
 }
 
-HLLoop *HIRTransformUtils::createUnrollOrVecLoop(HLLoop *OrigLoop,
-                                                 unsigned UnrollOrVecFactor,
-                                                 uint64_t NewTripCount,
-                                                 const RegDDRef *NewTCRef,
-                                                 bool VecMode) {
+HLLoop *HIRTransformUtils::createUnrollOrVecLoop(
+    HLLoop *OrigLoop, unsigned UnrollOrVecFactor, uint64_t NewTripCount,
+    const RegDDRef *NewTCRef, LoopOptReportBuilder &LORBuilder, bool VecMode) {
   HLLoop *NewLoop = OrigLoop->cloneEmptyLoop();
 
   // Number of exits do not change due to vectorization
@@ -261,6 +259,22 @@ HLLoop *HIRTransformUtils::createUnrollOrVecLoop(HLLoop *OrigLoop,
         UnrollOrVecFactor);
   }
 
+  // NewLoop is the main loop now and hence, we want to associate all the opt
+  // report with it.
+  LORBuilder(*OrigLoop).moveOptReportTo(*NewLoop);
+  if (VecMode)
+    LORBuilder(*NewLoop).addRemark(
+        OptReportVerbosity::Low,
+        "Loop has been vectorized with vector %d factor", UnrollOrVecFactor);
+  else if (OrigLoop->isInnermost())
+    LORBuilder(*NewLoop).addRemark(OptReportVerbosity::Low,
+                                   "Loop has been unrolled by %d factor",
+                                   UnrollOrVecFactor);
+  else
+    LORBuilder(*NewLoop).addRemark(OptReportVerbosity::Low,
+                                   "Loop has been unrolled and jammed by %d",
+                                   UnrollOrVecFactor);
+
   return NewLoop;
 }
 
@@ -304,7 +318,7 @@ void HIRTransformUtils::processRemainderLoop(HLLoop *OrigLoop,
 
 HLLoop *HIRTransformUtils::setupMainAndRemainderLoops(
     HLLoop *OrigLoop, unsigned UnrollOrVecFactor, bool &NeedRemainderLoop,
-    bool VecMode) {
+    LoopOptReportBuilder &LORBuilder, bool VecMode) {
   // Extract Ztt and add it outside the loop.
   OrigLoop->extractZtt();
 
@@ -319,13 +333,23 @@ HLLoop *HIRTransformUtils::setupMainAndRemainderLoops(
                                             &NewTripCount, &NewTCRef);
 
   // Create the main loop.
-  HLLoop *MainLoop = createUnrollOrVecLoop(OrigLoop, UnrollOrVecFactor,
-                                           NewTripCount, NewTCRef, VecMode);
+  HLLoop *MainLoop = createUnrollOrVecLoop(
+      OrigLoop, UnrollOrVecFactor, NewTripCount, NewTCRef, LORBuilder, VecMode);
 
   // Update the OrigLoop to remainder loop by setting bounds appropriately if
   // remainder loop is needed.
   if (NeedRemainderLoop) {
     processRemainderLoop(OrigLoop, UnrollOrVecFactor, NewTripCount, NewTCRef);
+
+    // Since OrigLoop became a remainder and will be lexicographicaly
+    // second to MainLoop, we move all the next siblings back there.
+    LORBuilder(*MainLoop).moveSiblingsTo(*OrigLoop);
+    if (VecMode)
+      LORBuilder(*OrigLoop).setOrigin("Remainder loop for vectorization");
+    else if (OrigLoop->isInnermost())
+      LORBuilder(*OrigLoop).setOrigin("Remainder loop for partial unrolling");
+    else
+      LORBuilder(*OrigLoop).setOrigin("Remainder loop for unroll-and-jam");
   }
 
   // Mark parent for invalidation

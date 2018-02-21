@@ -384,7 +384,7 @@ void VPOCodeGenHIR::initializeVectorLoop(unsigned int VF) {
   // Setup main and remainder loops
   bool NeedRemainderLoop = false;
   auto MainLoop = HIRTransformUtils::setupMainAndRemainderLoops(
-      OrigLoop, VF, NeedRemainderLoop, true /* VecMode */);
+      OrigLoop, VF, NeedRemainderLoop, LORBuilder, true /* VecMode */);
 
   MainLoop->extractZtt();
   setNeedRemainderLoop(NeedRemainderLoop);

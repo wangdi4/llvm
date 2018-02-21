@@ -1090,7 +1090,7 @@ void AVRCodeGenHIR::processLoop() {
   // Setup main and remainder loops
   bool NeedRemainderLoop = false;
   auto MainLoop = HIRTransformUtils::setupMainAndRemainderLoops(
-      OrigLoop, VL, NeedRemainderLoop, true /* VecMode */);
+      OrigLoop, VL, NeedRemainderLoop, LORBuilder, true /* VecMode */);
 
   setNeedRemainderLoop(NeedRemainderLoop);
   setMainLoop(MainLoop);

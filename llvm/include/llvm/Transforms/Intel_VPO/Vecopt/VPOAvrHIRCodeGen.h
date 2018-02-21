@@ -74,10 +74,10 @@ private:
 class AVRCodeGenHIR {
 public:
   AVRCodeGenHIR(AVR *Avr, TargetLibraryInfo *TLI, HIRSafeReductionAnalysis *SRA,
-                Function &Fn)
+                Function &Fn, LoopOptReportBuilder &LORBuilder)
       : Avr(Avr), TLI(TLI), SRA(SRA), Fn(Fn), ALoop(nullptr), OrigLoop(nullptr),
         MainLoop(nullptr), NeedRemainderLoop(false), TripCount(0), VL(0),
-        RHM(Avr), WVecNode(nullptr) {}
+        RHM(Avr), WVecNode(nullptr), LORBuilder(LORBuilder) {}
 
   ~AVRCodeGenHIR() {}
 
@@ -200,6 +200,9 @@ private:
 
   // WRegion VecLoop Node corresponding to AVRLoop
   WRNVecLoopNode *WVecNode;
+
+  // Helper for generating optimization reports.
+  LoopOptReportBuilder &LORBuilder;
 
   void setOrigLoop(HLLoop *L) { OrigLoop = L; }
   void setMainLoop(HLLoop *L) { MainLoop = L; }

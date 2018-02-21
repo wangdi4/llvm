@@ -26,6 +26,8 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
+#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"
 #include "llvm/Analysis/LoopIterator.h"
 #include "llvm/Analysis/ScalarEvolution.h"
@@ -159,6 +161,7 @@ private:
   HIRLoopStatistics *HIRLoopStats;
   HIRDDAnalysis *DDA;
   // HIRVectVLSAnalysis *VLS;
+  LoopOptReportBuilder LORBuilder;
 
   bool processLoop(HLLoop *Lp, unsigned VF, Function &Fn,
                    WRNVecLoopNode *WRLp = 0) override;
@@ -582,6 +585,7 @@ INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
 INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysis)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
 INITIALIZE_PASS_END(VPlanDriverHIR, "VPlanDriverHIR",
                     "VPlan Vectorization Driver HIR", false, false)
 
@@ -605,6 +609,7 @@ void VPlanDriverHIR::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<HIRDDAnalysis>();
   AU.addRequiredTransitive<HIRSafeReductionAnalysis>();
   //  AU.addRequired<HIRVectVLSAnalysis>();
+  AU.addRequired<OptReportOptionsPass>();
 }
 
 bool VPlanDriverHIR::runOnFunction(Function &Fn) {
@@ -617,6 +622,8 @@ bool VPlanDriverHIR::runOnFunction(Function &Fn) {
   HIRLoopStats = &getAnalysis<HIRLoopStatistics>();
   DDA = &getAnalysis<HIRDDAnalysis>();
   // VLS = &getAnalysis<HIRVectVLSAnalysis>();
+  auto &OROP = getAnalysis<OptReportOptionsPass>();
+  LORBuilder.setup(Fn.getContext(), OROP.getLoopOptReportVerbosity());
 
   return VPlanDriverBase::processFunction(Fn, WRegionCollection::HIR);
 }
@@ -686,7 +693,7 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, unsigned VF, Function &Fn,
   if (!DisableCodeGen) {
     HIRSafeReductionAnalysis *SRA;
     SRA = &getAnalysis<HIRSafeReductionAnalysis>();
-    VPOCodeGenHIR VCodeGen(TLI, SRA, Fn, Lp, WRLp);
+    VPOCodeGenHIR VCodeGen(TLI, SRA, Fn, Lp, LORBuilder, WRLp);
 
     if (VCodeGen.loopIsHandled(Lp, VF)) {
       CandLoopsVectorized++;

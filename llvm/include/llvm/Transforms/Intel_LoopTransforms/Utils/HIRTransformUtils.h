@@ -27,6 +27,8 @@
 
 namespace llvm {
 
+class LoopOptReportBuilder;
+
 namespace loopopt {
 
 class RegDDRef;
@@ -61,10 +63,10 @@ private:
   /// contains the new loop trip count if the original loop is a constant trip
   /// count. For a original non-constant trip count loop, the new loop trip
   /// count is specified in \p NewTCRef.
-  static HLLoop *createUnrollOrVecLoop(HLLoop *OrigLoop,
-                                       unsigned UnrollOrVecFactor,
-                                       uint64_t NewTripCount,
-                                       const RegDDRef *NewTCRef, bool VecMode);
+  static HLLoop *
+  createUnrollOrVecLoop(HLLoop *OrigLoop, unsigned UnrollOrVecFactor,
+                        uint64_t NewTripCount, const RegDDRef *NewTCRef,
+                        LoopOptReportBuilder &LORBuilder, bool VecMode);
 
   /// \brief Processes the remainder loop for general unrolling and
   /// vectorization. The loop passed in \p OrigLoop is set up to be
@@ -202,6 +204,7 @@ public:
   static HLLoop *setupMainAndRemainderLoops(HLLoop *OrigLoop,
                                             unsigned UnrollOrVecFactor,
                                             bool &NeedRemainderLoop,
+                                            LoopOptReportBuilder &LORBuilder,
                                             bool VecMode = false);
 
   /// Updates Loop properties (Bounds, etc) based on input Permutations

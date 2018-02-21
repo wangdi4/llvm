@@ -48,6 +48,18 @@
 ; CHECK: mul i64 2
 ; CHECK: add i64 {{.*}}, -1
 
+; Check the proper optreport is emitted for Partially Unrolled loop with remainder.
+; RUN: opt -hir-ssa-deconstruction -hir-general-unroll -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter %s 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
+
+; OPTREPORT: LOOP BEGIN{{[[:space:]]}}
+; OPTREPORT-NEXT:     LOOP BEGIN
+; OPTREPORT-NEXT:         Remark #XXXXX: Loop has been unrolled by {{.*}} factor
+; OPTREPORT-NEXT:     LOOP END{{[[:space:]]}}
+; OPTREPORT-NEXT:     LOOP BEGIN
+; OPTREPORT-NEXT:        <Remainder loop for partial unrolling>
+; OPTREPORT-NEXT:     LOOP END
+; OPTREPORT-NEXT: LOOP END
+
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -86,9 +98,7 @@ for.end9:                                         ; preds = %for.inc7
 }
 
 ; Function Attrs: nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture) 
+declare void @llvm.lifetime.start(i64, i8* nocapture)
 
 ; Function Attrs: nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture) 
-
-
+declare void @llvm.lifetime.end(i64, i8* nocapture)
