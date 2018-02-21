@@ -51,9 +51,12 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
+
+#include <sstream>
 
 #define DEBUG_TYPE "hir-loop-interchange"
 
@@ -87,6 +90,7 @@ public:
     AU.addRequiredTransitive<HIRLocalityAnalysis>();
     AU.addRequiredTransitive<HIRSafeReductionAnalysis>();
     AU.addRequiredTransitive<HIRLoopStatistics>();
+    AU.addRequired<OptReportOptionsPass>();
   }
 
 private:
@@ -109,6 +113,9 @@ private:
   SmallVector<const HLLoop *, 5> PerfectLoopsEnabled;
   SmallVector<DirectionVector, 16> DVs;
 
+  // Helper for generating optimization reports.
+  LoopOptReportBuilder LORBuilder;
+
   bool shouldInterchange(const HLLoop *);
   bool getPermutation(const HLLoop *);
   // returns true means legal for any permutation
@@ -125,7 +132,7 @@ private:
   void permuteNearBy(unsigned DstLevel, unsigned SrcLevel);
   void transformLoop(HLLoop *Loop);
   void updateLoopBody(HLLoop *Loop);
-  void printOptReport(HLLoop *Loop);
+  void reportTransformation();
   bool isInPresentOrder(SmallVectorImpl<const HLLoop *> &LoopNests) const;
 };
 } // namespace
@@ -133,6 +140,7 @@ private:
 char HIRLoopInterchange::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRLoopInterchange, "hir-loop-interchange",
                       "HIR Loop Interchange", false, false)
+INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
 INITIALIZE_PASS_DEPENDENCY(HIRLocalityAnalysis)
@@ -253,6 +261,8 @@ bool HIRLoopInterchange::runOnFunction(Function &F) {
   LA = &getAnalysis<HIRLocalityAnalysis>();
   SRA = &getAnalysis<HIRSafeReductionAnalysis>();
   HLS = &getAnalysis<HIRLoopStatistics>();
+  auto &OROP = getAnalysis<OptReportOptionsPass>();
+  LORBuilder.setup(F.getContext(), OROP.getLoopOptReportVerbosity());
 
   AnyLoopInterchanged = false;
 
@@ -882,23 +892,33 @@ void UpdateDDRef::updateCE(CanonExpr *CE, unsigned InnermostNestingLevel,
   }
 }
 
-void HIRLoopInterchange::printOptReport(HLLoop *Loop) {
+void HIRLoopInterchange::reportTransformation() {
+  // Do not do any string processing if OptReports are not needed.
+  // "&& DebugFlag" should be deleted when lit-tests are rewritten to use opt
+  // report info.
+  if (!LORBuilder.getVerbosity() && !DebugFlag)
+    return;
 
-  //  This will turn into Opt Report later
-  //  e.g. Loopnest Interchanged: ( 2 3 4 ) --> ( 4 3 2 )
-  //  Print out now for LIT
-  //  Input *Loop will be used later when source info is ready
+  HLLoop *OutermostLp = nullptr;
 
-  raw_ostream &OS = dbgs();
-  OS << "\n\tLoopnest Interchanged: ( ";
+  std::ostringstream OS;
+  OS << "Loopnest Interchanged: ( ";
   for (unsigned I = OutmostNestingLevel; I <= InnermostNestingLevel; ++I) {
     OS << I << " ";
   }
   OS << ") --> ( ";
   for (auto &I : LoopPermutation) {
     OS << I->getNestingLevel() << " ";
+    if (I->getNestingLevel() == OutmostNestingLevel) {
+      assert(!OutermostLp);
+      OutermostLp = const_cast<HLLoop *>(I);
+    }
   }
-  OS << ")\n";
+  OS << ")";
+  LORBuilder(*OutermostLp).addRemark(OptReportVerbosity::Low, OS.str().c_str());
+
+  // This is needed for lit-tests for now.
+  DEBUG(dbgs() << OS.str() << '\n');
 }
 
 /// Update Loop Body
@@ -926,9 +946,10 @@ void HIRLoopInterchange::transformLoop(HLLoop *Loop) {
   HIRTransformUtils::permuteLoopNests(Loop, LoopPermutation);
 
   updateLoopBody(Loop);
-  DEBUG(dbgs(); printOptReport(Loop));
+  reportTransformation();
 
   Loop->getParentRegion()->setGenCode();
+
   LoopsInterchanged++;
   AnyLoopInterchanged = true;
 }
