@@ -494,6 +494,24 @@ class GateOp<GenericOp gen, CSAOpInfo oi,
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $sel, $v"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin>;
 
+class CompletionOp<GenericOp gen, CSAOpInfo oi,
+             InstrItinClass itin, list<Predicate> preds = []> :
+  FMTGEN<gen, oi,
+    (outs CI8:$availidx, oi.LICRC:$ldres),
+    (ins CI8:$stidx, oi.LICRC:$stdata, i8imm:$size),
+    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$availidx, $ldres, $stidx, $stdata, $size"),
+    [], !listconcat(preds,gen.Preds,oi.Preds), itin>;
+
+/* // Proper relaxed channel types
+class CompletionOp<GenericOp gen, CSAOpInfo oi,
+             InstrItinClass itin, list<Predicate> preds = []> :
+  FMTGEN<gen, oi,
+    (outs I8:$availidx, oi.RC:$ldres),
+    (ins I8:$stidx, oi.RC:$stdata, i8imm:$size),
+    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$availidx, $ldres, $stidx, $stdata, $size"),
+    [], !listconcat(preds,gen.Preds,oi.Preds), itin>;
+*/
+
 // We thought that hasSideEffects would capture the internal state and stream
 // output behavior, but it's really not the right thing.  From the standpoint
 // of retained state, each time a SEQ or REPEAT is triggered, it has a fresh
@@ -1477,6 +1495,12 @@ def SREDXOR16 : SReduceOp<SREDXOR,  Ti16, IIALU>;
 def SREDXOR32 : SReduceOp<SREDXOR,  Ti32, IIALU>;
 def SREDXOR64 : SReduceOp<SREDXOR,  Ti64, IIALU>;
 
+// TODO: new itinerary class for this one?
+def COMPLETION   : GenericOp<"completion">;
+def COMPLETION8  : CompletionOp<COMPLETION, Ti8,  IIST>;
+def COMPLETION16 : CompletionOp<COMPLETION, Ti16, IIST>;
+def COMPLETION32 : CompletionOp<COMPLETION, Ti32, IIST>;
+def COMPLETION64 : CompletionOp<COMPLETION, Ti64, IIST>;
 
 // TBD(jsukha): This info probably needs predicates
 // Also, the input can probably be an I0 channel.
