@@ -80,7 +80,7 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
   // Generate a stoppoint if we are emitting debug info.
   EmitStopPoint(S);
 
-#if INTEL_SPECIFIC_OPENMP
+#if INTEL_CUSTOMIZATION
   if (CGM.getLangOpts().IntelCompat &&
       (CGM.getLangOpts().IntelOpenMP || CGM.getLangOpts().IntelOpenMPRegion)) {
     if (S->getStmtClass() == Stmt::OMPSimdDirectiveClass)
@@ -104,7 +104,7 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
     if (auto *Dir = dyn_cast<OMPExecutableDirective>(S))
       return EmitIntelOpenMPDirective(*Dir);
   }
-#endif // INTEL_SPECIFIC_OPENMP
+#endif // INTEL_CUSTOMIZATION
 
   switch (S->getStmtClass()) {
 #if INTEL_CUSTOMIZATION

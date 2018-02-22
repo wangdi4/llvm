@@ -771,8 +771,6 @@ def no_friend_injection : Flag<["--"], "no_friend_injection">,
   HelpText<"Do not inject friend functions into the enclosing namespace.">;
 // IMF attributes support (CQ381541)
 def fintel_imf_attr_EQ : Joined<["-"], "mGLOB_imf_attr=">;
-// endif INTEL_CUSTOMIZATION
-// if INTEL_SPECIFIC_OPENMP
 def fintel_openmp : Flag<["-"], "fintel-openmp">,
   HelpText<"Enable emitting of Intel specific OpenMP code">;
 def fintel_openmp_region : Flag<["-"], "fintel-openmp-region">,
@@ -789,7 +787,7 @@ def fnointel_openmp_tbb : Flag<["-"], "fnoopenmp-tbb">,
   HelpText<"Disable OpenMP TBB directives">;
 def fintel_driver_tempfile_name_EQ : Joined<["-"], "fintel-driver-tempfile-name=">,
   HelpText<"Name of the file for communication between front-end and driver.">;
-// endif INTEL_SPECIFIC_OPENMP
+// endif INTEL_CUSTOMIZATION
 def fdefault_calling_conv_EQ : Joined<["-"], "fdefault-calling-conv=">,
   HelpText<"Set default calling convention">, Values<"cdecl,fastcall,stdcall,vectorcall,regcall">;
 def finclude_default_header : Flag<["-"], "finclude-default-header">,

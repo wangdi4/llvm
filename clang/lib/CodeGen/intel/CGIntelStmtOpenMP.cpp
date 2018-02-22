@@ -13,7 +13,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if INTEL_SPECIFIC_OPENMP
 #include "CGIntelStmtOpenMP.h"
 using namespace clang;
 using namespace CodeGen;
@@ -1676,4 +1675,3 @@ void CodeGenFunction::EmitIntelOpenMPDirective(
     CapturedStmtInfo->EmitBody(*this, S.getAssociatedStmt());
   }
 }
-#endif // INTEL_SPECIFIC_OPENMP

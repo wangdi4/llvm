@@ -621,12 +621,10 @@ void CodeGenModule::Release() {
     if (getLangOpts().IntelMSCompat)
       EmitMSDebugInfoMetadata();
   }
-#if INTEL_SPECIFIC_OPENMP
   // CQ#411303 Intel driver requires front-end to produce special file if
   // translation unit has any target code.
   if (HasTargetCode)
     EmitIntelDriverTempfile();
-#endif // INTEL_SPECIFIC_OPENMP
 #endif // INTEL_CUSTOMIZATION
   if (getCodeGenOpts().EmitGcovArcs || getCodeGenOpts().EmitGcovNotes)
     EmitCoverageFile();
@@ -3050,12 +3048,10 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D,
     GlobalsRestrict->addOperand(Node);                             //***INTEL 
   }                                                                //***INTEL 
 #if INTEL_CUSTOMIZATION
-#if INTEL_SPECIFIC_OPENMP
   // CQ#411303 Intel driver requires front-end to produce special file if
   // translation unit has any target code.
   if (D->hasAttr<OMPDeclareTargetDeclAttr>())
     setHasTargetCode();
-#endif // INTEL_SPECIFIC_OPENMP
 #endif // INTEL_CUSTOMIZATION
 
   // Set the llvm linkage type as appropriate.
@@ -3522,13 +3518,11 @@ void CodeGenModule::EmitGlobalFunctionDefinition(GlobalDecl GD,
   if (D->hasAttr<AnnotateAttr>())
     AddGlobalAnnotations(D, Fn);
 #if INTEL_CUSTOMIZATION
-#if INTEL_SPECIFIC_OPENMP
   // CQ#411303 Intel driver requires front-end to produce special file if
   // translation unit has any target code.
   if (D->hasAttr<OMPDeclareTargetDeclAttr>())
     setHasTargetCode();
 #endif // INTEL_CUSTOMIZATION
-#endif // INTEL_SPECIFIC_OPENMP
 }
 
 void CodeGenModule::EmitAliasDefinition(GlobalDecl GD) {
@@ -4744,7 +4738,6 @@ void CodeGenModule::EmitMSDebugInfoMetadata() {
                      getCodeGenOpts().MSOutputPdbFile);
 }
 
-#if INTEL_SPECIFIC_OPENMP
 void CodeGenModule::EmitIntelDriverTempfile() {
   // Communication file should be generated only during host complication.
   if (!getLangOpts().IntelCompat ||
@@ -4774,7 +4767,6 @@ void CodeGenModule::EmitIntelDriverTempfile() {
 
   Out << "</compiler_to_driver_communication>";
 }
-#endif // INTEL_SPECIFIC_OPENMP
 #endif // INTEL_CUSTOMIZATION
 
 void CodeGenModule::EmitCoverageFile() {

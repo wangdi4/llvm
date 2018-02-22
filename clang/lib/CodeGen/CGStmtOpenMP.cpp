@@ -20,9 +20,9 @@
 #include "clang/AST/StmtOpenMP.h"
 #include "clang/AST/DeclOpenMP.h"
 #include "llvm/IR/CallSite.h"
-#if INTEL_SPECIFIC_OPENMP
+#if INTEL_CUSTOMIZATION
 #include "intel/CGIntelStmtOpenMP.h"
-#endif // INTEL_SPECIFIC_OPENMP
+#endif // INTEL_CUSTOMIZATION
 using namespace clang;
 using namespace CodeGen;
 
@@ -81,9 +81,9 @@ public:
             });
           }
         }
-#if INTEL_SPECIFIC_OPENMP
+#if INTEL_CUSTOMIZATION
         CGF.RemapInlinedPrivates(S, InlinedShareds);
-#endif // INTEL_SPECIFIC_OPENMP
+#endif // INTEL_CUSTOMIZATION
         (void)InlinedShareds.Privatize();
       }
     }
@@ -1225,7 +1225,7 @@ void CodeGenFunction::EmitOMPParallelDirective(const OMPParallelDirective &S) {
 void CodeGenFunction::EmitOMPLoopBody(const OMPLoopDirective &D,
                                       JumpDest LoopExit) {
   RunCleanupsScope BodyScope(*this);
-#if INTEL_SPECIFIC_OPENMP
+#if INTEL_CUSTOMIZATION
   if (CGM.getLangOpts().IntelOpenMP || CGM.getLangOpts().IntelOpenMPRegion) {
     // Emit variables for orignal loop controls
     for (auto *E : D.counters()) {
@@ -1237,7 +1237,7 @@ void CodeGenFunction::EmitOMPLoopBody(const OMPLoopDirective &D,
       }
     }
   }
-#endif // INTEL_SPECIFIC_OPENMP
+#endif // INTEL_CUSTOMIZATION
   // Update counters values on current iteration.
   for (auto I : D.updates()) {
     EmitIgnoredExpr(I);
@@ -1245,9 +1245,9 @@ void CodeGenFunction::EmitOMPLoopBody(const OMPLoopDirective &D,
   // Update the linear variables.
   // In distribute directives only loop counters may be marked as linear, no
   // need to generate the code for them.
-#if INTEL_SPECIFIC_OPENMP
+#if INTEL_CUSTOMIZATION
   if (!CGM.getLangOpts().IntelOpenMP && !CGM.getLangOpts().IntelOpenMPRegion)
-#endif // INTEL_SPECIFIC_OPENMP
+#endif // INTEL_CUSTOMIZATION
   if (!isOpenMPDistributeDirective(D.getDirectiveKind())) {
     for (const auto *C : D.getClausesOfKind<OMPLinearClause>()) {
       for (auto *U : C->updates())
@@ -1269,11 +1269,11 @@ void CodeGenFunction::EmitOMPInnerLoop(
     const Stmt &S, bool RequiresCleanup, const Expr *LoopCond,
     const Expr *IncExpr,
     const llvm::function_ref<void(CodeGenFunction &)> &BodyGen,
-#if INTEL_SPECIFIC_OPENMP
+#if INTEL_CUSTOMIZATION
     const llvm::function_ref<void(CodeGenFunction &)> &PostIncGen,
     llvm::BasicBlock *IncomingBlock,
     const Expr *IterationVariable) {
-#endif // INTEL_SPECIFIC_OPENMP
+#endif // INTEL_CUSTOMIZATION
   CodeGenFunction::OMPPrivateScope PrivScope(*this);
   auto LoopExit = getJumpDestInCurrentScope("omp.inner.for.end");
 
@@ -4638,7 +4638,7 @@ void CodeGenFunction::EmitOMPTargetUpdateDirective(
                                               CodeGen);
 }
 
-#if INTEL_SPECIFIC_OPENMP
+#if INTEL_CUSTOMIZATION
 void CodeGenFunction::RemapInlinedPrivates(const OMPExecutableDirective &D,
                                            OMPPrivateScope &PrivScope) {
   if (CGM.getLangOpts().IntelOpenMP || CGM.getLangOpts().IntelOpenMPRegion) {
@@ -4853,4 +4853,4 @@ void CodeGenFunction::EmitIntelOMPDistributeDirective(
   };
   emitIntelDirective(*this, OMPD_distribute, CodeGen);
 }
-#endif // INTEL_SPECIFIC_OPENMP
+#endif // INTEL_CUSTOMIZATION

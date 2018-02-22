@@ -13,7 +13,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if INTEL_SPECIFIC_OPENMP
 #include "../CGCXXABI.h"
 #include "../CodeGenFunction.h"
 #include "../CodeGenModule.h"
@@ -273,5 +272,3 @@ public:
 };
 
 } // namespace
-
-#endif // INTEL_SPECIFIC_OPENMP
