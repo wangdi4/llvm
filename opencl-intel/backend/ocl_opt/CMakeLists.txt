@@ -39,7 +39,6 @@ set(OCL_BE_PASSES
     LocalBuffAnalysis
     LocalBuffers
     Materialize
-    Obfuscation
     OclFunctionAttrs
     PatchCallbackArgs
     PipeOrdering
