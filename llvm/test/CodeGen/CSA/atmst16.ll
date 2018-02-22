@@ -3,8 +3,8 @@ target datalayout = "e-m:e-i64:64-n32:64"
 target triple = "csa"
 
 ; Function Attrs: nounwind
-define i16 @f_atmst16(i16* %where, i16 %what) #0 {
-; CSA_CHECK-LABEL: f_atmst16
+define i16 @f_atomic_store16(i16* %where, i16 %what) #0 {
+; CSA_CHECK-LABEL: f_atomic_store16
 ; CSA_CHECK: st16
 ; CSA_CHECK-NOT: atmxchg
 ; CSA_CHECK-NOT: atmcmpxchg

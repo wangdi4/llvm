@@ -61,6 +61,7 @@ protected:
   bool HasRSqrtA;
   bool HasSqrt;
   bool HasMath0;
+  bool HasRMWAtomic;
 
 public:
   std::string csaName() const { return CSAName; }
@@ -86,6 +87,7 @@ public:
   bool hasRSqrtA() const { return HasRSqrtA; }
   bool hasSqrt() const { return HasSqrt; }
   bool hasMath0() const { return HasMath0; }
+  bool hasRMWAtomic() const { return HasRMWAtomic; }
 
   /// This constructor initializes the data members to match that
   /// of the specified triple.

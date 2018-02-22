@@ -52,6 +52,7 @@ def HasRcpA      : Predicate<"Subtarget.hasRcpA()">;
 def HasRSqrtA    : Predicate<"Subtarget.hasRSqrtA()">;
 def HasSqrt      : Predicate<"Subtarget.hasSqrt()">;
 def HasMath0     : Predicate<"Subtarget.hasMath0()">;
+def HasRMWAtomic : Predicate<"Subtarget.hasRMWAtomic()">;
 
 //===----------------------------------------------------------------------===//
 // CSA Operand Definitions.
@@ -661,7 +662,7 @@ class AtomicOp<GenericOp gen, SDPatternOperator opNode, CSAOpInfo oi,
     (ins ADDR_R:$addr, oi.RCL:$op3, MEMLVL:$lvl, MemOrdUse:$ready),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$issued, $dst, $addr, $op3, $ready, $lvl"),
     [(set oi.VT:$dst, (opNode ADDR_R:$addr, (oi.VT oi.RCL:$op3)))],
-    !listconcat(preds,oi.Preds), itin>
+    !listconcat(preds,gen.Preds,oi.Preds), itin>
     { let mayLoad = 1; let mayStore = 1; let hasSideEffects = 1; }
 
 class AtomicOpR<GenericOp gen, SDPatternOperator opNode, CSAOpInfo oi,
@@ -671,7 +672,7 @@ class AtomicOpR<GenericOp gen, SDPatternOperator opNode, CSAOpInfo oi,
     (ins ADDR_R:$addr, oi.RCL:$op3, RMODE:$rm, MEMLVL:$lvl, MemOrdUse:$ready),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$issued, $dst, $addr, $op3, $ready, $rm, $lvl"),
     [(set oi.VT:$dst, (opNode ADDR_R:$addr, (oi.VT oi.RCL:$op3)))],
-    !listconcat(preds,oi.Preds), itin>
+    !listconcat(preds,gen.Preds,oi.Preds), itin>
     { let mayLoad = 1; let mayStore = 1; let hasSideEffects = 1; }
 
 class AtomicOp2<GenericOp gen, PatFrag opNode, CSAOpInfo oi,
@@ -1537,32 +1538,32 @@ def MULLOHIU32 : MullohiOp<MULLOHI, Tu32, IIMulI32>;
 def MULLOHIU64 : MullohiOp<MULLOHI, Tu64, IIMulI64>;
 
 // Atomic operations
-def ATMAND    : GenericOp<"atmand">;
+def ATMAND    : GenericOp<"atmand", [HasRMWAtomic]>;
 def ATMAND8   : AtomicOp<ATMAND,  atomic_load_and_8,  Ti8,  IIATM>;
 def ATMAND16  : AtomicOp<ATMAND,  atomic_load_and_16, Ti16, IIATM>;
 def ATMAND32  : AtomicOp<ATMAND,  atomic_load_and_32, Ti32, IIATM>;
 def ATMAND64  : AtomicOp<ATMAND,  atomic_load_and_64, Ti64, IIATM>;
-def ATMADD    : GenericOp<"atmadd">;
+def ATMADD    : GenericOp<"atmadd", [HasRMWAtomic]>;
 def ATMADD8   : AtomicOp<ATMADD,  atomic_load_add_8,  Ti8,  IIATM>;
 def ATMADD16  : AtomicOp<ATMADD,  atomic_load_add_16, Ti16, IIATM>;
 def ATMADD32  : AtomicOp<ATMADD,  atomic_load_add_32, Ti32, IIATM>;
 def ATMADD64  : AtomicOp<ATMADD,  atomic_load_add_64, Ti64, IIATM>;
-def ATMMIN    : GenericOp<"atmmin">;
+def ATMMIN    : GenericOp<"atmmin", [HasRMWAtomic]>;
 def ATMMIN8   : AtomicOp<ATMMIN,  atomic_load_min_8,  Ti8,  IIATM>;
 def ATMMIN16  : AtomicOp<ATMMIN,  atomic_load_min_16, Ti16, IIATM>;
 def ATMMIN32  : AtomicOp<ATMMIN,  atomic_load_min_32, Ti32, IIATM>;
 def ATMMIN64  : AtomicOp<ATMMIN,  atomic_load_min_64, Ti64, IIATM>;
-def ATMMAX    : GenericOp<"atmmax">;
+def ATMMAX    : GenericOp<"atmmax", [HasRMWAtomic]>;
 def ATMMAX8   : AtomicOp<ATMMAX,  atomic_load_max_8,  Ti8,  IIATM>;
 def ATMMAX16  : AtomicOp<ATMMAX,  atomic_load_max_16, Ti16, IIATM>;
 def ATMMAX32  : AtomicOp<ATMMAX,  atomic_load_max_32, Ti32, IIATM>;
 def ATMMAX64  : AtomicOp<ATMMAX,  atomic_load_max_64, Ti64, IIATM>;
-def ATMOR     : GenericOp<"atmor">;
+def ATMOR     : GenericOp<"atmor", [HasRMWAtomic]>;
 def ATMOR8    : AtomicOp<ATMOR,   atomic_load_or_8,   Ti8,  IIATM>;
 def ATMOR16   : AtomicOp<ATMOR,   atomic_load_or_16,  Ti16, IIATM>;
 def ATMOR32   : AtomicOp<ATMOR,   atomic_load_or_32,  Ti32, IIATM>;
 def ATMOR64   : AtomicOp<ATMOR,   atomic_load_or_64,  Ti64, IIATM>;
-def ATMXOR    : GenericOp<"atmxor">;
+def ATMXOR    : GenericOp<"atmxor", [HasRMWAtomic]>;
 def ATMXOR8   : AtomicOp<ATMXOR,  atomic_load_xor_8,  Ti8,  IIATM>;
 def ATMXOR16  : AtomicOp<ATMXOR,  atomic_load_xor_16, Ti16, IIATM>;
 def ATMXOR32  : AtomicOp<ATMXOR,  atomic_load_xor_32, Ti32, IIATM>;
@@ -1580,12 +1581,12 @@ def ATMCMPXCHG64 : AtomicOp2<ATMCMPXCHG, atomic_cmp_swap_64, Ti64, IIATM>;
 
 // For now, LLVM cannot match/select these because the IR's atomics only deal
 // with integers.
-def ATMADDF32 : AtomicOpR<ATMADD, null_frag, Tf32, IIATM>;
-def ATMADDF64 : AtomicOpR<ATMADD, null_frag, Tf64, IIATM>;
-def ATMMINF32 : AtomicOp<ATMMIN,  null_frag, Tf32, IIATM>;
-def ATMMINF64 : AtomicOp<ATMMIN,  null_frag, Tf64, IIATM>;
-def ATMMAXF32 : AtomicOp<ATMMAX,  null_frag, Tf32, IIATM>;
-def ATMMAXF64 : AtomicOp<ATMMAX,  null_frag, Tf64, IIATM>;
+def ATMADDF32 : AtomicOpR<ATMADD, null_frag, Tf32, IIATM, [HasRMWAtomic]>;
+def ATMADDF64 : AtomicOpR<ATMADD, null_frag, Tf64, IIATM, [HasRMWAtomic]>;
+def ATMMINF32 : AtomicOp<ATMMIN,  null_frag, Tf32, IIATM, [HasRMWAtomic]>;
+def ATMMINF64 : AtomicOp<ATMMIN,  null_frag, Tf64, IIATM, [HasRMWAtomic]>;
+def ATMMAXF32 : AtomicOp<ATMMAX,  null_frag, Tf32, IIATM, [HasRMWAtomic]>;
+def ATMMAXF64 : AtomicOp<ATMMAX,  null_frag, Tf64, IIATM, [HasRMWAtomic]>;
 
 // Prefetch operations
 defm PREFETCH  : PrefetchOp<"prefetch",  0>;
