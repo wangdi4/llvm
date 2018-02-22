@@ -232,11 +232,6 @@ void MCJIT::generateCodeForModule(Module *M) {
 void MCJIT::finalizeLoadedModules() {
   MutexGuard locked(lock);
 
-#if INTEL_CUSTOMIZATION
-  if (OwnedModules.allModulesAreFinalized())
-    return;
-#endif // INTEL_CUSTOMIZATION
-
   // Resolve any outstanding relocations.
   Dyld.resolveRelocations();
 
