@@ -42,9 +42,16 @@ public:
     //       See all possible OSes in llvm::Triple::*.
     //       The target setup below is specific to Linux Intel64 host.
     //
+#if 0
     auto os = Triple.getOS();
+    //
+    // TODO (vzakhari 2/21/2018): figure out why bitcode emitter
+    //       fails with "csa-intel-linux" triple and re-enable
+    //       the assertion.
+    //
     assert(os == llvm::Triple::Linux &&
            "CSA target is only supported for Linux host.");
+#endif
 
     LongWidth = LongAlign = PointerWidth = PointerAlign = 64;
     LongDoubleFormat = &llvm::APFloat::x87DoubleExtended();
