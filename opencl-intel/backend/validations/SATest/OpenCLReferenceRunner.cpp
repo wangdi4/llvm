@@ -153,28 +153,6 @@ OpenCLReferenceRunner::~OpenCLReferenceRunner(void)
     m_ClMemObjScratchMemList.clear();
 }
 
-static void UpdateOpenclKernelsMetadata(llvm::Module *M)
-{
-  // Remove SPIR1.2-style Metadata,
-  // then create Kernel Metadata in the new format
-  // (see MetadataAPI.h for more details).
-  auto *OldMDKernels = M->getNamedMetadata("opencl.kernels");
-  if (OldMDKernels)
-    M->eraseNamedMetadata(OldMDKernels);
-
-  llvm::SmallVector<llvm::Metadata*, 8> KernelsMDList;
-
-  for (auto &Func : *M) {
-    if ((Func.getCallingConv() == CallingConv::SPIR_KERNEL)
-      && (!Func.isDeclaration())) {
-      KernelsMDList.push_back(llvm::ValueAsMetadata::get(&Func));
-    }
-  }
-
-  auto *Root = M->getOrInsertNamedMetadata("opencl.kernels");
-  Root->addOperand(llvm::MDNode::get(M->getContext(), KernelsMDList));
-}
-
 void OpenCLReferenceRunner::Run(IRunResult* runResult,
                                 const IProgram* program,
                                 const IProgramConfiguration* programConfig,
@@ -184,8 +162,6 @@ void OpenCLReferenceRunner::Run(IRunResult* runResult,
     const ReferenceRunOptions *pRunConfig = static_cast<const ReferenceRunOptions *>(runConfig);
 
     m_pModule = static_cast<const OpenCLProgram*>(program)->ParseToModule();
-
-    UpdateOpenclKernelsMetadata(m_pModule);
 
     // if FP_CONTRACT is on, use fma in NEAT
     m_bUseFmaNEAT = m_pModule->getNamedMetadata("opencl.enable.FP_CONTRACT");
@@ -441,13 +417,6 @@ void OpenCLReferenceRunner::ReadKernelArgs(
     IBufferContainerList * Args,
     IBufferContainerList * neatArgs)
 {
-    // Extract 'kernel' function from program
-    NamedMDNode* metadata = m_pModule->getNamedMetadata("opencl.kernels");
-    if ( NULL == metadata )
-    {
-        throw TestReferenceRunnerException("There are no OpenCL kernels in the\
-                                           program");
-    }
 
     // WARNING! Get the first buffer container ONLY. Assume that it contains
     // input arguments.
@@ -464,110 +433,98 @@ void OpenCLReferenceRunner::ReadKernelArgs(
         throw TestReferenceRunnerException("Unable to create buffer container\
                                            for program arguments.");
     }
+    m_pKernel = m_pModule->getFunction(kernelName);
 
-    for (uint32_t k = 0, e = metadata->getNumOperands(); k != e; ++k)
+    if (!m_pKernel ||
+        m_pKernel->getCallingConv() != llvm::CallingConv::SPIR_KERNEL) {
+        throw TestReferenceRunnerException(kernelName+" kernel not found!");
+    }
+
+    // Obtain parameters definition and prepare argument values.
+    const std::size_t numOfArguments = currContainer->GetMemoryObjectCount();
+
+    Function::arg_iterator arg_it = m_pKernel->arg_begin();
+    for (std::size_t i = 0;
+         arg_it != m_pKernel->arg_end() && i < numOfArguments;
+         ++arg_it, ++i)
     {
-        // Obtain kernel function from annotation
-        MDNode *elt = metadata->getOperand(k);
+        IMemoryObject* currBuffer = currContainer->GetMemoryObject(i);
+        GenericValue currArg;
 
-        Constant * globVal = mdconst::extract<Function>(elt->getOperand(0));
-        m_pKernel = cast<Function>(globVal->stripPointerCasts());
-        if ( NULL == m_pKernel )
-        {
-            continue;   // Not a function pointer
-        }
-        // if not needed name skip
-        if ( m_pKernel->getName() != kernelName && !kernelName.empty())
-        {
-            m_pKernel = NULL;
-            continue;
-        }
+        if(Image::GetImageName() == currBuffer->GetName())
+        {   // image
 
-        // Obtain parameters definition and prepare argument values.
-        const std::size_t numOfArguments = currContainer->GetMemoryObjectCount();
+           // TODO: This code is almost identical to the next branch. Rewrite it using common function.
+           // Kernel argument is an image - need to pass a pointer in the arguments buffer
+           ImageDesc imageDesc = GetImageDescription(currBuffer->GetMemoryObjectDesc());
+           size_t imageSize = imageDesc.GetSizeInBytes();
+           IMemoryObject* outputImage = outputContainer->CreateImage(imageDesc);
 
-        Function::arg_iterator arg_it = m_pKernel->arg_begin();
-        for (std::size_t i = 0;
-            arg_it != m_pKernel->arg_end() && i < numOfArguments;
-            ++arg_it, ++i)
-        {
-            IMemoryObject* currBuffer = currContainer->GetMemoryObject(i);
-            GenericValue currArg;
+           // copy image data
+           ::memcpy(outputImage->GetDataPtr(), currBuffer->GetDataPtr(), imageSize);
 
-            if(Image::GetImageName() == currBuffer->GetName())
-            {   // image
-
-                // TODO: This code is almost identical to the next branch. Rewrite it using common function.
-                // Kernel argument is an image - need to pass a pointer in the arguments buffer
-                ImageDesc imageDesc = GetImageDescription(currBuffer->GetMemoryObjectDesc());
-                size_t imageSize = imageDesc.GetSizeInBytes();
-                IMemoryObject* outputImage = outputContainer->CreateImage(imageDesc);
-
-                // copy image data
-                ::memcpy(outputImage->GetDataPtr(), currBuffer->GetDataPtr(), imageSize);
-
-                // Kernel execution assumes all buffer arguments are aligned
-                // If we do not align the buffer the execution crashes
-                auto_ptr_ex<cl_mem_obj_descriptor> spMemDesc((cl_mem_obj_descriptor*)align_malloc(sizeof(cl_mem_obj_descriptor), CPU_DEV_MAXIMUM_ALIGN));
-                FillMemObjDescriptor( *spMemDesc.get(), imageDesc, outputImage->GetDataPtr(), NULL );
-                currArg.PointerVal = spMemDesc.get();
-                // push pointer to scratch memory
-                m_ClMemObjScratchMemList.push_back(spMemDesc.release());
-            }
-            else if(Buffer::GetBufferName() == currBuffer->GetName())
-            {   // buffer
-                BufferDesc buffDsc = GetBufferDescription(currBuffer->GetMemoryObjectDesc());
-                IMemoryObject* outputBuffer = outputContainer->CreateBuffer(buffDsc);
-                switch(arg_it->getType()->getTypeID())
-                {
-                case Type::FloatTyID:
-                    {
-                        if (buffDsc.GetElementDescription().GetType() != TFLOAT)
-                        {
-                            throw TestReferenceRunnerException("Input data type doesn't match kernel argument type. \
-                                                               Input data type: " +
-                                                               buffDsc.GetElementDescription().TypeToString()+". \
-                                                                                                              Expected data type: f32");
-                        }
-                        if (buffDsc.NumOfElements() != 1) // one float value.
-                        {
-                            throw TestReferenceRunnerException("Input data type doesn't match kernel signature type.. \
-                                                               Expected buffer length: 1");
-                        }
-                        ((float*)outputBuffer->GetDataPtr())[0] = ((float*)currBuffer->GetDataPtr())[0];
-                        currArg.FloatVal = ((float*)currBuffer->GetDataPtr())[0];
-                        break;
-                    }
-                case Type::DoubleTyID:
-                    {
-                        if (buffDsc.GetElementDescription().GetType() != TDOUBLE)
-                        {
-                            throw TestReferenceRunnerException("Input data type doesn't match kernel argument type. \
-                                                               Input data type: " +
-                                                               buffDsc.GetElementDescription().TypeToString()+". \
-                                                                                                              Expected data type: f64");
-                        }
-                        if (buffDsc.NumOfElements() != 1) // one double value.
-                        {
-                            throw TestReferenceRunnerException("Unexpected buffer length. \
-                                                               Expected buffer length: 1");
-                        }
-                        ((double*)outputBuffer->GetDataPtr())[0] = ((double*)currBuffer->GetDataPtr())[0];
-                        currArg.DoubleVal = ((double*)currBuffer->GetDataPtr())[0];
-                        break;
-                    }
-                case Type::PointerTyID:
-                    {
-                        currArg.PointerVal = GetPointerToTheArgValues(currBuffer,
-                            outputBuffer,
-                            arg_it->getType());
-                    }
-                    break;
-                case Type::IntegerTyID:
-                    {
-                        uint64_t  uVal;
-                        int64_t   iVal;
-                        bool sign = false;
+           // Kernel execution assumes all buffer arguments are aligned
+           // If we do not align the buffer the execution crashes
+           auto_ptr_ex<cl_mem_obj_descriptor> spMemDesc((cl_mem_obj_descriptor*)align_malloc(sizeof(cl_mem_obj_descriptor), CPU_DEV_MAXIMUM_ALIGN));
+           FillMemObjDescriptor( *spMemDesc.get(), imageDesc, outputImage->GetDataPtr(), NULL );
+           currArg.PointerVal = spMemDesc.get();
+           // push pointer to scratch memory
+           m_ClMemObjScratchMemList.push_back(spMemDesc.release());
+       }
+       else if(Buffer::GetBufferName() == currBuffer->GetName())
+       {   // buffer
+           BufferDesc buffDsc = GetBufferDescription(currBuffer->GetMemoryObjectDesc());
+           IMemoryObject* outputBuffer = outputContainer->CreateBuffer(buffDsc);
+           switch(arg_it->getType()->getTypeID())
+           {
+           case Type::FloatTyID:
+               {
+                   if (buffDsc.GetElementDescription().GetType() != TFLOAT)
+                   {
+                       throw TestReferenceRunnerException("Input data type doesn't match kernel argument type. \
+                                                          Input data type: " +
+                                                          buffDsc.GetElementDescription().TypeToString()+". \
+                                                                                                         Expected data type: f32");
+                   }
+                   if (buffDsc.NumOfElements() != 1) // one float value.
+                   {
+                       throw TestReferenceRunnerException("Input data type doesn't match kernel signature type.. \
+                                                          Expected buffer length: 1");
+                   }
+                   ((float*)outputBuffer->GetDataPtr())[0] = ((float*)currBuffer->GetDataPtr())[0];
+                   currArg.FloatVal = ((float*)currBuffer->GetDataPtr())[0];
+                   break;
+               }
+           case Type::DoubleTyID:
+               {
+                   if (buffDsc.GetElementDescription().GetType() != TDOUBLE)
+                   {
+                       throw TestReferenceRunnerException("Input data type doesn't match kernel argument type. \
+                                                          Input data type: " +
+                                                          buffDsc.GetElementDescription().TypeToString()+". \
+                                                                                                         Expected data type: f64");
+                   }
+                   if (buffDsc.NumOfElements() != 1) // one double value.
+                   {
+                       throw TestReferenceRunnerException("Unexpected buffer length. \
+                                                          Expected buffer length: 1");
+                   }
+                   ((double*)outputBuffer->GetDataPtr())[0] = ((double*)currBuffer->GetDataPtr())[0];
+                   currArg.DoubleVal = ((double*)currBuffer->GetDataPtr())[0];
+                   break;
+               }
+           case Type::PointerTyID:
+               {
+                   currArg.PointerVal = GetPointerToTheArgValues(currBuffer,
+                       outputBuffer,
+                       arg_it->getType());
+               }
+               break;
+           case Type::IntegerTyID:
+               {
+                   uint64_t  uVal;
+                   int64_t   iVal;
+                   bool sign = false;
 #define COPY_INT(TYPE)  \
     iVal = (int64_t)(((TYPE*)currBuffer->GetDataPtr())[0]); \
     ((TYPE*)outputBuffer->GetDataPtr())[0] = ((TYPE*)currBuffer->GetDataPtr())[0];  \
@@ -578,124 +535,115 @@ void OpenCLReferenceRunner::ReadKernelArgs(
     ((TYPE*)outputBuffer->GetDataPtr())[0] = ((TYPE*)currBuffer->GetDataPtr())[0];  \
     sign = false
 
-                        switch(buffDsc.GetElementDescription().GetType())
-                        {
-                        case TCHAR:
-                            {
-                                COPY_INT(int8_t);
-                            }
-                            break;
-                        case TUCHAR:
-                            {
-                                COPY_UINT(uint8_t);
-                            }
-                            break;
-                        case TSHORT:
-                            {
-                                COPY_INT(int16_t);
-                            }
-                            break;
-                        case TUSHORT:
-                            {
-                                COPY_UINT(uint16_t);
-                            }
-                            break;
-                        case TINT:
-                            {
-                                COPY_INT(int32_t);
-                            }
-                            break;
-                        case TUINT:
-                            {
-                                COPY_UINT(uint32_t);
-                            }
-                            break;
-                        case TLONG:
-                            {
-                                COPY_INT(int64_t);
-                            }
-                            break;
-                        case TULONG:
-                            {
-                                COPY_UINT(uint64_t);
-                            }
-                            break;
-                        default:
-                            throw Exception::OutOfRange("Unsupported integer type! " + buffDsc.GetElementDescription().TypeToString());
-                        }
-                        currArg.IntVal = sign ? APInt(arg_it->getType()->getPrimitiveSizeInBits(), *(uint64_t*)&iVal, true) :
-                            APInt(arg_it->getType()->getPrimitiveSizeInBits(), uVal);
-                        break;
+                   switch(buffDsc.GetElementDescription().GetType())
+                   {
+                   case TCHAR:
+                       {
+                           COPY_INT(int8_t);
+                       }
+                       break;
+                   case TUCHAR:
+                       {
+                           COPY_UINT(uint8_t);
+                       }
+                       break;
+                   case TSHORT:
+                       {
+                           COPY_INT(int16_t);
+                       }
+                       break;
+                   case TUSHORT:
+                       {
+                           COPY_UINT(uint16_t);
+                       }
+                       break;
+                   case TINT:
+                       {
+                           COPY_INT(int32_t);
+                       }
+                       break;
+                   case TUINT:
+                       {
+                           COPY_UINT(uint32_t);
+                       }
+                       break;
+                   case TLONG:
+                       {
+                           COPY_INT(int64_t);
+                       }
+                       break;
+                   case TULONG:
+                       {
+                           COPY_UINT(uint64_t);
+                       }
+                       break;
+                   default:
+                       throw Exception::OutOfRange("Unsupported integer type! " + buffDsc.GetElementDescription().TypeToString());
+                   }
+                   currArg.IntVal = sign ? APInt(arg_it->getType()->getPrimitiveSizeInBits(), *(uint64_t*)&iVal, true) :
+                       APInt(arg_it->getType()->getPrimitiveSizeInBits(), uVal);
+                   break;
 #undef COPY_INT
 #undef COPY_UINT
-                    }
-                case Type::VectorTyID:
-                    {
-                        std::size_t numOfElements =
-                            dyn_cast<VectorType>(arg_it->getType())->getNumElements();
-                        switch ( dyn_cast<VectorType> (
-                            arg_it->getType())->getElementType()->getTypeID() )
-                        {
-                        case Type::FloatTyID:
-                            {
-                                for (std::size_t j = 0; j < numOfElements; ++j)
-                                {
-                                    GenericValue vecVal;
-                                    BufferAccessor<float> flBufferAcc(*currBuffer),
-                                        outBufferAcc(*outputBuffer);
-                                    outBufferAcc.GetElem(0,j) = flBufferAcc.GetElem(0,j);
-                                    vecVal.FloatVal = flBufferAcc.GetElem(0,j);
-                                    currArg.AggregateVal.push_back(vecVal);
-                                }
-                            }
-                            break;
-                        case Type::DoubleTyID:
-                            {
-                                for (std::size_t j = 0; j < numOfElements; ++j)
-                                {
-                                    GenericValue vecVal;
-                                    BufferAccessor<double> flBufferAcc(*currBuffer),
-                                        outBufferAcc(*outputBuffer);
-                                    outBufferAcc.GetElem(0,j) = flBufferAcc.GetElem(0,j);
-                                    vecVal.DoubleVal = flBufferAcc.GetElem(0,j);
-                                    currArg.AggregateVal.push_back(vecVal);
-                                }
-                            }
-                            break;
-                        case Type::IntegerTyID:
-                            {
-                                for (std::size_t j = 0; j < numOfElements; ++j)
-                                {
-                                    GenericValue vecVal;
-                                    ReadIntegerFromBuffer(currBuffer, outputBuffer, 0, j,
-                                        dyn_cast<VectorType>(arg_it->getType())->
-                                        getElementType()->
-                                        getPrimitiveSizeInBits(),
-                                        vecVal);
-                                    currArg.AggregateVal.push_back(vecVal);
-                                }
-                            }
-                            break;
-                        default:
-                            throw TestReferenceRunnerException("Unhandled vector type");
-                        }
-                    }
-                    break;
-                default:
-                    throw TestReferenceRunnerException("Unhandled parameter type");
                 }
+            case Type::VectorTyID:
+                {
+                    std::size_t numOfElements =
+                        dyn_cast<VectorType>(arg_it->getType())->getNumElements();
+                    switch ( dyn_cast<VectorType> (
+                        arg_it->getType())->getElementType()->getTypeID() )
+                    {
+                    case Type::FloatTyID:
+                        {
+                            for (std::size_t j = 0; j < numOfElements; ++j)
+                            {
+                                GenericValue vecVal;
+                                BufferAccessor<float> flBufferAcc(*currBuffer),
+                                    outBufferAcc(*outputBuffer);
+                                outBufferAcc.GetElem(0,j) = flBufferAcc.GetElem(0,j);
+                                vecVal.FloatVal = flBufferAcc.GetElem(0,j);
+                                currArg.AggregateVal.push_back(vecVal);
+                            }
+                        }
+                        break;
+                    case Type::DoubleTyID:
+                        {
+                            for (std::size_t j = 0; j < numOfElements; ++j)
+                            {
+                                GenericValue vecVal;
+                                BufferAccessor<double> flBufferAcc(*currBuffer),
+                                    outBufferAcc(*outputBuffer);
+                                outBufferAcc.GetElem(0,j) = flBufferAcc.GetElem(0,j);
+                                vecVal.DoubleVal = flBufferAcc.GetElem(0,j);
+                                currArg.AggregateVal.push_back(vecVal);
+                            }
+                        }
+                        break;
+                    case Type::IntegerTyID:
+                        {
+                            for (std::size_t j = 0; j < numOfElements; ++j)
+                            {
+                                GenericValue vecVal;
+                                ReadIntegerFromBuffer(currBuffer, outputBuffer, 0, j,
+                                    dyn_cast<VectorType>(arg_it->getType())->
+                                    getElementType()->
+                                    getPrimitiveSizeInBits(),
+                                    vecVal);
+                                currArg.AggregateVal.push_back(vecVal);
+                            }
+                        }
+                        break;
+                    default:
+                        throw TestReferenceRunnerException("Unhandled vector type");
+                    }
+                }
+                break;
+            default:
+                throw TestReferenceRunnerException("Unhandled parameter type");
             }
-            else throw TestReferenceRunnerException("Not a buffer or image");
-            ArgVals.push_back(currArg);
         }
-        // break the loop on kernels in LLVM file when needed kernel is found
-        break;
-
-    } // for (uint32_t k = 0, e = metadata->getNumOperands(); k != e; ++k)
-
-    if (!m_pKernel)
-    {
-        throw TestReferenceRunnerException(kernelName+" kernel not found!");
+        else throw TestReferenceRunnerException("Not a buffer or image");
+        ArgVals.push_back(currArg);
     }
 
     if(m_bUseNEAT)
@@ -894,8 +842,11 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
     ReadInputBuffer(pKernelConfig, &input,
         runConfig->GetValue<uint64_t>(RC_COMMON_RANDOM_DG_SEED, 0));
 
-    assert(m_pModule->getNamedMetadata("opencl.kernels") && "There is no \"opencl.kernels\" metadata.");
-    DataVersion::ConvertData (&input, m_pModule->getNamedMetadata("opencl.kernels"), pKernelConfig->GetKernelName());
+    auto *Kernel = m_pModule->getFunction(pKernelConfig->GetKernelName());
+    assert(Kernel && Kernel->getCallingConv() == llvm::CallingConv::SPIR_KERNEL
+           && "No valid kernel found");
+
+    DataVersion::ConvertData (&input, Kernel);
 
     // memory for storing kernel data marked with local addr space
     NEATPlugIn::GlobalAddressMapTy NEATlocalMap;

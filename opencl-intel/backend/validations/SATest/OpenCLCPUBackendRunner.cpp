@@ -589,7 +589,12 @@ void OpenCLCPUBackendRunner::ExecuteKernel(IBufferContainerList& input,
     FillIgnoreList(ignoreList, pKernelArgs, kernelNumArgs);
     runResult->SetComparatorIgnoreList(kernelName.c_str(), ignoreList);
 
-    DataVersion::ConvertData(&input, m_pModule->getNamedMetadata("opencl.kernels"), kernelName);
+    auto *KernelF = m_pModule->getFunction(pKernelConfig->GetKernelName());
+    assert(KernelF &&
+           KernelF->getCallingConv() == llvm::CallingConv::SPIR_KERNEL &&
+           "No valid kernel found");
+
+    DataVersion::ConvertData(&input, KernelF);
 
     // Create the argument buffer
     OpenCLArgsBuffer argsBuffer(pKernelArgs, kernelNumArgs, &input, pImageService,

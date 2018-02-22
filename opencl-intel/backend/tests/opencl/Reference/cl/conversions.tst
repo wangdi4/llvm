@@ -7,4 +7,3 @@
 ; RUN: SATest -VAL --force_ref -config=%s.flt2char.rte.cfg | FileCheck %s
 ; RUN: SATest -VAL --force_ref -config=%s.flt2char.sat_rte.cfg | FileCheck %s
 ; CHECK: Test Passed.
-; XFAIL: *

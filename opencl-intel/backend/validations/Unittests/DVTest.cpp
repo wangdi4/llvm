@@ -185,11 +185,13 @@ static void  testFindSamplers(std::string sourceIn, std::vector<unsigned int >& 
 
     pBinary->Release();
 
-    llvm::NamedMDNode* metadata = pModule->getNamedMetadata("opencl.kernels");
-    assert(metadata && "There is no \"opencl.kernels\" metadata.");
+    auto pKernel = pModule->getFunction(kernelName);
+    assert(pKernel && "No function with given name found");
+    assert(pKernel->getCallingConv() == llvm::CallingConv::SPIR_KERNEL
+           && "Given function isn't a kernel");
 
     // this function is tested
-    samplerIndxs = FindSamplers(metadata,kernelName);
+    samplerIndxs = FindSamplers(pKernel);
 }
 
 
@@ -361,10 +363,13 @@ TEST(DataVersionTest, DISABLED_ConvertData) /* CSSD100018373 */ {
     std::unique_ptr<llvm::Module> pModule(llvm::parseIR(pBuffer->getMemBufferRef(), err, ctxt));
     pBinary->Release();
 
-    llvm::NamedMDNode* metadata = pModule.get()->getNamedMetadata("opencl.kernels");
-    assert(metadata && "There is no \"opencl.kernels\" metadata.");
+    assert(vecKernelNames.size() == vecConfigs.size() &&
+           "Number of kernels differs than number of configs for them");
+    for (unsigned j = 0, e = vecKernelNames.size(); j < e; ++j) {
 
-    for( unsigned int j = 0; j < metadata->getNumOperands(); j++ ) {
+        auto *F = pModule->getFunction(vecKernelNames[j]);
+        assert(F && F->getCallingConv() == llvm::CallingConv::SPIR_KERNEL &&
+          "No valid kernel found");
 
         BufferContainerList input;
         OpenCLKernelArgumentsParser parser;
@@ -439,7 +444,7 @@ TEST(DataVersionTest, DISABLED_ConvertData) /* CSSD100018373 */ {
             *sampler = arrSamplersIn[i];
 
             try {
-                DataVersion::ConvertData (&input, metadata, vecKernelNames[j]);
+                DataVersion::ConvertData (&input, F);
             } catch (Exception::InvalidArgument ex) {
                 std::cerr << ex.what();
                 GTEST_FAIL();

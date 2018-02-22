@@ -29,7 +29,8 @@ namespace Validation
     struct DataVersion
     {
         public:
-            static void ConvertData (IBufferContainerList* pContainerList, llvm::NamedMDNode* metadata, std::string kernelName);
+            static void ConvertData (IBufferContainerList* pContainerList,
+                                     llvm::Function *pKernel);
 
             static std::string GetDataVersionSignature() {
                 return std::string("DataVersion ");
