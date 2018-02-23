@@ -6,7 +6,7 @@
 ; CHECK: Loop %while.body: backedge-taken count is ({-4,+,4}<nw><%for.body> /u 4)
 
 
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s -check-prefix=PARSE
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser | FileCheck %s -check-prefix=PARSE
 
 ; PARSE: + UNKNOWN LOOP i1
 ; PARSE: |   <i1 = 0>

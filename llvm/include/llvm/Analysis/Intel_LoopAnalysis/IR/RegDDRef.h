@@ -68,6 +68,21 @@ private:
   /// at code generation.
   struct GEPInfo {
     CanonExpr *BaseCE;
+    // If there is a bitcast on the GEP before its use (in load/store
+    // instruction etc), we store the destination type of the bitcast here.
+    // Otherwise it is set to null. For example-
+    //   %gep = getelementptr i8, i8* %indvars.iv2526, i64 4
+    //   %bc = bitcast i8* %gep to i64*
+    //   store i64 %add, i64* %bc
+    //
+    // Note that in some cases this type can be the same as the BaseCE type
+    // therefore we cannot store it in the BaseCE dest type as in this case we
+    // cannot tell whether the bitcast is needed. It is also not a good
+    // representaion as the bitcast is on the resulting GEP, not the base ptr.
+    // This was the previous implementation. An example where it didn't work-
+    //   %gep = getelementptr [20 x i32], [20 x i32]* @t, i64 0, i64 1
+    //   %bc = bitcast i32* %gep to [20 x i32]*
+    Type *BitCastDestTy;
     bool InBounds;
     // This is set if this DDRef represents an address computation (GEP) instead
     // of a load or store.
@@ -172,14 +187,6 @@ protected:
     return (Pos > 0 && Pos <= getNumDimensions());
   }
 
-  /// Implements getBase*Type() functionality.
-  Type *getBaseTypeImpl(bool IsSrc) const {
-    if (hasGEPInfo()) {
-      return IsSrc ? getBaseCE()->getSrcType() : getBaseCE()->getDestType();
-    }
-    return nullptr;
-  }
-
   /// Used by updateBlobDDRefs() to remove BlobDDRefs which are not
   /// needed anymore. The required blobs are passed in through BlobIndices. The
   /// function removes those blobs from BlobIndices whose BlobDDRef is already
@@ -227,18 +234,13 @@ public:
   /// TODO: extend to handle struct types.
   Type *getDestType() const override { return getTypeImpl(false); }
 
-  /// Returns the src type of the base CanonExpr for GEP DDRefs, returns
-  /// null for non-GEP DDRefs.
-  Type *getBaseSrcType() const { return getBaseTypeImpl(true); }
-  /// Sets the src type of base CE of GEP DDRefs.
-  void setBaseSrcType(Type *SrcTy) {
-    assert(hasGEPInfo() && "Base CE accessed for non-GEP DDRef!");
-    getBaseCE()->setSrcType(SrcTy);
-  }
+  /// Returns the src type of the base CanonExpr for GEP DDRefs, asserts for
+  /// non-GEP DDRefs.
+  Type *getBaseType() const { return getBaseCE()->getSrcType(); }
 
-  /// Returns the dest type of the base CanonExpr for GEP DDRefs, returns null
-  /// for non-GEP DDRefs. Base destination type represents a bitcast on the GEP
-  /// like this-
+  /// Returns the dest type of the bitcast applied to GEP DDRefs, asserts
+  /// for non-GEP DDRefs. For example-
+  ///
   /// %arrayidx = getelementptr [10 x float], [10 x float]* %p, i64 0, i64 %k
   /// %190 = bitcast float* %arrayidx to i32*
   /// store i32 %189, i32* %190
@@ -246,22 +248,11 @@ public:
   /// The DDRef looks like this in HIR-
   /// *(i32*)(%ex1)[0][i1]
   ///
-  /// The base canon expr is stored like this-
-  /// bitcast.[1001 x float]*.i32*(%ex1)
-  /// The represented cast is imprecise because the actual casting occurs from
-  /// float* to i32*. The stored information is enough to generate the correct
-  /// code though. This setup needs to be rethought if the transformations want
-  /// to access three different types involved here-
-  /// [1001 x float]*, float* and i32*. We are currently not storing the
-  /// intermediate float* type but it can be computed on the fly.
-  ///
-  /// TODO: Rethink the setup, if required.
-  Type *getBaseDestType() const { return getBaseTypeImpl(false); }
+  Type *getBitCastDestType() const { return getGEPInfo()->BitCastDestTy; }
 
-  /// Sets the dest type of base CE of GEP DDRefs.
-  void setBaseDestType(Type *DestTy) {
-    assert(hasGEPInfo() && "Base CE accessed for non-GEP DDRef!");
-    getBaseCE()->setDestType(DestTy);
+  /// Sets the dest type of the bitcast of GEP DDRefs.
+  void setBitCastDestType(Type *DestTy) {
+    getGEPInfo()->BitCastDestTy = DestTy;
   }
 
   /// Returns the type associated with \p DimensionNum. For example, consider

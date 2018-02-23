@@ -22,18 +22,15 @@ define void @test1() {
 ; Cast of arbitrary i8* to struct pointer.
 %struct.test02.a = type { i32, i8 }
 %struct.test02.b = type { i32, i32 }
-@p.test2 = external global %struct.test02.a
+@p.test2 = internal unnamed_addr global %struct.test02.a zeroinitializer
 define void @test2() {
   %s = bitcast i8* getelementptr( %struct.test02.a, %struct.test02.a* @p.test2,
                                   i64 0, i32 1) to %struct.test02.b*
   ret void
 }
 
-; FIXME: %struct.test02.a should also be marked as bad casting here.
-;        That's being missed because the analysis doesn't look for the
-;        uses of globals and therefore doesn't see the GEP operator.
 ; CHECK: LLVMType: %struct.test02.a = type { i32, i8 }
-; CHECK: Safety data: Unhandled use
+; CHECK: Safety data: Bad casting | Global instance
 ; CHECK: LLVMType: %struct.test02.b = type { i32, i32 }
 ; CHECK: Safety data: Bad casting
 
@@ -57,14 +54,10 @@ define void @test4( %struct.test04.a** %ppa, %struct.test04.b* %pb ) {
   ret void
 }
 
-; FIXME: These should be "No issues found" but are currently "Unhandled use"
-;        because the GEP is not yet handled.
 ; CHECK: LLVMType: %struct.test04.a = type { i32, i32 }
-; CHECK: Safety data:
-; CHECK-NOT: Bad casting
+; CHECK: Safety data: No issues found
 ; CHECK: LLVMType: %struct.test04.b = type { i32, i32, %struct.test04.a* }
-; CHECK: Safety data:
-; CHECK-NOT: Bad casting
+; CHECK: Safety data: No issues found
 
 ; Direct casting to related type.
 %struct.test05.a = type { i32, i32 }
@@ -110,15 +103,10 @@ define void @test8( %struct.test08.b* %pb ) {
   ret void
 }
 
-; FIXME: These should report "no issues found" but they currently report
-;        "Unhandled use" because element-zero access via bitcast isn't
-;        analyzed. The checks here verify that the bitcast was accepted.
 ; CHECK: LLVMType: %struct.test08.a = type { i32, i32 }
-; CHECK: Safety data:
-; CHECK-NOT: Bad casting
+; CHECK: Safety data: No issues found
 ; CHECK: LLVMType: %struct.test08.b = type { %struct.test08.a, i32, i32 }
-; CHECK: Safety data:
-; CHECK-NOT: Bad casting
+; CHECK: Safety data: No issues found
 
 ; Unsafe element zero access through bitcast.
 %struct.test09.a = type { i32, i32 }
@@ -129,7 +117,8 @@ define void @test9( %struct.test09.b* %pb ) {
   ret void
 }
 
-; FIXME: Should %struct.test09.a als be flagged with bad casting here?
+; CHECK: LLVMType: %struct.test09.a = type { i32, i32 }
+; CHECK: Safety data: Bad casting
 ; CHECK: LLVMType: %struct.test09.b = type { %struct.test09.a, i32, i32 }
 ; CHECK: Safety data: Bad casting
 ; CHECK: LLVMType: %struct.test09.c = type { i32, i32, i32, i32 }
@@ -142,12 +131,8 @@ define void @test10( [16 x %struct.test10]* %parr ) {
   ret void
 }
 
-; FIXME: These should report "no issues found" but they currently report
-;        "Unhandled use" because element-zero access via bitcast isn't
-;        analyzed. The checks here verify that the bitcast was accepted.
 ; CHECK: LLVMType: %struct.test10 = type { i32, i32 }
-; CHECK: Safety data:
-; CHECK-NOT: Bad casting
+; CHECK: Safety data: No issues found
 ; (checked below): LLVMType: [16 x %struct.test10]
 
 ; Unsafe array element zero access through bitcast.
@@ -158,14 +143,15 @@ define void @test11( [16 x %struct.test11.a]* %parr ) {
   ret void
 }
 
-; FIXME: Should %struct.test11.a als be flagged with bad casting here?
+; CHECK: LLVMType: %struct.test11.a = type { i32, i32 }
+; CHECK: Safety data: Bad casting
 ; CHECK: LLVMType: %struct.test11.b = type { i32, i32, i32, i32 }
 ; CHECK: Safety data: Bad casting
 ; (checked below): LLVMType: [16 x %struct.test11.a]
 
 ; Cast of global value through an intermediate i8*
 %struct.test12 = type { i32, i32 }
-@p.test12 = external global %struct.test12
+@p.test12 = internal unnamed_addr global %struct.test12 zeroinitializer
 define void @test12() {
   %t = bitcast %struct.test12* @p.test12 to i8*
   %t2 = bitcast i8* %t to %struct.test12*
@@ -173,13 +159,12 @@ define void @test12() {
 }
 
 ; CHECK: LLVMType: %struct.test12 = type { i32, i32 }
-; CHECK: Safety data:
-; CHECK-NOT: Bad casting
+; CHECK: Safety data: Global instance
 
 ; Bad cast of global value through an intermediate i8*
 %struct.test13.a = type { i32, i32 }
 %struct.test13.b = type { i32, i32, i32 }
-@p.test13 = external global %struct.test13.a
+@p.test13 = internal unnamed_addr global %struct.test13.a zeroinitializer
 define void @test13() {
   %t = bitcast %struct.test13.a* @p.test13 to i8*
   %t2 = bitcast i8* %t to %struct.test13.b*
@@ -187,7 +172,7 @@ define void @test13() {
 }
 
 ; CHECK: LLVMType: %struct.test13.a = type { i32, i32 }
-; CHECK: Safety data: Bad casting
+; CHECK: Safety data: Bad casting | Global instance
 ; CHECK: LLVMType: %struct.test13.b = type { i32, i32, i32 }
 ; CHECK: Safety data: Bad casting
 
@@ -200,8 +185,7 @@ define void @test14(%struct.test14* %p) {
 }
 
 ; CHECK: LLVMType: %struct.test14 = type { i32, i32 }
-; CHECK: Safety data:
-; CHECK-NOT: Bad casting
+; CHECK: Safety data: No issues found
 
 ; Bad cast of argument through an intermediate i8*
 %struct.test15.a = type { i32, i32 }
@@ -226,9 +210,9 @@ define void @test16() {
   ret void
 }
 
+; FIXME: The unhandled use here is the alloca instruction.
 ; CHECK: LLVMType: %struct.test16 = type { i32, i32 }
-; CHECK: Safety data:
-; CHECK-NOT: Bad casting
+; CHECK: Safety data: Unhandled use
 
 ; Bad cast of stack pointer through an intermediate i8*
 %struct.test17.a = type { i32, i32 }
@@ -255,8 +239,7 @@ define void @test18(%struct.test18** %mem) {
 }
 
 ; CHECK: LLVMType: %struct.test18 = type { i32, i32 }
-; CHECK: Safety data:
-; CHECK-NOT: Bad casting
+; CHECK: Safety data: No issues found
 
 ; Bad cast of loaded pointer through an intermediate i8*
 %struct.test19.a = type { i32, i32 }
@@ -283,9 +266,9 @@ define void @test20() {
   ret void
 }
 
+; FIXME: The unhandled use here is the type returned by a function call.
 ; CHECK: LLVMType: %struct.test20 = type { i32, i32 }
-; CHECK: Safety data:
-; CHECK-NOT: Bad casting
+; CHECK: Safety data: Unhandled use
 
 ; Bad cast of returned pointer through an intermediate i8*
 %struct.test21.a = type { i32, i32 }
@@ -314,8 +297,7 @@ define void @test22(%struct.test22.b* %pb) {
 }
 
 ; CHECK: LLVMType: %struct.test22.a = type { i32, i32 }
-; CHECK: Safety data:
-; CHECK-NOT: Bad casting
+; CHECK: Safety data: No issues found
 
 ; Bad cast of GEP-derived pointer through an intermediate i8*
 %struct.test23.a = type { i32, i32 }
@@ -345,9 +327,9 @@ define void @test24() {
   ret void
 }
 
+; FIXME: The unhandled use here is inttoptr
 ; CHECK: LLVMType: %struct.test24 = type { i32, i32 }
-; CHECK: Safety data:
-; CHECK-NOT: Bad casting
+; CHECK: Safety data: Unhandled use
 
 ; Bad cast of inttoptr value through an intermediate i8*
 %struct.test25.a = type { i32, i32 }
@@ -375,8 +357,7 @@ define void @test26(%struct.test26* %p1, %struct.test26* %p2) {
 }
 
 ; CHECK: LLVMType: %struct.test26 = type { i32, i32 }
-; CHECK: Safety data:
-; CHECK-NOT: Bad casting
+; CHECK: Safety data: No issues found
 
 ; Follow unsafe cast through select instruction
 %struct.test27.a = type { i32, i32 }
@@ -414,8 +395,7 @@ end:
 }
 
 ; CHECK: LLVMType: %struct.test28 = type { i32, i32 }
-; CHECK: Safety data:
-; CHECK-NOT: Bad casting
+; CHECK: Safety data: No issues found
 
 ; Follow unsafe cast through PHI node
 %struct.test29.a = type { i32, i32 }
@@ -464,8 +444,7 @@ end:
 }
 
 ; CHECK: LLVMType: %struct.test30 = type { i32, i32 }
-; CHECK: Safety data:
-; CHECK-NOT: Bad casting
+; CHECK: Safety data: No issues found
 
 ; Follow unsafe cast through PHI node with loop.
 %struct.test31.a = type { i32, i32 }
@@ -501,12 +480,8 @@ define void @test32( %struct.test32* %p ) {
   ret void
 }
 
-; FIXME: This should report "no issues found" but they currently report
-;        "Unhandled use" because element-zero access via bitcast isn't
-;        analyzed. The checks here verify that the bitcast was accepted.
 ; CHECK: LLVMType: %struct.test32 = type { i32, i32 }
-; CHECK: Safety data:
-; CHECK-NOT: Bad casting
+; CHECK: Safety data: No issues found
 
 ; Unsafe element zero access of an aliased value through bitcast.
 %struct.test33 = type { i32, i32 }
@@ -519,11 +494,41 @@ define void @test33( %struct.test33* %p ) {
 ; CHECK: LLVMType: %struct.test33 = type { i32, i32 }
 ; CHECK: Safety data: Bad casting
 
+; Multiple cast of allocated pointer-to-pointer-to-pointer.
+; The second cast effectively re-interprets %struct.test34*** so that a
+; an allocated %struct.test34** pointer can be stored to this location as
+; an i8** value.
+;
+; A typical occurance of the pattern may look like this:
+;
+;   <BB1>:
+;     %7 = call noalias i8* @malloc(i64 8)
+;     %8 = bitcast i8* %7 to %struct.a***
+;     ...
+;   <BB2>:
+;     ...
+;     %49 = tail call noalias i8* @calloc(i64 %46, i64 8)
+;     %50 = bitcast i8* %7 to i8**
+;     store i8* %49, i8** %50, align 8, !tbaa !45
+;     ...
+;     %52 = bitcast i8* %49 to %struct.a**
+;     ...
+;
+%struct.test34 = type { i32, i32 }
+define void @test34() {
+  %p1 = call noalias i8* @malloc(i64 8)
+  %p2 = bitcast i8* %p1 to %struct.test34***
+  %p3 = bitcast i8* %p1 to i8**
+  ret void
+}
+
+; CHECK: LLVMType: %struct.test34 = type { i32, i32 }
+; CHECK: Safety data: No issues found
+
 ; Array types get printed last so theese checks aren't with their IR.
 
 ; CHECK: LLVMType: [16 x %struct.test10]
-; CHECK: Safety data:
-; CHECK-NOT: Bad casting
+; CHECK: Safety data: No issues found
 
 ; CHECK: LLVMType: [16 x %struct.test11.a]
 ; CHECK: Safety data: Bad casting

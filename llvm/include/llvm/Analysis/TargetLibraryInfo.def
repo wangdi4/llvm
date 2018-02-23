@@ -234,6 +234,14 @@ TLI_DEFINE_STRING_INTERNAL("__cxa_guard_acquire")
 /// void __cxa_guard_release(guard_t *guard);
 TLI_DEFINE_ENUM_INTERNAL(cxa_guard_release)
 TLI_DEFINE_STRING_INTERNAL("__cxa_guard_release")
+
+#if INTEL_CUSTOMIZATION
+/// __dynamic_cast (const void *src_ptr, const __class_type_info *src_type,
+///   const __class_type_info *dst_type, ptrdiff_t src2dst)
+TLI_DEFINE_ENUM_INTERNAL(dynamic_cast)
+TLI_DEFINE_STRING_INTERNAL("__dynamic_cast")
+#endif // INTEL_CUSTOMIZATION
+
 /// double __exp10_finite(double x);
 TLI_DEFINE_ENUM_INTERNAL(exp10_finite)
 TLI_DEFINE_STRING_INTERNAL("__exp10_finite")
@@ -376,7 +384,10 @@ TLI_DEFINE_ENUM_INTERNAL(dunder_strtok_r)
 TLI_DEFINE_STRING_INTERNAL("__strtok_r")
 
 #if INTEL_CUSTOMIZATION
-/// __xstat64 (int vers, const char *file, struct stat64 *buf);
+/// int __xstat(int ver, const char * path, struct stat * stat_buf);
+TLI_DEFINE_ENUM_INTERNAL(dunder_xstat)
+TLI_DEFINE_STRING_INTERNAL("__xstat")
+/// int __xstat64 (int vers, const char *file, struct stat64 *buf);
 TLI_DEFINE_ENUM_INTERNAL(dunder_xstat64)
 TLI_DEFINE_STRING_INTERNAL("__xstat64")
 #endif // INTEL_CUSTOMIZATION
@@ -471,6 +482,15 @@ TLI_DEFINE_STRING_INTERNAL("bcopy")
 /// void bzero(void *s, size_t n);
 TLI_DEFINE_ENUM_INTERNAL(bzero)
 TLI_DEFINE_STRING_INTERNAL("bzero")
+/// double cabs(double complex z)
+TLI_DEFINE_ENUM_INTERNAL(cabs)
+TLI_DEFINE_STRING_INTERNAL("cabs")
+/// float cabs(float complex z)
+TLI_DEFINE_ENUM_INTERNAL(cabsf)
+TLI_DEFINE_STRING_INTERNAL("cabsf")
+/// long double cabs(long double complex z)
+TLI_DEFINE_ENUM_INTERNAL(cabsl)
+TLI_DEFINE_STRING_INTERNAL("cabsl")
 /// void *calloc(size_t count, size_t size);
 TLI_DEFINE_ENUM_INTERNAL(calloc)
 TLI_DEFINE_STRING_INTERNAL("calloc")

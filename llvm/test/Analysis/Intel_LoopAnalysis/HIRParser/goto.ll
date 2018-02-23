@@ -1,7 +1,7 @@
 ; Check goto parsing
 ; TODO: this test is being throttled due to too many nested ifs but not due to presence of goto. Make detection of gotos stronger.
 
-; RUN: opt < %s -hir-ssa-deconstruction -hir-cost-model-throttling=0 | opt -analyze -hir-parser -hir-cost-model-throttling=0 | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-cost-model-throttling=0 | opt -analyze -hir-framework -hir-framework-debug=parser -hir-cost-model-throttling=0 | FileCheck %s
 ; CHECK-DAG: goto [[LABEL1:.*]];
 ; CHECK-DAG: goto [[LABEL2:.*]];
 ; CHECK-DAG: [[LABEL1]]:

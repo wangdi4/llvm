@@ -624,10 +624,9 @@ bool VPlanDriver::isVPlanCandidate(Loop *Lp) {
 INITIALIZE_PASS_BEGIN(VPlanDriverHIR, "VPlanDriverHIR",
                       "VPlan Vectorization Driver HIR", false, false)
 INITIALIZE_PASS_DEPENDENCY(WRegionInfo)
-INITIALIZE_PASS_DEPENDENCY(HIRFramework)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatistics)
 // INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
-// INITIALIZE_PASS_DEPENDENCY(HIRParser)
 // INITIALIZE_PASS_DEPENDENCY(HIRLocalityAnalysis)
 // INITIALIZE_PASS_DEPENDENCY(HIRVectVLSAnalysis)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
@@ -651,9 +650,8 @@ void VPlanDriverHIR::getAnalysisUsage(AnalysisUsage &AU) const {
   //  AU.addRequired<LoopInfoWrapperPass>();
   //  AU.addRequired<ScalarEvolutionWrapperPass>();
 
-  AU.addRequired<HIRFramework>();
+  AU.addRequired<HIRFrameworkWrapperPass>();
   AU.addRequired<HIRLoopStatistics>();
-  //  AU.addRequiredTransitive<HIRParser>();
   //  AU.addRequiredTransitive<HIRLocalityAnalysis>();
   AU.addRequired<HIRDDAnalysis>();
   AU.addRequiredTransitive<HIRSafeReductionAnalysis>();
@@ -666,7 +664,7 @@ bool VPlanDriverHIR::runOnFunction(Function &Fn) {
 
   DEBUG(dbgs() << "VPlan HIR Driver for Function: " << Fn.getName() << "\n");
 
-  HIRF = &getAnalysis<HIRFramework>();
+  HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   HIRLoopStats = &getAnalysis<HIRLoopStatistics>();
   DDA = &getAnalysis<HIRDDAnalysis>();
   // VLS = &getAnalysis<HIRVectVLSAnalysis>();

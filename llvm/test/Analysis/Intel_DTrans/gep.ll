@@ -82,6 +82,33 @@ define void @test_good_cases(i32 %a, %struct.S3* %ps3) {
   ret void
 }
 
+; Test the special case where a structures with an i8 value at the start
+; of their memory can have a GEP that acts like a bitcast.
+%struct.S4 = type { i8, i32 }
+%struct.S5 = type { %struct.S4, i32 }
+%struct.S6 = type { [256 x i8], i32 }
+@g.testS4 = internal unnamed_addr global %struct.S4 zeroinitializer
+@g.testS5 = internal unnamed_addr global %struct.S5 zeroinitializer
+define void @test_gep_as_bitcast(%struct.S6 *%pS6) {
+  ; The GEP returns an i8* which is then cast back to the original type
+  %t1 = bitcast i8* getelementptr (%struct.S5, %struct.S5* @g.testS5,
+                                   i64 0, i32 0, i32 0) to %struct.S5*
+
+  ; This is just like the line above, but it casts to the nested S4 type
+  %t2 = bitcast i8* getelementptr (%struct.S5, %struct.S5* @g.testS5,
+                                   i64 0, i32 0, i32 0) to %struct.S4*
+
+  ; This GEP acts like a bitcast on the S4 global.
+  %t3 = getelementptr %struct.S4, %struct.S4* @g.testS4, i64 0, i32 0
+
+  ; If the %pS6 argument is a dynamic array, we can index from the pointer
+  ; to additional S6 pointers and still use the GEP-as-bitcast idiom.
+  %t4 = getelementptr %struct.S6, %struct.S6* %pS6,
+                      i64 3, i32 0, i32 0
+  %t5 = bitcast i8* %t4 to %struct.S6*
+  ret void
+}
+
 ; The redundant types here are to allow separate testing of safety conditions.
 
 ; struct S1 {
@@ -168,7 +195,7 @@ declare noalias i8* @malloc(i64)
 ; CHECK-NOT: Read
 ; CHECK-NOT: Written
 ; CHECK: Field info: Written
-; CHECK: Safety data: Unhandled use
+; CHECK: Safety data: No issues found
 
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.S2 = type { [32 x i32], %struct.S1, %struct.S2* }
@@ -179,13 +206,20 @@ declare noalias i8* @malloc(i64)
 ; CHECK-NOT: Read
 ; CHECK-NOT: Written
 ; CHECK: Field info: Written
-; CHECK: Safety data: Unhandled use
+; CHECK: Safety data: Field address taken
 
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.S3 = type { %struct.S2*, %struct.S1* }
 ; CHECK: Field info: Read Written
 ; CHECK: Field info: Written
-; CHECK: Safety data: Unhandled use
+; CHECK: Safety data: No issues found
+
+; CHECK: LLVMType: %struct.S4 = type { i8, i32 }
+; CHECK: Safety data: Global instance
+; CHECK: LLVMType: %struct.S5 = type { %struct.S4, i32 }
+; CHECK: Safety data: Global instance
+; CHECK: LLVMType: %struct.S6 = type { [256 x i8], i32 }
+; CHECK: Safety data: No issues found
 
 ; CHECK: LLVMType: %struct.bad.S1 = type { i32, i32, i32 }
 ; CHECK: Safety data: Bad pointer manipulation
@@ -204,7 +238,7 @@ declare noalias i8* @malloc(i64)
 
 ; CHECK: DTRANS_ArrayInfo:
 ; CHECK: LLVMType: [32 x i32]
-; CHECK: Safety data: Unhandled use
+; CHECK: Safety data: No issues found
 ; CHECK: LLVMType: [4 x %struct.bad.S6]
 ; CHECK: Safety data: Bad pointer manipulation
 

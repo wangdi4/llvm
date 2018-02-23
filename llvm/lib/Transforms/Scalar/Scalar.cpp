@@ -82,7 +82,7 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializePartiallyInlineLibCallsLegacyPassPass(Registry);
   initializeReassociateLegacyPassPass(Registry);
   initializeRegToMemPass(Registry);
-  initializeRewriteStatepointsForGCPass(Registry);
+  initializeRewriteStatepointsForGCLegacyPassPass(Registry);
   initializeSCCPLegacyPassPass(Registry);
   initializeIPSCCPLegacyPassPass(Registry);
   initializeSROALegacyPassPass(Registry);
@@ -104,7 +104,8 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeStdContainerOptPass(Registry);
   initializeTbaaMDPropagationPass(Registry); 
   initializeCleanupFakeLoadsPass(Registry); 
-  initializeLoopOptMarkerPass(Registry);
+  initializeMultiVersioningWrapperPass(Registry);
+  initializeLoopOptMarkerLegacyPassPass(Registry);
 #endif // INTEL_CUSTOMIZATION
   initializeAggInlAALegacyPassPass(Registry); // INTEL
   initializeLoopLoadEliminationPass(Registry);

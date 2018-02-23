@@ -1,4 +1,7 @@
-# RUN: llvm-mc -triple i386-unknown-unknown %s -filetype=obj -o %t.o
+# INTEL_CUSTOMIZATION BEGIN
+# Added -dwarf-line-version=4 as workaround for ld.gold internal error until CMPLRS-48167 is fixed.
+# RUN: llvm-mc -dwarf-line-version=4 -triple i386-unknown-unknown %s -filetype=obj -o %t.o
+# INTEL_CUSTOMIZATION END
 # RUN: llvm-readobj -r %t.o | FileCheck %s
 # RUN: llvm-dwarfdump -debug-line %t.o | FileCheck %s -check-prefix=DWARF-DUMP
 
@@ -53,7 +56,7 @@ foo:
 
 # CHECK:      Relocations [
 # CHECK:        Section ({{[^ ]+}}) .rel.debug_line {
-# CHECK-NEXT:     0x2D R_386_32 .text 0x0
+# CHECK-NEXT:     0x2E R_386_32 .text 0x0
 # CHECK-NEXT:   }
 
 # DWARF-DUMP: Address            Line   Column File   ISA Discriminator Flags

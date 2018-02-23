@@ -291,7 +291,7 @@ FunctionPass *createIndirectCallConvPass();
 ModulePass *createVPOParoptTpvPass();
 
 // LoopOptMarker - Indicates loopopt based throttling to subsequent passes.
-FunctionPass *createLoopOptMarkerPass();
+FunctionPass *createLoopOptMarkerLegacyPass();
 
 FunctionPass *createAggInlAALegacyPass();
 #endif // INTEL_CUSTOMIZATION
@@ -303,7 +303,7 @@ FunctionPass *createAggInlAALegacyPass();
 //
 FunctionPass *createCFGSimplificationPass(
     unsigned Threshold = 1, bool ForwardSwitchCond = false,
-    bool ConvertSwitch = false, bool KeepLoops = true,
+    bool ConvertSwitch = false, bool KeepLoops = true, bool SinkCommon = false,
     std::function<bool(const Function &)> Ftor = nullptr);
 
 //===----------------------------------------------------------------------===//
@@ -557,7 +557,7 @@ FunctionPass *createPlaceSafepointsPass();
 // RewriteStatepointsForGC - Rewrite any gc.statepoints which do not yet have
 // explicit relocations to include explicit relocations.
 //
-ModulePass *createRewriteStatepointsForGCPass();
+ModulePass *createRewriteStatepointsForGCLegacyPass();
 
 //===----------------------------------------------------------------------===//
 //

@@ -50,6 +50,7 @@
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/FunctionAttrs.h"
 #include "llvm/Transforms/IPO/Intel_InlineLists.h" // INTEL
+#include "llvm/Transforms/IPO/Intel_OptimizeDynamicCasts.h" // INTEL
 #include "llvm/Transforms/Instrumentation.h"
 #include "llvm/Transforms/Instrumentation/BoundsChecking.h"
 #include "llvm/Transforms/ObjCARC.h"
@@ -92,7 +93,7 @@ namespace {
       (void) llvm::createStdContainerOptPass();
       (void) llvm::createStdContainerAAWrapperPass();
       (void) llvm::createInlineListsPass();
-      (void) llvm::createXmainOptLevelPass();
+      (void) llvm::createXmainOptLevelWrapperPass();
 #endif // INTEL_CUSTOMIZATION
       (void) llvm::createBasicAAWrapperPass();
       (void) llvm::createSCEVAAWrapperPass();
@@ -257,17 +258,11 @@ namespace {
 
   #if INTEL_CUSTOMIZATION
       (void) llvm::createSNodeAnalysisPass();
-      (void) llvm::createLoopOptMarkerPass();
+      (void) llvm::createLoopOptMarkerLegacyPass();
       // HIR passes
-      (void) llvm::createHIRRegionIdentificationPass();
-      (void) llvm::createHIRSCCFormationPass();
-      (void) llvm::createHIRCreationPass();
-      (void) llvm::createHIRCleanupPass();
-      (void) llvm::createHIRLoopFormationPass();
-      (void) llvm::createHIRScalarSymbaseAssignmentPass();
-      (void) llvm::createHIRParserPass();
-      (void) llvm::createHIRSymbaseAssignmentPass();
-      (void) llvm::createHIRFrameworkPass();
+      (void) llvm::createHIRRegionIdentificationWrapperPass();
+      (void) llvm::createHIRSCCFormationWrapperPass();
+      (void) llvm::createHIRFrameworkWrapperPass();
       (void) llvm::createHIRDDAnalysisPass();
       (void) llvm::createHIRLocalityAnalysisPass();
       (void) llvm::createHIRLoopResourcePass();
@@ -275,7 +270,7 @@ namespace {
       (void) llvm::createHIRParVecAnalysisPass();
       (void) llvm::createHIRVectVLSAnalysisPass();
       (void) llvm::createHIRSafeReductionAnalysisPass();
-      (void) llvm::createHIRSSADeconstructionPass();
+      (void) llvm::createHIRSSADeconstructionLegacyPass();
       (void) llvm::createHIRTempCleanupPass();
       (void) llvm::createHIRLoopInterchangePass();
       (void) llvm::createHIROptPredicatePass();
@@ -295,8 +290,10 @@ namespace {
       (void) llvm::createHIRIdiomRecognitionPass();
       (void) llvm::createHIRMVForConstUBPass();
       (void) llvm::createHIRLoopConcatenationPass();
+      (void) llvm::createHIRArrayTransposePass();
+      (void) llvm::createHIRLoopFusionPass();
       (void) llvm::createHIRDummyTransformationPass();
-      (void) llvm::createHIRCodeGenPass();
+      (void) llvm::createHIRCodeGenWrapperPass();
 
       // Optimize math calls
       (void) llvm::createMapIntrinToImlPass();
@@ -332,6 +329,9 @@ namespace {
 
       // VPO Thread Private Transformation
       (void) llvm::createVPOParoptTpvPass();
+
+      // dynamic_cast calls optimization pass.
+      (void) llvm::createOptimizeDynamicCastsWrapperPass();
   #endif // INTEL_CUSTOMIZATION
     }
   } ForcePassLinking; // Force link by creating a global definition.

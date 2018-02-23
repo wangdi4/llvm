@@ -24,20 +24,20 @@ attributes #0 = { nounwind }
 
 define float @test_ss(float %a32, float %b32, float %c32, float %d32) #0 {
 ; SML-LABEL: test_ss:
-; SML:       # BB#0: # %entry
+; SML:       %bb.0: # %entry
 ; SML-NEXT:    vfmadd213ss {{.*}}(%rip), %xmm2, %xmm0
 ; SML-NEXT:    vfmadd213ss %xmm1, %xmm3, %xmm0
 ; SML-NEXT:    retq
 ;
 ; LRG-LABEL: test_ss:
-; LRG:       # BB#0: # %entry
+; LRG:       %bb.0: # %entry
 ; LRG-NEXT:    movabsq ${{\.LCPI.*}}, %rax
 ; LRG-NEXT:    vfmadd213ss (%rax), %xmm2, %xmm0
 ; LRG-NEXT:    vfmadd213ss %xmm1, %xmm3, %xmm0
 ; LRG-NEXT:    retq
 ;
 ; OTHER-LABEL: test_ss:
-; OTHER:       # BB#0: # %entry
+; OTHER:       %bb.0: # %entry
 ; OTHER-NEXT:    movl $1065353216, %eax # imm = 0x3F800000
 ; OTHER-NEXT:    vmovd %eax, %xmm4
 ; OTHER-NEXT:    vfmadd213ss %xmm4, %xmm2, %xmm0
@@ -53,20 +53,20 @@ entry:
 
 define double @test_sd(double %a64, double %b64, double %c64, double %d64) #0 {
 ; SML-LABEL: test_sd:
-; SML:       # BB#0: # %entry
+; SML:       %bb.0: # %entry
 ; SML-NEXT:    vfmadd213sd {{.*}}(%rip), %xmm2, %xmm0
 ; SML-NEXT:    vfmadd213sd %xmm1, %xmm3, %xmm0
 ; SML-NEXT:    retq
 ;
 ; LRG-LABEL: test_sd:
-; LRG:       # BB#0: # %entry
+; LRG:       %bb.0: # %entry
 ; LRG-NEXT:    movabsq ${{\.LCPI.*}}, %rax
 ; LRG-NEXT:    vfmadd213sd (%rax), %xmm2, %xmm0
 ; LRG-NEXT:    vfmadd213sd %xmm1, %xmm3, %xmm0
 ; LRG-NEXT:    retq
 ;
 ; OTHER-LABEL: test_sd:
-; OTHER:       # BB#0: # %entry
+; OTHER:       %bb.0: # %entry
 ; OTHER-NEXT:    movabsq $4607182418800017408, %rax # imm = 0x3FF0000000000000
 ; OTHER-NEXT:    vmovd %rax, %xmm4
 ; OTHER-NEXT:    vfmadd213sd %xmm4, %xmm2, %xmm0
@@ -82,20 +82,20 @@ entry:
 
 define <4 x float> @test_ps(<4 x float> %a32, <4 x float> %b32, <4 x float> %c32, <4 x float> %d32) #0 {
 ; SML-LABEL: test_ps:
-; SML:       # BB#0: # %entry
+; SML:       %bb.0: # %entry
 ; SML-NEXT:    vfmadd213ps {{.*}}(%rip), %xmm2, %xmm0
 ; SML-NEXT:    vfmadd213ps %xmm1, %xmm3, %xmm0
 ; SML-NEXT:    retq
 ;
 ; LRG-LABEL: test_ps:
-; LRG:       # BB#0: # %entry
+; LRG:       %bb.0: # %entry
 ; LRG-NEXT:    movabsq ${{\.LCPI.*}}, %rax
 ; LRG-NEXT:    vfmadd213ps (%rax), %xmm2, %xmm0
 ; LRG-NEXT:    vfmadd213ps %xmm1, %xmm3, %xmm0
 ; LRG-NEXT:    retq
 ;
 ; OTHER-LABEL: test_ps:
-; OTHER:       # BB#0: # %entry
+; OTHER:       %bb.0: # %entry
 ; OTHER-NEXT:    movl $1065353216, %eax # imm = 0x3F800000
 ;
 ; AVX2OTHER-NEXT: vmovd %eax, %xmm4
@@ -115,20 +115,20 @@ entry:
 
 define <2 x double> @test_pd(<2 x double> %a32, <2 x double> %b32, <2 x double> %c32, <2 x double> %d32) #0 {
 ; SML-LABEL: test_pd:
-; SML:       # BB#0: # %entry
+; SML:       %bb.0: # %entry
 ; SML-NEXT:    vfmadd213pd {{.*}}(%rip), %xmm2, %xmm0
 ; SML-NEXT:    vfmadd213pd %xmm1, %xmm3, %xmm0
 ; SML-NEXT:    retq
 ;
 ; LRG-LABEL: test_pd:
-; LRG:       # BB#0: # %entry
+; LRG:       %bb.0: # %entry
 ; LRG-NEXT:    movabsq ${{\.LCPI.*}}, %rax
 ; LRG-NEXT:    vfmadd213pd (%rax), %xmm2, %xmm0
 ; LRG-NEXT:    vfmadd213pd %xmm1, %xmm3, %xmm0
 ; LRG-NEXT:    retq
 ;
 ; OTHER-LABEL: test_pd:
-; OTHER:       # BB#0: # %entry
+; OTHER:       %bb.0: # %entry
 ; OTHER-NEXT:    movabsq $4607182418800017408, %rax # imm = 0x3FF0000000000000
 ;
 ; AVX2OTHER-NEXT: vmovd %rax, %xmm4
@@ -148,20 +148,20 @@ entry:
 
 define <8 x float> @test_ps256(<8 x float> %a32, <8 x float> %b32, <8 x float> %c32, <8 x float> %d32) #0 {
 ; SML-LABEL: test_ps256:
-; SML:       # BB#0: # %entry
+; SML:       %bb.0: # %entry
 ; SML-NEXT:    vfmadd213ps {{.*}}(%rip), %ymm2, %ymm0
 ; SML-NEXT:    vfmadd213ps %ymm1, %ymm3, %ymm0
 ; SML-NEXT:    retq
 ;
 ; LRG-LABEL: test_ps256:
-; LRG:       # BB#0: # %entry
+; LRG:       %bb.0: # %entry
 ; LRG-NEXT:    movabsq ${{\.LCPI.*}}, %rax
 ; LRG-NEXT:    vfmadd213ps (%rax), %ymm2, %ymm0
 ; LRG-NEXT:    vfmadd213ps %ymm1, %ymm3, %ymm0
 ; LRG-NEXT:    retq
 ;
 ; OTHER-LABEL: test_ps256:
-; OTHER:       # BB#0: # %entry
+; OTHER:       %bb.0: # %entry
 ; OTHER-NEXT:    movl $1065353216, %eax # imm = 0x3F800000
 ;
 ; AVX2OTHER-NEXT:   vmovd %eax, %xmm4
@@ -181,20 +181,20 @@ entry:
 
 define <4 x double> @test_pd256(<4 x double> %a32, <4 x double> %b32, <4 x double> %c32, <4 x double> %d32) #0 {
 ; SML-LABEL: test_pd256:
-; SML:       # BB#0: # %entry
+; SML:       %bb.0: # %entry
 ; SML-NEXT:    vfmadd213pd {{.*}}(%rip), %ymm2, %ymm0
 ; SML-NEXT:    vfmadd213pd %ymm1, %ymm3, %ymm0
 ; SML-NEXT:    retq
 ;
 ; LRG-LABEL: test_pd256:
-; LRG:       # BB#0: # %entry
+; LRG:       %bb.0: # %entry
 ; LRG-NEXT:    movabsq ${{\.LCPI.*}}, %rax
 ; LRG-NEXT:    vfmadd213pd (%rax), %ymm2, %ymm0
 ; LRG-NEXT:    vfmadd213pd %ymm1, %ymm3, %ymm0
 ; LRG-NEXT:    retq
 ;
 ; OTHER-LABEL: test_pd256:
-; OTHER:       # BB#0: # %entry
+; OTHER:       %bb.0: # %entry
 ; OTHER-NEXT:    movabsq $4607182418800017408, %rax # imm = 0x3FF0000000000000
 ;
 ; AVX2OTHER-NEXT: vmovd %rax, %xmm4
@@ -216,20 +216,20 @@ attributes #1 = { nounwind "target-cpu"="skx" "target-features"="+avx512f,+fma" 
 
 define <16 x float> @test_ps512(<16 x float> %a32, <16 x float> %b32, <16 x float> %c32, <16 x float> %d32) #1 {
 ; SML-LABEL: test_ps512:
-; SML:       # BB#0: # %entry
+; SML:       %bb.0: # %entry
 ; SML-NEXT:    vfmadd213ps {{.*}}(%rip), %zmm2, %zmm0
 ; SML-NEXT:    vfmadd213ps %zmm1, %zmm3, %zmm0
 ; SML-NEXT:    retq
 ;
 ; LRG-LABEL: test_ps512:
-; LRG:       # BB#0: # %entry
+; LRG:       %bb.0: # %entry
 ; LRG-NEXT:    movabsq ${{\.LCPI.*}}, %rax
 ; LRG-NEXT:    vfmadd213ps (%rax), %zmm2, %zmm0
 ; LRG-NEXT:    vfmadd213ps %zmm1, %zmm3, %zmm0
 ; LRG-NEXT:    retq
 ;
 ; OTHER-LABEL: test_ps512:
-; OTHER:       # BB#0: # %entry
+; OTHER:       %bb.0: # %entry
 ; OTHER-NEXT:    movl $1065353216, %eax # imm = 0x3F800000
 ; OTHER-NEXT:    vpbroadcastd %eax, %zmm4
 ; OTHER-NEXT:    vfmadd213ps %zmm4, %zmm2, %zmm0

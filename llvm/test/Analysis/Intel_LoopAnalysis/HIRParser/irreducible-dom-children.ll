@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser | FileCheck %s
 
 ; Verify that we are able to successfully parse the loop. This was failing during lexical link formation because the loop header for.body9.i dominated bblocks for.cond35.L2_crit_edge.i and L2.preheader.i which are part of an irreducible cycle outside the region. HIR framework cannot handle irreducible cfg. The fix is to not process bblocks outside the region.
 

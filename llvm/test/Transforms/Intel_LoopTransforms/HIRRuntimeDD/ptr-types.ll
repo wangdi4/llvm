@@ -10,10 +10,10 @@
 ;}
 
 ; CHECK: IR Dump After
-; CHECK: %cast = bitcast.i64*.i32*(&((%b)[0]));
-; CHECK: %cast1 = bitcast.i64*.i32*(&((%b)[sext.i32.i64((-1 + %N))]));
-; CHECK: %mv.test = %cast1 >=u &((%a)[0]);
-; CHECK: %mv.test2 = &((%a)[sext.i32.i64((-1 + %N))]) >=u %cast;
+; CHECK: %mv.cast = bitcast.i64*.i32*(&((%b)[sext.i32.i64((-1 + %N))]));
+; CHECK: %mv.cast1 = bitcast.i64*.i32*(&((%b)[0]));
+; CHECK: %mv.test = %mv.cast >=u &((%a)[0]);
+; CHECK: %mv.test2 = &((%a)[sext.i32.i64((-1 + %N))]) >=u %mv.cast1;
 ; CHECK: %mv.and = %mv.test  &&  %mv.test2;
 ; CHECK: if (%mv.and == 0)
 

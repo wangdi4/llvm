@@ -123,7 +123,7 @@ public:
   void releaseMemory() override;
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
-    AU.addRequiredTransitive<HIRFramework>();
+    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
     AU.setPreservesAll();
   }
 
@@ -160,7 +160,7 @@ private:
 
 char HIROptVarPredicate::ID = 0;
 INITIALIZE_PASS_BEGIN(HIROptVarPredicate, OPT_SWITCH, OPT_DESC, false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFramework)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_END(HIROptVarPredicate, OPT_SWITCH, OPT_DESC, false, false)
 
 FunctionPass *llvm::createHIROptVarPredicatePass() {
@@ -377,7 +377,7 @@ bool HIROptVarPredicate::runOnFunction(Function &F) {
   DEBUG(dbgs() << "Optimization of Variant Predicates Function: " << F.getName()
                << "\n");
 
-  HIR = &getAnalysis<HIRFramework>();
+  HIR = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   HLNodeUtilsObj = &HIR->getHLNodeUtils();
   BlobUtilsObj = &HIR->getBlobUtils();
 

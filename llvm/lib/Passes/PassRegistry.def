@@ -48,6 +48,7 @@ MODULE_PASS("deadargelim", DeadArgumentEliminationPass())
 MODULE_PASS("elim-avail-extern", EliminateAvailableExternallyPass())
 MODULE_PASS("forceattrs", ForceFunctionAttrsPass())
 MODULE_PASS("function-import", FunctionImportPass())
+MODULE_PASS("function-splitting", FunctionSplittingPass()) // INTEL
 MODULE_PASS("globaldce", GlobalDCEPass())
 MODULE_PASS("globalopt", GlobalOptPass())
 MODULE_PASS("globalsplit", GlobalSplitPass())
@@ -60,6 +61,7 @@ MODULE_PASS("ipsccp", IPSCCPPass())
 MODULE_PASS("lowertypetests", LowerTypeTestsPass())
 MODULE_PASS("name-anon-globals", NameAnonGlobalPass())
 MODULE_PASS("no-op-module", NoOpModulePass())
+MODULE_PASS("optimize-dyn-casts", OptimizeDynamicCastsPass())
 MODULE_PASS("partial-inliner", PartialInlinerPass())
 MODULE_PASS("pgo-icall-prom", PGOIndirectCallPromotion())
 MODULE_PASS("pgo-instr-gen", PGOInstrumentationGen())
@@ -70,6 +72,7 @@ MODULE_PASS("print-callgraph", CallGraphPrinterPass(dbgs()))
 MODULE_PASS("print", PrintModulePass(dbgs()))
 MODULE_PASS("print-lcg", LazyCallGraphPrinterPass(dbgs()))
 MODULE_PASS("print-lcg-dot", LazyCallGraphDOTPrinterPass(dbgs()))
+MODULE_PASS("rewrite-statepoints-for-gc", RewriteStatepointsForGC())
 MODULE_PASS("rewrite-symbols", RewriteSymbolPass())
 MODULE_PASS("rpo-functionattrs", ReversePostOrderFunctionAttrsPass())
 MODULE_PASS("sample-profile", SampleProfileLoaderPass())
@@ -120,6 +123,13 @@ FUNCTION_ANALYSIS("targetlibinfo", TargetLibraryAnalysis())
 FUNCTION_ANALYSIS("targetir",
                   TM ? TM->getTargetIRAnalysis() : TargetIRAnalysis())
 FUNCTION_ANALYSIS("verify", VerifierAnalysis())
+
+#if INTEL_CUSTOMIZATION
+FUNCTION_ANALYSIS("xm-opt-level", XmainOptLevelAnalysis())
+FUNCTION_ANALYSIS("hir-region-identification", loopopt::HIRRegionIdentificationAnalysis())
+FUNCTION_ANALYSIS("hir-scc-formation", loopopt::HIRSCCFormationAnalysis())
+FUNCTION_ANALYSIS("hir-framework", loopopt::HIRFrameworkAnalysis())
+#endif // INTEL_CUSTOMIZATION
 
 #ifndef FUNCTION_ALIAS_ANALYSIS
 #define FUNCTION_ALIAS_ANALYSIS(NAME, CREATE_PASS)                             \
@@ -214,6 +224,15 @@ FUNCTION_PASS("verify<memoryssa>", MemorySSAVerifierPass())
 FUNCTION_PASS("verify<regions>", RegionInfoVerifierPass())
 FUNCTION_PASS("view-cfg", CFGViewerPass())
 FUNCTION_PASS("view-cfg-only", CFGOnlyViewerPass())
+
+#if INTEL_CUSTOMIZATION
+FUNCTION_PASS("hir-ssa-deconstruction", loopopt::HIRSSADeconstructionPass())
+FUNCTION_PASS("print<hir-region-identification>", loopopt::HIRRegionIdentificationPrinterPass(dbgs()))
+FUNCTION_PASS("print<hir-scc-formation>", loopopt::HIRSCCFormationPrinterPass(dbgs()))
+FUNCTION_PASS("print<hir-framework>", loopopt::HIRFrameworkPrinterPass(dbgs()))
+FUNCTION_PASS("verify<hir-framework>", loopopt::HIRFrameworkVerifierPass())
+FUNCTION_PASS("hir-cg", loopopt::HIRCodeGenPass())
+#endif // INTEL_CUSTOMIZATION
 #undef FUNCTION_PASS
 
 #ifndef LOOP_ANALYSIS

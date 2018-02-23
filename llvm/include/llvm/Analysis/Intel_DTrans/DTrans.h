@@ -1,6 +1,6 @@
 //===--------------- DTrans.h - Class definition -*- C++ -*----------------===//
 //
-// Copyright (C) 2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -74,6 +74,54 @@ const SafetyData BadPtrManipulation = 0x0000000000000004;
 /// An i8* value that may alias to multiple types is passed to a GetElementPtr
 /// instruction.
 const SafetyData AmbiguousGEP = 0x0000000000000008;
+
+/// A volatile memory operation was found operating on the type on one of its
+/// elements.
+const SafetyData VolatileData = 0x0000000000000010;
+
+/// A load or store operation was used with a pointer to an element within an
+/// aggregate type, but the type of value loaded or stored did not match the
+/// element type.
+const SafetyData MismatchedElementAccess = 0x0000000000000020;
+
+/// A load was seen using a pointer operand that alias to incompatible pointer
+/// types.
+const SafetyData AmbiguousPointerLoad = 0x0000000000000040;
+
+/// A load or store instruction was found which loads or stores an entire
+/// instance of the type.
+const SafetyData WholeStructureReference = 0x0000000000000080;
+
+/// A store was seen using a value operand that aliases to a type of interest
+/// with a pointer operand that was not known to alias to a pointer to a
+/// pointer to that type.
+const SafetyData UnsafePointerStore = 0x0000000000000100;
+
+/// The addresses of one or more fields within the type were written to memory
+/// or passed as an argument to a function call.
+const SafetyData FieldAddressTaken = 0x0000000000000200;
+
+/// A global variable was found which is a pointer to the type.
+const SafetyData GlobalPtr = 0x0000000000000400;
+
+/// A global variable was found which is an instance of the type.
+const SafetyData GlobalInstance = 0x0000000000000800;
+
+/// A global variable was found which is an instance of the type and has a
+/// non-zero initializer.
+const SafetyData HasInitializerList = 0x0000000000001000;
+
+/// A structure is modified via a memory function intrinsic (memcpy, memmove,
+/// or memset), with a size that differs from the native structure size.
+const SafetyData BadMemFuncSize = 0x0000000000002000;
+
+/// A structure is modified via a memory function intrinsic (memcpy or memmove)
+/// with conflicting or unknown types for the source and destination parameters.
+const SafetyData BadMemFuncManipulation = 0x0000000000004000;
+
+/// A pointer is passed to an intrinsic or library function that can alias
+/// incompatible types.
+const SafetyData AmbiguousPointerTarget = 0x0000000000008000;
 
 /// This is a catch-all flag that will be used to mark any usage pattern
 /// that we don't specifically recognize. The use might actually be safe
@@ -200,8 +248,11 @@ void getAllocSizeArgs(AllocKind Kind, CallInst *CI, Value* &AllocSizeVal,
                       Value* &AllocCountVal);
 
 /// Examine the specified types to determine if a bitcast from \p SrcTy to
-/// \p DestTy could be used to access the first element of SrcTy.
-bool isElementZeroAccess(llvm::Type *SrcTy, llvm::Type *DestTy);
+/// \p DestTy could be used to access the first element of SrcTy. The
+/// \p AccessedTy argument if non-null returns the type (possibly a nested
+/// type) whose element zero is accessed, if any.
+bool isElementZeroAccess(llvm::Type *SrcTy, llvm::Type *DestTy,
+                         llvm::Type **AccessedTy = nullptr);
 
 } // namespace dtrans
 

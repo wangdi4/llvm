@@ -1,6 +1,6 @@
 //===---------------- DTransAnalysis.cpp - DTrans Analysis ----------------===//
 //
-// Copyright (C) 2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -45,7 +45,7 @@ namespace {
 /// within a function.
 ///
 /// This class is used within the DTransAnalysis to track the types of data
-/// that a value may point to, independent of the the type of the value.
+/// that a value may point to, independent of the type of the value.
 /// For example, consider the following line of IR:
 ///
 ///   %t = bitcast %struct.S* %ps to i8*
@@ -108,7 +108,13 @@ public:
     ElementPointees.insert(std::make_pair(Base, ElemIdx));
   }
 
-  bool canPointToType(llvm::Type *T) { return PointerTypeAliases.count(T) > 0; }
+  bool canPointToType(llvm::Type *T) {
+    for (auto *AliasTy : PointerTypeAliases)
+      if (AliasTy->isPointerTy() && AliasTy->getPointerElementType() == T)
+        return true;
+    return false;
+  }
+
   bool pointsToSomeElement() { return ElementPointees.size() > 0; }
 
   bool pointsToMultipleAggregateTypes() {
@@ -128,6 +134,38 @@ public:
     return NumAliased > 1;
   }
 
+  llvm::Type *getDominantAggregateTy() {
+    // TODO: Compute this as aliases are added.
+    if (!AliasesToAggregatePointer)
+      return nullptr;
+    llvm::Type *DomTy = nullptr;
+    for (auto *AliasTy : PointerTypeAliases) {
+      llvm::Type *BaseTy = AliasTy;
+      while (BaseTy->isPointerTy())
+        BaseTy = BaseTy->getPointerElementType();
+      if (!BaseTy->isAggregateType())
+        continue;
+      if (!DomTy) {
+        DomTy = AliasTy;
+        continue;
+      }
+      // If this type can be an element zero access of DomTy,
+      // DomTy is still dominant.
+      if (dtrans::isElementZeroAccess(DomTy, AliasTy))
+        continue;
+      // If what we previously thought was the dominant type can be
+      // an element zero access of the current alias, the current
+      // alias becomes dominant.
+      if (dtrans::isElementZeroAccess(AliasTy, DomTy)) {
+        DomTy = AliasTy;
+        continue;
+      }
+      // Otherwise, there are conflicting aliases and nothing can be dominant.
+      return nullptr;
+    }
+    return DomTy;
+  }
+
   PointerTypeAliasSetRef getPointerTypeAliasSet() { return PointerTypeAliases; }
   ElementPointeeSetRef getElementPointeeSet() { return ElementPointees; }
 
@@ -139,6 +177,28 @@ public:
     for (auto &Pair : Other.ElementPointees)
       ElementPointees.insert(Pair);
   }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  LLVM_DUMP_METHOD
+  void dump() {
+    dbgs() << "LocalPointerInfo:\n";
+    if (PointerTypeAliases.empty()) {
+      dbgs() << "  No aliased types.\n";
+    } else {
+      dbgs() << "  Aliased types:\n";
+      for (auto *Ty : PointerTypeAliases)
+        dbgs() << "    " << *Ty << "\n";
+    }
+    if (ElementPointees.empty()) {
+      dbgs() << "  No element pointees.\n";
+    } else {
+      dbgs() << "  Element pointees:\n";
+      for (auto &PointeePair : ElementPointees)
+        dbgs() << "    " << *PointeePair.first << " @ " << PointeePair.second
+               << "\n";
+    }
+  }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 private:
   bool HasBeenAnalyzed;
@@ -180,9 +240,12 @@ private:
     if (Info.getAnalyzed())
       return;
 
-    // If this isn't either a pointer or the result of a ptrtoint we don't
-    // need to do any analysis.
-    if (!V->getType()->isPointerTy() && !isa<PtrToIntInst>(V)) {
+    // If this isn't either a pointer, the result of a ptrtoint, or the load
+    // of a pointer-sized integer we don't need to do any analysis.
+    if (!V->getType()->isPointerTy() && !isa<PtrToIntInst>(V) &&
+        !(isa<LoadInst>(V) &&
+          (V->getType() == llvm::Type::getIntNTy(V->getContext(),
+                                                 DL.getPointerSizeInBits())))) {
       Info.setAnalyzed();
       InProgressValues.erase(V);
       return;
@@ -217,8 +280,13 @@ private:
 
     // If this is a GetElementPtr, figure out what element it is
     // accessing.
-    if (auto *GEP = dyn_cast<GetElementPtrInst>(V))
+    if (auto *GEP = dyn_cast<GEPOperator>(V))
       analyzeElementAccess(GEP, Info);
+
+    // If the value being analyzed is a load instruction the loaded value
+    // may inherit some alias information from the load's pointer operand.
+    if (auto *Load = dyn_cast<LoadInst>(V))
+      analyzeLoadInstruction(Load, Info);
 
     // Mark the info as analyzed.
     Info.setAnalyzed();
@@ -252,6 +320,27 @@ private:
         isa<PtrToIntOperator>(V)) {
       Value *SrcVal = cast<User>(V)->getOperand(0);
       analyzeValue(SrcVal);
+      // If this is a bitcast that would be a valid way to access element
+      // zero of any type known to be aliased by SrcVal, then record this
+      // as an element access rather than merging the incoming value's aliases.
+      if (auto *BC = dyn_cast<BitCastInst>(V)) {
+        // It's possible that the source value aliases multiple pointers that
+        // meet the element zero idiom. If it does, we want to know about all
+        // of them.
+        bool IsElementZeroAccess = false;
+        LocalPointerInfo &SrcLPI = LocalMap[SrcVal];
+        for (auto *AliasTy : SrcLPI.getPointerTypeAliasSet()) {
+          llvm::Type *AccessedTy = nullptr;
+          if (dtrans::isElementZeroAccess(AliasTy, BC->getDestTy(),
+                                          &AccessedTy)) {
+            Info.addElementPointee(AccessedTy->getPointerElementType(), 0);
+            IsElementZeroAccess = true;
+          }
+        }
+        // If this is an element zero access, don't merge the source info.
+        if (IsElementZeroAccess)
+          return;
+      }
       Info.merge(LocalMap[SrcVal]);
       return;
     }
@@ -261,11 +350,13 @@ private:
     llvm_unreachable("Unexpected class for derived value!");
   }
 
-  bool analyzeElementAccess(GetElementPtrInst *GEP, LocalPointerInfo &Info) {
+  bool analyzeElementAccess(GEPOperator *GEP, LocalPointerInfo &Info) {
+    auto *Int8PtrTy = llvm::Type::getInt8PtrTy(GEP->getContext());
+
     // If the base pointer is an i8* we need to analyze this as a
     // byte-flattened GEP.
     Value *BasePointer = GEP->getPointerOperand();
-    if (BasePointer->getType() == llvm::Type::getInt8PtrTy(GEP->getContext()))
+    if (BasePointer->getType() == Int8PtrTy)
       return analyzeByteFlattenedGEPAccess(GEP, Info);
 
     // A GEP with only one index argument is a special case where a pointer
@@ -273,6 +364,30 @@ private:
     // within an aggregate type.
     if (GEP->getNumIndices() == 1)
       return false;
+
+    // There's an odd case where LLVM's constant folder will transform
+    // a bitcast into a GEP if the first element of the structure at
+    // any level of nesting matches the type of the bitcast. Normally
+    // this is good, but if the first element is an i8 (or a fixed array
+    // of i8, or a nested structure whose first element is an i8, etc.)
+    // then this folding can lead to a misleading GEP where the code
+    // was actually just trying to obtain a void pointer to the structure.
+    //
+    // For that reason, if this GEP returns an i8* and all but its first
+    // index arguments are zero, we want to include the base structure
+    // type in the alias set. The first index argument does not index
+    // into the structure but offsets from it (as a dynamic array) so
+    // this case applies even if the first index is non-zero.
+    if (GEP->getType() == Int8PtrTy) {
+      bool IsBitCastEquivalent = true;
+      for (unsigned i = 1; i < GEP->getNumIndices(); ++i)
+        // The +1 here is because the first operand of a GEP is not an index.
+        if (ConstantInt *CI = dyn_cast<ConstantInt>(GEP->getOperand(i + 1)))
+          if (!CI->isZero())
+            IsBitCastEquivalent = false;
+      if (IsBitCastEquivalent)
+        Info.addPointerTypeAlias(BasePointer->getType());
+    }
 
     // Find the type of the type of the last composite type being
     // indexed by this GEP.
@@ -311,8 +426,7 @@ private:
   //
   // where %struct.S is a structure that has an element of type %struct.Elem
   // at offset 32 (as determined by DataLayout).
-  bool analyzeByteFlattenedGEPAccess(GetElementPtrInst *GEP,
-                                     LocalPointerInfo &Info) {
+  bool analyzeByteFlattenedGEPAccess(GEPOperator *GEP, LocalPointerInfo &Info) {
     Value *BasePointer = GEP->getPointerOperand();
     // The caller should have checked this.
     assert(BasePointer->getType() ==
@@ -340,7 +454,7 @@ private:
     return false;
   }
 
-  bool analyzePossibleOffsetAggregateAccess(GetElementPtrInst *GEP,
+  bool analyzePossibleOffsetAggregateAccess(GEPOperator *GEP,
                                             llvm::Type *AggregateTy,
                                             uint64_t Offset,
                                             LocalPointerInfo &Info) {
@@ -354,7 +468,7 @@ private:
                                               Offset, Info);
   }
 
-  bool analyzePossibleOffsetStructureAccess(GetElementPtrInst *GEP,
+  bool analyzePossibleOffsetStructureAccess(GEPOperator *GEP,
                                             llvm::StructType *StructTy,
                                             uint64_t Offset,
                                             LocalPointerInfo &Info) {
@@ -388,7 +502,7 @@ private:
     return true;
   }
 
-  bool analyzePossibleOffsetArrayAccess(GetElementPtrInst *GEP,
+  bool analyzePossibleOffsetArrayAccess(GEPOperator *GEP,
                                         llvm::ArrayType *ArrayTy,
                                         uint64_t Offset,
                                         LocalPointerInfo &Info) {
@@ -408,6 +522,17 @@ private:
 
     // Otherwise, we may be accessing a sub-element within a nested aggregate.
     return analyzePossibleOffsetAggregateAccess(GEP, ElemTy, NewOffset, Info);
+  }
+
+  void analyzeLoadInstruction(LoadInst *Load, LocalPointerInfo &Info) {
+    // If the pointer operand aliases any pointers-to-pointers, the loaded
+    // value will be considered to alias to the pointed-to pointer type.
+    Value *Src = Load->getPointerOperand();
+    LocalPointerInfo &SrcLPI = getLocalPointerInfo(Src);
+    for (auto *AliasTy : SrcLPI.getPointerTypeAliasSet())
+      if (AliasTy->isPointerTy() &&
+          AliasTy->getPointerElementType()->isPointerTy())
+        Info.addPointerTypeAlias(AliasTy->getPointerElementType());
   }
 
   bool isDerivedValue(Value *V) {
@@ -434,6 +559,7 @@ private:
   // bitcast and, unless it looks like an element zero access, add that type
   // as an alias of the allocated pointer.
   void analyzeAllocationCallAliases(CallInst *CI, LocalPointerInfo &Info) {
+    DEBUG(dbgs() << "dtrans: Analyzing allocation call.\n  " << *CI << "\n");
     SmallPtrSet<llvm::PointerType *, 4> CastTypes;
     SmallPtrSet<Value *, 4> VisitedUsers;
     collectAllocatedPtrBitcasts(CI, CastTypes, VisitedUsers);
@@ -490,6 +616,8 @@ private:
         // would be done with the PtrToInt instruction.
         auto PtrTy = cast<PointerType>(BI->getType());
 
+        DEBUG(dbgs() << "  Associated bitcast: " << *BI << "\n");
+
         // Save the type information.
         CastTypes.insert(PtrTy);
         continue;
@@ -499,15 +627,88 @@ private:
       if (isa<PHINode>(U) || isa<SelectInst>(U))
         collectAllocatedPtrBitcasts(cast<Instruction>(U), CastTypes,
                                     VisitedUsers);
+      // If the user is a store instruction, treat the alias types of the
+      // destination pointer as implicit casts.
+      if (auto *Store = dyn_cast<StoreInst>(U))
+        inferAllocatedTypesFromStoreInst(Store, CastTypes);
     }
+  }
+
+  // Sometime an allocated pointer will be directly stored to a memory
+  // location. In such a case, the type of memory that was allocated can be
+  // inferred from the type of the destination pointer. A typical example
+  // might look like this:
+  //
+  //   %dest = bitcast %struct.A** %val to %i8**
+  //   %p = call i8* @malloc(i64 64)
+  //   store i8* p, i8** %dest
+  //
+  // In this case, we can infer that the memory allocated is a %struct.A
+  // object because its pointer (effectively %struct.A*) is stored in a
+  // location that aliases to %struct.A**. This often happens when an
+  // allocated pointer is stored in a structure field.
+  void inferAllocatedTypesFromStoreInst(
+      StoreInst *Store, SmallPtrSetImpl<llvm::PointerType *> &Types) {
+    // Get the local pointer info for the destination address.
+    Value *DestPtr = Store->getPointerOperand();
+    analyzeValue(DestPtr);
+    LocalPointerInfo &DestInfo = LocalMap[DestPtr];
+
+    // For each type aliased by the destination, if the type is a pointer
+    // add the type that it points to to the Types set.
+    for (auto *AliasTy : DestInfo.getPointerTypeAliasSet())
+      if (AliasTy->isPointerTy() &&
+          AliasTy->getPointerElementType()->isPointerTy())
+        Types.insert(cast<PointerType>(AliasTy->getPointerElementType()));
   }
 };
 
 class DTransInstVisitor : public InstVisitor<DTransInstVisitor> {
 public:
-  DTransInstVisitor(DTransAnalysisInfo &Info, const DataLayout &DL,
-                    const TargetLibraryInfo &TLI)
-      : DTInfo(Info), DL(DL), TLI(TLI), LPA(DL, TLI) {}
+  DTransInstVisitor(LLVMContext &Context, DTransAnalysisInfo &Info,
+                    const DataLayout &DL, const TargetLibraryInfo &TLI)
+      : DTInfo(Info), DL(DL), TLI(TLI), LPA(DL, TLI) {
+    // Save pointers to some commonly referenced types.
+    Int8PtrTy = llvm::Type::getInt8PtrTy(Context);
+    PtrSizeIntTy = llvm::Type::getIntNTy(Context, DL.getPointerSizeInBits());
+    PtrSizeIntPtrTy =
+        llvm::Type::getIntNPtrTy(Context, DL.getPointerSizeInBits());
+  }
+
+  void visitIntrinsicInst(IntrinsicInst &I) {
+    Intrinsic::ID Intrin = I.getIntrinsicID();
+    switch (Intrin) {
+    default:
+      break;
+
+    // The following intrinsics do not affect the safety checks of
+    // the DTrans analysis for any of their arguments.
+    case Intrinsic::dbg_declare:
+    case Intrinsic::dbg_value:
+    case Intrinsic::lifetime_end:
+    case Intrinsic::lifetime_start:
+      return;
+
+    case Intrinsic::memset:
+      analyzeMemset(I);
+      return;
+
+    case Intrinsic::memcpy:
+    case Intrinsic::memmove:
+      analyzeMemcpyOrMemmove(I);
+      return;
+    }
+
+    // The intrinsic was not handled, mark all parameters as unhandled uses.
+    for (Value *Arg : I.arg_operands()) {
+      if (isValueOfInterest(Arg)) {
+        DEBUG(dbgs() << "dtrans-safety: Unhandled use --  IntrinsicInst: " << I
+                     << " value passed as argument.\n"
+                     << "  " << *Arg << "\n");
+        setValueTypeInfoSafetyData(Arg, dtrans::UnhandledUse);
+      }
+    }
+  }
 
   void visitCallInst(CallInst &CI) {
     Function *F = CI.getCalledFunction();
@@ -519,15 +720,10 @@ public:
       // type value, record that.
       llvm::Type *RetTy = CI.getType();
       if (DTInfo.isTypeOfInterest(RetTy)) {
-        if (F) {
-          DEBUG(dbgs() << "Type " << *RetTy << " is returned by a call to "
-                       << F->getName() << "\n");
-          // TODO: Record this information?
-        } else {
-          DEBUG(dbgs() << "Type " << *RetTy
-                       << " is returned by an indirect function call.\n");
-          // TODO: Record this information?
-        }
+        DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
+                     << "Type is returned by a call:\n"
+                     << "  " << CI << "\n");
+        // TODO: Record this information?
         // This is probably safe, but we'll flag it for now until we're sure.
         setBaseTypeInfoSafetyData(RetTy, dtrans::UnhandledUse);
       }
@@ -535,8 +731,9 @@ public:
 
     for (Value *Arg : CI.arg_operands()) {
       if (isValueOfInterest(Arg)) {
-        DEBUG(dbgs() << "DTRANS: Unhandled use -- value passed as argument.\n"
-                     << "  " << *Arg << "\n");
+        DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
+                     << "value passed as argument:\n"
+                     << "  " << CI << "\n  " << *Arg << "\n");
         // This may be safe, but we'll flag it for now until whole program
         // function modeling is complete.
         setValueTypeInfoSafetyData(Arg, dtrans::UnhandledUse);
@@ -545,157 +742,77 @@ public:
   }
 
   void visitBitCastInst(BitCastInst &I) {
-    // Collect the types involed in this cast.
-    llvm::Type *SrcTy = I.getSrcTy();
     llvm::Type *DestTy = I.getDestTy();
-    llvm::Type *BytePtrTy = llvm::Type::getInt8PtrTy(I.getContext());
-    llvm::Type *IntPtrPtrTy =
-        llvm::Type::getIntNPtrTy(I.getContext(), DL.getPointerSizeInBits());
+    llvm::Value *SrcVal = I.getOperand(0);
 
-    if (DTInfo.isTypeOfInterest(DestTy)) {
-      if (SrcTy == BytePtrTy) {
-        // If we are casting from an i8* to a type of interest, make sure
-        // the source operand is known to alias DestTy and does not alias to
-        // any other types.
-        LocalPointerInfo &LPI = LPA.getLocalPointerInfo(I.getOperand(0));
-        bool AliasesDestTy = false;
-        bool AccessesElementZero = false;
-        for (auto *AliasTy : LPI.getPointerTypeAliasSet()) {
-          if (AliasTy == BytePtrTy)
-            continue;
-          if (AliasTy == DestTy) {
-            AliasesDestTy = true;
-            continue;
-          }
-          // If this cast is accessing element zero of a known alias type
-          // that is a safe cast.
-          if (dtrans::isElementZeroAccess(AliasTy, DestTy)) {
-            // TODO: If this is an element zero access, we need to track that.
-            DEBUG(dbgs() << "dtrans: bitcast used to access element zero:\n"
-                         << "  " << I << "\n");
-            setBaseTypeInfoSafetyData(DestTy, dtrans::UnhandledUse);
-            setBaseTypeInfoSafetyData(AliasTy, dtrans::UnhandledUse);
-            AccessesElementZero = true;
-            continue;
-          }
-          // If the source pointer aliases to another type, the cast is unsafe.
-          DEBUG(dbgs() << "dtrans: unsafe cast of aliased pointer:\n"
-                       << "  " << I << "\n");
-          setValueTypeInfoSafetyData(&I, dtrans::BadCasting);
-          return;
-        }
-        if (!AliasesDestTy && !AccessesElementZero) {
-          DEBUG(dbgs() << "dtrans: unsafe cast of i8* to unexpected type:\n"
-                       << "  " << I << "\n");
-          setValueTypeInfoSafetyData(&I, dtrans::BadCasting);
-          return;
-        }
-        // TODO: Check for element pointer use.
-      } else {
-        // If DestTy points to a type that matches the type of SrcTy
-        // element zero, this is an element access.
-        if (dtrans::isElementZeroAccess(SrcTy, DestTy)) {
-          // TODO: If this is an element zero access, we need to track that.
-          DEBUG(dbgs() << "dtrans: bitcast used to access element zero:\n"
-                       << "  " << I << "\n");
-          setValueTypeInfoSafetyData(&I, dtrans::UnhandledUse);
-          return;
-        } else {
-          DEBUG(dbgs() << "dtrans: unsafe cast of pointer:\n"
-                       << "  " << I << "\n");
-          setValueTypeInfoSafetyData(&I, dtrans::BadCasting);
-          return;
-        }
+    // If the source operand is not a value of interest, we only need to
+    // consider the destination type.
+    if (!isValueOfInterest(SrcVal)) {
+      // If the destination type is a type of interest, then the cast is
+      // unsafe since we don't know anything about the source value.
+      if (DTInfo.isTypeOfInterest(DestTy)) {
+        DEBUG(dbgs() << "dtrans-safety: Bad casting -- "
+                     << "unknown pointer cast to type of interest:\n"
+                     << "  " << I << "\n");
+        setValueTypeInfoSafetyData(&I, dtrans::BadCasting);
       }
-      // We don't need to check the source type any further.
       return;
     }
 
-    // If the source value is of interest, make sure the destination value
-    // will be used in safe ways.
-    if (isValueOfInterest(I.getOperand(0))) {
-      // Casting to i8* is safe (though the uses may still be unsafe).
-      if (DestTy == BytePtrTy)
-        return;
+    // If we get here, the source operand is a value of interest.
 
-      // If the source is a pointer to a pointer, and the destination is
-      // a pointer to a pointer-sized integer, the cast is safe (though the
-      // uses may still be unsafe).
-      if (SrcTy->isPointerTy() &&
-          SrcTy->getPointerElementType()->isPointerTy() &&
-          DestTy == IntPtrPtrTy)
-        return;
+    LocalPointerInfo &LPI = LPA.getLocalPointerInfo(SrcVal);
 
-      // Get the local pointer info for the source value.
-      LocalPointerInfo &LPI = LPA.getLocalPointerInfo(I.getOperand(0));
-
-      // If this is a pointer to an element within a struct, make sure
-      // it is being cast to the correct type.
-      auto ElementPointees = LPI.getElementPointeeSet();
-      if (ElementPointees.size() > 0) {
-        for (auto &PointeePair : ElementPointees) {
-          dtrans::TypeInfo *ParentTI = DTInfo.getTypeInfo(PointeePair.first);
-          // It should only be necessary to perform a cast if the source
-          // pointer is an i8*. Otherwise, we probably need some additional
-          // handling somewhere.
-          if (SrcTy != BytePtrTy)
-            ParentTI->setSafetyData(dtrans::UnhandledUse);
-          if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(ParentTI)) {
-            assert(PointeePair.second < ParentStInfo->getNumFields());
-            dtrans::FieldInfo &FI = ParentStInfo->getField(PointeePair.second);
-            if (FI.getLLVMType() != DestTy->getPointerElementType()) {
-              // This probably indicates that a union was present.
-              // TODO: Should this have its own safety condition?
-              //       Should the field info be marked accordingly?
-              ParentStInfo->setSafetyData(dtrans::BadCasting);
-            }
-          } else {
-            // We only store info for structs and arrays, so this must be
-            // an array. The cast asserts that.
-            auto *ParentArrayInfo = cast<dtrans::ArrayInfo>(ParentTI);
-            if (ParentArrayInfo->getElementLLVMType() !=
-                DestTy->getPointerElementType())
-              ParentArrayInfo->setSafetyData(dtrans::BadCasting);
-          }
-        }
-        return;
-      }
-
-      // If the source value is an i8*, we need to look for the type of
-      // interest to which it is known to alias. (We know there is one
-      // because of the isValueOfInterest check.)
-      if (SrcTy == BytePtrTy) {
-        for (auto *AliasTy : LPI.getPointerTypeAliasSet()) {
-          // If this aliases to multiple types of interest those will have
-          // already been marked with bad casting elsewhere, so we can just
-          // take the first one and stop looking.
-          if (DTInfo.isTypeOfInterest(AliasTy)) {
-            SrcTy = AliasTy;
-            break;
-          }
-        }
-      }
-
-      assert(DTInfo.isTypeOfInterest(SrcTy));
-
-      // The only other legal cast is a cast to the type of the first
-      // element in an aggregate (which is a way to access that element
-      // without using a GEP instruction).
-      if (dtrans::isElementZeroAccess(SrcTy, DestTy)) {
-        // TODO: If this is an element zero access, we need to track that.
-        DEBUG(dbgs() << "dtrans: bitcast used to access element zero:\n"
-                     << "  " << I << "\n");
-        setBaseTypeInfoSafetyData(SrcTy, dtrans::UnhandledUse);
-      } else {
-        // TODO: If SrcTy is a struct and DestTy is smaller than the struct's
-        //       element zero type, it's likely that element zero is actually
-        //       a union. We might want to handle that as something other than
-        //       a bad cast.
-        DEBUG(dbgs() << "dtrans: unsafe cast of pointer:\n"
-                     << "  " << I << "\n");
-        setBaseTypeInfoSafetyData(SrcTy, dtrans::BadCasting);
-      }
+    // If the source points to multiple incompatible types, mark the cast
+    // as unsafe for all aliased types.
+    if (isAliasSetOverloaded(LPI.getPointerTypeAliasSet(),
+                             /*AllowElementZeroAccess=*/true)) {
+      DEBUG(dbgs() << "dtrans-safety: Bad casting -- "
+                   << "cast of ambiguous pointer:\n"
+                   << "  " << I << "\n");
+      setValueTypeInfoSafetyData(&I, dtrans::BadCasting);
+      setValueTypeInfoSafetyData(SrcVal, dtrans::BadCasting);
+      return;
     }
+
+    // Get the dominant aggregate type to which the source operand points.
+    // Usually the value will only alias to one aggregate type. However, if
+    // the first element in an aggregate type is a nested type, the value
+    // may also alias to a pointer to that type. In that case, the parent
+    // type will be returned as the dominant type. The case of multiple
+    // incompatible types was checked for above.
+    llvm::Type *DomTy = LPI.getDominantAggregateTy();
+    if (!DomTy) {
+      // If a dominant aggregate type was not identified, this must be a
+      // pointer to an element within some other aggregate type.
+      auto ElementPointees = LPI.getElementPointeeSet();
+      assert(ElementPointees.size() > 0);
+      // In the case of multiple nested element zero types, there may be
+      // more than one safe element pointee.
+      for (auto &PointeePair : ElementPointees) {
+        dtrans::TypeInfo *ParentTI =
+            DTInfo.getOrCreateTypeInfo(PointeePair.first);
+        llvm::Type *ElemTy;
+        if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(ParentTI)) {
+          assert(PointeePair.second < ParentStInfo->getNumFields());
+          dtrans::FieldInfo &FI = ParentStInfo->getField(PointeePair.second);
+          ElemTy = FI.getLLVMType();
+        } else {
+          // We only store info for structs and arrays, so this must be
+          // an array. The cast asserts that.
+          auto *ParentArrayInfo = cast<dtrans::ArrayInfo>(ParentTI);
+          ElemTy = ParentArrayInfo->getElementLLVMType();
+        }
+        verifyBitCastSafety(I, ElemTy->getPointerTo(), DestTy);
+      }
+      return;
+    }
+
+    // If we get here, we have identified a single dominant type to which
+    // the source operand points. We call a helper function to handle this
+    // case because the details are the same as the casting of a pointer
+    // to an element.
+    verifyBitCastSafety(I, DomTy, DestTy);
   }
 
   void visitLoadInst(LoadInst &I) {
@@ -704,8 +821,9 @@ public:
     // Loads of a pointer to a pointer (which is generally a field access)
     // are also safe.
     //
-    // What we are looking for here are loads which read an aggregate type
-    // from memory using a pointer to the aggregate.
+    // What we are looking for here are loads which read a pointer to an
+    // aggregate type from memory using a pointer to the pointer or loads which
+    // read an element from an aggregate type.
 
     // The load instruction looks like this:
     //
@@ -719,41 +837,68 @@ public:
     if (!isValueOfInterest(Ptr))
       return;
 
-    // See if the loaded address is known to be the address of an element
-    // in an aggregate type. If it does, mark that element as having been
-    // read.
-    //
-    // There will generally only be one of these in code that is safe for
-    // dtrans to operate on, but I'm using a for-loop here to keep the
-    // analysis as general as possible.
-    //
-    // TODO: Track read frequency.
     LocalPointerInfo &LPI = LPA.getLocalPointerInfo(Ptr);
-    auto ElementPointees = LPI.getElementPointeeSet();
-    for (auto &PointeePair : ElementPointees) {
-      dtrans::TypeInfo *ParentTI = DTInfo.getTypeInfo(PointeePair.first);
-      if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(ParentTI)) {
-        assert(PointeePair.second < ParentStInfo->getNumFields());
-        dtrans::FieldInfo &FI = ParentStInfo->getField(PointeePair.second);
-        FI.setRead(true);
-      } else {
-        // TODO: Implement array field tracking.
-        assert(ParentTI);
-        ParentTI->setSafetyData(dtrans::UnhandledUse);
+    if (LPI.pointsToSomeElement()) {
+      if (analyzeElementLoadOrStore(LPI, I.getType(), I.isVolatile(),
+                                    /*IsLoad=*/true)) {
+        // Provide context for the debugging information that was printed.
+        DEBUG(dbgs() << "  " << I << "\n");
+      }
+    } else {
+      // If the source pointer isn't a pointer to an element in an aggregate
+      // type, we need to check to see if the source value is a pointer to
+      // an aggregate type or a pointer to a pointer. If it is a pointer to a
+      // pointer, the load is safe. If it is a pointer to an aggregate then it
+      // is either a load of the entire structure or a mismatched load of
+      // element zero. For very small structures (for instance a 64-bit
+      // structure) the entire structure may be loaded as an integer value.
+      bool SourceIsPtrToPtr = false;
+      bool BaseTypeFound = false;
+      for (auto *AliasTy : LPI.getPointerTypeAliasSet()) {
+        // If the alias isn't a type of interest (typically i8*) we don't
+        // need to check anything else.
+        if (!DTInfo.isTypeOfInterest(AliasTy))
+          continue;
+        if (!AliasTy->isPointerTy())
+          continue;
+        if (AliasTy->getPointerElementType()->isPointerTy()) {
+          SourceIsPtrToPtr = true;
+          continue;
+        }
+        // If we get here, we've found an alias which is a simple pointer
+        // to an aggregate type. This means we're either loading the entire
+        // structure, or we're loading a mismatch of element zero.
+        BaseTypeFound = true;
+        if (AliasTy == Ptr->getType()) {
+          DEBUG(dbgs() << "dtrans-safety: Whole structure reference:\n"
+                       << "  " << I << "\n");
+          setBaseTypeInfoSafetyData(AliasTy, dtrans::WholeStructureReference);
+        } else {
+          DEBUG(dbgs() << "dtrans-safety: Mismatched element access -- "
+                       << "  bad type for element zero load:\n"
+                       << "  " << I << "\n");
+          setBaseTypeInfoSafetyData(AliasTy, dtrans::MismatchedElementAccess);
+        }
+      }
+      // We expect that all cases will either find a pointer to a pointer alias
+      // or will fall through to the base type handling. If neither of those
+      // happen, we can't handle this load.
+      if (!SourceIsPtrToPtr && !BaseTypeFound) {
+        DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
+                     << "  Unexpected pointer for load:"
+                     << "  " << I << "\n");
+        setValueTypeInfoSafetyData(&I, dtrans::UnhandledUse);
       }
     }
 
-    // FIXME: If what's being loaded is a pointer value, we may be able to
-    //        trace where the value came from and decide whether or not it
-    //        is safe.
-
-    // If we get here, the load is loading one or more elements of a type
-    // we're interested in using the aggregate type. Mark that in our
-    // safety info for the type.
-    DEBUG(dbgs() << "DTRANS: Aggregate type is loaded from memory: " << I
-                 << "\n");
-    // TODO: Make a proper safety data flag for this.
-    setValueTypeInfoSafetyData(Ptr, dtrans::UnhandledUse);
+    // If the location being loaded aliases multiple pointer-to-pointer types
+    // the above code will not have flagged the mismatch.
+    if (isAliasSetOverloaded(LPI.getPointerTypeAliasSet())) {
+      DEBUG(dbgs() << "dtrans-safety Ambiguous pointer load:\n"
+                   << "  " << I << "\n");
+      DEBUG(LPI.dump());
+      setAllAliasedTypeSafetyData(LPI, dtrans::AmbiguousPointerLoad);
+    }
   }
 
   void visitStoreInst(StoreInst &I) {
@@ -777,39 +922,74 @@ public:
         !isValueOfInterest(I.getPointerOperand()))
       return;
 
-    // See if the stored address is known to be the address of an element
-    // in an aggregate type. If it does, mark that element as having been
-    // written.
-    //
-    // There will generally only be one of these in code that is safe for
-    // dtrans to operate on, but I'm using a for-loop here to keep the
-    // analysis as general as possible.
-    //
-    // TODO: Track read frequency.
-    LocalPointerInfo &LPI = LPA.getLocalPointerInfo(I.getPointerOperand());
-    auto ElementPointees = LPI.getElementPointeeSet();
-    for (auto PointeePair : ElementPointees) {
-      dtrans::TypeInfo *ParentTI = DTInfo.getTypeInfo(PointeePair.first);
-      if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(ParentTI)) {
-        assert(PointeePair.second < ParentStInfo->getNumFields());
-        dtrans::FieldInfo &FI = ParentStInfo->getField(PointeePair.second);
-        FI.setWritten(true);
-      } else {
-        // TODO: Implement array field tracking.
-        assert(ParentTI);
-        ParentTI->setSafetyData(dtrans::UnhandledUse);
+    Value *ValOperand = I.getValueOperand();
+    Value *PtrOperand = I.getPointerOperand();
+
+    // This handles the unlikely, but legal, case where an instance of
+    // a structure is stored directly.
+    if (!ValOperand->getType()->isPointerTy() &&
+        DTInfo.isTypeOfInterest(ValOperand->getType())) {
+      // I think this is generally true for store operations.
+      assert(PtrOperand->getType() == ValOperand->getType()->getPointerTo());
+      DEBUG(dbgs() << "dtrans-safety: Whole structure reference:\n"
+                   << "  " << I << "\n");
+      setBaseTypeInfoSafetyData(ValOperand->getType(),
+                                dtrans::WholeStructureReference);
+      return;
+    }
+
+    LocalPointerInfo &ValLPI = LPA.getLocalPointerInfo(ValOperand);
+    LocalPointerInfo &PtrLPI = LPA.getLocalPointerInfo(PtrOperand);
+
+    // If the value of interest either aliases to a pointer to a type of
+    // interest or points to an element within a type of interest, check to
+    // make sure the pointer operand is compatible.
+    if (ValLPI.canAliasToAggregatePointer()) {
+      for (auto *AliasTy : ValLPI.getPointerTypeAliasSet()) {
+        if (AliasTy == Int8PtrTy)
+          continue;
+        if (!PtrLPI.canPointToType(AliasTy)) {
+          DEBUG(dbgs() << "dtrans-safety: Unsafe pointer store:\n"
+                       << "  " << I << "\n");
+          setValueTypeInfoSafetyData(ValOperand, dtrans::UnsafePointerStore);
+          setValueTypeInfoSafetyData(PtrOperand, dtrans::UnsafePointerStore);
+        }
+      }
+    } else if (PtrLPI.canAliasToAggregatePointer()) {
+      // If we get here the value operand is not a pointer to a an aggregate
+      // type, but the pointer operand is. Unless the value operand is a
+      // null pointer, this is a bad store.
+      if (!isa<ConstantPointerNull>(ValOperand)) {
+        DEBUG(dbgs() << "dtrans-safety: Unsafe pointer store:\n"
+                     << "  " << I << "\n");
+        setValueTypeInfoSafetyData(PtrOperand, dtrans::UnsafePointerStore);
       }
     }
 
-    // FIXME: If what's being stored is a pointer value, we may be able to
-    //        trace where the value is used and decide whether or not it
-    //        is safe.
+    // If the value operand is a pointer to an element within an aggregate
+    // we need to mark that element as having its address taken.
+    if (ValLPI.pointsToSomeElement()) {
+      auto ValPointees = ValLPI.getElementPointeeSet();
+      for (auto PointeePair : ValPointees) {
+        dtrans::TypeInfo *ParentTI =
+            DTInfo.getOrCreateTypeInfo(PointeePair.first);
+        // FIXME: Add field address taken information to the FieldInfo also.
+        DEBUG(dbgs() << "dtrans-safety: Field address taken:\n"
+                     << "  " << *(ParentTI->getLLVMType()) << " @ "
+                     << PointeePair.second << "\n");
+        ParentTI->setSafetyData(dtrans::FieldAddressTaken);
+      }
+    }
 
-    DEBUG(dbgs() << "DTRANS: Store instruction handling is unimplemented: " << I
-                 << "\n");
-    // TODO: Make a proper safety data flag for this.
-    setValueTypeInfoSafetyData(I.getValueOperand(), dtrans::UnhandledUse);
-    setValueTypeInfoSafetyData(I.getPointerOperand(), dtrans::UnhandledUse);
+    // If the pointer operand is a pointer to an element within an aggregate
+    // we need to mark that element as having been written and make sure the
+    // value being written has the correct size.
+    if (PtrLPI.pointsToSomeElement())
+      if (analyzeElementLoadOrStore(PtrLPI, ValOperand->getType(),
+                                    I.isVolatile(), /*IsLoad=*/false)) {
+        // Provide context for the debugging information that was printed.
+        DEBUG(dbgs() << "  " << I << "\n");
+      }
   }
 
   void visitGetElementPtrInst(GetElementPtrInst &I) {
@@ -819,16 +999,17 @@ public:
     if (!isValueOfInterest(Src))
       return;
 
-    DEBUG(dbgs() << "DTRANS: Analyzing GEP:\n   " << I << "\n");
-
     // If a GetElementPtr instruction is used for a pointer, which aliases
     // multiple aggregate types, we need to set safety data for each of the
     // types. This may be the result of a union, but it may also be the
     // result of some optimization which merged two element accesses.
     LocalPointerInfo &SrcLPI = LPA.getLocalPointerInfo(Src);
-    if (SrcLPI.pointsToMultipleAggregateTypes())
-      setAllAliasedTypeSafetyData(SrcLPI, dtrans::AmbiguousGEP,
-                                  /* IncludeNestedTypes = */ true);
+    if (SrcLPI.pointsToMultipleAggregateTypes()) {
+      DEBUG(dbgs() << "dtrans-safety: Ambiguous GEP:\n"
+                   << "  " << I << "\n");
+      DEBUG(SrcLPI.dump());
+      setAllAliasedTypeSafetyData(SrcLPI, dtrans::AmbiguousGEP);
+    }
 
     // If the local pointer analysis did not conclude that this value
     // points to an element within a structure aliased by the source pointer
@@ -844,9 +1025,9 @@ public:
       // Otherwise, a single index element indicates a pointer is being treated
       // as an array.
       if (isInt8Ptr(Src) || I.getNumIndices() != 1) {
-        DEBUG(dbgs() << "Bad pointer manipulation\n");
-        setAllAliasedTypeSafetyData(SrcLPI, dtrans::BadPtrManipulation,
-                                    /* IncludeNestedTypes = */ true);
+        DEBUG(dbgs() << "dtrans-safety: Bad pointer manipulation:\n"
+                     << "  " << I << "\n");
+        setAllAliasedTypeSafetyData(SrcLPI, dtrans::BadPtrManipulation);
       }
     }
 
@@ -883,10 +1064,10 @@ public:
     Value *Src = I.getPointerOperand();
     if (!isValueOfInterest(Src))
       return;
-    if (!I.getDestTy()->isIntegerTy(DL.getPointerSizeInBits())) {
-      DEBUG(dbgs() << "DTRANS: (unsafe?) Pointer to aggregate type is cast to "
-                      "a non-pointer-sized integer:\n    "
-                   << I << "\n");
+    if (I.getDestTy() != PtrSizeIntTy) {
+      DEBUG(dbgs() << "dtrans-safety: Bad casting -- "
+                   << "Ptr to aggregate cast to a non-ptr-sized integer:\n"
+                   << "  " << I << "\n");
       setValueTypeInfoSafetyData(Src, dtrans::BadCasting);
     }
 
@@ -905,8 +1086,9 @@ public:
     if (!DTInfo.isTypeOfInterest(RetTy))
       return;
 
-    DEBUG(dbgs() << "DTRANS: An aggregate type is returned by function "
-                 << I.getParent()->getParent()->getName());
+    DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
+                 << "An aggregate type is returned by function:\n  "
+                 << I.getParent()->getParent()->getName() << "\n");
     // TODO: Record this?
     // This is probably safe, but we'll flag it for now until we're sure.
     setBaseTypeInfoSafetyData(RetTy, dtrans::UnhandledUse);
@@ -929,8 +1111,9 @@ public:
     if (!DTInfo.isTypeOfInterest(Ty))
       return;
 
-    DEBUG(dbgs() << "DTRANS: (unsafe) Type used by a stack variable: " << *Ty
-                 << "\n    " << I << "\n");
+    DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
+                 << "Type used by a stack variable:\n"
+                 << "  " << I << "\n");
     // TODO: Set specific safety info.
     setBaseTypeInfoSafetyData(Ty, dtrans::UnhandledUse);
   }
@@ -943,14 +1126,17 @@ public:
     // is of a type of interest.
     llvm::Type *Ty = I.getType();
     if (DTInfo.isTypeOfInterest(Ty)) {
-      DEBUG(dbgs() << "DTRANS: (unsafe) Type used by an unmodeled "
-                      "instruction:\n"
-                   << "    " << I << "\n");
+      DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
+                   << "Type returned by an unmodeled instruction:\n"
+                   << "  " << I << "\n");
       setBaseTypeInfoSafetyData(Ty, dtrans::UnhandledUse);
     }
 
     for (Value *Arg : I.operands()) {
       if (isValueOfInterest(Arg)) {
+        DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
+                     << "Type used by an unmodeled instruction:\n"
+                     << "  " << I << "\n");
         setValueTypeInfoSafetyData(Arg, dtrans::UnhandledUse);
       }
     }
@@ -960,31 +1146,93 @@ public:
     // Call the base InstVisitor routine to visit each function.
     InstVisitor<DTransInstVisitor>::visitModule(M);
 
-    // Now follow the uses of global variables.
+    // Now follow the uses of global variables (not functions or aliases).
     for (auto &GV : M.globals()) {
+      // No initializer indicates a declaration. We'll see the definition
+      // if it's actually used.
+      if (!GV.hasInitializer())
+        continue;
+
       // Get the type of this variable.
       llvm::Type *GVTy = GV.getType();
 
+      // FIXME: Should we be considering all arrays of scalars as not
+      //        interesting types?
+      if (GVTy->getPointerElementType()->isArrayTy() &&
+          !DTInfo.isTypeOfInterest(
+              GVTy->getPointerElementType()->getArrayElementType()))
+        continue;
+
       // If this is an interesting type, analyze its uses.
       if (DTInfo.isTypeOfInterest(GVTy)) {
-        // TODO: Look for an initializer list and set specific info.
-        setBaseTypeInfoSafetyData(GVTy, dtrans::UnhandledUse);
-        analyzeGlobalVariableUses(&GV);
+        // These are conservative conditions meant to restrict us to
+        // global variables that are definitely handled. If this condition
+        // is triggered in code we think we can optimize additional handling
+        // for these cases may be necessary.
+        //
+        // hasGlobalUnnamedAddr() indicates that the actual address of the
+        //   variable is definitely not significant. We may encounter cases
+        //   where this is true but not explicitly set as such. If so, this
+        //   will need to be reconsidered.
+        //
+        // hasLocalLinkage() indicates that the linkage is either internal or
+        //   private. This should be the case for all program defined variables
+        //   during LTO. The primary intention of this check is to eliminate
+        //   externally accessible variables, but we're using a more general
+        //   check to defer decisions about other linkage types until they
+        //   are encountered.
+        //
+        // isThreadLocal() may be acceptable but is included here so that
+        //   consideration of its implications can be deferred until it must
+        //   be handled.
+        //
+        if (!GV.hasGlobalUnnamedAddr() || !GV.hasLocalLinkage() ||
+            GV.isThreadLocal()) {
+          DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
+                       << "Unexpected global variable usage:\n"
+                       << "  " << GV << "\n");
+          setBaseTypeInfoSafetyData(GVTy, dtrans::UnhandledUse);
+          continue;
+        }
+        if (GVTy->getPointerElementType()->isPointerTy()) {
+          DEBUG(dbgs() << "dtrans-safety: Global pointer\n"
+                       << "  " << GV << "\n");
+          setBaseTypeInfoSafetyData(GVTy, dtrans::GlobalPtr);
+        } else {
+          DEBUG(dbgs() << "dtrans-safety: Global instance\n"
+                       << "  " << GV << "\n");
+          setBaseTypeInfoSafetyData(GVTy, dtrans::GlobalInstance);
+          // The local linkage check should guarantee a unique and definitive
+          // initializer.
+          assert(GV.hasUniqueInitializer() && GV.hasDefinitiveInitializer() &&
+                 !GV.isExternallyInitialized());
+          Constant *Initializer = GV.getInitializer();
+          if (!isa<ConstantAggregateZero>(Initializer) &&
+              !isa<UndefValue>(Initializer)) {
+            DEBUG(dbgs() << "dtrans-safety: Has initializer list\n"
+                         << "  " << GV << "\n");
+            setBaseTypeInfoSafetyData(GVTy, dtrans::HasInitializerList);
+          }
+        }
       }
     }
   }
 
   void visitFunction(Function &F) {
-    // Look at the function arguments to see if any of them are of interest.
-    for (auto &Arg : F.args()) {
-      // Get the type of this variable.
-      llvm::Type *ArgTy = Arg.getType();
-
-      // If this is an interesting type, analyze its uses.
-      if (DTInfo.isTypeOfInterest(ArgTy)) {
-        analyzeFnArgumentUses(F, &Arg);
-      }
-    }
+    // There's nothing that needs to be done here. The argument uses will be
+    // analyzed as the instructions are visited, but when we are running
+    // lit tests we need to be sure we have created type info for the types
+    // in the test. The lit tests often use arguments as an arbitrary source
+    // for values of an aggregate type.
+    //
+    // When we are running analysis on a complete program we will create
+    // all of the necessary types as we add complete information about them
+    // but in lit tests a type with few uses and no safety issues might not
+    // be added to the type info map.
+    if (DTransPrintAnalyzedTypes)
+      for (auto &Arg : F.args())
+        if (DTInfo.isTypeOfInterest(Arg.getType()))
+          (void)DTInfo.getOrCreateTypeInfo(Arg.getType());
 
     // Call the base class to visit the instructions in the function.
     InstVisitor<DTransInstVisitor>::visitFunction(F);
@@ -999,6 +1247,11 @@ private:
   // which a local pointer value may refer. This information is created and
   // updated as needed.
   LocalPointerAnalyzer LPA;
+
+  // We need these types often enough that it's worth keeping them around.
+  llvm::Type *Int8PtrTy;
+  llvm::Type *PtrSizeIntTy;
+  llvm::Type *PtrSizeIntPtrTy;
 
   // There are frequent cases where a pointer to an aggregate type is
   // cast to either i8*, i64* or i64 and we need to look at the uses of
@@ -1029,22 +1282,129 @@ private:
     return false;
   }
 
-  inline bool isInt8Ptr(Value *V) {
-    return (V->getType() == llvm::Type::getInt8PtrTy(V->getContext()));
-  }
+  inline bool isInt8Ptr(Value *V) { return (V->getType() == Int8PtrTy); }
 
   inline bool isPtrSizeIntPtr(Value *V) {
-    return (V->getType() == llvm::Type::getIntNPtrTy(
-                                V->getContext(), DL.getPointerSizeInBits()));
+    return (V->getType() == PtrSizeIntPtrTy);
   }
 
-  inline bool isPtrSizeInt(Value *V) {
-    return (V->getType() ==
-            llvm::Type::getIntNTy(V->getContext(), DL.getPointerSizeInBits()));
+  inline bool isPtrSizeInt(Value *V) { return (V->getType() == PtrSizeIntTy); }
+
+  // Given two types if both types are pointers to pointers, unwind the
+  // indirection to see if there is some level at which a pointer within
+  // ATy is safely equivalent to an i8* or a pointer-sized integer in BTy.
+  //
+  // For instance, the following are all a safe bitcasts:
+  //
+  //   (1) %p1 = bitcast %struct.S** to i64*
+  //   (2) %p2 = bitcast %struct.S*** to i8**
+  //   (3) %p3 = bitcast %struct.S*** to i8***
+  //
+  // (1) is safe because after unwinding one level of indirection %struct.S*
+  //     can safely be cast to a pointer-sized integer (i64).
+  //
+  // (2) is safe because after unwinding one level of indirection %struct.S**
+  //     can be safely cast to i8*
+  //
+  // (3) is safe because after unwinding two levels of indirection %struct.S*
+  //     can safely be cast to i8*.
+  //
+  // We need the equivalence to be directional. For instance, any
+  // %struct.A* can be cast to an i8* but not just any i8* can be cast to a
+  // %struct.A*. In cases where the generic pointer can be either type,
+  // this function must be called twice, with the arguments reversed the second
+  // time.
+  bool isGenericPtrEquivalent(llvm::Type *ATy, llvm::Type *BTy) {
+    auto *TempATy = ATy;
+    auto *TempBTy = BTy;
+    while (TempATy->isPointerTy() && TempBTy->isPointerTy()) {
+      if (TempBTy == Int8PtrTy)
+        return true;
+
+      auto *NextATy = TempATy->getPointerElementType();
+      auto *NextBTy = TempBTy->getPointerElementType();
+
+      if (TempBTy == PtrSizeIntPtrTy && NextATy->isPointerTy())
+        return true;
+
+      TempATy = NextATy;
+      TempBTy = NextBTy;
+    }
+
+    return false;
+  }
+
+  // Check to see if the value aliases to incompatible pointer types.
+  // The alias set may contain a pointer-sized integer, which is compatible
+  // with any pointer (via PtrToInt). The i8* type is also compatible with
+  // any pointer type. Finally, any pointer-to-pointer is compatible with
+  // a pointer to a pointer-sized integer (i.e. i64*).
+  //
+  // Ideally, we'd move this logic into LocalPointerInfo so that it could be
+  // determined as aliases are added. However, the generic pointer check
+  // requires access to the DataLayout which isn't easily available in the
+  // LocalPointerInfo. So for now we're leaving it here.
+  //
+  // In practice, the maximum number of compatible aliases is 2*N+1 where N is
+  // the number of levels of indirection on the dominant pointer type. In
+  // practice there will almost always be three or fewer aliases, so this code
+  // should be trivially fast.
+  bool isAliasSetOverloaded(LocalPointerInfo::PointerTypeAliasSetRef Aliases,
+                            bool AllowElementZeroAccess = false) {
+    auto AliasEnd = Aliases.end();
+    for (auto AliasIt = Aliases.begin(); AliasIt != AliasEnd; ++AliasIt) {
+      auto *AliasTy = *AliasIt;
+      if (!AliasTy->isPointerTy() || (AliasTy == Int8PtrTy))
+        continue;
+
+      for (auto OtherAliasIt = std::next(AliasIt); OtherAliasIt != AliasEnd;
+           ++OtherAliasIt) {
+        auto *OtherAliasTy = *OtherAliasIt;
+        if (!OtherAliasTy->isPointerTy() || (OtherAliasTy == Int8PtrTy))
+          continue;
+        if (isGenericPtrEquivalent(AliasTy, OtherAliasTy) ||
+            isGenericPtrEquivalent(OtherAliasTy, AliasTy))
+          continue;
+        if (AllowElementZeroAccess &&
+            (dtrans::isElementZeroAccess(AliasTy, OtherAliasTy) ||
+             dtrans::isElementZeroAccess(OtherAliasTy, AliasTy)))
+          continue;
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // Verify that a bitcast from \p SrcTy to \p DestTy would be safe. The
+  // caller has analyzed the bitcast instruction to determine that these
+  // types need to be considered. These may not be the actual types used
+  // by the bitcast instruction, but the source operand will be known to
+  // be an instance of SrcTy in some way.
+  void verifyBitCastSafety(BitCastInst &I, llvm::Type *SrcTy,
+                           llvm::Type *DestTy) {
+    // If the types are the same, it's a safe cast.
+    if (SrcTy == DestTy)
+      return;
+
+    // If DestTy is a generic equivalent of SrcTy, it's a safe cast.
+    if (isGenericPtrEquivalent(SrcTy, DestTy))
+      return;
+
+    // If this can be interpreted as an element-zero access of SrcTy,
+    // it's a safe cast.
+    if (dtrans::isElementZeroAccess(SrcTy, DestTy))
+      return;
+
+    // Otherwise, it's not safe.
+    DEBUG(dbgs() << "dtrans-safety: Bad casting -- "
+                 << "unsafe cast of aliased pointer:\n"
+                 << "  " << I << "\n");
+    setValueTypeInfoSafetyData(I.getOperand(0), dtrans::BadCasting);
+    if (DTInfo.isTypeOfInterest(DestTy))
+      setValueTypeInfoSafetyData(&I, dtrans::BadCasting);
   }
 
   void analyzeAllocationCall(CallInst &CI, dtrans::AllocKind Kind) {
-    DEBUG(dbgs() << "DTRANS: found allocation call.\n  " << CI << "\n");
 
     // The LocalPointerAnalyzer will visit bitcast users to determine the
     // type of memory being allocated. This must be done in the
@@ -1062,8 +1422,6 @@ private:
     LocalPointerInfo::PointerTypeAliasSetRef &AliasSet =
         LPI.getPointerTypeAliasSet();
     if (AliasSet.empty()) {
-      DEBUG(dbgs() << "  Allocation found without cast to type of interest.\n"
-                   << "  " << CI << "\n");
       return;
     }
 
@@ -1080,8 +1438,11 @@ private:
 
       // If there are casts to multiple types of interest, they all get
       // handled as bad casts.
-      if (WasCastToMultipleTypes)
+      if (WasCastToMultipleTypes) {
+        DEBUG(dbgs() << "dtrans-safety: Bad casting -- "
+                     << "allocation cast to multiple types:\n  " << CI << "\n");
         setBaseTypeInfoSafetyData(Ty, dtrans::BadCasting);
+      }
 
       // Check the size of the allocation to make sure it's a multiple of the
       // size of the type being allocated.
@@ -1097,6 +1458,77 @@ private:
                << "\n";
       }
     }
+  }
+
+  // The element access analysis for load and store instructions are nearly
+  // identical, so we use this helper function to perform the task for both.
+  // For both loads and stores the PtrInfo argument refers to the address that
+  // is being accessed. For load instructions, the ValTy argument is the type
+  // of the value being loaded (i.e. the type of the value returned by the
+  // load instruction). For store instructions, the ValTy argument is the
+  // type of the value operand to the store instruction.
+  bool analyzeElementLoadOrStore(LocalPointerInfo &PtrInfo, llvm::Type *ValTy,
+                                 bool IsVolatile, bool IsLoad) {
+    bool SafetyIssuesFound = false;
+    // There will generally only be one ElementPointee in code that is safe for
+    // dtrans to operate on, but I'm using a for-loop here to keep the
+    // analysis as general as possible.
+    //
+    // TODO: Track read/write frequency.
+    for (auto &PointeePair : PtrInfo.getElementPointeeSet()) {
+      llvm::Type *ParentTy = PointeePair.first;
+      if (IsVolatile) {
+        DEBUG(dbgs() << "dtrans-safety: Volatile data:\n");
+        setBaseTypeInfoSafetyData(ParentTy, dtrans::VolatileData);
+        SafetyIssuesFound = true;
+      }
+
+      if (auto *CompTy = cast<CompositeType>(ParentTy)) {
+        llvm::Type *FieldTy = CompTy->getTypeAtIndex(PointeePair.second);
+
+        // If this field is an aggregate, and this is not a nested
+        // element zero access, mark this as a whole structure reference.
+        if (FieldTy->isAggregateType() && FieldTy == ValTy) {
+          DEBUG(dbgs() << "dtrans-safety: Whole structure reference:\n");
+          setBaseTypeInfoSafetyData(FieldTy, dtrans::WholeStructureReference);
+          SafetyIssuesFound = true;
+        }
+
+        // The value type must be the same as the field type or the field must
+        // be a pointer and the value a pointer-sized integer or an i8*.
+        if ((FieldTy != ValTy) &&
+            (!FieldTy->isPointerTy() ||
+             (ValTy != PtrSizeIntTy && ValTy != Int8PtrTy))) {
+          // The local pointer analyzer should have directed us to the
+          // correct level of nesting.
+          assert(!dtrans::isElementZeroAccess(FieldTy->getPointerTo(),
+                                              ValTy->getPointerTo()));
+          DEBUG(dbgs() << "dtrans-safety -- Mismatched element access:\n");
+          setBaseTypeInfoSafetyData(ParentTy, dtrans::MismatchedElementAccess);
+          SafetyIssuesFound = true;
+        }
+
+        if (ParentTy->isStructTy()) {
+          auto *ParentStInfo =
+              cast<dtrans::StructInfo>(DTInfo.getOrCreateTypeInfo(ParentTy));
+          dtrans::FieldInfo &FI = ParentStInfo->getField(PointeePair.second);
+          if (IsLoad)
+            FI.setRead(true);
+          else
+            FI.setWritten(true);
+        }
+        // TODO: Track array element access?
+      } else {
+        // Otherwise, the parent type is either a vector or a pointer (which
+        // would have been indexed as an array).
+        // TODO: Handle this case.
+        DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
+                        "unimplemented load/store:\n");
+        setBaseTypeInfoSafetyData(ParentTy, dtrans::UnhandledUse);
+        SafetyIssuesFound = true;
+      }
+    }
+    return SafetyIssuesFound;
   }
 
   /// Given a call instruction that has been determined to be an allocation
@@ -1143,6 +1575,8 @@ private:
     }
 
     // Otherwise, we must assume the size arguments are not acceptable.
+    DEBUG(dbgs() << "dtrans-safety: Bad alloc size:\n"
+                 << "  " << CI << "\n");
     setBaseTypeInfoSafetyData(Ty, dtrans::BadAllocSizeArg);
   }
 
@@ -1172,37 +1606,317 @@ private:
     return false;
   }
 
-  void analyzeGlobalVariableUses(GlobalVariable *GV) {
-    DEBUG(dbgs() << "DTRANS: Analyzing global variable:\n    " << *GV << "\n");
-    // We're already setting the unimplemented safety data when we set
-    // this value in the caller, but that case might get implemented before
-    // we've handled whatever needs to be done here, so we set it again here.
-    //
-    // Basically, all of these uses are going to be analyzed as we visit the
-    // instructions, but if there is anything special we need to look for
-    // because the value is a global, that probably needs to be done here.
-    llvm::Type *GVTy = GV->getType();
-    if (DTInfo.isTypeOfInterest(GVTy))
-      setBaseTypeInfoSafetyData(GVTy, dtrans::UnhandledUse);
-    // TODO: Do something with this.
-    DEBUG({
-      for (auto *U : GV->users())
-        dbgs() << "      " << *U << "\n";
-    }); // DEBUG
+  // This helper function checks if a value is a constant integer equal to
+  // 'Size'.
+  bool isValueEqualToSize(Value *Val, uint64_t Size) {
+    if (!Val)
+      return false;
+
+    if (auto *ConstVal = dyn_cast<ConstantInt>(Val)) {
+      uint64_t ConstSize = ConstVal->getLimitedValue();
+      return ConstSize == Size;
+    }
+
+    return false;
   }
 
-  void analyzeFnArgumentUses(Function &F, Argument *Arg) {
-    DEBUG(dbgs() << "DTRANS: Analyzing argument in " << F.getName() << ": "
-                 << *Arg << "\n");
-    // FIXME: There's probably nothing that needs to be done here, but we'll
-    //        set the unimplemented safety data flag until that is confirmed.
-    llvm::Type *ArgTy = Arg->getType();
-    if (DTInfo.isTypeOfInterest(ArgTy))
-      setBaseTypeInfoSafetyData(ArgTy, dtrans::UnhandledUse);
-    DEBUG({
-      for (auto *U : Arg->users())
-        dbgs() << "      " << *U << "\n";
-    }); // DEBUG
+  // Check the destination of a call to memset for safety.
+  //
+  // A safe call is one where it can be resolved that the operand to the
+  // memset meets the following conditions:
+  //   - The operand does not affect an aggregate data type.
+  //  or
+  //   - If the operand is not a pointer to a field within an aggregate, then
+  //     the size must be a multiple of the aggregate size.
+  //   - If the operand is a pointer to a field within an aggregate, then
+  //     the size operand must equal the size of the field
+  //  or
+  //  - The size operand is 0.
+  //
+  // A necessary precursor for most of these rule is that the operand type
+  // is able to be resolved to a unique dominant type for the pointer.
+  //
+  // For a safe call, the field information tracking of the aggregate type
+  // will be updated to indicate the field is written to.
+  void analyzeMemset(IntrinsicInst &I) {
+    DEBUG(dbgs() << "dtrans: Analyzing memset call:\n  " << I << "\n");
+
+    assert(I.getNumArgOperands() >= 2);
+    auto *DestArg = I.getArgOperand(0);
+    Value *SetSize = I.getArgOperand(2);
+
+    // A memset of 0 bytes will not affect the safety of any data structure.
+    if (isValueEqualToSize(SetSize, 0))
+      return;
+
+    if (!isValueOfInterest(DestArg))
+      return;
+
+    LocalPointerInfo &DstLPI = LPA.getLocalPointerInfo(DestArg);
+    auto *DestParentTy = DstLPI.getDominantAggregateTy();
+    if (!DestParentTy) {
+      if (isAliasSetOverloaded(DstLPI.getPointerTypeAliasSet())) {
+        // Cannot do anything for an aliased type. Declare them
+        // to be unsafe.
+        DEBUG(dbgs() << "dtrans-safety: Ambiguous pointer target -- "
+                     << "Aliased type, could not identify dominant type:\n"
+                     << " " << I << "\n");
+
+        setAllAliasedTypeSafetyData(DstLPI, dtrans::AmbiguousPointerTarget);
+      } else {
+        // If the dominant type was not identified, and the pointer is not
+        // an aliased type, we expect that we are dealing with a pointer
+        // to a scalar member element. assert this to be sure.
+
+        assert(DstLPI.pointsToSomeElement());
+
+        // For now, we do not expect to need to handle such a case.
+        DEBUG(dbgs() << "dtrans-safety: Bad memfunc manipulation -- "
+                     << "No dominant type:\n"
+                     << "  " << I << "\n");
+
+        setValueTypeInfoSafetyData(DestArg, dtrans::BadMemFuncManipulation);
+      }
+
+      return;
+    }
+
+    // If the parameter does not point to an aggregate type, it's safe.
+    auto *DestPointeeTy = DestParentTy->getPointerElementType();
+
+    // Verify the size being is valid for the type of the pointer:
+    //  - When an aggregate type is passed, require all fields to be set to
+    //    consider the access as safe. This requires that the size parameter
+    //    equals the aggregate size (or some multiple to allow for arrays).
+    //  - When a pointer to a member of another aggregate is used, make sure
+    //    the size being set is exactly the size of aggregate being set,
+    //    otherwise other parts of the parent could be overwritten when the
+    //    size written is larger than the member size.
+    // This will make it easier for transformations, such as field reordering
+    // to be able to perform the transformation.
+    //
+    // NOTE: Currently, we require the size to be a multiple of the result of
+    // sizeof(TYPE) to mark the structure as safe. However, this could cause
+    // the rejection of a structure that is set based on a summation of the
+    // field sizes if the tail padding is not counted. For
+    // example, struct { int A, short B }, passing a size value of 6 will clear
+    // the structure, but we require a size equal to 8 because that is what
+    // sizeof reports. This could be added in the future, if necessary.
+    //
+    // NOTE: In the future, an additional safety check may be necessary here
+    // to check if a non-zero value is being written to inhibit
+    // transformations such as field shrinking. But this is not implemented
+    // now because it will also require the rest of the analysis to perform
+    // range checks of the values being stored in a field.
+    uint64_t ElementSize = DL.getTypeAllocSize(DestPointeeTy);
+    bool DstPtrToMember = DstLPI.pointsToSomeElement();
+
+    if (DstPtrToMember) {
+      // Currently, we will invalidate if the size is larger or smaller for
+      // simplicity, we could probably allow it if the write size was smaller
+      // than an array aggregate, in the future.
+      if (!isValueEqualToSize(SetSize, ElementSize)) {
+        DEBUG(dbgs() << "dtrans-safety: Bad memfunc size -- "
+                     << "size does not equal member field type size:\n"
+                     << "  " << I << "\n");
+
+        auto ElementPointees = DstLPI.getElementPointeeSet();
+        for (auto &PointeePair : ElementPointees) {
+          setBaseTypeInfoSafetyData(PointeePair.first, dtrans::BadMemFuncSize);
+        }
+        return;
+      }
+    } else if (DestPointeeTy->isAggregateType() &&
+               !isValueMultipleOfSize(SetSize, ElementSize)) {
+      DEBUG(dbgs() << "dtrans-safety: Bad memfunc size -- "
+                   << "size is not a multiple of type size:\n"
+                   << "  " << I << "\n");
+
+      setValueTypeInfoSafetyData(DestArg, dtrans::BadMemFuncSize);
+      return;
+    }
+
+    // It is a safe use. Mark all the fields as being written.
+    auto *ParentTI = DTInfo.getOrCreateTypeInfo(DestPointeeTy);
+    markAllFieldsWritten(ParentTI);
+  }
+
+  // Check the source and destination of a call to memcpy or memmove call
+  // for safety.
+  //
+  // A safe call is one where it can be resolved that the operands to the
+  // call meets of the following conditions:
+  //   - Neither operand affects an aggregate data type.
+  //   or
+  //   - The source and destination data types are the same.
+  //   - If the operand is not a pointer to a field within an aggregate, then
+  //     the size must be a multiple of the aggregate size.
+  //   - If the either the source or destination operands are pointers to a
+  //     field within an aggregate, then the size operand must equal the size
+  //     of the field.
+  //   or
+  //  - The size operand is 0.
+  //
+  // A necessary precursor for most of these rule is that the operand type
+  // is able to be resolved to a unique dominant type for the pointer.
+  //
+  // For a safe call, the field information tracking of the aggregate type
+  // will be updated to indicate the field is written to for the destination.
+  // Fields of the source operand will not be updated to allow for fields
+  // to be eliminated if they are never directly read.
+  void analyzeMemcpyOrMemmove(IntrinsicInst &I) {
+    DEBUG(dbgs() << "dtrans: Analyzing memcpy/memmove call:\n  " << I << "\n");
+    assert(I.getNumArgOperands() >= 2);
+
+    auto *DestArg = I.getArgOperand(0);
+    auto *SrcArg = I.getArgOperand(1);
+    Value *SetSize = I.getArgOperand(2);
+
+    // A memcpy/memmove of 0 bytes will not affect the safety of any data
+    // structure.
+    if (isValueEqualToSize(SetSize, 0))
+      return;
+
+    bool DestOfInterest = isValueOfInterest(DestArg);
+    bool SrcOfInterest = isValueOfInterest(SrcArg);
+    if (!DestOfInterest && !SrcOfInterest) {
+      return;
+    } else if (!SrcOfInterest || !DestOfInterest) {
+      DEBUG(dbgs() << "dtrans-safety: Bad memfunc manipulation --  "
+                   << "Either source or destination operand is fundamental "
+                      "pointer type:\n"
+                   << "  " << I << "\n");
+
+      setValueTypeInfoSafetyData(SrcArg, dtrans::BadMemFuncManipulation);
+      setValueTypeInfoSafetyData(DestArg, dtrans::BadMemFuncManipulation);
+      return;
+    }
+
+    // If we get here, both parameters are types of interest.
+    LocalPointerInfo &DstLPI = LPA.getLocalPointerInfo(DestArg);
+    LocalPointerInfo &SrcLPI = LPA.getLocalPointerInfo(SrcArg);
+    auto *DestParentTy = DstLPI.getDominantAggregateTy();
+    auto *SrcParentTy = SrcLPI.getDominantAggregateTy();
+
+    if (!DestParentTy || !SrcParentTy) {
+      if (!DestParentTy &&
+          isAliasSetOverloaded(DstLPI.getPointerTypeAliasSet())) {
+        DEBUG(dbgs() << "dtrans-safety: Ambiguous pointer target -- "
+                     << "Aliased type for destination operand:\n"
+                     << "  " << I << "\n");
+
+        setAllAliasedTypeSafetyData(DstLPI, dtrans::AmbiguousPointerTarget);
+        setAllAliasedTypeSafetyData(SrcLPI, dtrans::BadMemFuncManipulation);
+      } else if (!SrcParentTy &&
+                 isAliasSetOverloaded(SrcLPI.getPointerTypeAliasSet())) {
+        DEBUG(dbgs() << "dtrans-safety: Bad memfunc manipulation -- "
+                     << "Aliased type for source operand.\n"
+                     << "  " << I << "\n");
+
+        setAllAliasedTypeSafetyData(DstLPI, dtrans::BadMemFuncManipulation);
+        setAllAliasedTypeSafetyData(SrcLPI, dtrans::AmbiguousPointerTarget);
+      } else {
+        // If the dominant type was not identified, and the pointer is not
+        // an aliased type, we expect that we are dealing with a pointer
+        // to a member element. assert this to be sure.
+        assert(DestParentTy || DstLPI.pointsToSomeElement());
+        assert(SrcParentTy || SrcLPI.pointsToSomeElement());
+
+        // For now, we do not expect to need to handle such a case.
+        DEBUG(dbgs() << "dtrans-safety: Bad memfunc manipulation --  "
+                     << "No dominant type for either source or destination:\n"
+                     << "  " << I << "\n");
+
+        setValueTypeInfoSafetyData(DestArg, dtrans::BadMemFuncManipulation);
+        setValueTypeInfoSafetyData(SrcArg, dtrans::BadMemFuncManipulation);
+      }
+      return;
+    }
+
+    if (DestParentTy != SrcParentTy) {
+      DEBUG(dbgs() << "dtrans-safety: Bad memfunc manipulation -- "
+                   << "Different types for source and destination:\n"
+                   << "  " << I << "\n");
+
+      setValueTypeInfoSafetyData(DestArg, dtrans::BadMemFuncManipulation);
+      setValueTypeInfoSafetyData(SrcArg, dtrans::BadMemFuncManipulation);
+      return;
+    }
+
+    // If the parameter does not point to an aggregate type, it's safe.
+    auto *DestPointeeTy = DestParentTy->getPointerElementType();
+
+    // Verify the copy if the entire structure.
+    uint64_t ElementSize = DL.getTypeAllocSize(DestPointeeTy);
+    bool DstPtrToMember = DstLPI.pointsToSomeElement();
+    bool SrcPtrToMember = SrcLPI.pointsToSomeElement();
+
+    if (DstPtrToMember || SrcPtrToMember) {
+      // When a pointer-to-member is used, make sure the size being set is
+      // exactly the size of aggregate being set, otherwise other parts of the
+      // parent structure could be overwritten.
+      //
+      // Currently, we will invalidate if the size is larger or smaller for
+      // simplicity, we could probably allow it if the write size was smaller
+      // than an array aggregate, in the future.
+      if (!isValueEqualToSize(SetSize, ElementSize)) {
+        DEBUG(dbgs() << "dtrans-safety: Bad memfunc size -- "
+                     << "size does not equal member field type size:\n"
+                     << "  " << I << "\n");
+
+        if (DstPtrToMember) {
+          auto ElementPointees = DstLPI.getElementPointeeSet();
+          for (auto &PointeePair : ElementPointees) {
+            setBaseTypeInfoSafetyData(PointeePair.first,
+                                      dtrans::BadMemFuncSize);
+          }
+        }
+
+        if (SrcPtrToMember) {
+          auto ElementPointees = SrcLPI.getElementPointeeSet();
+          for (auto &PointeePair : ElementPointees) {
+            setBaseTypeInfoSafetyData(PointeePair.first,
+                                      dtrans::BadMemFuncSize);
+          }
+        }
+
+        return;
+      }
+    } else if (DestPointeeTy->isAggregateType() &&
+               !isValueMultipleOfSize(SetSize, ElementSize)) {
+      DEBUG(dbgs() << "dtrans-safety: Bad memfunc size -- "
+                   << "size is not a multiple of type size:\n"
+                   << "  " << I << "\n");
+
+      setValueTypeInfoSafetyData(DestArg, dtrans::BadMemFuncSize);
+      setValueTypeInfoSafetyData(SrcArg, dtrans::BadMemFuncSize);
+      return;
+    }
+
+    auto *DestTI = DTInfo.getOrCreateTypeInfo(DestPointeeTy);
+    markAllFieldsWritten(DestTI);
+  }
+
+  void markAllFieldsWritten(dtrans::TypeInfo *TI) {
+    if (TI == nullptr)
+      return;
+
+    if (!TI->getLLVMType()->isAggregateType()) {
+      return;
+    }
+
+    if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI)) {
+      for (auto &FI : StInfo->getFields()) {
+        FI.setWritten(true);
+        auto *ComponentTI = DTInfo.getTypeInfo(FI.getLLVMType());
+        markAllFieldsWritten(ComponentTI);
+      }
+    } else if (auto *AInfo = dyn_cast<dtrans::ArrayInfo>(TI)) {
+      auto *ComponentTI = AInfo->getElementDTransInfo();
+      markAllFieldsWritten(ComponentTI);
+    }
+
+    return;
   }
 
   // In many cases we need to set safety data based on a value that
@@ -1229,44 +1943,41 @@ private:
   // Given LocalPointerInfo for a value, set the specified safety data
   // for the base type of every type which is known to alias to the value.
   void setAllAliasedTypeSafetyData(LocalPointerInfo &LPI,
-                                   dtrans::SafetyData Data,
-                                   bool IncludeNestedTypes = false) {
+                                   dtrans::SafetyData Data) {
     for (auto *Ty : LPI.getPointerTypeAliasSet())
       if (DTInfo.isTypeOfInterest(Ty))
-        setBaseTypeInfoSafetyData(Ty, Data, IncludeNestedTypes);
+        setBaseTypeInfoSafetyData(Ty, Data);
   }
 
   // This is a helper function that retrieves the aggregate type through
   // zero or more layers of indirection and sets the specified safety data
   // for that type.
-  void setBaseTypeInfoSafetyData(llvm::Type *Ty, dtrans::SafetyData Data,
-                                 bool IncludeNestedTypes = false) {
+  void setBaseTypeInfoSafetyData(llvm::Type *Ty, dtrans::SafetyData Data) {
     llvm::Type *BaseTy = Ty;
     while (BaseTy->isPointerTy())
       BaseTy = cast<PointerType>(BaseTy)->getElementType();
     dtrans::TypeInfo *TI = DTInfo.getOrCreateTypeInfo(BaseTy);
     TI->setSafetyData(Data);
-    if (IncludeNestedTypes) {
-      if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI)) {
-        for (dtrans::FieldInfo &FI : StInfo->getFields()) {
-          llvm::Type *FieldTy = FI.getLLVMType();
-          // Propagate the safety condition if this field is an instance of
-          // a type of interest, but not if it is merely a pointer to such
-          // a type. Call setBaseTypeInfoSafetyData to handle additional levels
-          // of nesting.
-          if (!FieldTy->isPointerTy() && DTInfo.isTypeOfInterest(FieldTy))
-            setBaseTypeInfoSafetyData(FieldTy, Data, IncludeNestedTypes);
-        }
-      } else if (auto *ArrInfo = dyn_cast<dtrans::ArrayInfo>(TI)) {
-        ArrInfo->setSafetyData(Data);
-        llvm::Type *ElementTy = BaseTy->getArrayElementType();
+    // Propagate this condition to any nested types.
+    if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI)) {
+      for (dtrans::FieldInfo &FI : StInfo->getFields()) {
+        llvm::Type *FieldTy = FI.getLLVMType();
         // Propagate the safety condition if this field is an instance of
         // a type of interest, but not if it is merely a pointer to such
         // a type. Call setBaseTypeInfoSafetyData to handle additional levels
         // of nesting.
-        if (!ElementTy->isPointerTy() && DTInfo.isTypeOfInterest(ElementTy))
-          setBaseTypeInfoSafetyData(ElementTy, Data, IncludeNestedTypes);
+        if (!FieldTy->isPointerTy() && DTInfo.isTypeOfInterest(FieldTy))
+          setBaseTypeInfoSafetyData(FieldTy, Data);
       }
+    } else if (auto *ArrInfo = dyn_cast<dtrans::ArrayInfo>(TI)) {
+      ArrInfo->setSafetyData(Data);
+      llvm::Type *ElementTy = BaseTy->getArrayElementType();
+      // Propagate the safety condition if this field is an instance of
+      // a type of interest, but not if it is merely a pointer to such
+      // a type. Call setBaseTypeInfoSafetyData to handle additional levels
+      // of nesting.
+      if (!ElementTy->isPointerTy() && DTInfo.isTypeOfInterest(ElementTy))
+        setBaseTypeInfoSafetyData(ElementTy, Data);
     }
   }
 };
@@ -1380,7 +2091,7 @@ DTransAnalysisInfo::~DTransAnalysisInfo() {
 }
 
 bool DTransAnalysisInfo::analyzeModule(Module &M, TargetLibraryInfo &TLI) {
-  DTransInstVisitor Visitor(*this, M.getDataLayout(), TLI);
+  DTransInstVisitor Visitor(M.getContext(), *this, M.getDataLayout(), TLI);
   Visitor.visit(M);
 
   if (DTransPrintAnalyzedTypes) {

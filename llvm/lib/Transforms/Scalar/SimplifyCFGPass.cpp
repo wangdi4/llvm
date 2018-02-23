@@ -64,6 +64,11 @@ static cl::opt<bool> UserForwardSwitchCond(
     "forward-switch-cond", cl::Hidden, cl::init(false),
     cl::desc("Forward switch condition to phi ops (default = false)"));
 
+static cl::opt<bool> UserSinkCommonInsts(
+    "sink-common-insts", cl::Hidden, cl::init(false),
+    cl::desc("Sink common instructions (default = false)"));
+
+
 STATISTIC(NumSimpl, "Number of blocks simplified");
 
 /// If we have more than one empty (other than phi node) return blocks,
@@ -208,6 +213,9 @@ SimplifyCFGPass::SimplifyCFGPass(const SimplifyCFGOptions &Opts) {
   Options.NeedCanonicalLoop = UserKeepLoops.getNumOccurrences()
                                   ? UserKeepLoops
                                   : Opts.NeedCanonicalLoop;
+  Options.SinkCommonInsts = UserSinkCommonInsts.getNumOccurrences()
+                                ? UserSinkCommonInsts
+                                : Opts.SinkCommonInsts;
 }
 
 PreservedAnalyses SimplifyCFGPass::run(Function &F,
@@ -229,6 +237,7 @@ struct CFGSimplifyPass : public FunctionPass {
 
   CFGSimplifyPass(unsigned Threshold = 1, bool ForwardSwitchCond = false,
                   bool ConvertSwitch = false, bool KeepLoops = true,
+                  bool SinkCommon = false,
                   std::function<bool(const Function &)> Ftor = nullptr)
       : FunctionPass(ID), PredicateFtor(std::move(Ftor)) {
 
@@ -249,6 +258,10 @@ struct CFGSimplifyPass : public FunctionPass {
 
     Options.NeedCanonicalLoop =
         UserKeepLoops.getNumOccurrences() ? UserKeepLoops : KeepLoops;
+
+    Options.SinkCommonInsts = UserSinkCommonInsts.getNumOccurrences()
+                                  ? UserSinkCommonInsts
+                                  : SinkCommon;
   }
 
   bool runOnFunction(Function &F) override {
@@ -286,7 +299,8 @@ INITIALIZE_PASS_END(CFGSimplifyPass, "simplifycfg", "Simplify the CFG", false,
 FunctionPass *
 llvm::createCFGSimplificationPass(unsigned Threshold, bool ForwardSwitchCond,
                                   bool ConvertSwitch, bool KeepLoops,
+                                  bool SinkCommon,
                                   std::function<bool(const Function &)> Ftor) {
   return new CFGSimplifyPass(Threshold, ForwardSwitchCond, ConvertSwitch,
-                             KeepLoops, std::move(Ftor));
+                             KeepLoops, SinkCommon, std::move(Ftor));
 }

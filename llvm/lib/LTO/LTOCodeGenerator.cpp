@@ -21,9 +21,6 @@
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/CodeGen/ParallelCG.h"
-#include "llvm/CodeGen/RuntimeLibcalls.h"
-#include "llvm/CodeGen/TargetLowering.h"
-#include "llvm/CodeGen/TargetRegisterInfo.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/Config/config.h"
 #include "llvm/IR/Constants.h"
@@ -138,6 +135,7 @@ void LTOCodeGenerator::initializeLTOPasses() {
   initializeDTransOptWrapperPass(R);
   initializeWholeProgramWrapperPassPass(R);
   initializeInlineAggressiveWrapperPassPass(R);
+  initializeOptimizeDynamicCastsWrapperPass(R);
 #endif // INTEL_CUSTOMIZATION
 }
 

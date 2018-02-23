@@ -53,6 +53,7 @@ static Attribute::AttrKind parseAttrKind(StringRef Kind) {
       .Case("returns_twice", Attribute::ReturnsTwice)
       .Case("safestack", Attribute::SafeStack)
       .Case("sanitize_address", Attribute::SanitizeAddress)
+      .Case("sanitize_hwaddress", Attribute::SanitizeHWAddress)
       .Case("sanitize_memory", Attribute::SanitizeMemory)
       .Case("sanitize_thread", Attribute::SanitizeThread)
       .Case("ssp", Attribute::StackProtect)

@@ -1,7 +1,9 @@
 ; REQUIRES: object-emission
-
-; RUN: %llc_dwarf < %s -filetype=obj | llvm-dwarfdump -v - | FileCheck %s
-; RUN: %llc_dwarf -split-dwarf-file=foo.dwo < %s -filetype=obj | llvm-dwarfdump -v - | FileCheck --check-prefix=FISSION %s
+; INTEL_CUSTOMIZATION BEGIN
+; Added -dwarf-line-version=4 as workaround for ld.gold internal error until CMPLRS-48167 is fixed.
+; RUN: %llc_dwarf -dwarf-line-version=4 < %s -filetype=obj | llvm-dwarfdump -v - | FileCheck %s
+; RUN: %llc_dwarf -split-dwarf-file=foo.dwo -dwarf-line-version=4 < %s -filetype=obj | llvm-dwarfdump -v - | FileCheck --check-prefix=FISSION %s
+; INTEL_CUSTOMIZATION END
 
 ; darwin has a workaround for a linker bug so it always emits one line table entry
 ; XFAIL: darwin
@@ -9,7 +11,7 @@
 ; Expect no line table entry since there are no functions and file references in this compile unit
 ; CHECK: .debug_line contents:
 ; CHECK: Line table prologue:
-; CHECK: total_length: 0x00000019
+; CHECK: total_length: 0x0000001a
 ; CHECK-NOT: file_names[
 
 ; CHECK-NOT: .debug_pubnames contents:

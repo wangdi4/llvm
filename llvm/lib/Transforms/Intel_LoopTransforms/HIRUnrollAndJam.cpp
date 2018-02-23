@@ -171,7 +171,7 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesAll();
-    AU.addRequiredTransitive<HIRFramework>();
+    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
     AU.addRequiredTransitive<HIRLoopStatistics>();
     AU.addRequiredTransitive<HIRLoopResource>();
     AU.addRequiredTransitive<HIRLocalityAnalysis>();
@@ -315,7 +315,7 @@ public:
 char HIRUnrollAndJam::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRUnrollAndJam, "hir-unroll-and-jam", "HIR Unroll & Jam",
                       false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFramework)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatistics)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopResource)
 INITIALIZE_PASS_DEPENDENCY(HIRLocalityAnalysis)
@@ -809,7 +809,7 @@ bool HIRUnrollAndJam::runOnFunction(Function &F) {
     return false;
   }
 
-  auto HIRF = &getAnalysis<HIRFramework>();
+  auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   HLS = &getAnalysis<HIRLoopStatistics>();
   HLR = &getAnalysis<HIRLoopResource>();
   HLA = &getAnalysis<HIRLocalityAnalysis>();
