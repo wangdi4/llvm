@@ -17,13 +17,13 @@
 #include "CSA.h"
 #include "CSAMachineFunctionInfo.h"
 #include "CSATargetMachine.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/IR/Function.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/TargetRegistry.h"
-#include "llvm/ADT/StringRef.h"
 
 using namespace llvm;
 
@@ -38,33 +38,39 @@ constexpr unsigned ISSUED_REGSTATE = RegState::Define | RegState::Dead;
 
 // GetCondFromBranchOpc - Return the CSA CC that matches
 // the correspondent Branch instruction opcode.
-static CSA::CondCode GetCondFromBranchOpc(unsigned BrOpc)
-{
+static CSA::CondCode GetCondFromBranchOpc(unsigned BrOpc) {
   switch (BrOpc) {
-  default: return CSA::COND_INVALID;
-  case CSA::BT  : return CSA::COND_T;
-  case CSA::BF  : return CSA::COND_F;
+  default:
+    return CSA::COND_INVALID;
+  case CSA::BT:
+    return CSA::COND_T;
+  case CSA::BF:
+    return CSA::COND_F;
   }
 }
 
 // GetCondBranchFromCond - Return the Branch instruction
 // opcode that matches the cc.
-static unsigned GetCondBranchFromCond(CSA::CondCode CC)
-{
+static unsigned GetCondBranchFromCond(CSA::CondCode CC) {
   switch (CC) {
-  default: llvm_unreachable("Illegal condition code!");
-  case CSA::COND_T  : return CSA::BT;
-  case CSA::COND_F  : return CSA::BF;
+  default:
+    llvm_unreachable("Illegal condition code!");
+  case CSA::COND_T:
+    return CSA::BT;
+  case CSA::COND_F:
+    return CSA::BF;
   }
 }
 
 // GetOppositeBranchCondition - Return the inverse of the specified condition
-static CSA::CondCode GetOppositeBranchCondition(CSA::CondCode CC)
-{
+static CSA::CondCode GetOppositeBranchCondition(CSA::CondCode CC) {
   switch (CC) {
-  default: llvm_unreachable("Illegal condition code!");
-  case CSA::COND_T  : return CSA::COND_F;
-  case CSA::COND_F  : return CSA::COND_T;
+  default:
+    llvm_unreachable("Illegal condition code!");
+  case CSA::COND_T:
+    return CSA::COND_F;
+  case CSA::COND_F:
+    return CSA::COND_T;
   }
 }
 
@@ -72,13 +78,12 @@ static CSA::CondCode GetOppositeBranchCondition(CSA::CondCode CC)
 void CSAInstrInfo::anchor() {}
 
 CSAInstrInfo::CSAInstrInfo(CSASubtarget &STI)
-  : CSAGenInstrInfo(CSA::ADJCALLSTACKDOWN, CSA::ADJCALLSTACKUP),
-    RI(*this) {}
+    : CSAGenInstrInfo(CSA::ADJCALLSTACKDOWN, CSA::ADJCALLSTACKUP), RI(*this) {}
 
 void CSAInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
-                                  MachineBasicBlock::iterator I,
-                                  const DebugLoc &DL, unsigned DestReg,
-                                  unsigned SrcReg, bool KillSrc) const {
+                               MachineBasicBlock::iterator I,
+                               const DebugLoc &DL, unsigned DestReg,
+                               unsigned SrcReg, bool KillSrc) const {
   // This could determine the opcode based on the minimum size of the source
   // and destination
   // For now, just use MOV64 to make sure all bits are moved.
@@ -89,75 +94,94 @@ void CSAInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
     .addReg(SrcReg, getKillRegState(KillSrc));
 }
 
-
 void CSAInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
-                                          MachineBasicBlock::iterator MI,
-                                          unsigned SrcReg, bool isKill, int FrameIdx,
-                                          const TargetRegisterClass *RC,
-                                          const TargetRegisterInfo *TRI) const {
+                                       MachineBasicBlock::iterator MI,
+                                       unsigned SrcReg, bool isKill,
+                                       int FrameIdx,
+                                       const TargetRegisterClass *RC,
+                                       const TargetRegisterInfo *TRI) const {
   DebugLoc DL;
-  if (MI != MBB.end()) DL = MI->getDebugLoc();
+  if (MI != MBB.end())
+    DL = MI->getDebugLoc();
   unsigned opc;
 
-  if        (RC == &CSA::I0RegClass  || RC == &CSA::RI0RegClass  || RC == &CSA::CI0RegClass ||
-             RC == &CSA::I1RegClass  || RC == &CSA::RI1RegClass  || RC == &CSA::CI1RegClass ||
-             RC == &CSA::I8RegClass  || RC == &CSA::RI8RegClass  || RC == &CSA::CI8RegClass) {
+  if (RC == &CSA::I0RegClass || RC == &CSA::RI0RegClass ||
+      RC == &CSA::CI0RegClass || RC == &CSA::I1RegClass ||
+      RC == &CSA::RI1RegClass || RC == &CSA::CI1RegClass ||
+      RC == &CSA::I8RegClass || RC == &CSA::RI8RegClass ||
+      RC == &CSA::CI8RegClass) {
     opc = CSA::ST8D;
-  } else if (RC == &CSA::I16RegClass || RC == &CSA::RI16RegClass || RC == &CSA::CI16RegClass) {
+  } else if (RC == &CSA::I16RegClass || RC == &CSA::RI16RegClass ||
+             RC == &CSA::CI16RegClass) {
     opc = CSA::ST16D;
-  } else if (RC == &CSA::I32RegClass || RC == &CSA::RI32RegClass || RC == &CSA::CI32RegClass) {
+  } else if (RC == &CSA::I32RegClass || RC == &CSA::RI32RegClass ||
+             RC == &CSA::CI32RegClass) {
     opc = CSA::ST32D;
-  } else if (RC == &CSA::I64RegClass || RC == &CSA::RI64RegClass || RC == &CSA::CI64RegClass) {
+  } else if (RC == &CSA::I64RegClass || RC == &CSA::RI64RegClass ||
+             RC == &CSA::CI64RegClass) {
     opc = CSA::ST64D;
   } else {
     llvm_unreachable("Unknown register class");
   }
 
-  BuildMI(MBB, MI, DL, get(opc)).addReg(CSA::IGN, ISSUED_REGSTATE)
-    .addFrameIndex(FrameIdx).addImm(0).addReg(SrcReg, getKillRegState(isKill))
-    .addImm(CSA::MEMLEVEL_T0).addReg(CSA::IGN);
-
+  BuildMI(MBB, MI, DL, get(opc))
+    .addReg(CSA::IGN, ISSUED_REGSTATE)
+    .addFrameIndex(FrameIdx)
+    .addImm(0)
+    .addReg(SrcReg, getKillRegState(isKill))
+    .addImm(CSA::MEMLEVEL_T0)
+    .addReg(CSA::IGN);
 }
 
 void CSAInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
-                                           MachineBasicBlock::iterator MI,
-                                           unsigned DestReg, int FrameIdx,
-                                           const TargetRegisterClass *RC,
-                                           const TargetRegisterInfo *TRI) const{
+                                        MachineBasicBlock::iterator MI,
+                                        unsigned DestReg, int FrameIdx,
+                                        const TargetRegisterClass *RC,
+                                        const TargetRegisterInfo *TRI) const {
   DebugLoc DL;
-  if (MI != MBB.end()) DL = MI->getDebugLoc();
+  if (MI != MBB.end())
+    DL = MI->getDebugLoc();
   unsigned opc;
 
-  if        (RC == &CSA::I0RegClass  || RC == &CSA::RI0RegClass  || RC == &CSA::CI0RegClass ||
-             RC == &CSA::I1RegClass  || RC == &CSA::RI1RegClass  || RC == &CSA::CI1RegClass ||
-             RC == &CSA::I8RegClass  || RC == &CSA::RI8RegClass  || RC == &CSA::CI8RegClass) {
+  if (RC == &CSA::I0RegClass || RC == &CSA::RI0RegClass ||
+      RC == &CSA::CI0RegClass || RC == &CSA::I1RegClass ||
+      RC == &CSA::RI1RegClass || RC == &CSA::CI1RegClass ||
+      RC == &CSA::I8RegClass || RC == &CSA::RI8RegClass ||
+      RC == &CSA::CI8RegClass) {
     opc = CSA::LD8D;
-  } else if (RC == &CSA::I16RegClass || RC == &CSA::RI16RegClass || RC == &CSA::CI16RegClass) {
+  } else if (RC == &CSA::I16RegClass || RC == &CSA::RI16RegClass ||
+             RC == &CSA::CI16RegClass) {
     opc = CSA::LD16D;
-  } else if (RC == &CSA::I32RegClass || RC == &CSA::RI32RegClass || RC == &CSA::CI32RegClass) {
+  } else if (RC == &CSA::I32RegClass || RC == &CSA::RI32RegClass ||
+             RC == &CSA::CI32RegClass) {
     opc = CSA::LD32D;
-  } else if (RC == &CSA::I64RegClass || RC == &CSA::RI64RegClass || RC == &CSA::CI64RegClass) {
+  } else if (RC == &CSA::I64RegClass || RC == &CSA::RI64RegClass ||
+             RC == &CSA::CI64RegClass) {
     opc = CSA::LD64D;
   } else {
     llvm_unreachable("Unknown register class");
   }
 
-  BuildMI(MBB, MI, DL, get(opc), DestReg).addReg(CSA::IGN, ISSUED_REGSTATE)
-    .addFrameIndex(FrameIdx).addImm(0).addImm(CSA::MEMLEVEL_T0).addReg(CSA::IGN);
+  BuildMI(MBB, MI, DL, get(opc), DestReg)
+    .addReg(CSA::IGN, ISSUED_REGSTATE)
+    .addFrameIndex(FrameIdx)
+    .addImm(0)
+    .addImm(CSA::MEMLEVEL_T0)
+    .addReg(CSA::IGN);
 }
 
-unsigned CSAInstrInfo::removeBranch(MachineBasicBlock &MBB, int *BytesAdded) const {
+unsigned CSAInstrInfo::removeBranch(MachineBasicBlock &MBB,
+                                    int *BytesAdded) const {
   assert(!BytesAdded && "code size not handled");
 
   MachineBasicBlock::iterator I = MBB.end();
-  unsigned Count = 0;
+  unsigned Count                = 0;
 
   while (I != MBB.begin()) {
     --I;
     if (I->isDebugValue())
       continue;
-    if (I->getOpcode() != CSA::BR &&
-        I->getOpcode() != CSA::BT &&
+    if (I->getOpcode() != CSA::BR && I->getOpcode() != CSA::BT &&
         I->getOpcode() != CSA::BF)
       break;
     // Remove the branch.
@@ -169,8 +193,8 @@ unsigned CSAInstrInfo::removeBranch(MachineBasicBlock &MBB, int *BytesAdded) con
   return Count;
 }
 
-bool CSAInstrInfo::
-reverseBranchCondition(SmallVectorImpl<MachineOperand> &Cond) const {
+bool CSAInstrInfo::reverseBranchCondition(
+  SmallVectorImpl<MachineOperand> &Cond) const {
   assert(Cond.size() == 2 && "Invalid branch condition!");
   Cond[0].setImm(GetOppositeBranchCondition((CSA::CondCode)Cond[0].getImm()));
   return false;
@@ -188,10 +212,10 @@ bool CSAInstrInfo::isUnpredicatedTerminator(const MachineInstr &MI) const {
 }
 */
 bool CSAInstrInfo::analyzeBranch(MachineBasicBlock &MBB,
-                                    MachineBasicBlock *&TBB,
-                                    MachineBasicBlock *&FBB,
-                                    SmallVectorImpl<MachineOperand> &Cond,
-                                    bool AllowModify) const {
+                                 MachineBasicBlock *&TBB,
+                                 MachineBasicBlock *&FBB,
+                                 SmallVectorImpl<MachineOperand> &Cond,
+                                 bool AllowModify) const {
   // Start from the bottom of the block and work up, examining the
   // terminator instructions.
   MachineBasicBlock::iterator I = MBB.end();
@@ -239,7 +263,7 @@ bool CSAInstrInfo::analyzeBranch(MachineBasicBlock &MBB,
     // Handle conditional branches.  This filters indirect jumps
     CSA::CondCode BranchCode = GetCondFromBranchOpc(I->getOpcode());
     if (BranchCode == CSA::COND_INVALID)
-      return true;  // Can't handle weird stuff.
+      return true; // Can't handle weird stuff.
 
     // Working from the bottom, handle the first conditional branch.
     if (Cond.empty()) {
@@ -271,12 +295,11 @@ bool CSAInstrInfo::analyzeBranch(MachineBasicBlock &MBB,
   return false;
 }
 
-unsigned
-CSAInstrInfo::insertBranch(MachineBasicBlock &MBB, MachineBasicBlock *TBB,
-                              MachineBasicBlock *FBB,
-                              ArrayRef<MachineOperand> Cond,
-                              const DebugLoc &DL,
-                              int *BytesAdded) const {
+unsigned CSAInstrInfo::insertBranch(MachineBasicBlock &MBB,
+                                    MachineBasicBlock *TBB,
+                                    MachineBasicBlock *FBB,
+                                    ArrayRef<MachineOperand> Cond,
+                                    const DebugLoc &DL, int *BytesAdded) const {
   assert(!BytesAdded && "code size not handled");
   // Shouldn't be a fall through.
   assert(TBB && "insertBranch must not be told to insert a fallthrough");
@@ -372,20 +395,18 @@ unsigned CSAInstrInfo::getLicSize(unsigned opcode) const {
 CSA::OpcodeClass CSAInstrInfo::getOpcodeClass(unsigned opcode) const {
   assert(opcode < CSA::INSTRUCTION_LIST_END && "Illegal opcode");
   return static_cast<CSA::OpcodeClass>(
-      opcode_to_generic_map[opcode].opClassification);
+    opcode_to_generic_map[opcode].opClassification);
 }
 
 unsigned CSAInstrInfo::makeOpcode(CSA::Generic generic, unsigned size,
-    CSA::OpcodeClass opcodeClass) const {
+                                  CSA::OpcodeClass opcodeClass) const {
   unsigned startIndex = generic_index_map[static_cast<unsigned>(generic)];
   assert(startIndex != ~0U && "Generic opcode has no valid opcodes");
   for (unsigned index = startIndex;
-      generic_to_opcode_map[index].genericOpcode == generic;
-      index++) {
+       generic_to_opcode_map[index].genericOpcode == generic; index++) {
     auto &entry = generic_to_opcode_map[index];
-    if (entry.opSize == size &&
-        (opcodeClass == CSA::VARIANT_DONTCARE ||
-         opcodeClass == entry.opClassification)) {
+    if (entry.opSize == size && (opcodeClass == CSA::VARIANT_DONTCARE ||
+                                 opcodeClass == entry.opClassification)) {
       return entry.opcode;
     }
   }
@@ -393,33 +414,48 @@ unsigned CSAInstrInfo::makeOpcode(CSA::Generic generic, unsigned size,
   return CSA::INVALID_OPCODE;
 }
 
-unsigned
-CSAInstrInfo::adjustOpcode(unsigned oldOpcode, CSA::Generic opcode) const {
+unsigned CSAInstrInfo::adjustOpcode(unsigned oldOpcode,
+                                    CSA::Generic opcode) const {
   return makeOpcode(opcode, getLicSize(oldOpcode), getOpcodeClass(oldOpcode));
 }
 
 unsigned
 CSAInstrInfo::getSizeOfRegisterClass(const TargetRegisterClass *RC) const {
   switch (RC->getID()) {
-    default: llvm_unreachable("Unknown Target register class!");
-    case CSA::CI0RegClassID: case CSA::I0RegClassID: case CSA::RI0RegClassID:
-      return 0;
-    case CSA::CI1RegClassID: case CSA::I1RegClassID: case CSA::RI1RegClassID:
-      return 1;
-    case CSA::CI8RegClassID: case CSA::I8RegClassID: case CSA::RI8RegClassID:
-      return 8;
-    case CSA::CI16RegClassID: case CSA::I16RegClassID: case CSA::RI16RegClassID:
-      return 16;
-    case CSA::CI32RegClassID: case CSA::I32RegClassID: case CSA::RI32RegClassID:
-      return 32;
-    case CSA::CI64RegClassID: case CSA::I64RegClassID: case CSA::RI64RegClassID:
-      return 64;
+  default:
+    llvm_unreachable("Unknown Target register class!");
+  case CSA::CI0RegClassID:
+  case CSA::I0RegClassID:
+  case CSA::RI0RegClassID:
+    return 0;
+  case CSA::CI1RegClassID:
+  case CSA::I1RegClassID:
+  case CSA::RI1RegClassID:
+    return 1;
+  case CSA::CI8RegClassID:
+  case CSA::I8RegClassID:
+  case CSA::RI8RegClassID:
+    return 8;
+  case CSA::CI16RegClassID:
+  case CSA::I16RegClassID:
+  case CSA::RI16RegClassID:
+    return 16;
+  case CSA::CI32RegClassID:
+  case CSA::I32RegClassID:
+  case CSA::RI32RegClassID:
+    return 32;
+  case CSA::CI64RegClassID:
+  case CSA::I64RegClassID:
+  case CSA::RI64RegClassID:
+    return 64;
   }
 }
 
 bool CSAInstrInfo::isLoad(const MachineInstr *MI) const {
   switch (getGenericOpcode(MI->getOpcode())) {
-  case CSA::Generic::LD: case CSA::Generic::LDD: case CSA::Generic::LDX:
+  case CSA::Generic::LD:
+  case CSA::Generic::LDD:
+  case CSA::Generic::LDX:
     return true;
   default:
     return false;
@@ -428,7 +464,9 @@ bool CSAInstrInfo::isLoad(const MachineInstr *MI) const {
 
 bool CSAInstrInfo::isStore(const MachineInstr *MI) const {
   switch (getGenericOpcode(MI->getOpcode())) {
-  case CSA::Generic::ST: case CSA::Generic::STD: case CSA::Generic::STX:
+  case CSA::Generic::ST:
+  case CSA::Generic::STD:
+  case CSA::Generic::STX:
     return true;
   default:
     return false;
@@ -439,16 +477,16 @@ bool CSAInstrInfo::isMOV(const MachineInstr *MI) const {
   // TODO: There is a pass that fails if we mark MOV0 as a MOV. This is a bug in
   // that pass, but we disable it here for now.
   return getGenericOpcode(MI->getOpcode()) == CSA::Generic::MOV &&
-    MI->getOpcode() != CSA::MOV0;
+         MI->getOpcode() != CSA::MOV0;
 }
 
 bool CSAInstrInfo::isAtomic(const MachineInstr *MI) const {
-    return MI->getOpcode() >= CSA::ATMADD16 && MI->getOpcode() <= CSA::ATMXOR8;
+  return MI->getOpcode() >= CSA::ATMADD16 && MI->getOpcode() <= CSA::ATMXOR8;
 }
 
 bool CSAInstrInfo::isSeqOT(const MachineInstr *MI) const {
-    return ((MI->getOpcode() >= CSA::SEQOTGES16) &&
-            (MI->getOpcode() <= CSA::SEQOTNE8));
+  return ((MI->getOpcode() >= CSA::SEQOTGES16) &&
+          (MI->getOpcode() <= CSA::SEQOTNE8));
 }
 
 bool CSAInstrInfo::isPure(const MachineInstr *MI) const {
@@ -464,31 +502,45 @@ bool CSAInstrInfo::isPure(const MachineInstr *MI) const {
     return true;
   if (isShift(MI) || isCmp(MI))
     return true;
-  if (CSA::NOT1 <= opcode && opcode <= CSA::NOT64) return true;
-  if (CSA::NEG8 <= opcode && opcode <= CSA::NEG64) return true;
-  if (CSA::CTLZ8 <= opcode && opcode <= CSA::CTLZ64) return true;
-  if (CSA::CTTZ8 <= opcode && opcode <= CSA::CTTZ64) return true;
-  if (CSA::CTPOP8 <= opcode && opcode <= CSA::CTPOP64) return true;
-  if (CSA::PARITY8 <= opcode && opcode <= CSA::PARITY64) return true;
-  if (CSA::AND1 <= opcode && opcode <= CSA::AND64) return true;
-  if (CSA::OR1 <= opcode && opcode <= CSA::OR64) return true;
-  if (CSA::XOR1 <= opcode && opcode <= CSA::XOR64) return true;
-  if (CSA::ADC8 <= opcode && opcode <= CSA::ADC64) return true;
-  if (CSA::SBB8 <= opcode && opcode <= CSA::SBB64) return true;
-  if (CSA::SEXT8 <= opcode && opcode <= CSA::SEXT64) return true;
-  if (CSA::SLADD8 <= opcode && opcode <= CSA::SLADD64) return true;
-  if (CSA::COPY0 <= opcode && opcode <= CSA::COPY64) return true;
-  if (CSA::NEGF32 <= opcode && opcode <= CSA::NEGF64) return true;
-  if (CSA::ABSF32 <= opcode && opcode <= CSA::ABSF64) return true;
+  if (CSA::NOT1 <= opcode && opcode <= CSA::NOT64)
+    return true;
+  if (CSA::NEG8 <= opcode && opcode <= CSA::NEG64)
+    return true;
+  if (CSA::CTLZ8 <= opcode && opcode <= CSA::CTLZ64)
+    return true;
+  if (CSA::CTTZ8 <= opcode && opcode <= CSA::CTTZ64)
+    return true;
+  if (CSA::CTPOP8 <= opcode && opcode <= CSA::CTPOP64)
+    return true;
+  if (CSA::PARITY8 <= opcode && opcode <= CSA::PARITY64)
+    return true;
+  if (CSA::AND1 <= opcode && opcode <= CSA::AND64)
+    return true;
+  if (CSA::OR1 <= opcode && opcode <= CSA::OR64)
+    return true;
+  if (CSA::XOR1 <= opcode && opcode <= CSA::XOR64)
+    return true;
+  if (CSA::ADC8 <= opcode && opcode <= CSA::ADC64)
+    return true;
+  if (CSA::SBB8 <= opcode && opcode <= CSA::SBB64)
+    return true;
+  if (CSA::SEXT8 <= opcode && opcode <= CSA::SEXT64)
+    return true;
+  if (CSA::SLADD8 <= opcode && opcode <= CSA::SLADD64)
+    return true;
+  if (CSA::COPY0 <= opcode && opcode <= CSA::COPY64)
+    return true;
+  if (CSA::NEGF32 <= opcode && opcode <= CSA::NEGF64)
+    return true;
+  if (CSA::ABSF32 <= opcode && opcode <= CSA::ABSF64)
+    return true;
 
   return false;
 }
 
-unsigned CSAInstrInfo::getMemTokenMOVOpcode() const {
-  return CSA::MOV0;
-}
+unsigned CSAInstrInfo::getMemTokenMOVOpcode() const { return CSA::MOV0; }
 
-bool CSAInstrInfo::isMemTokenMOV(const MachineInstr* MI) const {
+bool CSAInstrInfo::isMemTokenMOV(const MachineInstr *MI) const {
   return MI->getOpcode() == CSA::MOV0;
 }
 
@@ -572,12 +624,23 @@ unsigned CSAInstrInfo::commuteNegateCompareOpcode(unsigned cmp_opcode,
 unsigned CSAInstrInfo::convertCompareOpToSeqOTOp(unsigned cmp_opcode) const {
   CSA::Generic seq_opcode;
   switch (getGenericOpcode(cmp_opcode)) {
-  case CSA::Generic::CMPGE: seq_opcode = CSA::Generic::SEQOTGE; break;
-  case CSA::Generic::CMPGT: seq_opcode = CSA::Generic::SEQOTGT; break;
-  case CSA::Generic::CMPLE: seq_opcode = CSA::Generic::SEQOTLE; break;
-  case CSA::Generic::CMPLT: seq_opcode = CSA::Generic::SEQOTLT; break;
-  case CSA::Generic::CMPNE: seq_opcode = CSA::Generic::SEQOTNE; break;
-  default: return CSA::INVALID_OPCODE;
+  case CSA::Generic::CMPGE:
+    seq_opcode = CSA::Generic::SEQOTGE;
+    break;
+  case CSA::Generic::CMPGT:
+    seq_opcode = CSA::Generic::SEQOTGT;
+    break;
+  case CSA::Generic::CMPLE:
+    seq_opcode = CSA::Generic::SEQOTLE;
+    break;
+  case CSA::Generic::CMPLT:
+    seq_opcode = CSA::Generic::SEQOTLT;
+    break;
+  case CSA::Generic::CMPNE:
+    seq_opcode = CSA::Generic::SEQOTNE;
+    break;
+  default:
+    return CSA::INVALID_OPCODE;
   }
   return adjustOpcode(cmp_opcode, seq_opcode);
 }
@@ -587,10 +650,10 @@ unsigned CSAInstrInfo::promoteSeqOTOpBitwidth(unsigned seq_opcode,
   // Pick the larger of the sequence opcode and the bitwidth.
   unsigned licSize = std::max(getLicSize(seq_opcode), (unsigned)bitwidth);
   return makeOpcode(getGenericOpcode(seq_opcode), licSize,
-      getOpcodeClass(seq_opcode));
+                    getOpcodeClass(seq_opcode));
 }
 
-const TargetRegisterClass*
+const TargetRegisterClass *
 CSAInstrInfo::getStrideInputRC(unsigned strideOpcode) const {
   switch (strideOpcode) {
   case CSA::STRIDE64:
@@ -607,15 +670,17 @@ CSAInstrInfo::getStrideInputRC(unsigned strideOpcode) const {
   }
 }
 
-bool
-CSAInstrInfo::isCommutingReductionTransform(const MachineInstr* MI) const {
+bool CSAInstrInfo::isCommutingReductionTransform(const MachineInstr *MI) const {
   using namespace CSA;
   // NOTE: we are leaving out AND1, OR1, and XOR1.
   // We don't have a 1-bit reduction op...
   switch (getGenericOpcode(MI->getOpcode())) {
-  case Generic::ADD: case Generic::MUL:
+  case Generic::ADD:
+  case Generic::MUL:
     return true;
-  case Generic::AND: case Generic::OR: case Generic::XOR:
+  case Generic::AND:
+  case Generic::OR:
+  case Generic::XOR:
     return getLicSize(MI->getOpcode()) > 1;
   default:
     return false;
@@ -626,14 +691,29 @@ unsigned
 CSAInstrInfo::convertTransformToReductionOp(unsigned transform_opcode) const {
   CSA::Generic reductGeneric;
   switch (getGenericOpcode(transform_opcode)) {
-  case CSA::Generic::FMA: reductGeneric = CSA::Generic::FMSREDA; break;
-  case CSA::Generic::ADD: reductGeneric = CSA::Generic::SREDADD; break;
-  case CSA::Generic::SUB: reductGeneric = CSA::Generic::SREDSUB; break;
-  case CSA::Generic::MUL: reductGeneric = CSA::Generic::SREDMUL; break;
-  case CSA::Generic::AND: reductGeneric = CSA::Generic::SREDAND; break;
-  case CSA::Generic::OR:  reductGeneric = CSA::Generic::SREDOR;  break;
-  case CSA::Generic::XOR: reductGeneric = CSA::Generic::SREDXOR; break;
-  default: return CSA::INVALID_OPCODE;
+  case CSA::Generic::FMA:
+    reductGeneric = CSA::Generic::FMSREDA;
+    break;
+  case CSA::Generic::ADD:
+    reductGeneric = CSA::Generic::SREDADD;
+    break;
+  case CSA::Generic::SUB:
+    reductGeneric = CSA::Generic::SREDSUB;
+    break;
+  case CSA::Generic::MUL:
+    reductGeneric = CSA::Generic::SREDMUL;
+    break;
+  case CSA::Generic::AND:
+    reductGeneric = CSA::Generic::SREDAND;
+    break;
+  case CSA::Generic::OR:
+    reductGeneric = CSA::Generic::SREDOR;
+    break;
+  case CSA::Generic::XOR:
+    reductGeneric = CSA::Generic::SREDXOR;
+    break;
+  default:
+    return CSA::INVALID_OPCODE;
   }
   return adjustOpcode(transform_opcode, reductGeneric);
 }
@@ -659,38 +739,35 @@ bool CSAInstrInfo::isLICClass(const TargetRegisterClass *RC) const {
   if (!RC)
     return false;
   return RC->getID() == CSA::CI0RegClassID ||
-    RC->getID() == CSA::CI1RegClassID ||
-    RC->getID() == CSA::CI8RegClassID ||
-    RC->getID() == CSA::CI16RegClassID ||
-    RC->getID() == CSA::CI32RegClassID ||
-    RC->getID() == CSA::CI64RegClassID ||
-    RC->getID() == CSA::ANYCRegClassID;
+         RC->getID() == CSA::CI1RegClassID ||
+         RC->getID() == CSA::CI8RegClassID ||
+         RC->getID() == CSA::CI16RegClassID ||
+         RC->getID() == CSA::CI32RegClassID ||
+         RC->getID() == CSA::CI64RegClassID ||
+         RC->getID() == CSA::ANYCRegClassID;
 }
 
-const TargetRegisterClass *CSAInstrInfo::getRegisterClass(unsigned reg,
-    const MachineRegisterInfo &MRI) const {
+const TargetRegisterClass *
+CSAInstrInfo::getRegisterClass(unsigned reg,
+                               const MachineRegisterInfo &MRI) const {
   if (TargetRegisterInfo::isVirtualRegister(reg))
     return MRI.getRegClass(reg);
 
   if (CSA::CI64RegClass.contains(reg)) {
     return &CSA::CI64RegClass;
-  }
-  else if (CSA::CI32RegClass.contains(reg)) {
+  } else if (CSA::CI32RegClass.contains(reg)) {
     return &CSA::CI32RegClass;
   }
   if (CSA::CI16RegClass.contains(reg)) {
     return &CSA::CI16RegClass;
-  }
-  else if (CSA::CI8RegClass.contains(reg)) {
+  } else if (CSA::CI8RegClass.contains(reg)) {
     return &CSA::CI8RegClass;
   }
   if (CSA::CI1RegClass.contains(reg)) {
     return &CSA::CI1RegClass;
-  }
-  else if (CSA::CI0RegClass.contains(reg)) {
+  } else if (CSA::CI0RegClass.contains(reg)) {
     return &CSA::CI0RegClass;
-  }
-  else if (CSA::ANYCRegClass.contains(reg)) {
+  } else if (CSA::ANYCRegClass.contains(reg)) {
     return &CSA::ANYCRegClass;
   }
   return nullptr;

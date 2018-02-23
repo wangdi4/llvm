@@ -14,96 +14,88 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <map>
 #include "CSA.h"
-#include "InstPrinter/CSAInstPrinter.h"
 #include "CSAInstrInfo.h"
+#include "CSASeqOpt.h"
 #include "CSATargetMachine.h"
-#include "llvm/ADT/Statistic.h"
+#include "InstPrinter/CSAInstPrinter.h"
+#include "MachineCDG.h"
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/SparseSet.h"
+#include "llvm/ADT/Statistic.h"
 #include "llvm/CodeGen/LiveVariables.h"
+#include "llvm/CodeGen/MachineDominators.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineLoopInfo.h"
-#include "llvm/CodeGen/MachineDominators.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
+#include "llvm/CodeGen/MachineLoopInfo.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/MachineSSAUpdater.h"
 #include "llvm/Pass.h"
 #include "llvm/PassSupport.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/FileSystem.h"
-#include "llvm/Target/TargetFrameLowering.h"
-#include "llvm/Target/TargetRegisterInfo.h"
-#include "llvm/Target/TargetSubtargetInfo.h"
-#include "MachineCDG.h"
-#include "CSAInstrInfo.h"
-#include "CSASeqOpt.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/CodeGen/TargetFrameLowering.h"
+#include "llvm/CodeGen/TargetRegisterInfo.h"
+#include "llvm/CodeGen/TargetSubtargetInfo.h"
+#include <map>
 
 using namespace llvm;
 
 #define DEBUG_TYPE "csa-multi-sequence"
 
-static cl::opt<int>
-CSAMultiSeqPass("csa-multi-seq", cl::Hidden,
-               cl::desc("CSA Specific: Multiple Sequence"),
-               cl::init(1));
-
-
+static cl::opt<int> CSAMultiSeqPass("csa-multi-seq", cl::Hidden,
+                                    cl::desc("CSA Specific: Multiple Sequence"),
+                                    cl::init(1));
 
 namespace {
-  class CSAMultiSeq : public MachineFunctionPass {
-  public:
-    static char ID;
-    CSAMultiSeq();
+class CSAMultiSeq : public MachineFunctionPass {
+public:
+  static char ID;
+  CSAMultiSeq();
 
-    StringRef getPassName() const override {
-      return "CSA Multiple Seuqence";
-    }
+  StringRef getPassName() const override { return "CSA Multiple Seuqence"; }
 
-    bool runOnMachineFunction(MachineFunction &MF) override;
-    void getAnalysisUsage(AnalysisUsage &AU) const override {
-      AU.addRequired<MachineLoopInfo>();
-      AU.addRequired<ControlDependenceGraph>();
-      //AU.addRequired<LiveVariables>();
-      AU.addRequired<MachineDominatorTree>();
-      AU.addRequired<MachinePostDominatorTree>();
-      AU.addRequired<AAResultsWrapperPass>();
-      AU.setPreservesAll();
-      MachineFunctionPass::getAnalysisUsage(AU);
-    }
-  private:
-    MachineFunction *thisMF;
-    MachineLoopInfo* MLI;
-    const CSAInstrInfo *TII;
-  };
-}
+  bool runOnMachineFunction(MachineFunction &MF) override;
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequired<MachineLoopInfo>();
+    AU.addRequired<ControlDependenceGraph>();
+    // AU.addRequired<LiveVariables>();
+    AU.addRequired<MachineDominatorTree>();
+    AU.addRequired<MachinePostDominatorTree>();
+    AU.addRequired<AAResultsWrapperPass>();
+    AU.setPreservesAll();
+    MachineFunctionPass::getAnalysisUsage(AU);
+  }
+
+private:
+  MachineFunction *thisMF;
+  MachineLoopInfo *MLI;
+  const CSAInstrInfo *TII;
+};
+} // namespace
 
 namespace llvm {
-    void initializeCSAMultiSeqPass(PassRegistry&);
+void initializeCSAMultiSeqPass(PassRegistry &);
 }
 
 //  Because of the namespace-related syntax limitations of gcc, we need
-//  To hoist init out of namespace blocks. 
+//  To hoist init out of namespace blocks.
 char CSAMultiSeq::ID = 0;
-INITIALIZE_PASS(CSAMultiSeq, "csa-multi-seq", "CSA Multiple Sequence", true, true)
+INITIALIZE_PASS(CSAMultiSeq, "csa-multi-seq", "CSA Multiple Sequence", true,
+                true)
 
 CSAMultiSeq::CSAMultiSeq() : MachineFunctionPass(ID) {
-    initializeCSAMultiSeqPass(*PassRegistry::getPassRegistry());
+  initializeCSAMultiSeqPass(*PassRegistry::getPassRegistry());
 }
 
-MachineFunctionPass *llvm::createCSAMultiSeqPass() {
-  return new CSAMultiSeq();
-}
+MachineFunctionPass *llvm::createCSAMultiSeqPass() { return new CSAMultiSeq(); }
 
 bool CSAMultiSeq::runOnMachineFunction(MachineFunction &MF) {
-  if (CSAMultiSeqPass == 0) return false;
+  if (CSAMultiSeqPass == 0)
+    return false;
   CSASeqOpt seqOpt(&MF);
   seqOpt.SequenceOPT(true);
   return true;
 }
-
-
-

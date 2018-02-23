@@ -22,7 +22,7 @@
 #include "llvm/CodeGen/TargetRegisterInfo.h"
 
 namespace llvm {
-  class CSAInstrInfo;
+class CSAInstrInfo;
 
 /// CSAMachineFunctionInfo - This class is derived from MachineFunction and
 /// contains private CSA target-specific information for each MachineFunction.
@@ -38,7 +38,7 @@ class CSAMachineFunctionInfo : public MachineFunctionInfo {
     LICInfo() : name(), licDepth(0) {}
   };
   DenseMap<unsigned, LICInfo> licInfo;
-  void noteNewLIC(unsigned vreg, unsigned licSize, const Twine &name="");
+  void noteNewLIC(unsigned vreg, unsigned licSize, const Twine &name = "");
 
   MachineRegisterInfo &MRI;
   const CSAInstrInfo *TII;
@@ -59,7 +59,7 @@ class CSAMachineFunctionInfo : public MachineFunctionInfo {
 public:
   explicit CSAMachineFunctionInfo(MachineFunction &MF);
   ~CSAMachineFunctionInfo();
- 
+
   int getFPFrameIndex() const { return FPFrameIndex; }
   void setFPFrameIndex(int Index) { FPFrameIndex = Index; }
 
@@ -84,7 +84,7 @@ public:
   // is explicitly allocated with allocateLIC.  In assembly generation, LIC
   // declarations are emitted for the current routine for each allocated LIC.
 
-  const TargetRegisterClass* licRCFromGenRC(const TargetRegisterClass* RC);
+  const TargetRegisterClass *licRCFromGenRC(const TargetRegisterClass *RC);
 
   /// Allocate LIC register of the given register classes (we expect it to be
   /// one of the CI* classes, not I* or RI*). In addition to allocating it, you
@@ -92,8 +92,8 @@ public:
   /// assembly (if no name is provided, one is generated based on the LIC size).
   ///
   /// TODO: ensure uniqueness of LIC names.
-  unsigned allocateLIC(const TargetRegisterClass* RegClass,
-    const Twine &name="");
+  unsigned allocateLIC(const TargetRegisterClass *RegClass,
+                       const Twine &name = "");
 
   /// Set the depth for a particular LIC explicitly, rather than the default.
   void setLICDepth(unsigned lic, int amount) {
@@ -102,15 +102,11 @@ public:
 
   /// Return the depth of the specified LIC.
   /// A depth of 0 means to use the default value.
-  int getLICDepth(unsigned lic) const {
-    return getLICInfo(lic).licDepth;
-  }
+  int getLICDepth(unsigned lic) const { return getLICInfo(lic).licDepth; }
 
   /// Get a user-readable name of the LIC for the virtual register, or return
   /// an empty string if none is known.
-  StringRef getLICName(unsigned vreg) const {
-    return getLICInfo(vreg).name;
-  }
+  StringRef getLICName(unsigned vreg) const { return getLICInfo(vreg).name; }
 
   /// Set the name of the LIC to have the specified name.
   void setLICName(unsigned vreg, const Twine &name) const;
@@ -119,6 +115,6 @@ public:
   int getLICSize(unsigned reg) const;
 };
 
-} // End llvm namespace
+} // namespace llvm
 
 #endif

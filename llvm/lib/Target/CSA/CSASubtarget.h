@@ -61,37 +61,39 @@ protected:
   bool HasRSqrtA;
   bool HasSqrt;
   bool HasMath0;
+  bool HasRMWAtomic;
 
 public:
   std::string csaName() const { return CSAName; }
   bool isOrdered() const { return IsOrdered; }
-  bool hasI0()     const { return HasI0; }
-  bool hasI1()     const { return HasI1; }
-  bool hasI8()     const { return HasI8; }
-  bool hasI16()    const { return HasI16; }
-  bool hasI32()    const { return HasI32; }
-  bool hasI64()    const { return HasI64; }
-  bool hasF16()    const { return HasF16; }
-  bool hasF32()    const { return HasF32; }
-  bool hasF64()    const { return HasF64; }
-  bool hasSextL()  const { return HasSextL; }
-  bool hasDispl()  const { return HasDispl; }
-  bool hasIndex()  const { return HasIndex; }
-  bool hasShAdd()  const { return HasShAdd; }
-  bool hasBitOp()  const { return HasBitOp; }
-  bool hasIDiv()   const { return HasIDiv; }
-  bool hasFDiv()   const { return HasFDiv; }
-  bool hasFMA()    const { return HasFMA; }
-  bool hasRcpA()   const { return HasRcpA; }
+  bool hasI0() const { return HasI0; }
+  bool hasI1() const { return HasI1; }
+  bool hasI8() const { return HasI8; }
+  bool hasI16() const { return HasI16; }
+  bool hasI32() const { return HasI32; }
+  bool hasI64() const { return HasI64; }
+  bool hasF16() const { return HasF16; }
+  bool hasF32() const { return HasF32; }
+  bool hasF64() const { return HasF64; }
+  bool hasSextL() const { return HasSextL; }
+  bool hasDispl() const { return HasDispl; }
+  bool hasIndex() const { return HasIndex; }
+  bool hasShAdd() const { return HasShAdd; }
+  bool hasBitOp() const { return HasBitOp; }
+  bool hasIDiv() const { return HasIDiv; }
+  bool hasFDiv() const { return HasFDiv; }
+  bool hasFMA() const { return HasFMA; }
+  bool hasRcpA() const { return HasRcpA; }
   bool hasRSqrtA() const { return HasRSqrtA; }
-  bool hasSqrt()   const { return HasSqrt; }
-  bool hasMath0()  const { return HasMath0; }
+  bool hasSqrt() const { return HasSqrt; }
+  bool hasMath0() const { return HasMath0; }
+  bool hasRMWAtomic() const { return HasRMWAtomic; }
 
   /// This constructor initializes the data members to match that
   /// of the specified triple.
   ///
-  CSASubtarget(const Triple &TT, const std::string &CPU,
-                  const std::string &FS, const TargetMachine &TM);
+  CSASubtarget(const Triple &TT, const std::string &CPU, const std::string &FS,
+               const TargetMachine &TM);
 
   CSASubtarget &initializeSubtargetDependencies(StringRef CPU, StringRef FS);
 
@@ -114,12 +116,13 @@ public:
   }
 
   // No scheduling...
-  RegisterScheduler::FunctionPassCtor getDAGScheduler(CodeGenOpt::Level) const override {
+  RegisterScheduler::FunctionPassCtor
+  getDAGScheduler(CodeGenOpt::Level) const override {
     return createDAGLinearizer;
   }
   bool enableMachineScheduler() const override { return false; }
   bool enablePostRAScheduler() const override { return false; }
 };
-} // End llvm namespace
+} // namespace llvm
 
-#endif  // LLVM_TARGET_CSA_SUBTARGET_H
+#endif // LLVM_TARGET_CSA_SUBTARGET_H

@@ -25,18 +25,16 @@ using namespace llvm;
 #define GET_SUBTARGETINFO_CTOR
 #include "CSAGenSubtargetInfo.inc"
 
-void CSASubtarget::anchor() { }
+void CSASubtarget::anchor() {}
 
-CSASubtarget &CSASubtarget::initializeSubtargetDependencies(StringRef CPU, StringRef FS) {
+CSASubtarget &CSASubtarget::initializeSubtargetDependencies(StringRef CPU,
+                                                            StringRef FS) {
   ParseSubtargetFeatures(CPU.empty() ? "autounit" : CPU, FS);
   return *this;
 }
 
 CSASubtarget::CSASubtarget(const Triple &TT, const std::string &CPU,
-                                 const std::string &FS, const TargetMachine &TM)
-    : CSAGenSubtargetInfo(TT, CPU, FS),
-      FrameLowering(),
+                           const std::string &FS, const TargetMachine &TM)
+    : CSAGenSubtargetInfo(TT, CPU, FS), FrameLowering(),
       InstrInfo(initializeSubtargetDependencies(CPU, FS)), TLInfo(TM, *this),
-      TSInfo(),
-      CSAName(CPU.empty() ? "autounit" : CPU)
-  {}
+      TSInfo(), CSAName(CPU.empty() ? "autounit" : CPU) {}

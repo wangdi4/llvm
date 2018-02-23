@@ -14,8 +14,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "CSAMCTargetDesc.h"
-#include "InstPrinter/CSAInstPrinter.h"
 #include "CSAMCAsmInfo.h"
+#include "InstPrinter/CSAInstPrinter.h"
 #include "llvm/MC/MCInstrInfo.h"
 #include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/MC/MCSubtargetInfo.h"
@@ -25,12 +25,12 @@ using namespace llvm;
 
 namespace llvm {
 namespace MCOI {
-  enum /* OperandType */ {
-    // Target specific operand types.
-    OPERAND_REG_IMM = llvm::MCOI::OPERAND_FIRST_TARGET
-  };
+enum /* OperandType */ {
+  // Target specific operand types.
+  OPERAND_REG_IMM = llvm::MCOI::OPERAND_FIRST_TARGET
+};
 }
-}
+} // namespace llvm
 
 #define GET_INSTRINFO_MC_DESC
 #include "CSAGenInstrInfo.inc"
@@ -53,16 +53,16 @@ static MCRegisterInfo *createCSAMCRegisterInfo(const Triple &TT) {
   return X;
 }
 
-static MCSubtargetInfo *createCSAMCSubtargetInfo(const Triple &TT, StringRef CPU,
-                                                    StringRef FS) {
+static MCSubtargetInfo *createCSAMCSubtargetInfo(const Triple &TT,
+                                                 StringRef CPU, StringRef FS) {
   return createCSAMCSubtargetInfoImpl(TT, CPU, FS);
 }
 
 static MCInstPrinter *createCSAMCInstPrinter(const Triple &T,
-                                                unsigned SyntaxVariant,
-                                                const MCAsmInfo &MAI,
-                                                const MCInstrInfo &MII,
-                                                const MCRegisterInfo &MRI) {
+                                             unsigned SyntaxVariant,
+                                             const MCAsmInfo &MAI,
+                                             const MCInstrInfo &MII,
+                                             const MCRegisterInfo &MRI) {
   if (SyntaxVariant == 0)
     return new CSAInstPrinter(MAI, MII, MRI);
   return nullptr;
@@ -76,8 +76,7 @@ extern "C" void LLVMInitializeCSATargetMC() {
   TargetRegistry::RegisterMCInstrInfo(getTheCSATarget(), createCSAMCInstrInfo);
 
   // Register the MC register info.
-  TargetRegistry::RegisterMCRegInfo(getTheCSATarget(),
-                                    createCSAMCRegisterInfo);
+  TargetRegistry::RegisterMCRegInfo(getTheCSATarget(), createCSAMCRegisterInfo);
 
   // Register the MC subtarget info.
   TargetRegistry::RegisterMCSubtargetInfo(getTheCSATarget(),

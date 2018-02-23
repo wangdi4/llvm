@@ -320,6 +320,8 @@ struct OperandMatcherList
 
   static constexpr auto registers = (First::registers | Rest::registers);
 
+  CONSTEXPR_DEFAULT_CTOR(OperandMatcherList)
+
   template <typename Op, typename Uses>
   constexpr InstructionMatcher<Op, ThisType, Uses>
   operator=(InstructionMatcher<Op, OperandMatcherList<>, Uses>) const
@@ -339,6 +341,8 @@ struct OperandMatcherList<>
   using ThisType = OperandMatcherList;
 
   static constexpr RegisterSet<> registers{};
+
+  CONSTEXPR_DEFAULT_CTOR(OperandMatcherList)
 
   static bool
   matchOperandRange(MatchResult&                     rslt,
@@ -724,6 +728,8 @@ struct OpcodeMatcherList :
   static_assert(OpcodeMatcherList::hasValidTypes,
                 "All parameters must be opcode matchers");
 
+  CONSTEXPR_DEFAULT_CTOR(OpcodeMatcherList)
+
   static constexpr bool match(unsigned v) {
     return OpcodeMatcherList::First::match(v) ||
       OpcodeMatcherList::Rest::match(v);
@@ -735,7 +741,9 @@ struct OpcodeMatcherList<> :
   OpcodeMatcherBase<OpcodeMatcherList<>>,
   internal::TypeListBase<OpcodeMatcherList, IsOpcodeMatcher>
 {
-  static constexpr bool match(unsigned v) { return false; }
+	CONSTEXPR_DEFAULT_CTOR(OpcodeMatcherList)
+
+	static constexpr bool match(unsigned v) { return false; }
 };
 
 template <class OpcodeMatcher1, class OpcodeMatcher2>

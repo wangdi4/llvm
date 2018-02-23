@@ -18,8 +18,8 @@
 #define LLVM_LIB_TARGET_CSA_CSALOWERAGGRCOPIES_H
 
 namespace llvm {
-  class FunctionPass;
-  FunctionPass *createLowerAggrCopies();
-}
+class FunctionPass;
+FunctionPass *createLowerAggrCopies();
+} // namespace llvm
 
 #endif

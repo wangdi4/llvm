@@ -15,24 +15,25 @@
 #include "llvm/Support/Compiler.h"
 
 namespace llvm {
-  class AsmPrinter;
-  class MCContext;
-  class MCInst;
-  class MCOperand;
-  class MCSymbol;
-  class MachineInstr;
-  class MachineModuleInfoMachO;
-  class MachineOperand;
+class AsmPrinter;
+class MCContext;
+class MCInst;
+class MCOperand;
+class MCSymbol;
+class MachineInstr;
+class MachineModuleInfoMachO;
+class MachineOperand;
 
-  /// CSAMCInstLower - This class is used to lower an MachineInstr
-  /// into an MCInst.
+/// CSAMCInstLower - This class is used to lower an MachineInstr
+/// into an MCInst.
 class LLVM_LIBRARY_VISIBILITY CSAMCInstLower {
   MCContext &Ctx;
 
   AsmPrinter &Printer;
+
 public:
   CSAMCInstLower(MCContext &ctx, AsmPrinter &printer)
-    : Ctx(ctx), Printer(printer) {}
+      : Ctx(ctx), Printer(printer) {}
 
   void Lower(const MachineInstr *MI, MCInst &OutMI) const;
 
@@ -47,6 +48,6 @@ public:
   */
 };
 
-}
+} // namespace llvm
 
 #endif

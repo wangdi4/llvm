@@ -15,10 +15,10 @@
 using namespace llvm;
 
 namespace llvm {
-  Target &getTheCSATarget() {
-    static Target TheCSATarget;
-    return TheCSATarget;
-  }
+Target &getTheCSATarget() {
+  static Target TheCSATarget;
+  return TheCSATarget;
+}
 } // namespace llvm
 
 extern "C" void LLVMInitializeCSATargetInfo() {

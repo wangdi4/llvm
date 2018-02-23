@@ -19,9 +19,9 @@
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCInst.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FormattedStream.h"
-#include "llvm/Support/CommandLine.h"
 
 #include <array>
 
@@ -29,35 +29,34 @@ using namespace llvm;
 
 #define DEBUG_TYPE "asm-printer"
 
-static cl::opt<bool>
-WrapAsmOpt("csa-wrap-asm", cl::Hidden,
-           cl::desc("CSA Specific: Wrap assembly for x86"),
-           cl::init(false));
+static cl::opt<bool> WrapAsmOpt("csa-wrap-asm", cl::Hidden,
+                                cl::desc("CSA Specific: Wrap assembly for x86"),
+                                cl::init(false));
 
-static std::map<int,const char*> FUName;
-static std::map<int,const char*> RMName;
-static std::map<int,const char*> MLName;
+static std::map<int, const char *> FUName;
+static std::map<int, const char *> RMName;
+static std::map<int, const char *> MLName;
 
 // Pin the vtable to this file
 void CSAInstPrinter::anchor() {}
 
 CSAInstPrinter::CSAInstPrinter(const MCAsmInfo &MAI, const MCInstrInfo &MII,
-                      const MCRegisterInfo &MRI)
-      : MCInstPrinter(MAI, MII, MRI) {
+                               const MCRegisterInfo &MRI)
+    : MCInstPrinter(MAI, MII, MRI) {
   // Should match list in CSAInstrInfo.h
-  FUName[CSA::FUNCUNIT::Auto] = "";   // Automatic unit assignment
-  FUName[CSA::FUNCUNIT::VIR] = "vir"; // Virtual unit - doesn't really exist
-  FUName[CSA::FUNCUNIT::ALU] = "alu"; // Integer arithmetic and logical
-  FUName[CSA::FUNCUNIT::SHF] = "shf"; // Shift unit
-  FUName[CSA::FUNCUNIT::IMA] = "ima"; // Integer multiply/accumulate
-  FUName[CSA::FUNCUNIT::FMA] = "fma"; // Floating Multiply Accumulate
-  FUName[CSA::FUNCUNIT::FCM] = "fcm"; // Floating point comparisons
-  FUName[CSA::FUNCUNIT::CFI] = "cfi"; // Conversion to Floating from Integer
-  FUName[CSA::FUNCUNIT::CIF] = "cif"; // Conversion to Integer of Floating
-  FUName[CSA::FUNCUNIT::DIV] = "div"; // Division
-  FUName[CSA::FUNCUNIT::MEM] = "mem"; // Memory access
-  FUName[CSA::FUNCUNIT::SXU] = "sxu"; // Sequential eXecution Unit
-  FUName[CSA::FUNCUNIT::SPD] = "spd";// Scratchpad
+  FUName[CSA::FUNCUNIT::Auto] = "";    // Automatic unit assignment
+  FUName[CSA::FUNCUNIT::VIR]  = "vir"; // Virtual unit - doesn't really exist
+  FUName[CSA::FUNCUNIT::ALU]  = "alu"; // Integer arithmetic and logical
+  FUName[CSA::FUNCUNIT::SHF]  = "shf"; // Shift unit
+  FUName[CSA::FUNCUNIT::IMA]  = "ima"; // Integer multiply/accumulate
+  FUName[CSA::FUNCUNIT::FMA]  = "fma"; // Floating Multiply Accumulate
+  FUName[CSA::FUNCUNIT::FCM]  = "fcm"; // Floating point comparisons
+  FUName[CSA::FUNCUNIT::CFI]  = "cfi"; // Conversion to Floating from Integer
+  FUName[CSA::FUNCUNIT::CIF]  = "cif"; // Conversion to Integer of Floating
+  FUName[CSA::FUNCUNIT::DIV]  = "div"; // Division
+  FUName[CSA::FUNCUNIT::MEM]  = "mem"; // Memory access
+  FUName[CSA::FUNCUNIT::SXU]  = "sxu"; // Sequential eXecution Unit
+  FUName[CSA::FUNCUNIT::SPD]  = "spd"; // Scratchpad
 
   // Should match lists in CSAInstrInfo.h and csa.h in the simulator.
   RMName[CSA::ROUND_NEAREST]       = "ROUND_NEAREST";
@@ -76,9 +75,7 @@ CSAInstPrinter::CSAInstPrinter(const MCAsmInfo &MAI, const MCInstrInfo &MII,
   MLName[CSA::MEMLEVEL_T0]  = "MEMLEVEL_T0";
 }
 
-bool CSAInstPrinter::WrapCsaAsm() {
-  return WrapAsmOpt;
-}
+bool CSAInstPrinter::WrapCsaAsm() { return WrapAsmOpt; }
 
 const char *CSAInstPrinter::WrapCsaAsmLinePrefix() {
   if (WrapAsmOpt) {
@@ -97,7 +94,7 @@ const char *CSAInstPrinter::WrapCsaAsmLineSuffix() {
 }
 
 void CSAInstPrinter::printInst(const MCInst *MI, raw_ostream &O,
-                                  StringRef Annot, const MCSubtargetInfo &STI) {
+                               StringRef Annot, const MCSubtargetInfo &STI) {
   O << WrapCsaAsmLinePrefix();
   printInstruction(MI, O);
   O << WrapCsaAsmLineSuffix();
@@ -108,7 +105,7 @@ void CSAInstPrinter::printInst(const MCInst *MI, raw_ostream &O,
 #include "CSAGenAsmWriter.inc"
 
 void CSAInstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
-                                     raw_ostream &O, const char *Modifier) {
+                                  raw_ostream &O, const char *Modifier) {
   assert((Modifier == nullptr || Modifier[0] == 0) && "No modifiers supported");
   const MCOperand &Op = MI->getOperand(OpNo);
   if (Op.isReg()) {
@@ -119,7 +116,7 @@ void CSAInstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
       O << Op.getImm();
     } else {
       char str[20] = {};
-      sprintf(str,"0x%llx",(long long)imm);
+      sprintf(str, "0x%llx", (long long)imm);
       O << str;
     }
   } else if (Op.isFPImm()) {
@@ -136,18 +133,18 @@ void CSAInstPrinter::printMemOperand(const MCInst *MI, unsigned OpNo,
   // Load/Store memory operands -- $reg, $reg || $reg, $imm
   printOperand(MI, OpNo, O);
   O << ", ";
-  printOperand(MI, OpNo+1, O);
+  printOperand(MI, OpNo + 1, O);
 }
 
 void CSAInstPrinter::printUnitOperand(const MCInst *MI, unsigned OpNo,
-                                     raw_ostream &O, const char *Modifier) {
+                                      raw_ostream &O, const char *Modifier) {
   assert((Modifier == nullptr || Modifier[0] == 0) && "No modifiers supported");
   const MCOperand &Op = MI->getOperand(OpNo);
   O << FUName[Op.getImm()];
 }
 
 void CSAInstPrinter::printRModeOperand(const MCInst *MI, unsigned OpNo,
-                                     raw_ostream &O, const char *Modifier) {
+                                       raw_ostream &O, const char *Modifier) {
   assert((Modifier == nullptr || Modifier[0] == 0) && "No modifiers supported");
 
   // This is an optional operand. The optional MO is added at selection, so if
@@ -157,7 +154,7 @@ void CSAInstPrinter::printRModeOperand(const MCInst *MI, unsigned OpNo,
 
   if (OpNo < MI->getNumOperands()) {
     const MCOperand &Op = MI->getOperand(OpNo);
-    immV = Op.getImm();
+    immV                = Op.getImm();
   }
 
   auto it = RMName.find(immV);
@@ -168,11 +165,11 @@ void CSAInstPrinter::printRModeOperand(const MCInst *MI, unsigned OpNo,
 }
 
 void CSAInstPrinter::printMemLvlOperand(const MCInst *MI, unsigned OpNo,
-                                     raw_ostream &O, const char *Modifier) {
+                                        raw_ostream &O, const char *Modifier) {
   assert((Modifier == nullptr || Modifier[0] == 0) && "No modifiers supported");
 
   int64_t immV = MI->getOperand(OpNo).getImm();
-  auto it = MLName.find(immV);
+  auto it      = MLName.find(immV);
   if (it != MLName.end())
     O << it->second;
   else
@@ -185,10 +182,7 @@ void CSAInstPrinter::printSignctlOperand(const MCInst *MI, unsigned OpNo,
 
   int64_t immV = MI->getOperand(OpNo).getImm();
   static const std::array<const char *, 3> names = {
-    "SIGNCTL_PROP",
-    "SIGNCTL_FORCE",
-    "SIGNCTL_FORCE_AND_CHECK"
-  };
+    "SIGNCTL_PROP", "SIGNCTL_FORCE", "SIGNCTL_FORCE_AND_CHECK"};
   if (immV >= 0 && immV < (int64_t)names.size())
     O << names[immV];
   else
@@ -196,7 +190,8 @@ void CSAInstPrinter::printSignctlOperand(const MCInst *MI, unsigned OpNo,
 }
 
 void CSAInstPrinter::printIntervalOperand(const MCInst *MI, unsigned OpNo,
-                                          raw_ostream &O, const char *Modifier) {
+                                          raw_ostream &O,
+                                          const char *Modifier) {
   assert((Modifier == nullptr || Modifier[0] == 0) && "No modifiers supported");
 
   int64_t immV = MI->getOperand(OpNo).getImm();
@@ -211,4 +206,3 @@ void CSAInstPrinter::printIntervalOperand(const MCInst *MI, unsigned OpNo,
   else
     printOperand(MI, OpNo, O, Modifier);
 }
-

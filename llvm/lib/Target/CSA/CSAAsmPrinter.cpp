@@ -15,10 +15,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "CSA.h"
-#include "InstPrinter/CSAInstPrinter.h"
 #include "CSAInstrInfo.h"
 #include "CSAMCInstLower.h"
 #include "CSATargetMachine.h"
+#include "InstPrinter/CSAInstPrinter.h"
+#include "llvm/BinaryFormat/ELF.h"
+#include "llvm/Bitcode/CSASaveRawBC.h"
 #include "llvm/CodeGen/AsmPrinter.h"
 #include "llvm/CodeGen/MachineConstantPool.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
@@ -37,8 +39,6 @@
 #include "llvm/Support/Path.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/BinaryFormat/ELF.h"
-#include "llvm/Bitcode/CSASaveRawBC.h"
 #include <fstream>
 #include <sstream>
 
@@ -47,105 +47,103 @@ using namespace llvm;
 #define DEBUG_TYPE "asm-printer"
 
 static cl::opt<bool>
-EmitLineNumbers("csa-emit-line-numbers", cl::Hidden,
-                cl::desc("CSA Specific: Emit Line numbers even without -G"),
-                cl::init(true));
+  EmitLineNumbers("csa-emit-line-numbers", cl::Hidden,
+                  cl::desc("CSA Specific: Emit Line numbers even without -G"),
+                  cl::init(true));
 
 static cl::opt<bool>
-InterleaveSrc("csa-emit-src", cl::ZeroOrMore, cl::Hidden,
-              cl::desc("CSA Specific: Emit source line in asm file"),
-              cl::init(false));
+  InterleaveSrc("csa-emit-src", cl::ZeroOrMore, cl::Hidden,
+                cl::desc("CSA Specific: Emit source line in asm file"),
+                cl::init(false));
 
 static cl::opt<bool>
-StrictTermination("csa-strict-term", cl::Hidden,
-                  cl::desc("CSA Specific: Turn on strict termination mode"),
-                  cl::init(false));
+  StrictTermination("csa-strict-term", cl::Hidden,
+                    cl::desc("CSA Specific: Turn on strict termination mode"),
+                    cl::init(false));
 
 static cl::opt<bool>
-ImplicitLicDefs("csa-implicit-lics", cl::Hidden,
+  ImplicitLicDefs("csa-implicit-lics", cl::Hidden,
                   cl::desc("CSA Specific: Define LICs implicitly"),
                   cl::init(false));
 
 static cl::opt<bool>
-EmitRegNames("csa-print-lic-names", cl::Hidden,
-             cl::desc("CSA Specific: Print pretty names for LICs"),
-             cl::init(false));
+  EmitRegNames("csa-print-lic-names", cl::Hidden,
+               cl::desc("CSA Specific: Print pretty names for LICs"),
+               cl::init(false));
 
 namespace {
-  class LineReader {
-  private:
-    unsigned theCurLine;
-    std::ifstream fstr;
-    char buff[512];
-    std::string theFileName;
-    SmallVector<unsigned, 32> lineOffset;
-  public:
-    LineReader(std::string filename) {
+class LineReader {
+private:
+  unsigned theCurLine;
+  std::ifstream fstr;
+  char buff[512];
+  std::string theFileName;
+  SmallVector<unsigned, 32> lineOffset;
+
+public:
+  LineReader(std::string filename) {
+    theCurLine = 0;
+    fstr.open(filename.c_str());
+    theFileName = filename;
+  }
+  std::string fileName() { return theFileName; }
+  ~LineReader() { fstr.close(); }
+  std::string readLine(unsigned lineNum) {
+    if (lineNum < theCurLine) {
       theCurLine = 0;
-      fstr.open(filename.c_str());
-      theFileName = filename;
+      fstr.seekg(0, std::ios::beg);
     }
-    std::string fileName() { return theFileName; }
-    ~LineReader() { fstr.close(); }
-    std::string readLine(unsigned lineNum) {
-      if (lineNum < theCurLine) {
-        theCurLine = 0;
-        fstr.seekg(0, std::ios::beg);
-      }
-      while (theCurLine < lineNum) {
-        fstr.getline(buff, 500);
-        theCurLine++;
-      }
-      return buff;
+    while (theCurLine < lineNum) {
+      fstr.getline(buff, 500);
+      theCurLine++;
     }
-  };
+    return buff;
+  }
+};
 
-  class CSAAsmPrinter : public AsmPrinter {
-    const Function *F;
-    const MachineRegisterInfo *MRI;
-    DebugLoc prevDebugLoc;
-    bool ignoreLoc(const MachineInstr &);
-    LineReader* reader;
-    // To record filename to ID mapping
-    std::map<std::string, unsigned> filenameMap;
-    void recordAndEmitFilenames(Module &);
-    bool doInitialization(Module &M) override;
-    void emitLineNumberAsDotLoc(const MachineInstr &);
-    void emitSrcInText(StringRef filename, unsigned line);
-    LineReader* getReader(std::string);
-    void emitParamList(const Function *);
-    void emitReturnVal(const Function*);
+class CSAAsmPrinter : public AsmPrinter {
+  const Function *F;
+  const MachineRegisterInfo *MRI;
+  DebugLoc prevDebugLoc;
+  bool ignoreLoc(const MachineInstr &);
+  LineReader *reader;
+  // To record filename to ID mapping
+  std::map<std::string, unsigned> filenameMap;
+  void recordAndEmitFilenames(Module &);
+  bool doInitialization(Module &M) override;
+  void emitLineNumberAsDotLoc(const MachineInstr &);
+  void emitSrcInText(StringRef filename, unsigned line);
+  LineReader *getReader(std::string);
+  void emitParamList(const Function *);
+  void emitReturnVal(const Function *);
 
-    void writeAsmLine(const char *);
+  void writeAsmLine(const char *);
 
-  public:
-    CSAAsmPrinter(TargetMachine &TM,
-            std::unique_ptr<MCStreamer> Streamer)
+public:
+  CSAAsmPrinter(TargetMachine &TM, std::unique_ptr<MCStreamer> Streamer)
       : AsmPrinter(TM, std::move(Streamer)), reader() {}
 
-    StringRef getPassName() const override {
-      return "CSA Assembly Printer";
-    }
+  StringRef getPassName() const override { return "CSA Assembly Printer"; }
 
-    void printOperand(const MachineInstr *MI, int OpNum, raw_ostream &O);
-    bool PrintAsmOperand(const MachineInstr *MI, unsigned OpNo,
-                        unsigned AsmVariant, const char *ExtraCode,
-                        raw_ostream &O) override;
+  void printOperand(const MachineInstr *MI, int OpNum, raw_ostream &O);
+  bool PrintAsmOperand(const MachineInstr *MI, unsigned OpNo,
+                       unsigned AsmVariant, const char *ExtraCode,
+                       raw_ostream &O) override;
 
-    void EmitStartOfAsmFile(Module &) override;
-    void EmitEndOfAsmFile(Module &) override;
+  void EmitStartOfAsmFile(Module &) override;
+  void EmitEndOfAsmFile(Module &) override;
 
-    void EmitFunctionEntryLabel() override;
-    void EmitFunctionBodyStart() override;
-    void EmitFunctionBodyEnd() override;
-    void EmitInstruction(const MachineInstr *MI) override;
+  void EmitFunctionEntryLabel() override;
+  void EmitFunctionBodyStart() override;
+  void EmitFunctionBodyEnd() override;
+  void EmitInstruction(const MachineInstr *MI) override;
 
-    void EmitCsaCodeSection();
-  };
+  void EmitCsaCodeSection();
+};
 } // end of anonymous namespace
 
 void CSAAsmPrinter::printOperand(const MachineInstr *MI, int OpNum,
-                                   raw_ostream &O) {
+                                 raw_ostream &O) {
   const MachineOperand &MO = MI->getOperand(OpNum);
 
   switch (MO.getType()) {
@@ -192,16 +190,16 @@ void CSAAsmPrinter::printOperand(const MachineInstr *MI, int OpNum,
 
 // PrintAsmOperand - Print out an operand for an inline asm expression.
 bool CSAAsmPrinter::PrintAsmOperand(const MachineInstr *MI, unsigned OpNo,
-                                      unsigned /*AsmVariant*/,
-                                      const char *ExtraCode, raw_ostream &O) {
+                                    unsigned /*AsmVariant*/,
+                                    const char *ExtraCode, raw_ostream &O) {
   // Does this asm operand have a single letter operand modifier?
   if (ExtraCode && ExtraCode[0]) {
     if (ExtraCode[1])
       return true; // Unknown modifier.
 
     switch (ExtraCode[0]) {
-      default:
-                return true; // Unknown modifier.
+    default:
+      return true; // Unknown modifier.
     }
   }
   printOperand(MI, OpNo, O);
@@ -291,7 +289,7 @@ void CSAAsmPrinter::emitLineNumberAsDotLoc(const MachineInstr &MI) {
 
   auto *Scope = cast_or_null<DIScope>(curLoc.getScope());
   if (!Scope)
-     return;
+    return;
 
   StringRef fileName(Scope->getFilename());
   StringRef dirName(Scope->getDirectory());
@@ -343,7 +341,8 @@ LineReader *CSAAsmPrinter::getReader(std::string filename) {
 void CSAAsmPrinter::emitParamList(const Function *F) {
   SmallString<128> Str;
   raw_svector_ostream O(Str);
-  const TargetLowering *TLI = MF->getSubtarget<CSASubtarget>().getTargetLowering();
+  const TargetLowering *TLI =
+    MF->getSubtarget<CSASubtarget>().getTargetLowering();
   Function::const_arg_iterator I, E;
   MVT thePointerTy = TLI->getPointerTy(MF->getDataLayout());
 
@@ -352,11 +351,12 @@ void CSAAsmPrinter::emitParamList(const Function *F) {
   // parameters go to successive registers, starting with the initial
   // value of paramReg.  This may be too simplistic for longer term.
   int paramReg = 2;  // Params start in R2 - see CSACallingConv.td
-  int lastReg = 17;  // Params end (inclusive) in R17 - see CSACallingConv.td
-  bool first = true;
-  for (I = F->arg_begin(), E = F->arg_end(); I != E && paramReg <= lastReg; ++I, paramReg++) {
-    Type *Ty = I->getType();
-    unsigned sz = 0;
+  int lastReg  = 17; // Params end (inclusive) in R17 - see CSACallingConv.td
+  bool first   = true;
+  for (I = F->arg_begin(), E = F->arg_end(); I != E && paramReg <= lastReg;
+       ++I, paramReg++) {
+    Type *Ty            = I->getType();
+    unsigned sz         = 0;
     std::string typeStr = ".i";
     if (isa<IntegerType>(Ty)) {
       sz = cast<IntegerType>(Ty)->getBitWidth();
@@ -382,7 +382,8 @@ void CSAAsmPrinter::emitParamList(const Function *F) {
 void CSAAsmPrinter::emitReturnVal(const Function *F) {
   SmallString<128> Str;
   raw_svector_ostream O(Str);
-  const TargetLowering *TLI = MF->getSubtarget<CSASubtarget>().getTargetLowering();
+  const TargetLowering *TLI =
+    MF->getSubtarget<CSASubtarget>().getTargetLowering();
 
   Type *Ty = F->getReturnType();
 
@@ -402,7 +403,7 @@ void CSAAsmPrinter::emitReturnVal(const Function *F) {
       size = Ty->getPrimitiveSizeInBits();
       O << " .i" << size;
     }
-    
+
   } else if (isa<PointerType>(Ty)) {
     O << " .i" << TLI->getPointerTy(MF->getDataLayout()).getSizeInBits();
   } else if ((Ty->getTypeID() == Type::StructTyID) || isa<VectorType>(Ty)) {
@@ -455,10 +456,10 @@ void CSAAsmPrinter::EmitStartOfAsmFile(Module &M) {
    */
   SmallString<128> Str;
   raw_svector_ostream O(Str);
-  const CSATargetMachine *CSATM = static_cast<const CSATargetMachine*>(&TM);
+  const CSATargetMachine *CSATM = static_cast<const CSATargetMachine *>(&TM);
   assert(CSATM && CSATM->getSubtargetImpl());
   O << CSAInstPrinter::WrapCsaAsmLinePrefix();
-  O << "\t# .processor ";  // note - commented out...
+  O << "\t# .processor "; // note - commented out...
   O << CSATM->getSubtargetImpl()->csaName();
   O << CSAInstPrinter::WrapCsaAsmLineSuffix();
   OutStreamer->EmitRawText(O.str());
@@ -466,8 +467,10 @@ void CSAAsmPrinter::EmitStartOfAsmFile(Module &M) {
   writeAsmLine("\t.version 0,6,0");
   // This should probably be replaced by code to handle externs
   writeAsmLine("\t.set implicitextern");
-  if (not StrictTermination) writeAsmLine("\t.set relaxed");
-  if (ImplicitLicDefs) writeAsmLine("\t.set implicit");
+  if (not StrictTermination)
+    writeAsmLine("\t.set relaxed");
+  if (ImplicitLicDefs)
+    writeAsmLine("\t.set implicit");
   writeAsmLine("\t.unit sxu");
 }
 
@@ -512,7 +515,7 @@ void CSAAsmPrinter::EmitFunctionEntryLabel() {
 
   // Set up
   MRI = &MF->getRegInfo();
-  F = MF->getFunction();
+  F   = MF->getFunction();
 
   // If we're wrapping the CSA assembly we need to create our own
   // global symbol declaration
@@ -522,7 +525,8 @@ void CSAAsmPrinter::EmitFunctionEntryLabel() {
     // interrupt the string we're building in the .csa.code section
     O << "\n\t.section\t.rodata.str1.16,\"aMS\",@progbits,1\n";
     O << *CurrentFnSym << ":\n";
-    O << "\t.asciz\t" << "\"" << *CurrentFnSym << "\"\n\n";
+    O << "\t.asciz\t"
+      << "\"" << *CurrentFnSym << "\"\n\n";
     O << "\t.section\t\".csa.code\",\"aS\",@progbits\n";
 
     O << CSAInstPrinter::WrapCsaAsmLinePrefix();
@@ -549,10 +553,9 @@ void CSAAsmPrinter::EmitFunctionEntryLabel() {
   emitParamList(F);
 }
 
-
 void CSAAsmPrinter::EmitFunctionBodyStart() {
   //  const MachineRegisterInfo *MRI;
-  MRI = &MF->getRegInfo();
+  MRI                                = &MF->getRegInfo();
   const CSAMachineFunctionInfo *LMFI = MF->getInfo<CSAMachineFunctionInfo>();
 
   if (not ImplicitLicDefs) {
@@ -576,10 +579,11 @@ void CSAAsmPrinter::EmitFunctionBodyStart() {
     // HybridDataFlow, this may need to be revisited to make sure they
     // are in order.
     for (TargetRegisterClass::iterator ri = CSA::ANYCRegClass.begin();
-                                      ri != CSA::ANYCRegClass.end(); ++ri) {
+         ri != CSA::ANYCRegClass.end(); ++ri) {
       MCPhysReg reg = *ri;
-      // A decl is needed if we allocated this LIC and it is has a using/defining
-      // instruction. (Sometimes all such instructions are cleaned up by DIE.)
+      // A decl is needed if we allocated this LIC and it is has a
+      // using/defining instruction. (Sometimes all such instructions are
+      // cleaned up by DIE.)
       if (reg != CSA::IGN && reg != CSA::NA && !MRI->reg_empty(reg)) {
         StringRef name = CSAInstPrinter::getRegisterName(reg);
         printRegister(reg, name);
@@ -590,19 +594,16 @@ void CSAAsmPrinter::EmitFunctionBodyStart() {
       if (!MRI->reg_empty(vreg)) {
         StringRef name = LMFI->getLICName(vreg);
         if (!EmitRegNames || name.empty()) {
-          LMFI->setLICName(vreg,
-            Twine("cv") + Twine(LMFI->getLICSize(vreg)) + "_" + Twine(index));
+          LMFI->setLICName(vreg, Twine("cv") + Twine(LMFI->getLICSize(vreg)) +
+                                   "_" + Twine(index));
         }
         printRegister(vreg, LMFI->getLICName(vreg));
       }
     }
   }
-
 }
 
-void CSAAsmPrinter::EmitFunctionBodyEnd() {
-  writeAsmLine("}");
-}
+void CSAAsmPrinter::EmitFunctionBodyEnd() { writeAsmLine("}"); }
 
 void CSAAsmPrinter::EmitInstruction(const MachineInstr *MI) {
   CSAMCInstLower MCInstLowering(OutContext, *this);

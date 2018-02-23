@@ -662,8 +662,9 @@ bool LiveVariables::runOnMachineFunction(MachineFunction &mf) {
   for (unsigned i = 0, e1 = VirtRegInfo.size(); i != e1; ++i) {
     const unsigned Reg = TargetRegisterInfo::index2VirtReg(i);
 #if INTEL_CUSTOMIZATION
-    if (MRI->getRegClass(Reg)->isVirtual())
-      continue;
+    if (auto RC = MRI->getRegClassOrNull(Reg))
+      if (RC->isVirtual())
+        continue;
 #endif
     for (unsigned j = 0, e2 = VirtRegInfo[Reg].Kills.size(); j != e2; ++j)
       if (VirtRegInfo[Reg].Kills[j] == MRI->getVRegDef(Reg))

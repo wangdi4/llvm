@@ -13,13 +13,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "CSA.h"
-#include "CSATargetMachine.h"
 #include "CSAInstrInfo.h"
-#include "llvm/CodeGen/Passes.h"
+#include "CSATargetMachine.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
+#include "llvm/CodeGen/Passes.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
@@ -31,30 +31,30 @@ using namespace llvm;
 #define DEBUG_TYPE "csa-normalize-debug"
 
 STATISTIC(NumDbgValueMovs,
-    "Number of MOVs added to connect LICs named by DBG_VALUEs");
+          "Number of MOVs added to connect LICs named by DBG_VALUEs");
 
 namespace llvm {
 namespace CSA { // Register classes
-  // Register class for ANYC, a superclass representing a channel of any width.
-  // This constant is declared in "CSAGenRegisterInfo.inc", but that file is
-  // huge and #including it would slow compilation.
-  extern const TargetRegisterClass ANYCRegClass;
-}
-}
+// Register class for ANYC, a superclass representing a channel of any width.
+// This constant is declared in "CSAGenRegisterInfo.inc", but that file is
+// huge and #including it would slow compilation.
+extern const TargetRegisterClass ANYCRegClass;
+} // namespace CSA
+} // namespace llvm
 
 namespace {
-  class CSANormalizeDebug : public MachineFunctionPass {
-    bool runOnMachineFunction(MachineFunction &MF) override;
+class CSANormalizeDebug : public MachineFunctionPass {
+  bool runOnMachineFunction(MachineFunction &MF) override;
 
-    const TargetRegisterInfo  *TRI;
-    const MachineRegisterInfo *MRI;
-    const CSAInstrInfo        *TII;
+  const TargetRegisterInfo *TRI;
+  const MachineRegisterInfo *MRI;
+  const CSAInstrInfo *TII;
 
-  public:
-    static char ID; // Pass identification, replacement for typeid
-    CSANormalizeDebug() : MachineFunctionPass(ID) { }
-  };
-}
+public:
+  static char ID; // Pass identification, replacement for typeid
+  CSANormalizeDebug() : MachineFunctionPass(ID) {}
+};
+} // namespace
 
 // The declaration for this factory function is in file "CSA.h"
 MachineFunctionPass *llvm::createCSANormalizeDebugPass() {
@@ -69,13 +69,15 @@ bool CSANormalizeDebug::runOnMachineFunction(MachineFunction &MF) {
     return false;
 
   bool AnyChanges = false;
-  MRI = &MF.getRegInfo();
-  TRI = MF.getSubtarget().getRegisterInfo();
-  TII = static_cast<const CSAInstrInfo*>(MF.getSubtarget<CSASubtarget>().getInstrInfo());
+  MRI             = &MF.getRegInfo();
+  TRI             = MF.getSubtarget().getRegisterInfo();
+  TII             = static_cast<const CSAInstrInfo *>(
+    MF.getSubtarget<CSASubtarget>().getInstrInfo());
 
   for (MachineBasicBlock &MB : MF) {
     for (MachineInstr &MI : MB) {
-      if (!(MI.isDebugValue() && MI.getNumOperands()>0 && MI.getOperand(0).isReg()))
+      if (!(MI.isDebugValue() && MI.getNumOperands() > 0 &&
+            MI.getOperand(0).isReg()))
         continue;
 
       unsigned reg = MI.getOperand(0).getReg();
@@ -100,13 +102,15 @@ bool CSANormalizeDebug::runOnMachineFunction(MachineFunction &MF) {
       assert(MRI->hasOneDef(reg) && "LIC has multiple producers?");
       MachineOperand *defOp = &*(MRI->def_begin(reg));
       MachineInstr *defInst = defOp->getParent();
-      unsigned opNum = defInst->getOperandNo(defOp);
-      unsigned rcEnum = defInst->getDesc().OpInfo[opNum].RegClass;
-      bool rcKnown = rcEnum < TRI->getNumRegClasses();
-      const TargetRegisterClass* rc = rcKnown ? TRI->getRegClass(rcEnum) : &CSA::CI64RegClass;
+      unsigned opNum        = defInst->getOperandNo(defOp);
+      unsigned rcEnum       = defInst->getDesc().OpInfo[opNum].RegClass;
+      bool rcKnown          = rcEnum < TRI->getNumRegClasses();
+      const TargetRegisterClass *rc =
+        rcKnown ? TRI->getRegClass(rcEnum) : &CSA::CI64RegClass;
 
       MachineInstr *ignMov = BuildMI(*MI.getParent(), &MI, DebugLoc(),
-          TII->get(TII->getMoveOpcode(rc)), CSA::IGN).addReg(reg);
+                                     TII->get(TII->getMoveOpcode(rc)), CSA::IGN)
+                               .addReg(reg);
       ignMov->setFlag(MachineInstr::NonSequential);
       NumDbgValueMovs++;
       AnyChanges = true;

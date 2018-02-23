@@ -23,7 +23,7 @@ class Target;
 
 Target &getTheCSATarget();
 
-} // End llvm namespace
+} // namespace llvm
 
 // Defines symbolic names for CSA registers.
 // This defines a mapping from register name to register number.
@@ -35,11 +35,11 @@ Target &getTheCSATarget();
 #include "CSAGenInstrInfo.inc"
 
 namespace llvm {
-  namespace CSA {
-    // Use INVALID_OPCODE as a more meaningful alias for INSTRUCtION_LIST_END
-    const decltype(INSTRUCTION_LIST_END) INVALID_OPCODE = INSTRUCTION_LIST_END;
-  }
-}
+namespace CSA {
+// Use INVALID_OPCODE as a more meaningful alias for INSTRUCtION_LIST_END
+const decltype(INSTRUCTION_LIST_END) INVALID_OPCODE = INSTRUCTION_LIST_END;
+} // namespace CSA
+} // namespace llvm
 
 #define GET_SUBTARGETINFO_ENUM
 #include "CSAGenSubtargetInfo.inc"

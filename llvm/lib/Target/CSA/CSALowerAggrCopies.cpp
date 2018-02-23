@@ -69,7 +69,7 @@ void convertMemCpyToLoop(Instruction *ConvertedInst, Value *SrcAddr,
 
   BasicBlock *OrigBB = ConvertedInst->getParent();
   BasicBlock *NewBB =
-      ConvertedInst->getParent()->splitBasicBlock(ConvertedInst, "split");
+    ConvertedInst->getParent()->splitBasicBlock(ConvertedInst, "split");
   BasicBlock *LoopBB = BasicBlock::Create(Context, "loadstoreloop", &F, NewBB);
 
   OrigBB->getTerminator()->setSuccessor(0, LoopBB);
@@ -91,19 +91,18 @@ void convertMemCpyToLoop(Instruction *ConvertedInst, Value *SrcAddr,
   // load from SrcAddr+LoopIndex
   // TODO: we can leverage the align parameter of llvm.memcpy for more efficient
   // word-sized loads and stores.
-  Value *Element =
-      LoopBuilder.CreateLoad(LoopBuilder.CreateInBoundsGEP(
-                                 LoopBuilder.getInt8Ty(), SrcAddr, LoopIndex),
-                             SrcIsVolatile);
+  Value *Element = LoopBuilder.CreateLoad(
+    LoopBuilder.CreateInBoundsGEP(LoopBuilder.getInt8Ty(), SrcAddr, LoopIndex),
+    SrcIsVolatile);
   // store at DstAddr+LoopIndex
-  LoopBuilder.CreateStore(Element,
-                          LoopBuilder.CreateInBoundsGEP(LoopBuilder.getInt8Ty(),
-                                                        DstAddr, LoopIndex),
-                          DstIsVolatile);
+  LoopBuilder.CreateStore(
+    Element,
+    LoopBuilder.CreateInBoundsGEP(LoopBuilder.getInt8Ty(), DstAddr, LoopIndex),
+    DstIsVolatile);
 
   // The value for LoopIndex coming from backedge is (LoopIndex + 1)
   Value *NewIndex =
-      LoopBuilder.CreateAdd(LoopIndex, ConstantInt::get(TypeOfCopyLen, 1));
+    LoopBuilder.CreateAdd(LoopIndex, ConstantInt::get(TypeOfCopyLen, 1));
   LoopIndex->addIncoming(NewIndex, LoopBB);
 
   LoopBuilder.CreateCondBr(LoopBuilder.CreateICmpULT(NewIndex, CopyLen), LoopBB,
@@ -137,7 +136,7 @@ void convertMemMoveToLoop(Instruction *ConvertedInst, Value *SrcAddr,
                           bool DstIsVolatile, LLVMContext &Context,
                           Function &F) {
   Type *TypeOfCopyLen = CopyLen->getType();
-  BasicBlock *OrigBB = ConvertedInst->getParent();
+  BasicBlock *OrigBB  = ConvertedInst->getParent();
 
   // Create the a comparison of src and dst, based on which we jump to either
   // the forward-copy part of the function (if src >= dst) or the backwards-copy
@@ -166,23 +165,23 @@ void convertMemMoveToLoop(Instruction *ConvertedInst, Value *SrcAddr,
   // Initial comparison of n == 0 that lets us skip the loops altogether. Shared
   // between both backwards and forward copy clauses.
   ICmpInst *CompareN =
-      new ICmpInst(OrigBB->getTerminator(), ICmpInst::ICMP_EQ, CopyLen,
-                   ConstantInt::get(TypeOfCopyLen, 0), "compare_n_to_0");
+    new ICmpInst(OrigBB->getTerminator(), ICmpInst::ICMP_EQ, CopyLen,
+                 ConstantInt::get(TypeOfCopyLen, 0), "compare_n_to_0");
 
   // Copying backwards.
   BasicBlock *LoopBB =
-      BasicBlock::Create(Context, "copy_backwards_loop", &F, CopyForwardBB);
+    BasicBlock::Create(Context, "copy_backwards_loop", &F, CopyForwardBB);
   IRBuilder<> LoopBuilder(LoopBB);
   PHINode *LoopPhi = LoopBuilder.CreatePHI(TypeOfCopyLen, 0);
-  Value *IndexPtr = LoopBuilder.CreateSub(
-      LoopPhi, ConstantInt::get(TypeOfCopyLen, 1), "index_ptr");
+  Value *IndexPtr  = LoopBuilder.CreateSub(
+    LoopPhi, ConstantInt::get(TypeOfCopyLen, 1), "index_ptr");
   Value *Element = LoopBuilder.CreateLoad(
-      LoopBuilder.CreateInBoundsGEP(SrcAddr, IndexPtr), "element");
+    LoopBuilder.CreateInBoundsGEP(SrcAddr, IndexPtr), "element");
   LoopBuilder.CreateStore(Element,
                           LoopBuilder.CreateInBoundsGEP(DstAddr, IndexPtr));
   LoopBuilder.CreateCondBr(
-      LoopBuilder.CreateICmpEQ(IndexPtr, ConstantInt::get(TypeOfCopyLen, 0)),
-      ExitBB, LoopBB);
+    LoopBuilder.CreateICmpEQ(IndexPtr, ConstantInt::get(TypeOfCopyLen, 0)),
+    ExitBB, LoopBB);
   LoopPhi->addIncoming(IndexPtr, LoopBB);
   LoopPhi->addIncoming(CopyLen, CopyBackwardsBB);
   BranchInst::Create(ExitBB, LoopBB, CompareN, ThenTerm);
@@ -190,15 +189,15 @@ void convertMemMoveToLoop(Instruction *ConvertedInst, Value *SrcAddr,
 
   // Copying forward.
   BasicBlock *FwdLoopBB =
-      BasicBlock::Create(Context, "copy_forward_loop", &F, ExitBB);
+    BasicBlock::Create(Context, "copy_forward_loop", &F, ExitBB);
   IRBuilder<> FwdLoopBuilder(FwdLoopBB);
   PHINode *FwdCopyPhi = FwdLoopBuilder.CreatePHI(TypeOfCopyLen, 0, "index_ptr");
-  Value *FwdElement = FwdLoopBuilder.CreateLoad(
-      FwdLoopBuilder.CreateInBoundsGEP(SrcAddr, FwdCopyPhi), "element");
+  Value *FwdElement   = FwdLoopBuilder.CreateLoad(
+    FwdLoopBuilder.CreateInBoundsGEP(SrcAddr, FwdCopyPhi), "element");
   FwdLoopBuilder.CreateStore(
-      FwdElement, FwdLoopBuilder.CreateInBoundsGEP(DstAddr, FwdCopyPhi));
+    FwdElement, FwdLoopBuilder.CreateInBoundsGEP(DstAddr, FwdCopyPhi));
   Value *FwdIndexPtr = FwdLoopBuilder.CreateAdd(
-      FwdCopyPhi, ConstantInt::get(TypeOfCopyLen, 1), "index_increment");
+    FwdCopyPhi, ConstantInt::get(TypeOfCopyLen, 1), "index_increment");
   FwdLoopBuilder.CreateCondBr(FwdLoopBuilder.CreateICmpEQ(FwdIndexPtr, CopyLen),
                               ExitBB, FwdLoopBB);
   FwdCopyPhi->addIncoming(FwdIndexPtr, FwdLoopBB);
@@ -214,7 +213,7 @@ void convertMemSetToLoop(Instruction *ConvertedInst, Value *DstAddr,
                          Function &F) {
   BasicBlock *OrigBB = ConvertedInst->getParent();
   BasicBlock *NewBB =
-      ConvertedInst->getParent()->splitBasicBlock(ConvertedInst, "split");
+    ConvertedInst->getParent()->splitBasicBlock(ConvertedInst, "split");
   BasicBlock *LoopBB = BasicBlock::Create(Context, "loadstoreloop", &F, NewBB);
 
   OrigBB->getTerminator()->setSuccessor(0, LoopBB);
@@ -222,7 +221,7 @@ void convertMemSetToLoop(Instruction *ConvertedInst, Value *DstAddr,
 
   // Cast pointer to the type of value getting stored
   unsigned dstAS = cast<PointerType>(DstAddr->getType())->getAddressSpace();
-  DstAddr = Builder.CreateBitCast(DstAddr,
+  DstAddr        = Builder.CreateBitCast(DstAddr,
                                   PointerType::get(SetValue->getType(), dstAS));
 
   IRBuilder<> LoopBuilder(LoopBB);
@@ -230,12 +229,12 @@ void convertMemSetToLoop(Instruction *ConvertedInst, Value *DstAddr,
   LoopIndex->addIncoming(ConstantInt::get(CopyLen->getType(), 0), OrigBB);
 
   LoopBuilder.CreateStore(
-      SetValue,
-      LoopBuilder.CreateInBoundsGEP(SetValue->getType(), DstAddr, LoopIndex),
-      false);
+    SetValue,
+    LoopBuilder.CreateInBoundsGEP(SetValue->getType(), DstAddr, LoopIndex),
+    false);
 
   Value *NewIndex =
-      LoopBuilder.CreateAdd(LoopIndex, ConstantInt::get(CopyLen->getType(), 1));
+    LoopBuilder.CreateAdd(LoopIndex, ConstantInt::get(CopyLen->getType(), 1));
   LoopIndex->addIncoming(NewIndex, LoopBB);
 
   LoopBuilder.CreateCondBr(LoopBuilder.CreateICmpULT(NewIndex, CopyLen), LoopBB,
@@ -287,11 +286,11 @@ bool CSALowerAggrCopies::runOnFunction(Function &F) {
   // Do the transformation of an aggr load/copy/set to a loop
   //
   for (LoadInst *LI : AggrLoads) {
-    StoreInst *SI = dyn_cast<StoreInst>(*LI->user_begin());
-    Value *SrcAddr = LI->getOperand(0);
-    Value *DstAddr = SI->getOperand(1);
+    StoreInst *SI     = dyn_cast<StoreInst>(*LI->user_begin());
+    Value *SrcAddr    = LI->getOperand(0);
+    Value *DstAddr    = SI->getOperand(1);
     unsigned NumLoads = DL.getTypeStoreSize(LI->getType());
-    Value *CopyLen = ConstantInt::get(Type::getInt32Ty(Context), NumLoads);
+    Value *CopyLen    = ConstantInt::get(Type::getInt32Ty(Context), NumLoads);
 
     convertMemCpyToLoop(/* ConvertedInst */ SI,
                         /* SrcAddr */ SrcAddr, /* DstAddr */ DstAddr,
@@ -350,6 +349,4 @@ INITIALIZE_PASS(CSALowerAggrCopies, "csa-lower-aggr-copies",
                 "Lower aggregate copies, and llvm.mem* intrinsics into loops",
                 false, false)
 
-FunctionPass *llvm::createLowerAggrCopies() {
-  return new CSALowerAggrCopies();
-}
+FunctionPass *llvm::createLowerAggrCopies() { return new CSALowerAggrCopies(); }

@@ -33,59 +33,58 @@
 // `USE_MATCH_ASSERT`.
 #define USE_MATCH_ASSERT 1
 #if USE_MATCH_ASSERT
-#  define MATCH_ASSERT(cond) assert(cond)
+#define MATCH_ASSERT(cond) assert(cond)
 #else
-#  define MATCH_ASSERT(cond) ((void) (cond))
+#define MATCH_ASSERT(cond) ((void)(cond))
 #endif
 
 namespace llvm {
 namespace CSAMatch {
 
-template <unsigned FixedId>
-struct PhysicalReg {
+template <unsigned FixedId> struct PhysicalReg {
   // Match a physical CSA register with a fixed ID.
 
-  static constexpr
-  mirmatch::RegisterSet<> registers{};
+  static constexpr mirmatch::RegisterSet<> registers{};
 
   constexpr PhysicalReg() = default;
 
   template <typename Op, typename Uses>
-  constexpr mirmatch::InstructionMatcher<Op,
-                             mirmatch::OperandMatcherList<PhysicalReg>, Uses>
+  constexpr mirmatch::InstructionMatcher<
+    Op, mirmatch::OperandMatcherList<PhysicalReg>, Uses>
   operator=(mirmatch::InstructionMatcher<Op, mirmatch::OperandMatcherList<>,
-                                        Uses>) const
-    { return {}; }
+                                         Uses>) const {
+    return {};
+  }
 
   static MachineInstr::const_mop_iterator
-  matchOperand(mirmatch::MatchResult&            rslt,
+  matchOperand(mirmatch::MatchResult &rslt,
                MachineInstr::const_mop_iterator op_iter,
                MachineInstr::const_mop_iterator op_end) {
-    return (op_iter->isReg() && op_iter->getReg() == FixedId) ?
-      op_iter : op_end;
+    return (op_iter->isReg() && op_iter->getReg() == FixedId) ? op_iter
+                                                              : op_end;
   }
 };
 
-} // close namespace llvm::CSAMatch
+} // namespace CSAMatch
 
 namespace mirmatch {
 
 // Indicate that `RegisterMatcher` models the `OperandMatcher` concept.
 template <unsigned FixedId>
-struct IsOperandMatcher<CSAMatch::PhysicalReg<FixedId>> : std::true_type { };
+struct IsOperandMatcher<CSAMatch::PhysicalReg<FixedId>> : std::true_type {};
 
-} // close namespace llvm::mirmatch
+} // namespace mirmatch
 
 namespace CSAMatch {
 
 constexpr PhysicalReg<CSA::IGN> ign{};
-constexpr PhysicalReg<CSA::NA>  na{};
+constexpr PhysicalReg<CSA::NA> na{};
 
 constexpr mirmatch::LiteralMatcher<int, 0> litZero{};
 constexpr mirmatch::LiteralMatcher<int, 1> litOne{};
 
-} // Close namespace CSAMatch
-} // Close namespace llvm
+} // namespace CSAMatch
+} // namespace llvm
 
 #define GET_MIRMATCHERS
 #include "CSAGenCSAOpInfo.inc"
@@ -93,8 +92,7 @@ constexpr mirmatch::LiteralMatcher<int, 1> litOne{};
 namespace llvm {
 namespace CSAMatch {
 constexpr mirmatch::OpcodeRange<CSA::SEQOTGES16, CSA::SEQOTNE8> seqot{};
-} // Close namespace CSAMatch
-} // Close namespace llvm
-
+} // namespace CSAMatch
+} // namespace llvm
 
 #endif // INCLUDED_CSAMATCHER_DOT_H

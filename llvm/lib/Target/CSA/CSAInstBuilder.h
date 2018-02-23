@@ -41,12 +41,10 @@ struct MachineOp {
   MachineOp(std::nullptr_t) : Kind(Variant::Null) {}
 
   // Make sure integer values don't get caught up.
-  MachineOp(int64_t) = delete;
+  MachineOp(int64_t)  = delete;
   MachineOp(unsigned) = delete;
 
-  explicit operator bool() const {
-    return Kind != Variant::Null;
-  }
+  explicit operator bool() const { return Kind != Variant::Null; }
 
   bool isImm() const;
   int64_t getImm() const;
@@ -85,33 +83,39 @@ static inline MachineOp OpUse(const MachineOperand &MOP) {
 }
 
 namespace detail {
-  template <typename... Args>
-  static void addOpsToBuilder(MachineInstrBuilder builder, const MachineOp &op,
-      Args... operands) {
-    addOpsToBuilder(builder, op);
-    addOpsToBuilder(builder, operands...);
-  }
+template <typename... Args>
+static void addOpsToBuilder(MachineInstrBuilder builder, const MachineOp &op,
+                            Args... operands) {
+  addOpsToBuilder(builder, op);
+  addOpsToBuilder(builder, operands...);
+}
 
-  template <>
-  void addOpsToBuilder(MachineInstrBuilder builder, const MachineOp &op) {
-    switch (op.Kind) {
-    case MachineOp::Variant::RegUse:
-      builder.addReg(op.RegNo); break;
-    case MachineOp::Variant::RegDef:
-      builder.addReg(op.RegNo, RegState::Define); break;
-    case MachineOp::Variant::Imm:
-      builder.addImm(op.Immediate); break;
-    case MachineOp::Variant::MachineOp:
-      builder.add(*op.Op); break;
-    case MachineOp::Variant::Null: break;
-    }
+template <>
+void addOpsToBuilder(MachineInstrBuilder builder, const MachineOp &op) {
+  switch (op.Kind) {
+  case MachineOp::Variant::RegUse:
+    builder.addReg(op.RegNo);
+    break;
+  case MachineOp::Variant::RegDef:
+    builder.addReg(op.RegNo, RegState::Define);
+    break;
+  case MachineOp::Variant::Imm:
+    builder.addImm(op.Immediate);
+    break;
+  case MachineOp::Variant::MachineOp:
+    builder.add(*op.Op);
+    break;
+  case MachineOp::Variant::Null:
+    break;
   }
+}
 } // namespace detail
 
 /// A class to help building MachineInstr instances.
 class CSAInstBuilder final {
   MachineInstr *insertionPoint;
   const CSAInstrInfo &TII;
+
 public:
   CSAInstBuilder(const CSAInstrInfo &TII) : TII(TII) {}
 
@@ -123,15 +127,15 @@ public:
   /// instead of inserting the opcode. If an instruction is added, it will
   /// run on the dataflow fabric.
   MachineOp makeOrConstantFold(CSAMachineFunctionInfo &LMFI, unsigned opcode,
-    const MachineOp &lhs, const MachineOp &rhs);
+                               const MachineOp &lhs, const MachineOp &rhs);
 
   /// Create a MachineInstr with the given opcode at the insertion point that
   /// will run on the dataflow fabric instead of the SXU.
   MachineInstrBuilder makeDFInstruction(unsigned opcode) {
-    MachineInstrBuilder builder = BuildMI(*insertionPoint->getParent(),
-      MachineBasicBlock::instr_iterator(*insertionPoint),
-      insertionPoint->getDebugLoc(),
-      TII.get(opcode));
+    MachineInstrBuilder builder =
+      BuildMI(*insertionPoint->getParent(),
+              MachineBasicBlock::instr_iterator(*insertionPoint),
+              insertionPoint->getDebugLoc(), TII.get(opcode));
     builder.setMIFlag(MachineInstr::NonSequential);
     return builder;
   }

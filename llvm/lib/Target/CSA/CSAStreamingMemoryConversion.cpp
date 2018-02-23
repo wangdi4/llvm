@@ -31,62 +31,64 @@ using namespace llvm;
 
 #define DEBUG_TYPE "csa-streamem"
 
-static cl::opt<bool> DisableMemoryConversion("csa-disable-streammem", cl::Hidden,
-    cl::desc("CSA Specific: Disable streaming memory conversion"));
+static cl::opt<bool> DisableMemoryConversion(
+  "csa-disable-streammem", cl::Hidden,
+  cl::desc("CSA Specific: Disable streaming memory conversion"));
 
 namespace llvm {
-  class CSAStreamingMemoryConversionPass : public MachineFunctionPass {
-  public:
-    static char ID;
-    CSAStreamingMemoryConversionPass();
+class CSAStreamingMemoryConversionPass : public MachineFunctionPass {
+public:
+  static char ID;
+  CSAStreamingMemoryConversionPass();
 
-    StringRef getPassName() const override {
-      return "CSA Dataflow simplification pass";
-    }
+  StringRef getPassName() const override {
+    return "CSA Dataflow simplification pass";
+  }
 
-    bool runOnMachineFunction(MachineFunction &MF) override;
-    void getAnalysisUsage(AnalysisUsage &AU) const override {
-      AU.setPreservesAll();
-      MachineFunctionPass::getAnalysisUsage(AU);
-    }
+  bool runOnMachineFunction(MachineFunction &MF) override;
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.setPreservesAll();
+    MachineFunctionPass::getAnalysisUsage(AU);
+  }
 
-  private:
-    MachineFunction *MF;
-    const MachineRegisterInfo *MRI;
-    CSAMachineFunctionInfo *LMFI;
-    const CSAInstrInfo *TII;
-    std::vector<MachineInstr *> to_delete;
+private:
+  MachineFunction *MF;
+  const MachineRegisterInfo *MRI;
+  CSAMachineFunctionInfo *LMFI;
+  const CSAInstrInfo *TII;
+  std::vector<MachineInstr *> to_delete;
 
-    bool makeStreamMemOp(MachineInstr *MI);
-    MachineInstr *getDefinition(const MachineOperand &MO) const;
-    void getUses(const MachineOperand &MO,
-        SmallVectorImpl<MachineInstr *> &uses) const;
-    MachineInstr *getSingleUse(const MachineOperand &MO) const;
-    bool isZero(const MachineOperand &MO) const;
-    MachineOp getLength(const MachineOperand &start,
-        const MachineOperand &end, bool isEqual, int64_t stride,
-        MachineInstr *buildPoint) const;
-  };
-}
+  bool makeStreamMemOp(MachineInstr *MI);
+  MachineInstr *getDefinition(const MachineOperand &MO) const;
+  void getUses(const MachineOperand &MO,
+               SmallVectorImpl<MachineInstr *> &uses) const;
+  MachineInstr *getSingleUse(const MachineOperand &MO) const;
+  bool isZero(const MachineOperand &MO) const;
+  MachineOp getLength(const MachineOperand &start, const MachineOperand &end,
+                      bool isEqual, int64_t stride,
+                      MachineInstr *buildPoint) const;
+};
+} // namespace llvm
 
 char CSAStreamingMemoryConversionPass::ID = 0;
 
-CSAStreamingMemoryConversionPass::CSAStreamingMemoryConversionPass() : MachineFunctionPass(ID) {
-}
-
+CSAStreamingMemoryConversionPass::CSAStreamingMemoryConversionPass()
+    : MachineFunctionPass(ID) {}
 
 MachineFunctionPass *llvm::createCSAStreamingMemoryConversionPass() {
   return new CSAStreamingMemoryConversionPass();
 }
 
-bool CSAStreamingMemoryConversionPass::runOnMachineFunction(MachineFunction &MF) {
+bool CSAStreamingMemoryConversionPass::runOnMachineFunction(
+  MachineFunction &MF) {
   if (DisableMemoryConversion)
     return false;
 
   this->MF = &MF;
-  MRI = &MF.getRegInfo();
-  LMFI = MF.getInfo<CSAMachineFunctionInfo>();
-  TII = static_cast<const CSAInstrInfo*>(MF.getSubtarget<CSASubtarget>().getInstrInfo());
+  MRI      = &MF.getRegInfo();
+  LMFI     = MF.getInfo<CSAMachineFunctionInfo>();
+  TII      = static_cast<const CSAInstrInfo *>(
+    MF.getSubtarget<CSASubtarget>().getInstrInfo());
 
   // Run several functions one at a time on the entire graph. There is probably
   // a better way of implementing this sort of strategy (like how InstCombiner
@@ -108,21 +110,22 @@ bool CSAStreamingMemoryConversionPass::runOnMachineFunction(MachineFunction &MF)
   return changed;
 }
 
-MachineInstr *CSAStreamingMemoryConversionPass::getDefinition(const MachineOperand &MO) const {
+MachineInstr *CSAStreamingMemoryConversionPass::getDefinition(
+  const MachineOperand &MO) const {
   assert(MO.isReg() && "LICs to search for can only be registers");
   return MRI->getUniqueVRegDef(MO.getReg());
 }
 
-void CSAStreamingMemoryConversionPass::getUses(const MachineOperand &MO,
-    SmallVectorImpl<MachineInstr *> &uses) const {
+void CSAStreamingMemoryConversionPass::getUses(
+  const MachineOperand &MO, SmallVectorImpl<MachineInstr *> &uses) const {
   assert(MO.isReg() && "LICs to search for can only be registers");
   for (auto &use : MRI->use_instructions(MO.getReg())) {
     uses.push_back(&use);
   }
 }
 
-MachineInstr *CSAStreamingMemoryConversionPass::getSingleUse(
-    const MachineOperand &MO) const {
+MachineInstr *
+CSAStreamingMemoryConversionPass::getSingleUse(const MachineOperand &MO) const {
   SmallVector<MachineInstr *, 4> uses;
   getUses(MO, uses);
   return uses.size() == 1 ? uses[0] : nullptr;
@@ -142,19 +145,22 @@ bool CSAStreamingMemoryConversionPass::isZero(const MachineOperand &MO) const {
 }
 
 MachineOp CSAStreamingMemoryConversionPass::getLength(
-    const MachineOperand &start, const MachineOperand &end,
-    bool isEqual, int64_t stride, MachineInstr *MI) const {
+  const MachineOperand &start, const MachineOperand &end, bool isEqual,
+  int64_t stride, MachineInstr *MI) const {
   if (stride < 0)
     return getLength(end, start, isEqual, -stride, MI);
   CSAInstBuilder builder(*TII);
   builder.setInsertionPoint(MI);
   if (stride != 1) {
     // Trip count = (end + isEqual - start + stride - 1) / stride
-    return builder.makeOrConstantFold(*LMFI, CSA::SRL64,
-        builder.makeOrConstantFold(*LMFI, CSA::SUB64,
-          builder.makeOrConstantFold(*LMFI, CSA::ADD64,
-            end, OpImm(stride - 1 + isEqual)), start),
-        OpImm(countTrailingZeros((unsigned)stride)));
+    return builder.makeOrConstantFold(
+      *LMFI, CSA::SRL64,
+      builder.makeOrConstantFold(
+        *LMFI, CSA::SUB64,
+        builder.makeOrConstantFold(*LMFI, CSA::ADD64, end,
+                                   OpImm(stride - 1 + isEqual)),
+        start),
+      OpImm(countTrailingZeros((unsigned)stride)));
   }
   if (isZero(start) && !isEqual) {
     return end;
@@ -213,11 +219,9 @@ MachineOp CSAStreamingMemoryConversionPass::getLength(
 MIRMATCHER_REGS(RESULT, REPEATED, SEQ_VAL, SEQ_PRED, SEQ_FIRST, SEQ_LAST, CTL);
 using namespace CSAMatch;
 constexpr auto repeated_pat = mirmatch::graph(
-    RESULT = repeato_N(CTL, REPEATED),
-    CTL = not1(SEQ_LAST),
-    (SEQ_VAL, SEQ_PRED, SEQ_FIRST, SEQ_LAST) =
-      seqot(mirmatch::AnyOperand, mirmatch::AnyOperand, mirmatch::AnyOperand)
-    );
+  RESULT = repeato_N(CTL, REPEATED), CTL = not1(SEQ_LAST),
+  (SEQ_VAL, SEQ_PRED, SEQ_FIRST, SEQ_LAST) =
+    seqot(mirmatch::AnyOperand, mirmatch::AnyOperand, mirmatch::AnyOperand));
 
 bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
   const MachineOperand *base, *value;
@@ -225,112 +229,113 @@ bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
   const MachineOperand *inOrder, *outOrder, *memOrder;
   MachineInstr *stream;
   bool baseUsesStream = false;
-  auto genericOpcode = TII->getGenericOpcode(MI->getOpcode());
+  auto genericOpcode  = TII->getGenericOpcode(MI->getOpcode());
   switch (genericOpcode) {
-  case CSA::Generic::LD: case CSA::Generic::ST:
-    {
-      // The address here must be a STRIDE.
-      bool isLoad = MI->mayLoad();
-      MachineInstr *memAddr = getDefinition(MI->getOperand(isLoad ? 2 : 1));
-      if (!memAddr || memAddr->getOpcode() != CSA::STRIDE64) {
-        return false;
-      }
+  case CSA::Generic::LD:
+  case CSA::Generic::ST: {
+    // The address here must be a STRIDE.
+    bool isLoad           = MI->mayLoad();
+    MachineInstr *memAddr = getDefinition(MI->getOperand(isLoad ? 2 : 1));
+    if (!memAddr || memAddr->getOpcode() != CSA::STRIDE64) {
+      return false;
+    }
 
-      base = &memAddr->getOperand(2);
-      const MachineOperand &strideOp = memAddr->getOperand(3);
+    base                           = &memAddr->getOperand(2);
+    const MachineOperand &strideOp = memAddr->getOperand(3);
+    unsigned opcodeSize            = TII->getLicSize(MI->getOpcode()) / 8;
+    if (!strideOp.isImm()) {
+      DEBUG(dbgs() << "Stride is not an immediate, cannot compute stride\n");
+      return false;
+    } else if (strideOp.getImm() % opcodeSize) {
+      DEBUG(dbgs() << "Stride " << strideOp.getImm()
+                   << " is not a multiple of opcode size\n");
+      return false;
+    }
+    stride = strideOp.getImm() / opcodeSize;
+
+    // The STRIDE's stream parameter defines the stream.
+    // TODO: assert that we use the seq predecessor output.
+    stream   = getDefinition(memAddr->getOperand(1));
+    memOrder = &MI->getOperand(3);
+    inOrder  = &MI->getOperand(4);
+    outOrder = &MI->getOperand(isLoad ? 1 : 0);
+    value    = &MI->getOperand(isLoad ? 0 : 2);
+    break;
+  }
+  case CSA::Generic::LDX:
+  case CSA::Generic::STX:
+  case CSA::Generic::LDD:
+  case CSA::Generic::STD: {
+    bool isLoad   = MI->mayLoad();
+    auto &baseOp  = MI->getOperand(isLoad ? 2 : 1);
+    auto &indexOp = MI->getOperand(isLoad ? 3 : 2);
+    if (baseOp.isImm() || indexOp.isImm())
+      return false;
+
+    // The base address needs to be repeated.
+    MachineInstr *memBase  = getDefinition(baseOp);
+    MachineInstr *memIndex = getDefinition(indexOp);
+    if (!memBase)
+      return false;
+    auto repeat_result = mirmatch::match(repeated_pat, memBase);
+    if (!repeat_result) {
+      return false;
+    }
+
+    // The stream controls the base REPEAT--they should be the same
+    // instruction.
+    stream = MRI->getVRegDef(repeat_result.reg(SEQ_LAST));
+    if (stream != memIndex) {
+      return false;
+    }
+
+    switch (memIndex->getOpcode()) {
+    case CSA::SEQOTNE64:
+    case CSA::SEQOTLTS64:
+    case CSA::SEQOTLTU64:
+    case CSA::SEQOTLES64:
+    case CSA::SEQOTLEU64:
+      break; // These are the valid ones.
+    default:
+      DEBUG(dbgs() << "Candidate indexed memory store failed to have valid "
+                   << "stream parameter. It may yet be valid.\n");
+      DEBUG(MI->print(dbgs()));
+      DEBUG(dbgs() << "Failed operator: ");
+      DEBUG(memIndex->print(dbgs()));
+      return false;
+    }
+
+    base                           = &memBase->getOperand(2);
+    baseUsesStream                 = true;
+    const MachineOperand &strideOp = memIndex->getOperand(6);
+    if (!strideOp.isImm()) {
+      DEBUG(dbgs() << "Candidate instruction has non-constant stride.\n");
+      return false;
+    }
+    stride = strideOp.getImm();
+    if (genericOpcode != CSA::Generic::LDX &&
+        genericOpcode != CSA::Generic::STX) {
       unsigned opcodeSize = TII->getLicSize(MI->getOpcode()) / 8;
-      if (!strideOp.isImm()) {
-        DEBUG(dbgs() << "Stride is not an immediate, cannot compute stride\n");
-        return false;
-      } else if (strideOp.getImm() % opcodeSize) {
-        DEBUG(dbgs() << "Stride " << strideOp.getImm() <<
-            " is not a multiple of opcode size\n");
+      if (stride % opcodeSize) {
+        DEBUG(dbgs() << "Candidate instruction has improper stride.\n");
         return false;
       }
-      stride = strideOp.getImm() / opcodeSize;
-
-      // The STRIDE's stream parameter defines the stream.
-      // TODO: assert that we use the seq predecessor output.
-      stream = getDefinition(memAddr->getOperand(1));
-      memOrder = &MI->getOperand(3);
-      inOrder = &MI->getOperand(4);
-      outOrder = &MI->getOperand(isLoad ? 1 : 0);
-      value = &MI->getOperand(isLoad ? 0 : 2);
-      break;
+      stride /= opcodeSize;
     }
-  case CSA::Generic::LDX: case CSA::Generic::STX:
-  case CSA::Generic::LDD: case CSA::Generic::STD:
-    {
-      bool isLoad = MI->mayLoad();
-      auto &baseOp = MI->getOperand(isLoad ? 2 : 1);
-      auto &indexOp = MI->getOperand(isLoad ? 3 : 2);
-      if (baseOp.isImm() || indexOp.isImm())
-        return false;
-
-      // The base address needs to be repeated.
-      MachineInstr *memBase = getDefinition(baseOp);
-      MachineInstr *memIndex = getDefinition(indexOp);
-      if (!memBase)
-        return false;
-      auto repeat_result = mirmatch::match(repeated_pat, memBase);
-      if (!repeat_result) {
-        return false;
-      }
-
-      // The stream controls the base REPEAT--they should be the same
-      // instruction.
-      stream = MRI->getVRegDef(repeat_result.reg(SEQ_LAST));
-      if (stream != memIndex) {
-        return false;
-      }
-
-      switch (memIndex->getOpcode()) {
-      case CSA::SEQOTNE64:
-      case CSA::SEQOTLTS64:
-      case CSA::SEQOTLTU64:
-      case CSA::SEQOTLES64:
-      case CSA::SEQOTLEU64:
-        break; // These are the valid ones.
-      default:
-        DEBUG(dbgs() << "Candidate indexed memory store failed to have valid "
-            << "stream parameter. It may yet be valid.\n");
-        DEBUG(MI->print(dbgs()));
-        DEBUG(dbgs() << "Failed operator: ");
-        DEBUG(memIndex->print(dbgs()));
-        return false;
-      }
-
-      base = &memBase->getOperand(2);
-      baseUsesStream = true;
-      const MachineOperand &strideOp = memIndex->getOperand(6);
-      if (!strideOp.isImm()) {
-        DEBUG(dbgs() << "Candidate instruction has non-constant stride.\n");
-        return false;
-      }
-      stride = strideOp.getImm();
-      if (genericOpcode != CSA::Generic::LDX &&
-          genericOpcode != CSA::Generic::STX) {
-        unsigned opcodeSize = TII->getLicSize(MI->getOpcode()) / 8;
-        if (stride % opcodeSize) {
-          DEBUG(dbgs() << "Candidate instruction has improper stride.\n");
-          return false;
-        }
-        stride /= opcodeSize;
-      }
-      memOrder = &MI->getOperand(4);
-      inOrder = &MI->getOperand(5);
-      outOrder = &MI->getOperand(isLoad ? 1 : 0);
-      value = &MI->getOperand(isLoad ? 0 : 3);
-      break;
-    }
+    memOrder = &MI->getOperand(4);
+    inOrder  = &MI->getOperand(5);
+    outOrder = &MI->getOperand(isLoad ? 1 : 0);
+    value    = &MI->getOperand(isLoad ? 0 : 3);
+    break;
+  }
   default:
     return false;
   }
 
   DEBUG(dbgs() << "Identified candidate for streaming memory conversion: ");
   DEBUG(MI->print(dbgs()));
-  DEBUG(dbgs() << "Base: " << *base << "; stride: " << stride <<
-      "; controlling stream: ");
+  DEBUG(dbgs() << "Base: " << *base << "; stride: " << stride
+               << "; controlling stream: ");
   DEBUG(stream->print(dbgs()));
   CSAInstBuilder builder(*TII);
   builder.setInsertionPoint(MI);
@@ -350,7 +355,8 @@ bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
   MachineInstr *outSink = getSingleUse(*outOrder);
   if (!outSink ||
       TII->getGenericOpcode(outSink->getOpcode()) != CSA::Generic::FILTER) {
-    DEBUG(dbgs() << "Conversion failed because out memory order is not a switch.\n");
+    DEBUG(dbgs()
+          << "Conversion failed because out memory order is not a switch.\n");
     return false;
   }
 
@@ -367,8 +373,8 @@ bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
 
   // Compute the length of the stream from the stream parameter.
   const MachineOperand &seqStart = stream->getOperand(4);
-  const MachineOperand &seqEnd = stream->getOperand(5);
-  const MachineOperand &seqStep = stream->getOperand(6);
+  const MachineOperand &seqEnd   = stream->getOperand(5);
+  const MachineOperand &seqStep  = stream->getOperand(6);
   if (!seqStep.isImm()) {
     DEBUG(dbgs() << "Sequence step is not an immediate\n");
     return false;
@@ -399,29 +405,29 @@ bool CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI) {
       return false;
     }
     if (!isZero(seqStart)) {
-      unsigned loadBase = LMFI->allocateLIC(&CSA::CI64RegClass);
-      auto baseForStream = builder.makeInstruction(CSA::SLADD64,
-          OpRegDef(loadBase), seqStart,
-          OpImm(countTrailingZeros(TII->getLicSize(MI->getOpcode()) / 8)),
-          *base);
+      unsigned loadBase  = LMFI->allocateLIC(&CSA::CI64RegClass);
+      auto baseForStream = builder.makeInstruction(
+        CSA::SLADD64, OpRegDef(loadBase), seqStart,
+        OpImm(countTrailingZeros(TII->getLicSize(MI->getOpcode()) / 8)), *base);
       base = &baseForStream->getOperand(0);
     }
   }
 
-  DEBUG(dbgs() << "No reason to disqualify the memory operation found, converting\n");
+  DEBUG(dbgs()
+        << "No reason to disqualify the memory operation found, converting\n");
 
   // Actually build the new instruction now.
-  unsigned opcode = TII->adjustOpcode(MI->getOpcode(),
-      MI->mayLoad() ? CSA::Generic::SLD : CSA::Generic::SST);
-  builder.makeInstruction(opcode,
-    OpIf(MI->mayLoad(), OpDef(*value)), // Value (for load)
-    *realOutSink, // Output memory order
-    OpUse(*base), // Address
-    length, // Length
-    OpImm(stride), // Stride
-    OpIf(!MI->mayLoad(), OpUse(*value)), // Value (for store)
-    *memOrder, // Memory ordering
-    inSource->getOperand(2)); // Input memory order
+  unsigned opcode = TII->adjustOpcode(
+    MI->getOpcode(), MI->mayLoad() ? CSA::Generic::SLD : CSA::Generic::SST);
+  builder.makeInstruction(
+    opcode, OpIf(MI->mayLoad(), OpDef(*value)), // Value (for load)
+    *realOutSink,                               // Output memory order
+    OpUse(*base),                               // Address
+    length,                                     // Length
+    OpImm(stride),                              // Stride
+    OpIf(!MI->mayLoad(), OpUse(*value)),        // Value (for store)
+    *memOrder,                                  // Memory ordering
+    inSource->getOperand(2));                   // Input memory order
 
   // Delete the old instruction. Also delete the old output switch, since we
   // added a second definition of its input. Dead instruction elimination should

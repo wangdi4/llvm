@@ -33,67 +33,69 @@ using namespace llvm;
 
 STATISTIC(NumSwitchesAdded, "Number of switches added due to inversion");
 
-static cl::opt<bool> DisableSwitchInversion("csa-disable-swi", cl::Hidden,
-    cl::desc("CSA Specific: Disable switch inversion"));
+static cl::opt<bool>
+  DisableSwitchInversion("csa-disable-swi", cl::Hidden,
+                         cl::desc("CSA Specific: Disable switch inversion"));
 
 namespace llvm {
-  class CSADataflowCanonicalizationPass : public MachineFunctionPass {
-  public:
-    static char ID;
-    CSADataflowCanonicalizationPass();
+class CSADataflowCanonicalizationPass : public MachineFunctionPass {
+public:
+  static char ID;
+  CSADataflowCanonicalizationPass();
 
-    StringRef getPassName() const override {
-      return "CSA Dataflow simplification pass";
-    }
+  StringRef getPassName() const override {
+    return "CSA Dataflow simplification pass";
+  }
 
-    bool runOnMachineFunction(MachineFunction &MF) override;
-    void getAnalysisUsage(AnalysisUsage &AU) const override {
-      AU.setPreservesAll();
-      MachineFunctionPass::getAnalysisUsage(AU);
-    }
+  bool runOnMachineFunction(MachineFunction &MF) override;
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.setPreservesAll();
+    MachineFunctionPass::getAnalysisUsage(AU);
+  }
 
-  private:
-    MachineFunction *MF;
-    const MachineRegisterInfo *MRI;
-    CSAMachineFunctionInfo *LMFI;
-    const CSAInstrInfo *TII;
-    std::vector<MachineInstr *> to_delete;
+private:
+  MachineFunction *MF;
+  const MachineRegisterInfo *MRI;
+  CSAMachineFunctionInfo *LMFI;
+  const CSAInstrInfo *TII;
+  std::vector<MachineInstr *> to_delete;
 
-    /// The following mini pass implements a peephole pass that removes NOT
-    /// operands from the control lines of picks and switches.
-    bool eliminateNotPicks(MachineInstr *MI);
+  /// The following mini pass implements a peephole pass that removes NOT
+  /// operands from the control lines of picks and switches.
+  bool eliminateNotPicks(MachineInstr *MI);
 
-    /// The following mini pass replaces side-effect-free operations entering a
-    /// a SWITCH one of whose outputs is ignored with SWITCHes into those
-    /// operations. This helps for memory ordering issues.
-    bool invertIgnoredSwitches(MachineInstr *MI);
+  /// The following mini pass replaces side-effect-free operations entering a
+  /// a SWITCH one of whose outputs is ignored with SWITCHes into those
+  /// operations. This helps for memory ordering issues.
+  bool invertIgnoredSwitches(MachineInstr *MI);
 
-    /// The following mini pass replaces SWITCH operations where one output
-    /// is ignored with FILTER operations.
-    bool createFilterOps(MachineInstr *MI);
+  /// The following mini pass replaces SWITCH operations where one output
+  /// is ignored with FILTER operations.
+  bool createFilterOps(MachineInstr *MI);
 
-    MachineInstr *getDefinition(const MachineOperand &MO) const;
-    void getUses(const MachineOperand &MO,
-        SmallVectorImpl<MachineInstr *> &uses) const;
-    MachineInstr *getSingleUse(const MachineOperand &MO) const;
-  };
-}
+  MachineInstr *getDefinition(const MachineOperand &MO) const;
+  void getUses(const MachineOperand &MO,
+               SmallVectorImpl<MachineInstr *> &uses) const;
+  MachineInstr *getSingleUse(const MachineOperand &MO) const;
+};
+} // namespace llvm
 
 char CSADataflowCanonicalizationPass::ID = 0;
 
-CSADataflowCanonicalizationPass::CSADataflowCanonicalizationPass() : MachineFunctionPass(ID) {
-}
-
+CSADataflowCanonicalizationPass::CSADataflowCanonicalizationPass()
+    : MachineFunctionPass(ID) {}
 
 MachineFunctionPass *llvm::createCSADataflowCanonicalizationPass() {
   return new CSADataflowCanonicalizationPass();
 }
 
-bool CSADataflowCanonicalizationPass::runOnMachineFunction(MachineFunction &MF) {
+bool CSADataflowCanonicalizationPass::runOnMachineFunction(
+  MachineFunction &MF) {
   this->MF = &MF;
-  MRI = &MF.getRegInfo();
-  LMFI = MF.getInfo<CSAMachineFunctionInfo>();
-  TII = static_cast<const CSAInstrInfo*>(MF.getSubtarget<CSASubtarget>().getInstrInfo());
+  MRI      = &MF.getRegInfo();
+  LMFI     = MF.getInfo<CSAMachineFunctionInfo>();
+  TII      = static_cast<const CSAInstrInfo *>(
+    MF.getSubtarget<CSASubtarget>().getInstrInfo());
 
   // Run several functions one at a time on the entire graph. There is probably
   // a better way of implementing this sort of strategy (like how InstCombiner
@@ -101,12 +103,11 @@ bool CSADataflowCanonicalizationPass::runOnMachineFunction(MachineFunction &MF) 
   // route, this logic will do. Note that we can't delete instructions on the
   // fly due to how iteration works, but we do clean them up after every mini
   // pass.
-  bool changed = false;
+  bool changed          = false;
   static auto functions = {
     &CSADataflowCanonicalizationPass::eliminateNotPicks,
     &CSADataflowCanonicalizationPass::createFilterOps,
-    &CSADataflowCanonicalizationPass::invertIgnoredSwitches
-  };
+    &CSADataflowCanonicalizationPass::invertIgnoredSwitches};
   for (auto func : functions) {
     if (func == &CSADataflowCanonicalizationPass::invertIgnoredSwitches &&
         DisableSwitchInversion)
@@ -125,21 +126,22 @@ bool CSADataflowCanonicalizationPass::runOnMachineFunction(MachineFunction &MF) 
   return changed;
 }
 
-MachineInstr *CSADataflowCanonicalizationPass::getDefinition(const MachineOperand &MO) const {
+MachineInstr *
+CSADataflowCanonicalizationPass::getDefinition(const MachineOperand &MO) const {
   assert(MO.isReg() && "LICs to search for can only be registers");
   return MRI->getUniqueVRegDef(MO.getReg());
 }
 
-void CSADataflowCanonicalizationPass::getUses(const MachineOperand &MO,
-    SmallVectorImpl<MachineInstr *> &uses) const {
+void CSADataflowCanonicalizationPass::getUses(
+  const MachineOperand &MO, SmallVectorImpl<MachineInstr *> &uses) const {
   assert(MO.isReg() && "LICs to search for can only be registers");
   for (auto &use : MRI->use_instructions(MO.getReg())) {
     uses.push_back(&use);
   }
 }
 
-MachineInstr *CSADataflowCanonicalizationPass::getSingleUse(
-    const MachineOperand &MO) const {
+MachineInstr *
+CSADataflowCanonicalizationPass::getSingleUse(const MachineOperand &MO) const {
   SmallVector<MachineInstr *, 4> uses;
   getUses(MO, uses);
   return uses.size() == 1 ? uses[0] : nullptr;
@@ -149,12 +151,12 @@ bool CSADataflowCanonicalizationPass::eliminateNotPicks(MachineInstr *MI) {
   unsigned select_op, low_op, high_op;
   if (TII->isSwitch(MI)) {
     select_op = 2;
-    low_op = 0;
-    high_op = 1;
+    low_op    = 0;
+    high_op   = 1;
   } else if (TII->isPick(MI)) {
     select_op = 1;
-    low_op = 2;
-    high_op = 3;
+    low_op    = 2;
+    high_op   = 3;
   } else {
     return false;
   }
@@ -166,8 +168,7 @@ bool CSADataflowCanonicalizationPass::eliminateNotPicks(MachineInstr *MI) {
       int reg_tmp = MI->getOperand(low_op).getReg();
       MI->getOperand(low_op).setReg(MI->getOperand(high_op).getReg());
       MI->getOperand(high_op).setReg(reg_tmp);
-      MI->getOperand(select_op).setReg(
-          selector->getOperand(1).getReg());
+      MI->getOperand(select_op).setReg(selector->getOperand(1).getReg());
       return true;
     }
   }
@@ -175,8 +176,7 @@ bool CSADataflowCanonicalizationPass::eliminateNotPicks(MachineInstr *MI) {
 }
 
 bool CSADataflowCanonicalizationPass::createFilterOps(MachineInstr *MI) {
-  // TODO: FILTER0 doesn't actually exist yet.
-  if (!TII->isSwitch(MI) || TII->getLicSize(MI->getOpcode()) == 0)
+  if (!TII->isSwitch(MI))
     return false;
 
   if (MI->getOperand(0).isReg() && MI->getOperand(0).getReg() == CSA::IGN) {
@@ -185,12 +185,13 @@ bool CSADataflowCanonicalizationPass::createFilterOps(MachineInstr *MI) {
       TII->get(TII->adjustOpcode(MI->getOpcode(), CSA::Generic::FILTER)));
     MI->RemoveOperand(0);
     return true;
-  } else if (MI->getOperand(1).isReg() && MI->getOperand(1).getReg() == CSA::IGN) {
+  } else if (MI->getOperand(1).isReg() &&
+             MI->getOperand(1).getReg() == CSA::IGN) {
     // Second value is ignored. We need to generate a NOT -> FILTER
     MI->setDesc(
       TII->get(TII->adjustOpcode(MI->getOpcode(), CSA::Generic::FILTER)));
     MI->RemoveOperand(1);
-    auto ctrlOperand = MI->getOperand(1).getReg();
+    auto ctrlOperand     = MI->getOperand(1).getReg();
     unsigned invertedReg = 0;
     for (auto &use : MRI->use_instructions(ctrlOperand)) {
       if (use.getOpcode() == CSA::NOT1) {
@@ -200,7 +201,8 @@ bool CSADataflowCanonicalizationPass::createFilterOps(MachineInstr *MI) {
     }
     if (invertedReg == 0) {
       invertedReg = LMFI->allocateLIC(&CSA::CI1RegClass);
-      BuildMI(*MI->getParent(), MI, DebugLoc{}, TII->get(CSA::NOT1), invertedReg)
+      BuildMI(*MI->getParent(), MI, DebugLoc{}, TII->get(CSA::NOT1),
+              invertedReg)
         .addReg(MI->getOperand(1).getReg())
         ->setFlag(MachineInstr::NonSequential);
     }
@@ -250,7 +252,7 @@ bool CSADataflowCanonicalizationPass::invertIgnoredSwitches(MachineInstr *MI) {
   // fraction of its input values. In lieu of a performance analysis pass, we
   // use the first/last of the sequence of the operator being a high confidence
   // of being such an operation.
-  auto switchCtl = MI->getOperand(2);
+  auto switchCtl                   = MI->getOperand(2);
   const MachineInstr *switchCtlDef = getDefinition(switchCtl);
   if (!switchCtlDef || !TII->isSeqOT(switchCtlDef))
     return false;
@@ -275,13 +277,13 @@ bool CSADataflowCanonicalizationPass::invertIgnoredSwitches(MachineInstr *MI) {
       // operations in topological order.
       auto licClass = TII->getRegisterClass(MO.getReg(), *MRI);
       auto newParam = (decltype(CSA::IGN))LMFI->allocateLIC(licClass);
-      auto newSwitch = BuildMI(*switched->getParent(), switched,
-          MI->getDebugLoc(),
-          TII->get(TII->makeOpcode(CSA::Generic::SWITCH, licClass)))
-        .addReg(is0Dead ? CSA::IGN : newParam, RegState::Define)
-        .addReg(is0Dead ? newParam : CSA::IGN, RegState::Define)
-        .add(MI->getOperand(2))
-        .add(MO);
+      auto newSwitch =
+        BuildMI(*switched->getParent(), switched, MI->getDebugLoc(),
+                TII->get(TII->makeOpcode(CSA::Generic::SWITCH, licClass)))
+          .addReg(is0Dead ? CSA::IGN : newParam, RegState::Define)
+          .addReg(is0Dead ? newParam : CSA::IGN, RegState::Define)
+          .add(MI->getOperand(2))
+          .add(MO);
       newSwitch->setFlag(MachineInstr::NonSequential);
       MO.setReg(newParam);
 

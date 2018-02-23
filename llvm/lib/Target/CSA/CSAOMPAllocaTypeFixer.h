@@ -19,8 +19,8 @@
 #define LLVM_LIB_TARGET_CSA_CSAOMPALLOCATYPEFIXER_H
 
 namespace llvm {
-  class Pass;
-  Pass* createCSAOMPAllocaTypeFixerPass();
-}
+class Pass;
+Pass *createCSAOMPAllocaTypeFixerPass();
+} // namespace llvm
 
 #endif
