@@ -155,6 +155,9 @@ void dtrans::TypeInfo::printSafetyData() {
                                dtrans::FieldAddressTaken | dtrans::GlobalPtr |
                                dtrans::GlobalInstance |
                                dtrans::HasInitializerList |
+                               dtrans::BadMemFuncSize |
+                               dtrans::BadMemFuncManipulation |
+                               dtrans::AmbiguousPointerTarget |
                                dtrans::UnhandledUse;
   std::vector<StringRef> SafetyIssues;
   if (SafetyInfo & dtrans::BadCasting)
@@ -183,6 +186,12 @@ void dtrans::TypeInfo::printSafetyData() {
     SafetyIssues.push_back("Global instance");
   if (SafetyInfo & dtrans::HasInitializerList)
     SafetyIssues.push_back("Has initializer list");
+  if (SafetyInfo & dtrans::BadMemFuncSize)
+    SafetyIssues.push_back("Bad memfunc size");
+  if (SafetyInfo & dtrans::BadMemFuncManipulation)
+    SafetyIssues.push_back("Bad memfunc manipulation");
+  if (SafetyInfo & dtrans::AmbiguousPointerTarget)
+    SafetyIssues.push_back("Ambiguous pointer target");
   if (SafetyInfo & dtrans::UnhandledUse)
     SafetyIssues.push_back("Unhandled use");
   // Print the safety issues found

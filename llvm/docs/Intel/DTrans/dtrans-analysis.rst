@@ -238,6 +238,23 @@ HasInitializerList
 This indicates that a global variable was found that is an instance of the type
 and a non-zero initializer was specified for the variable.
 
+BadMemFuncSize
+~~~~~~~~~~~~~~
+This indicates that a pointer to a structure is passed to a memory function
+intrinsic (memcpy, memcpy or memset), with a size that differs from
+the native structure size of the source or destination structure.
+
+BadMemFuncManipulation
+~~~~~~~~~~~~~~~~~~~~~~
+This indicates a structure is modified via a memory function intrinsic (memcpy
+or memmove) with conflicting or unknown types for the source and destination
+parameters.
+
+AmbiguousPointerTarget
+~~~~~~~~~~~~~~~~~~~~~~
+This indicates that a pointer is passed to an intrinsic or function call,
+but the pointer is known to alias incompatible pointer types.
+
 UnhandledUse
 ~~~~~~~~~~~~
 This is a catch-all flag that will be used to mark any usage pattern that we
@@ -353,6 +370,22 @@ an argument that is an aggregate type (or a pointer to an aggregate type).
 This is probably unnecessary, but it is done as part of the conservative
 approach to progressive implementation.**
 
+Intrinsic
+~~~~~~~~~
+When a call to an intrinsic function is encountered, the DTrans analysis will
+attempt to check parameters to the function for safe uses.
+
+Currently, only calls to memset, memcpy and memove are supported.
+
+A call to memset is considered safe if the entire structure (based on the
+sizeof(%struct) size) is being set.
+
+A call to memcpy or memmove is considered safe if:
+- The entire structure is being set.
+- The data type of the source structure is the same as the data type of the
+  the destination structure.
+Otherwise, both the source and destination parameter types are marked as
+unsafe uses.
 
 GetElementPtr
 ~~~~~~~~~~~~~
