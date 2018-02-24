@@ -23,6 +23,7 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
+#include "llvm/Transforms/Intel_VPO/Utils/CFGRestructuring.h"
 #include "llvm/Transforms/Intel_VPO/VPOPasses.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/IR/IntrinsicInst.h"
@@ -139,6 +140,7 @@ namespace {
 class VPOCFGRestructuring : public FunctionPass {
 public:
   static char ID; // Pass identification, replacement for typeid
+  VPOCFGRestructuringPass Impl;
 
   VPOCFGRestructuring() : FunctionPass(ID) {
     initializeVPOCFGRestructuringPass(*PassRegistry::getPassRegistry());
@@ -161,14 +163,20 @@ bool VPOCFGRestructuring::runOnFunction(Function &F) {
   if (VPOAnalysisUtils::skipFunctionForOpenmp(F) && skipFunction(F))
     return false;
 
+  auto DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+  auto LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+
+  return Impl.runImpl(F, DT, LI);
+}
+
+bool VPOCFGRestructuringPass::runImpl(Function &F, DominatorTree *DT,
+                                      LoopInfo *LI) {
+
 #if INTEL_PRODUCT_RELEASE
   // Set a flag to induce an error if anyone attempts to write the IR
   // to a file after this pass has been run.
   F.getParent()->setIntelProprietary();
 #endif // INTEL_PRODUCT_RELEASE
-
-  auto DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-  auto LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
 
   VPOUtils::CFGRestructuring(F, DT, LI);
 
@@ -179,6 +187,22 @@ void VPOCFGRestructuring::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequired<DominatorTreeWrapperPass>();
   AU.addRequired<LoopInfoWrapperPass>();
+}
+
+PreservedAnalyses VPOCFGRestructuringPass::run(Function &F,
+                                               FunctionAnalysisManager &AM) {
+  auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
+  auto &LI = AM.getResult<LoopAnalysis>(F);
+
+  bool Changed = runImpl(F, &DT, &LI);
+
+  if (!Changed)
+    return PreservedAnalyses::all();
+
+  PreservedAnalyses PA;
+  PA.preserve<DominatorTreeAnalysis>();
+  PA.preserve<LoopAnalysis>();
+  return PA;
 }
 
 FunctionPass *llvm::createVPOCFGRestructuringPass() {

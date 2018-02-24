@@ -92,6 +92,7 @@
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/InstrProfiling.h"
 #include "llvm/Transforms/Instrumentation/BoundsChecking.h"
+#include "llvm/Transforms/Intel_VPO/Utils/CFGRestructuring.h" // INTEL
 #include "llvm/Transforms/PGOInstrumentation.h"
 #include "llvm/Transforms/SampleProfile.h"
 #include "llvm/Transforms/Scalar/ADCE.h"
@@ -109,7 +110,7 @@
 #include "llvm/Transforms/Scalar/GuardWidening.h"
 #include "llvm/Transforms/Scalar/IVUsersPrinter.h"
 #include "llvm/Transforms/Scalar/IndVarSimplify.h"
-#include "llvm/Transforms/Scalar/Intel_AggInlAA.h"     // INTEL
+#include "llvm/Transforms/Scalar/Intel_AggInlAA.h" // INTEL
 #include "llvm/Transforms/Scalar/JumpThreading.h"
 #include "llvm/Transforms/Scalar/LICM.h"
 #include "llvm/Transforms/Scalar/LoopAccessAnalysisPrinter.h"
