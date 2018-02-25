@@ -91,3 +91,14 @@ int CSAMachineFunctionInfo::getLICSize(unsigned regno) const {
   const TargetRegisterClass *RC = TII->getRegisterClass(regno, MRI);
   return TII->getSizeOfRegisterClass(RC);
 }
+
+void CSAMachineFunctionInfo::addLICAttribute(unsigned regno, const StringRef key, const StringRef value) const {
+  getLICInfo(regno).attribs[key] = value;
+}
+
+StringRef CSAMachineFunctionInfo::getLICAttribute(unsigned reg, StringRef key) const {
+  if (getLICInfo(reg).attribs.count(key))
+    return getLICInfo(reg).attribs[key];
+
+  return "";
+}

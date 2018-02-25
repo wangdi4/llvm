@@ -18,6 +18,7 @@
 
 #include "CSARegisterInfo.h"
 #include "llvm/ADT/Optional.h"
+#include "llvm/ADT/StringMap.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/Target/TargetRegisterInfo.h"
 
@@ -34,8 +35,9 @@ class CSAMachineFunctionInfo : public MachineFunctionInfo {
   struct LICInfo {
     mutable std::string name;
     short licDepth;
+    mutable StringMap<std::string> attribs;
 
-    LICInfo() : name(), licDepth(0) {}
+    LICInfo() : name(), licDepth(0), attribs() {}
   };
   DenseMap<unsigned, LICInfo> licInfo;
   void noteNewLIC(unsigned vreg, unsigned licSize, const Twine &name = "");
@@ -113,6 +115,20 @@ public:
 
   /// Get the lic size (e.g., 0, 1, 8, 16, 32, 64) for a register number.
   int getLICSize(unsigned reg) const;
+
+  /// Add key+value attribute to this LIC. The value is optional, the absence
+  /// of which will generally be interpreted as a "1"/true.
+  void addLICAttribute(unsigned reg, const StringRef key, const StringRef value = "") const;
+
+  /// Get an range-based iterator for the attributes currently set. These can
+  /// be used to query the singular "getLICAttribute."
+  iterator_range<StringMapKeyIterator<std::string>>
+    getLICAttributes(unsigned reg) const { return getLICInfo(reg).attribs.keys(); }
+
+  /// Get the value of the given attribute, or "" if not set.
+  /// TODO: this interface cannot be used to distinguish between the case where
+  /// the attribute is unset and the case where it is set to "".
+  StringRef getLICAttribute(unsigned reg, StringRef key) const;
 };
 
 } // namespace llvm
