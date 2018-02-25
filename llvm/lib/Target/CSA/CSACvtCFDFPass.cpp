@@ -126,7 +126,7 @@ public:
   void insertSWITCHForRepeat();
   void insertSWITCHForRepeat(MachineLoop *mloop);
   unsigned repeatOperandInLoop(unsigned Reg, MachineLoop *mloop);
-  void repeatOperandInLoop(MachineLoop *mloop, MachineInstr *initInst,
+  void repeatOperandInLoop(MachineLoop *mloop, unsigned pickCtrlReg,
                            unsigned backedgePred, bool pickCtrlInverted,
                            SmallVector<MachineOperand *, 4> *in   = nullptr,
                            SmallVector<MachineOperand *, 4> *back = nullptr);
@@ -150,8 +150,9 @@ public:
   void replaceLoopHdrPhi(MachineLoop *L);
   void replaceCanonicalLoopHdrPhi(MachineBasicBlock *lhdr);
   void replaceCanonicalLoopHdrPhiPipelined(MachineBasicBlock *mbb,
-                                           unsigned numTokens = 1);
-  MachineOperand *createUseTree(MachineBasicBlock::iterator before,
+                                           unsigned numTokensSpecified = 1);
+  MachineOperand *createUseTree(MachineBasicBlock *mbb,
+                                MachineBasicBlock::iterator before,
                                 unsigned opcode,
                                 const SmallVector<MachineOperand *, 4> vals,
                                 unsigned unusedReg = CSA::IGN);
@@ -1314,7 +1315,7 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhi(MachineBasicBlock *mbb) {
   }
   initInst->setFlag(MachineInstr::NonSequential);
 
-  repeatOperandInLoop(mloop, initInst, predReg, pickCtrlInverted);
+  repeatOperandInLoop(mloop, cpyReg, predReg, pickCtrlInverted);
 
   MachineBasicBlock::iterator iterI = mbb->begin();
   while (iterI != mbb->end()) {
@@ -1409,16 +1410,28 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhi(MachineBasicBlock *mbb) {
 
 // This version uses additional operators in order to allow multiple incoming
 // "gangs" of data to flow through the loop at once. The number of gangs
-// allowed to be in the pipeline at once is determined by the number of values
-// pre-initialized into the "sema" LIC. Currently this pass always just puts a
-// single value in, resulting in no actual pipelinling.
+// allowed to be in the pipeline at once is determined by the "completion"
+// buffer operators: no new gangs will be admitted if these do not have
+// available storage to reorder the loop's outputs. The number of "gangs"
+// admitted is bounded on two sides: it is not correct to admit more than we
+// have backedge and completion buffering for, and it does not increase
+// performance to admit more than the pipeline depth of the body would fit.
 void CSACvtCFDFPass::replaceCanonicalLoopHdrPhiPipelined(MachineBasicBlock *mbb,
-                                                         unsigned numTokens) {
+                                                         unsigned numTokensSpecified) {
   MachineLoop *mloop = MLI->getLoopFor(mbb);
   assert(mloop->getHeader() == mbb);
   if (mbb->getFirstNonPHI() == mbb->begin())
     return;
-  assert(numTokens >= 1);
+  assert(numTokensSpecified >= 1);
+
+  // The completionN operators we will insert are limited to a maximum depth of
+  // 2**8-1==255 by the VISA.
+  unsigned numTokens = std::min(255U, numTokensSpecified);
+
+  // ...and they're further limited to a maximum depth of 32 according to V1
+  // expectations, which is what the simulator is currently intepreting
+  // compiler output as.
+  numTokens = std::min(32U, numTokens);
 
   assert(mloop->getExitingBlock() &&
          "can't handle multi exiting blks in this funciton");
@@ -1443,37 +1456,14 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhiPipelined(MachineBasicBlock *mbb,
   assert(mloop->isLoopExiting(latchBB) || latchNode->isParent(exitingNode));
   _unused(latchNode);
   _unused(exitingNode);
-  const unsigned moveOpcode = TII->getMoveOpcode(TRC);
-  MachineInstr *cpyInst =
-    BuildMI(*exitingBB, loc, DebugLoc(), TII->get(moveOpcode), cpyReg)
-      .addReg(predReg);
-  cpyInst->setFlag(MachineInstr::NonSequential);
 
   MachineBasicBlock *lphdr           = mloop->getHeader();
   MachineBasicBlock::iterator hdrloc = lphdr->begin();
-  const unsigned InitOpcode          = TII->getInitOpcode(TRC);
   bool pickCtrlInverted =
     (CDG->getEdgeType(exitingBB, exitBB, true) != ControlDependenceNode::FALSE);
 
-  MachineInstr *initInst = nullptr;
-  if (pickCtrlInverted) {
-    initInst = BuildMI(*lphdr, hdrloc, DebugLoc(), TII->get(InitOpcode), cpyReg)
-                 .addImm(1);
-  } else {
-    initInst = BuildMI(*lphdr, hdrloc, DebugLoc(), TII->get(InitOpcode), cpyReg)
-                 .addImm(0);
-  }
-  initInst->setFlag(MachineInstr::NonSequential);
-
-  unsigned semaInitReg = LMFI->allocateLIC(&CSA::CI0RegClass, "sema");
-  LMFI->setLICDepth(semaInitReg, numTokens);
-  for (unsigned i = 0; i < numTokens; i++)
-    BuildMI(*lphdr, hdrloc, DebugLoc(), TII->get(InitOpcode), semaInitReg)
-      .addImm(0)
-      .setMIFlag(MachineInstr::NonSequential);
-
   SmallVector<MachineOperand *, 4> newGang, backGang;
-  repeatOperandInLoop(mloop, initInst, predReg, pickCtrlInverted, &newGang,
+  repeatOperandInLoop(mloop, cpyReg, predReg, pickCtrlInverted, &newGang,
                       &backGang);
 
   MachineBasicBlock::iterator iterI = mbb->begin();
@@ -1572,32 +1562,104 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhiPipelined(MachineBasicBlock *mbb,
   MachineOperand *backPulse = backGang[0];
 
   if (ILPLWaitForAllIncoming) {
-    newPulse = createUseTree(initInst, CSA::ALL0, newGang);
+    newPulse = createUseTree(lphdr, lphdr->begin(), CSA::ALL0, newGang);
     LMFI->setLICName(newPulse->getReg(), "newAll");
   }
 
   if (ILPLWaitForAllBack) {
-    backPulse = createUseTree(initInst, CSA::ALL0, backGang);
+    backPulse = createUseTree(lphdr, lphdr->begin(), CSA::ALL0, backGang);
     LMFI->setLICName(backPulse->getReg(), "backAll");
+  }
+
+  SmallVector<MachineOperand *, 4> loopOutputs;
+  // Look for loop outputs.
+  for (MachineOperand *g : backGang) {
+    MachineInstr* outSwitch = MRI->getUniqueVRegDef(g->getReg());
+    MachineOperand *loopOutput = &outSwitch->getOperand(1);
+    if (loopOutput->getReg() == CSA::IGN)
+      continue;
+    if (MRI->use_nodbg_empty(loopOutput->getReg()))
+      continue;
+
+    loopOutputs.push_back(loopOutput);
+  }
+
+  // For each output, create and hook up completion buffers.
+  // The completion buffers' indices (indicating space available) are used to
+  // control admission into the pipeline.
+  SmallVector<MachineOperand*, 4> newTokens;
+  for (MachineOperand *g : loopOutputs) {
+    const TargetRegisterClass *RC = MRI->getRegClass(g->getReg());
+    unsigned newToken = LMFI->allocateLIC(&CSA::CI8RegClass, "newToken");
+    unsigned bodyToken = LMFI->allocateLIC(&CSA::CI8RegClass, "bodyToken");
+    unsigned backToken = LMFI->allocateLIC(&CSA::CI8RegClass, "backToken");
+    unsigned outToken = LMFI->allocateLIC(&CSA::CI8RegClass, "outToken");
+    unsigned orderedOut = g->getReg();
+    unsigned unorderedOut = LMFI->allocateLIC(RC, "unorderedOut");
+    g->setReg(unorderedOut);
+
+    // The index/token edges need buffering.
+    LMFI->setLICDepth(newToken, numTokens);
+    LMFI->setLICDepth(backToken, numTokens);
+    // Advise the simulator not to be concerned if the this has values in it on
+    // exit; this is expected.
+    LMFI->addLICAttribute(newToken, "csasim_ignore_on_exit");
+
+    // TODO: Remove this RC fixup when the simulator gets completion1.
+    // TODO: Do not need to reorder 0-bit channels; we should be able to just
+    // do rate-limiting with no reordering/storage once the compiler starts
+    // emitting them.
+    const TargetRegisterClass *compRC =
+      TII->getSizeOfRegisterClass(RC) < 8 ? &CSA::CI8RegClass : RC;
+
+    MachineInstrBuilder compBuffer =
+      BuildMI(*mbb, g->getParent(), g->getParent()->getDebugLoc(),
+          TII->get(TII->makeOpcode(CSA::Generic::COMPLETION, compRC)))
+          .addDef(newToken)
+          .addDef(orderedOut)
+          .addReg(outToken)
+          .addReg(g->getReg())
+          .addImm(numTokens);
+    newTokens.push_back(&compBuffer->getOperand(0));
+
+    MachineInstrBuilder tokPick =
+      BuildMI(*mbb, lphdr->begin(), DebugLoc(), TII->get(CSA::PICK8), bodyToken)
+          .addReg(cpyReg)
+          .addReg(pickCtrlInverted ? backToken : newToken)
+          .addReg(pickCtrlInverted ? newToken : backToken);
+
+    MachineInstrBuilder tokSwitch =
+      BuildMI(*mbb, g->getParent(), g->getParent()->getDebugLoc(), TII->get(CSA::SWITCH8))
+          .addDef(pickCtrlInverted ? backToken : outToken)
+          .addDef(pickCtrlInverted ? outToken : backToken)
+          .addReg(predReg)
+          .addReg(bodyToken);
+  }
+  MachineOperand *haveTokens;
+  if (newTokens.size()) {
+    haveTokens = createUseTree(mbb, lphdr->begin(), CSA::ALL0, newTokens);
+  } else {
+    // This can happen, right?
+    assert(0 && "ILPL on loops with no outputs not yet supported");
   }
 
   // Add buffering to backedges.
   for (MachineOperand *g : backGang) {
     assert(g->isReg() && "Unexpected non-LIC backedge in inner loop pipeline");
-    LMFI->setLICDepth(g->getReg(), 32);
+    LMFI->setLICDepth(g->getReg(), numTokens);
     LMFI->setLICName(g->getReg(), "backEdge");
   }
 
   MachineInstrBuilder newGated =
-    BuildMI(*mbb, initInst, initInst->getDebugLoc(), TII->get(CSA::GATE0),
+    BuildMI(*mbb, lphdr->begin(), DebugLoc(), TII->get(CSA::GATE0),
             LMFI->allocateLIC(&CSA::CI0RegClass, "newGated"))
-      .addReg(semaInitReg)
+      .addReg(haveTokens->getReg())
       .addReg(newPulse->getReg())
       .setMIFlag(MachineInstr::NonSequential);
 
   unsigned firstPrio          = newGated->getOperand(0).getReg();
   unsigned secondPrio         = backPulse->getReg();
-  MachineInstrBuilder any = BuildMI(*mbb, initInst, initInst->getDebugLoc(),
+  MachineInstrBuilder any = BuildMI(*mbb, lphdr->begin(), DebugLoc(),
                                         TII->get(CSA::ANY0))
                                   .addDef(cpyReg)
                                   .addReg(firstPrio)
@@ -1609,38 +1671,20 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhiPipelined(MachineBasicBlock *mbb,
   if (pickCtrlInverted) {
     any->getOperand(0).setReg(
       LMFI->allocateLIC(&CSA::CI1RegClass, "notLoopCtl"));
-    BuildMI(*mbb, initInst, initInst->getDebugLoc(), TII->get(CSA::NOT1),
-            cpyReg)
+    BuildMI(*mbb, lphdr->begin(), DebugLoc(), TII->get(CSA::NOT1), cpyReg)
       .addReg(any->getOperand(0).getReg())
       .setMIFlag(MachineInstr::NonSequential);
   }
 
-  if (pickCtrlInverted) {
-    BuildMI(*mbb, initInst, initInst->getDebugLoc(), TII->get(CSA::SWITCH0),
-            CSA::IGN)
-      .addDef(semaInitReg)
-      .addReg(predReg)
-      .addReg(predReg)
-      .setMIFlag(MachineInstr::NonSequential);
-  } else {
-    BuildMI(*mbb, initInst, initInst->getDebugLoc(), TII->get(CSA::SWITCH0),
-            semaInitReg)
-      .addDef(CSA::IGN)
-      .addReg(predReg)
-      .addReg(predReg)
-      .setMIFlag(MachineInstr::NonSequential);
-  }
-
-  cpyInst->eraseFromParent();
-  initInst->eraseFromParent();
 }
 
 // Utility function to create a tree of uses. For example, it can create
 // ANY/ALL/MERGE trees from a collection of operands. The "unusedReg" value
 // defaults to IGN.
 MachineOperand *CSACvtCFDFPass::createUseTree(
-  MachineBasicBlock::iterator before, unsigned opcode,
-  const SmallVector<MachineOperand *, 4> vals, unsigned unusedReg) {
+    MachineBasicBlock *mbb, MachineBasicBlock::iterator before,
+    unsigned opcode, const SmallVector<MachineOperand *, 4> vals,
+    unsigned unusedReg) {
 
   unsigned n = vals.size();
   assert(n && "Can't combine 0 values");
@@ -1651,7 +1695,7 @@ MachineOperand *CSACvtCFDFPass::createUseTree(
          "Don't know how to build a tree out of this opcode");
   unsigned radix                    = id.getNumOperands() - id.getNumDefs();
   const TargetRegisterClass *outTRC = LMFI->licRCFromGenRC(
-    TII->getRegClass(id, 0, TRI, *before->getParent()->getParent()));
+    TII->getRegClass(id, 0, TRI, *mbb->getParent()));
 
   // If one left, we're done.
   if (n == 1)
@@ -1662,7 +1706,7 @@ MachineOperand *CSACvtCFDFPass::createUseTree(
 
   // Create a new element to combine some of the others.
   MachineInstrBuilder next =
-    BuildMI(*before->getParent(), before, before->getDebugLoc(),
+    BuildMI(*mbb, before, before->getDebugLoc(),
             TII->get(opcode), LMFI->allocateLIC(outTRC));
   next.setMIFlag(MachineInstr::NonSequential);
 
@@ -1684,7 +1728,7 @@ MachineOperand *CSACvtCFDFPass::createUseTree(
   fewerVals.push_back(&next->getOperand(0));
 
   // Run again on the smaller vector.
-  return createUseTree(before, opcode, fewerVals, unusedReg);
+  return createUseTree(mbb, before, opcode, fewerVals, unusedReg);
 }
 
 // single latch, straitht line exitings blks
@@ -3151,11 +3195,9 @@ void CSACvtCFDFPass::generateDynamicPreds(MachineLoop *L) {
 }
 
 void CSACvtCFDFPass::repeatOperandInLoop(
-  MachineLoop *mloop, MachineInstr *initInst, unsigned backedgePred,
+  MachineLoop *mloop, unsigned pickCtlReg, unsigned backedgePred,
   bool flipBackedgePred, SmallVector<MachineOperand *, 4> *repeatIn,
   SmallVector<MachineOperand *, 4> *repeatBack) {
-
-  unsigned pickCtlReg = initInst->getOperand(0).getReg();
 
   MachineBasicBlock *lphdr   = mloop->getHeader();
   MachineBasicBlock *latchBB = mloop->getLoopLatch();

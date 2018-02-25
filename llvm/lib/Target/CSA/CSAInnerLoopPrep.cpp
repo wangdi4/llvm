@@ -242,36 +242,7 @@ bool CSAInnerLoopPrep::runOnLoop(Loop *L) {
   if (pipeliningDepth == 1)
     return Changed;
 
-  DEBUG(errs() << "Remark: preparing to pipeline " << L->getHeader()->getName()
-               << "(depth " << L->getLoopDepth() << ") with respect to "
-               << outerLoop->getHeader()->getName() << " (depth "
-               << outerLoop->getLoopDepth() << ")\n");
-
-  std::set<Instruction *> needsRepeating;
-  std::map<Instruction *, std::set<Use *>> repeatForUses;
-  discoverOuterLoopContext(L, outerLoop, needsRepeating, repeatForUses);
-
-  for (Instruction *outerToRepeat : needsRepeating) {
-    PHINode *repeatIV =
-      PHINode::Create(outerToRepeat->getType(), 2, "outerRepeat",
-                      L->getHeader()->getFirstNonPHI());
-    Changed = true;
-    for (auto it = pred_begin(L->getHeader()), et = pred_end(L->getHeader());
-         it != et; ++it) {
-      BasicBlock *pred = *it;
-      repeatIV->addIncoming(outerToRepeat, pred);
-    }
-
-    SSAUpdater updater;
-    updater.Initialize(outerToRepeat->getType(), "repeatedSSA");
-    updater.AddAvailableValue(outerToRepeat->getParent(), outerToRepeat);
-    updater.AddAvailableValue(repeatIV->getParent(), repeatIV);
-
-    for (Use *u : repeatForUses[outerToRepeat])
-      updater.RewriteUseAfterInsertions(*u);
-  }
-
-  // Note that this loop was selected and prepared.
+  // Note that this loop was selected.
   LLVMContext &Context = L->getHeader()->getContext();
   Module *m            = L->getHeader()->getParent()->getParent();
   IRBuilder<>{L->getHeader()->getTerminator()}.CreateCall(
