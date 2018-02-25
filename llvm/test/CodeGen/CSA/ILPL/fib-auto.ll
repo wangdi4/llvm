@@ -6,10 +6,9 @@ target triple = "csa"
 define void @csa_fib(i64* noalias nocapture %results, i64* noalias nocapture readonly %inputs, i64 %size) local_unnamed_addr #0 {
 ; Ensure there's an any0, a token being initialized with multiple values, and
 ; at least one pick64 driven by the any0 result.
-; CHECK-DAG: any0 [[CTRL:%.+]], [[OUTER:%.+]], [[INNER:%.+]], %na, %na, 0
-; CHECK-DAG: .curr [[TOKEN:%.+]]; .value 0; .avail 0
-; CHECK-DAG: .curr [[TOKEN]]; .value 0; .avail
-; CHECK-DAG: pick64 [[INNERVAL:%.+]], [[CTRL]], [[V1:%.+]], [[V2:%.+]]
+; CHECK-DAG:  any0 [[CTRL:%.+]], [[OUTER:%.+]], [[INNER:%.+]], %na, %na, 0
+; CHECK-DAG:  pick64 [[INNERVAL:%.+]], [[CTRL]], [[V1:%.+]], [[V2:%.+]]
+; CHECK:  completion64 [[TOKENS:%.+]], [[ORDERED:%.+]], [[IDXIN:%.+]], [[VALIN:%.+]], [[NUMTOKENS:[0-9]+]]
 entry:
   %clie_pre = tail call i32 @llvm.csa.parallel.region.entry(i32 1023)
   %cmp12 = icmp sgt i64 %size, 0
