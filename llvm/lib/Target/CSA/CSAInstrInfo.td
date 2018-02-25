@@ -93,6 +93,18 @@ def RMODE : OperandWithDefaultOps <i64, (ops (i64 0))>
   let ParserMatchClass = RmodeAsmOperand;
 }
 
+// A 0-defaulting literal i1 operand. This is used by the various "any"
+// operators to choose between fixed left-to-right and least-recently-used
+// priority ordering. The default tends to be 0, for the fixed ordering.
+def PrioOrderAsmOperand : AsmOperandClass {
+  let Name = "PrioOrder";
+  let IsOptional = 1;
+}
+def PrioOrderOperand : OperandWithDefaultOps<i1, (ops (i1 0))> {
+  let ParserMatchClass = PrioOrderAsmOperand;
+  let PrintMethod = "printPrioOrderOperand";
+}
+
 // Memory level operands. For simplicity these use numeric values that match
 // the intrinsic rather than the simulator (so the default value is T0, not NTA).
 def MemLvlAsmOperand : AsmOperandClass {
@@ -446,8 +458,8 @@ class SwitchAnyOp<GenericOp gen, CSAOpInfo oi,
                   InstrItinClass itin, list<Predicate> preds = []> :
   FMTGEN<gen, oi,
     (outs oi.RC:$dst0, oi.RC:$dst1, I1:$sel),
-    (ins oi.RCL:$v),
-    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst0, $dst1, $sel, $v"),
+    (ins oi.RCL:$v, PrioOrderOperand:$mode),
+    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst0, $dst1, $sel, $v, $mode"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin>;
 
 class FilterOp<GenericOp gen, CSAOpInfo oi,
@@ -470,8 +482,8 @@ class PickAnyOp<GenericOp gen, CSAOpInfo oi,
                 InstrItinClass itin, list<Predicate> preds = []> :
   FMTGEN<gen, oi,
     (outs oi.RC:$dst, I1:$sel),
-    (ins oi.RCL:$v0, oi.RCL:$v1),
-    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $sel, $v0, $v1"),
+    (ins oi.RCL:$v0, oi.RCL:$v1, PrioOrderOperand:$mode),
+    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $sel, $v0, $v1, $mode"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin>;
 
 class GateOp<GenericOp gen, CSAOpInfo oi,
@@ -481,6 +493,24 @@ class GateOp<GenericOp gen, CSAOpInfo oi,
     (ins I0:$sel, oi.RCL:$v),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $sel, $v"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin>;
+
+class CompletionOp<GenericOp gen, CSAOpInfo oi,
+             InstrItinClass itin, list<Predicate> preds = []> :
+  FMTGEN<gen, oi,
+    (outs CI8:$availidx, oi.LICRC:$ldres),
+    (ins CI8:$stidx, oi.LICRC:$stdata, i8imm:$size),
+    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$availidx, $ldres, $stidx, $stdata, $size"),
+    [], !listconcat(preds,gen.Preds,oi.Preds), itin>;
+
+/* // Proper relaxed channel types
+class CompletionOp<GenericOp gen, CSAOpInfo oi,
+             InstrItinClass itin, list<Predicate> preds = []> :
+  FMTGEN<gen, oi,
+    (outs I8:$availidx, oi.RC:$ldres),
+    (ins I8:$stidx, oi.RC:$stdata, i8imm:$size),
+    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$availidx, $ldres, $stidx, $stdata, $size"),
+    [], !listconcat(preds,gen.Preds,oi.Preds), itin>;
+*/
 
 // We thought that hasSideEffects would capture the internal state and stream
 // output behavior, but it's really not the right thing.  From the standpoint
@@ -1241,8 +1271,8 @@ def LOR1 : FMTGEN<LOR, Ti1,
 def ANY : GenericOp<"any">;
 def ANY0 : FMTGEN<ANY, Ti0,
   (outs I8:$dst),
-  (ins RCLi0:$op1, RCLi0:$op2, RCLi0:$op3, RCLi0:$op4),
-  "any0\t$dst, $op1, $op2, $op3, $op4",
+  (ins RCLi0:$op1, RCLi0:$op2, RCLi0:$op3, RCLi0:$op4, PrioOrderOperand:$ord),
+  "any0\t$dst, $op1, $op2, $op3, $op4, $ord",
   [], [], IIVir>;
 
 def ALL : GenericOp<"all">;
@@ -1465,6 +1495,12 @@ def SREDXOR16 : SReduceOp<SREDXOR,  Ti16, IIALU>;
 def SREDXOR32 : SReduceOp<SREDXOR,  Ti32, IIALU>;
 def SREDXOR64 : SReduceOp<SREDXOR,  Ti64, IIALU>;
 
+// TODO: new itinerary class for this one?
+def COMPLETION   : GenericOp<"completion">;
+def COMPLETION8  : CompletionOp<COMPLETION, Ti8,  IIST>;
+def COMPLETION16 : CompletionOp<COMPLETION, Ti16, IIST>;
+def COMPLETION32 : CompletionOp<COMPLETION, Ti32, IIST>;
+def COMPLETION64 : CompletionOp<COMPLETION, Ti64, IIST>;
 
 // TBD(jsukha): This info probably needs predicates
 // Also, the input can probably be an I0 channel.

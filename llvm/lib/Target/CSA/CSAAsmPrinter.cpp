@@ -559,9 +559,25 @@ void CSAAsmPrinter::EmitFunctionBodyStart() {
   const CSAMachineFunctionInfo *LMFI = MF->getInfo<CSAMachineFunctionInfo>();
 
   if (not ImplicitLicDefs) {
+    auto printRegisterAttribs = [&](unsigned reg) {
+      for (StringRef k : LMFI->getLICAttributes(reg)){
+        SmallString<128> Str;
+        raw_svector_ostream O(Str);
+
+        O << CSAInstPrinter::WrapCsaAsmLinePrefix();
+        O << "\t.attrib " << k << " ";
+        O << LMFI->getLICAttribute(reg, k);
+        O << CSAInstPrinter::WrapCsaAsmLineSuffix();
+        OutStreamer->EmitRawText(O.str());
+      }
+    };
+
     auto printRegister = [&](unsigned reg, StringRef name) {
+      printRegisterAttribs(reg);
+
       SmallString<128> Str;
       raw_svector_ostream O(Str);
+
       O << CSAInstPrinter::WrapCsaAsmLinePrefix();
       O << "\t.lic";
       if (unsigned depth = LMFI->getLICDepth(reg)) {
