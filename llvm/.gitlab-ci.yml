@@ -1,0 +1,18 @@
+stages:
+    - build
+
+before_script:
+    - "if not exist R:\ (net use R: \\\\nncv03a-cifs.inn.intel.com\\rdrive\\wref1)"
+    - set HOME=C:\Users\nstester
+    - set ALLOY_GIT=1
+    - set ICS_WSROOT=%HOME%\alloy_workspaces
+    
+build_job:
+    stage: build
+    script:
+        - call r:\u4win\setenv.bat
+        - call R:\ics\itools\win\bin\icssetup.bat
+        - call cd %ICS_WSROOT%
+        - call ics set ws xmain1
+        - call ics update head
+        - alloy run -file xmain_lit
