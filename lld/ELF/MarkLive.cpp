@@ -68,15 +68,16 @@ static void resolveReloc(InputSectionBase &Sec, RelT &Rel,
   B.Used = true;
   if (auto *SS = dyn_cast<SharedSymbol>(&B))
     if (!SS->isWeak())
-      SS->getFile<ELFT>()->IsNeeded = true;
+      SS->getFile<ELFT>().IsNeeded = true;
 
   if (auto *D = dyn_cast<Defined>(&B)) {
-    if (!D->Section)
+    auto *RelSec = dyn_cast_or_null<InputSectionBase>(D->Section);
+    if (!RelSec)
       return;
     uint64_t Offset = D->Value;
     if (D->isSection())
       Offset += getAddend<ELFT>(Sec, Rel);
-    Fn(cast<InputSectionBase>(D->Section), Offset);
+    Fn(RelSec, Offset);
     return;
   }
 
@@ -219,7 +220,7 @@ template <class ELFT> static void doGcSections() {
 
   auto MarkSymbol = [&](Symbol *Sym) {
     if (auto *D = dyn_cast_or_null<Defined>(Sym))
-      if (auto *IS = cast_or_null<InputSectionBase>(D->Section))
+      if (auto *IS = dyn_cast_or_null<InputSectionBase>(D->Section))
         Enqueue(IS, D->Value);
   };
 
@@ -245,7 +246,7 @@ template <class ELFT> static void doGcSections() {
     // that point to .eh_frames. Otherwise, the garbage collector would drop
     // all of them. We also want to preserve personality routines and LSDA
     // referenced by .eh_frame sections, so we scan them for that here.
-    if (auto *EH = dyn_cast_or_null<EhInputSection>(Sec)) {
+    if (auto *EH = dyn_cast<EhInputSection>(Sec)) {
       EH->Live = true;
       scanEhFrameSection<ELFT>(*EH, Enqueue);
     }

@@ -692,8 +692,9 @@ Sema::ActOnDecompositionDeclarator(Scope *S, Declarator &D,
   assert(D.isDecompositionDeclarator());
   const DecompositionDeclarator &Decomp = D.getDecompositionDeclarator();
 
-  // The syntax only allows a decomposition declarator as a simple-declaration
-  // or a for-range-declaration, but we parse it in more cases than that.
+  // The syntax only allows a decomposition declarator as a simple-declaration,
+  // a for-range-declaration, or a condition in Clang, but we parse it in more
+  // cases than that.
   if (!D.mayHaveDecompositionDeclarator()) {
     Diag(Decomp.getLSquareLoc(), diag::err_decomp_decl_context)
       << Decomp.getSourceRange();
@@ -708,9 +709,12 @@ Sema::ActOnDecompositionDeclarator(Scope *S, Declarator &D,
     return nullptr;
   }
 
-  Diag(Decomp.getLSquareLoc(), getLangOpts().CPlusPlus1z
-                                   ? diag::warn_cxx14_compat_decomp_decl
-                                   : diag::ext_decomp_decl)
+  Diag(Decomp.getLSquareLoc(),
+       !getLangOpts().CPlusPlus17
+           ? diag::ext_decomp_decl
+           : D.getContext() == Declarator::ConditionContext
+                 ? diag::ext_decomp_decl_cond
+                 : diag::warn_cxx14_compat_decomp_decl)
       << Decomp.getSourceRange();
 
   // The semantic context is always just the current context.
@@ -2744,8 +2748,7 @@ void Sema::CheckOverrideControl(NamedDecl *D) {
   //   If a function is marked with the virt-specifier override and
   //   does not override a member function of a base class, the program is
   //   ill-formed.
-  bool HasOverriddenMethods =
-    MD->begin_overridden_methods() != MD->end_overridden_methods();
+  bool HasOverriddenMethods = MD->size_overridden_methods() != 0;
   if (MD->hasAttr<OverrideAttr>() && !HasOverriddenMethods)
     Diag(MD->getLocation(), diag::err_function_marked_override_not_overriding)
       << MD->getDeclName();
@@ -7420,10 +7423,8 @@ private:
       const llvm::SmallPtrSetImpl<const CXXMethodDecl *> &Methods) {
     if (MD->size_overridden_methods() == 0)
       return Methods.count(MD->getCanonicalDecl());
-    for (CXXMethodDecl::method_iterator I = MD->begin_overridden_methods(),
-                                        E = MD->end_overridden_methods();
-         I != E; ++I)
-      if (CheckMostOverridenMethods(*I, Methods))
+    for (const CXXMethodDecl *O : MD->overridden_methods())
+      if (CheckMostOverridenMethods(O, Methods))
         return true;
     return false;
   }
@@ -7481,10 +7482,9 @@ static void AddMostOverridenMethods(const CXXMethodDecl *MD,
                         llvm::SmallPtrSetImpl<const CXXMethodDecl *>& Methods) {
   if (MD->size_overridden_methods() == 0)
     Methods.insert(MD->getCanonicalDecl());
-  for (CXXMethodDecl::method_iterator I = MD->begin_overridden_methods(),
-                                      E = MD->end_overridden_methods();
-       I != E; ++I)
-    AddMostOverridenMethods(*I, Methods);
+  else
+    for (const CXXMethodDecl *O : MD->overridden_methods())
+      AddMostOverridenMethods(O, Methods);
 }
 
 /// \brief Check if a method overloads virtual methods in a base class without
@@ -8157,7 +8157,7 @@ void Sema::CheckConversionDeclarator(Declarator &D, QualType &R,
           PastFunctionChunk = true;
           break;
         }
-        // Fall through.
+        LLVM_FALLTHROUGH;
       case DeclaratorChunk::Array:
         NeedsTypedef = true;
         extendRight(After, Chunk.getSourceRange());
@@ -8342,8 +8342,7 @@ void Sema::CheckDeductionGuideDeclarator(Declarator &D, QualType &R,
   // We leave 'friend' and 'virtual' to be rejected in the normal way.
   if (DS.hasTypeSpecifier() || DS.getTypeQualifiers() ||
       DS.getStorageClassSpecLoc().isValid() || DS.isInlineSpecified() ||
-      DS.isNoreturnSpecified() || DS.isConstexprSpecified() ||
-      DS.isConceptSpecified()) {
+      DS.isNoreturnSpecified() || DS.isConstexprSpecified()) {
     BadSpecifierDiagnoser Diagnoser(
         *this, D.getIdentifierLoc(),
         diag::err_deduction_guide_invalid_specifier);
@@ -8356,9 +8355,7 @@ void Sema::CheckDeductionGuideDeclarator(Declarator &D, QualType &R,
     Diagnoser.check(DS.getInlineSpecLoc(), "inline");
     Diagnoser.check(DS.getNoreturnSpecLoc(), "_Noreturn");
     Diagnoser.check(DS.getConstexprSpecLoc(), "constexpr");
-    Diagnoser.check(DS.getConceptSpecLoc(), "concept");
     DS.ClearConstexprSpec();
-    DS.ClearConceptSpec();
 
     Diagnoser.check(DS.getConstSpecLoc(), "const");
     Diagnoser.check(DS.getRestrictSpecLoc(), "__restrict");
@@ -12355,7 +12352,7 @@ static bool hasOneRealArgument(MultiExprArg Args) {
     if (!Args[1]->isDefaultArgument())
       return false;
 
-    // fall through
+    LLVM_FALLTHROUGH;
   case 1:
     return !Args[0]->isDefaultArgument();
   }
@@ -13075,7 +13072,8 @@ bool Sema::CheckLiteralOperatorDeclaration(FunctionDecl *FnDecl) {
 
   StringRef LiteralName
     = FnDecl->getDeclName().getCXXLiteralIdentifier()->getName();
-  if (LiteralName[0] != '_') {
+  if (LiteralName[0] != '_' &&
+      !getSourceManager().isInSystemHeader(FnDecl->getLocation())) {
     // C++11 [usrlit.suffix]p1:
     //   Literal suffix identifiers that do not start with an underscore
     //   are reserved for future standardization.
@@ -14060,15 +14058,13 @@ void Sema::SetDeclDeleted(Decl *Dcl, SourceLocation DelLoc) {
   // non-deleted virtual function.
   if (CXXMethodDecl *MD = dyn_cast<CXXMethodDecl>(Fn)) {
     bool IssuedDiagnostic = false;
-    for (CXXMethodDecl::method_iterator I = MD->begin_overridden_methods(),
-                                        E = MD->end_overridden_methods();
-         I != E; ++I) {
+    for (const CXXMethodDecl *O : MD->overridden_methods()) {
       if (!(*MD->begin_overridden_methods())->isDeleted()) {
         if (!IssuedDiagnostic) {
           Diag(DelLoc, diag::err_deleted_override) << MD->getDeclName();
           IssuedDiagnostic = true;
         }
-        Diag((*I)->getLocation(), diag::note_overridden_virtual_function);
+        Diag(O->getLocation(), diag::note_overridden_virtual_function);
       }
     }
     // If this function was implicitly deleted because it was defaulted,
@@ -14979,10 +14975,8 @@ void Sema::actOnDelayedExceptionSpecification(Decl *MethodD,
 
   if (Method->isVirtual()) {
     // Check overrides, which we previously had to delay.
-    for (CXXMethodDecl::method_iterator O = Method->begin_overridden_methods(),
-                                     OEnd = Method->end_overridden_methods();
-         O != OEnd; ++O)
-      CheckOverridingFunctionExceptionSpec(Method, *O);
+    for (const CXXMethodDecl *O : Method->overridden_methods())
+      CheckOverridingFunctionExceptionSpec(Method, O);
   }
 }
 
@@ -15018,7 +15012,7 @@ MSPropertyDecl *Sema::HandleMSProperty(Scope *S, RecordDecl *Record,
 
   if (D.getDeclSpec().isInlineSpecified())
     Diag(D.getDeclSpec().getInlineSpecLoc(), diag::err_inline_non_function)
-        << getLangOpts().CPlusPlus1z;
+        << getLangOpts().CPlusPlus17;
   if (DeclSpec::TSCS TSCS = D.getDeclSpec().getThreadStorageClassSpec())
     Diag(D.getDeclSpec().getThreadStorageClassSpecLoc(),
          diag::err_invalid_thread)
