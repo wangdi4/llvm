@@ -21,8 +21,6 @@ File Name:  PassesWrappers.cpp
 
 #include <llvm/Pass.h>
 
-#include <memory>
-
 /// @brief Backend Passes Wrappers,
 ///        We use these wrappers instead of the actual passes classes because when
 ///        registering the passes in opt, the passes constructors must have no arguments,
@@ -49,7 +47,6 @@ namespace intel{
         PassesWrappersSupporter() {}
 
         static PassesWrappersSupporter * m_instance;
-        llvm::SmallVector<llvm::Function*, 16> m_vectFunctions;
     };
     PassesWrappersSupporter * PassesWrappersSupporter::m_instance = nullptr;
 
